@@ -62,7 +62,7 @@ NetworkSessionCurl::~NetworkSessionCurl()
 
 void NetworkSessionCurl::clearAlternativeServices(WallTime)
 {
-    if (auto* storageSession = networkStorageSession())
+    if (CheckedPtr storageSession = networkStorageSession())
         storageSession->clearAlternativeServices();
 }
 

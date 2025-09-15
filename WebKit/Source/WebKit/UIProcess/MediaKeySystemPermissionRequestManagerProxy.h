@@ -52,7 +52,7 @@ public:
 
     void invalidatePendingRequests();
 
-    Ref<MediaKeySystemPermissionRequestProxy> createRequestForFrame(WebCore::MediaKeySystemRequestIdentifier, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem);
+    void createRequestForFrame(WebCore::MediaKeySystemRequestIdentifier, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& mediaKeyRequestOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem, CompletionHandler<void(Ref<MediaKeySystemPermissionRequestProxy>&&)>&&);
 
     void grantRequest(MediaKeySystemPermissionRequestProxy&);
     void denyRequest(MediaKeySystemPermissionRequestProxy&, const String& message = { });

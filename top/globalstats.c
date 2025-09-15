@@ -364,6 +364,47 @@ update_cpu(struct globalstat *gs, const libtop_tsamp_t *tsamp)
 		return;
 	}
 
+	if (top_prefs_get_hvwait()) {
+		// append the various wait times to CPU usage
+		uint64_t ivwait = tsamp->hvw.invol_wait;
+		uint64_t sampling = tsamp->timens;
+
+		switch (mode) {
+		case STATMODE_ACCUM:
+			ivwait -= tsamp->b_hvw.invol_wait;
+			sampling -= tsamp->b_timens;
+			break;
+		case STATMODE_DELTA:
+		case STATMODE_NON_EVENT:
+			ivwait -= tsamp->p_hvw.invol_wait;
+			sampling -= tsamp->p_timens;
+			break;
+		default:
+			break;
+		}
+
+		if (sampling == 0) {
+			goto done;
+		}
+		uint64_t ivint, ivfrac;
+		const uint64_t sampling_ns =
+		    sampling * sysconf(_SC_NPROCESSORS_CONF);
+		cpu_percent(ivwait, sampling_ns, &ivint, &ivfrac);
+
+		gs->length--;   /* overwrite the trailing space */
+		const int length = snprintf(gs->data + gs->length,
+		    sizeof(gs->data) - gs->length,
+		    "; "
+		    "%" PRIu64 "."
+		    "%" PRIu64 "%% ivw ",
+		    ivint, ivfrac);
+		if (length < 0) {
+			reset_globalstat(gs);
+			return;
+		}
+		gs->length += length;
+	}
+done:
 	update_max(gs);
 }
 

@@ -76,7 +76,7 @@ void RemoteLayerTreeDrawingAreaMac::adjustTransientZoom(double scale, WebCore::F
 {
     LOG_WITH_STREAM(ViewGestures, stream << "RemoteLayerTreeDrawingAreaMac::adjustTransientZoom - scale " << scale << " origin " << origin);
 
-    auto totalScale = scale * m_webPage->viewScaleFactor();
+    auto totalScale = scale * protectedWebPage()->viewScaleFactor();
 
     // FIXME: Need to trigger some re-rendering here to render at the new scale, so tiles update while zooming.
 
@@ -86,21 +86,18 @@ void RemoteLayerTreeDrawingAreaMac::adjustTransientZoom(double scale, WebCore::F
 void RemoteLayerTreeDrawingAreaMac::willCommitLayerTree(RemoteLayerTreeTransaction& transaction)
 {
     // FIXME: Probably need something here for PDF.
-    RefPtr frameView = m_webPage->localMainFrameView();
+    RefPtr frameView = protectedWebPage()->localMainFrameView();
     if (!frameView)
         return;
 
-    RefPtr renderViewGraphicsLayer = frameView->graphicsLayerForPageScale();
-    if (!renderViewGraphicsLayer)
-        return;
+    if (RefPtr renderViewGraphicsLayer = frameView->graphicsLayerForPageScale())
+        transaction.setPageScalingLayerID(renderViewGraphicsLayer->primaryLayerID());
 
-    transaction.setPageScalingLayerID(renderViewGraphicsLayer->primaryLayerID());
+    if (RefPtr scrolledContentsLayer = frameView->graphicsLayerForScrolledContents())
+        transaction.setScrolledContentsLayerID(scrolledContentsLayer->primaryLayerID());
 
-    RefPtr scrolledContentsLayer = frameView->graphicsLayerForScrolledContents();
-    if (!scrolledContentsLayer)
-        return;
-
-    transaction.setScrolledContentsLayerID(scrolledContentsLayer->primaryLayerID());
+    if (RefPtr mainFrameClipLayerID = frameView->clipLayer())
+        transaction.setMainFrameClipLayerID(mainFrameClipLayerID->primaryLayerID());
 }
 
 } // namespace WebKit

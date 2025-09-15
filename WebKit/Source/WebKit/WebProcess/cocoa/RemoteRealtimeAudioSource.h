@@ -28,6 +28,7 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include "RemoteRealtimeMediaSource.h"
+#include <WebCore/CAAudioStreamDescription.h>
 
 namespace WebKit {
 
@@ -37,11 +38,15 @@ public:
     ~RemoteRealtimeAudioSource();
 
     void remoteAudioSamplesAvailable(const WTF::MediaTime&, const WebCore::PlatformAudioData&, const WebCore::AudioStreamDescription&, size_t);
+    void setDescription(const WebCore::CAAudioStreamDescription&);
 
 private:
     RemoteRealtimeAudioSource(WebCore::RealtimeMediaSourceIdentifier, const WebCore::CaptureDevice&, const WebCore::MediaConstraints*, WebCore::MediaDeviceHashSalts&&, UserMediaCaptureManager&, bool shouldCaptureInGPUProcess, std::optional<WebCore::PageIdentifier>);
 
     void setIsInBackground(bool) final;
+    const WebCore::AudioStreamDescription* audioStreamDescription() const final;
+
+    std::optional<WebCore::CAAudioStreamDescription> m_description;
 };
 
 } // namespace WebKit

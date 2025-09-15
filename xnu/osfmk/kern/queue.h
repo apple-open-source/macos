@@ -539,7 +539,7 @@ re_queue_tail(queue_t que, queue_entry_t elt)
 	     &((elt)->field) != (head); \
 	     elt = _nelt, _nelt = qe_element((elt)->field.next, typeof(*(elt)), field)) \
 
-#ifdef XNU_KERNEL_PRIVATE
+#if (defined(XNU_KERNEL_PRIVATE) || SCHED_TEST_HARNESS)
 
 /* Dequeue an element from head, or return NULL if the queue is empty */
 #define qe_dequeue_head(head, type, field) ({ \
@@ -595,7 +595,7 @@ re_queue_tail(queue_t que, queue_entry_t elt)
 	_tmp_element; \
 })
 
-#endif /* XNU_KERNEL_PRIVATE */
+#endif /* XNU_KERNEL_PRIVATE || SCHED_TEST_HARNESS */
 
 /*
  *	Macro:		QUEUE_HEAD_INITIALIZER()

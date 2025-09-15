@@ -19,30 +19,6 @@
 #include <ostream>
 #include <string>
 
-namespace angle
-{
-template <typename ErrorT, typename ErrorBaseT, ErrorBaseT NoErrorVal, typename CodeT, CodeT EnumT>
-class ErrorStreamBase : angle::NonCopyable
-{
-  public:
-    ErrorStreamBase() : mID(EnumT) {}
-    ErrorStreamBase(GLuint id) : mID(id) {}
-
-    template <typename T>
-    ErrorStreamBase &operator<<(T value)
-    {
-        mErrorStream << value;
-        return *this;
-    }
-
-    operator ErrorT() { return ErrorT(EnumT, mID, mErrorStream.str()); }
-
-  private:
-    GLuint mID;
-    std::ostringstream mErrorStream;
-};
-}  // namespace angle
-
 namespace egl
 {
 class Error;
@@ -84,32 +60,6 @@ class [[nodiscard]] Error final
     mutable std::unique_ptr<std::string> mMessage;
 };
 
-namespace priv
-{
-
-template <EGLint EnumT>
-using ErrorStream = angle::ErrorStreamBase<Error, EGLint, EGL_SUCCESS, EGLint, EnumT>;
-
-}  // namespace priv
-
-using EglBadAccess         = priv::ErrorStream<EGL_BAD_ACCESS>;
-using EglBadAlloc          = priv::ErrorStream<EGL_BAD_ALLOC>;
-using EglBadAttribute      = priv::ErrorStream<EGL_BAD_ATTRIBUTE>;
-using EglBadConfig         = priv::ErrorStream<EGL_BAD_CONFIG>;
-using EglBadContext        = priv::ErrorStream<EGL_BAD_CONTEXT>;
-using EglBadCurrentSurface = priv::ErrorStream<EGL_BAD_CURRENT_SURFACE>;
-using EglBadDevice         = priv::ErrorStream<EGL_BAD_DEVICE_EXT>;
-using EglBadDisplay        = priv::ErrorStream<EGL_BAD_DISPLAY>;
-using EglBadMatch          = priv::ErrorStream<EGL_BAD_MATCH>;
-using EglBadNativeWindow   = priv::ErrorStream<EGL_BAD_NATIVE_WINDOW>;
-using EglBadNativePixmap   = priv::ErrorStream<EGL_BAD_NATIVE_PIXMAP>;
-using EglBadParameter      = priv::ErrorStream<EGL_BAD_PARAMETER>;
-using EglBadState          = priv::ErrorStream<EGL_BAD_STATE_KHR>;
-using EglBadStream         = priv::ErrorStream<EGL_BAD_STREAM_KHR>;
-using EglBadSurface        = priv::ErrorStream<EGL_BAD_SURFACE>;
-using EglContextLost       = priv::ErrorStream<EGL_CONTEXT_LOST>;
-using EglNotInitialized    = priv::ErrorStream<EGL_NOT_INITIALIZED>;
-
 inline Error NoError()
 {
     return Error::NoError();
@@ -121,10 +71,11 @@ inline Error NoError()
 #define ANGLE_CONCAT2(x, y) ANGLE_CONCAT1(x, y)
 #define ANGLE_LOCAL_VAR ANGLE_CONCAT2(_localVar, __LINE__)
 
-#define ANGLE_TRY_TEMPLATE(EXPR, FUNC)                \
+#define ANGLE_TRY_TEMPLATE(EXPR, FINALLY, FUNC)       \
     do                                                \
     {                                                 \
         auto ANGLE_LOCAL_VAR = EXPR;                  \
+        FINALLY;                                      \
         if (ANGLE_UNLIKELY(IsError(ANGLE_LOCAL_VAR))) \
         {                                             \
             FUNC(ANGLE_LOCAL_VAR);                    \
@@ -132,7 +83,8 @@ inline Error NoError()
     } while (0)
 
 #define ANGLE_RETURN(X) return X;
-#define ANGLE_TRY(EXPR) ANGLE_TRY_TEMPLATE(EXPR, ANGLE_RETURN)
+#define ANGLE_TRY(EXPR) ANGLE_TRY_TEMPLATE(EXPR, static_cast<void>(0), ANGLE_RETURN)
+#define ANGLE_TRY_WITH_FINALLY(EXPR, FINALLY) ANGLE_TRY_TEMPLATE(EXPR, FINALLY, ANGLE_RETURN)
 
 // TODO(jmadill): Remove after EGL error refactor. http://anglebug.com/42261727
 #define ANGLE_SWALLOW_ERR(EXPR)                                       \
@@ -201,7 +153,8 @@ inline bool IsError(bool value)
         return false;                  \
     } while (0)
 
-#define ANGLE_VALIDATION_TRY(EXPR) ANGLE_TRY_TEMPLATE(EXPR, ANGLE_HANDLE_VALIDATION_ERR)
+#define ANGLE_VALIDATION_TRY(EXPR) \
+    ANGLE_TRY_TEMPLATE(EXPR, static_cast<void>(0), ANGLE_HANDLE_VALIDATION_ERR)
 
 #include "Error.inc"
 

@@ -947,6 +947,8 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
     func testRecoverFromPeerUsingOldPolicy() throws {
         self.startCKAccountStatusMock()
 
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+
         let policyV6Document = builtInPolicyDocumentsFilteredByVersion { $0 == 6 }.first!()
         pastPeerContext.policyOverride = policyV6Document.version
 

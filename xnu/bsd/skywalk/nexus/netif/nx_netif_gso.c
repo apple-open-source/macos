@@ -157,7 +157,7 @@ netif_gso_check_netif_active(struct ifnet *ifp, struct mbuf *m,
 	if (__improbable(!NA_IS_ACTIVE(hwna))) {
 		STATS_INC(nifs, NETIF_STATS_DROP_NA_INACTIVE);
 		SK_DF(SK_VERB_NETIF,
-		    "\"%s\" (0x%llx) not in skywalk mode anymore",
+		    "\"%s\" (%p) not in skywalk mode anymore",
 		    hwna->na_name, SK_KVA(hwna));
 		return ENXIO;
 	}
@@ -167,9 +167,9 @@ netif_gso_check_netif_active(struct ifnet *ifp, struct mbuf *m,
 	if (__improbable(KR_DROP(kring))) {
 		STATS_INC(nifs, NETIF_STATS_DROP_KRDROP_MODE);
 		SK_DF(SK_VERB_NETIF,
-		    "kr \"%s\" (0x%llx) krflags 0x%b or %s in drop mode",
+		    "kr \"%s\" (%p) krflags 0x%x or %s in drop mode",
 		    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-		    CKRF_BITS, ifp->if_xname);
+		    ifp->if_xname);
 		return ENXIO;
 	}
 	*pp = kring->ckr_pp;
@@ -190,25 +190,18 @@ netif_gso_send(struct ifnet *ifp, struct __kern_packet *head,
 	struct nx_netif *nif = NA(ifp)->nifna_netif;
 	struct netif_stats *nifs = &nif->nif_stats;
 	struct netif_qset *__single qset = NULL;
-	uint64_t qset_id = 0;
 	int error = 0;
 	boolean_t dropped;
 
-	if (NX_LLINK_PROV(nif->nif_nx) &&
-	    ifp->if_traffic_rule_count > 0 &&
-	    nxctl_inet_traffic_rule_find_qset_id_with_pkt(ifp->if_xname,
-	    head, &qset_id) == 0) {
-		qset = nx_netif_find_qset(nif, qset_id);
-		ASSERT(qset != NULL);
-	}
+	qset = nx_netif_find_qset_with_pkt(ifp, head);
 	if (netif_chain_enqueue_enabled(ifp)) {
 		dropped = false;
 		if (qset != NULL) {
 			head->pkt_qset_idx = qset->nqs_idx;
-			error = ifnet_enqueue_ifcq_pkt_chain(ifp, qset->nqs_ifcq,
+			error = ifnet_enqueue_pkt_chain(ifp, qset->nqs_ifcq,
 			    head, tail, count, bytes, false, &dropped);
 		} else {
-			error = ifnet_enqueue_pkt_chain(ifp, head, tail,
+			error = ifnet_enqueue_pkt_chain(ifp, ifp->if_snd, head, tail,
 			    count, bytes, false, &dropped);
 		}
 		if (__improbable(dropped)) {
@@ -230,10 +223,10 @@ netif_gso_send(struct ifnet *ifp, struct __kern_packet *head,
 			dropped = false;
 			if (qset != NULL) {
 				pkt->pkt_qset_idx = qset->nqs_idx;
-				err = ifnet_enqueue_ifcq_pkt(ifp, qset->nqs_ifcq,
+				err = ifnet_enqueue_pkt(ifp, qset->nqs_ifcq,
 				    pkt, false, &dropped);
 			} else {
-				err = ifnet_enqueue_pkt(ifp, pkt, false, &dropped);
+				err = ifnet_enqueue_pkt(ifp, ifp->if_snd, pkt, false, &dropped);
 			}
 			if (error == 0 && __improbable(err != 0)) {
 				error = err;
@@ -410,6 +403,12 @@ netif_gso_tcp_segment_mbuf(struct mbuf *m, struct ifnet *ifp,
 	pkt_chain_tail = KPKTQ_LAST(&pktq_seg);
 	KPKTQ_INIT(&pktq_seg);
 	n_bytes = total_len + (state->hlen * (n_pkts - 1));
+
+	if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_QSET_ID_VALID) {
+		pkt_chain_head->pkt_pflags |= PKT_F_PRIV_HAS_QSET_ID;
+		pkt_chain_head->pkt_priv =
+		    __unsafe_forge_single(void *, m->m_pkthdr.pkt_mpriv_qsetid);
+	}
 
 	error = netif_gso_send(ifp, pkt_chain_head, pkt_chain_tail,
 	    n_pkts, n_bytes);
@@ -771,9 +770,9 @@ netif_gso_dispatch(struct ifnet *ifp, struct mbuf *m)
 void
 netif_gso_init(void)
 {
-	_CASSERT(CSUM_TO_GSO(~(CSUM_TSO_IPV4 | CSUM_TSO_IPV6)) == GSO_NONE);
-	_CASSERT(CSUM_TO_GSO(CSUM_TSO_IPV4) == GSO_TCP4);
-	_CASSERT(CSUM_TO_GSO(CSUM_TSO_IPV6) == GSO_TCP6);
+	static_assert(CSUM_TO_GSO(~(CSUM_TSO_IPV4 | CSUM_TSO_IPV6)) == GSO_NONE);
+	static_assert(CSUM_TO_GSO(CSUM_TSO_IPV4) == GSO_TCP4);
+	static_assert(CSUM_TO_GSO(CSUM_TSO_IPV6) == GSO_TCP6);
 	netif_gso_functions[GSO_NONE] = nx_netif_host_output;
 	netif_gso_functions[GSO_TCP4] = netif_gso_ipv4_tcp;
 	netif_gso_functions[GSO_TCP6] = netif_gso_ipv6_tcp;

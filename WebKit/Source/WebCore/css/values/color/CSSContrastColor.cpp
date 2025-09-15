@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2024-2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 
 #include "CSSColor.h"
 #include "CSSContrastColorResolver.h"
-#include "CSSContrastColorSerialization.h"
 #include "CSSPlatformColorResolutionState.h"
 #include "ColorSerialization.h"
 
@@ -43,7 +42,6 @@ WebCore::Color createColor(const ContrastColor& unresolved, PlatformColorResolut
     return resolve(
         ContrastColorResolver {
             createColor(unresolved.color, state),
-            unresolved.max
         }
     );
 }
@@ -58,9 +56,11 @@ bool containsColorSchemeDependentColor(const ContrastColor& unresolved)
     return containsColorSchemeDependentColor(unresolved.color);
 }
 
-void Serialize<ContrastColor>::operator()(StringBuilder& builder, const ContrastColor& value)
+void Serialize<ContrastColor>::operator()(StringBuilder& builder, const SerializationContext& context, const ContrastColor& value)
 {
-    serializationForCSSContrastColor(builder, value);
+    builder.append("contrast-color("_s);
+    serializationForCSS(builder, context, value.color);
+    builder.append(')');
 }
 
 void ComputedStyleDependenciesCollector<ContrastColor>::operator()(ComputedStyleDependencies& dependencies, const ContrastColor& value)
@@ -68,7 +68,7 @@ void ComputedStyleDependenciesCollector<ContrastColor>::operator()(ComputedStyle
     collectComputedStyleDependencies(dependencies, value.color);
 }
 
-IterationStatus CSSValueChildrenVisitor<ContrastColor>::operator()(const Function<IterationStatus(CSSValue&)>& func, const ContrastColor& value)
+IterationStatus CSSValueChildrenVisitor<ContrastColor>::operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>& func, const ContrastColor& value)
 {
     return visitCSSValueChildren(func, value.color);
 }

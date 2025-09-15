@@ -26,6 +26,7 @@
 #pragma once
 
 #include "DownloadID.h"
+#include "NetworkSession.h"
 #include "SandboxExtension.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/Credential.h>
@@ -36,6 +37,7 @@
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <pal/SessionID.h>
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -113,6 +115,7 @@ public:
     virtual State state() const = 0;
 
     NetworkDataTaskClient* client() const { return m_client.get(); }
+    RefPtr<NetworkDataTaskClient> protectedClient() const { return client(); }
     void clearClient() { m_client = nullptr; }
 
     std::optional<DownloadID> pendingDownloadID() const { return m_pendingDownloadID.asOptional(); }
@@ -145,12 +148,19 @@ public:
     virtual void setEmulatedConditions(const std::optional<int64_t>& /* bytesPerSecondLimit */) { }
 #endif
 
-    PAL::SessionID sessionID() const;
+    PAL::SessionID sessionID() const { return m_session->sessionID(); }
+    const NetworkSession* networkSession() const { return m_session.get(); }
+    NetworkSession* networkSession() { return m_session.get(); }
 
-    const NetworkSession* networkSession() const;
-    NetworkSession* networkSession();
+    CheckedPtr<NetworkSession> checkedNetworkSession()
+    {
+        ASSERT(m_session);
+        return m_session.get();
+    }
 
     virtual void setTimingAllowFailedFlag() { }
+
+    size_t bytesTransferredOverNetwork() const { return m_bytesTransferredOverNetwork; }
 
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
@@ -164,8 +174,9 @@ protected:
     void scheduleFailure(FailureType);
 
     void restrictRequestReferrerToOriginIfNeeded(WebCore::ResourceRequest&);
+    void setBytesTransferredOverNetwork(size_t bytes) { m_bytesTransferredOverNetwork = bytes; }
 
-    WeakPtr<NetworkSession> m_session;
+    const WeakPtr<NetworkSession> m_session;
     WeakPtr<NetworkDataTaskClient> m_client;
     WeakPtr<PendingDownload> m_pendingDownload;
     Markable<DownloadID> m_pendingDownloadID;
@@ -178,8 +189,9 @@ protected:
     String m_pendingDownloadLocation;
     WebCore::ResourceRequest m_firstRequest;
     WebCore::ResourceRequest m_previousRequest;
-    bool m_shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     String m_suggestedFilename;
+    size_t m_bytesTransferredOverNetwork { 0 };
+    bool m_shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     bool m_dataTaskIsForMainFrameNavigation { false };
     bool m_failureScheduled { false };
 };

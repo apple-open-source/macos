@@ -164,7 +164,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -184,7 +184,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(joiningContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -200,9 +200,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
     }
 
     // test two peers, one updating walrus setting 11 times
@@ -244,7 +244,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -264,7 +264,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -280,9 +280,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         for i in 1...10 {
             // Set walrus
@@ -309,7 +309,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             self.sendContainerChangeWaitForFetch(context: peer2)
             self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-            var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+            let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
             self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
                 XCTAssertNotNil(dump, "dump should not be nil")
                 let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -333,7 +333,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             }
             self.wait(for: [dumpCallback], timeout: 10)
 
-            dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+            let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
             self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
                 XCTAssertNotNil(dump, "dump should not be nil")
                 let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -353,9 +353,9 @@ class OctagonWalrusTests: OctagonTestsBase {
                 let included = dynamicInfo!["included"] as? [String]
                 XCTAssertNotNil(included, "included should not be nil")
                 XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-                dumpCallback.fulfill()
+                dumpCallback2.fulfill()
             }
-            self.wait(for: [dumpCallback], timeout: 10)
+            self.wait(for: [dumpCallback2], timeout: 10)
         }
         self.verifyDatabaseMocks()
     }
@@ -370,7 +370,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let setting = makeAccountSettings(walrus: true)
         // Set walrus
-        var setExpectation = self.expectation(description: "walrus expectation")
+        let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.walrusSetting!.value, setting.walrus.enabled, "walrus should be set correctly")
@@ -405,40 +405,40 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         // peer 2 sets a different setting
         let setting2 = makeAccountSettings(walrus: false)
-        setExpectation = self.expectation(description: "walrus expectation")
+        let setExpectation2 = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
-            setExpectation.fulfill()
+            setExpectation2.fulfill()
             return nil
         }
 
         try self.setAccountSettings(context: peer2, settings: setting2)
-        self.wait(for: [setExpectation], timeout: 10)
+        self.wait(for: [setExpectation2], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let setting3 = makeAccountSettings(walrus: true)
-        setExpectation = self.expectation(description: "walrus expectation")
+        let setExpectation3 = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.walrusSetting!.value, setting3.walrus.enabled, "walrus should be set correctly")
 
-            setExpectation.fulfill()
+            setExpectation3.fulfill()
             return nil
         }
 
         XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set walrus setting")
-        self.wait(for: [setExpectation], timeout: 10)
+        self.wait(for: [setExpectation3], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -458,7 +458,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -474,9 +474,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         for i in 1...10 {
             // Set walrus
@@ -528,7 +528,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         self.sendContainerChangeWaitForFetch(context: peer2)
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback3 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -544,9 +544,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback3.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback3], timeout: 10)
         self.verifyDatabaseMocks()
     }
 
@@ -838,7 +838,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -858,7 +858,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(joiningContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -874,9 +874,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
     }
 
     // test two peers, one updating webAccess setting 11 times
@@ -918,7 +918,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -938,7 +938,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -954,9 +954,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         for i in 1...10 {
             // Set webAccess
@@ -982,7 +982,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             self.sendContainerChangeWaitForFetch(context: peer2)
             self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-            var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+            let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
             self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
                 XCTAssertNotNil(dump, "dump should not be nil")
                 let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1006,7 +1006,7 @@ class OctagonWalrusTests: OctagonTestsBase {
             }
             self.wait(for: [dumpCallback], timeout: 10)
 
-            dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+            let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
             self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
                 XCTAssertNotNil(dump, "dump should not be nil")
                 let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1026,9 +1026,9 @@ class OctagonWalrusTests: OctagonTestsBase {
                 let included = dynamicInfo!["included"] as? [String]
                 XCTAssertNotNil(included, "included should not be nil")
                 XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-                dumpCallback.fulfill()
+                dumpCallback2.fulfill()
             }
-            self.wait(for: [dumpCallback], timeout: 10)
+            self.wait(for: [dumpCallback2], timeout: 10)
         }
         self.verifyDatabaseMocks()
     }
@@ -1043,7 +1043,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let setting = makeAccountSettings(webAccess: true)
         // Set webAccess
-        var setExpectation = self.expectation(description: "webAccess expectation")
+        let setExpectation = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.webAccess!.value, setting.webAccess.enabled, "webAccess should be set correctly")
@@ -1077,40 +1077,40 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         // peer 2 sets a different setting
         let setting2 = makeAccountSettings(webAccess: false)
-        setExpectation = self.expectation(description: "webAccess expectation")
+        let setExpectation2 = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.webAccess!.value, setting2.webAccess.enabled, "webAccess should be set correctly")
 
-            setExpectation.fulfill()
+            setExpectation2.fulfill()
             return nil
         }
 
         try self.setAccountSettings(context: peer2, settings: setting2)
-        self.wait(for: [setExpectation], timeout: 10)
+        self.wait(for: [setExpectation2], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
         let setting3 = makeAccountSettings(webAccess: true)
-        setExpectation = self.expectation(description: "webAccess expectation")
+        let setExpectation3 = self.expectation(description: "webAccess expectation")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.webAccess!.value, setting3.webAccess.enabled, "webAccess should be set correctly")
 
-            setExpectation.fulfill()
+            setExpectation3.fulfill()
             return nil
         }
 
         XCTAssertNoThrow(try cliqueBridge.setAccountSetting(setting3), "Should be able to successfully set webAccess setting")
-        self.wait(for: [setExpectation], timeout: 10)
+        self.wait(for: [setExpectation3], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.sendContainerChangeWaitForFetch(context: peer2)
 
-        var dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1130,7 +1130,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1146,9 +1146,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         for i in 1...10 {
             // Set webAccess
@@ -1200,7 +1200,7 @@ class OctagonWalrusTests: OctagonTestsBase {
         }
 
         self.sendContainerChangeWaitForFetch(context: peer2)
-        dumpCallback = self.expectation(description: "dumpCallback callback occurs")
+        let dumpCallback3 = self.expectation(description: "dumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(peer2.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -1216,9 +1216,9 @@ class OctagonWalrusTests: OctagonTestsBase {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
-            dumpCallback.fulfill()
+            dumpCallback3.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback3], timeout: 10)
         self.verifyDatabaseMocks()
     }
 
@@ -1567,7 +1567,7 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let setting = makeAccountSettings(walrus: true)
         // Attempt to set walrus
-        var setExpectation = self.expectation(description: "walrus expectation")
+        let setExpectation = self.expectation(description: "walrus expectation")
         self.fakeCuttlefishServer.updateListener = { _ in
             setExpectation.fulfill()
             return nil
@@ -1595,18 +1595,18 @@ class OctagonWalrusTests: OctagonTestsBase {
 
         let setting2 = makeAccountSettings(walrus: false)
 
-        setExpectation = self.expectation(description: "second peer sets walrus expectation")
+        let setExpectation2 = self.expectation(description: "second peer sets walrus expectation")
 
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             XCTAssertEqual(newStableInfo.walrusSetting!.value, setting2.walrus.enabled, "walrus should be set correctly")
 
-            setExpectation.fulfill()
+            setExpectation2.fulfill()
             return nil
         }
 
         try self.setAccountSettings(context: joiningContext, settings: setting2)
-        self.wait(for: [setExpectation], timeout: 10)
+        self.wait(for: [setExpectation2], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
@@ -1712,8 +1712,8 @@ class OctagonWalrusTests: OctagonTestsBase {
         let (data0, date0) = container.moc.performAndWait {
             return (container.containerMO.accountSettings, container.containerMO.accountSettingsDate)
         }
-        try container.moc.performAndWait {
-            container.containerMO.accountSettings = try XCTUnwrap("foobar".data(using: .utf8))
+        container.moc.performAndWait {
+            container.containerMO.accountSettings = Data("foobar".utf8)
         }
         let refetchedSettings = try OctagonTrustCliqueBridge.fetchAccountWideSettingsDefault(withForceFetch: false, configuration: self.otcliqueContext)
         XCTAssertEqualAccountSettings(settings, refetchedSettings, "settings should be equal after fetch")

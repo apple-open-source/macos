@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -263,11 +263,11 @@ static void resolveWithTypeAndData(Ref<DeferredPromise>&& promise, FetchBodyCons
 void FetchBodyConsumer::clean()
 {
     m_buffer.reset();
-    if (m_formDataConsumer)
-        m_formDataConsumer->cancel();
+    if (RefPtr formDataConsumer = m_formDataConsumer)
+        formDataConsumer->cancel();
     resetConsumePromise();
-    if (m_sink) {
-        m_sink->clearCallback();
+    if (RefPtr sink = m_sink) {
+        sink->clearCallback();
         return;
     }
 }
@@ -305,7 +305,7 @@ void FetchBodyConsumer::resolveWithFormData(Ref<DeferredPromise>&& promise, cons
         builder.append(value);
         return true;
     });
-    m_formDataConsumer->start();
+    protectedFormDataConsumer()->start();
 }
 
 void FetchBodyConsumer::consumeFormDataAsStream(const FormData& formData, FetchBodySource& source, ScriptExecutionContext* context)
@@ -334,14 +334,14 @@ void FetchBodyConsumer::consumeFormDataAsStream(const FormData& formData, FetchB
 
         return source->enqueue(ArrayBuffer::tryCreate(value));
     });
-    m_formDataConsumer->start();
+    protectedFormDataConsumer()->start();
 }
 
 void FetchBodyConsumer::extract(ReadableStream& stream, ReadableStreamToSharedBufferSink::Callback&& callback)
 {
     ASSERT(!m_sink);
     m_sink = ReadableStreamToSharedBufferSink::create(WTFMove(callback));
-    m_sink->pipeFrom(stream);
+    protectedSink()->pipeFrom(stream);
 }
 
 void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& contentType, FetchBodyOwner* owner, ReadableStream* stream)
@@ -365,7 +365,7 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
 
             data.append(*chunk);
         });
-        m_sink->pipeFrom(*stream);
+        protectedSink()->pipeFrom(*stream);
         return;
     }
 
@@ -400,7 +400,7 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
         return;
     case FetchBodyConsumer::Type::FormData: {
         auto buffer = takeData();
-        if (auto formData = packageFormData(promise->scriptExecutionContext(), contentType, buffer ? buffer->makeContiguous()->span() : std::span<const uint8_t> { }))
+        if (auto formData = packageFormData(promise->protectedScriptExecutionContext().get(), contentType, buffer ? buffer->makeContiguous()->span() : std::span<const uint8_t> { }))
             promise->resolve<IDLInterface<DOMFormData>>(*formData);
         else
             promise->reject(ExceptionCode::TypeError);
@@ -414,8 +414,8 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
 
 void FetchBodyConsumer::append(const SharedBuffer& buffer)
 {
-    if (m_source) {
-        m_source->enqueue(buffer.tryCreateArrayBuffer());
+    if (RefPtr source = m_source) {
+        source->enqueue(buffer.tryCreateArrayBuffer());
         return;
     }
     m_buffer.append(buffer);
@@ -474,20 +474,20 @@ void FetchBodyConsumer::resetConsumePromise()
 
 void FetchBodyConsumer::setSource(Ref<FetchBodySource>&& source)
 {
-    m_source = WTFMove(source);
+    m_source = source.copyRef();
     if (m_buffer)
-        m_source->enqueue(m_buffer.takeAsArrayBuffer());
+        source->enqueue(m_buffer.takeAsArrayBuffer());
 }
 
 void FetchBodyConsumer::loadingFailed(const Exception& exception)
 {
     m_isLoading = false;
-    if (m_consumePromise) {
-        m_consumePromise->reject(exception);
+    if (RefPtr consumePromise = m_consumePromise) {
+        consumePromise->reject(exception);
         resetConsumePromise();
     }
-    if (m_source) {
-        m_source->error(exception);
+    if (RefPtr source = m_source) {
+        source->error(exception);
         m_source = nullptr;
     }
 }
@@ -497,15 +497,16 @@ void FetchBodyConsumer::loadingSucceeded(const String& contentType)
     m_isLoading = false;
 
     if (m_consumePromise) {
-        if (!m_userGestureToken || m_userGestureToken->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwardingForFetch()) || !m_userGestureToken->processingUserGesture())
+        RefPtr userGestureToken = m_userGestureToken;
+        if (!userGestureToken || userGestureToken->hasExpired(UserGestureToken::maximumIntervalForUserGestureForwardingForFetch()) || !userGestureToken->processingUserGesture())
             resolve(m_consumePromise.releaseNonNull(), contentType, nullptr, nullptr);
         else {
-            UserGestureIndicator gestureIndicator(m_userGestureToken, UserGestureToken::GestureScope::MediaOnly, UserGestureToken::IsPropagatedFromFetch::Yes);
+            UserGestureIndicator gestureIndicator(userGestureToken, UserGestureToken::GestureScope::MediaOnly, UserGestureToken::ShouldPropagateToMicroTask::Yes);
             resolve(m_consumePromise.releaseNonNull(), contentType, nullptr, nullptr);
         }
     }
-    if (m_source) {
-        m_source->close();
+    if (RefPtr source = m_source) {
+        source->close();
         m_source = nullptr;
     }
 }
@@ -515,6 +516,12 @@ FetchBodyConsumer FetchBodyConsumer::clone()
     FetchBodyConsumer clone { m_type };
     clone.m_buffer = m_buffer;
     return clone;
+}
+
+bool FetchBodyConsumer::hasPendingActivity() const
+{
+    return (m_formDataConsumer && m_formDataConsumer->hasPendingActivity())
+        || (m_sink && m_sink->hasCallback());
 }
 
 } // namespace WebCore

@@ -32,6 +32,7 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFError.h>
 
 #include <Security/SecBase.h>
 #include <AvailabilityMacros.h>
@@ -52,6 +53,42 @@ CF_IMPLICIT_BRIDGING_ENABLED
 */
 CFTypeID SecIdentityGetTypeID(void)
      __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
+
+/*! @function SecIdentityCreate
+ @abstract create a new identity object from the provided certificate and its associated private key.
+ @param allocator CFAllocator to allocate the identity object. Pass NULL to use the default allocator.
+ @param certificate A certificate reference.
+ @param privateKey A private key reference.
+ @result An identity reference.
+ @discussion This interface returns null if the private does not key correspond to the public key in the certifcate.
+*/
+#ifndef __APPLE_BLEACH_SDK__
+#if !defined(__swift__) || defined(ADOPT_NEW_SecIdentityCreate)
+__nullable CF_RETURNS_RETAINED
+SecIdentityRef SecIdentityCreate(CFAllocatorRef __nullable allocator,
+                                 SecCertificateRef certificate,
+                                 SecKeyRef privateKey)
+ API_AVAILABLE(macos(10.12),ios(11.2),tvos(11.2),watchos(4.2),visionos(1.0));
+#else
+/* The following definition maintains backwards compatibility for internal swift
+ * callers of SecIdentityCreate. Set ADOPT_NEW_SecIdentityCreate in your
+ * GCC_PREPROCESSOR_DEFINITIONS and fix the errors. */
+CF_IMPLICIT_BRIDGING_DISABLED
+__null_unspecified
+SecIdentityRef SecIdentityCreate(CFAllocatorRef __null_unspecified allocator,
+                                 SecCertificateRef __null_unspecified certificate,
+                                 SecKeyRef __null_unspecified privateKey)
+ API_AVAILABLE(macos(10.12),ios(11.2),tvos(11.2),watchos(4.2),visionos(1.0))
+ __deprecated_msg("Please add the -DADOPT_NEW_SecIdentityCreate flag and fix any errors");
+CF_IMPLICIT_BRIDGING_ENABLED
+#endif // !defined(__swift__)
+#else // __APPLE_BLEACH_SDK__
+__nullable CF_RETURNS_RETAINED
+SecIdentityRef SecIdentityCreate(CFAllocatorRef __nullable allocator,
+                                 SecCertificateRef certificate,
+                                 SecKeyRef privateKey)
+ API_AVAILABLE(macos(10.12),ios(11.2),tvos(11.2),watchos(4.2),visionos(1.0));
+#endif // __APPLE_BLEACH_SDK__
 
 #if SEC_OS_OSX
 /*!

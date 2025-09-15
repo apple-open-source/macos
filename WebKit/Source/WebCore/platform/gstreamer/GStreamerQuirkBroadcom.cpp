@@ -37,6 +37,12 @@ GStreamerQuirkBroadcom::GStreamerQuirkBroadcom()
     m_disallowedWebAudioDecoders = { "brcmaudfilter"_s };
 }
 
+bool GStreamerQuirkBroadcom::isPlatformSupported() const
+{
+    auto broadcomFactory = adoptGRef(gst_element_factory_find("brcmaudiosink"));
+    return broadcomFactory;
+}
+
 void GStreamerQuirkBroadcom::configureElement(GstElement* element, const OptionSet<ElementRuntimeCharacteristics>& characteristics)
 {
     auto view = StringView::fromLatin1(GST_ELEMENT_NAME(element));
@@ -51,7 +57,7 @@ void GStreamerQuirkBroadcom::configureElement(GstElement* element, const OptionS
     if (!characteristics.contains(ElementRuntimeCharacteristics::IsMediaStream))
         return;
 
-    if (!g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(element)), "GstBrcmPCMSink") && gstObjectHasProperty(element, "low_latency")) {
+    if (!g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(element)), "GstBrcmPCMSink") && gstObjectHasProperty(element, "low_latency"_s)) {
         GST_DEBUG("Set 'low_latency' in brcmpcmsink");
         g_object_set(element, "low_latency", TRUE, "low_latency_max_queued_ms", 60, nullptr);
     }

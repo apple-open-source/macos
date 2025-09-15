@@ -96,15 +96,36 @@ SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator,
         !privateKey || CFGetTypeID(privateKey) != SecKeyGetTypeID()) {
         return NULL;
     }
-    CFIndex size = sizeof(struct __SecIdentity);
-    SecIdentityRef result = (SecIdentityRef)_CFRuntimeCreateInstance(
-		allocator, SecIdentityGetTypeID(), size - sizeof(CFRuntimeBase), 0);
-	if (result) {
-		CFRetain(certificate);
-		CFRetain(privateKey);
-		result->_certificate = certificate;
-		result->_privateKey = privateKey;
+
+    SecIdentityRef result = NULL;
+    /* Compare the public keys to make sure we're making a coherent identity,
+     * use the ExternalRepresentations so we don't fall into traps caused by different backing key types. */
+    SecKeyRef publicKey = SecKeyCopyPublicKey(privateKey);
+    if (!publicKey) {
+        secwarning("SecIdentityCreate: failed to extract public key from private key");
+        return NULL;
     }
+
+    CFDataRef publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
+    SecKeyRef certKey = SecCertificateCopyKey(certificate);
+    CFDataRef certKeyData = SecKeyCopyExternalRepresentation(certKey, NULL);
+    if (CFEqualSafe(certKeyData, publicKeyData)) {
+        CFIndex size = sizeof(struct __SecIdentity);
+        result = (SecIdentityRef)_CFRuntimeCreateInstance(allocator, SecIdentityGetTypeID(), size - sizeof(CFRuntimeBase), 0);
+        if (result) {
+            CFRetain(certificate);
+            CFRetain(privateKey);
+            result->_certificate = certificate;
+            result->_privateKey = privateKey;
+        }
+    } else {
+        secwarning("Creating SecIdentity with mismatching public keys: %{mask.hash}@, %{mask.hash}@", certKeyData, publicKeyData);
+        // TODO: rdar://152691063 (analytics data for SecIdentityCreate check key matches cert)
+    }
+    CFReleaseNull(publicKey);
+    CFReleaseNull(publicKeyData);
+    CFReleaseNull(certKey);
+    CFReleaseNull(certKeyData);
+
     return result;
 }
-

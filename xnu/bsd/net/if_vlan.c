@@ -1968,7 +1968,7 @@ vlan_event(struct ifnet * p, __unused protocol_family_t protocol,
 static errno_t
 vlan_detached(ifnet_t p, __unused protocol_family_t protocol)
 {
-	if (ifnet_is_attached(p, 0) == 0) {
+	if (!ifnet_is_fully_attached(p)) {
 		/* if the parent isn't attached, remove all VLANs */
 		vlan_parent_remove_all_vlans(p);
 	}

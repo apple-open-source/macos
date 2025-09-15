@@ -380,6 +380,7 @@ enum
 enum
 {
     kHIDUsage_GenDevControls_BackgroundControls     = 0x01, /* Application Collection */
+    kHIDUsage_GenDevControls_BatteryStrength        = 0x20, /* Dynamic Value */
 };
 
 /* KeyboardOrKeypad Page (0x07) */
@@ -570,93 +571,113 @@ enum
 /* An LED or indicator is implemented as an On/Off Control (OOF) using the “Single button toggle” mode, where a value of 1 will turn on the indicator, and a value of 0 will turn it off. The exceptions are described below. */
 enum
 {
-    kHIDUsage_LED_NumLock    = 0x01,    /* On/Off Control */
-    kHIDUsage_LED_CapsLock    = 0x02,    /* On/Off Control */
-    kHIDUsage_LED_ScrollLock    = 0x03,    /* On/Off Control */
-    kHIDUsage_LED_Compose    = 0x04,    /* On/Off Control */
-    kHIDUsage_LED_Kana    = 0x05,    /* On/Off Control */
-    kHIDUsage_LED_Power    = 0x06,    /* On/Off Control */
-    kHIDUsage_LED_Shift    = 0x07,    /* On/Off Control */
-    kHIDUsage_LED_DoNotDisturb    = 0x08,    /* On/Off Control */
-    kHIDUsage_LED_Mute    = 0x09,    /* On/Off Control */
-    kHIDUsage_LED_ToneEnable    = 0x0A,    /* On/Off Control */
-    kHIDUsage_LED_HighCutFilter    = 0x0B,    /* On/Off Control */
-    kHIDUsage_LED_LowCutFilter    = 0x0C,    /* On/Off Control */
-    kHIDUsage_LED_EqualizerEnable    = 0x0D,    /* On/Off Control */
-    kHIDUsage_LED_SoundFieldOn    = 0x0E,    /* On/Off Control */
-    kHIDUsage_LED_SurroundOn    = 0x0F,    /* On/Off Control */
-    kHIDUsage_LED_Repeat    = 0x10,    /* On/Off Control */
-    kHIDUsage_LED_Stereo    = 0x11,    /* On/Off Control */
-    kHIDUsage_LED_SamplingRateDetect    = 0x12,    /* On/Off Control */
-    kHIDUsage_LED_Spinning    = 0x13,    /* On/Off Control */
-    kHIDUsage_LED_CAV    = 0x14,    /* On/Off Control */
-    kHIDUsage_LED_CLV    = 0x15,    /* On/Off Control */
-    kHIDUsage_LED_RecordingFormatDetect    = 0x16,    /* On/Off Control */
-    kHIDUsage_LED_OffHook    = 0x17,    /* On/Off Control */
-    kHIDUsage_LED_Ring    = 0x18,    /* On/Off Control */
-    kHIDUsage_LED_MessageWaiting    = 0x19,    /* On/Off Control */
-    kHIDUsage_LED_DataMode    = 0x1A,    /* On/Off Control */
-    kHIDUsage_LED_BatteryOperation    = 0x1B,    /* On/Off Control */
-    kHIDUsage_LED_BatteryOK    = 0x1C,    /* On/Off Control */
-    kHIDUsage_LED_BatteryLow    = 0x1D,    /* On/Off Control */
-    kHIDUsage_LED_Speaker    = 0x1E,    /* On/Off Control */
-    kHIDUsage_LED_HeadSet    = 0x1F,    /* On/Off Control */
-    kHIDUsage_LED_Hold    = 0x20,    /* On/Off Control */
-    kHIDUsage_LED_Microphone    = 0x21,    /* On/Off Control */
-    kHIDUsage_LED_Coverage    = 0x22,    /* On/Off Control */
-    kHIDUsage_LED_NightMode    = 0x23,    /* On/Off Control */
-    kHIDUsage_LED_SendCalls    = 0x24,    /* On/Off Control */
-    kHIDUsage_LED_CallPickup    = 0x25,    /* On/Off Control */
-    kHIDUsage_LED_Conference    = 0x26,    /* On/Off Control */
-    kHIDUsage_LED_StandBy    = 0x27,    /* On/Off Control */
-    kHIDUsage_LED_CameraOn    = 0x28,    /* On/Off Control */
-    kHIDUsage_LED_CameraOff    = 0x29,    /* On/Off Control */
-    kHIDUsage_LED_OnLine    = 0x2A,    /* On/Off Control */
-    kHIDUsage_LED_OffLine    = 0x2B,    /* On/Off Control */
-    kHIDUsage_LED_Busy    = 0x2C,    /* On/Off Control */
-    kHIDUsage_LED_Ready    = 0x2D,    /* On/Off Control */
-    kHIDUsage_LED_PaperOut    = 0x2E,    /* On/Off Control */
-    kHIDUsage_LED_PaperJam    = 0x2F,    /* On/Off Control */
-    kHIDUsage_LED_Remote    = 0x30,    /* On/Off Control */
-    kHIDUsage_LED_Forward    = 0x31,    /* On/Off Control */
-    kHIDUsage_LED_Reverse    = 0x32,    /* On/Off Control */
-    kHIDUsage_LED_Stop    = 0x33,    /* On/Off Control */
-    kHIDUsage_LED_Rewind    = 0x34,    /* On/Off Control */
-    kHIDUsage_LED_FastForward    = 0x35,    /* On/Off Control */
-    kHIDUsage_LED_Play    = 0x36,    /* On/Off Control */
-    kHIDUsage_LED_Pause    = 0x37,    /* On/Off Control */
-    kHIDUsage_LED_Record    = 0x38,    /* On/Off Control */
-    kHIDUsage_LED_Error    = 0x39,    /* On/Off Control */
-    kHIDUsage_LED_Usage    = 0x3A,    /* Selector */
-    kHIDUsage_LED_UsageInUseIndicator    = 0x3B,    /* Usage Switch */
-    kHIDUsage_LED_UsageMultiModeIndicator    = 0x3C,    /* Usage Modifier */
-    kHIDUsage_LED_IndicatorOn    = 0x3D,    /* Selector */
-    kHIDUsage_LED_IndicatorFlash    = 0x3E,    /* Selector */
-    kHIDUsage_LED_IndicatorSlowBlink    = 0x3F,    /* Selector */
-    kHIDUsage_LED_IndicatorFastBlink    = 0x40,    /* Selector */
-    kHIDUsage_LED_IndicatorOff    = 0x41,    /* Selector */
-    kHIDUsage_LED_FlashOnTime    = 0x42,    /* Dynamic Value */
-    kHIDUsage_LED_SlowBlinkOnTime    = 0x43,    /* Dynamic Value */
-    kHIDUsage_LED_SlowBlinkOffTime    = 0x44,    /* Dynamic Value */
-    kHIDUsage_LED_FastBlinkOnTime    = 0x45,    /* Dynamic Value */
-    kHIDUsage_LED_FastBlinkOffTime    = 0x46,    /* Dynamic Value */
-    kHIDUsage_LED_UsageIndicatorColor    = 0x47,    /* Usage Modifier */
-    kHIDUsage_LED_IndicatorRed    = 0x48,    /* Selector */
-    kHIDUsage_LED_IndicatorGreen    = 0x49,    /* Selector */
-    kHIDUsage_LED_IndicatorAmber    = 0x4A,    /* Selector */
-    kHIDUsage_LED_GenericIndicator    = 0x4B,    /* On/Off Control */
-    kHIDUsage_LED_SystemSuspend    = 0x4C,    /* On/Off Control */
-    kHIDUsage_LED_ExternalPowerConnected    = 0x4D,    /* On/Off Control */
-    kHIDUsage_LED_PlayerIndicator   = 0x4E, /* Collection Logical */
-    kHIDUsage_LED_Player1   = 0x4F,  /* Selector */
-    kHIDUsage_LED_Player2   = 0x50,  /* Selector */
-    kHIDUsage_LED_Player3   = 0x51,  /* Selector */
-    kHIDUsage_LED_Player4   = 0x52,  /* Selector */
-    kHIDUsage_LED_Player5   = 0x53,  /* Selector */
-    kHIDUsage_LED_Player6   = 0x54,  /* Selector */
-    kHIDUsage_LED_Player7   = 0x55,  /* Selector */
-    kHIDUsage_LED_Player8   = 0x56,  /* Selector */
-    /* 0x4E - 0xFFFF Reserved */
+    kHIDUsage_LED_NumLock                   = 0x01, /* On/Off Control */
+    kHIDUsage_LED_CapsLock                  = 0x02, /* On/Off Control */
+    kHIDUsage_LED_ScrollLock                = 0x03, /* On/Off Control */
+    kHIDUsage_LED_Compose                   = 0x04, /* On/Off Control */
+    kHIDUsage_LED_Kana                      = 0x05, /* On/Off Control */
+    kHIDUsage_LED_Power                     = 0x06, /* On/Off Control */
+    kHIDUsage_LED_Shift                     = 0x07, /* On/Off Control */
+    kHIDUsage_LED_DoNotDisturb              = 0x08, /* On/Off Control */
+    kHIDUsage_LED_Mute                      = 0x09, /* On/Off Control */
+    kHIDUsage_LED_ToneEnable                = 0x0A, /* On/Off Control */
+    kHIDUsage_LED_HighCutFilter             = 0x0B, /* On/Off Control */
+    kHIDUsage_LED_LowCutFilter              = 0x0C, /* On/Off Control */
+    kHIDUsage_LED_EqualizerEnable           = 0x0D, /* On/Off Control */
+    kHIDUsage_LED_SoundFieldOn              = 0x0E, /* On/Off Control */
+    kHIDUsage_LED_SurroundOn                = 0x0F, /* On/Off Control */
+    kHIDUsage_LED_Repeat                    = 0x10, /* On/Off Control */
+    kHIDUsage_LED_Stereo                    = 0x11, /* On/Off Control */
+    kHIDUsage_LED_SamplingRateDetect        = 0x12, /* On/Off Control */
+    kHIDUsage_LED_Spinning                  = 0x13, /* On/Off Control */
+    kHIDUsage_LED_CAV                       = 0x14, /* On/Off Control */
+    kHIDUsage_LED_CLV                       = 0x15, /* On/Off Control */
+    kHIDUsage_LED_RecordingFormatDetect     = 0x16, /* On/Off Control */
+    kHIDUsage_LED_OffHook                   = 0x17, /* On/Off Control */
+    kHIDUsage_LED_Ring                      = 0x18, /* On/Off Control */
+    kHIDUsage_LED_MessageWaiting            = 0x19, /* On/Off Control */
+    kHIDUsage_LED_DataMode                  = 0x1A, /* On/Off Control */
+    kHIDUsage_LED_BatteryOperation          = 0x1B, /* On/Off Control */
+    kHIDUsage_LED_BatteryOK                 = 0x1C, /* On/Off Control */
+    kHIDUsage_LED_BatteryLow                = 0x1D, /* On/Off Control */
+    kHIDUsage_LED_Speaker                   = 0x1E, /* On/Off Control */
+    kHIDUsage_LED_HeadSet                   = 0x1F, /* On/Off Control */
+    kHIDUsage_LED_Hold                      = 0x20, /* On/Off Control */
+    kHIDUsage_LED_Microphone                = 0x21, /* On/Off Control */
+    kHIDUsage_LED_Coverage                  = 0x22, /* On/Off Control */
+    kHIDUsage_LED_NightMode                 = 0x23, /* On/Off Control */
+    kHIDUsage_LED_SendCalls                 = 0x24, /* On/Off Control */
+    kHIDUsage_LED_CallPickup                = 0x25, /* On/Off Control */
+    kHIDUsage_LED_Conference                = 0x26, /* On/Off Control */
+    kHIDUsage_LED_StandBy                   = 0x27, /* On/Off Control */
+    kHIDUsage_LED_CameraOn                  = 0x28, /* On/Off Control */
+    kHIDUsage_LED_CameraOff                 = 0x29, /* On/Off Control */
+    kHIDUsage_LED_OnLine                    = 0x2A, /* On/Off Control */
+    kHIDUsage_LED_OffLine                   = 0x2B, /* On/Off Control */
+    kHIDUsage_LED_Busy                      = 0x2C, /* On/Off Control */
+    kHIDUsage_LED_Ready                     = 0x2D, /* On/Off Control */
+    kHIDUsage_LED_PaperOut                  = 0x2E, /* On/Off Control */
+    kHIDUsage_LED_PaperJam                  = 0x2F, /* On/Off Control */
+    kHIDUsage_LED_Remote                    = 0x30, /* On/Off Control */
+    kHIDUsage_LED_Forward                   = 0x31, /* On/Off Control */
+    kHIDUsage_LED_Reverse                   = 0x32, /* On/Off Control */
+    kHIDUsage_LED_Stop                      = 0x33, /* On/Off Control */
+    kHIDUsage_LED_Rewind                    = 0x34, /* On/Off Control */
+    kHIDUsage_LED_FastForward               = 0x35, /* On/Off Control */
+    kHIDUsage_LED_Play                      = 0x36, /* On/Off Control */
+    kHIDUsage_LED_Pause                     = 0x37, /* On/Off Control */
+    kHIDUsage_LED_Record                    = 0x38, /* On/Off Control */
+    kHIDUsage_LED_Error                     = 0x39, /* On/Off Control */
+    kHIDUsage_LED_Usage                     = 0x3A, /* Selector */
+    kHIDUsage_LED_UsageInUseIndicator       = 0x3B, /* Usage Switch */
+    kHIDUsage_LED_UsageMultiModeIndicator   = 0x3C, /* Usage Modifier */
+    kHIDUsage_LED_IndicatorOn               = 0x3D, /* Selector */
+    kHIDUsage_LED_IndicatorFlash            = 0x3E, /* Selector */
+    kHIDUsage_LED_IndicatorSlowBlink        = 0x3F, /* Selector */
+    kHIDUsage_LED_IndicatorFastBlink        = 0x40, /* Selector */
+    kHIDUsage_LED_IndicatorOff              = 0x41, /* Selector */
+    kHIDUsage_LED_FlashOnTime               = 0x42, /* Dynamic Value */
+    kHIDUsage_LED_SlowBlinkOnTime           = 0x43, /* Dynamic Value */
+    kHIDUsage_LED_SlowBlinkOffTime          = 0x44, /* Dynamic Value */
+    kHIDUsage_LED_FastBlinkOnTime           = 0x45, /* Dynamic Value */
+    kHIDUsage_LED_FastBlinkOffTime          = 0x46, /* Dynamic Value */
+    kHIDUsage_LED_UsageIndicatorColor       = 0x47, /* Usage Modifier */
+    kHIDUsage_LED_IndicatorRed              = 0x48, /* Selector */
+    kHIDUsage_LED_IndicatorGreen            = 0x49, /* Selector */
+    kHIDUsage_LED_IndicatorAmber            = 0x4A, /* Selector */
+    kHIDUsage_LED_GenericIndicator          = 0x4B, /* On/Off Control */
+    kHIDUsage_LED_SystemSuspend             = 0x4C, /* On/Off Control */
+    kHIDUsage_LED_ExternalPowerConnected    = 0x4D, /* On/Off Control */
+    kHIDUsage_LED_IndicatorBlue             = 0x4E, /* Selector */
+    kHIDUsage_LED_IndicatorOrange           = 0x4F, /* Selector */
+    kHIDUsage_LED_GoodStatus                = 0x50, /* On/Off Control */
+    kHIDUsage_LED_WarningStatus             = 0x51, /* On/Off Control */
+    kHIDUsage_LED_RGB_LED                   = 0x52, /* Logical Collection */
+    kHIDUsage_LED_RedLEDChannel             = 0x53, /* Dynamic Value */
+    kHIDUsage_LED_BlueLEDChannel            = 0x54, /* Dynamic Value */
+    kHIDUsage_LED_GreenLEDChannel           = 0x55, /* Dynamic Value */
+    kHIDUsage_LED_LEDIntensity              = 0x56, /* Dynamic Value */
+    kHIDUsage_LED_SystemMicrophoneMute      = 0x57, /* On/Off Control*/
+
+    /* 0x58 - 0x5F Reserved */
+
+    // <rdar://143083603> (IOHIDUsageTables.h has incorrect usages on the LED page)
+    //
+    // The following usages, originally added in HUTRR47, were changed in
+    // HUTRR57 and are no longer consistent with the most recent version of the
+    // HID Usage Tables. The current expected values are included in the
+    // comments.
+    kHIDUsage_LED_PlayerIndicator           = 0x4E, /* Collection Logical */ /* 0x60 */
+    kHIDUsage_LED_Player1                   = 0x4F, /* Selector */ /* 0x61 */
+    kHIDUsage_LED_Player2                   = 0x50, /* Selector */ /* 0x62 */
+    kHIDUsage_LED_Player3                   = 0x51, /* Selector */ /* 0x63 */
+    kHIDUsage_LED_Player4                   = 0x52, /* Selector */ /* 0x64 */
+    kHIDUsage_LED_Player5                   = 0x53, /* Selector */ /* 0x65 */
+    kHIDUsage_LED_Player6                   = 0x54, /* Selector */ /* 0x66 */
+    kHIDUsage_LED_Player7                   = 0x55, /* Selector */ /* 0x67 */
+    kHIDUsage_LED_Player8                   = 0x56, /* Selector */ /* 0x68 */
+
+    /* 0x69 - 0xFFFF Reserved */
     kHIDUsage_LED_Reserved = 0xFFFF
 };
 
@@ -1773,6 +1794,7 @@ enum
     kHIDUsage_Snsr_Biometric_HumanPresence              = 0x11,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Biometric_HumanProximity             = 0x12,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Biometric_HumanTouch                 = 0x13,     /* Application/Physical Collection */
+    kHIDUsage_Snsr_Biometric_HeartRate                  = 0x16,     /* Application/Physical Collection */
     /* 0x14 - 0x1F Reserved */
     kHIDUsage_Snsr_Electrical                           = 0x20,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Electrical_Capacitance               = 0x21,     /* Application/Physical Collection */
@@ -1827,7 +1849,9 @@ enum
     kHIDUsage_Snsr_Motion_Speedometer                   = 0x78,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Motion_Accelerometer                 = 0x79,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Motion_Gyrometer                     = 0x7A,     /* Application/Physical Collection */
-    /* 0x7B - 0x7F Reserved */
+    kHIDUsage_Snsr_Motion_GravityVector                 = 0x7B,     /* Application/Physical Collection */
+    kHIDUsage_Snsr_Motion_LinearAccelerometer           = 0x7C,     /* Application/Physical Collection */
+    /* 0x7D - 0x7F Reserved */
     kHIDUsage_Snsr_Orientation                          = 0x80,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Orientation_Compass1D                = 0x81,     /* Application/Physical Collection */
     kHIDUsage_Snsr_Orientation_Compass2D                = 0x82,     /* Application/Physical Collection */
@@ -2134,6 +2158,8 @@ enum
     kHIDUsage_Snsr_Data_Biometric_HumanProximityRange           = 0x04B2,
     kHIDUsage_Snsr_Data_Biometric_HumanProximityOutOfRange      = 0x04B3,
     kHIDUsage_Snsr_Data_Biometric_HumanTouchState               = 0x04B4,
+    kHIDUsage_Snsr_Data_Biometric_HeartRate                     = 0x04B8,
+
     /* 0x04B5 - 0x04CF Reserved */
     
     /* Light Sensor Data Fields */

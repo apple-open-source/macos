@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc.
+ * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,7 +47,7 @@ class LibWebRTCRtpReceiverBackend;
 class LibWebRTCRtpTransceiverBackend final : public RTCRtpTransceiverBackend {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCRtpTransceiverBackend);
 public:
-    explicit LibWebRTCRtpTransceiverBackend(rtc::scoped_refptr<webrtc::RtpTransceiverInterface>&& rtcTransceiver)
+    explicit LibWebRTCRtpTransceiverBackend(webrtc::scoped_refptr<webrtc::RtpTransceiverInterface>&& rtcTransceiver)
         : m_rtcTransceiver(WTFMove(rtcTransceiver))
     {
     }
@@ -66,7 +66,7 @@ private:
     bool stopped() const final;
     ExceptionOr<void> setCodecPreferences(const Vector<RTCRtpCodecCapability>&) final;
 
-    rtc::scoped_refptr<webrtc::RtpTransceiverInterface> m_rtcTransceiver;
+    webrtc::scoped_refptr<webrtc::RtpTransceiverInterface> m_rtcTransceiver;
 };
 
 } // namespace WebCore

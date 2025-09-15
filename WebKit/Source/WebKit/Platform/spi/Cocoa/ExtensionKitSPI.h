@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if USE(EXTENSIONKIT)
 
 #import <BrowserEngineKit/BrowserEngineKit.h>

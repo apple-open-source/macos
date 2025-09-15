@@ -54,15 +54,15 @@ GroupActivitiesSessionNotifier::GroupActivitiesSessionNotifier()
     : m_sessionObserver(adoptNS([allocWKGroupSessionObserverInstance() init]))
     , m_stateChangeObserver([this] (auto& session, auto state) { sessionStateChanged(session, state); })
 {
-    m_sessionObserver.get().newSessionCallback = [this, weakThis = WeakPtr { *this }] (WKGroupSession *groupSession) {
+    m_sessionObserver.get().newSessionCallback = [weakThis = WeakPtr { *this }] (WKGroupSession *groupSession) {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
 
         auto session = GroupActivitiesSession::create(groupSession);
-        session->addStateChangeObserver(m_stateChangeObserver);
+        session->addStateChangeObserver(protectedThis->m_stateChangeObserver);
 
-        for (auto& page : copyToVector(m_webPages)) {
+        for (auto& page : copyToVector(protectedThis->m_webPages)) {
             if (page->mainFrame() && page->mainFrame()->url() == session->fallbackURL()) {
                 auto coordinator = GroupActivitiesCoordinator::create(session);
                 page->createMediaSessionCoordinator(WTFMove(coordinator), [] (bool) { });
@@ -70,10 +70,10 @@ GroupActivitiesSessionNotifier::GroupActivitiesSessionNotifier()
             }
         }
 
-        auto result = m_sessions.add(session->fallbackURL(), session.copyRef());
+        auto result = protectedThis->m_sessions.add(session->fallbackURL(), session.copyRef());
         ASSERT_UNUSED(result, result.isNewEntry);
 
-        [[NSWorkspace sharedWorkspace] openURL:session->fallbackURL()];
+        [[NSWorkspace sharedWorkspace] openURL:session->fallbackURL().createNSURL().get()];
     };
 }
 
@@ -112,7 +112,7 @@ void GroupActivitiesSessionNotifier::webPageURLChanged(WebPageProxy& webPage)
     if (!m_webPages.contains(webPage))
         return;
 
-    auto frame = webPage.mainFrame();
+    RefPtr frame = webPage.mainFrame();
     if (!frame)
         return;
 
@@ -136,4 +136,4 @@ RefPtr<GroupActivitiesSession> GroupActivitiesSessionNotifier::takeSessionForURL
 
 }
 
-#endif
+#endif // ENABLE(MEDIA_SESSION_COORDINATOR) && HAVE(GROUP_ACTIVITIES)

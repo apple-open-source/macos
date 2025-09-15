@@ -9965,10 +9965,14 @@
 			);
 			name = "Build Link Lists";
 			outputPaths = (
+				"$(DERIVED_FILE_DIR)/debug.linklist",
+				"$(DERIVED_FILE_DIR)/interposable.list",
+				"$(DERIVED_FILE_DIR)/normal.linklist",
+				"$(DERIVED_FILE_DIR)/unexport.list",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"";
+			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
 		C93D6152143D321000EB9023 /* Sanitise Headers (rdar://problem/10241868) */ = {

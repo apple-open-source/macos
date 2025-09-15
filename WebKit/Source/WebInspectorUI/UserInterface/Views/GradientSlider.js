@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -391,9 +391,9 @@ WI.GradientSliderKnob = class GradientSliderKnob extends WI.Object
         if (!this._detaching && Math.abs(event.pageY - this._startMouseY) > 50) {
             this._detaching = this.delegate && typeof this.delegate.knobCanDetach === "function" && this.delegate.knobCanDetach(this);
             if (this._detaching && this.delegate && typeof this.delegate.knobWillDetach === "function") {
-                var translationFromParentToBody = window.webkitConvertPointFromNodeToPage(this.element.parentNode, new WebKitPoint(0, 0));
-                this._startMouseX -= translationFromParentToBody.x;
-                this._startMouseY -= translationFromParentToBody.y;
+                let parentRect = this.element.parentNode.getBoundingClientRect();
+                this._startMouseX -= parentRect.left;
+                this._startMouseY -= parentRect.top;
                 document.body.appendChild(this.element);
                 this.delegate.knobWillDetach(this);
             }

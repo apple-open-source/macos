@@ -84,6 +84,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @end
 @protocol CKKSCloudKitAccountStateTrackingProvider <NSObject>
 @property (nullable, copy) NSString* ckdeviceID;
+@property CKContainer* container;
 
 - (dispatch_semaphore_t)registerForNotificationsOfCloudKitAccountStatusChange:(id<CKKSCloudKitAccountStateListener>)listener;
 - (BOOL)notifyCKAccountStatusChangeAndWait:(dispatch_time_t)timeout;
@@ -100,7 +101,6 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @property (readonly) CKKSNearFutureScheduler* fetchCKAccountStatusScheduler;
 
 // If you use these, please be aware they could change out from under you at any time
-@property (readonly) CKContainer* container;
 @property (nullable) CKAccountInfo* currentCKAccountInfo;
 @property CKKSCondition* ckAccountInfoInitialized;
 

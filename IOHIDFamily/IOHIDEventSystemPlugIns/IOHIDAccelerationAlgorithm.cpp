@@ -262,6 +262,7 @@ void IOHIDParametricAcceleration::serialize(CFMutableDictionaryRef dict) const {
   serializer.SetValueForKey(CFSTR("AccelIndex"), DOUBLE_TO_FIXED(accel.Index));
   serializer.SetValueForKey(CFSTR("GainLinear"), DOUBLE_TO_FIXED(accel.GainLinear));
   serializer.SetValueForKey(CFSTR("GainCubic"),  DOUBLE_TO_FIXED(accel.GainCubic));
+  serializer.SetValueForKey(CFSTR("GainParabolic"),DOUBLE_TO_FIXED(accel.GainParabolic));
   serializer.SetValueForKey(CFSTR("TangentSpeedLinear"), DOUBLE_TO_FIXED(accel.TangentSpeedLinear));
   serializer.SetValueForKey(CFSTR("TangentSpeedParabolicRoot"), DOUBLE_TO_FIXED(accel.TangentSpeedParabolicRoot));
   

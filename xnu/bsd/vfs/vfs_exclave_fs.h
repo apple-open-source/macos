@@ -51,6 +51,7 @@ typedef struct {
 #define EXCLAVE_FS_SYNC_OP_UBC 2
 
 #define EXCLAVE_FS_REGISTER_ENTITLEMENT  "com.apple.private.vfs.exclave-fs-register"
+#define EXCLAVE_FS_LIST_ENTITLEMENT  "com.apple.private.vfs.exclave-fs-list"
 
 int vfs_exclave_fs_start(void);
 void vfs_exclave_fs_stop(void);

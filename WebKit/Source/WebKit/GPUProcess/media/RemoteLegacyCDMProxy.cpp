@@ -59,7 +59,7 @@ void RemoteLegacyCDMProxy::supportsMIMEType(const String& mimeType, SupportsMIME
     callback(protectedCDM()->supportsMIMEType(mimeType));
 }
 
-void RemoteLegacyCDMProxy::createSession(const String& keySystem, uint64_t logIdentifier, CreateSessionCallback&& callback)
+void RemoteLegacyCDMProxy::createSession(uint64_t logIdentifier, CreateSessionCallback&& callback)
 {
     RefPtr factory = m_factory.get();
     if (!factory) {
@@ -91,8 +91,7 @@ std::optional<SharedPreferencesForWebProcess> RemoteLegacyCDMProxy::sharedPrefer
     if (!m_factory)
         return std::nullopt;
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG return m_factory->sharedPreferencesForWebProcess();
+    return m_factory->sharedPreferencesForWebProcess();
 }
 
 }

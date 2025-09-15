@@ -386,11 +386,11 @@ nx_netif_filter_set_enable(struct nx_netif *nif, boolean_t set)
 	}
 	lck_mtx_lock(&nif->nif_filter_lock);
 	if (set) {
-		SK_DF(SK_VERB_FILTER, "%s: filter enabled, nif 0x%llx",
+		SK_DF(SK_VERB_FILTER, "%s: filter enabled, nif %p",
 		    if_name(nif->nif_ifp), SK_KVA(nif));
 		nif->nif_filter_flags |= NETIF_FILTER_FLAG_ENABLED;
 	} else {
-		SK_DF(SK_VERB_FILTER, "%s: filter disabled, nif 0x%llx",
+		SK_DF(SK_VERB_FILTER, "%s: filter disabled, nif %p",
 		    if_name(nif->nif_ifp), SK_KVA(nif));
 		nif->nif_filter_flags &= ~NETIF_FILTER_FLAG_ENABLED;
 	}

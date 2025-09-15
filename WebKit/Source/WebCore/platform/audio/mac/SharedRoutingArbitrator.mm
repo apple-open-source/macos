@@ -160,7 +160,7 @@ void SharedRoutingArbitrator::endRoutingArbitrationForToken(const SharedRoutingA
 void SharedRoutingArbitrator::setLogger(const Logger& logger)
 {
     if (!m_logger)
-        m_logger = &logger;
+        m_logger = logger;
 }
 
 const Logger& SharedRoutingArbitrator::logger()

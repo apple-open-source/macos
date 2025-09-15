@@ -48,6 +48,7 @@ struct __DAProbeCallbackContext
     DAProbeCallback   callback;
     void *            callbackContext;
     CFMutableArrayRef candidates;
+    CFMutableArrayRef deferredProbes;
     DADiskRef         disk;
     DADiskRef         containerDisk;
     DAFileSystemRef   filesystem;

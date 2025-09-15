@@ -33,6 +33,7 @@
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/DeprecatedGlobalSettings.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/NotificationData.h>
 #include <WebCore/Page.h>
 #include <WebCore/ScriptExecutionContext.h>
@@ -115,7 +116,7 @@ void WebNotificationClient::requestPermission(ScriptExecutionContext& context, P
     }
 #endif
 
-    Ref { *m_page }->notificationPermissionRequestManager()->startRequest(securityOrigin->data(), WTFMove(permissionHandler));
+    Ref { *m_page }->protectedNotificationPermissionRequestManager()->startRequest(securityOrigin->data(), WTFMove(permissionHandler));
 }
 
 NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExecutionContext* context)
@@ -134,7 +135,8 @@ NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExec
     NotificationClient::Permission resultPermission;
     if (RefPtr document = dynamicDowncast<Document>(*context)) {
         ASSERT(isMainRunLoop());
-        RefPtr page = document->page() ? WebPage::fromCorePage(*document->page()) : nullptr;
+        RefPtr documentPage = document->page();
+        RefPtr page = documentPage ? WebPage::fromCorePage(*documentPage) : nullptr;
         resultPermission = WebProcess::singleton().supplement<WebNotificationManager>()->policyForOrigin(origin->data().toString(), page.get());
     } else {
         callOnMainRunLoopAndWait([&resultPermission, origin = origin->data().toString().isolatedCopy()] {

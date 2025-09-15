@@ -115,6 +115,8 @@ const UInt8 *SecCertificateGetBytePtr(SecCertificateRef certificate);
 /* Return the SHA-1 hash of this certificate. */
 CFDataRef SecCertificateGetSHA1Digest(SecCertificateRef certificate)
     __SEC_MAC_AND_IOS_UNKNOWN;
+CFDataRef SecCertificateCopySHA1Digest(SecCertificateRef certificate)
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 
 CFDataRef SecCertificateCopyIssuerSHA1Digest(SecCertificateRef certificate)
     __SEC_MAC_AND_IOS_UNKNOWN;
@@ -439,6 +441,7 @@ typedef CF_ENUM(uint32_t, SeciAPSWAuthCapabilitiesType) {
     kSeciAPSWAuthGeneralCapabilities = 0,
     kSeciAPSWAuthAirPlayCapabilities = 1,
     kSeciAPSWAuthHomeKitCapabilities = 2,
+    kSeciAPSWAuthFairPlayCapabilities = 3,
 } __OSX_AVAILABLE_STARTING(__MAC_10_13_4, __IPHONE_11_3);
 
 /* Return the iAP SW Auth capabilities bitmask from the specificed

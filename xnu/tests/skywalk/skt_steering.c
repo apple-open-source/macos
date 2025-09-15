@@ -35,6 +35,33 @@
 #define TEST_QSET_ID 0x0001
 
 static void
+fill_traffic_descriptor_eth(struct ifnet_traffic_descriptor_eth *td,
+    uint8_t mask, bool fill_valid_td)
+{
+	ether_addr_t dst_mac_addr = {0};
+	int err;
+
+	bzero(td, sizeof(*td));
+
+	td->eth_common.itd_type = IFNET_TRAFFIC_DESCRIPTOR_TYPE_ETH;
+	td->eth_common.itd_len = sizeof(*td);
+	td->eth_common.itd_flags = IFNET_TRAFFIC_DESCRIPTOR_FLAG_INBOUND |
+	    IFNET_TRAFFIC_DESCRIPTOR_FLAG_OUTBOUND;
+
+	td->eth_mask = mask;
+	if (mask & IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_ETHER_TYPE) {
+		td->eth_type = (fill_valid_td) ? ETHERTYPE_PAE : ETHERTYPE_IP;
+	}
+	if (mask & IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_RADDR) {
+		if (fill_valid_td) {
+			err = sktc_get_mac_addr(FETH0_NAME, dst_mac_addr.octet);
+			assert(err == 0);
+		}
+		bcopy(&dst_mac_addr, &td->eth_raddr, ETHER_ADDR_LEN);
+	}
+}
+
+static void
 fill_traffic_descriptor_v4(struct ifnet_traffic_descriptor_inet *td)
 {
 	struct in_addr feth0_addr, feth1_addr;
@@ -106,8 +133,11 @@ skt_steering_main(int argc, char *argv[])
 {
 	nexus_controller_t ctl;
 	struct ifnet_traffic_descriptor_inet td;
+	struct ifnet_traffic_descriptor_eth td_eth;
 	struct ifnet_traffic_rule_action_steer ra;
 	uuid_t v4_rule, v6_rule;
+	uuid_t eth_type_rule, eth_raddr_rule, eth_rule;
+	uint8_t mask;
 	int err;
 
 	ctl = os_nexus_controller_create();
@@ -115,23 +145,112 @@ skt_steering_main(int argc, char *argv[])
 
 	fill_traffic_rule_action(&ra);
 
+	//Adding v4 rule is successful
 	fill_traffic_descriptor_v4(&td);
 	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
 	    (struct ifnet_traffic_descriptor_common *)&td,
 	    (struct ifnet_traffic_rule_action *)&ra, 0, &v4_rule);
 	assert(err == 0);
 
+	//Adding eth & inet rules concurrently is not successful
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_ETHER_TYPE;
+	fill_traffic_descriptor_eth(&td_eth, mask, true);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_type_rule);
+	assert(err != 0);
+
+	//Adding v6 rule is successful
 	fill_traffic_descriptor_v6(&td);
 	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
 	    (struct ifnet_traffic_descriptor_common *)&td,
 	    (struct ifnet_traffic_rule_action *)&ra, 0, &v6_rule);
 	assert(err == 0);
 
+	//Removing v4 rule is successful
 	err = os_nexus_controller_remove_traffic_rule(ctl, v4_rule);
 	assert(err == 0);
 
+	//Removing v6 rule is successful
 	err = os_nexus_controller_remove_traffic_rule(ctl, v6_rule);
 	assert(err == 0);
+
+	//Adding eth type rule is successful (All the inet rules are removed)
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_ETHER_TYPE;
+	fill_traffic_descriptor_eth(&td_eth, mask, true);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_type_rule);
+	assert(err == 0);
+
+	//Adding duplicate eth type rule is not successful
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_rule);
+	assert(err != 0);
+
+	//Adding eth & inet rules concurrently is not successful
+	fill_traffic_descriptor_v4(&td);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &v4_rule);
+	assert(err != 0);
+
+	//Adding eth raddr rule is successful
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_RADDR;
+	fill_traffic_descriptor_eth(&td_eth, mask, true);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_raddr_rule);
+	assert(err == 0);
+
+	//Adding duplicate eth raddr rule is not successful
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_raddr_rule);
+	assert(err != 0);
+
+	//Adding a different eth raddr rule is successful
+	bcopy(ether_aton("11:22:33:44:55:66"), &td_eth.eth_raddr, ETHER_ADDR_LEN);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_rule);
+	assert(err == 0);
+
+	//Removing eth type rule is successful
+	err = os_nexus_controller_remove_traffic_rule(ctl, eth_type_rule);
+	assert(err == 0);
+
+	//Removing eth raddr rule is successful
+	err = os_nexus_controller_remove_traffic_rule(ctl, eth_raddr_rule);
+	assert(err == 0);
+	err = os_nexus_controller_remove_traffic_rule(ctl, eth_rule);
+	assert(err == 0);
+
+	//Adding eth type & raddr rule is not successful
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_ETHER_TYPE |
+	    IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_RADDR;
+	fill_traffic_descriptor_eth(&td_eth, mask, true);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_rule);
+	assert(err != 0);
+
+	//Adding invalid eth type rule is not successful
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_ETHER_TYPE;
+	fill_traffic_descriptor_eth(&td_eth, mask, false);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_rule);
+	assert(err != 0);
+
+	//Adding invalid eth raddr rule is not successful
+	mask = IFNET_TRAFFIC_DESCRIPTOR_ETH_MASK_RADDR;
+	fill_traffic_descriptor_eth(&td_eth, mask, false);
+	err = os_nexus_controller_add_traffic_rule(ctl, FETH0_NAME,
+	    (struct ifnet_traffic_descriptor_common *)&td_eth,
+	    (struct ifnet_traffic_rule_action *)&ra, 0, &eth_rule);
+	assert(err != 0);
 
 	os_nexus_controller_destroy(ctl);
 	return 0;

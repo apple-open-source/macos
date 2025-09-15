@@ -114,12 +114,45 @@ NSString *const kSecurityRTCEventNameVouchWithBottleTPH = @"com.apple.security.v
 
 NSString *const kSecurityRTCEventNamePerformEscrowRecovery = @"com.apple.security.performEscrowRecovery";
 NSString *const kSecurityRTCEventNameRecoverWithCDPContext = @"com.apple.security.recoverWithCDPContext";
+
 // MARK: Account Creation Events
 NSString *const kSecurityRTCEventNameEstablish = @"com.apple.security.establish";
 NSString *const kSecurityRTCEventNameEstablishOperation = @"com.apple.security.establishOperation";
 NSString *const kSecurityRTCEventNameOnqueueEstablishTPH = @"com.apple.security.onqueueEstablishTPH";
 NSString *const kSecurityRTCEventNameFetchAfterEstablish = @"com.apple.security.fetchAfterEstablish";
 
+
+// MARK: Reset Protected Data Events
+NSString *const kSecurityRTCEventNameResetProtectedData = @"com.apple.security.resetProtectedData";
+NSString *const kSecurityRTCEventNameOTResetOperation = @"com.apple.security.oTResetOperation";
+NSString *const kSecurityRTCEventNameFetchAccountWideSettings = @"com.apple.security.fetchAccountWideSettings";
+NSString *const kSecurityRTCEventNameFetchAccountWideSettingsTPH = @"com.apple.security.fetchAccountWideSettingsTPH";
+NSString *const kSecurityRTCEventNameResetSOS = @"com.apple.security.resetSOS";
+NSString *const kSecurityRTCEventNameResetTPH = @"com.apple.security.resetTPH";
+
+// MARK: Establish Path
+NSString *const kSecurityRTCEventNameResetCKKSZonesLackingTLKsOperation = @"com.apple.security.resetCKKSZonesLackingTLKsOperation";
+NSString *const kSecurityRTCEventNameOTSetCDPBitOperation = @"com.apple.security.oTSetCDPBitOperation";
+NSString *const kSecurityRTCEventNameOTTriggerEscrowUpdateOperation = @"com.apple.security.oTTriggerEscrowUpdateOperation";
+NSString *const kSecurityRTCEventNameOTBecomeReadyOperation = @"com.apple.security.oTBecomeReadyOperation";
+NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation = @"com.apple.security.oTLocalCKKSResetOperation";
+
+// MARK: iCSC reliability
+NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow = @"com.apple.security.escrowPasscodeEnableCacheFlow";
+NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable = @"com.apple.security.escrowPasscodeCacheAvailable";
+NSString *const kSecurityRTCEventNameEscrowRepairOperation = @"com.apple.security.escrowRepairOperation";
+
+// MARK: RPD
+NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval = @"com.apple.security.performCKServerUnreadableDataRemoval";
+NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemovalTPH = @"com.apple.security.performCKServerUnreadableDataRemovalTPH";
+
+// MARK: 2FAFA RPD
+NSString *const kSecurityRTCEventNameClearCliqueFromAccount = @"com.apple.security.clearCliqueFromAccount";
+
+NSString *const kSecurityRTCErrorDomain = @"kSecurityRTCErrorDomain";
+
+// MARK: Tracks the reason for Octagon Trust Loss
+NSString *const kSecurityRTCEventNameOctagonTrustLost = @"com.apple.security.octagonTrustLost";
 
 // MARK: RTC Fields
 
@@ -136,9 +169,9 @@ NSString *const kSecurityRTCFieldNumberOfTrustedPeers = @"numberOfTrustedPeers";
 NSString *const kSecurityRTCFieldSecurityLevel = @"securityLevel";
 NSString *const kSecurityRTCFieldRetryAttemptCount = @"retryAttemptCount";
 NSString *const kSecurityRTCFieldTotalRetryDuration = @"totalRetryDuration";
-NSString *const kSecurityRTCFieldEgoMachineIDVanishedFromTDL = @"egoMachineIDVanishedFromTDL";
 NSString *const kSecurityRTCFieldPairingSuccessfulImportCount = @"pairingSuccessfulImportCount";
 NSString *const kSecurityRTCFieldPairingFailedImportCount = @"pairingFailedImportCount";
+
 
 // MARK: CKKS Launch RTC Event Names
 
@@ -171,6 +204,7 @@ NSString *const kSecurityRTCEventNameContentSyncFinish = @"com.apple.security.ck
 NSString *const kSecurityRTCEventNameDeviceLocked = @"com.apple.security.ckks.deviceLocked";
 NSString *const kSecurityRTCEventNameDeviceUnlocked = @"com.apple.security.ckks.deviceUnlocked";
 NSString *const kSecurityRTCEventNameLocalReset = @"com.apple.security.ckks.localReset";
+NSString *const kSecurityRTCEventNameEvaluateTLKShares = @"com.apple.security.ckks.evaluateTLKShares";
 
 // MARK: CKKS Launch RTC Fields
 
@@ -206,6 +240,29 @@ NSString *const kSecurityRTCFieldNumLocalRecords = @"numLocalRecords";
 NSString *const kSecurityRTCFieldNumKeychainItems = @"numKeychainItems";
 NSString *const kSecurityRTCFieldTotalCKRecords = @"totalCKRecords";
 NSString *const kSecurityRTCFieldAvgCKRecords = @"avgCKRecords";
+NSString *const kSecurityRTCFieldNumModificationsFetched = @"modificationsFetched";
+NSString *const kSecurityRTCFieldNumDeletionsFetched = @"deletionsFetched";
+NSString *const kSecurityRTCFieldNumZonesReverseSyncing = @"zonesReverseSyncing";
+NSString *const kSecurityRTCFieldPeersEvaluatedForTLKShares = @"peersEvaluatedForMissingTLKShares";
+NSString *const kSecurityRTCFieldNumPeersMissingShares = @"peersMissingShares";
+NSString *const kSecurityRTCFieldNumTLKSharesEvaluated = @"tlkSharesEvaluated";
+NSString *const kSecurityRTCFieldIsCurrentDevice = @"isCurrentDevice";
+
+NSString *const kSecurityRTCFieldCKKSFetchBecauseAPNS = @"fetchBecauseAPNS";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseAPIFetchRequest = @"fetchBecauseAPI";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseSEAPIFetchRequest = @"fetchBecauseSE-API";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseKeySetFetchRequest = @"fetchBecauseKeyset";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseCurrentItemFetchRequest = @"fetchBecauseCurrentItemCheck";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseInitialStart = @"fetchBecauseInitialFetch";
+NSString *const kSecurityRTCFieldCKKSFetchBecausePreviousFetchFailed = @"fetchBecauseFetchFailed";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseNetwork = @"fetchBecauseNetwork";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseKeyHierarchy = @"fetchBecauseKeyHierarchy";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseTesting = @"fetchBecauseTesting";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseResync = @"fetchBecauseResync";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseMoreComing = @"fetchBecauseMoreComing";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseResolvingConflict = @"fetchBecauseKeyHierachyConflict";
+NSString *const kSecurityRTCFieldCKKSFetchBecausePeriodicRefetch = @"fetchBecausePeriodic";
+NSString *const kSecurityRTCFieldCKKSFetchBecauseOctagonPairingComplete = @"fetchBecauseOctagonPairingComplete";
 
 // MARK: Escrow Recovery
 NSString *const kSecurityRTCFieldRecordDataMissing = @"recordDataMissing";
@@ -221,3 +278,8 @@ NSString *const kSecurityRTCFieldTotalNumberOfCustodians = @"totalNumberOfCustod
 NSString *const kSecurityRTCFieldTotalNumberOfTrustedRecoveryKeys = @"totalNumberOfTrustedRecoveryKeys";
 NSString *const kSecurityRTCFieldTotalNumberOfTrustedCustodians = @"totalNumberOfTrustedCustodians";
 NSString *const kSecurityRTCFieldTotalNumberOfPreapprovals = @"totalNumberOfPreapprovals";
+
+
+// MARK: Reset ProtectedData Fields
+NSString *const kSecurityRTCFieldAccountIsW = @"accountIsW";
+NSString *const kSecurityRTCFieldAccountIsG = @"accountIsG";

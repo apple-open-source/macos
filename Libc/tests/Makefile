@@ -1,7 +1,7 @@
 PROJECT := Libc
 TEST_DIR := tests/
 
-CUSTOM_TARGETS += osvariantutil subsystem_test_helper thread_stack_pcs_helper
+CUSTOM_TARGETS += locales osvariantutil subsystem_test_helper thread_stack_pcs_helper
 
 ifeq ($(DEVELOPER_DIR),)
     DEVELOPER_DIR := $(shell xcode-select -p)
@@ -34,9 +34,10 @@ ASAN_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 
 OTHER_LDFLAGS := -umbrella System -L/usr/lib/system -lsystem_collections
 
-fbounds_safety_assumes: OTHER_CFLAGS += -fbounds-safety
-fbounds_safety_includes: OTHER_CFLAGS += -fbounds-safety -D__LIBC_STAGED_BOUNDS_SAFETY_ATTRIBUTES
+fbounds_safety_assumes: OTHER_CFLAGS += -fbounds-safety -fbounds-safety-bringup-missing-checks
+fbounds_safety_includes: OTHER_CFLAGS += -fbounds-safety -fbounds-safety-bringup-missing-checks -D__LIBC_STAGED_BOUNDS_SAFETY_ATTRIBUTES
 abort_tests: OTHER_CFLAGS += -fstack-check
+execvp: OTHER_CFLAGS += -Wno-pre-c11-compat
 strtod: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtof: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
 strtold: OTHER_CFLAGS += -Wno-float-equal -Wno-ignored-pragmas
@@ -102,3 +103,6 @@ ifeq ($(DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT),YES)
 	cp -R $(SYMROOT)/thread_stack_pcs_helper.dSYM $(INSTALLDIR)/
 endif
 
+install-locales:
+	mkdir -p $(INSTALLDIR)
+	cp -R $(SRCROOT)/locales $(INSTALLDIR)/

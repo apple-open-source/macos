@@ -66,6 +66,8 @@ extern void environ_lock_np(void);
 API_AVAILABLE(macos(12.3), ios(15.4), tvos(15.4), watchos(8.5))
 extern void environ_unlock_np(void);
 
+API_AVAILABLE(macos(16.0), ios(19.0), tvos(16.0), watchos(12.0))
+extern char *_LIBC_CSTR	getenv_copy_np(const char *);
 
 typedef void (*backtrace_get_pcs_func_t)(vm_address_t *_LIBC_COUNT(max) buffer,
                unsigned max, unsigned *nb, unsigned skip, void *startfp);

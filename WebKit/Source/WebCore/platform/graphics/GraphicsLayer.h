@@ -312,6 +312,7 @@ public:
     virtual void initialize(Type) { }
 
     virtual std::optional<PlatformLayerIdentifier> primaryLayerID() const { return std::nullopt; }
+    virtual std::optional<PlatformLayerIdentifier> layerIDIgnoringStructuralLayer() const { return primaryLayerID(); }
 
     GraphicsLayerClient& client() const { return *m_client; }
 
@@ -320,7 +321,8 @@ public:
     virtual void setName(const String& name) { m_name = name; }
     WEBCORE_EXPORT virtual String debugName() const;
 
-    GraphicsLayer* parent() const { return m_parent; };
+    GraphicsLayer* parent() const { return m_parent; }
+    RefPtr<GraphicsLayer> protectedParent() const { return m_parent; }
     void setParent(GraphicsLayer*); // Internal use only.
     
     // Returns true if the layer has the given layer as an ancestor (excluding self).
@@ -424,6 +426,16 @@ public:
     bool drawsContent() const { return m_drawsContent; }
     WEBCORE_EXPORT virtual void setDrawsContent(bool);
 
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool drawsHDRContent() const { return m_drawsHDRContent; }
+    WEBCORE_EXPORT virtual void setDrawsHDRContent(bool);
+
+    bool tonemappingEnabled() const { return m_tonemappingEnabled; }
+    WEBCORE_EXPORT virtual void setTonemappingEnabled(bool);
+
+    WEBCORE_EXPORT virtual void setNeedsDisplayIfEDRHeadroomExceeds(float);
+#endif
+
     bool contentsAreVisible() const { return m_contentsVisible; }
     virtual void setContentsVisible(bool b) { m_contentsVisible = b; }
 
@@ -450,8 +462,8 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    AppleVisualEffect appleVisualEffect() const { return m_appleVisualEffect; }
-    virtual void setAppleVisualEffect(AppleVisualEffect effect) { m_appleVisualEffect = effect; }
+    AppleVisualEffectData appleVisualEffectData() const { return m_appleVisualEffectData; }
+    virtual void setAppleVisualEffectData(AppleVisualEffectData effectData) { m_appleVisualEffectData = effectData; }
 #endif
 
     bool needsBackdrop() const;
@@ -613,10 +625,8 @@ public:
     virtual void setShowRepaintCounter(bool show) { m_showRepaintCounter = show; }
     bool isShowingRepaintCounter() const { return m_showRepaintCounter; }
 
-#if HAVE(HDR_SUPPORT)
-    virtual void setHDRForImagesEnabled(bool b) { m_hdrForImagesEnabled = b; }
-    bool hdrForImagesEnabled() const { return m_hdrForImagesEnabled; }
-#endif
+    virtual void setShowFrameProcessBorders(bool show) { m_showFrameProcessBorders = show; }
+    bool isShowingFrameProcessBorders() const { return m_showFrameProcessBorders; }
 
     // FIXME: this is really a paint count.
     int repaintCount() const { return m_repaintCount; }
@@ -693,6 +703,7 @@ public:
     virtual bool backingStoreAttachedForTesting() const { return backingStoreAttached(); }
 
     virtual TiledBacking* tiledBacking() const { return 0; }
+    CheckedPtr<TiledBacking> checkedTiledBacking() const { return tiledBacking(); }
     WEBCORE_EXPORT virtual void setTileCoverage(TileCoverage);
 
     void resetTrackedRepaints();
@@ -717,7 +728,7 @@ public:
     const std::optional<FloatRect>& animationExtent() const { return m_animationExtent; }
     void setAnimationExtent(std::optional<FloatRect> animationExtent) { m_animationExtent = animationExtent; }
 
-    static void traverse(GraphicsLayer&, const Function<void(GraphicsLayer&)>&);
+    static void traverse(GraphicsLayer&, NOESCAPE const Function<void(GraphicsLayer&)>&);
 
     virtual void markFrontBufferVolatileForTesting() { }
 
@@ -810,7 +821,7 @@ protected:
     CustomAppearance m_customAppearance { CustomAppearance::None };
 
 #if HAVE(CORE_MATERIAL)
-    AppleVisualEffect m_appleVisualEffect { AppleVisualEffect::None };
+    AppleVisualEffectData m_appleVisualEffectData;
 #endif
 
     OptionSet<GraphicsLayerPaintingPhase> m_paintingPhase { GraphicsLayerPaintingPhase::Foreground, GraphicsLayerPaintingPhase::Background };
@@ -822,6 +833,10 @@ protected:
     bool m_backfaceVisibility : 1;
     bool m_masksToBounds : 1;
     bool m_drawsContent : 1;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool m_drawsHDRContent : 1 { false };
+    bool m_tonemappingEnabled : 1 { false };
+#endif
     bool m_contentsVisible : 1;
     bool m_contentsRectClipsDescendants : 1;
     bool m_acceleratesDrawing : 1;
@@ -831,6 +846,7 @@ protected:
     bool m_appliesDeviceScale : 1;
     bool m_showDebugBorder : 1;
     bool m_showRepaintCounter : 1;
+    bool m_showFrameProcessBorders : 1;
     bool m_isMaskLayer : 1;
     bool m_isBackdropRoot : 1;
     bool m_isTrackingDisplayListReplay : 1;
@@ -845,9 +861,6 @@ protected:
     bool m_isSeparatedPortal : 1;
     bool m_isDescendentOfSeparatedPortal : 1;
 #endif
-#endif
-#if HAVE(HDR_SUPPORT)
-    bool m_hdrForImagesEnabled : 1;
 #endif
 
     int m_repaintCount { 0 };

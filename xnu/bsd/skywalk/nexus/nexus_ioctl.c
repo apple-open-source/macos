@@ -39,6 +39,7 @@ nxioctl_check_entitlement(u_long cmd)
 	}
 	switch (cmd) {
 	case NXIOC_ADD_TRAFFIC_RULE_INET:
+	case NXIOC_ADD_TRAFFIC_RULE_ETH:
 	case NXIOC_REMOVE_TRAFFIC_RULE:
 		entitled = IOCurrentTaskHasEntitlement(
 			NXCTL_TRAFFIC_RULE_WRITE_ENTITLEMENT);
@@ -48,10 +49,28 @@ nxioctl_check_entitlement(u_long cmd)
 			NXCTL_TRAFFIC_RULE_READ_ENTITLEMENT);
 		break;
 	default:
-		SK_ERR("invalid command %x", cmd);
+		SK_ERR("invalid command %lx", cmd);
 		return ENOTSUP;
 	}
 	return entitled ? 0 : EPERM;
+}
+
+static int
+_nxioctl(struct nxctl *nxctl, u_long cmd, caddr_t data, proc_t procp)
+{
+	switch (cmd) {
+	case NXIOC_ADD_TRAFFIC_RULE_INET:
+		return nxioctl_add_traffic_rule_inet(nxctl, data, procp);
+	case NXIOC_ADD_TRAFFIC_RULE_ETH:
+		return nxioctl_add_traffic_rule_eth(nxctl, data, procp);
+	case NXIOC_REMOVE_TRAFFIC_RULE:
+		return nxioctl_remove_traffic_rule(nxctl, data, procp);
+	case NXIOC_GET_TRAFFIC_RULES:
+		return nxioctl_get_traffic_rules(nxctl, data, procp);
+	default:
+		SK_ERR("invalid command %lx", cmd);
+		return ENOTSUP;
+	}
 }
 
 int
@@ -62,15 +81,11 @@ nxioctl(struct nxctl *nxctl, u_long cmd, caddr_t data, proc_t procp)
 	if ((err = nxioctl_check_entitlement(cmd)) != 0) {
 		return err;
 	}
-	switch (cmd) {
-	case NXIOC_ADD_TRAFFIC_RULE_INET:
-		return nxioctl_add_traffic_rule_inet(nxctl, data, procp);
-	case NXIOC_REMOVE_TRAFFIC_RULE:
-		return nxioctl_remove_traffic_rule(nxctl, data, procp);
-	case NXIOC_GET_TRAFFIC_RULES:
-		return nxioctl_get_traffic_rules(nxctl, data, procp);
-	default:
-		SK_ERR("invalid command %x", cmd);
-		return ENOTSUP;
-	}
+	return _nxioctl(nxctl, cmd, data, procp);
+}
+
+int
+nxioctl_kernel(nexus_controller_t ncd, u_long cmd, caddr_t data, proc_t procp)
+{
+	return _nxioctl(ncd->ncd_nxctl, cmd, data, procp);
 }

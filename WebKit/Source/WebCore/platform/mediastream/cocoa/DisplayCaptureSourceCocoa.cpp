@@ -32,6 +32,7 @@
 #include "Logging.h"
 #include "MediaDeviceHashSalts.h"
 #include "MediaSampleAVFObjC.h"
+#include "NativeImage.h"
 #include "RealtimeMediaSource.h"
 #include "RealtimeMediaSourceCenter.h"
 #include "RealtimeMediaSourceSettings.h"
@@ -76,7 +77,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(const CaptureDevice& devi
             return makeUniqueRefWithoutRefCountedCheck<ReplayKitCaptureSource>(source);
         }, device, WTFMove(hashSalts), constraints, pageIdentifier);
 #elif HAVE(SCREEN_CAPTURE_KIT)
-        FALLTHROUGH;
+        [[fallthrough]];
 #else
         ASSERT_NOT_REACHED();
         return { };
@@ -121,7 +122,7 @@ CaptureSourceOrError DisplayCaptureSourceCocoa::create(const std::function<Uniqu
 DisplayCaptureSourceCocoa::DisplayCaptureSourceCocoa(const std::function<UniqueRef<Capturer>(CapturerObserver&)>& createCapturer, const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, std::optional<PageIdentifier> pageIdentifier)
     : RealtimeMediaSource(device, WTFMove(hashSalts), pageIdentifier)
     , m_capturer(createCapturer(*this))
-    , m_timer(RunLoop::current(), this, &DisplayCaptureSourceCocoa::emitFrame)
+    , m_timer(RunLoop::currentSingleton(), "DisplayCaptureSourceCocoa::Timer"_s, this, &DisplayCaptureSourceCocoa::emitFrame)
     , m_userActivity("App nap disabled for screen capture"_s)
 {
 }
@@ -270,27 +271,27 @@ void DisplayCaptureSourceCocoa::emitFrame()
 
     auto frame = m_capturer->generateFrame();
     auto imageSize = WTF::switchOn(frame,
-        [](RetainPtr<IOSurfaceRef>& surface) -> IntSize {
+        [](RetainPtr<IOSurfaceRef> surface) -> IntSize {
             if (!surface)
                 return { };
 
             return IntSize(IOSurfaceGetWidth(surface.get()), IOSurfaceGetHeight(surface.get()));
         },
-        [](RefPtr<NativeImage>& image) -> IntSize {
+        [](RefPtr<NativeImage> image) -> IntSize {
             if (!image)
                 return { };
 
             return image->size();
         },
-        [](RetainPtr<CMSampleBufferRef>& sample) -> IntSize {
+        [](RetainPtr<CMSampleBufferRef> sample) -> IntSize {
             if (!sample)
                 return { };
 
-            CMFormatDescriptionRef formatDescription = PAL::CMSampleBufferGetFormatDescription(sample.get());
-            if (PAL::CMFormatDescriptionGetMediaType(formatDescription) != kCMMediaType_Video)
+            RetainPtr formatDescription = PAL::CMSampleBufferGetFormatDescription(sample.get());
+            if (PAL::CMFormatDescriptionGetMediaType(formatDescription.get()) != kCMMediaType_Video)
                 return IntSize();
 
-            return IntSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription, true, true));
+            return IntSize(PAL::CMVideoFormatDescriptionGetPresentationDimensions(formatDescription.get(), true, true));
         }
     );
 
@@ -358,7 +359,7 @@ void DisplayCaptureSourceCocoa::setLogger(const Logger& logger, uint64_t identif
 
 void DisplayCaptureSourceCocoa::Capturer::setLogger(const Logger& newLogger, uint64_t newLogIdentifier)
 {
-    m_logger = &newLogger;
+    m_logger = newLogger;
     m_logIdentifier = newLogIdentifier;
 }
 

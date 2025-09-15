@@ -512,14 +512,10 @@
 		C20138731C1A17D0008EE53F /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
 		C21481381C1A1213003BCA63 /* vm.c in Sources */ = {isa = PBXBuildFile; fileRef = C21481201C1A11E7003BCA63 /* vm.c */; };
 		C214813A1C1A1219003BCA63 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = C214811C1C1A11E7003BCA63 /* utils.c */; };
-		C214813C1C1A122B003BCA63 /* dyld_shared_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = C214810F1C1A11E6003BCA63 /* dyld_shared_cache.c */; };
-		C214813D1C1A122B003BCA63 /* dyld.c in Sources */ = {isa = PBXBuildFile; fileRef = C21481111C1A11E6003BCA63 /* dyld.c */; };
 		C214813E1C1A122B003BCA63 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = C21481151C1A11E6003BCA63 /* main.c */; };
 		C214813F1C1A122B003BCA63 /* sparse.c in Sources */ = {isa = PBXBuildFile; fileRef = C21481181C1A11E6003BCA63 /* sparse.c */; };
 		C21481401C1A122B003BCA63 /* threads.c in Sources */ = {isa = PBXBuildFile; fileRef = C214811A1C1A11E7003BCA63 /* threads.c */; };
 		C21481451C1A131D003BCA63 /* gcore.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C21481131C1A11E6003BCA63 /* gcore.1 */; };
-		C248DBB01C1A1D0500F6E9AF /* libcompression.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C248DBAF1C1A1D0500F6E9AF /* libcompression.dylib */; };
-		C2DAA94F1D9F22F000FAC263 /* convert.c in Sources */ = {isa = PBXBuildFile; fileRef = C2DAA94B1D9F22BF00FAC263 /* convert.c */; };
 		C625B28B16D6F27E00168EF7 /* taskpolicy.c in Sources */ = {isa = PBXBuildFile; fileRef = C625B28A16D6F27E00168EF7 /* taskpolicy.c */; };
 		C625B28D16D6F27E00168EF7 /* taskpolicy.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C625B28C16D6F27E00168EF7 /* taskpolicy.8 */; };
 		C65BF57A144BD7C5009028A3 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA9B766D13739D27001BB39F /* CoreFoundation.framework */; };
@@ -2673,12 +2669,7 @@
 		C20D8C691C1A102F00C1226B /* gcore */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gcore; sourceTree = BUILT_PRODUCTS_DIR; };
 		C214810D1C1A11E6003BCA63 /* corefile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = corefile.c; path = gcore/corefile.c; sourceTree = "<group>"; };
 		C214810E1C1A11E6003BCA63 /* corefile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = corefile.h; path = gcore/corefile.h; sourceTree = "<group>"; };
-		C214810F1C1A11E6003BCA63 /* dyld_shared_cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dyld_shared_cache.c; path = gcore/dyld_shared_cache.c; sourceTree = "<group>"; };
-		C21481101C1A11E6003BCA63 /* dyld_shared_cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dyld_shared_cache.h; path = gcore/dyld_shared_cache.h; sourceTree = "<group>"; };
-		C21481111C1A11E6003BCA63 /* dyld.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dyld.c; path = gcore/dyld.c; sourceTree = "<group>"; };
-		C21481121C1A11E6003BCA63 /* dyld.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dyld.h; path = gcore/dyld.h; sourceTree = "<group>"; };
 		C21481131C1A11E6003BCA63 /* gcore.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = gcore.1; path = gcore/gcore.1; sourceTree = "<group>"; };
-		C21481141C1A11E6003BCA63 /* loader_additions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = loader_additions.h; path = gcore/loader_additions.h; sourceTree = "<group>"; };
 		C21481151C1A11E6003BCA63 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = gcore/main.c; sourceTree = "<group>"; };
 		C21481161C1A11E6003BCA63 /* options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = options.h; path = gcore/options.h; sourceTree = "<group>"; };
 		C21481171C1A11E6003BCA63 /* region.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = region.h; path = gcore/region.h; sourceTree = "<group>"; };
@@ -2693,9 +2684,10 @@
 		C21481201C1A11E7003BCA63 /* vm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vm.c; path = gcore/vm.c; sourceTree = "<group>"; };
 		C21481211C1A11E7003BCA63 /* vm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vm.h; path = gcore/vm.h; sourceTree = "<group>"; };
 		C248DBAF1C1A1D0500F6E9AF /* libcompression.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcompression.dylib; path = /usr/lib/libcompression.dylib; sourceTree = "<absolute>"; };
+		C28E39842CE3F58900989BCF /* note_process_metadata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = note_process_metadata.h; path = gcore/note_process_metadata.h; sourceTree = "<group>"; };
 		C2DAA9491D9F22BF00FAC263 /* gcore-internal.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = "gcore-internal.1"; path = "gcore/gcore-internal.1"; sourceTree = "<group>"; };
-		C2DAA94A1D9F22BF00FAC263 /* convert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = convert.h; path = gcore/convert.h; sourceTree = "<group>"; };
-		C2DAA94B1D9F22BF00FAC263 /* convert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = convert.c; path = gcore/convert.c; sourceTree = "<group>"; };
+		C2F786FF2CCC6240009E42E2 /* note_addrable_bits.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = note_addrable_bits.h; path = gcore/note_addrable_bits.h; sourceTree = "<group>"; };
+		C2F787002CCC658B009E42E2 /* note_all_image_infos.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = note_all_image_infos.h; path = gcore/note_all_image_infos.h; sourceTree = "<group>"; };
 		C625B28816D6F27E00168EF7 /* taskpolicy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = taskpolicy; sourceTree = BUILT_PRODUCTS_DIR; };
 		C625B28A16D6F27E00168EF7 /* taskpolicy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = taskpolicy.c; sourceTree = "<group>"; usesTabs = 1; };
 		C625B28C16D6F27E00168EF7 /* taskpolicy.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = taskpolicy.8; sourceTree = "<group>"; };
@@ -3122,7 +3114,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				C20138731C1A17D0008EE53F /* libutil.dylib in Frameworks */,
-				C248DBB01C1A1D0500F6E9AF /* libcompression.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3928,22 +3919,18 @@
 				88CD75022B10A68B0027816E /* gcore_framework.m */,
 				88CD75012B10A68B0027816E /* gcore-entitlements.plist */,
 				C2DAA9491D9F22BF00FAC263 /* gcore-internal.1 */,
-				C2DAA94A1D9F22BF00FAC263 /* convert.h */,
-				C2DAA94B1D9F22BF00FAC263 /* convert.c */,
 				C214810D1C1A11E6003BCA63 /* corefile.c */,
 				C214810E1C1A11E6003BCA63 /* corefile.h */,
-				C214810F1C1A11E6003BCA63 /* dyld_shared_cache.c */,
-				C21481101C1A11E6003BCA63 /* dyld_shared_cache.h */,
-				C21481111C1A11E6003BCA63 /* dyld.c */,
-				C21481121C1A11E6003BCA63 /* dyld.h */,
 				C21481131C1A11E6003BCA63 /* gcore.1 */,
-				C21481141C1A11E6003BCA63 /* loader_additions.h */,
 				C21481151C1A11E6003BCA63 /* main.c */,
 				0F0252812B7EA67800A1826D /* notes.c */,
 				0F0252832B7EA68100A1826D /* notes.h */,
 				C21481161C1A11E6003BCA63 /* options.h */,
 				0FA1EB4D2B6C6382008D6AF1 /* portable_region_infos_t.h */,
 				0FA1EB4E2B6C6382008D6AF1 /* portable_task_crash_info_t.h */,
+				C2F786FF2CCC6240009E42E2 /* note_addrable_bits.h */,
+				C2F787002CCC658B009E42E2 /* note_all_image_infos.h */,
+				C28E39842CE3F58900989BCF /* note_process_metadata.h */,
 				C21481171C1A11E6003BCA63 /* region.h */,
 				C21481181C1A11E6003BCA63 /* sparse.c */,
 				C21481191C1A11E6003BCA63 /* sparse.h */,
@@ -6163,15 +6150,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C214813D1C1A122B003BCA63 /* dyld.c in Sources */,
 				0F0252822B7EA67C00A1826D /* notes.c in Sources */,
 				728765762977218E00823070 /* vanilla.c in Sources */,
 				C214813A1C1A1219003BCA63 /* utils.c in Sources */,
-				C214813C1C1A122B003BCA63 /* dyld_shared_cache.c in Sources */,
 				728D574429947463008984FF /* corefile.c in Sources */,
 				C21481381C1A1213003BCA63 /* vm.c in Sources */,
 				C214813E1C1A122B003BCA63 /* main.c in Sources */,
-				C2DAA94F1D9F22F000FAC263 /* convert.c in Sources */,
 				C214813F1C1A122B003BCA63 /* sparse.c in Sources */,
 				C21481401C1A122B003BCA63 /* threads.c in Sources */,
 			);

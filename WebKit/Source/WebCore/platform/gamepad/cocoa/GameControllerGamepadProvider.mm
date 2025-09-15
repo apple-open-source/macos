@@ -91,7 +91,7 @@ GameControllerGamepadProvider& GameControllerGamepadProvider::singleton()
 }
 
 GameControllerGamepadProvider::GameControllerGamepadProvider()
-    : m_inputNotificationTimer(RunLoop::current(), this, &GameControllerGamepadProvider::inputNotificationTimerFired)
+    : m_inputNotificationTimer(RunLoop::currentSingleton(), "GameControllerGamepadProvider::InputNotificationTimer"_s, this, &GameControllerGamepadProvider::inputNotificationTimerFired)
 {
 }
 
@@ -158,6 +158,13 @@ void GameControllerGamepadProvider::controllerDidDisconnect(GCController *contro
 
     auto removedGamepad = m_gamepadMap.take((__bridge CFTypeRef)controller);
     ASSERT(removedGamepad);
+
+    // FIXME (rdar://155968049) - We may get disconnect notifications for a no-longer-connected controller.
+    // Return early to avoid weird side effects downstream.
+    if (!removedGamepad) {
+        RELEASE_LOG_ERROR(Gamepad, "Disconnected a GCController that we didn't know about");
+        return;
+    }
 
     auto i = m_gamepadVector.find(removedGamepad.get());
     if (i != notFound)

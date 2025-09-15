@@ -451,7 +451,7 @@ private:
             fastFree(list);
         }
         
-        T* list() { return std::bit_cast<T*>(this + 1); }
+        T* list() { return m_list; }
         
         OutOfLineList(unsigned length, unsigned capacity)
             : m_length(length)
@@ -461,6 +461,7 @@ private:
 
         unsigned m_length;
         unsigned m_capacity;
+        T m_list[0];
     };
     
     ALWAYS_INLINE void deleteListIfNecessary()

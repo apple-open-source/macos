@@ -46,13 +46,13 @@ class EscrowKeys: NSObject {
         self.secret = secret
         self.bottleSalt = bottleSalt
 
-        let encryptionKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeyEncryption, masterSecret: secret, bottleSalt: bottleSalt)
+        let encryptionKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeyEncryption, escrowSecret: secret, bottleSalt: bottleSalt)
         self.encryptionKey = _SFECKeyPair.init(secKey: try EscrowKeys.createSecKey(keyData: encryptionKeyData))
 
-        let signingKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySigning, masterSecret: secret, bottleSalt: bottleSalt)
+        let signingKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySigning, escrowSecret: secret, bottleSalt: bottleSalt)
         self.signingKey = _SFECKeyPair.init(secKey: try EscrowKeys.createSecKey(keyData: signingKeyData))
 
-        let symmetricKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySymmetric, masterSecret: secret, bottleSalt: bottleSalt)
+        let symmetricKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySymmetric, escrowSecret: secret, bottleSalt: bottleSalt)
         let specifier = _SFAESKeySpecifier.init(bitSize: TPHObjectiveC.aes256BitSize())
         self.symmetricKey = try _SFAESKey.init(data: symmetricKeyData, specifier: specifier)
 
@@ -62,7 +62,7 @@ class EscrowKeys: NSObject {
         _ = try EscrowKeys.storeEscrowedSymmetricKey(keyData: self.symmetricKey.keyData, label: escrowSigningPubKeyHash)
     }
 
-    class func generateEscrowKey(keyType: EscrowKeyType, masterSecret: Data, bottleSalt: String) throws -> (Data) {
+    class func generateEscrowKey(keyType: EscrowKeyType, escrowSecret: Data, bottleSalt: String) throws -> (Data) {
         var keyLength: Int
         var info: Data
         var derivedKey: Data
@@ -98,16 +98,16 @@ class EscrowKeys: NSObject {
 
         derivedKey = Data(count: keyLength)
 
-        var masterSecretMutable = masterSecret
+        var escrowSecretMutable = escrowSecret
 
         let bottleSaltData = Data(bytes: Array(bottleSalt.utf8), count: bottleSalt.utf8.count)
 
-        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws -> Void in
-            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutableRawBufferPointer) throws -> Void in
-                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws -> Void in
-                    try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws -> Void in
+        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws in
+            try escrowSecretMutable.withUnsafeMutableBytes { (escrowSecretBytes: UnsafeMutableRawBufferPointer) throws in
+                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws in
+                    try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws in
                         status = cchkdf(ccsha384_di(),
-                                        masterSecretBytes.count, masterSecretBytes.baseAddress!,
+                                        escrowSecretBytes.count, escrowSecretBytes.baseAddress!,
                                         bottleSaltBytes.count, bottleSaltBytes.baseAddress!,
                                         infoBytes.count, infoBytes.baseAddress!,
                                         derivedKeyBytes.count, derivedKeyBytes.baseAddress!)
@@ -131,7 +131,7 @@ class EscrowKeys: NSObject {
 
                             let space = ccec_x963_export_size(1, ccec_ctx_pub(fullKey))
                             var key = Data(count: space)
-                            key.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) -> Void in
+                            _ = key.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) in
                                 ccec_x963_export(1, bytes.baseAddress!, fullKey)
                             }
                             finalKey = Data(key)
@@ -183,8 +183,8 @@ class EscrowKeys: NSObject {
         var result = Data(count: TPHObjectiveC.ccsha384_diSize())
 
         var keyDataMutable = keyData
-        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutableRawBufferPointer) -> Void in
-            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutableRawBufferPointer) -> Void in
+        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutableRawBufferPointer) in
+            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutableRawBufferPointer) in
                 ccdigest(di, keyDataBytes.count, keyDataBytes.baseAddress!, resultBytes.baseAddress!)
             }
         }
@@ -274,24 +274,33 @@ class EscrowKeys: NSObject {
         var encryptionKey: _SFECKeyPair?
         var symmetricKey: _SFAESKey?
 
-        let keySet = try retrieveEscrowKeysFromKeychain(label: label)
-        if keySet == nil {
+        guard let keySet = try retrieveEscrowKeysFromKeychain(label: label) else {
             throw EscrowKeysError.itemDoesNotExist
         }
-        for item in keySet! {
-            let keyTypeData = item[kSecAttrApplicationLabel as CFString] as! Data
-            let keyType = String(data: keyTypeData, encoding: .utf8)!
+        for item in keySet {
+            guard let keyTypeData = item[kSecAttrApplicationLabel as CFString] as? Data else {
+                fatalError("Key type data not present or not coercible as Data")
+            }
+            guard let keyType = String(data: keyTypeData, encoding: .utf8) else {
+                fatalError("Key type data not UTF-8")
+            }
 
             if keyType.contains("Symmetric") {
-                let keyData = item[kSecValueData as CFString] as! Data
+                guard let keyData = item[kSecValueData as CFString] as? Data else {
+                    fatalError("Key data not found or not coercible to Data")
+                }
                 let specifier = _SFAESKeySpecifier.init(bitSize: TPHObjectiveC.aes256BitSize())
                 symmetricKey = try _SFAESKey.init(data: keyData, specifier: specifier)
             } else if keyType.contains("Encryption") {
-                let keyData = item[kSecValueData as CFString] as! Data
+                guard let keyData = item[kSecValueData as CFString] as? Data else {
+                    fatalError("Key data not found or not coercible to Data")
+                }
                 let encryptionSecKey = try EscrowKeys.createSecKey(keyData: keyData)
                 encryptionKey = _SFECKeyPair.init(secKey: encryptionSecKey)
             } else if keyType.contains("Signing") {
-                let keyData = item[kSecValueData as CFString] as! Data
+                guard let keyData = item[kSecValueData as CFString] as? Data else {
+                    fatalError("Key data not found or not coercible to Data")
+                }
                 let signingSecKey = try EscrowKeys.createSecKey(keyData: keyData)
                 signingKey = _SFECKeyPair.init(secKey: signingSecKey)
             } else {

@@ -261,7 +261,7 @@ final class GNICollector {
 	}
 
 	func collectExtraSystemConfigurationFiles() -> Void {
-		let cmdBase = "/usr/bin/tar -c -H"
+		let cmdBase = "/usr/bin/tar -c -H "
 		var cmd: String? = nil
 		var stdout: String? = nil
 		let path1 = "/etc/resolver"

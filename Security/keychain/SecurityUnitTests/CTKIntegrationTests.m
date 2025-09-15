@@ -23,7 +23,9 @@
 
 
 #import <XCTest/XCTest.h>
+#import <Security/SecKeyPriv.h>
 #import <Security/SecItemPriv.h>
+#import <Security/SecKeyPriv.h>
 #import <LocalAuthentication/LocalAuthentication.h>
 
 @interface CTKIntegrationTests : XCTestCase
@@ -250,6 +252,7 @@
 
     // Create signature with the key.
     NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+
     SecKeyAlgorithm algorithm = kSecKeyAlgorithmECDSASignatureMessageX962SHA256;
     NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey, algorithm, (CFDataRef)message, (void *)&error));
     XCTAssertNotNil(signature, @"Failed to sign with token key, error: %@", error);
@@ -322,6 +325,140 @@
     };
     OSStatus status = SecItemDelete((CFDictionaryRef)query);
     XCTAssertEqual(status, errSecSuccess, @"Deletion failed");
+}
+
+- (void)testMLDSAIntegration {
+    NSData *messageData = [@"Hello ML-DSA" dataUsingEncoding:NSUTF8StringEncoding];
+    [self verifyMLDSAIntegrationWithKeySize:(id)kSecAttrKeySizeMLDSA65 messageData:messageData];
+    [self verifyMLDSAIntegrationWithKeySize:(id)kSecAttrKeySizeMLDSA87 messageData:messageData];
+}
+
+- (void)testMLKEMKEMIntegration {
+    [self verifyKEMIntegrationWithKeyType:(id)kSecAttrKeyTypeMLKEM keySize:(id)kSecAttrKeySizeMLKEM768 algorithm:kSecKeyAlgorithmKEMMLKEM];
+    [self verifyKEMIntegrationWithKeyType:(id)kSecAttrKeyTypeMLKEM keySize:(id)kSecAttrKeySizeMLKEM1024 algorithm:kSecKeyAlgorithmKEMMLKEM];
+    [self verifyKEMIntegrationWithKeyType:(id)kSecAttrKeyTypeKyber keySize:(id)kSecAttrKeySizeKyber768 algorithm:kSecKeyAlgorithmKEMKyber];
+    [self verifyKEMIntegrationWithKeyType:(id)kSecAttrKeyTypeKyber keySize:(id)kSecAttrKeySizeKyber1024 algorithm:kSecKeyAlgorithmKEMKyber];
+}
+
+#pragma mark - Helpers
+
+- (void)verifyMLDSAIntegrationWithKeySize:(id)keySize messageData:(NSData *)messageData {
+    id keyType = (id)kSecAttrKeyTypeMLDSA;
+    SecKeyAlgorithm algorithm = kSecKeyAlgorithmMLDSASignatureMessage;
+
+    NSDictionary *privKeyAttributes = @{
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeMLDSA,
+        (id)kSecAttrKeySizeInBits: keySize,
+    };
+
+    NSError *error = nil;
+    id privKey = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)privKeyAttributes, (void *)&error));
+    XCTAssertNotNil(privKey, @"Failed to generate key pair: %@", error.localizedDescription);
+
+    // Verify Private Key Attributes
+    NSDictionary *privAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privKey));
+    XCTAssertNotNil(privAttrs, @"Failed to retrieve private key attributes");
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeyType], keyType);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeyClass], (id)kSecAttrKeyClassPrivate);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeySizeInBits], keySize);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrTokenID], (id)kSecAttrTokenIDAppleKeyStore);
+
+    id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+    XCTAssertNotNil(pubKey);
+
+    NSDictionary *pubAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKey));
+    XCTAssertNotNil(pubAttrs, @"Failed to retrieve public key attributes");
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeyType], keyType);
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeyClass], (id)kSecAttrKeyClassPublic);
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeySizeInBits], keySize);
+
+    // Sign with CTK
+    NSData *signature = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)privKey,
+                                                                algorithm,
+                                                                (__bridge CFDataRef)messageData,
+                                                                (void *)&error));
+    XCTAssertNotNil(signature, @"Signing failed: %@", error.localizedDescription);
+
+    // Verify with SecKey
+    BOOL isValid = SecKeyVerifySignature((SecKeyRef)pubKey,
+                                         algorithm,
+                                         (CFDataRef)messageData,
+                                         (CFDataRef)signature,
+                                         (void *)&error);
+    XCTAssertTrue(isValid, @"Signature verification failed: %@", error.localizedDescription);
+
+#if !TARGET_OS_SIMULATOR
+    NSDictionary *deleteQuery = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrKeyType: keyType,
+        (id)kSecAttrKeySizeInBits: keySize,
+    };
+    OSStatus deleteStatus = SecItemDelete((CFDictionaryRef)deleteQuery);
+    XCTAssertEqual(deleteStatus, errSecSuccess, @"Failed to delete key pair, OSStatus: %d", (int)deleteStatus);
+#endif
+}
+
+- (void)verifyKEMIntegrationWithKeyType:(id)keyType keySize:(id)keySize algorithm:(SecKeyAlgorithm)algorithm {
+    NSDictionary *privKeyAttributes = @{
+        (id)kSecAttrTokenID: (id)kSecAttrTokenIDAppleKeyStore,
+        (id)kSecAttrKeyType: keyType,
+        (id)kSecAttrKeySizeInBits: keySize,
+    };
+
+    NSError *error = nil;
+    id privKeyRef = CFBridgingRelease(SecKeyCreateRandomKey((__bridge CFDictionaryRef)privKeyAttributes, (void *)&error));
+    XCTAssertNotNil(privKeyRef, @"Failed to generate key pair: %@", error.localizedDescription);
+
+    // Verify Private Key Attributes
+    NSDictionary *privAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)privKeyRef));
+    XCTAssertNotNil(privAttrs, @"Failed to retrieve private key attributes");
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeyType], keyType);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeyClass], (id)kSecAttrKeyClassPrivate);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrKeySizeInBits], keySize);
+    XCTAssertEqualObjects(privAttrs[(id)kSecAttrTokenID], (id)kSecAttrTokenIDAppleKeyStore);
+
+    id pubKeyRef = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKeyRef));
+    XCTAssertNotNil(pubKeyRef, @"Failed to retrieve public key from private key");
+
+    NSDictionary *pubAttrs = CFBridgingRelease(SecKeyCopyAttributes((SecKeyRef)pubKeyRef));
+    XCTAssertNotNil(pubAttrs, @"Failed to retrieve public key attributes");
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeyType], keyType);
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeyClass], (id)kSecAttrKeyClassPublic);
+    XCTAssertEqualObjects(pubAttrs[(id)kSecAttrKeySizeInBits], keySize);
+
+    // Export Public Key
+    CFErrorRef exportError = NULL;
+    CFDataRef cfPubKeyData = SecKeyCopyExternalRepresentation((SecKeyRef)pubKeyRef, &exportError);
+    NSData *pubKeyData = CFBridgingRelease(cfPubKeyData);
+    XCTAssertNotNil(pubKeyData, @"Failed to export public key: %@", (__bridge NSError *)exportError);
+
+    CFDataRef cfSharedKey = NULL;
+    CFDataRef cfEncapsulatedKey = SecKeyCreateEncapsulatedKey((__bridge SecKeyRef)pubKeyRef,
+                                                              algorithm,
+                                                              &cfSharedKey,
+                                                              (void *)&error);
+
+    NSData *sharedKey = CFBridgingRelease(cfSharedKey);
+    NSData *encapsulatedKey = CFBridgingRelease(cfEncapsulatedKey);
+    XCTAssertNotNil(sharedKey, @"Failed to create shared key: %@", error.localizedDescription);
+    XCTAssertNotNil(encapsulatedKey, @"Failed to create encapsulated key: %@", error.localizedDescription);
+
+    NSData *decapsulatedSharedKey = CFBridgingRelease(SecKeyCreateDecapsulatedKey((__bridge SecKeyRef)(privKeyRef),
+                                                                                  algorithm,
+                                                                                  cfEncapsulatedKey,
+                                                                                  (void *)&error));
+    XCTAssertNotNil(decapsulatedSharedKey, @"Failed to decapsulate key: %@", error.localizedDescription);
+
+#if !TARGET_OS_SIMULATOR
+    NSDictionary *deleteQuery = @{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrKeyType: keyType,
+        (id)kSecAttrKeySizeInBits: keySize,
+    };
+    OSStatus deleteStatus = SecItemDelete((CFDictionaryRef)deleteQuery);
+    XCTAssertEqual(deleteStatus, errSecSuccess, @"Failed to delete key pair, OSStatus: %d", (int)deleteStatus);
+#endif
 }
 
 @end

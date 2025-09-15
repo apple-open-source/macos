@@ -18,7 +18,7 @@ def readPlist(filename):
 
 def readJson(filename):
     if not os.path.isfile(filename):
-        raise("file \"" + filename + "\" does not exist")
+        raise ValueError("file \"" + filename + "\" does not exist")
     try:
         f = open(filename, mode='rb')
         object = json.load(f)
@@ -35,12 +35,3 @@ def validate_update_against_schema(filename, schema_filename):
         print("file \"" + filename + "\" conforms to schema",file=sys.stderr)
     except Exception as e:
         raise ValueError("file \"" + filename + "\" does not conform to schema: " + str(e))
-
-def validate_update_against_version(filename, version_filename):
-    update = readJson(filename)
-    versionPlist = readPlist(version_filename)
-    version = versionPlist["VersionNumber"]
-    updateVersion = update["oldVersion"]
-    if version != updateVersion:
-        raise ValueError("Update for " + updateVersion + " does not apply to " + version)
-

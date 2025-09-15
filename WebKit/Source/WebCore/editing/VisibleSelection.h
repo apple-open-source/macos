@@ -38,6 +38,7 @@ enum class Directionality : uint8_t { None, Strong };
 enum class SelectionDirection : uint8_t { Forward, Backward, Right, Left };
 
 class VisibleSelection {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT VisibleSelection();
     static const VisibleSelection& emptySelection();

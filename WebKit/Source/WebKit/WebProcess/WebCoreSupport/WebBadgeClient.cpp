@@ -33,18 +33,9 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebBadgeClient::setAppBadge(WebCore::Page* page, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
+void WebBadgeClient::setAppBadge(WebCore::Frame* frame, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
 {
-    std::optional<WebPageProxyIdentifier> pageIdentifier;
-    if (page)
-        pageIdentifier = WebPage::fromCorePage(*page)->webPageProxyIdentifier();
-
-    WebProcess::singleton().setAppBadge(pageIdentifier, origin, badge);
-}
-
-void WebBadgeClient::setClientBadge(WebCore::Page& page, const WebCore::SecurityOriginData& origin, std::optional<uint64_t> badge)
-{
-    WebProcess::singleton().setClientBadge(WebPage::fromCorePage(page)->webPageProxyIdentifier(), origin, badge);
+    WebProcess::singleton().setAppBadge(frame, origin, badge);
 }
 
 } // namespace WebKit

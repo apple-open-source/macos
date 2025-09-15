@@ -1,11 +1,9 @@
-#!special-case-list-v1
-# rdar://139815990
 # This file declares the list of source files that should be exempt from
 # AddressSanitizer instrumentation. Usually, this is because a file is used by
 # the AddressSanitizer runtime itself, or because the code executes before
 # the runtime has been initialized.
 
-[.*]
+[*]
 
 # Blanket ignore non-sanitized functions
 fun:__nosan_*
@@ -14,7 +12,7 @@ fun:__nosan_*
 src:./osfmk/kdp/*
 src:./osfmk/kern/debug.c
 
-[kernel-hwaddress|address]
+[{kernel-hwaddress,address}]
 
 # Exclude linker sets
 type:struct linker_set_entry

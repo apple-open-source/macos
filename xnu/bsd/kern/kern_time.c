@@ -85,6 +85,7 @@
 #include <kern/clock.h>
 #include <kern/task.h>
 #include <kern/thread_call.h>
+#include <kern/uipc_domain.h>
 #if CONFIG_MACF
 #include <security/mac_framework.h>
 #endif

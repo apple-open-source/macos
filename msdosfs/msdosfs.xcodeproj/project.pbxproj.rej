@@ -119,7 +119,7 @@
  /* End PBXBuildFile section */
  
  /* Begin PBXContainerItemProxy section */
-@@ -319,90 +209,6 @@
+@@ -331,90 +221,6 @@
  			remoteGlobalIDString = 4D9CE47A15007F7000186084;
  			remoteInfo = executables;
  		};
@@ -210,7 +210,7 @@
  /* End PBXContainerItemProxy section */
  
  /* Begin PBXCopyFilesBuildPhase section */
-@@ -446,24 +252,6 @@
+@@ -458,24 +264,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 1;
  		};
@@ -235,7 +235,7 @@
  /* End PBXCopyFilesBuildPhase section */
  
  /* Begin PBXFileReference section */
-@@ -513,80 +301,15 @@
+@@ -525,80 +313,15 @@
  		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
  		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
  		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
@@ -318,7 +318,7 @@
  /* End PBXFileReference section */
  
  /* Begin PBXFrameworksBuildPhase section */
-@@ -608,59 +332,6 @@
+@@ -627,59 +351,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -378,7 +378,7 @@
  /* End PBXFrameworksBuildPhase section */
  
  /* Begin PBXGroup section */
-@@ -739,7 +410,6 @@
+@@ -758,7 +429,6 @@
  		7D8BA341010E490C02CA2964 /* msdosfs */ = {
  			isa = PBXGroup;
  			children = (
@@ -386,7 +386,7 @@
  				4D71368E112F748200BC4A72 /* msdosfs.xcconfig */,
  				4D8BCB260A0278BC008334F3 /* Locking.rtf */,
  				4D3DCC0808E0B48600C78A0B /* msdosfs.kext */,
-@@ -747,11 +417,7 @@
+@@ -766,11 +436,7 @@
  				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
  				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
  				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
@@ -398,7 +398,7 @@
  				4D027E2513B91F1400B48B76 /* libutil1.0.dylib */,
  				4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */,
  				4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */,
-@@ -775,132 +441,16 @@
+@@ -794,132 +460,16 @@
  				4D3DCB7408E084D400C78A0B /* msdos.util */,
  				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
  				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
@@ -533,7 +533,7 @@
  				D12A83A11FFCC4CE00A02A42 /* Foundation.framework */,
  			);
  			name = Frameworks;
-@@ -961,26 +511,6 @@
+@@ -980,26 +530,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -560,7 +560,7 @@
  /* End PBXHeadersBuildPhase section */
  
  /* Begin PBXNativeTarget section */
-@@ -1106,111 +636,6 @@
+@@ -1125,111 +655,6 @@
  			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
  			productType = "com.apple.product-type.tool";
  		};
@@ -672,7 +672,7 @@
  /* End PBXNativeTarget section */
  
  /* Begin PBXProject section */
-@@ -1226,32 +651,6 @@
+@@ -1245,32 +670,6 @@
  					4D3DCB2B08E084D300C78A0B = {
  						LastSwiftMigration = 0900;
  					};
@@ -705,7 +705,7 @@
  				};
  			};
  			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
-@@ -1424,12 +821,6 @@
+@@ -1485,12 +882,6 @@
  				4D3DCB4708E084D400C78A0B /* mount_msdos */,
  				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
  				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
@@ -718,7 +718,7 @@
  			);
  		};
  /* End PBXProject section */
-@@ -1450,20 +841,6 @@
+@@ -1511,20 +902,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -739,7 +739,27 @@
  /* End PBXResourcesBuildPhase section */
  
  /* Begin PBXRezBuildPhase section */
-@@ -1513,98 +877,6 @@
+@@ -1640,19 +1017,6 @@
+ 			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos \"${DSTROOT}/sbin/fsck_msdos\"\nchgrp -h wheel \"${DSTROOT}/sbin/fsck_msdos\"\n";
+ 			showEnvVarsInLog = 0;
+ 		};
+-		D1AC333C1FFCC8800066739C /* ShellScript */ = {
+-			isa = PBXShellScriptBuildPhase;
+-			buildActionMask = 2147483647;
+-			files = (
+-			);
+-			inputPaths = (
+-			);
+-			outputPaths = (
+-			);
+-			runOnlyForDeploymentPostprocessing = 0;
+-			shellPath = /bin/sh;
+-			shellScript = "# PLUGIN_LOC in an option to use  pts_lab source to fetch a pre-compiled plugin, Please take care of what plugin version are been tested.\n# Comment it out when SVN release version are used.\n#PLUGIN_LOC=\"master\"\n\nMSDOSFS_VER=\"12.0.2\"\nEXFAT_VER=\"10.5.0\"\nHFS_VER=\"2.8.7\"\n\n\necho \"msdosfs plugin version: $MSDOSFS_VER\"\necho \"exfat plugin version: $EXFAT_VER\"\necho \"hfs plugin version: $HFS_VER\"\n\nif [ ! -z $PLUGIN_LOC ]\nthen\n\nmsdos_src=\"./LiveFilesTester/Resources\"\nexfat_src=\"./LiveFilesTester/Resources\"\nhfs_src=\"./LiveFilesTester/Resources\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\nplugin_loc_msdos=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_msdos.dylib\"\nplugin_loc_exfat=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_exfat.dylib\"\nplugin_loc_hfs=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_hfs.dylib\"\necho \"--- Attention!! copy plugin from PTS_LAB root directory /pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\" , validate version correctness!!! ----\"\necho cp $plugin_loc_msdos $src_msdos_dylib\ncp $plugin_loc_msdos $src_msdos_dylib\necho cp $plugin_loc_exfat $src_exfat_dylib\ncp $plugin_loc_exfat $src_exfat_dylib\necho cp $plugin_loc_hfs $src_hfs_dylib\ncp $plugin_loc_hfs $src_hfs_dylib\nelse\n\nmsdos_src=\"./LiveFilesTester/Resources/msdosfs_plugin/OSX\"\nexfat_src=\"./LiveFilesTester/Resources/exfat_plugin/OSX\"\nhfs_src=\"./LiveFilesTester/Resources/hfs_plugin/OSX\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\n#SVN_USER=\"regression\"\n#SVN_PASS=\"Regression123\"\n\nSVN_USER=\"nosherovich\"\nSVN_PASS=\"EasyPeasy@2\"\n\n\nset -e # Fail the build in case of error in this script\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/msdosfs_plugin/$MSDOSFS_VER ./LiveFilesTester/Resources/msdosfs_plugin/ --force\n#LAST=$(exec ls ./LiveFiles_tester/Resources/msdosfs_plugin | sort -n | tail -1)\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/exfat_plugin/$EXFAT_VER ./LiveFilesTester/Resources/exfat_plugin/ --force\n\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/hfs_plugin/$HFS_VER ./LiveFilesTester/Resources/hfs_plugin/ --force\n\nfi\n\ndst_dir=/tmp/LiveFilesPlugin\nmkdir -p $dst_dir\nrm -rf $dst_dir/\\*\necho \"copy from $src_msdos_dylib to $dst_dir\"\ncp $src_msdos_dylib $dst_dir\necho \"copy from $src_exfat_dylib to $dst_dir\"\ncp $src_exfat_dylib $dst_dir\necho \"copy from $src_hfs_dylib to $dst_dir\"\ncp $src_hfs_dylib $dst_dir\n\n";
+-		};
+ /* End PBXShellScriptBuildPhase section */
+ 
+ /* Begin PBXSourcesBuildPhase section */
+@@ -1713,98 +1077,6 @@
  			);
  			runOnlyForDeploymentPostprocessing = 0;
  		};
@@ -838,7 +858,7 @@
  /* End PBXSourcesBuildPhase section */
  
  /* Begin PBXTargetDependency section */
-@@ -1866,66 +1133,6 @@
+@@ -1785,66 +1052,6 @@
  			target = 4D9CE47A15007F7000186084 /* executables */;
  			targetProxy = 4D9CE48A150080EE00186084 /* PBXContainerItemProxy */;
  		};
@@ -905,7 +925,7 @@
  /* End PBXTargetDependency section */
  
  /* Begin PBXVariantGroup section */
-@@ -2272,835 +1446,6 @@
+@@ -2477,835 +1651,6 @@
  			};
  			name = CodeCoverage;
  		};
@@ -1741,7 +1761,7 @@
  /* End XCBuildConfiguration section */
  
  /* Begin XCConfigurationList section */
-@@ -3588,76 +1923,6 @@
+@@ -3564,76 +1899,6 @@
  				4DAA598F08D79EF4007BE920 /* Debug */,
  				4DD699530D6A5A24007E8D14 /* CodeCoverage */,
  				4DAA599008D79EF4007BE920 /* Release */,

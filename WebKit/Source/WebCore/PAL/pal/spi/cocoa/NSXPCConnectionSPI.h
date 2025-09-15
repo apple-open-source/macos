@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <wtf/spi/darwin/XPCSPI.h>
 
 #if USE(APPLE_INTERNAL_SDK)

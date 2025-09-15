@@ -170,10 +170,39 @@ struct region_infos_note_data {
     struct region_infos_note_region_data regions[0];
 };
 
-struct task_crashinfo_note_data *prepare_task_crashinfo_note(task_t task);
-struct region_infos_note_data *prepare_region_infos_note(task_t task);
+struct note_addrable_bits;  // (simple enough to fill in directly)
 
-void destroy_task_crash_info_note_data(struct task_crashinfo_note_data *);
-void destroy_region_infos_note_data(struct region_infos_note_data *);
+struct aii_image_entry_data {
+    STAILQ_ENTRY(aii_image_entry_data) ied_link;
+    // STAILQ_HEAD(, aii_segment_vmaddr_data) ied_seg_addrs;
+    char *ied_path;
+    uuid_t ied_uuid;
+    uint64_t ied_mh;
+    uint32_t ied_segment_count;
+    struct note_aii_segment_vmaddr *ied_seg_addrs;
+    size_t ied_pathlen;
+};
+
+struct all_image_infos_note_data {
+    STAILQ_HEAD(, aii_image_entry_data) image_entries;
+    uint32_t imgcount;
+};
+
+struct process_metadata_note_data {
+    char *jsonbytes;
+    size_t jsonlength;
+};
+
+extern struct task_crashinfo_note_data *prepare_task_crashinfo_note(task_t task);
+extern struct region_infos_note_data *prepare_region_infos_note(task_t);
+extern struct note_addrable_bits *prepare_addrable_bits_note(void);
+extern struct all_image_infos_note_data *prepare_all_image_infos_note(task_t);
+extern struct process_metadata_note_data *prepare_process_metadata_note(mach_port_t *, unsigned);
+
+extern void destroy_task_crash_info_note_data(struct task_crashinfo_note_data *);
+extern void destroy_region_infos_note_data(struct region_infos_note_data *);
+extern void destroy_addrable_bits_note_data(struct note_addrable_bits *);
+extern void destroy_all_image_infos_note_data(struct all_image_infos_note_data *);
+extern void destroy_process_metadata(struct process_metadata_note_data *);
 
 #endif /* _NOTES_H */

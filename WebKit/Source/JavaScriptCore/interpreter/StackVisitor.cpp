@@ -131,6 +131,16 @@ void StackVisitor::readFrame(CallFrame* callFrame)
         return;
     }
 
+#if ASSERT_ENABLED
+    if (!codeBlock->inherits<CodeBlock>()) {
+        dataLogLn("Invalid codeblock type: ", *(JSCell*)codeBlock);
+        dataLogLn("Callee: ", RawPointer(callFrame->unsafeCallee().rawPtr()));
+        ASSERT_NOT_REACHED();
+        readNonInlinedFrame(callFrame);
+        return;
+    }
+#endif
+
     // If the code block does not have any code origins, then there's no
     // inlining. Hence, we're not at an inlined frame.
     if (!codeBlock->hasCodeOrigins()) {

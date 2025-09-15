@@ -26,6 +26,7 @@
 #pragma once
 
 #include <wtf/Atomics.h>
+#include <wtf/DebugHeap.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Nonmovable.h>
@@ -222,7 +223,7 @@ public:
     template <typename T>
     void fireAll(VM& vm, T& fireDetails)
     {
-        if (LIKELY(m_state != IsWatched))
+        if (m_state != IsWatched) [[likely]]
             return;
         fireAllSlow(vm, fireDetails);
     }
@@ -256,11 +257,9 @@ public:
     {
         return m_setIsNotEmpty;
     }
-    
-    int8_t* addressOfState() { return &m_state; }
+
     static constexpr ptrdiff_t offsetOfState() { return OBJECT_OFFSETOF(WatchpointSet, m_state); }
-    int8_t* addressOfSetIsNotEmpty() { return &m_setIsNotEmpty; }
-    
+
     JS_EXPORT_PRIVATE void fireAllSlow(VM&, const FireDetail&); // Call only if you've checked isWatched.
     JS_EXPORT_PRIVATE void fireAllSlow(VM&, DeferredWatchpointFire* deferredWatchpoints); // Ditto.
     JS_EXPORT_PRIVATE void fireAllSlow(VM&, const char* reason); // Ditto.
@@ -439,7 +438,7 @@ public:
     // if they collect a Vector of WatchpointSet*.
     WatchpointSet* inflate()
     {
-        if (LIKELY(isFat()))
+        if (isFat()) [[likely]]
             return fat();
         return inflateSlow();
     }

@@ -135,6 +135,9 @@ enum {
     kWKContextMenuItemTagCopyCroppedImage,
     kWKContextMenuItemTagWritingTools,
     kWKContextMenuItemTagCopyLinkWithHighlight,
+    kWKContextMenuItemTagProofread,
+    kWKContextMenuItemTagRewrite,
+    kWKContextMenuItemTagSummarize,
     kWKContextMenuItemBaseApplicationTag = 10000
 };
 typedef uint32_t WKContextMenuItemTag;

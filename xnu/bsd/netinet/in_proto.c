@@ -103,7 +103,6 @@
 #endif /* IPSEC */
 
 static void in_dinit(struct domain *);
-static void ip_proto_input(protocol_family_t, mbuf_t);
 
 extern struct domain inetdomain_s;
 static struct pr_usrreqs nousrreqs;
@@ -300,7 +299,7 @@ in_dinit(struct domain *dp)
 	 * fit in a small mbuf because m_pullup only puls into 256
 	 * byte mbuf
 	 */
-	_CASSERT((sizeof(struct tcpiphdr) + TCP_MAXOLEN) <= _MHLEN);
+	static_assert((sizeof(struct tcpiphdr) + TCP_MAXOLEN) <= _MHLEN);
 
 	/*
 	 * Attach first, then initialize; ip_init() needs raw IP handler.
@@ -322,22 +321,6 @@ in_dinit(struct domain *dp)
 		/* NOTREACHED */
 	}
 	domain_unguard_release(unguard);
-}
-
-static void
-ip_proto_input(protocol_family_t protocol, mbuf_t packet_list)
-{
-#pragma unused(protocol)
-
-	if (packet_list->m_nextpkt != NULL) {
-		ip_input_process_list(packet_list);
-	} else {
-		/*
-		 * XXX remove this path if ip_input_process_list is proven
-		 * to be stable and has minimum overhead on most platforms.
-		 */
-		ip_input(packet_list);
-	}
 }
 
 SYSCTL_NODE(_net, PF_INET, inet,

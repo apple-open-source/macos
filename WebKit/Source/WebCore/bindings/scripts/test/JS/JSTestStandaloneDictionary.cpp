@@ -34,12 +34,13 @@
 #include "JSDOMGlobalObject.h"
 #include "JSVoidCallback.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/ObjectConstructor.h>
-#include <variant>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SortedArrayMap.h>
+#include <wtf/Variant.h>
 
 
 
@@ -54,7 +55,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -68,7 +69,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!boolMemberValue.isUndefined()) {
         auto boolMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, boolMemberValue);
-        if (UNLIKELY(boolMemberConversionResult.hasException(throwScope)))
+        if (boolMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.boolMember = boolMemberConversionResult.releaseReturnValue();
     }
@@ -81,7 +82,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!callbackMemberValue.isUndefined()) {
         auto callbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, callbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(callbackMemberConversionResult.hasException(throwScope)))
+        if (callbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.callbackMember = callbackMemberConversionResult.releaseReturnValue();
     }
@@ -94,7 +95,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!enumMemberValue.isUndefined()) {
         auto enumMemberConversionResult = convert<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>>(lexicalGlobalObject, enumMemberValue);
-        if (UNLIKELY(enumMemberConversionResult.hasException(throwScope)))
+        if (enumMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.enumMember = enumMemberConversionResult.releaseReturnValue();
     }
@@ -106,7 +107,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto nullableUnionWithNullDefaultValueConversionResult = convertOptionalWithDefault<IDLNullable<IDLUnion<IDLDOMString, IDLBoolean>>>(lexicalGlobalObject, nullableUnionWithNullDefaultValueValue, [&]() -> ConversionResult<IDLNullable<IDLUnion<IDLDOMString, IDLBoolean>>> { return typename Converter<IDLNullable<IDLUnion<IDLDOMString, IDLBoolean>>>::ReturnType { std::nullopt }; });
-    if (UNLIKELY(nullableUnionWithNullDefaultValueConversionResult.hasException(throwScope)))
+    if (nullableUnionWithNullDefaultValueConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.nullableUnionWithNullDefaultValue = nullableUnionWithNullDefaultValueConversionResult.releaseReturnValue();
 #if ENABLE(Conditional13) || ENABLE(Conditional14)
@@ -119,7 +120,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialBooleanMemberValue.isUndefined()) {
         auto partialBooleanMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, partialBooleanMemberValue);
-        if (UNLIKELY(partialBooleanMemberConversionResult.hasException(throwScope)))
+        if (partialBooleanMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialBooleanMember = partialBooleanMemberConversionResult.releaseReturnValue();
     }
@@ -134,7 +135,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialBooleanMemberWithIgnoredConditionalValue.isUndefined()) {
         auto partialBooleanMemberWithIgnoredConditionalConversionResult = convert<IDLBoolean>(lexicalGlobalObject, partialBooleanMemberWithIgnoredConditionalValue);
-        if (UNLIKELY(partialBooleanMemberWithIgnoredConditionalConversionResult.hasException(throwScope)))
+        if (partialBooleanMemberWithIgnoredConditionalConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialBooleanMemberWithIgnoredConditional = partialBooleanMemberWithIgnoredConditionalConversionResult.releaseReturnValue();
     }
@@ -149,7 +150,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialCallbackMemberValue.isUndefined()) {
         auto partialCallbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, partialCallbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(partialCallbackMemberConversionResult.hasException(throwScope)))
+        if (partialCallbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialCallbackMember = partialCallbackMemberConversionResult.releaseReturnValue();
     }
@@ -164,7 +165,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialEnumMemberValue.isUndefined()) {
         auto partialEnumMemberConversionResult = convert<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>>(lexicalGlobalObject, partialEnumMemberValue);
-        if (UNLIKELY(partialEnumMemberConversionResult.hasException(throwScope)))
+        if (partialEnumMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialEnumMember = partialEnumMemberConversionResult.releaseReturnValue();
     }
@@ -182,7 +183,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
         return ConversionResultException { };
     }
     auto partialRequiredLongMemberConversionResult = convert<IDLLong>(lexicalGlobalObject, partialRequiredLongMemberValue);
-    if (UNLIKELY(partialRequiredLongMemberConversionResult.hasException(throwScope)))
+    if (partialRequiredLongMemberConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.partialRequiredLongMember = partialRequiredLongMemberConversionResult.releaseReturnValue();
 #endif
@@ -196,7 +197,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialStringMemberValue.isUndefined()) {
         auto partialStringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, partialStringMemberValue);
-        if (UNLIKELY(partialStringMemberConversionResult.hasException(throwScope)))
+        if (partialStringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialStringMember = partialStringMemberConversionResult.releaseReturnValue();
     }
@@ -212,7 +213,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
         }
         if (!partialStringMemberWithEnabledBySettingValue.isUndefined()) {
             auto partialStringMemberWithEnabledBySettingConversionResult = convert<IDLDOMString>(lexicalGlobalObject, partialStringMemberWithEnabledBySettingValue);
-            if (UNLIKELY(partialStringMemberWithEnabledBySettingConversionResult.hasException(throwScope)))
+            if (partialStringMemberWithEnabledBySettingConversionResult.hasException(throwScope)) [[unlikely]]
                 return ConversionResultException { };
             result.partialStringMemberWithEnabledBySetting = partialStringMemberWithEnabledBySettingConversionResult.releaseReturnValue();
         }
@@ -228,7 +229,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!partialUnsignedLongMemberWithImplementedAsValue.isUndefined()) {
         auto partialUnsignedLongMemberConversionResult = convert<IDLUnsignedLong>(lexicalGlobalObject, partialUnsignedLongMemberWithImplementedAsValue);
-        if (UNLIKELY(partialUnsignedLongMemberConversionResult.hasException(throwScope)))
+        if (partialUnsignedLongMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialUnsignedLongMember = partialUnsignedLongMemberConversionResult.releaseReturnValue();
     }
@@ -242,7 +243,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
     }
     if (!stringMemberValue.isUndefined()) {
         auto stringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, stringMemberValue);
-        if (UNLIKELY(stringMemberConversionResult.hasException(throwScope)))
+        if (stringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.stringMember = stringMemberConversionResult.releaseReturnValue();
     }
@@ -254,7 +255,7 @@ template<> ConversionResult<IDLDictionary<DictionaryImplName>> convertDictionary
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto unionMemberWithDefaultValueConversionResult = convertOptionalWithDefault<IDLUnion<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>, IDLDouble>>(lexicalGlobalObject, unionMemberWithDefaultValueValue, [&]() -> ConversionResult<IDLUnion<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>, IDLDouble>> { return Converter<IDLUnion<IDLEnumeration<TestStandaloneDictionary::EnumInStandaloneDictionaryFile>, IDLDouble>>::ReturnType { TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue1 }; });
-    if (UNLIKELY(unionMemberWithDefaultValueConversionResult.hasException(throwScope)))
+    if (unionMemberWithDefaultValueConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.unionMemberWithDefaultValue = unionMemberWithDefaultValueConversionResult.releaseReturnValue();
     return result;
@@ -378,7 +379,7 @@ template<> std::optional<TestStandaloneDictionary::EnumInStandaloneDictionaryFil
         std::pair<ComparableASCIILiteral, TestStandaloneDictionary::EnumInStandaloneDictionaryFile> { "enumValue2"_s, TestStandaloneDictionary::EnumInStandaloneDictionaryFile::EnumValue2 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
-    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
 }

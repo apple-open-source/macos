@@ -129,7 +129,7 @@ void WebSocketTask::didOpen(WebCore::CurlStreamID)
     CString cookieHeader;
 
     if (m_request.allowCookies()) {
-        if (auto* storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr) {
+        if (CheckedPtr storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr) {
             auto includeSecureCookies = m_request.url().protocolIs("wss"_s) ? WebCore::IncludeSecureCookies::Yes : WebCore::IncludeSecureCookies::No;
             auto cookieHeaderField = storageSession->cookieRequestHeaderFieldValue(m_request.firstPartyForCookies(), WebCore::SameSiteInfo::create(m_request), m_request.url(), std::nullopt, std::nullopt, includeSecureCookies, WebCore::ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No).first;
             if (!cookieHeaderField.isEmpty())
@@ -283,7 +283,7 @@ bool WebSocketTask::appendReceivedBuffer(const WebCore::SharedBuffer& buffer)
 
 void WebSocketTask::skipReceivedBuffer(size_t length)
 {
-    memmove(m_receiveBuffer.data(), m_receiveBuffer.data() + length, m_receiveBuffer.size() - length);
+    memmoveSpan(m_receiveBuffer.mutableSpan(), m_receiveBuffer.subspan(length));
     m_receiveBuffer.shrink(m_receiveBuffer.size() - length);
 }
 
@@ -311,7 +311,7 @@ Expected<bool, String> WebSocketTask::validateOpeningHandshake()
 
     auto serverSetCookie = m_handshake->serverSetCookie();
     if (!serverSetCookie.isEmpty()) {
-        if (auto* storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr)
+        if (CheckedPtr storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr)
             storageSession->setCookiesFromHTTPResponse(m_request.firstPartyForCookies(), m_request.url(), serverSetCookie);
     }
 
@@ -365,7 +365,7 @@ std::optional<String> WebSocketTask::receiveFrames(Function<void(WebCore::WebSoc
             callback(frame.opCode, frame.payload);
 
         if (!m_receiveBuffer.isEmpty())
-            skipReceivedBuffer(frameEnd - m_receiveBuffer.data());
+            skipReceivedBuffer(frameEnd - m_receiveBuffer.begin());
     }
 
     return std::nullopt;
@@ -441,7 +441,7 @@ bool WebSocketTask::sendFrame(WebCore::WebSocketFrame::OpCode opCode, std::span<
     frame.makeFrameData(frameData);
 
     auto buffer = makeUniqueArray<uint8_t>(frameData.size());
-    memcpy(buffer.get(), frameData.data(), frameData.size());
+    memcpySpan(unsafeMakeSpan(buffer.get(), frameData.size()), frameData.span());
 
     m_scheduler.send(m_streamID, WTFMove(buffer), frameData.size());
     return true;

@@ -88,8 +88,7 @@ void WebGeolocationManagerProxy::webProcessIsGoingAway(WebProcessProxy& proxy)
 
 std::optional<SharedPreferencesForWebProcess> WebGeolocationManagerProxy::sharedPreferencesForWebProcess(IPC::Connection& connection) const
 {
-    RefPtr process = WebProcessProxy::processForConnection(connection);
-    return process ? process->sharedPreferencesForWebProcess() : std::nullopt;
+    return WebProcessProxy::fromConnection(connection)->sharedPreferencesForWebProcess();
 }
 
 void WebGeolocationManagerProxy::refWebContextSupplement()
@@ -132,8 +131,7 @@ void WebGeolocationManagerProxy::resetPermissions()
 
 void WebGeolocationManagerProxy::startUpdating(IPC::Connection& connection, const WebCore::RegistrableDomain& registrableDomain, WebPageProxyIdentifier pageProxyID, const String& authorizationToken, bool enableHighAccuracy)
 {
-    if (RefPtr process = WebProcessProxy::processForConnection(connection))
-        startUpdatingWithProxy(*process, registrableDomain, pageProxyID, authorizationToken, enableHighAccuracy);
+    startUpdatingWithProxy(WebProcessProxy::fromConnection(connection), registrableDomain, pageProxyID, authorizationToken, enableHighAccuracy);
 }
 
 void WebGeolocationManagerProxy::startUpdatingWithProxy(WebProcessProxy& proxy, const WebCore::RegistrableDomain& registrableDomain, WebPageProxyIdentifier pageProxyID, const String& authorizationToken, bool enableHighAccuracy)
@@ -168,8 +166,7 @@ void WebGeolocationManagerProxy::startUpdatingWithProxy(WebProcessProxy& proxy, 
 
 void WebGeolocationManagerProxy::stopUpdating(IPC::Connection& connection, const WebCore::RegistrableDomain& registrableDomain)
 {
-    if (RefPtr process = WebProcessProxy::processForConnection(connection))
-        stopUpdatingWithProxy(*process, registrableDomain);
+    stopUpdatingWithProxy(WebProcessProxy::fromConnection(connection), registrableDomain);
 }
 
 void WebGeolocationManagerProxy::stopUpdatingWithProxy(WebProcessProxy& proxy, const WebCore::RegistrableDomain& registrableDomain)
@@ -199,8 +196,7 @@ void WebGeolocationManagerProxy::stopUpdatingWithProxy(WebProcessProxy& proxy, c
 
 void WebGeolocationManagerProxy::setEnableHighAccuracy(IPC::Connection& connection, const WebCore::RegistrableDomain& registrableDomain, bool enabled)
 {
-    if (RefPtr process = WebProcessProxy::processForConnection(connection))
-        setEnableHighAccuracyWithProxy(*process, registrableDomain, enabled);
+    setEnableHighAccuracyWithProxy(WebProcessProxy::fromConnection(connection), registrableDomain, enabled);
 }
 
 void WebGeolocationManagerProxy::setEnableHighAccuracyWithProxy(WebProcessProxy& proxy, const WebCore::RegistrableDomain& registrableDomain, bool enabled)

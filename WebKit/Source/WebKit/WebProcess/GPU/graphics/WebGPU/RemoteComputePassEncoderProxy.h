@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ public:
 
     virtual ~RemoteComputePassEncoderProxy();
 
-    RemoteGPUProxy& root() { return m_root; }
+    RemoteGPUProxy& root() const { return m_root; }
 
 private:
     friend class DowncastConvertToBackingContext;
@@ -72,10 +72,10 @@ private:
 
     void end() final;
 
-    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup&,
+    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup*,
         std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&&) final;
 
-    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup&,
+    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup*,
         std::span<const uint32_t> dynamicOffsetsArrayBuffer,
         WebCore::WebGPU::Size64 dynamicOffsetsDataStart,
         WebCore::WebGPU::Size32 dynamicOffsetsDataLength) final;
@@ -86,11 +86,9 @@ private:
 
     void setLabelInternal(const String&) final;
 
-    Ref<ConvertToBackingContext> protectedConvertToBackingContext() const { return m_convertToBackingContext; }
-
     WebGPUIdentifier m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
-    Ref<RemoteGPUProxy> m_root;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<RemoteGPUProxy> m_root;
 };
 
 } // namespace WebKit::WebGPU

@@ -28,6 +28,8 @@ NSString *const kPMLPMSourceSiri = @"Siri";
 NSString *const kPMLPMSourceLostMode = @"LostMode";
 NSString *const kPMLPMSourceSystemDisable = @"SystemDisable";
 NSString *const kPMLPMSourceWorkouts = @"Workouts";
+NSString *const kPMLPMSourceStandbyMode = @"StandbyMode";
+NSString *const kPMLPMSourceIBLM = @"IBLM";
 
 // Keys for param dictionary
 

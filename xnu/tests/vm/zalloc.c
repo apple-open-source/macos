@@ -46,9 +46,9 @@ T_DECL(zone_gc_stress_test, "stress test for zone_gc", T_META_TAG_VM_PREFERRED)
 
 #define ZLOG_ZONE "data.kalloc.128"
 
-T_DECL(zlog_smoke_test, "check that zlog functions at all",
+T_DECL(zlog_smoke_test, "check that zlog and zone tagging function at all",
     T_META_REQUIRES_SYSCTL_NE("kern.kasan.available", 1),
-    T_META_BOOTARGS_SET("zlog1=" ZLOG_ZONE), T_META_TAG_VM_PREFERRED)
+    T_META_BOOTARGS_SET("-zt zlog1=" ZLOG_ZONE), T_META_TAG_VM_PREFERRED)
 {
 	char *cmd[] = { "/usr/local/bin/zlog", "-l", "-z", ZLOG_ZONE, NULL };
 	dispatch_semaphore_t sema = dispatch_semaphore_create(0);

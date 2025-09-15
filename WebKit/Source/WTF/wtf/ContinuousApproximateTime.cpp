@@ -32,6 +32,11 @@
 
 namespace WTF {
 
+ContinuousApproximateTime ContinuousApproximateTime::fromWallTime(WallTime wallTime)
+{
+    return now() + (wallTime - WallTime::now());
+}
+
 WallTime ContinuousApproximateTime::approximateWallTime() const
 {
     if (isInfinity())

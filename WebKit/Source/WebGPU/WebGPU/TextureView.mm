@@ -54,7 +54,7 @@ TextureView::~TextureView() = default;
 
 void TextureView::setLabel(String&& label)
 {
-    m_texture.label = label;
+    m_texture.label = label.createNSString().get();
 }
 
 id<MTLTexture> TextureView::parentTexture() const
@@ -172,8 +172,10 @@ void TextureView::destroy()
 {
     m_texture = Ref { m_device }->placeholderTexture(format());
     if (!m_parentTexture->isCanvasBacking()) {
-        for (Ref commandEncoder : m_commandEncoders)
-            commandEncoder->makeSubmitInvalid();
+        for (auto commandEncoder : m_commandEncoders) {
+            if (RefPtr ptr = m_device->commandEncoderFromIdentifier(commandEncoder))
+                ptr->makeSubmitInvalid();
+        }
     }
 
     m_commandEncoders.clear();

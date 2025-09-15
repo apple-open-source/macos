@@ -449,7 +449,7 @@ ether_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
     protocol_family_t *protocol_family)
 {
 	struct ether_header * __single eh = (struct ether_header *)(void *)frame_header;
-	u_short  ether_type = eh->ether_type;
+	u_short  ether_type;
 	u_int16_t type;
 	u_int8_t *data;
 	u_int32_t i = 0;
@@ -458,6 +458,11 @@ ether_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 	struct en_desc  *ed = desc_blk ? desc_blk->block_ptr : NULL;
 	u_int32_t extProto1 = 0;
 	u_int32_t extProto2 = 0;
+
+	if (__improbable(eh == NULL)) {
+		return EINVAL;
+	}
+	ether_type = eh->ether_type;
 
 	if ((eh->ether_dhost[0] & 1) != 0) {
 		/* Check for broadcast */

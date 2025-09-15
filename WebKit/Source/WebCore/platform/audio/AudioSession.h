@@ -89,6 +89,8 @@ enum class AudioSessionSoundStageSize : uint8_t {
     Large,
 };
 
+enum class AudioSessionMayResume : bool { No, Yes };
+
 class AudioSession;
 class AudioSessionRoutingArbitrationClient;
 class AudioSessionInterruptionObserver;
@@ -152,7 +154,7 @@ public:
     virtual void handleMutedStateChange() { }
 
     virtual void beginInterruption();
-    enum class MayResume : bool { No, Yes };
+    using MayResume = WebCore::AudioSessionMayResume;
     virtual void endInterruption(MayResume);
 
     virtual void beginInterruptionForTesting() { beginInterruption(); }

@@ -32,7 +32,7 @@
 messages -> RemoteAudioSession {
     ConfigurationChanged(struct WebKit::RemoteAudioSessionConfiguration configuration)
     BeginInterruptionRemote()
-    EndInterruptionRemote(WebCore::AudioSession::MayResume flags)
+    EndInterruptionRemote(enum:bool WebCore::AudioSessionMayResume flags)
 }
 
 #endif

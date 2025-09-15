@@ -42,19 +42,19 @@
 - (NSString *)href
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->href();
+    return IMPL->href().createNSString().autorelease();
 }
 
 - (void)setHref:(NSString *)newHref
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setHref(newHref);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::hrefAttr, newHref);
 }
 
 - (NSString *)target
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::targetAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::targetAttr).createNSString().autorelease();
 }
 
 - (void)setTarget:(NSString *)newTarget

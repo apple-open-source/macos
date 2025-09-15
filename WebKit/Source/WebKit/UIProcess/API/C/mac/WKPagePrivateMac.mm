@@ -42,7 +42,7 @@
 
 @interface WKObservablePageState : NSObject <_WKObservablePageState> {
     RefPtr<WebKit::WebPageProxy> _page;
-    std::unique_ptr<WebKit::PageLoadStateObserver> _observer;
+    RefPtr<WebKit::PageLoadStateObserver> _observer;
 }
 
 @end
@@ -55,7 +55,7 @@
         return nil;
 
     _page = WTFMove(page);
-    _observer = makeUniqueWithoutRefCountedCheck<WebKit::PageLoadStateObserver>(self, @"URL");
+    _observer = WebKit::PageLoadStateObserver::create(self, @"URL");
     _page->pageLoadState().addObserver(*_observer);
 
     return self;
@@ -65,7 +65,7 @@
 {
     _observer->clearObject();
 
-    ensureOnMainRunLoop([page = WTFMove(_page), observer = WTFMove(_observer)] {
+    ensureOnMainRunLoop([page = WTFMove(_page), observer = std::exchange(_observer, nullptr)] {
         page->pageLoadState().removeObserver(*observer);
     });
 
@@ -79,7 +79,7 @@
 
 - (NSString *)title
 {
-    return _page->pageLoadState().title();
+    return _page->pageLoadState().title().createNSString().autorelease();
 }
 
 - (NSURL *)URL
@@ -94,7 +94,7 @@
 
 - (BOOL)_webProcessIsResponsive
 {
-    return _page->legacyMainFrameProcess().isResponsive();
+    return _page->protectedLegacyMainFrameProcess()->isResponsive();
 }
 
 - (double)estimatedProgress
@@ -130,9 +130,7 @@ _WKRemoteObjectRegistry *WKPageGetObjectRegistry(WKPageRef pageRef)
 
 bool WKPageIsURLKnownHSTSHost(WKPageRef page, WKURLRef url)
 {
-    WebKit::WebPageProxy* webPageProxy = WebKit::toImpl(page);
-
-    return webPageProxy->configuration().processPool().isURLKnownHSTSHost(WebKit::toImpl(url)->string());
+    return WebKit::toProtectedImpl(page)->configuration().processPool().isURLKnownHSTSHost(WebKit::toImpl(url)->string());
 }
 
 WKNavigation *WKPageLoadURLRequestReturningNavigation(WKPageRef pageRef, WKURLRequestRef urlRequestRef)
@@ -174,3 +172,18 @@ id <_WKFullscreenDelegate> WKPageGetFullscreenDelegate(WKPageRef page)
 #endif
 }
 
+NSDictionary *WKPageGetAccessibilityWebProcessDebugInfo(WKPageRef pageRef)
+{
+#if PLATFORM(MAC)
+    return WebKit::toImpl(pageRef)->getAccessibilityWebProcessDebugInfo();
+#else
+    return nil;
+#endif
+}
+
+void WKPageAccessibilityClearIsolatedTree(WKPageRef pageRef)
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    WebKit::toImpl(pageRef)->clearAccessibilityIsolatedTree();
+#endif
+}

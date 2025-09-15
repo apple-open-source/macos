@@ -67,6 +67,7 @@ SCALABLE_COUNTER_DEFINE(oslog_e_metadata_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_metadata_dropped_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_signpost_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_signpost_dropped_count);
+SCALABLE_COUNTER_DEFINE(oslog_e_replay_failure_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_query_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_query_error_count);
 SCALABLE_COUNTER_DEFINE(oslog_e_trace_mode_set_count);
@@ -96,8 +97,14 @@ os_log_replay_log(const oslogdarwin_logdata_s *ld, uint8_t *ld_data, size_t ld_d
 {
 	firehose_stream_t stream = (firehose_stream_t)ld->stream;
 	const size_t ld_size = oslogdarwin_logdata_data(ld, ld_data, ld_data_size);
-	assert3u(ld_size, <=, ld_data_size);
-	assert3u(ld->pubsize, <=, ld_size);
+	if (ld_size > ld_data_size || ld->pubsize > ld_size) {
+#if DEVELOPMENT || DEBUG
+		panic("ld_size:%lu was >: %lu or <=: %hu", ld_size, ld_data_size, ld->pubsize);
+#else
+		counter_inc(&oslog_e_replay_failure_count);
+		return;
+#endif // DEVELOPMENT || DEBUG
+	}
 
 	firehose_tracepoint_id_u ftid = {
 		.ftid_value = ld->ftid
@@ -106,8 +113,7 @@ os_log_replay_log(const oslogdarwin_logdata_s *ld, uint8_t *ld_data, size_t ld_d
 	switch (ftid.ftid._namespace) {
 	case firehose_tracepoint_namespace_metadata:
 		counter_inc(&oslog_e_metadata_count);
-		assert3u(stream, ==, firehose_stream_metadata);
-		if (!os_log_encoded_metadata(ftid, ld->stamp, ld_data, ld_size)) {
+		if (stream != firehose_stream_metadata || !os_log_encoded_metadata(ftid, ld->stamp, ld_data, ld_size)) {
 			counter_inc(&oslog_e_metadata_dropped_count);
 		}
 		break;

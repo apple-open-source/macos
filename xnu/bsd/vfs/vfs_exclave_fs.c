@@ -52,6 +52,7 @@ struct open_vnode {
 	vnode_t vp;
 	dev_t dev;
 	uint64_t file_id;
+	uint32_t fstag;
 	uint32_t open_count;
 #if (DEVELOPMENT || DEBUG)
 	uint32_t flags;
@@ -280,6 +281,35 @@ is_fs_writeable(uint32_t fs_tag)
 }
 
 /*
+ * Check if an ancestor of base_vp is a registered base dir.
+ */
+static bool
+is_parent_registered(vnode_t base_vp)
+{
+	vnode_t vp = base_vp->v_parent;
+
+	while (vp != NULLVP) {
+		int i;
+		registered_fs_tag_t *rft;
+		for (i = 0; i <= rft_hashmask; i++) {
+			registered_tags_head_t *head = registered_tags_hash + i;
+			LIST_FOREACH(rft, head, link) {
+				if (rft->vp == vp) {
+					printf("vfs_exclave_fs: vnode [%s] has an ancestor which is a registered base_dir [%s], fstag %d\n",
+					    base_vp->v_name ? base_vp->v_name : "no-name",
+					    vp->v_name ? vp->v_name : "no-name", rft->fstag);
+					return true;
+				}
+			}
+		}
+		vp = vp->v_parent;
+	}
+
+	return false;
+}
+
+
+/*
  * Set a base directory for the given fs tag.
  */
 static int
@@ -312,26 +342,10 @@ set_base_dir(uint32_t fs_tag, vnode_t vp, fsioc_graft_info_t *graft_info, bool i
 		goto out;
 	}
 
-#if !defined(XNU_TARGET_OS_OSX)
-	/*
-	 * make sure that a writable fs does not share a dev_t with
-	 * another non writable fs (and vice versa) since writable
-	 * vnodes are opened RW whereas non writable fs vnodes are
-	 * opened RO
-	 */
-	int i;
-	bool is_writable_fs_tag = is_fs_writeable(fs_tag);
-	for (i = 0; i <= rft_hashmask; i++) {
-		registered_tags_head_t *head = registered_tags_hash + i;
-		LIST_FOREACH(rft, head, link) {
-			if ((is_fs_writeable(rft->fstag) != is_writable_fs_tag) && rft->dev == dev) {
-				printf("tag %u has same device %u.%u as tag %u\n", fs_tag, major(dev), minor(dev), rft->fstag);
-				error = EBUSY;
-				goto out;
-			}
-		}
+	if (is_parent_registered(vp)) {
+		error = EBUSY;
+		goto out;
 	}
-#endif
 
 	rft = kalloc_type(registered_fs_tag_t, Z_WAITOK | Z_ZERO);
 	if (rft == NULL) {
@@ -503,12 +517,6 @@ vfs_exclave_fs_register(uint32_t fs_tag, vnode_t vp)
 		return ENXIO;
 	}
 
-#if !defined(XNU_TARGET_OS_OSX)
-	if (fs_tag == EFT_EXCLAVE_MAIN) {
-		return ENOTSUP;
-	}
-#endif
-
 	vnode_vfsname(vp, vfs_name);
 	if (strcmp(vfs_name, "apfs")) {
 		return ENOTSUP;
@@ -587,7 +595,6 @@ vfs_exclave_fs_register_path(uint32_t fs_tag, const char *base_path)
 static void
 release_open_vnodes(registered_fs_tag_t *base_dir)
 {
-	dev_t dev;
 	int i;
 
 	lck_mtx_lock(&open_vnodes_mtx);
@@ -596,27 +603,11 @@ release_open_vnodes(registered_fs_tag_t *base_dir)
 		goto done;
 	}
 
-	dev = base_dir->dev;
-
-	if (num_tags_registered > 1) {
-		/* skip release if another base dir has the same device */
-		for (i = 0; i <= rft_hashmask; i++) {
-			registered_tags_head_t *rfthead = registered_tags_hash + i;
-			registered_fs_tag_t *rft;
-
-			LIST_FOREACH(rft, rfthead, link) {
-				if ((rft != base_dir) && (rft->dev == dev)) {
-					goto done;
-				}
-			}
-		}
-	}
-
 	for (i = 0; i < open_vnodes_hashmask + 1; i++) {
 		struct open_vnode *entry, *temp_entry;
 
 		LIST_FOREACH_SAFE(entry, &open_vnodes_hashtbl[i], chain, temp_entry) {
-			if (entry->dev != dev) {
+			if (entry->fstag != base_dir->fstag) {
 				continue;
 			}
 			while (entry->open_count) {
@@ -934,6 +925,7 @@ increment_vnode_open_count(vnode_t vp, registered_fs_tag_t *base_dir, uint64_t f
 		entry->vp = vp;
 		entry->dev = base_dir->dev;
 		entry->file_id = file_id;
+		entry->fstag = base_dir->fstag;
 		LIST_INSERT_HEAD(list, entry, chain);
 		num_open_vnodes++;
 	}

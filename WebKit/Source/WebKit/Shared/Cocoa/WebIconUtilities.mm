@@ -43,6 +43,8 @@
 #import <WebCore/PlatformImage.h>
 #import <wtf/MathExtras.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/Vector.h>
+#import <wtf/text/WTFString.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -64,7 +66,7 @@ static CGRect squareCropRectForSize(CGSize size)
     return cropRect;
 }
 
-static PlatformImagePtr squareImage(CGImageRef image)
+static WebCore::PlatformImagePtr squareImage(CGImageRef image)
 {
     if (!image)
         return nil;
@@ -96,11 +98,11 @@ static RetainPtr<CocoaImage> thumbnailSizedImageForImage(CGImageRef image)
 
     auto scaledImage = adoptCF(CGBitmapContextCreateImage(context.get()));
 
-    auto thumbnailImage = scaledImage.get() ?: squaredImage.get();
+    RetainPtr thumbnailImage = scaledImage.get() ?: squaredImage.get();
 #if USE(APPKIT)
-    return adoptNS([[NSImage alloc] initWithCGImage:thumbnailImage size:NSZeroSize]);
+    return adoptNS([[NSImage alloc] initWithCGImage:thumbnailImage.get() size:NSZeroSize]);
 #else
-    return adoptNS([[UIImage alloc] initWithCGImage:thumbnailImage]);
+    return adoptNS([[UIImage alloc] initWithCGImage:thumbnailImage.get()]);
 #endif
 }
 
@@ -172,27 +174,27 @@ RetainPtr<CocoaImage> iconForFiles(const Vector<String>& filenames)
 
     // FIXME: We should generate an icon showing multiple files here, if applicable. Currently, if there are multiple
     // files, we only use the first URL to generate an icon.
-    NSURL *file = [NSURL fileURLWithPath:filenames[0] isDirectory:NO];
+    RetainPtr file = adoptNS([[NSURL alloc] initFileURLWithPath:filenames[0].createNSString().get() isDirectory:NO]);
     if (!file)
         return nil;
 
     ASSERT_ARG(file, [file isFileURL]);
 
-    NSString *fileExtension = file.pathExtension;
-    if (!fileExtension.length)
+    RetainPtr<NSString> fileExtension = file.get().pathExtension;
+    if (!fileExtension.get().length)
         return nil;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    RetainPtr<CFStringRef> fileUTI = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (CFStringRef)fileExtension, 0));
+    RetainPtr<CFStringRef> fileUTI = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (CFStringRef)fileExtension.get(), 0));
 
     if (UTTypeConformsTo(fileUTI.get(), kUTTypeImage))
-        return iconForImageFile(file);
+        return iconForImageFile(file.get());
 
     if (UTTypeConformsTo(fileUTI.get(), kUTTypeMovie))
-        return iconForVideoFile(file);
+        return iconForVideoFile(file.get());
 ALLOW_DEPRECATED_DECLARATIONS_END
 
-    return fallbackIconForFile(file);
+    return fallbackIconForFile(file.get());
 }
 
 }

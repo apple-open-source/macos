@@ -36,6 +36,7 @@
 #include "ImageBuffer.h"
 #include "PixelBuffer.h"
 #include "Timer.h"
+#include <numbers>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Lock.h>
 #include <wtf/MathExtras.h>
@@ -67,7 +68,7 @@ class ScratchBuffer final : public CanMakeThreadSafeCheckedPtr<ScratchBuffer> {
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScratchBuffer);
 public:
     ScratchBuffer()
-        : m_purgeTimer(RunLoop::main(), this, &ScratchBuffer::purgeTimerFired)
+        : m_purgeTimer(RunLoop::mainSingleton(), "ScratchBuffer::PurgeTimer"_s, this, &ScratchBuffer::purgeTimerFired)
     {
     }
 
@@ -80,8 +81,8 @@ public:
         });
 
         // We do not need to recreate the buffer if the current buffer is large enough.
-        if (m_imageBuffer && m_imageBuffer->truncatedLogicalSize().width() >= size.width() && m_imageBuffer->truncatedLogicalSize().height() >= size.height())
-            return m_imageBuffer;
+        if (RefPtr imageBuffer = m_imageBuffer; imageBuffer && imageBuffer->truncatedLogicalSize().width() >= size.width() && imageBuffer->truncatedLogicalSize().height() >= size.height())
+            return imageBuffer;
 
         // Round to the nearest 32 pixels so we do not grow the buffer for similar sized requests.
         IntSize roundedSize(roundUpToMultipleOf32(size.width()), roundUpToMultipleOf32(size.height()));
@@ -255,7 +256,7 @@ static void calculateLobes(std::array<std::array<int, 2>, 3>& lobes, float blurR
         // However, shadows rendered according to that spec will extend a little further than m_blurRadius,
         // so we apply a fudge factor to bring the radius down slightly.
         float stdDev = blurRadius / 2;
-        const float gaussianKernelFactor = 3 / 4.f * sqrtf(2 * piFloat);
+        const float gaussianKernelFactor = 3 / 4.f * sqrtf(2 * std::numbers::pi_v<float>);
         const float fudgeFactor = 0.88f;
         diameter = std::max(2, static_cast<int>(floorf(stdDev * gaussianKernelFactor * fudgeFactor + 0.5f)));
     }

@@ -34,6 +34,7 @@
 #include "InspectorInstrumentation.h"
 #include "InspectorPageAgent.h"
 #include "InspectorWebAgentBase.h"
+#include "NetworkResourcesData.h"
 #include "WebSocket.h"
 #include <JavaScriptCore/ContentSearchUtilities.h>
 #include <JavaScriptCore/InspectorBackendDispatchers.h>
@@ -80,7 +81,7 @@ public:
     static bool cachedResourceContent(CachedResource&, String* result, bool* base64Encoded);
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) final;
+    void didCreateFrontendAndBackend() final;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) final;
 
     // NetworkBackendDispatcherHandler
@@ -139,7 +140,7 @@ public:
     void searchInRequest(Inspector::Protocol::ErrorString&, const Inspector::Protocol::Network::RequestId&, const String& query, bool caseSensitive, bool isRegex, RefPtr<JSON::ArrayOf<Inspector::Protocol::GenericTypes::SearchMatch>>&);
 
 protected:
-    InspectorNetworkAgent(WebAgentContext&);
+    InspectorNetworkAgent(WebAgentContext&, const NetworkResourcesData::Settings&);
 
     virtual Inspector::Protocol::Network::LoaderId loaderIdentifier(DocumentLoader*) = 0;
     virtual Inspector::Protocol::Network::FrameId frameIdentifier(DocumentLoader*) = 0;
@@ -232,11 +233,11 @@ private:
         bool m_responded { false };
     };
 
-    std::unique_ptr<Inspector::NetworkFrontendDispatcher> m_frontendDispatcher;
-    RefPtr<Inspector::NetworkBackendDispatcher> m_backendDispatcher;
+    const UniqueRef<Inspector::NetworkFrontendDispatcher> m_frontendDispatcher;
+    const Ref<Inspector::NetworkBackendDispatcher> m_backendDispatcher;
     Inspector::InjectedScriptManager& m_injectedScriptManager;
 
-    std::unique_ptr<NetworkResourcesData> m_resourcesData;
+    const UniqueRef<NetworkResourcesData> m_resourcesData;
 
     MemoryCompactRobinHoodHashMap<String, String> m_extraRequestHeaders;
     HashSet<ResourceLoaderIdentifier> m_hiddenRequestIdentifiers;

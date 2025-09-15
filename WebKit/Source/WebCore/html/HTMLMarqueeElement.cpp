@@ -176,7 +176,7 @@ void HTMLMarqueeElement::setScrollDelay(unsigned scrollDelay)
     
 int HTMLMarqueeElement::loop() const
 {
-    int loopValue = getIntegralAttribute(loopAttr);
+    int loopValue = integralAttribute(loopAttr);
     return loopValue > 0 ? loopValue : -1;
 }
     

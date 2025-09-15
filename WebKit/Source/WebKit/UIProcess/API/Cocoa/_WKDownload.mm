@@ -89,14 +89,14 @@ IGNORE_WARNINGS_END
 
 - (WKWebView *)originatingWebView
 {
-    auto page = _download->_download->originatingPage();
+    RefPtr page = _download->_download->originatingPage();
     return page ? page->cocoaView().autorelease() : nil;
 }
 
 -(NSArray<NSURL *> *)redirectChain
 {
-    return createNSArray(_download->_download->redirectChain(), [] (auto& url) -> NSURL * {
-        return url;
+    return createNSArray(_download->_download->redirectChain(), [] (auto& url) {
+        return url.createNSURL();
     }).autorelease();
 }
 

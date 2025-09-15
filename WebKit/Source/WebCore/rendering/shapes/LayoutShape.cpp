@@ -137,10 +137,10 @@ Ref<const LayoutShape> LayoutShape::createShape(const Style::BasicShape& basicSh
 
             auto boxSize = FloatSize(boxWidth, boxHeight);
             auto isBlockLeftToRight = writingMode.isBlockLeftToRight();
-            auto topLeftRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode || isBlockLeftToRight ? inset->radii.topLeft : inset->radii.topRight, boxSize), writingMode);
-            auto topRightRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.topRight : isBlockLeftToRight ? inset->radii.bottomLeft : inset->radii.bottomRight, boxSize), writingMode);
-            auto bottomLeftRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.bottomLeft : isBlockLeftToRight ? inset->radii.topRight : inset->radii.topLeft, boxSize), writingMode);
-            auto bottomRightRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.bottomRight : isBlockLeftToRight ? inset->radii.bottomRight : inset->radii.bottomLeft, boxSize), writingMode);
+            auto topLeftRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode || isBlockLeftToRight ? inset->radii.topLeft() : inset->radii.topRight(), boxSize), writingMode);
+            auto topRightRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.topRight() : isBlockLeftToRight ? inset->radii.bottomLeft() : inset->radii.bottomRight(), boxSize), writingMode);
+            auto bottomLeftRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.bottomLeft() : isBlockLeftToRight ? inset->radii.topRight() : inset->radii.topLeft(), boxSize), writingMode);
+            auto bottomRightRadius = physicalSizeToLogical(Style::evaluate(horizontalWritingMode ? inset->radii.bottomRight() : isBlockLeftToRight ? inset->radii.bottomRight() : inset->radii.bottomLeft(), boxSize), writingMode);
             auto cornerRadii = FloatRoundedRect::Radii(topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
             if (writingMode.isBidiRTL())
                 cornerRadii = { cornerRadii.topRight(), cornerRadii.topLeft(), cornerRadii.bottomRight(), cornerRadii.bottomLeft() };
@@ -232,7 +232,7 @@ Ref<const LayoutShape> LayoutShape::createRasterShape(Image* image, float thresh
     return createShape();
 }
 
-Ref<const LayoutShape> LayoutShape::createBoxShape(const RoundedRect& roundedRect, WritingMode writingMode, float margin)
+Ref<const LayoutShape> LayoutShape::createBoxShape(const LayoutRoundedRect& roundedRect, WritingMode writingMode, float margin)
 {
     ASSERT(roundedRect.rect().width() >= 0 && roundedRect.rect().height() >= 0);
 

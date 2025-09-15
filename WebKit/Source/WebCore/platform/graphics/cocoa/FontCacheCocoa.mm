@@ -50,8 +50,8 @@ CFStringRef contentSizeCategory()
 {
     if (!contentSizeCategoryStorage().isNull()) {
         // The contract of this function is that it returns a +0 autoreleased object (just like [[UIApplication sharedApplication] preferredContentSizeCategory] does).
-        // String's operator NSString returns a +0 autoreleased object, so we do that here, and then cast it to CFStringRef to return it.
-        return bridge_cast(static_cast<NSString*>(contentSizeCategoryStorage()));
+        // createNSString().autorelease() returns a +0 autoreleased object, so we do that here, and then cast it to CFStringRef to return it.
+        return bridge_cast(contentSizeCategoryStorage().createNSString().autorelease());
     }
 #if PLATFORM(IOS_FAMILY)
     return static_cast<CFStringRef>([[PAL::getUIApplicationClass() sharedApplication] preferredContentSizeCategory]);

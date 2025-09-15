@@ -130,6 +130,8 @@ void
 tcp_newreno_cwnd_init_or_reset(struct tcpcb *tp)
 {
 	tcp_cc_cwnd_init_or_reset(tp);
+
+	tcp_update_pacer_state(tp);
 }
 
 
@@ -152,6 +154,8 @@ tcp_newreno_congestion_avd(struct tcpcb *tp, struct tcphdr *th)
 			tp->snd_cwnd += tp->t_maxseg;
 		}
 	}
+
+	tcp_update_pacer_state(tp);
 }
 /* Function to process an ack.
  */
@@ -199,6 +203,8 @@ tcp_newreno_ack_rcvd(struct tcpcb *tp, struct tcphdr *th)
 		incr = ulmin(acked, abc_lim);
 	}
 	tp->snd_cwnd = min(cw + incr, TCP_MAXWIN << tp->snd_scale);
+
+	tcp_update_pacer_state(tp);
 }
 
 void
@@ -245,6 +251,8 @@ tcp_newreno_post_fr(struct tcpcb *tp, struct tcphdr *th)
 		tp->snd_cwnd = tp->snd_ssthresh;
 	}
 	tp->t_bytes_acked = 0;
+
+	tcp_update_pacer_state(tp);
 }
 
 /* Function to change the congestion window when the retransmit
@@ -286,6 +294,8 @@ tcp_newreno_after_timeout(struct tcpcb *tp)
 
 		tp->snd_cwnd = tp->t_maxseg;
 		tcp_cc_resize_sndbuf(tp);
+
+		tcp_update_pacer_state(tp);
 	}
 }
 

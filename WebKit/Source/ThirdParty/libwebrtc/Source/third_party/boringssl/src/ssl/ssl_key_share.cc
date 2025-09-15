@@ -1,16 +1,16 @@
-/* Copyright (c) 2015, Google Inc.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2015 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <openssl/ssl.h>
 
@@ -33,8 +33,8 @@
 #include <openssl/rand.h>
 #include <openssl/span.h>
 
-#include "internal.h"
 #include "../crypto/internal.h"
+#include "internal.h"
 
 BSSL_NAMESPACE_BEGIN
 
@@ -282,7 +282,7 @@ class X25519Kyber768KeyShare : public SSLKeyShare {
   KYBER_private_key kyber_private_key_;
 };
 
-// draft-kwiatkowski-tls-ecdhe-mlkem-01
+// draft-ietf-tls-ecdhe-mlkem-00
 class X25519MLKEM768KeyShare : public SSLKeyShare {
  public:
   X25519MLKEM768KeyShare() {}
@@ -376,7 +376,6 @@ class X25519MLKEM768KeyShare : public SSLKeyShare {
 };
 
 constexpr NamedGroup kNamedGroups[] = {
-    {NID_secp224r1, SSL_GROUP_SECP224R1, "P-224", "secp224r1"},
     {NID_X9_62_prime256v1, SSL_GROUP_SECP256R1, "P-256", "prime256v1"},
     {NID_secp384r1, SSL_GROUP_SECP384R1, "P-384", "secp384r1"},
     {NID_secp521r1, SSL_GROUP_SECP521R1, "P-521", "secp521r1"},
@@ -388,14 +387,10 @@ constexpr NamedGroup kNamedGroups[] = {
 
 }  // namespace
 
-Span<const NamedGroup> NamedGroups() {
-  return MakeConstSpan(kNamedGroups, OPENSSL_ARRAY_SIZE(kNamedGroups));
-}
+Span<const NamedGroup> NamedGroups() { return kNamedGroups; }
 
 UniquePtr<SSLKeyShare> SSLKeyShare::Create(uint16_t group_id) {
   switch (group_id) {
-    case SSL_GROUP_SECP224R1:
-      return MakeUnique<ECKeyShare>(EC_group_p224(), SSL_GROUP_SECP224R1);
     case SSL_GROUP_SECP256R1:
       return MakeUnique<ECKeyShare>(EC_group_p256(), SSL_GROUP_SECP256R1);
     case SSL_GROUP_SECP384R1:
@@ -423,9 +418,10 @@ bool ssl_nid_to_group_id(uint16_t *out_group_id, int nid) {
   return false;
 }
 
-bool ssl_name_to_group_id(uint16_t *out_group_id, const char *name, size_t len) {
+bool ssl_name_to_group_id(uint16_t *out_group_id, const char *name,
+                          size_t len) {
   for (const auto &group : kNamedGroups) {
-    if (len == strlen(group.name) &&
+    if (len == strlen(group.name) &&  //
         !strncmp(group.name, name, len)) {
       *out_group_id = group.group_id;
       return true;
@@ -452,7 +448,7 @@ BSSL_NAMESPACE_END
 
 using namespace bssl;
 
-const char* SSL_get_group_name(uint16_t group_id) {
+const char *SSL_get_group_name(uint16_t group_id) {
   for (const auto &group : kNamedGroups) {
     if (group.group_id == group_id) {
       return group.name;
@@ -463,5 +459,5 @@ const char* SSL_get_group_name(uint16_t group_id) {
 
 size_t SSL_get_all_group_names(const char **out, size_t max_out) {
   return GetAllNames(out, max_out, Span<const char *>(), &NamedGroup::name,
-                     MakeConstSpan(kNamedGroups));
+                     Span(kNamedGroups));
 }

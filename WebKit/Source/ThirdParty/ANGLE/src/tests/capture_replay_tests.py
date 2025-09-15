@@ -50,7 +50,7 @@ if PY_UTILS not in sys.path:
 import angle_test_util
 
 PIPE_STDOUT = True
-DEFAULT_OUT_DIR = "out/CaptureReplayTest"  # relative to angle folder
+DEFAULT_OUT_DIR = "out_CaptureReplayTest"  # relative to angle folder
 DEFAULT_FILTER = "*/ES2_Vulkan_SwiftShader"
 DEFAULT_TEST_SUITE = "angle_end2end_tests"
 REPLAY_SAMPLE_FOLDER = "src/tests/capture_replay_tests"  # relative to angle folder
@@ -97,7 +97,7 @@ def winext(name, ext):
     return ("%s.%s" % (name, ext)) if sys.platform == "win32" else name
 
 
-GN_PATH = os.path.join('third_party', 'depot_tools', winext('gn', 'bat'))
+GN_PATH = os.path.join('third_party', 'depot_tools', 'gn.py')
 AUTONINJA_PATH = os.path.join('third_party', 'depot_tools', 'autoninja.py')
 
 
@@ -105,7 +105,9 @@ def GetGnArgsStr(args, extra_gn_args=[]):
     gn_args = [('angle_with_capture_by_default', 'true'),
                ('angle_enable_vulkan_api_dump_layer', 'false'),
                ('angle_enable_wgpu', 'false')] + extra_gn_args
-    if args.use_reclient:
+    if args.use_siso:
+        gn_args.append(('use_siso', 'true'))
+    if args.use_remoteexec:
         gn_args.append(('use_remoteexec', 'true'))
     if not args.debug:
         gn_args.append(('is_debug', 'false'))
@@ -689,7 +691,15 @@ def main(args):
 
     logging.info('Building capture tests')
 
-    subprocess.check_call([GN_PATH, 'gen', '--args=%s' % GetGnArgsStr(args), capture_build_dir])
+    if args.use_siso:
+        for build_dir in [capture_build_dir, replay_build_dir]:
+            if os.path.exists(os.path.join(build_dir, '.ninja_deps')):
+                logging.info('Removing %s to switch from Ninja to Siso', build_dir)
+                shutil.rmtree(build_dir)
+
+    subprocess.check_call(
+        [sys.executable, GN_PATH, 'gen',
+         '--args=%s' % GetGnArgsStr(args), capture_build_dir])
     subprocess.check_call(
         [sys.executable, AUTONINJA_PATH, '-C', capture_build_dir, args.test_suite])
 
@@ -763,9 +773,10 @@ def main(args):
         extra_gn_args = [('angle_build_capture_replay_tests', 'true'),
                          ('angle_capture_replay_test_trace_dir', '"%s"' % trace_dir),
                          ('angle_capture_replay_composite_file_id', str(composite_file_id))]
-        subprocess.check_call(
-            [GN_PATH, 'gen',
-             '--args=%s' % GetGnArgsStr(args, extra_gn_args), replay_build_dir])
+        subprocess.check_call([
+            sys.executable, GN_PATH, 'gen',
+            '--args=%s' % GetGnArgsStr(args, extra_gn_args), replay_build_dir
+        ])
         subprocess.check_call(
             [sys.executable, AUTONINJA_PATH, '-C', replay_build_dir, REPLAY_BINARY])
 
@@ -822,10 +833,12 @@ if __name__ == '__main__':
         action='store_true',
         help='Whether to keep the temp files and folders. Off by default')
     parser.add_argument(
-        '--use-reclient',
+        '--use-remoteexec',
         default=False,
         action='store_true',
         help='Set use_remoteexec=true in args.gn.')
+    parser.add_argument(
+        '--use-siso', default=False, action='store_true', help='Set use_siso=true in args.gn.')
     parser.add_argument(
         '--result-file',
         default=DEFAULT_RESULT_FILE,

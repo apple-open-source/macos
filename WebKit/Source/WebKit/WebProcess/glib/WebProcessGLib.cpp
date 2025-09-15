@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2011 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -198,6 +198,8 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     }
 #endif
 
+    m_availableInputDevices = parameters.availableInputDevices;
+
 #if USE(GSTREAMER)
     WebCore::setGStreamerOptionsFromUIProcess(WTFMove(parameters.gstreamerOptions));
 #endif
@@ -295,7 +297,21 @@ void WebProcess::setScreenProperties(const WebCore::ScreenProperties& properties
     for (auto& page : m_pageMap.values())
         page->screenPropertiesDidChange();
 }
-#endif
+
+std::optional<AvailableInputDevices> WebProcess::primaryPointingDevice() const
+{
+    if (m_availableInputDevices.contains(AvailableInputDevices::Mouse))
+        return AvailableInputDevices::Mouse;
+    if (m_availableInputDevices.contains(AvailableInputDevices::Touchscreen))
+        return AvailableInputDevices::Touchscreen;
+    return std::nullopt;
+}
+
+void WebProcess::setAvailableInputDevices(OptionSet<AvailableInputDevices> availableInputDevices)
+{
+    m_availableInputDevices = availableInputDevices;
+}
+#endif // PLATFORM(GTK) || PLATFORM(WPE)
 
 } // namespace WebKit
 

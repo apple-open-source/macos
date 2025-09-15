@@ -27,6 +27,7 @@
 #include "AutofillElements.h"
 
 #include "FocusController.h"
+#include "Logging.h"
 #include "Page.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -47,7 +48,10 @@ static inline RefPtr<HTMLInputElement> nextAutofillableElement(Node* startNode, 
         return nullptr;
 
     do {
-        nextElement = focusController.nextFocusableElement(*nextElement.get());
+        auto result = focusController.nextFocusableElement(*nextElement.get());
+        if (!result.element && result.continuedSearchInRemoteFrame == ContinuedSearchInRemoteFrame::Yes)
+            LOG(SiteIsolation, "Crossing site isolation process barrier searching for `nextAutofillableElement` is not yet supported");
+        nextElement = result.element;
     } while (nextElement && !isAutofillableElement(*nextElement.get()));
 
     if (!nextElement)
@@ -63,7 +67,10 @@ static inline RefPtr<HTMLInputElement> previousAutofillableElement(Node* startNo
         return nullptr;
 
     do {
-        previousElement = focusController.previousFocusableElement(*previousElement.get());
+        auto result = focusController.previousFocusableElement(*previousElement.get());
+        if (!result.element && result.continuedSearchInRemoteFrame == ContinuedSearchInRemoteFrame::Yes)
+            LOG(SiteIsolation, "Crossing site isolation process barrier searching for `previousAutofillableElement` is not yet supported");
+        previousElement = result.element;
     } while (previousElement && !isAutofillableElement(*previousElement.get()));
 
     if (!previousElement)
@@ -89,7 +96,7 @@ std::optional<AutofillElements> AutofillElements::computeAutofillElements(Ref<HT
         auto nextElement = nextAutofillableElement(start.ptr(), focusController);
 
         bool previousFieldIsTextField = previousElement && !previousElement->isPasswordField();
-        bool hasSecondPasswordFieldToFill = nextElement && nextElement->isPasswordField() && nextElement->value().isEmpty();
+        bool hasSecondPasswordFieldToFill = nextElement && nextElement->isPasswordField() && nextElement->value()->isEmpty();
 
         // Always allow AutoFill in a password field, even if we fill information only into it.
         return {{ previousFieldIsTextField ? WTFMove(previousElement) : nullptr, WTFMove(start), hasSecondPasswordFieldToFill ? WTFMove(nextElement) : nullptr }};
@@ -98,7 +105,7 @@ std::optional<AutofillElements> AutofillElements::computeAutofillElements(Ref<HT
         if (nextElement && is<HTMLInputElement>(*nextElement)) {
             if (nextElement->isPasswordField()) {
                 auto elementAfterNextElement = nextAutofillableElement(nextElement.get(), focusController);
-                bool hasSecondPasswordFieldToFill = elementAfterNextElement && elementAfterNextElement->isPasswordField() && elementAfterNextElement->value().isEmpty();
+                bool hasSecondPasswordFieldToFill = elementAfterNextElement && elementAfterNextElement->isPasswordField() && elementAfterNextElement->value()->isEmpty();
 
                 return {{ WTFMove(start), WTFMove(nextElement), hasSecondPasswordFieldToFill ? WTFMove(elementAfterNextElement) : nullptr }};
             }

@@ -2712,17 +2712,19 @@ mptcpstats_update(struct mptcp_itf_stats *stats __counted_by(stats_count), uint1
 	if (index != -1) {
 		struct inpcb *inp = sotoinpcb(mpts->mpts_socket);
 
-		stats[index].mpis_txbytes += inp->inp_stat->txbytes;
-		stats[index].mpis_rxbytes += inp->inp_stat->rxbytes;
+		stats[index].mpis_txbytes += inp->inp_mstat.ms_total.ts_txbytes;
+		stats[index].mpis_rxbytes += inp->inp_mstat.ms_total.ts_rxbytes;
 
-		stats[index].mpis_wifi_txbytes += inp->inp_wstat->txbytes;
-		stats[index].mpis_wifi_rxbytes += inp->inp_wstat->rxbytes;
+		stats[index].mpis_wifi_txbytes += inp->inp_mstat.ms_wifi_infra.ts_txbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_txbytes;
+		stats[index].mpis_wifi_rxbytes += inp->inp_mstat.ms_wifi_infra.ts_rxbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_rxbytes;
 
-		stats[index].mpis_wired_txbytes += inp->inp_Wstat->txbytes;
-		stats[index].mpis_wired_rxbytes += inp->inp_Wstat->rxbytes;
+		stats[index].mpis_wired_txbytes += inp->inp_mstat.ms_wired.ts_txbytes;
+		stats[index].mpis_wired_rxbytes += inp->inp_mstat.ms_wired.ts_rxbytes;
 
-		stats[index].mpis_cell_txbytes += inp->inp_cstat->txbytes;
-		stats[index].mpis_cell_rxbytes += inp->inp_cstat->rxbytes;
+		stats[index].mpis_cell_txbytes += inp->inp_mstat.ms_cellular.ts_txbytes;
+		stats[index].mpis_cell_rxbytes += inp->inp_mstat.ms_cellular.ts_rxbytes;
 	}
 }
 
@@ -2747,8 +2749,8 @@ mptcp_subflow_del(struct mptses *mpte, struct mptsub *mpts)
 
 	mptcp_unset_cellicon(mpte, mpts, 1);
 
-	mpte->mpte_init_rxbytes = sotoinpcb(so)->inp_stat->rxbytes;
-	mpte->mpte_init_txbytes = sotoinpcb(so)->inp_stat->txbytes;
+	mpte->mpte_init_rxbytes = sotoinpcb(so)->inp_mstat.ms_total.ts_rxbytes;
+	mpte->mpte_init_txbytes = sotoinpcb(so)->inp_mstat.ms_total.ts_txbytes;
 
 	TAILQ_REMOVE(&mpte->mpte_subflows, mpts, mpts_entry);
 	mpte->mpte_numflows--;
@@ -4345,7 +4347,7 @@ mptcp_subflow_mustrst_ev(struct mptses *mpte, struct mptsub *mpts,
 
 	if (tp->t_state != TCPS_CLOSED) {
 		mbuf_ref_t m;
-		struct tcptemp *t_template = tcp_maketemplate(tp, &m);
+		struct tcptemp *t_template = tcp_maketemplate(tp, &m, NULL, NULL);
 
 		if (t_template) {
 			struct tcp_respond_args tra;
@@ -4360,7 +4362,7 @@ mptcp_subflow_mustrst_ev(struct mptses *mpte, struct mptsub *mpts,
 
 			tcp_respond(tp, t_template->tt_ipgen, sizeof(t_template->tt_ipgen),
 			    &t_template->tt_t, (struct mbuf *)NULL,
-			    tp->rcv_nxt, tp->snd_una, TH_RST, &tra);
+			    tp->rcv_nxt, tp->snd_una, 0, TH_RST, NULL, 0, 0, 0, &tra, false);
 			(void) m_free(m);
 		}
 	}
@@ -5631,11 +5633,11 @@ mptcp_insert_rmap(struct tcpcb *tp, struct mbuf *m, struct tcphdr *th)
 	VERIFY(!(m->m_pkthdr.pkt_flags & PKTF_MPTCP));
 
 	if (tp->t_mpflags & TMPF_EMBED_DSN) {
-		m->m_pkthdr.mp_dsn = tp->t_rcv_map.mpt_dsn;
-		m->m_pkthdr.mp_rseq = tp->t_rcv_map.mpt_sseq;
-		m->m_pkthdr.mp_rlen = tp->t_rcv_map.mpt_len;
-		m->m_pkthdr.mp_csum = tp->t_rcv_map.mpt_csum;
-		if (tp->t_rcv_map.mpt_dfin) {
+		m->m_pkthdr.mp_dsn = tp->t_mpsub->mpts_rcv_map.mpt_dsn;
+		m->m_pkthdr.mp_rseq = tp->t_mpsub->mpts_rcv_map.mpt_sseq;
+		m->m_pkthdr.mp_rlen = tp->t_mpsub->mpts_rcv_map.mpt_len;
+		m->m_pkthdr.mp_csum = tp->t_mpsub->mpts_rcv_map.mpt_csum;
+		if (tp->t_mpsub->mpts_rcv_map.mpt_dfin) {
 			m->m_pkthdr.pkt_flags |= PKTF_MPTCP_DFIN;
 		}
 
@@ -6160,7 +6162,6 @@ mptcp_pcblist SYSCTL_HANDLER_ARGS
 		mptcpci.mptcpci_lidsn = mp_tp->mpt_local_idsn;
 		mptcpci.mptcpci_sndwnd = mp_tp->mpt_sndwnd;
 		mptcpci.mptcpci_rcvnxt = mp_tp->mpt_rcvnxt;
-		mptcpci.mptcpci_rcvatmark = mp_tp->mpt_rcvnxt;
 		mptcpci.mptcpci_ridsn = mp_tp->mpt_remote_idsn;
 		mptcpci.mptcpci_rcvwnd = mp_tp->mpt_rcvwnd;
 
@@ -6676,14 +6677,15 @@ symptoms_is_wifi_lossy(void)
 int
 mptcp_freeq(struct mptcb *mp_tp)
 {
+	struct protosw *proto = mptetoso(mp_tp->mpt_mpte)->so_proto;
 	struct tseg_qent *q;
-	int rv = 0;
 	int count = 0;
+	int rv = 0;
 
 	while ((q = LIST_FIRST(&mp_tp->mpt_segq)) != NULL) {
 		LIST_REMOVE(q, tqe_q);
 		m_freem(q->tqe_m);
-		tcp_reass_qent_free(q);
+		tcp_reass_qent_free(proto, q);
 		count++;
 		rv = 1;
 	}
@@ -6741,7 +6743,8 @@ mptcp_set_cellicon(struct mptses *mpte, struct mptsub *mpts)
 	/* Remember the last time we set the cellicon. Needed for debouncing */
 	mpte->mpte_last_cellicon_set = tcp_now;
 
-	tp->t_timer[TCPT_CELLICON] = OFFSET_FROM_START(tp, MPTCP_CELLICON_TOGGLE_RATE);
+	tp->t_timer[TCPT_CELLICON] = tcp_offset_from_start(tp,
+	    MPTCP_CELLICON_TOGGLE_RATE);
 	tcp_sched_timers(tp);
 
 	if (mpts->mpts_flags & MPTSF_CELLICON_SET &&
@@ -6927,10 +6930,9 @@ mptcp_init(struct protosw *pp, struct domain *dp)
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
 	/* do this only once */
-	if (mptcp_initialized) {
+	if (!os_atomic_cmpxchg(&mptcp_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	mptcp_initialized = 1;
 
 	mptcp_advisory.sa_wifi_status = SYMPTOMS_ADVISORY_WIFI_OK;
 

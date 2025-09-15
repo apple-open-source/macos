@@ -241,8 +241,20 @@ extern z_const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
    void ZLIB_INTERNAL zcfree  OF((voidpf opaque, voidpf ptr));
 #endif
 
+#ifndef Z_ALLOC_WRAPPER
+#  define Z_ALLOC_WRAPPER 1
+#endif
+
+#if Z_ALLOC_WRAPPER
 #define ZALLOC(strm, items, size) \
            (*((strm)->zalloc))((strm)->opaque, (items), (size))
+#else
+#  define ZALLOC(strm, items, size)                                                         \
+           ((strm)->zalloc == zcalloc ?                                                     \
+            malloc((size_t)((items) * (size))) :              /* Allocate using malloc */   \
+            (strm)->zalloc((strm)->opaque, (items), (size)))  /* Custom allocator provided through public API */
+#endif
+
 #define ZFREE(strm, addr)  (*((strm)->zfree))((strm)->opaque, (voidpf)(addr))
 #define TRY_FREE(s, p) {if (p) ZFREE(s, p);}
 

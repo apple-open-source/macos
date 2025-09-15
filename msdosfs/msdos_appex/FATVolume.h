@@ -27,6 +27,7 @@ typedef NS_ENUM(uint8_t, fatType) {
 @property uint32_t FATMask;
 
 @property dirtyBitValue dirtyBitValue;
+@property dirtyBitValue dirtyBitValueOnDisk;
 
 @property size_t dirBlockSize;
 @property uint32_t bytesPerSector;

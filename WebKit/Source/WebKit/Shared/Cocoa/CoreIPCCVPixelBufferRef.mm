@@ -34,8 +34,8 @@ namespace WebKit {
 using namespace WebCore;
 MachSendRight CoreIPCCVPixelBufferRef::sendRightFromPixelBuffer(const RetainPtr<CVPixelBufferRef>& pixelBuffer)
 {
-    auto surface = CVPixelBufferGetIOSurface(pixelBuffer.get());
-    return MachSendRight::adopt(IOSurfaceCreateMachPort(surface));
+    RetainPtr surface = CVPixelBufferGetIOSurface(pixelBuffer.get());
+    return MachSendRight::adopt(IOSurfaceCreateMachPort(surface.get()));
 }
 
 RetainPtr<CVPixelBufferRef> CoreIPCCVPixelBufferRef::toCF() const

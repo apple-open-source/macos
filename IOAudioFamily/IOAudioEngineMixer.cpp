@@ -25,7 +25,28 @@
 #include "IOAudioStream.h"
 #include "IOAudioTypes.h"
 
-#include <vecLib/vecLib.h>																							// <rdar://14058728>
+/*    vDSP_vadd.c -- Add elements of two vectors and put sums in third vector.
+    Input:
+        const float *A     -- Address of input elements.
+        long IA     -- Stride of A (in elements).
+        const float *B     -- Address of input elements.
+        long IB     -- Stride of B (in elements).
+        float *C     -- Address for output elements.
+        long IC     -- Stride of C (in elements).
+        unsigned long N     -- Number of elements to produce.
+
+    Output:
+        Sums are written to elements of C.
+*/
+static void vDSP_vadd(const float *A, long IA,
+                      const float *B, long IB,
+                      float *C, long IC,
+                      unsigned long N)
+{
+    for (unsigned long i = 0; i < N; ++i) {
+        C[i * IC] = A[i * IA] + B[i * IB];
+    }
+}
 
 IOReturn IOAudioEngine::mixOutputSamples(const void *sourceBuf, void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {

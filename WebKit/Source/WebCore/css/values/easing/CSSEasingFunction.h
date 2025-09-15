@@ -34,7 +34,7 @@ namespace CSS {
 
 // `EasingFunction` uses a wrapping a struct to allow forward declaration.
 struct EasingFunction {
-    std::variant<
+    Variant<
         // <linear()>
         Keyword::Linear,        // Equivalent to linear(0, 1)
         LinearEasingFunction,

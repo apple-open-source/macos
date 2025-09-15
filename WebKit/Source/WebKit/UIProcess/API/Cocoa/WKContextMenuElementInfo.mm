@@ -44,7 +44,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSURL *)linkURL
 {
-    return _elementInfo->url();
+    return _elementInfo->url().createNSURL().autorelease();
 }
 
 - (API::Object&)_apiObject

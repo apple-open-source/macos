@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -55,8 +55,9 @@
 #include <skywalk/nexus/netif/nx_netif.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <mach/thread_act.h>
-#include <kern/thread.h>
 #include <kern/sched_prim.h>
+#include <kern/thread.h>
+#include <kern/uipc_domain.h>
 
 static void na_netif_compat_finalize(struct nexus_netif_adapter *,
     struct ifnet *);
@@ -161,7 +162,7 @@ static SKMEM_TAG_DEFINE(skmem_tag_netif_compat_pool, SKMEM_TAG_NETIF_COMPAT_POOL
 void
 nx_netif_compat_init(struct nxdom *nxdom)
 {
-	_CASSERT(NETIF_COMPAT_MAX_MBUF_DATA_COPY <= NETIF_COMPAT_BUF_SIZE);
+	static_assert(NETIF_COMPAT_MAX_MBUF_DATA_COPY <= NETIF_COMPAT_BUF_SIZE);
 
 	/*
 	 * We want nxprov_create() coming from userland to use the
@@ -182,7 +183,7 @@ na_netif_compat_alloc(zalloc_flags_t how)
 {
 	struct nexus_netif_compat_adapter *nca;
 
-	_CASSERT(offsetof(struct nexus_netif_compat_adapter, nca_up) == 0);
+	static_assert(offsetof(struct nexus_netif_compat_adapter, nca_up) == 0);
 
 	nca = zalloc_flags(na_netif_compat_zone, how | Z_ZERO);
 	if (nca) {
@@ -234,7 +235,7 @@ nx_netif_compat_ringcb(caddr_t cl, uint32_t size, caddr_t arg)
 		f = NMB_GET_FLAGS(p);
 		i = NMB_GET_INDEX(p);
 
-		SK_DF(SK_VERB_NETIF, "%s m 0x%llx txq %u i %u f 0x%x",
+		SK_DF(SK_VERB_NETIF, "%s m %p txq %u i %u f 0x%x",
 		    if_name(ifp), SK_KVA(m), MBUF_TXQ(m), i, f);
 
 		if (f & NMB_PROPF_TX_NOTIFY) {
@@ -250,11 +251,11 @@ nx_netif_compat_ringcb(caddr_t cl, uint32_t size, caddr_t arg)
 				}
 				/* TODO: adi@apple.com -- what to do? */
 				SK_ERR("Failed to clear TX_NOTIFY "
-				    "m 0x%llx i %u err %d", SK_KVA(m), i, err);
+				    "m %p i %u err %d", SK_KVA(m), i, err);
 			} else {
 				nx_netif_compat_tx_intr(ifp, NR_TX, txq, NULL);
 				SK_DF(SK_VERB_NETIF | SK_VERB_INTR | SK_VERB_TX,
-				    "%s TX irq m 0x%llx txq %u i %u f 0x%x",
+				    "%s TX irq m %p txq %u i %u f 0x%x",
 				    if_name(ifp), SK_KVA(m), MBUF_TXQ(m), i, f);
 				STATS_INC(nifs, NETIF_STATS_TX_IRQ);
 			}
@@ -290,7 +291,7 @@ nx_netif_compat_ring_alloc(int how, int len, uint16_t idx)
 			if (err == EBUSY) {     /* try again */
 				continue;
 			}
-			SK_ERR("Failed to initialize properties m 0x%llx "
+			SK_ERR("Failed to initialize properties m %p "
 			    "err %d", SK_KVA(m), err);
 			m_freem(m);
 			return NULL;
@@ -301,7 +302,7 @@ nx_netif_compat_ring_alloc(int how, int len, uint16_t idx)
 		break;
 	}
 
-	SK_DF(SK_VERB_MEM, "alloc m 0x%llx size %u i %u",
+	SK_DF(SK_VERB_MEM, "alloc m %p size %u i %u",
 	    SK_KVA(m), (uint32_t)size, i);
 
 	return m;
@@ -327,7 +328,7 @@ nx_netif_compat_ring_free(struct mbuf *m)
 				continue;
 			}
 			/* TODO: adi@apple.com -- what to do? */
-			SK_ERR("Failed to clear properties m 0x%llx err %d",
+			SK_ERR("Failed to clear properties m %p err %d",
 			    SK_KVA(m), err);
 		}
 		break;
@@ -343,7 +344,7 @@ nx_netif_compat_tx_intr(struct ifnet *ifp, enum txrx t, uint32_t q,
 
 	if (__improbable(!NA_IS_ACTIVE(na) || q >= na_get_nrings(na, t))) {
 		if (q >= na_get_nrings(na, t)) {
-			SK_ERR("na \"%s\" (0x%llx) invalid q %u >= %u",
+			SK_ERR("na \"%s\" (%p) invalid q %u >= %u",
 			    na->na_name, SK_KVA(na), q, na_get_nrings(na, t));
 		}
 	} else {
@@ -404,7 +405,7 @@ nx_netif_compat_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 	ASSERT(na->na_type == NA_NETIF_COMPAT_DEV);
 	ASSERT(!(na->na_flags & NAF_HOST_ONLY));
 
-	SK_DF(SK_VERB_NETIF, "na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_NETIF, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 
 	nca = (struct nexus_netif_compat_adapter *)nifna;
@@ -532,9 +533,9 @@ nx_netif_compat_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 			nx_mbq_safe_init(kr, &kr->ckr_rx_queue, limit,
 			    &nexus_mbq_lock_group, &nexus_lock_attr);
 			SK_DF(SK_VERB_NETIF,
-			    "na \"%s\" (0x%llx) initialized kr \"%s\" "
-			    "(0x%llx) krflags 0x%b", na->na_name, SK_KVA(na),
-			    kr->ckr_name, SK_KVA(kr), kr->ckr_flags, CKRF_BITS);
+			    "na \"%s\" (%p) initialized kr \"%s\" "
+			    "(%p) krflags 0x%x", na->na_name, SK_KVA(na),
+			    kr->ckr_name, SK_KVA(kr), kr->ckr_flags);
 		}
 
 		/*
@@ -755,7 +756,7 @@ nx_netif_compat_tx_clean(struct netif_stats *nifs,
 	}
 	kring->ckr_ktail = SLOT_PREV(nm_i, lim);
 
-	SK_RDF(SK_VERB_NETIF, 10, "kr \"%s\" (0x%llx) tx completed [%u] -> "
+	SK_RDF(SK_VERB_NETIF, 10, "kr \"%s\" (%p) tx completed [%u] -> "
 	    "kh %u kt %u | rh %u rt %u", kring->ckr_name, SK_KVA(kring),
 	    n, kring->ckr_khead, kring->ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail);
@@ -827,7 +828,7 @@ nx_netif_compat_set_tx_event(struct __kern_channel_ring *kring,
 			 * on the ring slot 'e': There is nothing to do.
 			 */
 			SK_DF(SK_VERB_NETIF | SK_VERB_NOTIFY | SK_VERB_TX,
-			    "TX_NOTIFY already set at %u m 0x%llx kc %u ntc %u",
+			    "TX_NOTIFY already set at %u m %p kc %u ntc %u",
 			    e, SK_KVA(m), khead, ntc);
 			return;
 		}
@@ -841,11 +842,11 @@ nx_netif_compat_set_tx_event(struct __kern_channel_ring *kring,
 				continue;
 			}
 			/* TODO: adi@apple.com -- what to do? */
-			SK_ERR("Failed to set TX_NOTIFY at %u m 0x%llx kh %u "
+			SK_ERR("Failed to set TX_NOTIFY at %u m %p kh %u "
 			    "ntc %u, err %d", e, SK_KVA(m), khead, ntc, err);
 		} else {
 			SK_DF(SK_VERB_NETIF | SK_VERB_NOTIFY | SK_VERB_TX,
-			    "Request TX_NOTIFY at %u m 0x%llx kh %u ntc %u",
+			    "Request TX_NOTIFY at %u m %p kh %u ntc %u",
 			    e, SK_KVA(m), khead, ntc);
 		}
 		break;
@@ -860,10 +861,10 @@ nx_netif_compat_na_txsync_log(struct __kern_channel_ring *kring,
     struct proc *p, uint32_t flags, slot_idx_t nm_i)
 {
 	SK_DF(SK_VERB_NETIF | SK_VERB_SYNC | SK_VERB_TX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u flags 0x%x "
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u flags 0x%x "
 	    "nm_i %u, kh %u kt %u | rh %u rt %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, kring->ckr_ring_id,
+	    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
+	    SK_KVA(kring), kring->ckr_flags, kring->ckr_ring_id,
 	    flags, nm_i, kring->ckr_khead, kring->ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail);
 }
@@ -888,7 +889,7 @@ nx_netif_compat_na_txsync(struct __kern_channel_ring *kring, struct proc *p,
 	STATS_INC(nifs, NETIF_STATS_TX_SYNC);
 
 	/* update our work timestamp */
-	na->na_work_ts = _net_uptime;
+	na->na_work_ts = net_uptime();
 
 	/*
 	 * First part: process new packets to send.
@@ -916,13 +917,13 @@ nx_netif_compat_na_txsync(struct __kern_channel_ring *kring, struct proc *p,
 					STATS_INC(nifs,
 					    NETIF_STATS_DROP_NOMEM_MBUF);
 					SK_DF(SK_VERB_MEM,
-					    "%s(%d) kr \"%s\" (0x%llx) "
-					    "krflags 0x%b ckr_tx_pool[%u] "
+					    "%s(%d) kr \"%s\" (%p) "
+					    "krflags 0x%x ckr_tx_pool[%u] "
 					    "allocation failed",
-					    sk_proc_name_address(p),
+					    sk_proc_name(p),
 					    sk_proc_pid(p), kring->ckr_name,
 					    SK_KVA(kring), kring->ckr_flags,
-					    CKRF_BITS, nm_i);
+					    nm_i);
 					/*
 					 * Here we could schedule a timer
 					 * which retries to replenish after
@@ -1020,9 +1021,9 @@ static void
 nx_netif_compat_receive_log1(const struct __kern_channel_ring *kring,
     struct nx_mbq *q)
 {
-	SK_RD(10, "kr \"%s\" (0x%llx) krflags 0x%b FULL "
-	    "(qlen %u qsize %llu), kc %u kt %u", kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, nx_mbq_len(q),
+	SK_RD(10, "kr \"%s\" (%p) krflags 0x%x FULL "
+	    "(qlen %u qsize %zu), kc %u kt %u", kring->ckr_name,
+	    SK_KVA(kring), kring->ckr_flags, nx_mbq_len(q),
 	    nx_mbq_size(q), kring->ckr_khead, kring->ckr_ktail);
 }
 
@@ -1032,10 +1033,10 @@ static void
 nx_netif_compat_receive_log2(const struct __kern_channel_ring *kring,
     struct nx_mbq *q, const struct ifnet_stat_increment_param *s)
 {
-	SK_RDF(SK_VERB_RX, 10, "kr \"%s\" (0x%llx) krflags 0x%b OK, "
-	    "added %u packets %u bytes, now qlen %u qsize %llu",
-	    kring->ckr_name, SK_KVA(kring), kring->ckr_flags, CKRF_BITS,
-	    s->packets_in, s->bytes_in, nx_mbq_len(q), nx_mbq_size(q));
+	SK_RDF(SK_VERB_RX, 10, "kr \"%s\" (%p) krflags 0x%x OK, "
+	    "added %u packets %u bytes, now qlen %u qsize %zu",
+	    kring->ckr_name, SK_KVA(kring), kring->ckr_flags, s->packets_in,
+	    s->bytes_in, nx_mbq_len(q), nx_mbq_size(q));
 }
 #endif /* SK_LOG */
 
@@ -1060,7 +1061,7 @@ nx_netif_compat_receive(struct ifnet *ifp, struct mbuf *m_head,
 	errno_t err = 0;
 
 	/* update our work timestamp */
-	na->na_work_ts = _net_uptime;
+	na->na_work_ts = net_uptime();
 
 	if (__improbable(m_head == NULL)) {
 		ASSERT(m_tail == NULL);
@@ -1110,7 +1111,7 @@ nx_netif_compat_receive(struct ifnet *ifp, struct mbuf *m_head,
 		 * then here do:
 		 *
 		 * if (r >= na_get_nrings(na, NR_RX)) {
-		 *      SK_ERR("na \"%s\" (0x%llx) invalid r %u >= %u",
+		 *      SK_ERR("na \"%s\" (%p) invalid r %u >= %u",
 		 *          na->na_name, SK_KVA(na), r,
 		 *          na_get_nrings(na, NR_RX));
 		 * }
@@ -1208,10 +1209,10 @@ nx_netif_compat_na_rxsync_log(const struct __kern_channel_ring *kring,
     struct proc *p, uint32_t flags, slot_idx_t nm_i)
 {
 	SK_DF(SK_VERB_NETIF | SK_VERB_SYNC | SK_VERB_RX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b "
-	    "ring %u flags 0x%x nm_i %u kt %u", sk_proc_name_address(p),
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x "
+	    "ring %u flags 0x%x nm_i %u kt %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, kring->ckr_ring_id, flags, nm_i, kring->ckr_ktail);
+	    kring->ckr_ring_id, flags, nm_i, kring->ckr_ktail);
 }
 #endif /* SK_LOG */
 
@@ -1318,7 +1319,7 @@ nx_netif_compat_na_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 	}
 
 	/* update our work timestamp */
-	na->na_work_ts = _net_uptime;
+	na->na_work_ts = net_uptime();
 
 	/* first empty slot in the receive ring */
 	nm_i = kring->ckr_ktail;
@@ -1364,8 +1365,8 @@ nx_netif_compat_na_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 	err = kern_pbufpool_alloc_batch_nosleep(pp, 1, kring->ckr_scratch,
 	    &ph_cnt);
 	if (err == ENOMEM) {
-		SK_DF(SK_VERB_MEM, "%s(%p) failed to alloc %d pkts for kr "
-		    "0x%llu", sk_proc_name_address(p), sk_proc_pid(p), ph_cnt,
+		SK_DF(SK_VERB_MEM, "%s(%d) failed to alloc %d pkts for kr %p",
+		    sk_proc_name(p), sk_proc_pid(p), ph_cnt,
 		    SK_KVA(kring));
 		goto done;
 	}
@@ -1386,7 +1387,7 @@ nx_netif_compat_na_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 		if (__improbable(mlen == 0 || h == NULL ||
 		    h < (char *)mbuf_datastart(m) || h > (char *)m->m_data)) {
 			STATS_INC(nifs, NETIF_STATS_DROP_BADLEN);
-			SK_RD(5, "kr \"%s\" (0x%llx) m 0x%llx len %d"
+			SK_RD(5, "kr \"%s\" (%p) m %p len %d"
 			    "bad pkt_hdr", kring->ckr_name,
 			    SK_KVA(kring), SK_KVA(m), mlen);
 			m_freem(m);
@@ -1433,11 +1434,10 @@ nx_netif_compat_na_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 			pkt->pkt_link_flags |= PKT_LINKF_ETHFCS;
 		}
 		if (mbuf_get_vlan_tag(m, &tag) == 0) {
-			(void) kern_packet_set_vlan_tag(SK_PKT2PH(pkt), tag,
-			    FALSE);
+			(void) kern_packet_set_vlan_tag(SK_PKT2PH(pkt), tag);
 		}
 		SK_DF(SK_VERB_NETIF | SK_VERB_SYNC | SK_VERB_RX,
-		    "kr \"%s\" (0x%llx) m 0x%llx idx %u slot_len %d",
+		    "kr \"%s\" (%p) m %p idx %u slot_len %d",
 		    kring->ckr_name, SK_KVA(kring), SK_KVA(m), nm_i, mlen);
 
 		if (__probable(attach_mbuf)) {
@@ -1528,7 +1528,7 @@ nx_netif_compat_na_dtor(struct nexus_adapter *na)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_DF(SK_VERB_NETIF, "na \"%s\" (0x%llx)", na->na_name, SK_KVA(na));
+	SK_DF(SK_VERB_NETIF, "na \"%s\" (%p)", na->na_name, SK_KVA(na));
 
 	/*
 	 * If the finalizer callback hasn't been called for whatever
@@ -1591,7 +1591,7 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	 *
 	 * The ifnet in 'na_ifp' will be released by na_release_locked().
 	 */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		if (!(ifp->if_refflags & IFRF_EMBRYONIC)) {
 			ifp = NULL;
 			retval = ENXIO;
@@ -1615,7 +1615,7 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 		ASSERT(devna->na_ifp == NULL);
 	} else {
 		ASSERT(devna->na_private == NULL);
-		/* use I/O refcnt from ifnet_is_attached() */
+		/* use I/O refcnt from ifnet_get_ioref() */
 		devna->na_ifp = ifp;
 	}
 
@@ -1752,10 +1752,10 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	SK_DF(SK_VERB_NETIF, "na_name: \"%s\"", devna->na_name);
 	SK_DF(SK_VERB_NETIF, "  UUID:        %s",
 	    sk_uuid_unparse(devna->na_uuid, uuidstr));
-	SK_DF(SK_VERB_NETIF, "  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_NETIF, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(devna->na_nx), NX_DOM(devna->na_nx)->nxdom_name,
 	    NX_DOM_PROV(devna->na_nx)->nxdom_prov_name);
-	SK_DF(SK_VERB_NETIF, "  flags:       0x%b", devna->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_NETIF, "  flags:       0x%x", devna->na_flags);
 	SK_DF(SK_VERB_NETIF, "  flowadv_max: %u", devna->na_flowadv_max);
 	SK_DF(SK_VERB_NETIF, "  rings:       tx %u rx %u",
 	    na_get_nrings(devna, NR_TX), na_get_nrings(devna, NR_RX));
@@ -1765,16 +1765,15 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	SK_DF(SK_VERB_NETIF, "  next_pipe:   %u", devna->na_next_pipe);
 	SK_DF(SK_VERB_NETIF, "  max_pipes:   %u", devna->na_max_pipes);
 #endif /* CONFIG_NEXUS_USER_PIPE */
-	SK_DF(SK_VERB_NETIF, "  ifp:         0x%llx %s [ioref %u]",
-	    SK_KVA(ifp), ifp->if_xname, ifp->if_refio);
+	SK_DF(SK_VERB_NETIF, "  ifp:         %p %s [ioref %u]",
+	    SK_KVA(ifp), ifp->if_xname, os_ref_get_count(&ifp->if_refio));
 	SK_DF(SK_VERB_NETIF, "hostna: \"%s\"", hostna->na_name);
 	SK_DF(SK_VERB_NETIF, "  UUID:        %s",
 	    sk_uuid_unparse(hostna->na_uuid, uuidstr));
-	SK_DF(SK_VERB_NETIF, "  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_NETIF, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(hostna->na_nx), NX_DOM(hostna->na_nx)->nxdom_name,
 	    NX_DOM_PROV(hostna->na_nx)->nxdom_prov_name);
-	SK_DF(SK_VERB_NETIF, "  flags:       0x%b",
-	    hostna->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_NETIF, "  flags:       0x%x", hostna->na_flags);
 	SK_DF(SK_VERB_NETIF, "  flowadv_max: %u", hostna->na_flowadv_max);
 	SK_DF(SK_VERB_NETIF, "  rings:       tx %u rx %u",
 	    na_get_nrings(hostna, NR_TX), na_get_nrings(hostna, NR_RX));
@@ -1784,8 +1783,8 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	SK_DF(SK_VERB_NETIF, "  next_pipe:   %u", hostna->na_next_pipe);
 	SK_DF(SK_VERB_NETIF, "  max_pipes:   %u", hostna->na_max_pipes);
 #endif /* CONFIG_NEXUS_USER_PIPE */
-	SK_DF(SK_VERB_NETIF, "  ifp:       0x%llx %s [ioref %u]", SK_KVA(ifp),
-	    ifp->if_xname, ifp->if_refio);
+	SK_DF(SK_VERB_NETIF, "  ifp:       %p %s [ioref %u]", SK_KVA(ifp),
+	    ifp->if_xname, os_ref_get_count(&ifp->if_refio));
 #endif /* SK_LOG */
 
 err:
@@ -1888,7 +1887,7 @@ nx_netif_compat_xmit_frame(struct nexus_adapter *na, struct mbuf *m,
 	int ret = 0;
 
 	if ((ret = mbuf_ring_cluster_activate(m)) != 0) {
-		panic("Failed to activate mbuf ring cluster 0x%llx (%d)",
+		panic("Failed to activate mbuf ring cluster %p (%d)",
 		    SK_KVA(m), ret);
 		/* NOTREACHED */
 		__builtin_unreachable();

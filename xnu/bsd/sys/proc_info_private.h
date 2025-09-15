@@ -60,11 +60,6 @@ struct proc_bsdinfowithuniqid {
 	struct proc_uniqidentifierinfo  p_uniqidentifier;
 };
 
-struct proc_archinfo {
-	cpu_type_t              p_cputype;
-	cpu_subtype_t           p_cpusubtype;
-};
-
 struct proc_pidcoalitioninfo {
 	uint64_t coalition_id[COALITION_NUM_TYPES];
 	uint64_t reserved1;
@@ -155,9 +150,7 @@ struct kevent_extinfo {
 #define PROC_PIDT_BSDINFOWITHUNIQID_SIZE \
 	                                (sizeof(struct proc_bsdinfowithuniqid))
 
-#define PROC_PIDARCHINFO                19
-#define PROC_PIDARCHINFO_SIZE           \
-	                                (sizeof(struct proc_archinfo))
+/* PROC_PIDARCHINFO defined in sys/proc_info.h */
 
 #define PROC_PIDCOALITIONINFO           20
 #define PROC_PIDCOALITIONINFO_SIZE      (sizeof(struct proc_pidcoalitioninfo))

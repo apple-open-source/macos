@@ -122,7 +122,7 @@ std::optional<Vector<uint8_t>> xImpl(const std::span<const uint8_t>& kArg, const
             }
 
             kData = Vector<uint8_t>(numBytes, uint8_t(0));
-            error = gcry_mpi_print(GCRYMPI_FMT_USG, kData.data(), kData.size(), nullptr, kMPI);
+            error = gcry_mpi_print(GCRYMPI_FMT_USG, kData.mutableSpan().data(), kData.size(), nullptr, kMPI);
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
                 return std::nullopt;

@@ -74,6 +74,13 @@ NumberFormatterApiTest::NumberFormatterApiTest(UErrorCode& status)
 }
 
 void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const char*& name, char*) {
+#if APPLE_ICU_CHANGES // rdar://137998419
+    if (uaprv_isRunningXCTest()) {
+        logKnownIssue("rdar://147359321", "Skipping NumberFormatterApiTest in XCTest.");
+        name = "";
+        return;
+    }
+#endif
     if (exec) {
         logln("TestSuite NumberFormatterApiTest: ");
     }

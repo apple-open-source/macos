@@ -74,6 +74,7 @@
 #include <sys/syslog.h>
 #include <sys/mcache.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <sys/codesign.h>
 
 #include <net/if.h>
@@ -590,6 +591,10 @@ route_output(struct mbuf *m, struct socket *so)
 			saved_nrt->rt_rmx.rmx_locks |=
 			    (RTM->rtm_inits & RTM->rtm_rmx.rmx_locks);
 			saved_nrt->rt_genmask = info.rti_info[RTAX_GENMASK];
+			if ((saved_nrt->rt_flags & (RTF_UP | RTF_LLINFO)) ==
+			    (RTF_UP | RTF_LLINFO)) {
+				rt_lookup_qset_id(saved_nrt, false);
+			}
 			RT_REMREF_LOCKED(saved_nrt);
 			RT_UNLOCK(saved_nrt);
 		}
@@ -1337,7 +1342,7 @@ rt_msg1(u_char type, struct rt_addrinfo *rtinfo)
 		/*
 		 * Make sure to accomodate the largest possible size of sa_len.
 		 */
-		_CASSERT(sizeof(ssbuf) == (SOCK_MAXADDRLEN + 1));
+		static_assert(sizeof(ssbuf) == (SOCK_MAXADDRLEN + 1));
 
 		if ((sa = rtinfo->rti_info[i]) == NULL) {
 			continue;
@@ -1431,7 +1436,7 @@ again:
 		/*
 		 * Make sure to accomodate the largest possible size of sa_len.
 		 */
-		_CASSERT(sizeof(ssbuf) == (SOCK_MAXADDRLEN + 1));
+		static_assert(sizeof(ssbuf) == (SOCK_MAXADDRLEN + 1));
 
 		if ((sa = rtinfo->rti_info[i]) == NULL) {
 			continue;

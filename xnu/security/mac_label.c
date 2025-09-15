@@ -128,7 +128,7 @@ mac_labelzone_free_owned(struct label **labelp,
 			extra_deinit(label);
 		}
 
-		*labelp = NULL;
+		os_atomic_store(labelp, NULL, release);
 		mac_labelzone_free(label);
 	}
 }
@@ -144,7 +144,7 @@ mac_label_verify_panic(struct label **labelp)
 struct label *
 mac_label_verify(struct label **labelp)
 {
-	struct label *label = *labelp;
+	struct label *label = os_atomic_load(labelp, acquire);
 
 	if (label != NULL) {
 		zone_require_ro(ZONE_ID_MAC_LABEL, sizeof(struct label), label);

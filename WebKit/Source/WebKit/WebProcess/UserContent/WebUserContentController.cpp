@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "FrameInfoData.h"
 #include "InjectUserScriptImmediately.h"
 #include "InjectedBundleScriptWorld.h"
+#include "JavaScriptEvaluationResult.h"
 #include "ScriptMessageHandlerIdentifier.h"
 #include "WebCompiledContentRuleList.h"
 #include "WebFrame.h"
@@ -37,6 +38,9 @@
 #include "WebProcess.h"
 #include "WebUserContentControllerMessages.h"
 #include "WebUserContentControllerProxyMessages.h"
+#include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/JSContextRef.h>
+#include <JavaScriptCore/JSRetainPtr.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
@@ -66,7 +70,7 @@ typedef HashMap<ContentWorldIdentifier, std::pair<Ref<InjectedBundleScriptWorld>
 
 static WorldMap& worldMap()
 {
-    static NeverDestroyed<WorldMap> map(std::initializer_list<WorldMap::KeyValuePairType> { { pageContentWorldIdentifier(), std::make_pair(Ref { InjectedBundleScriptWorld::normalWorld() }, 1) } });
+    static NeverDestroyed<WorldMap> map(std::initializer_list<WorldMap::KeyValuePairType> { { pageContentWorldIdentifier(), std::make_pair(Ref { InjectedBundleScriptWorld::normalWorldSingleton() }, 1) } });
 
     return map;
 }
@@ -138,14 +142,14 @@ InjectedBundleScriptWorld* WebUserContentController::addContentWorld(const Conte
 void WebUserContentController::addContentWorlds(const Vector<ContentWorldData>& worlds)
 {
     for (auto& world : worlds) {
-        if (auto* contentWorld = addContentWorld(world)) {
+        if (RefPtr contentWorld = addContentWorld(world)) {
             Page::forEachPage([&] (auto& page) {
                 if (&page.userContentProvider() != this)
                     return;
 
-                auto& mainFrame = page.mainFrame();
-                for (auto* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
-                    auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+                Ref mainFrame = page.mainFrame();
+                for (RefPtr frame = mainFrame.ptr(); frame; frame = frame->tree().traverseNext()) {
+                    RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
                     if (!localFrame)
                         continue;
                     localFrame->loader().client().dispatchGlobalObjectAvailable(contentWorld->coreWorld());
@@ -286,9 +290,9 @@ private:
     }
 
     // WebCore::UserMessageHandlerDescriptor
-    void didPostMessage(WebCore::UserMessageHandler& handler, WebCore::SerializedScriptValue* value, WTF::Function<void(SerializedScriptValue*, const String&)>&& completionHandler) override
+    void didPostMessage(WebCore::UserMessageHandler& handler, JSC::JSGlobalObject& globalObject, JSC::JSValue jsMessage, WTF::Function<void(JSC::JSValue, const String&)>&& completionHandler) override
     {
-        auto* frame = handler.frame();
+        RefPtr frame = handler.frame();
         if (!frame)
             return;
     
@@ -300,17 +304,16 @@ private:
         if (!webPage)
             return;
 
-        auto messageReplyHandler = [completionHandler = WTFMove(completionHandler)](std::span<const uint8_t> resultValue, const String& errorMessage) {
-            if (!errorMessage.isNull()) {
-                completionHandler(nullptr, errorMessage);
-                return;
-            }
+        JSRetainPtr context { JSContextGetGlobalContext(toRef(&globalObject)) };
+        auto message = JavaScriptEvaluationResult::extract(context.get(), toRef(&globalObject, jsMessage));
+        if (!message)
+            return;
 
-            auto value = SerializedScriptValue::createFromWireBytes({ resultValue });
-            completionHandler(value.ptr(), { });
-        };
-
-        WebProcess::singleton().parentProcessConnection()->sendWithAsyncReply(Messages::WebUserContentControllerProxy::DidPostMessage(webPage->webPageProxyIdentifier(), webFrame->info(), m_identifier, value->wireBytes()), WTFMove(messageReplyHandler), m_controller->identifier());
+        WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::WebUserContentControllerProxy::DidPostMessage(webPage->webPageProxyIdentifier(), webFrame->info(), m_identifier, *message), [completionHandler = WTFMove(completionHandler), context](Expected<WebKit::JavaScriptEvaluationResult, String>&& result) {
+            if (!result)
+                return completionHandler(JSC::jsUndefined(), result.error());
+            completionHandler(toJS(toJS(context.get()), result->toJS(context.get())), { });
+        }, m_controller->identifier());
     }
 
     RefPtr<WebUserContentController> m_controller;
@@ -447,21 +450,20 @@ void WebUserContentController::addUserScriptInternal(InjectedBundleScriptWorld& 
         Page::forEachPage([&] (auto& page) {
             if (&page.userContentProvider() != this)
                 return;
-            
-            RefPtr localMainFrame = page.localMainFrame();
-            if (!localMainFrame)
-                return;
 
             if (userScript.injectedFrames() == UserContentInjectedFrames::InjectInTopFrameOnly) {
-                localMainFrame->injectUserScriptImmediately(world.coreWorld(), userScript);
+                if (RefPtr localMainFrame = page.localMainFrame())
+                    localMainFrame->injectUserScriptImmediately(world.coreWorld(), userScript);
                 return;
             }
 
-            for (WebCore::Frame* frame = localMainFrame.get(); frame; frame = frame->tree().traverseNext(localMainFrame.get())) {
-                auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+            Ref mainFrame { page.mainFrame() };
+            for (RefPtr frame = mainFrame.ptr(); frame; frame = frame->tree().traverseNext(mainFrame.ptr())) {
+                RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
                 if (!localFrame)
                     continue;
-                localFrame->injectUserScriptImmediately(world.coreWorld(), userScript);
+                Ref coreWorld = world.coreWorld();
+                localFrame->injectUserScriptImmediately(coreWorld, userScript);
             }
         });
     }
@@ -520,8 +522,8 @@ void WebUserContentController::addUserStyleSheetInternal(InjectedBundleScriptWor
         return;
 
     if (auto pageID = userStyleSheet.pageID()) {
-        if (auto* webPage = WebProcess::singleton().webPage(*pageID)) {
-            if (auto* page = webPage->corePage())
+        if (RefPtr webPage = WebProcess::singleton().webPage(*pageID)) {
+            if (RefPtr page = webPage->corePage())
                 page->injectUserStyleSheet(userStyleSheet);
         }
     }
@@ -569,8 +571,8 @@ void WebUserContentController::removeUserStyleSheetInternal(InjectedBundleScript
 
         auto& userStyleSheet = pair.second;
         if (auto pageID = userStyleSheet.pageID()) {
-            if (auto* webPage = WebProcess::singleton().webPage(*pageID)) {
-                if (auto* page = webPage->corePage())
+            if (RefPtr webPage = WebProcess::singleton().webPage(*pageID)) {
+                if (RefPtr page = webPage->corePage())
                     page->removeInjectedUserStyleSheet(userStyleSheet);
             }
         }
@@ -604,16 +606,17 @@ void WebUserContentController::removeAllUserContent()
     }
 }
 
-void WebUserContentController::forEachUserScript(Function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>&& functor) const
+void WebUserContentController::forEachUserScript(NOESCAPE const Function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>& functor) const
 {
     for (const auto& worldAndUserScriptVector : m_userScripts) {
-        auto& world = worldAndUserScriptVector.key->coreWorld();
+        RefPtr key = worldAndUserScriptVector.key;
+        Ref world = key->coreWorld();
         for (const auto& identifierUserScriptPair : worldAndUserScriptVector.value)
             functor(world, identifierUserScriptPair.second);
     }
 }
 
-void WebUserContentController::forEachUserStyleSheet(Function<void(const WebCore::UserStyleSheet&)>&& functor) const
+void WebUserContentController::forEachUserStyleSheet(NOESCAPE const Function<void(const WebCore::UserStyleSheet&)>& functor) const
 {
     for (auto& styleSheetVector : m_userStyleSheets.values()) {
         for (const auto& identifierUserStyleSheetPair : styleSheetVector)
@@ -622,7 +625,7 @@ void WebUserContentController::forEachUserStyleSheet(Function<void(const WebCore
 }
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
-void WebUserContentController::forEachUserMessageHandler(Function<void(const WebCore::UserMessageHandlerDescriptor&)>&& functor) const
+void WebUserContentController::forEachUserMessageHandler(NOESCAPE const Function<void(const WebCore::UserMessageHandlerDescriptor&)>& functor) const
 {
     for (auto& userMessageHandlerVector : m_userMessageHandlers.values()) {
         for (auto& pair : userMessageHandlerVector)

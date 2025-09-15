@@ -24,9 +24,9 @@
 additional_forward_declaration: namespace WebCore { using BackForwardFrameItemIdentifierID = ObjectIdentifier<BackForwardFrameItemIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using BackForwardItemIdentifierID = ObjectIdentifier<BackForwardItemIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using DOMCacheIdentifierID = AtomicObjectIdentifier<DOMCacheIdentifierType>; }
-additional_forward_declaration: namespace WebCore { using FrameIdentifierID = ObjectIdentifier<FrameIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using OpaqueOriginIdentifier = AtomicObjectIdentifier<OpaqueOriginIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using PlatformLayerIdentifierID = ObjectIdentifier<PlatformLayerIdentifierType>; }
+additional_forward_declaration: namespace WebCore { using PlaybackTargetClientContextID = ObjectIdentifier<PlaybackTargetClientContextIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using RTCDataChannelLocalIdentifier =  AtomicObjectIdentifier<RTCDataChannelLocalIdentifierType>; }
 additional_forward_declaration: namespace WebCore { using ScrollingNodeIdentifier = ObjectIdentifier<ScrollingNodeIDType>; }
 additional_forward_declaration: namespace WebCore { using SharedWorkerObjectIdentifierID = ObjectIdentifier<SharedWorkerObjectIdentifierType>; }
@@ -49,11 +49,6 @@ header: <WebCore/ProcessQualified.h>
     WebCore::ProcessIdentifier processIdentifier();
 };
 
-[Alias=class ProcessQualified<FrameIdentifierID>, AdditionalEncoder=StreamConnectionEncoder, CustomHeader] alias WebCore::FrameIdentifier {
-    WebCore::FrameIdentifierID object();
-    WebCore::ProcessIdentifier processIdentifier();
-};
-
 [Alias=class ProcessQualified<OpaqueOriginIdentifier>, AdditionalEncoder=StreamConnectionEncoder, CustomHeader] alias WebCore::OpaqueOriginIdentifierProcessQualified {
     WebCore::OpaqueOriginIdentifier object();
     WebCore::ProcessIdentifier processIdentifier();
@@ -61,6 +56,11 @@ header: <WebCore/ProcessQualified.h>
 
 [Alias=class ProcessQualified<PlatformLayerIdentifierID>, AdditionalEncoder=StreamConnectionEncoder, CustomHeader] alias WebCore::PlatformLayerIdentifier {
     WebCore::PlatformLayerIdentifierID object();
+    WebCore::ProcessIdentifier processIdentifier();
+};
+
+[Alias=class ProcessQualified<PlaybackTargetClientContextID>, AdditionalEncoder=StreamConnectionEncoder, CustomHeader] alias WebCore::PlaybackTargetClientContextIdentifier {
+    WebCore::PlaybackTargetClientContextID object();
     WebCore::ProcessIdentifier processIdentifier();
 };
 
@@ -91,5 +91,15 @@ header: <WebCore/ProcessQualified.h>
 
 [Alias=class ProcessQualified<WTF::UUID>, CustomHeader] alias WebCore::ScriptExecutionContextIdentifier {
     WTF::UUID object();
+    WebCore::ProcessIdentifier processIdentifier();
+};
+
+[Alias=class WebCore::ProcessQualified<TransactionIdentifier>, CustomHeader] alias WebKit::TransactionID {
+    WebKit::TransactionIdentifier object();
+    WebCore::ProcessIdentifier processIdentifier();
+};
+
+[Alias=class WebCore::ProcessQualified<ObjectIdentifier<WebCore::MediaPlayerClientIdentifierType>>, CustomHeader] alias WebKit::PlaybackSessionContextIdentifier {
+    WebCore::MediaPlayerClientIdentifier object();
     WebCore::ProcessIdentifier processIdentifier();
 };

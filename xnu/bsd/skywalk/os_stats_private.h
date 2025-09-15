@@ -475,7 +475,8 @@
 	X(TCP_STATS_JOIN_RXMTS,			"JoinAckReXmt",	"\t%llu join ack retransmits\n")        \
 	X(TCP_STATS_TAILLOSS_RTO,		"TailLossTRO",	"\t%llu RTO due to tail loss\n")        \
 	X(TCP_STATS_RECOVERED_PKTS,		"RecoveryPkt",	"\t%llu recovered after loss\n")        \
-	X(TCP_STATS_NOSTRETCHACK,		"NoStrechAck",	"\t%llu disabled stretch ack algorithm on a connection\n")      \
+	/* ToDo - to be removed */    \
+	X(TCP_STATS_NOSTRETCHACK,		"NoStrechAck",  "\t%llu disabled stretch ack algorithm on a connection\n")    \
 	X(TCP_STATS_RESCUE_RXMT,		"SACKRsqReXmt", "\t%llu SACK rescue retransmit\n")      \
         \
 	/* MPTCP Subflow selection stats */     \
@@ -805,6 +806,7 @@
 	X(FSW_STATS_RX_PKT_NOT_LISTENER,	"RxPktNotListener",	"\t\t%llu packet not for listener\n") \
 	X(FSW_STATS_RX_FLOW_IN_USE,		    "RxFlowInUse",	"\t\t%llu flow in use\n") \
 	X(FSW_STATS_RX_STALL,                    "RxRingStall",         "\t\t%llu Rx rings stalled\n") \
+	X(FSW_STATS_RX_DISABLED,                 "RxDisabled",          "\t\t%llu dropped, flow Rx disabled\n") \
 	/* Rx frag stats (fsw doesn't manage fragments on Tx) */        \
 	X(FSW_STATS_RX_FRAG_V4,			"RxFragV4",		"\t\t%llu total received ipv4 fragments\n")     \
 	X(FSW_STATS_RX_FRAG_V6,			"RxFragV6",		"\t\t%llu total received ipv6 fragments\n")     \
@@ -868,6 +870,7 @@
 	X(FSW_STATS_TX_COPY_PKT2MBUF,		"TxCopyPktToMbuf",	"\t\t%llu copied pkt  ->  mbuf\n")      \
 	X(FSW_STATS_TX_COPY_SUM,		"TxCopySum",		"\t\t%llu copy+checksumed\n")   \
 	X(FSW_STATS_TX_COPY_BAD_LEN,		"TxCopyBadLen",		"\t\t%llu dropped, bad packet length\n")  \
+	X(FSW_STATS_TX_DISABLED,		"TxDisabled",		"\t\t%llu dropped, flow tx disabled\n")  \
         \
 	/* Drop stats (generic bidirectional) */ \
 	X(FSW_STATS_DROP,			"Drop",			"\t%llu total dropped\n")       \
@@ -905,7 +908,14 @@
 	/* FPD stats */ \
 	FSW_FPD_STATS(X)        \
         \
-	X(__FSW_STATS_MAX,			"",			"end of flowswitch stats")
+	/* Rx Flow Steering stats */  \
+	X(FSW_STATS_RX_FS_ADD_SUCCESS,		"RxFSAddSuccess",	"\t%llu rx flow steering add success\n") \
+	X(FSW_STATS_RX_FS_REMOVE_SUCCESS,	"RxFSRemoveSuccess",	"\t%llu rx flow steering remove success\n") \
+	X(FSW_STATS_RX_FS_ADD_FAILURE,		"RxFSAddFailure",	"\t%llu rx flow steering add failure\n") \
+	X(FSW_STATS_RX_FS_REMOVE_FAILURE,	"RxFSRemoveFailure",	"\t%llu rx flow steering remove failure\n") \
+	X(FSW_STATS_RX_FS_REMOVE_SKIPPED,	"RxFSRemoveSkipped",	"\t%llu rx flow steering remove skipped\n") \
+        \
+	X(__FSW_STATS_MAX, "", "end of flowswitch stats")
 
 /* END CSTYLED */
 
@@ -1021,26 +1031,28 @@ typedef struct {
 	uint64_t        crsu_total_slots_transferred;
 	uint64_t        crsu_total_bytes_transferred;
 	uint64_t        crsu_number_of_syncs;
+	uint64_t        crsu_bytes_per_sync;
+	uint64_t        crsu_bytes_per_sync_ma;
 	uint32_t        crsu_min_slots_transferred;
 	uint32_t        crsu_max_slots_transferred;
 	uint32_t        crsu_slots_per_sync;
 	uint32_t        crsu_slots_per_sync_ma;
-	uint64_t        crsu_bytes_per_sync;
-	uint64_t        crsu_bytes_per_sync_ma;
-	uint32_t        __crsu_reserved[2];
 } channel_ring_user_stats, *channel_ring_user_stats_t;
 
 typedef struct {
 	uint64_t        crs_total_slots_transferred;
 	uint64_t        crs_total_bytes_transferred;
 	uint64_t        crs_number_of_transfers;
-	uint32_t        crs_min_slots_transferred;
-	uint32_t        crs_max_slots_transferred;
-	uint32_t        crs_slots_per_second;
-	uint32_t        crs_slots_per_second_ma;
+	union {
+		uint64_t        crs_last_update_net_uptime;/* used by kernel as timestamp */
+		uint64_t        crs_seconds_since_last_update;/* published to userspace as time lapsed */
+	};
+	uint64_t        crs_slots_per_second;
+	uint64_t        crs_slots_per_second_ma;
 	uint64_t        crs_bytes_per_second;
 	uint64_t        crs_bytes_per_second_ma;
-	uint32_t        __crs_reserved[2];
+	uint32_t        crs_min_slots_transferred;
+	uint32_t        crs_max_slots_transferred;
 } channel_ring_stats, *channel_ring_stats_t;
 
 struct netif_qstats {
@@ -1120,9 +1132,6 @@ typedef struct {
 	nexus_channel_ring_entry nce_ring_entries[__counted_by(nce_ring_count)]; /* tx followed by rx */
 } nexus_channel_entry, *nexus_channel_entry_t;
 
-#define SCHF_MONITOR_TX         0x00000001
-#define SCHF_MONITOR_RX         0x00000002
-#define SCHF_MONITOR_NO_COPY    0x00000004
 #define SCHF_USER_PACKET_POOL   0x00000008
 #define SCHF_DEFUNCT_OK         0x00000010
 #define SCHF_EXCLUSIVE          0x00000020
@@ -1366,6 +1375,7 @@ struct sk_stats_flow {
 #define SFLOWF_TRACK            0x00000010      /* flow is tracked */
 #define SFLOWF_CONNECTED        0x00000020      /* connected mode */
 #define SFLOWF_LISTENER         0x00000040      /* listener mode */
+#define SFLOWF_AOP_OFFLOAD      0x00000080      /* AOP offloaded flow */
 #define SFLOWF_QOS_MARKING      0x00000100      /* flow can have qos marking */
 #define SFLOWF_BOUND_IP         0x00000200      /* src addr explicity bound */
 #define SFLOWF_ONLINK           0x00000400      /* dst directly on the link */
@@ -1373,6 +1383,7 @@ struct sk_stats_flow {
 #define SFLOWF_WAIT_CLOSE       0x00001000      /* defer free after close */
 #define SFLOWF_CLOSE_NOTIFY     0x00002000      /* notify NECP upon tear down */
 #define SFLOWF_NOWAKEFROMSLEEP  0x00004000      /* don't wake for this flow */
+#define SFLOWF_CONNECTION_IDLE  0x00008000      /* connection is idle */
 #define SFLOWF_ABORTED          0x01000000      /* has sent RST to peer */
 #define SFLOWF_NONVIABLE        0x02000000      /* disabled; to be torn down */
 #define SFLOWF_WITHDRAWN        0x04000000      /* flow has been withdrawn */

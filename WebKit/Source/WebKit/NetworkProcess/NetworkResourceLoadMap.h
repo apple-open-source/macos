@@ -42,7 +42,7 @@ public:
 
     bool isEmpty() const { return m_loaders.isEmpty(); }
     bool contains(WebCore::ResourceLoaderIdentifier identifier) const { return m_loaders.contains(identifier); }
-    MapType::iterator begin() { return m_loaders.begin(); }
+    MapType::iterator begin() LIFETIME_BOUND { return m_loaders.begin(); }
     MapType::ValuesIteratorRange values() { return m_loaders.values(); }
     void clear();
 

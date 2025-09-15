@@ -9,6 +9,8 @@
 #define PMPowerModeHandler_h
 
 #import <Foundation/Foundation.h>
+#import <xpc/xpc.h>
+
 
 @interface PMPowerModeHandler : NSObject
 + (instancetype)sharedInstance;

@@ -387,7 +387,7 @@ protected:
     void validateAttributes();
 
     bool getBufferSubDataImpl(GCGLenum target, GCGLintptr offset, std::span<uint8_t> data);
-    std::optional<IntSize> readPixelsImpl(IntRect, GCGLenum format, GCGLenum type, GCGLsizei bufSize, uint8_t* data, bool readingToPixelBufferObject);
+    std::optional<IntSize> readPixelsImpl(IntRect, GCGLenum format, GCGLenum type, std::span<uint8_t> data);
 
     // Did the most recent drawing operation leave the GPU in an acceptable state?
     void checkGPUStatus();
@@ -418,9 +418,9 @@ protected:
     void prepareForDrawingBufferWriteIfBound();
     virtual void prepareForDrawingBufferWrite();
 
-    UncheckedKeyHashSet<String> m_availableExtensions;
-    UncheckedKeyHashSet<String> m_requestableExtensions;
-    UncheckedKeyHashSet<String> m_enabledExtensions;
+    HashSet<String> m_availableExtensions;
+    HashSet<String> m_requestableExtensions;
+    HashSet<String> m_enabledExtensions;
     bool m_webglColorBufferFloatRGB { false };
     bool m_webglColorBufferFloatRGBA { false };
     GCGLuint m_texture { 0 };
@@ -453,8 +453,9 @@ protected:
     GCGLboolean m_packReverseRowOrder { false };
     uint32_t m_nextExternalImageName { 0 };
     uint32_t m_nextExternalSyncName { 0 };
-    UncheckedKeyHashMap<uint32_t, void*, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_eglImages;
-    UncheckedKeyHashMap<uint32_t, void*, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_eglSyncs;
+    HashMap<uint32_t, void*, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_eglImages;
+    HashMap<uint32_t, void*, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_eglSyncs;
+    IntSize m_maxInternalFramebufferSize;
 };
 
 

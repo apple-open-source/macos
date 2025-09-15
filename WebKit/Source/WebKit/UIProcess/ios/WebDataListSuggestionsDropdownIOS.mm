@@ -52,6 +52,7 @@ static NSString * const suggestionCellReuseIdentifier = @"WKDataListSuggestionCe
 - (NSArray<WKDataListTextSuggestion *> *)textSuggestions;
 - (NSInteger)suggestionsCount;
 - (String)suggestionAtIndex:(NSInteger)index;
+- (String)suggestionLabelAtIndex:(NSInteger)index;
 - (NSTextAlignment)textAlignment;
 
 @end
@@ -196,7 +197,7 @@ void WebDataListSuggestionsDropdownIOS::didSelectOption(const String& selectedOp
     NSMutableArray *suggestions = [NSMutableArray array];
 
     for (const auto& suggestion : _suggestions) {
-        [suggestions addObject:[WKDataListTextSuggestion textSuggestionWithInputText:suggestion.value]];
+        [suggestions addObject:[WKDataListTextSuggestion textSuggestionWithInputText:suggestion.value.createNSString().get()]];
         if (suggestions.count == 3)
             break;
     }
@@ -212,6 +213,11 @@ void WebDataListSuggestionsDropdownIOS::didSelectOption(const String& selectedOp
 - (String)suggestionAtIndex:(NSInteger)index
 {
     return _suggestions[index].value;
+}
+
+- (String)suggestionLabelAtIndex:(NSInteger)index
+{
+    return _suggestions[index].label;
 }
 
 - (NSTextAlignment)textAlignment
@@ -282,7 +288,7 @@ void WebDataListSuggestionsDropdownIOS::didSelectOption(const String& selectedOp
 
 - (NSString *)pickerView:(UIPickerView *)pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component
 {
-    return [self suggestionAtIndex:row];
+    return [self suggestionAtIndex:row].createNSString().autorelease();
 }
 
 - (void)invalidate
@@ -368,7 +374,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     [super didSelectOptionAtIndex:index];
     [[_popover popoverController] dismissPopoverAnimated:YES];
-    self.view.dataListTextSuggestions = @[ [WKDataListTextSuggestion textSuggestionWithInputText:[self suggestionAtIndex:index]] ];
+    self.view.dataListTextSuggestions = @[ [WKDataListTextSuggestion textSuggestionWithInputText:[self suggestionAtIndex:index].createNSString().get()] ];
 }
 
 @end
@@ -397,7 +403,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!cell)
         cell = adoptNS([[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:suggestionCellReuseIdentifier]);
 
-    [cell textLabel].text = [self.control suggestionAtIndex:indexPath.row];
+    [cell textLabel].text = [self.control suggestionAtIndex:indexPath.row].createNSString().get();
     [cell textLabel].lineBreakMode = NSLineBreakByTruncatingTail;
     [cell textLabel].textAlignment = [self.control textAlignment];
 
@@ -531,13 +537,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSMutableArray *suggestions = [NSMutableArray arrayWithCapacity:self.suggestionsCount];
 
     for (NSInteger index = 0; index < self.suggestionsCount; index++) {
-        UIAction *suggestionAction = [UIAction actionWithTitle:[self suggestionAtIndex:index] image:nil identifier:nil handler:[weakSelf = WeakObjCPtr<WKDataListSuggestionsDropdown>(self), index] (UIAction *) {
+        UIAction *suggestionAction = [UIAction actionWithTitle:[self suggestionAtIndex:index].createNSString().get() image:nil identifier:nil handler:[weakSelf = WeakObjCPtr<WKDataListSuggestionsDropdown>(self), index] (UIAction *) {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
 
             [strongSelf didSelectOptionAtIndex:index];
         }];
+        suggestionAction.subtitle = [self suggestionLabelAtIndex:index].createNSString().get();
 
         [suggestions addObject:suggestionAction];
     }

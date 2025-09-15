@@ -256,6 +256,16 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchViableBottlesExpectation], timeout: 1)
+
+        // Eventually, bottler should get the update.
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
+        _ = container.updateSync(test: self)
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        do {
+            let state = container.getStateSync(test: self)
+            XCTAssertTrue(state.egoSponsoredBeneficiaryIDs.contains(joinedPeerID))
+            XCTAssertEqual(state.egoSponsoredBeneficiaryIDs.count, 1, "should have sponsored 1 beneficiary")
+        }
     }
 
     func testCachedEscrowRecordFetch() throws {
@@ -472,6 +482,15 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
         self.wait(for: [fetchBottlesFromCuttlefishFetchExpectation], timeout: 10)
         self.wait(for: [uncachedViableBottlesFetchExpectation], timeout: 10)
+
+        // Eventually, bottler should get the update.
+        _ = container.updateSync(test: self)
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        do {
+            let state = container.getStateSync(test: self)
+            XCTAssertTrue(state.egoSponsoredBeneficiaryIDs.contains(joinedPeerID))
+            XCTAssertEqual(state.egoSponsoredBeneficiaryIDs.count, 1, "should have sponsored 1 beneficiary")
+        }
     }
 
     func testCachedEscrowRecordFetchWithoutAccount() throws {
@@ -602,6 +621,16 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             XCTAssertEqual(secondRecord!.escrowInformationMetadata.passcodeGeneration.value, 2, "passcode generation should be 2")
         }
         XCTAssertEqual(escrowRecords2.count, 2, "should be 2 escrow records")
+
+        // Eventually, bottler should get the update.
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
+        _ = container.updateSync(test: self)
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        do {
+            let state = container.getStateSync(test: self)
+            XCTAssertTrue(state.egoSponsoredBeneficiaryIDs.contains(joinedPeerID))
+            XCTAssertEqual(state.egoSponsoredBeneficiaryIDs.count, 1, "should have sponsored 1 beneficiary")
+        }
     }
 
     func testForcedEscrowRecordFetch() throws {
@@ -748,6 +777,16 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [fetchViableBottlesExpectation], timeout: 10)
+
+        // Eventually, bottler should get the update.
+        let container = try self.tphClient.getContainer(with: try XCTUnwrap(bottlerContext.activeAccount))
+        _ = container.updateSync(test: self)
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        do {
+            let state = container.getStateSync(test: self)
+            XCTAssertTrue(state.egoSponsoredBeneficiaryIDs.contains(joinedPeerID))
+            XCTAssertEqual(state.egoSponsoredBeneficiaryIDs.count, 1, "should have sponsored 1 beneficiary")
+        }
     }
 
     func testSignInWithEscrowPrecachingEnabled() throws {
@@ -1457,7 +1496,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
 
-            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .default) {retViews, error in
                 XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1469,7 +1508,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             }
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
-            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .default) {retViews, error in
                 XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1477,9 +1516,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 #endif
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
                 XCTAssertNil(error, "error should be nil")
-                tlkRecoverabilityExpectation.fulfill()
+                tlkRecoverabilityExpectation2.fulfill()
             }
-            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+            self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
         } catch {
             XCTFail("Shouldn't have errored fetching escrow records: \(error)")
             throw error
@@ -1543,7 +1582,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             }
             self.wait(for: [resetExpectation], timeout: 10)
 
-            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .default) {retViews, error in
                 XCTAssertNil(retViews, "retViews should be nil")
                 XCTAssertNotNil(error, "error should not be nil")
@@ -1553,15 +1592,15 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             }
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
-            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .default) {retViews, error in
                 XCTAssertNil(retViews, "retViews should be nil")
                 XCTAssertNotNil(error, "error should not be nil")
                 XCTAssertEqual((error! as NSError).code, 58, "error code should be 58")
                 XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "error domain should be OctagonErrorDomain")
-                tlkRecoverabilityExpectation.fulfill()
+                tlkRecoverabilityExpectation2.fulfill()
             }
-            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+            self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
         } catch {
             XCTFail("Shouldn't have errored fetching escrow records: \(error)")
             throw error
@@ -1621,7 +1660,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         do {
             let escrowRecordDatas = try OTClique.fetchEscrowRecordsInternal(bottlerotcliqueContext)
 
-            var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .default) {retViews, error in
                 if retViews == nil {
                     XCTAssertNil(retViews, "retViews should be nil")
@@ -1640,7 +1679,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
             }
             self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
-            tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+            let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
             self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .default) {retViews, error in
                 if retViews == nil {
                     XCTAssertNil(retViews, "retViews should be nil")
@@ -1655,9 +1694,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
                 XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
                     XCTAssertNil(error, "error should be nil")
                 }
-                tlkRecoverabilityExpectation.fulfill()
+                tlkRecoverabilityExpectation2.fulfill()
             }
-            self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+            self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
         } catch {
             XCTFail("Shouldn't have errored fetching escrow records: \(error)")
             throw error
@@ -1739,7 +1778,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
 
         // Check for 1st viable TLK.
-        var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {retViews, error in
             XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1752,7 +1791,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
         // Check for 2nd viable TLK.
-        tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .cache) {retViews, error in
             XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1760,9 +1799,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 #endif
             XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
             XCTAssertNil(error, "error should be nil")
-            tlkRecoverabilityExpectation.fulfill()
+            tlkRecoverabilityExpectation2.fulfill()
         }
-        self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
 
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
@@ -1820,7 +1859,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         bottlerContext.cloudkitAccountStateChange(nil, to: noAccountInfo)
 
         // Check for 1st viable TLK.
-        var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {retViews, error in
             XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1833,7 +1872,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
         // Check for 2nd viable TLK.
-        tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .cache) {retViews, error in
             XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1841,9 +1880,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 #endif
             XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
             XCTAssertNil(error, "error should be nil")
-            tlkRecoverabilityExpectation.fulfill()
+            tlkRecoverabilityExpectation2.fulfill()
         }
-        self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
 
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
@@ -1858,7 +1897,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
                                                                                altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))
 
         // now call fetchviablebottles, we should get the uncached version
-        var fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+        let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
@@ -1904,7 +1943,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         }
 
         // Check for 1st viable TLK.
-        var tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .cache) {_, error in
             XCTAssertNotNil(error, "error should not be nil")
             guard let error = error as? NSError else {
@@ -1919,7 +1958,7 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
         self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
 
         // Check for 2nd viable TLK.
-        tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation2 = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[1], source: .cache) {_, error in
             XCTAssertNotNil(error, "error should not be nil")
             guard let error = error as? NSError else {
@@ -1929,26 +1968,26 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 
             XCTAssertEqual(error.code, ContainerError.noEscrowCache.errorCode, "error should be equal to noEscrowCache")
             XCTAssertEqual(error.domain, ContainerError.errorDomain, "error domain should be ContainerError")
-            tlkRecoverabilityExpectation.fulfill()
+            tlkRecoverabilityExpectation2.fulfill()
         }
-        self.wait(for: [tlkRecoverabilityExpectation], timeout: 10)
+        self.wait(for: [tlkRecoverabilityExpectation2], timeout: 10)
 
         // Test that the expectation was NOT fulfilled (i.e., inverted), proving only cache was used.
         self.wait(for: [doNotFetchUnCachedViableBottlesExpectation], timeout: 0)
 
         // now call fetchviablebottles, we should get the uncached version
-        fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles (again)")
+        let fetchUnCachedViableBottlesExpectation2 = self.expectation(description: "fetch UnCached ViableBottles (again)")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
             XCTAssertEqual(request.filterRequest, .byOctagonOnly, "request filtering should be byOctagonOnly")
-            fetchUnCachedViableBottlesExpectation.fulfill()
+            fetchUnCachedViableBottlesExpectation2.fulfill()
             return nil
         }
 
         // Check for viable TLK (this time using .default source).
         // Expectation: Fetch from cuttlefish should happen and TLK views should be returned.
-        tlkRecoverabilityExpectation = self.expectation(description: "recoverability expectation")
+        let tlkRecoverabilityExpectation3 = self.expectation(description: "recoverability expectation")
         self.manager.tlkRecoverability(forEscrowRecordData: OTControlArguments(configuration: self.otcliqueContext), record: escrowRecordDatas[0], source: .default) {retViews, error in
             XCTAssertNotNil(retViews, "retViews should not be nil")
 #if !os(watchOS) && !os(tvOS)
@@ -1956,9 +1995,9 @@ class OctagonEscrowRecordTests: OctagonTestsBase {
 #endif
             XCTAssertTrue(retViews!.contains("LimitedPeersAllowed"), "should contain LimitedPeersAllowed view")
             XCTAssertNil(error, "error should be nil")
-            tlkRecoverabilityExpectation.fulfill()
+            tlkRecoverabilityExpectation3.fulfill()
         }
-        self.wait(for: [fetchUnCachedViableBottlesExpectation, tlkRecoverabilityExpectation], timeout: 10)
+        self.wait(for: [fetchUnCachedViableBottlesExpectation2, tlkRecoverabilityExpectation3], timeout: 10)
     }
 }
 

@@ -55,7 +55,7 @@
 - (NSString *)label
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::labelAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::labelAttr).createNSString().autorelease();
 }
 
 - (void)setLabel:(NSString *)newLabel

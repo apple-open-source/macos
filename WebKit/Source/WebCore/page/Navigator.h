@@ -79,9 +79,6 @@ public:
     void setAppBadge(std::optional<unsigned long long>, Ref<DeferredPromise>&&);
     void clearAppBadge(Ref<DeferredPromise>&&);
 
-    void setClientBadge(std::optional<unsigned long long>, Ref<DeferredPromise>&&);
-    void clearClientBadge(Ref<DeferredPromise>&&);
-
 private:
     void showShareData(ExceptionOr<ShareDataWithParsedURL&>, Ref<DeferredPromise>&&);
     explicit Navigator(ScriptExecutionContext*, LocalDOMWindow&);

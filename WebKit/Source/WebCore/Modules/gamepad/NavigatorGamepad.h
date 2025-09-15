@@ -71,14 +71,13 @@ public:
 
 private:
     static ASCIILiteral supplementName();
-    Ref<Navigator> protectedNavigator() const;
 
     void gamepadsBecameVisible();
     void maybeNotifyRecentAccess();
 
     const Vector<RefPtr<Gamepad>>& gamepads();
 
-    CheckedRef<Navigator> m_navigator;
+    const CheckedRef<Navigator> m_navigator;
     Vector<RefPtr<Gamepad>> m_gamepads;
 };
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (C) 2020 Apple Inc. All rights reserved.
+* Copyright (C) 2020-2025 Apple Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions
@@ -74,7 +74,7 @@ void VideoTrackPrivateRemote::updateConfiguration(VideoTrackPrivateRemoteConfigu
         m_label = configuration.label;
         if (changed && hasClients()) {
             notifyClients([label = crossThreadCopy(m_label)](auto& client) {
-                client.labelChanged(AtomString { label });
+                client.labelChanged(AtomString { label.isolatedCopy() });
             });
         }
     }
@@ -84,7 +84,7 @@ void VideoTrackPrivateRemote::updateConfiguration(VideoTrackPrivateRemoteConfigu
         m_language = configuration.language;
         if (changed && hasClients()) {
             notifyClients([language = crossThreadCopy(m_language)](auto& client) {
-                client.languageChanged(AtomString { language });
+                client.languageChanged(AtomString { language.isolatedCopy() });
             });
         }
     }

@@ -71,7 +71,7 @@
 - (NSString *)dir
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->dir();
+    return IMPL->dir().createNSString().autorelease();
 }
 
 - (void)setDir:(NSString *)newDir
@@ -83,7 +83,7 @@
 - (NSString *)designMode
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->designMode();
+    return IMPL->designMode().createNSString().autorelease();
 }
 
 - (void)setDesignMode:(NSString *)newDesignMode
@@ -95,13 +95,13 @@
 - (NSString *)compatMode
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->compatMode();
+    return IMPL->compatMode().createNSString().autorelease();
 }
 
 - (NSString *)bgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->bgColor();
+    return IMPL->bgColor().createNSString().autorelease();
 }
 
 - (void)setBgColor:(NSString *)newBgColor
@@ -113,7 +113,7 @@
 - (NSString *)fgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->fgColor();
+    return IMPL->fgColor().createNSString().autorelease();
 }
 
 - (void)setFgColor:(NSString *)newFgColor
@@ -125,7 +125,7 @@
 - (NSString *)alinkColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->alinkColor();
+    return IMPL->alinkColor().createNSString().autorelease();
 }
 
 - (void)setAlinkColor:(NSString *)newAlinkColor
@@ -137,7 +137,7 @@
 - (NSString *)linkColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->linkColorForBindings();
+    return IMPL->linkColorForBindings().createNSString().autorelease();
 }
 
 - (void)setLinkColor:(NSString *)newLinkColor
@@ -149,7 +149,7 @@
 - (NSString *)vlinkColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->vlinkColor();
+    return IMPL->vlinkColor().createNSString().autorelease();
 }
 
 - (void)setVlinkColor:(NSString *)newVlinkColor

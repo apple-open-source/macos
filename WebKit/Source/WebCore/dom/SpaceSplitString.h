@@ -34,10 +34,10 @@ class SpaceSplitStringData {
 public:
     static RefPtr<SpaceSplitStringData> create(const AtomString&);
 
-    auto begin() const { return std::to_address(tokenArray().begin()); }
-    auto end() const { return std::to_address(tokenArray().end()); }
-    auto begin() { return std::to_address(tokenArray().begin()); }
-    auto end() { return std::to_address(tokenArray().end()); }
+    auto begin() const LIFETIME_BOUND { return std::to_address(tokenArray().begin()); }
+    auto end() const LIFETIME_BOUND { return std::to_address(tokenArray().end()); }
+    auto begin() LIFETIME_BOUND { return std::to_address(tokenArray().begin()); }
+    auto end() LIFETIME_BOUND { return std::to_address(tokenArray().end()); }
 
     bool contains(const AtomString& string)
     {
@@ -50,7 +50,7 @@ public:
     unsigned size() const { return m_size; }
     static constexpr ptrdiff_t sizeMemoryOffset() { return OBJECT_OFFSETOF(SpaceSplitStringData, m_size); }
 
-    const AtomString& operator[](unsigned i) { return tokenArray()[i]; }
+    const AtomString& operator[](unsigned i) LIFETIME_BOUND { return tokenArray()[i]; }
 
     void ref()
     {
@@ -89,14 +89,13 @@ private:
     ~SpaceSplitStringData() = default;
     static void destroy(SpaceSplitStringData*);
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    std::span<AtomString> tokenArray() { return unsafeMakeSpan(reinterpret_cast<AtomString*>(this + 1), m_size); }
-    std::span<const AtomString> tokenArray() const { return unsafeMakeSpan(reinterpret_cast<const AtomString*>(this + 1), m_size); }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    std::span<AtomString> tokenArray() LIFETIME_BOUND { return unsafeMakeSpan(m_tokens, m_size); }
+    std::span<const AtomString> tokenArray() const LIFETIME_BOUND { return unsafeMakeSpan(m_tokens, m_size); }
 
     AtomString m_keyString;
     unsigned m_refCount;
     unsigned m_size;
+    AtomString m_tokens[0];
 };
 
 class SpaceSplitString {

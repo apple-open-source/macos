@@ -35,6 +35,7 @@
 #include <pthread.h>
 #include <pwd.h>
 #include <sys/fcntl.h>
+#include <sys/fileport.h>
 #include <dispatch/private.h>
 #include <assert.h>
 #include "notify.h"
@@ -1854,7 +1855,8 @@ kern_return_t __notify_server_register_mach_port_3
 	}
 	else
 	{
-		mach_port_destruct(mach_task_self(), port, -1, 0);
+		// The send right is removed by _notify_register_mach_port_helper
+		mach_port_destruct(mach_task_self(), port, 0, 0);
 	}
 
 	return KERN_SUCCESS;

@@ -22,6 +22,7 @@
  */
 
 #include "DAMount.h"
+#include "DAQueue.h"
 
 #include "DABase.h"
 #include "DAInternal.h"
@@ -96,27 +97,9 @@ static void __DAMountWithArgumentsCallback( int status, void * parameter )
 
 static void __DAMountSendFSCKEvent( int status , __DAMountCallbackContext * context )
 {
-    CFNumberRef diskSize = DADiskGetDescription( context->disk , kDADiskDescriptionMediaSizeKey );
-    DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
-    CFStringRef kind = NULL;
-    uint64_t diskSizeUInt = 0;
-    
-    if ( diskSize )
-    {
-        diskSizeUInt = ___CFNumberGetIntegerValue( diskSize );
-    }
-    
-    if ( filesystem != NULL )
-    {
-        kind = DAGetFSTypeWithUUID( filesystem ,
-                                    DADiskGetDescription( context->disk, kDADiskDescriptionVolumeUUIDKey ) );
-    }
-    
     DATelemetrySendFSCKEvent( status ,
-                              kind ,
-                              ( filesystem && DAFileSystemIsFSModule( filesystem ) ) ? CFSTR("FSKit") : CFSTR("kext") ,
-                              clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->fsckStartTime ,
-                              diskSizeUInt );
+                              context->disk ,
+                              clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->fsckStartTime );
 }
 
 static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
@@ -126,12 +109,16 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
      */
 
     __DAMountCallbackContext * context = parameter;
-    
+
     if ( context->assertionID != kIOPMNullAssertionID )
     {
         IOPMAssertionRelease( context->assertionID );
-
         context->assertionID = kIOPMNullAssertionID;
+    }
+    if ( DADiskGetDescription( context->disk , kDADiskDescriptionRepairRunningKey ) != NULL )
+    {
+        DADiskSetDescription( context->disk , kDADiskDescriptionRepairRunningKey , NULL );
+        DADiskDescriptionChangedCallback( context->disk , kDADiskDescriptionRepairRunningKey );
     }
 #if TARGET_OS_IOS
     if ( context->contDisk )
@@ -257,16 +244,45 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
     DAFileSystemRef filesystem = DADiskGetFileSystem( context->disk );
     DADiskSetState( context->disk , kDADiskStateMountOngoing , FALSE );
     CFStringRef kind = NULL;
+    Boolean automount = DADiskGetState( context->disk , _kDADiskStateMountAutomatic );
+    Boolean isExternal = DADiskIsExternalVolume( context->disk );
+    DATelemetryFSImplementation mountType = DATelemetryFSImplementationKext;
     
     if ( filesystem != NULL )
     {
         kind = DAGetFSTypeWithUUID( filesystem ,
                                     DADiskGetDescription( context->disk, kDADiskDescriptionVolumeUUIDKey ) );
+        
+        if ( context->useUserFS )
+        {
+#if TARGET_OS_OSX || TARGET_OS_IOS
+            if ( __DAMountShouldUseFSKit( DAFileSystemGetKind( filesystem ) , NULL ) )
+            {
+                mountType = DATelemetryFSImplementationFSKit;
+                
+                if ( status == 0 )
+                {
+                    DADiskSetState( context->disk , _kDADiskStateMountedWithFSKit , TRUE );
+                }
+            }
+            else
+#endif
+            {
+                mountType = DATelemetryFSImplementationUserFS;
+                
+                if ( status == 0 )
+                {
+                    DADiskSetState( context->disk , _kDADiskStateMountedWithUserFS , TRUE );
+                }
+            }
+        }
     }
     
     DATelemetrySendMountEvent( status ,
                                kind ,
-                               context->useUserFS ,
+                               mountType ,
+                               automount ,
+                               isExternal ,
                                clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->mountStartTime );
     
     if ( context->mountpoint )
@@ -1003,6 +1019,18 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
             break;
             
         }
+        case kDAMountPreferenceAlwaysRepair:
+        {
+            /*
+            * Determine whether we should always run fsck when mounting - used for testing
+            */
+
+            value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountAlwaysRepairKey );
+
+            value = value ? value : kCFBooleanFalse;
+
+            break;
+        }
 
         default:
         {
@@ -1082,66 +1110,6 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
         }
     }
 #endif
-}
-
-static Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole)
-{
-    CFTypeRef              roles;
-    Boolean                matchesRole = FALSE;
-
-    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
-                                            kIOServicePlane,
-                                            CFSTR( "Role" ),
-                                            kCFAllocatorDefault,
-                                            0 );
-
-    if ( roles )
-    {
-
-        if (CFGetTypeID( roles ) == CFArrayGetTypeID())
-        {
-
-            CFIndex count = CFArrayGetCount( roles );
-
-            for ( int i=0; i<count; i++ )
-            {
-                CFStringRef role = CFArrayGetValueAtIndex( roles, i );
-
-                if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
-                  ( (CFStringCompare( role, inRole, kCFCompareCaseInsensitive ) == 0) ) )
-                {
-                    matchesRole = TRUE;
-                    break;
-                }
-            }
-
-        }
-
-        CFRelease ( roles );
-    }
-
-    return matchesRole;
-}
-
-static Boolean DAAPFSNoVolumeRole(DADiskRef disk)
-{
-    CFTypeRef              roles;
-    Boolean                noRole = TRUE;
-
-    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
-                                            kIOServicePlane,
-                                            CFSTR( "Role" ),
-                                            kCFAllocatorDefault,
-                                            0 );
-
-    if ( roles )
-    {
-
-        noRole = FALSE;
-        CFRelease ( roles );
-    }
-
-    return noRole;
 }
 
 void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, void * callbackContext, ... )
@@ -1637,6 +1605,12 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
             check = kCFBooleanFalse;
         }
     }
+    
+    // Check if the preference to always run fsck is set
+    if ( check == kCFBooleanFalse && DAMountGetPreference( disk , kDAMountPreferenceAlwaysRepair ) == TRUE )
+    {
+        check = kCFBooleanTrue;
+    }
 
     /*
      * Repair the volume.
@@ -1692,6 +1666,9 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 #endif
         DALogInfo( "repaired disk, id = %@, ongoing.", disk );
 
+        DADiskSetDescription( disk , kDADiskDescriptionRepairRunningKey , kCFBooleanTrue );
+        DADiskDescriptionChangedCallback( disk , kDADiskDescriptionRepairRunningKey );
+        
         IOPMAssertionCreateWithDescription( kIOPMAssertionTypePreventUserIdleSystemSleep,
                                             CFSTR( _kDADaemonName ),
                                             NULL,

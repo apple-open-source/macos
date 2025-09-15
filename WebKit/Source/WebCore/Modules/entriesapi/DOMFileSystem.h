@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "FileSystemDirectoryEntry.h"
 #include "ScriptWrappable.h"
 #include <wtf/RefCounted.h>
@@ -38,6 +37,7 @@ class File;
 class FileSystemFileEntry;
 class FileSystemEntry;
 class ScriptExecutionContext;
+template<typename> class ExceptionOr;
 
 class DOMFileSystem final : public ScriptWrappable, public RefCounted<DOMFileSystem> {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(DOMFileSystem);
@@ -72,9 +72,9 @@ private:
     Ref<FileSystemEntry> fileAsEntry(ScriptExecutionContext&);
 
     String m_name;
-    Ref<File> m_file;
+    const Ref<File> m_file;
     String m_rootPath;
-    Ref<WorkQueue> m_workQueue;
+    const Ref<WorkQueue> m_workQueue;
 };
 
 } // namespace WebCore

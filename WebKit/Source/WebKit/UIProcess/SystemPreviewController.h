@@ -28,9 +28,9 @@
 #if USE(SYSTEM_PREVIEW)
 
 #include "ProcessThrottler.h"
-#include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/ResourceError.h>
+#include <WebCore/SystemPreviewInfo.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RetainPtr.h>

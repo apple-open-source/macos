@@ -42,7 +42,7 @@
 - (NSString *)align
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr).createNSString().autorelease();
 }
 
 - (void)setAlign:(NSString *)newAlign

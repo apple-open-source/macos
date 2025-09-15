@@ -65,12 +65,12 @@ void ResourceLoader::loadGResource()
         GUniquePtr<char> fileName(g_path_get_basename(url.path().utf8().data()));
         GUniquePtr<char> contentType(g_content_type_guess(fileName.get(), data, dataSize, nullptr));
         auto contentTypeString = String::fromLatin1(contentType.get());
-        ResourceResponse response { url, extractMIMETypeFromMediaType(contentTypeString), static_cast<long long>(dataSize), extractCharsetFromMediaType(contentTypeString).toString() };
+        ResourceResponse response { WTFMove(url), extractMIMETypeFromMediaType(contentTypeString), static_cast<long long>(dataSize), extractCharsetFromMediaType(contentTypeString).toString() };
         response.setHTTPStatusCode(200);
         response.setHTTPStatusText("OK"_s);
         response.setHTTPHeaderField(HTTPHeaderName::ContentType, contentTypeString);
         response.setSource(ResourceResponse::Source::Network);
-        loader->deliverResponseAndData(response, SharedBuffer::create(bytes.get()));
+        loader->deliverResponseAndData(WTFMove(response), SharedBuffer::create(bytes.get()));
     }, protectedThis.leakRef()));
 
     g_task_set_priority(task.get(), RunLoopSourcePriority::AsyncIONetwork);

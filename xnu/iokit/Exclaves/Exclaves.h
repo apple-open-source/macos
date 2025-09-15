@@ -36,6 +36,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <IOKit/IOReturn.h>
+
 #ifdef __cplusplus
 
 #include <libkern/c++/OSDictionary.h>
@@ -134,6 +136,27 @@ struct IOExclaveANEUpcallArgs {
 	};
 };
 
+enum IOExclaveLPWUpcallType {
+	kIOExclaveLPWUpcallTypeCreateAssertion,
+	kIOExclaveLPWUpcallTypeReleaseAssertion,
+	kIOExclaveLPWUpcallTypeRequestRunMode,
+};
+
+struct IOExclaveLPWUpcallArgs {
+	enum IOExclaveLPWUpcallType type;
+	union {
+		struct {
+			uint64_t id_out;
+		} createassertion;
+		struct {
+			uint64_t id;
+		} releaseassertion;
+		struct {
+			uint64_t runmode_mask;
+		} requestrunmode;
+	} data;
+};
+
 /*
  * Exclave upcall handlers
  *
@@ -145,6 +168,10 @@ bool IOExclaveLockWorkloop(uint64_t id, bool lock);
 bool IOExclaveAsyncNotificationUpcallHandler(uint64_t id, struct IOExclaveAsyncNotificationUpcallArgs *args);
 bool IOExclaveMapperOperationUpcallHandler(uint64_t id, struct IOExclaveMapperOperationUpcallArgs *args);
 bool IOExclaveANEUpcallHandler(uint64_t id, struct IOExclaveANEUpcallArgs *args, bool *result);
+IOReturn IOExclaveLPWUpcallHandler(struct IOExclaveLPWUpcallArgs *args);
+
+IOReturn IOExclaveLPWCreateAssertion(uint64_t *id_out, const char *desc);
+IOReturn IOExclaveLPWReleaseAssertion(uint64_t id);
 
 /* Test support */
 

@@ -51,13 +51,16 @@ public:
     static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool deferSendingIfSuspended = false;
 
-    auto&& arguments()
+    MessageWithoutArgument()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 class MessageWithoutArgumentAndEmptyReply {
@@ -75,13 +78,16 @@ public:
     using ReplyArguments = std::tuple<>;
     using Reply = CompletionHandler<void()>;
     using Promise = WTF::NativePromise<void, IPC::Error>;
-    auto&& arguments()
+    MessageWithoutArgumentAndEmptyReply()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 class MessageWithoutArgumentAndReplyWithArgument {
@@ -99,13 +105,16 @@ public:
     using ReplyArguments = std::tuple<String>;
     using Reply = CompletionHandler<void(String&&)>;
     using Promise = WTF::NativePromise<String, IPC::Error>;
-    auto&& arguments()
+    MessageWithoutArgumentAndReplyWithArgument()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 class MessageWithArgument {
@@ -119,17 +128,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit MessageWithArgument(const String& argument)
-        : m_arguments(argument)
+        : m_argument(argument)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_argument;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_argument;
 };
 
 class MessageWithArgumentAndEmptyReply {
@@ -148,17 +158,18 @@ public:
     using Reply = CompletionHandler<void()>;
     using Promise = WTF::NativePromise<void, IPC::Error>;
     explicit MessageWithArgumentAndEmptyReply(const String& argument)
-        : m_arguments(argument)
+        : m_argument(argument)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_argument;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_argument;
 };
 
 class MessageWithArgumentAndReplyWithArgument {
@@ -177,17 +188,18 @@ public:
     using Reply = CompletionHandler<void(String&&)>;
     using Promise = WTF::NativePromise<String, IPC::Error>;
     explicit MessageWithArgumentAndReplyWithArgument(const String& argument)
-        : m_arguments(argument)
+        : m_argument(argument)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_argument;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_argument;
 };
 
 } // namespace TestWithoutUsingIPCConnection

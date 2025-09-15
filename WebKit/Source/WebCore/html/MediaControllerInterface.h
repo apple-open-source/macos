@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,13 @@
 
 #if ENABLE(VIDEO)
 
-#include "ExceptionOr.h"
 #include "HTMLMediaElementEnums.h"
 
 namespace WebCore {
 
 class TimeRanges;
+
+template<typename> class ExceptionOr;
 
 class MediaControllerInterface : public HTMLMediaElementEnums {
 public:

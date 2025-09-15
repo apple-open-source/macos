@@ -52,13 +52,18 @@ void PlatformPasteboard::performAsDataOwner(DataOwnerType, NOESCAPE Function<voi
     actions();
 }
 
+int64_t PlatformPasteboard::changeCount() const
+{
+    return m_changeCount;
+}
+
 void PlatformPasteboard::getTypes(Vector<String>& types) const
 {
     struct wpe_pasteboard_string_vector pasteboardTypes = { nullptr, 0 };
     wpe_pasteboard_get_types(m_pasteboard, &pasteboardTypes);
     for (auto& typeString : unsafeMakeSpan(pasteboardTypes.strings, pasteboardTypes.length)) {
         const auto length = std::min(static_cast<size_t>(typeString.length), std::numeric_limits<size_t>::max());
-        types.append(String({ typeString.data, length }));
+        types.append(String(unsafeMakeSpan(typeString.data, length)));
     }
 
     wpe_pasteboard_string_vector_free(&pasteboardTypes);
@@ -72,7 +77,7 @@ String PlatformPasteboard::readString(size_t, const String& type) const
         return String();
 
     const auto length = std::min(static_cast<size_t>(string.length), std::numeric_limits<size_t>::max());
-    String returnValue({ string.data, length });
+    String returnValue(unsafeMakeSpan(string.data, length));
 
     wpe_pasteboard_string_free(&string);
     return returnValue;
@@ -81,7 +86,7 @@ String PlatformPasteboard::readString(size_t, const String& type) const
 void PlatformPasteboard::write(const PasteboardWebContent& content)
 {
     static constexpr auto plainText = "text/plain;charset=utf-8"_s;
-    static constexpr auto htmlText = "text/html;charset=utf-8"_s;
+    static constexpr auto htmlText = "text/html"_s;
 
     CString textString = content.text.utf8();
     CString markupString = content.markup.utf8();
@@ -97,6 +102,7 @@ void PlatformPasteboard::write(const PasteboardWebContent& content)
     struct wpe_pasteboard_string_map map = { pairs.data(), pairs.size() };
 
     wpe_pasteboard_write(m_pasteboard, &map);
+    m_changeCount++;
 
     wpe_pasteboard_string_free(&pairs[0].type);
     wpe_pasteboard_string_free(&pairs[0].string);
@@ -117,6 +123,7 @@ void PlatformPasteboard::write(const String& type, const String& string)
     struct wpe_pasteboard_string_map map = { pairs, 1 };
 
     wpe_pasteboard_write(m_pasteboard, &map);
+    m_changeCount++;
 
     wpe_pasteboard_string_free(&pairs[0].type);
     wpe_pasteboard_string_free(&pairs[0].string);
@@ -127,14 +134,30 @@ Vector<String> PlatformPasteboard::typesSafeForDOMToReadAndWrite(const String&) 
     return { };
 }
 
-int64_t PlatformPasteboard::write(const PasteboardCustomData&)
+int64_t PlatformPasteboard::write(const PasteboardCustomData& customData, PasteboardDataLifetime)
 {
-    return 0;
+    PasteboardWebContent contents;
+    customData.forEachPlatformStringOrBuffer([&contents] (auto& type, auto& stringOrBuffer) {
+        if (std::holds_alternative<String>(stringOrBuffer)) {
+            if (type.startsWith("text/plain"_s))
+                contents.text = std::get<String>(stringOrBuffer);
+            else if (type == "text/html"_s)
+                contents.markup = std::get<String>(stringOrBuffer);
+        }
+    });
+    if (contents.text.isNull() && contents.markup.isNull())
+        return m_changeCount;
+
+    write(contents);
+    return m_changeCount;
 }
 
-int64_t PlatformPasteboard::write(const Vector<PasteboardCustomData>&)
+int64_t PlatformPasteboard::write(const Vector<PasteboardCustomData>& data, PasteboardDataLifetime)
 {
-    return 0;
+    if (data.isEmpty() || data.size() > 1)
+        return m_changeCount;
+
+    return write(data[0]);
 }
 
 } // namespace WebCore

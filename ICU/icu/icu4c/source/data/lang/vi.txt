@@ -147,6 +147,7 @@ vi{
         crs{"Tiếng Pháp Seselwa Creole"}
         cs{"Tiếng Séc"}
         csb{"Tiếng Kashubia"}
+        cst{"Tiếng Chochenyo"}
         csw{"Tiếng Swampy Cree"}
         cu{"Tiếng Slavơ Nhà thờ"}
         cv{"Tiếng Chuvash"}
@@ -243,6 +244,7 @@ vi{
         hak{"Tiếng Khách Gia"}
         haw{"Tiếng Hawaii"}
         hax{"Tiếng Haida miền Nam"}
+        hch{"Tiếng Wixárika"}
         he{"Tiếng Do Thái"}
         hi{"Tiếng Hindi"}
         hif{"Tiếng Fiji Hindi"}
@@ -272,6 +274,7 @@ vi{
         inh{"Tiếng Ingush"}
         io{"Tiếng Ido"}
         is{"Tiếng Iceland"}
+        isc{"Tiếng Iskonawa"}
         it{"Tiếng Italy"}
         iu{"Tiếng Inuktitut"}
         izh{"Tiếng Ingria"}
@@ -514,6 +517,7 @@ vi{
         sh{"Tiếng Serbo-Croatia"}
         shi{"Tiếng Tachelhit"}
         shn{"Tiếng Shan"}
+        shp{"Tiếng Shipibo-Konibo"}
         shu{"Tiếng Ả-Rập Chad"}
         si{"Tiếng Sinhala"}
         sid{"Tiếng Sidamo"}
@@ -831,13 +835,15 @@ vi{
     }
     Types{
         calendar{
+            bangla{"Lịch Bangla"}
             buddhist{"Lịch Phật Giáo"}
             chinese{"Lịch Trung Quốc"}
             coptic{"Lịch Copts"}
-            dangi{"Lịch Dangi"}
+            dangi{"Lịch Hàn Quốc"}
             ethiopic{"Lịch Ethiopia"}
             ethiopic-amete-alem{"Lịch Ethiopic Amete Alem"}
             gregorian{"Lịch Gregory"}
+            gujarati{"Lịch Gujarat"}
             hebrew{"Lịch Do Thái"}
             indian{"Lịch Quốc gia Ấn Độ"}
             islamic{"Lịch Hijri"}
@@ -847,8 +853,16 @@ vi{
             islamic-umalqura{"Lịch Hijri (Umm al-Qura)"}
             iso8601{"Lịch ISO-8601"}
             japanese{"Lịch Nhật Bản"}
+            kannada{"Lịch kannada"}
+            malayalam{"Lịch Malayalam"}
+            marathi{"Lịch Marathi"}
+            odia{"Lịch Odia"}
             persian{"Lịch Ba Tư"}
             roc{"Lịch Trung Hoa Dân Quốc"}
+            tamil{"Lịch Tamil"}
+            telugu{"Lịch Telugu"}
+            vietnamese{"lịch Việt Nam"}
+            vikram{"Lịch Vikram"}
         }
         cf{
             account{"Định dạng tiền tệ kế toán"}

@@ -42,13 +42,13 @@ std::unique_ptr<KeyedDecoder> KeyedDecoder::decoder(std::span<const uint8_t> dat
 
 KeyedDecoderCF::KeyedDecoderCF(std::span<const uint8_t> data)
 {
-    auto cfData = adoptCF(CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, data.data(), data.size(), kCFAllocatorNull));
+    auto cfData = toCFDataNoCopy(data, kCFAllocatorNull);
     auto cfPropertyList = adoptCF(CFPropertyListCreateWithData(kCFAllocatorDefault, cfData.get(), kCFPropertyListImmutable, nullptr, nullptr));
 
     if (dynamic_cf_cast<CFDictionaryRef>(cfPropertyList.get()))
-        m_rootDictionary = adoptCF(static_cast<CFDictionaryRef>(cfPropertyList.leakRef()));
+        lazyInitialize(m_rootDictionary, adoptCF(static_cast<CFDictionaryRef>(cfPropertyList.leakRef())));
     else
-        m_rootDictionary = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+        lazyInitialize(m_rootDictionary, adoptCF(CFDictionaryCreate(kCFAllocatorDefault, nullptr, nullptr, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)));
     m_dictionaryStack.append(m_rootDictionary.get());
 }
 

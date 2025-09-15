@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Igalia S.L. All rights reserved.
- * Copyright (C) 2016-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 
 #include "RenderStyleInlines.h"
 #include "StyleInheritedData.h"
+#include <numbers>
 #include <wtf/StdLibExtras.h>
 
 static const unsigned kRadicalOperator = 0x221A;
@@ -130,7 +131,7 @@ LayoutUnit MathOperator::stretchSize() const
 bool MathOperator::getGlyph(const RenderStyle& style, char32_t character, GlyphData& glyph) const
 {
     glyph = style.fontCascade().glyphDataForCharacter(character, style.writingMode().isBidiRTL());
-    return glyph.font && glyph.font == &style.fontCascade().primaryFont();
+    return glyph.font && glyph.font == style.fontCascade().primaryFont().ptr();
 }
 
 void MathOperator::setSizeVariant(const GlyphData& sizeVariant)
@@ -152,7 +153,7 @@ static GlyphData glyphDataForCodePointOrFallbackGlyph(const RenderStyle& style, 
     
     if (fallbackGlyph) {
         fallback.glyph = fallbackGlyph;
-        fallback.font = &style.fontCascade().primaryFont();
+        fallback.font = style.fontCascade().primaryFont().ptr();
     }
     
     return fallback;
@@ -242,7 +243,7 @@ void MathOperator::calculateDisplayStyleLargeOperator(const RenderStyle& style)
         return;
 
     // The value of displayOperatorMinHeight is sometimes too small, so we ensure that it is at least \sqrt{2} times the size of the base glyph.
-    float displayOperatorMinHeight = std::max(heightForGlyph(baseGlyph) * sqrtOfTwoFloat, baseGlyph.font->mathData()->getMathConstant(*baseGlyph.font, OpenTypeMathData::DisplayOperatorMinHeight));
+    float displayOperatorMinHeight = std::max(heightForGlyph(baseGlyph) * std::numbers::sqrt2_v<float>, baseGlyph.font->mathData()->getMathConstant(*baseGlyph.font, OpenTypeMathData::DisplayOperatorMinHeight));
 
     Vector<Glyph> sizeVariants;
     Vector<OpenTypeMathData::AssemblyPart> assemblyParts;

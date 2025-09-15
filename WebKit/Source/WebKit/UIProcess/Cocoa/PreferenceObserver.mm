@@ -53,20 +53,20 @@
         return;
 
     for (NSString *key in oldValues) {
-        id oldValue = oldValues[key];
-        id newValue = newValues[key];
+        RetainPtr<id> oldValue = oldValues[key];
+        RetainPtr<id> newValue = newValues[key];
 
-        if ([oldValue isEqual:newValue])
+        if ([oldValue isEqual:newValue.get()])
             continue;
 
         if (newValue && ![[newValue class] supportsSecureCoding])
             continue;
 
-        NSString *encodedString = nil;
+        RetainPtr<NSString> encodedString;
 
         if (newValue) {
             NSError *e = nil;
-            auto data = retainPtr([NSKeyedArchiver archivedDataWithRootObject:newValue requiringSecureCoding:YES error:&e]);
+            auto data = retainPtr([NSKeyedArchiver archivedDataWithRootObject:newValue.get() requiringSecureCoding:YES error:&e]);
             ASSERT(!e);
             encodedString = [data base64EncodedStringWithOptions:0];
         }
@@ -79,11 +79,11 @@
             return a == b || [a isEqual:b];
         };
 
-        if (preferenceValuesAreEqual((__bridge id)systemValue.get(), newValue) || preferenceValuesAreEqual((__bridge id)globalValue.get(), newValue))
-            [m_observer preferenceDidChange:nil key:key encodedValue:encodedString];
+        if (preferenceValuesAreEqual((__bridge id)systemValue.get(), newValue.get()) || preferenceValuesAreEqual((__bridge id)globalValue.get(), newValue.get()))
+            [m_observer preferenceDidChange:nil key:key encodedValue:encodedString.get()];
 
-        if (preferenceValuesAreEqual((__bridge id)domainValue.get(), newValue))
-            [m_observer preferenceDidChange:m_suiteName.get() key:key encodedValue:encodedString];
+        if (preferenceValuesAreEqual((__bridge id)domainValue.get(), newValue.get()))
+            [m_observer preferenceDidChange:m_suiteName.get() key:key encodedValue:encodedString.get()];
     }
 }
 
@@ -157,10 +157,10 @@
 #endif
     };
 
-    for (auto domain : domains) {
-        auto userDefaults = adoptNS([[WKUserDefaults alloc] initWithSuiteName:domain]);
+    for (RetainPtr domain : domains) {
+        auto userDefaults = adoptNS([[WKUserDefaults alloc] initWithSuiteName:domain.get()]);
         if (!userDefaults) {
-            WTFLogAlways("Could not init user defaults instance for domain %s", String(domain).utf8().data());
+            WTFLogAlways("Could not init user defaults instance for domain %s", String(domain.get()).utf8().data());
             continue;
         }
         userDefaults->m_observer = self;
@@ -177,7 +177,7 @@
 - (void)preferenceDidChange:(NSString *)domain key:(NSString *)key encodedValue:(NSString *)encodedValue
 {
 #if ENABLE(CFPREFS_DIRECT_MODE)
-    RunLoop::main().dispatch([domain = retainPtr(domain), key = retainPtr(key), encodedValue = retainPtr(encodedValue)] {
+    RunLoop::mainSingleton().dispatch([domain = retainPtr(domain), key = retainPtr(key), encodedValue = retainPtr(encodedValue)] {
         std::optional<String> encodedValueString;
         if (encodedValue)
             encodedValueString = String(encodedValue.get());

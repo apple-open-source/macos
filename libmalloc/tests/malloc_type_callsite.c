@@ -26,17 +26,17 @@ test_bucketing(void)
 	int i = 0;
 	CALL_N_CALLSITES(({ ptrs[i] = malloc(512); i++; }));
 	validate_bucket_distribution(zone, "malloc(512)", ptrs, N_UNIQUE_CALLSITES,
-			true);
+			true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({ ptrs[i] = calloc(1, 512); i++; }));
 	validate_bucket_distribution(zone, "calloc(1, 512)", ptrs,
-			N_UNIQUE_CALLSITES, true);
+			N_UNIQUE_CALLSITES, true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({ ptrs[i] = realloc(NULL, 512); i++; }));
 	validate_bucket_distribution(zone, "realloc(NULL, 512)", ptrs,
-			N_UNIQUE_CALLSITES, true);
+			N_UNIQUE_CALLSITES, true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({
@@ -45,7 +45,7 @@ test_bucketing(void)
 		i++;
 	}));
 	validate_bucket_distribution(zone, "realloc(p, 512)", ptrs,
-			N_UNIQUE_CALLSITES, true);
+			N_UNIQUE_CALLSITES, true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({
@@ -55,21 +55,21 @@ test_bucketing(void)
 		i++;
 	}));
 	validate_bucket_distribution(zone, "posix_memalign(&p, 64, 512)", ptrs,
-			N_UNIQUE_CALLSITES, true);
+			N_UNIQUE_CALLSITES, true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({ ptrs[i] = aligned_alloc(64, 512); i++; }));
 	validate_bucket_distribution(zone, "aligned_alloc(64, 512)", ptrs,
-			N_UNIQUE_CALLSITES, true);
+			N_UNIQUE_CALLSITES, true, false);
 
 	i = 0;
 	CALL_N_CALLSITES(({
-		ptrs[i] = malloc_zone_malloc_with_options_np(NULL, sizeof(void *), 512,
-				0);
+		ptrs[i] = malloc_zone_malloc_with_options(NULL, MALLOC_ZONE_MALLOC_DEFAULT_ALIGN,
+				512, MALLOC_ZONE_MALLOC_OPTION_NONE);
 		i++;
 	}));
-	validate_bucket_distribution(zone, "malloc_zone_malloc_with_options_np",
-			ptrs, N_UNIQUE_CALLSITES, true);
+	validate_bucket_distribution(zone, "malloc_zone_malloc_with_options",
+			ptrs, N_UNIQUE_CALLSITES, true, false);
 
 #if HAVE_MALLOC_TYPE
 	// libc++ fallback bucketing is gated by TMO enablement, so we can only test
@@ -77,7 +77,7 @@ test_bucketing(void)
 	void **cpp_ptrs = cpp_new_fallback();
 	T_ASSERT_NOTNULL(cpp_ptrs, "cpp_ptrs");
 	validate_bucket_distribution(zone, "operator new", cpp_ptrs,
-			N_UNIQUE_CALLSITES, false);
+			N_UNIQUE_CALLSITES, false, false);
 	cpp_delete_fallback(cpp_ptrs);
 #endif // HAVE_MALLOC_TYPE
 }
@@ -89,7 +89,6 @@ test_bucketing(void)
 T_DECL(malloc_type_callsite_fastpath,
 		"Validate bucketing for callsite type descriptors from fast path",
 		T_META_TAG_XZONE_ONLY,
-		T_META_TAG_NANO_ON_XZONE,
 		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
 		T_META_ENVVAR("MallocNanoZone=1"),
@@ -101,7 +100,6 @@ T_DECL(malloc_type_callsite_fastpath,
 T_DECL(malloc_type_callsite_slowpath,
 		"Validate bucketing for callsite type descriptors from slow path",
 		T_META_TAG_XZONE_ONLY,
-		T_META_TAG_NANO_ON_XZONE,
 		T_META_TAG_XZONE_AND_PGM,
 		T_META_TAG("no_debug"),
 		T_META_ENVVAR("MallocTracing=1"), // enable tracing to activate slowpath

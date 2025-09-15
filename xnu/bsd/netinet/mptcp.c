@@ -248,7 +248,7 @@ mptcp_reass_present(struct socket *mp_so)
 				dowakeup = 1;
 			}
 		}
-		tcp_reass_qent_free(q);
+		tcp_reass_qent_free(mp_so->so_proto, q);
 		mp_tp->mpt_reassqlen--;
 		count++;
 		q = LIST_FIRST(&mp_tp->mpt_segq);
@@ -293,7 +293,14 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 	}
 
 	/* Allocate a new queue entry. If we can't, just drop the pkt. XXX */
-	te = tcp_reass_qent_alloc();
+	te = tcp_reass_qent_alloc(mp_so->so_proto);
+	if (te == NULL) {
+		m_drop_list(m, NULL,
+		    DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING,
+		    DROP_REASON_MPTCP_REASSEMBLY_ALLOC, NULL, 0);
+		*tlenp = 0;
+		return 0;
+	}
 
 	mp_tp->mpt_reassqlen++;
 	OSIncrementAtomic(&mptcp_reass_total_qlen);
@@ -321,7 +328,7 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 			if (i >= *tlenp) {
 				tcpstat.tcps_mptcp_rcvduppack++;
 				m_freem(m);
-				tcp_reass_qent_free(te);
+				tcp_reass_qent_free(mp_so->so_proto, te);
 				te = NULL;
 				mp_tp->mpt_reassqlen--;
 				OSDecrementAtomic(&mptcp_reass_total_qlen);
@@ -364,7 +371,7 @@ mptcp_reass(struct socket *mp_so, struct pkthdr *phdr, int *tlenp, struct mbuf *
 		nq = LIST_NEXT(q, tqe_q);
 		LIST_REMOVE(q, tqe_q);
 		m_freem(q->tqe_m);
-		tcp_reass_qent_free(q);
+		tcp_reass_qent_free(mp_so->so_proto, q);
 		mp_tp->mpt_reassqlen--;
 		OSDecrementAtomic(&mptcp_reass_total_qlen);
 		q = nq;
@@ -1122,6 +1129,8 @@ mptcp_update_rcv_state_meat(struct mptcb *mp_tp, struct tcpcb *tp,
     u_int64_t full_dsn, u_int32_t seqn, u_int16_t mdss_data_len,
     uint16_t csum)
 {
+	struct mptsub *mpts = tp->t_mpsub;
+
 	if (mdss_data_len == 0) {
 		os_log_error(mptcp_log_handle, "%s - %lx: Infinite Mapping.\n",
 		    __func__, (unsigned long)VM_KERNEL_ADDRPERM(mp_tp->mpt_mpte));
@@ -1136,10 +1145,10 @@ mptcp_update_rcv_state_meat(struct mptcb *mp_tp, struct tcpcb *tp,
 
 	mptcp_notify_mpready(tp->t_inpcb->inp_socket);
 
-	tp->t_rcv_map.mpt_dsn = full_dsn;
-	tp->t_rcv_map.mpt_sseq = seqn;
-	tp->t_rcv_map.mpt_len = mdss_data_len;
-	tp->t_rcv_map.mpt_csum = csum;
+	mpts->mpts_rcv_map.mpt_dsn = full_dsn;
+	mpts->mpts_rcv_map.mpt_sseq = seqn;
+	mpts->mpts_rcv_map.mpt_len = mdss_data_len;
+	mpts->mpts_rcv_map.mpt_csum = csum;
 	tp->t_mpflags |= TMPF_EMBED_DSN;
 }
 
@@ -1522,26 +1531,4 @@ mptcp_set_restrictions(struct socket *mp_so)
 	}
 
 	ifnet_head_done();
-}
-
-#define DUMP_BUF_CHK() {        \
-	clen -= k;              \
-    if (clen < 1)           \
-	    goto done;          \
-    c += k;                 \
-}
-
-int
-dump_mptcp_reass_qlen(char *str __sized_by(str_len), int str_len)
-{
-	char *c = str;
-	int k, clen = str_len;
-
-	if (mptcp_reass_total_qlen != 0) {
-		k = scnprintf(c, clen, "\nmptcp reass qlen %d\n", mptcp_reass_total_qlen);
-		DUMP_BUF_CHK();
-	}
-
-done:
-	return str_len - clen;
 }

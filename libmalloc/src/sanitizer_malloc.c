@@ -21,10 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <malloc/_platform.h>
-#include <malloc_private.h>
-#include <stddef.h>
-
 #include "internal.h"
 
 #if CONFIG_SANITIZER
@@ -706,7 +702,8 @@ sanitizer_size(sanitizer_zone_t *zone, const void * __unsafe_indexable ptr)
 
 static void * __alloc_size(2) __sized_by_or_null(size)
 sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
-		size_t size, uint64_t options, malloc_type_id_t type_id)
+		size_t size, malloc_zone_malloc_options_t options,
+		malloc_type_id_t type_id)
 {
 	if (!size) {
 		size = 1;
@@ -735,7 +732,7 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 			// Dispatch directly with pass-thru options
 			ptr = DELEGATE(malloc_type_malloc_with_options, 0, size, options,
 					type_id);
-		} else if (options & MALLOC_NP_OPTION_CLEAR) {
+		} else if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 			// Need fallback for this option
 			ptr = DELEGATE(malloc_type_calloc, 1, size, type_id);
 		} else {
@@ -753,11 +750,21 @@ sanitizer_malloc_type_malloc_noalign_with_options(sanitizer_zone_t *zone,
 		malloc_set_tsd_type_descriptor(MALLOC_TYPE_DESCRIPTOR_NONE);
 #endif // MALLOC_TARGET_64BIT
 	} else {
+		const malloc_zone_malloc_options_t known_options =
+				MALLOC_ZONE_MALLOC_OPTION_CLEAR
+				;
+		if (options & ~known_options) {
+			malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
+					"sanitizer_malloc_with_options: unsupported options 0x%llx\n",
+					options);
+			__builtin_trap();
+		}
+
 		// Set the type TSD and check the options
 #if MALLOC_TARGET_64BIT
 		malloc_set_tsd_type_descriptor(type_desc);
 #endif // MALLOC_TARGET_64BIT
-		if (options & MALLOC_NP_OPTION_CLEAR) {
+		if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 			// Need fallback for this option
 			ptr = DELEGATE(calloc, 1, size);
 		} else {
@@ -1072,17 +1079,9 @@ sanitizer_memalign(sanitizer_zone_t *zone, size_t align, size_t size)
 
 static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
-	size_t size, uint64_t options, malloc_type_id_t type_id)
+		size_t size, malloc_zone_malloc_options_t options,
+		malloc_type_id_t type_id)
 {
-	const malloc_options_np_t known_options = MALLOC_NP_OPTION_CLEAR
-			;
-	if (options & ~known_options) {
-		malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
-				"sanitizer_malloc_with_options: unsupported options 0x%llx\n",
-				options);
-		__builtin_trap();
-	}
-
 
 	void *ptr;
 	if (!align) {
@@ -1090,7 +1089,7 @@ sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 			options, type_id);
 	} else {
 		ptr = sanitizer_malloc_type_memalign(zone, align, size, type_id);
-		if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
+		if (ptr && (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR)) {
 			bzero(ptr, size);
 		}
 	}
@@ -1101,7 +1100,7 @@ sanitizer_malloc_type_malloc_with_options(sanitizer_zone_t *zone, size_t align,
 
 static void * __alloc_align(2) __alloc_size(3) __sized_by_or_null(size)
 sanitizer_malloc_with_options(sanitizer_zone_t *zone, size_t align, size_t size,
-		uint64_t options)
+		malloc_zone_malloc_options_t options)
 {
 	return sanitizer_malloc_type_malloc_with_options(zone, align, size, options,
 			malloc_get_tsd_type_id());

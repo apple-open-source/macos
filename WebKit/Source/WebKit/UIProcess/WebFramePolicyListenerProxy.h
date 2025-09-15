@@ -45,10 +45,10 @@ enum class ShouldExpectAppBoundDomainResult : bool { No, Yes };
 enum class ShouldWaitForInitialLinkDecorationFilteringData : bool { No, Yes };
 enum class WasNavigationIntercepted : bool { No, Yes };
 
-class WebFramePolicyListenerProxy : public API::ObjectImpl<API::Object::Type::FramePolicyListener> {
+class WebFramePolicyListenerProxy : public API::ObjectImpl<API::Object::Type::FramePolicyListener>, public CanMakeWeakPtr<WebFramePolicyListenerProxy> {
 public:
 
-    using Reply = CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<BrowsingWarning>&&, std::optional<NavigatingToAppBoundDomain>, WasNavigationIntercepted)>;
+    using Reply = CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, std::optional<NavigatingToAppBoundDomain>, WasNavigationIntercepted)>;
     static Ref<WebFramePolicyListenerProxy> create(Reply&& reply, ShouldExpectSafeBrowsingResult expectSafeBrowsingResult, ShouldExpectAppBoundDomainResult expectAppBoundDomainResult, ShouldWaitForInitialLinkDecorationFilteringData shouldWaitForInitialLinkDecorationFilteringData)
     {
         return adoptRef(*new WebFramePolicyListenerProxy(WTFMove(reply), expectSafeBrowsingResult, expectAppBoundDomainResult, shouldWaitForInitialLinkDecorationFilteringData));
@@ -75,3 +75,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebFramePolicyListenerProxy)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::FramePolicyListener; }
+SPECIALIZE_TYPE_TRAITS_END()

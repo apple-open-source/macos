@@ -48,6 +48,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class OTAccountMetadataClassC;
 
 @class TrustedPeersHelperHealthCheckResult;
+@class OTEscrowCheckCallResult;
 
 @interface OTControlArguments : NSObject <NSSecureCoding>
 @property (strong) NSString* contextID;
@@ -55,6 +56,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (strong, nullable) NSString* altDSID;
 @property (strong, nullable) NSString* flowID;
 @property (strong, nullable) NSString* deviceSessionID;
+@property BOOL canSendMetrics;
 
 - (instancetype)init;
 - (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration;
@@ -62,6 +64,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
                          flowID:(NSString* _Nullable)flowID
                 deviceSessionID:(NSString* _Nullable)deviceSessionID;
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
+                         flowID:(NSString* _Nullable)flowID
+                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                 canSendMetrics:(BOOL)canSendMetrics;
+
 - (instancetype)initWithContainerName:(NSString* _Nullable)containerName
                             contextID:(NSString*)contextID
                               altDSID:(NSString* _Nullable)altDSID;
@@ -71,6 +78,13 @@ NS_ASSUME_NONNULL_BEGIN
                               altDSID:(NSString* _Nullable)altDSID
                                flowID:(NSString* _Nullable)flowID
                       deviceSessionID:(NSString* _Nullable)deviceSessionID;
+
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID
+                               flowID:(NSString* _Nullable)flowID
+                      deviceSessionID:(NSString* _Nullable)deviceSessionID
+                       canSendMetrics:(BOOL)canSendMetrics;
 
 
 - (OTConfigurationContext*)makeConfigurationContext;
@@ -158,10 +172,12 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 
 - (void)status:(NSString* _Nullable)container
        context:(NSString*)context
-         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
+         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
+API_DEPRECATED("Use -status:xpcFd:reply:", macos(10.15, 16.0), ios(13.0, 19.0), tvos(13.0, 19.0), watchos(6.0, 12.0), visionos(1.0, 3.0));
 
 - (void)status:(OTControlArguments*)arguments
-         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply;
+         reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
+API_DEPRECATED("Use -status:xpcFd:reply:", macos(13.0, 16.0), ios(16.0, 19.0), tvos(16.0, 19.0), watchos(9.0, 12.0), visionos(1.0, 3.0));
 
 - (void)status:(OTControlArguments*)arguments
          xpcFd:(xpc_object_t)xpcFd
@@ -192,6 +208,7 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
 	       notifyIdMS:(bool)notifyIdMS
           accountSettings:(OTAccountSettings *_Nullable)accountSettings
+               accountIsW:(BOOL)accountIsW
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)establish:(OTControlArguments*)arguments
@@ -292,10 +309,19 @@ API_DEPRECATED("No longer needed", macos(10.14, 10.15), ios(4, 17));
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
+         danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                  updateIdMS:(BOOL)updateIdMS
 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
+
+- (void)escrowCheck:(OTControlArguments*)arguments
+  isBackgroundCheck:(BOOL)isBackgroundCheck
+              reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError *_Nullable error))reply;
 
 - (void)simulateReceivePush:(OTControlArguments*)arguments
                       reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)simulateReceiveTDLChangePush:(OTControlArguments*)arguments
+                               reply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
@@ -404,17 +430,24 @@ reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError 
                          reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                  accountIsW:(BOOL)accountIsW
                                      altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments
                     reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
 
+- (void)trustedFullPeers:(OTControlArguments*)arguments
+                   reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
+
 - (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
                             reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
 
 - (void)reroll:(OTControlArguments*)arguments
          reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)icscRepairReset:(OTControlArguments*)arguments
+                  reply:(void (^)(NSError *_Nullable error))reply;
 
 @end
 

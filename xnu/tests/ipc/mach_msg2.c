@@ -30,7 +30,7 @@ T_GLOBAL_META(
 #define MACH_MSG    1
 #define MACH_MSG2   2
 
-#define MACH_MSG2_TEST_COUNT 16
+#define MACH_MSG2_TEST_COUNT 17
 
 struct msg_rcv_args {
 	mach_port_t rcv_port;
@@ -159,7 +159,6 @@ do_msg_rcv(void * _Nullable arg)
 	mach_port_t msg_rcv_port = ((struct msg_rcv_args *)arg)->rcv_port;
 	mach_msg_vector_t data_vec[2];
 	kern_return_t kr;
-	mach_msg_header_t emptry_header = {};
 	msg_rcv_buffer_t message_buffer;
 	inline_message_t *msg;
 
@@ -192,7 +191,7 @@ do_msg_rcv(void * _Nullable arg)
 			    0,
 			    0);
 		} else {
-			kr = mach_msg(msg,
+			kr = mach_msg((void *)msg,
 			    MACH_RCV_MSG, 0, rcv_configs[i].rcv_size, msg_rcv_port, 0, 0);
 		}
 
@@ -205,7 +204,7 @@ do_msg_rcv(void * _Nullable arg)
 			if (kr == KERN_SUCCESS) {
 				/* verify message proper carries correct data and port */
 
-				T_QUIET; T_EXPECT_EQ(msg->data, MESSAGE_DATA_BYTES, "message should carry correct value");
+				T_QUIET; T_EXPECT_EQ(msg->data, (uint64_t)MESSAGE_DATA_BYTES, "message should carry correct value");
 				T_QUIET; T_EXPECT_EQ(msg->header.msgh_remote_port, send_port, "port name should match");
 				T_QUIET; T_EXPECT_EQ(msg->header.msgh_local_port, msg_rcv_port, "port name should match");
 				T_QUIET; T_EXPECT_EQ(msg->header.msgh_id, 4141, "ID should match");
@@ -460,7 +459,7 @@ T_DECL(mach_msg2_combined_send_rcv, "Test mach_msg2() combined send/rcv")
 	T_EXPECT_EQ(kr, MACH_MSG_SUCCESS, "1+1 combined send/rcv succeeded");
 
 	/* Verify content */
-	T_EXPECT_EQ(((aux_buffer_t *)data_vec[1].msgv_data)->header.msgdh_size,
+	T_EXPECT_EQ((unsigned long)((aux_buffer_t *)data_vec[1].msgv_data)->header.msgdh_size,
 	    sizeof(aux_buffer_t), "Kernel should reset header to correct size");
 	ret = strcmp(buf_string, ((aux_buffer_t *)data_vec[1].msgv_data)->string);
 	T_EXPECT_EQ(ret, 0, "aux data string should match after receive");
@@ -512,7 +511,7 @@ workloop_cb(uint64_t *workloop_id __unused, void **eventslist, int *events __unu
 	T_LOG("workloop is set running..");
 
 	T_EXPECT_NE(msg_size, 0, "msg size should not be zero");
-	T_EXPECT_EQ(aux_size, sizeof(aux_buffer_t), "aux size should match");
+	T_EXPECT_EQ((unsigned long)aux_size, sizeof(aux_buffer_t), "aux size should match");
 
 	aux_buffer_t *aux = (aux_buffer_t *)((uintptr_t)msg + msg_size);
 	T_EXPECT_EQ(aux->header.msgdh_size, aux_size, "aux size should match header");

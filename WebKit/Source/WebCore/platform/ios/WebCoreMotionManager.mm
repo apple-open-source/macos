@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #import "WebCoreObjCExtras.h"
 #import "WebCoreThreadRun.h"
 #import <CoreLocation/CoreLocation.h>
+#import <numbers>
 #import <objc/objc-runtime.h>
 #import <pal/spi/cocoa/CoreMotionSPI.h>
 #import <wtf/MathExtras.h>
@@ -289,27 +290,27 @@ static const double kGravity = 9.80665;
         } else if (R[8] < 0) {
             zRot = atan2(R[1], -R[4]);
             xRot = -asin(R[7]);
-            xRot += (xRot >= 0) ? -M_PI : M_PI;
+            xRot += (xRot >= 0) ? -std::numbers::pi : std::numbers::pi;
             yRot = atan2(R[6], -R[8]);
         } else {
             if (R[6] > 0) {
                 zRot = atan2(-R[1], R[4]);
                 xRot = asin(R[7]);
-                yRot = -M_PI_2;
+                yRot = -piOverTwoDouble;
             } else if (R[6] < 0) {
                 zRot = atan2(R[1], -R[4]);
                 xRot = -asin(R[7]);
-                xRot += (xRot >= 0) ? -M_PI : M_PI;
-                yRot = -M_PI_2;
+                xRot += (xRot >= 0) ? -std::numbers::pi : std::numbers::pi;
+                yRot = -piOverTwoDouble;
             } else {
                 zRot = atan2(R[3], R[0]);
-                xRot = (R[7] > 0) ? M_PI_2 : -M_PI_2;
+                xRot = (R[7] > 0) ? piOverTwoDouble : -piOverTwoDouble;
                 yRot = 0;
             }
         }
 
         // Rotation around the Z axis (pointing up. normalized to [0, 360] deg).
-        double alpha = rad2deg(zRot > 0 ? zRot : (M_PI * 2 + zRot));
+        double alpha = rad2deg(zRot > 0 ? zRot : (std::numbers::pi * 2 + zRot));
         // Rotation around the X axis (top to bottom).
         double beta  = rad2deg(xRot);
         // Rotation around the Y axis (side to side).

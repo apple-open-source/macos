@@ -48,7 +48,7 @@ static NSString* WKPopoverTableViewCellReuseIdentifier  = @"WKPopoverTableViewCe
 - (CGRect)contentRectForBounds:(CGRect)bounds;
 @end
 
-static NSString *stringWithWritingDirection(NSString *string, NSWritingDirection writingDirection, bool override)
+static RetainPtr<NSString> stringWithWritingDirection(NSString *string, NSWritingDirection writingDirection, bool override)
 {
     if (![string length] || writingDirection == NSWritingDirectionNatural)
         return string;
@@ -72,7 +72,7 @@ static NSString *stringWithWritingDirection(NSString *string, NSWritingDirection
     else
         directionalFormattingCharacter = (override ? rightToLeftOverride : rightToLeftEmbedding);
     
-    return [NSString stringWithFormat:@"%C%@%C", directionalFormattingCharacter, string, popDirectionalFormatting];
+    return adoptNS([[NSString alloc] initWithFormat:@"%C%@%C", directionalFormattingCharacter, string, popDirectionalFormatting]);
 }
 
 @class WKSelectPopover;
@@ -134,7 +134,7 @@ static NSString *stringWithWritingDirection(NSString *string, NSWritingDirection
     // For that reason we have to override what the system thinks.
     if (writingDirection == NSWritingDirectionRightToLeft)
         self.view.semanticContentAttribute = UISemanticContentAttributeForceRightToLeft;
-    [self setTitle:stringWithWritingDirection(_contentView.focusedElementInformation.title, writingDirection, override)];
+    [self setTitle:stringWithWritingDirection(_contentView.focusedElementInformation.title.createNSString().get(), writingDirection, override).get()];
 
     return self;
 }
@@ -194,7 +194,7 @@ static NSString *stringWithWritingDirection(NSString *string, NSWritingDirection
             continue;
         groupCount++;
         if (item.isGroup && groupCount == section)
-            return item.text;
+            return item.text.createNSString().autorelease();
     }
     return nil;
 }
@@ -203,7 +203,7 @@ static NSString *stringWithWritingDirection(NSString *string, NSWritingDirection
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // FIXME: <rdar://131638865> UITableViewCell.textLabel is deprecated.
-    [cell.textLabel setText:item.text];
+    [cell.textLabel setText:item.text.createNSString().get()];
     [cell.textLabel setEnabled:!item.disabled];
 ALLOW_DEPRECATED_DECLARATIONS_END
     [cell setSelectionStyle:item.disabled ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleBlue];
@@ -259,7 +259,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     
     if (_contentView.focusedElementInformation.selectOptions.isEmpty()) {
         [cell textLabel].enabled = NO;
-        [cell textLabel].text = WEB_UI_STRING_KEY("No Options", "No Options Select Popover", "Empty select list");
+        [cell textLabel].text = WEB_UI_STRING_KEY("No Options", "No Options Select Popover", "Empty select list").createNSString().get();
         [cell setAccessoryType:UITableViewCellAccessoryNone];
         [cell setSelectionStyle:UITableViewCellSelectionStyleNone];
         return cell.autorelease();
@@ -376,6 +376,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<WKSelectTableViewController> _tableViewController;
 }
 
+#if ENABLE(SELECT_MULTIPLE_ADJUSTMENTS)
+#import <WebKitAdditions/WKSelectPopoverAdditions.mm>
+#else
+- (void)performAdjustmentsIfNeeded
+{
+}
+#endif
+
 - (instancetype)initWithView:(WKContentView *)view hasGroups:(BOOL)hasGroups
 {
     if (!(self = [super initWithView:view]))
@@ -397,6 +405,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     self.popoverController = adoptNS([[UIPopoverController alloc] initWithContentViewController:popoverViewController.get()]).get();
 ALLOW_DEPRECATED_DECLARATIONS_END
+
+    [self performAdjustmentsIfNeeded];
 
     return self;
 }

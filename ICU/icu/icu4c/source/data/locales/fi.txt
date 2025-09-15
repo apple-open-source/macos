@@ -712,7 +712,7 @@ fi{
                         "la",
                     }
                     wide{
-                        "sunnuntai",
+                        "sunnuntaina",
                         "maanantaina",
                         "tiistaina",
                         "keskiviikkona",

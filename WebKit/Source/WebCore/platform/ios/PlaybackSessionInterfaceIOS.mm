@@ -88,7 +88,7 @@ void PlaybackSessionInterfaceIOS::invalidate()
 
 PlaybackSessionModel* PlaybackSessionInterfaceIOS::playbackSessionModel() const
 {
-    return m_playbackSessionModel;
+    return m_playbackSessionModel.get();
 }
 
 void PlaybackSessionInterfaceIOS::modelDestroyed()
@@ -106,6 +106,11 @@ std::optional<MediaPlayerIdentifier> PlaybackSessionInterfaceIOS::playerIdentifi
 void PlaybackSessionInterfaceIOS::setPlayerIdentifier(std::optional<MediaPlayerIdentifier> identifier)
 {
     m_playerIdentifier = WTFMove(identifier);
+}
+
+void PlaybackSessionInterfaceIOS::setVideoPresentationInterface(WeakPtr<VideoPresentationInterfaceIOS> videoPresentationInterface)
+{
+    m_videoPresentationInterface = WTFMove(videoPresentationInterface);
 }
 
 void PlaybackSessionInterfaceIOS::startObservingNowPlayingMetadata()

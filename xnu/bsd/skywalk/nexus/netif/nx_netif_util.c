@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -73,79 +73,55 @@ SK_NO_INLINE_ATTRIBUTE
 static void
 fill_vlan_info(struct __kern_packet *fpkt)
 {
-	uint8_t *buf;
-	struct ether_vlan_header *evl;
+	struct mbuf *m;
+	struct __kern_packet *pkt;
 	uint16_t tag;
-	boolean_t tag_in_pkt = FALSE;
 
-	if (fpkt->pkt_length < sizeof(*evl)) {
-		DTRACE_SKYWALK2(bad__len, struct __kern_packet *, fpkt,
-		    uint32_t, fpkt->pkt_length);
-		return;
-	}
-	MD_BUFLET_ADDR_ABS(fpkt, buf);
-	buf += fpkt->pkt_headroom;
-	evl = (struct ether_vlan_header *)(void *)buf;
-	if (ntohs(evl->evl_encap_proto) == ETHERTYPE_VLAN) {
-		tag = ntohs(evl->evl_tag);
-		tag_in_pkt = TRUE;
-		DTRACE_SKYWALK1(tag__in__pkt, uint16_t, tag);
-	} else {
-		struct mbuf *m;
-		struct __kern_packet *pkt;
+	/*
+	 * A filter packet must always have an mbuf or a packet
+	 * attached.
+	 */
+	VERIFY((fpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0 ||
+	    (fpkt->pkt_pflags & PKT_F_PKT_DATA) != 0);
+
+	if ((fpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
+		m = fpkt->pkt_mbuf;
+		VERIFY(m != NULL);
+		if (mbuf_get_vlan_tag(m, &tag) != 0) {
+			return;
+		}
+		DTRACE_SKYWALK1(tag__from__mbuf, uint16_t, tag);
+		kern_packet_set_vlan_tag(SK_PKT2PH(fpkt), tag);
+	} else if ((fpkt->pkt_pflags & PKT_F_PKT_DATA) != 0) {
+		pkt = fpkt->pkt_pkt;
+		VERIFY(pkt != NULL);
 
 		/*
-		 * A filter packet must always have an mbuf or a packet
-		 * attached.
+		 * The attached packet could have an mbuf attached
+		 * if it came from the compat path.
 		 */
-		VERIFY((fpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0 ||
-		    (fpkt->pkt_pflags & PKT_F_PKT_DATA) != 0);
-
-		if ((fpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
+		if ((pkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
 			m = fpkt->pkt_mbuf;
 			VERIFY(m != NULL);
 			if (mbuf_get_vlan_tag(m, &tag) != 0) {
 				return;
 			}
-			DTRACE_SKYWALK1(tag__from__mbuf, uint16_t, tag);
-		} else if ((fpkt->pkt_pflags & PKT_F_PKT_DATA) != 0) {
-			pkt = fpkt->pkt_pkt;
-			VERIFY(pkt != NULL);
-
-			/*
-			 * The attached packet could have an mbuf attached
-			 * if it came from the compat path.
-			 */
-			if ((pkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
-				m = fpkt->pkt_mbuf;
-				VERIFY(m != NULL);
-				if (mbuf_get_vlan_tag(m, &tag) != 0) {
-					return;
-				}
-				DTRACE_SKYWALK1(tag__from__inner__mbuf,
-				    uint16_t, tag);
-			} else {
-				/*
-				 * XXX
-				 * No native driver today fills in the vlan tag
-				 * metadata. This code will work when the driver
-				 * adds support for this.
-				 */
-				VERIFY((pkt->pkt_pflags & PKT_F_PKT_DATA) == 0);
-				if (__packet_get_vlan_tag(SK_PKT2PH(pkt), &tag,
-				    NULL) != 0) {
-					return;
-				}
-				DTRACE_SKYWALK1(tag__from__pkt, uint16_t, tag);
-			}
+			DTRACE_SKYWALK1(tag__from__inner__mbuf,
+			    uint16_t, tag);
 		} else {
-			panic("filter packet has no mbuf or packet attached: "
-			    "pkt_pflags 0x%llx\n", fpkt->pkt_pflags);
-			/* NOTREACHED */
-			__builtin_unreachable();
+			VERIFY((pkt->pkt_pflags & PKT_F_PKT_DATA) == 0);
+			if (__packet_get_vlan_tag(SK_PKT2PH(pkt), &tag) != 0) {
+				return;
+			}
+			DTRACE_SKYWALK1(tag__from__pkt, uint16_t, tag);
 		}
+		kern_packet_set_vlan_tag(SK_PKT2PH(fpkt), tag);
+	} else {
+		panic("filter packet has no mbuf or packet attached: "
+		    "pkt_pflags 0x%llx\n", fpkt->pkt_pflags);
+		/* NOTREACHED */
+		__builtin_unreachable();
 	}
-	kern_packet_set_vlan_tag(SK_PKT2PH(fpkt), tag, tag_in_pkt);
 }
 
 static struct __kern_packet *
@@ -684,6 +660,7 @@ nx_netif_pkt_to_pkt(struct nexus_netif_adapter *nifna,
 	}
 
 	if (type == NR_TX) {
+		dpkt->pkt_svc_class = pkt->pkt_svc_class;
 		dpkt->pkt_flowsrc_type = pkt->pkt_flowsrc_type;
 		dpkt->pkt_flow_token = pkt->pkt_flow_token;
 		dpkt->pkt_policy_id = pkt->pkt_policy_id;

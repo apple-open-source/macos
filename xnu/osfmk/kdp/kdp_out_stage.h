@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/queue.h>
+#include <kdp/processor_core.h>
 
 struct kdp_output_stage;
 
@@ -46,7 +47,7 @@ struct kdp_core_out_state {
 };
 
 struct kdp_output_stage_funcs {
-	void (*kosf_reset)(struct kdp_output_stage *stage);
+	kern_return_t (*kosf_reset)(struct kdp_output_stage *stage, const char *corename, kern_coredump_type_t coretype);
 	kern_return_t (*kosf_outproc)(struct kdp_output_stage *stage, unsigned int request,
 	    char *corename, uint64_t length, void *panic_data);
 	void (*kosf_free)(struct kdp_output_stage *stage);

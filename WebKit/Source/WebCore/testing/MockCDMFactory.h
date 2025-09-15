@@ -93,7 +93,7 @@ public:
 
 private:
     MockCDMFactory();
-    std::unique_ptr<CDMPrivate> createCDM(const String&, const CDMPrivateClient&) final;
+    std::unique_ptr<CDMPrivate> createCDM(const String&, const String& mediaKeysHashSalt, const CDMPrivateClient&) final;
     bool supportsKeySystem(const String&) final;
 
     MediaKeysRequirement m_distinctiveIdentifiersRequirement { MediaKeysRequirement::Optional };
@@ -112,9 +112,10 @@ private:
 class MockCDM : public CDMPrivate {
     WTF_MAKE_TZONE_ALLOCATED(MockCDM);
 public:
-    MockCDM(WeakPtr<MockCDMFactory>);
+    MockCDM(WeakPtr<MockCDMFactory>, const String&);
 
     MockCDMFactory* factory() { return m_factory.get(); }
+    const String& mediaKeysHashSalt() const { return m_mediaKeysHashSalt; }
 
 private:
     friend class MockCDMInstance;
@@ -136,6 +137,7 @@ private:
     std::optional<String> sanitizeSessionId(const String&) const final;
 
     WeakPtr<MockCDMFactory> m_factory;
+    String m_mediaKeysHashSalt;
 };
 
 class MockCDMInstance : public CDMInstance, public CanMakeWeakPtr<MockCDMInstance> {

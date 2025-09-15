@@ -118,7 +118,7 @@ void WebMediaPlaybackTargetPicker::invalidate()
     WebCore::WebMediaSessionManager::shared().removeAllPlaybackTargetPickerClients(*this);
 }
 
-RetainPtr<PlatformView> WebMediaPlaybackTargetPicker::platformView() const
+RetainPtr<CocoaView> WebMediaPlaybackTargetPicker::platformView() const
 {
     ASSERT(m_webView);
     return m_webView.get();

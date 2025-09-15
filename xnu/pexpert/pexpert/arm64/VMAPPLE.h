@@ -31,6 +31,7 @@
 
 #define NO_MONITOR                1
 #define NO_ECORE                  1
+#define HAS_PARAVIRTUALIZED_CTRR  1
 
 #define VMAPPLE                   1
 #define APPLEVIRTUALPLATFORM      1
@@ -50,8 +51,10 @@
 #define ARM_PARAMETERIZED_PMAP    1
 #define __ARM_MIXED_PAGE_SIZE__   1
 
+
 #include <pexpert/arm64/apple_arm64_common.h>
 #undef  __ARM64_PMAP_SUBPAGE_L1__
+#undef  __ARM64_PMAP_KERN_SUBPAGE_L1__
 
 #ifndef ASSEMBLER
 #define PL011_UART

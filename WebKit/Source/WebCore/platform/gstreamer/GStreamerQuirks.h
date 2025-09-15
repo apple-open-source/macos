@@ -87,6 +87,16 @@ public:
     virtual int correctBufferingPercentage(MediaPlayerPrivateGStreamer*, int originalBufferingPercentage, GstBufferingMode) const { return originalBufferingPercentage; }
     virtual void resetBufferingPercentage(MediaPlayerPrivateGStreamer*, int) const { };
     virtual void setupBufferingPercentageCorrection(MediaPlayerPrivateGStreamer*, GstState, GstState, GRefPtr<GstElement>&&) const { }
+    virtual bool needsCustomInstantRateChange() const { return false; }
+    // Note: Change these pairs and single return types as needed, or even use a struct, if more return fields
+    // have to be added in the future.
+    // Returning processed and didInstantRateChange.
+    virtual std::pair<bool, bool> applyCustomInstantRateChange(
+        bool isPipelinePlaying, bool isPipelineWaitingPreroll, float playbackRate, bool mute, GstElement* pipeline) const;
+    // Returning forwardToAllPads.
+    virtual bool analyzeWebKitMediaSrcCustomEvent(GRefPtr<GstEvent>) const;
+    // Returning rate.
+    virtual std::optional<double> processWebKitMediaSrcCustomEvent(GRefPtr<GstEvent>, bool handledByAnyStream, bool handledByAllTheStreams) const;
 
     // Subclass must return true if it wants to override the default behaviour of sibling platforms.
     virtual bool processWebAudioSilentBuffer(GstBuffer* buffer) const
@@ -148,6 +158,17 @@ public:
     void setupBufferingPercentageCorrection(MediaPlayerPrivateGStreamer*, GstState currentState, GstState newState, GRefPtr<GstElement>&&) const;
 
     void processWebAudioSilentBuffer(GstBuffer*) const;
+
+    bool needsCustomInstantRateChange() const;
+    // Returning processed and didInstantRateChange.
+    std::pair<bool, bool> applyCustomInstantRateChange(
+        bool isPipelinePlaying, bool isPipelineWaitingPreroll, float playbackRate, bool mute, GstElement* pipeline) const;
+    bool processCustomInstantRateChangeEvent() const;
+    // Returning forwardToAllPads.
+    bool analyzeWebKitMediaSrcCustomEvent(GRefPtr<GstEvent>) const;
+    // Returning rate.
+    std::optional<double> processWebKitMediaSrcCustomEvent(GRefPtr<GstEvent>, bool handledByAnyStream, bool handledByAllStreams) const;
+
 private:
     GStreamerQuirksManager(bool, bool);
 

@@ -24,6 +24,7 @@
 
 #include "GStreamerAudioData.h"
 #include "GStreamerAudioStreamDescription.h"
+#include <wtf/MediaTime.h>
 #include <wtf/text/MakeString.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_incoming_audio_debug);

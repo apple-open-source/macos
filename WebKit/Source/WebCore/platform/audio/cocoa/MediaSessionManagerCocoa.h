@@ -66,10 +66,6 @@ public:
     static WEBCORE_EXPORT void clearNowPlayingInfo();
     static WEBCORE_EXPORT void setNowPlayingInfo(bool setAsNowPlayingApplication, bool shouldUpdateNowPlayingSuppression, const NowPlayingInfo&);
 
-    static WEBCORE_EXPORT void updateMediaUsage(PlatformMediaSession&);
-
-    static void ensureCodecsRegistered();
-
     static WEBCORE_EXPORT void setShouldUseModernAVContentKeySession(bool);
     static WEBCORE_EXPORT bool shouldUseModernAVContentKeySession();
 
@@ -78,21 +74,21 @@ public:
 protected:
     void scheduleSessionStatusUpdate() final;
     void updateNowPlayingInfo();
-    void updateActiveNowPlayingSession(CheckedPtr<PlatformMediaSession>);
+    void updateActiveNowPlayingSession(RefPtr<PlatformMediaSessionInterface>);
 
-    void removeSession(PlatformMediaSession&) final;
-    void addSession(PlatformMediaSession&) final;
-    void setCurrentSession(PlatformMediaSession&) final;
+    void removeSession(PlatformMediaSessionInterface&) final;
+    void addSession(PlatformMediaSessionInterface&) final;
+    void setCurrentSession(PlatformMediaSessionInterface&) final;
 
-    bool sessionWillBeginPlayback(PlatformMediaSession&) override;
-    void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) override;
-    void sessionDidEndRemoteScrubbing(PlatformMediaSession&) final;
-    void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
+    bool sessionWillBeginPlayback(PlatformMediaSessionInterface&) override;
+    void sessionWillEndPlayback(PlatformMediaSessionInterface&, DelayCallingUpdateNowPlaying) override;
+    void sessionDidEndRemoteScrubbing(PlatformMediaSessionInterface&) final;
+    void clientCharacteristicsChanged(PlatformMediaSessionInterface&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
     virtual void providePresentingApplicationPIDIfNecessary(const std::optional<ProcessID>&) { }
 
-    WeakPtr<PlatformMediaSession> nowPlayingEligibleSession();
+    WeakPtr<PlatformMediaSessionInterface> nowPlayingEligibleSession();
 
     void addSupportedCommand(PlatformMediaSession::RemoteControlCommandType) final;
     void removeSupportedCommand(PlatformMediaSession::RemoteControlCommandType) final;

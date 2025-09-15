@@ -17,6 +17,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)accountIsCDPCapableByAltDSID:(NSString*)altDSID;
 - (BOOL)accountIsDemoAccountByAltDSID:(NSString*)altDSID error:(NSError**)error NS_SWIFT_NOTHROW;
 
+- (NSString* _Nullable)passwordResetTokenByAltDSID:(NSString*)altDSID error:(NSError**)error;
+
 - (NSString* _Nullable)machineID:(NSString* _Nullable)altDSID
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID

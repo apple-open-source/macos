@@ -51,6 +51,7 @@ private:
     void bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier, Vector<uint8_t>&&, CompletionHandler<void(Vector<uint8_t>, int)>&&) final;
     void unbindRemoteAccessibilityFrames(int) final;
     void updateRemoteFrameAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint) final;
+    bool isWebRemoteFrameClient() const final { return true; }
 
     void closePage() final;
     void focus() final;
@@ -60,6 +61,11 @@ private:
     void updateSandboxFlags(WebCore::SandboxFlags) final;
     void updateOpener(const WebCore::Frame&) final;
     void updateScrollingMode(WebCore::ScrollbarMode scrollingMode) final;
+    void findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection, const WebCore::FocusEventData&, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&&) final;
 };
 
 }
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebRemoteFrameClient)
+static bool isType(const WebCore::RemoteFrameClient& client) { return client.isWebRemoteFrameClient(); }
+SPECIALIZE_TYPE_TRAITS_END()

@@ -48,7 +48,7 @@ messages -> WebProcessProxy WantsDispatchMessage {
 
     DidExceedActiveMemoryLimit()
     DidExceedInactiveMemoryLimit()
-    DidExceedMemoryFootprintThreshold(size_t footprint)
+    DidExceedMemoryFootprintThreshold(uint64_t footprint)
     DidExceedCPULimit()
 
     StopResponsivenessTimer()
@@ -90,14 +90,23 @@ messages -> WebProcessProxy WantsDispatchMessage {
 #if ENABLE(NOTIFICATION_EVENT)
     [EnabledBy=NotificationEventEnabled] GetNotifications(URL registrationURL, String tag) -> (Vector<WebCore::NotificationData> result)
 #endif
-    [EnabledBy=AppBadgeEnabled] SetAppBadge(std::optional<WebKit::WebPageProxyIdentifier> pageIdentifier, WebCore::SecurityOriginData origin, std::optional<uint64_t> badge)
-    [EnabledBy=AppBadgeEnabled] SetClientBadge(WebKit::WebPageProxyIdentifier pageIdentifier, WebCore::SecurityOriginData origin, std::optional<uint64_t> badge)
+    [EnabledBy=AppBadgeEnabled] SetAppBadgeFromWorker(WebCore::SecurityOriginData origin, std::optional<uint64_t> badge)
 
-    WrapCryptoKey(Vector<uint8_t> key) -> (std::optional<Vector<uint8_t>> wrappedKey) Synchronous
     SerializeAndWrapCryptoKey(struct WebCore::CryptoKeyData key) -> (std::optional<Vector<uint8_t>> wrappedKey) Synchronous
     UnwrapCryptoKey(struct WebCore::WrappedCryptoKey wrappedKey) -> (std::optional<Vector<uint8_t>> key) Synchronous
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
     SetupLogStream(uint32_t pid, IPC::StreamServerConnectionHandle serverConnection, WebKit::LogStreamIdentifier identifier) -> (IPC::Semaphore streamWakeUpSemaphore, IPC::Semaphore streamClientWaitSemaphore)
+#endif
+#if !ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
+    SetupLogStream(uint32_t pid, WebKit::LogStreamIdentifier identifier) -> ()
+#endif
+#endif
+
+#if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
+    CreateServiceWorkerDebuggable(WebCore::ServiceWorkerIdentifier identifier, URL url, enum:bool WebCore::ServiceWorkerIsInspectable isInspectable) -> (bool shouldWaitForAutoInspection) Async
+    DeleteServiceWorkerDebuggable(WebCore::ServiceWorkerIdentifier identifier)
+    SendMessageToInspector(WebCore::ServiceWorkerIdentifier identifier, String message)
 #endif
 }

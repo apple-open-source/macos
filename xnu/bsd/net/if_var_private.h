@@ -611,6 +611,7 @@ extern bool management_data_unrestricted;
 extern bool management_control_unrestricted;
 extern bool if_management_interface_check_needed;
 extern int if_management_verbose;
+extern int if_ultra_constrained_default_allowed;
 extern bool if_ultra_constrained_check_needed;
 #endif /* BSD_KERNEL_PRIVATE */
 
@@ -718,10 +719,9 @@ struct ifnet {
 
 	decl_lck_mtx_data(, if_ref_lock);
 	u_int32_t       if_refflags;    /* see IFRF flags below */
-	u_int32_t       if_refio;       /* number of io ops to the underlying driver */
+	os_refcnt_t     if_refio;       /* number of io ops to the underlying driver */
 	u_int32_t       if_threads_pending;    /* Threads created but waiting for first run */
-	u_int32_t       if_datamov;     /* number of threads moving data */
-	u_int32_t       if_drainers;    /* number of draining threads */
+	os_ref_atomic_t if_datamov;     /* number of threads moving data */
 	u_int32_t       if_suspend;     /* number of suspend requests */
 
 #define if_list         if_link
@@ -1043,10 +1043,13 @@ struct ifnet {
 	uint8_t         network_id[IFNET_NETWORK_ID_LEN];
 	uint8_t         network_id_len;
 
+	uint8_t         if_l4s_mode; /* L4S capability on an interface */
+
 	atomic_bool     if_mcast_add_signaled;
 	atomic_bool     if_mcast_del_signaled;
 
-	uint32_t        if_traffic_rule_count;
+	uint32_t        if_inet_traffic_rule_count;
+	uint32_t        if_eth_traffic_rule_count;
 	uint32_t        if_traffic_rule_genid;
 
 	/*
@@ -1094,14 +1097,20 @@ EVENTHANDLER_DECLARE(ifnet_event, ifnet_event_fn);
 #define IFRF_DETACHING  0x4     /* detach has been requested */
 #define IFRF_READY      0x8     /* data path is ready */
 
-#define IFRF_ATTACH_MASK        \
-    (IFRF_EMBRYONIC|IFRF_ATTACHED|IFRF_DETACHING)
+#define IFRF_ATTACH_MASK (IFRF_EMBRYONIC|IFRF_ATTACHED|IFRF_DETACHING)
 
-#define IF_FULLY_ATTACHED(_ifp) \
-    (((_ifp)->if_refflags & IFRF_ATTACH_MASK) == IFRF_ATTACHED)
+static inline bool
+ifnet_is_fully_attached(const struct ifnet *ifp)
+{
+	return (ifp->if_refflags & IFRF_ATTACH_MASK) == IFRF_ATTACHED;
+}
 
-#define IF_FULLY_ATTACHED_AND_READY(_ifp) \
-    (IF_FULLY_ATTACHED(_ifp) && ((_ifp)->if_refflags & IFRF_READY))
+static inline bool
+ifnet_is_attached_and_ready(const struct ifnet *ifp)
+{
+	return ifp->if_refflags == (IFRF_ATTACHED | IFRF_READY);
+}
+
 /*
  * Valid values for if_start_flags
  */
@@ -1212,7 +1221,7 @@ struct if_clone {
  */
 struct ifaddr {
 	decl_lck_mtx_data(, ifa_lock);  /* lock for ifaddr */
-	os_ref_atomic_t ifa_refcnt;     /* ref count, use IFA_{ADD,REM}REF */
+	os_refcnt_t     ifa_refcnt;     /* ref count, use IFA_{ADD,REM}REF */
 	uint32_t        ifa_debug;      /* debug flags */
 	struct sockaddr *ifa_addr;      /* address of interface */
 	struct sockaddr *ifa_dstaddr;   /* other end of p-to-p link */
@@ -1266,12 +1275,10 @@ struct ifaddr {
 #define IFA_UNLOCK(_ifa)                                                \
     lck_mtx_unlock(&(_ifa)->ifa_lock)
 
-os_refgrp_decl(static, ifa_refgrp, "ifa refcounts", NULL);
-
 static inline void
 ifa_addref(struct ifaddr *ifa)
 {
-	os_ref_retain_raw(&ifa->ifa_refcnt, &ifa_refgrp);
+	os_ref_retain(&ifa->ifa_refcnt);
 }
 
 __private_extern__ void ifa_deallocated(struct ifaddr *ifa);
@@ -1280,7 +1287,7 @@ static inline void
 ifa_remref(struct ifaddr *ifa)
 {
 	/* We can use _relaxed, because if we hit 0 we make sure the lock is held */
-	if (os_ref_release_raw_relaxed(&ifa->ifa_refcnt, &ifa_refgrp) == 0) {
+	if (os_ref_release_relaxed(&ifa->ifa_refcnt) == 0) {
 		ifa_deallocated(ifa);
 	}
 }
@@ -1421,22 +1428,27 @@ struct ifmultiaddr {
     !((_ifp)->if_xflags & IFXF_LOW_LATENCY))
 
 /*
+ * Indicate whether or not the immediate WiFi interface is on an AWDL link
+ */
+#define IFNET_IS_WIFI_AWDL(_ifp)                           \
+    ((_ifp)->if_family == IFNET_FAMILY_ETHERNET &&          \
+    (_ifp)->if_subfamily == IFNET_SUBFAMILY_WIFI &&         \
+    ((_ifp)->if_eflags & IFEF_AWDL))
+
+
+/*
  * Indicate whether or not the immediate interface is a companion link
  * interface.
  */
 #define IFNET_IS_COMPANION_LINK(_ifp)                       \
-    ((_ifp)->if_family == IFNET_FAMILY_IPSEC &&             \
-    ((_ifp)->if_subfamily == IFNET_SUBFAMILY_BLUETOOTH ||   \
-    (_ifp)->if_subfamily == IFNET_SUBFAMILY_WIFI ||         \
-    (_ifp)->if_subfamily == IFNET_SUBFAMILY_QUICKRELAY ||   \
-    (_ifp)->if_subfamily == IFNET_SUBFAMILY_DEFAULT))
+    ((_ifp)->if_xflags & IFXF_IS_COMPANIONLINK)
 
 /*
  * Indicate whether or not the immediate interface is a companion link
  * interface using Bluetooth
  */
 #define IFNET_IS_COMPANION_LINK_BLUETOOTH(_ifp)             \
-    ((_ifp)->if_family == IFNET_FAMILY_IPSEC &&             \
+    (IFNET_IS_COMPANION_LINK(_ifp) &&                       \
     (_ifp)->if_subfamily == IFNET_SUBFAMILY_BLUETOOTH)
 
 /*
@@ -1468,7 +1480,10 @@ struct ifmultiaddr {
     (_ifp)->if_delegated.ultra_constrained)
 
 #define IFNET_IS_VPN(_ifp)                                          \
-	((_ifp)->if_xflags & IFXF_IS_VPN)                               \
+	((_ifp)->if_xflags & IFXF_IS_VPN)
+
+#define IFNET_IS_LOOPBACK(_ifp)                                     \
+	((_ifp)->if_flags & IFF_LOOPBACK)
 
 /*
  * We don't support AWDL interface delegation.
@@ -1500,6 +1515,12 @@ struct ifmultiaddr {
     (_ifp)->if_family == IFNET_FAMILY_CELLULAR) &&    \
     (_ifp)->if_subfamily == IFNET_SUBFAMILY_REDIRECT)
 
+/*
+ * Indicate whether or not the interface requires joining cellular thread group
+ */
+#define IFNET_REQUIRES_CELL_GROUP(_ifp)                     \
+    ((_ifp)->if_family == IFNET_FAMILY_CELLULAR &&          \
+    ((_ifp)->if_xflags & IFXF_REQUIRE_CELL_THREAD_GROUP))
 
 extern int if_index;
 extern int if_indexcount;
@@ -1535,10 +1556,9 @@ extern struct ifnet *ifunit(const char *);
 extern struct ifnet *ifunit_ref(const char *);
 extern int ifunit_extract(const char *src, char *__counted_by(dstlen)dst, size_t dstlen, int *unit);
 extern struct ifnet *if_withname(struct sockaddr *);
-extern void if_qflush(struct ifnet *, struct ifclassq *, bool);
-extern void if_qflush_snd(struct ifnet *, bool);
+extern void if_qflush(struct ifnet *, struct ifclassq *);
 extern void if_qflush_sc(struct ifnet *, mbuf_svc_class_t, u_int32_t,
-    u_int32_t *, u_int32_t *, int);
+    u_int32_t *, u_int32_t *);
 
 extern struct if_clone *if_clone_lookup(const char *__counted_by(namelen) name, size_t namelen, u_int32_t *);
 extern int if_clone_attach(struct if_clone *);
@@ -1549,6 +1569,8 @@ extern u_int32_t if_peer_egress_functional_type(struct ifnet *, bool);
 extern errno_t if_mcasts_update(struct ifnet *);
 
 extern const char *intf_event2str(int);
+
+extern uint32_t if_get_driver_hwassist(struct ifnet *ifp);
 
 typedef enum {
 	IFNET_LCK_ASSERT_EXCLUSIVE,     /* RW: held as writer */
@@ -1597,14 +1619,13 @@ __private_extern__ void ifnet_head_assert_exclusive(void);
 
 __private_extern__ errno_t ifnet_set_idle_flags_locked(ifnet_t, u_int32_t,
     u_int32_t);
-__private_extern__ int ifnet_is_attached(struct ifnet *, int refio);
+__private_extern__ int ifnet_get_ioref(struct ifnet *ifp);
 __private_extern__ void ifnet_incr_pending_thread_count(struct ifnet *);
 __private_extern__ void ifnet_decr_pending_thread_count(struct ifnet *);
 __private_extern__ void ifnet_incr_iorefcnt(struct ifnet *);
 __private_extern__ void ifnet_decr_iorefcnt(struct ifnet *);
 __private_extern__ boolean_t ifnet_datamov_begin(struct ifnet *);
 __private_extern__ void ifnet_datamov_end(struct ifnet *);
-__private_extern__ void ifnet_datamov_suspend(struct ifnet *);
 __private_extern__ boolean_t ifnet_datamov_suspend_if_needed(struct ifnet *);
 __private_extern__ void ifnet_datamov_drain(struct ifnet *);
 __private_extern__ void ifnet_datamov_suspend_and_drain(struct ifnet *);
@@ -1707,7 +1728,6 @@ __private_extern__ void if_get_state(struct ifnet *,
 __private_extern__ errno_t if_probe_connectivity(struct ifnet *ifp,
     u_int32_t conn_probe);
 __private_extern__ void if_lqm_update(struct ifnet *, int32_t, int);
-__private_extern__ void ifnet_update_sndq(struct ifclassq *, cqev_t);
 __private_extern__ void ifnet_update_rcv(struct ifnet *, cqev_t);
 
 __private_extern__ void ifnet_flowadv(uint32_t);
@@ -1715,14 +1735,14 @@ __private_extern__ void ifnet_flowadv(uint32_t);
 __private_extern__ errno_t ifnet_set_input_bandwidths(struct ifnet *,
     struct if_bandwidths *);
 __private_extern__ errno_t ifnet_set_output_bandwidths(struct ifnet *,
-    struct if_bandwidths *, boolean_t);
+    struct if_bandwidths *);
 __private_extern__ u_int64_t ifnet_output_linkrate(struct ifnet *);
 __private_extern__ u_int64_t ifnet_input_linkrate(struct ifnet *);
 
 __private_extern__ errno_t ifnet_set_input_latencies(struct ifnet *,
     struct if_latencies *);
 __private_extern__ errno_t ifnet_set_output_latencies(struct ifnet *,
-    struct if_latencies *, boolean_t);
+    struct if_latencies *);
 
 __private_extern__ void ifnet_clear_netagent(uuid_t);
 
@@ -1789,15 +1809,11 @@ __private_extern__ int ifnet_enqueue_netem(void *handle,
     pktsched_pkt_t *__sized_by(n_pkts) pkts, uint32_t n_pkts);
 #if SKYWALK
 struct __kern_packet;
-extern errno_t ifnet_enqueue_pkt(struct ifnet *,
+extern errno_t ifnet_enqueue_pkt(struct ifnet *, struct ifclassq *ifcq,
     struct __kern_packet *, boolean_t, boolean_t *);
-extern errno_t ifnet_enqueue_ifcq_pkt(struct ifnet *, struct ifclassq *,
-    struct __kern_packet *, boolean_t, boolean_t *);
-extern errno_t ifnet_enqueue_pkt_chain(struct ifnet *, struct __kern_packet *,
-    struct __kern_packet *, uint32_t, uint32_t, boolean_t, boolean_t *);
-extern errno_t ifnet_enqueue_ifcq_pkt_chain(struct ifnet *, struct ifclassq *,
-    struct __kern_packet *, struct __kern_packet *, uint32_t, uint32_t, boolean_t,
-    boolean_t *);
+extern errno_t ifnet_enqueue_pkt_chain(struct ifnet *, struct ifclassq *,
+    struct __kern_packet *, struct __kern_packet *, uint32_t, uint32_t,
+    boolean_t, boolean_t *);
 extern errno_t ifnet_set_output_handler(struct ifnet *, ifnet_output_func);
 extern void ifnet_reset_output_handler(struct ifnet *);
 extern errno_t ifnet_set_start_handler(struct ifnet *, ifnet_start_func);
@@ -1818,7 +1834,8 @@ extern u_int32_t if_clear_xflags(ifnet_t, u_int32_t);
 extern boolean_t sa_equal(const struct sockaddr *, const struct sockaddr *);
 extern void ifnet_update_traffic_rule_genid(struct ifnet *);
 extern boolean_t ifnet_sync_traffic_rule_genid(struct ifnet *, uint32_t *);
-extern void ifnet_update_traffic_rule_count(struct ifnet *, uint32_t);
+extern void ifnet_update_inet_traffic_rule_count(struct ifnet *, uint32_t);
+extern void ifnet_update_eth_traffic_rule_count(struct ifnet *, uint32_t);
 
 extern bool if_update_link_heuristic(struct ifnet *);
 

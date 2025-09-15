@@ -411,6 +411,7 @@ extern const char *testworkdir;
 
 #include "archive.h"
 #include "archive_entry.h"
+#include "archive_hooks.h"
 
 /* ACL structure */
 struct archive_test_acl_t {

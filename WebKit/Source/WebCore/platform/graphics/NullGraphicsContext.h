@@ -87,7 +87,7 @@ private:
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) final { }
     void strokeRect(const FloatRect&, float) final { }
     void clipPath(const Path&, WindRule = WindRule::EvenOdd) final { }
-    void drawLinesForText(const FloatPoint&, float, const DashArray&, bool, bool = false, StrokeStyle = StrokeStyle::SolidStroke) final { }
+    void drawLinesForText(const FloatPoint&, float, std::span<const FloatSegment>, bool, bool, StrokeStyle) final { }
     void setLineCap(LineCap) final { }
     void setLineDash(const DashArray&, float) final { }
     void setLineJoin(LineJoin) final { }
@@ -112,6 +112,7 @@ private:
 
     void drawGlyphs(const Font&, std::span<const GlyphBufferGlyph>, std::span<const GlyphBufferAdvance>, const FloatPoint&, FontSmoothingMode) final { }
     void drawDecomposedGlyphs(const Font&, const DecomposedGlyphs&) final { }
+    void drawDisplayList(const DisplayList::DisplayList&, ControlFactory&) final { }
 
     void drawEmphasisMarks(const FontCascade&, const TextRun&, const AtomString&, const FloatPoint&, unsigned = 0, std::optional<unsigned> = std::nullopt) final { }
     void drawBidiText(const FontCascade&, const TextRun&, const FloatPoint&, FontCascade::CustomFontNotReadyAction = FontCascade::CustomFontNotReadyAction::DoNotPaintIfFontNotReady) final { }

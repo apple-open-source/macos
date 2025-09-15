@@ -57,16 +57,33 @@ enum {
 	kIOServicePowerCapabilityOff = 0x00000000,
 	kIOServicePowerCapabilityOn  = 0x00000002,
 	kIOServicePowerCapabilityLow = 0x00010000,
+	kIOServicePowerCapabilityLPW = 0x00020000,
 };
 
 enum {
-	_kIOPMWakeEventSource = 0x00000001,
+	_kIOPMWakeEventSource           = 0x00000001,
+	_kIOPMWakeEventFullWake         = 0x00000002,
+	_kIOPMWakeEventPossibleFullWake = 0x00000004,
 };
 
 // values for OSNumber kIOSystemStateHaltDescriptionKey:kIOSystemStateHaltDescriptionHaltStateKey
 enum {
 	kIOServiceHaltStatePowerOff = 0x00000001,
 	kIOServiceHaltStateRestart  = 0x00000002,
+};
+
+// Bitfields for CreatePMAssertion
+enum {
+    /*! kIOServicePMAssertionCPUBit
+     * When set, PM kernel will prefer to leave the CPU and core hardware
+     * running in "Dark Wake" state, instead of sleeping.
+     */
+	kIOServicePMAssertionCPUBit             = 0x001,
+
+    /*! kIOServicePMAssertionForceFullWakeupBit
+     * When set, the system will immediately do a full wakeup after going to sleep.
+     */
+	kIOServicePMAssertionForceFullWakeupBit = 0x800,
 };
 
 /*!
@@ -491,6 +508,7 @@ public:
 	const char *
 	StringFromReturn(
 		 IOReturn    retval) LOCALONLY;
+
 #endif /* PRIVATE_WIFI_ONLY */
 
 	/*! @function RemoveProperty
@@ -522,12 +540,11 @@ public:
     * @function StateNotificationItemCreate
     * @abstract Create a state notification item.
     * @param    itemName name of the item.
-    * @param    schema dictionary describing behaviors for the item. Keys are defined in
-    *           IOKitKeys.h kIOStateNotification*
+    * @param    value initial value of the item. Can be set to NULL.
     * @return   kIOReturnSuccess on success. See IOReturn.h for error codes.
 	*/
 	virtual kern_return_t
-	StateNotificationItemCreate(OSString * itemName, OSDictionary * schema);
+	StateNotificationItemCreate(OSString * itemName, OSDictionary * value);
 
    /*!
     * @function StateNotificationItemSet
@@ -548,6 +565,31 @@ public:
 	*/
 	virtual kern_return_t
 	StateNotificationItemCopy(OSString * itemName, OSDictionary ** value);
+
+   /*!
+    * @function CreatePMAssertion
+    * @abstract Create a power management assertion.
+    * @param    assertionBits Bit masks including all the flavors that require to be asserted.
+    * @param    assertionID pointer that will contain the unique identifier of the created
+    *           power assertion.
+    * @param    synced indicates if the assertion must prevent an imminent sleep transition.
+    *           When set to true, and if a system sleep is irreversible, the call will return
+    *           kIOReturnBusy, in which case the assertion is not created. Only
+    *           kIOServicePMAssertionCPUBit is valid for assertionBits if sleepSafe is set to
+    *           true.
+    * @return   kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	virtual kern_return_t
+	CreatePMAssertion(uint32_t assertionBits, uint64_t * assertionID, bool synced);
+
+   /*!
+    * @function ReleasePMAssertion
+    * @abstract Release a previously created power management assertion.
+    * @param    assertionID the assertion ID returned by CreatePMAssertion.
+    * @return   kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+	virtual kern_return_t
+	ReleasePMAssertion(uint64_t assertionID);
 
 private:
 	virtual void

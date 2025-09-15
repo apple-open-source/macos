@@ -113,6 +113,7 @@ extern kern_return_t specres_test(void);
 kern_return_t arm64_bti_test(void);
 #endif /* BTI_ENFORCED */
 extern kern_return_t arm64_speculation_guard_test(void);
+extern kern_return_t arm64_aie_test(void);
 #endif /* __arm64__ */
 
 extern kern_return_t test_thread_call(void);
@@ -3354,3 +3355,53 @@ static_if_tests(void)
 	}
 }
 STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, static_if_tests);
+
+#if __BUILDING_XNU_LIB_UNITTEST__
+/* these functions are used for testing the unittest mocking framework and interposing */
+
+__mockable size_t
+kernel_func1(__unused int a, __unused char b)
+{
+	return 1000;
+}
+__mockable size_t
+kernel_func2(__unused int a, __unused char b)
+{
+	return 2000;
+}
+__mockable size_t
+kernel_func3(__unused int a, __unused char b)
+{
+	return 3000;
+}
+__mockable size_t
+kernel_func4(__unused int a, __unused char b)
+{
+	return 4000;
+}
+__mockable size_t
+kernel_func5(__unused int a, __unused char b)
+{
+	return 5000;
+}
+int kernel_func6_was_called = 0;
+__mockable void
+kernel_func6(__unused int a, __unused char b)
+{
+	printf("in void func6");
+	kernel_func6_was_called = a;
+}
+__mockable size_t
+kernel_func7(__unused int a, __unused char b)
+{
+	return 7000;
+}
+int kernel_func8_was_called = 0;
+__mockable void
+kernel_func8(__unused int a, __unused char b)
+{
+	printf("in void func8");
+	kernel_func8_was_called = a;
+}
+
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */

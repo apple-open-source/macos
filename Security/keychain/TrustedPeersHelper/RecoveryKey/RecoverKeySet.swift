@@ -43,10 +43,10 @@ class RecoveryKeySet: NSObject {
     }
 
     init (secret: Data, recoverySalt: String) throws {
-        let encryptionKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeyEncryption, masterSecret: secret, recoverySalt: recoverySalt)
+        let encryptionKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeyEncryption, recoverySecret: secret, recoverySalt: recoverySalt)
         self.encryptionKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: encryptionKeyData))
 
-        let signingKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeySigning, masterSecret: secret, recoverySalt: recoverySalt)
+        let signingKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeySigning, recoverySecret: secret, recoverySalt: recoverySalt)
         self.signingKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: signingKeyData))
 
         // Note: this uses the SPKI hash, and not the key data hash
@@ -69,11 +69,11 @@ class RecoveryKeySet: NSObject {
         return RecoveryKeySet(encryptionKey: unwrappedEncryptionKey, signingKey: unwrappedSigningKey)
     }
 
-    class func generateMasterKeyString() -> (String?) {
+    class func generateRecoveryKeyString() -> (String?) {
         return  SecRKCreateRecoveryKeyString(nil) as String
     }
 
-    class func generateRecoveryKey(keyType: RecoveryKeyType, masterSecret: Data, recoverySalt: String) throws -> (Data) {
+    class func generateRecoveryKey(keyType: RecoveryKeyType, recoverySecret: Data, recoverySalt: String) throws -> (Data) {
         var keyLength: Int
         var info: Data
         var derivedKey: Data
@@ -103,16 +103,16 @@ class RecoveryKeySet: NSObject {
 
         derivedKey = Data(count: keyLength)
 
-        var masterSecretMutable = masterSecret
+        var recoverySecretMutable = recoverySecret
 
         let bottleSaltData = Data(bytes: Array(recoverySalt.utf8), count: recoverySalt.utf8.count)
 
-        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws -> Void in
-            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutableRawBufferPointer) throws -> Void in
-                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws -> Void in
-                    try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws -> Void in
+        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws in
+            try recoverySecretMutable.withUnsafeMutableBytes { (recoverySecretBytes: UnsafeMutableRawBufferPointer) throws in
+                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws in
+                    try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws in
                         status = cchkdf(ccsha384_di(),
-                                        masterSecretBytes.count, masterSecretBytes.baseAddress!,
+                                        recoverySecretBytes.count, recoverySecretBytes.baseAddress!,
                                         bottleSaltBytes.count, bottleSaltBytes.baseAddress!,
                                         infoBytes.count, infoBytes.baseAddress!,
                                         derivedKeyBytes.count, derivedKeyBytes.baseAddress!)
@@ -133,7 +133,7 @@ class RecoveryKeySet: NSObject {
 
                             let space = ccec_x963_export_size(1, ccec_ctx_pub(fullKey))
                             var key = Data(count: space)
-                            key.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) -> Void in
+                            _ = key.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) in
                                 ccec_x963_export(1, bytes.baseAddress!, fullKey)
                             }
                             finalKey = Data(key)
@@ -186,8 +186,8 @@ class RecoveryKeySet: NSObject {
         var result = Data(count: TPHObjectiveC.ccsha384_diSize())
 
         var keyDataMutable = keyData
-        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutableRawBufferPointer) -> Void in
-            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutableRawBufferPointer) -> Void in
+        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutableRawBufferPointer) in
+            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutableRawBufferPointer) in
                 ccdigest(di, keyDataBytes.count, keyDataBytes.baseAddress!, resultBytes.baseAddress!)
             }
         }
@@ -262,20 +262,28 @@ class RecoveryKeySet: NSObject {
         var signingKey: _SFECKeyPair?
         var encryptionKey: _SFECKeyPair?
 
-        let keySet = try retrieveRecoveryKeysFromKeychain(label: label)
-        if keySet == nil {
+        guard let keySet = try retrieveRecoveryKeysFromKeychain(label: label) else {
             throw RecoveryKeySetError.itemDoesNotExist
         }
-        for item in keySet! {
-            let keyTypeData = item[kSecAttrApplicationLabel as CFString] as! Data
-            let keyType = String(data: keyTypeData, encoding: .utf8)!
+
+        for item in keySet {
+            guard let keyTypeData = item[kSecAttrApplicationLabel as CFString] as? Data else {
+                fatalError("Key type data not found or not coercible to Data")
+            }
+            guard let keyType = String(data: keyTypeData, encoding: .utf8) else {
+                fatalError("Key type data not UTF-8")
+            }
 
             if keyType.contains("Encryption") {
-                let keyData = item[kSecValueData as CFString] as! Data
+                guard let keyData = item[kSecValueData as CFString] as? Data else {
+                    fatalError("Key data not found or not coercible to Data")
+                }
                 let encryptionSecKey = try RecoveryKeySet.createSecKey(keyData: keyData)
                 encryptionKey = _SFECKeyPair.init(secKey: encryptionSecKey)
             } else if keyType.contains("Signing") {
-                let keyData = item[kSecValueData as CFString] as! Data
+                guard let keyData = item[kSecValueData as CFString] as? Data else {
+                    fatalError("Key data not found or not coercible to Data")
+                }
                 let signingSecKey = try RecoveryKeySet.createSecKey(keyData: keyData)
                 signingKey = _SFECKeyPair.init(secKey: signingSecKey)
             } else {

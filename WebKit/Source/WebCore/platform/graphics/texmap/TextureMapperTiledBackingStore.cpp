@@ -116,7 +116,7 @@ void TextureMapperTiledBackingStore::createOrDestroyTilesIfNeeded(const FloatSiz
 
             // A tile that we want to add already exists, no need to add or remove it.
             existsAlready = true;
-            tileRectsToAdd.remove(j);
+            tileRectsToAdd.removeAt(j);
             break;
         }
 
@@ -150,7 +150,7 @@ void TextureMapperTiledBackingStore::createOrDestroyTilesIfNeeded(const FloatSiz
     for (auto& index : tileIndicesToRemove) {
         if (m_tiles.size() <= TileEraseThreshold)
             break;
-        m_tiles.remove(index);
+        m_tiles.removeAt(index);
     }
 }
 

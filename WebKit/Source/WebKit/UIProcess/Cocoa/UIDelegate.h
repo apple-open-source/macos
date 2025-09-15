@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 @class _WKActivatedElementInfo;
 @class WKWebView;
 @protocol WKUIDelegate;
+@protocol WKUIDelegatePrivate;
 
 namespace API {
 class FrameInfo;
@@ -97,6 +98,7 @@ private:
         void createNewPage(WebKit::WebPageProxy&, Ref<API::PageConfiguration>&&, Ref<API::NavigationAction>&&, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&&) final;
         void close(WebPageProxy*) final;
         void fullscreenMayReturnToInline(WebPageProxy*) final;
+        void willEnterFullscreen(WebPageProxy*) final;
         void didEnterFullscreen(WebPageProxy*) final;
         void didExitFullscreen(WebPageProxy*) final;
         void runJavaScriptAlert(WebPageProxy&, const WTF::String&, WebFrameProxy*, FrameInfoData&&, Function<void()>&& completionHandler) final;
@@ -106,7 +108,7 @@ private:
         void requestStorageAccessConfirm(WebPageProxy&, WebFrameProxy*, const WebCore::RegistrableDomain& requestingDomain, const WebCore::RegistrableDomain& currentDomain, std::optional<WebCore::OrganizationStorageAccessPromptQuirk>&&, CompletionHandler<void(bool)>&&) final;
         void decidePolicyForGeolocationPermissionRequest(WebPageProxy&, WebFrameProxy&, const FrameInfoData&, Function<void(bool)>&) final;
         bool canRunBeforeUnloadConfirmPanel() const final;
-        void runBeforeUnloadConfirmPanel(WebPageProxy&, const WTF::String&, WebFrameProxy*, FrameInfoData&&, Function<void(bool)>&& completionHandler) final;
+        void runBeforeUnloadConfirmPanel(WebPageProxy&, WTF::String&&, WebFrameProxy*, FrameInfoData&&, Function<void(bool)>&& completionHandler) final;
         void exceededDatabaseQuota(WebPageProxy*, WebFrameProxy*, API::SecurityOrigin*, const WTF::String& databaseName, const WTF::String& displayName, unsigned long long currentQuota, unsigned long long currentOriginUsage, unsigned long long currentUsage, unsigned long long expectedUsage, Function<void(unsigned long long)>&& completionHandler) final;
         bool lockScreenOrientation(WebPageProxy&, WebCore::ScreenOrientationType) final;
         void unlockScreenOrientation(WebPageProxy&) final;
@@ -153,10 +155,9 @@ private:
         bool needsFontAttributes() const final { return m_uiDelegate ? m_uiDelegate->m_delegateMethods.webViewDidChangeFontAttributes : false; }
         void didChangeFontAttributes(const WebCore::FontAttributes&) final;
         void decidePolicyForUserMediaPermissionRequest(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionRequestProxy&) final;
-        void decidePolicyForScreenCaptureUnmuting(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, CompletionHandler<void(bool isAllowed)>&&) final;
-        void checkUserMediaPermissionForOrigin(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionCheckProxy&) final;
+        void decidePolicyForScreenCaptureUnmuting(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebKit::FrameInfoData&&, API::SecurityOrigin&, API::SecurityOrigin&, CompletionHandler<void(bool isAllowed)>&&) final;
         void mediaCaptureStateDidChange(WebCore::MediaProducerMediaStateFlags) final;
-        void callDisplayCapturePermissionDelegate(WebPageProxy&, WebFrameProxy&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionRequestProxy&);
+        void callDisplayCapturePermissionDelegate(WebPageProxy&, WebFrameProxy&, FrameInfoData&&, API::SecurityOrigin&, API::SecurityOrigin&, UserMediaPermissionRequestProxy&);
         void printFrame(WebPageProxy&, WebFrameProxy&, const WebCore::FloatSize& pdfFirstPageSize, CompletionHandler<void()>&&) final;
 #if PLATFORM(IOS_FAMILY)
 #if HAVE(APP_LINKS)
@@ -199,7 +200,6 @@ private:
 #endif
 
         void updateAppBadge(WebPageProxy&, const WebCore::SecurityOriginData&, std::optional<uint64_t>) final;
-        void updateClientBadge(WebPageProxy&, const WebCore::SecurityOriginData&, std::optional<uint64_t>) final;
 
         void didAdjustVisibilityWithSelectors(WebPageProxy&, Vector<String>&&) final;
 
@@ -207,6 +207,13 @@ private:
         void recentlyAccessedGamepadsForTesting(WebPageProxy&) final;
         void stoppedAccessingGamepadsForTesting(WebPageProxy&) final;
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+        void didEnterStandby(WebPageProxy&) final;
+        void didExitStandby(WebPageProxy&) final;
+#endif
+
+        id<WKUIDelegatePrivate> uiDelegatePrivate();
 
         WeakPtr<UIDelegate> m_uiDelegate;
     };
@@ -270,9 +277,9 @@ private:
         bool webViewDidClose : 1;
         bool webViewClose : 1;
         bool webViewFullscreenMayReturnToInline : 1;
+        bool webViewWillEnterFullscreen : 1;
         bool webViewDidEnterFullscreen : 1;
         bool webViewDidExitFullscreen : 1;
-        bool webViewIsMediaCaptureAuthorizedForFrameDecisionHandler : 1;
         bool webViewMediaCaptureStateDidChange : 1;
         bool webViewDidChangeFontAttributes : 1;
 #if PLATFORM(IOS_FAMILY)
@@ -315,12 +322,16 @@ private:
         bool webViewRequestNotificationPermissionForSecurityOriginDecisionHandler : 1;
         bool webViewRequestCookieConsentWithMoreInfoHandlerDecisionHandler : 1;
         bool webViewUpdatedAppBadge : 1;
-        bool webViewUpdatedClientBadge : 1;
         bool webViewDidAdjustVisibilityWithSelectors : 1;
 
 #if ENABLE(GAMEPAD)
         bool webViewRecentlyAccessedGamepadsForTesting : 1;
         bool webViewStoppedAccessingGamepadsForTesting : 1;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+        bool webViewDidEnterStandby : 1;
+        bool webViewDidExitStandby : 1;
 #endif
     } m_delegateMethods;
 };

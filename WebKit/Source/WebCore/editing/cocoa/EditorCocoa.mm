@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #import "CachedResourceLoader.h"
 #import "ColorMac.h"
 #import "DOMURL.h"
+#import "DataTransfer.h"
 #import "DeprecatedGlobalSettings.h"
 #import "DocumentFragment.h"
 #import "DocumentLoader.h"
@@ -175,7 +176,7 @@ void populateRichTextDataIfNeeded(PasteboardContent& content, const Document& do
 
 void Editor::writeSelectionToPasteboard(Pasteboard& pasteboard)
 {
-    Ref document = protectedDocument();
+    Ref document = this->document();
     PasteboardWebContent content;
     content.contentOrigin = document->originIdentifierForPasteboard();
     content.canSmartCopyOrDelete = canSmartCopyOrDelete();
@@ -197,7 +198,7 @@ void Editor::writeSelectionToPasteboard(Pasteboard& pasteboard)
 
 void Editor::writeSelection(PasteboardWriterData& pasteboardWriterData)
 {
-    Ref document = protectedDocument();
+    Ref document = this->document();
 
     PasteboardWriterData::WebContent webContent;
     webContent.contentOrigin = document->originIdentifierForPasteboard();
@@ -241,7 +242,7 @@ String Editor::stringSelectionForPasteboardWithImageAltText()
 
 void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributedString, MailBlockquoteHandling mailBlockquoteHandling)
 {
-    Ref document = protectedDocument();
+    Ref document = this->document();
     if (document->selection().isNone())
         return;
 
@@ -259,7 +260,7 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
 
 String Editor::userVisibleString(const URL& url)
 {
-    return WTF::userVisibleString(url);
+    return WTF::userVisibleString(url.createNSURL().get());
 }
 
 RefPtr<SharedBuffer> Editor::dataInRTFDFormat(NSAttributedString *string)
@@ -331,11 +332,20 @@ String Editor::platformContentTypeForBlobType(const String& type) const
 
 void Editor::readSelectionFromPasteboard(const String& pasteboardName)
 {
-    Pasteboard pasteboard(PagePasteboardContext::create(document().pageID()), pasteboardName);
+    Ref dataTransfer = DataTransfer::createForCopyAndPaste(document(),
+        DataTransfer::StoreMode::Readonly,
+        makeUnique<Pasteboard>(PagePasteboardContext::create(document().pageID()), pasteboardName));
+
+    if (!dispatchClipboardEvent(findEventTargetFromSelection(), ClipboardEventKind::Paste, dataTransfer.copyRef()))
+        return;
+
+    if (!canEdit())
+        return;
+
     if (document().selection().selection().isContentRichlyEditable())
-        pasteWithPasteboard(&pasteboard, { PasteOption::AllowPlainText });
+        pasteWithPasteboard(&dataTransfer->pasteboard(), { PasteOption::AllowPlainText });
     else
-        pasteAsPlainTextWithPasteboard(pasteboard);
+        pasteAsPlainTextWithPasteboard(dataTransfer->pasteboard());
 }
 
 static void maybeCopyNodeAttributesToFragment(const Node& node, DocumentFragment& fragment)
@@ -373,7 +383,7 @@ void Editor::replaceNodeFromPasteboard(Node& node, const String& pasteboardName,
     if (!range)
         return;
 
-    Ref document = protectedDocument();
+    Ref document = this->document();
     document->selection().setSelection({ *range }, FrameSelection::SetSelectionOption::DoNotSetFocus);
 
     Pasteboard pasteboard(PagePasteboardContext::create(document->pageID()), pasteboardName);
@@ -441,7 +451,7 @@ static RetainPtr<CGImageRef> fallbackImageForMultiRepresentationHEIC(std::span<c
 
 void Editor::insertMultiRepresentationHEIC(const std::span<const uint8_t>& data, const String& altText)
 {
-    auto document = protectedDocument();
+    Ref document = this->document();
 
     String primaryType = "image/x-apple-adaptive-glyph"_s;
     auto primaryBuffer = FragmentedSharedBuffer::create(data);
@@ -458,7 +468,7 @@ void Editor::insertMultiRepresentationHEIC(const std::span<const uint8_t>& data,
     picture->appendChild(WTFMove(source));
 
     auto image = HTMLImageElement::create(document);
-    image->setSrc(AtomString { DOMURL::createObjectURL(document, Blob::create(document.ptr(), fallbackBuffer->copyData(), fallbackType)) });
+    image->setAttributeWithoutSynchronization(HTMLNames::srcAttr, AtomString { DOMURL::createObjectURL(document, Blob::create(document.ptr(), fallbackBuffer->copyData(), fallbackType)) });
     if (!altText.isEmpty())
         image->setAttributeWithoutSynchronization(HTMLNames::altAttr, AtomString { altText });
     picture->appendChild(WTFMove(image));

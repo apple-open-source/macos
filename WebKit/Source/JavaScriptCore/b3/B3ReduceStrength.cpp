@@ -96,7 +96,7 @@ class IntRange {
 
 #define DUMP_INT_RANGE_AND_RETURN(range)                           \
     do {                                                           \
-        if (UNLIKELY(B3ReduceStrengthInternal::verbose))           \
+        if (B3ReduceStrengthInternal::verbose) [[unlikely]]        \
             dataLogLn("    IntRange for ", *value, " is ", range); \
         return range;                                              \
     } while (false);
@@ -160,7 +160,7 @@ public:
     template<typename T>
     static IntRange rangeForZShr(int32_t shiftAmount)
     {
-        typename std::make_unsigned<T>::type mask = 0;
+        std::make_unsigned_t<T> mask = 0;
         mask--;
         mask >>= shiftAmount;
         return rangeForMask<T>(static_cast<T>(mask));
@@ -313,7 +313,7 @@ public:
             return rangeForZShr<T>(shiftAmount);
 
         // If the input range is non-negative, then this just brings the range closer to zero.
-        typedef typename std::make_unsigned<T>::type UnsignedT;
+        using UnsignedT = std::make_unsigned_t<T>;
         UnsignedT newMin = static_cast<UnsignedT>(m_min) >> static_cast<UnsignedT>(shiftAmount);
         UnsignedT newMax = static_cast<UnsignedT>(m_max) >> static_cast<UnsignedT>(shiftAmount);
         
@@ -651,17 +651,9 @@ private:
 
             // Turn this: Add(value, zero)
             // Into an Identity.
-            //
-            // Addition is subtle with doubles. Zero is not the neutral value, negative zero is:
-            //    0 + 0 = 0
-            //    0 + -0 = 0
-            //    -0 + 0 = 0
-            //    -0 + -0 = -0
-            if (!m_value->isSensitiveToNaN()) {
-                if (m_value->child(1)->isInt(0) || m_value->child(1)->isNegativeZero()) {
-                    replaceWithIdentity(m_value->child(0));
-                    break;
-                }
+            if (m_value->child(1)->isInt(0)) {
+                replaceWithIdentity(m_value->child(0));
+                break;
             }
 
             if (m_value->isInteger()) {
@@ -810,6 +802,24 @@ private:
             }
 
             break;
+
+        case PurifyNaN:
+            // Turn this: PurifyNaN(constant)
+            // Into this: PNaN or constant
+            if (Value* constant = m_value->child(0)->purifyNaNConstant(m_proc)) {
+                replaceWithNewValue(constant);
+                break;
+            }
+
+            switch (m_value->child(0)->opcode()) {
+            case PurifyNaN: {
+                replaceWithIdentity(m_value->child(0));
+                break;
+            }
+            default:
+                break;
+            }
+            break;
             
         case Neg:
             // Turn this: Neg(constant)
@@ -897,17 +907,6 @@ private:
                             m_index, m_value->origin(), shiftAmount));
                     break;
                 }
-            } else if (m_value->child(1)->hasDouble()) {
-                double factor = m_value->child(1)->asDouble();
-
-                // Turn this: Mul(value, 1)
-                // Into this: value
-                if (!m_value->isSensitiveToNaN()) {
-                    if (factor == 1) {
-                        replaceWithIdentity(m_value->child(0));
-                        break;
-                    }
-                }
             }
 
             if (m_value->isInteger()) {
@@ -926,7 +925,28 @@ private:
                     break;
                 }
             }
+            break;
 
+        case MulHigh:
+            handleCommutativity();
+
+            // Turn this: MulHigh(constant1, constant2)
+            // Into this: (constant1 * constant2) >> shift
+            if (Value* value = m_value->child(0)->mulHighConstant(m_proc, m_value->child(1))) {
+                replaceWithNewValue(value);
+                break;
+            }
+            break;
+
+        case UMulHigh:
+            handleCommutativity();
+
+            // Turn this: UMulHigh(constant1, constant2)
+            // Into this: (constant1 * constant2) >> shift
+            if (Value* value = m_value->child(0)->uMulHighConstant(m_proc, m_value->child(1))) {
+                replaceWithNewValue(value);
+                break;
+            }
             break;
 
         case Div:
@@ -975,37 +995,47 @@ private:
 
                     int32_t divisor = m_value->child(1)->asInt32();
                     DivisionMagic<int32_t> magic = computeDivisionMagic(divisor);
+                    Value* dividend = m_value->child(0);
 
-                    // Perform the "high" multiplication. We do it just to get the high bits.
-                    // This is sort of like multiplying by the reciprocal, just more gnarly. It's
-                    // from Hacker's Delight and I don't claim to understand it.
-                    Value* magicQuotient = m_insertionSet.insert<Value>(
-                        m_index, Trunc, m_value->origin(),
-                        m_insertionSet.insert<Value>(
-                            m_index, ZShr, m_value->origin(),
+                    Value* magicQuotient = nullptr;
+                    if constexpr (isARM64() || isX86()) {
+                        if (!(divisor > 0 && magic.magicMultiplier < 0) && !(divisor < 0 && magic.magicMultiplier > 0)) {
+                            magicQuotient = m_insertionSet.insert<Value>(m_index, MulHigh, m_value->origin(),
+                                dividend,
+                                m_insertionSet.insert<Const32Value>(m_index, m_value->origin(), magic.magicMultiplier));
+                        }
+                    }
+
+                    if (!magicQuotient) {
+                        magicQuotient = m_insertionSet.insert<Value>(
+                            m_index, Trunc, m_value->origin(),
                             m_insertionSet.insert<Value>(
-                                m_index, Mul, m_value->origin(),
+                                m_index, ZShr, m_value->origin(),
                                 m_insertionSet.insert<Value>(
-                                    m_index, SExt32, m_value->origin(), m_value->child(0)),
-                                m_insertionSet.insert<Const64Value>(
-                                    m_index, m_value->origin(), magic.magicMultiplier)),
-                            m_insertionSet.insert<Const32Value>(
-                                m_index, m_value->origin(), 32)));
+                                    m_index, Mul, m_value->origin(),
+                                    m_insertionSet.insert<Value>(
+                                        m_index, SExt32, m_value->origin(), dividend),
+                                    m_insertionSet.insert<Const64Value>(
+                                        m_index, m_value->origin(), magic.magicMultiplier)),
+                                m_insertionSet.insert<Const32Value>(
+                                    m_index, m_value->origin(), 32)));
+                    }
 
                     if (divisor > 0 && magic.magicMultiplier < 0) {
                         magicQuotient = m_insertionSet.insert<Value>(
-                            m_index, Add, m_value->origin(), magicQuotient, m_value->child(0));
-                    }
-                    if (divisor < 0 && magic.magicMultiplier > 0) {
+                            m_index, Add, m_value->origin(), magicQuotient, dividend);
+                    } else if (divisor < 0 && magic.magicMultiplier > 0) {
                         magicQuotient = m_insertionSet.insert<Value>(
-                            m_index, Sub, m_value->origin(), magicQuotient, m_value->child(0));
+                            m_index, Sub, m_value->origin(), magicQuotient, dividend);
                     }
+
                     if (magic.shift > 0) {
                         magicQuotient = m_insertionSet.insert<Value>(
                             m_index, SShr, m_value->origin(), magicQuotient,
                             m_insertionSet.insert<Const32Value>(
                                 m_index, m_value->origin(), magic.shift));
                     }
+
                     replaceWithIdentity(
                         m_insertionSet.insert<Value>(
                             m_index, Add, m_value->origin(), magicQuotient,
@@ -1704,6 +1734,22 @@ private:
             }
             break;
 
+        case FTrunc:
+            // Turn this: FTrunc(constant)
+            // Into this: trunc<value->type()>(constant)
+            if (Value* constant = m_value->child(0)->fTruncConstant(m_proc)) {
+                replaceWithNewValue(constant);
+                break;
+            }
+
+            // Turn this: FTrunc(roundedValue)
+            // Into this: roundedValue
+            if (m_value->child(0)->isRounded()) {
+                replaceWithIdentity(m_value->child(0));
+                break;
+            }
+            break;
+
         case Floor:
             // Turn this: Floor(constant)
             // Into this: floor<value->type()>(constant)
@@ -2133,14 +2179,10 @@ private:
             break;
 
         case DoubleToFloat:
-            // Turn this: DoubleToFloat(FloatToDouble(value))
-            // Into this: value
-            if (!m_value->isSensitiveToNaN()) {
-                if (m_value->child(0)->opcode() == FloatToDouble) {
-                    replaceWithIdentity(m_value->child(0)->child(0));
-                    break;
-                }
-            }
+            // We do not have the following pattern.
+            //     Turn this: DoubleToFloat(FloatToDouble(value))
+            //     Into this: value
+            // because this breaks NaN bit patterns, which is tested via wasm spec tests.
 
             // Turn this: DoubleToFloat(constant)
             // Into this: ConstFloat(constant)

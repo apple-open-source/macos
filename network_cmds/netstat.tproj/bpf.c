@@ -37,25 +37,6 @@
 
 #include "netstat.h"
 
-static void
-proc_name(pid_t pid, char *buf, size_t buf_len)
-{
-	int name[4];
-	size_t	namelen, infolen;
-	struct kinfo_proc info;
-
-	name[0] = CTL_KERN;
-	name[1] = KERN_PROC;
-	name[2] = KERN_PROC_PID;
-	name[3] = pid;
-	namelen = 4;
-	infolen = sizeof(info);
-	if (sysctl(name, namelen, &info, &infolen, 0, 0) != 0) {
-		snprintf(buf, buf_len, "");
-		return;
-	}
-	snprintf(buf, buf_len, "%s", info.kp_proc.p_comm);
-}
 
 static void
 bd_flags(struct xbpf_d *bd, char *flagbuf, size_t len)

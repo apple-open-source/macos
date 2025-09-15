@@ -47,6 +47,12 @@ __ptrcheck_abi_assume_single()
 	} \
 })
 
+#ifdef DEBUG
+#define MALLOC_DEBUG_ASSERT(e) MALLOC_ASSERT(e)
+#else
+#define MALLOC_DEBUG_ASSERT(e)
+#endif
+
 #define MALLOC_FATAL_ERROR(cause, message) ({ \
 		_os_set_crash_log_cause_and_message((cause), "FATAL ERROR - " message); \
 		__asm__ __volatile__ (""); \
@@ -198,6 +204,8 @@ extern size_t malloc_absolute_max_size; // caches the definition above
 #define MALLOC_NO_POPULATE (1 << 9)
 // enable faulting anywhere within this allocation
 #define MALLOC_CAN_FAULT (1 << 12)
+// guarded metadata allocation
+#define MALLOC_GUARDED_METADATA (1 << 13)
 
 // See malloc_implementation.h
 // MALLOC_MSL_LITE_WRAPPED_ZONE_FLAGS == (1 << 10)

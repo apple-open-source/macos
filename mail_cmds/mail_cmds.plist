@@ -16,6 +16,7 @@
 			<string>mail/popen.c: fix /tset/POSIX.cmd/mailx/mailx_01.ex{42} and others which start sub processes</string>
 			<string>mail/tty.c: fix /tset/POSIX.cmd/mailx/mailx_01.ex{49} and /tset/POSIX.cmd/mailx/mailx_01.ex{57}</string>
 			<string>mail/send.c: fix /tset/POSIX.cmd/mailx/mailx_02.ex{132}</string>
+			<string>mail/collect.c: fix POSIX conformance for non-interactive signal handling in send mode (149937295)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>

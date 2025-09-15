@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,12 @@
 
 #import "AVAssetTrackUtilities.h"
 #import "FormatDescriptionUtilities.h"
+#import "FourCC.h"
 #import "MediaSelectionGroupAVFObjC.h"
 #import "PlatformAudioTrackConfiguration.h"
 #import "PlatformVideoTrackConfiguration.h"
 #import "SharedBuffer.h"
+#import "VideoProjectionMetadata.h"
 #import <AVFoundation/AVAssetTrack.h>
 #import <AVFoundation/AVMediaSelectionGroup.h>
 #import <AVFoundation/AVMetadataItem.h>
@@ -67,8 +69,8 @@ static AVAssetTrack* assetTrackFor(const AVTrackPrivateAVFObjCImpl& impl)
         return impl.playerItemTrack().assetTrack;
     if (impl.assetTrack())
         return impl.assetTrack();
-    if (impl.mediaSelectionOption() && impl.mediaSelectionOption()->assetTrack())
-        return impl.mediaSelectionOption()->assetTrack();
+    if (RefPtr mediaSelectionOption = impl.mediaSelectionOption())
+        return mediaSelectionOption->assetTrack();
     return nil;
 }
 
@@ -92,9 +94,7 @@ AVTrackPrivateAVFObjCImpl::AVTrackPrivateAVFObjCImpl(MediaSelectionOptionAVFObjC
     initializeAssetTrack();
 }
 
-AVTrackPrivateAVFObjCImpl::~AVTrackPrivateAVFObjCImpl()
-{
-}
+AVTrackPrivateAVFObjCImpl::~AVTrackPrivateAVFObjCImpl() = default;
 
 void AVTrackPrivateAVFObjCImpl::initializeAssetTrack()
 {
@@ -103,20 +103,26 @@ void AVTrackPrivateAVFObjCImpl::initializeAssetTrack()
 
     [m_assetTrack loadValuesAsynchronouslyForKeys:assetTrackConfigurationKeyNames() completionHandler:[weakThis = WeakPtr(this)] () mutable {
         callOnMainThread([weakThis = WTFMove(weakThis)] {
-            if (weakThis && weakThis->m_audioTrackConfigurationObserver)
-                (*weakThis->m_audioTrackConfigurationObserver)();
-            if (weakThis && weakThis->m_videoTrackConfigurationObserver)
-                (*weakThis->m_videoTrackConfigurationObserver)();
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->initializationCompleted();
         });
     }];
+}
+
+void AVTrackPrivateAVFObjCImpl::initializationCompleted()
+{
+    if (m_audioTrackConfigurationObserver)
+        (*m_audioTrackConfigurationObserver)();
+    if (m_videoTrackConfigurationObserver)
+        (*m_videoTrackConfigurationObserver)();
 }
 
 bool AVTrackPrivateAVFObjCImpl::enabled() const
 {
     if (m_playerItemTrack)
         return [m_playerItemTrack isEnabled];
-    if (m_mediaSelectionOption)
-        return m_mediaSelectionOption->selected();
+    if (RefPtr mediaSelectionOption = m_mediaSelectionOption)
+        return mediaSelectionOption->selected();
     ASSERT_NOT_REACHED();
     return false;
 }
@@ -125,8 +131,8 @@ void AVTrackPrivateAVFObjCImpl::setEnabled(bool enabled)
 {
     if (m_playerItemTrack)
         [m_playerItemTrack setEnabled:enabled];
-    else if (m_mediaSelectionOption)
-        m_mediaSelectionOption->setSelected(enabled);
+    else if (RefPtr mediaSelectionOption = m_mediaSelectionOption)
+        mediaSelectionOption->setSelected(enabled);
     else
         ASSERT_NOT_REACHED();
 }
@@ -189,12 +195,76 @@ VideoTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::videoKind() const
     return VideoTrackPrivate::Kind::None;
 }
 
+InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVAssetTrack(const AVAssetTrack* track)
+{
+    NSString *mediaType = [track mediaType];
+    if ([mediaType isEqualToString:AVMediaTypeClosedCaption])
+        return InbandTextTrackPrivate::Kind::Captions;
+    if ([mediaType isEqualToString:AVMediaTypeSubtitle]) {
+
+        if ([track hasMediaCharacteristic:AVMediaCharacteristicContainsOnlyForcedSubtitles])
+            return InbandTextTrackPrivate::Kind::Forced;
+
+        // An "SDH" track is a subtitle track created for the deaf or hard-of-hearing. "captions" in WebVTT are
+        // "labeled as appropriate for the hard-of-hearing", so tag SDH sutitles as "captions".
+        if ([track hasMediaCharacteristic:AVMediaCharacteristicTranscribesSpokenDialogForAccessibility])
+            return InbandTextTrackPrivate::Kind::Captions;
+        if ([track hasMediaCharacteristic:AVMediaCharacteristicDescribesMusicAndSoundForAccessibility])
+            return InbandTextTrackPrivate::Kind::Captions;
+
+        return InbandTextTrackPrivate::Kind::Subtitles;
+    }
+
+    NSArray* formatDescriptions = [track formatDescriptions];
+    if ([formatDescriptions count]) {
+        FourCC codec = PAL::softLink_CoreMedia_CMFormatDescriptionGetMediaSubType((__bridge CMFormatDescriptionRef)[formatDescriptions objectAtIndex:0]);
+        if (codec == kCMSubtitleFormatType_WebVTT)
+            return InbandTextTrackPrivate::Kind::Captions;
+    }
+
+    return InbandTextTrackPrivate::Kind::Captions;
+}
+
+InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKindForAVMediaSelectionOption(const AVMediaSelectionOption *option)
+{
+    NSString *mediaType = [option mediaType];
+    if ([mediaType isEqualToString:AVMediaTypeClosedCaption])
+        return InbandTextTrackPrivate::Kind::Captions;
+    if ([mediaType isEqualToString:AVMediaTypeSubtitle]) {
+
+        if ([option hasMediaCharacteristic:AVMediaCharacteristicContainsOnlyForcedSubtitles])
+            return InbandTextTrackPrivate::Kind::Forced;
+
+        // An "SDH" track is a subtitle track created for the deaf or hard-of-hearing. "captions" in WebVTT are
+        // "labeled as appropriate for the hard-of-hearing", so tag SDH sutitles as "captions".
+        if ([option hasMediaCharacteristic:AVMediaCharacteristicTranscribesSpokenDialogForAccessibility])
+            return InbandTextTrackPrivate::Kind::Captions;
+        if ([option hasMediaCharacteristic:AVMediaCharacteristicDescribesMusicAndSoundForAccessibility])
+            return InbandTextTrackPrivate::Kind::Captions;
+
+        return InbandTextTrackPrivate::Kind::Subtitles;
+    }
+
+    return InbandTextTrackPrivate::Kind::Captions;
+}
+
+InbandTextTrackPrivate::Kind AVTrackPrivateAVFObjCImpl::textKind() const
+{
+    if (m_assetTrack)
+        return textKindForAVAssetTrack(m_assetTrack.get());
+
+    if (m_mediaSelectionOption)
+        return textKindForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption());
+
+    return InbandTextTrackPrivate::Kind::None;
+}
+
 int AVTrackPrivateAVFObjCImpl::index() const
 {
     if (m_assetTrack)
         return [[[m_assetTrack asset] tracks] indexOfObject:m_assetTrack.get()];
-    if (m_mediaSelectionOption)
-        return [[[m_playerItem asset] tracks] count] + m_mediaSelectionOption->index();
+    if (RefPtr mediaSelectionOption = m_mediaSelectionOption)
+        return mediaSelectionOption->index();
     ASSERT_NOT_REACHED();
     return 0;
 }
@@ -211,13 +281,13 @@ TrackID AVTrackPrivateAVFObjCImpl::id() const
 
 AtomString AVTrackPrivateAVFObjCImpl::label() const
 {
+    ASSERT(m_assetTrack || m_mediaSelectionOption);
+
     NSArray *commonMetadata = nil;
     if (m_assetTrack)
         commonMetadata = [m_assetTrack commonMetadata];
-    else if (m_mediaSelectionOption)
+    if (![commonMetadata count] && m_mediaSelectionOption)
         commonMetadata = [m_mediaSelectionOption->avMediaSelectionOption() commonMetadata];
-    else
-        ASSERT_NOT_REACHED();
 
     NSArray *titles = [PAL::getAVMetadataItemClass() metadataItemsFromArray:commonMetadata withKey:AVMetadataCommonKeyTitle keySpace:AVMetadataKeySpaceCommon];
     if (![titles count])
@@ -232,12 +302,18 @@ AtomString AVTrackPrivateAVFObjCImpl::label() const
 
 AtomString AVTrackPrivateAVFObjCImpl::language() const
 {
-    if (m_assetTrack)
-        return AtomString { languageForAVAssetTrack(m_assetTrack.get()) };
-    if (m_mediaSelectionOption)
-        return AtomString { languageForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption()) };
+    if (m_assetTrack) {
+        auto language = languageForAVAssetTrack(m_assetTrack.get());
+        if (!language.isEmpty())
+            return AtomString { language };
+    }
 
-    ASSERT_NOT_REACHED();
+    if (m_mediaSelectionOption) {
+        auto language = languageForAVMediaSelectionOption(m_mediaSelectionOption->avMediaSelectionOption());
+        if (!language.isEmpty())
+            return AtomString { language };
+    }
+
     return emptyAtom();
 }
 
@@ -285,6 +361,7 @@ PlatformVideoTrackConfiguration AVTrackPrivateAVFObjCImpl::videoTrackConfigurati
         framerate(),
         bitrate(),
         spatialVideoMetadata(),
+        videoProjectionMetadata(),
     };
 }
 
@@ -385,7 +462,12 @@ uint64_t AVTrackPrivateAVFObjCImpl::bitrate() const
 
 std::optional<SpatialVideoMetadata> AVTrackPrivateAVFObjCImpl::spatialVideoMetadata() const
 {
-    return videoMetadataFromFormatDescription(formatDescriptionFor(*this).get());
+    return spatialVideoMetadataFromFormatDescription(formatDescriptionFor(*this).get());
+}
+
+std::optional<VideoProjectionMetadata> AVTrackPrivateAVFObjCImpl::videoProjectionMetadata() const
+{
+    return videoProjectionMetadataFromFormatDescription(formatDescriptionFor(*this).get());
 }
 
 }

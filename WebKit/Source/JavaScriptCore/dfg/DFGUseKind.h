@@ -250,6 +250,17 @@ inline bool isDouble(UseKind kind)
     }
 }
 
+inline bool isInt32(UseKind kind)
+{
+    switch (kind) {
+    case Int32Use:
+    case KnownInt32Use:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Returns true if the use kind only admits cells, and is therefore appropriate for
 // SpeculateCellOperand in the DFG or lowCell() in the FTL.
 inline bool isCell(UseKind kind)

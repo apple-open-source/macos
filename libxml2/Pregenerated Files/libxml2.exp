@@ -346,6 +346,7 @@ _xmlElemDump
 _xmlEncodeEntities
 _xmlEncodeEntitiesReentrant
 _xmlEncodeSpecialChars
+_xmlErrMemory
 _xmlFileClose
 _xmlFileMatch
 _xmlFileOpen

@@ -56,6 +56,7 @@
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/spi/cf/CFRunLoopSPI.h>
 #import <wtf/spi/cocoa/objcSPI.h>
+#import <wtf/spi/darwin/ReasonSPI.h>
 #import <wtf/text/AtomString.h>
 
 #define LOG_MESSAGES 0
@@ -206,7 +207,7 @@ static inline void SendMessage(RetainPtr<NSInvocation>&& invocation)
     if (!WebThreadIsEnabled() || CFRunLoopGetMain() == CFRunLoopGetCurrent())
         return;
 
-    RunLoop::main().dispatch([invocation = WTFMove(invocation)] { });
+    RunLoop::mainSingleton().dispatch([invocation = WTFMove(invocation)] { });
 }
 
 static void HandleDelegateSource(void*)
@@ -313,7 +314,7 @@ void WebThreadRunOnMainThread(void(^delegateBlock)())
     JSC::JSLock::DropAllLocks dropAllLocks(WebCore::commonVM());
     _WebThreadUnlock();
 
-    WorkQueue::main().dispatchSync(makeBlockPtr(delegateBlock).get());
+    WorkQueue::mainSingleton().dispatchSync(makeBlockPtr(delegateBlock).get());
 
     _WebThreadLock();
 }
@@ -329,7 +330,7 @@ void WebThreadAdoptAndRelease(id obj)
 
     Locker locker { webThreadReleaseLock };
 
-    if (webThreadReleaseObjArray() == nil)
+    if (!webThreadReleaseObjArray())
         webThreadReleaseObjArray() = adoptCF(CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, nullptr));
     CFArrayAppendValue(webThreadReleaseObjArray().get(), obj);
     CFRunLoopSourceSignal(webThreadReleaseSource().get());
@@ -457,7 +458,7 @@ void WebThreadPostNotification(NSString* name, id object, id userInfo)
     if (pthread_main_np())
         [[NSNotificationCenter defaultCenter] postNotificationName:name object:object userInfo:userInfo];
     else {
-        RunLoop::main().dispatch([name = retainPtr(name), object = retainPtr(object), userInfo = retainPtr(userInfo)] {
+        RunLoop::mainSingleton().dispatch([name = retainPtr(name), object = retainPtr(object), userInfo = retainPtr(userInfo)] {
             [[NSNotificationCenter defaultCenter] postNotificationName:name.get() object:object.get() userInfo:userInfo.get()];
         });
     }
@@ -947,10 +948,8 @@ WebThreadContext* WebThreadCurrentContext(void)
 void WebThreadEnable(void)
 {
     RELEASE_ASSERT_WITH_MESSAGE(!WTF::IOSApplication::isWebProcess(), "The WebProcess should never run a Web Thread");
-    if (WTF::IOSApplication::isAppleApplication()) {
-        using WebCore::LogThreading;
-        RELEASE_LOG_FAULT(Threading, "WebThread enabled");
-    }
+    if (WTF::CocoaApplication::isAppleApplication() && !((rand() * 100) % 100))
+        os_fault_with_payload(OS_REASON_WEBKIT, 0, nullptr, 0, "WebThread enabled", 0);
 
     static std::once_flag flag;
     std::call_once(flag, StartWebThread);

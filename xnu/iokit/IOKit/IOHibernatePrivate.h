@@ -110,6 +110,10 @@ typedef struct {
 	uint64_t dram_base;
 	uint64_t dram_size;
 
+	/* Start and end of managed memory. */
+	uint64_t managed_phys_start;
+	uint64_t managed_phys_end;
+
 	/**
 	 * Starting physical address of the Device Tree.
 	 *
@@ -602,11 +606,6 @@ hibernate_pin_swap(boolean_t begin);
 
 kern_return_t
 hibernate_processor_setup(IOHibernateImageHeader * header);
-
-void
-hibernate_gobble_pages(uint32_t gobble_count, uint32_t free_page_time);
-void
-hibernate_free_gobble_pages(void);
 
 void
 hibernate_vm_lock_queues(void);

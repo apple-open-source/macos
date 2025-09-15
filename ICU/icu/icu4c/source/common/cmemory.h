@@ -101,6 +101,19 @@
 #define uprv_memcmp(buffer1, buffer2, size) U_STANDARD_CPP_NAMESPACE memcmp(buffer1, buffer2,size)
 #define uprv_memchr(ptr, value, num) U_STANDARD_CPP_NAMESPACE memchr(ptr, value, num)
 
+#if APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
+// This removes the ability to call u_setMemoryFunctions() and have it do anything, but we'd already disabled that
+// functionality in response to rdar://133066316
+#define uprv_malloc(size) U_STANDARD_CPP_NAMESPACE malloc(size)
+#define uprv_realloc(mem, size) U_STANDARD_CPP_NAMESPACE realloc(mem, size)
+// NOTE: We have to define uprv_free here without the parameter list because several functions are using
+// "uprv_free" as a function pointer and supplying it as several collections' deleter function.  That doesn't
+// work if we define uprv_free() as a function macro.
+//#define uprv_free(mem) U_STANDARD_CPP_NAMESPACE free(mem)
+#define uprv_free U_STANDARD_CPP_NAMESPACE free
+#define uprv_calloc(num, size) U_STANDARD_CPP_NAMESPACE calloc(num, size)
+#else
 U_CAPI void * U_EXPORT2
 uprv_malloc(size_t s) U_MALLOC_ATTR U_ALLOC_SIZE_ATTR(1);
 
@@ -112,6 +125,7 @@ uprv_free(void *mem);
 
 U_CAPI void * U_EXPORT2
 uprv_calloc(size_t num, size_t size) U_MALLOC_ATTR U_ALLOC_SIZE_ATTR2(1,2);
+#endif // APPLE_ICU_CHANGES
 
 /**
  * Get the least significant bits of a pointer (a memory address).

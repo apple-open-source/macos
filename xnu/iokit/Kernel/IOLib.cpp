@@ -195,7 +195,7 @@ IOLibInit(void)
 	    kIOPageableMapSize,
 	    VM_MAP_CREATE_PAGEABLE,
 	    VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
-	    (kms_flags_t)(KMS_PERMANENT | KMS_DATA | KMS_NOFAIL),
+	    (kms_flags_t)(KMS_PERMANENT | KMS_DATA | KMS_NOFAIL | KMS_NOSOFTLIMIT),
 	    VM_KERN_MEMORY_IOKIT).kmr_submap;
 
 	gIOKitPageableMap.address = gIOKitPageableFixedRange.min_address;
@@ -643,7 +643,7 @@ void *
 IOMallocAligned_external(
 	vm_size_t size, vm_size_t alignment)
 {
-	return IOMallocAligned_internal(KHEAP_DATA_BUFFERS, size, alignment,
+	return IOMallocAligned_internal(GET_KEXT_KHEAP_DATA(), size, alignment,
 	           Z_VM_TAG_BT_BIT);
 }
 
@@ -652,7 +652,7 @@ IOFreeAligned(
 	void                  * address,
 	vm_size_t               size)
 {
-	IOFreeAligned_internal(KHEAP_DATA_BUFFERS, address, size);
+	IOFreeAligned_internal(GET_KEXT_KHEAP_DATA(), address, size);
 }
 
 __typed_allocators_ignore_pop
@@ -710,7 +710,8 @@ IOKernelAllocateWithPhysicalRestrict(
 	mach_vm_size_t        size,
 	mach_vm_address_t     maxPhys,
 	mach_vm_size_t        alignment,
-	bool                  contiguous)
+	bool                  contiguous,
+	bool                  noSoftLimit)
 {
 	kern_return_t           kr;
 	mach_vm_address_t       address;
@@ -743,6 +744,10 @@ IOKernelAllocateWithPhysicalRestrict(
 			options = (kma_flags_t) (options | KMA_DATA);
 		} else if (kheap == KHEAP_DATA_SHARED) {
 			options = (kma_flags_t) (options | KMA_DATA_SHARED);
+		}
+
+		if (noSoftLimit) {
+			options = (kma_flags_t) (options | KMA_NOSOFTLIMIT);
 		}
 
 		adjustedSize = size;
@@ -781,14 +786,21 @@ IOKernelAllocateWithPhysicalRestrict(
 			address = 0;
 		}
 	} else {
+		zalloc_flags_t zflags = Z_WAITOK;
+
+		if (noSoftLimit) {
+			zflags = (zalloc_flags_t)(zflags | Z_NOSOFTLIMIT);
+		}
+
 		adjustedSize += alignMask;
 		if (adjustedSize < size) {
 			return 0;
 		}
+
 		/* BEGIN IGNORE CODESTYLE */
 		__typed_allocators_ignore_push // allocator implementation
 		allocationAddress = (mach_vm_address_t) kheap_alloc(kheap,
-		    adjustedSize, Z_VM_TAG_BT(Z_WAITOK, VM_KERN_MEMORY_IOKIT));
+		    adjustedSize, Z_VM_TAG_BT(zflags, VM_KERN_MEMORY_IOKIT));
 		__typed_allocators_ignore_pop
 		/* END IGNORE CODESTYLE */
 
@@ -851,7 +863,7 @@ IOMallocContiguous(vm_size_t size, vm_size_t alignment,
 	/* Do we want a physical address? */
 	if (!physicalAddress) {
 		address = IOKernelAllocateWithPhysicalRestrict(KHEAP_DEFAULT,
-		    size, 0 /*maxPhys*/, alignment, true);
+		    size, 0 /*maxPhys*/, alignment, true, false /* noSoftLimit */);
 	} else {
 		do {
 			IOBufferMemoryDescriptor * bmd;
@@ -945,7 +957,7 @@ static kern_return_t
 IOMallocPageableCallback(vm_map_t map, void * _ref)
 {
 	struct IOMallocPageableRef * ref = (struct IOMallocPageableRef *) _ref;
-	kma_flags_t flags = (kma_flags_t)(KMA_PAGEABLE | KMA_DATA);
+	kma_flags_t flags = (kma_flags_t)(KMA_PAGEABLE | KMA_DATA_SHARED);
 
 	return kmem_alloc( map, &ref->address, ref->size, flags, ref->tag );
 }
@@ -1080,13 +1092,16 @@ IOFreePageable(void * address, vm_size_t size)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
+__typed_allocators_ignore_push
+
 void *
 IOMallocData_external(
 	vm_size_t size);
 void *
 IOMallocData_external(vm_size_t size)
 {
-	return IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_VM_TAG_BT_BIT);
+	return IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_VM_TAG_BT_BIT);
 }
 
 void *
@@ -1095,14 +1110,22 @@ IOMallocZeroData_external(
 void *
 IOMallocZeroData_external(vm_size_t size)
 {
-	return IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_ZERO_VM_TAG_BT_BIT);
+	return IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_ZERO_VM_TAG_BT_BIT);
 }
 
 void
 IOFreeData(void * address, vm_size_t size)
 {
-	return IOFree_internal(KHEAP_DATA_BUFFERS, address, size);
+	return IOFree_internal(GET_KEXT_KHEAP_DATA(), address, size);
 }
+
+void
+IOFreeDataSharable(void * address, vm_size_t size)
+{
+	return IOFree_internal(KHEAP_DATA_SHARED, address, size);
+}
+
+__typed_allocators_ignore_pop
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -1484,6 +1507,7 @@ _IOLogv(const char *format, va_list ap, void *caller)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, format, ap, caller);
 #pragma clang diagnostic pop
 

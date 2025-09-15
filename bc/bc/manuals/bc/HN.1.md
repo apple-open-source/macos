@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: BSD-2-Clause
 
-Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+Copyright (c) 2018-2025 Gavin D. Howard and contributors.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -1433,7 +1433,7 @@ The extended library is a **non-portable extension**.
 
 **frand(p)**
 
-:   Generates a pseudo-random integer between **0** (inclusive) and **1**
+:   Generates a pseudo-random number between **0** (inclusive) and **1**
     (exclusive) with the number of decimal digits after the decimal point equal
     to the truncated absolute value of **p**. If **p** is not **0**, then
     calling this function will change the value of **seed**. If **p** is **0**,
@@ -1441,7 +1441,7 @@ The extended library is a **non-portable extension**.
 
 **ifrand(i, p)**
 
-:   Generates a pseudo-random integer that is between **0** (inclusive) and the
+:   Generates a pseudo-random number that is between **0** (inclusive) and the
     truncated absolute value of **i** (exclusive) with the number of decimal
     digits after the decimal point equal to the truncated absolute value of
     **p**. If the absolute value of **i** is greater than or equal to **2**, and
@@ -1765,16 +1765,6 @@ The extended library is a **non-portable extension**.
 
     If you want to a use signed two's complement argument, use **s2u(x)** to
     convert.
-
-**bunrev(t)**
-
-:   Assumes **t** is a bitwise-reversed number with an extra set bit one place
-    more significant than the real most significant bit (which was the least
-    significant bit in the original number). This number is reversed and
-    returned without the extra set bit.
-
-    This function is used to implement other bitwise functions; it is not meant
-    to be used by users, but it can be.
 
 **plz(x)**
 

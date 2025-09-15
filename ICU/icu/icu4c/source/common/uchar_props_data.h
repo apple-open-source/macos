@@ -1,4 +1,4 @@
-#if !U_PLATFORM_IS_DARWIN_BASED
+#if !APPLE_ICU_CHANGES
 // Copyright (C) 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 1999-2016, International Business Machines
@@ -4261,7 +4261,7 @@ static const UCPTrie block_trie={
 static const int32_t indexes[UPROPS_INDEX_COUNT]={0x2e8e,0x2e8e,0x2e8e,0x2e8e,0x6db4,3,0x86ce,0x87d5,0x8f67,0x8f67,0x50cf,0x2f75a31,0x152,0,0,0};
 
 #endif  // INCLUDED_FROM_UCHAR_C
-#else // U_PLATFORM_IS_DARWIN_BASED
+#else // APPLE_ICU_CHANGES
 // Copyright (C) 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 1999-2016, International Business Machines
@@ -8549,4 +8549,4 @@ static const UCPTrie block_trie={
 static const int32_t indexes[UPROPS_INDEX_COUNT]={0x2ece,0x2ece,0x2ece,0x2ece,0x6e5c,3,0x87af,0x88b6,0x9048,0x9048,0x50cf,0x2f75a31,0x152,0,0,0};
 
 #endif  // INCLUDED_FROM_UCHAR_C
-#endif // U_PLATFORM_IS_DARWIN_BASED
+#endif // APPLE_ICU_CHANGES

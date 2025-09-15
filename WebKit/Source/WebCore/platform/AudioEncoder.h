@@ -34,7 +34,6 @@
 #include "BitrateMode.h"
 #include "WebCodecsAudioInternalData.h"
 #include <span>
-#include <wtf/CompletionHandler.h>
 #include <wtf/NativePromise.h>
 #include <wtf/Vector.h>
 
@@ -79,12 +78,11 @@ public:
         int64_t timestamp { 0 };
         std::optional<uint64_t> duration { };
     };
-    using CreateResult = Expected<Ref<AudioEncoder>, String>;
+
     using CreatePromise = NativePromise<Ref<AudioEncoder>, String>;
 
     using DescriptionCallback = Function<void(ActiveConfiguration&&)>;
     using OutputCallback = Function<void(EncodedFrame&&)>;
-    using CreateCallback = Function<void(CreateResult&&)>;
 
     static Ref<CreatePromise> create(const String&, const Config&, DescriptionCallback&&, OutputCallback&&);
 

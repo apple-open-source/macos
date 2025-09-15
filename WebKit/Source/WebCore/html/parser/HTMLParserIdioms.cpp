@@ -167,7 +167,7 @@ Expected<int, HTMLIntegerParsingError> parseHTMLInteger(StringView input)
     if (input.isEmpty())
         return makeUnexpected(HTMLIntegerParsingError::Other);
 
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseHTMLIntegerInternal(input.span8());
 
     return parseHTMLIntegerInternal(input.span16());
@@ -208,7 +208,7 @@ std::optional<int> parseValidHTMLNonNegativeInteger(StringView input)
     if (input.isEmpty())
         return std::nullopt;
 
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseValidHTMLNonNegativeIntegerInternal(input.span8());
     return parseValidHTMLNonNegativeIntegerInternal(input.span16());
 }
@@ -233,7 +233,7 @@ std::optional<double> parseValidHTMLFloatingPointNumber(StringView input)
 {
     if (input.isEmpty())
         return std::nullopt;
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseValidHTMLFloatingPointNumberInternal(input.span8());
     return parseValidHTMLFloatingPointNumberInternal(input.span16());
 }
@@ -260,7 +260,7 @@ static double parseHTMLFloatingPointNumberValueInternal(std::span<const Characte
 // https://html.spec.whatwg.org/#rules-for-parsing-floating-point-number-values
 double parseHTMLFloatingPointNumberValue(StringView input, double fallbackValue)
 {
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseHTMLFloatingPointNumberValueInternal(input.span8(), input.length(), fallbackValue);
 
     return parseHTMLFloatingPointNumberValueInternal(input.span16(), input.length(), fallbackValue);
@@ -312,7 +312,7 @@ static Vector<double> parseHTMLListOfOfFloatingPointNumberValuesInternal(std::sp
 
 Vector<double> parseHTMLListOfOfFloatingPointNumberValues(StringView input)
 {
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseHTMLListOfOfFloatingPointNumberValuesInternal(input.span8());
     return parseHTMLListOfOfFloatingPointNumberValuesInternal(input.span16());
 }
@@ -440,7 +440,7 @@ static bool parseHTTPRefreshInternal(std::span<const CharacterType> data, double
 
 bool parseMetaHTTPEquivRefresh(StringView input, double& delay, String& url)
 {
-    if (LIKELY(input.is8Bit()))
+    if (input.is8Bit()) [[likely]]
         return parseHTTPRefreshInternal(input.span8(), delay, url);
     return parseHTTPRefreshInternal(input.span16(), delay, url);
 }

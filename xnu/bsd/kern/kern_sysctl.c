@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -220,6 +220,9 @@ extern unsigned int vm_page_free_target;
 extern unsigned int vm_page_free_reserved;
 extern unsigned int vm_page_max_speculative_age_q;
 
+static uint64_t userspacereboottime = 0;
+static unsigned int userspacerebootpurpose = 0;
+
 #if (DEVELOPMENT || DEBUG)
 extern uint32_t vm_page_creation_throttled_hard;
 extern uint32_t vm_page_creation_throttled_soft;
@@ -319,9 +322,12 @@ STATIC int sysctl_imgsrcdev(struct sysctl_oid *oidp, void *arg1, int arg2, struc
 #endif
 STATIC int sysctl_usrstack(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
 STATIC int sysctl_usrstack64(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 STATIC int sysctl_coredump(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
 STATIC int sysctl_suid_coredump(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
+#if CONFIG_UCOREDUMP
+STATIC int sysctl_ucoredump(struct sysctl_oid *, void *, int, struct sysctl_req *);
+#endif
 #endif
 STATIC int sysctl_delayterm(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
 STATIC int sysctl_rage_vnode(struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req);
@@ -2008,7 +2014,9 @@ sysctl_system_version_compat
 SYSCTL_PROC(_kern, OID_AUTO, system_version_compat,
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LOCKED,
     0, 0, sysctl_system_version_compat, "A", "");
+#endif /* XNU_TARGET_OS_OSX */
 
+#if XNU_TARGET_OS_OSX || defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT)
 char osproductversioncompat[48] = { '\0' };
 
 static int
@@ -2025,11 +2033,41 @@ SYSCTL_PROC(_kern, OID_AUTO, osproductversioncompat,
     CTLFLAG_RW | CTLFLAG_KERN | CTLTYPE_STRING | CTLFLAG_LOCKED,
     osproductversioncompat, sizeof(osproductversioncompat),
     sysctl_osproductversioncompat, "A", "The ProductVersion from SystemVersionCompat.plist");
-#endif
+#endif /* XNU_TARGET_OS_OSX || defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT) */
 
 char osproductversion[48] = { '\0' };
 
 static char iossupportversion_string[48] = { '\0' };
+
+#if defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT)
+/*
+ * Equivalent to dyld_program_sdk_at_least(dyld_fall_2025_os_versions).
+ */
+static bool
+proc_2025_fall_os_sdk_or_later(struct proc *p)
+{
+	const uint32_t proc_sdk_ver = proc_sdk(p);
+
+	switch (proc_platform(p)) {
+	case PLATFORM_MACOS:
+		return proc_sdk_ver >= 0x00100000; // DYLD_MACOSX_VERSION_16_0
+	case PLATFORM_IOS:
+	case PLATFORM_IOSSIMULATOR:
+	case PLATFORM_MACCATALYST:
+		return proc_sdk_ver >= 0x00130000; // DYLD_IOS_VERSION_19_0
+	case PLATFORM_BRIDGEOS:
+		return proc_sdk_ver >= 0x000a0000; // DYLD_BRIDGEOS_VERSION_10_0
+	case PLATFORM_TVOS:
+	case PLATFORM_TVOSSIMULATOR:
+		return proc_sdk_ver >= 0x00130000; // DYLD_TVOS_VERSION_19_0
+	case PLATFORM_WATCHOS:
+	case PLATFORM_WATCHOSSIMULATOR:
+		return proc_sdk_ver >= 0x000c0000; // DYLD_WATCHOS_VERSION_12_0
+	default:
+		return true;
+	}
+}
+#endif /* defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT) */
 
 static int
 sysctl_osproductversion(__unused struct sysctl_oid *oidp, void *arg1, int arg2, struct sysctl_req *req)
@@ -2041,18 +2079,22 @@ sysctl_osproductversion(__unused struct sysctl_oid *oidp, void *arg1, int arg2, 
 #if XNU_TARGET_OS_OSX
 	if (task_has_system_version_compat_enabled(current_task()) && (osproductversioncompat[0] != '\0')) {
 		return sysctl_handle_string(oidp, osproductversioncompat, arg2, req);
-	} else {
-		return sysctl_handle_string(oidp, arg1, arg2, req);
 	}
-#elif defined(XNU_TARGET_OS_XR)
+#endif /* XNU_TARGET_OS_OSX */
+
+#if defined(XNU_TARGET_OS_XR)
 	if (proc_platform(req->p) == PLATFORM_IOS && (iossupportversion_string[0] != '\0')) {
 		return sysctl_handle_string(oidp, iossupportversion_string, arg2, req);
-	} else {
-		return sysctl_handle_string(oidp, arg1, arg2, req);
 	}
-#else
+#endif /* defined(XNU_TARGET_OS_XR) */
+
+#if defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT)
+	if (!proc_2025_fall_os_sdk_or_later(req->p) && (osproductversioncompat[0] != '\0')) {
+		return sysctl_handle_string(oidp, osproductversioncompat, arg2, req);
+	}
+#endif /* defined(XNU_EXPERIMENTAL_SYSTEM_VERSION_COMPAT) */
+
 	return sysctl_handle_string(oidp, arg1, arg2, req);
-#endif
 }
 
 #if XNU_TARGET_OS_OSX
@@ -2489,10 +2531,6 @@ extern int sched_allow_rt_smt;
 SYSCTL_INT(_kern, OID_AUTO, sched_allow_rt_smt,
     CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
     &sched_allow_rt_smt, 0, "");
-extern int sched_allow_rt_steal;
-SYSCTL_INT(_kern, OID_AUTO, sched_allow_rt_steal,
-    CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
-    &sched_allow_rt_steal, 0, "");
 extern int sched_backup_cpu_timeout_count;
 SYSCTL_INT(_kern, OID_AUTO, sched_backup_cpu_timeout_count,
     CTLFLAG_KERN | CTLFLAG_RW | CTLFLAG_LOCKED,
@@ -3354,8 +3392,7 @@ SYSCTL_UINT(_kern, OID_AUTO, secure_coredump, CTLFLAG_RD, &sc_dump_mode, 0, "sec
 
 #endif /* EXCLAVES_COREDUMP */
 
-
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 
 SYSCTL_STRING(_kern, KERN_COREFILE, corefile,
     CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_LOCKED,
@@ -3415,7 +3452,34 @@ SYSCTL_PROC(_kern, KERN_SUGID_COREDUMP, sugid_coredump,
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
     0, 0, sysctl_suid_coredump, "I", "");
 
-#endif /* CONFIG_COREDUMP */
+#if CONFIG_UCOREDUMP
+
+STATIC int
+sysctl_ucoredump
+(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+#ifdef SECURE_KERNEL
+	(void)req;
+	return ENOTSUP;
+#else
+	int new_value, changed;
+	int error = sysctl_io_number(req, do_ucoredump, sizeof(int), &new_value, &changed);
+	if (changed) {
+		if (new_value == 0 || new_value == 1) {
+			do_ucoredump = new_value;
+		} else {
+			error = EINVAL;
+		}
+	}
+	return error;
+#endif
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, ucoredump,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_ucoredump, "I", "");
+#endif /* CONFIG_UCOREDUMP */
+#endif /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
 
 #if CONFIG_KDP_INTERACTIVE_DEBUGGING
 
@@ -4396,11 +4460,14 @@ SYSCTL_PROC(_vm, OID_AUTO, add_wire_count_over_user_limit, CTLTYPE_QUAD | CTLFLA
 
 #if DEVELOPMENT || DEBUG
 /* These sysctls are used to test the wired limit. */
-SYSCTL_INT(_vm, OID_AUTO, page_wire_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_wire_count, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, page_wire_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_wire_count, 0,
+    "The number of physical pages which are pinned and cannot be evicted");
 #if XNU_VM_HAS_LOPAGE
 SYSCTL_INT(_vm, OID_AUTO, lopage_free_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_lopage_free_count, 0, "");
 #endif
 SYSCTL_INT(_vm, OID_AUTO, page_stolen_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_stolen_count, 0, "");
+SYSCTL_UINT(_vm, OID_AUTO, page_swapped_count, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_page_swapped_count, 0,
+    "The number of virtual pages whose contents are currently compressed and swapped to disk");
 
 /*
  * Setting the per task variable exclude_physfootprint_ledger to 1 will allow the calling task to exclude memory entries that are
@@ -4930,6 +4997,7 @@ SCALABLE_COUNTER_DECLARE(oslog_e_metadata_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_metadata_dropped_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_signpost_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_signpost_dropped_count);
+SCALABLE_COUNTER_DECLARE(oslog_e_replay_failure_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_query_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_query_error_count);
 SCALABLE_COUNTER_DECLARE(oslog_e_trace_mode_set_count);
@@ -4990,6 +5058,8 @@ SYSCTL_SCALABLE_COUNTER(_debug, oslog_e_signpost_count, oslog_e_signpost_count,
     "Number of signposts retrieved from the exclaves log server");
 SYSCTL_SCALABLE_COUNTER(_debug, oslog_e_signpost_dropped_count, oslog_e_signpost_dropped_count,
     "Number of dropped signposts retrieved from the exclaves log server");
+SYSCTL_SCALABLE_COUNTER(_debug, oslog_e_replay_failure_count, oslog_e_replay_failure_count,
+    "Number of dropped messages that couldn't be replayed and failed generically");
 SYSCTL_SCALABLE_COUNTER(_debug, oslog_e_query_count, oslog_e_query_count,
     "Number of sucessful queries to the exclaves log server");
 SYSCTL_SCALABLE_COUNTER(_debug, oslog_e_query_error_count, oslog_e_query_error_count,
@@ -5546,6 +5616,31 @@ sysctl_get_thread_group_id SYSCTL_HANDLER_ARGS
 SYSCTL_PROC(_kern, OID_AUTO, thread_group_id, CTLFLAG_RD | CTLFLAG_LOCKED | CTLTYPE_QUAD,
     0, 0, &sysctl_get_thread_group_id, "I", "thread group id of the thread");
 
+extern kern_return_t sysctl_clutch_thread_group_cpu_time_for_thread(thread_t thread, int sched_bucket, uint64_t *cpu_stats);
+
+static int
+sysctl_get_clutch_bucket_group_cpu_stats SYSCTL_HANDLER_ARGS
+{
+	int error;
+	kern_return_t kr;
+	int sched_bucket = -1;
+	error = SYSCTL_IN(req, &sched_bucket, sizeof(sched_bucket));
+	if (error) {
+		return error;
+	}
+	uint64_t cpu_stats[2];
+	kr = sysctl_clutch_thread_group_cpu_time_for_thread(current_thread(), sched_bucket, cpu_stats);
+	error = mach_to_bsd_errno(kr);
+	if (error) {
+		return error;
+	}
+	return SYSCTL_OUT(req, cpu_stats, sizeof(cpu_stats));
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, clutch_bucket_group_cpu_stats, CTLFLAG_RW | CTLFLAG_LOCKED | CTLTYPE_OPAQUE,
+    0, 0, &sysctl_get_clutch_bucket_group_cpu_stats, "I",
+    "CPU used and blocked time for the current thread group at a specified scheduling bucket");
+
 STATIC int
 sysctl_thread_group_count(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
 {
@@ -5601,6 +5696,77 @@ SYSCTL_PROC(_kern, OID_AUTO, grade_cputype,
     CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_MASKED | CTLFLAG_LOCKED | CTLTYPE_OPAQUE,
     0, 0, &sysctl_grade_cputype, "S",
     "grade value of cpu_type_t+cpu_sub_type_t");
+
+
+#if DEVELOPMENT || DEBUG
+STATIC int
+sysctl_binary_grade_override(  __unused struct sysctl_oid *oidp, __unused void *arg1,
+    __unused int arg2, struct sysctl_req *req)
+{
+	int error;
+	user_addr_t oldp = 0, newp = 0;
+	size_t *oldlenp = NULL;
+	size_t newlen = 0;
+
+	oldp = req->oldptr;
+	oldlenp = &(req->oldlen);
+	newp = req->newptr;
+	newlen = req->newlen;
+
+	/* We want the current length, and maybe the string itself */
+	if (oldlenp) {
+		char existing_overrides[256] = { 0 };
+
+		size_t currlen = bingrade_get_override_string(existing_overrides, sizeof(existing_overrides));
+
+		if (oldp && currlen > 0) {
+			if (*oldlenp < currlen) {
+				return ENOMEM;
+			}
+			/* NOTE - we do not copy the NULL terminator */
+			error = copyout(existing_overrides, oldp, currlen);
+			if (error) {
+				return error;
+			}
+		}
+		/* return length of overrides minus the NULL terminator (just like strlen)  */
+		req->oldidx = currlen;
+	}
+
+	/* We want to set the override string to something */
+	if (newp) {
+		char *tmp_override = (char *)kalloc_data(newlen + 1, Z_WAITOK | Z_ZERO);
+		if (!tmp_override) {
+			return ENOMEM;
+		}
+
+		error = copyin(newp, tmp_override, newlen);
+		if (error) {
+			kfree_data(tmp_override, newlen + 1);
+			return error;
+		}
+
+		tmp_override[newlen] = 0;       /* Terminate string */
+
+		/* Set the binary grading overrides */
+		if (binary_grade_overrides_update(tmp_override) == 0) {
+			/* Nothing got set. */
+			kfree_data(tmp_override, newlen + 1);
+			return EINVAL;
+		}
+
+		kfree_data(tmp_override, newlen + 1);
+	}
+
+	return 0;
+}
+
+
+SYSCTL_PROC(_kern, OID_AUTO, grade_override,
+    CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, &sysctl_binary_grade_override, "A",
+    "");
+#endif /* DEVELOPMENT || DEBUG */
 
 extern boolean_t allow_direct_handoff;
 SYSCTL_INT(_kern, OID_AUTO, direct_handoff,
@@ -6136,14 +6302,23 @@ uuid_string_t trial_treatment_id;
 uuid_string_t trial_experiment_id;
 int trial_deployment_id = -1;
 
-SYSCTL_STRING(_kern, OID_AUTO, trial_treatment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, trial_treatment_id, sizeof(trial_treatment_id), "");
-SYSCTL_STRING(_kern, OID_AUTO, trial_experiment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, trial_experiment_id, sizeof(trial_experiment_id), "");
-SYSCTL_INT(_kern, OID_AUTO, trial_deployment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &trial_deployment_id, 0, "");
+SYSCTL_STRING(_kern, OID_AUTO, trial_treatment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, trial_treatment_id, sizeof(trial_treatment_id), "");
+SYSCTL_STRING(_kern, OID_AUTO, trial_experiment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, trial_experiment_id, sizeof(trial_experiment_id), "");
+SYSCTL_INT(_kern, OID_AUTO, trial_deployment_id, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &trial_deployment_id, 0, "");
 
 #if (DEVELOPMENT || DEBUG)
 /* For unit testing setting factors & limits. */
 unsigned int testing_experiment_factor;
-EXPERIMENT_FACTOR_UINT(_kern, testing_experiment_factor, &testing_experiment_factor, 5, 10, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, testing_experiment_factor, &testing_experiment_factor, 5, 10, "");
+
+static int32_t experiment_factor_test;
+EXPERIMENT_FACTOR_INT(test, &experiment_factor_test, 0, 32, "test factor");
+
+#if MACH_ASSERT && __arm64__
+/* rdar://149041040 */
+extern unsigned int panic_on_jit_guard;
+EXPERIMENT_FACTOR_UINT(jitguard, &panic_on_jit_guard, 0, 7, "Panic on JIT guard failure");
+#endif /* MACH_ASSERT && __arm64__ */
 
 extern int exception_log_max_pid;
 SYSCTL_INT(_debug, OID_AUTO, exception_log_max_pid, CTLFLAG_RW | CTLFLAG_LOCKED, &exception_log_max_pid, 0, "Log exceptions for all processes up to this pid");
@@ -6186,6 +6361,212 @@ sysctl_page_protection_type SYSCTL_HANDLER_ARGS
 SYSCTL_PROC(_kern, OID_AUTO, page_protection_type,
     CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
     0, 0, sysctl_page_protection_type, "I", "Type of page protection that the system supports");
+
+#if CONFIG_SPTM && HAS_SPTM_SYSCTL
+extern bool disarm_protected_io;
+static int sysctl_sptm_disarm_protected_io SYSCTL_HANDLER_ARGS
+{
+	int error = 0;
+
+	uint64_t old_disarm_protected_io = (uint64_t) disarm_protected_io;
+	error = SYSCTL_OUT(req, &old_disarm_protected_io, sizeof(old_disarm_protected_io));
+
+	if (error) {
+		return error;
+	}
+
+	uint64_t new_disarm_protected_io = old_disarm_protected_io;
+	if (req->newptr) {
+		error = SYSCTL_IN(req, &new_disarm_protected_io, sizeof(new_disarm_protected_io));
+		if (!disarm_protected_io && new_disarm_protected_io) {
+			sptm_sysctl(SPTM_SYSCTL_DISARM_PROTECTED_IO, SPTM_SYSCTL_SET, 1);
+			os_atomic_thread_fence(release);
+			disarm_protected_io = true;
+		}
+	}
+
+	return error;
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_disarm_protected_io, CTLTYPE_QUAD | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_sptm_disarm_protected_io, "Q", "");
+
+/**
+ * Usage of kern.sptm_sysctl_poke
+ *
+ * This sysctl provides a convenient way to trigger the "getter" handler of a
+ * specified SPTM sysctl. With this sysctl, you can trigger arbitrary SPTM
+ * code without modifying xnu source code. All you need to do is define a
+ * new SPTM sysctl and implement its "getter". After that, you can write
+ * the SPTM sysctl number to this sysctl to trigger it.
+ */
+static int sysctl_sptm_sysctl_poke SYSCTL_HANDLER_ARGS
+{
+	int error = 0;
+
+	/* Always read-as-zero. */
+	const uint64_t out = 0;
+	error = SYSCTL_OUT(req, &out, sizeof(out));
+
+	if (error) {
+		return error;
+	}
+
+	uint64_t selector;
+	if (req->newptr) {
+		error = SYSCTL_IN(req, &selector, sizeof(selector));
+		sptm_sysctl(selector, SPTM_SYSCTL_GET, 0);
+	}
+
+	return error;
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_sysctl_poke, CTLTYPE_QUAD | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_sptm_sysctl_poke, "Q", "");
+#endif /* CONFIG_SPTM && HAS_SPTM_SYSCTL */
+
+#if CONFIG_SPTM && (DEVELOPMENT || DEBUG)
+/**
+ * Sysctls to get SPTM allowed I/O ranges, pmap I/O ranges and I/O ranges by index.
+ * Used by SEAR/LASER tools.
+ */
+static int
+sysctl_sptm_allowed_io_ranges SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	sptm_io_range_t io_range = { 0 };
+	unsigned int index = 0;
+
+	int error = SYSCTL_IN(req, &index, sizeof(index));
+	if (error) {
+		return error;
+	}
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_ALLOWED_IO_RANGES, index, &io_range);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &io_range, sizeof(io_range));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_allowed_io_ranges, CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_allowed_io_ranges, "S,sptm_io_range_t", "SPTM allowed I/O ranges by index");
+
+static int
+sysctl_sptm_allowed_io_ranges_count SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	unsigned int count = 0;
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_ALLOWED_IO_RANGES_COUNT, 0, &count);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &count, sizeof(count));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_allowed_io_ranges_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_allowed_io_ranges_count, "I", "SPTM allowed I/O ranges count");
+
+static int
+sysctl_sptm_pmap_io_ranges SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	sptm_io_range_t io_range = { 0 };
+	unsigned int index = 0;
+
+	int error = SYSCTL_IN(req, &index, sizeof(index));
+	if (error) {
+		return error;
+	}
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_PMAP_IO_RANGES, index, &io_range);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &io_range, sizeof(io_range));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_pmap_io_ranges, CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_pmap_io_ranges, "S,sptm_io_range_t", "SPTM pmap I/O ranges by index");
+
+static int
+sysctl_sptm_pmap_io_ranges_count SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	unsigned int count = 0;
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_PMAP_IO_RANGES_COUNT, 0, &count);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &count, sizeof(count));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_pmap_io_ranges_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_pmap_io_ranges_count, "I", "SPTM pmap I/O ranges count");
+
+static int
+sysctl_sptm_io_ranges SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	sptm_io_range_t io_range = { 0 };
+	unsigned int index = 0;
+
+	int error = SYSCTL_IN(req, &index, sizeof(index));
+	if (error) {
+		return error;
+	}
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_IO_RANGES, index, &io_range);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &io_range, sizeof(io_range));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_io_ranges, CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_io_ranges, "S,sptm_io_range_t", "SPTM I/O ranges by index");
+
+static int
+sysctl_sptm_io_ranges_count SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	unsigned int count = 0;
+
+	libsptm_error_t ret = sptm_get_info(INFO_SPTM_IO_RANGES_COUNT, 0, &count);
+	if (__improbable(ret != LIBSPTM_SUCCESS)) {
+		return EINVAL;
+	}
+
+	return SYSCTL_OUT(req, &count, sizeof(count));
+}
+SYSCTL_PROC(_kern, OID_AUTO, sptm_io_ranges_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_sptm_io_ranges_count, "I", "SPTM I/O ranges count");
+#endif /* CONFIG_SPTM && (DEVELOPMENT || DEBUG) */
+
+#if __ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM
+extern bool surt_ready;
+static int
+sysctl_surt_ready SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	unsigned int surt_ready_uint = (unsigned int)surt_ready;
+	return SYSCTL_OUT(req, &surt_ready_uint, sizeof(surt_ready_uint));
+}
+SYSCTL_PROC(_kern, OID_AUTO, surt_ready, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_surt_ready, "I", "SURT system readiness");
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM */
+
+#if __arm64__ && (DEBUG || DEVELOPMENT)
+extern unsigned int pmap_wcrt_on_non_dram_count_get(void);
+static int
+sysctl_pmap_wcrt_on_non_dram_count SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	unsigned int count = pmap_wcrt_on_non_dram_count_get();
+
+	return SYSCTL_OUT(req, &count, sizeof(count));
+}
+SYSCTL_PROC(_kern, OID_AUTO, pmap_wcrt_on_non_dram_count, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_pmap_wcrt_on_non_dram_count, "I", "pmap WC/RT mapping request on non-DRAM count");
+#endif /* __arm64__ && (DEBUG || DEVELOPMENT) */
 
 TUNABLE_DT(int, gpu_pmem_selector, "defaults", "kern.gpu_pmem_selector", "gpu-pmem-selector", 0, TUNABLE_DT_NONE);
 
@@ -6300,3 +6681,175 @@ SYSCTL_PROC(_kern, OID_AUTO, exclaves_inspection_status,
 extern uint32_t disable_vm_sanitize_telemetry;
 SYSCTL_UINT(_debug, OID_AUTO, disable_vm_sanitize_telemetry, CTLFLAG_RW | CTLFLAG_LOCKED /*| CTLFLAG_MASKED*/, &disable_vm_sanitize_telemetry, 0, "disable VM API sanitization telemetry");
 #endif
+
+#define kReadUserspaceRebootInfoEntitlement "com.apple.private.kernel.userspacereboot-info-read-only"
+static int
+_sysctl_userspacereboot_info(struct sysctl_req *req, void *ptr, size_t ptr_size)
+{
+	if (req->newptr != 0) {
+		/* initproc is the only process that can write to these sysctls */
+		if (proc_getpid(req->p) != 1) {
+			return EPERM;
+		}
+		return SYSCTL_IN(req, ptr, ptr_size);
+	} else {
+		/* A read entitlement is required to read these sysctls */
+		if (!IOCurrentTaskHasEntitlement(kReadUserspaceRebootInfoEntitlement)) {
+			return EPERM;
+		}
+		return SYSCTL_OUT(req, ptr, ptr_size);
+	}
+}
+
+static int
+sysctl_userspacereboottime(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	return _sysctl_userspacereboot_info(req, &userspacereboottime, sizeof(userspacereboottime));
+}
+
+static int
+sysctl_userspacerebootpurpose(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	return _sysctl_userspacereboot_info(req, &userspacerebootpurpose, sizeof(userspacerebootpurpose));
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, userspacereboottime, CTLTYPE_QUAD | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_userspacereboottime, "Q", "");
+SYSCTL_PROC(_kern, OID_AUTO, userspacerebootpurpose, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_userspacerebootpurpose, "I", "");
+
+#if XNU_TARGET_OS_IOS
+
+static LCK_GRP_DECLARE(erm_config_lock_grp, "ERM sysctl");
+static LCK_RW_DECLARE(erm_config_lock, &erm_config_lock_grp);
+#define ERM_CONFIG_SYSCTL_WRITE_ENTITLEMENT "com.apple.private.security-research-device.extended-research-mode"
+#define ERM_CONFIG_SYSCTL_MAX_SIZE PAGE_SIZE
+
+// This sysctl handler is only registered when Extended Research Mode (ERM) is active.
+static int
+sysctl_user_extended_research_mode_config_handler(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	// Pointer for the dynamically allocated buffer
+	static void *extended_research_mode_config_data = NULL;
+
+	// Current size of the valid data stored in the buffer
+	static size_t extended_research_mode_config_current_size = 0;
+
+	// Handle Read request (user wants to read the current config, before it is overwritten)
+	if (req->oldptr != USER_ADDR_NULL) {
+		int error = 0;
+
+		lck_rw_lock_shared(&erm_config_lock);
+
+		if (req->oldlen < extended_research_mode_config_current_size) {
+			error = ENOMEM;
+		} else {
+			if (extended_research_mode_config_current_size > 0) {
+				error = copyout(extended_research_mode_config_data,
+				    req->oldptr,
+				    extended_research_mode_config_current_size);
+			}
+		}
+		// In all cases, report the total size of the currently stored config back to the user,
+		req->oldlen = extended_research_mode_config_current_size;
+		req->oldidx = req->oldlen;
+
+		lck_rw_unlock_shared(&erm_config_lock);
+
+		if (error != 0) {
+			return error;
+		}
+	} else {
+		// User just want to know the current buffer size.
+		// All accesses to extended_research_mode_config* variables are expected
+		// to be done under erm_config_lock.
+		lck_rw_lock_shared(&erm_config_lock);
+		req->oldidx = extended_research_mode_config_current_size;
+		lck_rw_unlock_shared(&erm_config_lock);
+	}
+
+
+	// Handle Write request (new data provided by user)
+	if (req->newptr != USER_ADDR_NULL) {
+		if (!IOTaskHasEntitlement(proc_task(req->p), ERM_CONFIG_SYSCTL_WRITE_ENTITLEMENT)) {
+			return EPERM;
+		}
+
+		size_t requested_len = req->newlen;
+
+		if (requested_len > ERM_CONFIG_SYSCTL_MAX_SIZE) {
+			// We ensure the config provided by user-space is not too big
+			return EINVAL;
+		}
+
+		// Allocate a new buffer for the incoming data
+		void *new_buffer = (void *)kalloc_data(requested_len, Z_WAITOK | Z_ZERO);
+
+		if (new_buffer == NULL) {
+			return ENOMEM; // Allocation failed
+		}
+
+		// Copy data from user space into the newly allocated buffer
+		int error = copyin(req->newptr, new_buffer, requested_len);
+
+		if (error == 0) {
+			// Success: Replace the old buffer with the new one
+			lck_rw_lock_exclusive(&erm_config_lock);
+
+			// Backup old buffer info for freeing it in a second step
+			void *old_buffer_to_free = extended_research_mode_config_data;
+			size_t old_buffer_size = extended_research_mode_config_current_size;
+
+			// Point to the new buffer and update size
+			extended_research_mode_config_data = new_buffer;
+			extended_research_mode_config_current_size = requested_len;
+			lck_rw_unlock_exclusive(&erm_config_lock);
+			new_buffer = NULL;  // transferred to the static pointer
+
+			// Previous buffer is not referenced anymore, good to be deleted.
+			kfree_data(old_buffer_to_free, old_buffer_size);
+		} else {
+			// Copyin failed, free the buffer we just allocated and keep the old data and size intact
+			kfree_data(new_buffer, requested_len);
+			return error;
+		}
+	}
+
+	return 0;
+}
+
+// We don't register this sysctl handler automatically , but rather only register it only if the extended
+// research mode is active.
+SYSCTL_PROC(_user,                // Parent node structure (_kern)
+    OID_AUTO,                     // Automatically assign OID
+    extended_research_mode_config,         // Name of the node
+    CTLFLAG_NOAUTO |              // We will register this sysctl on our own
+    CTLTYPE_OPAQUE |              // Type: Opaque binary data
+    CTLFLAG_WR |                  // Allow both read and write
+    CTLFLAG_ANYBODY |                             // No user filtering
+    CTLFLAG_LOCKED,               // The handler manages its own locking.
+    NULL,                         // arg1 (not used)
+    0,                            // arg2 (not used)
+    &sysctl_user_extended_research_mode_config_handler,
+    "-",                          // don't print the content (as it is a blob)
+    "Configuration blob for Extended Research Mode");
+
+// This function is defined in kern_codesigning.c but don't worth include the whole .h just for it.
+bool extended_research_mode_state(void);
+
+// Only register the research_mode_config sysctl if Extended Research Mode is active
+__startup_func
+static void
+extended_research_mode_config_sysctl_startup(void)
+{
+	if (__improbable(extended_research_mode_state())) {
+		// Register the sysctl handler
+		sysctl_register_oid_early(&sysctl__user_extended_research_mode_config);
+	}
+}
+STARTUP(SYSCTL, STARTUP_RANK_MIDDLE, extended_research_mode_config_sysctl_startup);
+#endif /* XNU_TARGET_OS_IOS */
+
+#if DEBUG || DEVELOPMENT
+SCALABLE_COUNTER_DEFINE(mach_eventlink_handoff_success_count);
+SYSCTL_SCALABLE_COUNTER(_kern, mach_eventlink_handoff_success_count,
+    mach_eventlink_handoff_success_count, "Number of successful handoffs");
+#endif /* DEBUG || DEVELOPMENT*/

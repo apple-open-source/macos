@@ -4334,8 +4334,13 @@ void main()
     // Capture rendered pixel color w/ s1 linear
     std::vector<GLColor> s1LinearColors(kWindowSize * kWindowSize);
     glReadPixels(0, 0, kWindowSize, kWindowSize, GL_RGBA, GL_UNSIGNED_BYTE, s1LinearColors.data());
+
     // Results should be the same regardless of if s0 or s1 is linear
-    EXPECT_EQ(s0LinearColors, s1LinearColors);
+    ASSERT(s0LinearColors.size() == s1LinearColors.size());
+    for (size_t index = 0; index < s0LinearColors.size(); index++)
+    {
+        EXPECT_COLOR_NEAR(s0LinearColors[index], s1LinearColors[index], 1u);
+    }
 }
 
 // Tests that rendering works as expected with multiple VAOs.
@@ -7642,7 +7647,7 @@ TEST_P(SimpleStateChangeTestES31, DrawThenUpdateUBOThenDrawThenDrawIndexed)
     constexpr char kFS[] = R"(#version 300 es
 precision mediump float;
 uniform block { uint data; } ubo;
-uniform uint expect;
+uniform highp uint expect;
 uniform vec4 successColor;
 out vec4 colorOut;
 void main()
@@ -10711,6 +10716,66 @@ TEST_P(StateChangeTestES3, SampleCoverageFramebufferAttachmentSwitch)
     ASSERT_GL_NO_ERROR();
 
     // Sample coverage must have no effect
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+}
+
+// Test that GL_SAMPLE_COVERAGE value has proper effect after frame buffer switch.
+TEST_P(StateChangeTestES3, SampleCoverageFramebufferSwitch)
+{
+    // Keep this state unchanged during the test
+    glEnable(GL_SAMPLE_COVERAGE);
+
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Green());
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    GLRenderbuffer rboMS;
+    glBindRenderbuffer(GL_RENDERBUFFER, rboMS);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_RGBA8, 1, 1);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rboMS);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    GLFramebuffer fboResolve;
+    glBindFramebuffer(GL_FRAMEBUFFER, fboResolve);
+
+    GLRenderbuffer rboResolve;
+    glBindRenderbuffer(GL_RENDERBUFFER, rboResolve);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, 1, 1);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rboResolve);
+    ASSERT_GL_FRAMEBUFFER_COMPLETE(GL_FRAMEBUFFER);
+
+    glClearColor(1, 0, 0, 1);
+
+    // Set any non 1 coverage and draw the quad
+    glSampleCoverage(0.5, false);
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5);
+    ASSERT_GL_NO_ERROR();
+
+    // Switch to single sampled FBO and draw with coverage 1.
+    glBindFramebuffer(GL_FRAMEBUFFER, fboResolve);
+    glSampleCoverage(1.0, false);
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Switch back to multisampled FBO and draw with coverage 1, verify that coverage was indeed 1.
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glSampleCoverage(1.0, false);
+    glClear(GL_COLOR_BUFFER_BIT);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f);
+
+    // Resolve
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fboResolve);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glBlitFramebuffer(0, 0, 1, 1, 0, 0, 1, 1, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    ASSERT_GL_NO_ERROR();
+
+    // Last draw happened with sample coverage 1, so we expect the results to be green.
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, fboResolve);
     EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
 }
 

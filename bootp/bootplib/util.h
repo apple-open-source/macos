@@ -185,4 +185,6 @@ rt_xaddrs(const char * cp, const char * cplim, struct rt_addrinfo * rtinfo);
 	}					\
     } while(0)
 
+#define _CASSERT(x)     _Static_assert(x, "compile-time assertion failed")
+
 #endif /* _S_UTIL_H */

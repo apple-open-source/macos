@@ -77,7 +77,7 @@ public:
     void scrollNonCompositedContents(const WebCore::IntRect&);
     void forceRepaint();
     void forceRepaintAsync(CompletionHandler<void()>&&);
-    void sizeDidChange(const WebCore::IntSize& newSize);
+    void sizeDidChange();
     void pauseRendering();
     void resumeRendering();
     WebCore::GraphicsLayerFactory* graphicsLayerFactory();

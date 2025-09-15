@@ -17,6 +17,8 @@
 #define PID_BUFFER_SIZE 256
 #define NUM_PIDS_BUFFER_SIZE (512 * sizeof (pid_t))
 
+#define ALLOCATION_FRONT_EXTRA 1
+
 static char *print_buffer = NULL;
 static size_t print_buffer_capacity = 0;
 static size_t print_buffer_index = 0;
@@ -262,29 +264,45 @@ get_device_name(char *devicename, size_t buflen)
 	return devicename;
 }
 
-static void
-enablement_configuration_process_checks(
-	NSArray *json_array,
-	enablement_configuration *configuration
-	)
+static bool
+get_device_should_defer_large(void)
 {
-#if MALLOC_TARGET_IOS_ONLY
-	// Array of all the non-AMP hardware
-	char non_amp_hardware[2][16] = {"J171", "J172"};
-	char devicename[16] = { 0 };
-	size_t len = sizeof(devicename) - 1;
-	get_device_name(devicename, len);
+	bool should_defer_large = false;
 
-	// The secure allocator should not be enabled for any process on non-AMP
-	// hardware
-	for (int i = 0; i < countof(non_amp_hardware); ++i) {
-		if (!strcmp(devicename, non_amp_hardware[i])) {
-			T_EXPECT_EQ(json_array.count, 0ul, "No zones should be present");
-			return;
-		}
+#if MALLOC_TARGET_IOS_ONLY
+	char device_name[16] = { 0 };
+	get_device_name(device_name, sizeof(device_name) - 1);
+
+	T_LOG("Device name: %s", device_name);
+
+	if (!strcmp(device_name, "J420") || !strcmp(device_name, "J421")) {
+		return false;
 	}
+
+	// If an iOS device has >=6GB of memory, the enablement configuration
+	// should have defer_large set to "true".  Note that here we check for >=
+	// 5GB because in practice various carve-outs reduce the actual size of
+	// various 6GB devices to a bit below that quantity.  There are no devices
+	// with >= 5GB of memory on iOS that aren't actually 6GB devices in the
+	// sense we mean here.
+	uint64_t memsize = platform_hw_memsize();
+	const uint64_t defer_large_ios_bytes_memsize = 5 * 1073741824ULL;
+	T_LOG("Device memsize: %"PRIu64", defer_large_ios_bytes_memsize: %"PRIu64"",
+			memsize, defer_large_ios_bytes_memsize);
+	if (memsize >= defer_large_ios_bytes_memsize) {
+		should_defer_large = true;
+	}
+#elif TARGET_OS_OSX
+	should_defer_large = true;
 #endif
 
+	return should_defer_large;
+}
+
+static void
+enablement_configuration_process_checks(NSArray *json_array,
+		enablement_configuration *configuration)
+{
 	// The secure allocator should not be enabled for any process on intel
 	// machines
 #if TARGET_OS_OSX && !TARGET_CPU_ARM64
@@ -338,11 +356,11 @@ enablement_configuration_process_checks(
 }
 
 static pid_t
-spawn_process(char *new_argv[])
+spawn_process(char *new_argv[], char *new_envp[])
 {
 	pid_t child_pid = 0;
 	errno_t ret = posix_spawn(&child_pid, new_argv[0], NULL, NULL,
-			new_argv, NULL);
+			new_argv, new_envp);
 	T_ASSERT_POSIX_ZERO(ret, "posix_spawn(%s)", new_argv[0]);
 	T_ASSERT_NE(child_pid, 0, "posix_spawn(%s)", new_argv[0]);
 
@@ -355,7 +373,44 @@ spawn_process(char *new_argv[])
 }
 
 static void
-security_critical_configuration_checks(char *process)
+security_critical_configuration_checks_with_space_efficiency(
+		const char *process, bool space_efficient)
+{
+	struct enablement_configuration configuration = (enablement_configuration) {
+		.should_have_xzones = true,
+		.guards_enabled = true,
+#if TARGET_OS_VISION
+		.batch_size = 0,
+		.ptr_bucket_count = 4,
+#elif TARGET_OS_OSX
+		.batch_size = space_efficient ? 0 : 10,
+		.ptr_bucket_count = 4,
+#else
+		.batch_size = 0,
+		.ptr_bucket_count = 3,
+#endif
+		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
+		.thread_cache_enabled = !space_efficient,
+#if TARGET_OS_OSX
+		.segment_group_count = (space_efficient ? 1 : get_ncpuclusters()) *
+				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
+		.defer_tiny = !space_efficient,
+		.defer_small = !space_efficient,
+#else
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
+		.defer_tiny = false,
+		.defer_small = false,
+#endif // TARGET_OS_OSX
+		.defer_large = (!space_efficient && get_device_should_defer_large()),
+	 };
+
+	enablement_configuration_process_checks(get_process_json(process, false),
+			&configuration);
+}
+
+static void
+security_critical_configuration_checks(const char *process)
 {
 	struct enablement_configuration configuration = (enablement_configuration) {
 		.should_have_xzones = true,
@@ -368,16 +423,15 @@ security_critical_configuration_checks(char *process)
 		.ptr_bucket_count = 3,
 #endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = 1 * XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
 	 };
 
-	enablement_configuration_process_checks(
-		get_process_json(process, false),
-		&configuration
-		);
+	enablement_configuration_process_checks(get_process_json(process, false),
+			&configuration);
 }
 
 void terminate_process(pid_t pid) {
@@ -426,7 +480,7 @@ T_DECL(xzone_enabled_safari,
 	// Launch the Safari process on macOS
 	char *launch_safari_args[] = {"/usr/bin/open", "-a", "Safari",
 	"http://apple.com", NULL};
-	pid_t safari_pid = spawn_process(launch_safari_args);
+	pid_t safari_pid = spawn_process(launch_safari_args, NULL);
 	security_critical_configuration_checks("Safari");
 #else
 #if MALLOC_TARGET_IOS_ONLY
@@ -459,7 +513,7 @@ T_DECL(xzone_enabled_driverkit,
 	// processes running by default. Thus, run a simple test to start the
 	// com.apple.AppleUserHIDDriver process for analysis.
 	char *spawn_driverkit_proc_args[] = {"/usr/local/bin/hidUserDeviceTest", "hidUserDeviceTest", "-k", NULL};
-	pid_t driver_test_pid = spawn_process(spawn_driverkit_proc_args);
+	pid_t driver_test_pid = spawn_process(spawn_driverkit_proc_args, NULL);
 
 	// The above action would have started the DriverKit process with the
 	// label: com.apple.AppleUserHIDDriver
@@ -474,7 +528,8 @@ T_DECL(xzone_enabled_driverkit,
 		.ptr_bucket_count = 3,
 #endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = 1 * XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
@@ -495,24 +550,35 @@ T_DECL(xzone_enabled_general_process_test_runner,
 		T_META_ASROOT(true))
 {
 	struct enablement_configuration configuration = (enablement_configuration) {
-#if TARGET_OS_OSX
-		.should_have_xzones = false,
-#else
 		.should_have_xzones = true,
-#endif
 		.guards_enabled = false,
+#if TARGET_OS_OSX
+		.thread_cache_enabled = true,
+		.batch_size = 10,
+#else
 		.thread_cache_enabled = false,
 		.batch_size = 0,
-#if TARGET_OS_VISION
+#endif
+#if TARGET_OS_OSX || TARGET_OS_VISION
 		.ptr_bucket_count = 4,
 #else
 		.ptr_bucket_count = 2,
 #endif
+#if TARGET_OS_OSX
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = 1 * XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = get_ncpuclusters() *
+				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
+		.defer_tiny = true,
+		.defer_small = true,
+		.defer_large = true,
+#else
+		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
+#endif
 	 };
 
 	enablement_configuration_process_checks(
@@ -522,7 +588,7 @@ T_DECL(xzone_enabled_general_process_test_runner,
 }
 
 T_DECL(xzone_enabled_general_daemon,
-		"Verify enablement configuration for general processes (a daemon," "watchdogd)",
+		"Verify enablement configuration for general daemon (watchdogd)",
 		T_META_TAG_VM_NOT_ELIGIBLE,
 		T_META_ASROOT(true))
 {
@@ -537,7 +603,8 @@ T_DECL(xzone_enabled_general_daemon,
 		.ptr_bucket_count = 2,
 #endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = 1 * XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = false,
@@ -562,7 +629,8 @@ T_DECL(xzone_enabled_overridden_app,
 		.batch_size = 10,
 		.ptr_bucket_count = 4,
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = get_ncpuclusters() * XZM_SEGMENT_GROUP_IDS_COUNT,
+		.segment_group_count = get_ncpuclusters() *
+				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = true,
 		.defer_small = true,
 		.defer_large = true,
@@ -570,7 +638,7 @@ T_DECL(xzone_enabled_overridden_app,
 
 	// Launch the Messages app on macOS
 	char *launch_notes_args[] = {"/System/Applications/Messages.app/Contents/MacOS/Messages", NULL};
-	pid_t pid = spawn_process(launch_notes_args);
+	pid_t pid = spawn_process(launch_notes_args, NULL);
 
 	// On macOS, we expect this to use xzone malloc
 	enablement_configuration_process_checks(
@@ -586,44 +654,42 @@ T_DECL(xzone_enabled_general_app,
 		"Verify enablement configuration for a general app (Notes)",
 		T_META_TAG_VM_NOT_ELIGIBLE)
 {
-	bool should_defer_large = false;
-#if MALLOC_TARGET_IOS_ONLY
-	// If an iOS device has >=6GB of memory, the enablement configuration
-	// should have defer_large set to "true"
-	uint64_t memsize = platform_hw_memsize();
-	const uint64_t defer_large_ios_bytes_memsize = 6 * 1073741824ULL;
-	T_LOG("Device memsize: %"PRIu64", defer_large_ios_bytes_memsize: %"PRIu64"",
-			memsize, defer_large_ios_bytes_memsize);
-	if (memsize >= defer_large_ios_bytes_memsize) {
-		should_defer_large = true;
-	}
-#endif
+	bool should_defer_large = get_device_should_defer_large();
 
 	struct enablement_configuration configuration = (enablement_configuration) {
-#if TARGET_OS_OSX
-		.should_have_xzones = false,
-#else
 		.should_have_xzones = true,
-#endif // TARGET_OS_OSX
 		.guards_enabled = false,
 		.thread_cache_enabled = true,
-		.batch_size = 0,
 #if TARGET_OS_VISION
+		.batch_size = 0,
+		.ptr_bucket_count = 4,
+#elif TARGET_OS_OSX
+		.batch_size = 10,
 		.ptr_bucket_count = 4,
 #else
+		.batch_size = 0,
 		.ptr_bucket_count = 2,
-#endif // TARGET_OS_VISION
+#endif
 		.segment_group_ids_count = XZM_SEGMENT_GROUP_IDS_COUNT,
-		.segment_group_count = 1 * XZM_SEGMENT_GROUP_IDS_COUNT,
+#if TARGET_OS_OSX
+		.segment_group_count = get_ncpuclusters() *
+				(XZM_SEGMENT_GROUP_IDS_COUNT + ALLOCATION_FRONT_EXTRA),
+		.defer_tiny = true,
+		.defer_small = true,
+		.defer_large = true,
+#else
+		.segment_group_count = 1 * (XZM_SEGMENT_GROUP_IDS_COUNT +
+				ALLOCATION_FRONT_EXTRA),
 		.defer_tiny = false,
 		.defer_small = false,
 		.defer_large = should_defer_large,
+#endif // TARGET_OS_OSX
 	 };
 
 #if TARGET_OS_OSX
 	// Launch the Notes app on macOS
 	char *launch_notes_args[] = {"/System/Applications/Notes.app/Contents/MacOS/Notes", NULL};
-	pid_t notes_pid = spawn_process(launch_notes_args);
+	pid_t notes_pid = spawn_process(launch_notes_args, NULL);
 
 	// On macOS, we expect a random app process to not use xzone malloc
 	enablement_configuration_process_checks(
@@ -650,6 +716,93 @@ T_DECL(xzone_enabled_general_app,
 
 #endif // TARGET_OS_OSX
 }
+
+T_DECL(xzone_enabled_hardened_heap_entitlement_space_efficient,
+		"Verify enablement configuration for hardened-heap entitled process"
+		" (SpaceEfficient configuration)",
+		T_META_TAG_VM_NOT_ELIGIBLE)
+{
+	char *spawn_hardened_heap_args[] = {
+		"/AppleInternal/Tests/libmalloc/assets/hardened_heap_test_tool",
+		NULL,
+	};
+
+#if TARGET_OS_OSX
+	// SpaceEfficient is not the default on macOS
+	char *envp[] = {
+		"MallocSpaceEfficient=1",
+		NULL,
+	};
+#else
+	// SpaceEfficient is the default on other platforms
+	char **envp = NULL;
+#endif
+
+	pid_t pid = spawn_process(spawn_hardened_heap_args, envp);
+	bool space_efficient = true;
+
+	security_critical_configuration_checks_with_space_efficiency(
+			"hardened_heap_test_tool", space_efficient);
+
+	terminate_process(pid);
+}
+
+T_DECL(xzone_enabled_hardened_heap_entitlement_non_space_efficient,
+		"Verify enablement configuration for hardened-heap entitled process"
+		" (non-SpaceEfficient configuration)",
+		T_META_TAG_VM_NOT_ELIGIBLE)
+{
+	char *spawn_hardened_heap_args[] = {
+		"/AppleInternal/Tests/libmalloc/assets/hardened_heap_test_tool",
+		NULL,
+	};
+
+#if TARGET_OS_OSX
+	// Non-SpaceEfficient is the default on macOS
+	char **envp = NULL;
+#else
+	// Non-SpaceEfficient requires nano envvar on other platforms, and
+	// MallocLargeCache on iOS
+	char *envp[] = {
+		"MallocNanoZone=1",
+#if MALLOC_TARGET_IOS_ONLY
+		"MallocLargeCache=1",
+#endif
+		NULL,
+	};
+#endif
+
+	pid_t pid = spawn_process(spawn_hardened_heap_args, envp);
+	bool space_efficient = false;
+
+	security_critical_configuration_checks_with_space_efficiency(
+			"hardened_heap_test_tool", space_efficient);
+
+	terminate_process(pid);
+}
+
+#if MALLOC_TARGET_IOS_ONLY
+
+T_DECL(xzone_enabled_hardened_browser_entitlement,
+		"Verify enablement configuration for hardened-browser entitled process",
+		T_META_TAG_VM_NOT_ELIGIBLE)
+{
+	char *spawn_hardened_browser_args[] = {
+		"/AppleInternal/Tests/libmalloc/assets/hardened_browser_test_tool",
+		NULL,
+	};
+
+	pid_t pid = spawn_process(spawn_hardened_browser_args, NULL);
+
+	// The hardened-browser configuration is always SpaceEfficient
+	bool space_efficient = true;
+	security_critical_configuration_checks_with_space_efficiency(
+			"hardened_browser_test_tool", space_efficient);
+
+	terminate_process(pid);
+}
+
+#endif
 
 #else // CONFIG_XZONE_MALLOC && (MALLOC_TARGET_IOS_ONLY || TARGET_OS_OSX ||
 // TARGET_OS_VISION)

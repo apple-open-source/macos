@@ -29,9 +29,11 @@
 #include "MessageNames.h"
 #include "ReceiverMatcher.h"
 #include "SyncRequestID.h"
+#include <memory>
 #include <wtf/ArgumentCoder.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/Markable.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -134,7 +136,7 @@ public:
     std::optional<T> decode()
     {
         std::optional<T> t { ArgumentCoder<std::remove_cvref_t<T>, void>::decode(*this) };
-        if (UNLIKELY(!t))
+        if (!t) [[unlikely]]
             markInvalid();
         return t;
     }
@@ -143,28 +145,34 @@ public:
     template<typename T, typename = IsObjCObject<T>>
     std::optional<RetainPtr<T>> decodeWithAllowedClasses(const AllowedClassHashSet& allowedClasses = { getClass<T>() })
     {
+#if HAVE(WK_SECURE_CODING_NSURLREQUEST)
+        UNUSED_PARAM(allowedClasses);
+#else
         m_allowedClasses = allowedClasses;
+#endif
         return IPC::decodeRequiringAllowedClasses<T>(*this);
     }
 
     template<typename T, typename = IsNotObjCObject<T>>
     std::optional<T> decodeWithAllowedClasses(const AllowedClassHashSet& allowedClasses)
     {
+#if HAVE(WK_SECURE_CODING_NSURLREQUEST)
+        UNUSED_PARAM(allowedClasses);
+#else
         m_allowedClasses = allowedClasses;
+#endif
         return decode<T>();
     }
 
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
     AllowedClassHashSet& allowedClasses() { return m_allowedClasses; }
-#endif
+#endif // !HAVE(WK_SECURE_CODING_NSURLREQUEST)
+#endif // __OBJC__
 
     std::optional<Attachment> takeLastAttachment();
 
-    void setIndexOfDecodingFailure(int32_t indexOfObjectFailingDecoding)
-    {
-        if (m_indexOfObjectFailingDecoding == -1)
-            m_indexOfObjectFailingDecoding = indexOfObjectFailingDecoding;
-    }
-    int32_t indexOfObjectFailingDecoding() const { return m_indexOfObjectFailingDecoding; }
+    void addIndexOfDecodingFailure(uint32_t indexOfObjectFailingDecoding) { m_indicesOfObjectsFailingDecoding.append(indexOfObjectFailingDecoding); }
+    const Vector<uint32_t>& indicesOfObjectsFailingDecoding() const { return m_indicesOfObjectsFailingDecoding; }
 
 private:
     Decoder(std::span<const uint8_t> buffer, BufferDeallocator&&, Vector<Attachment>&&);
@@ -182,14 +190,14 @@ private:
 #if PLATFORM(MAC)
     ImportanceAssertion m_importanceAssertion;
 #endif
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) && !HAVE(WK_SECURE_CODING_NSURLREQUEST)
     AllowedClassHashSet m_allowedClasses;
 #endif
 
     uint64_t m_destinationID;
     Markable<SyncRequestID> m_syncRequestID;
 
-    int32_t m_indexOfObjectFailingDecoding { -1 };
+    Vector<uint32_t> m_indicesOfObjectsFailingDecoding;
 };
 
 template<>
@@ -215,7 +223,7 @@ inline std::span<const T> Decoder::decodeSpan(size_t size)
 
     const size_t alignedBufferPosition = static_cast<size_t>(std::distance(m_buffer.data(), roundUpToMultipleOf<alignof(T)>(std::to_address(m_bufferPosition))));
     const size_t bytesNeeded = size * sizeof(T);
-    if (UNLIKELY(!alignedBufferIsLargeEnoughToContain(m_buffer.size_bytes(), alignedBufferPosition, bytesNeeded))) {
+    if (!alignedBufferIsLargeEnoughToContain(m_buffer.size_bytes(), alignedBufferPosition, bytesNeeded)) [[unlikely]] {
         markInvalid();
         return { };
     }

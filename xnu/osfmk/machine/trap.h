@@ -55,6 +55,8 @@
 	__asm__ __volatile__ ("" : "+r"(_a), "+r"(_b), "+r"(_c));               \
 })
 
+#ifndef __BUILDING_XNU_LIB_UNITTEST__
+
 #define ml_fatal_trap_with_value(code, a)  ({ \
 	ml_trap_pin_value_1(a); \
 	ml_fatal_trap(code); \
@@ -69,6 +71,29 @@
 	ml_trap_pin_value_3(a, b, c); \
 	ml_fatal_trap(code); \
 })
+
+#else /* __BUILDING_XNU_LIB_UNITTEST__ */
+/* assert trap call into unit-test harness instead of calling brk */
+#ifdef __cplusplus
+extern "C"
+#else
+extern
+#endif
+__attribute__((noreturn)) void ut_assert_trap(int code, long a, long b, long c);
+
+#define ml_fatal_trap_with_value(code, a)  ({ \
+	ut_assert_trap(code, (long)a, 0, 0); \
+})
+
+#define ml_fatal_trap_with_value2(code, a)  ({ \
+	ut_assert_trap(code, (long)a, (long)b, 0); \
+})
+
+#define ml_fatal_trap_with_value3(code, a, b, c)  ({ \
+	ut_assert_trap(code, (long)a, (long)b, (long)c); \
+})
+
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
 
 /*
  * Used for when `e` failed a linked list safe unlinking check.

@@ -59,12 +59,12 @@ unsigned LegacyTileLayerPool::bytesBackingLayerWithPixelSize(const IntSize& size
 LegacyTileLayerPool::LayerList& LegacyTileLayerPool::listOfLayersWithSize(const IntSize& size, AccessType accessType)
 {
     ASSERT(!m_layerPoolMutex.tryLock());
-    UncheckedKeyHashMap<IntSize, LayerList>::iterator it = m_reuseLists.find(size);
+    HashMap<IntSize, LayerList>::iterator it = m_reuseLists.find(size);
     if (it == m_reuseLists.end()) {
         it = m_reuseLists.add(size, LayerList()).iterator;
         m_sizesInPruneOrder.append(size);
     } else if (accessType == MarkAsUsed) {
-        m_sizesInPruneOrder.remove(m_sizesInPruneOrder.reverseFind(size));
+        m_sizesInPruneOrder.removeLast(size);
         m_sizesInPruneOrder.append(size);
     }
     return it->value;
@@ -144,7 +144,7 @@ void LegacyTileLayerPool::prune()
         LayerList& oldestReuseList = m_reuseLists.find(sizeToDrop)->value;
         if (oldestReuseList.isEmpty()) {
             m_reuseLists.remove(sizeToDrop);
-            m_sizesInPruneOrder.remove(0);
+            m_sizesInPruneOrder.removeAt(0);
             continue;
         }
 #if LOG_TILING

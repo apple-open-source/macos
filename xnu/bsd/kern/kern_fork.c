@@ -407,8 +407,8 @@ bad:
  * fork_create_child
  *
  * Description:	Common operations associated with the creation of a child
- *		process. Return with new task and first thread's control port movable
- *      and not pinned.
+ *		process. Return with new task and first thread's control
+ *		port movable
  *
  * Parameters:	parent_task		parent task
  *		parent_coalitions	parent's set of coalitions
@@ -506,8 +506,7 @@ fork_create_child(task_t parent_task,
 	}
 
 	/*
-	 * Create main thread for the child process. Its control port is not immovable/pinned
-	 * until main_thread_set_immovable_pinned().
+	 * Create main thread for the child process.
 	 *
 	 * The new thread is waiting on the event triggered by 'task_clear_return_wait'
 	 */
@@ -588,14 +587,7 @@ fork(proc_t parent_proc, __unused struct fork_args *uap, int32_t *retval)
 		child_task = (task_t)get_threadtask(child_thread);
 		assert(child_task != TASK_NULL);
 
-		/* task_control_port_options has been inherited from parent, apply it */
-		task_set_immovable_pinned(child_task);
-		main_thread_set_immovable_pinned(child_thread);
-
-		/*
-		 * Since the task ports for this new task are now set to be immovable,
-		 * we can enable them.
-		 */
+		task_copyout_control_port(child_task);
 		vm_map_setup(get_task_map(child_task), child_task);
 		ipc_task_enable(child_task);
 

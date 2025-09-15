@@ -76,8 +76,8 @@ WEBCORE_EXPORT @interface WebScriptObjectPrivate : NSObject
 {
 @public
     JSC::JSObject* imp;
-    JSC::Bindings::RootObject* rootObject;
-    JSC::Bindings::RootObject* originRootObject;
+    SUPPRESS_UNCOUNTED_MEMBER JSC::Bindings::RootObject* rootObject;
+    SUPPRESS_UNCOUNTED_MEMBER JSC::Bindings::RootObject* originRootObject;
     BOOL isCreatedByDOMWrapper;
 }
 @end

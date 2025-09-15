@@ -69,7 +69,6 @@ SecTaskRef SecTaskCreateWithAuditToken(CFAllocatorRef __nullable allocator, audi
     @abstract Create a SecTask object for the current task.
     @result The newly created SecTask object or NULL on error.  The caller must
     CFRelease the returned object.
-#ifndef LEFT
 */
 __nullable
 SecTaskRef SecTaskCreateFromSelf(CFAllocatorRef __nullable allocator);

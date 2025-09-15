@@ -41,6 +41,11 @@ using SupportedCompositorTimings = angle::PackedEnumBitSet<CompositorTiming>;
 
 namespace rx
 {
+struct SurfaceSwapFeedback
+{
+    bool swapChainImageChanged = false;
+};
+
 class SurfaceImpl : public FramebufferAttachmentObjectImpl
 {
   public:
@@ -52,12 +57,11 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
     virtual egl::Error makeCurrent(const gl::Context *context);
     virtual egl::Error unMakeCurrent(const gl::Context *context);
     virtual egl::Error prepareSwap(const gl::Context *);
-    virtual egl::Error swap(const gl::Context *context) = 0;
+    virtual egl::Error swap(const gl::Context *context, SurfaceSwapFeedback *feedback) = 0;
     virtual egl::Error swapWithDamage(const gl::Context *context,
                                       const EGLint *rects,
-                                      EGLint n_rects);
-    virtual egl::Error swapWithFrameToken(const gl::Context *context,
-                                          EGLFrameTokenANGLE frameToken);
+                                      EGLint n_rects,
+                                      SurfaceSwapFeedback *feedback);
     virtual egl::Error postSubBuffer(const gl::Context *context,
                                      EGLint x,
                                      EGLint y,
@@ -78,13 +82,7 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
     // width and height can change with client window resizing
     virtual EGLint getWidth() const  = 0;
     virtual EGLint getHeight() const = 0;
-    // Note: windows cannot be resized on Android.  The approach requires
-    // calling vkGetPhysicalDeviceSurfaceCapabilitiesKHR.  However, that is
-    // expensive; and there are troublesome timing issues for other parts of
-    // ANGLE (which cause test failures and crashes).  Therefore, a
-    // special-Android-only path is created just for the querying of EGL_WIDTH
-    // and EGL_HEIGHT.
-    // https://issuetracker.google.com/issues/153329980
+    // Sizes that Surface will have after render target is first accessed (e.g. after draw).
     virtual egl::Error getUserWidth(const egl::Display *display, EGLint *value) const;
     virtual egl::Error getUserHeight(const egl::Display *display, EGLint *value) const;
 
@@ -96,8 +94,8 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
     virtual egl::Error detachFromFramebuffer(const gl::Context *context,
                                              gl::Framebuffer *framebuffer) = 0;
 
-    // Used to query color format from pbuffers created from D3D textures.
-    virtual const angle::Format *getD3DTextureColorFormat() const;
+    // Used to query color format from pbuffers created from D3D and WebGPU textures.
+    virtual const angle::Format *getClientBufferTextureColorFormat() const;
 
     // EGL_ANDROID_get_frame_timestamps
     virtual void setTimestampsEnabled(bool enabled);
@@ -128,6 +126,8 @@ class SurfaceImpl : public FramebufferAttachmentObjectImpl
     virtual egl::Error setRenderBuffer(EGLint renderBuffer);
 
     virtual EGLint getCompressionRate(const egl::Display *display) const;
+
+    virtual bool supportsSingleRenderBuffer() const;
 
   protected:
     const egl::SurfaceState &mState;

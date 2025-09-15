@@ -114,13 +114,12 @@ ALWAYS_INLINE static JSMap* getMap(JSGlobalObject* globalObject, JSValue thisVal
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (UNLIKELY(!thisValue.isCell())) {
+    if (!thisValue.isCell()) [[unlikely]] {
         throwVMError(globalObject, scope, createNotAnObjectError(globalObject, thisValue));
         return nullptr;
     }
 
-    auto* map = jsDynamicCast<JSMap*>(thisValue.asCell());
-    if (LIKELY(map))
+    if (auto* map = jsDynamicCast<JSMap*>(thisValue.asCell())) [[likely]]
         return map;
     throwTypeError(globalObject, scope, "Map operation called on non-Map object"_s);
     return nullptr;
@@ -222,8 +221,8 @@ JSC_DEFINE_HOST_FUNCTION(mapProtoFuncGetOrInsertComputed, (JSGlobalObject* globa
         auto callData = JSC::getCallData(valueCallback);
         ASSERT(callData.type != CallData::Type::None);
 
-        if (LIKELY(callData.type == CallData::Type::JS)) {
-            CachedCall cachedCall(globalObject, jsCast<JSFunction*>(valueCallback), 2);
+        if (callData.type == CallData::Type::JS) [[likely]] {
+            CachedCall cachedCall(globalObject, jsCast<JSFunction*>(valueCallback), 1);
             RETURN_IF_EXCEPTION(scope, JSValue());
 
             return cachedCall.callWithArguments(globalObject, jsUndefined(), key);

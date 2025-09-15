@@ -55,7 +55,7 @@ template<> std::optional<TestDefaultToJSONEnum> parseEnumerationFromString<TestD
         std::pair<ComparableASCIILiteral, TestDefaultToJSONEnum> { "EnumValue2"_s, TestDefaultToJSONEnum::EnumValue2 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
-    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
 }

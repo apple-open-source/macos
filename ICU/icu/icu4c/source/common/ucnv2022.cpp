@@ -597,7 +597,13 @@ _ISO2022Open(UConverter *cnv, UConverterLoadArgs *pArgs, UErrorCode *errorCode){
             /* open the required converters and cache them */
             myConverterData->myConverterArray[GB2312_1] =
                 ucnv_loadSharedData("ibm-5478", &stackPieces, &stackArgs, errorCode);
+#if APPLE_ICU_CHANGES
+// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
+// Filed https://unicode-org.atlassian.net/browse/ICU-23165 to fix this in OSICU
+            if(version >= 1) {
+#else
             if(version==1) {
+#endif // APPLE_ICU_CHANGES
                 myConverterData->myConverterArray[ISO_IR_165] =
                     ucnv_loadSharedData("iso-ir-165", &stackPieces, &stackArgs, errorCode);
             }

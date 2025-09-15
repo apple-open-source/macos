@@ -58,8 +58,23 @@ __attribute__((always_inline)) // let LTO know
 unsigned
 atom_hash(atom_t *atom)
 {
-	unsigned long key = reinterpret_cast<unsigned long>(atom);
+	unsigned long key = 0;
+
+	if (atom) {
+		const char *c;
+		unsigned long g;
+
+		for (c = (char *)atom; *c; c++) {
+			key = (key << 4) + *c;
+			if ((g = (key & 0xf0000000)) != 0) {
+				key ^= (g >> 24);
+				key ^= g;
+			}
+		}
+	}
+
 	key ^= key >> 4;
+
 #if __LP64__
 	key *= 0x8a970be7488fda55;
 	key ^= __builtin_bswap64(key);

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2011 Google Inc.  All rights reserved.
- * Copyright (C) 2007, 2008, 2013-2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2013-2015 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Joseph Pecoraro
  *
  * Redistribution and use in source and binary forms, with or without
@@ -622,7 +622,9 @@ WI.ConsoleMessageView = class ConsoleMessageView extends WI.Object
                     let previewContainer = builderElement.appendChild(document.createElement("span"));
                     previewContainer.classList.add("inline-lossless");
 
-                    let preview = WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject(parameter, WI.ObjectPreviewView.Mode.Brief);
+                    let preview = WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject(parameter, {
+                        objectPreviewViewMode: WI.ObjectPreviewView.Mode.Brief,
+                    });
                     let isPreviewView = preview instanceof WI.ObjectPreviewView;
 
                     if (isPreviewView)
@@ -648,7 +650,9 @@ WI.ConsoleMessageView = class ConsoleMessageView extends WI.Object
                 let previewContainer = builderElement.appendChild(document.createElement("span"));
                 previewContainer.classList.add("console-message-preview");
 
-                let preview = WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject(parameter, WI.ObjectPreviewView.Mode.Brief);
+                let preview = WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject(parameter, {
+                    objectPreviewViewMode: WI.ObjectPreviewView.Mode.Brief,
+                });
                 let isPreviewView = preview instanceof WI.ObjectPreviewView;
 
                 if (isPreviewView)

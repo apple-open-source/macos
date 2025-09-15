@@ -17985,6 +17985,7 @@ done:
 
     int error = 0;
     char file_path[PATH_MAX] = {0};
+    char dir_path[PATH_MAX] = {0};
     char mp1[PATH_MAX] = {0};
     int options = 0;
     char name_buf[NAME_SIZE] = {0};
@@ -18156,6 +18157,18 @@ done:
     }
     fprintf(stdout, "getxattr() returned correct ERANGE when given too small of a buffer for resource fork \n");
 
+    /*
+     * Test with just right sized buffer with getxattr while reading from the middle
+     * Note: getxattr() can be called with offset != 0 for resource forks only
+     */
+    xa_size = getxattr(file_path, XATTR_RESOURCEFORK_NAME, recvbuf, (VALUE_SIZE)/2, VALUE_SIZE - (VALUE_SIZE)/2, options);
+    if (xa_size != VALUE_SIZE/2) {
+        XCTFail("getxattr(VALUE_SIZE/2) with just right buffer failed %zd, errno %d",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr(VALUE_SIZE/2, offset!=0) worked with just right buffer size \n");
+
     
     /* Test with just right sized buffer with listxattr */
     xa_size = listxattr(file_path, recvbuf, BUF_SIZE, options);
@@ -18259,7 +18272,67 @@ done:
                 file_path, strerror(errno), errno);
         goto done;
     }
-    
+
+    /*
+     * Test xattrs on directories
+     */
+
+    /* Set up a directory path */
+    strlcpy(dir_path, mp1, sizeof(dir_path));
+    strlcat(dir_path, "/", sizeof(dir_path));
+    strlcat(dir_path, cur_test_dir, sizeof(dir_path));
+    strlcat(dir_path, "/", sizeof(dir_path));
+    strlcat(dir_path, "test_dir", sizeof(dir_path));
+
+    /* Create the directory */
+    printf("Creating dir \n");
+    error = mkdir(dir_path, S_IRWXU);
+    if (error) {
+        XCTFail("mkdir on <%s> failed %d:%s \n",
+                dir_path, errno, strerror(errno));
+        goto done;
+    }
+
+    error = setxattr(dir_path, "test_xattr", kXattrData,
+                     sizeof(kXattrData), 0, XATTR_NOFOLLOW);
+    if (error) {
+        XCTFail("setxattr on <%s> failed %d:%s \n", dir_path,
+                errno, strerror(errno));
+        error = errno;
+        goto done;
+    }
+
+    xa_size = listxattr(dir_path, recvbuf, BUF_SIZE, options);
+    if (xa_size != (strlen("test_xattr") + 1)) {
+        XCTFail("listxattr() with failed %zd, errno %d\n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "listxattr() worked\n");
+
+    /* Test with just right sized buffer with getxattr */
+    xa_size = getxattr(dir_path, "test_xattr", recvbuf, sizeof(kXattrData), 0, options);
+    if (xa_size != sizeof(kXattrData)) {
+        XCTFail("getxattr() with just right buffer failed %zd, errno %d \n",
+                xa_size, errno);
+        goto done;
+    }
+    fprintf(stdout, "getxattr() worked with just right buffer size \n");
+
+    error = removexattr(dir_path, "test_xattr", options);
+    if (error == -1) {
+        XCTFail("removexattr() failed %d for %s \n", errno, dir_path);
+        goto done;
+    }
+    fprintf(stdout, "removexattr() worked for %s \n", dir_path);
+
+    error = rmdir(dir_path);
+    if (error) {
+        XCTFail("rmdir on <%s> failed %d:%s \n",
+                dir_path, errno, strerror(errno));
+        goto done;
+    }
+
     /*
      * If no errors, attempt to delete test dirs. This could fail if a
      * previous test failed and thats fine.
@@ -18466,12 +18539,11 @@ error:
 }
 
 /*
- * The next three tests are really one test but since it takes a lot of time
- * we split it into three tests, all calling CheckAlternatingEnumWithDiff()
- * with a subset of the diffs we want to test
+ * The next 6 tests are really one test but since it takes a lot of time
+ * we split it into multiple tests, all calling CheckAlternatingEnumWithDiff
+ * with a diff we want to test
  */
-#define EnumDiffGranularity 0.15
--(void) CheckAlternatingEnumForMount: (char*) mp WithDiff: (int)diff
+-(void) CheckAlternatingEnumWithDiff: (int)diff
 {
     DIR *dirp1 = NULL, *dirp2 = NULL;
     char dir_path[PATH_MAX];
@@ -18484,6 +18556,27 @@ error:
     time_t current_time = 0;
     char *time_str;
     int enum1_done = 0, enum2_done = 0;
+    int error = 0;
+    char mp[PATH_MAX] = {0};
+
+    if (list_tests_with_mdata == 1) {
+        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
+                               "opendir,closedir,getAttrListBulk",
+                               "1,2,3",
+                               NULL,
+                               NULL);
+        return;
+    }
+
+    /*
+     * We will need just one mount to start with
+     */
+    do_create_mount_path(mp, sizeof(mp), "testAlternateEnum");
+    error = mount_two_sessions(mp, NULL, 0);
+    if (error) {
+        XCTFail("mount_two_sessions failed %d \n", error);
+        return;
+    }
 
     strlcpy(dir_path, mp, sizeof(dir_path));
     strlcat(dir_path, "/", sizeof(dir_path));
@@ -18616,151 +18709,47 @@ error:
     if (dirp2 != NULL) {
         closedir(dirp2);
     }
-}
-
-#define alternatingEnumDiffsSplit 3
--(void)testAlternatingEnumLowDiffs
-{
-    int diff = 0;
-    int entry_cnt = STATIC_25K_DIR_SIZE;
-    char mp[PATH_MAX] = {0};
-    int error = 0;
-    if (list_tests_with_mdata == 1) {
-        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
-                               "opendir,closedir,getAttrListBulk",
-                               "1,2,3",
-                               NULL,
-                               NULL);
-        return;
-    }
-    
-    /*
-     * We will need just one mount to start with
-     */
-    do_create_mount_path(mp, sizeof(mp), "testGetattrlistbulk");
-    
-    error = mount_two_sessions(mp, NULL, 0);
-    if (error) {
-        XCTFail("mount_two_sessions failed %d \n", error);
-        return;
-    }
-
-    for (diff = 0; diff < entry_cnt/alternatingEnumDiffsSplit; diff+=(entry_cnt*EnumDiffGranularity)) {
-        [self CheckAlternatingEnumForMount:mp WithDiff:diff];
-    }
-    if (unmount(mp, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url %d\n", errno);
-    }
-
-    rmdir(mp);
-}
-
--(void)testAlternatingEnumLowMedDiffs
-{
-    int diff = 0;
-    int entry_cnt = STATIC_25K_DIR_SIZE;
-    char mp[PATH_MAX] = {0};
-    int error = 0;
-    if (list_tests_with_mdata == 1) {
-        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
-                               "opendir,closedir,getAttrListBulk",
-                               "1,2,3",
-                               NULL,
-                               NULL);
-        return;
-    }
-    
-    /*
-     * We will need just one mount to start with
-     */
-    do_create_mount_path(mp, sizeof(mp), "testGetattrlistbulk");
-    
-    error = mount_two_sessions(mp, NULL, 0);
-    if (error) {
-        XCTFail("mount_two_sessions failed %d \n", error);
-        return;
-    }
-
-    for (diff = entry_cnt/alternatingEnumDiffsSplit; diff < 2*entry_cnt/alternatingEnumDiffsSplit; diff+=(entry_cnt*EnumDiffGranularity)) {
-        [self CheckAlternatingEnumForMount:mp WithDiff:diff];
-    }
-    if (unmount(mp, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url %d\n", errno);
-    }
-
-    rmdir(mp);
-}
-
--(void)testAlternatingEnumMedHighDiffs
-{
-    int diff = 0;
-    int entry_cnt = STATIC_25K_DIR_SIZE;
-    char mp[PATH_MAX] = {0};
-    int error = 0;
-    if (list_tests_with_mdata == 1) {
-        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
-                               "opendir,closedir,getAttrListBulk",
-                               "1,2,3",
-                               NULL,
-                               NULL);
-        return;
-    }
-    
-    /*
-     * We will need just one mount to start with
-     */
-    do_create_mount_path(mp, sizeof(mp), "testGetattrlistbulk");
-    
-    error = mount_two_sessions(mp, NULL, 0);
-    if (error) {
-        XCTFail("mount_two_sessions failed %d \n", error);
-        return;
-    }
-
-    for (diff = 2*entry_cnt/alternatingEnumDiffsSplit; diff < 3*entry_cnt/alternatingEnumDiffsSplit; diff+=(entry_cnt*EnumDiffGranularity)) {
-        [self CheckAlternatingEnumForMount:mp WithDiff:diff];
-    }
-    if (unmount(mp, MNT_FORCE) == -1) {
-        XCTFail("unmount failed for first url %d\n", errno);
-    }
-
-    rmdir(mp);
-}
-
--(void)testAlternatingEnumHighDiffs
-{
-    int diff = 0;
-    int entry_cnt = STATIC_25K_DIR_SIZE;
-    char mp[PATH_MAX] = {0};
-    int error = 0;
-    if (list_tests_with_mdata == 1) {
-        do_list_test_meta_data("Test for correct getAttrListBulk behavior",
-                               "opendir,closedir,getAttrListBulk",
-                               "1,2,3",
-                               NULL,
-                               NULL);
-        return;
-    }
-    
-    /*
-     * We will need just one mount to start with
-     */
-    do_create_mount_path(mp, sizeof(mp), "testGetattrlistbulk");
-    
-    error = mount_two_sessions(mp, NULL, 0);
-    if (error) {
-        XCTFail("mount_two_sessions failed %d \n", error);
-        return;
-    }
-
-    for (diff = 3*entry_cnt/alternatingEnumDiffsSplit; diff < entry_cnt; diff+=(entry_cnt*EnumDiffGranularity)) {
-        [self CheckAlternatingEnumForMount:mp WithDiff:diff];
-    }
 
     if (unmount(mp, MNT_FORCE) == -1) {
         XCTFail("unmount failed for first url %d\n", errno);
     }
-
     rmdir(mp);
 }
+
+static int diffsToTest[] = {500 ,3750, 7500, 11250, 15000, 18750, 22500};
+-(void)testAlternatingEnum0
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[0]];
+}
+
+-(void)testAlternatingEnum1
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[1]];
+}
+
+-(void)testAlternatingEnum2
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[2]];
+}
+
+-(void)testAlternatingEnum3
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[3]];
+}
+
+-(void)testAlternatingEnum4
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[4]];
+}
+
+-(void)testAlternatingEnum5
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[5]];
+}
+
+-(void)testAlternatingEnum6
+{
+    [self CheckAlternatingEnumWithDiff: diffsToTest[6]];
+}
+
 @end

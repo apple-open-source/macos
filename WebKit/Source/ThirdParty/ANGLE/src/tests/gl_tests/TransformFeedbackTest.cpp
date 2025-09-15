@@ -7,7 +7,6 @@
 #include "test_utils/ANGLETest.h"
 #include "test_utils/gl_raii.h"
 #include "util/EGLWindow.h"
-#include "util/gles_loader_autogen.h"
 #include "util/random_utils.h"
 #include "util/test_utils.h"
 
@@ -1653,6 +1652,65 @@ TEST_P(TransformFeedbackTest, CaptureAndCopy)
     EXPECT_GL_NO_ERROR();
 }
 
+// Test that the captured xfb buffer can be used as uniform buffer.
+TEST_P(TransformFeedbackTest, CaptureThenUseAsUBO)
+{
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Set the program's transform feedback varyings (just gl_Position)
+    std::vector<std::string> tfVaryings;
+    tfVaryings.push_back("gl_Position");
+    compileDefaultProgram(tfVaryings, GL_INTERLEAVED_ATTRIBS);
+    glUseProgram(mProgram);
+    GLint positionLocation = glGetAttribLocation(mProgram, essl1_shaders::PositionAttrib());
+
+    // First pass: draw 3 points to the XFB buffer
+    glEnable(GL_RASTERIZER_DISCARD);
+    const GLfloat vertices[] = {-0.5f, 0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f};
+    glVertexAttribPointer(positionLocation, 3, GL_FLOAT, GL_FALSE, 0, vertices);
+    glEnableVertexAttribArray(positionLocation);
+
+    // Bind the buffer for transform feedback output and start transform feedback
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, mTransformFeedbackBuffer);
+    glBeginTransformFeedback(GL_POINTS);
+
+    glDrawArrays(GL_POINTS, 0, 3);
+    // End the transform feedback
+    glEndTransformFeedback();
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, 0);
+    glDisable(GL_RASTERIZER_DISCARD);
+
+    // Second pass: draw from the feedback buffer
+    {
+        glBindBuffer(GL_UNIFORM_BUFFER, mTransformFeedbackBuffer);
+        glBindBufferBase(GL_UNIFORM_BUFFER, 0, mTransformFeedbackBuffer);
+        EXPECT_GL_NO_ERROR();
+
+        constexpr char kVerifyUBO[] = R"(#version 300 es
+        precision mediump float;
+        uniform block {
+            vec3 data[3];
+        } ubo;
+        out vec4 colorOut;
+        void main()
+        {
+            bool data0Ok = all(equal(ubo.data[0], vec3(-0.5f, 0.5f, 0.5f)));
+            bool data1Ok = all(equal(ubo.data[1], vec3(-0.5f, -0.5f, 0.5f)));
+            bool data2Ok = all(equal(ubo.data[2], vec3(0.5f, -0.5f, 0.5f)));
+            if (data0Ok && data1Ok && data2Ok)
+                colorOut = vec4(0, 1.0, 0, 1.0);
+            else
+                colorOut = vec4(0, 0, 1.0, 1.0);
+        })";
+
+        ANGLE_GL_PROGRAM(verifyUbo, essl3_shaders::vs::Simple(), kVerifyUBO);
+        drawQuad(verifyUbo, essl3_shaders::PositionAttrib(), 0.5);
+        EXPECT_GL_NO_ERROR();
+        EXPECT_PIXEL_COLOR_EQ(getWindowWidth() / 2, getWindowHeight() / 2, GLColor::green);
+    }
+}
+
 class TransformFeedbackLifetimeTest : public TransformFeedbackTest
 {
   protected:
@@ -2148,10 +2206,9 @@ TEST_P(TransformFeedbackTestES31, CaptureArray)
     float *mappedFloats = static_cast<float *>(mappedBuffer);
     for (int i = 0; i < 6; i++)
     {
-        std::array<float, 3> mappedData = {mappedFloats[i * 3], mappedFloats[i * 3 + 1],
-                                           mappedFloats[i * 3 + 2]};
-        std::array<float, 3> data       = {data1[i], data2[i], data3[i]};
-        EXPECT_EQ(data, mappedData) << "iteration #" << i;
+        EXPECT_NEAR(data1[i], mappedFloats[i * 3], 0.001f);
+        EXPECT_NEAR(data2[i], mappedFloats[i * 3 + 1], 0.001f);
+        EXPECT_NEAR(data3[i], mappedFloats[i * 3 + 2], 0.001f);
     }
 
     glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);

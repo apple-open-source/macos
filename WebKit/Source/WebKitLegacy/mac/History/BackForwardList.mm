@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,7 +66,7 @@ void BackForwardList::addItem(Ref<HistoryItem>&& newItem)
     // (or even if we are, if we only want 1 entry).
     if (m_entries.size() == m_capacity && (m_current || m_capacity == 1)) {
         Ref<HistoryItem> item = WTFMove(m_entries[0]);
-        m_entries.remove(0);
+        m_entries.removeAt(0);
         m_entryHash.remove(item.ptr());
         BackForwardCache::singleton().remove(item);
         --m_current;
@@ -240,7 +240,7 @@ void BackForwardList::removeItem(HistoryItem& item)
 {
     for (unsigned i = 0; i < m_entries.size(); ++i) {
         if (m_entries[i].ptr() == &item) {
-            m_entries.remove(i);
+            m_entries.removeAt(i);
             m_entryHash.remove(&item);
             if (m_current == NoCurrentItemIndex || m_current < i)
                 break;

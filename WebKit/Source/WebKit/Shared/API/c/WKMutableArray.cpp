@@ -31,12 +31,12 @@
 
 WKMutableArrayRef WKMutableArrayCreate()
 {
-    return const_cast<WKMutableArrayRef>(WebKit::toAPI(&API::Array::create().leakRef()));
+    return const_cast<WKMutableArrayRef>(WebKit::toAPILeakingRef(API::Array::create()));
 }
 
 WKMutableArrayRef WKMutableArrayCreateWithCapacity(size_t capacity)
 {
-    return const_cast<WKMutableArrayRef>(WebKit::toAPI(&API::Array::create().leakRef()));
+    return const_cast<WKMutableArrayRef>(WebKit::toAPILeakingRef(API::Array::create()));
 }
 
 void WKArrayAppendItem(WKMutableArrayRef arrayRef, WKTypeRef itemRef)
@@ -46,6 +46,6 @@ void WKArrayAppendItem(WKMutableArrayRef arrayRef, WKTypeRef itemRef)
 
 void WKArrayRemoveItemAtIndex(WKMutableArrayRef arrayRef, size_t index)
 {
-    WebKit::toImpl(arrayRef)->elements().remove(index);
+    WebKit::toImpl(arrayRef)->elements().removeAt(index);
 }
 

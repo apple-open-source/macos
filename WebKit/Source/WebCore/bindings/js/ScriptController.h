@@ -84,7 +84,7 @@ class ScriptController final : public CanMakeWeakPtr<ScriptController>, public C
     WTF_MAKE_TZONE_ALLOCATED(ScriptController);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ScriptController);
 
-    using RootObjectMap = UncheckedKeyHashMap<void*, Ref<JSC::Bindings::RootObject>>;
+    using RootObjectMap = HashMap<void*, Ref<JSC::Bindings::RootObject>>;
 
 public:
     explicit ScriptController(LocalFrame&);
@@ -131,7 +131,7 @@ public:
 
     void setEvalEnabled(bool, const String& errorMessage = String());
     void setWebAssemblyEnabled(bool, const String& errorMessage = String());
-    void setRequiresTrustedTypes(bool);
+    void setTrustedTypesEnforcement(JSC::TrustedTypesEnforcement);
 
     static bool canAccessFromCurrentOrigin(LocalFrame*, Document& accessingDocument);
     WEBCORE_EXPORT bool canExecuteScripts(ReasonForCallingCanExecuteScripts);
@@ -153,12 +153,13 @@ public:
 
     RefPtr<JSC::Bindings::Instance>  createScriptInstanceForWidget(Widget*);
     WEBCORE_EXPORT JSC::Bindings::RootObject* bindingRootObject();
+    RefPtr<JSC::Bindings::RootObject> protectedBindingRootObject();
     JSC::Bindings::RootObject* cacheableBindingRootObject();
     JSC::Bindings::RootObject* existingCacheableBindingRootObject() const { return m_cacheableBindingRootObject.get(); }
 
     WEBCORE_EXPORT Ref<JSC::Bindings::RootObject> createRootObject(void* nativeHandle);
 
-    void collectIsolatedContexts(Vector<std::pair<JSC::JSGlobalObject*, SecurityOrigin*>>&);
+    void collectIsolatedContexts(Vector<std::pair<JSC::JSGlobalObject*, RefPtr<SecurityOrigin>>>&);
 
 #if PLATFORM(COCOA)
     WEBCORE_EXPORT WebScriptObject* windowScriptObject();
@@ -183,6 +184,7 @@ private:
 
     void disconnectPlatformScriptObjects();
 
+    Ref<WindowProxy> protectedWindowProxy() { return windowProxy(); }
     WEBCORE_EXPORT WindowProxy& windowProxy();
     WEBCORE_EXPORT JSWindowProxy& jsWindowProxy(DOMWrapperWorld&);
 
@@ -191,7 +193,7 @@ private:
     WeakRef<LocalFrame> m_frame;
     const URL* m_sourceURL { nullptr };
 
-    bool m_paused;
+    bool m_paused { false };
     bool m_willReplaceWithResultOfExecutingJavascriptURL { false };
 
     // The root object used for objects bound outside the context of a plugin, such

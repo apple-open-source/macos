@@ -89,6 +89,7 @@ enum {
 #define kAssertionCopyActivityUpdateMsg "assertionCopyActivityUpdate"
 #define kAssertionUpdateActivityMsg     "assertionUpdateActivity"
 #define kAssertionUpdateActivesMsg      "assertionUpdateActives"
+#define kAssertionUpdateCategoryPolicyMsg "assertionUpdateCategoryPolicy"
 
 
 #define kAssertionDetailsKey        "assertionDictonary"

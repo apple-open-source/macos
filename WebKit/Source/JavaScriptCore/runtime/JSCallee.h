@@ -65,19 +65,12 @@ public:
         return m_scope.get();
     }
 
-    // This method may be called for host functions, in which case it
-    // will return an arbitrary value. This should only be used for
-    // optimized paths in which the return value does not matter for
-    // host functions, and checking whether the function is a host
-    // function is deemed too expensive.
-    JSScope* scopeUnchecked()
-    {
-        return m_scope.get();
-    }
-
     void setScope(VM& vm, JSScope* scope)
     {
-        m_scope.set(vm, this, scope);
+        if (scope)
+            m_scope.set(vm, this, scope);
+        else
+            m_scope.clear();
     }
 
     DECLARE_EXPORT_INFO;
@@ -96,7 +89,6 @@ protected:
     DECLARE_DEFAULT_FINISH_CREATION;
     DECLARE_VISIT_CHILDREN;
 
-private:
     friend class LLIntOffsetsExtractor;
 
     WriteBarrier<JSScope> m_scope;

@@ -78,6 +78,7 @@ public:
 
     virtual ~PaymentAuthorizationPresenter() = default;
 
+    Client* client() { return m_client.get(); }
     RefPtr<Client> protectedClient() { return m_client.get(); }
 
     void completeMerchantValidation(const WebCore::PaymentMerchantSession&);

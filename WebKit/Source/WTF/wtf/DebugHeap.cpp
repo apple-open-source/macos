@@ -104,11 +104,6 @@ void* DebugHeap::reallocCompact(void* object, size_t size)
     return realloc(object, size);
 }
 
-void DebugHeap::free(void* object)
-{
-    malloc_zone_free(m_zone, object);
-}
-
 } // namespace WTF
 
 #endif

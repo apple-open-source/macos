@@ -708,6 +708,7 @@ _os_log_to_msgbuf_internal(const char *format, va_list args, uint64_t timestamp,
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	va_copy(args_copy, args);
 	newlogline = vprintf_log_locked(format, args_copy, addcr);
 	va_end(args_copy);
@@ -868,7 +869,7 @@ _os_log_internal_driverKit(void *dso, os_log_t log, uint8_t type, const char *fm
 	return 0;
 }
 
-__attribute__((noinline, not_tail_called)) void
+__attribute__((noinline, not_tail_called)) __mockable void
 os_log_with_args(os_log_t oslog, os_log_type_t type, const char *fmt,
     va_list args, void *addr)
 {
@@ -1291,6 +1292,7 @@ save_pattern(char buf[static TESTBUFLEN], uint32_t *crc, const char *fmt, ...)
 	va_start(va, fmt);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	int n = vscnprintf(buf, TESTBUFLEN, fmt, va);
 #pragma clang diagnostic pop
 	va_end(va);

@@ -101,6 +101,8 @@ __BEGIN_DECLS
 #define kIOHIDTransportSPUValue                 "SPU"
 #define kIOHIDTransportBTAACPValue              "BT-AACP"
 #define kIOHIDTransportFIFOValue                "FIFO"
+#define kIOHIDTransportVirtualValue             "Virtual"
+#define kIOHIDTransportInductiveInBandValue     "Inductive In-Band"
 
 
 #define kIOHIDCategoryAutomotiveValue       "Automotive"

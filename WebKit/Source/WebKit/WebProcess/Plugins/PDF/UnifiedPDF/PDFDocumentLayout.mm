@@ -31,6 +31,7 @@
 #import "Logging.h"
 #import <WebCore/AffineTransform.h>
 #import <WebCore/GeometryUtilities.h>
+#import <ranges>
 #import <wtf/text/TextStream.h>
 
 #import "PDFKitSoftLink.h"
@@ -81,7 +82,6 @@ RetainPtr<PDFPage> PDFDocumentLayout::pageAtIndex(PageIndex index) const
 
 auto PDFDocumentLayout::indexForPage(RetainPtr<PDFPage> page) const -> std::optional<PageIndex>
 {
-
     auto pageIndex = [m_pdfDocument indexForPage:page.get()];
     if (pageIndex == NSNotFound)
         return { };
@@ -201,7 +201,7 @@ PDFDocumentLayout::PageIndex PDFDocumentLayout::nearestPageIndexForDocumentPoint
                 return euclidianDistance(point, documentSpacePoint);
             });
 
-            return *std::min_element(distancesToPoints.begin(), distancesToPoints.end());
+            return *std::ranges::min_element(distancesToPoints);
         };
 
         for (PageIndex index = 0; index < pageCount; index += pagesPerRow()) {
@@ -609,7 +609,7 @@ AffineTransform PDFDocumentLayout::toPageTransform(const PageGeometry& pageGeome
     AffineTransform matrix;
     switch (pageGeometry.rotation) {
     default:
-        FALLTHROUGH;
+        [[fallthrough]];
     case 0:
         matrix = AffineTransform::makeTranslation(FloatSize { pageGeometry.cropBox.x(), pageGeometry.cropBox.y() });
         break;

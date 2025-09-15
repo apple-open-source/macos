@@ -70,7 +70,7 @@ private:
     WGPUXRView backing() const { return m_backing.get(); }
 
     WebGPUPtr<WGPUXRView> m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
 };
 
 } // namespace WebCore::WebGPU

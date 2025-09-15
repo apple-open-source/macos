@@ -40,7 +40,7 @@ G_BEGIN_DECLS
  * @WPE_SETTINGS_ERROR_NOT_REGISTERED: Key has not been registered
  * @WPE_SETTINGS_ERROR_ALREADY_REGISTERED: Key has already been registered
  * @WPE_SETTINGS_ERROR_INVALID_VALUE: Failed to parse a value from a keyfile
- * 
+ *
  * #WPESettings errors
  */
 typedef enum {
@@ -64,6 +64,7 @@ WPE_API GQuark wpe_settings_error_quark(void);
  * Default: Sans 10
  */
 #define WPE_SETTING_FONT_NAME "/wpe-platform/font-name"
+
 /**
  * WPE_SETTING_DARK_MODE:
  *
@@ -74,6 +75,7 @@ WPE_API GQuark wpe_settings_error_quark(void);
  * Default: false
  */
 #define WPE_SETTING_DARK_MODE "/wpe-platform/dark-mode"
+
 /**
  * WPE_SETTING_DISABLE_ANIMATIONS:
  *
@@ -84,6 +86,7 @@ WPE_API GQuark wpe_settings_error_quark(void);
  * Default: false
  */
 #define WPE_SETTING_DISABLE_ANIMATIONS "/wpe-platform/disable-animations"
+
 /**
  * WPE_SETTING_FONT_ANTIALIAS:
  *
@@ -94,6 +97,7 @@ WPE_API GQuark wpe_settings_error_quark(void);
  * Default: true
  */
 #define WPE_SETTING_FONT_ANTIALIAS "/wpe-platform/font-antialias"
+
 /**
  * WPESettingsHintingStyle:
  * @WPE_SETTINGS_HINTING_STYLE_NONE
@@ -107,6 +111,7 @@ typedef enum {
     WPE_SETTINGS_HINTING_STYLE_MEDIUM,
     WPE_SETTINGS_HINTING_STYLE_FULL,
 } WPESettingsHintingStyle;
+
 /**
  * WPE_SETTING_FONT_HINTING_STYLE:
  *
@@ -117,6 +122,7 @@ typedef enum {
  * Default: WPE_SETTINGS_HINTING_STYLE_SLIGHT
  */
 #define WPE_SETTING_FONT_HINTING_STYLE "/wpe-platform/font-hinting-style"
+
 /**
  * WPESettingsSubpixelLayout:
  * @WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB
@@ -130,6 +136,7 @@ typedef enum {
     WPE_SETTINGS_SUBPIXEL_LAYOUT_VRGB,
     WPE_SETTINGS_SUBPIXEL_LAYOUT_VBGR,
 } WPESettingsSubpixelLayout;
+
 /**
  * WPE_SETTING_FONT_SUBPIXEL_LAYOUT:
  *
@@ -140,6 +147,7 @@ typedef enum {
  * Default: WPE_SETTINGS_SUBPIXEL_LAYOUT_RGB
  */
 #define WPE_SETTING_FONT_SUBPIXEL_LAYOUT "/wpe-platform/font-subpixel-layout"
+
 /**
  * WPE_SETTING_FONT_DPI:
  *
@@ -150,6 +158,7 @@ typedef enum {
  * Default: 96.0
  */
 #define WPE_SETTING_FONT_DPI "/wpe-platform/font-dpi"
+
 /**
  * WPE_SETTING_CURSOR_BLINK_TIME:
  *
@@ -162,6 +171,7 @@ typedef enum {
  * Default: 1200
  */
 #define WPE_SETTING_CURSOR_BLINK_TIME "/wpe-platform/cursor-blink-time"
+
 /**
  * WPE_SETTING_TOPLEVEL_DEFAULT_SIZE:
  *
@@ -173,6 +183,7 @@ typedef enum {
  * Default: (1024, 768)
  */
 #define WPE_SETTING_TOPLEVEL_DEFAULT_SIZE "/wpe-platform/toplevel-default-size"
+
 /**
  * WPE_SETTING_DOUBLE_CLICK_DISTANCE:
  *
@@ -184,6 +195,7 @@ typedef enum {
  * Default: 5
  */
 #define WPE_SETTING_DOUBLE_CLICK_DISTANCE "/wpe-platform/events/double-click/distance"
+
 /**
  * WPE_SETTING_DOUBLE_CLICK_TIME:
  *
@@ -195,6 +207,7 @@ typedef enum {
  * Default: 400
  */
 #define WPE_SETTING_DOUBLE_CLICK_TIME "/wpe-platform/events/double-click/time"
+
 /**
  * WPE_SETTING_DRAG_THRESHOLD:
  *
@@ -205,6 +218,7 @@ typedef enum {
  * Default: 8
  */
 #define WPE_SETTING_DRAG_THRESHOLD "/wpe-platform/events/gestures/drag-thresold"
+
 /**
  * WPE_SETTING_KEY_REPEAT_DELAY:
  *
@@ -216,6 +230,7 @@ typedef enum {
  * Default: 400
  */
 #define WPE_SETTING_KEY_REPEAT_DELAY "/wpe-platform/events/key-repeat/delay"
+
 /**
  * WPE_SETTING_KEY_REPEAT_INTERVAL:
  *
@@ -227,16 +242,20 @@ typedef enum {
  * Default: 80
  */
 #define WPE_SETTING_KEY_REPEAT_INTERVAL "/wpe-platform/events/key-repeat/interval"
+
 /**
- * WPE_SETTING_DRM_SCALE:
+ * WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL:
  *
- * The scale size of the DRM screen.
+ * By default, when a #WPEView is created, a #WPEToplevel is also created and set
+ * as the toplevel of the newly created view. This setting allows to create
+ * views wihtout a toplevel set, for applications that want to handle the toplevels
+ * themselves, for example to create a multiview toplevel.
  *
- * VariantType: double
+ * VariantType: boolean
  *
- * Default: 1.0
+ * Default: true
  */
-#define WPE_SETTING_DRM_SCALE "/wpe-platform/drm/scale"
+#define WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL "/wpe-platform/create-views-with-a-toplevel"
 
 /**
  * WPESettingsSource:

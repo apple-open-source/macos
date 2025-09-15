@@ -26,8 +26,8 @@
 #include "config.h"
 #include "CSSValuePool.h"
 
-#include "CSSParser.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSPropertyParser.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 
@@ -116,7 +116,7 @@ RefPtr<CSSValueList> CSSValuePool::createFontFaceValue(const AtomString& string)
         m_fontFaceValueCache.remove(m_fontFaceValueCache.random());
 
     return m_fontFaceValueCache.ensure(string, [&string]() -> RefPtr<CSSValueList> {
-        auto value = CSSParser::parseSingleValue(CSSPropertyFontFamily, string);
+        auto value = CSSPropertyParser::parseStylePropertyLonghand(CSSPropertyFontFamily, string, strictCSSParserContext());
         return dynamicDowncast<CSSValueList>(value.get());
     }).iterator->value;
 }

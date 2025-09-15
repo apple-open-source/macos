@@ -104,11 +104,12 @@ LCK_GRP_DECLARE(timer_queue_lck_grp, "timer_queue");
 
 /*
  * In a similar way to the longterm queue's scan limit, the following bounds the
- * amount of time spent processing regular timers.
+ * amount of time spent processing regular timers. This limit is also obeyed by
+ * thread_call_delayed_timer().
  */
 TUNABLE_WRITEABLE(uint64_t, timer_scan_limit_us, "timer_scan_limit_us", 400);
 TUNABLE_WRITEABLE(uint64_t, timer_scan_interval_us, "timer_scan_interval_us", 40);
-static uint64_t timer_scan_limit_abs = 0;
+uint64_t timer_scan_limit_abs = 0;
 static uint64_t timer_scan_interval_abs = 0;
 
 /*

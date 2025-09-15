@@ -126,7 +126,15 @@ struct sockaddr;
  * Should be removed once all dependent parties adopt
  * proc_ident_t.
  */
-#define MAC_PROC_IDENT_SUPPORT
+#define MAC_PROC_IDENT_SUPPORT 1
+
+/*
+ * rdar://146696727
+ *
+ * Support for opaque lookup policy on proc_ident
+ * when using proc_find_ident
+ */
+#define MAC_PROC_IDENT_POLICY_SUPPORT 1
 
 #ifndef _KAUTH_CRED_T
 #define _KAUTH_CRED_T
@@ -1410,6 +1418,27 @@ typedef int mpo_mount_check_remount_t(
 	struct mount *mp,
 	struct label *mlabel,
 	uint64_t flags
+	);
+/**
+ *  @brief Access control check for remounting a filesystem with modifiable flags
+ *  @param cred Subject credential
+ *  @param mp The mount point
+ *  @param mlabel Label currently associated with the mount point
+ *  @param flagsp A pointer to requested update flags. This can be modified by the function
+ *                to reflect changes in the operation flags.
+ *
+ *  This function is a variant of mpo_mount_check_remount_t, allowing
+ *  the caller to specify and potentially overwrite the flags via a
+ *  pointer to an integer.
+ *
+ *  @return Return 0 if access is granted, otherwise an appropriate value for
+ *  errno should be returned.
+ */
+typedef int mpo_mount_check_remount_with_flags_t(
+	kauth_cred_t cred,
+	struct mount *mp,
+	struct label *mlabel,
+	int *flagsp
 	);
 /**
  *  @brief Access control check for the settting of file system attributes
@@ -3746,6 +3775,30 @@ typedef int mpo_proc_check_inherit_ipc_ports_t(
 	);
 
 /**
+ *  @brief Access control check for iopolicysys
+ *  @param p current process instance
+ *  @param cred Subject credential
+ *  @param type Type of I/O policy (e.g. IOPOL_TYPE_DISK)
+ *  @param cmd Command into I/O policy (e.g. IOPOL_CMD_GET or IOPOL_CMD_SET)
+ *  @param scope Scope of the I/O policy (e.g IOPOL_SCOPE_PROCESS)
+ *  @param policy Priority of the I/O policy (e.g. IOPOL_IMPORTANT)
+ *
+ *  Determine whether the subject identified by the credential can perform
+ *  the I/O policy type within the scope.
+ *
+ *  @return Return 0 if access is granted, otherwise an appropriate value for
+ *  errno should be returned.
+ */
+typedef int mpo_proc_check_iopolicysys_t(
+	struct proc *p,
+	kauth_cred_t cred,
+	int cmd,
+	int type,
+	int scope,
+	int policy
+	);
+
+/**
  *  @brief Privilege check for a process to run invalid
  *  @param p Object process
  *
@@ -4912,6 +4965,23 @@ typedef int mpo_vnode_check_swap_t(
 	struct label *vl2
 	);
 /**
+ * @brief Access control and clamping for changing dataprotection class of a vnode.
+ * @param cred User credential for process changing dataprotection class
+ * @param vp the vnode that is being changed
+ * @param dataprotect_class a pointer to the desired new dataprotection class
+ *
+ * The hook may override the requested data protection class by altering the
+ * value referenced by dataprotect_class.
+ *
+ * @return Return 0 if access is granted, otherwise an appropriate value for
+ *  errno should be returned.
+ */
+typedef int mpo_vnode_check_dataprotect_set_t(
+	kauth_cred_t cred,
+	struct vnode *vp,
+	uint32_t *dataprotect_class
+	);
+/**
  *  @brief Access control check for vnode trigger resolution
  *  @param cred Subject credential
  *  @param dvp Object vnode
@@ -5826,6 +5896,62 @@ typedef void mpo_vnode_notify_unlink_t(
 	struct componentname *cnp
 	);
 
+/**
+ *  @brief Access control check for grafting a Cryptex
+ *  @param cred Subject credential
+ *  @param graft_dir_vp Vnode that is to be the graft point
+ *
+ *  Determine whether the subject identified by the credential can perform
+ *  the graft operation on the target vnode.
+ *
+ *  @return Return 0 if access is granted, otherwise an appropriate value for
+ *  errno should be returned.
+ */
+typedef int mpo_graft_check_graft_t(
+	kauth_cred_t cred,
+	struct vnode *graft_dir_vp
+	);
+
+/**
+ *  @brief Access control check for ungrafting a Cryptex
+ *  @param cred Subject credential
+ *  @param graft_dir_vp Vnode of graft point to be ungrafted
+ *
+ *  Determine whether the subject identified by the credential can perform
+ *  the ungraft operation on the target vnode.
+ *
+ *  @return Return 0 if access is granted, otherwise an appropriate value for
+ *  errno should be returned.
+ */
+typedef int mpo_graft_check_ungraft_t(
+	kauth_cred_t cred,
+	struct vnode *graft_dir_vp
+	);
+
+/**
+ *  @brief Notify on successful Cryptex graft
+ *  @param cred Subject credential
+ *  @param graft_dir_vp Vnode of graft point
+ *
+ *  Notify on successful Cryptex graft.
+ */
+typedef void mpo_graft_notify_graft_t(
+	kauth_cred_t cred,
+	struct vnode *graft_dir_vp
+	);
+
+/**
+ *  @brief Notify on successful Cryptex ungraft
+ *  @param cred Subject credential
+ *  @param graft_dir_vp Vnode of graft point
+ *
+ *  Notify on successful Cryptex ungraft.
+ */
+typedef void mpo_graft_notify_ungraft_t(
+	kauth_cred_t cred,
+	struct vnode *graft_dir_vp
+	);
+
 /*
  * Placeholder for future events that may need mac hooks.
  */
@@ -5837,15 +5963,15 @@ typedef void mpo_reserved_hook_t(void);
  * Please note that this should be kept in sync with the check assumptions
  * policy in bsd/kern/policy_check.c (policy_ops struct).
  */
-#define MAC_POLICY_OPS_VERSION 87 /* inc when new reserved slots are taken */
+#define MAC_POLICY_OPS_VERSION 91 /* inc when new reserved slots are taken */
 struct mac_policy_ops {
 	mpo_audit_check_postselect_t            *mpo_audit_check_postselect;
 	mpo_audit_check_preselect_t             *mpo_audit_check_preselect;
 
-	mpo_reserved_hook_t                     *mpo_reserved01;
-	mpo_reserved_hook_t                     *mpo_reserved02;
-	mpo_reserved_hook_t                     *mpo_reserved03;
-	mpo_reserved_hook_t                     *mpo_reserved04;
+	mpo_graft_check_graft_t                 *mpo_graft_check_graft;
+	mpo_graft_check_ungraft_t               *mpo_graft_check_ungraft;
+	mpo_graft_notify_graft_t                *mpo_graft_notify_graft;
+	mpo_graft_notify_ungraft_t              *mpo_graft_notify_ungraft;
 
 	mpo_cred_check_label_update_execve_t    *mpo_cred_check_label_update_execve;
 	mpo_cred_check_label_update_t           *mpo_cred_check_label_update;
@@ -5929,8 +6055,8 @@ struct mac_policy_ops {
 	mpo_vnode_notify_swap_t                 *mpo_vnode_notify_swap;
 	mpo_vnode_notify_unlink_t               *mpo_vnode_notify_unlink;
 	mpo_vnode_check_swap_t                  *mpo_vnode_check_swap;
-	mpo_reserved_hook_t                     *mpo_reserved33;
-	mpo_reserved_hook_t                     *mpo_reserved34;
+	mpo_vnode_check_dataprotect_set_t       *mpo_vnode_check_dataprotect_set;
+	mpo_mount_check_remount_with_flags_t    *mpo_mount_check_remount_with_flags;
 	mpo_mount_notify_mount_t                *mpo_mount_notify_mount;
 	mpo_vnode_check_copyfile_t              *mpo_vnode_check_copyfile;
 
@@ -6026,7 +6152,7 @@ struct mac_policy_ops {
 	mpo_proc_check_sched_t                  *mpo_proc_check_sched;
 	mpo_proc_check_setaudit_t               *mpo_proc_check_setaudit;
 	mpo_proc_check_setauid_t                *mpo_proc_check_setauid;
-	mpo_reserved_hook_t                     *mpo_reserved64;
+	mpo_proc_check_iopolicysys_t            *mpo_proc_check_iopolicysys;
 	mpo_proc_check_signal_t                 *mpo_proc_check_signal;
 	mpo_proc_check_wait_t                   *mpo_proc_check_wait;
 	mpo_proc_check_dump_core_t              *mpo_proc_check_dump_core;

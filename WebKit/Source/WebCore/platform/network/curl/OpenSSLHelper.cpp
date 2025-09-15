@@ -108,7 +108,7 @@ public:
     }
 
     BIO(const Vector<uint8_t>& data)
-        : m_bio { ::BIO_new_mem_buf(data.data(), data.size()) }
+        : m_bio { ::BIO_new_mem_buf(data.span().data(), data.size()) }
     {
     }
 

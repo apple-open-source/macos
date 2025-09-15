@@ -47,6 +47,7 @@ class   IOHIDInterface;
 class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
 class   IOHIDAsyncReportQueue;
+class   IOHIDElementContainer;
 class   IOHIDDeviceElementContainer;
 class   IOSimpleReporter;
 struct  AsyncReportCall;
@@ -113,6 +114,7 @@ private:
         IONotifier *                  deviceNotify;
         IOHIDDeviceElementContainer * elementContainer;
         thread_call_t                 asyncReportThread;
+        bool                          asyncReportThreadActive;
         AsyncReportCallList           asyncReportCalls;
         AsyncCommitCallList           asyncCommitCalls;
         IOTimerEventSource          * asyncTimer;
@@ -120,6 +122,8 @@ private:
         bool                          settingTimeout;
         IOSimpleReporter            * eventReporter;
         OSSet                       * reporterList;
+        bool                          terminateDeferred;
+        IOOptionBits                  terminateOptions;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -187,8 +191,37 @@ private:
 
     void runSyncReportAsync();
 
+    void completeAsyncReport(AsyncReportCall * target, IOReturn status);
+
     void CommitComplete(void * param, IOReturn status, UInt32 remaining);
     
+    void logProperties();
+
+    /*! @function   mapElementsToInterfaces
+     *  @abstract   Maps report elements to `IOHIDInterface` services.
+     *  @discussion Returns an array of arrays of `IOHIDElement` objects. Each array contains the
+     *              elements for one `IOHIDInterface`.
+     */
+    OSArray * mapElementsToInterfaces(IOHIDElementContainer * container);
+
+    /*! @function   supportsMultipleInterfaces
+     *  @abstract   Computes whether this HID device supports multiple `IOHIDInterface`s.
+     */
+    bool supportsMultipleInterfaces();
+
+    /*! @function   createInterfaces
+     *  @abstract   Creates `IOHIDInterface` child service(s) for the device.
+     *  @discussion Returns an array of `IOHIDInterface` objects. This method only creates the
+     *              service objects; it does not `attach` or `start` them.
+     */
+    OSArray * createInterfaces(OSArray * interfaceElementArrays);
+
+    /*! @function   verifyInductiveAllowList
+     *  @abstract   Where applicable, verifies that an inductive device's capabilities are within the explicitly outlined allow list in IOHIDInductiveAllowList
+     *  @discussion Returns true if capabilities are within the allow list, and false if not
+     */
+    bool verifyInductiveAllowList();
+
     /*
      * IOReporter methods
      */
@@ -350,6 +383,9 @@ public:
     @result <code>true</code>. */
 
     virtual bool willTerminate( IOService * provider, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
+
+    /*! See IOService.h for documentation. */
+    virtual bool didTerminate(IOService * provider, IOOptionBits options, bool * defer) APPLE_KEXT_OVERRIDE;
 
 /*! @function matchPropertyTable
     @abstract Called by the provider during a match

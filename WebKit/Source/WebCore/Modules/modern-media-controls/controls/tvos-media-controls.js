@@ -42,6 +42,7 @@ class TVOSMediaControls extends MediaControls
         this.element.classList.add("tvos");
 
         this.closeButton = new CloseButton(this);
+        this.closeButton.circular = true;
 
         this.timeControl.scrubber.allowsRelativeScrubbing = true;
         this.timeControl.scrubber.knobStyle = Slider.KnobStyle.None;
@@ -98,6 +99,8 @@ class TVOSMediaControls extends MediaControls
         this.skipForwardButton.scaleFactor = TVOSMediaControls.backForwardButtonScaleFactor;
         this.skipBackButton.scaleFactor = TVOSMediaControls.backForwardButtonScaleFactor;
         this.overflowButton.scaleFactor = TVOSMediaControls.overflowButtonScaleFactor;
+
+        this.closeButton.style = Button.Styles.Center;
 
         this._topLeftControlsBarContainer.children = this._topLeftContainerButtons();
         this._topLeftControlsBarContainer.layout();

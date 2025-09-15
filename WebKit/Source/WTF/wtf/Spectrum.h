@@ -68,8 +68,8 @@ public:
     
     size_t size() const { return m_map.size(); }
     
-    const_iterator begin() const { return m_map.begin(); }
-    const_iterator end() const { return m_map.end(); }
+    const_iterator begin() const LIFETIME_BOUND { return m_map.begin(); }
+    const_iterator end() const LIFETIME_BOUND { return m_map.end(); }
     
     struct KeyAndCount {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;

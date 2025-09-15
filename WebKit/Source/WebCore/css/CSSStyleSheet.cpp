@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -71,9 +71,9 @@ private:
     unsigned length() const final { return m_styleSheet->length(); }
     CSSRule* item(unsigned index) const final { return m_styleSheet->item(index); }
 
-    CSSStyleSheet* styleSheet() const final { return m_styleSheet; }
+    CSSStyleSheet* styleSheet() const final { return m_styleSheet.get(); }
 
-    CSSStyleSheet* m_styleSheet;
+    SingleThreadWeakPtr<CSSStyleSheet> m_styleSheet;
 };
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleSheetCSSRuleList);
 
@@ -159,7 +159,7 @@ CSSStyleSheet::CSSStyleSheet(Ref<StyleSheetContents>&& contents, Document& docum
         if (auto queries = mediaList->mediaQueries(); !queries.isEmpty())
             setMediaQueries(WTFMove(queries));
     }, [this](String&& mediaString) {
-        setMediaQueries(MQ::MediaQueryParser::parse(mediaString, { }));
+        setMediaQueries(MQ::MediaQueryParser::parse(mediaString, strictCSSParserContext()));
     });
 }
 
@@ -170,7 +170,7 @@ CSSStyleSheet::~CSSStyleSheet()
     // it's not ideal because it makes the CSSOM's behavior depend on the timing of garbage collection.
     for (unsigned i = 0; i < m_childRuleCSSOMWrappers.size(); ++i) {
         if (m_childRuleCSSOMWrappers[i])
-            m_childRuleCSSOMWrappers[i]->setParentStyleSheet(0);
+            m_childRuleCSSOMWrappers[i]->setParentStyleSheet(nullptr);
     }
     if (m_mediaCSSOMWrapper)
         m_mediaCSSOMWrapper->detachFromParent();
@@ -192,7 +192,7 @@ RefPtr<StyleRuleWithNesting> CSSStyleSheet::prepareChildStyleRuleForNesting(Styl
             auto styleRuleWithNesting = StyleRuleWithNesting::create(WTFMove(styleRule));
             rules[i] = styleRuleWithNesting;
             return styleRuleWithNesting;
-        }        
+        }
     }
     return { };
 }
@@ -264,7 +264,7 @@ void CSSStyleSheet::didMutate()
     });
 }
 
-void CSSStyleSheet::forEachStyleScope(const Function<void(Style::Scope&)>& apply)
+void CSSStyleSheet::forEachStyleScope(NOESCAPE const Function<void(Style::Scope&)>& apply)
 {
     if (auto* scope = styleScope()) {
         apply(*scope);
@@ -357,7 +357,7 @@ ExceptionOr<unsigned> CSSStyleSheet::insertRule(const String& ruleString, unsign
 
     if (index > length())
         return Exception { ExceptionCode::IndexSizeError };
-    RefPtr<StyleRuleBase> rule = CSSParser::parseRule(m_contents.get().parserContext(), m_contents.ptr(), ruleString);
+    RefPtr rule = CSSParser::parseRule(ruleString, m_contents.get().parserContext(), m_contents.ptr(), CSSParser::AllowedRules::ImportRules);
 
     if (!rule)
         return Exception { ExceptionCode::SyntaxError };
@@ -395,7 +395,7 @@ ExceptionOr<void> CSSStyleSheet::deleteRule(unsigned index)
     if (!m_childRuleCSSOMWrappers.isEmpty()) {
         if (m_childRuleCSSOMWrappers[index])
             m_childRuleCSSOMWrappers[index]->setParentStyleSheet(nullptr);
-        m_childRuleCSSOMWrappers.remove(index);
+        m_childRuleCSSOMWrappers.removeAt(index);
     }
 
     return { };
@@ -499,7 +499,7 @@ String CSSStyleSheet::debugDescription() const
     return makeString("CSSStyleSheet "_s, "0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase), ' ', href());
 }
 
-String CSSStyleSheet::cssTextWithReplacementURLs(const UncheckedKeyHashMap<String, String>& replacementURLStrings, const UncheckedKeyHashMap<RefPtr<CSSStyleSheet>, String>& replacementURLStringsForCSSStyleSheet)
+String CSSStyleSheet::cssText(const CSS::SerializationContext& context)
 {
     auto ruleList = cssRulesSkippingAccessCheck();
     if (!ruleList)
@@ -511,7 +511,7 @@ String CSSStyleSheet::cssTextWithReplacementURLs(const UncheckedKeyHashMap<Strin
         if (!rule)
             continue;
 
-        auto ruleText = rule->cssTextWithReplacementURLs(replacementURLStrings, replacementURLStringsForCSSStyleSheet);
+        auto ruleText = rule->cssText(context);
         if (!result.isEmpty() && !ruleText.isEmpty())
             result.append(' ');
 
@@ -593,7 +593,7 @@ Ref<StyleSheetContents> CSSStyleSheet::protectedContents()
     return m_contents;
 }
 
-void CSSStyleSheet::getChildStyleSheets(UncheckedKeyHashSet<RefPtr<CSSStyleSheet>>& childStyleSheets)
+void CSSStyleSheet::getChildStyleSheets(HashSet<RefPtr<CSSStyleSheet>>& childStyleSheets)
 {
     RefPtr ruleList = cssRules();
     if (!ruleList)

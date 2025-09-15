@@ -439,6 +439,13 @@ void DbImpl::copyBlob (CssmData &data)
 	check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_COPY_BLOB, NULL, (void**) (CSSM_DATA*) &data));
 }
 
+void DbImpl::copySalt(CssmData &salt)
+{
+    // do the call
+    secnotice("salt", "DBImpl:copySalt");
+    check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_COPY_SALT, NULL, (void**) (CSSM_DATA*) &salt));
+}
+
 void DbImpl::setBatchMode(Boolean mode, Boolean rollback)
 {
 	//

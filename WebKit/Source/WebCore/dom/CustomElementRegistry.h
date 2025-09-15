@@ -69,14 +69,20 @@ public:
 
     static CustomElementRegistry* registryForElement(const Element& element)
     {
-        if (UNLIKELY(element.usesScopedCustomElementRegistryMap()))
+        if (element.usesNullCustomElementRegistry())
+            return nullptr;
+        if (element.usesScopedCustomElementRegistryMap()) [[unlikely]]
             return scopedCustomElementRegistryMap().get(element);
         return element.treeScope().customElementRegistry();
     }
 
     static CustomElementRegistry* registryForNodeOrTreeScope(const Node& node, const TreeScope& treeScope)
     {
-        if (auto* element = dynamicDowncast<Element>(node); UNLIKELY(element && element->usesScopedCustomElementRegistryMap()))
+        if (node.usesNullCustomElementRegistry()) {
+            ASSERT(is<Element>(node) || node.isTreeScope() || node.isDocumentFragment());
+            return nullptr;
+        }
+        if (auto* element = dynamicDowncast<Element>(node); element && element->usesScopedCustomElementRegistryMap()) [[unlikely]]
             return scopedCustomElementRegistryMap().get(*element);
         return treeScope.customElementRegistry();
     }
@@ -99,6 +105,7 @@ public:
     JSC::JSValue get(const AtomString&);
     String getName(JSC::JSValue);
     void upgrade(Node& root);
+    ExceptionOr<void> initialize(Node& root);
 
     MemoryCompactRobinHoodHashMap<AtomString, Ref<DeferredPromise>>& promiseMap() { return m_promiseMap; }
     bool isShadowDisabled(const AtomString& name) const { return m_disabledShadowSet.contains(name); }
@@ -112,8 +119,8 @@ private:
     static WeakHashMap<Element, Ref<CustomElementRegistry>, WeakPtrImplWithEventTargetData>& scopedCustomElementRegistryMap();
 
     WeakPtr<LocalDOMWindow, WeakPtrImplWithEventTargetData> m_window;
-    UncheckedKeyHashMap<AtomString, Ref<JSCustomElementInterface>> m_nameMap;
-    UncheckedKeyHashMap<const JSC::JSObject*, JSCustomElementInterface*> m_constructorMap WTF_GUARDED_BY_LOCK(m_constructorMapLock);
+    HashMap<AtomString, Ref<JSCustomElementInterface>> m_nameMap;
+    HashMap<const JSC::JSObject*, JSCustomElementInterface*> m_constructorMap WTF_GUARDED_BY_LOCK(m_constructorMapLock);
     MemoryCompactRobinHoodHashMap<AtomString, Ref<DeferredPromise>> m_promiseMap;
     MemoryCompactRobinHoodHashSet<AtomString> m_disabledShadowSet;
     WeakListHashSet<Document, WeakPtrImplWithEventTargetData> m_associatedDocuments;

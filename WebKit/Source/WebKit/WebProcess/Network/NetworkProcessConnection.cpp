@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,9 @@
 #include "WebSharedWorkerObjectConnectionMessages.h"
 #include "WebSocketChannel.h"
 #include "WebSocketChannelMessages.h"
+#include "WebTransportSession.h"
 #include "WebTransportSessionMessages.h"
+#include <WebCore/BackgroundFetchRecordInformation.h>
 #include <WebCore/CachedResource.h>
 #include <WebCore/HTTPCookieAcceptPolicy.h>
 #include <WebCore/InspectorInstrumentationWebKit.h>
@@ -86,7 +88,7 @@ NetworkProcessConnection::NetworkProcessConnection(IPC::Connection::Identifier&&
     m_connection->open(*this);
 
     if (WebRTCProvider::webRTCAvailable())
-        WebProcess::singleton().libWebRTCNetwork().setConnection(m_connection.copyRef());
+        WebProcess::singleton().protectedLibWebRTCNetwork()->setConnection(m_connection.copyRef());
 }
 
 NetworkProcessConnection::~NetworkProcessConnection()
@@ -97,7 +99,7 @@ NetworkProcessConnection::~NetworkProcessConnection()
 bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (decoder.messageReceiverName() == Messages::WebResourceLoader::messageReceiverName()) {
-        if (auto* webResourceLoader = WebProcess::singleton().webLoaderStrategy().webResourceLoaderForIdentifier(AtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
+        if (RefPtr webResourceLoader = WebProcess::singleton().protectedWebLoaderStrategy()->webResourceLoaderForIdentifier(AtomicObjectIdentifier<WebCore::ResourceLoaderIdentifierType>(decoder.destinationID())))
             webResourceLoader->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -110,7 +112,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebPage::messageReceiverName()) {
-        if (auto* webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
+        if (RefPtr webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
             webPage->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -120,7 +122,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebFileSystemStorageConnection::messageReceiverName()) {
-        WebProcess::singleton().fileSystemStorageConnection().didReceiveMessage(connection, decoder);
+        WebProcess::singleton().protectedFileSystemStorageConnection()->didReceiveMessage(connection, decoder);
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebTransportSession::messageReceiverName() && WebProcess::singleton().isWebTransportEnabled()) {
@@ -131,17 +133,17 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
 
 #if USE(LIBWEBRTC)
     if (decoder.messageReceiverName() == Messages::WebRTCMonitor::messageReceiverName()) {
-        auto& network = WebProcess::singleton().libWebRTCNetwork();
-        if (network.isActive())
-            network.monitor().didReceiveMessage(connection, decoder);
+        Ref network = WebProcess::singleton().libWebRTCNetwork();
+        if (network->isActive())
+            network->protectedMonitor()->didReceiveMessage(connection, decoder);
         else
             RELEASE_LOG_ERROR(WebRTC, "Received WebRTCMonitor message while libWebRTCNetwork is not active");
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebRTCResolver::messageReceiverName()) {
-        auto& network = WebProcess::singleton().libWebRTCNetwork();
-        if (network.isActive())
-            network.resolver(AtomicObjectIdentifier<LibWebRTCResolverIdentifierType>(decoder.destinationID()))->didReceiveMessage(connection, decoder);
+        Ref network = WebProcess::singleton().libWebRTCNetwork();
+        if (network->isActive())
+            network->resolver(AtomicObjectIdentifier<LibWebRTCResolverIdentifierType>(decoder.destinationID()))->didReceiveMessage(connection, decoder);
         else
             RELEASE_LOG_ERROR(WebRTC, "Received WebRTCResolver message while libWebRTCNetwork is not active");
         return true;
@@ -149,29 +151,29 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
 #endif
 
     if (decoder.messageReceiverName() == Messages::WebIDBConnectionToServer::messageReceiverName()) {
-        if (m_webIDBConnection)
-            m_webIDBConnection->didReceiveMessage(connection, decoder);
+        if (RefPtr webIDBConnection = m_webIDBConnection)
+            webIDBConnection->didReceiveMessage(connection, decoder);
         return true;
     }
 
     if (decoder.messageReceiverName() == Messages::WebSWClientConnection::messageReceiverName()) {
-        serviceWorkerConnection().didReceiveMessage(connection, decoder);
+        protectedServiceWorkerConnection()->didReceiveMessage(connection, decoder);
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebSWContextManagerConnection::messageReceiverName()) {
         ASSERT(SWContextManager::singleton().connection());
-        if (auto* contextManagerConnection = SWContextManager::singleton().connection())
-            static_cast<WebSWContextManagerConnection&>(*contextManagerConnection).didReceiveMessage(connection, decoder);
+        if (RefPtr contextManagerConnection = SWContextManager::singleton().connection())
+            downcast<WebSWContextManagerConnection>(*contextManagerConnection).didReceiveMessage(connection, decoder);
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebSharedWorkerObjectConnection::messageReceiverName()) {
-        sharedWorkerConnection().didReceiveMessage(connection, decoder);
+        protectedSharedWorkerConnection()->didReceiveMessage(connection, decoder);
         return true;
     }
     if (decoder.messageReceiverName() == Messages::WebSharedWorkerContextManagerConnection::messageReceiverName()) {
         ASSERT(SharedWorkerContextManager::singleton().connection());
-        if (auto* contextManagerConnection = SharedWorkerContextManager::singleton().connection())
-            static_cast<WebSharedWorkerContextManagerConnection&>(*contextManagerConnection).didReceiveMessage(connection, decoder);
+        if (RefPtr contextManagerConnection = SharedWorkerContextManager::singleton().connection())
+            downcast<WebSharedWorkerContextManagerConnection>(*contextManagerConnection).didReceiveMessage(connection, decoder);
         return true;
     }
 
@@ -187,13 +189,6 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
 
 bool NetworkProcessConnection::dispatchSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)
 {
-    if (decoder.messageReceiverName() == Messages::WebSWContextManagerConnection::messageReceiverName()) {
-        ASSERT(SWContextManager::singleton().connection());
-        if (auto* contextManagerConnection = SWContextManager::singleton().connection())
-            return static_cast<WebSWContextManagerConnection&>(*contextManagerConnection).didReceiveSyncMessage(connection, decoder, replyEncoder);
-        return false;
-    }
-
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinator::messageReceiverName()) {
         if (auto webPage = WebProcess::singleton().webPage(ObjectIdentifier<PageIdentifierType>(decoder.destinationID())))
@@ -217,28 +212,28 @@ void NetworkProcessConnection::didClose(IPC::Connection&)
         swConnection->connectionToServerLost();
 }
 
-void NetworkProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t)
+void NetworkProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>&)
 {
 }
 
 void NetworkProcessConnection::writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&& filePaths)>&& completionHandler)
 {
-    connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::WriteBlobsToTemporaryFilesForIndexedDB(blobURLs), WTFMove(completionHandler));
+    m_connection->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::WriteBlobsToTemporaryFilesForIndexedDB(blobURLs), WTFMove(completionHandler));
 }
 
 void NetworkProcessConnection::didFinishPingLoad(WebCore::ResourceLoaderIdentifier pingLoadIdentifier, ResourceError&& error, ResourceResponse&& response)
 {
-    WebProcess::singleton().webLoaderStrategy().didFinishPingLoad(pingLoadIdentifier, WTFMove(error), WTFMove(response));
+    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPingLoad(pingLoadIdentifier, WTFMove(error), WTFMove(response));
 }
 
 void NetworkProcessConnection::didFinishPreconnection(WebCore::ResourceLoaderIdentifier preconnectionIdentifier, ResourceError&& error)
 {
-    WebProcess::singleton().webLoaderStrategy().didFinishPreconnection(preconnectionIdentifier, WTFMove(error));
+    WebProcess::singleton().protectedWebLoaderStrategy()->didFinishPreconnection(preconnectionIdentifier, WTFMove(error));
 }
 
 void NetworkProcessConnection::setOnLineState(bool isOnLine)
 {
-    WebProcess::singleton().webLoaderStrategy().setOnLineState(isOnLine);
+    WebProcess::singleton().protectedWebLoaderStrategy()->setOnLineState(isOnLine);
 }
 
 bool NetworkProcessConnection::cookiesEnabled() const
@@ -309,11 +304,21 @@ WebSWClientConnection& NetworkProcessConnection::serviceWorkerConnection()
     return *m_swConnection;
 }
 
+Ref<WebSWClientConnection> NetworkProcessConnection::protectedServiceWorkerConnection()
+{
+    return serviceWorkerConnection();
+}
+
 WebSharedWorkerObjectConnection& NetworkProcessConnection::sharedWorkerConnection()
 {
     if (!m_sharedWorkerConnection)
         m_sharedWorkerConnection = WebSharedWorkerObjectConnection::create();
     return *m_sharedWorkerConnection;
+}
+
+Ref<WebSharedWorkerObjectConnection> NetworkProcessConnection::protectedSharedWorkerConnection()
+{
+    return sharedWorkerConnection();
 }
 
 void NetworkProcessConnection::messagesAvailableForPort(const WebCore::MessagePortIdentifier& messagePortIdentifier)

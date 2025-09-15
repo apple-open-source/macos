@@ -90,8 +90,8 @@ static int nx_upipe_dom_bind_port(struct kern_nexus *, nexus_port_t *,
     struct nxbind *, void *);
 static int nx_upipe_dom_unbind_port(struct kern_nexus *, nexus_port_t);
 static int nx_upipe_dom_connect(struct kern_nexus_domain_provider *,
-    struct kern_nexus *, struct kern_channel *, struct chreq *,
-    struct kern_channel *, struct nxbind *, struct proc *);
+    struct kern_nexus *, struct kern_channel *, struct chreq *, struct nxbind *,
+    struct proc *);
 static void nx_upipe_dom_disconnect(struct kern_nexus_domain_provider *,
     struct kern_nexus *, struct kern_channel *);
 static void nx_upipe_dom_defunct(struct kern_nexus_domain_provider *,
@@ -131,8 +131,8 @@ struct nxdom nx_upipe_dom_s = {
 	.nxdom_prov_head =
     STAILQ_HEAD_INITIALIZER(nx_upipe_dom_s.nxdom_prov_head),
 	.nxdom_type =           NEXUS_TYPE_USER_PIPE,
-	.nxdom_md_type =        NEXUS_META_TYPE_QUANTUM,
-	.nxdom_md_subtype =     NEXUS_META_SUBTYPE_PAYLOAD,
+	.nxdom_md_type =        NEXUS_META_TYPE_PACKET,
+	.nxdom_md_subtype =     NEXUS_META_SUBTYPE_RAW,
 	.nxdom_name =           "upipe",
 	.nxdom_ports =          {
 		.nb_def = 2,
@@ -334,7 +334,7 @@ nx_upipe_prov_mem_new(struct kern_nexus_domain_provider *nxdom_prov,
 	int err = 0;
 
 	SK_DF(SK_VERB_USER_PIPE,
-	    "nx 0x%llx (\"%s\":\"%s\") na \"%s\" (0x%llx)", SK_KVA(nx),
+	    "nx %p (\"%s\":\"%s\") na \"%s\" (%p)", SK_KVA(nx),
 	    NX_DOM(nx)->nxdom_name, nxdom_prov->nxdom_prov_name, na->na_name,
 	    SK_KVA(na));
 
@@ -370,10 +370,10 @@ nx_upipe_prov_nx_ctor(struct kern_nexus *nx)
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(nx->nx_arg == NULL);
 
-	SK_D("nexus 0x%llx (%s)", SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name);
+	SK_D("nexus %p (%s)", SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name);
 
 	nx->nx_arg = nx_upipe_alloc(Z_WAITOK);
-	SK_D("create new upipe 0x%llx for nexus 0x%llx",
+	SK_D("create new upipe %p for nexus %p",
 	    SK_KVA(NX_UPIPE_PRIVATE(nx)), SK_KVA(nx));
 
 	return 0;
@@ -386,7 +386,7 @@ nx_upipe_prov_nx_dtor(struct kern_nexus *nx)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_D("nexus 0x%llx (%s) upipe 0x%llx", SK_KVA(nx),
+	SK_D("nexus %p (%s) upipe %p", SK_KVA(nx),
 	    NX_DOM_PROV(nx)->nxdom_prov_name, SK_KVA(u));
 
 	if (u->nup_cli_nxb != NULL) {
@@ -398,7 +398,7 @@ nx_upipe_prov_nx_dtor(struct kern_nexus *nx)
 		u->nup_srv_nxb = NULL;
 	}
 
-	SK_DF(SK_VERB_USER_PIPE, "marking upipe 0x%llx as free", SK_KVA(u));
+	SK_DF(SK_VERB_USER_PIPE, "marking upipe %p as free", SK_KVA(u));
 	nx_upipe_free(u);
 	nx->nx_arg = NULL;
 }
@@ -408,7 +408,7 @@ na_upipe_alloc(zalloc_flags_t how)
 {
 	struct nexus_upipe_adapter *pna;
 
-	_CASSERT(offsetof(struct nexus_upipe_adapter, pna_up) == 0);
+	static_assert(offsetof(struct nexus_upipe_adapter, pna_up) == 0);
 
 	pna = zalloc_flags(na_upipe_zone, how | Z_ZERO);
 	if (pna) {
@@ -424,7 +424,7 @@ na_upipe_free(struct nexus_adapter *na)
 	struct nexus_upipe_adapter *pna = (struct nexus_upipe_adapter *)na;
 
 	ASSERT(pna->pna_up.na_refcount == 0);
-	SK_DF(SK_VERB_MEM, "pna 0x%llx FREE", SK_KVA(pna));
+	SK_DF(SK_VERB_MEM, "pna %p FREE", SK_KVA(pna));
 	bzero(pna, sizeof(*pna));
 	zfree(na_upipe_zone, pna);
 }
@@ -513,7 +513,7 @@ nx_upipe_dom_unbind_port(struct kern_nexus *nx, nexus_port_t nx_port)
 static int
 nx_upipe_dom_connect(struct kern_nexus_domain_provider *nxdom_prov,
     struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
-    struct kern_channel *ch0, struct nxbind *nxb, struct proc *p)
+    struct nxbind *nxb, struct proc *p)
 {
 #pragma unused(nxdom_prov)
 	nexus_port_t port = chr->cr_port;
@@ -549,22 +549,21 @@ nx_upipe_dom_connect(struct kern_nexus_domain_provider *nxdom_prov,
 	}
 
 	if (port == NEXUS_PORT_USER_PIPE_SERVER) {
-		chr->cr_real_endpoint = CH_ENDPOINT_USER_PIPE_MASTER;
+		chr->cr_endpoint = CH_ENDPOINT_USER_PIPE_MASTER;
 	} else if (port == NEXUS_PORT_USER_PIPE_CLIENT) {
-		chr->cr_real_endpoint = CH_ENDPOINT_USER_PIPE_SLAVE;
+		chr->cr_endpoint = CH_ENDPOINT_USER_PIPE_SLAVE;
 	} else {
 		err = EINVAL;
 		goto done;
 	}
 
-	chr->cr_endpoint = chr->cr_real_endpoint;
 	chr->cr_ring_set = RING_SET_DEFAULT;
 	chr->cr_pipe_id = 0;
 	(void) snprintf(chr->cr_name, sizeof(chr->cr_name), "upipe:%llu:%.*s",
 	    nx->nx_id, (int)nx->nx_prov->nxprov_params->nxp_namelen,
 	    nx->nx_prov->nxprov_params->nxp_name);
 
-	err = na_connect(nx, ch, chr, ch0, nxb, p);
+	err = na_connect(nx, ch, chr, nxb, p);
 done:
 	return err;
 }
@@ -576,7 +575,7 @@ nx_upipe_dom_disconnect(struct kern_nexus_domain_provider *nxdom_prov,
 #pragma unused(nxdom_prov)
 	SK_LOCK_ASSERT_HELD();
 
-	SK_D("channel 0x%llx -!- nexus 0x%llx (%s:\"%s\":%u:%d)", SK_KVA(ch),
+	SK_D("channel %p -!- nexus %p (%s:\"%s\":%u:%d)", SK_KVA(ch),
 	    SK_KVA(nx), nxdom_prov->nxdom_prov_name, ch->ch_na->na_name,
 	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id);
 
@@ -684,7 +683,7 @@ nx_upipe_dom_defunct_finalize(struct kern_nexus_domain_provider *nxdom_prov,
 		na_defunct(nx, ch, pna->pna_parent, locked);
 	}
 
-	SK_D("%s(%d): ch 0x%llx -/- nx 0x%llx (%s:\"%s\":%u:%d)",
+	SK_D("%s(%d): ch %p -/- nx %p (%s:\"%s\":%u:%d)",
 	    ch->ch_name, ch->ch_pid, SK_KVA(ch), SK_KVA(nx),
 	    nxdom_prov->nxdom_prov_name, ch->ch_na->na_name,
 	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id);
@@ -801,12 +800,12 @@ nx_upipe_na_txsync(struct __kern_channel_ring *txkring, struct proc *p,
 	int sent = 0, ret = 0;
 
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u "
-	    "flags 0x%x -> kr \"%s\" (0x%llx) krflags 0x%b ring %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), txkring->ckr_name,
-	    SK_KVA(txkring), txkring->ckr_flags, CKRF_BITS,
-	    txkring->ckr_ring_id, flags, rxkring->ckr_name, SK_KVA(rxkring),
-	    rxkring->ckr_flags, CKRF_BITS, rxkring->ckr_ring_id);
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u "
+	    "flags 0x%x -> kr \"%s\" (%p) krflags 0x%x ring %u",
+	    sk_proc_name(p), sk_proc_pid(p), txkring->ckr_name,
+	    SK_KVA(txkring), txkring->ckr_flags, txkring->ckr_ring_id, flags,
+	    rxkring->ckr_name, SK_KVA(rxkring), rxkring->ckr_flags,
+	    rxkring->ckr_ring_id);
 
 	/*
 	 * Serialize write access to the transmit ring, since another
@@ -861,13 +860,13 @@ nx_upipe_na_txsync_locked(struct __kern_channel_ring *txkring, struct proc *p,
 
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "%s(%d) kr \"%s\", kh %3u kt %3u | "
-	    "rh %3u rt %3u [pre%s]", sk_proc_name_address(p),
+	    "rh %3u rt %3u [pre%s]", sk_proc_name(p),
 	    sk_proc_pid(p), txkring->ckr_name, txkring->ckr_khead,
 	    txkring->ckr_ktail, txkring->ckr_rhead,
 	    txkring->ckr_rtail, rx ? "*" : "");
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "%s(%d) kr \"%s\", kh %3u kt %3u | "
-	    "rh %3u rt %3u [pre%s]", sk_proc_name_address(p),
+	    "rh %3u rt %3u [pre%s]", sk_proc_name(p),
 	    sk_proc_pid(p), rxkring->ckr_name, rxkring->ckr_khead,
 	    rxkring->ckr_ktail, rxkring->ckr_rhead,
 	    rxkring->ckr_rtail, rx ? "*" : "");
@@ -901,14 +900,14 @@ nx_upipe_na_txsync_locked(struct __kern_channel_ring *txkring, struct proc *p,
 
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "%s(%d) kr \"%s\" -> new %u, kr \"%s\" "
-	    "-> free %u", sk_proc_name_address(p), sk_proc_pid(p),
+	    "-> free %u", sk_proc_name(p), sk_proc_pid(p),
 	    txkring->ckr_name, n, rxkring->ckr_name, m);
 
 	/* rxring is full, or nothing to send? */
 	if (__improbable((sent = limit) == 0)) {
 		SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 		    "%s(%d) kr \"%s\" -> %s%s",
-		    sk_proc_name_address(p), sk_proc_pid(p), (n > m) ?
+		    sk_proc_name(p), sk_proc_pid(p), (n > m) ?
 		    rxkring->ckr_name : txkring->ckr_name, ((n > m) ?
 		    "no room avail" : "no new slots"),
 		    (rx ? " (lost race, ok)" : ""));
@@ -967,13 +966,13 @@ nx_upipe_na_txsync_locked(struct __kern_channel_ring *txkring, struct proc *p,
 done:
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "%s(%d) kr \"%s\", kh %3u kt %3u | "
-	    "rh %3u rt %3u [post%s]", sk_proc_name_address(p),
+	    "rh %3u rt %3u [post%s]", sk_proc_name(p),
 	    sk_proc_pid(p), txkring->ckr_name, txkring->ckr_khead,
 	    txkring->ckr_ktail, txkring->ckr_rhead,
 	    txkring->ckr_rtail, rx ? "*" : "");
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "%s(%d) kr \"%s\", kh %3u kt %3u | "
-	    "rh %3u rt %3u [post%s]", sk_proc_name_address(p),
+	    "rh %3u rt %3u [post%s]", sk_proc_name(p),
 	    sk_proc_pid(p), rxkring->ckr_name, rxkring->ckr_khead,
 	    rxkring->ckr_ktail, rxkring->ckr_rhead,
 	    rxkring->ckr_rtail, rx ? "*" : "");
@@ -994,12 +993,12 @@ nx_upipe_na_rxsync(struct __kern_channel_ring *rxkring, struct proc *p,
 	uint32_t r;
 
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_RX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u "
-	    "flags 0x%x <- kr \"%s\" (0x%llx) krflags 0x%b ring %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), rxkring->ckr_name,
-	    SK_KVA(rxkring), rxkring->ckr_flags, CKRF_BITS,
-	    rxkring->ckr_ring_id, flags, txkring->ckr_name, SK_KVA(txkring),
-	    txkring->ckr_flags, CKRF_BITS, txkring->ckr_ring_id);
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u "
+	    "flags 0x%x <- kr \"%s\" (%p) krflags 0x%x ring %u",
+	    sk_proc_name(p), sk_proc_pid(p), rxkring->ckr_name,
+	    SK_KVA(rxkring), rxkring->ckr_flags, rxkring->ckr_ring_id, flags,
+	    txkring->ckr_name, SK_KVA(txkring), txkring->ckr_flags,
+	    txkring->ckr_ring_id);
 
 	ASSERT(rxkring->ckr_owner == current_thread());
 
@@ -1031,7 +1030,7 @@ nx_upipe_na_rxsync(struct __kern_channel_ring *rxkring, struct proc *p,
 
 	SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_RX,
 	    "%s(%d) kr \"%s\" <- free %u, kr \"%s\" <- new %u",
-	    sk_proc_name_address(p), sk_proc_pid(p),
+	    sk_proc_name(p), sk_proc_pid(p),
 	    rxkring->ckr_name, m, txkring->ckr_name, n);
 
 	/*
@@ -1062,7 +1061,7 @@ nx_upipe_na_rxsync(struct __kern_channel_ring *rxkring, struct proc *p,
 	 * If we fail to get the kring lock, then don't worry because
 	 * there's already a transmit sync in progress to move packets.
 	 */
-	if (__probable(n != 0 && m != 0 && (flags & NA_SYNCF_MONITOR) == 0)) {
+	if (__probable(n != 0 && m != 0)) {
 		(void) kr_enter(txkring, TRUE);
 		n = nx_upipe_na_txsync_locked(txkring, p, flags, &ret, TRUE);
 		kr_exit(txkring);
@@ -1079,7 +1078,7 @@ nx_upipe_na_rxsync(struct __kern_channel_ring *rxkring, struct proc *p,
 		SK_DF(SK_VERB_USER_PIPE | SK_VERB_SYNC | SK_VERB_RX,
 		    "%s(%d) kr \"%s\", kh %3u kt %3u | "
 		    "rh %3u rt %3u [rel %u new %u]",
-		    sk_proc_name_address(p), sk_proc_pid(p), rxkring->ckr_name,
+		    sk_proc_name(p), sk_proc_pid(p), rxkring->ckr_name,
 		    rxkring->ckr_khead, rxkring->ckr_ktail,
 		    rxkring->ckr_rhead, rxkring->ckr_rtail, r, n);
 
@@ -1210,13 +1209,13 @@ nx_upipe_na_krings_create(struct nexus_adapter *na, struct kern_channel *ch)
 	if (pna->pna_peer_ref) {
 		/* case 1) above */
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 1, create everything", SK_KVA(na));
+		    "%p: case 1, create everything", SK_KVA(na));
 		error = nx_upipe_na_rings_create(na, ch);
 	} else {
 		/* case 2) above */
 		/* recover the hidden rings */
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 2, hidden rings", SK_KVA(na));
+		    "%p: case 2, hidden rings", SK_KVA(na));
 		for_rx_tx(t) {
 			for (i = 0; i < na_get_nrings(na, t); i++) {
 				NAKR(na, t)[i].ckr_ring =
@@ -1274,7 +1273,7 @@ nx_upipe_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_DF(SK_VERB_USER_PIPE, "na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_USER_PIPE, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 
 	switch (mode) {
@@ -1297,14 +1296,14 @@ nx_upipe_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 
 	if (pna->pna_peer_ref) {
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 1.a or 2.a, nothing to do", SK_KVA(na));
+		    "%p: case 1.a or 2.a, nothing to do", SK_KVA(na));
 		return 0;
 	}
 
 	switch (mode) {
 	case NA_ACTIVATE_MODE_ON:
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 1.b, drop peer", SK_KVA(na));
+		    "%p: case 1.b, drop peer", SK_KVA(na));
 		if (pna->pna_peer->pna_peer_ref) {
 			pna->pna_peer->pna_peer_ref = FALSE;
 			(void) na_release_locked(na);
@@ -1313,7 +1312,7 @@ nx_upipe_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 
 	case NA_ACTIVATE_MODE_OFF:
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 2.b, grab peer", SK_KVA(na));
+		    "%p: case 2.b, grab peer", SK_KVA(na));
 		if (!pna->pna_peer->pna_peer_ref) {
 			na_retain_locked(na);
 			pna->pna_peer->pna_peer_ref = TRUE;
@@ -1362,7 +1361,7 @@ nx_upipe_na_krings_delete(struct nexus_adapter *na, struct kern_channel *ch,
 
 	if (!pna->pna_peer_ref) {
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: case 2, kept alive by peer", SK_KVA(na));
+		    "%p: case 2, kept alive by peer", SK_KVA(na));
 		/*
 		 * If adapter is defunct (note the explicit test against
 		 * NAF_DEFUNCT, and not the "defunct" parameter passed in
@@ -1380,7 +1379,7 @@ nx_upipe_na_krings_delete(struct nexus_adapter *na, struct kern_channel *ch,
 
 	/* case 1) above */
 	SK_DF(SK_VERB_USER_PIPE,
-	    "0x%llx: case 1, deleting everyhing", SK_KVA(na));
+	    "%p: case 1, deleting everyhing", SK_KVA(na));
 
 	ASSERT(na->na_channels == 0 || (na->na_flags & NAF_DEFUNCT));
 
@@ -1420,10 +1419,10 @@ nx_upipe_na_dtor(struct nexus_adapter *na)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_DF(SK_VERB_USER_PIPE, "0x%llx", SK_KVA(na));
+	SK_DF(SK_VERB_USER_PIPE, "%p", SK_KVA(na));
 	if (pna->pna_peer_ref) {
 		SK_DF(SK_VERB_USER_PIPE,
-		    "0x%llx: clean up peer 0x%llx", SK_KVA(na),
+		    "%p: clean up peer %p", SK_KVA(na),
 		    SK_KVA(&pna->pna_peer->pna_up));
 		pna->pna_peer_ref = FALSE;
 		(void) na_release_locked(&pna->pna_peer->pna_up);
@@ -1438,7 +1437,7 @@ nx_upipe_na_dtor(struct nexus_adapter *na)
 	ASSERT(u->nup_pna_users != 0);
 	if (--u->nup_pna_users == 0) {
 		ASSERT(u->nup_pna != NULL);
-		SK_DF(SK_VERB_USER_PIPE, "release parent: \"%s\" (0x%llx)",
+		SK_DF(SK_VERB_USER_PIPE, "release parent: \"%s\" (%p)",
 		    u->nup_pna->na_name, SK_KVA(u->nup_pna));
 		na_release_locked(u->nup_pna);
 		u->nup_pna = NULL;
@@ -1465,12 +1464,11 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("name \"%s\" spec_uuid \"%s\" port %d mode 0x%b pipe_id %u "
-	    "ring_id %d ring_set %u ep_type %u:%u create %u%s",
+	SK_PDF(SK_VERB_USER_PIPE, p, "name \"%s\" spec_uuid \"%s\" port %d "
+	    "mode 0x%x pipe_id %u ring_id %d ring_set %u ep_type %u create %u%s",
 	    chr->cr_name, sk_uuid_unparse(chr->cr_spec_uuid, uuidstr),
-	    (int)chr->cr_port, chr->cr_mode, CHMODE_BITS,
-	    chr->cr_pipe_id, (int)chr->cr_ring_id, chr->cr_ring_set,
-	    chr->cr_real_endpoint, chr->cr_endpoint, create,
+	    (int)chr->cr_port, chr->cr_mode, chr->cr_pipe_id,
+	    (int)chr->cr_ring_id, chr->cr_ring_set, chr->cr_endpoint, create,
 	    (ep != CH_ENDPOINT_USER_PIPE_MASTER &&
 	    ep != CH_ENDPOINT_USER_PIPE_SLAVE) ? " (skipped)" : "");
 #endif /* SK_LOG */
@@ -1503,7 +1501,7 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 	 */
 	if ((pna = u->nup_pna) != NULL) {
 		na_retain_locked(pna);  /* for us */
-		SK_DF(SK_VERB_USER_PIPE, "found parent: \"%s\" (0x%llx)",
+		SK_DF(SK_VERB_USER_PIPE, "found parent: \"%s\" (%p)",
 		    pna->na_name, SK_KVA(pna));
 	} else {
 		/* callee will hold a reference for us upon success */
@@ -1515,7 +1513,7 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 		/* hold an extra reference for nx_upipe */
 		u->nup_pna = pna;
 		na_retain_locked(pna);
-		SK_DF(SK_VERB_USER_PIPE, "created parent: \"%s\" (0x%llx)",
+		SK_DF(SK_VERB_USER_PIPE, "created parent: \"%s\" (%p)",
 		    pna->na_name, SK_KVA(pna));
 	}
 
@@ -1654,16 +1652,15 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 	u->nup_pna_users += 2;
 
 #if SK_LOG
-	SK_DF(SK_VERB_USER_PIPE, "created master 0x%llx and slave 0x%llx",
+	SK_DF(SK_VERB_USER_PIPE, "created master %p and slave %p",
 	    SK_KVA(mna), SK_KVA(sna));
 	SK_DF(SK_VERB_USER_PIPE, "mna: \"%s\"", mna->pna_up.na_name);
 	SK_DF(SK_VERB_USER_PIPE, "  UUID:        %s",
 	    sk_uuid_unparse(mna->pna_up.na_uuid, uuidstr));
-	SK_DF(SK_VERB_USER_PIPE, "  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_USER_PIPE, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(mna->pna_up.na_nx), NX_DOM(mna->pna_up.na_nx)->nxdom_name,
 	    NX_DOM_PROV(mna->pna_up.na_nx)->nxdom_prov_name);
-	SK_DF(SK_VERB_USER_PIPE, "  flags:       0x%b",
-	    mna->pna_up.na_flags, NAF_BITS);
+	SK_DF(SK_VERB_USER_PIPE, "  flags:       0x%x", mna->pna_up.na_flags);
 	SK_DF(SK_VERB_USER_PIPE, "  flowadv_max: %u",
 	    mna->pna_up.na_flowadv_max);
 	SK_DF(SK_VERB_USER_PIPE, "  rings:       tx %u rx %u",
@@ -1683,11 +1680,10 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 	SK_DF(SK_VERB_USER_PIPE, "sna: \"%s\"", sna->pna_up.na_name);
 	SK_DF(SK_VERB_USER_PIPE, "  UUID:        %s",
 	    sk_uuid_unparse(sna->pna_up.na_uuid, uuidstr));
-	SK_DF(SK_VERB_USER_PIPE, "  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_USER_PIPE, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(sna->pna_up.na_nx), NX_DOM(sna->pna_up.na_nx)->nxdom_name,
 	    NX_DOM_PROV(sna->pna_up.na_nx)->nxdom_prov_name);
-	SK_DF(SK_VERB_USER_PIPE, "  flags:       0x%b",
-	    sna->pna_up.na_flags, NAF_BITS);
+	SK_DF(SK_VERB_USER_PIPE, "  flags:       0x%x", sna->pna_up.na_flags);
 	SK_DF(SK_VERB_USER_PIPE, "  flowadv_max: %u",
 	    sna->pna_up.na_flowadv_max);
 	SK_DF(SK_VERB_USER_PIPE, "  rings:       tx %u rx %u",
@@ -1708,7 +1704,7 @@ nx_upipe_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 
 found:
 
-	SK_DF(SK_VERB_USER_PIPE, "pipe_id %u role %s at 0x%llx", pipe_id,
+	SK_DF(SK_VERB_USER_PIPE, "pipe_id %u role %s at %p", pipe_id,
 	    (req->pna_role == CH_ENDPOINT_USER_PIPE_MASTER ?
 	    "master" : "slave"), SK_KVA(req));
 	if ((chr->cr_mode & CHMODE_DEFUNCT_OK) == 0) {
@@ -1743,7 +1739,7 @@ nx_upipe_alloc(zalloc_flags_t how)
 
 	u = zalloc_flags(nx_upipe_zone, how | Z_ZERO);
 	if (u) {
-		SK_DF(SK_VERB_MEM, "upipe 0x%llx ALLOC", SK_KVA(u));
+		SK_DF(SK_VERB_MEM, "upipe %p ALLOC", SK_KVA(u));
 	}
 	return u;
 }
@@ -1756,6 +1752,6 @@ nx_upipe_free(struct nx_upipe *u)
 	ASSERT(u->nup_cli_nxb == NULL);
 	ASSERT(u->nup_srv_nxb == NULL);
 
-	SK_DF(SK_VERB_MEM, "upipe 0x%llx FREE", SK_KVA(u));
+	SK_DF(SK_VERB_MEM, "upipe %p FREE", SK_KVA(u));
 	zfree(nx_upipe_zone, u);
 }

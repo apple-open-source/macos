@@ -49,8 +49,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		5694D36D1C18C0D200A9609A /* pcap-skywalk.h in Headers */ = {isa = PBXBuildFile; fileRef = 5694D36C1C18C0D200A9609A /* pcap-skywalk.h */; };
-		5694D36F1C18C0E500A9609A /* pcap-skywalk.c in Sources */ = {isa = PBXBuildFile; fileRef = 5694D36E1C18C0E500A9609A /* pcap-skywalk.c */; };
 		72011B262356B3C6003A5F22 /* unix.h in Headers */ = {isa = PBXBuildFile; fileRef = 725D580523452FBD0023A8CB /* unix.h */; };
 		7208CF912403399200AA0E42 /* pcapng-private.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208CF902403399200AA0E42 /* pcapng-private.h */; };
 		720914CC234562EE003B403A /* fmtutils.c in Sources */ = {isa = PBXBuildFile; fileRef = 721769222344379500731290 /* fmtutils.c */; };
@@ -85,7 +83,6 @@
 		724FC91D1233226B003B8C19 /* sf-pcap.c in Sources */ = {isa = PBXBuildFile; fileRef = 724FC91C1233226B003B8C19 /* sf-pcap.c */; };
 		724FC92312332337003B8C19 /* sf-pcap.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC92212332337003B8C19 /* sf-pcap.h */; };
 		724FC92512332462003B8C19 /* pcap-int.h in Headers */ = {isa = PBXBuildFile; fileRef = 724FC92412332462003B8C19 /* pcap-int.h */; };
-		7255E40C1C9CDD4700D64FA0 /* pcap-skywalk.c in Sources */ = {isa = PBXBuildFile; fileRef = 5694D36E1C18C0E500A9609A /* pcap-skywalk.c */; };
 		725D57F9234523E60023A8CB /* bpf_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = 721769202344333200731290 /* bpf_filter.c */; };
 		725D57FA234523E60023A8CB /* fmtutils.c in Sources */ = {isa = PBXBuildFile; fileRef = 721769222344379500731290 /* fmtutils.c */; };
 		725D57FB234523E60023A8CB /* sf-pcapng.c in Sources */ = {isa = PBXBuildFile; fileRef = 7217691E23442F5A00731290 /* sf-pcapng.c */; };
@@ -610,8 +607,6 @@
 
 /* Begin PBXFileReference section */
 		568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_ng.3; path = libpcap/pcap_ng.3; sourceTree = "<group>"; };
-		5694D36C1C18C0D200A9609A /* pcap-skywalk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcap-skywalk.h"; path = "libpcap/pcap-skywalk.h"; sourceTree = "<group>"; };
-		5694D36E1C18C0E500A9609A /* pcap-skywalk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-skywalk.c"; path = "libpcap/pcap-skywalk.c"; sourceTree = "<group>"; };
 		7208CF902403399200AA0E42 /* pcapng-private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcapng-private.h"; path = "libpcap/pcapng-private.h"; sourceTree = "<group>"; };
 		721463A31F68984600D74814 /* offlinereadtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = offlinereadtest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7217691C23442F2500731290 /* sf-pcapng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "sf-pcapng.h"; path = "libpcap/sf-pcapng.h"; sourceTree = "<group>"; };
@@ -972,7 +967,6 @@
 				FCDE3593103676CF00CC3DD8 /* pcap-bpf.c */,
 				724FC91512331FCE003B8C19 /* pcap-common.c */,
 				729DE1E316CB05F700195247 /* pcap-darwin.c */,
-				5694D36E1C18C0E500A9609A /* pcap-skywalk.c */,
 				727A86A816CEECB700048C5E /* pcap-util.c */,
 				7208CF902403399200AA0E42 /* pcapng-private.h */,
 				FCDE3594103676CF00CC3DD8 /* pcap.c */,
@@ -1150,7 +1144,6 @@
 				724FC92412332462003B8C19 /* pcap-int.h */,
 				FCDE368B1036822200CC3DD8 /* pcap-namedb.h */,
 				72E2AB571E45022C00AEFE80 /* pcap-pktap.h */,
-				5694D36C1C18C0D200A9609A /* pcap-skywalk.h */,
 				723D12012723401E00F3C42A /* pcap-types.h */,
 				727A86AB16CEECD100048C5E /* pcap-util.h */,
 				FCDE368C1036822200CC3DD8 /* pcap.h */,
@@ -1280,7 +1273,6 @@
 				724FC92512332462003B8C19 /* pcap-int.h in Headers */,
 				724FC91812331FDD003B8C19 /* pcap-common.h in Headers */,
 				72E2AB581E45022C00AEFE80 /* pcap-pktap.h in Headers */,
-				5694D36D1C18C0D200A9609A /* pcap-skywalk.h in Headers */,
 				72B903861CE015A0008DB2D2 /* ppp.h in Headers */,
 				724FC92312332337003B8C19 /* sf-pcap.h in Headers */,
 				7217691D23442F2500731290 /* sf-pcapng.h in Headers */,
@@ -1844,7 +1836,6 @@
 				7244CBED1624FCC600141ECF /* pcap-bpf.c in Sources */,
 				7244CBE51624FCC600141ECF /* pcap-common.c in Sources */,
 				729DE1E516CB05F700195247 /* pcap-darwin.c in Sources */,
-				7255E40C1C9CDD4700D64FA0 /* pcap-skywalk.c in Sources */,
 				727A86AA16CEECB700048C5E /* pcap-util.c in Sources */,
 				7244CBEE1624FCC600141ECF /* pcap.c in Sources */,
 				727B12E51627A9080039A877 /* pcapng.c in Sources */,
@@ -1946,7 +1937,6 @@
 				72A13B1B29835FBD00BC001D /* pcap-apple-stubs.c in Sources */,
 				724FC91612331FCE003B8C19 /* pcap-common.c in Sources */,
 				729DE1E416CB05F700195247 /* pcap-darwin.c in Sources */,
-				5694D36F1C18C0E500A9609A /* pcap-skywalk.c in Sources */,
 				727A86A916CEECB700048C5E /* pcap-util.c in Sources */,
 				FCDE35A2103676CF00CC3DD8 /* pcap.c in Sources */,
 				727B12E416278AEF0039A877 /* pcapng.c in Sources */,

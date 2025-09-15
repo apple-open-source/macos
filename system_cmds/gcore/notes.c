@@ -1,14 +1,18 @@
 /*
- * Copyright (c) 2024 Apple Inc.  All rights reserved.
+ * Copyright (c) 2025 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
 #include "corefile.h"
 #include "utils.h"
 #include "vm.h"
+#include "threads.h"
 #include "notes.h"
 #include "portable_task_crash_info_t.h"
 #include "portable_region_infos_t.h"
+#include "note_addrable_bits.h"
+#include "note_all_image_infos.h"
+#include "note_process_metadata.h"
 
 #include <errno.h>
 #include <libproc.h>
@@ -20,6 +24,7 @@
 #include <sys/kern_sysctl.h>
 #include <mach/mach_time.h>
 #include <mach-o/dyld_introspection.h>
+#include <mach-o/dyld_process_info.h>
 
 #if TARGET_OS_OSX
 #include <responsibility.h>
@@ -204,7 +209,9 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
     {
         const kern_return_t pid_for_task_err = pid_for_task(task, &pid);
         if (pid_for_task_err != KERN_SUCCESS) {
-            errx(EX_OSERR, "failed to get pid for task with error %s", mach_error_string(pid_for_task_err));
+            os_log_error(glog, "failed to get pid for task with error %{public}s",
+                mach_error_string(pid_for_task_err));
+            exit(EX_OSERR);
         }
     }
     
@@ -217,7 +224,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         const int proc_pidinfo_err = proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &bsdInfo, sizeof(bsdInfo));
         
         if (PROC_PIDTBSDINFO_SIZE != proc_pidinfo_err) {
-            errx(EX_OSERR, "proc_pidinfo failed");
+            os_log_error(glog, "proc_pidinfo failed");
+            exit(EX_OSERR);
         }
         
         assert((pid_t)bsdInfo.pbi_pid == pid);
@@ -241,7 +249,9 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
 #if TARGET_OS_OSX
         const kern_return_t get_responsible_pid_err = responsibility_get_responsible_for_pid(pid, &responsible_pid, NULL, NULL, NULL);
         if (KERN_SUCCESS != get_responsible_pid_err) {
-            errx(EX_OSERR, "failed to get reponsible pid with error %s", mach_error_string(get_responsible_pid_err));
+            os_log_error(glog, "failed to get responsible pid with error %{public}s",
+                mach_error_string(get_responsible_pid_err));
+            exit(EX_OSERR);
         }
 #endif
         
@@ -261,7 +271,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
          * } else if (kpersona_pidinfo_err == ESRCH) {
          *     tci->proc_persona_id = PERSONA_ID_NONE;
          * } else {
-         *     errx(EX_OSERR, "kpersona_pidinfo failed with the error %s", strerror(errno));
+         *     os_log_error("kpersona_pidinfo failed with %{darwin.errno}d");
+         *     exit(EX_OSERR);
          * }
          */
         
@@ -280,7 +291,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         const int kern_proc_pid_err = sysctl(mib, (unsigned)(sizeof(mib) / sizeof(int)), &processInfo,
                                              &bufsize, NULL, 0);
         if (kern_proc_pid_err < 0 && bufsize <= 0) {
-            errx(EX_OSERR, "KERN_PROC_PID failed");
+            os_log_error(glog, "KERN_PROC_PID failed");
+            exit(EX_OSERR);
         }
         
         tci->userstack = (uint64_t)processInfo.kp_proc.user_stack;
@@ -298,14 +310,16 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         const int kern_argmax_err = sysctl(argmax_mib, 2, &argmax_buf_size, &size, NULL, 0);
         
         if (kern_argmax_err != 0) {
-            errx(EX_OSERR, "KERN_ARGMAX failed");
+            os_log_error(glog, "KERN_ARGMAX failed");
+            exit(EX_OSERR);
         }
         
         tci->argslen = (int32_t)argmax_buf_size;
 
         void *argbuf = malloc(argmax_buf_size);
         if (NULL == argbuf) {
-            errx(EX_OSERR, "failed to allocate argument buffer");
+            os_log_error(glog, "failed to allocate argument buffer");
+            exit(EX_OSERR);
         }
 
         /* the older KERN_PROCARGS is deprecated */
@@ -313,7 +327,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         const int kern_procargs2_err = sysctl(procargs2_mib, 3, argbuf, &argmax_buf_size, NULL, 0);
                 
         if (kern_procargs2_err != 0) {
-            errx(EX_OSERR, "KERN_PROCARGS2 failed");
+            os_log_error(glog, "KERN_PROCARGS2 failed");
+            exit(EX_OSERR);
         }
         
         /* argc is the first int32_t of the arguments buffer */
@@ -325,9 +340,10 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
     /* dirty flags */
     {
         uint32_t dirty_flags = 0;
-        const int proc_get_diry_err = proc_get_dirty(pid, &dirty_flags);
-        if (proc_get_diry_err < 0) {
-            errx(EX_OSERR, "proc_get_dirty failed");
+        const int pgd_err = proc_get_dirty(pid, &dirty_flags);
+        if (pgd_err != 0) {
+            os_log_error(glog, "proc_get_dirty failed");
+            exit(EX_OSERR);
         }
         
         tci->dirty_flags = *(int32_t *)&dirty_flags;
@@ -337,7 +353,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
     {
         const int csops_err = csops(pid, CS_OPS_STATUS, &tci->proc_csflags, sizeof(tci->proc_csflags));
         if (csops_err < 0) {
-            errx(EX_OSERR, "csops failed");
+            os_log_error(glog, "csops failed");
+            exit(EX_OSERR);
         }
     }
     
@@ -353,7 +370,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         struct proc_pidcoalitioninfo pci = {0};
         const int proc_pidinfo_size = proc_pidinfo(pid, PROC_PIDCOALITIONINFO, 1, &pci, sizeof(pci));
         if (proc_pidinfo_size != PROC_PIDCOALITIONINFO_SIZE) {
-            errx(EX_OSERR, "proc_pidinfo failed");
+            os_log_error(glog, "proc_pidinfo failed");
+            exit(EX_OSERR);
         }
         
         tci->coalition_resource_id = pci.coalition_id[COALITION_TYPE_RESOURCE];
@@ -367,7 +385,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
             uint32_t bufsize = sizeof(uint64_t) * uptrs_count;
             uint64_t *uptrs = malloc(bufsize);
             if (NULL == uptrs) {
-                errx(EX_OSERR, "failed to allocate space for uptrs");
+                os_log_error(glog, "failed to allocate space for uptrs");
+                exit(EX_OSERR);
             }
             
             __unused const int fetched_uptrs_count = proc_list_uptrs(pid, uptrs, bufsize);
@@ -387,7 +406,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
                           (uint64_t)0, (user_addr_t)&pwqinfo,
                           (uint32_t)sizeof(pwqinfo));
         if (PROC_PIDWORKQUEUEINFO_SIZE != err) {
-            errx(EX_OSERR, "PROC_PIDWORKQUEUEINFO failed");
+            os_log_error(glog, "PROC_PIDWORKQUEUEINFO failed");
+            exit(EX_OSERR);
         }
         
         copy_pwqinfo(tci, &pwqinfo);
@@ -400,7 +420,8 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         
         const int rusage_err = proc_pid_rusage(pid, RUSAGE_INFO_V3, (rusage_info_t *)&rui);
         if (rusage_err != 0) {
-            errx(EX_OSERR, "proc_pid_rusage failed");
+            os_log_error(glog, "proc_pid_rusage failed");
+            exit(EX_OSERR);
         }
         
         copy_rusage_info(tci, &rui);
@@ -413,13 +434,16 @@ populate_task_crash_info_for_live_task(struct task_crashinfo_note_data *tci, tas
         const kern_return_t task_info_err = task_info(task, TASK_VM_INFO_PURGEABLE, (task_info_t)&ti, &task_info_count);
 
         if (KERN_SUCCESS != task_info_err) {
-            errx(EX_OSERR, "task_info failed with the error %s", mach_error_string(task_info_err));
+            os_log_error(glog, "task_info failed with the error %{public}s",
+                mach_error_string(task_info_err));
+            exit(EX_OSERR);
         }
         
         /* fill the parts of the struct that aren't filled via `task_info` */
         int get_ledgers_err = get_ledgers(pid, tci);
         if (0 != get_ledgers_err) {
-            errx(EX_OSERR, "get_ledgers failed");
+            os_log_error(glog, "get_ledgers failed");
+            exit(EX_OSERR);
         }
         
         tci_copy_ti(tci, &ti);
@@ -660,7 +684,8 @@ static void populate_task_crash_info_for_corpse(struct task_crashinfo_note_data 
     }
     
     if (KCDATA_ITER_FOREACH_FAILED(iter)) {
-        errx(EX_OSERR, "failed to iterate kcdata for corpse");
+        os_log_error(glog, "failed to iterate kcdata for corpse");
+        exit(EX_OSERR);
     }
 }
 
@@ -678,7 +703,8 @@ prepare_task_crashinfo_note(task_t task)
         const kern_return_t mach_timebase_err = mach_timebase_info(&info);
         if (KERN_SUCCESS != mach_timebase_err) {
             err_mach(mach_timebase_err, NULL, "mach_timebase_info");
-            errx(EX_OSERR, "Failed to get mach timebase info");
+            os_log_error(glog, "Failed to get mach timebase info");
+            exit(EX_OSERR);
         }
         
         tci->mach_timebase_info_denom = info.denom;
@@ -692,7 +718,8 @@ prepare_task_crashinfo_note(task_t task)
         const kern_return_t task_info_err = task_info(task, TASK_DYLD_INFO, (task_info_t)&local_dyld_info, &count);
         if (KERN_SUCCESS != task_info_err) {
             err_mach(task_info_err, NULL, "task_info");
-            errx(EX_OSERR, "Failed to get task info");
+            os_log_error(glog, "Failed to get task info");
+            exit(EX_OSERR);
         }
         
         tci->dyld_all_image_infos_addr = (uint64_t)local_dyld_info.all_image_info_addr;
@@ -711,17 +738,22 @@ prepare_task_crashinfo_note(task_t task)
         
         dyld_process_t process = dyld_process_create_for_task(task, &dyld_err);
         if (!process) {
-            errx(EX_OSERR, "Failed to create dyld process info with error %s", mach_error_string(dyld_err));
+            os_log_error(glog, "Failed to create dyld process info: %{public}s",
+                mach_error_string(dyld_err));
+            exit(EX_OSERR);
         }
         
         dyld_process_snapshot_t snapshot = dyld_process_snapshot_create_for_process(process, &dyld_err);
         if (!snapshot) {
-            errx(EX_OSERR, "Failed to create dyld snapshot with error %s", mach_error_string(dyld_err));
+            os_log_error(glog, "Failed to create dyld snapshot: %{public}s",
+                mach_error_string(dyld_err));
+            exit(EX_OSERR);
         }
         
         dyld_shared_cache_t cache = dyld_process_snapshot_get_shared_cache(snapshot);
         if (!cache) {
-            errx(EX_OSERR, "Failed to get dyld shared cache info");
+            os_log_error(glog, "Failed to get dyld shared cache info");
+            exit(EX_OSERR);
         }
         
         if (!dyld_shared_cache_is_mapped_private(cache)) {
@@ -745,7 +777,8 @@ prepare_task_crashinfo_note(task_t task)
         size_t buflen = 0;
         int sysctl_err = sysctlbyname(get_owned_objects_sysctl_name, NULL, &buflen, (void*)&task, sizeof(task));
         if (sysctl_err != 0 && errno != ENOENT) {
-            errx(EX_OSERR, "sysctl vm.get_owned_vmobjects failed");
+            os_log_error(glog, "vm.get_owned_vmobjects failed");
+            exit(EX_OSERR);
         }
 
         if (buflen != 0) {
@@ -767,13 +800,15 @@ prepare_task_crashinfo_note(task_t task)
                 requestedBuflen += buflenSafetySize;
                 buf = realloc(buf, requestedBuflen);
                 if (NULL == buf) {
-                    errx(EX_OSERR, "failed to allocate space for VM object query datas");
+                    os_log_error(glog, "failed to allocate space for VM object query datas");
+                    exit(EX_OSERR);
                 }
 
                 returnedBuflen = requestedBuflen;
                 sysctl_err = sysctlbyname(get_owned_objects_sysctl_name, buf, &returnedBuflen, (void*)&task, sizeof(task));
                 if (sysctl_err != 0 && errno != ENOENT) {
-                    errx(EX_OSERR, "sysctl vm.get_owned_vmobjects failed");
+                    os_log_error(glog, "sysctl vm.get_owned_vmobjects failed");
+                    exit(EX_OSERR);
                 }
             } while (returnedBuflen == requestedBuflen);
 
@@ -852,7 +887,8 @@ set_collect_phys_footprint(bool collect)
     int collect_as_int = collect;
     int sysctl_ret = sysctlbyname(kVM_SELF_FOOTPRINT_SYSCTL, NULL, 0, (void *)&collect_as_int, sizeof(collect_as_int));
     if (sysctl_ret != 0 && errno != ENOENT) {
-        fprintf(stderr, "Error setting sysctl %s: %s (%d)\n", kVM_SELF_FOOTPRINT_SYSCTL, strerror(errno), errno);
+        os_log_error(glog, "Error setting sysctl %{public}s: %{darwin.errno}d",
+            kVM_SELF_FOOTPRINT_SYSCTL, errno);
     }
 }
 
@@ -875,7 +911,8 @@ populate_region_dispositions(task_t task, struct region_infos_note_data *region_
             size_t num_bytes = (size_t)pages_spanned_by_region * sizeof(int);
             int *raw_dispositions = malloc(num_bytes);
             if (NULL == raw_dispositions) {
-                errx(EX_OSERR, "out of memory for dispositions");
+                os_log_error(glog, "out of memory for dispositions");
+                exit(EX_OSERR);
             }
             
             mach_vm_size_t found_pages_count = pages_spanned_by_region;
@@ -885,13 +922,15 @@ populate_region_dispositions(task_t task, struct region_infos_note_data *region_
                                                                                    (mach_vm_address_t)raw_dispositions,
                                                                                    &found_pages_count);
             if (KERN_SUCCESS != vm_page_range_query_err) {
-                errx(EX_OSERR, "couldn't fetch page dispositions");
+                os_log_error(glog, "couldn't fetch page dispositions");
+                exit(EX_OSERR);
             }
             
             const size_t converted_dispositions_byte_count = (size_t)found_pages_count * sizeof(uint16_t);
             uint16_t *converted_dispositions = malloc(converted_dispositions_byte_count);
             if (NULL == converted_dispositions) {
-                errx(EX_OSERR, "out of memory for dispositions");
+                os_log_error(glog, "out of memory for dispositions");
+                exit(EX_OSERR);
             }
             
             for (uint64_t disposition_index = 0; disposition_index < found_pages_count; disposition_index++) {
@@ -1021,7 +1060,8 @@ prepare_region_infos_note(const task_t task)
     const size_t region_infos_note_size = sizeof(struct region_infos_note_data) + (region_count * sizeof(struct region_infos_note_region_data));
     struct region_infos_note_data *region_infos_note = calloc(1, region_infos_note_size);
     if (NULL == region_infos_note) {
-        errx(EX_OSERR, "failed to allocate space for vm info LC_NOTE");
+        os_log_error(glog, "failed to allocate space for vm info LC_NOTE");
+        exit(EX_OSERR);
     }
 
     region_infos_note->regions_count = 0;
@@ -1039,7 +1079,9 @@ prepare_region_infos_note(const task_t task)
             /* live task */
             const kern_return_t pid_for_task_err = pid_for_task(task, &pid_for_live_task);
             if (KERN_SUCCESS != pid_for_task_err) {
-                errx(EX_OSERR, "failed to get pid for task with error %s", mach_error_string(pid_for_task_err));
+                os_log_error(glog, "failed to get pid for task with error %{public}s",
+                    mach_error_string(pid_for_task_err));
+                exit(EX_OSERR);
             }
         }
     }
@@ -1059,9 +1101,308 @@ prepare_region_infos_note(const task_t task)
     return region_infos_note;
 }
 
+struct note_addrable_bits *
+prepare_addrable_bits_note(void)
+{
+    uint32_t abits;
+    if (virtual_address_size(&abits) != 0) {
+        return NULL;
+    }
+    struct note_addrable_bits *nab = calloc(1, sizeof(*nab));
+    if (nab) {
+        nab->version = NOTE_ADDRABLE_BITS_CURRENT_VERSION;
+        nab->low_memory_addressing_bits = abits;
+        nab->high_memory_addressing_bits = abits;
+    }
+    return nab;
+}
+
+/*
+ * {"threads":[{"thread_id":42},{"thread_id":94}]}
+ */
+struct process_metadata_note_data *
+prepare_process_metadata_note(mach_port_t *threads, unsigned count)
+{
+    if (count == 0) {
+        return NULL;
+    }
+
+#define _BODY   "{\"thread_id\":%lld}"
+#define INITIAL "{\"threads\":[" _BODY
+#define LOOP    "," _BODY
+#define FINAL   "]}"
+
+    size_t nwritten = snprintf(NULL, 0,
+        INITIAL, get_thread_identifier(threads[0]));
+    for (unsigned t = 1; t < count; t++) {
+        nwritten += snprintf(NULL, 0,
+            LOOP, get_thread_identifier(threads[t]));
+    }
+    nwritten += snprintf(NULL, 0, FINAL);
+
+    size_t bufsize = nwritten + 1;  // trailing NUL
+    char *buf = malloc(bufsize);
+    if (buf == NULL) {
+        return NULL;
+    }
+
+    nwritten = snprintf(buf, bufsize,
+        INITIAL, get_thread_identifier(threads[0]));
+    assert(nwritten < bufsize);
+    for (unsigned t = 1; t < count; t++) {
+        nwritten += snprintf(buf + nwritten, bufsize - nwritten,
+            LOOP, get_thread_identifier(threads[t]));
+        assert(nwritten < bufsize);
+    }
+    nwritten += snprintf(buf + nwritten, bufsize - nwritten, FINAL);
+    assert(nwritten < bufsize);
+
+    struct process_metadata_note_data *pmnd = calloc(1, sizeof(*pmnd));
+    if (pmnd) {
+        pmnd->jsonbytes = buf;
+        pmnd->jsonlength = nwritten;
+    } else {
+        free(buf);
+    }
+    return pmnd;
+}
+
+/*
+ * Collects both the Mach-O header and the commands
+ * "below" it, assuming they're in contiguous memory.
+ */
+static native_mach_header_t *
+copy_dyld_image_mh(task_t task, mach_vm_address_t targetmh, const char *path)
+{
+    vm_offset_t mhaddr = 0;
+    mach_msg_type_number_t mhlen = sizeof (native_mach_header_t);
+    
+    for (int attempts = 0; attempts < 2; attempts++) {
+        
+        const kern_return_t ret = mach_vm_read(task, targetmh, mhlen, &mhaddr, &mhlen);
+        if (KERN_SUCCESS != ret) {
+            err_mach(ret, NULL, "mach_vm_read() at 0x%llx for image %s", targetmh, path);
+            mhaddr = 0;
+            break;
+        }
+        const native_mach_header_t *mh = (void *)mhaddr;
+        if (mhlen < mh->sizeofcmds + sizeof (*mh)) {
+            const mach_msg_type_number_t newmhlen = sizeof (*mh) + mh->sizeofcmds;
+            mach_vm_deallocate(mach_task_self(), mhaddr, mhlen);
+            mhlen = newmhlen;
+        } else
+            break;
+    }
+    
+    native_mach_header_t *result = NULL;
+    
+    if (mhaddr) {
+        if (NULL != (result = malloc(mhlen))) {
+            memcpy(result, (void *)mhaddr, mhlen);
+        }
+        mach_vm_deallocate(mach_task_self(), mhaddr, mhlen);
+    }
+    return result;
+}
+
+static native_mach_header_t aoutmh;
+
+/*
+ * Ask dyld for the mach header of the executable that is being
+ * dumped -- used to construct the core file mach header.
+ */
+native_mach_header_t *
+get_aout_mach_header(task_t task)
+{
+    do {
+        if (aoutmh.filetype == MH_EXECUTE) {
+            return &aoutmh;
+        }
+        dyld_process_info info = _dyld_process_info_create(task, 0, NULL);
+        if (info == NULL) {
+            break;
+        }
+        _dyld_process_info_for_each_image(info,
+            ^(uint64_t mhAddr, const uint8_t *__unused uuid, const char *path) {
+            // Find the a.out mach header, then skip everything else
+            if (aoutmh.filetype == 0) {
+                native_mach_header_t *mh = copy_dyld_image_mh(task, mhAddr, path);
+                if (mh && mh->filetype == MH_EXECUTE) {
+                    aoutmh = *mh;
+                    assert(aoutmh.filetype != 0);
+                }
+                free(mh);
+            }
+        });
+        _dyld_process_info_release(info);
+    } while (aoutmh.filetype == MH_EXECUTE);
+
+    return NULL;
+}
+
+struct all_image_infos_note_data *
+prepare_all_image_infos_note(task_t task)
+{
+    struct all_image_infos_note_data *aiind = calloc(1, sizeof (*aiind));
+    if (aiind == NULL) {
+        return NULL;
+    }
+    STAILQ_INIT(&aiind->image_entries);
+
+    dyld_process_info info = _dyld_process_info_create(task, 0, NULL);
+    if (info == NULL) {
+        free(aiind);
+        return NULL;
+    }
+
+    _dyld_process_info_for_each_image(info,
+        ^(uint64_t mhAddr, const uint8_t *uuid, const char *path) {
+
+        struct aii_image_entry_data *ied = calloc(1, sizeof(*ied));
+        if (ied == NULL) {
+            return;
+        }
+        if ((ied->ied_path = strdup(path)) == NULL) {
+            free(ied);
+            return;
+        }
+        ied->ied_pathlen = strlen(ied->ied_path);
+        uuid_copy(ied->ied_uuid, uuid);
+        ied->ied_mh = mhAddr;
+
+        native_mach_header_t *mh = copy_dyld_image_mh(task, mhAddr, path);
+        if (mh == NULL) {
+            free(ied->ied_path);
+            free(ied);
+            return;
+        }
+#if 1
+        if (aoutmh.filetype == 0 && mh->filetype == MH_EXECUTE) {
+            aoutmh = *mh;   // save another trip through dyld process info
+            assert(aoutmh.filetype == MH_EXECUTE);
+        }
+#endif
+//        printf("%s: mhAddr %llx type %d cpu %d subtype %d ncmds %u\n",
+//               ied->ied_path, mhAddr,
+//               mh->filetype, mh->cputype, mh->cpusubtype, mh->ncmds);
+
+        // Count the LC_SEGMENTs and find the mapping offset
+        mach_vm_offset_t objoff = MACH_VM_MAX_ADDRESS;
+        const struct load_command *lc = (const void *)(mh + 1);
+        for (unsigned i = 0; i < mh->ncmds; i++) {
+            uint64_t vmaddr = 0;
+            const char *segname = NULL;
+            size_t segnamesz = 0;
+
+            switch (lc->cmd) {
+                case LC_SEGMENT_64: {
+                    const struct segment_command_64 *sc = (const void *)lc;
+//                    printf("%llx seg %s %llx-%llx %llu-%llu %u 0x%x\n",
+//                        mhAddr, sc->segname, sc->vmaddr, sc->vmaddr + sc->vmsize,
+//                        sc->fileoff, sc->fileoff + sc->filesize,
+//                        sc->nsects, sc->flags);
+                    vmaddr = sc->vmaddr;
+                    segname = sc->segname;
+                    segnamesz = sizeof(sc->segname);
+                    break;
+                }
+                case LC_SEGMENT: {
+                    // e.g. for arm64_32 binaries
+                    const struct segment_command *sc = (const void *)lc;
+//                    printf("%llx seg %s %x-%x %u-%u %u 0x%x\n",
+//                        mhAddr, sc->segname, sc->vmaddr, sc->vmaddr + sc->vmsize,
+//                        sc->fileoff, sc->fileoff + sc->filesize,
+//                        sc->nsects, sc->flags);
+                    vmaddr = sc->vmaddr;    // widen to 64-bit
+                    segname = sc->segname;
+                    segnamesz = sizeof(sc->segname);
+                    break;
+                }
+            }
+            if (segname && strncmp(segname, SEG_PAGEZERO, segnamesz)) {
+                // found a valid LC_SEGMENT* of some flavor,
+                // and it's not labeled __PAGEZERO
+                // => count it as a segment of interest
+                ied->ied_segment_count += 1;
+
+                if (objoff == MACH_VM_MAX_ADDRESS) {
+                    /*
+                     * *Depends* on finding a __TEXT segment first, to find
+                     * the true offset with which all the segments are mapped.
+                     */
+                    if (strncmp(segname, SEG_TEXT, segnamesz) != 0) {
+                        os_log_error(glog, "%{public}s: expected " SEG_TEXT " segment, found %{public}16s\n",
+                            path, segname);
+                        free(mh);
+                        free(ied->ied_path);
+                        free(ied);
+                        return;
+                    }
+                    objoff = mhAddr - vmaddr;
+                }
+            }
+            if (lc->cmdsize) {
+                lc = (const void *)lc + lc->cmdsize;
+                continue;
+            }
+            break;
+        }
+
+        // Allocate array and copy the LC_SEGMENTs into it
+        ied->ied_seg_addrs = calloc(ied->ied_segment_count,
+            sizeof(struct note_aii_segment_vmaddr));
+        struct note_aii_segment_vmaddr *a = ied->ied_seg_addrs;
+
+        lc = (const void *)(mh + 1);
+        for (unsigned i = 0; i < mh->ncmds; i++) {
+            uint64_t vmaddr = 0;
+            const char *segname = NULL;
+            size_t segnamesz = 0;
+
+            switch (lc->cmd) {
+                case LC_SEGMENT_64: {
+                    const struct segment_command_64 *sc = (const void *)lc;
+                    vmaddr = sc->vmaddr;
+                    segname = sc->segname;
+                    segnamesz = sizeof(sc->segname);
+                    break;
+                }
+                case LC_SEGMENT: {
+                    const struct segment_command *sc = (const void *)lc;
+                    vmaddr = sc->vmaddr;
+                    segname = sc->segname;
+                    segnamesz = sizeof(sc->segname);
+                    break;
+                }
+            }
+            if (segname && strncmp(segname, SEG_PAGEZERO, segnamesz)) {
+                // found a valid LC_SEGMENT* of some flavor,
+                // and it's not labeled __PAGEZERO
+                // => offset the address and append to segment_vmaddr array
+                a->vmaddr = vmaddr + objoff;
+                // Not NUL terminated -- all 16 chars are valid
+                strncpy(a->segname, segname, segnamesz);
+                a += 1;
+            }
+            if (lc->cmdsize) {
+                lc = (const void *)lc + lc->cmdsize;
+                continue;
+            }
+            break;
+        }
+        STAILQ_INSERT_TAIL(&aiind->image_entries, ied, ied_link);
+        aiind->imgcount += 1;
+        free(mh);
+    });
+    _dyld_process_info_release(info);
+
+    return aiind;
+}
+
 #pragma mark -- Tearing down note data --
 
-void destroy_task_crash_info_note_data(struct task_crashinfo_note_data *task_crashinfo_note)
+void
+destroy_task_crash_info_note_data(struct task_crashinfo_note_data *task_crashinfo_note)
 {
     free((void*)task_crashinfo_note->proc_name);
     free((void*)task_crashinfo_note->proc_path);
@@ -1075,7 +1416,8 @@ void destroy_task_crash_info_note_data(struct task_crashinfo_note_data *task_cra
     free(task_crashinfo_note);
 }
 
-void destroy_region_infos_note_data(struct region_infos_note_data *region_infos_note)
+void
+destroy_region_infos_note_data(struct region_infos_note_data *region_infos_note)
 {
     for (uint64_t region_index = 0; region_index < region_infos_note->regions_count; region_index++) {
         const struct region_infos_note_region_data *region = &region_infos_note->regions[region_index];
@@ -1086,4 +1428,31 @@ void destroy_region_infos_note_data(struct region_infos_note_data *region_infos_
     }
     
     free(region_infos_note);
+}
+
+void
+destroy_addrable_bits_note_data(struct note_addrable_bits *nab) {
+    free(nab);
+}
+
+void
+destroy_all_image_infos_note_data(struct all_image_infos_note_data *aiind)
+{
+    struct aii_image_entry_data *ied, *itmp;
+    STAILQ_FOREACH_SAFE(ied, &aiind->image_entries, ied_link, itmp) {
+        free(ied->ied_path);
+        free(ied->ied_seg_addrs);
+        STAILQ_REMOVE(&aiind->image_entries, ied, aii_image_entry_data, ied_link);
+        aiind->imgcount -= 1;
+        free(ied);
+    }
+    assert(STAILQ_EMPTY(&aiind->image_entries));
+    assert(aiind->imgcount == 0);
+    free(aiind);
+}
+
+void
+destroy_process_metadata(struct process_metadata_note_data *pmnd) {
+    free(pmnd->jsonbytes);
+    free(pmnd);
 }

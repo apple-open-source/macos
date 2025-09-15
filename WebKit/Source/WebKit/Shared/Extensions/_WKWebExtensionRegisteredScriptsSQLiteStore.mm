@@ -53,7 +53,7 @@ static NSString *rowFilterStringFromRowKeys(NSArray *keys)
 
     for (NSString *key in keys) {
         NSString *keyWithSingleQuotesEscaped = [key stringByReplacingOccurrencesOfString:@"'" withString:@"''"];
-        [escapedAndQuotedKeys addObject:[NSString stringWithFormat:@"'%@'", keyWithSingleQuotesEscaped]];
+        [escapedAndQuotedKeys addObject:[[NSString alloc] initWithFormat:@"'%@'", keyWithSingleQuotesEscaped]];
     }
 
     return [escapedAndQuotedKeys componentsJoinedByString:@","];
@@ -117,7 +117,7 @@ static NSString *rowFilterStringFromRowKeys(NSArray *keys)
         ASSERT(!errorMessage.length);
         ASSERT(strongSelf->_database);
 
-        auto result = SQLiteDatabaseExecute(strongSelf->_database, [NSString stringWithFormat:@"DELETE FROM registered_scripts WHERE key in (%@)", rowFilterStringFromRowKeys(ids)]);
+        auto result = SQLiteDatabaseExecute(strongSelf->_database, [[NSString alloc] initWithFormat:@"DELETE FROM registered_scripts WHERE key in (%@)", rowFilterStringFromRowKeys(ids)]);
         if (result != SQLITE_DONE) {
             RELEASE_LOG_ERROR(Extensions, "Failed to delete scripts for extension %{private}@.", strongSelf->_uniqueIdentifier);
             errorMessage = @"Failed to delete scripts from registered content scripts storage.";

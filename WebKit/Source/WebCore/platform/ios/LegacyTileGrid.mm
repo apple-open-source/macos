@@ -37,8 +37,9 @@
 #import <functional>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <ranges>
 #import <wtf/MemoryPressureHandler.h>
-#include <wtf/TZoneMallocInlines.h>
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
@@ -134,9 +135,9 @@ bool LegacyTileGrid::dropDistantTiles(unsigned tilesNeeded, double shortestDista
         if (distance <= shortestDistance)
             continue;
         toRemove.append(std::make_pair(distance, index));
-        std::push_heap(toRemove.begin(), toRemove.end(), isFartherAway<TileIndex>);
+        std::ranges::push_heap(toRemove, isFartherAway<TileIndex>);
         if (toRemove.size() > tilesToRemoveCount) {
-            std::pop_heap(toRemove.begin(), toRemove.end(), isFartherAway<TileIndex>);
+            std::ranges::pop_heap(toRemove, isFartherAway<TileIndex>);
             toRemove.removeLast();
         }
     }

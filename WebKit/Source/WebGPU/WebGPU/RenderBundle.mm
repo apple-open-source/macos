@@ -50,20 +50,20 @@ namespace WebGPU {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderBundle);
 
-RenderBundle::RenderBundle(NSArray<RenderBundleICBWithResources*> *resources, RefPtr<RenderBundleEncoder> encoder, const WGPURenderBundleEncoderDescriptor& descriptor, uint64_t commandCount, bool makeSubmitInvalid, HashSet<RefPtr<const BindGroup>>&& bindGroups, Device& device)
+RenderBundle::RenderBundle(NSArray<RenderBundleICBWithResources*> *resources, Vector<WebGPU::BindableResources>&& bindableResources, RefPtr<RenderBundleEncoder> encoder, const WGPURenderBundleEncoderDescriptor& descriptor, uint64_t commandCount, bool makeSubmitInvalid, HashSet<RefPtr<const BindGroup>>&& bindGroups, Device& device)
     : m_device(device)
     , m_renderBundleEncoder(encoder)
     , m_renderBundlesResources(resources)
+    , m_resources(WTFMove(bindableResources))
     , m_descriptor(descriptor)
     , m_descriptorColorFormats(descriptor.colorFormatsSpan())
     , m_bindGroups(bindGroups)
     , m_commandCount(commandCount)
     , m_makeSubmitInvalid(makeSubmitInvalid)
 {
-    if (m_descriptorColorFormats.size())
-        m_descriptor.colorFormats = &m_descriptorColorFormats[0];
+    m_descriptor.colorFormats = m_descriptorColorFormats.size() ? &m_descriptorColorFormats[0] : nullptr;
 
-    ASSERT(m_renderBundleEncoder || m_renderBundlesResources.count);
+    ASSERT(m_renderBundleEncoder || m_renderBundlesResources);
 }
 
 RenderBundle::RenderBundle(Device& device, NSString* errorString)
@@ -76,12 +76,12 @@ RenderBundle::~RenderBundle() = default;
 
 bool RenderBundle::isValid() const
 {
-    return m_renderBundleEncoder || m_renderBundlesResources.count;
+    return m_renderBundleEncoder || m_renderBundlesResources;
 }
 
 void RenderBundle::setLabel(String&& label)
 {
-    m_renderBundlesResources.firstObject.indirectCommandBuffer.label = label;
+    m_renderBundlesResources.firstObject.indirectCommandBuffer.label = label.createNSString().get();
 }
 
 void RenderBundle::replayCommands(RenderPassEncoder& renderPassEncoder) const

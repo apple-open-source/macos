@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2006 James G. Speth (speth@end.com)
  * Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
  *
@@ -37,23 +37,30 @@
 #import "DOMPrivate.h"
 #import "DOMRangeInternal.h"
 #import <JavaScriptCore/APICast.h>
+#import <WebCore/BoundaryPointInlines.h>
 #import <WebCore/CachedImage.h>
+#import <WebCore/ContainerNodeInlines.h>
+#import <WebCore/DocumentInlines.h>
 #import <WebCore/DragImage.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontCascade.h>
 #import <WebCore/GeometryUtilities.h>
+#import <WebCore/HTMLDocument.h>
 #import <WebCore/HTMLLinkElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLTableCellElement.h>
 #import <WebCore/Image.h>
+#import <WebCore/ImageAdapter.h>
 #import <WebCore/JSNode.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LocalFrame.h>
+#import <WebCore/NativeImage.h>
 #import <WebCore/NodeFilter.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/Page.h>
 #import <WebCore/Range.h>
 #import <WebCore/RenderImage.h>
+#import <WebCore/RenderObjectInlines.h>
 #import <WebCore/RenderStyleInlines.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/ScriptController.h>
@@ -259,8 +266,8 @@ Class kitClass(Node* impl)
 {
     switch (impl->nodeType()) {
         case Node::ELEMENT_NODE:
-            if (is<HTMLElement>(*impl))
-                return elementClass(downcast<HTMLElement>(*impl).tagQName(), [DOMHTMLElement class]);
+            if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(*impl))
+                return elementClass(htmlElement->tagQName(), [DOMHTMLElement class]);
             return [DOMElement class];
         case Node::ATTRIBUTE_NODE:
             return [DOMAttr class];
@@ -273,7 +280,7 @@ Class kitClass(Node* impl)
         case Node::COMMENT_NODE:
             return [DOMComment class];
         case Node::DOCUMENT_NODE:
-            if (static_cast<Document*>(impl)->isHTMLDocument())
+            if (is<HTMLDocument>(impl))
                 return [DOMHTMLDocument class];
             return [DOMDocument class];
         case Node::DOCUMENT_TYPE_NODE:
@@ -386,7 +393,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto* link = [self _linkElement];
     if (!link)
         return nil;
-    return link->document().completeURL(link->getAttribute(HTMLNames::hrefAttr));
+    return link->document().completeURL(link->getAttribute(HTMLNames::hrefAttr)).createNSURL().autorelease();
 }
 
 - (NSString *)hrefTarget
@@ -394,7 +401,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto* link = [self _linkElement];
     if (!link)
         return nil;
-    return link->getAttribute(HTMLNames::targetAttr);
+    return link->getAttribute(HTMLNames::targetAttr).createNSString().autorelease();
 }
 
 - (CGRect)hrefFrame
@@ -413,7 +420,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto* link = [self _linkElement];
     if (!link)
         return nil;
-    return link->textContent();
+    return link->textContent().createNSString().autorelease();
 }
 
 - (NSString *)hrefTitle
@@ -421,7 +428,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto* link = [self _linkElement];
     if (!is<HTMLElement>(link))
         return nil;
-    return link->document().displayStringModifiedByEncoding(downcast<HTMLElement>(*link).title());
+    return link->document().displayStringModifiedByEncoding(downcast<HTMLElement>(*link).title()).createNSString().autorelease();
 }
 
 - (CGRect)boundingFrame
@@ -461,7 +468,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     Page* page = core(self)->document().page();
     if (!page)
         return nil;
-    return kit(page->focusController().nextFocusableElement(*core(self)));
+    return kit(page->focusController().nextFocusableElement(*core(self)).element.get());
 }
 
 - (DOMNode *)previousFocusNode
@@ -469,7 +476,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     Page* page = core(self)->document().page();
     if (!page)
         return nil;
-    return kit(page->focusController().previousFocusableElement(*core(self)));
+    return kit(page->focusController().previousFocusableElement(*core(self)).element.get());
 }
 
 #endif // PLATFORM(IOS_FAMILY)
@@ -642,7 +649,7 @@ id <DOMEventTarget> kit(EventTarget* target)
     auto* renderer = core(self)->renderer();
     if (!renderer)
         return nil;
-    return renderer->style().fontCascade().primaryFont().getCTFont();
+    return renderer->style().fontCascade().primaryFont()->getCTFont();
 }
 
 #if PLATFORM(MAC)
@@ -664,7 +671,7 @@ id <DOMEventTarget> kit(EventTarget* target)
 - (NSURL *)_getURLAttribute:(NSString *)name
 {
     auto& element = *core(self);
-    return element.document().completeURL(element.getAttribute(name));
+    return element.document().completeURL(element.getAttribute(name)).createNSURL().autorelease();
 }
 
 - (BOOL)isFocused

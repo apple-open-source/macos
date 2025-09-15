@@ -360,12 +360,17 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         UnicodeString("1/13"),                                            // 04: Md    -> M/d
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 05: MMMd  ->M\u6708d\u65E5
         CharsToUnicodeString("1\\u670813\\u65E5"),                        // 06: MMMMd  ->M\u6708d\u65E5
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // unknown Radar, later altered by rdar://17278425
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u5B63"),         // 07: yQQQ  -> G yQQQ
         CharsToUnicodeString("\\u665a\\u4e0a11:58"),                      // 08: hhmm  ->
         UnicodeString("23:58"),                                           // 09: HHmm  ->
         CharsToUnicodeString("\\u665a\\u4e0a11:58"),                      // 10: jjmm
+#elif APPLE_ICU_CHANGES
+        CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u5B63"),   // 07: yQQQ  -> Gy QQQ
+        CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 08: hhmm  ->
+        UnicodeString("23:58"),                                           // 09: HHmm  ->
+        CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 10: jjmm
 #else
         CharsToUnicodeString("\\u6C11\\u570B88\\u5E74\\u7B2C1\\u5B63"),   // 07: yQQQ  -> Gy QQQ
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 08: hhmm  ->
@@ -373,12 +378,17 @@ void IntlTestDateTimePatternGeneratorAPI::testAPI(/*char *par*/)
         CharsToUnicodeString("\\u4E0B\\u534811:58"),                      // 10: jjmm
 #endif  // APPLE_ICU_CHANGES
         UnicodeString("58:59"),                                           // 11: mmss  ->
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
         CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u6708"),         // 12: yyyyMMMM  -> G y\u5E74M\u670
         CharsToUnicodeString("1\\u670813\\u65E5 \\u9031\\u4E09"),         // 13: MMMEd -> M\u6708d\u65E5 E
         CharsToUnicodeString("13 \\u9031\\u4E09"),                        // 14: Ed    -> d E
         CharsToUnicodeString("\\u665a\\u4e0a11:58:59.123"),               // 15: jmmssSSS -> "ah:mm:ss.SSS"
+#elif APPLE_ICU_CHANGES
+        CharsToUnicodeString("\\u6C11\\u570B 88\\u5E741\\u6708"),         // 12: yyyyMMMM  -> G y\u5E74M\u670
+        CharsToUnicodeString("1\\u670813\\u65E5 \\u9031\\u4E09"),         // 13: MMMEd -> M\u6708d\u65E5 E
+        CharsToUnicodeString("13 \\u9031\\u4E09"),                        // 14: Ed    -> d E
+        CharsToUnicodeString("\\u4E0B\\u534811:58:59.123"),               // 15: jmmssSSS -> "ah:mm:ss.SSS"
 #else
         CharsToUnicodeString("\\u6C11\\u570B88\\u5E741\\u6708"),          // 12: yyyyMMMM  -> Gy\u5E74M\u670
         CharsToUnicodeString("1\\u670813\\u65E5\\u9031\\u4E09"),          // 13: MMMEd -> M\u6708d\u65E5EEE

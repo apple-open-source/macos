@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2014 Frédéric Wang (fred.wang@free.fr). All rights reserved.
  * Copyright (C) 2016 Igalia S.L.
- * Copyright (C) 2016-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -504,7 +504,7 @@ static char32_t mathVariant(char32_t codePoint, MathMLElement::MathVariant mathv
 
 void RenderMathMLToken::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     if (m_mathVariantGlyphDirty)
         updateMathVariantGlyph();
@@ -514,7 +514,7 @@ void RenderMathMLToken::computePreferredLogicalWidths()
         if (mathVariantGlyph.font) {
             m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth = mathVariantGlyph.font->widthForGlyph(mathVariantGlyph.glyph);
             adjustPreferredLogicalWidthsForBorderAndPadding();
-            setPreferredLogicalWidthsDirty(false);
+            clearNeedsPreferredWidthsUpdate();
             return;
         }
     }
@@ -571,13 +571,13 @@ std::optional<LayoutUnit> RenderMathMLToken::firstLineBaseline() const
     return RenderMathMLBlock::firstLineBaseline();
 }
 
-void RenderMathMLToken::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight)
+void RenderMathMLToken::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit pageLogicalHeight)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     layoutFloatingChildren();
@@ -599,7 +599,7 @@ void RenderMathMLToken::layoutBlock(bool relayoutChildren, LayoutUnit pageLogica
 
     adjustLayoutForBorderAndPadding();
 
-    layoutPositionedObjects(relayoutChildren);
+    layoutOutOfFlowBoxes(relayoutChildren);
 
     updateScrollInfoAfterLayout();
 

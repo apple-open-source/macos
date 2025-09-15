@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.developer.hardened-process</key>
 	<true/>
+	<key>com.apple.private.power.notifications-temp</key>
+	<true/>
 	<key>com.apple.networking.ionetworkstack.user-client</key>
 	<true/>
 	<key>com.apple.soundboard.cns</key>

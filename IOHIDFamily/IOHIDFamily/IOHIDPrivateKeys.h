@@ -28,6 +28,7 @@
 #include <sys/cdefs.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDProperties.h>
+#include <IOKit/hid/IOHIDTimeSyncKeys.h>
 #include <IOKit/hid/IOHIDEventServiceKeys_Private.h>
 
 __BEGIN_DECLS
@@ -212,7 +213,6 @@ typedef enum {
     kIOHIDHomeButtonTypeSSHB        = 1,
     kIOHIDHomeButtonTypeNone        = 2
 } IOHIDHomeButtonType;
-
 
 
 __END_DECLS

@@ -1616,16 +1616,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module WKProcessGroup {
-    header "WKProcessGroup.h"
-    export *
-  }
-
-  explicit module WKProcessGroupPrivate {
-    header "WKProcessGroupPrivate.h"
-    export *
-  }
-
   explicit module WKProcessTerminationReason {
     header "WKProcessTerminationReason.h"
     export *

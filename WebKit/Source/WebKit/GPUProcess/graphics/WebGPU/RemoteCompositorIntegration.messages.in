@@ -35,6 +35,7 @@ messages -> RemoteCompositorIntegration Stream {
     void PrepareForDisplay(uint32_t frameIndex) -> (bool dummy) Synchronous NotStreamEncodableReply // Because CanvasRenderingContext::prepareForDisplay() requires the layer contents synchronously, this needs to be Synchronous.
     void PaintCompositedResultsToCanvas(WebCore::RenderingResourceIdentifier imageBuffer, uint32_t bufferIndex) -> () Synchronous
     void Destruct()
+    void UpdateContentsHeadroom(float headroom)
 }
 
 #endif

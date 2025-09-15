@@ -547,6 +547,13 @@ int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struc
 			continue;
 		}
 
+        if (conn->so >= FD_SETSIZE) {
+            os_log_error(OS_LOG_DEFAULT, "%s: Socket descriptor %d exceeds FD_SETSIZE %d.",__FUNCTION__, conn->so, FD_SETSIZE);
+            close(conn->so);
+            conn->so = -1;
+            continue;
+        }
+
         /* Check for the connect attempt to port 139 */
         switch (conn->addr.sa_family) {
             case AF_NETBIOS:

@@ -46,7 +46,7 @@
 #include "ntfs_volume.h"
 
 __private_extern__ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni,
-		MFT_RECORD **m, const BOOL mft_is_locked);
+		MFT_RECORD **m, const NTFS_BOOL mft_is_locked);
 
 /**
  * ntfs_mft_record_map - map and lock an mft record
@@ -71,7 +71,7 @@ __private_extern__ void ntfs_mft_record_unmap(ntfs_inode *ni);
 
 __private_extern__ errno_t ntfs_extent_mft_record_map_ext(ntfs_inode *base_ni,
 		MFT_REF mref, ntfs_inode **nni, MFT_RECORD **nm,
-		const BOOL mft_is_locked);
+		const NTFS_BOOL mft_is_locked);
 
 /**
  * ntfs_extent_mft_record_map - load an extent inode and attach it to its base
@@ -105,7 +105,7 @@ static inline void ntfs_extent_mft_record_unmap(ntfs_inode *ni)
 __private_extern__ errno_t ntfs_mft_record_sync(ntfs_inode *ni);
 
 __private_extern__ errno_t ntfs_mft_mirror_sync(ntfs_volume *vol,
-		const s64 rec_no, const MFT_RECORD *m, const BOOL sync);
+		const s64 rec_no, const MFT_RECORD *m, const NTFS_BOOL sync);
 
 __private_extern__ errno_t ntfs_mft_record_alloc(ntfs_volume *vol,
 		struct vnode_attr *va, struct componentname *cn,

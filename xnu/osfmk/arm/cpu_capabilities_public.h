@@ -114,10 +114,11 @@
 
 #define CAP_BIT_FP_SyncExceptions   73
 
+
 /* Legacy definitions for backwards compatibility */
 #define CAP_BIT_CRC32               CAP_BIT_FEAT_CRC32
 
 /* Total number of FEAT bits. */
-#define CAP_BIT_NB 74
+#define CAP_BIT_NB 80
 
 #endif /* _ARM_CPU_CAPABILITIES_PUBLIC_H */

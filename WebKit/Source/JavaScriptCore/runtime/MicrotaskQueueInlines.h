@@ -35,20 +35,20 @@ inline void MicrotaskQueue::performMicrotaskCheckpoint(VM& vm, NOESCAPE const In
 {
     auto catchScope = DECLARE_CATCH_SCOPE(vm);
     while (!m_queue.isEmpty()) {
-        if (UNLIKELY(vm.executionForbidden())) {
+        if (vm.executionForbidden()) [[unlikely]] {
             clear();
             break;
         }
 
         auto task = m_queue.dequeue();
         auto result = functor(task);
-        if (UNLIKELY(!catchScope.clearExceptionExceptTermination())) {
+        if (!catchScope.clearExceptionExceptTermination()) [[unlikely]] {
             clear();
             break;
         }
 
         vm.callOnEachMicrotaskTick();
-        if (UNLIKELY(!catchScope.clearExceptionExceptTermination())) {
+        if (!catchScope.clearExceptionExceptTermination()) [[unlikely]] {
             clear();
             break;
         }

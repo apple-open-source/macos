@@ -25,11 +25,11 @@
 struct WebKit::RemoteAudioSessionConfiguration {
     String routingContextUID;
     float sampleRate;
-    size_t bufferSize;
-    size_t numberOfOutputChannels;
-    size_t maximumNumberOfOutputChannels;
-    size_t preferredBufferSize;
-    size_t outputLatency;
+    uint64_t bufferSize;
+    uint64_t numberOfOutputChannels;
+    uint64_t maximumNumberOfOutputChannels;
+    uint64_t preferredBufferSize;
+    uint64_t outputLatency;
     bool isMuted;
     bool isActive;
     String sceneIdentifier;
@@ -40,11 +40,11 @@ struct WebKit::RemoteAudioSessionConfiguration {
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(IOS_FAMILY)
 header: "RemoteMediaSessionHelper.h"
-[Nested] enum class WebKit::RemoteMediaSessionHelper::ShouldPause : bool
-[Nested] enum class WebKit::RemoteMediaSessionHelper::HasAvailableTargets : bool
-[Nested] enum class WebKit::RemoteMediaSessionHelper::SupportsAirPlayVideo : bool
-[Nested] enum class WebKit::RemoteMediaSessionHelper::PlayingToAutomotiveHeadUnit : bool
-[Nested] enum class WebKit::RemoteMediaSessionHelper::SuspendedUnderLock : bool
-[Nested] enum class WebKit::RemoteMediaSessionHelper::SupportsSpatialAudioPlayback : bool
+enum class WebCore::ShouldPause : bool
+enum class WebCore::HasAvailableTargets : bool
+enum class WebCore::SupportsAirPlayVideo : bool
+enum class WebCore::PlayingToAutomotiveHeadUnit : bool
+enum class WebCore::SuspendedUnderLock : bool
+enum class WebCore::SupportsSpatialAudioPlayback : bool
 enum class WebKit::RespectSelectionAnchor : bool
 #endif

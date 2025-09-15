@@ -77,7 +77,7 @@ struct GraphicsContextGLExternalImageSourceIOSurfaceHandle {
 struct GraphicsContextGLExternalImageSourceMTLSharedTextureHandle {
     MachSendRight handle;
 };
-using GraphicsContextGLExternalImageSource = std::variant<
+using GraphicsContextGLExternalImageSource = Variant<
     GraphicsContextGLExternalImageSourceIOSurfaceHandle,
     GraphicsContextGLExternalImageSourceMTLSharedTextureHandle
     >;

@@ -576,6 +576,7 @@ extern char smb_symmagic[];
  */
 int smbfs_close_fid(struct smb_share *share, vnode_t vp, int openMode, int close_both,
 		    int *get_mod_date, vfs_context_t context);
+void smbfs_wait_for_async_io(struct smbnode *np);
 int smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
 		vfs_context_t context);
 int smbfs_open(struct smb_share *share, vnode_t vp, int mode, 
@@ -590,6 +591,7 @@ int smbfs_readlink(struct smb_share *share, vnode_t vp, struct uio *uiop,
 int smbfs_getattr(struct smb_share *share, vnode_t vp, struct vnode_attr *vap,
 		  vfs_context_t context);
 int smbfs_do_strategy(struct buf *bp);
+void smbfs_strategy_count_dec(struct smbnode* np);
 
 /*
  * Notify change routines

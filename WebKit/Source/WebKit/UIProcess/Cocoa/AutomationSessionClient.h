@@ -59,7 +59,9 @@ private:
     bool isShowingJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
     void dismissCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
     void acceptCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
-    String messageOfCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
+    std::optional<String> messageOfCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
+    std::optional<String> defaultTextOfCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
+    std::optional<String> userInputOfCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
     void setUserInputForCurrentJavaScriptPromptOnPage(WebAutomationSession&, WebPageProxy&, const String&) override;
     std::optional<API::AutomationSessionClient::JavaScriptDialogType> typeOfCurrentJavaScriptDialogOnPage(WebAutomationSession&, WebPageProxy&) override;
     API::AutomationSessionClient::BrowsingContextPresentation currentPresentationOfPage(WebAutomationSession&, WebPageProxy&) override;
@@ -78,6 +80,8 @@ private:
         bool dismissCurrentJavaScriptDialogForWebView : 1;
         bool acceptCurrentJavaScriptDialogForWebView : 1;
         bool messageOfCurrentJavaScriptDialogForWebView : 1;
+        bool defaultTextOfCurrentJavaScriptDialogForWebView : 1;
+        bool userInputOfCurrentJavaScriptDialogForWebView : 1;
         bool setUserInputForCurrentJavaScriptPromptForWebView : 1;
         bool typeOfCurrentJavaScriptDialogForWebView : 1;
         bool currentPresentationForWebView : 1;

@@ -34,7 +34,7 @@
 static arm_mvfp_info_t cpuid_mvfp_info;
 static arm_debug_info_t cpuid_debug_info;
 
-uint32_t
+MARK_AS_FIXUP_TEXT uint32_t
 machine_read_midr(void)
 {
 	uint64_t midr;

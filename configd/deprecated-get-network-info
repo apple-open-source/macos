@@ -473,6 +473,11 @@ run_skywalk () {
 	/usr/sbin/skywalkctl netstat -s --global			>> skywalk.txt		2>&1
 
 	echo "#"							>> skywalk.txt
+	echo "# skywalkctl netstat -s -o"				>> skywalk.txt
+	echo "#"							>> skywalk.txt
+	/usr/sbin/skywalkctl netstat -s -o				>> skywalk.txt		2>&1
+
+	echo "#"							>> skywalk.txt
 	echo "# skywalkctl interface"					>> skywalk.txt
 	echo "#"							>> skywalk.txt
 	/usr/sbin/skywalkctl interface					>> skywalk.txt		2>&1
@@ -497,6 +502,10 @@ run_skywalk () {
 	echo "#"							>> skywalk.txt
 	/usr/sbin/skywalkctl memory					>> skywalk.txt		2>&1
 
+	echo "#"							>> skywalk.txt
+	echo "# skywalkctl aop"						>> skywalk.txt
+	echo "#"							>> skywalk.txt
+	/usr/sbin/skywalkctl aop					>> skywalk.txt		2>&1
 }
 
 #

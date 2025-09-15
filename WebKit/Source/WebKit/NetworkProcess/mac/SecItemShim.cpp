@@ -67,21 +67,23 @@ static WeakPtr<NetworkProcess>& globalNetworkProcess()
 static std::optional<SecItemResponseData> sendSecItemRequest(SecItemRequestData::Type requestType, CFDictionaryRef query, CFDictionaryRef attributesToMatch = 0)
 {
     if (RunLoop::isMain()) {
-        auto sendSync = globalNetworkProcess()->parentProcessConnection()->sendSync(Messages::SecItemShimProxy::SecItemRequestSync(SecItemRequestData(requestType, query, attributesToMatch)), 0);
+        auto sendSync = globalNetworkProcess()->protectedParentProcessConnection()->sendSync(Messages::SecItemShimProxy::SecItemRequestSync(SecItemRequestData(requestType, query, attributesToMatch)), 0);
         auto [response] = sendSync.takeReplyOr(std::nullopt);
         return response;
     }
 
+    RetainPtr cfQuery = query;
+    RetainPtr cfAttributesToMatch = attributesToMatch;
     std::optional<SecItemResponseData> response;
     BinarySemaphore semaphore;
 
-    RunLoop::main().dispatch([&] {
+    RunLoop::mainSingleton().dispatch([&] {
         if (!globalNetworkProcess()) {
             semaphore.signal();
             return;
         }
 
-        globalNetworkProcess()->parentProcessConnection()->sendWithAsyncReply(Messages::SecItemShimProxy::SecItemRequest(SecItemRequestData(requestType, query, attributesToMatch)), [&](auto reply) {
+        globalNetworkProcess()->protectedParentProcessConnection()->sendWithAsyncReply(Messages::SecItemShimProxy::SecItemRequest(SecItemRequestData(requestType, cfQuery.get(), cfAttributesToMatch.get())), [&](auto reply) {
             if (reply)
                 response = WTFMove(*reply);
 

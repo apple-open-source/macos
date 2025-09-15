@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -47,6 +47,7 @@
 #include "LabelsNodeList.h"
 #include "LocalFrameView.h"
 #include "MutationEvent.h"
+#include "NodeInlines.h"
 #include "NodeRareData.h"
 #include "NodeRenderStyle.h"
 #include "RadioNodeList.h"
@@ -64,7 +65,6 @@
 #include "StaticNodeList.h"
 #include "TemplateContentDocumentFragment.h"
 #include <algorithm>
-#include <variant>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -107,7 +107,7 @@ ALWAYS_INLINE auto ContainerNode::removeAllChildrenWithScriptAssertion(ChildChan
     ASSERT(children.isEmpty());
     collectChildNodes(*this, children);
 
-    if (UNLIKELY(isDocumentFragmentForInnerOuterHTML())) {
+    if (isDocumentFragmentForInnerOuterHTML()) [[unlikely]] {
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         RELEASE_ASSERT(!connectedSubframeCount() && !hasRareData() && !wrapper());
         bool hadElementChild = false;
@@ -130,7 +130,7 @@ ALWAYS_INLINE auto ContainerNode::removeAllChildrenWithScriptAssertion(ChildChan
     } else {
         ASSERT(source == ChildChange::Source::Parser);
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
-        if (UNLIKELY(document().hasMutationObserversOfType(MutationObserverOptionType::ChildList))) {
+        if (document().hasMutationObserversOfType(MutationObserverOptionType::ChildList)) [[unlikely]] {
             ChildListMutationScope mutation(*this);
             for (auto& child : children)
                 mutation.willRemoveChild(child.get());
@@ -150,7 +150,7 @@ ALWAYS_INLINE auto ContainerNode::removeAllChildrenWithScriptAssertion(ChildChan
     {
         Style::ChildChangeInvalidation styleInvalidation(*this, childChange);
 
-        if (UNLIKELY(isShadowRoot() || isInShadowTree()))
+        if (isShadowRoot() || isInShadowTree()) [[unlikely]]
             containingShadowRoot()->willRemoveAllChildren(*this);
 
         Ref<Document> { document() }->nodeChildrenWillBeRemoved(*this);
@@ -241,7 +241,7 @@ ALWAYS_INLINE bool ContainerNode::removeNodeWithScriptAssertion(Node& childToRem
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         Style::ChildChangeInvalidation styleInvalidation(*this, childChange);
 
-        if (UNLIKELY(isShadowRoot() || isInShadowTree()))
+        if (isShadowRoot() || isInShadowTree()) [[unlikely]]
             containingShadowRoot()->resolveSlotsBeforeNodeInsertionOrRemoval();
 
         Ref<Document> { document() }->nodeWillBeRemoved(childToRemove);
@@ -302,7 +302,7 @@ static ContainerNode::ChildChange makeChildChangeForCloneInsertion(ClonedChildIn
 
 template<typename DOMInsertionWork>
 static ALWAYS_INLINE void executeNodeInsertionWithScriptAssertion(ContainerNode& containerNode, Node& child, Node* beforeChild,
-    ContainerNode::ChildChange::Source source, ReplacedAllChildren replacedAllChildren, DOMInsertionWork doNodeInsertion)
+    ContainerNode::ChildChange::Source source, ReplacedAllChildren replacedAllChildren, NOESCAPE const DOMInsertionWork& doNodeInsertion)
 {
     auto childChange = makeChildChangeForInsertion(containerNode, child, beforeChild, source, replacedAllChildren);
 
@@ -312,7 +312,7 @@ static ALWAYS_INLINE void executeNodeInsertionWithScriptAssertion(ContainerNode&
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         Style::ChildChangeInvalidation styleInvalidation(containerNode, childChange);
 
-        if (UNLIKELY(containerNode.isShadowRoot() || containerNode.isInShadowTree()))
+        if (containerNode.isShadowRoot() || containerNode.isInShadowTree()) [[unlikely]]
             containerNode.containingShadowRoot()->resolveSlotsBeforeNodeInsertionOrRemoval();
 
         doNodeInsertion();
@@ -332,14 +332,14 @@ static ALWAYS_INLINE void executeNodeInsertionWithScriptAssertion(ContainerNode&
 }
 
 template<typename DOMInsertionWork>
-static ALWAYS_INLINE void executeParserNodeInsertionIntoIsolatedTreeWithoutNotifyingParent(ContainerNode& containerNode, Node& child, DOMInsertionWork doNodeInsertion)
+static ALWAYS_INLINE void executeParserNodeInsertionIntoIsolatedTreeWithoutNotifyingParent(ContainerNode& containerNode, Node& child, NOESCAPE const DOMInsertionWork& doNodeInsertion)
 {
     {
         WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         ASSERT(!containerNode.inRenderedDocument());
 
-        if (UNLIKELY(containerNode.isShadowRoot() || containerNode.isInShadowTree()))
+        if (containerNode.isShadowRoot() || containerNode.isInShadowTree()) [[unlikely]]
             containerNode.containingShadowRoot()->resolveSlotsBeforeNodeInsertionOrRemoval();
 
         doNodeInsertion();
@@ -437,7 +437,7 @@ static inline bool isChildTypeAllowed(ContainerNode& newParent, Node& child)
 
 static bool containsIncludingHostElements(const Node& possibleAncestor, const Node& node)
 {
-    RefPtr<const Node> currentNode = &node;
+    RefPtr<const Node> currentNode = node;
     do {
         if (currentNode == &possibleAncestor)
             return true;
@@ -504,7 +504,7 @@ ExceptionOr<void> ContainerNode::ensurePreInsertionValidity(Node& newChild, Node
 // https://dom.spec.whatwg.org/#concept-node-ensure-pre-insertion-validity when node is a new DocumentFragment created in "converting nodes into a node"
 ExceptionOr<void> ContainerNode::ensurePreInsertionValidityForPhantomDocumentFragment(NodeVector& newChildren, Node* refChild)
 {
-    if (UNLIKELY(is<Document>(*this))) {
+    if (is<Document>(*this)) [[unlikely]] {
         bool hasSeenElement = false;
         for (auto& child : newChildren) {
             if (!is<Element>(child))
@@ -616,7 +616,7 @@ void ContainerNode::appendChildCommon(Node& child)
 
     child.setParentNode(this);
 
-    if (auto lastChild = protectedLastChild()) {
+    if (RefPtr lastChild = this->lastChild()) {
         child.setPreviousSibling(lastChild.get());
         lastChild->setNextSibling(&child);
     } else
@@ -726,6 +726,11 @@ void ContainerNode::disconnectDescendantFrames()
     disconnectSubframesIfNeeded(*this, SubframeDisconnectPolicy::RootAndDescendants);
 }
 
+LayoutRect ContainerNode::absoluteEventHandlerBounds(bool& /* includesFixedPositionElements */)
+{
+    return LayoutRect();
+}
+
 ExceptionOr<void> ContainerNode::removeChild(Node& oldChild)
 {
     // Check that this node is not "floating".
@@ -758,7 +763,7 @@ void ContainerNode::removeBetween(Node* previousChild, Node* nextChild, Node& ol
 
     destroyRenderTreeIfNeeded(oldChild);
 
-    if (UNLIKELY(hasShadowRootContainingSlots()))
+    if (hasShadowRootContainingSlots()) [[unlikely]]
         shadowRoot()->willRemoveAssignedNode(oldChild);
 
     if (nextChild) {
@@ -1021,19 +1026,25 @@ void ContainerNode::childrenChanged(const ChildChange& change)
                 lists->clearChildNodeListCache();
         }
     }
+
+    if (CheckedPtr cache = document->existingAXObjectCache())
+        cache->childrenChanged(*this);
 }
 
-void ContainerNode::cloneChildNodes(TreeScope& treeScope, ContainerNode& clone)
+void ContainerNode::cloneChildNodes(Document& document, CustomElementRegistry* fallbackRegistry, ContainerNode& clone, size_t currentDepth)
 {
+    if (currentDepth == 1024)
+        return;
+
     NodeVector postInsertionNotificationTargets;
     bool hadElement = false;
     for (RefPtr child = firstChild(); child; child = child->nextSibling()) {
-        Ref clonedChild = child->cloneNodeInternal(treeScope, CloningOperation::SelfWithTemplateContent);
+        Ref clonedChild = child->cloneNodeInternal(document, CloningOperation::SelfWithTemplateContent, fallbackRegistry);
         {
             WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
             ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
-            clonedChild->setTreeScopeRecursively(treeScope);
+            clonedChild->setTreeScopeRecursively(clone.treeScope());
 
             clone.appendChildCommon(clonedChild);
             notifyChildNodeInserted(clone, clonedChild, postInsertionNotificationTargets);
@@ -1041,7 +1052,7 @@ void ContainerNode::cloneChildNodes(TreeScope& treeScope, ContainerNode& clone)
             hadElement = hadElement || is<Element>(clonedChild);
         }
         if (RefPtr childAsContainerNode = dynamicDowncast<ContainerNode>(*child))
-            childAsContainerNode->cloneChildNodes(treeScope, downcast<ContainerNode>(clonedChild));
+            childAsContainerNode->cloneChildNodes(document, fallbackRegistry, downcast<ContainerNode>(clonedChild), currentDepth + 1);
     }
     clone.childrenChanged(makeChildChangeForCloneInsertion(hadElement ? ClonedChildIncludesElements::Yes : ClonedChildIncludesElements::No));
 
@@ -1073,7 +1084,7 @@ static void dispatchChildInsertionEvents(Node& child)
 
     ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isEventDispatchAllowedInSubtree(child));
 
-    RefPtr c = &child;
+    RefPtr c = child;
     if (c->parentNode() && document->hasListenerType(Document::ListenerType::DOMNodeInserted))
         c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeInsertedEvent, Event::CanBubble::Yes, c->protectedParentNode().get()));
 
@@ -1114,7 +1125,7 @@ ExceptionOr<Element*> ContainerNode::querySelector(const String& selectors)
 
 ExceptionOr<Ref<NodeList>> ContainerNode::querySelectorAll(const String& selectors)
 {
-    auto document = protectedDocument();
+    Ref document = this->document();
     if (auto results = document->resultForSelectorAll(*this, selectors))
         return Ref<NodeList> { StaticWrapperNodeList::create(results.releaseNonNull()) };
     auto query = document->selectorQueryForString(selectors);
@@ -1205,7 +1216,7 @@ ExceptionOr<void> ContainerNode::prepend(FixedVector<NodeOrString>&& vector)
     if (result.hasException())
         return result.releaseException();
 
-    RefPtr nextChild = protectedFirstChild();
+    RefPtr nextChild = firstChild();
     auto newChildren = result.releaseReturnValue();
     if (auto checkResult = ensurePreInsertionValidityForPhantomDocumentFragment(newChildren, nextChild.get()); checkResult.hasException())
         return checkResult;

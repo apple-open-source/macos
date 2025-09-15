@@ -56,17 +56,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit SendCVPixelBuffer(const RetainPtr<CVPixelBufferRef>& s0)
-        : m_arguments(s0)
+        : m_s0(s0)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_s0;
     }
 
 private:
-    std::tuple<const RetainPtr<CVPixelBufferRef>&> m_arguments;
+    SUPPRESS_FORWARD_DECL_MEMBER const RetainPtr<CVPixelBufferRef>& m_s0;
 };
 #endif
 
@@ -86,13 +87,16 @@ public:
     using ReplyArguments = std::tuple<RetainPtr<CVPixelBufferRef>>;
     using Reply = CompletionHandler<void(RetainPtr<CVPixelBufferRef>&&)>;
     using Promise = WTF::NativePromise<RetainPtr<CVPixelBufferRef>, IPC::Error>;
-    auto&& arguments()
+    ReceiveCVPixelBuffer()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 #endif
 

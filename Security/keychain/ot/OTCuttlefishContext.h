@@ -88,7 +88,8 @@ NS_ASSUME_NONNULL_BEGIN
                                            CKKSCloudKitAccountStateListener,
                                            CKKSPeerUpdateListener,
                                            OTDeviceInformationNameUpdateListener,
-                                           OTAccountSettingsContainer>
+                                           OTAccountSettingsContainer,
+                                           EscrowChecker>
 
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly) OTFollowup *followupHandler;
@@ -114,6 +115,7 @@ NS_ASSUME_NONNULL_BEGIN
 // Dependencies (for injection)
 @property (readonly) id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer> accountStateTracker;
 @property (readonly) id<OTDeviceInformationAdapter> deviceAdapter;
+@property (readonly) id<OTSecureBackupAdapter> secureBackupAdapter;
 @property (readonly) id<OTAccountsAdapter> accountsAdapter;
 @property (readonly) id<OTAuthKitAdapter> authKitAdapter;
 @property (readonly) id<OTPersonaAdapter> personaAdapter;
@@ -141,6 +143,7 @@ NS_ASSUME_NONNULL_BEGIN
                   reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
                   accountStateTracker:(id<CKKSCloudKitAccountStateTrackingProvider, CKKSOctagonStatusMemoizer>)accountStateTracker
              deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
+                  secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                    escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
                         notifierClass:(Class<CKKSNotifier>)notifierClass
@@ -192,6 +195,7 @@ NS_ASSUME_NONNULL_BEGIN
       idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
                   notifyIdMS:(bool)notifyIdMS
              accountSettings:(OTAccountSettings *_Nullable)accountSettings
+                  accountIsW:(BOOL)accountIsW
                        reply:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason
@@ -318,6 +322,9 @@ NS_ASSUME_NONNULL_BEGIN
 // called when circle changed notification fires
 - (void)moveToCheckTrustedState;
 
+// called when passcode stash is available via cache flow
+- (void)passcodeStashAvailable;
+
 - (OTOperationDependencies*)operationDependencies;
 
 - (void)waitForOctagonUpgrade:(void (^)(NSError* _Nullable error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
@@ -330,7 +337,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)rpcFetchTotalCountOfTrustedPeers:(void (^)(NSNumber* count, NSError* replyError))reply;
 
+- (void)rpcFetchCountOfTrustedFullPeers:(void (^)(NSNumber* count, NSError* replyError))reply;
+
 - (void)rerollWithReply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)icscRepairResetWithReply:(void (^)(NSError *_Nullable error))reply;
 
 // Used to reset CKKS's trust status if CKKS mistakenly thinks it's not trusted.
 - (BOOL)recheckCKKSTrustStatus:(NSError**)error;
@@ -338,7 +349,6 @@ NS_ASSUME_NONNULL_BEGIN
 // For testing.
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
-- (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
 - (void)rpcResetAccountCDPContentsWithIdmsTargetContext:(NSString *_Nullable)idmsTargetContext
                                  idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
@@ -351,7 +361,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) TPPolicyVersion* policyOverride;
 
 // Octagon Health Check Helpers
-- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck repair:(BOOL)repair reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply;
+- (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck
+                    repair:(BOOL)repair
+       danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                updateIdMS:(BOOL)updateIdMS
+                     reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError * _Nullable error))reply;
+- (void)checkEscrowCheck:(BOOL)isBackgroundCheck reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply;
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;

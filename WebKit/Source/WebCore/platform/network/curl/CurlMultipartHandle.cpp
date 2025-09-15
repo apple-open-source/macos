@@ -122,7 +122,7 @@ bool CurlMultipartHandle::processContent()
 {
     switch (m_state) {
     case State::FindBoundaryStart:
-        FALLTHROUGH;
+        [[fallthrough]];
     case State::InBody: {
         auto result = findBoundary();
         if (result.isSyntaxError) {
@@ -132,10 +132,10 @@ bool CurlMultipartHandle::processContent()
         }
 
         if (m_state == State::InBody && result.dataEnd)
-            m_client->didReceiveDataFromMultipart({ m_buffer.data(), result.dataEnd });
+            m_client->didReceiveDataFromMultipart(m_buffer.span().first(result.dataEnd));
 
         if (result.processed)
-            m_buffer.remove(0, result.processed);
+            m_buffer.removeAt(0, result.processed);
 
         if (!result.hasBoundary || result.hasCloseDelimiter) {
             if (m_didCompleteMessage) {
@@ -205,7 +205,7 @@ CurlMultipartHandle::FindBoundaryResult CurlMultipartHandle::findBoundary()
     FindBoundaryResult result;
 
     auto contentLength = m_buffer.size();
-    const auto contentStartPtr = m_buffer.data();
+    const auto contentStartPtr = m_buffer.span().data();
     const auto contentEndPtr = contentStartPtr + contentLength;
 
     auto boundaryLength = m_boundary.length();
@@ -275,7 +275,7 @@ CurlMultipartHandle::ParseHeadersResult CurlMultipartHandle::parseHeadersIfPossi
     static const auto maxHeaderSize = 300 * 1024;
 
     auto contentLength = m_buffer.size();
-    const auto contentStartPtr = m_buffer.data();
+    const auto contentStartPtr = m_buffer.span().data();
 
     // Check if we have the header closing strings.
     const uint8_t* end = nullptr;
@@ -312,7 +312,7 @@ CurlMultipartHandle::ParseHeadersResult CurlMultipartHandle::parseHeadersIfPossi
         m_headers.append(makeString(name, ": "_s, value, "\r\n"_s));
     }
 
-    m_buffer.remove(0, end - contentStartPtr);
+    m_buffer.removeAt(0, end - contentStartPtr);
     return ParseHeadersResult::Success;
 }
 

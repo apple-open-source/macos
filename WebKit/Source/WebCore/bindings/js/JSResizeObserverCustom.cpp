@@ -46,7 +46,7 @@ DEFINE_VISIT_ADDITIONAL_CHILDREN(JSResizeObserver);
 bool JSResizeObserverOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, JSC::AbstractSlotVisitor& visitor, ASCIILiteral* reason)
 {
     if (JSC::jsCast<JSResizeObserver*>(handle.slot()->asCell())->wrapped().isReachableFromOpaqueRoots(visitor)) {
-        if (UNLIKELY(reason))
+        if (reason) [[unlikely]]
             *reason = "Reachable from observed nodes"_s;
         return true;
     }

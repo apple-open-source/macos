@@ -1,4 +1,6 @@
+import CloudKitCode
 import Foundation
+import InternalSwiftProtobuf
 
 extension ViewKey {
     static func convert(ckksKey: CKKSKeychainBackedKey) -> ViewKey {

@@ -554,6 +554,11 @@ vm_size_t pmap_compute_io_filters(void);
 void pmap_load_io_filters(void);
 #endif /* HAS_GUARDED_IO_FILTER */
 
+#if DEBUG || DEVELOPMENT
+/* Track number of instances a WC/RT mapping request is converted to Device-GRE. */
+static _Atomic unsigned int pmap_wcrt_on_non_dram_count = 0;
+#endif /* DEBUG || DEVELOPMENT */
+
 /**
  * This function is called once during pmap_bootstrap() to allocate and
  * initialize many of the core data structures that are implemented in this
@@ -3603,10 +3608,9 @@ pmap_compute_io_rgns(void)
 			    __func__, i, ranges[i].addr, ranges[i].len);
 		}
 
-		if (((ranges[i].addr <= gPhysBase) && (rgn_end > gPhysBase)) ||
-		    ((ranges[i].addr < avail_end) && (rgn_end >= avail_end)) ||
-		    ((ranges[i].addr > gPhysBase) && (rgn_end < avail_end))) {
-			panic("%s: %u addr 0x%llx length 0x%llx overlaps physical memory",
+		if (!(ranges[i].wimg & PMAP_IO_RANGE_NOT_IO) &&
+		    !(ranges[i].addr >= avail_end || rgn_end <= gPhysBase)) {
+			panic("%s: I/O %u addr 0x%llx length 0x%llx overlaps physical memory",
 			    __func__, i, ranges[i].addr, ranges[i].len);
 		}
 
@@ -4338,3 +4342,25 @@ pmap_flush_noncoherent_page(pmap_paddr_t paddr __unused)
 	panic("%s called on unsupported configuration", __func__);
 #endif /* HAS_DC_INCPA */
 }
+
+#if DEBUG || DEVELOPMENT
+/**
+ * Get the value of the WC/RT on non-DRAM mapping request counter.
+ *
+ * @return The value of the counter.
+ */
+unsigned int
+pmap_wcrt_on_non_dram_count_get()
+{
+	return os_atomic_load(&pmap_wcrt_on_non_dram_count, relaxed);
+}
+
+/**
+ * Atomically increment the WC/RT on non-DRAM mapping request counter.
+ */
+void
+pmap_wcrt_on_non_dram_count_increment_atomic()
+{
+	os_atomic_inc(&pmap_wcrt_on_non_dram_count, relaxed);
+}
+#endif /* DEBUG || DEVELOPMENT */

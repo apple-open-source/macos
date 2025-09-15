@@ -22,6 +22,7 @@
 #include "JSTestNamedSetterWithLegacyUnforgeableProperties.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
@@ -238,7 +239,7 @@ bool JSTestNamedSetterWithLegacyUnforgeableProperties::put(JSCell* cell, JSGloba
     auto* thisObject = jsCast<JSTestNamedSetterWithLegacyUnforgeableProperties*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
-    if (UNLIKELY(thisObject != putPropertySlot.thisValue()))
+    if (thisObject != putPropertySlot.thisValue()) [[unlikely]]
         return JSObject::put(thisObject, lexicalGlobalObject, propertyName, value, putPropertySlot);
     auto throwScope = DECLARE_THROW_SCOPE(lexicalGlobalObject->vm());
 
@@ -250,7 +251,7 @@ bool JSTestNamedSetterWithLegacyUnforgeableProperties::put(JSCell* cell, JSGloba
         RETURN_IF_EXCEPTION(throwScope, false);
         if (!found) {
             auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
-            if (UNLIKELY(nativeValue.hasException(throwScope)))
+            if (nativeValue.hasException(throwScope)) [[unlikely]]
                 return true;
             invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().setNamedItem(propertyNameToString(propertyName), nativeValue.releaseReturnValue()); });
             return true;
@@ -286,7 +287,7 @@ bool JSTestNamedSetterWithLegacyUnforgeableProperties::putByIndex(JSCell* cell, 
     RETURN_IF_EXCEPTION(throwScope, false);
     if (!found) {
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
-        if (UNLIKELY(nativeValue.hasException(throwScope)))
+        if (nativeValue.hasException(throwScope)) [[unlikely]]
             return true;
         invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().setNamedItem(propertyNameToString(propertyName), nativeValue.releaseReturnValue()); });
         return true;
@@ -319,7 +320,7 @@ static bool isLegacyUnforgeablePropertyName(PropertyName propertyName)
                 if (!propertyDescriptor.isDataDescriptor())
                     return typeError(lexicalGlobalObject, throwScope, shouldThrow, "Cannot set named properties on this object"_s);
                 auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, propertyDescriptor.value());
-                if (UNLIKELY(nativeValue.hasException(throwScope)))
+                if (nativeValue.hasException(throwScope)) [[unlikely]]
                     return true;
                 invokeFunctorPropagatingExceptionIfNecessary(*lexicalGlobalObject, throwScope, [&] { return thisObject->wrapped().setNamedItem(propertyNameToString(propertyName), nativeValue.releaseReturnValue()); });
                 return true;
@@ -339,7 +340,7 @@ bool JSTestNamedSetterWithLegacyUnforgeableProperties::deleteProperty(JSCell* ce
 
     // Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {
-        if (UNLIKELY(document->quirks().needsConfigurableIndexedPropertiesQuirk()))
+        if (document->quirks().needsConfigurableIndexedPropertiesQuirk()) [[unlikely]]
             return JSObject::deleteProperty(cell, lexicalGlobalObject, propertyName, slot);
     }
 
@@ -359,7 +360,7 @@ bool JSTestNamedSetterWithLegacyUnforgeableProperties::deletePropertyByIndex(JSC
 
     // Temporary quirk for ungap/@custom-elements polyfill (rdar://problem/111008826), consider removing in 2025.
     if (auto* document = dynamicDowncast<Document>(jsDynamicCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext())) {
-        if (UNLIKELY(document->quirks().needsConfigurableIndexedPropertiesQuirk()))
+        if (document->quirks().needsConfigurableIndexedPropertiesQuirk()) [[unlikely]]
             return JSObject::deletePropertyByIndex(cell, lexicalGlobalObject, index);
     }
 
@@ -378,7 +379,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNamedSetterWithLegacyUnforgeablePropertiesConstru
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestNamedSetterWithLegacyUnforgeablePropertiesPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestNamedSetterWithLegacyUnforgeableProperties::getConstructor(vm, prototype->globalObject()));
 }
@@ -413,7 +414,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestNamedSetterWithLegacyUnforgeablePropertiesInstanc
 
 JSC::GCClient::IsoSubspace* JSTestNamedSetterWithLegacyUnforgeableProperties::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestNamedSetterWithLegacyUnforgeableProperties, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestNamedSetterWithLegacyUnforgeableProperties, UseCustomHeapCellType::No>(vm, "JSTestNamedSetterWithLegacyUnforgeableProperties"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestNamedSetterWithLegacyUnforgeableProperties.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNamedSetterWithLegacyUnforgeableProperties = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestNamedSetterWithLegacyUnforgeableProperties.get(); },
@@ -453,7 +454,9 @@ extern "C" { extern void (*const __identifier("??_7TestNamedSetterWithLegacyUnfo
 #else
 extern "C" { extern void* _ZTVN7WebCore46TestNamedSetterWithLegacyUnforgeablePropertiesE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestNamedSetterWithLegacyUnforgeableProperties>, void>> static inline void verifyVTable(TestNamedSetterWithLegacyUnforgeableProperties* ptr) {
+template<std::same_as<TestNamedSetterWithLegacyUnforgeableProperties> T>
+static inline void verifyVTable(TestNamedSetterWithLegacyUnforgeableProperties* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

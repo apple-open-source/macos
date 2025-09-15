@@ -22,11 +22,11 @@
 #pragma once
 
 #include "CSSAttrValue.h"
+#include "CSSCalcValue.h"
 #include "CSSPrimitiveNumericUnits.h"
 #include "CSSPropertyNames.h"
 #include "CSSValue.h"
 #include "CSSValueKeywords.h"
-#include "ExceptionOr.h"
 #include "LayoutUnit.h"
 #include <utility>
 #include <wtf/Forward.h>
@@ -34,13 +34,14 @@
 
 namespace WebCore {
 
-class CSSCalcValue;
 class CSSToLengthConversionData;
 class FontCascade;
 class RenderStyle;
 class RenderView;
 
 struct Length;
+
+template<typename> class ExceptionOr;
 
 // Max/min values for CSS, needs to slightly smaller/larger than the true max/min values to allow for rounding without overflowing.
 // Subtract two (rather than one) to allow for values to be converted to float and back without exceeding the LayoutUnit::max.
@@ -129,9 +130,6 @@ public:
     static Ref<CSSPrimitiveValue> createFontFamily(String);
     bool isFontFamily() const { return primitiveUnitType() == CSSUnitType::CSS_FONT_FAMILY; }
 
-    static Ref<CSSPrimitiveValue> createURI(String);
-    bool isURI() const { return primitiveUnitType() == CSSUnitType::CSS_URI; }
-
     static inline CSSPrimitiveValue& implicitInitialValue();
 
     ~CSSPrimitiveValue();
@@ -181,8 +179,6 @@ public:
     template<typename T = double> T resolveAsLength(const CSSToLengthConversionData&) const;
     template<typename T = double> T resolveAsLengthNoConversionDataRequired() const;
     template<typename T = double> T resolveAsLengthDeprecated() const;
-    bool convertingToLengthHasRequiredConversionData(int lengthConversion, const CSSToLengthConversionData&) const;
-    template<int> Length convertToLength(const CSSToLengthConversionData&) const;
 
     // MARK: Non-converting
     template<typename T = double> T value(const CSSToLengthConversionData& conversionData) const { return clampTo<T>(doubleValue(conversionData)); }
@@ -202,9 +198,11 @@ public:
 
     WEBCORE_EXPORT String stringValue() const;
     const CSSCalcValue* cssCalcValue() const { return isCalculated() ? m_value.calc : nullptr; }
+    RefPtr<const CSSCalcValue> protectedCssCalcValue() const { return cssCalcValue(); }
     const CSSAttrValue* cssAttrValue() const { return isAttr() ? m_value.attr : nullptr; }
+    RefPtr<const CSSAttrValue> protectedCssAttrValue() const { return cssAttrValue(); }
 
-    String customCSSText() const;
+    String customCSSText(const CSS::SerializationContext&) const;
 
     bool equals(const CSSPrimitiveValue&) const;
 
@@ -213,7 +211,7 @@ public:
 
     void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
 
-    IterationStatus customVisitChildren(const Function<IterationStatus(CSSValue&)>&) const;
+    IterationStatus customVisitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>&) const;
 
 private:
     friend class CSSValuePool;
@@ -265,7 +263,7 @@ private:
 
     bool addDerivedHash(Hasher&) const;
 
-    ALWAYS_INLINE String serializeInternal() const;
+    ALWAYS_INLINE String serializeInternal(const CSS::SerializationContext&) const;
     NEVER_INLINE String formatNumberValue(ASCIILiteral suffix) const;
     NEVER_INLINE String formatIntegerValue(ASCIILiteral suffix) const;
     static constexpr bool isFontIndependentLength(CSSUnitType);
@@ -752,6 +750,12 @@ inline bool isValueID(const RefPtr<CSSValue>& value, CSSValueID id)
 inline bool isValueID(const Ref<CSSValue>& value, CSSValueID id)
 {
     return isValueID(value.get(), id);
+}
+
+inline bool isCustomIdentValue(const CSSValue& value)
+{
+    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    return primitiveValue && primitiveValue->isCustomIdent();
 }
 
 inline bool CSSValue::isValueID() const

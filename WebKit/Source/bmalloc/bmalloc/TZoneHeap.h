@@ -35,6 +35,7 @@
 
 #include "Algorithm.h"
 #include "BInline.h"
+#include "CompactAllocationMode.h"
 
 #define BUSE_TZONE_SPEC_NAME_ARG 0
 #if BUSE_TZONE_SPEC_NAME_ARG
@@ -116,11 +117,20 @@ struct SizeAndAlignment {
 struct TZoneSpecification {
     HeapRef* addressOfHeapRef;
     unsigned size;
+    CompactAllocationMode allocationMode;
     SizeAndAlignment::Value sizeAndAlignment;
 #if BUSE_TZONE_SPEC_NAME_ARG
     const char* name;
 #endif
 };
+
+template<typename T>
+inline constexpr CompactAllocationMode compactAllocationMode()
+{
+    if constexpr (requires { std::remove_pointer_t<T>::allowCompactPointers; })
+        return std::remove_pointer_t<T>::allowCompactPointers ? CompactAllocationMode::Compact : CompactAllocationMode::NonCompact;
+    return CompactAllocationMode::NonCompact;
+}
 
 BEXPORT void determineTZoneMallocFallback();
 
@@ -136,6 +146,7 @@ public: \
     using HeapRef = ::bmalloc::api::HeapRef; \
     using SizeAndAlignment = ::bmalloc::api::SizeAndAlignment; \
     using TZoneMallocFallback = ::bmalloc::api::TZoneMallocFallback; \
+    using CompactAllocationMode = ::bmalloc::CompactAllocationMode; \
 private: \
     static _exportMacro HeapRef s_heapRef; \
     static _exportMacro const TZoneSpecification s_heapSpec; \
@@ -155,9 +166,11 @@ public: \
     \
     void* operator new(size_t size) \
     { \
-        if (BUNLIKELY(!s_heapRef || size != sizeof(_type))) \
+        if (!s_heapRef || size != sizeof(_type)) [[unlikely]] \
             BMUST_TAIL_CALL return operatorNewSlow(size); \
         BASSERT(::bmalloc::api::tzoneMallocFallback > TZoneMallocFallback::ForceDebugMalloc); \
+        if constexpr (::bmalloc::api::compactAllocationMode<_type>() == CompactAllocationMode::Compact) \
+            return ::bmalloc::api::tzoneAllocateCompact(s_heapRef); \
         return ::bmalloc::api::tzoneAllocate ## _compactMode(s_heapRef); \
     } \
     \
@@ -171,7 +184,7 @@ public: \
         ::bmalloc::api::tzoneFree(p); \
     } \
     \
-    using WTFIsFastAllocated = int;
+    using WTFIsFastMallocAllocated = int;
 
 #define MAKE_BTZONE_MALLOCED_COMMON_NON_TEMPLATE(_type, _compactMode, _exportMacro) \
 private: \
@@ -181,7 +194,9 @@ private: \
 private: \
     static _exportMacro BNO_INLINE void* operatorNewSlow(size_t size) \
     { \
-        static const TZoneSpecification s_heapSpec = { &s_heapRef, sizeof(_type), SizeAndAlignment::encode<_type>() TZONE_SPEC_NAME_ARG(#_type) }; \
+        static const TZoneSpecification s_heapSpec = { &s_heapRef, sizeof(_type), ::bmalloc::api::compactAllocationMode<_type>(), SizeAndAlignment::encode<_type>() TZONE_SPEC_NAME_ARG(#_type) }; \
+        if constexpr (::bmalloc::api::compactAllocationMode<_type>() == CompactAllocationMode::Compact) \
+            return ::bmalloc::api::tzoneAllocateCompactSlow(size, s_heapSpec); \
         return ::bmalloc::api::tzoneAllocate ## _compactMode ## Slow(size, s_heapSpec); \
     }
 

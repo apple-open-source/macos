@@ -134,7 +134,6 @@ private:
     void takeElementScreenshot(RefPtr<JSON::Object>&&, Function<void (CommandResult&&)>&&);
 
 #if ENABLE(WEBDRIVER_BIDI)
-    // BiDi message handlers
     void bidiSessionStatus(unsigned id, RefPtr<JSON::Object>&&, Function<void (WebSocketMessageHandler::Message&&)>&&);
     void bidiSessionSubscribe(unsigned id, RefPtr<JSON::Object>&&, Function<void (WebSocketMessageHandler::Message&&)>&&);
     void bidiSessionUnsubscribe(unsigned id, RefPtr<JSON::Object>&&, Function<void (WebSocketMessageHandler::Message&&)>&&);
@@ -171,18 +170,20 @@ private:
         BidiCommandHandler handler;
     };
     static const BidiCommand s_bidiCommands[];
-    static bool findBidiCommand(RefPtr<JSON::Value>&, BidiCommandHandler*, unsigned& id, RefPtr<JSON::Object>& parsedParams);
+    static bool findBidiCommand(const RefPtr<JSON::Object>&, BidiCommandHandler*, RefPtr<JSON::Object>& parsedParams);
 #endif // ENABLE(WEBDRIVER_BIDI)
 
     HTTPServer m_server;
 #if ENABLE(WEBDRIVER_BIDI)
-    WebSocketServer m_bidiServer;
+    const Ref<WebSocketServer> m_bidiServer;
     SessionHost::BrowserTerminatedObserver m_browserTerminatedObserver;
 #endif
     RefPtr<Session> m_session;
 
     String m_targetAddress;
     uint16_t m_targetPort { 0 };
+
+    bool m_replaceOnNewSession { false };
 };
 
 } // namespace WebDriver

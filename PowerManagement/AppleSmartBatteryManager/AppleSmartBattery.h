@@ -40,6 +40,11 @@
 
 #define kBatteryPollingDebugKey     "BatteryPollingPeriodOverride"
 
+#if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX_AS
+class AppleBatteryAuth;
+class AppleGasGaugeUpdate;
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX_AS
+
 class AppleSmartBatteryManager;
 class AppleSmartBatteryHFDataClient;
 

@@ -90,6 +90,7 @@
 #include <sys/protosw.h>
 
 #include <kern/queue.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <net/if.h>

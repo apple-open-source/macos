@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,6 @@
 #include "RemoteCDMInstanceSessionProxy.h"
 #include "RemoteCDMProxy.h"
 #include <WebCore/CDMFactory.h>
-#include <wtf/Algorithms.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
@@ -67,7 +66,7 @@ static CDMFactory* factoryForKeySystem(const String& keySystem)
     return factories[foundIndex];
 }
 
-void RemoteCDMFactoryProxy::createCDM(const String& keySystem, CompletionHandler<void(std::optional<RemoteCDMIdentifier>&&, RemoteCDMConfiguration&&)>&& completion)
+void RemoteCDMFactoryProxy::createCDM(const String& keySystem, const String& mediaKeysHashSalt, CompletionHandler<void(std::optional<RemoteCDMIdentifier>&&, RemoteCDMConfiguration&&)>&& completion)
 {
     auto factory = factoryForKeySystem(keySystem);
     if (!factory) {
@@ -75,7 +74,7 @@ void RemoteCDMFactoryProxy::createCDM(const String& keySystem, CompletionHandler
         return;
     }
 
-    auto privateCDM = factory->createCDM(keySystem, *this);
+    auto privateCDM = factory->createCDM(keySystem, mediaKeysHashSalt, *this);
     if (!privateCDM) {
         completion(std::nullopt, { });
         return;
@@ -168,7 +167,7 @@ void RemoteCDMFactoryProxy::removeInstance(const RemoteCDMInstanceIdentifier& id
     m_instances.remove(identifier);
     auto connection = m_gpuConnectionToWebProcess.get();
     if (connection && allowsExitUnderMemoryPressure())
-        connection->protectedGPUProcess()->tryExitIfUnusedAndUnderMemoryPressure();
+        connection->gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
 }
 
 RemoteCDMInstanceProxy* RemoteCDMFactoryProxy::getInstance(const RemoteCDMInstanceIdentifier& identifier)

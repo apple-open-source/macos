@@ -45,6 +45,7 @@
 #endif
 
 #if USE(LIBDRM)
+#include "LibDRMUtilities.h"
 #include <drm_fourcc.h>
 #include <xf86drm.h>
 #endif
@@ -86,8 +87,10 @@ static gboolean wpeDisplayHeadlessConnect(WPEDisplay*, GError**)
 static WPEView* wpeDisplayHeadlessCreateView(WPEDisplay* display)
 {
     auto* view = wpe_view_headless_new(WPE_DISPLAY_HEADLESS(display));
-    GRefPtr<WPEToplevel> toplevel = adoptGRef(wpe_toplevel_headless_new(WPE_DISPLAY_HEADLESS(display)));
-    wpe_view_set_toplevel(view, toplevel.get());
+    if (wpe_settings_get_boolean(wpe_display_get_settings(display), WPE_SETTING_CREATE_VIEWS_WITH_A_TOPLEVEL, nullptr)) {
+        GRefPtr<WPEToplevel> toplevel = adoptGRef(wpe_toplevel_headless_new(WPE_DISPLAY_HEADLESS(display)));
+        wpe_view_set_toplevel(view, toplevel.get());
+    }
     return view;
 }
 
@@ -151,27 +154,7 @@ static gpointer wpeDisplayHeadlessGetEGLDisplay(WPEDisplay* display, GError** er
 static void wpeDisplayHeadlessInitializeDRMDevices(WPEDisplayHeadless* display)
 {
     auto* priv = display->priv;
-    priv->drmDevice = CString();
-    priv->drmRenderNode = CString();
-
-    drmDevicePtr devices[64];
-    memset(devices, 0, sizeof(devices));
-
-    int numDevices = drmGetDevices2(0, devices, std::size(devices));
-    if (numDevices <= 0)
-        return;
-
-    for (int i = 0; i < numDevices && priv->drmDevice->isNull(); ++i) {
-        drmDevice* device = devices[i];
-        if (!(device->available_nodes & (1 << DRM_NODE_PRIMARY | 1 << DRM_NODE_RENDER)))
-            continue;
-
-        if (device->available_nodes & (1 << DRM_NODE_RENDER))
-            priv->drmRenderNode = CString(device->nodes[DRM_NODE_RENDER]);
-        if (device->available_nodes & (1 << DRM_NODE_PRIMARY))
-            priv->drmDevice = CString(device->nodes[DRM_NODE_PRIMARY]);
-    }
-    drmFreeDevices(devices, numDevices);
+    std::tie(priv->drmDevice, priv->drmRenderNode) = lookupNodesWithLibDRM();
 }
 
 static const char* wpeDisplayHeadlessGetDRMDevice(WPEDisplay* display)

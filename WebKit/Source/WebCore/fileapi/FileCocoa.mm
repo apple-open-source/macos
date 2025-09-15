@@ -44,7 +44,7 @@ bool File::shouldReplaceFile(const String& path)
         return false;
 
     NSError *error;
-    NSURL *pathURL = [NSURL URLByResolvingAliasFileAtURL:[NSURL fileURLWithPath:path isDirectory:NO] options:NSURLBookmarkResolutionWithoutUI error:&error];
+    RetainPtr pathURL = [NSURL URLByResolvingAliasFileAtURL:[NSURL fileURLWithPath:path.createNSString().get() isDirectory:NO] options:NSURLBookmarkResolutionWithoutUI error:&error];
     if (!pathURL) {
         LOG_ERROR("Failed to resolve alias at path %s with error %@.\n", path.utf8().data(), error);
         return false;
@@ -52,7 +52,7 @@ bool File::shouldReplaceFile(const String& path)
 
     UTType *uti;
     if (![pathURL getResourceValue:&uti forKey:NSURLContentTypeKey error:&error]) {
-        LOG_ERROR("Failed to get type identifier of resource at URL %@ with error %@.\n", pathURL, error);
+        LOG_ERROR("Failed to get type identifier of resource at URL %@ with error %@.\n", pathURL.get(), error);
         return false;
     }
 

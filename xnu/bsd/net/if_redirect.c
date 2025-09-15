@@ -292,7 +292,7 @@ redirect_enqueue_pkt(struct nx_netif *nif, struct __kern_packet *pkt,
 	int err;
 
 	if (NX_LLINK_PROV(nif->nif_nx) &&
-	    ifp->if_traffic_rule_count > 0 &&
+	    ifp->if_inet_traffic_rule_count > 0 &&
 	    nxctl_inet_traffic_rule_find_qset_id_with_pkt(ifp->if_xname,
 	    pkt, &qset_id) == 0) {
 		struct netif_qset * __single qset;
@@ -304,11 +304,11 @@ redirect_enqueue_pkt(struct nx_netif *nif, struct __kern_packet *pkt,
 		qset = nx_netif_find_qset(nif, qset_id);
 		ASSERT(qset != NULL);
 		pkt->pkt_qset_idx = qset->nqs_idx;
-		err = ifnet_enqueue_ifcq_pkt(ifp, qset->nqs_ifcq, pkt, flush, drop);
+		err = ifnet_enqueue_pkt(ifp, qset->nqs_ifcq, pkt, flush, drop);
 		nx_netif_qset_release(&qset);
 	} else {
 		/* callee consumes packet */
-		err = ifnet_enqueue_pkt(ifp, pkt, flush, drop);
+		err = ifnet_enqueue_pkt(ifp, ifp->if_snd, pkt, flush, drop);
 	}
 	return err;
 }
@@ -474,11 +474,11 @@ redirect_nx_ring_init(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 		return ENXIO;
 	}
 	if (is_tx_ring) {
-		_CASSERT(RD_MAX_TX_RINGS == 1);
+		static_assert(RD_MAX_TX_RINGS == 1);
 		VERIFY(rd->rd_tx_ring[0] == NULL);
 		rd->rd_tx_ring[0] = ring;
 	} else {
-		_CASSERT(RD_MAX_RX_RINGS == 1);
+		static_assert(RD_MAX_RX_RINGS == 1);
 		VERIFY(rd->rd_rx_ring[0] == NULL);
 		rd->rd_rx_ring[0] = ring;
 	}
@@ -1393,7 +1393,7 @@ redirect_set_delegate(if_redirect_t rd, ifnet_t delegate_ifp)
 	}
 	ASSERT(rd->rd_delegate_ifp == NULL);
 
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		RDLOG_ERR("failed to get self reference");
 		DTRACE_SKYWALK2(ifp__detaching, if_redirect_t, rd, ifnet_t, ifp);
 		error = ENXIO;
@@ -1413,7 +1413,7 @@ redirect_set_delegate(if_redirect_t rd, ifnet_t delegate_ifp)
 	ASSERT(!rd->rd_delegate_parent_set);
 	rd->rd_delegate_parent_set = TRUE;
 
-	if (!ifnet_is_attached(delegate_ifp, 1)) {
+	if (!ifnet_get_ioref(delegate_ifp)) {
 		RDLOG_ERR("failed to get delegate reference");
 		DTRACE_SKYWALK2(delegate__detaching, if_redirect_t, rd,
 		    ifnet_t, delegate_ifp);
@@ -1483,7 +1483,7 @@ redirect_set_delegate(if_redirect_t rd, ifnet_t delegate_ifp)
 	 * Check that the delegate is still attached. If not, the detach notify above
 	 * could've been missed and we would have to cleanup everything here.
 	 */
-	if (!ifnet_is_attached(delegate_ifp, 0)) {
+	if (!ifnet_is_fully_attached(delegate_ifp)) {
 		RDLOG_ERR("delegate %s detached during setup", if_name(delegate_ifp));
 		DTRACE_SKYWALK2(delegate__detached, if_redirect_t, rd,
 		    ifnet_t, delegate_ifp);

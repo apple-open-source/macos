@@ -49,6 +49,7 @@ unsigned FunctionIPIntMetadataGenerator::addSignature(const TypeDefinition& sign
 
 void FunctionIPIntMetadataGenerator::setTailCall(uint32_t functionIndex, bool isImportedFunctionFromFunctionIndexSpace)
 {
+    m_hasTailCallSuccessors = true;
     m_tailCallSuccessors.set(functionIndex);
     if (isImportedFunctionFromFunctionIndexSpace)
         setTailCallClobbersInstance();
@@ -61,7 +62,7 @@ void FunctionIPIntMetadataGenerator::addLength(size_t length)
     };
     size_t size = m_metadata.size();
     m_metadata.grow(size + sizeof(instructionLength));
-    WRITE_TO_METADATA(m_metadata.data() + size, instructionLength, IPInt::InstructionLengthMetadata);
+    WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, instructionLength, IPInt::InstructionLengthMetadata);
 }
 
 void FunctionIPIntMetadataGenerator::addLEB128ConstantInt32AndLength(uint32_t value, size_t length)
@@ -72,7 +73,7 @@ void FunctionIPIntMetadataGenerator::addLEB128ConstantInt32AndLength(uint32_t va
     };
     size_t size = m_metadata.size();
     m_metadata.grow(size + sizeof(mdConst));
-    WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::Const32Metadata);
+    WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::Const32Metadata);
 }
 
 void FunctionIPIntMetadataGenerator::addLEB128ConstantAndLengthForType(Type type, uint64_t value, size_t length)
@@ -84,23 +85,23 @@ void FunctionIPIntMetadataGenerator::addLEB128ConstantAndLengthForType(Type type
                 .length = safeCast<uint8_t>((value >> 7) & 1)
             };
             m_metadata.grow(size + sizeof(mdConst));
-            WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::InstructionLengthMetadata);
+            WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::InstructionLengthMetadata);
         } else {
             IPInt::Const32Metadata mdConst {
                 .instructionLength = { .length = safeCast<uint8_t>(length) },
                 .value = static_cast<uint32_t>(value)
             };
             m_metadata.grow(size + sizeof(mdConst));
-            WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::Const32Metadata);
+            WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::Const32Metadata);
         }
     } else if (type.isI64()) {
         size_t size = m_metadata.size();
         IPInt::Const64Metadata mdConst {
-            .instructionLength = { .length = safeCast<uint8_t>(length) },
-            .value = static_cast<uint64_t>(value)
+            .value = static_cast<uint64_t>(value),
+            .instructionLength = { .length = safeCast<uint8_t>(length) }
         };
         m_metadata.grow(size + sizeof(mdConst));
-        WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::Const64Metadata);
+        WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::Const64Metadata);
     } else if (type.isRef() || type.isRefNull() || type.isFuncref()) {
         size_t size = m_metadata.size();
         IPInt::Const32Metadata mdConst {
@@ -108,7 +109,7 @@ void FunctionIPIntMetadataGenerator::addLEB128ConstantAndLengthForType(Type type
             .value = static_cast<uint32_t>(value)
         };
         m_metadata.grow(size + sizeof(mdConst));
-        WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::Const32Metadata);
+        WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::Const32Metadata);
     } else if (!type.isF32() && !type.isF64())
         ASSERT_NOT_IMPLEMENTED_YET();
 }
@@ -116,17 +117,16 @@ void FunctionIPIntMetadataGenerator::addLEB128ConstantAndLengthForType(Type type
 void FunctionIPIntMetadataGenerator::addLEB128V128Constant(v128_t value, size_t length)
 {
     IPInt::Const128Metadata mdConst {
-        .instructionLength = { .length = safeCast<uint8_t>(length) },
-        .value = value
+        .value = value,
+        .instructionLength = { .length = safeCast<uint8_t>(length) }
     };
     size_t size = m_metadata.size();
     m_metadata.grow(size + sizeof(mdConst));
-    WRITE_TO_METADATA(m_metadata.data() + size, mdConst, IPInt::Const128Metadata);
+    WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, mdConst, IPInt::Const128Metadata);
 }
 
-void FunctionIPIntMetadataGenerator::addReturnData(const FunctionSignature& sig)
+void FunctionIPIntMetadataGenerator::addReturnData(const FunctionSignature& sig, const CallInformation& returnCC)
 {
-    CallInformation returnCC = wasmCallingConvention().callInformationFor(sig, CallRole::Callee);
     m_uINTBytecode.reserveInitialCapacity(sig.returnCount() + 1);
     // uINT: the interpreter smaller than mINT
     // 0x00-0x07: r0 - r7
@@ -139,29 +139,37 @@ void FunctionIPIntMetadataGenerator::addReturnData(const FunctionSignature& sig)
     ASSERT_UNUSED(NUM_UINT_GPRS, wasmCallingConvention().jsrArgs.size() <= NUM_UINT_GPRS);
     ASSERT_UNUSED(NUM_UINT_FPRS, wasmCallingConvention().fprArgs.size() <= NUM_UINT_FPRS);
 
-    for (size_t i = 0; i < sig.returnCount(); ++i) {
-        auto loc = returnCC.results[i].location;
-
-        if (loc.isGPR()) {
+    m_uINTBytecode.appendUsingFunctor(returnCC.results.size(),
+        [&](unsigned index) -> uint8_t {
+            auto loc = returnCC.results[index].location;
+            if (loc.isGPR()) {
 #if USE(JSVALUE64)
-            ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().gpr()) < NUM_UINT_GPRS);
-            m_uINTBytecode.append(static_cast<uint8_t>(IPInt::UIntBytecode::RetGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr()));
+                ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().gpr()) < NUM_UINT_GPRS);
+                return static_cast<uint8_t>(IPInt::UIntBytecode::RetGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr());
 #elif USE(JSVALUE32_64)
-            ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) < NUM_UINT_GPRS);
-            ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().tagGPR()) < NUM_UINT_GPRS);
-            m_uINTBytecode.append(static_cast<uint8_t>(IPInt::UIntBytecode::RetGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord)));
+                ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) < NUM_UINT_GPRS);
+                ASSERT_UNUSED(NUM_UINT_GPRS, GPRInfo::toArgumentIndex(loc.jsr().tagGPR()) < NUM_UINT_GPRS);
+                return static_cast<uint8_t>(IPInt::UIntBytecode::RetGPR) + GPRInfo::toArgumentIndex(loc.jsr().gpr(WhichValueWord::PayloadWord));
 #endif
-        } else if (loc.isFPR()) {
-            ASSERT_UNUSED(NUM_UINT_FPRS, FPRInfo::toArgumentIndex(loc.fpr()) < NUM_UINT_FPRS);
-            m_uINTBytecode.append(static_cast<uint8_t>(IPInt::UIntBytecode::RetFPR) + FPRInfo::toArgumentIndex(loc.fpr()));
-        } else if (loc.isStack()) {
-            m_highestReturnStackOffset = loc.offsetFromFP();
-            m_uINTBytecode.append(static_cast<uint8_t>(IPInt::UIntBytecode::Stack));
-        }
-    }
+            }
+
+            if (loc.isFPR()) {
+                ASSERT_UNUSED(NUM_UINT_FPRS, FPRInfo::toArgumentIndex(loc.fpr()) < NUM_UINT_FPRS);
+                return static_cast<uint8_t>(IPInt::UIntBytecode::RetFPR) + FPRInfo::toArgumentIndex(loc.fpr());
+            }
+
+            if (loc.isStack()) {
+                m_highestReturnStackOffset = loc.offsetFromFP();
+                return static_cast<uint8_t>(IPInt::UIntBytecode::Stack);
+            }
+
+            return 0;
+        });
+
     m_uINTBytecode.reverse();
     m_uINTBytecode.append(static_cast<uint8_t>(IPInt::UIntBytecode::End));
 }
+
 
 } }
 

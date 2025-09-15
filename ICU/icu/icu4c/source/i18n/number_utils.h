@@ -49,7 +49,11 @@ inline bool unitIsCurrency(const MeasureUnit& unit) {
 }
 
 inline bool unitIsBaseUnit(const MeasureUnit& unit) {
+#if APPLE_ICU_CHANGES // rdar://137998419
+    return uprv_strcmp("none", unit.getType()) == 0;
+#else
     return unit == MeasureUnit();
+#endif
 }
 
 inline bool unitIsPercent(const MeasureUnit& unit) {

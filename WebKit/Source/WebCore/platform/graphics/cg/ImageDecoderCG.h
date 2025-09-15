@@ -51,6 +51,7 @@ public:
     size_t bytesDecodedToDetermineProperties() const final;
 
     EncodedDataStatus encodedDataStatus() const final;
+    bool hasHDRGainMap() const final;
     IntSize size() const final { return IntSize(); }
     size_t frameCount() const final;
     size_t primaryFrameIndex() const final;
@@ -67,7 +68,6 @@ public:
 
     Seconds frameDurationAtIndex(size_t) const final;
     bool frameHasAlphaAtIndex(size_t) const final;
-    unsigned frameBytesAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const final;
 
     bool fetchFrameMetaDataAtIndex(size_t, SubsamplingLevel, const DecodingOptions&, ImageFrame&) const final;
 

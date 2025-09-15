@@ -35,7 +35,6 @@
 #include <WebCore/MediaDecodingConfiguration.h>
 #include <WebCore/MediaEncodingConfiguration.h>
 #include <WebCore/MediaEngineConfigurationFactory.h>
-#include <wtf/Algorithms.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {

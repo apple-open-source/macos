@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,7 +96,7 @@ RunLoop::~RunLoop()
 
 void RunLoop::run()
 {
-    Ref runLoop = RunLoop::current();
+    Ref runLoop = RunLoop::currentSingleton();
     GMainContext* mainContext = runLoop->m_mainContext.get();
 
     // The innermost main loop should always be there.
@@ -157,8 +157,9 @@ void RunLoop::notify(RunLoop::Event event, const char* name)
     });
 }
 
-RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& runLoop)
+RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& runLoop, ASCIILiteral description)
     : m_runLoop(WTFMove(runLoop))
+    , m_description(description)
     , m_source(adoptGRef(g_source_new(&RunLoop::s_runLoopSourceFunctions, sizeof(RunLoopSource))))
 {
     auto& runLoopSource = *reinterpret_cast<RunLoopSource*>(m_source.get());

@@ -38,7 +38,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "CKKSPowerCollection.h"
@@ -92,7 +91,7 @@
     }
 
     [self.deps.overallLaunch addEvent:@"heal-tlk-shares-begin"];
-    
+
     AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
                                                                                        altDSID:self.deps.activeAccount.altDSID
                                                                                      eventName:kSecurityRTCEventNameHealTLKShares
@@ -107,18 +106,18 @@
 
         if(self.failedDueToEssentialTrustState) {
             self.nextState = CKKSStateLoseTrust;
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:nil];
+            [eventS sendMetricWithResult:NO error:nil];
         } else if(self.cloudkitWriteFailures) {
             ckksnotice_global("ckksheal", "Due to write failures, we'll retry later");
             self.nextState = CKKSStateHealTLKSharesFailed;
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:nil];
+            [eventS sendMetricWithResult:NO error:nil];
         } else {
             self.nextState = self.intendedState;
             if (self.failedDueToLockState) {
                 [eventS addMetrics:@{kSecurityRTCFieldIsLocked:@(NO)}];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:nil];
+                [eventS sendMetricWithResult:NO error:nil];
             } else {
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                [eventS sendMetricWithResult:YES error:nil];
             }
         }
     }];
@@ -189,7 +188,7 @@
                 ckkserror("ckksshare", viewState.zoneID, "couldn't load current tlk from keychain: %@", tlkLoadError);
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateUnhealthy;
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:NO error:tlkLoadError];
+            [createMissingSharesEventS sendMetricWithResult:NO error:tlkLoadError];
             return;
         }
     }
@@ -208,13 +207,15 @@
             NSSet<CKKSTLKShareRecord*>* newTrustShares = [CKKSHealTLKSharesOperation createMissingKeyShares:keyset
                                                                                                       peers:trustState
                                                                                            databaseProvider:self.deps.databaseProvider
+                                                                                                    altDSID:self.deps.activeAccount.altDSID
+                                                                                                 sendMetric:self.deps.sendMetric
                                                                                                       error:&stateError];
 
             if(newTrustShares && !stateError) {
                 [newShares unionSet:newTrustShares];
             } else {
                 ckksnotice("ckksshare", keyset.tlk, "Unable to create shares for trust set %@: %@", trustState, stateError);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:NO error:stateError];
+                [createMissingSharesEventS sendMetricWithResult:NO error:stateError];
                 if(trustState.essential) {
                     if(([stateError.domain isEqualToString:TrustedPeersHelperErrorDomain] && stateError.code == TrustedPeersHelperErrorCodeNoPreparedIdentity) ||
                        ([stateError.domain isEqualToString:CKKSErrorDomain] && stateError.code == CKKSLackingTrust) ||
@@ -223,13 +224,13 @@
 
                         viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTrust;
                         self.failedDueToEssentialTrustState = YES;
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:NO error:createSharesError];
+                        [createMissingSharesEventS sendMetricWithResult:NO error:createSharesError];
                         return;
 
                     } else {
                         ckkserror("ckksshare", viewState.zoneID, "Unable to create shares: %@", createSharesError);
                         viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateUnhealthy;
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:NO error:nil];
+                        [createMissingSharesEventS sendMetricWithResult:NO error:nil];
                         return;
                     }
                 }
@@ -238,14 +239,13 @@
         }
     }
 
+    [createMissingSharesEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(newShares.count)}];
+    [createMissingSharesEventS sendMetricWithResult:YES error:nil];
     if(newShares.count == 0u) {
         ckksnotice("ckksshare", viewState.zoneID, "Don't believe we need to change any TLKShares, stopping");
         return;
     }
 
-    [createMissingSharesEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(newShares.count)}];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:createMissingSharesEventS success:YES error:nil];
-    
     keyset.pendingTLKShares = [newShares allObjects];
 
     // Let's double-check: if we upload these TLKShares, will the world be right?
@@ -261,7 +261,6 @@
     }
 
     // Fire up our CloudKit operations!
-    __block int numSavedRecords = 0;
     __block BOOL didSucceed = YES;
 
     AAFAnalyticsEventSecurity *uploadMissingTLKSharesEventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{kSecurityRTCFieldIsPrioritized:@(NO)}
@@ -284,7 +283,7 @@
         CKKSResultOperation* cloudkitModifyOperationFinished = [CKKSResultOperation named:[NSString stringWithFormat:@"heal-tlkshares-%@", viewState.zoneID.zoneName] withBlock:^{
             // If this is the last batch of uploads, send our event for TLK Shares upload.
             if ((newShares.count - startIndx) <= BATCH_SIZE) {
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadMissingTLKSharesEventS success:didSucceed error:nil];
+                [uploadMissingTLKSharesEventS sendMetricWithResult:didSucceed error:nil];
             }
         }];
         [self dependOnBeforeGroupFinished: cloudkitModifyOperationFinished];
@@ -329,8 +328,6 @@
                     // Success. Persist the records to the CKKS database
                     ckksnotice("ckksshare",  viewState.zoneID, "Completed TLK Share heal operation with success");
                     NSError* localerror = nil;
-
-                    numSavedRecords += savedRecords.count;
 
                     // Save the new CKRecords to the database
                     for(CKRecord* record in savedRecords) {
@@ -380,6 +377,8 @@
         NSSet<id<CKKSPeer>>* peersMissingShares = [CKKSHealTLKSharesOperation filterTrustedPeers:trustState
                                                                              missingTLKSharesFor:keyset
                                                                                 databaseProvider:self.deps.databaseProvider
+                                                                                         altDSID:self.deps.activeAccount.altDSID
+                                                                                      sendMetric:self.deps.sendMetric
                                                                                            error:&localError];
         if(peersMissingShares == nil || localError) {
             if(trustState.essential) {
@@ -406,6 +405,8 @@
 + (NSSet<CKKSTLKShareRecord*>* _Nullable)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                     trustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
                                                databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
+                                                        altDSID:(NSString*)altDSID
+                                                     sendMetric:(BOOL)sendMetric
                                                           error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
@@ -418,6 +419,8 @@
         NSSet<CKKSTLKShareRecord*>* newTrustShares = [self createMissingKeyShares:keyset
                                                                             peers:trustState
                                                                  databaseProvider:databaseProvider
+                                                                          altDSID:altDSID
+                                                                       sendMetric:sendMetric
                                                                             error:&stateError];
 
 
@@ -445,6 +448,8 @@
 + (NSSet<CKKSTLKShareRecord*>*)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                 peers:(CKKSPeerProviderState*)trustState
                                      databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
+                                              altDSID:(NSString*)altDSID
+                                           sendMetric:(BOOL)sendMetric
                                                 error:(NSError* __autoreleasing*)error
 {
     NSError* localerror = nil;
@@ -463,6 +468,8 @@
     NSSet<id<CKKSPeer>>* remainingPeers = [self filterTrustedPeers:trustState
                                                missingTLKSharesFor:keyset
                                                   databaseProvider:databaseProvider
+                                                           altDSID:altDSID
+                                                        sendMetric:sendMetric
                                                              error:&localerror];
     if(!remainingPeers) {
         ckkserror("ckksshare", keyset.tlk, "Unable to find peers missing TLKShares: %@", localerror);
@@ -510,6 +517,8 @@
 + (NSSet<id<CKKSPeer>>* _Nullable)filterTrustedPeers:(CKKSPeerProviderState*)peerState
                                  missingTLKSharesFor:(CKKSCurrentKeySet*)keyset
                                     databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
+                                             altDSID:(NSString*)altDSID
+                                          sendMetric:(BOOL)sendMetric
                                                error:(NSError**)error
 {
     if(peerState.currentTrustedPeersError) {
@@ -528,6 +537,15 @@
     }
 
     NSMutableSet<id<CKKSPeer>>* peersMissingShares = [NSMutableSet set];
+
+    AAFAnalyticsEventSecurity *evaluateExistingTLKShares = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                       altDSID:altDSID
+                                                                                     eventName:kSecurityRTCEventNameEvaluateTLKShares
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:sendMetric];
+    int numPeers = 1;
+    int numTLKSharesEvaluated = 0;
 
     // Ensure that the 'self peer' is one of the current trusted peers. Otherwise, any TLKShare we create
     // won't be considered trusted the next time through...
@@ -552,6 +570,7 @@
             continue;
         }
 
+        numPeers++;
         __block NSError* loadError = nil;
         __block NSArray<CKKSTLKShareRecord*>* existingTLKSharesForPeer = nil;
 
@@ -589,6 +608,7 @@
 
         for(CKKSTLKShareRecord* existingShare in tlkShares) {
             @autoreleasepool {
+                numTLKSharesEvaluated++;
                 // Ensure this share is to this peer...
                 if(![existingShare.share.receiverPeerID isEqualToString:peer.peerID]) {
                     continue;
@@ -652,6 +672,13 @@
         ckksnotice("ckksshare", keyset.tlk, "Self peers are (%@) %@", peerState.currentSelfPeersError ?: @"no error", peerState.currentSelfPeers);
         ckksnotice("ckksshare", keyset.tlk, "Trusted peers are (%@) %@", peerState.currentTrustedPeersError ?: @"no error", peerState.currentTrustedPeers);
     }
+
+    [evaluateExistingTLKShares addMetrics:@{
+        kSecurityRTCFieldPeersEvaluatedForTLKShares: @(numPeers),
+        kSecurityRTCFieldNumPeersMissingShares: @(peersMissingShares.count),
+        kSecurityRTCFieldNumTLKSharesEvaluated: @(numTLKSharesEvaluated)
+    }];
+    [evaluateExistingTLKShares sendMetricWithResult:peerState.currentTrustedPeersError ? NO : YES error:peerState.currentTrustedPeersError];
 
     return peersMissingShares;
 }

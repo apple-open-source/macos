@@ -537,6 +537,7 @@ struct nfs_options_client expected_options;
 	writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "ro", (void *) MNT_RDONLY);
 	writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "sync", (void *) MNT_SYNCHRONOUS);
 	writeArgToOptions(NFSTESTS_OPTIONS_NFSVERS, "4.0", (void *) 4);
+	writeArgToOptions(NFSTESTS_OPTIONS_MINOR_NFSVERS, "0", (void *) 0);
 	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, "65536", (void *) 65536);
 	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, "4096", (void *) 4096);
 	writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, "32k", (void *) 32768);

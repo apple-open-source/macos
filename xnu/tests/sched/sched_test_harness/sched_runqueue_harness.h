@@ -22,7 +22,7 @@ extern void      increment_mock_time_us(uint64_t added_us);
 /* Specifying a runqueue */
 typedef enum {
 	TEST_RUNQ_TARGET_TYPE_CPU,
-	TEST_RUNQ_TARGET_TYPE_CLUSTER,
+	TEST_RUNQ_TARGET_TYPE_PSET,
 } test_runq_target_type_t;
 
 typedef struct {
@@ -33,7 +33,7 @@ typedef struct {
 extern test_runq_target_t default_target;
 
 extern int get_default_cpu(void);
-extern test_runq_target_t cluster_target(int cluster_id);
+extern test_runq_target_t pset_target(int cluster_id);
 extern test_runq_target_t cpu_target(int cpu_id);
 
 /* Test harness utilities */
@@ -45,6 +45,7 @@ extern test_thread_t         create_thread(int th_sched_bucket, struct thread_gr
 extern void                  set_thread_sched_mode(test_thread_t thread, int mode);
 extern void                  set_thread_processor_bound(test_thread_t thread, int cpu_id);
 extern void                  cpu_set_thread_current(int cpu_id, test_thread_t thread);
+extern test_thread_t         cpu_clear_thread_current(int cpu_id);
 extern bool                  runqueue_empty(test_runq_target_t runq_target);
 extern void                  enqueue_thread(test_runq_target_t runq_target, test_thread_t thread);
 extern void                  enqueue_threads(test_runq_target_t runq_target, int num_threads, ...);
@@ -60,3 +61,6 @@ extern bool                  tracepoint_expect(uint64_t trace_code, uint64_t arg
 extern void                  disable_auto_current_thread(void);
 extern void                  reenable_auto_current_thread(void);
 extern bool                  cpu_check_should_yield(int cpu_id, bool yield_expected);
+
+/* Realtime thread utilities */
+extern void                  set_thread_realtime(test_thread_t thread, uint32_t period, uint32_t computation, uint32_t constraint, bool preemptible, uint8_t priority_offset, uint64_t deadline);

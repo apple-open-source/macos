@@ -78,7 +78,7 @@ static void tests(void)
 {
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_30_keychain_upgrade", ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+        CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
         
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
             /* Create a new keychain sqlite db */

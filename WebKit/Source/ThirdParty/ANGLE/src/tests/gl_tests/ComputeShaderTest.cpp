@@ -2288,6 +2288,90 @@ TEST_P(ComputeShaderTest, ExceedCombinedShaderOutputResourcesInCS)
     EXPECT_EQ(0u, computeProgram);
 }
 
+// Tests running a compute shader writing to separate components on SSBO without explicit barrier.
+// Based on dEQP test: KHR-GLES31.core.shader_storage_buffer_object.advanced-switchBuffers-cs
+TEST_P(ComputeShaderTest, WriteToSeparateSSBOComponentsWithoutExplicitBarrier)
+{
+    constexpr char kCS[] = R"(#version 310 es
+precision highp float;
+precision highp int;
+
+layout(local_size_x = 1) in;
+layout(binding = 0, std430) buffer Input {
+    uint cookie[4];
+} g_in;
+
+layout(binding = 1, std430) buffer Output {
+    uvec4 digest;
+};
+
+void main()
+{
+    uint sum = g_in.cookie[0] + g_in.cookie[1] + g_in.cookie[2] + g_in.cookie[3];
+    switch (sum)
+    {
+        case 0x000000FFu:
+            digest.x = 0xFF000000u;
+            break;
+        case 0x0000FF00u:
+            digest.y = 0x00FF0000u;
+            break;
+        case 0x00FF0000u:
+            digest.z = 0x0000FF00u;
+            break;
+        case 0xFF000000u:
+            digest.w = 0x000000FFu;
+            break;
+        default:
+            break;
+   }
+})";
+    ANGLE_GL_COMPUTE_PROGRAM(program, kCS);
+    EXPECT_GL_NO_ERROR();
+    glUseProgram(program);
+
+    GLBuffer ssboIn[4];
+    GLBuffer ssboOut;
+
+    const GLubyte data0[] = {0, 0, 0, 0x11, 0, 0, 0, 0x44, 0, 0, 0, 0x88, 0, 0, 0, 0x22};
+    const GLubyte data1[] = {0, 0, 0x44, 0, 0, 0, 0x22, 0, 0, 0, 0x88, 0, 0, 0, 0x11, 0};
+    const GLubyte data2[] = {0, 0x88, 0, 0, 0, 0x11, 0, 0, 0, 0x44, 0, 0, 0, 0x22, 0, 0};
+    const GLubyte data3[] = {0x22, 0, 0, 0, 0x88, 0, 0, 0, 0x11, 0, 0, 0, 0x44, 0, 0, 0};
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn[0]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data0), data0, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn[1]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data1), data1, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn[2]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data2), data2, GL_STATIC_DRAW);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboIn[3]);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(data3), data3, GL_STATIC_DRAW);
+
+    const GLubyte dataZero[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssboOut);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(dataZero), dataZero, GL_STATIC_DRAW);
+
+    // Since the write is expected to occur on separate components on the output SSBO, no explicit
+    // barrier is used between the dispatch calls.
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssboIn[i]);
+        glDispatchCompute(1, 1, 1);
+    }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssboOut);
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+    auto actualOutput = static_cast<GLuint *>(
+        glMapBufferRange(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data0), GL_MAP_READ_BIT));
+    EXPECT_NE(actualOutput, nullptr);
+
+    GLuint expectedOutput[4] = {0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF};
+    for (uint32_t i = 0; i < 4; i++)
+    {
+        EXPECT_EQ(actualOutput[i], expectedOutput[i]) << "Failed at index " << i;
+    }
+}
+
 // Test that uniform block with struct member in compute shader is supported.
 TEST_P(ComputeShaderTest, UniformBlockWithStructMember)
 {
@@ -4376,6 +4460,207 @@ void main() {
         glMapBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(GLuint), GL_MAP_READ_BIT));
     EXPECT_EQ(kVertexCount * 2, mappedBuffer[0]);
     glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+}
+
+// This test mirrors a dEQP test that is failing on some platforms
+//  - KHR-GLES31.core.shader_image_load_store.advanced-sync-vertexArray
+// The test has three pipelines:
+//  - First uses a vertex shader to store data to images
+//  - Second uses a compute shader to read from those images and store to buffers
+//  - Third uses those buffers as vertex input to render a color
+// It does this twice with different colors, and we were failing the second pass.
+// http://anglebug.com/416573908
+TEST_P(ComputeShaderTest, AdvancedSyncVertexArray)
+{
+    GLint maxVertexImageUniforms = 0;
+    glGetIntegerv(GL_MAX_VERTEX_IMAGE_UNIFORMS, &maxVertexImageUniforms);
+    ANGLE_SKIP_TEST_IF(maxVertexImageUniforms < 3);
+
+    constexpr char kCopyCS[] = R"(#version 310 es
+#define KSIZE 4
+layout (local_size_x = KSIZE) in;
+
+layout(rgba32f, binding = 0) readonly uniform highp image2D  positionImage;
+layout(rgba32f, binding = 1) readonly uniform highp image2D  colorImage;
+layout(r32ui,   binding = 2) readonly uniform highp uimage2D elementImage;
+
+layout(std430, binding = 1) buffer positionBuffer {
+    vec2 position[KSIZE];
+};
+layout(std430, binding = 2) buffer colorBuffer {
+    vec4 color[KSIZE];
+};
+layout(std430, binding = 3) buffer elementBuffer {
+    uint element[KSIZE];
+};
+
+void main() {
+    ivec2 coord = ivec2(gl_LocalInvocationID.x, 0);
+
+    position[coord.x] = imageLoad(positionImage, coord).xy;
+       color[coord.x] = imageLoad(colorImage, coord);
+     element[coord.x] = uint(imageLoad(elementImage, coord).x);
+})";
+
+    constexpr char kStoreVS[] = R"(#version 310 es
+layout(rgba32f, binding = 0) writeonly uniform highp image2D positionImage;
+layout(rgba32f, binding = 1) writeonly uniform highp image2D colorImage;
+layout(r32ui,   binding = 2) writeonly uniform highp uimage2D elementImage;
+
+uniform vec4 inColor;
+
+void main() {
+    vec2[4] data = vec2[4](vec2(-1, -1), vec2(1, -1), vec2(-1, 1), vec2(1, 1));
+
+    imageStore(positionImage, ivec2(gl_VertexID, 0), vec4(data[gl_VertexID], 0.0, 1.0));
+    imageStore(colorImage,    ivec2(gl_VertexID, 0), inColor);
+    imageStore(elementImage,  ivec2(gl_VertexID, 0), uvec4(gl_VertexID));
+})";
+
+    constexpr char kStoreFS[] = R"(#version 310 es
+precision mediump float;
+
+void main() {
+    discard;
+})";
+
+    constexpr char kDrawVS[] = R"(#version 310 es
+layout(location = 0) in vec4 inPosition;
+layout(location = 1) in vec4 inColor;
+
+out vec4 vsColor;
+
+void main() {
+    gl_Position = inPosition;
+    vsColor     = inColor;
+})";
+
+    constexpr char kDrawFS[] = R"(#version 310 es
+precision mediump float;
+
+in vec4 vsColor;
+layout(location = 0) out vec4 outColor;
+
+void main() {
+    outColor = vsColor;
+})";
+
+    // The store program writes values to images
+    ANGLE_GL_PROGRAM(storeProgram, kStoreVS, kStoreFS);
+    // The compute program copies from images to buffers
+    ANGLE_GL_COMPUTE_PROGRAM(copyProgram, kCopyCS);
+    // The draw program reads from vertex input buffers
+    ANGLE_GL_PROGRAM(drawProgram, kDrawVS, kDrawFS);
+    EXPECT_GL_NO_ERROR();
+
+    GLint inColorLoc = glGetUniformLocation(storeProgram, "inColor");
+    ASSERT_NE(inColorLoc, -1);
+
+    GLuint texture[3];
+    glGenTextures(3, texture);
+    glBindTexture(GL_TEXTURE_2D, texture[0]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 4, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, texture[1]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA32F, 4, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_2D, texture[2]);
+    glTexStorage2D(GL_TEXTURE_2D, 1, GL_R32UI, 4, 1);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    EXPECT_GL_NO_ERROR();
+
+    GLuint attribless_vao;
+    GLuint draw_vao;
+    glGenVertexArrays(1, &attribless_vao);
+    glGenVertexArrays(1, &draw_vao);
+    glBindVertexArray(draw_vao);
+    EXPECT_GL_NO_ERROR();
+
+    GLuint position_buffer;
+    glGenBuffers(1, &position_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, position_buffer);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 4 * 4, 0, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    EXPECT_GL_NO_ERROR();
+
+    GLuint color_buffer;
+    glGenBuffers(1, &color_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, 4 * 4 * 4, 0, GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glEnableVertexAttribArray(0);
+    glEnableVertexAttribArray(1);
+    EXPECT_GL_NO_ERROR();
+
+    GLuint element_buffer;
+    glGenBuffers(1, &element_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_buffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * 4 * 4, 0, GL_STATIC_DRAW);
+    EXPECT_GL_NO_ERROR();
+
+    glBindVertexArray(0);
+    // Vertex position
+    glBindImageTexture(0, texture[0], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    // Vertex color
+    glBindImageTexture(1, texture[1], 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA32F);
+    // Vertex ID
+    glBindImageTexture(2, texture[2], 0, GL_FALSE, 0, GL_READ_WRITE, GL_R32UI);
+    EXPECT_GL_NO_ERROR();
+
+    // Store Vertex Positions, GREEN, and Vertex ID to the images
+    glUseProgram(storeProgram);
+    glUniform4f(inColorLoc, 0.0f, 1.0f, 0.0f, 1.0f);
+    glBindVertexArray(attribless_vao);
+    glDrawArrays(GL_POINTS, 0, 4);
+    EXPECT_GL_NO_ERROR();
+
+    // Copy GREEN from images to vertex array buffers
+    glUseProgram(copyProgram);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, position_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, color_buffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, element_buffer);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glDispatchCompute(1, 1, 1);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw GREEN using the incoming vertex data
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(drawProgram);
+    glBindVertexArray(draw_vao);
+    glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT);
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, 0);
+    EXPECT_GL_NO_ERROR();
+
+    // Check for GREEN
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::green);
+
+    // Store Vertex Positions, BLUE, and Vertex ID to the images
+    glUseProgram(storeProgram);
+    glUniform4f(inColorLoc, 0.0f, 0.0f, 1.0f, 1.0f);
+    glBindVertexArray(attribless_vao);
+    glDrawArrays(GL_POINTS, 0, 4);
+    EXPECT_GL_NO_ERROR();
+
+    // Copy BLUE from images to vertex array buffers
+    glUseProgram(copyProgram);
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    glDispatchCompute(1, 1, 1);
+    EXPECT_GL_NO_ERROR();
+
+    // Draw BLUE using incoming vertex data
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(drawProgram);
+    glBindVertexArray(draw_vao);
+    glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT);
+    glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_INT, 0);
+    EXPECT_GL_NO_ERROR();
+
+    // Check for BLUE
+    EXPECT_PIXEL_COLOR_EQ(0, 0, GLColor::blue);
 }
 
 // Validate that on Vulkan, compute pipeline is correctly bound after an internal dispatch call is

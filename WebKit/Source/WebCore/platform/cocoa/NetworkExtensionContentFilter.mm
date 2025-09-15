@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,9 +56,9 @@ bool NetworkExtensionContentFilter::enabled()
     return isRequired();
 }
 
-UniqueRef<NetworkExtensionContentFilter> NetworkExtensionContentFilter::create()
+Ref<NetworkExtensionContentFilter> NetworkExtensionContentFilter::create(const PlatformContentFilter::FilterParameters&)
 {
-    return makeUniqueRef<NetworkExtensionContentFilter>();
+    return adoptRef(*new NetworkExtensionContentFilter);
 }
 
 void NetworkExtensionContentFilter::initialize(const URL* url)
@@ -68,7 +68,7 @@ void NetworkExtensionContentFilter::initialize(const URL* url)
     m_queue = adoptOSObject(dispatch_queue_create("WebKit NetworkExtension Filtering", DISPATCH_QUEUE_SERIAL));
     ASSERT_UNUSED(url, !url);
     m_neFilterSource = adoptNS([[NEFilterSource alloc] initWithDecisionQueue:m_queue.get()]);
-    [m_neFilterSource setSourceAppIdentifier:applicationBundleIdentifier()];
+    [m_neFilterSource setSourceAppIdentifier:applicationBundleIdentifier().createNSString().get()];
     [m_neFilterSource setSourceAppPid:legacyPresentingApplicationPID()];
 }
 
@@ -111,7 +111,7 @@ void NetworkExtensionContentFilter::willSendRequest(ResourceRequest& request, co
         return;
     }
 
-    request.setURL(modifiedRequestURL);
+    request.setURL(WTFMove(modifiedRequestURL));
 }
 
 void NetworkExtensionContentFilter::responseReceived(const ResourceResponse& response)

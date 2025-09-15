@@ -73,12 +73,12 @@
 
 - (NSString *)source
 {
-    return _userStyleSheet->userStyleSheet().source();
+    return _userStyleSheet->userStyleSheet().source().createNSString().autorelease();
 }
 
 - (NSURL *)baseURL
 {
-    return _userStyleSheet->userStyleSheet().url();
+    return _userStyleSheet->userStyleSheet().url().createNSURL().autorelease();
 }
 
 - (BOOL)isForMainFrameOnly

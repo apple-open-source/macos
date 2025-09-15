@@ -46,9 +46,6 @@
 #include <kern/thread.h>
 #include <kern/ipc_kobject.h>
 
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
-
 #include <vm/memory_object_internal.h>
 #include <vm/vm_kern.h>
 #include <vm/vm_fault_internal.h>
@@ -1173,7 +1170,7 @@ shared_region_pager_create(
 	 * The vm_map call takes both named entry ports and raw memory
 	 * objects in the same parameter.  We need to make sure that
 	 * vm_map does not see this object as a named entry port.  So,
-	 * we reserve the first word in the object for a fake ip_kotype
+	 * we reserve the first word in the object for a fake object type
 	 * setting - that will tell vm_map to use it as a memory object.
 	 */
 	pager->srp_header.mo_ikot = IKOT_MEMORY_OBJECT;

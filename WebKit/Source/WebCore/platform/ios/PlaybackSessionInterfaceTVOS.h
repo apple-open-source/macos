@@ -44,7 +44,7 @@ public:
     void currentTimeChanged(double, double) final { }
     void bufferedTimeChanged(double) final { }
     void rateChanged(OptionSet<PlaybackSessionModel::PlaybackState>, double, double) final { }
-    void seekableRangesChanged(const TimeRanges&, double, double) final { }
+    void seekableRangesChanged(const PlatformTimeRanges&, double, double) final { }
     void canPlayFastReverseChanged(bool) final { }
     void audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>&, uint64_t) final { }
     void legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>&, uint64_t) final { }

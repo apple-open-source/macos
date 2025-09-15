@@ -184,6 +184,8 @@ __BEGIN_DECLS
 #define DBG_MACH_MACHDEP_EXCP_SC_x86 0xAE // Machine Dependent System Calls on x86
 #define DBG_MACH_MACHDEP_EXCP_SC_ARM 0xAF // Machine Dependent System Calls on arm
 #define DBG_MACH_VM_RECLAIM     0xB0 // Deferred Memory Reclamation
+#define DBG_MACH_VM_LOCK_PERF   0xB1 // Performance of VM Locks
+#define DBG_MACH_MEMINFO        0xB2 // General system memory information
 
 // Codes for DBG_MACH_IO
 #define DBC_MACH_IO_MMIO_READ           0x1
@@ -291,6 +293,10 @@ __BEGIN_DECLS
 #define MACH_SCHED_AST_CHECK             0x62 /* run ast check interrupt handler */
 #define MACH_SCHED_PREEMPT_TIMER_ACTIVE  0x63 /* preempt timer is armed */
 #define MACH_PROCESSOR_SHUTDOWN          0x64 /* processor was shut down */
+#define MACH_SCHED_PSET_BITMASKS         0x65 /* Migration, rotation, and recommendation bitmasks for each pset */
+#define MACH_SUSPEND_DRIVERKIT_USERSPACE 0x66 /* one driverkit process is suspended/unsuspended by iokit */
+#define MACH_SCHED_PREFERRED_PSET        0x67 /* Recommendation change for a thread group at a specific QoS */
+#define MACH_SCHED_ONCORE_PREEMPT        0x68 /* CLPC requested thread preemption */
 
 /* Codes for Clutch/Edge Scheduler (DBG_MACH_SCHED_CLUTCH) */
 #define MACH_SCHED_CLUTCH_ROOT_BUCKET_STATE     0x0 /* __unused */
@@ -309,6 +315,7 @@ __BEGIN_DECLS
 #define MACH_SCHED_EDGE_CLUSTER_SHARED_LOAD     0xc /* Per-cluster shared resource load */
 #define MACH_SCHED_EDGE_RSRC_HEAVY_THREAD       0xd /* Resource heavy thread state */
 #define MACH_SCHED_EDGE_SHARED_RSRC_MIGRATE     0xe /* Migrating a shared resource thread due to cluster load imbalance */
+#define MACH_SCHED_EDGE_STIR_THE_POT            0xf /* Rotate running threads on and off P-cores to share time and make roughly equal forward progress */
 
 /* Codes for workgroup interval subsystem (DBG_MACH_WORKGROUP) */
 #define WORKGROUP_INTERVAL_CREATE               0x0 /* work interval creation */
@@ -365,6 +372,7 @@ __BEGIN_DECLS
 #define DBG_VM_INFO8                        0x112
 #define DBG_VM_INFO9                        0x113
 #define DBG_VM_INFO10                       0x114
+#define DBG_VM_INFO11                       0x115
 
 #define DBG_VM_UPL_PAGE_WAIT                0x120
 #define DBG_VM_IOPL_PAGE_WAIT               0x121
@@ -386,6 +394,7 @@ __BEGIN_DECLS
 #define DBG_VM_UPL_REQUEST                  0x133
 #define DBG_VM_IOPL_REQUEST                 0x134
 #define DBG_VM_KERN_REQUEST                 0x135
+#define DBG_VM_UPL_THROTTLE                 0x136
 
 #define DBG_VM_DATA_WRITE                   0x140
 #define DBG_VM_PRESSURE_LEVEL_CHANGE        0x141
@@ -540,6 +549,7 @@ __BEGIN_DECLS
 #define PMAP__IOMMU_GRANT_PAGE  0x1e
 #define PMAP__BATCH_UPDATE_CACHING      0x1f
 #define PMAP__COLLECT_CACHE_OPS         0x20
+#define PMAP__SET_SHARED_REGION         0x21
 
 /* Codes for clock (DBG_MACH_CLOCK) */
 #define MACH_EPOCH_CHANGE       0x0     /* wake epoch change */
@@ -664,6 +674,30 @@ __BEGIN_DECLS
 
 #define VM_RECLAIM_RESIZE            0x0a
 #define VM_RECLAIM_FLUSH             0x0b
+
+#pragma mark System Memory Info Codes (DBG_MACH_MEMINFO)
+
+/* system memory state */
+#define DBG_MEMINFO_PGCNT1                  0x01
+#define DBG_MEMINFO_PGCNT2                  0x02
+#define DBG_MEMINFO_PGCNT3                  0x03
+#define DBG_MEMINFO_PGCNT4                  0x04
+#define DBG_MEMINFO_PGCNT5                  0x05
+#define DBG_MEMINFO_PGCNT6                  0x06
+#define DBG_MEMINFO_PGCNT7                  0x07
+#define DBG_MEMINFO_PGCNT8                  0x08
+
+/* Page eviction statistics */
+#define DBG_MEMINFO_PGOUT1                  0x11
+#define DBG_MEMINFO_PGOUT2                  0x12
+#define DBG_MEMINFO_PGOUT3                  0x13
+#define DBG_MEMINFO_PGOUT4                  0x14
+#define DBG_MEMINFO_PGOUT5                  0x15
+#define DBG_MEMINFO_PGOUT6                  0x16
+
+/* Page demand statistics */
+#define DBG_MEMINFO_DEMAND1                 0x21
+#define DBG_MEMINFO_DEMAND2                 0x22
 
 /* **** The Kernel Debug Sub Classes for Network (DBG_NETWORK) **** */
 #define DBG_NETIP       1       /* Internet Protocol */
@@ -1016,6 +1050,8 @@ __BEGIN_DECLS
 #define IMP_BOOST                           0x11    /* Task boost level changed */
 #define IMP_MSG                             0x12    /* boosting message sent by donating task on donating port */
 #define IMP_WATCHPORT                       0x13    /* port marked as watchport, and boost was transferred to the watched task */
+#define IMP_THREAD_PROMOTE_ABOVE_TASK       0x15    /* Thread is turnstile boosted above task clamp */
+#define IMP_RUNAWAY_MITIGATION              0x16    /* Runaway mitigation status change */
 #define IMP_TASK_SUPPRESSION                0x17    /* Task changed suppression behaviors */
 #define IMP_TASK_APPTYPE                    0x18    /* Task launched with apptype */
 #define IMP_UPDATE                          0x19    /* Requested -> effective calculation */
@@ -1023,7 +1059,10 @@ __BEGIN_DECLS
 #define IMP_DONOR_CHANGE                    0x1B    /* The iit_donor bit changed */
 #define IMP_MAIN_THREAD_QOS                 0x1C    /* The task's main thread QoS was set */
 #define IMP_SYNC_IPC_QOS                    0x1D    /* Sync IPC QOS override */
-/* DBG_IMPORTANCE subclasses  0x20 - 0x40 are reserved for task policy flavors */
+#define IMP_SET_GPU_ROLE                    0x1E    /* Update GPU Role */
+#define IMP_QUERY_GPU_ROLE                  0x1F    /* Driver queries GPU Role */
+
+/* DBG_IMPORTANCE subclasses  0x20 - 0x50 are reserved for task policy flavors */
 
 /* thread and task attributes */
 #define IMP_TASK_POLICY_DARWIN_BG           0x21
@@ -1063,6 +1102,8 @@ __BEGIN_DECLS
 #define IMP_TASK_POLICY_QOS_SERVICER_OVERRIDE 0x3E
 #define IMP_TASK_POLICY_IOTIER_KEVENT_OVERRIDE 0x3F
 #define IMP_TASK_POLICY_WI_DRIVEN           0x40
+
+#define IMP_TASK_POLICY_RUNAWAY_MITIGATION  0x41
 
 /* Codes for IMP_ASSERTION */
 #define IMP_HOLD                0x2     /* Task holds a boost assertion */
@@ -1204,6 +1245,8 @@ __BEGIN_DECLS
 // Kernel Debug Macros for specific daemons
 #define COREDUETDBG_CODE(code) DAEMONDBG_CODE(DBG_DAEMON_COREDUET, code)
 #define POWERDDBG_CODE(code) DAEMONDBG_CODE(DBG_DAEMON_POWERD, code)
+
+#define MEMINFO_CODE(code) KDBG_EVENTID(DBG_MACH, DBG_MACH_MEMINFO, code)
 
 // VFS lookup events
 #define VFS_LOOKUP      (FSDBG_CODE(DBG_FSRW,36))

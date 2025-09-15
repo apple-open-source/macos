@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,7 +55,24 @@
 
 #define ROUTER_LIFETIME_MAXIMUM		((uint16_t)0xffff)
 
+#ifdef TEST_DNSDNRINSTANCE
+
+#include "ptrlist.h"
+
+bool
+parse_nd_options(ptrlist_t * options_p, const char * buf, int len);
+
+const uint8_t *
+find_dnr_option(ptrlist_t * options_p, uint8_t * dnr_data_len_p,
+		uint32_t * lifetime_p, int * start_index);
+
+typedef struct __RouterAdvertisementTester * RouterAdvertisementRef;
+
+#else /* TEST_DNSDNRINSTANCE */
+
 typedef struct __RouterAdvertisement * RouterAdvertisementRef;
+
+#endif /* TEST_DNSDNRINSTANCE */
 
 typedef struct {
 	bool            http;
@@ -92,8 +109,16 @@ const uint8_t *
 RouterAdvertisementGetSourceLinkAddress(RouterAdvertisementRef ra,
 					int * ret_len);
 
+/*
+ * Function: RouterAdvertisementCopyPrefixes
+ * Returns:
+ *    If successful, non-NULL CFArray[CFString] of IPv6 prefixes, and if
+ *    `ret_prefix_lengths` is non-NULL, parallel CFArray[CFNumber] of
+ *    prefix lengths.
+ */
 CFArrayRef
-RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra);
+RouterAdvertisementCopyPrefixes(RouterAdvertisementRef ra,
+				CFArrayRef * ret_prefix_lengths);
 
 uint32_t
 RouterAdvertisementGetPrefixLifetimes(RouterAdvertisementRef ra,
@@ -125,6 +150,9 @@ const uint8_t *
 RouterAdvertisementGetDNSSL(RouterAdvertisementRef ra,
 			    int * domains_length_p,
 			    uint32_t * lifetime_p);
+
+CFArrayRef
+RouterAdvertisementCopyAllDNSEncryptedServers(RouterAdvertisementRef ra);
 
 const uint8_t *
 RouterAdvertisementGetPvD(RouterAdvertisementRef ra,

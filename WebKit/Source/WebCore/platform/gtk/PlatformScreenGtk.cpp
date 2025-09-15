@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2008 Collabora Ltd.
@@ -38,7 +38,6 @@
 #include "ScreenProperties.h"
 #include "SystemSettings.h"
 #include "Widget.h"
-#include <gtk/gtk.h>
 
 namespace WebCore {
 
@@ -87,16 +86,6 @@ bool screenHasInvertedColors()
 
 double fontDPI()
 {
-#if !USE(GTK4)
-    // The code in this conditionally-compiled block is needed in order to
-    // respect the GDK_DPI_SCALE setting that was present in GTK3 as an
-    // additional font scaling factor.
-    if (auto* display = gdk_display_get_default()) {
-        if (auto* screen = gdk_display_get_default_screen(display))
-            return gdk_screen_get_resolution(screen);
-    }
-#endif
-
     auto xftDPI = SystemSettings::singleton().xftDPI();
     if (xftDPI)
         return xftDPI.value() / 1024.0;
@@ -134,26 +123,7 @@ bool screenSupportsExtendedColor(Widget*)
 #if ENABLE(TOUCH_EVENTS)
 bool screenHasTouchDevice()
 {
-    auto* display = gdk_display_get_default();
-    if (!display)
-        return true;
-
-    auto* seat = gdk_display_get_default_seat(display);
-    return seat ? gdk_seat_get_capabilities(seat) & GDK_SEAT_CAPABILITY_TOUCH : true;
-}
-
-bool screenIsTouchPrimaryInputDevice()
-{
-    auto* display = gdk_display_get_default();
-    if (!display)
-        return true;
-
-    auto* seat = gdk_display_get_default_seat(display);
-    if (!seat)
-        return true;
-
-    auto* device = gdk_seat_get_pointer(seat);
-    return device ? gdk_device_get_source(device) == GDK_SOURCE_TOUCHSCREEN : true;
+    return getScreenProperties().screenHasTouchDevice;
 }
 #endif // ENABLE(TOUCH_EVENTS)
 

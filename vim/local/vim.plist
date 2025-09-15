@@ -25,6 +25,10 @@
 			<string>patch 8.1.0704: building with Ruby 2.6 gives compiler warnings</string>
 			<string>54351200 - locale test fixes</string>
 			<string>54054432 - revert 617e8df8a7509121f9b0a563b95e4f81287ff720</string>
+			<string>ex_docmd.c: fix 'su' to be 'suspend' for conformance purposes (150852662)</string>
+			<string>os_unix.c: properly avoid suspending if we're not under shell job control (150852662)</string>
+			<string>ex_docmd.c, ex_getln.c, getchar.c, globals.h, os_unix.c, structs.h, ui.c: implement VSUSP to suspend (150852662)</string>
+			<string>os_unix.c, ui.c: surface SIGINT to the outer layers for handling (150852662)</string>
 		</array>
 	</dict>
 </array>

@@ -1,4 +1,4 @@
-The trusted CT logs are listed in log_list.json. That list is converted to a plist used by trustd by BuildTrustedCTLogsPlist.rb.
+The trusted CT logs are listed in log_list.json. That list is converted to a plist used by trustd by BuildTrustedCTLogsPlist.py.
 
 ### WARNING
 log_list.json is primarily maintained in the CTLogList repo, along with maintenance instructions, scripts, and schema. You should **not** make changes directly to this file here, but in the CTLogList repo. As a part of following the maintenance instructions there, you may need to copy the log list into this project for submission to the software and MobileAsset trains.

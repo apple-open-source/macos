@@ -29,6 +29,10 @@
 
 #include <WebKit/WKType.h>
 #include <algorithm>
+#include <type_traits>
+#include <wtf/ExportMacros.h>
+#include <wtf/GetPtr.h>
+#include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
 
 namespace WebKit {
@@ -217,11 +221,6 @@ template<typename T, typename U> inline bool operator==(const WKRetainPtr<T>& a,
 template<typename T, typename U> inline bool operator==(const WKRetainPtr<T>& a, U* b)
 { 
     return a.get() == b; 
-}
-
-template<typename T, typename U> inline bool operator==(T* a, const WKRetainPtr<U>& b) 
-{
-    return a == b.get(); 
 }
 
 #if (defined(WIN32) || defined(_WIN32)) && !((_MSC_VER > 1900) && __clang__)

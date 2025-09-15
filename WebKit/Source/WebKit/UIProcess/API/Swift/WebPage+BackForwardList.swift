@@ -25,28 +25,113 @@
 
 import Foundation
 
-extension WebPage_v0 {
+extension WebPage {
+    /// An observable representation of a webpage's previously loaded resources.
+    ///
+    /// This type can be used to facilitate navigating to prior or subsequent loaded resources
+    /// and for observing when new entries get added or removed.
+    ///
+    /// In this example, the back-forward list is used to create a SwiftUI View to facilitate navigating to
+    /// previous or next items:
+    ///
+    /// ```swift
+    /// private struct BackForwardMenuView: View {
+    ///     struct LabelConfiguration {
+    ///         let text: String
+    ///         let systemImage: String
+    ///     }
+    ///
+    ///     let list: [WebPage.BackForwardList.Item]
+    ///     let label: LabelConfiguration
+    ///     let navigateToItem: (WebPage.BackForwardList.Item) -> Void
+    ///
+    ///     var body: some View {
+    ///         Menu {
+    ///             ForEach(list) { item in
+    ///                 Button(item.title ?? item.url.absoluteString) {
+    ///                     navigateToItem(item)
+    ///                 }
+    ///             }
+    ///         } label: {
+    ///             Label(label.text, systemImage: label.systemImage)
+    ///                 .labelStyle(.iconOnly)
+    ///         } primaryAction: {
+    ///             navigateToItem(list.first!)
+    ///         }
+    ///         .disabled(list.isEmpty)
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// The view can then be used for both the back and forward list using a specific ``WebPage``:
+    ///
+    /// ```swift
+    /// struct ContentView: some View {
+    ///     @State private var page = WebPage()
+    ///
+    ///     var body: some View {
+    ///         WebView(page)
+    ///             .toolbar {
+    ///                 ToolbarItemGroup {
+    ///                     ToolbarBackForwardMenuView(
+    ///                         list: page.backForwardList.backList.reversed(),
+    ///                         label: .init(text: "Backward", systemImage: "chevron.backward")
+    ///                     ) {
+    ///                         viewModel.page.load($0)
+    ///                     }
+    ///
+    ///                     ToolbarBackForwardMenuView(
+    ///                         list: page.backForwardList.forwardList,
+    ///                         label: .init(text: "Forward", systemImage: "chevron.forward")
+    ///                     ) {
+    ///                         viewModel.page.load($0)
+    ///                     }
+    ///                 }
+    ///             }
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Because ``WebPage/backForwardList`` is an observable property, the states of these buttons
+    /// are automatically updated.
     @MainActor
-    @_spi(Private)
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
     public struct BackForwardList: Equatable, Sendable {
-        @MainActor
+        /// A representation of a resource that a webpage previously visited.
+        ///
+        /// Two items with equal titles, urls, and initial urls may not necessarily be equal to one another.
         public struct Item: Equatable, Identifiable, Sendable {
+            /// An opaque type representing the identifier for an item.
             public struct ID: Hashable, Sendable {
                 private let value = UUID()
             }
 
+            @MainActor
             init(_ wrapped: WKBackForwardListItem) {
                 self.wrapped = wrapped
+
+                self.title = wrapped.title
+                self.url = wrapped.url
+                self.initialURL = wrapped.initialURL
             }
 
-            nonisolated public let id: ID = ID()
+            /// The unique identifier for the item.
+            public let id: ID = ID()
 
-            public var title: String? { wrapped.title }
+            /// The title of the page this item represents.
+            ///
+            /// If the resource this item represents does not have a title specified, this value will be `nil`.
+            public let title: String?
 
-            public var url: URL { wrapped.url }
+            /// The url of the page this item represents, after having resolved all redirects.
+            public let url: URL
 
-            public var initialURL: URL { wrapped.initialURL }
+            /// The source URL that originally asked to load the resource.
+            public let initialURL: URL
 
+            @MainActor
             let wrapped: WKBackForwardListItem
         }
 
@@ -54,20 +139,34 @@ extension WebPage_v0 {
             self.wrapped = wrapped
         }
 
+        /// The array of items that precede the current item.
+        ///
+        /// The items are in the order in which the page originally visited them.
         public var backList: [Item] {
             wrapped?.backList.map(Item.init(_:)) ?? []
         }
 
+        /// The current item.
+        ///
+        /// When the webpage has not loaded any resources, this value will be `nil`.
         public var currentItem: Item? {
             wrapped?.currentItem.map(Item.init(_:))
         }
 
+        /// The array of items that follow the current item.
+        ///
+        /// The items are in the order in which they were originally visited.
         public var forwardList: [Item] {
             wrapped?.forwardList.map(Item.init(_:)) ?? []
         }
 
         private var wrapped: WKBackForwardList? = nil
 
+        /// Accesses the item at the relative offset from the current item.
+        ///
+        /// - Parameter index: The offset of the desired item from the current item. Specify `0` for the current item,
+        /// `-1` for the immediately preceding item, `1` for the immediately following item, and so on.
+        /// - Returns: The item at the specified offset from the current item, or `nil` if the index exceeds the limits of the list.
         public subscript(_ index: Int) -> Item? {
             wrapped?.item(at: index).map(Item.init(_:))
         }

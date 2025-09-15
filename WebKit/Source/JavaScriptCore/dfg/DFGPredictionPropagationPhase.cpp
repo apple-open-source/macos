@@ -42,9 +42,8 @@ class PredictionPropagationPhase : public Phase {
 public:
     PredictionPropagationPhase(Graph& graph)
         : Phase(graph, "prediction propagation"_s)
-        , m_tupleSpeculations(graph.m_tupleData.size())
+        , m_tupleSpeculations(graph.m_tupleData.size(), SpecNone)
     {
-        m_tupleSpeculations.fill(SpecNone);
     }
     
     bool run()
@@ -77,8 +76,7 @@ public:
             propagateForward();
         } while (m_changed);
 
-        if (verboseFixPointLoops)
-            dataLog("Iterated ", counter, " times in double voting fixpoint.\n");
+        dataLogLnIf(verboseFixPointLoops, "Iterated ", counter, " times in double voting fixpoint.");
         
         return true;
     }
@@ -107,8 +105,7 @@ private:
             propagateBackward();
         } while (m_changed);
 
-        if (verboseFixPointLoops)
-            dataLog("Iterated ", counter, " times in propagateToFixpoint.\n");
+        dataLogLnIf(verboseFixPointLoops, "Iterated ", counter, " times in propagateToFixpoint.");
     }
     
     bool setPrediction(SpeculatedType prediction)
@@ -641,6 +638,11 @@ private:
             break;
         }
 
+        case MultiGetByVal: {
+            changed |= mergePrediction(node->getHeapPrediction());
+            break;
+        }
+
         case StringAt: {
             if (node->arrayMode().isOutOfBounds())
                 changed |= mergePrediction(SpecString | SpecOther);
@@ -1000,7 +1002,8 @@ private:
         case ArithBitXor:
         case ArithBitRShift:
         case ArithBitLShift:
-        case BitURShift:
+        case ArithBitURShift:
+        case ValueBitURShift: // URShift >>> does not accept BigInt.
         case ArithIMul:
         case ArithClz32: {
             setPrediction(SpecInt32Only);
@@ -1020,6 +1023,7 @@ private:
         case RegExpMatchFast:
         case RegExpMatchFastGlobal:
         case StringReplace:
+        case StringReplaceAll:
         case StringReplaceRegExp:
         case StringReplaceString:
         case GetById:
@@ -1141,8 +1145,14 @@ private:
             break;
 
         case GetRestLength:
-        case ArrayIndexOf: {
+        case ArrayIndexOf:
+        case RegExpSearch: {
             setPrediction(SpecInt32Only);
+            break;
+        }
+
+        case ArrayIncludes: {
+            setPrediction(SpecBoolean);
             break;
         }
 
@@ -1243,6 +1253,9 @@ private:
         case NumberIsInteger:
         case GlobalIsNaN:
         case NumberIsNaN:
+        case GlobalIsFinite:
+        case NumberIsFinite:
+        case NumberIsSafeInteger:
         case IsObject:
         case IsCallable:
         case IsConstructor:
@@ -1341,8 +1354,13 @@ private:
             setPrediction(speculationFromTypedArrayType(m_currentNode->typedArrayType()));
             break;
         }
+
+        case NewTypedArrayBuffer: {
+            setPrediction(SpecObjectOther);
+            break;
+        }
             
-        case NewRegexp: {
+        case NewRegExp: {
             setPrediction(SpecRegExpObject);
             break;
         }
@@ -1393,6 +1411,10 @@ private:
             setPrediction(SpecStringObject);
             break;
         }
+        case NewRegExpUntyped: {
+            setPrediction(SpecRegExpObject);
+            break;
+        }
         case NewSymbol: {
             setPrediction(SpecSymbol);
             break;
@@ -1420,6 +1442,7 @@ private:
         }
 
         case GetScope:
+        case GetEvalScope:
             setPrediction(SpecObjectOther);
             break;
 
@@ -1516,6 +1539,7 @@ private:
         case ArithMod:
         case ArithAbs:
         case GetByVal:
+        case MultiGetByVal:
         case ToThis:
         case ToPrimitive: 
         case ToPropertyKey:
@@ -1568,6 +1592,7 @@ private:
         case Identity:
         case BooleanToNumber:
         case PhantomNewObject:
+        case PhantomNewArrayWithConstantSize:
         case PhantomNewFunction:
         case PhantomNewGeneratorFunction:
         case PhantomNewAsyncGeneratorFunction:
@@ -1580,7 +1605,7 @@ private:
         case PhantomNewArrayBuffer:
         case PhantomNewInternalFieldObject:
         case PhantomClonedArguments:
-        case PhantomNewRegexp:
+        case PhantomNewRegExp:
         case GetMyArgumentByVal:
         case GetMyArgumentByValOutOfBounds:
         case PutHint:
@@ -1588,6 +1613,7 @@ private:
         case CheckStructureOrEmpty:
         case CheckArrayOrEmpty:
         case MaterializeNewObject:
+        case MaterializeNewArrayWithConstantSize:
         case MaterializeCreateActivation:
         case MaterializeNewInternalFieldObject:
         case PutStack:
@@ -1622,6 +1648,7 @@ private:
         case PutByValWithThis:
         case PutByIdWithThis:
         case PutByVal:
+        case MultiPutByVal:
         case PutByValMegamorphic:
         case PutPrivateName:
         case PutPrivateNameById:

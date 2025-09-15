@@ -80,9 +80,6 @@
 
 #define BINDFS_ENTITLEMENT "com.apple.private.bindfs-allow"
 
-#define SIZEOF_MEMBER(type, member) (sizeof(((type *)0)->member))
-#define MAX_MNT_FROM_LENGTH (SIZEOF_MEMBER(struct vfsstatfs, f_mntfromname))
-
 static int
 bindfs_vfs_getlowerattr(mount_t mp, struct vfs_attr * vfap, vfs_context_t ctx)
 {
@@ -155,9 +152,9 @@ bindfs_mount(struct mount * mp, __unused vnode_t devvp, user_addr_t user_data, v
 
 	/* This could happen if the system is configured for 32 bit inodes instead of
 	 * 64 bit */
-	if (count > MAX_MNT_FROM_LENGTH) {
+	if (count > sizeof(vfs_statfs(mp)->f_mntfromname)) {
 		error = EINVAL;
-		BINDFSERROR("path to mount too large for this system %zu vs %lu\n", count, MAX_MNT_FROM_LENGTH);
+		BINDFSERROR("path to mount too large for this system %zu vs %lu\n", count, sizeof(vfs_statfs(mp)->f_mntfromname));
 		goto error;
 	}
 
@@ -225,7 +222,7 @@ bindfs_mount(struct mount * mp, __unused vnode_t devvp, user_addr_t user_data, v
 
 	/* fill in the stat block */
 	sp = vfs_statfs(mp);
-	strlcpy(sp->f_mntfromname, data, MAX_MNT_FROM_LENGTH);
+	strlcpy(sp->f_mntfromname, data, sizeof(sp->f_mntfromname));
 
 	sp->f_flags = flags;
 

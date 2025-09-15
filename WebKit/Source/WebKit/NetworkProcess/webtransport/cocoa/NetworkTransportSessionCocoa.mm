@@ -72,7 +72,7 @@ static void didReceiveServerTrustChallenge(Ref<NetworkConnectionToWebProcess>&& 
                 return;
             }
         }
-        FALLTHROUGH;
+        [[fallthrough]];
         case AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue:
         case AuthenticationChallengeDisposition::PerformDefaultHandling: {
             OSStatus status = SecTrustEvaluateAsyncWithError(secTrust.get(), dispatch_get_main_queue(), makeBlockPtr([completion = completion](SecTrustRef trustRef, bool result, CFErrorRef error) {

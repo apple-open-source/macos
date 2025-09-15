@@ -22,6 +22,7 @@
 #include "JSTestDefaultToJSONFilteredByExposed.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -187,7 +188,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDefaultToJSONFilteredByExposedConstructor, (JSGlo
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestDefaultToJSONFilteredByExposedPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestDefaultToJSONFilteredByExposed::getConstructor(vm, prototype->globalObject()));
 }
@@ -261,7 +262,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDefaultToJSONFilteredByExposedPrototypeFunction_t
 
 JSC::GCClient::IsoSubspace* JSTestDefaultToJSONFilteredByExposed::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestDefaultToJSONFilteredByExposed, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestDefaultToJSONFilteredByExposed, UseCustomHeapCellType::No>(vm, "JSTestDefaultToJSONFilteredByExposed"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestDefaultToJSONFilteredByExposed.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDefaultToJSONFilteredByExposed = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestDefaultToJSONFilteredByExposed.get(); },
@@ -301,7 +302,9 @@ extern "C" { extern void (*const __identifier("??_7TestDefaultToJSONFilteredByEx
 #else
 extern "C" { extern void* _ZTVN7WebCore34TestDefaultToJSONFilteredByExposedE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestDefaultToJSONFilteredByExposed>, void>> static inline void verifyVTable(TestDefaultToJSONFilteredByExposed* ptr) {
+template<std::same_as<TestDefaultToJSONFilteredByExposed> T>
+static inline void verifyVTable(TestDefaultToJSONFilteredByExposed* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

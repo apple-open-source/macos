@@ -42,7 +42,7 @@
 - (NSString *)cite
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::citeAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::citeAttr).string().createNSString().autorelease();
 }
 
 - (void)setCite:(NSString *)newCite

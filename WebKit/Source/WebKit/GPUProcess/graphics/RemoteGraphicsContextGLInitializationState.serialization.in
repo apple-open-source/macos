@@ -29,4 +29,10 @@ struct WebKit::RemoteGraphicsContextGLInitializationState {
     GCGLenum externalImageBindingQuery;
 };
 
+enum class WebCore::TextDrawingMode : uint8_t {
+    Fill
+    Stroke,
+};
+using WebCore::TextDrawingModeFlags = OptionSet<WebCore::TextDrawingMode>;
+
 #endif

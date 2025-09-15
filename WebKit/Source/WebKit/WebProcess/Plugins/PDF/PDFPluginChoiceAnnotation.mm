@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,13 +26,12 @@
 #import "config.h"
 #import "PDFPluginChoiceAnnotation.h"
 
-#if ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
+#if ENABLE(PDF_PLUGIN)
 
 #import "PDFAnnotationTypeHelpers.h"
 #import "PDFKitSPI.h"
 #import <WebCore/CSSPrimitiveValue.h>
 #import <WebCore/CSSPropertyNames.h>
-#import <WebCore/ColorMac.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLNames.h>
@@ -60,7 +59,7 @@ void PDFPluginChoiceAnnotation::updateGeometry()
 
 void PDFPluginChoiceAnnotation::commit()
 {
-    annotation().widgetStringValue = downcast<HTMLSelectElement>(element())->value();
+    annotation().widgetStringValue = downcast<HTMLSelectElement>(protectedElement())->value().createNSString().get();
 
     PDFPluginAnnotation::commit();
 }
@@ -95,4 +94,4 @@ Ref<Element> PDFPluginChoiceAnnotation::createAnnotationElement()
 
 } // namespace WebKit
 
-#endif // ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
+#endif // ENABLE(PDF_PLUGIN)

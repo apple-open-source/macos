@@ -93,6 +93,7 @@
 #define kIOPMDebugEnableSpindumpOnFullwake  0x20
 #define kIOPMDebugLogAssertionActivity      0x40  // Logs assertion data to log archive
 #define kIOPMDebugLogAssertionNameChange    0x80
+#define kIOPMDebugTraceAssertionActivity    0x100 // Logs assertion data to log archive
 
 
 #define PM_LOG_SYSTEM               "com.apple.powerd"
@@ -118,6 +119,7 @@
 #define BATTERY_CAPACITY_MONITOR_LOG    "batteryCapacityMonitor"
 #define SLEEPWAKE_RESOURCE_LOG      "sleepWakeResource"
 #define BATTERY_GAUGING_LOG         "batterygauging"
+#define BATTERY_CHARGING_STATE_LOG  "batterychargingstate"
 #define BATTERY_TRUSTED_DATA_LOG    "batteryTrustedData"
 
 #ifndef LOG_STREAM
@@ -582,6 +584,7 @@ __private_extern__ void resetCustomBatteryProps(xpc_object_t remoteConnection, x
 
 __private_extern__ int pluginExecCommand(const char *path, char *const argv[],
 		dispatch_queue_t queue, void (*callback)(pid_t pid, int status));
+__private_extern__ void powerd_notify_and_log(os_log_t log, const char *token);
 
 #ifdef XCTEST
 void setAppWakeReason(CFStringRef reasonStr);

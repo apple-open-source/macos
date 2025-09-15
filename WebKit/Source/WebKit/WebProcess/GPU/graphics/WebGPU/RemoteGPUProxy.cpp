@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteGPUProxy);
 
 RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, WebPage& page)
 {
-    return RemoteGPUProxy::create(convertToBackingContext, page.ensureProtectedRemoteRenderingBackendProxy(), RunLoop::protectedMain().get());
+    return RemoteGPUProxy::create(convertToBackingContext, page.ensureProtectedRemoteRenderingBackendProxy(), RunLoop::mainSingleton());
 }
 
 RefPtr<RemoteGPUProxy> RemoteGPUProxy::create(WebGPU::ConvertToBackingContext& convertToBackingContext, RemoteRenderingBackendProxy& renderingBackend, SerialFunctionDispatcher& dispatcher)
@@ -156,8 +156,7 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         return;
     }
 
-    Ref convertToBackingContext = m_convertToBackingContext;
-    auto convertedOptions = convertToBackingContext->convertToBacking(options);
+    auto convertedOptions = m_convertToBackingContext->convertToBacking(options);
     ASSERT(convertedOptions);
     if (!convertedOptions) {
         callback(nullptr);
@@ -212,9 +211,11 @@ void RemoteGPUProxy::requestAdapter(const WebCore::WebGPU::RequestAdapterOptions
         response->limits.maxComputeWorkgroupSizeZ,
         response->limits.maxComputeWorkgroupsPerDimension,
         response->limits.maxStorageBuffersInFragmentStage,
-        response->limits.maxStorageTexturesInFragmentStage
+        response->limits.maxStorageTexturesInFragmentStage,
+        response->limits.maxStorageBuffersInVertexStage,
+        response->limits.maxStorageTexturesInVertexStage
     );
-    callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, options.xrCompatible, *this, convertToBackingContext, identifier));
+    callback(WebGPU::RemoteAdapterProxy::create(WTFMove(response->name), WTFMove(resultSupportedFeatures), WTFMove(resultSupportedLimits), response->isFallbackAdapter, options.xrCompatible, *this, m_convertToBackingContext, identifier));
 }
 
 RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationContext(const WebCore::WebGPU::PresentationContextDescriptor& descriptor)
@@ -223,10 +224,9 @@ RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationC
 
     // FIXME: This is super yucky. We should solve this a better way. (For both WK1 and WK2.)
     // Maybe PresentationContext needs a present() function?
-    Ref convertToBackingContext = m_convertToBackingContext;
-    Ref compositorIntegration = const_cast<WebGPU::RemoteCompositorIntegrationProxy&>(convertToBackingContext->convertToRawBacking(Ref { descriptor.compositorIntegration }.get()));
+    Ref compositorIntegration = const_cast<WebGPU::RemoteCompositorIntegrationProxy&>(m_convertToBackingContext->convertToRawBacking(Ref { descriptor.compositorIntegration }.get()));
 
-    auto convertedDescriptor = convertToBackingContext->convertToBacking(descriptor);
+    auto convertedDescriptor = m_convertToBackingContext->convertToBacking(descriptor);
     if (!convertedDescriptor)
         return nullptr;
 
@@ -235,7 +235,7 @@ RefPtr<WebCore::WebGPU::PresentationContext> RemoteGPUProxy::createPresentationC
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    Ref result = WebGPU::RemotePresentationContextProxy::create(*this, convertToBackingContext, identifier);
+    Ref result = WebGPU::RemotePresentationContextProxy::create(*this, m_convertToBackingContext, identifier);
     compositorIntegration->setPresentationContext(result);
     return result;
 }
@@ -249,17 +249,12 @@ RefPtr<WebCore::WebGPU::CompositorIntegration> RemoteGPUProxy::createCompositorI
     if (sendResult != IPC::Error::NoError)
         return nullptr;
 
-    return WebGPU::RemoteCompositorIntegrationProxy::create(*this, protectedConvertToBackingContext(), identifier);
+    return WebGPU::RemoteCompositorIntegrationProxy::create(*this, m_convertToBackingContext, identifier);
 }
 
 void RemoteGPUProxy::paintToCanvas(WebCore::NativeImage&, const WebCore::IntSize&, WebCore::GraphicsContext&)
 {
     ASSERT_NOT_REACHED();
-}
-
-Ref<WebGPU::ConvertToBackingContext> RemoteGPUProxy::protectedConvertToBackingContext() const
-{
-    return m_convertToBackingContext;
 }
 
 bool RemoteGPUProxy::isValid(const WebCore::WebGPU::CompositorIntegration&) const

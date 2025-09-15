@@ -114,10 +114,6 @@ extern void typhoon_return_from_wfi(void);
 extern void arm64_retention_wfi(void);
 #endif
 
-sysreg_restore_t sysreg_restore __attribute__((section("__DATA, __const"))) = {
-	.tcr_el1 = TCR_EL1_BOOT,
-};
-
 // wfi - wfi mode
 //  0 : disabled
 //  1 : normal

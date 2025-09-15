@@ -29,7 +29,7 @@
 
 namespace WebKit {
 
-enum class UserScriptIdentifierType { };
+struct UserScriptIdentifierType;
 using UserScriptIdentifier = ObjectIdentifier<UserScriptIdentifierType>;
 
 } // namespace WebKit

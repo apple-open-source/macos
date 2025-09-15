@@ -232,6 +232,7 @@ tprintf_impl(tpr_t tpr, const char *fmt, va_list ap)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, ap, __builtin_return_address(0));
 #pragma clang diagnostic pop
 }
@@ -421,13 +422,15 @@ printf_log_locked(bool addcr, const char *fmt, ...)
 	return retval;
 }
 
+extern bool IOSystemStateAOT(void);
+
 bool
 vprintf_log_locked(const char *fmt, va_list ap, bool driverkit)
 {
 	struct putchar_args pca;
 
 	pca.flags = TOLOGLOCKED;
-	if (driverkit && enable_dklog_serial_output) {
+	if (driverkit && (enable_dklog_serial_output || IOSystemStateAOT())) {
 		pca.flags |= TOCONS;
 	}
 	pca.tty   = NULL;

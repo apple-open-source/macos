@@ -23,12 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKitSwift/LinearMediaKitExtras.h>
-#import <WebKitSwift/RealityKitBridging.h>
-#import <WebKitSwift/WKIntelligenceReplacementTextEffectCoordinator.h>
-#import <WebKitSwift/WKIntelligenceSmartReplyTextEffectCoordinator.h>
-#import <WebKitSwift/WKIntelligenceTextEffectCoordinator.h>
-#import <WebKitSwift/WKSLinearMediaPlayer.h>
-#import <WebKitSwift/WKSLinearMediaTypes.h>
-#import <WebKitSwift/WKSPreviewWindowController.h>
-#import <WebKitSwift/WKSTextAnimationSourceDelegate.h>
+#import "WKGroupSession.h"
+#import "WKIntelligenceReplacementTextEffectCoordinator.h"
+#import "WKIntelligenceSmartReplyTextEffectCoordinator.h"
+#import "WKIntelligenceTextEffectCoordinator.h"
+#import "WKMarketplaceKit.h"
+#import "WKPreviewWindowController.h"
+#import "WKRKEntity.h"
+#import "WKSLinearMediaPlayer.h"
+#import "WKSLinearMediaTypes.h"
+#import "WKStageMode.h"
+#import "WKTextAnimationManagerIOS.h"
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#import "WKIdentityDocumentPresentmentController.h"
+#import "WKIdentityDocumentPresentmentDelegate.h"
+#import "WKIdentityDocumentPresentmentError.h"
+#import "WKIdentityDocumentPresentmentMobileDocumentRequest.h"
+#import "WKIdentityDocumentPresentmentRawRequest.h"
+#import "WKIdentityDocumentPresentmentRequest.h"
+#import "WKIdentityDocumentPresentmentResponse.h"
+#import "WKIdentityDocumentRawRequestValidator.h"
+#endif

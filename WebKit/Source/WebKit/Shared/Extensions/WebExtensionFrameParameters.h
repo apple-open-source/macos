@@ -27,6 +27,7 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#include "WebExtensionFrameIdentifier.h"
 #include <wtf/URL.h>
 #include <wtf/UUID.h>
 

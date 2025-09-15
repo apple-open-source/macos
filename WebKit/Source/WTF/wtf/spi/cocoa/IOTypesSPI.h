@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if PLATFORM(MAC) || USE(APPLE_INTERNAL_SDK)
 
 #include <IOKit/IOTypes.h>

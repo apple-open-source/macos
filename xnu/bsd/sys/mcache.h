@@ -60,11 +60,6 @@ extern "C" {
 #endif
 
 /*
- * Compile time assert; this should be on its own someday.
- */
-#define _CASSERT(x)     _Static_assert(x, "compile-time assertion failed")
-
-/*
  * Use CPU_CACHE_LINE_SIZE instead of MAX_CPU_CACHE_LINE_SIZE, unless
  * wasting space is of no concern.
  */

@@ -84,6 +84,8 @@
 	<integer>0</integer>
 	<key>audiomxd</key>
 	<integer>0</integer>
+	<key>heartratecoordinatord</key>
+	<integer>0</integer>
 	<key>inboxupdaterd</key>
 	<integer>0</integer>
 </dict>

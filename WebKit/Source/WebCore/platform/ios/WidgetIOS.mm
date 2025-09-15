@@ -189,6 +189,45 @@ void Widget::removeFromSuperview()
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+// MARK: -
+
+IntPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, IntPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    NSPoint convertedPoint;
+    if (WAKView *documentView = [view documentView])
+        convertedPoint = [documentView convertPoint:point toView:nil];
+    else
+        convertedPoint = [view convertPoint:point toView:nil];
+
+    return roundedIntPoint(FloatPoint { convertedPoint });
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
+FloatPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, FloatPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    NSPoint convertedPoint;
+    if (WAKView *documentView = [view documentView])
+        convertedPoint = [documentView convertPoint:point toView:nil];
+    else
+        convertedPoint = [view convertPoint:point toView:nil];
+    return convertedPoint;
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
 IntRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const IntRect& rect)
 {
     if (!rootWidget->platformWidget())
@@ -202,6 +241,59 @@ IntRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, cons
     END_BLOCK_OBJC_EXCEPTIONS
 
     return rect;
+}
+
+FloatRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const FloatRect& rect)
+{
+    if (!rootWidget->platformWidget())
+        return rect;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    if (WAKView *documentView = [view documentView])
+        return enclosingIntRect([documentView convertRect:rect toView:nil]);
+    return [view convertRect:rect toView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return rect;
+}
+
+// MARK: -
+
+IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, IntPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    NSPoint convertedPoint;
+    if (WAKView *documentView = [view documentView])
+        convertedPoint = IntPoint([documentView convertPoint:point fromView:nil]);
+    else
+        convertedPoint = IntPoint([view convertPoint:point fromView:nil]);
+    return roundedIntPoint(FloatPoint { convertedPoint });
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
+FloatPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, FloatPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
+    NSPoint convertedPoint;
+    if (WAKView *documentView = [view documentView])
+        convertedPoint = IntPoint([documentView convertPoint:point fromView:nil]);
+    else
+        convertedPoint = IntPoint([view convertPoint:point fromView:nil]);
+    return convertedPoint;
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
 }
 
 IntRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const IntRect& rect)
@@ -219,41 +311,22 @@ IntRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, cons
     return rect;
 }
 
-IntPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const IntPoint& point)
+FloatRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const FloatRect& rect)
 {
     if (!rootWidget->platformWidget())
-        return point;
+        return rect;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
-    NSPoint convertedPoint;
     if (WAKView *documentView = [view documentView])
-        convertedPoint = [documentView convertPoint:point toView:nil];
-    else
-        convertedPoint = [view convertPoint:point toView:nil];
-    return IntPoint(roundf(convertedPoint.x), roundf(convertedPoint.y));
+        return enclosingIntRect([documentView convertRect:rect fromView:nil]);
+    return [view convertRect:rect fromView:nil];
     END_BLOCK_OBJC_EXCEPTIONS
 
-    return point;
+    return rect;
 }
 
-IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const IntPoint& point)
-{
-    if (!rootWidget->platformWidget())
-        return point;
-
-    BEGIN_BLOCK_OBJC_EXCEPTIONS
-    WAKScrollView *view = checked_objc_cast<WAKScrollView>(rootWidget->platformWidget());
-    NSPoint convertedPoint;
-    if (WAKView *documentView = [view documentView])
-        convertedPoint = IntPoint([documentView convertPoint:point fromView:nil]);
-    else
-        convertedPoint = IntPoint([view convertPoint:point fromView:nil]);
-    return IntPoint(roundf(convertedPoint.x), roundf(convertedPoint.y));
-    END_BLOCK_OBJC_EXCEPTIONS
-
-    return point;
-}
+// MARK: -
 
 NSView *Widget::platformWidget() const
 {

@@ -18,6 +18,7 @@
 0755	daemon	wheel	private/var/at/jobs
 0700	root	wheel	private/var/audit
 0700	root	wheel	private/var/backups
+0755	root	daemon	private/var/boot
 0755	root	wheel	private/var/db
 0700	root	wheel	private/var/db/Sandbox
 0750	263	263	private/var/db/analyticsd

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -27,13 +27,10 @@
 public int sigs;
 
 extern int sc_width, sc_height;
-extern int screen_trashed;
-extern int lnloop;
 extern int linenums;
 extern int wscroll;
 extern int reading;
 extern int quit_on_intr;
-extern int secure;
 extern int less_is_more;
 extern long jump_sline_fraction;
 
@@ -42,10 +39,9 @@ extern long jump_sline_fraction;
  */
 #if MSDOS_COMPILER!=WIN32C
 	/* ARGSUSED*/
-	static RETSIGTYPE
-u_interrupt(type)
-	int type;
+static RETSIGTYPE u_interrupt(int type)
 {
+	(void) type;
 	bell();
 #if OS2
 	LSIGNAL(SIGINT, SIG_ACK);
@@ -76,10 +72,9 @@ u_interrupt(type)
  * "Stop" (^Z) signal handler.
  */
 	/* ARGSUSED*/
-	static RETSIGTYPE
-stop(type)
-	int type;
+static RETSIGTYPE stop(int type)
 {
+	(void) type;
 	LSIGNAL(SIGTSTP, stop);
 	sigs |= S_STOP;
 	if (reading)
@@ -101,10 +96,9 @@ stop(type)
  * "Window" change handler
  */
 	/* ARGSUSED*/
-	public RETSIGTYPE
-winch(type)
-	int type;
+public RETSIGTYPE winch(int type)
 {
+	(void) type;
 	LSIGNAL(SIG_LESSWINDOW, winch);
 	sigs |= S_WINCH;
 	if (reading)
@@ -119,9 +113,7 @@ winch(type)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-	static BOOL WINAPI 
-wbreak_handler(dwCtrlType)
-	DWORD dwCtrlType;
+static BOOL WINAPI wbreak_handler(DWORD dwCtrlType)
 {
 	switch (dwCtrlType)
 	{
@@ -139,19 +131,16 @@ wbreak_handler(dwCtrlType)
 }
 #endif
 
-	static RETSIGTYPE
-terminate(type)
-	int type;
+static RETSIGTYPE terminate(int type)
 {
+	(void) type;
 	quit(15);
 }
 
 /*
  * Set up the signal handlers.
  */
-	public void
-init_signals(on)
-	int on;
+public void init_signals(int on)
 {
 	if (on)
 	{
@@ -164,7 +153,7 @@ init_signals(on)
 		(void) LSIGNAL(SIGINT, u_interrupt);
 #endif
 #ifdef SIGTSTP
-		(void) LSIGNAL(SIGTSTP, secure ? SIG_IGN : stop);
+		(void) LSIGNAL(SIGTSTP, !secure_allow(SF_STOP) ? SIG_IGN : stop);
 #endif
 #ifdef SIGWINCH
 		(void) LSIGNAL(SIGWINCH, winch);
@@ -210,8 +199,7 @@ init_signals(on)
  * Process any signals we have received.
  * A received signal cause a bit to be set in "sigs".
  */
-	public void
-psignals(VOID_PARAM)
+public void psignals(void)
 {
 	int tsignals;
 
@@ -246,7 +234,7 @@ psignals(VOID_PARAM)
 		LSIGNAL(SIGTSTP, stop);
 		raw_mode(1);
 		init();
-		screen_trashed = 1;
+		screen_trashed();
 		tsignals |= S_WINCH;
 	}
 #endif
@@ -263,15 +251,18 @@ psignals(VOID_PARAM)
 		if (sc_width != old_width || sc_height != old_height)
 		{
 			wscroll = (sc_height + 1) / 2;
-			calc_jump_sline();
-			calc_shift_count();
+			screen_size_changed();
 		}
-		screen_trashed = 1;
+		screen_trashed();
 	}
 #endif
 	if (tsignals & S_INTERRUPT)
 	{
 		if (quit_on_intr)
 			quit(QUIT_INTERRUPT);
+		getcc_clear();
+#if MSDOS_COMPILER==WIN32C
+		win32_getch_clear();
+#endif
 	}
 }

@@ -31,6 +31,7 @@
 #include <pexpert/pexpert.h>    /* for PE_parse_boot_argn */
 #include <libkern/OSDebug.h>    /* for OSBacktrace */
 #include <kern/sched_prim.h>    /* for assert_wait */
+#include <kern/uipc_domain.h>
 #include <vm/vm_memtag.h>
 
 /*
@@ -358,7 +359,7 @@ skmem_cache_pre_init(void)
 #endif /* KASAN */
 		skm_size = P2ROUNDUP(skm_size, CHANNEL_CACHE_ALIGN_MAX);
 		skm_zone = zone_create(SKMEM_ZONE_PREFIX ".skm", skm_size,
-		    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM | ZC_DESTRUCTIBLE);
+		    ZC_ZFREE_CLEARMEM | ZC_DESTRUCTIBLE);
 	}
 
 	TAILQ_INIT(&skmem_cache_head);
@@ -376,27 +377,27 @@ skmem_cache_init(void)
 	struct skmem_magtype *mtp;
 	uint32_t i;
 
-	_CASSERT(SKMEM_CACHE_HASH_LIMIT >= SKMEM_CACHE_HASH_INITIAL);
+	static_assert(SKMEM_CACHE_HASH_LIMIT >= SKMEM_CACHE_HASH_INITIAL);
 
-	_CASSERT(SKM_MODE_NOMAGAZINES == SCA_MODE_NOMAGAZINES);
-	_CASSERT(SKM_MODE_AUDIT == SCA_MODE_AUDIT);
-	_CASSERT(SKM_MODE_NOREDIRECT == SCA_MODE_NOREDIRECT);
-	_CASSERT(SKM_MODE_BATCH == SCA_MODE_BATCH);
-	_CASSERT(SKM_MODE_DYNAMIC == SCA_MODE_DYNAMIC);
-	_CASSERT(SKM_MODE_CLEARONFREE == SCA_MODE_CLEARONFREE);
-	_CASSERT(SKM_MODE_PSEUDO == SCA_MODE_PSEUDO);
+	static_assert(SKM_MODE_NOMAGAZINES == SCA_MODE_NOMAGAZINES);
+	static_assert(SKM_MODE_AUDIT == SCA_MODE_AUDIT);
+	static_assert(SKM_MODE_NOREDIRECT == SCA_MODE_NOREDIRECT);
+	static_assert(SKM_MODE_BATCH == SCA_MODE_BATCH);
+	static_assert(SKM_MODE_DYNAMIC == SCA_MODE_DYNAMIC);
+	static_assert(SKM_MODE_CLEARONFREE == SCA_MODE_CLEARONFREE);
+	static_assert(SKM_MODE_PSEUDO == SCA_MODE_PSEUDO);
 
 	ASSERT(__skmem_cache_pre_inited);
 	ASSERT(!__skmem_cache_inited);
 
-	_CASSERT(offsetof(struct skmem_bufctl, bc_addr) == offsetof(struct skmem_bufctl_audit, bc_addr));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_addrm) == offsetof(struct skmem_bufctl_audit, bc_addrm));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_slab) == offsetof(struct skmem_bufctl_audit, bc_slab));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_lim) == offsetof(struct skmem_bufctl_audit, bc_lim));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_flags) == offsetof(struct skmem_bufctl_audit, bc_flags));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_idx) == offsetof(struct skmem_bufctl_audit, bc_idx));
-	_CASSERT(offsetof(struct skmem_bufctl, bc_usecnt) == offsetof(struct skmem_bufctl_audit, bc_usecnt));
-	_CASSERT(sizeof(struct skmem_bufctl) == offsetof(struct skmem_bufctl_audit, bc_thread));
+	static_assert(offsetof(struct skmem_bufctl, bc_addr) == offsetof(struct skmem_bufctl_audit, bc_addr));
+	static_assert(offsetof(struct skmem_bufctl, bc_addrm) == offsetof(struct skmem_bufctl_audit, bc_addrm));
+	static_assert(offsetof(struct skmem_bufctl, bc_slab) == offsetof(struct skmem_bufctl_audit, bc_slab));
+	static_assert(offsetof(struct skmem_bufctl, bc_lim) == offsetof(struct skmem_bufctl_audit, bc_lim));
+	static_assert(offsetof(struct skmem_bufctl, bc_flags) == offsetof(struct skmem_bufctl_audit, bc_flags));
+	static_assert(offsetof(struct skmem_bufctl, bc_idx) == offsetof(struct skmem_bufctl_audit, bc_idx));
+	static_assert(offsetof(struct skmem_bufctl, bc_usecnt) == offsetof(struct skmem_bufctl_audit, bc_usecnt));
+	static_assert(sizeof(struct skmem_bufctl) == offsetof(struct skmem_bufctl_audit, bc_thread));
 
 	PE_parse_boot_argn("skmem_debug", &skmem_debug, sizeof(skmem_debug));
 	skmem_debug &= SKMEM_DEBUG_MASK;
@@ -678,7 +679,7 @@ skmem_cache_create(const char *name, size_t bufsize, size_t bufalign,
 		 * are mappable to user space (we can't leak kernel
 		 * addresses).
 		 */
-		_CASSERT(offsetof(struct skmem_obj, mo_next) == 0);
+		static_assert(offsetof(struct skmem_obj, mo_next) == 0);
 		VERIFY(!(region->skr_mode & SKR_MODE_MMAPOK));
 
 		/* batching is currently not supported on pseudo regions */
@@ -807,8 +808,8 @@ skmem_cache_create(const char *name, size_t bufsize, size_t bufalign,
 	TAILQ_INSERT_TAIL(&skmem_cache_head, skm, skm_link);
 	SKMEM_CACHE_UNLOCK();
 
-	SK_DF(SK_VERB_MEM_CACHE, "\"%s\": skm 0x%llx mode 0x%b",
-	    skm->skm_name, SK_KVA(skm), skm->skm_mode, SKM_MODE_BITS);
+	SK_DF(SK_VERB_MEM_CACHE, "\"%s\": skm %p mode 0x%x",
+	    skm->skm_name, SK_KVA(skm), skm->skm_mode);
 	SK_DF(SK_VERB_MEM_CACHE,
 	    "  bufsz %u bufalign %u chunksz %u objsz %u slabsz %u",
 	    (uint32_t)skm->skm_bufsize, (uint32_t)skm->skm_bufalign,
@@ -890,7 +891,7 @@ skmem_cache_destroy(struct skmem_cache *skm)
 	lck_mtx_destroy(&skm->skm_dp_lock, &skmem_dp_lock_grp);
 	lck_mtx_destroy(&skm->skm_sl_lock, &skmem_sl_lock_grp);
 
-	SK_DF(SK_VERB_MEM_CACHE, "\"%s\": skm 0x%llx",
+	SK_DF(SK_VERB_MEM_CACHE, "\"%s\": skm %p",
 	    skm->skm_name, SK_KVA(skm));
 
 	/* callee releases reference */
@@ -1831,7 +1832,7 @@ skmem_cache_magazine_purge(struct skmem_cache *skm)
 
 	SKM_SLAB_LOCK_ASSERT_NOTHELD(skm);
 
-	SK_DF(SK_VERB_MEM_CACHE, "skm 0x%llx", SK_KVA(skm));
+	SK_DF(SK_VERB_MEM_CACHE, "skm %p", SK_KVA(skm));
 
 	for (cpuid = 0; cpuid < ncpu; cpuid++) {
 		cp = &skm->skm_cpu_cache[cpuid];
@@ -1894,7 +1895,7 @@ skmem_cache_magazine_enable(struct skmem_cache *skm, uint32_t arg)
 		SKM_CPU_UNLOCK(cp);
 	}
 
-	SK_DF(SK_VERB_MEM_CACHE, "skm 0x%llx chunksize %u magsize %d",
+	SK_DF(SK_VERB_MEM_CACHE, "skm %p chunksize %u magsize %d",
 	    SK_KVA(skm), (uint32_t)skm->skm_chunksize,
 	    SKMEM_CPU_CACHE(skm)->cp_magsize);
 }
@@ -1925,7 +1926,7 @@ skmem_cache_resize_enter(struct skmem_cache *skm, boolean_t can_sleep)
 			SKM_RESIZE_UNLOCK(skm);
 			(void) thread_block(THREAD_CONTINUE_NULL);
 			SK_DF(SK_VERB_MEM_CACHE, "waited for skm \"%s\" "
-			    "(0x%llx) busy=%u", skm->skm_name,
+			    "(%p) busy=%u", skm->skm_name,
 			    SK_KVA(skm), skm->skm_rs_busy);
 			SKM_RESIZE_LOCK(skm);
 		}
@@ -2079,7 +2080,7 @@ skmem_cache_hash_rescale(struct skmem_cache *skm)
 	}
 
 	SK_DF(SK_VERB_MEM_CACHE,
-	    "skm 0x%llx old_size %u new_size %u [%u moved]", SK_KVA(skm),
+	    "skm %p old_size %u new_size %u [%u moved]", SK_KVA(skm),
 	    (uint32_t)old_size, (uint32_t)new_size, moved);
 
 	SKM_SLAB_UNLOCK(skm);

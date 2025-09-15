@@ -46,6 +46,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property size_t successfulItemsProcessed;
 @property size_t errorItemsProcessed;
 
+// For examining internal state of the operation
+@property long deletedRecordCount;
+
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
                            intending:(OctagonState*)intending

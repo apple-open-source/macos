@@ -34,6 +34,7 @@
 #import <WebCore/DNS.h>
 #import <WebCore/LinkDecorationFilteringData.h>
 #import <WebCore/OrganizationStorageAccessPromptQuirk.h>
+#import <numeric>
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/NetworkSPI.h>
 #import <time.h>
@@ -44,6 +45,7 @@
 #import <wtf/Scope.h>
 #import <wtf/WeakRandom.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/posix/SocketPOSIX.h>
 #import <wtf/text/MakeString.h>
 #import <pal/cocoa/WebPrivacySoftLink.h>
 
@@ -100,9 +102,12 @@ Ref<ListDataObserver> ListDataControllerBase::observeUpdates(Function<void()>&& 
 {
     ASSERT(RunLoop::isMain());
     if (!m_notificationListener) {
-        m_notificationListener = adoptNS([[WKWebPrivacyNotificationListener alloc] initWithType:resourceType() callback:^{
-            updateList([this] {
-                m_observers.forEach([](auto& observer) {
+        m_notificationListener = adoptNS([[WKWebPrivacyNotificationListener alloc] initWithType:static_cast<WPResourceType>(resourceTypeValue()) callback:^{
+            updateList([weakThis = WeakPtr { *this }] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
+                protectedThis->m_observers.forEach([](auto& observer) {
                     observer.invokeCallback();
                 });
             });
@@ -121,14 +126,17 @@ void ListDataControllerBase::initializeIfNeeded()
     if (std::exchange(m_wasInitialized, true))
         return;
 
-    updateList([this] {
-        m_observers.forEach([](auto& observer) {
+    updateList([weakThis = WeakPtr { *this }] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+        protectedThis->m_observers.forEach([](auto& observer) {
             observer.invokeCallback();
         });
     });
 }
 
-WPResourceType LinkDecorationFilteringController::resourceType() const
+unsigned LinkDecorationFilteringController::resourceTypeValue() const
 {
     return WPResourceTypeLinkFilteringData;
 }
@@ -216,9 +224,9 @@ void requestLinkDecorationFilteringData(LinkFilteringRulesCallback&& callback)
     }];
 }
 
-WPResourceType StorageAccessPromptQuirkController::resourceType() const
+unsigned StorageAccessPromptQuirkController::resourceTypeValue() const
 {
-    return static_cast<WPResourceType>(WPResourceTypeStorageAccessPromptQuirksData);
+    return WPResourceTypeStorageAccessPromptQuirksData;
 }
 
 void StorageAccessPromptQuirkController::didUpdateCachedListData()
@@ -254,11 +262,11 @@ void StorageAccessPromptQuirkController::updateList(CompletionHandler<void()>&& 
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessPromptQuirksData:completionHandler:)]) {
-        RunLoop::main().dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
         return;
     }
 
-    static MainThreadNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
+    static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
     lookupCompletionHandlers->append(WTFMove(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
@@ -287,20 +295,20 @@ void StorageAccessPromptQuirkController::updateList(CompletionHandler<void()>&& 
     }];
 }
 
-WPResourceType StorageAccessUserAgentStringQuirkController::resourceType() const
+unsigned StorageAccessUserAgentStringQuirkController::resourceTypeValue() const
 {
-    return static_cast<WPResourceType>(WPResourceTypeStorageAccessUserAgentStringQuirksData);
+    return WPResourceTypeStorageAccessUserAgentStringQuirksData;
 }
 
 void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessUserAgentStringQuirksData:completionHandler:)]) {
-        RunLoop::main().dispatch(WTFMove(completionHandler));
+        RunLoop::mainSingleton().dispatch(WTFMove(completionHandler));
         return;
     }
 
-    static MainThreadNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
+    static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> lookupCompletionHandlers;
     lookupCompletionHandlers->append(WTFMove(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
@@ -326,7 +334,7 @@ void StorageAccessUserAgentStringQuirkController::updateList(CompletionHandler<v
 
 RestrictedOpenerDomainsController& RestrictedOpenerDomainsController::shared()
 {
-    static MainThreadNeverDestroyed<RestrictedOpenerDomainsController> sharedInstance;
+    static MainRunLoopNeverDestroyed<RestrictedOpenerDomainsController> sharedInstance;
     return sharedInstance.get();
 }
 
@@ -400,31 +408,53 @@ RestrictedOpenerType RestrictedOpenerDomainsController::lookup(const WebCore::Re
 
 ResourceMonitorURLsController& ResourceMonitorURLsController::singleton()
 {
-    static MainThreadNeverDestroyed<ResourceMonitorURLsController> sharedInstance;
+    static MainRunLoopNeverDestroyed<ResourceMonitorURLsController> sharedInstance;
     return sharedInstance.get();
 }
 
 void ResourceMonitorURLsController::prepare(CompletionHandler<void(WKContentRuleList*, bool)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(prepareResouceMonitorRulesForStore:completionHandler:)]) {
+    if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(prepareResourceMonitorRulesForStore:completionHandler:)]) {
         completionHandler(nullptr, false);
         return;
     }
 
-    static MainThreadNeverDestroyed<Vector<CompletionHandler<void(WKContentRuleList*, bool)>, 1>> lookupCompletionHandlers;
+    static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void(WKContentRuleList*, bool)>, 1>> lookupCompletionHandlers;
     lookupCompletionHandlers->append(WTFMove(completionHandler));
     if (lookupCompletionHandlers->size() > 1)
         return;
 
     WKContentRuleListStore *store = [WKContentRuleListStore defaultStore];
 
-    [[PAL::getWPResourcesClass() sharedInstance] prepareResouceMonitorRulesForStore:store completionHandler:^(WKContentRuleList *list, bool updated, NSError *error) {
+    [[PAL::getWPResourcesClass() sharedInstance] prepareResourceMonitorRulesForStore:store completionHandler:^(WKContentRuleList *list, bool updated, NSError *error) {
         if (error)
-            RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request resource monitor urls from WebPrivacy");
+            RELEASE_LOG_ERROR(ResourceMonitoring, "Failed to request resource monitor urls from WebPrivacy: %@", error);
 
         for (auto& completionHandler : std::exchange(lookupCompletionHandlers.get(), { }))
             completionHandler(list, updated);
+    }];
+}
+
+void ResourceMonitorURLsController::getSource(CompletionHandler<void(String&&)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestResourceMonitorRulesSource:completionHandler:)]) {
+        completionHandler({ });
+        return;
+    }
+
+    static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void(NSString *)>, 1>> lookupCompletionHandlers;
+    lookupCompletionHandlers->append(WTFMove(completionHandler));
+    if (lookupCompletionHandlers->size() > 1)
+        return;
+
+    [[PAL::getWPResourcesClass() sharedInstance] requestResourceMonitorRulesSource:nil completionHandler:^(NSString *source, NSError *error) {
+        if (error)
+            RELEASE_LOG_ERROR(ResourceMonitoring, "Failed to request resource monitor urls source from WebPrivacy");
+
+        for (auto& completionHandler : std::exchange(lookupCompletionHandlers.get(), { }))
+            completionHandler(source);
     }];
 }
 
@@ -432,11 +462,11 @@ void ResourceMonitorURLsController::prepare(CompletionHandler<void(WKContentRule
 
 inline static std::optional<WebCore::IPAddress> ipAddress(const struct sockaddr* address)
 {
-    if (address->sa_family == AF_INET)
-        return WebCore::IPAddress { reinterpret_cast<const sockaddr_in*>(address)->sin_addr };
+    if (auto* addressV4 = dynamicCastToIPV4SocketAddress(*address))
+        return WebCore::IPAddress { addressV4->sin_addr };
 
-    if (address->sa_family == AF_INET6)
-        return WebCore::IPAddress { reinterpret_cast<const sockaddr_in6*>(address)->sin6_addr };
+    if (auto* addressV6 = dynamicCastToIPV6SocketAddress(*address))
+        return WebCore::IPAddress { addressV6->sin6_addr };
 
     return std::nullopt;
 }
@@ -539,17 +569,15 @@ public:
             lower = upper;
         else {
             while (upper - lower > 1) {
-                auto middle = (lower + upper) / 2;
-                switch (address.compare(list[middle].m_network)) {
-                case WebCore::IPAddress::ComparisonResult::Equal:
+                auto middle = std::midpoint(lower, upper);
+                auto compareResult = address <=> list[middle].m_network;
+                if (is_eq(compareResult))
                     return &list[middle];
-                case WebCore::IPAddress::ComparisonResult::Less:
+                if (is_lt(compareResult))
                     upper = middle;
-                    break;
-                case WebCore::IPAddress::ComparisonResult::Greater:
+                else if (is_gt(compareResult))
                     lower = middle;
-                    break;
-                case WebCore::IPAddress::ComparisonResult::CannotCompare:
+                else {
                     ASSERT_NOT_REACHED();
                     return nullptr;
                 }
@@ -723,21 +751,100 @@ bool isKnownTrackerAddressOrDomain(StringView) { return false; }
 
 #endif
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPrivacyHelpersAdditions.mm>)
-#import <WebKitAdditions/WebPrivacyHelpersAdditions.mm>
+#if ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
+
+static WebCore::ScriptTrackingPrivacyFlags allowedScriptTrackingCategories(WPScriptAccessCategories categories)
+{
+    WebCore::ScriptTrackingPrivacyFlags result;
+    if (categories & WPScriptAccessCategoryAudio)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Audio);
+    if (categories & WPScriptAccessCategoryCanvas)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Canvas);
+    if (categories & WPScriptAccessCategoryCookies)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Cookies);
+    if (categories & WPScriptAccessCategoryHardwareConcurrency)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::HardwareConcurrency);
+    if (categories & WPScriptAccessCategoryLocalStorage)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::LocalStorage);
+    if (categories & WPScriptAccessCategoryPayments)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Payments);
+    if (categories & WPScriptAccessCategoryQueryParameters)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::QueryParameters);
+    if (categories & WPScriptAccessCategoryReferrer)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Referrer);
+    if (categories & WPScriptAccessCategoryScreenOrViewport)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::ScreenOrViewport);
+    if (categories & WPScriptAccessCategorySpeech)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::Speech);
+    if (categories & WPScriptAccessCategoryFormControls)
+        result.add(WebCore::ScriptTrackingPrivacyFlag::FormControls);
+    return result;
+}
+
+#endif // ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
+
+void ScriptTrackingPrivacyController::updateList(CompletionHandler<void()>&& completion)
+{
+    ASSERT(RunLoop::isMain());
+#if ENABLE(SCRIPT_TRACKING_PRIVACY_PROTECTIONS)
+    if (!PAL::isWebPrivacyFrameworkAvailable() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestFingerprintingScripts:completionHandler:)]) {
+        RunLoop::mainSingleton().dispatch(WTFMove(completion));
+        return;
+    }
+
+    static MainRunLoopNeverDestroyed<Vector<CompletionHandler<void()>, 1>> pendingCompletionHandlers;
+    pendingCompletionHandlers->append(WTFMove(completion));
+    if (pendingCompletionHandlers->size() > 1)
+        return;
+
+    RetainPtr options = adoptNS([PAL::allocWPResourceRequestOptionsInstance() init]);
+    [options setAfterUpdates:NO];
+
+    [[PAL::getWPResourcesClass() sharedInstance] requestFingerprintingScripts:options.get() completionHandler:^(NSArray<WPFingerprintingScript *> *scripts, NSError *error) {
+        auto callCompletionHandlers = makeScopeExit([&] {
+            for (auto& completionHandler : std::exchange(pendingCompletionHandlers.get(), { }))
+                completionHandler();
+        });
+
+        if (error) {
+            RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request known fingerprinting scripts from WebPrivacy: %@", error);
+            return;
+        }
+
+        ScriptTrackingPrivacyRules result;
+        for (WPFingerprintingScript *script in scripts) {
+            static bool supportsAllowedCategories = [script respondsToSelector:@selector(allowedCategories)];
+            auto allowedCategories = allowedScriptTrackingCategories(supportsAllowedCategories ? script.allowedCategories : WPScriptAccessCategoryNone);
+            if (script.firstParty) {
+                if (script.topDomain)
+                    result.firstPartyTopDomains.append({ script.host, allowedCategories });
+                else
+                    result.firstPartyHosts.append({ script.host, allowedCategories });
+            } else {
+                if (script.topDomain)
+                    result.thirdPartyTopDomains.append({ script.host, allowedCategories });
+                else
+                    result.thirdPartyHosts.append({ script.host, allowedCategories });
+            }
+        }
+        setCachedListData(WTFMove(result));
+    }];
 #else
-void ScriptTelemetryController::updateList(CompletionHandler<void()>&& completion)
-{
-    RunLoop::main().dispatch(WTFMove(completion));
-}
-
-WPResourceType ScriptTelemetryController::resourceType() const
-{
-    return static_cast<WPResourceType>(9);
-}
+    RunLoop::mainSingleton().dispatch(WTFMove(completion));
 #endif
+}
 
-void ScriptTelemetryController::didUpdateCachedListData()
+WPResourceType ScriptTrackingPrivacyController::resourceType() const
+{
+    return WPResourceTypeFingerprintingScripts;
+}
+
+unsigned ScriptTrackingPrivacyController::resourceTypeValue() const
+{
+    return WPResourceTypeFingerprintingScripts;
+}
+
+void ScriptTrackingPrivacyController::didUpdateCachedListData()
 {
     m_cachedListData.firstPartyTopDomains.shrinkToFit();
     m_cachedListData.firstPartyHosts.shrinkToFit();

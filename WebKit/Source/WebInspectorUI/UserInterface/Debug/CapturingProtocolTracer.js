@@ -53,7 +53,7 @@ WI.CapturingProtocolTracer = class CapturingProtocolTracer extends WI.ProtocolTr
     {
         let entry = {type: "response", message: this._stringifyMessage(message)};
         if (timings)
-            entry.timings = Object.shallowCopy(timings);
+            entry.timings = {...timings};
 
         this._processEntry(entry);
     }
@@ -62,7 +62,7 @@ WI.CapturingProtocolTracer = class CapturingProtocolTracer extends WI.ProtocolTr
     {
         let entry = {type: "event", message: this._stringifyMessage(message)};
         if (timings)
-            entry.timings = Object.shallowCopy(timings);
+            entry.timings = {...timings};
 
         this._processEntry(entry);
     }

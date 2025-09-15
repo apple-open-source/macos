@@ -13,6 +13,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/texmap/TextureMapper.cpp
     platform/graphics/texmap/TextureMapperAnimation.cpp
     platform/graphics/texmap/TextureMapperBackingStore.cpp
+    platform/graphics/texmap/TextureMapperDamageVisualizer.cpp
     platform/graphics/texmap/TextureMapperFPSCounter.cpp
     platform/graphics/texmap/TextureMapperGCGLPlatformLayer.cpp
     platform/graphics/texmap/TextureMapperGPUBuffer.cpp
@@ -34,6 +35,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/texmap/TextureMapper.h
     platform/graphics/texmap/TextureMapperAnimation.h
     platform/graphics/texmap/TextureMapperBackingStore.h
+    platform/graphics/texmap/TextureMapperDamageVisualizer.h
     platform/graphics/texmap/TextureMapperFlags.h
     platform/graphics/texmap/TextureMapperFPSCounter.h
     platform/graphics/texmap/TextureMapperGLHeaders.h
@@ -157,5 +159,6 @@ if (USE_GBM)
         platform/graphics/gbm/DRMDeviceManager.h
         platform/graphics/gbm/DRMDeviceNode.h
         platform/graphics/gbm/GraphicsContextGLTextureMapperGBM.h
+        platform/graphics/gbm/MemoryMappedGPUBuffer.h
     )
 endif ()

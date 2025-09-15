@@ -374,6 +374,14 @@ endif
 # behave similarly to externally compiled commands
 #
 
+_function_filter_out_vmapple_sptm_build_config = $(if \
+										$(and \
+											$(filter SPTM,$(call function_extract_kernel_config_from_build_config,$(1))), \
+											$(filter VMAPPLE,$(call function_extract_machine_config_from_build_config,$(1))) \
+										) \
+										,,$(1) \
+									)
+
 # $(1) is an expanded kernel config from a TARGET_CONFIGS_UC tuple
 # $(2) is an expanded arch config from a TARGET_CONFIGS_UC tuple
 # $(3) is an expanded machine config from a TARGET_CONFIGS_UC tuple
@@ -400,11 +408,21 @@ _function_create_build_configs_do_expand =          $(call _function_create_buil
 							    ) \
 						     )
 
+# $(1) is an un-expanded kernel config from a TARGET_CONFIGS_UC tuple
+# $(2) is an un-expanded arch config from a TARGET_CONFIGS_UC tuple
+# $(3) is an un-expanded machine config from a TARGET_CONFIGS_UC tuple, that may be multiplexed (e.g. ConfigA&ConfigB)
+# This function splits any multiplexed machine configs into separate items.
+_function_create_build_configs_do_expand_with_muxed_machine_config = $(foreach machine_config, $(subst &, ,$(3)), \
+												$(call _function_filter_out_vmapple_sptm_build_config,\
+													$(call _function_create_build_configs_do_expand,$(1),$(2),$(machine_config)) \
+												) \
+											)
+
 # $(1) is an un-expanded TARGET_CONFIGS_UC list, which must be consumed
 #      3 elements at a time
 function_create_build_configs = $(sort \
 					$(strip \
-						 $(call _function_create_build_configs_do_expand, \
+						 $(call _function_create_build_configs_do_expand_with_muxed_machine_config, \
 							$(word 1,$(1)), \
 							$(word 2,$(1)), \
 							$(word 3,$(1)), \
@@ -439,9 +457,21 @@ _function_create_alias_configs_do_expand =	    $(call _function_create_alias_con
 							   $(4) \
 						     )
 
+# $(1) is an un-expanded kernel config from a TARGET_CONFIGS_UC tuple
+# $(2) is an un-expanded arch config from a TARGET_CONFIGS_UC tuple
+# $(3) is an un-expanded machine config from a TARGET_CONFIGS_UC tuple, that may be multiplexed (e.g. ConfigA&ConfigB)
+# $(4) is an expanded SoC platform config from a TARGET_CONFIGS_ALIASES_UC tuple,
+#      which should be an alias of $(3)
+# This function splits any multiplexed machine configs into separate items.
+_function_create_alias_configs_do_expand_with_muxed_machine_config = $(foreach machine_config, $(subst &, ,$(3)), \
+												$(call _function_filter_out_vmapple_sptm_build_config,\
+													$(call _function_create_alias_configs_do_expand,$(1),$(2),$(machine_config),$(4)) \
+												) \
+											)
+
 function_create_alias_configs = $(sort \
 					$(strip \
-						 $(call _function_create_alias_configs_do_expand, \
+						 $(call _function_create_alias_configs_do_expand_with_muxed_machine_config, \
 							$(word 1,$(1)), \
 							$(word 2,$(1)), \
 							$(word 3,$(1)), \
@@ -509,6 +539,17 @@ function_substitute_word_with_replacement = $(strip $(if $(2),								\
 							 $(3)								\
 						     )									\
 					     )
+
+# $(1) is a string of form "arch;platform(&platform)*", where multiple platforms are separated by the "&" delimiter.
+# Output is the arch.
+function_get_arch = $(word 1,$(subst ;, ,$(1)))
+
+# $(1) is a string of form "arch;platform(&platform)*", where multiple platforms are separated by the "&" delimiter.
+# Output is a space separated list of the platforms.
+function_get_platforms = $(subst &, ,$(word 2,$(subst ;, ,$(1))))
+
+# $(1) is a string of form "arch;platform(&platform)*", where multiple platforms are separated by the "&" delimiter.
+function_parse_product_configs = $(foreach platform,$(call function_get_platforms,$(1)),$(call function_get_arch,$(1));$(platform);)
 
 # You can't assign a variable to an empty space without these
 # shenanigans

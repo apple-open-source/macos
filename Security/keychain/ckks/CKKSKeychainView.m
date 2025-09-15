@@ -98,7 +98,6 @@
 #import <Security/CKKSExternalTLKClient.h>
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "keychain/ot/OTControl.h"
@@ -268,7 +267,7 @@
                                                                                   testsAreEnabled:SecCKKSTestsEnabled()
                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                        sendMetric:YES];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+        [event sendMetricWithResult:YES error:nil];
 
         _cuttlefishAdapter = cuttlefishAdapter;
         
@@ -326,6 +325,14 @@
 
                 if(ckse.changeToken == nil) {
                     needInitialFetch = true;
+
+                    // If, for any reason, we are performing an initial fetch on this view, make sure to fetch in reverse.
+                    ckse.fetchNewestChangesFirst = YES;
+                    NSError* saveError = nil;
+                    [ckse saveToDatabase:&saveError];
+                    if(saveError) {
+                        ckkserror_global("ckksfetch", "Couldn't save new server change token: %@", saveError);
+                    }
                 }
 
                 if(ckse.moreRecordsInCloudKit) {
@@ -1249,7 +1256,7 @@
                                        errorState:CKKSStateError
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
         STRONGIFY(self);
-
+        __block BOOL contentSyncFinished = NO;
         [self dispatchSyncWithReadOnlySQLTransaction:^{
             NSSet<CKKSKeychainViewState*>* viewsOfInterest = [self.operationDependencies readyAndSyncingViews];
 
@@ -1329,7 +1336,7 @@
                                                                                                      testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                             category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                                           sendMetric:self.operationDependencies.sendMetric];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:localSyncFinishEvent success:YES error:nil];
+            [localSyncFinishEvent sendMetricWithResult:YES error:nil];
 
             for(CKKSKeychainViewState* viewState in viewsOfInterest) {
                 // Are there any entries waiting for reencryption? If so, set the flag.
@@ -1491,19 +1498,20 @@
                 [self.operationDependencies.overallLaunch addAttribute:@"totalsize" value:@(SecBucket1Significant(totalZoneSizeCount))];
             }
 
-            // We believe keychain is fully in sync with CloudKit.
+            // If we've gotten here, we believe keychain is fully in sync with CloudKit.
+            contentSyncFinished = YES;
             AAFAnalyticsEventSecurity *contentSyncFinishEvent = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
                                                                                                                altDSID:self.operationDependencies.activeAccount.altDSID
                                                                                                              eventName:kSecurityRTCEventNameContentSyncFinish
                                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
                                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                                             sendMetric:self.operationDependencies.sendMetric];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:contentSyncFinishEvent success:YES error:nil];
+            [contentSyncFinishEvent sendMetricWithResult:YES error:nil];
             op.nextState = newState;
         }];
 
         // Turn off Sending Events
-        if (self.operationDependencies.sendMetric && !SecCKKSTestsEnabled()) {
+        if (contentSyncFinished && self.operationDependencies.sendMetric && !SecCKKSTestsEnabled()) {
             NSError* localError = nil;
             BOOL result = [[OTManager manager] persistSendingMetricsPermitted:[[OTControlArguments alloc] initWithAltDSID:self.operationDependencies.activeAccount.altDSID] sendingMetricsPermitted:NO error:&localError];
             if (result == NO || localError) {
@@ -2951,7 +2959,7 @@
                                                                                    testsAreEnabled:SecCKKSTestsEnabled()
                                                                                           category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                         sendMetric:self.operationDependencies.sendMetric];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
     }
 }
 
@@ -3672,6 +3680,25 @@
     }
 }
 
+- (void)updateAccount:(TPSpecificUser*)activeAccount
+            container:(CKContainer* _Nullable)container
+{
+    if (!activeAccount.isPrimaryAccount && (container != nil)) {
+        ckksnotice_global("ckks-account", "Switching CloudKit container for CKKS & CKKSAccountStateTracker for account(%@) associated with (%@) container", activeAccount, container.options.accountOverrideInfo.accountID);
+        self.container = container;
+        self.zoneChangeFetcher.container = container;
+        self.accountTracker.container = container;
+        self.operationDependencies.ckdatabase = container.privateCloudDatabase;
+    }
+
+    if(self.operationDependencies.activeAccount != nil && ![self.operationDependencies.activeAccount isEqual:activeAccount]) {
+        // After a signout and then a sign-in of the same account, we might have a different accountID and personaID matching our altDSID.
+        // Tell CKKS about the new world.
+        ckksnotice_global("ckks-account", "Updating CKKS's idea of account to %@; old: %@", activeAccount, self.operationDependencies.activeAccount);
+        self.operationDependencies.activeAccount = activeAccount;
+    }
+}
+
 - (void)handleCKLogin
 {
     ckksnotice("ckks", self, "received a notification of CK login");
@@ -3697,7 +3724,7 @@
                                                                                testsAreEnabled:SecCKKSTestsEnabled()
                                                                                       category:kSecurityRTCEventCategoryAccountDataAccessRecovery
                                                                                     sendMetric:self.operationDependencies.sendMetric];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 
     [self.stateMachine handleFlag:CKKSFlagCloudKitLoggedIn];
 
@@ -3771,7 +3798,7 @@
         }
     });
     
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 }
 
 - (void)endTrustedOperation
@@ -3796,7 +3823,7 @@
 
         [self.operationDependencies.overallLaunch addEvent:@"trust-loss"];
     });
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 }
 
 - (TPSyncingPolicy* _Nullable)syncingPolicy
@@ -3969,7 +3996,7 @@
     // The policy is considered loaded once the views have been created
     [self.policyLoaded fulfill];
     
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 
     return newViews || disappearedViews;
 }
@@ -4067,6 +4094,58 @@
     self.policyLoaded = [[CKKSCondition alloc] init];
 }
 
+- (BOOL)haveTLKsLocally:(CKKSKeychainViewState*)viewState error:(NSError**)error {
+    __block NSError* localError = nil;
+    __block BOOL ret = NO;
+    [self dispatchSyncWithReadOnlySQLTransaction:^{
+        CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:viewState.zoneID
+                                                         contextID:viewState.contextID];
+
+        if (keyset.currentTLKPointer.currentKeyUUID == nil) {
+            ckksnotice("ckks", self, "No current TLK in keyset: %@", keyset);
+            return;
+        }
+
+        NSError* tlkKeyLoadError = nil;
+        CKKSKey* tlk = [CKKSKey fromDatabaseAnyState:keyset.currentTLKPointer.currentKeyUUID
+                                           contextID:viewState.contextID
+                                              zoneID:viewState.zoneID
+                                               error:&tlkKeyLoadError];
+
+        if(tlkKeyLoadError != nil && [tlkKeyLoadError.domain isEqualToString:@"securityd"] && tlkKeyLoadError.code == errSecItemNotFound) {
+            // drop tlkKeyLoadError; this is an "expected" state
+            ckksnotice("ckks", self, "Do not have CKKSKey(%@) locally", keyset.currentTLKPointer.currentKeyUUID);
+            return;
+        } else if(tlkKeyLoadError != nil) {
+            ckkserror("ckks", self, "Unable to load CKKSKey TLK: %@", tlkKeyLoadError);
+            localError = tlkKeyLoadError;
+            return;
+        }
+
+        NSError* tlkKeychainLoadError = nil;
+        if([tlk loadKeyMaterialFromKeychain:&tlkKeychainLoadError]) {
+            ckksnotice("ckks", self, "Have TLK(%@) locally", tlk);
+            ret = YES;
+        } else if([tlkKeychainLoadError.domain isEqualToString:@"securityd"] && tlkKeychainLoadError.code == errSecInteractionNotAllowed) {
+            // We have the TLK, but were unable to load it due to lock state
+            ckksnotice("ckks", self, "Have TLK(%@) locally, but device is locked", tlk);
+            ret = YES;
+        } else if([tlkKeychainLoadError.domain isEqualToString:@"securityd"] && tlkKeychainLoadError.code == errSecItemNotFound) {
+            // drop tlkKeychainLoadError; this is an "expected" state
+            ckksnotice("ckks", self, "Do not have TLK(%@) locally", tlk);
+        } else {
+            ckksnotice("ckks", self, "Do not have TLK(%@) locally with unexpected error: %@", tlk, tlkKeychainLoadError);
+            localError = tlkKeychainLoadError;
+        }
+    }];
+
+    if(error && localError) {
+        *error = localError;
+    }
+
+    return ret;
+}
+
 - (CKKSKeychainViewState* _Nullable)viewStateForName:(NSString*)viewName
 {
     return [self.operationDependencies viewStateForName:viewName];
@@ -4154,6 +4233,7 @@
             return;
         }
         request.changeToken = ckse.changeToken;
+        request.fetchNewestChangesFirst = ckse.fetchNewestChangesFirst;
     }];
 
     return request;
@@ -4165,7 +4245,10 @@
         newChangeToken:(CKServerChangeToken*)newChangeToken
             moreComing:(BOOL)moreComing
                 resync:(BOOL)resync
+fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst
 {
+
+    __block unsigned long deletedRecordsCount = deletedRecords.count;
     [self dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
 
         if (![self _onQueueZoneIsReadyForFetching:zoneID]) {
@@ -4182,6 +4265,10 @@
             [self.operationDependencies intransactionCKRecordChanged:record resync:resync];
         }
 
+        // NOTE: CloudKit won't tell us about the deleted records when fetching newest changes first.
+        // We fetch newest changes first during initial sync or when we've lost the change token. In these cases,
+        // the CKMirror table should be empty, so we won't have to compare what we've received in CloudKit
+        // to the mirror table to figure out what's been deleted.
         for (CKKSCloudKitDeletion* deletion in deletedRecords) {
             [self.operationDependencies intransactionCKRecordDeleted:deletion.recordID recordType:deletion.recordType resync:resync];
         }
@@ -4198,6 +4285,7 @@
             if(self.resyncRecordsSeen == nil) {
                 self.resyncRecordsSeen = [NSMutableSet set];
             }
+
             for(CKRecord* r in changedRecords) {
                 [self.resyncRecordsSeen addObject:r.recordID.recordName];
             }
@@ -4230,6 +4318,7 @@
 
                         ckkserror("ckksresync", zoneID, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
                         [self.operationDependencies intransactionCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
+                        deletedRecordsCount++;
                     }
                 }
 
@@ -4242,6 +4331,12 @@
         state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
         state.changeToken = newChangeToken;
         state.moreRecordsInCloudKit = moreComing;
+        state.fetchNewestChangesFirst = fetchNewestChangesFirst;
+        // Now that we don't have any more items incoming, flip from reverse syncing to forward syncing.
+        if (!moreComing && fetchNewestChangesFirst) {
+            state.fetchNewestChangesFirst = NO;
+            ckksnotice("ckksfetch", zoneID, "Finished syncing all changes from zone. Switching from reverse syncing to forward syncing");
+        }
         [state saveToDatabase:&error];
         if(error) {
             ckkserror("ckksfetch", zoneID, "Couldn't save new server change token: %@", error);
@@ -4294,11 +4389,12 @@
             }
         }
 
-        ckksnotice("ckksfetch", zoneID, "Finished processing changes: changed=%lu deleted=%lu moreComing=%lu resync=%u changeToken=%@",
+        ckksnotice("ckksfetch", zoneID, "Finished processing changes: changed=%lu deleted=%lu moreComing=%lu resync=%u fetchNewestChangesFirst=%u changeToken=%@",
                    (unsigned long)changedRecords.count,
-                   (unsigned long)deletedRecords.count,
+                   (unsigned long)deletedRecordsCount,
                    (unsigned long)moreComing,
                    resync,
+                   fetchNewestChangesFirst,
                    newChangeToken);
 
         return CKKSDatabaseTransactionCommit;
@@ -4307,7 +4403,7 @@
     // Now that we've committed the transaction, should we send any notifications?
     CKKSKeychainViewState* viewState = [self.operationDependencies viewStateForName:zoneID.zoneName];
 
-    if(deletedRecords.count > 0) {
+    if(deletedRecordsCount > 0) {
         // Not strictly true, but will properly send notifications for deleted CIPs
         [viewState.notifyViewChangedScheduler trigger];
     }

@@ -66,7 +66,7 @@ public:
     static std::optional<CaptureDevice> screenCaptureDeviceWithPersistentID(const String&);
     static std::optional<CaptureDevice> windowCaptureDeviceWithPersistentID(const String&);
 
-    using Content = std::variant<RetainPtr<SCWindow>, RetainPtr<SCDisplay>>;
+    using Content = Variant<RetainPtr<SCWindow>, RetainPtr<SCDisplay>>;
     void streamDidOutputVideoSampleBuffer(RetainPtr<CMSampleBufferRef>);
     void sessionFailedWithError(RetainPtr<NSError>&&, const String&);
     void outputVideoEffectDidStartForStream() { m_isVideoEffectEnabled = true; }

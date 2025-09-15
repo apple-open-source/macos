@@ -11,7 +11,7 @@
  * list of interfaces pointed to by gPESF. When outputting or receiving
  * characters, each interface is queried in turn.
  *
- * Please view doc/arm_serial.md for an in-depth description of these drivers.
+ * Please view doc/arm/arm_serial.md for an in-depth description of these drivers.
  */
 #include <kern/clock.h>
 #include <kern/debug.h>

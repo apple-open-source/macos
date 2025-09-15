@@ -85,7 +85,7 @@ private:
     friend class NeverDestroyed<SharedJSContext>;
 
     SharedJSContext()
-        : m_timer(RunLoop::main(), this, &SharedJSContext::releaseContextIfNecessary)
+        : m_timer(RunLoop::mainSingleton(), "SharedJSContext::Timer"_s, this, &SharedJSContext::releaseContextIfNecessary)
     {
         m_timer.setPriority(RunLoopSourcePriority::ReleaseUnusedResourcesTimer);
     }

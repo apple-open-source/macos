@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,9 +45,12 @@
 
 #if USE(SYSPROF_CAPTURE)
 #include <wtf/SystemTracing.h>
-#if USE(SKIA_OPENTYPE_SVG)
-#include <skia/modules/svg/SkSVGOpenTypeSVGDecoder.h>
 #endif
+
+#if USE(SKIA_OPENTYPE_SVG)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+#include <skia/modules/svg/SkSVGOpenTypeSVGDecoder.h>
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
 namespace WebKit {

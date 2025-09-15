@@ -48,7 +48,7 @@ void InitSharedBridgeData(void)
 	if (gBridgeData == NULL)
 	{
 		gBridgeData = OSTypeAlloc(IOPCIHostBridgeData);
-		if (gBridgeData == NULL || gBridgeData->init() == false)
+		if (gBridgeData == NULL || gBridgeData->initWithParameters(0) == false)
 		{
 			panic("Failed to initialize global host bridge data structure");
 		}

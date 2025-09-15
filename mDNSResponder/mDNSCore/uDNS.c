@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,17 +21,8 @@
 
 #include "uDNS.h"
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_ANALYTICS)
-#include "dnssd_analytics.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SYMPTOMS)
-#include "SymptomReporter.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-#include "QuerierSupport.h"
-#endif
 
 #include "mdns_strict.h"
 
@@ -56,14 +47,12 @@ mDNSBool StrictUnicastOrdering = mDNSfalse;
 
 extern mDNS mDNSStorage;
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 // We keep track of the number of unicast DNS servers and log a message when we exceed 64.
 // Currently the unicast queries maintain a 128 bit map to track the valid DNS servers for that
 // question. Bit position is the index into the DNS server list. This is done so to try all
 // the servers exactly once before giving up. If we could allocate memory in the core, then
 // arbitrary limitation of 128 DNSServers can be removed.
 #define MAX_UNICAST_DNS_SERVERS 128
-#endif
 
 #define SetNextuDNSEvent(m, rr) { \
         if ((m)->NextuDNSEvent - ((rr)->LastAPTime + (rr)->ThisAPInterval) >= 0)                                                                              \
@@ -121,7 +110,6 @@ mDNSlocal void SetRecordRetry(mDNS *const m, AuthRecord *rr, mDNSu32 random)
 // ***************************************************************************
 // MARK: - Name Server List Management
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 mDNSexport DNSServer *mDNS_AddDNSServer(mDNS *const m, const domainname *domain, const mDNSInterfaceID interface,
     const mDNSs32 serviceID, const mDNSAddr *addr, const mDNSIPPort port, ScopeType scopeType, mDNSu32 timeout,
     mDNSBool isCell, mDNSBool isExpensive, mDNSBool isConstrained, mDNSBool isCLAT46, mDNSu32 resGroupID,
@@ -189,9 +177,6 @@ mDNSexport DNSServer *mDNS_AddDNSServer(mDNS *const m, const domainname *domain,
     {
         if (server->flags & DNSServerFlag_Delete)
         {
-#if MDNSRESPONDER_SUPPORTS(APPLE, SYMPTOMS)
-            server->flags &= ~DNSServerFlag_Unreachable;
-#endif
             server->flags &= ~DNSServerFlag_Delete;
         }
         server->isExpensive   = isExpensive;
@@ -367,7 +352,6 @@ end:
 
     }
 }
-#endif // !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 
 // ***************************************************************************
 // MARK: - authorization management
@@ -1387,18 +1371,6 @@ mDNSlocal void tcpCallback(TCPSocket *sock, void *context, mDNSBool ConnectionEs
 
         err = mDNSSendDNSMessage(m, &tcpInfo->request, end, mDNSInterface_Any, sock, mDNSNULL, &tcpInfo->Addr, tcpInfo->Port, AuthInfo, mDNSfalse);
         if (err) { debugf("ERROR: tcpCallback: mDNSSendDNSMessage - %d", err); err = mStatus_UnknownErr; goto exit; }
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_ANALYTICS)
-        if (mDNSSameIPPort(tcpInfo->Port, UnicastDNSPort))
-        {
-            bool isForCell;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-            isForCell = (q && q->dnsservice && mdns_dns_service_interface_is_cellular(q->dnsservice));
-#else
-            isForCell = (q && q->qDNSServer && q->qDNSServer->isCell);
-#endif
-            dnssd_analytics_update_dns_query_size(isForCell, dns_transport_Do53, (uint32_t)(end - (mDNSu8 *)&tcpInfo->request));
-        }
-#endif
 
         // Record time we sent this question
         if (q)
@@ -1522,7 +1494,7 @@ mDNSlocal void tcpCallback(TCPSocket *sock, void *context, mDNSBool ConnectionEs
                 if (!q || !q->LongLived || m->SleepState)
                 { *backpointer = mDNSNULL; DisposeTCPConn(tcpInfo); }
 
-            mDNSCoreReceive(m, reply, end, &Addr, Port, tls ? (mDNSAddr *)1 : mDNSNULL, srcPort, 0);
+            mDNSCoreReceive(m, reply, end, &Addr, Port, tls ? (mDNSAddr *)1 : mDNSNULL, srcPort, 0, 0);
             // USE CAUTION HERE: Invoking mDNSCoreReceive may have caused the environment to change, including canceling this operation itself
 
             mDNSPlatformMemFree(reply);
@@ -3888,10 +3860,6 @@ mDNSexport void uDNS_ReceiveMsg(mDNS *const m, DNSMessage *const msg, const mDNS
            msg->h.numAnswers,     msg->h.numAnswers     == 1 ? ", "   : "s,",
            msg->h.numAuthorities, msg->h.numAuthorities == 1 ? "y,  " : "ies,",
            msg->h.numAdditionals, msg->h.numAdditionals == 1 ? ""     : "s", end - msg->data);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SYMPTOMS) && !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    if (NumUnreachableDNSServers > 0)
-        SymptomReporterDNSServerReachable(m, srcaddr);
-#endif
 
     if (QR_OP == StdR)
     {
@@ -4526,7 +4494,6 @@ unreg_error:
 // ***************************************************************************
 // MARK: - Periodic Execution Routines
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
 
 mDNSlocal const char *LLQStateToString(LLQ_State state);
 
@@ -4677,7 +4644,6 @@ mDNSlocal void uDNS_HandleLLQState(mDNS *const NONNULL m, DNSQuestion *const NON
         DNSTypeName(q->qtype));
 #endif
 }
-#endif // !MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
 
 // The question to be checked is not passed in as an explicit parameter;
 // instead it is implicit that the question to be checked is m->CurrentQuestion.
@@ -4686,7 +4652,6 @@ mDNSlocal void uDNS_CheckCurrentQuestion(mDNS *const m)
     DNSQuestion *q = m->CurrentQuestion;
     if (m->timenow - NextQSendTime(q) < 0) return;
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
     if (q->LongLived)
     {
         uDNS_HandleLLQState(m,q);
@@ -4707,11 +4672,7 @@ mDNSlocal void uDNS_CheckCurrentQuestion(mDNS *const m)
         }
 #endif // MDNSRESPONDER_SUPPORTS(COMMON, DNS_PUSH)
     }
-#endif // !MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    Querier_HandleUnicastQuestion(q);
-#else
     // We repeat the check above (rather than just making this the "else" case) because startLLQHandshake can change q->state to LLQ_Poll
     if (!(q->LongLived && q->state != LLQ_Poll))
     {
@@ -4725,9 +4686,6 @@ mDNSlocal void uDNS_CheckCurrentQuestion(mDNS *const m)
                           q->request_id, mDNSVal16(q->TargetQID), q->unansweredQueries, DM_NAME_PARAM(&q->qname), DNSTypeName(q->qtype), &orig->addr, mDNSVal16(orig->port), DM_NAME_PARAM(&orig->domain));
             }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SYMPTOMS)
-            SymptomReporterDNSServerUnreachable(orig);
-#endif
             PenalizeDNSServer(m, q, zeroID);
             q->noServerResponse = 1;
         }
@@ -4791,22 +4749,6 @@ mDNSlocal void uDNS_CheckCurrentQuestion(mDNS *const m)
                 {
                     err = mDNSSendDNSMessage(m, &m->omsg, end, q->qDNSServer->interface, mDNSNULL, q->LocalSocket, &q->qDNSServer->addr, q->qDNSServer->port, mDNSNULL, q->UseBackgroundTraffic);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_ANALYTICS)
-                    if (!err)
-                    {
-                        bool isForCell  = q->qDNSServer->isCell;
-                        dnssd_analytics_update_dns_query_size(isForCell, dns_transport_Do53, (uint32_t)(end - (mDNSu8 *)&m->omsg));
-                        if (q->metrics.answered)
-                        {
-                            q->metrics.querySendCount = 0;
-                            q->metrics.answered       = mDNSfalse;
-                        }
-                        if (q->metrics.querySendCount++ == 0)
-                        {
-                            q->metrics.firstQueryTime = NonZeroTime(m->timenow);
-                        }
-                    }
-#endif
 				}
             }
 
@@ -4966,7 +4908,6 @@ mDNSlocal void uDNS_CheckCurrentQuestion(mDNS *const m)
             // MUST NOT touch m->CurrentQuestion (or q) after this -- client callback could have deleted it
         }
     }
-#endif // MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 }
 
 mDNSexport void CheckNATMappings(mDNS *m)
@@ -5160,9 +5101,7 @@ mDNSlocal mDNSs32 CheckRecordUpdates(mDNS *m)
 mDNSexport void uDNS_Tasks(mDNS *const m)
 {
     mDNSs32 nexte;
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
     DNSServer *d;
-#endif
 
     m->NextuDNSEvent = m->timenow + FutureTime;
 
@@ -5170,7 +5109,6 @@ mDNSexport void uDNS_Tasks(mDNS *const m)
     if (m->NextuDNSEvent - nexte > 0)
         m->NextuDNSEvent = nexte;
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
     for (d = m->DNSServers; d; d=d->next)
         if (d->penaltyTime)
         {
@@ -5184,7 +5122,6 @@ mDNSexport void uDNS_Tasks(mDNS *const m)
             if (m->NextuDNSEvent - d->penaltyTime > 0)
                 m->NextuDNSEvent = d->penaltyTime;
         }
-#endif
 
     if (m->CurrentQuestion)
     {
@@ -5791,15 +5728,6 @@ mDNSlocal void FlushAddressCacheRecords(mDNS *const m)
         // will deliver an ADD or RMV.
 
         RRTypeAnswersQuestionTypeFlags flags = kRRTypeAnswersQuestionTypeFlagsNone;
-    #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-        // Here we are checking if the record should be decided on whether to deliver the remove event to the callback,
-        // RRSIG that covers kDNSType_A or kDNSType_AAAA should always be checked.
-        // Note that setting the two flags below will not necessarily deliver the remove event for RRSIG
-        // that covers kDNSType_A or kDNSType_AAAA records. It still needs to go through the "IsAnswer" process to
-        // determine whether to deliver the remove event.
-        flags |= kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRToValidate;
-        flags |= kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRValidated;
-    #endif
         const mDNSBool typeMatches = RRTypeAnswersQuestionType(&cr->resrec, kDNSType_A, flags) ||
                                      RRTypeAnswersQuestionType(&cr->resrec, kDNSType_AAAA, flags);
         if (!typeMatches)
@@ -5976,14 +5904,7 @@ mDNSlocal void DNSPushProcessResponse(mDNS *const m, const DNSMessage *const msg
             server->serial, DM_NAME_PARAM(mrr->name), DNSTypeName(mrr->rrtype), mrr->rdlength, RRDisplayString(m, mrr));
 
         // Use the DNS Server we remember from the question that created this DNS Push server structure.
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-        if (mrr->metadata)
-        {
-            mdns_cache_metadata_set_dns_service(mrr->metadata, server->dnsservice);
-        }
-#else
         mrr->rDNSServer = server->qDNSServer;
-#endif
 
         // 2. See if we want to add this packet resource record to our cache
         // We only try to cache answers if we have a cache to put them in
@@ -6030,10 +5951,6 @@ mDNSlocal void DNSPushProcessResponses(mDNS *const m, const DNSMessage *const ms
     // XXX what about source validation?   Like, if we have a VPN, are we safe?   I think yes, but let's think about it.
     while ((ptr = GetLargeResourceRecord(m, msg, ptr, end, if_id, kDNSRecordTypePacketAns, &m->rec)))
     {
-    #if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-        mdns_forget(&mrr->metadata);
-        mrr->metadata = mdns_cache_metadata_create();
-    #endif
 
         int gotOne = 0;
         for (q = m->Questions; q; q = q->next)
@@ -6071,10 +5988,6 @@ mDNSlocal void DNSPushProcessResponses(mDNS *const m, const DNSMessage *const ms
         mrr->RecordType = 0;     // Clear RecordType to show we're not still using it
     }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    // Release the temporary metadata that is already retained by the newly added RR.
-    mdns_forget(&mrr->metadata);
-#endif
 }
 
 static void
@@ -6296,11 +6209,7 @@ mDNSexport void DNSPushServerCancel(DNSPushServer *server, const mDNSBool alread
 
     // 3. All the underlying objects that are active should be canceled/released/freed.
     server->canceling = mDNStrue;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mdns_forget(&server->dnsservice);
-#else
     server->qDNSServer = mDNSNULL;
-#endif
     if (server->connection)
     {
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
@@ -6636,11 +6545,7 @@ static void DNSPushDSOCallback(void *context, void *event_context,
 }
 
 static DNSPushServer *DNSPushServerCreate(const domainname *const name, const mDNSIPPort port,
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    const mdns_dns_service_t dnsService,
-#else
     DNSServer *const qDNSServer,
-#endif
     mDNS *const m);
 
 // This function retains the DNSPushZone and DNSPushServer returned in *outZone and *outServer.
@@ -6721,11 +6626,7 @@ static mDNSBool DNSPushZoneAndServerCopy(mDNS *m, DNSQuestion *q,
 
     // If we do not have any existing connections, create a new connection.
     newServer = DNSPushServerCreate(&q->nta->Host, q->nta->Port,
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-                                    q->dnsservice,
-#else
                                     q->qDNSServer,
-#endif
                                     m);
     if (newServer == mDNSNULL)
     {
@@ -6829,11 +6730,7 @@ exit:
 }
 
 static DNSPushServer *DNSPushServerCreate(const domainname *const name, const mDNSIPPort port,
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    const mdns_dns_service_t dnsService,
-#else
     DNSServer *const qDNSServer,
-#endif
     mDNS *const m)
 {
     DNSPushServer *serverToReturn = mDNSNULL;
@@ -6885,20 +6782,7 @@ static DNSPushServer *DNSPushServerCreate(const domainname *const name, const mD
         server->connectState = DNSPushServerConnectFailed;
     }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mdns_replace(&server->dnsservice, dnsService);
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-    if (server->connectInfo)
-    {
-        // If the underlying DNS service is an mDNS alternative service, then it might have configured alternative TLS
-        // trust anchors for us to use when setting up the TLS connection.
-        server->connectInfo->trusts_alternative_server_certificates =
-            mdns_dns_service_is_mdns_alternative(dnsService);
-    }
-#endif
-#else
     server->qDNSServer = qDNSServer;
-#endif
 
     server->next = m->DNSPushServers;
     m->DNSPushServers = server;
@@ -6923,13 +6807,6 @@ mDNSexport mDNSInterfaceID DNSPushServerGetInterfaceID(mDNS *const m, const DNSP
     if (server)
     {
         bool hasLocalPurview = false;
-    #if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-        if (server->dnsservice)
-        {
-            // Check if the underlying DNS service of this DNS push server has local purview
-            hasLocalPurview = mdns_dns_service_has_local_purview(server->dnsservice);
-        }
-    #endif
         if (hasLocalPurview && server->connectInfo)
         {
             // If the underlying DNS service has local purview, then this server is specifically related to the

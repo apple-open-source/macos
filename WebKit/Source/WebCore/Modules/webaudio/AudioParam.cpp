@@ -59,7 +59,7 @@ AudioParam::AudioParam(BaseAudioContext& context, const String& name, float defa
     , m_automationRate(automationRate)
     , m_automationRateMode(automationRateMode)
     , m_smoothedValue(defaultValue)
-    , m_summingBus(AudioBus::create(1, AudioUtilities::renderQuantumSize, false).releaseNonNull())
+    , m_summingBus(AudioBus::create(1, AudioUtilities::renderQuantumSize, false))
 #if !RELEASE_LOG_DISABLED
     , m_logger(context.logger())
     , m_logIdentifier(context.nextAudioParameterLogIdentifier())
@@ -320,10 +320,10 @@ void AudioParam::calculateFinalValues(std::span<float> values, bool sampleAccura
         ASSERT(output);
 
         // Render audio from this output.
-        AudioBus* connectionBus = output->pull(0, AudioUtilities::renderQuantumSize);
+        AudioBus& connectionBus = output->pull(0, AudioUtilities::renderQuantumSize);
 
         // Sum, with unity-gain.
-        m_summingBus->sumFrom(*connectionBus);
+        m_summingBus->sumFrom(connectionBus);
     }
 
     // If we're not sample accurate, duplicate the first element of |values| to all of the elements.

@@ -45,7 +45,7 @@ public:
 private:
     void connectToAllWorkerInspectorProxies() override;
 
-    WorkerOrWorkletGlobalScope& m_globalScope;
+    WeakRef<WorkerOrWorkletGlobalScope> m_globalScope;
 };
 
 } // namespace WebCore

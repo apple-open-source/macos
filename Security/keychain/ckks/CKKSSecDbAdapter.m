@@ -67,7 +67,7 @@
     os_transaction_t transaction = os_transaction_create("com.apple.securityd.ckks");
 
     CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
         return [self dispatchSyncWithConnection:dbt
                                  readWriteTxion:YES
                                           block:block];
@@ -88,7 +88,7 @@
 
     CFErrorRef cferror = NULL;
 
-    kc_with_dbt(false, &cferror, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(false, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
         return [self dispatchSyncWithConnection:dbt
                                  readWriteTxion:NO
                                           block:^CKKSDatabaseTransactionResult {

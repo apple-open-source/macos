@@ -16,6 +16,7 @@
 #import "SecProtocolPriv.h"
 #import "SecProtocolTypesPriv.h"
 #import "SecProtocolInternal.h"
+#import "SecProtocolRestrictedOptionsGoAwayIfNotApprovedForEPSKsPriv.h"
 #import "SecCFRelease.h"
 
 #import <nw/private.h> // Needed for the mock protocol
@@ -142,6 +143,7 @@ mock_protocol_deallocate_metadata(__unused nw_protocol_definition_t definition, 
         content->quic_transport_parameters = nil;
         content->identity = nil;
         content->trust_ref = nil;
+        CFReleaseNull(content->session_ticket_info);
     }
     mock_protocol_safe_free(metadata);
 }
@@ -244,9 +246,44 @@ mock_protocol_deallocate_options(__unused nw_protocol_definition_t definition, v
 {
     sec_protocol_options_content_t content = (sec_protocol_options_content_t)options;
     if (content) {
-        // pass
+        mock_protocol_safe_free(content->server_name);
+        mock_protocol_safe_free(content->experiment_identifier);
+
+        content->ciphersuites = NULL;
+        content->key_exchange_groups = NULL;
+        content->application_protocols = NULL;
+        content->identity = NULL;
+        content->key_update_block = NULL;
+        content->key_update_queue = NULL;
+        content->challenge_block = NULL;
+        content->challenge_queue = NULL;
+        content->verify_block = NULL;
+        content->verify_queue = NULL;
+        content->session_update_block = NULL;
+        content->session_update_queue = NULL;
+        content->pre_shared_keys = NULL;
+        content->session_state = NULL;
+        content->quic_transport_parameters = NULL;
+        content->tls_secret_update_block = nil;
+        content->tls_secret_update_queue = nil;
+        content->tls_encryption_level_update_block = nil;
+        content->tls_encryption_level_update_queue = nil;
+        content->output_handler_access_block = nil;
+        content->psk_selection_queue = nil;
+        content->psk_selection_block = nil;
+        content->psk_identity_hint = nil;
+        content->nw_protocol_joining_context = NULL;
+        CFReleaseNull(content->server_raw_public_key_certificates);
+        CFReleaseNull(content->client_raw_public_key_certificates);
+
+        mock_protocol_safe_free(content->quic_early_data_context);
+        content->quic_early_data_context_len = 0;
+        CFReleaseNull(content->session_ticket_info);
+        CFReleaseNull(content->external_pre_shared_keys);
+        CFReleaseNull(content->external_psk_selection_block);
     }
-    free(content);
+
+    free(options);
 }
 
 static void
@@ -475,6 +512,38 @@ mock_protocol_copy_definition(void)
     }
 }
 
+- (void)test_sec_protocol_metadata_set_negotiated_tls_ciphersuite
+{
+    tls_ciphersuite_t cipher = tls_ciphersuite_AES_256_GCM_SHA384;
+	sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    sec_protocol_metadata_set_negotiated_tls_ciphersuite(metadata, cipher);
+    tls_ciphersuite_t test_cipher = sec_protocol_metadata_get_negotiated_tls_ciphersuite(metadata);
+    XCTAssertEqual(cipher, test_cipher);
+}
+
+- (void)test_sec_protocol_metadata_set_negotiated_tls_protocol_version
+{
+    tls_protocol_version_t version = 0x0304;
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    sec_protocol_metadata_set_negotiated_tls_protocol_version(metadata, version);
+    tls_protocol_version_t test_version = sec_protocol_metadata_get_negotiated_tls_protocol_version(metadata);
+    XCTAssertEqual(version, test_version);
+}
+
+- (void)test_sec_protocol_metadata_set_negotiated_protocol
+{
+    const char *protocol = "test_protocol";
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    sec_protocol_metadata_set_negotiated_protocol(metadata, protocol);
+    const char *test_protocol = sec_protocol_metadata_copy_negotiated_protocol(metadata);
+    if (test_protocol == NULL) {
+        XCTFail("test_protocol is NULL");
+        return;
+    }
+    XCTAssert(strncmp(protocol, test_protocol, strlen(test_protocol)) == 0);
+    mock_protocol_safe_free(test_protocol);
+}
+
 - (void)test_sec_protocol_metadata_returned_raw_string_pointers_and_copy_apis {
     sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
 
@@ -610,6 +679,24 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 
         free(session_copy_buffer);
     }
+}
+
+- (void)test_sec_protocol_get_session_update_and_queue {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    dispatch_queue_t session_update_queue = dispatch_queue_create("test_sec_protocol_get_session_update_and_queue", NULL);
+
+    __block dispatch_data_t serialized_session_copy = nil;
+    sec_protocol_session_update_t update_block = ^(sec_protocol_metadata_t metadata) {
+        serialized_session_copy = sec_protocol_metadata_copy_serialized_session(metadata);
+    };
+
+    sec_protocol_options_set_session_update_block(options, update_block, session_update_queue);
+
+    sec_protocol_session_update_t test_update_block = sec_protocol_options_get_session_update_block(options);
+    dispatch_queue_t test_update_queue = sec_protocol_options_get_session_update_queue(options);
+
+    XCTAssertTrue(update_block == test_update_block);
+    XCTAssertTrue(session_update_queue == test_update_queue);
 }
 
 #define SEC_PROTOCOL_METADATA_KEY_FAILURE_STACK_ERROR "stack_error"
@@ -839,6 +926,47 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 }
 
+- (void)test_sec_protocol_options_set_use_raw_external_pre_shared_keys {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertFalse(content->enable_raw_external_pre_shared_keys);
+        return true;
+    });
+
+    sec_protocol_options_set_use_raw_external_pre_shared_keys(options, true);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->enable_raw_external_pre_shared_keys);
+        return true;
+    });
+}
+
+- (NSData *)create_random_ns_data {
+    uint8_t random[32];
+    (void)SecRandomCopyBytes(NULL, sizeof(random), random);
+    return [NSData dataWithBytes:random length:32];
+}
+
+- (SecSessionInfo *)create_sample_session_info {
+    NSData* psk_data = [self create_random_ns_data];
+    NSData* psk_id_data = [self create_random_ns_data]; // aka ticket
+    const uint32_t ticket_age_add = 100;
+    const uint64_t ticket_creation_time = 5;
+    const uint64_t ticket_lifetime = 1200;
+    return [[SecSessionInfo alloc]initWithPSK:psk_data :psk_id_data :ticket_age_add :ticket_creation_time :ticket_lifetime];
+}
+
+- (SecExternalPreSharedKey *)create_sample_external_pre_shared_key {
+    NSData* external_identity = [self create_random_ns_data];
+    NSData* epsk = [self create_random_ns_data];
+    NSData* context = [self create_random_ns_data];
+    return [[SecExternalPreSharedKey alloc]initWithExternalIdentity:external_identity :epsk :context];
+}
+
 - (void)test_sec_protocol_options_are_equal {
     sec_protocol_options_t optionsA = [self create_sec_protocol_options];
     sec_protocol_options_t optionsB = [self create_sec_protocol_options];
@@ -1000,6 +1128,14 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 
     sec_protocol_options_append_tls_ciphersuite(optionsB, 7331);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_append_tls_ciphersuite(optionsA, 7331);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
+
+    SecSessionInfo *session_info = [self create_sample_session_info];
+    sec_protocol_options_set_session_ticket_info(optionsA, session_info);
+    XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
+    sec_protocol_options_set_session_ticket_info(optionsB, session_info);
+    XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 }
 
 - (void)test_sec_protocol_options_tls_application_protocols {
@@ -1284,13 +1420,25 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
 }
 
 - (void)test_default_protocol_versions {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     XCTAssertTrue(sec_protocol_options_get_default_max_tls_protocol_version() == tls_protocol_version_TLSv13);
-    XCTAssertTrue(sec_protocol_options_get_default_min_tls_protocol_version() == tls_protocol_version_TLSv10);
+    XCTAssertTrue(sec_protocol_options_get_default_min_tls_protocol_version() == tls_protocol_version_TLSv12);
     XCTAssertTrue(sec_protocol_options_get_default_max_dtls_protocol_version() == tls_protocol_version_DTLSv12);
-    XCTAssertTrue(sec_protocol_options_get_default_min_dtls_protocol_version() == tls_protocol_version_DTLSv10);
-#pragma clang diagnostic pop
+    XCTAssertTrue(sec_protocol_options_get_default_min_dtls_protocol_version() == tls_protocol_version_DTLSv12);
+}
+
+- (void)test_get_tls_ciphersuites {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    xpc_object_t ciphersuites = sec_protocol_options_get_tls_ciphersuites(options);
+    XCTAssertNil(ciphersuites);
+    sec_protocol_options_append_tls_ciphersuite(options, 1337);
+    ciphersuites = sec_protocol_options_get_tls_ciphersuites(options);
+    xpc_object_t x_cipher = ciphersuites;
+    if (x_cipher != NULL) {
+        tls_ciphersuite_t cipher = (tls_ciphersuite_t)xpc_array_get_uint64(x_cipher, 0);
+        XCTAssertEqual(cipher, 1337);
+    } else {
+        XCTFail("ciphersuites NULL. Expected one.");
+    }
 }
 
 - (void)test_enable_ech {
@@ -1321,6 +1469,43 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     sec_protocol_options_set_quic_use_legacy_codepoint(options, true);
     XCTAssertTrue(sec_protocol_options_get_quic_use_legacy_codepoint(options), "quic_use_legacy_codepoint still false after set to true");
 
+}
+
+- (void)test_sec_protocol_options_add_external_pre_shared_key {
+
+    SecExternalPreSharedKey *external_pre_shared_key = [self create_sample_external_pre_shared_key];
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        XCTAssertNil(sec_protocol_options_content_get_external_pre_shared_keys(content), @"external psks initialized incorrectly");
+        return true;
+    });
+
+    sec_protocol_options_add_external_pre_shared_key(options, external_pre_shared_key);
+    sec_protocol_options_add_external_pre_shared_key(options, external_pre_shared_key);
+    sec_protocol_options_add_external_pre_shared_key(options, external_pre_shared_key);
+    sec_protocol_options_add_external_pre_shared_key(options, external_pre_shared_key);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void * _Nonnull handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+
+        NSMutableArray *EPSKs = sec_protocol_options_content_get_external_pre_shared_keys(content);
+
+        XCTAssertNotNil(EPSKs, "external psks unexpectedly nil");
+        XCTAssertEqual([EPSKs count], 4, "incorrect number of external psks");
+
+        SecExternalPreSharedKey *got_epsk = EPSKs[0];
+        XCTAssertEqual(got_epsk, external_pre_shared_key);
+        XCTAssertEqual([got_epsk external_identity], [external_pre_shared_key external_identity]);
+        XCTAssertEqual([got_epsk epsk], [external_pre_shared_key epsk]);
+        XCTAssertEqual([got_epsk context], [external_pre_shared_key context]);
+
+        return true;
+    });
 }
 
 - (void)test_sec_protocol_options_set_psk_hint {
@@ -1363,6 +1548,62 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     });
 }
 
+- (void)test_sec_protocol_options_set_external_psk_selection_block {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    sec_protocol_metadata_t sample_metadata = [self create_sec_protocol_metadata];
+    SecExternalPreSharedKey *external_pre_shared_key = [self create_sample_external_pre_shared_key];
+
+    void (^selection_block)(sec_protocol_metadata_t, NSArray<SecOfferedEPSK *>*, sec_protocol_external_pre_shared_key_selection_complete_t) = ^(sec_protocol_metadata_t metadata, NSArray<SecOfferedEPSK *> *offered_epsks, sec_protocol_external_pre_shared_key_selection_complete_t complete) {
+        XCTAssertNotNil(offered_epsks);
+        XCTAssertEqual([offered_epsks count], 1);
+        if (!offered_epsks || [offered_epsks count] == 0) {
+            complete(nil);
+            return;
+        }
+        NSData* epsk = [external_pre_shared_key epsk];
+        NSData* context = offered_epsks[0].context;
+        NSData* external_identity = offered_epsks[0].external_identity;
+        complete([[SecExternalPreSharedKey alloc]initWithExternalIdentity:external_identity :epsk :context]);
+    };
+
+    void (^selection_block_two)(sec_protocol_metadata_t, NSArray<SecOfferedEPSK *>*, sec_protocol_external_pre_shared_key_selection_complete_t) = ^(sec_protocol_metadata_t metadata, NSArray<SecOfferedEPSK *> *offered_epsks, sec_protocol_external_pre_shared_key_selection_complete_t complete) {
+        XCTAssertNotNil(offered_epsks);
+        XCTAssertEqual([offered_epsks count], 1);
+        if (!offered_epsks || [offered_epsks count] == 0) {
+            complete(nil);
+            return;
+        }
+        NSData* epsk = [external_pre_shared_key epsk];
+        NSData* context = offered_epsks[0].context;
+        NSData* external_identity = offered_epsks[0].external_identity;
+        complete([[SecExternalPreSharedKey alloc]initWithExternalIdentity:external_identity :epsk :context]);
+    };
+
+    __block void (^completion_handler)(SecExternalPreSharedKey *) = ^(SecExternalPreSharedKey *EPSK) {
+        XCTAssertNotNil(EPSK);
+        XCTAssertEqual([EPSK external_identity], [external_pre_shared_key external_identity]);
+        XCTAssertEqual([EPSK epsk], [external_pre_shared_key epsk]);
+        XCTAssertEqual([EPSK context], [external_pre_shared_key context]);
+    };
+
+    dispatch_queue_t selection_queue = dispatch_queue_create("test_sec_protocol_options_set_external_psk_selection_block_queue", DISPATCH_QUEUE_SERIAL);
+
+    sec_protocol_options_set_external_pre_shared_key_selection_block(options, selection_block, selection_queue);
+    sec_protocol_options_set_external_pre_shared_key_selection_block(options, selection_block_two, selection_queue);
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->external_psk_selection_block == selection_block_two);
+        XCTAssertTrue(content->external_psk_selection_queue != nil);
+        sec_protocol_external_pre_shared_key_selection_t external_psk_selection_block = sec_protocol_options_content_get_external_psk_selection_block(content);
+        SecOfferedEPSK *offeredEPSK = [[SecOfferedEPSK alloc] initWithExternalIdentity:external_pre_shared_key.external_identity :external_pre_shared_key.context];
+        NSArray *offered_epsks = @[offeredEPSK];
+        external_psk_selection_block(sample_metadata, offered_epsks, completion_handler);
+        return false;
+    });
+}
+
 - (dispatch_data_t)create_random_dispatch_data {
     uint8_t random[32];
     (void)SecRandomCopyBytes(NULL, sizeof(random), random);
@@ -1396,6 +1637,83 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(identity, psk_identity_data), @"Expected PSK identity data match");
     });
     XCTAssertTrue(accessed, @"Expected sec_protocol_metadata_access_pre_shared_keys to traverse PSK list");
+}
+
+- (void)test_sec_protocol_metadata_access_session_ticket_info {
+    SecSessionInfo* session_info = [self create_sample_session_info];
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        content->session_ticket_info = CFBridgingRetain(session_info);
+        return true;
+    });
+
+    SecSessionInfo* got_session_info = sec_protocol_metadata_get_sec_session_ticket_info(metadata);
+    XCTAssertNotNil(got_session_info);
+    XCTAssertTrue([[session_info psk] isEqualToData:[got_session_info psk]]);
+    XCTAssertTrue([[session_info psk_id] isEqualToData:[got_session_info psk_id]]);
+    XCTAssertEqual([session_info ticket_age_add], [got_session_info ticket_age_add]);
+    XCTAssertEqual([session_info ticket_creation_time], [got_session_info ticket_creation_time]);
+    XCTAssertEqual([session_info ticket_lifetime], [got_session_info ticket_lifetime]);
+}
+
+- (void)test_sec_protocol_metadata_set_session_ticket_info {
+    SecSessionInfo* session_info = [self create_sample_session_info];
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    sec_protocol_metadata_set_session_ticket_info(metadata, session_info);
+
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_METADATA_VALIDATE(content, false);
+        SecSessionInfo* got_session_info = sec_protocol_content_metadata_get_session_ticket_info(content);
+        XCTAssertNotNil(got_session_info);
+        XCTAssertTrue([[session_info psk] isEqualToData:[got_session_info psk]]);
+        XCTAssertTrue([[session_info psk_id] isEqualToData:[got_session_info psk_id]]);
+        XCTAssertEqual([session_info ticket_age_add], [got_session_info ticket_age_add]);
+        XCTAssertEqual([session_info ticket_creation_time], [got_session_info ticket_creation_time]);
+        XCTAssertEqual([session_info ticket_lifetime], [got_session_info ticket_lifetime]);
+        return true;
+    });
+}
+
+- (void)test_sec_protocol_options_set_session_ticket_info {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->session_ticket_info == NULL);
+        return true;
+    });
+    
+    SecSessionInfo* session_info = [self create_sample_session_info];
+    sec_protocol_options_set_session_ticket_info(options, session_info);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        SecSessionInfo* content_sess_info = sec_protocol_options_content_get_session_ticket_info(content);
+        XCTAssertTrue(content->session_ticket_info != NULL);
+        XCTAssertTrue([[session_info psk] isEqualToData:[content_sess_info psk]]);
+        XCTAssertTrue([[session_info psk_id] isEqualToData:[content_sess_info psk_id]]);
+        XCTAssertEqual([session_info ticket_age_add], [content_sess_info ticket_age_add]);
+        XCTAssertEqual([session_info ticket_creation_time], [content_sess_info ticket_creation_time]);
+        XCTAssertEqual([session_info ticket_lifetime], [content_sess_info ticket_lifetime]);
+
+        return true;
+    });
+}
+
+- (void)test_sec_protocol_options_get_sec_session_ticket_info {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+    SecSessionInfo* session_info = [self create_sample_session_info];
+    sec_protocol_options_set_session_ticket_info(options, session_info);
+    SecSessionInfo* retrieved_session_info = sec_protocol_options_get_sec_session_ticket_info(options);
+    XCTAssertTrue(retrieved_session_info != NULL);
+    XCTAssertTrue([[session_info psk] isEqualToData:[retrieved_session_info psk]]);
+    XCTAssertTrue([[session_info psk_id] isEqualToData:[retrieved_session_info psk_id]]);
+    XCTAssertEqual([session_info ticket_age_add], [retrieved_session_info ticket_age_add]);
+    XCTAssertEqual([session_info ticket_creation_time], [retrieved_session_info ticket_creation_time]);
+    XCTAssertEqual([session_info ticket_lifetime], [retrieved_session_info ticket_lifetime]);
 }
 
 - (void)test_sec_protocol_options_set_tls_block_length_padding {

@@ -149,7 +149,6 @@ void __malloc_init(const char * __null_terminated * __null_terminated args)
 
 	const unsigned malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION |
 			MALLOC_ABORT_ON_ERROR;
-	mfm_initialize();
 	malloc_zone_t *xzone = xzm_main_malloc_zone_create(malloc_debug_flags,
 			NULL, args, NULL);
 	_malloc_zone_register(xzone, true);
@@ -293,7 +292,7 @@ _malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 
 	// excludes 0 == alignment
 	// relies on sizeof(void *) being a power of two.
-	if (alignment < sizeof(void *) ||
+	if (alignment < MALLOC_ZONE_MALLOC_DEFAULT_ALIGN ||
 			0 != (alignment & (alignment - 1))) {
 		err = EINVAL;
 		goto out;
@@ -329,8 +328,8 @@ malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size)
 
 MALLOC_NOINLINE
 void * __sized_by_or_null(size)
-malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
-		size_t size, malloc_options_np_t options)
+malloc_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_zone_malloc_options_t options)
 {
 	if (os_unlikely((align != 0) && (!powerof2(align) ||
 			((size & (align-1)) != 0)))) { // equivalent to (size % align != 0)
@@ -345,17 +344,25 @@ malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
 		return zone->malloc_with_options(zone, align, size, options);
 	}
 
-	if (align) {
+	if (align > MALLOC_ZONE_MALLOC_DEFAULT_ALIGN) {
 		void *ptr = zone->memalign(zone, align, size);
-		if (ptr && (options & MALLOC_NP_OPTION_CLEAR)) {
+		if (ptr && (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR)) {
 			memset(ptr, 0, size);
 		}
 		return ptr;
-	} else if (options & MALLOC_NP_OPTION_CLEAR) {
+	} else if (options & MALLOC_ZONE_MALLOC_OPTION_CLEAR) {
 		return zone->calloc(zone, 1, size);
 	} else {
 		return zone->malloc(zone, size);
 	}
+}
+
+MALLOC_NOINLINE
+void * __sized_by_or_null(size)
+malloc_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_options_np_t options)
+{
+	return malloc_zone_malloc_with_options(zone, align, size, options);
 }
 
 boolean_t
@@ -569,7 +576,7 @@ _posix_memalign(void * __unsafe_indexable *memptr, size_t alignment,
 		// the test made in malloc_zone_memalign to vet each request. Only if
 		// that test fails and returns NULL, do we arrive here to detect the
 		// bogus alignment and give the required EINVAL return.
-		if (alignment < sizeof(void *) ||             // excludes 0 == alignment
+		if (alignment < MALLOC_ZONE_MALLOC_DEFAULT_ALIGN || // excludes 0 == alignment
 				0 != (alignment & (alignment - 1))) { // relies on sizeof(void *)
 													  // being a power of two.
 			return EINVAL;

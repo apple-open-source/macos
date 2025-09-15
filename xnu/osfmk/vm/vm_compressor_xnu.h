@@ -493,7 +493,31 @@ extern uint64_t compressor_perf_test_pages_processed;
 
 #endif /* MACH_KERNEL_PRIVATE */
 
+/*
+ * @func vm_swap_low_on_space
+ *
+ * @brief Return true if the system is running low on swap space
+ *
+ * @discussion
+ * Returns true if the number of free swapfile segments is low and we aren't
+ * likely to be able to create another swapfile (e.g. because the swapfile
+ * creation thread has failed to create a new swapfile).
+ */
 extern bool vm_swap_low_on_space(void);
+
+/*
+ * @func vm_swap_out_of_space
+ *
+ * @brief Return true if the system has totally exhausted it's swap space
+ *
+ * @discussion
+ * Returns true iff all free swapfile segments have been exhausted and we aren't
+ * able to create another swapfile (because we've reached the configured limit).
+ * Unlike @c vm_swap_low_on_space(), @c vm_swap_out_of_space() will not return
+ * true if the swapfile creation thread has failed in the recent past -- even
+ * if we've run out of swapfile segments. This is because conditions may change
+ * and allow for future creation of new swapfiles.
+ */
 extern bool vm_swap_out_of_space(void);
 
 #define HIBERNATE_FLUSHING_SECS_TO_COMPLETE     120
@@ -520,6 +544,8 @@ bool vm_compressor_is_thrashing(void);
 bool vm_compressor_swapout_is_ripe(void);
 uint32_t vm_compressor_pages_compressed(void);
 void vm_compressor_process_special_swapped_in_segments(void);
+uint32_t vm_compressor_get_swapped_segment_count(void);
+
 
 #if DEVELOPMENT || DEBUG
 __enum_closed_decl(vm_c_serialize_add_data_t, uint32_t, {

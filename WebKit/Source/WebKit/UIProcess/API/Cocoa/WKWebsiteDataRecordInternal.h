@@ -27,6 +27,7 @@
 
 #import "APIWebsiteDataRecord.h"
 #import "WKObject.h"
+#import <wtf/AlignedStorage.h>
 #import <wtf/OptionSet.h>
 
 namespace WebKit {
@@ -78,6 +79,10 @@ static inline std::optional<WebsiteDataType> toWebsiteDataType(NSString *website
 #if HAVE(ALTERNATIVE_SERVICE)
     if ([websiteDataType isEqualToString:_WKWebsiteDataTypeAlternativeServices])
         return WebsiteDataType::AlternativeServices;
+#endif
+#if ENABLE(SCREEN_TIME)
+    if ([websiteDataType isEqualToString:WKWebsiteDataTypeScreenTime])
+        return WebsiteDataType::ScreenTime;
 #endif
     return std::nullopt;
 }
@@ -138,6 +143,10 @@ static inline RetainPtr<NSSet> toWKWebsiteDataTypes(OptionSet<WebKit::WebsiteDat
     if (websiteDataTypes.contains(WebsiteDataType::AlternativeServices))
         [wkWebsiteDataTypes addObject:_WKWebsiteDataTypeAlternativeServices];
 #endif
+#if ENABLE(SCREEN_TIME)
+    if (websiteDataTypes.contains(WebsiteDataType::ScreenTime))
+        [wkWebsiteDataTypes addObject:WKWebsiteDataTypeScreenTime];
+#endif
 
     return wkWebsiteDataTypes;
 }
@@ -146,6 +155,6 @@ static inline RetainPtr<NSSet> toWKWebsiteDataTypes(OptionSet<WebKit::WebsiteDat
 
 @interface WKWebsiteDataRecord () <WKObject> {
 @package
-    API::ObjectStorage<API::WebsiteDataRecord> _websiteDataRecord;
+    AlignedStorage<API::WebsiteDataRecord> _websiteDataRecord;
 }
 @end

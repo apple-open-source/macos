@@ -18,7 +18,9 @@ list(APPEND WTF_SOURCES
     linux/RealTimeThreads.cpp
 
     posix/CPUTimePOSIX.cpp
+    posix/FileHandlePOSIX.cpp
     posix/FileSystemPOSIX.cpp
+    posix/MappedFileDataPOSIX.cpp
     posix/OSAllocatorPOSIX.cpp
     posix/ThreadingPOSIX.cpp
 
@@ -50,6 +52,8 @@ list(APPEND WTF_PUBLIC_HEADERS
     linux/CurrentProcessMemoryStatus.h
     linux/ProcessMemoryFootprint.h
     linux/RealTimeThreads.h
+
+    posix/SocketPOSIX.h
 
     unix/UnixFileDescriptor.h
 )

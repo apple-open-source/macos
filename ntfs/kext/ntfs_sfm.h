@@ -323,7 +323,7 @@ __attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_IDINDEX_NAME[12];
 __attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_RESOURCEFORK_NAME[13];
 __attribute__((visibility("hidden"))) extern ntfschar NTFS_SFM_COMMENTS_NAME[9];
 
-__private_extern__ BOOL ntfs_is_sfm_name(ntfs_volume *vol,
+__private_extern__ NTFS_BOOL ntfs_is_sfm_name(ntfs_volume *vol,
 		const ntfschar *name, const unsigned len);
 
 #endif /* !_OSX_NTFS_SFM_H */

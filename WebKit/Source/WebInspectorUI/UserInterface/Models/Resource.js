@@ -1089,7 +1089,7 @@ WI.Resource = class Resource extends WI.SourceCode
         switch (type) {
         case WI.LocalResourceOverride.InterceptType.Request:
             resourceData.requestMethod = this.requestMethod ?? WI.HTTPUtilities.RequestMethod.GET;
-            resourceData.requestHeaders = Object.shallowCopy(this.requestHeaders);
+            resourceData.requestHeaders = {...this.requestHeaders};
             resourceData.requestData = this.requestData ?? "";
             break;
 
@@ -1116,7 +1116,7 @@ WI.Resource = class Resource extends WI.SourceCode
             }
             resourceData.responseContent = content;
             resourceData.responseBase64Encoded = base64Encoded;
-            resourceData.responseHeaders = Object.shallowCopy(this.responseHeaders);
+            resourceData.responseHeaders = {...this.responseHeaders};
             break;
         }
 

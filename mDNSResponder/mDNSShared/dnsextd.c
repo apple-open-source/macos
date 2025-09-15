@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -3096,8 +3096,8 @@ void mDNS_ConfigChanged(mDNS *const m)  { ( void ) m; }
 void mDNSCoreMachineSleep(mDNS * const m, mDNSBool wake) { ( void ) m; ( void ) wake; }
 void mDNSCoreReceive(mDNS *const m, DNSMessage *const msg, const mDNSu8 *const end,
                      const mDNSAddr *const srcaddr, const mDNSIPPort srcport,
-                     const mDNSAddr *const dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID iid)
-{ ( void ) m; ( void ) msg; ( void ) end; ( void ) srcaddr; ( void ) srcport; ( void ) dstaddr; ( void ) dstport; ( void ) iid; }
+                     const mDNSAddr *const dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID iid, const mDNSs32 timestamp)
+{ ( void ) m; ( void ) msg; ( void ) end; ( void ) srcaddr; ( void ) srcport; ( void ) dstaddr; ( void ) dstport; ( void ) iid; (void)timestamp; }
 DNSServer *mDNS_AddDNSServer(mDNS *const m, const domainname *d, const mDNSInterfaceID interface, const int serviceID, const mDNSAddr *addr, const mDNSIPPort port, 
                              mDNSu32 scopedType, mDNSu32 timeout, mDNSBool isCell, mDNSBool isExpensive, mDNSBool isConstrained,  mDNSBool isCLAT46, mDNSu32 resGroupID, mDNSBool reqA, mDNSBool reqAAAA, mDNSBool reqDO)
 { ( void ) m; ( void ) d; ( void ) interface; ( void ) serviceID; ( void ) addr; ( void ) port; ( void ) scopedType; ( void ) timeout; (void) isCell; (void) isExpensive; (void) isConstrained; (void) isCLAT46;

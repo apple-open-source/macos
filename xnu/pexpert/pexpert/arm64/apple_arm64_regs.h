@@ -125,6 +125,8 @@
 /*
  * EACC/PACC cpmX_IMPL register offset
  */
+#define LLC_ERR_STS_OFFSET (0x8ULL)
+#define LLC_ERR_ADR_OFFSET (0x10ULL)
 #define LLC_ERR_INF_OFFSET (0x18ULL)
 #define LLC_ERR_INF_NREC   (1ULL << 36)
 #endif /* defined(APPLEH16) */

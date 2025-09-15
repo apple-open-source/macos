@@ -81,6 +81,23 @@ pmap_commpage_size_min(__unused pmap_t pmap)
 	return NBPDE;
 }
 
+void
+pmap_set_shared_region(
+	pmap_t grand __unused,
+	pmap_t subord __unused,
+	addr64_t vstart __unused,
+	uint64_t size __unused)
+{
+}
+
+kern_return_t
+pmap_fork_nest(
+	pmap_t old_pmap __unused,
+	pmap_t new_pmap __unused)
+{
+	return KERN_SUCCESS;
+}
+
 /*
  *	kern_return_t pmap_nest(grand, subord, va_start, size)
  *

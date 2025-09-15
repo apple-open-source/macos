@@ -28,6 +28,7 @@
 #include <mach/mach_types.h>
 #include <mach/notify.h>
 #include <ipc/ipc_port.h>
+#include <ipc/ipc_space.h>
 #include <kern/ipc_kobject.h>
 #include <kern/ipc_misc.h>
 
@@ -52,8 +53,8 @@ extern void fileport_releasefg(struct fileglob *);
 ipc_port_t
 fileport_alloc(struct fileglob *fg)
 {
-	return ipc_kobject_alloc_port((ipc_kobject_t)fg, IKOT_FILEPORT,
-	           IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
+	return ipc_kobject_alloc_port(fg, IKOT_FILEPORT,
+	           IPC_KOBJECT_ALLOC_MAKE_SEND);
 }
 
 
@@ -101,6 +102,7 @@ fileport_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
 }
 
 IPC_KOBJECT_DEFINE(IKOT_FILEPORT,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = fileport_no_senders);
 

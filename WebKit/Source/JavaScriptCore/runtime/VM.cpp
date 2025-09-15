@@ -221,8 +221,8 @@ static bool vmCreationShouldCrash = false;
 VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     : topCallFrame(CallFrame::noCaller())
     , m_identifier(VMIdentifier::generate())
-    , m_apiLock(adoptRef(new JSLock(this)))
-    , m_runLoop(runLoop ? *runLoop : WTF::RunLoop::current())
+    , m_apiLock(adoptRef(*new JSLock(this)))
+    , m_runLoop(runLoop ? *runLoop : WTF::RunLoop::currentSingleton())
     , m_random(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>())
     , m_heapRandom(Options::seedOfVMRandomForFuzzer() ? Options::seedOfVMRandomForFuzzer() : cryptographicallyRandomNumber<uint32_t>())
     , m_integrityRandom(*this)
@@ -230,10 +230,11 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , clientHeap(heap)
     , vmType(vmType)
     , deferredWorkTimer(DeferredWorkTimer::create(*this))
-    , m_atomStringTable(vmType == VMType::Default ? Thread::current().atomStringTable() : new AtomStringTable)
+    , m_atomStringTable(vmType == VMType::Default ? Thread::currentSingleton().atomStringTable() : new AtomStringTable)
     , emptyList(new ArgList)
     , machineCodeBytesPerBytecodeWordForBaselineJIT(makeUnique<SimpleStats>())
     , symbolImplToSymbolMap(*this)
+    , atomStringToJSStringMap(*this)
     , m_regExpCache(makeUnique<RegExpCache>())
     , m_compactVariableMap(adoptRef(*new CompactTDZEnvironmentMap))
     , m_codeCache(makeUnique<CodeCache>())
@@ -242,7 +243,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     , m_defaultMicrotaskQueue(*this)
     , m_syncWaiter(adoptRef(*new Waiter(this)))
 {
-    if (UNLIKELY(vmCreationShouldCrash || g_jscConfig.vmCreationDisallowed))
+    if (vmCreationShouldCrash || g_jscConfig.vmCreationDisallowed) [[unlikely]]
         CRASH_WITH_EXTRA_SECURITY_IMPLICATION_AND_INFO(VMCreationDisallowed, "VM creation disallowed"_s, 0x4242424220202020, 0xbadbeef0badbeef, 0x1234123412341234, 0x1337133713371337);
 
     VMInspector::singleton().add(this);
@@ -277,14 +278,14 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     }
 
     updateSoftReservedZoneSize(Options::softReservedZoneSize());
-    setLastStackTop(Thread::current());
+    setLastStackTop(Thread::currentSingleton());
     stringSplitIndice.reserveInitialCapacity(256);
 
-    JSRunLoopTimer::Manager::shared().registerVM(*this);
+    JSRunLoopTimer::Manager::singleton().registerVM(*this);
 
     // Need to be careful to keep everything consistent here
     JSLockHolder lock(this);
-    AtomStringTable* existingEntryAtomStringTable = Thread::current().setCurrentAtomStringTable(m_atomStringTable);
+    AtomStringTable* existingEntryAtomStringTable = Thread::currentSingleton().setCurrentAtomStringTable(m_atomStringTable);
     structureStructure.setWithoutWriteBarrier(Structure::createStructure(*this));
     structureRareDataStructure.setWithoutWriteBarrier(StructureRareData::createStructure(*this, nullptr, jsNull()));
     stringStructure.setWithoutWriteBarrier(JSString::createStructure(*this, nullptr, jsNull()));
@@ -309,11 +310,14 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
     symbolTableStructure.setWithoutWriteBarrier(SymbolTable::createStructure(*this, nullptr, jsNull()));
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithInt32) - NumberOfIndexingShapes].setWithoutWriteBarrier(JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithInt32));
+    rawImmutableButterflyStructure(CopyOnWriteArrayWithInt32).setWithoutWriteBarrier(JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithInt32));
     Structure* copyOnWriteArrayWithContiguousStructure = JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous);
-    immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithDouble) - NumberOfIndexingShapes].setWithoutWriteBarrier(Options::allowDoubleShape() ? JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguousStructure);
-    immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithContiguous) - NumberOfIndexingShapes].setWithoutWriteBarrier(copyOnWriteArrayWithContiguousStructure);
+    rawImmutableButterflyStructure(CopyOnWriteArrayWithDouble).setWithoutWriteBarrier(Options::allowDoubleShape() ? JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithDouble) : copyOnWriteArrayWithContiguousStructure);
+    rawImmutableButterflyStructure(CopyOnWriteArrayWithContiguous).setWithoutWriteBarrier(copyOnWriteArrayWithContiguousStructure);
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
+    // This is only for JSImmutableButterfly filled with atom strings.
+    immutableButterflyOnlyAtomStringsStructure.setWithoutWriteBarrier(JSImmutableButterfly::createStructure(*this, nullptr, jsNull(), CopyOnWriteArrayWithContiguous));
 
     sourceCodeStructure.setWithoutWriteBarrier(JSSourceCode::createStructure(*this, nullptr, jsNull()));
     scriptFetcherStructure.setWithoutWriteBarrier(JSScriptFetcher::createStructure(*this, nullptr, jsNull()));
@@ -354,16 +358,16 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         }
     }
 
-    Thread::current().setCurrentAtomStringTable(existingEntryAtomStringTable);
+    Thread::currentSingleton().setCurrentAtomStringTable(existingEntryAtomStringTable);
     
     Gigacage::addPrimitiveDisableCallback(primitiveGigacageDisabledCallback, this);
 
     heap.notifyIsSafeToCollect();
     
-    if (UNLIKELY(Options::useProfiler())) {
+    if (Options::useProfiler()) [[unlikely]] {
         m_perBytecodeProfiler = makeUnique<Profiler::Database>(*this);
 
-        if (UNLIKELY(Options::dumpProfilerDataAtExit())) {
+        if (Options::dumpProfilerDataAtExit()) [[unlikely]] {
             StringPrintStream pathOut;
             const char* profilerPath = getenv("JSC_PROFILER_PATH");
             if (profilerPath)
@@ -412,8 +416,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         setShouldBuildPCToCodeOriginMapping();
 
     if (Options::watchdog()) {
-        Watchdog& watchdog = ensureWatchdog();
-        watchdog.setTimeLimit(Seconds::fromMilliseconds(Options::watchdog()));
+        Ref watchdog = ensureWatchdog();
+        watchdog->setTimeLimit(Seconds::fromMilliseconds(Options::watchdog()));
     }
 
     if (Options::useTracePoints())
@@ -428,7 +432,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         ftlThunks = makeUnique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
         m_sharedJITStubs = makeUnique<SharedJITStubSet>();
-        getBoundFunction(/* isJSFunction */ true);
+        getBoundFunction(/* isJSFunction */ true, SourceTaintedOrigin::Untainted);
     }
 #endif // ENABLE(JIT)
 
@@ -467,7 +471,7 @@ VM::~VM()
     if (Wasm::Worklist* worklist = Wasm::existingWorklistOrNull())
         worklist->stopAllPlansForContext(*this);
 #endif
-    if (auto* watchdog = this->watchdog(); UNLIKELY(watchdog))
+    if (RefPtr watchdog = this->watchdog(); watchdog) [[unlikely]]
         watchdog->willDestroyVM(this);
     m_traps.willDestroyVM();
     m_isInService = false;
@@ -504,7 +508,7 @@ VM::~VM()
     while (!m_microtaskQueues.isEmpty())
         m_microtaskQueues.begin()->remove();
 
-    JSRunLoopTimer::Manager::shared().unregisterVM(*this);
+    JSRunLoopTimer::Manager::singleton().unregisterVM(*this);
 
     VMInspector::singleton().remove(this);
 
@@ -587,7 +591,7 @@ RefPtr<VM> VM::tryCreate(HeapType heapType, WTF::RunLoop* runLoop)
 SamplingProfiler& VM::ensureSamplingProfiler(Ref<Stopwatch>&& stopwatch)
 {
     if (!m_samplingProfiler) {
-        m_samplingProfiler = adoptRef(new SamplingProfiler(*this, WTFMove(stopwatch)));
+        lazyInitialize(m_samplingProfiler, adoptRef(*new SamplingProfiler(*this, WTFMove(stopwatch))));
         requestEntryScopeService(EntryScopeService::SamplingProfiler);
     }
     return *m_samplingProfiler;
@@ -595,7 +599,7 @@ SamplingProfiler& VM::ensureSamplingProfiler(Ref<Stopwatch>&& stopwatch)
 
 void VM::enableSamplingProfiler()
 {
-    SamplingProfiler* profiler = samplingProfiler();
+    RefPtr profiler = samplingProfiler();
     if (!profiler)
         profiler = &ensureSamplingProfiler(Stopwatch::create());
     profiler->start();
@@ -603,7 +607,7 @@ void VM::enableSamplingProfiler()
 
 void VM::disableSamplingProfiler()
 {
-    SamplingProfiler* profiler = samplingProfiler();
+    RefPtr profiler = samplingProfiler();
     if (!profiler)
         profiler = &ensureSamplingProfiler(Stopwatch::create());
     {
@@ -614,10 +618,8 @@ void VM::disableSamplingProfiler()
 
 RefPtr<JSON::Value> VM::takeSamplingProfilerSamplesAsJSON()
 {
-    SamplingProfiler* profiler = samplingProfiler();
-    if (!profiler)
-        return nullptr;
-    return profiler->stackTracesAsJSON();
+    RefPtr profiler = samplingProfiler();
+    return profiler ? RefPtr { profiler->stackTracesAsJSON() } : nullptr;
 }
 
 #endif // ENABLE(SAMPLING_PROFILER)
@@ -640,6 +642,8 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return charCodeAtThunkGenerator;
     case CharAtIntrinsic:
         return charAtThunkGenerator;
+    case StringPrototypeAtIntrinsic:
+        return stringAtThunkGenerator;
     case StringPrototypeCodePointAtIntrinsic:
         return stringPrototypeCodePointAtThunkGenerator;
     case Clz32Intrinsic:
@@ -650,6 +654,12 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return globalIsNaNThunkGenerator;
     case NumberIsNaNIntrinsic:
         return numberIsNaNThunkGenerator;
+    case GlobalIsFiniteIntrinsic:
+        return globalIsFiniteThunkGenerator;
+    case NumberIsFiniteIntrinsic:
+        return numberIsFiniteThunkGenerator;
+    case NumberIsSafeIntegerIntrinsic:
+        return numberIsSafeIntegerThunkGenerator;
     case SqrtIntrinsic:
         return sqrtThunkGenerator;
     case AbsIntrinsic:
@@ -719,33 +729,33 @@ static Ref<NativeJITCode> jitCodeForCallTrampoline(Intrinsic intrinsic)
     switch (intrinsic) {
 #if ENABLE(WEBASSEMBLY)
     case WasmFunctionIntrinsic: {
-        static NativeJITCode* result;
+        static LazyNeverDestroyed<Ref<NativeJITCode>> result;
         static std::once_flag onceKey;
         std::call_once(onceKey, [&] {
-            result = new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(js_to_wasm_wrapper_entry), JITType::HostCallThunk, intrinsic);
+            result.construct(adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(js_to_wasm_wrapper_entry), JITType::HostCallThunk, intrinsic)));
         });
-        return *result;
+        return result.get();
     }
 #endif
     default: {
-        static NativeJITCode* result;
+        static LazyNeverDestroyed<Ref<NativeJITCode>> result;
         static std::once_flag onceKey;
         std::call_once(onceKey, [&] {
-            result = new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_call_trampoline), JITType::HostCallThunk, NoIntrinsic);
+            result.construct(adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_call_trampoline), JITType::HostCallThunk, NoIntrinsic)));
         });
-        return *result;
+        return result.get();
     }
     }
 }
 
 static Ref<NativeJITCode> jitCodeForConstructTrampoline()
 {
-    static NativeJITCode* result;
+    static LazyNeverDestroyed<Ref<NativeJITCode>> result;
     static std::once_flag onceKey;
     std::call_once(onceKey, [&] {
-        result = new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_construct_trampoline), JITType::HostCallThunk, NoIntrinsic);
+        result.construct(adoptRef(*new NativeJITCode(LLInt::getCodeRef<JSEntryPtrTag>(llint_native_construct_trampoline), JITType::HostCallThunk, NoIntrinsic)));
     });
-    return *result;
+    return result.get();
 }
 
 NativeExecutable* VM::getHostFunction(NativeFunction function, ImplementationVisibility implementationVisibility, Intrinsic intrinsic, NativeFunction constructor, const DOMJIT::Signature* signature, const String& name)
@@ -763,13 +773,15 @@ NativeExecutable* VM::getHostFunction(NativeFunction function, ImplementationVis
     return NativeExecutable::create(*this, jitCodeForCallTrampoline(intrinsic), toTagged(function), jitCodeForConstructTrampoline(), toTagged(constructor), implementationVisibility, name);
 }
 
-NativeExecutable* VM::getBoundFunction(bool isJSFunction)
+NativeExecutable* VM::getBoundFunction(bool isJSFunction, SourceTaintedOrigin taintedness)
 {
     bool slowCase = !isJSFunction;
 
     auto getOrCreate = [&](WriteBarrier<NativeExecutable>& slot) -> NativeExecutable* {
-        if (auto* cached = slot.get())
-            return cached;
+        if (taintedness < SourceTaintedOrigin::IndirectlyTainted) {
+            if (auto* cached = slot.get())
+                return cached;
+        }
         NativeExecutable* result = getHostFunction(
             slowCase ? boundFunctionCall : boundThisNoArgsFunctionCall,
             ImplementationVisibility::Private, // Bound function's visibility is private on the stack.
@@ -812,12 +824,12 @@ CodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializatio
 {
 #if ENABLE(JIT)
     if (Options::useJIT()) {
-        if (kind == CodeForCall)
+        if (kind == CodeSpecializationKind::CodeForCall)
             return jitStubs->ctiInternalFunctionCall(*this).retagged<JSEntryPtrTag>();
         return jitStubs->ctiInternalFunctionConstruct(*this).retagged<JSEntryPtrTag>();
     }
 #endif
-    if (kind == CodeForCall)
+    if (kind == CodeSpecializationKind::CodeForCall)
         return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_call_trampoline);
     return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_construct_trampoline);
 }
@@ -913,7 +925,7 @@ void VM::clearSourceProviderCaches()
 
 bool VM::hasExceptionsAfterHandlingTraps()
 {
-    if (UNLIKELY(traps().needHandling(VMTraps::NonDebuggerAsyncEvents)))
+    if (traps().needHandling(VMTraps::NonDebuggerAsyncEvents)) [[unlikely]]
         m_traps.handleTraps(VMTraps::NonDebuggerAsyncEvents);
     return exception();
 }
@@ -955,7 +967,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
     }
 
     CallFrame* throwOriginFrame = topJSCallFrame();
-    if (UNLIKELY(Options::breakOnThrow())) {
+    if (Options::breakOnThrow()) [[unlikely]] {
         CodeBlock* codeBlock = throwOriginFrame && !throwOriginFrame->isNativeCalleeFrame() ? throwOriginFrame->codeBlock() : nullptr;
         dataLog("Throwing exception in call frame ", RawPointer(throwOriginFrame), " for code block ", codeBlock, "\n");
         WTFBreakpointTrap();
@@ -967,7 +979,7 @@ Exception* VM::throwException(JSGlobalObject* globalObject, Exception* exception
 
 #if ENABLE(EXCEPTION_SCOPE_VERIFICATION)
     m_nativeStackTraceOfLastThrow = StackTrace::captureStackTrace(Options::unexpectedExceptionStackTraceLimit());
-    m_throwingThread = &Thread::current();
+    m_throwingThread = &Thread::currentSingleton();
 #endif
     return exceptionToThrow;
 }
@@ -1034,7 +1046,7 @@ void VM::updateStackLimits()
 {
     void* lastSoftStackLimit = m_softStackLimit;
 
-    const StackBounds& stack = Thread::current().stack();
+    const StackBounds& stack = Thread::currentSingleton().stack();
     size_t reservedZoneSize = Options::reservedZoneSize();
     // We should have already ensured that Options::reservedZoneSize() >= minimumReserveZoneSize at
     // options initialization time, and the option value should not have been changed thereafter.
@@ -1068,7 +1080,7 @@ void VM::updateStackLimits()
         if (heap.m_webAssemblyInstanceSpace) {
             heap.m_webAssemblyInstanceSpace->forEachLiveCell([&] (HeapCell* cell, HeapCell::Kind kind) {
                 ASSERT_UNUSED(kind, kind == HeapCell::JSCell);
-                static_cast<JSWebAssemblyInstance*>(cell)->updateSoftStackLimit(m_softStackLimit);
+                SUPPRESS_MEMORY_UNSAFE_CAST static_cast<JSWebAssemblyInstance*>(cell)->updateSoftStackLimit(m_softStackLimit);
             });
         }
 #endif
@@ -1146,8 +1158,8 @@ void VM::popAllCheckpointOSRSideStateUntil(CallFrame* target)
 
 static void logSanitizeStack(VM& vm)
 {
-    if (UNLIKELY(Options::verboseSanitizeStack())) {
-        auto& stackBounds = Thread::current().stack();
+    if (Options::verboseSanitizeStack()) [[unlikely]] {
+        auto& stackBounds = Thread::currentSingleton().stack();
         dataLogLn("Sanitizing stack for VM = ", RawPointer(&vm), ", current stack pointer at ", RawPointer(currentStackPointer()), ", last stack top = ", RawPointer(vm.lastStackTop()), ", in stack range (", RawPointer(stackBounds.end()), ", ", RawPointer(stackBounds.origin()), "]");
     }
 }
@@ -1327,7 +1339,7 @@ void VM::didExhaustMicrotaskQueue()
                 continue;
 
             callPromiseRejectionCallback(promise);
-            if (UNLIKELY(hasPendingTerminationException()))
+            if (hasPendingTerminationException()) [[unlikely]]
                 return;
         }
     } while (!m_aboutToBeNotifiedRejectedPromises.isEmpty());
@@ -1340,10 +1352,10 @@ void VM::promiseRejected(JSPromise* promise)
 
 void VM::drainMicrotasks()
 {
-    if (UNLIKELY(m_drainMicrotaskDelayScopeCount))
+    if (m_drainMicrotaskDelayScopeCount) [[unlikely]]
         return;
 
-    if (UNLIKELY(executionForbidden()))
+    if (executionForbidden()) [[unlikely]]
         m_defaultMicrotaskQueue.clear();
     else {
         do {
@@ -1355,10 +1367,10 @@ void VM::drainMicrotasks()
                     runJSMicrotask(task.globalObject(), task.identifier(), task.job(), task.arguments());
                     return QueuedTask::Result::Executed;
                 });
-            if (UNLIKELY(hasPendingTerminationException()))
+            if (hasPendingTerminationException()) [[unlikely]]
                 return;
             didExhaustMicrotaskQueue();
-            if (UNLIKELY(hasPendingTerminationException()))
+            if (hasPendingTerminationException()) [[unlikely]]
                 return;
         } while (!m_defaultMicrotaskQueue.isEmpty());
     }
@@ -1367,7 +1379,7 @@ void VM::drainMicrotasks()
 
 void sanitizeStackForVM(VM& vm)
 {
-    auto& thread = Thread::current();
+    auto& thread = Thread::currentSingleton();
     auto& stack = thread.stack();
     if (!vm.currentThreadIsHoldingAPILock())
         return; // vm.lastStackTop() may not be set up correctly if JSLock is not held.
@@ -1389,7 +1401,7 @@ size_t VM::committedStackByteCount()
     // When using the C stack, we don't know how many stack pages are actually
     // committed. So, we use the current stack usage as an estimate.
     uint8_t* current = std::bit_cast<uint8_t*>(currentStackPointer());
-    uint8_t* high = std::bit_cast<uint8_t*>(Thread::current().stack().origin());
+    uint8_t* high = std::bit_cast<uint8_t*>(Thread::currentSingleton().stack().origin());
     return high - current;
 #else
     return CLoopStack::committedByteCount();
@@ -1419,7 +1431,7 @@ void VM::verifyExceptionCheckNeedIsSatisfied(unsigned recursionDepth, ExceptionE
     if (!Options::validateExceptionChecks())
         return;
 
-    if (UNLIKELY(m_needExceptionCheck)) {
+    if (m_needExceptionCheck) [[unlikely]] {
         auto throwDepth = m_simulatedThrowPointRecursionDepth;
         auto& throwLocation = m_simulatedThrowPointLocation;
 
@@ -1520,7 +1532,7 @@ JSPropertyNameEnumerator* VM::emptyPropertyNameEnumeratorSlow()
 
 void VM::executeEntryScopeServicesOnEntry()
 {
-    if (UNLIKELY(hasEntryScopeServiceRequest(EntryScopeService::FirePrimitiveGigacageEnabled))) {
+    if (hasEntryScopeServiceRequest(EntryScopeService::FirePrimitiveGigacageEnabled)) [[unlikely]] {
         m_primitiveGigacageEnabled.fireAll(*this, "Primitive gigacage disabled asynchronously");
         clearEntryScopeService(EntryScopeService::FirePrimitiveGigacageEnabled);
     }
@@ -1529,27 +1541,27 @@ void VM::executeEntryScopeServicesOnEntry()
     // observe time zone changes.
     dateCache.resetIfNecessary();
 
-    auto* watchdog = this->watchdog();
-    if (UNLIKELY(watchdog))
+    RefPtr watchdog = this->watchdog();
+    if (watchdog) [[unlikely]]
         watchdog->enteredVM();
 
 #if ENABLE(SAMPLING_PROFILER)
-    auto* samplingProfiler = this->samplingProfiler();
-    if (UNLIKELY(samplingProfiler))
+    RefPtr samplingProfiler = this->samplingProfiler();
+    if (samplingProfiler) [[unlikely]]
         samplingProfiler->noticeVMEntry();
 #endif
 
-    if (UNLIKELY(Options::useTracePoints()))
+    if (Options::useTracePoints()) [[unlikely]]
         tracePoint(VMEntryScopeStart);
 }
 
 void VM::executeEntryScopeServicesOnExit()
 {
-    if (UNLIKELY(Options::useTracePoints()))
+    if (Options::useTracePoints()) [[unlikely]]
         tracePoint(VMEntryScopeEnd);
 
-    auto* watchdog = this->watchdog();
-    if (UNLIKELY(watchdog))
+    RefPtr watchdog = this->watchdog();
+    if (watchdog) [[unlikely]]
         watchdog->exitedVM();
 
     if (hasEntryScopeServiceRequest(EntryScopeService::PopListeners)) {
@@ -1660,6 +1672,7 @@ void VM::visitAggregateImpl(Visitor& visitor)
     visitor.append(symbolTableStructure);
     for (auto& structure : immutableButterflyStructures)
         visitor.append(structure);
+    visitor.append(immutableButterflyOnlyAtomStringsStructure);
     visitor.append(sourceCodeStructure);
     visitor.append(scriptFetcherStructure);
     visitor.append(scriptFetchParametersStructure);

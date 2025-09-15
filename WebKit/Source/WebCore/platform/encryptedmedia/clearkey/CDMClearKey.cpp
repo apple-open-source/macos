@@ -40,6 +40,7 @@
 #include "SharedBuffer.h"
 #include <algorithm>
 #include <iterator>
+#include <ranges>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
@@ -258,9 +259,10 @@ CDMFactoryClearKey& CDMFactoryClearKey::singleton()
 CDMFactoryClearKey::CDMFactoryClearKey() = default;
 CDMFactoryClearKey::~CDMFactoryClearKey() = default;
 
-std::unique_ptr<CDMPrivate> CDMFactoryClearKey::createCDM(const String& keySystem, const CDMPrivateClient&)
+std::unique_ptr<CDMPrivate> CDMFactoryClearKey::createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient&)
 {
     ASSERT_UNUSED(keySystem, supportsKeySystem(keySystem));
+    UNUSED_PARAM(mediaKeysHashSalt);
     return makeUnique<CDMPrivateClearKey>();
 }
 
@@ -284,8 +286,7 @@ Vector<AtomString> CDMPrivateClearKey::supportedInitDataTypes() const
 
 static bool containsPersistentLicenseType(const Vector<CDMSessionType>& types)
 {
-    return std::any_of(types.begin(), types.end(),
-        [] (auto& sessionType) { return sessionType == CDMSessionType::PersistentLicense; });
+    return std::ranges::find(types, CDMSessionType::PersistentLicense) != types.end();
 }
 
 bool CDMPrivateClearKey::supportsConfiguration(const CDMKeySystemConfiguration& configuration) const
@@ -419,14 +420,14 @@ CDMInstanceClearKey::~CDMInstanceClearKey() = default;
 
 void CDMInstanceClearKey::initializeWithConfiguration(const CDMKeySystemConfiguration&, AllowDistinctiveIdentifiers distinctiveIdentifiers, AllowPersistentState persistentState, SuccessCallback&& callback)
 {
-    SuccessValue succeeded = (distinctiveIdentifiers == AllowDistinctiveIdentifiers::No && persistentState == AllowPersistentState::No) ? Succeeded : Failed;
+    SuccessValue succeeded = (distinctiveIdentifiers == AllowDistinctiveIdentifiers::No && persistentState == AllowPersistentState::No) ? CDMInstanceSuccessValue::Succeeded : CDMInstanceSuccessValue::Failed;
     callback(succeeded);
 }
 
 void CDMInstanceClearKey::setServerCertificate(Ref<SharedBuffer>&&, SuccessCallback&& callback)
 {
     // Reject setting any server certificate.
-    callback(Failed);
+    callback(CDMInstanceSuccessValue::Failed);
 }
 
 void CDMInstanceClearKey::setStorageDirectory(const String&)
@@ -447,7 +448,10 @@ RefPtr<CDMInstanceSession> CDMInstanceClearKey::createSession()
 
 void CDMInstanceSessionClearKey::requestLicense(LicenseType, KeyGroupingStrategy, const AtomString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&& callback)
 {
-    m_sessionID = String::number(protectedParentInstance()->getNextSessionIdValue());
+    if (RefPtr parentInstance = this->parentInstance())
+        m_sessionID = String::number(parentInstance->getNextSessionIdValue());
+    else
+        m_sessionID = emptyString();
 
     if (equalLettersIgnoringASCIICase(initDataType, "cenc"_s))
         initData = extractKeyidsFromCencInitData(initData.get());
@@ -489,7 +493,7 @@ void CDMInstanceSessionClearKey::updateLicense(const String& sessionId, LicenseT
         return;
     }
 
-    RefPtr parentInstance = protectedParentInstance();
+    RefPtr parentInstance = this->parentInstance();
     if (!parentInstance) {
         LOG(EME, "EME - ClearKey - session %s is in an invalid state", sessionId.utf8().data());
         dispatchCallback(false, std::nullopt, SuccessValue::Failed);
@@ -595,7 +599,7 @@ void CDMInstanceSessionClearKey::storeRecordOfKeyUsage(const String&)
 {
 }
 
-RefPtr<CDMInstanceClearKey> CDMInstanceSessionClearKey::protectedParentInstance() const
+CDMInstanceClearKey* CDMInstanceSessionClearKey::parentInstance() const
 {
     return dynamicDowncast<CDMInstanceClearKey>(cdmInstanceProxy().get());
 }

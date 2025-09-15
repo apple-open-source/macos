@@ -30,6 +30,7 @@
 #include <skywalk/packet/pbufpool_var.h>
 #include <sys/sdt.h>
 #include <net/droptap.h>
+#include <kern/uipc_domain.h>
 
 static struct kern_pbufpool *pp_alloc(zalloc_flags_t);
 static void pp_free(struct kern_pbufpool *);
@@ -112,105 +113,95 @@ static int __pp_inited = 0;
 int
 pp_init(void)
 {
-	_CASSERT(KPKT_SC_UNSPEC == MBUF_SC_UNSPEC);
-	_CASSERT(KPKT_SC_BK_SYS == MBUF_SC_BK_SYS);
-	_CASSERT(KPKT_SC_BK == MBUF_SC_BK);
-	_CASSERT(KPKT_SC_BE == MBUF_SC_BE);
-	_CASSERT(KPKT_SC_RD == MBUF_SC_RD);
-	_CASSERT(KPKT_SC_OAM == MBUF_SC_OAM);
-	_CASSERT(KPKT_SC_AV == MBUF_SC_AV);
-	_CASSERT(KPKT_SC_RV == MBUF_SC_RV);
-	_CASSERT(KPKT_SC_VI == MBUF_SC_VI);
-	_CASSERT(KPKT_SC_SIG == MBUF_SC_SIG);
-	_CASSERT(KPKT_SC_VO == MBUF_SC_VO);
-	_CASSERT(KPKT_SC_CTL == MBUF_SC_CTL);
+	static_assert(KPKT_SC_UNSPEC == MBUF_SC_UNSPEC);
+	static_assert(KPKT_SC_BK_SYS == MBUF_SC_BK_SYS);
+	static_assert(KPKT_SC_BK == MBUF_SC_BK);
+	static_assert(KPKT_SC_BE == MBUF_SC_BE);
+	static_assert(KPKT_SC_RD == MBUF_SC_RD);
+	static_assert(KPKT_SC_OAM == MBUF_SC_OAM);
+	static_assert(KPKT_SC_AV == MBUF_SC_AV);
+	static_assert(KPKT_SC_RV == MBUF_SC_RV);
+	static_assert(KPKT_SC_VI == MBUF_SC_VI);
+	static_assert(KPKT_SC_SIG == MBUF_SC_SIG);
+	static_assert(KPKT_SC_VO == MBUF_SC_VO);
+	static_assert(KPKT_SC_CTL == MBUF_SC_CTL);
 
-	_CASSERT(KPKT_SC_BK_SYS == PKT_SC_BK_SYS);
-	_CASSERT(KPKT_SC_BK == PKT_SC_BK);
-	_CASSERT(KPKT_SC_BE == PKT_SC_BE);
-	_CASSERT(KPKT_SC_RD == PKT_SC_RD);
-	_CASSERT(KPKT_SC_OAM == PKT_SC_OAM);
-	_CASSERT(KPKT_SC_AV == PKT_SC_AV);
-	_CASSERT(KPKT_SC_RV == PKT_SC_RV);
-	_CASSERT(KPKT_SC_VI == PKT_SC_VI);
-	_CASSERT(KPKT_SC_SIG == PKT_SC_SIG);
-	_CASSERT(KPKT_SC_VO == PKT_SC_VO);
-	_CASSERT(KPKT_SC_CTL == PKT_SC_CTL);
-	_CASSERT(KPKT_SC_MAX_CLASSES == MBUF_SC_MAX_CLASSES);
+	static_assert(KPKT_SC_BK_SYS == PKT_SC_BK_SYS);
+	static_assert(KPKT_SC_BK == PKT_SC_BK);
+	static_assert(KPKT_SC_BE == PKT_SC_BE);
+	static_assert(KPKT_SC_RD == PKT_SC_RD);
+	static_assert(KPKT_SC_OAM == PKT_SC_OAM);
+	static_assert(KPKT_SC_AV == PKT_SC_AV);
+	static_assert(KPKT_SC_RV == PKT_SC_RV);
+	static_assert(KPKT_SC_VI == PKT_SC_VI);
+	static_assert(KPKT_SC_SIG == PKT_SC_SIG);
+	static_assert(KPKT_SC_VO == PKT_SC_VO);
+	static_assert(KPKT_SC_CTL == PKT_SC_CTL);
+	static_assert(KPKT_SC_MAX_CLASSES == MBUF_SC_MAX_CLASSES);
 
-	_CASSERT(KPKT_TC_UNSPEC == MBUF_TC_UNSPEC);
-	_CASSERT(KPKT_TC_BE == MBUF_TC_BE);
-	_CASSERT(KPKT_TC_BK == MBUF_TC_BK);
-	_CASSERT(KPKT_TC_VI == MBUF_TC_VI);
-	_CASSERT(KPKT_TC_VO == MBUF_TC_VO);
-	_CASSERT(KPKT_TC_MAX == MBUF_TC_MAX);
+	static_assert(KPKT_TC_UNSPEC == MBUF_TC_UNSPEC);
+	static_assert(KPKT_TC_BE == MBUF_TC_BE);
+	static_assert(KPKT_TC_BK == MBUF_TC_BK);
+	static_assert(KPKT_TC_VI == MBUF_TC_VI);
+	static_assert(KPKT_TC_VO == MBUF_TC_VO);
+	static_assert(KPKT_TC_MAX == MBUF_TC_MAX);
 
-	_CASSERT(KPKT_TC_BE == PKT_TC_BE);
-	_CASSERT(KPKT_TC_BK == PKT_TC_BK);
-	_CASSERT(KPKT_TC_VI == PKT_TC_VI);
-	_CASSERT(KPKT_TC_VO == PKT_TC_VO);
+	static_assert(KPKT_TC_BE == PKT_TC_BE);
+	static_assert(KPKT_TC_BK == PKT_TC_BK);
+	static_assert(KPKT_TC_VI == PKT_TC_VI);
+	static_assert(KPKT_TC_VO == PKT_TC_VO);
 
-	_CASSERT(PKT_SCVAL_BK_SYS == SCVAL_BK_SYS);
-	_CASSERT(PKT_SCVAL_BK == SCVAL_BK);
-	_CASSERT(PKT_SCVAL_BE == SCVAL_BE);
-	_CASSERT(PKT_SCVAL_RD == SCVAL_RD);
-	_CASSERT(PKT_SCVAL_OAM == SCVAL_OAM);
-	_CASSERT(PKT_SCVAL_AV == SCVAL_AV);
-	_CASSERT(PKT_SCVAL_RV == SCVAL_RV);
-	_CASSERT(PKT_SCVAL_VI == SCVAL_VI);
-	_CASSERT(PKT_SCVAL_VO == SCVAL_VO);
-	_CASSERT(PKT_SCVAL_CTL == SCVAL_CTL);
+	static_assert(PKT_SCVAL_BK_SYS == SCVAL_BK_SYS);
+	static_assert(PKT_SCVAL_BK == SCVAL_BK);
+	static_assert(PKT_SCVAL_BE == SCVAL_BE);
+	static_assert(PKT_SCVAL_RD == SCVAL_RD);
+	static_assert(PKT_SCVAL_OAM == SCVAL_OAM);
+	static_assert(PKT_SCVAL_AV == SCVAL_AV);
+	static_assert(PKT_SCVAL_RV == SCVAL_RV);
+	static_assert(PKT_SCVAL_VI == SCVAL_VI);
+	static_assert(PKT_SCVAL_VO == SCVAL_VO);
+	static_assert(PKT_SCVAL_CTL == SCVAL_CTL);
 
 	/*
 	 * Assert that the value of common packet flags between mbuf and
 	 * skywalk packets match, and that they are in PKT_F_COMMON_MASK.
 	 */
-	_CASSERT(PKT_F_BACKGROUND == PKTF_SO_BACKGROUND);
-	_CASSERT(PKT_F_REALTIME == PKTF_SO_REALTIME);
-	_CASSERT(PKT_F_REXMT == PKTF_TCP_REXMT);
-	_CASSERT(PKT_F_LAST_PKT == PKTF_LAST_PKT);
-	_CASSERT(PKT_F_FLOW_ID == PKTF_FLOW_ID);
-	_CASSERT(PKT_F_FLOW_ADV == PKTF_FLOW_ADV);
-	_CASSERT(PKT_F_TX_COMPL_TS_REQ == PKTF_TX_COMPL_TS_REQ);
-	_CASSERT(PKT_F_TS_VALID == PKTF_TS_VALID);
-	_CASSERT(PKT_F_NEW_FLOW == PKTF_NEW_FLOW);
-	_CASSERT(PKT_F_START_SEQ == PKTF_START_SEQ);
-	_CASSERT(PKT_F_KEEPALIVE == PKTF_KEEPALIVE);
-	_CASSERT(PKT_F_WAKE_PKT == PKTF_WAKE_PKT);
-	_CASSERT(PKT_F_COMMON_MASK == (PKT_F_BACKGROUND | PKT_F_REALTIME |
-	    PKT_F_REXMT | PKT_F_LAST_PKT | PKT_F_FLOW_ID | PKT_F_FLOW_ADV |
-	    PKT_F_TX_COMPL_TS_REQ | PKT_F_TS_VALID | PKT_F_NEW_FLOW |
-	    PKT_F_START_SEQ | PKT_F_KEEPALIVE | PKT_F_WAKE_PKT));
+	static_assert(PKT_F_BACKGROUND == PKTF_SO_BACKGROUND);
+	static_assert(PKT_F_REALTIME == PKTF_SO_REALTIME);
+	static_assert(PKT_F_REXMT == PKTF_TCP_REXMT);
+	static_assert(PKT_F_LAST_PKT == PKTF_LAST_PKT);
+	static_assert(PKT_F_FLOW_ID == PKTF_FLOW_ID);
+	static_assert(PKT_F_FLOW_ADV == PKTF_FLOW_ADV);
+	static_assert(PKT_F_TX_COMPL_TS_REQ == PKTF_TX_COMPL_TS_REQ);
+	static_assert(PKT_F_TS_VALID == PKTF_TS_VALID);
+	static_assert(PKT_F_NEW_FLOW == PKTF_NEW_FLOW);
+	static_assert(PKT_F_START_SEQ == PKTF_START_SEQ);
+	static_assert(PKT_F_KEEPALIVE == PKTF_KEEPALIVE);
+	static_assert(PKT_F_WAKE_PKT == PKTF_WAKE_PKT);
+	static_assert(PKT_F_COMMON_MASK == (PKT_F_BACKGROUND | PKT_F_REALTIME | PKT_F_REXMT | PKT_F_LAST_PKT | PKT_F_FLOW_ID | PKT_F_FLOW_ADV | PKT_F_TX_COMPL_TS_REQ | PKT_F_TS_VALID | PKT_F_NEW_FLOW | PKT_F_START_SEQ | PKT_F_KEEPALIVE | PKT_F_WAKE_PKT));
 	/*
 	 * Assert packet flags shared with userland.
 	 */
-	_CASSERT(PKT_F_USER_MASK == (PKT_F_BACKGROUND | PKT_F_REALTIME |
-	    PKT_F_REXMT | PKT_F_LAST_PKT | PKT_F_OPT_DATA | PKT_F_PROMISC |
-	    PKT_F_TRUNCATED | PKT_F_WAKE_PKT | PKT_F_L4S));
+	static_assert(PKT_F_USER_MASK == (PKT_F_BACKGROUND | PKT_F_REALTIME | PKT_F_REXMT | PKT_F_LAST_PKT | PKT_F_OPT_DATA | PKT_F_PROMISC | PKT_F_TRUNCATED | PKT_F_WAKE_PKT | PKT_F_L4S | PKT_F_ULPN));
 
-	_CASSERT(offsetof(struct __kern_quantum, qum_len) ==
-	    offsetof(struct __kern_packet, pkt_length));
+	static_assert(offsetof(struct __kern_quantum, qum_len) == offsetof(struct __kern_packet, pkt_length));
 
 	/*
 	 * Due to the use of tagged pointer, we need the size of
 	 * the metadata preamble structure to be multiples of 16.
 	 * See SK_PTR_TAG() definition for details.
 	 */
-	_CASSERT(sizeof(struct __metadata_preamble) != 0 &&
-	    (sizeof(struct __metadata_preamble) % 16) == 0);
+	static_assert(sizeof(struct __metadata_preamble) != 0 && (sizeof(struct __metadata_preamble) % 16) == 0);
 
-	_CASSERT(NX_PBUF_FRAGS_MIN == 1 &&
-	    NX_PBUF_FRAGS_MIN == NX_PBUF_FRAGS_DEFAULT);
+	static_assert(NX_PBUF_FRAGS_MIN == 1 && NX_PBUF_FRAGS_MIN == NX_PBUF_FRAGS_DEFAULT);
 
 	/*
 	 * Batch alloc/free requires linking the objects together;
 	 * make sure that the fields are at the same offset since
 	 * we cast the object to struct skmem_obj.
 	 */
-	_CASSERT(offsetof(struct __metadata_preamble, _mdp_next) ==
-	    offsetof(struct skmem_obj, mo_next));
-	_CASSERT(offsetof(struct __buflet, __buflet_next) ==
-	    offsetof(struct skmem_obj, mo_next));
+	static_assert(offsetof(struct __metadata_preamble, _mdp_next) == offsetof(struct skmem_obj, mo_next));
+	static_assert(offsetof(struct __buflet, __buflet_next) == offsetof(struct skmem_obj, mo_next));
 
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(!__pp_inited);
@@ -273,7 +264,7 @@ pp_free(struct kern_pbufpool *pp)
 	pp_destroy(pp);
 	PP_UNLOCK(pp);
 
-	SK_DF(SK_VERB_MEM, "pp 0x%llx FREE", SK_KVA(pp));
+	SK_DF(SK_VERB_MEM, "pp %p FREE", SK_KVA(pp));
 	lck_mtx_destroy(&pp->pp_lock, &skmem_lock_grp);
 	zfree(pp_zone, pp);
 }
@@ -357,18 +348,7 @@ pp_regions_params_adjust(struct skmem_region_params srp_array[SKMEM_REGIONS],
 
 	ASSERT(max_frags != 0);
 
-	switch (md_type) {
-	case NEXUS_META_TYPE_QUANTUM:
-		md_size = NX_METADATA_QUANTUM_SZ;
-		break;
-	case NEXUS_META_TYPE_PACKET:
-		md_size = NX_METADATA_PACKET_SZ(max_frags);
-		break;
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
+	md_size = NX_METADATA_PACKET_SZ(max_frags);
 
 	switch (flags & PP_REGION_CONFIG_BUF_IODIR_BIDIR) {
 	case PP_REGION_CONFIG_BUF_IODIR_IN:
@@ -496,7 +476,6 @@ pp_regions_params_adjust(struct skmem_region_params srp_array[SKMEM_REGIONS],
 
 	/* configure kernel buflet region */
 	if (config_buflet) {
-		ASSERT(md_type == NEXUS_META_TYPE_PACKET);
 		/*
 		 * Ideally we want the number of buflets to be
 		 * "kmd_srp->srp_c_obj_cnt * (kmd_srp->srp_max_frags - 1)",
@@ -553,53 +532,40 @@ pp_metadata_construct(struct __kern_quantum *kqum, struct __user_quantum *uqum,
 	ASSERT(bufcnt == 1 || PP_HAS_BUFFER_ON_DEMAND(pp));
 
 	/* construct {user,kernel} metadata */
-	switch (pp->pp_md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
-		struct __user_packet *upkt = SK_PTR_ADDR_UPKT(uqum);
-		struct __packet_opt *__single opt;
-		struct __flow *__single flow;
-		struct __packet_compl *__single compl;
-		uint64_t pflags;
+	struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
+	struct __user_packet *upkt = SK_PTR_ADDR_UPKT(uqum);
+	struct __packet_opt *__single opt;
+	struct __flow *__single flow;
+	struct __packet_compl *__single compl;
+	uint64_t pflags;
 
-		if (raw) {
-			opt = skmem_cache_alloc(pp_opt_cache, SKMEM_SLEEP);
-			flow = skmem_cache_alloc(pp_flow_cache, SKMEM_SLEEP);
-			compl = skmem_cache_alloc(pp_compl_cache, SKMEM_SLEEP);
-			pflags = (PKT_F_OPT_ALLOC | PKT_F_FLOW_ALLOC |
-			    PKT_F_TX_COMPL_ALLOC);
-		} else {
-			ASSERT((kpkt->pkt_pflags & PKT_F_OPT_ALLOC) &&
-			    kpkt->pkt_com_opt != NULL);
-			opt = kpkt->pkt_com_opt;
-			ASSERT((kpkt->pkt_pflags & PKT_F_FLOW_ALLOC) &&
-			    kpkt->pkt_flow != NULL);
-			flow = kpkt->pkt_flow;
-			ASSERT((kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC) &&
-			    kpkt->pkt_tx_compl != NULL);
-			compl = kpkt->pkt_tx_compl;
-			pflags = kpkt->pkt_pflags;
-		}
-		/* will be adjusted below as part of allocating buffer(s) */
-		_CASSERT(sizeof(kpkt->pkt_bufs_cnt) == sizeof(uint16_t));
-		_CASSERT(sizeof(kpkt->pkt_bufs_max) == sizeof(uint16_t));
-		pbufs_cnt = __DECONST(uint16_t *, &kpkt->pkt_bufs_cnt);
-		pbufs_max = __DECONST(uint16_t *, &kpkt->pkt_bufs_max);
+	if (raw) {
+		opt = skmem_cache_alloc(pp_opt_cache, SKMEM_SLEEP);
+		flow = skmem_cache_alloc(pp_flow_cache, SKMEM_SLEEP);
+		compl = skmem_cache_alloc(pp_compl_cache, SKMEM_SLEEP);
+		pflags = (PKT_F_OPT_ALLOC | PKT_F_FLOW_ALLOC |
+		    PKT_F_TX_COMPL_ALLOC);
+	} else {
+		ASSERT((kpkt->pkt_pflags & PKT_F_OPT_ALLOC) &&
+		    kpkt->pkt_com_opt != NULL);
+		opt = kpkt->pkt_com_opt;
+		ASSERT((kpkt->pkt_pflags & PKT_F_FLOW_ALLOC) &&
+		    kpkt->pkt_flow != NULL);
+		flow = kpkt->pkt_flow;
+		ASSERT((kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC) &&
+		    kpkt->pkt_tx_compl != NULL);
+		compl = kpkt->pkt_tx_compl;
+		pflags = kpkt->pkt_pflags;
+	}
+	/* will be adjusted below as part of allocating buffer(s) */
+	static_assert(sizeof(kpkt->pkt_bufs_cnt) == sizeof(uint16_t));
+	static_assert(sizeof(kpkt->pkt_bufs_max) == sizeof(uint16_t));
+	pbufs_cnt = __DECONST(uint16_t *, &kpkt->pkt_bufs_cnt);
+	pbufs_max = __DECONST(uint16_t *, &kpkt->pkt_bufs_max);
 
-		/* kernel (and user) packet */
-		KPKT_CTOR(kpkt, pflags, opt, flow, compl, midx,
-		    upkt, pp, 0, pp->pp_max_frags, 0);
-		break;
-	}
-	default:
-		ASSERT(pp->pp_md_type == NEXUS_META_TYPE_QUANTUM);
-		VERIFY(bufcnt == 1);
-		/* TODO: point these to quantum's once they're defined */
-		pbufs_cnt = pbufs_max = NULL;
-		/* kernel quantum */
-		KQUM_CTOR(kqum, midx, uqum, pp, 0);
-		break;
-	}
+	/* kernel (and user) packet */
+	KPKT_CTOR(kpkt, pflags, opt, flow, compl, midx,
+	    upkt, pp, 0, pp->pp_max_frags, 0);
 
 	kbuf = kqum->qum_buf;
 	for (i = 0; i < bufcnt; i++) {
@@ -631,7 +597,7 @@ pp_metadata_construct(struct __kern_quantum *kqum, struct __user_quantum *uqum,
 			kbuf = (kern_buflet_t)*blist;
 			if (__improbable(kbuf == NULL)) {
 				SK_DF(SK_VERB_MEM, "failed to get buflet,"
-				    " pp 0x%llx", SK_KVA(pp));
+				    " pp %p", SK_KVA(pp));
 				goto fail;
 			}
 
@@ -653,7 +619,7 @@ pp_metadata_construct(struct __kern_quantum *kqum, struct __user_quantum *uqum,
 
 	ASSERT(!PP_KERNEL_ONLY(pp) || (kqum->qum_qflags & QUM_F_KERNEL_ONLY));
 	ASSERT(METADATA_IDX(kqum) != OBJ_IDX_NONE);
-	SK_DF(SK_VERB_MEM, "pp 0x%llx pkt 0x%llx bufcnt %d buf 0x%llx",
+	SK_DF(SK_VERB_MEM, "pp %p pkt %p bufcnt %d buf %p",
 	    SK_KVA(pp), SK_KVA(kqum), bufcnt, SK_KVA(baddr));
 	return 0;
 
@@ -781,47 +747,24 @@ pp_metadata_destruct_common(struct __kern_quantum *kqum,
 	ASSERT(blist_def != NULL);
 	ASSERT(blist_large != NULL);
 
-	switch (pp->pp_md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
+	struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
 
-		ASSERT(kpkt->pkt_user != NULL || PP_KERNEL_ONLY(pp));
-		ASSERT(kpkt->pkt_qum.qum_pp == pp);
-		ASSERT(METADATA_TYPE(kpkt) == pp->pp_md_type);
-		ASSERT(METADATA_SUBTYPE(kpkt) == pp->pp_md_subtype);
-		ASSERT(METADATA_IDX(kpkt) != OBJ_IDX_NONE);
-		ASSERT(kpkt->pkt_qum.qum_ksd == NULL);
-		ASSERT(kpkt->pkt_bufs_cnt <= kpkt->pkt_bufs_max);
-		ASSERT(kpkt->pkt_bufs_max == pp->pp_max_frags);
-		_CASSERT(sizeof(kpkt->pkt_bufs_cnt) == sizeof(uint16_t));
-		bufcnt = kpkt->pkt_bufs_cnt;
-		kbuf = &kqum->qum_buf[0];
-		/*
-		 * special handling for empty first buflet.
-		 */
-		first_buflet_empty = (kbuf->buf_addr == 0);
-		*__DECONST(uint16_t *, &kpkt->pkt_bufs_cnt) = 0;
-		break;
-	}
-	default:
-		ASSERT(pp->pp_md_type == NEXUS_META_TYPE_QUANTUM);
-		ASSERT(kqum->qum_user != NULL || PP_KERNEL_ONLY(pp));
-		ASSERT(kqum->qum_pp == pp);
-		ASSERT(METADATA_TYPE(kqum) == pp->pp_md_type);
-		ASSERT(METADATA_SUBTYPE(kqum) == pp->pp_md_subtype);
-		ASSERT(METADATA_IDX(kqum) != OBJ_IDX_NONE);
-		ASSERT(kqum->qum_ksd == NULL);
-		kbuf = &kqum->qum_buf[0];
-		/*
-		 * XXX: Special handling for quantum as we don't currently
-		 * define bufs_{cnt,max} there.  Given that we support at
-		 * most only 1 buflet for now, check if buf_addr is non-NULL.
-		 * See related code in pp_metadata_construct().
-		 */
-		first_buflet_empty = (kbuf->buf_addr == 0);
-		bufcnt = first_buflet_empty ? 0 : 1;
-		break;
-	}
+	ASSERT(kpkt->pkt_user != NULL || PP_KERNEL_ONLY(pp));
+	ASSERT(kpkt->pkt_qum.qum_pp == pp);
+	ASSERT(METADATA_TYPE(kpkt) == pp->pp_md_type);
+	ASSERT(METADATA_SUBTYPE(kpkt) == pp->pp_md_subtype);
+	ASSERT(METADATA_IDX(kpkt) != OBJ_IDX_NONE);
+	ASSERT(kpkt->pkt_qum.qum_ksd == NULL);
+	ASSERT(kpkt->pkt_bufs_cnt <= kpkt->pkt_bufs_max);
+	ASSERT(kpkt->pkt_bufs_max == pp->pp_max_frags);
+	static_assert(sizeof(kpkt->pkt_bufs_cnt) == sizeof(uint16_t));
+	bufcnt = kpkt->pkt_bufs_cnt;
+	kbuf = &kqum->qum_buf[0];
+	/*
+	 * special handling for empty first buflet.
+	 */
+	first_buflet_empty = (kbuf->buf_addr == 0);
+	*__DECONST(uint16_t *, &kpkt->pkt_bufs_cnt) = 0;
 
 	/*
 	 * -fbounds-safety: buf_nbft_addr is a mach_vm_address_t which is
@@ -893,41 +836,30 @@ pp_metadata_destruct_common(struct __kern_quantum *kqum,
 
 	/* if we're about to return this object to the slab, clean it up */
 	if (raw) {
-		switch (pp->pp_md_type) {
-		case NEXUS_META_TYPE_PACKET: {
-			struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
-
-			ASSERT(kpkt->pkt_com_opt != NULL ||
-			    !(kpkt->pkt_pflags & PKT_F_OPT_ALLOC));
-			if (kpkt->pkt_com_opt != NULL) {
-				ASSERT(kpkt->pkt_pflags & PKT_F_OPT_ALLOC);
-				skmem_cache_free(pp_opt_cache,
-				    kpkt->pkt_com_opt);
-				kpkt->pkt_com_opt = NULL;
-			}
-			ASSERT(kpkt->pkt_flow != NULL ||
-			    !(kpkt->pkt_pflags & PKT_F_FLOW_ALLOC));
-			if (kpkt->pkt_flow != NULL) {
-				ASSERT(kpkt->pkt_pflags & PKT_F_FLOW_ALLOC);
-				skmem_cache_free(pp_flow_cache, kpkt->pkt_flow);
-				kpkt->pkt_flow = NULL;
-			}
-			ASSERT(kpkt->pkt_tx_compl != NULL ||
-			    !(kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC));
-			if (kpkt->pkt_tx_compl != NULL) {
-				ASSERT(kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC);
-				skmem_cache_free(pp_compl_cache,
-				    kpkt->pkt_tx_compl);
-				kpkt->pkt_tx_compl = NULL;
-			}
-			kpkt->pkt_pflags = 0;
-			break;
+		ASSERT(kpkt->pkt_com_opt != NULL ||
+		    !(kpkt->pkt_pflags & PKT_F_OPT_ALLOC));
+		if (kpkt->pkt_com_opt != NULL) {
+			ASSERT(kpkt->pkt_pflags & PKT_F_OPT_ALLOC);
+			skmem_cache_free(pp_opt_cache,
+			    kpkt->pkt_com_opt);
+			kpkt->pkt_com_opt = NULL;
 		}
-		default:
-			ASSERT(METADATA_TYPE(kqum) == NEXUS_META_TYPE_QUANTUM);
-			/* nothing to do for quantum (yet) */
-			break;
+		ASSERT(kpkt->pkt_flow != NULL ||
+		    !(kpkt->pkt_pflags & PKT_F_FLOW_ALLOC));
+		if (kpkt->pkt_flow != NULL) {
+			ASSERT(kpkt->pkt_pflags & PKT_F_FLOW_ALLOC);
+			skmem_cache_free(pp_flow_cache, kpkt->pkt_flow);
+			kpkt->pkt_flow = NULL;
 		}
+		ASSERT(kpkt->pkt_tx_compl != NULL ||
+		    !(kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC));
+		if (kpkt->pkt_tx_compl != NULL) {
+			ASSERT(kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC);
+			skmem_cache_free(pp_compl_cache,
+			    kpkt->pkt_tx_compl);
+			kpkt->pkt_tx_compl = NULL;
+		}
+		kpkt->pkt_pflags = 0;
 	}
 }
 
@@ -1068,7 +1000,7 @@ pp_buflet_metadata_dtor(void *addr, void *arg)
 	ASSERT(kbft->buf_ctl != NULL);
 
 	KBUF_DTOR(kbft, usecnt);
-	SK_DF(SK_VERB_MEM, "pp 0x%llx buf 0x%llx usecnt %u", SK_KVA(pp),
+	SK_DF(SK_VERB_MEM, "pp %p buf %p usecnt %u", SK_KVA(pp),
 	    SK_KVA(objaddr), usecnt);
 	if (__probable(usecnt == 0)) {
 		skmem_cache_free(large ? PP_BUF_CACHE_LARGE(pp) :
@@ -1175,16 +1107,10 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 	ASSERT(def_buf_obj_size != 0);
 	ASSERT(md_type > NEXUS_META_TYPE_INVALID &&
 	    md_type <= NEXUS_META_TYPE_MAX);
-	if (md_type == NEXUS_META_TYPE_QUANTUM) {
-		ASSERT(max_frags == 1);
-		ASSERT(md_size >=
-		    (METADATA_PREAMBLE_SZ + NX_METADATA_QUANTUM_SZ));
-	} else {
-		ASSERT(max_frags >= 1);
-		ASSERT(md_type == NEXUS_META_TYPE_PACKET);
-		ASSERT(md_size >= (METADATA_PREAMBLE_SZ +
-		    NX_METADATA_PACKET_SZ(max_frags)));
-	}
+	ASSERT(max_frags >= 1);
+	ASSERT(md_type == NEXUS_META_TYPE_PACKET);
+	ASSERT(md_size >= (METADATA_PREAMBLE_SZ +
+	    NX_METADATA_PACKET_SZ(max_frags)));
 	ASSERT(md_subtype > NEXUS_META_SUBTYPE_INVALID &&
 	    md_subtype <= NEXUS_META_SUBTYPE_MAX);
 #endif /* DEBUG || DEVELOPMENT */
@@ -1243,14 +1169,14 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 
 	if (umd_srp != NULL && (pp->pp_umd_region =
 	    skmem_region_create(name, umd_srp, NULL, NULL, NULL)) == NULL) {
-		SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+		SK_ERR("\"%s\" (%p) failed to create %s region",
 		    pp->pp_name, SK_KVA(pp), umd_srp->srp_name);
 		goto failed;
 	}
 
 	if ((pp->pp_kmd_region = skmem_region_create(name, kmd_srp, NULL, NULL,
 	    NULL)) == NULL) {
-		SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+		SK_ERR("\"%s\" (%p) failed to create %s region",
 		    pp->pp_name, SK_KVA(pp), kmd_srp->srp_name);
 		goto failed;
 	}
@@ -1276,7 +1202,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 	if (PP_HAS_BUFFER_ON_DEMAND(pp) && !PP_KERNEL_ONLY(pp)) {
 		if ((pp->pp_ubft_region = skmem_region_create(name, ubft_srp,
 		    NULL, NULL, NULL)) == NULL) {
-			SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+			SK_ERR("\"%s\" (%p) failed to create %s region",
 			    pp->pp_name, SK_KVA(pp), ubft_srp->srp_name);
 			goto failed;
 		}
@@ -1285,7 +1211,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 	if (PP_HAS_BUFFER_ON_DEMAND(pp)) {
 		if ((pp->pp_kbft_region = skmem_region_create(name,
 		    kbft_srp, NULL, NULL, NULL)) == NULL) {
-			SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+			SK_ERR("\"%s\" (%p) failed to create %s region",
 			    pp->pp_name, SK_KVA(pp), kbft_srp->srp_name);
 			goto failed;
 		}
@@ -1314,7 +1240,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 	}
 
 	if (pp->pp_kmd_cache == NULL) {
-		SK_ERR("\"%s\" (0x%llx) failed to create \"%s\" cache",
+		SK_ERR("\"%s\" (%p) failed to create \"%s\" cache",
 		    pp->pp_name, SK_KVA(pp), cname);
 		goto failed;
 	}
@@ -1331,7 +1257,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 		    md_cflags);
 
 		if (PP_KBFT_CACHE_DEF(pp) == NULL) {
-			SK_ERR("\"%s\" (0x%llx) failed to create \"%s\" cache",
+			SK_ERR("\"%s\" (%p) failed to create \"%s\" cache",
 			    pp->pp_name, SK_KVA(pp), cname);
 			goto failed;
 		}
@@ -1348,7 +1274,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 			    NULL, pp, pp->pp_kbft_region, md_cflags);
 
 			if (PP_KBFT_CACHE_LARGE(pp) == NULL) {
-				SK_ERR("\"%s\" (0x%llx) failed to "
+				SK_ERR("\"%s\" (%p) failed to "
 				    "create \"%s\" cache", pp->pp_name,
 				    SK_KVA(pp), cname);
 				goto failed;
@@ -1358,7 +1284,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 
 	if ((PP_BUF_REGION_DEF(pp) = skmem_region_create(name,
 	    buf_srp, pp_buf_seg_ctor, pp_buf_seg_dtor, pp)) == NULL) {
-		SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+		SK_ERR("\"%s\" (%p) failed to create %s region",
 		    pp->pp_name, SK_KVA(pp), buf_srp->srp_name);
 		goto failed;
 	}
@@ -1367,7 +1293,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 		PP_BUF_REGION_LARGE(pp) = skmem_region_create(name, lbuf_srp,
 		    pp_buf_seg_ctor, pp_buf_seg_dtor, pp);
 		if (PP_BUF_REGION_LARGE(pp) == NULL) {
-			SK_ERR("\"%s\" (0x%llx) failed to create %s region",
+			SK_ERR("\"%s\" (%p) failed to create %s region",
 			    pp->pp_name, SK_KVA(pp), lbuf_srp->srp_name);
 			goto failed;
 		}
@@ -1383,7 +1309,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 	    def_buf_obj_size,
 	    0, NULL, NULL, NULL, pp, PP_BUF_REGION_DEF(pp),
 	    buf_def_cflags)) == NULL) {
-		SK_ERR("\"%s\" (0x%llx) failed to create \"%s\" cache",
+		SK_ERR("\"%s\" (%p) failed to create \"%s\" cache",
 		    pp->pp_name, SK_KVA(pp), cname);
 		goto failed;
 	}
@@ -1393,7 +1319,7 @@ pp_create(const char *name, struct skmem_region_params srp_array[SKMEM_REGIONS],
 		if ((PP_BUF_CACHE_LARGE(pp) = skmem_cache_create(cache_name,
 		    lbuf_srp->srp_c_obj_size, 0, NULL, NULL, NULL, pp,
 		    PP_BUF_REGION_LARGE(pp), SKMEM_CR_NOMAGAZINES)) == NULL) {
-			SK_ERR("\"%s\" (0x%llx) failed to create \"%s\" cache",
+			SK_ERR("\"%s\" (%p) failed to create \"%s\" cache",
 			    pp->pp_name, SK_KVA(pp), cname);
 			goto failed;
 		}
@@ -1985,60 +1911,49 @@ pp_metadata_init(struct __metadata_preamble *mdp, struct kern_pbufpool *pp,
 	}
 
 	/* (re)construct {user,kernel} metadata */
-	switch (pp->pp_md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
-		struct __kern_buflet *kbuf = &kpkt->pkt_qum_buf;
-		uint16_t i;
+	struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(kqum);
+	struct __kern_buflet *kbuf = &kpkt->pkt_qum_buf;
+	uint16_t i;
 
-		/* sanitize flags */
-		kpkt->pkt_pflags &= PKT_F_INIT_MASK;
+	/* sanitize flags */
+	kpkt->pkt_pflags &= PKT_F_INIT_MASK;
 
-		ASSERT((kpkt->pkt_pflags & PKT_F_OPT_ALLOC) &&
-		    kpkt->pkt_com_opt != NULL);
-		ASSERT((kpkt->pkt_pflags & PKT_F_FLOW_ALLOC) &&
-		    kpkt->pkt_flow != NULL);
-		ASSERT((kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC) &&
-		    kpkt->pkt_tx_compl != NULL);
+	ASSERT((kpkt->pkt_pflags & PKT_F_OPT_ALLOC) &&
+	    kpkt->pkt_com_opt != NULL);
+	ASSERT((kpkt->pkt_pflags & PKT_F_FLOW_ALLOC) &&
+	    kpkt->pkt_flow != NULL);
+	ASSERT((kpkt->pkt_pflags & PKT_F_TX_COMPL_ALLOC) &&
+	    kpkt->pkt_tx_compl != NULL);
 
+	/*
+	 * XXX: For now we always set PKT_F_FLOW_DATA;
+	 * this is a no-op but done for consistency
+	 * with the other PKT_F_*_DATA flags.
+	 */
+	kpkt->pkt_pflags |= PKT_F_FLOW_DATA;
+
+	/* initialize kernel packet */
+	KPKT_INIT(kpkt, QUM_F_INTERNALIZED);
+
+	ASSERT(bufcnt || PP_HAS_BUFFER_ON_DEMAND(pp));
+	if (PP_HAS_BUFFER_ON_DEMAND(pp)) {
+		ASSERT(kbuf->buf_ctl == NULL);
+		ASSERT(kbuf->buf_addr == 0);
 		/*
-		 * XXX: For now we always set PKT_F_FLOW_DATA;
-		 * this is a no-op but done for consistency
-		 * with the other PKT_F_*_DATA flags.
+		 * -fbounds-safety: buf_nbft_addr is a mach_vm_address_t
+		 * which is unsafe, so we just forge it here.
 		 */
-		kpkt->pkt_pflags |= PKT_F_FLOW_DATA;
-
-		/* initialize kernel packet */
-		KPKT_INIT(kpkt, QUM_F_INTERNALIZED);
-
-		ASSERT(bufcnt || PP_HAS_BUFFER_ON_DEMAND(pp));
-		if (PP_HAS_BUFFER_ON_DEMAND(pp)) {
-			ASSERT(kbuf->buf_ctl == NULL);
-			ASSERT(kbuf->buf_addr == 0);
-			/*
-			 * -fbounds-safety: buf_nbft_addr is a mach_vm_address_t
-			 * which is unsafe, so we just forge it here.
-			 */
-			kbuf = __unsafe_forge_single(struct __kern_buflet *,
-			    __DECONST(struct __kern_buflet *, kbuf->buf_nbft_addr));
-		}
-		/* initialize kernel buflet */
-		for (i = 0; i < bufcnt; i++) {
-			ASSERT(kbuf != NULL);
-			KBUF_INIT(kbuf);
-			kbuf = __unsafe_forge_single(struct __kern_buflet *,
-			    __DECONST(struct __kern_buflet *, kbuf->buf_nbft_addr));
-		}
-		ASSERT((kbuf == NULL) || (bufcnt == 0));
-		break;
+		kbuf = __unsafe_forge_single(struct __kern_buflet *,
+		    __DECONST(struct __kern_buflet *, kbuf->buf_nbft_addr));
 	}
-	default:
-		ASSERT(pp->pp_md_type == NEXUS_META_TYPE_QUANTUM);
-		/* kernel quantum */
-		KQUM_INIT(kqum, QUM_F_INTERNALIZED);
-		KBUF_INIT(&kqum->qum_buf[0]);
-		break;
+	/* initialize kernel buflet */
+	for (i = 0; i < bufcnt; i++) {
+		ASSERT(kbuf != NULL);
+		KBUF_INIT(kbuf);
+		kbuf = __unsafe_forge_single(struct __kern_buflet *,
+		    __DECONST(struct __kern_buflet *, kbuf->buf_nbft_addr));
 	}
+	ASSERT((kbuf == NULL) || (bufcnt == 0));
 
 	return kqum;
 }
@@ -2274,52 +2189,43 @@ pp_metadata_fini(struct __kern_quantum *kqum, struct kern_pbufpool *pp,
     struct skmem_obj **blist_nocahce_large)
 {
 	struct __metadata_preamble *mdp = METADATA_PREAMBLE(kqum);
-
 	ASSERT(SK_PTR_TAG(kqum) == 0);
+	struct __kern_packet *kpkt = SK_PTR_KPKT(kqum);
 
-	switch (pp->pp_md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		struct __kern_packet *kpkt = SK_PTR_KPKT(kqum);
-
-		if ((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) != 0) {
-			__packet_perform_tx_completion_callbacks(
-				SK_PKT2PH(kpkt), NULL);
-		}
-		if ((kpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
-			ASSERT((kpkt->pkt_pflags & PKT_F_PKT_DATA) == 0);
-			ASSERT(kpkt->pkt_mbuf != NULL);
-			ASSERT(kpkt->pkt_mbuf->m_nextpkt == NULL);
-			if (mp != NULL) {
-				ASSERT(*mp == NULL);
-				*mp = kpkt->pkt_mbuf;
-			} else {
-				m_freem(kpkt->pkt_mbuf);
-			}
-			KPKT_CLEAR_MBUF_DATA(kpkt);
-		} else if ((kpkt->pkt_pflags & PKT_F_PKT_DATA) != 0) {
-			ASSERT(kpkt->pkt_pkt != NULL);
-			ASSERT(kpkt->pkt_pkt->pkt_nextpkt == NULL);
-			if (kpp != NULL) {
-				ASSERT(*kpp == NULL);
-				*kpp = kpkt->pkt_pkt;
-			} else {
-				/* can only recurse once */
-				ASSERT((kpkt->pkt_pkt->pkt_pflags &
-				    PKT_F_PKT_DATA) == 0);
-				pp_free_packet_single(kpkt->pkt_pkt);
-			}
-			KPKT_CLEAR_PKT_DATA(kpkt);
-		}
-		kpkt->pkt_pflags &= ~PKT_F_TRUNCATED;
-		ASSERT(kpkt->pkt_nextpkt == NULL);
-		ASSERT(kpkt->pkt_qum.qum_ksd == NULL);
-		ASSERT((kpkt->pkt_pflags & PKT_F_MBUF_MASK) == 0);
-		ASSERT((kpkt->pkt_pflags & PKT_F_PKT_MASK) == 0);
-		break;
+	if ((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) != 0) {
+		__packet_perform_tx_completion_callbacks(
+			SK_PKT2PH(kpkt), NULL);
 	}
-	default:
-		break;
+	if ((kpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
+		ASSERT((kpkt->pkt_pflags & PKT_F_PKT_DATA) == 0);
+		ASSERT(kpkt->pkt_mbuf != NULL);
+		ASSERT(kpkt->pkt_mbuf->m_nextpkt == NULL);
+		if (mp != NULL) {
+			ASSERT(*mp == NULL);
+			*mp = kpkt->pkt_mbuf;
+		} else {
+			m_freem(kpkt->pkt_mbuf);
+		}
+		KPKT_CLEAR_MBUF_DATA(kpkt);
+	} else if ((kpkt->pkt_pflags & PKT_F_PKT_DATA) != 0) {
+		ASSERT(kpkt->pkt_pkt != NULL);
+		ASSERT(kpkt->pkt_pkt->pkt_nextpkt == NULL);
+		if (kpp != NULL) {
+			ASSERT(*kpp == NULL);
+			*kpp = kpkt->pkt_pkt;
+		} else {
+			/* can only recurse once */
+			ASSERT((kpkt->pkt_pkt->pkt_pflags &
+			    PKT_F_PKT_DATA) == 0);
+			pp_free_packet_single(kpkt->pkt_pkt);
+		}
+		KPKT_CLEAR_PKT_DATA(kpkt);
 	}
+	kpkt->pkt_pflags &= ~PKT_F_TRUNCATED;
+	ASSERT(kpkt->pkt_nextpkt == NULL);
+	ASSERT(kpkt->pkt_qum.qum_ksd == NULL);
+	ASSERT((kpkt->pkt_pflags & PKT_F_MBUF_MASK) == 0);
+	ASSERT((kpkt->pkt_pflags & PKT_F_PKT_MASK) == 0);
 
 	if (__improbable(PP_HAS_BUFFER_ON_DEMAND(pp))) {
 		pp_metadata_destruct_common(kqum, pp, FALSE, blist_def, blist_nocache_def,
@@ -2575,7 +2481,7 @@ pp_alloc_buffer_common(const kern_pbufpool_t pp, struct skmem_obj_info *oi,
 #endif /* (DEVELOPMENT || DEBUG) */
 
 	if (__improbable(baddr == 0)) {
-		SK_DF(SK_VERB_MEM, "failed to alloc buffer, pp 0x%llx",
+		SK_DF(SK_VERB_MEM, "failed to alloc buffer, pp %p",
 		    SK_KVA(pp));
 		return 0;
 	}
@@ -2732,7 +2638,7 @@ pp_free_buflet_common(const kern_pbufpool_t pp, kern_buflet_t kbft)
 		ASSERT(kbft->buf_idx != OBJ_IDX_NONE);
 		ASSERT(kbft->buf_ctl != NULL);
 		KBUF_DTOR(kbft, usecnt);
-		SK_DF(SK_VERB_MEM, "pp 0x%llx buf 0x%llx usecnt %u",
+		SK_DF(SK_VERB_MEM, "pp %p buf %p usecnt %u",
 		    SK_KVA(pp), SK_KVA(objaddr), usecnt);
 		if (__probable(usecnt == 0)) {
 			skmem_cache_free(BUFLET_HAS_LARGE_BUF(kbft) ?

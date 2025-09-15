@@ -40,6 +40,7 @@
 #import "_WKMockUserNotificationCenter.h"
 #import "_WKWebPushActionInternal.h"
 
+#import <WebCore/ExceptionOr.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/NotificationData.h>
 #import <WebCore/NotificationPayload.h>
@@ -56,7 +57,7 @@
 #import <wtf/URL.h>
 #import <wtf/WorkQueue.h>
 #import <wtf/cocoa/SpanCocoa.h>
-#import <wtf/spi/darwin/XPCSPI.h>
+#import <wtf/darwin/XPCExtras.h>
 #import <wtf/text/MakeString.h>
 
 #if HAVE(MOBILE_KEY_BAG)
@@ -125,12 +126,12 @@ static bool platformShouldPlaySound(const WebCore::NotificationData& data)
 #endif
 }
 
-static NSString *platformDefaultActionBundleIdentifier(const WebCore::PushSubscriptionSetIdentifier& identifier)
+static RetainPtr<NSString> platformDefaultActionBundleIdentifier(const WebCore::PushSubscriptionSetIdentifier& identifier)
 {
 #if PLATFORM(IOS)
     if (identifier.bundleIdentifier == "com.apple.SafariViewService"_s)
         return @"com.apple.webapp";
-    return (NSString *)identifier.bundleIdentifier;
+    return identifier.bundleIdentifier.createNSString();
 #else
     // FIXME: Calculate appropriate value on macOS
     return nil;
@@ -139,7 +140,7 @@ static NSString *platformDefaultActionBundleIdentifier(const WebCore::PushSubscr
 
 static RetainPtr<NSString> platformNotificationCenterBundleIdentifier(String pushPartition)
 {
-    return [NSString stringWithFormat:@"com.apple.WebKit.PushBundle.%@", (NSString *)pushPartition];
+    return adoptNS([[NSString alloc] initWithFormat:@"com.apple.WebKit.PushBundle.%@", pushPartition.createNSString().get()]);
 }
 
 #endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
@@ -177,11 +178,11 @@ void WebPushDaemon::startMockPushService()
     m_webClipCachePath = FileSystem::createTemporaryFile("WebClipCache"_s);
 #endif
 
-    auto messageHandler = [this](const PushSubscriptionSetIdentifier& identifier, WebKit::WebPushMessage&& message) {
-        handleIncomingPush(identifier, WTFMove(message));
+    auto messageHandler = [](const PushSubscriptionSetIdentifier& identifier, WebKit::WebPushMessage&& message) {
+        WebPushDaemon::singleton().handleIncomingPush(identifier, WTFMove(message));
     };
-    PushService::createMockService(WTFMove(messageHandler), [this](auto&& pushService) mutable {
-        setPushService(WTFMove(pushService));
+    PushService::createMockService(WTFMove(messageHandler), [](auto&& pushService) mutable {
+        WebPushDaemon::singleton().setPushService(WTFMove(pushService));
     });
 }
 
@@ -191,23 +192,24 @@ void WebPushDaemon::startPushService(const String& incomingPushServiceName, cons
     m_webClipCachePath = webClipCachePath;
 #endif
 
-    auto messageHandler = [this](const PushSubscriptionSetIdentifier& identifier, WebKit::WebPushMessage&& message) {
-        handleIncomingPush(identifier, WTFMove(message));
+    auto messageHandler = [](const PushSubscriptionSetIdentifier& identifier, WebKit::WebPushMessage&& message) {
+        WebPushDaemon::singleton().handleIncomingPush(identifier, WTFMove(message));
     };
-    PushService::create(incomingPushServiceName, databasePath, WTFMove(messageHandler), [this, webClipCachePath](auto&& pushService) mutable {
+    PushService::create(incomingPushServiceName, databasePath, WTFMove(messageHandler), [webClipCachePath](auto&& pushService) mutable {
 #if PLATFORM(IOS)
+        auto& daemon = WebPushDaemon::singleton();
         if (!pushService) {
-            setPushService(nullptr);
+            daemon.setPushService(nullptr);
             return;
         }
 
         auto& pushServiceRef = *pushService;
         auto allowedBundleIdentifier = getAllowedBundleIdentifier();
-        pushServiceRef.updateSubscriptionSetState(allowedBundleIdentifier, ensureWebClipCache().visibleWebClipIdentifiers(allowedBundleIdentifier), [this, pushService = WTFMove(pushService)]() mutable {
-            setPushService(WTFMove(pushService));
+        pushServiceRef.updateSubscriptionSetState(allowedBundleIdentifier, daemon.ensureWebClipCache().visibleWebClipIdentifiers(allowedBundleIdentifier), [pushService = WTFMove(pushService)]() mutable {
+            WebPushDaemon::singleton().setPushService(WTFMove(pushService));
         });
 #else
-        setPushService(WTFMove(pushService));
+        WebPushDaemon::singleton().setPushService(WTFMove(pushService));
 #endif
     });
 }
@@ -241,15 +243,19 @@ WebClipCache& WebPushDaemon::ensureWebClipCache()
 
 void WebPushDaemon::setPushService(RefPtr<PushService>&& pushService)
 {
-    m_pushService = WTFMove(pushService);
+    ASSERT(!m_pushService);
+    if (pushService)
+        lazyInitialize(m_pushService, pushService.releaseNonNull());
+
     m_pushServiceStarted = true;
 
     if (!m_pendingPushServiceFunctions.size())
         return;
 
-    WorkQueue::main().dispatch([this]() {
-        while (m_pendingPushServiceFunctions.size()) {
-            auto function = m_pendingPushServiceFunctions.takeFirst();
+    WorkQueue::mainSingleton().dispatch([] {
+        auto& daemon = WebPushDaemon::singleton();
+        while (daemon.m_pendingPushServiceFunctions.size()) {
+            auto function = daemon.m_pendingPushServiceFunctions.takeFirst();
             function();
         }
     });
@@ -285,8 +291,8 @@ void WebPushDaemon::incomingPushTransactionTimerFired()
 
 static void tryCloseRequestConnection(xpc_object_t request)
 {
-    if (auto connection = xpc_dictionary_get_remote_connection(request))
-        xpc_connection_cancel(connection);
+    if (RetainPtr connection = xpc_dictionary_get_remote_connection(request))
+        xpc_connection_cancel(connection.get());
 }
 
 void WebPushDaemon::connectionEventHandler(xpc_object_t request)
@@ -301,7 +307,7 @@ void WebPushDaemon::connectionEventHandler(xpc_object_t request)
         return;
     }
 
-    auto data = xpc_dictionary_get_data_span(request, protocolEncodedMessageKey);
+    auto data = xpcDictionaryGetData(request, protocolEncodedMessageKey);
     if (!data.data()) {
         RELEASE_LOG_ERROR(Push, "WebPushDaemon::connectionEventHandler - No encoded message data in xpc message");
         tryCloseRequestConnection(request);
@@ -393,15 +399,16 @@ void WebPushDaemon::connectionRemoved(xpc_connection_t connection)
 
 void WebPushDaemon::updateSubscriptionSetState()
 {
-    runAfterStartingPushService([this] {
-        if (!m_pushService)
+    runAfterStartingPushService([] {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService)
             return;
 
         auto allowedBundleIdentifier = getAllowedBundleIdentifier();
-        auto visibleWebClipIdentifiers = ensureWebClipCache().visibleWebClipIdentifiers(allowedBundleIdentifier);
-        m_pushService->updateSubscriptionSetState(allowedBundleIdentifier, visibleWebClipIdentifiers, []() { });
+        auto visibleWebClipIdentifiers = daemon.ensureWebClipCache().visibleWebClipIdentifiers(allowedBundleIdentifier);
+        daemon.m_pushService->updateSubscriptionSetState(allowedBundleIdentifier, visibleWebClipIdentifiers, []() { });
 
-        for (auto& [xpcConnection, pushClientConnection] : m_connectionMap) {
+        for (auto& [xpcConnection, pushClientConnection] : daemon.m_connectionMap) {
             auto bundleIdentifier = pushClientConnection->hostAppCodeSigningIdentifier();
             auto pushPartition = pushClientConnection->pushPartitionIfExists();
             if (bundleIdentifier != allowedBundleIdentifier || (!pushPartition.isEmpty() && !visibleWebClipIdentifiers.contains(pushPartition))) {
@@ -422,11 +429,12 @@ void WebPushDaemon::setPushAndNotificationsEnabledForOrigin(PushClientConnection
         return replySender();
     }
 
-    runAfterStartingPushService([this, identifier = WTFMove(*maybeIdentifier), originString, enabled, replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService)
+    runAfterStartingPushService([identifier = WTFMove(*maybeIdentifier), originString, enabled, replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService)
             return replySender();
 
-        m_pushService->setPushesEnabledForSubscriptionSetAndOrigin(identifier, originString, enabled, WTFMove(replySender));
+        daemon.m_pushService->setPushesEnabledForSubscriptionSetAndOrigin(identifier, originString, enabled, WTFMove(replySender));
     });
 }
 
@@ -465,9 +473,9 @@ void WebPushDaemon::injectPushMessageForTesting(PushClientConnection& connection
     PushSubscriptionSetIdentifier identifier { .bundleIdentifier = message.targetAppCodeSigningIdentifier, .pushPartition = message.pushPartitionString, .dataStoreIdentifier = connection.dataStoreIdentifier() };
     auto data = message.payload.utf8();
 #if ENABLE(DECLARATIVE_WEB_PUSH)
-    WebKit::WebPushMessage pushMessage { Vector(data.span()), message.pushPartitionString, message.registrationURL, WTFMove(message.parsedPayload) };
+    WebKit::WebPushMessage pushMessage { Vector(byteCast<uint8_t>(data.span())), message.pushPartitionString, message.registrationURL, WTFMove(message.parsedPayload) };
 #else
-    WebKit::WebPushMessage pushMessage { Vector(data.span()), message.pushPartitionString, message.registrationURL, { } };
+    WebKit::WebPushMessage pushMessage { Vector(byteCast<uint8_t>(data.span())), message.pushPartitionString, message.registrationURL, { } };
 #endif
 
     WEBPUSHDAEMON_RELEASE_LOG(Push, "Injected a test push message for %{public}s at %{public}s with %zu pending messages, payload: %{public}s", message.targetAppCodeSigningIdentifier.utf8().data(), message.registrationURL.string().utf8().data(), m_pendingPushMessages.size(), message.payload.utf8().data());
@@ -484,18 +492,18 @@ void WebPushDaemon::injectEncryptedPushMessageForTesting(PushClientConnection& c
         return replySender(false);
     }
 
-    runAfterStartingPushService([this, message = message, replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService)
+    runAfterStartingPushService([message = message, replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService)
             return replySender(false);
 
-        auto bytes = message.utf8();
-        RetainPtr data = toNSData(bytes.span());
+        RetainPtr data = toNSData(byteCast<uint8_t>(message.utf8().span()));
 
         id obj = [NSJSONSerialization JSONObjectWithData:data.get() options:0 error:nullptr];
         if (!obj || ![obj isKindOfClass:[NSDictionary class]])
             return replySender(false);
 
-        m_pushService->didReceivePushMessage(obj[@"topic"], obj[@"userInfo"], [replySender = WTFMove(replySender)]() mutable {
+        daemon.m_pushService->didReceivePushMessage(obj[@"topic"], obj[@"userInfo"], [replySender = WTFMove(replySender)]() mutable {
             replySender(true);
         });
     });
@@ -514,15 +522,15 @@ void WebPushDaemon::handleIncomingPush(const PushSubscriptionSetIdentifier& iden
     // don't get push events for web clips without the appropriate permissions.
     RetainPtr notificationCenterBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
     RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
-    auto blockPtr = makeBlockPtr([this, identifier = crossThreadCopy(identifier), message = WTFMove(message)](UNNotificationSettings *settings) mutable {
+    auto blockPtr = makeBlockPtr([identifier = crossThreadCopy(identifier), message = WTFMove(message)](UNNotificationSettings *settings) mutable {
         auto status = settings.authorizationStatus;
         if (status != UNAuthorizationStatusAuthorized) {
             RELEASE_LOG_ERROR(Push, "Ignoring incoming push from app with invalid notification permission state %d: %{public}s", static_cast<int>(status), identifier.debugDescription().utf8().data());
             return;
         }
 
-        WorkQueue::main().dispatch([this, identifier = crossThreadCopy(identifier), message = WTFMove(message)] mutable {
-            handleIncomingPushImpl(identifier, WTFMove(message));
+        WorkQueue::mainSingleton().dispatch([identifier = crossThreadCopy(identifier), message = WTFMove(message)] mutable {
+            WebPushDaemon::singleton().handleIncomingPushImpl(identifier, WTFMove(message));
         });
     });
     [center getNotificationSettingsWithCompletionHandler:blockPtr.get()];
@@ -534,16 +542,14 @@ void WebPushDaemon::handleIncomingPush(const PushSubscriptionSetIdentifier& iden
 #if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 static bool supportsBuiltinNotifications(const PushSubscriptionSetIdentifier& identifier)
 {
+    bool hasPushPartition = !identifier.pushPartition.isEmpty();
+
 #if PLATFORM(IOS)
-    if (identifier.pushPartition.isEmpty())
-        return false;
+    return hasPushPartition;
 #endif
 #if PLATFORM(MAC)
-    if (identifier.bundleIdentifier != "com.apple.WebKit.TestWebKitAPI"_s)
-        return false;
+    return identifier.bundleIdentifier == "com.apple.WebKit.TestWebKitAPI"_s && hasPushPartition;
 #endif // PLATFORM(MAC)
-
-    return true;
 }
 #endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 
@@ -590,7 +596,7 @@ void WebPushDaemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscr
 
 #if PLATFORM(MAC)
     CFArrayRef urls = (__bridge CFArrayRef)@[ [NSURL URLWithString:@"x-webkit-app-launch://1"] ];
-    CFStringRef identifier = (__bridge CFStringRef)((NSString *)bundleIdentifier);
+    RetainPtr identifier = bundleIdentifier.createCFString();
 
     CFDictionaryRef options = (__bridge CFDictionaryRef)@{
         (id)_kLSOpenOptionPreferRunningInstanceKey: @(kLSOpenRunningInstanceBehaviorUseRunningProcess),
@@ -600,7 +606,7 @@ void WebPushDaemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscr
         (id)_kLSOpenOptionHideKey: @YES,
     };
 
-    _LSOpenURLsUsingBundleIdentifierWithCompletionHandler(urls, identifier, options, ^(LSASNRef, Boolean, CFErrorRef cfError) {
+    _LSOpenURLsUsingBundleIdentifierWithCompletionHandler(urls, identifier.get(), options, ^(LSASNRef, Boolean, CFErrorRef cfError) {
         RELEASE_LOG_ERROR_IF(cfError, Push, "Failed to launch process in response to push: %{public}@", (__bridge NSError *)cfError);
     });
 #elif PLATFORM(IOS) || PLATFORM(VISION)
@@ -611,20 +617,22 @@ void WebPushDaemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscr
 
     if (bundleIdentifier == "com.apple.SafariViewService"_s) {
         const NSString *URLPrefix = @"webapp://web-push/";
-        NSURL *launchURL = [NSURL URLWithString:[URLPrefix stringByAppendingFormat:@"%@", (NSString *)subscriptionSetIdentifier.pushPartition]];
+        RetainPtr launchURL = adoptNS([[NSURL alloc] initWithString:[URLPrefix stringByAppendingFormat:@"%@", subscriptionSetIdentifier.pushPartition.createNSString().get()]]);
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         NSDictionary *options = @{
             FBSOpenApplicationOptionKeyActivateForEvent: @{ FBSActivateForEventOptionTypeBackgroundContentFetching: @{ } },
-            FBSOpenApplicationOptionKeyPayloadURL : launchURL,
+            FBSOpenApplicationOptionKeyPayloadURL : launchURL.get(),
             FBSOpenApplicationOptionKeyPayloadOptions : @{ UIApplicationLaunchOptionsSourceApplicationKey : @"com.apple.WebKit.webpushd" },
         };
+ALLOW_DEPRECATED_DECLARATIONS_END
 
         RetainPtr configuration = adoptNS([[_LSOpenConfiguration alloc] init]);
         configuration.get().sensitive = YES;
         configuration.get().frontBoardOptions = options;
         configuration.get().allowURLOverrides = NO;
 
-        [[LSApplicationWorkspace defaultWorkspace] openURL:launchURL configuration:configuration.get() completionHandler:^(NSDictionary<NSString *, id> *result, NSError *error) {
+        [[LSApplicationWorkspace defaultWorkspace] openURL:launchURL.get() configuration:configuration.get() completionHandler:^(NSDictionary<NSString *, id> *result, NSError *error) {
             if (error)
                 RELEASE_LOG_ERROR(Push, "Failed to open app to handle push: %{public}@", error);
         }];
@@ -634,7 +642,7 @@ void WebPushDaemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscr
 
     NSDictionary *settingsInfo = @{
         pushActionVersionKey(): currentPushActionVersion(),
-        pushActionPartitionKey(): (NSString *)subscriptionSetIdentifier.pushPartition,
+        pushActionPartitionKey(): subscriptionSetIdentifier.pushPartition.createNSString().get(),
         pushActionTypeKey(): _WKWebPushActionTypePushEvent
     };
     RetainPtr<BSMutableSettings> bsSettings = adoptNS([[BSMutableSettings alloc] init]);
@@ -647,18 +655,20 @@ void WebPushDaemon::notifyClientPushMessageIsAvailable(const WebCore::PushSubscr
 
     RetainPtr action = adoptNS([[BSAction alloc] initWithInfo:bsSettings.get() responder:bsResponder.get()]);
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     FBSOpenApplicationOptions *options = [FBSOpenApplicationOptions optionsWithDictionary:@{
         FBSOpenApplicationOptionKeyActivateForEvent: @{ FBSActivateForEventOptionTypeBackgroundContentFetching: @{ } },
         FBSOpenApplicationOptionKeyActivateSuspended : @YES,
         FBSOpenApplicationOptionKeyActions : @[ action.get() ],
         FBSOpenApplicationOptionKeyPayloadOptions : @{ UIApplicationLaunchOptionsSourceApplicationKey : @"com.apple.WebKit.webpushd" },
     }];
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     // This function doesn't actually follow the create rule, therefore we don't use adoptNS on it.
     if (!m_openService)
         m_openService = SBSCreateOpenApplicationService();
 
-    [m_openService openApplication:(NSString *)bundleIdentifier withOptions:options completion:^(BSProcessHandle *process, NSError *error) {
+    [m_openService openApplication:bundleIdentifier.createNSString().get() withOptions:options completion:^(BSProcessHandle *process, NSError *error) {
         if (error)
             RELEASE_LOG_ERROR(Push, "Failed to open app to handle push: %{public}@", error);
     }];
@@ -694,10 +704,16 @@ void WebPushDaemon::silentPushTimerFired()
         if (it->expirationTime > now)
             break;
 
-        auto origin = WebCore::SecurityOriginData::fromURL(URL { it->scope }).toString();
-        m_pushService->incrementSilentPushCount(it->identifier, origin, [identifier = it->identifier, origin](unsigned newSilentPushCount) {
-            RELEASE_LOG(Push, "showNotification not called in time for %{public}s (origin = %{sensitive}s), silent push count is now %u", identifier.debugDescription().utf8().data(), origin.utf8().data(), newSilentPushCount);
-        });
+        auto origin = WebCore::SecurityOriginData::fromURL(URL { it->scope });
+        auto originString = origin.toString();
+        if (m_inspectedServiceWorkerOrigins.contains(origin))
+            RELEASE_LOG(Push, "showNotification not called in time for %{public}s (origin = %{sensitive}s), but not incrementing silent push count since it is being inspected", it->identifier.debugDescription().utf8().data(), originString.utf8().data());
+        else {
+            m_pushService->incrementSilentPushCount(it->identifier, originString, [identifier = it->identifier, originString](unsigned newSilentPushCount) {
+                RELEASE_LOG(Push, "showNotification not called in time for %{public}s (origin = %{sensitive}s), silent push count is now %u", identifier.debugDescription().utf8().data(), originString.utf8().data(), newSilentPushCount);
+            });
+        }
+
         it = m_potentialSilentPushes.erase(it);
     }
 
@@ -797,12 +813,13 @@ void WebPushDaemon::getPushTopicsForTesting(PushClientConnection& connection, Co
         return completionHandler({ }, { });
     }
 
-    runAfterStartingPushService([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([completionHandler = WTFMove(completionHandler)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             completionHandler({ }, { });
             return;
         }
-        completionHandler(m_pushService->enabledTopics(), m_pushService->ignoredTopics());
+        completionHandler(daemon.m_pushService->enabledTopics(), daemon.m_pushService->ignoredTopics());
     });
 }
 
@@ -818,7 +835,7 @@ void WebPushDaemon::subscribeToPushService(PushClientConnection& connection, con
 
 #if PLATFORM(IOS)
     const auto& webClipIdentifier = identifier.pushPartition;
-    RetainPtr webClip = [UIWebClip webClipWithIdentifier:(NSString *)webClipIdentifier];
+    RetainPtr webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     auto webClipOrigin = SecurityOriginData::fromURL(URL { [webClip pageURL] });
 
     if (origin.isNull() || origin.isOpaque() || origin != webClipOrigin) {
@@ -837,13 +854,14 @@ void WebPushDaemon::subscribeToPushService(PushClientConnection& connection, con
     }
 #endif
 
-    runAfterStartingPushService([this, identifier = WTFMove(identifier), scope = scopeURL.string(), vapidPublicKey, replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(identifier), scope = scopeURL.string(), vapidPublicKey, replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::InvalidStateError, "Push service initialization failed"_s }));
             return;
         }
 
-        m_pushService->subscribe(identifier, scope, vapidPublicKey, WTFMove(replySender));
+        daemon.m_pushService->subscribe(identifier, scope, vapidPublicKey, WTFMove(replySender));
     });
 }
 
@@ -856,13 +874,14 @@ void WebPushDaemon::unsubscribeFromPushService(PushClientConnection& connection,
         return replySender(false);
     }
 
-    runAfterStartingPushService([this, identifier = WTFMove(*maybeIdentifier), scope = scopeURL.string(), subscriptionIdentifier, replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(*maybeIdentifier), scope = scopeURL.string(), subscriptionIdentifier, replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::InvalidStateError, "Push service initialization failed"_s }));
             return;
         }
 
-        m_pushService->unsubscribe(identifier, scope, subscriptionIdentifier, WTFMove(replySender));
+        daemon.m_pushService->unsubscribe(identifier, scope, subscriptionIdentifier, WTFMove(replySender));
     });
 }
 
@@ -875,13 +894,14 @@ void WebPushDaemon::getPushSubscription(PushClientConnection& connection, const 
         return replySender(std::optional<WebCore::PushSubscriptionData> { });
     }
 
-    runAfterStartingPushService([this, identifier = WTFMove(*maybeIdentifier), scope = scopeURL.string(), replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(*maybeIdentifier), scope = scopeURL.string(), replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::InvalidStateError, "Push service initialization failed"_s }));
             return;
         }
 
-        m_pushService->getSubscription(identifier, scope, WTFMove(replySender));
+        daemon.m_pushService->getSubscription(identifier, scope, WTFMove(replySender));
     });
 }
 
@@ -893,21 +913,23 @@ void WebPushDaemon::incrementSilentPushCount(PushClientConnection& connection, c
         return replySender(0);
     }
 
-    runAfterStartingPushService([this, identifier = WTFMove(*maybeIdentifier), securityOrigin = securityOrigin.toString(), replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(*maybeIdentifier), securityOrigin = securityOrigin.toString(), replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(0);
             return;
         }
 
-        m_pushService->incrementSilentPushCount(identifier, securityOrigin, WTFMove(replySender));
+        daemon.m_pushService->incrementSilentPushCount(identifier, securityOrigin, WTFMove(replySender));
     });
 }
 
 void WebPushDaemon::removeAllPushSubscriptions(PushClientConnection& connection, CompletionHandler<void(unsigned)>&& replySender)
 {
     PushSubscriptionSetIdentifier identifier { connection.hostAppCodeSigningIdentifier(), connection.pushPartitionIfExists(), connection.dataStoreIdentifier() };
-    runAfterStartingPushService([this, identifier = WTFMove(identifier), replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(identifier), replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(0);
             return;
         }
@@ -915,11 +937,11 @@ void WebPushDaemon::removeAllPushSubscriptions(PushClientConnection& connection,
 #if PLATFORM(IOS)
         // When implicit web clip mode is used, remove all push subscriptions irrespective of webClipIdentifier/pushPartition.
         if (identifier.pushPartition.isEmpty()) {
-            m_pushService->removeRecordsForBundleIdentifierAndDataStore(identifier.bundleIdentifier, identifier.dataStoreIdentifier, WTFMove(replySender));
+            daemon.m_pushService->removeRecordsForBundleIdentifierAndDataStore(identifier.bundleIdentifier, identifier.dataStoreIdentifier, WTFMove(replySender));
             return;
         }
 #endif
-        m_pushService->removeRecordsForSubscriptionSet(identifier, WTFMove(replySender));
+        daemon.m_pushService->removeRecordsForSubscriptionSet(identifier, WTFMove(replySender));
     });
 }
 
@@ -931,13 +953,14 @@ void WebPushDaemon::removePushSubscriptionsForOrigin(PushClientConnection& conne
         return replySender(0);
     }
 
-    runAfterStartingPushService([this, identifier = WTFMove(*maybeIdentifier), securityOrigin = securityOrigin.toString(), replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([identifier = WTFMove(*maybeIdentifier), securityOrigin = securityOrigin.toString(), replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender(0);
             return;
         }
 
-        m_pushService->removeRecordsForSubscriptionSetAndOrigin(identifier, securityOrigin, WTFMove(replySender));
+        daemon.m_pushService->removeRecordsForSubscriptionSetAndOrigin(identifier, securityOrigin, WTFMove(replySender));
     });
 }
 
@@ -948,13 +971,14 @@ void WebPushDaemon::setPublicTokenForTesting(PushClientConnection& connection, c
         return replySender();
     }
 
-    runAfterStartingPushService([this, publicToken, replySender = WTFMove(replySender)]() mutable {
-        if (!m_pushService) {
+    runAfterStartingPushService([publicToken, replySender = WTFMove(replySender)]() mutable {
+        auto& daemon = WebPushDaemon::singleton();
+        if (!daemon.m_pushService) {
             replySender();
             return;
         }
 
-        m_pushService->setPublicTokenForTesting(Vector<uint8_t> { publicToken.utf8().span() });
+        daemon.m_pushService->setPublicTokenForTesting(Vector<uint8_t> { publicToken.utf8().span() });
         replySender();
     });
 }
@@ -983,11 +1007,11 @@ void WebPushDaemon::showNotification(const WebCore::PushSubscriptionSetIdentifie
 {
     RetainPtr content = adoptNS([[UNMutableNotificationContent alloc] init]);
 
-    [content setDefaultActionBundleIdentifier:platformDefaultActionBundleIdentifier(identifier)];
+    [content setDefaultActionBundleIdentifier:platformDefaultActionBundleIdentifier(identifier).get()];
 
-    content.get().targetContentIdentifier = (NSString *)identifier.pushPartition;
-    content.get().title = (NSString *)notificationData.title;
-    content.get().body = (NSString *)notificationData.body;
+    content.get().targetContentIdentifier = identifier.pushPartition.createNSString().get();
+    content.get().title = notificationData.title.createNSString().get();
+    content.get().body = notificationData.body.createNSString().get();
     content.get().categoryIdentifier = @"webpushdCategory";
     content.get().badge = appBadge ? [NSNumber numberWithLongLong:*appBadge] : nil;
 
@@ -1001,17 +1025,17 @@ void WebPushDaemon::showNotification(const WebCore::PushSubscriptionSetIdentifie
 
 #if PLATFORM(IOS)
     const auto& webClipIdentifier = identifier.pushPartition;
-    RetainPtr webClip = [UIWebClip webClipWithIdentifier:(NSString *)webClipIdentifier];
+    RetainPtr webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     notificationSourceForDisplay = [webClip title];
 #endif
 
 ALLOW_NONLITERAL_FORMAT_BEGIN
-    content.get().subtitle = [NSString stringWithFormat:(NSString *)WEB_UI_STRING("from %@", "Web Push Notification string to indicate the name of the Web App/Web Site a notification was sent from, such as 'from Wikipedia'"), notificationSourceForDisplay];
+    content.get().subtitle = adoptNS([[NSString alloc] initWithFormat:WEB_UI_STRING("from %@", "Web Push Notification string to indicate the name of the Web App/Web Site a notification was sent from, such as 'from Wikipedia'").createNSString().get(), notificationSourceForDisplay]).get();
 ALLOW_NONLITERAL_FORMAT_END
 
     content.get().userInfo = notificationData.dictionaryRepresentation();
 
-    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:(NSString *)notificationData.notificationID.toString() content:content.get() trigger:nil];
+    RetainPtr request = [UNNotificationRequest requestWithIdentifier:notificationData.notificationID.toString().createNSString().get() content:content.get() trigger:nil];
     RetainPtr<UNUserNotificationCenter> center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:notificationCenterBundleIdentifier.get()]);
     if (!center)
         RELEASE_LOG_ERROR(Push, "Failed to instantiate UNUserNotificationCenter center");
@@ -1019,17 +1043,17 @@ ALLOW_NONLITERAL_FORMAT_END
     UNNotificationCategory *category = [UNNotificationCategory categoryWithIdentifier:@"webpushdCategory" actions:@[] intentIdentifiers:@[] options:UNNotificationCategoryOptionCustomDismissAction];
     center.get().notificationCategories = [NSSet setWithObject:category];
 
-    auto blockPtr = makeBlockPtr([this, identifier = crossThreadCopy(identifier), scope = crossThreadCopy(notificationData.serviceWorkerRegistrationURL.string()), completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
-        WorkQueue::main().dispatch([this, identifier = crossThreadCopy(identifier), scope = crossThreadCopy(scope), error = RetainPtr { error }, completionHandler = WTFMove(completionHandler)] mutable {
+    auto blockPtr = makeBlockPtr([identifier = crossThreadCopy(identifier), scope = crossThreadCopy(notificationData.serviceWorkerRegistrationURL.string()), completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
+        WorkQueue::mainSingleton().dispatch([identifier = crossThreadCopy(identifier), scope = crossThreadCopy(scope), error = RetainPtr { error }, completionHandler = WTFMove(completionHandler)] mutable {
             if (error)
                 RELEASE_LOG_ERROR(Push, "Failed to add notification request: %{public}@", error.get());
             else
-                didShowNotification(identifier, scope);
+                WebPushDaemon::singleton().didShowNotification(identifier, scope);
             completionHandler();
         });
     });
 
-    [center addNotificationRequest:request withCompletionHandler:blockPtr.get()];
+    [center addNotificationRequest:request.get() withCompletionHandler:blockPtr.get()];
 }
 
 void WebPushDaemon::getNotifications(PushClientConnection& connection, const URL& registrationURL, const String& tag, CompletionHandler<void(Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&&)>&& completionHandler)
@@ -1080,9 +1104,9 @@ void WebPushDaemon::cancelNotification(PushClientConnection& connection, WebCore
     auto placeholderBundleIdentifier = platformNotificationCenterBundleIdentifier(identifier.pushPartition);
     RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc] initWithBundleIdentifier:placeholderBundleIdentifier.get()]);
 
-    auto identifiers = @[ (NSString *)notificationID.toString() ];
-    [center removePendingNotificationRequestsWithIdentifiers:identifiers];
-    [center removeDeliveredNotificationsWithIdentifiers:identifiers];
+    RetainPtr identifiers = @[ notificationID.toString().createNSString().get() ];
+    [center removePendingNotificationRequestsWithIdentifiers:identifiers.get()];
+    [center removeDeliveredNotificationsWithIdentifiers:identifiers.get()];
 }
 
 void WebPushDaemon::getPushPermissionState(PushClientConnection& connection, const WebCore::SecurityOriginData& origin, CompletionHandler<void(WebCore::PushPermissionState)>&& replySender)
@@ -1101,7 +1125,7 @@ void WebPushDaemon::getPushPermissionState(PushClientConnection& connection, con
     }
 
     const auto& webClipIdentifier = identifier.pushPartition;
-    RetainPtr webClip = [UIWebClip webClipWithIdentifier:(NSString *)webClipIdentifier];
+    RetainPtr webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     auto webClipOrigin = WebCore::SecurityOriginData::fromURL(URL { [webClip pageURL] });
 
     if (origin.isNull() || origin.isOpaque() || origin != webClipOrigin) {
@@ -1124,7 +1148,7 @@ void WebPushDaemon::getPushPermissionState(PushClientConnection& connection, con
         }(settings.authorizationStatus);
         RELEASE_LOG(Push, "getPushPermissionState for %{sensitive}s with result: %u", originString.utf8().data(), static_cast<unsigned>(permissionState));
 
-        WorkQueue::main().dispatch([replySender = WTFMove(replySender), permissionState] mutable {
+        WorkQueue::mainSingleton().dispatch([replySender = WTFMove(replySender), permissionState] mutable {
             replySender(permissionState);
         });
     });
@@ -1148,7 +1172,7 @@ void WebPushDaemon::requestPushPermission(PushClientConnection& connection, cons
     }
 
     const auto& webClipIdentifier = identifier.pushPartition;
-    RetainPtr webClip = [UIWebClip webClipWithIdentifier:(NSString *)webClipIdentifier];
+    RetainPtr webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     auto webClipOrigin = WebCore::SecurityOriginData::fromURL(URL { [webClip pageURL] });
 
     if (origin.isNull() || origin.isOpaque() || origin != webClipOrigin) {
@@ -1167,7 +1191,7 @@ void WebPushDaemon::requestPushPermission(PushClientConnection& connection, cons
         else
             RELEASE_LOG(Push, "Requested push permission for %{sensitive}s with result: %d", originString.utf8().data(), granted);
 
-        WorkQueue::main().dispatch([replySender = WTFMove(replySender), granted] mutable {
+        WorkQueue::mainSingleton().dispatch([replySender = WTFMove(replySender), granted] mutable {
             replySender(granted);
         });
     });
@@ -1188,7 +1212,7 @@ void WebPushDaemon::setAppBadge(PushClientConnection& connection, WebCore::Secur
 
 #if PLATFORM(IOS)
     auto webClipIdentifier = identifier.pushPartition;
-    RetainPtr webClip = [UIWebClip webClipWithIdentifier:(NSString *)webClipIdentifier];
+    RetainPtr webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     appPageURL = [webClip pageURL];
 #elif PLATFORM(MAC)
     // FIXME: Establish the app page URL for Mac apps here
@@ -1206,15 +1230,15 @@ void WebPushDaemon::setAppBadge(PushClientConnection& connection, WebCore::Secur
     state.get().badgeValue = appBadge ? [NSNumber numberWithUnsignedLongLong:*appBadge] : nil;
 #elif PLATFORM(MAC)
     String bundleIdentifier = identifier.pushPartition.isEmpty() ? connection.hostAppCodeSigningIdentifier() : identifier.pushPartition;
-    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc]  initWithBundleIdentifier:(NSString *)bundleIdentifier]);
+    RetainPtr center = adoptNS([[m_userNotificationCenterClass alloc]  initWithBundleIdentifier:bundleIdentifier.createNSString().get()]);
     if (!center)
         return;
 
     UNMutableNotificationContent *content = [UNMutableNotificationContent new];
     content.badge = appBadge ? [NSNumber numberWithLongLong:*appBadge] : nil;
-    UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:NSUUID.UUID.UUIDString content:content trigger:nil];
-    RetainPtr debugDescription = (NSString *)identifier.debugDescription();
-    [center addNotificationRequest:request withCompletionHandler:^(NSError *error) {
+    RetainPtr request = [UNNotificationRequest requestWithIdentifier:NSUUID.UUID.UUIDString content:content trigger:nil];
+    RetainPtr debugDescription = identifier.debugDescription().createNSString().get();
+    [center addNotificationRequest:request.get() withCompletionHandler:^(NSError *error) {
         if (error) {
             RELEASE_LOG_ERROR(Push, "Error attempting to set badge count for web app %{public}@", debugDescription.get());
             return;
@@ -1234,7 +1258,7 @@ void WebPushDaemon::getAppBadgeForTesting(PushClientConnection& connection, Comp
     RELEASE_ASSERT(m_userNotificationCenterClass == _WKMockUserNotificationCenter.class);
 
     String bundleIdentifier = connection.pushPartitionIfExists().isEmpty() ? connection.hostAppCodeSigningIdentifier() : connection.pushPartitionIfExists();
-    RetainPtr center = adoptNS([[_WKMockUserNotificationCenter alloc] initWithBundleIdentifier:(NSString *)bundleIdentifier]);
+    RetainPtr center = adoptNS([[_WKMockUserNotificationCenter alloc] initWithBundleIdentifier:bundleIdentifier.createNSString().get()]);
     NSNumber *centerBadge = [center getAppBadgeForTesting];
 
     if (centerBadge)
@@ -1250,6 +1274,21 @@ void WebPushDaemon::setProtocolVersionForTesting(PushClientConnection& connectio
 {
     s_protocolVersion = version;
     completionHandler();
+}
+
+void WebPushDaemon::setServiceWorkerOriginIsBeingInspected(const WebCore::SecurityOriginData& origin, bool isInspected)
+{
+    auto result = m_inspectedServiceWorkerOrigins.add(origin, 0);
+
+    if (!isInspected) {
+        auto count = --result.iterator->value;
+        if (count <= 0)
+            m_inspectedServiceWorkerOrigins.remove(result.iterator);
+        RELEASE_LOG(Push, "Service worker for origin %{sensitive}s no longer being inspected (inspection count = %d)", origin.toString().utf8().data(), count);
+    } else {
+        auto count = ++result.iterator->value;
+        RELEASE_LOG(Push, "Service worker for origin %{sensitive}s is being inspected (inspection count = %d); suspending silent push enforcement", origin.toString().utf8().data(), count);
+    }
 }
 
 } // namespace WebPushD

@@ -59,7 +59,7 @@ public:
     // https://bugs.webkit.org/show_bug.cgi?id=78617.
     virtual RenderMathMLOperator* unembellishedOperator() const { return nullptr; }
 
-    LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
+    LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const override;
 
 protected:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
@@ -72,7 +72,7 @@ protected:
 
     static inline LayoutUnit ascentForChild(const RenderBox& child);
 
-    void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
+    void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
     void computeAndSetBlockDirectionMarginsOfChildren();
     void insertPositionedChildrenIntoContainingBlock();
     void layoutFloatingChildren();
@@ -101,9 +101,9 @@ private:
     bool isRenderMathMLBlock() const final { return true; }
     ASCIILiteral renderName() const override { return "RenderMathMLBlock"_s; }
     bool canDropAnonymousBlockChild() const final { return false; }
-    void layoutItems(bool relayoutChildren);
+    void layoutItems(RelayoutChildren);
 
-    Ref<MathMLStyle> m_mathMLStyle;
+    const Ref<MathMLStyle> m_mathMLStyle;
 };
 
 class RenderMathMLTable final : public RenderTable {
@@ -119,7 +119,7 @@ private:
     ASCIILiteral renderName() const final { return "RenderMathMLTable"_s; }
     std::optional<LayoutUnit> firstLineBaseline() const final;
 
-    Ref<MathMLStyle> m_mathMLStyle;
+    const Ref<MathMLStyle> m_mathMLStyle;
 };
 
 LayoutUnit toUserUnits(const MathMLElement::Length&, const RenderStyle&, const LayoutUnit& referenceValue);

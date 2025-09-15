@@ -42,7 +42,9 @@ accessibility/atspi/AXObjectCacheAtspi.cpp
 dom/wpe/PointerEventWPE.cpp
 
 editing/atspi/FrameSelectionAtspi.cpp
-editing/libwpe/EditorLibWPE.cpp
+
+editing/glib/EditorGLib.cpp
+editing/glib/WebContentReaderGLib.cpp
 
 loader/soup/ResourceLoaderSoup.cpp
 
@@ -73,22 +75,27 @@ platform/graphics/gbm/DMABufBuffer.cpp
 platform/graphics/gbm/DRMDeviceManager.cpp
 platform/graphics/gbm/DRMDeviceNode.cpp
 platform/graphics/gbm/GraphicsContextGLTextureMapperGBM.cpp @no-unify
+platform/graphics/gbm/MemoryMappedGPUBuffer.cpp
 platform/graphics/gbm/PlatformDisplayGBM.cpp @no-unify
 
 platform/graphics/libwpe/PlatformDisplayLibWPE.cpp
 
 platform/graphics/opentype/OpenTypeVerticalData.cpp
 
-platform/libwpe/PasteboardLibWPE.cpp
 platform/libwpe/PlatformKeyboardEventLibWPE.cpp
 platform/libwpe/PlatformPasteboardLibWPE.cpp
 
 platform/text/Hyphenation.cpp
 platform/text/LocaleICU.cpp
 
+platform/android/SharedMemoryAndroid.cpp
+
 platform/unix/LoggingUnix.cpp
 platform/unix/SharedMemoryUnix.cpp
 
+platform/wpe/PasteboardWPE.cpp
 platform/wpe/PlatformScreenWPE.cpp
 
 platform/xdg/MIMETypeRegistryXdg.cpp
+
+platform/xr/openxr/PlatformXROpenXR.cpp

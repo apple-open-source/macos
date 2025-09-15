@@ -124,4 +124,7 @@ POLICYMACRO(iAPAuthV4,                             117, E, C, iAPAuthV4,        
 POLICYMACRO(ParakeetService,                       118, E, C, ParakeetService,                       ,  , ParakeetService)
 POLICYMACRO(DCAttestation,                         119, E, C, DCAttestation,                         , Y, DCAttestation)
 POLICYMACRO(QWAC,                                  120, E, C, QWAC,                                  , Y, QWAC)
+POLICYMACRO(RCSEncryption,                         121, E, C, RCSEncryption,                         ,  , RCSEncryption)
 POLICYMACRO(3PMobileAsset,                         122, E, C, 3PMobileAsset,                         ,  , 3PMobileAsset)
+POLICYMACRO(JibeTLS,                               123, I, C, JibeTLS,                              N, Y, JibeTLS)
+POLICYMACRO(IdentityWebPresentment,                124, E, A, IdentityWebPresentment,               N, Y, IdentityWebPresentment)

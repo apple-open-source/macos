@@ -85,7 +85,7 @@ NS_ASSUME_NONNULL_BEGIN
                                         OctagonStateMachineEngine>
 
 @property CKKSAccountStatus accountStatus;
-@property (readonly) CKContainer* container;
+@property CKContainer* container;
 @property CKKSAccountStateTracker* accountTracker;
 @property (readonly) CKKSReachabilityTracker* reachabilityTracker;
 @property (readonly) CKKSCloudKitClassDependencies* cloudKitClassDependencies;
@@ -305,6 +305,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)scheduleOperation:(NSOperation*)op;
 
 - (NSArray<NSString*>*)viewsForPeerID:(NSString*)peerID error:(NSError**)error;
+
+// Returns YES if the TLK for this view is available in the local keychain (even if device is locked and the TLK cannot currently be read)
+- (BOOL)haveTLKsLocally:(CKKSKeychainViewState*)viewState error:(NSError**)error;
+
+// Update CKKS Container
+- (void)updateAccount:(TPSpecificUser*)activeAccount container:(CKContainer* _Nullable)container;
 
 @end
 

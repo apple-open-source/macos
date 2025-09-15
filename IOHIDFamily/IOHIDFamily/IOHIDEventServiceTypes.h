@@ -71,4 +71,19 @@ typedef enum {
     kIOHIDScrollEventOptionsNoAcceleration  = (1 << 8),
 } IOHIDScrollEventOptions;
 
+/*!
+    @enum IOHIDServiceSensorControlOptions
+    @abstract List of control options  for sensor controls in HID event system
+    @discussion Options define behavior of HID event system for handling kIOHIDServiceReportIntervalKey & kIOHIDServiceBatchIntervalKey and associated event dispatch to kIOHIDEventSystemClientTypeRateControlled clients
+    @constant kIOHIDServiceSensorControlDecimation  decimate events for kIOHIDEventSystemClientTypeRateControlled clients.
+    @constant kIOHIDServiceSensorControlAggregation aggregate all requests associated with kIOHIDServiceReportIntervalKey & kIOHIDServiceBatchIntervalKey properties
+    @constant kIOHIDServiceSensorControlDispatchControl disable event dispatch for kIOHIDEventSystemClientTypeRateControlled clients if  kIOHIDServiceReportIntervalKey not requested by client
+ */
+typedef enum:uint32_t {
+    kIOHIDServiceSensorControlDecimation = 0x1 << 0,
+    kIOHIDServiceSensorControlAggregation = 0x1 << 1,
+    kIOHIDServiceSensorControlDispatchControl = 0x1 << 2
+
+} IOHIDServiceSensorControlOptions;
+
 #endif /* IOHIDEventServiceTypes_h */

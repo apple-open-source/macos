@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
  * Copyright (C) 2013 Patrick Gansterer <paroga@paroga.com>
  *
@@ -32,15 +32,15 @@
 #include <climits>
 #include <concepts>
 #include <cstring>
+#include <errno.h>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <type_traits>
 #include <utility>
-#include <variant>
 #include <wtf/Assertions.h>
 #include <wtf/Brigand.h>
-#include <wtf/CheckedArithmetic.h>
 #include <wtf/Compiler.h>
 #include <wtf/GetPtr.h>
 #include <wtf/IterationStatus.h>
@@ -48,6 +48,7 @@
 #include <wtf/StringExtras.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/TypeTraits.h>
+#include <wtf/Variant.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -188,13 +189,6 @@ inline std::span<const std::byte> alignedBytes(std::span<const std::byte> buffer
     return buffer.subspan(alignedBytesCorrection(buffer, alignment));
 }
 
-template<typename ToType, typename FromType>
-inline ToType safeCast(FromType value)
-{
-    RELEASE_ASSERT(isInBounds<ToType>(value));
-    return static_cast<ToType>(value);
-}
-
 // Returns a count of the number of bits set in 'bits'.
 inline size_t bitCount(unsigned bits)
 {
@@ -208,8 +202,6 @@ inline size_t bitCount(uint64_t bits)
     return bitCount(static_cast<unsigned>(bits)) + bitCount(static_cast<unsigned>(bits >> 32));
 }
 
-inline constexpr bool isPowerOfTwo(size_t size) { return !(size & (size - 1)); }
-
 template<typename T> constexpr T mask(T value, uintptr_t mask)
 {
     static_assert(sizeof(T) == sizeof(uintptr_t), "sizeof(T) must be equal to sizeof(uintptr_t).");
@@ -219,73 +211,6 @@ template<typename T> constexpr T mask(T value, uintptr_t mask)
 template<typename T> inline T* mask(T* value, uintptr_t mask)
 {
     return reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(value) & mask);
-}
-
-template<typename T, typename U>
-ALWAYS_INLINE constexpr T roundUpToMultipleOfImpl(U divisor, T x)
-{
-    T remainderMask = static_cast<T>(divisor) - 1;
-    return (x + remainderMask) & ~remainderMask;
-}
-
-// Efficient implementation that takes advantage of powers of two.
-template<typename T, typename U>
-inline constexpr T roundUpToMultipleOf(U divisor, T x)
-{
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(divisor && isPowerOfTwo(divisor));
-    return roundUpToMultipleOfImpl<T, U>(divisor, x);
-}
-
-template<size_t divisor> constexpr size_t roundUpToMultipleOf(size_t x)
-{
-    static_assert(divisor && isPowerOfTwo(divisor));
-    return roundUpToMultipleOfImpl(divisor, x);
-}
-
-template<size_t divisor, typename T> inline constexpr T* roundUpToMultipleOf(T* x)
-{
-    static_assert(sizeof(T*) == sizeof(size_t));
-    return reinterpret_cast<T*>(roundUpToMultipleOf<divisor>(reinterpret_cast<size_t>(x)));
-}
-
-template<typename T, typename U>
-inline constexpr T roundUpToMultipleOfNonPowerOfTwo(U divisor, T x)
-{
-    T remainder = x % divisor;
-    if (!remainder)
-        return x;
-    return x + static_cast<T>(divisor - remainder);
-}
-
-template<typename T, typename C>
-inline constexpr Checked<T, C> roundUpToMultipleOfNonPowerOfTwo(Checked<T, C> divisor, Checked<T, C> x)
-{
-    if (x.hasOverflowed() || divisor.hasOverflowed())
-        return ResultOverflowed;
-    T remainder = x % divisor;
-    if (!remainder)
-        return x;
-    return x + static_cast<T>(divisor.value() - remainder);
-}
-
-template<typename T, typename U>
-inline constexpr T roundDownToMultipleOf(U divisor, T x)
-{
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(divisor && isPowerOfTwo(divisor));
-    static_assert(sizeof(T) == sizeof(uintptr_t), "sizeof(T) must be equal to sizeof(uintptr_t).");
-    return static_cast<T>(mask(static_cast<uintptr_t>(x), ~(divisor - 1ul)));
-}
-
-template<typename T> inline constexpr T* roundDownToMultipleOf(size_t divisor, T* x)
-{
-    ASSERT_UNDER_CONSTEXPR_CONTEXT(isPowerOfTwo(divisor));
-    return reinterpret_cast<T*>(mask(reinterpret_cast<uintptr_t>(x), ~(divisor - 1ul)));
-}
-
-template<size_t divisor, typename T> constexpr T roundDownToMultipleOf(T x)
-{
-    static_assert(isPowerOfTwo(divisor), "'divisor' must be a power of two.");
-    return roundDownToMultipleOf(divisor, x);
 }
 
 template<typename IntType>
@@ -486,24 +411,104 @@ template<class... F> ALWAYS_INLINE Visitor<F...> makeVisitor(F... f)
     return Visitor<F...>(f...);
 }
 
-// `asVariant` is used to allow subclasses of std::variant to work with `switchOn`.
+// Macros to implement switching over an integer range in chunks of 32.
+// Useful for efficient implementations of variant and tuple type visiting.
+// Adapted from https://www.reddit.com/r/cpp/comments/kst2pu/comment/giilcxv/.
 
-template<class... Ts> ALWAYS_INLINE constexpr std::variant<Ts...>& asVariant(std::variant<Ts...>& v)
+#define WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, Min, Max, N)      \
+    case Min + N:                                                   \
+    {                                                               \
+        if constexpr (Min + N < Max) {                              \
+            return CASE(Min, Max, N);                               \
+        } else {                                                    \
+            WTF_UNREACHABLE();                                      \
+        }                                                           \
+    }                                                               \
+
+#define WTF_UNROLLED_32_CASE_VISIT_SWITCH(INDEX, MIN, MAX, CASE, NEXT) \
+    switch (INDEX) {                                                \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 0)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 1)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 2)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 3)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 4)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 5)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 6)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 7)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 8)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 9)          \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 10)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 11)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 12)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 13)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 14)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 15)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 16)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 17)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 18)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 19)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 20)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 21)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 22)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 23)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 24)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 25)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 26)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 27)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 28)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 29)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 30)         \
+    WTF_UNROLLED_CASE_VISIT_SWITCH_CASE(CASE, MIN, MAX, 31)         \
+    }                                                               \
+                                                                    \
+    constexpr auto nextMin = std::min(MIN + 32, MAX);               \
+    if constexpr (nextMin < MAX)                                    \
+        return NEXT(nextMin, MAX);                                  \
+    WTF_UNREACHABLE();
+
+
+// Calls a zero argument functor with a non-type template argument set to the index.
+//
+// e.g.
+//   visitAtIndex<0 /* minimum */, 10 /* maximum */>(7,
+//       []<size_t I>() {
+//           if constexpr (I == 7) {
+//               print("will be called");
+//           } else {
+//               print("will not be called");
+//           }
+//       }
+//   );
+//
+template<size_t Minimum, size_t Maximum, class F> ALWAYS_INLINE decltype(auto) visitAtIndex(size_t index, NOESCAPE F&& f)
+{
+#define WTF_INDEX_VISIT_CASE(Min, Max, N) f.template operator()<Min + N>()
+#define WTF_INDEX_VISIT_NEXT(Min, Max)    visitAtIndex<Min, Max>(index, std::forward<F>(f))
+
+    WTF_UNROLLED_32_CASE_VISIT_SWITCH(index, Minimum, Maximum, WTF_INDEX_VISIT_CASE, WTF_INDEX_VISIT_NEXT)
+
+#undef WTF_INDEX_VISIT_NEXT
+#undef WTF_INDEX_VISIT_CASE
+}
+
+// `asVariant` is used to allow subclasses of Variant to work with `switchOn`.
+
+template<class... Ts> ALWAYS_INLINE constexpr Variant<Ts...>& asVariant(Variant<Ts...>& v)
 {
     return v;
 }
 
-template<class... Ts> ALWAYS_INLINE constexpr const std::variant<Ts...>& asVariant(const std::variant<Ts...>& v)
+template<class... Ts> ALWAYS_INLINE constexpr const Variant<Ts...>& asVariant(const Variant<Ts...>& v)
 {
     return v;
 }
 
-template<class... Ts> ALWAYS_INLINE constexpr std::variant<Ts...>&& asVariant(std::variant<Ts...>&& v)
+template<class... Ts> ALWAYS_INLINE constexpr Variant<Ts...>&& asVariant(Variant<Ts...>&& v)
 {
     return std::move(v);
 }
 
-template<class... Ts> ALWAYS_INLINE constexpr const std::variant<Ts...>&& asVariant(const std::variant<Ts...>&& v)
+template<class... Ts> ALWAYS_INLINE constexpr const Variant<Ts...>&& asVariant(const Variant<Ts...>&& v)
 {
     return std::move(v);
 }
@@ -515,68 +520,21 @@ template<typename T> concept HasSwitchOn = requires(T t) {
 #ifdef _LIBCPP_VERSION
 
 // Single-variant switch-based visit function adapted from https://www.reddit.com/r/cpp/comments/kst2pu/comment/giilcxv/.
-// Works around bad code generation for std::visit with one std::variant by some standard library / compilers that
+// Works around bad code generation for WTF::visit with one Variant by some standard library / compilers that
 // lead to excessive binary size growth. Currently only needed by libc++. See https://webkit.org/b/279498.
 
-template<size_t I = 0, class F, class V> ALWAYS_INLINE decltype(auto) visitOneVariant(NOESCAPE F&& f, V&& v)
+
+template<size_t Minimum = 0, class F, class V> ALWAYS_INLINE decltype(auto) visitOneVariant(NOESCAPE F&& f, V&& v)
 {
-    constexpr auto size = std::variant_size_v<std::remove_cvref_t<V>>;
+    constexpr auto Maximum = VariantSizeV<std::remove_cvref_t<V>>;
 
-#define WTF_VISIT_CASE_COUNT 32
-#define WTF_VISIT_CASE(N, D) \
-        case I + N:                                                                                 \
-        {                                                                                           \
-            if constexpr (I + N < size) {                                                           \
-                return std::invoke(std::forward<F>(f), std::get<I + N>(std::forward<V>(v)));        \
-            } else {                                                                                \
-                WTF_UNREACHABLE();                                                                  \
-            }                                                                                       \
-        }                                                                                           \
+#define WTF_INDEX_VISIT_CASE(Min, Max, N) f(std::get<Min + N>(std::forward<V>(v)))
+#define WTF_INDEX_VISIT_NEXT(Min, Max)    visitOneVariant<Min>(std::forward<F>(f), std::forward<V>(v))
 
-    switch (v.index()) {
-        WTF_VISIT_CASE(0, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(1, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(2, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(3, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(4, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(5, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(6, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(7, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(8, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(9, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(10, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(11, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(12, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(13, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(14, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(15, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(16, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(17, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(18, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(19, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(20, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(21, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(22, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(23, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(24, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(25, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(26, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(27, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(28, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(29, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(30, WTF_VISIT_CASE_COUNT)
-        WTF_VISIT_CASE(31, WTF_VISIT_CASE_COUNT)
-    }
+    WTF_UNROLLED_32_CASE_VISIT_SWITCH(v.index(), Minimum, Maximum, WTF_INDEX_VISIT_CASE, WTF_INDEX_VISIT_NEXT)
 
-    constexpr auto nextI = std::min(I + WTF_VISIT_CASE_COUNT, size);
-
-    if constexpr (nextI < size)
-        return visitOneVariant<nextI>(std::forward<F>(f), std::forward<V>(v));
-
-    WTF_UNREACHABLE();
-
-#undef WTF_VISIT_CASE_COUNT
-#undef WTF_VISIT_CASE
+#undef WTF_INDEX_VISIT_NEXT
+#undef WTF_INDEX_VISIT_CASE
 }
 
 template<class V, class... F> requires (!HasSwitchOn<V>) ALWAYS_INLINE auto switchOn(V&& v, F&&... f) -> decltype(visitOneVariant(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v))))
@@ -586,9 +544,9 @@ template<class V, class... F> requires (!HasSwitchOn<V>) ALWAYS_INLINE auto swit
 
 #else
 
-template<class V, class... F> requires (!HasSwitchOn<V>) ALWAYS_INLINE auto switchOn(V&& v, F&&... f) -> decltype(std::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v))))
+template<class V, class... F> requires (!HasSwitchOn<V>) ALWAYS_INLINE auto switchOn(V&& v, F&&... f) -> decltype(WTF::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v))))
 {
-    return std::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v)));
+    return WTF::visit(makeVisitor(std::forward<F>(f)...), asVariant(std::forward<V>(v)));
 }
 
 #endif
@@ -605,24 +563,24 @@ namespace detail {
 template<size_t, class, class> struct alternative_index_helper;
 
 template<size_t index, class Type, class T>
-struct alternative_index_helper<index, Type, std::variant<T>> {
+struct alternative_index_helper<index, Type, Variant<T>> {
     static constexpr size_t count = std::is_same_v<Type, T>;
     static constexpr size_t value = index;
 };
 
 template<size_t index, class Type, class T, class... Types>
-struct alternative_index_helper<index, Type, std::variant<T, Types...>> {
-    static constexpr size_t count = std::is_same_v<Type, T> + alternative_index_helper<index + 1, Type, std::variant<Types...>>::count;
-    static constexpr size_t value = std::is_same_v<Type, T> ? index : alternative_index_helper<index + 1, Type, std::variant<Types...>>::value;
+struct alternative_index_helper<index, Type, Variant<T, Types...>> {
+    static constexpr size_t count = std::is_same_v<Type, T> + alternative_index_helper<index + 1, Type, Variant<Types...>>::count;
+    static constexpr size_t value = std::is_same_v<Type, T> ? index : alternative_index_helper<index + 1, Type, Variant<Types...>>::value;
 };
 
 } // namespace detail
 
 template<class T, class Variant> struct variant_alternative_index;
 
-template<class T, class... Types> struct variant_alternative_index<T, std::variant<Types...>>
-    : std::integral_constant<size_t, detail::alternative_index_helper<0, T, std::variant<Types...>>::value> {
-    static_assert(detail::alternative_index_helper<0, T, std::remove_cv_t<std::variant<Types...>>>::count == 1);
+template<class T, class... Types> struct variant_alternative_index<T, Variant<Types...>>
+    : std::integral_constant<size_t, detail::alternative_index_helper<0, T, Variant<Types...>>::value> {
+    static_assert(detail::alternative_index_helper<0, T, std::remove_cv_t<Variant<Types...>>>::count == 1);
 };
 
 template<class T, class Variant> constexpr std::size_t alternativeIndexV = variant_alternative_index<T, Variant>::value;
@@ -641,13 +599,13 @@ template<typename V> struct HoldsAlternative {
     }
 };
 
-// Specialization for `std::variant`.
-template<typename... Ts> struct HoldsAlternative<std::variant<Ts...>> {
-    template<typename T> static constexpr bool holdsAlternative(const std::variant<Ts...>& v)
+// Specialization for `Variant`.
+template<typename... Ts> struct HoldsAlternative<Variant<Ts...>> {
+    template<typename T> static constexpr bool holdsAlternative(const Variant<Ts...>& v)
     {
         return std::holds_alternative<T>(v);
     }
-    template<size_t I> static constexpr bool holdsAlternative(const std::variant<Ts...>& v)
+    template<size_t I> static constexpr bool holdsAlternative(const Variant<Ts...>& v)
     {
         return std::holds_alternative<I>(v);
     }
@@ -707,12 +665,12 @@ template<size_t I, typename V> bool holdsAlternative(const V& v)
         return std::get_if<T>(&self->name);                                          \
     }
 
-// MARK: - Utility types for working with std::variants in generic contexts
+// MARK: - Utility types for working with Variants in generic contexts
 
-// Wraps a type list using a std::variant.
-template<typename... Ts> using VariantWrapper = typename std::variant<Ts...>;
+// Wraps a type list using a Variant.
+template<typename... Ts> using VariantWrapper = Variant<Ts...>;
 
-// Is conditionally either a single type, if the type list only has a single element, or a std::variant of the type list's contents.
+// Is conditionally either a single type, if the type list only has a single element, or a Variant of the type list's contents.
 template<typename TypeList> using VariantOrSingle = std::conditional_t<
     brigand::size<TypeList>::value == 1,
     brigand::front<TypeList>,
@@ -746,14 +704,43 @@ template<typename TypeList> using VariantOrSingle = std::conditional_t<
 //   };
 
 template<typename T> struct IsStdInPlaceTypeImpl : std::false_type {};
-template<typename T> struct IsStdInPlaceTypeImpl<std::in_place_type_t<T>> : std::true_type {};
+template<typename T> struct IsStdInPlaceTypeImpl<WTF::InPlaceTypeT<T>> : std::true_type { };
 template<typename T> using IsStdInPlaceType = IsStdInPlaceTypeImpl<std::remove_cvref_t<T>>;
 template<typename T> constexpr bool IsStdInPlaceTypeV = IsStdInPlaceType<T>::value;
 
 template<typename T> struct IsStdInPlaceIndexImpl : std::false_type { };
-template<size_t I>   struct IsStdInPlaceIndexImpl<std::in_place_index_t<I>> : std::true_type { };
+template<size_t I>   struct IsStdInPlaceIndexImpl<WTF::InPlaceIndexT<I>> : std::true_type { };
 template<typename T> using IsStdInPlaceIndex = IsStdInPlaceIndexImpl<std::remove_cvref_t<T>>;
 template<typename T> constexpr bool IsStdInPlaceIndexV = IsStdInPlaceIndex<T>::value;
+
+// MARK: - Runtime get<> for std::tuple and "Tuple-like" types
+
+// Example usage:
+//
+//   std::tuple<int, float> foo = std::make_tuple(1, 2.0f);
+//   switchOnTupleAtIndex(0,
+//       [](const int& value) {
+//           print("we got an int");  <--- this will get called
+//       },
+//       [](const int& value) {
+//           print("we got an int");  <--- this will NOT get called
+//       },
+//   );
+
+template<class F, class Tuple> ALWAYS_INLINE constexpr decltype(auto) visitTupleElementAtIndex(F&& f, size_t index, Tuple&& tuple)
+{
+    return visitAtIndex<0, std::tuple_size_v<std::remove_cvref_t<Tuple>>>(
+        index,
+        [&]<size_t I>() ALWAYS_INLINE_LAMBDA {
+            return std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(tuple)));
+        }
+    );
+}
+
+template<typename Tuple, typename... F> ALWAYS_INLINE constexpr auto switchOnTupleAtIndex(size_t index, Tuple&& tuple, F&&... f) -> decltype(visitTupleElementAtIndex(index, WTF::makeVisitor(std::forward<F>(f)...), std::forward<Tuple>(tuple)))
+{
+    return visitTupleElementAtIndex(WTF::makeVisitor(std::forward<F>(f)...), index, std::forward<Tuple>(tuple));
+}
 
 namespace Detail
 {
@@ -831,15 +818,6 @@ IteratorTypeDst mergeDeduplicatedSorted(IteratorTypeLeft leftBegin, IteratorType
     return dstIter;
 }
 
-// libstdc++5 does not have constexpr std::tie. Since we cannot redefine std::tie with constexpr, we define WTF::tie instead.
-// This workaround can be removed after 2019-04 and all users of WTF::tie can be converted to std::tie
-// For more info see: https://bugs.webkit.org/show_bug.cgi?id=180692 and https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65978
-template <class ...Args>
-constexpr std::tuple<Args&...> tie(Args&... values)
-{
-    return std::tuple<Args&...>(values...);
-}
-
 } // namespace WTF
 
 // This version of placement new omits a 0 check.
@@ -870,16 +848,20 @@ namespace WTF {
 template<class T, class... Args>
 ALWAYS_INLINE decltype(auto) makeUnique(Args&&... args)
 {
-    static_assert(std::is_same<typename T::WTFIsFastAllocated, int>::value, "T should use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
+    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
     static_assert(!HasRefPtrMemberFunctions<T>::value, "T should not be RefCounted");
     return std::make_unique<T>(std::forward<Args>(args)...);
 }
 
-template<class T, class... Args>
-ALWAYS_INLINE decltype(auto) makeUniqueWithoutRefCountedCheck(Args&&... args)
+// This function is useful when constructing an object that is forwarding its ref-counting to its
+// owner. The function returns a `const std::unique_ptr<>` so that it cannot be reassigned. In
+// case of reassignment, ref-counting forwarding wouldn't be safe. This function is commonly used
+// with `lazyInitialize()` to initialize a const data member.
+template<class T, class U = T, class... Args>
+ALWAYS_INLINE const std::unique_ptr<U> makeUniqueWithoutRefCountedCheck(Args&&... args)
 {
-    static_assert(std::is_same<typename T::WTFIsFastAllocated, int>::value, "T should use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
-    return std::make_unique<T>(std::forward<Args>(args)...);
+    static_assert(std::is_same<typename T::WTFIsFastMallocAllocated, int>::value, "T should use FastMalloc (WTF_MAKE_FAST_ALLOCATED)");
+    return std::unique_ptr<U>(std::make_unique<T>(std::forward<Args>(args)...));
 }
 
 template<class T, class... Args>
@@ -1040,15 +1022,20 @@ bool spanHasSuffix(std::span<T, TExtent> span, std::span<U, UExtent> suffix)
 }
 
 template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
-int compareSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
+std::strong_ordering compareSpans(std::span<T, TExtent> a, std::span<U, UExtent> b)
 {
     static_assert(sizeof(T) == sizeof(U));
     static_assert(std::has_unique_object_representations_v<T>);
     static_assert(std::has_unique_object_representations_v<U>);
     int result = memcmp(a.data(), b.data(), std::min(a.size_bytes(), b.size_bytes())); // NOLINT
-    if (!result && a.size() != b.size())
-        result = (a.size() > b.size()) ? 1 : -1;
-    return result;
+    if (result) {
+        if (result < 0)
+            return std::strong_ordering::less;
+        return std::strong_ordering::greater;
+    }
+    if (a.size() != b.size())
+        return a.size() > b.size() ? std::strong_ordering::greater : std::strong_ordering::less;
+    return std::strong_ordering::equal;
 }
 
 // Returns the index of the first occurrence of |needed| in |haystack| or notFound if not present.
@@ -1122,6 +1109,58 @@ void secureMemsetSpan(std::span<T, Extent> destination, uint8_t byte)
 #endif
 }
 
+template<typename T> void skip(std::span<T>& data, size_t amountToSkip)
+{
+    data = data.subspan(amountToSkip);
+}
+
+template<typename T> void dropLast(std::span<T>& data, size_t amountToDrop = 1)
+{
+    data = data.first(data.size() - amountToDrop);
+}
+
+template<typename T> T& consumeLast(std::span<T>& data)
+{
+    auto* last = &data.back();
+    data = data.first(data.size() - 1);
+    return *last;
+}
+
+template<typename T> void clampedMoveCursorWithinSpan(std::span<T>& cursor, std::span<T> container, int delta)
+{
+    ASSERT(cursor.data() >= container.data());
+    ASSERT(std::to_address(cursor.end()) == std::to_address(container.end()));
+    auto clampedNewIndex = std::clamp<int>(cursor.data() - container.data() + delta, 0, container.size());
+    cursor = container.subspan(clampedNewIndex);
+}
+
+template<typename T> std::span<T> consumeSpan(std::span<T>& data, size_t amountToConsume)
+{
+    auto consumed = data.first(amountToConsume);
+    skip(data, amountToConsume);
+    return consumed;
+}
+
+template<typename T> T& consume(std::span<T>& data)
+{
+    T& value = data[0];
+    skip(data, 1);
+    return value;
+}
+
+template<typename DestinationType, typename SourceType>
+match_constness_t<SourceType, DestinationType>& consumeAndReinterpretCastTo(std::span<SourceType>& data) requires(sizeof(SourceType) == 1)
+{
+    return spanReinterpretCast<match_constness_t<SourceType, DestinationType>>(consumeSpan(data, sizeof(DestinationType)))[0];
+}
+
+template<typename T, std::size_t TExtent, typename U, std::size_t UExtent>
+bool spansOverlap(std::span<T, TExtent> a, std::span<U, UExtent> b)
+{
+    return static_cast<const void*>(a.data()) < static_cast<const void*>(std::to_address(b.end()))
+        && static_cast<const void*>(b.data()) < static_cast<const void*>(std::to_address(a.end()));
+}
+
 /* WTF_FOR_EACH */
 
 // https://www.scs.stanford.edu/~dm/blog/va-opt.html
@@ -1166,7 +1205,7 @@ template <class T> inline typename std::enable_if<std::is_pointer<T>::value, T>:
 
 #define SAFE_SPRINTF(destinationSpan, format, ...) \
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN \
-    snprintf(destinationSpan.data(), destinationSpan.size_bytes(), format __VA_OPT__(, SAFE_PRINTF_TYPE(__VA_ARGS__))) \
+    snprintf(destinationSpan.data(), destinationSpan.size_bytes(), format, SAFE_PRINTF_TYPE(__VA_ARGS__)) \
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 template<typename T> concept ByteType = sizeof(T) == 1 && ((std::is_integral_v<T> && !std::same_as<T, bool>) || std::same_as<T, std::byte>) && !std::is_const_v<T>;
@@ -1196,6 +1235,11 @@ template<ByteType T, size_t Extent> struct ByteCastTraits<std::span<const T, Ext
 template<ByteType T, typename U> constexpr auto byteCast(const U& value)
 {
     return ByteCastTraits<U>::template cast<T>(value);
+}
+
+template<typename T> constexpr auto unsignedCast(T value) requires (std::is_integral_v<T> || std::is_enum_v<T>)
+{
+    return static_cast<std::make_unsigned_t<T>>(value);
 }
 
 // This is like std::invocable but it takes the expected signature rather than just the arguments.
@@ -1295,8 +1339,8 @@ template<typename Head, typename... Tail> auto tuple_zip(Head&& head, Tail&& ...
     );
 }
 
-template<typename WordType, typename Func>
-ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, const Func& func)
+template<typename WordType, std::size_t Extent, typename Func>
+ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType, Extent> bits, const Func& func)
 {
     constexpr size_t wordSize = sizeof(WordType) * CHAR_BIT;
     for (size_t i = 0; i < bits.size(); ++i) {
@@ -1334,8 +1378,8 @@ ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, const
     }
 }
 
-template<typename WordType, typename Func>
-ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, size_t startIndex, const Func& func)
+template<typename WordType, std::size_t Extent, typename Func>
+ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType, Extent> bits, size_t startIndex, const Func& func)
 {
     constexpr size_t wordSize = sizeof(WordType) * CHAR_BIT;
     auto iterate = [&](WordType word, size_t i) ALWAYS_INLINE_LAMBDA {
@@ -1387,11 +1431,64 @@ ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, size_
     }
 }
 
+template<typename Object, typename Allocator = FastMalloc, typename... Arguments> std::pair<Object*, void*> createWithTrailingBytes(size_t trailingBytesSize, Arguments... arguments)
+{
+    Object* object = static_cast<Object*>(Allocator::malloc(sizeof(Object) + trailingBytesSize));
+    new (NotNull, object) Object(std::forward<Arguments>(arguments)...);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    return { object, object + 1 };
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+}
+
+template<typename Object> std::pair<Object*, void*> fromTrailingBytes(void* trailingBytes)
+{
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    Object* object = static_cast<Object*>(trailingBytes) - 1;
+    return { object, object + 1 };
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+}
+
+template<typename Object, typename Allocator = FastMalloc> std::pair<Object*, void*> reallocWithTrailingBytes(Object* object, size_t newTrailingBytesSize)
+{
+    size_t newAllocationSize = sizeof(Object) + newTrailingBytesSize;
+    object = static_cast<Object*>(Allocator::realloc(object, newAllocationSize));
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+    return { object, object + 1 };
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+}
+
+template<typename Object, typename Allocator = FastMalloc> void destroyWithTrailingBytes(Object* object)
+{
+    object->~Object();
+    Allocator::free(object);
+}
+
 template<typename T, typename U>
-ALWAYS_INLINE void lazyInitialize(const std::unique_ptr<T>& ptr, std::unique_ptr<U>&& obj)
+ALWAYS_INLINE void lazyInitialize(const std::unique_ptr<T>& ptr, const std::unique_ptr<U>&& obj)
 {
     RELEASE_ASSERT(!ptr);
-    const_cast<std::unique_ptr<T>&>(ptr) = std::move(obj);
+    const_cast<std::unique_ptr<T>&>(ptr) = std::move(const_cast<std::unique_ptr<U>&&>(obj));
+}
+
+ALWAYS_INLINE std::optional<double> stringToDouble(std::span<const char> buffer, size_t& parsedLength)
+{
+    RELEASE_ASSERT(buffer.back() == '\0');
+    char* end;
+    auto result = std::strtod(buffer.data(), &end);
+    if (errno == ERANGE) {
+        parsedLength = 0;
+        return std::nullopt;
+    }
+    parsedLength = end - buffer.data();
+    return result;
+}
+
+ALWAYS_INLINE std::weak_ordering weakOrderingCast(std::partial_ordering ordering)
+{
+    RELEASE_ASSERT(ordering != std::partial_ordering::unordered);
+    if (is_eq(ordering))
+        return std::weak_ordering::equivalent;
+    return is_lt(ordering) ? std::weak_ordering::less : std::weak_ordering::greater;
 }
 
 } // namespace WTF
@@ -1419,9 +1516,15 @@ using WTF::binarySearch;
 using WTF::byteCast;
 using WTF::callStatelessLambda;
 using WTF::checkAndSet;
+using WTF::clampedMoveCursorWithinSpan;
 using WTF::compareSpans;
-using WTF::contains;
 using WTF::constructFixedSizeArrayWithArguments;
+using WTF::consume;
+using WTF::consumeAndReinterpretCastTo;
+using WTF::consumeLast;
+using WTF::consumeSpan;
+using WTF::contains;
+using WTF::dropLast;
 using WTF::equalSpans;
 using WTF::find;
 using WTF::findBitInWord;
@@ -1439,21 +1542,22 @@ using WTF::memmoveSpan;
 using WTF::memsetSpan;
 using WTF::mergeDeduplicatedSorted;
 using WTF::reinterpretCastSpanStartTo;
-using WTF::roundUpToMultipleOf;
-using WTF::roundUpToMultipleOfNonPowerOfTwo;
-using WTF::roundDownToMultipleOf;
-using WTF::safeCast;
 using WTF::secureMemsetSpan;
 using WTF::singleElementSpan;
+using WTF::skip;
 using WTF::spanConstCast;
 using WTF::spanHasPrefix;
 using WTF::spanHasSuffix;
+using WTF::spansOverlap;
 using WTF::spanReinterpretCast;
+using WTF::stringToDouble;
 using WTF::toTwosComplement;
 using WTF::tryBinarySearch;
 using WTF::unsafeMakeSpan;
+using WTF::unsignedCast;
 using WTF::valueOrCompute;
 using WTF::valueOrDefault;
+using WTF::weakOrderingCast;
 using WTF::zeroBytes;
 using WTF::zeroSpan;
 using WTF::Invocable;

@@ -33,6 +33,7 @@
 #include <libkern/OSKextLib.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOReporter.h>
+#include <IOKit/hid/IOHIDInductiveAllowList.h>
 
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/hid/IOHIDDevice.h>
@@ -281,6 +282,7 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _deviceNotify               _reserved->deviceNotify
 #define _elementContainer           _reserved->elementContainer
 #define _asyncReportThread          _reserved->asyncReportThread
+#define _asyncReportThreadActive    _reserved->asyncReportThreadActive
 #define _asyncReportCalls           _reserved->asyncReportCalls
 #define _asyncCommitCalls           _reserved->asyncCommitCalls
 #define _asyncTimer                 _reserved->asyncTimer
@@ -288,6 +290,8 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _settingTimeout             _reserved->settingTimeout
 #define _eventReporter              _reserved->eventReporter
 #define _reporterList               _reserved->reporterList
+#define _terminateDeferred          _reserved->terminateDeferred
+#define _terminateOptions           _reserved->terminateOptions
 
 #define WORKLOOP_LOCK   ((IOHIDEventSource *)_eventSource)->lock()
 #define WORKLOOP_UNLOCK ((IOHIDEventSource *)_eventSource)->unlock()
@@ -308,6 +312,14 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 // *** GAME DEVICE HACK ***
 static SInt32 g3DGameControllerCount = 0;
 // *** END GAME DEVICE HACK ***
+
+//Used to represent an entry in the IOHIDInductiveAllowList
+//usageMin and usageMax define an inclusive usage range
+typedef struct {
+    uint16_t usagePage;
+    uint16_t usageMin;
+    uint16_t usageMax;
+} UsagePairAllowListEntry;
 
 //---------------------------------------------------------------------------
 // Initialize an IOHIDDevice object.
@@ -391,10 +403,16 @@ bool IOHIDDevice::start( IOService * provider )
     OSObject *              obj                     = NULL;
     OSObject *              obj2                    = NULL;
     OSDictionary *          matching                = NULL;
-    bool                    multipleInterface       = false;
     IOReturn                ret;
     bool                    result                  = false;
     OSNumber *              value                   = NULL;
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#ifdef InductiveAllowList
+    OSString *              transport               = NULL;
+    uint32_t                inductiveBypass         = 0;
+    bool                    isInductive             = false;
+#endif
+#endif
 
     HIDDeviceLogInfo("start");
 
@@ -440,15 +458,6 @@ bool IOHIDDevice::start( IOService * provider )
     
     createReporters();
 
-    // Enable multiple interfaces if the first top-level collection has usage pair kHIDPage_AppleVendor, kHIDUsage_AppleVendor_MultipleInterfaces
-    if (_elementArray->getCount() > 1 &&
-        ((IOHIDElement *)_elementArray->getObject(1))->getUsagePage() == kHIDPage_AppleVendor &&
-        ((IOHIDElement *)_elementArray->getObject(1))->getUsage() == kHIDUsage_AppleVendor_MultipleInterfaces) {
-        setProperty(kIOHIDMultipleInterfaceEnabledKey, kOSBooleanTrue);
-    }
-
-    multipleInterface = (getProperty(kIOHIDMultipleInterfaceEnabledKey) == kOSBooleanTrue);
-
     _hierarchElements = _elementContainer->getFlattenedElements();
     require(_hierarchElements, exit);
     
@@ -458,22 +467,8 @@ bool IOHIDDevice::start( IOService * provider )
         setupResolution();
     }
 
-    if (multipleInterface) {
-        HIDDeviceLogDebug("has multiple interface support");
-        
-        _interfaceElementArrays = _elementContainer->getFlattenedCollections();
-        require(_interfaceElementArrays, exit);
-        
-        _interfaceElementArrays->retain();
-    }
-    else {
-        // Single interface behavior - all elements in single array, including additional top-level collections.
-        _interfaceElementArrays = OSArray::withCapacity(1);
-        require(_interfaceElementArrays, exit);
+    _interfaceElementArrays = mapElementsToInterfaces(_elementContainer);
 
-        _interfaceElementArrays->setObject(_hierarchElements);
-    }
-    
     // Once the report descriptors have been parsed, we are ready
     // to handle reports from the device.
 
@@ -482,6 +477,21 @@ bool IOHIDDevice::start( IOService * provider )
     // Publish properties to the registry before any clients are
     // attached.
     require(publishProperties(provider), exit);
+    
+#if TARGET_OS_IOS && !TARGET_OS_VISION
+#ifdef InductiveAllowList
+    PE_parse_boot_argn("hid-inductive-bypass", &inductiveBypass, sizeof(inductiveBypass));
+    if(!inductiveBypass) {
+        obj = copyProperty(kIOHIDTransportKey);
+        transport = OSDynamicCast(OSString, obj);
+        isInductive = transport && transport->isEqualTo(kIOHIDTransportInductiveInBandValue);
+        OSSafeReleaseNULL(obj);
+        if(isInductive) {
+            require(verifyInductiveAllowList(), exit);
+        }
+    }
+#endif
+#endif
 
     // *** GAME DEVICE HACK ***
     obj = copyProperty(kIOHIDPrimaryUsagePageKey);
@@ -497,27 +507,9 @@ bool IOHIDDevice::start( IOService * provider )
     OSSafeReleaseNULL(obj);
     OSSafeReleaseNULL(obj2);
     // *** END GAME DEVICE HACK ***
-    
-    // create interface
-    _interfaceNubs = OSArray::withCapacity(1);
-    require(_interfaceNubs, exit);
 
-    for (unsigned int i = 0; i < _interfaceElementArrays->getCount(); i++) {
-        IOHIDInterface * interface  = IOHIDInterface::withElements((OSArray *)_interfaceElementArrays->getObject(i));
-        IOHIDElement *   root       = (IOHIDElement *)((OSArray *)_interfaceElementArrays->getObject(i))->getObject(0);
+    _interfaceNubs = createInterfaces(_interfaceElementArrays);
 
-        require(interface, exit);
-
-        // If there's more than one interface, set element subset for diagnostics.
-        if (_interfaceElementArrays->getCount() > 1) {
-            interface->setProperty(kIOHIDElementKey, root);
-        }
-
-        _interfaceNubs->setObject(interface);
-
-        OSSafeReleaseNULL(interface);
-    }
-    
     // set interface properties
     publishProperties(NULL);
     
@@ -534,14 +526,14 @@ bool IOHIDDevice::start( IOService * provider )
                                             NULL);
     matching->release();
     require(_deviceNotify, exit);
-    
+
     obj = getProperty(kIOHIDRegisterServiceKey);
     if (obj != kOSBooleanFalse) {
         registerService();
     }
     
+    logProperties();
     result = true;
-    
 exit:
     if ( !result ) {
         HIDDeviceLogError("start failed");
@@ -556,6 +548,118 @@ exit:
         reportDescriptorMap->release();
 
     return result;
+}
+
+OSArray * IOHIDDevice::mapElementsToInterfaces(IOHIDElementContainer * container)
+{
+    assert(container);
+    OSArray * interfaceElementArrays = nullptr;
+
+    if (supportsMultipleInterfaces()) {
+        HIDDeviceLogDebug("has multiple interface support");
+
+        interfaceElementArrays = OSArray::withArray(container->getFlattenedCollections());
+        assert(interfaceElementArrays);
+
+        // if present, remove the special vendor collection that indicates support for multiple
+        // interfaces so an interface is not created for it.
+        const unsigned int count = interfaceElementArrays->getCount();
+        for (unsigned int i = 0; i < count; ++i) {
+            OSArray * elements = OSRequiredCast(OSArray, interfaceElementArrays->getObject(i));
+            IOHIDElement * root = OSRequiredCast(IOHIDElement, elements->getObject(0));
+            if (root->getUsagePage() == kHIDPage_AppleVendor && root->getUsage() == kHIDUsage_AppleVendor_MultipleInterfaces) {
+                interfaceElementArrays->removeObject(i);
+                break;
+            }
+        }
+    }
+    else {
+        // Single interface behavior - all elements in single array, including additional top-level collections.
+        OSArray * elements = container->getFlattenedElements();
+        interfaceElementArrays = OSArray::withObjects((const OSObject **)&elements, 1);
+        assert(interfaceElementArrays);
+    }
+
+    return interfaceElementArrays;
+}
+
+bool IOHIDDevice::supportsMultipleInterfaces()
+{
+    // Enable multiple interfaces if support is not already explicitly defined via the property
+    // key AND the first top-level collection has (Usage Page, Usage) = (kHIDPage_AppleVendor,
+    // kHIDUsage_AppleVendor_MultipleInterfaces).
+    if (!getProperty(kIOHIDMultipleInterfaceEnabledKey) &&
+        _elementArray->getCount() > 1 &&
+        ((IOHIDElement *)_elementArray->getObject(1))->getUsagePage() == kHIDPage_AppleVendor &&
+        ((IOHIDElement *)_elementArray->getObject(1))->getUsage() == kHIDUsage_AppleVendor_MultipleInterfaces) {
+        setProperty(kIOHIDMultipleInterfaceEnabledKey, kOSBooleanTrue);
+    }
+    return getProperty(kIOHIDMultipleInterfaceEnabledKey) == kOSBooleanTrue;
+}
+
+OSArray * IOHIDDevice::createInterfaces(OSArray * interfaceElementArrays)
+{
+    assert(interfaceElementArrays);
+
+    const unsigned int count = interfaceElementArrays->getCount();
+
+    OSArray * interfaces = OSArray::withCapacity(count);
+    assert(interfaces);
+
+    for (unsigned int i = 0; i < count; i++) {
+        OSArray * elements = OSRequiredCast(OSArray, interfaceElementArrays->getObject(i));
+        IOHIDInterface * interface = IOHIDInterface::withElements(elements);
+        assert(interface);
+
+        // if there's more than one interface, set element subset for diagnostics.
+        if (count > 1) {
+            IOHIDElement * root = OSRequiredCast(IOHIDElement, elements->getObject(0));
+            interface->setProperty(kIOHIDElementKey, root);
+        }
+
+        interfaces->setObject(interface);
+        OSSafeReleaseNULL(interface);
+    }
+
+    return interfaces;
+}
+
+bool IOHIDDevice::verifyInductiveAllowList()
+{
+    static UsagePairAllowListEntry allowList[] = { InductiveAllowList };
+    uint32_t allowListSize = sizeof(allowList) / sizeof(allowList[0]);
+    if( allowListSize < 1 ) {
+        return false;
+    }
+    //Iterate over element array, check that every element usage pair is within the allow list
+    for (uint32_t i = 0; i < _elementArray->getCount(); i++) {
+        IOHIDElementPrivate * element = (IOHIDElementPrivate *)_elementArray->getObject(i);
+        uint32_t usage = element->getUsage();
+        uint32_t usagePage = element->getUsagePage();
+        bool found = false;
+        
+        if (element->getType() >= kIOHIDElementTypeInput_NULL || element->isInterruptReportHandler()) {
+            continue;
+        }
+        
+        for (uint32_t j = 0; j < allowListSize; j++) {
+            if(allowList[j].usagePage != usagePage) {
+                continue;
+            }
+            // If usageMin == usageMax, this is simply an equality check
+            if(usage >= allowList[j].usageMin && usage <= allowList[j].usageMax) {
+                found = true;
+                break;
+            }
+        }
+        
+        if(!found) {
+            HIDDeviceLogError("Inductive descriptor contains usage: %x and usage page: %x pair outside of allow list", usage, usagePage);
+            return false;
+        }
+    }
+    
+    return true;
 }
 
 void IOHIDDevice::createReporters()
@@ -691,20 +795,54 @@ void IOHIDDevice::stop(IOService * provider)
 
 bool IOHIDDevice::willTerminate( IOService * provider, IOOptionBits options )
 {
-    AsyncCommitCall * call;
+#if !TARGET_OS_BRIDGE // Can cause deadlock with IOHIDRelayService on bridgeOS (rdar://156152474)
+    // willTerminate is called from the provider's workloop context, but it is still necessary to
+    // synchronize against the service's own workloop in case getWorkLoop has been overridden.
+    WORKLOOP_LOCK;
+#endif
 
-    if (_asyncReportThread) {
-        thread_call_cancel_wait(_asyncReportThread);
-        thread_call_free(_asyncReportThread);
-        _asyncReportThread = NULL;
-        runSyncReportAsync();
+    // abort outstanding asynchronous reports
+    AsyncReportCall * reportCall = nullptr;
+    while ((reportCall = STAILQ_FIRST(&_asyncReportCalls))) {
+        completeAsyncReport(reportCall, kIOReturnAborted);
     }
 
-    while ((call = STAILQ_FIRST(&_asyncCommitCalls))) {
-        CommitComplete(call, kIOReturnAborted, 0);
+    // abort outstanding asynchronous commits
+    AsyncCommitCall * commitCall = nullptr;
+    while ((commitCall = STAILQ_FIRST(&_asyncCommitCalls))) {
+        CommitComplete(commitCall, kIOReturnAborted, 0);
     }
+
+#if !TARGET_OS_BRIDGE
+    WORKLOOP_UNLOCK;
+#endif
 
     return super::willTerminate(provider, options);
+}
+
+bool
+IOHIDDevice::didTerminate(IOService * provider, IOOptionBits options, bool * defer)
+{
+#if !TARGET_OS_BRIDGE // Can cause deadlock with IOHIDRelayService on bridgeOS (rdar://156152474)
+    // didTerminate is called from the provider's workloop context, but it is still necessary to
+    // synchronize against the service's own workloop in case getWorkLoop has been overridden.
+    WORKLOOP_LOCK;
+#endif
+
+    // Termination must be deferred until the in-progress thread call has completed. It is not safe
+    // to simply wait for an in-progress execution to complete, because the thread call acquires the
+    // workloop lock which could lead to deadlock (see rdar://154632669 for an example).
+    if (_asyncReportThreadActive) {
+        _terminateDeferred = true;
+        _terminateOptions = options;
+        *defer = true;
+    }
+
+#if !TARGET_OS_BRIDGE
+    WORKLOOP_UNLOCK;
+#endif
+
+    return super::didTerminate(provider, options, defer);
 }
 
 bool IOHIDDevice::validateMatchingTable(OSDictionary * table)
@@ -845,8 +983,6 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         OSDictionary *  primaryUsagePair;
         OSNumber *      primaryUsage;
         OSNumber *      primaryUsagePage;
-        OSDictionary *  dict = OSDictionary::withCapacity(13);
-        OSSerialize *   s = OSSerialize::withCapacity(1);
         IOService *     service = OSDynamicCast(IOService, services->getObject(i));
         if (!service)
             continue;
@@ -900,36 +1036,6 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         SET_PROP_FROM_VALUE(    kIOHIDReportPoolSizeKey,        copyProperty(kIOHIDReportPoolSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
         SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       newIsAccessProtected());
-
-        static const char * logPropKeys[] = {kIOHIDTransportKey, kIOHIDVendorIDKey, kIOHIDVendorIDSourceKey, kIOHIDProductIDKey, kIOHIDVersionNumberKey, kIOHIDManufacturerKey, kIOHIDProductKey, kIOHIDLocationIDKey, kIOHIDCountryCodeKey, kIOHIDSerialNumberKey, kIOHIDReportDescriptorKey};
-        
-        if(dict) {
-            const OSNumber * registryID = OSNumber::withNumber(getRegistryEntryID(), 64);
-            if(registryID) {
-                dict->setObject(kIORegistryEntryIDKey, registryID);
-                registryID->release();
-            }
-            const OSSymbol * name = copyName();
-            if(name) {
-                dict->setObject("IOName", name);
-                name->release();
-            }
-            for (const char * key : logPropKeys) {
-                const OSObject * prop = copyProperty(key);
-                if (prop) {
-                    dict->setObject(key, prop);
-                    prop->release();
-                }
-            }
-            bool success = dict->serialize(s);
-            if(success){
-                HIDOversizedLog("%s", s->text());
-            } else {
-                HIDDeviceLogError("XML serialization failed");
-            }
-        }
-        OSSafeReleaseNULL(dict);
-        OSSafeReleaseNULL(s);
         
         if ( getProvider() ) {
             SET_PROP_FROM_VALUE("BootProtocol", getProvider()->copyProperty("bInterfaceProtocol"));
@@ -941,6 +1047,41 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
     OSSafeReleaseNULL(services);
 
     return true;
+}
+
+void IOHIDDevice::logProperties()
+{
+    OSDictionary *  dict = OSDictionary::withCapacity(13);
+    OSSerialize *   s = OSSerialize::withCapacity(1);
+    static const char * logPropKeys[] = {kIOHIDTransportKey, kIOHIDVendorIDKey, kIOHIDVendorIDSourceKey, kIOHIDProductIDKey, kIOHIDVersionNumberKey, kIOHIDManufacturerKey, kIOHIDProductKey, kIOHIDLocationIDKey, kIOHIDCountryCodeKey, kIOHIDSerialNumberKey, kIOHIDReportDescriptorKey};
+    
+    if(dict) {
+        const OSNumber * registryID = OSNumber::withNumber(getRegistryEntryID(), 64);
+        if(registryID) {
+            dict->setObject(kIORegistryEntryIDKey, registryID);
+            registryID->release();
+        }
+        const OSSymbol * name = copyName();
+        if(name) {
+            dict->setObject("IOName", name);
+            name->release();
+        }
+        for (const char * key : logPropKeys) {
+            const OSObject * prop = copyProperty(key);
+            if (prop) {
+                dict->setObject(key, prop);
+                prop->release();
+            }
+        }
+        bool success = dict->serialize(s);
+        if(success){
+            HIDOversizedLog("%s", s->text());
+        } else {
+            HIDDeviceLogError("XML serialization failed");
+        }
+    }
+    OSSafeReleaseNULL(dict);
+    OSSafeReleaseNULL(s);
 }
 
 //---------------------------------------------------------------------------
@@ -1219,7 +1360,7 @@ IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argumen
 //---------------------------------------------------------------------------
 // Handle properties.
 
-static const OSSymbol * msgProps[] = {kIOHIDDeviceMessagePropertyUpdateKeys};
+static const char *msgProps[] = {kIOHIDDeviceMessagePropertyUpdateKeys};
 
 bool IOHIDDevice::setProperty( const OSSymbol * key, OSObject * object)
 {
@@ -1236,9 +1377,9 @@ bool IOHIDDevice::setProperty( const OSSymbol * key, OSObject * object)
     ret = super::setProperty(key, object);
     require(ret, exit);
 
-    for (const OSSymbol * prop : msgProps) {
+    for (const char *prop : msgProps) {
         if (key->isEqualTo(prop)) {
-            messageClients(kIOMessageServicePropertyChange);
+            messageClients(kIOMessageServicePropertyChange, (void *)key);
         }
     }
 
@@ -2011,7 +2152,7 @@ void IOHIDDevice::runSyncReportAsync()
 {
     IOReturn             ret;
     IOMemoryDescriptor * report;
-    AsyncReportCall    * call, * callAfter;
+    AsyncReportCall    * call;
 
     WORKLOOP_LOCK;
     while ((call = STAILQ_FIRST(&_asyncReportCalls))) {
@@ -2026,6 +2167,12 @@ void IOHIDDevice::runSyncReportAsync()
             }
             WORKLOOP_UNLOCK;
             ret =  call->input ? getReport(report, call->reportType, call->options) : setReport(report, call->reportType, call->options);
+#if DEVELOPMENT || KASAN
+            // To support testing for 154632669, inject a sleep after completing an asynchronous report
+            if (getProperty("test-hook-154632669") == kOSBooleanTrue) {
+                IOSleep(3000);
+            }
+#endif
             WORKLOOP_LOCK;
             if (report) {
                 report->complete();
@@ -2033,20 +2180,39 @@ void IOHIDDevice::runSyncReportAsync()
             OSSafeReleaseNULL(report);
         }
 
-        // Check if the call is still valid
-        STAILQ_FOREACH(callAfter, &_asyncReportCalls, reportLink) {
-            if (callAfter == call) {
-                break;
-            }
-        }
-        if (callAfter) {
-            STAILQ_REMOVE(&_asyncReportCalls, callAfter, AsyncReportCall, reportLink);
-            setNextAsyncTimeout();
-            callAfter->completion.action(callAfter->completion.target, callAfter->completion.parameter, ret, 0);
-            IOFreeType(callAfter, AsyncReportCall);
+        completeAsyncReport(call, ret);
+    }
+
+    // Cancel any pending executions that may have been scheduled while the lock was dropped.
+    thread_call_cancel(_asyncReportThread);
+    _asyncReportThreadActive = false;
+
+    // If termination was deferred due to an in-progress execution, complete it now.
+    if (_terminateDeferred) {
+        bool defer = false;
+        super::didTerminate(getProvider(), _terminateOptions, &defer);
+    }
+
+    WORKLOOP_UNLOCK;
+}
+
+void
+IOHIDDevice::completeAsyncReport(AsyncReportCall * target, IOReturn status)
+{
+    assert(getWorkLoop()->inGate());
+
+    AsyncReportCall * call = nullptr;
+    STAILQ_FOREACH(call, &_asyncReportCalls, reportLink) {
+        if (call == target) {
+            break;
         }
     }
-    WORKLOOP_UNLOCK;
+    if (call) {
+        STAILQ_REMOVE(&_asyncReportCalls, call, AsyncReportCall, reportLink);
+        setNextAsyncTimeout();
+        call->completion.action(call->completion.target, call->completion.parameter, status, 0);
+        IOFreeType(call, AsyncReportCall);
+    }
 }
 
 IOReturn IOHIDDevice::outReport(IOMemoryDescriptor * report, IOHIDReportType reportType, IOOptionBits options, UInt32 completionTimeout, IOHIDCompletion * completion, bool input)
@@ -2069,6 +2235,7 @@ IOReturn IOHIDDevice::outReport(IOMemoryDescriptor * report, IOHIDReportType rep
     require_action_quiet(!isInactive(), exit, WORKLOOP_UNLOCK);
     STAILQ_INSERT_TAIL(&_asyncReportCalls, call, reportLink);
     setNextAsyncTimeout();
+    _asyncReportThreadActive = true;
     thread_call_enter(_asyncReportThread);
     WORKLOOP_UNLOCK;
 

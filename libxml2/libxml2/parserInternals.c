@@ -1581,7 +1581,8 @@ xmlNewInputFromFile(xmlParserCtxtPtr ctxt, const char *filename) {
     xmlParserInputBufferPtr buf;
     xmlParserInputPtr inputStream;
     char *directory = NULL;
-    xmlChar *URI = NULL;
+    const xmlChar *URI;
+    xmlChar *canonic;
 
     if (xmlParserDebugEntities)
 	xmlGenericError(xmlGenericErrorContext,
@@ -1611,18 +1612,26 @@ xmlNewInputFromFile(xmlParserCtxtPtr ctxt, const char *filename) {
         return(NULL);
 
     if (inputStream->filename == NULL)
-	URI = xmlStrdup((xmlChar *) filename);
+        URI = (xmlChar *) filename;
     else
-	URI = xmlStrdup((xmlChar *) inputStream->filename);
-    directory = xmlParserGetDirectory((const char *) URI);
-    if (inputStream->filename != NULL) xmlFree((char *)inputStream->filename);
-    inputStream->filename = (char *) xmlCanonicPath((const xmlChar *) URI);
-    if (URI != NULL) xmlFree((char *) URI);
-    inputStream->directory = directory;
+        URI = (xmlChar *) inputStream->filename;
 
+    canonic = xmlCanonicPath(URI);
+    if (canonic == NULL) {
+        __xmlLoaderErr(ctxt, "failed to get canonic path for URI.\n", NULL);
+        xmlFreeInputStream(inputStream);
+        return(NULL);
+    }
+    if (inputStream->filename != NULL)
+        xmlFree((char *) inputStream->filename);
+    inputStream->filename = (char *) canonic;
+
+    directory = xmlParserGetDirectory((const char *) inputStream->filename);
     xmlBufResetInput(inputStream->buf->buffer, inputStream);
     if ((ctxt->directory == NULL) && (directory != NULL))
-        ctxt->directory = (char *) xmlStrdup((const xmlChar *) directory);
+        ctxt->directory = directory;
+    else if (directory != NULL)
+        xmlFree((char *) directory);
     return(inputStream);
 }
 

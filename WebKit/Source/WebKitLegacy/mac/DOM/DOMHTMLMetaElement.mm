@@ -42,7 +42,7 @@
 - (NSString *)content
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::contentAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::contentAttr).createNSString().autorelease();
 }
 
 - (void)setContent:(NSString *)newContent
@@ -54,7 +54,7 @@
 - (NSString *)httpEquiv
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::http_equivAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::http_equivAttr).createNSString().autorelease();
 }
 
 - (void)setHttpEquiv:(NSString *)newHttpEquiv
@@ -66,7 +66,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -78,7 +78,7 @@
 - (NSString *)scheme
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::schemeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::schemeAttr).createNSString().autorelease();
 }
 
 - (void)setScheme:(NSString *)newScheme

@@ -37,7 +37,10 @@ namespace SecurityServer {
 
 
 // stock leading argument profile used by (almost) all calls
-#define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().replyPort, &securitydCreds, &rcode
+#define UCSP_ARGS	mGlobal().serverPort, mGlobal().thread().receivePort, &securitydCreds, &rcode
+#define UCSP_ARGS_OLD	mGlobal().serverPort, mGlobal().thread().replyPort, &securitydCreds, &rcode
+
+#define UCSP_SERVER_VERSION mGlobal().serverVersion
 
 // common invocation profile (don't use directly)
 #define IPCSTART \
@@ -84,6 +87,20 @@ namespace SecurityServer {
 		CssmError::throwMe(rcode); \
 	} \
 }
+
+#define UCSP_CLIENT_IPC(func, ...) \
+	if (UCSP_SERVER_VERSION >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) { \
+		IPC(ucsp_client_##func(UCSP_ARGS, ## __VA_ARGS__)); \
+	} else { \
+		IPC(ucsp_client_old_##func(UCSP_ARGS_OLD, ## __VA_ARGS__)); \
+	} \
+
+#define UCSP_CLIENT_IPCKEY(func, key, tag, ...) \
+	if (UCSP_SERVER_VERSION >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) { \
+		IPCKEY(ucsp_client_##func(UCSP_ARGS, ## __VA_ARGS__), key, tag); \
+	} else { \
+		IPCKEY(ucsp_client_old_##func(UCSP_ARGS_OLD, ## __VA_ARGS__), key, tag); \
+	} \
 
 // pass mandatory or optional CssmData arguments into an IPC call
 #define DATA(arg)			arg.data(), (mach_msg_type_number_t)(arg.length())

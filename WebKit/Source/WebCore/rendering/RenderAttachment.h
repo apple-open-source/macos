@@ -64,7 +64,7 @@ private:
 
     void layout() override;
 
-    LayoutUnit baselinePosition(FontBaseline, bool, LineDirectionMode, LinePositionMode) const override;
+    LayoutUnit baselinePosition(bool, LineDirectionMode, LinePositionMode) const override;
 
     LayoutUnit m_minimumIntrinsicWidth;
     bool m_shouldDrawBorder { true };

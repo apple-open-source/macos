@@ -24,6 +24,7 @@
 #if USE(GSTREAMER)
 
 #include "ApplicationGLib.h"
+#include "FloatSize.h"
 #include "GLVideoSinkGStreamer.h"
 #include "GStreamerAudioMixer.h"
 #include "GStreamerQuirks.h"
@@ -33,14 +34,18 @@
 #include "GstAllocatorFastMalloc.h"
 #include "IntSize.h"
 #include "PlatformDisplay.h"
+#include "PlatformVideoColorSpace.h"
 #include "SharedBuffer.h"
 #include "VideoSinkGStreamer.h"
 #include "WebKitAudioSinkGStreamer.h"
+#include <fnmatch.h>
 #include <gst/audio/audio-info.h>
 #include <gst/gst.h>
 #include <mutex>
 #include <wtf/FileSystem.h>
 #include <wtf/HashMap.h>
+#include <wtf/MallocSpan.h>
+#include <wtf/MediaTime.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/PrintStream.h>
 #include <wtf/RecursiveLockAdapter.h>
@@ -80,6 +85,7 @@
 #if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
 #include "CDMThunder.h"
 #include "WebKitThunderDecryptorGStreamer.h"
+#include "WebKitThunderParser.h"
 #endif
 
 #if ENABLE(VIDEO)
@@ -89,6 +95,7 @@
 #endif
 
 #if USE(GSTREAMER_WEBRTC)
+#include "GStreamerRTPVideoRotationHeaderExtension.h"
 #include <gst/webrtc/webrtc-enumtypes.h>
 #endif
 
@@ -114,23 +121,21 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WebCoreLogObserver);
 
 static GstClockTime s_webkitGstInitTime;
 
-GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, const gchar* name, GstPad* target)
+WARN_UNUSED_RETURN GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, ASCIILiteral name, GstPad* target)
 {
     GstPad* pad;
-    GstPadTemplate* padTemplate = gst_static_pad_template_get(staticPadTemplate);
+    GRefPtr padTemplate = gst_static_pad_template_get(staticPadTemplate);
 
     if (target)
-        pad = gst_ghost_pad_new_from_template(name, target, padTemplate);
+        pad = gst_ghost_pad_new_from_template(name.characters(), target, padTemplate.get());
     else
-        pad = gst_ghost_pad_new_no_target_from_template(name, padTemplate);
-
-    gst_object_unref(padTemplate);
+        pad = gst_ghost_pad_new_no_target_from_template(name.characters(), padTemplate.get());
 
     return pad;
 }
 
 #if ENABLE(VIDEO)
-bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, GstVideoFormat& format, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride)
+bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, GstVideoFormat& format, int& pixelAspectRatioNumerator, int& pixelAspectRatioDenominator, int& stride, double& frameRate, PlatformVideoColorSpace& colorSpace)
 {
     if (!doCapsHaveType(caps, GST_VIDEO_CAPS_TYPE_PREFIX)) {
         GST_WARNING("Failed to get the video size and format, these are not a video caps");
@@ -144,6 +149,11 @@ bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, 
         if (!gst_video_info_from_caps(&info, caps))
             return false;
 
+        if (GST_VIDEO_INFO_FPS_N(&info))
+            gst_util_fraction_to_double(GST_VIDEO_INFO_FPS_N(&info), GST_VIDEO_INFO_FPS_D(&info), &frameRate);
+
+        colorSpace = videoColorSpaceFromInfo(info);
+
         format = GST_VIDEO_INFO_FORMAT(&info);
         size.setWidth(GST_VIDEO_INFO_WIDTH(&info));
         size.setHeight(GST_VIDEO_INFO_HEIGHT(&info));
@@ -156,6 +166,7 @@ bool getVideoSizeAndFormatFromCaps(const GstCaps* caps, WebCore::IntSize& size, 
         else
             format = GST_VIDEO_FORMAT_UNKNOWN;
         stride = 0;
+        frameRate = 1;
 
         auto width = gstStructureGet<int>(structure, "width"_s);
         if (!width) {
@@ -191,7 +202,7 @@ std::optional<FloatSize> getVideoResolutionFromCaps(const GstCaps* caps)
     int pixelAspectRatioNumerator = 1, pixelAspectRatioDenominator = 1;
 
     GstStructure* structure = gst_caps_get_structure(caps, 0);
-    if (!areEncryptedCaps(caps) && (!gst_structure_has_name(structure, "video/x-raw") || gst_structure_has_field(structure, "format"))) {
+    if (!areEncryptedCaps(caps) && (gst_structure_has_name(structure, "video/x-raw") || gst_structure_has_field(structure, "format"))) {
         GstVideoInfo info;
         gst_video_info_init(&info);
         if (!gst_video_info_from_caps(&info, caps))
@@ -302,14 +313,14 @@ StringView capsMediaType(const GstCaps* caps)
     return gstStructureGetName(structure);
 }
 
-bool doCapsHaveType(const GstCaps* caps, const char* type)
+bool doCapsHaveType(const GstCaps* caps, ASCIILiteral type)
 {
     auto mediaType = capsMediaType(caps);
     if (!mediaType) {
         GST_WARNING("Failed to get MediaType");
         return false;
     }
-    return mediaType.startsWith(unsafeSpan(type));
+    return mediaType.startsWith(type);
 }
 
 bool areEncryptedCaps(const GstCaps* caps)
@@ -432,14 +443,22 @@ void registerWebKitGStreamerElements()
         // - Use GST_RANK_NONE for elements explicitely created by WebKit (no auto-plugging).
 
 #if ENABLE(ENCRYPTED_MEDIA) && ENABLE(THUNDER)
-        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty())
+        if (!CDMFactoryThunder::singleton().supportedKeySystems().isEmpty()) {
+            // The Thunder parser is auto-plugged by parsebin and its internal parsebin can
+            // auto-plug the Thunder decryptor.
             gst_element_register(nullptr, "webkitthunder", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_MEDIA_THUNDER_DECRYPT);
+            gst_element_register(nullptr, "webkitthunderparser", GST_RANK_PRIMARY + 101, WEBKIT_TYPE_MEDIA_THUNDER_PARSER);
+        }
 #endif
 
 #if ENABLE(MEDIA_STREAM)
         gst_element_register(nullptr, "mediastreamsrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_STREAM_SRC);
 #endif
         registerInternalVideoEncoder();
+
+#if USE(GSTREAMER_WEBRTC)
+        gst_element_register(nullptr, "webkitrtpvideorotationheaderextension", GST_RANK_MARGINAL, WEBKIT_TYPE_GST_RTP_VIDEO_ROTATION_HEADER_EXTENSION);
+#endif
 
 #if ENABLE(MEDIA_SOURCE)
         gst_element_register(nullptr, "webkitmediasrc", GST_RANK_PRIMARY, WEBKIT_TYPE_MEDIA_SRC);
@@ -451,8 +470,10 @@ void registerWebKitGStreamerElements()
 
 #if ENABLE(VIDEO)
         gst_element_register(0, "webkitwebsrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_WEB_SRC);
-        gst_element_register(0, "webkitglvideosink", GST_RANK_NONE, WEBKIT_TYPE_GL_VIDEO_SINK);
         gst_element_register(0, "webkitvideosink", GST_RANK_NONE, WEBKIT_TYPE_VIDEO_SINK);
+#if USE(GSTREAMER_GL)
+        gst_element_register(0, "webkitglvideosink", GST_RANK_NONE, WEBKIT_TYPE_GL_VIDEO_SINK);
+#endif
 #endif
         // We don't want autoaudiosink to autoplug our sink.
         gst_element_register(0, "webkitaudiosink", GST_RANK_NONE, WEBKIT_TYPE_AUDIO_SINK);
@@ -543,9 +564,9 @@ void registerWebKitGStreamerVideoEncoder()
 // We use a recursive lock because the removal of a pipeline can trigger the removal of another one,
 // from the same thread, specially when using chained element harnesses.
 static RecursiveLock s_activePipelinesMapLock;
-static UncheckedKeyHashMap<String, GRefPtr<GstElement>>& activePipelinesMap()
+static HashMap<String, GRefPtr<GstElement>>& activePipelinesMap()
 {
-    static NeverDestroyed<UncheckedKeyHashMap<String, GRefPtr<GstElement>>> activePipelines;
+    static NeverDestroyed<HashMap<String, GRefPtr<GstElement>>> activePipelines;
     return activePipelines.get();
 }
 
@@ -614,9 +635,10 @@ void WebCoreLogObserver::removeWatch(const Logger& logger)
 
 void deinitializeGStreamer()
 {
+#if USE(GSTREAMER_GL)
     if (auto* sharedDisplay = PlatformDisplay::sharedDisplayIfExists())
         sharedDisplay->clearGStreamerGLState();
-
+#endif
 #if ENABLE(MEDIA_STREAM)
     teardownGStreamerCaptureDeviceManagers();
 #endif
@@ -678,6 +700,19 @@ uint64_t toGstUnsigned64Time(const MediaTime& mediaTime)
     return time.timeValue();
 }
 
+GstClockTime toGstClockTime(const Seconds& seconds)
+{
+    return toGstClockTime(MediaTime::createWithDouble(seconds.seconds()));
+}
+
+MediaTime fromGstClockTime(GstClockTime time)
+{
+    if (!GST_CLOCK_TIME_IS_VALID(time))
+        return WTF::MediaTime::invalidTime();
+
+    return WTF::MediaTime(GST_TIME_AS_USECONDS(time), G_USEC_PER_SEC);
+}
+
 RefPtr<GstMappedOwnedBuffer> GstMappedOwnedBuffer::create(GRefPtr<GstBuffer>&& buffer)
 {
     auto* mappedBuffer = new GstMappedOwnedBuffer(WTFMove(buffer));
@@ -711,9 +746,10 @@ Ref<SharedBuffer> GstMappedOwnedBuffer::createSharedBuffer()
     return SharedBuffer::create(*this);
 }
 
-GstMappedFrame::GstMappedFrame(GstBuffer* buffer, GstVideoInfo* info, GstMapFlags flags)
+GstMappedFrame::GstMappedFrame(GstBuffer* buffer, const GstVideoInfo* info, GstMapFlags flags)
 {
-    gst_video_frame_map(&m_frame, info, buffer, flags);
+    // This cast can be removed once the GStreamer minimum version is raised to 1.20
+    gst_video_frame_map(&m_frame, const_cast<GstVideoInfo*>(info), buffer, flags);
 }
 
 GstMappedFrame::GstMappedFrame(const GRefPtr<GstSample>& sample, GstMapFlags flags)
@@ -801,7 +837,7 @@ GstMappedAudioBuffer::GstMappedAudioBuffer(GstBuffer* buffer, GstAudioInfo info,
     m_isValid = gst_audio_buffer_map(&m_buffer, &info, buffer, flags);
 }
 
-GstMappedAudioBuffer::GstMappedAudioBuffer(GRefPtr<GstSample> sample, GstMapFlags flags)
+GstMappedAudioBuffer::GstMappedAudioBuffer(const GRefPtr<GstSample>& sample, GstMapFlags flags)
 {
     GstAudioInfo info;
 
@@ -839,6 +875,44 @@ GstAudioInfo* GstMappedAudioBuffer::info()
 
     return &m_buffer.info;
 }
+
+template<typename T> Vector<std::span<T>> GstMappedAudioBuffer::samples(size_t offset) const
+{
+    RELEASE_ASSERT(m_isValid);
+    if (!m_isValid)
+        return Vector<std::span<T>> { };
+
+    auto planeCount = static_cast<uint32_t>(GST_AUDIO_INFO_CHANNELS(&m_buffer.info));
+    auto planeSizeTotal = m_buffer.n_samples * GST_AUDIO_INFO_BPS(&m_buffer.info);
+
+    if (GST_AUDIO_INFO_LAYOUT(&m_buffer.info) == GST_AUDIO_LAYOUT_INTERLEAVED) {
+        auto planeSizeInBytes = (m_buffer.n_samples - offset) * GST_AUDIO_INFO_BPS(&m_buffer.info);
+        Vector<std::span<T>> result;
+        result.reserveInitialCapacity(planeCount);
+        for (uint32_t i = 0; i < planeCount; i++) {
+            auto plane = MallocSpan<T>::malloc(planeSizeInBytes);
+            result.append(plane.leakSpan());
+        }
+
+        auto inputSpan = unsafeMakeSpan(reinterpret_cast<T*>(m_buffer.planes[0]), planeSizeTotal * planeCount);
+        for (uint32_t s = offset; s < m_buffer.n_samples; s++) {
+            for (uint32_t c = 0; c < planeCount; c++)
+                result[c][s] = inputSpan[s * planeCount + c];
+        }
+        return result;
+    }
+
+    RELEASE_ASSERT(GST_AUDIO_INFO_LAYOUT(&m_buffer.info) == GST_AUDIO_LAYOUT_NON_INTERLEAVED);
+    return Vector<std::span<T>> { planeCount, [&](auto index) {
+        auto totalData = unsafeMakeSpan(reinterpret_cast<T*>(m_buffer.planes[index]), planeSizeTotal);
+        return totalData.subspan(offset);
+    } };
+}
+
+template Vector<std::span<uint8_t>> GstMappedAudioBuffer::samples(size_t) const;
+template Vector<std::span<int16_t>> GstMappedAudioBuffer::samples(size_t) const;
+template Vector<std::span<int32_t>> GstMappedAudioBuffer::samples(size_t) const;
+template Vector<std::span<float>> GstMappedAudioBuffer::samples(size_t) const;
 
 static GQuark customMessageHandlerQuark()
 {
@@ -907,7 +981,10 @@ void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMess
             // This can happen if the latency of live elements changes, or
             // for one reason or another a new live element is added or
             // removed from the pipeline.
-            gst_bin_recalculate_latency(GST_BIN_CAST(pipeline.get()));
+            gst_element_call_async(pipeline.get(), reinterpret_cast<GstElementCallAsyncFunc>(+[](GstElement* pipeline, gpointer userData) {
+                UNUSED_PARAM(userData);
+                gst_bin_recalculate_latency(GST_BIN_CAST(pipeline));
+            }), nullptr, nullptr);
             break;
         default:
             break;
@@ -926,11 +1003,11 @@ Vector<uint8_t> GstMappedBuffer::createVector() const
     return span<uint8_t>();
 }
 
-bool isGStreamerPluginAvailable(const char* name)
+bool isGStreamerPluginAvailable(ASCIILiteral name)
 {
-    GRefPtr<GstPlugin> plugin = adoptGRef(gst_registry_find_plugin(gst_registry_get(), name));
+    GRefPtr<GstPlugin> plugin = adoptGRef(gst_registry_find_plugin(gst_registry_get(), name.characters()));
     if (!plugin)
-        GST_WARNING("Plugin %s not found. Please check your GStreamer installation", name);
+        GST_WARNING("Plugin %s not found. Please check your GStreamer installation", name.characters());
     return plugin;
 }
 
@@ -939,16 +1016,18 @@ bool gstElementFactoryEquals(GstElement* element, ASCIILiteral name)
     return name == GST_OBJECT_NAME(gst_element_get_factory(element));
 }
 
-GstElement* createAutoAudioSink(const String& role)
+GstElement* /* (transfer floating) */ createAutoAudioSink(const String& role)
 {
-    auto* audioSink = makeGStreamerElement("autoaudiosink", nullptr);
+    auto* audioSink = makeGStreamerElement("autoaudiosink"_s);
     g_signal_connect_data(audioSink, "child-added", G_CALLBACK(+[](GstChildProxy*, GObject* object, gchar*, gpointer userData) {
         auto* role = reinterpret_cast<StringImpl*>(userData);
         auto* objectClass = G_OBJECT_GET_CLASS(object);
         if (role && g_object_class_find_property(objectClass, "stream-properties")) {
             GUniquePtr<GstStructure> properties(gst_structure_new("stream-properties", "media.role", G_TYPE_STRING, role->utf8().data(), nullptr));
             g_object_set(object, "stream-properties", properties.get(), nullptr);
+IGNORE_WARNINGS_BEGIN("cast-align")
             GST_DEBUG("Set media.role as %s on %" GST_PTR_FORMAT, role->utf8().data(), GST_ELEMENT_CAST(object));
+IGNORE_WARNINGS_END
         }
         if (g_object_class_find_property(objectClass, "client-name")) {
             auto& clientName = getApplicationName();
@@ -957,10 +1036,11 @@ GstElement* createAutoAudioSink(const String& role)
     }), role.isolatedCopy().releaseImpl().leakRef(), static_cast<GClosureNotify>([](gpointer userData, GClosure*) {
         reinterpret_cast<StringImpl*>(userData)->deref();
     }), static_cast<GConnectFlags>(0));
+    ASSERT(g_object_is_floating(audioSink));
     return audioSink;
 }
 
-GstElement* createPlatformAudioSink(const String& role)
+GstElement* /* (transfer floating) */ createPlatformAudioSink(const String& role)
 {
     GstElement* audioSink = webkitAudioSinkNew();
     if (!audioSink) {
@@ -1022,36 +1102,24 @@ bool webkitGstSetElementStateSynchronously(GstElement* pipeline, GstState target
     return true;
 }
 
-GstBuffer* gstBufferNewWrappedFast(void* data, size_t length)
+GstBuffer* /* (transfer full) */ gstBufferNewWrappedFast(void* data, size_t length)
 {
     return gst_buffer_new_wrapped_full(static_cast<GstMemoryFlags>(0), data, length, 0, length, data, fastFree);
 }
 
-GstElement* makeGStreamerElement(const char* factoryName, const char* name)
+GstElement* /* (transfer floating) */ makeGStreamerElement(ASCIILiteral factoryName, const String& name)
 {
     static Lock lock;
-    static Vector<const char*> cache WTF_GUARDED_BY_LOCK(lock);
-    auto* element = gst_element_factory_make(factoryName, name);
+    static Vector<String> cache WTF_GUARDED_BY_LOCK(lock);
+    auto* element = gst_element_factory_make(factoryName.characters(), name.isEmpty() ? nullptr : name.ascii().data());
     Locker locker { lock };
     if (!element && !cache.contains(factoryName)) {
         cache.append(factoryName);
-        WTFLogAlways("GStreamer element %s not found. Please install it", factoryName);
+        WTFLogAlways("GStreamer element %s not found. Please install it", factoryName.characters());
+        ASSERT_NOT_REACHED_WITH_MESSAGE("GStreamer element %s not found. Please install it", factoryName.characters());
     }
+    ASSERT(g_object_is_floating(element));
     return element;
-}
-
-GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads)
-{
-    static Lock lock;
-    static Vector<const char*> cache WTF_GUARDED_BY_LOCK(lock);
-    GUniqueOutPtr<GError> error;
-    auto* bin = gst_parse_bin_from_description(description, ghostUnlinkedPads, &error.outPtr());
-    Locker locker { lock };
-    if (!bin && !cache.contains(description)) {
-        cache.append(description);
-        WTFLogAlways("Unable to create bin for description: \"%s\". Error: %s", description, error->message);
-    }
-    return bin;
 }
 
 #if USE(GSTREAMER_WEBRTC)
@@ -1090,7 +1158,25 @@ static ASCIILiteral webrtcStatsTypeName(int value)
     ASSERT_NOT_REACHED();
     return nullptr;
 }
-#endif
+
+#if GST_CHECK_VERSION(1, 27, 0)
+static ASCIILiteral webrtcIceTcpCandidateTypeName(int value)
+{
+    switch (value) {
+    case GST_WEBRTC_ICE_TCP_CANDIDATE_TYPE_NONE:
+        return "none"_s;
+    case GST_WEBRTC_ICE_TCP_CANDIDATE_TYPE_ACTIVE:
+        return "active"_s;
+    case GST_WEBRTC_ICE_TCP_CANDIDATE_TYPE_PASSIVE:
+        return "passive"_s;
+    case GST_WEBRTC_ICE_TCP_CANDIDATE_TYPE_SO:
+        return "so"_s;
+    }
+    ASSERT_NOT_REACHED();
+    return nullptr;
+}
+#endif // GST_CHECK_VERSION
+#endif // USE(GSTREAMER_WEBRTC)
 
 template<typename T>
 std::optional<T> gstStructureGet(const GstStructure* structure, ASCIILiteral key)
@@ -1211,6 +1297,51 @@ Vector<T> gstStructureGetArray(const GstStructure* structure, ASCIILiteral key)
 
 template Vector<const GstStructure*> gstStructureGetArray(const GstStructure*, ASCIILiteral key);
 
+template<typename T>
+Vector<T> gstStructureGetList(const GstStructure* structure, ASCIILiteral key)
+{
+    static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t> || std::is_same_v<T, unsigned>
+        || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> || std::is_same_v<T, const GstStructure*>);
+    Vector<T> result;
+    if (!structure)
+        return result;
+    const GValue* list = gst_structure_get_value(structure, key.characters());
+    RELEASE_ASSERT(GST_VALUE_HOLDS_LIST(list));
+    if (!GST_VALUE_HOLDS_LIST(list)) {
+        GST_WARNING("Structure field %s does not hold a list", key.characters());
+        return result;
+    }
+    unsigned size = gst_value_list_get_size(list);
+    for (unsigned i = 0; i < size; i++) {
+        const GValue* item = gst_value_list_get_value(list, i);
+        if constexpr(std::is_same_v<T, int>)
+            result.append(g_value_get_int(item));
+        else if constexpr(std::is_same_v<T, int64_t>)
+            result.append(g_value_get_int64(item));
+        else if constexpr(std::is_same_v<T, unsigned>)
+            result.append(g_value_get_uint(item));
+        else if constexpr(std::is_same_v<T, uint64_t>)
+            result.append(g_value_get_uint64(item));
+        else if constexpr(std::is_same_v<T, double>) {
+            if (G_VALUE_TYPE(item) == GST_TYPE_FRACTION) {
+                double doubleValue;
+                gst_util_fraction_to_double(gst_value_get_fraction_numerator(item), gst_value_get_fraction_denominator(item), &doubleValue);
+                result.append(doubleValue);
+            } else
+                result.append(g_value_get_double(item));
+        } else if constexpr(std::is_same_v<T, const GstStructure*>)
+            result.append(gst_value_get_structure(item));
+    }
+    return result;
+}
+
+template Vector<int> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<int64_t> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<unsigned> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<uint64_t> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<double> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<const GstStructure*> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+
 static RefPtr<JSON::Value> gstStructureToJSON(const GstStructure*);
 
 static std::optional<RefPtr<JSON::Value>> gstStructureValueToJSON(const GValue* value)
@@ -1280,10 +1411,17 @@ static std::optional<RefPtr<JSON::Value>> gstStructureValueToJSON(const GValue* 
 #if USE(GSTREAMER_WEBRTC)
     if (valueType == GST_TYPE_WEBRTC_STATS_TYPE) {
         auto name = webrtcStatsTypeName(g_value_get_enum(value));
-        if (LIKELY(!name.isEmpty()))
+        if (!name.isEmpty()) [[likely]]
             return JSON::Value::create(makeString(name))->asValue();
     }
-#endif
+#if GST_CHECK_VERSION(1, 27, 0)
+    if (valueType == GST_TYPE_WEBRTC_ICE_TCP_CANDIDATE_TYPE) {
+        auto name = webrtcIceTcpCandidateTypeName(g_value_get_enum(value));
+        if (!name.isEmpty()) [[likely]]
+            return JSON::Value::create(makeString(name))->asValue();
+    }
+#endif // GST_CHECK_VERSION
+#endif // USE(GSTREAMER_WEBRTC)
 
     GST_WARNING("Unhandled GValue type: %s", G_VALUE_TYPE_NAME(value));
     return { };
@@ -1592,71 +1730,98 @@ void fillVideoInfoColorimetryFromColorSpace(GstVideoInfo* info, const PlatformVi
 
 void configureAudioDecoderForHarnessing(const GRefPtr<GstElement>& element)
 {
-    if (gstObjectHasProperty(element.get(), "max-errors"))
+    if (gstObjectHasProperty(element.get(), "max-errors"_s))
         g_object_set(element.get(), "max-errors", 0, nullptr);
 
     // rawaudioparse-specific:
-    if (gstObjectHasProperty(element.get(), "use-sink-caps"))
+    if (gstElementMatchesFactoryAndHasProperty(element.get(), "rawaudioparse"_s, "use-sink-caps"_s))
         g_object_set(element.get(), "use-sink-caps", TRUE, nullptr);
 }
 
 void configureVideoDecoderForHarnessing(const GRefPtr<GstElement>& element)
 {
-    if (gstObjectHasProperty(element.get(), "max-threads"))
+    if (gstObjectHasProperty(element.get(), "max-threads"_s))
         g_object_set(element.get(), "max-threads", 1, nullptr);
 
-    if (gstObjectHasProperty(element.get(), "max-errors"))
+    if (gstObjectHasProperty(element.get(), "max-errors"_s))
         g_object_set(element.get(), "max-errors", 0, nullptr);
 
     // avdec-specific:
-    if (gstObjectHasProperty(element.get(), "std-compliance"))
+    if (gstElementMatchesFactoryAndHasProperty(element.get(), "avdec*"_s, "std-compliance"_s))
         gst_util_set_object_arg(G_OBJECT(element.get()), "std-compliance", "strict");
 
-    if (gstObjectHasProperty(element.get(), "output-corrupt"))
+    if (gstElementMatchesFactoryAndHasProperty(element.get(), "avdec*"_s, "output-corrupt"_s))
         g_object_set(element.get(), "output-corrupt", FALSE, nullptr);
 
     // dav1ddec-specific:
-    if (gstObjectHasProperty(element.get(), "n-threads"))
+    if (gstElementMatchesFactoryAndHasProperty(element.get(), "dav1ddec"_s, "n-threads"_s))
         g_object_set(element.get(), "n-threads", 1, nullptr);
+}
+
+void configureMediaStreamAudioDecoder(GstElement* element)
+{
+    // Currently implemented only in opusdec.
+    if (gstObjectHasProperty(element, "plc"_s))
+        g_object_set(element, "plc", TRUE, nullptr);
+
+    // Currently implemented only in opusdec.
+    if (gstObjectHasProperty(element, "use-inband-fec"_s))
+        g_object_set(element, "use-inband-fec", TRUE, nullptr);
+
+    if (gstObjectHasProperty(element, "max-errors"_s))
+        g_object_set(element, "max-errors", -1, nullptr);
 }
 
 void configureMediaStreamVideoDecoder(GstElement* element)
 {
-    if (gstObjectHasProperty(element, "automatic-request-sync-points"))
+    if (gstObjectHasProperty(element, "automatic-request-sync-points"_s))
         g_object_set(element, "automatic-request-sync-points", TRUE, nullptr);
 
-    if (gstObjectHasProperty(element, "discard-corrupted-frames"))
+    if (gstObjectHasProperty(element, "discard-corrupted-frames"_s))
         g_object_set(element, "discard-corrupted-frames", TRUE, nullptr);
 
-    if (gstObjectHasProperty(element, "output-corrupt"))
+    if (gstObjectHasProperty(element, "output-corrupt"_s))
         g_object_set(element, "output-corrupt", FALSE, nullptr);
 
-    if (gstObjectHasProperty(element, "max-errors"))
+    if (gstObjectHasProperty(element, "max-errors"_s))
         g_object_set(element, "max-errors", -1, nullptr);
 }
 
 void configureVideoRTPDepayloader(GstElement* element)
 {
-    if (gstObjectHasProperty(element, "request-keyframe"))
+    if (gstObjectHasProperty(element, "request-keyframe"_s))
         g_object_set(element, "request-keyframe", TRUE, nullptr);
 
-    if (gstObjectHasProperty(element, "wait-for-keyframe"))
+    if (gstObjectHasProperty(element, "wait-for-keyframe"_s))
         g_object_set(element, "wait-for-keyframe", TRUE, nullptr);
 }
 
-static bool gstObjectHasProperty(GstObject* gstObject, const char* name)
+bool gstObjectHasProperty(GstObject* gstObject, ASCIILiteral name)
 {
-    return g_object_class_find_property(G_OBJECT_GET_CLASS(gstObject), name);
+    return g_object_class_find_property(G_OBJECT_GET_CLASS(gstObject), name.characters());
 }
 
-bool gstObjectHasProperty(GstElement* element, const char* name)
+bool gstObjectHasProperty(GstElement* element, ASCIILiteral name)
 {
     return gstObjectHasProperty(GST_OBJECT_CAST(element), name);
 }
 
-bool gstObjectHasProperty(GstPad* pad, const char* name)
+bool gstObjectHasProperty(GstPad* pad, ASCIILiteral name)
 {
     return gstObjectHasProperty(GST_OBJECT_CAST(pad), name);
+}
+
+bool gstElementMatchesFactoryAndHasProperty(GstElement* element, ASCIILiteral factoryNamePattern, ASCIILiteral propertyName)
+{
+    auto factory = gst_element_get_factory(element);
+    if (!factory)
+        return gstObjectHasProperty(element, propertyName);
+
+    auto nameView = StringView::fromLatin1(GST_OBJECT_NAME(factory));
+    if (fnmatch(factoryNamePattern.characters(), nameView.toStringWithoutCopying().ascii().data(), 0))
+        return false;
+
+    return gstObjectHasProperty(element, propertyName);
 }
 
 GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>& span)
@@ -1666,7 +1831,7 @@ GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>& span)
 
     Vector<uint8_t> data { span };
     auto bufferSize = data.size();
-    auto bufferData = data.data();
+    auto bufferData = data.mutableSpan().data();
     auto buffer = adoptGRef(gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, bufferData, bufferSize, 0, bufferSize, new Vector<uint8_t>(WTFMove(data)), [](gpointer data) {
         delete static_cast<Vector<uint8_t>*>(data);
     }));
@@ -1685,7 +1850,7 @@ std::optional<unsigned> gstGetAutoplugSelectResult(ASCIILiteral nick)
 
 bool gstStructureForeach(const GstStructure* structure, Function<bool(GstId, const GValue*)>&& callback)
 {
-#if GST_CHECK_VERSION(1, 25, 0)
+#if GST_CHECK_VERSION(1, 26, 0)
     return gst_structure_foreach_id_str(structure, [](GstId id, const GValue* value, gpointer userData) -> gboolean {
         auto& callback = *reinterpret_cast<Function<bool(GstId, const GValue*)>*>(userData);
         return callback(id, value);
@@ -1700,7 +1865,7 @@ bool gstStructureForeach(const GstStructure* structure, Function<bool(GstId, con
 
 void gstStructureIdSetValue(GstStructure* structure, GstId id, const GValue* value)
 {
-#if GST_CHECK_VERSION(1, 25, 0)
+#if GST_CHECK_VERSION(1, 26, 0)
     gst_structure_id_str_set_value(structure, id, value);
 #else
     gst_structure_set_value(structure, g_quark_to_string(id), value);
@@ -1709,7 +1874,7 @@ void gstStructureIdSetValue(GstStructure* structure, GstId id, const GValue* val
 
 bool gstStructureMapInPlace(GstStructure* structure, Function<bool(GstId, GValue*)>&& callback)
 {
-#if GST_CHECK_VERSION(1, 25, 0)
+#if GST_CHECK_VERSION(1, 26, 0)
     return gst_structure_map_in_place_id_str(structure, [](GstId id, GValue* value, gpointer userData) -> gboolean {
         auto& callback = *reinterpret_cast<Function<bool(GstId, GValue*)>*>(userData);
         return callback(id, value);
@@ -1724,7 +1889,7 @@ bool gstStructureMapInPlace(GstStructure* structure, Function<bool(GstId, GValue
 
 StringView gstIdToString(GstId id)
 {
-#if GST_CHECK_VERSION(1, 25, 0)
+#if GST_CHECK_VERSION(1, 26, 0)
     return StringView::fromLatin1(gst_id_str_as_str(id));
 #else
     return StringView::fromLatin1(g_quark_to_string(id));
@@ -1733,7 +1898,7 @@ StringView gstIdToString(GstId id)
 
 void gstStructureFilterAndMapInPlace(GstStructure* structure, Function<bool(GstId, GValue*)>&& callback)
 {
-#if GST_CHECK_VERSION(1, 25, 0)
+#if GST_CHECK_VERSION(1, 26, 0)
     gst_structure_filter_and_map_in_place_id_str(structure, [](GstId id, GValue* value, gpointer userData) -> gboolean {
         auto& callback = *reinterpret_cast<Function<bool(GstId, GValue*)>*>(userData);
         return callback(id, value);
@@ -1825,7 +1990,7 @@ GRefPtr<GstCaps> buildDMABufCaps()
                 gst_value_list_append_and_take_value(&supportedFormats, &value);
             }
         }
-#elif USE(GBM)
+#else
         GValue value = G_VALUE_INIT;
         g_value_init(&value, G_TYPE_STRING);
         g_value_set_string(&value, gst_video_format_to_string(drmFourccToGstVideoFormat(format.fourcc)));
@@ -1835,7 +2000,7 @@ GRefPtr<GstCaps> buildDMABufCaps()
 
 #if GST_CHECK_VERSION(1, 24, 0)
     gst_caps_set_value(caps.get(), "drm-format", &supportedFormats);
-#elif USE(GBM)
+#else
     gst_caps_set_value(caps.get(), "format", &supportedFormats);
 #endif
     g_value_unset(&supportedFormats);
@@ -1844,6 +2009,7 @@ GRefPtr<GstCaps> buildDMABufCaps()
 }
 #endif // USE(GBM)
 
+#if USE(GSTREAMER_GL)
 static std::optional<GRefPtr<GstContext>> requestGLContext(const char* contextType)
 {
     auto& sharedDisplay = PlatformDisplay::sharedDisplay();
@@ -1869,16 +2035,32 @@ static std::optional<GRefPtr<GstContext>> requestGLContext(const char* contextTy
     return std::nullopt;
 }
 
-bool setGstElementGLContext(GstElement* element, const char* contextType)
+bool setGstElementGLContext(GstElement* element, ASCIILiteral contextType)
 {
-    GRefPtr<GstContext> oldContext = adoptGRef(gst_element_get_context(element, contextType));
+    GRefPtr<GstContext> oldContext = adoptGRef(gst_element_get_context(element, contextType.characters()));
     if (!oldContext) {
-        auto newContext = requestGLContext(contextType);
+        auto newContext = requestGLContext(contextType.characters());
         if (!newContext)
             return false;
         gst_element_set_context(element, newContext->get());
     }
     return true;
+}
+#endif
+
+GstStateChangeReturn gstElementLockAndSetState(GstElement* element, GstState state)
+{
+    auto parent = adoptGRef(gst_element_get_parent(element));
+    if (parent)
+        GST_STATE_LOCK(parent.get());
+
+    gst_element_set_locked_state(element, TRUE);
+    auto result = gst_element_set_state(element, state);
+    gst_element_set_locked_state(element, FALSE);
+
+    if (parent)
+        GST_STATE_UNLOCK(parent.get());
+    return result;
 }
 
 #undef GST_CAT_DEFAULT

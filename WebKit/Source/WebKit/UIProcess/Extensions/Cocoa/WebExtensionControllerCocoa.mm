@@ -147,7 +147,7 @@ void WebExtensionController::getDataRecords(OptionSet<WebExtensionDataType> data
     for (auto& uniqueIdentifier : uniqueIdentifiers) {
         String displayName;
         if (!WebExtensionContext::readDisplayNameFromState(stateFilePath(uniqueIdentifier), displayName)) {
-            RELEASE_LOG_ERROR(Extensions, "Failed to read extension display name from State.plist for extension: %{private}@", (NSString *)uniqueIdentifier);
+            RELEASE_LOG_ERROR(Extensions, "Failed to read extension display name from State.plist for extension: %{private}@", uniqueIdentifier.createNSString().get());
             continue;
         }
 
@@ -158,14 +158,14 @@ void WebExtensionController::getDataRecords(OptionSet<WebExtensionDataType> data
 
             RefPtr storage = sqliteStore(storageDirectory(uniqueIdentifier), dataType, this->extensionContext(uniqueIdentifier));
             if (!storage) {
-                RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", (NSString *)uniqueIdentifier);
+                RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", uniqueIdentifier.createNSString().get());
                 record->addError(@"Unable to calculate extension storage", dataType);
                 continue;
             }
 
             calculateStorageSize(storage, dataType, makeBlockPtr([recordHolder, aggregator, uniqueIdentifier, displayName, dataType, record = Ref { record }](Expected<size_t, WebExtensionError>&& result) mutable {
                 if (!result)
-                    record->addError(result.error(), dataType);
+                    record->addError(result.error().createNSString().get(), dataType);
                 else
                     record->setSizeOfType(dataType, result.value());
             }));
@@ -208,14 +208,14 @@ void WebExtensionController::getDataRecord(OptionSet<WebExtensionDataType> dataT
 
         RefPtr storage = sqliteStore(storageDirectory(matchingUniqueIdentifier), dataType, this->extensionContext(matchingUniqueIdentifier));
         if (!storage) {
-            RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", (NSString *)matchingUniqueIdentifier);
+            RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", matchingUniqueIdentifier.createNSString().get());
             record->addError(@"Unable to calculcate extension storage", dataType);
             continue;
         }
 
         calculateStorageSize(storage, dataType, makeBlockPtr([recordHolder, aggregator, matchingUniqueIdentifier, displayName, dataType, record = Ref { record }](Expected<size_t, WebExtensionError>&& result) mutable {
             if (!result)
-                record->addError(result.error(), dataType);
+                record->addError(result.error().createNSString().get(), dataType);
             else
                 record->setSizeOfType(dataType, result.value());
         }));
@@ -239,16 +239,16 @@ void WebExtensionController::removeData(OptionSet<WebExtensionDataType> dataType
             RefPtr extensionContext = this->extensionContext(uniqueIdentifier);
             RefPtr storage = sqliteStore(storageDirectory(uniqueIdentifier), dataType, extensionContext);
             if (!storage) {
-                RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", (NSString *)uniqueIdentifier);
+                RELEASE_LOG_ERROR(Extensions, "Failed to create sqlite store for extension: %{private}@", uniqueIdentifier.createNSString().get());
                 record->addError(@"Unable to delete extension storage", dataType);
                 continue;
             }
 
             removeStorage(storage, dataType, makeBlockPtr([aggregator, uniqueIdentifier, dataType, record = Ref { record }](Expected<void, WebExtensionError>&& result) mutable {
                 if (!result)
-                    record->addError(result.error(), dataType);
+                    record->addError(result.error().createNSString().get(), dataType);
                 else
-                    [NSDistributedNotificationCenter.defaultCenter postNotificationName:WebExtensionLocalStorageWasDeletedNotification object:nil userInfo:@{ WebExtensionUniqueIdentifierKey: uniqueIdentifier }];
+                    [NSDistributedNotificationCenter.defaultCenter postNotificationName:WebExtensionLocalStorageWasDeletedNotification object:nil userInfo:@{ WebExtensionUniqueIdentifierKey: uniqueIdentifier.createNSString().get() }];
             }));
         }
     }
@@ -292,15 +292,17 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
     }
 
     if (!m_extensionContextBaseURLMap.add(extensionContext.baseURL().protocolHostAndPort(), extensionContext)) {
-        RELEASE_LOG_ERROR(Extensions, "Extension context already loaded with same base URL: %{private}@", (NSURL *)extensionContext.baseURL());
+        RELEASE_LOG_ERROR(Extensions, "Extension context already loaded with same base URL: %{private}@", extensionContext.baseURL().createNSURL().get());
         m_extensionContexts.remove(extensionContext);
         if (outError)
             *outError = extensionContext.createError(WebExtensionContext::Error::BaseURLAlreadyInUse);
         return false;
     }
 
-    for (Ref processPool : m_processPools)
+    for (Ref processPool : m_processPools) {
         processPool->addMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.identifier(), extensionContext);
+        processPool->addMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.privilegedIdentifier(), extensionContext);
+    }
 
     auto scheme = extensionContext.baseURL().protocol().toString();
     m_registeredSchemeHandlers.ensure(scheme, [&]() {
@@ -314,19 +316,19 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
 
     auto extensionDirectory = storageDirectory(extensionContext);
     if (!!extensionDirectory && !FileSystem::makeAllDirectories(extensionDirectory))
-        RELEASE_LOG_ERROR(Extensions, "Failed to create directory: %{private}@", (NSString *)extensionDirectory);
+        RELEASE_LOG_ERROR(Extensions, "Failed to create directory: %{private}@", extensionDirectory.createNSString().get());
 
     if (!extensionContext.load(*this, extensionDirectory, outError)) {
         m_extensionContexts.remove(extensionContext);
         m_extensionContextBaseURLMap.remove(extensionContext.baseURL().protocolHostAndPort());
 
-        for (Ref processPool : m_processPools)
+        for (Ref processPool : m_processPools) {
             processPool->removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.identifier());
+            processPool->removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.privilegedIdentifier());
+        }
 
         return false;
     }
-
-    sendToAllProcesses(Messages::WebExtensionControllerProxy::Load(extensionContext.parameters()), identifier());
 
     return true;
 }
@@ -351,8 +353,10 @@ bool WebExtensionController::unload(WebExtensionContext& extensionContext, NSErr
 
     sendToAllProcesses(Messages::WebExtensionControllerProxy::Unload(extensionContext.identifier()), identifier());
 
-    for (Ref processPool : m_processPools)
+    for (Ref processPool : m_processPools) {
         processPool->removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.identifier());
+        processPool->removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.privilegedIdentifier());
+    }
 
     if (!extensionContext.unload(outError))
         return false;
@@ -367,6 +371,11 @@ void WebExtensionController::unloadAll()
         unload(context, nullptr);
 }
 
+void WebExtensionController::dispatchDidLoad(WebExtensionContext& context)
+{
+    sendToAllProcesses(Messages::WebExtensionControllerProxy::Load(context.parameters(WebExtensionContext::IncludePrivilegedIdentifier::No)), identifier());
+}
+
 void WebExtensionController::addPage(WebPageProxy& page)
 {
     ASSERT(!m_pages.contains(page));
@@ -375,7 +384,7 @@ void WebExtensionController::addPage(WebPageProxy& page)
     for (auto& entry : m_registeredSchemeHandlers)
         page.setURLSchemeHandlerForScheme(entry.value.copyRef(), entry.key);
 
-    Ref pool = page.protectedConfiguration()->processPool();
+    Ref pool = page.configuration().processPool();
     addProcessPool(pool);
 
     Ref dataStore = page.websiteDataStore();
@@ -390,7 +399,7 @@ void WebExtensionController::removePage(WebPageProxy& page)
     ASSERT(m_pages.contains(page));
     m_pages.remove(page);
 
-    Ref pool = page.protectedConfiguration()->processPool();
+    Ref pool = page.configuration().processPool();
     removeProcessPool(pool);
 
     Ref dataStore = page.websiteDataStore();
@@ -416,22 +425,26 @@ void WebExtensionController::addProcessPool(WebProcessPool& processPool)
 
     processPool.addMessageReceiver(Messages::WebExtensionController::messageReceiverName(), identifier(), *this);
 
-    for (Ref context : m_extensionContexts)
+    for (Ref context : m_extensionContexts) {
         processPool.addMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), context->identifier(), context);
+        processPool.addMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), context->privilegedIdentifier(), context);
+    }
 }
 
 void WebExtensionController::removeProcessPool(WebProcessPool& processPool)
 {
     // Only remove the message receiver and process pool if no other pages use the same process pool.
     for (Ref knownPage : m_pages) {
-        if (knownPage->protectedConfiguration()->processPool() == processPool)
+        if (knownPage->configuration().processPool() == processPool)
             return;
     }
 
     processPool.removeMessageReceiver(Messages::WebExtensionController::messageReceiverName(), identifier());
 
-    for (Ref context : m_extensionContexts)
+    for (Ref context : m_extensionContexts) {
         processPool.removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), context->identifier());
+        processPool.removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), context->privilegedIdentifier());
+    }
 
     m_processPools.remove(processPool);
 }
@@ -504,7 +517,7 @@ void WebExtensionController::removeWebsiteDataStore(WebsiteDataStore& dataStore)
 
     m_websiteDataStores.remove(dataStore);
 
-    if (RefPtr observer = protectedCookieStoreObserver())
+    if (RefPtr observer = m_cookieStoreObserver)
         dataStore.protectedCookieStore()->unregisterObserver(*observer);
 
     if (m_websiteDataStores.isEmptyIgnoringNullReferences())
@@ -523,7 +536,7 @@ bool WebExtensionController::isFeatureEnabled(const String& featureName) const
 {
     WKPreferences *preferences = protectedConfiguration()->webViewConfiguration().preferences;
 
-    NSString *cocoaFeatureName = static_cast<NSString *>(featureName);
+    auto *cocoaFeatureName = featureName.createNSString().get();
     for (_WKFeature *feature in WKPreferences._features) {
         if ([feature.key isEqualToString:cocoaFeatureName])
             return [preferences _isEnabledForFeature:feature];
@@ -649,7 +662,7 @@ void WebExtensionController::handleContentRuleListNotification(WebPageProxyIdent
     if (!savedMatchedRule || m_purgeOldMatchedRulesTimer)
         return;
 
-    m_purgeOldMatchedRulesTimer = makeUnique<RunLoop::Timer>(RunLoop::protectedMain(), this, &WebExtensionController::purgeOldMatchedRules);
+    m_purgeOldMatchedRulesTimer = makeUnique<RunLoop::Timer>(RunLoop::mainSingleton(), "WebExtensionController::PurgeOldMatchedRulesTimer"_s, this, &WebExtensionController::purgeOldMatchedRules);
     m_purgeOldMatchedRulesTimer->startRepeating(purgeMatchedRulesInterval);
 }
 

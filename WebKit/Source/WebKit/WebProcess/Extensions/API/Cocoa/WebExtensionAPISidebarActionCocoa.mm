@@ -73,25 +73,26 @@ static ParseResult parseSidebarActionDetails(NSDictionary *details)
     return std::monostate();
 }
 
-static std::variant<std::monostate, String, SidebarError> parseDetailsStringFromKey(NSDictionary *dict, NSString *key, bool required = false)
+static Variant<std::monostate, String, SidebarError> parseDetailsStringFromKey(NSDictionary *dict, NSString *key, bool required = false)
 {
-    id maybeValue = [dict objectForKey:key];
+    RetainPtr<id> maybeValue = [dict objectForKey:key];
     if (!maybeValue && required)
         return SidebarError { toErrorString(nullString(), @"details", [NSString stringWithFormat:@"'%@' is required", key]) };
 
     if ([maybeValue isKindOfClass:NSNull.class]) {
         if (required)
-            return SidebarError { toErrorString(nullString(), @"details", [NSString stringWithFormat:@"'%@' is required", key]) };
+            return SidebarError { toErrorString(nullString(), @"details", adoptNS([[NSString alloc] initWithFormat:@"'%@' is required", key]).get()) };
         return std::monostate();
     }
 
-    if (![maybeValue isKindOfClass:NSString.class]) {
+    RetainPtr nsStringValue = dynamic_objc_cast<NSString>(maybeValue.get());
+    if (!nsStringValue]) {
         if (required)
-            return SidebarError { toErrorString(nullString(), @"details", [NSString stringWithFormat:@"'%@' must be of type 'string'", key]) };
-        return SidebarError { toErrorString(nullString(), @"details", [NSString stringWithFormat:@"'%@' must be of type 'string' or 'null'", key]) };
+            return SidebarError { toErrorString(nullString(), @"details", adoptNS([[NSString alloc] initWithFormat:@"'%@' must be of type 'string'", key]).get()) };
+        return SidebarError { toErrorString(nullString(), @"details", adoptNS([[NSString alloc] initWithFormat:@"'%@' must be of type 'string' or 'null'", key]).get()) };
     }
 
-    return String((NSString *)maybeValue);
+    return String(nsStringValue.get());
 }
 
 template<typename VariantType>
@@ -268,7 +269,7 @@ void WebExtensionAPISidebarAction::setIcon(NSDictionary *details, Ref<WebExtensi
 {
     // FIXME: <https://webkit.org/b/276833> Implement icon-related functionality
     static NSString * const apiName = @"sidebarAction.setIcon()";
-    callback->reportError([NSString stringWithFormat:@"'%@' is unimplemented", apiName]);
+    callback->reportError(adoptNS([[NSString alloc] initWithFormat:@"'%@' is unimplemented", apiName]).get());
 }
 
 } // namespace WebKit

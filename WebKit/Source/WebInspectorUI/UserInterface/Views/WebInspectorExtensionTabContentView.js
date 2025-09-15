@@ -40,7 +40,7 @@ WI.WebInspectorExtensionTabContentView = class WebInspectorExtensionTabContentVi
         this._tabInfo = tabInfo;
         this._sourceURL = sourceURL;
 
-        this._whenPageAvailablePromise = new WI.WrappedPromise;
+        this._whenPageAvailablePromise = Promise.withResolvers();
 
         this._iframeElement = this.element.appendChild(document.createElement("iframe"));
         this._iframeElement.src = sourceURL;
@@ -125,8 +125,7 @@ WI.WebInspectorExtensionTabContentView = class WebInspectorExtensionTabContentVi
     _extensionFrameDidLoad()
     {
         // Signal that the page is available since we already bounced to the requested page.
-        if (!this._whenPageAvailablePromise.settled)
-            this._whenPageAvailablePromise.resolve(this._sourceURL);
+        this._whenPageAvailablePromise.resolve(this._sourceURL);
 
         this._maybeDispatchDidNavigateExtensionTab();
     }

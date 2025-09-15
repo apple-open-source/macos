@@ -36,8 +36,7 @@ WindowSurfaceVkWayland::WindowSurfaceVkWayland(const egl::SurfaceState &surfaceS
     mExtents = gl::Extents(eglWindow->width, eglWindow->height, 1);
 }
 
-angle::Result WindowSurfaceVkWayland::createSurfaceVk(vk::ErrorContext *context,
-                                                      gl::Extents *extentsOut)
+angle::Result WindowSurfaceVkWayland::createSurfaceVk(vk::ErrorContext *context)
 {
     ANGLE_VK_CHECK(context,
                    vkGetPhysicalDeviceWaylandPresentationSupportKHR(
@@ -56,26 +55,14 @@ angle::Result WindowSurfaceVkWayland::createSurfaceVk(vk::ErrorContext *context,
     ANGLE_VK_TRY(context, vkCreateWaylandSurfaceKHR(context->getRenderer()->getInstance(),
                                                     &createInfo, nullptr, &mSurface));
 
-    return getCurrentWindowSize(context, extentsOut);
-}
-
-angle::Result WindowSurfaceVkWayland::getCurrentWindowSize(vk::ErrorContext *context,
-                                                           gl::Extents *extentsOut)
-{
-    *extentsOut = mExtents;
     return angle::Result::Continue;
 }
 
-egl::Error WindowSurfaceVkWayland::getUserWidth(const egl::Display *display, EGLint *value) const
+angle::Result WindowSurfaceVkWayland::getCurrentWindowSize(vk::ErrorContext *context,
+                                                           gl::Extents *extentsOut) const
 {
-    *value = getWidth();
-    return egl::NoError();
-}
-
-egl::Error WindowSurfaceVkWayland::getUserHeight(const egl::Display *display, EGLint *value) const
-{
-    *value = getHeight();
-    return egl::NoError();
+    *extentsOut = mExtents;
+    return angle::Result::Continue;
 }
 
 }  // namespace rx

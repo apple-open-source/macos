@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "EventTargetInlines.h"
 #include "ExposedStar.h"
 #include "JSDOMWrapper.h"
 #include "JSEventTarget.h"
@@ -74,6 +75,7 @@ protected:
 JSC::JSValue toJS(JSC::JSGlobalObject*, JSDOMGlobalObject*, ExposedStar&);
 inline JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, ExposedStar* impl) { return impl ? toJS(lexicalGlobalObject, globalObject, *impl) : JSC::jsNull(); }
 JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject*, Ref<ExposedStar>&&);
+ALWAYS_INLINE JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, ExposedStar& impl) { return toJSNewlyCreated(lexicalGlobalObject, globalObject, Ref { impl }); }
 inline JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, RefPtr<ExposedStar>&& impl) { return impl ? toJSNewlyCreated(lexicalGlobalObject, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 template<> struct JSDOMWrapperConverterTraits<ExposedStar> {

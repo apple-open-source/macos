@@ -49,6 +49,7 @@ usage(void)
 	    "  -t | --trace        use trace (PC log) mode [default]\n"
 	    "  -s | --stksize      use trace (PC log) with stack size mode\n"
 	    "  -c | --counters     use edge counter mode\n"
+	    "  -p | --cmptrace     use trace (CMP log) mode\n"
 	    "  -n | --entries <n>  override max entries in trace log\n"
 	    "  -x | --exec <path>  instrument execution of binary at <path>\n"
 	    "  -b | --bundle <b>   bundle for on-demand tracing\n");
@@ -65,6 +66,11 @@ typedef struct ksancov_state {
 		ksancov_header_t       *ks_header;
 		ksancov_trace_t        *ks_trace;
 		ksancov_counters_t     *ks_counters;
+	};
+	ksancov_cmps_mode_t  ks_cmps_mode;
+	union {
+		ksancov_header_t       *ks_cmps_header;
+		ksancov_trace_t        *ks_cmps_trace;
 	};
 } ksancov_state_t;
 
@@ -95,11 +101,34 @@ ksancov_set_mode(int fd, ksancov_mode_t mode, int max_entries)
 }
 
 /*
+ * Configures ksancov device for selected comparison mode.
+ */
+static int
+ksancov_cmps_set_mode(int fd, ksancov_cmps_mode_t mode, int max_entries)
+{
+	int ret = 0;
+
+	switch (mode) {
+	case KS_CMPS_MODE_TRACE:
+		ret = ksancov_cmps_mode_trace(fd, max_entries, false);
+		break;
+	case KS_CMPS_MODE_TRACE_FUNC:
+		ret = ksancov_cmps_mode_trace(fd, max_entries, true);
+		break;
+	default:
+		perror("ksancov unsupported cmps mode\n");
+		return ENOTSUP;
+	}
+
+	return ret;
+}
+
+/*
  * Initialize coverage state from provided options. Shared mappings with kernel are established
  * here.
  */
 static int
-ksancov_init_state(int fd, ksancov_mode_t mode, int max_entries, ksancov_state_t *state)
+ksancov_init_state(int fd, ksancov_mode_t mode, ksancov_cmps_mode_t cmps_mode, int max_entries, ksancov_state_t *state)
 {
 	uintptr_t addr;
 	size_t sz;
@@ -139,6 +168,33 @@ ksancov_init_state(int fd, ksancov_mode_t mode, int max_entries, ksancov_state_t
 		fprintf(stderr, "maxpcs = %lu\n", ksancov_trace_max_ent(state->ks_trace));
 	}
 
+	if (cmps_mode == KS_CMPS_MODE_NONE) {
+		state->ks_cmps_mode = cmps_mode;
+		state->ks_cmps_header = NULL;
+		return ret;
+	}
+
+	/* Setup selected comparison tracing mode. */
+	ret = ksancov_cmps_set_mode(fd, cmps_mode, max_entries);
+	if (ret) {
+		perror("ksancov cmps set mode\n");
+		return ret;
+	}
+
+	/* Map buffer for selected mode into process address space. */
+	ret = ksancov_cmps_map(fd, &addr, &sz);
+	if (ret) {
+		perror("ksancov cmps map");
+		return ret;
+	}
+	fprintf(stderr, "cmps mapped to 0x%lx + %lu\n", addr, sz);
+
+	/* Finalize state members. */
+	state->ks_cmps_mode = cmps_mode;
+	state->ks_cmps_header = (void *)addr;
+
+	fprintf(stderr, "maxcmps = %lu\n", ksancov_trace_max_ent(state->ks_cmps_trace));
+
 	return ret;
 }
 
@@ -167,6 +223,31 @@ ksancov_print_state(ksancov_state_t *state)
 		}
 	}
 
+	if (state->ks_cmps_mode == KS_CMPS_MODE_TRACE || state->ks_cmps_mode == KS_CMPS_MODE_TRACE_FUNC) {
+		static const char *type_map[KCOV_CMP_SIZE8 + 1] = {
+			"8 bits", NULL, "16 bits", NULL, "32 bits",
+			NULL, "64 bits"
+		};
+
+		size_t head = ksancov_trace_head(state->ks_cmps_trace);
+		fprintf(stderr, "cmps head = %lu\n", head);
+
+		for (uint32_t i = 0; i < head;) {
+			ksancov_cmps_trace_ent_t *entry = ksancov_cmps_trace_entry(state->ks_cmps_trace, i);
+			if (KCOV_CMP_IS_FUNC(entry->type)) {
+				size_t space = ksancov_cmps_trace_func_space(entry->len1_func, entry->len2_func);
+				i += space / sizeof(ksancov_cmps_trace_ent_t);
+				fprintf(stderr, "0x%llx [func %u %u] '%s' '%s'\n", entry->pc, entry->len1_func, entry->len2_func,
+				    ksancov_cmps_trace_func_arg1(entry),
+				    ksancov_cmps_trace_func_arg2(entry));
+			} else {
+				uint64_t type = entry->type & KCOV_CMP_SIZE_MASK;
+				fprintf(stderr, "0x%llx [%s] 0x%llx 0x%llx\n", entry->pc, type_map[type], entry->args[0], entry->args[1]);
+				++i;
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -189,7 +270,8 @@ int
 main(int argc, char *argv[])
 {
 	ksancov_mode_t ksan_mode = KS_MODE_NONE;
-	ksancov_state_t ksan_state;
+	ksancov_cmps_mode_t ksan_cmps_mode = KS_CMPS_MODE_NONE;
+	ksancov_state_t ksan_state = {0};
 
 	int ret;
 	size_t max_entries = 64UL * 1024;
@@ -203,6 +285,7 @@ main(int argc, char *argv[])
 		{ "trace", no_argument, NULL, 't' },
 		{ "counters", no_argument, NULL, 'c' },
 		{ "stksize", no_argument, NULL, 's' },
+		{ "cmptrace", no_argument, NULL, 'p' },
 
 		{ "bundle", required_argument, NULL, 'b' },
 
@@ -210,7 +293,7 @@ main(int argc, char *argv[])
 	};
 
 	int ch;
-	while ((ch = getopt_long(argc, argv, "tsn:x:cb:", opts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "tsn:x:cpb:", opts, NULL)) != -1) {
 		switch (ch) {
 		case 'n':
 			max_entries = strtoul(optarg, NULL, 0);
@@ -226,6 +309,9 @@ main(int argc, char *argv[])
 			break;
 		case 's':
 			ksan_mode = KS_MODE_STKSIZE;
+			break;
+		case 'p':
+			ksan_cmps_mode = KS_CMPS_MODE_TRACE_FUNC;
 			break;
 		case 'b':
 			od_bundle = optarg;
@@ -243,7 +329,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "opened ksancov on fd %i\n", fd);
 
 	/* Initialize ksancov state. */
-	ret = ksancov_init_state(fd, ksan_mode, max_entries, &ksan_state);
+	ret = ksancov_init_state(fd, ksan_mode, ksan_cmps_mode, max_entries, &ksan_state);
 	if (ret) {
 		perror("ksancov init\n");
 		return ret;
@@ -264,6 +350,10 @@ main(int argc, char *argv[])
 			ksancov_on_demand_set_enabled(fd, od_bundle, true);
 			ksancov_reset(ksan_state.ks_header);
 			ksancov_start(ksan_state.ks_header);
+			if (ksan_state.ks_cmps_header) {
+				ksancov_reset(ksan_state.ks_cmps_header);
+				ksancov_start(ksan_state.ks_cmps_header);
+			}
 			ret = execl(path, path, 0);
 			perror("execl");
 			ksancov_on_demand_set_enabled(fd, od_bundle, false);
@@ -273,6 +363,9 @@ main(int argc, char *argv[])
 			/* parent */
 			waitpid(pid, NULL, 0);
 			ksancov_stop(ksan_state.ks_header);
+			if (ksan_state.ks_cmps_header) {
+				ksancov_stop(ksan_state.ks_cmps_header);
+			}
 			ksancov_on_demand_set_enabled(fd, od_bundle, false);
 		}
 	} else {
@@ -285,8 +378,15 @@ main(int argc, char *argv[])
 		ksancov_on_demand_set_enabled(fd, od_bundle, true);
 		ksancov_reset(ksan_state.ks_header);
 		ksancov_start(ksan_state.ks_header);
+		if (ksan_state.ks_cmps_header) {
+			ksancov_reset(ksan_state.ks_cmps_header);
+			ksancov_start(ksan_state.ks_cmps_header);
+		}
 		int ppid = getppid();
 		ksancov_stop(ksan_state.ks_header);
+		if (ksan_state.ks_cmps_header) {
+			ksancov_stop(ksan_state.ks_cmps_header);
+		}
 		ksancov_on_demand_set_enabled(fd, od_bundle, false);
 		fprintf(stderr, "ppid = %i\n", ppid);
 	}

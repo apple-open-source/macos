@@ -53,7 +53,8 @@ INSTALL_IF_MI_LCL_LIST += \
 		      IOLocksPrivate.h IOStatistics.h 		\
 		      AppleKeyStoreInterface.h  		\
 		      IOReportTypes.h IOKernelReportStructs.h   \
-		      IOReportMacros.h IOInterruptAccounting.h
+		      IOReportMacros.h IOInterruptAccounting.h \
+		      IOCircularDataQueue.h IOCircularDataQueueImplementation.h
 
 INSTALL_MI_DIR = .
 

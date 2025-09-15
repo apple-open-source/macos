@@ -39,7 +39,6 @@
 #include "RegExpConstructor.h"
 #include "RegExpGlobalDataInlines.h"
 #include "StringPrototypeInlines.h"
-#include "StringReplaceCacheInlines.h"
 #include "StringSplitCacheInlines.h"
 #include "SuperSampler.h"
 #include "VMEntryScopeInlines.h"
@@ -193,7 +192,7 @@ NEVER_INLINE void substituteBackreferencesSlow(StringBuilder& result, StringView
         if (i + 1 == replacement.length())
             break;
 
-        UChar ref = replacement[i + 1];
+        char16_t ref = replacement[i + 1];
         if (ref == '$') {
             // "$$" -> "$"
             ++i;
@@ -271,7 +270,7 @@ NEVER_INLINE void substituteBackreferencesSlow(StringBuilder& result, StringView
 inline void substituteBackreferencesInline(StringBuilder& result, const String& replacement, StringView source, const int* ovector, RegExp* reg)
 {
     size_t i = replacement.find('$');
-    if (UNLIKELY(i != notFound))
+    if (i != notFound) [[unlikely]]
         return substituteBackreferencesSlow(result, replacement, source, ovector, reg, i);
 
     result.append(replacement);
@@ -279,817 +278,7 @@ inline void substituteBackreferencesInline(StringBuilder& result, const String& 
 
 void substituteBackreferences(StringBuilder& result, const String& replacement, StringView source, const int* ovector, RegExp* reg)
 {
-    substituteBackreferencesInline(result, replacement, source, ovector, reg);
-}
-
-static ALWAYS_INLINE JSString* jsSpliceSubstrings(JSGlobalObject* globalObject, JSString* sourceVal, const String& source, std::span<const Range<int32_t>> substringRanges)
-{
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    if (substringRanges.size() == 1) {
-        int sourceSize = source.length();
-        int position = substringRanges.front().begin();
-        int length = substringRanges.front().distance();
-        if (position <= 0 && length >= sourceSize)
-            return sourceVal;
-        // We could call String::substringSharingImpl(), but this would result in redundant checks.
-        RELEASE_AND_RETURN(scope, jsString(vm, StringImpl::createSubstringSharingImpl(*source.impl(), std::max(0, position), std::min(sourceSize, length))));
-    }
-
-    // We know that the sum of substringRanges lengths cannot exceed length of
-    // source because the substringRanges were computed from the source string
-    // in removeUsingRegExpSearch(). Hence, totalLength cannot exceed
-    // String::MaxLength, and therefore, cannot overflow.
-    Checked<int, AssertNoOverflow> totalLength = 0;
-    for (auto& range : substringRanges)
-        totalLength += range.distance();
-    ASSERT(totalLength <= static_cast<int>(String::MaxLength));
-
-    if (!totalLength)
-        return jsEmptyString(vm);
-
-    if (source.is8Bit()) {
-        std::span<LChar> buffer;
-        auto sourceData = source.span8();
-        auto impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
-        if (!impl) {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
-        }
-
-        Checked<size_t, AssertNoOverflow> bufferPos = 0;
-        for (auto range : substringRanges) {
-            size_t srcLen = range.distance();
-            StringImpl::copyCharacters(buffer.subspan(bufferPos.value()), sourceData.subspan(range.begin(), srcLen));
-            bufferPos += srcLen;
-        }
-
-        RELEASE_AND_RETURN(scope, jsString(vm, impl.releaseNonNull()));
-    }
-
-    std::span<UChar> buffer;
-    auto sourceData = source.span16();
-
-    auto impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
-    if (!impl) {
-        throwOutOfMemoryError(globalObject, scope);
-        return nullptr;
-    }
-
-    Checked<size_t, AssertNoOverflow> bufferPos = 0;
-    for (auto& range : substringRanges) {
-        size_t srcLen = range.distance();
-        StringImpl::copyCharacters(buffer.subspan(bufferPos.value()), sourceData.subspan(range.begin(), srcLen));
-        bufferPos += srcLen;
-    }
-
-    RELEASE_AND_RETURN(scope, jsString(vm, impl.releaseNonNull()));
-}
-
-#define OUT_OF_MEMORY(exec__, scope__) \
-    do { \
-        throwOutOfMemoryError(exec__, scope__); \
-        return nullptr; \
-    } while (false)
-
-static ALWAYS_INLINE JSString* removeUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSString* string, const String& source, RegExp* regExp)
-{
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    SuperSamplerScope superSamplerScope(false);
-    
-    size_t lastIndex = 0;
-    unsigned startPosition = 0;
-    Vector<Range<int32_t>, 64> sourceRanges;
-    unsigned sourceLen = source.length();
-
-    auto genericMatches = [&](VM& vm, auto input, auto pattern) ALWAYS_INLINE_LAMBDA -> size_t {
-        ASSERT(!pattern.empty());
-        unsigned startIndex = 0;
-        if (pattern.size() == 1) {
-            size_t lastFound = notFound;
-            auto patternCharacter = pattern[0];
-            for (size_t i = 0; i < input.size(); ++i) {
-                if (input[i] != patternCharacter)
-                    continue;
-                if (startIndex < i) {
-                    if (UNLIKELY(!sourceRanges.tryConstructAndAppend(startIndex, i))) {
-                        throwOutOfMemoryError(globalObject, scope);
-                        return notFound;
-                    }
-                }
-                lastFound = i;
-                startIndex = i + 1;
-            }
-            if (lastFound == notFound)
-                return lastFound;
-
-            if (startIndex < sourceLen) {
-                if (UNLIKELY(!sourceRanges.tryConstructAndAppend(startIndex, sourceLen))) {
-                    throwOutOfMemoryError(globalObject, scope);
-                    return notFound;
-                }
-            }
-            return lastFound;
-        }
-
-        AdaptiveStringSearcher<typename decltype(pattern)::value_type, typename decltype(input)::value_type> search(vm.adaptiveStringSearcherTables(), pattern);
-        size_t found = search.search(input, startIndex);
-        if (found == notFound)
-            return notFound;
-
-        size_t lastFound = notFound;
-        do {
-            if (startIndex < found) {
-                if (UNLIKELY(!sourceRanges.tryConstructAndAppend(startIndex, found))) {
-                    throwOutOfMemoryError(globalObject, scope);
-                    return notFound;
-                }
-            }
-            startIndex = found + pattern.size();
-            lastFound = found;
-            found = search.search(input, startIndex);
-        } while (found != notFound);
-
-        if (startIndex < sourceLen) {
-            if (UNLIKELY(!sourceRanges.tryConstructAndAppend(startIndex, sourceLen))) {
-                throwOutOfMemoryError(globalObject, scope);
-                return notFound;
-            }
-        }
-        return lastFound;
-    };
-
-    if (regExp->hasValidAtom()) {
-        const String& pattern = regExp->atom();
-        ASSERT(!pattern.isEmpty());
-        size_t lastIndex = 0;
-        if (pattern.is8Bit()) {
-            if (source.is8Bit())
-                lastIndex = genericMatches(vm, source.span8(), pattern.span8());
-            else
-                lastIndex = genericMatches(vm, source.span16(), pattern.span8());
-        } else {
-            if (source.is8Bit())
-                lastIndex = genericMatches(vm, source.span8(), pattern.span16());
-            else
-                lastIndex = genericMatches(vm, source.span16(), pattern.span16());
-        }
-        RETURN_IF_EXCEPTION(scope, nullptr);
-        if (lastIndex == notFound)
-            return string;
-
-        // Record the last matching.
-        globalObject->regExpGlobalData().recordMatch(vm, globalObject, regExp, string, MatchResult { static_cast<unsigned>(lastIndex), static_cast<unsigned>(lastIndex + pattern.length()) }, /* oneCharacterMatch */ false);
-        RELEASE_AND_RETURN(scope, jsSpliceSubstrings(globalObject, string, source, sourceRanges.span()));
-    }
-
-    while (true) {
-        MatchResult result = globalObject->regExpGlobalData().performMatch(globalObject, regExp, string, source, startPosition);
-        RETURN_IF_EXCEPTION(scope, nullptr);
-        if (!result)
-            break;
-
-        if (lastIndex < result.start) {
-            if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, result.start)))
-                OUT_OF_MEMORY(globalObject, scope);
-        }
-        lastIndex = result.end;
-        startPosition = lastIndex;
-
-        // special case of empty match
-        if (result.empty()) {
-            startPosition++;
-            if (startPosition > sourceLen)
-                break;
-        }
-    }
-
-    if (!lastIndex)
-        return string;
-
-    if (static_cast<unsigned>(lastIndex) < sourceLen) {
-        if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, sourceLen)))
-            OUT_OF_MEMORY(globalObject, scope);
-    }
-    RELEASE_AND_RETURN(scope, jsSpliceSubstrings(globalObject, string, source, sourceRanges.span()));
-}
-
-static ALWAYS_INLINE JSString* replaceUsingRegExpSearchWithCache(VM& vm, JSGlobalObject* globalObject, JSString* string, const String& source, RegExp* regExp, JSFunction* replaceFunction)
-{
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    SuperSamplerScope superSamplerScope(true);
-
-    ASSERT(source.length() >= Options::thresholdForStringReplaceCache());
-    // Currently not caching results when named captures are specified.
-    ASSERT(!regExp->hasNamedCaptures());
-
-    unsigned sourceLen = source.length();
-    unsigned cachedCount = regExp->numSubpatterns() + 2;
-    unsigned argCount = cachedCount + 1;
-
-    JSImmutableButterfly* result = nullptr;
-
-    auto* entry = vm.stringReplaceCache.get(source, regExp);
-    if (!entry) {
-        // This is either a loop (if global is set) or a one-way (if not).
-        // regExp->numSubpatterns() + 1 for pattern args, + 2 for match start and string
-        size_t lastIndex = 0;
-        unsigned startPosition = 0;
-        MarkedArgumentBuffer results;
-        while (true) {
-            int* ovector;
-            MatchResult result = globalObject->regExpGlobalData().performMatch(globalObject, regExp, string, source, startPosition, &ovector);
-            RETURN_IF_EXCEPTION(scope, nullptr);
-            if (!result)
-                break;
-
-            for (unsigned i = 0; i < regExp->numSubpatterns() + 1; ++i) {
-                int matchStart = ovector[i * 2];
-                int matchLen = ovector[i * 2 + 1] - matchStart;
-
-                JSValue patternValue;
-
-                if (matchStart < 0)
-                    patternValue = jsUndefined();
-                else {
-                    patternValue = jsSubstring(globalObject, string, matchStart, matchLen);
-                    RETURN_IF_EXCEPTION(scope, { });
-                }
-
-                results.append(patternValue);
-            }
-
-            results.append(jsNumber(result.start));
-
-            lastIndex = result.end;
-            startPosition = lastIndex;
-
-            // special case of empty match
-            if (result.empty()) {
-                startPosition++;
-                if (startPosition > sourceLen)
-                    break;
-                if (U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
-                    startPosition++;
-                    if (startPosition > sourceLen)
-                        break;
-                }
-            }
-        }
-
-        // Nothing matches.
-        if (results.isEmpty())
-            return string;
-
-        result = JSImmutableButterfly::tryCreateFromArgList(vm, results);
-        if (UNLIKELY(!result)) {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
-        }
-
-        vm.stringReplaceCache.set(source, regExp, result, globalObject->regExpGlobalData().matchResult(), globalObject->regExpGlobalData().ovector());
-    } else {
-        result = entry->m_result;
-        auto lastMatch = entry->m_lastMatch;
-        auto matchResult = entry->m_matchResult;
-        globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, matchResult, WTFMove(lastMatch));
-    }
-
-    // regExp->numSubpatterns() + 1 for pattern args, + 2 for match start and string
-    unsigned length = result->length();
-    unsigned items = length / cachedCount;
-    Vector<String, 16> replacements;
-
-    if (UNLIKELY(!replacements.tryReserveCapacity(items))) {
-        throwOutOfMemoryError(globalObject, scope);
-        return nullptr;
-    }
-    replacements.grow(items);
-
-    CachedCall cachedCall(globalObject, replaceFunction, argCount);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-    if (argCount == 3) {
-        ASSERT(!regExp->numSubpatterns());
-        ASSERT(cachedCount == 2);
-        uint64_t totalLength = 0;
-        bool replacementsAre8Bit = true;
-        {
-            size_t lastIndex = 0;
-            size_t index = 0;
-            for (auto& slot : replacements) {
-                JSString* matchedString = asString(result->get(index * 2));
-                JSValue startOffset = result->get(index * 2 + 1);
-
-                int32_t start = startOffset.asInt32();
-                int32_t end = start + matchedString->length();
-
-                JSValue jsResult = cachedCall.callWithArguments(globalObject, jsUndefined(), matchedString, startOffset, string);
-                RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, nullptr);
-
-                auto string = jsResult.toWTFString(globalObject);
-                RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, nullptr);
-
-                replacementsAre8Bit &= string.is8Bit();
-                totalLength += string.length();
-                totalLength += (start - lastIndex);
-                slot = WTFMove(string);
-
-                lastIndex = end;
-                ++index;
-            }
-            if (static_cast<unsigned>(lastIndex) < sourceLen)
-                totalLength += (sourceLen - lastIndex);
-        }
-
-        if (UNLIKELY(totalLength > StringImpl::MaxLength)) {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
-        }
-
-        StringView sourceView { source };
-        if (sourceView.is8Bit() && replacementsAre8Bit) {
-            std::span<LChar> buffer;
-            auto impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
-            if (UNLIKELY(!impl)) {
-                throwOutOfMemoryError(globalObject, scope);
-                return nullptr;
-            }
-
-            size_t lastIndex = 0;
-            unsigned index = 0;
-            size_t bufferPos = 0;
-            for (auto& replacement : replacements) {
-                int32_t length = asString(result->get(index * 2))->length();
-                int32_t start = result->get(index * 2 + 1).asInt32();
-                int32_t end = start + length;
-
-                auto substring = sourceView.substring(lastIndex, start - lastIndex);
-                substring.getCharacters8(buffer.subspan(bufferPos));
-                bufferPos += substring.length();
-
-                StringView { replacement }.getCharacters8(buffer.subspan(bufferPos));
-                bufferPos += replacement.length();
-
-                ++index;
-                lastIndex = end;
-            }
-            if (static_cast<unsigned>(lastIndex) < sourceLen) {
-                auto substring = sourceView.substring(lastIndex, sourceLen - lastIndex);
-                substring.getCharacters8(buffer.subspan(bufferPos));
-            }
-
-            ASSERT(lastIndex <= sourceLen && (bufferPos + (sourceLen - lastIndex)) == totalLength);
-            RELEASE_AND_RETURN(scope, jsString(vm, impl.releaseNonNull()));
-        }
-
-        std::span<UChar> buffer;
-        auto impl = StringImpl::tryCreateUninitialized(totalLength, buffer);
-        if (UNLIKELY(!impl)) {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
-        }
-
-        size_t lastIndex = 0;
-        unsigned index = 0;
-        size_t bufferPos = 0;
-        for (auto& replacement : replacements) {
-            int32_t length = asString(result->get(index * 2))->length();
-            int32_t start = result->get(index * 2 + 1).asInt32();
-            int32_t end = start + length;
-
-            auto substring = sourceView.substring(lastIndex, start - lastIndex);
-            substring.getCharacters(buffer.subspan(bufferPos));
-            bufferPos += substring.length();
-
-            StringView { replacement }.getCharacters(buffer.subspan(bufferPos));
-            bufferPos += replacement.length();
-
-            ++index;
-            lastIndex = end;
-        }
-        if (static_cast<unsigned>(lastIndex) < sourceLen) {
-            auto substring = sourceView.substring(lastIndex, sourceLen - lastIndex);
-            substring.getCharacters(buffer.subspan(bufferPos));
-        }
-
-        ASSERT(lastIndex <= sourceLen && (bufferPos + (sourceLen - lastIndex)) == totalLength);
-        RELEASE_AND_RETURN(scope, jsString(vm, impl.releaseNonNull()));
-    }
-
-    Vector<Range<int32_t>, 16> sourceRanges;
-    if (UNLIKELY(!sourceRanges.tryReserveCapacity(items + 1))) {
-        throwOutOfMemoryError(globalObject, scope);
-        return nullptr;
-    }
-
-    size_t lastIndex = 0;
-    size_t cursor = 0;
-    for (auto& slot : replacements) {
-        cachedCall.clearArguments();
-        for (unsigned i = 0; i < cachedCount; ++i)
-            cachedCall.appendArgument(result->get(cursor + i));
-        cachedCall.appendArgument(string);
-
-        int32_t start = result->get(cursor + cachedCount - 1).asInt32();
-        int32_t end = start + asString(result->get(cursor))->length();
-
-        sourceRanges.constructAndAppend(lastIndex, start);
-
-        cachedCall.setThis(jsUndefined());
-        if (UNLIKELY(cachedCall.hasOverflowedArguments())) {
-            throwOutOfMemoryError(globalObject, scope);
-            return nullptr;
-        }
-
-        JSValue jsResult = cachedCall.call();
-        RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, nullptr);
-
-        auto string = jsResult.toWTFString(globalObject);
-        RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, nullptr);
-
-        slot = WTFMove(string);
-
-        lastIndex = end;
-        cursor += cachedCount;
-    }
-
-    if (static_cast<unsigned>(lastIndex) < sourceLen)
-        sourceRanges.constructAndAppend(lastIndex, sourceLen);
-    RELEASE_AND_RETURN(scope, jsSpliceSubstringsWithSeparators(globalObject, string, source, sourceRanges.data(), sourceRanges.size(), replacements.data(), replacements.size()));
-}
-
-static ALWAYS_INLINE JSString* tryTrimSpaces(VM& vm, JSGlobalObject* globalObject, const String& source, JSString* string, RegExp* regExp)
-{
-    unsigned sourceLen = source.length();
-    unsigned left = 0;
-    unsigned right = sourceLen;
-    switch (regExp->specificPattern()) {
-    case Yarr::SpecificPattern::TrailingSpacesPlus: {
-        while (right > 0 && isStrWhiteSpace(source[right - 1]))
-            right--;
-
-        if (right == sourceLen) {
-            // Not found.
-            return string;
-        }
-
-        if (!right) {
-            // Everything is spaces.
-            globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, MatchResult { 0, sourceLen }, { });
-            return jsEmptyString(vm);
-        }
-
-        globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, MatchResult { right, sourceLen }, { });
-        return jsString(vm, source.substringSharingImpl(0, right));
-    }
-    case Yarr::SpecificPattern::LeadingSpacesPlus: {
-        while (left < sourceLen && isStrWhiteSpace(source[left]))
-            left++;
-
-        if (!left)
-            return string;
-
-        if (left == sourceLen) {
-            // Everything is spaces.
-            globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, MatchResult { 0, sourceLen }, { });
-            return jsEmptyString(vm);
-        }
-
-        globalObject->regExpGlobalData().resetResultFromCache(globalObject, regExp, string, MatchResult { 0, left }, { });
-        return jsString(vm, source.substringSharingImpl(left, sourceLen));
-    }
-    case Yarr::SpecificPattern::TrailingSpacesStar:
-    case Yarr::SpecificPattern::LeadingSpacesStar:
-    case Yarr::SpecificPattern::Atom:
-    case Yarr::SpecificPattern::None:
-        break;
-    }
-    return nullptr;
-}
-
-static ALWAYS_INLINE JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSString* string, JSValue searchValue, const CallData& callData, const String& replacementString, JSValue replaceValue)
-{
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    auto source = string->value(globalObject);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-
-    unsigned sourceLen = source->length();
-    RegExpObject* regExpObject = jsCast<RegExpObject*>(searchValue);
-    RegExp* regExp = regExpObject->regExp();
-    bool global = regExp->global();
-    bool hasNamedCaptures = regExp->hasNamedCaptures();
-
-    if (global) {
-        // ES5.1 15.5.4.10 step 8.a.
-        regExpObject->setLastIndex(globalObject, 0);
-        RETURN_IF_EXCEPTION(scope, nullptr);
-
-        if (callData.type == CallData::Type::None && !replacementString.length())
-            RELEASE_AND_RETURN(scope, removeUsingRegExpSearch(vm, globalObject, string, source, regExp));
-
-        if (callData.type == CallData::Type::JS && !hasNamedCaptures && sourceLen >= Options::thresholdForStringReplaceCache())
-            RELEASE_AND_RETURN(scope, replaceUsingRegExpSearchWithCache(vm, globalObject, string, source, regExp, jsCast<JSFunction*>(replaceValue)));
-    }
-
-    if (callData.type == CallData::Type::None) {
-        switch (regExp->specificPattern()) {
-        case Yarr::SpecificPattern::TrailingSpacesPlus:
-        case Yarr::SpecificPattern::LeadingSpacesPlus:
-        case Yarr::SpecificPattern::TrailingSpacesStar:
-        case Yarr::SpecificPattern::LeadingSpacesStar: {
-            if (!replacementString.isEmpty())
-                break;
-
-            if (auto* result = tryTrimSpaces(vm, globalObject, source, string, regExp))
-                return result;
-
-            break;
-        }
-        case Yarr::SpecificPattern::Atom:
-        case Yarr::SpecificPattern::None:
-            break;
-        }
-    }
-
-    size_t lastIndex = 0;
-    unsigned startPosition = 0;
-
-    Vector<Range<int32_t>, 16> sourceRanges;
-    Vector<String, 16> replacements;
-
-    // This is either a loop (if global is set) or a one-way (if not).
-    if (global && callData.type == CallData::Type::JS) {
-        // regExp->numSubpatterns() + 1 for pattern args, + 2 for match start and string
-        int argCount = regExp->numSubpatterns() + 1 + 2;
-        if (hasNamedCaptures)
-            ++argCount;
-        JSFunction* func = jsCast<JSFunction*>(replaceValue);
-        CachedCall cachedCall(globalObject, func, argCount);
-        RETURN_IF_EXCEPTION(scope, nullptr);
-        while (true) {
-            int* ovector;
-            MatchResult result = globalObject->regExpGlobalData().performMatch(globalObject, regExp, string, source, startPosition, &ovector);
-            RETURN_IF_EXCEPTION(scope, nullptr);
-            if (!result)
-                break;
-
-            if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, result.start)))
-                OUT_OF_MEMORY(globalObject, scope);
-
-            cachedCall.clearArguments();
-            JSObject* groups = hasNamedCaptures ? constructEmptyObject(vm, globalObject->nullPrototypeObjectStructure()) : nullptr;
-
-            for (unsigned i = 0; i < regExp->numSubpatterns() + 1; ++i) {
-                int matchStart = ovector[i * 2];
-                int matchLen = ovector[i * 2 + 1] - matchStart;
-
-                JSValue patternValue;
-
-                if (matchStart < 0)
-                    patternValue = jsUndefined();
-                else {
-                    patternValue = jsSubstring(vm, globalObject, string, matchStart, matchLen);
-                    RETURN_IF_EXCEPTION(scope, nullptr);
-                }
-
-                cachedCall.appendArgument(patternValue);
-
-                if (i && hasNamedCaptures) {
-                    String groupName = regExp->getCaptureGroupNameForSubpatternId(i);
-                    if (!groupName.isEmpty()) {
-                        auto captureIndex = regExp->subpatternIdForGroupName(groupName, ovector);
-
-                        if (captureIndex == i)
-                            groups->putDirect(vm, Identifier::fromString(vm, groupName), patternValue);
-                        else if (captureIndex > 0) {
-                            int captureStart = ovector[captureIndex * 2];
-                            int captureLen = ovector[captureIndex * 2 + 1] - captureStart;
-                            JSValue captureValue;
-                            if (captureStart < 0)
-                                captureValue = jsUndefined();
-                            else {
-                                captureValue = jsSubstring(vm, globalObject, string, captureStart, captureLen);
-                                RETURN_IF_EXCEPTION(scope, nullptr);
-                            }
-                            groups->putDirect(vm, Identifier::fromString(vm, groupName), captureValue);
-                        } else
-                            groups->putDirect(vm, Identifier::fromString(vm, groupName), jsUndefined());
-                    }
-                }
-            }
-
-            cachedCall.appendArgument(jsNumber(result.start));
-            cachedCall.appendArgument(string);
-            if (hasNamedCaptures)
-                cachedCall.appendArgument(groups);
-
-            cachedCall.setThis(jsUndefined());
-            if (UNLIKELY(cachedCall.hasOverflowedArguments())) {
-                throwOutOfMemoryError(globalObject, scope);
-                return nullptr;
-            }
-
-            JSValue jsResult = cachedCall.call();
-            RETURN_IF_EXCEPTION(scope, nullptr);
-            replacements.append(jsResult.toWTFString(globalObject));
-            RETURN_IF_EXCEPTION(scope, nullptr);
-
-            lastIndex = result.end;
-            startPosition = lastIndex;
-
-            // special case of empty match
-            if (result.empty()) {
-                startPosition++;
-                if (startPosition > sourceLen)
-                    break;
-                if (U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
-                    startPosition++;
-                    if (startPosition > sourceLen)
-                        break;
-                }
-            }
-        }
-    } else {
-        do {
-            int* ovector;
-            MatchResult result = globalObject->regExpGlobalData().performMatch(globalObject, regExp, string, source, startPosition, &ovector);
-            RETURN_IF_EXCEPTION(scope, nullptr);
-            if (!result)
-                break;
-
-            if (callData.type != CallData::Type::None) {
-                if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, result.start)))
-                    OUT_OF_MEMORY(globalObject, scope);
-
-                MarkedArgumentBuffer args;
-                JSObject* groups = hasNamedCaptures ? constructEmptyObject(vm, globalObject->nullPrototypeObjectStructure()) : nullptr;
-
-                for (unsigned i = 0; i < regExp->numSubpatterns() + 1; ++i) {
-                    int matchStart = ovector[i * 2];
-                    int matchLen = ovector[i * 2 + 1] - matchStart;
-
-                    JSValue patternValue;
-
-                    if (matchStart < 0)
-                        patternValue = jsUndefined();
-                    else {
-                        patternValue = jsSubstring(vm, globalObject, string, matchStart, matchLen);
-                        RETURN_IF_EXCEPTION(scope, nullptr);
-                    }
-
-                    args.append(patternValue);
-
-                    if (i && hasNamedCaptures) {
-                        String groupName = regExp->getCaptureGroupNameForSubpatternId(i);
-                        if (!groupName.isEmpty()) {
-                            auto captureIndex = regExp->subpatternIdForGroupName(groupName, ovector);
-
-                            if (captureIndex == i)
-                                groups->putDirect(vm, Identifier::fromString(vm, groupName), patternValue);
-                            else if (captureIndex > 0) {
-                                int captureStart = ovector[captureIndex * 2];
-                                int captureLen = ovector[captureIndex * 2 + 1] - captureStart;
-                                JSValue captureValue;
-                                if (captureStart < 0)
-                                    captureValue = jsUndefined();
-                                else {
-                                    captureValue = jsSubstring(vm, globalObject, string, captureStart, captureLen);
-                                    RETURN_IF_EXCEPTION(scope, nullptr);
-                                }
-                                groups->putDirect(vm, Identifier::fromString(vm, groupName), captureValue);
-                            } else
-                                groups->putDirect(vm, Identifier::fromString(vm, groupName), jsUndefined());
-                        }
-                    }
-                }
-
-                args.append(jsNumber(result.start));
-                args.append(string);
-                if (hasNamedCaptures)
-                    args.append(groups);
-                if (UNLIKELY(args.hasOverflowed())) {
-                    throwOutOfMemoryError(globalObject, scope);
-                    return nullptr;
-                }
-
-                JSValue replacement = call(globalObject, replaceValue, callData, jsUndefined(), args);
-                RETURN_IF_EXCEPTION(scope, nullptr);
-                String replacementString = replacement.toWTFString(globalObject);
-                RETURN_IF_EXCEPTION(scope, nullptr);
-                replacements.append(replacementString);
-                RETURN_IF_EXCEPTION(scope, nullptr);
-            } else {
-                int replLen = replacementString.length();
-                if (lastIndex < result.start || replLen) {
-                    if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, result.start)))
-                        OUT_OF_MEMORY(globalObject, scope);
-
-                    if (replLen) {
-                        StringBuilder replacement(OverflowPolicy::RecordOverflow);
-                        substituteBackreferences(replacement, replacementString, source, ovector, regExp);
-                        if (UNLIKELY(replacement.hasOverflowed()))
-                            OUT_OF_MEMORY(globalObject, scope);
-                        replacements.append(replacement.toString());
-                    } else
-                        replacements.append(String());
-                }
-            }
-
-            lastIndex = result.end;
-            startPosition = lastIndex;
-
-            // special case of empty match
-            if (result.empty()) {
-                startPosition++;
-                if (startPosition > sourceLen)
-                    break;
-                if (U16_IS_LEAD(source[startPosition - 1]) && U16_IS_TRAIL(source[startPosition])) {
-                    startPosition++;
-                    if (startPosition > sourceLen)
-                        break;
-                }
-            }
-        } while (global);
-    }
-
-    if (!lastIndex && replacements.isEmpty())
-        return string;
-
-    if (static_cast<unsigned>(lastIndex) < sourceLen) {
-        if (UNLIKELY(!sourceRanges.tryConstructAndAppend(lastIndex, sourceLen)))
-            OUT_OF_MEMORY(globalObject, scope);
-    }
-    RELEASE_AND_RETURN(scope, jsSpliceSubstringsWithSeparators(globalObject, string, source, sourceRanges.data(), sourceRanges.size(), replacements.data(), replacements.size()));
-}
-
-IGNORE_WARNINGS_BEGIN("frame-address")
-
-JSC_DEFINE_JIT_OPERATION(operationStringProtoFuncReplaceRegExpEmptyStr, JSCell*, (JSGlobalObject* globalObject, JSString* thisValue, RegExpObject* searchValue))
-{
-    VM& vm = globalObject->vm();
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    RegExp* regExp = searchValue->regExp();
-    if (regExp->global()) {
-        // ES5.1 15.5.4.10 step 8.a.
-        searchValue->setLastIndex(globalObject, 0);
-        OPERATION_RETURN_IF_EXCEPTION(scope, nullptr);
-        auto source = thisValue->value(globalObject);
-        OPERATION_RETURN_IF_EXCEPTION(scope, nullptr);
-        OPERATION_RETURN(scope, removeUsingRegExpSearch(vm, globalObject, thisValue, source, regExp));
-    }
-
-    CallData callData;
-    String replacementString = emptyString();
-    OPERATION_RETURN(scope, replaceUsingRegExpSearch(
-        vm, globalObject, thisValue, searchValue, callData, replacementString, JSValue()));
-}
-
-JSC_DEFINE_JIT_OPERATION(operationStringProtoFuncReplaceRegExpString, JSCell*, (JSGlobalObject* globalObject, JSString* thisValue, RegExpObject* searchValue, JSString* replaceString))
-{
-    VM& vm = globalObject->vm();
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    CallData callData;
-    auto replacementString = replaceString->value(globalObject);
-    OPERATION_RETURN_IF_EXCEPTION(scope, nullptr);
-    OPERATION_RETURN(scope, replaceUsingRegExpSearch(
-        vm, globalObject, thisValue, searchValue, callData, replacementString, replaceString));
-}
-
-static ALWAYS_INLINE JSString* replaceUsingRegExpSearch(VM& vm, JSGlobalObject* globalObject, JSString* string, JSValue searchValue, JSValue replaceValue)
-{
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    String replacementString;
-    auto callData = JSC::getCallData(replaceValue);
-    if (callData.type == CallData::Type::None) {
-        replacementString = replaceValue.toWTFString(globalObject);
-        RETURN_IF_EXCEPTION(scope, nullptr);
-    }
-
-    RELEASE_AND_RETURN(scope, replaceUsingRegExpSearch(
-        vm, globalObject, string, searchValue, callData, replacementString, replaceValue));
-}
-
-static inline bool checkObjectCoercible(JSValue thisValue)
-{
-    if (thisValue.isString())
-        return true;
-
-    if (thisValue.isUndefinedOrNull())
-        return false;
-
-    if (thisValue.isObject() && asObject(thisValue)->isEnvironment())
-        return false;
-
-    return true;
+    return substituteBackreferencesInline(result, replacement, source, ovector, reg);
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncRepeatCharacter, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1118,51 +307,11 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncRepeatCharacter, (JSGlobalObject* global
     auto view = string->view(globalObject);
     ASSERT(view->length() == 1);
     scope.assertNoException();
-    UChar character = view[0];
+    char16_t character = view[0];
     scope.release();
     if (isLatin1(character))
         return JSValue::encode(repeatCharacter(globalObject, static_cast<LChar>(character), repeatCount));
     return JSValue::encode(repeatCharacter(globalObject, character, repeatCount));
-}
-
-ALWAYS_INLINE JSString* replace(VM& vm, JSGlobalObject* globalObject, JSValue thisValue, JSValue searchValue, JSValue replaceValue)
-{
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    if (UNLIKELY(!checkObjectCoercible(thisValue))) {
-        throwVMTypeError(globalObject, scope);
-        return nullptr;
-    }
-    JSString* string = thisValue.toString(globalObject);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-
-    JSString* searchJSString = searchValue.isString() ? asString(searchValue) : nullptr;
-    JSString* replaceJSString = replaceValue.isString() ? asString(replaceValue) : nullptr;
-
-    if (searchValue.inherits<RegExpObject>())
-        RELEASE_AND_RETURN(scope, replaceUsingRegExpSearch(vm, globalObject, string, searchValue, replaceValue));
-
-    if (searchJSString && replaceJSString) {
-        if (JSString* result = tryReplaceOneCharUsingString<DollarCheck::Yes>(globalObject, string, searchJSString, replaceJSString))
-            return result;
-        RETURN_IF_EXCEPTION(scope, nullptr);
-    }
-
-    auto thisString = string->value(globalObject);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-
-    // This path avoids an extra ref count churn for the most likely case that the search value is a string.
-    if (LIKELY(searchJSString)) {
-        auto searchString = searchJSString->value(globalObject);
-        RETURN_IF_EXCEPTION(scope, nullptr);
-
-        RELEASE_AND_RETURN(scope, replaceUsingStringSearch(vm, globalObject, string, thisString, WTFMove(searchString), replaceValue, StringReplaceMode::Single));
-    }
-
-    String searchString = searchValue.toWTFString(globalObject);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-
-    RELEASE_AND_RETURN(scope, replaceUsingStringSearch(vm, globalObject, string, thisString, WTFMove(searchString), replaceValue, StringReplaceMode::Single));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceUsingRegExp, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1174,10 +323,11 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceUsingRegExp, (JSGlobalObject* glo
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     JSValue searchValue = callFrame->argument(0);
-    if (!searchValue.inherits<RegExpObject>())
+    RegExpObject* regExpObject = jsDynamicCast<RegExpObject*>(searchValue);
+    if (!regExpObject)
         return JSValue::encode(jsUndefined());
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingRegExpSearch(vm, globalObject, string, searchValue, callFrame->argument(1))));
+    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingRegExpSearch(vm, globalObject, string, regExpObject, callFrame->argument(1))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceUsingStringSearch, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1201,7 +351,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceUsingStringSearch, (JSGlobalObjec
     auto searchString = searchJSString->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingStringSearch(vm, globalObject, string, thisString, searchString, callFrame->uncheckedArgument(1), StringReplaceMode::Single)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingStringSearch<StringReplaceMode::Single>(vm, globalObject, string, thisString, searchString, callFrame->uncheckedArgument(1))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceAllUsingStringSearch, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -1217,20 +367,8 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncReplaceAllUsingStringSearch, (JSGlobalOb
     auto searchString = asString(callFrame->uncheckedArgument(0))->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingStringSearch(vm, globalObject, string, thisString, searchString, callFrame->uncheckedArgument(1), StringReplaceMode::Global)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(replaceUsingStringSearch<StringReplaceMode::Global>(vm, globalObject, string, thisString, searchString, callFrame->uncheckedArgument(1))));
 }
-
-JSC_DEFINE_JIT_OPERATION(operationStringProtoFuncReplaceGeneric, JSCell*, (JSGlobalObject* globalObject, EncodedJSValue thisValue, EncodedJSValue searchValue, EncodedJSValue replaceValue))
-{
-    VM& vm = globalObject->vm();
-    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
-    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    
-    OPERATION_RETURN(scope, replace(vm, globalObject, JSValue::decode(thisValue), JSValue::decode(searchValue), JSValue::decode(replaceValue)));
-}
-
-IGNORE_WARNINGS_END
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToString, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
@@ -1259,7 +397,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncCharAt, (JSGlobalObject* globalObject, C
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     auto* thisString = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
@@ -1285,7 +423,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncCharCodeAt, (JSGlobalObject* globalObjec
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     auto* thisString = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
@@ -1322,7 +460,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncCodePointAt, (JSGlobalObject* globalObje
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     String string = thisValue.toWTFString(globalObject);
@@ -1352,7 +490,7 @@ static EncodedJSValue stringIndexOfImpl(JSGlobalObject* globalObject, CallFrame*
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     JSValue a0 = callFrame->argument(0);
@@ -1412,7 +550,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncLastIndexOf, (JSGlobalObject* globalObje
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     JSValue a0 = callFrame->argument(0);
@@ -1457,7 +595,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSlice, (JSGlobalObject* globalObject, Ca
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     JSString* string = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -1478,7 +616,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSlice, (JSGlobalObject* globalObject, Ca
 
 // Return true in case of early return (resultLength got to limitLength).
 template<typename CharacterType, typename Indice>
-static ALWAYS_INLINE bool splitStringByOneCharacterImpl(Indice& result, StringImpl* string, UChar separatorCharacter, unsigned limitLength)
+static ALWAYS_INLINE bool splitStringByOneCharacterImpl(Indice& result, StringImpl* string, char16_t separatorCharacter, unsigned limitLength)
 {
     // 12. Let q = p.
     size_t matchPosition;
@@ -1503,6 +641,11 @@ static ALWAYS_INLINE bool splitStringByOneCharacterImpl(Indice& result, StringIm
         position = matchPosition + 1;
     }
     return false;
+}
+
+static bool isASCIIIdentifierStart(char16_t ch)
+{
+    return isASCIIAlpha(ch) || ch == '_' || ch == '$';
 }
 
 // ES 21.1.3.17 String.prototype.split(separator, limit)
@@ -1532,9 +675,10 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
     // 9. If separator is a RegExp object (its [[Class]] is "RegExp"), let R = separator;
     //    otherwise let R = ToString(separator).
     JSValue separatorValue = callFrame->uncheckedArgument(0);
-    String separator = separatorValue.toWTFString(globalObject);
+    JSString* separatorString = separatorValue.toString(globalObject);
+    auto separator = separatorString->value(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
-    unsigned separatorLength = separator.length();
+    unsigned separatorLength = separator.data.length();
 
     // 10. If lim == 0, return A.
     if (!limit)
@@ -1550,7 +694,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
         RELEASE_AND_RETURN(scope, JSValue::encode(constructArray(globalObject, static_cast<ArrayAllocationProfile*>(nullptr), result)));
     }
 
-    if (LIKELY(limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime())) {
+    if (limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime()) [[likely]] {
         if (auto* immutableButterfly = vm.stringSplitCache.get(input, separator)) {
             Structure* arrayStructure = globalObject->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous);
             return JSValue::encode(JSArray::createWithButterfly(vm, nullptr, arrayStructure, immutableButterfly->toButterfly()));
@@ -1559,30 +703,61 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
 
     auto& result = vm.stringSplitIndice;
     result.shrink(0);
+    constexpr unsigned atomStringsArrayLimit = 100;
 
     auto cacheAndCreateArray = [&]() -> JSArray* {
         if (result.isEmpty())
             return constructEmptyArray(globalObject, nullptr);
 
-        if (LIKELY(limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime() && result.size() < MIN_SPARSE_ARRAY_INDEX)) {
-            auto* newButterfly = JSImmutableButterfly::create(vm, CopyOnWriteArrayWithContiguous, result.size());
+        unsigned resultSize = result.size();
+        if (limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime() && resultSize < MIN_SPARSE_ARRAY_INDEX) [[likely]] {
+            bool makeAtomStringsArray = resultSize < atomStringsArrayLimit;
+            Structure* immutableButterflyStructure = makeAtomStringsArray ? vm.immutableButterflyOnlyAtomStringsStructure.get() : vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous);
+
+            auto* newButterfly = JSImmutableButterfly::tryCreate(vm, immutableButterflyStructure, resultSize);
+            if (!newButterfly) [[unlikely]] {
+                throwOutOfMemoryError(globalObject, scope);
+                return { };
+            }
+
             unsigned start = 0;
-            for (unsigned i = 0, size = result.size(); i < size; ++i) {
+            auto view = thisString->view(globalObject);
+            RETURN_IF_EXCEPTION(scope, { });
+
+            bool encounteredNonAtoms = false;
+            for (unsigned i = 0; i < resultSize; ++i) {
                 unsigned end = result[i];
-                auto* string = jsSubstring(globalObject, thisString, start, end - start);
-                RETURN_IF_EXCEPTION(scope, { });
+                JSString* string = nullptr;
+                const bool isPotentiallyIdentifier = start < end && isASCIIIdentifierStart(view->characterAt(start));
+                if (makeAtomStringsArray && isPotentiallyIdentifier) {
+                    auto subView = view->substring(start, end - start);
+                    auto identifier = subView.is8Bit() ? Identifier::fromString(vm, subView.span8()) : Identifier::fromString(vm, subView.span16());
+
+                    DeferGC defer(vm);
+                    string = vm.atomStringToJSStringMap.ensureValue(identifier.impl(), [&] {
+                        return jsString(vm, identifier.string());
+                    });
+                } else {
+                    string = jsSubstring(globalObject, thisString, start, end - start);
+                    RETURN_IF_EXCEPTION(scope, { });
+                    encounteredNonAtoms = true;
+                }
                 newButterfly->setIndex(vm, i, string);
                 start = end + separatorLength;
+            }
+            if (makeAtomStringsArray && encounteredNonAtoms) {
+                Structure* replacementStructure = vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous);
+                newButterfly->setStructure(vm, replacementStructure);
             }
             vm.stringSplitCache.set(input, separator, newButterfly);
             Structure* arrayStructure = globalObject->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous);
             return JSArray::createWithButterfly(vm, nullptr, arrayStructure, newButterfly->toButterfly());
         }
 
-        auto* array = constructEmptyArray(globalObject, static_cast<ArrayAllocationProfile*>(nullptr), result.size());
+        auto* array = constructEmptyArray(globalObject, static_cast<ArrayAllocationProfile*>(nullptr), resultSize);
         RETURN_IF_EXCEPTION(scope, { });
         unsigned start = 0;
-        for (unsigned i = 0, size = result.size(); i < size; ++i) {
+        for (unsigned i = 0; i < resultSize; ++i) {
             unsigned end = result[i];
             auto* string = jsSubstring(globalObject, thisString, start, end - start);
             RETURN_IF_EXCEPTION(scope, { });
@@ -1600,7 +775,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
         // c. Call CreateDataProperty(A, "0", S).
         // d. Return A.
         scope.release();
-        if (!separator.isEmpty())
+        if (!separator.data.isEmpty())
             result.append(input->length());
         return JSValue::encode(cacheAndCreateArray());
     }
@@ -1611,10 +786,28 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
         // Zero limt/input length handled in steps 9/11 respectively, above.
         ASSERT(resultSize);
 
-        if (LIKELY(limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime() && resultSize < MIN_SPARSE_ARRAY_INDEX)) {
-            auto* newButterfly = JSImmutableButterfly::create(vm, CopyOnWriteArrayWithContiguous, resultSize);
-            for (unsigned i = 0; i < resultSize; ++i)
-                newButterfly->setIndex(vm, i, jsSingleCharacterString(vm, input[i]));
+        if (limit == 0xFFFFFFFFu && !globalObject->isHavingABadTime() && resultSize < MIN_SPARSE_ARRAY_INDEX) [[likely]] {
+            bool makeAtomStringsArray = resultSize < atomStringsArrayLimit;
+            Structure* immutableButterflyStructure = makeAtomStringsArray ? vm.immutableButterflyOnlyAtomStringsStructure.get() : vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous);
+
+            auto* newButterfly = JSImmutableButterfly::tryCreate(vm, immutableButterflyStructure, resultSize);
+            if (!newButterfly) [[unlikely]] {
+                throwOutOfMemoryError(globalObject, scope);
+                return { };
+            }
+
+            for (unsigned i = 0; i < resultSize; ++i) {
+                auto* string = jsSingleCharacterString(vm, input[i]);
+                if (makeAtomStringsArray) {
+                    Identifier identifier = string->toIdentifier(globalObject);
+                    RETURN_IF_EXCEPTION(scope, { });
+                    DeferGC defer(vm);
+                    string = vm.atomStringToJSStringMap.ensureValue(identifier.impl(), [&] {
+                        return string; // string was already atomized by toIdentifier()
+                    });
+                }
+                newButterfly->setIndex(vm, i, string);
+            }
             vm.stringSplitCache.set(input, separator, newButterfly);
             Structure* arrayStructure = globalObject->originalArrayStructureForIndexingType(CopyOnWriteArrayWithContiguous);
             return JSValue::encode(JSArray::createWithButterfly(vm, nullptr, arrayStructure, newButterfly->toButterfly()));
@@ -1634,15 +827,15 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSplitFast, (JSGlobalObject* globalObject
     // -separator length == 1, 16 bits
     // -separator length > 1
     StringImpl* stringImpl = input->impl();
-    StringImpl* separatorImpl = separator.impl();
+    StringImpl* separatorImpl = separator.data.impl();
 
     if (separatorLength == 1) {
-        UChar separatorCharacter = separatorImpl->at(0);
+        char16_t separatorCharacter = separatorImpl->at(0);
         if (stringImpl->is8Bit()) {
             if (splitStringByOneCharacterImpl<LChar>(result, stringImpl, separatorCharacter, limit))
                 RELEASE_AND_RETURN(scope, JSValue::encode(cacheAndCreateArray()));
         } else {
-            if (splitStringByOneCharacterImpl<UChar>(result, stringImpl, separatorCharacter, limit))
+            if (splitStringByOneCharacterImpl<char16_t>(result, stringImpl, separatorCharacter, limit))
                 RELEASE_AND_RETURN(scope, JSValue::encode(cacheAndCreateArray()));
         }
     } else {
@@ -1682,7 +875,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSubstr, (JSGlobalObject* globalObject, C
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     unsigned len;
     JSString* jsString = nullptr;
@@ -1726,7 +919,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSubstring, (JSGlobalObject* globalObject
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     JSString* jsString = thisValue.toString(globalObject);
@@ -1735,7 +928,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncSubstring, (JSGlobalObject* globalObject
     JSValue a0 = callFrame->argument(0);
     JSValue a1 = callFrame->argument(1);
 
-    if (LIKELY(a0.isInt32() && (a1.isUndefined() || a1.isInt32())))
+    if (a0.isInt32() && (a1.isUndefined() || a1.isInt32())) [[likely]]
         RELEASE_AND_RETURN(scope, JSValue::encode(stringSubstring(globalObject, jsString, a0.asInt32(), a1.isUndefined() ? std::nullopt : std::optional<int32_t>(a1.asInt32()))));
 
     int len = jsString->length();
@@ -1774,7 +967,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToLowerCase, (JSGlobalObject* globalObje
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     JSString* sVal = thisValue.toString(globalObject);
@@ -1784,7 +977,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToLowerCase, (JSGlobalObject* globalObje
         auto view = sVal->view(globalObject);
         auto scanQuickly = [&](auto span) ALWAYS_INLINE_LAMBDA {
             for (auto character : span) {
-                if (UNLIKELY(!isASCII(character) || isASCIIUpper(character)))
+                if (!isASCII(character) || isASCIIUpper(character)) [[unlikely]]
                     return false;
             }
             return true;
@@ -1810,7 +1003,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToUpperCase, (JSGlobalObject* globalObje
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     JSString* sVal = thisValue.toString(globalObject);
@@ -1820,7 +1013,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToUpperCase, (JSGlobalObject* globalObje
         auto view = sVal->view(globalObject);
         auto scanQuickly = [&](auto span) ALWAYS_INLINE_LAMBDA {
             for (auto character : span) {
-                if (UNLIKELY(!isASCII(character) || isASCIILower(character)))
+                if (!isASCII(character) || isASCIILower(character)) [[unlikely]]
                     return false;
             }
             return true;
@@ -1850,7 +1043,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncLocaleCompare, (JSGlobalObject* globalOb
 
     // 1. Let O be RequireObjectCoercible(this value).
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "String.prototype.localeCompare requires that |this| not be null or undefined"_s);
 
     // 2. Let S be ToString(O).
@@ -1889,7 +1082,7 @@ static EncodedJSValue toLocaleCase(JSGlobalObject* globalObject, CallFrame* call
 
     // 1. Let O be RequireObjectCoercible(this value).
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     // 2. Let S be ToString(O).
@@ -1953,7 +1146,7 @@ static EncodedJSValue toLocaleCase(JSGlobalObject* globalObject, CallFrame* call
     // 17. Let L be a String whose elements are, in order, the elements of cuList.
 
     // Most strings lower/upper case will be the same size as original, so try that first.
-    Vector<UChar> buffer;
+    Vector<char16_t> buffer;
     buffer.reserveInitialCapacity(s->length());
     auto convertCase = mode == CaseConversionMode::Lower ? u_strToLower : u_strToUpper;
     auto status = callBufferProducingFunction(convertCase, buffer, StringView { s }.upconvertedCharacters().get(), s->length(), locale.utf8().data());
@@ -1979,28 +1172,30 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToLocaleUpperCase, (JSGlobalObject* glob
     return toLocaleCase<CaseConversionMode::Upper>(globalObject, callFrame);
 }
 
-enum {
+enum class TrimKind : uint8_t {
     TrimStart = 1,
-    TrimEnd = 2
+    TrimEnd = 2,
+    TrimBoth = TrimStart | TrimEnd
 };
 
-static inline JSValue trimString(JSGlobalObject* globalObject, JSValue thisValue, int trimKind)
+template<TrimKind trimKind>
+static inline JSValue trimString(JSGlobalObject* globalObject, JSValue thisValue)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwTypeError(globalObject, scope);
     String str = thisValue.toWTFString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
 
     unsigned left = 0;
-    if (trimKind & TrimStart) {
+    if constexpr (static_cast<uint8_t>(trimKind) & static_cast<uint8_t>(TrimKind::TrimStart)) {
         while (left < str.length() && isStrWhiteSpace(str[left]))
             left++;
     }
     unsigned right = str.length();
-    if (trimKind & TrimEnd) {
+    if constexpr (static_cast<uint8_t>(trimKind) & static_cast<uint8_t>(TrimKind::TrimEnd)) {
         while (right > left && isStrWhiteSpace(str[right - 1]))
             right--;
     }
@@ -2015,19 +1210,19 @@ static inline JSValue trimString(JSGlobalObject* globalObject, JSValue thisValue
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncTrim, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     JSValue thisValue = callFrame->thisValue();
-    return JSValue::encode(trimString(globalObject, thisValue, TrimStart | TrimEnd));
+    return JSValue::encode(trimString<TrimKind::TrimBoth>(globalObject, thisValue));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncTrimStart, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     JSValue thisValue = callFrame->thisValue();
-    return JSValue::encode(trimString(globalObject, thisValue, TrimStart));
+    return JSValue::encode(trimString<TrimKind::TrimStart>(globalObject, thisValue));
 }
 
 JSC_DEFINE_HOST_FUNCTION(stringProtoFuncTrimEnd, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     JSValue thisValue = callFrame->thisValue();
-    return JSValue::encode(trimString(globalObject, thisValue, TrimEnd));
+    return JSValue::encode(trimString<TrimKind::TrimEnd>(globalObject, thisValue));
 }
 
 static inline unsigned clampAndTruncateToUnsigned(double value, unsigned min, unsigned max)
@@ -2045,7 +1240,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncStartsWith, (JSGlobalObject* globalObjec
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     String stringToSearchIn = thisValue.toWTFString(globalObject);
@@ -2079,7 +1274,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncEndsWith, (JSGlobalObject* globalObject,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     String stringToSearchIn = thisValue.toWTFString(globalObject);
@@ -2130,7 +1325,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncIncludes, (JSGlobalObject* globalObject,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     String stringToSearchIn = thisValue.toWTFString(globalObject);
@@ -2176,7 +1371,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncIterator, (JSGlobalObject* globalObject,
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     JSString* string = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -2237,7 +1432,7 @@ static JSValue normalize(JSGlobalObject* globalObject, JSString* string, Normali
     int32_t normalizedStringLength = unorm2_normalize(normalizer, characters, view->length(), nullptr, 0, &status);
     ASSERT(needsToGrowToProduceBuffer(status));
 
-    std::span<UChar> buffer;
+    std::span<char16_t> buffer;
     auto result = StringImpl::tryCreateUninitialized(normalizedStringLength, buffer);
     if (!result)
         return throwOutOfMemoryError(globalObject, scope);
@@ -2255,7 +1450,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncNormalize, (JSGlobalObject* globalObject
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     JSString* string = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
@@ -2281,10 +1476,10 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncNormalize, (JSGlobalObject* globalObject
     RELEASE_AND_RETURN(scope, JSValue::encode(normalize(globalObject, string, form)));
 }
 
-static inline std::optional<unsigned> illFormedIndex(std::span<const UChar> characters)
+static inline std::optional<unsigned> illFormedIndex(std::span<const char16_t> characters)
 {
     for (unsigned index = 0; index < characters.size(); ++index) {
-        UChar character = characters[index];
+        char16_t character = characters[index];
         if (!U16_IS_SURROGATE(character))
             continue;
 
@@ -2294,7 +1489,7 @@ static inline std::optional<unsigned> illFormedIndex(std::span<const UChar> char
         ASSERT(U16_IS_SURROGATE_LEAD(character));
         if ((index + 1) == characters.size())
             return index;
-        UChar nextCharacter = characters[index + 1];
+        char16_t nextCharacter = characters[index + 1];
 
         if (!U16_IS_SURROGATE(nextCharacter))
             return index;
@@ -2313,7 +1508,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncIsWellFormed, (JSGlobalObject* globalObj
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     // Latin-1 characters do not have surrogates.
@@ -2334,7 +1529,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToWellFormed, (JSGlobalObject* globalObj
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (UNLIKELY(!checkObjectCoercible(thisValue)))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
 
     // Latin-1 characters do not have surrogates.
@@ -2358,11 +1553,11 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToWellFormed, (JSGlobalObject* globalObj
     if (!firstIllFormedIndex)
         return JSValue::encode(stringValue);
 
-    Vector<UChar> buffer;
+    Vector<char16_t> buffer;
     buffer.reserveInitialCapacity(characters.size());
     buffer.append(characters.first(*firstIllFormedIndex));
     for (unsigned index = firstIllFormedIndex.value(); index < characters.size(); ++index) {
-        UChar character = characters[index];
+        char16_t character = characters[index];
 
         if (!U16_IS_SURROGATE(character)) {
             buffer.append(character);
@@ -2379,7 +1574,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncToWellFormed, (JSGlobalObject* globalObj
             buffer.append(replacementCharacter);
             continue;
         }
-        UChar nextCharacter = characters[index + 1];
+        char16_t nextCharacter = characters[index + 1];
 
         if (!U16_IS_SURROGATE(nextCharacter)) {
             buffer.append(replacementCharacter);
@@ -2405,7 +1600,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncAt, (JSGlobalObject* globalObject, CallF
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue thisValue = callFrame->thisValue();
-    if (!checkObjectCoercible(thisValue))
+    if (!checkObjectCoercible(thisValue)) [[unlikely]]
         return throwVMTypeError(globalObject, scope);
     auto* thisString = thisValue.toString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
@@ -2414,7 +1609,7 @@ JSC_DEFINE_HOST_FUNCTION(stringProtoFuncAt, (JSGlobalObject* globalObject, CallF
     RETURN_IF_EXCEPTION(scope, { });
     uint32_t length = view->length();
     JSValue argument0 = callFrame->argument(0);
-    if (argument0.isInt32()) {
+    if (argument0.isInt32()) [[likely]] {
         int32_t i = argument0.asInt32();
         int64_t k = i < 0 ? static_cast<int64_t>(length) + i : i;
         if (k < length && k >= 0)

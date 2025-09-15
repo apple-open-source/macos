@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -474,7 +474,7 @@ WI.Table = class Table extends WI.View
         // Save user preference for this column to be visible.
         let savedColumnVisibility = this._columnVisibilitySetting.value;
         if (savedColumnVisibility[column.identifier] !== true) {
-            let copy = Object.shallowCopy(savedColumnVisibility);
+            let copy = {...savedColumnVisibility};
             if (column.defaultHidden)
                 copy[column.identifier] = true;
             else
@@ -552,7 +552,7 @@ WI.Table = class Table extends WI.View
         // Save user preference for this column to be hidden.
         let savedColumnVisibility = this._columnVisibilitySetting.value;
         if (savedColumnVisibility[column.identifier] !== false) {
-            let copy = Object.shallowCopy(savedColumnVisibility);
+            let copy = {...savedColumnVisibility};
             if (column.defaultHidden)
                 delete copy[column.identifier];
             else

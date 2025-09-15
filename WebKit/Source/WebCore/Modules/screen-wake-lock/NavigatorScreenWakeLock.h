@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,8 +49,8 @@ private:
 
     static ASCIILiteral supplementName();
 
-    RefPtr<WakeLock> m_wakeLock;
-    Navigator& m_navigator;
+    const RefPtr<WakeLock> m_wakeLock;
+    const CheckedRef<Navigator> m_navigator;
 };
 
 } // namespace WebCore

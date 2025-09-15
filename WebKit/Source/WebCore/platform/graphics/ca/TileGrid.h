@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,10 @@
 #include <wtf/Ref.h>
 #include <wtf/TZoneMalloc.h>
 
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+#include "DynamicContentScalingDisplayList.h"
+#endif
+
 #if USE(CG)
 typedef struct CGContext *CGContextRef;
 #endif
@@ -71,6 +75,10 @@ public:
     void setNeedsDisplay();
     void setNeedsDisplayInRect(const IntRect&);
     void dropTilesInRect(const IntRect&);
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool setNeedsDisplayIfEDRHeadroomExceeds(float);
+#endif
 
     void updateTileLayerProperties();
 
@@ -118,7 +126,7 @@ private:
     bool getTileIndexRangeForRect(const IntRect&, TileIndex& topLeft, TileIndex& bottomRight) const;
 
     enum class CoverageType { PrimaryTiles, SecondaryTiles };
-    IntRect ensureTilesForRect(const FloatRect&, UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay, CoverageType);
+    IntRect ensureTilesForRect(const FloatRect&, HashSet<TileIndex>& tilesNeedingDisplay, CoverageType);
 
     struct TileCohortInfo {
         TileCohort cohort;
@@ -156,14 +164,18 @@ private:
     float platformCALayerDeviceScaleFactor() const override;
     bool isUsingDisplayListDrawing(PlatformCALayer*) const override;
     bool platformCALayerNeedsPlatformContext(const PlatformCALayer*) const override;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    std::optional<DynamicContentScalingDisplayList> platformCALayerDynamicContentScalingDisplayList(const PlatformCALayer*) const override;
+#endif
+    OptionSet<ContentsFormat> screenContentsFormats() const override;
 
     TileGridIdentifier m_identifier;
-    CheckedRef<TileController> m_controller;
+    const CheckedRef<TileController> m_controller;
 #if USE(CA)
-    Ref<PlatformCALayer> m_containerLayer;
+    const Ref<PlatformCALayer> m_containerLayer;
 #endif
 
-    UncheckedKeyHashMap<TileIndex, TileInfo> m_tiles;
+    HashMap<TileIndex, TileInfo> m_tiles;
 
     IntRect m_primaryTileCoverageRect;
     Vector<FloatRect> m_secondaryTileCoverageRects;

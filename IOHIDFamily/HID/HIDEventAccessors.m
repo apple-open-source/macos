@@ -333,6 +333,90 @@
 
 @end
 
+@implementation HIDEvent (HIDTouchSensitiveButtonEventPrivate)
+
+- (uint32_t)touchSensitiveButtonEventMask {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonEventMask);
+}
+
+- (void)setTouchSensitiveButtonEventMask:(uint32_t)touchSensitiveButtonEventMask {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonEventMask, (CFIndex)touchSensitiveButtonEventMask);
+}
+
+- (double)touchSensitiveButtonMajorRadius {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonMajorRadius);
+}
+
+- (void)setTouchSensitiveButtonMajorRadius:(double)touchSensitiveButtonMajorRadius {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonMajorRadius, (IOHIDFloat)touchSensitiveButtonMajorRadius);
+}
+
+- (double)touchSensitiveButtonMinorRadius {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonMinorRadius);
+}
+
+- (void)setTouchSensitiveButtonMinorRadius:(double)touchSensitiveButtonMinorRadius {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonMinorRadius, (IOHIDFloat)touchSensitiveButtonMinorRadius);
+}
+
+- (double)touchSensitiveButtonNormalizedPositionDeltaX {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionDeltaX);
+}
+
+- (void)setTouchSensitiveButtonNormalizedPositionDeltaX:(double)touchSensitiveButtonNormalizedPositionDeltaX {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionDeltaX, (IOHIDFloat)touchSensitiveButtonNormalizedPositionDeltaX);
+}
+
+- (double)touchSensitiveButtonNormalizedPositionDeltaY {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionDeltaY);
+}
+
+- (void)setTouchSensitiveButtonNormalizedPositionDeltaY:(double)touchSensitiveButtonNormalizedPositionDeltaY {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionDeltaY, (IOHIDFloat)touchSensitiveButtonNormalizedPositionDeltaY);
+}
+
+- (double)touchSensitiveButtonNormalizedPositionX {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionX);
+}
+
+- (void)setTouchSensitiveButtonNormalizedPositionX:(double)touchSensitiveButtonNormalizedPositionX {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionX, (IOHIDFloat)touchSensitiveButtonNormalizedPositionX);
+}
+
+- (double)touchSensitiveButtonNormalizedPositionY {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionY);
+}
+
+- (void)setTouchSensitiveButtonNormalizedPositionY:(double)touchSensitiveButtonNormalizedPositionY {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonNormalizedPositionY, (IOHIDFloat)touchSensitiveButtonNormalizedPositionY);
+}
+
+- (bool)touchSensitiveButtonTouch {
+    return (bool)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonTouch);
+}
+
+- (void)setTouchSensitiveButtonTouch:(bool)touchSensitiveButtonTouch {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonTouch, (CFIndex)touchSensitiveButtonTouch);
+}
+
+- (uint16_t)touchSensitiveButtonUsage {
+    return (uint16_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonUsage);
+}
+
+- (void)setTouchSensitiveButtonUsage:(uint16_t)touchSensitiveButtonUsage {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonUsage, (CFIndex)touchSensitiveButtonUsage);
+}
+
+- (uint16_t)touchSensitiveButtonUsagePage {
+    return (uint16_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonUsagePage);
+}
+
+- (void)setTouchSensitiveButtonUsagePage:(uint16_t)touchSensitiveButtonUsagePage {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldTouchSensitiveButtonUsagePage, (CFIndex)touchSensitiveButtonUsagePage);
+}
+
+@end
+
 @implementation HIDEvent (HIDPowerEventPrivate)
 
 - (double)powerMeasurement {
@@ -447,6 +531,66 @@
 
 - (void)setMotionGestureProgress:(double)motionGestureProgress {
     IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldMotionGestureProgress, (IOHIDFloat)motionGestureProgress);
+}
+
+@end
+
+@implementation HIDEvent (HIDForceStageEventPrivate)
+
+- (double)forceStageNextThreshold {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNextThreshold);
+}
+
+- (void)setForceStageNextThreshold:(double)forceStageNextThreshold {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNextThreshold, (IOHIDFloat)forceStageNextThreshold);
+}
+
+- (double)forceStageNormalizedForce {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNormalizedForce);
+}
+
+- (void)setForceStageNormalizedForce:(double)forceStageNormalizedForce {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNormalizedForce, (IOHIDFloat)forceStageNormalizedForce);
+}
+
+- (double)forceStageNormalizedForceVelocity {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNormalizedForceVelocity);
+}
+
+- (void)setForceStageNormalizedForceVelocity:(double)forceStageNormalizedForceVelocity {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageNormalizedForceVelocity, (IOHIDFloat)forceStageNormalizedForceVelocity);
+}
+
+- (double)forceStagePressedThreshold {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStagePressedThreshold);
+}
+
+- (void)setForceStagePressedThreshold:(double)forceStagePressedThreshold {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStagePressedThreshold, (IOHIDFloat)forceStagePressedThreshold);
+}
+
+- (double)forceStageReleasedThreshold {
+    return (double)IOHIDEventGetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageReleasedThreshold);
+}
+
+- (void)setForceStageReleasedThreshold:(double)forceStageReleasedThreshold {
+    IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageReleasedThreshold, (IOHIDFloat)forceStageReleasedThreshold);
+}
+
+- (uint32_t)forceStageStage {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageStage);
+}
+
+- (void)setForceStageStage:(uint32_t)forceStageStage {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageStage, (CFIndex)forceStageStage);
+}
+
+- (IOHIDForceStageTransition)forceStageTransition {
+    return (IOHIDForceStageTransition)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageTransition);
+}
+
+- (void)setForceStageTransition:(IOHIDForceStageTransition)forceStageTransition {
+    IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldForceStageTransition, (CFIndex)forceStageTransition);
 }
 
 @end
@@ -679,9 +823,9 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->transducerType = (uint32_t)transducerType;
-    eventData->position.x = (IOHIDDouble)x;
-    eventData->position.y = (IOHIDDouble)y;
-    eventData->position.z = (IOHIDDouble)z;
+    eventData->position.x = CAST_DOUBLE_TO_FIXED(x);
+    eventData->position.y = CAST_DOUBLE_TO_FIXED(y);
+    eventData->position.z = CAST_DOUBLE_TO_FIXED(z);
 
     return event;
 }
@@ -693,8 +837,8 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypeTilt;
-    eventData->orientation.tilt.x = (IOHIDDouble)x;
-    eventData->orientation.tilt.y = (IOHIDDouble)y;
+    eventData->orientation.tilt.x = CAST_DOUBLE_TO_FIXED(x);
+    eventData->orientation.tilt.y = CAST_DOUBLE_TO_FIXED(y);
 
     return event;
 }
@@ -706,12 +850,12 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypePolar;
-    eventData->orientation.polar.altitude = (IOHIDDouble)altitude;
-    eventData->orientation.polar.azimuth = (IOHIDDouble)azimuth;
-    eventData->orientation.polar.quality = (IOHIDDouble)quality;
-    eventData->orientation.polar.density = (IOHIDDouble)density;
-    eventData->orientation.polar.majorRadius = (IOHIDDouble)majorRadius;
-    eventData->orientation.polar.minorRadius = (IOHIDDouble)minorRadius;
+    eventData->orientation.polar.altitude = CAST_DOUBLE_TO_FIXED(altitude);
+    eventData->orientation.polar.azimuth = CAST_DOUBLE_TO_FIXED(azimuth);
+    eventData->orientation.polar.quality = CAST_DOUBLE_TO_FIXED(quality);
+    eventData->orientation.polar.density = CAST_DOUBLE_TO_FIXED(density);
+    eventData->orientation.polar.majorRadius = CAST_DOUBLE_TO_FIXED(majorRadius);
+    eventData->orientation.polar.minorRadius = CAST_DOUBLE_TO_FIXED(minorRadius);
 
     return event;
 }
@@ -723,12 +867,12 @@
     IOHIDDigitizerEventData *eventData = (IOHIDDigitizerEventData *)event->_event.eventData;
 
     eventData->orientationType = kIOHIDDigitizerOrientationTypeQuality;
-    eventData->orientation.quality.quality = (IOHIDDouble)quality;
-    eventData->orientation.quality.density = (IOHIDDouble)density;
-    eventData->orientation.quality.irregularity = (IOHIDDouble)irregularity;
-    eventData->orientation.quality.majorRadius = (IOHIDDouble)majorRadius;
-    eventData->orientation.quality.minorRadius = (IOHIDDouble)minorRadius;
-    eventData->orientation.quality.accuracy = (IOHIDDouble)accuracy;
+    eventData->orientation.quality.quality = CAST_DOUBLE_TO_FIXED(quality);
+    eventData->orientation.quality.density = CAST_DOUBLE_TO_FIXED(density);
+    eventData->orientation.quality.irregularity = CAST_DOUBLE_TO_FIXED(irregularity);
+    eventData->orientation.quality.majorRadius = CAST_DOUBLE_TO_FIXED(majorRadius);
+    eventData->orientation.quality.minorRadius = CAST_DOUBLE_TO_FIXED(minorRadius);
+    eventData->orientation.quality.accuracy = CAST_DOUBLE_TO_FIXED(accuracy);
 
     return event;
 }
@@ -1786,9 +1930,9 @@
     HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventTypePointer, timestamp, options);
     IOHIDPointerEventData *eventData = (IOHIDPointerEventData *)event->_event.eventData;
 
-    eventData->position.x = (IOHIDDouble)x;
-    eventData->position.y = (IOHIDDouble)y;
-    eventData->position.z = (IOHIDDouble)z;
+    eventData->position.x = CAST_DOUBLE_TO_FIXED(x);
+    eventData->position.y = CAST_DOUBLE_TO_FIXED(y);
+    eventData->position.z = CAST_DOUBLE_TO_FIXED(z);
     eventData->button.mask = (uint32_t)buttonMask;
 
     return event;

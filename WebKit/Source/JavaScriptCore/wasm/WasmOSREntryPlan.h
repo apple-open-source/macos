@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@ public:
     using Base = Plan;
 
     bool hasWork() const final { return !m_completed; }
-    void work(CompilationEffort) final;
+    void work() final;
     bool multiThreaded() const final { return false; }
 
     // Note: CompletionTask should not hold a reference to the Plan otherwise there will be a reference cycle.
@@ -62,9 +62,9 @@ private:
         runCompletionTasks();
     }
 
-    Ref<Module> m_module;
-    Ref<CalleeGroup> m_calleeGroup;
-    Ref<Callee> m_callee;
+    const Ref<Module> m_module;
+    const Ref<CalleeGroup> m_calleeGroup;
+    const Ref<Callee> m_callee;
     bool m_completed { false };
     std::optional<bool> m_hasExceptionHandlers;
     FunctionCodeIndex m_functionIndex;

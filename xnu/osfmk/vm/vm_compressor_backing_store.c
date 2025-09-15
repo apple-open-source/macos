@@ -117,8 +117,8 @@ boolean_t       swp_trim_supported = FALSE;
 extern uint64_t         dont_trim_until_ts;
 uint64_t                vm_swapfile_last_failed_to_create_ts = 0;
 uint64_t                vm_swapfile_last_successful_create_ts = 0;
-int                     vm_swapfile_can_be_created = FALSE;
-boolean_t               delayed_trim_handling_in_progress = FALSE;
+static bool             vm_swapfile_can_be_created = false;
+static bool             delayed_trim_handling_in_progress = false;
 
 boolean_t               hibernate_in_progress_with_pinned_swap = FALSE;
 
@@ -1454,21 +1454,25 @@ vm_swapout_finish(c_segment_t c_seg, uint64_t f_offset, uint32_t size, kern_retu
 		c_seg->c_store.c_swap_handle = f_offset;
 
 		counter_add(&vm_statistics_swapouts, size >> PAGE_SHIFT);
+		__assert_only unsigned int new_swapped_count = os_atomic_add(
+			&vm_page_swapped_count, c_seg->c_slots_used, relaxed);
+		/* Detect overflow */
+		assert3u(new_swapped_count, >=, c_seg->c_slots_used);
 
 		c_seg->c_swappedin = false;
 
 		if (c_seg->c_bytes_used) {
-			OSAddAtomic64(-c_seg->c_bytes_used, &compressor_bytes_used);
+			os_atomic_sub(&compressor_bytes_used, c_seg->c_bytes_used, relaxed);
 		}
 
 #if CONFIG_FREEZE
 		/*
 		 * Successful swapout. Decrement the in-core compressed pages count.
 		 */
-		OSAddAtomic(-(c_seg->c_slots_used), &c_segment_pages_compressed_incore);
+		os_atomic_sub(&c_segment_pages_compressed_incore, c_seg->c_slots_used, relaxed);
 		assertf(c_segment_pages_compressed_incore >= 0, "-ve incore count %p 0x%x", c_seg, c_segment_pages_compressed_incore);
 		if (c_seg->c_has_donated_pages) {
-			OSAddAtomic(-(c_seg->c_slots_used), &c_segment_pages_compressed_incore_late_swapout);
+			os_atomic_sub(&c_segment_pages_compressed_incore_late_swapout, (c_seg->c_slots_used), relaxed);
 		}
 #endif /* CONFIG_FREEZE */
 	} else {
@@ -1574,7 +1578,7 @@ vm_swap_create_file()
 		}
 		return FALSE;
 	}
-	vm_swapfile_can_be_created = TRUE;
+	vm_swapfile_can_be_created = true;
 
 	size = MAX_SWAP_FILE_SIZE;
 
@@ -1996,7 +2000,7 @@ done:
 static void
 vm_swap_wait_on_trim_handling_in_progress()
 {
-	while (delayed_trim_handling_in_progress == TRUE) {
+	while (delayed_trim_handling_in_progress) {
 		assert_wait((event_t) &delayed_trim_handling_in_progress, THREAD_UNINT);
 		lck_mtx_unlock(&vm_swap_data_lock);
 
@@ -2026,7 +2030,7 @@ vm_swap_handle_delayed_trims(boolean_t force_now)
 
 	lck_mtx_lock(&vm_swap_data_lock);
 
-	delayed_trim_handling_in_progress = TRUE;
+	delayed_trim_handling_in_progress = true;
 
 	lck_mtx_unlock(&vm_swap_data_lock);
 
@@ -2048,7 +2052,7 @@ vm_swap_handle_delayed_trims(boolean_t force_now)
 	}
 	lck_mtx_lock(&vm_swap_data_lock);
 
-	delayed_trim_handling_in_progress = FALSE;
+	delayed_trim_handling_in_progress = false;
 	thread_wakeup((event_t) &delayed_trim_handling_in_progress);
 
 	if (VM_SWAP_SHOULD_RECLAIM() && !vm_swapfile_gc_thread_running) {
@@ -2142,7 +2146,7 @@ vm_swap_reclaim(void)
 	c_segment_t     c_seg = NULL;
 
 	kmem_alloc(compressor_map, (vm_offset_t *)&addr, c_seg_bufsize,
-	    KMA_NOFAIL | KMA_KOBJECT | KMA_DATA, VM_KERN_MEMORY_COMPRESSOR);
+	    KMA_NOFAIL | KMA_KOBJECT | KMA_DATA_SHARED, VM_KERN_MEMORY_COMPRESSOR);
 
 	lck_mtx_lock(&vm_swap_data_lock);
 
@@ -2427,16 +2431,27 @@ vm_swap_get_max_configured_space(void)
 bool
 vm_swap_low_on_space(void)
 {
-	if (vm_num_swap_files == 0 && vm_swapfile_can_be_created == FALSE) {
+	if (vm_num_swap_files == 0 &&
+	    (!vm_swapfile_can_be_created || !SWAPPER_NEEDS_TO_UNTHROTTLE())) {
+		/* We haven't started creating swap files yet */
 		return false;
 	}
 
-	if (((vm_swapfile_total_segs_alloced - vm_swapfile_total_segs_used) < ((unsigned int)vm_swapfile_hiwater_segs) / 8)) {
-		if (vm_num_swap_files == 0 && !SWAPPER_NEEDS_TO_UNTHROTTLE()) {
-			return false;
+	if (vm_swapfile_total_segs_alloced - vm_swapfile_total_segs_used <
+	    (unsigned int)vm_swapfile_hiwater_segs / 8) {
+		/*
+		 * We're running low on swapfile segments
+		 */
+		if (vm_swapfile_last_failed_to_create_ts >= vm_swapfile_last_successful_create_ts) {
+			/*
+			 * We've recently failed to create a new swapfile, likely due to disk
+			 * space exhaustion
+			 */
+			return true;
 		}
 
-		if (vm_swapfile_last_failed_to_create_ts >= vm_swapfile_last_successful_create_ts) {
+		if (vm_num_swap_files == vm_num_swap_files_config) {
+			/* We've reached the swapfile limit */
 			return true;
 		}
 	}
@@ -2446,13 +2461,21 @@ vm_swap_low_on_space(void)
 bool
 vm_swap_out_of_space(void)
 {
-	if ((vm_num_swap_files == vm_num_swap_files_config) &&
-	    ((vm_swapfile_total_segs_alloced - vm_swapfile_total_segs_used) < VM_SWAPOUT_LIMIT_MAX)) {
+	if (vm_num_swap_files == 0 &&
+	    (!vm_swapfile_can_be_created || !SWAPPER_NEEDS_TO_UNTHROTTLE())) {
+		/* We haven't started creating swap files yet */
+		return false;
+	}
+
+	if (vm_swapfile_total_segs_alloced - vm_swapfile_total_segs_used <
+	    VM_SWAPOUT_LIMIT_MAX) {
 		/*
-		 * Last swapfile and we have only space for the
-		 * last few swapouts.
+		 * We have run out of swapfile segments
 		 */
-		return true;
+		if (vm_num_swap_files == vm_num_swap_files_config) {
+			/* And we can't create any more swapfiles */
+			return true;
+		}
 	}
 
 	return false;

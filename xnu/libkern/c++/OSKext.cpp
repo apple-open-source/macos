@@ -50,7 +50,9 @@ extern "C" {
 #include <mach/mach_time.h>
 #include <uuid/uuid.h>
 #include <sys/random.h>
+#include <sys/reboot.h>
 #include <pexpert/pexpert.h>
+#include <pexpert/device_tree.h>
 
 #include <sys/pgo.h>
 
@@ -550,7 +552,7 @@ static uint32_t                 sKextAccountsCount;
 /*********************************************************************
  * sKextLoggingLock protects the logging variables declared immediately below.
  **********/
-static IOLock                 * sKextLoggingLock           = NULL;
+__static_testable IOLock      * sKextLoggingLock           = NULL;
 
 static  const OSKextLogSpec     kDefaultKernelLogFilter    = kOSKextLogBasicLevel |
     kOSKextLogVerboseFlagsMask;
@@ -1220,7 +1222,7 @@ OSKext::removeKextBootstrap(void)
 #if __arm__ || __arm64__
 	/* Free the memory that was set up by iBoot.
 	 */
-#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR)
+#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR) && !defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* We cannot free the KLD segment with CTRR enabled as it contains text and
 	 * is covered by the contiguous rorgn.
 	 */
@@ -1591,14 +1593,28 @@ finish:
 /*********************************************************************
 *********************************************************************/
 /* static */
+
 bool
 OSKext::driverkitEnabled(void)
 {
-#if XNU_TARGET_OS_WATCH
-	return false;
-#else //!XNU_TARGET_OS_WATCH
+	#if XNU_TARGET_OS_WATCH
+	/*
+	 * Driverkit support is available on watchOS only if the device
+	 * tree has the "supports-driverkit" property in its "/product" node
+	 */
+	DTEntry entry;
+	void const *prop = NULL;
+	unsigned int prop_size;
+
+	if (kSuccess != SecureDTLookupEntry(NULL, "/product", &entry)) {
+		return false;
+	}
+	if (kSuccess != SecureDTGetProperty(entry, "supports-driverkit", &prop, &prop_size)) {
+		return false;
+	}
+	#endif /* XNU_TARGET_OS_WATCH */
+
 	return true;
-#endif //XNU_TARGET_OS_WATCH
 }
 
 /*********************************************************************
@@ -1607,12 +1623,12 @@ OSKext::driverkitEnabled(void)
 bool
 OSKext::iokitDaemonAvailable(void)
 {
-#if !XNU_TARGET_OS_IOS && !XNU_TARGET_OS_OSX
+#if !XNU_TARGET_OS_IOS && !XNU_TARGET_OS_OSX && !XNU_TARGET_OS_WATCH
 	int notused;
 	if (PE_parse_boot_argn("-restore", &notused, sizeof(notused))) {
 		return false;
 	}
-#endif //!XNU_TARGET_OS_IOS && !XNU_TARGET_OS_OSX
+#endif /* !XNU_TARGET_OS_IOS && !XNU_TARGET_OS_OSX && !XNU_TARGET_OS_WATCH */
 	return driverkitEnabled();
 }
 
@@ -1679,10 +1695,10 @@ finish:
 }
 
 void
-OSKext::willUserspaceReboot(void)
+OSKext::setWillUserspaceReboot(void)
 {
 	OSKext::willShutdown();
-	IOService::userSpaceWillReboot();
+	IOService::setWillUserspaceReboot();
 	gIOCatalogue->terminateDriversForUserspaceReboot();
 }
 
@@ -1702,6 +1718,12 @@ OSKext::resetAfterUserspaceReboot(void)
 	OSKext::setKernelRequestsEnabled(true);
 	sOSKextWasResetAfterUserspaceReboot = true;
 	IORecursiveLockUnlock(sKextLock);
+}
+
+extern "C" int
+OSKextIsInUserspaceReboot(void)
+{
+	return IOService::getWillUserspaceReboot();
 }
 
 extern "C" void
@@ -3823,7 +3845,7 @@ OSKext::extractMkext2FileData(
 
 	if (KERN_SUCCESS != kmem_alloc(kernel_map,
 	    (vm_offset_t*)&uncompressedDataBuffer, fullSize,
-	    KMA_DATA, VM_KERN_MEMORY_OSKEXT)) {
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_OSKEXT)) {
 		/* How's this for cheesy? The kernel is only asked to extract
 		 * kext plists so we tailor the log messages.
 		 */
@@ -4220,7 +4242,7 @@ OSKext::serializeLogInfo(
 			logInfoLength = serializer->getLength();
 
 			kmem_result = kmem_alloc(kernel_map, (vm_offset_t *)&buffer, round_page(logInfoLength),
-			    KMA_DATA, VM_KERN_MEMORY_OSKEXT);
+			    KMA_DATA_SHARED, VM_KERN_MEMORY_OSKEXT);
 			if (kmem_result != KERN_SUCCESS) {
 				OSKextLog(/* kext */ NULL,
 				    kOSKextLogErrorLevel |
@@ -10727,7 +10749,7 @@ OSKext::handleRequest(
 		/* This kmem_alloc sets the return value of the function.
 		 */
 		kmem_result = kmem_alloc(kernel_map, (vm_offset_t *)&buffer,
-		    round_page(responseLength), KMA_DATA, VM_KERN_MEMORY_OSKEXT);
+		    round_page(responseLength), KMA_DATA_SHARED, VM_KERN_MEMORY_OSKEXT);
 		if (kmem_result != KERN_SUCCESS) {
 			OSKextLog(/* kext */ NULL,
 			    kOSKextLogErrorLevel |
@@ -16413,7 +16435,7 @@ OSKext::updateLoadedKextSummaries(void)
 			sLoadedKextSummariesAllocSize = 0;
 		}
 		result = kmem_alloc(kernel_map, (vm_offset_t *)&summaryHeaderAlloc, size,
-		    KMA_DATA, VM_KERN_MEMORY_OSKEXT);
+		    KMA_NONE, VM_KERN_MEMORY_OSKEXT);
 		if (result != KERN_SUCCESS) {
 			goto finish;
 		}
@@ -16978,13 +17000,13 @@ static int
 sysctl_willuserspacereboot
 (__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
 {
-	int new_value = 0, old_value = 0, changed = 0;
+	int new_value = 0, old_value = get_system_inuserspacereboot(), changed = 0;
 	int error = sysctl_io_number(req, old_value, sizeof(int), &new_value, &changed);
 	if (error) {
 		return error;
 	}
 	if (changed) {
-		OSKext::willUserspaceReboot();
+		OSKext::setWillUserspaceReboot();
 	}
 	return 0;
 }

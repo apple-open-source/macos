@@ -179,6 +179,78 @@ matching_srctgt_nonexistent_body()
 	atf_check -e not-empty -s not-exit:0 stat foo/dne/foo
 }
 
+atf_test_case pflag_acls
+pflag_acls_body()
+{
+	mkdir dir
+	ln -s dir lnk
+	echo "hello" >dir/file
+	if ! setfacl -m g:staff:D::allow dir ||
+	   ! setfacl -m g:staff:d::allow dir/file ; then
+		atf_skip "file system does not support ACLs"
+	fi
+	atf_check -o match:"group:staff:-+D-+" getfacl dir
+	atf_check -o match:"group:staff:-+d-+" getfacl dir/file
+	# file-to-file copy without -p
+	atf_check cp dir/file dst1
+	atf_check -o not-match:"group:staff:-+d-+" getfacl dst1
+	# file-to-file copy with -p
+	atf_check cp -p dir/file dst2
+	atf_check -o match:"group:staff:-+d-+" getfacl dst2
+	# recursive copy without -p
+	atf_check cp -r dir dst3
+	atf_check -o not-match:"group:staff:-+D-+" getfacl dst3
+	atf_check -o not-match:"group:staff:-+d-+" getfacl dst3/file
+	# recursive copy with -p
+	atf_check cp -rp dir dst4
+	atf_check -o match:"group:staff:-+D-+" getfacl dst4
+	atf_check -o match:"group:staff:-+d-+" getfacl dst4/file
+	# source is a link without -p
+	atf_check cp -r lnk dst5
+	atf_check -o not-match:"group:staff:-+D-+" getfacl dst5
+	atf_check -o not-match:"group:staff:-+d-+" getfacl dst5/file
+	# source is a link with -p
+	atf_check cp -rp lnk dst6
+	atf_check -o match:"group:staff:-+D-+" getfacl dst6
+	atf_check -o match:"group:staff:-+d-+" getfacl dst6/file
+}
+
+atf_test_case pflag_flags
+pflag_flags_body()
+{
+	mkdir dir
+	ln -s dir lnk
+	echo "hello" >dir/file
+	if ! chflags nodump dir ||
+	   ! chflags nodump dir/file ; then
+		atf_skip "file system does not support flags"
+	fi
+	atf_check -o match:"nodump" stat -f%Sf dir
+	atf_check -o match:"nodump" stat -f%Sf dir/file
+	# file-to-file copy without -p
+	atf_check cp dir/file dst1
+	atf_check -o not-match:"nodump" stat -f%Sf dst1
+	# file-to-file copy with -p
+	atf_check cp -p dir/file dst2
+	atf_check -o match:"nodump" stat -f%Sf dst2
+	# recursive copy without -p
+	atf_check cp -r dir dst3
+	atf_check -o not-match:"nodump" stat -f%Sf dst3
+	atf_check -o not-match:"nodump" stat -f%Sf dst3/file
+	# recursive copy with -p
+	atf_check cp -rp dir dst4
+	atf_check -o match:"nodump" stat -f%Sf dst4
+	atf_check -o match:"nodump" stat -f%Sf dst4/file
+	# source is a link without -p
+	atf_check cp -r lnk dst5
+	atf_check -o not-match:"nodump" stat -f%Sf dst5
+	atf_check -o not-match:"nodump" stat -f%Sf dst5/file
+	# source is a link with -p
+	atf_check cp -rp lnk dst6
+	atf_check -o match:"nodump" stat -f%Sf dst6
+	atf_check -o match:"nodump" stat -f%Sf dst6/file
+}
+
 recursive_link_setup()
 {
 	extra_cpflag=$1
@@ -392,6 +464,235 @@ overwrite_directory_body()
 	    cp -r bar foo
 }
 
+atf_test_case to_dir_dne
+to_dir_dne_body()
+{
+	mkdir dir
+	echo "foo" >dir/foo
+	atf_check cp -r dir dne
+	atf_check test -d dne
+	atf_check test -f dne/foo
+	atf_check cmp dir/foo dne/foo
+}
+
+atf_test_case to_nondir
+to_nondir_body()
+{
+	echo "foo" >foo
+	echo "bar" >bar
+	echo "baz" >baz
+	# This is described as “case 1” in source code comments
+	atf_check cp foo bar
+	atf_check cmp -s foo bar
+	# This is “case 2”, the target must be a directory
+	atf_check -s not-exit:0 -e match:"Not a directory" \
+	    cp foo bar baz
+}
+
+atf_test_case to_deadlink
+to_deadlink_body()
+{
+	echo "foo" >foo
+	ln -s bar baz
+	atf_check cp foo baz
+	atf_check cmp -s foo bar
+}
+
+atf_test_case to_deadlink_append
+to_deadlink_append_body()
+{
+	echo "foo" >foo
+	mkdir bar
+	ln -s baz bar/foo
+	atf_check cp foo bar
+	atf_check cmp -s foo bar/baz
+	rm -f bar/foo bar/baz
+	ln -s baz bar/foo
+	atf_check cp foo bar/
+	atf_check cmp -s foo bar/baz
+	rm -f bar/foo bar/baz
+	ln -s $PWD/baz bar/foo
+	atf_check cp foo bar/
+	atf_check cmp -s foo baz
+}
+
+atf_test_case to_dirlink
+to_dirlink_body()
+{
+	mkdir src dir
+	echo "foo" >src/file
+	ln -s dir dst
+	atf_check cp -r src dst
+	atf_check cmp -s src/file dir/src/file
+	rm -r dir/*
+	atf_check cp -r src dst/
+	atf_check cmp -s src/file dir/src/file
+	rm -r dir/*
+	# If the source is a directory and ends in a slash, our cp has
+	# traditionally copied the contents of the source rather than
+	# the source itself.  It is unclear whether this is intended
+	# or simply a consequence of how FTS handles the situation.
+	# Notably, GNU cp does not behave in this manner.
+	atf_check cp -r src/ dst
+	atf_check cmp -s src/file dir/file
+	rm -r dir/*
+	atf_check cp -r src/ dst/
+	atf_check cmp -s src/file dir/file
+	rm -r dir/*
+}
+
+atf_test_case to_deaddirlink
+to_deaddirlink_body()
+{
+	mkdir src
+	echo "foo" >src/file
+	ln -s dir dst
+	# It is unclear which error we should expect in these cases.
+	# Our current implementation always reports ENOTDIR, but one
+	# might be equally justified in expecting EEXIST or ENOENT.
+	# GNU cp reports EEXIST when the destination is given with a
+	# trailing slash and “cannot overwrite non-directory with
+	# directory” otherwise.
+	atf_check -s not-exit:0 -e ignore \
+	    cp -r src dst
+	atf_check -s not-exit:0 -e ignore \
+	    cp -r src dst/
+	atf_check -s not-exit:0 -e ignore \
+	    cp -r src/ dst
+	atf_check -s not-exit:0 -e ignore \
+	    cp -r src/ dst/
+	atf_check -s not-exit:0 -e ignore \
+	    cp -R src dst
+	atf_check -s not-exit:0 -e ignore \
+	    cp -R src dst/
+	atf_check -s not-exit:0 -e ignore \
+	    cp -R src/ dst
+	atf_check -s not-exit:0 -e ignore \
+	    cp -R src/ dst/
+}
+
+atf_test_case to_link_outside
+to_link_outside_body()
+{
+	mkdir dir dst dst/dir
+	echo "foo" >dir/file
+	ln -s ../../file dst/dir/file
+	atf_check \
+	    -s exit:1 \
+	    -e match:"dst/dir/file: Permission denied" \
+	    cp -r dir dst
+}
+
+atf_test_case dstmode
+dstmode_body()
+{
+	mkdir -m 0755 dir
+	echo "foo" >dir/file
+#ifdef __APPLE__
+	atf_check -x 'umask 0177 ; cp -R dir dst'
+#else
+#	umask 0177
+#	atf_check cp -R dir dst
+#endif
+	atf_check -o inline:"40600\n" stat -f%p dst
+	atf_check chmod 0750 dst
+	atf_check cmp dir/file dst/file
+}
+
+atf_test_case to_root cleanup
+to_root_head()
+{
+	atf_set "require.user" "unprivileged"
+}
+to_root_body()
+{
+	dst="test.$(atf_get ident).$$"
+	echo "$dst" >dst
+	echo "foo" >"$dst"
+	atf_check -s not-exit:0 \
+	    -e match:"^cp: /$dst: (Permission|Read-only)" \
+	    cp "$dst" /
+	atf_check -s not-exit:0 \
+	    -e match:"^cp: /$dst: (Permission|Read-only)" \
+	    cp "$dst" //
+}
+to_root_cleanup()
+{
+	(dst=$(cat dst) && rm "/$dst") 2>/dev/null || true
+}
+
+atf_test_case dirloop
+dirloop_head()
+{
+	atf_set "descr" "Test cycle detection when recursing"
+}
+dirloop_body()
+{
+	mkdir -p src/a src/b
+	ln -s ../b src/a
+	ln -s ../a src/b
+	atf_check \
+	    -s exit:1 \
+	    -e match:"src/a/b/a: directory causes a cycle" \
+	    -e match:"src/b/a/b: directory causes a cycle" \
+	    cp -r src dst
+	atf_check test -d dst
+	atf_check test -d dst/a
+	atf_check test -d dst/b
+	atf_check test -d dst/a/b
+	atf_check test ! -e dst/a/b/a
+	atf_check test -d dst/b/a
+	atf_check test ! -e dst/b/a/b
+}
+
+atf_test_case unrdir
+unrdir_head()
+{
+	atf_set "descr" "Test handling of unreadable directories"
+	atf_set "require.user" "unprivileged"
+}
+unrdir_body()
+{
+	for d in a b c ; do
+		mkdir -p src/$d
+		echo "$d" >src/$d/f
+	done
+	chmod 0 src/b
+	atf_check \
+	    -s exit:1 \
+	    -e match:"^cp: src/b: Permission denied" \
+	    cp -R src dst
+	atf_check test -d dst/a
+	atf_check cmp src/a/f dst/a/f
+	atf_check test -d dst/b
+	atf_check test ! -e dst/b/f
+	atf_check test -d dst/c
+	atf_check cmp src/c/f dst/c/f
+}
+
+atf_test_case unrfile
+unrfile_head()
+{
+	atf_set "descr" "Test handling of unreadable files"
+	atf_set "require.user" "unprivileged"
+}
+unrfile_body()
+{
+	mkdir src
+	for d in a b c ; do
+		echo "$d" >src/$d
+	done
+	chmod 0 src/b
+	atf_check \
+	    -s exit:1 \
+	    -e match:"^cp: src/b: Permission denied" \
+	    cp -R src dst
+	atf_check test -d dst
+	atf_check cmp src/a dst/a
+	atf_check test ! -e dst/b
+	atf_check cmp src/c dst/c
+}
+
 #ifdef __APPLE__
 atf_test_case pflag_ns
 pflag_ns_body()
@@ -434,10 +735,10 @@ cflag_body()
 	echo test_file > hfs_part/foo
 
 	echo "$noclone_volname" > noclone_volname
-        atf_check -o not-empty hdiutil create -size 10m \
+        atf_check -e ignore -o not-empty hdiutil create -size 10m \
             -volname "$noclone_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
             "$noclone_volname.dmg"
-        atf_check -o not-empty hdiutil attach -shadow test_shadow \
+        atf_check -e ignore -o not-empty hdiutil attach -shadow test_shadow \
             "$noclone_volname.dmg"
 
 	rootdir="/Volumes/$noclone_volname"
@@ -527,14 +828,18 @@ link_attr_body()
 }
 
 atf_test_case link_dir cleanup
+link_dir_head()
+{
+	atf_set "descr" "Test collision between link and directory."
+}
 link_dir_body()
 {
 	case_volname=$(mktemp -u "$(atf_get ident)"_vol_XXXXXXXXXX)
 	echo "$case_volname" > case_volname
-        atf_check -o not-empty hdiutil create -size 1m \
+        atf_check -e ignore -o not-empty hdiutil create -size 1m \
             -volname "$case_volname" -nospotlight -fs "Case-sensitive HFS+" \
             "$case_volname.dmg"
-        atf_check -o not-empty hdiutil attach \
+        atf_check -e ignore -o not-empty hdiutil attach \
             "$case_volname.dmg"
 	rootdir="/Volumes/${case_volname}"
 	atf_check mkdir "${rootdir}"/d
@@ -552,6 +857,107 @@ link_dir_cleanup()
 	[ -z "${case_volname}" ] ||
 	    hdiutil eject /Volumes/"${case_volname}"
 }
+
+atf_test_case suppressed cleanup
+suppressed_head()
+{
+	atf_set "descr" "Test that suppressed permissions are not copied."
+	atf_set "require.user" "root"
+}
+suppressed_body()
+{
+	[ $(id -u) -eq 0 ] || atf_skip "not root"
+	atf_check mkdir mp dir
+	atf_check mount_tmpfs -o noexec,nosuid -s 1M "${PWD}/mp"
+	cat >mp/script <<EOF
+#!/bin/sh
+exec /usr/bin/id "$@"
+EOF
+	atf_check chmod a+rx,u+s mp/script
+	atf_check -o inline:"104755\n" stat -f%p mp/script
+	atf_check cp -p mp/script mp/copy
+	atf_check -o inline:"104755\n" stat -f%p mp/copy
+	atf_check cp -p mp/script dir/script
+	atf_check cmp -s mp/script dir/script
+	atf_check -o inline:"100644\n" stat -f%p dir/script
+}
+suppressed_cleanup()
+{
+	umount "${PWD}/mp" || true
+}
+
+atf_test_case acls
+acls_head()
+{
+	atf_set "descr" "Verify that directory ACLs are copied (or not)"
+}
+acls_body()
+{
+	acl="group:nogroup deny delete"
+	atf_check mkdir src
+	atf_check ln -s src lnk
+	atf_check chmod +a "$acl" src
+	atf_check -o match:"$acl" ls -dle src
+	atf_check -o save:file echo "Hello, world!"
+	atf_check chmod +a "$acl" file
+	atf_check -o match:"$acl" ls -le file
+	# file-to-file copy without -p: ACLs are not copied
+	atf_check cp file src/file
+	atf_check -o not-match:"$acl" ls -le src/file
+	# file-to-file copy with -p: ACLs are copied
+	atf_check cp -p file src/file
+	atf_check -o match:"$acl" ls -le src/file
+	# recursive copy without -p: ACLs are not copied
+	atf_check cp -R src dst
+	atf_check -o not-match:"$acl" ls -dle dst
+	atf_check -o not-match:"$acl" ls -le dst/file
+	# recursive copy with -p: ACLs are copied
+	atf_check cp -Rp src dstp
+	atf_check -o match:"$acl" ls -dle dstp
+	atf_check -o match:"$acl" ls -le dstp/file
+	# source is a link without -p: ACLs are not copied
+	atf_check cp -LR lnk dst2
+	atf_check -o not-match:"$acl" ls -dle dst2
+	atf_check -o not-match:"$acl" ls -le dst2/file
+	# source is a link with -p: ACLs are copied
+	atf_check cp -LRp lnk dst2p
+	atf_check -o match:"$acl" ls -dle dst2p
+	atf_check -o match:"$acl" ls -le dst2p/file
+}
+
+atf_test_case xattrs
+xattrs_head()
+{
+	atf_set "descr" "Verify that extended attributes are copied (or not)"
+}
+xattrs_body()
+{
+	key=com.apple.xattrtest
+	value="squeamish ossifrage"
+	eulav="egarfisso hsimaeuqs"
+	atf_check mkdir src
+	atf_check xattr -w $key "$value" src
+	atf_check -o save:file echo "Hello, world!"
+	atf_check xattr -w $key "$eulav" file
+	# file-to-file copy without -X: xattrs are copied
+	atf_check cp file src/file
+	atf_check -o inline:"$eulav\n" \
+	    xattr -p "$key" src/file
+	# recursive copy without -X: xattrs are copied
+	atf_check cp -R src dst
+	atf_check -o inline:"$value\n" \
+	    xattr -p "$key" dst
+	atf_check -o inline:"$eulav\n" \
+	    xattr -p "$key" dst/file
+	# recursive copy with -X: xattrs are not copied
+	atf_check cp -RX src dstX
+	atf_check -s not-exit:0 \
+	    -e match:"No such xattr: $key" \
+	    xattr -p "$key" dstX
+	atf_check -s not-exit:0 \
+	    -e match:"No such xattr: $key" \
+	    xattr -p "$key" dstX/file
+}
 #endif
 
 atf_init_test_cases()
@@ -566,6 +972,10 @@ atf_init_test_cases()
 	atf_add_test_case matching_srctgt_contained
 	atf_add_test_case matching_srctgt_link
 	atf_add_test_case matching_srctgt_nonexistent
+#ifndef __APPLE__
+#	atf_add_test_case pflag_acls
+#endif
+	atf_add_test_case pflag_flags
 	atf_add_test_case recursive_link_dflt
 	atf_add_test_case recursive_link_Hflag
 	atf_add_test_case recursive_link_Lflag
@@ -581,6 +991,18 @@ atf_init_test_cases()
 	atf_add_test_case symlink_exists_force
 	atf_add_test_case directory_to_symlink
 	atf_add_test_case overwrite_directory
+	atf_add_test_case to_dir_dne
+	atf_add_test_case to_nondir
+	atf_add_test_case to_deadlink
+	atf_add_test_case to_deadlink_append
+	atf_add_test_case to_dirlink
+	atf_add_test_case to_deaddirlink
+	atf_add_test_case to_link_outside
+	atf_add_test_case dstmode
+	atf_add_test_case to_root
+	atf_add_test_case dirloop
+	atf_add_test_case unrdir
+	atf_add_test_case unrfile
 #ifdef __APPLE__
 	atf_add_test_case pflag_ns
 	atf_add_test_case cflag
@@ -588,5 +1010,8 @@ atf_init_test_cases()
 	atf_add_test_case link_perms
 	atf_add_test_case link_attr
 	atf_add_test_case link_dir
+	atf_add_test_case suppressed
+	atf_add_test_case acls
+	atf_add_test_case xattrs
 #endif
 }

@@ -43,7 +43,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FEColorMatrixSkiaApplier);
 
-bool FEColorMatrixSkiaApplier::apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const
+bool FEColorMatrixSkiaApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     ASSERT(inputs.size() == 1);
     auto& input = inputs[0].get();
@@ -57,12 +57,12 @@ bool FEColorMatrixSkiaApplier::apply(const Filter&, const FilterImageVector& inp
     if (!nativeImage || !nativeImage->platformImage())
         return false;
 
-    auto values = FEColorMatrix::normalizedFloats(m_effect.values());
+    auto values = FEColorMatrix::normalizedFloats(m_effect->values());
     Vector<float> matrix;
 
     std::array<float, 9> components;
 
-    switch (m_effect.type()) {
+    switch (m_effect->type()) {
     case ColorMatrixType::FECOLORMATRIX_TYPE_MATRIX:
         matrix = values;
         break;
@@ -101,7 +101,7 @@ bool FEColorMatrixSkiaApplier::apply(const Filter&, const FilterImageVector& inp
     }
 
     SkPaint paint;
-    paint.setColorFilter(SkColorFilters::Matrix(matrix.data()));
+    paint.setColorFilter(SkColorFilters::Matrix(matrix.span().data()));
 
     auto inputOffsetWithinResult = input.absoluteImageRectRelativeTo(result).location();
     resultImage->context().platformContext()->drawImage(nativeImage->platformImage(), inputOffsetWithinResult.x(), inputOffsetWithinResult.y(), { }, &paint);

@@ -37,6 +37,7 @@
 #import <pal/spi/mac/NSSharingServicePickerSPI.h>
 #import <pal/spi/mac/NSSharingServiceSPI.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/WTFString.h>
 
 // FIXME: We probably need to hang on the picker itself until the context menu operation is done, and this object will probably do that.
@@ -44,13 +45,13 @@
 
 + (WKSharingServicePickerDelegate*)sharedSharingServicePickerDelegate
 {
-    static WKSharingServicePickerDelegate* delegate = [[WKSharingServicePickerDelegate alloc] init];
-    return delegate;
+    static NeverDestroyed<RetainPtr<WKSharingServicePickerDelegate>> delegate = adoptNS([[WKSharingServicePickerDelegate alloc] init]);
+    return delegate.get().get();
 }
 
 - (WebKit::WebContextMenuProxyMac*)menuProxy
 {
-    return _menuProxy;
+    return _menuProxy.get();
 }
 
 - (void)setMenuProxy:(WebKit::WebContextMenuProxyMac*)menuProxy
@@ -88,14 +89,14 @@
     if (!_filterEditingServices)
         return proposedServices;
 
-    NSMutableArray *services = [NSMutableArray arrayWithCapacity:proposedServices.count];
+    RetainPtr services = adoptNS([[NSMutableArray alloc] initWithCapacity:proposedServices.count]);
     
     for (NSSharingService *service in proposedServices) {
         if (service.type != NSSharingServiceTypeEditor)
             [services addObject:service];
     }
     
-    return services;
+    return services.autorelease();
 }
 
 - (id <NSSharingServiceDelegate>)sharingServicePicker:(NSSharingServicePicker *)sharingServicePicker delegateForSharingService:(NSSharingService *)sharingService
@@ -110,7 +111,8 @@
 
 - (void)sharingService:(NSSharingService *)sharingService willShareItems:(NSArray *)items
 {
-    _menuProxy->clearServicesMenu();
+    if (RefPtr menuProxy = _menuProxy.get())
+        menuProxy->clearServicesMenu();
 }
 
 - (void)sharingService:(NSSharingService *)sharingService didShareItems:(NSArray *)items
@@ -126,46 +128,46 @@
     Vector<String> types;
     std::span<const uint8_t> dataReference;
 
-    id item = [items objectAtIndex:0];
+    RetainPtr<id> item = [items objectAtIndex:0];
 
-    if ([item isKindOfClass:[NSAttributedString class]]) {
-        NSData *data = [item RTFDFromRange:NSMakeRange(0, [item length]) documentAttributes:@{ }];
-        dataReference = span(data);
+    if (RetainPtr attributedString = dynamic_objc_cast<NSAttributedString>(item.get())) {
+        RetainPtr data = [attributedString RTFDFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:@{ }];
+        dataReference = span(data.get());
 
         types.append(NSPasteboardTypeRTFD);
         types.append(WebCore::legacyRTFDPasteboardType());
-    } else if ([item isKindOfClass:[NSData class]]) {
-        NSData *data = (NSData *)item;
-        RetainPtr<CGImageSourceRef> source = adoptCF(CGImageSourceCreateWithData((CFDataRef)data, NULL));
+    } else if (RetainPtr data = dynamic_objc_cast<NSData>(item.get())) {
+        RetainPtr<CGImageSourceRef> source = adoptCF(CGImageSourceCreateWithData(bridge_cast(data.get()), NULL));
         RetainPtr<CGImageRef> image = adoptCF(CGImageSourceCreateImageAtIndex(source.get(), 0, NULL));
 
         if (!image)
             return;
 
-        dataReference = span(data);
+        dataReference = span(data.get());
         types.append(NSPasteboardTypeTIFF);
-    } else if ([item isKindOfClass:[NSItemProvider class]]) {
-        NSItemProvider *itemProvider = (NSItemProvider *)item;
-        
+    } else if (RetainPtr itemProvider = dynamic_objc_cast<NSItemProvider>(item.get())) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        WeakPtr weakPage = _menuProxy->page();
-        NSString *itemUTI = itemProvider.registeredTypeIdentifiers.firstObject;
-        [itemProvider loadDataRepresentationForTypeIdentifier:itemUTI completionHandler:[weakPage, attachmentID = _attachmentID, itemUTI](NSData *data, NSError *error) {
-            RefPtr webPage = weakPage.get();
-            
-            if (!webPage)
-                return;
-            
-            if (error)
-                return;
-            
-            auto apiAttachment = webPage->attachmentForIdentifier(attachmentID);
-            if (!apiAttachment)
-                return;
-            
-            auto attachment = wrapper(apiAttachment);
-            [attachment setData:data newContentType:itemUTI];
-            webPage->didInvalidateDataForAttachment(*apiAttachment.get());
+        RefPtr menuProxy = _menuProxy.get();
+        WeakPtr weakPage = menuProxy ? menuProxy->page() : nullptr;
+        RetainPtr<NSString> itemUTI = itemProvider.get().registeredTypeIdentifiers.firstObject;
+        [itemProvider loadDataRepresentationForTypeIdentifier:itemUTI.get() completionHandler:[weakPage, attachmentID = _attachmentID, itemUTI](NSData *data, NSError *error) {
+            ensureOnMainRunLoop([weakPage = WTFMove(weakPage), attachmentID, itemUTI, data = RetainPtr { data }, error = RetainPtr { error }] {
+                RefPtr webPage = weakPage.get();
+
+                if (!webPage)
+                    return;
+
+                if (error)
+                    return;
+
+                RefPtr apiAttachment = webPage->attachmentForIdentifier(attachmentID);
+                if (!apiAttachment)
+                    return;
+
+                RetainPtr attachment = wrapper(apiAttachment.get());
+                [attachment setData:data.get() newContentType:itemUTI.get()];
+                webPage->didInvalidateDataForAttachment(*apiAttachment.get());
+            });
         }];
 ALLOW_DEPRECATED_DECLARATIONS_END
         return;
@@ -175,17 +177,21 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     // FIXME: We should adopt replaceSelectionWithAttributedString instead of bouncing through the (fake) pasteboard.
-    _menuProxy->page()->replaceSelectionWithPasteboardData(types, dataReference);
+    if (RefPtr menuProxy = _menuProxy.get())
+        menuProxy->protectedPage()->replaceSelectionWithPasteboardData(types, dataReference);
 }
 
 - (NSWindow *)sharingService:(NSSharingService *)sharingService sourceWindowForShareItems:(NSArray *)items sharingContentScope:(NSSharingContentScope *)sharingContentScope
 {
-    return _menuProxy->window();
+    if (RefPtr menuProxy = _menuProxy.get())
+        return menuProxy->window();
+    return nil;
 }
 
 - (void)removeBackground
 {
-    _menuProxy->removeBackgroundFromControlledImage();
+    if (RefPtr menuProxy = _menuProxy.get())
+        menuProxy->removeBackgroundFromControlledImage();
 }
 
 @end

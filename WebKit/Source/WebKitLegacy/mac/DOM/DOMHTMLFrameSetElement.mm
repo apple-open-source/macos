@@ -42,7 +42,7 @@
 - (NSString *)cols
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::colsAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::colsAttr).createNSString().autorelease();
 }
 
 - (void)setCols:(NSString *)newCols
@@ -54,7 +54,7 @@
 - (NSString *)rows
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::rowsAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::rowsAttr).createNSString().autorelease();
 }
 
 - (void)setRows:(NSString *)newRows

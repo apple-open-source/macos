@@ -1063,10 +1063,11 @@ void DateIntervalFormatTest::testFormat() {
 #if APPLE_ICU_CHANGES
 // rdar://
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "h", "10\\u202FAM\\u2009\\u2013\\u20092\\u202FPM",
+        "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "H", "10\\u201314",
 #else
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "h", "10 Uhr AM\\u2009\\u2013\\u20092 Uhr PM",
-#endif  // APPLE_ICU_CHANGES
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 14:10:10", "H", "10\\u201314 Uhr",
+#endif  // APPLE_ICU_CHANGES
 
         "de", "CE 2007 01 10 10:00:10", "CE 2007 01 10 10:20:10", "EEEEdMMM", "Mittwoch, 10. Jan.",
 
@@ -1236,17 +1237,33 @@ void DateIntervalFormatTest::testHourMetacharacters() {
 
         // baseline (h and H)
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "12\\u2009\\u2013\\u20091\\u202FAM",
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "HH", "00\\u201301",
+#else
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "HH", "00\\u201301 Uhr",
-        
+#endif // APPLE_ICU_CHANGES
+
         // k and K (ICU-21154 and ICU-21156)
         // (should behave the same as h and H if not overridden in locale ID)
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "12\\u2009\\u2013\\u20091\\u202FAM",
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "kk", "00\\u201301",
+#else
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "kk", "00\\u201301 Uhr",
+#endif // APPLE_ICU_CHANGES
         // (overriding hour cycle in locale ID should affect both h and K [or both H and k])
         "en-u-hc-h11", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hh", "0\\u2009\\u2013\\u20091\\u202FAM",
         "en-u-hc-h11", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "KK", "0\\u2009\\u2013\\u20091\\u202FAM",
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "HH", "24\\u201301",
+        "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "kk", "24\\u201301",
+#else
         "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "HH", "24\\u201301 Uhr",
         "de-u-hc-h24", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "kk", "24\\u201301 Uhr",
+#endif // APPLE_ICU_CHANGES
         // (overriding hour cycle to h11 should NOT affect H and k; overriding to h24 should NOT affect h and K)
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "HH", "00\\u2009\\u2013\\u200901",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "kk", "00\\u2009\\u2013\\u200901",
@@ -1286,16 +1303,19 @@ void DateIntervalFormatTest::testHourMetacharacters() {
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "12\\u2009\\u2013\\u20091\\u202FAM",
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jjjjj", "10\\u202Fa\\u2009\\u2013\\u20091\\u202Fp",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jjjjj", "12\\u2009\\u2013\\u20091\\u202Fa",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "00\\u201301",
+        "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jjjjj", "10\\u201313",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jjjjj", "00\\u201301",
 #else
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "10\\u202FAM\\u20131\\u202FPM",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "12\\u20131\\u202FAM",
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jjjjj", "10\\u202Fa\\u20131\\u202Fp",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jjjjj", "12\\u20131\\u202Fa",
         "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "10\\u201313 Uhr",
-#endif  // APPLE_ICU_CHANGES
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "00\\u201301 Uhr",
         "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jjjjj", "10\\u201313 Uhr",
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jjjjj", "00\\u201301 Uhr",
+#endif  // APPLE_ICU_CHANGES
         
         // b and B
 #if APPLE_ICU_CHANGES
@@ -1318,12 +1338,14 @@ void DateIntervalFormatTest::testHourMetacharacters() {
 // rdar://
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "J", "10\\u2009\\u2013\\u20091",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "J", "12\\u2009\\u2013\\u20091",
+        "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "J", "10\\u201313",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "J", "00\\u201301",
 #else
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "J", "10\\u20131",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "J", "12\\u20131",
-#endif  // APPLE_ICU_CHANGES
         "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "J", "10\\u201313 Uhr",
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "J", "00\\u201301 Uhr",
+#endif  // APPLE_ICU_CHANGES
         
         // C
         // (for English and German, C should do the same thing as j)
@@ -1333,16 +1355,20 @@ void DateIntervalFormatTest::testHourMetacharacters() {
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "12\\u2009\\u2013\\u20091\\u202FAM",
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CCCCC", "10\\u202Fa\\u2009\\u2013\\u20091\\u202Fp",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CCCCC", "12\\u2009\\u2013\\u20091\\u202Fa",
+        "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CC", "10\\u201313",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "00\\u201301",
+        "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CCCCC", "10\\u201313",
+        "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CCCCC", "00\\u201301",
 #else
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CC", "10\\u202FAM\\u20131\\u202FPM",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "12\\u20131\\u202FAM",
         "en", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CCCCC", "10\\u202Fa\\u20131\\u202Fp",
         "en", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CCCCC", "12\\u20131\\u202Fa",
-#endif  // APPLE_ICU_CHANGES
         "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CC", "10\\u201313 Uhr",
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "00\\u201301 Uhr",
         "de", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CCCCC", "10\\u201313 Uhr",
         "de", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CCCCC", "00\\u201301 Uhr",
+#endif  // APPLE_ICU_CHANGES
         // (for zh_HK and hi_IN, j maps to ha, but C maps to hB)
         "zh_HK", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "\\u4E0A\\u534810\\u6642\\u81F3\\u4E0B\\u53481\\u6642",
         "zh_HK", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "\\u4E0A\\u534812\\u6642\\u81F31\\u6642",
@@ -1350,10 +1376,14 @@ void DateIntervalFormatTest::testHourMetacharacters() {
         "zh_HK", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "hB", "\\u51CC\\u666812\\u20131\\u6642",
         "zh_HK", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "CC", "\\u4E0A\\u534810\\u6642\\u81F3\\u4E0B\\u53481\\u6642",
         "zh_HK", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "CC", "\\u4E0A\\u534812\\u6642\\u81F31\\u6642",
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
         "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "\\u0938\\u0941\\u092C\\u0939 10 \\u2013 \\u0926\\u094B\\u092A\\u0939\\u0930 1",
         "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "\\u0930\\u093E\\u0924 12\\u20131",
+#elif APPLE_ICU_CHANGES
+// rdar://
+        "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "\\u092A\\u0942 10 \\u2013 \\u0905 1",
+        "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "\\u092A\\u0942 12\\u20131",
 #else
         "hi_IN", "CE 2010 09 27 10:00:00", "CE 2010 09 27 13:00:00", "jj", "10\\u202Fam\\u2009\\u2013\\u20091\\u202Fpm",
         "hi_IN", "CE 2010 09 27 00:00:00", "CE 2010 09 27 01:00:00", "jj", "12\\u20131\\u202Fam",
@@ -2403,9 +2433,11 @@ void DateIntervalFormatTest::testTicket20707() {
         {u"12\u202FAM", u"00", u"00", u"12\u202FAM", u"12\u202FAM", u"0 (hour: 12)", u"12\u202FAM"},
         {u"12\u202FAM", u"00", u"00", u"12\u202FAM", u"12\u202FAM", u"0 (hour: 12)", u"12\u202FAM"},
         // Hour-cycle: K
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
         {u"\u0930\u093E\u0924 0", u"00", u"00", u"\u092A\u0942 0", u"\u0930\u093E\u0924 0", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
+#elif APPLE_ICU_CHANGES
+        {u"\u092A\u0942 0", u"00", u"00", u"\u092A\u0942 0", u"\u092A\u0942 0", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
 #else
         {u"0\u202Fam", u"00", u"00", u"0\u202Fam", u"0\u202Fam", u"0 (\u0918\u0902\u091F\u093E: 00)", u"\u0930\u093E\u0924 0"}
 #endif  // APPLE_ICU_CHANGES
@@ -2564,9 +2596,11 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 
     formatted = roc->formatToValue(bothAfterMG, status);
     assertEquals("roc calendar - both dates in MG Era",
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
                  u"民國 1/1/2 清晨6時至民國 2/1/2 清晨6時",
+#elif APPLE_ICU_CHANGES
+                 u"民國 1/1/2 上午6時至民國 2/1/2 上午6時",
 #else
                  u"民國1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES
@@ -2576,9 +2610,11 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 
     formatted = roc->formatToValue(beforeAfterMG, status);
     assertEquals("roc calendar - prior MG Era and in MG Era",
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
                  u"民國前 1/1/2 清晨6時至民國 2/1/2 清晨6時",
+#elif APPLE_ICU_CHANGES
+                 u"民國前 1/1/2 上午6時至民國 2/1/2 上午6時",
 #else
                  u"民國前1/1/2 上午6時\u2009\u2013\u2009民國2/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES
@@ -2587,9 +2623,11 @@ void DateIntervalFormatTest::testTicket21222ROCEraDiff() {
 
     formatted = roc->formatToValue(bothBeforeMG, status);
     assertEquals("roc calendar - both dates prior MG Era",
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
                  u"民國前 2/1/2 清晨6時至民國前 1/1/2 清晨6時",
+#elif APPLE_ICU_CHANGES
+                 u"民國前 2/1/2 上午6時至民國前 1/1/2 上午6時",
 #else
                  u"民國前2/1/2 上午6時\u2009\u2013\u2009民國前1/1/2 上午6時",
 #endif  // APPLE_ICU_CHANGES

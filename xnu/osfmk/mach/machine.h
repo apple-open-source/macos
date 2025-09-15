@@ -376,6 +376,9 @@ __END_DECLS
 #define CPU_SUBTYPE_ARM_V7M             ((cpu_subtype_t) 15) /* Not meant to be run under xnu */
 #define CPU_SUBTYPE_ARM_V7EM            ((cpu_subtype_t) 16) /* Not meant to be run under xnu */
 #define CPU_SUBTYPE_ARM_V8M             ((cpu_subtype_t) 17) /* Not meant to be run under xnu */
+#define CPU_SUBTYPE_ARM_V8M_MAIN        CPU_SUBTYPE_ARM_V8M  /* Not meant to be run under xnu */
+#define CPU_SUBTYPE_ARM_V8M_BASE        ((cpu_subtype_t) 18) /* Not meant to be run under xnu */
+#define CPU_SUBTYPE_ARM_V8_1M_MAIN      ((cpu_subtype_t) 19) /* Not meant to be run under xnu */
 
 /*
  *  ARM64 subtypes
@@ -388,7 +391,14 @@ __END_DECLS
 #define CPU_SUBTYPE_ARM64_PTR_AUTH_MASK 0x0f000000
 #define CPU_SUBTYPE_ARM64_PTR_AUTH_VERSION(x) (((x) & CPU_SUBTYPE_ARM64_PTR_AUTH_MASK) >> 24)
 #ifdef PRIVATE
-#define CPU_SUBTYPE_ARM64_PTR_AUTH_CURRENT_VERSION 0
+#define CPU_SUBTYPE_ARM64_PTR_AUTHV0_VERSION 0
+#define CPU_SUBTYPE_ARM64_PTR_AUTHV1_VERSION 1
+#define CPU_SUBTYPE_ARM64_PTR_AUTH_CURRENT_VERSION CPU_SUBTYPE_ARM64_PTR_AUTHV0_VERSION
+#if XNU_TARGET_OS_OSX
+#define CPU_SUBTYPE_ARM64_PTR_AUTH_MAX_PREFERRED_VERSION CPU_SUBTYPE_ARM64_PTR_AUTHV1_VERSION
+#else /* XNU_TARGET_OS_OSX */
+#define CPU_SUBTYPE_ARM64_PTR_AUTH_MAX_PREFERRED_VERSION CPU_SUBTYPE_ARM64_PTR_AUTHV0_VERSION
+#endif /* XNU_TARGET_OS_OSX */
 #endif /* PRIVATE */
 
 /*

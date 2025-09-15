@@ -1482,6 +1482,37 @@ CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder) {
     return (builder) ? (CFDataRef)CFRetainSafe(builder->clientAuditToken) : NULL;
 }
 
+SecTaskRef SecPathBuilderCopyClientTask(SecPathBuilderRef builder) {
+    CFDataRef clientAuditToken = SecPathBuilderCopyClientAuditToken(builder);
+    audit_token_t auditToken = {};
+    SecTaskRef task = NULL;
+
+    require_quiet(clientAuditToken && (sizeof(auditToken) == CFDataGetLength(clientAuditToken)), errOut);
+    CFDataGetBytes(clientAuditToken, CFRangeMake(0, sizeof(auditToken)), (uint8_t *)&auditToken);
+    task = SecTaskCreateWithAuditToken(NULL, auditToken);
+
+errOut:
+    CFReleaseNull(clientAuditToken);
+    return task;
+}
+
+bool SecPathBuilderIsPlatformBinary(SecPathBuilderRef builder) {
+    bool platform_binary = false;
+
+    SecTaskRef task = SecPathBuilderCopyClientTask(builder);
+    require_quiet(task, errOut);
+
+    uint32_t masked_flags = SecTaskGetCodeSignStatus(task) & (CS_VALID | CS_DEBUGGED | CS_PLATFORM_BINARY | CS_PLATFORM_PATH);
+    if (masked_flags == (CS_VALID | CS_PLATFORM_BINARY) ||
+        (SecIsInternalRelease() && masked_flags == (CS_DEBUGGED | CS_PLATFORM_BINARY))) {
+        platform_binary = true;
+    }
+
+errOut:
+    CFReleaseNull(task);
+    return platform_binary;
+}
+
 uint64_t SecPathBuilderGetAttribution(SecPathBuilderRef builder) {
     return (builder) ? builder->attribution : 0;
 }

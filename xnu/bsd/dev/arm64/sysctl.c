@@ -23,6 +23,9 @@
 #include <kern/bits.h>
 #endif
 
+#define __STR(x)        #x
+#define STRINGIFY(x)    __STR(x)
+
 extern uint64_t wake_abstime;
 
 #if DEVELOPMENT || DEBUG
@@ -438,6 +441,22 @@ SYSCTL_PROC(_machdep, OID_AUTO, ptrauth_enabled,
     0, 0,
     machdep_ptrauth_enabled, "I", "");
 
+static const char _ctrr_type[] =
+#if defined(KERNEL_CTRR_VERSION)
+    "ctrrv" STRINGIFY(KERNEL_CTRR_VERSION);
+#elif defined(KERNEL_INTEGRITY_KTRR)
+    "ktrr";
+#elif defined(KERNEL_INTEGRITY_PV_CTRR)
+    "pv";
+#else
+    "none";
+#endif
+
+SYSCTL_STRING(_machdep, OID_AUTO, ctrr_type,
+    CTLFLAG_KERN | CTLFLAG_RD | CTLFLAG_LOCKED,
+    __DECONST(char *, _ctrr_type), 0,
+    "CTRR type supported by hardware/kernel");
+
 #if CONFIG_TELEMETRY && (DEBUG || DEVELOPMENT)
 extern unsigned long trap_telemetry_reported_events;
 SYSCTL_ULONG(_debug, OID_AUTO, trap_telemetry_reported_events,
@@ -467,3 +486,10 @@ SYSCTL_PROC(_vm, OID_AUTO, dram_ecc_error_injection_capable, CTLTYPE_INT | CTLFL
     0, 0, &dram_ecc_error_injection_capable, "I", "");
 #endif /* DEBUG || DEVELOPMENT */
 
+
+#if DEBUG || DEVELOPMENT
+extern _Atomic unsigned int ipcpv_telemetry_count;
+SYSCTL_UINT(_debug, OID_AUTO, ipcpv_telemetry_count,
+    CTLFLAG_RD | CTLFLAG_LOCKED, &ipcpv_telemetry_count,
+    0, "Number of ipc policy violation telemetry emitted");
+#endif /* DEBUG || DEVELOPMENT */

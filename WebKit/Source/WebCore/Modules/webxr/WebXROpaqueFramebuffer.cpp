@@ -29,6 +29,7 @@
 
 #if ENABLE(WEBXR) && !PLATFORM(COCOA)
 
+#include "DocumentInlines.h"
 #include "IntSize.h"
 #include "WebGLFramebuffer.h"
 #include "WebGL2RenderingContext.h"

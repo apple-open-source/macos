@@ -28,18 +28,6 @@
 
 using namespace WebCore;
 
-/**
- * WebKitNetworkProxySettings:
- * @See_also: #WebKitWebContext
- *
- * Configures network proxies.
- *
- * WebKitNetworkProxySettings can be used to provide a custom proxy configuration
- * to a #WebKitWebContext. You need to call webkit_web_context_set_network_proxy_settings()
- * with %WEBKIT_NETWORK_PROXY_MODE_CUSTOM and a WebKitNetworkProxySettings.
- *
- * Since: 2.16
- */
 struct _WebKitNetworkProxySettings {
     _WebKitNetworkProxySettings()
         : settings(SoupNetworkProxySettings::Mode::Custom)

@@ -289,6 +289,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._resourcesTreeOutline = this.contentTreeOutline;
         this._resourcesTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._handleTreeSelectionDidChange, this);
         this._resourcesTreeOutline.includeSourceMapResourceChildren = true;
+        this._resourcesTreeOutline.registerScrollVirtualizer(resourcesContainer, 20);
         resourcesContainer.appendChild(this._resourcesTreeOutline.element);
 
         if (WI.NetworkManager.supportsOverridingResponses() || WI.NetworkManager.supportsBootstrapScript() || WI.CSSManager.supportsInspectorStyleSheet()) {
@@ -2216,43 +2217,40 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             });
         }
 
-        if (WI.DOMDebuggerManager.supportsEventBreakpoints() || WI.DOMDebuggerManager.supportsEventListenerBreakpoints()) {
-            addToggleForSpecialBreakpoint(WI.repeatedUIString.allAnimationFrames(), WI.domDebuggerManager.allAnimationFramesBreakpoint, () => {
-                WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.AnimationFrame));
-            });
-            addToggleForSpecialBreakpoint(WI.repeatedUIString.allTimeouts(), WI.domDebuggerManager.allTimeoutsBreakpoint, () => {
-                WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Timeout));
-            });
-            addToggleForSpecialBreakpoint(WI.repeatedUIString.allIntervals(), WI.domDebuggerManager.allIntervalsBreakpoint, () => {
-                WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Interval));
-            });
+        addToggleForSpecialBreakpoint(WI.repeatedUIString.allAnimationFrames(), WI.domDebuggerManager.allAnimationFramesBreakpoint, () => {
+            WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.AnimationFrame));
+        });
+        addToggleForSpecialBreakpoint(WI.repeatedUIString.allTimeouts(), WI.domDebuggerManager.allTimeoutsBreakpoint, () => {
+            WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Timeout));
+        });
+        addToggleForSpecialBreakpoint(WI.repeatedUIString.allIntervals(), WI.domDebuggerManager.allIntervalsBreakpoint, () => {
+            WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Interval));
+        });
 
-            contextMenu.appendSeparator();
+        contextMenu.appendSeparator();
 
-            if (WI.DOMDebuggerManager.supportsAllListenersBreakpoint())
-                addToggleForSpecialBreakpoint(WI.repeatedUIString.allEvents(), WI.domDebuggerManager.allListenersBreakpoint, () => {
-                    WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Listener));
-                });
-
-            contextMenu.appendItem(WI.UIString("Event Breakpoint\u2026"), () => {
-                let popover = new WI.EventBreakpointPopover(this);
-                popover.show(this._createBreakpointButton.element, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+        if (WI.DOMDebuggerManager.supportsAllListenersBreakpoint()) {
+            addToggleForSpecialBreakpoint(WI.repeatedUIString.allEvents(), WI.domDebuggerManager.allListenersBreakpoint, () => {
+                WI.domDebuggerManager.addEventBreakpoint(new WI.EventBreakpoint(WI.EventBreakpoint.Type.Listener));
             });
         }
 
-        if (WI.DOMDebuggerManager.supportsURLBreakpoints() || WI.DOMDebuggerManager.supportsXHRBreakpoints()) {
-            contextMenu.appendSeparator();
+        contextMenu.appendItem(WI.UIString("Event Breakpoint\u2026"), () => {
+            let popover = new WI.EventBreakpointPopover(this);
+            popover.show(this._createBreakpointButton.element, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+        });
 
-            addToggleForSpecialBreakpoint(WI.repeatedUIString.allRequests(), WI.domDebuggerManager.allRequestsBreakpoint, () => {
-                const url = "";
-                WI.domDebuggerManager.addURLBreakpoint(new WI.URLBreakpoint(WI.URLBreakpoint.Type.Text, url));
-            });
+        contextMenu.appendSeparator();
 
-            contextMenu.appendItem(WI.DOMDebuggerManager.supportsURLBreakpoints() ? WI.UIString("URL Breakpoint\u2026") : WI.UIString("XHR Breakpoint\u2026"), () => {
-                let popover = new WI.URLBreakpointPopover(this);
-                popover.show(this._createBreakpointButton.element, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
-            });
-        }
+        addToggleForSpecialBreakpoint(WI.repeatedUIString.allRequests(), WI.domDebuggerManager.allRequestsBreakpoint, () => {
+            const url = "";
+            WI.domDebuggerManager.addURLBreakpoint(new WI.URLBreakpoint(WI.URLBreakpoint.Type.Text, url));
+        });
+
+        contextMenu.appendItem(WI.UIString("URL Breakpoint\u2026"), () => {
+            let popover = new WI.URLBreakpointPopover(this);
+            popover.show(this._createBreakpointButton.element, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+        });
     }
 
     _populateCreateLocalOverrideContextMenu(contextMenu)

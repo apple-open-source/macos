@@ -83,7 +83,7 @@ skt_ringid_main_common(int argc, char *argv[], uint32_t num,
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	fringid = os_channel_ring_id(channel, first);
@@ -114,7 +114,7 @@ skt_ringid_main_common(int argc, char *argv[], uint32_t num,
 
 		channel = sktu_channel_create_extended(channel_uuid, 0,
 		    CHANNEL_DIR_TX_RX, ringid, NULL,
-		    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 		assert(channel);
 
 		ringid2 = os_channel_ring_id(channel, first);
@@ -136,7 +136,7 @@ skt_ringid_main_common(int argc, char *argv[], uint32_t num,
 	assert(ringid == lringid + 1);
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, ringid, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(!channel);
 
 	return 0;

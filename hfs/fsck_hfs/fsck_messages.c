@@ -30,6 +30,11 @@
 #include <assert.h>
 #include <Block.h>
 #include <sys/param.h>
+#if __has_include(<FSKit/FSKit.h>)
+#define HAS_FSKIT
+#include <FSKit/FSKitCFunctions_private.h>
+#include <os/variant_private.h>
+#endif
 
 #include "fsck_messages.h"
 #include "fsck_keys.h"
@@ -1130,6 +1135,39 @@ fsckPrint(fsck_ctx_t c, int m, va_list ap)
 done:
 	return retval;
 }
+
+#ifdef HAS_FSKIT
+static bool gHasFSkit = false;
+
+void fsckStart(fsck_ctx_t ctx, const char *device_name, const char *volume_name)
+{
+    if (os_variant_has_internal_content("com.apple.FSKit") == false) {
+        // No FSKit. Don't touch anything FSKit-related
+        return;
+    }
+
+    gHasFSkit = true;
+    FSKitCheckStart(device_name, volume_name);
+}
+
+void fsckUpdate(fsck_ctx_t ctx, int percentage_complete)
+{
+    if (gHasFSkit == false) {
+        // No FSKit. Don't touch anything FSKit-related
+        return;
+    }
+    FSKitCheckUpdate(percentage_complete);
+}
+
+void fsckDone(fsck_ctx_t ctx, int error)
+{
+    if (gHasFSkit == false) {
+        // No FSKit. Don't touch anything FSKit-related
+        return;
+    }
+    FSKitCheckDone(error);
+}
+#endif
 
 /*
  * fsckMsgClass(context, msgnum)

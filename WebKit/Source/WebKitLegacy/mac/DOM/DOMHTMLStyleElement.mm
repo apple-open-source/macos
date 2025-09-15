@@ -56,7 +56,7 @@
 - (NSString *)media
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::mediaAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::mediaAttr).createNSString().autorelease();
 }
 
 - (void)setMedia:(NSString *)newMedia
@@ -68,7 +68,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr).createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType
@@ -86,7 +86,7 @@
 - (NSString *)nonce
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::nonceAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::nonceAttr).createNSString().autorelease();
 }
 
 - (void)setNonce:(NSString *)newNonce

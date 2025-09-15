@@ -30,6 +30,7 @@
 
 #import "Chrome.h"
 #import "ChromeClient.h"
+#import "ContainerNodeInlines.h"
 #import "DataDetection.h"
 #import "DataDetectionResultsStorage.h"
 #import "DataDetectorElementInfo.h"
@@ -70,7 +71,7 @@ void ImageOverlayController::updateDataDetectorHighlights(const HTMLElement& ove
             dataDetectorResultElements.append(child);
     }
 
-    UncheckedKeyHashSet<Ref<HTMLElement>> dataDetectorResultElementsWithHighlights;
+    HashSet<Ref<HTMLElement>> dataDetectorResultElementsWithHighlights;
     for (auto& containerAndHighlight : m_dataDetectorContainersAndHighlights) {
         if (containerAndHighlight.first)
             dataDetectorResultElementsWithHighlights.add(*containerAndHighlight.first);

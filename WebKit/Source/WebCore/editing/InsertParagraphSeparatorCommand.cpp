@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,7 +82,7 @@ void InsertParagraphSeparatorCommand::calculateStyleBeforeInsertion(const Positi
     if (!isStartOfParagraph(visiblePosition) && !isEndOfParagraph(visiblePosition))
         return;
 
-    m_style = EditingStyle::create(position, EditingStyle::EditingPropertiesInEffect);
+    m_style = EditingStyle::create(position, EditingStyle::PropertiesToInclude::EditingPropertiesInEffect);
     protectedStyle()->mergeTypingStyle(*position.document());
 }
 
@@ -97,7 +97,7 @@ void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnc
         originalEnclosingBlock->hasTagName(h5Tag))
         return;
 
-    auto style = protectedStyle();
+    RefPtr style = m_style;
     if (!style)
         return;
 
@@ -138,7 +138,7 @@ Ref<Element> InsertParagraphSeparatorCommand::cloneHierarchyUnderNewBlock(const 
     // Make clones of ancestors in between the start node and the start block.
     RefPtr<Element> parent = WTFMove(blockToInsert);
     for (size_t i = ancestors.size(); i != 0; --i) {
-        auto child = ancestors[i - 1]->cloneElementWithoutChildren(document());
+        auto child = ancestors[i - 1]->cloneElementWithoutChildren(document(), nullptr);
         // It should always be okay to remove id from the cloned elements, since the originals are not deleted.
         child->removeAttribute(idAttr);
         appendNode(child.copyRef(), parent.releaseNonNull());
@@ -242,7 +242,7 @@ void InsertParagraphSeparatorCommand::doApply()
         affinity = endingSelection().affinity();
     }
     
-    auto document = protectedDocument();
+    Ref document = this->document();
     // FIXME: The parentAnchoredEquivalent conversion needs to be moved into enclosingBlock.
     RefPtr<Element> startBlock = enclosingBlock(insertionPosition.parentAnchoredEquivalent().protectedContainerNode());
     Position canonicalPos = VisiblePosition(insertionPosition).deepEquivalent();
@@ -299,7 +299,7 @@ void InsertParagraphSeparatorCommand::doApply()
     } else if (shouldUseDefaultParagraphElement(startBlock.get())) 
         blockToInsert = createDefaultParagraphElement(document);
     else
-        blockToInsert = startBlock->cloneElementWithoutChildren(document);
+        blockToInsert = startBlock->cloneElementWithoutChildren(document, nullptr);
 
     //---------------------------------------------------------------------
     // Handle case when position is in the last visible position in its block,

@@ -52,7 +52,7 @@
 
 - (NSString *)targetPlatformName
 {
-    return _debuggableInfo->targetPlatformName();
+    return _debuggableInfo->targetPlatformName().createNSString().autorelease();
 }
 
 - (void)setTargetPlatformName:(NSString *)targetPlatformName
@@ -62,7 +62,7 @@
 
 - (NSString *)targetBuildVersion
 {
-    return _debuggableInfo->targetBuildVersion();
+    return _debuggableInfo->targetBuildVersion().createNSString().autorelease();
 }
 
 - (void)setTargetBuildVersion:(NSString *)targetBuildVersion
@@ -72,7 +72,7 @@
 
 - (NSString *)targetProductVersion
 {
-    return _debuggableInfo->targetProductVersion();
+    return _debuggableInfo->targetProductVersion().createNSString().autorelease();
 }
 
 - (void)setTargetProductVersion:(NSString *)targetProductVersion

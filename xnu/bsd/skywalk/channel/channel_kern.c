@@ -356,15 +356,15 @@ kern_channel_tx_refill_common(const kern_channel_ring_t hw_kring,
 		goto out;
 	}
 
-	if (__improbable(!IF_FULLY_ATTACHED(ifp))) {
-		SK_ERR("hwna 0x%llx ifp %s (0x%llx), interface not attached",
+	if (__improbable(!ifnet_is_fully_attached(ifp))) {
+		SK_ERR("hwna %p ifp %s (%p), interface not attached",
 		    SK_KVA(hwna), if_name(ifp), SK_KVA(ifp));
 		rc = ENXIO;
 		goto out;
 	}
 
 	if (__improbable((ifp->if_start_flags & IFSF_FLOW_CONTROLLED) != 0)) {
-		SK_DF(SK_VERB_SYNC | SK_VERB_TX, "hwna 0x%llx ifp %s (0x%llx), "
+		SK_DF(SK_VERB_SYNC | SK_VERB_TX, "hwna %p ifp %s (%p), "
 		    "flow control ON", SK_KVA(hwna), if_name(ifp), SK_KVA(ifp));
 		rc = ENXIO;
 		goto out;
@@ -382,7 +382,7 @@ kern_channel_tx_refill_common(const kern_channel_ring_t hw_kring,
 	if (__improbable(KR_DROP(hw_kring) ||
 	    !NA_IS_ACTIVE(hw_kring->ckr_na))) {
 		kr_exit(hw_kring);
-		SK_ERR("hw-kr 0x%llx stopped", SK_KVA(hw_kring));
+		SK_ERR("hw-kr %p stopped", SK_KVA(hw_kring));
 		rc = ENXIO;
 		goto out;
 	}
@@ -468,7 +468,7 @@ _kern_channel_flowadv_signal(struct flowadv_fcentry *fce, flow_adv_type_t type)
 	struct nx_flowswitch *fsw;
 	flow_adv_func_type_t flow_adv_func = NULL;
 
-	_CASSERT(sizeof(ch->ch_info->cinfo_ch_token) == sizeof(ch_token));
+	static_assert(sizeof(ch->ch_info->cinfo_ch_token) == sizeof(ch_token));
 
 	if (type == FLOW_ADV_SIGNAL_SUSPEND) {
 		flow_adv_func = na_flowadv_set;
@@ -482,7 +482,7 @@ _kern_channel_flowadv_signal(struct flowadv_fcentry *fce, flow_adv_type_t type)
 	} else {
 		LCK_RW_ASSERT(&fsw_ifp_to_fsw(ifp)->fsw_lock, LCK_RW_ASSERT_SHARED);
 	}
-	if (ifnet_is_attached(ifp, 0) == 0 || ifp->if_na == NULL) {
+	if (ifnet_is_fully_attached(ifp) == false || ifp->if_na == NULL) {
 		goto done;
 	}
 
@@ -541,8 +541,8 @@ kern_channel_flowadv_set(struct flowadv_fcentry *fce)
 }
 
 void
-kern_channel_flowadv_report_ce_event(struct flowadv_fcentry *fce,
-    uint32_t ce_cnt, uint32_t total_pkt_cnt)
+kern_channel_flowadv_report_congestion_event(struct flowadv_fcentry *fce,
+    uint32_t congestion_cnt, uint32_t l4s_ce_cnt, uint32_t total_pkt_cnt)
 {
 	const flowadv_token_t ch_token = fce->fce_flowsrc_token;
 	const flowadv_token_t flow_token = fce->fce_flowid;
@@ -553,10 +553,10 @@ kern_channel_flowadv_report_ce_event(struct flowadv_fcentry *fce,
 	struct kern_channel *ch = NULL;
 	struct nx_flowswitch *fsw;
 
-	_CASSERT(sizeof(ch->ch_info->cinfo_ch_token) == sizeof(ch_token));
+	static_assert(sizeof(ch->ch_info->cinfo_ch_token) == sizeof(ch_token));
 
 	SK_LOCK();
-	if (ifnet_is_attached(ifp, 0) == 0 || ifp->if_na == NULL) {
+	if (ifnet_is_fully_attached(ifp) == false || ifp->if_na == NULL) {
 		goto done;
 	}
 
@@ -580,8 +580,8 @@ kern_channel_flowadv_report_ce_event(struct flowadv_fcentry *fce,
 
 	if (ch != NULL) {
 		if (ch->ch_na != NULL &&
-		    na_flowadv_report_ce_event(ch, flow_fidx, flow_token,
-		    ce_cnt, total_pkt_cnt)) {
+		    na_flowadv_report_congestion_event(ch, flow_fidx, flow_token,
+		    congestion_cnt, l4s_ce_cnt, total_pkt_cnt)) {
 			SK_DF(SK_VERB_FLOW_ADVISORY,
 			    "%s(%d) notified of flow update",
 			    ch->ch_name, ch->ch_pid);
@@ -616,9 +616,9 @@ kern_channel_memstatus(struct proc *p, uint32_t status,
 		return;
 	}
 
-	SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%llx flags 0x%b status %d",
-	    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(ch),
-	    ch->ch_flags, CHANF_BITS, status);
+	SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%p flags 0x%x status %d",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(ch),
+	    ch->ch_flags, status);
 
 	/* serialize accesses against channel syscalls */
 	lck_mtx_lock(&ch->ch_lock);
@@ -676,9 +676,9 @@ kern_channel_defunct(struct proc *p, struct kern_channel *ch)
 			return;
 		}
 
-		SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%llx flags 0x%b",
-		    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(ch),
-		    ch->ch_flags, CHANF_BITS);
+		SK_DF(SK_VERB_CHANNEL, "%s(%d) ch 0x%p flags 0x%x",
+		    sk_proc_name(p), sk_proc_pid(p), SK_KVA(ch),
+		    ch->ch_flags);
 
 		/* serialize accesses against channel syscalls */
 		lck_mtx_lock(&ch->ch_lock);

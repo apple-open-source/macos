@@ -116,13 +116,7 @@ tcp_bad_rexmt_fix_sndbuf(struct tcpcb *tp)
 void
 tcp_cc_cwnd_init_or_reset(struct tcpcb *tp)
 {
-	if (tcp_cubic_minor_fixes) {
-		tp->snd_cwnd = tcp_initial_cwnd(tp);
-	} else {
-		/* initial congestion window according to RFC 3390 */
-		tp->snd_cwnd = min(4 * tp->t_maxseg,
-		    max(2 * tp->t_maxseg, TCP_CC_CWND_INIT_BYTES));
-	}
+	tp->snd_cwnd = tcp_initial_cwnd(tp);
 }
 
 /*
@@ -157,55 +151,52 @@ tcp_cc_delay_ack(struct tcpcb *tp, struct tcphdr *th)
 		}
 		break;
 	case 3:
-		if (tcp_ack_strategy == TCP_ACK_STRATEGY_LEGACY) {
-			if ((tp->t_flags & TF_RXWIN0SENT) == 0 &&
-			    (th->th_flags & TH_PUSH) == 0 &&
-			    ((tp->t_unacksegs == 1) ||
-			    ((tp->t_flags & TF_STRETCHACK) &&
-			    tp->t_unacksegs < maxseg_unacked))) {
-				return 1;
-			}
-		} else {
-			uint32_t recwin;
+	{
+		uint32_t recwin;
 
-			/* Get the receive-window we would announce */
-			recwin = tcp_sbspace(tp);
-			if (recwin > (uint32_t)(TCP_MAXWIN << tp->rcv_scale)) {
-				recwin = (uint32_t)(TCP_MAXWIN << tp->rcv_scale);
-			}
-
-			/* Delay ACK, if:
-			 *
-			 * 1. We are not sending a zero-window
-			 * 2. We are not forcing fast ACKs
-			 * 3. We have more than the low-water mark in receive-buffer
-			 * 4. The receive-window is not increasing
-			 * 5. We have less than or equal of an MSS unacked or
-			 *    Window actually has been growing larger than the initial value by half of it.
-			 *    (this makes sure that during ramp-up we ACK every second MSS
-			 *    until we pass the tcp_recvspace * 1.5-threshold)
-			 * 6. We haven't waited for half a BDP
-			 * 7. The amount of unacked data is less than the maximum ACK-burst (256 MSS)
-			 *    We try to avoid having the sender end up hitting huge ACK-ranges.
-			 *
-			 * (a note on 6: The receive-window is
-			 * roughly 2 BDP. Thus, recwin / 4 means half a BDP and
-			 * thus we enforce an ACK roughly twice per RTT - even
-			 * if the app does not read)
-			 */
-			if ((tp->t_flags & TF_RXWIN0SENT) == 0 &&
-			    tp->t_forced_acks == 0 &&
-			    tp->t_inpcb->inp_socket->so_rcv.sb_cc > tp->t_inpcb->inp_socket->so_rcv.sb_lowat &&
-			    recwin <= tp->t_last_recwin &&
-			    (tp->rcv_nxt - tp->last_ack_sent <= tp->t_maxseg ||
-			    recwin > (uint32_t)(tcp_recvspace + (tcp_recvspace >> 1))) &&
-			    (tp->rcv_nxt - tp->last_ack_sent) < (recwin >> 2) &&
-			    (tp->rcv_nxt - tp->last_ack_sent) < 256 * tp->t_maxseg) {
-				tp->t_stat.acks_delayed++;
-				return 1;
-			}
+		/* Get the receive-window we would announce */
+		recwin = tcp_sbspace(tp);
+		if (recwin > (uint32_t)(TCP_MAXWIN << tp->rcv_scale)) {
+			recwin = (uint32_t)(TCP_MAXWIN << tp->rcv_scale);
 		}
-		break;
+
+		if ((tp->t_flagsext & TF_QUICKACK) &&
+		    tp->rcv_nxt - tp->last_ack_sent <= tp->t_maxseg) {
+			return 0;
+		}
+
+		/* Delay ACK, if:
+		 *
+		 * 1. We are not sending a zero-window
+		 * 2. We are not forcing fast ACKs
+		 * 3. We have more than the low-water mark in receive-buffer
+		 * 4. The receive-window is not increasing
+		 * 5. We have less than or equal of an MSS unacked or
+		 *    Window actually has been growing larger than the initial value by half of it.
+		 *    (this makes sure that during ramp-up we ACK every second MSS
+		 *    until we pass the tcp_recvspace * 1.5-threshold)
+		 * 6. We haven't waited for half a BDP
+		 * 7. The amount of unacked data is less than the maximum ACK-burst (256 MSS)
+		 *    We try to avoid having the sender end up hitting huge ACK-ranges.
+		 *
+		 * (a note on 6: The receive-window is
+		 * roughly 2 BDP. Thus, recwin / 4 means half a BDP and
+		 * thus we enforce an ACK roughly twice per RTT - even
+		 * if the app does not read)
+		 */
+		if ((tp->t_flags & TF_RXWIN0SENT) == 0 &&
+		    tp->t_forced_acks == 0 &&
+		    tp->t_inpcb->inp_socket->so_rcv.sb_cc > tp->t_inpcb->inp_socket->so_rcv.sb_lowat &&
+		    recwin <= tp->t_last_recwin &&
+		    (tp->rcv_nxt - tp->last_ack_sent <= tp->t_maxseg ||
+		    recwin > (uint32_t)(tcp_recvspace + (tcp_recvspace >> 1))) &&
+		    (tp->rcv_nxt - tp->last_ack_sent) < (recwin >> 2) &&
+		    (tp->rcv_nxt - tp->last_ack_sent) < 256 * tp->t_maxseg) {
+			tp->t_stat.acks_delayed++;
+			return 1;
+		}
+	}
+	break;
 	}
 	return 0;
 }
@@ -224,35 +215,6 @@ tcp_cc_allocate_state(struct tcpcb *tp)
 }
 
 /*
- * If stretch ack was disabled automatically on long standing connections,
- * re-evaluate the situation after 15 minutes to enable it.
- */
-#define TCP_STRETCHACK_DISABLE_WIN (15 * 60 * TCP_RETRANSHZ)
-void
-tcp_cc_after_idle_stretchack(struct tcpcb *tp)
-{
-	struct tcp_globals *globals;
-	int32_t tdiff;
-
-	if (!(tp->t_flagsext & TF_DISABLE_STRETCHACK)) {
-		return;
-	}
-
-	globals = tcp_get_globals(tp);
-	tdiff = timer_diff(tcp_globals_now(globals), 0, tp->rcv_nostrack_ts, 0);
-	if (tdiff < 0) {
-		tdiff = -tdiff;
-	}
-
-	if (tdiff > TCP_STRETCHACK_DISABLE_WIN) {
-		tp->t_flagsext &= ~TF_DISABLE_STRETCHACK;
-		tp->t_stretchack_delayed = 0;
-
-		tcp_reset_stretch_ack(tp);
-	}
-}
-
-/*
  * Detect if the congestion window is non-validated according to
  * draft-ietf-tcpm-newcwv-07
  */
@@ -260,6 +222,20 @@ inline uint32_t
 tcp_cc_is_cwnd_nonvalidated(struct tcpcb *tp)
 {
 	struct socket *so = tp->t_inpcb->inp_socket;
+
+	if (tp->t_inpcb->inp_max_pacing_rate != UINT64_MAX) {
+		uint64_t rate;
+
+		rate = tcp_compute_measured_rate(tp);
+
+		/*
+		 * Multiply by 2 because we want some amount of standing queue
+		 * in the AQM
+		 */
+		if (tp->t_inpcb->inp_max_pacing_rate < (rate >> 1)) {
+			return 1;
+		}
+	}
 
 	if (tp->t_pipeack == 0) {
 		tp->t_flagsext &= ~TF_CWND_NONVALIDATED;
@@ -291,11 +267,7 @@ tcp_cc_adjust_nonvalidated_cwnd(struct tcpcb *tp)
 	tp->t_pipeack = tcp_get_max_pipeack(tp);
 	tcp_clear_pipeack_state(tp);
 	tp->snd_cwnd = (max(tp->t_pipeack, tp->t_lossflightsize) >> 1);
-	if (tcp_cubic_minor_fixes) {
-		tp->snd_cwnd = max(tp->snd_cwnd, tp->t_maxseg);
-	} else {
-		tp->snd_cwnd = max(tp->snd_cwnd, TCP_CC_CWND_INIT_BYTES);
-	}
+	tp->snd_cwnd = max(tp->snd_cwnd, tp->t_maxseg);
 	tp->snd_cwnd += tp->t_maxseg * tcprexmtthresh;
 	tp->t_flagsext &= ~TF_CWND_NONVALIDATED;
 }

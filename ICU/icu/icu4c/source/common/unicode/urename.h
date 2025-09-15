@@ -1395,7 +1395,10 @@
 #define uprv_aestrncpy U_ICU_ENTRY_POINT_RENAME(uprv_aestrncpy)
 #define uprv_asciiFromEbcdic U_ICU_ENTRY_POINT_RENAME(uprv_asciiFromEbcdic)
 #define uprv_asciitolower U_ICU_ENTRY_POINT_RENAME(uprv_asciitolower)
+#if !APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
 #define uprv_calloc U_ICU_ENTRY_POINT_RENAME(uprv_calloc)
+#endif // APPLE_ICU_CHANGES
 #define uprv_ceil U_ICU_ENTRY_POINT_RENAME(uprv_ceil)
 #define uprv_compareASCIIPropertyNames U_ICU_ENTRY_POINT_RENAME(uprv_compareASCIIPropertyNames)
 #define uprv_compareEBCDICPropertyNames U_ICU_ENTRY_POINT_RENAME(uprv_compareEBCDICPropertyNames)
@@ -1500,7 +1503,10 @@
 #define uprv_fmax U_ICU_ENTRY_POINT_RENAME(uprv_fmax)
 #define uprv_fmin U_ICU_ENTRY_POINT_RENAME(uprv_fmin)
 #define uprv_fmod U_ICU_ENTRY_POINT_RENAME(uprv_fmod)
+#if !APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
 #define uprv_free U_ICU_ENTRY_POINT_RENAME(uprv_free)
+#endif // APPLE_ICU_CHANGES
 #define uprv_getCharNameCharacters U_ICU_ENTRY_POINT_RENAME(uprv_getCharNameCharacters)
 #define uprv_getDefaultLocaleID U_ICU_ENTRY_POINT_RENAME(uprv_getDefaultLocaleID)
 #define uprv_getInfinity U_ICU_ENTRY_POINT_RENAME(uprv_getInfinity)
@@ -1521,7 +1527,10 @@
 #define uprv_isPositiveInfinity U_ICU_ENTRY_POINT_RENAME(uprv_isPositiveInfinity)
 #define uprv_itou U_ICU_ENTRY_POINT_RENAME(uprv_itou)
 #define uprv_log U_ICU_ENTRY_POINT_RENAME(uprv_log)
+#if !APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
 #define uprv_malloc U_ICU_ENTRY_POINT_RENAME(uprv_malloc)
+#endif // APPLE_ICU_CHANGES
 #define uprv_mapFile U_ICU_ENTRY_POINT_RENAME(uprv_mapFile)
 #define uprv_max U_ICU_ENTRY_POINT_RENAME(uprv_max)
 #define uprv_maxMantissa U_ICU_ENTRY_POINT_RENAME(uprv_maxMantissa)
@@ -1533,7 +1542,10 @@
 #define uprv_pathIsAbsolute U_ICU_ENTRY_POINT_RENAME(uprv_pathIsAbsolute)
 #define uprv_pow U_ICU_ENTRY_POINT_RENAME(uprv_pow)
 #define uprv_pow10 U_ICU_ENTRY_POINT_RENAME(uprv_pow10)
+#if !APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
 #define uprv_realloc U_ICU_ENTRY_POINT_RENAME(uprv_realloc)
+#endif // APPLE_ICU_CHANGES
 #define uprv_round U_ICU_ENTRY_POINT_RENAME(uprv_round)
 #define uprv_sortArray U_ICU_ENTRY_POINT_RENAME(uprv_sortArray)
 #define uprv_stableBinarySearch U_ICU_ENTRY_POINT_RENAME(uprv_stableBinarySearch)

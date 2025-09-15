@@ -26,7 +26,6 @@
 #pragma once
 
 #include "CryptoKey.h"
-#include "ExceptionOr.h"
 #include <wtf/Function.h>
 
 #if OS(DARWIN) && !PLATFORM(GTK)
@@ -62,6 +61,8 @@ class ScriptExecutionContext;
 
 struct CryptoKeyPair;
 struct JsonWebKey;
+
+template<typename> class ExceptionOr;
 
 class CryptoKeyRSA final : public CryptoKey {
 public:

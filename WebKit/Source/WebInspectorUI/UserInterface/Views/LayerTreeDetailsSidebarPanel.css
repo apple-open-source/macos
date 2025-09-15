@@ -24,7 +24,7 @@
  */
 
 .sidebar > .panel.details.layer-tree > .content {
-    bottom: var(--console-prompt-min-height);
+    bottom: var(--panel-min-height);
 }
 
 .panel.details.layer-tree .data-grid {
@@ -57,7 +57,7 @@
     position: absolute;
     display: flex;
     bottom: 0;
-    height: var(--console-prompt-min-height);
+    height: var(--panel-min-height);
     width: 100%;
     border-top: 1px solid var(--border-color);
 }

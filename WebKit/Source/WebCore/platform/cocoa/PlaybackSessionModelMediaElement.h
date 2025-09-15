@@ -30,11 +30,12 @@
 #include "EventListener.h"
 #include "HTMLMediaElementEnums.h"
 #include "PlaybackSessionModel.h"
-#if ENABLE(LINEAR_MEDIA_PLAYER)
 #include "SpatialVideoMetadata.h"
-#endif
+#include "VideoProjectionMetadata.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashSet.h>
+#include <wtf/Observer.h>
+#include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
@@ -93,6 +94,7 @@ public:
     WEBCORE_EXPORT void enterInWindowFullscreen() final;
     WEBCORE_EXPORT void exitInWindowFullscreen() final;
     WEBCORE_EXPORT void enterFullscreen() final;
+    WEBCORE_EXPORT void setPlayerIdentifierForVideoElement() final;
     WEBCORE_EXPORT void exitFullscreen() final;
     WEBCORE_EXPORT void toggleMuted() final;
     WEBCORE_EXPORT void setMuted(bool) final;
@@ -108,12 +110,13 @@ public:
     double duration() const final;
     double currentTime() const final;
     double bufferedTime() const final;
+    OptionSet<PlaybackState> playbackState() const final;
     bool isPlaying() const final;
     bool isStalled() const final;
     bool isScrubbing() const final { return false; }
     double defaultPlaybackRate() const final;
     double playbackRate() const final;
-    Ref<TimeRanges> seekableRanges() const final;
+    PlatformTimeRanges seekableRanges() const final;
     double seekableTimeRangesLastModifiedTime() const final;
     double liveUpdateInterval() const final;
     bool canPlayFastReverse() const final;
@@ -140,24 +143,31 @@ private:
     static const Vector<AtomString>& observedEventNames();
     const AtomString& eventNameAll();
 
+    double playbackStartedTime() const;
+    void updateMediaSelectionOptions();
+    void updateMediaSelectionIndices();
+    void maybeUpdateVideoMetadata();
+    void updateRate();
+
+    void videoTrackConfigurationChanged();
+
 #if !RELEASE_LOG_DISABLED
     uint64_t logIdentifier() const final;
     const Logger* loggerPtr() const final;
+    ASCIILiteral logClassName() const { return "PlaybackSessionModelMediaElement"_s; }
+    WTFLogChannel& logChannel() const;
 #endif
 
     RefPtr<HTMLMediaElement> m_mediaElement;
     bool m_isListening { false };
-    UncheckedKeyHashSet<CheckedPtr<PlaybackSessionModelClient>> m_clients;
+    HashSet<CheckedPtr<PlaybackSessionModelClient>> m_clients;
     Vector<RefPtr<TextTrack>> m_legibleTracksForMenu;
     Vector<RefPtr<AudioTrack>> m_audioTracksForMenu;
     AudioSessionSoundStageSize m_soundStageSize;
-#if ENABLE(LINEAR_MEDIA_PLAYER)
     std::optional<SpatialVideoMetadata> m_spatialVideoMetadata;
-#endif
+    std::optional<VideoProjectionMetadata> m_videoProjectionMetadata;
 
-    double playbackStartedTime() const;
-    void updateMediaSelectionOptions();
-    void updateMediaSelectionIndices();
+    Observer<void()> m_videoTrackConfigurationObserver;
 };
 
 }

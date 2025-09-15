@@ -47,9 +47,9 @@ WebAlternativeTextClient::~WebAlternativeTextClient()
 }
 
 #if USE(AUTOCORRECTION_PANEL)
-void WebAlternativeTextClient::showCorrectionAlternative(AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
+void WebAlternativeTextClient::showCorrectionAlternative(AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings, FrameIdentifier rootFrameID)
 {
-    m_page->send(Messages::WebPageProxy::ShowCorrectionPanel(type, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings));
+    m_page->send(Messages::WebPageProxy::ShowCorrectionPanel(type, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings, rootFrameID));
 }
 
 void WebAlternativeTextClient::dismissAlternative(ReasonForDismissingAlternativeText reason)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,8 +73,8 @@ private:
     bool isAudioWorkletMessagingProxy() const final { return true; }
 
     WeakPtr<AudioWorklet> m_worklet;
-    Ref<Document> m_document;
-    Ref<AudioWorkletThread> m_workletThread;
+    const Ref<Document> m_document;
+    const Ref<AudioWorkletThread> m_workletThread;
 };
 
 } // namespace WebCore

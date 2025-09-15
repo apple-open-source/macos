@@ -234,6 +234,14 @@
 }
 
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply {
+    NSArray<NSString*>* views = viewName ? @[viewName] : nil;
+    [self rpcKnownBadStateForViews:views reply:^(CKKSKnownBadState state) {
+        reply(state);
+    }];
+}
+
+- (void)rpcKnownBadStateForViews:(NSArray<NSString*>* _Nullable)requestedViews reply:(void (^)(CKKSKnownBadState))reply {
+    NSString* viewName = (requestedViews.count == 1) ? requestedViews.firstObject : nil;
     [self rpcFastStatus:viewName reply:^(NSArray<NSDictionary*>* results, NSError* blockError) {
         bool tlkMissing = false;
         bool waitForUnlock = false;
@@ -248,6 +256,10 @@
 
             if([name isEqualToString:@"global"]) {
                 // this is global status; no view implicated
+                continue;
+            }
+
+            if (requestedViews && ![requestedViews containsObject:name]) {
                 continue;
             }
 

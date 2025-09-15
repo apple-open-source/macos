@@ -172,7 +172,6 @@ struct page_table_attr;
 struct pmap_cpu_data {
 	unsigned int cpu_number;
 	bool copywindow_strong_sync[CPUWINDOWS_MAX];
-	bool inflight_disconnect;
 	pv_free_list_t pv_free;
 	pv_entry_t *pv_free_spill_marker;
 };
@@ -199,20 +198,20 @@ typedef struct pmap_cpu_data pmap_cpu_data_t;
  * This indicates (roughly) where there is free space for the VM
  * to use for the heap; this does not need to be precise.
  */
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 #if defined(ARM_LARGE_MEMORY)
 #define KERNEL_PMAP_HEAP_RANGE_START (VM_MIN_KERNEL_AND_KEXT_ADDRESS+ARM_TT_L1_SIZE)
 #else /* defined(ARM_LARGE_MEMORY) */
 #define KERNEL_PMAP_HEAP_RANGE_START VM_MIN_KERNEL_AND_KEXT_ADDRESS
 #endif /* defined(ARM_LARGE_MEMORY) */
-#else /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#else /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 #if defined(ARM_LARGE_MEMORY)
 /* For large memory systems with no KTRR/CTRR such as virtual machines */
 #define KERNEL_PMAP_HEAP_RANGE_START (VM_MIN_KERNEL_AND_KEXT_ADDRESS+ARM_TT_L1_SIZE)
 #else
 #define KERNEL_PMAP_HEAP_RANGE_START LOW_GLOBAL_BASE_ADDRESS
 #endif
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 /**
  * For setups where the VM page size does not match the hardware page size (the
@@ -337,18 +336,17 @@ struct pmap {
 	queue_chain_t pmaps;
 
 	/* Information representing the "nested" (shared) region in this pmap. */
-	struct pmap      *nested_pmap;
 	vm_map_address_t nested_region_addr;
 	vm_map_offset_t  nested_region_size;
 	vm_map_offset_t  nested_region_true_start;
 	vm_map_offset_t  nested_region_true_end;
-	bitmap_t         *nested_region_unnested_table_bitmap;
+	union {
+		struct pmap      *nested_pmap;
+		bitmap_t         *nested_region_unnested_table_bitmap;
+	};
 
 	/* PMAP reference count */
 	os_ref_atomic_t ref_count;
-
-	/* Number of pmaps that nested this pmap without bounds set. */
-	uint32_t nested_no_bounds_refcnt;
 
 	union {
 		/**
@@ -400,12 +398,6 @@ struct pmap {
 
 	/* Whether this pmap represents a 64-bit address space. */
 	bool is_64bit;
-
-	/* Nested a pmap when the bounds were not set. */
-	bool nested_has_no_bounds_ref;
-
-	/* The nesting bounds have been set. */
-	bool nested_bounds_set;
 
 #if HAS_APPLE_PAC
 	bool disable_jop;
@@ -476,6 +468,7 @@ extern  void pmap_gc(void);
 #if HAS_APPLE_PAC
 extern void * pmap_sign_user_ptr(void *value, ptrauth_key key, uint64_t data, uint64_t jop_key);
 extern void * pmap_auth_user_ptr(void *value, ptrauth_key key, uint64_t data, uint64_t jop_key);
+extern bool pmap_batch_sign_user_ptr(void *location, void *value, ptrauth_key key, uint64_t discriminator, uint64_t jop_key);
 #endif /* HAS_APPLE_PAC */
 
 /**

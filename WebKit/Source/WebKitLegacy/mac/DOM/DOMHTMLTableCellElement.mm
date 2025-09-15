@@ -49,7 +49,7 @@
 - (NSString *)align
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr).createNSString().autorelease();
 }
 
 - (void)setAlign:(NSString *)newAlign
@@ -61,7 +61,7 @@
 - (NSString *)axis
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::axisAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::axisAttr).createNSString().autorelease();
 }
 
 - (void)setAxis:(NSString *)newAxis
@@ -73,7 +73,7 @@
 - (NSString *)bgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr).createNSString().autorelease();
 }
 
 - (void)setBgColor:(NSString *)newBgColor
@@ -85,7 +85,7 @@
 - (NSString *)ch
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::charAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::charAttr).createNSString().autorelease();
 }
 
 - (void)setCh:(NSString *)newCh
@@ -97,7 +97,7 @@
 - (NSString *)chOff
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::charoffAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::charoffAttr).createNSString().autorelease();
 }
 
 - (void)setChOff:(NSString *)newChOff
@@ -133,7 +133,7 @@
 - (NSString *)headers
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::headersAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::headersAttr).createNSString().autorelease();
 }
 
 - (void)setHeaders:(NSString *)newHeaders
@@ -145,7 +145,7 @@
 - (NSString *)height
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr).createNSString().autorelease();
 }
 
 - (void)setHeight:(NSString *)newHeight
@@ -169,7 +169,7 @@
 - (NSString *)vAlign
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::valignAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::valignAttr).createNSString().autorelease();
 }
 
 - (void)setVAlign:(NSString *)newVAlign
@@ -181,7 +181,7 @@
 - (NSString *)width
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr).createNSString().autorelease();
 }
 
 - (void)setWidth:(NSString *)newWidth
@@ -193,7 +193,7 @@
 - (NSString *)abbr
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::abbrAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::abbrAttr).createNSString().autorelease();
 }
 
 - (void)setAbbr:(NSString *)newAbbr
@@ -205,13 +205,13 @@
 - (NSString *)scope
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->scope();
+    return IMPL->scope().createNSString().autorelease();
 }
 
 - (void)setScope:(NSString *)newScope
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setScope(newScope);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::scopeAttr, newScope);
 }
 
 @end

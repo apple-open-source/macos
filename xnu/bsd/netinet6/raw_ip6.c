@@ -101,6 +101,8 @@
 #include <sys/errno.h>
 #include <sys/systm.h>
 
+#include <kern/uipc_socket.h>
+
 #include <net/if.h>
 #include <net/net_api_stats.h>
 #include <net/route.h>
@@ -261,7 +263,8 @@ rip6_input(
 		    SO_RECV_CONTROL_OPTS(last->in6p_socket)) {
 			ret = ip6_savecontrol(last, m, &opts);
 			if (ret != 0) {
-				m_freem(m);
+				m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_ENOBUFS, NULL, 0);
+				m = NULL;
 				m_freem(opts);
 				ip6stat.ip6s_delivered--;
 				goto unlock;
@@ -374,8 +377,7 @@ rip6_output(
 	struct ip6_moptions *__single im6o = NULL;
 	struct ifnet *__single oifp = NULL;
 	int type = 0, code = 0;         /* for ICMPv6 output statistics only */
-	int sotc = SO_TC_UNSPEC;
-	int netsvctype = _NET_SERVICE_TYPE_UNSPEC;
+	struct sock_cm_info sockcminfo;
 	struct ip6_out_args ip6oa;
 	int flags = IPV6_OUTARGS;
 	struct sockaddr_in6 tmp;
@@ -506,9 +508,11 @@ rip6_output(
 		ip6oa.ip6oa_flags |= IP6OAF_ULTRA_CONSTRAINED_ALLOWED;
 	}
 
+	sock_init_cm_info(&sockcminfo, so);
+
 	dst = &dstsock->sin6_addr;
 	if (control) {
-		sotc = so_tc_from_control(control, &netsvctype);
+		sock_parse_cm_info(control, &sockcminfo);
 
 		if ((error = ip6_setpktopts(control, &opt,
 		    in6p->in6p_outputopts, SOCK_PROTO(so))) != 0) {
@@ -518,12 +522,8 @@ rip6_output(
 	} else {
 		optp = in6p->in6p_outputopts;
 	}
-	if (sotc == SO_TC_UNSPEC) {
-		sotc = so->so_traffic_class;
-		netsvctype = so->so_netsvctype;
-	}
-	ip6oa.ip6oa_sotc = sotc;
-	ip6oa.ip6oa_netsvctype = netsvctype;
+	ip6oa.ip6oa_sotc = sockcminfo.sotc;
+	ip6oa.ip6oa_netsvctype = sockcminfo.netsvctype;
 
 	/*
 	 * For an ICMPv6 packet, we should know its type and code
@@ -805,7 +805,10 @@ rip6_output(
 		oifp = NULL;
 	}
 
-	set_packet_service_class(m, so, sotc, PKT_SCF_IPV6);
+	set_packet_service_class(m, so, sockcminfo.sotc, PKT_SCF_IPV6);
+	if (sockcminfo.tx_time) {
+		mbuf_set_tx_time(m, sockcminfo.tx_time);
+	}
 	m->m_pkthdr.pkt_flowsrc = FLOWSRC_INPCB;
 	m->m_pkthdr.pkt_flowid = in6p->inp_flowhash;
 	m->m_pkthdr.pkt_flags |= (PKTF_FLOW_ID | PKTF_FLOW_LOCALSRC |
@@ -903,7 +906,7 @@ rip6_output(
 
 bad:
 	if (m != NULL) {
-		m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
+		m_drop_if(m, oifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
 	}
 
 freectl:

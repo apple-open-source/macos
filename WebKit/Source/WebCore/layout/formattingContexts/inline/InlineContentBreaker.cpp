@@ -349,27 +349,38 @@ static inline std::optional<size_t> lastValidBreakingPosition(const InlineConten
     ASSERT(inlineTextItem.length());
     auto lineBreak = textRun.style.lineBreak();
 
-    auto adjacentTextRunIndex = nextTextRunIndex(runs, textRunIndex);
-    if (!adjacentTextRunIndex)
-        return inlineTextItem.end();
+    auto lastValidBreakingPositionInsideTextRun = [&]() -> std::optional<size_t> {
+        // Find out if the candidate position for arbitrary breaking is valid. We can't always break between any characters.
+        auto text = inlineTextItem.inlineTextBox().content();
+        auto left = inlineTextItem.start();
+        for (auto index = inlineTextItem.end() - 1; index > left; --index) {
+            U16_SET_CP_START(text, left, index);
+            // We should never find surrogates/segments across inline items.
+            ASSERT(index >= inlineTextItem.start());
+            if (canBreakBefore(text[index], lineBreak))
+                return index == inlineTextItem.start() ? std::nullopt : std::make_optional(index);
+        }
+        return { };
+    };
 
-    auto& nextInlineTextItem = downcast<InlineTextItem>(runs[*adjacentTextRunIndex].inlineItem);
-    auto canBreakAtRunBoundary = nextInlineTextItem.isWhitespace() ? nextInlineTextItem.style().whiteSpaceCollapse() != WhiteSpaceCollapse::BreakSpaces :
-        canBreakBefore(nextInlineTextItem.inlineTextBox().content()[nextInlineTextItem.start()], lineBreak);
-    if (canBreakAtRunBoundary)
-        return inlineTextItem.end();
-
-    // Find out if the candidate position for arbitrary breaking is valid. We can't always break between any characters.
-    auto text = inlineTextItem.inlineTextBox().content();
-    auto left = inlineTextItem.start();
-    for (auto index = inlineTextItem.end() - 1; index > left; --index) {
-        U16_SET_CP_START(text, left, index);
-        // We should never find surrogates/segments across inline items.
-        ASSERT(index >= inlineTextItem.start());
-        if (canBreakBefore(text[index], lineBreak))
-            return index == inlineTextItem.start() ? std::nullopt : std::make_optional(index);
+    if (auto nextTextRunCandidateIndex = nextTextRunIndex(runs, textRunIndex)) {
+        auto& nextInlineTextItem = downcast<InlineTextItem>(runs[*nextTextRunCandidateIndex].inlineItem);
+        auto canBreakAtRunBoundary = nextInlineTextItem.isWhitespace() ? nextInlineTextItem.style().whiteSpaceCollapse() != WhiteSpaceCollapse::BreakSpaces :
+            canBreakBefore(nextInlineTextItem.inlineTextBox().content()[nextInlineTextItem.start()], lineBreak);
+        if (canBreakAtRunBoundary)
+            return inlineTextItem.end();
+        return lastValidBreakingPositionInsideTextRun();
     }
-    return { };
+
+    if (textRunIndex == runs.size() - 1)
+        return inlineTextItem.end();
+
+    if (!runs[textRunIndex + 1].inlineItem.isInlineBoxStartOrEnd()) {
+        ASSERT_NOT_REACHED();
+        return inlineTextItem.end();
+    }
+
+    return lastValidBreakingPositionInsideTextRun();
 }
 
 static std::optional<TextUtil::WordBreakLeft> midWordBreak(const InlineContentBreaker::ContinuousContent::Run& textRun, InlineLayoutUnit runLogicalLeft, InlineLayoutUnit availableWidth)
@@ -533,7 +544,7 @@ std::optional<InlineContentBreaker::PartialRun> InlineContentBreaker::tryBreakin
             }
 
             // This is a non-overflowing content.
-            ASSERT(lineHasRoomForContent);
+            ASSERT(lineHasRoomForContent || !candidateRun.spaceRequired());
             if (auto breakingPosition = lastValidBreakingPosition(runs, candidateTextRun.index)) {
                 ASSERT(*breakingPosition <= inlineTextItem.end());
                 auto trailingLength = *breakingPosition - inlineTextItem.start();

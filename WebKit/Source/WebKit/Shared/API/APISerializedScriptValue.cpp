@@ -35,13 +35,15 @@
 
 namespace API {
 
+#if !PLATFORM(COCOA)
+
 static constexpr auto SharedJSContextWKMaxIdleTime = 10_s;
 
 class SharedJSContextWK {
 public:
     static SharedJSContextWK& singleton()
     {
-        static MainThreadNeverDestroyed<SharedJSContextWK> sharedContext;
+        static MainRunLoopNeverDestroyed<SharedJSContextWK> sharedContext;
         return sharedContext.get();
     }
 
@@ -85,10 +87,10 @@ public:
     }
 
 private:
-    friend class NeverDestroyed<SharedJSContextWK, MainThreadAccessTraits>;
+    friend class NeverDestroyed<SharedJSContextWK, MainRunLoopAccessTraits>;
 
     SharedJSContextWK()
-        : m_timer(RunLoop::main(), this, &SharedJSContextWK::releaseContextIfNecessary)
+        : m_timer(RunLoop::mainSingleton(), "SharedJSContextWK::Timer"_s, this, &SharedJSContextWK::releaseContextIfNecessary)
     {
     }
 
@@ -102,9 +104,9 @@ static WKRetainPtr<WKTypeRef> valueToWKObject(JSContextRef context, JSValueRef v
     auto jsToWKString = [] (JSStringRef input) {
         size_t bufferSize = JSStringGetMaximumUTF8CStringSize(input);
         Vector<char> buffer(bufferSize);
-        size_t utf8Length = JSStringGetUTF8CString(input, buffer.data(), bufferSize);
+        size_t utf8Length = JSStringGetUTF8CString(input, buffer.mutableSpan().data(), bufferSize);
         ASSERT(buffer[utf8Length - 1] == '\0');
-        return adoptWK(WKStringCreateWithUTF8CStringWithLength(buffer.data(), utf8Length - 1));
+        return adoptWK(WKStringCreateWithUTF8CStringWithLength(buffer.span().data(), utf8Length - 1));
     };
 
     if (!JSValueIsObject(context, value)) {
@@ -165,13 +167,6 @@ WKRetainPtr<WKTypeRef> SerializedScriptValue::deserializeWK(WebCore::SerializedS
     return valueToWKObject(context.get(), value);
 }
 
-Vector<uint8_t> SerializedScriptValue::serializeCryptoKey(const WebCore::CryptoKey& key)
-{
-    ASSERT(RunLoop::isMain());
-    JSRetainPtr context = SharedJSContextWK::singleton().ensureContext();
-    ASSERT(context);
-
-    return WebCore::SerializedScriptValue::serializeCryptoKey(context.get(), key);
-}
+#endif // !PLATFORM(COCOA)
 
 } // API

@@ -112,9 +112,9 @@ private:
         std::unique_ptr<MixedFontGlyphPage> m_mixedFont;
     };
 
-    EnumeratedArray<ResolvedEmojiPolicy, UncheckedKeyHashMap<unsigned, GlyphPageCacheEntry, IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>, ResolvedEmojiPolicy::RequireEmoji> m_cachedPages;
+    EnumeratedArray<ResolvedEmojiPolicy, HashMap<unsigned, GlyphPageCacheEntry, IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>>, ResolvedEmojiPolicy::RequireEmoji> m_cachedPages;
 
-    UncheckedKeyHashSet<RefPtr<Font>> m_systemFallbackFontSet;
+    HashSet<RefPtr<Font>> m_systemFallbackFontSet;
 
     SingleThreadWeakPtr<const Font> m_cachedPrimaryFont;
 
@@ -145,7 +145,7 @@ inline bool FontCascadeFonts::canTakeFixedPitchFastContentMeasuring(const FontCa
 
 inline const Font& FontCascadeFonts::primaryFont(const FontCascadeDescription& description, FontSelector* fontSelector)
 {
-    ASSERT(m_thread ? m_thread->ptr() == &Thread::current() : isMainThread());
+    ASSERT(m_thread ? m_thread->ptr() == &Thread::currentSingleton() : isMainThread());
     if (!m_cachedPrimaryFont) {
         auto& primaryRanges = realizeFallbackRangesAt(description, fontSelector, 0);
         m_cachedPrimaryFont = primaryRanges.glyphDataForCharacter(' ', ExternalResourceDownloadPolicy::Allow).font.get();

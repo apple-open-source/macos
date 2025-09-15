@@ -37,26 +37,26 @@ namespace WebCore {
     
 using namespace HTMLNames;
 
-AccessibilityARIAGridCell::AccessibilityARIAGridCell(AXID axID, RenderObject& renderer)
-    : AccessibilityTableCell(axID, renderer)
+AccessibilityARIAGridCell::AccessibilityARIAGridCell(AXID axID, RenderObject& renderer, AXObjectCache& cache)
+    : AccessibilityTableCell(axID, renderer, cache)
 {
 }
 
-AccessibilityARIAGridCell::AccessibilityARIAGridCell(AXID axID, Node& node)
-    : AccessibilityTableCell(axID, node)
+AccessibilityARIAGridCell::AccessibilityARIAGridCell(AXID axID, Node& node, AXObjectCache& cache)
+    : AccessibilityTableCell(axID, node, cache)
 {
 }
 
 AccessibilityARIAGridCell::~AccessibilityARIAGridCell() = default;
 
-Ref<AccessibilityARIAGridCell> AccessibilityARIAGridCell::create(AXID axID, RenderObject& renderer)
+Ref<AccessibilityARIAGridCell> AccessibilityARIAGridCell::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityARIAGridCell(axID, renderer));
+    return adoptRef(*new AccessibilityARIAGridCell(axID, renderer, cache));
 }
 
-Ref<AccessibilityARIAGridCell> AccessibilityARIAGridCell::create(AXID axID, Node& node)
+Ref<AccessibilityARIAGridCell> AccessibilityARIAGridCell::create(AXID axID, Node& node, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityARIAGridCell(axID, node));
+    return adoptRef(*new AccessibilityARIAGridCell(axID, node, cache));
 }
 
 AccessibilityTable* AccessibilityARIAGridCell::parentTable() const

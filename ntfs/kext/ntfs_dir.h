@@ -105,6 +105,6 @@ typedef struct _ntfs_dirhint ntfs_dirhint;
 #define NTFS_DIR_TAG_MASK 0xfc000000
 #define NTFS_DIR_TAG_SHIFT 26
 
-__private_extern__ void ntfs_dirhints_put(ntfs_inode *ni, BOOL stale_only);
+__private_extern__ void ntfs_dirhints_put(ntfs_inode *ni, NTFS_BOOL stale_only);
 
 #endif /* !_OSX_NTFS_DIR_H */

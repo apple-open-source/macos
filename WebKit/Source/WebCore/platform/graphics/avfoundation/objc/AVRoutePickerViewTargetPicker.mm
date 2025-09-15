@@ -202,7 +202,7 @@ bool AVRoutePickerViewTargetPicker::hasActiveRoute() const
     if (!m_outputContext)
         return false;
 
-    if ([m_outputContext respondsToSelector:@selector(supportsMultipleOutputDevices)] && [m_outputContext respondsToSelector:@selector(outputDevices)]&& [m_outputContext supportsMultipleOutputDevices]) {
+    if ([m_outputContext supportsMultipleOutputDevices]) {
         for (AVOutputDevice *outputDevice in [m_outputContext outputDevices]) {
             if (outputDevice.deviceFeatures & (AVOutputDeviceFeatureVideo | AVOutputDeviceFeatureAudio))
                 return true;
@@ -211,10 +211,8 @@ bool AVRoutePickerViewTargetPicker::hasActiveRoute() const
         return false;
     }
 
-    if ([m_outputContext respondsToSelector:@selector(outputDevice)]) {
-        if (auto *outputDevice = [m_outputContext outputDevice])
-            return outputDevice.deviceFeatures & (AVOutputDeviceFeatureVideo | AVOutputDeviceFeatureAudio);
-    }
+    if (auto *outputDevice = [m_outputContext outputDevice])
+        return outputDevice.deviceFeatures & (AVOutputDeviceFeatureVideo | AVOutputDeviceFeatureAudio);
 
     return [m_outputContext deviceName];
 }

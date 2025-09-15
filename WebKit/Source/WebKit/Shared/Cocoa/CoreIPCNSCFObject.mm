@@ -129,7 +129,7 @@ RetainPtr<id> CoreIPCNSCFObject::toID() const
 {
     RetainPtr<id> result;
 
-    WTF::switchOn(*m_value, [&](auto& object) {
+    WTF::switchOn(m_value.get(), [&](auto& object) {
         result = object.toID();
     }, [](std::nullptr_t) {
         // result should be nil, which is the default value initialized above.
@@ -140,21 +140,24 @@ RetainPtr<id> CoreIPCNSCFObject::toID() const
 
 bool CoreIPCNSCFObject::valueIsAllowed(IPC::Decoder& decoder, ObjectValue& value)
 {
+#if HAVE(WK_SECURE_CODING_NSURLREQUEST)
+    UNUSED_PARAM(decoder);
+    UNUSED_PARAM(value);
+    return true;
+#else
     // The Decoder always has a set of allowedClasses,
     // but we only check that set when considering SecureCoding classes
     Class objectClass;
     WTF::switchOn(value,
-#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
         [&](CoreIPCSecureCoding& object) {
             objectClass = object.objectClass();
-        },
-#endif
-        [&](auto& object) {
+        }, [&](auto& object) {
             objectClass = nullptr;
         }
     );
 
     return !objectClass || decoder.allowedClasses().contains(objectClass);
+#endif
 }
 
 } // namespace WebKit
@@ -163,7 +166,7 @@ namespace IPC {
 
 void ArgumentCoder<UniqueRef<WebKit::ObjectValue>>::encode(Encoder& encoder, const UniqueRef<WebKit::ObjectValue>& object)
 {
-    encoder << *object;
+    encoder << object.get();
 }
 
 std::optional<UniqueRef<WebKit::ObjectValue>> ArgumentCoder<UniqueRef<WebKit::ObjectValue>>::decode(Decoder& decoder)

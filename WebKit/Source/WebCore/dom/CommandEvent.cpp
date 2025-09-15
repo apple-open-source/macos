@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,7 @@ CommandEvent::CommandEvent()
 
 CommandEvent::CommandEvent(const AtomString& type, const CommandEvent::Init& initializer, IsTrusted isTrusted)
     : Event(EventInterfaceType::CommandEvent, type, initializer, isTrusted)
-    , m_invoker(initializer.invoker)
+    , m_source(initializer.source)
     , m_command(initializer.command)
 {
 }
@@ -61,18 +61,17 @@ bool CommandEvent::isCommandEvent() const
     return true;
 }
 
-RefPtr<Element> CommandEvent::invoker() const
+RefPtr<Element> CommandEvent::source() const
 {
-    auto* invoker = m_invoker.get();
-    if (!invoker)
+    if (!m_source)
         return nullptr;
 
     if (RefPtr target = dynamicDowncast<Node>(currentTarget())) {
-        auto& treeScope = target->treeScope();
-        auto node = treeScope.retargetToScope(*invoker);
+        Ref treeScope = target->treeScope();
+        Ref node = treeScope->retargetToScope(*m_source.get());
         return &downcast<Element>(node).get();
     }
-    return invoker;
+    return m_source;
 }
 
 } // namespace WebCore

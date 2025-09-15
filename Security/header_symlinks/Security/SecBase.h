@@ -70,6 +70,12 @@
 
 #define CSSM_DEPRECATED API_DEPRECATED("CSSM is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst)
 
+#if __has_attribute(swift_attr)
+#define SEC_SWIFT_SENDABLE __attribute__((swift_attr("@Sendable")))
+#else
+#define SEC_SWIFT_SENDABLE
+#endif
+
 __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
@@ -82,7 +88,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
     @abstract CFType representing a X.509 certificate.
     See SecCertificate.h for details.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecCertificate *SecCertificateRef;
+SEC_SWIFT_SENDABLE typedef struct CF_BRIDGED_TYPE(id) __SecCertificate *SecCertificateRef;
 
 #if TARGET_OS_OSX
 typedef struct __SecCertificate OpaqueSecCertificateRef;

@@ -78,7 +78,7 @@ template<> std::optional<TestCallbackInterface::Enum> parseEnumerationFromString
         std::pair<ComparableASCIILiteral, TestCallbackInterface::Enum> { "value2"_s, TestCallbackInterface::Enum::Value2 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
-    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
 }
@@ -99,7 +99,7 @@ template<> ConversionResult<IDLDictionary<TestCallbackInterface::Dictionary>> co
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -113,7 +113,7 @@ template<> ConversionResult<IDLDictionary<TestCallbackInterface::Dictionary>> co
     }
     if (!optionalMemberValue.isUndefined()) {
         auto optionalMemberConversionResult = convert<IDLLong>(lexicalGlobalObject, optionalMemberValue);
-        if (UNLIKELY(optionalMemberConversionResult.hasException(throwScope)))
+        if (optionalMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.optionalMember = optionalMemberConversionResult.releaseReturnValue();
     }
@@ -129,7 +129,7 @@ template<> ConversionResult<IDLDictionary<TestCallbackInterface::Dictionary>> co
         return ConversionResultException { };
     }
     auto requiredMemberConversionResult = convert<IDLUSVString>(lexicalGlobalObject, requiredMemberValue);
-    if (UNLIKELY(requiredMemberConversionResult.hasException(throwScope)))
+    if (requiredMemberConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.requiredMember = requiredMemberConversionResult.releaseReturnValue();
     return result;
@@ -498,7 +498,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -530,7 +530,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -619,7 +619,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -650,7 +650,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -682,7 +682,7 @@ CallbackResult<typename IDLPromise<IDLUndefined>::CallbackReturnType> JSTestCall
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLPromise<IDLUndefined>>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -714,7 +714,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
@@ -746,7 +746,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackInterfac
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }

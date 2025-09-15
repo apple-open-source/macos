@@ -73,7 +73,7 @@ public:
     ISOFairPlayStreamingKeyAssetIdBox& operator=(ISOFairPlayStreamingKeyAssetIdBox&&) = default;
 
     static FourCC boxTypeName() { return std::span { "fkai" }; }
-    const Vector<uint8_t> data() const { return m_data; }
+    const Vector<uint8_t>& data() const LIFETIME_BOUND { return m_data; }
 
     WEBCORE_EXPORT bool parse(JSC::DataView&, unsigned& offset) final;
 
@@ -92,7 +92,7 @@ public:
     ISOFairPlayStreamingKeyContextBox& operator=(ISOFairPlayStreamingKeyContextBox&&) = default;
 
     static FourCC boxTypeName() { return std::span { "fkcx" }; }
-    const Vector<uint8_t> data() const { return m_data; }
+    const Vector<uint8_t>& data() const LIFETIME_BOUND { return m_data; }
 
     WEBCORE_EXPORT bool parse(JSC::DataView&, unsigned& offset) final;
 

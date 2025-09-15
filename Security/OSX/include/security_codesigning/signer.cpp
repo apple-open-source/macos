@@ -348,14 +348,25 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		signingTime = time;
 	}
 	
-	pagesize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(*this);
+	archAgnosticPageSize = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(*this);
+	
+	Architecture MainArch = (code->diskRep()->mainExecutableIsMachO() ?
+							 code->diskRep()->mainExecutableImage()->bestNativeArch() :
+							 Architecture::local());
+
+	pageSizeMap[MainArch] = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(*this, &MainArch);
+	code->visitOtherArchitectures(^(Security::CodeSigning::SecStaticCode *subcode) {
+		Universal *fat = subcode->diskRep()->mainExecutableImage();
+		assert(fat && fat->narrowed());	// handleOtherArchitectures gave us a focused architecture slice.
+		Architecture arch = fat->bestNativeArch();	// actually, only architecture for this slice.
+		pageSizeMap[arch] = state.mPageSize ? cfNumber<size_t>(state.mPageSize) : rep->pageSize(*this, &arch);
+	});
 	
 	// Allow the DiskRep to modify the signing parameters. This sees explicit and inherited values but not defaults.
 	rep->prepareForSigning(*this);
 
 	// apply some defaults after diskRep intervention
-	if (hashAlgorithms.empty()) {	// default to SHA256 + SHA-1
-		hashAlgorithms.insert(kSecCodeSignatureHashSHA1);
+	if (hashAlgorithms.empty()) {	// default to SHA256 only
 		hashAlgorithms.insert(kSecCodeSignatureHashSHA256);
 	}
 	
@@ -371,9 +382,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		 * PreEncryptionHashMap.
 		 * So if the main executable is not a machO, we just choose the local
 		 * (signer's) main architecture as dummy value for the first element in our pair. */
-		preEncryptMainArch = (code->diskRep()->mainExecutableIsMachO() ?
-							  code->diskRep()->mainExecutableImage()->bestNativeArch() :
-							   Architecture::local());
+		preEncryptMainArch = MainArch;
 
 		addPreEncryptHashes(preEncryptHashMaps[preEncryptMainArch], code);
 		
@@ -392,9 +401,7 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 		 * RuntimeVersionMap.
 		 * So if the main executable is not a machO, we just choose the local
 		 * (signer's) main architecture as dummy value for the first element in our pair. */
-		runtimeVersionMainArch = (code->diskRep()->mainExecutableIsMachO() ?
-							  code->diskRep()->mainExecutableImage()->bestNativeArch() :
-							  Architecture::local());
+		runtimeVersionMainArch = MainArch;
 
 		addRuntimeVersions(runtimeVersionMap[runtimeVersionMainArch], code);
 
@@ -661,7 +668,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 				populate(builder, arch, arch.ireqs,
 						 arch.source->offset(), arch.source->signingExtent(),
 						 mainBinary, rep->execSegBase(&(arch.architecture)), rep->execSegLimit(&(arch.architecture)),
-						 unsigned(digestAlgorithms().size()-1),
+						 pageSizeMap[arch.architecture], unsigned(digestAlgorithms().size()-1),
 						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse, true);
 			});
 		}
@@ -739,7 +746,7 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 		populate(builder, *writer, ireqs, rep->signingBase(), rep->signingLimit(),
 				 false,		// only machOs can currently be main binaries
 				 rep->execSegBase(NULL), rep->execSegLimit(NULL),
-				 unsigned(digestAlgorithms().size()-1),
+				 archAgnosticPageSize, unsigned(digestAlgorithms().size()-1),
 				 preEncryptHashMaps[preEncryptMainArch], // Only one map, the default.
 				 (cdFlags & kSecCodeSignatureRuntime) ? state.mRuntimeVersionOverride : 0,
 				 true);
@@ -788,7 +795,7 @@ void SecCodeSigner::Signer::populate(DiskRep::Writer &writer)
 void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
 									 InternalRequirements &ireqs, size_t offset, size_t length,
 									 bool mainBinary, size_t execSegBase, size_t execSegLimit,
-									 unsigned alternateDigestCount,
+									 size_t pagesize, unsigned alternateDigestCount,
 									 PreEncryptHashMap const &preEncryptHashMap,
 									 uint32_t runtimeVersion, bool generateEntitlementDER)
 {

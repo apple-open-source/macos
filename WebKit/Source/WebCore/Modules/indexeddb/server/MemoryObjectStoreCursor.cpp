@@ -126,7 +126,7 @@ void MemoryObjectStoreCursor::setForwardIteratorFromRemainingRange(IDBKeyDataSet
     }
 
     if (!m_remainingRange.upperKey.isNull()) {
-        if (lowest->compare(m_remainingRange.upperKey) > 0)
+        if (*lowest > m_remainingRange.upperKey)
             return;
 
         if (m_remainingRange.upperOpen && *lowest == m_remainingRange.upperKey)
@@ -177,7 +177,7 @@ void MemoryObjectStoreCursor::setReverseIteratorFromRemainingRange(IDBKeyDataSet
     }
 
     if (!m_remainingRange.lowerKey.isNull()) {
-        if (highest->compare(m_remainingRange.lowerKey) < 0)
+        if (*highest < m_remainingRange.lowerKey)
             return;
 
         if (m_remainingRange.lowerOpen && *highest == m_remainingRange.lowerKey)
@@ -233,7 +233,7 @@ void MemoryObjectStoreCursor::incrementForwardIterator(IDBKeyDataSet& set, const
         if (!info().range().containsKey(key))
             return;
 
-        if ((*m_iterator)->compare(key) < 0) {
+        if (**m_iterator < key) {
             m_remainingRange.lowerKey = key;
             m_remainingRange.lowerOpen = false;
             setFirstInRemainingRange(set);
@@ -247,7 +247,7 @@ void MemoryObjectStoreCursor::incrementForwardIterator(IDBKeyDataSet& set, const
 
     // If the forwardIterator was reset because it's previous record had been deleted,
     // we might have already advanced past the current position, eating one one of the iteration counts.
-    if (didResetIterator && (*m_iterator)->compare(m_currentPositionKey) > 0)
+    if (didResetIterator && **m_iterator > m_currentPositionKey)
         --count;
 
     while (count) {
@@ -287,7 +287,7 @@ void MemoryObjectStoreCursor::incrementReverseIterator(IDBKeyDataSet& set, const
         if (!info().range().containsKey(key))
             return;
 
-        if ((*m_iterator)->compare(key) > 0) {
+        if (**m_iterator > key) {
             m_remainingRange.upperKey = key;
             m_remainingRange.upperOpen = false;
 
@@ -302,7 +302,7 @@ void MemoryObjectStoreCursor::incrementReverseIterator(IDBKeyDataSet& set, const
 
     // If the reverseIterator was reset because it's previous record had been deleted,
     // we might have already advanced past the current position, eating one one of the iteration counts.
-    if (didResetIterator && (*m_iterator)->compare(m_currentPositionKey) < 0)
+    if (didResetIterator && **m_iterator < m_currentPositionKey)
         --count;
 
     while (count) {

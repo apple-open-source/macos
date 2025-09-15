@@ -51,6 +51,8 @@
 #define KDP_CORE_HW_SHMEM_DBG_TOTAL_BUF_SIZE 64 * 1024
 #define KDP_HW_SHMEM_DBG_TIMEOUT_DEADLINE_SECS 30
 
+TUNABLE(uint64_t, shmem_timeout_sec, "shmem_timeout_sec", KDP_HW_SHMEM_DBG_TIMEOUT_DEADLINE_SECS);
+
 /*
  * Astris can read up to 4064 bytes at a time over
  * the probe, so we should try to make our buffer
@@ -70,8 +72,32 @@
  * Currently used for sending compressed coredumps to
  * astris.
  */
+
+__enum_closed_decl(xhsdci_status_t, uint32_t, {
+	XHSDCI_STATUS_NONE                  = 0,  /* default status */
+	XHSDCI_STATUS_KERNEL_BUSY           = 1,  /* kernel is busy with other procedure */
+	XHSDCI_STATUS_KERNEL_READY          = 2,  /* kernel ready to begin command */
+	XHSDCI_COREDUMP_BEGIN               = 3,  /* indicates hardware debugger is ready to begin consuming coredump info */
+	XHSDCI_COREDUMP_BUF_READY           = 4,  /* indicates the kernel has populated the buffer */
+	XHSDCI_COREDUMP_BUF_EMPTY           = 5,  /* indicates hardware debugger is done consuming the current data */
+	XHSDCI_COREDUMP_STATUS_DONE         = 6,  /* indicates last compressed data is in buffer */
+	XHSDCI_COREDUMP_ERROR               = 7,  /* indicates an error was encountered */
+	XHSDCI_COREDUMP_REMOTE_DONE         = 8,  /* indicates that hardware debugger is done */
+	XHSDCI_COREDUMP_INFO                = 9,  /* anounces new file available for consumption */
+	XHSDCI_COREDUMP_ACK                 = 10, /* remote side ack/nack anounced file */
+});
+
+typedef union xhscdi_file_flags {
+	uint64_t value;
+	struct {
+		bool xff_ack :1;           /* Remote side ACKed file transfer */
+		bool xff_gzip :1;          /* File is gzipped */
+		uint8_t xff_type :4;       /* coredump type */
+	};
+} xhsdci_file_flags_t;
+
 struct xnu_hw_shmem_dbg_command_info {
-	volatile uint32_t xhsdci_status;
+	volatile xhsdci_status_t xhsdci_status;
 	uint32_t xhsdci_seq_no;
 	volatile uint64_t xhsdci_buf_phys_addr;
 	volatile uint32_t xhsdci_buf_data_length;
@@ -79,19 +105,12 @@ struct xnu_hw_shmem_dbg_command_info {
 	uint64_t xhsdci_coredump_total_size_uncomp;
 	uint64_t xhsdci_coredump_total_size_sent_uncomp;
 	uint32_t xhsdci_page_size;
+	/* end of version 1 structure */
+	char xhsdci_file_name[64];                   /* name of a core that XNU offers */
+	xhsdci_file_flags_t xhsdci_file_flags;       /* file flags */
 } __attribute__((packed));
 
-#define CUR_XNU_HWSDCI_STRUCT_VERS 1
-
-#define XHSDCI_STATUS_NONE              0 /* default status */
-#define XHSDCI_STATUS_KERNEL_BUSY       1 /* kernel is busy with other procedure */
-#define XHSDCI_STATUS_KERNEL_READY      2 /* kernel ready to begin command */
-#define XHSDCI_COREDUMP_BEGIN           3 /* indicates hardware debugger is ready to begin consuming coredump info */
-#define XHSDCI_COREDUMP_BUF_READY       4 /* indicates the kernel has populated the buffer */
-#define XHSDCI_COREDUMP_BUF_EMPTY       5 /* indicates hardware debugger is done consuming the current data */
-#define XHSDCI_COREDUMP_STATUS_DONE     6 /* indicates last compressed data is in buffer */
-#define XHSDCI_COREDUMP_ERROR           7 /* indicates an error was encountered */
-#define XHSDCI_COREDUMP_REMOTE_DONE     8 /* indicates that hardware debugger is done */
+#define CUR_XNU_HWSDCI_STRUCT_VERS 2
 
 struct kdp_hw_shmem_dbg_buf_elm {
 	vm_offset_t khsd_buf;
@@ -100,6 +119,7 @@ struct kdp_hw_shmem_dbg_buf_elm {
 };
 
 struct shmem_stage_data {
+	bool     signal_done;
 	uint32_t seq_no;
 	uint64_t contact_deadline;
 	uint64_t contact_deadline_interval;
@@ -115,18 +135,128 @@ static STAILQ_HEAD(, kdp_hw_shmem_dbg_buf_elm) free_hw_shmem_dbg_bufs =
 static STAILQ_HEAD(, kdp_hw_shmem_dbg_buf_elm) hw_shmem_dbg_bufs_to_flush =
     STAILQ_HEAD_INITIALIZER(hw_shmem_dbg_bufs_to_flush);
 
+
+#pragma mark Shared memory protocol implementation
+
 /*
- * Whenever we start a coredump, make sure the buffers
+ * Waits for remote side to move protocol to expected state. Check for errors
+ * and timeouts.
+ */
+static kern_return_t
+shmem_wait_for_state(struct shmem_stage_data *data, xhsdci_status_t status)
+{
+	data->contact_deadline = mach_absolute_time() + data->contact_deadline_interval;
+
+	while (hwsd_info->xhsdci_status != status) {
+		FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
+
+		if (hwsd_info->xhsdci_status == XHSDCI_COREDUMP_ERROR) {
+			kern_coredump_log(NULL, "%s: Detected remote side error (state %d, waiting %d)\n",
+			    __func__, hwsd_info->xhsdci_status, status);
+			return KERN_FAILURE;
+		}
+
+		if (mach_absolute_time() > data->contact_deadline) {
+			kern_coredump_log(NULL, "%s: Timed out waiting for the reply (state %d, waiting %d)\n",
+			    __func__, hwsd_info->xhsdci_status, status);
+			return KERN_OPERATION_TIMED_OUT;
+		}
+	}
+
+	if (hwsd_info->xhsdci_seq_no != (data->seq_no + 1)) {
+		kern_coredump_log(NULL, "%s: Detected stale/invalid seq num (state %d, waiting %d). Expected: %d, received %d\n",
+		    __func__, hwsd_info->xhsdci_status, status, (data->seq_no + 1), hwsd_info->xhsdci_seq_no);
+		return KERN_FAILURE;
+	}
+
+	return KERN_SUCCESS;
+}
+
+/*
+ * Publish new state, update seq number and flush cache.
+ */
+static kern_return_t
+shmem_set_status(struct shmem_stage_data *data, xhsdci_status_t status)
+{
+	data->seq_no = hwsd_info->xhsdci_seq_no;
+	hwsd_info->xhsdci_seq_no = ++(data->seq_no);
+	hwsd_info->xhsdci_status = status;
+	FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
+
+	return KERN_SUCCESS;
+}
+
+#pragma mark Output stage implementation
+
+/*
+ * Anounces file to be written to the other side and waits for response.
+ *
+ * Return value meaning:
+ *    KERN_SUCCESS   - A coredump should proceed
+ *    KERN_NODE_DOWN - Other side is not interested
+ *    KERN_*         - Error occured
+ */
+static kern_return_t
+shmem_stage_announce(struct kdp_output_stage *stage, const char *corename, uint8_t coretype)
+{
+	struct shmem_stage_data *data = (struct shmem_stage_data *) stage->kos_data;
+	kern_return_t ret = KERN_SUCCESS;
+
+	/* Don't signal XHSDCI_COREDUMP_DONE unless remote side has seen XHSDCI_COREDUMP_INFO. */
+	data->signal_done = false;
+
+	/*
+	 * This is the first state after XHSDCI_COREDUMP_BEGIN is set.
+	 * If that's the case then reset the sequence number to 1.
+	 */
+	if (hwsd_info->xhsdci_status == XHSDCI_COREDUMP_BEGIN) {
+		data->seq_no = 1;
+	}
+
+	/* Announce new corefile to the remote side. */
+	strlcpy(hwsd_info->xhsdci_file_name, corename, sizeof(hwsd_info->xhsdci_file_name));
+	hwsd_info->xhsdci_file_flags.xff_gzip = true;
+	hwsd_info->xhsdci_file_flags.xff_type = (coretype & 0xf);
+	shmem_set_status(data, XHSDCI_COREDUMP_INFO);
+
+	/* wait for response */
+	ret = shmem_wait_for_state(data, XHSDCI_COREDUMP_ACK);
+	if (ret != KERN_SUCCESS) {
+		kern_coredump_log(NULL, "%s: no ACK from remote side: %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Remote side has seen XHSDCI_COREDUMP_INFO so it will expect XHSDCI_COREDUMP_DONE. */
+	data->signal_done = true;
+
+	/* Return whether transfer has been acked/nacked. */
+	return (hwsd_info->xhsdci_file_flags.xff_ack) ? KERN_SUCCESS : KERN_NODE_DOWN;
+}
+
+/*
+ * Whenever a new file gets transfered, make sure the buffers
  * are all on the free queue and the state is as expected.
  * The buffers may have been left in a different state if
  * a previous coredump attempt failed.
  */
-static void
-shmem_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+shmem_stage_reset(struct kdp_output_stage *stage, const char *corename, kern_coredump_type_t coretype)
 {
 	struct shmem_stage_data *data = (struct shmem_stage_data *) stage->kos_data;
 	struct kdp_hw_shmem_dbg_buf_elm *cur_elm = NULL, *tmp_elm = NULL;
+	kern_return_t res = KERN_SUCCESS;
 
+	/*
+	 * Announce new file and wait for remote side's ACK.
+	 */
+	res = shmem_stage_announce(stage, corename, coretype);
+	if (res != KERN_SUCCESS) {
+		return res;
+	}
+
+	/*
+	 * Proceed with the stage output reset.
+	 */
 	STAILQ_FOREACH(cur_elm, &free_hw_shmem_dbg_bufs, khsd_elms) {
 		cur_elm->khsd_data_length = 0;
 	}
@@ -152,19 +282,24 @@ shmem_stage_reset(struct kdp_output_stage *stage)
 		STAILQ_INSERT_HEAD(&free_hw_shmem_dbg_bufs, cur_elm, khsd_elms);
 	}
 
-	hwsd_info->xhsdci_status = XHSDCI_COREDUMP_BUF_EMPTY;
-	data->seq_no = 0;
 	hwsd_info->xhsdci_buf_phys_addr = 0;
 	hwsd_info->xhsdci_buf_data_length = 0;
 	hwsd_info->xhsdci_coredump_total_size_uncomp = 0;
 	hwsd_info->xhsdci_coredump_total_size_sent_uncomp = 0;
 	hwsd_info->xhsdci_page_size = PAGE_SIZE;
-	FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
+
+	/*
+	 * Do not modify sequence numbers here. This is not a message for a remote
+	 * side. This sets only initial state for the file transfer itself.
+	 */
+	hwsd_info->xhsdci_status = XHSDCI_COREDUMP_BUF_EMPTY;
 
 	data->contact_deadline = mach_absolute_time() + data->contact_deadline_interval;
 
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 /*
@@ -180,12 +315,12 @@ shmem_dbg_process_buffers(struct kdp_output_stage *stage)
 
 	FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
 	if (hwsd_info->xhsdci_status == XHSDCI_COREDUMP_ERROR) {
-		kern_coredump_log(NULL, "Detected remote error, terminating...\n");
+		kern_coredump_log(NULL, "%s: Detected remote error, terminating...\n", __func__);
 		return kIOReturnError;
 	} else if (hwsd_info->xhsdci_status == XHSDCI_COREDUMP_BUF_EMPTY) {
 		if (hwsd_info->xhsdci_seq_no != (data->seq_no + 1)) {
-			kern_coredump_log(NULL, "Detected stale/invalid seq num. Expected: %d, received %d\n",
-			    (data->seq_no + 1), hwsd_info->xhsdci_seq_no);
+			kern_coredump_log(NULL, "%s: Detected stale/invalid seq num. Expected: %d, received %d\n",
+			    __func__, (data->seq_no + 1), hwsd_info->xhsdci_seq_no);
 			hwsd_info->xhsdci_status = XHSDCI_COREDUMP_ERROR;
 			FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
 			return kIOReturnError;
@@ -208,9 +343,7 @@ shmem_dbg_process_buffers(struct kdp_output_stage *stage)
 			hwsd_info->xhsdci_coredump_total_size_uncomp = stage->kos_outstate->kcos_totalbytes;
 			hwsd_info->xhsdci_coredump_total_size_sent_uncomp = stage->kos_outstate->kcos_bytes_written;
 			FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, KDP_CORE_HW_SHMEM_DBG_TOTAL_BUF_SIZE);
-			hwsd_info->xhsdci_seq_no = ++(data->seq_no);
-			hwsd_info->xhsdci_status = XHSDCI_COREDUMP_BUF_READY;
-			FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
+			shmem_set_status(data, XHSDCI_COREDUMP_BUF_READY);
 		}
 
 		data->contact_deadline = mach_absolute_time() + data->contact_deadline_interval;
@@ -218,7 +351,7 @@ shmem_dbg_process_buffers(struct kdp_output_stage *stage)
 		return KERN_SUCCESS;
 	} else if (mach_absolute_time() > data->contact_deadline) {
 		kern_coredump_log(NULL, "Kernel timed out waiting for hardware debugger to update handshake structure.");
-		kern_coredump_log(NULL, "No contact in %d seconds\n", KDP_HW_SHMEM_DBG_TIMEOUT_DEADLINE_SECS);
+		kern_coredump_log(NULL, "No contact in %llu seconds\n", shmem_timeout_sec);
 
 		hwsd_info->xhsdci_status = XHSDCI_COREDUMP_ERROR;
 		FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
@@ -274,8 +407,22 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 	uint32_t bytes_remaining =  (uint32_t) length;
 	uint32_t bytes_to_copy;
 
-	if (request == KDP_EOF) {
+	/*
+	 * Flush the buffers and signal that coredump is finished.
+	 */
+	if (request == KDP_EOF || request == KDP_SEEK) {
 		assert(data->currently_filling_buf == NULL);
+
+		/*
+		 * Do not signal XHSDCI_COREDUMP_STATUS_DONE if no file transfer is in
+		 * progress.
+		 *
+		 * If connection is already in ERROR state then avoid touching status
+		 * field. Remote side is waiting for protocol restart (KERNEL_READY).
+		 */
+		if (!data->signal_done || hwsd_info->xhsdci_status == XHSDCI_COREDUMP_ERROR) {
+			return KERN_SUCCESS;
+		}
 
 		/*
 		 * Wait until we've flushed all the buffers
@@ -284,9 +431,10 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 		while (!STAILQ_EMPTY(&hw_shmem_dbg_bufs_to_flush) ||
 		    data->currently_flushing_buf != NULL) {
 			ret = shmem_dbg_process_buffers(stage);
-			if (ret) {
-				return ret;
+			if (KERN_SUCCESS != ret) {
+				kern_coredump_log(NULL, "(%s) shmem_dbg_process_buffers failed with error 0x%x\n", __func__, ret);
 			}
+			return ret;
 		}
 
 		/*
@@ -300,12 +448,15 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 			return -1;
 		}
 
-		data->seq_no = hwsd_info->xhsdci_seq_no;
-
 		kern_coredump_log(NULL, "Setting coredump status as done!\n");
-		hwsd_info->xhsdci_seq_no = ++(data->seq_no);
-		hwsd_info->xhsdci_status = XHSDCI_COREDUMP_STATUS_DONE;
-		FlushPoC_DcacheRegion((vm_offset_t) hwsd_info, sizeof(*hwsd_info));
+		shmem_set_status(data, XHSDCI_COREDUMP_STATUS_DONE);
+
+		/* wait for remote side to signal it is done */
+		ret = shmem_wait_for_state(data, XHSDCI_COREDUMP_REMOTE_DONE);
+		if (ret != KERN_SUCCESS) {
+			kern_coredump_log(NULL, "%s: remote is not done: %d\n", __func__, ret);
+			return ret;
+		}
 
 		return ret;
 	}
@@ -329,6 +480,9 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 		 * Move the current buffer along if possible.
 		 */
 		ret = shmem_dbg_process_buffers(stage);
+		if (KERN_SUCCESS != ret) {
+			kern_coredump_log(NULL, "(%s) shmem_dbg_process_buffers failed with error 0x%x\n", __func__, ret);
+		}
 		return ret;
 	}
 
@@ -338,7 +492,8 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 		 */
 		while (data->currently_filling_buf == NULL) {
 			ret = shmem_dbg_get_buffer(stage);
-			if (ret) {
+			if (KERN_SUCCESS != ret) {
+				kern_coredump_log(NULL, "(%s) shmem_dbg_get_buffer failed with error 0x%x\n", __func__, ret);
 				return ret;
 			}
 		}
@@ -359,7 +514,8 @@ shmem_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 			 * Move it along if possible.
 			 */
 			ret = shmem_dbg_process_buffers(stage);
-			if (ret) {
+			if (KERN_SUCCESS != ret) {
+				kern_coredump_log(NULL, "(%s) shmem_dbg_process_buffers failed with error 0x%x\n", __func__, ret);
 				return ret;
 			}
 		}
@@ -453,15 +609,16 @@ shmem_stage_initialize(struct kdp_output_stage *stage)
 	stage->kos_data_size = sizeof(struct shmem_stage_data);
 
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		return ret;
 	}
 
 	data = (struct shmem_stage_data*) stage->kos_data;
+	data->signal_done = false;
 	data->seq_no = 0;
 	data->contact_deadline = 0;
-	nanoseconds_to_absolutetime(KDP_HW_SHMEM_DBG_TIMEOUT_DEADLINE_SECS * NSEC_PER_SEC, &(data->contact_deadline_interval));
+	nanoseconds_to_absolutetime(shmem_timeout_sec * NSEC_PER_SEC, &(data->contact_deadline_interval));
 	data->currently_filling_buf = NULL;
 	data->currently_flushing_buf = NULL;
 

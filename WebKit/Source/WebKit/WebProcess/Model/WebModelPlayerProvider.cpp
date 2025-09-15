@@ -30,6 +30,7 @@
 #include "WebProcess.h"
 #include <WebCore/ModelPlayer.h>
 #include <WebCore/Page.h>
+#include <WebCore/Settings.h>
 #include <wtf/TZoneMallocInlines.h>
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
@@ -53,6 +54,11 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebModelPlayerProvider);
 
+Ref<WebModelPlayerProvider> WebModelPlayerProvider::create(WebPage& webPage)
+{
+    return adoptRef(*new WebModelPlayerProvider(webPage));
+}
+
 WebModelPlayerProvider::WebModelPlayerProvider(WebPage& page)
     : m_page { page }
 {
@@ -67,7 +73,7 @@ RefPtr<WebCore::ModelPlayer> WebModelPlayerProvider::createModelPlayer(WebCore::
     Ref page = m_page.get();
     UNUSED_PARAM(page);
 #if ENABLE(MODEL_PROCESS)
-    if (page->corePage()->settings().modelProcessEnabled())
+    if (page->corePage() && page->corePage()->settings().modelProcessEnabled())
         return WebProcess::singleton().modelProcessModelPlayerManager().createModelProcessModelPlayer(page, client);
 #endif
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
@@ -90,8 +96,8 @@ void WebModelPlayerProvider::deleteModelPlayer(WebCore::ModelPlayer& modelPlayer
 {
 #if ENABLE(MODEL_PROCESS)
     Ref page = m_page.get();
-    if (page->corePage()->settings().modelProcessEnabled())
-        return WebProcess::singleton().modelProcessModelPlayerManager().deleteModelProcessModelPlayer(modelPlayer);
+    if (page->corePage() && page->corePage()->settings().modelProcessEnabled())
+        WebProcess::singleton().modelProcessModelPlayerManager().deleteModelProcessModelPlayer(modelPlayer);
 #else
     UNUSED_PARAM(modelPlayer);
 #endif

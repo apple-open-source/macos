@@ -385,6 +385,10 @@ String TextCodecUTF8::decode(std::span<const uint8_t> bytes, bool flush, bool st
         m_partialSequenceSize = 0;
     if (flush || buffer.length())
         m_shouldStripByteOrderMark = false;
+    if (buffer.length() > String::MaxLength) {
+        sawError = true;
+        return { };
+    }
     return String::adopt(WTFMove(buffer));
 
 upConvertTo16Bit:
@@ -466,6 +470,10 @@ upConvertTo16Bit:
         m_partialSequenceSize = 0;
     if (flush || buffer16.length())
         m_shouldStripByteOrderMark = false;
+    if (buffer16.length() > String::MaxLength) {
+        sawError = true;
+        return { };
+    }
     return String::adopt(WTFMove(buffer16));
 }
 

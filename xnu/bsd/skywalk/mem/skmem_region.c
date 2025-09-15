@@ -115,6 +115,8 @@
 #define _FN_KPRINTF             /* don't redefine kprintf() */
 #include <pexpert/pexpert.h>    /* for PE_parse_boot_argn */
 
+#include <kern/uipc_domain.h>
+
 static void skmem_region_destroy(struct skmem_region *skr);
 static void skmem_region_depopulate(struct skmem_region *);
 static int sksegment_cmp(const struct sksegment *, const struct sksegment *);
@@ -252,88 +254,88 @@ skmem_region_init(void)
 {
 	boolean_t randomize_seg_size;
 
-	_CASSERT(sizeof(bitmap_t) == sizeof(uint64_t));
-	_CASSERT(BMAPSZ == (sizeof(bitmap_t) << 3));
-	_CASSERT((SKMEM_SEG_SIZE % SKMEM_PAGE_SIZE) == 0);
-	_CASSERT(SKMEM_REGION_HASH_LIMIT >= SKMEM_REGION_HASH_INITIAL);
+	static_assert(sizeof(bitmap_t) == sizeof(uint64_t));
+	static_assert(BMAPSZ == (sizeof(bitmap_t) << 3));
+	static_assert((SKMEM_SEG_SIZE % SKMEM_PAGE_SIZE) == 0);
+	static_assert(SKMEM_REGION_HASH_LIMIT >= SKMEM_REGION_HASH_INITIAL);
 	ASSERT(!__skmem_region_inited);
 
 	/* enforce the ordering here */
-	_CASSERT(SKMEM_REGION_GUARD_HEAD == 0);
-	_CASSERT(SKMEM_REGION_SCHEMA == 1);
-	_CASSERT(SKMEM_REGION_RING == 2);
-	_CASSERT(SKMEM_REGION_BUF_DEF == 3);
-	_CASSERT(SKMEM_REGION_BUF_LARGE == 4);
-	_CASSERT(SKMEM_REGION_RXBUF_DEF == 5);
-	_CASSERT(SKMEM_REGION_RXBUF_LARGE == 6);
-	_CASSERT(SKMEM_REGION_TXBUF_DEF == 7);
-	_CASSERT(SKMEM_REGION_TXBUF_LARGE == 8);
-	_CASSERT(SKMEM_REGION_UMD == 9);
-	_CASSERT(SKMEM_REGION_TXAUSD == 10);
-	_CASSERT(SKMEM_REGION_RXFUSD == 11);
-	_CASSERT(SKMEM_REGION_UBFT == 12);
-	_CASSERT(SKMEM_REGION_USTATS == 13);
-	_CASSERT(SKMEM_REGION_FLOWADV == 14);
-	_CASSERT(SKMEM_REGION_NEXUSADV == 15);
-	_CASSERT(SKMEM_REGION_SYSCTLS == 16);
-	_CASSERT(SKMEM_REGION_GUARD_TAIL == 17);
-	_CASSERT(SKMEM_REGION_KMD == 18);
-	_CASSERT(SKMEM_REGION_RXKMD == 19);
-	_CASSERT(SKMEM_REGION_TXKMD == 20);
-	_CASSERT(SKMEM_REGION_KBFT == 21);
-	_CASSERT(SKMEM_REGION_RXKBFT == 22);
-	_CASSERT(SKMEM_REGION_TXKBFT == 23);
-	_CASSERT(SKMEM_REGION_TXAKSD == 24);
-	_CASSERT(SKMEM_REGION_RXFKSD == 25);
-	_CASSERT(SKMEM_REGION_KSTATS == 26);
-	_CASSERT(SKMEM_REGION_INTRINSIC == 27);
+	static_assert(SKMEM_REGION_GUARD_HEAD == 0);
+	static_assert(SKMEM_REGION_SCHEMA == 1);
+	static_assert(SKMEM_REGION_RING == 2);
+	static_assert(SKMEM_REGION_BUF_DEF == 3);
+	static_assert(SKMEM_REGION_BUF_LARGE == 4);
+	static_assert(SKMEM_REGION_RXBUF_DEF == 5);
+	static_assert(SKMEM_REGION_RXBUF_LARGE == 6);
+	static_assert(SKMEM_REGION_TXBUF_DEF == 7);
+	static_assert(SKMEM_REGION_TXBUF_LARGE == 8);
+	static_assert(SKMEM_REGION_UMD == 9);
+	static_assert(SKMEM_REGION_TXAUSD == 10);
+	static_assert(SKMEM_REGION_RXFUSD == 11);
+	static_assert(SKMEM_REGION_UBFT == 12);
+	static_assert(SKMEM_REGION_USTATS == 13);
+	static_assert(SKMEM_REGION_FLOWADV == 14);
+	static_assert(SKMEM_REGION_NEXUSADV == 15);
+	static_assert(SKMEM_REGION_SYSCTLS == 16);
+	static_assert(SKMEM_REGION_GUARD_TAIL == 17);
+	static_assert(SKMEM_REGION_KMD == 18);
+	static_assert(SKMEM_REGION_RXKMD == 19);
+	static_assert(SKMEM_REGION_TXKMD == 20);
+	static_assert(SKMEM_REGION_KBFT == 21);
+	static_assert(SKMEM_REGION_RXKBFT == 22);
+	static_assert(SKMEM_REGION_TXKBFT == 23);
+	static_assert(SKMEM_REGION_TXAKSD == 24);
+	static_assert(SKMEM_REGION_RXFKSD == 25);
+	static_assert(SKMEM_REGION_KSTATS == 26);
+	static_assert(SKMEM_REGION_INTRINSIC == 27);
 
-	_CASSERT(SREG_GUARD_HEAD == SKMEM_REGION_GUARD_HEAD);
-	_CASSERT(SREG_SCHEMA == SKMEM_REGION_SCHEMA);
-	_CASSERT(SREG_RING == SKMEM_REGION_RING);
-	_CASSERT(SREG_BUF_DEF == SKMEM_REGION_BUF_DEF);
-	_CASSERT(SREG_BUF_LARGE == SKMEM_REGION_BUF_LARGE);
-	_CASSERT(SREG_RXBUF_DEF == SKMEM_REGION_RXBUF_DEF);
-	_CASSERT(SREG_RXBUF_LARGE == SKMEM_REGION_RXBUF_LARGE);
-	_CASSERT(SREG_TXBUF_DEF == SKMEM_REGION_TXBUF_DEF);
-	_CASSERT(SREG_TXBUF_LARGE == SKMEM_REGION_TXBUF_LARGE);
-	_CASSERT(SREG_UMD == SKMEM_REGION_UMD);
-	_CASSERT(SREG_TXAUSD == SKMEM_REGION_TXAUSD);
-	_CASSERT(SREG_RXFUSD == SKMEM_REGION_RXFUSD);
-	_CASSERT(SREG_UBFT == SKMEM_REGION_UBFT);
-	_CASSERT(SREG_USTATS == SKMEM_REGION_USTATS);
-	_CASSERT(SREG_FLOWADV == SKMEM_REGION_FLOWADV);
-	_CASSERT(SREG_NEXUSADV == SKMEM_REGION_NEXUSADV);
-	_CASSERT(SREG_SYSCTLS == SKMEM_REGION_SYSCTLS);
-	_CASSERT(SREG_GUARD_TAIL == SKMEM_REGION_GUARD_TAIL);
-	_CASSERT(SREG_KMD == SKMEM_REGION_KMD);
-	_CASSERT(SREG_RXKMD == SKMEM_REGION_RXKMD);
-	_CASSERT(SREG_TXKMD == SKMEM_REGION_TXKMD);
-	_CASSERT(SREG_KBFT == SKMEM_REGION_KBFT);
-	_CASSERT(SREG_RXKBFT == SKMEM_REGION_RXKBFT);
-	_CASSERT(SREG_TXKBFT == SKMEM_REGION_TXKBFT);
-	_CASSERT(SREG_TXAKSD == SKMEM_REGION_TXAKSD);
-	_CASSERT(SREG_RXFKSD == SKMEM_REGION_RXFKSD);
-	_CASSERT(SREG_KSTATS == SKMEM_REGION_KSTATS);
+	static_assert(SREG_GUARD_HEAD == SKMEM_REGION_GUARD_HEAD);
+	static_assert(SREG_SCHEMA == SKMEM_REGION_SCHEMA);
+	static_assert(SREG_RING == SKMEM_REGION_RING);
+	static_assert(SREG_BUF_DEF == SKMEM_REGION_BUF_DEF);
+	static_assert(SREG_BUF_LARGE == SKMEM_REGION_BUF_LARGE);
+	static_assert(SREG_RXBUF_DEF == SKMEM_REGION_RXBUF_DEF);
+	static_assert(SREG_RXBUF_LARGE == SKMEM_REGION_RXBUF_LARGE);
+	static_assert(SREG_TXBUF_DEF == SKMEM_REGION_TXBUF_DEF);
+	static_assert(SREG_TXBUF_LARGE == SKMEM_REGION_TXBUF_LARGE);
+	static_assert(SREG_UMD == SKMEM_REGION_UMD);
+	static_assert(SREG_TXAUSD == SKMEM_REGION_TXAUSD);
+	static_assert(SREG_RXFUSD == SKMEM_REGION_RXFUSD);
+	static_assert(SREG_UBFT == SKMEM_REGION_UBFT);
+	static_assert(SREG_USTATS == SKMEM_REGION_USTATS);
+	static_assert(SREG_FLOWADV == SKMEM_REGION_FLOWADV);
+	static_assert(SREG_NEXUSADV == SKMEM_REGION_NEXUSADV);
+	static_assert(SREG_SYSCTLS == SKMEM_REGION_SYSCTLS);
+	static_assert(SREG_GUARD_TAIL == SKMEM_REGION_GUARD_TAIL);
+	static_assert(SREG_KMD == SKMEM_REGION_KMD);
+	static_assert(SREG_RXKMD == SKMEM_REGION_RXKMD);
+	static_assert(SREG_TXKMD == SKMEM_REGION_TXKMD);
+	static_assert(SREG_KBFT == SKMEM_REGION_KBFT);
+	static_assert(SREG_RXKBFT == SKMEM_REGION_RXKBFT);
+	static_assert(SREG_TXKBFT == SKMEM_REGION_TXKBFT);
+	static_assert(SREG_TXAKSD == SKMEM_REGION_TXAKSD);
+	static_assert(SREG_RXFKSD == SKMEM_REGION_RXFKSD);
+	static_assert(SREG_KSTATS == SKMEM_REGION_KSTATS);
 
-	_CASSERT(SKR_MODE_NOREDIRECT == SREG_MODE_NOREDIRECT);
-	_CASSERT(SKR_MODE_MMAPOK == SREG_MODE_MMAPOK);
-	_CASSERT(SKR_MODE_UREADONLY == SREG_MODE_UREADONLY);
-	_CASSERT(SKR_MODE_KREADONLY == SREG_MODE_KREADONLY);
-	_CASSERT(SKR_MODE_PERSISTENT == SREG_MODE_PERSISTENT);
-	_CASSERT(SKR_MODE_MONOLITHIC == SREG_MODE_MONOLITHIC);
-	_CASSERT(SKR_MODE_NOMAGAZINES == SREG_MODE_NOMAGAZINES);
-	_CASSERT(SKR_MODE_NOCACHE == SREG_MODE_NOCACHE);
-	_CASSERT(SKR_MODE_IODIR_IN == SREG_MODE_IODIR_IN);
-	_CASSERT(SKR_MODE_IODIR_OUT == SREG_MODE_IODIR_OUT);
-	_CASSERT(SKR_MODE_GUARD == SREG_MODE_GUARD);
-	_CASSERT(SKR_MODE_SEGPHYSCONTIG == SREG_MODE_SEGPHYSCONTIG);
-	_CASSERT(SKR_MODE_SHAREOK == SREG_MODE_SHAREOK);
-	_CASSERT(SKR_MODE_PUREDATA == SREG_MODE_PUREDATA);
-	_CASSERT(SKR_MODE_PSEUDO == SREG_MODE_PSEUDO);
-	_CASSERT(SKR_MODE_THREADSAFE == SREG_MODE_THREADSAFE);
-	_CASSERT(SKR_MODE_SLAB == SREG_MODE_SLAB);
-	_CASSERT(SKR_MODE_MIRRORED == SREG_MODE_MIRRORED);
+	static_assert(SKR_MODE_NOREDIRECT == SREG_MODE_NOREDIRECT);
+	static_assert(SKR_MODE_MMAPOK == SREG_MODE_MMAPOK);
+	static_assert(SKR_MODE_UREADONLY == SREG_MODE_UREADONLY);
+	static_assert(SKR_MODE_KREADONLY == SREG_MODE_KREADONLY);
+	static_assert(SKR_MODE_PERSISTENT == SREG_MODE_PERSISTENT);
+	static_assert(SKR_MODE_MONOLITHIC == SREG_MODE_MONOLITHIC);
+	static_assert(SKR_MODE_NOMAGAZINES == SREG_MODE_NOMAGAZINES);
+	static_assert(SKR_MODE_NOCACHE == SREG_MODE_NOCACHE);
+	static_assert(SKR_MODE_IODIR_IN == SREG_MODE_IODIR_IN);
+	static_assert(SKR_MODE_IODIR_OUT == SREG_MODE_IODIR_OUT);
+	static_assert(SKR_MODE_GUARD == SREG_MODE_GUARD);
+	static_assert(SKR_MODE_SEGPHYSCONTIG == SREG_MODE_SEGPHYSCONTIG);
+	static_assert(SKR_MODE_SHAREOK == SREG_MODE_SHAREOK);
+	static_assert(SKR_MODE_PUREDATA == SREG_MODE_PUREDATA);
+	static_assert(SKR_MODE_PSEUDO == SREG_MODE_PSEUDO);
+	static_assert(SKR_MODE_THREADSAFE == SREG_MODE_THREADSAFE);
+	static_assert(SKR_MODE_SLAB == SREG_MODE_SLAB);
+	static_assert(SKR_MODE_MIRRORED == SREG_MODE_MIRRORED);
 
 	(void) PE_parse_boot_argn("skmem_seg_size", &skmem_seg_size,
 	    sizeof(skmem_seg_size));
@@ -388,7 +390,7 @@ skmem_region_init(void)
 	    SKMEM_MIN_SEG_SIZE);
 	VERIFY((skmem_usr_buf_seg_size % SKMEM_PAGE_SIZE) == 0);
 
-	SK_ERR("seg_size %u, md_seg_size %u, drv_buf_seg_size %u [eff %u], "
+	SK_D("seg_size %u, md_seg_size %u, drv_buf_seg_size %u [eff %u], "
 	    "usr_buf_seg_size %u", skmem_seg_size, skmem_md_seg_size,
 	    skmem_drv_buf_seg_size, skmem_drv_buf_seg_eff_size,
 	    skmem_usr_buf_seg_size);
@@ -734,6 +736,7 @@ skmem_region_create(const char *name, struct skmem_region_params *srp,
 	skr->skr_r_obj_cnt = srp->srp_r_obj_cnt;
 	skr->skr_c_obj_size = srp->srp_c_obj_size;
 	skr->skr_c_obj_cnt = srp->srp_c_obj_cnt;
+	skr->skr_memtotal = skr->skr_seg_size * srp->srp_seg_cnt;
 
 	skr->skr_params.srp_md_type = srp->srp_md_type;
 	skr->skr_params.srp_md_subtype = srp->srp_md_subtype;
@@ -754,7 +757,7 @@ skmem_region_create(const char *name, struct skmem_region_params *srp,
 	(void) snprintf(skr->skr_name, sizeof(skr->skr_name),
 	    "%s.%s.%s", SKMEM_REGION_PREFIX, srp->srp_name, name);
 
-	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr 0x%llx ",
+	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr %p ",
 	    skr->skr_name, SK_KVA(skr));
 
 	/* sanity check */
@@ -879,10 +882,9 @@ skmem_region_create(const char *name, struct skmem_region_params *srp,
 		if ((skr->skr_reg = IOSKRegionCreate(&skr->skr_regspec,
 		    (IOSKSize)skr->skr_seg_size,
 		    (IOSKCount)skr->skr_seg_max_cnt)) == NULL) {
-			SK_ERR("\%s\": [%u * %u] cflags 0x%b skr_reg failed",
+			SK_ERR("\%s\": [%u * %u] cflags 0x%x skr_reg failed",
 			    skr->skr_name, (uint32_t)skr->skr_seg_size,
-			    (uint32_t)skr->skr_seg_max_cnt, skr->skr_cflags,
-			    SKMEM_REGION_CR_BITS);
+			    (uint32_t)skr->skr_seg_max_cnt, skr->skr_cflags);
 			goto failed;
 		}
 	}
@@ -897,10 +899,10 @@ skmem_region_create(const char *name, struct skmem_region_params *srp,
 	SKMEM_REGION_UNLOCK();
 
 	SK_DF(SK_VERB_MEM_REGION,
-	    "  [TOTAL] seg (%u*%u) obj (%u*%u) cflags 0x%b",
+	    "  [TOTAL] seg (%u*%u) obj (%u*%u) cflags 0x%x",
 	    (uint32_t)skr->skr_seg_size, (uint32_t)skr->skr_seg_max_cnt,
 	    (uint32_t)skr->skr_c_obj_size, (uint32_t)skr->skr_c_obj_cnt,
-	    skr->skr_cflags, SKMEM_REGION_CR_BITS);
+	    skr->skr_cflags);
 
 	return skr;
 
@@ -921,7 +923,7 @@ skmem_region_destroy(struct skmem_region *skr)
 
 	SKR_LOCK_ASSERT_HELD(skr);
 
-	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr 0x%llx",
+	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr %p",
 	    skr->skr_name, SK_KVA(skr));
 
 	/*
@@ -1020,7 +1022,7 @@ void
 skmem_region_mirror(struct skmem_region *skr, struct skmem_region *mskr)
 {
 	ASSERT(mskr != NULL);
-	SK_DF(SK_VERB_MEM_REGION, "skr master 0x%llx, slave 0x%llx ",
+	SK_DF(SK_VERB_MEM_REGION, "skr master %p, slave %p ",
 	    SK_KVA(skr), SK_KVA(mskr));
 
 	SKR_LOCK(skr);
@@ -1295,16 +1297,15 @@ retry:
 	ASSERT((mach_vm_address_t)addr == sg->sg_start);
 
 #if SK_LOG
-	SK_DF(SK_VERB_MEM_REGION, "skr 0x%llx sg 0x%llx",
+	SK_DF(SK_VERB_MEM_REGION, "skr %p sg %p",
 	    SK_KVA(skr), SK_KVA(sg));
 	if (skr->skr_mirror == NULL ||
 	    !(skr->skr_mirror->skr_mode & SKR_MODE_MIRRORED)) {
-		SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx)",
+		SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p)",
 		    sg->sg_index, SK_KVA(sg->sg_start), SK_KVA(sg->sg_end));
 	} else {
-		SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx) mirrored",
-		    sg->sg_index, SK_KVA(sg), SK_KVA(sg->sg_start),
-		    SK_KVA(sg->sg_end));
+		SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p) mirrored",
+		    sg->sg_index, SK_KVA(sg->sg_start), SK_KVA(sg->sg_end));
 	}
 #endif /* SK_LOG */
 
@@ -1401,9 +1402,9 @@ skmem_region_mirror_alloc(struct skmem_region *skr, struct sksegment *sg0,
 	addr = skmem_region_alloc_common(skr, sg, skr->skr_seg_size);
 
 #if SK_LOG
-	SK_DF(SK_VERB_MEM_REGION, "skr 0x%llx sg 0x%llx",
+	SK_DF(SK_VERB_MEM_REGION, "skr %p sg %p",
 	    SK_KVA(skr), SK_KVA(sg));
-	SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx)",
+	SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p)",
 	    sg->sg_index, SK_KVA(sg->sg_start), SK_KVA(sg->sg_end));
 #endif /* SK_LOG */
 
@@ -1459,16 +1460,16 @@ skmem_region_free(struct skmem_region *skr, void *addr, void *maddr)
 	skr->skr_free++;
 
 #if SK_LOG
-	SK_DF(SK_VERB_MEM_REGION, "skr 0x%llx sg 0x%llx",
+	SK_DF(SK_VERB_MEM_REGION, "skr %p sg %p",
 	    SK_KVA(skr), SK_KVA(sg));
 	if (skr->skr_mirror == NULL ||
 	    !(skr->skr_mirror->skr_mode & SKR_MODE_MIRRORED)) {
-		SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx)",
+		SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p)",
 		    sg->sg_index, SK_KVA(addr),
 		    SK_KVA((uintptr_t)addr + skr->skr_seg_size));
 	} else {
-		SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx) mirrored",
-		    sg->sg_index, SK_KVA(sg), SK_KVA(addr),
+		SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p) mirrored",
+		    sg->sg_index, SK_KVA(addr),
 		    SK_KVA((uintptr_t)addr + skr->skr_seg_size));
 	}
 #endif /* SK_LOG */
@@ -1487,7 +1488,7 @@ skmem_region_free(struct skmem_region *skr, void *addr, void *maddr)
 	/* wake up any blocked threads waiting for a segment */
 	if (skr->skr_seg_waiters != 0) {
 		SK_DF(SK_VERB_MEM_REGION,
-		    "sg 0x%llx waking up %u waiters", SK_KVA(sg),
+		    "sg %p waking up %u waiters", SK_KVA(sg),
 		    skr->skr_seg_waiters);
 		skr->skr_seg_waiters = 0;
 		wakeup(&skr->skr_seg_free);
@@ -1552,7 +1553,7 @@ skmem_region_depopulate(struct skmem_region *skr)
 {
 	struct sksegment *sg, *tsg;
 
-	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr 0x%llx ",
+	SK_DF(SK_VERB_MEM_REGION, "\"%s\": skr %p ",
 	    skr->skr_name, SK_KVA(skr));
 
 	SKR_LOCK_ASSERT_HELD(skr);
@@ -1611,9 +1612,8 @@ sksegment_create(struct skmem_region *skr, uint32_t i)
 	/* claim it (clear bit) */
 	bit_clear(*bmap, i % BMAPSZ);
 
-	SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx) 0x%b", i,
-	    SK_KVA(sg->sg_start), SK_KVA(sg->sg_end), skr->skr_mode,
-	    SKR_MODE_BITS);
+	SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p) 0x%x", i,
+	    SK_KVA(sg->sg_start), SK_KVA(sg->sg_end), skr->skr_mode);
 
 	return sg;
 }
@@ -1641,9 +1641,8 @@ sksegment_destroy(struct skmem_region *skr, struct sksegment *sg)
 	bmap = &skr->skr_seg_bmap[i / BMAPSZ];
 	ASSERT(!bit_test(*bmap, i % BMAPSZ));
 
-	SK_DF(SK_VERB_MEM_REGION, "  [%u] [0x%llx-0x%llx) 0x%b",
-	    i, SK_KVA(sg->sg_start), SK_KVA(sg->sg_end),
-	    skr->skr_mode, SKR_MODE_BITS);
+	SK_DF(SK_VERB_MEM_REGION, "  [%u] [%p-%p) 0x%x",
+	    i, SK_KVA(sg->sg_start), SK_KVA(sg->sg_end), skr->skr_mode);
 
 	/*
 	 * Undo what's done earlier at segment creation time.
@@ -1725,9 +1724,6 @@ sksegment_freelist_insert(struct skmem_region *skr, struct sksegment *sg,
 		sg->sg_md = NULL;
 		sg->sg_start = sg->sg_end = 0;
 		sg->sg_state = SKSEG_STATE_DETACHED;
-
-		ASSERT(skr->skr_memtotal >= skr->skr_seg_size);
-		skr->skr_memtotal -= skr->skr_seg_size;
 	}
 
 	sg->sg_type = SKSEG_TYPE_FREE;
@@ -1770,7 +1766,7 @@ sksegment_freelist_remove(struct skmem_region *skr, struct sksegment *sg,
 	if (__improbable(mtbf != 0 && !purging &&
 	    (net_uptime_ms() % mtbf) == 0 &&
 	    !(skmflag & SKMEM_PANIC))) {
-		SK_ERR("skr \"%s\" 0x%llx sg 0x%llx MTBF failure",
+		SK_ERR("skr \"%s\" %p sg %p MTBF failure",
 		    skr->skr_name, SK_KVA(skr), SK_KVA(sg));
 		net_update_uptime();
 		return NULL;
@@ -1866,8 +1862,6 @@ sksegment_freelist_remove(struct skmem_region *skr, struct sksegment *sg,
 
 	sg->sg_state = IOSKBufferIsWired(sg->sg_md) ?
 	    SKSEG_STATE_MAPPED_WIRED : SKSEG_STATE_MAPPED;
-
-	skr->skr_memtotal += skr->skr_seg_size;
 
 	ASSERT(sg->sg_md != NULL);
 	ASSERT(sg->sg_start != 0 && sg->sg_end != 0);
@@ -2026,8 +2020,8 @@ skmem_region_hash_rescale(struct skmem_region *skr)
 	}
 
 	SK_DF(SK_VERB_MEM_REGION,
-	    "skr 0x%llx old_size %u new_size %u [%u moved]", SK_KVA(skr),
-	    (uint32_t)old_size, (uint32_t)new_size, moved);
+	    "skr %p old_size %zu new_size %zu [%u moved]", SK_KVA(skr),
+	    old_size, new_size, moved);
 
 	SKR_UNLOCK(skr);
 
@@ -2385,7 +2379,7 @@ skmem_region_mtbf_sysctl(struct sysctl_oid *oidp, void *arg1, int arg2,
 	int changed, error;
 	uint64_t newval;
 
-	_CASSERT(sizeof(skmem_region_mtbf) == sizeof(uint64_t));
+	static_assert(sizeof(skmem_region_mtbf) == sizeof(uint64_t));
 	if ((error = sysctl_io_number(req, skmem_region_mtbf,
 	    sizeof(uint64_t), &newval, &changed)) == 0) {
 		if (changed) {

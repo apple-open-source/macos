@@ -110,13 +110,13 @@ bool checkUsageDescriptionStringForSpeechRecognition()
     return dynamic_objc_cast<NSString>(NSBundle.mainBundle.infoDictionary[@"NSSpeechRecognitionUsageDescription"]).length > 0;
 }
 
-static NSString* visibleDomain(const String& host)
+static RetainPtr<NSString> visibleDomain(const String& host)
 {
     auto domain = WTF::URLHelpers::userVisibleURL(host.utf8());
-    return startsWithLettersIgnoringASCIICase(domain, "www."_s) ? StringView(domain).substring(4).createNSString().autorelease() : static_cast<NSString *>(domain);
+    return startsWithLettersIgnoringASCIICase(domain, "www."_s) ? StringView(domain).substring(4).createNSString() : domain.createNSString();
 }
 
-NSString *applicationVisibleNameFromOrigin(const WebCore::SecurityOriginData& origin)
+RetainPtr<NSString> applicationVisibleNameFromOrigin(const WebCore::SecurityOriginData& origin)
 {
     if (origin.protocol() != "http"_s && origin.protocol() != "https"_s)
         return nil;
@@ -124,71 +124,71 @@ NSString *applicationVisibleNameFromOrigin(const WebCore::SecurityOriginData& or
     return visibleDomain(origin.host());
 }
 
-NSString *applicationVisibleName()
+RetainPtr<NSString> applicationVisibleName()
 {
-    NSBundle *appBundle = [NSBundle mainBundle];
-    NSString *displayName = appBundle.infoDictionary[(__bridge NSString *)_kCFBundleDisplayNameKey];
-    NSString *readableName = appBundle.infoDictionary[(__bridge NSString *)kCFBundleNameKey];
-    return displayName ?: readableName;
+    RetainPtr appBundle = [NSBundle mainBundle];
+    if (RetainPtr<NSString> displayName = appBundle.get().infoDictionary[bridge_cast(_kCFBundleDisplayNameKey)])
+        return displayName;
+    return appBundle.get().infoDictionary[bridge_cast(kCFBundleNameKey)];
 }
 
-static NSString *alertMessageText(MediaPermissionReason reason, const WebCore::SecurityOriginData& origin)
+static RetainPtr<NSString> alertMessageText(MediaPermissionReason reason, const WebCore::SecurityOriginData& origin)
 {
-    NSString *visibleOrigin = applicationVisibleNameFromOrigin(origin);
+    RetainPtr visibleOrigin = applicationVisibleNameFromOrigin(origin);
     if (!visibleOrigin)
         visibleOrigin = applicationVisibleName();
 
     switch (reason) {
     case MediaPermissionReason::Camera:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your camera?", @"Message for user camera access prompt"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your camera?", @"Message for user camera access prompt"), visibleOrigin.get()]);
     case MediaPermissionReason::CameraAndMicrophone:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your camera and microphone?", @"Message for user media prompt"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your camera and microphone?", @"Message for user media prompt"), visibleOrigin.get()]);
     case MediaPermissionReason::Microphone:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your microphone?", @"Message for user microphone access prompt"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your microphone?", @"Message for user microphone access prompt"), visibleOrigin.get()]);
     case MediaPermissionReason::ScreenCapture:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe your screen?", @"Message for screen sharing prompt"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe your screen?", @"Message for screen sharing prompt"), visibleOrigin.get()]);
     case MediaPermissionReason::DeviceOrientation:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"“%@” Would Like to Access Motion and Orientation", @"Message for requesting access to the device motion and orientation"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"“%@” Would Like to Access Motion and Orientation", @"Message for requesting access to the device motion and orientation"), visibleOrigin.get()]);
     case MediaPermissionReason::Geolocation:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your current location?", @"Message for geolocation prompt"), visibleOrigin];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your current location?", @"Message for geolocation prompt"), visibleOrigin.get()]);
     case MediaPermissionReason::SpeechRecognition:
-        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to capture your audio and use it for speech recognition?", @"Message for spechrecognition prompt"), visibleDomain(origin.host())];
+        return adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to capture your audio and use it for speech recognition?", @"Message for spechrecognition prompt"), visibleDomain(origin.host()).get()]);
     }
 }
 
-static NSString *allowButtonText(MediaPermissionReason reason)
+static RetainPtr<NSString> allowButtonText(MediaPermissionReason reason)
 {
     switch (reason) {
     case MediaPermissionReason::Camera:
     case MediaPermissionReason::CameraAndMicrophone:
     case MediaPermissionReason::Microphone:
-        return WEB_UI_STRING_KEY(@"Allow", "Allow (usermedia)", @"Allow button title in user media prompt");
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (usermedia)", @"Allow button title in user media prompt").createNSString();
     case MediaPermissionReason::ScreenCapture:
-        return WEB_UI_STRING_KEY(@"Allow", "Allow (screensharing)", @"Allow button title in screen sharing prompt");
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (screensharing)", @"Allow button title in screen sharing prompt").createNSString();
     case MediaPermissionReason::DeviceOrientation:
-        return WEB_UI_STRING_KEY(@"Allow", "Allow (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt");
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt").createNSString();
     case MediaPermissionReason::Geolocation:
-        return WEB_UI_STRING_KEY(@"Allow", "Allow (geolocation)", @"Allow button title in geolocation prompt");
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (geolocation)", @"Allow button title in geolocation prompt").createNSString();
     case MediaPermissionReason::SpeechRecognition:
-        return WEB_UI_STRING_KEY(@"Allow", "Allow (speechrecognition)", @"Allow button title in speech recognition prompt");
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (speechrecognition)", @"Allow button title in speech recognition prompt").createNSString();
     }
 }
 
-static NSString *doNotAllowButtonText(MediaPermissionReason reason)
+static RetainPtr<NSString> doNotAllowButtonText(MediaPermissionReason reason)
 {
     switch (reason) {
     case MediaPermissionReason::Camera:
     case MediaPermissionReason::CameraAndMicrophone:
     case MediaPermissionReason::Microphone:
-        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (usermedia)", @"Disallow button title in user media prompt");
+        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (usermedia)", @"Disallow button title in user media prompt").createNSString();
     case MediaPermissionReason::ScreenCapture:
-        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (screensharing)", @"Disallow button title in screen sharing prompt");
+        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (screensharing)", @"Disallow button title in screen sharing prompt").createNSString();
     case MediaPermissionReason::DeviceOrientation:
-        return WEB_UI_STRING_KEY(@"Cancel", "Cancel (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt");
+        return WEB_UI_STRING_KEY(@"Cancel", "Cancel (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt").createNSString();
     case MediaPermissionReason::Geolocation:
-        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (geolocation)", @"Disallow button title in geolocation prompt");
+        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (geolocation)", @"Disallow button title in geolocation prompt").createNSString();
     case MediaPermissionReason::SpeechRecognition:
-        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (speechrecognition)", @"Disallow button title in speech recognition prompt");
+        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (speechrecognition)", @"Disallow button title in speech recognition prompt").createNSString();
     }
 }
 
@@ -209,34 +209,34 @@ void alertForPermission(WebPageProxy& page, MediaPermissionReason reason, const 
         return;
     }
     
-    auto *alertTitle = alertMessageText(reason, origin);
+    RetainPtr alertTitle = alertMessageText(reason, origin);
     if (!alertTitle) {
         completionHandler(false);
         return;
     }
 
-    auto *allowButtonString = allowButtonText(reason);
-    auto *doNotAllowButtonString = doNotAllowButtonText(reason);
+    RetainPtr allowButtonString = allowButtonText(reason);
+    RetainPtr doNotAllowButtonString = doNotAllowButtonText(reason);
     auto completionBlock = makeBlockPtr(WTFMove(completionHandler));
 
 #if PLATFORM(MAC)
     auto alert = adoptNS([NSAlert new]);
-    [alert setMessageText:alertTitle];
-    NSButton *button = [alert addButtonWithTitle:allowButtonString];
-    button.keyEquivalent = @"";
-    button = [alert addButtonWithTitle:doNotAllowButtonString];
-    button.keyEquivalent = @"\E";
+    [alert setMessageText:alertTitle.get()];
+    RetainPtr button = [alert addButtonWithTitle:allowButtonString.get()];
+    button.get().keyEquivalent = @"";
+    button = [alert addButtonWithTitle:doNotAllowButtonString.get()];
+    button.get().keyEquivalent = @"\E";
     [alert beginSheetModalForWindow:[webView window] completionHandler:[completionBlock](NSModalResponse returnCode) {
         auto shouldAllow = returnCode == NSAlertFirstButtonReturn;
         completionBlock(shouldAllow);
     }];
 #else
-    auto alert = WebKit::createUIAlertController(alertTitle, nil);
-    UIAlertAction* allowAction = [UIAlertAction actionWithTitle:allowButtonString style:UIAlertActionStyleDefault handler:[completionBlock](UIAlertAction *action) {
+    auto alert = WebKit::createUIAlertController(alertTitle.get(), nil);
+    UIAlertAction* allowAction = [UIAlertAction actionWithTitle:allowButtonString.get() style:UIAlertActionStyleDefault handler:[completionBlock](UIAlertAction *action) {
         completionBlock(true);
     }];
 
-    UIAlertAction* doNotAllowAction = [UIAlertAction actionWithTitle:doNotAllowButtonString style:UIAlertActionStyleCancel handler:[completionBlock](UIAlertAction *action) {
+    UIAlertAction* doNotAllowAction = [UIAlertAction actionWithTitle:doNotAllowButtonString.get() style:UIAlertActionStyleCancel handler:[completionBlock](UIAlertAction *action) {
         completionBlock(false);
     }];
 
@@ -254,13 +254,13 @@ void requestAVCaptureAccessForType(MediaPermissionType type, CompletionHandler<v
     ASSERT(isMainRunLoop());
 
 #if HAVE(AVCAPTUREDEVICE)
-    AVMediaType mediaType = type == MediaPermissionType::Audio ? AVMediaTypeAudio : AVMediaTypeVideo;
+    RetainPtr mediaType = type == MediaPermissionType::Audio ? AVMediaTypeAudio : AVMediaTypeVideo;
     auto decisionHandler = makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL authorized) mutable {
         callOnMainRunLoop([completionHandler = WTFMove(completionHandler), authorized]() mutable {
             completionHandler(authorized);
         });
     });
-    [PAL::getAVCaptureDeviceClass() requestAccessForMediaType:mediaType completionHandler:decisionHandler.get()];
+    [PAL::getAVCaptureDeviceClass() requestAccessForMediaType:mediaType.get() completionHandler:decisionHandler.get()];
 #else
     UNUSED_PARAM(type);
     completionHandler(false);
@@ -270,8 +270,8 @@ void requestAVCaptureAccessForType(MediaPermissionType type, CompletionHandler<v
 MediaPermissionResult checkAVCaptureAccessForType(MediaPermissionType type)
 {
 #if HAVE(AVCAPTUREDEVICE)
-    AVMediaType mediaType = type == MediaPermissionType::Audio ? AVMediaTypeAudio : AVMediaTypeVideo;
-    auto authorizationStatus = [PAL::getAVCaptureDeviceClass() authorizationStatusForMediaType:mediaType];
+    RetainPtr mediaType = type == MediaPermissionType::Audio ? AVMediaTypeAudio : AVMediaTypeVideo;
+    auto authorizationStatus = [PAL::getAVCaptureDeviceClass() authorizationStatusForMediaType:mediaType.get()];
     if (authorizationStatus == AVAuthorizationStatusDenied || authorizationStatus == AVAuthorizationStatusRestricted)
         return MediaPermissionResult::Denied;
     if (authorizationStatus == AVAuthorizationStatusNotDetermined)
@@ -312,7 +312,7 @@ IGNORE_WARNINGS_END
 
 bool checkSpeechRecognitionServiceAvailability(const String& localeIdentifier)
 {
-    auto recognizer = localeIdentifier.isEmpty() ? adoptNS([PAL::allocSFSpeechRecognizerInstance() init]) : adoptNS([PAL::allocSFSpeechRecognizerInstance() initWithLocale:[NSLocale localeWithLocaleIdentifier:localeIdentifier]]);
+    auto recognizer = localeIdentifier.isEmpty() ? adoptNS([PAL::allocSFSpeechRecognizerInstance() init]) : adoptNS([PAL::allocSFSpeechRecognizerInstance() initWithLocale:[NSLocale localeWithLocaleIdentifier:localeIdentifier.createNSString().get()]]);
     return recognizer && [recognizer isAvailable];
 }
 

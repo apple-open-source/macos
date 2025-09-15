@@ -268,15 +268,15 @@ struct EraAndYear {
 
     _monthPicker = adoptNS([[WKDatePickerWheel alloc] initWithController:self style:PUICPickerViewStyleList]);
     [self _configurePickerView:_monthPicker.get()];
-    _monthLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerMonthLabelTitle()];
+    _monthLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerMonthLabelTitle().createNSString().get()];
 
     _dayPicker = adoptNS([[WKDatePickerWheel alloc] initWithController:self style:PUICPickerViewStyleList]);
     [self _configurePickerView:_dayPicker.get()];
-    _dayLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerDayLabelTitle()];
+    _dayLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerDayLabelTitle().createNSString().get()];
 
     _yearAndEraPicker = adoptNS([[WKDatePickerWheel alloc] initWithController:self style:PUICPickerViewStyleList]);
     [self _configurePickerView:_yearAndEraPicker.get()];
-    _yearLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerYearLabelTitle()];
+    _yearLabel = [self _createAndConfigureGranularityLabelWithText:WebCore::datePickerYearLabelTitle().createNSString().get()];
 
     [self _updateSelectedPickerViewIndices];
 
@@ -285,7 +285,7 @@ struct EraAndYear {
     _focusedPicker = _dayPicker;
 
     _setButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    [_setButton setTitle:WebCore::datePickerSetButtonTitle() forState:UIControlStateNormal];
+    [_setButton setTitle:WebCore::datePickerSetButtonTitle().createNSString().get() forState:UIControlStateNormal];
     [_setButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
     [_setButton setBackgroundColor:[UIColor systemGreenColor]];
     [_setButton _setContinuousCornerRadius:datePickerSetButtonHeight() / 2];

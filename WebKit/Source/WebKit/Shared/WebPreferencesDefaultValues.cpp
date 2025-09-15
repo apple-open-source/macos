@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
+#include "DefaultWebBrowserChecks.h"
 #include <wtf/NumberOfCores.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #if PLATFORM(IOS_FAMILY)
@@ -36,7 +37,7 @@
 #endif
 #endif
 
-#if ENABLE(MEDIA_SESSION_COORDINATOR)
+#if ENABLE(MEDIA_SESSION_COORDINATOR) || HAVE(DIGITAL_CREDENTIALS_UI)
 #import "WebProcess.h"
 #import <wtf/cocoa/Entitlements.h>
 #endif
@@ -63,21 +64,10 @@ bool defaultPassiveTouchListenersAsDefaultOnDocument()
     return result;
 }
 
-bool defaultCSSOMViewScrollingAPIEnabled()
-{
-    static bool result = WTF::IOSApplication::isIMDb() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoIMDbCSSOMViewScrollingQuirk);
-    return !result;
-}
-
 bool defaultShouldPrintBackgrounds()
 {
     static bool result = !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DefaultsToExcludingBackgroundsWhenPrinting);
     return result;
-}
-
-bool defaultAlternateFormControlDesignEnabled()
-{
-    return PAL::currentUserInterfaceIdiomIsVision();
 }
 
 #endif
@@ -115,30 +105,6 @@ bool defaultWheelEventGesturesBecomeNonBlocking()
     return result;
 }
 
-#endif
-
-#if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
-
-bool defaultDisallowSyncXHRDuringPageDismissalEnabled()
-{
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    if (CFPreferencesGetAppBooleanValue(CFSTR("allowDeprecatedSynchronousXMLHttpRequestDuringUnload"), CFSTR("com.apple.WebKit"), nullptr)) {
-        WTFLogAlways("Allowing synchronous XHR during page unload due to managed preference");
-        return false;
-    }
-#elif PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST) && !PLATFORM(WATCHOS)
-    if (allowsDeprecatedSynchronousXMLHttpRequestDuringUnload()) {
-        WTFLogAlways("Allowing synchronous XHR during page unload due to managed preference");
-        return false;
-    }
-#endif
-    return true;
-}
-
-#endif
-
-#if PLATFORM(MAC)
-
 bool defaultAppleMailPaginationQuirkEnabled()
 {
     return WTF::MacApplication::isAppleMail();
@@ -150,26 +116,11 @@ bool defaultAppleMailPaginationQuirkEnabled()
 
 bool defaultCaptureAudioInGPUProcessEnabled()
 {
-#if HAVE(REQUIRE_MICROPHONE_CAPTURE_IN_UIPROCESS)
-    // Newer versions can capture microphone in GPUProcess.
-    if (!WTF::MacApplication::isSafari())
-        return false;
-#endif
-
 #if ENABLE(GPU_PROCESS_BY_DEFAULT)
     return true;
 #else
     return false;
 #endif
-}
-
-bool defaultCaptureAudioInUIProcessEnabled()
-{
-#if PLATFORM(MAC)
-    return !defaultCaptureAudioInGPUProcessEnabled();
-#endif
-
-    return false;
 }
 
 bool defaultManageCaptureStatusBarInGPUProcessEnabled()
@@ -187,7 +138,7 @@ bool defaultManageCaptureStatusBarInGPUProcessEnabled()
 #if ENABLE(MEDIA_SOURCE)
 bool defaultManagedMediaSourceEnabled()
 {
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     return true;
 #else
     return false;
@@ -260,16 +211,6 @@ bool defaultLinearMediaPlayerEnabled()
 #endif
 }
 
-bool defaultLiveRangeSelectionEnabled()
-{
-#if PLATFORM(IOS_FAMILY)
-    static bool enableForAllApps = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::LiveRangeSelectionEnabledForAllApps);
-    if (!enableForAllApps && WTF::IOSApplication::isGmail())
-        return false;
-#endif
-    return true;
-}
-
 bool defaultShowModalDialogEnabled()
 {
 #if PLATFORM(COCOA)
@@ -285,6 +226,27 @@ bool defaultGamepadVibrationActuatorEnabled()
 {
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
     return true;
+#else
+    return false;
+#endif
+}
+#endif
+
+#if ENABLE(WEB_AUTHN)
+bool defaultDigitalCredentialsEnabled()
+{
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    static dispatch_once_t onceToken;
+    static bool enabled { false };
+    dispatch_once(&onceToken, ^{
+        auto entitlementChecker = [inWebProcess = isInWebProcess()](auto entitlement) {
+            if (inWebProcess)
+                return WebProcess::singleton().parentProcessHasEntitlement(entitlement);
+            return WTF::processHasEntitlement(entitlement);
+        };
+        enabled = entitlementChecker("com.apple.developer.web-browser"_s) || entitlementChecker("com.apple.developer.identity-document-services.web-presentment-controller"_s);
+    });
+    return enabled;
 #else
     return false;
 #endif
@@ -354,6 +316,18 @@ bool defaultBuiltInNotificationsEnabled()
 }
 #endif
 
+#if ENABLE(DEVICE_ORIENTATION)
+bool defaultDeviceOrientationPermissionAPIEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsDeviceOrientationAndMotionPermissionAPI);
+#else
+    return false;
+#endif
+}
+#endif
+
+#if ENABLE(REQUIRES_PAGE_VISIBILITY_FOR_NOW_PLAYING)
 bool defaultRequiresPageVisibilityForVideoToBeNowPlaying()
 {
 #if USE(APPLE_INTERNAL_SDK)
@@ -363,6 +337,7 @@ bool defaultRequiresPageVisibilityForVideoToBeNowPlaying()
 
     return false;
 }
+#endif
 
 bool defaultCookieStoreAPIEnabled()
 {
@@ -372,5 +347,77 @@ bool defaultCookieStoreAPIEnabled()
     return false;
 #endif
 }
+
+#if ENABLE(CONTENT_EXTENSIONS)
+bool defaultIFrameResourceMonitoringEnabled()
+{
+#if PLATFORM(COCOA)
+    return isFullWebBrowserOrRunningTest();
+#else
+    return false;
+#endif
+}
+#endif
+
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+bool defaultPreferSpatialAudioExperience()
+{
+#if defined(WEB_PREFERENCES_PREFER_SPATIAL_AUDIO_EXPERIENCE_ADDITIONS)
+    WEB_PREFERENCES_PREFER_SPATIAL_AUDIO_EXPERIENCE_ADDITIONS;
+#endif
+
+    return false;
+}
+#endif
+
+#if PLATFORM(COCOA)
+static bool isSafariOrWebApp()
+{
+#if PLATFORM(MAC)
+    return WTF::MacApplication::isSafari();
+#else
+    return WTF::IOSApplication::isMobileSafari() || WTF::IOSApplication::isSafariViewService() || WTF::IOSApplication::isAppleWebApp();
+#endif
+}
+#endif
+
+bool defaultMutationEventsEnabled()
+{
+#if PLATFORM(COCOA)
+    return (WTF::CocoaApplication::isAppleApplication() && !isSafariOrWebApp()) || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MutationEventsDisabledByDefault);
+#else
+    return false;
+#endif
+}
+
+bool defaultTrustedTypesEnabled()
+{
+#if PLATFORM(COCOA)
+    return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::EnableTrustedTypesByDefault);
+#else
+    return true;
+#endif
+}
+
+#if !PLATFORM(COCOA)
+bool defaultContentInsetBackgroundFillEnabled()
+{
+    return false;
+}
+#endif
+
+#if !PLATFORM(COCOA)
+bool defaultTopContentInsetBackgroundCanChangeAfterScrolling()
+{
+    return false;
+}
+#endif
+
+#if !PLATFORM(COCOA)
+bool defaultIOSurfaceLosslessCompressionEnabled()
+{
+    return false;
+}
+#endif
 
 } // namespace WebKit

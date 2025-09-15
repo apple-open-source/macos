@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc.
+ * Copyright (C) 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,18 +45,18 @@ namespace WebCore {
 
 class LibWebRTCRtpReceiverTransformBackend final : public LibWebRTCRtpTransformBackend {
 public:
-    static Ref<LibWebRTCRtpReceiverTransformBackend> create(rtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver) { return adoptRef(*new LibWebRTCRtpReceiverTransformBackend(WTFMove(receiver))); }
+    static Ref<LibWebRTCRtpReceiverTransformBackend> create(webrtc::scoped_refptr<webrtc::RtpReceiverInterface> receiver) { return adoptRef(*new LibWebRTCRtpReceiverTransformBackend(WTFMove(receiver))); }
     ~LibWebRTCRtpReceiverTransformBackend();
 
 private:
-    explicit LibWebRTCRtpReceiverTransformBackend(rtc::scoped_refptr<webrtc::RtpReceiverInterface>);
+    explicit LibWebRTCRtpReceiverTransformBackend(webrtc::scoped_refptr<webrtc::RtpReceiverInterface>);
 
     // RTCRtpTransformBackend
     void setTransformableFrameCallback(Callback&&) final;
-    void requestKeyFrame() final;
+    bool requestKeyFrame(const String&) final;
 
     bool m_isRegistered { false };
-    rtc::scoped_refptr<webrtc::RtpReceiverInterface> m_rtcReceiver;
+    webrtc::scoped_refptr<webrtc::RtpReceiverInterface> m_rtcReceiver;
 };
 
 } // namespace WebCore

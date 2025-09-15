@@ -59,7 +59,7 @@
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->value();
+    return IMPL->value().createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue
@@ -71,7 +71,7 @@
 - (NSString *)item:(unsigned)index
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->item(index);
+    return IMPL->item(index).createNSString().autorelease();
 }
 
 - (BOOL)contains:(NSString *)token

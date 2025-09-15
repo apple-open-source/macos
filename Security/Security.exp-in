@@ -405,6 +405,7 @@ _ClearRollOctagonIdentityEnabledOverride
 
 SEC_EXP_CLASS(OTJoiningConfiguration)
 SEC_EXP_CLASS(OTControl)
+SEC_EXP_CLASS(SecAsyncPiper)
 SEC_EXP_CLASS(SecuritydXPCClient)
 
 _SecAccessGroupsGetCurrent
@@ -946,6 +947,7 @@ _SecInferLabelFromX509Name
 _SecItemAdd_ios
 _SecItemCopyMatching_ios
 _SecItemUpdateTokenItemsForAccessGroups
+_SecItemUpdateTokenItemsForSystemKeychain
 
 _SecKeyGeneratePair_ios
 
@@ -971,6 +973,7 @@ _SecKeychainChangePassword
 _SecKeychainCleanupHandles
 _SecKeychainCopyAccess
 _SecKeychainCopyBlob
+_SecKeychainCopySalt
 _SecKeychainCopyDefault
 _SecKeychainCopyDomainDefault
 _SecKeychainCopyDomainSearchList
@@ -1082,6 +1085,10 @@ _SecRandomCopyData
 _SecUnwrapRecoveryPasswordWithAnswers
 _SecWrapRecoveryPasswordWithAnswers
 __SecItemGetPersistentReference
+_SecKeychainPushForLaterUnlock
+_SecKeychainReleaseIndirectUnlockHandle
+_SecKeychainGetDerivedEntropy
+
 _cssmErrorString
 _cssmPerror
 _kSecACLAuthorizationAny
@@ -1706,6 +1713,7 @@ _kSecCodeInfoLaunchConstraintsSelf
 _kSecCodeInfoLaunchConstraintsParent
 _kSecCodeInfoLaunchConstraintsResponsible
 _kSecCodeInfoLibraryConstraints
+_kSecCodeInfoValidationCategory
 _kSecCodeInfoEntitlementsDict
 _kSecCodeInfoFlags
 _kSecCodeInfoFormat
@@ -2118,6 +2126,7 @@ SEC_EXP_CLASS(SFAnalyticsSQLiteStore)
 SEC_EXP_CLASS(SecCoreAnalytics)
 _kSecSFAErrorDomain
 _SecCoreAnalyticsValue
+_SecCoreAnalyticsSetEnabledForProcess
 _SecCoreAnalyticsSendValue
 _SecCoreAnalyticsSendKernEntropyAnalytics
 _SecCoreAnalyticsSendLegacyKeychainUIEvent

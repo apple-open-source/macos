@@ -68,6 +68,7 @@
  */
 
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -173,6 +174,8 @@ static void if_rtmtu_update(struct ifnet *);
 static int if_clone_list(int, int *, user_addr_t);
 
 static int if_set_congested_link(struct ifnet *, boolean_t);
+static int if_set_inband_wake_packet_tagging(struct ifnet *, boolean_t);
+static int if_set_low_power_wake(struct ifnet *, boolean_t);
 
 MALLOC_DEFINE(M_IFADDR, "ifaddr", "interface address");
 
@@ -312,6 +315,10 @@ SYSCTL_INT(_net_link_generic_system_management, OID_AUTO, verbose,
  * boot-args to disable entitlement check for data transfer on management interface
  */
 TUNABLE_DEV_WRITEABLE(bool, management_data_unrestricted, "management_data_unrestricted", false);
+
+int if_ultra_constrained_default_allowed = 0; // 0=Off, 1=On
+SYSCTL_INT(_net_link_generic_system, OID_AUTO, ultra_constrained_default_allowed,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &if_ultra_constrained_default_allowed, 0, "");
 
 #if DEBUG || DEVELOPMENT
 #define MANAGEMENT_CTLFLAG_ACCESS CTLFLAG_RW
@@ -1612,7 +1619,7 @@ if_updown(struct ifnet *ifp, int up)
 		ifp->if_flags &= ~IFF_UP;
 	}
 
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		/*
 		 * The interface is not attached or is detaching, so
 		 * skip modifying any other state.
@@ -1627,9 +1634,8 @@ if_updown(struct ifnet *ifp, int up)
 		ifq = ifp->if_snd;
 		ASSERT(ifq != NULL);
 		IFCQ_LOCK(ifq);
-		if_qflush_snd(ifp, true);
-		ifnet_update_sndq(ifq,
-		    up ? CLASSQ_EV_LINK_UP : CLASSQ_EV_LINK_DOWN);
+		ifclassq_request(ifq, CLASSQRQ_PURGE, NULL, true);
+		ifclassq_update(ifq, up ? CLASSQ_EV_LINK_UP : CLASSQ_EV_LINK_DOWN, true);
 		IFCQ_UNLOCK(ifq);
 
 		/* Inform protocols of changed interface state */
@@ -1681,7 +1687,7 @@ if_up(
  * Flush an interface queue.
  */
 void
-if_qflush(struct ifnet *ifp, struct ifclassq *ifq, bool ifq_locked)
+if_qflush(struct ifnet *ifp, struct ifclassq *ifq)
 {
 	lck_mtx_lock(&ifp->if_ref_lock);
 	if ((ifp->if_refflags & IFRF_ATTACH_MASK) == 0) {
@@ -1692,31 +1698,14 @@ if_qflush(struct ifnet *ifp, struct ifclassq *ifq, bool ifq_locked)
 	ifclassq_retain(ifq);
 	lck_mtx_unlock(&ifp->if_ref_lock);
 
-	if (!ifq_locked) {
-		IFCQ_LOCK(ifq);
-	}
+	ifclassq_request(ifq, CLASSQRQ_PURGE, NULL, false);
 
-	if (IFCQ_IS_ENABLED(ifq)) {
-		fq_if_request_classq(ifq, CLASSQRQ_PURGE, NULL);
-	}
-
-	VERIFY(IFCQ_IS_EMPTY(ifq));
-
-	if (!ifq_locked) {
-		IFCQ_UNLOCK(ifq);
-	}
 	ifclassq_release(&ifq);
 }
 
 void
-if_qflush_snd(struct ifnet *ifp, bool ifq_locked)
-{
-	if_qflush(ifp, ifp->if_snd, ifq_locked);
-}
-
-void
 if_qflush_sc(struct ifnet *ifp, mbuf_svc_class_t sc, u_int32_t flow,
-    u_int32_t *packets, u_int32_t *bytes, int ifq_locked)
+    u_int32_t *packets, u_int32_t *bytes)
 {
 	struct ifclassq *ifq;
 	u_int32_t cnt = 0, len = 0;
@@ -1729,21 +1718,10 @@ if_qflush_sc(struct ifnet *ifp, mbuf_svc_class_t sc, u_int32_t flow,
 	VERIFY(sc == MBUF_SC_UNSPEC || MBUF_VALID_SC(sc));
 	VERIFY(flow != 0);
 
-	if (!ifq_locked) {
-		IFCQ_LOCK(ifq);
-	}
-
-	if (IFCQ_IS_ENABLED(ifq)) {
-		cqrq_purge_sc_t req = { sc, flow, 0, 0 };
-
-		fq_if_request_classq(ifq, CLASSQRQ_PURGE_SC, &req);
-		cnt = req.packets;
-		len = req.bytes;
-	}
-
-	if (!ifq_locked) {
-		IFCQ_UNLOCK(ifq);
-	}
+	cqrq_purge_sc_t req = { sc, flow, 0, 0 };
+	ifclassq_request(ifq, CLASSQRQ_PURGE_SC, &req, false);
+	cnt = req.packets;
+	len = req.bytes;
 
 	if (packets != NULL) {
 		*packets = cnt;
@@ -1841,7 +1819,7 @@ ifunit_common(const char *name, boolean_t hold)
 	}
 
 	/* if called from ifunit_ref() and ifnet is not attached, bail */
-	if (hold && ifp != NULL && !ifnet_is_attached(ifp, 1)) {
+	if (hold && ifp != NULL && !ifnet_get_ioref(ifp)) {
 		ifp = NULL;
 	}
 
@@ -2060,18 +2038,11 @@ ifioctl_linkparams(struct ifnet *ifp, u_long cmd, caddr_t __sized_by(IOCPARM_LEN
 			break;
 		}
 
-		IFCQ_LOCK(ifq);
-		if (!IFCQ_IS_READY(ifq)) {
-			error = ENXIO;
-			IFCQ_UNLOCK(ifq);
-			break;
-		}
 		bcopy(&iflpr->iflpr_output_tbr_rate, &tb.rate,
 		    sizeof(tb.rate));
 		bcopy(&iflpr->iflpr_output_tbr_percent, &tb.percent,
 		    sizeof(tb.percent));
 		error = ifclassq_tbr_set(ifq, &tb, TRUE);
-		IFCQ_UNLOCK(ifq);
 		break;
 	}
 
@@ -2079,27 +2050,16 @@ ifioctl_linkparams(struct ifnet *ifp, u_long cmd, caddr_t __sized_by(IOCPARM_LEN
 		u_int32_t sched_type = PKTSCHEDT_NONE, flags = 0;
 		u_int64_t tbr_bw = 0, tbr_pct = 0;
 
-		IFCQ_LOCK(ifq);
-
-		if (IFCQ_IS_ENABLED(ifq)) {
-			sched_type = ifq->ifcq_type;
-		}
-
+		ifclassq_tbr_get(ifq, &sched_type, &tbr_bw, &tbr_pct);
 		bcopy(&sched_type, &iflpr->iflpr_output_sched,
 		    sizeof(iflpr->iflpr_output_sched));
-
-		if (IFCQ_TBR_IS_ENABLED(ifq)) {
-			tbr_bw = ifq->ifcq_tbr.tbr_rate_raw;
-			tbr_pct = ifq->ifcq_tbr.tbr_percent;
-		}
 		bcopy(&tbr_bw, &iflpr->iflpr_output_tbr_rate,
 		    sizeof(iflpr->iflpr_output_tbr_rate));
 		bcopy(&tbr_pct, &iflpr->iflpr_output_tbr_percent,
 		    sizeof(iflpr->iflpr_output_tbr_percent));
-		IFCQ_UNLOCK(ifq);
 
-		if (ifp->if_output_sched_model ==
-		    IFNET_SCHED_MODEL_DRIVER_MANAGED) {
+		if (ifp->if_output_sched_model & IFNET_SCHED_DRIVER_MANGED_MODELS) {
+			VERIFY(IFNET_MODEL_IS_VALID(ifp->if_output_sched_model));
 			flags |= IFLPRF_DRVMANAGED;
 		}
 		bcopy(&flags, &iflpr->iflpr_flags, sizeof(iflpr->iflpr_flags));
@@ -2397,7 +2357,7 @@ ifioctl_netagent(struct ifnet *ifp, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(c
 	VERIFY(ifp != NULL);
 
 	/* Get an io ref count if the interface is attached */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return EOPNOTSUPP;
 	}
 
@@ -3028,7 +2988,6 @@ ifioctl_restrict_intcoproc(unsigned long cmd, const char *__null_terminated ifna
 	case SIOCGIFINTERFACESTATE:
 	case SIOCGIFPROBECONNECTIVITY:
 	case SIOCGIFTIMESTAMPENABLED:
-	case SIOCGECNMODE:
 	case SIOCGQOSMARKINGMODE:
 	case SIOCGQOSMARKINGENABLED:
 	case SIOCGIFLOWINTERNET:
@@ -3060,6 +3019,9 @@ ifioctl_restrict_intcoproc(unsigned long cmd, const char *__null_terminated ifna
 	case SIOCSIFDIRECTLINK:
 	case SIOCGIFDIRECTLINK:
 	case SIOCGIFCONGESTEDLINK:
+	case SIOCGIFL4S:
+	case SIOCGINBANDWAKEPKT:
+	case SIOCGLOWPOWERWAKE:
 		return false;
 	default:
 #if (DEBUG || DEVELOPMENT)
@@ -3161,7 +3123,6 @@ ifioctl_restrict_management(unsigned long cmd, const char *__null_terminated ifn
 	case SIOCGIFPROBECONNECTIVITY:
 	case SIOCGIFFUNCTIONALTYPE:
 	case SIOCGIFNETSIGNATURE:
-	case SIOCGECNMODE:
 	case SIOCGIFORDER:
 	case SIOCGQOSMARKINGMODE:
 	case SIOCGQOSMARKINGENABLED:
@@ -3194,6 +3155,9 @@ ifioctl_restrict_management(unsigned long cmd, const char *__null_terminated ifn
 	case SIOCGIFDELAYWAKEPKTEVENT:
 	case SIOCGIFDISABLEINPUT:
 	case SIOCGIFCONGESTEDLINK:
+	case SIOCSIFISCOMPANIONLINK:
+	case SIOCGIFL4S:
+	case SIOCGINBANDWAKEPKT:
 		return false;
 	default:
 		if (!IOCurrentTaskHasEntitlement(MANAGEMENT_CONTROL_ENTITLEMENT)) {
@@ -3464,7 +3428,6 @@ ifioctl(struct socket *so, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) data
 	case SIOCSIFDISABLEOUTPUT:              /* struct ifreq */
 #endif /* (DEBUG || DEVELOPMENT) */
 	case SIOCSIFSUBFAMILY:                  /* struct ifreq */
-	case SIOCGECNMODE:                      /* struct ifreq */
 	case SIOCSECNMODE:
 	case SIOCSQOSMARKINGMODE:               /* struct ifreq */
 	case SIOCSQOSMARKINGENABLED:            /* struct ifreq */
@@ -3498,6 +3461,13 @@ ifioctl(struct socket *so, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) data
 	case SIOCGIFDISABLEINPUT:               /* struct ifreq */
 	case SIOCSIFCONGESTEDLINK:              /* struct ifreq */
 	case SIOCGIFCONGESTEDLINK:              /* struct ifreq */
+	case SIOCSIFISCOMPANIONLINK:            /* struct ifreq */
+	case SIOCGIFL4S:                        /* struct ifreq */
+	case SIOCSIFL4S:                        /* struct ifreq */
+	case SIOCGINBANDWAKEPKT:                /* struct ifreq */
+	case SIOCSINBANDWAKEPKT:                /* struct ifreq */
+	case SIOCGLOWPOWERWAKE:                /* struct ifreq */
+	case SIOCSLOWPOWERWAKE:                /* struct ifreq */
 	{
 		struct ifreq ifr;
 		bcopy(data, &ifr, sizeof(ifr));
@@ -4098,9 +4068,7 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 			if_rtmtu_update(ifp);
 			nd6_setmtu(ifp);
 			/* Inform all transmit queues about the new MTU */
-			IFCQ_LOCK(ifq);
-			ifnet_update_sndq(ifq, CLASSQ_EV_LINK_MTU);
-			IFCQ_UNLOCK(ifq);
+			ifclassq_update(ifq, CLASSQ_EV_LINK_MTU, false);
 		}
 		break;
 	}
@@ -4269,7 +4237,7 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 		    IF_INTERFACE_STATE_LQM_STATE_VALID)) {
 			ifr->ifr_link_quality_metric =
 			    ifp->if_interface_state.lqm_state;
-		} else if (IF_FULLY_ATTACHED(ifp)) {
+		} else if (ifnet_is_fully_attached(ifp)) {
 			ifr->ifr_link_quality_metric =
 			    IFNET_LQM_THRESH_UNKNOWN;
 		} else {
@@ -4640,33 +4608,8 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 			ifr->ifr_probe_connectivity = 0;
 		}
 		break;
-	case SIOCGECNMODE:
-		if ((ifp->if_eflags & (IFEF_ECN_ENABLE | IFEF_ECN_DISABLE)) ==
-		    IFEF_ECN_ENABLE) {
-			ifr->ifr_ecn_mode = IFRTYPE_ECN_ENABLE;
-		} else if ((ifp->if_eflags & (IFEF_ECN_ENABLE | IFEF_ECN_DISABLE)) ==
-		    IFEF_ECN_DISABLE) {
-			ifr->ifr_ecn_mode = IFRTYPE_ECN_DISABLE;
-		} else {
-			ifr->ifr_ecn_mode = IFRTYPE_ECN_DEFAULT;
-		}
-		break;
 	case SIOCSECNMODE:
-		if ((error = priv_check_cred(kauth_cred_get(),
-		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
-			return error;
-		}
-		if (ifr->ifr_ecn_mode == IFRTYPE_ECN_DEFAULT) {
-			if_clear_eflags(ifp, IFEF_ECN_ENABLE | IFEF_ECN_DISABLE);
-		} else if (ifr->ifr_ecn_mode == IFRTYPE_ECN_ENABLE) {
-			if_set_eflags(ifp, IFEF_ECN_ENABLE);
-			if_clear_eflags(ifp, IFEF_ECN_DISABLE);
-		} else if (ifr->ifr_ecn_mode == IFRTYPE_ECN_DISABLE) {
-			if_set_eflags(ifp, IFEF_ECN_DISABLE);
-			if_clear_eflags(ifp, IFEF_ECN_ENABLE);
-		} else {
-			error = EINVAL;
-		}
+		error = EINVAL;
 		break;
 
 	case SIOCSIFTIMESTAMPENABLE:
@@ -4926,7 +4869,7 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 			return error;
 		}
 		if (net_wake_pkt_debug) {
-			os_log(OS_LOG_DEFAULT,
+			os_log(wake_packet_log_handle,
 			    "SIOCSIFMARKWAKEPKT %s", ifp->if_xname);
 		}
 		if (ifr->ifr_intval != 0) {
@@ -5004,6 +4947,8 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 		} else {
 			ifp->if_xflags |= IFXF_DELAYWAKEPKTEVENT;
 		}
+		os_log(OS_LOG_DEFAULT, "interface %s DELAYWAKEPKTEVENT set to %d",
+		    ifp->if_xname, (ifr->ifr_delay_wake_pkt_event == 0) ? 0 : 1);
 		break;
 	case SIOCGIFDELAYWAKEPKTEVENT:
 		ifr->ifr_delay_wake_pkt_event =
@@ -5037,6 +4982,18 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 		    (ifp->if_xflags & IFXF_DISABLE_INPUT) != 0 ? 1 : 0;
 		break;
 
+	case SIOCSIFISCOMPANIONLINK:
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+			return error;
+		}
+		if (ifr->ifr_is_companionlink) {
+			if_set_xflags(ifp, IFXF_IS_COMPANIONLINK);
+		} else {
+			if_clear_xflags(ifp, IFXF_IS_COMPANIONLINK);
+		}
+		break;
+
 	case SIOCSIFCONGESTEDLINK:
 		if ((error = priv_check_cred(kauth_cred_get(),
 		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
@@ -5062,6 +5019,70 @@ ifioctl_ifreq(struct socket *so, u_long cmd, struct ifreq *ifr, struct proc *p)
 		ifr->ifr_intval =
 		    (ifp->if_xflags & IFXF_CONGESTED_LINK) != 0 ? 1 : 0;
 		break;
+
+	case SIOCGIFL4S:
+		ifr->ifr_l4s_mode = ifp->if_l4s_mode;
+		break;
+
+	case SIOCSIFL4S:
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+			return error;
+		}
+		uint8_t mode = (uint8_t)ifr->ifr_l4s_mode;
+
+		switch (mode) {
+		case IFRTYPE_L4S_DEFAULT:
+		case IFRTYPE_L4S_ENABLE:
+		case IFRTYPE_L4S_DISABLE:
+			ifp->if_l4s_mode = mode;
+			break;
+		default:
+			error = EINVAL;
+			break;
+		}
+		break;
+
+	case SIOCSINBANDWAKEPKT:
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+#if (DEBUG || DEVELOPMENT)
+			error = proc_suser(p);
+			if (error != 0) {
+				return error;
+			}
+#else /* (DEBUG || DEVELOPMENT) */
+			return error;
+#endif /* (DEBUG || DEVELOPMENT) */
+		}
+		if_set_inband_wake_packet_tagging(ifp, (ifr->ifr_intval != 0));
+		break;
+
+	case SIOCGINBANDWAKEPKT:
+		ifr->ifr_intval =
+		    (ifp->if_xflags & IFXF_INBAND_WAKE_PKT_TAGGING) != 0 ? 1 : 0;
+		break;
+
+	case SIOCSLOWPOWERWAKE:
+		if ((error = priv_check_cred(kauth_cred_get(),
+		    PRIV_NET_INTERFACE_CONTROL, 0)) != 0) {
+#if (DEBUG || DEVELOPMENT)
+			error = proc_suser(p);
+			if (error != 0) {
+				return error;
+			}
+#else /* (DEBUG || DEVELOPMENT) */
+			return error;
+#endif /* (DEBUG || DEVELOPMENT) */
+		}
+		if_set_low_power_wake(ifp, (ifr->ifr_intval != 0));
+		break;
+
+	case SIOCGLOWPOWERWAKE:
+		ifr->ifr_intval =
+		    (ifp->if_xflags & IFXF_LOW_POWER_WAKE) != 0 ? 1 : 0;
+		break;
+
 
 	default:
 		VERIFY(0);
@@ -5194,7 +5215,7 @@ ifconf(u_long cmd, user_addr_t ifrp, int *ret_space)
 			 * Make sure to accomodate the largest possible
 			 * size of SA(if_lladdr)->sa_len.
 			 */
-			_CASSERT(sizeof(u) == (SOCK_MAXADDRLEN + 1));
+			static_assert(sizeof(u) == (SOCK_MAXADDRLEN + 1));
 
 			bzero(u.buf, sizeof(u.buf));
 
@@ -6376,7 +6397,7 @@ void
 if_copy_rxpoll_stats(struct ifnet *ifp, struct if_rxpoll_stats *if_rs)
 {
 	bzero(if_rs, sizeof(*if_rs));
-	if (!(ifp->if_eflags & IFEF_RXPOLL) || !ifnet_is_attached(ifp, 1)) {
+	if (!(ifp->if_eflags & IFEF_RXPOLL) || !ifnet_get_ioref(ifp)) {
 		return;
 	}
 	bcopy(&ifp->if_poll_pstats, if_rs, sizeof(*if_rs));
@@ -6390,7 +6411,7 @@ if_copy_netif_stats(struct ifnet *ifp, struct if_netif_stats *if_ns)
 	bzero(if_ns, sizeof(*if_ns));
 #if SKYWALK
 	if (!(ifp->if_capabilities & IFCAP_SKYWALK) ||
-	    !ifnet_is_attached(ifp, 1)) {
+	    !ifnet_get_ioref(ifp)) {
 		return;
 	}
 
@@ -6511,10 +6532,12 @@ ifa_deallocated(struct ifaddr *ifa)
 	}
 }
 
+os_refgrp_decl(static, ifa_refgrp, "ifa refcounts", NULL);
+
 void
 ifa_initref(struct ifaddr *ifa)
 {
-	os_ref_init_raw(&ifa->ifa_refcnt, &ifa_refgrp);
+	os_ref_init(&ifa->ifa_refcnt, &ifa_refgrp);
 }
 
 void
@@ -6545,7 +6568,7 @@ static __attribute__((unused)) void
 ifioctl_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((u_long)0) {
@@ -6755,7 +6778,6 @@ ifioctl_cassert(void)
 	case SIOCGIFNETSIGNATURE:
 
 	case SIOCSIFNETWORKID:
-	case SIOCGECNMODE:
 	case SIOCSECNMODE:
 
 	case SIOCSIFORDER:
@@ -6826,6 +6848,17 @@ ifioctl_cassert(void)
 
 	case SIOCSIFCONGESTEDLINK:
 	case SIOCGIFCONGESTEDLINK:
+
+	case SIOCSIFISCOMPANIONLINK:
+
+	case SIOCGIFL4S:
+	case SIOCSIFL4S:
+
+	case SIOCGINBANDWAKEPKT:
+	case SIOCSINBANDWAKEPKT:
+
+	case SIOCGLOWPOWERWAKE:
+	case SIOCSLOWPOWERWAKE:
 		;
 	}
 }
@@ -7157,4 +7190,96 @@ ifnet_get_congested_link(ifnet_t ifp, boolean_t *on)
 
 	*on = ((ifp->if_xflags & IFXF_CONGESTED_LINK) != 0);
 	return 0;
+}
+
+static int
+if_set_inband_wake_packet_tagging(ifnet_t ifp, boolean_t on)
+{
+	ifnet_lock_exclusive(ifp);
+
+	if (on) {
+		if_set_xflags(ifp, IFXF_INBAND_WAKE_PKT_TAGGING);
+	} else {
+		if_clear_xflags(ifp, IFXF_INBAND_WAKE_PKT_TAGGING);
+	}
+
+	ifnet_lock_done(ifp);
+
+	os_log(OS_LOG_DEFAULT, "interface %s INBAND_WAKE_PKT_TAGGING set to %d",
+	    ifp->if_xname, on);
+	return 0;
+}
+
+errno_t
+ifnet_set_inband_wake_packet_tagging(struct ifnet *ifp, boolean_t on)
+{
+	if (ifp == NULL) {
+		return EINVAL;
+	}
+	return if_set_inband_wake_packet_tagging(ifp, on);
+}
+
+errno_t
+ifnet_get_inband_wake_packet_tagging(ifnet_t ifp, boolean_t *on)
+{
+	if (ifp == NULL || on == NULL) {
+		return EINVAL;
+	}
+
+	*on = ((ifp->if_xflags & IFXF_INBAND_WAKE_PKT_TAGGING) != 0);
+	return 0;
+}
+
+static int
+if_set_low_power_wake(ifnet_t ifp, boolean_t on)
+{
+	ifnet_lock_exclusive(ifp);
+
+	if (on) {
+		if_set_xflags(ifp, IFXF_LOW_POWER_WAKE);
+	} else {
+		if_clear_xflags(ifp, IFXF_LOW_POWER_WAKE);
+	}
+
+	ifnet_lock_done(ifp);
+
+	os_log(OS_LOG_DEFAULT, "interface %s LPW mode set to %d",
+	    ifp->if_xname, on);
+	return 0;
+}
+
+errno_t
+ifnet_set_low_power_wake(struct ifnet *ifp, boolean_t on)
+{
+	if (ifp == NULL) {
+		return EINVAL;
+	}
+	return if_set_low_power_wake(ifp, on);
+}
+
+errno_t
+ifnet_get_low_power_wake(ifnet_t ifp, boolean_t *on)
+{
+	if (ifp == NULL || on == NULL) {
+		return EINVAL;
+	}
+
+	*on = ((ifp->if_xflags & IFXF_LOW_POWER_WAKE) != 0);
+	return 0;
+}
+
+
+/* Return the hwassist flags that are actually supported by the hardware */
+uint32_t
+if_get_driver_hwassist(struct ifnet *ifp)
+{
+	if (NA(ifp) == NULL) {
+		/* When if_na is not attached yet, just use if_hwassist, which at this
+		 * time stil only contains the assist flags that are actually supported
+		 * by the hardware.
+		 */
+		return ifp->if_hwassist;
+	} else {
+		return NA(ifp)->nifna_netif->nif_hwassist;
+	}
 }

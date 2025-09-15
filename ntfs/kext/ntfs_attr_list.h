@@ -48,7 +48,7 @@
 #include "ntfs_types.h"
 
 __private_extern__ errno_t ntfs_attr_list_is_needed(ntfs_inode *ni,
-		ATTR_LIST_ENTRY *skip_entry, BOOL *attr_list_is_needed);
+		ATTR_LIST_ENTRY *skip_entry, NTFS_BOOL *attr_list_is_needed);
 
 __private_extern__ errno_t ntfs_attr_list_delete(ntfs_inode *ni,
 		ntfs_attr_search_ctx *ctx);

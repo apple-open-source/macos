@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Google Inc.  All rights reserved.
+ * Copyright (C) 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -53,7 +53,7 @@ public:
     bool addBytes(std::span<const uint8_t>);
     bool finish();
     size_t size() const { return m_buffer.size(); }
-    std::span<const uint8_t> span() const { return m_buffer.span(); }
+    std::span<const uint8_t> span() const LIFETIME_BOUND { return m_buffer.span(); }
     void reset();
 
 private:
@@ -73,7 +73,7 @@ public:
     bool addBytes(std::span<const uint8_t>);
     bool finish();
     size_t size() const { return m_buffer.size(); }
-    std::span<const uint8_t> span() const { return m_buffer.span(); }
+    std::span<const uint8_t> span() const LIFETIME_BOUND { return m_buffer.span(); }
     void reset();
 
 private:

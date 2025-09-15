@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 RDK Management  All rights reserved.
+ * Copyright (C) 2020 RDK Management All rights reserved.
  * Copyright (C) 2022 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,9 +29,9 @@
 #if ENABLE(GAMEPAD) && USE(LIBWPE)
 
 #include "PlatformGamepad.h"
+#include <wpe/wpe.h>
 
-struct wpe_gamepad;
-struct wpe_gamepad_provider;
+#if WPE_CHECK_VERSION(1, 13, 90)
 
 namespace WebCore {
 
@@ -48,6 +48,9 @@ public:
 private:
     void buttonPressedOrReleased(unsigned, bool);
     void absoluteAxisChanged(unsigned, double);
+#if WPE_CHECK_VERSION(1, 16, 2)
+    void analogButtonChanged(unsigned, double);
+#endif
 
     Vector<SharedGamepadValue> m_buttonValues;
     Vector<SharedGamepadValue> m_axisValues;
@@ -56,5 +59,7 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // WPE_CHECK_VERSION(1, 13, 90)
 
 #endif // ENABLE(GAMEPAD) && USE(LIBWPE)

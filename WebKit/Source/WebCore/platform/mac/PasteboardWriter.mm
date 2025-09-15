@@ -61,7 +61,7 @@ RetainPtr<id <NSPasteboardWriting>> createPasteboardWriter(const PasteboardWrite
     auto pasteboardItem = adoptNS([[NSPasteboardItem alloc] init]);
 
     if (auto& plainText = data.plainText()) {
-        [pasteboardItem setString:plainText->text forType:NSPasteboardTypeString];
+        [pasteboardItem setString:plainText->text.createNSString().get() forType:NSPasteboardTypeString];
         if (plainText->canSmartCopyOrDelete) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             auto smartPasteType = bridge_cast(adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassNSPboardType, bridge_cast(_NXSmartPaste), nullptr)));
@@ -71,39 +71,39 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
     if (auto& urlData = data.urlData()) {
-        NSURL *cocoaURL = urlData->url;
-        NSString *userVisibleString = urlData->userVisibleForm;
-        NSString *title = (NSString *)urlData->title;
-        if (!title.length) {
-            title = cocoaURL.path.lastPathComponent;
-            if (!title.length)
+        RetainPtr nsURL = urlData->url.createNSURL();
+        RetainPtr userVisibleString = urlData->userVisibleForm.createNSString();
+        RetainPtr title = urlData->title.createNSString();
+        if (!title.get().length) {
+            title = nsURL.get().path.lastPathComponent;
+            if (!title.get().length)
                 title = userVisibleString;
         }
 
         // WebURLsWithTitlesPboardType.
         // FIXME: This could use StringView (the one that creates NSString) to save an allocation
-        auto paths = adoptNS([[NSArray alloc] initWithObjects:@[ @[ cocoaURL.absoluteString ] ], @[ urlData->title.trim(deprecatedIsSpaceOrNewline) ], nil]);
+        auto paths = adoptNS([[NSArray alloc] initWithObjects:@[ @[ nsURL.get().absoluteString ] ], @[ urlData->title.trim(deprecatedIsSpaceOrNewline).createNSString().get() ], nil]);
         [pasteboardItem setPropertyList:paths.get() forType:toUTI(@"WebURLsWithTitlesPboardType").get()];
 
         // NSURLPboardType.
-        if (NSURL *baseCocoaURL = cocoaURL.baseURL)
-            [pasteboardItem setPropertyList:@[ cocoaURL.relativeString, baseCocoaURL.absoluteString ] forType:toUTI(WebCore::legacyURLPasteboardType()).get()];
-        else if (cocoaURL)
-            [pasteboardItem setPropertyList:@[ cocoaURL.absoluteString, @"" ] forType:toUTI(WebCore::legacyURLPasteboardType()).get()];
+        if (NSURL *baseCocoaURL = nsURL.get().baseURL)
+            [pasteboardItem setPropertyList:@[ nsURL.get().relativeString, baseCocoaURL.absoluteString ] forType:toUTI(WebCore::legacyURLPasteboardType()).get()];
+        else if (nsURL)
+            [pasteboardItem setPropertyList:@[ nsURL.get().absoluteString, @"" ] forType:toUTI(WebCore::legacyURLPasteboardType()).get()];
         else
             [pasteboardItem setPropertyList:@[ @"", @"" ] forType:toUTI(WebCore::legacyURLPasteboardType()).get()];
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        if (cocoaURL.fileURL)
-            [pasteboardItem setString:cocoaURL.absoluteString forType:(NSString *)kUTTypeFileURL];
-        [pasteboardItem setString:userVisibleString forType:(NSString *)kUTTypeURL];
+        if (nsURL.get().fileURL)
+            [pasteboardItem setString:nsURL.get().absoluteString forType:(NSString *)kUTTypeFileURL];
+        [pasteboardItem setString:userVisibleString.get() forType:(NSString *)kUTTypeURL];
 ALLOW_DEPRECATED_DECLARATIONS_END
 
         // WebURLNamePboardType.
-        [pasteboardItem setString:title forType:@"public.url-name"];
+        [pasteboardItem setString:title.get() forType:@"public.url-name"];
 
         // NSPasteboardTypeString.
-        [pasteboardItem setString:userVisibleString forType:NSPasteboardTypeString];
+        [pasteboardItem setString:userVisibleString.get() forType:NSPasteboardTypeString];
     }
 
     if (auto& webContent = data.webContent()) {
@@ -124,16 +124,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (webContent->dataInRTFFormat)
             [pasteboardItem setData:webContent->dataInRTFFormat->createNSData().get() forType:NSPasteboardTypeRTF];
         if (!webContent->dataInHTMLFormat.isNull())
-            [pasteboardItem setString:webContent->dataInHTMLFormat forType:NSPasteboardTypeHTML];
+            [pasteboardItem setString:webContent->dataInHTMLFormat.createNSString().get() forType:NSPasteboardTypeHTML];
         if (!webContent->dataInStringFormat.isNull())
-            [pasteboardItem setString:webContent->dataInStringFormat forType:NSPasteboardTypeString];
+            [pasteboardItem setString:webContent->dataInStringFormat.createNSString().get() forType:NSPasteboardTypeString];
 
         for (unsigned i = 0; i < webContent->clientTypesAndData.size(); ++i)
-            [pasteboardItem setData:webContent->clientTypesAndData[i].second->createNSData().get() forType:toUTIUnlessAlreadyUTI(webContent->clientTypesAndData[i].first).get()];
+            [pasteboardItem setData:webContent->clientTypesAndData[i].second->createNSData().get() forType:toUTIUnlessAlreadyUTI(webContent->clientTypesAndData[i].first.createNSString().get()).get()];
 
         PasteboardCustomData customData;
         customData.setOrigin(webContent->contentOrigin);
-        [pasteboardItem setData:customData.createSharedBuffer()->createNSData().get() forType:toUTIUnlessAlreadyUTI(String(PasteboardCustomData::cocoaType())).get()];
+        [pasteboardItem setData:customData.createSharedBuffer()->createNSData().get() forType:toUTIUnlessAlreadyUTI(PasteboardCustomData::cocoaType().createNSString().get()).get()];
     }
 
     return pasteboardItem;

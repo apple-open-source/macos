@@ -1,4 +1,4 @@
-/* Copyright (c) (2010-2012,2014-2022) Apple Inc. All rights reserved.
+/* Copyright (c) (2010-2012,2014-2022,2024) Apple Inc. All rights reserved.
  *
  * corecrypto is licensed under Apple Inc.’s Internal Use License Agreement (which
  * is contained in the License.txt file distributed with corecrypto) and only to
@@ -41,7 +41,11 @@ struct ccdigest_info {
     void(* CC_SPTR(ccdigest_info, final))(const struct ccdigest_info *di, ccdigest_ctx_t ctx,
                  unsigned char *digest);
     cc_impl_t impl;
+    void(* CC_SPTR(ccdigest_info, compress_parallel))(ccdigest_state_t state1, size_t nblocks1,
+                    const void *data1, ccdigest_state_t state2, size_t nblocks2, const void *data2);
 };
+
+typedef const struct ccdigest_info *(*ccdigest_info_selector_t)(void);
 
 /* Return sizeof a ccdigest_ctx for a given size_t _state_size_ and
    size_t _block_size_. */
@@ -88,6 +92,24 @@ void ccdigest_final(const struct ccdigest_info *di, ccdigest_ctx_t ctx, unsigned
 
 void ccdigest(const struct ccdigest_info *di, size_t len,
               const void *data, void *digest);
+
+/*!
+  @function ccdigest_parallel
+  @abstract Hashes two inputs of the same size, in parallel where hardware support is available.
+
+  @param di digest info struct specifying the hash to use
+  @param data_nbytes the size of the inputs
+  @param data1 pointer to the first input
+  @param digest1 output pointer for the hash of data1
+  @param data2 pointer to the second input
+  @param digest2 output pointer for the hash of data2
+
+  @discussion This is intended for use in the construction of Merkle trees.
+*/
+CC_NONNULL_ALL
+void ccdigest_parallel(const struct ccdigest_info *di, size_t data_nbytes,
+                       const void *data1, void *digest1,
+                       const void *data2, void *digest2);
 
 #define OID_DEF(_VALUE_)  ((const unsigned char *)_VALUE_)
 

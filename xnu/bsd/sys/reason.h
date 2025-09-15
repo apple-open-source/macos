@@ -89,7 +89,7 @@ int exit_with_mach_exception(struct proc *p, exception_info_t exception, uint32_
 #if CONFIG_EXCLAVES
 int exit_with_exclave_exception(struct proc *p, exception_info_t exception, uint32_t flags);
 #endif
-void exit_with_mach_exception_using_ast(exception_info_t exception, uint32_t flags);
+void exit_with_mach_exception_using_ast(exception_info_t exception, uint32_t flags, bool fatal);
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -155,11 +155,15 @@ void os_reason_set_description_data(os_reason_t cur_reason, uint32_t type, void 
 #define OS_REASON_CORERC     41
 #define OS_REASON_SELF_RESTRICT 42
 #define OS_REASON_ARKIT      43
+#define OS_REASON_CAMERA     44
+#define OS_REASON_BACKBOARD  45
+#define OS_REASON_POWEREXCEPTIONS 46
+#define OS_REASON_SECINIT    47
 
 /*
  * Update whenever new OS_REASON namespaces are added.
  */
-#define OS_REASON_MAX_VALID_NAMESPACE OS_REASON_ARKIT
+#define OS_REASON_MAX_VALID_NAMESPACE OS_REASON_SECINIT
 
 #define OS_REASON_BUFFER_MAX_SIZE 5120
 
@@ -294,6 +298,7 @@ int terminate_with_payload(int pid, uint32_t reason_namespace, uint64_t reason_c
 #define EXEC_EXIT_REASON_SET_DYLD_INFO      17
 #define EXEC_EXIT_REASON_MACHINE_THREAD     18
 #define EXEC_EXIT_REASON_BAD_PSATTR         19
+#define EXEC_EXIT_REASON_NOX86EXEC          20
 #define EXEC_EXIT_REASON_MAP_EXEC_FAILURE   21
 /*
  * guard reasons

@@ -83,6 +83,20 @@ NS_ASSUME_NONNULL_BEGIN
 @property uint32_t ambientLightSensorRawChannel3;
 @end
 
+@interface HIDEvent (HIDTouchSensitiveButtonEventPrivate)
+
+@property uint32_t touchSensitiveButtonEventMask;
+@property double touchSensitiveButtonMajorRadius;
+@property double touchSensitiveButtonMinorRadius;
+@property double touchSensitiveButtonNormalizedPositionDeltaX;
+@property double touchSensitiveButtonNormalizedPositionDeltaY;
+@property double touchSensitiveButtonNormalizedPositionX;
+@property double touchSensitiveButtonNormalizedPositionY;
+@property bool touchSensitiveButtonTouch;
+@property uint16_t touchSensitiveButtonUsage;
+@property uint16_t touchSensitiveButtonUsagePage;
+@end
+
 @interface HIDEvent (HIDPowerEventPrivate)
 
 @property double powerMeasurement;
@@ -102,6 +116,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property uint32_t motionGestureGestureType;
 @property double motionGestureProgress;
+@end
+
+@interface HIDEvent (HIDForceStageEventPrivate)
+
+@property double forceStageNextThreshold;
+@property double forceStageNormalizedForce;
+@property double forceStageNormalizedForceVelocity;
+@property double forceStagePressedThreshold;
+@property double forceStageReleasedThreshold;
+@property uint32_t forceStageStage;
+@property IOHIDForceStageTransition forceStageTransition;
 @end
 
 @interface HIDEvent (HIDGameControllerEventPrivate)

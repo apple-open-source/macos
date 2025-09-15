@@ -24,8 +24,11 @@
  */
 
 #import "_WKWebExtensionSQLiteDatabase.h"
+#import <WebCore/SQLiteExtras.h>
 #import <sqlite3.h>
 #import <tuple>
+#import <wtf/ObjCRuntimeExtras.h>
+#import <wtf/cocoa/SpanCocoa.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -88,7 +91,7 @@ public:
         if (sqlite3_column_type(statement, index) == SQLITE_NULL)
             return nil;
 
-        return CFBridgingRelease(CFStringCreateWithBytes(kCFAllocatorDefault, sqlite3_column_text(statement, index), sqlite3_column_bytes(statement, index), kCFStringEncodingUTF8, false));
+        return WebCore::sqliteColumnText(statement, index).createNSString().autorelease();
     }
 
     static inline _WKSQLiteErrorCode bind(sqlite3_stmt* statement, int index, NSString * _Nullable value)
@@ -96,7 +99,7 @@ public:
         if (!value)
             return sqlite3_bind_null(statement, index);
 
-        return sqlite3_bind_text(statement, index, value.UTF8String, -1, SQLITE_TRANSIENT);
+        return WebCore::sqliteBindText(statement, index, String(value).utf8());
     }
 };
 
@@ -108,7 +111,7 @@ public:
         if (sqlite3_column_type(statement, index) == SQLITE_NULL)
             return nil;
 
-        return CFBridgingRelease(CFDataCreate(kCFAllocatorDefault, (const UInt8 *)sqlite3_column_blob(statement, index), sqlite3_column_bytes(statement, index)));
+        return toNSData(WebCore::sqliteColumnBlob(statement, index)).autorelease();
     }
 
     static inline _WKSQLiteErrorCode bind(sqlite3_stmt* statement, int index, NSData * _Nullable value)
@@ -116,7 +119,7 @@ public:
         if (!value)
             return sqlite3_bind_null(statement, index);
 
-        return sqlite3_bind_blob64(statement, index, value.bytes, value.length, SQLITE_TRANSIENT);
+        return WebCore::sqliteBindBlob(statement, index, span(value));
     }
 };
 
@@ -161,12 +164,8 @@ public:
         if (!value)
             return sqlite3_bind_null(statement, index);
 
-        const char* objCType = [value objCType];
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-        if (!strcmp(objCType, @encode(double)) || !strcmp(objCType, @encode(float)))
+        if (nsValueHasObjCType<double>(value) || nsValueHasObjCType<float>(value))
             return sqlite3_bind_double(statement, index, value.doubleValue);
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         return sqlite3_bind_int64(statement, index, value.longLongValue);
     }
@@ -200,10 +199,10 @@ public:
             return sqlite3_bind_null(statement, index);
 
         if ([value isKindOfClass:[NSString class]])
-            return sqlite3_bind_text(statement, index, ((NSString *)value).UTF8String, -1, SQLITE_TRANSIENT);
+            return WebCore::sqliteBindText(statement, index, String((NSString *)value).utf8());
 
         if ([value isKindOfClass:[NSData class]])
-            return sqlite3_bind_blob(statement, index, ((NSData *)value).bytes, (int)((NSData *)value).length, SQLITE_TRANSIENT);
+            return WebCore::sqliteBindBlob(statement, index, span((NSData *)value));
 
         if ([value isKindOfClass:[NSNumber class]])
             return _WKWebExtensionSQLiteDatatypeTraits<NSNumber *>::bind(statement, index, (NSNumber *)value);

@@ -34,7 +34,6 @@
 #include "CSSParserIdioms.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParserConsumer+Primitives.h"
-#include "CSSSelector.h"
 #include "CSSSelectorInlines.h"
 #include "CSSTokenizer.h"
 #include "CommonAtomStrings.h"
@@ -187,7 +186,7 @@ MutableCSSSelectorList CSSSelectorParser::consumeForgivingSelectorList(CSSParser
         auto initialRange = range;
         auto unknownSelector = [&] {
             auto unknownSelector = makeUnique<MutableCSSSelector>();
-            auto unknownRange = initialRange.makeSubRange(initialRange.begin(), range.begin());
+            auto unknownRange = initialRange.rangeUntil(range);
             unknownSelector->setMatch(CSSSelector::Match::ForgivingUnknown);
             // We store the complete range content for serialization.
             unknownSelector->setValue(AtomString { unknownRange.serialize() });
@@ -249,6 +248,11 @@ MutableCSSSelectorList CSSSelectorParser::consumeNestedComplexForgivingSelectorL
     return consumeForgivingSelectorList(range, [&] (CSSParserTokenRange& range) {
         return consumeNestedComplexSelector(range);
     });
+}
+
+std::optional<CSSSelectorList> CSSSelectorParser::parseSelectorList(const String& string, const CSSParserContext& context, StyleSheetContents* styleSheet, CSSParserEnum::NestedContext nestedContext)
+{
+    return parseCSSSelectorList(CSSTokenizer(string).tokenRange(), context, styleSheet, nestedContext);
 }
 
 bool CSSSelectorParser::supportsComplexSelector(CSSParserTokenRange range, const CSSSelectorParserContext& context)
@@ -625,7 +629,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumeSimpleSelector(CSS
         selector = consumeId(range);
     else if (token.type() == DelimiterToken && token.delimiter() == '.')
         selector = consumeClass(range);
-    else if (token.type() == DelimiterToken && token.delimiter() == '&' && m_context.cssNestingEnabled)
+    else if (token.type() == DelimiterToken && token.delimiter() == '&')
         selector = consumeNesting(range);
     else if (token.type() == LeftBracketToken)
         selector = consumeAttribute(range);
@@ -1070,7 +1074,7 @@ CSSSelector::Match CSSSelectorParser::consumeAttributeMatch(CSSParserTokenRange&
     case DelimiterToken:
         if (token.delimiter() == '=')
             return CSSSelector::Match::Exact;
-        FALLTHROUGH;
+        [[fallthrough]];
     default:
         m_failedParsing = true;
         return CSSSelector::Match::Exact;
@@ -1303,18 +1307,15 @@ CSSSelectorList CSSSelectorParser::resolveNestingParent(const CSSSelectorList& n
 {
     MutableCSSSelectorList result;
     CSSSelectorList copiedSelectorList { nestedSelectorList };
-    auto selector = copiedSelectorList.first();
-    while (selector) {
+    for (auto& selector : copiedSelectorList) {
         if (parentResolvedSelectorList) {
             // FIXME: We should build a new MutableCSSSelector from this selector and resolve it
-            const_cast<CSSSelector*>(selector)->resolveNestingParentSelectors(*parentResolvedSelectorList);
+            const_cast<CSSSelector&>(selector).resolveNestingParentSelectors(*parentResolvedSelectorList);
         } else {
             // It's top-level, the nesting parent selector should be replaced by :scope
-            const_cast<CSSSelector*>(selector)->replaceNestingParentByPseudoClassScope();
+            const_cast<CSSSelector&>(selector).replaceNestingParentByPseudoClassScope();
         }
-        auto mutableSelector = makeUnique<MutableCSSSelector>(*selector);
-        result.append(WTFMove(mutableSelector));
-        selector = copiedSelectorList.next(selector);
+        result.append(makeUnique<MutableCSSSelector>(selector));
     }
 
     auto final = CSSSelectorList { WTFMove(result) };

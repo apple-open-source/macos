@@ -92,6 +92,10 @@ $(COMPONENT).filelist: $(OBJS)
 		 $(ECHO) $(TARGET)/$(CURRENT_KERNEL_CONFIG)/$${obj}; \
 	done > $(COMPONENT).filelist
 
+ifeq ($(XNU_LibAllFiles),1)
+LIBOBJS := $(OBJS)
+endif
+
 $(COMPONENT).libfilelist: $(LIBOBJS)
 	@$(LOG_LDFILELIST) "lib$(COMPONENT)"
 	$(_v)for obj in ${LIBOBJS}; do	\

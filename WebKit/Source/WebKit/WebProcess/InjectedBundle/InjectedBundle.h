@@ -60,7 +60,7 @@ class Connection;
 namespace WebKit {
 
 #if USE(FOUNDATION)
-typedef NSBundle *PlatformBundle;
+typedef RetainPtr<NSBundle> PlatformBundle;
 #elif USE(GLIB)
 typedef ::GModule* PlatformBundle;
 #else
@@ -155,3 +155,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::InjectedBundle)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::Bundle; }
+SPECIALIZE_TYPE_TRAITS_END()

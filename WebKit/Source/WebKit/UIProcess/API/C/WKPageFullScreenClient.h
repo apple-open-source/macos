@@ -33,9 +33,10 @@ extern "C" {
 
 typedef struct WKRect WKRect;
 
-typedef bool (*WKPageWillEnterFullScreenCallback)(WKPageRef page, const void* clientInfo);
-typedef void (*WKPageFullScreenCallbackWithRects)(WKPageRef page, WKRect initialFrame, WKRect finalFrame, const void* clientInfo);
-typedef void (*WKPageFullScreenCallback)(WKPageRef page, const void* clientInfo);
+typedef void (*WKPageWillEnterFullScreenCallback)(WKPageRef page, WKCompletionListenerRef listener, const void* clientInfo);
+typedef void (*WKPageBeganEnterFullScreenCallback)(WKPageRef page, WKRect initialFrame, WKRect finalFrame, const void* clientInfo);
+typedef void (*WKPageExitFullScreenCallback)(WKPageRef page, const void* clientInfo);
+typedef void (*WKPageBeganExitFullScreenCallback)(WKPageRef page, WKRect initialFrame, WKRect finalFrame, WKCompletionListenerRef listener, const void* clientInfo);
 
 typedef struct WKPageFullScreenClientBase {
     int version;
@@ -47,11 +48,13 @@ typedef struct WKPageFullScreenClientV0 {
 
     // Version 0.
     WKPageWillEnterFullScreenCallback willEnterFullScreen;
-    WKPageFullScreenCallbackWithRects beganEnterFullScreen;
-    WKPageFullScreenCallback exitFullScreen;
-    WKPageFullScreenCallbackWithRects beganExitFullScreen;
+    WKPageBeganEnterFullScreenCallback beganEnterFullScreen;
+    WKPageExitFullScreenCallback exitFullScreen;
+    WKPageBeganExitFullScreenCallback beganExitFullScreen;
 
 } WKPageFullScreenClientV0;
+
+WK_EXPORT void WKCompletionListenerComplete(WKCompletionListenerRef listener);
 
 #ifdef __cplusplus
 }

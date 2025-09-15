@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  */
 /*
  *	Copyright (C) 1990,  NeXT, Inc.
@@ -16,6 +16,8 @@
 #include        <libkern/libkern.h>
 #include        <machine/exec.h>
 #include        <pexpert/arm64/board_config.h>
+
+int ml_grade_binary(cpu_type_t, cpu_subtype_t, cpu_subtype_t, bool);
 
 #if __arm64__
 static cpu_subtype_t cpu_subtype32(void);
@@ -51,18 +53,18 @@ grade_arm64e_binary(cpu_subtype_t execfeatures)
 #endif /* XNU_TARGET_OS_IOS || XNU_TARGET_OS_XR */
 
 	/* The current ABI version is preferred over arm64 */
-	if (CPU_SUBTYPE_ARM64_PTR_AUTH_VERSION(execfeatures) ==
-	    CPU_SUBTYPE_ARM64_PTR_AUTH_CURRENT_VERSION) {
+	if (CPU_SUBTYPE_ARM64_PTR_AUTH_VERSION(execfeatures) <=
+	    CPU_SUBTYPE_ARM64_PTR_AUTH_MAX_PREFERRED_VERSION) {
 		return 12;
 	}
 
-	/* Future ABIs are allowed, but exec_mach_imgact will treat it like an arm64 slice */
+	/* Non-preferred future and older ABIs are allowed, but exec_mach_imgact may treat them like an arm64 slice */
 	return 11;
 }
 #endif /* __arm64__ */
 
 /**********************************************************************
-* Routine:	grade_binary()
+* Routine:	ml_grade_binary()
 *
 * Function:	Return a relative preference for exectypes and
 *		execsubtypes in fat executable files.  The higher the
@@ -70,7 +72,7 @@ grade_arm64e_binary(cpu_subtype_t execfeatures)
 *		not acceptable.
 **********************************************************************/
 int
-grade_binary(cpu_type_t exectype, cpu_subtype_t execsubtype, cpu_subtype_t execfeatures __unused, bool allow_simulator_binary __unused)
+ml_grade_binary(cpu_type_t exectype, cpu_subtype_t execsubtype, cpu_subtype_t execfeatures __unused, bool allow_simulator_binary __unused)
 {
 #if __arm64__
 	cpu_subtype_t hostsubtype =

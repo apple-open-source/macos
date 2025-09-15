@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -98,12 +98,11 @@ public:
 
     ~RemoteDevice();
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
-    Ref<RemoteQueue> queue();
+    RemoteQueue& queue() { return m_queue; }
 
 private:
     friend class WebGPU::ObjectHeap;
@@ -116,8 +115,6 @@ private:
     RemoteDevice& operator=(RemoteDevice&&) = delete;
 
     WebCore::WebGPU::Device& backing() { return m_backing; }
-    Ref<WebCore::WebGPU::Device> protectedBacking();
-    Ref<IPC::StreamServerConnection> protectedStreamConnection() const;
     Ref<WebGPU::ObjectHeap> protectedObjectHeap() const;
     Ref<RemoteGPU> protectedGPU() const { return m_gpu.get(); }
 
@@ -162,13 +159,13 @@ private:
     void setSharedVideoFrameMemory(WebCore::SharedMemoryHandle&&);
     void pauseAllErrorReporting(bool pauseErrorReporting);
 
-    Ref<WebCore::WebGPU::Device> m_backing;
+    const Ref<WebCore::WebGPU::Device> m_backing;
     WeakRef<WebGPU::ObjectHeap> m_objectHeap;
-    Ref<IPC::StreamServerConnection> m_streamConnection;
+    const Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
-    Ref<RemoteQueue> m_queue;
+    const Ref<RemoteQueue> m_queue;
 #if ENABLE(VIDEO)
-    Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+    const Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
 #if PLATFORM(COCOA)
     SharedVideoFrameReader m_sharedVideoFrameReader;
 #endif

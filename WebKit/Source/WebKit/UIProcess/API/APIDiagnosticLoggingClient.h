@@ -54,6 +54,8 @@ public:
     virtual void logDiagnosticMessageWithValueDictionary(WebKit::WebPageProxy*, const WTF::String& message, const WTF::String& description, Ref<API::Dictionary>&&) = 0;
 
     virtual void logDiagnosticMessageWithDomain(WebKit::WebPageProxy*, const WTF::String&, WebCore::DiagnosticLoggingDomain) { }
+
+    virtual bool isWebKitDiagnosticLoggingClient() const { return false; }
 };
 
 } // namespace API

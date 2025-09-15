@@ -96,7 +96,7 @@ struct Sandbox {
         let flatParameters = _flatten(parameters)
         logger.debug("Sandbox parameters: \(String(describing: parameters))")
 
-        withArrayOfCStrings(flatParameters) { ptr -> Void in
+        withArrayOfCStrings(flatParameters) { ptr in
             let result = sandbox_init_with_parameters(profile, UInt64(SANDBOX_NAMED), ptr, &sbError)
             guard result == 0 else {
                 guard let sbError = sbError else {

@@ -280,7 +280,7 @@ early_random_init(void)
 	cc_clear(sizeof(earlyseed), earlyseed);
 }
 
-static void read_erandom(void * buf, size_t nbytes);
+__static_testable void read_erandom(void * buf, size_t nbytes);
 
 /*
  * Return a uniformly distributed 64-bit random number.
@@ -364,7 +364,7 @@ read_erandom_generate(void * buf, size_t nbytes)
 	}
 }
 
-static void
+__static_testable __mockable void
 read_erandom(void * buf, size_t nbytes)
 {
 	// We defer to the kernel PRNG after it has been installed and
@@ -417,7 +417,7 @@ random_cpu_init(int cpu)
 }
 
 /* export good random numbers to the rest of the kernel */
-void
+__mockable void
 read_random(void * buffer, u_int numbytes)
 {
 	prng_funcs.refresh(prng_ctx);
@@ -462,13 +462,21 @@ read_random_generate(uint8_t *buffer, size_t numbytes)
 int
 write_random(void * buffer, u_int numbytes)
 {
-	uint8_t seed[SHA256_DIGEST_LENGTH];
-	SHA256_CTX ctx;
+	/*
+	 * The reseed function requires at least 16 bytes of input entropy,
+	 * hence we always pass the entire seed below, even if it isn't "full".
+	 */
+	uint8_t seed[SHA512_DIGEST_LENGTH] = {0};
 
-	/* hash the input to minimize the time we need to hold the lock */
-	SHA256_Init(&ctx);
-	SHA256_Update(&ctx, buffer, numbytes);
-	SHA256_Final(seed, &ctx);
+	if (numbytes > SHA512_DIGEST_LENGTH) {
+		/* hash the input to minimize the time we need to hold the lock */
+		SHA512_CTX ctx;
+		SHA512_Init(&ctx);
+		SHA512_Update(&ctx, buffer, numbytes);
+		SHA512_Final(seed, &ctx);
+	} else {
+		memcpy(seed, buffer, numbytes);
+	}
 
 	prng_funcs.reseed(prng_ctx, sizeof(seed), seed);
 	cc_clear(sizeof(seed), seed);

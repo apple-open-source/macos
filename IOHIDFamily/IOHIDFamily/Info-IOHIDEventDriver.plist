@@ -22,6 +22,120 @@
 	<string>$(IOHIDFAMILY_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>Topological HID Driver</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDComplexEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsHIDInputTopology</key>
+				<true/>
+			</dict>
+			<key>IOProbeScore</key>
+			<integer>3000</integer>
+			<key>IOMatchDefer</key>
+			<true/>
+		</dict>
+		<key>HID Fast Path</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsIOFastPath</key>
+				<true/>
+			</dict>
+			<key>IOProbeScore</key>
+			<integer>2000</integer>
+			<key>IOMatchDefer</key>
+			<string>YES</string>
+		</dict>
+		<key>BLE Trackable Accessory</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDEventDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDInterface</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>IsSpatialBluetoothHID</key>
+				<true/>
+			</dict>
+			<key>IOProbeScore</key>
+			<integer>2000</integer>
+			<key>IOMatchDefer</key>
+			<string>YES</string>
+		</dict>
+		<key>HID Accel IOFastPath</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOFastPathHIDAccelService</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDEventService</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsIOFastPath</key>
+				<true/>
+				<key>SupportsAccelEvents</key>
+				<true/>
+			</dict>
+			<key>IOMatchCategory</key>
+			<string>IOFastPathHIDAccelService</string>
+			<key>IOProbeScore</key>
+			<integer>1</integer>
+		</dict>
+		<key>HID Gyro IOFastPath</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOFastPathHIDGyroService</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDEventService</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsIOFastPath</key>
+				<true/>
+				<key>SupportsGyroEvents</key>
+				<true/>
+			</dict>
+			<key>IOMatchCategory</key>
+			<string>IOFastPathHIDGyroService</string>
+			<key>IOProbeScore</key>
+			<integer>1</integer>
+		</dict>
+		<key>HID LED Constellation IOFastPath</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOFastPathHIDLEDService</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDEventService</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>SupportsIOFastPath</key>
+				<true/>
+				<key>SupportsLEDConstellation</key>
+				<true/>
+			</dict>
+			<key>IOMatchCategory</key>
+			<string>IOFastPathHIDLEDService</string>
+			<key>IOProbeScore</key>
+			<integer>1</integer>
+		</dict>
 		<key>HID Buttons</key>
 		<dict>
 			<key>CFBundleIdentifier</key>

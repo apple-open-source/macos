@@ -37,10 +37,14 @@ thread_creation_bomb_one(void *_ctx __unused, size_t _i __unused)
 
 		for (int i = 0; i < BATCH; i++) {
 			int rc = pthread_create(&th[i], NULL, thread_do_nothing, NULL);
+			if (rc == EAGAIN) {
+				th[i] = NULL;
+				continue;
+			}
 			T_QUIET; T_ASSERT_EQ(rc, 0, "pthread_create[%d]", i);
 		}
 
-		for (int i = 0; i < BATCH; i++) {
+		for (int i = 0; i < BATCH && th[i]; i++) {
 			int rc = pthread_join(th[i], NULL);
 			T_QUIET; T_ASSERT_EQ(rc, 0, "pthread_join[%d]", i);
 		}

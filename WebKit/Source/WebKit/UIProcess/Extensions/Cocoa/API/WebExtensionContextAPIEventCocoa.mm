@@ -40,22 +40,52 @@
 
 namespace WebKit {
 
+static inline bool isTestEventListener(WebExtensionEventListenerType type)
+{
+    return type == WebExtensionEventListenerType::TestOnMessage
+        || type == WebExtensionEventListenerType::TestOnTestStarted
+        || type == WebExtensionEventListenerType::TestOnTestFinished;
+}
+
 void WebExtensionContext::addListener(WebCore::FrameIdentifier frameIdentifier, WebExtensionEventListenerType listenerType, WebExtensionContentWorldType contentWorldType)
 {
     RefPtr frame = WebFrameProxy::webFrame(frameIdentifier);
     if (!frame)
         return;
 
-    RELEASE_LOG_DEBUG(Extensions, "Registered event listener for type %{public}hhu in %{public}@ world", enumToUnderlyingType(listenerType), (NSString *)toDebugString(contentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Registered event listener for type %{public}hhu in %{public}@ world", enumToUnderlyingType(listenerType), toDebugString(contentWorldType).createNSString().get());
 
     if (!protectedExtension()->backgroundContentIsPersistent() && isBackgroundPage(frameIdentifier))
         m_backgroundContentEventListeners.add(listenerType);
 
     auto result = m_eventListenerFrames.add({ listenerType, contentWorldType }, WeakFrameCountedSet { });
     result.iterator->value.add(*frame);
+
+    if (!isTestEventListener(listenerType))
+        return;
+
+    switch (listenerType) {
+    case WebExtensionEventListenerType::TestOnMessage:
+        m_testMessageListenersCount++;
+        break;
+
+    case WebExtensionEventListenerType::TestOnTestStarted:
+        m_testStartedListenersCount++;
+        break;
+
+    case WebExtensionEventListenerType::TestOnTestFinished:
+        m_testFinishedListenersCount++;
+        break;
+
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    sendQueuedTestMessagesIfNeeded(listenerType);
 }
 
-void WebExtensionContext::removeListener(WebCore::FrameIdentifier frameIdentifier, WebExtensionEventListenerType listenerType, WebExtensionContentWorldType contentWorldType, size_t removedCount)
+void WebExtensionContext::removeListener(WebCore::FrameIdentifier frameIdentifier, WebExtensionEventListenerType listenerType, WebExtensionContentWorldType contentWorldType, uint64_t removedCount)
 {
     ASSERT(removedCount);
 
@@ -63,7 +93,7 @@ void WebExtensionContext::removeListener(WebCore::FrameIdentifier frameIdentifie
     if (!frame)
         return;
 
-    RELEASE_LOG_DEBUG(Extensions, "Unregistered %{public}zu event listener(s) for type %{public}hhu in %{public}@ world", removedCount, enumToUnderlyingType(listenerType), (NSString *)toDebugString(contentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Unregistered %{public}llu event listener(s) for type %{public}hhu in %{public}@ world", removedCount, enumToUnderlyingType(listenerType), toDebugString(contentWorldType).createNSString().get());
 
     if (!protectedExtension()->backgroundContentIsPersistent() && isBackgroundPage(frameIdentifier)) {
         for (size_t i = 0; i < removedCount; ++i)
@@ -81,6 +111,27 @@ void WebExtensionContext::removeListener(WebCore::FrameIdentifier frameIdentifie
         return;
 
     m_eventListenerFrames.remove(iterator);
+
+    if (!isTestEventListener(listenerType) || !hasTestEventListeners(listenerType))
+        return;
+
+    switch (listenerType) {
+    case WebExtensionEventListenerType::TestOnMessage:
+        m_testMessageListenersCount--;
+        break;
+
+    case WebExtensionEventListenerType::TestOnTestStarted:
+        m_testStartedListenersCount--;
+        break;
+
+    case WebExtensionEventListenerType::TestOnTestFinished:
+        m_testFinishedListenersCount--;
+        break;
+
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
 }
 
 } // namespace WebKit

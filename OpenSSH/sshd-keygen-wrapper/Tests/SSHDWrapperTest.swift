@@ -91,7 +91,7 @@ final class SSHDWrapperTest: XCTestCase {
       sshdPlanTransformer: recorder.ensureSuccess,
       systemProperties: sp)
     try await w.run(["sshd-wrapper"])
-    XCTAssertEqual(recorder.commands.count, HostKeyGenerator.Algorithm.allCases.count + 1)
+    XCTAssertEqual(recorder.commands.count, HostKeyManager.Algorithm.allCases.count + 1)
     guard recorder.commands.count == 3 else {
       return
     }
@@ -138,7 +138,10 @@ final class SSHDWrapperTest: XCTestCase {
 
   struct SystemPropertiesMock: SystemPropertiesStrategy {
     let pathPrefix = FilePath("/usr")
+    let prebootVolumePrefix = FilePath("/System/Volumes/Preboot")
     let sshDirectory: FilePath
+    let temporaryDirectory = FilePath("/tmp")
+    let isBaseSystem = false
 
     init(sshDirectory: FilePath = SSHDWrapperTest.temporaryDirectory()) {
       self.sshDirectory = sshDirectory

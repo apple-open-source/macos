@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,13 +41,15 @@
 #include "WebSWOriginTable.h"
 #include "WebSWServerConnectionMessages.h"
 #include <WebCore/BackgroundFetchInformation.h>
+#include <WebCore/BackgroundFetchRecordInformation.h>
 #include <WebCore/BackgroundFetchRequest.h>
 #include <WebCore/CookieChangeSubscription.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
-#include <WebCore/Document.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
+#include <WebCore/FrameInlines.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/ProcessIdentifier.h>
@@ -57,6 +59,7 @@
 #include <WebCore/ServiceWorkerJobData.h>
 #include <WebCore/ServiceWorkerRegistrationData.h>
 #include <WebCore/ServiceWorkerRegistrationKey.h>
+#include <WebCore/ServiceWorkerRoute.h>
 #include <WebCore/WorkerFetchResult.h>
 #include <WebCore/WorkerScriptLoader.h>
 #include <wtf/Vector.h>
@@ -84,8 +87,9 @@ IPC::Connection* WebSWClientConnection::messageSenderConnection() const
 
 void WebSWClientConnection::scheduleJobInServer(const ServiceWorkerJobData& jobData)
 {
-    runOrDelayTaskForImport([this, jobData] {
-        send(Messages::WebSWServerConnection::ScheduleJobInServer { jobData });
+    runOrDelayTaskForImport([weakThis = WeakPtr { *this }, jobData] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->send(Messages::WebSWServerConnection::ScheduleJobInServer { jobData });
     });
 }
 
@@ -104,7 +108,7 @@ void WebSWClientConnection::addServiceWorkerRegistrationInServer(ServiceWorkerRe
 void WebSWClientConnection::removeServiceWorkerRegistrationInServer(ServiceWorkerRegistrationIdentifier identifier)
 {
     if (WebProcess::singleton().removeServiceWorkerRegistration(identifier)) {
-        RunLoop::main().dispatch([identifier, connection = Ref { *this }]() {
+        RunLoop::mainSingleton().dispatch([identifier, connection = Ref { *this }]() {
             connection->send(Messages::WebSWServerConnection::RemoveServiceWorkerRegistrationInServer { identifier });
         });
     }
@@ -174,8 +178,9 @@ void WebSWClientConnection::matchRegistration(SecurityOriginData&& topOrigin, co
     CompletionHandlerWithFinalizer<void(std::optional<ServiceWorkerRegistrationData>)> completionHandler(WTFMove(callback), [] (auto& callback) {
         callback(std::nullopt);
     });
-    runOrDelayTaskForImport([this, completionHandler = WTFMove(completionHandler), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
-        sendWithAsyncReply(Messages::WebSWServerConnection::MatchRegistration { topOrigin, clientURL }, WTFMove(completionHandler));
+    runOrDelayTaskForImport([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->sendWithAsyncReply(Messages::WebSWServerConnection::MatchRegistration { topOrigin, clientURL }, WTFMove(completionHandler));
     });
 }
 
@@ -198,7 +203,7 @@ void WebSWClientConnection::whenRegistrationReady(const SecurityOriginData& topO
 
 void WebSWClientConnection::setServiceWorkerClientIsControlled(ScriptExecutionContextIdentifier identifier, ServiceWorkerRegistrationData&& data, CompletionHandler<void(bool)>&& completionHandler)
 {
-    if (auto* loader = DocumentLoader::fromScriptExecutionContextIdentifier(identifier)) {
+    if (RefPtr loader = DocumentLoader::fromScriptExecutionContextIdentifier(identifier)) {
         completionHandler(loader->setControllingServiceWorkerRegistration(WTFMove(data)));
         return;
     }
@@ -223,8 +228,9 @@ void WebSWClientConnection::getRegistrations(SecurityOriginData&& topOrigin, con
         return;
     }
 
-    runOrDelayTaskForImport([this, callback = WTFMove(callback), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
-        sendWithAsyncReply(Messages::WebSWServerConnection::GetRegistrations { topOrigin, clientURL }, WTFMove(callback));
+    runOrDelayTaskForImport([weakThis = WeakPtr { *this }, callback = WTFMove(callback), topOrigin = WTFMove(topOrigin), clientURL]() mutable {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->sendWithAsyncReply(Messages::WebSWServerConnection::GetRegistrations { topOrigin, clientURL }, WTFMove(callback));
     });
 }
 
@@ -315,7 +321,7 @@ void WebSWClientConnection::getNotifications(const URL& registrationURL, const S
     }
 #endif
 
-    WebProcess::singleton().parentProcessConnection()->sendWithAsyncReply(Messages::WebProcessProxy::GetNotifications { registrationURL, tag }, WTFMove(callback));
+    WebProcess::singleton().protectedParentProcessConnection()->sendWithAsyncReply(Messages::WebProcessProxy::GetNotifications { registrationURL, tag }, WTFMove(callback));
 }
 #endif
 
@@ -492,6 +498,17 @@ void WebSWClientConnection::cookieChangeSubscriptions(WebCore::ServiceWorkerRegi
     sendWithAsyncReply(Messages::WebSWServerConnection::CookieChangeSubscriptions { registrationIdentifier }, [callback = WTFMove(callback)](auto&& result) mutable {
         callExceptionOrResultCallback(WTFMove(callback), WTFMove(result));
     });
+}
+
+Ref<WebSWClientConnection::AddRoutePromise> WebSWClientConnection::addRoutes(ServiceWorkerRegistrationIdentifier identifier, Vector<ServiceWorkerRoute>&& routes)
+{
+    struct PromiseConverter {
+        static auto convertError(IPC::Error)
+        {
+            return makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::TypeError, "Internal error"_s });
+        }
+    };
+    return WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithPromisedReply<PromiseConverter>(Messages::WebSWServerConnection::AddRoutes { identifier, routes });
 }
 
 } // namespace WebKit

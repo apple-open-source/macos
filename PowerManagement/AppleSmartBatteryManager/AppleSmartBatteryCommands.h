@@ -20,9 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#pragma once
 
-#ifndef __AppleSmartBatteryCommands__
-#define __AppleSmartBatteryCommands__
+#include <AppleFeatures/AppleFeatures.h>
+#include <TargetConditionals.h>
 
 
 /*
@@ -218,6 +219,3 @@ typedef struct {
 
     ASBMgrTransactionCompletion completionHandler;
 } ASBMgrRequest;
-
-
-#endif

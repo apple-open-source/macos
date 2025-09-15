@@ -40,6 +40,7 @@
 #include "JSDOMWrapperCache.h"
 #include "JSTestObj.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include "TestNamespaceObject.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/JSCInlines.h>
@@ -183,11 +184,11 @@ static inline JSC::EncodedJSValue jsTestNamespaceObjectConstructorFunction_overl
     UNUSED_PARAM(callFrame);
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto objArgConversionResult = convert<IDLNullable<IDLInterface<TestObj>>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "objArg"_s, "TestInterfaceName"_s, "overloadedNamespaceOperation"_s, "TestObj"_s); });
-    if (UNLIKELY(objArgConversionResult.hasException(throwScope)))
+    if (objArgConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
     auto strArgConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument1.value());
-    if (UNLIKELY(strArgConversionResult.hasException(throwScope)))
+    if (strArgConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLBoolean>(*lexicalGlobalObject, throwScope, TestNamespaceObject::overloadedNamespaceOperation(objArgConversionResult.releaseReturnValue(), strArgConversionResult.releaseReturnValue()))));
 }
@@ -200,11 +201,11 @@ static inline JSC::EncodedJSValue jsTestNamespaceObjectConstructorFunction_overl
     UNUSED_PARAM(callFrame);
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto objArgConversionResult = convert<IDLNullable<IDLInterface<TestObj>>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "objArg"_s, "TestInterfaceName"_s, "overloadedNamespaceOperation"_s, "TestObj"_s); });
-    if (UNLIKELY(objArgConversionResult.hasException(throwScope)))
+    if (objArgConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->argument(1);
     auto longArgConversionResult = convert<IDLOptional<IDLLong>>(*lexicalGlobalObject, argument1.value());
-    if (UNLIKELY(longArgConversionResult.hasException(throwScope)))
+    if (longArgConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLBoolean>(*lexicalGlobalObject, throwScope, TestNamespaceObject::overloadedNamespaceOperation(objArgConversionResult.releaseReturnValue(), longArgConversionResult.releaseReturnValue()))));
 }
@@ -243,7 +244,7 @@ static inline JSC::EncodedJSValue jsTestNamespaceObjectConstructorFunction_enabl
     UNUSED_PARAM(callFrame);
     EnsureStillAliveScope argument0 = callFrame->argument(0);
     auto argConversionResult = convert<IDLAny>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(argConversionResult.hasException(throwScope)))
+    if (argConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, throwScope, TestNamespaceObject::enabledBySettingNamespaceOperation(argConversionResult.releaseReturnValue()))));
 }
@@ -272,7 +273,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestNamespaceObjectConstructorFunction_namespaceOpera
 
 JSC::GCClient::IsoSubspace* JSTestNamespaceObject::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestNamespaceObject, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestNamespaceObject, UseCustomHeapCellType::No>(vm, "JSTestNamespaceObject"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestNamespaceObject.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNamespaceObject = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestNamespaceObject.get(); },

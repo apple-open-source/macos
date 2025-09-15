@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -36,29 +36,6 @@
 #undef HAVE_SIGSETMASK
 #endif
 
-/*
- * Language details.
- */
-#if HAVE_ANSI_PROTOS
-#define LESSPARAMS(a) a
-#else
-#define LESSPARAMS(a) ()
-#endif
-#if HAVE_VOID
-#define VOID_POINTER    void *
-#define VOID_PARAM      void
-#else
-#define VOID_POINTER    char *
-#define VOID_PARAM
-#define void  int
-#endif
-#if HAVE_CONST
-#define constant        const
-#else
-#define constant
-#endif
-
-#define public          /* PUBLIC FUNCTION */
 
 /* Library function declarations */
 
@@ -83,11 +60,38 @@
 #if HAVE_LIMITS_H
 #include <limits.h>
 #endif
+#if HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #if HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
 #if HAVE_STRING_H
 #include <string.h>
+#endif
+
+#if HAVE_STDCKDINT_H
+#include <stdckdint.h>
+#else
+/*
+ * These substitutes for C23 stdckdint macros do not set *R on overflow,
+ * and they assume A and B are nonnegative.  That is good enough for us.
+ */
+#define ckd_add(r, a, b) help_ckd_add(r, (uintmax)(a), (uintmax)(b), sizeof *(r), signed_expr(*(r)))
+#define ckd_mul(r, a, b) help_ckd_mul(r, (uintmax)(a), (uintmax)(b), sizeof *(r), signed_expr(*(r)))
+/* True if the integer expression E, after promotion, is signed.  */
+#define signed_expr(e) ((TRUE ? 0 : e) - 1 < 0)
+#endif
+#define muldiv(val,num,den) umuldiv((uintmax)(val), (uintmax)(num), (uintmax)(den))
+
+#include "lang.h"
+
+#if defined UINTMAX_MAX
+typedef uintmax_t uintmax;
+#elif defined ULLONG_MAX
+typedef unsigned long long uintmax;
+#else
+typedef unsigned long uintmax;
 #endif
 
 /* OS-specific includes */
@@ -114,7 +118,7 @@
 #if !HAVE_STDLIB_H
 char *getenv();
 off_t lseek();
-VOID_POINTER calloc();
+void *calloc();
 void free();
 #endif
 
@@ -135,21 +139,21 @@ void free();
 #undef IS_DIGIT
 
 #if HAVE_WCTYPE
-#define IS_UPPER(c)     iswupper(c)
-#define IS_LOWER(c)     iswlower(c)
-#define TO_UPPER(c)     towupper(c)
-#define TO_LOWER(c)     towlower(c)
+#define IS_UPPER(c)     iswupper((wint_t) (c))
+#define IS_LOWER(c)     iswlower((wint_t) (c))
+#define TO_UPPER(c)     towupper((wint_t) (c))
+#define TO_LOWER(c)     towlower((wint_t) (c))
 #else
 #if HAVE_UPPER_LOWER
-#define IS_UPPER(c)     isupper((unsigned char) (c))
-#define IS_LOWER(c)     islower((unsigned char) (c))
-#define TO_UPPER(c)     toupper((unsigned char) (c))
-#define TO_LOWER(c)     tolower((unsigned char) (c))
+#define IS_UPPER(c)     (is_ascii_char(c) && isupper((unsigned char) (c)))
+#define IS_LOWER(c)     (is_ascii_char(c) && islower((unsigned char) (c)))
+#define TO_UPPER(c)     (is_ascii_char(c) ? toupper((unsigned char) (c)) : (c))
+#define TO_LOWER(c)     (is_ascii_char(c) ? tolower((unsigned char) (c)) : (c))
 #else
-#define IS_UPPER(c)     ASCII_IS_UPPER(c)
-#define IS_LOWER(c)     ASCII_IS_LOWER(c)
-#define TO_UPPER(c)     ASCII_TO_UPPER(c)
-#define TO_LOWER(c)     ASCII_TO_LOWER(c)
+#define IS_UPPER(c)     (is_ascii_char(c) && ASCII_IS_UPPER(c))
+#define IS_LOWER(c)     (is_ascii_char(c) && ASCII_IS_LOWER(c))
+#define TO_UPPER(c)     (is_ascii_char(c) ? ASCII_TO_UPPER(c) : (c))
+#define TO_LOWER(c)     (is_ascii_char(c) ? ASCII_TO_LOWER(c) : (c))
 #endif
 #endif
 
@@ -166,17 +170,6 @@ void free();
 #endif
 
 #define IS_CSI_START(c) (((LWCHAR)(c)) == ESC || (((LWCHAR)(c)) == CSI))
-
-#ifndef NULL
-#define NULL    0
-#endif
-
-#ifndef TRUE
-#define TRUE            1
-#endif
-#ifndef FALSE
-#define FALSE           0
-#endif
 
 #define OPT_OFF         0
 #define OPT_ON          1
@@ -225,12 +218,26 @@ void free();
  * Special types and constants.
  */
 typedef unsigned long LWCHAR;
-typedef off_t           POSITION;
+#if defined(MINGW) || (defined(_MSC_VER) && _MSC_VER >= 1500)
+typedef long long less_off_t;  /* __int64 */
+typedef struct _stat64 less_stat_t;
+#define less_fstat _fstat64
+#define less_stat _stat64
+#define less_lseek _lseeki64
+#else
+typedef off_t less_off_t;
+typedef struct stat less_stat_t;
+#define less_fstat fstat
+#define less_stat stat
+#define less_lseek lseek
+#endif
+typedef less_off_t      POSITION;
 typedef off_t           LINENUM;
 #define MIN_LINENUM_WIDTH   7   /* Default min printing width of a line number */
 #define MAX_LINENUM_WIDTH   16  /* Max width of a line number */
 #define MAX_STATUSCOL_WIDTH 4   /* Max width of the status column */
 #define MAX_UTF_CHAR_LEN    6   /* Max bytes in one UTF-8 char */
+#define MAX_PRCHAR_LEN      31  /* Max chars in prchar() result */
 
 #define NULL_POSITION   ((POSITION)(-1))
 
@@ -262,6 +269,15 @@ typedef off_t           LINENUM;
 #endif
 
 /*
+ * Flags for creat()
+ */
+#if MSDOS_COMPILER
+#define CREAT_RW        (S_IREAD|S_IWRITE)
+#else
+#define CREAT_RW        0644
+#endif
+
+/*
  * Set a file descriptor to binary mode.
  */
 #if MSDOS_COMPILER==MSOFTC
@@ -288,7 +304,7 @@ typedef off_t           LINENUM;
 /*
  * An IFILE represents an input file.
  */
-#define IFILE           VOID_POINTER
+#define IFILE           void*
 #define NULL_IFILE      ((IFILE)NULL)
 
 /*
@@ -306,7 +322,7 @@ struct scrpos
 
 typedef union parg
 {
-        char *p_string;
+        constant char *p_string;
         int p_int;
         LINENUM p_linenum;
         char p_char;
@@ -327,15 +343,24 @@ struct wchar_range
 
 struct wchar_range_table 
 {
-        struct wchar_range *table;
-        int count;
+	struct wchar_range *table;
+	unsigned int count;
 };
+
+#if HAVE_POLL
+typedef short POLL_EVENTS;
+#endif
 
 #define EOI             (-1)
 
+#define READ_ERR        (-1)
 #define READ_INTR       (-2)
+#define READ_AGAIN      (-3)
 
-/* A fraction is represented by an int n; the fraction is n/NUM_FRAC_DENOM */
+/*
+ * A fraction is represented by a long n; the fraction is n/NUM_FRAC_DENOM.
+ * To avoid overflow problems, 0 <= n < NUM_FRAC_DENUM <= LONG_MAX/100.
+ */
 #define NUM_FRAC_DENOM                  1000000
 #define NUM_LOG_FRAC_DENOM              6
 
@@ -367,10 +392,25 @@ struct wchar_range_table
 #define SRCH_FILTER     (1 << 13) /* Search is for '&' (filter) command */
 #define SRCH_AFTER_TARGET (1 << 14) /* Start search after the target line */
 #define SRCH_WRAP       (1 << 15) /* Wrap-around search (continue at BOF/EOF) */
+#if OSC8_LINK
+#define SRCH_OSC8       (1 << 16) /* */
+#endif
+#define SRCH_SUBSEARCH(i) (1 << (17+(i))) /* Search for subpattern */
+/* {{ Depends on NUM_SEARCH_COLORS==5 }} */
+#define SRCH_SUBSEARCH_ALL (SRCH_SUBSEARCH(1)|SRCH_SUBSEARCH(2)|SRCH_SUBSEARCH(3)|SRCH_SUBSEARCH(4)|SRCH_SUBSEARCH(5))
 
 #define SRCH_REVERSE(t) (((t) & SRCH_FORW) ? \
                                 (((t) & ~SRCH_FORW) | SRCH_BACK) : \
                                 (((t) & ~SRCH_BACK) | SRCH_FORW))
+/* Parsing position in an OSC8 link: "\e]8;PARAMS;URI\e\\" (final "\e\\" may be "\7") */
+typedef enum osc8_state {
+	OSC8_NOT,     /* This is not an OSC8 link */
+	OSC8_PREFIX,  /* In the "\e]8;" */
+	OSC8_PARAMS,  /* In the parameters */
+	OSC8_URI,     /* In the URI */
+	OSC8_ST_ESC,  /* After the final \e */
+	OSC8_END,     /* At end */
+} osc8_state;
 
 /* */
 #define NO_MCA          0
@@ -405,7 +445,10 @@ struct wchar_range_table
 #define AT_COLOR_MARK     (6 << AT_COLOR_SHIFT)
 #define AT_COLOR_PROMPT   (7 << AT_COLOR_SHIFT)
 #define AT_COLOR_RSCROLL  (8 << AT_COLOR_SHIFT)
-#define AT_COLOR_SEARCH   (9 << AT_COLOR_SHIFT)
+#define AT_COLOR_HEADER   (9 << AT_COLOR_SHIFT)
+#define AT_COLOR_SEARCH   (10 << AT_COLOR_SHIFT)
+#define AT_COLOR_SUBSEARCH(i) ((10+(i)) << AT_COLOR_SHIFT)
+#define NUM_SEARCH_COLORS (AT_NUM_COLORS-10-1)
 
 typedef enum { CT_NULL, CT_4BIT, CT_6BIT } COLOR_TYPE;
 
@@ -418,10 +461,21 @@ typedef enum {
 	CV_ERROR    = -1
 } COLOR_VALUE;
 
+typedef enum {
+	CATTR_NULL       = 0,
+	CATTR_STANDOUT   = (1 << 0),
+	CATTR_BOLD       = (1 << 1),
+	CATTR_UNDERLINE  = (1 << 2),
+	CATTR_BLINK      = (1 << 3),
+} CHAR_ATTR;
+
 /* ANSI states */
-#define ANSI_MID    1
-#define ANSI_ERR    2
-#define ANSI_END    3
+typedef enum {
+	ANSI_NULL,
+	ANSI_MID,
+	ANSI_ERR,
+	ANSI_END,
+} ansi_state;
 
 #if '0' == 240
 #define IS_EBCDIC_HOST 1
@@ -498,7 +552,6 @@ typedef enum {
 #define ESC             CONTROL('[')
 #define ESCS            "\33"
 #define CSI             ((unsigned char)'\233')
-#define CHAR_END_COMMAND 0x40000000
 
 #if _OSK_MWC32
 #define LSIGNAL(sig,func)       os9_signal(sig,func)
@@ -525,9 +578,18 @@ typedef enum {
 #define S_WINCH         04
 #define ABORT_SIGS()    (sigs & (S_INTERRUPT|S_STOP))
 
+#ifdef EXIT_SUCCESS
+#define QUIT_OK         EXIT_SUCCESS
+#else
 #define QUIT_OK         0
+#endif
+#ifdef EXIT_FAILURE
+#define QUIT_ERROR      EXIT_FAILURE
+#define QUIT_INTERRUPT  (EXIT_FAILURE+1)
+#else
 #define QUIT_ERROR      1
 #define QUIT_INTERRUPT  2
+#endif
 #define QUIT_SAVED_STATUS (-1)
 
 #define FOLLOW_DESC     0
@@ -539,6 +601,7 @@ typedef enum {
 #define CH_POPENED      004
 #define CH_HELPFILE     010
 #define CH_NODATA       020     /* Special case for zero length files */
+#define CH_NOTRUSTSIZE  040     /* For files that claim 0 length size falsely */
 
 #define ch_zero()       ((POSITION)0)
 
@@ -566,19 +629,42 @@ typedef enum {
 #define X11MOUSE_WHEEL_DOWN 0x41 /* Wheel scroll down */
 #define X11MOUSE_OFFSET     0x20 /* Added to button & pos bytes to create a char */
 
+/* Security features. */
+#define SF_EDIT             (1<<1)  /* Edit file (v) */
+#define SF_EXAMINE          (1<<2)  /* Examine file (:e) */
+#define SF_GLOB             (1<<3)  /* Expand file pattern */
+#define SF_HISTORY          (1<<4)  /* History file */
+#define SF_LESSKEY          (1<<5)  /* Lesskey files */
+#define SF_LESSOPEN         (1<<6)  /* LESSOPEN */
+#define SF_LOGFILE          (1<<7)  /* Log file (s, -o) */
+#define SF_PIPE             (1<<8)  /* Pipe (|) */
+#define SF_SHELL            (1<<9)  /* Shell command (!) */
+#define SF_STOP             (1<<10) /* Stop signal */
+#define SF_TAGS             (1<<11) /* Tags */
+#define SF_OSC8_OPEN        (1<<12) /* OSC8 open */
+
+#if LESSTEST
+#define LESS_DUMP_CHAR CONTROL(']')
+#endif
+
 struct mlist;
 struct loption;
 struct hilite_tree;
 struct ansi_state;
 #include "pattern.h"
+#include "xbuf.h"
 #include "funcs.h"
 
 /* Functions not included in funcs.h */
-void postoa LESSPARAMS ((POSITION, char*));
-void linenumtoa LESSPARAMS ((LINENUM, char*));
-void inttoa LESSPARAMS ((int, char*));
-int lstrtoi LESSPARAMS ((char*, char**));
-POSITION lstrtopos LESSPARAMS ((char*, char**));
+void postoa(POSITION, char*, int);
+void linenumtoa(LINENUM, char*, int);
+void inttoa(int, char*, int);
+int lstrtoi(char*, char**, int);
+POSITION lstrtopos(char*, char**, int);
+unsigned long lstrtoul(char*, char**, int);
+int lstrtoic(constant char*, constant char**, int);
+POSITION lstrtoposc(constant char*, constant char**, int);
+unsigned long lstrtoulc(constant char*, constant char**, int);
 #if MSDOS_COMPILER==WIN32C
-int pclose LESSPARAMS ((FILE*));
+int pclose(FILE*);
 #endif

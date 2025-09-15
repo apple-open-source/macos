@@ -83,6 +83,7 @@ extern NSString* kSecEntitlementPrivateOctagonWalrus;
 // Use these when tracking metrics for RTC
 @property (nonatomic, copy, nullable) NSString* flowID;
 @property (nonatomic, copy, nullable) NSString* deviceSessionID;
+@property (nonatomic) BOOL canSendMetrics;
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
@@ -523,7 +524,7 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.0), ios(13.0, 17.0), watchos(
 * @return a BOOL of whehther or not it was successful
  */
 + (BOOL)performCKServerUnreadableDataRemoval:(OTConfigurationContext*)data
-                                       error:(NSError**)error;
+                                       error:(NSError**)error __attribute__((swift_error(nonnull_error)));
 
 @end
 

@@ -57,7 +57,7 @@ WebPageInspectorController::WebPageInspectorController(WebPageProxy& inspectedPa
     , m_backendDispatcher(BackendDispatcher::create(m_frontendRouter.copyRef()))
     , m_inspectedPage(inspectedPage)
 {
-    auto targetAgent = makeUnique<InspectorTargetAgent>(m_frontendRouter.get(), m_backendDispatcher.get());
+    auto targetAgent = makeUnique<InspectorTargetAgent>(m_frontendRouter, m_backendDispatcher);
     m_targetAgent = targetAgent.get();
     m_agents.append(WTFMove(targetAgent));
 }
@@ -96,9 +96,9 @@ void WebPageInspectorController::connectFrontend(Inspector::FrontendChannel& fro
     m_frontendRouter->connectFrontend(frontendChannel);
 
     if (connectingFirstFrontend)
-        m_agents.didCreateFrontendAndBackend(&m_frontendRouter.get(), &m_backendDispatcher.get());
+        m_agents.didCreateFrontendAndBackend();
 
-    auto inspectedPage = protectedInspectedPage();
+    Ref inspectedPage = m_inspectedPage.get();
     inspectedPage->didChangeInspectorFrontendCount(m_frontendRouter->frontendCount());
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -115,7 +115,7 @@ void WebPageInspectorController::disconnectFrontend(FrontendChannel& frontendCha
     if (disconnectingLastFrontend)
         m_agents.willDestroyFrontendAndBackend(DisconnectReason::InspectorDestroyed);
 
-    auto inspectedPage = protectedInspectedPage();
+    Ref inspectedPage = m_inspectedPage.get();
     inspectedPage->didChangeInspectorFrontendCount(m_frontendRouter->frontendCount());
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -131,13 +131,13 @@ void WebPageInspectorController::disconnectAllFrontends()
     if (!m_frontendRouter->hasFrontends())
         return;
 
-    // Notify agents first, since they may need to use InspectorClient.
+    // Notify agents first, since they may need to use InspectorBackendClient.
     m_agents.willDestroyFrontendAndBackend(DisconnectReason::InspectedTargetDestroyed);
 
     // Disconnect any remaining remote frontends.
     m_frontendRouter->disconnectAllFrontends();
 
-    auto inspectedPage = protectedInspectedPage();
+    Ref inspectedPage = m_inspectedPage.get();
     inspectedPage->didChangeInspectorFrontendCount(m_frontendRouter->frontendCount());
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -153,7 +153,7 @@ void WebPageInspectorController::dispatchMessageFromFrontend(const String& messa
 #if ENABLE(REMOTE_INSPECTOR)
 void WebPageInspectorController::setIndicating(bool indicating)
 {
-    auto inspectedPage = protectedInspectedPage();
+    Ref inspectedPage = m_inspectedPage.get();
 #if !PLATFORM(IOS_FAMILY)
     inspectedPage->setIndicating(indicating);
 #else
@@ -175,13 +175,13 @@ void WebPageInspectorController::destroyInspectorTarget(const String& targetId)
     auto it = m_targets.find(targetId);
     if (it == m_targets.end())
         return;
-    m_targetAgent->targetDestroyed(*it->value);
+    checkedTargetAgent()->targetDestroyed(*it->value);
     m_targets.remove(it);
 }
 
 void WebPageInspectorController::sendMessageToInspectorFrontend(const String& targetId, const String& message)
 {
-    m_targetAgent->sendMessageFromTargetToFrontend(targetId, message);
+    checkedTargetAgent()->sendMessageFromTargetToFrontend(targetId, message);
 }
 
 bool WebPageInspectorController::shouldPauseLoading(const ProvisionalPageProxy& provisionalPage) const
@@ -216,15 +216,16 @@ void WebPageInspectorController::didCommitProvisionalPage(WebCore::PageIdentifie
     String oldID = WebPageInspectorTarget::toTargetID(oldWebPageID);
     String newID = WebPageInspectorTarget::toTargetID(newWebPageID);
     auto newTarget = m_targets.take(newID);
+    CheckedPtr targetAgent = m_targetAgent;
     ASSERT(newTarget);
     newTarget->didCommitProvisionalTarget();
-    m_targetAgent->didCommitProvisionalTarget(oldID, newID);
+    targetAgent->didCommitProvisionalTarget(oldID, newID);
 
     // We've disconnected from the old page and will not receive any message from it, so
     // we destroy everything but the new target here.
     // FIXME: <https://webkit.org/b/202937> do not destroy targets that belong to the committed page.
     for (auto& target : m_targets.values())
-        m_targetAgent->targetDestroyed(*target);
+        targetAgent->targetDestroyed(*target);
     m_targets.clear();
     m_targets.set(newTarget->identifier(), WTFMove(newTarget));
 }
@@ -237,8 +238,8 @@ InspectorBrowserAgent* WebPageInspectorController::enabledBrowserAgent() const
 WebPageAgentContext WebPageInspectorController::webPageAgentContext()
 {
     return {
-        m_frontendRouter.get(),
-        m_backendDispatcher.get(),
+        m_frontendRouter,
+        m_backendDispatcher,
         m_inspectedPage,
     };
 }
@@ -257,7 +258,7 @@ void WebPageInspectorController::createLazyAgents()
 
 void WebPageInspectorController::addTarget(std::unique_ptr<InspectorTargetProxy>&& target)
 {
-    m_targetAgent->targetCreated(*target);
+    checkedTargetAgent()->targetCreated(*target);
     m_targets.set(target->identifier(), WTFMove(target));
 }
 
@@ -268,7 +269,7 @@ void WebPageInspectorController::setEnabledBrowserAgent(InspectorBrowserAgent* a
 
     m_enabledBrowserAgent = agent;
 
-    auto inspectedPage = protectedInspectedPage();
+    Ref inspectedPage = m_inspectedPage.get();
     if (m_enabledBrowserAgent)
         inspectedPage->uiClient().didEnableInspectorBrowserDomain(inspectedPage);
     else
@@ -277,14 +278,14 @@ void WebPageInspectorController::setEnabledBrowserAgent(InspectorBrowserAgent* a
 
 void WebPageInspectorController::browserExtensionsEnabled(HashMap<String, String>&& extensionIDToName)
 {
-    if (m_enabledBrowserAgent)
-        m_enabledBrowserAgent->extensionsEnabled(WTFMove(extensionIDToName));
+    if (CheckedPtr enabledBrowserAgent = m_enabledBrowserAgent)
+        enabledBrowserAgent->extensionsEnabled(WTFMove(extensionIDToName));
 }
 
 void WebPageInspectorController::browserExtensionsDisabled(HashSet<String>&& extensionIDs)
 {
-    if (m_enabledBrowserAgent)
-        m_enabledBrowserAgent->extensionsDisabled(WTFMove(extensionIDs));
+    if (CheckedPtr enabledBrowserAgent = m_enabledBrowserAgent)
+        enabledBrowserAgent->extensionsDisabled(WTFMove(extensionIDs));
 }
 
 } // namespace WebKit

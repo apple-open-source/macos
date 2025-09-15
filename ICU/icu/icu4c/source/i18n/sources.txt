@@ -245,6 +245,7 @@ utf16collationiterator.cpp
 utf8collationiterator.cpp
 utmscale.cpp
 utrans.cpp
+vietnamesecal.cpp
 vtzone.cpp
 vzone.cpp
 windtfmt.cpp

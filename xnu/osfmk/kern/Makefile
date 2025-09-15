@@ -125,7 +125,6 @@ PRIVATE_EXPORT_FILES = \
 	copyout_shim.h \
 	kern_apfs_reflock.h \
 	mach_filter.h \
-	mach_node_link.h \
 	sched_clutch.h \
 	smr.h \
 	smr_hash.h \
@@ -146,6 +145,7 @@ XNU_ONLY_EXPORTS = \
 	recount.h \
 	sched_hygiene.h \
 	sync_sema.h \
+	upsi.h \
 	ux_handler.h \
 	workload_config.h \
 	kern_stackshot.h \
@@ -188,8 +188,11 @@ TIGHTBEAM_MODULES := \
 	Stackshot.tbmodule \
 	SharedMemoryBase.tbmodule \
 	ExclavesCHelloServer.tbmodule \
+	HelloDriverInterrupts.tbmodule \
 	StackshotPanicSetup.tbmodule \
-	ExclaveAudioArbiter.tbmodule
+	ExclaveAudioArbiter.tbmodule \
+	ExclavesMessageQueueTypes.tbmodule \
+	ExclavesMessageQueueProxy.tbmodule
 
 endif
 

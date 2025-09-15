@@ -66,13 +66,10 @@ public:
 
     virtual void setEnabled(bool);
 
-    void setPlayerItemTrack(AVPlayerItemTrack*);
     AVPlayerItemTrack* playerItemTrack();
 
-    void setAssetTrack(AVAssetTrack*);
     AVAssetTrack* assetTrack();
 
-    void setMediaSelectionOption(MediaSelectionOptionAVFObjC&);
     MediaSelectionOptionAVFObjC* mediaSelectionOption();
 
 private:
@@ -80,11 +77,11 @@ private:
     AudioTrackPrivateAVFObjC(AVPlayerItemTrack*);
     AudioTrackPrivateAVFObjC(AVAssetTrack*);
     AudioTrackPrivateAVFObjC(MediaSelectionOptionAVFObjC&);
-    AudioTrackPrivateAVFObjC(std::unique_ptr<AVTrackPrivateAVFObjCImpl>&&);
+    AudioTrackPrivateAVFObjC(Ref<AVTrackPrivateAVFObjCImpl>&&);
 
     void resetPropertiesFromTrack();
     void audioTrackConfigurationChanged();
-    std::unique_ptr<AVTrackPrivateAVFObjCImpl> m_impl;
+    const Ref<AVTrackPrivateAVFObjCImpl> m_impl;
 
     using AudioTrackConfigurationObserver = Observer<void()>;
     AudioTrackConfigurationObserver m_audioTrackConfigurationObserver;

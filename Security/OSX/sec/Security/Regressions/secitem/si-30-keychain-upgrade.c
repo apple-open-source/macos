@@ -88,7 +88,7 @@ static void tests(void)
 
     ensureKeychainExists();
 
-    CFStringRef dbPath = __SecKeychainCopyPath();
+    CFStringRef dbPath = SecServerKeychainCopyPath();
     keychain_name = CFStringToCString(dbPath);
     CFRelease(dbPath);
 
@@ -104,7 +104,7 @@ static void tests(void)
     is(sqlite3_close_v2(db), SQLITE_OK,
        "Should be able to close db");
 
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

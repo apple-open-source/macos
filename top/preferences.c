@@ -57,6 +57,7 @@ static struct {
 	bool show_swap;
 	bool mmr;              /* memory map reporting */
 	bool delta_forced_mmr; /* delta mode forced mmr */
+	bool show_hvwait;
 
 	/* These are initialized in top_prefs_init() below. */
 	struct {
@@ -83,7 +84,9 @@ static struct {
 	.ncols = -1,
 	.show_swap = false,
 	.mmr = false,
-	.delta_forced_mmr = false };
+	.delta_forced_mmr = false,
+	.show_hvwait = false,
+};
 
 /*
  * Map from stats name (passed in on the command line) to statistic.
@@ -718,4 +721,16 @@ bool
 top_prefs_get_mmr(void)
 {
 	return prefs.mmr;
+}
+
+void
+top_prefs_set_hvwait(bool show)
+{
+	prefs.show_hvwait = show;
+}
+
+bool
+top_prefs_get_hvwait(void)
+{
+	return prefs.show_hvwait;
 }

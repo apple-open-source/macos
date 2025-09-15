@@ -121,6 +121,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -153,6 +154,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -182,6 +184,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -208,6 +211,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -242,6 +246,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -273,6 +278,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

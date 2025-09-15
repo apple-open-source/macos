@@ -40,8 +40,8 @@ public:
     PlatformTextAlternatives *alternativesForContext(DictationContext) const;
 
 private:
-    UncheckedKeyHashMap<DictationContext, RetainPtr<PlatformTextAlternatives>> m_alternatives;
-    UncheckedKeyHashMap<RetainPtr<PlatformTextAlternatives>, DictationContext> m_contexts;
+    HashMap<DictationContext, RetainPtr<PlatformTextAlternatives>> m_alternatives;
+    HashMap<RetainPtr<PlatformTextAlternatives>, DictationContext> m_contexts;
 };
 
 } // namespace WebCore

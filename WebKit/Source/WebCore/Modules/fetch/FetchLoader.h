@@ -67,7 +67,7 @@ private:
     void didFail(std::optional<ScriptExecutionContextIdentifier>, const ResourceError&) final;
 
 private:
-    CheckedRef<FetchLoaderClient> m_client;
+    const CheckedRef<FetchLoaderClient> m_client;
     RefPtr<ThreadableLoader> m_loader;
     CheckedPtr<FetchBodyConsumer> m_consumer;
     bool m_isStarted { false };

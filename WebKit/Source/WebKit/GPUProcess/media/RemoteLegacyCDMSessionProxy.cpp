@@ -91,7 +91,7 @@ void RemoteLegacyCDMSessionProxy::setPlayer(WeakPtr<RemoteMediaPlayerProxy> play
     m_player = WTFMove(player);
 }
 
-void RemoteLegacyCDMSessionProxy::generateKeyRequest(const String& mimeType, RefPtr<SharedBuffer>&& initData, GenerateKeyCallback&& completion)
+void RemoteLegacyCDMSessionProxy::generateKeyRequest(const String& mimeType, RefPtr<SharedBuffer>&& initData, const String& mediaKeysHashSalt, GenerateKeyCallback&& completion)
 {
     RefPtr session = m_session;
     if (!session) {
@@ -105,6 +105,7 @@ void RemoteLegacyCDMSessionProxy::generateKeyRequest(const String& mimeType, Ref
         return;
     }
 
+    m_mediaKeysHashSalt = mediaKeysHashSalt;
     String destinationURL;
     unsigned short errorCode { 0 };
     uint32_t systemCode { 0 };
@@ -169,7 +170,7 @@ void RemoteLegacyCDMSessionProxy::sendMessage(Uint8Array* message, String destin
     if (!gpuConnectionToWebProcess)
         return;
 
-    gpuConnectionToWebProcess->protectedConnection()->send(Messages::RemoteLegacyCDMSession::SendMessage(convertToOptionalSharedBuffer(message), destinationURL), m_identifier);
+    gpuConnectionToWebProcess->connection().send(Messages::RemoteLegacyCDMSession::SendMessage(convertToOptionalSharedBuffer(message), destinationURL), m_identifier);
 }
 
 void RemoteLegacyCDMSessionProxy::sendError(MediaKeyErrorCode errorCode, uint32_t systemCode)
@@ -182,7 +183,7 @@ void RemoteLegacyCDMSessionProxy::sendError(MediaKeyErrorCode errorCode, uint32_
     if (!gpuConnectionToWebProcess)
         return;
 
-    gpuConnectionToWebProcess->protectedConnection()->send(Messages::RemoteLegacyCDMSession::SendError(errorCode, systemCode), m_identifier);
+    gpuConnectionToWebProcess->connection().send(Messages::RemoteLegacyCDMSession::SendError(errorCode, systemCode), m_identifier);
 }
 
 String RemoteLegacyCDMSessionProxy::mediaKeysStorageDirectory() const
@@ -210,8 +211,7 @@ std::optional<SharedPreferencesForWebProcess> RemoteLegacyCDMSessionProxy::share
     if (!m_factory)
         return std::nullopt;
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG return m_factory->sharedPreferencesForWebProcess();
+    return m_factory->sharedPreferencesForWebProcess();
 }
 
 RefPtr<WebCore::LegacyCDMSession> RemoteLegacyCDMSessionProxy::protectedSession() const

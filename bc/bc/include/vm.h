@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2025 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -794,7 +794,7 @@ bc_vm_info(const char* const help);
  * @return      A status.
  */
 BcStatus
-bc_vm_boot(int argc, char* argv[]);
+bc_vm_boot(int argc, const char* argv[]);
 
 /**
  * Initializes some of the BcVm global. This is separate to make things easier

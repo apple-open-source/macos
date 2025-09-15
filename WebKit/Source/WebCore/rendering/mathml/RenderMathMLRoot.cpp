@@ -109,7 +109,7 @@ RenderMathMLRoot::HorizontalParameters RenderMathMLRoot::horizontalParameters(La
     HorizontalParameters parameters;
 
     // We try and read constants to draw the radical from the OpenType MATH and use fallback values otherwise.
-    const Ref primaryFont = style().fontCascade().primaryFont();
+    Ref primaryFont = style().fontCascade().primaryFont();
     if (RefPtr mathData = primaryFont->mathData()) {
         parameters.kernBeforeDegree = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalKernBeforeDegree);
         parameters.kernAfterDegree = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalKernAfterDegree);
@@ -129,7 +129,7 @@ RenderMathMLRoot::VerticalParameters RenderMathMLRoot::verticalParameters()
 {
     VerticalParameters parameters;
     // We try and read constants to draw the radical from the OpenType MATH and use fallback values otherwise.
-    const Ref primaryFont = style().fontCascade().primaryFont();
+    Ref primaryFont = style().fontCascade().primaryFont();
     if (RefPtr mathData = primaryFont->mathData()) {
         parameters.ruleThickness = mathData->getMathConstant(primaryFont, OpenTypeMathData::RadicalRuleThickness);
         parameters.verticalGap = mathData->getMathConstant(primaryFont, style().mathStyle() == MathStyle::Normal ? OpenTypeMathData::RadicalDisplayStyleVerticalGap : OpenTypeMathData::RadicalVerticalGap);
@@ -158,7 +158,7 @@ RenderMathMLRoot::VerticalParameters RenderMathMLRoot::verticalParameters()
 
 void RenderMathMLRoot::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     if (!isValid()) {
         RenderMathMLRow::computePreferredLogicalWidths();
@@ -186,16 +186,16 @@ void RenderMathMLRoot::computePreferredLogicalWidths()
 
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
-void RenderMathMLRoot::layoutBlock(bool relayoutChildren, LayoutUnit)
+void RenderMathMLRoot::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     m_radicalOperatorTop = 0;
@@ -281,7 +281,7 @@ void RenderMathMLRoot::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     adjustLayoutForBorderAndPadding();
 
-    layoutPositionedObjects(relayoutChildren);
+    layoutOutOfFlowBoxes(relayoutChildren);
 
     updateScrollInfoAfterLayout();
 

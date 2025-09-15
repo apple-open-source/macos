@@ -28,13 +28,10 @@
 messages -> WebFullScreenManager {
     RequestRestoreFullScreen() -> (bool succeeded) Async
     RequestExitFullScreen()
-    DidEnterFullScreen()
-    WillExitFullScreen()
-    DidExitFullScreen()
     SetAnimatingFullScreen(bool animating)
-    SaveScrollPosition()
-    RestoreScrollPosition()
     SetFullscreenInsets(WebCore::FloatBoxExtent insets)
     SetFullscreenAutoHideDuration(Seconds duration)
+    EnterFullScreenForOwnerElements(WebCore::FrameIdentifier frameID) -> ()
+    ExitFullScreenInMainFrame() -> ()
 }
 #endif

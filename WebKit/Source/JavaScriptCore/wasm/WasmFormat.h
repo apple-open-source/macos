@@ -291,10 +291,12 @@ inline bool isSubtypeIndex(TypeIndex sub, TypeIndex parent)
     auto parentRTT = TypeInformation::tryGetCanonicalRTT(parent);
     ASSERT(subRTT.has_value() && parentRTT.has_value());
 
-    return subRTT.value()->isSubRTT(*parentRTT.value());
+    return subRTT.value()->isStrictSubRTT(*parentRTT.value());
 }
 
-inline bool isSubtype(Type sub, Type parent)
+bool isSubtype(Type, Type);
+
+inline bool isSubtypeSlow(Type sub, Type parent)
 {
     // Before the typed funcref proposal there is no non-trivial subtyping.
     if (sub.isNullable() && !parent.isNullable())
@@ -338,7 +340,15 @@ inline bool isSubtype(Type sub, Type parent)
     if (sub.isRef() && parent.isRefNull())
         return sub.index == parent.index;
 
-    return sub == parent;
+    return false;
+}
+
+ALWAYS_INLINE bool isSubtype(Type sub, Type parent)
+{
+    // Fast path.
+    if (sub == parent)
+        return true;
+    return isSubtypeSlow(sub, parent);
 }
 
 inline bool isSubtype(StorageType sub, StorageType parent)
@@ -418,6 +428,24 @@ inline bool isDefaultableType(StorageType type)
         return !type.as<Type>().isRef();
     // All packed types are defaultable.
     return true;
+}
+
+inline size_t sizeOfType(TypeKind kind)
+{
+    switch (kind) {
+    case Wasm::TypeKind::I32:
+    case Wasm::TypeKind::F32:
+        return sizeof(uint32_t);
+    case Wasm::TypeKind::I64:
+    case Wasm::TypeKind::F64:
+    case Wasm::TypeKind::Ref:
+    case Wasm::TypeKind::RefNull:
+        return sizeof(uint64_t);
+    case Wasm::TypeKind::V128:
+        return sizeof(v128_t);
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
 }
 
 inline JSValue internalizeExternref(JSValue value)
@@ -784,7 +812,7 @@ struct InternalFunction {
     unsigned osrEntryScratchBufferSize { 0 };
 };
 
-extern const uintptr_t NullWasmCallee;
+extern const CalleeBits NullWasmCallee;
 
 struct alignas(8) WasmCallableFunction {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
@@ -793,7 +821,7 @@ struct alignas(8) WasmCallableFunction {
     static constexpr ptrdiff_t offsetOfBoxedWasmCalleeLoadLocation() { return OBJECT_OFFSETOF(WasmCallableFunction, boxedWasmCalleeLoadLocation); }
 
     // FIXME: This always points to the interpreter callee anyway so there's no point in having the extra indirection.
-    const uintptr_t* boxedWasmCalleeLoadLocation { &NullWasmCallee };
+    const CalleeBits* boxedWasmCalleeLoadLocation { &NullWasmCallee };
     // Target instance and entrypoint are only set for wasm->wasm calls, and are otherwise nullptr. The js-specific logic occurs through import function.
     WriteBarrier<JSWebAssemblyInstance> targetInstance { };
     LoadLocation entrypointLoadLocation { };
@@ -820,7 +848,7 @@ struct WasmOrJSImportableFunction : public WasmToWasmImportableFunction {
 
     CodePtr<WasmEntryPtrTag> importFunctionStub;
     WriteBarrier<JSObject> importFunction { };
-    uintptr_t boxedCallee { 0xBEEF };
+    CalleeBits boxedCallee { 0xBEEF };
 };
 
 struct WasmOrJSImportableFunctionCallLinkInfo final : public WasmOrJSImportableFunction {
@@ -828,6 +856,12 @@ struct WasmOrJSImportableFunctionCallLinkInfo final : public WasmOrJSImportableF
     std::unique_ptr<DataOnlyCallLinkInfo> callLinkInfo { };
     static constexpr ptrdiff_t offsetOfCallLinkInfo() { return OBJECT_OFFSETOF(WasmOrJSImportableFunctionCallLinkInfo, callLinkInfo); }
 };
+
+#if ASSERT_ENABLED
+void validateWasmValue(uint64_t wasmValue, Type expectedType);
+#else
+ALWAYS_INLINE void validateWasmValue(uint64_t, Type) { }
+#endif
 
 } } // namespace JSC::Wasm
 

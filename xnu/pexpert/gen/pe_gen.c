@@ -141,7 +141,7 @@ PE_init_printf(boolean_t vm_initialized)
 	}
 }
 
-uint32_t
+__mockable uint32_t
 PE_get_random_seed(unsigned char *dst_random_seed, uint32_t request_size)
 {
 	uint32_t        size = 0;

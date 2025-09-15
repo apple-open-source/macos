@@ -82,6 +82,10 @@ class FakeCKOperationRunner: CKOperationRunner {
             if let completionBlock = operation.codeOperationResultBlock as? ((Result<RemoveUnreadableCKServerDataResponse, Error>) -> Void) {
                 self.server.performCkserverUnreadableDataRemoval(request, completion: completionBlock)
             }
+        } else if let request = operation.request as? GetEscrowCheckRequest {
+            if let completionBlock = operation.codeOperationResultBlock as? ((Result<GetEscrowCheckResponse, Error>) -> Void) {
+                self.server.getEscrowCheck(request, completion: completionBlock)
+            }
         } else {
             abort()
         }
@@ -156,8 +160,41 @@ class OTMockDeviceInfoAdapter: OTDeviceInformationAdapter {
         return mockModelID.hasPrefix("AppleTV")
     }
 
+
+    func canIntroduceTV() -> Bool {
+        if mockModelID.contains("AudioAccessory") {
+            return false
+        }
+        return true
+    }
+
     func isWatch() -> Bool {
         return mockModelID.hasPrefix("Watch")
+    }
+
+    func longerTimeout() -> Bool {
+        if isHomePod() || isAppleTV() || isWatch() {
+            return true
+        }
+        return false
+    }
+}
+
+class OTMockSecureBackupAdapter: OTSecureBackupAdapter {
+    var moveAllowedFederations: Set<String>
+    var moveError: NSError?
+
+    init() {
+        self.moveAllowedFederations = ["101", "102", "103", "310", "500"]
+        self.moveError = nil
+    }
+
+    func move(toFederationAllowed federation: String, altDSID: String, error: NSErrorPointer) -> Bool {
+        if self.moveError != nil {
+            error!.pointee = self.moveError
+            return false
+        }
+        return moveAllowedFederations.contains(federation)
     }
 }
 
@@ -341,6 +378,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     var mockTapToRadar: OTMockTapToRadarAdapter!
 
     var mockDeviceInfo: OTMockDeviceInfoAdapter!
+    var mockSecureBackupAdapter: OTMockSecureBackupAdapter!
 
     var otControl: OTControl!
     var otXPCProxy: ProxyXPCConnection!
@@ -366,6 +404,15 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         // Turn on NO_SERVER stuff
         securityd_init_local_spi()
+    }
+
+    static func noManatee(model: String) -> Bool {
+        if model.hasPrefix("AppleTV") ||
+           model.hasPrefix("AudioAccessory") ||
+           model.hasPrefix("WinPC") {
+            return true
+        }
+        return false
     }
 
     override func setUp() {
@@ -401,9 +448,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         // We'll use this set to limit the views that CKKS brings up in the tests (mostly for performance reasons)
         if self.intendedCKKSZones == nil {
-            if self.mockDeviceInfo.mockModelID.contains("AppleTV") ||
-                self.mockDeviceInfo.mockModelID.contains("AudioAccessory") ||
-                self.mockDeviceInfo.mockModelID.contains("WinPC") {
+            if Self.noManatee(model: self.mockDeviceInfo.mockModelID) {
                 self.intendedCKKSZones = Set([
                     self.limitedPeersAllowedZoneID!,
                 ])
@@ -429,6 +474,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
         self.fakeCuttlefishServer = FakeCuttlefishServer(nil, ckZones: self.zones!, ckksZoneKeys: self.keys!)
 
         self.fakeCuttlefishCreator = FakeCuttlefishCKOperationRunner(server: self.fakeCuttlefishServer)
+        self.mockSecureBackupAdapter = OTMockSecureBackupAdapter()
         self.mockPersonaAdapter = OTMockPersonaAdapter()
         self.mcAdapterPlaceholder = FakeManagedConfiguration()
         self.tphClient = Client(endpoint: nil,
@@ -506,6 +552,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
                                  tooManyPeersAdapter: self.mockTooManyPeers,
                                  tapToRadarAdapter: self.mockTapToRadar,
                                  deviceInformationAdapter: self.mockDeviceInfo,
+                                 secureBackupAdapter: self.mockSecureBackupAdapter,
                                  personaAdapter: self.mockPersonaAdapter!,
                                  apsConnectionClass: FakeAPSConnection.self,
                                  escrowRequestClass: OTMockSecEscrowRequest.self,
@@ -674,7 +721,7 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
     func saveToKeychain(keyPair: _SFECKeyPair, label: String) {
         let status = SecItemAdd([kSecValueRef as String: keyPair.secKey!,
                                  kSecClass as String: kSecClassKey as String,
-                                 kSecAttrApplicationTag as String: label.data(using: .utf8)!,
+                                 kSecAttrApplicationTag as String: Data(label.utf8),
                                  kSecUseDataProtectionKeychain as String: true, ] as [String: Any] as CFDictionary, nil)
         XCTAssertEqual(status, errSecSuccess, "Should be able to save a key in the keychain")
     }
@@ -1381,8 +1428,8 @@ class OctagonTestsBase: CloudKitKeychainSyncingMockXCTest {
 
         do {
             let arguments = self.createOTConfigurationContextForTests(contextID: context.contextID,
-                                                                                otControl: self.otControl,
-                                                                                altDSID: try XCTUnwrap(context.activeAccount?.altDSID))
+                                                                      otControl: self.otControl,
+                                                                      altDSID: try XCTUnwrap(context.activeAccount?.altDSID))
 
             let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil", file: file, line: line)
@@ -1564,10 +1611,10 @@ class OctagonTests: OctagonTestsBase {
             let queue2 = DispatchQueue(label: "sendMetricWithEvent2")
 
             queue1.async(group: group1) {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: NSError(domain: "testErrorDomain", code: 10))
+                eventS.sendMetric(withResult: false, error: NSError(domain: "testErrorDomain", code: 10))
             }
             queue2.async(group: group2) {
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
+                eventS.sendMetric(withResult: true, error: nil)
             }
         }
 
@@ -2493,11 +2540,11 @@ class OctagonTests: OctagonTestsBase {
         let peer2DeviceName = "peer2-asdf"
 
         let peer2ModelID: String
-        if self.mockDeviceInfo.mockModelID.contains("AudioAccessory") {
+        if self.mockDeviceInfo.canIntroduceTV() {
+            peer2ModelID = "AppleTV5,3"
+        } else {
             // HomePods cannot introduce TVs (at least on policy v9)
             peer2ModelID = "AudioAccessory1,1"
-        } else {
-            peer2ModelID = "AppleTV5,3"
         }
 
         let peer2DeviceAdapter = OTMockDeviceInfoAdapter(modelID: peer2ModelID,
@@ -2879,7 +2926,7 @@ class OctagonTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.verifyDatabaseMocks()
 
-        var cfuExpectation = self.expectation(description: "cfu callback occurs")
+        let cfuExpectation = self.expectation(description: "cfu callback occurs")
         self.cuttlefishContext.followupHandler.clearAllPostedFlags()
         self.cuttlefishContext.checkTrustStatusAndPostRepairCFUIfNecessary { _, posted, _, _, error in
             #if !os(tvOS)
@@ -2898,7 +2945,7 @@ class OctagonTests: OctagonTestsBase {
         let result = try self.removeEgoKeysTest(peerID: peerID!)
         XCTAssertTrue(result, "result should be true")
 
-        cfuExpectation = self.expectation(description: "cfu callback occurs")
+        let cfuExpectation2 = self.expectation(description: "cfu callback occurs")
         self.cuttlefishContext.followupHandler.clearAllPostedFlags()
         self.cuttlefishContext.checkTrustStatusAndPostRepairCFUIfNecessary { _, posted, _, _, error in
             #if !os(tvOS)
@@ -2907,9 +2954,9 @@ class OctagonTests: OctagonTestsBase {
             XCTAssertFalse(posted, "posted should be false on tvOS; there aren't any iphones around to repair it")
             #endif
             XCTAssertNil(error, "error should be nil")
-            cfuExpectation.fulfill()
+            cfuExpectation2.fulfill()
         }
-        self.wait(for: [cfuExpectation], timeout: 10)
+        self.wait(for: [cfuExpectation2], timeout: 10)
     }
 
     func testDeviceLockedDuringAccountRetrieval() throws {
@@ -3007,6 +3054,7 @@ class OctagonTests: OctagonTestsBase {
             "CreditCards",
             "DevicePairing",
             "Engram",
+            "FindMy",
             "Groups",
             "Health",
             "Home",
@@ -3383,6 +3431,147 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "totalTrustedPeers should not error")
         XCTAssertNotNil(count, "count should not be nil")
         XCTAssertEqual(count?.intValue, 2, "count should be 2")
+    }
+
+    func testTrustedFullPeerCountAPI() throws {
+        try skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        var count: NSNumber?
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 1, "count should be 1")
+
+        // until there's another peer around
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 3, "count should be 3")
+    }
+
+    func testTrustedFullPeerCountAPIWhileNotTrusted() throws {
+        try skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        var count: NSNumber?
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 1, "count should be 1")
+
+        // until there's another peer around
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: joiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
+
+        let secondJoiningContext = self.makeInitiatorContext(contextID: "second_joiner", authKitAdapter: self.mockAuthKit3)
+        self.assertJoinViaEscrowRecoveryFromDefaultContextWithReciprocationAndTLKShares(joiningContext: secondJoiningContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 3, "count should be 3")
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+        XCTAssertNoThrow(try clique.leave(), "Should not be an error departing clique")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 2, "count should be 2")
+    }
+
+    func _testTrustedFullPeersWithDifferentModel(model: String, fullPeer: Bool) throws {
+        SecCKKSSetTestSkipTLKShareHealing(true)
+        try skipOnRecoveryKeyNotSupported()
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        var count: NSNumber?
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 1, "count should be 1")
+
+        self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: model,
+                                                deviceName: "device-" + model,
+                                                serialNumber: NSUUID().uuidString,
+                                                osVersion: "17.17")
+        let joiningContext = self.manager.context(forContainerName: OTCKContainerName,
+                                             contextID: model,
+                                             sosAdapter: self.mockSOSAdapter!,
+                                             accountsAdapter: self.mockAuthKit2,
+                                             authKitAdapter: self.mockAuthKit2,
+                                             tooManyPeersAdapter: self.mockTooManyPeers,
+                                             tapToRadarAdapter: self.mockTapToRadar,
+                                             lockStateTracker: self.lockStateTracker,
+                                             deviceInformationAdapter: self.mockDeviceInfo)
+        self.assertJoinViaProximitySetup(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
+        try self.putSelfTLKSharesInCloudKit(context: joiningContext)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+
+        XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.totalTrustedPeers(self.otcliqueContext), "trustedFullPeers should not error")
+        XCTAssertNotNil(count, "count should not be nil")
+        XCTAssertEqual(count?.intValue, 2, "count should match")
+
+        if fullPeer {
+            XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+            XCTAssertNotNil(count, "count should not be nil")
+            XCTAssertEqual(count?.intValue, 2, "count should be 2")
+        } else {
+            XCTAssertNoThrow(count = try OctagonTrustCliqueBridge.trustedFullPeers(self.otcliqueContext), "trustedFullPeers should not error")
+            XCTAssertNotNil(count, "count should not be nil")
+            XCTAssertEqual(count?.intValue, 1, "count should be 1")
+        }
+    }
+
+    func testTrustedFullPeersWithDifferentPeersMac() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "Mac17", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersIPhone() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "iPhone7", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersIPad() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "iPad4", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersIPod() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "iPod3", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersWatch() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "Watch10", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersRealityDevice() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "RealityDevice0", fullPeer: true)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersTV() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "AppleTV4", fullPeer: false)
+    }
+
+    func testTrustedFullPeersWithDifferentPeersHomePod() throws {
+        try self._testTrustedFullPeersWithDifferentModel(model: "AudioAccessory1", fullPeer: false)
     }
 
     func testPersistRefSchedulerLessThan100Items() throws {
@@ -3769,7 +3958,7 @@ class OctagonTests: OctagonTestsBase {
         let refCondition = self.keychainUpgradeController.persistentReferenceUpgrader
 
         // setup the operation dependency
-        var callbackExpectation = self.expectation(description: "callback occurs")
+        let callbackExpectation = self.expectation(description: "callback occurs")
         var callback = CKKSResultOperation.named("callback") {
             callbackExpectation.fulfill()
         }
@@ -3797,16 +3986,16 @@ class OctagonTests: OctagonTestsBase {
         XCTAssertTrue(TestsObjectiveC.expectXNumber(ofItemsUpgraded: 0), "should be 0 upgraded")
 
         // setup the operation dependency for expected trigger
-        callbackExpectation = self.expectation(description: "second batch callback occurs")
+        let callbackExpectation2 = self.expectation(description: "second batch callback occurs")
         callback = CKKSResultOperation.named("second batch callback") {
-            callbackExpectation.fulfill()
+            callbackExpectation2.fulfill()
         }
         callback.timeout(10 * NSEC_PER_SEC)
 
         callback.addDependency(refCondition.operationDependency)
         self.operationQueue.addOperation(callback)
 
-        self.wait(for: [callbackExpectation], timeout: 10)
+        self.wait(for: [callbackExpectation2], timeout: 10)
 
         XCTAssertFalse(TestsObjectiveC.checkAllPersistentRefBeenUpgraded(), "all items should NOT be upgraded")
         XCTAssertNotNil(self.keychainUpgradeController.persistentReferenceUpgrader.nextFireTime, "nextFireTime should NOT be nil")

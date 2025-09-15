@@ -48,6 +48,8 @@
 
 __ASSUME_PTR_ABI_SINGLE_BEGIN
 
+
+#ifndef __BUILDING_XNU_LIB_UNITTEST__
 static inline __attribute__((const)) thread_t
 current_thread_fast(void)
 {
@@ -67,6 +69,10 @@ current_thread_fast(void)
 	return __unsafe_forge_single(thread_t, __builtin_arm_mrc(15, 0, 13, 0, 4));
 #endif
 }
+#else /* __BUILDING_XNU_LIB_UNITTEST__ */
+__attribute__((const)) thread_t current_thread_fast(void);
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
+
 
 /*
  * The "volatile" flavor of current_thread() is intended for use by

@@ -193,6 +193,7 @@ protected:
         bool commandSent;
         AbsoluteTime commandSentTimestamp;
         bool childrenInReset;
+		uint32_t domainId;
     };
 
 /*! @var reserved
@@ -482,7 +483,11 @@ private:
 
 protected:
 	static bool hasBusLeadCTOBug(uint32_t vendorDevice);
+	static const OSSymbol *getSymbolFromCapabilityID(uint32_t id);
+	static const OSSymbol *getSymbolFromExtendedCapabilityID(uint32_t id);
+
 private:
+	void constructCapabilitiesDict(IOPCIDevice *nub);
 	IOService *findThunderboltPortForNub(IOPCIDevice *nub);
 };
 
@@ -648,8 +653,8 @@ private:
     void attnButtonTimer(IOTimerEventSource * es);
     IOReturn attnButtonHandlerFinish(thread_call_t threadCall);
     void dllscEventTimer(IOTimerEventSource * es);
-	void constructIOPCIEvent(IOPCIDevice *device, bool correctable, IOPCIEvent *newEvent, uint32_t *status, uint32_t *mask, uint32_t *severity);
-	void enqueueIOPCIEvent(IOPCIDevice *device, uint32_t status, uint32_t severity, bool correctable, IOPCIEvent *newEvent, bool synchronous);
+	void constructAERIOPCIEvent(IOPCIDevice *device, bool correctable, IOPCIEvent *newEvent, uint32_t *status, uint32_t *mask, uint32_t *severity);
+	void enqueueAERIOPCIEvent(IOPCIDevice *device, uint32_t status, uint32_t severity, bool correctable, IOPCIEvent *newEvent, bool synchronous);
 
 public:
 	void handleAEREvent(bool synchronous);
@@ -658,6 +663,9 @@ private:
 	IOReturn setPowerStateGated(unsigned long *_powerState,
 								IOService *whatDevice);
 	void detectLinkPartner(void);
+
+protected:
+	void enqueueIOPCIEvent(IOPCIDevice *device, uint32_t event, IOPCIEvent *newEvent, bool synchronous);
 };
 __exported_pop
 

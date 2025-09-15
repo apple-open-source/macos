@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include <wtf/Deque.h>
 #include <wtf/RefCounted.h>
 
@@ -38,6 +37,7 @@ namespace WebCore {
 class DOMPromise;
 class ReadableStream;
 class WritableStream;
+template<typename> class ExceptionOr;
 
 class WebTransportDatagramDuplexStream : public RefCounted<WebTransportDatagramDuplexStream> {
 public:
@@ -59,8 +59,8 @@ public:
 private:
     WebTransportDatagramDuplexStream(Ref<ReadableStream>&&, Ref<WritableStream>&&);
 
-    Ref<ReadableStream> m_readable;
-    Ref<WritableStream> m_writable;
+    const Ref<ReadableStream> m_readable;
+    const Ref<WritableStream> m_writable;
     Deque<std::pair<Vector<uint8_t>, MonotonicTime>> m_incomingDatagramsQueue;
     RefPtr<DOMPromise> m_incomingDatagramsPullPromise;
     double m_incomingDatagramsHighWaterMark { 1 };

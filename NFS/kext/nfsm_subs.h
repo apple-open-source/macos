@@ -82,7 +82,7 @@ int nfsm_chain_new_mbuf(struct nfsm_chain *, size_t);
 int nfsm_chain_add_opaque_f(struct nfsm_chain *, const u_char *, size_t);
 int nfsm_chain_add_opaque_nopad_f(struct nfsm_chain *, const u_char *, size_t);
 int nfsm_chain_add_uio(struct nfsm_chain *, uio_t, size_t);
-int nfsm_chain_add_fattr4_f(struct nfsm_chain *, struct vnode_attr *, struct nfsmount *);
+int nfsm_chain_add_fattr4_f(struct nfsm_chain *, struct vnode_attr *, struct nfsmount *, int);
 int nfsm_chain_add_v2sattr_f(struct nfsm_chain *, struct vnode_attr *, uint32_t);
 int nfsm_chain_add_v3sattr_f(struct nfsmount *, struct nfsm_chain *, struct vnode_attr *);
 int nfsm_chain_add_string_nfc(struct nfsm_chain *, const uint8_t *, size_t);
@@ -232,11 +232,18 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	} while (0)
 
 /* update NFSv4 RPC statistics and add 32bit value to mbuf chain  */
-#define nfsm_chain_add_v4_op(E, NMC, OP) \
+#define nfsm_chain_add_v4_op(E, NMC, MINOR_VERS, OP) \
 	do { \
 	        nfsm_chain_add_32(E, NMC, OP); \
-	        if (OP < NFS_OP_COUNT) \
-	                OSAddAtomic64(1, &nfsclntstats.opcntv4[OP]); \
+	        if ((MINOR_VERS == NFSV4_MINORVERSION) && (OP >= NFS_V4_OP_COUNT)) { \
+	                (E) = EPROTO; \
+	                break; \
+	        } \
+	        if ((MINOR_VERS == NFSV41_MINORVERSION) && (OP >= NFS_V41_OP_COUNT)) { \
+	                (E) = EPROTO; \
+	                break; \
+	        } \
+	        OSAddAtomic64(1, &nfsclntstats.opcntv4[OP]); \
 	} while (0)
 
 /* add a 64bit value to an mbuf chain */
@@ -305,6 +312,13 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        nfsm_chain_add_opaque((E), (NMC), (FHP), (FHLEN)); \
 	} while (0)
 
+/* add a NFSv4.1 session to an mbuf chain */
+#define nfsm_chain_add_session(E, NMC, SESSION) \
+	do { \
+	        if (E) break; \
+	        nfsm_chain_add_opaque((E), (NMC), (SESSION), NFS4_SESSIONID_SIZE); \
+	} while (0)
+
 /* add a string to an mbuf chain */
 #define nfsm_chain_add_string(E, NMC, STR, LEN) \
 	do { \
@@ -343,13 +357,22 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        nfsm_chain_add_32((E), (NMC), (TVP)->tv_nsec); \
 	} while (0)
 
-/* add an NFS v2 or v3 time to an mbuf chain */
+/* add an NFSv4 time to an mbuf chain */
+#define nfsm_chain_add_v4time(E, NMC, TVP) \
+	do { \
+	        nfsm_chain_add_64((E), (NMC), (TVP)->tv_sec); \
+	        nfsm_chain_add_32((E), (NMC), (TVP)->tv_nsec); \
+	} while (0)
+
+/* add an NFS v2, v3 or v4 time to an mbuf chain */
 #define nfsm_chain_add_time(E, NMC, VERS, TVP) \
 	do { \
 	        if ((VERS) == NFS_VER2) { \
 	                nfsm_chain_add_v2time((E), (NMC), (TVP)); \
-	        } else { \
+	        } else if ((VERS) == NFS_VER3) { \
 	                nfsm_chain_add_v3time((E), (NMC), (TVP)); \
+	        } else { \
+	                nfsm_chain_add_v4time((E), (NMC), (TVP)); \
 	        } \
 	} while (0)
 
@@ -388,10 +411,10 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	} while (0)
 
 /* Add an NFSv4 "fattr" structure to an mbuf chain */
-#define nfsm_chain_add_fattr4(E, NMC, VAP, NMP) \
+#define nfsm_chain_add_fattr4(E, NMC, VAP, NMP, EXCLUSIVE4_1) \
 	do { \
 	        if (E) break; \
-	        (E) = nfsm_chain_add_fattr4_f((NMC), (VAP), (NMP)); \
+	        (E) = nfsm_chain_add_fattr4_f((NMC), (VAP), (NMP), (EXCLUSIVE4_1)); \
 	} while (0)
 
 /* add NFSv3 WCC data to an mbuf chain */
@@ -404,7 +427,7 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 
 /* add NFSv4 COMPOUND header */
 #define NFS4_TAG_LENGTH 12
-#define nfsm_chain_add_compound_header(E, NMC, TAG, MINOR, NUMOPS) \
+#define nfsm_chain_add_compound_header(E, NMC, TAG, MINOR_VERS, NUMOPS) \
 	do { \
 	        if ((TAG) && strlen(TAG)) { \
 	/* put tags into a fixed-length space-padded field */ \
@@ -415,8 +438,19 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        } else { \
 	                nfsm_chain_add_32((E), (NMC), 0); \
 	        } \
-	        nfsm_chain_add_32((E), (NMC), (MINOR)); /*minorversion*/ \
+	        nfsm_chain_add_32((E), (NMC), (MINOR_VERS)); /* minorversion */ \
 	        nfsm_chain_add_32((E), (NMC), (NUMOPS)); \
+	} while (0)
+
+/* add NFSv4.1 SEQUENCE place holder */
+#define nfsm_chain_add_sequence(E, NMC, NMP, CACHE_THIS) \
+	do { \
+	        nfs_session_id __sessionid = {}; \
+	        nfsm_chain_add_session((E), (NMC), __sessionid);  /* session id */ \
+	        nfsm_chain_add_32((E), (NMC), 0);                 /* seqid */ \
+	        nfsm_chain_add_32((E), (NMC), 0);                 /* slot id */ \
+	        nfsm_chain_add_32((E), (NMC), 0);                 /* high slot id */ \
+	        nfsm_chain_add_32((E), (NMC), (CACHE_THIS));      /* cache */ \
 	} while (0)
 
 /* add NFSv4 attr bitmap */
@@ -546,6 +580,12 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        (LVAL) = fxdr_unsigned(uint32_t, *__tmpptr); \
 	} while (0)
 
+#define NFS4_SEQ_RET_SIZE ((5 * NFSX_UNSIGNED) + NFS4_SESSIONID_SIZE)
+#define nfsm_chain_adv_sequence(E, NMC)  \
+	do { \
+	        nfsm_chain_adv((E), (NMC), nfsm_rndup(NFS4_SEQ_RET_SIZE)); \
+	} while (0)
+
 /* get a 64bit value from an mbuf chain */
 #define nfsm_chain_get_64(E, NMC, LVAL) \
 	do { \
@@ -632,6 +672,14 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	                (FHP)->fh_len = 0;\
 	} while (0)
 
+/* get a NFSv4.1 session to an mbuf chain */
+#define nfsm_chain_get_session(E, NMC, SESSION) \
+	do { \
+	        memset(SESSION, 0, NFS4_SESSIONID_SIZE); \
+	        if (E) break; \
+	        nfsm_chain_get_opaque((E), (NMC), NFS4_SESSIONID_SIZE, (SESSION)); \
+	} while (0)
+
 /* get an NFS v2 or v3 time from an mbuf chain */
 #define nfsm_chain_get_time(E, NMC, VERS, TSEC, TNSEC) \
 	do { \
@@ -659,7 +707,7 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 /* (F returns whether the attributes were updated or not) */
 #define nfsm_chain_postop_attr_update_flag(E, NMC, NP, F, X) \
 	do { \
-	        struct nfs_vattr ttvattr; \
+	        struct nfs_vattr ttvattr = {}; \
 	        nfsm_chain_postop_attr_get(NFSTONMP(NP), (E), (NMC), (F), &ttvattr); \
 	        if ((E) || !(F)) break; \
 	        if (((E) = nfs_loadattrcache((NP), &ttvattr, (X), 1))) { \
@@ -686,26 +734,26 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 
 #if CONFIG_NFS4
 /* separate v4 variant for loading attrs that only runs when NFSv4 is set */
-#define __nfsm_chain_loadattr_v4(E, NMC, VERS, X, VATTR) \
+#define __nfsm_chain_loadattr_v4(E, NMC, MINOR_VERS, X, VATTR) \
 	do { \
-	        (E) = nfs4_parsefattr((NMC), NULL, (VATTR), NULL, NULL, NULL); \
+	        (E) = nfs4_parsefattr((NMC), NULL, (MINOR_VERS), (VATTR), NULL, NULL, NULL); \
 	} while (0)
 #else
-#define __nfsm_chain_loadattr_v4(E, NMC, VERS, X, VATTR) \
+#define __nfsm_chain_loadattr_v4(E, NMC, MINOR_VERS, X, VATTR) \
 	do { \
 	        break; \
 	} while (0)
 #endif
 
 /* update a node's attribute cache with attributes from an mbuf chain */
-#define nfsm_chain_loadattr(E, NMC, NP, VERS, X) \
+#define nfsm_chain_loadattr(E, NMC, NP, MAJOR_VERS, MINOR_VERS, X) \
 	do { \
-	        struct nfs_vattr ttvattr; \
+	        struct nfs_vattr ttvattr = {}; \
 	        if (E) break; \
-	        if ((VERS) == NFS_VER4) { \
-	                __nfsm_chain_loadattr_v4((E), (NMC), (VERS), (X), &ttvattr); \
+	        if ((MAJOR_VERS) == NFS_VER4) { \
+	                __nfsm_chain_loadattr_v4((E), (NMC), (MINOR_VERS), (X), &ttvattr); \
 	        } else { \
-	                (E) = nfs_parsefattr(NFSTONMP(NP), (NMC), (VERS), &ttvattr); \
+	                (E) = nfs_parsefattr(NFSTONMP((NP)), (NMC), (MAJOR_VERS), &ttvattr); \
 	        } \
 	        if (!(E) && (NP)) \
 	                (E) = nfs_loadattrcache((NP), &ttvattr, (X), 0); \
@@ -807,11 +855,12 @@ int nfsm_chain_get_secinfo(struct nfsm_chain *, uint32_t *, int *);
 	        nfsm_chain_get_64((E), (NMC), (AFTER)); \
 } while (0)
 
+// TODO check if needed for NFSv4.1
 #define nfsm_chain_check_change_info_impl(ATOMIC, BEFORE, AFTER, DNP) \
 	do { \
 	        if ((ATOMIC) && ((BEFORE) == (DNP)->n_ncchange)) { \
 	                (DNP)->n_ncchange = (AFTER); \
-	        } else if (!(ATOMIC) && ((BEFORE) == (DNP)->n_ncchange) && !(AFTER)) { \
+	        } else if (!(ATOMIC) && (!(BEFORE) || ((BEFORE) == (DNP)->n_ncchange)) && !(AFTER)) { \
 	                break; \
 	        } else { \
 	                cache_purge(NFSTOV(DNP)); \

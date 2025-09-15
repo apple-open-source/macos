@@ -188,7 +188,7 @@ static const dhcptag_info_t dhcptag_info_table[] = {
   /* 159 */ { dhcptype_opaque_e   , "option_159" },
   /* 160 */ { dhcptype_opaque_e   , "option_160" },
   /* 161 */ { dhcptype_opaque_e   , "option_161" },
-  /* 162 */ { dhcptype_opaque_e   , "option_162" },
+  /* 162 */ { dhcptype_dns_dnr_data_e, "encrypted_dns_server" },
   /* 163 */ { dhcptype_opaque_e   , "option_163" },
   /* 164 */ { dhcptype_opaque_e   , "option_164" },
   /* 165 */ { dhcptype_opaque_e   , "option_165" },
@@ -299,6 +299,7 @@ static const dhcptype_info_t dhcptype_info_table[] = {
   /* 11 */ { 4, dhcptype_ip_e, "ip_mult", 1 },
   /* 12 */ { 8, dhcptype_ip_e, "ip_pairs", 1 },
   /* 13 */ { 0, dhcptype_none_e, "dns_namelist", 1 },
-  /* 14 */ { 0, dhcptype_none_e, "classless_route", 1 },
+  /* 14 */ { 0, dhcptype_none_e, "dns_dnr_data", 1 },
+  /* 15 */ { 0, dhcptype_none_e, "classless_route", 1 },
 };
 #endif /* _S_DHCP_PARSE_TABLE */

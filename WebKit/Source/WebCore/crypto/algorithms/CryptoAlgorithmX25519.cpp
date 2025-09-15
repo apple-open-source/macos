@@ -23,6 +23,7 @@
 #include "CryptoAlgorithmEcKeyParams.h"
 #include "CryptoAlgorithmX25519Params.h"
 #include "CryptoKeyOKP.h"
+#include "ExceptionOr.h"
 #include "ScriptExecutionContext.h"
 #include <wtf/CryptographicUtilities.h>
 

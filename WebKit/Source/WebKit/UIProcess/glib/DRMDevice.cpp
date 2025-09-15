@@ -38,6 +38,7 @@
 #endif
 
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+#include "WPEUtilities.h"
 #include <wpe/wpe-platform.h>
 #endif
 
@@ -170,7 +171,7 @@ const String& drmPrimaryDevice()
     static std::once_flag once;
     std::call_once(once, [] {
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
-        if (g_type_class_peek(WPE_TYPE_DISPLAY)) {
+        if (WKWPE::isUsingWPEPlatformAPI()) {
             primaryDevice.construct(String::fromUTF8(wpe_display_get_drm_device(wpe_display_get_primary())));
             return;
         }
@@ -193,7 +194,7 @@ const String& drmRenderNodeDevice()
     static std::once_flag once;
     std::call_once(once, [] {
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
-        if (g_type_class_peek(WPE_TYPE_DISPLAY)) {
+        if (WKWPE::isUsingWPEPlatformAPI()) {
             renderNodeDevice.construct(String::fromUTF8(wpe_display_get_drm_render_node(wpe_display_get_primary())));
             return;
         }

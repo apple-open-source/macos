@@ -94,6 +94,17 @@ routine _DAServerSessionQueueRequest( _session   : mach_port_t;
                                       _context   : mach_vm_offset_t;
                      ServerAuditToken _token     : audit_token_t );
 
+routine _DAServerSessionQueueRequestWithUserToken( _session   : mach_port_t;
+                                                   _kind      : uint32_t;
+                                                   _userToken : audit_token_t;
+                                                   _argument0 : ___caddr_t;
+                                                   _argument1 : int32_t;
+                                                   _argument2 : ___vm_address_t;
+                                                   _argument3 : ___vm_address_t;
+                                                   _address   : mach_vm_offset_t;
+                                                   _context   : mach_vm_offset_t;
+                                  ServerAuditToken _token     : audit_token_t );
+
 simpleroutine _DAServerSessionQueueResponse( _session    : mach_port_t;
                                              _address    : mach_vm_offset_t;
                                              _context    : mach_vm_offset_t;

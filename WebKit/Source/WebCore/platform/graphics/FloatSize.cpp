@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2003-2023 Apple Inc.  All rights reserved.§
- * Copyright (C) 2014 Google Inc.  All rights reserved.
- * Copyright (C) 2005 Nokia.  All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.§
+ * Copyright (C) 2014 Google Inc. All rights reserved.
+ * Copyright (C) 2005 Nokia. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,7 @@ FloatSize FloatSize::narrowPrecision(double width, double height)
 
 TextStream& operator<<(TextStream& ts, const FloatSize& size)
 {
-    return ts << "width=" << TextStream::FormatNumberRespectingIntegers(size.width())
+    return ts << "width="_s << TextStream::FormatNumberRespectingIntegers(size.width())
         << " height=" << TextStream::FormatNumberRespectingIntegers(size.height());
 }
 

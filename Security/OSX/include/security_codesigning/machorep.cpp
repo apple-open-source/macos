@@ -120,10 +120,6 @@ void MachORep::prepareForSigning(SigningContext &context)
 
 			uint32_t limit = 0;
 			switch (slice->platform()) {
-				case 0:
-					// If we don't know the platform, we stay agile.
-					requiresAgileHashes = true;
-					continue;
 				case PLATFORM_MACOS:
 					// 10.11.4 had first proper sha256 support.
 					limit = (10 << 16 | 11 << 8 | 4 << 0);
@@ -134,9 +130,11 @@ void MachORep::prepareForSigning(SigningContext &context)
 					limit = (11 << 16 | 0 << 8 | 0 << 0);
 					break;
 				case PLATFORM_WATCHOS:
-					// We stay agile on the watch right now.
-					requiresAgileHashes = true;
-					continue;
+					// watchOS 12 (marketing version watchOS 26) prefers sha256 over sha1.
+					// Note: Technically sha256-only apps can still run on older watchOS versions,
+					// but older watchOS kernels prefer sha1.
+					limit = (12 << 16 | 0 << 8 | 0 << 0);
+					break;
 				default:
 					// All other platforms are assumed to be new and support SHA256.
 					continue;
@@ -147,10 +145,10 @@ void MachORep::prepareForSigning(SigningContext &context)
 			}
 		}
 
-		// Only if every slice met the minimum requirements can we set the digest algorithm to SHA256.
-		// Otherwise, we leave it empty and let it pick the default which will include legacy hash types.
-		if (!requiresAgileHashes) {
-			context.setDigestAlgorithm(kSecCodeSignatureHashSHA256);
+		// If at least one slice has not met the minimum requirements, sign with SHA1 and SHA256 agility
+		if (requiresAgileHashes) {
+			context.addDigestAlgorithm(kSecCodeSignatureHashSHA1);
+			context.addDigestAlgorithm(kSecCodeSignatureHashSHA256);
 		}
 	}
 }
@@ -571,6 +569,25 @@ Requirement *MachORep::libraryRequirements(const Architecture *arch, const Signi
 size_t MachORep::pageSize(const SigningContext &)
 {
 	return segmentedPageSize;
+}
+
+size_t MachORep::pageSize(const SigningContext &, const Architecture* arch)
+{
+	if (arch->cpuType() == CPU_TYPE_ARM64 || arch->cpuType() == CPU_TYPE_ARM64_32) {
+		unique_ptr<MachO> slice(mExecutable->architecture(*arch));
+		if (slice->platform() == PLATFORM_TVOS) {
+			// We can't use 16K page hashes on tvOS yet because B238 (HomePod 2018) uses H7, which
+			// uses 4K physical pages.
+			// rdar://107689929 (B238 unable to Copy to Device for development)
+			return segmentedPageSize;
+		} else {
+			// For all other platforms, use 16K page hashes. This saves significant memory compared
+			// to 4K page hashes.
+			return newSegmentedPageSize;
+		}
+	} else {
+		return segmentedPageSize;
+	}
 }
 
 

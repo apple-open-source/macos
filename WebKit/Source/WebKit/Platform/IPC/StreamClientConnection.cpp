@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,21 +41,21 @@ StreamClientConnection::DedicatedConnectionClient::DedicatedConnectionClient(Str
 
 void StreamClientConnection::DedicatedConnectionClient::didReceiveMessage(Connection& connection, Decoder& decoder)
 {
-    m_receiver.didReceiveMessage(connection, decoder);
+    m_receiver->didReceiveMessage(connection, decoder);
 }
 
 bool StreamClientConnection::DedicatedConnectionClient::didReceiveSyncMessage(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder)
 {
-    return m_receiver.didReceiveSyncMessage(connection, decoder, replyEncoder);
+    return m_receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
 }
 
 void StreamClientConnection::DedicatedConnectionClient::didClose(Connection& connection)
 {
     // Client is expected to listen to Connection::didClose() from the connection it sent to the dedicated connection to.
-    m_receiver.didClose(connection);
+    m_receiver->didClose(connection);
 }
 
-void StreamClientConnection::DedicatedConnectionClient::didReceiveInvalidMessage(Connection&, MessageName, int32_t)
+void StreamClientConnection::DedicatedConnectionClient::didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>&)
 {
     ASSERT_NOT_REACHED(); // The sender is expected to be trusted, so all invalid messages are programming errors.
 }
@@ -114,19 +114,19 @@ void StreamClientConnection::setMaxBatchSize(unsigned size)
 void StreamClientConnection::open(Connection::Client& receiver, SerialFunctionDispatcher& dispatcher)
 {
     m_dedicatedConnectionClient.emplace(*this, receiver);
-    protectedConnection()->open(*m_dedicatedConnectionClient, dispatcher);
+    m_connection->open(Ref { *m_dedicatedConnectionClient }.get(), dispatcher);
 }
 
 Error StreamClientConnection::flushSentMessages()
 {
     auto timeout = defaultTimeout();
     wakeUpServer(WakeUpServer::Yes);
-    return protectedConnection()->flushSentMessages(WTFMove(timeout));
+    return m_connection->flushSentMessages(WTFMove(timeout));
 }
 
 void StreamClientConnection::invalidate()
 {
-    protectedConnection()->invalidate();
+    m_connection->invalidate();
 }
 
 void StreamClientConnection::wakeUpServer(WakeUpServer wakeUpResult)
@@ -156,14 +156,14 @@ Connection& StreamClientConnection::connectionForTesting()
     return m_connection.get();
 }
 
-void StreamClientConnection::addWorkQueueMessageReceiver(ReceiverName name, WorkQueue& workQueue, WorkQueueMessageReceiver& receiver, uint64_t destinationID)
+void StreamClientConnection::addWorkQueueMessageReceiver(ReceiverName name, WorkQueue& workQueue, WorkQueueMessageReceiverBase& receiver, uint64_t destinationID)
 {
-    protectedConnection()->addWorkQueueMessageReceiver(name, workQueue, receiver, destinationID);
+    m_connection->addWorkQueueMessageReceiver(name, workQueue, receiver, destinationID);
 }
 
 void StreamClientConnection::removeWorkQueueMessageReceiver(ReceiverName name, uint64_t destinationID)
 {
-    protectedConnection()->removeWorkQueueMessageReceiver(name, destinationID);
+    m_connection->removeWorkQueueMessageReceiver(name, destinationID);
 }
 
 }

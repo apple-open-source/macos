@@ -150,7 +150,7 @@ static int keychainTestEnvironment(const char *environmentName, dispatch_block_t
     // Reset custom $HOME
     secd_test_teardown_delete_temp_keychain(environmentName);
     SetCustomHomePath(NULL);
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     if (haveCustomKeybag) {
         invalidateCustomKeybag(keybag);

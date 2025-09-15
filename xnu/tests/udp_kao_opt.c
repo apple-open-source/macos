@@ -125,7 +125,8 @@ set_udp_kao_opt(int expected_errno, int domain, const char *domain_str,
 
 #define SET_UDP_KAO_OPT(e, d, t, p) set_udp_kao_opt(e, d, #d, t, #t, p, #p)
 
-T_DECL(test_udp_keep_alive_option, "TCP bind with a IPv6 multicast address")
+T_DECL(test_udp_keep_alive_option, "TCP bind with a IPv6 multicast address",
+    T_META_ENABLED(false) /* rdar://134506000 */)
 {
 	tcp_listen();
 

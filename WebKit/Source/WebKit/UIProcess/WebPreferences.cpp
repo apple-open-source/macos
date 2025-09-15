@@ -43,6 +43,8 @@
 
 namespace WebKit {
 
+static bool forceSiteIsolationAlwaysOnForTesting;
+
 Ref<WebPreferences> WebPreferences::create(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
 {
     return adoptRef(*new WebPreferences(identifier, keyPrefix, globalDebugKeyPrefix));
@@ -63,6 +65,9 @@ WebPreferences::WebPreferences(const String& identifier, const String& keyPrefix
     , m_globalDebugKeyPrefix(globalDebugKeyPrefix)
 {
     platformInitializeStore();
+
+    if (WebKit::forceSiteIsolationAlwaysOnForTesting)
+        setSiteIsolationEnabled(true);
 }
 
 WebPreferences::WebPreferences(const WebPreferences& other)
@@ -72,11 +77,19 @@ WebPreferences::WebPreferences(const WebPreferences& other)
     , m_store(other.m_store)
 {
     platformInitializeStore();
+
+    if (WebKit::forceSiteIsolationAlwaysOnForTesting)
+        setSiteIsolationEnabled(true);
 }
 
 WebPreferences::~WebPreferences()
 {
     ASSERT(m_pages.isEmptyIgnoringNullReferences());
+}
+
+void WebPreferences::forceSiteIsolationAlwaysOnForTesting()
+{
+    WebKit::forceSiteIsolationAlwaysOnForTesting = true;
 }
 
 const Vector<RefPtr<API::Object>>& WebPreferences::experimentalFeatures()
@@ -131,8 +144,8 @@ void WebPreferences::update()
         return;
     }
         
-    for (auto& webPageProxy : m_pages)
-        webPageProxy.preferencesDidChange();
+    for (Ref page : m_pages)
+        page->preferencesDidChange();
 }
 
 void WebPreferences::startBatchingUpdates()
@@ -191,8 +204,8 @@ void WebPreferences::updateBoolValueForKey(const String& key, bool value, bool e
         platformUpdateBoolValueForKey(key, value);
     
     if (key == WebPreferencesKey::processSwapOnCrossSiteNavigationEnabledKey()) {
-        for (auto& page : m_pages)
-            page.configuration().processPool().configuration().setProcessSwapsOnNavigation(value);
+        for (Ref page : m_pages)
+            page->configuration().processPool().configuration().setProcessSwapsOnNavigation(value);
 
         return;
     }

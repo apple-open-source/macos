@@ -1982,6 +1982,18 @@ thread_call_start_deallocate_timer(thread_call_group_t group)
 	assert(already_enqueued == false);
 }
 
+static inline uint64_t
+thread_call_get_time(thread_call_flavor_t flavor)
+{
+	if (flavor == TCF_CONTINUOUS) {
+		return mach_continuous_time();
+	} else if (flavor == TCF_ABSOLUTE) {
+		return mach_absolute_time();
+	} else {
+		panic("invalid timer flavor: %d", flavor);
+	}
+}
+
 /* non-static so dtrace can find it rdar://problem/31156135&31379348 */
 void
 thread_call_delayed_timer(timer_call_param_t p0, timer_call_param_t p1)
@@ -1994,17 +2006,11 @@ thread_call_delayed_timer(timer_call_param_t p0, timer_call_param_t p1)
 
 	thread_call_t   call;
 	uint64_t        now;
+	extern uint64_t timer_scan_limit_abs;
 
 	thread_call_lock_spin(group);
 
-	if (flavor == TCF_CONTINUOUS) {
-		now = mach_continuous_time();
-	} else if (flavor == TCF_ABSOLUTE) {
-		now = mach_absolute_time();
-	} else {
-		panic("invalid timer flavor: %d", flavor);
-	}
-
+	now = thread_call_get_time(flavor);
 	while ((call = priority_queue_min(&group->delayed_pqueues[flavor],
 	    struct thread_call, tc_pqlink)) != NULL) {
 		assert(thread_call_get_group(call) == group);
@@ -2017,6 +2023,13 @@ thread_call_delayed_timer(timer_call_param_t p0, timer_call_param_t p1)
 		 *       and therefore be ready to expire.
 		 */
 		if (call->tc_soft_deadline > now) {
+			break;
+		}
+
+		/*
+		 * Don't do too much work in one timer interrupt.
+		 */
+		if (thread_call_get_time(flavor) > (now + timer_scan_limit_abs)) {
 			break;
 		}
 

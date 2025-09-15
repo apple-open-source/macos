@@ -100,23 +100,33 @@ __enum_decl(mach_assert_type_t, unsigned char, {
 	MACH_ASSERT_3U,
 });
 
+#ifndef __BUILDING_XNU_LIBRARY__
+#define MACH_ASSERT_DESC_ALIGN __attribute__((packed, aligned(4)))
+#else /* __BUILDING_XNU_LIBRARY__ */
+/* The assert __desc struct is packed to 4 bytes to save stack usage.
+ * This is not done in user build since there is some difference between the
+ * user-mode linker and the kernel linker which causes this to produce
+ * unaligned pointer exception */
+#define MACH_ASSERT_DESC_ALIGN
+#endif /* __BUILDING_XNU_LIBRARY__ */
+
 struct mach_assert_hdr {
 	mach_assert_type_t      type;
 	unsigned                lineno : 24;
 	const char             *filename;
-} __attribute__((packed, aligned(4)));
+} MACH_ASSERT_DESC_ALIGN;
 
 struct mach_assert_default {
 	struct mach_assert_hdr  hdr;
 	const char             *expr;
-} __attribute__((packed, aligned(4)));
+} MACH_ASSERT_DESC_ALIGN;
 
 struct mach_assert_3x {
 	struct mach_assert_hdr  hdr;
 	const char             *a;
 	const char             *op;
 	const char             *b;
-} __attribute__((packed, aligned(4)));
+} MACH_ASSERT_DESC_ALIGN;
 
 #if MACH_ASSERT
 # if XNU_KERNEL_PRIVATE
@@ -151,8 +161,19 @@ STATIC_IF_KEY_DECLARE_TRUE(mach_assert);
 	        { MACH_ASSERT_DEFAULT, __LINE__, __FILE_NAME__, },              \
 	        reason,                                                         \
 	};                                                                      \
-                                                                                \
+                                                                            \
 	ml_fatal_trap_with_value(MACH_ASSERT_TRAP_CODE, &__desc);               \
+})
+
+#define mach_assert_abort3x(how, s_a, s_op, s_b, v_a, v_b) ({ \
+	__attribute__((used, section(MACH_ASSERT_SEGSECT)))                     \
+	static const struct mach_assert_3x __desc_ ## how = {                   \
+	        { MACH_ASSERT_ ## how, __LINE__, __FILE_NAME__, },              \
+	        s_a, s_op, s_b,                                                 \
+	};                                                                      \
+                                                                            \
+	ml_fatal_trap_with_value3(MACH_ASSERT_TRAP_CODE,                        \
+	    &__desc_ ## how, v_a, v_b);                                         \
 })
 
 /*!
@@ -191,58 +212,40 @@ STATIC_IF_KEY_DECLARE_TRUE(mach_assert);
  * assert(a > b)     -> file.c:123 Assertion failed: a > b
  * assert3u(a, >, b) -> file.c:124 Assertion failed: a > b (1 >= 10)
  *
+ * These macros define a local variable with name starting with __desc which
+ * contain the assert info and then call the brk instruction. The trap
+ * is then handled and panic_assert_format() is called to parse this struct.
  */
-#define assert3u(a, op, b)  ({                                                  \
+#define assert3u(a, op, b)  ({                                              \
 	if (mach_assert_enabled_expr((unsigned long long)(a) op                 \
 	    (unsigned long long)(b))) {                                         \
 	        const unsigned long long a_ = (a);                              \
 	        const unsigned long long b_ = (b);                              \
-                                                                                \
+                                                                            \
 	        if (__builtin_expect(!(a_ op b_), 0L)) {                        \
-	                __attribute__((used, section(MACH_ASSERT_SEGSECT)))     \
-	                static const struct mach_assert_3x __desc3u = {         \
-	                        { MACH_ASSERT_3U, __LINE__, __FILE_NAME__, },   \
-	                        #a, #op, #b,                                    \
-	                };                                                      \
-                                                                                \
-	                ml_fatal_trap_with_value3(MACH_ASSERT_TRAP_CODE,        \
-	                    &__desc3u, a_, b_);                                 \
+	            mach_assert_abort3x(3U, #a, #op, #b, a_, b_);               \
 	        }                                                               \
 	}                                                                       \
 })
 
-#define assert3s(a, op, b)  ({                                                  \
+#define assert3s(a, op, b)  ({                                              \
 	if (mach_assert_enabled_expr((long long)(a) op ((long long)b))) {       \
 	        const signed long long a_ = (a);                                \
 	        const signed long long b_ = (b);                                \
-                                                                                \
+                                                                            \
 	        if (__builtin_expect(!(a_ op b_), 0L)) {                        \
-	                __attribute__((used, section(MACH_ASSERT_SEGSECT)))     \
-	                static const struct mach_assert_3x __desc3s = {         \
-	                        { MACH_ASSERT_3S, __LINE__, __FILE_NAME__, },   \
-	                        #a, #op, #b,                                    \
-	                };                                                      \
-                                                                                \
-	                ml_fatal_trap_with_value3(MACH_ASSERT_TRAP_CODE,        \
-	                    &__desc3s, a_, b_);                                 \
+	                mach_assert_abort3x(3S, #a, #op, #b, a_, b_);           \
 	        }                                                               \
 	}                                                                       \
 })
 
-#define assert3p(a, op, b)  ({                                                  \
+#define assert3p(a, op, b)  ({                                              \
 	if (mach_assert_enabled_expr((const void *)(a) op (const void *)(b))) { \
 	        const void *a_ = (a);                                           \
 	        const void *b_ = (b);                                           \
-                                                                                \
+                                                                            \
 	        if (__builtin_expect(!(a_ op b_), 0L)) {                        \
-	                __attribute__((used, section(MACH_ASSERT_SEGSECT)))     \
-	                static const struct mach_assert_3x __desc3p = {         \
-	                        { MACH_ASSERT_3P, __LINE__, __FILE_NAME__, },   \
-	                        #a, #op, #b,                                    \
-	                };                                                      \
-                                                                                \
-	                ml_fatal_trap_with_value3(MACH_ASSERT_TRAP_CODE,        \
-	                    &__desc3p, a_, b_);                                 \
+	                mach_assert_abort3x(3P, #a, #op, #b, a_, b_);           \
 	        }                                                               \
 	}                                                                       \
 })

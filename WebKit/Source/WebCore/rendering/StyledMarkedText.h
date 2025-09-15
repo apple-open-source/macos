@@ -26,7 +26,7 @@
 #pragma once
 
 #include "MarkedText.h"
-#include "ShadowData.h"
+#include "StyleTextShadow.h"
 #include "TextDecorationPainter.h"
 #include "TextPaintStyle.h"
 
@@ -43,7 +43,7 @@ struct StyledMarkedText final : MarkedText {
         Color backgroundColor;
         TextPaintStyle textStyles;
         TextDecorationPainter::Styles textDecorationStyles;
-        std::optional<ShadowData> textShadow;
+        WebCore::Style::TextShadows textShadow { CSS::Keyword::None { } };
         float alpha { 1 };
     };
 

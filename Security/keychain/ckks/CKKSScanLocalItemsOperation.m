@@ -51,7 +51,6 @@
 #include <utilities/SecInternalReleasePriv.h>
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface CKKSScanLocalItemsOperation ()
@@ -159,7 +158,7 @@
         return NO;
     }
 
-    ok = kc_with_dbt(readWrite, &cferror, ^(SecDbConnectionRef dbt) {
+    ok = kc_with_dbt(readWrite, NULL, &cferror, ^(SecDbConnectionRef dbt) {
         return SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
             block(item);
         });
@@ -281,7 +280,7 @@
 
             __block CFErrorRef cferror = NULL;
 
-            bool connectionSuccess = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
+            bool connectionSuccess = kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
                 Query *q = query_create_with_limit((__bridge CFDictionaryRef)primaryKey, NULL, kSecMatchUnlimited, NULL, &cferror);
 
                 if(!q || cferror) {
@@ -602,7 +601,7 @@
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect incoming queue: %@", error);
                 self.error = error;
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:NO error:self.error];
+                [querySyncableItemsEventS sendMetricWithResult:NO error:self.error];
                 return;
             }
 
@@ -610,20 +609,20 @@
             if (error) {
                 ckkserror_global("ckksscan", "unable to inspect outgoing queue: %@", error);
                 self.error = error;
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:NO error:self.error];
+                [querySyncableItemsEventS sendMetricWithResult:NO error:self.error];
                 return;
             }
         }
 
         [eventS addMetrics:@{kSecurityRTCFieldItemsScanned:@(self.processedItems), kSecurityRTCFieldNewItemsScanned:@(self.recordsFound)}];
         [querySyncableItemsEventS addMetrics:@{kSecurityRTCFieldNewItemsScanned : @(self.recordsFound)}];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:querySyncableItemsEventS success:self.error ? YES : NO error:self.error];
+        [querySyncableItemsEventS sendMetricWithResult:self.error ? YES : NO error:self.error];
         // Drop off of read-only transaction
     }];
 
     if(self.error) {
         ckksnotice_global("ckksscan", "Exiting due to previous error: %@", self.error);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+        [eventS sendMetricWithResult:NO error:self.error];
         return;
     }
     
@@ -706,9 +705,9 @@
     }
 
     [onboardMissingItemsEventS addMetrics:@{kSecurityRTCFieldNumViewsWithNewEntries:@(self.viewsWithNewCKKSEntries.count)}];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:onboardMissingItemsEventS success:YES error:self.error];
-   
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:self.error];
+    [onboardMissingItemsEventS sendMetricWithResult:YES error:self.error];
+
+    [eventS sendMetricWithResult:YES error:self.error];
 
     self.nextState = self.intendedState;
 

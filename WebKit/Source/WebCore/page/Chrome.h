@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (C) 2012, Samsung Electronics. All rights reserved.
  *
@@ -26,7 +26,7 @@
 #include "DisabledAdaptations.h"
 #include "FocusDirection.h"
 #include "HostWindow.h"
-#include "ImageBufferPixelFormat.h"
+#include "ImageBufferFormat.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/FunctionDispatcher.h>
@@ -89,6 +89,16 @@ struct ShareDataWithParsedURL;
 struct ViewportArguments;
 struct WindowFeatures;
 
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+class SecurityOriginData;
+
+struct DigitalCredentialsRequestData;
+struct DigitalCredentialsResponseData;
+struct ExceptionData;
+struct MobileDocumentRequest;
+struct OpenID4VPRequest;
+#endif
+
 class Chrome : public HostWindow {
     WTF_MAKE_TZONE_ALLOCATED(Chrome);
 public:
@@ -110,12 +120,12 @@ public:
     IntRect rootViewToAccessibilityScreen(const IntRect&) const override;
     PlatformPageClient platformPageClient() const override;
 #if PLATFORM(IOS_FAMILY)
-    void relayAccessibilityNotification(const String&, const RetainPtr<NSData>&) const override;
+    void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&) const override;
 #endif
     void setCursor(const Cursor&) override;
     void setCursorHiddenUntilMouseMoves(bool) override;
 
-    RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float resolutionScale, const DestinationColorSpace&, ImageBufferPixelFormat) const override;
+    RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float resolutionScale, const DestinationColorSpace&, ImageBufferFormat) const override;
     RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) override;
 
 #if ENABLE(WEBGL)
@@ -177,7 +187,7 @@ public:
     void setResizable(bool);
 
     bool canRunBeforeUnloadConfirmPanel();
-    bool runBeforeUnloadConfirmPanel(const String& message, LocalFrame&);
+    bool runBeforeUnloadConfirmPanel(String&& message, LocalFrame&);
 
     void closeWindow();
 
@@ -201,8 +211,14 @@ public:
     std::unique_ptr<WorkerClient> createWorkerClient(SerialFunctionDispatcher&);
 
     void runOpenPanel(LocalFrame&, FileChooser&);
-    void showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&);
-    void showContactPicker(const ContactsRequestData&, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&&);
+    void showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&&);
+    void showContactPicker(ContactsRequestData&&, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&&);
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    void showDigitalCredentialsPicker(const DigitalCredentialsRequestData&, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&);
+    void dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&&);
+#endif
+
     void loadIconForFiles(const Vector<String>&, FileIconLoader&);
 
     void dispatchDisabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>&) const;
@@ -236,7 +252,7 @@ private:
     Ref<Page> protectedPage() const;
 
     WeakRef<Page> m_page;
-    UniqueRef<ChromeClient> m_client;
+    const UniqueRef<ChromeClient> m_client;
     Vector<WeakPtr<PopupOpeningObserver>> m_popupOpeningObservers;
 #if PLATFORM(IOS_FAMILY)
     bool m_isDispatchViewportDataDidChangeSuppressed { false };

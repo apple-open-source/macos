@@ -41,7 +41,7 @@
 
 - (NSURL *)endpoint
 {
-    return self._protectedData->endpoint();
+    return self._protectedData->endpoint().createNSURL().autorelease();
 }
 
 - (NSData *)applicationServerKey

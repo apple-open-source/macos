@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(CORE_TELEPHONY)
 
 #import <CoreTelephony/CoreTelephonyDefines.h>

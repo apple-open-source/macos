@@ -66,13 +66,11 @@ class IOHIDEvent : public OSObject
     UInt64              _senderID;
     uint64_t            _typeMask;
     IOOptionBits        _options;
-    UInt32              _eventCount;
 
     bool initWithCapacity(IOByteCount capacity);
     bool initWithType(IOHIDEventType type, IOByteCount additionalCapacity=0);
     bool initWithTypeTimeStamp(IOHIDEventType type, UInt64 timeStamp, IOOptionBits options = 0, IOByteCount additionalCapacity=0);
-    IOByteCount getLength(UInt32 * eventCount);
-    IOByteCount appendBytes(UInt8 * bytes, IOByteCount withLength);
+    IOByteCount readBytes(void * bytes, IOByteCount withLength, UInt32* outCount);
     
     static IOHIDEvent * _axisEvent (    IOHIDEventType          type,
                                         UInt64                  timeStamp,
@@ -97,6 +95,12 @@ public:
 
     static IOHIDEvent *     withType(   IOHIDEventType          type    = kIOHIDEventTypeNULL,
                                         IOOptionBits            options = 0);
+
+    static IOHIDEvent *     collectionEvent(UInt64          timestamp,
+                                            UInt32          usagePage,
+                                            UInt32          usage,
+                                            bool            ungroupForLegacy,
+                                            IOOptionBits    options = 0);
                                         
     static IOHIDEvent *     keyboardEvent(  
                                         UInt64                  timeStamp,
@@ -460,6 +464,8 @@ public:
 
     static IOHIDEvent *     genericGestureEvent(UInt64 timeStamp, IOHIDGenericGestureType gestureType, IOOptionBits options = 0);
 
+    static IOHIDEvent * heartRateEvent(UInt64 timeStamp, UInt32 heartRate, IOOptionBits options = 0);
+    
     virtual void            appendChild(IOHIDEvent *childEvent);
     OSArray*                getChildren();
 
@@ -488,6 +494,8 @@ public:
     
     virtual size_t          getLength(); 
     virtual IOByteCount     readBytes(void *bytes, IOByteCount withLength);
+    
+    // Note: this function only serializes one level of child events, use readBytes for nested children.
     virtual OSData          *createBytes();
     
     virtual void            setSenderID(uint64_t senderID);

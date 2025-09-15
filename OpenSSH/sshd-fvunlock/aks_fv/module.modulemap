@@ -1,0 +1,13 @@
+
+//
+//  module.modulemap
+//  ssh-fv-unlock
+//
+//  Copyright © 2025 Apple Inc. All rights reserved.
+//
+
+module aks_fv {
+    header "aks_fv.h"
+
+    export *
+}

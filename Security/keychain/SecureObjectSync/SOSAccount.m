@@ -82,7 +82,6 @@
 #include <Security/SecItemBackup.h>
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import <SoftLinking/SoftLinking.h>
@@ -459,10 +458,10 @@ static bool Flush(CFErrorRef *error) {
                                                                                                              category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!SyncKVSAndWait(error)) {
         secnotice("pairing", "failed sync and wait: %@", error ? *error : NULL);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventSyncKVSAndWait success:NO error:(__bridge NSError *)*error];
+        [eventSyncKVSAndWait sendMetricWithResult:NO error:(__bridge NSError *)*error];
         return false;
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventSyncKVSAndWait success:YES error:nil];
+        [eventSyncKVSAndWait sendMetricWithResult:YES error:nil];
     }
 
     AAFAnalyticsEventSecurity *eventFlush = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -475,10 +474,10 @@ static bool Flush(CFErrorRef *error) {
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     if (!Flush(error)) {
         secnotice("pairing", "failed flush: %@", error ? *error : NULL);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventFlush success:NO error:(__bridge NSError*)*error];
+        [eventFlush sendMetricWithResult:NO error:(__bridge NSError*)*error];
         return false;
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventFlush success:YES error:nil];
+        [eventFlush sendMetricWithResult:YES error:nil];
     }
 
     secnotice("pairing", "finished sync and wait");
@@ -517,7 +516,7 @@ static bool Flush(CFErrorRef *error) {
         if (key == NULL) {
             secnotice("pairing", "no stashed credential");
             [eventS addMetrics:@{kSecurityRTCFieldNumberOfKeychainItemsCollected : @(0)}];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)error];
+            [eventS sendMetricWithResult:NO error:(__bridge NSError*)error];
             complete(NULL, (__bridge NSError *)error);
             CFReleaseNull(error);
             return;
@@ -534,7 +533,7 @@ static bool Flush(CFErrorRef *error) {
         complete(keydata, (__bridge NSError *)error);
         CFReleaseNull(error);
         [eventS addMetrics:@{kSecurityRTCFieldNumberOfKeychainItemsCollected : @(1)}];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
     });
 }
 - (void)stashAccountCredential:(NSData *)credential 
@@ -630,7 +629,7 @@ static bool Flush(CFErrorRef *error) {
         }
     }];
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(applicationBlob ? YES : NO) error:(__bridge NSError*)localError];
+    [eventS sendMetricWithResult:(applicationBlob ? YES : NO) error:(__bridge NSError*)localError];
     complete(applicationBlob, (__bridge NSError *)localError);
     CFReleaseNull(localError);
 }
@@ -951,7 +950,7 @@ static bool Flush(CFErrorRef *error) {
     __block NSData *blob = NULL;
     SOSPeerInfoRef peer = SOSPeerInfoCreateFromData(NULL, &localError, (__bridge CFDataRef)applicant);
     if (peer == NULL) {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)localError];
+        [eventS sendMetricWithResult:NO error:(__bridge NSError*)localError];
         complete(NULL, (__bridge NSError *)localError);
         CFReleaseNull(localError);
         return;
@@ -965,7 +964,7 @@ static bool Flush(CFErrorRef *error) {
     });
 
     CFReleaseNull(peer);
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(blob ? YES : NO) error:(__bridge NSError*)localError];
+    [eventS sendMetricWithResult:(blob ? YES : NO) error:(__bridge NSError*)localError];
     complete(blob, (__bridge NSError *)localError);
     CFReleaseNull(localError);
 }
@@ -992,7 +991,7 @@ static bool Flush(CFErrorRef *error) {
                                                                                                     category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
         res = SOSAccountJoinWithCircleJoiningBlob(txn.account, (__bridge CFDataRef)blob, version, &localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:blob ? YES : NO error:(__bridge NSError*)localError];
+        [eventS sendMetricWithResult:blob ? YES : NO error:(__bridge NSError*)localError];
     }];
 #if OCTAGON
     bool inCircle = [self.trust isInCircleOnly:NULL];
@@ -1046,14 +1045,14 @@ static bool Flush(CFErrorRef *error) {
                                                                                            canSendMetrics:canSendMetrics
                                                                                                  category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
-    NSArray *array = CFBridgingRelease(_SecServerCopyInitialSyncCredentials(isflags, &tlks, &pcs, &bluetooth, &error));
+    NSArray *array = CFBridgingRelease(SecServerCopyInitialSyncCredentials(isflags, &tlks, &pcs, &bluetooth, &error));
 
     NSDictionary* counts = @{ kSecurityRTCFieldNumberOfTLKsFetched : @(tlks),
                               kSecurityRTCFieldNumberOfPCSItemsFetched : @(pcs),
                               kSecurityRTCFieldNumberOfBluetoothMigrationItemsFetched : @(bluetooth)};
 
     [eventS addMetrics:counts];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(error == nil) ? YES : NO error:(__bridge NSError*)error];
+    [eventS sendMetricWithResult:(error == nil) ? YES : NO error:(__bridge NSError*)error];
     complete(array, (__bridge NSError *)error);
     CFReleaseNull(error);
 }
@@ -1061,7 +1060,7 @@ static bool Flush(CFErrorRef *error) {
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete
 {
     CFErrorRef error = NULL;
-    bool res = _SecServerImportInitialSyncCredentials((__bridge CFArrayRef)items, &error);
+    bool res = SecServerImportInitialSyncCredentials((__bridge CFArrayRef)items, &error);
     complete(res, (__bridge NSError *)error);
     CFReleaseNull(error);
 }
@@ -3076,7 +3075,7 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSI
     
     require_action_quiet(SOSPeerInfoApplicationVerify(applicant, userKey, error), verifyFail,
                          secnotice("circleOps", "Peer application wasn't signed with the correct userKey"));
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 
     {
         SOSFullPeerInfoRef fpi = account.fullPeerInfo;
@@ -3100,10 +3099,10 @@ CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, NSString* altDSI
     
 verifyFail:
     if (error != nil && *error != nil) {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:(__bridge NSError*)*error];
+        [eventS sendMetricWithResult:NO error:(__bridge NSError*)*error];
     } else {
         NSError* localError = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:kSOSErrorFailedToVerifyApplication description:@"Peer application wasn't signed with the correct userKey"];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
     }
 errOut:
     CFReleaseNull(prunedCircle);
@@ -3533,7 +3532,6 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
         STRONGIFY(self);
         __block bool goodPubKey = false;
         __block CFMutableSetRef myBackupViews = NULL;
-        __block bool changesMade = false;
 
         SOSAccountConfiguration *storage = self.accountConfiguration.storage;
         storage.ringUpdateFlag = NO;
@@ -3555,8 +3553,6 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                     CFErrorRef localError = NULL;
                     if (!SOSDeleteV0Keybag(&localError)) {
                         secerror("Failed to delete v0 keybag: %@", localError);
-                    } else {
-                        changesMade = true;
                     }
                     CFReleaseNull(localError);
                                         
@@ -3575,9 +3571,7 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
             CFSetForEach(myBackupViews, ^(const void *value) {
                 CFStringRef viewName = asString(value, NULL);
                 [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-                    if([self _onQueueEnsureInBackupRings: viewName]) {
-                        changesMade = true;
-                    }
+                    (void)[self _onQueueEnsureInBackupRings: viewName];
                 }];
             });
         }

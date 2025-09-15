@@ -68,7 +68,10 @@
 #include <arm/cpu_data.h>
 #include <arm64/proc_reg.h>
 #include <os/base.h>
+#if SCHED_HYGIENE_DEBUG
+#include <kern/timeout_decl.h>
 #endif
+#endif /* MACH_KERNEL_PRIVATE */
 
 struct perfcontrol_state {
 	uint64_t opaque[8] __attribute__((aligned(8)));
@@ -92,6 +95,10 @@ typedef arm_kernel_context_t machine_thread_kernel_state;
 #endif
 
 
+#if HAVE_MACHINE_THREAD_MATRIX_STATE
+#define UMATRIX_PTRAUTH XNU_PTRAUTH_SIGNED_PTR("machine_thread.umatrix_hdr")
+#endif
+
 /*
  * Machine Thread Structure
  */
@@ -114,9 +121,9 @@ struct machine_thread {
 
 #if HAVE_MACHINE_THREAD_MATRIX_STATE
 	union {
-		arm_state_hdr_t *umatrix_hdr;
+		arm_state_hdr_t *UMATRIX_PTRAUTH umatrix_hdr;
 #if HAS_ARM_FEAT_SME
-		arm_sme_saved_state_t *usme;               /* pointer to user SME state */
+		arm_sme_saved_state_t *UMATRIX_PTRAUTH usme; /* pointer to user SME state */
 #endif
 	};
 #endif /* HAVE_MACHINE_THREAD_MATRIX_STATE */
@@ -134,12 +141,7 @@ struct machine_thread {
 	uint64_t                  reserved5;
 
 #if SCHED_HYGIENE_DEBUG
-	uint64_t                  intmask_timestamp;          /* timestamp of when interrupts were manually masked */
-	uint64_t                  inthandler_timestamp;       /* timestamp of when interrupt handler started */
-	uint64_t                  intmask_cycles;             /* cycle count snapshot of when interrupts were masked */
-	uint64_t                  intmask_instr;              /* instruction count snapshot of when interrupts were masked */
-	bool                      inthandler_abandon;         /* whether to abandon the current measurement */
-
+	kern_timeout_t            int_timeout;                /* for interrupt disabled timeout mechanism */
 	unsigned int              int_type;                   /* interrupt type of the interrupt that was processed */
 	uintptr_t                 int_handler_addr;           /* slid, ptrauth-stripped virtual address of the interrupt handler */
 	uintptr_t                 int_vector;                 /* IOInterruptVector */
@@ -179,7 +181,9 @@ struct machine_thread {
 	uint64_t                  reserved13;
 #endif
 
-	bool                      reserved14;
+	uint64_t                  reserved14;
+
+	bool                      reserved15;
 };
 #endif
 

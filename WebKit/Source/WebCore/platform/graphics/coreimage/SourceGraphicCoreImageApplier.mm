@@ -41,7 +41,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(SourceGraphicCoreImageApplier);
 
-bool SourceGraphicCoreImageApplier::apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const
+bool SourceGraphicCoreImageApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
 

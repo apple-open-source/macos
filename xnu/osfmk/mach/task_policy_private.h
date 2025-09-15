@@ -40,7 +40,7 @@
  * When they do, we will update TASK_POLICY_INTERNAL_STRUCT_VERSION.
  */
 
-#define TASK_POLICY_INTERNAL_STRUCT_VERSION 4
+#define TASK_POLICY_INTERNAL_STRUCT_VERSION 5
 
 #define trp_tal_enabled trp_reserved  /*  trp_tal_enabled is unused, reuse its slot to grow trp_role */
 
@@ -73,7 +73,9 @@ struct task_requested_policy {
 	    trp_sup_cpu             :1,             /* Wants suppressed CPU priority (MAXPRI_SUPPRESSED) */
 	    trp_sup_bg_sockets      :1,             /* Wants background sockets */
 
-	    trp_reserved            :17;
+	    trp_runaway_mitigation  :1,             /* Is runaway-mitigated */
+
+	    trp_reserved            :16;
 };
 
 struct task_effective_policy {
@@ -98,10 +100,11 @@ struct task_effective_policy {
 	    tep_live_donor          :1,             /* task is a live importance boost donor */
 	    tep_qos_clamp           :3,             /* task qos clamp (applies to qos-disabled threads too) */
 	    tep_qos_ceiling         :3,             /* task qos ceiling (applies to only qos-participating threads) */
-	    tep_adaptive_bg         :1,             /* task is bg solely due to the adaptive daemon clamp */
+	    tep_promote_above_task  :1,             /* task should allow turnstiles to boost above BG clamp */
 	    tep_coalition_bg        :1,             /* task is bg due to coalition suppresssion */
+	    tep_runaway_mitigation  :1,             /* task is bg due to runaway-mitigation */
 
-	    tep_reserved            :29;
+	    tep_reserved            :28;
 };
 
 /*
@@ -161,7 +164,8 @@ typedef struct task_policy_state *task_policy_state_t;
 #define TASK_APPTYPE_DAEMON_ADAPTIVE     3
 #define TASK_APPTYPE_DAEMON_BACKGROUND   4
 #define TASK_APPTYPE_APP_DEFAULT         5
-#define TASK_APPTYPE_APP_TAL             6 /* unused */
+#define TASK_APPTYPE_APP_NONUI           6
+#define TASK_APPTYPE_APP_TAL             TASK_APPTYPE_APP_NONUI /* unused */
 #define TASK_APPTYPE_DRIVER              7
 
 /* task policy state flags */

@@ -119,6 +119,9 @@ typedef HANDLE MemoryMap;
 
         HANDLE map = nullptr;
         HANDLE file = INVALID_HANDLE_VALUE;
+#if APPLE_ICU_CHANGES // rdar://155639864
+        DWORD fileLength = 0;
+#endif
 
         UDataMemory_init(pData); /* Clear the output struct.        */
 
@@ -159,6 +162,10 @@ typedef HANDLE MemoryMap;
             return false;
         }
 
+#if APPLE_ICU_CHANGES // rdar://155639864
+        fileLength = GetFileSize(file, nullptr);
+#endif
+
         // Note: We use nullptr/nullptr for lpAttributes parameter below.
         // This means our handle cannot be inherited and we will get the default security descriptor.
         /* create an unnamed Windows file-mapping object for the specified file */
@@ -181,6 +188,9 @@ typedef HANDLE MemoryMap;
             return false;
         }
         pData->map = map;
+#if APPLE_ICU_CHANGES // rdar://155639864
+        pData->length = fileLength;
+#endif
         return true;
     }
 
@@ -237,6 +247,9 @@ typedef HANDLE MemoryMap;
         pData->map = (char *)data + length;
         pData->pHeader=(const DataHeader *)data;
         pData->mapAddr = data;
+#if APPLE_ICU_CHANGES // rdar://155639864
+        pData->length = length;
+#endif
 #if U_PLATFORM == U_PF_IPHONE
         posix_madvise(data, length, POSIX_MADV_RANDOM);
 #endif
@@ -315,6 +328,9 @@ typedef HANDLE MemoryMap;
         pData->map=p;
         pData->pHeader=(const DataHeader *)p;
         pData->mapAddr=p;
+#if APPLE_ICU_CHANGES // rdar://155639864
+        pData->length = fileLength;
+#endif
         return true;
     }
 

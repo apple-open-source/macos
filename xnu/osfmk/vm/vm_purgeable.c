@@ -202,10 +202,17 @@ find_available_token:
 			.kmg_context = os_hash_kernel_pointer(&tokens),
 		};
 
+		/*
+		 * We can't use KMR_DATA here, since we enforce single-mappability
+		 * on RESTRICTED mappings, and that means we have to use FREEOLD.
+		 *
+		 * However, the realloc path cannot also free the tokens allocation,
+		 * since we cannot free it without taking the lock (vm_page_lock_queues).
+		 */
 		if (alloc_size <= TOKEN_COUNT_MAX * sizeof(struct token)) {
 			kmr = kmem_realloc_guard(kernel_map,
 			    (vm_offset_t)tokens, token_q_cur_size, alloc_size,
-			    KMR_ZERO | KMR_DATA, guard);
+			    KMR_ZERO | KMR_DATA_SHARED, guard);
 		}
 
 		vm_page_lock_queues();

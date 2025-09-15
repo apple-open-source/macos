@@ -111,7 +111,7 @@ private:
 
 	IOReturn syncInternal(bool rateLimit);
 	bool safeToSync(void);
-
+	IOReturn clearTestVars(const uuid_t guid);
 public:
 	virtual bool init(IORegistryEntry *old, const IORegistryPlane *plane) APPLE_KEXT_OVERRIDE;
 	virtual bool start(IOService * provider) APPLE_KEXT_OVERRIDE;

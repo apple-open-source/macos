@@ -21,6 +21,7 @@
 #include "libANGLE/Framebuffer.h"
 #include "libANGLE/GLES1State.h"
 #include "libANGLE/MemoryObject.h"
+#include "libANGLE/PixelLocalStorage.h"
 #include "libANGLE/Program.h"
 #include "libANGLE/Renderbuffer.h"
 #include "libANGLE/Sampler.h"
@@ -392,6 +393,9 @@ void QueryTexParameterBase(const Context *context,
             *params = CastFromGLintStateValue<ParamType>(pname,
                                                          texture->getImageCompressionRate(context));
             break;
+        case GL_TEXTURE_ASTC_DECODE_PRECISION_EXT:
+            *params = CastFromGLintStateValue<ParamType>(pname, texture->getASTCDecodePrecision());
+            break;
         default:
             UNREACHABLE();
             break;
@@ -516,6 +520,9 @@ void SetTexParameterBase(Context *context, Texture *texture, GLenum pname, const
             break;
         case GL_TEXTURE_FOVEATED_MIN_PIXEL_DENSITY_QCOM:
             texture->setMinPixelDensity(ConvertToGLfloat(params[0]));
+            break;
+        case GL_TEXTURE_ASTC_DECODE_PRECISION_EXT:
+            texture->setASTCDecodePrecision(context, ConvertToGLenum(pname, params[0]));
             break;
         default:
             UNREACHABLE();
@@ -1375,6 +1382,7 @@ void QueryProgramiv(Context *context, Program *program, GLenum pname, GLint *par
         case GL_COMPLETION_STATUS_KHR:
             if (context->isContextLost())
             {
+                context->contextLostErrorOnBlockingCall(angle::EntryPoint::GLGetProgramiv);
                 *params = GL_TRUE;
             }
             else
@@ -1513,7 +1521,9 @@ void QueryRenderbufferiv(const Context *context,
             }
             else
             {
-                *params = renderbuffer->getFormat().info->internalFormat;
+                *params = (renderbuffer->getFormat().info->internalFormat == GL_NONE)
+                              ? GL_RGBA4
+                              : renderbuffer->getFormat().info->internalFormat;
             }
             break;
         case GL_RENDERBUFFER_RED_SIZE:
@@ -1573,6 +1583,7 @@ void QueryShaderiv(const Context *context, Shader *shader, GLenum pname, GLint *
         case GL_COMPLETION_STATUS_KHR:
             if (context->isContextLost())
             {
+                context->contextLostErrorOnBlockingCall(angle::EntryPoint::GLGetShaderiv);
                 *params = GL_TRUE;
             }
             else
@@ -1814,6 +1825,101 @@ void QueryFramebufferParameteriv(const Framebuffer *framebuffer, GLenum pname, G
     }
 }
 
+template <typename ParamType>
+void QueryFramebufferPixelLocalStorageParameterBase(Context *context,
+                                                    GLint plane,
+                                                    GLenum pname,
+                                                    GLsizei *length,
+                                                    ParamType *params)
+{
+    const PixelLocalStoragePlane &planeObject =
+        context->getState().getDrawFramebuffer()->getPixelLocalStorage(context).getPlane(plane);
+    switch (pname)
+    {
+        case GL_PIXEL_LOCAL_FORMAT_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_NAME_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_LEVEL_ANGLE:
+        case GL_PIXEL_LOCAL_TEXTURE_LAYER_ANGLE:
+            if (length != nullptr)
+            {
+                *length = 1;
+            }
+            *params = clampCast<ParamType>(planeObject.getIntegeri(pname));
+            break;
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_FLOAT_ANGLE:
+        {
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
+            GLfloat p[4];
+            planeObject.getClearValuef(p);
+            params[0] = clampCast<ParamType>(p[0]);
+            params[1] = clampCast<ParamType>(p[1]);
+            params[2] = clampCast<ParamType>(p[2]);
+            params[3] = clampCast<ParamType>(p[3]);
+            break;
+        }
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_INT_ANGLE:
+        {
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
+            GLint p[4];
+            planeObject.getClearValuei(p);
+            params[0] = clampCast<ParamType>(p[0]);
+            params[1] = clampCast<ParamType>(p[1]);
+            params[2] = clampCast<ParamType>(p[2]);
+            params[3] = clampCast<ParamType>(p[3]);
+            break;
+        }
+        case GL_PIXEL_LOCAL_CLEAR_VALUE_UNSIGNED_INT_ANGLE:
+        {
+            if (length != nullptr)
+            {
+                *length = 4;
+            }
+            // There is no unsigned int PLS state query
+            if constexpr (std::numeric_limits<ParamType>::is_integer)
+            {
+                planeObject.getClearValueui(reinterpret_cast<GLuint *>(params));
+            }
+            else
+            {
+                GLuint p[4];
+                planeObject.getClearValueui(p);
+                params[0] = clampCast<ParamType>(p[0]);
+                params[1] = clampCast<ParamType>(p[1]);
+                params[2] = clampCast<ParamType>(p[2]);
+                params[3] = clampCast<ParamType>(p[3]);
+            }
+            break;
+        }
+        default:
+            UNREACHABLE();
+            break;
+    }
+}
+
+void QueryFramebufferPixelLocalStorageParameterfv(Context *context,
+                                                  GLint plane,
+                                                  GLenum pname,
+                                                  GLsizei *length,
+                                                  GLfloat *params)
+{
+    QueryFramebufferPixelLocalStorageParameterBase(context, plane, pname, length, params);
+}
+
+void QueryFramebufferPixelLocalStorageParameteriv(Context *context,
+                                                  GLint plane,
+                                                  GLenum pname,
+                                                  GLsizei *length,
+                                                  GLint *params)
+{
+    QueryFramebufferPixelLocalStorageParameterBase(context, plane, pname, length, params);
+}
+
 angle::Result QuerySynciv(const Context *context,
                           const Sync *sync,
                           GLenum pname,
@@ -1847,6 +1953,7 @@ angle::Result QuerySynciv(const Context *context,
         case GL_SYNC_STATUS:
             if (context->isContextLost())
             {
+                context->contextLostErrorOnBlockingCall(angle::EntryPoint::GLGetSynciv);
                 *values = GL_SIGNALED;
             }
             else
@@ -3203,7 +3310,7 @@ bool GetQueryParameterInfo(const State &glState,
 {
     const Caps &caps             = glState.getCaps();
     const Extensions &extensions = glState.getExtensions();
-    GLint clientMajorVersion     = glState.getClientMajorVersion();
+    const Version &clientVersion = glState.getClientVersion();
 
     // Please note: the query type returned for DEPTH_CLEAR_VALUE in this implementation
     // is FLOAT rather than INT, as would be suggested by the GL ES 2.0 spec. This is due
@@ -3317,7 +3424,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_MAX_DRAW_BUFFERS_EXT:
         case GL_MAX_COLOR_ATTACHMENTS_EXT:
         {
-            if ((clientMajorVersion < 3) && !extensions.drawBuffersEXT)
+            if ((clientVersion < ES_3_0) && !extensions.drawBuffersEXT)
             {
                 return false;
             }
@@ -3327,7 +3434,7 @@ bool GetQueryParameterInfo(const State &glState,
         }
         case GL_BLEND_ADVANCED_COHERENT_KHR:
         {
-            if (clientMajorVersion < 2 || !extensions.blendEquationAdvancedCoherentKHR)
+            if (!extensions.blendEquationAdvancedCoherentKHR)
             {
                 return false;
             }
@@ -3399,7 +3506,7 @@ bool GetQueryParameterInfo(const State &glState,
         }
         case GL_COLOR_LOGIC_OP:
         {
-            if (clientMajorVersion == 1)
+            if (clientVersion < ES_2_0)
             {
                 // Handle logicOp in GLES1 through GLES1 state management.
                 break;
@@ -3503,7 +3610,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_CLIP_DISTANCE5_EXT:
         case GL_CLIP_DISTANCE6_EXT:
         case GL_CLIP_DISTANCE7_EXT:
-            if (clientMajorVersion < 2)
+            if (clientVersion < ES_2_0)
             {
                 break;
             }
@@ -3685,7 +3792,7 @@ bool GetQueryParameterInfo(const State &glState,
     {
         // GL_DRAW_FRAMEBUFFER_BINDING equivalent to GL_FRAMEBUFFER_BINDING
         case GL_READ_FRAMEBUFFER_BINDING:
-            if ((clientMajorVersion < 3) && !extensions.framebufferBlitAny())
+            if ((clientVersion < ES_3_0) && !extensions.framebufferBlitAny())
             {
                 return false;
             }
@@ -3694,7 +3801,7 @@ bool GetQueryParameterInfo(const State &glState,
             return true;
 
         case GL_NUM_PROGRAM_BINARY_FORMATS_OES:
-            if ((clientMajorVersion < 3) && !extensions.getProgramBinaryOES)
+            if ((clientVersion < ES_3_0) && !extensions.getProgramBinaryOES)
             {
                 return false;
             }
@@ -3703,7 +3810,7 @@ bool GetQueryParameterInfo(const State &glState,
             return true;
 
         case GL_PROGRAM_BINARY_FORMATS_OES:
-            if ((clientMajorVersion < 3) && !extensions.getProgramBinaryOES)
+            if ((clientVersion < ES_3_0) && !extensions.getProgramBinaryOES)
             {
                 return false;
             }
@@ -3714,7 +3821,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_PACK_ROW_LENGTH:
         case GL_PACK_SKIP_ROWS:
         case GL_PACK_SKIP_PIXELS:
-            if ((clientMajorVersion < 3) && !extensions.packSubimageNV)
+            if ((clientVersion < ES_3_0) && !extensions.packSubimageNV)
             {
                 return false;
             }
@@ -3724,7 +3831,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_UNPACK_ROW_LENGTH:
         case GL_UNPACK_SKIP_ROWS:
         case GL_UNPACK_SKIP_PIXELS:
-            if ((clientMajorVersion < 3) && !extensions.unpackSubimageEXT)
+            if ((clientVersion < ES_3_0) && !extensions.unpackSubimageEXT)
             {
                 return false;
             }
@@ -3732,7 +3839,7 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         case GL_VERTEX_ARRAY_BINDING:
-            if ((clientMajorVersion < 3) && !extensions.vertexArrayObjectOES)
+            if ((clientVersion < ES_3_0) && !extensions.vertexArrayObjectOES)
             {
                 return false;
             }
@@ -3741,7 +3848,7 @@ bool GetQueryParameterInfo(const State &glState,
             return true;
         case GL_PIXEL_PACK_BUFFER_BINDING:
         case GL_PIXEL_UNPACK_BUFFER_BINDING:
-            if ((clientMajorVersion < 3) && !extensions.pixelBufferObjectNV)
+            if ((clientVersion < ES_3_0) && !extensions.pixelBufferObjectNV)
             {
                 return false;
             }
@@ -3751,7 +3858,7 @@ bool GetQueryParameterInfo(const State &glState,
         case GL_MAX_SAMPLES:
             static_assert(GL_MAX_SAMPLES_ANGLE == GL_MAX_SAMPLES,
                           "GL_MAX_SAMPLES_ANGLE not equal to GL_MAX_SAMPLES");
-            if ((clientMajorVersion < 3) && !(extensions.framebufferMultisampleANGLE ||
+            if ((clientVersion < ES_3_0) && !(extensions.framebufferMultisampleANGLE ||
                                               extensions.multisampledRenderToTextureEXT))
             {
                 return false;
@@ -3760,7 +3867,7 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         case GL_FRAGMENT_SHADER_DERIVATIVE_HINT:
-            if ((clientMajorVersion < 3) && !extensions.standardDerivativesOES)
+            if ((clientVersion < ES_3_0) && !extensions.standardDerivativesOES)
             {
                 return false;
             }
@@ -3768,7 +3875,7 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         case GL_TEXTURE_BINDING_3D:
-            if ((clientMajorVersion < 3) && !extensions.texture3DOES)
+            if ((clientVersion < ES_3_0) && !extensions.texture3DOES)
             {
                 return false;
             }
@@ -3776,7 +3883,7 @@ bool GetQueryParameterInfo(const State &glState,
             *numParams = 1;
             return true;
         case GL_MAX_3D_TEXTURE_SIZE:
-            if ((clientMajorVersion < 3) && !extensions.texture3DOES)
+            if ((clientVersion < ES_3_0) && !extensions.texture3DOES)
             {
                 return false;
             }
@@ -3796,7 +3903,7 @@ bool GetQueryParameterInfo(const State &glState,
         return true;
     }
 
-    if ((extensions.multiview2OVR || extensions.multiviewOVR) && pname == GL_MAX_VIEWS_OVR)
+    if (extensions.multiviewOVR && pname == GL_MAX_VIEWS_OVR)
     {
         *type      = GL_INT;
         *numParams = 1;
@@ -4098,7 +4205,6 @@ bool GetQueryParameterInfo(const State &glState,
         switch (pname)
         {
             case GL_MAX_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
-            case GL_MAX_COLOR_ATTACHMENTS_WITH_ACTIVE_PIXEL_LOCAL_STORAGE_ANGLE:
             case GL_MAX_COMBINED_DRAW_BUFFERS_AND_PIXEL_LOCAL_STORAGE_PLANES_ANGLE:
             case GL_PIXEL_LOCAL_STORAGE_ACTIVE_PLANES_ANGLE:
                 *type      = GL_INT;
@@ -4625,10 +4731,10 @@ void QueryContextAttrib(const gl::Context *context, EGLint attribute, EGLint *va
             break;
         case EGL_CONTEXT_MAJOR_VERSION:
             static_assert(EGL_CONTEXT_MAJOR_VERSION == EGL_CONTEXT_CLIENT_VERSION);
-            *value = context->getClientMajorVersion();
+            *value = context->getClientVersion().getMajor();
             break;
         case EGL_CONTEXT_MINOR_VERSION:
-            *value = context->getClientMinorVersion();
+            *value = context->getClientVersion().getMinor();
             break;
         case EGL_RENDER_BUFFER:
             *value = context->getRenderBuffer();

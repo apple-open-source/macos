@@ -34,6 +34,7 @@
 #include "RemoteVideoFrameIdentifier.h"
 #include "SampleBufferDisplayLayerIdentifier.h"
 #include "SharedVideoFrame.h"
+#include <WebCore/HostingContext.h>
 #include <WebCore/SampleBufferDisplayLayer.h>
 #include <wtf/MediaTime.h>
 #include <wtf/TZoneMalloc.h>
@@ -50,25 +51,25 @@ namespace WebKit {
 class GPUConnectionToWebProcess;
 struct SharedPreferencesForWebProcess;
 
-class RemoteSampleBufferDisplayLayer : public RefCounted<RemoteSampleBufferDisplayLayer>, public WebCore::SampleBufferDisplayLayerClient, public IPC::MessageReceiver, private IPC::MessageSender {
+class RemoteSampleBufferDisplayLayer : public ThreadSafeRefCounted<RemoteSampleBufferDisplayLayer, WTF::DestructionThread::MainRunLoop>, public WebCore::SampleBufferDisplayLayerClient, public IPC::MessageReceiver, private IPC::MessageSender {
     WTF_MAKE_TZONE_ALLOCATED(RemoteSampleBufferDisplayLayer);
 public:
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
 
     static RefPtr<RemoteSampleBufferDisplayLayer> create(GPUConnectionToWebProcess&, SampleBufferDisplayLayerIdentifier, Ref<IPC::Connection>&&, RemoteSampleBufferDisplayLayerManager&);
     ~RemoteSampleBufferDisplayLayer();
 
     USING_CAN_MAKE_WEAKPTR(WebCore::SampleBufferDisplayLayerClient);
 
-    using LayerInitializationCallback = CompletionHandler<void(std::optional<LayerHostingContextID>)>;
+    using LayerInitializationCallback = CompletionHandler<void(WebCore::HostingContext)>;
     void initialize(bool hideRootLayer, WebCore::IntSize, bool shouldMaintainAspectRatio, bool canShowWhileLocked, LayerInitializationCallback&&);
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     CGRect bounds() const;
-    void updateBoundsAndPosition(CGRect, std::optional<WTF::MachSendRight>&&);
+    void updateBoundsAndPosition(CGRect, std::optional<WTF::MachSendRightAnnotated>&&);
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
@@ -103,7 +104,7 @@ private:
 
     ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnection WTF_GUARDED_BY_CAPABILITY(m_consumeThread);
     SampleBufferDisplayLayerIdentifier m_identifier;
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     RefPtr<WebCore::LocalSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
     std::unique_ptr<LayerHostingContext> m_layerHostingContext;
     SharedVideoFrameReader m_sharedVideoFrameReader;

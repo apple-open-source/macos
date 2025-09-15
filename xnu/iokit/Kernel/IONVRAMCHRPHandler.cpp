@@ -363,7 +363,7 @@ IONVRAMCHRPHandler::flush(const uuid_t guid, IONVRAMOperation op)
 
 			clear = ((flushSystem && (uuid_compare(varGuid, gAppleSystemVariableGuid) == 0)) ||
 			    (flushCommon && (uuid_compare(varGuid, gAppleSystemVariableGuid) != 0))) &&
-			    verifyPermission(op, varGuid, varName, getSystemPartitionActive());
+			    verifyPermission(op, varGuid, varName, getSystemPartitionActive(), true);
 
 			if (clear) {
 				DEBUG_INFO("Clearing entry for %s:%s\n", uuidString, varName);

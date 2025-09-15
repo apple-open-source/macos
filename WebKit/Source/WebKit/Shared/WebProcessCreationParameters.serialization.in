@@ -37,7 +37,9 @@
     Vector<String> urlSchemesRegisteredAsBypassingContentSecurityPolicy;
     Vector<String> urlSchemesForWhichDomainRelaxationIsForbidden;
     Vector<String> urlSchemesRegisteredAsLocal;
+#if ENABLE(ALL_LEGACY_REGISTERED_SPECIAL_URL_SCHEMES)
     Vector<String> urlSchemesRegisteredAsNoAccess;
+#endif
     Vector<String> urlSchemesRegisteredAsDisplayIsolated;
     Vector<String> urlSchemesRegisteredAsCORSEnabled;
     Vector<String> urlSchemesRegisteredAsAlwaysRevalidated;
@@ -56,7 +58,7 @@
 
     WebKit::CacheModel cacheModel;
 
-    double defaultRequestTimeoutInterval;
+    Markable<double> defaultRequestTimeoutInterval;
     unsigned backForwardCacheCapacity;
 
     bool shouldAlwaysUseComplexTextCodePath;
@@ -137,10 +139,6 @@
 #endif
 
     std::optional<WebKit::WebProcessDataStoreParameters> websiteDataStoreParameters;
-    
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    Vector<WebKit::SandboxExtensionHandle> compilerServiceExtensionHandles;
-#endif
 
     std::optional<WebKit::SandboxExtensionHandle> mobileGestaltExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> launchServicesExtensionHandle;
@@ -150,10 +148,6 @@
 #if HAVE(VIDEO_RESTRICTED_DECODING)
     bool enableDecodingHEIC;
     bool enableDecodingAVIF;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    Vector<WebKit::SandboxExtensionHandle> dynamicIOKitExtensionHandles;
 #endif
 
 #if PLATFORM(VISION)
@@ -181,6 +175,9 @@
 #if PLATFORM(GTK) || PLATFORM(WPE)
     OptionSet<WebKit::RendererBufferTransportMode> rendererBufferTransportMode;
     WebCore::SystemSettings::State systemSettings;
+    std::optional<WTF::MemoryPressureHandler::Configuration> memoryPressureHandlerConfiguration;
+    bool disableFontHintingForTesting;
+    OptionSet<WebKit::AvailableInputDevices> availableInputDevices;
 #endif
 
 #if PLATFORM(GTK)
@@ -193,17 +190,12 @@
 
 #if HAVE(IOSURFACE)
     WebCore::IntSize maximumIOSurfaceSize;
-    size_t bytesPerRowIOSurfaceAlignment;
+    uint64_t bytesPerRowIOSurfaceAlignment;
 #endif
     
     WebKit::AccessibilityPreferences accessibilityPreferences;
 #if PLATFORM(IOS_FAMILY)
     bool applicationAccessibilityEnabled;
-#endif
-
-#if PLATFORM(GTK) || PLATFORM(WPE)
-    std::optional<WTF::MemoryPressureHandler::Configuration> memoryPressureHandlerConfiguration;
-    bool disableFontHintingForTesting;
 #endif
 
 #if USE(GLIB)
@@ -223,12 +215,20 @@
 
     HashMap<WebCore::RegistrableDomain, String> storageAccessUserAgentStringQuirksData;
     HashSet<WebCore::RegistrableDomain> storageAccessPromptQuirksDomains;
-    WebKit::ScriptTelemetryRules scriptTelemetryRules;
+    WebKit::ScriptTrackingPrivacyRules scriptTrackingPrivacyRules;
 
     Seconds memoryFootprintPollIntervalForTesting;
-    Vector<size_t> memoryFootprintNotificationThresholds;
+    Vector<uint64_t> memoryFootprintNotificationThresholds;
 
 #if ENABLE(NOTIFY_BLOCKING)
     Vector<std::pair<String, uint64_t>> notifyState;
+#endif
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    bool shouldInitializeAccessibility;
+#endif
+
+#if HAVE(LIQUID_GLASS)
+    bool isLiquidGlassEnabled;
 #endif
 };

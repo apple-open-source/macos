@@ -26,7 +26,6 @@
 #pragma once
 
 #include "RenderingResourceIdentifier.h"
-#include <variant>
 #include <wtf/MachSendRight.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/ObjectIdentifier.h>

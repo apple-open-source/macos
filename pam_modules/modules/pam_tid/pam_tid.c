@@ -99,6 +99,13 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		goto cleanup;
 	}
 
+    const void *askpass;
+    retval = pam_get_data(pamh, "askpass-enabled", &askpass);
+    if (retval == PAM_SUCCESS) {
+        _LOG_DEBUG("sudo askpass mode, not showing UI");
+        retval = PAM_AUTHINFO_UNAVAIL;
+        goto cleanup;
+    }
 	// check if user is eligible to use Touch ID. If not, fail.
     /* prepare the options dictionary, aka rewrite @{ @(LAOptionNotInteractive) : @YES } without Foundation */
     tmp = kLAOptionNotInteractive;

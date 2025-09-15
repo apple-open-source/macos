@@ -34,7 +34,6 @@
 #import "SandboxUtilities.h"
 #import "WKFoundation.h"
 #import "XPCServiceEntryPoint.h"
-#import <WebCore/FileHandle.h>
 #import <WebCore/SystemVersion.h>
 #import <mach-o/dyld.h>
 #import <mach/mach.h>
@@ -48,6 +47,7 @@
 #import <sys/sysctl.h>
 #import <sysexits.h>
 #import <wtf/DataLog.h>
+#import <wtf/FileHandle.h>
 #import <wtf/FileSystem.h>
 #import <wtf/SafeStrerror.h>
 #import <wtf/Scope.h>
@@ -117,8 +117,8 @@ struct CachedSandboxHeader {
     uint32_t headerSize;
     uint32_t builtinSize; // If a builtin doesn't exist, this is UINT_MAX.
     uint32_t dataSize;
-    char sandboxBuildID[guidSize];
-    char osVersion[versionSize];
+    std::array<char, guidSize> sandboxBuildID;
+    std::array<char, versionSize> osVersion;
 };
 // The file is layed out on disk like:
 // byte 0
@@ -193,17 +193,16 @@ static OSStatus enableSandboxStyleFileQuarantine()
 }
 
 #if USE(CACHE_COMPILED_SANDBOX)
-static std::optional<Vector<uint8_t>> fileContents(const String& path, bool shouldLock = false, OptionSet<FileSystem::FileLockMode> lockMode = FileSystem::FileLockMode::Exclusive)
+static std::optional<Vector<uint8_t>> fileContents(const String& path)
 {
-    FileHandle file = shouldLock ? FileHandle(path, FileSystem::FileOpenMode::Read, lockMode) : FileHandle(path, FileSystem::FileOpenMode::Read);
-    file.open();
-    if (!file)
+    auto fileHandle = FileSystem::openFile(path, FileSystem::FileOpenMode::Read);
+    if (!fileHandle)
         return std::nullopt;
 
     std::array<uint8_t, 4096> chunk;
     Vector<uint8_t> contents;
     contents.reserveInitialCapacity(chunk.size());
-    while (size_t bytesRead = file.read(chunk))
+    while (auto bytesRead = fileHandle.read(chunk).value_or(0))
         contents.append(std::span { chunk }.first(bytesRead));
     contents.shrinkToFit();
 
@@ -380,8 +379,8 @@ static bool writeSandboxDataToCacheFile(const SandboxInfo& info, const Vector<ui
     // To avoid locking, write the sandbox data to a temporary path including the current process' PID
     // then rename it to the final cache path.
     auto temporaryPath = makeString(info.filePath, '-', getpid());
-    FileHandle file { temporaryPath, FileSystem::FileOpenMode::Truncate };
-    if (file.write(cacheFile.span()) != safeCast<int>(cacheFile.size())) {
+    auto fileHandle = FileSystem::openFile(temporaryPath, FileSystem::FileOpenMode::Truncate);
+    if (fileHandle.write(cacheFile.span()) != cacheFile.size()) {
         FileSystem::deleteFile(temporaryPath);
         return false;
     }
@@ -416,18 +415,17 @@ static SandboxProfilePtr compileAndCacheSandboxProfile(const SandboxInfo& info)
         CachedSandboxVersionNumber,
         static_cast<uint32_t>(libsandboxVersion),
         safeCast<uint32_t>(info.header.length()),
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-        haveBuiltin ? safeCast<uint32_t>(strlen(sandboxProfile->builtin)) : std::numeric_limits<uint32_t>::max(),
+        haveBuiltin ? safeCast<uint32_t>(unsafeSpan(sandboxProfile->builtin).size()) : std::numeric_limits<uint32_t>::max(),
         safeCast<uint32_t>(sandboxProfile->size),
         { 0 },
         { 0 }
     };
 
-    size_t copied = strlcpy(cachedHeader.sandboxBuildID, SANDBOX_BUILD_ID, sizeof(cachedHeader.sandboxBuildID));
-    ASSERT_UNUSED(copied, copied == guidSize - 1);
-    copied = strlcpy(cachedHeader.osVersion, osVersion.utf8().data(), sizeof(cachedHeader.osVersion));
-    ASSERT(copied < versionSize - 1);
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    auto sandboxBuildID = unsafeSpanIncludingNullTerminator(SANDBOX_BUILD_ID);
+    memcpySpan(std::span { cachedHeader.sandboxBuildID }, sandboxBuildID);
+
+    auto osVersionUTF8 = osVersion.utf8();
+    memcpySpan(std::span { cachedHeader.osVersion }, osVersionUTF8.spanIncludingNullTerminator());
 
     const size_t expectedFileSize = sizeof(cachedHeader) + cachedHeader.headerSize + (haveBuiltin ? cachedHeader.builtinSize : 0) + cachedHeader.dataSize;
 
@@ -473,11 +471,9 @@ static bool tryApplyCachedSandbox(const SandboxInfo& info)
         return false;
     if (static_cast<uint32_t>(libsandboxVersion) != cachedSandboxHeader.libsandboxVersion)
         return false;
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    if (std::strcmp(cachedSandboxHeader.sandboxBuildID, SANDBOX_BUILD_ID))
+    if (!equalSpans(std::span { cachedSandboxHeader.sandboxBuildID }, unsafeSpanIncludingNullTerminator(SANDBOX_BUILD_ID)))
         return false;
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
-    if (StringView::fromLatin1(cachedSandboxHeader.osVersion) != osVersion)
+    if (StringView::fromLatin1(cachedSandboxHeader.osVersion.data()) != osVersion)
         return false;
 
     const bool haveBuiltin = cachedSandboxHeader.builtinSize != std::numeric_limits<uint32_t>::max();
@@ -524,8 +520,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static inline const NSBundle *webKit2Bundle()
 {
-    const static NSBundle *bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
-    return bundle;
+    const static NeverDestroyed<RetainPtr<NSBundle>> bundle = [NSBundle bundleForClass:NSClassFromString(@"WKWebView")];
+    return bundle.get().get();
 }
 
 static void getSandboxProfileOrProfilePath(const SandboxInitializationParameters& parameters, String& profileOrProfilePath, bool& isProfilePath)
@@ -553,7 +549,7 @@ static bool compileAndApplySandboxSlowCase(const String& profileOrProfilePath, b
     uint64_t flags = isProfilePath ? SANDBOX_NAMED_EXTERNAL : 0;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (sandbox_init_with_parameters(temp.data(), flags, parameters.namedParameterVector().data(), &errorBuf)) {
+    if (sandbox_init_with_parameters(temp.data(), flags, parameters.namedParameterVector().span().data(), &errorBuf)) {
 ALLOW_DEPRECATED_DECLARATIONS_END
         WTFLogAlways("%s: Could not initialize sandbox profile [%s], error '%s'\n", getprogname(), temp.data(), errorBuf);
         for (size_t i = 0, count = parameters.count(); i != count; ++i)
@@ -788,8 +784,8 @@ void AuxiliaryProcess::stopNSAppRunLoop()
     ASSERT([NSApp isRunning]);
     [NSApp stop:nil];
 
-    NSEvent *event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0) modifierFlags:0 timestamp:0.0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
-    [NSApp postEvent:event atStart:true];
+    RetainPtr event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSMakePoint(0, 0) modifierFlags:0 timestamp:0.0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
+    [NSApp postEvent:event.get() atStart:true];
 }
 #endif
 

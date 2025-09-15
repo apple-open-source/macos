@@ -63,6 +63,8 @@ static int tcp_verify_signature(netdissect_options *ndo,
 static void print_tcp_rst_data(netdissect_options *, const u_char *sp, u_int length);
 static void print_tcp_fastopen_option(netdissect_options *ndo, const u_char *cp,
                                       u_int datalen, int exp);
+static void print_tcp_accurate_ecn_option(netdissect_options *ndo, const u_char *cp,
+                          u_int datalen, int opt);
 
 #define MAX_RST_DATA_LEN	30
 
@@ -149,6 +151,10 @@ static const struct tok tcp_option_values[] = {
         { TCPOPT_TCPAO, "tcp-ao" },
         { TCPOPT_MPTCP, "mptcp" },
         { TCPOPT_FASTOPEN, "tfo" },
+#ifdef __APPLE__
+        { TCPOPT_ACC_ECN_0, "accECN0" },
+        { TCPOPT_ACC_ECN_1, "accECN1" },
+#endif /* __APPLE__ */
         { TCPOPT_EXPERIMENT2, "exp" },
         { 0, NULL }
 };
@@ -687,6 +693,16 @@ tcp_print(netdissect_options *ndo,
                                 }
                                 break;
 
+#ifdef __APPLE__
+                        case TCPOPT_ACC_ECN_0:
+                        case TCPOPT_ACC_ECN_1:
+                                datalen = len - 2;
+                                LENCHECK(datalen);
+                                ND_PRINT(" ");
+                                print_tcp_accurate_ecn_option(ndo, cp, datalen, opt);
+                                break;
+#endif /* __APPLE__ */
+
                         default:
                                 datalen = len - 2;
                                 if (datalen)
@@ -906,6 +922,34 @@ print_tcp_fastopen_option(netdissect_options *ndo, const u_char *cp,
                                 ND_PRINT("%02x", GET_U_1(cp + i));
                 }
         }
+}
+
+static void
+print_tcp_accurate_ecn_option(netdissect_options *ndo, const u_char *cp,
+                          u_int datalen, int opt)
+{
+    switch (datalen) {
+        case 0:
+            break;
+        case 3:
+            ND_PRINT("%s %u",
+                     opt == TCPOPT_ACC_ECN_0 ? "EE0B" : "EE1B", GET_BE_U_3(cp));
+            break;
+        case 5:
+            ND_PRINT("%s %u ECEB %u",
+                     opt == TCPOPT_ACC_ECN_0 ? "EE0B" : "EE1B", GET_BE_U_3(cp),
+                     GET_BE_U_3(cp + 3));
+            break;
+        case 9:
+            ND_PRINT("%s %u ECEB %u %s %u",
+                     opt == TCPOPT_ACC_ECN_0 ? "EE0B" : "EE1B", GET_BE_U_3(cp),
+                     GET_BE_U_3(cp + 3),
+                     opt == TCPOPT_ACC_ECN_0 ? "EE1B" : "EE0B", GET_BE_U_3(cp + 6));
+            break;
+        default:
+            ND_PRINT("[bad len %u]", datalen);
+            break;
+    }
 }
 
 #ifdef HAVE_LIBCRYPTO

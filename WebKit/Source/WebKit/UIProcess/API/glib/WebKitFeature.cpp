@@ -22,7 +22,6 @@
 
 #include "APIFeature.h"
 #include "WebKitFeaturePrivate.h"
-#include <wtf/Algorithms.h>
 #include <wtf/RefPtr.h>
 
 static inline WebKitFeatureStatus toFeatureStatus(API::FeatureStatus status)

@@ -107,11 +107,7 @@ struct mDNS_DNSPushServer
     mDNSs32                    lastDisconnect;    // Last time we got a disconnect, used to avoid constant reconnects.
     domainname                 serverName;        // The hostname returned by the _dns-push-tls._tcp.<zone> SRV lookup.
     mDNSIPPort                 port;              // The port from the SRV lookup.
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mdns_dns_service_t         dnsservice;
-#else
     DNSServer                 *qDNSServer;        // DNS server stolen from the question that created this server structure.
-#endif
     mDNS                      *m;
     mDNSBool                   canceling;         // Indicates if the current server is being canceled.
     DNSPushServer *next;

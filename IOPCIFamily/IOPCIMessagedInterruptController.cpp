@@ -47,13 +47,8 @@
 
 extern uint32_t gIOPCIFlags;
 
-#define DLOG(fmt, args...)                   \
-    do {                                                    \
-        if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
-            IOLog(fmt, ## args);                            \
-        if (gIOPCIFlags & kIOPCIConfiguratorKPrintf)        \
-            kprintf(fmt, ## args);                          \
-    } while(0)
+#define DLOG(facility, fmt, args...) \
+	pci_log(_domainId, facility, fmt, ## args)
 
 #if !ACPI_SUPPORT
 #define IOPCISetMSIInterrupt(a,b,c)		kIOReturnUnsupported
@@ -270,13 +265,15 @@ fail:
     return (0);
 }
 
-bool IOPCIMessagedInterruptController::init(UInt32 numVectors, UInt32 baseVector)
+bool IOPCIMessagedInterruptController::init(UInt32 numVectors, UInt32 baseVector, uint32_t domainId)
 {
     OSNumber * num;
     const OSSymbol * sym = 0;
 
     if (!super::init())
         return (false);
+
+	_domainId = domainId;
 
     _vectorCount = numVectors;
     setProperty(kVectorCountKey, _vectorCount, 32);
@@ -685,7 +682,7 @@ void IOPCIMessagedInterruptController::enableDeviceMSI(IOPCIDevice *device)
         }
         device->reserved->msiEnable++;
 
-		DLOG("[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
+		DLOG(INTERRUPT, "[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
 
         IORecursiveLockUnlock(device->reserved->lock);
     }
@@ -715,7 +712,7 @@ void IOPCIMessagedInterruptController::disableDeviceMSI(IOPCIDevice *device)
 		    device->removeProperty("IOPCIMSIMode");
 		}
 
-		DLOG("[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
+		DLOG(INTERRUPT, "[%s()] nub %s msiEnable %u\n", __func__, device->getName(), device->reserved->msiEnable);
 
 		IORecursiveLockUnlock(device->reserved->lock);
     }

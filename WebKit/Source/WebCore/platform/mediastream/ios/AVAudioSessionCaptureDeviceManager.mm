@@ -35,6 +35,7 @@
 #import "RealtimeMediaSourceCenter.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
+#import <ranges>
 #import <wtf/Assertions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
@@ -110,7 +111,10 @@ void AVAudioSessionCaptureDeviceManager::createAudioSession()
 #endif
 
     NSError *error = nil;
+    // FIXME: Stop using `AVAudioSessionCategoryOptionAllowBluetooth` as it is deprecated (rdar://145294046).
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     auto options = AVAudioSessionCategoryOptionAllowBluetooth;
+    ALLOW_DEPRECATED_DECLARATIONS_END
     [m_audioSession setCategory:AVAudioSessionCategoryPlayAndRecord mode:AVAudioSessionModeDefault options:options error:&error];
     RELEASE_LOG_ERROR_IF(error, WebRTC, "Failed to set audio session category with error: %@.", error.localizedDescription);
 
@@ -190,9 +194,9 @@ bool AVAudioSessionCaptureDeviceManager::setPreferredAudioSessionDeviceIDs()
 {
     AVAudioSessionPortDescription *preferredInputPort = nil;
     if (!m_preferredMicrophoneID.isEmpty()) {
-        NSString *nsDeviceUID = m_preferredMicrophoneID;
+        RetainPtr nsDeviceUID = m_preferredMicrophoneID.createNSString();
         for (AVAudioSessionPortDescription *portDescription in [m_audioSession availableInputs]) {
-            if ([portDescription.UID isEqualToString:nsDeviceUID]) {
+            if ([portDescription.UID isEqualToString:nsDeviceUID.get()]) {
                 preferredInputPort = portDescription;
                 break;
             }
@@ -307,12 +311,12 @@ void AVAudioSessionCaptureDeviceManager::setAudioCaptureDevices(Vector<AVAudioSe
         }
     }
 
-    std::sort(newCaptureDevices.begin(), newCaptureDevices.end(), [] (auto& first, auto& second) -> bool {
+    std::ranges::sort(newCaptureDevices, [] (auto& first, auto& second) -> bool {
         return first.isDefault() && !second.isDefault();
     });
     m_captureDevices = WTFMove(newCaptureDevices);
 
-    std::sort(newSpeakerDevices.begin(), newSpeakerDevices.end(), [] (auto& first, auto& second) -> bool {
+    std::ranges::sort(newSpeakerDevices, [] (auto& first, auto& second) -> bool {
         return first.isDefault() && !second.isDefault();
     });
     m_speakerDevices = WTFMove(newSpeakerDevices);

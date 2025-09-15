@@ -518,7 +518,7 @@ int CurlRequest::didReceiveDebugInfo(curl_infotype type, std::span<const char> d
         auto headerFields = requestHeader.split("\r\n"_s);
         // Remove the request line
         if (headerFields.size())
-            headerFields.remove(0);
+            headerFields.removeAt(0);
 
         m_requestHeaderSize = requestHeader.length();
 

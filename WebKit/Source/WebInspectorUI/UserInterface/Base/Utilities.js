@@ -42,19 +42,6 @@ function nullish(value)
     return value === null || value === undefined;
 }
 
-Object.defineProperty(Object, "shallowCopy",
-{
-    value(object)
-    {
-        // Make a new object and copy all the key/values. The values are not copied.
-        var copy = {};
-        var keys = Object.keys(object);
-        for (var i = 0; i < keys.length; ++i)
-            copy[keys[i]] = object[keys[i]];
-        return copy;
-    }
-});
-
 Object.defineProperty(Object, "shallowEqual",
 {
     value(a, b)
@@ -154,12 +141,36 @@ Object.defineProperty(Map.prototype, "getOrInitialize",
             return value;
 
         if (typeof initialValue === "function")
-            initialValue = initialValue();
+            initialValue = initialValue(key);
 
         console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
 
         this.set(key, initialValue);
         return initialValue;
+    }
+});
+
+Object.defineProperty(Map.prototype, "firstKey",
+{
+    get()
+    {
+        return this.keys().next().value;
+    }
+});
+
+Object.defineProperty(Map.prototype, "firstValue",
+{
+    get()
+    {
+        return this.values().next().value;
+    }
+});
+
+Object.defineProperty(Map.prototype, "lastKey",
+{
+    get()
+    {
+        return Array.from(this.keys()).lastValue;
     }
 });
 
@@ -174,7 +185,7 @@ Object.defineProperty(WeakMap.prototype, "getOrInitialize",
             return value;
 
         if (typeof initialValue === "function")
-            initialValue = initialValue();
+            initialValue = initialValue(key);
 
         console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
 
@@ -250,23 +261,6 @@ Object.defineProperty(Set.prototype, "equals",
     }
 });
 
-Object.defineProperty(Set.prototype, "difference",
-{
-    value(other)
-    {
-        if (other === this)
-            return new Set;
-
-        let result = new Set;
-        for (let item of this) {
-            if (!other.has(item))
-                result.add(item);
-        }
-
-        return result;
-    }
-});
-
 Object.defineProperty(Set.prototype, "firstValue",
 {
     get()
@@ -280,35 +274,6 @@ Object.defineProperty(Set.prototype, "lastValue",
     get()
     {
         return Array.from(this.values()).lastValue;
-    }
-});
-
-Object.defineProperty(Set.prototype, "intersects",
-{
-    value(other)
-    {
-        if (!this.size || !other.size)
-            return false;
-
-        for (let item of this) {
-            if (other.has(item))
-                return true;
-        }
-
-        return false;
-    }
-});
-
-Object.defineProperty(Set.prototype, "isSubsetOf",
-{
-    value(other)
-    {
-        for (let item of this) {
-            if (!other.has(item))
-                return false;
-        }
-
-        return true;
     }
 });
 

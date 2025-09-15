@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,6 +75,7 @@ public:
     BrowsingContextGroup& browsingContextGroup() { return m_browsingContextGroup.get(); }
 
     WebBackForwardCache& backForwardCache() const;
+    Ref<WebBackForwardCache> protectedBackForwardCache() const;
 
     bool pageIsClosedOrClosing() const;
 
@@ -109,13 +110,14 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
-    template<typename T> void sendToAllProcesses(T&&);
+    template<typename M> void send(M&&);
+    template<typename M, typename C> void sendWithAsyncReply(M&&, C&&);
 
     WeakPtr<WebPageProxy> m_page;
-    WebCore::PageIdentifier m_webPageID;
-    Ref<WebProcessProxy> m_process;
-    Ref<WebFrameProxy> m_mainFrame;
-    Ref<BrowsingContextGroup> m_browsingContextGroup;
+    const WebCore::PageIdentifier m_webPageID;
+    const Ref<WebProcessProxy> m_process;
+    const Ref<WebFrameProxy> m_mainFrame;
+    const Ref<BrowsingContextGroup> m_browsingContextGroup;
     WebPageProxyMessageReceiverRegistration m_messageReceiverRegistration;
     bool m_isClosed { false };
     ShouldDelayClosingUntilFirstLayerFlush m_shouldDelayClosingUntilFirstLayerFlush { ShouldDelayClosingUntilFirstLayerFlush::No };

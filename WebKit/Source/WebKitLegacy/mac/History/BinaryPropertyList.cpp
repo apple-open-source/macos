@@ -485,7 +485,7 @@ BinaryPropertyListSerializer::BinaryPropertyListSerializer(BinaryPropertyListWri
     , m_currentObjectReference(0)
 {
     auto bufferSize = m_offsetTableStart + m_plan.objectCount() * m_offsetSize + trailerSize;
-    m_buffer = unsafeMakeSpan(client.buffer(bufferSize), bufferSize);
+    m_buffer = client.buffer(bufferSize);
     ASSERT(m_objectReferenceSize > 0);
     ASSERT(m_offsetSize > 0);
 
@@ -745,26 +745,26 @@ void BinaryPropertyListSerializer::appendObjectReference(ObjectReference referen
 #ifdef __LP64__
     case 8:
         appendByte(reference >> 56);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 7:
         appendByte(reference >> 48);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 6:
         appendByte(reference >> 40);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 5:
         appendByte(reference >> 32);
-        FALLTHROUGH;
+        [[fallthrough]];
 #endif
     case 4:
         appendByte(reference >> 24);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 3:
         appendByte(reference >> 16);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 2:
         appendByte(reference >> 8);
-        FALLTHROUGH;
+        [[fallthrough]];
     case 1:
         appendByte(reference);
     }
@@ -781,26 +781,26 @@ void BinaryPropertyListSerializer::startObject()
 #ifdef __LP64__
     case 8:
         offsetTableEntry[-8] = offset >> 56;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 7:
         offsetTableEntry[-7] = offset >> 48;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 6:
         offsetTableEntry[-6] = offset >> 40;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 5:
         offsetTableEntry[-5] = offset >> 32;
-        FALLTHROUGH;
+        [[fallthrough]];
 #endif
     case 4:
         offsetTableEntry[-4] = offset >> 24;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 3:
         offsetTableEntry[-3] = offset >> 16;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 2:
         offsetTableEntry[-2] = offset >> 8;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 1:
         offsetTableEntry[-1] = offset;
     }
@@ -812,26 +812,26 @@ void BinaryPropertyListSerializer::addAggregateObjectReference(ObjectReference r
 #ifdef __LP64__
     case 8:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 56;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 7:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 48;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 6:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 40;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 5:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 32;
-        FALLTHROUGH;
+        [[fallthrough]];
 #endif
     case 4:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 24;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 3:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 16;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 2:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference >> 8;
-        FALLTHROUGH;
+        [[fallthrough]];
     case 1:
         m_buffer[--m_currentAggregateBufferByteIndex] = reference;
     }

@@ -490,7 +490,8 @@ sched_amp_qos_max_parallelism(int qos, uint64_t options)
 pset_node_t
 sched_amp_choose_node(thread_t thread)
 {
-	pset_node_t node = (recommended_pset_type(thread) == PSET_AMP_P) ? pcore_node : ecore_node;
+	pset_cluster_type_t pset_cluster_type = (recommended_pset_type(thread) == PSET_AMP_P) ? PSET_AMP_P : PSET_AMP_E;
+	pset_node_t node = pset_node_for_pset_cluster_type(pset_cluster_type);
 	return ((node != NULL) && (node->pset_map != 0)) ? node : &pset_node0;
 }
 #endif /* !CONFIG_SCHED_EDGE */

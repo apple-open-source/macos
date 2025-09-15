@@ -39,11 +39,11 @@ let AutomationSessionProxy = class AutomationSessionProxy
 
     // Public
 
-    evaluateJavaScriptFunction(functionString, argumentStrings, expectsImplicitCallbackArgument, forceUserGesture, frameID, processID, callbackID, resultCallback, callbackTimeout)
+    evaluateJavaScriptFunction(functionString, argumentStrings, expectsImplicitCallbackArgument, forceUserGesture, frameID, callbackID, resultCallback, callbackTimeout)
     {
         this._execute(functionString, argumentStrings, expectsImplicitCallbackArgument, callbackTimeout)
-            .then(result => { resultCallback(frameID, processID, callbackID, this._jsonStringify(result)); })
-            .catch(error => { resultCallback(frameID, processID, callbackID, error); });
+            .then(result => { resultCallback(frameID, callbackID, this._jsonStringify(result)); })
+            .catch(error => { resultCallback(frameID, callbackID, error); });
     }
 
     nodeForIdentifier(identifier)

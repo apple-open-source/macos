@@ -50,7 +50,7 @@ RefPtr<Clipboard> NavigatorClipboard::clipboard(Navigator& navigator)
 RefPtr<Clipboard> NavigatorClipboard::clipboard()
 {
     if (!m_clipboard)
-        m_clipboard = Clipboard::create(Ref { m_navigator.get() });
+        lazyInitialize(m_clipboard, Clipboard::create(Ref { m_navigator.get() }));
     return m_clipboard;
 }
 

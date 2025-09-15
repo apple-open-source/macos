@@ -745,8 +745,10 @@ WI.TimelineRecordingContentView = class TimelineRecordingContentView extends WI.
         this._lastUpdateTimestamp = NaN;
         this._startTimeNeedsReset = true;
 
-        this._recording.removeEventListener(WI.TimelineRecording.Event.TimesUpdated, this._recordingTimesUpdated, this);
-        this._waitingToResetCurrentTime = false;
+        if (this._waitingToResetCurrentTime) {
+            this._recording.removeEventListener(WI.TimelineRecording.Event.TimesUpdated, this._recordingTimesUpdated, this);
+            this._waitingToResetCurrentTime = false;
+        }
 
         this._timelineOverview.reset();
         this._overviewTimelineView.reset();

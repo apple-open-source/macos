@@ -53,7 +53,6 @@ public:
     static bool shouldBeHandledAsContextClick(const WebCore::PlatformMouseEvent&);
 
 #if defined(__OBJC__)
-    static OptionSet<WebKit::WebEventModifier> webEventModifiersForNSEventModifierFlags(NSEventModifierFlags);
     static NSEventModifierFlags toNSEventModifierFlags(OptionSet<WebKit::WebEventModifier>);
     static NSInteger toNSButtonNumber(WebKit::WebMouseEventButton);
 #endif

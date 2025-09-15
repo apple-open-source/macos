@@ -41,9 +41,9 @@ static const float verticalMargin = 5;
 static const float maxLabelWidthChars = 40;
 static const double minFontSize = 11;
 
-ValidationBubble::ValidationBubble(GtkWidget* webView, const String& message, const Settings& settings, ShouldNotifyFocusEventsCallback&& callback)
+ValidationBubble::ValidationBubble(GtkWidget* webView, String&& message, const Settings& settings, ShouldNotifyFocusEventsCallback&& callback)
     : m_view(webView)
-    , m_message(message)
+    , m_message(WTFMove(message))
     , m_fontSize(std::max(settings.minimumFontSize, minFontSize))
     , m_shouldNotifyFocusEventsCallback(WTFMove(callback))
 {

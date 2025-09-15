@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,7 +88,7 @@ void BreakBlockquoteCommand::doApply()
             return lineBreak;
 
         auto container = HTMLDivElement::create(document());
-        container->setDir(autoAtom());
+        container->setAttributeWithoutSynchronization(dirAttr, autoAtom());
         container->appendChild(lineBreak);
         return container;
     }();
@@ -124,7 +124,7 @@ void BreakBlockquoteCommand::doApply()
         pos = pos.previous();
     
     // startNode is the first node that we need to move to the new blockquote.
-    auto startNode = pos.protectedDeprecatedNode();
+    RefPtr startNode = pos.deprecatedNode();
     ASSERT(startNode);
     // Split at pos if in the middle of a text node.
     if (RefPtr textNode = dynamicDowncast<Text>(*startNode)) {
@@ -152,7 +152,7 @@ void BreakBlockquoteCommand::doApply()
         ancestors.append(node.copyRef());
     
     // Insert a clone of the top blockquote after the break.
-    auto clonedBlockquote = topBlockquote->cloneElementWithoutChildren(document());
+    auto clonedBlockquote = topBlockquote->cloneElementWithoutChildren(document(), nullptr);
     insertNodeAfter(clonedBlockquote.copyRef(), breakNode);
     
     // Clone startNode's ancestors into the cloned blockquote.
@@ -161,7 +161,7 @@ void BreakBlockquoteCommand::doApply()
     // or clonedBlockquote if ancestors is empty).
     RefPtr<Element> clonedAncestor = clonedBlockquote.copyRef();
     for (size_t i = ancestors.size(); i != 0; --i) {
-        auto clonedChild = ancestors[i - 1]->cloneElementWithoutChildren(document());
+        auto clonedChild = ancestors[i - 1]->cloneElementWithoutChildren(document(), nullptr);
         // Preserve list item numbering in cloned lists.
         if (clonedChild->isElementNode() && clonedChild->hasTagName(olTag)) {
             RefPtr<Node> listChildNode = i > 1 ? ancestors[i - 2].get() : startNode.get();

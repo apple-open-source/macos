@@ -61,14 +61,13 @@ public:
         if (!m_persistentRef)
             return nullptr;
 
-        CFDataRef data = m_persistentRef.get();
         // SecKeychainItemCopyFromPersistentReference() cannot handle 0-length CFDataRefs.
-        if (!CFDataGetLength(data))
+        if (!CFDataGetLength(m_persistentRef.get()))
             return nullptr;
 
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        SecKeychainItemRef keychainItem = NULL;
-        SecKeychainItemCopyFromPersistentReference(data, &keychainItem);
+        SUPPRESS_UNRETAINED_LOCAL SecKeychainItemRef keychainItem = NULL;
+        SecKeychainItemCopyFromPersistentReference(m_persistentRef.get(), &keychainItem);
         ALLOW_DEPRECATED_DECLARATIONS_END
         return adoptCF(keychainItem);
     }
@@ -89,14 +88,14 @@ private:
             return nullptr;
 
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        CFDataRef data = NULL;
+        SUPPRESS_UNRETAINED_LOCAL CFDataRef data = NULL;
         SecKeychainItemCreatePersistentReference(keychainItem, &data);
         ALLOW_DEPRECATED_DECLARATIONS_END
 
         return adoptCF(data);
     }
 
-    RetainPtr<CFDataRef> m_persistentRef;
+    const RetainPtr<CFDataRef> m_persistentRef;
 };
 
 } // namespace WebKit

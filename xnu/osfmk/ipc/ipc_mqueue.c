@@ -93,30 +93,27 @@
 #include <ipc/ipc_pset.h>
 #include <ipc/ipc_space.h>
 
-#if MACH_FLIPC
-#include <ipc/flipc.h>
-#endif
-
 #ifdef __LP64__
 #include <vm/vm_map.h>
 #endif
 
 #include <sys/event.h>
 
-extern char     *proc_name_address(void *p);
+const bool ipc_mqueue_full;            /* address is event for queue space */
 
-int ipc_mqueue_full;            /* address is event for queue space */
-int ipc_mqueue_rcv;             /* address is event for message arrival */
+KALLOC_TYPE_DEFINE(mqueue_zone, struct ipc_mqueue, KT_DEFAULT);
 
 /* forward declarations */
 static void ipc_mqueue_receive_results(wait_result_t result);
 
-#if MACH_FLIPC
-static void ipc_mqueue_peek_on_thread_locked(
-	ipc_mqueue_t        port_mq,
-	mach_msg_option64_t option,
-	thread_t            thread);
-#endif /* MACH_FLIPC */
+static void ipc_mqueue_select_on_thread_locked(
+	ipc_mqueue_t            mqueue,
+	mach_msg_option64_t     option64,
+	thread_t                thread);
+
+/* Clear a message count reservation */
+static void ipc_mqueue_release_msgcount(
+	ipc_mqueue_t            mqueue);
 
 /* Deliver message to message queue or waiting receiver */
 static void ipc_mqueue_post(
@@ -265,19 +262,6 @@ ipc_mqueue_add_locked(
 		 * go look for another thread that can.
 		 */
 		if (th->ith_state != MACH_RCV_IN_PROGRESS) {
-#if MACH_FLIPC
-			if (th->ith_state == MACH_PEEK_IN_PROGRESS) {
-				/*
-				 * wakeup the peeking thread, but
-				 * continue to loop over the threads
-				 * waiting on the port's mqueue to see
-				 * if there are any actual receivers
-				 */
-				ipc_mqueue_peek_on_thread_locked(port_mqueue,
-				    th->ith_option, th);
-			}
-#endif /* MACH_FLIPC */
-
 			waitq_resume_identified_thread(wqset, th,
 			    THREAD_AWAKENED, WAITQ_WAKEUP_DEFAULT);
 			continue;
@@ -323,10 +307,6 @@ ipc_mqueue_add_locked(
 		 */
 		ipc_kmsg_rmqueue(kmsgq, kmsg);
 
-#if MACH_FLIPC
-		mach_node_t  node = kmsg->ikm_node;
-#endif
-
 		ipc_mqueue_release_msgcount(port_mqueue);
 
 		th->ith_kmsg = kmsg;
@@ -334,12 +314,6 @@ ipc_mqueue_add_locked(
 
 		waitq_resume_identified_thread(wqset, th,
 		    THREAD_AWAKENED, WAITQ_WAKEUP_DEFAULT);
-
-#if MACH_FLIPC
-		if (MACH_NODE_VALID(node) && FPORT_VALID(port_mqueue->imq_fport)) {
-			flipc_msg_ack(node, port_mqueue, TRUE);
-		}
-#endif
 	}
 
 	return KERN_SUCCESS;
@@ -354,14 +328,14 @@ ipc_mqueue_add_locked(
 bool
 ipc_port_has_klist(ipc_port_t port)
 {
-	return !port->ip_specialreply &&
+	return !ip_is_special_reply_port(port) &&
 	       port->ip_sync_link_state == PORT_SYNC_LINK_ANY;
 }
 
 static inline struct klist *
 ipc_object_klist(ipc_object_t object)
 {
-	if (io_otype(object) == IOT_PORT) {
+	if (io_is_any_port(object)) {
 		ipc_port_t port = ip_object_to_port(object);
 
 		return ipc_port_has_klist(port) ? &port->ip_klist : NULL;
@@ -415,9 +389,9 @@ ipc_mqueue_changed(
 		knote_vanish(klist, is_active(space));
 	}
 
-	if (io_otype(object) == IOT_PORT) {
+	if (io_is_any_port(object)) {
 		ipc_port_t port = ip_object_to_port(object);
-		if (!port->ip_specialreply) {
+		if (!ip_is_special_reply_port(port)) {
 			ipc_port_adjust_sync_link_state_locked(port,
 			    PORT_SYNC_LINK_ANY, NULL);
 		}
@@ -609,7 +583,7 @@ ipc_mqueue_override_send_locked(
  *		There is no need to pass reserved preposts because this will
  *		never prepost to anyone
  */
-void
+static void
 ipc_mqueue_release_msgcount(ipc_mqueue_t port_mq)
 {
 	ipc_port_t port = ip_from_mq(port_mq);
@@ -737,26 +711,6 @@ ipc_mqueue_post(
 			break;
 		}
 
-#if MACH_FLIPC
-		/*
-		 * If a thread is attempting a "peek" into the message queue
-		 * (MACH_PEEK_IN_PROGRESS), then we enqueue the message and set the
-		 * thread running.  A successful peek is essentially the same as
-		 * message delivery since the peeking thread takes responsibility
-		 * for delivering the message and (eventually) removing it from
-		 * the mqueue.  Only one thread can successfully use the peek
-		 * facility on any given port, so we exit the waitq loop after
-		 * encountering such a thread.
-		 */
-		if (receiver->ith_state == MACH_PEEK_IN_PROGRESS && mqueue->imq_msgcount > 0) {
-			ipc_kmsg_enqueue_qos(&mqueue->imq_messages, kmsg);
-			ipc_mqueue_peek_on_thread_locked(mqueue, receiver->ith_option, receiver);
-			waitq_resume_identified_thread(waitq, receiver,
-			    THREAD_AWAKENED, WAITQ_WAKEUP_DEFAULT);
-			break; /* Message was posted, so break out of loop */
-		}
-#endif /* MACH_FLIPC */
-
 		/*
 		 * If the receiver waited with a facility not directly related
 		 * to Mach messaging, then it isn't prepared to get handed the
@@ -798,20 +752,12 @@ ipc_mqueue_post(
 		    !(receiver->ith_option & MACH_RCV_LARGE)) {
 			receiver->ith_kmsg = kmsg;
 			receiver->ith_seqno = mqueue->imq_seqno++;
-#if MACH_FLIPC
-			mach_node_t node = kmsg->ikm_node;
-#endif
+
 			waitq_resume_identified_thread(waitq, receiver,
 			    THREAD_AWAKENED, WAITQ_WAKEUP_DEFAULT);
 
 			/* we didn't need our reserved spot in the queue */
 			ipc_mqueue_release_msgcount(mqueue);
-
-#if MACH_FLIPC
-			if (MACH_NODE_VALID(node) && FPORT_VALID(mqueue->imq_fport)) {
-				flipc_msg_ack(node, mqueue, TRUE);
-			}
-#endif
 			break;
 		}
 
@@ -886,11 +832,6 @@ ipc_mqueue_receive_results(wait_result_t saved_wait_result)
 			return;
 		case MACH_MSG_SUCCESS:
 			return;
-#if MACH_FLIPC
-		case MACH_PEEK_READY:
-			return;
-#endif /* MACH_FLIPC */
-
 		default:
 			panic("ipc_mqueue_receive_results: strange ith_state %d", self->ith_state);
 		}
@@ -900,10 +841,8 @@ ipc_mqueue_receive_results(wait_result_t saved_wait_result)
 	}
 }
 
-void
-ipc_mqueue_receive_continue(
-	__unused void *param,
-	wait_result_t wresult)
+static void
+ipc_mqueue_receive_continue(__unused void *param, wait_result_t wresult)
 {
 	ipc_mqueue_receive_results(wresult);
 	mach_msg_receive_continue();  /* hard-coded for now */
@@ -1000,11 +939,6 @@ ipc_mqueue_receive_on_thread_and_unlock(
 		 *
 		 * Might drop the pset lock temporarily.
 		 */
-#if MACH_FLIPC
-		if (option64 & MACH64_PEEK_MSG) {
-			wqs_flags |= WQS_PREPOST_PEEK;
-		}
-#endif /* MACH_FLIPC */
 		port_wq = waitq_set_first_prepost(&pset->ips_wqset, wqs_flags);
 
 		/* Returns with port locked */
@@ -1032,16 +966,8 @@ ipc_mqueue_receive_on_thread_and_unlock(
 	}
 
 	if (port) {
-#if MACH_FLIPC
-		if (option64 & MACH64_PEEK_MSG) {
-			ipc_mqueue_peek_on_thread_locked(&port->ip_messages,
-			    option64, thread);
-		} else
-#endif /* MACH_FLIPC */
-		{
-			ipc_mqueue_select_on_thread_locked(&port->ip_messages,
-			    option64, thread);
-		}
+		ipc_mqueue_select_on_thread_locked(&port->ip_messages,
+		    option64, thread);
 		ip_mq_unlock(port);
 		return THREAD_NOT_WAITING;
 	}
@@ -1069,11 +995,6 @@ ipc_mqueue_receive_on_thread_and_unlock(
 	}
 
 	thread->ith_state = MACH_RCV_IN_PROGRESS;
-#if MACH_FLIPC
-	if (option64 & MACH64_PEEK_MSG) {
-		thread->ith_state = MACH_PEEK_IN_PROGRESS;
-	}
-#endif /* MACH_FLIPC */
 
 	if (option64 & MACH_RCV_TIMEOUT) {
 		clock_interval_to_deadline(rcv_timeout, 1000 * NSEC_PER_USEC, &deadline);
@@ -1149,40 +1070,6 @@ ipc_mqueue_receive_on_thread_and_unlock(
 	return wresult;
 }
 
-#if MACH_FLIPC
-/*
- *	Routine:	ipc_mqueue_peek_on_thread_locked
- *	Purpose:
- *		A receiver discovered that there was a message on the queue
- *		before he had to block. Tell a thread about the message queue,
- *		but don't pick off any messages.
- *	Conditions:
- *		port_mq locked
- *		at least one message on port_mq's message queue
- *
- *	Returns: (on thread->ith_state)
- *		MACH_PEEK_READY		ith_peekq contains a message queue
- */
-void
-ipc_mqueue_peek_on_thread_locked(
-	ipc_mqueue_t        port_mq,
-	__assert_only mach_msg_option64_t option64,
-	thread_t            thread)
-{
-	assert(option64 & MACH64_PEEK_MSG);
-	assert(ipc_kmsg_queue_first(&port_mq->imq_messages) != IKM_NULL);
-
-	/*
-	 * Take a reference on the mqueue's associated port:
-	 * the peeking thread will be responsible to release this reference
-	 */
-	ip_validate(ip_from_mq(port_mq));
-	ip_reference(ip_from_mq(port_mq));
-	thread->ith_peekq = port_mq;
-	thread->ith_state = MACH_PEEK_READY;
-}
-#endif /* MACH_FLIPC */
-
 /*
  *	Routine:	ipc_mqueue_select_on_thread_locked
  *	Purpose:
@@ -1199,7 +1086,7 @@ ipc_mqueue_peek_on_thread_locked(
  *		MACH_MSG_SUCCESS	Actually selected a message for ourselves.
  *		MACH_RCV_TOO_LARGE  May or may not have pull it, but it is large
  */
-void
+static void
 ipc_mqueue_select_on_thread_locked(
 	ipc_mqueue_t            port_mq,
 	mach_msg_option64_t     options,
@@ -1243,11 +1130,6 @@ ipc_mqueue_select_on_thread_locked(
 	}
 
 	ipc_kmsg_rmqueue(&port_mq->imq_messages, kmsg);
-#if MACH_FLIPC
-	if (MACH_NODE_VALID(kmsg->ikm_node) && FPORT_VALID(port_mq->imq_fport)) {
-		flipc_msg_ack(kmsg->ikm_node, port_mq, TRUE);
-	}
-#endif
 	ipc_mqueue_release_msgcount(port_mq);
 	thread->ith_seqno = port_mq->imq_seqno++;
 	thread->ith_kmsg = kmsg;
@@ -1345,76 +1227,6 @@ out:
 
 
 /*
- *	Routine:	ipc_mqueue_peek
- *	Purpose:
- *		Peek at a (non-set) message queue to see if it has a message
- *		matching the sequence number provided (if zero, then the
- *		first message in the queue) and return vital info about the
- *		message.
- *
- *	Conditions:
- *		The ipc_mqueue_t is unlocked.
- *		Locks may be held by callers, so this routine cannot block.
- *		Caller holds reference on the message queue.
- */
-unsigned
-ipc_mqueue_peek(ipc_mqueue_t mq,
-    mach_port_seqno_t * seqnop,
-    mach_msg_size_t * msg_sizep,
-    mach_msg_id_t * msg_idp,
-    mach_msg_max_trailer_t * msg_trailerp,
-    ipc_kmsg_t *kmsgp)
-{
-	ipc_port_t port = ip_from_mq(mq);
-	unsigned res;
-
-	ip_mq_lock(port);
-
-	res = ipc_mqueue_peek_locked(mq, seqnop, msg_sizep, msg_idp,
-	    msg_trailerp, kmsgp);
-
-	ip_mq_unlock(port);
-	return res;
-}
-
-#if MACH_FLIPC
-/*
- *	Routine:	ipc_mqueue_release_peek_ref
- *	Purpose:
- *		Release the reference on an mqueue's associated port which was
- *		granted to a thread in ipc_mqueue_peek_on_thread (on the
- *		MACH64_PEEK_MSG thread wakeup path).
- *
- *	Conditions:
- *		The ipc_mqueue_t should be locked on entry.
- *		The ipc_mqueue_t will be _unlocked_ on return
- *			(and potentially invalid!)
- *
- */
-void
-ipc_mqueue_release_peek_ref(ipc_mqueue_t mqueue)
-{
-	ipc_port_t port = ip_from_mq(mqueue);
-
-	ip_mq_lock_held(port);
-
-	/*
-	 * clear any preposts this mq may have generated
-	 * (which would cause subsequent immediate wakeups)
-	 */
-	waitq_clear_prepost_locked(&port->ip_waitq);
-
-	ip_mq_unlock(port);
-
-	/*
-	 * release the port reference: we need to do this outside the lock
-	 * because we might be holding the last port reference!
-	 **/
-	ip_release(port);
-}
-#endif /* MACH_FLIPC */
-
-/*
  *	Routine:	ipc_mqueue_destroy_locked
  *	Purpose:
  *		Destroy a message queue.
@@ -1443,17 +1255,6 @@ ipc_mqueue_destroy_locked(ipc_mqueue_t mqueue, waitq_link_list_t *free_l)
 		    IPC_MQUEUE_FULL,
 		    THREAD_RESTART, WAITQ_WAKEUP_DEFAULT);
 	}
-
-#if MACH_FLIPC
-	ipc_kmsg_t kmsg;
-
-	cqe_foreach_element_safe(kmsg, &mqueue->imq_messages, ikm_link) {
-		if (MACH_NODE_VALID(kmsg->ikm_node) &&
-		    FPORT_VALID(mqueue->imq_fport)) {
-			flipc_msg_ack(kmsg->ikm_node, mqueue, TRUE);
-		}
-	}
-#endif
 
 	/*
 	 * Move messages from the specified queue to the per-thread
@@ -1589,7 +1390,7 @@ ipc_mqueue_copyin(
 	} else {
 		io_unlock(object);
 		/* guard exception if we never held the receive right in this entry */
-		if ((bits & MACH_PORT_TYPE_EX_RECEIVE) == 0) {
+		if ((bits & IE_BITS_EX_RECEIVE) == 0) {
 			mach_port_guard_exception(name, 0, kGUARD_EXC_RCV_INVALID_NAME);
 		}
 		return MACH_RCV_INVALID_NAME;

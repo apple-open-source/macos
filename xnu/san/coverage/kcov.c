@@ -94,7 +94,6 @@ static void
 kcov_init(void)
 {
 	/* Master CPU is fully setup at this point so just enable coverage tracking. */
-	printf("KCOV: Enabling coverage tracking on cpu %d\n", cpu_number());
 	ksancov_init();
 	current_kcov_data()->kcd_enabled = 1;
 }
@@ -166,6 +165,64 @@ kcov_init_thread(kcov_thread_data_t *data)
 	kcov_stksz_init_thread(&data->ktd_stksz);
 }
 
+/* Shared prologue between trace functions */
+static kcov_thread_data_t *
+trace_prologue(void)
+{
+	/* Check the global flag for the case no recording is enabled. */
+	if (__probable(os_atomic_load(&kcov_enabled, relaxed) == 0)) {
+		return NULL;
+	}
+
+	/*
+	 * rdar://145659776
+	 * If PAN is disabled we cannot safely re-enable preemption after disabling it.
+	 * The proper way to do this in a generic way is to check here for PAN and bail ot
+	 * if (__improbable(__builtin_arm_rsr("pan") == 0))
+	 *
+	 * The issue with this solution is the performance cost of reading the MSR for each
+	 * trace point, so PAN disabled functions are included in the baclklist instead
+	 * (see kcov-blacklist-arm64).
+	 */
+
+	/* Per-cpu area access. Must happen with disabled interrupts/preemtion. */
+	disable_preemption();
+
+	if (!current_kcov_data()->kcd_enabled) {
+		enable_preemption();
+		return NULL;
+	}
+
+	/* No support for PPL. */
+	if (pmap_in_ppl()) {
+		enable_preemption();
+		return NULL;
+	}
+	/* Interrupt context not supported. */
+	if (ml_at_interrupt_context()) {
+		enable_preemption();
+		return NULL;
+	}
+
+	thread_t th = current_thread();
+	if (__improbable(th == THREAD_NULL)) {
+		enable_preemption();
+		return NULL;
+	}
+
+	/* This thread does not want to be traced. */
+	kcov_thread_data_t *data = kcov_get_thread_data(th);
+	if (__improbable(data->ktd_disabled) != 0) {
+		enable_preemption();
+		return NULL;
+	}
+
+	/* Enable preemption as we are no longer accessing per-cpu data. */
+	enable_preemption();
+
+	return data;
+}
+
 /*
  * This is the core of the coverage recording.
  *
@@ -185,45 +242,10 @@ trace_pc_guard(uint32_t __unused *guardp, void __unused *caller, uintptr_t __unu
 {
 	kcov_ksancov_trace_guard(guardp, caller);
 
-	/* Check the global flag for the case no recording is enabled. */
-	if (__probable(os_atomic_load(&kcov_enabled, relaxed) == 0)) {
+	kcov_thread_data_t *data = trace_prologue();
+	if (data == NULL) {
 		return;
 	}
-
-	/* Per-cpu area access. Must happen with disabled interrupts/preemtion. */
-	disable_preemption();
-
-	if (!current_kcov_data()->kcd_enabled) {
-		enable_preemption();
-		return;
-	}
-
-	/* No support for PPL. */
-	if (pmap_in_ppl()) {
-		enable_preemption();
-		return;
-	}
-	/* Interrupt context not supported. */
-	if (ml_at_interrupt_context()) {
-		enable_preemption();
-		return;
-	}
-
-	thread_t th = current_thread();
-	if (__improbable(th == THREAD_NULL)) {
-		enable_preemption();
-		return;
-	}
-
-	/* This thread does not want to record stack usage. */
-	kcov_thread_data_t *data = kcov_get_thread_data(th);
-	if (__improbable(data->ktd_disabled) != 0) {
-		enable_preemption();
-		return;
-	}
-
-	/* Enable preemption as we are no longer accessing per-cpu data. */
-	enable_preemption();
 
 	/* It is now safe to call back to kernel from this thread without recursing in the hook itself. */
 	kcov_disable_thread(data);
@@ -276,4 +298,115 @@ void
 __sanitizer_cov_pcs_init(uintptr_t __unused *start, uintptr_t __unused *stop)
 {
 	kcov_ksancov_pcs_init(start, stop);
+}
+
+static void
+trace_cmp(uint32_t __unused type, uint64_t __unused arg1, uint64_t __unused arg2, void __unused *caller)
+{
+	kcov_thread_data_t *data = trace_prologue();
+	if (data == NULL) {
+		return;
+	}
+
+	/* It is now safe to call back to kernel from this thread without recursing in the hook itself. */
+	kcov_disable_thread(data);
+
+	kcov_ksancov_trace_cmp(data, type, arg1, arg2, caller);
+
+	kcov_enable_thread(data);
+}
+
+void
+__sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE1, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE2, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE4, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE8, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE1 | KCOV_CMP_CONST, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE2 | KCOV_CMP_CONST, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE4 | KCOV_CMP_CONST, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2)
+{
+	trace_cmp(KCOV_CMP_SIZE8 | KCOV_CMP_CONST, arg1, arg2, __builtin_return_address(0));
+}
+
+void
+__sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases)
+{
+	void *ret = __builtin_return_address(0);
+
+	uint32_t type;
+	switch (cases[1]) {
+	case 8:
+		type = KCOV_CMP_SIZE1 | KCOV_CMP_CONST;
+		break;
+	case 16:
+		type = KCOV_CMP_SIZE2 | KCOV_CMP_CONST;
+		break;
+	case 32:
+		type = KCOV_CMP_SIZE4 | KCOV_CMP_CONST;
+		break;
+	case 64:
+		type = KCOV_CMP_SIZE8 | KCOV_CMP_CONST;
+		break;
+	default:
+		return;
+	}
+
+	uint64_t i;
+	uint64_t count = cases[0];
+
+	for (i = 0; i < count; i++) {
+		trace_cmp(type, cases[i + 2], val, ret);
+	}
+}
+
+void
+kcov_trace_cmp_func(void *caller_pc, uint32_t type, const void *s1, size_t s1len, const void *s2, size_t s2len, bool always_log)
+{
+	kcov_thread_data_t *data = trace_prologue();
+	if (data == NULL) {
+		return;
+	}
+
+	/* It is now safe to call back to kernel from this thread without recursing in the hook itself. */
+	kcov_disable_thread(data);
+
+	kcov_ksancov_trace_cmp_func(data, type, s1, s1len, s2, s2len, caller_pc, always_log);
+
+	kcov_enable_thread(data);
 }

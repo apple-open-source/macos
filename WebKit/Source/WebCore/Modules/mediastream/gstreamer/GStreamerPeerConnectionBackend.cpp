@@ -23,6 +23,7 @@
 #if USE(GSTREAMER_WEBRTC)
 
 #include "Document.h"
+#include "ExceptionOr.h"
 #include "GStreamerCommon.h"
 #include "GStreamerMediaEndpoint.h"
 #include "GStreamerRtpReceiverBackend.h"
@@ -72,18 +73,18 @@ WebRTCLogObserver& webrtcLogObserverSingleton()
 }
 #endif // GST_DISABLE_GST_DEBUG
 
-static std::unique_ptr<PeerConnectionBackend> createGStreamerPeerConnectionBackend(RTCPeerConnection& peerConnection)
+static const std::unique_ptr<PeerConnectionBackend> createGStreamerPeerConnectionBackend(RTCPeerConnection& peerConnection)
 {
     ensureGStreamerInitialized();
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
         GST_DEBUG_CATEGORY_INIT(webkit_webrtc_pc_backend_debug, "webkitwebrtcpeerconnection", 0, "WebKit WebRTC PeerConnection");
     });
-    if (!isGStreamerPluginAvailable("webrtc")) {
+    if (!isGStreamerPluginAvailable("webrtc"_s)) {
         WTFLogAlways("GstWebRTC plugin not found. Make sure to install gst-plugins-bad >= 1.20 with the webrtc plugin enabled.");
         return nullptr;
     }
-    return WTF::makeUniqueWithoutRefCountedCheck<GStreamerPeerConnectionBackend>(peerConnection);
+    return WTF::makeUniqueWithoutRefCountedCheck<GStreamerPeerConnectionBackend, PeerConnectionBackend>(peerConnection);
 }
 
 CreatePeerConnectionBackend PeerConnectionBackend::create = createGStreamerPeerConnectionBackend;

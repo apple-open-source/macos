@@ -306,7 +306,7 @@ public:
 	vm_tag_t _kernelTag;
 	vm_tag_t _userTag;
 	int16_t _dmaReferences;
-	uint16_t _internalFlags;
+	uint16_t _internalIOMDFlags;
 	kern_allocation_name_t _mapName;
 protected:
 #else /* XNU_KERNEL_PRIVATE */
@@ -390,6 +390,20 @@ public:
 
 	IOReturn getPageCounts( IOByteCount * residentPageCount,
 	    IOByteCount * dirtyPageCount);
+
+#if KERNEL_PRIVATE
+#define IOMEMORYDESCRIPTOR_GETPAGECOUNTS_SUPPORTS_SWAPPED 1
+#endif
+/*! @function getPageCounts
+ *   @abstract Retrieve the number of resident, dirty, and swapped pages encompassed by an IOMemoryDescriptor.
+ *   @param residentPageCount - If non-null, a pointer to a byte count that will return the number of resident pages encompassed by this IOMemoryDescriptor.
+ *   @param dirtyPageCount - If non-null, a pointer to a byte count that will return the number of resident, dirty pages encompassed by this IOMemoryDescriptor.
+ *   @param swappedPageCount - If non-null, a pointer to a byte count that will return the number of swapped pages encompassed by this IOMemoryDescriptor.
+ *   @result An IOReturn code. */
+
+	IOReturn getPageCounts( IOByteCount * residentPageCount,
+	    IOByteCount * dirtyPageCount,
+	    IOByteCount * swappedPageCount );
 
 /*! @function performOperation
  *   @abstract Perform an operation on the memory descriptor's memory.
@@ -846,13 +860,25 @@ public:
  *   @discussion This method returns the context for the memory descriptor. The context is not interpreted by IOMemoryDescriptor.
  *   @result The context, returned with an additional retain to be released by the caller. */
 	OSObject * copyContext(void) const;
+#ifdef XNU_KERNEL_PRIVATE
+	OSObject * copyContext(const OSSymbol * key) const;
+	OSObject * copyContext(const char * key) const;
+	OSObject * copySharingContext(const char * key) const;
+#endif /* XNU_KERNEL_PRIVATE */
 
 /*! @function setContext
  *   @abstract Set a context object for the memory descriptor. The context is not interpreted by IOMemoryDescriptor.
  *   @discussion The context is retained, and will be released when the memory descriptor is freed or when a new context object is set.
  */
 	void setContext(OSObject * context);
-#endif
+#ifdef XNU_KERNEL_PRIVATE
+	void setContext(const OSSymbol * key, OSObject * context);
+	void setContext(const char * key, OSObject * context);
+	void setSharingContext(const char * key, OSObject * context);
+	bool hasSharingContext(void);
+
+#endif /* XNU_KERNEL_PRIVATE */
+#endif /* KERNEL_PRIVATE */
 
 protected:
 	virtual void                addMapping(
@@ -1155,7 +1181,8 @@ public:
 	static IOReturn memoryReferenceGetPageCounts(
 		IOMemoryReference * ref,
 		IOByteCount       * residentPageCount,
-		IOByteCount       * dirtyPageCount);
+		IOByteCount       * dirtyPageCount,
+		IOByteCount       * swappedPageCount);
 
 	static uint64_t memoryReferenceGetDMAMapLength(
 		IOMemoryReference * ref,

@@ -272,7 +272,7 @@ UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayer
                     return scrollView;
             }
 
-            scrollersToSkip.add(node->stationaryScrollContainerIDs().begin(), node->stationaryScrollContainerIDs().end());
+            scrollersToSkip.addAll(node->stationaryScrollContainerIDs());
         }
     }
     return nil;
@@ -386,6 +386,46 @@ static Class scrollViewScrollIndicatorClass()
 + (Class)layerClass
 {
     return PAL::getMTMaterialLayerClass();
+}
+
+@end
+
+#endif
+
+#if HAVE(MATERIAL_HOSTING)
+
+@implementation WKMaterialHostingView {
+    RetainPtr<UIView> _hostingView;
+    RetainPtr<UIView> _contentView;
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    if (!self)
+        return nil;
+
+    _contentView = adoptNS([[UIView alloc] init]);
+    _hostingView = [WKMaterialHostingSupport hostingView:_contentView.get()];
+
+    [self addSubview:_hostingView.get()];
+
+    return self;
+}
+
+- (UIView *)contentView
+{
+    return _contentView.get();
+}
+
+- (void)updateHostingSize:(WebCore::FloatSize)size
+{
+    [_hostingView setFrame:CGRectMake(0, 0, size.width(), size.height())];
+}
+
+- (void)updateMaterialEffectType:(WKHostedMaterialEffectType)materialEffectType colorScheme:(WKHostedMaterialColorScheme)colorScheme cornerRadius:(CGFloat)cornerRadius
+{
+    [WKMaterialHostingSupport updateHostingView:_hostingView.get() contentView:_contentView.get() materialEffectType:materialEffectType colorScheme:colorScheme cornerRadius:cornerRadius];
 }
 
 @end

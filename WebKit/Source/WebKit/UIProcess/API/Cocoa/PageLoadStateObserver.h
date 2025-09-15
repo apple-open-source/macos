@@ -25,21 +25,21 @@
 
 #import "PageLoadState.h"
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/ThreadSafeRefCounted.h>
 #import <wtf/WeakObjCPtr.h>
 
 namespace WebKit {
 
-class PageLoadStateObserver : public PageLoadState::Observer {
+class PageLoadStateObserver : public ThreadSafeRefCounted<PageLoadStateObserver>, public PageLoadState::Observer {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(PageLoadStateObserver);
 public:
-    PageLoadStateObserver(id object, NSString *activeURLKey = @"activeURL")
-        : m_object(object)
-        , m_activeURLKey(adoptNS([activeURLKey copy]))
+    static Ref<PageLoadStateObserver> create(id object, NSString *activeURLKey = @"activeURL")
     {
+        return adoptRef(*new PageLoadStateObserver(object, activeURLKey));
     }
 
-    void ref() const final;
-    void deref() const final;
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
 
     void clearObject()
     {
@@ -47,6 +47,12 @@ public:
     }
 
 private:
+    PageLoadStateObserver(id object, NSString *activeURLKey)
+        : m_object(object)
+        , m_activeURLKey(adoptNS([activeURLKey copy]))
+    {
+    }
+
     void willChangeIsLoading() override
     {
         [m_object.get() willChangeValueForKey:@"loading"];

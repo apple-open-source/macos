@@ -452,6 +452,22 @@ os_ref_release_live_mask(os_ref_atomic_t *rc, uint32_t b, struct os_refgrp *grp)
 	os_ref_release_live_raw_mask(rc, b, grp);
 }
 
+static inline uint32_t
+os_ref_release_last_raw_mask(os_ref_atomic_t *rc, uint32_t b, struct os_refgrp *grp)
+{
+	uint32_t val = os_ref_release_barrier_mask_internal(rc, 1u << b, grp);
+	if (__improbable(val >> b != 0)) {
+		os_ref_panic_last(rc);
+	}
+	return val;
+}
+
+static inline void
+os_ref_release_last_mask(os_ref_atomic_t *rc, uint32_t b, struct os_refgrp *grp)
+{
+	os_ref_release_last_raw_mask(rc, b, grp);
+}
+
 #if !OS_REFCNT_DEBUG
 /* remove the group argument for non-debug */
 #define os_ref_init_count_mask(rc, b, grp, init_c, init_b) (os_ref_init_count_mask)(rc, b, NULL, init_c, init_b)
@@ -462,9 +478,11 @@ os_ref_release_live_mask(os_ref_atomic_t *rc, uint32_t b, struct os_refgrp *grp)
 #define os_ref_release_mask(rc, b, grp) (os_ref_release_mask)((rc), (b), NULL)
 #define os_ref_release_relaxed_mask(rc, b, grp) (os_ref_release_relaxed_mask)((rc), (b), NULL)
 #define os_ref_release_raw_mask(rc, b, grp) (os_ref_release_raw_mask)((rc), (b), NULL)
-#define os_ref_release_relaxed_raw_mask(rc, b, grp) (os_ref_release_relaxed_raw_mask)((rc), (b), NULL)
+#define os_ref_release_raw_relaxed_mask(rc, b, grp) (os_ref_release_raw_relaxed_mask)((rc), (b), NULL)
 #define os_ref_release_live_raw_mask(rc, b, grp) (os_ref_release_live_raw_mask)((rc), (b), NULL)
 #define os_ref_release_live_mask(rc, b, grp) (os_ref_release_live_mask)((rc), (b), NULL)
+#define os_ref_release_last_raw_mask(rc, b, grp) (os_ref_release_last_raw_mask)((rc), (b), NULL)
+#define os_ref_release_last_mask(rc, b, grp) (os_ref_release_last_mask)((rc), (b), NULL)
 #endif
 
 #pragma GCC visibility pop

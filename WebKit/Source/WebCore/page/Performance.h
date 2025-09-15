@@ -35,11 +35,11 @@
 #include "ContextDestructionObserver.h"
 #include "DOMHighResTimeStamp.h"
 #include "EventTarget.h"
-#include "ExceptionOr.h"
+#include "EventTargetInterfaces.h"
 #include "ReducedResolutionSeconds.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
-#include <variant>
+#include <wtf/ContinuousTime.h>
 #include <wtf/ListHashSet.h>
 
 namespace JSC {
@@ -67,6 +67,7 @@ class ResourceTiming;
 class ScriptExecutionContext;
 struct PerformanceMarkOptions;
 struct PerformanceMeasureOptions;
+template<typename> class ExceptionOr;
 
 class Performance final : public RefCounted<Performance>, public ContextDestructionObserver, public EventTarget {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Performance);
@@ -92,7 +93,7 @@ public:
     ExceptionOr<Ref<PerformanceMark>> mark(JSC::JSGlobalObject&, const String& markName, std::optional<PerformanceMarkOptions>&&);
     void clearMarks(const String& markName);
 
-    using StartOrMeasureOptions = std::variant<String, PerformanceMeasureOptions>;
+    using StartOrMeasureOptions = Variant<String, PerformanceMeasureOptions>;
     ExceptionOr<Ref<PerformanceMeasure>> measure(JSC::JSGlobalObject&, const String& measureName, std::optional<StartOrMeasureOptions>&&, const String& endMark);
     void clearMeasures(const String& measureName);
 
@@ -154,6 +155,7 @@ private:
     bool m_hasScheduledTimingBufferDeliveryTask { false };
 
     MonotonicTime m_timeOrigin;
+    UNUSED_MEMBER_VARIABLE ContinuousTime m_continuousTimeOrigin;
 
     RefPtr<PerformanceNavigationTiming> m_navigationTiming;
     RefPtr<PerformancePaintTiming> m_firstContentfulPaint;

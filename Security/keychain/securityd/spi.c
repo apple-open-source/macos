@@ -52,26 +52,27 @@
 #pragma clang diagnostic pop
 
 static struct securityd securityd_spi = {
-    .sec_item_add                           = _SecItemAdd,
-    .sec_item_copy_matching                 = _SecItemCopyMatching,
-    .sec_item_update                        = _SecItemUpdate,
-    .sec_item_delete                        = _SecItemDelete,
-    .sec_item_delete_all                    = _SecItemDeleteAll,
-    .sec_keychain_backup                    = _SecServerKeychainCreateBackup,
-    .sec_keychain_restore                   = _SecServerKeychainRestore,
-    .sec_item_copy_parent_certificates      = _SecItemCopyParentCertificates,
-    .sec_item_certificate_exists            = _SecItemCertificateExists,
-    .sec_roll_keys                          = _SecServerRollKeysGlue,
-    .sec_item_update_token_items_for_access_groups  = _SecItemUpdateTokenItemsForAccessGroups,
-    .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
-    .sec_item_share_with_group              = _SecItemShareWithGroup,
-    .sec_delete_items_on_sign_out           = _SecDeleteItemsOnSignOut,
+    .sec_item_add                           = SecServerItemAdd,
+    .sec_item_copy_matching                 = SecServerItemCopyMatching,
+    .sec_item_update                        = SecServerItemUpdate,
+    .sec_item_delete                        = SecServerItemDelete,
+    .sec_item_delete_all                    = SecServerItemDeleteAll,
+    .sec_keychain_backup                    = SecServerKeychainCreateBackup,
+    .sec_keychain_restore                   = SecServerKeychainRestore,
+    .sec_item_copy_parent_certificates      = SecItemServerCopyParentCertificates,
+    .sec_item_certificate_exists            = SecItemServerCertificateExists,
+    .sec_roll_keys                          = SecServerRollKeysGlue,
+    .sec_item_update_token_items_for_access_groups  = SecItemServerUpdateTokenItemsForAccessGroups,
+    .sec_item_update_token_items_for_system_keychain = SecItemServerUpdateTokenItemsForSystemKeychain,
+    .sec_delete_items_with_access_groups    = SecServerItemDeleteAllWithAccessGroups,
+    .sec_item_share_with_group              = SecServerItemShareWithGroup,
+    .sec_delete_items_on_sign_out           = SecServerDeleteItemsOnSignOut,
 #if SHAREDWEBCREDENTIALS
-    .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
+    .sec_add_shared_web_credential          = SecServerAddSharedWebCredential,
 #endif
 #if SECUREOBJECTSYNC
-    .sec_keychain_backup_syncable           = _SecServerBackupSyncable,
-    .sec_keychain_restore_syncable          = _SecServerRestoreSyncable,
+    .sec_keychain_backup_syncable           = SecServerBackupSyncable,
+    .sec_keychain_restore_syncable          = SecServerRestoreSyncable,
     .sec_item_backup_copy_names             = SecServerItemBackupCopyNames,
     .sec_item_backup_ensure_copy_view       = SecServerItemBackupEnsureCopyView,
     .sec_item_backup_handoff_fd             = SecServerItemBackupHandoffFD,
@@ -111,7 +112,7 @@ static struct securityd securityd_spi = {
     .soscc_ProcessSyncWithPeers             = SOSCCProcessSyncWithPeers_Server,
     .soscc_ProcessSyncWithAllPeers          = SOSCCProcessSyncWithAllPeers_Server,
     .soscc_EnsurePeerRegistration           = SOSCCProcessEnsurePeerRegistration_Server,
-    .sec_keychain_sync_update_message       = _SecServerKeychainSyncUpdateMessage,
+    .sec_keychain_sync_update_message       = SecServerKeychainSyncUpdateMessage,
     .sec_get_log_settings                   = SecCopyLogSettings_Server,
     .sec_set_xpc_log_settings               = SecSetXPCLogSettings_Server,
     .sec_set_circle_log_settings            = SecSetCircleLogSettings_Server,
@@ -157,7 +158,7 @@ void securityd_init_server(void) {
     // Lazy initialization is no good; bring up the keychain on start
     // If you want to not do this, you'll need to check the APSConnection Mach mailbox for messages here instead (good luck)
     CFErrorRef cferror = nil;
-    bool keychainAlive = kc_with_dbt(false, &cferror, ^bool(SecDbConnectionRef dbt) {
+    bool keychainAlive = kc_with_dbt(false, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         secnotice("keychain", "Keychain initialized!");
         return true;
     });

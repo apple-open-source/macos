@@ -145,6 +145,7 @@ exit:
             (__bridge NSString *)kIOPMAssertionNameKey: assertionNameStr,
             (__bridge NSString *)kIOPMAssertionTimeoutKey: @(USER_ACTIVE_ASSERTION_TIMEOUT_SECONDS),
             (__bridge NSString *)kIOPMAssertionResourcesUsed: @[(__bridge NSString *)kIOPMAssertionResourceCamera],
+            (__bridge NSString *)kIOPMAssertionTimeoutActionKey: @[(__bridge NSString *)kIOPMAssertionTimeoutActionRelease],
         };
          
         IOReturn status = IOPMAssertionDeclareSystemActivityWithProperties((__bridge CFMutableDictionaryRef)properties, &_AssertionID, &systemState);

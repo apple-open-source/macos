@@ -27,7 +27,7 @@
 ]
 messages -> ServiceWorkerDownloadTask {
     DidFail(WebCore::ResourceError error)
-    DidReceiveData(IPC::SharedBufferReference data, uint64_t encodedDataLength)
+    DidReceiveData(IPC::SharedBufferReference data)
     DidReceiveFormData(IPC::FormDataReference data)
     DidFinish()
 }

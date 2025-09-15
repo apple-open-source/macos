@@ -219,7 +219,7 @@ LIST_HEAD(, assertion) gSystemSleepPreventersList = LIST_HEAD_INITIALIZER(gSyste
 bool                                gSystemAssertionTimeoutEnabled = false;
 bool                                gSystemAssertionTimerActive = false;
 dispatch_source_t                   gSystemAssertionTimer = NULL;
-uint32_t                            kPMSystemAssertionTimeoutValue = 600; // in seconds
+uint64_t                            kPMSystemAssertionTimeoutValue = 600; // in seconds
 CFDictionaryRef                     gSystemAssertionTimeoutList = NULL;
 CFDictionaryRef                     gAssertionCategoriesDict = NULL;
 
@@ -1110,7 +1110,7 @@ kern_return_t _io_pm_assertion_create (
         CFRelease(unfolder);
     }
 
-    if (!newAssertionProperties) {
+    if (!newAssertionProperties || !isA_CFDictionary(newAssertionProperties)) {
         ERROR_LOG("_io_pm_assertion_create: Could not create properties dictionary for PID %d", callerPID);
         *return_code = kIOReturnBadArgument;
         goto exit;
@@ -1183,7 +1183,7 @@ kern_return_t _io_pm_assertion_set_properties (
         CFRelease(unfolder);
     }
 
-    if (!setProperties) {
+    if (!setProperties || !isA_CFDictionary(setProperties)) {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -3500,7 +3500,7 @@ kern_return_t _io_pm_declare_system_active (
         CFRelease(unfolder);
     }
 
-    if (!assertionProperties) {
+    if (!assertionProperties || !isA_CFDictionary(assertionProperties)) {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -3528,8 +3528,7 @@ kern_return_t _io_pm_declare_system_active (
         INFO_LOG("Sleep revert state: %d\n", revertible);
     }
 
-    if(kIOReturnSuccess != doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL))
-        *return_code = kIOReturnInternalError;
+    *return_code = doCreate(callerPID, assertionProperties, (IOPMAssertionID *)assertion_id, NULL, NULL);
 
 exit:
 
@@ -3574,7 +3573,7 @@ kern_return_t  _io_pm_declare_user_active (
         CFRelease(unfolder);
     }
 
-    if ((!assertionProperties) || (assertion_id == NULL)) {
+    if ((!assertionProperties) || (!isA_CFDictionary(assertionProperties)) || (assertion_id == NULL)) {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -3673,7 +3672,7 @@ kern_return_t  _io_pm_declare_network_client_active (
         CFRelease(unfolder);
     }
 
-    if ((!assertionProperties) || (assertion_id == NULL))  {
+    if ((!assertionProperties) || (!isA_CFDictionary(assertionProperties)) || (assertion_id == NULL))  {
         *return_code = kIOReturnBadArgument;
         goto exit;
     }
@@ -5435,6 +5434,7 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
     case kBackgroundTaskType:
     case kSRPreventSleepType:
     case kNetworkAccessType:
+    case kSoftwareUpdateType:
         assertBit = kIOPMDriverAssertionCPUBit;
         break;
 
@@ -5922,7 +5922,7 @@ static IOReturn raiseAssertion(assertion_t *assertion)
     CFStringRef process_name = assertion->pinfo->name;
     if (gSystemAssertionTimeoutList) {
         if (!gSystemAssertionTimerActive && !CFDictionaryContainsKey(gSystemAssertionTimeoutList, process_name)) {
-            startSystemAssertionTimer();
+            startSystemAssertionTimer(0);
         }
     }
 
@@ -6479,7 +6479,7 @@ static void   evaluateForPSChange(void)
     logASLAssertionsAggregate();
     if (pwrSrc == kBatteryPowered) {
         DEBUG_LOG("System Assertion Timeout: Power source change to battery: Evaluating System Assertion Timer");
-        startSystemAssertionTimer();
+        startSystemAssertionTimer(0);
     } else {
         DEBUG_LOG("System Assertion Timeout: Power source change to AC: Cancelling System Assertion Timer");
         cancelSystemAssertionTimer();
@@ -6842,6 +6842,15 @@ __private_extern__ void configAssertionType(kerAssertionType idx, bool initialCo
         assertType->entitlement = kIOPMReservePwrCtrlEntitlement;
         assertType->enTrQuality = kEnTrQualSPPreventSleepSystem;
 
+        break;
+
+    case kSoftwareUpdateType:
+        idxRef = CFNumberCreate(0, kCFNumberIntType, &idx);
+        CFDictionarySetValue(gUserAssertionTypesDict, kIOPMAssertionTypeSoftwareUpdateTask, idxRef);
+        assertType->flags |= kAssertionTypeLogOnCreate;
+        assertType->handler = setKernelAssertions;
+        assertType->entitlement = kIOPMAssertionTypeSoftwareUpdateEntitlement;
+        newEffect = kPrevDemandSlpEffect;
         break;
 
 
@@ -7275,6 +7284,7 @@ __private_extern__ void systemAssertionTimerFired(void)
     gSystemAssertionTimerActive = false;
     assertionType_t *assertType = &gAssertionTypes[kPreventIdleType];
     __block bool rearm = false;
+    __block uint64_t rearm_timeout_secs = 0;
     applyToAssertionsSync(assertType, kSelectActive, ^(assertion_t *assertion) {
         bool allow = false;
         CFStringRef name = CFDictionaryGetValue(assertion->props, kIOPMAssertionNameKey);
@@ -7317,9 +7327,14 @@ __private_extern__ void systemAssertionTimerFired(void)
 
             if (age < kPMSystemAssertionTimeoutValue) {
                 rearm = true;
+                uint64_t time_left_secs = kPMSystemAssertionTimeoutValue - age;
+
+                if (time_left_secs > rearm_timeout_secs) {
+                    rearm_timeout_secs = time_left_secs;
+                }
             } else {
                 pid_t pid = assertion->pinfo->pid;
-                NSString *description = [NSString stringWithFormat:@" System Assertion Timeout: Device became inactive %d seconds ago."
+                NSString *description = [NSString stringWithFormat:@" System Assertion Timeout: Device became inactive more than %llu seconds ago."
                                          "%@ is not on the allow list. Dropping assertion %lld:%@ for pid %d %@. age:%llu.", \
                                          kPMSystemAssertionTimeoutValue, process_name, \
                                          (((uint64_t)assertion->kassert) << 32) | assertion->assertionId, \
@@ -7360,7 +7375,7 @@ __private_extern__ void systemAssertionTimerFired(void)
     });
     if (rearm) {
         DEBUG_LOG("System Assertion Timeout: Rearming timer");
-        startSystemAssertionTimer();
+        startSystemAssertionTimer(rearm_timeout_secs);
     }
 }
 
@@ -7380,7 +7395,7 @@ bool shouldStartSystemAssertionTimer(void)
     }
 }
 
-void startSystemAssertionTimer(void)
+void startSystemAssertionTimer(uint64_t timeoutSecs)
 {
     if (!gSystemAssertionTimeoutEnabled) {
         return;
@@ -7390,6 +7405,12 @@ void startSystemAssertionTimer(void)
         DEBUG_LOG("System Assertion Timeout: Not enforcing assertion timeout on AC power or user active");
         return;
     }
+
+    if (timeoutSecs == 0) {
+        // Use default if no timeout is supplied
+        timeoutSecs = kPMSystemAssertionTimeoutValue;
+    }
+
     if (!gSystemAssertionTimer) {
         gSystemAssertionTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _getPMMainQueue());
 
@@ -7405,7 +7426,7 @@ void startSystemAssertionTimer(void)
         gSystemAssertionTimerActive = false;
     }
     INFO_LOG("System Assertion Timeout: Starting System Assertion Timer");
-    dispatch_source_set_timer(gSystemAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, kPMSystemAssertionTimeoutValue * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+    dispatch_source_set_timer(gSystemAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, timeoutSecs * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
     dispatch_resume(gSystemAssertionTimer);
     gSystemAssertionTimerActive = true;
 }
@@ -7475,6 +7496,58 @@ void initAssertionCategories(void) {
     }
 }
 
+void fetchAssertionCategories(xpc_object_t remote, xpc_object_t msg)
+{
+    IOReturn            rc = kIOReturnSuccess;
+    // return policies for the calling process
+    if (!remote || !msg) {
+        ERROR_LOG("Invalid parameters. remote: %@ msg: %@", remote, msg);
+        rc = kIOReturnBadArgument;
+    }
+    xpc_object_t reply = xpc_dictionary_create_reply(msg);
+    xpc_object_t data = nil;
+    if (!reply) {
+        ERROR_LOG("Cannot create reply dictionary");
+        rc = kIOReturnInternalError;
+    }
+    if (rc == kIOReturnSuccess) {
+        // get policies for process
+        pid_t pid = xpc_connection_get_pid(remote);
+        ProcessInfo *pinfo = processInfoGet(pid);
+        if (pinfo) {
+            CFStringRef processName = pinfo->name;
+
+            INFO_LOG("fetchAssertionCategories %@", gAssertionCategoriesDict);
+            if (CFDictionaryContainsKey(gAssertionCategoriesDict, processName)) {
+                // policies exist for process
+                CFDictionaryRef policies = CFDictionaryGetValue(gAssertionCategoriesDict, processName);
+                data = _CFXPCCreateXPCObjectFromCFObject(policies);
+                xpc_dictionary_set_value(reply, kAssertionUpdateCategoryPolicyMsg, data);
+            }
+        }
+    }
+    if (reply) {
+        xpc_dictionary_set_uint64(reply, kMsgReturnCode, rc);
+        xpc_connection_send_message(remote, reply);
+    }
+    if (data) {
+        xpc_release(data);
+    }
+    if (reply) {
+        xpc_release(reply);
+    }
+}
+
+void sendUpdateAssertionPolicy(IOPMAssertionPolicy policy) {
+    INFO_LOG("Sending com.apple.powerd.assertionpolicy %d", policy);
+    int token;
+    uint32_t status = notify_register_check("com.apple.powerd.assertionpolicy", &token);
+    if (status == NOTIFY_STATUS_OK) {
+        notify_set_state(token, policy);
+        notify_post("com.apple.powerd.assertionpolicy");
+    }
+}
+
 
 
 
@@ -7488,10 +7561,10 @@ void updateSystemAssertionTimeout(xpc_object_t peer, xpc_object_t msg)
         return;
     }
 
-    uint32_t value = (uint32_t)xpc_dictionary_get_uint64(msg, kSystemAssertionTimeoutKey);
+    uint64_t value = xpc_dictionary_get_uint64(msg, kSystemAssertionTimeoutKey);
     if (value) {
         kPMSystemAssertionTimeoutValue = value;
-        INFO_LOG("System Assertion Timer: setting timeout value to %u", value);
+        INFO_LOG("System Assertion Timer: setting timeout value to %llu", value);
     }
 }
 
@@ -7529,6 +7602,7 @@ __private_extern__ void PMAssertions_prime(void)
     assertion_types_arr[kIntPreventDisplaySleepType] = kIOPMAssertInternalPreventDisplaySleep;
     assertion_types_arr[kInteractivePushServiceType] = kIOPMAssertInteractivePushServiceTask;
     assertion_types_arr[kReservePwrPreventIdleType]  = kIOPMAssertAwakeReservePower;
+    assertion_types_arr[kSoftwareUpdateType]        = kIOPMAssertionTypeSoftwareUpdateTask;
 
     for (effctIdx = 0; effctIdx < kMaxAssertionEffects; effctIdx++)
         configAssertionEffect(effctIdx);

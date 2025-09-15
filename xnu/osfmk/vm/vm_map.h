@@ -562,6 +562,23 @@ extern kern_return_t    vm_map_copyout(
 extern void             vm_map_copy_discard(
 	vm_map_copy_t           copy);
 
+
+/**
+ * @function vm_map_kernel_max_simple_mappable_size()
+ *
+ * @brief
+ * Get the size of the largest contiguous mapping which can be used in the
+ * kernel without special accessors/attributes. When using accessors/attributes
+ * in XNU proper, this limit can be overridden when making allocations/mappings
+ * through various APIs by setting the "no soft limit" option. Such
+ * functionalities, however, are not available outside of XNU.
+ *
+ * Note that this function does not guarantee that the returned size will
+ * actually be mappable. Rather, this function specifies that simple kernel
+ * mappings larger than this will fail.
+ */
+extern vm_size_t vm_map_kernel_max_simple_mappable_size(void);
+
 #endif  /* KERNEL_PRIVATE */
 
 __END_DECLS

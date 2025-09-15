@@ -13,6 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				4770A3342D669E6C000535FB /* PBXTargetDependency */,
 				5FE441C91C5619790010C4FD /* PBXTargetDependency */,
 				1CFF7DCF1021165B0097ADA4 /* PBXTargetDependency */,
 				1CFF7DCD1021165B0097ADA4 /* PBXTargetDependency */,
@@ -101,6 +102,9 @@
 		1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		430DE2BD22F4F39A00547FA4 /* ConfigurationProfiles.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 430DE2BC22F4F39A00547FA4 /* ConfigurationProfiles.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		4394E9851C90CEFE00FD055E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FD7DF871C05FF43005DC226 /* Security.framework */; };
+		4791978E2D7B670E006E3989 /* pam_basesystem.m in Sources */ = {isa = PBXBuildFile; fileRef = 4791978D2D7B670E006E3989 /* pam_basesystem.m */; };
+		479197902D7B6A36006E3989 /* pam_basesystem.8 in man8 */ = {isa = PBXBuildFile; fileRef = 4791978F2D7B6A36006E3989 /* pam_basesystem.8 */; };
+		47C0C08E2D5FEBED00811117 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
 		5E033EA72248CE4C00D486A0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E033EA62248CE4C00D486A0 /* Foundation.framework */; };
 		5E033EA82248CE8900D486A0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E033EA62248CE4C00D486A0 /* Foundation.framework */; };
 		5F91456B1C56179800E307FC /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
@@ -251,6 +255,13 @@
 			remoteGlobalIDString = 1CFF80BC10211AF10097ADA4;
 			remoteInfo = Cleanup;
 		};
+		4770A3332D669E6C000535FB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 47C0C0892D5FEBED00811117;
+			remoteInfo = basesystem;
+		};
 		5FD7DF961C0607C9005DC226 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -312,6 +323,7 @@
 				5FE441CA1C5619900010C4FD /* pam_aks.8 in man8 */,
 				5FFEF0161C04A6850083839D /* pam_localauthentication.8 in man8 */,
 				F6F8C6841B8F709E002596AE /* pam_smartcard.8 in man8 */,
+				479197902D7B6A36006E3989 /* pam_basesystem.8 in man8 */,
 				1C23731C10290C600055216A /* pam_env.8 in man8 */,
 				1C23731D10290C600055216A /* pam_group.8 in man8 */,
 				1C23731E10290C600055216A /* pam_krb5.8 in man8 */,
@@ -326,6 +338,16 @@
 				1C23732710290C600055216A /* pam_uwtmp.8 in man8 */,
 			);
 			name = man8;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		47C0C08F2D5FEBED00811117 /* Copy PAM profiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/pam.d;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			name = "Copy PAM profiles";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		5FD7DF8B1C060053005DC226 /* CopyFiles */ = {
@@ -418,6 +440,9 @@
 		1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = System/Library/Frameworks/OpenDirectory.framework; sourceTree = SDKROOT; };
 		1CFF7F05102118410097ADA4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = System/Library/Frameworks/NetFS.framework; sourceTree = SDKROOT; };
 		430DE2BC22F4F39A00547FA4 /* ConfigurationProfiles.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ConfigurationProfiles.framework; path = System/Library/PrivateFrameworks/ConfigurationProfiles.framework; sourceTree = SDKROOT; };
+		4791978D2D7B670E006E3989 /* pam_basesystem.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = pam_basesystem.m; path = modules/pam_basesystem/pam_basesystem.m; sourceTree = "<group>"; };
+		4791978F2D7B6A36006E3989 /* pam_basesystem.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = pam_basesystem.8; path = modules/pam_basesystem/pam_basesystem.8; sourceTree = "<group>"; };
+		47C0C0952D5FEBED00811117 /* pam_basesystem.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_basesystem.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		5E033EA62248CE4C00D486A0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5F91456F1C56179800E307FC /* pam_aks.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_aks.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FD7DF851C05FF14005DC226 /* libcoreauthd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libcoreauthd_client.a; path = usr/local/lib/libcoreauthd_client.a; sourceTree = SDKROOT; };
@@ -566,6 +591,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		47C0C08D2D5FEBED00811117 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				47C0C08E2D5FEBED00811117 /* libpam.2.tbd in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5F9145681C56179800E307FC /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -653,6 +686,7 @@
 			isa = PBXGroup;
 			children = (
 				5FE441C61C56190B0010C4FD /* pam_aks.c */,
+				4791978D2D7B670E006E3989 /* pam_basesystem.m */,
 				1C23732810290CBB0055216A /* pam_env.c */,
 				1C23732910290CBB0055216A /* pam_group.c */,
 				1C23732A10290CBB0055216A /* pam_krb5.c */,
@@ -692,6 +726,7 @@
 				5FD7DF8D1C060053005DC226 /* test_pam_localauthentication */,
 				5F91456F1C56179800E307FC /* pam_aks.so.2 */,
 				F6AAC6041DF07A05008A6811 /* pam_tid.so.2 */,
+				47C0C0952D5FEBED00811117 /* pam_basesystem.so.2 */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -765,6 +800,7 @@
 			isa = PBXGroup;
 			children = (
 				5FE441C71C56191F0010C4FD /* pam_aks.8 */,
+				4791978F2D7B6A36006E3989 /* pam_basesystem.8 */,
 				7434C8AB125545DA001D7F9E /* pam_ntlm.8 */,
 				1C23731010290C600055216A /* pam_env.8 */,
 				1C23731110290C600055216A /* pam_group.8 */,
@@ -864,6 +900,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		1CFF7D871021150B0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		47C0C08A2D5FEBED00811117 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1096,6 +1139,24 @@
 			productReference = 1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		47C0C0892D5FEBED00811117 /* basesystem */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 47C0C0932D5FEBED00811117 /* Build configuration list for PBXNativeTarget "basesystem" */;
+			buildPhases = (
+				47C0C08A2D5FEBED00811117 /* Headers */,
+				47C0C08B2D5FEBED00811117 /* Sources */,
+				47C0C08D2D5FEBED00811117 /* Frameworks */,
+				47C0C08F2D5FEBED00811117 /* Copy PAM profiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = basesystem;
+			productName = pam_env;
+			productReference = 47C0C0952D5FEBED00811117 /* pam_basesystem.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 		5F9145641C56179800E307FC /* aks */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5F91456D1C56179800E307FC /* Build configuration list for PBXNativeTarget "aks" */;
@@ -1210,6 +1271,9 @@
 			isa = PBXProject;
 			attributes = {
 				TargetAttributes = {
+					5F9145641C56179800E307FC = {
+						LastSwiftMigration = 1630;
+					};
 					5FD7DF8C1C060053005DC226 = {
 						CreatedOnToolsVersion = 7.2;
 					};
@@ -1231,6 +1295,7 @@
 			targets = (
 				1CFF7DB51021164C0097ADA4 /* pam_modules */,
 				5F9145641C56179800E307FC /* aks */,
+				47C0C0892D5FEBED00811117 /* basesystem */,
 				1CFF7D2110210FC20097ADA4 /* env */,
 				1CFF7D361021142C0097ADA4 /* group */,
 				1CFF7D3E102114560097ADA4 /* krb5 */,
@@ -1361,6 +1426,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		47C0C08B2D5FEBED00811117 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4791978E2D7B670E006E3989 /* pam_basesystem.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5F9145661C56179800E307FC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1483,6 +1556,11 @@
 			isa = PBXTargetDependency;
 			target = 1CFF80BC10211AF10097ADA4 /* Cleanup */;
 			targetProxy = 1CFF80D810211B040097ADA4 /* PBXContainerItemProxy */;
+		};
+		4770A3342D669E6C000535FB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 47C0C0892D5FEBED00811117 /* basesystem */;
+			targetProxy = 4770A3332D669E6C000535FB /* PBXContainerItemProxy */;
 		};
 		5FD7DF971C0607C9005DC226 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1618,6 +1696,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = so.2;
@@ -1727,10 +1806,12 @@
 			};
 			name = Release;
 		};
-		5F91456E1C56179800E307FC /* Release */ = {
+		47C0C0942D5FEBED00811117 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXECUTABLE_EXTENSION = so.2;
@@ -1742,6 +1823,27 @@
 				INSTALL_PATH = /usr/lib/pam;
 				PREBINDING = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5F91456E1C56179800E307FC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
 				VALID_ARCHS = "x86_64 x86_64h";
 			};
 			name = Release;
@@ -1977,6 +2079,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		47C0C0932D5FEBED00811117 /* Build configuration list for PBXNativeTarget "basesystem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				47C0C0942D5FEBED00811117 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

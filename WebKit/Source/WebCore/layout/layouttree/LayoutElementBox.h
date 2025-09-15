@@ -95,6 +95,10 @@ public:
     bool isListMarkerImage() const { return m_replacedData && m_replacedData->listMarkerAttributes.contains(ListMarkerAttribute::Image); }
     bool isListMarkerOutside() const { return m_replacedData && m_replacedData->listMarkerAttributes.contains(ListMarkerAttribute::Outside); }
 
+    // FIXME: This is temporary until after list marker content is accessible by IFC (webkit.org/b/294342)
+    void setListMarkerLayoutBounds(std::pair<int, int> layoutBounds) { m_replacedData->layoutBounds = layoutBounds; }
+    std::pair<int, int> layoutBoundsForListMarker() const { return m_replacedData ? m_replacedData->layoutBounds : std::pair<int, int>(); }
+
     // FIXME: This doesn't belong.
     CachedImage* cachedImage() const { return m_replacedData ? m_replacedData->cachedImage : nullptr; }
 
@@ -107,6 +111,8 @@ private:
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
         OptionSet<ListMarkerAttribute> listMarkerAttributes;
+        std::pair<int, int> layoutBounds;
+
         std::optional<LayoutSize> intrinsicSize;
         std::optional<LayoutUnit> intrinsicRatio;
         CachedImage* cachedImage { nullptr };

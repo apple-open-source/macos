@@ -68,7 +68,9 @@ OTHER_LIBTOOLFLAGS = $(DAV1D_LIBTOOLFLAGS_$(USE_LIBDAV1D));
 DAV1D_LIBTOOLFLAGS_YES = $(BUILT_PRODUCTS_DIR)/libdav1d.a;
 
 SWIFT_OBJC_INTERFACE_HEADER_NAME = PALSwift-Generated.h;
-SWIFT_VERSION = 5.0;
+SWIFT_VERSION = $(SWIFT_VERSION$(WK_XCODE_16));
+SWIFT_VERSION_XCODE_BEFORE_16 = 5.0;
+SWIFT_VERSION_XCODE_SINCE_16 = 6.0;
 SWIFT_OBJC_INTEROP_MODE = objcxx;
 
 OTHER_SWIFT_FLAGS = $(OTHER_SWIFT_FLAGS_$(WK_PLATFORM_NAME));
@@ -88,11 +90,10 @@ OTHER_SWIFT_FLAGS_IOS_SINCE_17 = -Xcc -std=c++20 -I $(SRCROOT)/pal -I $(SRCROOT)
 OTHER_SWIFT_FLAGS_WATCHOS_SINCE_10 = -Xcc -std=c++20 -I $(SRCROOT)/pal -I $(SRCROOT)/PAL/pal;
 OTHER_SWIFT_FLAGS_TVOS_SINCE_17 = -Xcc -std=c++20 -I $(SRCROOT)/pal -I $(SRCROOT)/PAL/pal;
 
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx13*] = CryptoKitShim.swift UnsafeOverlays.swift;
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.0*] = CryptoKitShim.swift UnsafeOverlays.swift;
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.1*] = CryptoKitShim.swift UnsafeOverlays.swift;
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.2*] = CryptoKitShim.swift UnsafeOverlays.swift;
-EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.3*] = CryptoKitShim.swift UnsafeOverlays.swift;
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.0*] = *.swift;
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.1*] = *.swift;
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.2*] = *.swift;
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx14.3*] = *.swift;
 
 // Only for watchsimulator. Other platforms don't trigger Swift module builds for i386.
 EXCLUDED_ARCHS = $(EXCLUDED_ARCHS_$(WK_PLATFORM_NAME));

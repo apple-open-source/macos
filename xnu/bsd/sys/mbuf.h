@@ -101,6 +101,7 @@
  * this is done when at least MINCLSIZE of data must be stored.
  */
 #if CONFIG_MBUF_MCACHE
+#include <sys/mcache.h>
 #define _MSIZESHIFT      8                       /* 256 */
 #define _MSIZE           (1 << _MSIZESHIFT)       /* size of an mbuf */
 #else /* CONFIG_MBUF_MCACHE */
@@ -456,8 +457,8 @@ struct pkthdr {
 	uint32_t comp_gencnt;
 	uint32_t pkt_crumbs:16,
 	    pkt_compl_callbacks:8,
-	    pkt_ext_flags:3,
-	    pkt_unused:5; /* Currently unused - feel free to grab those 5 bits */
+	    pkt_ext_flags:6,
+	    pkt_unused:2; /* Currently unused - feel free to grab those 2 bits */
 	/*
 	 * Module private scratch space (32-bit aligned), currently 16-bytes
 	 * large. Anything stored here is not guaranteed to survive across
@@ -478,10 +479,14 @@ struct pkthdr {
 			u_int64_t       __mpriv64[2];
 		} __mpriv_u;
 	} pkt_mpriv __attribute__((aligned(4)));
-#define pkt_mpriv_hash  pkt_mpriv.__mpriv_u.__mpriv32[0].__mpriv32_u.__val32
-#define pkt_mpriv_flags pkt_mpriv.__mpriv_u.__mpriv32[1].__mpriv32_u.__val32
-#define pkt_mpriv_srcid pkt_mpriv.__mpriv_u.__mpriv32[2].__mpriv32_u.__val32
-#define pkt_mpriv_fidx  pkt_mpriv.__mpriv_u.__mpriv32[3].__mpriv32_u.__val32
+/*
+ * While qset_id takes 64 bits here, as upper 32 bits of qset_id are reserved
+ * currently, there is a scope to limit to 32 bits if other use cases need
+ * pkt_mpriv
+ */
+#define pkt_mpriv_qsetid  pkt_mpriv.__mpriv_u.__mpriv64[0]
+#define pkt_mpriv_srcid   pkt_mpriv.__mpriv_u.__mpriv32[2].__mpriv32_u.__val32
+#define pkt_mpriv_fidx    pkt_mpriv.__mpriv_u.__mpriv32[3].__mpriv32_u.__val32
 };
 
 /*
@@ -567,6 +572,9 @@ struct pkthdr {
 #define PKTF_EXT_OUTPUT_SCOPE   0x1     /* outgoing packet has ipv6 address scope id */
 #define PKTF_EXT_L4S            0x2     /* pkts is from a L4S connection */
 #define PKTF_EXT_QUIC           0x4     /* flag to denote a QUIC packet */
+#define PKTF_EXT_QSET_ID_VALID  0x8     /* flag to denote if traffic rules are run */
+#define PKTF_EXT_ULPN           0x10    /* packet transitted coprocessor */
+#define PKTF_EXT_LPW            0x20    /* packet received in low power wake */
 
 #define PKT_CRUMB_TS_COMP_REQ   0x0001 /* timestamp completion requested */
 #define PKT_CRUMB_TS_COMP_CB    0x0002 /* timestamp callback called */
@@ -863,12 +871,6 @@ enum {
  * and internal data.
  */
 
-#if 1
-#define MCHECK(m) m_mcheck(m)
-#else
-#define MCHECK(m)
-#endif
-
 #define MGET(m, how, type) ((m) = m_get((how), (type)))
 
 #define MGETHDR(m, how, type)   ((m) = m_gethdr((how), (type)))
@@ -889,10 +891,6 @@ union mcluster {
 	union   mcluster *mcl_next;
 	char    mcl_buf[MCLBYTES];
 };
-
-#define MCLALLOC(p, how)        ((p) = m_mclalloc(how))
-
-#define MCLFREE(p)              m_mclfree(p)
 
 #define MCLGET(m, how)          ((m) = m_mclget(m, how))
 
@@ -1070,7 +1068,7 @@ do {                                                                    \
 do {                                                                    \
 	if (!(m->m_flags & MBUF_PKTHDR) ||                              \
 	    m->m_len < 0 ||                                             \
-	    m->m_len > ((njcl > 0) ? njclbytes : MBIGCLBYTES) ||        \
+	    m->m_len > njclbytes ||                                     \
 	    m->m_type == MT_FREE ||                                     \
 	    ((m->m_flags & M_EXT) != 0 && m->m_ext.ext_buf == NULL)) {  \
 	        panic_plain("Failed mbuf validity check: mbuf %p len %d "  \
@@ -1203,6 +1201,46 @@ struct name {                                                   \
 #define MBUFQ_ADD_CRUMB_MULTI(_q, _h, _t, _f)
 #define MBUFQ_ADD_CRUMB(_q, _m, _f)
 #endif /* (DEBUG || DEVELOPMENT) */
+
+struct mbufq {
+	MBUFQ_HEAD(counted_mbufq) mq;
+	uint32_t count;
+	uint32_t bytes;
+};
+
+inline void
+mbufq_init(struct mbufq *q)
+{
+	MBUFQ_INIT(&q->mq);
+	q->bytes = q->count = 0;
+}
+
+inline void
+mbufq_enqueue(struct mbufq *q, struct mbuf *head, struct mbuf *tail,
+    uint32_t cnt, uint32_t bytes)
+{
+	MBUFQ_ENQUEUE_MULTI(&q->mq, head, tail);
+	q->count += cnt;
+	q->bytes += bytes;
+}
+
+inline boolean_t
+mbufq_empty(struct mbufq *q)
+{
+	return q->count == 0;
+}
+
+inline struct mbuf*
+mbufq_first(struct mbufq *q)
+{
+	return MBUFQ_FIRST(&q->mq);
+}
+
+inline struct mbuf*
+mbufq_last(struct mbufq *q)
+{
+	return MBUFQ_LAST(&q->mq);
+}
 
 #endif /* XNU_KERNEL_PRIVATE */
 
@@ -1441,6 +1479,9 @@ extern void m_freem(struct mbuf *) __XNU_INTERNAL(m_freem);
 extern void m_drop(mbuf_t, uint16_t, uint32_t, const char *, uint16_t);
 extern void m_drop_if(mbuf_t, struct ifnet *, uint16_t, uint32_t, const char *, uint16_t);
 extern void m_drop_list(mbuf_t, struct ifnet *, uint16_t, uint32_t, const char *, uint16_t);
+extern void m_drop_extended(mbuf_t, struct ifnet *, char *,
+    uint16_t, uint32_t, const char *, uint16_t);
+
 extern u_int64_t mcl_to_paddr(char *);
 extern void m_adj(struct mbuf *, int);
 extern void m_cat(struct mbuf *, struct mbuf *);
@@ -1458,6 +1499,7 @@ extern struct mbuf *m_pullup(struct mbuf *, int);
 extern struct mbuf *m_split(struct mbuf *, int, int);
 extern void m_mclfree(caddr_t p);
 extern bool mbuf_class_under_pressure(struct mbuf *m);
+extern int m_chain_capacity(const struct mbuf *m);
 
 /*
  * Accessors for the mbuf data range.
@@ -1498,6 +1540,12 @@ static inline bool
 m_has_mtype(const struct mbuf *m, int mtype_flags)
 {
 	return (1 << m->m_type) & mtype_flags;
+}
+
+static inline int
+m_capacity(const struct mbuf *m)
+{
+	return _MSIZE + ((m->m_flags & M_EXT) ? m->m_ext.ext_size : 0);
 }
 
 /*
@@ -1610,8 +1658,6 @@ m_has_mtype(const struct mbuf *m, int mtype_flags)
 	c == SCVAL_RV || c == SCVAL_VI || c == SCVAL_SIG ||             \
 	c == SCVAL_VO || SCVAL_CTL)
 
-extern unsigned char *mbutl;    /* start VA of mbuf pool */
-extern unsigned char *embutl;   /* end VA of mbuf pool */
 extern unsigned int nmbclusters;        /* number of mapped clusters */
 extern int njcl;                /* # of jumbo clusters  */
 extern int njclbytes;   /* size of a jumbo cluster */
@@ -1622,6 +1668,8 @@ extern int max_linkhdr;        /* largest link-level header */
 
 /* Use max_protohdr instead of _max_protohdr */
 extern int max_protohdr;       /* largest protocol header */
+
+extern uint32_t high_sb_max;
 
 __private_extern__ unsigned int mbuf_default_ncl(uint64_t);
 __private_extern__ void mbinit(void);
@@ -1668,7 +1716,6 @@ __private_extern__ void m_align(struct mbuf *, int);
 
 __private_extern__ struct mbuf *m_normalize(struct mbuf *m);
 __private_extern__ void m_mchtype(struct mbuf *m, int t);
-__private_extern__ void m_mcheck(struct mbuf *);
 
 __private_extern__ void m_copyback(struct mbuf *, int, int len, const void * __sized_by(len));
 __private_extern__ struct mbuf *m_copyback_cow(struct mbuf *, int, int len,
@@ -1771,7 +1818,6 @@ enum {
 };
 
 /* Packet tag routines */
-__private_extern__ struct m_tag *m_tag_alloc(u_int32_t, u_int16_t, int, int);
 __private_extern__ struct  m_tag *m_tag_create(u_int32_t, u_int16_t, int, int,
     struct mbuf *);
 __private_extern__ void m_tag_free(struct m_tag *);
@@ -1795,7 +1841,6 @@ void m_tag_create_cookie(struct m_tag *);
 
 void mbuf_tag_init(void);
 
-__private_extern__ void m_scratch_init(struct mbuf *);
 __private_extern__ u_int32_t m_scratch_get(struct mbuf *, u_int8_t **);
 
 __private_extern__ void m_classifier_init(struct mbuf *, uint32_t);
@@ -1807,7 +1852,6 @@ __private_extern__ mbuf_svc_class_t m_service_class_from_val(u_int32_t);
 __private_extern__ int m_set_traffic_class(struct mbuf *, mbuf_traffic_class_t);
 __private_extern__ mbuf_traffic_class_t m_get_traffic_class(struct mbuf *);
 
-__private_extern__ struct  m_tag *m_tag_alloc(u_int32_t, u_int16_t, int, int);
 __private_extern__ void mbuf_tag_init(void);
 
 #define ADDCARRY(_x)  do {                                              \
@@ -1819,17 +1863,188 @@ __private_extern__ u_int16_t m_adj_sum16(struct mbuf *, u_int32_t,
     u_int32_t, u_int32_t, u_int32_t);
 __private_extern__ u_int16_t m_sum16(struct mbuf *, u_int32_t, u_int32_t);
 
-__private_extern__ void m_set_ext(struct mbuf *, struct ext_ref *,
-    m_ext_free_func_t, caddr_t);
+__private_extern__ void mbuf_set_tx_time(struct mbuf *m, uint64_t tx_time);
+
 __private_extern__ struct ext_ref *m_get_rfa(struct mbuf *);
 __private_extern__ m_ext_free_func_t m_get_ext_free(struct mbuf *);
-__private_extern__ caddr_t m_get_ext_arg(struct mbuf *);
 
 __private_extern__ void m_do_tx_compl_callback(struct mbuf *, struct ifnet *);
 __private_extern__ mbuf_tx_compl_func m_get_tx_compl_callback(u_int32_t);
 
-
-
 __END_DECLS
+
+/* START - the following can be moved to uipc_mbuf.c once we got rid of CONFIG_MBUF_MCACHE */
+typedef enum {
+	MC_MBUF = 0,    /* Regular mbuf */
+	MC_CL,          /* Cluster */
+	MC_BIGCL,       /* Large (4KB) cluster */
+	MC_16KCL,       /* Jumbo (16KB) cluster */
+	MC_MBUF_CL,     /* mbuf + cluster */
+	MC_MBUF_BIGCL,  /* mbuf + large (4KB) cluster */
+	MC_MBUF_16KCL,  /* mbuf + jumbo (16KB) cluster */
+	MC_MAX
+} mbuf_class_t;
+
+typedef struct {
+	mbuf_class_t    mtbl_class;     /* class type */
+#if CONFIG_MBUF_MCACHE
+	mcache_t        *mtbl_cache;    /* mcache for this buffer class */
+	TAILQ_HEAD(mcl_slhead, mcl_slab) mtbl_slablist; /* slab list */
+	mcache_obj_t    *mtbl_cobjlist; /* composite objects freelist */
+#endif
+	mb_class_stat_t *mtbl_stats;    /* statistics fetchable via sysctl */
+	u_int32_t       mtbl_maxsize;   /* maximum buffer size */
+	int             mtbl_minlimit;  /* minimum allowed */
+	int             mtbl_maxlimit;  /* maximum allowed */
+	u_int32_t       mtbl_wantpurge; /* purge during next reclaim */
+	uint32_t        mtbl_avgtotal;  /* average total on iOS */
+	u_int32_t       mtbl_expand;    /* worker should expand the class */
+} mbuf_table_t;
+
+/*
+ * Allocation statistics related to mbuf types (up to MT_MAX-1) are updated
+ * atomically and stored in a per-CPU structure which is lock-free; this is
+ * done in order to avoid writing to the global mbstat data structure which
+ * would cause false sharing.  During sysctl request for kern.ipc.mbstat,
+ * the statistics across all CPUs will be converged into the mbstat.m_mtypes
+ * array and returned to the application.  Any updates for types greater or
+ * equal than MT_MAX would be done atomically to the mbstat; this slows down
+ * performance but is okay since the kernel uses only up to MT_MAX-1 while
+ * anything beyond that (up to type 255) is considered a corner case.
+ */
+typedef struct {
+	unsigned int cpu_mtypes[MT_MAX];
+} mbuf_mtypes_t;
+
+#define MBUF_CLASS_MIN          MC_MBUF
+#define MBUF_CLASS_MAX          MC_MBUF_16KCL
+#define MBUF_CLASS_LAST         MC_16KCL
+
+#define MBUF_CLASS_COMPOSITE(c) \
+	((int)(c) > MBUF_CLASS_LAST)
+
+#define m_class(c)      mbuf_table[c].mtbl_class
+#define m_maxsize(c)    mbuf_table[c].mtbl_maxsize
+#define m_minlimit(c)   mbuf_table[c].mtbl_minlimit
+#define m_maxlimit(c)   mbuf_table[c].mtbl_maxlimit
+#define m_cname(c)      mbuf_table[c].mtbl_stats->mbcl_cname
+#define m_size(c)       mbuf_table[c].mtbl_stats->mbcl_size
+#define m_total(c)      mbuf_table[c].mtbl_stats->mbcl_total
+#define m_infree(c)     mbuf_table[c].mtbl_stats->mbcl_infree
+
+#define NELEM(a)        (sizeof (a) / sizeof ((a)[0]))
+#define MB_WDT_MAXTIME  10              /* # of secs before watchdog panic */
+
+/*
+ * This flag is set for all mbufs that come out of and into the composite
+ * mbuf + cluster caches, i.e. MC_MBUF_CL and MC_MBUF_BIGCL.  mbufs that
+ * are marked with such a flag have clusters attached to them, and will be
+ * treated differently when they are freed; instead of being placed back
+ * into the mbuf and cluster freelists, the composite mbuf + cluster objects
+ * are placed back into the appropriate composite cache's freelist, and the
+ * actual freeing is deferred until the composite objects are purged.  At
+ * such a time, this flag will be cleared from the mbufs and the objects
+ * will be freed into their own separate freelists.
+ */
+#define EXTF_COMPOSITE  0x1
+
+/*
+ * This flag indicates that the external cluster is read-only, i.e. it is
+ * or was referred to by more than one mbufs.  Once set, this flag is never
+ * cleared.
+ */
+#define EXTF_READONLY   0x2
+
+/*
+ * This flag indicates that the external cluster is paired with the mbuf.
+ * Pairing implies an external free routine defined which will be invoked
+ * when the reference count drops to the minimum at m_free time.  This
+ * flag is never cleared.
+ */
+#define EXTF_PAIRED     0x4
+
+#define EXTF_MASK       \
+	(EXTF_COMPOSITE | EXTF_READONLY | EXTF_PAIRED)
+
+#define MEXT_MINREF(m)          ((m_get_rfa(m))->minref)
+#define MEXT_REF(m)             ((m_get_rfa(m))->refcnt)
+#define MEXT_PREF(m)            ((m_get_rfa(m))->prefcnt)
+#define MEXT_FLAGS(m)           ((m_get_rfa(m))->flags)
+#define MEXT_PRIV(m)            ((m_get_rfa(m))->priv)
+#define MEXT_PMBUF(m)           ((m_get_rfa(m))->paired)
+#define MBUF_IS_COMPOSITE(m)                                            \
+	(MEXT_REF(m) == MEXT_MINREF(m) &&                               \
+	(MEXT_FLAGS(m) & EXTF_MASK) == EXTF_COMPOSITE)
+
+/*
+ * This macro can be used to test if the mbuf is paired to an external
+ * cluster.  The test for MEXT_PMBUF being equal to the mbuf in subject
+ * is important, as EXTF_PAIRED alone is insufficient since it is immutable,
+ * and thus survives calls to m_free_paired.
+ */
+#define MBUF_IS_PAIRED(m)                                               \
+	(((m)->m_flags & M_EXT) &&                                      \
+	(MEXT_FLAGS(m) & EXTF_MASK) == EXTF_PAIRED &&                   \
+	MEXT_PMBUF(m) == (m))
+
+#define MBUF_CL_INIT(m, buf, rfa, ref, flag)    \
+	mext_init(m, buf, m_maxsize(MC_CL), NULL, NULL, rfa, 0,         \
+	    ref, 0, flag, 0, NULL)
+
+#define MBUF_BIGCL_INIT(m, buf, rfa, ref, flag) \
+	mext_init(m, buf, m_maxsize(MC_BIGCL), m_bigfree, NULL, rfa, 0, \
+	    ref, 0, flag, 0, NULL)
+
+#define MBUF_16KCL_INIT(m, buf, rfa, ref, flag) \
+	mext_init(m, buf, m_maxsize(MC_16KCL), m_16kfree, NULL, rfa, 0, \
+	    ref, 0, flag, 0, NULL)
+
+#define MBSTAT_MTYPES_MAX \
+	(sizeof (mbstat.m_mtypes) / sizeof (mbstat.m_mtypes[0]))
+
+#define mtype_stat_add(type, n) {                                       \
+	if ((unsigned)(type) < MT_MAX) {                                \
+	        mbuf_mtypes_t *mbs = PERCPU_GET(mbuf_mtypes);           \
+	        os_atomic_add(&mbs->cpu_mtypes[type], n, relaxed);               \
+	} else if ((unsigned)(type) < (unsigned)MBSTAT_MTYPES_MAX) {    \
+	        os_atomic_add((int16_t *)&mbstat.m_mtypes[type], n, relaxed);    \
+	}                                                               \
+}
+
+#define mtype_stat_sub(t, n)    mtype_stat_add(t, -(n))
+#define mtype_stat_inc(t)       mtype_stat_add(t, 1)
+#define mtype_stat_dec(t)       mtype_stat_sub(t, 1)
+/* END - the following can be moved to uipc_mbuf.c once we got rid of CONFIG_MBUF_MCACHE */
+
+#if CONFIG_MBUF_MCACHE
+extern lck_mtx_t *const mbuf_mlock;
+extern int nclusters;                  /* # of clusters for non-jumbo (legacy) sizes */
+extern unsigned char *mbutl;    /* start VA of mbuf pool */
+extern unsigned int mb_memory_pressure_percentage;
+extern struct mb_stat *mb_stat;
+PERCPU_DECL(mbuf_mtypes_t, mbuf_mtypes);
+
+extern mbuf_table_t mbuf_table[];
+
+extern void mbuf_mtypes_sync(void);
+extern void mbuf_stat_sync(void);
+extern void mbuf_table_init(void);
+extern void m_incref(struct mbuf *m);
+extern uint16_t m_decref(struct mbuf *m);
+extern struct mbuf *m_get_common(int wait, short type, int hdr);
+extern int m_free_paired(struct mbuf *m);
+extern caddr_t m_get_ext_arg(struct mbuf *m);
+extern int mbuf_watchdog_defunct_iterate(proc_t p, void *arg);
+extern void m_set_ext(struct mbuf *m, struct ext_ref *rfa, m_ext_free_func_t ext_free,
+    caddr_t ext_arg);
+extern void mext_init(struct mbuf *m, void *__sized_by(size)buf, u_int size,
+    m_ext_free_func_t free, caddr_t free_arg, struct ext_ref *rfa,
+    u_int16_t min, u_int16_t ref, u_int16_t pref, u_int16_t flag,
+    u_int32_t priv, struct mbuf *pm);
+extern int mbuf_get_class(struct mbuf *m);
+extern void mbuf_init(struct mbuf *m, int pkthdr, int type);
+extern void mbuf_mcheck(struct mbuf *m);
+#endif /* CONFIG_MBUF_MCACHE */
+
 #endif /* XNU_KERNEL_PRIVATE */
 #endif  /* !_SYS_MBUF_H_ */

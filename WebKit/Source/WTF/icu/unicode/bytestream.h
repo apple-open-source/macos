@@ -1,9 +1,9 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 2009-2012, International Business Machines
-// Corporation and others. All Rights Reserved.
+// Corporation and others. All rights reserved.
 //
-// Copyright 2007 Google Inc. All Rights Reserved.
+// Copyright 2007 Google Inc. All rights reserved.
 // Author: sanjay@google.com (Sanjay Ghemawat)
 //
 // Abstract interface that consumes a sequence of bytes (ByteSink).

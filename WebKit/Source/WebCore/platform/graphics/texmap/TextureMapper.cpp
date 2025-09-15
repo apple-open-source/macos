@@ -38,6 +38,7 @@
 #include "TextureMapperFlags.h"
 #include "TextureMapperShaderProgram.h"
 #include <wtf/HashMap.h>
+#include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -54,15 +55,6 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(TextureMapper);
-
-static size_t nextPowerOf2(size_t n)
-{
-    if (!n)
-        return 1;
-
-    const int totalBits = static_cast<int>(sizeof(size_t) * CHAR_BIT);
-    return static_cast<size_t>(1) << (totalBits - std::countl_zero(n - 1));
-}
 
 class TextureMapperGLData {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(TextureMapperGLData);
@@ -117,7 +109,7 @@ private:
     private:
         friend class TextureMapperGLData;
 
-        using GLContextDataMap = UncheckedKeyHashMap<void*, SharedGLData*>;
+        using GLContextDataMap = HashMap<void*, SharedGLData*>;
         static GLContextDataMap& contextDataMap()
         {
             static NeverDestroyed<GLContextDataMap> map;
@@ -129,13 +121,13 @@ private:
             glGetIntegerv(GL_MAX_TEXTURE_SIZE, &m_maxTextureSize);
         }
 
-        UncheckedKeyHashMap<unsigned, RefPtr<TextureMapperShaderProgram>> m_programs;
+        HashMap<unsigned, RefPtr<TextureMapperShaderProgram>> m_programs;
         int32_t m_maxTextureSize;
     };
 
-    Ref<SharedGLData> m_sharedGLData;
-    UncheckedKeyHashMap<const void*, GLuint> m_vbos;
-    UncheckedKeyHashMap<uint64_t, Vector<Ref<TextureMapperGPUBuffer>>> m_buffers;
+    const Ref<SharedGLData> m_sharedGLData;
+    HashMap<const void*, GLuint> m_vbos;
+    HashMap<uint64_t, Vector<Ref<TextureMapperGPUBuffer>>> m_buffers;
 };
 
 TextureMapperGLData::TextureMapperGLData(void* platformContext)
@@ -230,6 +222,13 @@ Ref<BitmapTexture> TextureMapper::acquireTextureFromPool(const IntSize& size, Op
 {
     return m_texturePool.acquireTexture(size, flags);
 }
+
+#if USE(GBM)
+Ref<BitmapTexture> TextureMapper::createTextureForImage(EGLImage image, OptionSet<BitmapTexture::Flags> flags)
+{
+    return m_texturePool.createTextureForImage(image, flags);
+}
+#endif
 
 #if USE(GRAPHICS_LAYER_WC)
 void TextureMapper::releaseUnusedTexturesNow()
@@ -504,6 +503,39 @@ void TextureMapper::drawTexture(const BitmapTexture& texture, const FloatRect& t
 
     drawTexture(texture.id(), texture.colorConvertFlags() | (texture.isOpaque() ? OptionSet<TextureMapperFlags> { } : TextureMapperFlags::ShouldBlend), targetRect, matrix, opacity, allEdgesExposed);
 }
+
+#if ENABLE(DAMAGE_TRACKING)
+void TextureMapper::drawTextureFragment(const BitmapTexture& sourceTexture, const FloatRect& sourceRect, const FloatRect& targetRect)
+{
+    Ref<TextureMapperShaderProgram> program = data().getShaderProgram({ TextureMapperShaderProgram::TextureRGB });
+    const auto& textureSize = sourceTexture.size();
+
+    glUseProgram(program->programID());
+
+    auto textureFragmentMatrix = TransformationMatrix::identity;
+
+    textureFragmentMatrix.translate3d(
+        static_cast<double>(sourceRect.x()) / textureSize.width(),
+        static_cast<double>(sourceRect.y()) / textureSize.height(),
+        0
+    ).scale3d(
+        static_cast<double>(sourceRect.width()) / textureSize.width(),
+        static_cast<double>(sourceRect.height()) / textureSize.height(),
+        1
+    );
+
+    program->setMatrix(program->textureSpaceMatrixLocation(), textureFragmentMatrix);
+    program->setMatrix(program->textureColorSpaceMatrixLocation(), colorSpaceMatrixForFlags(sourceTexture.colorConvertFlags()));
+    glUniform1f(program->opacityLocation(), 1.0);
+    glUniform2f(program->texelSizeLocation(), 1.f / textureSize.width(), 1.f / textureSize.height());
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, sourceTexture.id());
+    glUniform1i(program->samplerLocation(), 0);
+
+    draw(targetRect, TransformationMatrix(), program.get(), GL_TRIANGLE_FAN, { });
+}
+#endif
 
 void TextureMapper::drawTexture(GLuint texture, OptionSet<TextureMapperFlags> flags, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, AllEdgesExposed allEdgesExposed)
 {
@@ -1427,10 +1459,21 @@ void TextureMapper::beginClip(const TransformationMatrix& modelViewMatrix, const
     clipStack().applyIfNeeded();
 }
 
+void TextureMapper::beginClipWithoutApplying(const TransformationMatrix& modelViewMatrix, const FloatRect& targetRect)
+{
+    clipStack().push();
+    clipStack().intersect(enclosingIntRect(modelViewMatrix.mapRect(targetRect)));
+}
+
 void TextureMapper::endClip()
 {
     clipStack().pop();
     clipStack().applyIfNeeded();
+}
+
+void TextureMapper::endClipWithoutApplying()
+{
+    clipStack().pop();
 }
 
 IntRect TextureMapper::clipBounds()
@@ -1481,7 +1524,7 @@ void TextureMapper::drawTextureExternalOES(GLuint texture, OptionSet<TextureMapp
 
 Ref<TextureMapperGPUBuffer> TextureMapper::acquireBufferFromPool(size_t size, TextureMapperGPUBuffer::Type type)
 {
-    size_t ceil = nextPowerOf2(size);
+    size_t ceil = roundUpToPowerOfTwo(size);
     size_t floor = ceil >> 1; // half of ceil
     size_t mid = floor + (floor >> 1); // (1.5 times floor)
     size_t requestSize = (size <= mid) ? mid : ceil;

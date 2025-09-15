@@ -25,7 +25,6 @@
 #pragma once
 
 #include "BorderValue.h"
-#include "GapLength.h"
 #include "RenderStyleConstants.h"
 #include <wtf/RefCounted.h>
 
@@ -64,10 +63,10 @@ public:
 
     bool autoWidth : 1;
     bool autoCount : 1;
-    unsigned fill : 1; // ColumnFill
-    unsigned columnSpan : 1; // ColumnSpan
-    unsigned axis : 2; // ColumnAxis
-    unsigned progression : 2; // ColumnProgression
+    PREFERRED_TYPE(ColumnFill) unsigned fill : 1;
+    PREFERRED_TYPE(ColumnSpan) unsigned columnSpan : 1;
+    PREFERRED_TYPE(ColumnAxis) unsigned axis : 2;
+    PREFERRED_TYPE(ColumnProgression) unsigned progression : 2;
 
 private:
     StyleMultiColData();

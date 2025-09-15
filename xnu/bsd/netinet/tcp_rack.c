@@ -301,7 +301,7 @@ tcp_rack_detect_loss_and_arm_timer(struct tcpcb *tp, uint32_t dup_acks)
 
 	reordering_timeout = tcp_rack_detect_loss(tp, dup_acks, &loss_detected);
 	if (reordering_timeout) {
-		tp->t_timer[TCPT_REORDER] = OFFSET_FROM_START(tp,
+		tp->t_timer[TCPT_REORDER] = tcp_offset_from_start(tp,
 		    reordering_timeout + REORDERING_WINDOW_FLOOR);
 		/* Since losses can be marked at future point, clear the TLP timer */
 		tp->t_timer[TCPT_PTO] = 0;

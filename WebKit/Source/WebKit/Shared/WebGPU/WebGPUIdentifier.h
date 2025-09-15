@@ -31,7 +31,7 @@
 
 namespace WebKit {
 
-enum class WebGPUIdentifierType { };
+struct WebGPUIdentifierType;
 using WebGPUIdentifier = AtomicObjectIdentifier<WebGPUIdentifierType>;
 
 } // namespace WebKit

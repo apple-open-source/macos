@@ -190,7 +190,7 @@ T_DECL(all_cores_running,
 	 * Now after we have logged all of the relevant information, enforce that each
 	 * of the cores was recommended and had test threads scheduled on it.
 	 */
-	T_ASSERT_EQ((unsigned int)__builtin_popcountll(final_visited_cores_bitmask), cpu_count, "Each core ran at least one of the test threads");
+	T_ASSERT_EQ((unsigned int)__builtin_popcountll(final_visited_cores_bitmask), cpu_count, "[%s] Each core ran at least one of the test threads", platform_train_descriptor());
 	for (unsigned int i = 0; i < cpu_count; i++) {
 		T_QUIET; T_ASSERT_GT(non_idle_ticks[i], 0, "One or more cores were idle during the work period");
 	}
@@ -237,5 +237,5 @@ T_DECL(recommended_cores_mask,
 		}
 	}
 
-	T_ASSERT_EQ(passed_test, 1, "kern.sched_recommended_cores reflects that all expected cores are recommended");
+	T_ASSERT_EQ(passed_test, 1, "[%s] kern.sched_recommended_cores reflects that all expected cores are recommended", platform_train_descriptor());
 }

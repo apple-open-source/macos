@@ -89,6 +89,7 @@ public:
     virtual void gpuProcessConnectionWasDestroyed();
 
     RemoteLayerTreeContext& layerTreeContext() const;
+    Ref<RemoteLayerTreeContext> protectedLayerTreeContext() const;
 
 protected:
 

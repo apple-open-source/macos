@@ -283,6 +283,7 @@ static const char *openpam_policy_path[] = {
 	"/etc/pam.conf",
 	"/usr/local/etc/pam.d/",
 	"/usr/local/etc/pam.conf",
+	"/usr/share/pam.d/",
 	NULL
 };
 

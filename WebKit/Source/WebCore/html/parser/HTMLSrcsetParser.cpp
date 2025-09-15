@@ -32,8 +32,10 @@
 #include "config.h"
 #include "HTMLSrcsetParser.h"
 
+#include "CSSSerializationContext.h"
 #include "Element.h"
 #include "HTMLParserIdioms.h"
+#include <ranges>
 #include <wtf/ListHashSet.h>
 #include <wtf/URL.h>
 #include <wtf/text/ParsingUtilities.h>
@@ -229,9 +231,9 @@ void getURLsFromSrcsetAttribute(const Element& element, StringView attribute, Li
     }
 }
 
-String replaceURLsInSrcsetAttribute(const Element& element, StringView attribute, const UncheckedKeyHashMap<String, String>& replacementURLStrings)
+String replaceURLsInSrcsetAttribute(const Element& element, StringView attribute, const CSS::SerializationContext& context)
 {
-    if (replacementURLStrings.isEmpty())
+    if (context.replacementURLStrings.isEmpty())
         return attribute.toString();
 
     auto imageCandidates = parseImageCandidatesFromSrcsetAttribute(attribute);
@@ -241,7 +243,7 @@ String replaceURLsInSrcsetAttribute(const Element& element, StringView attribute
             result.append(", "_s);
 
         auto resolvedURLString = element.resolveURLStringIfNeeded(candidate.string.toString());
-        auto replacementURLString = replacementURLStrings.get(resolvedURLString);
+        auto replacementURLString = context.replacementURLStrings.get(resolvedURLString);
         if (!replacementURLString.isEmpty())
             result.append(replacementURLString);
         else
@@ -270,7 +272,7 @@ static ImageCandidate pickBestImageCandidate(float deviceScaleFactor, Vector<Ima
             candidate.density = DefaultDensityValue;
     }
 
-    std::stable_sort(imageCandidates.begin(), imageCandidates.end(), compareByDensity);
+    std::ranges::stable_sort(imageCandidates, compareByDensity);
 
     unsigned i;
     for (i = 0; i < imageCandidates.size() - 1; ++i) {
@@ -293,7 +295,7 @@ static ImageCandidate pickBestImageCandidate(float deviceScaleFactor, Vector<Ima
     return imageCandidates[winner];
 }
 
-ImageCandidate bestFitSourceForImageAttributes(float deviceScaleFactor, const AtomString& srcAttribute, StringView srcsetAttribute, float sourceSize, Function<bool(const ImageCandidate&)>&& shouldIgnoreCandidateCallback)
+ImageCandidate bestFitSourceForImageAttributes(float deviceScaleFactor, const AtomString& srcAttribute, StringView srcsetAttribute, float sourceSize, NOESCAPE const Function<bool(const ImageCandidate&)>& shouldIgnoreCandidateCallback)
 {
     if (srcsetAttribute.isNull()) {
         if (srcAttribute.isNull())

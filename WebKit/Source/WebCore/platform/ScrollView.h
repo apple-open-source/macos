@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,24 +37,25 @@
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
-
-OBJC_CLASS WAKScrollView;
-OBJC_CLASS WAKView;
-
 #ifndef NSScrollView
 #define NSScrollView WAKScrollView
 #endif
-
 #ifndef NSView
 #define NSView WAKView
 #endif
-
 #endif // PLATFORM(IOS_FAMILY)
 
-#if PLATFORM(COCOA) && defined __OBJC__
-@class NSScrollView;
+#if PLATFORM(COCOA)
+OBJC_CLASS NSScrollView;
+OBJC_CLASS NSView;
+
+#ifdef __OBJC__
 @protocol WebCoreFrameScrollView;
+#define PlatformScrollView NSScrollView<WebCoreFrameScrollView>
+#else
+#define PlatformScrollView NSScrollView
 #endif
+#endif // PLATFORM(COCOA)
 
 namespace WebCore {
 
@@ -102,14 +103,16 @@ public:
     virtual IntRect windowClipRect() const = 0;
 
     // Functions for child manipulation and inspection.
-    const UncheckedKeyHashSet<Ref<Widget>>& children() const { return m_children; }
+    const HashSet<Ref<Widget>>& children() const { return m_children; }
     WEBCORE_EXPORT virtual void addChild(Widget&);
     WEBCORE_EXPORT virtual void removeChild(Widget&);
 
     // If the scroll view does not use a native widget, then it will have cross-platform Scrollbars. These functions
     // can be used to obtain those scrollbars.
     Scrollbar* horizontalScrollbar() const final { return m_horizontalScrollbar.get(); }
+    RefPtr<Scrollbar> protectedHorizontalScrollbar() const { return horizontalScrollbar(); }
     Scrollbar* verticalScrollbar() const final { return m_verticalScrollbar.get(); }
+    RefPtr<Scrollbar> protectedVerticalScrollbar() const { return verticalScrollbar(); }
     bool isScrollViewScrollbar(const Widget* child) const { return horizontalScrollbar() == child || verticalScrollbar() == child; }
 
     void positionScrollbarLayers();
@@ -163,26 +166,27 @@ public:
         WTF_MAKE_TZONE_ALLOCATED(ProhibitScrollingWhenChangingContentSizeForScope);
     public:
         ProhibitScrollingWhenChangingContentSizeForScope(ScrollView&);
-        ~ProhibitScrollingWhenChangingContentSizeForScope();
+        WEBCORE_EXPORT ~ProhibitScrollingWhenChangingContentSizeForScope();
 
     private:
         SingleThreadWeakPtr<ScrollView> m_scrollView;
     };
 
-    std::unique_ptr<ProhibitScrollingWhenChangingContentSizeForScope> prohibitScrollingWhenChangingContentSizeForScope();
+    WEBCORE_EXPORT std::unique_ptr<ProhibitScrollingWhenChangingContentSizeForScope> prohibitScrollingWhenChangingContentSizeForScope();
 
     // Whether or not a scroll view will blit visible contents when it is scrolled. Blitting is disabled in situations
     // where it would cause rendering glitches (such as with fixed backgrounds or when the view is partially transparent).
     void setCanBlitOnScroll(bool);
     bool canBlitOnScroll() const;
 
-    // There are at least three types of contentInset. Usually we just care about WebCoreContentInset, which is the inset
+    // There are at least three types of contentInset. Usually we just care about WebCoreInset, which is the inset
     // that is set on a Page that requires WebCore to move its layers to accomodate the inset. However, there are platform
     // concepts that are similar on both iOS and Mac when there is a platformWidget(). Sometimes we need the Mac platform value
-    // for topContentInset, so when the TopContentInsetType is WebCoreOrPlatformContentInset, platformTopContentInset()
+    // for content insets, so when the inset type is WebCoreOrPlatformInset, platformContentInsets()
     // will be returned instead of the value set on Page.
-    enum class TopContentInsetType { WebCoreContentInset, WebCoreOrPlatformContentInset };
-    virtual float topContentInset(TopContentInsetType = TopContentInsetType::WebCoreContentInset) const { return 0; }
+    // FIXME: Note that WebCoreOrPlatformInset may return either WebCore obscured insets or platform content insets.
+    enum class InsetType : bool { WebCoreInset, WebCoreOrPlatformInset };
+    virtual FloatBoxExtent obscuredContentInsets(InsetType = InsetType::WebCoreInset) const { return 0; }
     IntRect frameRectShrunkByInset() const;
 
     // The visible content rect has a location that is the scrolled offset of the document. The width and height are the unobscured viewport
@@ -267,7 +271,7 @@ public:
     ScrollPosition documentScrollPositionRelativeToScrollableAreaOrigin() const;
 
     // scrollPostion() anchors its (0,0) point at the ScrollableArea's origin. The top of the scrolling
-    // layer does not represent the top of the view when there is a topContentInset. Additionally, as
+    // layer does not represent the top/left of the view when there are content insets. Additionally, as
     // detailed above, the origin of the scrolling layer also does not necessarily correspond with the
     // top of the document anyway, since there could also be header. documentScrollPositionRelativeToViewOrigin()
     // will return a version of the current scroll offset which tracks the top of the Document
@@ -332,10 +336,15 @@ public:
     // Event coordinates are assumed to be in the coordinate space of a window that contains
     // the entire widget hierarchy. It is up to the platform to decide what the precise definition
     // of containing window is. (For example on Mac it is the containing NSWindow.)
-    WEBCORE_EXPORT IntPoint windowToContents(const IntPoint&) const;
-    WEBCORE_EXPORT IntPoint contentsToWindow(const IntPoint&) const;
+    WEBCORE_EXPORT IntPoint windowToContents(IntPoint) const;
+    FloatPoint windowToContents(FloatPoint) const;
     WEBCORE_EXPORT IntRect windowToContents(const IntRect&) const;
+    FloatRect windowToContents(const FloatRect&) const;
+
+    WEBCORE_EXPORT IntPoint contentsToWindow(IntPoint) const;
+    FloatPoint contentsToWindow(FloatPoint) const;
     WEBCORE_EXPORT IntRect contentsToWindow(const IntRect&) const;
+    FloatRect contentsToWindow(const FloatRect&) const;
 
     // Functions for converting to and from screen coordinates.
     WEBCORE_EXPORT IntRect contentsToScreen(const IntRect&) const;
@@ -359,7 +368,9 @@ public:
 
     IntPoint convertChildToSelf(const Widget*, IntPoint) const;
     FloatPoint convertChildToSelf(const Widget*, FloatPoint) const;
+
     IntPoint convertSelfToChild(const Widget*, IntPoint) const;
+    FloatPoint convertSelfToChild(const Widget*, FloatPoint) const;
 
     // Widget override. Handles painting of the contents of the view as well as the scrollbars.
     WEBCORE_EXPORT void paint(GraphicsContext&, const IntRect&, Widget::SecurityOriginPaintPolicy = SecurityOriginPaintPolicy::AnyOrigin, RegionContext* = nullptr) final;
@@ -431,8 +442,8 @@ protected:
     virtual bool isVerticalDocument() const = 0;
     virtual bool isFlippedDocument() const = 0;
 
-    float platformTopContentInset() const;
-    void platformSetTopContentInset(float);
+    FloatBoxExtent platformContentInsets() const;
+    void platformSetContentInsets(const FloatBoxExtent&);
 
     void handleDeferredScrollUpdateAfterContentSizeChange();
 
@@ -444,12 +455,12 @@ protected:
 
     virtual void didFinishProhibitingScrollingWhenChangingContentSize() = 0;
 
-#if PLATFORM(COCOA) && defined __OBJC__
+#if PLATFORM(COCOA)
 public:
     WEBCORE_EXPORT NSView* documentView() const;
 
 private:
-    NSScrollView<WebCoreFrameScrollView>* scrollView() const;
+    PlatformScrollView* scrollView() const;
 #endif
 
 private:
@@ -518,7 +529,7 @@ private:
             didFinishProhibitingScrollingWhenChangingContentSize();
     }
 
-    UncheckedKeyHashSet<Ref<Widget>> m_children;
+    HashSet<Ref<Widget>> m_children;
 
     RefPtr<Scrollbar> m_horizontalScrollbar;
     RefPtr<Scrollbar> m_verticalScrollbar;

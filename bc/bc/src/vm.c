@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2025 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,6 +66,9 @@
 #if BC_ENABLE_LIBRARY
 #include <library.h>
 #endif // BC_ENABLE_LIBRARY
+#if BC_ENABLE_OSSFUZZ
+#include <ossfuzz.h>
+#endif // BC_ENABLE_OSSFUZZ
 
 #if !BC_ENABLE_LIBRARY
 
@@ -121,29 +124,6 @@ bc_vm_jmp(void)
 static void
 bc_vm_sig(int sig)
 {
-#ifndef __APPLE__
-#if BC_ENABLE_EDITLINE
-	// Editline needs this to resize the terminal. This also needs to come first
-	// because a resize always needs to happen.
-	if (sig == SIGWINCH)
-	{
-		if (BC_TTY)
-		{
-			el_resize(vm->history.el);
-
-			// If the signal was a SIGWINCH, clear it because we don't need to
-			// print a stack trace in that case.
-			if (vm->sig == SIGWINCH)
-			{
-				vm->sig = 0;
-			}
-		}
-
-		return;
-	}
-#endif // BC_ENABLE_EDITLINE
-#endif /* __APPLE__ */
-
 	// There is already a signal in flight if this is true.
 	if (vm->status == (sig_atomic_t) BC_STATUS_QUIT || vm->sig != 0)
 	{
@@ -256,28 +236,22 @@ bc_vm_sigaction(void)
 	struct sigaction sa;
 
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = BC_ENABLE_EDITLINE ? 0 : SA_NODEFER;
+	sa.sa_flags = SA_NODEFER;
 
 	// This mess is to silence a warning on Clang with regards to glibc's
 	// sigaction handler, which activates the warning here.
 #if BC_CLANG
+#pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif // BC_CLANG
 	sa.sa_handler = bc_vm_sig;
 #if BC_CLANG
-#pragma clang diagnostic warning "-Wdisabled-macro-expansion"
+#pragma clang diagnostic pop
 #endif // BC_CLANG
 
 	sigaction(SIGTERM, &sa, NULL);
 	sigaction(SIGQUIT, &sa, NULL);
 	sigaction(SIGINT, &sa, NULL);
-
-#ifndef __APPLE__
-#if BC_ENABLE_EDITLINE
-	// Editline needs this to resize the terminal.
-	if (BC_TTY) sigaction(SIGWINCH, &sa, NULL);
-#endif // BC_ENABLE_EDITLINE
-#endif /* __APPLE__ */
 
 #if BC_ENABLE_HISTORY
 	if (BC_TTY) sigaction(SIGHUP, &sa, NULL);
@@ -585,7 +559,7 @@ bc_vm_envArgs(const char* const env_args_name, BcBigDig* scale, BcBigDig* ibase,
 
 	if (env_args == NULL) return;
 
-		// Windows already allocates, so we don't need to.
+	// Windows already allocates, so we don't need to.
 #ifndef _WIN32
 	start = buf = vm->env_args_buffer = bc_vm_strdup(env_args);
 #else // _WIN32
@@ -718,7 +692,7 @@ bc_vm_shutdown(void)
 #endif // BC_ENABLE_HISTORY
 #endif // !BC_ENABLE_LIBRARY
 
-#if BC_DEBUG
+#if BC_DEBUG || BC_ENABLE_MEMCHECK
 #if !BC_ENABLE_LIBRARY
 	bc_vec_free(&vm->env_args);
 	free(vm->env_args_buffer);
@@ -738,7 +712,7 @@ bc_vm_shutdown(void)
 #endif // !BC_ENABLE_LIBRARY
 
 	bc_vm_freeTemps();
-#endif // BC_DEBUG
+#endif // BC_DEBUG || BC_ENABLE_MEMCHECK
 
 #if !BC_ENABLE_LIBRARY
 	// We always want to flush.
@@ -1184,6 +1158,8 @@ err:
 	BC_LONGJMP_CONT(vm);
 }
 
+#if !BC_ENABLE_OSSFUZZ
+
 bool
 bc_vm_readLine(bool clear)
 {
@@ -1319,6 +1295,8 @@ err:
 
 	BC_LONGJMP_CONT(vm);
 }
+
+#endif // BC_ENABLE_OSSFUZZ
 
 bool
 bc_vm_readBuf(bool clear)
@@ -1539,6 +1517,8 @@ bc_vm_exec(void)
 	}
 #endif // BC_ENABLED
 
+	assert(!BC_ENABLE_OSSFUZZ || BC_EXPR_EXIT == 0);
+
 	// If there are expressions to execute...
 	if (vm->exprs.len)
 	{
@@ -1546,7 +1526,11 @@ bc_vm_exec(void)
 		bc_vm_exprs();
 
 		// Sometimes, executing expressions means we need to quit.
-		if (!vm->no_exprs && vm->exit_exprs && BC_EXPR_EXIT) return;
+		if (vm->status != BC_STATUS_SUCCESS ||
+		    (!vm->no_exprs && vm->exit_exprs && BC_EXPR_EXIT))
+		{
+			return;
+		}
 	}
 
 	// Process files.
@@ -1558,6 +1542,8 @@ bc_vm_exec(void)
 		has_file = true;
 #endif // DC_ENABLED
 		bc_vm_file(path);
+
+		if (vm->status != BC_STATUS_SUCCESS) return;
 	}
 
 #if BC_ENABLE_EXTRA_MATH
@@ -1586,12 +1572,25 @@ bc_vm_exec(void)
 	__AFL_INIT();
 #endif // BC_ENABLE_AFL
 
+#if BC_ENABLE_OSSFUZZ
+
+	if (BC_VM_RUN_STDIN(has_file))
+	{
+		// XXX: Yes, this is a hack to run the fuzzer for OSS-Fuzz, but it
+		// works.
+		bc_vm_load("<stdin>", (const char*) bc_fuzzer_data);
+	}
+
+#else // BC_ENABLE_OSSFUZZ
+
 	// Execute from stdin. bc always does.
 	if (BC_VM_RUN_STDIN(has_file)) bc_vm_stdin();
+
+#endif // BC_ENABLE_OSSFUZZ
 }
 
 BcStatus
-bc_vm_boot(int argc, char* argv[])
+bc_vm_boot(int argc, const char* argv[])
 {
 	int ttyin, ttyout, ttyerr;
 	bool tty;
@@ -1783,7 +1782,7 @@ bc_vm_boot(int argc, char* argv[])
 	BC_SIG_LOCK;
 
 	// Exit.
-	return bc_vm_atexit((BcStatus) vm->status);
+	return (BcStatus) vm->status;
 }
 #endif // !BC_ENABLE_LIBRARY
 

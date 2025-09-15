@@ -32,6 +32,7 @@
 #include "AffineTransform.h"
 #include "CGUtilities.h"
 #include "GraphicsContextCG.h"
+#include "NativeImage.h"
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/MainThread.h>
 

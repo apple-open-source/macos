@@ -274,7 +274,7 @@ Lspill_registers_poison_continue_\@:
 .ifnb \options_register
 Lspill_registers_skip_elr_far_\@:
 .endif /* options_register != NONE */
-	str		w21, [x0, SS64_ESR]
+	str		x21, [x0, SS64_ESR]
 	str		w23, [x0, SS64_CPSR]
 .endmacro
 

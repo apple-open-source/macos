@@ -46,5 +46,5 @@ WKTypeID WKUserMediaPermissionCheckGetTypeID()
 
 void WKUserMediaPermissionCheckSetUserMediaAccessInfo(WKUserMediaPermissionCheckRef userMediaPermissionRequestRef, WKStringRef, bool allowed)
 {
-    toImpl(userMediaPermissionRequestRef)->setUserMediaAccessInfo(allowed);
+    toProtectedImpl(userMediaPermissionRequestRef)->setUserMediaAccessInfo(allowed);
 }

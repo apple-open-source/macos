@@ -27,79 +27,79 @@ namespace WTF {
 
 cairo_t* DefaultRefDerefTraits<cairo_t>::refIfNotNull(cairo_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_t>::derefIfNotNull(cairo_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_destroy(ptr);
 }
 
 cairo_surface_t* DefaultRefDerefTraits<cairo_surface_t>::refIfNotNull(cairo_surface_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_surface_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_surface_t>::derefIfNotNull(cairo_surface_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_surface_destroy(ptr);
 }
 
 cairo_font_face_t* DefaultRefDerefTraits<cairo_font_face_t>::refIfNotNull(cairo_font_face_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_font_face_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_font_face_t>::derefIfNotNull(cairo_font_face_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_font_face_destroy(ptr);
 }
 
 cairo_scaled_font_t* DefaultRefDerefTraits<cairo_scaled_font_t>::refIfNotNull(cairo_scaled_font_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_scaled_font_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_scaled_font_t>::derefIfNotNull(cairo_scaled_font_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_scaled_font_destroy(ptr);
 }
 
 cairo_pattern_t* DefaultRefDerefTraits<cairo_pattern_t>::refIfNotNull(cairo_pattern_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_pattern_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_pattern_t>::derefIfNotNull(cairo_pattern_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_pattern_destroy(ptr);
 }
 
 cairo_region_t* DefaultRefDerefTraits<cairo_region_t>::refIfNotNull(cairo_region_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_region_reference(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<cairo_region_t>::derefIfNotNull(cairo_region_t* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         cairo_region_destroy(ptr);
 }
 

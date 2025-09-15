@@ -16,7 +16,7 @@
 .\"
 .\"     @(#)getattrlist.2
 .
-.Dd July 31, 2024
+.Dd March 7, 2025
 .Dt GETATTRLIST 2
 .Os Darwin
 .Sh NAME
@@ -215,7 +215,7 @@ parameter is a bit set that controls the behaviour of
 the functions.
 The following option bits are defined.
 .
-.Bl -tag -width FSOPT_PACK_INVAL_ATTRS
+.Bl -tag -width FSOPT_ATTR_CMN_EXTENDED
 .
 .It FSOPT_NOFOLLOW
 If this bit is set,
@@ -233,6 +233,14 @@ the last component of
 In addition an error is returned if a symlink
 is encountered before the last component of
 .Fa path .
+.
+.It FSOPT_RESOLVE_BENEATH
+If this bit is set,
+.Fn getattrlistat
+and
+.Fa path
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .
 .It FSOPT_REPORT_FULLSIZE
 The size of the attributes reported (in the first
@@ -363,7 +371,7 @@ is a pointer to the
 ) +
 .Fa attr_dataoffset
 +
-.Fa attr_datalength
+.Fa attr_length
 ) > ( ( (char *)
 .Fa attrBuf
 ) +
@@ -389,7 +397,7 @@ be the first attribute returned. By default, unsupported attributes
 will be skipped (i.e. not packed into the output buffer). This behavior
 can be over-ridden using the FSOPT_PACK_INVAL_ATTRS option flag. Both
 .Xr getattrlist 2 and
-.Xr getatttrlistbulk 2 support this attribute while
+.Xr getattrlistbulk 2 support this attribute while
 .Xr searchfs 2 does not.
 .
 .It ATTR_CMN_NAME
@@ -460,7 +468,7 @@ ATTR_CMN_OBJID of a file system object may appear similar (in whole
 or in part) to it's ATTR_CMN_FILEID (see description of ATTR_CMN_FILEID below), 
 \fBno relation between the two attributes should ever be implied.\fP
 .Pp
-ATTR_CMN_OBJID is deprecated sarting with macOS 10.13, iOS 11.0, watchOS 4.0 and
+ATTR_CMN_OBJID is deprecated starting with macOS 10.13, iOS 11.0, watchOS 4.0 and
 tvOS 11.0 and ATTR_CMNEXT_LINKID should be used in its place.
 ATTR_CMN_OBJID can only be used on older operating systems only if the file
 system doesn't 64 bit IDs. See the
@@ -683,7 +691,7 @@ structure, of which only the ACL entry is used.
 .It ATTR_CMN_UUID
 A
 .Vt guid_t
-of the owner of the file system object.  Analoguous to
+of the owner of the file system object.  Analogous to
 .Dv ATTR_CMN_OWNERID .
 .
 .It ATTR_CMN_GRPUUID
@@ -1238,7 +1246,8 @@ or snapshot, and which would be freed immediately if the file were deleted.
 A
 .Vt u_int64_t
 that uniquely identifies the file system object within a mounted volume for the
-duration of its mount.
+duration of its mount. This identifier is persistent on volumes that support the
+VOL_CAP_FMT_PERSISTENTOBJECTIDS capability, such as HFS+ and APFS.
 .Pp
 On HFS+ and APFS volumes, the ATTR_CMNEXT_LINKID of a file system
 object is distinct from the ATTR_CMNEXT_LINKID of any hard link to that file
@@ -1338,7 +1347,7 @@ directory is not marked maintain-dir-stats, a zero is returned.
 .It ATTR_CMNEXT_ATTRIBUTION_TAG
 An optional
 .Vt u_int64_t
-id that represents the bundle id (owner) assoicated with the file
+id that represents the bundle id (owner) associated with the file
 (zero means the file isn't attributed yet)
 .
 .It ATTR_CMNEXT_CLONE_REFCNT
@@ -1769,6 +1778,13 @@ See
 .Xr fcntl 2
 for more details.
 .
+.It VOL_CAP_INT_BARRIERFSYNC
+If this bit is set, the file system supports the
+.Dv F_BARRIERFSYNC operation.
+See
+.Xr fcntl 2
+for more details.
+.
 .El
 .Pp
 .
@@ -1964,6 +1980,10 @@ argument is not an absolute path and
 is neither
 .Dv AT_FDCWD
 nor a file descriptor associated with a directory.
+.It Bq Er ENOTCAPABLE
+if FSOPT_RESOLVE_BENEATH was passed and
+.Fa path
+does not reside in the directory hierarchy beneath the starting directory.
 .El
 .Pp
 .

@@ -278,7 +278,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/async-clipboard/Navigator+Clipboard.idl \
     $(WebCore)/Modules/audiosession/DOMAudioSession.idl \
     $(WebCore)/Modules/audiosession/Navigator+AudioSession.idl \
-    $(WebCore)/Modules/badge/Navigator+Badge.idl \
     $(WebCore)/Modules/badge/NavigatorBadge.idl \
     $(WebCore)/Modules/beacon/Navigator+Beacon.idl \
     $(WebCore)/Modules/cache/CacheQueryOptions.idl \
@@ -355,12 +354,12 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/fetch/FetchResponse.idl \
     $(WebCore)/Modules/fetch/RequestPriority.idl \
     $(WebCore)/Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl \
-    $(WebCore)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl \
-    $(WebCore)/Modules/filesystemaccess/FileSystemFileHandle.idl \
-    $(WebCore)/Modules/filesystemaccess/FileSystemHandle.idl \
-    $(WebCore)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl \
-	$(WebCore)/Modules/filesystemaccess/FileSystemWritableFileStream.idl \
-    $(WebCore)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl \
+    $(WebCore)/Modules/filesystem/FileSystemDirectoryHandle.idl \
+    $(WebCore)/Modules/filesystem/FileSystemFileHandle.idl \
+    $(WebCore)/Modules/filesystem/FileSystemHandle.idl \
+    $(WebCore)/Modules/filesystem/FileSystemSyncAccessHandle.idl \
+	$(WebCore)/Modules/filesystem/FileSystemWritableFileStream.idl \
+    $(WebCore)/Modules/filesystem/StorageManager+FileSystem.idl \
     $(WebCore)/Modules/gamepad/Gamepad.idl \
     $(WebCore)/Modules/gamepad/GamepadButton.idl \
     $(WebCore)/Modules/gamepad/GamepadEffectParameters.idl \
@@ -382,8 +381,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/identity/DigitalCredential.idl \
     $(WebCore)/Modules/identity/DigitalCredentialRequest.idl \
     $(WebCore)/Modules/identity/DigitalCredentialRequestOptions.idl \
-    $(WebCore)/Modules/identity/OpenID4VPRequest.idl \
     $(WebCore)/Modules/identity/IdentityCredentialProtocol.idl \
+    $(WebCore)/Modules/identity/protocols/ISO18013/MobileDocumentRequest.idl \
+    $(WebCore)/Modules/identity/protocols/openid/OpenID4VPRequest.idl \
     $(WebCore)/Modules/indexeddb/IDBCursor.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorDirection.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorWithValue.idl \
@@ -481,7 +481,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCDegradationPreference.idl \
     $(WebCore)/Modules/mediastream/RTCDtlsTransport.idl \
     $(WebCore)/Modules/mediastream/RTCDtlsTransportState.idl \
-    $(WebCore)/Modules/mediastream/RTCDtxStatus.idl \
     $(WebCore)/Modules/mediastream/RTCEncodedAudioFrame.idl \
     $(WebCore)/Modules/mediastream/RTCEncodedVideoFrame.idl \
     $(WebCore)/Modules/mediastream/RTCError.idl \
@@ -515,12 +514,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCRtpCodingParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpContributingSource.idl \
     $(WebCore)/Modules/mediastream/RTCRtpEncodingParameters.idl \
-    $(WebCore)/Modules/mediastream/RTCRtpFecParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpHeaderExtensionParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpReceiver.idl \
     $(WebCore)/Modules/mediastream/RTCRtpReceiver+Transform.idl \
-    $(WebCore)/Modules/mediastream/RTCRtpRtxParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpSendParameters.idl \
     $(WebCore)/Modules/mediastream/RTCRtpSender.idl \
     $(WebCore)/Modules/mediastream/RTCRtpSender+Transform.idl \
@@ -603,6 +600,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
     $(WebCore)/Modules/reporting/DeprecationReportBody.idl \
+    $(WebCore)/Modules/reporting/IntegrityPolicyViolationReportBody.idl \
     $(WebCore)/Modules/reporting/Report.idl \
     $(WebCore)/Modules/reporting/ReportBody.idl \
     $(WebCore)/Modules/reporting/ReportingObserver.idl \
@@ -762,6 +760,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialType.idl \
     $(WebCore)/Modules/webauthn/ResidentKeyRequirement.idl \
     $(WebCore)/Modules/webauthn/UserVerificationRequirement.idl \
+    $(WebCore)/Modules/webauthn/UnknownCredentialOptions.idl \
+    $(WebCore)/Modules/webauthn/AllAcceptedCredentialsOptions.idl \
+    $(WebCore)/Modules/webauthn/CurrentUserDetailsOptions.idl \
     $(WebCore)/Modules/webcodecs/AacEncoderConfig.idl \
     $(WebCore)/Modules/webcodecs/AudioSampleFormat.idl \
     $(WebCore)/Modules/webcodecs/AvcEncoderConfig.idl \
@@ -976,6 +977,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSConditionRule.idl \
     $(WebCore)/css/CSSContainerRule.idl \
     $(WebCore)/css/CSSCounterStyleRule.idl \
+    $(WebCore)/css/CSSFontFaceDescriptors.idl \
     $(WebCore)/css/CSSFontFaceRule.idl \
     $(WebCore)/css/CSSFontFeatureValuesRule.idl \
     $(WebCore)/css/CSSFontPaletteValuesRule.idl \
@@ -988,9 +990,11 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSMediaRule.idl \
     $(WebCore)/css/CSSNamespaceRule.idl \
     $(WebCore)/css/CSSNestedDeclarations.idl \
+    $(WebCore)/css/CSSPageDescriptors.idl \
     $(WebCore)/css/CSSPageRule.idl \
     $(WebCore)/css/CSSPaintCallback.idl \
     $(WebCore)/css/CSSPaintSize.idl \
+    $(WebCore)/css/CSSPositionTryDescriptors.idl \
     $(WebCore)/css/CSSPositionTryRule.idl \
     $(WebCore)/css/CSSPropertyRule.idl \
     $(WebCore)/css/CSSRule.idl \
@@ -998,11 +1002,12 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSScopeRule.idl \
     $(WebCore)/css/CSSStartingStyleRule.idl \
     $(WebCore)/css/CSSStyleDeclaration.idl \
+    $(WebCore)/css/CSSStyleProperties.idl \
     $(WebCore)/css/CSSStyleRule.idl \
+    $(WebCore)/css/CSSStyleRule+Typedom.idl \
     $(WebCore)/css/CSSStyleSheet.idl \
     $(WebCore)/css/CSSSupportsRule.idl \
     $(WebCore)/css/CSSViewTransitionRule.idl \
-    $(WebCore)/css/DocumentOrShadowRoot+CSSOM.idl \
     $(WebCore)/css/DOMCSSCustomPropertyDescriptor.idl \
     $(WebCore)/css/DOMCSSNamespace.idl \
     $(WebCore)/css/DOMCSSNamespace+CSSNumericFactory.idl \
@@ -1019,6 +1024,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/DeprecatedCSSOMValue.idl \
     $(WebCore)/css/DeprecatedCSSOMValueList.idl \
     $(WebCore)/css/ElementCSSInlineStyle.idl \
+    $(WebCore)/css/ElementCSSInlineStyle+Typedom.idl \
     $(WebCore)/css/FontFace.idl \
     $(WebCore)/css/FontFaceSet.idl \
     $(WebCore)/css/FontFaceSource.idl \
@@ -1130,18 +1136,20 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/DocumentAndElementEventHandlers.idl \
     $(WebCore)/dom/DocumentFragment.idl \
     $(WebCore)/dom/DocumentOrShadowRoot.idl \
+    $(WebCore)/dom/DocumentOrShadowRoot+CSSOM.idl \
     $(WebCore)/dom/DocumentOrShadowRoot+Fullscreen.idl \
     $(WebCore)/dom/DocumentOrShadowRoot+PointerLock.idl \
     $(WebCore)/dom/DocumentType.idl \
     $(WebCore)/dom/DragEvent.idl \
     $(WebCore)/dom/Element+CSSOMView.idl \
-    $(WebCore)/dom/Element+ComputedStyleMap.idl \
     $(WebCore)/dom/Element+DOMParsing.idl \
     $(WebCore)/dom/Element+Fullscreen.idl \
     $(WebCore)/dom/Element+PointerEvents.idl \
     $(WebCore)/dom/Element+PointerLock.idl \
+    $(WebCore)/dom/Element+Typedom.idl \
     $(WebCore)/dom/Element.idl \
     $(WebCore)/dom/ElementContentEditable.idl \
+    $(WebCore)/dom/ElementCreationOptions.idl \
     $(WebCore)/dom/ElementInternals.idl \
     $(WebCore)/dom/ErrorEvent.idl \
     $(WebCore)/dom/Event.idl \
@@ -1162,6 +1170,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/IdleDeadline.idl \
     $(WebCore)/dom/IdleRequestCallback.idl \
     $(WebCore)/dom/IdleRequestOptions.idl \
+    $(WebCore)/dom/ImportNodeOptions.idl \
     $(WebCore)/dom/InnerHTML.idl \
     $(WebCore)/dom/InputEvent.idl \
     $(WebCore)/dom/KeyboardEvent.idl \
@@ -1346,7 +1355,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/ImageData.idl \
     $(WebCore)/html/ImageDataSettings.idl \
     $(WebCore)/html/ImageDataStorageFormat.idl \
-    $(WebCore)/html/InvokerElement.idl \
     $(WebCore)/html/MediaController.idl \
     $(WebCore)/html/MediaEncryptedEvent.idl \
     $(WebCore)/html/MediaError.idl \
@@ -1500,7 +1508,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/inspector/RTCLogsCallback.idl \
     $(WebCore)/loader/COEPInheritenceViolationReportBody.idl \
     $(WebCore)/loader/CORPViolationReportBody.idl \
-    $(WebCore)/loader/appcache/DOMApplicationCache.idl \
     $(WebCore)/page/BarProp.idl \
     $(WebCore)/page/Crypto.idl \
     $(WebCore)/page/DOMSelection.idl \
@@ -1515,6 +1522,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/DOMWindow+VisualViewport.idl \
     $(WebCore)/page/EventSource.idl \
     $(WebCore)/page/FragmentDirective.idl \
+    $(WebCore)/page/GetComposedRangesOptions.idl \
     $(WebCore)/page/History.idl \
     $(WebCore)/page/IsLoggedIn.idl \
     $(WebCore)/page/IntersectionObserver.idl \
@@ -1761,6 +1769,12 @@ JS_BINDING_IDLS := \
     $(WebCore)/workers/service/ExtendableEventInit.idl \
     $(WebCore)/workers/service/ExtendableMessageEvent.idl \
     $(WebCore)/workers/service/FetchEvent.idl \
+    $(WebCore)/workers/service/InstallEvent.idl \
+    $(WebCore)/workers/service/RouterCondition.idl \
+    $(WebCore)/workers/service/RouterRule.idl \
+    $(WebCore)/workers/service/RouterSourceDict.idl \
+    $(WebCore)/workers/service/RouterSourceEnum.idl \
+    $(WebCore)/workers/service/RunningStatus.idl \
     $(WebCore)/workers/service/NavigationPreloadManager.idl \
     $(WebCore)/workers/service/NavigationPreloadState.idl \
     $(WebCore)/workers/service/ServiceWorker.idl \
@@ -1805,7 +1819,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/xml/XPathResult.idl \
     $(WebCore)/xml/XSLTProcessor.idl \
     InternalSettingsGenerated.idl \
-    CSSStyleDeclaration+PropertyNames.idl \
+    CSSStyleProperties+PropertyNames.idl \
 #
 
 # --------
@@ -1913,11 +1927,14 @@ all : \
     SelectorPseudoClassAndCompatibilityElementMap.cpp \
     SelectorPseudoElementMap.cpp \
     StyleBuilderGenerated.cpp \
+    StyleExtractorGenerated.cpp \
+    StyleInterpolationWrapperMap.cpp \
+    StyleInterpolationWrapperMap.h \
     StylePropertyShorthandFunctions.cpp \
     StylePropertyShorthandFunctions.h \
     TagName.cpp \
     TagName.h \
-    CSSStyleDeclaration+PropertyNames.idl \
+    CSSStyleProperties+PropertyNames.idl \
     WebKitFontFamilyNames.cpp \
     WebKitFontFamilyNames.h \
     MathMLElementFactory.cpp \
@@ -1933,26 +1950,38 @@ all : \
 
 # CSS property names and value keywords
 
+POSSIBLE_ADDITIONAL_CSS_VALUE_KEYWORDS = \
+    $(foreach \
+        CSS_VALUE_KEYWORDS, \
+        $(ADDITIONAL_CSS_VALUE_KEYWORDS), \
+        $(firstword $(realpath $(foreach \
+            ADDITIONS_PATH, \
+            $(ADDITIONS_PATHS), \
+            $(ADDITIONS_PATH)/$(CSS_VALUE_KEYWORDS)))))
+
 WEBCORE_CSS_PROPERTY_NAMES := $(WebCore)/css/CSSProperties.json
 WEBCORE_CSS_VALUE_KEYWORDS := $(WebCore)/css/CSSValueKeywords.in
-WEBCORE_CSS_VALUE_KEYWORDS := $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/SVGCSSValueKeywords.in
+WEBCORE_CSS_VALUE_KEYWORDS := $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/SVGCSSValueKeywords.in $(POSSIBLE_ADDITIONAL_CSS_VALUE_KEYWORDS)
 
 CSS_PROPERTY_NAME_FILES = \
     CSSPropertyNames.cpp \
     CSSPropertyNames.h \
     CSSPropertyParsing.cpp \
     CSSPropertyParsing.h \
-    CSSStyleDeclaration+PropertyNames.idl \
+    CSSStyleProperties+PropertyNames.idl \
     StyleBuilderGenerated.cpp \
+    StyleExtractorGenerated.cpp \
+    StyleInterpolationWrapperMap.cpp \
+    StyleInterpolationWrapperMap.h \
     StylePropertyShorthandFunctions.cpp \
     StylePropertyShorthandFunctions.h \
 #
 CSS_PROPERTY_NAME_FILES_PATTERNS = $(call to-pattern, $(CSS_PROPERTY_NAME_FILES))
 
 all : $(CSS_PROPERTY_NAME_FILES)
-$(CSS_PROPERTY_NAME_FILES_PATTERNS) : $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCore)/css/process-css-properties.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+$(CSS_PROPERTY_NAME_FILES_PATTERNS) : $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCore)/css/scripts/process-css-properties.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
 	$(PERL) -pe '' $(WEBCORE_CSS_PROPERTY_NAMES) > CSSProperties.json
-	$(PYTHON) "$(WebCore)/css/process-css-properties.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
+	$(PYTHON) "$(WebCore)/css/scripts/process-css-properties.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
 
 CSS_VALUE_KEYWORD_FILES = \
     CSSValueKeywords.h \
@@ -1961,9 +1990,9 @@ CSS_VALUE_KEYWORD_FILES = \
 CSS_VALUE_KEYWORD_FILES_PATTERNS = $(call to-pattern, $(CSS_VALUE_KEYWORD_FILES))
 
 all : $(CSS_VALUE_KEYWORD_FILES)
-$(CSS_VALUE_KEYWORD_FILES_PATTERNS) : $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/process-css-values.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+$(CSS_VALUE_KEYWORD_FILES_PATTERNS) : $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/scripts/process-css-values.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
 	$(PERL) -pe '' $(WEBCORE_CSS_VALUE_KEYWORDS) > CSSValueKeywords.in
-	$(PYTHON) "$(WebCore)/css/process-css-values.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
+	$(PYTHON) "$(WebCore)/css/scripts/process-css-values.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
 
 # --------
 
@@ -1982,9 +2011,9 @@ CSS_PSEUDO_SELECTOR_FILES = \
 #
 CSS_PSEUDO_SELECTOR_FILES_PATTERNS = $(call to-pattern, $(CSS_PSEUDO_SELECTOR_FILES))
 all : $(CSS_PSEUDO_SELECTOR_FILES)
-$(CSS_PSEUDO_SELECTOR_FILES_PATTERNS) : $(WEBCORE_CSS_PSEUDO_SELECTORS) $(WebCore)/css/process-css-pseudo-selectors.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+$(CSS_PSEUDO_SELECTOR_FILES_PATTERNS) : $(WEBCORE_CSS_PSEUDO_SELECTORS) $(WebCore)/css/scripts/process-css-pseudo-selectors.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
 	$(PERL) -pe '' $(WEBCORE_CSS_PSEUDO_SELECTORS) > CSSPseudoSelectors.json
-	$(PYTHON) "$(WebCore)/css/process-css-pseudo-selectors.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
+	$(PYTHON) "$(WebCore)/css/scripts/process-css-pseudo-selectors.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
 
 # --------
 
@@ -2032,6 +2061,7 @@ HTTP_HEADER_NAMES_FILES = \
     HTTPHeaderNames.cpp \
     HTTPHeaderNames.gperf \
     HTTPHeaderNames.h \
+    HTTPHeaderNames.serialization.in \
 #
 HTTP_HEADER_NAMES_FILES_PATTERNS = $(call to-pattern, $(HTTP_HEADER_NAMES_FILES))
 
@@ -2329,9 +2359,14 @@ EVENT_FACTORY_FILES = \
 #
 EVENT_FACTORY_PATTERNS = $(call to-pattern, $(EVENT_FACTORY_FILES))
 
+EVENT_FACTORY_SCRIPTS = \
+    $(WebCore)/dom/make_event_factory.pl \
+    $(WebCore)/bindings/scripts/InFilesCompiler.pm \
+#
+
 all : $(EVENT_FACTORY_FILES)
-$(EVENT_FACTORY_PATTERNS) : $(WebCore)/dom/make_event_factory.pl $(EVENT_INTERFACES)
-	$(PERL) $< $(addprefix --input , $(filter-out $(WebCore)/dom/make_event_factory.pl, $^))
+$(EVENT_FACTORY_PATTERNS) : $(EVENT_FACTORY_SCRIPTS) $(EVENT_INTERFACES)
+	$(PERL) $(WebCore)/dom/make_event_factory.pl $(addprefix --input , $(filter-out $(EVENT_FACTORY_SCRIPTS), $^))
 
 EVENT_TARGET_FACTORY = $(WebCore)/dom/EventTargetFactory.in $(ADDITIONAL_EVENT_TARGET_FACTORY)
 
@@ -2343,8 +2378,8 @@ EVENT_TARGET_FACTORY_FILES = \
 EVENT_TARGET_FACTORY_PATTERNS = $(call to-pattern, $(EVENT_TARGET_FACTORY_FILES))
 
 all : $(EVENT_TARGET_FACTORY_FILES)
-$(EVENT_TARGET_FACTORY_PATTERNS) : $(WebCore)/dom/make_event_factory.pl $(EVENT_TARGET_FACTORY)
-	$(PERL) $< $(addprefix --input , $(filter-out $(WebCore)/dom/make_event_factory.pl, $^))
+$(EVENT_TARGET_FACTORY_PATTERNS) : $(EVENT_FACTORY_SCRIPTS) $(EVENT_TARGET_FACTORY)
+	$(PERL) $(WebCore)/dom/make_event_factory.pl $(addprefix --input , $(filter-out $(EVENT_FACTORY_SCRIPTS), $^))
 
 # --------
 
@@ -2672,6 +2707,8 @@ PROCESS_SYNC_DATA_INPUT_FILES = \
 GENERATED_PROCESS_SYNC_CLIENT_OUTPUT_FILES = \
 	DocumentSyncData.cpp \
 	DocumentSyncData.h \
+	FrameTreeSyncData.cpp \
+	FrameTreeSyncData.h \
 	ProcessSyncClient.cpp \
 	ProcessSyncClient.h \
 	ProcessSyncData.h \

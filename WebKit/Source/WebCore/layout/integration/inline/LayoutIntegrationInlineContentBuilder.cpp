@@ -67,7 +67,7 @@ static std::tuple<float, float> glyphOverflowInInlineDirection(size_t firstTextB
         auto character = isLeading ? textContent[0] : textContent[textContent.length() - 1];
         auto& fontCascade = textBox.style().fontCascade();
         auto glyphData = fontCascade.glyphDataForCharacter(character, !isLeftToRightDirection);
-        return (glyphData.font ? *glyphData.font : fontCascade.primaryFont()).boundsForGlyph(glyphData.glyph);
+        return (glyphData.font ? *glyphData.font : fontCascade.primaryFont().get()).boundsForGlyph(glyphData.glyph);
     };
 
     auto leadingOverflow = [&] {
@@ -133,11 +133,20 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
     auto isLeftToRightInlineDirection = rootBoxStyle.isLeftToRightDirection();
     auto isHorizontalWritingMode = rootBoxStyle.writingMode().isHorizontal();
 
+    auto blockScrollableOverflowRect = FloatRect { };
+    auto blockInkOverflowRect = FloatRect { };
+
+    for (size_t lineIndex = 0; lineIndex < startIndex; ++lineIndex) {
+        auto& line = lines[lineIndex];
+        blockScrollableOverflowRect.unite(line.scrollableOverflow());
+        blockInkOverflowRect.unite(line.inkOverflow());
+    }
+
     for (size_t lineIndex = startIndex; lineIndex < lines.size(); ++lineIndex) {
         auto& line = lines[lineIndex];
-        auto scrollableOverflowRect = line.contentOverflow();
+        auto lineScrollableOverflowRect = line.contentOverflow();
         auto adjustOverflowLogicalWidthWithBlockFlowQuirk = [&] {
-            auto scrollableOverflowLogicalWidth = isHorizontalWritingMode ? scrollableOverflowRect.width() : scrollableOverflowRect.height();
+            auto scrollableOverflowLogicalWidth = isHorizontalWritingMode ? lineScrollableOverflowRect.width() : lineScrollableOverflowRect.height();
             if (!isLeftToRightInlineDirection && line.contentLogicalWidth() > scrollableOverflowLogicalWidth) {
                 // The only time when scrollable overflow here could be shorter than
                 // the content width is when hanging RTL trailing content is applied (and ignored as scrollable overflow. See LineBoxBuilder::build.
@@ -147,15 +156,15 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
             if (adjustedOverflowLogicalWidth > scrollableOverflowLogicalWidth) {
                 auto overflowValue = adjustedOverflowLogicalWidth - scrollableOverflowLogicalWidth;
                 if (isHorizontalWritingMode)
-                    isLeftToRightInlineDirection ? scrollableOverflowRect.shiftMaxXEdgeBy(overflowValue) : scrollableOverflowRect.shiftXEdgeBy(-overflowValue);
+                    isLeftToRightInlineDirection ? lineScrollableOverflowRect.shiftMaxXEdgeBy(overflowValue) : lineScrollableOverflowRect.shiftXEdgeBy(-overflowValue);
                 else
-                    isLeftToRightInlineDirection ? scrollableOverflowRect.shiftMaxYEdgeBy(overflowValue) : scrollableOverflowRect.shiftYEdgeBy(-overflowValue);
+                    isLeftToRightInlineDirection ? lineScrollableOverflowRect.shiftMaxYEdgeBy(overflowValue) : lineScrollableOverflowRect.shiftYEdgeBy(-overflowValue);
             }
         };
         adjustOverflowLogicalWidthWithBlockFlowQuirk();
 
         auto firstBoxIndex = boxIndex;
-        auto inkOverflowRect = scrollableOverflowRect;
+        auto lineInkOverflowRect = lineScrollableOverflowRect;
         // Collect overflow from boxes.
         // Note while we compute ink overflow for all type of boxes including atomic inline level boxes (e.g. <iframe> <img>) as part of constructing
         // display boxes (see InlineDisplayContentBuilder) RenderBlockFlow expects visual overflow.
@@ -170,7 +179,7 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
                 continue;
 
             if (box.isText()) {
-                inkOverflowRect.unite(box.inkOverflow());
+                lineInkOverflowRect.unite(box.inkOverflow());
                 if (box.isVisible() && box.text().renderedContent().length()) {
                     firstTextBoxIndex = firstTextBoxIndex.value_or(boxIndex);
                     lastTextBoxIndex = boxIndex;
@@ -183,38 +192,42 @@ void InlineContentBuilder::adjustDisplayLines(InlineContent& inlineContent, size
                 if (!renderer.hasSelfPaintingLayer()) {
                     auto childInkOverflow = renderer.logicalVisualOverflowRectForPropagation(renderer.parent()->writingMode());
                     childInkOverflow.move(box.left(), box.top());
-                    inkOverflowRect.unite(childInkOverflow);
+                    lineInkOverflowRect.unite(childInkOverflow);
                 }
                 auto childScrollableOverflow = renderer.layoutOverflowRectForPropagation(renderer.parent()->writingMode());
                 childScrollableOverflow.move(box.left(), box.top());
-                scrollableOverflowRect.unite(childScrollableOverflow);
+                lineScrollableOverflowRect.unite(childScrollableOverflow);
                 continue;
             }
 
             if (box.isInlineBox()) {
                 if (!downcast<RenderElement>(*box.layoutBox().rendererForIntegration()).hasSelfPaintingLayer())
-                    inkOverflowRect.unite(box.inkOverflow());
+                    lineInkOverflowRect.unite(box.inkOverflow());
             }
         }
 
         if (firstTextBoxIndex && lastTextBoxIndex) {
-            auto [leadingOverflow, trailingOverflow] = glyphOverflowInInlineDirection(*firstTextBoxIndex, *lastTextBoxIndex, boxes, inkOverflowRect, line.isLeftToRightInlineDirection());
-            inkOverflowRect.inflate(leadingOverflow, { }, trailingOverflow, { });
+            auto [leadingOverflow, trailingOverflow] = glyphOverflowInInlineDirection(*firstTextBoxIndex, *lastTextBoxIndex, boxes, lineInkOverflowRect, line.isLeftToRightInlineDirection());
+            lineInkOverflowRect.inflate(leadingOverflow, { }, trailingOverflow, { });
         }
 
-        line.setScrollableOverflow(scrollableOverflowRect);
-        line.setInkOverflow(inkOverflowRect);
+        line.setScrollableOverflow(lineScrollableOverflowRect);
+        line.setInkOverflow(lineInkOverflowRect);
         line.setFirstBoxIndex(firstBoxIndex);
+
+        blockScrollableOverflowRect.unite(lineScrollableOverflowRect);
+        blockInkOverflowRect.unite(lineInkOverflowRect);
+
         ASSERT(line.boxCount() == boxIndex - firstBoxIndex);
 
         if (lineIndex) {
             auto& lastInkOverflow = lines[lineIndex - 1].inkOverflow();
-            if (inkOverflowRect.y() <= lastInkOverflow.y() || lastInkOverflow.maxY() >= inkOverflowRect.maxY())
-                inlineContent.hasMultilinePaintOverlap = true;
+            if (lineInkOverflowRect.y() <= lastInkOverflow.y() || lastInkOverflow.maxY() >= lineInkOverflowRect.maxY())
+                inlineContent.setHasMultilinePaintOverlap();
         }
-        if (!inlineContent.hasVisualOverflow() && inkOverflowRect != scrollableOverflowRect)
-            inlineContent.setHasVisualOverflow();
     }
+    inlineContent.setScrollableOverflow(blockScrollableOverflowRect);
+    inlineContent.setInkOverflow(blockInkOverflowRect);
 }
 
 void InlineContentBuilder::computeIsFirstIsLastBoxAndBidiReorderingForInlineContent(InlineDisplay::Boxes& boxes) const
@@ -224,7 +237,7 @@ void InlineContentBuilder::computeIsFirstIsLastBoxAndBidiReorderingForInlineCont
         return;
     }
 
-    UncheckedKeyHashMap<const Layout::Box*, size_t> lastDisplayBoxForLayoutBoxIndexes;
+    HashMap<const Layout::Box*, size_t> lastDisplayBoxForLayoutBoxIndexes;
     lastDisplayBoxForLayoutBoxIndexes.reserveInitialCapacity(boxes.size() - 1);
 
     ASSERT(boxes[0].isRootInlineBox());

@@ -181,6 +181,9 @@ __BEGIN_DECLS
 /* Entitlement to control access to login keychain master key stashing (loginwindow) */
 #define kSecEntitlementPrivateStash CFSTR("com.apple.private.securityd.stash")
 
+/* Entitlement to control access to retrieving login keychain key derived entropy (secd) */
+#define kSecEntitlementPrivateDerivedEntropy CFSTR("com.apple.private.securityd.get-derived-entropy")
+
 /* Entitlement to allow calling the `SecDeleteItemsOnSignOut` SPI. */
 #define kSecEntitlementPrivateDeleteItemsOnSignOut CFSTR("com.apple.private.keychain.allow-delete-on-sign-out")
 
@@ -203,6 +206,9 @@ __BEGIN_DECLS
 
 /* Entitlement to allow management of Keychain Sharing group invitations */
 #define kSecEntitlementPrivateKCSharingInvitationManager CFSTR("com.apple.private.keychain.kcsharing.invitation.manager")
+
+/* Entitlement to allow calling the `SecCopyKeychainDatabasePath` SPI. */
+#define kSecEntitlementPrivateKeychainDatabasePath CFSTR("com.apple.private.keychain.databasepath")
 
 __END_DECLS
 

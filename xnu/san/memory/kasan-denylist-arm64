@@ -1,8 +1,6 @@
-#!special-case-list-v1
-# rdar://139815990
 # ARM64 specific denylist
 
-[kernel-hwaddress|address]
+[{kernel-hwaddress,address}]
 
 # Exclude KASan runtime
 src:./san/memory/kasan-arm64.c

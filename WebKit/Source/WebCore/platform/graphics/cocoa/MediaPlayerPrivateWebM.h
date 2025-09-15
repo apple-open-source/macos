@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ALTERNATE_WEBM_PLAYER)
+#if ENABLE(COCOA_WEBM_PLAYER)
 
 #include "MediaPlayerPrivate.h"
 #include "PlatformLayer.h"
@@ -48,7 +48,7 @@ OBJC_CLASS AVSampleBufferRenderSynchronizer;
 OBJC_CLASS AVSampleBufferVideoRenderer;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 
-typedef struct __CVBuffer *CVPixelBufferRef;
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 
 namespace WTF {
 class WorkQueue;
@@ -71,7 +71,6 @@ class VideoFrame;
 class VideoMediaSampleRenderer;
 class VideoLayerManagerObjC;
 class VideoTrackPrivateWebM;
-class WebCoreDecompressionSession;
 
 class MediaPlayerPrivateWebM
     : public MediaPlayerPrivateInterface
@@ -92,11 +91,14 @@ public:
 private:
     void setPreload(MediaPlayer::Preload) final;
     void doPreload();
-    void load(const String&) final;
-    bool createResourceClient();
+    void load(const URL&, const LoadOptions&) final;
+    bool needsResourceClient() const;
+    bool createResourceClientIfNeeded();
+
+    RefPtr<VideoMediaSampleRenderer> protectedVideoRenderer() const;
 
 #if ENABLE(MEDIA_SOURCE)
-    void load(const URL&, const ContentType&, MediaSourcePrivateClient&) final;
+    void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) final;
 #endif
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) final;
@@ -210,7 +212,6 @@ private:
     void notifyClientWhenReadyForMoreSamples(TrackID);
 
     void setMinimumUpcomingPresentationTime(TrackID, const MediaTime&);
-    void clearMinimumUpcomingPresentationTime(TrackID);
 
     bool isReadyForMoreSamples(TrackID);
     void didBecomeReadyForMoreSamples(TrackID);
@@ -227,9 +228,7 @@ private:
     void didUpdateFormatDescriptionForTrackId(Ref<TrackInfo>&&, TrackID);
 
     void flush();
-#if PLATFORM(IOS_FAMILY)
     void flushIfNeeded();
-#endif
     void flushTrack(TrackID);
     void flushVideo();
     void flushAudio(AVSampleBufferAudioRenderer*);
@@ -257,6 +256,7 @@ private:
     void setVideoRenderer(WebSampleBufferVideoRendering *);
     void stageVideoRenderer(WebSampleBufferVideoRendering *);
 
+    void setVideoFrameMetadataGatheringCallbackIfNeeded(VideoMediaSampleRenderer&);
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
@@ -285,6 +285,13 @@ private:
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     void setVideoTarget(const PlatformVideoTarget&) final;
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+    void sceneIdentifierDidChange() final;
+    void applicationWillResignActive() final;
+    void applicationDidBecomeActive() final;
+#endif
+
     void isInFullscreenOrPictureInPictureChanged(bool) final;
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
@@ -298,8 +305,10 @@ private:
         StagedLayer
     };
     AcceleratedVideoMode acceleratedVideoMode() const;
+    void setLayerRequiresFlush();
 
     const Logger& logger() const final { return m_logger.get(); }
+    Ref<const Logger> protectedLogger() const { return logger(); }
     ASCIILiteral logClassName() const final { return "MediaPlayerPrivateWebM"_s; }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
     WTFLogChannel& logChannel() const final;
@@ -322,6 +331,7 @@ private:
     RefPtr<NativeImage> m_lastImage;
     std::unique_ptr<PixelBufferConformerCV> m_rgbConformer;
     RefPtr<WebMResourceClient> m_resourceClient;
+    bool m_needsResourceClient { true };
 
     Vector<RefPtr<VideoTrackPrivateWebM>> m_videoTracks;
     Vector<RefPtr<AudioTrackPrivateWebM>> m_audioTracks;
@@ -335,7 +345,7 @@ private:
     RetainPtr<AVSampleBufferDisplayLayer> m_sampleBufferDisplayLayer;
     RetainPtr<AVSampleBufferVideoRenderer> m_sampleBufferVideoRenderer;
     StdUnorderedMap<TrackID, RetainPtr<AVSampleBufferAudioRenderer>> m_audioRenderers;
-    Ref<SourceBufferParserWebM> m_parser;
+    const Ref<SourceBufferParserWebM> m_parser;
     const Ref<WTF::WorkQueue> m_appendQueue;
 
     MediaPlayer::NetworkState m_networkState { MediaPlayer::NetworkState::Empty };
@@ -345,9 +355,9 @@ private:
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_shouldPlayToTarget { false };
 #endif
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
-    std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
+    const UniqueRef<VideoLayerManagerObjC> m_videoLayerManager;
     bool m_isGatheringVideoFrameMetadata { false };
     std::optional<VideoFrameMetadata> m_videoFrameMetadata;
     uint64_t m_lastConvertedSampleCount { 0 };
@@ -367,6 +377,7 @@ private:
     uint32_t m_pendingAppends { 0 };
 #if PLATFORM(IOS_FAMILY)
     bool m_displayLayerWasInterrupted { false };
+    bool m_applicationIsActive { true };
 #endif
     bool m_hasAudio { false };
     bool m_hasVideo { false };
@@ -376,7 +387,7 @@ private:
     bool m_loadFinished { false };
     bool m_errored { false };
     bool m_processingInitializationSegment { false };
-    Ref<WebAVSampleBufferListener> m_listener;
+    const Ref<WebAVSampleBufferListener> m_listener;
 
     // Seek logic support
     void seekToTarget(const SeekTarget&) final;
@@ -412,4 +423,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(ALTERNATE_WEBM_PLAYER)
+#endif // ENABLE(COCOA_WEBM_PLAYER)

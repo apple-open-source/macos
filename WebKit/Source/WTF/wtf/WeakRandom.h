@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include <limits.h>
+#include <limits>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/StdLibExtras.h>
 

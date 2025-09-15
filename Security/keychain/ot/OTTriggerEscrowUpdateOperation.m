@@ -28,6 +28,9 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+
 @interface OTTriggerEscrowUpdateOperation ()
 @property OTOperationDependencies* deps;
 @property NSOperation* finishedOp;
@@ -53,7 +56,28 @@
 {
     secnotice("octagon", "Triggering escrow update");
 
-    self.finishedOp = [[NSOperation alloc] init];
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+
+    AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
+                                                                                                altDSID:self.deps.activeAccount.altDSID
+                                                                                                 flowID:self.deps.flowID
+                                                                                        deviceSessionID:self.deps.deviceSessionID
+                                                                                              eventName:kSecurityRTCEventNameOTTriggerEscrowUpdateOperation
+                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         canSendMetrics:self.deps.permittedToSendMetrics
+                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    WEAKIFY(self);
+
+    self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
+        STRONGIFY(self);
+        secnotice("octagon", "Finishing triggering escrow update with %@", self.error ?: @"no error");
+        if (self.error) {
+            [event sendMetricWithResult:NO error:self.error];
+        } else {
+            [event sendMetricWithResult:YES error:nil];
+        }
+    }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
 

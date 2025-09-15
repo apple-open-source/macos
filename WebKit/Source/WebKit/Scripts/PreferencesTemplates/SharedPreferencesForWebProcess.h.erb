@@ -37,7 +37,7 @@ struct SharedPreferencesForWebProcess {
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-    bool <%= @pref.nameLower %> { false };
+    bool <%= @pref.nameLower %> : 1 { false };
 <%- if @pref.condition -%>
 #endif
 <%- end -%>

@@ -29,6 +29,7 @@
 #if ENABLE(MEDIA_STREAM) && HAVE(REPLAYKIT)
 
 #import "Logging.h"
+#import "NativeImage.h"
 #import "RealtimeVideoUtilities.h"
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
@@ -132,7 +133,7 @@ bool ReplayKitCaptureSource::start()
 #endif
 
     if (!m_recorderHelper)
-        m_recorderHelper = ([[WebCoreReplayKitScreenRecorderHelper alloc] initWithCallback:this]);
+        m_recorderHelper = adoptNS([[WebCoreReplayKitScreenRecorderHelper alloc] initWithCallback:this]);
 
     auto captureHandler = makeBlockPtr([this, weakThis = WeakPtr { *this }, identifier](CMSampleBufferRef _Nonnull sampleBuffer, RPSampleBufferType bufferType, NSError * _Nullable error) {
 
@@ -143,7 +144,7 @@ bool ReplayKitCaptureSource::start()
 
         ++m_frameCount;
 
-        RunLoop::main().dispatch([weakThis, sampleBuffer = retainPtr(sampleBuffer)]() mutable {
+        RunLoop::mainSingleton().dispatch([weakThis, sampleBuffer = retainPtr(sampleBuffer)]() mutable {
             if (!weakThis)
                 return;
 
@@ -153,7 +154,7 @@ bool ReplayKitCaptureSource::start()
 
     auto completionHandler = makeBlockPtr([this, weakThis = WeakPtr { *this }, identifier](NSError * _Nullable error) {
         // FIXME: It should be safe to call `videoFrameAvailable` from any thread. Test this and get rid of this main thread hop.
-        RunLoop::main().dispatch([this, weakThis, error = retainPtr(error), identifier]() mutable {
+        RunLoop::mainSingleton().dispatch([this, weakThis, error = retainPtr(error), identifier]() mutable {
             if (!weakThis || !error)
                 return;
 
@@ -175,7 +176,7 @@ void ReplayKitCaptureSource::screenRecorderDidOutputVideoSample(RetainPtr<CMSamp
 
 void ReplayKitCaptureSource::captureStateDidChange()
 {
-    RunLoop::main().dispatch([this, weakThis = WeakPtr { *this }, identifier = LOGIDENTIFIER]() mutable {
+    RunLoop::mainSingleton().dispatch([this, weakThis = WeakPtr { *this }, identifier = LOGIDENTIFIER]() mutable {
         if (!weakThis)
             return;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -93,8 +93,63 @@
 #include <os/log.h>
 #include <os/overflow.h>
 
+#include <pexpert/pexpert.h>
+#include <libkern/libkern.h>
+
 #include "kern_exec_internal.h"
 
+#if APPLEVIRTUALPLATFORM
+#define ALLOW_FORCING_ARM64_32 1
+#endif /* APPLEVIRTUALPLATFORM */
+
+#if ALLOW_FORCING_ARM64_32
+#if DEVELOPMENT || DEBUG
+TUNABLE_DT(uint32_t, force_arm64_32, "/defaults", "force-arm64-32", "force-arm64-32", 0, TUNABLE_DT_NONE);
+#else
+TUNABLE_DT(uint32_t, force_arm64_32, "/defaults", "force-arm64-32", "force-arm64-32", 0, TUNABLE_DT_NO_BOOTARG);
+#endif
+#endif /* ALLOW_FORCING_ARM64_32 */
+
+#if ALLOW_FORCING_ARM64_32 || DEVELOPMENT || DEBUG
+/*
+ * The binary grading priority for the highest priority override.  Each progressive override
+ * receives a priority 1 less than its neighbor.
+ */
+#define    BINGRADE_OVERRIDE_MAX 200
+#endif /* ALLOW_FORCING_ARM64_32 || DEVELOPMENT || DEBUG */
+
+#if DEVELOPMENT || DEBUG
+/*
+ * Maxmum number of overrides that can be passed via the bingrade boot-arg property.
+ */
+#define MAX_BINGRADE_OVERRIDES 4
+/*
+ * Max size of one bingrade override + 1 comma
+ * (technically, sizeof will also include the terminating NUL here, but an overestimation of
+ * buffer space is fine).
+ */
+#define BINGRADE_MAXSTRINGLEN sizeof("0x12345678:0x12345678:0x12345678,")
+
+/*
+ * Each binary grading override has a cpu type and cpu subtype to match against the values in
+ * the Mach-o header.
+ */
+typedef struct bingrade {
+	uint32_t cputype;
+	uint32_t cpusubtype;
+	uint32_t execfeatures;
+#define EXECFEATURES_OVERRIDE_WILDCARD (~(uint32_t)0)
+} bingrade_t;
+
+/* The number of binary grading overrides that are active */
+static int num_bingrade_overrides = -1;
+
+/*
+ * The bingrade_overrides array is an ordered list of binary grading overrides.  The first element in the array
+ * has the highest priority.  When parsing the `bingrade' boot-arg, elements are added to this array in order.
+ */
+static bingrade_t bingrade_overrides[MAX_BINGRADE_OVERRIDES] = { 0 };
+#endif /* DEVELOPMENT || DEBUG */
 
 
 /* An empty load_result_t */
@@ -304,6 +359,158 @@ get_macho_vnode(
 	struct image_params     *imgp
 	);
 
+#if DEVELOPMENT || DEBUG
+/*
+ * Parse the bingrade boot-arg, adding cputype/cpusubtype/execfeatures tuples to the global binary grading
+ * override array.  The bingrade boot-arg must be of the form:
+ *
+ * NUM := '0x' <HEXDIGITS> | '0' <OCTALDIGITS> | <DECIMALDIGITS>
+ * OVERRIDESPEC := <NUM> | <NUM> ':' <NUM> | <NUM> ':' <NUM> ':' <NUM>
+ * BINSPEC_BOOTARG := <OVERRIDESPEC> ',' <BINSPEC_BOOTARG> | <OVERRIDESPEC>
+ *
+ * Returns the number of overrides specified in the boot-arg, or 0 if there were no overrides or the
+ * syntax of the overrides was found to be invalid.
+ */
+static int
+parse_bingrade_override_bootarg(bingrade_t *overrides, int max_overrides, char *overrides_arg_string)
+{
+	char bingrade_arg[BINGRADE_MAXSTRINGLEN * MAX_BINGRADE_OVERRIDES + 1];
+	int cputypespec_count = 0;
+
+	/* Look for the bingrade boot-arg */
+	if (overrides_arg_string != NULL || PE_parse_boot_arg_str("bingrade", bingrade_arg, sizeof(bingrade_arg))) {
+		char *bingrade_str = (overrides_arg_string != NULL) ? overrides_arg_string : &bingrade_arg[0];
+		char *cputypespec;
+
+		/* Skip leading whitespace */
+		while (*bingrade_str == ' ' || *bingrade_str == '\t') {
+			bingrade_str++;
+		}
+
+		if (*bingrade_str == 0) {
+			/* empty string, so just return 0 */
+			return 0;
+		}
+
+		/* If we found the boot-arg, iterate on each OVERRIDESPEC in the BOOTSPEC_BOOTARG */
+		while ((cputypespec_count < max_overrides) && ((cputypespec = strsep(&bingrade_str, ",")) != NULL)) {
+			char *colon = strchr(cputypespec, ':');
+			char *end;
+			char *cputypeptr;
+			char cputypestr[16] = { 0 };
+			unsigned long cputype, cpusubtype, execfeatures;
+
+			/* If there's a colon present, process the cpu subtype and possibly the execfeatures */
+			if (colon != NULL) {
+				colon++;        /* Move past the colon before parsing */
+
+				char execfeat_buf[16] = { 0 }; /* This *MUST* be preinitialized to zeroes */
+				char *second_colon = strchr(colon, ':');
+				ptrdiff_t amt_to_copy = 0;
+
+				if (second_colon != NULL) {
+					strlcpy(execfeat_buf, second_colon + 1, MIN(strlen(second_colon + 1) + 1, sizeof(execfeat_buf)));
+
+					execfeatures = strtoul(execfeat_buf, &end, 0);
+					if (execfeat_buf == end || execfeatures > UINT_MAX) {
+						printf("Invalid bingrade boot-arg (`%s').\n", cputypespec);
+						return 0;
+					}
+
+					overrides[cputypespec_count].execfeatures = (uint32_t)execfeatures;
+
+					/*
+					 * Note there is no "+ 1" here because we are only copying up to but not
+					 * including the second colon.  Since cputypestr was initialized to all 0s
+					 * above, the terminating NUL will already be there.
+					 */
+					amt_to_copy = second_colon - colon;
+				} else {
+					/* No second colon, so use the wildcard for execfeatures */
+					overrides[cputypespec_count].execfeatures = EXECFEATURES_OVERRIDE_WILDCARD;
+					/*
+					 * There is no "+ 1" here because colon was already moved forward by 1 (above).
+					 * which allows this computation to include the terminating NUL in the length
+					 * computed.
+					 */
+					amt_to_copy = colon - cputypespec;
+				}
+
+				/* Now determine the cpu subtype */
+				cpusubtype = strtoul(colon, &end, 0);
+				if (colon == end || cpusubtype > UINT_MAX) {
+					printf("Invalid bingrade boot-arg (`%s').\n", cputypespec);
+					return 0;
+				}
+				overrides[cputypespec_count].cpusubtype = (uint32_t)cpusubtype;
+
+				/* Copy the cputype string into a temp buffer */
+				strlcpy(cputypestr, cputypespec, MIN(sizeof(cputypestr), amt_to_copy));
+
+				cputypeptr = &cputypestr[0];
+			} else {
+				/*
+				 * No colon present, set the cpu subtype to 0, the execfeatures to EXECFEATURES_OVERRIDE_WILDCARD
+				 * and use the whole string as the cpu type
+				 */
+				overrides[cputypespec_count].cpusubtype = 0;
+				overrides[cputypespec_count].execfeatures = EXECFEATURES_OVERRIDE_WILDCARD;
+				cputypeptr = cputypespec;
+			}
+
+			cputype = strtoul(cputypeptr, &end, 0);
+			if (cputypeptr == end || cputype > UINT_MAX) {
+				printf("Invalid bingrade boot-arg (`%s').\n", cputypespec);
+				return 0;
+			}
+			overrides[cputypespec_count].cputype = (uint32_t)cputype;
+
+			cputypespec_count++;
+		}
+	} else {
+		/* No bingrade boot-arg; return 0 overrides */
+		return 0;
+	}
+
+	return cputypespec_count;
+}
+
+size_t
+bingrade_get_override_string(char *existing_overrides, size_t existing_overrides_bufsize)
+{
+	if (num_bingrade_overrides <= 0) {
+		return 0;       /* No overrides set */
+	}
+
+	/* Init the empty string for strlcat */
+	existing_overrides[0] = 0;
+
+	for (int i = 0; i < num_bingrade_overrides; i++) {
+		char next_override[33]; /* 10char + ':' + 10char + ([future] ':' + 10char) */
+		snprintf(next_override, sizeof(next_override), "0x%x:0x%x", bingrade_overrides[i].cputype, bingrade_overrides[i].cpusubtype);
+		if (i > 0) {
+			strlcat(existing_overrides, ",", existing_overrides_bufsize);
+		}
+		strlcat(existing_overrides, next_override, existing_overrides_bufsize);
+	}
+
+	return strlen(existing_overrides);
+}
+
+int
+binary_grade_overrides_update(char *overrides_arg)
+{
+#if ALLOW_FORCING_ARM64_32
+	if (force_arm64_32) {
+		/* If forcing arm64_32, don't allow bingrade override. */
+		return 0;
+	}
+#endif /* ALLOW_FORCING_ARM64_32 */
+	num_bingrade_overrides = parse_bingrade_override_bootarg(bingrade_overrides, MAX_BINGRADE_OVERRIDES, overrides_arg);
+	return num_bingrade_overrides;
+}
+#endif /* DEVELOPMENT || DEBUG */
+
 static inline void
 widen_segment_command(const struct segment_command *scp32,
     struct segment_command_64 *scp)
@@ -420,6 +627,7 @@ process_is_plugin_host(struct image_params *imgp, load_result_t *result)
 		"com.apple.bash", /* Required for the 'enable' command */
 		"com.apple.zsh", /* Required for the 'zmodload' command */
 		"com.apple.ksh", /* Required for 'builtin' command */
+		"com.apple.sh", /* rdar://138353488: sh re-execs into zsh or bash, which are exempted */
 	};
 	for (size_t i = 0; i < ARRAY_COUNT(hardening_exceptions); i++) {
 		if (strncmp(hardening_exceptions[i], identity, strlen(hardening_exceptions[i])) == 0) {
@@ -433,6 +641,43 @@ process_is_plugin_host(struct image_params *imgp, load_result_t *result)
 	return false;
 }
 #endif /* XNU_TARGET_OS_OSX */
+
+static int
+grade_binary_override(cpu_type_t __unused exectype, cpu_subtype_t __unused execsubtype, cpu_subtype_t execfeatures __unused,
+    bool allow_simulator_binary __unused)
+{
+#if ALLOW_FORCING_ARM64_32
+	if (force_arm64_32) {
+		/* Forcing ARM64_32 takes precedence over 'bingrade' boot-arg. */
+		if (exectype == CPU_TYPE_ARM64_32 && execsubtype == CPU_SUBTYPE_ARM64_32_V8) {
+			return BINGRADE_OVERRIDE_MAX;
+		} else {
+			/* Stop trying to match. */
+			return 0;
+		}
+	}
+#endif /* ALLOW_FORCING_ARM64_32 */
+
+#if DEVELOPMENT || DEBUG
+	if (num_bingrade_overrides == -1) {
+		num_bingrade_overrides = parse_bingrade_override_bootarg(bingrade_overrides, MAX_BINGRADE_OVERRIDES, NULL);
+	}
+
+	if (num_bingrade_overrides == 0) {
+		return -1;
+	}
+
+	for (int i = 0; i < num_bingrade_overrides; i++) {
+		if (bingrade_overrides[i].cputype == exectype && bingrade_overrides[i].cpusubtype == execsubtype &&
+		    (bingrade_overrides[i].execfeatures == EXECFEATURES_OVERRIDE_WILDCARD ||
+		    bingrade_overrides[i].execfeatures == execfeatures)) {
+			return BINGRADE_OVERRIDE_MAX - i;
+		}
+	}
+#endif /* DEVELOPMENT || DEBUG */
+	/* exectype/execsubtype Not found in override list */
+	return -1;
+}
 
 load_return_t
 load_machfile(
@@ -584,8 +829,17 @@ load_machfile(
 	 * From now on it's safe to query entitlements via the vnode interface. Let's get figuring
 	 * out whether we're a security relevant binary out of the way immediately.
 	 */
-	result->is_hardened_process = IOVnodeHasEntitlement(imgp->ip_vp,
-	    (int64_t)imgp->ip_arch_offset, "com.apple.developer.hardened-process");
+	switch (exec_check_security_entitlement(imgp, HARDENED_PROCESS)) {
+	case EXEC_SECURITY_INVALID_CONFIG:
+		imgp->ip_free_map = map;
+		return LOAD_BADMACHO;
+	case EXEC_SECURITY_ENTITLED:
+		result->is_hardened_process = true;
+		break;
+	case EXEC_SECURITY_NOT_ENTITLED:
+		result->is_hardened_process = false;
+		break;
+	}
 
 #if __x86_64__
 	/*
@@ -755,6 +1009,27 @@ pie_required(
 		break;
 	}
 	return FALSE;
+}
+
+/*
+ * Grades the specified CPU type, CPU subtype, CPU features to determine an absolute weight, used in the determination
+ * of running the associated binary on this machine.
+ *
+ * If an override boot-arg is specified, the boot-arg is parsed and its values are stored for later use in overriding
+ * the system's hard-coded binary grading values.
+ */
+int
+grade_binary(cpu_type_t exectype, cpu_subtype_t execsubtype, cpu_subtype_t execfeatures, bool allow_simulator_binary)
+{
+	extern int ml_grade_binary(cpu_type_t, cpu_subtype_t, cpu_subtype_t, bool);
+
+	int binary_grade;
+
+	if ((binary_grade = grade_binary_override(exectype, execsubtype, execfeatures, allow_simulator_binary)) < 0) {
+		return ml_grade_binary(exectype, execsubtype, execfeatures, allow_simulator_binary);
+	}
+
+	return binary_grade;
 }
 
 /*

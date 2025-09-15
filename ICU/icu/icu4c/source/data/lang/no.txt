@@ -150,6 +150,7 @@ no{
         crs{"seselwa"}
         cs{"tsjekkisk"}
         csb{"kasjubisk"}
+        cst{"chochenyo"}
         csw{"myr-cree"}
         cu{"kirkeslavisk"}
         cv{"tsjuvasjisk"}
@@ -243,6 +244,7 @@ no{
         hak{"hakka"}
         haw{"hawaiisk"}
         hax{"sørlig haida"}
+        hch{"wixárika"}
         he{"hebraisk"}
         hi{"hindi"}
         hif{"fijiansk hindi"}
@@ -272,6 +274,7 @@ no{
         inh{"ingusjisk"}
         io{"ido"}
         is{"islandsk"}
+        isc{"iskonawa"}
         it{"italiensk"}
         iu{"inuktitut"}
         izh{"ingrisk"}
@@ -540,6 +543,7 @@ no{
         sh{"serbokroatisk"}
         shi{"tachelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"tsjadisk arabisk"}
         si{"singalesisk"}
         sid{"sidamo"}
@@ -881,13 +885,15 @@ no{
     }
     Types{
         calendar{
+            bangla{"bengali kalender"}
             buddhist{"buddhistisk kalender"}
             chinese{"kinesisk kalender"}
             coptic{"koptisk kalender"}
-            dangi{"dangisk kalender"}
+            dangi{"koreansk kalender"}
             ethiopic{"etiopisk kalender"}
             ethiopic-amete-alem{"etiopisk amete-alem-kalender"}
             gregorian{"gregoriansk kalender"}
+            gujarati{"gujarati kalender"}
             hebrew{"hebraisk kalender"}
             indian{"indisk nasjonalkalender"}
             islamic{"hijrikalender"}
@@ -897,8 +903,16 @@ no{
             islamic-umalqura{"hijrikalender (Umm al-Qura)"}
             iso8601{"ISO 8601-kalender"}
             japanese{"japansk kalender"}
+            kannada{"kannada kalender"}
+            malayalam{"malayalam kalender"}
+            marathi{"marathi kalender"}
+            odia{"oriya kalender"}
             persian{"persisk kalender"}
             roc{"minguo-kalender"}
+            tamil{"tamil kalender"}
+            telugu{"telugu kalender"}
+            vietnamese{"vietnamesisk kalender"}
+            vikram{"vikram kalender"}
         }
         cf{
             account{"valutaformat for regnskapsføring"}

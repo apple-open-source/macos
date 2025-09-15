@@ -99,23 +99,23 @@ MTLScissorRect GetScissorRect(const gl::Rectangle &rect,
 
 uint32_t GetDeviceVendorId(id<MTLDevice> metalDevice);
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
+angle::ObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
     id<MTLDevice> metalDevice,
     std::string_view source,
     const std::map<std::string, std::string> &substitutionDictionary,
     bool disableFastMath,
     bool usesInvariance,
-    AutoObjCPtr<NSError *> *error);
+    angle::ObjCPtr<NSError> *error);
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDevice,
-                                                          const uint8_t *data,
-                                                          size_t length,
-                                                          AutoObjCPtr<NSError *> *error);
+angle::ObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromBinary(id<MTLDevice> metalDevice,
+                                                             const uint8_t *data,
+                                                             size_t length,
+                                                             angle::ObjCPtr<NSError> *error);
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromStaticBinary(id<MTLDevice> metalDevice,
-                                                                const uint8_t *data,
-                                                                size_t length,
-                                                                AutoObjCPtr<NSError *> *error);
+angle::ObjCPtr<id<MTLLibrary>> CreateShaderLibraryFromStaticBinary(id<MTLDevice> metalDevice,
+                                                                   const uint8_t *data,
+                                                                   size_t length,
+                                                                   angle::ObjCPtr<NSError> *error);
 
 // Compiles a shader library into a metallib file, returning the path to it.
 std::string CompileShaderLibraryToFile(const std::string &source,
@@ -191,6 +191,7 @@ NSUInteger ComputeTotalSizeUsedForMTLRenderPipelineDescriptor(
     const Context *context,
     const mtl::ContextDevice &device);
 
+gl::Rectangle MTLRegionToGLRect(const MTLRegion &mtlRegion);
 gl::Box MTLRegionToGLBox(const MTLRegion &mtlRegion);
 
 MipmapNativeLevel GetNativeMipLevel(GLuint level, GLuint base);
@@ -206,7 +207,7 @@ angle::Result CreateMslShader(ContextMtl *context,
                               id<MTLLibrary> shaderLib,
                               NSString *shaderName,
                               MTLFunctionConstantValues *funcConstants,
-                              AutoObjCPtr<id<MTLFunction>> *shaderOut);
+                              angle::ObjCPtr<id<MTLFunction>> *shaderOut);
 
 }  // namespace mtl
 }  // namespace rx

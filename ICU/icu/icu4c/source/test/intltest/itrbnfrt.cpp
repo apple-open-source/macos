@@ -46,6 +46,7 @@ void RbnfRoundTripTest::runIndexedTest(int32_t index, UBool exec, const char* &n
       TESTCASE(10, TestRussianSpelloutRT);
       TESTCASE(11, TestPortugueseSpelloutRT);
       TESTCASE(12, TestGujaratiSpelloutRT);
+      TESTCASE(13, TestMarathiSpelloutRT);
 #else
       TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -282,6 +283,24 @@ RbnfRoundTripTest::TestGujaratiSpelloutRT()
   UErrorCode status = U_ZERO_ERROR;
   RuleBasedNumberFormat* formatter
     = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("gu"), status);
+
+  if (U_FAILURE(status)) {
+    errcheckln(status, "failed to construct formatter - %s", u_errorName(status));
+  } else {
+    doTest(formatter, -12345678, 12345678);
+  }
+  delete formatter;
+}
+
+/**
+ * Perform an exhaustive round-trip test on the Marathi spellout rules
+ */
+void
+RbnfRoundTripTest::TestMarathiSpelloutRT()
+{
+  UErrorCode status = U_ZERO_ERROR;
+  RuleBasedNumberFormat* formatter
+    = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("mr"), status);
 
   if (U_FAILURE(status)) {
     errcheckln(status, "failed to construct formatter - %s", u_errorName(status));

@@ -6,16 +6,21 @@
 
 #include "compiler/translator/wgsl/OutputUniformBlocks.h"
 
+#include <iostream>
+
+#include "GLSLANG/ShaderVars.h"
 #include "angle_gl.h"
 #include "common/mathutil.h"
 #include "common/utilities.h"
 #include "compiler/translator/BaseTypes.h"
+#include "compiler/translator/Common.h"
 #include "compiler/translator/Compiler.h"
 #include "compiler/translator/ImmutableString.h"
 #include "compiler/translator/ImmutableStringBuilder.h"
 #include "compiler/translator/InfoSink.h"
 #include "compiler/translator/IntermNode.h"
 #include "compiler/translator/SymbolUniqueId.h"
+#include "compiler/translator/tree_util/DriverUniform.h"
 #include "compiler/translator/tree_util/IntermTraverse.h"
 #include "compiler/translator/util.h"
 #include "compiler/translator/wgsl/Utils.h"
@@ -229,7 +234,7 @@ ImmutableString MakeMatCx2ConversionFunctionName(const TType *type)
     return BuildConcatenatedImmutableString("ANGLE_Convert_", arrStr, "Mat", type->getCols(), "x2");
 }
 
-bool OutputUniformBlocks(TCompiler *compiler, TIntermBlock *root)
+bool OutputUniformBlocksAndSamplers(TCompiler *compiler, TIntermBlock *root)
 {
     // TODO(anglebug.com/42267100): This should eventually just be handled the same way as a regular
     // UBO, like in Vulkan which create a block out of the default uniforms with a traverser:
@@ -242,7 +247,7 @@ bool OutputUniformBlocks(TCompiler *compiler, TIntermBlock *root)
     bool outputStructHeader = false;
     for (const ShaderVariable &shaderVar : basicUniforms)
     {
-        if (gl::IsOpaqueType(shaderVar.type))
+        if (gl::IsOpaqueType(shaderVar.type) || !shaderVar.active)
         {
             continue;
         }
@@ -252,12 +257,7 @@ bool OutputUniformBlocks(TCompiler *compiler, TIntermBlock *root)
             // TODO(anglebug.com/42267100): put gl_DepthRange into default uniform block.
             continue;
         }
-        if (!outputStructHeader)
-        {
-            output << "struct ANGLE_DefaultUniformBlock {\n";
-            outputStructHeader = true;
-        }
-        output << "  ";
+
         // TODO(anglebug.com/42267100): some types will NOT match std140 layout here, namely matCx2,
         // bool, and arrays with stride less than 16.
         // (this check does not cover the unsupported case where there is an array of structs of
@@ -266,17 +266,30 @@ bool OutputUniformBlocks(TCompiler *compiler, TIntermBlock *root)
         {
             return false;
         }
+
+        // Some uniform variables might have been deleted, for example if they were structs that
+        // only contained samplers (which are pulled into separate default uniforms).
+        auto globalVarIter = globalVars.find(shaderVar.name);
+        if (globalVarIter == globalVars.end())
+        {
+            continue;
+        }
+
+        if (!outputStructHeader)
+        {
+            output << "struct ANGLE_DefaultUniformBlock {\n";
+            outputStructHeader = true;
+        }
+        output << "  ";
         output << shaderVar.name << " : ";
 
-        TIntermDeclaration *declNode = globalVars.find(shaderVar.name)->second;
+        TIntermDeclaration *declNode = globalVarIter->second;
         const TVariable *astVar      = &ViewDeclaration(*declNode).symbol.variable();
         WriteWgslType(output, astVar->getType(), {WgslAddressSpace::Uniform});
 
         output << ",\n";
     }
-    // TODO(anglebug.com/42267100): might need string replacement for @group(0) and @binding(0)
-    // annotations. All WGSL resources available to shaders share the same (group, binding) ID
-    // space.
+
     if (outputStructHeader)
     {
         ASSERT(compiler->getShaderType() == GL_VERTEX_SHADER ||
@@ -290,7 +303,69 @@ bool OutputUniformBlocks(TCompiler *compiler, TIntermBlock *root)
                << kDefaultUniformBlockVarType << ";\n";
     }
 
+    // Output interface blocks. Start with driver uniforms in their own bind group.
+    output << "@group(" << kDriverUniformBindGroup << ") @binding(" << kDriverUniformBlockBinding
+           << ") var<uniform> " << kDriverUniformsVarName << " : " << kDriverUniformsBlockName
+           << ";\n";
+    // TODO(anglebug.com/376553328): now output the UBOs in `compiler->getUniformBlocks()` in its
+    // own bind group.
+
+    // Output split texture/sampler variables.
+    for (const auto &globalVarIter : globalVars)
+    {
+        TIntermDeclaration *declNode = globalVarIter.second;
+        ASSERT(declNode);
+
+        const TIntermSymbol *declSymbol = &ViewDeclaration(*declNode).symbol;
+        const TType &declType           = declSymbol->getType();
+        if (!declType.isSampler())
+        {
+            continue;
+        }
+
+        // Note that this may output ignored symbols.
+        output << kTextureSamplerBindingMarker << kAngleSamplerPrefix << declSymbol->getName()
+               << " : ";
+        WriteWgslSamplerType(output, declType, WgslSamplerTypeConfig::Sampler);
+        output << ";\n";
+
+        output << kTextureSamplerBindingMarker << kAngleTexturePrefix << declSymbol->getName()
+               << " : ";
+        WriteWgslSamplerType(output, declType, WgslSamplerTypeConfig::Texture);
+        output << ";\n";
+    }
+
     return true;
+}
+
+std::string WGSLGetMappedSamplerName(const std::string &originalName)
+{
+    std::string samplerName = originalName;
+
+    // Samplers in structs are extracted.
+    std::replace(samplerName.begin(), samplerName.end(), '.', '_');
+
+    // Remove array elements
+    auto out = samplerName.begin();
+    for (auto in = samplerName.begin(); in != samplerName.end(); in++)
+    {
+        if (*in == '[')
+        {
+            while (*in != ']')
+            {
+                in++;
+                ASSERT(in != samplerName.end());
+            }
+        }
+        else
+        {
+            *out++ = *in;
+        }
+    }
+
+    samplerName.erase(out, samplerName.end());
+
+    return samplerName;
 }
 
 }  // namespace sh

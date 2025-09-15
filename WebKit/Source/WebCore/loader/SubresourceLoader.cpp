@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,7 +74,7 @@
 #undef SUBRESOURCELOADER_RELEASE_LOG
 #undef SUBRESOURCELOADER_RELEASE_LOG_ERROR
 #define PAGE_ID (this->frame() && this->frame()->pageID() ? this->frame()->pageID()->toUInt64() : 0)
-#define FRAME_ID (this->frame() ? this->frame()->frameID().object().toUInt64() : 0)
+#define FRAME_ID (this->frame() ? this->frame()->frameID().toUInt64() : 0)
 #if RELEASE_LOG_DISABLED
 #define SUBRESOURCELOADER_RELEASE_LOG(fmt, ...) UNUSED_VARIABLE(this)
 #define SUBRESOURCELOADER_RELEASE_LOG_ERROR(fmt, ...) UNUSED_VARIABLE(this)
@@ -119,7 +119,7 @@ SubresourceLoader::SubresourceLoader(LocalFrame& frame, CachedResource& resource
     : ResourceLoader(frame, options)
     , m_resource(resource)
     , m_state(Uninitialized)
-    , m_requestCountTracker(std::in_place, frame.document()->cachedResourceLoader(), resource)
+    , m_requestCountTracker(std::in_place, frame.protectedDocument()->cachedResourceLoader(), resource)
 {
 #ifndef NDEBUG
     subresourceLoaderCounter.increment();
@@ -231,7 +231,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
             return completionHandler(WTFMove(newRequest));
         }
 
-        ResourceLoader::willSendRequestInternal(WTFMove(newRequest), redirectResponse, [this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), redirectResponse] (ResourceRequest&& request) mutable {
+        ResourceLoader::willSendRequestInternal(WTFMove(newRequest), redirectResponse, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), redirectResponse] (ResourceRequest&& request) mutable {
             tracePoint(SubresourceLoadWillStart, identifier() ? identifier()->toUInt64() : 0, PAGE_ID, FRAME_ID);
 
             if (reachedTerminalState()) {
@@ -272,7 +272,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
             ResourceResponse opaqueRedirectedResponse = redirectResponse;
             opaqueRedirectedResponse.setType(ResourceResponse::Type::Opaqueredirect);
             opaqueRedirectedResponse.setTainting(ResourceResponse::Tainting::Opaqueredirect);
-            resource->responseReceived(opaqueRedirectedResponse);
+            resource->responseReceived(WTFMove(opaqueRedirectedResponse));
             if (reachedTerminalState()) {
                 SUBRESOURCELOADER_RELEASE_LOG(SUBRESOURCELOADER_WILLSENDREQUESTINTERNAL_REACHED_TERMINAL_STATE);
                 return completionHandler(WTFMove(newRequest));
@@ -336,7 +336,7 @@ void SubresourceLoader::willSendRequestInternal(ResourceRequest&& newRequest, co
             cancel();
             return completionHandler(WTFMove(newRequest));
         }
-        resource->redirectReceived(WTFMove(newRequest), redirectResponse, [this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler), continueWillSendRequest = WTFMove(continueWillSendRequest)] (ResourceRequest&& request) mutable {
+        resource->redirectReceived(WTFMove(newRequest), redirectResponse, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), continueWillSendRequest = WTFMove(continueWillSendRequest)] (ResourceRequest&& request) mutable {
             SUBRESOURCELOADER_RELEASE_LOG(SUBRESOURCELOADER_WILLSENDREQUESTINTERNAL_RESOURCE_DONE_NOTIFYING_CLIENTS);
             continueWillSendRequest(WTFMove(completionHandler), WTFMove(request));
         });
@@ -366,13 +366,13 @@ bool SubresourceLoader::shouldCreatePreviewLoaderForResponse(const ResourceRespo
     return PreviewConverter::supportsMIMEType(response.mimeType());
 }
 
-void SubresourceLoader::didReceivePreviewResponse(const ResourceResponse& response)
+void SubresourceLoader::didReceivePreviewResponse(ResourceResponse&& response)
 {
     ASSERT(m_state == Initialized);
     ASSERT(!response.isNull());
     ASSERT(m_resource);
-    protectedCachedResource()->previewResponseReceived(response);
-    ResourceLoader::didReceivePreviewResponse(response);
+    ResourceLoader::didReceivePreviewResponse(ResourceResponse { response });
+    protectedCachedResource()->previewResponseReceived(WTFMove(response));
 }
 
 #endif
@@ -383,7 +383,7 @@ static bool isLocationURLFailure(const ResourceResponse& response)
     return !locationString.isNull() && locationString.isEmpty();
 }
 
-void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, CompletionHandler<void()>&& policyCompletionHandler)
+void SubresourceLoader::didReceiveResponse(ResourceResponse&& response, CompletionHandler<void()>&& policyCompletionHandler)
 {
     ASSERT(!response.isNull());
     ASSERT(m_state == Initialized);
@@ -444,12 +444,12 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
             // Existing resource is ok, just use it updating the expiration time.
             ResourceResponse revalidationResponse = response;
             revalidationResponse.setSource(ResourceResponse::Source::MemoryCacheAfterValidation);
-            resource->setResponse(revalidationResponse);
-            MemoryCache::singleton().revalidationSucceeded(*resource, revalidationResponse);
+            resource->setResponse(ResourceResponse { revalidationResponse });
+            MemoryCache::singleton().revalidationSucceeded(*resource, resource->response());
             if (frame && frame->page())
                 frame->protectedPage()->diagnosticLoggingClient().logDiagnosticMessageWithResult(DiagnosticLoggingKeys::cachedResourceRevalidationKey(), emptyString(), DiagnosticLoggingResultPass, ShouldSample::Yes);
             if (!reachedTerminalState())
-                ResourceLoader::didReceiveResponse(revalidationResponse, [completionHandlerCaller = WTFMove(completionHandlerCaller)] { });
+                ResourceLoader::didReceiveResponse(WTFMove(revalidationResponse), [completionHandlerCaller = WTFMove(completionHandlerCaller)] { });
             return;
         }
         // Did not get 304 response, continue as a regular resource load.
@@ -478,9 +478,9 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
             opaqueRedirectedResponse.setType(ResourceResponse::Type::Opaqueredirect);
             opaqueRedirectedResponse.setTainting(ResourceResponse::Tainting::Opaqueredirect);
             if (resource)
-                resource->responseReceived(opaqueRedirectedResponse);
+                resource->responseReceived(ResourceResponse { opaqueRedirectedResponse });
             if (!reachedTerminalState())
-                ResourceLoader::didReceiveResponse(opaqueRedirectedResponse, [completionHandlerCaller = WTFMove(completionHandlerCaller)] { });
+                ResourceLoader::didReceiveResponse(WTFMove(opaqueRedirectedResponse), [completionHandlerCaller = WTFMove(completionHandlerCaller)] { });
             return;
         }
     }
@@ -488,9 +488,9 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
     if (m_loadingMultipartContent) {
         if (!m_previousPartResponse.isNull()) {
             if (resource) {
-                resource->responseReceived(m_previousPartResponse);
+                resource->responseReceived(WTFMove(m_previousPartResponse));
                 // The resource data will change as the next part is loaded, so we need to make a copy.
-                resource->finishLoading(resourceData()->copy().ptr(), { });
+                resource->finishLoading(protectedResourceData()->copy().ptr(), { });
             }
         }
         clearResourceData();
@@ -502,7 +502,7 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
         didFinishLoadingOnePart(emptyMetrics);
     } else {
         if (resource)
-            resource->responseReceived(response);
+            resource->responseReceived(ResourceResponse { response });
     }
     if (reachedTerminalState())
         return;
@@ -510,7 +510,7 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& response, Com
     bool isResponseMultipart = response.isMultipart();
     if (options().mode != FetchOptions::Mode::Navigate && frame && frame->document())
         LinkLoader::loadLinksFromHeader(response.httpHeaderField(HTTPHeaderName::Link), protectedDocumentLoader()->url(), *frame->protectedDocument(), LinkLoader::MediaAttributeCheck::SkipMediaAttributeCheck);
-    ResourceLoader::didReceiveResponse(response, [this, protectedThis = WTFMove(protectedThis), isResponseMultipart, completionHandlerCaller = WTFMove(completionHandlerCaller)]() mutable {
+    ResourceLoader::didReceiveResponse(WTFMove(response), [this, protectedThis = Ref { *this }, isResponseMultipart, completionHandlerCaller = WTFMove(completionHandlerCaller)]() mutable {
         if (reachedTerminalState())
             return;
 
@@ -779,7 +779,7 @@ void SubresourceLoader::didFinishLoading(const NetworkLoadMetrics& networkLoadMe
 
     m_state = Finishing;
     if (m_loadingMultipartContent && !m_previousPartResponse.isNull())
-        resource->responseReceived(m_previousPartResponse);
+        resource->responseReceived(ResourceResponse { m_previousPartResponse });
     resource->finishLoading(protectedResourceData().get(), networkLoadMetrics);
 
     if (wasCancelled()) {
@@ -930,7 +930,8 @@ void SubresourceLoader::reportResourceTiming(const NetworkLoadMetrics& networkLo
     if (!resource || !ResourceTimingInformation::shouldAddResourceTiming(*resource))
         return;
 
-    RefPtr document = protectedDocumentLoader()->cachedResourceLoader().document();
+    RefPtr documentLoader = this->documentLoader();
+    RefPtr document = documentLoader->cachedResourceLoader().document();
     if (!document)
         return;
 
@@ -947,7 +948,7 @@ void SubresourceLoader::reportResourceTiming(const NetworkLoadMetrics& networkLo
     }
 
     ASSERT(options().initiatorContext == InitiatorContext::Document);
-    documentLoader()->protectedCachedResourceLoader()->resourceTimingInformation().addResourceTiming(*protectedCachedResource(), *document, WTFMove(resourceTiming));
+    documentLoader->protectedCachedResourceLoader()->resourceTimingInformation().addResourceTiming(*protectedCachedResource(), *document, WTFMove(resourceTiming));
 }
 
 const HTTPHeaderMap* SubresourceLoader::originalHeaders() const

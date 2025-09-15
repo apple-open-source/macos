@@ -25,7 +25,6 @@
 
 #import "WKFoundation.h"
 #import <WebCore/ColorCocoa.h>
-#import <variant>
 #import <wtf/CompletionHandler.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
@@ -68,7 +67,7 @@ using RectType = CGRect;
 #endif
 {
 @package
-    CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)> _completionHandler;
+    CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)> _completionHandler;
     WeakObjCPtr<_WKWarningViewTextView> _details;
     WeakObjCPtr<_WKWarningViewBox> _box;
 #if PLATFORM(WATCHOS)
@@ -78,7 +77,7 @@ using RectType = CGRect;
 
 @property (nonatomic, readonly) RefPtr<const WebKit::BrowsingWarning> warning;
 
-- (instancetype)initWithFrame:(RectType)frame browsingWarning:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler;
+- (instancetype)initWithFrame:(RectType)frame browsingWarning:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler;
 
 - (BOOL)forMainFrameNavigation;
 

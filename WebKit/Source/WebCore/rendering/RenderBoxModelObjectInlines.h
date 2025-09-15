@@ -98,12 +98,12 @@ RectEdges<LayoutUnit> RenderBoxModelObject::padding() const
     };
 }
 
-inline LayoutUnit RenderBoxModelObject::resolveLengthPercentageUsingContainerLogicalWidth(const Length& value) const
+inline LayoutUnit RenderBoxModelObject::resolveLengthPercentageUsingContainerLogicalWidth(const auto& value) const
 {
     LayoutUnit containerWidth;
     if (value.isPercentOrCalculated())
         containerWidth = containingBlockLogicalWidthForContent();
-    return minimumValueForLength(value, containerWidth);
+    return Style::evaluateMinimum(value, containerWidth);
 }
 
 } // namespace WebCore

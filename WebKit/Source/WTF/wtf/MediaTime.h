@@ -75,21 +75,11 @@ public:
     MediaTime operator-(const MediaTime& rhs) const;
     MediaTime operator-() const;
     MediaTime operator*(int32_t) const;
-    bool operator<(const MediaTime& rhs) const { return compare(rhs) == LessThan; }
-    bool operator>(const MediaTime& rhs) const { return compare(rhs) == GreaterThan; }
-    bool operator==(const MediaTime& rhs) const { return compare(rhs) == EqualTo; }
-    bool operator>=(const MediaTime& rhs) const { return compare(rhs) >= EqualTo; }
-    bool operator<=(const MediaTime& rhs) const { return compare(rhs) <= EqualTo; }
     bool operator!() const;
     explicit operator bool() const;
 
-    typedef enum {
-        LessThan = -1,
-        EqualTo = 0,
-        GreaterThan = 1,
-    } ComparisonFlags;
-
-    ComparisonFlags compare(const MediaTime& rhs) const;
+    WTF_EXPORT_PRIVATE friend std::weak_ordering operator<=>(const MediaTime&, const MediaTime&);
+    friend bool operator==(const MediaTime& a, const MediaTime& b) { return is_eq(a <=> b); }
     bool isBetween(const MediaTime&, const MediaTime&) const;
 
     bool isValid() const { return m_timeFlags & Valid; }

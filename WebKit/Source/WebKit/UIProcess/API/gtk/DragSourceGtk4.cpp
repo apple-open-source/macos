@@ -30,6 +30,8 @@
 
 #include "WebKitWebViewBasePrivate.h"
 #include <WebCore/GtkUtilities.h>
+#include <WebCore/ImageAdapter.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/PasteboardCustomData.h>
 #include <gtk/gtk.h>
 
@@ -94,7 +96,7 @@ void DragSource::begin(SelectionData&& selectionData, OptionSet<DragOperation> o
 
     auto* surface = gtk_native_get_surface(gtk_widget_get_native(m_webView));
     auto* device = gdk_seat_get_pointer(gdk_display_get_default_seat(gtk_widget_get_display(m_webView)));
-    GRefPtr<GdkContentProvider> provider = adoptGRef(gdk_content_provider_new_union(providers.data(), providers.size()));
+    GRefPtr<GdkContentProvider> provider = adoptGRef(gdk_content_provider_new_union(providers.mutableSpan().data(), providers.size()));
     m_drag = adoptGRef(gdk_drag_begin(surface, device, provider.get(), dragOperationToGdkDragActions(operationMask), 0, 0));
     g_signal_connect(m_drag.get(), "dnd-finished", G_CALLBACK(+[](GdkDrag* gtkDrag, gpointer userData) {
         auto& drag = *static_cast<DragSource*>(userData);

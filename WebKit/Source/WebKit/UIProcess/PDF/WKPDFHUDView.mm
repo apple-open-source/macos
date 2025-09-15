@@ -36,6 +36,7 @@
 #import <pal/spi/mac/NSImageSPI.h>
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/WorkQueue.h>
+#import <wtf/spi/darwin/OSVariantSPI.h>
 
 //  The HUD items should have the following spacing:
 //  -------------------------------------------------
@@ -70,15 +71,19 @@ static const CGFloat layerFadeInTimeInterval = 0.25;
 static const CGFloat layerFadeOutTimeInterval = 0.5;
 static const CGFloat initialHideTimeInterval = 3.0;
 
+static bool isInRecoveryOS()
+{
+    return os_variant_is_basesystem("WebKit");
+}
+
 static NSArray<NSString *> *controlArray()
 {
-    return @[
-        PDFHUDZoomOutControl,
-        PDFHUDZoomInControl,
-        PDFHUDSeparatorControl,
-        PDFHUDLaunchPreviewControl,
-        PDFHUDSavePDFControl
-    ];
+    NSArray<NSString *> *controls = @[ PDFHUDZoomOutControl, PDFHUDZoomInControl ];
+
+    if (isInRecoveryOS())
+        return controls;
+
+    return [controls arrayByAddingObjectsFromArray:@[ PDFHUDSeparatorControl, PDFHUDLaunchPreviewControl, PDFHUDSavePDFControl ]];
 }
 
 @implementation WKPDFHUDView {
@@ -86,6 +91,7 @@ static NSArray<NSString *> *controlArray()
     WeakPtr<WebKit::WebPageProxy> _page;
     RetainPtr<NSString> _activeControl;
     Markable<WebKit::PDFPluginIdentifier> _pluginIdentifier;
+    Markable<WebCore::FrameIdentifier> _frameID;
     CGFloat _deviceScaleFactor;
     RetainPtr<CALayer> _layer;
     RetainPtr<CALayer> _activeLayer;
@@ -95,7 +101,7 @@ static NSArray<NSString *> *controlArray()
     BOOL _initialHideTimerFired;
 }
 
-- (instancetype)initWithFrame:(NSRect)frame pluginIdentifier:(WebKit::PDFPluginIdentifier)pluginIdentifier page:(WebKit::WebPageProxy&)page
+- (instancetype)initWithFrame:(NSRect)frame pluginIdentifier:(WebKit::PDFPluginIdentifier)pluginIdentifier frameIdentifier:(WebCore::FrameIdentifier)frameID page:(WebKit::WebPageProxy&)page
 {
     if (!(self = [super initWithFrame:frame]))
         return nil;
@@ -103,6 +109,7 @@ static NSArray<NSString *> *controlArray()
     self.wantsLayer = YES;
     _cachedIcons = adoptNS([[NSMutableDictionary alloc] init]);
     _pluginIdentifier = pluginIdentifier;
+    _frameID = frameID;
     _page = page;
     _deviceScaleFactor = page.deviceScaleFactor();
     _visible = YES;
@@ -110,8 +117,9 @@ static NSArray<NSString *> *controlArray()
     [self setFrame:frame];
 
     WeakObjCPtr<WKPDFHUDView> weakSelf = self;
-    WorkQueue::main().dispatchAfter(Seconds { initialHideTimeInterval }, [weakSelf] {
-        [weakSelf _hideTimerFired];
+    WorkQueue::mainSingleton().dispatchAfter(Seconds { initialHideTimeInterval }, [weakSelf] {
+        if (RetainPtr protectedSelf = weakSelf.get())
+            [protectedSelf _hideTimerFired];
     });
     return self;
 }
@@ -203,8 +211,8 @@ static NSArray<NSString *> *controlArray()
     if (!_activeControl)
         return false;
     
-    NSString* mouseUpControl = [self _controlForEvent:event];
-    if ([_activeControl isEqualToString:mouseUpControl])
+    RetainPtr mouseUpControl = [self _controlForEvent:event];
+    if ([_activeControl isEqualToString:mouseUpControl.get()])
         [self _performActionForControl:_activeControl.get()];
     
     [CATransaction begin];
@@ -224,8 +232,8 @@ static NSArray<NSString *> *controlArray()
     initialPoint.x -= [_layer frame].origin.x;
     initialPoint.y -= [_layer frame].origin.y;
     for (NSUInteger index = 0; index < [_layer sublayers].count; index++) {
-        CALayer *subLayer = [_layer sublayers][index];
-        NSRect windowSpaceRect = [self convertRect:subLayer.frame toView:nil];
+        RetainPtr<CALayer> subLayer = [_layer sublayers][index];
+        NSRect windowSpaceRect = [self convertRect:[subLayer frame] toView:nil];
         if (CGRectContainsPoint(windowSpaceRect, initialPoint))
             return index;
     }
@@ -234,8 +242,10 @@ static NSArray<NSString *> *controlArray()
 
 - (NSString *)_controlForEvent:(NSEvent *)event
 {
-    if (auto index = [self _controlIndexForEvent:event])
-        return controlArray()[*index];
+    if (auto index = [self _controlIndexForEvent:event]) {
+        RetainPtr array = controlArray();
+        return array.get()[*index];
+    }
     return nil;
 }
 
@@ -254,19 +264,19 @@ static NSArray<NSString *> *controlArray()
     if (!page)
         return;
     if ([control isEqualToString:PDFHUDZoomInControl])
-        page->pdfZoomIn(*_pluginIdentifier);
+        page->pdfZoomIn(*_pluginIdentifier, *_frameID);
     else if ([control isEqualToString:PDFHUDZoomOutControl])
-        page->pdfZoomOut(*_pluginIdentifier);
+        page->pdfZoomOut(*_pluginIdentifier, *_frameID);
     else if ([control isEqualToString:PDFHUDSavePDFControl])
-        page->pdfSaveToPDF(*_pluginIdentifier);
+        page->pdfSaveToPDF(*_pluginIdentifier, *_frameID);
     else if ([control isEqualToString:PDFHUDLaunchPreviewControl])
-        page->pdfOpenWithPreview(*_pluginIdentifier);
+        page->pdfOpenWithPreview(*_pluginIdentifier, *_frameID);
 }
 
 - (void)_loadIconImages
 {
     for (NSString *controlName in controlArray())
-        [self _getImageForControlName:controlName];
+        [self _imageForControlName:controlName];
 }
 
 - (void)_setupLayer:(CALayer *)parentLayer
@@ -295,10 +305,10 @@ static NSArray<NSString *> *controlArray()
             controllerWidth = layerSeparatorControllerSize;
             controllerHeight = minIconImageHeight + (2.0 * layerImageVerticalMargin) - (2.0 * layerSeparatorVerticalMargin);
             
-            [controlLayer setBackgroundColor:[[NSColor lightGrayColor] CGColor]];
+            [controlLayer setBackgroundColor:RetainPtr { [[NSColor lightGrayColor] CGColor] }.get()];
         } else {
-            NSImage *controlImage = [self _getImageForControlName:controlName];
-            [controlLayer setContents:controlImage];
+            RetainPtr controlImage = [self _imageForControlName:controlName];
+            [controlLayer setContents:controlImage.get()];
             [controlLayer setOpacity:controlLayerNormalAlpha];
 
             dy = layerImageVerticalMargin;
@@ -323,31 +333,33 @@ static NSArray<NSString *> *controlArray()
 - (void)_redrawLayer
 {
     [_cachedIcons removeAllObjects];
-    CALayer *parentLayer = [_layer superlayer];
+    RetainPtr parentLayer = [_layer superlayer];
     [_layer removeFromSuperlayer];
-    [self _setupLayer:parentLayer];
+    [self _setupLayer:parentLayer.get()];
 }
 
-- (NSImage *)_getImageForControlName:(NSString *)control
+- (NSImage *)_imageForControlName:(NSString *)control
 {
-    NSImage *iconImage = _cachedIcons.get()[control];
+    RetainPtr<NSImage> iconImage = _cachedIcons.get()[control];
     if (iconImage)
-        return iconImage;
+        return iconImage.autorelease();
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    iconImage = [NSImage _imageWithSystemSymbolName:control];
-ALLOW_DEPRECATED_DECLARATIONS_END
+    if ([control isEqualToString:PDFHUDLaunchPreviewControl])
+        iconImage = [NSImage imageWithPrivateSystemSymbolName:control accessibilityDescription:nil];
+    else
+        iconImage = [NSImage imageWithSystemSymbolName:control accessibilityDescription:nil];
+
     if (!iconImage)
         return nil;
 
     iconImage = [iconImage imageWithSymbolConfiguration:[NSImageSymbolConfiguration configurationWithTextStyle:NSFontTextStyleTitle2 scale:NSImageSymbolScaleLarge]];
         
     NSRect iconImageRect = NSMakeRect(0, 0, [iconImage size].width * layerImageScale * _deviceScaleFactor, [iconImage size].height * layerImageScale * _deviceScaleFactor);
-    NSImageRep *iconImageRep = [iconImage bestRepresentationForRect:iconImageRect context:nil hints:nil];
-    iconImage = [NSImage imageWithImageRep:iconImageRep];
+    RetainPtr iconImageRep = [iconImage bestRepresentationForRect:iconImageRect context:nil hints:nil];
+    iconImage = [NSImage imageWithImageRep:iconImageRep.get()];
     
-    _cachedIcons.get()[control] = iconImage;
-    return iconImage;
+    _cachedIcons.get()[control] = iconImage.get();
+    return iconImage.autorelease();
 }
 
 - (void)_setLayerOpacity:(CGFloat)alpha

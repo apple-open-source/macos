@@ -171,6 +171,7 @@ SFI_CLASS_REGISTER(USER_INTERACTIVE_FOCAL, USER_INTERACTIVE);
 SFI_CLASS_REGISTER(USER_INTERACTIVE_NONFOCAL, USER_INTERACTIVE);
 SFI_CLASS_REGISTER(KERNEL, OPTED_OUT);
 SFI_CLASS_REGISTER(OPTED_OUT, OPTED_OUT);
+SFI_CLASS_REGISTER(RUNAWAY_MITIGATION, RUNAWAY_MITIGATION);
 
 struct sfi_class_state {
 	uint64_t        off_time_usecs;
@@ -757,16 +758,17 @@ sfi_thread_classify(thread_t thread)
 	int task_role       = proc_get_effective_task_policy(task, TASK_POLICY_ROLE);
 	int latency_qos     = proc_get_effective_task_policy(task, TASK_POLICY_LATENCY_QOS);
 	int managed_task    = proc_get_effective_task_policy(task, TASK_POLICY_SFI_MANAGED);
+	int runaway_bg      = proc_get_effective_task_policy(task, TASK_POLICY_RUNAWAY_MITIGATION);
 
 	int thread_qos      = proc_get_effective_thread_policy(thread, TASK_POLICY_QOS);
 	int thread_bg       = proc_get_effective_thread_policy(thread, TASK_POLICY_DARWIN_BG);
 
 	if (thread_qos == THREAD_QOS_MAINTENANCE) {
-		return SFI_CLASS_MAINTENANCE;
+		return runaway_bg ? SFI_CLASS_RUNAWAY_MITIGATION : SFI_CLASS_MAINTENANCE;
 	}
 
 	if (thread_bg || thread_qos == THREAD_QOS_BACKGROUND) {
-		return SFI_CLASS_DARWIN_BG;
+		return runaway_bg ? SFI_CLASS_RUNAWAY_MITIGATION : SFI_CLASS_DARWIN_BG;
 	}
 
 	if (latency_qos != 0) {

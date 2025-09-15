@@ -1,6 +1,6 @@
 /* srp-ioloop.c
  *
- * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,13 +33,13 @@
 #include "ioloop.h"
 #include "dso-utils.h"
 #include "dso.h"
+#include "srp-strict.h"
+#include "srp.h"
 
-#include "cti-services.h"
 
 static int lease_time = 0;
 static bool random_leases = false;
 static bool delete_registrations = false;
-static bool use_thread_services = false;
 static bool change_txt_record = false;
 static bool new_ip_dup = false;
 static bool dup_instance_name = false;
@@ -68,14 +68,11 @@ static bool expire_instance = false;
 static bool test_bad_sig_time = false;
 static bool do_srp = true;
 
-const uint64_t thread_enterprise_number = 52627;
 
-cti_connection_t *thread_service_context;
 
 static const char *interface_name = NULL;
 static wakeup_t *wait_for_remote_disconnect = NULL;
 static dso_state_t *disconnect_expected = NULL;
-os_log_t global_os_log;
 
 #define SRP_IO_CONTEXT_MAGIC 0xFEEDFACEFADEBEEFULL  // BEES!   Everybody gets BEES!
 typedef struct io_context {
@@ -160,7 +157,7 @@ srp_deactivate_udp_context(void *host_context, void *in_context)
             io_context->deactivated = true;
             io_context->closed = true;
         } else {
-            free(io_context);
+            srp_strict_free(&io_context);
         }
     }
     return err;
@@ -192,7 +189,7 @@ srp_udp_context_canceled(comm_t *UNUSED NONNULL comm, void *NULLABLE context, in
         io_context->connection = NULL;
     }
     if (io_context->deactivated) {
-        free(io_context);
+        srp_strict_free(&io_context);
     }
 }
 
@@ -246,7 +243,7 @@ srp_make_udp_context(void *host_context, void **p_context, srp_datagram_callback
 {
     (void)host_context;
 
-    io_context_t *io_context = calloc(1, sizeof *io_context);
+    io_context_t *io_context = srp_strict_calloc(1, sizeof *io_context);
     if (io_context == NULL) {
         return kDNSServiceErr_NoMemory;
     }
@@ -256,7 +253,7 @@ srp_make_udp_context(void *host_context, void **p_context, srp_datagram_callback
 
     io_context->wakeup = ioloop_wakeup_create();
     if (io_context->wakeup == NULL) {
-        free(io_context);
+        srp_strict_free(&io_context);
         return kDNSServiceErr_NoMemory;
     }
 
@@ -333,7 +330,7 @@ srp_timenow(void)
 }
 
 static void
-interface_callback(srp_server_t *UNUSED NULLABLE server_state, void *context, const char *NONNULL name,
+interface_callback(srp_server_t *UNUSED NULLABLE server_state, void *UNUSED context, const char *NONNULL name,
                    const addr_t *NONNULL address, const addr_t *NONNULL netmask,
                    uint32_t flags, enum interface_address_change event_type)
 {
@@ -341,7 +338,6 @@ interface_callback(srp_server_t *UNUSED NULLABLE server_state, void *context, co
     uint8_t *rdata;
     uint16_t rdlen;
     uint16_t rrtype;
-    cti_service_vec_t *cti_services = context;
 
     (void)netmask;
     (void)index;
@@ -397,27 +393,6 @@ interface_callback(srp_server_t *UNUSED NULLABLE server_state, void *context, co
     } else {
         DEBUG("interface_callback: " PUB_S_SRP "<none IPv4/IPv6 address> %x", name, flags);
     }
-
-    // This is a workaround for a bug in the utun0 code, where packets sent to the IP address of the local
-    // thread interface are dropped and do not reach the SRP server. To address this, if we find a service
-    // that is on a local IPv6 address, we replace the address with ::1.
-    if (cti_services != NULL && rrtype == dns_rrtype_aaaa) {
-        size_t i;
-        for (i = 0; i < cti_services->num; i++) {
-            cti_service_t *cti_service = cti_services->services[i];
-            // Look for SRP service advertisements only.
-            if (IS_SRP_SERVICE(cti_service)) {
-                // Local IP address?
-                if (!memcmp(cti_service->server, rdata, 16)) {
-                    // ::
-                    memset(cti_service->server, 0, 15);
-                    // 1
-                    cti_service->server[15] = 1;
-                }
-            }
-        }
-    }
-
     srp_add_interface_address(rrtype, rdata, rdlen);
 }
 
@@ -921,7 +896,7 @@ start_push_query(void)
 {
     // If we can (should always be able to) remember the list of connections we've created.
     if (dso_connection != NULL) {
-        connection_list_t *connection = calloc(1, sizeof (*connection));
+        connection_list_t *connection = srp_strict_calloc(1, sizeof (*connection));
         if (connection != NULL) {
             connection->connection = dso_connection;
             connection->next = dso_connection_list;
@@ -948,44 +923,19 @@ usage(void)
 {
     fprintf(stderr,
             "srp-client [--lease-time <seconds>] [--client-count <client count>] [--server <address>%%<port>]\n"
-            "           [--push-query] [--push-unsubscribe]\n"
+            "           [--instance-name <instance-name>] [--push-query] [--push-unsubscribe]\n"
             "           [--bogus-server-test] [--change-txt-record] [--service-type] [--test-renew-subtypes]\n"
-            "           [--random-leases] [--delete-registrations] [--use-thread-services] [--log-stderr]\n"
+            "           [--random-leases] [--delete-registrations] [--log-stderr]\n"
             "           [--interface <interface name>] [--bogusify-signatures] [--remove-added-service]\n"
             "           [--dup-instance-name] [--service-port <port number>] [--expire-added-service]\n"
             "           [--random-txt-record] [--bogus-remove] [--test-subtypes] [--test-diff-subtypes]\n"
             "           [--new-ip-dup] [--push-exhaust] [--test-bad-sig-time] [--zero-addresses]\n"
-            "           [--host-only] [--expire-instance]");
+            "           [--host-only] [--expire-instance] [--host-name <hostname>] [--txt-data <hexbytes (even number)>]\n"
+        );
     exit(1);
 }
 
 
-static void
-cti_service_list_callback(void *UNUSED context, cti_service_vec_t *services, cti_status_t status)
-{
-    size_t i;
-
-    if (status == kCTIStatus_Disconnected || status == kCTIStatus_DaemonNotRunning) {
-        INFO("disconnected");
-        exit(1);
-    }
-
-    if (!new_ip_dup && !zero_addresses) {
-        srp_start_address_refresh();
-        ioloop_map_interface_addresses(NULL, interface_name, services, interface_callback);
-    }
-    for (i = 0; i < services->num; i++) {
-        cti_service_t *cti_service = services->services[i];
-        // Look for SRP service advertisements only.
-        if (IS_SRP_SERVICE(cti_service)) {
-            srp_add_server_address(&cti_service->server[16], dns_rrtype_aaaa, cti_service->server, 16);
-        }
-    }
-    if (!new_ip_dup && !zero_addresses) {
-        srp_finish_address_refresh(NULL);
-    }
-    srp_network_state_stable(NULL);
-}
 
 int
 main(int argc, char **argv)
@@ -1003,10 +953,15 @@ main(int argc, char **argv)
     int i;
     bool have_server_address = false;
     bool log_stderr = false;
-    char instance_name[128];
+    char instance_name[128], dup_instance[128];
     const char *service_type = "_ipps._tcp";
     uint16_t service_port = 0;
     bool bogus_server = false;
+    const void *txt_data = NULL;
+    uint8_t *txt_arg = NULL;
+    uint16_t txt_len = 0;
+    const char *host_name = "srp-api-test";
+    bool have_instance_name = false;
 
     ioloop_init();
 
@@ -1070,8 +1025,17 @@ main(int argc, char **argv)
             random_leases = true;
         } else if (!strcmp(argv[i], "--delete-registrations")) {
             delete_registrations = true;
-        } else if (!strcmp(argv[i], "--use-thread-services")) {
-            use_thread_services = true;
+        } else if (!strcmp(argv[i], "--instance-name")) {
+            if (i + 1 == argc) {
+                usage();
+            }
+            i++;
+            size_t inlen = strlen(argv[i]);
+            if (inlen + 1 > sizeof(instance_name)) {
+                usage();
+            }
+            ioloop_strcpy(instance_name, argv[i], sizeof(instance_name));
+            have_instance_name = true;
         } else if (!strcmp(argv[i], "--dup-instance-name")) {
             dup_instance_name = true;
         } else if (!strcmp(argv[i], "--new-ip-dup")) {
@@ -1127,6 +1091,31 @@ main(int argc, char **argv)
             expire_instance = true;
         } else if (!strcmp(argv[i], "--test-bad-sig-time")) {
             test_bad_sig_time = true;
+        } else if (!strcmp(argv[i], "--txt-data")) {
+            if (i + 1 == argc) {
+                usage();
+            }
+            char *hexbuf = argv[i + 1];
+            i++;
+            size_t txt_hex_len = strlen(hexbuf);
+            if (txt_hex_len & 1) {
+                usage();
+            }
+            txt_len = txt_hex_len / 2;
+            txt_arg = srp_strict_malloc(txt_len);
+            for (size_t j = 0; j < txt_len; j++) {
+                if (sscanf(&hexbuf[j * 2], "%02hhx", &txt_arg[j]) != 1) {
+                    srp_strict_free(&txt_arg);
+                    usage();
+                }
+            }
+            txt_data = txt_arg;
+        } else if (!strcmp(argv[i], "--host-name")) {
+            if (i + 1 == argc) {
+                usage();
+            }
+            host_name = argv[i + 1];
+            i++;
         } else if (!strcmp(argv[i], "--service-type")) {
             if (i + 1 == argc) {
                 usage();
@@ -1163,22 +1152,26 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    if (!use_thread_services && !new_ip_dup && !zero_addresses) {
-        ioloop_map_interface_addresses(NULL, interface_name, NULL, interface_callback);
-    }
-
-    if (!have_server_address && !use_thread_services) {
-        uint8_t port[] = { 0, 53 };
-        if (bogus_server) {
-            srp_add_server_address(port, dns_rrtype_aaaa, bogus_address, 16);
+    if (0) {
+    } else {
+        if (!new_ip_dup && !zero_addresses) {
+            ioloop_map_interface_addresses(NULL, interface_name, NULL, interface_callback);
         }
-        srp_add_server_address(port, dns_rrtype_aaaa, server_address, 16);
+
+        if (!have_server_address) {
+            uint8_t port[] = { 0, 53 };
+            if (bogus_server) {
+                srp_add_server_address(port, dns_rrtype_aaaa, bogus_address, 16);
+            }
+            srp_add_server_address(port, dns_rrtype_aaaa, server_address, 16);
+        }
     }
 
     if (dup_instance_name) {
         num_clients = 2;
-        ioloop_strcpy(instance_name, "dup-name-test", sizeof(instance_name));
+        ioloop_strcpy(dup_instance, "dup-name-test", sizeof(dup_instance_name));
     }
+
     if (new_ip_dup || zero_addresses) {
         // Set up the test to validate the "failed update removes address" code in srp-mdns-proxy.
         srp_add_interface_address(dns_rrtype_a, first_bogus_address, sizeof(first_bogus_address));
@@ -1191,27 +1184,29 @@ main(int argc, char **argv)
         srp_client_t *client;
         char hnbuf[128];
         TXTRecordRef txt;
-        const void *txt_data = NULL;
-        uint16_t txt_len = 0;
         char txt_buf[128];
 
-        client = calloc(1, sizeof(*client));
+        client = srp_strict_calloc(1, sizeof(*client));
         if (client == NULL) {
             ERROR("no memory for client %d", i);
             exit(1);
         }
 
         if (num_clients == 1) {
-            strcpy(hnbuf, "srp-api-test");
+            strcpy(hnbuf, host_name);
         } else {
-            snprintf(hnbuf, sizeof(hnbuf), "srp-api-test-%d", i);
+            snprintf(hnbuf, sizeof(hnbuf), "%s-%d", host_name, i);
         }
-        client->name = strdup(hnbuf);
+        client->name = srp_strict_strdup(hnbuf);
         if (client->name == NULL) {
             ERROR("No memory for client name %s", hnbuf);
             exit(1);
         }
         client->index = i;
+
+        if (!have_instance_name) {
+            ioloop_strcpy(instance_name, hnbuf, sizeof(instance_name));
+        }
 
         srp_host_init(client);
         srp_set_hostname(hnbuf, NULL);
@@ -1251,7 +1246,7 @@ main(int argc, char **argv)
 
         if (!test_subtypes && !test_diff_subtypes && !test_renew_subtypes && !host_only) {
             err = DNSServiceRegister(&sdref, new_ip_dup ? kDNSServiceFlagsNoAutoRename : 0, 0,
-                                     dup_instance_name ? instance_name : hnbuf, service_type, 0, 0, htons(service_port),
+                                     dup_instance_name ? dup_instance : instance_name, service_type, 0, 0, htons(service_port),
                                      txt_len, txt_data, register_callback, client);
             if (err != kDNSServiceErr_NoError) {
                 ERROR("DNSServiceRegister failed: %d", err);
@@ -1299,9 +1294,11 @@ main(int argc, char **argv)
         }
     }
 
+    // We may have been given binary text data on the command line, so we should free it.
+    srp_strict_free(&txt_arg);
+
     if (do_srp) {
-        if (use_thread_services) {
-            cti_get_service_list(NULL, &thread_service_context, NULL, cti_service_list_callback, NULL);
+        if (0) {
         } else {
             srp_network_state_stable(NULL);
         }

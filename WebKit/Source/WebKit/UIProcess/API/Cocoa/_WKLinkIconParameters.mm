@@ -41,8 +41,8 @@
     if (!(self = [super init]))
         return nil;
 
-    _url = (NSURL *)linkIcon.url;
-    _mimeType = (NSString *)linkIcon.mimeType;
+    _url = linkIcon.url.createNSURL();
+    _mimeType = linkIcon.mimeType.createNSString();
 
     if (linkIcon.size)
         _size = adoptNS([[NSNumber alloc] initWithUnsignedInt:linkIcon.size.value()]);
@@ -61,7 +61,7 @@
 
     _attributes = adoptNS([[NSMutableDictionary alloc] initWithCapacity:linkIcon.attributes.size()]);
     for (auto& attributePair : linkIcon.attributes)
-        _attributes.get()[(NSString *)attributePair.first] = attributePair.second;
+        _attributes.get()[attributePair.first.createNSString().get()] = attributePair.second.createNSString().get();
 
     return self;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #import "LengthBox.h"
 #import "PlatformControl.h"
+#import <wtf/CheckedRef.h>
 #import <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -42,6 +43,7 @@ class ControlMac : public PlatformControl {
     WTF_MAKE_TZONE_ALLOCATED(ControlMac);
 public:
     ControlMac(ControlPart&, ControlFactoryMac&);
+    ~ControlMac();
 
 protected:
     static bool userPrefersContrast();
@@ -77,7 +79,7 @@ private:
     void drawCellFocusRing(GraphicsContext&, const FloatRect&, float deviceScaleFactor, const ControlStyle&, NSCell *);
     void drawCellOrFocusRing(GraphicsContext&, const FloatRect&, float deviceScaleFactor, const ControlStyle&, NSCell *, bool drawCell = true);
 
-    ControlFactoryMac& m_controlFactory;
+    const CheckedRef<ControlFactoryMac> m_controlFactory;
 };
 
 } // namespace WebCore

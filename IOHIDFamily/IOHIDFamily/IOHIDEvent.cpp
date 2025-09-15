@@ -202,6 +202,30 @@ IOHIDEvent * IOHIDEvent::withType(      IOHIDEventType          type,
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::collectionEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::collectionEvent(UInt64          timestamp,
+                                         UInt32          usagePage,
+                                         UInt32          usage,
+                                         bool            ungroupForLegacy,
+                                         IOOptionBits    options)
+{
+    IOHIDEvent * me = new IOHIDEvent;
+
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeCollection, timestamp, options)) {
+        me->release();
+        return nullptr;
+    }
+
+    IOHIDCollectionEventData * collection = (IOHIDCollectionEventData *)me->_data;
+    collection->usagePage = usagePage,
+    collection->usage = usage;
+    collection->ungroupForLegacy = ungroupForLegacy;
+
+    return me;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDEvent::keyboardEvent
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDEvent * IOHIDEvent::keyboardEvent( UInt64                  timeStamp,
@@ -361,15 +385,10 @@ IOHIDEvent * IOHIDEvent::translationEvent(
     }
 
     IOHIDTranslationEventData * event = (IOHIDTranslationEventData *)me->_data;
-#if TARGET_OS_VISION
+
     event->position.x = CAST_FIXED_TO_DOUBLE(x);
     event->position.y = CAST_FIXED_TO_DOUBLE(y);
     event->position.z = CAST_FIXED_TO_DOUBLE(z);
-#else
-    event->position.x = x;
-    event->position.y = y;
-    event->position.z = z;
-#endif
     
     return me;
 }
@@ -714,15 +733,9 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
     data = (IOHIDPointerEventData *)event->_data;
     require(data, exit);
     
-#if TARGET_OS_VISION
     data->position.x = CAST_FIXED_TO_DOUBLE(x);
     data->position.y = CAST_FIXED_TO_DOUBLE(y);
     data->position.z = CAST_FIXED_TO_DOUBLE(z);
-#else
-    data->position.x = x;
-    data->position.y = y;
-    data->position.z = z;
-#endif
     data->button.mask = buttonState;
     
     
@@ -779,15 +792,9 @@ IOHIDEvent * IOHIDEvent::relativePointerEventWithFixed(
     data = (IOHIDPointerEventData *)event->_data;
     require(data, exit);
 
-#if TARGET_OS_VISION
     data->position.x = CAST_FIXED_TO_DOUBLE(x);
     data->position.y = CAST_FIXED_TO_DOUBLE(y);
     data->position.z = CAST_FIXED_TO_DOUBLE(z);
-#else
-    data->position.x = x;
-    data->position.y = y;
-    data->position.z = z;
-#endif
     data->button.mask = buttonState;
     
     
@@ -927,7 +934,6 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
     event->transducerIndex  = transducerID; // Multitouch uses this as a path ID
     event->transducerType   = type;
     event->buttonMask       = buttonState;
-#if TARGET_OS_VISION
     event->position.x       = CAST_FIXED_TO_DOUBLE(x);
     event->position.y       = CAST_FIXED_TO_DOUBLE(y);
     event->position.z       = CAST_FIXED_TO_DOUBLE(z);
@@ -935,44 +941,21 @@ IOHIDEvent * IOHIDEvent::digitizerEvent(
     event->auxPressure      = CAST_FIXED_TO_DOUBLE(auxPressure);
     event->angle.twist      = CAST_FIXED_TO_DOUBLE(twist);
 
-#else
-    event->position.x       = x;
-    event->position.y       = y;
-    event->position.z       = z;
-    event->pressure         = tipPressure;
-    event->auxPressure      = auxPressure;
-    event->angle.twist      = twist;
-#endif
-
     // Let's assume no tip pressure means finger
     switch ( event->transducerType ) {
         case kIOHIDDigitizerTransducerTypeFinger:
             event->identity = 2;        // Multitouch interprets this as 'finger', hard code to 2 or index finger
             event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
-#if TARGET_OS_VISION
             event->orientation.quality.majorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
             event->orientation.quality.minorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
             event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
             event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(5<<16);
-#else
-            event->orientation.quality.majorRadius = 5<<16;
-            event->orientation.quality.minorRadius = 5<<16;
-            event->orientation.polar.majorRadius = 5<<16;
-            event->orientation.polar.minorRadius = 5<<16;
-#endif
             break;
         default:
-#if TARGET_OS_VISION
             event->orientation.quality.majorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
             event->orientation.quality.minorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
             event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
             event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(3<<16);
-#else
-            event->orientation.quality.majorRadius = 3<<16;
-            event->orientation.quality.minorRadius = 3<<16;
-            event->orientation.polar.majorRadius = 3<<16;
-            event->orientation.polar.minorRadius = 3<<16;
-#endif
             break;
     }
 
@@ -1009,13 +992,8 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithTiltOrientation(
 
     event->orientationType = kIOHIDDigitizerOrientationTypeTilt;
     
-#if TARGET_OS_VISION
     event->orientation.tilt.x = CAST_FIXED_TO_DOUBLE(xTilt);
     event->orientation.tilt.y = CAST_FIXED_TO_DOUBLE(xTilt);
-#else
-    event->orientation.tilt.x = xTilt;
-    event->orientation.tilt.y = xTilt;
-#endif
 
 exit:
     return me;
@@ -1051,13 +1029,9 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
 
     event->orientationType = kIOHIDDigitizerOrientationTypePolar;
 
-#if TARGET_OS_VISION
     event->orientation.polar.altitude   = CAST_FIXED_TO_DOUBLE(altitude);
     event->orientation.polar.azimuth    = CAST_FIXED_TO_DOUBLE(azimuth);
-#else
-    event->orientation.polar.altitude   = altitude;
-    event->orientation.polar.azimuth    = azimuth;
-#endif
+
 exit:
     return me;
 }
@@ -1090,13 +1064,8 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
  
     event = (IOHIDDigitizerEventData *)me->_data;
  
-#if TARGET_OS_VISION
     event->orientation.polar.quality = CAST_FIXED_TO_DOUBLE(quality);
     event->orientation.polar.density = CAST_FIXED_TO_DOUBLE(density);
-#else
-    event->orientation.polar.quality = quality;
-    event->orientation.polar.density = density;
-#endif
     
 exit:
     return me;
@@ -1132,13 +1101,8 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithPolarOrientation(
 
     event = (IOHIDDigitizerEventData *)me->_data;
     
-#if TARGET_OS_VISION
     event->orientation.polar.majorRadius = CAST_FIXED_TO_DOUBLE(majorRadius);
     event->orientation.polar.minorRadius = CAST_FIXED_TO_DOUBLE(minorRadius);
-#else
-    event->orientation.polar.majorRadius = majorRadius;
-    event->orientation.polar.minorRadius = minorRadius;
-#endif
 
 exit:
     return me;
@@ -1178,19 +1142,11 @@ IOHIDEvent * IOHIDEvent::digitizerEventWithQualityOrientation(
 
     event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
     
-#if TARGET_OS_VISION
     event->orientation.quality.quality          = CAST_FIXED_TO_DOUBLE(quality);
     event->orientation.quality.density          = CAST_FIXED_TO_DOUBLE(density);
     event->orientation.quality.irregularity     = CAST_FIXED_TO_DOUBLE(irregularity);
     event->orientation.quality.majorRadius      = CAST_FIXED_TO_DOUBLE(majorRadius);
     event->orientation.quality.minorRadius      = CAST_FIXED_TO_DOUBLE(minorRadius);
-#else
-    event->orientation.quality.quality          = quality;
-    event->orientation.quality.density          = density;
-    event->orientation.quality.irregularity     = irregularity;
-    event->orientation.quality.majorRadius      = majorRadius;
-    event->orientation.quality.minorRadius      = minorRadius;
-#endif
 
 exit:
     return me;
@@ -1540,12 +1496,36 @@ IOHIDEvent * IOHIDEvent::genericGestureEvent(UInt64 timeStamp, IOHIDGenericGestu
     return me;
 }
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// IOHIDEvent::heartrateEvent
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+IOHIDEvent * IOHIDEvent::heartRateEvent(
+                                   UInt64                   timeStamp,
+                                   UInt32                   heartRate,
+                                   IOOptionBits             options)
+{
+   
+    IOHIDEvent *me = new IOHIDEvent;
+    
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeHeartRate, timeStamp, options)) {
+        me->release();
+        return NULL;
+    }
+    
+    __IOHIDHeartRateEventData *event = (__IOHIDHeartRateEventData *) me->_data;
+    event->base.rate = heartRate;
+    event->base.confidence = 1.0;
+    event->base.location = kIOHIDHeartRateSensorLocationUnknown;
+    event->base.generationCount = 0;
+    return me;
+}
 
 //==============================================================================
 // IOHIDEvent::appendChild
 //==============================================================================
 void IOHIDEvent::appendChild(IOHIDEvent *childEvent)
 {
+    childEvent->_parent = this;
     if (!_children) {
         const OSObject *events[] = { childEvent };
 
@@ -1672,15 +1652,6 @@ void IOHIDEvent::setDoubleValue( IOHIDEventField         key,
 //==============================================================================
 size_t IOHIDEvent::getLength()
 {
-    _eventCount = 0;
-    return getLength(&_eventCount);
-}
-
-//==============================================================================
-// IOHIDEvent::getLength
-//==============================================================================
-IOByteCount IOHIDEvent::getLength(UInt32 * count)
-{
     IOByteCount length = _data->size;
 
     length += sizeof(IOHIDSystemQueueElement);
@@ -1694,46 +1665,12 @@ IOByteCount IOHIDEvent::getLength(UInt32 * count)
 
         for(i=0 ;i<childCount; i++) {
             if ( (child = (IOHIDEvent *)_children->getObject(i)) ) {
-                length += child->getLength(count) - sizeof(IOHIDSystemQueueElement);
+                length += child->getLength();
             }
         }
     }
-
-    if ( count )
-        *count = *count + 1;
 
     return length;
-}
-
-//==============================================================================
-// IOHIDEvent::appendBytes
-//==============================================================================
-IOByteCount IOHIDEvent::appendBytes(UInt8 * bytes, IOByteCount withLength)
-{
-    IOByteCount size = 0;
-
-    size = _data->size;
-
-    if ( size > withLength )
-        return 0;
-
-    bcopy(_data, bytes, size);
-
-    if ( _children )
-    {
-        UInt32          i, childCount;
-        IOHIDEvent *    child;
-
-        childCount = _children->getCount();
-
-        for(i=0 ;i<childCount; i++) {
-            if ( (child = (IOHIDEvent *)_children->getObject(i)) ) {
-                size += child->appendBytes(bytes + size, withLength - size);
-            }
-        }
-    }
-
-    return size;
 }
 
 //==============================================================================
@@ -1745,50 +1682,51 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
     IOHIDSystemQueueElement *   queueElement= NULL;
     IOHIDEvent *                parent      = NULL;
     UInt32                      index       = 0;
-    UInt32                      total       = 0;
     UInt32                      offset      = 0;
     UInt32                      sz          = 0;
     UInt32                      attributeLength = 0;
     UInt32                      eventCount = 0;
     UInt32                      eventDataSize = 0;
     UInt32                      eventDataType = 0;
-
-    if ( !bytes || !size || ( sizeof(IOHIDSystemQueueElement) > size ) ) {
+    
+    if ( !bytes || !size ) {
         return NULL;
     }
 
-    queueElement    = (IOHIDSystemQueueElement *)bytes;
-    total           = (UInt32)size - sizeof(IOHIDSystemQueueElement);
-
-
-    eventCount = queueElement->eventCount;
-    attributeLength = queueElement->attributeLength;
-    // to prevent complier reordering
-    // local assignment should be enforced
-    // before validation (55894984)
-    COMPILER_BARRIER();
-
-    for (index=0; index < eventCount && offset<total; index++)
+    for (index=0; offset < size; index++)
     {
-        if (os_add_overflow(attributeLength, offset, &sz)) {
+        if ( sizeof(IOHIDSystemQueueElement) >= (size - offset) ) {
             break;
         }
+        
+        queueElement = (IOHIDSystemQueueElement *)((UInt8 *)bytes + offset);
+        attributeLength = queueElement->attributeLength;
+        
+        // to prevent complier reordering
+        // local assignment should be enforced
+        // before validation (55894984)
+        COMPILER_BARRIER();
+        
+        if ( os_add3_overflow(sizeof(IOHIDSystemQueueElement), attributeLength, offset, &offset) ) {
+            break;
+        }
+        COMPILER_BARRIER();
         
         // Can bad value of offset cause overflow ??
         // we already checked that above
         
-        if ( (attributeLength + offset) > total ) {
+        if ( offset >= size ) {
             break;
         }
         
-        if ((total - (attributeLength + offset)) < sizeof(IOHIDEventData) ) {
+        if ( (size - offset) < sizeof(IOHIDEventData) ) {
             break;
         }
         
 
-        IOHIDEventData *eventData = (IOHIDEventData *)(queueElement->payload + attributeLength + offset);
+        IOHIDEventData *eventData = (IOHIDEventData *)(queueElement->payload + attributeLength);
         
-        if (!eventData) {
+        if ( !eventData ) {
             break;
         }
         
@@ -1814,7 +1752,7 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
 
         if (!event->initWithType(eventDataType, eventDataSize - sz) ||
             eventDataSize != event->_data->size ||
-            (total - (attributeLength + offset)) < eventDataSize) {
+            (size - (attributeLength + offset)) < eventDataSize) {
             event->release();
             break;
         }
@@ -1826,6 +1764,7 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
 
         if ( !parent ) {
             parent = event;
+            eventCount = queueElement->eventCount;
         }
         else {
             //Append event here;
@@ -1833,10 +1772,14 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
             event->release();
         }
         
-        if ( ((UInt32) (offset + eventDataSize) ) <= offset ) {
+        if ( index >= (eventCount - 1) ) {
             break;
         }
-        offset += eventDataSize;
+        
+        if ( os_add_overflow(offset, eventDataSize, &offset) ) {
+            break;
+        }
+        COMPILER_BARRIER();
     }
 
     return parent;
@@ -1849,12 +1792,23 @@ OSArray* IOHIDEvent::getChildren()
 {
     return _children;
 }
+
 //==============================================================================
 // IOHIDEvent::readBytes
 //==============================================================================
 IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
 {
-    IOHIDSystemQueueElement *   queueElement= NULL;
+    UInt32 count = 0;
+    return readBytes(bytes, withLength, &count);
+}
+
+//==============================================================================
+// IOHIDEvent::readBytes
+//==============================================================================
+IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength, UInt32* outCount)
+{
+    IOByteCount size = 0;
+    IOHIDSystemQueueElement * queueElement = NULL;
     
     if ( withLength < sizeof(IOHIDSystemQueueElement) )
         return 0;
@@ -1863,16 +1817,50 @@ IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
 
     queueElement->timeStamp         = _timeStamp;
     queueElement->options           = _options;
-    queueElement->eventCount        = _eventCount;
     queueElement->senderID          = _senderID;
     queueElement->attributeLength   = 0;
+    
+    size += sizeof(IOHIDSystemQueueElement);
 
-    //bytes += sizeof(IOHIDSystemQueueElement);
-    withLength -= sizeof(IOHIDSystemQueueElement);
+    if ( (size + _data->size) > withLength )
+        return 0;
 
-    return appendBytes((UInt8 *)queueElement->payload, withLength);
+    if ( _parent ) {
+        if ( _parent->_data ) {
+            _data->depth = _parent->_data->depth + 1;
+        }
+    }
+    
+    bcopy(_data, (UInt8*)bytes + size, _data->size);
+    size += _data->size;
+
+    if ( _children )
+    {
+        UInt32          i, childCount;
+        IOHIDEvent *    child;
+
+        childCount = _children->getCount();
+
+        for(i=0 ;i<childCount; i++) {
+            if ( (child = (IOHIDEvent *)_children->getObject(i)) ) {
+                size += child->readBytes((UInt8*)bytes + size, withLength - size, outCount);
+            }
+        }
+    }
+    
+    if ( outCount ) {
+        *outCount = *outCount + 1;
+    }
+    
+    queueElement->eventCount = *outCount;
+
+    return size;
 }
 
+//==============================================================================
+// IOHIDEvent::createBytes
+//==============================================================================
+// Note: this function only serializes one level of children.
 OSData *IOHIDEvent::createBytes()
 {
     OSData *result = NULL;
@@ -1883,7 +1871,7 @@ OSData *IOHIDEvent::createBytes()
     
     queueElement.timeStamp         = _timeStamp;
     queueElement.options           = _options;
-    queueElement.eventCount        = _eventCount;
+    queueElement.eventCount        = 1;
     queueElement.senderID          = _senderID;
     queueElement.attributeLength   = 0;
     
@@ -1894,12 +1882,20 @@ OSData *IOHIDEvent::createBytes()
     
     for (unsigned int i = 0; i < _children->getCount(); i++) {
         IOHIDEvent *child = (IOHIDEvent *)_children->getObject(i);
-        if (!child) {
+        if ( !child ) {
             continue;
         }
+                
+        queueElement.timeStamp         = child->_timeStamp;
+        queueElement.options           = child->_options;
+        queueElement.senderID          = child->_senderID;
+        queueElement.attributeLength   = 0;
         
+        result->appendBytes(&queueElement, sizeof(queueElement));
         result->appendBytes(child->_data, child->_data->size);
     }
+    
+    queueElement.eventCount += _children->getCount();
     
 exit:
     return result;
@@ -1928,6 +1924,16 @@ void IOHIDEvent::setPhase(IOHIDEventPhaseBits phase)
 void IOHIDEvent::setSenderID(uint64_t senderID)
 {
     _senderID = senderID;
+
+    if ( _children ) {
+        for (unsigned int i = 0; i < _children->getCount(); i++) {
+            IOHIDEvent *child = (IOHIDEvent *)_children->getObject(i);
+            if ( !child ) {
+                continue;
+            }
+            child->setSenderID(senderID);
+        }
+    }
 }
 
 //==============================================================================

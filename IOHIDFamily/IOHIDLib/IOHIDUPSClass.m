@@ -232,6 +232,13 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
                         break;
                 }
                 break;
+            case kHIDPage_GenericDeviceControls:
+                switch (element.usage) {
+                    case kHIDUsage_GenDevControls_BatteryStrength:
+                        element.psKey = @(kIOPSCurrentCapacityKey);
+                        break;
+                }
+                break;
             case kHIDPage_AppleVendorBattery:
                 switch (element.usage) {
                     case kHIDUsage_AppleVendorBattery_RawCapacity:
@@ -606,6 +613,13 @@ static void logUpsEventDict(NSDictionary* dict, NSString* s)
                         break;
                     case kHIDUsage_PD_InternalFailure:
                         newValue = element.integerValue ? @TRUE : @FALSE;
+                        break;
+                }
+                break;
+            case kHIDPage_GenericDeviceControls:
+                switch (element.usage) {
+                    case kHIDUsage_GenDevControls_BatteryStrength:
+                        translatedValue = element.integerValue;
                         break;
                 }
                 break;

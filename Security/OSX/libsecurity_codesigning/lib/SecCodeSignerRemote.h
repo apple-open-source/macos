@@ -31,6 +31,7 @@
 
 #include <Security/CSCommon.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecKey.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,15 +80,16 @@ SecCodeSignerRemoteCreate(CFDictionaryRef parameters,
 
 /*!
  @typedef SecCodeRemoteSignHandler
- This is the type of a callback block used to provide the digest hash and digest algorithm to the caller to enable creating a signature.
+ This is the type of a callback block used to provide the digest hash, digest algorithm, and signature algorithm to the caller to enable creating a signature.
 
  @param cmsDigestHash A CFDataRef containing the signature's digest hash that needs to be signed.
  @param digestAlgorithm The digest algorithm used to create the message digest.
+ @param signatureAlgorithm The signature algorithm with which to sign the digest.
  @result Upon success, return a retained CFDataRef representing the signature for the provided message digest that will be released
  upon completion of the signing. Upon error, return NULL to fail the signing operation. Providing a signature that does not validate will
  trigger a validation failure.
  */
-typedef CFDataRef (^SecCodeRemoteSignHandler)(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgorithm);
+typedef CFDataRef (^SecCodeRemoteSignHandler)(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgorithm, SecKeyAlgorithm signatureAlgorithm);
 
 /*!
  @function SecCodeSignerRemoteAddSignature

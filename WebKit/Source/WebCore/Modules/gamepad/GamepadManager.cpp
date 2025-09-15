@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #include "Navigator.h"
 #include "NavigatorGamepad.h"
 #include "PlatformGamepad.h"
+#include "UserGestureIndicator.h"
 #include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(VISION)
@@ -197,7 +198,7 @@ void GamepadManager::registerNavigator(Navigator& navigator)
     m_navigators.add(navigator);
 
 #if PLATFORM(VISION)
-    auto page = navigator.protectedPage();
+    RefPtr page = navigator.page();
     if (page && page->gamepadAccessGranted())
         m_gamepadBlindNavigators.add(navigator);
     else
@@ -272,14 +273,14 @@ void GamepadManager::updateQuarantineStatus()
     WeakHashSet<Navigator> navigators;
     WeakHashSet<LocalDOMWindow, WeakPtrImplWithEventTargetData> windows;
     for (auto& navigator : m_gamepadQuarantinedNavigators) {
-        auto page = navigator.protectedPage();
+        RefPtr page = navigator.page();
         if (page && page->gamepadAccessGranted()) {
             LOG(Gamepad, "(%u) GamepadManager found navigator %p to release from quarantine", (unsigned)getpid(), &navigator);
             navigators.add(navigator);
         }
     }
     for (auto& window : m_gamepadQuarantinedDOMWindows) {
-        auto page = window.protectedPage();
+        RefPtr page = window.page();
         if (page && page->gamepadAccessGranted()) {
             LOG(Gamepad, "(%u) GamepadManager found window %p to release from quarantine", (unsigned)getpid(), &window);
             windows.add(window);

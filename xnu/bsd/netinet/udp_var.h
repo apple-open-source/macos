@@ -63,10 +63,10 @@
 #ifndef _NETINET_UDP_VAR_H_
 #define _NETINET_UDP_VAR_H_
 
-#include <sys/appleapiopts.h>
-#include <sys/sysctl.h>
 #include <netinet/ip_var.h>
 #include <netinet/udp.h>
+#include <sys/appleapiopts.h>
+#include <sys/sysctl.h>
 
 /*
  * UDP kernel structures and variables.
@@ -127,6 +127,7 @@ struct  udpstat {
 
 #ifdef BSD_KERNEL_PRIVATE
 #include <kern/locks.h>
+#include <kern/mem_acct.h>
 #include <sys/bitstring.h>
 
 #define UDPCTL_NAMES {                                                  \
@@ -162,6 +163,20 @@ extern u_int32_t udp_sendspace;
 extern u_int32_t udp_recvspace;
 extern struct udpstat udpstat;
 extern int udp_log_in_vain;
+extern struct mem_acct *udp_memacct;
+
+static inline void
+udp_memacct_add(int size)
+{
+	mem_acct_add(udp_memacct, size);
+}
+
+static inline void
+udp_memacct_sub(int size)
+{
+	mem_acct_sub(udp_memacct, size);
+}
+
 
 __BEGIN_DECLS
 extern void udp_ctlinput(int, struct sockaddr *, void *, struct ifnet *);

@@ -3,6 +3,8 @@
 #ifndef _MISC_NEEDED_DEFINES_H_
 #define _MISC_NEEDED_DEFINES_H_
 
+#include <kern/bits.h>
+
 /*
  * Include non-kernel header dependencies to make up for the equivalent kernel header
  * dependencies which are not safe to compile in a userspace binary
@@ -32,6 +34,7 @@ typedef struct processor_set            *processor_set_t;
 #define TASK_NULL               ((task_t) 0)
 #define THREAD_NULL             ((thread_t) 0)
 #define PROCESSOR_NULL          ((processor_t) 0)
+#define PROCESSOR_SET_NULL      ((processor_set_t) 0)
 
 /* Defines from osfmk/kern/timer_call.h */
 typedef void            *timer_call_param_t;
@@ -49,9 +52,26 @@ typedef enum {
 	CLUSTER_TYPE_P   = 2,
 	MAX_CPU_TYPES,
 } cluster_type_t;
+#define MAX_AMP_CLUSTER_TYPES (MAX_PSET_TYPES - 1)
 extern unsigned int ml_get_die_id(unsigned int cluster_id);
 extern uint64_t ml_cpu_signal_deferred_get_timer(void);
 extern unsigned int ml_get_cpu_number_type(cluster_type_t cluster_type, bool logical, bool available);
 extern unsigned int ml_get_cluster_number_type(cluster_type_t cluster_type);
+
+/* Defines from osfmk/kern/thread.h */
+#define assert_thread_magic(thread) do { (void)(thread); } while (0)
+
+/* Defines from osfmk/kern/startup.h */
+#define TUNABLE(type_t, var, boot_arg, default_value) \
+    type_t var = default_value
+
+/* Defines from bsd/sys/kdebug_kernel.h */
+#define __kdebug_only __unused
+
+struct mock_topology_info_struct {
+	unsigned int num_cpus;
+};
+extern struct mock_topology_info_struct mock_topology_info;
+#define ml_get_topology_info() (&mock_topology_info)
 
 #endif  /* _MISC_NEEDED_DEFINES_H_ */

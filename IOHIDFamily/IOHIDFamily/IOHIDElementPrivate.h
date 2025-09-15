@@ -229,6 +229,9 @@ public:
     
     inline bool shouldTickleActivity() const
     { return _flags & kIOHIDElementTickleActivity; }
+    
+    inline bool isInterruptReportHandler() const
+    { return _flags & kIOHIDElementInterruptReportHandler; }
 
     virtual bool addEventQueue( IOHIDEventQueue * queue );
     virtual bool removeEventQueue( IOHIDEventQueue * queue );
@@ -293,7 +296,7 @@ public:
     virtual unsigned setOptions(unsigned   options,
                                 unsigned   mask,
                                 void     * context = 0) APPLE_KEXT_OVERRIDE;
-    virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0) APPLE_KEXT_OVERRIDE;
+    virtual OSPtr<OSCollection> copyCollection(OSDictionary * cycleDict = 0) APPLE_KEXT_OVERRIDE;
   
     virtual boolean_t                       isVariableSize() APPLE_KEXT_OVERRIDE
     {  return _flags & kIOHIDElementVariableSizeElement; }

@@ -174,6 +174,8 @@ private:
     void platformInvalidate();
     void platformDestroy();
 
+    CheckedPtr<Client> checkedClient() const;
+
 #if PLATFORM(COCOA)
     void terminateXPCConnection();
 #endif

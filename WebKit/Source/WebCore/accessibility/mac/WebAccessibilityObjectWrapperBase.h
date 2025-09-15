@@ -27,9 +27,9 @@
  */
 
 #import "AXCoreObject.h"
+#import "CocoaAccessibilityConstants.h"
 #import "FontPlatformData.h"
 #import <CoreGraphics/CoreGraphics.h>
-#import <variant>
 #import <wtf/Markable.h>
 #import <wtf/RefPtr.h>
 #import <wtf/WeakPtr.h>
@@ -63,9 +63,11 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node&, StringView, const Si
     WeakPtr<WebCore::AccessibilityObject> m_axObject;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    ThreadSafeWeakPtr<WebCore::AXIsolatedObject> m_isolatedObject;
-    // To be accessed only on the main thread.
-    bool m_isolatedObjectInitialized;
+    WeakPtr<WebCore::AXIsolatedObject> m_isolatedObject;
+    // FIXME: Is it possible for this to not be atomic, instead using the information we already have
+    // on the accessibility thread (or information we send from the main-thread, like a list of valid
+    // or invalid IDs)? https://bugs.webkit.org/show_bug.cgi?id=293262
+    std::atomic<bool> m_isolatedObjectInitialized;
 #endif
 
     Markable<WebCore::AXID> _identifier;

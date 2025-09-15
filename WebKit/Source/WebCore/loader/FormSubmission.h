@@ -101,7 +101,8 @@ public:
 
     void clearTarget() { m_target = { }; }
     void setReferrer(const String& referrer) { m_referrer = referrer; }
-    void setOrigin(const String& origin) { m_origin = origin; }
+    void setReferrer(String&& referrer) { m_referrer = WTFMove(referrer); }
+    void setOrigin(String&& origin) { m_origin = WTFMove(origin); }
 
     void cancel() { m_wasCancelled = true; }
     bool wasCancelled() const { return m_wasCancelled; }

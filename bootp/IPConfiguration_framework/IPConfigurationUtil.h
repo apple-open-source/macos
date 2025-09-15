@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,4 +41,22 @@
 Boolean
 IPConfigurationForgetNetwork(CFStringRef ifname, CFStringRef ssid);
 
+/*
+ * Function: IPConfigurationCopyIPv4RouterInformation
+ * Purpose:
+ *   Return the MAC address and IPv4 address of the router for the
+ *   specified interface `ifname`.
+ * Returns:
+ *   If successful, returns a non-NULL string representation of the
+ *   router's MAC address, sets `*ret_ip` to a string representation of
+ *   the router's IPv4 address. Use `CFRelease()` to release the strings.
+ *
+ *   If unsuccessful, returns NULL and sets *ret_ip to NULL.
+ * Note:
+ *   Caller must have the "com.apple.IPConfiguration.get-information"
+ *   boolean entitlement.
+ */
+CFStringRef
+IPConfigurationCopyIPv4RouterInformation(CFStringRef ifname,
+					 CFStringRef * ret_ip);
 #endif /* _IPCONFIGURATIONUTIL_H */

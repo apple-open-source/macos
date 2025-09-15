@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc.
  * Copyright (C) 2021 Metrological Group B.V.
  * Copyright (C) 2021 Igalia S.L.
@@ -53,7 +53,7 @@ void WorkerFontLoadRequest::load(WorkerGlobalScope& workerGlobalScope)
 {
     m_context = workerGlobalScope;
 
-    ResourceRequest request { m_url };
+    ResourceRequest request { URL { m_url } };
     ASSERT(request.httpMethod() == "GET"_s);
 
     FetchOptions fetchOptions;
@@ -65,7 +65,7 @@ void WorkerFontLoadRequest::load(WorkerGlobalScope& workerGlobalScope)
 
     ThreadableLoaderOptions options { WTFMove(fetchOptions) };
     options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
-    options.contentSecurityPolicyEnforcement = m_context->shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceWorkerSrcDirective;
+    options.contentSecurityPolicyEnforcement = Ref { *m_context }->shouldBypassMainWorldContentSecurityPolicy() ? ContentSecurityPolicyEnforcement::DoNotEnforce : ContentSecurityPolicyEnforcement::EnforceWorkerSrcDirective;
     options.loadedFromOpaqueSource = m_loadedFromOpaqueSource;
     options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
 
@@ -84,10 +84,13 @@ bool WorkerFontLoadRequest::ensureCustomFontData()
             contiguousData = m_data.takeAsContiguous();
         convertWOFFToSfntIfNecessary(contiguousData);
         if (contiguousData) {
-            m_fontCustomPlatformData = FontCustomPlatformData::create(*contiguousData, m_url.fragmentIdentifier().toString());
+            RefPtr fontCustomPlatformData = FontCustomPlatformData::create(*contiguousData, m_url.fragmentIdentifier().toString());
             m_data = WTFMove(contiguousData);
-            if (!m_fontCustomPlatformData)
+            if (!fontCustomPlatformData) {
                 m_errorOccurred = true;
+                return false;
+            }
+            lazyInitialize(m_fontCustomPlatformData, fontCustomPlatformData.releaseNonNull());
         }
     }
 

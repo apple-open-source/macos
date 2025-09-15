@@ -490,13 +490,13 @@ class KernelTarget(object):
         if self.arch != 'arm64e':
             return addr
         T0Sz = self.GetGlobalVariable('gT0Sz')
-        return StripPAC(addr, T0Sz)
+        return CanonicalAddress(addr, T0Sz)
 
     def StripKernelPAC(self, addr):
         if self.arch != 'arm64e':
             return addr
         T1Sz = self.GetGlobalVariable('gT1Sz')
-        return StripPAC(addr, T1Sz)
+        return CanonicalAddress(addr, T1Sz)
 
     PAGE_PROTECTION_TYPE_NONE = 0
     PAGE_PROTECTION_TYPE_PPL = 1

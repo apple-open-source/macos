@@ -55,17 +55,18 @@ public:
     static constexpr bool isStreamBatched = false;
 
     explicit SendString(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class SendStringAsync {
@@ -87,17 +88,18 @@ public:
     using Reply = CompletionHandler<void(int64_t)>;
     using Promise = WTF::NativePromise<int64_t, IPC::Error>;
     explicit SendStringAsync(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class SendStringSync {
@@ -117,17 +119,18 @@ public:
     using ReplyArguments = std::tuple<int64_t>;
     using Reply = CompletionHandler<void(int64_t)>;
     explicit SendStringSync(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class CallWithIdentifier {
@@ -148,13 +151,16 @@ public:
     using ReplyArguments = std::tuple<>;
     using Reply = CompletionHandler<void()>;
     using Promise = WTF::NativePromise<void, IPC::Error>;
-    auto&& arguments()
+    CallWithIdentifier()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 #if PLATFORM(COCOA)
@@ -171,17 +177,18 @@ public:
     static constexpr bool isStreamBatched = false;
 
     explicit SendMachSendRight(MachSendRight&& a1)
-        : m_arguments(WTFMove(a1))
+        : m_a1(WTFMove(a1))
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << WTFMove(m_a1);
     }
 
 private:
-    std::tuple<MachSendRight&&> m_arguments;
+    MachSendRight&& m_a1;
 };
 #endif
 
@@ -202,13 +209,16 @@ public:
     static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
     using ReplyArguments = std::tuple<MachSendRight>;
     using Reply = CompletionHandler<void(MachSendRight&&)>;
-    auto&& arguments()
+    ReceiveMachSendRight()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 #endif
 
@@ -230,17 +240,18 @@ public:
     using ReplyArguments = std::tuple<MachSendRight>;
     using Reply = CompletionHandler<void(MachSendRight&&)>;
     explicit SendAndReceiveMachSendRight(MachSendRight&& a1)
-        : m_arguments(WTFMove(a1))
+        : m_a1(WTFMove(a1))
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << WTFMove(m_a1);
     }
 
 private:
-    std::tuple<MachSendRight&&> m_arguments;
+    MachSendRight&& m_a1;
 };
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -430,13 +430,13 @@ extern int os_packet_get_expiry_action(const packet_t, packet_expiry_action_t *)
 extern int os_packet_set_token(const packet_t, const void *, const uint16_t);
 extern int os_packet_get_packetid(const packet_t, packet_id_t *);
 extern int os_packet_set_packetid(const packet_t, packet_id_t *);
-extern int os_packet_set_vlan_tag(const packet_t, const uint16_t,
-    const boolean_t);
-extern int os_packet_get_vlan_tag(const packet_t, uint16_t *, boolean_t *);
+extern int os_packet_set_vlan_tag(const packet_t, const uint16_t);
+extern int os_packet_get_vlan_tag(const packet_t, uint16_t *);
 extern uint16_t os_packet_get_vlan_id(const uint16_t);
 extern uint8_t os_packet_get_vlan_priority(const uint16_t);
 #define HAS_OS_PACKET_GET_WAKE_FLAG 1
 extern boolean_t os_packet_get_wake_flag(const packet_t);
+extern void os_packet_set_wake_flag(const packet_t);
 #define HAS_OS_PACKET_KEEP_ALIVE 1
 extern boolean_t os_packet_get_keep_alive(const packet_t);
 extern void os_packet_set_keep_alive(const packet_t, const boolean_t);
@@ -756,14 +756,15 @@ extern errno_t kern_packet_set_token(const kern_packet_t,
 extern errno_t kern_packet_get_token(const kern_packet_t, void *__sized_by(*len),
     uint16_t *len);
 extern errno_t kern_packet_get_packetid(const kern_packet_t, packet_id_t *);
-extern errno_t kern_packet_set_vlan_tag(const kern_packet_t, const uint16_t,
-    const boolean_t);
-extern errno_t kern_packet_get_vlan_tag(const kern_packet_t, uint16_t *,
-    boolean_t *);
+extern errno_t kern_packet_set_vlan_tag(const kern_packet_t, const uint16_t);
+extern errno_t kern_packet_get_vlan_tag(const kern_packet_t, uint16_t *);
 extern uint16_t kern_packet_get_vlan_id(const uint16_t);
 extern uint8_t kern_packet_get_vlan_priority(const uint16_t);
 extern void kern_packet_set_wake_flag(const kern_packet_t);
 extern boolean_t kern_packet_get_wake_flag(const kern_packet_t);
+extern void kern_packet_set_ulpn_flag(const kern_packet_t);
+extern boolean_t kern_packet_get_ulpn_flag(const kern_packet_t);
+extern boolean_t kern_packet_get_lpw_flag(const kern_packet_t);
 extern errno_t kern_packet_set_fpd_sequence_number(const kern_packet_t,
     uint32_t);
 extern errno_t kern_packet_set_fpd_context_id(const kern_packet_t, uint16_t);

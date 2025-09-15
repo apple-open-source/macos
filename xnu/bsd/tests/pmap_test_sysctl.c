@@ -39,6 +39,7 @@ extern uint64_t test_pmap_page_protect_overhead(unsigned int, unsigned int);
 #if CONFIG_SPTM
 extern kern_return_t test_pmap_huge_pv_list(unsigned int, unsigned int);
 extern kern_return_t test_pmap_reentrance(unsigned int);
+extern kern_return_t test_surt(unsigned int);
 #endif
 
 static int
@@ -178,7 +179,6 @@ SYSCTL_PROC(_kern, OID_AUTO, pmap_page_protect_overhead_test,
     CTLTYPE_OPAQUE | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_test_pmap_page_protect_overhead, "-", "");
 
 #if CONFIG_SPTM
-
 static int
 sysctl_test_pmap_huge_pv_list(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
 {
@@ -213,4 +213,33 @@ SYSCTL_PROC(_kern, OID_AUTO, pmap_reentrance_test,
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
     0, 0, sysctl_test_pmap_reentrance, "I", "");
 
-#endif
+#if __ARM64_PMAP_SUBPAGE_L1__
+extern unsigned int surt_list_len(void);
+static int
+sysctl_surt_list_len(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	unsigned int len = surt_list_len();
+	return SYSCTL_OUT(req, &len, sizeof(len));
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, surt_list_len,
+    CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED,
+    0, 0, sysctl_surt_list_len, "I", "");
+
+static int
+sysctl_test_surt(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	unsigned int num_surts;
+	int error, changed;
+	error = sysctl_io_number(req, 0, sizeof(num_surts), &num_surts, &changed);
+	if (error || !changed) {
+		return error;
+	}
+	return test_surt(num_surts);
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, surt_test,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_test_surt, "I", "");
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+#endif /* CONFIG_SPTM */

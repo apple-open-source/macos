@@ -105,20 +105,73 @@ CFStringRef _ApplicationCopyIdentifier( pid_t processID, const audit_token_t *au
 					}
                     if ( status == noErr )
                     {
-                        CFDictionaryRef information = 0;
+                        CFDictionaryRef info = 0;
 
-                        SecCodeCopySigningInformation( code, kSecCSDefaultFlags, &information );
+                        SecCodeCopySigningInformation(code, kSecCSDynamicInformation, &info);
 
-                        if ( information )
+                        if ( info )
                         {
-                            identifier = CFDictionaryGetValue( information, kSecCodeInfoIdentifier );
+                            CFNumberRef statusFlags;
 
-                            if ( identifier )
-                            {
-                                CFRetain( identifier );
+                            statusFlags = CFDictionaryGetValue(info, kSecCodeInfoStatus);
+
+                            if ( statusFlags ) {
+                                SecCodeStatus status;
+
+                                if ( CFNumberGetValue(statusFlags, kCFNumberSInt32Type, &status) )
+                                {
+                                    CFMutableStringRef appId = CFStringCreateMutableWithExternalCharactersNoCopy( NULL, NULL, 0, 0, NULL );
+
+                                    if ( appId )
+                                    {
+
+                                        if ( (status & kSecCodeStatusPlatform) != 0 )
+                                        {
+                                            CFDictionaryRef signingInfo = 0;
+
+                                            SecCodeCopySigningInformation( code, kSecCSSigningInformation, &signingInfo );
+
+                                            if ( signingInfo )
+                                            {
+                                                CFStringRef teamId;
+
+                                                teamId = CFDictionaryGetValue( signingInfo, kSecCodeInfoTeamIdentifier );
+                                                if ( teamId )
+                                                {
+                                                    CFStringAppend( appId, teamId );
+                                                    CFStringAppendCString( appId, "/", kCFStringEncodingASCII );
+                                                }
+
+                                                CFRelease(signingInfo);
+                                            }
+                                        }
+
+                                        CFDictionaryRef information = 0;
+
+                                        SecCodeCopySigningInformation( code, kSecCSDefaultFlags, &information );
+
+                                        if ( information )
+                                        {
+                                            CFStringRef codeId;
+
+                                            codeId = CFDictionaryGetValue( information, kSecCodeInfoIdentifier );
+
+                                            if ( codeId )
+                                            {
+                                                CFStringAppend( appId, codeId );
+
+                                                identifier = CFStringCreateCopy( NULL, appId );
+                                            }
+
+                                            CFRelease( information );
+                                        }
+
+                                        CFRelease( appId );
+                                    }
+                                }
                             }
 
-                            CFRelease( information );
+                            CFRelease( info );
                         }
 
                         CFRelease( code );

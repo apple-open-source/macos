@@ -126,7 +126,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
     if(dbconn) {
         doWithConnection(dbconn);
     } else {
-        kc_with_dbt(true, &cferror, doWithConnection);
+        kc_with_dbt(true, NULL , &cferror, doWithConnection);
     }
 
     bool ret = cferror == NULL;
@@ -280,7 +280,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
     if(dbconn) {
         doWithConnection(dbconn);
     } else {
-        kc_with_dbt(true, &cferror, doWithConnection);
+        kc_with_dbt(true, NULL , &cferror, doWithConnection);
     }
 
     // Deletes finish in a single step, so if we didn't get an error, the delete 'happened'
@@ -307,7 +307,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
     @autoreleasepool {
         __block CFErrorRef cferror = NULL;
         
-        kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
+        kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbconn) {
             NSString * columns = [names componentsJoinedByString:@", "];
             NSString * whereClause = [CKKSSQLDatabaseObject makeWhereClause: whereDict];
             NSString * groupByClause = [CKKSSQLDatabaseObject groupByClause: groupColumns];
@@ -380,7 +380,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
 {
     __block CFErrorRef cferror = NULL;
 
-    kc_with_dbt(false, &cferror, ^bool(SecDbConnectionRef dbconn) {
+    kc_with_dbt(false, NULL , &cferror, ^bool(SecDbConnectionRef dbconn) {
         NSString *quotedMaxField = [self quotedString:maxField];
         NSString *quotedTable = [self quotedString:table];
 
@@ -419,7 +419,7 @@ __thread bool CKKSSQLInWriteTransaction = false;
 + (BOOL)performCKKSTransaction:(CKKSDatabaseTransactionResult (^)(void))block
 {
     CFErrorRef cferror = NULL;
-    bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
+    bool ok = kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbconn) {
         CFErrorRef cferrorInternal = NULL;
         bool ret = kc_transaction_type(dbconn, kSecDbExclusiveRemoteCKKSTransactionType, &cferrorInternal, ^bool{
             CKKSDatabaseTransactionResult result = CKKSDatabaseTransactionRollback;

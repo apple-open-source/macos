@@ -29,6 +29,7 @@
 #if ENABLE(MEDIA_SOURCE)
 
 #include "ContentType.h"
+#include "MediaSourceConfiguration.h"
 #include "SharedBuffer.h"
 #include "SourceBufferParserAVFObjC.h"
 #include "SourceBufferParserWebM.h"
@@ -47,13 +48,13 @@ MediaPlayerEnums::SupportsType SourceBufferParser::isContentTypeSupported(const 
     return supports;
 }
 
-RefPtr<SourceBufferParser> SourceBufferParser::create(const ContentType& type)
+RefPtr<SourceBufferParser> SourceBufferParser::create(const ContentType& type, const MediaSourceConfiguration& configuration)
 {
     if (SourceBufferParserWebM::isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported)
         return SourceBufferParserWebM::create();
 
     if (SourceBufferParserAVFObjC::isContentTypeSupported(type) != MediaPlayerEnums::SupportsType::IsNotSupported)
-        return adoptRef(new SourceBufferParserAVFObjC());
+        return adoptRef(new SourceBufferParserAVFObjC(configuration));
 
     return nullptr;
 }
@@ -78,34 +79,6 @@ SourceBufferParser::SourceBufferParser()
 
 void SourceBufferParser::setMinimumAudioSampleDuration(float)
 {
-}
-
-SourceBufferParser::Segment::Segment(Ref<SharedBuffer>&& buffer)
-    : m_segment(WTFMove(buffer))
-{
-}
-
-size_t SourceBufferParser::Segment::size() const
-{
-    return m_segment->size();
-}
-
-auto SourceBufferParser::Segment::read(std::span<uint8_t> destination, size_t position) const -> ReadResult
-{
-    size_t segmentSize = size();
-    destination = destination.first(std::min(destination.size(), segmentSize - std::min(position, segmentSize)));
-    m_segment->copyTo(destination, position);
-    return destination.size();
-}
-
-Ref<SharedBuffer> SourceBufferParser::Segment::takeSharedBuffer()
-{
-    return std::exchange(m_segment, SharedBuffer::create());
-}
-
-Ref<SharedBuffer> SourceBufferParser::Segment::getData(size_t offet, size_t length) const
-{
-    return m_segment->getContiguousData(offet, length);
 }
 
 } // namespace WebCore

@@ -30,7 +30,7 @@
 namespace WebCore {
 namespace CSS {
 
-using RaySize = std::variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide, Keyword::Sides>;
+using RaySize = Variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide, Keyword::Sides>;
 
 // ray() = ray( <angle> && <ray-size>? && contain? && [at <position>]? )
 // <ray-size> = closest-side | closest-corner | farthest-side | farthest-corner | sides
@@ -57,7 +57,7 @@ template<size_t I> const auto& get(const Ray& value)
         return value.position;
 }
 
-template<> struct Serialize<Ray> { void operator()(StringBuilder&, const Ray&); };
+template<> struct Serialize<Ray> { void operator()(StringBuilder&, const SerializationContext&, const Ray&); };
 
 } // namespace CSS
 } // namespace WebCore

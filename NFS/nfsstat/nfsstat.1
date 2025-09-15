@@ -137,12 +137,16 @@ Statistics for NFSv4 file system mounts.
 Counts of the RPC calls made to each of the NFSv4 protocol
 procedures.
 .It Operations Counts
-Counts of the operations calls made by the client within the compound procedure.
+Counts of the operations calls made by the client within the compound of the NFSv4 protocol procedure.
+.It NFSv4.1 Operations Counts
+Counts of operations calls made by the client within the compound of the NFSv4.1 protocol procedure.
 .It Callback RPC Counts
 Counts of the callback RPC calls made to each of the NFSv4 protocol
 procedures.
 .It Callback Operations Counts
-Counts of the callback operations calls made by the client within the callback compound procedure.
+Counts of the callback operations calls made by the client within the callback compound of the NFSv4 protocol procedure.
+.It NFSv4.1 Callback Operations Counts
+Counts of the callback operations calls made by the client within the callback compound of the NFSv4.1 protocol procedure.
 .El
 .\" ========
 .It Cm Common Client Information:
@@ -263,6 +267,14 @@ Information about the given NFS mount (or all NFS mounts).
 .Bl -tag -width "xxx"
 .It Information about NFS protocol errors categorized by error type.
 .It This option will provide a detailed breakdown of errors encountered within the NFS layer.
+.It NFS Client Errors
+Counts of errors received from the server during the NFS protocol procedures.
+.It NFSv4 Client Errors
+Counts of errors received from the server during the NFSv4 protocol procedures.
+.It NFSv4.1 Client Errors
+Counts of errors received from the server during the NFSv4.1 protocol procedures.
+.It NFS Server Errors
+Counts of errors sent by the server during the NFS protocol procedures.
 .El
 .El
 .Sh SEE ALSO

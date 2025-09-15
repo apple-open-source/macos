@@ -265,7 +265,7 @@ SKIP:
             unlink(keychain_path);
         });
 
-        SecKeychainDbReset(NULL);
+        SecServerKeychainDbReset(NULL);
 #else
         skip("Keychain not reset", 0, false);
 #endif

@@ -55,7 +55,7 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKObject.class, self))
         return;
 
-    API::Object::fromWKObjectExtraSpace(self).~Object();
+    SUPPRESS_UNCOUNTED_ARG API::Object::fromWKObjectExtraSpace(self).~Object();
 
     [super dealloc];
 }

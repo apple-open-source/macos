@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2017, 2024 Apple Inc. All rights reserved.
  *
  *    arm platform expert initialization.
  */
@@ -34,8 +34,8 @@ static void     pe_prepare_images(void);
 
 /* private globals */
 SECURITY_READ_ONLY_LATE(PE_state_t) PE_state;
-TUNABLE_DT(uint32_t, PE_srd_fused, "/chosen", "research-enabled",
-    "srd_fusing", 0, TUNABLE_DT_NONE);
+TUNABLE_DT(uint32_t, PE_esdm_fuses, "/chosen", "esdm-fuses", "", 0, TUNABLE_DT_NONE);
+TUNABLE_DT(uint32_t, PE_vmm_present, "/defaults", "vmm-present", "", 0, TUNABLE_DT_NONE);
 
 #define FW_VERS_LEN 128
 
@@ -373,7 +373,7 @@ PE_init_iokit(void)
 
 		KDBG_RELEASE(IOKDBG_CODE(DBG_BOOTER, 0), start_time_value, debug_wait_start_value, load_kernel_start_value, populate_registry_time_value);
 #if CONFIG_SPTM
-		KDBG_RELEASE(IOKDBG_CODE(DBG_BOOTER, 1), SPTMArgs->timestamp_sk_bootstrap, SPTMArgs->timestamp_xnu_bootstrap);
+		KDBG_RELEASE(IOKDBG_CODE(DBG_BOOTER, 1), SPTMArgs->timestamp_sk_bootstrap, SPTMArgs->timestamp_xnu_bootstrap, SPTMArgs->timestamp_txm_bootstrap);
 #endif
 	}
 
@@ -871,8 +871,16 @@ PE_init_socd_client(void)
 		return 0;
 	}
 
-	socd_trace_ram_base = ml_io_map(reg_prop[0], (vm_size_t)reg_prop[1]);
+	if (size < 2 * sizeof(uintptr_t)) {
+		return 0;
+	}
+
 	socd_trace_ram_size = (vm_size_t)reg_prop[1];
+	if (socd_trace_ram_size == 0) {
+		return 0;
+	}
+
+	socd_trace_ram_base = ml_io_map(reg_prop[0], socd_trace_ram_size);
 
 	return socd_trace_ram_size;
 }

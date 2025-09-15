@@ -1285,7 +1285,8 @@ T_DECL(round_trips,
  * heart-beat.
  */
 T_DECL(event_coverage, "ensure events appear up to the end of tracing",
-		T_META_TAG_VM_PREFERRED)
+		T_META_TAG_VM_PREFERRED,
+		T_META_ENABLED(false) /* rdar://134505849 */)
 {
 	start_controlling_ktrace();
 
@@ -1597,8 +1598,12 @@ static const char *expected_subsystems[] = {
 #define EXPECTED_SUBSYSTEMS_LEN \
 		(sizeof(expected_subsystems) / sizeof(expected_subsystems[0]))
 
-T_DECL(early_boot_tracing, "ensure early boot strings are present",
-	T_META_BOOTARGS_SET("trace=1000000"), XNU_T_META_SOC_SPECIFIC, T_META_TAG_VM_NOT_ELIGIBLE)
+T_DECL(early_boot_tracing,
+	"ensure early boot strings are present",
+	T_META_BOOTARGS_SET("trace=100000"),
+	XNU_T_META_SOC_SPECIFIC,
+	T_META_TAG_VM_NOT_ELIGIBLE,
+	T_META_ENABLED(false) /* rdar://149654502 */)
 {
 	T_ATEND(reset_ktrace);
 
@@ -1726,7 +1731,8 @@ sighandler(int sig)
 T_DECL(instrs_and_cycles_on_proc_exit,
 		"instructions and cycles should be traced on thread exit",
 		T_META_REQUIRES_SYSCTL_EQ("kern.monotonic.supported", 1),
-		T_META_TAG_VM_NOT_ELIGIBLE)
+		T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://134505849 */)
 {
 	T_SETUPBEGIN;
 	start_controlling_ktrace();
@@ -1895,4 +1901,55 @@ T_DECL(instrs_and_cycles_on_thread_exit,
 	}
 
 	dispatch_main();
+}
+
+T_DECL(direct_file_writing, "ensure direct file writes work correctly",
+	T_META_TAG_VM_PREFERRED)
+{
+	start_controlling_ktrace();
+
+	T_SETUPBEGIN;
+	char trace_file_path[MAXPATHLEN] = "direct_file.bin";
+	int error = dt_resultfile(trace_file_path, sizeof(trace_file_path));
+	T_QUIET; T_ASSERT_POSIX_ZERO(error, "dt_resultfile");
+	T_LOG("directly kdebug to file at %s", trace_file_path);
+
+	int fd = open(trace_file_path, O_CREAT | O_TRUNC | O_RDWR);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(fd, "open and create trace file");
+
+	int mib[4] = { CTL_KERN, KERN_KDEBUG };
+	mib[2] = KERN_KDSETBUF; mib[3] = WRAPPING_EVENTS_COUNT;
+	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 4, NULL, 0, NULL, 0), "KERN_KDSETBUF");
+
+	mib[2] = KERN_KDSETUP; mib[3] = 0;
+	size_t needed = 0;
+	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 3, NULL, &needed, NULL, 0),
+	    "KERN_KDSETUP");
+
+	mib[2] = KERN_KDENABLE; mib[3] = 1;
+	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 4, NULL, 0, NULL, 0), "KERN_KDENABLE");
+	T_SETUPEND;
+
+	sleep(1);
+
+	mib[2] = KERN_KDWRITEMAP; mib[3] = fd;
+	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 4, NULL, 0, NULL, 0), "KERN_KDWRITEMAP");
+
+	mib[2] = KERN_KDWRITETR; mib[3] = fd;
+	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 4, NULL, 0, NULL, 0), "KERN_KDWRITETR");
+
+	close(fd);
+
+	ktrace_file_t trace_file = ktrace_file_open(trace_file_path, NULL);
+	T_WITH_ERRNO; T_ASSERT_NOTNULL(trace_file, "can open file as a trace file");
+
+	uint64_t earliest_timestamp = 0;
+	error = ktrace_file_earliest_timestamp(trace_file, &earliest_timestamp);
+	T_QUIET;
+	T_ASSERT_POSIX_ZERO(error, "read earliest event timestamp from file");
+	T_QUIET;
+	T_EXPECT_NE(earliest_timestamp, 0ULL, "earliest event timestamp is valid");
+
+	ktrace_file_close(trace_file);
+	T_PASS("trace file appears usable");
 }

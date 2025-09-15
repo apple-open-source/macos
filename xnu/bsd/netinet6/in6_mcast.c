@@ -242,7 +242,7 @@ in6m_is_ifp_detached(const struct in6_multi *inm)
 	VERIFY(inm->in6m_ifma != NULL);
 	VERIFY(inm->in6m_ifp == inm->in6m_ifma->ifma_ifp);
 
-	return !ifnet_is_attached(inm->in6m_ifp, 0);
+	return !ifnet_is_fully_attached(inm->in6m_ifp);
 }
 
 /*

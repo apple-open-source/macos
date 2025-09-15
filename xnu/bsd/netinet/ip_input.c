@@ -291,10 +291,6 @@ static int ip_checkinterface_debug = IP_CHECK_IF_DEBUG;
 SYSCTL_INT(_net_inet_ip, OID_AUTO, checkinterface_debug, CTLFLAG_RW | CTLFLAG_LOCKED,
     &ip_checkinterface_debug, IP_CHECK_IF_DEBUG, "");
 
-static int ip_chaining = 1;
-SYSCTL_INT(_net_inet_ip, OID_AUTO, rx_chaining, CTLFLAG_RW | CTLFLAG_LOCKED,
-    &ip_chaining, 1, "Do receive side ip address based chaining");
-
 static int ip_chainsz = 6;
 SYSCTL_INT(_net_inet_ip, OID_AUTO, rx_chainsz, CTLFLAG_RW | CTLFLAG_LOCKED,
     &ip_chainsz, 1, "IP receive side max chaining");
@@ -485,12 +481,11 @@ ip_init(struct protosw *pp, struct domain *dp)
 	 * Some ioctls (e.g. SIOCAIFADDR) use ifaliasreq struct, which is
 	 * interchangeable with in_aliasreq; they must have the same size.
 	 */
-	_CASSERT(sizeof(struct ifaliasreq) == sizeof(struct in_aliasreq));
+	static_assert(sizeof(struct ifaliasreq) == sizeof(struct in_aliasreq));
 
-	if (ip_initialized) {
+	if (!os_atomic_cmpxchg(&ip_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	ip_initialized = 1;
 
 	TAILQ_INIT(&in_ifaddrhead);
 	in_ifaddrhashtbl_init();
@@ -529,7 +524,7 @@ ip_init(struct protosw *pp, struct domain *dp)
 		TAILQ_INIT(&ipq[i]);
 	}
 
-	maxnipq = nmbclusters / 32;
+	maxnipq = 8192;
 	maxfragsperpacket = 128; /* enough for 64k in 512 byte fragments */
 	ipq_updateparams();
 	lck_mtx_unlock(&ipqlock);
@@ -618,6 +613,16 @@ inaddr_hashlookup(uint32_t key)
 	return &in_ifaddrhashtbl[inaddr_hashval(key)];
 }
 
+static void
+ip_proto_process_wake_packet(struct mbuf *m)
+{
+	struct ifnet *ifp = m->m_pkthdr.rcvif;
+
+	if (if_is_lpw_enabled(ifp)) {
+		if_exit_lpw(ifp, "IP packet");
+	}
+}
+
 __private_extern__ void
 ip_proto_dispatch_in(struct mbuf *m, int hlen, u_int8_t proto,
     ipfilter_t inject_ipfref)
@@ -686,6 +691,13 @@ ip_proto_dispatch_in(struct mbuf *m, int hlen, u_int8_t proto,
 	if (changed_header) {
 		ip->ip_len = ntohs(ip->ip_len) - (u_short)hlen;
 		ip->ip_off = ntohs(ip->ip_off);
+	}
+
+	/*
+	 * Check if need to switch to full wake mode -- TCP knows about idle connections
+	 */
+	if (__improbable(ip->ip_p != IPPROTO_TCP && (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) != 0)) {
+		ip_proto_process_wake_packet(m);
 	}
 
 	/*
@@ -1609,8 +1621,9 @@ ours:
 }
 
 void
-ip_input_process_list(struct mbuf *packet_list)
+ip_proto_input(protocol_family_t protocol, mbuf_t packet_list)
 {
+#pragma unused(protocol)
 	pktchain_elm_t  pktchain_tbl[PKTTBL_SZ];
 
 	mbuf_ref_t packet = NULL;
@@ -1623,28 +1636,6 @@ ip_input_process_list(struct mbuf *packet_list)
 	int chain = 0;
 	struct ip_fw_in_args       args;
 
-	if (ip_chaining == 0) {
-		mbuf_ref_t m = packet_list;
-#if (DEBUG || DEVELOPMENT)
-		if (ip_input_measure) {
-			net_perf_start_time(&net_perf, &start_tv);
-		}
-#endif /* (DEBUG || DEVELOPMENT) */
-
-		while (m) {
-			packet_list = mbuf_nextpkt(m);
-			mbuf_setnextpkt(m, NULL);
-			ip_input(m);
-			m = packet_list;
-			num_pkts++;
-		}
-#if (DEBUG || DEVELOPMENT)
-		if (ip_input_measure) {
-			net_perf_measure_time(&net_perf, &start_tv, num_pkts);
-		}
-#endif /* (DEBUG || DEVELOPMENT) */
-		return;
-	}
 #if (DEBUG || DEVELOPMENT)
 	if (ip_input_measure) {
 		net_perf_start_time(&net_perf, &start_tv);
@@ -1722,400 +1713,6 @@ restart_list_process:
 	}
 #endif /* (DEBUG || DEVELOPMENT) */
 }
-/*
- * Ip input routine.  Checksum and byte swap header.  If fragmented
- * try to reassemble.  Process options.  Pass to next level.
- */
-void
-ip_input(struct mbuf *m)
-{
-	struct ip *__single ip;
-	unsigned int hlen;
-	u_short sum = 0;
-#if DUMMYNET
-	struct ip_fw_args args;
-	struct m_tag    *__single tag;
-#endif
-	ipfilter_t __single inject_filter_ref = NULL;
-	ifnet_ref_t inifp;
-
-	/* Check if the mbuf is still valid after interface filter processing */
-	MBUF_INPUT_CHECK(m, m->m_pkthdr.rcvif);
-	inifp = m->m_pkthdr.rcvif;
-	VERIFY(inifp != NULL);
-
-	m_add_crumb(m, PKT_CRUMB_IP_INPUT);
-
-	ipstat.ips_rxc_notlist++;
-
-	/* Perform IP header alignment fixup, if needed */
-	IP_HDR_ALIGNMENT_FIXUP(m, inifp, return );
-
-	m->m_pkthdr.pkt_flags &= ~PKTF_FORWARDED;
-
-#if DUMMYNET
-	bzero(&args, sizeof(struct ip_fw_args));
-
-	/*
-	 * Don't bother searching for tag(s) if there's none.
-	 */
-	if (SLIST_EMPTY(&m->m_pkthdr.tags)) {
-		goto ipfw_tags_done;
-	}
-
-	/* Grab info from mtags prepended to the chain */
-	if ((tag = m_tag_locate(m, KERNEL_MODULE_TAG_ID,
-	    KERNEL_TAG_TYPE_DUMMYNET)) != NULL) {
-		struct dn_pkt_tag *__single dn_tag;
-
-		dn_tag = (struct dn_pkt_tag *)(tag->m_tag_data);
-		args.fwa_pf_rule = dn_tag->dn_pf_rule;
-
-		m_tag_delete(m, tag);
-	}
-
-#if DIAGNOSTIC
-	if (m == NULL || !(m->m_flags & M_PKTHDR)) {
-		panic("ip_input no HDR");
-	}
-#endif
-
-	if (args.fwa_pf_rule) {
-		/* dummynet already filtered us */
-		ip = mtod(m, struct ip *);
-		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-		inject_filter_ref = ipf_get_inject_filter(m);
-		if (args.fwa_pf_rule) {
-			goto check_with_pf;
-		}
-	}
-ipfw_tags_done:
-#endif /* DUMMYNET */
-
-	/*
-	 * No need to process packet twice if we've already seen it.
-	 */
-	if (!SLIST_EMPTY(&m->m_pkthdr.tags)) {
-		inject_filter_ref = ipf_get_inject_filter(m);
-	}
-	if (inject_filter_ref != NULL) {
-		ip = mtod(m, struct ip *);
-		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-
-		DTRACE_IP6(receive, struct mbuf *, m, struct inpcb *, NULL,
-		    struct ip *, ip, struct ifnet *, inifp,
-		    struct ip *, ip, struct ip6_hdr *, NULL);
-
-		ip->ip_len = ntohs(ip->ip_len) - (u_short)hlen;
-		ip->ip_off = ntohs(ip->ip_off);
-		ip_proto_dispatch_in(m, hlen, ip->ip_p, inject_filter_ref);
-		return;
-	}
-
-	if (__improbable(m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT)) {
-		if_ports_used_match_mbuf(inifp, PF_INET, m);
-	}
-
-	OSAddAtomic(1, &ipstat.ips_total);
-	if (m->m_pkthdr.len < sizeof(struct ip)) {
-		goto tooshort;
-	}
-
-	if (m->m_len < sizeof(struct ip) &&
-	    (m = m_pullup(m, sizeof(struct ip))) == NULL) {
-		OSAddAtomic(1, &ipstat.ips_toosmall);
-		return;
-	}
-	ip = mtod(m, struct ip *);
-
-	KERNEL_DEBUG(DBG_LAYER_BEG, ip->ip_dst.s_addr, ip->ip_src.s_addr,
-	    ip->ip_p, ip->ip_off, ip->ip_len);
-
-	if (IP_VHL_V(ip->ip_vhl) != IPVERSION) {
-		OSAddAtomic(1, &ipstat.ips_badvers);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_BAD_VERSION,
-		    NULL, 0);
-		goto bad;
-	}
-
-	hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-	if (hlen < sizeof(struct ip)) {         /* minimum header length */
-		OSAddAtomic(1, &ipstat.ips_badhlen);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_BAD_HDR_LENGTH,
-		    NULL, 0);
-		goto bad;
-	}
-	if (hlen > m->m_len) {
-		if ((m = m_pullup(m, hlen)) == NULL) {
-			OSAddAtomic(1, &ipstat.ips_badhlen);
-			return;
-		}
-		ip = mtod(m, struct ip *);
-	}
-
-	/* 127/8 must not appear on wire - RFC1122 */
-	if ((ntohl(ip->ip_dst.s_addr) >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET ||
-	    (ntohl(ip->ip_src.s_addr) >> IN_CLASSA_NSHIFT) == IN_LOOPBACKNET) {
-		/*
-		 * Allow for the following exceptions:
-		 *
-		 *   1. If the packet was sent to loopback (i.e. rcvif
-		 *	would have been set earlier at output time.)
-		 *
-		 *   2. If the packet was sent out on loopback from a local
-		 *	source address which belongs to a non-loopback
-		 *	interface (i.e. rcvif may not necessarily be a
-		 *	loopback interface, hence the test for PKTF_LOOP.)
-		 *	Unlike IPv6, there is no interface scope ID, and
-		 *	therefore we don't care so much about PKTF_IFINFO.
-		 */
-		if (!(inifp->if_flags & IFF_LOOPBACK) &&
-		    !(m->m_pkthdr.pkt_flags & PKTF_LOOP)) {
-			OSAddAtomic(1, &ipstat.ips_badaddr);
-			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_INVALID_ADDR,
-			    NULL, 0);
-			goto bad;
-		}
-	}
-
-	/* IPv4 Link-Local Addresses as defined in RFC3927 */
-	if ((IN_LINKLOCAL(ntohl(ip->ip_dst.s_addr)) ||
-	    IN_LINKLOCAL(ntohl(ip->ip_src.s_addr)))) {
-		ip_linklocal_stat.iplls_in_total++;
-		if (ip->ip_ttl != MAXTTL) {
-			OSAddAtomic(1, &ip_linklocal_stat.iplls_in_badttl);
-			/* Silently drop link local traffic with bad TTL */
-			if (!ip_linklocal_in_allowbadttl) {
-				m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_BAD_TTL,
-				    NULL, 0);
-				goto bad;
-			}
-		}
-	}
-
-	sum = ip_cksum(m, hlen);
-	if (sum) {
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_BAD_CHECKSUM,
-		    NULL, 0);
-		goto bad;
-	}
-
-	DTRACE_IP6(receive, struct mbuf *, m, struct inpcb *, NULL,
-	    struct ip *, ip, struct ifnet *, inifp,
-	    struct ip *, ip, struct ip6_hdr *, NULL);
-
-	/*
-	 * Naively assume we can attribute inbound data to the route we would
-	 * use to send to this destination. Asymmetric routing breaks this
-	 * assumption, but it still allows us to account for traffic from
-	 * a remote node in the routing table.
-	 * this has a very significant performance impact so we bypass
-	 * if nstat_collect is disabled. We may also bypass if the
-	 * protocol is tcp in the future because tcp will have a route that
-	 * we can use to attribute the data to. That does mean we would not
-	 * account for forwarded tcp traffic.
-	 */
-	if (nstat_collect) {
-		rtentry_ref_t rt = ifnet_cached_rtlookup_inet(inifp, ip->ip_src);
-		if (rt != NULL) {
-			nstat_route_rx(rt, 1, m->m_pkthdr.len, 0);
-			rtfree(rt);
-		}
-	}
-
-	/*
-	 * Convert fields to host representation.
-	 */
-#if BYTE_ORDER != BIG_ENDIAN
-	NTOHS(ip->ip_len);
-#endif
-
-	if (ip->ip_len < hlen) {
-		OSAddAtomic(1, &ipstat.ips_badlen);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_BAD_LENGTH,
-		    NULL, 0);
-		goto bad;
-	}
-
-#if BYTE_ORDER != BIG_ENDIAN
-	NTOHS(ip->ip_off);
-#endif
-	/*
-	 * Check that the amount of data in the buffers
-	 * is as at least much as the IP header would have us expect.
-	 * Trim mbufs if longer than we expect.
-	 * Drop packet if shorter than we expect.
-	 */
-	if (m->m_pkthdr.len < ip->ip_len) {
-tooshort:
-		OSAddAtomic(1, &ipstat.ips_tooshort);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_TOO_SHORT,
-		    NULL, 0);
-		goto bad;
-	}
-	if (m->m_pkthdr.len > ip->ip_len) {
-		ip_input_adjust(m, ip, inifp);
-	}
-
-#if DUMMYNET
-check_with_pf:
-#endif
-#if PF
-	/* Invoke inbound packet filter */
-	if (PF_IS_ENABLED) {
-		int error;
-#if DUMMYNET
-		error = pf_af_hook(inifp, NULL, &m, AF_INET, TRUE, &args);
-#else
-		error = pf_af_hook(inifp, NULL, &m, AF_INET, TRUE, NULL);
-#endif /* DUMMYNET */
-		if (error != 0 || m == NULL) {
-			if (m != NULL) {
-				panic("%s: unexpected packet %p",
-				    __func__, m);
-				/* NOTREACHED */
-			}
-			/* Already freed by callee */
-			return;
-		}
-		ip = mtod(m, struct ip *);
-		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-	}
-#endif /* PF */
-
-#if IPSEC
-	if (ipsec_bypass == 0 && ipsec_get_history_count(m)) {
-		goto pass;
-	}
-#endif
-
-pass:
-	/*
-	 * Process options and, if not destined for us,
-	 * ship it on.  ip_dooptions returns 1 when an
-	 * error was detected (causing an icmp message
-	 * to be sent and the original packet to be freed).
-	 */
-	ip_nhops = 0;           /* for source routed packets */
-	if (hlen > sizeof(struct ip) && ip_dooptions(m, 0, NULL)) {
-		return;
-	}
-
-	/*
-	 * Check our list of addresses, to see if the packet is for us.
-	 * If we don't have any addresses, assume any unicast packet
-	 * we receive might be for us (and let the upper layers deal
-	 * with it).
-	 */
-	if (TAILQ_EMPTY(&in_ifaddrhead) && !(m->m_flags & (M_MCAST | M_BCAST))) {
-		ip_setdstifaddr_info(m, inifp->if_index, NULL);
-		goto ours;
-	}
-
-	/*
-	 * Enable a consistency check between the destination address
-	 * and the arrival interface for a unicast packet (the RFC 1122
-	 * strong ES model) if IP forwarding is disabled and the packet
-	 * is not locally generated and the packet is not subject to
-	 * 'ipfw fwd'.
-	 *
-	 * XXX - Checking also should be disabled if the destination
-	 * address is ipnat'ed to a different interface.
-	 *
-	 * XXX - Checking is incompatible with IP aliases added
-	 * to the loopback interface instead of the interface where
-	 * the packets are received.
-	 */
-	if (!IN_MULTICAST(ntohl(ip->ip_dst.s_addr))) {
-		ip_check_if_result_t check_if_result = IP_CHECK_IF_NONE;
-
-		check_if_result = ip_input_check_interface(&m, ip, inifp);
-		ASSERT(check_if_result != IP_CHECK_IF_NONE);
-		if (check_if_result == IP_CHECK_IF_OURS) {
-			goto ours;
-		} else if (check_if_result == IP_CHECK_IF_DROP) {
-			return;
-		}
-	} else {
-		struct in_multi *__single inm;
-		/*
-		 * See if we belong to the destination multicast group on the
-		 * arrival interface.
-		 */
-		in_multihead_lock_shared();
-		IN_LOOKUP_MULTI(&ip->ip_dst, inifp, inm);
-		in_multihead_lock_done();
-		if (inm == NULL) {
-			OSAddAtomic(1, &ipstat.ips_notmember);
-			HTONS(ip->ip_len);
-			HTONS(ip->ip_off);
-			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING,
-			    DROP_REASON_IP_UNKNOWN_MULTICAST_GROUP, NULL, 0);
-			return;
-		}
-		ip_setdstifaddr_info(m, inifp->if_index, NULL);
-		INM_REMREF(inm);
-		goto ours;
-	}
-
-	/*
-	 * Not for us; forward if possible and desirable.
-	 */
-	if (ipforwarding == 0) {
-		OSAddAtomic(1, &ipstat.ips_cantforward);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_UNKNOWN_MULTICAST_GROUP,
-		    NULL, 0);
-	} else {
-		ip_forward(m, 0, NULL);
-	}
-	return;
-
-ours:
-	/*
-	 * If offset or IP_MF are set, must reassemble.
-	 */
-	if (ip->ip_off & ~(IP_DF | IP_RF)) {
-		m = ip_reass(m);
-		if (m == NULL) {
-			return;
-		}
-		ip = mtod(m, struct ip *);
-		/* Get the header length of the reassembled packet */
-		hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-	}
-
-	/*
-	 * Further protocols expect the packet length to be w/o the
-	 * IP header.
-	 */
-	ip->ip_len -= hlen;
-
-
-#if IPSEC
-	/*
-	 * enforce IPsec policy checking if we are seeing last header.
-	 * note that we do not visit this with protocols with pcb layer
-	 * code - like udp/tcp/raw ip.
-	 */
-	if (ipsec_bypass == 0 && (ip_protox[ip->ip_p]->pr_flags & PR_LASTHDR)) {
-		if (ipsec4_in_reject(m, NULL)) {
-			IPSEC_STAT_INCREMENT(ipsecstat.in_polvio);
-			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IPSEC_REJECT,
-			    NULL, 0);
-			goto bad;
-		}
-	}
-#endif /* IPSEC */
-
-	/*
-	 * Switch out to protocol's input routine.
-	 */
-	OSAddAtomic(1, &ipstat.ips_delivered);
-
-	ip_proto_dispatch_in(m, hlen, ip->ip_p, 0);
-bad:
-	KERNEL_DEBUG(DBG_LAYER_END, 0, 0, 0, 0, 0);
-}
 
 static void
 ipq_updateparams(void)
@@ -2160,7 +1757,7 @@ sysctl_maxnipq SYSCTL_HANDLER_ARGS
 		goto done;
 	}
 	/* impose bounds */
-	if (i < -1 || i > (nmbclusters / 4)) {
+	if (i < -1) {
 		error = EINVAL;
 		goto done;
 	}
@@ -3881,7 +3478,7 @@ ip_savecontrol(struct inpcb *inp, struct mbuf **mp, struct ip *ip,
 		 * Make sure to accomodate the largest possible
 		 * size of SA(if_lladdr)->sa_len.
 		 */
-		_CASSERT(sizeof(sdlbuf) == (SOCK_MAXADDRLEN + 1));
+		static_assert(sizeof(sdlbuf) == (SOCK_MAXADDRLEN + 1));
 
 		ifnet_head_lock_shared();
 		if ((ifp = m->m_pkthdr.rcvif) != NULL &&
@@ -3902,7 +3499,7 @@ ip_savecontrol(struct inpcb *inp, struct mbuf **mp, struct ip *ip,
 				IFA_UNLOCK(ifa);
 				goto makedummy;
 			}
-			/* the above _CASSERT ensures sdl_len fits in sdlbuf */
+			/* the above static_assert() ensures sdl_len fits in sdlbuf */
 			SOCKADDR_COPY(sdp, sdl2, sdp->sdl_len);
 			IFA_UNLOCK(ifa);
 		} else {
@@ -3944,6 +3541,21 @@ makedummy:
 	if (inp->inp_flags & INP_RECVTOS) {
 		mp = sbcreatecontrol_mbuf((caddr_t)&ip->ip_tos,
 		    sizeof(u_char), IP_RECVTOS, IPPROTO_IP, mp);
+		if (*mp == NULL) {
+			goto no_mbufs;
+		}
+	}
+	if (inp->inp_flags2 & INP2_RECV_LINK_ADDR_TYPE) {
+		int mode = IP_RECV_LINK_ADDR_UNICAST;
+
+		if (m->m_flags & M_BCAST) {
+			mode = IP_RECV_LINK_ADDR_BROADCAST;
+		} else if (m->m_flags & M_MCAST) {
+			mode = IP_RECV_LINK_ADDR_MULTICAST;
+		}
+
+		mp = sbcreatecontrol_mbuf((caddr_t)&mode,
+		    sizeof(int), IP_RECV_LINK_ADDR_TYPE, IPPROTO_IP, mp);
 		if (*mp == NULL) {
 			goto no_mbufs;
 		}

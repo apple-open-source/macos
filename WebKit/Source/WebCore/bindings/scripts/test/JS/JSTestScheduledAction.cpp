@@ -22,6 +22,7 @@
 #include "JSTestScheduledAction.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
@@ -162,7 +163,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestScheduledActionConstructor, (JSGlobalObject* lexi
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestScheduledActionPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestScheduledAction::getConstructor(vm, prototype->globalObject()));
 }
@@ -174,11 +175,11 @@ static inline JSC::EncodedJSValue jsTestScheduledActionPrototypeFunction_methodB
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto actionConversionResult = convert<IDLScheduledAction>(*lexicalGlobalObject, argument0.value(), *castedThis->globalObject(), "TestScheduledActionReal method"_s);
-    if (UNLIKELY(actionConversionResult.hasException(throwScope)))
+    if (actionConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.method(actionConversionResult.releaseReturnValue()); })));
 }
@@ -190,7 +191,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestScheduledActionPrototypeFunction_method, (JSGloba
 
 JSC::GCClient::IsoSubspace* JSTestScheduledAction::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestScheduledAction, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestScheduledAction, UseCustomHeapCellType::No>(vm, "JSTestScheduledAction"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestScheduledAction.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestScheduledAction = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestScheduledAction.get(); },
@@ -230,7 +231,9 @@ extern "C" { extern void (*const __identifier("??_7TestScheduledAction@WebCore@@
 #else
 extern "C" { extern void* _ZTVN7WebCore19TestScheduledActionE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestScheduledAction>, void>> static inline void verifyVTable(TestScheduledAction* ptr) {
+template<std::same_as<TestScheduledAction> T>
+static inline void verifyVTable(TestScheduledAction* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

@@ -21,6 +21,7 @@
 #include "common/system_utils.h"
 #include "common/vector_utils.h"
 #include "platform/PlatformMethods.h"
+#include "test_expectations/GPUTestConfig.h"
 #include "util/EGLWindow.h"
 #include "util/shader_utils.h"
 #include "util/util_gl.h"
@@ -231,6 +232,10 @@ constexpr std::array<GLenum, 6> kCubeFaces = {
 void LoadEntryPointsWithUtilLoader(angle::GLESDriverType driver);
 
 bool IsFormatEmulated(GLenum target);
+
+GPUTestConfig::API GetTestConfigAPIFromRenderer(angle::GLESDriverType driverType,
+                                                EGLenum renderer,
+                                                EGLenum deviceType);
 }  // namespace angle
 
 #define EXPECT_PIXEL_EQ(x, y, r, g, b, a) \
@@ -390,7 +395,7 @@ struct TestPlatformContext final : private angle::NonCopyable
     ANGLETestBase *currentTest = nullptr;
 };
 
-class ANGLETestBase
+class ANGLETestBase : public ::testing::Test
 {
   protected:
     ANGLETestBase(const angle::PlatformParameters &params);
@@ -417,8 +422,10 @@ class ANGLETestBase
 
   protected:
     void ANGLETestSetUp();
+    void ANGLETestSetUpCL();
     void ANGLETestPreTearDown();
     void ANGLETestTearDown();
+    void ANGLETestTearDownCL();
 
     virtual void swapBuffers();
 
@@ -576,12 +583,18 @@ class ANGLETestBase
                mCurrentParams->isSwiftshader();
     }
 
+    bool isDriverSystemEgl() const
+    {
+        return mCurrentParams->driver == angle::GLESDriverType::SystemEGL;
+    }
+
     bool platformSupportsMultithreading() const;
 
     bool mIsSetUp = false;
 
   private:
     void checkD3D11SDKLayersMessages();
+    void checkUnsupportedExtensions();
 
     void drawQuad(GLuint program,
                   const std::string &positionAttribName,
@@ -649,7 +662,7 @@ class ANGLETestBase
 };
 
 template <typename Params = angle::PlatformParameters>
-class ANGLETest : public ANGLETestBase, public ::testing::TestWithParam<Params>
+class ANGLETest : public ANGLETestBase, public ::testing::WithParamInterface<Params>
 {
   protected:
     ANGLETest();
@@ -667,6 +680,7 @@ class ANGLETest : public ANGLETestBase, public ::testing::TestWithParam<Params>
     void SetUp() final
     {
         ANGLETestBase::ANGLETestSetUp();
+
         if (mIsSetUp)
         {
             testSetUp();
@@ -725,5 +739,7 @@ class ANGLETestEnvironment : public testing::Environment
 };
 
 extern angle::PlatformMethods gDefaultPlatformMethods;
+
+int GetTestStartDelaySeconds();
 
 #endif  // ANGLE_TESTS_ANGLE_TEST_H_

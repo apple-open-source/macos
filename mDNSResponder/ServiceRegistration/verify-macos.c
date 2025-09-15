@@ -32,6 +32,7 @@
 #define SRP_CRYPTO_MACOS_INTERNAL
 #include "dns-msg.h"
 #include "srp-crypto.h"
+#include "srp-strict.h"
 
 //======================================================================================================================
 
@@ -103,21 +104,14 @@ srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
         CFStringRef error_cfstring = CFErrorCopyDescription(cf_error);
         CFStringGetCString(error_cfstring, errbuf, sizeof(errbuf), kCFStringEncodingUTF8);
         ERROR("SecKeyVerifySignature failed to validate - Error Description: %s", errbuf);
-        CFRelease(error_cfstring);
-        CFRelease(cf_error);
-        cf_error = NULL;
+        srp_cf_forget(&error_cfstring);
+        srp_cf_forget(&cf_error);
     }
 
 exit:
-    if (data_to_verify_cfdata != NULL) {
-        CFRelease(data_to_verify_cfdata);
-    }
-    if (sig_to_match_cfdata != NULL) {
-        CFRelease(sig_to_match_cfdata);
-    }
-    if (public_key != NULL) {
-        CFRelease(public_key);
-    }
+    srp_cf_forget(&data_to_verify_cfdata);
+    srp_cf_forget(&sig_to_match_cfdata);
+    srp_cf_forget(&public_key);
 
     return valid;
 #else
@@ -160,20 +154,13 @@ create_public_sec_key(const dns_rr_t *const key_record)
                              ERROR("SecKeyCreateWithData failed when creating public key SecKeyRef"));
 
     ecdsa_exit:
-        if (public_key_cfdata != NULL) {
-            CFRelease(public_key_cfdata);
-        }
-        if (public_key_options != NULL) {
-            CFRelease(public_key_options);
-        }
+        srp_cf_forget(&public_key_cfdata);
+        srp_cf_forget(&public_key_options);
     } else {
         key_ref = NULL;
     }
 
-    if (cf_error != NULL) {
-        CFRelease(cf_error);
-        cf_error = NULL;
-    }
+    srp_cf_forget(&cf_error);
     return key_ref;
 }
 
@@ -205,7 +192,7 @@ create_data_to_verify(dns_wire_t *const message, const dns_rr_t *const signature
     require_action_quiet(canonical_signer_name_length <= MAXDOMNAMELEN, exit, encounter_error = true;
         FAULT("Invalid signer name length - signer name length: %zu", canonical_signer_name_length));
 
-    canonical_signer_name = malloc(canonical_signer_name_length);
+    canonical_signer_name = srp_strict_malloc(canonical_signer_name_length);
     require_action_quiet(canonical_signer_name != NULL, exit, encounter_error = true;
                          ERROR("malloc failed when allocating memory - for canonical_signer_name, len: %lu",
                                canonical_signer_name_length));
@@ -235,13 +222,9 @@ create_data_to_verify(dns_wire_t *const message, const dns_rr_t *const signature
 
     encounter_error = false;
 exit:
-    if (canonical_signer_name != NULL) {
-        free(canonical_signer_name);
-    }
+    srp_strict_free(&canonical_signer_name);
     if (encounter_error) {
-        if (data_to_verify_cfdata != NULL) {
-            CFRelease(data_to_verify_cfdata);
-        }
+        srp_cf_forget(&data_to_verify_cfdata);
     }
     return data_to_verify_cfdata;
 }

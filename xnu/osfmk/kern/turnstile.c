@@ -43,6 +43,9 @@
 #include <kern/compact_id.h>
 #include <machine/limits.h>
 #include <machine/atomic.h>
+#include <machine/machine_routines.h>
+#include <ipc/ipc_service_port.h>
+#include <ipc/ipc_space.h>
 
 #include <pexpert/pexpert.h>
 #include <os/hash.h>
@@ -1519,6 +1522,15 @@ turnstile_update_inheritor(
 	waitq_lock(&turnstile->ts_waitq);
 
 	turnstile_update_inheritor_locked(turnstile);
+
+#if SCHED_HYGIENE_DEBUG
+	/*
+	 * Disable the timeout here until the latency of priority queue updates
+	 * is fixed (rdar://144402635)
+	 */
+	ml_spin_debug_reset(current_thread());
+	ml_irq_debug_abandon();
+#endif
 
 	waitq_unlock(&turnstile->ts_waitq);
 	splx(spl);
@@ -3297,16 +3309,18 @@ kdp_turnstile_traverse_inheritor_chain(struct turnstile *ts, uint64_t *flags, ui
 	if (turnstile_is_send_turnstile(ts)) {
 		ipc_port_t port = (ipc_port_t)ts->ts_proprietor;
 
-		if (port && ip_active(port) && port->ip_service_port && port->ip_splabel != NULL) {
+		if (port && ip_active(port) && ip_is_any_service_port(port)) {
 			*flags = STACKSHOT_TURNSTILE_FLAGS_WITHPORT(*flags, STACKSHOT_TURNSTILE_STATUS_SENDPORT);
-			*isplp = (struct ipc_service_port_label *)port->ip_splabel;
+			*isplp = ptrauth_strip(port->ip_object.iol_service,
+			    ptrauth_key_process_independent_data);
 		}
 	}
 	if (turnstile_is_receive_turnstile(ts)) {
 		ipc_port_t port = (ipc_port_t)ts->ts_proprietor;
-		if (port && ip_active(port) && port->ip_service_port && port->ip_splabel != NULL) {
+		if (port && ip_active(port) && ip_is_any_service_port(port)) {
 			*flags = STACKSHOT_TURNSTILE_FLAGS_WITHPORT(*flags, STACKSHOT_TURNSTILE_STATUS_RECEIVEPORT);
-			*isplp = (struct ipc_service_port_label *)port->ip_splabel;
+			*isplp = ptrauth_strip(port->ip_object.iol_service,
+			    ptrauth_key_process_independent_data);
 		}
 	}
 	/*
@@ -3372,7 +3386,7 @@ kdp_turnstile_traverse_inheritor_chain(struct turnstile *ts, uint64_t *flags, ui
 				*flags |= STACKSHOT_TURNSTILE_STATUS_HELD_IPLOCK;
 				return 0;
 			}
-			if (port->ip_specialreply) {
+			if (ip_is_special_reply_port(port)) {
 				/* try getting the pid stored in the port */
 				uint64_t pid_candidate = ipc_special_reply_get_pid_locked(port);
 

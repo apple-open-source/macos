@@ -88,8 +88,8 @@ void TrackPrivateBase::notifyMainThreadClient(Task&& task)
         clients = m_clients;
     }
     for (auto& tuple : clients) {
-        auto& [dispatcher, weakClient, mainThread] = tuple;
-        if (dispatcher && mainThread) {
+        auto& [dispatcher, weakClient, isMainThread] = tuple;
+        if (dispatcher && isMainThread) {
             dispatcher->get()([weakClient = WTFMove(weakClient), task = WTFMove(task)] {
                 if (weakClient)
                     task(*weakClient);
@@ -133,7 +133,7 @@ static uint64_t s_uniqueId = 0;
 
 void TrackPrivateBase::setLogger(const Logger& logger, uint64_t logIdentifier)
 {
-    m_logger = &logger;
+    m_logger = logger;
     m_logIdentifier = childLogIdentifier(logIdentifier, ++s_uniqueId);
 }
 

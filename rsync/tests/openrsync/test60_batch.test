@@ -9,7 +9,7 @@ generate_size_tree ()
     local max=2048
 
     while [ $i -le $max ] ; do
-        cstream -i- -o $i -n $i
+        $cstream -i- -o $i -n $i
         i=$(($i + 1))
     done
 }

@@ -35,6 +35,7 @@
 #include <Security/SecCertificate.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFNumber.h>
 #include <Availability.h>
 #include <xpc/xpc.h>
 
@@ -233,8 +234,14 @@ extern const CFStringRef kSecPolicyAppleDCAttestation
     API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
 extern const CFStringRef kSecPolicyAppleQWAC
     API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyAppleRCSEncryption
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 extern const CFStringRef kSecPolicyApple3PMobileAsset
     API_AVAILABLE(macos(15.5), ios(18.5), watchos(11.5), tvos(18.5));
+extern const CFStringRef kSecPolicyAppleJibeTLS
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
+extern const CFStringRef kSecPolicyAppleIdentityWebPresentment
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -310,6 +317,8 @@ extern const CFStringRef kSecPolicyNameAppleIssued
     API_AVAILABLE(macos(15.0), ios(18.0), watchos(11.0), tvos(18.0));
 extern const CFStringRef kSecPolicyNameAppleIssuedTransparent
     API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+extern const CFStringRef kSecPolicyNameJibeTLS
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 
 /*!
  @enum Policy Value Constants
@@ -2282,6 +2291,27 @@ SecPolicyRef SecPolicyCreateDCAttestation(void)
     API_AVAILABLE(macos(15.1), ios(18.1), watchos(11.1), tvos(18.1));
 
 /*!
+ @function SecPolicyCreateRCSEncryption
+ @abstract Returns a policy object for verifying RCS Encryption Client certificates
+ @param telURI optional, the phone number URI to match
+ @param vendorId optional, the vendor ID to match
+ @param expiration whether to check expiration
+ @discussion The resulting policy uses the Basic X.509 policy with optional validity check
+ and pinning options:
+    * The leaf has the RCS Client purpose EKU and no others
+    * The leaf has key usage digital signature
+    * If the telURI is passed, the leaf has the telURI in the SAN URIs
+    * If the vendorID is passed, the root has the vendorID in the vendorID extension
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateRCSEncryption(CFStringRef _Nullable telURI,
+                                          CFNumberRef _Nullable vendorId,
+                                          bool expiration)
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
+
+/*!
  @function SecPolicyCreateQWAC
  @abstract Returns a policy object for verifying EU QWAC certs
  @discussion The resulting policy uses the Basic X.509 policy with validity check and
@@ -2313,6 +2343,39 @@ bool SecPolicyUsesAppleAnchors(CFStringRef policyId)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreate3PMobileAsset(CFArrayRef organizations)
     API_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4));
+
+/*!
+ @function SecPolicyCreateJibeTLS
+ @abstract Returns a policy object for verifying TLS Connections to Jibe
+ @param hostname Required; hostname to verify the certificate name against.
+ @discussion This policy uses the SSL Policy with pinning to the Jibe roots
+ (using the constrained OTA Trust Store).
+ @result A policy object. The caller is responsible for calling CFRelease
+     on this when it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateJibeTLS(CFStringRef __nullable hostname)
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
+
+/*!
+ @function SecPolicyCreateIdentiyWebPresentment
+ @abstract Returns a policy object for verifying Identity Web Presentment certs
+ @param hostname Required; hostname to verify the certificate name against.
+ @discussion The resulting policy uses the Basic X.509 policy with validity check and
+ pinning options:
+    * The chain is anchored to any of the Apple Root CAs.
+    * There are exactly 3 certs in the chain.
+    * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.31
+    * The leaf has a marker extension with OID 1.2.840.113635.100.6.92
+    * Revocation is checked via any available method.
+    * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+    * The leaf has the provided hostname in the DNSName of the SubjectAlternativeName extension.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateIdentityWebPresentment(CFStringRef hostname)
+    API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0));
 
 /*
  *  Legacy functions (macOS only)
@@ -2423,6 +2486,7 @@ extern const CFStringRef kSecPolicyCheckRevocationIfTrusted;
 extern const CFStringRef kSecPolicyCheckRevocationOnline;
 extern const CFStringRef kSecPolicyCheckRevocationResponseRequired;
 extern const CFStringRef kSecPolicyCheckRevocationDbIgnored;
+extern const CFStringRef kSecPolicyCheckRootMarkerOid;
 extern const CFStringRef kSecPolicyCheckSSLHostname;
 extern const CFStringRef kSecPolicyCheckServerAuthEKU;
 extern const CFStringRef kSecPolicyCheckSignatureHashAlgorithms;
@@ -2437,6 +2501,7 @@ extern const CFStringRef kSecPolicyCheckSystemTrustedWeakKey;
 extern const CFStringRef kSecPolicyCheckSystemTrustValidityPeriod;
 extern const CFStringRef kSecPolicyCheckTemporalValidity;
 extern const CFStringRef kSecPolicyCheckUnparseableExtension;
+extern const CFStringRef kSecPolicyCheckURI;
 extern const CFStringRef kSecPolicyCheckUsageConstraints;
 extern const CFStringRef kSecPolicyCheckValidityPeriodMaximums;
 extern const CFStringRef kSecPolicyCheckValidLeaf;
@@ -2569,6 +2634,7 @@ bool SecPolicyCheckCertSubjectCountry(SecCertificateRef cert, CFTypeRef pvcValue
 bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertNotCA(SecCertificateRef cert, CFTypeRef pvcValue);
 bool SecPolicyCheckCertDuplicateExtension(SecCertificateRef cert, CFTypeRef pvcValue);
+bool SecPolicyCheckCertURI(SecCertificateRef cert, CFTypeRef pvcValue);
 
 void SecPolicySetName(SecPolicyRef policy, CFStringRef policyName);
 __nullable CFArrayRef SecPolicyXPCArrayCopyArray(xpc_object_t xpc_policies, CFErrorRef *error);

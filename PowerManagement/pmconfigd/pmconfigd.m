@@ -35,9 +35,16 @@
 #import "PMCoreSmartPowerNapService.h"
 #import <LowPowerMode/_PMCoreSmartPowerNap.h>
 #endif
+#import <LowPowerMode/PMExtendedBattery.h>
+#if WATCH_POWER_RANGER
+#include <SoftLinking/WeakLinking.h>
+WEAK_IMPORT_OBJC_CLASS(PMExtendedBattery);
+#endif // WATCH_POWER_RANGER
+#import "PMExtendedBatteryService.h"
 #include "prefs.h"
 
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include <LockdownMode/LockdownMode.h>
 #include <reboot2.h>
 
 #ifndef kIOPMMessageRequestSystemShutdown
@@ -77,6 +84,9 @@ static dispatch_mach_t          gListener;
 static bool                     gSMCSupportsWakeupTimer             = true;
 static int                      _darkWakeThermalEventCount          = 0;
 static bool                     gEvaluateDWThermalEmergency = false;
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+static bool                     gLockdownModeEnabled = false;
+#endif
 
 static natural_t                lastSleepWakeMsg                    = 0;
 
@@ -90,6 +100,9 @@ static void initializeShutdownNotifications(void);
 static void initializeRootDomainInterestNotifications(void);
 static void initializeUserNotifications(void);
 static void enableSleepWakeWdog(void);
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+static void initializeLockdownMode(void);
+#endif
 #if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
 static void displayMatched(void *, io_iterator_t);
 static void displayPowerStateChange(
@@ -759,96 +772,124 @@ static void incoming_XPC_connection(xpc_connection_t peer)
                      xpc_object_t inEvent;
 
                      if((inEvent = xpc_dictionary_get_value(event, kUserActivityRegister))) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kUserActivityRegister, xpc_connection_get_pid(peer));
                         registerUserActivityClient(peer, inEvent);
                      }
                      else if((inEvent = xpc_dictionary_get_value(event, kUserActivityTimeoutUpdate))) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kUserActivityTimeoutUpdate, xpc_connection_get_pid(peer));
                         updateUserActivityTimeout(peer, inEvent);
                      }
                      else if ((inEvent = xpc_dictionary_get_value(event, kClaimSystemWakeEvent))) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kClaimSystemWakeEvent, xpc_connection_get_pid(peer));
                         appClaimWakeReason(peer, inEvent);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionCreateMsg)) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionCreateMsg, xpc_connection_get_pid(peer));
                         asyncAssertionCreate(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionReleaseMsg)) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionReleaseMsg, xpc_connection_get_pid(peer));
                         asyncAssertionRelease(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionPropertiesMsg)) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionPropertiesMsg, xpc_connection_get_pid(peer));
                         asyncAssertionProperties(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionActivityLogKey)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionActivityLogKey, xpc_connection_get_pid(peer));
                          asyncAssertionLogging(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionInitialConnKey)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionInitialConnKey, xpc_connection_get_pid(peer));
                          asyncAssertionInitialConnection(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionFeatureSupportKey)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionFeatureSupportKey, xpc_connection_get_pid(peer));
                          asyncAssertionFeatureSupport(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionCopyActivityUpdateMsg)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionCopyActivityUpdateMsg, xpc_connection_get_pid(peer));
                          copyAssertionActivityUpdate(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kPSAdapterDetails)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kPSAdapterDetails, xpc_connection_get_pid(peer));
                          sendAdapterDetails(peer, event);
                      }
 #if TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kReadPersistentBHData)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kReadPersistentBHData, xpc_connection_get_pid(peer));
                          getBatteryHealthPersistentData(peer, event);
                      }
 
                      else if (xpc_dictionary_get_value(event, kSetPermFaultStatus)) {
+                        os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kSetPermFaultStatus, xpc_connection_get_pid(peer));
                         setPermFaultStatus(peer, event);
                      }
 #endif  // TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kCustomBatteryProps)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kCustomBatteryProps, xpc_connection_get_pid(peer));
                          setCustomBatteryProps(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kResetCustomBatteryProps)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kResetCustomBatteryProps, xpc_connection_get_pid(peer));
                          resetCustomBatteryProps(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kAssertionSetStateMsg)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionSetStateMsg, xpc_connection_get_pid(peer));
                          processSetAssertionState(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kIOPMPowerEventDataKey)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kIOPMPowerEventDataKey, xpc_connection_get_pid(peer));
                         getScheduledWake(peer, event);
                      }
 #if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kSetBHUpdateTimeDelta)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kSetBHUpdateTimeDelta, xpc_connection_get_pid(peer));
                          setBHUpdateTimeDelta(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kBDCCXPCopyDefaults)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kBDCCXPCopyDefaults, xpc_connection_get_pid(peer));
                          bdcCopyDefaults(peer, event);
                      }
 #endif // TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
                      else if (xpc_dictionary_get_value(event, kInactivityWindowKey)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kInactivityWindowKey, xpc_connection_get_pid(peer));
                          setInactivityWindow(peer, event);
                      }
 #if (TARGET_OS_OSX && TARGET_CPU_ARM64)
                      else if ((inEvent = xpc_dictionary_get_value(event, kSkylightCheckInKey))) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kSkylightCheckInKey, xpc_connection_get_pid(peer));
                          skylightCheckIn(peer, event);
                      }
 #endif
 #if TARGET_OS_OSX
                      else if ((inEvent = xpc_dictionary_get_value(event, kDesktopModeKey))) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kDesktopModeKey, xpc_connection_get_pid(peer));
                          updateDesktopMode(peer, event);
                      }
 #endif
 
                      else if (xpc_dictionary_get_value(event, kDominoState)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kDominoState, xpc_connection_get_pid(peer));
                          updateDominoState(peer, event);
                      }
                      else if (xpc_dictionary_get_value(event, kOnenessState)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kOnenessState, xpc_connection_get_pid(peer));
                          updateOnenessState(peer, event);
                      }
+                     else if (xpc_dictionary_get_value(event, kAssertionUpdateCategoryPolicyMsg)) {
+                         os_log_debug(OS_LOG_DEFAULT, "XPC %s from PID %u\n", kAssertionUpdateCategoryPolicyMsg, xpc_connection_get_pid(peer));
+                         fetchAssertionCategories(peer, event);
+                     }
                      else {
-                        os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary\n");
+                        os_log_error(OS_LOG_DEFAULT, "Unexpected xpc dictionary from PID %u\n", xpc_connection_get_pid(peer));
                      }
                  }
                  else if (xpc_get_type(event) == XPC_TYPE_ERROR) {
                     handle_xpc_error(peer, event);
                  }
                  else {
-                    os_log_error(OS_LOG_DEFAULT, "Unexpected xpc type\n");
+                    os_log_error(OS_LOG_DEFAULT, "Unexpected xpc type from PID %u\n", xpc_connection_get_pid(peer));
                  }
 
 
@@ -1673,3 +1714,46 @@ static void initializeSleepWakeNotifications(void)
         IONotificationPortSetDispatchQueue(notify, _getPMMainQueue());
     }
 }
+
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+static void initializeLockdownMode(void)
+{
+    LockdownModeManager *ldm = [LockdownModeManager shared];
+    gLockdownModeEnabled = [ldm enabled];
+    INFO_LOG("LDM status: %d", gLockdownModeEnabled);
+    if (gLockdownModeEnabled) {
+        uint64_t state = 1;
+        // call PMRD
+        io_service_t rootDomainService = IO_OBJECT_NULL;
+        io_connect_t rootDomainConnect = IO_OBJECT_NULL;
+        kern_return_t               kr = 0;
+        IOReturn                    ret;
+
+        rootDomainService = getRootDomain();
+        if (IO_OBJECT_NULL == rootDomainService) {
+            goto exit;
+        }
+
+        // Open it
+        kr = IOServiceOpen(rootDomainService, mach_task_self(), 0, &rootDomainConnect);
+        if (KERN_SUCCESS != kr) {
+            goto exit;
+        }
+
+        ret = IOConnectCallMethod(rootDomainConnect, kPMSetLDMHibernationDisable,
+                        &state, 1,
+                        NULL, 0, NULL,
+                        NULL, NULL, NULL);
+
+        if (kIOReturnSuccess != ret)
+        {
+            goto exit;
+        }
+
+    exit:
+        if (IO_OBJECT_NULL != rootDomainConnect)
+            IOServiceClose(rootDomainConnect);
+
+    }
+}
+#endif

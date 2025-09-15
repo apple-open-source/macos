@@ -113,8 +113,8 @@ bool ScrollAnimatorMac::allowsVerticalStretching(const PlatformWheelEvent& wheel
     
     switch (m_scrollableArea.verticalScrollElasticity()) {
     case ScrollElasticity::Automatic: {
-        Scrollbar* hScroller = m_scrollableArea.horizontalScrollbar();
-        Scrollbar* vScroller = m_scrollableArea.verticalScrollbar();
+        RefPtr hScroller = m_scrollableArea.horizontalScrollbar();
+        RefPtr vScroller = m_scrollableArea.verticalScrollbar();
         bool scrollbarsAllowStretching = ((vScroller && vScroller->enabled()) || (!hScroller || !hScroller->enabled()));
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Vertical);
         bool eventPreventsStretching = m_scrollableArea.hasScrollableOrRubberbandableAncestor() && wheelEvent.isGestureStart() && relevantSide && m_scrollableArea.isPinnedOnSide(*relevantSide);
@@ -139,8 +139,8 @@ bool ScrollAnimatorMac::allowsHorizontalStretching(const PlatformWheelEvent& whe
     
     switch (m_scrollableArea.horizontalScrollElasticity()) {
     case ScrollElasticity::Automatic: {
-        Scrollbar* hScroller = m_scrollableArea.horizontalScrollbar();
-        Scrollbar* vScroller = m_scrollableArea.verticalScrollbar();
+        RefPtr hScroller = m_scrollableArea.horizontalScrollbar();
+        RefPtr vScroller = m_scrollableArea.verticalScrollbar();
         bool scrollbarsAllowStretching = ((hScroller && hScroller->enabled()) || (!vScroller || !vScroller->enabled()));
         auto relevantSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Horizontal);
         bool eventPreventsStretching = m_scrollableArea.hasScrollableOrRubberbandableAncestor() && wheelEvent.isGestureStart() && relevantSide && m_scrollableArea.isPinnedOnSide(*relevantSide);

@@ -26,4 +26,4 @@ struct WebKit::WebPreferencesStore {
 };
 
 using WebKit::WebPreferencesStore::ValueMap = MemoryCompactRobinHoodHashMap<String, WebKit::WebPreferencesStore::Value>;
-using WebKit::WebPreferencesStore::Value = std::variant<String, bool, uint32_t, double>
+using WebKit::WebPreferencesStore::Value = Variant<String, bool, uint32_t, double>

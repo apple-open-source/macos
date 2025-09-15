@@ -31,6 +31,7 @@
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
 #include "HostWindow.h"
+#include "ImageAdapter.h"
 #include "Logging.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
@@ -97,7 +98,7 @@ bool ScrollView::setHasScrollbarInternal(RefPtr<Scrollbar>& scrollbar, Scrollbar
     
     if (!hasBar && scrollbar) {
         bool wasOverlayScrollbar = scrollbar->isOverlayScrollbar();
-        willRemoveScrollbar(scrollbar.get(), orientation);
+        willRemoveScrollbar(*scrollbar, orientation);
         removeChild(*scrollbar);
         scrollbar = nullptr;
         if (contentSizeAffected)
@@ -308,9 +309,11 @@ IntSize ScrollView::sizeForUnobscuredContent(VisibleContentRectIncludesScrollbar
     if (platformWidget())
         return platformVisibleContentSize(scrollbarInclusion == VisibleContentRectIncludesScrollbars::Yes);
 
-    IntSize visibleContentSize = sizeForVisibleContent(scrollbarInclusion);
-    visibleContentSize.setHeight(visibleContentSize.height() - topContentInset());
-    return visibleContentSize;
+    auto obscuredContentInsets = this->obscuredContentInsets();
+    return sizeForVisibleContent(scrollbarInclusion) - roundedIntSize(FloatSize {
+        obscuredContentInsets.left() + obscuredContentInsets.right(),
+        obscuredContentInsets.top() + obscuredContentInsets.bottom()
+    });
 }
 
 IntRect ScrollView::visibleContentRectInternal(VisibleContentRectIncludesScrollbars scrollbarInclusion, VisibleContentRectBehavior visibleContentRectBehavior) const
@@ -335,11 +338,9 @@ IntRect ScrollView::visibleContentRectInternal(VisibleContentRectIncludesScrollb
 
 IntRect ScrollView::frameRectShrunkByInset() const
 {
-    auto rect = frameRect();
-    float inset = topContentInset();
-    rect.move(0, inset);
-    rect.contract(0, inset);
-    return rect;
+    FloatRect rect = frameRect();
+    rect.contract(obscuredContentInsets());
+    return roundedIntRect(rect);
 }
 
 IntSize ScrollView::layoutSize() const
@@ -432,8 +433,8 @@ void ScrollView::cacheCurrentScrollState()
 
 ScrollPosition ScrollView::documentScrollPositionRelativeToViewOrigin() const
 {
-    return scrollPosition() - IntSize(insetForLeftScrollbarSpace(),
-        headerHeight() + topContentInset(TopContentInsetType::WebCoreOrPlatformContentInset));
+    auto obscuredContentInsets = this->obscuredContentInsets(InsetType::WebCoreOrPlatformInset);
+    return scrollPosition() - IntSize(insetForLeftScrollbarSpace() + obscuredContentInsets.left(), headerHeight() + obscuredContentInsets.top());
 }
 
 ScrollPosition ScrollView::documentScrollPositionRelativeToScrollableAreaOrigin() const
@@ -743,14 +744,16 @@ void ScrollView::updateScrollbars(const ScrollPosition& desiredPosition)
 
     SetForScope inUpdateScrollbarsScope(m_inUpdateScrollbars, true, false);
 
+    auto contentInsets = this->obscuredContentInsets();
     if (m_horizontalScrollbar) {
         int clientWidth = visibleWidth();
         IntRect oldRect(m_horizontalScrollbar->frameRect());
-        IntRect hBarRect(shouldPlaceVerticalScrollbarOnLeft() && m_verticalScrollbar ? m_verticalScrollbar->occupiedWidth() : 0,
-            height() - m_horizontalScrollbar->height(),
-            width() - (m_verticalScrollbar ? m_verticalScrollbar->occupiedWidth() : 0),
-            m_horizontalScrollbar->height());
-        m_horizontalScrollbar->setFrameRect(hBarRect);
+        m_horizontalScrollbar->setFrameRect(roundedIntRect({
+            contentInsets.left() + (shouldPlaceVerticalScrollbarOnLeft() && m_verticalScrollbar ? m_verticalScrollbar->occupiedWidth() : 0.f),
+            static_cast<float>(height() - m_horizontalScrollbar->height()),
+            width() - (m_verticalScrollbar ? m_verticalScrollbar->occupiedWidth() : 0.f) - contentInsets.left() - contentInsets.right(),
+            static_cast<float>(m_horizontalScrollbar->height())
+        }));
         if (!m_scrollbarsSuppressed && oldRect != m_horizontalScrollbar->frameRect())
             m_horizontalScrollbar->invalidate();
 
@@ -765,11 +768,12 @@ void ScrollView::updateScrollbars(const ScrollPosition& desiredPosition)
     if (m_verticalScrollbar) {
         int clientHeight = visibleHeight();
         IntRect oldRect(m_verticalScrollbar->frameRect());
-        IntRect vBarRect(shouldPlaceVerticalScrollbarOnLeft() ? 0 : width() - m_verticalScrollbar->width(),
-            topContentInset(),
-            m_verticalScrollbar->width(),
-            height() - topContentInset() - (m_horizontalScrollbar ? m_horizontalScrollbar->occupiedHeight() : 0));
-        m_verticalScrollbar->setFrameRect(vBarRect);
+        m_verticalScrollbar->setFrameRect(roundedIntRect({
+            shouldPlaceVerticalScrollbarOnLeft() ? 0.f : width() - m_verticalScrollbar->width(),
+            contentInsets.top(),
+            static_cast<float>(m_verticalScrollbar->width()),
+            height() - contentInsets.top() - contentInsets.bottom() - (m_horizontalScrollbar ? m_horizontalScrollbar->occupiedHeight() : 0)
+        }));
         if (!m_scrollbarsSuppressed && oldRect != m_verticalScrollbar->frameRect())
             m_verticalScrollbar->invalidate();
 
@@ -898,7 +902,7 @@ FloatPoint ScrollView::viewToContents(const FloatPoint& point) const
     if (delegatesScrollingToNativeView())
         return point;
 
-    return viewToContents(IntPoint(point));
+    return point + toIntSize(documentScrollPositionRelativeToViewOrigin());
 }
 
 FloatPoint ScrollView::contentsToView(const FloatPoint& point) const
@@ -1030,7 +1034,8 @@ IntPoint ScrollView::rootViewToTotalContents(const IntPoint& rootViewPoint) cons
 
     IntPoint viewPoint = convertFromRootView(rootViewPoint);
     // Like rootViewToContents(), but ignores headerHeight.
-    return viewPoint + toIntSize(scrollPosition()) - IntSize(0, topContentInset(TopContentInsetType::WebCoreOrPlatformContentInset));
+    auto obscuredContentInsets = this->obscuredContentInsets(InsetType::WebCoreOrPlatformInset);
+    return viewPoint + toIntSize(scrollPosition()) - IntSize(obscuredContentInsets.left(), obscuredContentInsets.top());
 }
 
 IntRect ScrollView::contentsToRootView(const IntRect& contentsRect) const
@@ -1038,14 +1043,16 @@ IntRect ScrollView::contentsToRootView(const IntRect& contentsRect) const
     return convertToRootView(contentsToView(contentsRect));
 }
 
-IntPoint ScrollView::windowToContents(const IntPoint& windowPoint) const
+// MARK: -
+
+IntPoint ScrollView::windowToContents(IntPoint windowPoint) const
 {
     return viewToContents(convertFromContainingWindow(windowPoint));
 }
 
-IntPoint ScrollView::contentsToWindow(const IntPoint& contentsPoint) const
+FloatPoint ScrollView::windowToContents(FloatPoint windowPoint) const
 {
-    return convertToContainingWindow(contentsToView(contentsPoint));
+    return viewToContents(convertFromContainingWindow(windowPoint));
 }
 
 IntRect ScrollView::windowToContents(const IntRect& windowRect) const
@@ -1053,10 +1060,34 @@ IntRect ScrollView::windowToContents(const IntRect& windowRect) const
     return viewToContents(convertFromContainingWindow(windowRect));
 }
 
+FloatRect ScrollView::windowToContents(const FloatRect& windowRect) const
+{
+    return viewToContents(convertFromContainingWindow(windowRect));
+}
+
+// MARK: -
+
+IntPoint ScrollView::contentsToWindow(IntPoint contentsPoint) const
+{
+    return convertToContainingWindow(contentsToView(contentsPoint));
+}
+
+FloatPoint ScrollView::contentsToWindow(FloatPoint contentsPoint) const
+{
+    return convertToContainingWindow(contentsToView(contentsPoint));
+}
+
 IntRect ScrollView::contentsToWindow(const IntRect& contentsRect) const
 {
     return convertToContainingWindow(contentsToView(contentsRect));
 }
+
+FloatRect ScrollView::contentsToWindow(const FloatRect& contentsRect) const
+{
+    return convertToContainingWindow(contentsToView(contentsRect));
+}
+
+// MARK: -
 
 IntRect ScrollView::contentsToScreen(const IntRect& rect) const
 {
@@ -1130,6 +1161,14 @@ FloatPoint ScrollView::convertChildToSelf(const Widget* child, FloatPoint point)
 }
 
 IntPoint ScrollView::convertSelfToChild(const Widget* child, IntPoint point) const
+{
+    if (!isScrollViewScrollbar(child))
+        point += toIntSize(documentScrollPositionRelativeToViewOrigin());
+    point.moveBy(-child->location());
+    return point;
+}
+
+FloatPoint ScrollView::convertSelfToChild(const Widget* child, FloatPoint point) const
 {
     if (!isScrollViewScrollbar(child))
         point += toIntSize(documentScrollPositionRelativeToViewOrigin());
@@ -1238,18 +1277,21 @@ IntRect ScrollView::scrollCornerRect() const
     if (hasOverlayScrollbars())
         return cornerRect;
 
-    int heightTrackedByScrollbar = height() - topContentInset();
+    auto obscuredContentInsets = this->obscuredContentInsets();
+    int widthTrackedByScrollbar = width() - obscuredContentInsets.left() - obscuredContentInsets.right();
+    int heightTrackedByScrollbar = height() - obscuredContentInsets.top() - obscuredContentInsets.bottom();
 
-    if (m_horizontalScrollbar && width() - m_horizontalScrollbar->width() > 0) {
+    if (m_horizontalScrollbar && widthTrackedByScrollbar > m_horizontalScrollbar->width()) {
+        // FIXME: This may need to account for non-zero left or right content insets.
         cornerRect.unite(IntRect(shouldPlaceVerticalScrollbarOnLeft() ? 0 : m_horizontalScrollbar->width(),
             height() - m_horizontalScrollbar->height(),
             width() - m_horizontalScrollbar->width(),
             m_horizontalScrollbar->height()));
     }
 
-    if (m_verticalScrollbar && heightTrackedByScrollbar - m_verticalScrollbar->height() > 0) {
+    if (m_verticalScrollbar && heightTrackedByScrollbar > m_verticalScrollbar->height()) {
         cornerRect.unite(IntRect(shouldPlaceVerticalScrollbarOnLeft() ? 0 : width() - m_verticalScrollbar->width(),
-            m_verticalScrollbar->height() + topContentInset(),
+            m_verticalScrollbar->height() + obscuredContentInsets.top(),
             m_verticalScrollbar->width(),
             heightTrackedByScrollbar - m_verticalScrollbar->height()));
     }
@@ -1673,12 +1715,12 @@ IntRect ScrollView::platformVisibleContentRect(bool) const
     return { };
 }
 
-float ScrollView::platformTopContentInset() const
+FloatBoxExtent ScrollView::platformContentInsets() const
 {
-    return 0;
+    return { };
 }
 
-void ScrollView::platformSetTopContentInset(float)
+void ScrollView::platformSetContentInsets(const FloatBoxExtent&)
 {
 }
 

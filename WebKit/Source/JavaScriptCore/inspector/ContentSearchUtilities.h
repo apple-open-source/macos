@@ -42,7 +42,7 @@ namespace ContentSearchUtilities {
 enum class SearchType { Regex, ExactString, ContainsString };
 enum class SearchCaseSensitive { No, Yes };
 
-using Searcher = std::variant<String, JSC::Yarr::RegularExpression>;
+using Searcher = Variant<String, JSC::Yarr::RegularExpression>;
 JS_EXPORT_PRIVATE Searcher createSearcherForString(const String&, SearchType, SearchCaseSensitive);
 JS_EXPORT_PRIVATE bool searcherMatchesText(const Searcher&, const String& text);
 

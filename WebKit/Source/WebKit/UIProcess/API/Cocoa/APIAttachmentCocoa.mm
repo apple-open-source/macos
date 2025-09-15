@@ -30,6 +30,7 @@
 #import "WebPageProxy.h"
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/SharedBuffer.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <MobileCoreServices/MobileCoreServices.h>
@@ -41,8 +42,8 @@ namespace API {
 
 static WTF::String mimeTypeInferredFromFileExtension(const API::Attachment& attachment)
 {
-    if (NSString *fileExtension = [(NSString *)attachment.fileName() pathExtension])
-        return WebCore::MIMETypeRegistry::mimeTypeForExtension(WTF::String(fileExtension));
+    if (RetainPtr<NSString> fileExtension = [attachment.fileName().createNSString() pathExtension])
+        return WebCore::MIMETypeRegistry::mimeTypeForExtension(WTF::String(fileExtension.get()));
 
     return { };
 }
@@ -61,7 +62,7 @@ void Attachment::setFileWrapper(NSFileWrapper *fileWrapper)
     m_fileWrapper = fileWrapper;
 }
 
-void Attachment::doWithFileWrapper(Function<void(NSFileWrapper *)>&& function) const
+void Attachment::doWithFileWrapper(NOESCAPE Function<void(NSFileWrapper *)>&& function) const
 {
     Locker locker { m_fileWrapperLock };
 
@@ -70,27 +71,27 @@ void Attachment::doWithFileWrapper(Function<void(NSFileWrapper *)>&& function) c
 
 WTF::String Attachment::mimeType() const
 {
-    NSString *contentType = m_contentType.isEmpty() ? mimeTypeInferredFromFileExtension(*this) : m_contentType;
-    if (!contentType.length)
+    RetainPtr contentType = m_contentType.isEmpty() ? mimeTypeInferredFromFileExtension(*this).createNSString() : m_contentType.createNSString();
+    if (!contentType.get().length)
         return nullString();
-    if (!isDeclaredOrDynamicTypeIdentifier(contentType))
-        return contentType;
+    if (!isDeclaredOrDynamicTypeIdentifier(contentType.get()))
+        return contentType.get();
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return adoptCF(UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)contentType, kUTTagClassMIMEType)).get();
+    return adoptCF(UTTypeCopyPreferredTagWithClass(bridge_cast(contentType.get()), kUTTagClassMIMEType)).get();
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 WTF::String Attachment::utiType() const
 {
-    NSString *contentType = m_contentType.isEmpty() ? mimeTypeInferredFromFileExtension(*this) : m_contentType;
-    if (!contentType.length)
+    RetainPtr contentType = m_contentType.isEmpty() ? mimeTypeInferredFromFileExtension(*this).createNSString() : m_contentType.createNSString();
+    if (!contentType.get().length)
         return nullString();
-    if (isDeclaredOrDynamicTypeIdentifier(contentType))
-        return contentType;
+    if (isDeclaredOrDynamicTypeIdentifier(contentType.get()))
+        return contentType.get();
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, (__bridge CFStringRef)contentType, nullptr)).get();
+    return adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, bridge_cast(contentType.get()), nullptr)).get();
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
@@ -106,20 +107,21 @@ WTF::String Attachment::fileName() const
 
 void Attachment::setFileWrapperAndUpdateContentType(NSFileWrapper *fileWrapper, NSString *contentType)
 {
-    if (!contentType.length) {
+    RetainPtr updatedContentType = contentType;
+    if (!updatedContentType.get().length) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (fileWrapper.directory)
-            contentType = (NSString *)kUTTypeDirectory;
+            updatedContentType = bridge_cast(kUTTypeDirectory);
         else if (fileWrapper.regularFile) {
-            if (NSString *pathExtension = (fileWrapper.filename.length ? fileWrapper.filename : fileWrapper.preferredFilename).pathExtension)
-                contentType = WebCore::MIMETypeRegistry::mimeTypeForExtension(WTF::String(pathExtension));
-            if (!contentType.length)
-                contentType = (NSString *)kUTTypeData;
+            if (RetainPtr<NSString> pathExtension = (fileWrapper.filename.length ? fileWrapper.filename : fileWrapper.preferredFilename).pathExtension)
+                updatedContentType = WebCore::MIMETypeRegistry::mimeTypeForExtension(WTF::String(pathExtension.get())).createNSString();
+            if (!updatedContentType.get().length)
+                updatedContentType = bridge_cast(kUTTypeData);
         }
 ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
-    setContentType(contentType);
+    setContentType(updatedContentType.get());
     setFileWrapper(fileWrapper);
 }
 
@@ -195,10 +197,11 @@ RefPtr<WebCore::SharedBuffer> Attachment::createSerializedRepresentation() const
 
 void Attachment::updateFromSerializedRepresentation(Ref<WebCore::SharedBuffer>&& serializedRepresentation, const WTF::String& contentType)
 {
-    if (!m_webPage)
+    RefPtr webPage = m_webPage.get();
+    if (!webPage)
         return;
 
-    RefPtr pageClient = m_webPage->pageClient();
+    RefPtr pageClient = webPage->pageClient();
     if (!pageClient)
         return;
 
@@ -211,8 +214,8 @@ void Attachment::updateFromSerializedRepresentation(Ref<WebCore::SharedBuffer>&&
         return;
 
     m_isCreatedFromSerializedRepresentation = true;
-    setFileWrapperAndUpdateContentType(fileWrapper.get(), contentType);
-    m_webPage->updateAttachmentAttributes(*this, [] { });
+    setFileWrapperAndUpdateContentType(fileWrapper.get(), contentType.createNSString().get());
+    webPage->updateAttachmentAttributes(*this, [] { });
 }
 
 void Attachment::cloneFileWrapperTo(Attachment& other)

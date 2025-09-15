@@ -73,6 +73,34 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationPopulateObjectInOSR, void, (JSGlobalO
     DeferGCForAWhile deferGC(vm);
 
     switch (materialization->type()) {
+    case PhantomNewArrayWithConstantSize: {
+        JSArray* array = jsCast<JSArray*>(JSValue::decode(*encodedValue));
+        for (unsigned i = materialization->properties().size(); i--;) {
+            const ExitPropertyValue& property = materialization->properties()[i];
+            JSValue value = JSValue::decode(values[i]);
+            unsigned index = property.location().info();
+            Butterfly* butterfly = array->butterfly();
+
+            switch (materialization->indexingType()) {
+            case ALL_DOUBLE_INDEXING_TYPES: {
+                ASSERT(value.isNumber());
+                double valueAsDouble = value.asNumber();
+                butterfly->contiguousDouble().at(array, index) = valueAsDouble;
+                break;
+            }
+            case ALL_INT32_INDEXING_TYPES:
+            case ALL_CONTIGUOUS_INDEXING_TYPES: {
+                butterfly->contiguous().at(array, index).set(vm, array, value);
+                break;
+            }
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+                break;
+            }
+        }
+        break;
+    }
+
     case PhantomNewObject: {
         JSFinalObject* object = jsCast<JSFinalObject*>(JSValue::decode(*encodedValue));
         Structure* structure = object->structure();
@@ -168,7 +196,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationPopulateObjectInOSR, void, (JSGlobalO
         break;
     }
 
-    case PhantomNewRegexp: {
+    case PhantomNewRegExp: {
         RegExpObject* regExpObject = jsCast<RegExpObject*>(JSValue::decode(*encodedValue));
 
         for (unsigned i = materialization->properties().size(); i--;) {
@@ -203,8 +231,22 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, JSCell*, (JSG
 
     // We cannot GC. We've got pointers in evil places.
     DeferGCForAWhile deferGC(vm);
-    
+
     switch (materialization->type()) {
+    case PhantomNewArrayWithConstantSize: {
+        auto scope = DECLARE_THROW_SCOPE(vm);
+
+        size_t size = materialization->size();
+        Structure* structure = globalObject->arrayStructureForIndexingTypeDuringAllocation(materialization->indexingType());
+
+        JSArray* result = JSArray::tryCreate(vm, structure, size);
+        if (!result) [[unlikely]] {
+            throwOutOfMemoryError(globalObject, scope);
+            OPERATION_RETURN(scope, nullptr);
+        }
+        return result;
+    }
+
     case PhantomNewObject: {
         // Figure out what the structure is
         Structure* structure = nullptr;
@@ -609,7 +651,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, JSCell*, (JSG
         ASSERT(isCopyOnWrite(indexingMode));
         ASSERT(!structure->outOfLineCapacity());
 
-        if (UNLIKELY(immutableButterfly->indexingMode() != indexingMode)) {
+        if (immutableButterfly->indexingMode() != indexingMode) [[unlikely]] {
             auto* newButterfly = JSImmutableButterfly::create(vm, indexingMode, immutableButterfly->length());
             for (unsigned i = 0; i < immutableButterfly->length(); ++i)
                 newButterfly->setIndex(vm, i, immutableButterfly->get(i));
@@ -699,7 +741,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, JSCell*, (JSG
         return result;
     }
 
-    case PhantomNewRegexp: {
+    case PhantomNewRegExp: {
         RegExp* regExp = nullptr;
         for (unsigned i = materialization->properties().size(); i--;) {
             const ExitPropertyValue& property = materialization->properties()[i];
@@ -721,7 +763,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMaterializeObjectInOSR, JSCell*, (JSG
     }
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationSwitchStringAndGetIndex, unsigned, (JSGlobalObject* globalObject, const UnlinkedStringJumpTable* unlinkedTable, JSString* string))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationSwitchStringAndGetIndex, UCPUStrictInt32, (JSGlobalObject* globalObject, const UnlinkedStringJumpTable* unlinkedTable, JSString* string))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -730,16 +772,16 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationSwitchStringAndGetIndex, unsigned, (J
 
     unsigned length = string->length();
     if (length < unlinkedTable->minLength() || length > unlinkedTable->maxLength())
-        return std::numeric_limits<unsigned>::max();
+        return toUCPUStrictInt32(std::numeric_limits<unsigned>::max());
 
     auto str = string->value(globalObject);
 
     RETURN_IF_EXCEPTION(throwScope, 0);
 
-    return unlinkedTable->indexForValue(str->impl(), std::numeric_limits<unsigned>::max());
+    return toUCPUStrictInt32(unlinkedTable->indexForValue(str->impl(), std::numeric_limits<unsigned>::max()));
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationTypeOfObjectAsTypeofType, int32_t, (JSGlobalObject* globalObject, JSCell* object))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationTypeOfObjectAsTypeofType, UCPUStrictInt32, (JSGlobalObject* globalObject, JSCell* object))
 {
     VM& vm = globalObject->vm();
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
@@ -748,10 +790,10 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationTypeOfObjectAsTypeofType, int32_t, (J
     ASSERT(jsDynamicCast<JSObject*>(object));
 
     if (object->structure()->masqueradesAsUndefined(globalObject))
-        return static_cast<int32_t>(TypeofType::Undefined);
+        return toUCPUStrictInt32(static_cast<int32_t>(TypeofType::Undefined));
     if (object->isCallable())
-        return static_cast<int32_t>(TypeofType::Function);
-    return static_cast<int32_t>(TypeofType::Object);
+        return toUCPUStrictInt32(static_cast<int32_t>(TypeofType::Function));
+    return toUCPUStrictInt32(static_cast<int32_t>(TypeofType::Object));
 }
 
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationCompileFTLLazySlowPath, void*, (CallFrame* callFrame, unsigned index))

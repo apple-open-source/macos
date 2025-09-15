@@ -35,6 +35,7 @@
 #include <WebCore/HTTPHeaderMap.h>
 #include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/ResourceError.h>
+#include <ranges>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -136,12 +137,9 @@ void CacheStorageCache::open(WebCore::DOMCacheEngine::CacheIdentifierCallback&& 
 
         protectedThis->assertIsOnCorrectQueue();
 
-        std::sort(recordInfos.begin(), recordInfos.end(), [](auto& a, auto& b) {
-            return a.insertionTime() < b.insertionTime();
-        });
+        std::ranges::sort(recordInfos, { }, &CacheStorageRecordInformation::insertionTime);
 
         for (auto&& recordInfo : recordInfos) {
-            RELEASE_ASSERT(!recordInfo.url().string().impl()->isAtom());
             recordInfo.setIdentifier(nextRecordIdentifier());
             protectedThis->m_records.ensure(computeKeyURL(recordInfo.url()), [] {
                 return Vector<CacheStorageRecordInformation> { };
@@ -188,7 +186,6 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
 
         WebCore::CacheQueryOptions queryOptions { options.ignoreSearch, options.ignoreMethod, options.ignoreVary };
         for (auto& record : iterator->value) {
-            RELEASE_ASSERT(!record.url().string().impl()->isAtom());
             if (WebCore::DOMCacheEngine::queryCacheMatch(options.request, record.url(), record.hasVaryStar(), record.varyHeaders(), queryOptions))
                 targetRecordInfos.append(record);
         }
@@ -198,13 +195,14 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
         return callback({ });
     
     m_store->readRecords(targetRecordInfos, [options = WTFMove(options), callback = WTFMove(callback)](auto&& cacheStorageRecords) mutable {
-        Vector<WebCore::DOMCacheEngine::CrossThreadRecord> result;
+        using namespace WebCore::DOMCacheEngine;
+        Vector<CrossThreadRecord> result;
         result.reserveInitialCapacity(cacheStorageRecords.size());
         for (auto&& cacheStorageRecord : cacheStorageRecords) {
             if (!cacheStorageRecord)
                 continue;
     
-            WebCore::DOMCacheEngine::CrossThreadRecord record { cacheStorageRecord->info.identifier(), 0, cacheStorageRecord->requestHeadersGuard, WTFMove(cacheStorageRecord->request), cacheStorageRecord->options, WTFMove(cacheStorageRecord->referrer), cacheStorageRecord->responseHeadersGuard, { }, nullptr, 0 };
+            CrossThreadRecord record { cacheStorageRecord->info.identifier(), 0, cacheStorageRecord->requestHeadersGuard, WTFMove(cacheStorageRecord->request), cacheStorageRecord->options, WTFMove(cacheStorageRecord->referrer), cacheStorageRecord->responseHeadersGuard, { }, nullptr, 0 };
             if (options.shouldProvideResponse) {
                 record.response = WTFMove(cacheStorageRecord->responseData);
                 record.responseBody = WTFMove(cacheStorageRecord->responseBody);
@@ -213,15 +211,13 @@ void CacheStorageCache::retrieveRecords(WebCore::RetrieveRecordsOptions&& option
 
             if (record.response.type == WebCore::ResourceResponse::Type::Opaque) {
                 if (WebCore::validateCrossOriginResourcePolicy(options.crossOriginEmbedderPolicy.value, options.sourceOrigin, record.request.url(), false, record.response.url, record.response.httpHeaderFields.get(WebCore::HTTPHeaderName::CrossOriginResourcePolicy), WebCore::ForNavigation::No, WebCore::EmptyOriginAccessPatterns::singleton()))
-                    return callback(makeUnexpected(WebCore::DOMCacheEngine::Error::CORP));
+                    return callback(makeUnexpected(Error::CORP));
             }
 
             result.append(WTFMove(record));
         }
 
-        std::sort(result.begin(), result.end(), [&](auto& a, auto& b) {
-            return a.identifier < b.identifier;
-        });
+        std::ranges::sort(result, { }, &CrossThreadRecord::identifier);
 
         callback(WTFMove(result));
     });
@@ -275,7 +271,6 @@ CacheStorageRecordInformation* CacheStorageCache::findExistingRecord(const WebCo
 
     WebCore::CacheQueryOptions options;
     auto index = iterator->value.findIf([&] (auto& record) {
-        RELEASE_ASSERT(!record.url().string().impl()->isAtom());
         bool hasMatchedIdentifier = !identifier || identifier == record.identifier();
         return hasMatchedIdentifier && WebCore::DOMCacheEngine::queryCacheMatch(request, record.url(), record.hasVaryStar(), record.varyHeaders(), options);
     });
@@ -341,7 +336,6 @@ void CacheStorageCache::putRecordsAfterQuotaCheck(Vector<CacheStorageRecord>&& r
 
     Vector<CacheStorageRecordInformation> targetRecordInfos;
     for (auto& record : records) {
-        RELEASE_ASSERT(!record.info.url().string().impl()->isAtom());
         if (auto* existingRecord = findExistingRecord(record.request)) {
             record.info.setIdentifier(existingRecord->identifier());
             targetRecordInfos.append(*existingRecord);
@@ -390,11 +384,9 @@ void CacheStorageCache::putRecordsInStore(Vector<CacheStorageRecord>&& records, 
                 continue;
             }
 
-            auto existingKey = existingRecordInfo->key();
-            record.info.setKey(WTFMove(existingKey));
+            record.info.setKey(existingRecordInfo->key());
             record.info.setInsertionTime(existingRecordInfo->insertionTime());
-            // FIXME: Remove isolatedCopy() when rdar://105122133 is resolved.
-            record.info.setURL(existingRecordInfo->url().isolatedCopy());
+            record.info.setURL(existingRecordInfo->url());
             record.requestHeadersGuard = existingRecord->requestHeadersGuard;
             record.request = WTFMove(existingRecord->request);
             record.options = WTFMove(existingRecord->options);

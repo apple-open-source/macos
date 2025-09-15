@@ -74,8 +74,6 @@
 #include <kern/ux_handler.h>
 #include <kern/misc_protos.h>
 #include <kern/spl.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 
 #if CONFIG_CSR
 #include <sys/csr.h>
@@ -92,19 +90,24 @@
 extern lck_grp_t                host_notify_lock_grp;
 
 IPC_KOBJECT_DEFINE(IKOT_HOST,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 IPC_KOBJECT_DEFINE(IKOT_HOST_PRIV,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 
 IPC_KOBJECT_DEFINE(IKOT_PROCESSOR,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
-IPC_KOBJECT_DEFINE(IKOT_PSET,
+IPC_KOBJECT_DEFINE(IKOT_PROCESSOR_SET,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
-IPC_KOBJECT_DEFINE(IKOT_PSET_NAME,
+IPC_KOBJECT_DEFINE(IKOT_PROCESSOR_SET_NAME,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 
@@ -204,9 +207,9 @@ ipc_pset_init(
 	processor_set_t         pset)
 {
 	pset->pset_self = ipc_kobject_alloc_port(pset,
-	    IKOT_PSET, IPC_KOBJECT_ALLOC_NONE);
+	    IKOT_PROCESSOR_SET, IPC_KOBJECT_ALLOC_NONE);
 	pset->pset_name_self = ipc_kobject_alloc_port(pset,
-	    IKOT_PSET_NAME, IPC_KOBJECT_ALLOC_NONE);
+	    IKOT_PROCESSOR_SET_NAME, IPC_KOBJECT_ALLOC_NONE);
 }
 
 /*
@@ -245,7 +248,7 @@ convert_port_to_host(
 	ipc_kobject_type_t type;
 
 	if (IP_VALID(port)) {
-		type = ip_kotype(port);
+		type = ip_type(port);
 		if (type == IKOT_HOST || type == IKOT_HOST_PRIV) {
 			host = (host_t)ipc_kobject_get_stable(port, type);
 			if (host && host != &realhost) {
@@ -326,7 +329,7 @@ convert_port_to_pset(
 	processor_set_t pset = PROCESSOR_SET_NULL;
 
 	if (IP_VALID(port)) {
-		pset = ipc_kobject_get_stable(port, IKOT_PSET);
+		pset = ipc_kobject_get_stable(port, IKOT_PROCESSOR_SET);
 	}
 
 	return pset;
@@ -350,8 +353,8 @@ convert_port_to_pset_name(
 	ipc_kobject_type_t type;
 
 	if (IP_VALID(port)) {
-		type = ip_kotype(port);
-		if (type == IKOT_PSET || type == IKOT_PSET_NAME) {
+		type = ip_type(port);
+		if (type == IKOT_PROCESSOR_SET || type == IKOT_PROCESSOR_SET_NAME) {
 			pset = ipc_kobject_get_stable(port, type);
 		}
 	}
@@ -370,7 +373,7 @@ ipc_port_t
 host_port_copy_send(ipc_port_t port)
 {
 	if (IP_VALID(port)) {
-		ipc_kobject_type_t kotype = ip_kotype(port);
+		ipc_kobject_type_t kotype = ip_type(port);
 
 		if (kotype == IKOT_HOST) {
 			port = ipc_kobject_copy_send(port,
@@ -379,8 +382,8 @@ host_port_copy_send(ipc_port_t port)
 			port = ipc_kobject_copy_send(port,
 			    host_priv_self(), IKOT_HOST_PRIV);
 #if CONFIG_CSR
-		} else if (kotype == IKOT_NONE &&
-		    (csr_check(CSR_ALLOW_KERNEL_DEBUGGER) == 0)) {
+		} else if (!io_is_kobject_type(kotype) &&
+		    csr_check(CSR_ALLOW_KERNEL_DEBUGGER) == 0) {
 			port = ipc_port_copy_send_mqueue(port);
 #endif
 		} else {
@@ -448,7 +451,7 @@ ipc_port_t
 convert_pset_to_port(
 	processor_set_t         pset)
 {
-	return ipc_kobject_make_send(pset->pset_self, pset, IKOT_PSET);
+	return ipc_kobject_make_send(pset->pset_self, pset, IKOT_PROCESSOR_SET);
 }
 
 /*
@@ -465,7 +468,7 @@ ipc_port_t
 convert_pset_name_to_port(
 	processor_set_name_t            pset)
 {
-	return ipc_kobject_make_send(pset->pset_name_self, pset, IKOT_PSET_NAME);
+	return ipc_kobject_make_send(pset->pset_name_self, pset, IKOT_PROCESSOR_SET_NAME);
 }
 
 /*
@@ -505,7 +508,8 @@ host_set_exception_ports(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	kern_return_t kr = set_exception_ports_validation(NULL, exception_mask, new_port, new_behavior, new_flavor, false);
+	kern_return_t kr = set_exception_ports_validation(NULL, exception_mask,
+	    new_port, new_behavior, new_flavor, false);
 	if (kr != KERN_SUCCESS) {
 		return kr;
 	}
@@ -679,7 +683,8 @@ host_swap_exception_ports(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	kern_return_t kr = set_exception_ports_validation(NULL, exception_mask, new_port, new_behavior, new_flavor, false);
+	kern_return_t kr = set_exception_ports_validation(NULL, exception_mask,
+	    new_port, new_behavior, new_flavor, false);
 	if (kr != KERN_SUCCESS) {
 		return kr;
 	}

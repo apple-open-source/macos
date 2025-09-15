@@ -46,8 +46,8 @@ public:
 
     bool hasPlatformContext() const final;
 
-    // Returns the platform context for any purpose, including draws.
-    CGContextRef platformContext() const final;
+    // Returns the platform context for any purpose, including draws. Conservative estimate.
+    CGContextRef platformContext() const final { return const_cast<GraphicsContextCG*>(this)->contextForDraw(); }
 
     const DestinationColorSpace& colorSpace() const final;
 
@@ -118,7 +118,7 @@ public:
     void drawFocusRing(const Path&, float outlineWidth, const Color&) final;
     void drawFocusRing(const Vector<FloatRect>&, float outlineOffset, float outlineWidth, const Color&) final;
 
-    void drawLinesForText(const FloatPoint&, float thickness, const DashArray& widths, bool printing, bool doubleLines, StrokeStyle) final;
+    void drawLinesForText(const FloatPoint&, float thickness, std::span<const FloatSegment>, bool isPrinting, bool doubleLines, StrokeStyle) final;
 
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
 
@@ -139,11 +139,20 @@ public:
     FloatRect roundToDevicePixels(const FloatRect&) const;
 
     // Returns the platform context for draws.
-    CGContextRef contextForDraw();
+    CGContextRef contextForDraw()
+    {
+        ASSERT(m_cgContext);
+        m_hasDrawn = true;
+        return m_cgContext.get();
+    }
 
     // Returns false if there has not been any potential draws since last call.
     // Returns true if there has been potential draws since last call.
     bool consumeHasDrawn();
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    void setMaxEDRHeadroom(std::optional<float>) final;
+#endif
 
 protected:
     void setCGShadow(const std::optional<GraphicsDropShadow>&, bool shadowsIgnoreTransforms);
@@ -158,6 +167,9 @@ private:
 
     const RetainPtr<CGContextRef> m_cgContext;
     mutable std::optional<DestinationColorSpace> m_colorSpace;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    std::optional<float> m_maxEDRHeadroom;
+#endif
     const RenderingMode m_renderingMode : 2; // NOLINT
     const bool m_isLayerCGContext : 1;
     mutable bool m_userToDeviceTransformKnownToBeIdentity : 1 { false };

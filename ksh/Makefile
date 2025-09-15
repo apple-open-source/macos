@@ -23,6 +23,8 @@ build:: shadow_source
 KSH_ARCH = $(shell $(BuildDirectory)/bin/package)
 OSV      = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL      = $(DSTROOT)/usr/local/OpenSourceLicenses
+AIT	 = $(DSTROOT)/AppleInternal/Tests
+BATS	 = $(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests
 
 install::
 	$(CP) $(BuildDirectory)/arch/$(KSH_ARCH)/bin/ksh $(SYMROOT)/ksh
@@ -35,3 +37,7 @@ install::
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/
 	$(INSTALL_DIRECTORY) $(OSL)
 	$(INSTALL_FILE) $(Project).txt $(OSL)/
+	$(INSTALL_DIRECTORY) $(AIT)/ksh/ksh
+	$(INSTALL_SCRIPT) $(SRCROOT)/ksh/tests/ksh_test.sh $(AIT)/ksh/ksh/
+	$(INSTALL_DIRECTORY) $(BATS)
+	$(INSTALL_FILE) $(SRCROOT)/tests/ksh.plist $(BATS)/

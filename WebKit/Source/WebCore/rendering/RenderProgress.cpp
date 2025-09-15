@@ -42,6 +42,12 @@ RenderProgress::RenderProgress(HTMLElement& element, RenderStyle&& style)
 
 RenderProgress::~RenderProgress() = default;
 
+void RenderProgress::willBeDestroyed()
+{
+    m_animationTimer.stop();
+    RenderBlockFlow::willBeDestroyed();
+}
+
 void RenderProgress::updateFromElement()
 {
     HTMLProgressElement* element = progressElement();

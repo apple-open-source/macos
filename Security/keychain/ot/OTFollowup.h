@@ -47,6 +47,7 @@ typedef NS_ENUM(uint8_t, OTFollowupContextType) {
     OTFollowupContextTypeStateRepair = 2,
     OTFollowupContextTypeConfirmExistingSecret = 3,
     OTFollowupContextTypeSecureTerms = 4,
+    OTFollowupContextTypeOfflinePasscodeChange = 5,
 };
 NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 
@@ -66,6 +67,10 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 - (BOOL)clearFollowUp:(OTFollowupContextType)contextType
         activeAccount:(TPSpecificUser*)activeAccount
                 error:(NSError **)error;
+
+// Clears follow ups related to icsc repair.
+- (BOOL)clearAllRepairFollowUps:(TPSpecificUser*)activeAccount
+                          error:(NSError **)error;
 
 - (NSDictionary *_Nullable)sysdiagnoseStatus;
 - (NSDictionary<NSString*,NSNumber*> *)sfaStatus;

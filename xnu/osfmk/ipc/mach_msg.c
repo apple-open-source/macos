@@ -391,13 +391,6 @@ mach_msg_receive_continue(void)
 
 	ipc_port_thread_group_unblocked();
 
-#if MACH_FLIPC
-	if (current_thread()->ith_state == MACH_PEEK_READY) {
-		thread_syscall_return(MACH_PEEK_READY);
-		__builtin_unreachable();
-	}
-#endif /* MACH_FLIPC */
-
 	mr = mach_msg_receive_results(NULL);
 	thread_syscall_return(mr);
 }
@@ -834,7 +827,7 @@ mach_msg_overwrite_trap(
 	mach_msg_option64_t     options = args->option;
 	mach_msg_return_t       mr = MACH_MSG_SUCCESS;
 
-	options = ipc_current_user_policy(current_task(), options);
+	options = ipc_current_msg_options(current_task(), options);
 
 	KDBG(MACHDBG_CODE(DBG_MACH_IPC, MACH_IPC_KMSG_INFO) | DBG_FUNC_START);
 
@@ -948,7 +941,7 @@ mach_msg2_trap(
 	mach_msg_option64_t option64;
 	mach_msg_return_t   mr = MACH_MSG_SUCCESS;
 
-	option64 = ipc_current_user_policy(current_task(),
+	option64 = ipc_current_msg_options(current_task(),
 	    args->options) | MACH64_MACH_MSG2;
 
 	KDBG(MACHDBG_CODE(DBG_MACH_IPC, MACH_IPC_KMSG_INFO) | DBG_FUNC_START);
@@ -1121,9 +1114,7 @@ mach_msg_receive_results_complete(ipc_object_t object)
 	ipc_port_t port = IP_NULL;
 	boolean_t get_turnstile = (self->turnstile == TURNSTILE_NULL);
 
-	if (io_otype(object) == IOT_PORT) {
-		port = ip_object_to_port(object);
-	} else {
+	if (io_is_pset(object)) {
 		assert(self->turnstile != TURNSTILE_NULL);
 		return;
 	}
@@ -1136,14 +1127,12 @@ mach_msg_receive_results_complete(ipc_object_t object)
 	if (!((self->ith_state == MACH_RCV_TOO_LARGE && self->ith_option & MACH_RCV_LARGE) ||         //msg was too large and the next receive will get it
 	    self->ith_state == MACH_RCV_INTERRUPTED ||
 	    self->ith_state == MACH_RCV_TIMED_OUT ||
-#if MACH_FLIPC
-	    self->ith_state == MACH_PEEK_READY ||
-#endif /* MACH_FLIPC */
 	    self->ith_state == MACH_RCV_PORT_CHANGED)) {
 		flags |= IPC_PORT_ADJUST_SR_RECEIVED_MSG;
 	}
 
-	if (port->ip_specialreply || get_turnstile) {
+	port = ip_object_to_port(object);
+	if (ip_is_special_reply_port(port) || get_turnstile) {
 		ip_mq_lock(port);
 		ipc_port_adjust_special_reply_port_locked(port, NULL,
 		    flags, get_turnstile);

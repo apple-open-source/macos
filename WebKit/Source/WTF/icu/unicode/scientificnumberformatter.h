@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2014-2016, International Business Machines
-* Corporation and others.  All Rights Reserved.
+* Corporation and others.  All rights reserved.
 **********************************************************************
 */
 #ifndef SCINUMBERFORMATTER_H

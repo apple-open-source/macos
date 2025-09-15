@@ -45,7 +45,7 @@
  */
 int
 flow_namespace_create(union sockaddr_in_4_6 *laddr, uint8_t protocol,
-    netns_token *token, uint16_t nfr_flags, struct ns_flow_info *nfi)
+    netns_token *token, uint32_t nfr_flags, struct ns_flow_info *nfi)
 {
 	sa_family_t af = laddr->sa.sa_family;
 	uint32_t *addr;

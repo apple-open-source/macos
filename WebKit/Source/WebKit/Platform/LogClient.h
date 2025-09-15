@@ -25,6 +25,7 @@
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 
+#include "Connection.h"
 #include "LogStream.h"
 #include "LogStreamIdentifier.h"
 #include "LogStreamMessages.h"
@@ -44,7 +45,11 @@ namespace WebKit {
 class LogClient final : public WebCore::LogClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
+#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
     LogClient(IPC::StreamClientConnection&, const LogStreamIdentifier&);
+#else
+    LogClient(IPC::Connection&, const LogStreamIdentifier&);
+#endif
 
     void log(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<const uint8_t> logString, os_log_type_t) final;
 
@@ -59,9 +64,18 @@ public:
 private:
     bool isWebKitLogClient() const final { return true; }
 
+#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
     const Ref<IPC::StreamClientConnection> m_logStreamConnection WTF_GUARDED_BY_LOCK(m_logStreamLock);
-    LogStreamIdentifier m_logStreamIdentifier;
+#if ENABLE(UNFAIR_LOCK)
+    UnfairLock m_logStreamLock;
+#else
     Lock m_logStreamLock;
+#endif // ENABLE(UNFAIR_LOCK)
+#else
+    ThreadSafeWeakPtr<IPC::Connection> m_logConnection;
+#endif
+
+    LogStreamIdentifier m_logStreamIdentifier;
 };
 
 }

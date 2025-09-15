@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebEventConversion_h
-#define WebEventConversion_h
+#pragma once
 
 #include "WebEventModifier.h"
 #include <WebCore/PlatformKeyboardEvent.h>
@@ -47,6 +46,8 @@ namespace WebKit {
 class WebMouseEvent;
 class WebWheelEvent;
 class WebKeyboardEvent;
+enum class WebEventType : uint8_t;
+enum class WebMouseEventButton : int8_t;
 
 #if ENABLE(TOUCH_EVENTS)
 class WebTouchEvent;
@@ -56,8 +57,6 @@ class WebTouchPoint;
 #if ENABLE(MAC_GESTURE_EVENTS)
 class WebGestureEvent;
 #endif
-
-OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier>);
 
 WebCore::PlatformMouseEvent platform(const WebMouseEvent&);
 WebCore::PlatformWheelEvent platform(const WebWheelEvent&);
@@ -74,6 +73,17 @@ WebCore::PlatformTouchPoint platform(const WebTouchPoint&);
 WebCore::PlatformGestureEvent platform(const WebGestureEvent&);
 #endif
 
-} // namespace WebKit
+WebCore::MouseButton platform(WebMouseEventButton);
+WebMouseEventButton kit(WebCore::MouseButton);
 
-#endif // WebEventConversion_h
+WebCore::PlatformEvent::Type platform(WebEventType);
+WebEventType kit(WebCore::PlatformEvent::Type);
+
+OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier>);
+OptionSet<WebKit::WebEventModifier> kit(OptionSet<WebCore::PlatformEvent::Modifier>);
+
+#if PLATFORM(GTK) || PLATFORM(WPE) || USE(LIBWPE)
+WallTime wallTimeForEventTimeInMilliseconds(uint64_t);
+#endif
+
+} // namespace WebKit

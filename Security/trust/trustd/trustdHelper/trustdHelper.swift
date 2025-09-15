@@ -14,5 +14,6 @@ public struct TrustdHelper: AsyncParsableCommand {
             trustdReset.self,
         ]
     )
+
     public init() { }
 }

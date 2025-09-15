@@ -30,6 +30,7 @@
     Conditional=CONDITION,
 ] enum TestStandaloneEnumeration {
     "enumValue1",
-    "enumValue2"
+    "enumValue2",
+    "enum-value3",
 };
 

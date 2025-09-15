@@ -105,7 +105,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString*)databasePathForCKKS;
 + (NSString*)databasePathForSOS;
-+ (NSString*)databasePathForPCS;
++ (NSString* _Nullable)databasePathForPCS;
 + (NSString*)databasePathForLocal;
 + (NSString*)databasePathForTrust;
 + (NSString*)databasePathForNetworking;

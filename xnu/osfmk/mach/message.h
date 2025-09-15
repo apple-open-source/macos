@@ -1092,44 +1092,52 @@ __options_decl(mach_msg_option64_t, uint64_t, {
 	MACH64_SEND_DK_CALL                    = 0x0000001000000000ull,
 
 #ifdef XNU_KERNEL_PRIVATE
+	MACH64_POLICY_KERNEL_EXTENSION         = 0x0000002000000000ull,
+	MACH64_POLICY_FILTER_NON_FATAL         = 0x0000004000000000ull,
+	MACH64_POLICY_FILTER_MSG               = 0x0000008000000000ull,
 	/*
 	 * Policy for the mach_msg2_trap() call
+	 * `MACH64_POLICY_MASK` holds an ipc_space_policy_t bitfield, shifted.
 	 */
-	MACH64_POLICY_KERNEL_EXTENSION         = 0x0002000000000000ull,
-	MACH64_POLICY_FILTER_NON_FATAL         = 0x0004000000000000ull,
-	MACH64_POLICY_FILTER_MSG               = 0x0008000000000000ull,
-	MACH64_POLICY_DEFAULT                  = 0x0010000000000000ull,
+	MACH64_POLICY_DEFAULT                  = 0x0000010000000000ull, /* IPC_SPACE_POLICY_DEFAULT */
+	MACH64_POLICY_ENHANCED                 = 0x0000020000000000ull, /* IPC_SPACE_POLICY_ENHANCED */
+	MACH64_POLICY_PLATFORM                 = 0x0000040000000000ull, /* IPC_SPACE_POLICY_PLATFORM */
+	MACH64_POLICY_KERNEL                   = 0x0000100000000000ull, /* IPC_SPACE_POLICY_KERNEL */
+
 #if XNU_TARGET_OS_OSX
-	MACH64_POLICY_SIMULATED                = 0x0020000000000000ull,
+	MACH64_POLICY_SIMULATED                = 0x0000200000000000ull, /* IPC_SPACE_POLICY_SIMULATED */
 #else
-	MACH64_POLICY_SIMULATED                = 0x0000000000000000ull,
+	MACH64_POLICY_SIMULATED                = 0x0000000000000000ull, /* IPC_SPACE_POLICY_SIMULATED */
 #endif
 #if CONFIG_ROSETTA
-	MACH64_POLICY_TRANSLATED               = 0x0040000000000000ull,
+	MACH64_POLICY_TRANSLATED               = 0x0000400000000000ull, /* IPC_SPACE_POLICY_TRANSLATED */
 #else
-	MACH64_POLICY_TRANSLATED               = 0x0000000000000000ull,
+	MACH64_POLICY_TRANSLATED               = 0x0000000000000000ull, /* IPC_SPACE_POLICY_TRANSLATED */
 #endif
-	MACH64_POLICY_HARDENED                 = 0x0080000000000000ull,
-	MACH64_POLICY_RIGID                    = 0x0100000000000000ull,
-	MACH64_POLICY_PLATFORM                 = 0x0200000000000000ull,
-	MACH64_POLICY_KERNEL                   = MACH64_SEND_KERNEL,
+#if XNU_TARGET_OS_OSX
+	MACH64_POLICY_OPTED_OUT                = 0x0000800000000000ull, /* IPC_SPACE_POLICY_OPTED_OUT */
+#else
+	MACH64_POLICY_OPTED_OUT                = 0x0000000000000000ull, /* IPC_SPACE_POLICY_OPTED_OUT */
+#endif
 
-	/* one of these bits must be set to have a valid policy */
-	MACH64_POLICY_NEEDED_MASK              = (
+	MACH64_POLICY_ENHANCED_V0              = 0x0001000000000000ull, /* DEPRECATED - includes macos hardened runtime */
+	MACH64_POLICY_ENHANCED_V1              = 0x0002000000000000ull, /* ES features exposed to 3P in FY2024 release */
+	MACH64_POLICY_ENHANCED_V2              = 0x0004000000000000ull, /* ES features exposed to 3P in FY2025 release */
+
+	MACH64_POLICY_ENHANCED_VERSION_MASK =  (
+		MACH64_POLICY_ENHANCED_V0 | /* IPC_SPACE_POLICY_ENHANCED_V0 */
+		MACH64_POLICY_ENHANCED_V1 | /* IPC_SPACE_POLICY_ENHANCED_V1 */
+		MACH64_POLICY_ENHANCED_V2   /* IPC_SPACE_POLICY_ENHANCED_V2 */
+		),
+
+	MACH64_POLICY_MASK                     = (
+		MACH64_POLICY_DEFAULT |
+		MACH64_POLICY_ENHANCED |
+		MACH64_POLICY_PLATFORM |
+		MACH64_POLICY_KERNEL |
 		MACH64_POLICY_SIMULATED |
 		MACH64_POLICY_TRANSLATED |
-		MACH64_POLICY_DEFAULT |
-		MACH64_POLICY_HARDENED |
-		MACH64_POLICY_RIGID |
-		MACH64_POLICY_PLATFORM |
-		MACH64_POLICY_KERNEL),
-
-	/* extra policy modifiers */
-	MACH64_POLICY_MASK                     = (
-		MACH64_POLICY_KERNEL_EXTENSION |
-		MACH64_POLICY_FILTER_NON_FATAL |
-		MACH64_POLICY_FILTER_MSG |
-		MACH64_POLICY_NEEDED_MASK),
+		MACH64_POLICY_OPTED_OUT),
 
 	/*
 	 * If kmsg has auxiliary data, append it immediate after the message
@@ -1141,20 +1149,17 @@ __options_decl(mach_msg_option64_t, uint64_t, {
 	MACH64_RCV_LINEAR_VECTOR               = 0x1000000000000000ull,
 	/* Receive into highest addr of buffer */
 	MACH64_RCV_STACK                       = 0x2000000000000000ull,
-#if MACH_FLIPC
-	/*
-	 * This internal-only flag is intended for use by a single thread per-port/set!
-	 * If more than one thread attempts to MACH64_PEEK_MSG on a port or set, one of
-	 * the threads may miss messages (in fact, it may never wake up).
-	 */
-	MACH64_PEEK_MSG                        = 0x4000000000000000ull,
-#endif /* MACH_FLIPC */
+
+	/* unused                              = 0x4000000000000000ull, */
+
 	/*
 	 * This is a mach_msg2() send/receive operation.
 	 */
 	MACH64_MACH_MSG2                       = 0x8000000000000000ull
-#endif
+#endif /* XNU_KERNEL_PRIVATE */
 });
+
+#define MACH64_POLICY_SHIFT                __builtin_ctzll(MACH64_POLICY_MASK)
 
 /* old spelling */
 #define MACH64_SEND_USER_CALL              MACH64_SEND_MQ_CALL
@@ -1217,20 +1222,8 @@ __options_decl(mach_msg_option64_t, uint64_t, {
 /* The options implemented by the library interface to mach_msg et. al. */
 #define MACH_MSG_OPTION_LIB      (MACH_SEND_INTERRUPT | MACH_RCV_INTERRUPT)
 
-#define MACH_SEND_WITH_STRICT_REPLY(_opts) (((_opts) & (MACH_MSG_STRICT_REPLY | MACH_SEND_MSG)) == \
-	                                    (MACH_MSG_STRICT_REPLY | MACH_SEND_MSG))
-
-#define MACH_SEND_REPLY_IS_IMMOVABLE(_opts) (((_opts) & (MACH_MSG_STRICT_REPLY | \
-	                                                 MACH_SEND_MSG | MACH_RCV_MSG | \
-	                                                 MACH_RCV_GUARDED_DESC)) == \
-	                                     (MACH_MSG_STRICT_REPLY | MACH_SEND_MSG | MACH_RCV_GUARDED_DESC))
-
 #define MACH_RCV_WITH_STRICT_REPLY(_opts)  (((_opts) & (MACH_MSG_STRICT_REPLY | MACH_RCV_MSG)) == \
 	                                    (MACH_MSG_STRICT_REPLY | MACH_RCV_MSG))
-
-#define MACH_RCV_WITH_IMMOVABLE_REPLY(_opts) (((_opts) & (MACH_MSG_STRICT_REPLY | \
-	                                                  MACH_RCV_MSG | MACH_RCV_GUARDED_DESC)) == \
-	                                      (MACH_MSG_STRICT_REPLY | MACH_RCV_MSG | MACH_RCV_GUARDED_DESC))
 
 #endif /* MACH_KERNEL_PRIVATE */
 #ifdef XNU_KERNEL_PRIVATE
@@ -1369,7 +1362,7 @@ typedef kern_return_t mach_msg_return_t;
 #define MACH_SEND_INVALID_RT_OOL_SIZE   0x10000015
 /* compatibility: no longer a returned error */
 #define MACH_SEND_NO_GRANT_DEST         0x10000016
-/* The destination port doesn't accept ports in body */
+/* compatibility: no longer a returned error */
 #define MACH_SEND_MSG_FILTERED          0x10000017
 /* Message send was rejected by message filter */
 #define MACH_SEND_AUX_TOO_SMALL         0x10000018
@@ -1413,15 +1406,6 @@ typedef kern_return_t mach_msg_return_t;
 /* invalid reply port used in a STRICT_REPLY message */
 #define MACH_RCV_INVALID_ARGUMENTS      0x10004013
 /* invalid receive arguments, receive has not started */
-
-#ifdef XNU_KERNEL_PRIVATE
-#if MACH_FLIPC
-#define MACH_PEEK_IN_PROGRESS           0x10008001
-/* Waiting for a peek. (Internal use only.) */
-#define MACH_PEEK_READY                 0x10008002
-/* Waiting for a peek. (Internal use only.) */
-#endif /* MACH_FLIPC */
-#endif
 
 
 __BEGIN_DECLS
@@ -1587,6 +1571,7 @@ typedef struct {
 	mach_msg_size_t        send_dsc_usize;
 	mach_msg_size_t        send_dsc_port_count;
 	vm_size_t              send_dsc_vm_size;
+	mach_msg_size_t        send_dsc_port_arrays_count;
 } mach_msg_send_uctx_t;
 
 

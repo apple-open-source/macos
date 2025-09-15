@@ -50,6 +50,7 @@
 #include <kern/kcdata.h>
 #include <kern/percpu.h>
 #include <kern/mpsc_ring.h>
+#include <kern/kern_stackshot.h>
 
 #include <pexpert/pexpert.h>
 
@@ -68,6 +69,7 @@
 #include <uuid/uuid.h>
 #include <kdp/kdp_dyld.h>
 
+#include <libkern/OSAtomic.h>
 #include <libkern/coreanalytics/coreanalytics.h>
 #include <kern/thread_call.h>
 
@@ -1040,7 +1042,6 @@ _write_task_snapshot(
 {
 	struct task *task = get_threadtask(target->thread);
 	struct proc *p = get_bsdtask_info(task);
-	bool user64_va = task_has_64Bit_addr(task);
 
 	tsnap->snapshot_magic = STACKSHOT_TASK_SNAPSHOT_MAGIC;
 	tsnap->pid = proc_pid(p);
@@ -1078,31 +1079,14 @@ _write_task_snapshot(
 	tsnap->p_start_usec = ((uint64_t)proximate_pid << 32) | (uint32_t)origin_pid;
 #endif /* CONFIG_COALITIONS */
 
-	if (task->t_flags & TF_TELEMETRY) {
-		tsnap->ss_flags |= kTaskRsrcFlagged;
-	}
+	uint64_t ss_flags = kcdata_get_task_ss_flags(task, false);
 
-	if (proc_get_effective_task_policy(task, TASK_POLICY_DARWIN_BG)) {
-		tsnap->ss_flags |= kTaskDarwinBG;
-	}
-
-	if (proc_get_effective_task_policy(task, TASK_POLICY_ROLE) == TASK_FOREGROUND_APPLICATION) {
-		tsnap->ss_flags |= kTaskIsForeground;
-	}
-	if (user64_va) {
-		tsnap->ss_flags |= kUser64_p;
-	}
-
-	uint32_t bgstate = 0;
-	proc_get_darwinbgstate(task, &bgstate);
-
-	if (bgstate & PROC_FLAG_ADAPTIVE_IMPORTANT) {
-		tsnap->ss_flags |= kTaskIsBoosted;
-	}
-	if (bgstate & PROC_FLAG_SUPPRESSED) {
-		tsnap->ss_flags |= kTaskIsSuppressed;
-	}
-
+	/*
+	 * sadly the original ss_flags field is not big enough, replicate the
+	 * full flags in the unused disk_reads_count field
+	 */
+	tsnap->ss_flags = (uint32_t)ss_flags;
+	tsnap->disk_reads_count = ss_flags;
 
 	tsnap->latency_qos = task_grab_latency_qos(task);
 

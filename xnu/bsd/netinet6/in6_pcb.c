@@ -811,7 +811,7 @@ in6_pcbconnect(struct inpcb *inp, struct sockaddr *nam, struct proc *p)
 	inp->inp_fifscope = sin6->sin6_scope_id;
 	in6_verify_ifscope(&inp->in6p_faddr, inp->inp_fifscope);
 	if (nstat_collect && SOCK_PROTO(so) == IPPROTO_UDP) {
-		nstat_pcb_invalidate_cache(inp);
+		nstat_udp_pcb_invalidate_cache(inp);
 	}
 	in_pcbrehash(inp);
 	lck_rw_done(&inp->inp_pcbinfo->ipi_lock);
@@ -842,7 +842,7 @@ in6_pcbdisconnect(struct inpcb *inp)
 		socket_lock(so, 0);
 	}
 	if (nstat_collect && SOCK_PROTO(so) == IPPROTO_UDP) {
-		nstat_pcb_cache(inp);
+		nstat_udp_pcb_cache(inp);
 	}
 	bzero((caddr_t)&inp->in6p_faddr, sizeof(inp->in6p_faddr));
 	inp->inp_fport = 0;
@@ -878,8 +878,8 @@ in6_pcbdetach(struct inpcb *inp)
 	}
 #endif /* IPSEC */
 
-	if (inp->inp_stat != NULL && SOCK_PROTO(so) == IPPROTO_UDP) {
-		if (inp->inp_stat->rxpackets == 0 && inp->inp_stat->txpackets == 0) {
+	if (SOCK_PROTO(so) == IPPROTO_UDP) {
+		if (inp->inp_mstat.ms_total.ts_rxpackets == 0 && inp->inp_mstat.ms_total.ts_txpackets == 0) {
 			INC_ATOMIC_INT64_LIM(net_api_stats.nas_socket_inet6_dgram_no_data);
 		}
 	}

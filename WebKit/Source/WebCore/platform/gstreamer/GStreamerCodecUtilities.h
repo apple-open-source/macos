@@ -31,7 +31,7 @@ namespace GStreamerCodecUtilities {
 
 std::pair<const char*, const char*> parseH264ProfileAndLevel(const String& codec);
 const char* parseHEVCProfile(const String& codec);
-std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> capsFromCodecString(const String&, std::optional<IntSize> = std::nullopt, std::optional<double> frameRate = std::nullopt);
+std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> capsFromCodecString(const String&, const IntSize&, std::optional<double> frameRate = std::nullopt);
 
 } // namespace GStreamerCodecUtilities
 

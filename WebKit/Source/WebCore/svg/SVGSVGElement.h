@@ -141,7 +141,7 @@ private:
     void resumeFromDocumentSuspension() override;
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) override;
 
-    AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const override;
+    AffineTransform localCoordinateSpaceTransform(CTMScope) const override;
     RefPtr<LocalFrame> frameForCurrentScale() const;
     Ref<NodeList> collectIntersectionOrEnclosureList(SVGRect&, SVGElement*, bool (*checkFunction)(SVGElement&, SVGRect&));
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -155,7 +155,7 @@ void RemoteInspector::setPendingMainThreadInitialization(bool pendingInitializat
 
     m_pendingMainThreadInitialization = pendingInitialization;
     if (!m_pendingMainThreadInitialization && !m_automaticInspectionEnabled)
-        m_pausedAutomaticInspectionCandidates.clear();
+        m_automaticInspectionCandidates.clear();
 }
 
 void RemoteInspector::updateAutomaticInspectionCandidate(RemoteInspectionTarget* target)
@@ -189,7 +189,7 @@ void RemoteInspector::updateAutomaticInspectionCandidate(RemoteInspectionTarget*
             return;
         }
 
-        m_pausedAutomaticInspectionCandidates.add(targetIdentifier);
+        m_automaticInspectionCandidates.add(targetIdentifier);
 
         // If we are pausing before we have connected to webinspectord the candidate message will be sent as soon as the connection is established.
         if (m_relayConnection) {
@@ -197,22 +197,19 @@ void RemoteInspector::updateAutomaticInspectionCandidate(RemoteInspectionTarget*
             sendAutomaticInspectionCandidateMessage(targetIdentifier);
         }
 
-        // In case debuggers fail to respond, or we cannot connect to webinspectord, automatically continue after a
-        // short period of time.
+        // In case debuggers fail to respond, or we cannot connect to webinspectord, assume a rejection for
+        // automatic inspection after a short period of time.
         int64_t debuggerTimeoutDelay = 10;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, debuggerTimeoutDelay * NSEC_PER_SEC), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             Locker locker { m_mutex };
-            if (m_pausedAutomaticInspectionCandidates.remove(targetIdentifier))
+            if (m_automaticInspectionCandidates.remove(targetIdentifier)) {
                 WTFLogAlways("Skipping Automatic Inspection Candidate with pageId(%u) because we failed to receive a response in time.", targetIdentifier);
+                target->unpauseForResolvedAutomaticInspection();
+            }
         });
     }
 
     target->pauseWaitingForAutomaticInspection();
-
-    {
-        Locker locker { m_mutex };
-        m_pausedAutomaticInspectionCandidates.remove(targetIdentifier);
-    }
 }
 
 void RemoteInspector::sendAutomaticInspectionCandidateMessage(TargetID targetID)
@@ -220,9 +217,18 @@ void RemoteInspector::sendAutomaticInspectionCandidateMessage(TargetID targetID)
     ASSERT(m_enabled);
     ASSERT(m_automaticInspectionEnabled);
     ASSERT(m_relayConnection);
-    ASSERT(m_pausedAutomaticInspectionCandidates.contains(targetID));
+    ASSERT(m_automaticInspectionCandidates.contains(targetID));
 
-    NSDictionary *details = @{ WIRTargetIdentifierKey: @(targetID) };
+    RefPtr target = dynamicDowncast<RemoteInspectionTarget>(m_targetMap.get(targetID));
+    if (!target) {
+        m_automaticInspectionCandidates.remove(targetID);
+        return;
+    }
+
+    NSDictionary *details = @{
+        WIRTargetIdentifierKey : @(targetID),
+        WIRTargetAllowsAutomaticInspectionInSameProcessKey : @(target->automaticInspectionAllowedInSameProcess()),
+    };
     m_relayConnection->sendMessage(WIRAutomaticInspectionCandidateMessage, details);
 }
 
@@ -237,7 +243,7 @@ void RemoteInspector::sendMessageToRemote(TargetID targetIdentifier, const Strin
     if (!targetConnection)
         return;
 
-    NSData *messageData = [static_cast<NSString *>(message) dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *messageData = [message.createNSString() dataUsingEncoding:NSUTF8StringEncoding];
     NSUInteger messageLength = messageData.length;
     const NSUInteger maxChunkSize = 2 * 1024 * 1024; // 2 Mebibytes
 
@@ -299,7 +305,7 @@ void RemoteInspector::stopInternal(StopSource source)
 
     updateHasActiveDebugSession();
 
-    m_pausedAutomaticInspectionCandidates.clear();
+    m_automaticInspectionCandidates.clear();
 
     if (m_relayConnection) {
         switch (source) {
@@ -338,11 +344,11 @@ void RemoteInspector::setupXPCConnectionIfNeeded()
     m_relayConnection = adoptRef(new RemoteInspectorXPCConnection(connection.get(), m_xpcQueue, this));
     m_relayConnection->sendMessage(@"syn", nil); // Send a simple message to initialize the XPC connection.
 
-    if (m_pausedAutomaticInspectionCandidates.size()) {
+    if (m_automaticInspectionCandidates.size()) {
         // We already have a debuggable waiting to be automatically inspected.
         pushListingsNow();
 
-        for (auto targetID : m_pausedAutomaticInspectionCandidates)
+        for (auto targetID : m_automaticInspectionCandidates)
             sendAutomaticInspectionCandidateMessage(targetID);
     } else
         pushListingsSoon();
@@ -439,7 +445,7 @@ void RemoteInspector::xpcConnectionFailed(RemoteInspectorXPCConnection* relayCon
 
     updateHasActiveDebugSession();
 
-    m_pausedAutomaticInspectionCandidates.clear();
+    m_automaticInspectionCandidates.clear();
 
     // The XPC connection will close itself.
     m_relayConnection = nullptr;
@@ -481,31 +487,31 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
 
     switch (target.type()) {
     case RemoteInspectionTarget::Type::ITML:
-        [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
+        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeITML forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::JavaScript:
-        [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
+        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeJavaScript forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::Page:
-        [listing setObject:target.url() forKey:WIRURLKey];
-        [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
+        [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
+        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypePage forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::ServiceWorker:
-        [listing setObject:target.url() forKey:WIRURLKey];
-        [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
+        [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
+        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeServiceWorker forKey:WIRTypeKey];
         break;
     case RemoteInspectionTarget::Type::WebPage:
-        [listing setObject:target.url() forKey:WIRURLKey];
-        [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:target.nameOverride() forKey:WIROverrideNameKey];
+        [listing setObject:target.url().createNSString().get() forKey:WIRURLKey];
+        [listing setObject:target.name().createNSString().get() forKey:WIRTitleKey];
+        [listing setObject:target.nameOverride().createNSString().get() forKey:WIROverrideNameKey];
         [listing setObject:WIRTypeWebPage forKey:WIRTypeKey];
         break;
     default:
@@ -536,12 +542,12 @@ RetainPtr<NSDictionary> RemoteInspector::listingForAutomationTarget(const Remote
 
     RetainPtr<NSMutableDictionary> listing = adoptNS([[NSMutableDictionary alloc] init]);
     [listing setObject:@(target.targetIdentifier()) forKey:WIRTargetIdentifierKey];
-    [listing setObject:target.name() forKey:WIRSessionIdentifierKey];
+    [listing setObject:target.name().createNSString().get() forKey:WIRSessionIdentifierKey];
     [listing setObject:WIRTypeAutomation forKey:WIRTypeKey];
     [listing setObject:@(target.isPaired()) forKey:WIRAutomationTargetIsPairedKey];
     if (m_clientCapabilities) {
-        [listing setObject:m_clientCapabilities->browserName forKey:WIRAutomationTargetNameKey];
-        [listing setObject:m_clientCapabilities->browserVersion forKey:WIRAutomationTargetVersionKey];
+        [listing setObject:m_clientCapabilities->browserName.createNSString().get() forKey:WIRAutomationTargetNameKey];
+        [listing setObject:m_clientCapabilities->browserVersion.createNSString().get() forKey:WIRAutomationTargetVersionKey];
     }
 
     if (auto connectionToTarget = m_targetConnectionMap.get(target.targetIdentifier()))
@@ -636,7 +642,7 @@ void RemoteInspector::receivedSetupMessage(NSDictionary *userInfo)
     auto connectionToTarget = adoptRef(*new RemoteConnectionToTarget(target, connectionIdentifier, sender));
 
     if (is<RemoteInspectionTarget>(target)) {
-        bool isAutomaticInspection = m_pausedAutomaticInspectionCandidates.contains(target->targetIdentifier());
+        bool isAutomaticInspection = m_automaticInspectionCandidates.contains(target->targetIdentifier());
         if (!connectionToTarget->setup(isAutomaticInspection, automaticallyPause)) {
             connectionToTarget->close();
             return;
@@ -800,7 +806,7 @@ void RemoteInspector::receivedAutomaticInspectionConfigurationMessage(NSDictiona
     m_automaticInspectionEnabled = automaticInspectionEnabledNumber.boolValue;
 
     if (!m_automaticInspectionEnabled)
-        m_pausedAutomaticInspectionCandidates.clear();
+        m_automaticInspectionCandidates.clear();
 }
 
 void RemoteInspector::receivedAutomaticInspectionRejectMessage(NSDictionary *userInfo)
@@ -812,8 +818,11 @@ void RemoteInspector::receivedAutomaticInspectionRejectMessage(NSDictionary *use
     if (!targetIdentifier)
         return;
 
-    ASSERT(m_pausedAutomaticInspectionCandidates.contains(targetIdentifier));
-    m_pausedAutomaticInspectionCandidates.remove(targetIdentifier);
+    ASSERT(m_automaticInspectionCandidates.contains(targetIdentifier));
+    if (m_automaticInspectionCandidates.remove(targetIdentifier)) {
+        if (RefPtr target = dynamicDowncast<RemoteInspectionTarget>(m_targetMap.get(targetIdentifier)))
+            target->unpauseForResolvedAutomaticInspection();
+    }
 }
 
 void RemoteInspector::receivedAutomationSessionRequestMessage(NSDictionary *userInfo)
@@ -838,6 +847,11 @@ void RemoteInspector::receivedAutomationSessionRequestMessage(NSDictionary *user
     if (NSNumber *value = forwardedCapabilities[WIRSuppressICECandidateFilteringCapabilityKey]) {
         if ([value isKindOfClass:[NSNumber class]])
             sessionCapabilities.suppressICECandidateFiltering = value.boolValue;
+    }
+
+    if (NSNumber *value = forwardedCapabilities[WIRAlwaysAllowAutoplay]) {
+        if ([value isKindOfClass:NSNumber.class])
+            sessionCapabilities.alwaysAllowAutoplay = value.boolValue;
     }
 
     if (!m_client)

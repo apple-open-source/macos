@@ -19,12 +19,14 @@ More information on each kill type is provided below
 | `JETSAM_REASON_MEMORY_FCTHRASHING`                 | `MEMORYSTATUS_KILL_TOP_PROCESS`                                          | `memorystatus_thread` | No                       |
 | `JETSAM_REASON_MEMORY_PERPROCESSLIMIT`             | N/A                                                                      | thread that went over the process' memory limit | No |
 | `JETSAM_REASON_MEMORY_DISK_SPACE_SHORTAGE`         | N/A                                                                      | thread that disabled the freezer | Yes |
-| `JETSAM_REASON_MEMORY_IDLE_EXIT`                   | N/A                                                                      | `vm_pressure_thread`  | No                       |
+| `JETSAM_REASON_MEMORY_IDLE_EXIT`                   | `MEMORYSTATUS_KILL_IDLE`                                                 | `vm_pressure_thread`  | No                       |
 | `JETSAM_REASON_ZONE_MAP_EXHAUSTION`                | `MEMORYSTATUS_KILL_TOP_PROCESS`                                          | `memorystatus_thread` or thread in a zalloc | No |
 | `JETSAM_REASON_MEMORY_VMCOMPRESSOR_THRASHING`      | `MEMORYSTATUS_KILL_TOP_PROCESS`                                          | `memorystatus_thread` | No                       |
-| `JETSAM_REASON_MEMORY_VMCOMPRESSOR_SPACE_SHORTAGE` | `MEMORYSTATUS_KILL_TOP_PROCESS`                                          | `memorystatus_thread` or thread in swapin | No |
+| `JETSAM_REASON_MEMORY_VMCOMPRESSOR_SPACE_SHORTAGE` | `MEMORYSTATUS_KILL_TOP_PROCESS` / `MEMORYSTATUS_NO_PAGING_SPACE`         | `memorystatus_thread` | No |
 | `JETSAM_REASON_LOWSWAP`                            | `MEMORYSTATUS_KILL_SUSPENDED_SWAPPABLE` or `MEMORYSTATUS_KILL_SWAPPABLE` | `memorystatus_thread` | Yes                      |
+| `JETSAM_REASON_MEMORY_VMPAGEOUT_STARVATION`        | `MEMORYSTATUS_KILL_TOP_PROCESS`                                          | `memorystatus_thread` | Yes                      |
 | `JETSAM_REASON_MEMORY_SUSTAINED_PRESSURE`          | N/A                                                                      | `vm_pressure_thread`  | No                       |
+| `JETSAM_REASON_MEMORY_CONCLAVELIMIT`               | N/A                                                                      | thread that went over the process' memory limit | No |
 
 ### JETSAM\_REASON\_MEMORY\_HIGHWATER
 
@@ -75,9 +77,9 @@ See `kill_all_frozen_processes` in `bsd/kern/kern_memorystatus_freeze.c` for the
 
 ### JETSAM\_REASON\_MEMORY\_IDLE\_EXIT
 
-These are idle kills.
+The process was terminated while idle (i.e. clean or assertion-less). On iOS, this occurs whenever the available page count falls below `kern.memorysattus.available_pages_idle`. 
 
-On macOS, when the memory pressure level escalates above normal, the memorystatus notification thread calls `memorystatus_idle_exit_from_VM` to kill 1 idle daemon. Note that daemons must opt in to pressured exit on macOS.
+On macOS, when the memory pressure level escalates above normal, the memorystatus notification thread calls `memstat_kill_idle_process()` to kill 1 idle daemon per second, up to a maximum of 100 daemons per normal \-\> pressure transition. These daemons must be opted in to idle-exit and clean. Note that apps may also appear in the idle band when they are app-napped, but are not eligible to be killed via this mechanism.
 
 ### JETSAM\_REASON\_ZONE\_MAP\_EXHAUSTION
 
@@ -91,9 +93,11 @@ NB: These thresholds are very old and have probably not scaled well with current
 
 ### JETSAM\_REASON\_MEMORY\_VMCOMPRESSOR\_SPACE\_SHORTAGE
 
-The compressor is at or near either the segment or compressed pages limit. See `vm_compressor_low_on_space` in `osfmk/vm/vm_compressor.c`. The `memorystatus_thread` will kill in ascending jetsam priority order until the space shortage is relieved.
+The compressor is at or near either the segment or compressed pages limit.
 
-If the compressor hits one of these limits while swapping in a segment, it will perform these kills synchronously on the thread doing the swapin. This can happen on app swap or freezer enabled systems.
+On iOS, the `memorystatus_thread` will kill in ascending jetsam priority order until the space shortage is relieved. If the compressor hits one of these limits while swapping in a segment, it will perform these kills synchronously on the thread doing the swapin. This can happen on app swap or freezer enabled systems.
+
+On macOS, the `memorystatus_thread` will instead perform a "no-paging-space" action, which entails either killing the largest process if it has over half of the compressed pages on the system, or invoking a process's voluntary `pcontrol` action (one of: kill, suspend, or throttle). The no-paging-space action is only performed on one process every 5 seconds. If all `pcontrol`'s have been completed and the system is still out of paging space, a notification is sent to put up the "Out of Application Memory" dialuge, asking the user to Force Quit an application.
 
 ### JETSAM\_REASON\_LOWSWAP
 
@@ -106,6 +110,10 @@ System has been at the kVMPressureWarning level for >= 10 minutes without escala
 The memorystatus notification thread schedules a thread call to perform these kills. We will only kill idle processes and will pause for 500 m.s. between each kill. If we kill the entire idle band twice and the pressure is not relieved we give up because the pressure is coming from above the idle band.
 
 Many system services (especially dasd) check the pressure level before doing work, so it's not good for the system to be at the warning level indefinitely. 
+
+### JETSAM\_REASON\_MEMORY\_CONCLAVELIMIT
+
+This behaves similarly to `JETSAM_REASON_MEMORY_PERPROCESSLIMIT`, except that it occurs when the process's corresponding conclave crosses its memory limit. The exclave memory use is reported in the `conclave_mem` ledger, and is not added to the process footprint. This is not currently implemented.
 
 ## Picking an action
 <a name="picking-an-action"></a>

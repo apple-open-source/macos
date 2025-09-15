@@ -163,8 +163,15 @@ struct route_in6 {
  * Options for use with [gs]etsockopt at the IPV6 level.
  * First word of comment is data type; bool is stored in int.
  */
-#define IPV6_NO_IFT_CELLULAR    6969 /* for internal use only */
-#define IPV6_OUT_IF             9696 /* for internal use only */
+#define IPV6_NO_IFT_CELLULAR            6969 /* for internal use only */
+#define IPV6_OUT_IF                     9696 /* for internal use only */
+
+#define IPV6_RECV_LINK_ADDR_TYPE        9697 /* bool: receive the type of the link level address */
+
+/*
+ * Values for IPV6_RECV_LINK_ADDR_TYPE in ancillary messages are the same as
+ * IP6_RECV_LINK_ADDR_TYPE -- see netinet/in_private.h
+ */
 
 #ifdef BSD_KERNEL_PRIVATE
 #define CTL_IPV6PROTO_NAMES { \

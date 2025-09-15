@@ -56,6 +56,7 @@ public:
     int logicalWidth() const { return m_isHorizontal ? rect().width() : rect().height(); }
     int logicalTop() const { return m_isHorizontal ? rect().y() : rect().x(); }
     int logicalHeight() const { return m_isHorizontal ? rect().height() : rect().width(); }
+    int logicalLeftExtent() const { return logicalLeft() + logicalWidth(); }
 
     TextDirection direction() const { return m_direction; }
     int minX() const { return m_minX; }
@@ -71,6 +72,7 @@ public:
     bool isInFixedPosition() const { return m_isInFixedPosition; }
     int pageNumber() const { return m_pageNumber; }
     SelectionRenderingBehavior behavior() const { return m_behavior; }
+    bool separateFromPreviousLine() const { return m_separateFromPreviousLine; }
 
     void setLogicalLeft(int);
     void setLogicalWidth(int);
@@ -89,6 +91,7 @@ public:
     void setContainsEnd(bool containsEnd) { m_containsEnd = containsEnd; }
     void setIsHorizontal(bool isHorizontal) { m_isHorizontal = isHorizontal; }
     void setBehavior(SelectionRenderingBehavior behavior) { m_behavior = behavior; }
+    void setSeparateFromPreviousLine(bool separate) { m_separateFromPreviousLine = separate; }
 
     WEBCORE_EXPORT void move(float x, float y);
 
@@ -107,6 +110,7 @@ private:
     bool m_containsEnd { false };
     bool m_isHorizontal { true };
     bool m_isInFixedPosition { false };
+    bool m_separateFromPreviousLine { false };
     int m_pageNumber { 0 };
 
     mutable std::optional<IntRect> m_cachedEnclosingRect;

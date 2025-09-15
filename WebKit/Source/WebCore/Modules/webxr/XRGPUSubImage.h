@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple, Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,10 +57,10 @@ public:
 private:
     XRGPUSubImage(Ref<WebGPU::XRSubImage>&&, WebGPU::XREye, GPUDevice&);
 
-    Ref<WebGPU::XRSubImage> m_backing;
-    Ref<GPUDevice> m_device;
+    const Ref<WebGPU::XRSubImage> m_backing;
+    const Ref<GPUDevice> m_device;
     const GPUTextureViewDescriptor m_descriptor;
-    Ref<WebXRViewport> m_viewport;
+    const Ref<WebXRViewport> m_viewport;
 };
 
 } // namespace WebCore

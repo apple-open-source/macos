@@ -73,10 +73,10 @@ bool IsRotatedAspectRatio(SurfaceRotation rotation);
 
 using SpecConstUsageBits = angle::PackedEnumBitSet<sh::vk::SpecConstUsage, uint32_t>;
 
-void RotateRectangle(const SurfaceRotation rotation,
-                     const bool flipY,
-                     const int framebufferWidth,
-                     const int framebufferHeight,
+void RotateRectangle(SurfaceRotation rotation,
+                     bool flipY,
+                     int framebufferWidth,
+                     int framebufferHeight,
                      const gl::Rectangle &incoming,
                      gl::Rectangle *outgoing);
 
@@ -226,8 +226,8 @@ class MultisampleTextureInitializer
 class IncompleteTextureSet final : angle::NonCopyable
 {
   public:
-    IncompleteTextureSet();
-    ~IncompleteTextureSet();
+    IncompleteTextureSet()  = default;
+    ~IncompleteTextureSet() = default;
 
     void onDestroy(const gl::Context *context);
 
@@ -408,8 +408,9 @@ inline uint32_t GetLineLoopWithRestartIndexCount(gl::DrawElementsType glIndexTyp
 
 // Writes the line-strip vertices for a line loop to outPtr,
 // where outLimit is calculated as in GetPrimitiveRestartIndexCount.
+// Returns number of vertices written.
 template <typename In, typename Out>
-void CopyLineLoopIndicesWithRestart(GLsizei indexCount, const uint8_t *srcPtr, uint8_t *outPtr)
+size_t CopyLineLoopIndicesWithRestart(GLsizei indexCount, const uint8_t *srcPtr, uint8_t *outPtr)
 {
     constexpr In restartIndex     = gl::GetPrimitiveRestartIndexFromType<In>();
     constexpr Out outRestartIndex = gl::GetPrimitiveRestartIndexFromType<Out>();
@@ -443,7 +444,14 @@ void CopyLineLoopIndicesWithRestart(GLsizei indexCount, const uint8_t *srcPtr, u
         // Close the last loop if it has more than one vertex.
         *(outIndices++) = inIndices[loopStartIndex];
     }
+    return static_cast<size_t>(outIndices - reinterpret_cast<Out *>(outPtr));
 }
+
+void StreamEmulatedLineLoopIndices(gl::DrawElementsType glIndexType,
+                                   GLsizei indexCount,
+                                   const uint8_t *srcPtr,
+                                   uint8_t *outPtr,
+                                   bool shouldConvertUint8);
 
 void GetSamplePosition(GLsizei sampleCount, size_t index, GLfloat *xy);
 
@@ -538,6 +546,13 @@ GLint LimitToInt(const LargerInt physicalDeviceValue)
     static_assert(sizeof(LargerInt) >= sizeof(int32_t), "Incorrect usage of LimitToInt");
     return static_cast<GLint>(
         std::min(physicalDeviceValue, static_cast<LargerInt>(std::numeric_limits<int32_t>::max())));
+}
+
+template <typename LargerInt>
+GLint LimitToIntAnd(const LargerInt physicalDeviceValue, const uint64_t cap)
+{
+    LargerInt result = LimitToInt(physicalDeviceValue);
+    return static_cast<GLint>(std::min(static_cast<uint64_t>(result), cap));
 }
 
 bool TextureHasAnyRedefinedLevels(const gl::CubeFaceArray<gl::TexLevelMask> &redefinedLevels);

@@ -16,6 +16,9 @@ LDFLAGS = @LDFLAGS@
 CPPFLAGS = @CPPFLAGS@
 EXEEXT = @EXEEXT@
 O=o
+ifneq ($(strip $(LESSTEST)),)
+CPPFLAGS += -DLESSTEST
+endif
 
 LIBS = @LIBS@
 
@@ -45,26 +48,31 @@ SHELL = /bin/sh
 
 OBJ = \
 	main.${O} screen.${O} brac.${O} ch.${O} charset.${O} cmdbuf.${O} \
-	command.${O} cvt.${O} decode.${O} edit.${O} filename.${O} forwback.${O} \
-	help.${O} ifile.${O} input.${O} jump.${O} line.${O} linenum.${O} \
+	command.${O} cvt.${O} decode.${O} edit.${O} evar.${O} filename.${O} forwback.${O} \
+	help.${O} ifile.${O} input.${O} jump.${O} \
+	line.${O} linenum.${O} \
 	lsystem.${O} mark.${O} optfunc.${O} option.${O} opttbl.${O} os.${O} \
 	output.${O} pattern.${O} position.${O} prompt.${O} search.${O} signal.${O} \
-	tags.${O} ttyin.${O} version.${O}  @REGEX_O@
+	tags.${O} ttyin.${O} version.${O} xbuf.${O}  @REGEX_O@
+
+ifneq (@SECURE_COMPILE@,1)
+OBJ += lesskey_parse.${O}
+endif
 
 all: less$(EXEEXT) lesskey$(EXEEXT) lessecho$(EXEEXT)
 
 less$(EXEEXT): ${OBJ}
 	${CC} ${LDFLAGS} -o $@ ${OBJ} ${LIBS}
 
-lesskey$(EXEEXT): lesskey.${O} version.${O}
-	${CC} ${LDFLAGS} -o $@ lesskey.${O} version.${O}
+lesskey$(EXEEXT): lesskey.${O} lesskey_parse.${O} xbuf.${O} version.${O}
+	${CC} ${LDFLAGS} -o $@ lesskey.${O} lesskey_parse.${O} xbuf.${O} version.${O} ${LIBS}
 
 lessecho$(EXEEXT): lessecho.${O} version.${O}
-	${CC} ${LDFLAGS} -o $@ lessecho.${O} version.${O}
+	${CC} ${LDFLAGS} -o $@ lessecho.${O} version.${O} ${LIBS}
 
 charset.${O}: compose.uni ubin.uni wide.uni
 
-${OBJ}: ${srcdir}/less.h ${srcdir}/funcs.h defines.h 
+${OBJ}: ${srcdir}/less.h ${srcdir}/funcs.h defines.h lang.h pattern.h xbuf.h
 
 install: all ${srcdir}/less.nro ${srcdir}/lesskey.nro ${srcdir}/lessecho.nro installdirs
 	${INSTALL_PROGRAM} less$(EXEEXT) ${DESTDIR}${bindir}/${binprefix}less$(EXEEXT)
@@ -91,8 +99,11 @@ uninstall:
 info:
 install-info:
 dvi:
-check:
 installcheck:
+
+check:
+	if [ -x less$(EXEEXT) ] && ./less$(EXEEXT) -V | grep -q LESSTEST; then :; else ${MAKE} clean; ${MAKE} LESSTEST=1; fi
+	objdir=$$(pwd); rflags=""; if [ -z "${VERBOSE}" ]; then rflags=-e; fi; cd $(srcdir)/lesstest && ${MAKE} && ./runtest $$rflags -l "$$objdir/less" lt
 
 TAGS:
 	cd ${srcdir} && etags *.c *.h
@@ -121,4 +132,3 @@ distclean: clean
 
 realclean: distclean
 	rm -f TAGS
-

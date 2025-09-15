@@ -80,10 +80,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 // Specify MIME type <-> extension mappings for type identifiers recognized by the system that are missing MIME type values.
-static const UncheckedKeyHashMap<String, String, ASCIICaseInsensitiveHash>& additionalMimeTypesMap()
+static const HashMap<String, String, ASCIICaseInsensitiveHash>& additionalMimeTypesMap()
 {
-    static NeverDestroyed<UncheckedKeyHashMap<String, String, ASCIICaseInsensitiveHash>> mimeTypesMap = [] {
-        UncheckedKeyHashMap<String, String, ASCIICaseInsensitiveHash> map;
+    static NeverDestroyed<HashMap<String, String, ASCIICaseInsensitiveHash>> mimeTypesMap = [] {
+        HashMap<String, String, ASCIICaseInsensitiveHash> map;
         static constexpr TypeExtensionPair additionalTypes[] = {
             // FIXME: Remove this list once rdar://112044000 (Many camera RAW image type identifiers are missing MIME types) is resolved.
             { "image/x-canon-cr2"_s, "cr2"_s },
@@ -112,10 +112,10 @@ static const UncheckedKeyHashMap<String, String, ASCIICaseInsensitiveHash>& addi
     return mimeTypesMap;
 }
 
-static const UncheckedKeyHashMap<String, Vector<String>, ASCIICaseInsensitiveHash>& additionalExtensionsMap()
+static const HashMap<String, Vector<String>, ASCIICaseInsensitiveHash>& additionalExtensionsMap()
 {
-    static NeverDestroyed<UncheckedKeyHashMap<String, Vector<String>, ASCIICaseInsensitiveHash>> extensionsMap = [] {
-        UncheckedKeyHashMap<String, Vector<String>, ASCIICaseInsensitiveHash> map;
+    static NeverDestroyed<HashMap<String, Vector<String>, ASCIICaseInsensitiveHash>> extensionsMap = [] {
+        HashMap<String, Vector<String>, ASCIICaseInsensitiveHash> map;
         for (auto& [extension, type] : additionalMimeTypesMap()) {
             map.ensure(type, [] {
                 return Vector<String>();
@@ -160,9 +160,9 @@ Vector<String> MIMETypeRegistry::extensionsForMIMEType(const String& type)
     if (type.endsWith('*'))
         return extensionsForWildcardMIMEType(type);
 
-    NSArray *extensions = [[NSURLFileTypeMappings sharedMappings] extensionsForMIMEType:type];
-    if (extensions.count)
-        return makeVector<String>(extensions);
+    RetainPtr<NSArray> extensions = [[NSURLFileTypeMappings sharedMappings] extensionsForMIMEType:type.createNSString().get()];
+    if (extensions.get().count)
+        return makeVector<String>(extensions.get());
 
     auto mapEntry = additionalExtensionsMap().find(type);
     if (mapEntry != additionalExtensionsMap().end())
@@ -181,7 +181,7 @@ String MIMETypeRegistry::preferredExtensionForMIMEType(const String& type)
     if (isUSDMIMEType(type))
         return "usdz"_s;
 
-    NSString *preferredExtension = [[NSURLFileTypeMappings sharedMappings] preferredExtensionForMIMEType:(NSString *)type];
+    NSString *preferredExtension = [[NSURLFileTypeMappings sharedMappings] preferredExtensionForMIMEType:type.createNSString().get()];
     if (preferredExtension.length)
         return preferredExtension;
 

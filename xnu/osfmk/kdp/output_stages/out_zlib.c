@@ -169,8 +169,8 @@ zlib_stream_output_chunk(struct kdp_output_stage *stage, unsigned int length, vo
 	return stage->kos_outstate->kcos_error;
 }
 
-static void
-zlib_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+zlib_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	struct zlib_stage_data *data = (struct zlib_stage_data *) stage->kos_data;
 
@@ -184,6 +184,8 @@ zlib_stage_reset(struct kdp_output_stage *stage)
 	data->zs.next_out  = NULL;
 
 	deflateResetWithIO(&(data->zs), zlib_zinput, zlib_zoutput);
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -200,6 +202,9 @@ zlib_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 	case KDP_SEEK:
 		stage->kos_bypass = true;
 		err = next_stage->kos_funcs.kosf_outproc(next_stage, request, corename, length, panic_data);
+		if (KERN_SUCCESS != err) {
+			kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, err);
+		}
 		break;
 	case KDP_DATA:
 		if (!stage->kos_bypass) {
@@ -211,6 +216,9 @@ zlib_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 				}
 
 				err = zlib_stream_output_chunk(stage, chunk, panic_data);
+				if (KERN_SUCCESS != err) {
+					kern_coredump_log(NULL, "(%s) zlib_stream_output_chunk failed with error 0x%x\n", __func__, err);
+				}
 
 				length -= chunk;
 
@@ -220,6 +228,9 @@ zlib_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 			} while (length && (KERN_SUCCESS == err));
 		} else {
 			err = next_stage->kos_funcs.kosf_outproc(next_stage, request, corename, length, panic_data);
+			if (KERN_SUCCESS != err) {
+				kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, err);
+			}
 		}
 		break;
 	case KDP_WRQ:
@@ -228,6 +239,9 @@ zlib_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 		OS_FALLTHROUGH;
 	case KDP_EOF:
 		err = next_stage->kos_funcs.kosf_outproc(next_stage, request, corename, length, panic_data);
+		if (KERN_SUCCESS != err) {
+			kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, err);
+		}
 		break;
 	default:
 		break;
@@ -268,7 +282,7 @@ zlib_stage_initialize(struct kdp_output_stage *stage)
 	 *       chances to have VA in catastrophic cases.
 	 */
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		printf("zlib_stage_initialize failed to allocate memory. Error 0x%x\n", ret);
 		return ret;

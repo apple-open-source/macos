@@ -41,6 +41,7 @@
 #include <wtf/SchedulePair.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Threading.h>
+#include <wtf/cf/VectorCF.h>
 
 static const SInt32 fileNotFoundError = -43;
 
@@ -386,7 +387,7 @@ void setHTTPBody(CFMutableURLRequestRef request, const RefPtr<FormData>& formDat
     auto& elements = formData->elements();
     if (elements.size() == 1 && !formData->alwaysStream()) {
         if (auto* vector = std::get_if<Vector<uint8_t>>(&elements[0].data)) {
-            auto data = adoptCF(CFDataCreate(nullptr, vector->data(), vector->size()));
+            RetainPtr data = toCFData(vector->span());
             CFURLRequestSetHTTPRequestBody(request, data.get());
             return;
         }

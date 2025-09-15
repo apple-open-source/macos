@@ -452,6 +452,7 @@
                 }];
             }
             [self.volume.fatManager setDirtyBitValue:dirtyBitDirty
+                                    forceWriteToDisk:false
                                         replyHandler:^(NSError * _Nullable fatError) {
                 if (fatError) {
                     /* Log the error, keep going */
@@ -483,6 +484,7 @@
 
         if (allocatedClusters > usedClusters) {
             [self.volume.fatManager setDirtyBitValue:dirtyBitDirty
+                                    forceWriteToDisk:false
                                         replyHandler:^(NSError * _Nullable fatError) {
                 if (fatError) {
                     /* Log the error, keep going */

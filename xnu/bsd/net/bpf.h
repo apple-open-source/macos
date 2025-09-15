@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -80,21 +80,12 @@
 #include <stdint.h>
 
 #if !defined(DRIVERKIT)
+#include <net/if.h>
 #include <sys/param.h>
 #include <sys/appleapiopts.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/cdefs.h>
-
-#ifdef PRIVATE
-#include <net/if_var.h>
-#include <uuid/uuid.h>
-
-struct bpf_setup_args {
-	uuid_t  bsa_uuid;
-	char    bsa_ifname[IFNAMSIZ];
-};
-#endif /* PRIVATE */
 
 #ifdef KERNEL
 #include <sys/kernel_types.h>
@@ -147,23 +138,6 @@ struct bpf_program {
 	struct bpf_insn *bf_insns;
 };
 
-#ifdef KERNEL_PRIVATE
-/*
- * LP64 version of bpf_program.  all pointers
- * grow when we're dealing with a 64-bit process.
- * WARNING - keep in sync with bpf_program
- */
-struct bpf_program64 {
-	u_int           bf_len;
-	user64_addr_t   bf_insns __attribute__((aligned(8)));
-};
-
-struct bpf_program32 {
-	u_int           bf_len;
-	user32_addr_t   bf_insns;
-};
-#endif /* KERNEL_PRIVATE */
-
 /*
  * Struct returned by BIOCGSTATS.
  */
@@ -188,18 +162,6 @@ struct bpf_version {
 	u_short bv_minor;
 };
 
-#ifdef PRIVATE
-struct bpf_comp_stats {
-	uint64_t bcs_total_read; /* number of packets read from device */
-	uint64_t bcs_total_size; /* total size of filtered packets */
-	uint64_t bcs_total_hdr_size; /* total header size of captured packets */
-	uint64_t bcs_count_no_common_prefix; /* count of packets not compressible */
-	uint64_t bcs_count_compressed_prefix; /* count of compressed packets */
-	uint64_t bcs_total_compressed_prefix_size; /* total size of compressed data */
-	uint64_t bcs_max_compressed_prefix_size; /* max compressed data size */
-};
-#endif /* PRIVATE */
-
 #if defined(__LP64__)
 #include <sys/_types/_timeval32.h>
 
@@ -214,25 +176,13 @@ struct bpf_comp_stats {
 #define BIOCGBLEN       _IOR('B',102, u_int)
 #define BIOCSBLEN       _IOWR('B',102, u_int)
 #define BIOCSETF        _IOW('B',103, struct bpf_program)
-#ifdef KERNEL_PRIVATE
-#define BIOCSETF64      _IOW('B',103, struct bpf_program64)
-#define BIOCSETF32      _IOW('B',103, struct bpf_program32)
-#endif /* KERNEL_PRIVATE */
 #define BIOCFLUSH       _IO('B',104)
 #define BIOCPROMISC     _IO('B',105)
 #define BIOCGDLT        _IOR('B',106, u_int)
 #define BIOCGETIF       _IOR('B',107, struct ifreq)
 #define BIOCSETIF       _IOW('B',108, struct ifreq)
 #define BIOCSRTIMEOUT   _IOW('B',109, struct timeval)
-#ifdef KERNEL_PRIVATE
-#define BIOCSRTIMEOUT64 _IOW('B',109, struct user64_timeval)
-#define BIOCSRTIMEOUT32 _IOW('B',109, struct user32_timeval)
-#endif /* KERNEL_PRIVATE */
 #define BIOCGRTIMEOUT   _IOR('B',110, struct timeval)
-#ifdef KERNEL_PRIVATE
-#define BIOCGRTIMEOUT64 _IOR('B',110, struct user64_timeval)
-#define BIOCGRTIMEOUT32 _IOR('B',110, struct user32_timeval)
-#endif /* KERNEL_PRIVATE */
 #define BIOCGSTATS      _IOR('B',111, struct bpf_stat)
 #define BIOCIMMEDIATE   _IOW('B',112, u_int)
 #define BIOCVERSION     _IOR('B',113, struct bpf_version)
@@ -244,41 +194,9 @@ struct bpf_comp_stats {
 #define BIOCSSEESENT    _IOW('B',119, u_int)
 #define BIOCSDLT        _IOW('B',120, u_int)
 #define BIOCGDLTLIST    _IOWR('B',121, struct bpf_dltlist)
-#ifdef PRIVATE
-#define BIOCGETTC       _IOR('B', 122, int)
-#define BIOCSETTC       _IOW('B', 123, int)
-#define BIOCSEXTHDR     _IOW('B', 124, u_int)
-#define BIOCGIFATTACHCOUNT      _IOWR('B', 125, struct ifreq)
-#endif /* PRIVATE */
 #define BIOCSETFNR      _IOW('B', 126, struct bpf_program)
-#ifdef KERNEL_PRIVATE
-#define BIOCSETFNR64    _IOW('B',126, struct bpf_program64)
-#define BIOCSETFNR32    _IOW('B',126, struct bpf_program32)
-#endif /* KERNEL_PRIVATE */
 #ifdef PRIVATE
-#define BIOCGWANTPKTAP  _IOR('B', 127, u_int)
-#define BIOCSWANTPKTAP  _IOWR('B', 127, u_int)
-#define BIOCSHEADDROP   _IOW('B', 128, int)
-#define BIOCGHEADDROP   _IOR('B', 128, int)
-#define BIOCSTRUNCATE   _IOW('B', 129, u_int)
-#define BIOCGETUUID     _IOR('B', 130, uuid_t)
-#define BIOCSETUP       _IOW('B', 131, struct bpf_setup_args)
-#define BIOCSPKTHDRV2   _IOW('B', 132, int)
-#define BIOCGPKTHDRV2   _IOW('B', 133, int)
-#define BIOCGHDRCOMP    _IOR('B', 134, int)
-#define BIOCSHDRCOMP    _IOW('B', 135, int)
-#define BIOCGHDRCOMPSTATS    _IOR('B', 136, struct bpf_comp_stats)
-#define BIOCGHDRCOMPON  _IOR('B', 137, int)
-#define BIOCGDIRECTION  _IOR('B', 138, int)
-#define BIOCSDIRECTION  _IOW('B', 139, int)
-#define BIOCSWRITEMAX   _IOW('B', 140, u_int)
-#define BIOCGWRITEMAX   _IOR('B', 141, u_int)
-#define BIOCGBATCHWRITE _IOR('B', 142, int)
-#define BIOCSBATCHWRITE _IOW('B', 143, int)
-#define BIOCGNOTSTAMP   _IOR('B', 144, int)
-#define BIOCSNOTSTAMP   _IOW('B', 145, int)
-#define BIOCGDVRTIN     _IOR('B', 146, int)
-#define BIOCSDVRTIN     _IOW('B', 146, int)
+/* See bpf_private.h for additional ioctls */
 #endif /* PRIVATE */
 
 /*
@@ -300,121 +218,6 @@ struct bpf_hdr {
 #define SIZEOF_BPF_HDR  (sizeof(struct bpf_hdr) <= 20 ? 18 : \
     sizeof(struct bpf_hdr))
 #endif
-#ifdef PRIVATE
-/*
- * This structure must be a multiple of 4 bytes.
- * It includes padding and spare fields that we can use later if desired.
- */
-struct bpf_hdr_ext {
-	struct BPF_TIMEVAL bh_tstamp;   /* time stamp */
-	bpf_u_int32     bh_caplen;      /* length of captured portion */
-	bpf_u_int32     bh_datalen;     /* original length of packet */
-	u_short         bh_hdrlen;      /* length of bpf header */
-	u_char          bh_complen;
-	u_char          bh_flags;
-#define BPF_HDR_EXT_FLAGS_DIR_IN        0x00
-#define BPF_HDR_EXT_FLAGS_DIR_OUT       0x01
-#ifdef BSD_KERNEL_PRIVATE
-#define BPF_HDR_EXT_FLAGS_TCP           0x02
-#define BPF_HDR_EXT_FLAGS_UDP           0x04
-#endif /* BSD_KERNEL_PRIVATE */
-	pid_t           bh_pid;         /* process PID */
-	char            bh_comm[MAXCOMLEN + 1]; /* process command */
-	u_char          bh_pktflags;
-#define BPF_PKTFLAGS_TCP_REXMT  0x01
-#define BPF_PKTFLAGS_START_SEQ  0x02
-#define BPF_PKTFLAGS_LAST_PKT   0x04
-#define BPF_PKTFLAGS_WAKE_PKT   0x08
-	uint16_t        bh_trace_tag;
-	bpf_u_int32     bh_svc;         /* service class */
-	bpf_u_int32     bh_flowid;      /* kernel reserved; 0 in userland */
-	bpf_u_int32     bh_unsent_bytes; /* unsent bytes at interface */
-	bpf_u_int32     bh_unsent_snd; /* unsent bytes at socket buffer */
-	bpf_u_int32     bh_comp_gencnt; /* unsent bytes at socket buffer */
-};
-
-#define BPF_HDR_EXT_HAS_TRACE_TAG 1
-#define BPF_HDR_EXT_HAS_COMP_GENCNT 1
-
-/*
- * External representation of the bpf descriptor
- */
-struct xbpf_d {
-	uint32_t        bd_structsize;  /* Size of this structure. */
-	int32_t         bd_dev_minor;
-	int32_t         bd_sig;
-	uint32_t        bd_slen;
-	uint32_t        bd_hlen;
-	uint32_t        bd_bufsize;
-	pid_t           bd_pid;
-
-	uint8_t         bd_promisc;
-	uint8_t         bd_immediate;
-	uint8_t         bd_hdrcmplt;
-	uint8_t         bd_async;
-
-	uint8_t         bd_headdrop;
-	uint8_t         bd_direction;
-	uint8_t         bh_compreq;
-	uint8_t         bh_compenabled;
-
-	uint8_t         bd_exthdr;
-	uint8_t         bd_trunc;
-	uint8_t         bd_pkthdrv2;
-	uint8_t         bd_batch_write : 1;
-	uint8_t         bd_divert_in : 1;
-	uint8_t         bd_padding : 6;
-
-	uint64_t        bd_rcount;
-	uint64_t        bd_dcount;
-	uint64_t        bd_fcount;
-	uint64_t        bd_wcount;
-	uint64_t        bd_wdcount;
-
-	char            bd_ifname[IFNAMSIZ];
-
-	uint64_t        bd_comp_count;
-	uint64_t        bd_comp_size;
-
-	uint32_t        bd_scnt;        /* number of packets in store buffer */
-	uint32_t        bd_hcnt;        /* number of packets in hold buffer */
-
-	uint64_t        bd_read_count;
-	uint64_t        bd_fsize;
-};
-
-#ifndef bd_seesent
-/*
- * Code compatibility workaround so that old versions of network_cmds will continue to build
- * even if netstat -B shows an incorrect value.
- */
-#define bd_seesent bd_direction
-#endif /* bd_seesent */
-
-#define _HAS_STRUCT_XBPF_D_ 2
-
-struct bpf_comp_hdr {
-	struct BPF_TIMEVAL bh_tstamp;   /* time stamp */
-	bpf_u_int32     bh_caplen;      /* length of captured portion */
-	bpf_u_int32     bh_datalen;     /* original length of packet */
-	u_short         bh_hdrlen;      /* length of bpf header (this struct
-	                                 *  plus alignment padding) */
-	u_char          bh_complen;     /* data portion compressed */
-	u_char          bh_padding;     /* data portion compressed */
-};
-
-#define HAS_BPF_HDR_COMP 1
-#define BPF_HDR_COMP_LEN_MAX 255
-
-/*
- * Packet tap directions
- */
-#define BPF_D_NONE      0x0     /* See no packet (for writing only) */
-#define BPF_D_IN        0x1     /* See incoming packets */
-#define BPF_D_OUT       0x2     /* See outgoing packets */
-#define BPF_D_INOUT     0x3     /* See incoming and outgoing packets */
-
-#endif /* PRIVATE */
 #endif /* !defined(DRIVERKIT) */
 
 /*
@@ -755,17 +558,6 @@ struct bpf_comp_hdr {
 #define DLT_USER13              160
 #define DLT_USER14              161
 #define DLT_USER15              162
-
-#ifdef PRIVATE
-/*
- * For Apple private usage
- */
-#define DLT_USER0_APPLE_INTERNAL        DLT_USER0       /* rdar://12019509 */
-#define DLT_USER1_APPLE_INTERNAL        DLT_USER1       /* rdar://12019509 */
-#define DLT_PKTAP                       DLT_USER2       /* rdar://11779467 */
-#define DLT_USER3_APPLE_INTERNAL        DLT_USER3       /* rdar://19614531 */
-#define DLT_USER4_APPLE_INTERNAL        DLT_USER4       /* rdar://19614531 */
-#endif /* PRIVATE */
 
 /*
  * For future use with 802.11 captures - defined by AbsoluteValue
@@ -1451,51 +1243,6 @@ struct bpf_dltlist {
 
 #pragma pack()
 
-#ifdef KERNEL_PRIVATE
-#define BPF_MIN_PKT_SIZE 40
-#define PORT_DNS 53
-#define PORT_BOOTPS 67
-#define PORT_BOOTPC 68
-#define PORT_ISAKMP 500
-#define PORT_ISAKMP_NATT 4500   /* rfc3948 */
-
-#define BPF_T_MICROTIME         0x0000  /* The default */
-#define BPF_T_NONE              0x0003
-
-/* Forward declerations */
-struct ifnet;
-struct mbuf;
-
-#define BPF_PACKET_TYPE_MBUF    0
-#if SKYWALK
-#define BPF_PACKET_TYPE_PKT     1
-#include <skywalk/os_skywalk.h>
-#endif /* SKYWALK */
-
-struct bpf_packet {
-	int     bpfp_type;
-	void *__sized_by(bpfp_header_length) bpfp_header; /* optional */
-	size_t  bpfp_header_length;
-	union {
-		struct mbuf     *bpfpu_mbuf;
-		void *          bpfpu_ptr;
-#if SKYWALK
-		kern_packet_t   bpfpu_pkt;
-#define bpfp_pkt        bpfp_u.bpfpu_pkt
-#endif /* SKYWALK */
-	} bpfp_u;
-#define bpfp_mbuf       bpfp_u.bpfpu_mbuf
-#define bpfp_ptr        bpfp_u.bpfpu_ptr
-	size_t  bpfp_total_length;      /* length including optional header */
-};
-
-extern int      bpf_validate(const struct bpf_insn *__counted_by(len), int len);
-extern void     bpfdetach(struct ifnet *);
-extern void     bpfilterattach(int);
-extern u_int    bpf_filter(const struct bpf_insn *__counted_by(pc_len), u_int pc_len,
-    u_char *__sized_by(sizeof(struct bpf_packet)), u_int wirelen, u_int);
-#endif /* KERNEL_PRIVATE */
-
 #endif /* !defined(DRIVERKIT) */
 
 #if defined(DRIVERKIT) || defined(KERNEL)
@@ -1619,36 +1366,10 @@ extern void bpf_tap_in(ifnet_t interface, u_int32_t dlt, mbuf_t packet,
 extern void bpf_tap_out(ifnet_t interface, u_int32_t dlt, mbuf_t packet,
     void *__sized_by(header_len) header, size_t header_len);
 
-#if SKYWALK
-/*!
- *       @function bpf_tap_packet_in
- *       @discussion Call this function when your interface receives a
- *               packet. This function will check if any bpf devices need a
- *               a copy of the packet.
- *       @param interface The interface the packet was received on.
- *       @param dlt The data link type of the packet.
- *       @param packet The packet received.
- *       @param header An optional pointer to a header that will be prepended.
- *       @param header_len If the header was specified, the length of the header.
- */
-extern void bpf_tap_packet_in(ifnet_t interface, u_int32_t dlt,
-    kern_packet_t packet, void *__sized_by(header_len) header, size_t header_len);
-
-/*!
- *       @function bpf_tap_packet_out
- *       @discussion Call this function when your interface transmits a
- *               packet. This function will check if any bpf devices need a
- *               a copy of the packet.
- *       @param interface The interface the packet was or will be transmitted on.
- *       @param dlt The data link type of the packet.
- *       @param packet The packet received.
- *       @param header An optional pointer to a header that will be prepended.
- *       @param header_len If the header was specified, the length of the header.
- */
-extern void bpf_tap_packet_out(ifnet_t interface, u_int32_t dlt,
-    kern_packet_t packet, void *__sized_by(header_len) header, size_t header_len);
-
-#endif /* SKYWALK */
 #endif /* KERNEL */
+
+#if defined(PRIVATE) && !defined(MODULES_SUPPORTED)
+#include <net/bpf_private.h>
+#endif /* PRIVATE && !MODULES_SUPPORTED */
 
 #endif /* _NET_BPF_H_ */

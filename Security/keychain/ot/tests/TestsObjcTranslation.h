@@ -53,10 +53,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)clearErrorInsertionDictionary;
 + (void)setErrorAtRowID:(int)errorCode;
 + (void)setACAccountStoreWithInvalidationError:(id<OTAccountsAdapter>)adapter;
++ (void)setACAccountStoreWithConnectionFailedError:(id<OTAccountsAdapter>)adapter;
 + (void)setACAccountStoreWithRandomError:(id<OTAccountsAdapter>)adapter;
 + (int)getInvocationCount;
 + (void)clearInvocationCount;
-+ (BOOL)isPlatformHomepod;
 @end
 
 // The swift-based OctagonTests can't call OctagonTrust methods. Bridge them!
@@ -107,6 +107,8 @@ NS_ASSUME_NONNULL_BEGIN
                             error:(NSError**)error;
 
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
+
++ (NSNumber * _Nullable)trustedFullPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
 
 + (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
 

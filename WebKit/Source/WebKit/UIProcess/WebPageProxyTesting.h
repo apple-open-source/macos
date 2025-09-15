@@ -76,7 +76,7 @@ public:
     void setSystemCanPromptForGetDisplayMediaForTesting(bool);
 #endif
 
-    void setTopContentInset(float, CompletionHandler<void()>&&);
+    void setObscuredContentInsets(float top, float right, float bottom, float left, CompletionHandler<void()>&&);
 
     void clearBackForwardList(CompletionHandler<void()>&&);
 

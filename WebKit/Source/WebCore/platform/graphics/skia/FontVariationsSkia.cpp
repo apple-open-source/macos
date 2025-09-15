@@ -36,7 +36,7 @@ FontVariationDefaultsMap defaultFontVariationValues(const SkTypeface& typeface)
         return map;
 
     Vector<SkFontParameters::Variation::Axis> axisValues(axisCount);
-    if (typeface.getVariationDesignParameters(axisValues.data(), axisValues.size()) == -1)
+    if (typeface.getVariationDesignParameters(axisValues.mutableSpan().data(), axisValues.size()) == -1)
         return map;
 
     for (const auto& axisValue : axisValues) {

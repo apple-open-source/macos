@@ -116,7 +116,7 @@ int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size, upl_t upl,
 	kern_return_t kerr;
 	unsigned to_read;
 	int err;
-	BOOL locked = FALSE;
+	NTFS_BOOL locked = FALSE;
 
 	ntfs_debug("Entering for mft_no 0x%llx, offset 0x%llx, size 0x%x, "
 			"pagein flags 0x%x, page list offset 0x%llx.",
@@ -367,8 +367,8 @@ err:
  * Return 0 on success and errno on error in which case *@upl is set to NULL.
  */
 errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs, upl_t *upl,
-		upl_page_info_array_t *pl, u8 **kaddr, const BOOL uptodate,
-		const BOOL rw)
+		upl_page_info_array_t *pl, u8 **kaddr, const NTFS_BOOL uptodate,
+		const NTFS_BOOL rw)
 {
 	s64 size;
 	kern_return_t kerr;
@@ -461,10 +461,10 @@ err:
  * Locking: Caller must hold an iocount reference on the vnode of @ni.
  */
 void ntfs_page_unmap(ntfs_inode *ni, upl_t upl, upl_page_info_array_t pl,
-		const BOOL mark_dirty)
+		const NTFS_BOOL mark_dirty)
 {
 	kern_return_t kerr;
-	BOOL was_valid, was_dirty;
+	NTFS_BOOL was_valid, was_dirty;
 
 	was_valid = upl_valid_page(pl, 0);
 	/* The page dirty bit is only valid if the page was valid. */

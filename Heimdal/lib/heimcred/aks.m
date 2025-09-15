@@ -37,7 +37,7 @@
 #import "gssoslog.h"
 #import "heimbase.h"
 #import <os/transaction_private.h>
-
+#import <os/overflow.h>
 #define PLATFORM_SUPPORT_CLASS_F !TARGET_OS_SIMULATOR
 
 #import <AssertMacros.h>
@@ -48,10 +48,19 @@
 #import "common.h"
 #import "roken.h"
 
-/*
- * stored as [32:wrapped_key_len][wrapped_key_len:wrapped_key][iv:ivSize][variable:ctdata][16:tag]
- */
+// Use the AKS maximum wrapped key length macro
+#ifndef AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN
+#define AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN 128
+#endif
 
+/*
+ * stored as
+ *  ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐─ ─ ─ ─ ─ ─ ─ ─ ─ ┐─ ─ ─ ─ ─ ─ ─ ─ ─ ┐─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐─ ─ ─ ─
+ *          32          wrapped_key_len           16                 variable           16
+ * ┌──────────────────┼──────────────────┼──────────────────┼────────────────────────┼───────┐
+ * │ wrapped_key_len  │   wrapped_key    │        iv        │         ctData         │  tag  │
+ * └──────────────────┴──────────────────┴──────────────────┴────────────────────────┴───────┘
+ */
 static const size_t ivSize = 16;
 #if PLATFORM_SUPPORT_CLASS_F
 static os_transaction_t keyNotReadyTransaction = NULL;
@@ -63,10 +72,9 @@ ksEncryptData(NSData *plainText)
     NSMutableData *blob = NULL;
     
     const size_t bulkKeySize = 32; /* Use 256 bit AES key for bulkKey. */
-    const uint32_t maxKeyWrapOverHead = 8 + 32;
     uint8_t bulkKey[bulkKeySize];
     uint8_t iv[ivSize];
-    uint8_t bulkKeyWrapped[bulkKeySize + maxKeyWrapOverHead];
+    uint8_t bulkKeyWrapped[AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN];
     uint32_t key_wrapped_size;
     CCCryptorStatus ccerr;
 
@@ -101,8 +109,9 @@ ksEncryptData(NSData *plainText)
     if (keyNotReadyTransaction) {
 	keyNotReadyTransaction = NULL;
     }
-    if ((unsigned long)bulkKeyWrappedSize > sizeof(bulkKeyWrapped)) {
-	abort();
+    if (bulkKeyWrappedSize <= 0 || (size_t)bulkKeyWrappedSize > sizeof(bulkKeyWrapped)) {
+	os_log_error(GSSOSLog(), "Wrapped key size error: %d", bulkKeyWrappedSize);
+	return NULL;
     }
 
 #else
@@ -111,10 +120,19 @@ ksEncryptData(NSData *plainText)
 #endif
     key_wrapped_size = (uint32_t)bulkKeyWrappedSize;
     
-    size_t blobLen = sizeof(key_wrapped_size) + key_wrapped_size + ivSize + ctLen + tagLen;
+    // Calculate the total blob size and verify it doesn't overflow
+    size_t blobLen = 0;
+    if (os_add_overflow(sizeof(key_wrapped_size), key_wrapped_size, &blobLen) ||
+        os_add_overflow(blobLen, ivSize, &blobLen) ||
+        os_add_overflow(blobLen, ctLen, &blobLen) ||
+        os_add_overflow(blobLen, tagLen, &blobLen)) {
+        os_log_error(GSSOSLog(), "Blob size calculation would overflow");
+        return NULL;
+    }
     
     blob = [[NSMutableData alloc] initWithLength:blobLen];
     if (blob == NULL) {
+	os_log_error(GSSOSLog(), "Failed to allocate memory for blob");
 	return NULL;
     }
 
@@ -144,6 +162,7 @@ ksEncryptData(NSData *plainText)
 				       tagLen);               // authentication tag length
     memset_s(bulkKey, 0, sizeof(bulkKey), sizeof(bulkKey));
     if (ccerr || tagLen != 16) {
+	os_log_error(GSSOSLog(), "Encryption error: %d", ccerr);
 	return NULL;
     }
 
@@ -161,6 +180,17 @@ ksDecryptData(NSData * blob)
     const uint8_t *iv = NULL;
     NSMutableData *clear = NULL, *plainText = NULL;
 
+    // Validate input
+    if (blob == NULL) {
+        os_log_error(GSSOSLog(), "Decryption failed: Input blob is NULL");
+        return NULL;
+    }
+    
+    if (![blob isKindOfClass:[NSData class]]) {
+        os_log_error(GSSOSLog(), "Decryption failed: Input is not NSData");
+        return NULL;
+    }
+
     size_t blobLen = [blob length];
     const uint8_t *cursor = [blob bytes];
 
@@ -170,12 +200,16 @@ ksDecryptData(NSData * blob)
     
     /* tag is stored after the plain text data */
     size_t tagLen = 16;
-    if (ctLen < tagLen)
-	return NULL;
+    if (ctLen < tagLen) {
+        os_log_error(GSSOSLog(), "Decryption failed: Blob too small for authentication tag");
+        return NULL;
+    }
     ctLen -= tagLen;
 
-    if (ctLen < sizeof(wrapped_key_size))
-	return NULL;
+    if (ctLen < sizeof(wrapped_key_size)) {
+        os_log_error(GSSOSLog(), "Decryption failed: Blob too small for wrapped key size");
+        return NULL;
+    }
 
     memcpy(&wrapped_key_size, cursor, sizeof(wrapped_key_size));
 
@@ -183,37 +217,50 @@ ksDecryptData(NSData * blob)
     ctLen -= sizeof(wrapped_key_size);
 
     /* Validate key wrap length against total length */
-    if (ctLen < wrapped_key_size)
-	return NULL;
+    if (ctLen < wrapped_key_size) {
+        os_log_error(GSSOSLog(), "Decryption failed: Blob too small for wrapped key data (need %u bytes, have %zu)", 
+                     wrapped_key_size, ctLen);
+        return NULL;
+    }
+    
+    if (wrapped_key_size > AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN) {
+        os_log_error(GSSOSLog(), "Decryption failed: Invalid wrapped key size: %u (maximum allowed: %d)", 
+                     wrapped_key_size, AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN);
+        return NULL;
+    }
 
     int keySize = sizeof(bulkKey);
 #if PLATFORM_SUPPORT_CLASS_F
 
     error = aks_unwrap_key(cursor, wrapped_key_size, key_class_f, bad_keybag_handle, bulkKey, &keySize);
     if (error != KERN_SUCCESS) {
-	os_log_error(GSSOSLog(), "Error with unwrap key: %d", error);
-	goto out;
+        os_log_error(GSSOSLog(), "Decryption failed: Error unwrapping key: %d", error);
+        goto out;
     }
 #else
     if (bulkKeySize != wrapped_key_size) {
-	error = EINVAL;
-	goto out;
+        os_log_error(GSSOSLog(), "Decryption failed: Key size mismatch in simulator mode");
+        error = EINVAL;
+        goto out;
     }
     memcpy(bulkKey, cursor, bulkKeySize);
     keySize = 32;
 #endif
 
     if (keySize != 32) {
-	error = EINVAL;
-	goto out;
+        os_log_error(GSSOSLog(), "Decryption failed: Invalid unwrapped key size: %d (expected 32)", keySize);
+        error = EINVAL;
+        goto out;
     }
 
     cursor += wrapped_key_size;
     ctLen -= wrapped_key_size;
 
     if (ctLen < ivSize) {
-	error = EINVAL;
-	goto out;
+        os_log_error(GSSOSLog(), "Decryption failed: Not enough data for IV (need %zu bytes, have %zu)", 
+                     ivSize, ctLen);
+        error = EINVAL;
+        goto out;
     }
 
     iv = cursor;
@@ -222,29 +269,34 @@ ksDecryptData(NSData * blob)
 
     plainText = [NSMutableData dataWithLength:ctLen];
     if (!plainText) {
+        os_log_error(GSSOSLog(), "Decryption failed: Failed to allocate memory for plaintext");
+        error = ENOMEM;
         goto out;
     }
 
     tag = malloc(tagLen);
     if (tag == NULL) {
+        os_log_error(GSSOSLog(), "Decryption failed: Failed to allocate memory for tag");
+        error = ENOMEM;
         goto out;
     }
 
     ccerr = CCCryptorGCMOneshotDecrypt(kCCAlgorithmAES,           // algorithm
-				       bulkKey,                   // key bytes
-				       bulkKeySize,               // key length
-				       iv,                        // IV/nonce bytes
-				       ivSize,                    // IV/nonce length
-				       NULL,                      // additional bytes
-				       0,                         // additional bytes length
-				       cursor,                    // ciphertext bytes
-				       ctLen,                     // ciphertext length
-				       plainText.mutableBytes,    // plaintext bytes
-				       cursor + ctLen,            // authentication tag bytes
-				       tagLen);                   // authentication tag length
+                                       bulkKey,                   // key bytes
+                                       bulkKeySize,               // key length
+                                       iv,                        // IV/nonce bytes
+                                       ivSize,                    // IV/nonce length
+                                       NULL,                      // additional bytes
+                                       0,                         // additional bytes length
+                                       cursor,                    // ciphertext bytes
+                                       ctLen,                     // ciphertext length
+                                       plainText.mutableBytes,    // plaintext bytes
+                                       cursor + ctLen,            // authentication tag bytes
+                                       tagLen);                   // authentication tag length
     /* Decrypt the cipherText with the bulkKey. */
     if (ccerr) {
-	goto out;
+        os_log_error(GSSOSLog(), "Decryption failed: CCCryptorGCMOneshotDecrypt error: %d", ccerr);
+        goto out;
     }
 
     clear = plainText;

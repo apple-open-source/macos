@@ -70,6 +70,8 @@
 #include <sys/cdefs.h>
 
 #if defined(MACH_KERNEL_PRIVATE) || SCHED_TEST_HARNESS
+#include <kern/bits.h>
+#include <kern/sched_common.h>
 #include <kern/sched_urgency.h>
 #include <mach/sfi_class.h>
 #endif /* defined(MACH_KERNEL_PRIVATE) || SCHED_TEST_HARNESS */
@@ -159,9 +161,12 @@ typedef enum {
 	PSET_AMP_E  = 1,
 	PSET_AMP_P  = 2,
 #endif /* __AMP__ */
+	MAX_PSET_TYPES,
 } pset_cluster_type_t;
 
 #if __AMP__
+
+#define MAX_AMP_CLUSTER_TYPES (MAX_PSET_TYPES - 1)
 
 typedef enum {
 	SCHED_PERFCTL_POLICY_DEFAULT,           /*  static policy: set at boot */
@@ -178,8 +183,8 @@ typedef bitmap_t cpumap_t;
 
 #if __arm64__
 
+extern cluster_type_t pset_cluster_type_to_cluster_type(pset_cluster_type_t pset_cluster_type);
 extern pset_cluster_type_t cluster_type_to_pset_cluster_type(cluster_type_t cluster_type);
-extern pset_node_t cluster_type_to_pset_node(cluster_type_t cluster_type);
 
 /*
  * pset_execution_time_t
@@ -236,7 +241,18 @@ struct processor_set {
 
 	struct run_queue        pset_runq;      /* runq for this processor set, used by the amp and dualq scheduler policies */
 	struct rt_queue         rt_runq;        /* realtime runq for this processor set */
-	uint64_t                stealable_rt_threads_earliest_deadline; /* if this pset has stealable RT threads, the earliest deadline; else UINT64_MAX */
+	/*
+	 * stealable_rt_threads_earliest_deadline stores the earliest deadline of
+	 * the rt_runq if this pset has stealable RT threads, and RT_DEADLINE_NONE
+	 * otherwise.
+	 *
+	 * It can only be read outside of the pset lock in sched_rt_steal_thread as
+	 * a hint for which pset to lock. It must be re-checked under the lock
+	 * before relying on its value to dequeue a thread.
+	 *
+	 * Updates are made under the pset lock by pset_update_rt_stealable_state.
+	 */
+	_Atomic uint64_t        stealable_rt_threads_earliest_deadline;
 #if CONFIG_SCHED_CLUTCH
 	struct sched_clutch_root pset_clutch_root; /* clutch hierarchy root */
 #endif /* CONFIG_SCHED_CLUTCH */
@@ -288,10 +304,30 @@ struct processor_set {
 	bitmap_t                native_psets[BITMAP_LEN(MAX_PSETS)];
 	bitmap_t                local_psets[BITMAP_LEN(MAX_PSETS)];
 	bitmap_t                remote_psets[BITMAP_LEN(MAX_PSETS)];
-	sched_clutch_edge       sched_edges[MAX_PSETS];
 	pset_execution_time_t   pset_execution_time[TH_BUCKET_SCHED_MAX];
 	uint64_t                pset_cluster_shared_rsrc_load[CLUSTER_SHARED_RSRC_TYPE_COUNT];
+	_Atomic sched_clutch_edge       sched_edges[MAX_PSETS][TH_BUCKET_SCHED_MAX];
+	sched_pset_search_order_t       spill_search_order[TH_BUCKET_SCHED_MAX];
+	/*
+	 * Recommended width of threads (one per core) or shared resource threads
+	 * (one per cluster), if this is the preferred pset.
+	 */
+	uint8_t                 max_parallel_cores[TH_BUCKET_SCHED_MAX];
+	uint8_t                 max_parallel_clusters[TH_BUCKET_SCHED_MAX];
 #endif /* CONFIG_SCHED_EDGE */
+
+#if __AMP__
+	/* Writes to sched_rt_* fields are guarded by sched_available_cores_lock to
+	 * prevent concurrent updates. Reads are not guaranteed to be consistent
+	 * except atomicity of specific fields, as noted below */
+
+	/* sched_rt_edges controls realtime thread scheduling policies like migration and steal. */
+	sched_clutch_edge       sched_rt_edges[MAX_PSETS];
+	sched_pset_search_order_t       sched_rt_spill_search_order; /* should be stored/accessed atomically */
+#if CONFIG_SCHED_EDGE
+	sched_pset_search_order_t       sched_rt_steal_search_order; /* should be stored/accessed atomically */
+#endif /* CONFIG_SCHED_EDGE */
+#endif /* __AMP__ */
 	cpumap_t                perfcontrol_cpu_preferred_bitmask;
 	cpumap_t                perfcontrol_cpu_migration_bitmask;
 	int                     cpu_preferred_last_chosen;
@@ -308,7 +344,6 @@ typedef bitmap_t pset_map_t;
 struct pset_node {
 	processor_set_t         psets;                  /* list of associated psets */
 
-	pset_node_t             nodes;                  /* list of associated subnodes */
 	pset_node_t             node_list;              /* chain of associated nodes */
 
 	pset_cluster_type_t     pset_cluster_type;      /* Same as the type of all psets in this node */
@@ -326,9 +361,18 @@ struct pset_node {
 extern struct pset_node pset_node0;
 
 #if __AMP__
-extern pset_node_t ecore_node;
-extern pset_node_t pcore_node;
-#endif /* __AMP__ */
+
+/* Boot pset node */
+#define pset_node0 (pset_nodes[0])
+extern struct pset_node pset_nodes[MAX_AMP_CLUSTER_TYPES];
+extern pset_node_t pset_node_for_pset_cluster_type(pset_cluster_type_t pset_cluster_type);
+
+#else /* !__AMP__ */
+
+/* Boot pset node and head of the pset node linked list */
+extern struct pset_node pset_node0;
+
+#endif /* !__AMP__ */
 
 extern queue_head_t tasks, threads, corpse_tasks;
 extern int tasks_count, terminated_tasks_count, threads_count, terminated_threads_count;
@@ -482,6 +526,10 @@ struct processor {
 
 	bool                    processor_inshutdown;   /* is the processor between processor_shutdown and processor_startup */
 	processor_offline_state_t processor_offline_state;
+
+#if CONFIG_SCHED_EDGE
+	_Atomic int             stir_the_pot_inbox_cpu; /* ID of P-core available to be preempted for stir-the-pot */
+#endif /* CONFIG_SCHED_EDGE */
 };
 
 extern bool sched_all_cpus_offline(void);
@@ -505,6 +553,21 @@ extern uint32_t                 processor_avail_count_user;
 #if CONFIG_SCHED_SMT
 extern uint32_t                 primary_processor_avail_count_user;
 #endif /* CONFIG_SCHED_SMT */
+
+#define cpumap_foreach(cpu_id, cpumap) \
+	for (int cpu_id = lsb_first(cpumap); \
+	    (cpu_id) >= 0; \
+	     cpu_id = lsb_next((cpumap), cpu_id))
+
+#define foreach_node(node) \
+	for (pset_node_t node = &pset_node0; node != NULL; node = node->node_list)
+
+#define foreach_pset_id(pset_id, node) \
+	for (int pset_id = lsb_first((node)->pset_map); \
+	    pset_id >= 0; \
+	    pset_id = lsb_next((node)->pset_map, pset_id))
+
+cpumap_t pset_available_cpumap(processor_set_t pset);
 
 /*
  * All of the operations on a processor that change the processor count
@@ -540,6 +603,17 @@ extern lck_grp_t pset_lck_grp;
 #define pset_unlock(p)                  lck_spin_unlock(&(p)->sched_lock)
 #define pset_assert_locked(p)           LCK_SPIN_ASSERT(&(p)->sched_lock, LCK_ASSERT_OWNED)
 #endif /*!SCHED_PSET_TLOCK*/
+
+inline static processor_set_t
+change_locked_pset(processor_set_t current_pset, processor_set_t new_pset)
+{
+	if (current_pset != new_pset) {
+		pset_unlock(current_pset);
+		pset_lock(new_pset);
+	}
+
+	return new_pset;
+}
 
 extern lck_spin_t       pset_node_lock;
 
@@ -619,8 +693,7 @@ extern processor_set_t  processor_pset(
 extern pset_node_t      pset_node_root(void);
 
 extern processor_set_t  pset_create(
-	pset_node_t             node,
-	pset_cluster_type_t     pset_type,
+	cluster_type_t          cluster_type,
 	uint32_t                pset_cluster_id,
 	int                     pset_id);
 
@@ -850,6 +923,9 @@ extern void sched_perfcontrol_update_recommended_cores_reason(uint64_t recommend
 
 /* Request a change to the powered cores mask that CLPC wants.  Does not block waiting for completion. */
 extern void sched_perfcontrol_update_powered_cores(uint64_t powered_cores, processor_reason_t reason, uint32_t flags);
+
+/* Reevaluate the thread placement decision on cpu_id and force a preemption if necessary. */
+extern bool sched_perfcontrol_check_oncore_thread_preemption(uint64_t flags, int cpu_id);
 
 #endif /* KERNEL_PRIVATE */
 

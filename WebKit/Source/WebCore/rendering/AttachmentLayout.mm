@@ -33,6 +33,7 @@
 #include "FontCacheCoreText.h"
 #include "FrameSelection.h"
 #include "GeometryUtilities.h"
+#include "RenderObjectInlines.h"
 #include "RenderTheme.h"
 #include <pal/spi/cf/CoreTextSPI.h>
 #include <wtf/cocoa/TypeCastsCocoa.h>
@@ -286,11 +287,8 @@ AttachmentLayout::AttachmentLayout(const RenderAttachment& attachment, Attachmen
         attachment.attachmentElement().requestIconIfNeededWithSize(FloatSize());
         FloatSize iconSize = attachment.attachmentElement().iconSize();
         icon = attachment.attachmentElement().icon();
-        thumbnailIcon = attachment.attachmentElement().thumbnail();
-        if (thumbnailIcon)
-            iconSize = largestRectWithAspectRatioInsideRect(thumbnailIcon->size().aspectRatio(), FloatRect(0, 0, attachmentIconSize, attachmentIconSize)).size();
         
-        if (thumbnailIcon || icon) {
+        if (icon) {
             iconRect = FloatRect(FloatPoint((attachmentRect.width() / 2) - (iconSize.width() / 2), 0), iconSize);
             yOffset += iconRect.height() + attachmentItemMargin;
         }
@@ -352,8 +350,8 @@ void AttachmentLayout::buildWrappedLines(String& text, CTFontRef font, NSDiction
     if (text.isEmpty())
         return;
     
-    auto attributedText = adoptNS([[NSAttributedString alloc] initWithString:text attributes:textAttributes]);
-    auto framesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedText.get()));
+    RetainPtr attributedText = adoptNS([[NSAttributedString alloc] initWithString:text.createNSString().get() attributes:textAttributes]);
+    RetainPtr framesetter = adoptCF(CTFramesetterCreateWithAttributedString((CFAttributedStringRef)attributedText.get()));
     
     CFRange fitRange;
     auto textSize = CTFramesetterSuggestFrameSizeWithConstraints(framesetter.get(), CFRangeMake(0, 0), nullptr, CGSizeMake(wrappingWidth, CGFLOAT_MAX), &fitRange);
@@ -367,7 +365,7 @@ void AttachmentLayout::buildWrappedLines(String& text, CTFontRef font, NSDiction
         return;
     
     origins.resize(lineCount);
-    CTFrameGetLineOrigins(textFrame.get(), CFRangeMake(0, 0), origins.data());
+    CTFrameGetLineOrigins(textFrame.get(), CFRangeMake(0, 0), origins.mutableSpan().data());
     // Lay out and record the first (maximumLineCount - 1) lines.
     CFIndex lineIndex = 0;
     auto nonTruncatedLineCount = std::min<CFIndex>(maximumLineCount - 1, lineCount);
@@ -399,8 +397,8 @@ void AttachmentLayout::buildSingleLine(const String& text, CTFontRef font, NSDic
 {
     if (text.isEmpty())
         return;
-    RetainPtr<NSAttributedString> attributedText = adoptNS([[NSAttributedString alloc] initWithString:text attributes:textAttributes]);
-    
+
+    RetainPtr attributedText = adoptNS([[NSAttributedString alloc] initWithString:text.createNSString().get() attributes:textAttributes]);
     addLine(font, adoptCF(CTLineCreateWithAttributedString((CFAttributedStringRef)attributedText.get())).get(), true);
 }
 

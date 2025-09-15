@@ -67,6 +67,10 @@ static void wntohl(wchar_t *, int);
 #endif /* __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN */
 void __collate_err(int ex, const char *f) __dead2;
 
+static collate_chain_t *chainsearch(struct xlocale_collate *, const wchar_t *,
+    int *);
+static collate_large_t *largesearch(struct xlocale_collate *, const wchar_t);
+
 /*
  * Normally, the __collate_* routines should all be __private_extern__,
  * but grep is using them (3715846).  Until we can provide an alternative,
@@ -103,7 +107,7 @@ destruct_collate(void *t)
 
 static void
 __collate_fill_info(struct xlocale_collate *TMP,
-    collate_legacy_info_t *info)
+    collate_legacy_info_t *info, int32_t pri_count[LEGACY_COLL_WEIGHTS_MAX])
 {
 	collate_info_t *dinfo = TMP->info;
 
@@ -115,6 +119,8 @@ __collate_fill_info(struct xlocale_collate *TMP,
 	 */
 	memset(dinfo, 0, sizeof(*dinfo));
 	assert(sizeof(info->directive) <= sizeof(dinfo->directive));
+	assert(LEGACY_COLL_WEIGHTS_MAX <=
+	    (sizeof(dinfo->pri_count) / sizeof(dinfo->pri_count[0])));
 	assert(sizeof(info->subst_count) <= sizeof(dinfo->subst_count));
 	assert(sizeof(info->undef_pri) <= sizeof(dinfo->undef_pri));
 
@@ -127,10 +133,68 @@ __collate_fill_info(struct xlocale_collate *TMP,
 
 	/* Now fill in arrays */
 	memcpy(dinfo->directive, info->directive, sizeof(info->directive));
-	/* No analog for dinfo->pri_count */
+	memcpy(dinfo->pri_count, pri_count, sizeof(int[COLL_WEIGHTS_MAX]));
 	memcpy(dinfo->subst_count, info->subst_count,
 	    sizeof(info->subst_count));
 	memcpy(dinfo->undef_pri, info->undef_pri, sizeof(info->undef_pri));
+}
+
+static void
+__collate_resolve_legacy_substitutions(locale_t loc)
+{
+	struct xlocale_collate *table;
+	collate_chain_t *p2;
+	collate_large_t *match;
+	collate_subst_t *p;
+	wchar_t key;
+	int32_t newpri;
+	int i, len, z;
+
+	table = XLOCALE_COLLATE(loc);
+	for (i = 0; i < table->info->directive_count; i++) {
+		p = table->subst_table[i];
+
+		/*
+		 * For each pass, we go through the substitution table and
+		 * replace literal substitutions with the index into the table
+		 * so that we don't need to do a binary search of the table
+		 * after we've loaded it, in accordance with how the modern
+		 * locale format operates.
+		 */
+		for (z = 0; z < table->info->subst_count[i]; z++) {
+			key = p[z].val;
+			newpri = p[z].val = COLLATE_SUBST_PRIORITY | z;
+
+			if (((p2 = chainsearch(table, &key, &len)) != NULL)) {
+				p2->pri[i] = newpri;
+			} else if (key <= UCHAR_MAX) {
+				table->char_pri_table[key].pri[i] = newpri;
+			} else if (table->info->large_count > 0 &&
+			    ((match = largesearch(table, key)) != NULL)) {
+				match->pri.pri[i] = newpri;
+			} else {
+				/*
+				 * This shouldn't really happen, but we'll leave
+				 * it alone.
+				 */
+				continue;
+			}
+
+			/*
+			 * Expand the character into its priority, as expected
+			 * by the new format.
+			 */
+			for (size_t n = 0; n < sizeof(p[z].str); n++) {
+				key = p[z].str[n];
+				if (key == 0)
+					break;
+
+				__collate_lookup_which(&key, &len, &newpri, 0,
+				    loc);
+				p[z].str[n] = newpri;
+			}
+		}
+	}
 }
 
 static int
@@ -143,6 +207,7 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 	collate_legacy_chain_t *lchain_table;
 	collate_legacy_large_t *llarge_table;
 	collate_legacy_subst_t *lsubst_table[2];
+	int32_t pri_count[LEGACY_COLL_WEIGHTS_MAX] = {1, 1};
 	char *XTMP;
 	int i, chains, z;
 
@@ -155,6 +220,9 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 	for(z = 0; z < info->directive_count; z++) {
 		info->undef_pri[z] = ntohl(info->undef_pri[z]);
 		info->subst_count[z] = ntohl(info->subst_count[z]);
+
+		if (info->undef_pri[z] < 0)
+			info->undef_pri[z] *= -1;
 	}
 	info->chain_count = ntohl(info->chain_count);
 	info->large_pri_count = ntohl(info->large_pri_count);
@@ -198,6 +266,12 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 	    (sizeof (collate_chain_t) * chains) +
 	    (sizeof (collate_large_t) * info->large_pri_count);
 	for(z = 0; z < info->directive_count; z++) {
+		/*
+		 * COLLATE_SUBST_DUP was used to bypass some of these accounting
+		 * things, so we have to fix the subst_count.
+		 */
+		if ((info->flags & COLLATE_SUBST_DUP) != 0 && z > 0)
+			info->subst_count[z] = info->subst_count[0];
 		i += sizeof(collate_subst_t) * info->subst_count[z];
 	}
 	if ((table->info = calloc(1, i)) == NULL) {
@@ -227,13 +301,20 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 		XTMP += info->subst_count[0] * sizeof(collate_subst_t);
 	} else
 		table->subst_table[0] = NULL;
-	if (info->flags & COLLATE_SUBST_DUP)
-		table->subst_table[1] = table->subst_table[0];
-	else if (info->subst_count[1] > 0) {
-		lsubst_table[1] = (void *)TMP;
+	if (info->subst_count[1] > 0) {
 		table->subst_table[1] = (collate_subst_t *)XTMP;
-		TMP += info->subst_count[1] * sizeof(collate_legacy_subst_t);
 		XTMP += info->subst_count[1] * sizeof(collate_subst_t);
+		if ((info->flags & COLLATE_SUBST_DUP) != 0) {
+			/*
+			 * We use the same legacy table as for the first order,
+			 * and we'll just copy the data into the second as an
+			 * expansion/de-dupe mechanism.
+			 */
+			lsubst_table[1] = lsubst_table[0];
+		} else {
+			lsubst_table[1] = (void *)TMP;
+			TMP += info->subst_count[1] * sizeof(collate_legacy_subst_t);
+		}
 	} else
 		table->subst_table[1] = NULL;
 
@@ -259,12 +340,15 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 		collate_char_t *p = table->char_pri_table;
 		collate_legacy_char_t *lp = lchar_table;
 		for(i = UCHAR_MAX + 1; i-- > 0; p++, lp++) {
-			for(z = 0; z < info->directive_count; z++)
+			for(z = 0; z < info->directive_count; z++) {
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 				p->pri[z] = ntohl(lp->pri[z]);
 #else
 				p->pri[z] = lp->pri[z];
 #endif
+
+				pri_count[z] = MAX(pri_count[z], p->pri[z] + 1);
+			}
 		}
 	}
 
@@ -279,9 +363,9 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 				p->val = ntohl(p->val);
 				wntohl(p->str, LEGACY_COLLATE_STR_LEN);
+#endif
 			}
 		}
-#endif
 	}
 
 	{
@@ -292,12 +376,14 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 			wntohl(p->str, LEGACY_COLLATE_STR_LEN);
 #endif
-			for(z = 0; z < info->directive_count; z++)
+			for(z = 0; z < info->directive_count; z++) {
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 				p->pri[z] = ntohl(lp->pri[z]);
 #else
 				p->pri[z] = lp->pri[z];
 #endif
+				pri_count[z] = MAX(pri_count[z], p->pri[z] + 1);
+			}
 		}
 	}
 	if (info->large_pri_count > 0) {
@@ -308,21 +394,33 @@ __collate_load_tables_legacy(const char *encoding, locale_t loc, char *TMP,
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 			p->val = ntohl(p->val);
 #endif
-			for(z = 0; z < info->directive_count; z++)
+			for(z = 0; z < info->directive_count; z++) {
 #if __DARWIN_BYTE_ORDER == __DARWIN_LITTLE_ENDIAN
 				p->pri.pri[z] = ntohl(lp->pri.pri[z]);
 #else
 				p->pri.pri[z] = lp->pri.pri[z];
 #endif
+				pri_count[z] = MAX(pri_count[z],
+				    p->pri.pri[z] + 1);
+			}
 		}
 	}
 	(void)strcpy(table->header.locale, encoding);
-	__collate_fill_info(table, info);
+	__collate_fill_info(table, info, pri_count);
+
 	xlocale_release(*cachep);
 	*cachep = table;
 	xlocale_release(loc->components[XLC_COLLATE]);
 	loc->components[XLC_COLLATE] = (void *)table;
 	/* no need to retain, since we set retain_count to 2 above */
+
+	/*
+	 * With the table fully populated, go back and resolve substitutions so
+	 * that we can do the expected quicker lookups.
+	 */
+	__collate_resolve_legacy_substitutions(loc);
+	/* Expanded, drop the flag to avoid any misbehavior. */
+	table->info->flags &= ~COLLATE_SUBST_DUP;
 
 	table->__collate_load_error = 0;
 	if (loc == &__global_locale)
@@ -535,8 +633,13 @@ substsearch(const wchar_t key, collate_subst_t *tab, int n)
 __private_extern__ wchar_t *
 __collate_substitute(const wchar_t *s, int which, locale_t loc)
 {
+#ifdef __APPLE__
+	size_t dest_len, len, nlen;
+	size_t n, delta, nsubst;
+#else
 	int dest_len, len, nlen;
 	int n, delta, nsubst;
+#endif
 	wchar_t *dest_str = NULL;
 	const wchar_t *fp;
 	collate_subst_t *subst, *match;
@@ -674,6 +777,7 @@ _collate_lookup(struct xlocale_collate *table, const wchar_t *t,
 		*pri = *t;
 		*len = 1;
 		*state = NULL;
+		return;
 	}
 
 	/*
@@ -683,7 +787,7 @@ _collate_lookup(struct xlocale_collate *table, const wchar_t *t,
 	if ((sptr = *state) != NULL) {
 		*pri = *sptr;
 		sptr++;
-		if ((sptr == *state) || (sptr == NULL))
+		if ((sptr == *state) || (*sptr == 0))
 			*state = NULL;
 		else
 			*state = sptr;
@@ -1685,7 +1789,11 @@ __private_extern__ wchar_t
 __collate_equiv_value(locale_t loc, const wchar_t *str, size_t len)
 {
 	struct xlocale_collate *table;
+#ifdef __APPLE__
+	const int32_t *pri;
+#else
 	int32_t *pri;
+#endif
 
 	if (len < 1 || len >= COLLATE_STR_LEN)
 		return 0;

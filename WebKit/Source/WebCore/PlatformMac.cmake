@@ -282,6 +282,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/ca/cocoa/PlatformCAAnimationCocoa.mm
     platform/graphics/ca/cocoa/PlatformCAFiltersCocoa.mm
     platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
+    platform/graphics/ca/cocoa/PlatformDynamicRangeLimitCocoa.mm
     platform/graphics/ca/cocoa/WebSystemBackdropLayer.mm
     platform/graphics/ca/cocoa/WebTiledBackingLayer.mm
 
@@ -497,6 +498,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediasession/MediaSessionReadyState.h
     Modules/mediasession/NavigatorMediaSession.h
 
+    accessibility/mac/CocoaAccessibilityConstants.h
     accessibility/mac/WebAccessibilityObjectWrapperBase.h
     accessibility/mac/WebAccessibilityObjectWrapperMac.h
 
@@ -599,7 +601,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/cf/MediaAccessibilitySoftLink.h
 
-    platform/cocoa/AGXCompilerService.h
     platform/cocoa/CoreVideoSoftLink.h
     platform/cocoa/LocalCurrentGraphicsContext.h
     platform/cocoa/NetworkExtensionContentFilter.h

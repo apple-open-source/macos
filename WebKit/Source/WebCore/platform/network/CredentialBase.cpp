@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,7 +99,7 @@ bool CredentialBase::compare(const Credential& a, const Credential& b)
 String CredentialBase::serializationForBasicAuthorizationHeader() const
 {
     auto credentialStringData = makeString(m_user, ':', m_password).utf8();
-    return makeString("Basic "_s, base64Encoded(credentialStringData.span()));
+    return makeString("Basic "_s, base64Encoded(byteCast<uint8_t>(credentialStringData.span())));
 }
 
 auto CredentialBase::nonPlatformData() const -> NonPlatformData

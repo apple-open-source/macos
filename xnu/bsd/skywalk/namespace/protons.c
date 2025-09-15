@@ -31,6 +31,7 @@
 #include <skywalk/namespace/protons.h>
 
 #include <kern/bits.h>
+#include <kern/uipc_domain.h>
 #include <netinet/in_var.h>
 #include <netinet6/in6_var.h>
 #include <sys/domain.h>

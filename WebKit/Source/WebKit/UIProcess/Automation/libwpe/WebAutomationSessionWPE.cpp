@@ -222,11 +222,7 @@ static void doKeyStrokeEvent(WebPageProxy &page, bool pressed, uint32_t keyVal, 
     auto* view = page.wpeView();
     auto* display = wpe_view_get_display(view);
     GUniqueOutPtr<GError> error;
-    auto* keymap = WPE_KEYMAP(wpe_display_get_keymap(display, &error.outPtr()));
-    if (error) {
-        LOG(Automation, "WebAutomationSession::doKeyStrokeEvent: Failed to get keymap: %s. Ignoring event.", error->message);
-        return;
-    }
+    auto* keymap = WPE_KEYMAP(wpe_display_get_keymap(display));
 
     GUniqueOutPtr<WPEKeymapEntry> entries;
     guint entriesCount;
@@ -422,7 +418,7 @@ static uint32_t modifiersForKeyVal(unsigned keyVal)
 }
 #endif // ENABLE(WPE_PLATFORM)
 
-void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& page, KeyboardInteraction interaction, std::variant<VirtualKey, CharKey>&& key)
+void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& page, KeyboardInteraction interaction, Variant<VirtualKey, CharKey>&& key)
 {
     if (page.viewBackend()) {
         platformSimulateKeyboardInteractionLibWPE(page, interaction, WTFMove(key), m_currentModifiers);

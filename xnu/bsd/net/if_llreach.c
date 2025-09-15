@@ -129,6 +129,7 @@
 
 #include <kern/assert.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <netinet6/in6_var.h>

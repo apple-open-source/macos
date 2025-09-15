@@ -211,7 +211,7 @@ template<auto R, typename V, typename... Rest> LengthPercentage<R, V> canonicali
             return canonicalize(CSS::PercentageRaw<R, V> { raw.value }, token, std::forward<Rest>(rest)...);
         },
         [&](CSS::LengthUnit lengthUnit) -> LengthPercentage<R, V> {
-            return Length<R, V> { canonicalizeAndClampLength(raw.value, lengthUnit, token) };
+            return canonicalize(CSS::LengthRaw<R, V> { lengthUnit, raw.value }, token, std::forward<Rest>(rest)...);
         }
     );
 }
@@ -225,7 +225,7 @@ template<auto R, typename V, typename... Rest> LengthPercentage<R, V> canonicali
             return canonicalize(CSS::PercentageRaw<R, V> { raw.value }, conversionData, std::forward<Rest>(rest)...);
         },
         [&](CSS::LengthUnit lengthUnit) -> LengthPercentage<R, V> {
-            return Length<R, V> { canonicalizeAndClampLength(raw.value, lengthUnit, conversionData) };
+            return canonicalize(CSS::LengthRaw<R, V> { lengthUnit, raw.value }, conversionData, std::forward<Rest>(rest)...);
         }
     );
 }
@@ -246,14 +246,14 @@ template<auto R, typename V> struct ToCSS<Length<R, V>> {
 template<auto R, typename V> struct ToCSS<UnevaluatedCalculation<CSS::AnglePercentage<R, V>>> {
     auto operator()(const UnevaluatedCalculation<CSS::AnglePercentage<R, V>>& value, const RenderStyle& style) -> typename CSS::AnglePercentage<R, V>::Calc
     {
-        return typename CSS::AnglePercentage<R, V>::Calc { makeCalc(value.protectedCalculation(), style) };
+        return typename CSS::AnglePercentage<R, V>::Calc { CSSCalcValue::create(value.protectedCalculation(), style) };
     }
 };
 
 template<auto R, typename V> struct ToCSS<UnevaluatedCalculation<CSS::LengthPercentage<R, V>>> {
     auto operator()(const UnevaluatedCalculation<CSS::LengthPercentage<R, V>>& value, const RenderStyle& style) -> typename CSS::LengthPercentage<R, V>::Calc
     {
-        return typename CSS::LengthPercentage<R, V>::Calc { makeCalc(value.protectedCalculation(), style) };
+        return typename CSS::LengthPercentage<R, V>::Calc { CSSCalcValue::create(value.protectedCalculation(), style) };
     }
 };
 
@@ -292,6 +292,7 @@ template<auto R, typename V> struct ToCSS<LengthPercentage<R, V>> {
     }
 };
 
+
 // Partial specialization for remaining numeric types.
 template<Numeric StyleType> struct ToCSS<StyleType> {
     auto operator()(const StyleType& value, const RenderStyle&) -> typename StyleType::CSS
@@ -310,27 +311,7 @@ template<auto nR, auto pR, typename V> struct ToCSS<NumberOrPercentageResolvedTo
 
 // MARK: - Conversion from CSS -> Style
 
-// Integer, Length, AnglePercentage and LengthPercentage require specialized implementations for their calc canonicalization.
-
-template<auto R, typename V> struct ToStyle<CSS::UnevaluatedCalc<CSS::IntegerRaw<R, V>>> {
-    using From = CSS::UnevaluatedCalc<CSS::IntegerRaw<R, V>>;
-    using To = Integer<R, V>;
-
-    template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
-    {
-        return { roundForImpreciseConversion<V>(value.evaluate(From::category, std::forward<Rest>(rest)...)) };
-    }
-};
-
-template<auto R, typename V> struct ToStyle<CSS::UnevaluatedCalc<CSS::LengthRaw<R, V>>> {
-    using From = CSS::UnevaluatedCalc<CSS::LengthRaw<R, V>>;
-    using To = Length<R, V>;
-
-    template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
-    {
-        return { clampLengthToAllowedLimits(value.evaluate(From::category, std::forward<Rest>(rest)...)) };
-    }
-};
+// AnglePercentage and LengthPercentage require specialized implementations for their calc canonicalization.
 
 template<auto R, typename V> struct ToStyle<CSS::UnevaluatedCalc<CSS::AnglePercentageRaw<R, V>>> {
     using From = CSS::UnevaluatedCalc<CSS::AnglePercentageRaw<R, V>>;
@@ -338,15 +319,31 @@ template<auto R, typename V> struct ToStyle<CSS::UnevaluatedCalc<CSS::AnglePerce
 
     template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
     {
-        Ref calc = value.protectedCalc();
+        // NOTE: Simplification is needed here for the case of the user using the Typed CSSOM
+        // to explicitly specify a CSSMath* value for a specified value.
 
-        ASSERT(calc->category() == From::category);
+        Ref simplifiedCalc = value.protectedCalc()->copySimplified(rest...);
 
-        if (!calc->tree().type.percentHint)
-            return typename To::Dimension { clampTo<V>(calc->doubleValue(std::forward<Rest>(rest)...)) };
-        if (WTF::holdsAlternative<CSSCalc::Percentage>(calc->tree().root))
-            return typename To::Percentage { clampTo<V>(calc->doubleValue(std::forward<Rest>(rest)...)) };
-        return typename To::Calc { calc->createCalculationValue(std::forward<Rest>(rest)...) };
+        // FIXME: This ASSERT and the following extra cases for Category::Angle and Category::Percentage
+        // should go away once the typed CSSOM learns to set the correct category when creating internal
+        // representations of CSSMath* types.
+
+        ASSERT(simplifiedCalc->category() == Calculation::Category::AnglePercentage || simplifiedCalc->category() == Calculation::Category::Angle || simplifiedCalc->category() == Calculation::Category::Percentage);
+
+        if (simplifiedCalc->category() == Calculation::Category::Angle)
+            return canonicalize(CSS::AngleRaw<R, V> { To::Dimension::unit, simplifiedCalc->doubleValue(rest...) }, std::forward<Rest>(rest)...);
+
+        if (simplifiedCalc->category() == Calculation::Category::Percentage) {
+            if (WTF::holdsAlternative<CSSCalc::Percentage>(simplifiedCalc->tree().root))
+                return canonicalize(CSS::PercentageRaw<R, V> { simplifiedCalc->doubleValue(std::forward<Rest>(rest)...) }, std::forward<Rest>(rest)...);
+            return typename To::Calc { simplifiedCalc->createCalculationValue(std::forward<Rest>(rest)...) };
+        }
+
+        if (!simplifiedCalc->tree().type.percentHint)
+            return canonicalize(CSS::AngleRaw<R, V> { To::Dimension::unit, simplifiedCalc->doubleValue(rest...) }, std::forward<Rest>(rest)...);
+        if (WTF::holdsAlternative<CSSCalc::Percentage>(simplifiedCalc->tree().root))
+            return canonicalize(CSS::PercentageRaw<R, V> { simplifiedCalc->doubleValue(std::forward<Rest>(rest)...) }, std::forward<Rest>(rest)...);
+        return typename To::Calc { simplifiedCalc->createCalculationValue(std::forward<Rest>(rest)...) };
     }
 };
 
@@ -356,15 +353,31 @@ template<auto R, typename V> struct ToStyle<CSS::UnevaluatedCalc<CSS::LengthPerc
 
     template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
     {
-        Ref calc = value.protectedCalc();
+        // NOTE: Simplification is needed here for the case of the user using the Typed CSSOM
+        // to explicitly specify a CSSMath* value for a specified value.
 
-        ASSERT(calc->category() == From::category);
+        Ref simplifiedCalc = value.protectedCalc()->copySimplified(rest...);
 
-        if (!calc->tree().type.percentHint)
-            return typename To::Dimension { clampLengthToAllowedLimits(calc->doubleValue(std::forward<Rest>(rest)...)) };
-        if (WTF::holdsAlternative<CSSCalc::Percentage>(calc->tree().root))
-            return typename To::Percentage { clampTo<V>(calc->doubleValue(std::forward<Rest>(rest)...)) };
-        return typename To::Calc { calc->createCalculationValue(std::forward<Rest>(rest)...) };
+        // FIXME: This ASSERT and the following extra cases for Category::Length and Category::Percentage
+        // should go away once the typed CSSOM learns to set the correct category when creating internal
+        // representations of CSSMath* types.
+
+        ASSERT(simplifiedCalc->category() == Calculation::Category::LengthPercentage || simplifiedCalc->category() == Calculation::Category::Length || simplifiedCalc->category() == Calculation::Category::Percentage);
+
+        if (simplifiedCalc->category() == Calculation::Category::Length)
+            return canonicalize(CSS::LengthRaw<R, V> { To::Dimension::unit, simplifiedCalc->doubleValue(rest...) }, std::forward<Rest>(rest)...);
+
+        if (simplifiedCalc->category() == Calculation::Category::Percentage) {
+            if (WTF::holdsAlternative<CSSCalc::Percentage>(simplifiedCalc->tree().root))
+                return canonicalize(CSS::PercentageRaw<R, V> { simplifiedCalc->doubleValue(std::forward<Rest>(rest)...) }, std::forward<Rest>(rest)...);
+            return typename To::Calc { simplifiedCalc->createCalculationValue(std::forward<Rest>(rest)...) };
+        }
+
+        if (!simplifiedCalc->tree().type.percentHint)
+            return canonicalize(CSS::LengthRaw<R, V> { To::Dimension::unit, simplifiedCalc->doubleValue(rest...) }, std::forward<Rest>(rest)...);
+        if (WTF::holdsAlternative<CSSCalc::Percentage>(simplifiedCalc->tree().root))
+            return canonicalize(CSS::PercentageRaw<R, V> { simplifiedCalc->doubleValue(std::forward<Rest>(rest)...) }, std::forward<Rest>(rest)...);
+        return typename To::Calc { simplifiedCalc->createCalculationValue(std::forward<Rest>(rest)...) };
     }
 };
 
@@ -386,17 +399,17 @@ template<CSS::NumericRaw RawType> struct ToStyle<CSS::UnevaluatedCalc<RawType>> 
 
     template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
     {
-        return { value.evaluate(From::category, std::forward<Rest>(rest)...) };
+        return { canonicalize(RawType { To::unit, value.evaluate(From::category, rest...) }, rest...) };
     }
 };
 
 template<CSS::Numeric NumericType> struct ToStyle<NumericType> {
     using From = NumericType;
-    using To = typename ToStyleMapping<NumericType>::type;
+    using To = typename ToStyleMapping<From>::type;
 
     template<typename... Rest> auto operator()(const From& value, Rest&&... rest) -> To
     {
-        return WTF::switchOn(value, [&](const auto& value) { return toStyle(value, std::forward<Rest>(rest)...); });
+        return WTF::switchOn(value, [&](const auto& value) -> To { return toStyle(value, std::forward<Rest>(rest)...); });
     }
 
     // Implement `BuilderState` overload to explicitly forward to the `CSSToLengthConversionData` overload.

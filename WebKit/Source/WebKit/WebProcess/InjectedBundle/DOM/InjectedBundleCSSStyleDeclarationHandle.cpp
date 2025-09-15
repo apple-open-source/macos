@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,8 +46,8 @@ static DOMStyleDeclarationHandleCache& domStyleDeclarationHandleCache()
 
 RefPtr<InjectedBundleCSSStyleDeclarationHandle> InjectedBundleCSSStyleDeclarationHandle::getOrCreate(JSContextRef, JSObjectRef object)
 {
-    CSSStyleDeclaration* cssStyleDeclaration = JSCSSStyleDeclaration::toWrapped(toJS(object)->vm(), toJS(object));
-    return getOrCreate(cssStyleDeclaration);
+    RefPtr cssStyleDeclaration = JSCSSStyleDeclaration::toWrapped(toJS(object)->vm(), toJS(object));
+    return getOrCreate(cssStyleDeclaration.get());
 }
 
 RefPtr<InjectedBundleCSSStyleDeclarationHandle> InjectedBundleCSSStyleDeclarationHandle::getOrCreate(CSSStyleDeclaration* styleDeclaration)
@@ -71,11 +71,6 @@ InjectedBundleCSSStyleDeclarationHandle::InjectedBundleCSSStyleDeclarationHandle
 InjectedBundleCSSStyleDeclarationHandle::~InjectedBundleCSSStyleDeclarationHandle()
 {
     domStyleDeclarationHandleCache().remove(m_styleDeclaration.get());
-}
-
-CSSStyleDeclaration* InjectedBundleCSSStyleDeclarationHandle::coreCSSStyleDeclaration()
-{
-    return m_styleDeclaration.ptr();
 }
 
 } // namespace WebKit

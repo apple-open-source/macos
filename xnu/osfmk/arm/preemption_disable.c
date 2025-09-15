@@ -113,7 +113,7 @@ _enable_preemption_write_count(thread_t thread, unsigned int count)
  *
  * /!\ Breaking inlining causes zalloc to be roughly 10% slower /!\
  */
-OS_ALWAYS_INLINE
+OS_ALWAYS_INLINE __mockable
 void
 _disable_preemption(void)
 {
@@ -146,7 +146,7 @@ _disable_preemption(void)
  * without taking measurements (and later potentially triggering
  * actions on those).
  */
-OS_ALWAYS_INLINE
+OS_ALWAYS_INLINE __mockable
 void
 _disable_preemption_without_measurements(void)
 {
@@ -184,7 +184,7 @@ _enable_preemption_underflow(void)
  *
  * /!\ Breaking inlining causes zalloc to be roughly 10% slower /!\
  */
-OS_ALWAYS_INLINE
+OS_ALWAYS_INLINE __mockable
 void
 _enable_preemption(void)
 {
@@ -196,8 +196,10 @@ _enable_preemption(void)
 	}
 
 #if SCHED_HYGIENE_DEBUG
-	if (__improbable(count == SCHED_HYGIENE_MARKER + 1)) {
-		return _collect_preemption_disable_measurement();
+	if (improbable_static_if(sched_debug_preemption_disable)) {
+		if (__improbable(count == SCHED_HYGIENE_MARKER + 1)) {
+			return _collect_preemption_disable_measurement();
+		}
 	}
 #endif /* SCHED_HYGIENE_DEBUG */
 
@@ -260,19 +262,14 @@ struct _preemption_disable_pcpu PERCPU_DATA(_preemption_disable_pcpu_data);
 * Interrupts must be disabled when calling this function,
 * but the assertion has been elided as this is on the fast path.
 */
+OS_ALWAYS_INLINE
 static void
 _preemption_disable_snap_start(void)
 {
 	struct _preemption_disable_pcpu *pcpu = PERCPU_GET(_preemption_disable_pcpu_data);
-	pcpu->pdp_abandon = false;
-	pcpu->pdp_start.pds_mach_time = ml_get_sched_hygiene_timebase();
-	pcpu->pdp_start.pds_int_mach_time = recount_current_processor_interrupt_duration_mach();
-#if CONFIG_CPU_COUNTERS
-	if (static_if(sched_debug_pmc)) {
-		mt_cur_cpu_cycles_instrs_speculative(&pcpu->pdp_start.pds_cycles,
-		    &pcpu->pdp_start.pds_instrs);
-	}
-#endif /* CONFIG_CPU_COUNTERS */
+	const timeout_flags_t flags = ML_TIMEOUT_TIMEBASE_FLAGS | ML_TIMEOUT_PMC_FLAGS | TF_SAMPLE_INTERRUPT_TIME | TF_BACKTRACE;
+
+	kern_timeout_start(&pcpu->pdp_timeout, flags);
 }
 
 /*
@@ -280,24 +277,21 @@ _preemption_disable_snap_start(void)
 * End a measurement window for the current CPU's preemption disable timeout,
 * using the snapshot started by _preemption_disable_snap_start().
 *
-* @param start An out-parameter for the starting snapshot,
-* captured while interrupts are disabled.
-*
-* @param now An out-parameter for the current times,
+* @param top An out-parameter for the current times,
 * captured at the same time as the start and with interrupts disabled.
+*
 * This is meant for computing a delta.
 * Even with @link sched_hygiene_debug_pmc , the PMCs will not be read.
 * This allows their (relatively expensive) reads to happen only if the time threshold has been violated.
 *
 * @return Whether to abandon the current measurement due to a call to abandon_preemption_disable_measurement().
 */
+OS_ALWAYS_INLINE
 static bool
-_preemption_disable_snap_end(
-	struct _preemption_disable_snap *start,
-	struct _preemption_disable_snap *now)
+_preemption_disable_snap_end(kern_timeout_t *top)
 {
 	struct _preemption_disable_pcpu *pcpu = PERCPU_GET(_preemption_disable_pcpu_data);
-
+	const timeout_flags_t flags = ML_TIMEOUT_TIMEBASE_FLAGS | TF_SAMPLE_INTERRUPT_TIME;
 	const bool int_masked_debug = false;
 	const bool istate = ml_set_interrupts_enabled_with_debug(false, int_masked_debug);
 	/*
@@ -313,31 +307,18 @@ _preemption_disable_snap_end(
 	 * grabbed time. With interrupts disabled we don't care much about
 	 * the order.)
 	 */
+	kern_timeout_end(&pcpu->pdp_timeout, flags);
 
-	*start = pcpu->pdp_start;
-	uint64_t now_time = ml_get_sched_hygiene_timebase();
-	now->pds_mach_time = now_time;
-	now->pds_int_mach_time = recount_current_processor_interrupt_duration_mach();
-	const bool abandon = pcpu->pdp_abandon;
 	const uint64_t max_duration = os_atomic_load(&pcpu->pdp_max_mach_duration, relaxed);
-
-	pcpu->pdp_start.pds_mach_time = 0;
-
-	/*
-	 * Don't need to reset (or even save) pdp_abandon here:
-	 * abandon_preemption_disable_measurement is a no-op anyway
-	 * if pdp_start.pds_mach_time == 0 (which we just set), and it
-	 * will stay that way until the next call to
-	 * _collect_preemption_disable_measurement.
-	 */
-	ml_set_interrupts_enabled_with_debug(istate, int_masked_debug);
-	if (__probable(!abandon)) {
-		const int64_t gross_duration = now_time - start->pds_mach_time;
-		if (__improbable(gross_duration > max_duration)) {
-			os_atomic_store(&pcpu->pdp_max_mach_duration, gross_duration, relaxed);
-		}
+	const uint64_t gross_duration = kern_timeout_gross_duration(&pcpu->pdp_timeout);
+	if (__improbable(gross_duration > max_duration)) {
+		os_atomic_store(&pcpu->pdp_max_mach_duration, gross_duration, relaxed);
 	}
-	return abandon;
+
+	*top = pcpu->pdp_timeout;
+	ml_set_interrupts_enabled_with_debug(istate, int_masked_debug);
+
+	return gross_duration == 0;
 }
 
 OS_NOINLINE
@@ -346,7 +327,7 @@ _prepare_preemption_disable_measurement(void)
 {
 	thread_t thread = current_thread();
 
-	if (thread->machine.inthandler_timestamp == 0) {
+	if (thread->machine.int_handler_addr == 0) {
 		/*
 		 * Only prepare a measurement if not currently in an interrupt
 		 * handler.
@@ -378,63 +359,33 @@ OS_NOINLINE
 void
 _collect_preemption_disable_measurement(void)
 {
-	struct _preemption_disable_snap start = { 0 };
-	struct _preemption_disable_snap now = { 0 };
-	const bool abandon = _preemption_disable_snap_end(&start, &now);
+	kern_timeout_t to;
+	const bool abandon = _preemption_disable_snap_end(&to);
 
 	if (__improbable(abandon)) {
 		goto out;
 	}
 
-	int64_t const gross_duration = now.pds_mach_time - start.pds_mach_time;
-	uint64_t const threshold = os_atomic_load(&sched_preemption_disable_threshold_mt, relaxed);
+	const uint64_t gross_duration = kern_timeout_gross_duration(&to);
+	const uint64_t threshold = os_atomic_load(&sched_preemption_disable_threshold_mt, relaxed);
 	if (__improbable(threshold > 0 && gross_duration >= threshold)) {
 		/*
 		 * Double check that the time spent not handling interrupts is over the threshold.
 		 */
-		int64_t const interrupt_duration = now.pds_int_mach_time - start.pds_int_mach_time;
-		int64_t const net_duration = gross_duration - interrupt_duration;
+		const int64_t net_duration = kern_timeout_net_duration(&to);
+		uint64_t average_cpi_whole, average_cpi_fractional;
+
 		assert3u(net_duration, >=, 0);
 		if (net_duration < threshold) {
 			goto out;
 		}
 
-		uint64_t average_freq = 0;
-		uint64_t average_cpi_whole = 0;
-		uint64_t average_cpi_fractional = 0;
-
-#if CONFIG_CPU_COUNTERS
-		if (static_if(sched_debug_pmc)) {
-			/*
-			 * We're getting these values a bit late, but getting them
-			 * is a bit expensive, so we take the slight hit in
-			 * accuracy for the reported values (which aren't very
-			 * stable anyway).
-			 */
-			const bool int_masked_debug = false;
-			const bool istate = ml_set_interrupts_enabled_with_debug(false, int_masked_debug);
-			mt_cur_cpu_cycles_instrs_speculative(&now.pds_cycles, &now.pds_instrs);
-			ml_set_interrupts_enabled_with_debug(istate, int_masked_debug);
-			const uint64_t cycles_elapsed = now.pds_cycles - start.pds_cycles;
-			const uint64_t instrs_retired = now.pds_instrs - start.pds_instrs;
-
-			uint64_t duration_ns;
-			absolutetime_to_nanoseconds(gross_duration, &duration_ns);
-
-			average_freq = cycles_elapsed / (duration_ns / 1000);
-			average_cpi_whole = cycles_elapsed / instrs_retired;
-			average_cpi_fractional =
-			    ((cycles_elapsed * 100) / instrs_retired) % 100;
-		}
-#endif /* CONFIG_CPU_COUNTERS */
-
 		if (__probable(sched_preemption_disable_debug_mode == SCHED_HYGIENE_MODE_PANIC)) {
-			panic("preemption disable timeout exceeded: %llu >= %llu mt ticks (start: %llu, now: %llu, gross: %llu, inttime: %llu), "
-			    "freq = %llu MHz, CPI = %llu.%llu",
-			    net_duration, threshold, start.pds_mach_time, now.pds_mach_time,
-			    gross_duration, interrupt_duration,
-			    average_freq, average_cpi_whole, average_cpi_fractional);
+			kern_timeout_try_panic(KERN_TIMEOUT_PREEMPTION, 0, &to,
+			    "preemption disable timeout exceeded:", threshold);
 		}
+
+		kern_timeout_cpi(&to, &average_cpi_whole, &average_cpi_fractional);
 
 		DTRACE_SCHED4(mach_preemption_expired, uint64_t, net_duration, uint64_t, gross_duration,
 		    uint64_t, average_cpi_whole, uint64_t, average_cpi_fractional);
@@ -457,13 +408,9 @@ out:
 void
 abandon_preemption_disable_measurement(void)
 {
-	const bool int_masked_debug = false;
-	bool istate = ml_set_interrupts_enabled_with_debug(false, int_masked_debug);
 	struct _preemption_disable_pcpu *pcpu = PERCPU_GET(_preemption_disable_pcpu_data);
-	if (pcpu->pdp_start.pds_mach_time != 0) {
-		pcpu->pdp_abandon = true;
-	}
-	ml_set_interrupts_enabled_with_debug(istate, int_masked_debug);
+
+	kern_timeout_override(&pcpu->pdp_timeout);
 }
 
 /* Inner part of disable_preemption_without_measuerments() */
@@ -476,7 +423,7 @@ _do_disable_preemption_without_measurements(void)
 	 * that we didn't really care.
 	 */
 	struct _preemption_disable_pcpu *pcpu = PERCPU_GET(_preemption_disable_pcpu_data);
-	pcpu->pdp_abandon = true;
+	kern_timeout_override(&pcpu->pdp_timeout);
 }
 
 /**
@@ -527,6 +474,12 @@ sched_perfcontrol_abandon_preemption_disable_measurement(void)
 }
 
 #else /* SCHED_HYGIENE_DEBUG */
+
+void
+abandon_preemption_disable_measurement(void)
+{
+	// No-op. Function is exported, so needs to be defined
+}
 
 void
 sched_perfcontrol_abandon_preemption_disable_measurement(void)

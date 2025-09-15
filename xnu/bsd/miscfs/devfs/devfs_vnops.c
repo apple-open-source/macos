@@ -116,6 +116,7 @@ void                    devfs_rele_node(devnode_t *);
 static void             devfs_consider_time_update(devnode_t *dnp, uint32_t just_changed_flags);
 static boolean_t        devfs_update_needed(long now_s, long last_s);
 static boolean_t        devfs_is_name_protected(struct vnode *dvp, const char *name);
+static boolean_t        devfs_is_vnode_protected(struct vnode *vp);
 void                    dn_times_locked(devnode_t * dnp, struct timeval *t1, struct timeval *t2, struct timeval *t3, uint32_t just_changed_flags);
 void                    dn_times_now(devnode_t *dnp, uint32_t just_changed_flags);
 void                    dn_mark_for_delayed_times_update(devnode_t *dnp, uint32_t just_changed_flags);
@@ -211,6 +212,33 @@ devfs_is_name_protected(struct vnode *dvp, const char *name)
 	return FALSE;
 }
 
+/*
+ * These devfs devices cannot have their permissions updated.
+ */
+static boolean_t
+devfs_is_vnode_protected(struct vnode *vp)
+{
+	struct vnode *dvp = NULLVP;
+	const char *vname = NULL;
+	boolean_t ret = FALSE;
+	vnode_getparent_and_name(vp, &dvp, &vname);
+	if (!dvp || !vname) {
+		ret = FALSE;
+		goto out;
+	}
+
+	ret = devfs_is_name_protected(dvp, vname);
+
+out:
+	if (vname) {
+		vnode_putname(vname);
+	}
+	if (dvp != NULLVP) {
+		vnode_put(dvp);
+	}
+
+	return ret;
+}
 
 /*
  * Convert a component of a pathname into a pointer to a locked node.
@@ -579,6 +607,13 @@ devfs_setattr(struct vnop_setattr_args *ap)
 	 * Change the permissions.
 	 */
 	if (VATTR_IS_ACTIVE(vap, va_mode)) {
+		/*
+		 * Don't allow permission updates of critical devfs devices
+		 */
+		if (devfs_is_vnode_protected(vp)) {
+			error = EPERM;
+			goto exit;
+		}
 		file_node->dn_mode &= ~07777;
 		file_node->dn_mode |= vap->va_mode & 07777;
 	}

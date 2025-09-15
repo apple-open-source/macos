@@ -48,6 +48,11 @@ public:
     virtual size_t memoryCost() const = 0;
 
     void copyTo(std::span<uint8_t>, AudioSampleFormat, size_t planeIndex, std::optional<size_t> frameOffset, std::optional<size_t> frameCount, unsigned long copyElementCount);
+
+    using PlaneData = Variant<Vector<std::span<uint8_t>>, Vector<std::span<int16_t>>, Vector<std::span<int32_t>>, Vector<std::span<float>>>;
+
+private:
+    void copyToInterleaved(PlaneData source, std::span<uint8_t> destination, AudioSampleFormat, unsigned long copyElementCount);
 };
 
 } // namespace WebCore

@@ -3817,8 +3817,7 @@ xmlSchemaCopyValue(xmlSchemaValPtr val)
 	    case XML_SCHEMAS_IDREFS:
 	    case XML_SCHEMAS_ENTITIES:
 	    case XML_SCHEMAS_NMTOKENS:
-		xmlSchemaFreeValue(ret);
-		return (NULL);
+                goto error;
 	    case XML_SCHEMAS_ANYSIMPLETYPE:
 	    case XML_SCHEMAS_STRING:
 	    case XML_SCHEMAS_NORMSTRING:
@@ -3832,12 +3831,16 @@ xmlSchemaCopyValue(xmlSchemaValPtr val)
 	    case XML_SCHEMAS_NMTOKEN:
 	    case XML_SCHEMAS_ANYURI:
 		cur = xmlSchemaDupVal(val);
+                if (cur == NULL)
+                    goto error;
 		if (val->value.str != NULL)
 		    cur->value.str = xmlStrdup(BAD_CAST val->value.str);
 		break;
 	    case XML_SCHEMAS_QNAME:
 	    case XML_SCHEMAS_NOTATION:
 		cur = xmlSchemaDupVal(val);
+                if (cur == NULL)
+                    goto error;
 		if (val->value.qname.name != NULL)
 		    cur->value.qname.name =
                     xmlStrdup(BAD_CAST val->value.qname.name);
@@ -3847,17 +3850,23 @@ xmlSchemaCopyValue(xmlSchemaValPtr val)
 		break;
 	    case XML_SCHEMAS_HEXBINARY:
 		cur = xmlSchemaDupVal(val);
+                if (cur == NULL)
+                    goto error;
 		if (val->value.hex.str != NULL)
 		    cur->value.hex.str = xmlStrdup(BAD_CAST val->value.hex.str);
 		break;
 	    case XML_SCHEMAS_BASE64BINARY:
 		cur = xmlSchemaDupVal(val);
+                if (cur == NULL)
+                    goto error;
 		if (val->value.base64.str != NULL)
 		    cur->value.base64.str =
                     xmlStrdup(BAD_CAST val->value.base64.str);
 		break;
 	    default:
 		cur = xmlSchemaDupVal(val);
+                if (cur == NULL)
+                    goto error;
 		break;
 	}
 	if (ret == NULL)
@@ -3868,6 +3877,10 @@ xmlSchemaCopyValue(xmlSchemaValPtr val)
 	val = val->next;
     }
     return (ret);
+
+error:
+    xmlSchemaFreeValue(ret);
+    return (NULL);
 }
 
 /**

@@ -146,6 +146,14 @@ struct nameidata {
 #define NAMEI_NOFOLLOW_ANY      0x1000  /* no symlinks allowed in the path */
 #define NAMEI_ROOTDIR           0x2000  /* Limit lookup to ni_rootdir (similar to chroot) */
 #define NAMEI_RESOLVE_BENEATH   0x4000  /* path resolution must not escape the starting directory */
+#define NAMEI_NODOTDOT          0x8000  /* prevent '..' path traversal */
+
+#define NAMEI_LOCAL             0x10000 /* prevent a path lookup into a network filesystem */
+#define NAMEI_NODEVFS           0x20000 /* prevent a path lookup into `devfs` filesystem */
+#define NAMEI_IMMOVABLE         0x40000 /* prevent a path lookup into a removable filesystem */
+#define NAMEI_NOXATTRS          0x80000 /* prevent a path lookup on named streams */
+
+#define NAMEI_UNIQUE            0x100000 /* prevent a path lookup from succeeding on a vnode with multiple links */
 
 #ifdef KERNEL
 /*
@@ -184,7 +192,9 @@ struct nameidata {
 #define USEDVP          0x00400000 /* start the lookup at ndp.ni_dvp */
 #define CN_VOLFSPATH    0x00800000 /* user path was a volfs style path */
 #define CN_FIRMLINK_NOFOLLOW    0x01000000 /* Do not follow firm links */
-#define UNIONCREATED    0x02000000 /* union fs creation of vnode */
+#if NAMEDSTREAMS
+#define MARKISSHADOW    0x02000000 /* only for getshadowfile() */
+#endif
 #if NAMEDRSRCFORK
 #define CN_WANTSRSRCFORK 0x04000000
 #define CN_ALLOWRSRCFORK 0x08000000

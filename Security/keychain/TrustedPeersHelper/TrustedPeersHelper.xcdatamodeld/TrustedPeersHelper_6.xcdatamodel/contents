@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23077.1" systemVersion="23E196a" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24151.3" systemVersion="24E202a" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
     <entity name="Bottle" representedClassName="BottleMO" syncable="YES" codeGenerationType="class">
         <attribute name="bottleID" optional="YES" attributeType="String"/>
         <attribute name="contents" optional="YES" attributeType="Binary"/>
@@ -11,13 +11,17 @@
     </entity>
     <entity name="Container" representedClassName="ContainerMO" syncable="YES" codeGenerationType="class">
         <attribute name="accountDSID" optional="YES" attributeType="String"/>
+        <attribute name="accountSettings" optional="YES" attributeType="Binary"/>
+        <attribute name="accountSettingsDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="allowedMachineIDs" optional="YES" attributeType="Transformable" valueTransformerName="SetValueTransformer" customClassName="NSSet"/>
         <attribute name="changeToken" optional="YES" attributeType="String"/>
+        <attribute name="distrustedEgoSponsoredBeneficiaryIDs" optional="YES" attributeType="Transformable" valueTransformerName="SetValueTransformer" customClassName="NSSet"/>
         <attribute name="egoPeerID" optional="YES" attributeType="String"/>
         <attribute name="egoPeerPermanentInfo" optional="YES" attributeType="Binary"/>
         <attribute name="egoPeerPermanentInfoSig" optional="YES" attributeType="Binary"/>
         <attribute name="egoPeerStableInfo" optional="YES" attributeType="Binary"/>
         <attribute name="egoPeerStableInfoSig" optional="YES" attributeType="Binary"/>
+        <attribute name="egoSponsoredBeneficiaryIDs" optional="YES" attributeType="Transformable" valueTransformerName="SetValueTransformer" customClassName="NSSet"/>
         <attribute name="escrowFetchDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="honorIDMSListChanges" optional="YES" attributeType="String" defaultValueString="UNKNOWN"/>
         <attribute name="idmsTrustedDeviceListFetchDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -36,8 +40,6 @@
         <relationship name="passcodeGens" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="PasscodeGen" inverseName="container" inverseEntity="PasscodeGen"/>
         <relationship name="peers" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Peer" inverseName="container" inverseEntity="Peer"/>
         <relationship name="policies" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Policy" inverseName="container" inverseEntity="Policy"/>
-        <attribute name="accountSettings" optional="YES" attributeType="Binary"/>
-        <attribute name="accountSettingsDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
     <entity name="CustodianRecoveryKey" representedClassName="CustodianRecoveryKeyMO" syncable="YES" codeGenerationType="class">
         <attribute name="crkInfo" optional="YES" attributeType="Binary"/>

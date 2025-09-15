@@ -43,7 +43,7 @@
 #include <libkern/coreanalytics/coreanalytics.h>
 #include <mach/resource_monitors.h>
 #include <mach/sdt.h>
-#include <os/log.h>
+#include <vm/vm_log.h>
 #include <sys/kdebug_triage.h>
 #include <vm/vm_sanitize_telemetry.h>
 #include <vm/vm_protos.h>
@@ -219,7 +219,7 @@ vm_sanitize_send_telemetry_core_analytics(
 	struct proc *proc = current_proc();
 	ca_event_t ca_event = CA_EVENT_ALLOCATE_FLAGS(vm_sanitize_updated_return_code, Z_NOWAIT | Z_ZERO);
 	if (NULL == ca_event) {
-		os_log_error(OS_LOG_DEFAULT, "Failed to allocate event for VM API telemetry.");
+		vm_log_error("Failed to allocate event for VM API telemetry.");
 		return;
 	}
 	CA_EVENT_TYPE(vm_sanitize_updated_return_code) * event_data = ca_event->data;

@@ -487,18 +487,24 @@ struct nfs_open_file {
 	uint32_t                        nof_d_r_dw;             /* read deny-write opens */
 };
 /* nof_flags */
-#define NFS_OPEN_FILE_BUSY      0x0001  /* open state-modifying operation in progress */
-#define NFS_OPEN_FILE_WANT      0x0002  /* someone else wants to mark busy */
-#define NFS_OPEN_FILE_CREATE    0x0004  /* has an open(RW) from a "CREATE" call */
-#define NFS_OPEN_FILE_NEEDCLOSE 0x0008  /* has an open(R) from an (unopen) VNOP_READ or VNOP_MMAP call */
-#define NFS_OPEN_FILE_SETATTR   0x0020  /* has an open(W) to perform a SETATTR(size) */
-#define NFS_OPEN_FILE_POSIXLOCK 0x0040  /* server supports POSIX locking semantics */
-#define NFS_OPEN_FILE_LOST      0x0080  /* open state has been lost */
-#define NFS_OPEN_FILE_REOPEN    0x0100  /* file needs to be reopened */
-#define NFS_OPEN_FILE_REOPENING 0x0200  /* file is being reopened */
-#define NFS_OPEN_FILE_MERGED    0x0400  /* open file was merged */
-#define NFS_OPEN_FILE_CLOSING   0x0800  /* file is being closed */
-#define NFS_OPEN_FILE_CLOSING_WAIT 0x1000  /* someone is wating for CLOSE to be finished */
+
+#define NFS_OPEN_FILE_BUSY              0x0001  /* open state-modifying operation in progress */
+#define NFS_OPEN_FILE_WANT              0x0002  /* someone else wants to mark busy */
+#define NFS_OPEN_FILE_CREATE            0x0004  /* has an open(RW) from a "CREATE" call */
+#define NFS_OPEN_FILE_NEEDCLOSE         0x0008  /* has an open(R) from an (unopen) VNOP_READ or VNOP_MMAP call */
+#define NFS_OPEN_FILE_SETATTR           0x0020  /* has an open(W) to perform a SETATTR(size) */
+#define NFS_OPEN_FILE_POSIXLOCK         0x0040  /* server supports POSIX locking semantics */
+#define NFS_OPEN_FILE_LOST              0x0080  /* open state has been lost */
+#define NFS_OPEN_FILE_REOPEN            0x0100  /* file needs to be reopened */
+#define NFS_OPEN_FILE_REOPENING         0x0200  /* file is being reopened */
+#define NFS_OPEN_FILE_MERGED            0x0400  /* open file was merged */
+#define NFS_OPEN_FILE_CLOSING           0x0800  /* file is being closed */
+#define NFS_OPEN_FILE_CLOSING_WAIT      0x1000  /* someone is wating for CLOSE to be finished */
+#define NFS_OPEN_FILE_PRESERVE_UNLINKED 0x2000  /* Preserve unlinked enabled */
+#define NFS_OPEN_FILE_MAY_NOTIFY_LOCK   0x4000  /* Server may use CB_NOTIFY_LOCK on locks derived from this open */
+
+#define NFS_OPEN_FILE_MERGE_MASK        (NFS_OPEN_FILE_POSIXLOCK | NFS_OPEN_FILE_PRESERVE_UNLINKED | NFS_OPEN_FILE_MAY_NOTIFY_LOCK | \
+	                                     NFS_OPEN_FILE_CLOSING | NFS_OPEN_FILE_CLOSING_WAIT)
 
 struct nfs_lock_owner;
 /*

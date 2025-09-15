@@ -25,14 +25,15 @@
 
 WI.SourceMapResource = class SourceMapResource extends WI.Resource
 {
-    constructor(url, sourceMap, {ignored} = {})
+    constructor(sourceMap, url, {inlineContent, ignored} = {})
     {
         super(url);
 
-        console.assert(url);
         console.assert(sourceMap);
+        console.assert(url);
 
         this._sourceMap = sourceMap;
+        this._inlineContent = inlineContent || null;
         this._ignored = ignored || false;
 
         var inheritedMIMEType = this._sourceMap.originalSourceCode instanceof WI.Resource ? this._sourceMap.originalSourceCode.syntheticMIMEType : null;
@@ -55,6 +56,7 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
     // Public
 
     get sourceMap() { return this._sourceMap; }
+    get inlineContent() { return this._inlineContent; }
 
     get ignored() { return this._ignored; }
     set ignored(ignored) { this._ignored = ignored; }
@@ -99,7 +101,7 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
         if (!this._sourceMap.originalSourceCode.supportsScriptBlackboxing)
             return false;
 
-        // COMPATIBILITY (macOS X.Y, iOS X.Y): Debugger.setShouldBlackboxURL.sourceRanges did not exist yet.
+        // COMPATIBILITY (macOS 15.0, iOS 18.0): Debugger.setShouldBlackboxURL.sourceRanges did not exist yet.
         return InspectorBackend.hasCommand("Debugger.setShouldBlackboxURL", "sourceRanges");
     }
 
@@ -108,12 +110,11 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
         // Revert the markAsFinished that was done in the constructor.
         this.revertMarkAsFinished();
 
-        var inlineContent = this._sourceMap.sourceContent(this.url);
-        if (inlineContent) {
+        if (this._inlineContent) {
             // Force inline content to be asynchronous to match the expected load pattern.
             // FIXME: We don't know the MIME-type for inline content. Guess by analyzing the content?
             // Returns a promise.
-            return Promise.resolve().then(sourceMapResourceLoaded.bind(this, {content: inlineContent, mimeType: this.mimeType, statusCode: 200}));
+            return Promise.resolve().then(sourceMapResourceLoaded.bind(this, {content: this._inlineContent, mimeType: this.mimeType, statusCode: 200}));
         }
 
         function sourceMapResourceNotAvailable(error, content, mimeType, statusCode)
@@ -172,20 +173,18 @@ WI.SourceMapResource = class SourceMapResource extends WI.Resource
     createSourceCodeLocation(lineNumber, columnNumber)
     {
         // SourceCodeLocations are always constructed with raw resources and raw locations. Lookup the raw location.
-        var entry = this._sourceMap.findEntryReversed(this.url, lineNumber);
-        var rawLineNumber = entry[0];
-        var rawColumnNumber = entry[1];
+        let [generatedLine, generatedColumn] = this._sourceMap.findGeneratedPosition(this.url, lineNumber);
 
         // If the raw location is an inline script we need to include that offset.
         var originalSourceCode = this._sourceMap.originalSourceCode;
         if (originalSourceCode instanceof WI.Script) {
-            if (rawLineNumber === 0)
-                rawColumnNumber += originalSourceCode.range.startColumn;
-            rawLineNumber += originalSourceCode.range.startLine;
+            if (!generatedLine)
+                generatedColumn += originalSourceCode.range.startColumn;
+            generatedLine += originalSourceCode.range.startLine;
         }
 
         // Create the SourceCodeLocation and since we already know the the mapped location set it directly.
-        var location = originalSourceCode.createSourceCodeLocation(rawLineNumber, rawColumnNumber);
+        let location = originalSourceCode.createSourceCodeLocation(generatedLine, generatedColumn);
         location._setMappedLocation(this, lineNumber, columnNumber);
         return location;
     }

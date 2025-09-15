@@ -288,6 +288,12 @@ void RemoteInspectorServer::connectionDidClose(SocketConnection& clientConnectio
         for (auto connectionTargetPair : copyToVector(m_automationTargets))
             close(clientConnection, connectionTargetPair.first, connectionTargetPair.second);
         m_automationConnection = nullptr;
+#if USE(GLIB)
+        // As we support single sessions, there's no need to send a sessionID like we do when setting up the automation connection
+        // in startAutomationSession(). If we ever support multiple sessions, we should eventually map the sessionID to the connectionID and
+        // send it here.
+        RemoteInspector::singleton().automationConnectionDidClose();
+#endif
     } else if (&clientConnection == m_clientConnection) {
         for (auto connectionTargetPair : copyToVector(m_inspectionTargets))
             close(clientConnection, connectionTargetPair.first, connectionTargetPair.second);

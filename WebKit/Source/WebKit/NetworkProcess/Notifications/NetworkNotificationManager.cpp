@@ -36,6 +36,7 @@
 #include "PushClientConnectionMessages.h"
 #include "WebPushDaemonConnectionConfiguration.h"
 #include "WebPushMessage.h"
+#include <WebCore/NotificationData.h>
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -232,6 +233,15 @@ void NetworkNotificationManager::getAppBadgeForTesting(CompletionHandler<void(st
     connection->sendWithAsyncReplyWithoutUsingIPCConnection(Messages::PushClientConnection::GetAppBadgeForTesting(), WTFMove(completionHandler));
 }
 
+void NetworkNotificationManager::setServiceWorkerIsBeingInspected(const URL& scopeURL, bool isInspected)
+{
+    RefPtr connection = m_connection;
+    if (!connection)
+        return;
+
+    connection->sendWithAsyncReplyWithoutUsingIPCConnection(Messages::PushClientConnection::SetServiceWorkerIsBeingInspected { scopeURL, isInspected }, []() { });
+}
+
 static void getPushPermissionStateImpl(WebPushD::Connection* connection, WebCore::SecurityOriginData&& origin, CompletionHandler<void(WebCore::PushPermissionState)>&& completionHandler)
 {
     if (!connection)
@@ -252,8 +262,7 @@ void NetworkNotificationManager::getPermissionStateSync(WebCore::SecurityOriginD
 
 std::optional<SharedPreferencesForWebProcess> NetworkNotificationManager::sharedPreferencesForWebProcess(const IPC::Connection& connection) const
 {
-    Ref networkProcess = m_networkProcess;
-    return networkProcess->webProcessConnection(connection)->sharedPreferencesForWebProcess();
+    return m_networkProcess->webProcessConnection(connection)->sharedPreferencesForWebProcess();
 }
 
 RefPtr<WebPushD::Connection> NetworkNotificationManager::protectedConnection() const

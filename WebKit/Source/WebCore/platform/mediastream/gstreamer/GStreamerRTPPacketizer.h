@@ -71,7 +71,6 @@ protected:
     GUniquePtr<GstStructure> m_stats;
 
 private:
-    void setPayloadType(int);
     void updateStatsFromRTPExtensions();
     void applyEncodingParameters(const GstStructure*) const;
     virtual void configure(const GstStructure*) const { };

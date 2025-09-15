@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2019 Igalia S.L.
  *
@@ -35,6 +35,7 @@
 #include "CairoUtilities.h"
 #include "ColorBlending.h"
 #include "GraphicsContextCairo.h"
+#include <numbers>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
@@ -60,10 +61,10 @@ static void setCornerColorRGBA(cairo_pattern_t* gradient, int id, GradientColorS
 }
 
 static constexpr double deg0 = 0;
-static constexpr double deg90 = piDouble / 2;
-static constexpr double deg180 = piDouble;
-static constexpr double deg270 = 3 * piDouble / 2;
-static constexpr double deg360 = 2 * piDouble;
+static constexpr double deg90 = std::numbers::pi / 2;
+static constexpr double deg180 = std::numbers::pi;
+static constexpr double deg270 = 3 * std::numbers::pi / 2;
+static constexpr double deg360 = 2 * std::numbers::pi;
 
 static double normalizeAngle(double angle)
 {
@@ -80,8 +81,8 @@ static void addConicSector(cairo_pattern_t *gradient, float cx, float cy, float 
 
     // Substract 90 degrees so angles start from top left.
     // Convert to radians and add angleRadians offset.
-    double angleStart = ((from.offset - angOffset) * 2 * piDouble) + angleRadians;
-    double angleEnd = ((to.offset - angOffset) * 2 * piDouble) + angleRadians;
+    double angleStart = ((from.offset - angOffset) * 2 * std::numbers::pi) + angleRadians;
+    double angleEnd = ((to.offset - angOffset) * 2 * std::numbers::pi) + angleRadians;
 
     // Calculate center offset depending on quadrant.
     //

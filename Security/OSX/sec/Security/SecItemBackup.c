@@ -621,7 +621,7 @@ void SecItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef 
 
 bool SecBackupKeybagAdd(CFDataRef passcode, CFDataRef *identifier, CFURLRef *pathinfo, CFErrorRef *error) {
     __block bool result = false;
-    os_activity_initiate("_SecServerBackupKeybagAdd", OS_ACTIVITY_FLAG_DEFAULT, ^{
+    os_activity_initiate("SecServerBackupKeybagAdd", OS_ACTIVITY_FLAG_DEFAULT, ^{
         securityd_send_sync_and_do(kSecXPCOpBackupKeybagAdd, error, ^bool(xpc_object_t message, CFErrorRef *error) {
             return SecXPCDictionarySetDataOptional(message, kSecXPCKeyUserPassword, passcode, error);
         }, ^bool(xpc_object_t response, CFErrorRef *error) {

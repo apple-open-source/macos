@@ -134,11 +134,11 @@ OS_CLOSED_OPTIONS(exclaves_requirement, uint64_t,
     EXCLAVES_R_CONCLAVE     = 0x20,
 
     /*
-     * ExclaveKit initialization.
-     * If relaxed and exclavekit initialization fails, continue on without
+     * Framebank initialization.
+     * If relaxed and framebank initialization fails, set exclavekit boot to failed and continue on without
      * panicking. All conclave related functionality will fail.
      */
-    EXCLAVES_R_EXCLAVEKIT   = 0x40,
+    EXCLAVES_R_FRAMEBANK   = 0x40,
 
     /*
      * Conclave resource support.
@@ -166,6 +166,18 @@ OS_CLOSED_OPTIONS(exclaves_requirement, uint64_t,
      * If relaxed, it's not expected that stress tests will run.
      */
     EXCLAVES_R_TEST_STRESS  = 0x400,
+
+    /*
+     * Support for Always On Exclaves.
+     */
+    EXCLAVES_R_AOE          = 0x800,
+
+    /*
+     * ExclaveKit initialization.
+     * If relaxed, skip exclavekit initialization and continue on without
+     * panicking. All conclave related functionality will fail.
+     */
+    EXCLAVES_R_EXCLAVEKIT   = 0x1000,
 
     );
 
@@ -751,6 +763,60 @@ SPI_AVAILABLE(macos(14.4), ios(17.4), tvos(17.4), watchos(10.4))
 kern_return_t
 exclaves_notification_create(mach_port_t port, const char *name, uint64_t *notification_id);
 
+/*!
+ * @function exclaves_aoe_setup
+ *
+ * @abstract
+ * Discover the number of threads this always-on conclave supports.
+ *
+ * @param port
+ * Reserved, must be MACH_PORT_NULL for now.
+ *
+ * @param num_message
+ * Returns the number of message threads
+ *
+ * @param num_worker
+ * Returns the number of worker threads
+ *
+ * @result
+ * KERN_SUCCESS or mach system call error code.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), xros(3.0))
+kern_return_t
+exclaves_aoe_setup(mach_port_t port, uint8_t *num_message, uint8_t *num_worker);
+
+/*!
+ * @function exclaves_aoe_work_loop
+ *
+ * @abstract
+ * Enter the always-on exclaves worker run loop. This function never returns.
+ *
+ * @param port
+ * Reserved, must be MACH_PORT_NULL for now.
+ *
+ * @result
+ * KERN_SUCCESS or mach system call error code.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), xros(3.0))
+kern_return_t
+exclaves_aoe_work_loop(mach_port_t port);
+
+/*!
+ * @function exclaves_aoe_message_loop
+ *
+ * @abstract
+ * Enter the always-on exclaves message loop. This function never returns.
+ *
+ * @param port
+ * Reserved, must be MACH_PORT_NULL for now.
+ *
+ * @result
+ * KERN_SUCCESS or mach system call error code.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), xros(3.0))
+kern_return_t
+exclaves_aoe_message_loop(mach_port_t port);
+
 #else /* defined(KERNEL) */
 
 /*!
@@ -898,8 +964,11 @@ OS_ENUM(exclaves_sensor_type, uint32_t,
     EXCLAVES_SENSOR_MIC = 2,
     EXCLAVES_SENSOR_CAM_ALT_FACEID = 3,
     EXCLAVES_SENSOR_CAM_ALT_FACEID_DELAYED = 4,
+    EXCLAVES_SENSOR_TEST = 5,
+    EXCLAVES_SENSOR_TEST_MIL = 6,
+    EXCLAVES_SENSOR_TEST_CIL = 7,
     /* update max if more sensors added */
-    EXCLAVES_SENSOR_MAX = 4,
+    EXCLAVES_SENSOR_MAX = 7,
     );
 
 /*!
@@ -1056,7 +1125,10 @@ OS_ENUM(exclaves_ctl_op, uint8_t,
     EXCLAVES_CTL_OP_SENSOR_STOP = 12,
     EXCLAVES_CTL_OP_SENSOR_STATUS = 13,
     EXCLAVES_CTL_OP_NOTIFICATION_RESOURCE_LOOKUP = 14,
-    EXCLAVES_CTL_OP_SENSOR_MIN_ON_TIME = 15,
+    EXCLAVES_CTL_OP_AOE_SETUP = 15,
+    EXCLAVES_CTL_OP_AOE_MESSAGE_LOOP = 16,
+    EXCLAVES_CTL_OP_AOE_WORK_LOOP = 17,
+    EXCLAVES_CTL_OP_SENSOR_MIN_ON_TIME = 18,
     EXCLAVES_CTL_OP_LAST,
     );
 #define EXCLAVES_CTL_FLAGS_MASK (0xfffffful)

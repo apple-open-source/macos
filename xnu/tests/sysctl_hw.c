@@ -15,6 +15,13 @@ T_DECL(sysctl_hw_cpu, "ensure vital product and CPU-related sysctls exist")
 
 	buffer_size = sizeof(buffer);
 
+	ret = sysctlbyname("hw.jetsam_properties_product_type", buffer,
+	    &buffer_size, NULL, 0);
+	T_ASSERT_POSIX_SUCCESS(ret, "hw.jetsam_properties_product_type sysctl");
+	T_LOG("hw.jetsam_properties_product_type = %s", buffer);
+
+	buffer_size = sizeof(buffer);
+
 	ret = sysctlbyname("hw.product", buffer,
 	    &buffer_size, NULL, 0);
 	T_ASSERT_POSIX_SUCCESS(ret, "hw.product sysctl");

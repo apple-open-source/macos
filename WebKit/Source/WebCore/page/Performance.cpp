@@ -51,7 +51,10 @@
 #include "PerformanceUserTiming.h"
 #include "ResourceResponse.h"
 #include "ScriptExecutionContext.h"
+#include <ranges>
+#include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/StringToIntegerConversion.h>
 
 namespace WebCore {
 
@@ -59,10 +62,25 @@ WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Performance);
 
 static Seconds timePrecision { 1_ms };
 
+static bool isSignpostEnabled()
+{
+    static bool flag = false;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        const char* value = getenv("WebKitPerformanceSignpostEnabled");
+        if (value) {
+            if (auto result = parseInteger<int>(StringView::fromLatin1(value)); result && result.value())
+                flag = true;
+        }
+    });
+    return flag;
+}
+
 Performance::Performance(ScriptExecutionContext* context, MonotonicTime timeOrigin)
     : ContextDestructionObserver(context)
     , m_resourceTimingBufferFullTimer(*this, &Performance::resourceTimingBufferFullTimerFired) // FIXME: Migrate this to the event loop as well. https://bugs.webkit.org/show_bug.cgi?id=229044
     , m_timeOrigin(timeOrigin)
+    , m_continuousTimeOrigin(timeOrigin.approximateContinuousTime())
 {
     ASSERT(m_timeOrigin);
 }
@@ -124,7 +142,7 @@ PerformanceNavigation* Performance::navigation()
 
     ASSERT(isMainThread());
     if (!m_navigation)
-        m_navigation = PerformanceNavigation::create(downcast<Document>(*scriptExecutionContext()).domWindow());
+        m_navigation = PerformanceNavigation::create(downcast<Document>(*scriptExecutionContext()).window());
     return m_navigation.get();
 }
 
@@ -135,7 +153,7 @@ PerformanceTiming* Performance::timing()
 
     ASSERT(isMainThread());
     if (!m_timing)
-        m_timing = PerformanceTiming::create(downcast<Document>(*scriptExecutionContext()).domWindow());
+        m_timing = PerformanceTiming::create(downcast<Document>(*scriptExecutionContext()).window());
     return m_timing.get();
 }
 
@@ -156,7 +174,7 @@ Vector<Ref<PerformanceEntry>> Performance::getEntries() const
     if (m_firstContentfulPaint)
         entries.append(*m_firstContentfulPaint);
 
-    std::sort(entries.begin(), entries.end(), PerformanceEntry::startTimeCompareLessThan);
+    std::ranges::sort(entries, PerformanceEntry::startTimeCompareLessThan);
     return entries;
 }
 
@@ -180,7 +198,7 @@ Vector<Ref<PerformanceEntry>> Performance::getEntriesByType(const String& entryT
             entries.appendVector(m_userTiming->getMeasures());
     }
 
-    std::sort(entries.begin(), entries.end(), PerformanceEntry::startTimeCompareLessThan);
+    std::ranges::sort(entries, PerformanceEntry::startTimeCompareLessThan);
     return entries;
 }
 
@@ -208,7 +226,7 @@ Vector<Ref<PerformanceEntry>> Performance::getEntriesByName(const String& name, 
             entries.appendVector(m_userTiming->getMeasures(name));
     }
 
-    std::sort(entries.begin(), entries.end(), PerformanceEntry::startTimeCompareLessThan);
+    std::ranges::sort(entries, PerformanceEntry::startTimeCompareLessThan);
     return entries;
 }
 
@@ -376,6 +394,23 @@ ExceptionOr<Ref<PerformanceMeasure>> Performance::measure(JSC::JSGlobalObject& g
     auto measure = m_userTiming->measure(globalObject, measureName, WTFMove(startOrMeasureOptions), endMark);
     if (measure.hasException())
         return measure.releaseException();
+
+    if (isSignpostEnabled()) {
+#if OS(DARWIN)
+        Ref entry { measure.returnValue() };
+        auto startTime = m_continuousTimeOrigin + Seconds::fromMilliseconds(entry->startTime());
+        auto endTime = m_continuousTimeOrigin + Seconds::fromMilliseconds(entry->startTime() + entry->duration());
+        uint64_t platformStartTime = startTime.toMachContinuousTime();
+        uint64_t platformEndTime = endTime.toMachContinuousTime();
+        uint64_t correctedStartTime = std::min(platformStartTime, platformEndTime);
+        uint64_t correctedEndTime = std::max(platformStartTime, platformEndTime);
+        // Because signpost intervals are closed invervals [start, end], we decrease the endTime by 1 if startTime and endTime is not the same.
+        if (correctedStartTime != correctedEndTime)
+            correctedEndTime -= 1;
+        auto message = measureName.utf8();
+        WTFEmitSignpostAlways(entry.ptr(), WebKitPerformance, "%{public}s %{public, signpost.description:begin_time}llu %{public, signpost.description:end_time}llu", message.data(), correctedStartTime, correctedEndTime);
+#endif
+    }
 
     queueEntry(measure.returnValue().get());
     return measure.releaseReturnValue();

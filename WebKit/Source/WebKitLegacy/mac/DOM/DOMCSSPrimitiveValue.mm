@@ -72,7 +72,7 @@
 - (NSString *)getStringValue
 {
     WebCore::JSMainThreadNullState state;
-    return raiseOnDOMError(IMPL->getStringValue());
+    return raiseOnDOMError(IMPL->getStringValue()).createNSString().autorelease();
 }
 
 - (DOMCounter *)getCounterValue

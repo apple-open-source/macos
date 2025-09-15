@@ -58,6 +58,10 @@
 #define _NETINET6_ND6_VAR_H_
 
 #ifdef BSD_KERNEL_PRIVATE
+#include <kern/locks.h>
+#include <sys/types.h>
+#include <mach/boolean.h>
+
 struct nd_ifinfo {
 	decl_lck_mtx_data(, lock);
 	boolean_t initialized;          /* Flag to see the entry is initialized */

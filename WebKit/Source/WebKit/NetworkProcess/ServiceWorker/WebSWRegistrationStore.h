@@ -55,7 +55,7 @@ private:
     void clearAll(CompletionHandler<void()>&&);
     void flushChanges(CompletionHandler<void()>&&);
     void closeFiles(CompletionHandler<void()>&&);
-    void importRegistrations(CompletionHandler<void(std::optional<Vector<WebCore::ServiceWorkerContextData>>)>&&);
+    void importRegistrations(CompletionHandler<void(std::optional<Vector<WebCore::ServiceWorkerContextData>>&&)>&&);
     void updateRegistration(const WebCore::ServiceWorkerContextData&);
     void removeRegistration(const WebCore::ServiceWorkerRegistrationKey&);
 
@@ -63,11 +63,10 @@ private:
     void updateToStorage(CompletionHandler<void()>&&);
     void updateTimerFired() { updateToStorage([] { }); }
 
-    CheckedPtr<NetworkStorageManager> checkedManager() const;
     RefPtr<WebCore::SWServer> protectedServer() const;
 
     WeakPtr<WebCore::SWServer> m_server;
-    WeakPtr<NetworkStorageManager> m_manager;
+    ThreadSafeWeakPtr<NetworkStorageManager> m_manager;
     WebCore::Timer m_updateTimer;
     HashMap<WebCore::ServiceWorkerRegistrationKey, std::optional<WebCore::ServiceWorkerContextData>> m_updates;
 };

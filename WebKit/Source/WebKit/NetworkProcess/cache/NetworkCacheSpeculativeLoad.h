@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION) || ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
-
 #include "NetworkCache.h"
 #include "NetworkCacheEntry.h"
 #include "NetworkLoadClient.h"
@@ -50,6 +48,7 @@ namespace NetworkCache {
 
 class SpeculativeLoad final : public NetworkLoadClient {
     WTF_MAKE_TZONE_ALLOCATED(SpeculativeLoad);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SpeculativeLoad);
 public:
     using RevalidationCompletionHandler = CompletionHandler<void(std::unique_ptr<NetworkCache::Entry>)>;
     SpeculativeLoad(Cache&, const GlobalFrameID&, const WebCore::ResourceRequest&, std::unique_ptr<NetworkCache::Entry>, std::optional<NavigatingToAppBoundDomain>, bool allowPrivacyProxy, OptionSet<WebCore::AdvancedPrivacyProtections>, RevalidationCompletionHandler&&);
@@ -67,13 +66,13 @@ private:
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) override;
     void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, ResponseCompletionHandler&&) override;
-    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&, uint64_t reportedEncodedDataLength) override;
+    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&) override;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) override;
     void didFailLoading(const WebCore::ResourceError&) override;
 
     void didComplete();
 
-    Ref<Cache> m_cache;
+    const Ref<Cache> m_cache;
     RevalidationCompletionHandler m_completionHandler;
     WebCore::ResourceRequest m_originalRequest;
 
@@ -91,5 +90,3 @@ bool requestsHeadersMatch(const WebCore::ResourceRequest& speculativeValidationR
 
 } // namespace NetworkCache
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION) || ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)

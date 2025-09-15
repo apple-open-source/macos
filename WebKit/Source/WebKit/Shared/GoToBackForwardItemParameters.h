@@ -31,6 +31,7 @@
 #include "WebsitePoliciesData.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/NavigationIdentifier.h>
+#include <WebCore/ProcessSwapDisposition.h>
 #include <WebCore/PublicSuffix.h>
 #include <WebCore/ShouldTreatAsContinuingLoad.h>
 #include <wtf/text/WTFString.h>
@@ -47,6 +48,7 @@ struct GoToBackForwardItemParameters {
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
     WebCore::PublicSuffix publicSuffix;
     SandboxExtension::Handle sandboxExtensionHandle;
+    WebCore::ProcessSwapDisposition processSwapDisposition;
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,7 @@ RTCDataChannelRemoteManager& RTCDataChannelRemoteManager::singleton()
 
 RTCDataChannelRemoteManager::RTCDataChannelRemoteManager()
     : m_queue(WorkQueue::create("RTCDataChannelRemoteManager"_s))
-    , m_connection(&WebProcess::singleton().ensureNetworkProcessConnection().connection())
+    , m_connection(WebProcess::singleton().ensureNetworkProcessConnection().connection())
 {
 }
 
@@ -163,7 +163,7 @@ void RTCDataChannelRemoteManager::detectError(WebCore::RTCDataChannelIdentifier 
     });
 }
 
-void RTCDataChannelRemoteManager::bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier handlerIdentifier, size_t amount)
+void RTCDataChannelRemoteManager::bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier handlerIdentifier, uint64_t amount)
 {
     postTaskToHandler(handlerIdentifier, [amount](auto& handler) {
         handler.bufferedAmountIsDecreasing(amount);
@@ -226,7 +226,7 @@ void RTCDataChannelRemoteManager::RemoteSourceConnection::didChangeReadyState(We
 void RTCDataChannelRemoteManager::RemoteSourceConnection::didReceiveStringData(WebCore::RTCDataChannelIdentifier identifier, const String& string)
 {
     auto text = string.utf8();
-    m_connection->send(Messages::RTCDataChannelRemoteManagerProxy::ReceiveData { identifier, false, text.span() }, 0);
+    m_connection->send(Messages::RTCDataChannelRemoteManagerProxy::ReceiveData { identifier, false, byteCast<uint8_t>(text.span()) }, 0);
 }
 
 void RTCDataChannelRemoteManager::RemoteSourceConnection::didReceiveRawData(WebCore::RTCDataChannelIdentifier identifier, std::span<const uint8_t> data)
@@ -239,7 +239,7 @@ void RTCDataChannelRemoteManager::RemoteSourceConnection::didDetectError(WebCore
     m_connection->send(Messages::RTCDataChannelRemoteManagerProxy::DetectError { identifier, type, message }, 0);
 }
 
-void RTCDataChannelRemoteManager::RemoteSourceConnection::bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier identifier, size_t amount)
+void RTCDataChannelRemoteManager::RemoteSourceConnection::bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier identifier, uint64_t amount)
 {
     m_connection->send(Messages::RTCDataChannelRemoteManagerProxy::BufferedAmountIsDecreasing { identifier, amount }, 0);
 }

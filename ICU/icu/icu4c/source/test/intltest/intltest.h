@@ -387,7 +387,11 @@ public:
     UBool assertEquals(const UnicodeString& message,
         const std::vector<std::string>& expected, const std::vector<std::string>& actual);
     UBool assertNotEquals(const UnicodeString& message, int32_t expectedNot, int32_t actual);
-
+#if APPLE_ICU_CHANGES
+    // rdar://148837256 Adding asserting for a range of values
+    UBool assertInClosedRange(const UnicodeString& message, int32_t from, int32_t to, int32_t actual);
+#endif  // APPLE_ICU_CHANGES
+    
     virtual void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = nullptr ); // override !
 
     virtual UBool runTestLoop( char* testname, char* par, char *baseName );

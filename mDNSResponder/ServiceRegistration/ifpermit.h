@@ -1,6 +1,6 @@
 /* thread-device.h
  *
- * Copyright (c) 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,11 +31,14 @@ void ifpermit_list_remove(ifpermit_list_t *NONNULL list, const char *NONNULL nam
 void ifpermit_list_retain_(ifpermit_list_t *NULLABLE list, const char *NONNULL file, int line);
 #define ifpermit_list_release(list) ifpermit_list_release_(list, __FILE__, __LINE__)
 void ifpermit_list_release_(ifpermit_list_t *NULLABLE list, const char *NONNULL file, int line);
-bool ifpermit_interface_is_permitted(ifpermit_list_t *NULLABLE permits, uint32_t ifindex);
+bool ifpermit_interface_index_is_listed(ifpermit_list_t *NULLABLE permits, uint32_t ifindex);
+bool ifpermit_interface_name_is_listed(ifpermit_list_t *NULLABLE permits, const char *NONNULL name);
 #define ifpermit_add_permitted_interface_to_server(server_state, name) \
     ifpermit_add_permitted_interface_to_server_(server_state, name, __FILE__, __LINE__)
 void ifpermit_add_permitted_interface_to_server_(srp_server_t *NONNULL server_state, const char *NONNULL name,
                                                  const char *NONNULL file, int line);
+void ifpermit_save_permit_list_to_prefs(ifpermit_list_t *NULLABLE list, const char *NONNULL preference_name);
+void ifpermit_load_permit_list_from_prefs(ifpermit_list_t *NONNULL *NULLABLE list, const char *NONNULL preference_name);
 #endif // __IFPERMIT_H__
 
 // Local Variables:

@@ -39,6 +39,7 @@
 (allow iokit-open
    (iokit-user-client-class "AppleKeyStoreUserClient")
    (iokit-user-client-class "AppleAPFSUserClient")
+   (iokit-user-client-class "AppleCredentialManagerUserClient")
    (iokit-user-client-class "RootDomainUserClient"))
 
 
@@ -68,12 +69,15 @@
         (global-name "com.apple.powerlog.plxpclogger.xpc")
         (global-name "com.apple.SecureBackupDaemon")
         (global-name "com.apple.SecureBackupDaemon.concurrent")
+        (global-name "com.apple.SecurityServer")
         (global-name "com.apple.keychainsharingmessagingd")
         (global-name "com.apple.AuthenticationServices.CredentialSharingGroups")
         (global-name "com.apple.mobile.usermanagerd.xpc")
         (global-name "com.apple.coreservices.quarantine-resolver")
         (global-name "com.apple.lsd.mapdb")
         (global-name "com.apple.UNCUserNotification")
+        (global-name "com.apple.CoreAuthentication.agent")
+        (global-name "com.apple.CoreAuthentication.agent.libxpc")
 )
 
 ;; Used to send logs for MoiC.

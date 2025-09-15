@@ -362,6 +362,8 @@ protected:
         UInt32         contextsMaxCount;
         IOPerfControlClient * perfControlClient;
         IOUserBlockStorageDevice * userBlockStorageDevice;
+        SInt32         shutdownProcessed;
+        thread_call_t  processShutdownThread;
     };
     ExpansionData * _expansionData;
 
@@ -395,6 +397,10 @@ protected:
               IOBlockStorageDriver::_expansionData->perfControlClient
     #define _userBlockStorageDevice           \
               IOBlockStorageDriver::_expansionData->userBlockStorageDevice
+    #define _shutdownProcessed           \
+              IOBlockStorageDriver::_expansionData->shutdownProcessed
+    #define _processShutdownThread           \
+              IOBlockStorageDriver::_expansionData->processShutdownThread
 
     OSSet *         _openClients;
     OSNumber *      _statistics[kStatisticsCount];
@@ -1482,6 +1488,8 @@ protected:
                                 IOMemoryDescriptor *  buffer,
                                 IOStorageAttributes * attributes,
                                 IOStorageCompletion * completion);
+
+    void processShutdown(void *eventMask);
 
 public:
 

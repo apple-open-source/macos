@@ -61,18 +61,18 @@ public:
             return nullptr;
 
         if (!m_buffer->isContiguous())
-            m_buffer = m_buffer->makeContiguous();
+            m_buffer = RefPtr { m_buffer }->makeContiguous();
 
-        return downcast<SharedBuffer>(*m_buffer).span().data();
+        return Ref { downcast<SharedBuffer>(*m_buffer) }->span().data();
     }
 
-    void lockUnderlyingBuffer() final
+    void lockUnderlyingBufferImpl() final
     {
         ASSERT(!m_buffer);
         m_buffer = m_cachedScript->resourceBuffer();
     }
 
-    void unlockUnderlyingBuffer() final
+    void unlockUnderlyingBufferImpl() final
     {
         ASSERT(m_buffer);
         m_buffer = nullptr;

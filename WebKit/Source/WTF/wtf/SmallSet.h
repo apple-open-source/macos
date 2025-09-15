@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <limits>
 #include <wtf/Assertions.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashFunctions.h>
@@ -37,7 +38,7 @@ namespace WTF {
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SmallSet);
 
-// Functionally, this class is very similar to std::variant<Vector<T, SmallArraySize>, HashSet<T>>
+// Functionally, this class is very similar to Variant<Vector<T, SmallArraySize>, HashSet<T>>
 // It is optimized primarily for space, but is also quite fast
 // Its main limitation is that it has no way to remove elements once they have been added to it
 // Also, instead of being fully parameterized by a HashTrait parameter, it always uses -1 (all ones) as its empty value
@@ -145,7 +146,7 @@ public:
         }
 
         // If we're more than 3/4ths full we grow.
-        if (UNLIKELY(m_size * 4 >= m_capacity * 3)) {
+        if (m_size * 4 >= m_capacity * 3) [[unlikely]] {
             grow(m_capacity * 2);
             ASSERT(!(m_capacity & (m_capacity - 1)));
         }
@@ -175,7 +176,7 @@ public:
         return equal(*bucket, value);
     }
 
-    iterator begin() const
+    iterator begin() const LIFETIME_BOUND
     {
         iterator it;
         it.m_index = std::numeric_limits<unsigned>::max();
@@ -190,7 +191,7 @@ public:
         return it;
     }
 
-    iterator end() const
+    iterator end() const LIFETIME_BOUND
     {
         iterator it;
         it.m_index = m_capacity;

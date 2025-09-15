@@ -67,7 +67,7 @@ bool operator==(const FontFamilyName& a, const FontFamilyName& b)
 
 FontCascadeCache& FontCascadeCache::forCurrentThread()
 {
-    return FontCache::forCurrentThread().fontCascadeCache();
+    return FontCache::forCurrentThread()->fontCascadeCache();
 }
 
 void FontCascadeCache::invalidate()
@@ -91,7 +91,7 @@ void FontCascadeCache::pruneUnreferencedEntries()
 void FontCascadeCache::pruneSystemFallbackFonts()
 {
     for (auto& entry : m_entries.values())
-        entry->fonts->pruneSystemFallbacks();
+        Ref { entry->fonts }->pruneSystemFallbacks();
 }
 
 static FontCascadeCacheKey makeFontCascadeCacheKey(const FontCascadeDescription& description, FontSelector* fontSelector)
@@ -116,7 +116,7 @@ Ref<FontCascadeFonts> FontCascadeCache::retrieveOrAddCachedFonts(const FontCasca
 
     auto& newEntry = addResult.iterator->value;
     newEntry = makeUnique<FontCascadeCacheEntry>(FontCascadeCacheEntry { WTFMove(key), FontCascadeFonts::create() });
-    Ref<FontCascadeFonts> glyphs = newEntry->fonts.get();
+    Ref<FontCascadeFonts> fonts = newEntry->fonts.get();
 
 
 #if !PLATFORM(IOS_FAMILY)
@@ -133,7 +133,7 @@ Ref<FontCascadeFonts> FontCascadeCache::retrieveOrAddCachedFonts(const FontCasca
     // Prevent pathological growth.
     if (m_entries.size() > maximumEntries)
         m_entries.remove(m_entries.random());
-    return glyphs;
+    return fonts;
 }
 
 } // namespace WebCore

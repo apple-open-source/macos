@@ -62,6 +62,9 @@ static unsigned keyValueCountForFilter(const FilterOperation& filterOperation)
     case FilterOperation::Type::AppleInvertLightness:
         ASSERT_NOT_REACHED(); // AppleInvertLightness is only used in -apple-color-filter.
         break;
+    case FilterOperation::Type::DropShadowWithStyleColor:
+        ASSERT_NOT_REACHED(); // Replaced by DropShadow.
+        break;
     case FilterOperation::Type::Passthrough:
         return 0;
     }
@@ -129,25 +132,26 @@ void PlatformCAFilters::presentationModifiers(const FilterOperations& initialFil
     ASSERT(presentationModifierCount(*canonicalFilters));
 
     for (size_t i = 0; i < numberOfCanonicalFilters; ++i) {
-        auto& canonicalFilterOperation = (*canonicalFilters)[i].get();
-        auto& initialFilterOperation = i < numberOfInitialFilters ? initialFilters[i].get() : passthroughFilter(canonicalFilterOperation.type());
-        ASSERT(canonicalFilterOperation.type() == initialFilterOperation.type());
+        Ref canonicalFilterOperation = (*canonicalFilters)[i].get();
+        Ref initialFilterOperation = i < numberOfInitialFilters ? initialFilters[i].get() : passthroughFilter(canonicalFilterOperation->type());
+        ASSERT(canonicalFilterOperation->type() == initialFilterOperation->type());
 
         auto filterName = makeString("filter_"_s, i);
 
-        auto type = initialFilterOperation.type();
+        auto type = initialFilterOperation->type();
         switch (type) {
         case FilterOperation::Type::Default:
         case FilterOperation::Type::Reference:
         case FilterOperation::Type::None:
+        case FilterOperation::Type::DropShadowWithStyleColor:
             ASSERT_NOT_REACHED();
             break;
         case FilterOperation::Type::DropShadow: {
-            const auto& dropShadowOperation = downcast<DropShadowFilterOperation>(initialFilterOperation);
-            auto size = CGSizeMake(dropShadowOperation.x(), dropShadowOperation.y());
+            const Ref dropShadowOperation = downcast<DropShadowFilterOperation>(initialFilterOperation);
+            auto size = CGSizeMake(dropShadowOperation->x(), dropShadowOperation->y());
             presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:@"shadowOffset" initialValue:[NSValue value:&size withObjCType:@encode(CGSize)] additive:NO group:group.get()]) });
-            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:@"shadowColor" initialValue:(id) cachedCGColor(dropShadowOperation.color()).autorelease() additive:NO group:group.get()]) });
-            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:@"shadowRadius" initialValue:@(dropShadowOperation.stdDeviation()) additive:NO group:group.get()]) });
+            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:@"shadowColor" initialValue:(id) cachedCGColor(dropShadowOperation->color()).autorelease() additive:NO group:group.get()]) });
+            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:@"shadowRadius" initialValue:@(dropShadowOperation->stdDeviation()) additive:NO group:group.get()]) });
             continue;
         }
         case FilterOperation::Type::Grayscale:
@@ -159,8 +163,8 @@ void PlatformCAFilters::presentationModifiers(const FilterOperations& initialFil
         case FilterOperation::Type::Brightness:
         case FilterOperation::Type::Contrast:
         case FilterOperation::Type::Blur: {
-            auto keyValueName = makeString("filters."_s, filterName, '.', animatedFilterPropertyName(initialFilterOperation.type()));
-            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:keyValueName initialValue:filterValueForOperation(initialFilterOperation).get() additive:NO group:group.get()]) });
+            auto keyValueName = makeString("filters."_s, filterName, '.', animatedFilterPropertyName(initialFilterOperation->type()));
+            presentationModifiers.append({ type, adoptNS([[CAPresentationModifier alloc] initWithKeyPath:keyValueName.createNSString().get() initialValue:filterValueForOperation(initialFilterOperation).get() additive:NO group:group.get()]) });
             continue;
         }
         case FilterOperation::Type::AppleInvertLightness:
@@ -183,20 +187,21 @@ void PlatformCAFilters::updatePresentationModifiers(const FilterOperations& filt
     size_t filterIndex = 0;
     auto numberOfFilters = filters.size();
     for (size_t i = 0; i < presentationModifiers.size(); ++i) {
-        auto& filterOperation = filterIndex < numberOfFilters ? *filters.at(filterIndex) : passthroughFilter(presentationModifiers[i].first);
+        Ref filterOperation = filterIndex < numberOfFilters ? *filters.at(filterIndex) : passthroughFilter(presentationModifiers[i].first);
         ++filterIndex;
-        switch (filterOperation.type()) {
+        switch (filterOperation->type()) {
         case FilterOperation::Type::Default:
         case FilterOperation::Type::Reference:
         case FilterOperation::Type::None:
+        case FilterOperation::Type::DropShadowWithStyleColor:
             ASSERT_NOT_REACHED();
             return;
         case FilterOperation::Type::DropShadow: {
-            const auto& dropShadowOperation = downcast<DropShadowFilterOperation>(filterOperation);
-            auto size = CGSizeMake(dropShadowOperation.x(), dropShadowOperation.y());
+            const Ref dropShadowOperation = downcast<DropShadowFilterOperation>(filterOperation);
+            auto size = CGSizeMake(dropShadowOperation->x(), dropShadowOperation->y());
             [presentationModifiers[i].second.get() setValue:[NSValue value:&size withObjCType:@encode(CGSize)]];
-            [presentationModifiers[i + 1].second.get() setValue:(id) cachedCGColor(dropShadowOperation.color()).autorelease()];
-            [presentationModifiers[i + 2].second.get() setValue:@(dropShadowOperation.stdDeviation())];
+            [presentationModifiers[i + 1].second.get() setValue:(id) cachedCGColor(dropShadowOperation->color()).autorelease()];
+            [presentationModifiers[i + 2].second.get() setValue:@(dropShadowOperation->stdDeviation())];
             i += 2;
             continue;
         }
@@ -252,6 +257,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOper
         case FilterOperation::Type::Default:
         case FilterOperation::Type::Reference:
         case FilterOperation::Type::None:
+        case FilterOperation::Type::DropShadowWithStyleColor:
             ASSERT_NOT_REACHED();
             return nil;
         case FilterOperation::Type::DropShadow: {
@@ -268,35 +274,35 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOper
             const auto& colorMatrixOperation = downcast<BasicColorMatrixFilterOperation>(filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMonochrome];
             [filter setValue:[NSNumber numberWithFloat:colorMatrixOperation.amount()] forKey:@"inputAmount"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Sepia: {
             RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation.type(), &filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Saturate: {
             const auto& colorMatrixOperation = downcast<BasicColorMatrixFilterOperation>(filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorSaturate];
             [filter setValue:[NSNumber numberWithFloat:colorMatrixOperation.amount()] forKey:@"inputAmount"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::HueRotate: {
             const auto& colorMatrixOperation = downcast<BasicColorMatrixFilterOperation>(filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorHueRotate];
             [filter setValue:[NSNumber numberWithFloat:deg2rad(colorMatrixOperation.amount())] forKey:@"inputAngle"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Invert: {
             RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation.type(), &filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::AppleInvertLightness:
@@ -306,21 +312,21 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOper
             RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation.type(), &filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Brightness: {
             RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation.type(), &filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Contrast: {
             RetainPtr<NSValue> colorMatrixValue = PlatformCAFilters::colorMatrixValueForFilter(filterOperation.type(), &filterOperation);
             CAFilter *filter = [CAFilter filterWithType:kCAFilterColorMatrix];
             [filter setValue:colorMatrixValue.get() forKey:@"inputColorMatrix"];
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Blur: {
@@ -342,7 +348,7 @@ void PlatformCAFilters::setFiltersOnLayer(PlatformLayer* layer, const FilterOper
                     [filter setValue:@YES forKey:@"inputHardEdges"];
 #endif
             }
-            [filter setName:filterName];
+            [filter setName:filterName.createNSString().get()];
             return filter;
         }
         case FilterOperation::Type::Passthrough:

@@ -73,7 +73,6 @@ class CertTools
   attr_reader :build_dir
   attr_reader :project_dir
   attr_reader :certificate_dir
-  attr_reader :revoked_certs_dir
   attr_reader :root_certs_dir
   attr_reader :intermediate_certs_dir
   attr_reader :security_tool_path
@@ -88,11 +87,9 @@ class CertTools
     @project_dir = ENV["PROJECT_DIR"]
     @certificate_dir = File.join(@project_dir, "../certificates")
 
-    @revoked_certs_dir = File.join(certificate_dir, "revoked")
     @root_certs_dir = File.join(certificate_dir, "roots")
     @intermediate_certs_dir = File.join(certificate_dir, "removed/intermediates")
 
-    Utilities.check_path(@revoked_certs_dir)
     Utilities.check_path(@root_certs_dir)
     Utilities.check_path(@intermediate_certs_dir)
 
@@ -110,7 +107,6 @@ class CertTools
       puts "@build_dir = #{@build_dir}"
       puts "@project_dir = #{@project_dir}"
       puts "@certificate_dir = #{@certificate_dir}"
-      puts "@revoked_certs_dir = #{@revoked_certs_dir}"
       puts "@root_certs_dir = #{@root_certs_dir}"
       puts "@intermediate_certs_dir = #{@intermediate_certs_dir}"
       puts "@security_tool_path = #{@security_tool_path}"
@@ -133,11 +129,6 @@ class CertTools
   # Get the directory path to the project directory
   def self.project_dir
     CertTools.instance.project_dir
-  end
-
-  # Get the directory path to the revoked directory
-  def self.revoked_certs_dir
-      CertTools.instance.revoked_certs_dir
   end
 
   # Get the directory path to the roots directory
@@ -247,9 +238,9 @@ class BuildRootKeychains
       next if f[0].chr == "."
       puts "Processing root #{f}" if @verbose
       full_root_path = File.join(CertTools.root_certs_dir, f)
-      if f == "AppleDEVID.cer" 
+      if f == "7AFC9D01A62F03A2DE9637936D4AFE68090D2DE18D03F29C88CFB0B1BA63587F.cer" # DevID CA
         puts " skipping intermediate #{f} for trust" if @verbose
-        cmd_str = CertTools.security_tool_path + " -q add-certificates -k " + Utilities.quote_str(@root_cert_kc_path) + " " + 
+        cmd_str = CertTools.security_tool_path + " -q add-certificates -k " + Utilities.quote_str(@root_cert_kc_path) + " " +
           Utilities.quote_str(full_root_path)
 
         `#{cmd_str}`
@@ -313,11 +304,6 @@ class BuildRootKeychains
      Utilities.bail("security add-trusted-cert returned an error for #{full_path}") if $? != 0
     end
   end
-
-  # Process the revoked certificates
-  def revoked_certs()
-    process_certs("Explicitly revoking certs", CertTools.revoked_certs_dir, true)
-  end
   
   def get_num_root_certs()
       cmd_str =  CertTools.security_tool_path + " find-certificate -a " + Utilities.quote_str(@root_cert_kc_path)
@@ -368,7 +354,6 @@ class BuildRootKeychains
     Utilities.bail("create_setting_file failed") if result != 0
     add_roots()
     Utilities.bail("create_temp_keychain failed") if create_temp_keychain != 0
-    revoked_certs()
     delete_temp_keychain()
     Utilities.bail("check_all_roots_added failed") if !check_all_roots_added
     set_file_priv()
@@ -432,6 +417,8 @@ end
 # 
 # Description:  This class provides the necessary functionality to create the
 #               EVRoots.plist output file.
+# OBSOLETE
+# EVRoots.plist has been built by the BuildiOSAsset target for many years
 # =============================================================================
 class BuildEVRoots
   attr_reader :open_ssl_tool_path
@@ -612,8 +599,9 @@ brkc.do_processing
 #bcakc.do_processing
 
 # Make the EVRoots.plist file
-bevr = BuildEVRoots.new(verbose)
-bevr.do_processing
+# OBSOLETE
+#bevr = BuildEVRoots.new(verbose)
+#bevr.do_processing
 
 # M I C R O S O F T  H A C K !
 # It turns out that the Mac Office (2008) rolled their own solution to roots.

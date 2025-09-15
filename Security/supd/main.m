@@ -153,7 +153,7 @@ int main(int argc, const char *argv[])
     ServiceDelegate *delegate = [[ServiceDelegate alloc] init];
 
     // Always create a supd instance to register for the background activity that doesn't check entitlements
-    static supd *activity_supd = nil;
+    static supd *activity_supd __unused = nil;
     activity_supd = [[supd alloc] initWithConnection:nil];
     
     NSXPCListener *listener = [[NSXPCListener alloc] initWithMachServiceName:@"com.apple.securityuploadd"];

@@ -39,8 +39,6 @@
 #include <kern/ipc_kobject.h>
 #include <kern/host.h>
 #include <kern/thread.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 #include <device/device_port.h>
 #include <vm/memory_object_internal.h>
 #include <vm/vm_pageout.h>

@@ -30,12 +30,161 @@
 #include "WebMouseEvent.h"
 #include "WebTouchEvent.h"
 #include "WebWheelEvent.h"
+#include <WebCore/PlatformMouseEvent.h>
 
 #if ENABLE(MAC_GESTURE_EVENTS)
 #include "WebGestureEvent.h"
 #endif
 
 namespace WebKit {
+
+WebCore::MouseButton platform(WebMouseEventButton button)
+{
+    switch (button) {
+    case WebMouseEventButton::None:
+        return WebCore::MouseButton::None;
+    case WebMouseEventButton::Left:
+        return WebCore::MouseButton::Left;
+    case WebMouseEventButton::Middle:
+        return WebCore::MouseButton::Middle;
+    case WebMouseEventButton::Right:
+        return WebCore::MouseButton::Right;
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+WebMouseEventButton kit(WebCore::MouseButton button)
+{
+    switch (button) {
+    case WebCore::MouseButton::None:
+        return WebMouseEventButton::None;
+    case WebCore::MouseButton::Left:
+        return WebMouseEventButton::Left;
+    case WebCore::MouseButton::Middle:
+        return WebMouseEventButton::Middle;
+    case WebCore::MouseButton::Right:
+        return WebMouseEventButton::Right;
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+WebCore::PlatformEvent::Type platform(WebEventType type)
+{
+    switch (type) {
+    // Mouse
+    case WebEventType::MouseDown:
+        return WebCore::PlatformEvent::Type::MousePressed;
+    case WebEventType::MouseUp:
+        return WebCore::PlatformEvent::Type::MouseReleased;
+    case WebEventType::MouseMove:
+        return WebCore::PlatformEvent::Type::MouseMoved;
+    case WebEventType::MouseForceChanged:
+        return WebCore::PlatformEvent::Type::MouseForceChanged;
+    case WebEventType::MouseForceDown:
+        return WebCore::PlatformEvent::Type::MouseForceDown;
+    case WebEventType::MouseForceUp:
+        return WebCore::PlatformEvent::Type::MouseForceUp;
+
+    // Wheel
+    case WebEventType::Wheel:
+        return WebCore::PlatformEvent::Type::Wheel;
+
+    // Keyboard
+    case WebEventType::KeyDown:
+        return WebCore::PlatformEvent::Type::KeyDown;
+    case WebEventType::KeyUp:
+        return WebCore::PlatformEvent::Type::KeyUp;
+    case WebEventType::RawKeyDown:
+        return WebCore::PlatformEvent::Type::RawKeyDown;
+    case WebEventType::Char:
+        return WebCore::PlatformEvent::Type::Char;
+
+#if ENABLE(TOUCH_EVENTS)
+    // Touch
+    case WebEventType::TouchStart:
+        return WebCore::PlatformEvent::Type::TouchStart;
+    case WebEventType::TouchMove:
+        return WebCore::PlatformEvent::Type::TouchMove;
+    case WebEventType::TouchEnd:
+        return WebCore::PlatformEvent::Type::TouchEnd;
+    case WebEventType::TouchCancel:
+        return WebCore::PlatformEvent::Type::TouchCancel;
+#endif
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+    // Gesture
+    case WebEventType::GestureStart:
+        return WebCore::PlatformEvent::Type::GestureStart;
+    case WebEventType::GestureChange:
+        return WebCore::PlatformEvent::Type::GestureChange;
+    case WebEventType::GestureEnd:
+        return WebCore::PlatformEvent::Type::GestureEnd;
+#endif
+
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+WebEventType kit(WebCore::PlatformEvent::Type type)
+{
+    switch (type) {
+    // Mouse
+    case WebCore::PlatformEvent::Type::MousePressed:
+        return WebEventType::MouseDown;
+    case WebCore::PlatformEvent::Type::MouseReleased:
+        return WebEventType::MouseUp;
+    case WebCore::PlatformEvent::Type::MouseMoved:
+        return WebEventType::MouseMove;
+    case WebCore::PlatformEvent::Type::MouseForceChanged:
+        return WebEventType::MouseForceChanged;
+    case WebCore::PlatformEvent::Type::MouseForceDown:
+        return WebEventType::MouseForceDown;
+    case WebCore::PlatformEvent::Type::MouseForceUp:
+        return WebEventType::MouseForceUp;
+
+    // Wheel
+    case WebCore::PlatformEvent::Type::Wheel:
+        return WebEventType::Wheel;
+
+    // Keyboard
+    case WebCore::PlatformEvent::Type::KeyDown:
+        return WebEventType::KeyDown;
+    case WebCore::PlatformEvent::Type::KeyUp:
+        return WebEventType::KeyUp;
+    case WebCore::PlatformEvent::Type::RawKeyDown:
+        return WebEventType::RawKeyDown;
+    case WebCore::PlatformEvent::Type::Char:
+        return WebEventType::Char;
+
+#if ENABLE(TOUCH_EVENTS)
+    // Touch
+    case WebCore::PlatformEvent::Type::TouchStart:
+        return WebEventType::TouchStart;
+    case WebCore::PlatformEvent::Type::TouchMove:
+        return WebEventType::TouchMove;
+    case WebCore::PlatformEvent::Type::TouchEnd:
+        return WebEventType::TouchEnd;
+    case WebCore::PlatformEvent::Type::TouchCancel:
+        return WebEventType::TouchCancel;
+#endif
+
+#if ENABLE(MAC_GESTURE_EVENTS)
+    // Gesture
+    case WebCore::PlatformEvent::Type::GestureStart:
+        return WebEventType::GestureStart;
+    case WebCore::PlatformEvent::Type::GestureChange:
+        return WebEventType::GestureChange;
+    case WebCore::PlatformEvent::Type::GestureEnd:
+        return WebEventType::GestureEnd;
+#endif
+
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
 
 OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier> modifiers)
 {
@@ -53,63 +202,53 @@ OptionSet<WebCore::PlatformEvent::Modifier> platform(OptionSet<WebEventModifier>
     return result;
 }
 
+OptionSet<WebEventModifier> kit(OptionSet<WebCore::PlatformEvent::Modifier> modifiers)
+{
+    OptionSet<WebEventModifier> result;
+    if (modifiers.contains(WebCore::PlatformEvent::Modifier::ShiftKey))
+        result.add(WebEventModifier::ShiftKey);
+    if (modifiers.contains(WebCore::PlatformEvent::Modifier::ControlKey))
+        result.add(WebEventModifier::ControlKey);
+    if (modifiers.contains(WebCore::PlatformEvent::Modifier::AltKey))
+        result.add(WebEventModifier::AltKey);
+    if (modifiers.contains(WebCore::PlatformEvent::Modifier::MetaKey))
+        result.add(WebEventModifier::MetaKey);
+    if (modifiers.contains(WebCore::PlatformEvent::Modifier::CapsLockKey))
+        result.add(WebEventModifier::CapsLockKey);
+    return result;
+}
+
+static double forceForEvent(const WebMouseEvent& webEvent)
+{
+    switch (webEvent.type()) {
+    case WebEventType::MouseDown:
+        return WebCore::ForceAtClick;
+    case WebEventType::MouseForceDown:
+        return WebCore::ForceAtForceClick;
+    case WebEventType::MouseMove:
+    case WebEventType::MouseForceChanged:
+        return webEvent.force();
+    case WebEventType::MouseUp:
+    case WebEventType::MouseForceUp:
+        return 0;
+    default:
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
 class WebKit2PlatformMouseEvent : public WebCore::PlatformMouseEvent {
 public:
     WebKit2PlatformMouseEvent(const WebMouseEvent& webEvent)
     {
         // PlatformEvent
-        switch (webEvent.type()) {
-        case WebEventType::MouseDown:
-            m_type = WebCore::PlatformEvent::Type::MousePressed;
-            m_force = WebCore::ForceAtClick;
-            break;
-        case WebEventType::MouseUp:
-            m_type = WebCore::PlatformEvent::Type::MouseReleased;
-            m_force = 0;
-            break;
-        case WebEventType::MouseMove:
-            m_type = WebCore::PlatformEvent::Type::MouseMoved;
-            m_force = webEvent.force();
-            break;
-        case WebEventType::MouseForceChanged:
-            m_type = WebCore::PlatformEvent::Type::MouseForceChanged;
-            m_force = webEvent.force();
-            break;
-        case WebEventType::MouseForceDown:
-            m_type = WebCore::PlatformEvent::Type::MouseForceDown;
-            m_force = WebCore::ForceAtForceClick;
-            break;
-        case WebEventType::MouseForceUp:
-            m_type = WebCore::PlatformEvent::Type::MouseForceUp;
-            m_force = 0;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
+        m_type = platform(webEvent.type());
         m_modifiers = platform(webEvent.modifiers());
-
         m_timestamp = webEvent.timestamp();
         m_authorizationToken = webEvent.authorizationToken();
 
         // PlatformMouseEvent
-        switch (webEvent.button()) {
-        case WebMouseEventButton::None:
-            m_button = WebCore::MouseButton::None;
-            break;
-        case WebMouseEventButton::Left:
-            m_button = WebCore::MouseButton::Left;
-            break;
-        case WebMouseEventButton::Middle:
-            m_button = WebCore::MouseButton::Middle;
-            break;
-        case WebMouseEventButton::Right:
-            m_button = WebCore::MouseButton::Right;
-            break;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-        }
-
+        m_button = platform(webEvent.button());
         m_buttons = webEvent.buttons();
 
         m_position = webEvent.position();
@@ -117,12 +256,14 @@ public:
         m_unadjustedMovementDelta = webEvent.unadjustedMovementDelta();
         m_globalPosition = webEvent.globalPosition();
         m_clickCount = webEvent.clickCount();
+        m_force = forceForEvent(webEvent);
         m_coalescedEvents = WTF::map(webEvent.coalescedEvents(), [&](const auto& event) {
             return platform(event);
         });
         m_predictedEvents = WTF::map(webEvent.predictedEvents(), [&](const auto& event) {
             return platform(event);
         });
+
 #if PLATFORM(MAC)
         m_eventNumber = webEvent.eventNumber();
         m_menuTypeForEvent = webEvent.menuTypeForEvent();
@@ -156,10 +297,8 @@ public:
     WebKit2PlatformWheelEvent(const WebWheelEvent& webEvent)
     {
         // PlatformEvent
-        m_type = PlatformEvent::Type::Wheel;
-
+        m_type = platform(webEvent.type());
         m_modifiers = platform(webEvent.modifiers());
-
         m_timestamp = webEvent.timestamp();
 
         // PlatformWheelEvent
@@ -198,25 +337,8 @@ public:
     WebKit2PlatformKeyboardEvent(const WebKeyboardEvent& webEvent)
     {
         // PlatformEvent
-        switch (webEvent.type()) {
-        case WebEventType::KeyDown:
-            m_type = WebCore::PlatformEvent::Type::KeyDown;
-            break;
-        case WebEventType::KeyUp:
-            m_type = WebCore::PlatformEvent::Type::KeyUp;
-            break;
-        case WebEventType::RawKeyDown:
-            m_type = WebCore::PlatformEvent::Type::RawKeyDown;
-            break;
-        case WebEventType::Char:
-            m_type = WebCore::PlatformEvent::Type::Char;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
+        m_type = platform(webEvent.type());
         m_modifiers = platform(webEvent.modifiers());
-
         m_timestamp = webEvent.timestamp();
 
         // PlatformKeyboardEvent
@@ -336,25 +458,8 @@ public:
     WebKit2PlatformTouchEvent(const WebTouchEvent& webEvent)
     {
         // PlatformEvent
-        switch (webEvent.type()) {
-        case WebEventType::TouchStart:
-            m_type = WebCore::PlatformEvent::Type::TouchStart;
-            break;
-        case WebEventType::TouchMove:
-            m_type = WebCore::PlatformEvent::Type::TouchMove;
-            break;
-        case WebEventType::TouchEnd:
-            m_type = WebCore::PlatformEvent::Type::TouchEnd;
-            break;
-        case WebEventType::TouchCancel:
-            m_type = WebCore::PlatformEvent::Type::TouchCancel;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
+        m_type = platform(webEvent.type());
         m_modifiers = platform(webEvent.modifiers());
-
         m_timestamp = webEvent.timestamp();
 
 #if PLATFORM(IOS_FAMILY)
@@ -397,22 +502,8 @@ class WebKit2PlatformGestureEvent : public WebCore::PlatformGestureEvent {
 public:
     WebKit2PlatformGestureEvent(const WebGestureEvent& webEvent)
     {
-        switch (webEvent.type()) {
-        case WebEventType::GestureStart:
-            m_type = WebCore::PlatformEvent::Type::GestureStart;
-            break;
-        case WebEventType::GestureChange:
-            m_type = WebCore::PlatformEvent::Type::GestureChange;
-            break;
-        case WebEventType::GestureEnd:
-            m_type = WebCore::PlatformEvent::Type::GestureEnd;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
+        m_type = platform(webEvent.type());
         m_modifiers = platform(webEvent.modifiers());
-
         m_timestamp = webEvent.timestamp();
 
         m_gestureScale = webEvent.gestureScale();
@@ -425,6 +516,26 @@ public:
 WebCore::PlatformGestureEvent platform(const WebGestureEvent& webEvent)
 {
     return WebKit2PlatformGestureEvent(webEvent);
+}
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE) || USE(LIBWPE)
+WallTime wallTimeForEventTimeInMilliseconds(uint64_t timestamp)
+{
+    if (!timestamp)
+        return WallTime::now();
+
+    // GTK and WPE events provide a timestamp as uint32_t, which is too small for full millisecond timestamps since
+    // the epoch. They are expected to be just timestamps with monotonic behavior to be compared among themselves,
+    // not against WallTime-like measurements. Thus the need to define a reference origin based on the first event
+    // received.
+    static WallTime firstEventWallTime;
+    static uint64_t firstEventTimestamp = 0;
+    if (!firstEventTimestamp) {
+        firstEventTimestamp = timestamp;
+        firstEventWallTime = WallTime::now();
+    }
+    return firstEventWallTime + Seconds::fromMilliseconds(timestamp - firstEventTimestamp);
 }
 #endif
 

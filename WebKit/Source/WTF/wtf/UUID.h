@@ -66,7 +66,7 @@ public:
     WTF_EXPORT_PRIVATE static UUID createVersion5(UUID, std::span<const uint8_t>);
 
 #ifdef __OBJC__
-    WTF_EXPORT_PRIVATE operator NSUUID *() const;
+    WTF_EXPORT_PRIVATE RetainPtr<NSUUID> createNSUUID() const;
     WTF_EXPORT_PRIVATE static std::optional<UUID> fromNSUUID(NSUUID *);
 #endif
 
@@ -112,6 +112,12 @@ public:
     {
     }
 
+    static bool isValid(uint64_t high, uint64_t low)
+    {
+        auto data = (static_cast<UInt128>(high) << 64) | low;
+        return data != deletedValue && data != emptyValue;
+    }
+
     constexpr bool isHashTableDeletedValue() const { return m_data == deletedValue; }
     constexpr bool isHashTableEmptyValue() const { return m_data == emptyValue; }
     WTF_EXPORT_PRIVATE String toString() const;
@@ -124,11 +130,6 @@ public:
     uint64_t low() const { return static_cast<uint64_t>(m_data); }
     uint64_t high() const { return static_cast<uint64_t>(m_data >> 64);  }
 
-    struct MarkableTraits {
-        static bool isEmptyValue(const UUID& uuid) { return !uuid; }
-        static UUID emptyValue() { return UUID { UInt128 { 0 } }; }
-    };
-
 private:
     WTF_EXPORT_PRIVATE UUID();
     friend void add(Hasher&, UUID);
@@ -136,6 +137,12 @@ private:
     WTF_EXPORT_PRIVATE static UInt128 generateWeakRandomUUIDVersion4();
 
     UInt128 m_data;
+};
+
+template<>
+struct MarkableTraits<UUID> {
+    static bool isEmptyValue(const UUID& uuid) { return !uuid; }
+    static UUID emptyValue() { return UUID { UInt128 { 0 } }; }
 };
 
 inline void add(Hasher& hasher, UUID uuid)

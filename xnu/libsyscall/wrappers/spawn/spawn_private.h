@@ -47,6 +47,7 @@ int     posix_spawnattr_setjetsam(posix_spawnattr_t * __restrict attr,
     short flags, int priority, int memlimit) __API_UNAVAILABLE(macos) __API_AVAILABLE(ios(5.0));
 #endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
+// All memory limits are in MiB.
 int     posix_spawnattr_setjetsam_ext(posix_spawnattr_t * __restrict attr,
     short flags, int priority, int memlimit_active, int memlimit_inactive) __API_AVAILABLE(macos(10.11), ios(9.0));
 
@@ -65,6 +66,9 @@ int     posix_spawnattr_set_filedesclimit_ext(posix_spawnattr_t * __restrict att
 #define POSIX_SPAWN_IMPORTANCE_PORT_COUNT 128
 int     posix_spawnattr_set_kqworklooplimit_ext(posix_spawnattr_t * __restrict attr,
     uint32_t kqwl_soft_limit, uint32_t kqwl_hard_limit) __API_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4));
+
+int     posix_spawnattr_set_conclavememlimit_ext(posix_spawnattr_t * __restrict attr,
+    uint32_t conclave_limit) __API_AVAILABLE(ios(19.0), macos(16.0), tvos(19.0), watchos(12.0));
 
 int     posix_spawnattr_set_importancewatch_port_np(posix_spawnattr_t * __restrict attr,
     int count, mach_port_t portarray[])  __API_AVAILABLE(macos(10.9), ios(6.0));

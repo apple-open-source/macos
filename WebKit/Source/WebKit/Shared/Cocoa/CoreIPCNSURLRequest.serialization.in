@@ -93,8 +93,8 @@ header: "CoreIPCNSURLRequest.h"
     ShouldStartSynchronously
 };
 
-using WebKit::CoreIPCNSURLRequestData::BodyParts = std::variant<WebKit::CoreIPCString, WebKit::CoreIPCData>;
-using WebKit::CoreIPCNSURLRequestData::HeaderField = std::pair<String, std::variant<String, Vector<String>>>;
+using WebKit::CoreIPCNSURLRequestData::BodyParts = Variant<WebKit::CoreIPCString, WebKit::CoreIPCData>;
+using WebKit::CoreIPCNSURLRequestData::HeaderField = std::pair<String, Variant<String, Vector<String>>>;
 
 header: "CoreIPCNSURLRequest.h"
 [CustomHeader, WebKitPlatform] struct WebKit::CoreIPCNSURLRequestData {

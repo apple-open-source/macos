@@ -44,7 +44,7 @@ struct FreeCell {
 
     static ALWAYS_INLINE std::tuple<int32_t, uint32_t> descramble(uint64_t scrambledBits, uint64_t secret)
     {
-        static_assert(WTF::isPowerOfTwo(sizeof(FreeCell))); // Make sure this division isn't super costly.
+        static_assert(isPowerOfTwo(sizeof(FreeCell))); // Make sure this division isn't super costly.
         uint64_t descrambledBits = scrambledBits ^ secret;
         return { static_cast<int32_t>(static_cast<uint32_t>(descrambledBits)), static_cast<uint32_t>(descrambledBits >> 32u) };
     }

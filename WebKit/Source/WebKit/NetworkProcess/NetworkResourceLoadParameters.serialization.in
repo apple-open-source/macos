@@ -25,17 +25,15 @@ headers: "NetworkResourceLoadParameters.h"
 enum class WebKit::PreconnectOnly : bool;
 enum class WebKit::NavigatingToAppBoundDomain : bool;
 
-struct WebKit::NetworkResourceLoadParameters {
+[RValue] struct WebKit::NetworkResourceLoadParameters {
     WebKit::WebPageProxyIdentifier webPageProxyID;
     WebCore::PageIdentifier webPageID;
     WebCore::FrameIdentifier webFrameID;
+    [EncodeRequestBody] WebCore::ResourceRequest request;
+
     RefPtr<WebCore::SecurityOrigin> topOrigin;
     RefPtr<WebCore::SecurityOrigin> sourceOrigin;
     WTF::ProcessID parentPID;
-#if HAVE(AUDIT_TOKEN)
-    [NotSerialized] std::optional<audit_token_t> networkProcessAuditToken;
-#endif
-    WebCore::ResourceRequest request;
     
     WebCore::ContentSniffingPolicy contentSniffingPolicy;
     WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy;
@@ -46,19 +44,17 @@ struct WebKit::NetworkResourceLoadParameters {
     bool needsCertificateInfo;
     bool isMainFrameNavigation;
     std::optional<WebKit::NavigationActionData> mainResourceNavigationDataForAnyFrame;
-    [NotSerialized] Vector<RefPtr<WebCore::BlobDataFileReference>> blobFileReferences;
     WebKit::PreconnectOnly shouldPreconnectOnly;
-    [NotSerialized] std::optional<WebKit::NetworkActivityTracker> networkActivityTracker;
     std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
     bool hadMainFrameMainResourcePrivateRelayed;
     bool allowPrivacyProxy;
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
-    Markable<WebCore::ResourceLoaderIdentifier> identifier;
-    
-    RefPtr<WebCore::FormData> request.httpBody();
-    std::optional<Vector<WebKit::SandboxExtensionHandle>> sandboxExtensionsIfHttpBody();
+    uint64_t requiredCookiesVersion;
 
-    std::optional<WebKit::SandboxExtensionHandle> sandboxExtensionIflocalFile();
+    Markable<WebCore::ResourceLoaderIdentifier> identifier;
+
+    Vector<WebKit::SandboxExtensionHandle> requestBodySandboxExtensions;
+    std::optional<WebKit::SandboxExtensionHandle> resourceSandboxExtension;
 
     Seconds maximumBufferingTime;
     
@@ -98,6 +94,7 @@ struct WebKit::NetworkResourceLoadParameters {
     std::optional<WebCore::ServiceWorkerRegistrationIdentifier> serviceWorkerRegistrationIdentifier;
     OptionSet<WebCore::HTTPHeadersToKeepFromCleaning> httpHeadersToKeep;
     std::optional<WebCore::FetchIdentifier> navigationPreloadIdentifier;
+    WebCore::FetchingWorkerIdentifier workerIdentifier;
 
 #if ENABLE(CONTENT_EXTENSIONS)
     URL mainDocumentURL;
@@ -111,3 +108,5 @@ struct WebKit::NetworkResourceLoadParameters {
     bool linkPreconnectEarlyHintsEnabled;
     bool shouldRecordFrameLoadForStorageAccess;
 };
+
+using WebCore::FetchingWorkerIdentifier = Variant<std::monostate, WebCore::SharedWorkerIdentifier, WebCore::ServiceWorkerIdentifier>;

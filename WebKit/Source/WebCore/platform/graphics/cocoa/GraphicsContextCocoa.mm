@@ -30,8 +30,10 @@
 #import "Font.h"
 #import "GraphicsContextCG.h"
 #import "IOSurface.h"
+#import "ImageAdapter.h"
 #import "IntRect.h"
 #import <CoreText/CoreText.h>
+#import <numeric>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
 #import <pal/spi/mac/NSGraphicsSPI.h>
@@ -195,7 +197,7 @@ static inline void drawRoundedRectForDocumentMarker(CGContextRef context, const 
     auto maxX = rect.maxX();
     auto minY = rect.y();
     auto maxY = rect.maxY();
-    auto midY = (minY + maxY) / 2.0;
+    auto midY = std::midpoint(minY, maxY);
 
     CGContextMoveToPoint(context, minX + radius, maxY);
     CGContextAddArc(context, minX + radius, midY, radius, piOverTwoDouble, 3 * piOverTwoDouble, 0);

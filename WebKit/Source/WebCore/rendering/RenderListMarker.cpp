@@ -36,8 +36,10 @@
 #include "RenderListItem.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
+#include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include "StyleScope.h"
+#include "TextUtil.h"
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -52,7 +54,7 @@ RenderListMarker::RenderListMarker(RenderListItem& listItem, RenderStyle&& style
     , m_listItem(listItem)
 {
     setInline(true);
-    setReplacedOrAtomicInline(true); // pretend to be replaced
+    setBlockLevelReplacedOrAtomicInline(true); // pretend to be replaced
     ASSERT(isRenderListMarker());
 }
 
@@ -235,7 +237,7 @@ RenderBox* RenderListMarker::parentBox(RenderBox& box)
     CheckedPtr multiColumnFlow = dynamicDowncast<RenderMultiColumnFlow>(m_listItem->enclosingFragmentedFlow());
     if (!multiColumnFlow)
         return box.parentBox();
-    auto* placeholder = multiColumnFlow->findColumnSpannerPlaceholder(&box);
+    auto* placeholder = multiColumnFlow->findColumnSpannerPlaceholder(box);
     return placeholder ? placeholder->parentBox() : box.parentBox();
 };
 
@@ -255,20 +257,20 @@ void RenderListMarker::layout()
         updateInlineMarginsAndContent();
         setWidth(m_image->imageSize(this, style().usedZoom()).width());
         setHeight(m_image->imageSize(this, style().usedZoom()).height());
+        m_layoutBounds = { height(), 0 };
     } else {
         setLogicalWidth(minPreferredLogicalWidth());
         setLogicalHeight(style().metricsOfPrimaryFont().intHeight());
+        m_layoutBounds = layoutBoundForTextContent(textWithSuffix());
     }
 
     setMarginStart(0);
     setMarginEnd(0);
 
-    Length startMargin = style().marginStart();
-    Length endMargin = style().marginEnd();
-    if (startMargin.isFixed())
-        setMarginStart(LayoutUnit(startMargin.value()));
-    if (endMargin.isFixed())
-        setMarginEnd(LayoutUnit(endMargin.value()));
+    if (auto fixedStartMargin = style().marginStart().tryFixed())
+        setMarginStart(LayoutUnit(fixedStartMargin->value));
+    if (auto fixedEndMargin = style().marginEnd().tryFixed())
+        setMarginEnd(LayoutUnit(fixedEndMargin->value));
 
     clearNeedsLayout();
 }
@@ -278,7 +280,7 @@ void RenderListMarker::imageChanged(WrappedImagePtr o, const IntRect* rect)
     if (parent()) {
         if (m_image && o == m_image->data()) {
             if (width() != m_image->imageSize(this, style().usedZoom()).width() || height() != m_image->imageSize(this, style().usedZoom()).height() || m_image->errorOccurred())
-                setNeedsLayoutAndPrefWidthsRecalc();
+                setNeedsLayoutAndPreferredWidthsUpdate();
             else
                 repaint();
         }
@@ -289,7 +291,7 @@ void RenderListMarker::imageChanged(WrappedImagePtr o, const IntRect* rect)
 void RenderListMarker::updateInlineMarginsAndContent()
 {
     // FIXME: It's messy to use the preferredLogicalWidths dirty bit for this optimization, also unclear if this is premature optimization.
-    if (preferredLogicalWidthsDirty())
+    if (needsPreferredLogicalWidthsUpdate())
         updateContent();
     updateInlineMargins();
 }
@@ -356,13 +358,13 @@ void RenderListMarker::updateContent()
 
 void RenderListMarker::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
     updateContent();
 
     if (isImage()) {
         LayoutSize imageSize = LayoutSize(m_image->imageSize(this, style().usedZoom()));
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = writingMode().isHorizontal() ? imageSize.width() : imageSize.height();
-        setPreferredLogicalWidthsDirty(false);
+        clearNeedsPreferredWidthsUpdate();
         updateInlineMargins();
         return;
     }
@@ -378,7 +380,7 @@ void RenderListMarker::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = logicalWidth;
     m_maxPreferredLogicalWidth = logicalWidth;
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 
     updateInlineMargins();
 }
@@ -416,8 +418,8 @@ void RenderListMarker::updateInlineMargins()
     };
 
     auto [marginStart, marginEnd] = isInside() ? marginsForInsideMarker() : marginsForOutsideMarker();
-    mutableStyle().setMarginStart(Length(marginStart, LengthType::Fixed));
-    mutableStyle().setMarginEnd(Length(marginEnd, LengthType::Fixed));
+    mutableStyle().setMarginStart(Style::MarginEdge::Fixed { marginStart });
+    mutableStyle().setMarginEnd(Style::MarginEdge::Fixed { marginEnd });
 }
 
 LayoutUnit RenderListMarker::lineHeight(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
@@ -427,11 +429,11 @@ LayoutUnit RenderListMarker::lineHeight(bool firstLine, LineDirectionMode direct
     return RenderBox::lineHeight(firstLine, direction, linePositionMode);
 }
 
-LayoutUnit RenderListMarker::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderListMarker::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     if (!isImage())
-        return m_listItem->baselinePosition(baselineType, firstLine, direction, PositionOfInteriorLineBoxes);
-    return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode);
+        return m_listItem->baselinePosition(firstLine, direction, PositionOfInteriorLineBoxes);
+    return RenderBox::baselinePosition(firstLine, direction, linePositionMode);
 }
 
 bool RenderListMarker::isInside() const
@@ -487,6 +489,42 @@ bool RenderListMarker::widthUsesMetricsOfPrimaryFont() const
 {
     auto listType = style().listStyleType();
     return listType.isCircle() || listType.isDisc() || listType.isSquare();
+}
+
+std::pair<int, int> RenderListMarker::layoutBoundForTextContent(String text) const
+{
+    // FIXME: This should be part of InlineBoxBuilder (webkit.org/b/294342)
+    // This is essentially what we do in LineBoxBuilder::enclosingAscentDescentWithFallbackFonts.
+    auto ascentAndDescent = [&](auto& fontMetrics) {
+        float ascent = fontMetrics.intAscent();
+        float descent = fontMetrics.intDescent();
+        float halfLeading = (fontMetrics.intLineSpacing() - (ascent + descent)) / 2.f;
+        return std::pair<int, int> { floorf(ascent + halfLeading), ceilf(descent + halfLeading) };
+    };
+    auto& style = this->style();
+    auto& metricsOfPrimaryFont = style.metricsOfPrimaryFont();
+    auto primaryFontHeight = metricsOfPrimaryFont.intHeight();
+
+    if (style.lineHeight().isNormal()) {
+        auto maxAscentAndDescent = ascentAndDescent(metricsOfPrimaryFont);
+
+        for (Ref fallbackFont : Layout::TextUtil::fallbackFontsForText(text, style, Layout::TextUtil::IncludeHyphen::No)) {
+            auto& fontMetrics = fallbackFont->fontMetrics();
+            if (primaryFontHeight >= floorf(fontMetrics.height())) {
+                // FIXME: Figure out why certain symbols (e.g. disclosure-open) would initiate fallback fonts with just slightly different (subpixel) metrics.
+                // This is mainly about preserving legacy behavior.
+                continue;
+            }
+            auto ascentDescent = ascentAndDescent(fontMetrics);
+            maxAscentAndDescent.first = std::max(maxAscentAndDescent.first, ascentDescent.first);
+            maxAscentAndDescent.second = std::max(maxAscentAndDescent.second, ascentDescent.second);
+        }
+        return { maxAscentAndDescent.first, maxAscentAndDescent.second };
+    }
+
+    auto primaryFontAscentAndDescent = ascentAndDescent(metricsOfPrimaryFont);
+    auto halfLeading = (floorf(style.computedLineHeight()) - (primaryFontAscentAndDescent.first + primaryFontAscentAndDescent.second)) / 2.f;
+    return { floorf(primaryFontAscentAndDescent.first + halfLeading), ceilf(primaryFontAscentAndDescent.second + halfLeading) };
 }
 
 } // namespace WebCore

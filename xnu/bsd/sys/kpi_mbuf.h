@@ -56,6 +56,23 @@
 #endif /* PRIVATE */
 
 #ifdef KERNEL_PRIVATE
+#include <Availability.h>
+#if __has_feature(attribute_unavailable_with_message)
+#define __EXTENSION_ONLY_KPI_DEPRECATED_BY(REPLACEMENT)                                              \
+__attribute__((__unavailable__(                                                                      \
+	    "Only available outside of the kernel. Use " #REPLACEMENT " in the kernel instead.")))
+#define __BOUNDS_SAFETY_DEPRECATED_BY(REPLACEMENT)
+#else  /*! __has_feature(attribute_unavailable_with_message) */
+#define __EXTENSION_ONLY_KPI_DEPRECATED_BY(REPLACEMENT)
+#define __BOUNDS_SAFETY_DEPRECATED_BY(REPLACEMENT)
+#endif /*! __has_feature(attribute_unavailable_with_message) */
+#else /* !KERNEL_PRIVATE */
+#define __EXTENSION_ONLY_KPI_DEPRECATED_BY(REPLACEMENT)
+#define __BOUNDS_SAFETY_DEPRECATED_BY(REPLACEMENT)                                                     \
+__ptrcheck_unavailable_r(REPLACEMENT)
+#endif /* !KERNEL_PRIVATE */
+
+#ifdef KERNEL_PRIVATE
 #include <mach/kern_return.h>
 #endif /* KERNEL_PRIVATE */
 
@@ -284,6 +301,36 @@ struct mbuf_stat {
 
 __BEGIN_DECLS
 /* Data access */
+
+/*!
+ *       @function mbuf_data_len
+ *       @discussion Returns a pointer to the start of data along with the data length in this mbuf.
+ *               There may be additional data on chained mbufs. The data you're
+ *               looking for may not be virtually contiguous if it spans more
+ *               than one mbuf.  In addition, data that is virtually contiguous
+ *               might not be represented by physically contiguous pages; see
+ *               further comments in `mbuf_data_to_physical'.
+ *               If the data structure you want to access stradles multiple
+ *               mbufs in a chain, the useable data length (returned by `*out_len')
+ *               will be smaller than the expected size.
+ *               In this case, either use `mbuf_pullup', which will create
+ *               a new mbuf with the data structure in a congigous buffer,
+ *               or alternatively copy the pieces of the data structure
+ *               from the mbufs comprised by the chain into a separately allocated
+ *               buffer with a sufficient capacity.
+ *               Using `mbuf_pullup' has the advantage of not having to
+ *               copy the data; however if the size of the requred data exceeds
+ *               the maximal mbuf size, `mbuf_pullup' will fail, and free the chain.
+ *       @param mbuf The mbuf.
+ *       @param out_buf Pointer to the data buffer in this mbuf.
+ *       @param out_len Pointer to the amount of available data in the buffer pointed to by `out_buf'.
+ *       @result EINVAL if one of the parameters is NULL.
+ *               ENOENT if the mbuf does not have valid data buffer.
+ *               0      if successful.
+ */
+extern errno_t mbuf_data_len(mbuf_t mbuf, void *__sized_by(*out_len) * out_buf, size_t *out_len)
+__NKE_API_DEPRECATED;
+
 /*!
  *       @function mbuf_data
  *       @discussion Returns a pointer to the start of data in this mbuf.
@@ -291,19 +338,70 @@ __BEGIN_DECLS
  *               looking for may not be virtually contiguous if it spans more
  *               than one mbuf.  In addition, data that is virtually contiguous
  *               might not be represented by physically contiguous pages; see
- *               further comments in mbuf_data_to_physical.  Use mbuf_len to
- *               determine the length of data available in this mbuf. If a data
- *               structure you want to access stradles two mbufs in a chain,
- *               either use mbuf_pullup to get the data contiguous in one mbuf
- *               or copy the pieces of data from each mbuf in to a contiguous
- *               buffer. Using mbuf_pullup has the advantage of not having to
- *               copy the data. On the other hand, if you don't make sure there
- *               is space in the mbuf, mbuf_pullup may fail and free the mbuf.
+ *               further comments in `mbuf_data_to_physical'.
+ *               To determine the usable length of the data available in this mbuf,
+ *               use `mbuf_len', or replace the invocation of `mbuf_data'
+ *               with `mbuf_data_len', which will return the length of available
+ *               data along with the data pointer.
+ *               If the data structure you want to access stradles multiple
+ *               mbufs in a chain, the returned length will be smaller than
+ *               the expected size. In this case, either use `mbuf_pullup',
+ *               which will create an mbuf containing the data structure
+ *               in a congigous buffer, or alternatively copy the pieces
+ *               of the data structure from the mbufs comprised by the chain
+ *               into a separately allocated buffer with a sufficient capacity.
+ *               Using `mbuf_pullup' has the advantage of not having to
+ *               copy the data; however if the size of the requred data exceeds
+ *               the maximal mbuf size, `mbuf_pullup' will fail, and free the chain.
+ *       @warning This function is NOT SAFE to use with `-fbounds-safety'.
+ *               Use `mbuf_data_safe' or `mbuf_data_len' instead.
+ *               Inside the kernel, the recommended replacement is `mtod'.
  *       @param mbuf The mbuf.
  *       @result A pointer to the data in the mbuf.
  */
-extern void *mbuf_data(mbuf_t mbuf)
+extern void * __unsafe_indexable mbuf_data(mbuf_t mbuf)
+__BOUNDS_SAFETY_DEPRECATED_BY('mbuf_data_safe, mbuf_data_len')
 __NKE_API_DEPRECATED;
+
+/*!
+ *       @function mbuf_data_safe
+ *       @discussion Returns a checked pointer to the start of data in this mbuf.
+ *               There may be additional data on chained mbufs. The data you're
+ *               looking for may not be virtually contiguous if it spans more
+ *               than one mbuf.  In addition, data that is virtually contiguous
+ *               might not be represented by physically contiguous pages; see
+ *               further comments in `mbuf_data_to_physical'.
+ *               To determine the usable length of the data available in this mbuf,
+ *               use `mbuf_len', or replace the invocation of `mbuf_data_safe'
+ *               with `mbuf_data_len', which will return the length of available
+ *               data along with the data pointer.
+ *               If the data structure you want to access stradles multiple
+ *               mbufs in a chain, the useable data length (see above) will be
+ *               smaller than the expected size.
+ *               In this case, either use `mbuf_pullup', which will create
+ *               a new mbuf with the data structure in a congigous buffer,
+ *               or alternatively copy the pieces of the data structure
+ *               from the mbufs comprised by the chain into a separately allocated
+ *               buffer with a sufficient capacity.
+ *               Using `mbuf_pullup' has the advantage of not having to
+ *               copy the data; however if the size of the requred data exceeds
+ *               the maximal mbuf size, `mbuf_pullup' will fail, and free the chain.
+ *       @param mbuf The mbuf.
+ *       @result A pointer to the data in the mbuf.
+ */
+static inline void * __header_indexable
+mbuf_data_safe(mbuf_t mbuf)
+{
+	size_t len = 0;
+	void * __sized_by(len) buf = 0;
+	errno_t err;
+	err = mbuf_data_len(mbuf, &buf, &len);
+	if (err != 0) {
+		return 0;
+	}
+	return buf;
+}
+#define __KPI_MBUF_HAS_MBUF_DATA_SAFE (1)
 
 /*!
  *       @function mbuf_datastart

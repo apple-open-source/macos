@@ -117,20 +117,24 @@ SYSCTL_QUAD(_net_classq_flow_q, OID_AUTO, l4s_min_delay_threshold,
 void
 fq_codel_init(void)
 {
-	_CASSERT(AQM_KTRACE_AON_FLOW_HIGH_DELAY == 0x8300004);
-	_CASSERT(AQM_KTRACE_AON_THROTTLE == 0x8300008);
-	_CASSERT(AQM_KTRACE_AON_FLOW_OVERWHELMING == 0x830000c);
-	_CASSERT(AQM_KTRACE_AON_FLOW_DQ_STALL == 0x8300010);
+	static_assert(AQM_KTRACE_AON_FLOW_HIGH_DELAY == 0x8300004);
+	static_assert(AQM_KTRACE_AON_THROTTLE == 0x8300008);
+	static_assert(AQM_KTRACE_AON_FLOW_OVERWHELMING == 0x830000c);
+	static_assert(AQM_KTRACE_AON_FLOW_DQ_STALL == 0x8300010);
 
-	_CASSERT(AQM_KTRACE_STATS_FLOW_ENQUEUE == 0x8310004);
-	_CASSERT(AQM_KTRACE_STATS_FLOW_DEQUEUE == 0x8310008);
-	_CASSERT(AQM_KTRACE_STATS_FLOW_CTL == 0x831000c);
-	_CASSERT(AQM_KTRACE_STATS_FLOW_ALLOC == 0x8310010);
-	_CASSERT(AQM_KTRACE_STATS_FLOW_DESTROY == 0x8310014);
-	_CASSERT(AQM_KTRACE_STATS_FLOW_REPORT_CE == 0x8310018);
-	_CASSERT(AQM_KTRACE_STATS_GET_QLEN == 0x831001c);
-	_CASSERT(AQM_KTRACE_TX_NOT_READY == 0x8310020);
-	_CASSERT(AQM_KTRACE_TX_PACEMAKER == 0x8310024);
+	static_assert(AQM_KTRACE_STATS_FLOW_ENQUEUE == 0x8310004);
+	static_assert(AQM_KTRACE_STATS_FLOW_DEQUEUE == 0x8310008);
+	static_assert(AQM_KTRACE_STATS_FLOW_CTL == 0x831000c);
+	static_assert(AQM_KTRACE_STATS_FLOW_ALLOC == 0x8310010);
+	static_assert(AQM_KTRACE_STATS_FLOW_DESTROY == 0x8310014);
+	static_assert(AQM_KTRACE_STATS_FLOW_REPORT_CE == 0x8310018);
+	static_assert(AQM_KTRACE_STATS_GET_QLEN == 0x831001c);
+	static_assert(AQM_KTRACE_TX_NOT_READY == 0x8310020);
+	static_assert(AQM_KTRACE_TX_PACEMAKER == 0x8310024);
+	static_assert(AQM_KTRACE_PKT_DROP == 0x8310028);
+	static_assert(AQM_KTRACE_OK_TO_DROP == 0x831002c);
+	static_assert(AQM_KTRACE_CONGESTION_INC == 0x8310030);
+	static_assert(AQM_KTRACE_CONGESTION_NOTIFIED == 0x8310034);
 }
 
 fq_t *
@@ -327,9 +331,10 @@ fq_compressor(fq_if_t *fqs, fq_t *fq, fq_if_classq_t *fq_cl,
 }
 
 int
-fq_addq(fq_if_t *fqs, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
+fq_codel_enq_legacy(void *fqs_p, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
     fq_if_classq_t *fq_cl)
 {
+	fq_if_t *fqs = (fq_if_t *)fqs_p;
 	int droptype = DTYPE_NODROP, fc_adv = 0, ret = CLASSQEQ_SUCCESS;
 	u_int64_t now;
 	fq_t *fq = NULL;
@@ -366,7 +371,7 @@ fq_addq(fq_if_t *fqs, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
 		__builtin_unreachable();
 	}
 
-	if (ifclassq_enable_l4s) {
+	if (fq_codel_enable_l4s) {
 		tfc_type = pktsched_is_pkt_l4s(pkt) ? FQ_TFC_L4S : FQ_TFC_C;
 	}
 
@@ -378,7 +383,7 @@ fq_addq(fq_if_t *fqs, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
 
 	/* find the flowq for this packet */
 	fq = fq_if_hash_pkt(fqs, fq_grp, pkt_flowid, pktsched_get_pkt_svc(pkt),
-	    now, true, tfc_type);
+	    now, pkt_proto, pkt_flowsrc, tfc_type, true);
 	if (__improbable(fq == NULL)) {
 		DTRACE_IP1(memfail__drop, fq_if_t *, fqs);
 		/* drop the packet if we could not allocate a flow queue */
@@ -398,7 +403,7 @@ fq_addq(fq_if_t *fqs, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
 	 * Skip the dropping part if it's L4S. Flow control or ECN marking decision
 	 * will be made at dequeue time.
 	 */
-	if (ifclassq_enable_l4s && tfc_type == FQ_TFC_L4S) {
+	if (fq_codel_enable_l4s && tfc_type == FQ_TFC_L4S) {
 		fq_cl->fcl_stat.fcl_l4s_pkts += cnt;
 		droptype = DTYPE_NODROP;
 	}
@@ -695,7 +700,7 @@ fq_tx_time_ready(fq_if_t *fqs, fq_t *fq, uint64_t now, uint64_t *ready_time)
 	uint64_t pkt_tx_time;
 	fq_if_classq_t *fq_cl = &FQ_CLASSQ(fq);
 
-	if (!ifclassq_enable_pacing || !ifclassq_enable_l4s || fq->fq_tfc_type != FQ_TFC_L4S) {
+	if (!fq_codel_enable_pacing) {
 		return TRUE;
 	}
 
@@ -724,8 +729,10 @@ fq_tx_time_ready(fq_if_t *fqs, fq_t *fq, uint64_t now, uint64_t *ready_time)
 }
 
 void
-fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt, uint64_t now)
+fq_codel_dq_legacy(void *fqs_p, void *fq_p, pktsched_pkt_t *pkt, uint64_t now)
 {
+	fq_if_t *fqs = (fq_if_t *)fqs_p;
+	fq_t *fq = (fq_t *)fq_p;
 	fq_if_classq_t *fq_cl = &FQ_CLASSQ(fq);
 	int64_t qdelay = 0;
 	volatile uint32_t *__single pkt_flags;
@@ -743,7 +750,7 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt, uint64_t now)
 	pktsched_get_pkt_vars(pkt, &pkt_flags, &pkt_timestamp, NULL, &pkt_flowsrc,
 	    NULL, NULL, &pkt_tx_time);
 	l4s_pkt = pktsched_is_pkt_l4s(pkt);
-	if (ifclassq_enable_pacing && ifclassq_enable_l4s) {
+	if (fq_codel_enable_pacing && fq_codel_enable_l4s) {
 		if (pkt_tx_time > *pkt_timestamp) {
 			pacing_delay = pkt_tx_time - *pkt_timestamp;
 			fq_cl->fcl_stat.fcl_paced_pkts++;
@@ -802,7 +809,7 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt, uint64_t now)
 	}
 
 	fq->fq_pkts_since_last_report++;
-	if (ifclassq_enable_l4s && l4s_pkt) {
+	if (fq_codel_enable_l4s && l4s_pkt) {
 		/*
 		 * A safe guard to make sure that L4S is not going to build a huge
 		 * queue if we encounter unexpected problems (for eg., if ACKs don't
@@ -824,7 +831,7 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt, uint64_t now)
 			IFCQ_CONVERT_LOCK(fqs->fqs_ifq);
 			if (__improbable(l4s_local_ce_report != 0) &&
 			    (*pkt_flags & PKTF_FLOW_ADV) != 0 &&
-			    fq_if_report_ce(fqs, pkt, 1, fq->fq_pkts_since_last_report)) {
+			    fq_if_report_congestion(fqs, pkt, 0, 1, fq->fq_pkts_since_last_report)) {
 				fq->fq_pkts_since_last_report = 0;
 				fq_cl->fcl_stat.fcl_ce_reported++;
 			} else if (pktsched_mark_ecn(pkt) == 0) {
@@ -891,4 +898,496 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt, uint64_t now)
 		/* NOTREACHED */
 		__builtin_unreachable();
 	}
+}
+
+int
+fq_codel_enq(void *fqs_p, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
+    fq_if_classq_t *fq_cl)
+{
+	fq_if_t *fqs = (fq_if_t *)fqs_p;
+	int droptype = DTYPE_NODROP, ret = CLASSQEQ_SUCCESS;
+	u_int64_t now;
+	fq_t *fq = NULL;
+	uint64_t *__single pkt_timestamp;
+	volatile uint32_t *__single pkt_flags;
+	uint32_t pkt_flowid, cnt;
+	uint8_t pkt_proto, pkt_flowsrc;
+	fq_tfc_type_t tfc_type = FQ_TFC_C;
+
+	cnt = pkt->pktsched_pcnt;
+	pktsched_get_pkt_vars(pkt, &pkt_flags, &pkt_timestamp, &pkt_flowid,
+	    &pkt_flowsrc, &pkt_proto, NULL, NULL);
+
+	/*
+	 * XXX Not walking the chain to set this flag on every packet.
+	 * This flag is only used for debugging. Nothing is affected if it's
+	 * not set.
+	 */
+	switch (pkt->pktsched_ptype) {
+	case QP_MBUF:
+		/* See comments in <rdar://problem/14040693> */
+		VERIFY(!(*pkt_flags & PKTF_PRIV_GUARDED));
+		break;
+#if SKYWALK
+	case QP_PACKET:
+		/* sanity check */
+		ASSERT((*pkt_flags & ~PKT_F_COMMON_MASK) == 0);
+		break;
+#endif /* SKYWALK */
+	default:
+		VERIFY(0);
+		/* NOTREACHED */
+		__builtin_unreachable();
+	}
+
+	if (fq_codel_enable_l4s) {
+		tfc_type = pktsched_is_pkt_l4s(pkt) ? FQ_TFC_L4S : FQ_TFC_C;
+	}
+
+	/*
+	 * Timestamps for every packet must be set prior to entering this path.
+	 */
+	now = *pkt_timestamp;
+	ASSERT(now > 0);
+
+	/* find the flowq for this packet */
+	fq = fq_if_hash_pkt(fqs, fq_grp, pkt_flowid, pktsched_get_pkt_svc(pkt),
+	    now, pkt_proto, pkt_flowsrc, tfc_type, true);
+	if (__improbable(fq == NULL)) {
+		DTRACE_IP1(memfail__drop, fq_if_t *, fqs);
+		/* drop the packet if we could not allocate a flow queue */
+		fq_cl->fcl_stat.fcl_drop_memfailure += cnt;
+		return CLASSQEQ_DROP;
+	}
+	VERIFY(fq->fq_group == fq_grp);
+	VERIFY(fqs->fqs_ptype == pkt->pktsched_ptype);
+
+	KDBG(AQM_KTRACE_STATS_FLOW_ENQUEUE, fq->fq_flowhash,
+	    AQM_KTRACE_FQ_GRP_SC_IDX(fq),
+	    fq->fq_bytes, pktsched_get_pkt_len(pkt));
+
+	/*
+	 * Skip the dropping part if it's L4S. Flow control or ECN marking decision
+	 * will be made at dequeue time.
+	 */
+	if (fq_codel_enable_l4s && tfc_type == FQ_TFC_L4S) {
+		fq_cl->fcl_stat.fcl_l4s_pkts += cnt;
+		droptype = DTYPE_NODROP;
+	}
+
+	/*
+	 * If the queue length hits the queue limit, drop a chain with the
+	 * same number of packets from the front of the queue for a flow with
+	 * maximum number of bytes. This will penalize heavy and unresponsive
+	 * flows. It will also avoid a tail drop.
+	 */
+	if (__improbable(droptype == DTYPE_NODROP &&
+	    fq_if_at_drop_limit(fqs))) {
+		uint32_t i;
+
+		if (fqs->fqs_large_flow == fq) {
+			/*
+			 * Drop from the head of the current fq. Since a
+			 * new packet will be added to the tail, it is ok
+			 * to leave fq in place.
+			 */
+			DTRACE_IP5(large__flow, fq_if_t *, fqs,
+			    fq_if_classq_t *, fq_cl, fq_t *, fq,
+			    pktsched_pkt_t *, pkt, uint32_t, cnt);
+
+			for (i = 0; i < cnt; i++) {
+				fq_head_drop(fqs, fq);
+			}
+			fq_cl->fcl_stat.fcl_drop_overflow += cnt;
+			/*
+			 * For UDP, flow control it here so that we won't waste too much
+			 * CPU dropping packets.
+			 */
+			if ((fq->fq_flags & FQF_FLOWCTL_CAPABLE) &&
+			    (*pkt_flags & PKTF_FLOW_ADV) &&
+			    (pkt_proto != IPPROTO_TCP) &&
+			    (pkt_proto != IPPROTO_QUIC)) {
+				if (fq_if_add_fcentry(fqs, pkt, pkt_flowsrc, fq, fq_cl)) {
+					fq->fq_flags |= FQF_FLOWCTL_ON;
+					FQ_SET_OVERWHELMING(fq);
+					fq_cl->fcl_stat.fcl_overwhelming++;
+					/* deliver flow control advisory error */
+					ret = CLASSQEQ_SUCCESS_FC;
+				}
+			}
+		} else {
+			if (fqs->fqs_large_flow == NULL) {
+				droptype = DTYPE_FORCED;
+				fq_cl->fcl_stat.fcl_drop_overflow += cnt;
+				ret = CLASSQEQ_DROP;
+
+				DTRACE_IP5(no__large__flow, fq_if_t *, fqs,
+				    fq_if_classq_t *, fq_cl, fq_t *, fq,
+				    pktsched_pkt_t *, pkt, uint32_t, cnt);
+
+				/*
+				 * if this fq was freshly created and there
+				 * is nothing to enqueue, move it to empty list
+				 */
+				if (fq_empty(fq, fqs->fqs_ptype) &&
+				    !(fq->fq_flags & (FQF_NEW_FLOW |
+				    FQF_OLD_FLOW))) {
+					fq_if_move_to_empty_flow(fqs, fq_cl,
+					    fq, now);
+					fq = NULL;
+				}
+			} else {
+				DTRACE_IP5(different__large__flow,
+				    fq_if_t *, fqs, fq_if_classq_t *, fq_cl,
+				    fq_t *, fq, pktsched_pkt_t *, pkt,
+				    uint32_t, cnt);
+
+				for (i = 0; i < cnt; i++) {
+					fq_if_drop_packet(fqs, now);
+				}
+			}
+		}
+	}
+
+	fq_cl->fcl_flags &= ~FCL_PACED;
+
+	if (__probable(droptype == DTYPE_NODROP)) {
+		uint32_t chain_len = pktsched_get_pkt_len(pkt);
+		int ret_compress = 0;
+
+		/*
+		 * We do not compress if we are enqueuing a chain.
+		 * Traversing the chain to look for acks would defeat the
+		 * purpose of batch enqueueing.
+		 */
+		if (cnt == 1) {
+			ret_compress = fq_compressor(fqs, fq, fq_cl, pkt);
+			if (ret_compress == CLASSQEQ_COMPRESSED) {
+				fq_cl->fcl_stat.fcl_pkts_compressed++;
+			}
+		}
+		DTRACE_IP5(fq_enqueue, fq_if_t *, fqs, fq_if_classq_t *, fq_cl,
+		    fq_t *, fq, pktsched_pkt_t *, pkt, uint32_t, cnt);
+		fq_enqueue(fq, pkt->pktsched_pkt, pkt->pktsched_tail, cnt,
+		    pkt->pktsched_ptype);
+
+		fq->fq_bytes += chain_len;
+		fq_cl->fcl_stat.fcl_byte_cnt += chain_len;
+		fq_cl->fcl_stat.fcl_pkt_cnt += cnt;
+
+		/*
+		 * check if this queue will qualify to be the next
+		 * victim queue
+		 */
+		fq_if_is_flow_heavy(fqs, fq);
+
+		if (FQ_CONGESTION_FEEDBACK_CAPABLE(fq) && fq->fq_flowsrc == FLOWSRC_INPCB &&
+		    fq->fq_congestion_cnt > fq->fq_last_congestion_cnt) {
+			KDBG(AQM_KTRACE_CONGESTION_NOTIFIED,
+			    fq->fq_flowhash, AQM_KTRACE_FQ_GRP_SC_IDX(fq),
+			    fq->fq_bytes, fq->fq_congestion_cnt);
+			fq_cl->fcl_stat.fcl_congestion_feedback++;
+			ret = CLASSQEQ_CONGESTED;
+		}
+	} else {
+		DTRACE_IP3(fq_drop, fq_if_t *, fqs, int, droptype, int, ret);
+		return (ret != CLASSQEQ_SUCCESS) ? ret : CLASSQEQ_DROP;
+	}
+
+	/*
+	 * If the queue is not currently active, add it to the end of new
+	 * flows list for that service class.
+	 */
+	if ((fq->fq_flags & (FQF_NEW_FLOW | FQF_OLD_FLOW)) == 0) {
+		VERIFY(STAILQ_NEXT(fq, fq_actlink) == NULL);
+		STAILQ_INSERT_TAIL(&fq_cl->fcl_new_flows, fq, fq_actlink);
+		fq->fq_flags |= FQF_NEW_FLOW;
+
+		fq_cl->fcl_stat.fcl_newflows_cnt++;
+
+		fq->fq_deficit = fq_cl->fcl_quantum;
+	}
+	fq->fq_last_congestion_cnt = fq->fq_congestion_cnt;
+
+	return ret;
+}
+
+static boolean_t
+codel_ok_to_drop(pktsched_pkt_t *pkt, fq_t *fq,
+    struct codel_status *codel_status, uint64_t now)
+{
+	uint64_t *__single pkt_enq_time, sojourn_time;
+	boolean_t ok_to_drop = false;
+
+	if (pkt->pktsched_pcnt == 0) {
+		codel_status->first_above_time = 0;
+		return false;
+	}
+
+	pktsched_get_pkt_vars(pkt, NULL, &pkt_enq_time, NULL, NULL, NULL, NULL, NULL);
+	sojourn_time = 0;
+	// TODO: handle pacing
+	VERIFY(now >= *pkt_enq_time);
+	if (__probable(now > *pkt_enq_time)) {
+		sojourn_time = now - *pkt_enq_time;
+	}
+
+	if (sojourn_time <= FQ_TARGET_DELAY(fq)) {
+		codel_status->first_above_time = 0;
+		goto end;
+	}
+	if (codel_status->first_above_time == 0) {
+		codel_status->first_above_time = now += FQ_UPDATE_INTERVAL(fq);
+	} else if (now >= codel_status->first_above_time) {
+		ok_to_drop = true;
+		KDBG(AQM_KTRACE_OK_TO_DROP, fq->fq_flowhash, sojourn_time,
+		    *pkt_enq_time, now);
+	}
+
+end:
+	/* we shouldn't need to access pkt_enq_time again, clear it now */
+	*pkt_enq_time = 0;
+	return ok_to_drop;
+}
+
+static float
+fast_inv_sqrt(float number)
+{
+	union {
+		float    f;
+		uint32_t i;
+	} conv = { .f = number };
+	conv.i  = 0x5f3759df - (conv.i >> 1);
+	conv.f *= 1.5F - (number * 0.5F * conv.f * conv.f);
+	return conv.f;
+}
+
+static uint64_t
+codel_control_law(float inv_sqrt, uint64_t t, uint64_t interval)
+{
+	/* Drop becomes more frequeut as drop count increases */
+	uint64_t val = (uint64_t)(inv_sqrt * interval);
+	uint64_t result = t + val;
+	VERIFY(val > 0 && val <= interval);
+	return result;
+}
+
+static void
+fq_drop_pkt(struct ifclassq *ifcq, struct ifnet *ifp, pktsched_pkt_t *pkt)
+{
+	IFCQ_DROP_ADD(ifcq, 1, pktsched_get_pkt_len(pkt));
+	if (__improbable(droptap_verbose > 0)) {
+		pktsched_drop_pkt(pkt, ifp, DROP_REASON_AQM_HIGH_DELAY,
+		    __func__, __LINE__, 0);
+	} else {
+		pktsched_free_pkt(pkt);
+	}
+}
+
+void
+fq_codel_dq(void *fqs_p, void *fq_p, pktsched_pkt_t *pkt, uint64_t now)
+{
+	fq_if_t *fqs = (fq_if_t *)fqs_p;
+	fq_t *fq = (fq_t *)fq_p;
+	fq_if_classq_t *fq_cl = &FQ_CLASSQ(fq);
+	struct ifnet *ifp = fqs->fqs_ifq->ifcq_ifp;
+	struct codel_status *status = &fq->codel_status;
+	struct ifclassq *ifcq = fqs->fqs_ifq;
+	volatile uint32_t *__single pkt_flags;
+	uint64_t *__single pkt_timestamp, pkt_tx_time = 0, pacing_delay = 0, pkt_enq_time = 0;
+	int64_t qdelay = 0;
+	boolean_t l4s_pkt;
+	boolean_t ok_to_drop = false;
+	uint32_t delta = 0;
+
+	fq_getq_flow_internal(fqs, fq, pkt);
+	if (pkt->pktsched_ptype == QP_INVALID) {
+		VERIFY(pkt->pktsched_pkt_mbuf == NULL);
+		return;
+	}
+
+	pktsched_get_pkt_vars(pkt, &pkt_flags, &pkt_timestamp, NULL, NULL,
+	    NULL, NULL, &pkt_tx_time);
+	l4s_pkt = pktsched_is_pkt_l4s(pkt);
+	pkt_enq_time = *pkt_timestamp;
+
+	if (fq_codel_enable_pacing && fq_codel_enable_l4s) {
+		if (pkt_tx_time > pkt_enq_time) {
+			pacing_delay = pkt_tx_time - pkt_enq_time;
+			fq_cl->fcl_stat.fcl_paced_pkts++;
+			DTRACE_SKYWALK3(aqm__pacing__delta, uint64_t, now - pkt_tx_time,
+			    fq_if_t *, fqs, fq_t *, fq);
+		}
+#if (DEVELOPMENT || DEBUG)
+		else if (pkt_tx_time != 0) {
+			DTRACE_SKYWALK5(aqm__miss__pacing__delay, uint64_t, pkt_enq_time,
+			    uint64_t, pkt_tx_time, uint64_t, now, fq_if_t *,
+			    fqs, fq_t *, fq);
+		}
+#endif // (DEVELOPMENT || DEBUG)
+	}
+
+	if (fq_codel_enable_l4s && l4s_pkt) {
+		/* this will compute qdelay in nanoseconds */
+		if (now > pkt_enq_time) {
+			qdelay = now - pkt_enq_time;
+		}
+
+		fq->fq_pkts_since_last_report++;
+
+		if ((l4s_ce_threshold != 0 && qdelay > l4s_ce_threshold + pacing_delay) ||
+		    (l4s_ce_threshold == 0 && qdelay > FQ_TARGET_DELAY(fq) + pacing_delay)) {
+			DTRACE_SKYWALK4(aqm__mark__ce, uint64_t, qdelay, uint64_t, pacing_delay,
+			    fq_if_t *, fqs, fq_t *, fq);
+			KDBG(AQM_KTRACE_STATS_FLOW_REPORT_CE, fq->fq_flowhash,
+			    AQM_KTRACE_FQ_GRP_SC_IDX(fq), qdelay, pacing_delay);
+			/*
+			 * The packet buffer that pktsched_mark_ecn writes to can be pageable.
+			 * Since it is not safe to write to pageable memory while preemption
+			 * is disabled, convert the spin lock into mutex.
+			 */
+			IFCQ_CONVERT_LOCK(fqs->fqs_ifq);
+			if (__improbable(l4s_local_ce_report != 0) &&
+			    (*pkt_flags & PKTF_FLOW_ADV) != 0 &&
+			    fq_if_report_congestion(fqs, pkt, 0, 1, fq->fq_pkts_since_last_report)) {
+				fq->fq_pkts_since_last_report = 0;
+				fq_cl->fcl_stat.fcl_ce_reported++;
+			} else if (pktsched_mark_ecn(pkt) == 0) {
+				fq_cl->fcl_stat.fcl_ce_marked++;
+			} else {
+				fq_cl->fcl_stat.fcl_ce_mark_failures++;
+			}
+		}
+		*pkt_timestamp = 0;
+	} else {
+		ok_to_drop = codel_ok_to_drop(pkt, fq, status, now);
+
+		if (status->dropping) {
+			if (!ok_to_drop) {
+				status->dropping = false;
+			}
+			/*
+			 * Time for the next drop.  Drop current packet and dequeue
+			 * next.  If the dequeue doesn't take us out of dropping
+			 * state, schedule the next drop.  A large backlog might
+			 * result in drop rates so high that the next drop should
+			 * happen now, hence the 'while' loop.
+			 */
+			while (now >= status->drop_next && status->dropping) {
+				status->count++;
+				IFCQ_CONVERT_LOCK(fqs->fqs_ifq);
+				KDBG(AQM_KTRACE_CONGESTION_INC, fq->fq_flowhash,
+				    AQM_KTRACE_FQ_GRP_SC_IDX(fq), fq->fq_bytes, 0);
+				if (FQ_CONGESTION_FEEDBACK_CAPABLE(fq) && (*pkt_flags & PKTF_FLOW_ADV)) {
+					fq->fq_congestion_cnt++;
+					/* Like in the case of ECN, return now and dequeue again. */
+					if (fq->fq_flowsrc == FLOWSRC_CHANNEL) {
+						fq_if_report_congestion(fqs, pkt, 1, 0, fq->fq_pkts_since_last_report);
+						fq_cl->fcl_stat.fcl_congestion_feedback++;
+					}
+					goto end;
+					/*
+					 * If congestion feedback is not supported,
+					 * try ECN first, if fail, drop the packet.
+					 */
+				} else if (FQ_IS_ECN_CAPABLE(fq) && pktsched_mark_ecn(pkt) == 0) {
+					fq_cl->fcl_stat.fcl_ce_marked++;
+					status->drop_next =
+					    codel_control_law(fast_inv_sqrt(status->count), status->drop_next, FQ_UPDATE_INTERVAL(fq));
+					KDBG(AQM_KTRACE_PKT_DROP, fq->fq_flowhash,
+					    status->count, status->drop_next, now);
+					/*
+					 * Since we are not dropping, return now and let the
+					 * caller dequeue again
+					 */
+					goto end;
+				} else {
+					/* Disable ECN marking for this flow if marking fails once */
+					FQ_CLEAR_ECN_CAPABLE(fq);
+					fq_drop_pkt(ifcq, ifp, pkt);
+					fq_cl->fcl_stat.fcl_ce_mark_failures++;
+					fq_cl->fcl_stat.fcl_high_delay_drop++;
+
+					fq_getq_flow_internal(fqs, fq, pkt);
+					if (!codel_ok_to_drop(pkt, fq, status, now)) {
+						/* exit dropping state when queuing delay falls below threshold */
+						status->dropping = false;
+					} else {
+						status->drop_next =
+						    codel_control_law(fast_inv_sqrt(status->count), status->drop_next, FQ_UPDATE_INTERVAL(fq));
+					}
+				}
+				KDBG(AQM_KTRACE_PKT_DROP, fq->fq_flowhash,
+				    status->count, status->drop_next, now);
+			}
+			/*
+			 * If we get here, we're not in drop state.  The 'ok_to_drop'
+			 * return from dodequeue means that the sojourn time has been
+			 * above 'TARGET' for 'INTERVAL', so enter drop state.
+			 */
+		} else if (ok_to_drop) {
+			IFCQ_CONVERT_LOCK(fqs->fqs_ifq);
+			KDBG(AQM_KTRACE_CONGESTION_INC, fq->fq_flowhash,
+			    AQM_KTRACE_FQ_GRP_SC_IDX(fq), fq->fq_bytes, 0);
+			if (FQ_CONGESTION_FEEDBACK_CAPABLE(fq) && (*pkt_flags & PKTF_FLOW_ADV)) {
+				fq->fq_congestion_cnt++;
+				if (fq->fq_flowsrc == FLOWSRC_CHANNEL) {
+					fq_if_report_congestion(fqs, pkt, 1, 0, fq->fq_pkts_since_last_report);
+					fq_cl->fcl_stat.fcl_congestion_feedback++;
+				}
+			} else if (FQ_IS_ECN_CAPABLE(fq) && pktsched_mark_ecn(pkt) == 0) {
+				fq_cl->fcl_stat.fcl_ce_marked++;
+			} else {
+				FQ_CLEAR_ECN_CAPABLE(fq);
+				fq_drop_pkt(ifcq, ifp, pkt);
+				fq_cl->fcl_stat.fcl_ce_mark_failures++;
+				fq_cl->fcl_stat.fcl_high_delay_drop++;
+
+				fq_getq_flow_internal(fqs, fq, pkt);
+				ok_to_drop = codel_ok_to_drop(pkt, fq, status, now);
+			}
+			status->dropping = true;
+
+			/*
+			 * If min went above TARGET close to when it last went
+			 * below, assume that the drop rate that controlled the
+			 * queue on the last cycle is a good starting point to
+			 * control it now.  ('drop_next' will be at most 'INTERVAL'
+			 * later than the time of the last drop, so 'now - drop_next'
+			 * is a good approximation of the time from the last drop
+			 * until now.)
+			 */
+			delta = status->count - status->lastcnt;
+			if (delta > 0 && now - status->drop_next <= 16 * FQ_UPDATE_INTERVAL(fq)) {
+				status->count = MAX(status->count - 1, 1);
+			} else {
+				status->count = 1;
+			}
+
+			status->drop_next =
+			    codel_control_law(fast_inv_sqrt(status->count), now, FQ_UPDATE_INTERVAL(fq));
+			status->lastcnt = status->count;
+
+			KDBG(AQM_KTRACE_PKT_DROP, fq->fq_flowhash,
+			    status->count, status->drop_next, now);
+		}
+	}
+
+end:
+	if (fqs->fqs_large_flow != fq || !fq_if_almost_at_drop_limit(fqs) ||
+	    fq_empty(fq, fqs->fqs_ptype)) {
+		FQ_CLEAR_OVERWHELMING(fq);
+	}
+	if ((fq->fq_flags & FQF_FLOWCTL_ON) && !FQ_IS_OVERWHELMING(fq)) {
+		fq_if_flow_feedback(fqs, fq, fq_cl);
+	}
+
+	if (fq_empty(fq, fqs->fqs_ptype)) {
+		/* Reset getqtime so that we don't count idle times */
+		fq->fq_getqtime = 0;
+		fq->codel_status.dropping = false;
+	} else {
+		fq->fq_getqtime = now;
+	}
+	fq_if_is_flow_heavy(fqs, fq);
 }

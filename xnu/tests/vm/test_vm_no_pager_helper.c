@@ -17,6 +17,7 @@
 #include <darwintest_utils.h>
 
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 
 static int verbose = 0;
 

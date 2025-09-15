@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@ class ProgressBarMac final : public ControlMac {
     WTF_MAKE_TZONE_ALLOCATED(ProgressBarMac);
 public:
     ProgressBarMac(ProgressBarPart&, ControlFactoryMac&);
+    ~ProgressBarMac();
 
 private:
     const ProgressBarPart& owningProgressBarPart() const { return downcast<ProgressBarPart>(m_owningPart); }

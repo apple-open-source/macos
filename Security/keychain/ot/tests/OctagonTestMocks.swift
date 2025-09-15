@@ -101,7 +101,7 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
 
     @objc
     func getAccountInfo(withInfo info: [AnyHashable: Any]!, results: AutoreleasingUnsafeMutablePointer<NSDictionary?>!) -> Error? {
-        let recordData = accountInfoWithInfoSample.data(using: .utf8)!
+        let recordData = Data(accountInfoWithInfoSample.utf8)
         var propertyListFormat = PropertyListSerialization.PropertyListFormat.xml
         do {
             results.pointee = try PropertyListSerialization.propertyList(from: recordData, options: .mutableContainersAndLeaves, format: &propertyListFormat) as! [String: AnyObject] as NSDictionary

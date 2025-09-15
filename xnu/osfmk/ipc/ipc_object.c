@@ -98,7 +98,6 @@
 #include <security/mac_mach_internal.h>
 
 static struct mpsc_daemon_queue ipc_object_deallocate_queue;
-SECURITY_READ_ONLY_LATE(zone_t) ipc_object_zones[IOT_NUMBER];
 
 /*
  * In order to do lockfree lookups in the IPC space, we combine two schemes:
@@ -125,26 +124,21 @@ SECURITY_READ_ONLY_LATE(zone_t) ipc_object_zones[IOT_NUMBER];
  */
 #define IPC_OBJECT_ZC_BASE (ZC_ZFREE_CLEARMEM | ZC_SEQUESTER)
 
-ZONE_INIT(&ipc_object_zones[IOT_PORT],
-    "ipc ports", sizeof(struct ipc_port),
-    IPC_OBJECT_ZC_BASE | ZC_CACHING, ZONE_ID_IPC_PORT, NULL);
+ZONE_DEFINE_ID(ZONE_ID_IPC_PORT, "ipc ports", struct ipc_port,
+    IPC_OBJECT_ZC_BASE | ZC_CACHING);
 
-ZONE_INIT(&ipc_object_zones[IOT_PORT_SET],
-    "ipc port sets", sizeof(struct ipc_pset),
-    IPC_OBJECT_ZC_BASE, ZONE_ID_IPC_PORT_SET, NULL);
+ZONE_DEFINE_ID(ZONE_ID_IPC_PORT_SET, "ipc port sets", struct ipc_pset,
+    IPC_OBJECT_ZC_BASE);
 
 __attribute__((noinline))
 static void
-ipc_object_free(unsigned int otype, ipc_object_t object, bool last_ref)
+ipc_object_free(ipc_object_t object)
 {
-	if (last_ref) {
-		if (otype == IOT_PORT) {
-			ipc_port_finalize(ip_object_to_port(object));
-		} else {
-			ipc_pset_finalize(ips_object_to_pset(object));
-		}
+	if (io_is_any_port(object)) {
+		ipc_port_free(ip_object_to_port(object));
+	} else {
+		ipc_pset_free(ips_object_to_pset(object));
 	}
-	zfree(ipc_object_zones[otype], object);
 }
 
 __attribute__((noinline))
@@ -169,7 +163,7 @@ ipc_object_deallocate_queue_invoke(mpsc_queue_chain_t e,
 	assert(dq == &ipc_object_deallocate_queue);
 
 	os_atomic_store(&wq->waitq_defer.mpqc_next, NULL, relaxed);
-	ipc_object_free(io_otype(io), io, true);
+	ipc_object_free(io);
 }
 
 void
@@ -190,7 +184,7 @@ ipc_object_reference(
 	ipc_object_t    io)
 {
 	static_assert(sizeof(os_ref_atomic_t) == sizeof(io->io_references));
-	os_ref_retain_raw((os_ref_atomic_t *)&io->io_references, NULL);
+	os_ref_retain_raw(&io->io_references, NULL);
 }
 
 /*
@@ -207,9 +201,9 @@ ipc_object_release(
 	assert(get_preemption_level() == 0);
 #endif
 
-	if (os_ref_release_raw((os_ref_atomic_t *)&io->io_references, NULL) == 0) {
+	if (os_ref_release_raw(&io->io_references, NULL) == 0) {
 		/* Free the object */
-		ipc_object_free(io_otype(io), io, true);
+		ipc_object_free(io);
 	}
 }
 
@@ -223,9 +217,9 @@ void
 ipc_object_release_safe(
 	ipc_object_t    io)
 {
-	if (os_ref_release_raw((os_ref_atomic_t *)&io->io_references, NULL) == 0) {
+	if (os_ref_release_raw(&io->io_references, NULL) == 0) {
 		if (get_preemption_level() == 0) {
-			ipc_object_free(io_otype(io), io, true);
+			ipc_object_free(io);
 		} else {
 			ipc_object_free_safe(io);
 		}
@@ -242,7 +236,7 @@ void
 ipc_object_release_live(
 	ipc_object_t    io)
 {
-	os_ref_release_live_raw((os_ref_atomic_t *)&io->io_references, NULL);
+	os_ref_release_live_raw(&io->io_references, NULL);
 }
 
 /*
@@ -324,10 +318,13 @@ ipc_object_translate_port_pset(
 	/* space is read-locked and active */
 
 	if ((port_entry->ie_bits & MACH_PORT_TYPE_RECEIVE) == 0) {
-		bool guard = !(port_entry->ie_bits & MACH_PORT_TYPE_EX_RECEIVE);
+		bool guard = !(port_entry->ie_bits & IE_BITS_EX_RECEIVE);
+
 		is_read_unlock(space);
 		if (guard) {
-			mach_port_guard_exception(port_name, 0,
+			mach_port_guard_exception(port_name,
+			    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_TRANSLATE_PORT,
+			    port_entry->ie_bits),
 			    kGUARD_EXC_INVALID_RIGHT);
 		}
 		return KERN_INVALID_RIGHT;
@@ -335,7 +332,9 @@ ipc_object_translate_port_pset(
 
 	if ((pset_entry->ie_bits & MACH_PORT_TYPE_PORT_SET) == 0) {
 		is_read_unlock(space);
-		mach_port_guard_exception(pset_name, 0,
+		mach_port_guard_exception(pset_name,
+		    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_TRANSLATE_PSET,
+		    pset_entry->ie_bits),
 		    kGUARD_EXC_INVALID_RIGHT);
 		return KERN_INVALID_RIGHT;
 	}
@@ -385,6 +384,8 @@ ipc_object_alloc_dead(
 {
 	ipc_entry_t entry;
 	kern_return_t kr;
+	mach_port_type_t type = MACH_PORT_TYPE_DEAD_NAME;
+	mach_port_urefs_t urefs = 1;
 
 	kr = ipc_entry_alloc(space, IPC_OBJECT_NULL, namep, &entry);
 	if (kr != KERN_SUCCESS) {
@@ -392,22 +393,21 @@ ipc_object_alloc_dead(
 	}
 	/* space is write-locked */
 
-	/* null object, MACH_PORT_TYPE_DEAD_NAME, 1 uref */
+	ipc_entry_init(space, IPC_OBJECT_NULL, type, entry, urefs, *namep);
 
-	entry->ie_bits |= MACH_PORT_TYPE_DEAD_NAME | 1;
-	ipc_entry_modified(space, *namep, entry);
 	is_write_unlock(space);
 	return KERN_SUCCESS;
 }
 
 /*
- *	Routine:	ipc_object_alloc
+ *	Routine:	ipc_object_alloc_entry
  *	Purpose:
- *		Allocate an object.
+ *		Allocate an unitialized entry for a new object.
+ *      That entry must later be initialized by `ipc_entry_init` after
+ *      the object has been initialized
  *	Conditions:
  *		Nothing locked.
  *		The space is write locked on successful return.
- *		The caller doesn't get a reference for the object.
  *	Returns:
  *		KERN_SUCCESS		The object is allocated.
  *		KERN_INVALID_TASK	The space is dead.
@@ -415,53 +415,28 @@ ipc_object_alloc_dead(
  */
 
 kern_return_t
-ipc_object_alloc(
-	ipc_space_t             space,
-	ipc_object_type_t       otype,
-	mach_port_type_t        type,
-	mach_port_urefs_t       urefs,
-	mach_port_name_t        *namep,
-	ipc_object_t            *objectp)
+ipc_object_alloc_entry(
+	ipc_space_t         space,
+	ipc_object_t        object,
+	mach_port_name_t    *namep,
+	ipc_entry_t         *entry)
 {
-	ipc_object_t object;
-	ipc_entry_t entry;
 	kern_return_t kr;
 
-	assert(otype < IOT_NUMBER);
-	assert((type & MACH_PORT_TYPE_ALL_RIGHTS) == type);
-	assert(type != MACH_PORT_TYPE_NONE);
-	assert(urefs <= MACH_PORT_UREFS_MAX);
+	kr = ipc_entry_alloc(space, object, namep, entry);
 
-	object = io_alloc(otype, Z_WAITOK | Z_ZERO | Z_NOFAIL);
-	os_atomic_init(&object->io_bits, io_makebits(otype));
-	os_atomic_init(&object->io_references, 1); /* for entry, not caller */
-
-	*namep = CAST_MACH_PORT_TO_NAME(object);
-	kr = ipc_entry_alloc(space, object, namep, &entry);
-	if (kr != KERN_SUCCESS) {
-		ipc_object_free(otype, object, false);
-		return kr;
-	}
-	/* space is write-locked */
-
-	entry->ie_bits |= type | urefs;
-	ipc_entry_modified(space, *namep, entry);
-
-	*objectp = object;
-	return KERN_SUCCESS;
+	return kr;
 }
 
 /*
- *	Routine:	ipc_object_alloc_name
+ *	Routine:	ipc_object_alloc_entry_with_name
  *	Purpose:
- *		Allocate an object, with a specific name.
+ *		Allocate an uninitalized entry for a new object, with a specific name.
+ *      That entry must later be initialized by `ipc_entry_init` after
+ *      the object has been initialized
  *	Conditions:
- *		Nothing locked.  If successful, the object is returned locked.
- *		The caller doesn't get a reference for the object.
- *
- *		finish_init() must call an ipc_*_init function
- *		that will return the object locked (using IPC_PORT_INIT_LOCKED,
- *		or SYNC_POLICY_INIT_LOCKED, or equivalent).
+ *		Nothing locked.
+ *		The space is write locked on successful return.
  *
  *	Returns:
  *		KERN_SUCCESS		The object is allocated.
@@ -470,53 +445,20 @@ ipc_object_alloc(
  */
 
 kern_return_t
-ipc_object_alloc_name(
-	ipc_space_t             space,
-	ipc_object_type_t       otype,
-	mach_port_type_t        type,
-	mach_port_urefs_t       urefs,
-	mach_port_name_t        name,
-	ipc_object_t            *objectp,
-	void                    (^finish_init)(ipc_object_t))
+ipc_object_alloc_entry_with_name(
+	ipc_space_t         space,
+	mach_port_name_t    name,
+	ipc_entry_t         *entry)
 {
-	ipc_object_t object;
-	ipc_entry_t entry;
 	kern_return_t kr;
 
-	assert(otype < IOT_NUMBER);
-	assert((type & MACH_PORT_TYPE_ALL_RIGHTS) == type);
-	assert(type != MACH_PORT_TYPE_NONE);
-	assert(urefs <= MACH_PORT_UREFS_MAX);
-
-	object = io_alloc(otype, Z_WAITOK | Z_ZERO | Z_NOFAIL);
-	os_atomic_init(&object->io_bits, io_makebits(otype));
-	os_atomic_init(&object->io_references, 1); /* for entry, not caller */
-
-	kr = ipc_entry_alloc_name(space, name, &entry);
-	if (kr != KERN_SUCCESS) {
-		ipc_object_free(otype, object, false);
-		return kr;
-	}
-	/* space is write-locked */
-
-	if (ipc_right_inuse(entry)) {
+	kr = ipc_entry_alloc_name(space, name, entry);
+	if (kr == KERN_SUCCESS && ipc_right_inuse(*entry)) {
 		is_write_unlock(space);
-		ipc_object_free(otype, object, false);
-		return KERN_NAME_EXISTS;
+		kr = KERN_NAME_EXISTS;
 	}
 
-	entry->ie_bits |= type | urefs;
-	entry->ie_object = object;
-
-	finish_init(object);
-	/* object is locked */
-	io_lock_held(object);
-
-	ipc_entry_modified(space, name, entry);
-	is_write_unlock(space);
-
-	*objectp = object;
-	return KERN_SUCCESS;
+	return kr;
 }
 
 /*	Routine:	ipc_object_validate
@@ -530,7 +472,7 @@ ipc_object_validate(
 	ipc_object_t            object,
 	ipc_object_type_t       type)
 {
-	if (type != IOT_PORT_SET) {
+	if (io_is_any_port_type(type)) {
 		ip_validate(object);
 	} else {
 		ips_validate(object);
@@ -586,6 +528,7 @@ ipc_object_copyin(
 	mach_port_name_t           name,
 	mach_msg_type_name_t       msgt_name,
 	ipc_object_copyin_flags_t  copyin_flags,
+	ipc_copyin_op_t            copyin_reason,
 	mach_msg_guarded_port_descriptor_t *gdesc,
 	ipc_port_t                *portp)
 {
@@ -594,19 +537,8 @@ ipc_object_copyin(
 	ipc_entry_t entry;
 	kern_return_t kr;
 
-	ipc_object_copyin_flags_t copyin_mask = IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND
-	    | IPC_OBJECT_COPYIN_FLAGS_ALLOW_CONN_IMMOVABLE_RECEIVE;
+	ipc_object_copyin_flags_t copyin_mask = IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND;
 	copyin_mask = (copyin_flags & copyin_mask) | IPC_OBJECT_COPYIN_FLAGS_DEADOK;
-
-	/*
-	 * We allow moving of immovable receive right of a service port when it is from launchd.
-	 */
-	task_t task = current_task_early();
-#ifdef MACH_BSD
-	if (task && proc_isinitproc(get_bsdtask_info(task))) {
-		copyin_mask |= IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_RECEIVE;
-	}
-#endif
 
 	/*
 	 *	Could first try a read lock when doing
@@ -622,16 +554,21 @@ ipc_object_copyin(
 	}
 	/* space is write-locked and active */
 
-	kr = ipc_right_copyin(space, name, msgt_name, copyin_mask, entry,
-	    portp, &icc, &icrc);
+	kr = ipc_right_copyin(space, name, msgt_name, copyin_mask, copyin_reason,
+	    entry, portp, &icc, &icrc);
 	is_write_unlock(space);
-
-	if (moved_provisional_reply_port(msgt_name, icc.icc_deleted_port)) {
-		send_prp_telemetry(-1);
-	}
 
 	ipc_right_copyin_cleanup_destroy(&icc, name);
 	ipc_right_copyin_rcleanup_destroy(&icrc);
+
+	if (IP_VALID(*portp) &&
+	    ip_type(*portp) == IOT_SERVICE_PORT &&
+	    msgt_name == MACH_MSG_TYPE_MOVE_RECEIVE &&
+	    !task_is_initproc(space->is_task) &&
+	    !ipc_space_has_telemetry_type(space, IS_HAS_SERVICE_PORT_TELEMETRY)) {
+		ipc_stash_policy_violations_telemetry(IPCPV_MOVE_SERVICE_PORT,
+		    *portp, name);
+	}
 
 	return kr;
 }
@@ -669,24 +606,26 @@ ipc_object_copyin_from_kernel(
 	ipc_port_t              port,
 	mach_msg_type_name_t    msgt_name)
 {
+	ipc_object_label_t label;
 	assert(IP_VALID(port));
 
 	switch (msgt_name) {
 	case MACH_MSG_TYPE_MOVE_RECEIVE:
-		ip_mq_lock(port);
-		require_ip_active(port);
-		if (ip_in_a_space(port)) {
+		label = ip_mq_lock_label_get(port);
+
+		if (label.io_state == IO_STATE_IN_SPACE) {
 			assert(ip_in_space(port, ipc_space_kernel));
-			assert(port->ip_immovable_receive == 0);
 
-			/* relevant part of ipc_port_clear_receiver */
-			port->ip_mscount = 0;
-
-			/* port transtions to IN-LIMBO state */
-			port->ip_receiver_name = MACH_PORT_NULL;
-			port->ip_destination = IP_NULL;
+			/*
+			 * Ports in kernel are never hooked to a pset,
+			 * so we don't need to pass a waitq linkage free list.
+			 */
+			ipc_port_mark_in_limbo(port, &label, NULL);
+			ip_mq_unlock(port);
+		} else {
+			ipc_release_assert(io_state_in_limbo(label.io_state));
+			ip_mq_unlock_label_put(port, &label);
 		}
-		ip_mq_unlock(port);
 		break;
 
 	case MACH_MSG_TYPE_COPY_SEND:
@@ -703,8 +642,7 @@ ipc_object_copyin_from_kernel(
 		ip_mq_lock(port);
 		if (ip_active(port)) {
 			assert(ip_in_a_space(port));
-			assert((ip_in_space(port, ipc_space_kernel)) ||
-			    (port->ip_receiver->is_node_id != HOST_LOCAL_NODE));
+			assert(ip_in_space(port, ipc_space_kernel));
 			port->ip_mscount++;
 		}
 
@@ -930,6 +868,7 @@ ipc_object_copyout(
 	mach_port_name_t        *namep)
 {
 	struct knote *kn = current_thread()->ith_knote;
+	ipc_object_label_t label;
 	mach_port_name_t name;
 	ipc_entry_t entry;
 	kern_return_t kr;
@@ -963,17 +902,13 @@ ipc_object_copyout(
 			continue;
 		}
 
-		ip_mq_lock_check_aligned(port);
-		if (!ip_active(port)) {
-			ip_mq_unlock(port);
-			is_write_unlock(space);
-			kr = KERN_INVALID_CAPABILITY;
-			goto out;
-		}
+		label = ip_mq_lock_check_aligned(port);
 
 		/* Don't actually copyout rights we aren't allowed to */
-		if (!ip_label_check(space, port, msgt_name, &flags, &port_subst)) {
-			ip_mq_unlock(port);
+		if (!io_state_active(label.io_state) ||
+		    !ip_label_check_or_substitute(space, port, &label,
+		    msgt_name, &port_subst)) {
+			ip_mq_unlock_label_put(port, &label);
 			is_write_unlock(space);
 			assert(port_subst == IP_NULL);
 			kr = KERN_INVALID_CAPABILITY;
@@ -1010,11 +945,17 @@ ipc_object_copyout(
 		ipc_entry_claim(space, ip_to_object(port), &name, &entry);
 	}
 
-	kr = ipc_right_copyout(space, port, msgt_name,
-	    flags, name, entry, gdesc);
+	if (msgt_name == MACH_MSG_TYPE_PORT_RECEIVE) {
+		ipc_right_copyout_recv_and_unlock_space(space, port, &label,
+		    name, entry, gdesc);
+	} else {
+		ip_label_put(port, &label);
+		ipc_right_copyout_any_send(space, port, msgt_name,
+		    flags, name, entry);
+		is_write_unlock(space);
+	}
 
 	/* port is unlocked */
-	is_write_unlock(space);
 
 out:
 	if (kr == KERN_SUCCESS) {
@@ -1052,6 +993,7 @@ ipc_object_copyout_name(
 	mach_msg_type_name_t    msgt_name,
 	mach_port_name_t        name)
 {
+	ipc_object_label_t label;
 	mach_port_name_t oname;
 	ipc_entry_t oentry;
 	ipc_entry_t entry;
@@ -1070,7 +1012,7 @@ ipc_object_copyout_name(
 	}
 	/* space is write-locked and active */
 
-	ip_mq_lock_check_aligned(port);
+	label = ip_mq_lock_check_aligned(port);
 
 	/*
 	 * Don't actually copyout rights we aren't allowed to
@@ -1078,8 +1020,9 @@ ipc_object_copyout_name(
 	 * In particular, kolabel-ed ports do not allow callers
 	 * to pick the name they end up with.
 	 */
-	if (!ip_active(port) || ip_is_kolabeled(port)) {
-		ip_mq_unlock(port);
+	if (!io_state_active(label.io_state) ||
+	    (io_is_kobject_type(label.io_type) && label.iol_kobject)) {
+		ip_mq_unlock_label_put(port, &label);
 		if (!ipc_right_inuse(entry)) {
 			ipc_entry_dealloc(space, IPC_OBJECT_NULL, name, entry);
 		}
@@ -1092,7 +1035,7 @@ ipc_object_copyout_name(
 	if ((msgt_name != MACH_MSG_TYPE_PORT_SEND_ONCE) &&
 	    ipc_right_reverse(space, port, &oname, &oentry)) {
 		if (name != oname) {
-			ip_mq_unlock(port);
+			ip_mq_unlock_label_put(port, &label);
 			if (!ipc_right_inuse(entry)) {
 				ipc_entry_dealloc(space, IPC_OBJECT_NULL, name, entry);
 			}
@@ -1103,7 +1046,7 @@ ipc_object_copyout_name(
 		assert(entry == oentry);
 		assert(entry->ie_bits & MACH_PORT_TYPE_SEND_RECEIVE);
 	} else if (ipc_right_inuse(entry)) {
-		ip_mq_unlock(port);
+		ip_mq_unlock_label_put(port, &label);
 		is_write_unlock(space);
 		return KERN_NAME_EXISTS;
 	} else {
@@ -1111,14 +1054,14 @@ ipc_object_copyout_name(
 		entry->ie_port = port;
 	}
 
-#if IMPORTANCE_INHERITANCE
-	/*
-	 * We are slamming a receive right into the space, without
-	 * first having been enqueued on a port destined there.  So,
-	 * we have to arrange to boost the task appropriately if this
-	 * port has assertions (and the task wants them).
-	 */
 	if (msgt_name == MACH_MSG_TYPE_PORT_RECEIVE) {
+#if IMPORTANCE_INHERITANCE
+		/*
+		 * We are slamming a receive right into the space, without
+		 * first having been enqueued on a port destined there.  So,
+		 * we have to arrange to boost the task appropriately if this
+		 * port has assertions (and the task wants them).
+		 */
 		if (space->is_task != TASK_NULL) {
 			task_imp = space->is_task->task_imp_base;
 			if (ipc_importance_task_is_any_receiver_type(task_imp)) {
@@ -1131,15 +1074,16 @@ ipc_object_copyout_name(
 
 		/* take port out of limbo */
 		port->ip_tempowner = 0;
-	}
 
 #endif /* IMPORTANCE_INHERITANCE */
-
-	kr = ipc_right_copyout(space, port, msgt_name,
-	    IPC_OBJECT_COPYOUT_FLAGS_NONE, name, entry, NULL);
-
-	/* port is unlocked */
-	is_write_unlock(space);
+		ipc_right_copyout_recv_and_unlock_space(space, port, &label,
+		    name, entry, NULL);
+	} else {
+		ip_label_put(port, &label);
+		ipc_right_copyout_any_send(space, port, msgt_name,
+		    IPC_OBJECT_COPYOUT_FLAGS_NONE, name, entry);
+		is_write_unlock(space);
+	}
 
 #if IMPORTANCE_INHERITANCE
 	/*
@@ -1151,7 +1095,7 @@ ipc_object_copyout_name(
 	}
 #endif /* IMPORTANCE_INHERITANCE */
 
-	return kr;
+	return KERN_SUCCESS;
 }
 
 /*
@@ -1209,8 +1153,6 @@ ipc_object_copyout_dest(
 	}
 
 	case MACH_MSG_TYPE_PORT_SEND_ONCE: {
-		assert(port->ip_sorights > 0);
-
 		if (ip_in_space(port, space)) {
 			/* quietly consume the send-once right */
 			ip_sorights_dec(port);
@@ -1240,6 +1182,32 @@ ipc_object_copyout_dest(
 	}
 
 	*namep = name;
+}
+
+void
+ipc_object_unpin(
+	ipc_space_t             space,
+	ipc_port_t              port)
+{
+	mach_port_name_t name;
+	ipc_entry_t entry;
+
+	if (IP_VALID(port)) {
+		is_write_lock(space);
+		ip_mq_lock(port);
+
+		if (is_active(space) &&
+		    ipc_right_reverse(space, port, &name, &entry) &&
+		    (entry->ie_bits & IE_BITS_PINNED_SEND)) {
+			assert(entry->ie_bits & MACH_PORT_TYPE_SEND);
+			entry->ie_bits &= ~IE_BITS_PINNED_SEND;
+
+			ipc_entry_modified(space, name, entry);
+		}
+
+		ip_mq_unlock(port);
+		is_write_unlock(space);
+	}
 }
 
 static_assert(offsetof(struct ipc_object_waitq, iowq_waitq) ==
@@ -1286,47 +1254,29 @@ ipc_object_validate_preflight_panic(ipc_object_t io)
 bool
 ipc_object_lock_allow_invalid(ipc_object_t orig_io)
 {
-	struct waitq *orig_wq = io_waitq(orig_io);
-	struct waitq *wq = pgz_decode_allow_invalid(orig_wq, ZONE_ID_ANY);
+	struct waitq *wq = io_waitq(orig_io);
 
 	switch (zone_id_for_element(wq, sizeof(*wq))) {
 	case ZONE_ID_IPC_PORT:
 	case ZONE_ID_IPC_PORT_SET:
 		break;
 	default:
-#if CONFIG_PROB_GZALLOC
-		if (orig_wq != wq) {
-			/*
-			 * The element was PGZ protected, and the translation
-			 * returned another type than port or port-set, or
-			 * ZONE_ID_INVALID (wq is NULL).
-			 *
-			 * We have to allow this skew, and assumed the slot
-			 * has held a now freed port/port-set.
-			 */
-			return false;
-		}
-#endif /* CONFIG_PROB_GZALLOC */
 		ipc_object_validate_preflight_panic(orig_io);
 	}
 
 	if (__probable(waitq_lock_allow_invalid(wq))) {
 		ipc_object_t io = io_from_waitq(wq);
 
-		ipc_object_validate(io, io_otype(io));
-#if CONFIG_PROB_GZALLOC
-		if (__improbable(wq != orig_wq &&
-		    wq != pgz_decode_allow_invalid(orig_wq, ZONE_ID_ANY))) {
-			/*
-			 * This object is no longer held in the slot,
-			 * whatever this object is, it's not the droid
-			 * we're looking for. Pretend we failed the lock.
-			 */
-			waitq_unlock(wq);
-			return false;
-		}
-#endif /* CONFIG_PROB_GZALLOC */
+		ipc_object_validate(io, io_type(io));
 		return true;
 	}
 	return false;
+}
+
+__attribute__((always_inline))
+void
+ipc_object_unlock(ipc_object_t object)
+{
+	release_assert(!object->io_label_lock);
+	io_unlock_nocheck(object);
 }

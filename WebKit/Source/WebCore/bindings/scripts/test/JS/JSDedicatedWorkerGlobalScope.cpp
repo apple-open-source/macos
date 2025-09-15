@@ -22,6 +22,7 @@
 #include "JSDedicatedWorkerGlobalScope.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DedicatedWorkerGlobalScope.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
@@ -143,7 +144,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsDedicatedWorkerGlobalScopeConstructor, (JSGlobalObjec
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSDedicatedWorkerGlobalScopePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSDedicatedWorkerGlobalScope::getConstructor(vm, prototype->globalObject()));
 }
@@ -172,7 +173,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsDedicatedWorkerGlobalScope_ExposedStarConstructor, (J
 
 JSC::GCClient::IsoSubspace* JSDedicatedWorkerGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSDedicatedWorkerGlobalScope, UseCustomHeapCellType::Yes>(vm,
+    return WebCore::subspaceForImpl<JSDedicatedWorkerGlobalScope, UseCustomHeapCellType::Yes>(vm, "JSDedicatedWorkerGlobalScope"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForDedicatedWorkerGlobalScope.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForDedicatedWorkerGlobalScope = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForDedicatedWorkerGlobalScope.get(); },

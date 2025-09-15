@@ -332,6 +332,8 @@ struct pcapng_decryption_secrets_fields {
 #define	PCAPNG_EPB_PMDF_SOCKET          0x00000008 /* Socket */
 #define	PCAPNG_EPB_PMDF_NEXUS_CHANNEL   0x00000010 /* Nexus Channel */
 #define	PCAPNG_EPB_PMDF_WAKE_PKT        0x00000020 /* Wake packet */
+#define	PCAPNG_EPB_PMDF_ULPN_PKT        0x00000040 /* ULPN packet */
+#define	PCAPNG_EPB_PMDF_LPW             0x00000080 /* LPW */
 
 /*
  * Process Information Block

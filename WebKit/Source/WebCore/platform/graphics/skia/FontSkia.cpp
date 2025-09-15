@@ -29,6 +29,7 @@
 #include "GlyphBuffer.h"
 #include "NotImplemented.h"
 #include "PathSkia.h"
+#include "SkiaHarfBuzzFont.h"
 #include <skia/core/SkFont.h>
 #include <skia/core/SkFontMetrics.h>
 
@@ -109,6 +110,13 @@ void Font::platformInit()
 
     m_fontMetrics.setUnitsPerEm(font.getTypeface()->getUnitsPerEm());
 
+    // FIXME: add support for SomeEmojiGlyphs once Skia provides API for that.
+    // See https://issues.skia.org/issues/374078818.
+    if (m_platformData.isColorBitmapFont())
+        m_emojiType = AllEmojiGlyphs { };
+    else
+        m_emojiType = NoEmojiGlyphs { };
+
     SkString familyName;
     font.getTypeface()->getFamilyName(&familyName);
     if (equalIgnoringASCIICase(familyName.c_str(), "Ahem"_s))
@@ -161,8 +169,11 @@ bool Font::variantCapsSupportedForSynthesis(FontVariantCaps fontVariantCaps) con
     }
 }
 
-bool Font::platformSupportsCodePoint(char32_t character, std::optional<char32_t>) const
+bool Font::platformSupportsCodePoint(char32_t character, std::optional<char32_t> variation) const
 {
+    if (auto* skiaHarfBuzzFont = m_platformData.skiaHarfBuzzFont())
+        return !!skiaHarfBuzzFont->glyph(character, variation);
+
     return m_platformData.skFont().getTypeface()->unicharToGlyph(character);
 }
 

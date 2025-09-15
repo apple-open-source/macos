@@ -355,7 +355,7 @@ void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *
     const URL& url = toPrivate(_private)->loader->url();
     if (url.isEmpty())
         return nil;
-    return url;
+    return url.createNSURL().autorelease();
 }
 
 - (WebView *)_webView
@@ -404,7 +404,7 @@ void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *
 
     _private = static_cast<void*>(new WebDataSourcePrivate(WTFMove(loader)));
         
-    LOG(Loading, "creating datasource for %@", static_cast<NSURL *>(toPrivate(_private)->loader->request().url()));
+    LOG(Loading, "creating datasource for %@", toPrivate(_private)->loader->request().url().createNSURL().get());
 
     if ((toPrivate(_private)->includedInWebKitStatistics = [[self webFrame] _isIncludedInWebKitStatistics]))
         ++WebDataSourceCount;
@@ -500,10 +500,10 @@ void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *
 
 - (NSString *)textEncodingName
 {
-    NSString *textEncodingName = toPrivate(_private)->loader->overrideEncoding();
+    RetainPtr textEncodingName = toPrivate(_private)->loader->overrideEncoding().createNSString();
     if (!textEncodingName)
         textEncodingName = [[self response] textEncodingName];
-    return textEncodingName;
+    return textEncodingName.autorelease();
 }
 
 - (BOOL)isLoading
@@ -522,7 +522,7 @@ void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *
     const URL& unreachableURL = toPrivate(_private)->loader->unreachableURL();
     if (unreachableURL.isEmpty())
         return nil;
-    return unreachableURL;
+    return unreachableURL.createNSURL().autorelease();
 }
 
 - (WebArchive *)webArchive

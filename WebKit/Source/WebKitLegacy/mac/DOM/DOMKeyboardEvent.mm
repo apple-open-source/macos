@@ -44,7 +44,7 @@
 - (NSString *)keyIdentifier
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->keyIdentifier();
+    return IMPL->keyIdentifier().createNSString().autorelease();
 }
 
 - (unsigned)location

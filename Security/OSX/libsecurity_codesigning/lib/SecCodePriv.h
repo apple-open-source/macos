@@ -37,6 +37,17 @@ extern "C" {
 
 
 /*
+ *  Private flags for SecCodeCopySigningInformation.
+ *  @constant kSecCSSkipCodeDirectoryValidation Force the information creation to skip any
+ *      code directory validation (including signature CMS) as part of loading the information.
+ *      Generally the copied information is not validated, but some information currently
+ *      triggers validation. Since this behavior is relied on by some callers, this flag
+ *      opts into new behavior to completely skip the validation.
+ */
+CF_ENUM(uint32_t) {
+    kSecCSSkipCodeDirectoryValidation = 1 << 7,
+};
+/*
  *	Private constants for SecCodeCopySigningInformation.
  */
 extern const CFStringRef kSecCodeInfoCdHashesFull;          /* Internal */
@@ -53,11 +64,13 @@ extern const CFStringRef kSecCodeInfoLaunchConstraintsSelf;	/* Internal */
 extern const CFStringRef kSecCodeInfoLaunchConstraintsParent;/* Internal */
 extern const CFStringRef kSecCodeInfoLaunchConstraintsResponsible; /* Internal */
 extern const CFStringRef kSecCodeInfoLibraryConstraints;    /* Internal */
+extern const CFStringRef kSecCodeInfoValidationCategory; /* Number */
 
 extern const CFStringRef kSecCodeInfoDiskRepVersionPlatform;     /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepVersionMin;          /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepVersionSDK;          /* Number */
 extern const CFStringRef kSecCodeInfoDiskRepNoLibraryValidation; /* String */
+
 
 /*!
 	@function SecCodeGetStatus

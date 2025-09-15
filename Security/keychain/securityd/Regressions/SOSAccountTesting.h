@@ -923,7 +923,7 @@ static inline bool SOSTestJoinWith(CFDataRef cfpassword, CFStringRef cfaccount, 
     return retval;
 }
 
-static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount* approver, SOSAccount* joiner, bool dropUserKey, int expectedCount, bool expectCleanup) {
+static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfaccount, CFMutableDictionaryRef changes, SOSAccount* approver, SOSAccount* joiner, bool dropUserKey, int expectedCount, bool expectCleanup __unused) {
     //CFErrorRef error = NULL;
     // retval will return op failures, not count failures - we'll still report those from in here.
     bool retval = false;
@@ -932,11 +932,7 @@ static inline bool SOSTestJoinWithApproval(CFDataRef cfpassword, CFStringRef cfa
     
     ProcessChangesUntilNoChange(changes, approver, joiner, NULL);
     
-    int nrounds = 2;
     if(dropUserKey) SOSAccountPurgePrivateCredential(joiner);  // lose the userKey so we don't "fix" the ghost problem yet.
-    else nrounds = 3;
-    
-    if(expectCleanup) nrounds++;
     
     ok(retval &= SOSTestApproveRequest(approver, 1), "Accepting Request to Join");
     ProcessChangesUntilNoChange(changes, approver, joiner, NULL);

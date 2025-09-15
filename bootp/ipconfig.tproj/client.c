@@ -524,11 +524,9 @@ S_get_summary(mach_port_t server, int argc, char * argv[])
 		name, ipconfig_status_string(status));
 	goto done;
     }
-    else {
-	ret = 0;
-	if (summary != NULL) {
+    ret = 0;
+    if (summary != NULL) {
 	    SCPrint(TRUE, stdout, CFSTR("%@\n"), summary);
-	}
     }
  done:
     my_CFRelease(&summary);
@@ -643,7 +641,6 @@ S_get_dhcp_ia_id(mach_port_t server, int argc, char * argv[])
  done:
     return (1);
 }
-
 
 #ifndef kSCValNetIPv6ConfigMethodLinkLocal
 static const CFStringRef kIPConfigurationIPv6ConfigMethodLinkLocal = CFSTR("LinkLocal");
@@ -1406,6 +1403,11 @@ S_get_dhcp_duid_type(mach_port_t server, int argc, char * argv[])
 extern Boolean
 IPConfigurationForgetNetwork(CFStringRef ifname, CFStringRef ssid)
 __attribute__((weak_import));
+
+extern CFStringRef
+IPConfigurationCopyIPv4RouterInformation(CFStringRef ifname,
+					 CFStringRef * ret_ip)
+__attribute__((weak_import));
 #endif /* TARGET_OS_OSX */
 
 static int
@@ -1461,6 +1463,33 @@ S_set_hide_wifi_info(mach_port_t server, int argc, char * argv[])
 	}
     }
     return (success ? 0 : 1);
+}
+
+static int
+S_get_ipv4_router_info(mach_port_t server, int argc, char * argv[])
+{
+    CFStringRef		ifname;
+    CFStringRef		router_ip;
+    CFStringRef		router_mac;
+
+#if TARGET_OS_OSX
+    if (IPConfigurationCopyIPv4RouterInformation == NULL) {
+	fprintf(stderr, "IPConfigurationGetIPv4RouterInformation unavailable\n");
+	return (1);
+    }
+#endif /* TARGET_OS_OSX */
+    ifname = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+    router_mac = IPConfigurationCopyIPv4RouterInformation(ifname, &router_ip);
+    my_CFRelease(&ifname);
+    if (router_mac == NULL) {
+	fprintf(stderr, "%s: no IPv4 router information\n", argv[0]);
+	return (1);
+    }
+    SCPrint(TRUE, stdout,
+	    CFSTR("IPv4 router MAC %@ IP %@\n"), router_mac, router_ip);
+    my_CFRelease(&router_mac);
+    my_CFRelease(&router_ip);
+    return (0);
 }
 
 static const struct command_info {
@@ -1526,6 +1555,7 @@ static const struct command_info {
     { "getdhcpduidtype", S_get_dhcp_duid_type, 0, NULL, 0, 1 },
     { "forgetNetwork", S_forget_network, 2, "<interface name> <ssid>", 0, 0},
     { "setHideWiFiInfo", S_set_hide_wifi_info, 1, "0 | 1 | default", 0, 1},
+    { "ipv4RouterInfo", S_get_ipv4_router_info, 1, "<interface name>", 0, 1},
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 

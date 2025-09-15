@@ -887,6 +887,12 @@ httpSaveCredentials(
   return (rename(nfilename, filename));
 }
 
+int
+httpDeleteCredentials(const char *common_name)
+{
+ void)common_name;
+ return -1;
+}
 
 /*
  * 'http_gnutls_create_credential()' - Create a single credential in the internal format.

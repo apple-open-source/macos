@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "DashArray.h"
 #include "FontCascade.h"
 #include "ImageBuffer.h"
 #include "MockMediaDevice.h"
@@ -54,6 +55,7 @@ public:
     virtual ~MockRealtimeVideoSource();
 
     static void setIsInterrupted(bool);
+    static void triggerCameraConfigurationChange();
 
     ImageBuffer* imageBuffer();
 
@@ -158,7 +160,7 @@ private:
     MonotonicTime m_delayUntil;
 
     unsigned m_frameNumber { 0 };
-    Ref<RunLoop> m_runLoop;
+    const Ref<RunLoop> m_runLoop;
     RunLoop::Timer m_emitFrameTimer;
     std::optional<RealtimeMediaSourceCapabilities> m_capabilities;
     std::optional<RealtimeMediaSourceSettings> m_currentSettings;

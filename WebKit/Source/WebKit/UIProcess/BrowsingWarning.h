@@ -46,7 +46,7 @@ public:
 #endif
     };
 
-    using Data = std::variant<SafeBrowsingWarningData, HTTPSNavigationFailureData>;
+    using Data = Variant<SafeBrowsingWarningData, HTTPSNavigationFailureData>;
 
 #if HAVE(SAFE_BROWSING)
     static Ref<BrowsingWarning> create(const URL& url, bool forMainFrameNavigation, Data&& data)

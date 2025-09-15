@@ -15,7 +15,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Metal/Metal.h>
-#include <gmock/gmock.h>
 #include <span>
 
 namespace angle

@@ -76,6 +76,8 @@ enum class WebExtensionEventListenerType : uint8_t {
     TabsOnReplaced,
     TabsOnUpdated,
     TestOnMessage,
+    TestOnTestStarted,
+    TestOnTestFinished,
     WebNavigationOnBeforeNavigate,
     WebNavigationOnCommitted,
     WebNavigationOnCompleted,
@@ -182,6 +184,10 @@ inline String toAPIString(WebExtensionEventListenerType eventType)
         return "onUpdated"_s;
     case WebExtensionEventListenerType::TestOnMessage:
         return "onMessage"_s;
+    case WebExtensionEventListenerType::TestOnTestStarted:
+        return "onTestStarted"_s;
+    case WebExtensionEventListenerType::TestOnTestFinished:
+        return "onTestFinished"_s;
     case WebExtensionEventListenerType::WebNavigationOnBeforeNavigate:
         return "onBeforeNavigate"_s;
     case WebExtensionEventListenerType::WebNavigationOnCommitted:

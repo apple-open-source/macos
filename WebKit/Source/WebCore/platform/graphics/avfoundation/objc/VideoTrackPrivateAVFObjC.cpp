@@ -38,21 +38,21 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(VideoTrackPrivateAVFObjC);
 
 VideoTrackPrivateAVFObjC::VideoTrackPrivateAVFObjC(AVPlayerItemTrack* track)
-    : VideoTrackPrivateAVFObjC(makeUnique<AVTrackPrivateAVFObjCImpl>(track))
+    : VideoTrackPrivateAVFObjC(AVTrackPrivateAVFObjCImpl::create(track))
 {
 }
 
 VideoTrackPrivateAVFObjC::VideoTrackPrivateAVFObjC(AVAssetTrack* track)
-    : VideoTrackPrivateAVFObjC(makeUnique<AVTrackPrivateAVFObjCImpl>(track))
+    : VideoTrackPrivateAVFObjC(AVTrackPrivateAVFObjCImpl::create(track))
 {
 }
 
 VideoTrackPrivateAVFObjC::VideoTrackPrivateAVFObjC(MediaSelectionOptionAVFObjC& option)
-    : VideoTrackPrivateAVFObjC(makeUnique<AVTrackPrivateAVFObjCImpl>(option))
+    : VideoTrackPrivateAVFObjC(AVTrackPrivateAVFObjCImpl::create(option))
 {
 }
 
-VideoTrackPrivateAVFObjC::VideoTrackPrivateAVFObjC(std::unique_ptr<AVTrackPrivateAVFObjCImpl>&& impl)
+VideoTrackPrivateAVFObjC::VideoTrackPrivateAVFObjC(Ref<AVTrackPrivateAVFObjCImpl>&& impl)
     : m_impl(WTFMove(impl))
     , m_videoTrackConfigurationObserver([this] { videoTrackConfigurationChanged(); })
 {
@@ -71,7 +71,18 @@ void VideoTrackPrivateAVFObjC::resetPropertiesFromTrack()
     setId(m_impl->id());
     setLabel(m_impl->label());
     setLanguage(m_impl->language());
-    setConfiguration(m_impl->videoTrackConfiguration());
+
+    // Occasionally, when tearing down an AVAssetTrack in a HLS stream, the track
+    // will go from having a formatDescription (and therefore having valid values
+    // for properties that are derived from the format description, like codec() or
+    // sampleRate()) to not having a format description. AVAssetTrack is ostensibly an
+    // invariant, and properties like formatDescription should never move from
+    // non-null to null. When this happens, ignore the configuration change.
+    auto newConfiguration = m_impl->videoTrackConfiguration();
+    if (!configuration().codec.isEmpty() && newConfiguration.codec.isEmpty())
+        return;
+
+    setConfiguration(WTFMove(newConfiguration));
 }
 
 void VideoTrackPrivateAVFObjC::videoTrackConfigurationChanged()
@@ -79,32 +90,14 @@ void VideoTrackPrivateAVFObjC::videoTrackConfigurationChanged()
     setConfiguration(m_impl->videoTrackConfiguration());
 }
 
-void VideoTrackPrivateAVFObjC::setPlayerItemTrack(AVPlayerItemTrack *track)
-{
-    m_impl = makeUnique<AVTrackPrivateAVFObjCImpl>(track);
-    resetPropertiesFromTrack();
-}
-
 AVPlayerItemTrack* VideoTrackPrivateAVFObjC::playerItemTrack()
 {
     return m_impl->playerItemTrack();
 }
 
-void VideoTrackPrivateAVFObjC::setAssetTrack(AVAssetTrack *track)
-{
-    m_impl = makeUnique<AVTrackPrivateAVFObjCImpl>(track);
-    resetPropertiesFromTrack();
-}
-
 AVAssetTrack* VideoTrackPrivateAVFObjC::assetTrack()
 {
     return m_impl->assetTrack();
-}
-
-void VideoTrackPrivateAVFObjC::setMediaSelectonOption(MediaSelectionOptionAVFObjC& option)
-{
-    m_impl = makeUnique<AVTrackPrivateAVFObjCImpl>(option);
-    resetPropertiesFromTrack();
 }
 
 MediaSelectionOptionAVFObjC* VideoTrackPrivateAVFObjC::mediaSelectionOption()

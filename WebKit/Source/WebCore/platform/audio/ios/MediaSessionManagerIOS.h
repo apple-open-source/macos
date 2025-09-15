@@ -50,18 +50,15 @@ class MediaSessionManageriOS
     , public AudioSessionInterruptionObserver {
     WTF_MAKE_TZONE_ALLOCATED(MediaSessionManageriOS);
 public:
+    MediaSessionManageriOS();
     virtual ~MediaSessionManageriOS();
 
-    bool hasWirelessTargetsAvailable() override;
-    bool isMonitoringWirelessTargets() const override;
+    bool hasWirelessTargetsAvailable() final;
+    bool isMonitoringWirelessTargets() const final;
 
     USING_CAN_MAKE_WEAKPTR(MediaSessionHelperClient);
 
 private:
-    friend class PlatformMediaSessionManager;
-
-    MediaSessionManageriOS();
-
 #if !PLATFORM(MACCATALYST)
     void resetRestrictions() final;
 #endif
@@ -69,18 +66,18 @@ private:
     void configureWirelessTargetMonitoring() final;
     void providePresentingApplicationPIDIfNecessary(const std::optional<ProcessID>&) final;
     void updatePresentingApplicationPIDIfNecessary(ProcessID) final;
-    bool sessionWillBeginPlayback(PlatformMediaSession&) final;
-    void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) final;
+    bool sessionWillBeginPlayback(PlatformMediaSessionInterface&) final;
+    void sessionWillEndPlayback(PlatformMediaSessionInterface&, DelayCallingUpdateNowPlaying) final;
 
     // AudioSessionInterruptionObserver
     void beginAudioSessionInterruption() final { beginInterruption(PlatformMediaSession::InterruptionType::SystemInterruption); }
     void endAudioSessionInterruption(AudioSession::MayResume mayResume) final { endInterruption(mayResume == AudioSession::MayResume::Yes ? PlatformMediaSession::EndInterruptionFlags::MayResumePlaying : PlatformMediaSession::EndInterruptionFlags::NoFlags); }
 
     // MediaSessionHelperClient
-    void applicationWillEnterForeground(SuspendedUnderLock) final;
-    void applicationDidEnterBackground(SuspendedUnderLock) final;
-    void applicationWillBecomeInactive() final;
-    void applicationDidBecomeActive() final;
+    void uiApplicationWillEnterForeground(SuspendedUnderLock) final;
+    void uiApplicationDidEnterBackground(SuspendedUnderLock) final;
+    void uiApplicationWillBecomeInactive() final;
+    void uiApplicationDidBecomeActive() final;
     void externalOutputDeviceAvailableDidChange(HasAvailableTargets) final;
     void activeAudioRouteDidChange(ShouldPause) final;
     void activeVideoRouteDidChange(SupportsAirPlayVideo, Ref<MediaPlaybackTarget>&&) final;

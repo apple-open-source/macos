@@ -43,7 +43,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FEGaussianBlurSkiaApplier);
 
-bool FEGaussianBlurSkiaApplier::apply(const Filter& filter, const FilterImageVector& inputs, FilterImage& result) const
+bool FEGaussianBlurSkiaApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     ASSERT(inputs.size() == 1);
     auto& input = inputs[0].get();
@@ -57,7 +57,7 @@ bool FEGaussianBlurSkiaApplier::apply(const Filter& filter, const FilterImageVec
     if (!nativeImage || !nativeImage->platformImage())
         return false;
 
-    FloatSize sigma = FloatSize(m_effect.stdDeviationX(), m_effect.stdDeviationY()) * filter.filterScale();
+    FloatSize sigma = FloatSize(m_effect->stdDeviationX(), m_effect->stdDeviationY()) * filter.filterScale();
 
     SkPaint paint;
     paint.setImageFilter(SkImageFilters::Blur(sigma.width(), sigma.height(), nullptr));

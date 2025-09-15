@@ -50,7 +50,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName

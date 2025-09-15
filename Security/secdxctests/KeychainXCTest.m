@@ -22,22 +22,18 @@
  */
 
 #import "KeychainXCTest.h"
-#import "SecDbKeychainItem.h"
-#import "SecdTestKeychainUtilities.h"
-#import "CKKS.h"
-#import "SecDbKeychainItemV7.h"
-#import "SecDbKeychainMetadataKeyStore.h"
-#import "SecAKSObjCWrappers.h"
-#import "SecItemPriv.h"
-#import "SecTaskPriv.h"
-#import "server_security_helpers.h"
-#import "SecItemServer.h"
-#import "spi.h"
-#import "SecDbKeychainSerializedItemV7.h"
-#import "SecDbKeychainSerializedMetadata.h"
-#import "SecDbKeychainSerializedSecretData.h"
-#import "SecDbKeychainSerializedAKSWrappedKey.h"
-#import <utilities/SecCFWrappers.h>
+#import "keychain/securityd/SecDbKeychainItem.h"
+#import "keychain/securityd/Regressions/SecdTestKeychainUtilities.h"
+#import "keychain/ckks/CKKS.h"
+#import "keychain/securityd/SecDbKeychainItemV7.h"
+#import "keychain/securityd/SecDbKeychainMetadataKeyStore.h"
+#import "keychain/securityd/SecAKSObjCWrappers.h"
+#import "Security/SecItemPriv.h"
+#import "Security/SecTaskPriv.h"
+#import "ipc/server_security_helpers.h"
+#import "keychain/securityd/SecItemServer.h"
+#import "keychain/securityd/spi.h"
+#import "utilities/SecCFWrappers.h"
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <SecurityFoundation/SFCryptoServicesErrors.h>
 #import <SecurityFoundation/SFKeychain.h>
@@ -142,7 +138,7 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     NSArray* partsOfName = [self.name componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" ]"]];
     self.keychainDirectoryPrefix = partsOfName[1];
 
-    // Calls SecKeychainDbReset which also resets metadata keys
+    // Calls SecServerKeychainDbReset which also resets metadata keys
     secd_test_setup_temp_keychain([self.keychainDirectoryPrefix UTF8String], NULL);
 
     _originalAccessGroups = SecAccessGroupsGetCurrent();
@@ -151,7 +147,7 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
 
 - (void)tearDown
 {
-    SecKeychainDelayAsyncBlocks(false);
+    SecServerKeychainDelayAsyncBlocks(false);
 
     [self.mockSecDbKeychainItemV7 stopMocking];
     [self.mockSecAKSObjCWrappers stopMocking];
@@ -263,7 +259,7 @@ static KeychainXCTestFailureLogger* _testFailureLoggerVariable;
     }
 
     if (keybag == KEYBAG_DEVICE) {
-        XCTAssertLessThanOrEqual(ciphertextOut.length, APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN);
+        XCTAssertLessThanOrEqual(ciphertextOut.length, AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN);
     } else {    // this'll do for now: assume non-device bags are asymmetric backup bags
         XCTAssertLessThanOrEqual(ciphertextOut.length, APPLE_KEYSTORE_MAX_ASYM_WRAPPED_KEY_LEN);
     }

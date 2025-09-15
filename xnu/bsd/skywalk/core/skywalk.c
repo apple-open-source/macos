@@ -30,6 +30,7 @@
 #include <pexpert/pexpert.h>    /* for PE_parse_boot_argn */
 #include <sys/codesign.h>       /* for csproc_get_platform_binary */
 #include <sys/reason.h>
+#include <netinet/inp_log.h>
 #if CONFIG_MACF
 #include <security/mac_framework.h>
 #endif /* CONFIG_MACF */
@@ -50,11 +51,11 @@ static void skywalk_fini(void);
 static int sk_priv_chk(proc_t, kauth_cred_t, int);
 
 static int __sk_inited = 0;
+uint64_t sk_verbose;
+
 #if (DEVELOPMENT || DEBUG)
 size_t sk_copy_thres = SK_COPY_THRES;
-uint64_t sk_verbose;
 #endif /* DEVELOPMENT || DEBUG */
-uint32_t sk_debug;
 uint64_t sk_features =
 #if SKYWALK
     SK_FEATURE_SKYWALK |
@@ -67,9 +68,6 @@ uint64_t sk_features =
 #endif
 #if CONFIG_NEXUS_FLOWSWITCH
     SK_FEATURE_NEXUS_FLOWSWITCH |
-#endif
-#if CONFIG_NEXUS_MONITOR
-    SK_FEATURE_NEXUS_MONITOR |
 #endif
 #if CONFIG_NEXUS_NETIF
     SK_FEATURE_NEXUS_NETIF |
@@ -191,7 +189,6 @@ int sk_netif_compat_rx_mbq_limit = SK_NETIF_COMPAT_RX_MBQ_LIMIT;
 uint32_t sk_netif_tx_mit = SK_NETIF_MIT_AUTO;
 uint32_t sk_netif_rx_mit = SK_NETIF_MIT_AUTO;
 char sk_ll_prefix[IFNAMSIZ] = "llw";
-uint32_t sk_rx_sync_packets = 1;
 uint32_t sk_channel_buflet_alloc = 0;
 uint32_t sk_netif_queue_stat_enable = 0;
 
@@ -203,11 +200,10 @@ SYSCTL_NODE(_kern_skywalk, OID_AUTO, stats, CTLFLAG_RW | CTLFLAG_LOCKED,
 SYSCTL_OPAQUE(_kern_skywalk, OID_AUTO, features, CTLFLAG_RD | CTLFLAG_LOCKED,
     &sk_features, sizeof(sk_features), "-", "Skywalk features");
 
-#if (DEVELOPMENT || DEBUG)
 SYSCTL_QUAD(_kern_skywalk, OID_AUTO, verbose, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_verbose, "Skywalk verbose mode");
-SYSCTL_UINT(_kern_skywalk, OID_AUTO, debug, CTLFLAG_RW | CTLFLAG_LOCKED,
-    &sk_debug, 0, "Skywalk debug mode");
+
+#if (DEVELOPMENT || DEBUG)
 SYSCTL_LONG(_kern_skywalk, OID_AUTO, sk_copy_thres, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_copy_thres, "Skywalk copy threshold");
 static int __priv_check = 1;
@@ -219,20 +215,14 @@ SYSCTL_UINT(_kern_skywalk, OID_AUTO, sk_cksum_tx, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_cksum_tx, 0, "Advertise (and perform) outbound checksum offload");
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, sk_cksum_rx, CTLFLAG_RW | CTLFLAG_LOCKED,
     &sk_cksum_rx, 0, "Perform inbound checksum offload");
-SYSCTL_UINT(_kern_skywalk, OID_AUTO, sk_rx_sync_packets, CTLFLAG_RW | CTLFLAG_LOCKED,
-    &sk_rx_sync_packets, 0, "Enable RX sync packets");
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, chan_buf_alloc,
     CTLFLAG_RW | CTLFLAG_LOCKED, &sk_channel_buflet_alloc, 0,
     "channel buflet allocation (enable/disable)");
-#endif /* !DEVELOPMENT && !DEBUG */
 
-#if (DEVELOPMENT || DEBUG)
 uint32_t sk_inject_error_rmask = 0x3;
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, inject_error_rmask,
     CTLFLAG_RW | CTLFLAG_LOCKED, &sk_inject_error_rmask, 0x3, "");
-#endif /* !DEVELOPMENT && !DEBUG */
 
-#if (DEVELOPMENT || DEBUG)
 static void skywalk_self_tests(void);
 #endif /* (DEVELOPMENT || DEBUG) */
 
@@ -248,9 +238,10 @@ static SKMEM_TAG_DEFINE(skmem_tag_dump, SKMEM_TAG_DUMP);
 
 static uint32_t sk_dump_buf_size;
 static char *__sized_by(sk_dump_buf_size) sk_dump_buf;
-#define SK_DUMP_BUF_SIZE        2048
 #define SK_DUMP_BUF_ALIGN       16
 #endif /* (SK_LOG || DEVELOPMENT || DEBUG) */
+
+os_log_t sk_log_handle;
 
 __startup_func
 void
@@ -343,11 +334,12 @@ skywalk_init(void)
 
 	VERIFY(!__sk_inited);
 
-	_CASSERT(sizeof(kern_packet_t) == sizeof(uint64_t));
-	_CASSERT(sizeof(bitmap_t) == sizeof(uint64_t));
+	static_assert(sizeof(kern_packet_t) == sizeof(uint64_t));
+	static_assert(sizeof(bitmap_t) == sizeof(uint64_t));
+
+	sk_log_handle = os_log_create("com.apple.xnu", "skywalk");
 
 #if (DEVELOPMENT || DEBUG)
-	PE_parse_boot_argn("sk_debug", &sk_debug, sizeof(sk_debug));
 	PE_parse_boot_argn("sk_verbose", &sk_verbose, sizeof(sk_verbose));
 	(void) PE_parse_boot_argn("sk_opp_defunct", &sk_opp_defunct,
 	    sizeof(sk_opp_defunct));
@@ -422,8 +414,6 @@ skywalk_init(void)
 	    sizeof(sk_fsw_gso_mtu));
 	(void) PE_parse_boot_argn("sk_fsw_max_bufs", &sk_fsw_max_bufs,
 	    sizeof(sk_fsw_max_bufs));
-	(void) PE_parse_boot_argn("sk_rx_sync_packets", &sk_rx_sync_packets,
-	    sizeof(sk_rx_sync_packets));
 	(void) PE_parse_boot_argn("sk_chan_buf_alloc", &sk_channel_buflet_alloc,
 	    sizeof(sk_channel_buflet_alloc));
 	(void) PE_parse_boot_argn("sk_guard", &sk_guard, sizeof(sk_guard));
@@ -579,11 +569,11 @@ sk_priv_chk(proc_t p, kauth_cred_t cred, int priv)
 #if SK_LOG
 		if (__priv_check) {
 			SK_DF(SK_VERB_PRIV, "%s(%d) insufficient privilege %d "
-			    "(\"%s\") err %d", sk_proc_name_address(p),
+			    "(\"%s\") err %d", sk_proc_name(p),
 			    sk_proc_pid(p), priv, pstr, ret);
 		} else {
 			SK_DF(SK_VERB_PRIV, "%s(%d) IGNORING missing privilege "
-			    "%d (\"%s\") err %d", sk_proc_name_address(p),
+			    "%d (\"%s\") err %d", sk_proc_name(p),
 			    sk_proc_pid(p), priv, pstr, ret);
 		}
 #endif /* SK_LOG */
@@ -670,7 +660,7 @@ skywalk_nxctl_check_privileges(proc_t p, kauth_cred_t cred)
 #if (DEVELOPMENT || DEBUG)
 	if (ret != 0) {
 		SK_ERR("%s(%d) insufficient privilege to open nexus controller "
-		    "err %d", sk_proc_name_address(p), sk_proc_pid(p), ret);
+		    "err %d", sk_proc_name(p), sk_proc_pid(p), ret);
 	}
 #endif /* !DEVELOPMENT && !DEBUG */
 done:
@@ -719,39 +709,28 @@ sk_uuid_unparse(const uuid_t uu, uuid_string_t out)
  *   buffer's total length.
  * @param dumplen
  *   length to be dumped.
- * @param dst
- *   destination char buffer. sk_dump_buf would be used if dst is NULL.
- * @param lim
- *   destination char buffer max length. Not used if dst is NULL.
- *
- * -fbounds-safety: Note that all callers of this function pass NULL and 0 for
- * dst and lim, respectively.
  */
 const char *
-__counted_by(lim)
-sk_dump(const char *label, const void *__sized_by(len) obj, int len, int dumplen,
-    char *__counted_by(lim) dst, int lim)
+__counted_by(SK_DUMP_BUF_SIZE)
+sk_dump(const char *label, const void *__sized_by(len) obj, int len, int dumplen)
 {
 	int i, j, i0, n = 0;
 	static char hex[] = "0123456789abcdef";
 	const char *p = obj;    /* dump cursor */
 	uint32_t size;
 	char *__sized_by(size) o;        /* output position */
+	const int lim = SK_DUMP_BUF_SIZE;
+	char* __counted_by(lim) dst = sk_dump_buf;
+
 
 #define P_HI(x) hex[((x) & 0xf0) >> 4]
 #define P_LO(x) hex[((x) & 0xf)]
 #define P_C(x)  ((x) >= 0x20 && (x) <= 0x7e ? (x) : '.')
-	if (dst == NULL) {
-		dst = sk_dump_buf;
-		lim = SK_DUMP_BUF_SIZE;
-	} else if (lim <= 0 || lim > len) {
-		dst = dst;
-		lim = len;  /* rdar://117789233 */
-	}
+
 	dumplen = MIN(len, dumplen);
 	o = dst;
 	size = lim;
-	n = scnprintf(o, lim, "%s 0x%llx len %d lim %d\n", label,
+	n = scnprintf(o, lim, "%s %p len %d lim %d\n", label,
 	    SK_KVA(p), len, lim);
 	o += strbuflen(o, n);
 	size -= n;
@@ -785,7 +764,7 @@ sk_dump(const char *label, const void *__sized_by(len) obj, int len, int dumplen
  * "Safe" variant of proc_name_address(), meant to be used only for logging.
  */
 const char *
-sk_proc_name_address(struct proc *p)
+sk_proc_name(struct proc *p)
 {
 	if (p == PROC_NULL) {
 		return "proc_null";
@@ -808,6 +787,34 @@ sk_proc_pid(struct proc *p)
 }
 
 const char *
+sk_ntop(int af, const void *addr, char *__counted_by(addr_strlen)addr_str,
+    size_t addr_strlen)
+{
+	const char *__null_terminated str = NULL;
+
+	addr_str[0] = '\0';
+
+	if (inp_log_privacy != 0) {
+		switch (af) {
+		case AF_INET:
+			strlcpy(addr_str, "<IPv4-redacted>", addr_strlen);
+			break;
+		case AF_INET6:
+			strlcpy(addr_str, "<IPv6-redacted>", addr_strlen);
+			break;
+		default:
+			VERIFY(0);
+			__builtin_unreachable();
+		}
+		str = __unsafe_null_terminated_from_indexable(addr_str);
+	} else {
+		str = inet_ntop(af, addr, addr_str, (socklen_t)addr_strlen);
+	}
+
+	return str;
+}
+
+const char *
 sk_sa_ntop(struct sockaddr *sa, char *__counted_by(addr_strlen)addr_str,
     size_t addr_strlen)
 {
@@ -817,12 +824,12 @@ sk_sa_ntop(struct sockaddr *sa, char *__counted_by(addr_strlen)addr_str,
 
 	switch (sa->sa_family) {
 	case AF_INET:
-		str = inet_ntop(AF_INET, &SIN(sa)->sin_addr.s_addr,
+		str = sk_ntop(AF_INET, &SIN(sa)->sin_addr.s_addr,
 		    addr_str, (socklen_t)addr_strlen);
 		break;
 
 	case AF_INET6:
-		str = inet_ntop(AF_INET6, &SIN6(sa)->sin6_addr,
+		str = sk_ntop(AF_INET6, &SIN6(sa)->sin6_addr,
 		    addr_str, (socklen_t)addr_strlen);
 		break;
 
@@ -893,12 +900,12 @@ skywalk_kill_process(struct proc *p, uint64_t reason_code)
 	exit_reason = os_reason_create(OS_REASON_SKYWALK, reason_code);
 	if (exit_reason == OS_REASON_NULL) {
 		SK_ERR("%s(%d) unable to allocate memory for crash reason "
-		    "0x%llX", sk_proc_name_address(p), sk_proc_pid(p),
+		    "0x%llX", sk_proc_name(p), sk_proc_pid(p),
 		    reason_code);
 	} else {
 		exit_reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
 		SK_ERR("%s(%d) aborted for reason 0x%llX",
-		    sk_proc_name_address(p), sk_proc_pid(p), reason_code);
+		    sk_proc_name(p), sk_proc_pid(p), reason_code);
 	}
 
 	psignal_try_thread_with_reason(p, current_thread(), SIGABRT,
@@ -910,7 +917,7 @@ skywalk_kill_process(struct proc *p, uint64_t reason_code)
 #define SK_MASK_MAXLEN 80               /* maximum mask length */
 
 #define SK_MEMCMP_MASK_VERIFY(t, l, lr) do {                            \
-	_CASSERT(sizeof(t##_m) == SK_MASK_MAXLEN);                      \
+	static_assert(sizeof(t##_m) == SK_MASK_MAXLEN);                      \
 	if ((sk_memcmp_mask_##l##B(hdr1, hdr2, t##_m) != 0) ^           \
 	    (skywalk_memcmp_mask_ref(hdr1, hdr2, t##_m, lr) != 0)) {    \
 	        panic_plain("\nbroken: " #t " using "                   \
@@ -1151,7 +1158,7 @@ skywalk_memcmp_mask_self_tests(void)
 	};
 
 	/* validate flow entry mask (2-tuple) */
-	_CASSERT(FKMASK_2TUPLE == (FKMASK_PROTO | FKMASK_SPORT));
+	static_assert(FKMASK_2TUPLE == (FKMASK_PROTO | FKMASK_SPORT));
 	VERIFY(fk_mask_2tuple.fk_mask == FKMASK_2TUPLE);
 	VERIFY(fk_mask_2tuple.fk_ipver == 0);
 	VERIFY(fk_mask_2tuple.fk_proto == 0xff);
@@ -1163,7 +1170,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_2tuple.fk_dst._addr64[1] == 0);
 	VERIFY(fk_mask_2tuple.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_3TUPLE == (FKMASK_2TUPLE | FKMASK_IPVER | FKMASK_SRC));
+	static_assert(FKMASK_3TUPLE == (FKMASK_2TUPLE | FKMASK_IPVER | FKMASK_SRC));
 	VERIFY(fk_mask_3tuple.fk_mask == FKMASK_3TUPLE);
 	VERIFY(fk_mask_3tuple.fk_ipver == 0xff);
 	VERIFY(fk_mask_3tuple.fk_proto == 0xff);
@@ -1175,7 +1182,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_3tuple.fk_dst._addr64[1] == 0);
 	VERIFY(fk_mask_3tuple.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_4TUPLE == (FKMASK_3TUPLE | FKMASK_DPORT));
+	static_assert(FKMASK_4TUPLE == (FKMASK_3TUPLE | FKMASK_DPORT));
 	VERIFY(fk_mask_4tuple.fk_mask == FKMASK_4TUPLE);
 	VERIFY(fk_mask_4tuple.fk_ipver == 0xff);
 	VERIFY(fk_mask_4tuple.fk_proto == 0xff);
@@ -1187,7 +1194,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_4tuple.fk_dst._addr64[1] == 0);
 	VERIFY(fk_mask_4tuple.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_5TUPLE == (FKMASK_4TUPLE | FKMASK_DST));
+	static_assert(FKMASK_5TUPLE == (FKMASK_4TUPLE | FKMASK_DST));
 	VERIFY(fk_mask_5tuple.fk_mask == FKMASK_5TUPLE);
 	VERIFY(fk_mask_5tuple.fk_ipver == 0xff);
 	VERIFY(fk_mask_5tuple.fk_proto == 0xff);
@@ -1199,7 +1206,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_5tuple.fk_dst._addr64[1] == 0xffffffffffffffffULL);
 	VERIFY(fk_mask_5tuple.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_IPFLOW1 == FKMASK_PROTO);
+	static_assert(FKMASK_IPFLOW1 == FKMASK_PROTO);
 	VERIFY(fk_mask_ipflow1.fk_mask == FKMASK_IPFLOW1);
 	VERIFY(fk_mask_ipflow1.fk_ipver == 0);
 	VERIFY(fk_mask_ipflow1.fk_proto == 0xff);
@@ -1211,7 +1218,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_ipflow1.fk_dst._addr64[1] == 0);
 	VERIFY(fk_mask_ipflow1.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_IPFLOW2 == (FKMASK_IPFLOW1 | FKMASK_IPVER | FKMASK_SRC));
+	static_assert(FKMASK_IPFLOW2 == (FKMASK_IPFLOW1 | FKMASK_IPVER | FKMASK_SRC));
 	VERIFY(fk_mask_ipflow2.fk_mask == FKMASK_IPFLOW2);
 	VERIFY(fk_mask_ipflow2.fk_ipver == 0xff);
 	VERIFY(fk_mask_ipflow2.fk_proto == 0xff);
@@ -1223,7 +1230,7 @@ skywalk_memcmp_mask_self_tests(void)
 	VERIFY(fk_mask_ipflow2.fk_dst._addr64[1] == 0);
 	VERIFY(fk_mask_ipflow2.fk_pad[0] == 0);
 
-	_CASSERT(FKMASK_IPFLOW3 == (FKMASK_IPFLOW2 | FKMASK_DST));
+	static_assert(FKMASK_IPFLOW3 == (FKMASK_IPFLOW2 | FKMASK_DST));
 	VERIFY(fk_mask_ipflow3.fk_mask == FKMASK_IPFLOW3);
 	VERIFY(fk_mask_ipflow3.fk_ipver == 0xff);
 	VERIFY(fk_mask_ipflow3.fk_proto == 0xff);
@@ -1410,10 +1417,10 @@ skywalk_self_tests(void)
 	 * 2nd section is reference target based on bcopy;
 	 * 3rd section is test target base on our stuff.
 	 */
-	_CASSERT(SK_COPY_LEN != 0 && (SK_COPY_LEN % 128) == 0);
-	_CASSERT((SK_COPY_LEN % 16) == 0);
-	_CASSERT((SK_DUMP_BUF_ALIGN % 16) == 0);
-	_CASSERT(SK_DUMP_BUF_SIZE >= (SK_DUMP_BUF_ALIGN + (SK_COPY_LEN * 3)));
+	static_assert(SK_COPY_LEN != 0 && (SK_COPY_LEN % 128) == 0);
+	static_assert((SK_COPY_LEN % 16) == 0);
+	static_assert((SK_DUMP_BUF_ALIGN % 16) == 0);
+	static_assert(SK_DUMP_BUF_SIZE >= (SK_DUMP_BUF_ALIGN + (SK_COPY_LEN * 3)));
 
 	s1 = sk_dump_buf;
 	if (!IS_P2ALIGNED(s1, SK_DUMP_BUF_ALIGN)) {
@@ -1549,26 +1556,26 @@ skywalk_self_tests(void)
 	bzero(sk_dump_buf, SK_DUMP_BUF_SIZE);
 
 	/* Keep packet trace code in sync with ariadne plist */
-	_CASSERT(SK_KTRACE_AON_IF_STATS == 0x8100004);
+	static_assert(SK_KTRACE_AON_IF_STATS == 0x8100004);
 
-	_CASSERT(SK_KTRACE_FSW_DEV_RING_FLUSH == 0x8110004);
-	_CASSERT(SK_KTRACE_FSW_USER_RING_FLUSH == 0x8110008);
-	_CASSERT(SK_KTRACE_FSW_FLOW_TRACK_RTT == 0x8110010);
+	static_assert(SK_KTRACE_FSW_DEV_RING_FLUSH == 0x8110004);
+	static_assert(SK_KTRACE_FSW_USER_RING_FLUSH == 0x8110008);
+	static_assert(SK_KTRACE_FSW_FLOW_TRACK_RTT == 0x8110010);
 
-	_CASSERT(SK_KTRACE_NETIF_RING_TX_REFILL == 0x8120004);
-	_CASSERT(SK_KTRACE_NETIF_HOST_ENQUEUE == 0x8120008);
-	_CASSERT(SK_KTRACE_NETIF_MIT_RX_INTR == 0x812000c);
-	_CASSERT(SK_KTRACE_NETIF_COMMON_INTR == 0x8120010);
-	_CASSERT(SK_KTRACE_NETIF_RX_NOTIFY_DEFAULT == 0x8120014);
-	_CASSERT(SK_KTRACE_NETIF_RX_NOTIFY_FAST == 0x8120018);
+	static_assert(SK_KTRACE_NETIF_RING_TX_REFILL == 0x8120004);
+	static_assert(SK_KTRACE_NETIF_HOST_ENQUEUE == 0x8120008);
+	static_assert(SK_KTRACE_NETIF_MIT_RX_INTR == 0x812000c);
+	static_assert(SK_KTRACE_NETIF_COMMON_INTR == 0x8120010);
+	static_assert(SK_KTRACE_NETIF_RX_NOTIFY_DEFAULT == 0x8120014);
+	static_assert(SK_KTRACE_NETIF_RX_NOTIFY_FAST == 0x8120018);
 
-	_CASSERT(SK_KTRACE_CHANNEL_TX_REFILL == 0x8130004);
+	static_assert(SK_KTRACE_CHANNEL_TX_REFILL == 0x8130004);
 
-	_CASSERT(SK_KTRACE_PKT_RX_DRV == 0x8140004);
-	_CASSERT(SK_KTRACE_PKT_RX_FSW == 0x8140008);
-	_CASSERT(SK_KTRACE_PKT_RX_CHN == 0x814000c);
-	_CASSERT(SK_KTRACE_PKT_TX_FSW == 0x8140040);
-	_CASSERT(SK_KTRACE_PKT_TX_AQM == 0x8140044);
-	_CASSERT(SK_KTRACE_PKT_TX_DRV == 0x8140048);
+	static_assert(SK_KTRACE_PKT_RX_DRV == 0x8140004);
+	static_assert(SK_KTRACE_PKT_RX_FSW == 0x8140008);
+	static_assert(SK_KTRACE_PKT_RX_CHN == 0x814000c);
+	static_assert(SK_KTRACE_PKT_TX_FSW == 0x8140040);
+	static_assert(SK_KTRACE_PKT_TX_AQM == 0x8140044);
+	static_assert(SK_KTRACE_PKT_TX_DRV == 0x8140048);
 }
 #endif /* DEVELOPMENT || DEBUG */

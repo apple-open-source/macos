@@ -58,7 +58,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->type();
+    return IMPL->type().createNSString().autorelease();
 }
 
 - (BOOL)disabled
@@ -88,13 +88,13 @@
 - (NSString *)href
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->href();
+    return IMPL->href().createNSString().autorelease();
 }
 
 - (NSString *)title
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->title();
+    return IMPL->title().createNSString().autorelease();
 }
 
 - (DOMMediaList *)media

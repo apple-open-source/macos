@@ -27,7 +27,6 @@
 #include "ArgumentCoders.h"
 #include "Connection.h"
 #include "MessageNames.h"
-#include <WebCore/ImageData.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RuntimeApplicationChecks.h>
@@ -53,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit SendImageData(const RefPtr<WebCore::ImageData>& s0)
-        : m_arguments(s0)
+        : m_s0(s0)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_s0;
     }
 
 private:
-    std::tuple<const RefPtr<WebCore::ImageData>&> m_arguments;
+    SUPPRESS_FORWARD_DECL_MEMBER const RefPtr<WebCore::ImageData>& m_s0;
 };
 
 class ReceiveImageData {
@@ -81,13 +81,16 @@ public:
     using ReplyArguments = std::tuple<RefPtr<WebCore::ImageData>>;
     using Reply = CompletionHandler<void(RefPtr<WebCore::ImageData>&&)>;
     using Promise = WTF::NativePromise<RefPtr<WebCore::ImageData>, IPC::Error>;
-    auto&& arguments()
+    ReceiveImageData()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 } // namespace TestWithImageData

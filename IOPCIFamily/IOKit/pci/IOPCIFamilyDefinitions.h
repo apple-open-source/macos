@@ -54,10 +54,37 @@
 #define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"
 // pci express link capabilities
 #define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
+// pci express device capabilities
+#define kIOPCIExpressDeviceCapabilitiesKey "IOPCIExpressDeviceCapabilities"
 // pci express slot status
 #define kIOPCIExpressSlotStatusKey       "IOPCIExpressSlotStatus"
 // pci express slot capabilities
 #define kIOPCIExpressSlotCapabilitiesKey "IOPCIExpressSlotCapabilities"
+// pci express root capabilities
+#define kIOPCIExpressRootCapabilitiesKey "IOPCIExpressRootCapabilities"
+// pci express device capabilities 2
+#define kIOPCIExpressDeviceCapabilities2Key "IOPCIExpressDeviceCapabilities2"
+// pci express link capabilities 2
+#define kIOPCIExpressLinkCapabilities2Key "IOPCIExpressLinkCapabilities2"
+// pci express slot capabilities 2
+#define kIOPCIExpressSlotCapabilities2Key "IOPCIExpressSlotCapabilities2"
+
+// Power Management Capabilities Register
+#define kIOPCIPowerManagementCapabilitiesKey "IOPCIPowerManagementCapabilities"
+// MSI Message Control Register
+#define kIOPCIMSIMessageControlKey "IOPCIMSIMessageControl"
+// MSI-X Message Control Register
+#define kIOPCIMSIXMessageControlKey "IOPCIMSIXMessageControl"
+// ACS Capability Register
+#define kIOPCIACSCapabilitiesKey "IOPCIACSCapabilities"
+// L1PM Substates Capabilities Register
+#define kIOPCIL1PMCapabilitiesKey "IOPCIL1PMCapabilities"
+// AER Capabilities and Control Register
+#define kIOPCIAERCapabilitiesKey "IOPCIAERCapabilities"
+// FPB Capability Register
+#define kIOPCIFPBCapabilitiesKey "IOPCIFPBCapabilities"
+// PTM Capability Register
+#define kIOPCIPTMCapabilitiesKey "IOPCIPTMCapabilities"
 
 #define kIOPCIDeviceMemoryArrayKey       "IODeviceMemory"
 
@@ -159,6 +186,9 @@ enum
     kIOPCICapabilityIDSecure              = 0x0f,
     kIOPCICapabilityIDPCIExpress          = 0x10,
     kIOPCICapabilityIDMSIX                = 0x11,
+    kIOPCICapabilityIDSATAConfiguration   = 0x12,
+    kIOPCICapabilityIDAF                  = 0x13,
+    kIOPCICapabilityIDEnhancedAllocation  = 0x14,
     kIOPCICapabilityIDFPB                 = 0x15,
 
 #if defined(__LP64__)
@@ -166,21 +196,91 @@ enum
     kIOPCIExpressCapabilityIDVirtualChannel            = -0x02U,
     kIOPCIExpressCapabilityIDDeviceSerialNumber        = -0x03U,
     kIOPCIExpressCapabilityIDPowerBudget               = -0x04U,
+    kIOPCIExpressCapabilityIDRCLinkDeclaration         = -0x05U,
+    kIOPCIExpressCapabilityIDRCInternalLinkCtrl        = -0x06U,
+    kIOPCIExpressCapabilityIDRCECEndpointAssociation   = -0x07U,
+    kIOPCIExpressCapabilityIDMFVC                      = -0x08U,
+    kIOPCIExpressCapabilityIDVC_MFVCPresent            = -0x09U,
+    kIOPCIExpressCapabilityIDRootComplexRegBlock       = -0x0AU,
+    kIOPCIExpressCapabilityIDVSEC                      = -0x0BU,
+    kIOPCIExpressCapabilityIDCAC                       = -0x0CU,
     kIOPCIExpressCapabilityIDAccessControlServices     = -0x0DU,
     kIOPCIExpressCapabilityIDAlternativeRoutingID      = -0x0EU,
+    kIOPCIExpressCapabilityIDATS                       = -0x0FU,
+    kIOPCIExpressCapabilityIDSRIOV                     = -0x10U,
+    kIOPCIExpressCapabilityIDMRIOV                     = -0x11U,
+    kIOPCIExpressCapabilityIDMulticast                 = -0x12U,
+    kIOPCIExpressCapabilityIDPRI                       = -0x13U,
+    kIOPCIExpressCapabilityIDAMD                       = -0x14U,
+    kIOPCIExpressCapabilityIDResizableBAR              = -0x15U,
+    kIOPCIExpressCapabilityIDDPA                       = -0x16U,
+    kIOPCIExpressCapabilityIDTPHRequester              = -0x17U,
     kIOPCIExpressCapabilityIDLatencyTolerenceReporting = -0x18U,
+    kIOPCIExpressCapabilityIDSPCIe                     = -0x19U,
+    kIOPCIExpressCapabilityIDPMUX                      = -0x1AU,
+    kIOPCIExpressCapabilityIDPASID                     = -0x1BU,
+    kIOPCIExpressCapabilityIDLNR                       = -0x1CU,
+    kIOPCIExpressCapabilityIDDPC                       = -0x1DU,
     kIOPCIExpressCapabilityIDL1PMSubstates             = -0x1EU,
     kIOPCIExpressCapabilityIDPrecisionTimeManagement   = -0x1FU,
+    kIOPCIExpressCapabilityIDMPCIe                     = -0x20U,
+    kIOPCIExpressCapabilityIDFRSQueueing               = -0x21U,
+    kIOPCIExpressCapabilityIDReadinessTimeReporting    = -0x22U,
+    kIOPCIExpressCapabilityIDDVSEC                     = -0x23U,
+    kIOPCIExpressCapabilityIDVFResizableBAR            = -0x24U,
+    kIOPCIExpressCapabilityIDDataLinkFeature           = -0x25U,
+    kIOPCIExpressCapabilityIDPL16GTs                   = -0x26U,
+    kIOPCIExpressCapabilityIDLaneMarginingRx           = -0x27U,
+    kIOPCIExpressCapabilityIDHierarchyID               = -0x28U,
+    kIOPCIExpressCapabilityIDNPEM                      = -0x29U,
+    kIOPCIExpressCapabilityIDPL32GTs                   = -0x2AU,
+    kIOPCIExpressCapabilityIDAlternateProtocol         = -0x2BU,
+    kIOPCIExpressCapabilityIDSFI                       = -0x2CU,
 #else  /* defined(__LP64__) */
     kIOPCIExpressCapabilityIDErrorReporting            = -0x01UL,
     kIOPCIExpressCapabilityIDVirtualChannel            = -0x02UL,
     kIOPCIExpressCapabilityIDDeviceSerialNumber        = -0x03UL,
     kIOPCIExpressCapabilityIDPowerBudget               = -0x04UL,
+    kIOPCIExpressCapabilityIDRCLinkDeclaration         = -0x05UL,
+    kIOPCIExpressCapabilityIDRCInternalLinkCtrl        = -0x06UL,
+    kIOPCIExpressCapabilityIDRCECEndpointAssociation   = -0x07UL,
+    kIOPCIExpressCapabilityIDMFVC                      = -0x08UL,
+    kIOPCIExpressCapabilityIDVC_MFVCPresent            = -0x09UL,
+    kIOPCIExpressCapabilityIDRootComplexRegBlock       = -0x0AUL,
+    kIOPCIExpressCapabilityIDVSEC                      = -0x0BUL,
+    kIOPCIExpressCapabilityIDCAC                       = -0x0CUL,
     kIOPCIExpressCapabilityIDAccessControlServices     = -0x0DUL,
     kIOPCIExpressCapabilityIDAlternativeRoutingID      = -0x0EUL,
+    kIOPCIExpressCapabilityIDATS                       = -0x0FUL,
+    kIOPCIExpressCapabilityIDSRIOV                     = -0x10UL,
+    kIOPCIExpressCapabilityIDMRIOV                     = -0x11UL,
+    kIOPCIExpressCapabilityIDMulticast                 = -0x12UL,
+    kIOPCIExpressCapabilityIDPRI                       = -0x13UL,
+    kIOPCIExpressCapabilityIDAMD                       = -0x14UL,
+    kIOPCIExpressCapabilityIDResizableBAR              = -0x15UL,
+    kIOPCIExpressCapabilityIDDPA                       = -0x16UL,
+    kIOPCIExpressCapabilityIDTPHRequester              = -0x17UL,
     kIOPCIExpressCapabilityIDLatencyTolerenceReporting = -0x18UL,
+    kIOPCIExpressCapabilityIDSPCIe                     = -0x19UL,
+    kIOPCIExpressCapabilityIDPMUX                      = -0x1AUL,
+    kIOPCIExpressCapabilityIDPASID                     = -0x1BUL,
+    kIOPCIExpressCapabilityIDLNR                       = -0x1CUL,
+    kIOPCIExpressCapabilityIDDPC                       = -0x1DUL,
     kIOPCIExpressCapabilityIDL1PMSubstates             = -0x1EUL,
     kIOPCIExpressCapabilityIDPrecisionTimeManagement   = -0x1FUL,
+    kIOPCIExpressCapabilityIDMPCIe                     = -0x20UL,
+    kIOPCIExpressCapabilityIDFRSQueueing               = -0x21UL,
+    kIOPCIExpressCapabilityIDReadinessTimeReporting    = -0x22UL,
+    kIOPCIExpressCapabilityIDDVSEC                     = -0x23UL,
+    kIOPCIExpressCapabilityIDVFResizableBAR            = -0x24UL,
+    kIOPCIExpressCapabilityIDDataLinkFeature           = -0x25UL,
+    kIOPCIExpressCapabilityIDPL16GTs                   = -0x26UL,
+    kIOPCIExpressCapabilityIDLaneMarginingRx           = -0x27UL,
+    kIOPCIExpressCapabilityIDHierarchyID               = -0x28UL,
+    kIOPCIExpressCapabilityIDNPEM                      = -0x29UL,
+    kIOPCIExpressCapabilityIDPL32GTs                   = -0x2AUL,
+    kIOPCIExpressCapabilityIDAlternateProtocol         = -0x2BUL,
+    kIOPCIExpressCapabilityIDSFI                       = -0x2CUL,
 #endif /* !defined(__LP64__) */
 };
 

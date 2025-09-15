@@ -724,20 +724,20 @@ rs/rs.1	freebsd	usr.bin/rs/rs.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 rs/rs.c	freebsd	usr.bin/rs/rs.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 rs/tests/rs_test.sh	freebsd	usr.bin/rs/tests/rs_test.sh	013953eb5f868c0a7b9821ad1d196d2795203ac7
 
-sed/POSIX	freebsd	usr.bin/sed/POSIX	9cfc96edd72f715454dbb0e2324f1230cc49e370
-sed/compile.c	freebsd	usr.bin/sed/compile.c	14fdf163717efe7730104832b7a4b09c963c42ea
-sed/defs.h	freebsd	usr.bin/sed/defs.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-sed/extern.h	freebsd	usr.bin/sed/extern.h	b48050264837c9246eb6f1ef686f73883c0320d9
-sed/main.c	freebsd	usr.bin/sed/main.c	f9ab72bb471a141f31a4476bb11bdaef81daf479
-sed/misc.c	freebsd	usr.bin/sed/misc.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-sed/process.c	freebsd	usr.bin/sed/process.c	b48050264837c9246eb6f1ef686f73883c0320d9
-sed/sed.1	freebsd	usr.bin/sed/sed.1	f9ab72bb471a141f31a4476bb11bdaef81daf479
+sed/POSIX	freebsd	usr.bin/sed/POSIX	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/compile.c	freebsd	usr.bin/sed/compile.c	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/defs.h	freebsd	usr.bin/sed/defs.h	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/extern.h	freebsd	usr.bin/sed/extern.h	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/main.c	freebsd	usr.bin/sed/main.c	0552fdc62caf034397ffd5b07dfbad853aef5aa8
+sed/misc.c	freebsd	usr.bin/sed/misc.c	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/process.c	freebsd	usr.bin/sed/process.c	5982237f1e5a30b6b7d67b307b4d3685b00718bf
+sed/sed.1	freebsd	usr.bin/sed/sed.1	a2d78713171cf138b5ae50d61f82df1af7574c95
 sed/tests/d_c2048.in	freebsd	contrib/netbsd-tests/usr.bin/sed/d_c2048.in	57718be8fa0bd5edc11ab9a72e68cc71982939a6
-sed/tests/hanoi.sed	freebsd	usr.bin/sed/tests/hanoi.sed	3a92d97ff0f22d21608e1c19b83104c4937523b6
-sed/tests/inplace_race_test.sh	freebsd	usr.bin/sed/tests/inplace_race_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-sed/tests/legacy_test.sh	freebsd	usr.bin/sed/tests/legacy_test.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
-sed/tests/math.sed	freebsd	usr.bin/sed/tests/math.sed	3a92d97ff0f22d21608e1c19b83104c4937523b6
-sed/tests/multi_test.sh	freebsd	usr.bin/sed/tests/multi_test.sh	e4bfd2a67584983ad0246abd84982b2e6539204c
+sed/tests/hanoi.sed	freebsd	usr.bin/sed/tests/hanoi.sed	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
+sed/tests/inplace_race_test.sh	freebsd	usr.bin/sed/tests/inplace_race_test.sh	d0b2dbfa0ecf2bbc9709efc5e20baf8e4b44bbbf
+sed/tests/legacy_test.sh	freebsd	usr.bin/sed/tests/legacy_test.sh	d0b2dbfa0ecf2bbc9709efc5e20baf8e4b44bbbf
+sed/tests/math.sed	freebsd	usr.bin/sed/tests/math.sed	d0b2dbfa0ecf2bbc9709efc5e20baf8e4b44bbbf
+sed/tests/multi_test.sh	freebsd	usr.bin/sed/tests/multi_test.sh	bdcbfde31e8e9b343f113a1956384bdf30d1ed62
 sed/tests/regress.G.out	freebsd	usr.bin/sed/tests/regress.G.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
 sed/tests/regress.P.out	freebsd	usr.bin/sed/tests/regress.P.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
 sed/tests/regress.b2a.out	freebsd	usr.bin/sed/tests/regress.b2a.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
@@ -889,9 +889,9 @@ sed/tests/regress.s3.out	freebsd	usr.bin/sed/tests/regress.s3.out	3a92d97ff0f22d
 sed/tests/regress.s4.out	freebsd	usr.bin/sed/tests/regress.s4.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
 sed/tests/regress.s5.out	freebsd	usr.bin/sed/tests/regress.s5.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
 sed/tests/regress.sg.out	freebsd	usr.bin/sed/tests/regress.sg.out	3a92d97ff0f22d21608e1c19b83104c4937523b6
-sed/tests/regress.sh	freebsd	usr.bin/sed/tests/regress.sh	3a92d97ff0f22d21608e1c19b83104c4937523b6
+sed/tests/regress.sh	freebsd	usr.bin/sed/tests/regress.sh	d0b2dbfa0ecf2bbc9709efc5e20baf8e4b44bbbf
 sed/tests/regress.y.out	freebsd	usr.bin/sed/tests/regress.y.out	96d68291af30586e0f5ce80b46d5d4e503af15a5
-sed/tests/sed2_test.sh	freebsd	usr.bin/sed/tests/sed2_test.sh	98369a6980f5448fa9ab8bde9f04ba10c4ca3c93
+sed/tests/sed2_test.sh	freebsd	usr.bin/sed/tests/sed2_test.sh	003818aca4cdda47adef808a56d48003aa514029
 sed/tests/t_sed.sh	freebsd	contrib/netbsd-tests/usr.bin/sed/t_sed.sh	640235e2c2ba32947f7c59d168437ffa1280f1e6
 
 sort/bwstring.c	freebsd	usr.bin/sort/bwstring.c	266b51ac6e24a71a4df54c30f63215bf1c3decdb

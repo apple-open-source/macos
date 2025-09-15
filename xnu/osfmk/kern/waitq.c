@@ -200,7 +200,7 @@ static_assert(__alignof(struct waitq) == WQ_OPAQUE_ALIGN, "waitq structure align
 static KALLOC_TYPE_DEFINE(waitq_sellink_zone, struct waitq_sellink, KT_PRIV_ACCT);
 static KALLOC_TYPE_DEFINE(waitq_link_zone, struct waitq_link, KT_PRIV_ACCT);
 ZONE_DEFINE_ID(ZONE_ID_SELECT_SET, "select_set", struct select_set,
-    ZC_SEQUESTER | ZC_NOPGZ | ZC_ZFREE_CLEARMEM);
+    ZC_SEQUESTER | ZC_ZFREE_CLEARMEM);
 
 static LCK_GRP_DECLARE(waitq_lck_grp, "waitq");
 
@@ -619,8 +619,10 @@ waitq_wait_possible(thread_t thread)
 	       ((thread->state & TH_WAKING) == 0);
 }
 
+__static_testable void waitq_bootstrap(void);
+
 __startup_func
-static void
+__static_testable void
 waitq_bootstrap(void)
 {
 	const uint32_t qsz = sizeof(struct waitq);
@@ -710,19 +712,19 @@ static const struct hw_spin_policy waitq_spin_policy = {
 	.hwsp_op_timeout        = waitq_timeout_handler,
 };
 
-void
+__mockable void
 waitq_invalidate(waitq_t waitq)
 {
 	hw_lck_ticket_invalidate(&waitq.wq_q->waitq_interlock);
 }
 
-bool
+__mockable bool
 waitq_held(waitq_t wq)
 {
 	return hw_lck_ticket_held(&wq.wq_q->waitq_interlock);
 }
 
-void
+__mockable void
 waitq_lock(waitq_t wq)
 {
 	(void)hw_lck_ticket_lock_to(&wq.wq_q->waitq_interlock,
@@ -732,7 +734,7 @@ waitq_lock(waitq_t wq)
 #endif
 }
 
-bool
+__mockable bool
 waitq_lock_try(waitq_t wq)
 {
 	bool rc = hw_lck_ticket_lock_try(&wq.wq_q->waitq_interlock, &waitq_lck_grp);
@@ -751,7 +753,7 @@ waitq_lock_reserve(waitq_t wq, uint32_t *ticket)
 	return hw_lck_ticket_reserve(&wq.wq_q->waitq_interlock, ticket, &waitq_lck_grp);
 }
 
-void
+__mockable void
 waitq_lock_wait(waitq_t wq, uint32_t ticket)
 {
 	(void)hw_lck_ticket_wait(&wq.wq_q->waitq_interlock, ticket,
@@ -777,7 +779,7 @@ waitq_lock_allow_invalid(waitq_t wq)
 	return rc == HW_LOCK_ACQUIRED;
 }
 
-void
+__mockable void
 waitq_unlock(waitq_t wq)
 {
 	assert(waitq_held(wq));
@@ -1200,23 +1202,6 @@ do_waitq_select_n_locked_sets(waitq_t waitq, struct waitq_select_args *args)
 		}
 
 		if (wq_type == WQT_SELECT) {
-			/*
-			 * If PGZ picked this select set,
-			 * translate it to the real address
-			 *
-			 * If it is still a select set
-			 * (the slot could have been reused),
-			 * then keep using it for the rest of the logic.
-			 *
-			 * Even in the extremely unlikely case where
-			 * the slot was reused for another select_set,
-			 * the `wql_sellink_valid` check below will
-			 * take care of debouncing it. But we must
-			 * forget the original pointer we read
-			 * so that we unlock the proper object.
-			 */
-			wqset.wqs_sel = pgz_decode_allow_invalid(wqset.wqs_sel,
-			    ZONE_ID_SELECT_SET);
 			if (!wqset.wqs_sel) {
 				continue;
 			}
@@ -1510,7 +1495,7 @@ waitq_should_enable_interrupts(waitq_wakeup_flags_t flags)
 	return (flags & (WAITQ_UNLOCK | WAITQ_KEEP_LOCKED | WAITQ_ENABLE_INTERRUPTS)) == (WAITQ_UNLOCK | WAITQ_ENABLE_INTERRUPTS);
 }
 
-uint32_t
+__mockable uint32_t
 waitq_wakeup64_nthreads_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
@@ -1578,7 +1563,7 @@ waitq_wakeup64_one_locked(
 	return count ? KERN_SUCCESS : KERN_NOT_WAITING;
 }
 
-thread_t
+__mockable thread_t
 waitq_wakeup64_identify_locked(
 	waitq_t                 waitq,
 	event64_t               wake_event,
@@ -1618,7 +1603,7 @@ waitq_wakeup64_identify_locked(
 	return THREAD_NULL;
 }
 
-void
+__mockable void
 waitq_resume_identified_thread(
 	waitq_t                 waitq,
 	thread_t                thread,
@@ -2441,6 +2426,7 @@ waitq_wakeup64_identify(
 #pragma mark tests
 #if DEBUG || DEVELOPMENT
 
+#include <ipc/ipc_space.h>
 #include <ipc/ipc_pset.h>
 #include <sys/errno.h>
 
@@ -2511,6 +2497,8 @@ wqt_wqset_create(void)
 	struct waitq_set *wqset;
 
 	wqset = &ipc_pset_alloc_special(ipc_space_kernel)->ips_wqset;
+	waitq_unlock(wqset);
+
 	printf("[WQ]: created waitq set %p\n", wqset);
 	return wqset;
 }

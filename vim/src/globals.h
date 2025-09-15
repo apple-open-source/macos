@@ -260,6 +260,9 @@ EXTERN int	quit_more INIT(= FALSE);    // 'q' hit at "--more--" msg
 EXTERN int	newline_on_exit INIT(= FALSE);	// did msg in altern. screen
 EXTERN int	intr_char INIT(= 0);	    // extra interrupt character
 #endif
+#ifdef __APPLE__
+EXTERN int	susp_char INIT(= 0);	    // extra suspend character
+#endif
 #if (defined(UNIX) || defined(VMS)) && defined(FEAT_X11)
 EXTERN int	x_no_connect INIT(= FALSE); // don't connect to X server
 # if defined(FEAT_CLIENTSERVER)
@@ -1554,6 +1557,9 @@ EXTERN int	read_cmd_fd INIT(= 0);	    // fd to read commands from
 // Set to TRUE when an interrupt signal occurred.
 // Volatile because it is used in signal handler catch_sigint().
 EXTERN volatile sig_atomic_t got_int INIT(= FALSE);
+#ifdef __APPLE__
+EXTERN volatile sig_atomic_t got_susp INIT(= FALSE);
+#endif
 
 // Set to TRUE when SIGUSR1 signal was detected.
 // Volatile because it is used in signal handler catch_sigint().

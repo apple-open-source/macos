@@ -388,6 +388,12 @@ local syscalls = {
         'mach_timespec_t *wakeup_time',
       },
     },
+    { number = 63, name = 'mach_vm_reclaim_update_kernel_accounting_trap',
+      arguments = {
+        'mach_port_name_t target',
+        'uint64_t *bytes_reclaimed',
+      },
+    },
 
     { number = 70, name = 'host_create_mach_voucher',
       arguments = {

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All Rights Reserved.
- * Copyright (C) 2010 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Google, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,7 @@ public:
     constexpr bool failed() const { return !m_length; }
     constexpr bool notEnoughCharacters() const { return m_notEnoughCharacters; }
 
-    constexpr std::span<const UChar> span() const { return std::span { m_characters }.first(m_length); }
+    constexpr std::span<const UChar> span() const LIFETIME_BOUND { return std::span { m_characters }.first(m_length); }
 
 private:
     uint8_t m_length { 0 };

@@ -1800,22 +1800,22 @@ errOut:
 
 // If pinning is disabled, pinned hostnames should continue to be exempt from CT
 - (void) testSystemwidePinningDisable {
-    SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, pinnedNonCT = NULL;
+    SecCertificateRef root = NULL, subCA = NULL, pinnedNonCT = NULL;
     SecTrustRef trust = NULL;
-    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("iphonesubmissions.apple.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:580000000.0]; // May 19, 2019 at 4:06:40 PM PDT
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("api.smoot.apple.com"));
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:755000000]; // December 4, 2024 at 2:13:20 AM PST
     NSArray *certs = nil, *enforcement_anchors = nil;
     NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
 
-    require_action(baltimoreRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"BaltimoreCyberTrustRoot"],
-                   errOut, fail("failed to create geotrust root"));
-    require_action(appleISTCA2 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA2_Baltimore"],
-                   errOut, fail("failed to create apple IST CA"));
-    require_action(pinnedNonCT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"iphonesubmissions"],
-                   errOut, fail("failed to create deprecated SSL Server cert"));
+    require_action(root = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"AAACertificateServices" subdirectory:@"si-20-sectrust-policies-data"],
+                   errOut, fail("failed to create root"));
+    require_action(subCA = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"ApplePublicServerRSA12-G1" subdirectory:@"si-20-sectrust-policies-data"],
+                   errOut, fail("failed to create apple sub CA"));
+    require_action(pinnedNonCT = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"api-smoot" subdirectory:@"si-20-sectrust-policies-data"],
+                   errOut, fail("failed to create pinned SSL Server cert"));
 
-    certs = @[ (__bridge id)pinnedNonCT, (__bridge id)appleISTCA2 ];
-    enforcement_anchors = @[ (__bridge id)baltimoreRoot ];
+    certs = @[ (__bridge id)pinnedNonCT, (__bridge id)subCA ];
+    enforcement_anchors = @[ (__bridge id)root ];
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
@@ -1831,8 +1831,8 @@ errOut:
     [defaults synchronize];
 
 errOut:
-    CFReleaseNull(baltimoreRoot);
-    CFReleaseNull(appleISTCA2);
+    CFReleaseNull(root);
+    CFReleaseNull(subCA);
     CFReleaseNull(pinnedNonCT);
     CFReleaseNull(policy);
     CFReleaseNull(trust);

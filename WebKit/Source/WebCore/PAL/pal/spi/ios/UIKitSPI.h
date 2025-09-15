@@ -23,11 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if PLATFORM(IOS_FAMILY)
 
 WTF_EXTERN_C_BEGIN
 typedef struct __GSKeyboard* GSKeyboardRef;
 WTF_EXTERN_C_END
+
+#import <UIKit/UIKit.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -55,10 +61,7 @@ WTF_EXTERN_C_END
 - (CGFloat)_iOSMacScale;
 @end
 
-
 #else // USE(APPLE_INTERNAL_SDK)
-
-#import <UIKit/UIKit.h>
 
 #if ENABLE(DRAG_SUPPORT)
 #import <UIKit/NSItemProvider+UIKitAdditions.h>

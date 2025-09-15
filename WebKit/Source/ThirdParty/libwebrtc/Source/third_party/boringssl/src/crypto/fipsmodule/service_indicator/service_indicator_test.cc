@@ -1,16 +1,16 @@
-/* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <gtest/gtest.h>
 
@@ -30,9 +30,8 @@
 #include <openssl/hmac.h>
 #include <openssl/md4.h>
 #include <openssl/md5.h>
-#include <openssl/rand.h> // TODO(bbe): only for RAND_bytes call below, replace with BCM call
+#include <openssl/rand.h>  // TODO(bbe): only for RAND_bytes call below, replace with BCM call
 #include <openssl/rsa.h>
-#include <openssl/service_indicator.h>
 
 #include "../../test/abi_test.h"
 #include "../../test/test_util.h"
@@ -40,9 +39,48 @@
 #include "../bn/internal.h"
 #include "../rand/internal.h"
 #include "../tls/internal.h"
+#include "internal.h"
 
 
-using bssl::FIPSStatus;
+namespace {
+
+// CALL_SERVICE_AND_CHECK_APPROVED runs |func| and sets |approved| to one of the
+// |FIPSStatus*| values, above, depending on whether |func| invoked an
+// approved service. The result of |func| becomes the result of this macro.
+#define CALL_SERVICE_AND_CHECK_APPROVED(approved, func)   \
+  [&] {                                                   \
+    FIPSIndicatorHelper fips_indicator_helper(&approved); \
+    return func;                                          \
+  }()
+
+enum class FIPSStatus {
+  NOT_APPROVED = 0,
+  APPROVED = 1,
+};
+
+// FIPSIndicatorHelper records whether the service indicator counter advanced
+// during its lifetime.
+class FIPSIndicatorHelper {
+ public:
+  FIPSIndicatorHelper(FIPSStatus *result)
+      : result_(result), before_(FIPS_service_indicator_before_call()) {
+    *result_ = FIPSStatus::NOT_APPROVED;
+  }
+
+  ~FIPSIndicatorHelper() {
+    uint64_t after = FIPS_service_indicator_after_call();
+    if (after != before_) {
+      *result_ = FIPSStatus::APPROVED;
+    }
+  }
+
+  FIPSIndicatorHelper(const FIPSIndicatorHelper&) = delete;
+  FIPSIndicatorHelper &operator=(const FIPSIndicatorHelper &) = delete;
+
+ private:
+  FIPSStatus *const result_;
+  const uint64_t before_;
+};
 
 static const uint8_t kAESKey[16] = {'A', 'W', 'S', '-', 'L', 'C', 'C', 'r',
                                     'y', 'p', 't', 'o', ' ', 'K', 'e', 'y'};
@@ -2424,3 +2462,5 @@ TEST(ServiceIndicatorTest, BasicTest) {
 }
 
 #endif  // BORINGSSL_FIPS
+
+}  // namespace

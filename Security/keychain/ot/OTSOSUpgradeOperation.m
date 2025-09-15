@@ -31,7 +31,6 @@
 #import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTSOSUpgradeOperation ()
@@ -107,7 +106,7 @@
     if(!self.deps.sosAdapter.sosEnabled) {
         secnotice("octagon-sos", "SOS not enabled on this platform?");
         self.nextState = OctagonStateBecomeUntrusted;
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorSOSDisabled description:@"SOS not enabled on this platform"]];
+        [self.eventS sendMetricWithResult:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorSOSDisabled description:@"SOS not enabled on this platform"]];
         return;
     }
 
@@ -118,7 +117,7 @@
     if(error || sosCircleStatus == kSOSCCError) {
         secnotice("octagon-sos", "Error fetching circle status: %@", error);
         self.nextState = OctagonStateBecomeUntrusted;
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
+        [self.eventS sendMetricWithResult:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
         return;
     }
 
@@ -136,7 +135,7 @@
     if(sosCircleStatus != kSOSCCInCircle) {
         secnotice("octagon-sos", "Device is not in SOS circle (state: %@), quitting SOS upgrade", SOSAccountGetSOSCCStatusString(sosCircleStatus));
         self.nextState = OctagonStateBecomeUntrusted;
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
+        [self.eventS sendMetricWithResult:NO error:[NSError errorWithDomain:OctagonErrorDomain code:OctagonErrorNotInSOS description:@"Device not in SOS circle"]];
         return;
     }
 
@@ -144,7 +143,7 @@
     if(!sosSelf || error) {
         secnotice("octagon-sos", "Failed to get the current SOS self: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
+        [self.eventS sendMetricWithResult:NO error:error];
         return;
     }
 
@@ -153,7 +152,7 @@
     if (signingKeyPersistRef == NULL) {
         secnotice("octagon-sos", "Failed to get the persistent ref for our SOS signing key: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
+        [self.eventS sendMetricWithResult:NO error:error];
         return;
     }
 
@@ -161,7 +160,7 @@
     if (encryptionKeyPersistRef == NULL) {
         secnotice("octagon-sos", "Failed to get the persistent ref for our SOS encryption key: %@", error);
         [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:error];
+        [self.eventS sendMetricWithResult:NO error:error];
         return;
     }
 
@@ -177,9 +176,9 @@
             } else {
                 secnotice("octagon-sos", "SOS upgrade error is: %@; not retrying", self.error);
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:NO error:self.error];
+            [self.eventS sendMetricWithResult:NO error:self.error];
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:self.eventS success:YES error:nil];
+            [self.eventS sendMetricWithResult:YES error:nil];
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];

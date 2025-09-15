@@ -637,7 +637,7 @@ sktc_setup_channel_worker(uuid_t instance_uuid, nexus_port_t channel_port,
 
 	sktc_channel = sktu_channel_create_extended(instance_uuid, channel_port,
 	    CHANNEL_DIR_TX_RX, ringid, attr,
-	    -1, -1, -1, -1, -1, -1, -1, defunct_ok ? 1 : -1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, defunct_ok ? 1 : -1, -1, -1);
 	assert(sktc_channel);
 
 	if (attr) {
@@ -2220,30 +2220,10 @@ sktc_ifnet_add_scoped_default_route(char * ifname, struct in_addr ifa)
 
 /* interval in nanoseconds */
 int
-sktc_set_classq_update_interval(uint64_t ns, sktc_classq_type_t type)
+sktc_set_classq_update_interval(uint64_t ns)
 {
 	int     error;
-	char    *sysctl_name;
-
-	switch (type) {
-	case SKTC_CLASSQ_DEF_C:
-		sysctl_name = "net.classq.def_c_update_interval";
-		break;
-	case SKTC_CLASSQ_DEF_L4S:
-		sysctl_name = "net.classq.def_l4s_update_interval";
-		break;
-	case SKTC_CLASSQ_LL_C:
-		sysctl_name = "net.classq.ll_c_update_interval";
-		break;
-	case SKTC_CLASSQ_LL_L4S:
-		sysctl_name = "net.classq.ll_l4s_update_interval";
-		break;
-
-	default:
-		assert(0);
-		__builtin_unreachable();
-		break;
-	}
+	char    *sysctl_name = "net.classq.fq_codel.update_interval";
 
 	error = sysctlbyname(sysctl_name,
 	    NULL, NULL, &ns, sizeof(ns));
@@ -2262,22 +2242,16 @@ sktc_set_classq_update_intervals(uint64_t ns)
 {
 	int     error;
 
-	error = sktc_set_classq_update_interval(ns, SKTC_CLASSQ_DEF_C);
-	assert(error == 0);
-	error = sktc_set_classq_update_interval(ns, SKTC_CLASSQ_DEF_L4S);
-	assert(error == 0);
-	error = sktc_set_classq_update_interval(ns, SKTC_CLASSQ_LL_C);
-	assert(error == 0);
-	error = sktc_set_classq_update_interval(ns, SKTC_CLASSQ_LL_L4S);
+	error = sktc_set_classq_update_interval(ns);
 	assert(error == 0);
 
 	return 0;
 }
 
 int
-sktc_reset_classq_update_interval(sktc_classq_type_t type)
+sktc_reset_classq_update_interval()
 {
-	return sktc_set_classq_update_interval(0, type);
+	return sktc_set_classq_update_interval(0);
 }
 
 int
@@ -2288,30 +2262,10 @@ sktc_reset_classq_update_intervals(void)
 
 /* interval in nanoseconds */
 int
-sktc_set_classq_target_qdelay(uint64_t ns, sktc_classq_type_t type)
+sktc_set_classq_target_qdelay(uint64_t ns)
 {
 	int     error;
-	char    *sysctl_name;
-
-	switch (type) {
-	case SKTC_CLASSQ_DEF_C:
-		sysctl_name = "net.classq.def_c_target_qdelay";
-		break;
-	case SKTC_CLASSQ_DEF_L4S:
-		sysctl_name = "net.classq.def_l4s_target_qdelay";
-		break;
-	case SKTC_CLASSQ_LL_C:
-		sysctl_name = "net.classq.ll_c_target_qdelay";
-		break;
-	case SKTC_CLASSQ_LL_L4S:
-		sysctl_name = "net.classq.ll_l4s_target_qdelay";
-		break;
-
-	default:
-		assert(0);
-		__builtin_unreachable();
-		break;
-	}
+	char    *sysctl_name = "net.classq.fq_codel.target_qdelay";
 
 	error = sysctlbyname(sysctl_name, NULL, NULL,
 	    &ns, sizeof(ns));
@@ -2330,22 +2284,16 @@ sktc_set_classq_target_qdelays(uint64_t ns)
 {
 	int     error;
 
-	error = sktc_set_classq_target_qdelay(ns, SKTC_CLASSQ_DEF_C);
-	assert(error == 0);
-	error = sktc_set_classq_target_qdelay(ns, SKTC_CLASSQ_DEF_L4S);
-	assert(error == 0);
-	error = sktc_set_classq_target_qdelay(ns, SKTC_CLASSQ_LL_C);
-	assert(error == 0);
-	error = sktc_set_classq_target_qdelay(ns, SKTC_CLASSQ_LL_L4S);
+	error = sktc_set_classq_target_qdelay(ns);
 	assert(error == 0);
 
 	return 0;
 }
 
 int
-sktc_reset_classq_target_qdelay(sktc_classq_type_t type)
+sktc_reset_classq_target_qdelay()
 {
-	return sktc_set_classq_target_qdelay(0, type);
+	return sktc_set_classq_target_qdelay(0);
 }
 
 int

@@ -76,10 +76,10 @@ void DADialogShowDeviceRemoval( CFMutableArrayRef disklist )
             if ( bundle )
             {
                 NSDictionary * description;
-                NSMutableString *text1 = [NSMutableString stringWithCapacity:0];
-                NSMutableString *text2 = [NSMutableString stringWithCapacity:0];
+                NSMutableString *text1       = [[NSMutableString alloc] initWithCapacity:0];
+                NSMutableString *text2       = [[NSMutableString alloc] initWithCapacity:0];
                 notification.title           = __DALocalizedStringInBundle( __kDADialogLocalizedStringDeviceRemovalTitleKey, bundle );
-                notification._imageURL       = [ NSURL fileURLWithPath: @"/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/FinderIcon.icns" ];
+                notification.userInfo        = @{ @"customIconBundleIdentifier" : @"com.apple.finder" };
                 notification._persistent     = FALSE;
 
                 for (CFIndex i = 0; i < CFArrayGetCount( disklist ); i++)
@@ -100,7 +100,7 @@ void DADialogShowDeviceRemoval( CFMutableArrayRef disklist )
                         }
 
                         notification.hasActionButton = FALSE;
-                        NSString *newName = [NSString stringWithFormat:@"%@", name];
+                        NSString *newName = [[NSString alloc] initWithFormat:@"%@", name];
                         if ( i != 0 && i !=(  CFArrayGetCount( disklist ) - 1 ))
                         {
                             [text1 appendString:@", "];

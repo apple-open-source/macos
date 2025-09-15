@@ -55,7 +55,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->type();
+    return IMPL->type().createNSString().autorelease();
 }
 
 - (id <DOMEventTarget>)target

@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-
 #include "NetworkCacheStorage.h"
 #include <WebCore/ResourceRequest.h>
 #include <wtf/TZoneMalloc.h>
@@ -121,5 +119,3 @@ private:
 };
 
 } // namespace WebKit::NetworkCache
-
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)

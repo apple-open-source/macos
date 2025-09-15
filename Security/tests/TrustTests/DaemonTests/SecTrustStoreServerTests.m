@@ -51,15 +51,22 @@
     XCTAssertEqual(error, NULL);
     NSArray *appleAnchors = (__bridge NSArray *)SecGetAppleTrustAnchors(false);
     NSArray *copiedAnchors = CFBridgingRelease(trustStoreContents);
-    XCTAssertEqual(appleAnchors.count, copiedAnchors.count);
+    XCTAssertGreaterThanOrEqual(copiedAnchors.count, appleAnchors.count);
     for(NSArray *anchorRecord in copiedAnchors) {
         XCTAssertEqual(anchorRecord.count, 2);
         SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)anchorRecord[0]);
-        XCTAssert([appleAnchors containsObject:(__bridge id)cert]);
+        /* For the hardcoded anchors, check the anchor record has no constraints */
+        if([appleAnchors containsObject:(__bridge id)cert]) {
+            XCTAssertNotNil(anchorRecord[1]);
+            XCTAssert([anchorRecord[1] isKindOfClass:[NSArray class]]);
+            XCTAssertEqual(((NSArray*)anchorRecord[1]).count, 0);
+        } else {
+            // Non-hardcoded anchors should have trust settings of some sort
+            XCTAssertNotNil(anchorRecord[1]);
+            XCTAssert([anchorRecord[1] isKindOfClass:[NSArray class]]);
+            XCTAssertGreaterThanOrEqual(((NSArray*)anchorRecord[1]).count, 0);
+        }
         CFReleaseNull(cert);
-        XCTAssertNotNil(anchorRecord[1]);
-        XCTAssert([anchorRecord[1] isKindOfClass:[NSArray class]]);
-        XCTAssertEqual(((NSArray*)anchorRecord[1]).count, 0);
     }
 
     trustStoreContents = NULL;

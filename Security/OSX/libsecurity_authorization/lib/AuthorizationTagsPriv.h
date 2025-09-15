@@ -396,6 +396,8 @@
 #define PLUDB_DNODE "dnode"
 #define PLUDB_OWNER "owner"
 #define PLUDB_PREBOOT "preboot"
+#define PLUDB_UID "uid"
+#define PLUDB_HDIR "hdir"
 
 /* FVUnlock related defines */
 #define AGENT_FVUNLOCK_USER "fvusername"
@@ -410,5 +412,10 @@
 #define AGENT_CONTEXT_APPSSO_KCPWD "apsso-kcp"
 #define AGENT_CONTEXT_APPSSO_UPWD "apsso-up"
 #define AGENT_CONTEXT_REQUIRE_UNLOCKED_KC "require-unlocked-kc"
+
+/* OTI related defines */
+#define AGENT_HINT_KBGUNLOCK_REQ "require-keybag-unlock"
+#define AGENT_CONTEXT_OTIKBG_STATE "oti-keybag-state"
+
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

@@ -27,6 +27,7 @@ GCC_PREPROCESSOR_DEFINITIONS = $(inherited) _FORTIFY_SOURCE=0 $(OSATOMIC_PREPROC
 OSATOMIC_PREPROCESSOR_DEFINITIONS = OSATOMIC_USE_INLINED=1 OS_UNFAIR_LOCK_INLINE=1
 OSATOMIC_PREPROCESSOR_DEFINITIONS_NOINLINE = OSATOMIC_DEPRECATED=0 OSATOMIC_USE_INLINED=0 OS_UNFAIR_LOCK_INLINE=0
 DRIVERKIT_PREPROCESSOR_DEFINITIONS[sdk=driverkit.macosx*] = MALLOC_TARGET_DK_OSX=1
+DRIVERKIT_PREPROCESSOR_DEFINITIONS[sdk=driverkit.watchos*] = MALLOC_TARGET_DK_WATCH=1
 DRIVERKIT_PREPROCESSOR_DEFINITIONS[sdk=driverkit.iphoneos*] = MALLOC_TARGET_DK_IOS=1
 DRIVERKIT_PREPROCESSOR_DEFINITIONS[sdk=driverkit.xros*] = MALLOC_TARGET_DK_IOS=0 MALLOC_TARGET_DK_VISIONOS=1
 
@@ -63,7 +64,7 @@ EXCLUDED_SOURCE_FILE_NAMES = $(LIBFEATUREFLAGS_EXCLUDES)
 // TODO: Eliminate the crosslink between libmalloc and Libc (13046853)
 // The blocks runtime is safe for use only in the context of introspection
 // logic, which isn't really in the same layer as the rest of libmalloc
-UPLINK_LDFLAGS = -Wl,-upward-lsystem_c -Wl,-upward-lsystem_blocks
+UPLINK_LDFLAGS = -Wl,-upward-lsystem_c -Wl,-upward-lsystem_blocks -Wl,-upward-lcorecrypto
 
 INTERPOSE_LDFLAGS = -Wl,-interposable_list,$(SRCROOT)/xcodeconfig/interposable.list
 

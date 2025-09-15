@@ -31,7 +31,13 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSTLKShare;
 @class OTSecureElementPeerIdentity;
 @class TPPBSecureElementIdentity;
+
 @interface OTAccountMetadataClassC (NSSecureCodingSupport)
+
+@property (nullable, readonly) NSDate* memoizedLastHealthCheck;
+@property (nullable, readonly) NSDate* memoizedLastEscrowRepairTriggered;
+@property (nullable, readonly) NSDate* memoizedLastEscrowRepairAttempted;
+
 - (void)setTPSyncingPolicy:(TPSyncingPolicy* _Nullable)policy;
 - (TPSyncingPolicy* _Nullable)getTPSyncingPolicy;
 
@@ -40,6 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setOctagonSecureElementIdentity:(OTSecureElementPeerIdentity *)secureElementIdentity;
 - (TPPBSecureElementIdentity* _Nullable)parsedSecureElementIdentity;
+
 @end
 
 NS_ASSUME_NONNULL_END

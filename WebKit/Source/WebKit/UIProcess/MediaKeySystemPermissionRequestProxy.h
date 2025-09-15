@@ -43,9 +43,9 @@ class MediaKeySystemPermissionRequestManagerProxy;
 
 class MediaKeySystemPermissionRequestProxy : public RefCounted<MediaKeySystemPermissionRequestProxy> {
 public:
-    static Ref<MediaKeySystemPermissionRequestProxy> create(MediaKeySystemPermissionRequestManagerProxy& manager, WebCore::MediaKeySystemRequestIdentifier mediaKeySystemID, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier frameID, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem)
+    static Ref<MediaKeySystemPermissionRequestProxy> create(MediaKeySystemPermissionRequestManagerProxy& manager, WebCore::MediaKeySystemRequestIdentifier mediaKeySystemID, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier frameID, Ref<WebCore::SecurityOrigin>&& mediaOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem)
     {
-        return adoptRef(*new MediaKeySystemPermissionRequestProxy(manager, mediaKeySystemID, mainFrameID, frameID, WTFMove(topLevelDocumentOrigin), keySystem));
+        return adoptRef(*new MediaKeySystemPermissionRequestProxy(manager, mediaKeySystemID, mainFrameID, frameID, WTFMove(mediaOrigin), WTFMove(topLevelDocumentOrigin), keySystem));
     }
 
     void allow();
@@ -57,22 +57,30 @@ public:
     WebCore::FrameIdentifier mainFrameID() const { return m_mainFrameID; }
     WebCore::FrameIdentifier frameID() const { return m_frameID; }
 
+    WebCore::SecurityOrigin& mediaKeyRequestSecurityOrigin() { return m_mediaKeyRequestSecurityOrigin.get(); }
+    const WebCore::SecurityOrigin& mediaKeyRequestSecurityOrigin() const { return m_mediaKeyRequestSecurityOrigin.get(); }
+
     WebCore::SecurityOrigin& topLevelDocumentSecurityOrigin() { return m_topLevelDocumentSecurityOrigin.get(); }
     const WebCore::SecurityOrigin& topLevelDocumentSecurityOrigin() const { return m_topLevelDocumentSecurityOrigin.get(); }
 
     const String& keySystem() const { return m_keySystem; }
 
+    const String& mediaKeysHashSalt() const { return m_mediaKeysHashSalt; }
+    void setMediaKeysHashSalt(String&& salt) { m_mediaKeysHashSalt = WTFMove(salt); }
+
     void doDefaultAction();
 
 private:
-    MediaKeySystemPermissionRequestProxy(MediaKeySystemPermissionRequestManagerProxy&, WebCore::MediaKeySystemRequestIdentifier, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem);
+    MediaKeySystemPermissionRequestProxy(MediaKeySystemPermissionRequestManagerProxy&, WebCore::MediaKeySystemRequestIdentifier, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaSecurityOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem);
 
     WeakPtr<MediaKeySystemPermissionRequestManagerProxy> m_manager;
     WebCore::MediaKeySystemRequestIdentifier m_mediaKeySystemID;
     WebCore::FrameIdentifier m_mainFrameID;
     WebCore::FrameIdentifier m_frameID;
-    Ref<WebCore::SecurityOrigin> m_topLevelDocumentSecurityOrigin;
+    const Ref<WebCore::SecurityOrigin> m_mediaKeyRequestSecurityOrigin;
+    const Ref<WebCore::SecurityOrigin> m_topLevelDocumentSecurityOrigin;
     String m_keySystem;
+    String m_mediaKeysHashSalt;
 };
 
 } // namespace WebKit

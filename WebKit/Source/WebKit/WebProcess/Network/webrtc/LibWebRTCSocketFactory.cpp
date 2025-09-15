@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& address, bool disableNonLocalhostConnections)
+static inline webrtc::SocketAddress prepareSocketAddress(const webrtc::SocketAddress& address, bool disableNonLocalhostConnections)
 {
     auto result = address;
     if (disableNonLocalhostConnections)
@@ -64,13 +64,13 @@ IPC::Connection* LibWebRTCSocketFactory::connection()
     return m_connection.get();
 }
 
-rtc::AsyncPacketSocket* LibWebRTCSocketFactory::createUdpSocket(WebCore::ScriptExecutionContextIdentifier contextIdentifier, const rtc::SocketAddress& address, uint16_t minPort, uint16_t maxPort, WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
+webrtc::AsyncPacketSocket* LibWebRTCSocketFactory::createUdpSocket(WebCore::ScriptExecutionContextIdentifier contextIdentifier, const webrtc::SocketAddress& address, uint16_t minPort, uint16_t maxPort, WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
 {
     ASSERT(!WTF::isMainRunLoop());
-    auto socket = makeUnique<LibWebRTCSocket>(*this, contextIdentifier, LibWebRTCSocket::Type::UDP, address, rtc::SocketAddress());
+    auto socket = makeUnique<LibWebRTCSocket>(*this, contextIdentifier, LibWebRTCSocket::Type::UDP, address, webrtc::SocketAddress());
 
-    if (m_connection)
-        m_connection->send(Messages::NetworkRTCProvider::CreateUDPSocket(socket->identifier(), RTCNetwork::SocketAddress(address), minPort, maxPort, pageIdentifier, isFirstParty, isRelayDisabled, domain), 0);
+    if (RefPtr connection = m_connection)
+        connection->send(Messages::NetworkRTCProvider::CreateUDPSocket(socket->identifier(), RTCNetwork::SocketAddress(address), minPort, maxPort, pageIdentifier, isFirstParty, isRelayDisabled, domain), 0);
     else {
         callOnMainRunLoop([] {
             WebProcess::singleton().ensureNetworkProcessConnection();
@@ -83,7 +83,7 @@ rtc::AsyncPacketSocket* LibWebRTCSocketFactory::createUdpSocket(WebCore::ScriptE
     return socket.release();
 }
 
-rtc::AsyncPacketSocket* LibWebRTCSocketFactory::createClientTcpSocket(WebCore::ScriptExecutionContextIdentifier contextIdentifier, const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress, String&& userAgent, const rtc::PacketSocketTcpOptions& options, WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
+webrtc::AsyncPacketSocket* LibWebRTCSocketFactory::createClientTcpSocket(WebCore::ScriptExecutionContextIdentifier contextIdentifier, const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, String&& userAgent, const webrtc::PacketSocketTcpOptions& options, WebPageProxyIdentifier pageIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain& domain)
 {
     ASSERT(!WTF::isMainRunLoop());
 
@@ -91,8 +91,8 @@ rtc::AsyncPacketSocket* LibWebRTCSocketFactory::createClientTcpSocket(WebCore::S
     socket->setState(LibWebRTCSocket::STATE_CONNECTING);
 
     // FIXME: We only transfer options.opts but should also handle other members.
-    if (m_connection)
-        m_connection->send(Messages::NetworkRTCProvider::CreateClientTCPSocket(socket->identifier(), RTCNetwork::SocketAddress(prepareSocketAddress(localAddress, m_disableNonLocalhostConnections)), RTCNetwork::SocketAddress(prepareSocketAddress(remoteAddress, m_disableNonLocalhostConnections)), userAgent, options.opts, pageIdentifier, isFirstParty, isRelayDisabled, domain), 0);
+    if (RefPtr connection = m_connection)
+        connection->send(Messages::NetworkRTCProvider::CreateClientTCPSocket(socket->identifier(), RTCNetwork::SocketAddress(prepareSocketAddress(localAddress, m_disableNonLocalhostConnections)), RTCNetwork::SocketAddress(prepareSocketAddress(remoteAddress, m_disableNonLocalhostConnections)), userAgent, options.opts, pageIdentifier, isFirstParty, isRelayDisabled, domain), 0);
     else {
         callOnMainRunLoop([] {
             WebProcess::singleton().ensureNetworkProcessConnection();
@@ -119,7 +119,7 @@ void LibWebRTCSocketFactory::removeSocket(LibWebRTCSocket& socket)
     m_sockets.remove(socket.identifier());
 }
 
-void LibWebRTCSocketFactory::forSocketInGroup(ScriptExecutionContextIdentifier contextIdentifier, const Function<void(LibWebRTCSocket&)>& callback)
+void LibWebRTCSocketFactory::forSocketInGroup(ScriptExecutionContextIdentifier contextIdentifier, NOESCAPE const Function<void(LibWebRTCSocket&)>& callback)
 {
     ASSERT(!WTF::isMainRunLoop());
     for (CheckedRef socket : m_sockets.values()) {

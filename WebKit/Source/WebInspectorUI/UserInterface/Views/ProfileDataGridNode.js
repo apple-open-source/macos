@@ -58,7 +58,7 @@ WI.ProfileDataGridNode = class ProfileDataGridNode extends WI.DataGridNode
 
     iconClassName()
     {
-        let script = WI.debuggerManager.scriptForIdentifier(this._node.sourceID, WI.assumingMainTarget());
+        let script = this._getScript();
         if (!script || !script.url)
             return "native-icon";
         if (this._node.name === "(program)")
@@ -128,9 +128,11 @@ WI.ProfileDataGridNode = class ProfileDataGridNode extends WI.DataGridNode
     {
         if (columnIdentifier === "function") {
             let filterableData = [this.displayName()];
-            let script = WI.debuggerManager.scriptForIdentifier(this._node.sourceID, WI.assumingMainTarget());
+
+            let script = this._getScript();
             if (script && script.url && this._node.line >= 0 && this._node.column >= 0)
                 filterableData.push(script.url);
+
             return filterableData;
         }
 
@@ -138,6 +140,14 @@ WI.ProfileDataGridNode = class ProfileDataGridNode extends WI.DataGridNode
     }
 
     // Private
+
+    _getScript()
+    {
+        return WI.debuggerManager.scriptForIdentifier(this._node.sourceID, this._tree.target)
+            || WI.debuggerManager.scriptsForURL(this._node.url, this._tree.target).firstValue
+            || WI.networkManager.resourcesForURL(this._node.url).firstValue
+            || null;
+    }
 
     _updateChildrenForModifiers()
     {
@@ -230,7 +240,7 @@ WI.ProfileDataGridNode = class ProfileDataGridNode extends WI.DataGridNode
         let titleElement = fragment.appendChild(document.createElement("span"));
         titleElement.textContent = title;
 
-        let script = WI.debuggerManager.scriptForIdentifier(this._node.sourceID, WI.assumingMainTarget());
+        let script = this._getScript();;
         if (script && script.url && this._node.line >= 0 && this._node.column >= 0) {
             // Convert from 1-based line and column to 0-based.
             let sourceCodeLocation = script.createSourceCodeLocation(this._node.line - 1, this._node.column - 1);

@@ -52,9 +52,12 @@
 #import <WebCore/EditorClient.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/FloatPoint.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
+#import <WebCore/FrameInlines.h>
 #import <WebCore/Image.h>
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/LocalFrameView.h>
+#import <WebCore/NodeInlines.h>
 #import <WebCore/Page.h>
 #import <WebCore/PagePasteboardContext.h>
 #import <WebCore/Pasteboard.h>
@@ -134,10 +137,10 @@ OptionSet<WebCore::DragSourceAction> WebDragClient::dragSourceActionMaskForPoint
 
 void WebDragClient::willPerformDragSourceAction(WebCore::DragSourceAction action, const WebCore::IntPoint& mouseDownPoint, WebCore::DataTransfer& dataTransfer)
 {
-    [[m_webView _UIDelegateForwarder] webView:m_webView willPerformDragSourceAction:kit(action) fromPoint:mouseDownPoint withPasteboard:[NSPasteboard pasteboardWithName:dataTransfer.pasteboard().name()]];
+    [[m_webView _UIDelegateForwarder] webView:m_webView willPerformDragSourceAction:kit(action) fromPoint:mouseDownPoint withPasteboard:[NSPasteboard pasteboardWithName:dataTransfer.pasteboard().name().createNSString().get()]];
 }
 
-void WebDragClient::startDrag(DragItem dragItem, DataTransfer& dataTransfer, Frame& frame)
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer& dataTransfer, Frame& frame, const std::optional<ElementIdentifier>& elementID)
 {
     auto& dragImage = dragItem.image;
     auto dragLocationInContentCoordinates = dragItem.dragLocationInContentCoordinates;
@@ -155,7 +158,7 @@ void WebDragClient::startDrag(DragItem dragItem, DataTransfer& dataTransfer, Fra
     RetainPtr<WebHTMLView> topViewProtector = topHTMLView;
     
     [topHTMLView _stopAutoscrollTimer];
-    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:dataTransfer.pasteboard().name()];
+    NSPasteboard *pasteboard = [NSPasteboard pasteboardWithName:dataTransfer.pasteboard().name().createNSString().get()];
 
     NSImage *dragNSImage = dragImage.get().get();
     WebHTMLView *sourceHTMLView = htmlView.get();
@@ -205,7 +208,7 @@ void WebDragClient::beginDrag(DragItem dragItem, LocalFrame& frame, const IntPoi
 void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Element& element, const URL& url, const String& title, WebCore::LocalFrame* frame)
 {
     ASSERT(pasteboardName);
-    [[NSPasteboard pasteboardWithName:pasteboardName] _web_declareAndWriteDragImageForElement:kit(&element) URL:url title:title archive:[kit(&element) webArchive] source:getTopHTMLView(frame)];
+    [[NSPasteboard pasteboardWithName:pasteboardName.createNSString().get()] _web_declareAndWriteDragImageForElement:kit(&element) URL:url.createNSURL().get() title:title.createNSString().get() archive:[kit(&element) webArchive] source:getTopHTMLView(frame)];
 }
 
 #elif !PLATFORM(IOS_FAMILY) || !ENABLE(DRAG_SUPPORT)
@@ -232,7 +235,7 @@ void WebDragClient::willPerformDragSourceAction(WebCore::DragSourceAction, const
 {
 }
 
-void WebDragClient::startDrag(WebCore::DragItem, DataTransfer&, LocalFrame&)
+void WebDragClient::startDrag(WebCore::DragItem, DataTransfer&, LocalFrame&, const std::optional<ElementIdentifier>& elementID)
 {
 }
 
@@ -267,7 +270,7 @@ void WebDragClient::willPerformDragSourceAction(WebCore::DragSourceAction, const
 {
 }
 
-void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame&)
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame&, const std::optional<ElementIdentifier>&)
 {
     [m_webView _startDrag:dragItem];
 }

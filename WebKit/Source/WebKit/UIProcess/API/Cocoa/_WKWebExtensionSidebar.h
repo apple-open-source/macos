@@ -29,7 +29,6 @@
 @class WKWebExtensionContext;
 @class WKWebView;
 @protocol WKWebExtensionTab;
-@protocol WKWebExtension;
 
 #if TARGET_OS_IPHONE
 @class UIImage;
@@ -46,7 +45,6 @@ WK_HEADER_AUDIT_BEGIN(nullability, sendability)
  @discussion When this property is `nil`, it indicates that the action is the default action and not associated with a specific tab.
  */
 WK_CLASS_AVAILABLE(macos(15.2), ios(18.2), visionos(2.2))
-NS_SWIFT_NAME(WKWebExtension.Sidebar)
 @interface _WKWebExtensionSidebar : NSObject
 
 - (instancetype)init NS_UNAVAILABLE;

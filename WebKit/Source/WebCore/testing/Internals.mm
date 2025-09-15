@@ -26,21 +26,24 @@
 #import "config.h"
 #import "Internals.h"
 
-#import "AGXCompilerService.h"
 #import "DOMURL.h"
 #import "DeprecatedGlobalSettings.h"
 #import "DictionaryLookup.h"
 #import "Document.h"
 #import "EventHandler.h"
+#import "FrameDestructionObserverInlines.h"
 #import "HTMLMediaElement.h"
 #import "HitTestResult.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameView.h"
+#import "Logging.h"
 #import "MediaPlayerPrivate.h"
 #import "Range.h"
 #import "SharedBuffer.h"
 #import "SimpleRange.h"
 #import "UTIUtilities.h"
 #import <AVFoundation/AVPlayer.h>
+#import <wtf/BlockPtr.h>
 
 #if PLATFORM(MAC)
 #import "NSScrollerImpDetails.h"
@@ -100,7 +103,7 @@ namespace WebCore {
 
 String Internals::userVisibleString(const DOMURL& url)
 {
-    return WTF::userVisibleString(url.href());
+    return WTF::userVisibleString(url.href().createNSURL().get());
 }
 
 bool Internals::userPrefersContrast() const
@@ -155,7 +158,7 @@ void Internals::setUsesOverlayScrollbars(bool enabled)
     if (theme.isMockTheme())
         return;
 
-    static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
+    downcast<ScrollbarThemeMac>(theme).preferencesChanged();
 
     NSScrollerStyle style = enabled ? NSScrollerStyleOverlay : NSScrollerStyleLegacy;
     [NSScrollerImpPair _updateAllScrollerImpPairsForNewRecommendedScrollerStyle:style];
@@ -199,9 +202,9 @@ bool Internals::privatePlayerMuted(const HTMLMediaElement& element)
 
 String Internals::encodedPreferenceValue(const String& domain, const String& key)
 {
-    auto userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:domain]);
-    id value = [userDefaults objectForKey:key];
-    auto data = retainPtr([NSKeyedArchiver archivedDataWithRootObject:value requiringSecureCoding:YES error:nullptr]);
+    RetainPtr userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:domain.createNSString().get()]);
+    RetainPtr value = [userDefaults objectForKey:key.createNSString().get()];
+    RetainPtr data = retainPtr([NSKeyedArchiver archivedDataWithRootObject:value.get() requiringSecureCoding:YES error:nullptr]);
     return [data base64EncodedStringWithOptions:0];
 }
 
@@ -268,9 +271,37 @@ RetainPtr<VKCImageAnalysis> Internals::fakeImageAnalysisResultForTesting(const V
             fullText.append(newlineCharacter);
     }
 
-    return adoptNS((id)[[FakeImageAnalysisResult alloc] initWithString:fullText.toString()]);
+    return adoptNS((id)[[FakeImageAnalysisResult alloc] initWithString:fullText.createNSString().get()]);
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+bool Internals::emitWebCoreLogs(unsigned logCount, bool useMainThread) const
+{
+    auto blockPtr = makeBlockPtr([logCount] {
+        for (unsigned i = 0; i < logCount; i++)
+            RELEASE_LOG_FORWARDABLE(Testing, WEBCORE_TEST_LOG, i);
+    });
+    if (useMainThread)
+        dispatch_async(dispatch_get_main_queue(), blockPtr.get());
+    else
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), blockPtr.get());
+    return true;
+}
+
+bool Internals::emitLogs(const String& logString, unsigned logCount, bool useMainThread) const
+{
+    auto blockPtr = makeBlockPtr([logString, logCount] {
+        for (unsigned i = 0; i < logCount; i++)
+            RELEASE_LOG(Testing, "%s", logString.utf8().data());
+    });
+    if (useMainThread)
+        dispatch_async(dispatch_get_main_queue(), blockPtr.get());
+    else
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), blockPtr.get());
+    return true;
+}
+#endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 
 } // namespace WebCore

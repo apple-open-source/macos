@@ -248,6 +248,11 @@ size_t DiskRep::pageSize(const SigningContext &)
 	return monolithicPageSize;	// unpaged (monolithic)
 }
 
+size_t DiskRep::pageSize(const SigningContext &, const Architecture*)
+{
+	return monolithicPageSize;	// unpaged (monolithic)
+}
+
 
 void DiskRep::strictValidate(const CodeDirectory*, const ToleratedErrors& tolerated, SecCSFlags flags)
 {

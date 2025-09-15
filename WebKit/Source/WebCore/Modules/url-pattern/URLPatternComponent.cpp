@@ -26,6 +26,7 @@
 #include "config.h"
 #include "URLPatternComponent.h"
 
+#include "ExceptionOr.h"
 #include "ScriptExecutionContext.h"
 #include "URLPatternCanonical.h"
 #include "URLPatternParser.h"
@@ -33,6 +34,7 @@
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/RegExpObject.h>
+#include <ranges>
 
 namespace WebCore {
 using namespace JSC;
@@ -80,9 +82,12 @@ bool URLPatternComponent::matchSpecialSchemeProtocol(ScriptExecutionContext& con
     JSC::JSLockHolder lock(vm);
 
     static constexpr std::array specialSchemeList { "ftp"_s, "file"_s, "http"_s, "https"_s, "ws"_s, "wss"_s };
-    auto protocolRegex = JSC::RegExpObject::create(vm, context.globalObject()->regExpStructure(), m_regularExpression.get(), true);
+    auto contextObject = context.globalObject();
+    if (!contextObject)
+        return false;
+    auto protocolRegex = JSC::RegExpObject::create(vm, contextObject->regExpStructure(), m_regularExpression.get(), true);
 
-    auto isSchemeMatch = std::find_if(specialSchemeList.begin(), specialSchemeList.end(), [context = Ref { context }, &vm, &protocolRegex](const String& scheme) {
+    auto isSchemeMatch = std::ranges::find_if(specialSchemeList, [context = Ref { context }, &vm, &protocolRegex](const String& scheme) {
         auto maybeMatch = protocolRegex->exec(context->globalObject(), JSC::jsString(vm, scheme));
         return !maybeMatch.isNull();
     });
@@ -95,16 +100,18 @@ JSC::JSValue URLPatternComponent::componentExec(ScriptExecutionContext& context,
     Ref vm = context.vm();
     JSC::JSLockHolder lock(vm);
 
-    auto regex = JSC::RegExpObject::create(vm, context.globalObject()->regExpStructure(), m_regularExpression.get(), true);
-    return regex->exec(context.globalObject(), JSC::jsString(vm, comparedString));
+    auto contextObject = context.globalObject();
+    if (!contextObject)
+        return JSC::JSValue::JSFalse;
+    auto regex = JSC::RegExpObject::create(vm, contextObject->regExpStructure(), m_regularExpression.get(), true);
+    return regex->exec(contextObject, JSC::jsString(vm, comparedString));
 }
 
 // https://urlpattern.spec.whatwg.org/#create-a-component-match-result
-URLPatternComponentResult URLPatternComponent::createComponentMatchResult(ScriptExecutionContext& context, String&& input, const JSC::JSValue& execResult) const
+URLPatternComponentResult URLPatternComponent::createComponentMatchResult(JSC::JSGlobalObject* globalObject, String&& input, const JSC::JSValue& execResult) const
 {
     URLPatternComponentResult::GroupsRecord groups;
 
-    auto globalObject = context.globalObject();
     Ref vm = globalObject->vm();
 
     auto length = execResult.get(globalObject, vm->propertyNames->length).toIntegerOrInfinity(globalObject);
@@ -113,7 +120,7 @@ URLPatternComponentResult URLPatternComponent::createComponentMatchResult(Script
     for (unsigned index = 1; index < length; ++index) {
         auto match = execResult.get(globalObject, index);
 
-        std::variant<std::monostate, String> value;
+        Variant<std::monostate, String> value;
         if (!match.isNull() && !match.isUndefined())
             value = match.toWTFString(globalObject);
 

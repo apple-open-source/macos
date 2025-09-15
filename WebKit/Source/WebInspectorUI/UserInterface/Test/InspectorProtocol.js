@@ -30,6 +30,11 @@ InspectorProtocol._placeholderRequestIds = [];
 InspectorProtocol._requestId = -1;
 InspectorProtocol.eventHandler = {};
 
+InspectorProtocol.getNextMessageId = function()
+{
+    return ++this._requestId;
+};
+
 InspectorProtocol.sendCommand = function(methodOrObject, params, handler)
 {
     // Allow new-style arguments object, as in awaitCommand.
@@ -39,7 +44,7 @@ InspectorProtocol.sendCommand = function(methodOrObject, params, handler)
     else if (!params)
         params = {};
 
-    this._dispatchTable[++this._requestId] = handler;
+    this._dispatchTable[this.getNextMessageId()] = handler;
     let messageObject = {method, params, id: this._requestId};
     this._sendMessage(messageObject);
 
@@ -49,7 +54,7 @@ InspectorProtocol.sendCommand = function(methodOrObject, params, handler)
 InspectorProtocol.awaitCommand = function(args)
 {
     let {method, params} = args;
-    let messageObject = {method, params, id: ++this._requestId};
+    let messageObject = {method, params, id: this.getNextMessageId()};
 
     return this.awaitMessage(messageObject);
 };
@@ -63,7 +68,7 @@ InspectorProtocol.awaitMessage = function(messageObject)
         // If the caller did not provide an id, then make one up so that the response
         // can be used to settle a promise.
         if (typeof requestId !== "number") {
-            requestId = ++this._requestId;
+            requestId = this.getNextMessageId();
             this._placeholderRequestIds.push(requestId);
         }
 

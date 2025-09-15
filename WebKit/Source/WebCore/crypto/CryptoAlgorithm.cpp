@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CryptoAlgorithm.h"
 
+#include "ExceptionOr.h"
 #include "ScriptExecutionContext.h"
 
 namespace WebCore {

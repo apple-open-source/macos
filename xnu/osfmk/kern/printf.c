@@ -880,6 +880,7 @@ vprintf_internal(const char *fmt, va_list ap_in, void *caller)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 		os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, ap_in, caller);
 #pragma clang diagnostic pop
 

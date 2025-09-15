@@ -52,6 +52,9 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/exec.c,v 1.27 2009/12/05 18:55:16 ed Exp $"
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 
+static const char execvPe_err_preamble[] = "execvP: ";
+static const char execvPe_err_trailer[] = ": path too long\n";
+
 int
 _execvpe(const char *name, char * const argv[], char * const envp[]);
 
@@ -155,8 +158,8 @@ execvPe(const char *name, const char *path, char * const *argv,
 	const char **memp;
 	size_t cnt, lp, ln;
 	int eacces, save_errno;
-	char *cur, buf[MAXPATHLEN];
-	const char *p, *bp;
+	char buf[MAXPATHLEN];
+	const char *bp, *np, *op, *p;
 	struct stat sb;
 
 	eacces = 0;
@@ -164,7 +167,11 @@ execvPe(const char *name, const char *path, char * const *argv,
 	/* If it's an absolute or relative path name, it's easy. */
 	if (strchr(name, '/')) {
 		bp = name;
-		cur = NULL;
+#ifdef __APPLE__
+		/* Used to differentiate PATH search vs. not afterwards. */
+		path = NULL;
+#endif
+		op = NULL;
 		goto retry;
 	}
 	bp = buf;
@@ -175,23 +182,30 @@ execvPe(const char *name, const char *path, char * const *argv,
 		return (-1);
 	}
 
-	cur = alloca(strlen(path) + 1);
-	if (cur == NULL) {
-		errno = ENOMEM;
-		return (-1);
-	}
-	strcpy(cur, path);
-	while ((p = strsep(&cur, ":")) != NULL) {
+	op = path;
+	ln = strlen(name);
+	while (op != NULL) {
+		np = strchrnul(op, ':');
+
 		/*
 		 * It's a SHELL path -- double, leading and trailing colons
 		 * mean the current directory.
 		 */
-		if (*p == '\0') {
+		if (np == op) {
+			/* Empty component. */
 			p = ".";
 			lp = 1;
-		} else
-			lp = strlen(p);
-		ln = strlen(name);
+		} else {
+			/* Non-empty component. */
+			p = op;
+			lp = np - op;
+		}
+
+		/* Advance to the next component or terminate after this. */
+		if (*np == '\0')
+			op = NULL;
+		else
+			op = np + 1;
 
 		/*
 		 * If the path is too long complain.  This is a possible
@@ -199,10 +213,11 @@ execvPe(const char *name, const char *path, char * const *argv,
 		 * the user may execute the wrong program.
 		 */
 		if (lp + ln + 2 > sizeof(buf)) {
-			(void)_write(STDERR_FILENO, "execvP: ", 8);
+			(void)_write(STDERR_FILENO, execvPe_err_preamble,
+			    sizeof(execvPe_err_preamble) - 1);
 			(void)_write(STDERR_FILENO, p, lp);
-			(void)_write(STDERR_FILENO, ": path too long\n",
-			    16);
+			(void)_write(STDERR_FILENO, execvPe_err_trailer,
+			    sizeof(execvPe_err_trailer) - 1);
 			continue;
 		}
 		bcopy(p, buf, lp);
@@ -274,9 +289,15 @@ retry:		(void)_execve(bp, argv, envp);
 			goto done;
 		}
 	}
+
 	if (eacces)
 		errno = EACCES;
-	else if (cur)
+#ifdef __APPLE__
+	/* Preserve errno from execve(2) if it wasn't a PATH search. */
+	else if (path != NULL)
+#else
+	else
+#endif
 		errno = ENOENT;
 	/* else use existing errno from _execve */
 done:

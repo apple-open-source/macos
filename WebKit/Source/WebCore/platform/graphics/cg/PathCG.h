@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,10 +44,10 @@ class PathStream;
 class PathCG final : public PathImpl {
     WTF_MAKE_TZONE_ALLOCATED(PathCG);
 public:
-    static Ref<PathCG> create();
-    static Ref<PathCG> create(const PathSegment&);
-    static Ref<PathCG> create(const PathStream&);
+    static Ref<PathCG> create(std::span<const PathSegment> = { });
     static Ref<PathCG> create(RetainPtr<CGMutablePathRef>&&);
+
+    static PlatformPathPtr emptyPlatformPath();
 
     PlatformPathPtr platformPath() const;
 
@@ -66,6 +66,7 @@ public:
     void add(PathEllipseInRect) final;
     void add(PathRect) final;
     void add(PathRoundedRect) final;
+    void add(PathContinuousRoundedRect) final;
     void add(PathCloseSubpath) final;
 
     bool applyElements(const PathElementApplier&) const final;
@@ -73,17 +74,14 @@ public:
     bool transform(const AffineTransform&) final;
 
     bool contains(const FloatPoint&, WindRule) const;
-    bool strokeContains(const FloatPoint&, const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
+    bool strokeContains(const FloatPoint&, NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
 
-    FloatRect strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
+    FloatRect strokeBoundingRect(NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
 
 private:
-    PathCG();
     PathCG(RetainPtr<CGMutablePathRef>&&);
 
     PlatformPathPtr ensureMutablePlatformPath();
-
-    bool isEmpty() const final;
 
     FloatPoint currentPoint() const final;
 

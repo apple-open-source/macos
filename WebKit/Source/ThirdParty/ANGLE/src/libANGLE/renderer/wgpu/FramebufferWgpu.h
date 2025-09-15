@@ -13,6 +13,7 @@
 #include "libANGLE/renderer/FramebufferImpl.h"
 #include "libANGLE/renderer/RenderTargetCache.h"
 #include "libANGLE/renderer/wgpu/RenderTargetWgpu.h"
+#include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
 namespace rx
 {
@@ -80,10 +81,11 @@ class FramebufferWgpu : public FramebufferImpl
 
     RenderTargetWgpu *getReadPixelsRenderTarget() const;
 
-    void addNewColorAttachments(std::vector<wgpu::RenderPassColorAttachment> newColorAttachments);
+    void addNewColorAttachments(
+        std::vector<webgpu::PackedRenderPassColorAttachment> newColorAttachments);
 
     void updateDepthStencilAttachment(
-        wgpu::RenderPassDepthStencilAttachment newRenderPassDepthStencilAttachment);
+        webgpu::PackedRenderPassDepthStencilAttachment newRenderPassDepthStencilAttachment);
 
     angle::Result flushOneColorAttachmentUpdate(const gl::Context *context,
                                                 bool deferClears,
@@ -102,23 +104,25 @@ class FramebufferWgpu : public FramebufferImpl
 
     angle::Result startNewRenderPass(ContextWgpu *contextWgpu);
 
-    void setUpForRenderPass(ContextWgpu *contextWgpu,
-                            bool depthOrStencil,
-                            std::vector<wgpu::RenderPassColorAttachment> colorAttachments,
-                            wgpu::RenderPassDepthStencilAttachment depthStencilAttachment);
+    // WGPU's Framebuffer coordinates are Y down. OpenGL's are Y up. This corrects the coordinates
+    // of the read area based on the currently active RenderTarget.
+    gl::Rectangle getReadArea(const gl::Context *context, const gl::Rectangle &glArea) const;
 
-    const gl::DrawBuffersArray<wgpu::TextureFormat> &getCurrentColorAttachmentFormats() const
+    const gl::DrawBuffersArray<WGPUTextureFormat> &getCurrentColorAttachmentFormats() const
     {
         return mCurrentColorAttachmentFormats;
     }
 
-    wgpu::TextureFormat getCurrentDepthStencilAttachmentFormat() const
+    WGPUTextureFormat getCurrentDepthStencilAttachmentFormat() const
     {
         return mCurrentDepthStencilFormat;
     }
 
+    void setFlipY(bool flipY) { mFlipY = flipY; }
+    bool flipY() const { return mFlipY; }
+
   private:
-    void mergeClearWithDeferredClears(wgpu::Color clearValue,
+    void mergeClearWithDeferredClears(const gl::ColorF &clearValue,
                                       gl::DrawBufferMask clearColorBuffers,
                                       float depthValue,
                                       uint32_t stencilValue,
@@ -127,19 +131,19 @@ class FramebufferWgpu : public FramebufferImpl
                                       bool clearStencil);
 
     RenderTargetCache<RenderTargetWgpu> mRenderTargetCache;
-    wgpu::RenderPassDescriptor mCurrentRenderPassDesc;
-    wgpu::RenderPassDepthStencilAttachment mCurrentDepthStencilAttachment;
-    std::vector<wgpu::RenderPassColorAttachment> mCurrentColorAttachments;
-    gl::DrawBuffersArray<wgpu::TextureFormat> mCurrentColorAttachmentFormats;
-    wgpu::TextureFormat mCurrentDepthStencilFormat = wgpu::TextureFormat::Undefined;
+    webgpu::PackedRenderPassDescriptor mCurrentRenderPassDesc;
 
-    // Secondary vector to track new clears that are added and should be run in a new render pass
-    // during flushColorAttachmentUpdates.
-    std::vector<wgpu::RenderPassColorAttachment> mNewColorAttachments;
-    wgpu::RenderPassDepthStencilAttachment mNewDepthStencilAttachment;
-    bool mAddedNewDepthStencilAttachment = false;
+    gl::DrawBuffersArray<WGPUTextureFormat> mCurrentColorAttachmentFormats;
+    WGPUTextureFormat mCurrentDepthStencilFormat = WGPUTextureFormat_Undefined;
+
+    // Secondary descriptor to track new clears that are added and should be run in a new render
+    // pass during flushColorAttachmentUpdates.
+    std::optional<webgpu::PackedRenderPassDescriptor> mNewRenderPassDesc;
 
     webgpu::ClearValuesArray mDeferredClears;
+
+    // Whether this framebuffer should be rendered to with a negated y coordinate.
+    bool mFlipY = false;
 };
 
 }  // namespace rx

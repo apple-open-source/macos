@@ -45,12 +45,12 @@
 
 - (NSString *)name
 {
-    return _response->name();
+    return _response->name().createNSString().autorelease();
 }
 
 - (NSString *)displayName
 {
-    return _response->displayName();
+    return _response->displayName().createNSString().autorelease();
 }
 
 - (NSData *)userHandle
@@ -65,7 +65,7 @@
 
 - (NSString *)group
 {
-    return _response->group();
+    return _response->group().createNSString().autorelease();
 }
 
 - (NSData *)credentialID
@@ -75,7 +75,7 @@
 
 - (NSString *)accessGroup
 {
-    return _response->accessGroup();
+    return _response->accessGroup().createNSString().autorelease();
 }
 
 #endif // ENABLE(WEB_AUTHN)

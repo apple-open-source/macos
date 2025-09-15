@@ -103,7 +103,7 @@ TextTrackCueGeneric::TextTrackCueGeneric(Document& document, const MediaTime& st
 
 RefPtr<VTTCueBox> TextTrackCueGeneric::createDisplayTree()
 {
-    if (auto* document = this->document())
+    if (RefPtr document = this->document())
         return TextTrackCueGenericBoxElement::create(*document, *this);
     return nullptr;
 }

@@ -27,6 +27,7 @@
 #include "MockRealtimeVideoSourceGStreamer.h"
 
 #include "GStreamerCaptureDeviceManager.h"
+#include "IntSize.h"
 #include "MockRealtimeMediaSourceCenter.h"
 #include "PixelBuffer.h"
 #include "VideoFrameGStreamer.h"
@@ -85,9 +86,6 @@ MockRealtimeVideoSourceGStreamer::~MockRealtimeVideoSourceGStreamer()
 
 void MockRealtimeVideoSourceGStreamer::startProducingData()
 {
-    if (deviceType() == CaptureDevice::DeviceType::Camera)
-        m_capturer->setSize(size());
-
     m_capturer->setFrameRate(frameRate());
     m_capturer->start();
     MockRealtimeVideoSource::startProducingData();
@@ -120,14 +118,22 @@ void MockRealtimeVideoSourceGStreamer::updateSampleBuffer()
     if (!imageBuffer)
         return;
 
-    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Premultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }, { { }, imageBuffer->truncatedLogicalSize() });
+    auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Unpremultiplied, PixelFormat::BGRA8, DestinationColorSpace::SRGB() }, { { }, imageBuffer->truncatedLogicalSize() });
     if (!pixelBuffer)
         return;
 
+    int frameRateNumerator, frameRateDenominator;
+    gst_util_double_to_fraction(settings().frameRate(), &frameRateNumerator, &frameRateDenominator);
+
     VideoFrameTimeMetadata metadata;
     metadata.captureTime = MonotonicTime::now().secondsSinceEpoch();
-    auto presentationTime = MediaTime::createWithDouble((elapsedTime()).seconds());
-    auto videoFrame = VideoFrameGStreamer::createFromPixelBuffer(pixelBuffer.releaseNonNull(), VideoFrameGStreamer::CanvasContentType::Canvas2D, videoFrameRotation(), presentationTime, m_capturer->size(), frameRate(), false, WTFMove(metadata));
+
+    VideoFrameGStreamer::CreateOptions options;
+    options.presentationTime = fromGstClockTime(gst_util_uint64_scale(m_frameNumber, frameRateDenominator * GST_SECOND, frameRateNumerator));
+    options.rotation = videoFrameRotation();
+    options.timeMetadata = WTFMove(metadata);
+
+    auto videoFrame = VideoFrameGStreamer::createFromPixelBuffer(pixelBuffer.releaseNonNull(), m_capturer->size(), frameRate(), options);
     if (!videoFrame)
         return;
 

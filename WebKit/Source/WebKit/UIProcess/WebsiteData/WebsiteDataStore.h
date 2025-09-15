@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,10 +68,6 @@
 #include "SoupCookiePersistentStorageType.h"
 #include <WebCore/HTTPCookieAcceptPolicy.h>
 #include <WebCore/SoupNetworkProxySettings.h>
-#endif
-
-#if ENABLE(CONTENT_EXTENSIONS)
-#include <WebCore/ResourceMonitorThrottler.h>
 #endif
 
 namespace API {
@@ -197,7 +193,6 @@ public:
 
 #if PLATFORM(IOS_FAMILY)
     String resolvedCookieStorageDirectory();
-    String resolvedContainerCachesWebContentDirectory();
     String resolvedContainerTemporaryDirectory();
     static String defaultResolvedContainerTemporaryDirectory();
     static String cacheDirectoryInContainerOrHomeDirectory(const String& subpath);
@@ -287,6 +282,10 @@ public:
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
     const WebsiteDataStoreConfiguration::Directories& resolvedDirectories() const;
     FileSystem::Salt mediaKeysStorageSalt() const;
+#if ENABLE(SCREEN_TIME)
+    void removeScreenTimeData(const HashSet<URL>& websitesToRemove);
+    void removeScreenTimeDataWithInterval(WallTime);
+#endif
 
     static void setCachedProcessSuspensionDelayForTesting(Seconds);
 
@@ -297,6 +296,11 @@ public:
 
     DeviceIdHashSaltStorage& ensureDeviceIdHashSaltStorage();
     Ref<DeviceIdHashSaltStorage> ensureProtectedDeviceIdHashSaltStorage();
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    DeviceIdHashSaltStorage& ensureMediaKeysHashSaltStorage();
+    Ref<DeviceIdHashSaltStorage> ensureProtectedMediaKeysHashSaltStorage();
+#endif
 
     WebsiteDataStoreParameters parameters();
     static Vector<WebsiteDataStoreParameters> parametersFromEachWebsiteDataStore();
@@ -347,7 +351,6 @@ public:
     API::HTTPCookieStore& cookieStore();
     Ref<API::HTTPCookieStore> protectedCookieStore();
     WebCore::LocalWebLockRegistry& webLockRegistry() { return m_webLockRegistry.get(); }
-    Ref<WebCore::LocalWebLockRegistry> protectedWebLockRegistry();
 
     void renameOriginInWebsiteData(WebCore::SecurityOriginData&&, WebCore::SecurityOriginData&&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
     void originDirectoryForTesting(WebCore::ClientOrigin&&, OptionSet<WebsiteDataType>, CompletionHandler<void(const String&)>&&);
@@ -388,7 +391,14 @@ public:
     static String defaultMediaCacheDirectory(const String& baseCacheDirectory = nullString());
     static String defaultMediaKeysStorageDirectory(const String& baseDataDirectory = nullString());
     static String defaultDeviceIdHashSaltsStorageDirectory(const String& baseDataDirectory = nullString());
+#if ENABLE(ENCRYPTED_MEDIA)
+    static String defaultMediaKeysHashSaltsStorageDirectory(const String& baseDataDirectory = nullString());
+#endif
     static String defaultJavaScriptConfigurationDirectory(const String& baseDataDirectory = nullString());
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    static String defaultResourceMonitorThrottlerDirectory(const String& baseDataDirectory = nullString());
+#endif
 
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
     static constexpr uint64_t defaultStandardVolumeCapacity() {
@@ -435,7 +445,7 @@ public:
     void updateBundleIdentifierInNetworkProcess(const String&, CompletionHandler<void()>&&);
     void clearBundleIdentifierInNetworkProcess(CompletionHandler<void()>&&);
 
-    void countNonDefaultSessionSets(CompletionHandler<void(size_t)>&&);
+    void countNonDefaultSessionSets(CompletionHandler<void(uint64_t)>&&);
 
     bool showPersistentNotification(IPC::Connection*, const WebCore::NotificationData&);
     void cancelServiceWorkerNotification(const WTF::UUID& notificationID);
@@ -473,7 +483,7 @@ public:
 
 #if HAVE(NW_PROXY_CONFIG)
     void clearProxyConfigData();
-    void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&);
+    void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, std::optional<WTF::UUID>>>&&);
 #endif
     void setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&&);
 
@@ -492,7 +502,7 @@ public:
 
     void getAppBadgeForTesting(CompletionHandler<void(std::optional<uint64_t>)>&&);
 
-    void fetchLocalStorage(CompletionHandler<void(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&)>&&);
+    void fetchLocalStorage(CompletionHandler<void(std::optional<HashMap<WebCore::ClientOrigin, HashMap<String, String>>>&&)>&&);
     void restoreLocalStorage(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&, CompletionHandler<void(bool)>&&);
 
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
@@ -500,10 +510,12 @@ public:
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    WebCore::ResourceMonitorThrottler& resourceMonitorThrottler() { return m_resourceMonitorThrottler; }
+    void resetResourceMonitorThrottlerForTesting(CompletionHandler<void()>&&);
 #endif
 
     bool isRemovingData() const { return!!m_removeDataTaskCounter.value(); }
+    uint64_t cookiesVersion() const { return m_cookiesVersion; }
+    void setCookies(Vector<WebCore::Cookie>&&, CompletionHandler<void()>&&);
 
 private:
     enum class ForceReinitialization : bool { No, Yes };
@@ -521,7 +533,7 @@ private:
     void removeRecentSearches(WallTime, CompletionHandler<void()>&&);
 
     WebsiteDataStore();
-    static WorkQueue& websiteDataStoreIOQueue();
+    static WorkQueue& websiteDataStoreIOQueueSingleton();
 
     Ref<WorkQueue> protectedQueue() const;
 
@@ -574,9 +586,12 @@ private:
     bool m_hasDispatchedResolveDirectories { false };
     std::optional<WebsiteDataStoreConfiguration::Directories> m_resolvedDirectories WTF_GUARDED_BY_LOCK(m_resolveDirectoriesLock);
     FileSystem::Salt m_mediaKeysStorageSalt WTF_GUARDED_BY_LOCK(m_resolveDirectoriesLock);
-    Ref<const WebsiteDataStoreConfiguration> m_configuration;
+    const Ref<const WebsiteDataStoreConfiguration> m_configuration;
     bool m_hasResolvedDirectories { false };
     RefPtr<DeviceIdHashSaltStorage> m_deviceIdHashSaltStorage;
+#if ENABLE(ENCRYPTED_MEDIA)
+    RefPtr<DeviceIdHashSaltStorage> m_mediaKeysHashSaltStorage;
+#endif
 #if PLATFORM(IOS_FAMILY)
     String m_resolvedContainerCachesWebContentDirectory;
     String m_resolvedContainerCachesNetworkingDirectory;
@@ -589,7 +604,7 @@ private:
     TrackingPreventionEnabled m_trackingPreventionEnabled { TrackingPreventionEnabled::Default };
     Function<void(const String&)> m_statisticsTestingCallback;
 
-    Ref<WorkQueue> m_queue;
+    const Ref<WorkQueue> m_queue;
 
 #if PLATFORM(COCOA)
     Vector<uint8_t> m_uiProcessCookieStorageIdentifier;
@@ -632,7 +647,7 @@ private:
     std::unique_ptr<SOAuthorizationCoordinator> m_soAuthorizationCoordinator;
 #endif
     mutable std::optional<WebCore::ThirdPartyCookieBlockingMode> m_thirdPartyCookieBlockingMode; // Lazily computed.
-    Ref<WebCore::LocalWebLockRegistry> m_webLockRegistry;
+    const Ref<WebCore::LocalWebLockRegistry> m_webLockRegistry;
 
     RefPtr<WebPreferences> m_serviceWorkerOverridePreferences;
     CompletionHandler<void(String&&)> m_completionHandlerForRemovalFromNetworkProcess;
@@ -644,16 +659,17 @@ private:
     HashMap<WebCore::RegistrableDomain, RestrictedOpenerType> m_restrictedOpenerTypesForTesting;
 
 #if HAVE(NW_PROXY_CONFIG)
-    std::optional<Vector<std::pair<Vector<uint8_t>, WTF::UUID>>> m_proxyConfigData;
+    std::optional<Vector<std::pair<Vector<uint8_t>, std::optional<WTF::UUID>>>> m_proxyConfigData;
 #endif
     bool m_storageSiteValidationEnabled { false };
     HashSet<URL> m_persistedSiteURLs;
 
-#if ENABLE(CONTENT_EXTENSIONS)
-    WebCore::ResourceMonitorThrottler m_resourceMonitorThrottler;
-#endif
-
     RemoveDataTaskCounter m_removeDataTaskCounter;
+    uint64_t m_cookiesVersion { 0 };
 };
 
 }
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebsiteDataStore)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::WebsiteDataStore; }
+SPECIALIZE_TYPE_TRAITS_END()

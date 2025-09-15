@@ -367,18 +367,18 @@ _malloc_type_zone_memalign_outlined(malloc_zone_t *zone, size_t alignment,
 
 MALLOC_NOINLINE
 static void * __sized_by_or_null(size)
-_malloc_type_zone_malloc_with_options_np_outlined(malloc_zone_t *zone,
-		size_t align, size_t size, malloc_options_np_t options,
-		malloc_type_id_t type_id)
+_malloc_type_zone_malloc_with_options_outlined(malloc_zone_t *zone,
+		size_t align, size_t size, malloc_type_id_t type_id,
+		malloc_zone_malloc_options_t options)
 {
 	malloc_type_descriptor_t prev_type_desc = _malloc_type_outlined_set_tsd(
 			type_id);
 
 #if !MALLOC_TARGET_EXCLAVES
-	void *ptr = _malloc_zone_malloc_with_options_np_outlined(zone, align, size,
+	void *ptr = _malloc_zone_malloc_with_options_outlined(zone, align, size,
 			options);
 #else
-	void *ptr = malloc_zone_malloc_with_options_np(zone, align, size, options);
+	void *ptr = malloc_zone_malloc_with_options(zone, align, size, options);
 #endif // !MALLOC_TARGET_EXCLAVES
 
 	malloc_set_tsd_type_descriptor(prev_type_desc);
@@ -654,7 +654,7 @@ malloc_type_zone_realloc(malloc_zone_t *zone, void * __unsafe_indexable ptr,
 			(malloc_type_descriptor_t) { .type_id = type_id, });
 }
 
-void *
+void * __sized_by_or_null(size)
 malloc_type_zone_valloc(malloc_zone_t *zone, size_t size,
 		malloc_type_id_t type_id)
 {
@@ -702,16 +702,9 @@ malloc_type_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 }
 
 void * __sized_by_or_null(size)
-malloc_type_zone_malloc_with_options_np(malloc_zone_t *zone, size_t align,
-		size_t size, malloc_options_np_t options, malloc_type_id_t type_id)
-{
-	return malloc_type_zone_malloc_with_options_internal(zone, align, size,
-			type_id, options);
-}
-
-void * __sized_by_or_null(size)
-malloc_type_zone_malloc_with_options_internal(malloc_zone_t *zone, size_t align,
-		size_t size, malloc_type_id_t type_id, malloc_options_np_t options)
+malloc_type_zone_malloc_with_options(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_type_id_t type_id,
+		malloc_zone_malloc_options_t options)
 {
 	if (os_unlikely((align != 0) && (!powerof2(align) ||
 			((size & (align - 1)) != 0)))) { // equivalent to (size % align != 0)
@@ -720,8 +713,8 @@ malloc_type_zone_malloc_with_options_internal(malloc_zone_t *zone, size_t align,
 
 #if !MALLOC_TARGET_EXCLAVES
 	if (os_unlikely(malloc_logger || malloc_slowpath)) {
-		return _malloc_type_zone_malloc_with_options_np_outlined(zone, align,
-				size, options, type_id);
+		return _malloc_type_zone_malloc_with_options_outlined(zone, align,
+				size, type_id, options);
 	}
 
 	if (zone == default_zone) {
@@ -738,8 +731,16 @@ malloc_type_zone_malloc_with_options_internal(malloc_zone_t *zone, size_t align,
 				type_id);
 	}
 
-	return _malloc_type_zone_malloc_with_options_np_outlined(zone, align, size,
-			options, type_id);
+	return _malloc_type_zone_malloc_with_options_outlined(zone, align, size,
+			type_id, options);
+}
+
+void * __sized_by_or_null(size)
+malloc_type_zone_malloc_with_options_internal(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_type_id_t type_id, malloc_options_np_t options)
+{
+	return malloc_type_zone_malloc_with_options(zone, align, size, type_id,
+			options);
 }
 
 #else // MALLOC_TARGET_64BIT

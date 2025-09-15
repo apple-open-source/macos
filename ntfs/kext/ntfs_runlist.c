@@ -597,7 +597,7 @@ errno_t ntfs_rl_merge(ntfs_runlist *dst_runlist, ntfs_runlist *src_runlist)
 	unsigned ss;		/* Number of relevant elements in @s_rl. */
 	unsigned marker;
 	errno_t err;
-	BOOL start, finish;
+	NTFS_BOOL start, finish;
 
 	ntfs_debug("Destination runlist:");
 	ntfs_debug_runlist_dump(dst_runlist);
@@ -1247,7 +1247,7 @@ errno_t ntfs_get_size_for_mapping_pairs(const ntfs_volume *vol,
 {
 	LCN prev_lcn;
 	int rls;
-	BOOL the_end = FALSE;
+	NTFS_BOOL the_end = FALSE;
 
 	if (first_vcn < 0)
 		panic("%s(): first_vcn < 0\n", __FUNCTION__);
@@ -1447,7 +1447,7 @@ errno_t ntfs_mapping_pairs_build(const ntfs_volume *vol, s8 *dst,
 	LCN prev_lcn;
 	s8 *dst_max, *dst_next;
 	errno_t err = ENOSPC;
-	BOOL the_end = FALSE;
+	NTFS_BOOL the_end = FALSE;
 	s8 len_len, lcn_len;
 
 	if (first_vcn < 0)
@@ -1824,7 +1824,7 @@ errno_t ntfs_rl_punch_nolock(const ntfs_volume *vol, ntfs_runlist *runlist,
 	ntfs_rl_element *rl, *rl_end, *trl;
 	unsigned hole_size;
 	errno_t err;
-	BOOL lcn_fixup = FALSE;
+	NTFS_BOOL lcn_fixup = FALSE;
 
 	ntfs_debug("Entering for start_vcn 0x%llx, len 0x%llx.",
 			(unsigned long long)start_vcn, (unsigned long long)len);

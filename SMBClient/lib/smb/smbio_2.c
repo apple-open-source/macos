@@ -211,20 +211,23 @@ smb2io_get_dfs_referral(struct smb_ctx *smbctx, CFStringRef dfs_referral_str,
             error = errno;                  /* Some internal error happen? */
         }
         else {
-            error = get_dfs_refer_ioc.ioc_ret_ntstatus;	/* error from server */
-            if (error) {
+            uint32_t ntstatus = get_dfs_refer_ioc.ioc_ret_ntstatus;	/* error from server */
+            if (ntstatus) {
                 os_log_debug(OS_LOG_DEFAULT, "%s: smb_ioctl_call, ntstatus = 0x%x",
                              __FUNCTION__, 
-                             error);
+                             ntstatus);
             }
             
             /* if IOCTL worked, then return bytes read */
-            if (NT_SUCCESS(error)) {
+            if (NT_SUCCESS(ntstatus)) {
                 rcv_output_len = get_dfs_refer_ioc.ioc_ret_output_len;
                 error = decodeDfsReferral(smbctx, NULL,
                                           rcv_buffer, rcv_output_len,
                                           file_name,
                                           out_referral_dict);
+            } else {
+                /* Return converted ntstatus */
+                error = get_dfs_refer_ioc.ioc_ret_ntstatus_error;
             }
         }
     }

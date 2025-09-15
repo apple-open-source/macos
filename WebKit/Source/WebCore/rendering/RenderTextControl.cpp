@@ -22,8 +22,10 @@
 #include "config.h"
 #include "RenderTextControl.h"
 
+#include "ContainerNodeInlines.h"
 #include "HTMLTextFormControlElement.h"
 #include "HitTestResult.h"
+#include "NodeInlines.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderElementInlines.h"
@@ -54,6 +56,11 @@ RenderTextControl::~RenderTextControl() = default;
 HTMLTextFormControlElement& RenderTextControl::textFormControlElement() const
 {
     return downcast<HTMLTextFormControlElement>(nodeForNonAnonymous());
+}
+
+Ref<HTMLTextFormControlElement> RenderTextControl::protectedTextFormControlElement() const
+{
+    return textFormControlElement();
 }
 
 RefPtr<TextControlInnerTextElement> RenderTextControl::innerTextElement() const
@@ -173,14 +180,14 @@ void RenderTextControl::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidt
     maxLogicalWidth = preferredContentLogicalWidth(const_cast<RenderTextControl*>(this)->getAverageCharWidth());
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, valueForLength(logicalWidth, 0_lu));
+        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
 
 void RenderTextControl::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
     if (style().fieldSizing() == FieldSizing::Content) {
         RenderBlockFlow::computePreferredLogicalWidths();
         return;
@@ -189,14 +196,14 @@ void RenderTextControl::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = 0;
     m_maxPreferredLogicalWidth = 0;
 
-    if (style().logicalWidth().isFixed() && style().logicalWidth().value() >= 0)
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().logicalWidth());
+    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->value >= 0)
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
     RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), borderAndPaddingLogicalWidth());
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
 void RenderTextControl::addFocusRingRects(Vector<LayoutRect>& rects, const LayoutPoint& additionalOffset, const RenderLayerModelObject*) const
@@ -205,7 +212,7 @@ void RenderTextControl::addFocusRingRects(Vector<LayoutRect>& rects, const Layou
         rects.append(LayoutRect(additionalOffset, size()));
 }
 
-void RenderTextControl::layoutExcludedChildren(bool relayoutChildren)
+void RenderTextControl::layoutExcludedChildren(RelayoutChildren relayoutChildren)
 {
     RenderBlockFlow::layoutExcludedChildren(relayoutChildren);
 
@@ -215,7 +222,7 @@ void RenderTextControl::layoutExcludedChildren(bool relayoutChildren)
         return;
     placeholderRenderer->setIsExcludedFromNormalLayout(true);
 
-    if (relayoutChildren) {
+    if (relayoutChildren == RelayoutChildren::Yes) {
         // The markParents arguments should be false because this function is
         // called from layout() of the parent and the placeholder layout doesn't
         // affect the parent layout.

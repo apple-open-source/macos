@@ -26,10 +26,11 @@
 #if ENABLE(FULLSCREEN_API) && PLATFORM(MAC)
 
 #import <AppKit/AppKit.h>
+#import <WebCore/BoxExtents.h>
 #import <wtf/CompletionHandler.h>
-#import <wtf/NakedPtr.h>
-#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
+#import <wtf/WeakPtr.h>
 
 namespace WebKit { 
 class LayerTreeContext;
@@ -47,8 +48,8 @@ typedef enum FullScreenState : NSInteger FullScreenState;
 
 @interface WKFullScreenWindowController : NSWindowController<NSWindowDelegate> {
 @private
-    NSView *_webView; // Cannot be retained, see <rdar://problem/14884666>.
-    NakedPtr<WebKit::WebPageProxy> _page;
+    WeakObjCPtr<NSView> _webView; // Cannot be retained, see <rdar://problem/14884666>.
+    WeakPtr<WebKit::WebPageProxy> _page;
     RetainPtr<WebCoreFullScreenPlaceholderView> _webViewPlaceholder;
     RetainPtr<NSView> _exitPlaceholder;
     RetainPtr<NSView> _clipView;
@@ -58,30 +59,32 @@ typedef enum FullScreenState : NSInteger FullScreenState;
     RetainPtr<NSTimer> _watchdogTimer;
     RetainPtr<NSArray> _savedConstraints;
 
-    bool _requestedExitFullScreen;
     FullScreenState _fullScreenState;
+    CompletionHandler<void(bool)> _enterFullScreenCompletionHandler;
+    CompletionHandler<void()> _beganExitFullScreenCompletionHandler;
+    CompletionHandler<void()> _exitFullScreenCompletionHandler;
 
     double _savedScale;
-    float _savedTopContentInset;
+    WebCore::FloatBoxExtent _savedObscuredContentInsets;
 }
 
 @property (readonly) NSRect initialFrame;
 @property (readonly) NSRect finalFrame;
 @property (assign) NSArray *savedConstraints;
 
-- (id)initWithWindow:(NSWindow *)window webView:(NSView *)webView page:(NakedRef<WebKit::WebPageProxy>)page;
+- (id)initWithWindow:(NSWindow *)window webView:(NSView *)webView page:(std::reference_wrapper<WebKit::WebPageProxy>)page;
 
 - (WebCoreFullScreenPlaceholderView*)webViewPlaceholder;
 
 - (BOOL)isFullScreen;
 
-- (void)enterFullScreen:(NSScreen *)screen completionHandler:(CompletionHandler<void(bool)>&&)completionHandler;
-- (void)exitFullScreen;
+- (void)enterFullScreen:(CompletionHandler<void(bool)>&&)completionHandler;
+- (void)exitFullScreen:(CompletionHandler<void()>&&)completionHandler;
 - (void)exitFullScreenImmediately;
 - (void)requestExitFullScreen;
 - (void)close;
-- (void)beganEnterFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame;
-- (void)beganExitFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame;
+- (void)beganEnterFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame completionHandler:(CompletionHandler<void(bool)>&&)completionHandler;
+- (void)beganExitFullScreenWithInitialFrame:(NSRect)initialFrame finalFrame:(NSRect)finalFrame completionHandler:(CompletionHandler<void()>&&)completionHandler;
 
 - (void)videoControlsManagerDidChange;
 

@@ -47,6 +47,7 @@ public:
 private:
     InlineItemPosition placeInlineTextContent(const RenderStyle&, const InlineItemRange&);
     InlineItemPosition placeNonWrappingInlineTextContent(const RenderStyle&, const InlineItemRange&);
+    std::optional<LineLayoutResult> placeSingleCharacterContentIfApplicable(const LineInput&);
     TextOnlyLineBreakResult handleOverflowingTextContent(const RenderStyle&, const InlineContentBreaker::ContinuousContent&, const InlineItemRange&);
     TextOnlyLineBreakResult commitCandidateContent(const RenderStyle&, const CandidateTextContent&, const InlineItemRange&);
     void initialize(const InlineItemRange&, const InlineRect& initialLogicalRect, const std::optional<PreviousLine>&);

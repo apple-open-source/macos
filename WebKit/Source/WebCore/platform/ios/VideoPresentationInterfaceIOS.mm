@@ -118,9 +118,10 @@ UIViewController *VideoPresentationInterfaceIOS::presentingViewController()
 }
 
 VideoPresentationInterfaceIOS::VideoPresentationInterfaceIOS(PlaybackSessionInterfaceIOS& playbackSessionInterface)
-    : m_watchdogTimer(RunLoop::main(), this, &VideoPresentationInterfaceIOS::watchdogTimerFired)
+    : m_watchdogTimer(RunLoop::mainSingleton(), "VideoPresentationInterfaceIOS::WatchdogTimer"_s, this, &VideoPresentationInterfaceIOS::watchdogTimerFired)
     , m_playbackSessionInterface(playbackSessionInterface)
 {
+    m_playbackSessionInterface->setVideoPresentationInterface(this);
 }
 
 VideoPresentationInterfaceIOS::~VideoPresentationInterfaceIOS()
@@ -187,23 +188,24 @@ void VideoPresentationInterfaceIOS::ensurePipPlacardIsShowing()
             [[pipLabel centerXAnchor] constraintEqualToAnchor:[pipPlacard centerXAnchor]],
             [[pipLabel topAnchor] constraintEqualToAnchor:[imageView bottomAnchor] constant:10],
         ]];
-    
+
         CGFloat placardWidth = [pipPlacard frame].size.width;
         CGFloat placardHeight = [pipPlacard frame].size.height;
-    
+
         if (placardWidth < 170 || placardHeight < 170)
             [imageView setHidden:YES];
         if (placardHeight < 100)
             [pipLabel setHidden:YES];
-    
-        UIView *parentView = layerHostView().superview;
-        [parentView.superview insertSubview:pipPlacard.get() atIndex:0];
-        [NSLayoutConstraint activateConstraints:@[
-            [parentView.leadingAnchor constraintEqualToAnchor:[pipPlacard leadingAnchor]],
-            [parentView.trailingAnchor constraintEqualToAnchor:[pipPlacard trailingAnchor]],
-            [parentView.topAnchor constraintEqualToAnchor:[pipPlacard topAnchor]],
-            [parentView.bottomAnchor constraintEqualToAnchor:[pipPlacard bottomAnchor]],
-        ]];
+
+        if (UIView *parentView = layerHostView().superview) {
+            [parentView.superview insertSubview:pipPlacard.get() atIndex:0];
+            [NSLayoutConstraint activateConstraints:@[
+                [parentView.leadingAnchor constraintEqualToAnchor:[pipPlacard leadingAnchor]],
+                [parentView.trailingAnchor constraintEqualToAnchor:[pipPlacard trailingAnchor]],
+                [parentView.topAnchor constraintEqualToAnchor:[pipPlacard topAnchor]],
+                [parentView.bottomAnchor constraintEqualToAnchor:[pipPlacard bottomAnchor]],
+            ]];
+        }
 
         m_pipPlacard = pipPlacard;
     } @catch (NSException *exception) {
@@ -387,6 +389,16 @@ void VideoPresentationInterfaceIOS::externalPlaybackChanged(bool enabled, Playba
     [playerLayerView() setHidden:enabled];
 }
 
+void VideoPresentationInterfaceIOS::enterExternalPlayback(CompletionHandler<void(bool, UIViewController *)>&& enterHandler, CompletionHandler<void(bool)>&& exitHandler)
+{
+    enterHandler(false, nil);
+    exitHandler(false);
+}
+
+void VideoPresentationInterfaceIOS::exitExternalPlayback()
+{
+}
+
 void VideoPresentationInterfaceIOS::setInlineRect(const FloatRect& inlineRect, bool visible)
 {
     m_inlineRect = inlineRect;
@@ -564,7 +576,7 @@ void VideoPresentationInterfaceIOS::doExitFullscreen()
 
     m_standby = false;
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this] {
         if (auto model = videoPresentationModel())
             model->didExitFullscreen();
         m_changingStandbyOnly = false;
@@ -601,6 +613,11 @@ void VideoPresentationInterfaceIOS::exitFullscreenHandler(BOOL success, NSError*
 void VideoPresentationInterfaceIOS::cleanupFullscreen()
 {
     LOG(Fullscreen, "VideoPresentationInterfaceIOS::cleanupFullscreen(%p)", this);
+
+    if (this->cleanupExternalPlayback()) {
+        return;
+    }
+
     m_shouldIgnoreAVKitCallbackAboutExitFullscreenReason = false;
 
     m_cleanupNeedsReturnVideoContentLayer = true;
@@ -920,7 +937,7 @@ void VideoPresentationInterfaceIOS::preparedToReturnToStandby()
 
 void VideoPresentationInterfaceIOS::finalizeSetup()
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this] {
         if (auto model = videoPresentationModel()) {
             if (!m_hasVideoContentLayer && m_targetMode.hasVideo()) {
                 m_finalizeSetupNeedsVideoContentLayer = true;

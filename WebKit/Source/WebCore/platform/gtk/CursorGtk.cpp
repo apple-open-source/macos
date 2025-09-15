@@ -30,7 +30,9 @@
 #include "Cursor.h"
 
 #include "Image.h"
+#include "ImageAdapter.h"
 #include "IntPoint.h"
+#include "NativeImage.h"
 #include "NotImplemented.h"
 #include <gdk/gdk.h>
 #include <wtf/NeverDestroyed.h>

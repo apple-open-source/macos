@@ -33,8 +33,8 @@
 #include "PlatformImage.h"
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/text/WTFString.h>
-#include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
@@ -46,7 +46,7 @@ struct ImageDecoderFrameInfo {
     Seconds duration;
 };
 
-class ImageDecoder : public ThreadSafeRefCounted<ImageDecoder> {
+class ImageDecoder : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ImageDecoder> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(ImageDecoder, WEBCORE_EXPORT);
 public:
     static RefPtr<ImageDecoder> create(FragmentedSharedBuffer&, const String& mimeType, AlphaOption, GammaAndColorProfileOption);
@@ -82,6 +82,7 @@ public:
     virtual EncodedDataStatus encodedDataStatus() const = 0;
     virtual void setEncodedDataStatusChangeCallback(Function<void(EncodedDataStatus)>&&) { }
     virtual bool isSizeAvailable() const { return encodedDataStatus() >= EncodedDataStatus::SizeAvailable; }
+    virtual bool hasHDRGainMap() const { return false; }
     virtual IntSize size() const = 0;
     virtual size_t frameCount() const = 0;
     virtual size_t primaryFrameIndex() const { return 0; }
@@ -106,7 +107,6 @@ public:
 
     virtual Seconds frameDurationAtIndex(size_t) const = 0;
     virtual bool frameHasAlphaAtIndex(size_t) const = 0;
-    virtual unsigned frameBytesAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const = 0;
 
     WEBCORE_EXPORT virtual bool fetchFrameMetaDataAtIndex(size_t, SubsamplingLevel, const DecodingOptions&, ImageFrame&) const;
 

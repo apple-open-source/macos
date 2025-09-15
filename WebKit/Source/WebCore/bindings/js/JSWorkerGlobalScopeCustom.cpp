@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2021 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/GlobalObjectMethodTable.h>
 
 namespace WebCore {
 using namespace JSC;
@@ -59,11 +60,11 @@ JSValue JSWorkerGlobalScope::queueMicrotask(JSGlobalObject& lexicalGlobalObject,
     VM& vm = lexicalGlobalObject.vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (UNLIKELY(callFrame.argumentCount() < 1))
+    if (callFrame.argumentCount() < 1) [[unlikely]]
         return throwException(&lexicalGlobalObject, scope, createNotEnoughArgumentsError(&lexicalGlobalObject));
 
     JSValue functionValue = callFrame.uncheckedArgument(0);
-    if (UNLIKELY(!functionValue.isCallable()))
+    if (!functionValue.isCallable()) [[unlikely]]
         return JSValue::decode(throwArgumentMustBeFunctionError(lexicalGlobalObject, scope, 0, "callback"_s, "WorkerGlobalScope"_s, "queueMicrotask"_s));
 
     scope.release();

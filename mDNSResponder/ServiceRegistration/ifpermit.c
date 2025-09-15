@@ -1,6 +1,6 @@
 /* ifpermit.c
  *
- * Copyright (c) 2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,11 +34,14 @@
 #include <inttypes.h>
 #include <sys/resource.h>
 #include <netinet/icmp6.h>
+
+
 #include "srp.h"
 #include "ifpermit.h"
 #include "dns-msg.h"
 #include "ioloop.h"
 #include "srp-mdns-proxy.h"
+#include "srp-strict.h"
 
 // If we aren't able to allocate a permitted interface list, we still need to return a non-NULL value so that we don't
 // fail open. So all of these functions need to treat this particular value as special but not dereference it.
@@ -53,17 +56,17 @@ struct ifpermit_name {
 };
 
 struct ifpermit_list {
-	int ref_count;
+    int ref_count;
     ifpermit_name_t *names;
 };
 
 void
 ifpermit_list_add(ifpermit_list_t *permits, const char *name)
 {
-	if (permits == PERMITTED_INTERFACE_LIST_BLOCKED) {
-		ERROR("blocked permit list when adding " PUB_S_SRP, name);
+    if (permits == PERMITTED_INTERFACE_LIST_BLOCKED) {
+        ERROR("blocked permit list when adding " PUB_S_SRP, name);
         return;
-	}
+    }
     ifpermit_name_t **pname = &permits->names;
     ifpermit_name_t *permit_name;
     while (*pname != NULL) {
@@ -76,18 +79,18 @@ ifpermit_list_add(ifpermit_list_t *permits, const char *name)
         }
         pname = &permit_name->next;
     }
-    permit_name = calloc(1, sizeof(*permit_name));
+    permit_name = srp_strict_calloc(1, sizeof(*permit_name));
     if (permit_name != NULL) {
-        permit_name->name = strdup(name);
+        permit_name->name = srp_strict_strdup(name);
         if (permit_name->name == NULL) {
-            free(permit_name);
+            srp_strict_free(&permit_name);
             permit_name = NULL;
         } else {
             permit_name->ifindex = if_nametoindex(name);
             if (permit_name->ifindex == 0) {
                 ERROR("if_nametoindex for interface " PUB_S_SRP " returned 0.", name);
-                free(permit_name->name);
-                free(permit_name);
+                srp_strict_free(&permit_name->name);
+                srp_strict_free(&permit_name);
                 return;
             }
             *pname = permit_name;
@@ -100,8 +103,12 @@ ifpermit_list_add(ifpermit_list_t *permits, const char *name)
 void
 ifpermit_list_remove(ifpermit_list_t *permits, const char *name)
 {
-	if (permits == PERMITTED_INTERFACE_LIST_BLOCKED) {
-		ERROR("blocked permit list when removing " PUB_S_SRP, name);
+    if (permits == PERMITTED_INTERFACE_LIST_BLOCKED) {
+        ERROR("blocked permit list when removing " PUB_S_SRP, name);
+        return;
+    }
+    if (permits == NULL) {
+        INFO("no permit list when removing " PUB_S_SRP, name);
         return;
     }
     ifpermit_name_t **pname = &permits->names;
@@ -113,8 +120,8 @@ ifpermit_list_remove(ifpermit_list_t *permits, const char *name)
             INFO("%d permits for interface " PUB_S_SRP " with index %d", permit_name->count, name, permit_name->ifindex);
             if (permit_name->count == 0) {
                 *pname = permit_name->next;
-                free(permit_name->name);
-                free(permit_name);
+                srp_strict_free(&permit_name->name);
+                srp_strict_free(&permit_name);
             }
             return;
         }
@@ -131,11 +138,11 @@ ifpermit_list_finalize(ifpermit_list_t *list)
         ifpermit_name_t *names = list->names, *next = NULL;
         while (names != NULL) {
             next = names->next;
-            free(names->name);
-            free(names);
+            srp_strict_free(&names->name);
+            srp_strict_free(&names);
             names = next;
         }
-        free(list);
+        srp_strict_free(&list);
     }
 }
 
@@ -158,7 +165,7 @@ ifpermit_list_release_(ifpermit_list_t *list, const char *file, int line)
 ifpermit_list_t *
 ifpermit_list_create_(const char *file, int line)
 {
-    ifpermit_list_t *permits = calloc(1, sizeof(*permits));
+    ifpermit_list_t *permits = srp_strict_calloc(1, sizeof(*permits));
     if (permits == NULL) {
         return PERMITTED_INTERFACE_LIST_BLOCKED;
     }
@@ -167,7 +174,7 @@ ifpermit_list_create_(const char *file, int line)
 }
 
 bool
-ifpermit_interface_is_permitted(ifpermit_list_t *permits, uint32_t ifindex)
+ifpermit_interface_index_is_listed(ifpermit_list_t *permits, uint32_t ifindex)
 {
     if (permits != NULL && permits != PERMITTED_INTERFACE_LIST_BLOCKED) {
         for (ifpermit_name_t *name = permits->names; name != NULL; name = name->next) {
@@ -179,14 +186,106 @@ ifpermit_interface_is_permitted(ifpermit_list_t *permits, uint32_t ifindex)
     return false;
 }
 
-void ifpermit_add_permitted_interface_to_server_(srp_server_t *NONNULL server_state, const char *NONNULL name,
-                                                 const char *file, int line)
+bool
+ifpermit_interface_name_is_listed(ifpermit_list_t *permits, const char *name)
+{
+    if (permits == NULL) {
+        return false;
+    }
+    if (permits != NULL && permits != PERMITTED_INTERFACE_LIST_BLOCKED) {
+        for (ifpermit_name_t *permit = permits->names; permit != NULL; permit = permit->next) {
+            if (!strcmp(permit->name, name)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void
+ifpermit_add_permitted_interface_to_server_(srp_server_t *NONNULL server_state, const char *NONNULL name,
+                                            const char *file, int line)
 {
     if (server_state->permitted_interfaces == NULL) {
         server_state->permitted_interfaces = ifpermit_list_create_(file, line);
     }
     ifpermit_list_add(server_state->permitted_interfaces, name);
 }
+
+void
+ifpermit_save_permit_list_to_prefs(ifpermit_list_t *list, const char *preference_name)
+{
+    char iflist[128]; // Shouldn't really be more than one or perhaps two interfaces on this list.
+
+    if (list != NULL && list->names != NULL) {
+        char *listp = iflist;
+        char *list_lim = listp + sizeof(iflist);
+        for (ifpermit_name_t *permit = list->names; permit != NULL; permit = permit->next) {
+            size_t namelen = strlen(permit->name);
+            if (listp + namelen + 2 < list_lim) {
+                if (listp != iflist) {
+                    *listp++ = ',';
+                }
+                strcpy(listp, permit->name);
+                listp += namelen;
+                *listp = 0;
+            }
+        }
+    } else {
+        iflist[0] = 0;
+    }
+
+    CFStringRef app_id = CFSTR("com.apple.srp-mdns-proxy.preferences");
+    CFStringRef key = CFStringCreateWithCString(NULL, preference_name, kCFStringEncodingASCII);
+    OSStatus error = 1;
+    if (key != NULL) {
+        error = CFPrefs_SetCString(app_id, key, iflist, strlen(iflist));
+    }
+    INFO(PUB_S_SRP " '" PUB_S_SRP "' to pref string " PUB_S_SRP,
+         error == noErr ? "wrote" : "failed to write", iflist, preference_name);
+}
+
+void
+ifpermit_load_permit_list_from_prefs(ifpermit_list_t **list, const char *preference_name)
+{
+    CFStringRef app_id = CFSTR("com.apple.srp-mdns-proxy.preferences");
+    CFStringRef key = CFStringCreateWithCString(NULL, preference_name, kCFStringEncodingASCII);
+    char iflist[128]; // Shouldn't really be more than one or perhaps two interfaces on this list.
+    OSStatus error;
+    CFPrefs_GetCString(app_id, key, iflist, sizeof(iflist), &error);
+    // Probably no preference set, which is not an error.
+    if (error != noErr) {
+        INFO("got error %d when reading pref string " PUB_S_SRP, (int)error, preference_name);
+        goto out;
+    }
+    INFO("got '" PUB_S_SRP "' from pref string " PUB_S_SRP, iflist, preference_name);
+    if (iflist[0] != 0) {
+        char *ifname = iflist;
+        while (ifname != NULL) {
+            char *ifend = strchr(ifname, ',');
+            char *next = ifend;
+            if (ifend == NULL) {
+                ifend = ifname + strlen(ifname);
+            } else {
+                // If we found a comma, there must at least be a NUL following it.
+                next++;
+            }
+            *ifend = 0;
+            if (*list == NULL) {
+                *list = ifpermit_list_create();
+                if (list == NULL) {
+                    ERROR("no memory for permit list.");
+                    goto out;
+                }
+            }
+            ifpermit_list_add(*list, ifname);
+            ifname = next;
+        }
+    }
+out:
+    srp_cf_forget(&key);
+}
+
 
 // Local Variables:
 // mode: C

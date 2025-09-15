@@ -95,7 +95,7 @@ int secd_04_corrupted_items(int argc, char *const *argv)
     is_status(SecItemUpdate(query, attributes), errSecDuplicateItem, "update internet password port 80 to 81");
 
     /* corrupt the first and 3rd password */
-    CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+    CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
 
     CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
         /* Create a new keychain sqlite db */

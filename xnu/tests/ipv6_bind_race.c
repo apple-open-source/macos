@@ -39,6 +39,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "net_test_lib.h"
+
 /*
  * The test is disabled on platforms that could be limited in term of CPU
  * or memory because this stress test that cycles rapidly through a lot of socket
@@ -454,6 +456,8 @@ do_bind_race(bool do_test_tcp, void *(*leader)(void *), void *(*racer)(void *))
 
 	pthread_join(runner1, 0);
 	pthread_join(runner2, 0);
+
+	force_zone_gc();
 }
 
 T_DECL(ipv6_tcp_bind6_bind4_race, "race bind calls with TCP sockets")

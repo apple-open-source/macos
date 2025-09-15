@@ -56,7 +56,7 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
     auto prepareResult = WGSL::prepare(*ast, entryPoint, wgslPipelineLayout ? &*wgslPipelineLayout : nullptr);
     if (std::holds_alternative<WGSL::Error>(prepareResult)) {
         auto wgslError = std::get<WGSL::Error>(prepareResult);
-        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: wgslError.message() }];
+        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: wgslError.message().createNSString().get() }];
         return std::nullopt;
     }
 
@@ -116,8 +116,15 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
 
     for (auto& kvp : entryPointInformation.specializationConstants) {
         auto& specializationConstant = kvp.value;
-        if (!specializationConstant.defaultValue || wgslConstantValues.contains(kvp.value.mangledName))
+        if (!specializationConstant.defaultValue || wgslConstantValues.contains(kvp.value.mangledName)) {
+            if (!specializationConstant.defaultValue && !wgslConstantValues.contains(kvp.value.mangledName)) {
+                if (error)
+                    *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Override %s is used in shader but not provided", kvp.key.utf8().data()] }];
+                return std::nullopt;
+            }
+
             continue;
+        }
 
         auto constantValue = WGSL::evaluate(*kvp.value.defaultValue, wgslConstantValues);
         if (!constantValue) {
@@ -147,14 +154,20 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
         }
     }
 
-    auto generationResult = WGSL::generate(*ast, result, wgslConstantValues);
+    auto generationResult = WGSL::generate(*ast, result, wgslConstantValues, WGSL::DeviceState {
+        .appleGPUFamily = shaderModule.device().appleGPUFamily(),
+        .shaderValidationEnabled = shaderModule.device().isShaderValidationEnabled()
+    });
     if (auto* generationError = std::get_if<WGSL::Error>(&generationResult)) {
-        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: generationError->message() }];
+        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: generationError->message().createNSString().get() }];
         return std::nullopt;
     }
     auto& msl = std::get<String>(generationResult);
 
-    auto library = ShaderModule::createLibrary(device, msl, label, error);
+    auto library = ShaderModule::createLibrary(device, msl, label, error, WGSL::DeviceState {
+        .appleGPUFamily = shaderModule.device().appleGPUFamily(),
+        .shaderValidationEnabled = shaderModule.device().isShaderValidationEnabled()
+    });
     if (error && *error)
         return { };
 
@@ -164,7 +177,7 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
 id<MTLFunction> createFunction(id<MTLLibrary> library, const WGSL::Reflection::EntryPointInformation& entryPointInformation, NSString *label)
 {
     auto functionDescriptor = [MTLFunctionDescriptor new];
-    functionDescriptor.name = entryPointInformation.mangledName;
+    functionDescriptor.name = entryPointInformation.mangledName.createNSString().get();
     NSError *error = nil;
     id<MTLFunction> function = [library newFunctionWithDescriptor:functionDescriptor error:&error];
     if (error)
@@ -208,9 +221,9 @@ NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindi
                 if (checkedTotalOffset.hasOverflowed())
                     return [NSString stringWithFormat:@"resourceOffset(%llu) + dynamicOffset(%u) overflows uint64_t", resource.entryOffset, dynamicOffset];
                 auto totalOffset = checkedTotalOffset.value();
-                auto mtlBufferLength = buffer->get()->buffer().length;
+                auto mtlBufferLength = buffer->get()->currentSize();
                 if (totalOffset > mtlBufferLength || (mtlBufferLength - totalOffset) < bufferSize || bufferSize > resource.entrySize)
-                    return [NSString stringWithFormat:@"buffer length(%zu) minus offset(%llu), (resourceOffset(%llu) + dynamicOffset(%u)), is less than required bufferSize(%llu)", mtlBufferLength, totalOffset, resource.entryOffset, dynamicOffset, bufferSize];
+                    return [NSString stringWithFormat:@"buffer length(%llu) minus offset(%llu), (resourceOffset(%llu) + dynamicOffset(%u)), is less than required bufferSize(%llu)", mtlBufferLength, totalOffset, resource.entryOffset, dynamicOffset, bufferSize];
             }
         }
     }

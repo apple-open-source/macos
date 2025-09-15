@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ * Copyright (c) 2024 Apple Inc.  All rights reserved.
  */
 
 #include <sys/types.h>
-#include <compression.h>
+#include <os/log.h>
 #include <stdbool.h>
 
 #include <assert.h>
@@ -17,9 +17,6 @@
 #endif
 
 #define CONFIG_SUBMAP       1   /* include submaps */
-#define CONFIG_GCORE_MAP	1	/* support 'gcore map' */
-#define CONFIG_GCORE_CONV	1	/* support 'gcore conv' - new -> old core files */
-#define CONFIG_GCORE_FREF	1	/* support 'gcore fref' - referenced file list */
 #define CONFIG_DEBUG		1	/* support '-d' option */
 
 #ifdef NDEBUG
@@ -27,6 +24,14 @@
 #else
 #define poison(a, p, s)     memset(a, p, s) /* scribble on dying memory */
 #endif
+
+enum content : uint8_t {
+    CONTENT_STACK,      // just stack pages
+    CONTENT_COMPACT,    // all unmodified pages
+    CONTENT_FULL,       // all content pages
+};
+
+extern os_log_t glog;
 
 struct options {
     int corpsify;       // make a corpse to dump from
@@ -36,17 +41,13 @@ struct options {
 #ifdef CONFIG_DEBUG
     int debug;          // internal debugging: options accumulate. noisy.
 #endif
-	int extended;		// avoid writing out ro mapped files, compress regions
-    int skinny;         // just code segments, mapped files as references, mutually exclusive with extended
     off_t sizebound;    // maximum size of the dump
-    size_t chunksize;   // max size of a compressed subregion
-    compression_algorithm calgorithm; // algorithm in use
 	size_t ncthresh;	// F_NOCACHE enabled *above* this value
-    int allfilerefs;    // if set, every mapped file on the root fs is a fileref
-	int dsymforuuid;    // Try dsysForUUID to retrieve symbol-rich executable
     int gzip;           // pipe corefile via gzip -1 compression
     int stream;         // write corefile sequentially e.g. no pwrites
     bool notes;         // if set, dump LC_NOTES for memory analysis tools
+    enum content content;   // dump content options
+    int quiet;          // log rather than send to stdout/stderr
 };
 
 extern const struct options *opt;

@@ -1,4 +1,4 @@
-BUILD_VARIANTS[sdk=macosx*] = normal kasan
-BUILD_VARIANTS[sdk=iphoneos*] = normal kasan
+BUILD_VARIANTS = normal kasan development
 CODE_SIGN_IDENTITY = -
 OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
+OTHER_CFLAGS_development = -DASBM_DEVELOPMENT=1 -DACBPS_DEVELOPMENT=1

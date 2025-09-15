@@ -21,8 +21,6 @@ extern char **environ;
 static uint64_t exception_code = 0;
 static exception_type_t exception_taken = 0;
 
-#define IKOT_TASK_CONTROL               2
-
 #ifndef kGUARD_EXC_INVALID_OPTIONS
 #define kGUARD_EXC_INVALID_OPTIONS 3
 #endif
@@ -436,7 +434,7 @@ test_imm_pinned_control_port(const char *test_prog_name)
 	}
 }
 
-T_DECL(imm_pinned_control_port_hardened, "Test pinned & immovable task and thread control ports for hardened runtime binary",
+T_DECL(imm_pinned_control_port_hardened, "Test pinned & immovable task and thread control ports for platform restrictions binary",
     T_META_IGNORECRASHES(".*pinned_rights_child.*"),
     T_META_CHECK_LEAKS(false))
 {

@@ -38,9 +38,9 @@ WebExtensionCommand::WebExtensionCommand(WebExtensionContext& extensionContext, 
     : m_extensionContext(extensionContext)
     , m_identifier(data.identifier)
     , m_description(data.description)
-    , m_activationKey(data.activationKey)
     , m_modifierFlags(data.modifierFlags)
 {
+    setActivationKey(data.activationKey, SuppressEvents::Yes);
 }
 
 bool WebExtensionCommand::operator==(const WebExtensionCommand& other) const
@@ -54,7 +54,7 @@ bool WebExtensionCommand::isActionCommand() const
     if (!context)
         return false;
 
-    if (context->extension().supportsManifestVersion(3))
+    if (context->protectedExtension()->supportsManifestVersion(3))
         return identifier() == "_execute_action"_s;
 
     return identifier() == "_execute_browser_action"_s || identifier() == "_execute_page_action"_s;

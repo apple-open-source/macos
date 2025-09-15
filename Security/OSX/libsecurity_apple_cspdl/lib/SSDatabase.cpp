@@ -24,6 +24,9 @@
 #include <security_cdsa_utilities/KeySchema.h>
 #include <security_utilities/CSPDLTransaction.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecItemPriv.h>
+#include "featureflags/featureflags.h"
+#include "c++utils.h"
 
 using namespace CssmClient;
 using namespace SecurityServer;
@@ -84,9 +87,104 @@ SSDatabaseImpl::unlock()
 	mClientSession.unlock(dbHandle());
 }
 
+bool
+SSDatabaseImpl::isLoginKeychain() {
+    // hacky check, but same as in kcdatabase.cpp
+    return strcasestr(name(), "login.keychain");
+}
+
+class DeferIt
+{
+public:
+    DeferIt(dispatch_block_t it) : it(it) { }
+    ~DeferIt() { it(); }
+private:
+    DeferIt(const DeferIt&) = delete;
+    DeferIt operator=(const DeferIt&) = delete;
+    dispatch_block_t it;
+};
+
 void
 SSDatabaseImpl::unlock(const CSSM_DATA &password)
 {
+    if (_SecProtectLoginKeychainWithDP()) {
+        if (isLoginKeychain()) {
+            secnotice("dp_login", "attempting to unlock keybag");
+            try {
+                // This may fail in chrooted environments with MIG_BAD_ID
+                mClientSession.unlockKeybag(dbHandle(), CssmData::overlay(password));
+            } catch (MachPlusPlus::Error mppe) {
+                secnotice("dp_login", "caught MachPlusPlus error: %d", mppe.error);
+                if (mppe.error != MIG_BAD_ID) {
+                    throw;
+                }
+                secnotice("dp_login", "proceeding with original unlock");
+                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                return;
+            }
+
+            uint8_t saltBytes[sizeof(DbBlob::salt)];
+            size_t saltLen = sizeof(DbBlob::salt);
+            dbBlobSalt(&saltLen, saltBytes);
+            CssmData salt(saltBytes, saltLen);
+            secnotice("dp_login", "got salt: %s", salt.toHex().c_str());
+
+            KeyHandle kh = noKey;
+            CFStringRef identifier = CFStringCreateWithCString(NULL, salt.toHex().c_str(), kCFStringEncodingUTF8);
+            CFTypeRefHolder _identifier(identifier); // will release identifier no matter how we exit this function
+            OSStatus status = _SecLookupIndirectUnlockKey(identifier, &kh);
+            secnotice("dp_login", "_SecLookupIndirectUnlockKey returned %d %u", status, kh);
+            if (kh != noKey) {
+                DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
+                // indirect password found, use that to unlock
+                mClientSession.unlock(dbHandle(), kh);
+                return;
+            } else if (status != errSecItemNotFound) {
+                // error finding indirect password, no choice but to try password
+                secerror("dp_login: error looking up indirect passphrase: %d", status);
+                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                return;
+            }
+            // Indirect passphrase not found, try to unlock keychain first.
+            // This throws if the provided password is incorrect, which it might be if we just upgraded,
+            // or the DerivedEntropy is not in the DP keychain.
+            // But the keychain may already encrypted with a DerivedEntropy.
+            // So we have to catch that unlock error here.
+            secnotice("dp_login", "indirect passphrase not found, attempting to unlock with password");
+
+            bool needRekey = false;
+            try {
+                mClientSession.unlock(dbHandle(), CssmData::overlay(password));
+                secnotice("dp_login", "unlocking with password succeeded, will need to rekey");
+                needRekey = true;
+            } catch (...) {
+                secnotice("dp_login", "unlocking with password failed, hopefully there's recourse");
+            }
+
+            // Then generate the indirect passphrase
+            CssmData opw(CssmData::overlay(password));
+            secnotice("dp_login", "calling generateDerivedEntropy");
+            kh = mClientSession.generateDerivedEntropy(salt, opw);
+            DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
+            secnotice("dp_login", "generateDerivedEntropy returned handle %u", kh);
+
+            if (needRekey) {
+                secnotice("dp_login", "changing to indirect passphrase");
+                changePassphrase(kh);
+            } else {
+                // (hopefully) unlock with the indirect passphrase, because the raw password didn't work above
+                mClientSession.unlock(dbHandle(), kh);
+                secnotice("dp_login", "successfully unlocked with handle %u", kh);
+            }
+
+            status = _SecAssociateIndirectUnlockKey(identifier, kh);
+            secnotice("dp_login", "_SecAssociateIndirectUnlockKey %u returned %d", kh, status);
+
+            return;
+        } else {
+            secinfo("dp_login", "trying to unlock some other keychain");
+        }
+    }
 	mClientSession.unlock(dbHandle(), CssmData::overlay(password));
 }
 
@@ -132,14 +230,86 @@ SSDatabaseImpl::isLocked()
 }
 
 void
-SSDatabaseImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
+SSDatabaseImpl::changePassphraseCleanup()
 {
-	mClientSession.changePassphrase(dbHandle(), AccessCredentials::overlay(cred));
-
 	// Reencode the db blob.
 	CssmDataContainer dbb(allocator());
 	mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
 	getDbBlobId()->modify(DBBlobRelationID, NULL, &dbb, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
+}
+
+// throws or points out param at the specified password data from the creds.
+// Note that this is a shallow copy, so don't use it past the lifetime of the creds.
+static void
+getPasswordFromCreds(const AccessCredentials *creds, CSSM_SAMPLE_TYPE sampleType, /*out*/ CssmData& password) {
+    list<CssmSample> samples;
+    if (!creds || !creds->samples().collect(sampleType, samples)) {
+        MacOSError::throwMe(errSecInteractionNotAllowed);
+    }
+    for (list<CssmSample>::iterator it = samples.begin(); it != samples.end(); it++) {
+        TypedList &sample = *it;
+        switch (sample.type()) {
+            case CSSM_SAMPLE_TYPE_PASSWORD:
+                if (sample.length() != 2) {
+                    CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+                }
+                password = sample[1];
+                secinfo("dp_login", "got password");
+                return;
+            default:
+                break;
+        }
+    }
+
+    // May need to revist this if there are any cases where we need to change the
+    // keybag password via prompt. But this will all go away with OTI, yay!
+    secerror("dp_login: password %d not specified in creds", sampleType);
+    MacOSError::throwMe(errSecParam);
+}
+
+void
+SSDatabaseImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
+{
+    const AccessCredentials *innerCreds = AccessCredentials::overlay(cred);
+    if (_SecProtectLoginKeychainWithDP() && isLoginKeychain()) {
+        uint8_t saltBytes[sizeof(DbBlob::salt)];
+        size_t saltLen = sizeof(DbBlob::salt);
+        dbBlobSalt(&saltLen, saltBytes);
+        CssmData salt(saltBytes, saltLen);
+        CFStringRef identifier = CFStringCreateWithCString(NULL, salt.toHex().c_str(), kCFStringEncodingUTF8);
+        CFTypeRefHolder _identifier(identifier); // will release identifier no matter how we exit this function
+        secnotice("dp_login", "changePassphrase got salt: %@", identifier);
+
+        CssmData oldPassword;
+        CssmData newPassword;
+        getPasswordFromCreds(innerCreds, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK, oldPassword);
+        getPasswordFromCreds(innerCreds, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK, newPassword);
+
+        unlock(oldPassword); // throws if unlock with this password fails
+
+        secnotice("dp_login", "changePassphrase calling generateDerivedEntropy");
+        KeyHandle kh = mClientSession.generateDerivedEntropy(salt, newPassword);
+        DeferIt _kh(^(){ mClientSession.releaseHandle(kh); });
+        secnotice("dp_login", "changePassphrase generateDerivedEntropy returned handle %u", kh);
+        mClientSession.changePassphrase(dbHandle(), kh);
+
+        OSStatus status = _SecAssociateIndirectUnlockKey(identifier, kh);
+        secnotice("dp_login", "changePassphrase _SecAssociateIndirectUnlockKey %u returned %d", kh, status);
+
+        // now change (just) the keybag password
+        mClientSession.changeKeybagPassphrase(dbHandle(), oldPassword, newPassword);
+    } else {
+        mClientSession.changePassphrase(dbHandle(), innerCreds);
+    }
+
+    changePassphraseCleanup();
+}
+
+void
+SSDatabaseImpl::changePassphrase(KeyHandle kh)
+{
+	mClientSession.changePassphrase(dbHandle(), kh);
+	changePassphraseCleanup();
 }
 
 DbHandle
@@ -560,6 +730,13 @@ void SSDatabaseImpl::ssCopyBlob(CSSM_DATA& data)
 	dbb.Length = 0;
 }
 
+void SSDatabaseImpl::ssCopySalt(CSSM_DATA& salt)
+{
+    salt.Length = sizeof(DbBlob::salt);
+    salt.Data = (uint8_t*)allocator().malloc(salt.Length);
+    dbBlobSalt(&salt.Length, salt.Data);
+}
+
 uint32
 SSDatabaseImpl::dbBlobVersion() {
     CssmDataContainer dbb(allocator());
@@ -574,6 +751,21 @@ SSDatabaseImpl::getDbVersionFromBlob(const CssmData& dbb) {
     uint32 version = x->version();
     Allocator::standard().free(x);
     return version;
+}
+
+void
+SSDatabaseImpl::dbBlobSalt(size_t* saltLen /*inout*/, uint8* salt /*out*/) {
+    if (*saltLen < sizeof(DbBlob::salt)) {
+        *saltLen = 0;
+        return;
+    }
+    *saltLen = sizeof(DbBlob::salt);
+
+    CssmDataContainer dbb(allocator());
+    getDbBlobId(&dbb);
+
+    secinfo("dp_login", "getting salt from %p to %p : %lu", &dbb, salt, sizeof(DbBlob::salt));
+    memcpy(salt, dbb.interpretedAs<DbBlob>()->salt, *saltLen);
 }
 
 DbUniqueRecordImpl *

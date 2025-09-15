@@ -32,9 +32,10 @@
 #import <WebCore/DataDetection.h>
 #import <WebCore/Range.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/AlignedStorage.h>
 
 @implementation WKWebProcessPlugInRangeHandle {
-    API::ObjectStorage<WebKit::InjectedBundleRangeHandle> _rangeHandle;
+    AlignedStorage<WebKit::InjectedBundleRangeHandle> _rangeHandle;
 }
 
 - (void)dealloc
@@ -59,7 +60,7 @@
 
 - (NSString *)text
 {
-    return _rangeHandle->text();
+    return _rangeHandle->text().createNSString().autorelease();
 }
 
 #if TARGET_OS_IPHONE

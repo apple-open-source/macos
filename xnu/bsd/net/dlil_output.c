@@ -86,6 +86,8 @@ dlil_output(ifnet_t ifp, protocol_family_t proto_family, mbuf_t packetlist,
 	rtentry_ref_t rt = NULL;
 	u_int16_t m_loop_set = 0;
 	bool raw = (flags & DLIL_OUTPUT_FLAGS_RAW) != 0;
+	uint64_t qset_id;
+	uint8_t qset_id_valid_flag;
 
 	KERNEL_DEBUG(DBG_FNC_DLIL_OUTPUT | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
@@ -146,7 +148,7 @@ preout_again:
 		 * Go to the next packet if translation fails
 		 */
 		if (retval != 0) {
-			m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
 			m = NULL;
 			ip6stat.ip6s_clat464_out_drop++;
 			/* Make sure that the proto family is PF_INET */
@@ -171,7 +173,7 @@ preout_again:
 			if (proto == NULL) {
 				ifnet_lock_done(ifp);
 				retval = ENXIO;
-				m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
+				m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
 				m = NULL;
 				goto cleanup;
 			}
@@ -224,7 +226,7 @@ preout_again:
 				if (retval == EJUSTRETURN) {
 					goto preout_again;
 				}
-				m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_PRE_OUTPUT, NULL, 0);
+				m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_PRE_OUTPUT, NULL, 0);
 				m = NULL;
 				goto cleanup;
 			}
@@ -233,6 +235,10 @@ preout_again:
 
 	nanouptime(&now);
 	net_timernsec(&now, &now_nsec);
+
+	qset_id = m->m_pkthdr.pkt_mpriv_qsetid;
+	qset_id_valid_flag = (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_QSET_ID_VALID)
+	    ? PKTF_EXT_QSET_ID_VALID : 0;
 
 	do {
 		m_add_hdr_crumb_interface_output(m, ifp->if_index, false);
@@ -270,7 +276,7 @@ preout_again:
 			retval = dlil_clat46(ifp, &proto_family, &m);
 			/* Goto the next packet if the translation fails */
 			if (retval != 0) {
-				m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
+				m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_CLAT64, NULL, 0);
 				m = NULL;
 				ip6stat.ip6s_clat464_out_drop++;
 				goto next;
@@ -304,7 +310,7 @@ preout_again:
 			    frame_type, &pre, &post);
 			if (retval != 0) {
 				if (retval != EJUSTRETURN) {
-					m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_IF_FRAMER, NULL, 0);
+					m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_IF_FRAMER, NULL, 0);
 				}
 				goto next;
 			}
@@ -346,7 +352,7 @@ preout_again:
 			retval = dlil_interface_filters_output(ifp, &m, proto_family);
 			if (retval != 0) {
 				if (retval != EJUSTRETURN) {
-					m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_IF_FILTER, NULL, 0);
+					m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_IF_FILTER, NULL, 0);
 				}
 				goto next;
 			}
@@ -377,7 +383,7 @@ preout_again:
 		 */
 		if (TSO_IPV4_NOTOK(ifp, m) || TSO_IPV6_NOTOK(ifp, m)) {
 			retval = EMSGSIZE;
-			m_drop(m, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_TSO_NOT_OK, NULL, 0);
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_TSO_NOT_OK, NULL, 0);
 			goto cleanup;
 		}
 
@@ -459,6 +465,12 @@ preout_again:
 				}
 				retval = 0;
 			}
+			if (retval == EQCONGESTED) {
+				if (adv != NULL && adv->code == FADV_SUCCESS) {
+					adv->code = FADV_CONGESTED;
+				}
+				retval = 0;
+			}
 			if (retval == 0 && flen > 0) {
 				fbytes += flen;
 				fpkts++;
@@ -477,6 +489,8 @@ next:
 		m = packetlist;
 		if (m != NULL) {
 			m->m_flags |= m_loop_set;
+			m->m_pkthdr.pkt_ext_flags |= qset_id_valid_flag;
+			m->m_pkthdr.pkt_mpriv_qsetid = qset_id;
 			packetlist = packetlist->m_nextpkt;
 			m->m_nextpkt = NULL;
 		}
@@ -492,11 +506,15 @@ next:
 		if (ifp->if_eflags & IFEF_SENDLIST) {
 			retval = (*ifp->if_output_dlil)(ifp, send_head);
 			if (retval == EQFULL || retval == EQSUSPENDED) {
-				if (adv != NULL) {
+				if (adv != NULL && adv->code != FADV_CONGESTED) {
 					adv->code = (retval == EQFULL ?
 					    FADV_FLOW_CONTROLLED :
 					    FADV_SUSPENDED);
 				}
+				retval = 0;
+			}
+			if (retval == EQCONGESTED && adv != NULL) {
+				adv->code = FADV_CONGESTED;
 				retval = 0;
 			}
 			if (retval == 0 && flen > 0) {
@@ -517,11 +535,15 @@ next:
 				send_m->m_nextpkt = NULL;
 				retval = (*ifp->if_output_dlil)(ifp, send_m);
 				if (retval == EQFULL || retval == EQSUSPENDED) {
-					if (adv != NULL) {
+					if (adv != NULL && adv->code != FADV_CONGESTED) {
 						adv->code = (retval == EQFULL ?
 						    FADV_FLOW_CONTROLLED :
 						    FADV_SUSPENDED);
 					}
+					retval = 0;
+				}
+				if (retval == EQCONGESTED && adv != NULL) {
+					adv->code = FADV_CONGESTED;
 					retval = 0;
 				}
 				if (retval == 0) {

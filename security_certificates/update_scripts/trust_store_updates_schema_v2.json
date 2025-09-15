@@ -1,0 +1,121 @@
+{
+    "id": "com.apple.trust_store_updates_schema_v2",
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "type": "array",
+    "items": [
+        {
+            "type": "object",
+            "properties": {
+                "change_type": {
+                    "type": "string",
+                    "enum": [
+                        "Removal",
+                        "Addition",
+                        "Modification"
+                    ]
+                },
+                "change_reason": {
+                    "type": "string"
+                },
+                "certificate_details": {
+                    "type": "object",
+                    "properties": {
+                        "sha256_fingerprint": {
+                            "type": "string"
+                        },
+                        "spki": {
+                            "type": "string"
+                        },
+                        "common_name": {
+                            "type": "string"
+                        },
+                        "organizational_unit": {
+                            "type": "string"
+                        },
+                        "not_before": {
+                            "type": "string"
+                        },
+                        "not_after": {
+                            "type": "string"
+                        },
+                        "pem": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "sha256_fingerprint",
+                        "spki",
+                        "pem"
+                    ]
+                },
+                "policy_constraints": {
+                    "type": "array",
+                    "items": [
+                        {
+                            "type": "string"
+                        }
+                    ]
+                },
+                "anchor_type": {
+                    "type": "string",
+                    "enum": [
+                        "System",
+                        "Custom",
+                        "Platform",
+                        "Test-System",
+                        "Test-Platform"
+                    ]
+                },
+                "valid": {
+                    "type": "object",
+                    "properties": {
+                        "allowed_policies": {
+                            "type": "array",
+                            "items": [
+                                {
+                                    "type": "string",
+                                    "enum": [
+                                        "Server Authentication",
+                                        "Client Authentication",
+                                        "Code Signing",
+                                        "Timestamp Signing",
+                                        "Email Protection",
+                                        "Any",
+                                        ""
+                                    ]
+                                }
+                            ]
+                        },
+                        "not_before": {
+                            "type": "string"
+                        },
+                        "not_after": {
+                            "type": "string"
+                        },
+                        "full_crl_url": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "allowed_policies"
+                    ]
+                },
+                "ev_tls_oids": {
+                    "type": "array",
+                    "items": [
+                        {
+                            "type": "string"
+                        }
+                    ]
+                }
+            },
+            "required": [
+                "change_type",
+                "change_reason",
+                "certificate_details",
+                "anchor_type"
+            ]
+        }
+    ],
+    "description": "Trust Store Update"
+}

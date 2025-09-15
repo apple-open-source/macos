@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -175,10 +175,10 @@ failover_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 
 	  /* set the new address */
-	  (void)service_set_address(service_p,
-				    service_requested_ip_addr(service_p),
-				    service_requested_ip_mask(service_p),
-				    G_ip_zeroes);
+	  service_set_address(service_p,
+			      service_requested_ip_addr(service_p),
+			      service_requested_ip_mask(service_p),
+			      G_ip_zeroes);
 	  ServicePublishSuccessIPv4(service_p, NULL);
 	  failover->address_is_verified = TRUE;
 	  if (failover->address_timeout_secs != 0) {

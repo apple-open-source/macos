@@ -170,6 +170,19 @@ int LFHFS_Write ( UVFSFileNode psNode, uint64_t uOffset, size_t iLength, const v
         goto exit;
     }
 
+	/*
+	 * If the file has SUID/SGID, then always disable SUID from LF for safety
+	 * speculatively. This prevents this from being used as a mechanism to
+	 * manipulate SUID binaries.
+	 *
+	 * Note that at this point we still hold the cnode lock exclusive; this gates
+	 * other threads' visibility into the cnode.
+	 */
+	if (cp->c_mode & (S_ISUID | S_ISGID)) {
+		cp->c_mode &= ~(S_ISUID | S_ISGID);
+		cp->c_flag |= C_MODIFIED;
+	}
+
     /* Check if we do not need to extend the file */
     if (writelimit <= filebytes) {
         goto sizeok;

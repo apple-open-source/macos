@@ -31,6 +31,46 @@
 
 namespace WebKit {
 
+FrameState::FrameState(String&& urlString, String&& originalURLString, String&& referrer, AtomString&& target, std::optional<WebCore::FrameIdentifier> frameID, std::optional<Vector<uint8_t>>&& stateObjectData, int64_t documentSequenceNumber, int64_t itemSequenceNumber, WebCore::IntPoint scrollPosition, bool shouldRestoreScrollPosition, float pageScaleFactor, std::optional<HTTPBody>&& httpBody, std::optional<WebCore::BackForwardItemIdentifier> itemID, std::optional<WebCore::BackForwardFrameItemIdentifier> frameItemID, bool hasCachedPage, String&& title, WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, RefPtr<WebCore::SerializedScriptValue>&& sessionStateObject, bool wasCreatedByJSWithoutUserInteraction, bool wasRestoredFromSession,  std::optional<WebCore::PolicyContainer>&& policyContainer,
+#if PLATFORM(IOS_FAMILY)
+    WebCore::FloatRect exposedContentRect, WebCore::IntRect unobscuredContentRect, WebCore::FloatSize minimumLayoutSizeInScrollViewCoordinates, WebCore::IntSize contentSize, bool scaleIsInitial, WebCore::FloatBoxExtent obscuredInsets,
+#endif
+    Vector<Ref<FrameState>>&& children, Vector<AtomString>&& documentState
+)
+    : urlString(WTFMove(urlString))
+    , originalURLString(WTFMove(originalURLString))
+    , referrer(WTFMove(referrer))
+    , target(WTFMove(target))
+    , frameID(frameID)
+    , stateObjectData(WTFMove(stateObjectData))
+    , documentSequenceNumber(documentSequenceNumber)
+    , itemSequenceNumber(itemSequenceNumber)
+    , scrollPosition(scrollPosition)
+    , shouldRestoreScrollPosition(shouldRestoreScrollPosition)
+    , pageScaleFactor(pageScaleFactor)
+    , httpBody(WTFMove(httpBody))
+    , itemID(itemID)
+    , frameItemID(frameItemID)
+    , hasCachedPage(hasCachedPage)
+    , title(WTFMove(title))
+    , shouldOpenExternalURLsPolicy(shouldOpenExternalURLsPolicy)
+    , sessionStateObject(WTFMove(sessionStateObject))
+    , wasCreatedByJSWithoutUserInteraction(wasCreatedByJSWithoutUserInteraction)
+    , wasRestoredFromSession(wasRestoredFromSession)
+    , policyContainer(WTFMove(policyContainer))
+#if PLATFORM(IOS_FAMILY)
+    , exposedContentRect(exposedContentRect)
+    , unobscuredContentRect(unobscuredContentRect)
+    , minimumLayoutSizeInScrollViewCoordinates(minimumLayoutSizeInScrollViewCoordinates)
+    , contentSize(contentSize)
+    , scaleIsInitial(scaleIsInitial)
+    , obscuredInsets(obscuredInsets)
+#endif
+    , children(WTFMove(children))
+    , m_documentState(WTFMove(documentState))
+{
+}
+
 FrameState::FrameState(const String& urlString, const String& originalURLString, const String& referrer, const AtomString& target, std::optional<WebCore::FrameIdentifier> frameID, std::optional<Vector<uint8_t>> stateObjectData, int64_t documentSequenceNumber, int64_t itemSequenceNumber, WebCore::IntPoint scrollPosition, bool shouldRestoreScrollPosition, float pageScaleFactor, const std::optional<HTTPBody>& httpBody, std::optional<WebCore::BackForwardItemIdentifier> itemID, std::optional<WebCore::BackForwardFrameItemIdentifier> frameItemID, bool hasCachedPage, const String& title, WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, RefPtr<WebCore::SerializedScriptValue>&& sessionStateObject, bool wasCreatedByJSWithoutUserInteraction, bool wasRestoredFromSession, const std::optional<WebCore::PolicyContainer>& policyContainer,
 #if PLATFORM(IOS_FAMILY)
     WebCore::FloatRect exposedContentRect, WebCore::IntRect unobscuredContentRect, WebCore::FloatSize minimumLayoutSizeInScrollViewCoordinates, WebCore::IntSize contentSize, bool scaleIsInitial, WebCore::FloatBoxExtent obscuredInsets,

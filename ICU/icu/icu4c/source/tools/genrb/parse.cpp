@@ -63,6 +63,9 @@
 #include "collationtailoring.h"
 #include <stdio.h>
 #include "writesrc.h"
+#if APPLE_ICU_CHANGES // rdar://146688341
+#include <limits.h>
+#endif
 
 /* Number of tokens to read ahead of the current stream position */
 #define MAX_LOOKAHEAD   3
@@ -297,7 +300,7 @@ static char *getInvariantString(ParseState* state, uint32_t *line, struct UStrin
 
     if(!uprv_isInvariantUString(tokenValue->fChars, tokenValue->fLength)) {
         *status = U_INVALID_FORMAT_ERROR;
-        error(*line, "invariant characters required for table keys, binary data, etc.");
+        error((line == nullptr) ? 0 : *line, "invariant characters required for table keys, binary data, etc.");
         return nullptr;
     }
 
@@ -320,7 +323,11 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     struct SResource *result = nullptr;
     struct UString   *tokenValue;
     FileStream       *file          = nullptr;
+#if APPLE_ICU_CHANGES // rdar://146688341
+    char              filename[PATH_MAX] = { '\0' };
+#else
     char              filename[256] = { '\0' };
+#endif
     char              cs[128]       = { '\0' };
     uint32_t          line;
     UBool quoted = false;
@@ -345,10 +352,24 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     /* make the filename including the directory */
     if (state->inputdir != nullptr)
     {
+#if APPLE_ICU_CHANGES // rdar://146688341
+        if ((uprv_strlen(filename) + uprv_strlen(state->inputdir) + 1) > PATH_MAX) {
+            *status = U_BUFFER_OVERFLOW_ERROR;
+            error(line, "Path length too long.");
+            return nullptr;
+        }
+#endif
         uprv_strcat(filename, state->inputdir);
 
         if (state->inputdir[state->inputdirLength - 1] != U_FILE_SEP_CHAR)
         {
+#if APPLE_ICU_CHANGES // rdar://146688341
+            if ((uprv_strlen(filename) + uprv_strlen(U_FILE_SEP_STRING) + 1) > PATH_MAX) {
+                *status = U_BUFFER_OVERFLOW_ERROR;
+                error(line, "Path length too long.");
+                return nullptr;
+            }
+#endif
             uprv_strcat(filename, U_FILE_SEP_STRING);
         }
     }
@@ -361,6 +382,13 @@ parseUCARules(ParseState* state, char *tag, uint32_t startline, const struct USt
     {
         return nullptr;
     }
+#if APPLE_ICU_CHANGES // rdar://146688341
+    if ((uprv_strlen(filename) + uprv_strlen(cs) + 1) > PATH_MAX) {
+        *status = U_BUFFER_OVERFLOW_ERROR;
+        error(line, "Path length too long.");
+        return nullptr;
+    }
+#endif
     uprv_strcat(filename, cs);
 
     if(state->omitCollationRules) {
@@ -464,7 +492,11 @@ parseTransliterator(ParseState* state, char *tag, uint32_t startline, const stru
     struct SResource *result = nullptr;
     struct UString   *tokenValue;
     FileStream       *file          = nullptr;
+#if APPLE_ICU_CHANGES // rdar://146688341
+    char              filename[PATH_MAX] = { '\0' };
+#else
     char              filename[256] = { '\0' };
+#endif
     char              cs[128]       = { '\0' };
     uint32_t          line;
     UCHARBUF *ucbuf=nullptr;
@@ -486,10 +518,24 @@ parseTransliterator(ParseState* state, char *tag, uint32_t startline, const stru
     /* make the filename including the directory */
     if (state->inputdir != nullptr)
     {
+#if APPLE_ICU_CHANGES // rdar://146688341
+        if ((uprv_strlen(filename) + uprv_strlen(state->inputdir) + 1) > PATH_MAX) {
+            *status = U_BUFFER_OVERFLOW_ERROR;
+            error(line, "Path length too long.");
+            return nullptr;
+        }
+#endif
         uprv_strcat(filename, state->inputdir);
 
         if (state->inputdir[state->inputdirLength - 1] != U_FILE_SEP_CHAR)
         {
+#if APPLE_ICU_CHANGES // rdar://146688341
+            if ((uprv_strlen(filename) + uprv_strlen(U_FILE_SEP_STRING) + 1) > PATH_MAX) {
+                *status = U_BUFFER_OVERFLOW_ERROR;
+                error(line, "Path length too long.");
+                return nullptr;
+            }
+#endif
             uprv_strcat(filename, U_FILE_SEP_STRING);
         }
     }
@@ -502,6 +548,13 @@ parseTransliterator(ParseState* state, char *tag, uint32_t startline, const stru
     {
         return nullptr;
     }
+#if APPLE_ICU_CHANGES // rdar://146688341
+    if ((uprv_strlen(filename) + uprv_strlen(cs) + 1) > PATH_MAX) {
+        *status = U_BUFFER_OVERFLOW_ERROR;
+        error(line, "Path length too long.");
+        return nullptr;
+    }
+#endif
     uprv_strcat(filename, cs);
 
 
@@ -543,7 +596,11 @@ parseDependency(ParseState* state, char *tag, uint32_t startline, const struct U
     struct SResource *elem = nullptr;
     struct UString   *tokenValue;
     uint32_t          line;
+#if APPLE_ICU_CHANGES // rdar://155639864
+    char              filename[PATH_MAX] = { '\0' };
+#else
     char              filename[256] = { '\0' };
+#endif
     char              cs[128]       = { '\0' };
 
     expect(state, TOK_STRING, &tokenValue, nullptr, &line, status);
@@ -867,7 +924,7 @@ writeCollationDiacriticsTOML(const char* outputdir, const char* name, const char
     for (UChar32 c = ICU4X_DIACRITIC_BASE; c < ICU4X_DIACRITIC_LIMIT; ++c) {
         uint16_t secondary = 0;
         uint32_t ce32 = data->getCE32(c);
-        if (ce32 == icu::Collation::FALLBACK_CE32) {
+        if (ce32 == icu::Collation::FALLBACK_CE32 && data->base != nullptr) {
             ce32 = data->base->getCE32(c);
         }
         if (c == 0x0340 || c == 0x0341 || c == 0x0343 || c == 0x0344) {
@@ -923,7 +980,7 @@ writeCollationJamoTOML(const char* outputdir, const char* name, const char* coll
     uint32_t jamo[0x1200-0x1100];
     for (UChar32 c = 0x1100; c < 0x1200; ++c) {
         uint32_t ce32 = data->getCE32(c);
-        if (ce32 == icu::Collation::FALLBACK_CE32) {
+        if (ce32 == icu::Collation::FALLBACK_CE32 && data->base != nullptr) {
             ce32 = data->base->getCE32(c);
         }
         // Can't reject complex CE32s, because search collations have expansions.
@@ -983,7 +1040,7 @@ writeCollationDataTOML(const char* outputdir, const char* name, const char* coll
             continue;
         }
         uint32_t ce32 = data->getCE32(c);
-        if (ce32 == icu::Collation::FALLBACK_CE32) {
+        if (ce32 == icu::Collation::FALLBACK_CE32 && data->base != nullptr) {
             ce32 = data->base->getCE32(c);
             umutablecptrie_set(builder.getAlias(), c, ce32, status);
         }

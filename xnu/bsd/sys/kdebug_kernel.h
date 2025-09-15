@@ -297,7 +297,7 @@ extern unsigned int kdebug_enable;
 	do {                                                               \
 	        if (KDBG_IMPROBABLE(kdebug_enable & ~KDEBUG_ENABLE_PPT)) {     \
 	                kernel_debug_flags((x), (uintptr_t)(a), (uintptr_t)(b),    \
-	                        (uintptr_t)(c), (uintptr_t)(d), KDBG_FLAG_NOPROCFILT); \
+	                        (uintptr_t)(c), (uintptr_t)(d), KDBG_NON_PROCESS); \
 	        }                                                              \
 	} while (0)
 #else /* (KDEBUG_LEVEL >= KDEBUG_LEVEL_IST) */
@@ -420,11 +420,13 @@ void kernel_debug(uint32_t debugid, uintptr_t arg1, uintptr_t arg2,
 void kernel_debug1(uint32_t debugid, uintptr_t arg1, uintptr_t arg2,
     uintptr_t arg3, uintptr_t arg4, uintptr_t arg5);
 
-#define KDBG_FLAG_FILTERED 0x01
-#define KDBG_FLAG_NOPROCFILT 0x02
+__options_decl(kdebug_emit_flags_t, uint64_t, {
+	KDBG_FILTER_ONLY = 0x01,
+	KDBG_NON_PROCESS = 0x02,
+});
 
 void kernel_debug_flags(uint32_t debugid, uintptr_t arg1, uintptr_t arg2,
-    uintptr_t arg3, uintptr_t arg4, uint64_t flags);
+    uintptr_t arg3, uintptr_t arg4, kdebug_emit_flags_t flags);
 
 void kernel_debug_filtered(uint32_t debugid, uintptr_t arg1, uintptr_t arg2,
     uintptr_t arg3, uintptr_t arg4);

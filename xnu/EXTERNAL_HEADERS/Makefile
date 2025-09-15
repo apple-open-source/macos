@@ -34,6 +34,8 @@ KERNEL_FILES = \
 	ptrauth.h
 
 LIBCXX_DATAFILES = \
+	_inttypes.h \
+	inttypes.h \
 	stddef.h \
 	stdint.h
 

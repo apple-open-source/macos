@@ -33,6 +33,7 @@
 #include "text/TextFlags.h"
 #include <hb-icu.h>
 #include <hb-ot.h>
+#include <hb.h>
 
 namespace WebCore {
 
@@ -70,7 +71,7 @@ ComplexTextController::ComplexTextRun::ComplexTextRun(hb_buffer_t* buffer, const
         m_coreTextIndices[i] = glyphInfos[i].cluster;
 
         uint16_t glyph = glyphInfos[i].codepoint;
-        if (m_font.isZeroWidthSpaceGlyph(glyph) || !m_font.platformData().size()) {
+        if (m_font->isZeroWidthSpaceGlyph(glyph) || !m_font->platformData().size()) {
             m_glyphs[i] = glyph;
             m_baseAdvances[i] = { };
             m_glyphOrigins[i] = { };
@@ -150,27 +151,46 @@ static std::optional<HBRun> findNextRun(std::span<const UChar> characters, unsig
     return std::optional<HBRun>({ startIndex, textIterator.currentIndex(), currentScript.value() });
 }
 
-void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const UChar> characters, unsigned stringLocation, const Font* font)
-{
-    if (!font) {
-        // Create a run of missing glyphs from the primary font.
-        m_complexTextRuns.append(ComplexTextRun::create(m_font.primaryFont(), characters, stringLocation, 0, characters.size(), m_run.ltr()));
-        return;
-    }
+struct LTR {
+    size_t offset { 0 };
+};
 
-    Vector<HBRun> runList;
-    size_t offset = 0;
-    while (offset < characters.size()) {
-        auto run = findNextRun(characters, offset);
+struct RTL {
+    size_t offset { 0 };
+    Vector<HBRun, 1> runList;
+};
+
+template <typename IterationData>
+static void forEachHBRun(const std::span<const UChar>& characters, Function<void(const HBRun&)>&& callback)
+{
+    IterationData data;
+
+    while (data.offset < characters.size()) {
+        auto run = findNextRun(characters, data.offset);
         if (!run)
             break;
-        runList.append(run.value());
-        offset = run->endIndex;
+        data.offset = run->endIndex;
+        if constexpr (std::is_same_v<IterationData, LTR>)
+            callback(*run);
+        else
+            data.runList.append(run.value());
     }
 
-    size_t runCount = runList.size();
-    if (!runCount)
+    if constexpr (std::is_same_v<IterationData, RTL>) {
+        for (auto reverseIterator = data.runList.rbegin(); reverseIterator != data.runList.rend(); ++reverseIterator)
+            callback(*reverseIterator);
+    }
+}
+
+void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const UChar> characters, unsigned stringLocation, const Font* font)
+{
+    ASSERT(!characters.empty());
+
+    if (!font) {
+        // Create a run of missing glyphs from the primary font.
+        m_complexTextRuns.append(ComplexTextRun::create(m_fontCascade->primaryFont(), characters, stringLocation, 0, characters.size(), m_run->ltr()));
         return;
+    }
 
     const auto& fontPlatformData = font->platformData();
     auto* hbFont = fontPlatformData.hbFont();
@@ -179,25 +199,33 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const 
     const auto& features = fontPlatformData.features();
     // Kerning is not handled as font features, so only in case it's explicitly disabled
     // we need to create a new vector to include kern feature.
-    const hb_feature_t* featuresData = features.isEmpty() ? nullptr : features.data();
+    const hb_feature_t* featuresData = features.isEmpty() ? nullptr : features.span().data();
     unsigned featuresSize = features.size();
     Vector<hb_feature_t> featuresWithKerning;
-    if (!m_font.enableKerning()) {
+    if (!m_fontCascade->enableKerning()) {
         featuresWithKerning.reserveInitialCapacity(featuresSize + 1);
-        featuresWithKerning.append({ HB_TAG('k', 'e', 'r', 'n'), 0, 0, static_cast<unsigned>(-1) });
+        static hb_feature_t kernFeature { HB_TAG('k', 'e', 'r', 'n'), 0, 0, static_cast<unsigned>(-1) };
+        featuresWithKerning.append(kernFeature);
         featuresWithKerning.appendVector(features);
-        featuresData = featuresWithKerning.data();
+        featuresData = featuresWithKerning.span().data();
         featuresSize = featuresWithKerning.size();
     }
 
-    HbUniquePtr<hb_buffer_t> buffer(hb_buffer_create());
-    for (unsigned i = 0; i < runCount; ++i) {
-        auto& run = runList[m_run.rtl() ? runCount - i - 1 : i];
+    static thread_local HbUniquePtr<hb_buffer_t> buffer(hb_buffer_create());
+
+    // The computed "locale" equals the "lang" attribute. The latter must be a valid BCP 47 language tag,
+    // according to <https://html.spec.whatwg.org/multipage/dom.html#attr-lang>.
+    // This is exactly what hb_language_from_string() expects, so we can pass directly.
+    ASSERT(m_fontCascade->fontDescription().computedLocale().is8Bit());
+    auto language = hb_language_from_string(reinterpret_cast<const char*>(m_fontCascade->fontDescription().computedLocale().span8().data()), -1);
+
+    auto shapeFunction = [&](const HBRun& run) {
+        hb_buffer_set_language(buffer.get(), language);
 
         hb_buffer_set_script(buffer.get(), hb_icu_script_to_script(run.script));
 
-        if (!m_mayUseNaturalWritingDirection || m_run.directionalOverride())
-            hb_buffer_set_direction(buffer.get(), m_run.rtl() ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
+        if (!m_mayUseNaturalWritingDirection || m_run->directionalOverride())
+            hb_buffer_set_direction(buffer.get(), m_run->rtl() ? HB_DIRECTION_RTL : HB_DIRECTION_LTR);
         else
             hb_buffer_set_direction(buffer.get(), hb_script_get_horizontal_direction(hb_icu_script_to_script(run.script)));
 
@@ -206,7 +234,11 @@ void ComplexTextController::collectComplexTextRunsForCharacters(std::span<const 
         hb_shape(hbFont, buffer.get(), featuresData, featuresSize);
         m_complexTextRuns.append(ComplexTextRun::create(buffer.get(), *font, characters, stringLocation, run.startIndex, run.endIndex));
         hb_buffer_reset(buffer.get());
-    }
+    };
+    if (m_run->ltr())
+        forEachHBRun<LTR>(characters, WTFMove(shapeFunction));
+    else
+        forEachHBRun<RTL>(characters, WTFMove(shapeFunction));
 }
 
 } // namespace WebCore

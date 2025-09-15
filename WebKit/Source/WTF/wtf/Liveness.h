@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <ranges>
 #include <wtf/BitVector.h>
 #include <wtf/IndexSparseSet.h>
 #include <wtf/StdLibExtras.h>
@@ -275,7 +276,7 @@ protected:
                     liveAtTail.append(index);
                 });
             
-            std::sort(liveAtTail.begin(), liveAtTail.end());
+            std::ranges::sort(liveAtTail);
             removeRepeatedElements(liveAtTail);
         }
 

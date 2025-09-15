@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -95,15 +95,20 @@ void BackgroundFetchLoad::abort()
     m_task = nullptr;
 }
 
+RefPtr<WebCore::BackgroundFetchRecordLoaderClient> BackgroundFetchLoad::protectedClient() const
+{
+    return m_client.get();
+}
+
 void BackgroundFetchLoad::didFinish(const ResourceError& error, const ResourceResponse& response)
 {
-    m_client->didFinish(error);
+    protectedClient()->didFinish(error);
 }
 
 void BackgroundFetchLoad::loadRequest(NetworkProcess& networkProcess, ResourceRequest&& request)
 {
     BGLOAD_RELEASE_LOG("startNetworkLoad");
-    auto* networkSession = networkProcess.networkSession(m_sessionID);
+    CheckedPtr networkSession = networkProcess.networkSession(m_sessionID);
     ASSERT(networkSession);
     if (!networkSession)
         return;
@@ -175,13 +180,13 @@ void BackgroundFetchLoad::didReceiveResponse(ResourceResponse&& response, Negoti
     if (!weakThis)
         return;
 
-    m_client->didReceiveResponse(WTFMove(response));
+    protectedClient()->didReceiveResponse(WTFMove(response));
 }
 
 void BackgroundFetchLoad::didReceiveData(const SharedBuffer& data)
 {
     BGLOAD_RELEASE_LOG("didReceiveData");
-    m_client->didReceiveResponseBodyChunk(data);
+    protectedClient()->didReceiveResponseBodyChunk(data);
 }
 
 void BackgroundFetchLoad::didCompleteWithError(const ResourceError& error, const NetworkLoadMetrics&)
@@ -196,31 +201,31 @@ void BackgroundFetchLoad::didCompleteWithError(const ResourceError& error, const
 
 void BackgroundFetchLoad::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend)
 {
-    m_client->didSendData(totalBytesSent);
+    protectedClient()->didSendData(totalBytesSent);
 }
 
 void BackgroundFetchLoad::wasBlocked()
 {
     BGLOAD_RELEASE_LOG("wasBlocked");
-    didFinish(blockedError(ResourceRequest { currentURL() }));
+    didFinish(blockedError(ResourceRequest { URL { currentURL() } }));
 }
 
 void BackgroundFetchLoad::cannotShowURL()
 {
     BGLOAD_RELEASE_LOG("cannotShowURL");
-    didFinish(cannotShowURLError(ResourceRequest { currentURL() }));
+    didFinish(cannotShowURLError(ResourceRequest { URL { currentURL() } }));
 }
 
 void BackgroundFetchLoad::wasBlockedByRestrictions()
 {
     BGLOAD_RELEASE_LOG("wasBlockedByRestrictions");
-    didFinish(wasBlockedByRestrictionsError(ResourceRequest { currentURL() }));
+    didFinish(wasBlockedByRestrictionsError(ResourceRequest { URL { currentURL() } }));
 }
 
 void BackgroundFetchLoad::wasBlockedByDisabledFTP()
 {
     BGLOAD_RELEASE_LOG("wasBlockedByDisabledFTP");
-    didFinish(ftpDisabledError(ResourceRequest(currentURL())));
+    didFinish(ftpDisabledError(ResourceRequest(URL { currentURL() })));
 }
 
 const URL& BackgroundFetchLoad::currentURL() const

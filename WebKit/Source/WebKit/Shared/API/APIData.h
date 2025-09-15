@@ -73,7 +73,7 @@ public:
     }
 
 #if PLATFORM(COCOA)
-    static Ref<Data> createWithoutCopying(RetainPtr<NSData>);
+    static Ref<Data> createWithoutCopying(NSData *);
 #endif
 
     ~Data()
@@ -82,7 +82,7 @@ public:
     }
 
     size_t size() const { return m_span.size(); }
-    std::span<const uint8_t> span() const { return m_span; }
+    std::span<const uint8_t> span() const LIFETIME_BOUND { return m_span; }
 
 private:
     Data(std::span<const uint8_t> span, FreeDataFunction&& freeDataFunction)

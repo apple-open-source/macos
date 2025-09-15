@@ -54,17 +54,18 @@ public:
     static constexpr bool isStreamBatched = true;
 
     explicit SendString(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 } // namespace TestWithStreamBatched

@@ -44,7 +44,7 @@ public:
     static Ref<RemoteAudioSourceProvider> create(WebCore::MediaPlayerIdentifier, WTF::LoggerHelper&);
     ~RemoteAudioSourceProvider();
 
-    void audioSamplesAvailable(const WebCore::PlatformAudioData&, const WebCore::AudioStreamDescription&, size_t);
+    void audioSamplesAvailable(const WebCore::PlatformAudioData&, const WebCore::AudioStreamDescription&, size_t, bool);
     void close();
 
     WebCore::MediaPlayerIdentifier identifier() const { return m_identifier; }
@@ -68,7 +68,7 @@ private:
     WebCore::MediaPlayerIdentifier m_identifier;
     ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 };

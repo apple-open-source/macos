@@ -116,6 +116,21 @@ enum TestConfidence { "high", "kinda-low" };
     [Reflect=customContentBooleanAttr] attribute boolean reflectedCustomBooleanAttr;
     [Reflect=customContentURLAttr, URL] attribute DOMString reflectedCustomURLAttr;
 
+    // Reflected for setter only DOM attributes
+    [ReflectSetter] attribute DOMString reflectedSetterStringAttr;
+    [ReflectSetter] attribute USVString reflectedSetterUSVStringAttr;
+    [ReflectSetter] attribute long reflectedSetterIntegralAttr;
+    [ReflectSetter] attribute unsigned long reflectedSetterUnsignedIntegralAttr;
+    [ReflectSetter] attribute boolean reflectedSetterBooleanAttr;
+    [ReflectSetter] attribute Element reflectedSetterElementAttr;
+    [ReflectSetter] attribute FrozenArray<Element> reflectedSetterElementsArrayAttr;
+    [ReflectSetter, URL] attribute DOMString reflectedSetterURLAttr;
+    [ReflectSetter, URL] attribute USVString reflectedSetterUSVURLAttr;
+    [ReflectSetter=customContentStringAttr] attribute DOMString reflectedSetterStringAttr;
+    [ReflectSetter=customContentIntegralAttr] attribute long reflectedSetterCustomIntegralAttr;
+    [ReflectSetter=customContentBooleanAttr] attribute boolean reflectedSetterCustomBooleanAttr;
+    [ReflectSetter=customContentURLAttr, URL] attribute DOMString reflectedSetterCustomURLAttr;
+
     // [EnabledByDeprecatedGlobalSetting] attributes and operations.
     [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled&TestFeature1Enabled] attribute DOMString enabledAtRuntimeAttribute;
     [Conditional=TEST_FEATURE, EnabledByDeprecatedGlobalSetting=TestFeatureEnabled] undefined enabledAtRuntimeOperation(DOMString testParam);
@@ -452,14 +467,17 @@ enum TestConfidence { "high", "kinda-low" };
     [Exposed=Worker] undefined conditionallyExposedToWorkerFunction();
     [Exposed=(Window, Worker)] undefined conditionallyExposedToWindowAndWorkerFunction();
 
-    [ImplementedAs=leadingHyphenAttribute] attribute DOMString -leading-hyphen-attribute;
-    [ImplementedAs=trailingHyphenAttribute] attribute DOMString trailing-hyphen-attribute-;
+    // Automatically transform hypthen + character to uppercase character / remove trailing hyphens.
+    attribute DOMString hyphen-attribute;
+    attribute DOMString -leading-hyphen-attribute;
+    attribute DOMString trailing-hyphen-attribute-;
+    undefined hyphen-function();
+    undefined -leading-hyphen-function();
+    undefined trailing-hyphen-function-();
+
     attribute DOMString _leading_underscore_attribute; // NOTE: IDL removes the leading underscore so this is interpreted as "leading_underscore_attribute"
     attribute DOMString __double_leading_underscore_attribute; // NOTE: IDL removes the leading underscore so this is interpreted as "_double_leading_underscore_attribute"
     attribute DOMString trailing_underscore_attribute_;
-
-    [ImplementedAs=leadingHyphenFunction] undefined -leading-hyphen-function();
-    [ImplementedAs=trailingHyphenFunction] undefined trailing-hyphen-function-();
     undefined _leading_underscore_function(); // NOTE: WebIDL removes the leading underscore so this is interpreted as "leading_underscore_function"
     undefined __double_leading_underscore_function(); // NOTE: WebIDL removes the leading underscore so this is interpreted as "_double_leading_underscore_function"
     undefined trailing_underscore_function_();

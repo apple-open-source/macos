@@ -67,6 +67,8 @@ enum class WebKit::WebExtensionEventListenerType : uint8_t {
     TabsOnReplaced,
     TabsOnUpdated,
     TestOnMessage,
+    TestOnTestStarted,
+    TestOnTestFinished,
     WebNavigationOnBeforeNavigate,
     WebNavigationOnCommitted,
     WebNavigationOnCompleted,

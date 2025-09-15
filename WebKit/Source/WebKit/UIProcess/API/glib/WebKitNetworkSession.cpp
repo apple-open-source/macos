@@ -24,6 +24,7 @@
 
 #include "APIDownloadClient.h"
 #include "FrameInfoData.h"
+#include "ITPThirdPartyData.h"
 #include "NetworkProcessMessages.h"
 #include "WebKitCookieManagerPrivate.h"
 #include "WebKitDownloadPrivate.h"

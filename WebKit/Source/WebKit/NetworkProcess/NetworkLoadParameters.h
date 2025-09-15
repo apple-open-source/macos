@@ -48,9 +48,6 @@ struct NetworkLoadParameters {
     RefPtr<WebCore::SecurityOrigin> topOrigin;
     RefPtr<WebCore::SecurityOrigin> sourceOrigin;
     WTF::ProcessID parentPID { 0 };
-#if HAVE(AUDIT_TOKEN)
-    std::optional<audit_token_t> networkProcessAuditToken;
-#endif
     WebCore::ResourceRequest request;
     WebCore::ContentSniffingPolicy contentSniffingPolicy { WebCore::ContentSniffingPolicy::SniffContent };
     WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy { WebCore::ContentEncodingSniffingPolicy::Default };
@@ -69,6 +66,7 @@ struct NetworkLoadParameters {
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
 
     RefPtr<WebCore::SecurityOrigin> protectedSourceOrigin() const { return sourceOrigin; }
+    uint64_t requiredCookiesVersion { 0 };
 };
 
 } // namespace WebKit

@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Apple Inc. All rights reserved.
+// Copyright (C) 2025 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -25,13 +25,8 @@
 
 import Foundation
 
-@MainActor
-func onNextMainRunLoop(do body: @escaping @MainActor () -> Void) {
-    RunLoop.main.perform(inModes: [.common]) {
-        MainActor.assumeIsolated {
-            body()
-        }
-    }
+struct UncheckedSendableKeyPathBox<Root, Value>: @unchecked Sendable {
+    let keyPath: KeyPath<Root, Value>
 }
 
 #endif

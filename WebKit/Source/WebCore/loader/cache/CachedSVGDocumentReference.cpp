@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,8 +35,8 @@
 
 namespace WebCore {
 
-CachedSVGDocumentReference::CachedSVGDocumentReference(const String& url)
-    : m_url(url)
+CachedSVGDocumentReference::CachedSVGDocumentReference(const Style::URL& location)
+    : m_location { location }
 {
 }
 
@@ -52,7 +53,7 @@ void CachedSVGDocumentReference::load(CachedResourceLoader& loader, const Resour
 
     auto fetchOptions = options;
     fetchOptions.mode = FetchOptions::Mode::SameOrigin;
-    CachedResourceRequest request(ResourceRequest(loader.document()->completeURL(m_url)), fetchOptions);
+    CachedResourceRequest request(ResourceRequest(URL { m_location.resolved }), fetchOptions);
     request.setInitiatorType(cachedResourceRequestInitiatorTypes().css);
     m_document = loader.requestSVGDocument(WTFMove(request)).value_or(nullptr);
     if (CachedResourceHandle document = m_document)
@@ -61,4 +62,4 @@ void CachedSVGDocumentReference::load(CachedResourceLoader& loader, const Resour
     m_loadRequested = true;
 }
 
-}
+} // namespace WebCore

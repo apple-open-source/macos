@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2013 Google, Inc. All Rights Reserved.
- * Copyright (C) 2015 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2013 Google, Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -228,17 +228,20 @@ inline void AtomHTMLToken::initializeAttributes(const HTMLToken::AttributeList& 
     if (!size)
         return;
 
-    UncheckedKeyHashSet<AtomString> addedAttributes;
+    Vector<AtomStringImpl*, 8> addedAttributes;
     addedAttributes.reserveInitialCapacity(size);
+
     m_attributes = WTF::compactMap(attributes, [&](auto& attribute) -> std::optional<Attribute> {
         if (attribute.name.isEmpty())
             return std::nullopt;
 
         auto qualifiedName = HTMLNameCache::makeAttributeQualifiedName(attribute.name);
-        if (addedAttributes.add(qualifiedName.localName()).isNewEntry)
-            return Attribute(WTFMove(qualifiedName), HTMLNameCache::makeAttributeValue(attribute.value));
-        m_hasDuplicateAttribute = true;
-        return std::nullopt;
+        if (!insertInUniquedSortedVector(addedAttributes, qualifiedName.localName().impl())) [[unlikely]] {
+            m_hasDuplicateAttribute = true;
+            return std::nullopt;
+        }
+
+        return Attribute(WTFMove(qualifiedName), HTMLNameCache::makeAttributeValue(attribute.value));
     });
 }
 
@@ -250,7 +253,7 @@ inline AtomHTMLToken::AtomHTMLToken(HTMLToken& token)
         ASSERT_NOT_REACHED();
         return;
     case Type::DOCTYPE:
-        if (LIKELY(token.name().size() == 4 && equal(HTMLNames::htmlTag->localName().impl(), token.name().span())))
+        if (token.name().size() == 4 && equal(HTMLNames::htmlTag->localName().impl(), token.name().span())) [[likely]]
             m_name = HTMLNames::htmlTag->localName();
         else
             m_name = AtomString(token.name().span());
@@ -262,7 +265,7 @@ inline AtomHTMLToken::AtomHTMLToken(HTMLToken& token)
     case Type::EndTag:
         m_selfClosing = token.selfClosing();
         m_tagName = findTagName(token.name());
-        if (UNLIKELY(m_tagName == TagName::Unknown))
+        if (m_tagName == TagName::Unknown) [[unlikely]]
             m_name = AtomString(token.name().span());
         initializeAttributes(token.attributes());
         return;

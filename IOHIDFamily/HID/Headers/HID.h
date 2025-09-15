@@ -14,6 +14,7 @@ FOUNDATION_EXPORT const unsigned char HIDVersionString[];
 #import <HID/HIDManager.h>
 #import <HID/HIDDevice.h>
 #import <HID/HIDUserDevice.h>
+#import <HID/HIDTimeSync.h>
 #import <HID/HIDElement.h>
 #import <HID/HIDEvent.h>
 #import <HID/HIDEventAccessors.h>

@@ -31,6 +31,7 @@
 #import "APISerializedScriptValue.h"
 #import "InspectorExtensionDelegate.h"
 #import "InspectorExtensionTypes.h"
+#import "JavaScriptEvaluationResult.h"
 #import "WKError.h"
 #import "WKWebViewInternal.h"
 #import <WebCore/ExceptionDetails.h>
@@ -74,11 +75,11 @@
 {
     _extension->createTab(tabName, { tabIconURL.baseURL, tabIconURL.relativeString }, { tabIconURL.baseURL, sourceURL.relativeString }, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(completionHandler)] (Expected<Inspector::ExtensionTabID, Inspector::ExtensionError> result) mutable {
         if (!result) {
-            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error())}], nil);
+            capturedBlock(adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()).createNSString().get() }]).get(), nil);
             return;
         }
 
-        capturedBlock(nil, result.value());
+        capturedBlock(nil, result.value().createNSString().get());
     });
 }
 
@@ -88,18 +89,17 @@
     std::optional<URL> optionalContextSecurityOrigin = contextSecurityOrigin ? std::make_optional(URL(contextSecurityOrigin)) : std::nullopt;
     _extension->evaluateScript(scriptSource, optionalFrameURL, optionalContextSecurityOrigin, useContentScriptContext, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(WTFMove(completionHandler))] (Inspector::ExtensionEvaluationResult&& result) mutable {
         if (!result) {
-            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error())}], nil);
+            capturedBlock(adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()).createNSString().get() }]).get(), nil);
             return;
         }
         
-        auto valueOrException = result.value();
+        auto& valueOrException = result.value();
         if (!valueOrException) {
             capturedBlock(nsErrorFromExceptionDetails(valueOrException.error()).get(), nil);
             return;
         }
 
-        id body = API::SerializedScriptValue::deserialize(valueOrException.value()->internalRepresentation());
-        capturedBlock(nil, body);
+        capturedBlock(nil, valueOrException->toID().get());
     });
 }
 
@@ -107,18 +107,17 @@
 {
     _extension->evaluateScriptInExtensionTab(extensionTabIdentifier, scriptSource, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(WTFMove(completionHandler))] (Inspector::ExtensionEvaluationResult&& result) mutable {
         if (!result) {
-            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()) }], nil);
+            capturedBlock(adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()).createNSString().get() }]).get(), nil);
             return;
         }
         
-        auto valueOrException = result.value();
+        auto& valueOrException = result.value();
         if (!valueOrException) {
             capturedBlock(nsErrorFromExceptionDetails(valueOrException.error()).get(), nil);
             return;
         }
 
-        id body = API::SerializedScriptValue::deserialize(valueOrException.value()->internalRepresentation());
-        capturedBlock(nil, body);
+        capturedBlock(nil, valueOrException->toID().get());
     });
 }
 
@@ -126,7 +125,7 @@
 {
     _extension->navigateTab(extensionTabIdentifier, url, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(WTFMove(completionHandler))] (const std::optional<Inspector::ExtensionError> result) mutable {
         if (result) {
-            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.value()) }]);
+            capturedBlock(adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.value()).createNSString().get() }]).get());
             return;
         }
 
@@ -140,7 +139,7 @@
     std::optional<String> optionalInjectedScript = injectedScript ? std::make_optional(String(injectedScript)) : std::nullopt;
     _extension->reloadIgnoringCache(ignoreCache, optionalUserAgent, optionalInjectedScript, [protectedSelf = retainPtr(self), capturedBlock = makeBlockPtr(WTFMove(completionHandler))] (Inspector::ExtensionVoidResult&& result) mutable {
         if (!result) {
-            capturedBlock([NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()) }]);
+            capturedBlock(adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{ NSLocalizedFailureReasonErrorKey: Inspector::extensionErrorToString(result.error()).createNSString().get() }]).get());
             return;
         }
 
@@ -152,7 +151,7 @@
 
 - (NSString *)extensionID
 {
-    return _extension->identifier();
+    return _extension->identifier().createNSString().autorelease();
 }
 
 @end

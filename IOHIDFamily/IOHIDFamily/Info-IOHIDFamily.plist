@@ -181,6 +181,22 @@
 				<true/>
 			</dict>
 		</dict>
+		<key>IOHIDBTCETimeSyncService</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDBTCETimeSyncService</string>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>IOMatchCategory</key>
+			<string>IOHIDTimeSyncService</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>HIDTimeSyncProtocol</key>
+				<integer>3</integer>
+			</dict>
+		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(IOHIDFAMILY_COPYRIGHT)</string>

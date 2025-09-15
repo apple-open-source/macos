@@ -335,7 +335,7 @@ esp4_input_extended(struct mbuf *m, int off, ifnet_t interface)
 	/*
 	 * check for sequence number.
 	 */
-	_CASSERT(MBUF_TC_MAX <= UINT8_MAX);
+	static_assert(MBUF_TC_MAX <= UINT8_MAX);
 	if (ipsec_chkreplay(seq, sav, (u_int8_t)replay_index)) {
 		; /*okey*/
 	} else {
@@ -779,7 +779,7 @@ noreplaycheck:
 		if (nxt == IPPROTO_TCP || nxt == IPPROTO_UDP) {
 			m->m_pkthdr.csum_flags = CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
 			m->m_pkthdr.csum_data = 0xFFFF;
-			_CASSERT(offsetof(struct pkthdr, csum_data) == offsetof(struct pkthdr, csum_rx_val));
+			static_assert(offsetof(struct pkthdr, csum_data) == offsetof(struct pkthdr, csum_rx_val));
 		}
 
 		if (nxt != IPPROTO_DONE) {
@@ -1540,7 +1540,7 @@ noreplaycheck:
 		if (nxt == IPPROTO_TCP || nxt == IPPROTO_UDP) {
 			m->m_pkthdr.csum_flags = CSUM_DATA_VALID | CSUM_PSEUDO_HDR;
 			m->m_pkthdr.csum_data = 0xFFFF;
-			_CASSERT(offsetof(struct pkthdr, csum_data) == offsetof(struct pkthdr, csum_rx_val));
+			static_assert(offsetof(struct pkthdr, csum_data) == offsetof(struct pkthdr, csum_rx_val));
 		}
 
 		// Input via IPsec interface

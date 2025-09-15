@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,7 +74,7 @@ protected:
         return m_items.at(index).copyRef();
     }
 
-    Ref<PropertyType> insert(unsigned index, Ref<PropertyType>&& newItem) override
+    Ref<PropertyType> insertAt(unsigned index, Ref<PropertyType>&& newItem) override
     {
         ASSERT(index <= size());
 
@@ -89,7 +89,7 @@ protected:
         return at(index);
     }
 
-    Ref<PropertyType> replace(unsigned index, Ref<PropertyType>&& newItem) override
+    Ref<PropertyType> replaceAt(unsigned index, Ref<PropertyType>&& newItem) override
     {
         ASSERT(index < size());
         Ref<PropertyType>& item = m_items[index];
@@ -109,14 +109,14 @@ protected:
         return at(index);
     }
 
-    Ref<PropertyType> remove(unsigned index) override
+    Ref<PropertyType> removeAt(unsigned index) override
     {
         ASSERT(index < size());
         Ref<PropertyType> item = at(index);
 
         // Spec: Detach item.
         item->detach();
-        m_items.remove(index);
+        m_items.removeAt(index);
         return item;
     }
 

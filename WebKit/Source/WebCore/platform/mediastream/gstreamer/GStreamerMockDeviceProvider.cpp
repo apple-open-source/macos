@@ -23,7 +23,9 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
 
+#include "ContextDestructionObserverInlines.h"
 #include "GStreamerMockDevice.h"
+#include "GUniquePtrGStreamer.h"
 #include "MockRealtimeMediaSourceCenter.h"
 #include <wtf/glib/WTFGType.h>
 
@@ -37,7 +39,7 @@ GST_DEBUG_CATEGORY_STATIC(webkitGstMockDeviceProviderDebug);
 
 WEBKIT_DEFINE_TYPE_WITH_CODE(GStreamerMockDeviceProvider, webkit_mock_device_provider, GST_TYPE_DEVICE_PROVIDER, GST_DEBUG_CATEGORY_INIT(webkitGstMockDeviceProviderDebug, "webkitmockdeviceprovider", 0, "Mock Device Provider"))
 
-static GList* webkitMockDeviceProviderProbe([[maybe_unused]] GstDeviceProvider* provider)
+static GList* webkitMockDeviceProviderProbe(GstDeviceProvider* provider)
 {
     if (!MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled()) {
         GST_INFO_OBJECT(provider, "Mock capture sources are disabled, returning empty device list");
@@ -53,14 +55,81 @@ static GList* webkitMockDeviceProviderProbe([[maybe_unused]] GstDeviceProvider* 
         devices = g_list_prepend(devices, webkitMockDeviceCreate(device));
     for (auto& device : sourceCenter.displayDevices())
         devices = g_list_prepend(devices, webkitMockDeviceCreate(device));
+
     devices = g_list_reverse(devices);
     return devices;
 }
 
+static GStreamerMockDeviceProvider* s_provider = nullptr;
+
+GStreamerMockDeviceProvider* webkitGstMockDeviceProviderSingleton()
+{
+    return s_provider;
+}
+
+void webkitGstMockDeviceProviderSwitchDefaultDevice(const CaptureDevice& oldDevice, const CaptureDevice& newDevice)
+{
+    if (!s_provider) {
+        GST_ERROR("Mock device provider not found");
+        return;
+    }
+
+    GRefPtr<GstDevice> oldGstDevice, newGstDevice;
+    GList* devices = gst_device_provider_get_devices(GST_DEVICE_PROVIDER_CAST(s_provider));
+    for (GList* it = devices; it; it = it->next) {
+        auto device = GST_DEVICE_CAST(it->data);
+        GUniquePtr<GstStructure> properties(gst_device_get_properties(device));
+        auto persistentId = gstStructureGetString(properties.get(), "persistent-id"_s);
+        if (persistentId == oldDevice.persistentId())
+            oldGstDevice = device;
+        else if (persistentId == newDevice.persistentId())
+            newGstDevice = device;
+        if (oldGstDevice && newGstDevice)
+            break;
+    }
+    g_list_free_full(devices, gst_object_unref);
+
+    if (!oldGstDevice) {
+        GST_ERROR_OBJECT(s_provider, "Unable to find GStreamer mock device corresponding to old capture device with ID %s", oldDevice.persistentId().utf8().data());
+        return;
+    }
+
+    CaptureDevice previousDefaultDevice = oldDevice;
+    previousDefaultDevice.setIsDefault(false);
+    auto previousDefaultGstDevice = adoptGRef(webkitMockDeviceCreate(previousDefaultDevice));
+    gst_device_provider_device_changed(GST_DEVICE_PROVIDER_CAST(s_provider), previousDefaultGstDevice.get(), oldGstDevice.get());
+
+    if (!newGstDevice) {
+        GST_ERROR_OBJECT(s_provider, "Unable to find GStreamer mock device corresponding to new capture device with ID %s", oldDevice.persistentId().utf8().data());
+        return;
+    }
+
+    CaptureDevice nextDefaultDevice = newDevice;
+    nextDefaultDevice.setIsDefault(true);
+    auto nextDefaultGstDevice = adoptGRef(webkitMockDeviceCreate(nextDefaultDevice));
+    GST_DEBUG_OBJECT(s_provider, "Emitting device-changed notification");
+    gst_device_provider_device_changed(GST_DEVICE_PROVIDER_CAST(s_provider), nextDefaultGstDevice.get(), newGstDevice.get());
+}
+
+static void webkitMockDeviceProviderConstructed(GObject* object)
+{
+    G_OBJECT_CLASS(webkit_mock_device_provider_parent_class)->constructed(object);
+    s_provider = WEBKIT_MOCK_DEVICE_PROVIDER(object);
+}
+
+static void webkitMockDeviceProviderFinalize(GObject* object)
+{
+    s_provider = nullptr;
+    G_OBJECT_CLASS(webkit_mock_device_provider_parent_class)->finalize(object);
+}
+
 static void webkit_mock_device_provider_class_init(GStreamerMockDeviceProviderClass* klass)
 {
-    auto* providerClass = GST_DEVICE_PROVIDER_CLASS(klass);
+    auto gobjectClass = G_OBJECT_CLASS(klass);
+    gobjectClass->constructed = webkitMockDeviceProviderConstructed;
+    gobjectClass->finalize = webkitMockDeviceProviderFinalize;
 
+    auto providerClass = GST_DEVICE_PROVIDER_CLASS(klass);
     providerClass->probe = GST_DEBUG_FUNCPTR(webkitMockDeviceProviderProbe);
 
     gst_device_provider_class_set_static_metadata(providerClass, "WebKit Mock Device Provider", "Source/Audio/Video",

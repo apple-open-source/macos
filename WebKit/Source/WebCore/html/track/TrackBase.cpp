@@ -32,6 +32,7 @@
 #include "TrackListBase.h"
 #include "TrackPrivateBase.h"
 #include "TrackPrivateBaseClient.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/Language.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -105,7 +106,8 @@ TrackListBase* TrackBase::trackList() const
 
 WebCoreOpaqueRoot TrackBase::opaqueRoot()
 {
-    if (auto trackList = this->trackList())
+    // Runs on GC thread.
+    if (SUPPRESS_UNCOUNTED_LOCAL auto* trackList = this->trackList())
         return trackList->opaqueRoot();
     return WebCoreOpaqueRoot { this };
 }
@@ -171,7 +173,7 @@ void TrackBase::setLanguage(const AtomString& language)
 
     m_validBCP47Language = emptyAtom();
 
-    auto context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -187,7 +189,7 @@ void TrackBase::setLanguage(const AtomString& language)
 #if !RELEASE_LOG_DISABLED
 void TrackBase::setLogger(const Logger& logger, uint64_t logIdentifier)
 {
-    m_logger = &logger;
+    m_logger = logger;
     m_logIdentifier = childLogIdentifier(logIdentifier, m_uniqueId);
 }
 
@@ -199,7 +201,7 @@ WTFLogChannel& TrackBase::logChannel() const
 
 void TrackBase::addClientToTrackPrivateBase(TrackPrivateBaseClient& client, TrackPrivateBase& track)
 {
-    if (auto context = scriptExecutionContext()) {
+    if (RefPtr context = scriptExecutionContext()) {
         m_clientRegistrationId = track.addClient([contextIdentifier = context->identifier()](auto&& task) {
             ScriptExecutionContext::ensureOnContextThread(contextIdentifier, WTFMove(task));
         }, client);

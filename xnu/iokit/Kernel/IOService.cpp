@@ -61,6 +61,7 @@
 #include <kern/cs_blobs.h>
 #include <mach/sync_policy.h>
 #include <mach/thread_info.h>
+#include <machine/atomic.h>
 #include <IOKit/assert.h>
 #include <sys/errno.h>
 #include <sys/kdebug.h>
@@ -81,6 +82,7 @@ enum{
 };
 
 #include "IOServicePrivate.h"
+#include "IOServicePMPrivate.h"
 #include "IOKitKernelInternal.h"
 
 // take lockForArbitration before LOCKNOTIFY
@@ -115,7 +117,7 @@ OSDefineMetaClassAndStructors(IOServiceCompatibility, IOService)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static IOPlatformExpert *       gIOPlatform;
-static class IOPMrootDomain *   gIOPMRootDomain;
+class IOPMrootDomain *          gIOPMRootDomain;
 const IORegistryPlane *         gIOServicePlane;
 const IORegistryPlane *         gIOPowerPlane;
 const OSSymbol *                gIODeviceMemoryKey;
@@ -257,7 +259,7 @@ static int                      gNumWaitingThreads;
 static IOLock *                 gIOServiceBusyLock;
 bool                            gCPUsRunning;
 bool                            gIOKitWillTerminate;
-bool                            gInUserspaceReboot;
+atomic_bool                     gInUserspaceReboot;
 
 #define kIOServiceRootMediaParentInvalid ((IOService *) -1UL)
 #if NO_KEXTD
@@ -395,6 +397,9 @@ requireMaxCpuDelay(IOService * service, UInt32 ns, UInt32 delayType);
 static IOReturn
 setLatencyHandler(UInt32 delayType, IOService * target, bool enable);
 
+static bool IOServiceMatchingNotificationHandlerToBlock(void * target __unused,
+    void * refCon, IOService * newService, IONotifier * notifier);
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 IOCoreAnalyticsSendEventProc gIOCoreAnalyticsSendEventProc;
@@ -425,9 +430,10 @@ OSArray             * fMatchingWork;
 OSArray             * fMatchingDelayed;
 IOService           * fSystemPowerAckTo;
 uint32_t              fSystemPowerAckRef;
-uint8_t               fSystemOff;
-uint8_t               fUserServerOff;
-uint8_t               fWaitingUserServers;
+IOService           * fSystemPowerAckTo2;
+uint8_t               fSystemState = kIOServiceSystemStateOn;
+uint8_t               fUserServerSystemState;
+bool                  fWaitingUserServers;
 thread_call_t         fUserServerAckTimer;
 
 void lock();
@@ -435,12 +441,16 @@ void unlock();
 
 void init(IOPMrootDomain * root);
 
+void systemPowerChange(uint8_t newState,
+    IOService * ackTo,
+    uint32_t ackRef,
+    uint32_t * pMaxWaitForReply);
 IOReturn systemPowerChange(
 	void * target,
 	void * refCon,
 	UInt32 messageType, IOService * service,
 	void * messageArgument, vm_size_t argSize);
-
+IOReturn rootWillChangeTo(IOPMPowerFlags flags, unsigned long state);
 bool matchingStart(IOService * service);
 void matchingEnd(IOService * service);
 void userServerAckTimerExpired(void *, void *);
@@ -783,7 +793,7 @@ IOService::start( IOService * provider )
 void
 IOService::stop( IOService * provider )
 {
-	if (reserved->uvars && reserved->uvars->started && reserved->uvars->userServer) {
+	if (reserved->uvars && reserved->uvars->userServer) {
 		reserved->uvars->userServer->serviceStop(this, provider);
 	}
 }
@@ -2274,19 +2284,8 @@ IOService::registerInterest(const OSSymbol * typeOfInterest,
     IOServiceInterestHandlerBlock handler)
 {
 	IONotifier * notify;
-	void       * block;
 
-	block = Block_copy(handler);
-	if (!block) {
-		return NULL;
-	}
-
-	notify = registerInterest(typeOfInterest, &IOServiceInterestHandlerToBlock, NULL, block);
-
-	if (!notify) {
-		Block_release(block);
-	}
-
+	notify = registerInterest(typeOfInterest, &IOServiceInterestHandlerToBlock, NULL, handler);
 	return notify;
 }
 
@@ -2304,7 +2303,11 @@ IOService::registerInterestForNotifier( IONotifier *svcNotify, const OSSymbol * 
 
 	notify->handler = handler;
 	notify->target = target;
-	notify->ref = ref;
+	if (handler == &IOServiceInterestHandlerToBlock) {
+		notify->ref = Block_copy(ref);
+	} else {
+		notify->ref = ref;
+	}
 
 	if ((typeOfInterest != gIOGeneralInterest)
 	    && (typeOfInterest != gIOBusyInterest)
@@ -2745,6 +2748,7 @@ IOService::terminatePhase1( IOOptionBits options )
 	if (startPhase2) {
 		retain();
 		lockForArbitration();
+		__state[1] |= kIOServiceTermPhase2ReadyState;
 		scheduleTerminatePhase2(options);
 		unlockForArbitration();
 		release();
@@ -2817,7 +2821,7 @@ IOService::scheduleTerminatePhase2( IOOptionBits options )
 		(uintptr_t) __state[1],
 		(uintptr_t) options);
 
-	if (__state[1] & kIOServiceTermPhase1State) {
+	if (0 == (__state[1] & kIOServiceTermPhase2ReadyState)) {
 		return;
 	}
 
@@ -3214,6 +3218,8 @@ IOService::terminateWorker( IOOptionBits options )
 				if (doPhase2) {
 					doPhase2 = (0 != (kIOServiceInactiveState & victim->__state[0]));
 					if (doPhase2) {
+						victim->__state[1] |= kIOServiceTermPhase2ReadyState;
+
 						uint64_t regID1 = victim->getRegistryEntryID();
 						IOServiceTrace(
 							IOSERVICE_TERM_TRY_PHASE2,
@@ -4214,7 +4220,7 @@ IOService::probeCandidates( OSOrderedSet * matches )
 						IOLog("%s(0x%qx): matching deferred by %s%s\n",
 						    getName(), getRegistryEntryID(),
 						    symbol ? symbol->getCStringNoCopy() : "",
-						    gInUserspaceReboot ? " in userspace reboot" : "");
+						    IOService::getWillUserspaceReboot() ? " in userspace reboot" : "");
 						// rematching will occur after the IOKit daemon loads all plists
 					}
 					IOLockUnlock(gJobsLock);
@@ -4231,8 +4237,20 @@ IOService::probeCandidates( OSOrderedSet * matches )
 							    inst->getRetainCount());
 						}
 #endif
-						if (!started && inst->propertyExists(gIOServiceMatchDeferredKey)) {
-							matchDeferred = true;
+						if (!started) {
+							if (inst->propertyExists(gIOServiceMatchDeferredKey)) {
+								matchDeferred = true;
+							} else if (inst->reserved->uvars && inst->reserved->uvars->userServer && !inst->reserved->uvars->instantiated &&
+							    (0 != (__state[1] & kIOServiceNeedConfigState))) {
+								// Start failed with no object instantiation
+								// Dext will be rematched as this nub got re-registered
+								// Do not start the next candidate, otherwise the rematched dext might not be able to replace it
+								OSString * bundleID = OSDynamicCast(OSString, inst->getProperty(gIOModuleIdentifierKey));
+								IOLog("%s(0x%qx): stop matching as %s will be relaunched\n",
+								    getName(), getRegistryEntryID(),
+								    bundleID ? bundleID->getCStringNoCopy() : "(null)");
+								matchDeferred = true;
+							}
 						}
 					}
 				}
@@ -4345,8 +4363,14 @@ IOService::willShutdown()
 	OSKext::willShutdown();
 }
 
+bool
+IOService::getWillUserspaceReboot()
+{
+	return os_atomic_load(&gInUserspaceReboot, relaxed);
+}
+
 void
-IOService::userSpaceWillReboot()
+IOService::setWillUserspaceReboot()
 {
 	IOLockLock(gJobsLock);
 #if !NO_KEXTD
@@ -4383,16 +4407,14 @@ IOService::userSpaceWillReboot()
 		}
 	}
 #endif
-	gInUserspaceReboot = true;
+	os_atomic_store(&gInUserspaceReboot, true, relaxed);
 	IOLockUnlock(gJobsLock);
 }
 
 void
 IOService::userSpaceDidReboot()
 {
-	IOLockLock(gJobsLock);
-	gInUserspaceReboot = false;
-	IOLockUnlock(gJobsLock);
+	os_atomic_store(&gInUserspaceReboot, false, relaxed);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -4409,6 +4431,9 @@ IOServicePH::init(IOPMrootDomain * root)
 		gIOPriorityPowerStateInterest, &IOServicePH::systemPowerChange, NULL, NULL);
 
 	assert(fRootNotifier);
+
+	gIOUserResources->PMinit();
+	root->registerInterestedDriver(gIOUserResources);
 
 	fUserServerAckTimer = thread_call_allocate(&IOServicePH::userServerAckTimerExpired, (thread_call_param_t)NULL);
 }
@@ -4463,8 +4488,10 @@ IOServicePH::serverAck(IOUserServer * server)
 	uint32_t    idx;
 	IOService * ackTo;
 	uint32_t    ackToRef;
+	OSArray *   notifyServers;
 
 	ackTo = NULL;
+	notifyServers = NULL;
 	lock();
 	if (server && fUserServersWait) {
 		idx = fUserServersWait->getNextIndexOfObject(server, 0);
@@ -4480,6 +4507,9 @@ IOServicePH::serverAck(IOUserServer * server)
 		ackToRef          = fSystemPowerAckRef;
 		fSystemPowerAckTo = NULL;
 		if (ackTo) {
+			if (ackTo == gIOUserResources) {
+				notifyServers = OSArray::withArray(fUserServers);
+			}
 			thread_call_cancel(fUserServerAckTimer);
 		}
 	}
@@ -4488,8 +4518,22 @@ IOServicePH::serverAck(IOUserServer * server)
 	}
 	unlock();
 
-	if (ackTo) {
-		DKLOG("allowPowerChange\n");
+	if (ackTo == gIOUserResources) {
+		// suspend DK processes all at once since they can talk amongst themselves
+		// after SetPowerState()
+		if (notifyServers) {
+			notifyServers->iterateObjects(^bool (OSObject * obj) {
+				IOUserServer * us;
+				us = (typeof(us))obj;
+				us->systemSuspend();
+				return false;
+			});
+			OSSafeReleaseNULL(notifyServers);
+		}
+		DKLOG("allowPowerChange(2)\n");
+		IOService::getPMRootDomain()->acknowledgePowerChange(gIOUserResources);
+	} else if (ackTo) {
+		DKLOG("allowPowerChange(1)\n");
 		ackTo->allowPowerChange((uintptr_t) ackToRef);
 	}
 }
@@ -4501,7 +4545,7 @@ IOServicePH::matchingStart(IOService * service)
 	bool assertionActive = gIOPMRootDomain->acquireDriverKitMatchingAssertion() == kIOReturnSuccess;
 
 	lock();
-	bool matchNow = !fSystemOff && assertionActive;
+	bool matchNow = (kIOServiceSystemStateOn == fSystemState) && assertionActive;
 	if (matchNow) {
 		idx = fMatchingWork->getNextIndexOfObject(service, 0);
 		if (idx == -1U) {
@@ -4550,20 +4594,20 @@ IOServicePH::matchingEnd(IOService * service)
 	}
 
 
-	if ((fUserServerOff != fSystemOff) && fUserServers->getCount()) {
-		if (fSystemOff) {
+	if ((fUserServerSystemState != fSystemState) && fUserServers->getCount()) {
+		if (IsIOServiceSystemStateOff(fSystemState)) {
 			if (0 == fMatchingWork->getCount()) {
 				fUserServersWait = OSArray::withArray(fUserServers);
 				notifyServers = OSArray::withArray(fUserServers);
-				fUserServerOff = fSystemOff;
+				fUserServerSystemState = fSystemState;
 			}
 		} else {
 			notifyServers = OSArray::withArray(fUserServers);
-			fUserServerOff = fSystemOff;
+			fUserServerSystemState = fSystemState;
 		}
 	}
 
-	if (!fSystemOff && fMatchingDelayed) {
+	if ((kIOServiceSystemStateOn == fSystemState) && fMatchingDelayed) {
 		deferredMatches = fMatchingDelayed;
 		fMatchingDelayed = NULL;
 	}
@@ -4574,13 +4618,14 @@ IOServicePH::matchingEnd(IOService * service)
 		uint32_t sleepType = 0;
 		uint32_t standbyTimer = 0;
 		bool hibernate = false;
-		if (fSystemOff && IOService::getPMRootDomain()->getSystemSleepType(&sleepType, &standbyTimer) == kIOReturnSuccess) {
+		if (IsIOServiceSystemStateOff(fSystemState)
+		    && IOService::getPMRootDomain()->getSystemSleepType(&sleepType, &standbyTimer) == kIOReturnSuccess) {
 			hibernate = (sleepType == kIOPMSleepTypeHibernate);
 		}
 		notifyServers->iterateObjects(^bool (OSObject * obj) {
 			IOUserServer * us;
 			us = (typeof(us))obj;
-			us->systemPower(fSystemOff, hibernate);
+			us->systemPower(fSystemState, hibernate);
 			return false;
 		});
 		OSSafeReleaseNULL(notifyServers);
@@ -4694,6 +4739,58 @@ IOServicePH::serverSlept(void)
 
 TUNABLE(uint32_t, dk_power_state_timeout_ms, "dk_power_state_timeout_ms", 30000);
 
+//
+// Handle system changes:
+//
+// kIOServiceSystemStateOn
+// kIOServiceSystemStateAOT
+// kIOServiceSystemStateOffPhase1 - non-DK user space suspension
+// kIOServiceSystemStateOffPhase2 - DK user space suspension
+//
+
+void
+IOServicePH::systemPowerChange(uint8_t newState,
+    IOService * ackTo,
+    uint32_t ackRef,
+    uint32_t * pMaxWaitForReply)
+{
+	AbsoluteTime deadline;
+
+	IOLog("IOServicePH::systemPowerChange to 0x%x\n", newState);
+
+	switch (newState) {
+	case kIOServiceSystemStateOffPhase1:
+	case kIOServiceSystemStateOffPhase2:
+
+		lock();
+		DKLOG("arming ack timer, %u ms\n", dk_power_state_timeout_ms);
+		clock_interval_to_deadline(dk_power_state_timeout_ms, kMillisecondScale, &deadline);
+		fSystemState       = newState;
+		fSystemPowerAckRef = ackRef;
+		fSystemPowerAckTo  = ackTo;
+		thread_call_enter_delayed(fUserServerAckTimer, deadline);
+		unlock();
+		matchingEnd(NULL);
+
+		*pMaxWaitForReply = dk_power_state_timeout_ms * 2 * 1000;
+		break;
+
+	case kIOServiceSystemStateAOT:
+	case kIOServiceSystemStateOn:
+
+		lock();
+		fSystemState = newState;
+		unlock();
+		matchingEnd(NULL);
+		*pMaxWaitForReply = 0;
+		break;
+
+	default:
+		assert(false);
+		break;
+	}
+}
+
 IOReturn
 IOServicePH::systemPowerChange(
 	void * target,
@@ -4702,52 +4799,29 @@ IOServicePH::systemPowerChange(
 	void * messageArgument, vm_size_t argSize)
 {
 	IOReturn                               ret;
-	IOUserServer                         * us;
 	IOPMSystemCapabilityChangeParameters * params;
-	AbsoluteTime                           deadline;
-
-	us = NULL;
 
 	switch (messageType) {
 	case kIOMessageSystemCapabilityChange:
-
 		params = (typeof params)messageArgument;
 
-		if (kIODKLogPM & gIODKDebug) {
-			IOLog("IOServicePH::kIOMessageSystemCapabilityChange: %s%s 0x%x->0x%x\n",
-			    params->changeFlags & kIOPMSystemCapabilityWillChange ? "will" : "",
-			    params->changeFlags & kIOPMSystemCapabilityDidChange ? "did" : "",
-			    params->fromCapabilities,
-			    params->toCapabilities);
-		}
+		IOLog("IOServicePH::kIOMessageSystemCapabilityChange: %s%s 0x%x->0x%x\n",
+		    params->changeFlags & kIOPMSystemCapabilityWillChange ? "will" : "",
+		    params->changeFlags & kIOPMSystemCapabilityDidChange ? "did" : "",
+		    params->fromCapabilities,
+		    params->toCapabilities);
 
 		if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-		    (params->fromCapabilities & kIOPMSystemCapabilityCPU) &&
-		    ((params->toCapabilities & kIOPMSystemCapabilityCPU) == 0)) {
-			lock();
-			DKLOG("arming ack timer, %u ms\n", dk_power_state_timeout_ms);
-			clock_interval_to_deadline(dk_power_state_timeout_ms, kMillisecondScale, &deadline);
-			fSystemOff         = true;
-			fSystemPowerAckRef = params->notifyRef;
-			fSystemPowerAckTo  = service;
-			thread_call_enter_delayed(fUserServerAckTimer, deadline);
-			unlock();
-
-			matchingEnd(NULL);
-
-			params->maxWaitForReply = dk_power_state_timeout_ms * 2 * 1000;
+		    (params->fromCapabilities & (kIOPMSystemCapabilityCPU | kIOPMSystemCapabilityAOT)) &&
+		    ((params->toCapabilities & (kIOPMSystemCapabilityCPU | kIOPMSystemCapabilityAOT)) == 0)) {
+			systemPowerChange(kIOServiceSystemStateOffPhase1, service, params->notifyRef, &params->maxWaitForReply);
 			ret = kIOReturnSuccess;
 		} else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
-		    ((params->fromCapabilities & kIOPMSystemCapabilityCPU) == 0) &&
-		    (params->toCapabilities & kIOPMSystemCapabilityCPU)) {
-			lock();
-			fSystemOff = false;
-			unlock();
-
-			matchingEnd(NULL);
-
-			params->maxWaitForReply = 0;
-			ret                 = kIOReturnSuccess;
+		    (0 != ((params->fromCapabilities ^ params->toCapabilities)
+		    & (kIOPMSystemCapabilityCPU | kIOPMSystemCapabilityAOT)))) {
+			systemPowerChange((params->toCapabilities & kIOPMSystemCapabilityCPU) ? kIOServiceSystemStateOn : kIOServiceSystemStateAOT,
+			    service, params->notifyRef, &params->maxWaitForReply);
+			ret = kIOReturnSuccess;
 		} else {
 			params->maxWaitForReply = 0;
 			ret                 = kIOReturnSuccess;
@@ -4760,6 +4834,29 @@ IOServicePH::systemPowerChange(
 	}
 
 	return ret;
+}
+
+IOReturn
+IOServicePH::rootWillChangeTo(IOPMPowerFlags flags, unsigned long state)
+{
+	IOReturn ret;
+	uint32_t maxWaitForReply = kIOPMAckImplied;
+
+	if (kIOPMSleepCapability & flags) {
+		systemPowerChange(kIOServiceSystemStateOffPhase2, gIOUserResources, 0, &maxWaitForReply);
+	} else if (kIOPMAOTCapability & flags) {
+		systemPowerChange(kIOServiceSystemStateAOT, NULL, 0, &maxWaitForReply);
+	} else if (kIOPMPowerOn & flags) {
+		systemPowerChange(kIOServiceSystemStateOn, NULL, 0, &maxWaitForReply);
+	}
+	ret = maxWaitForReply;
+	return ret;
+}
+
+bool
+IOSystemStateAOT(void)
+{
+	return kIOServiceSystemStateAOT == IOServicePH::fSystemState;
 }
 
 bool
@@ -4782,6 +4879,29 @@ IOServicePH::checkPMReady(void)
 
 	return ready;
 }
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if DEBUG || DEVELOPMENT
+void
+IOService::__patchProperties(void)
+{
+#if 0
+	if (!strcmp("AppleCentauriManager", getName())) {
+		setProperty(kIOPMAOTAllowKey, kIOPMDriverClassNetwork, 64);
+	}
+	if (!strcmp("CentauriControl", getName())) {
+		setProperty(kIOPMAOTAllowKey, kIOPMDriverClassNetwork, 64);
+	}
+	if (!strcmp("CentauriAlpha", getName())) {
+		setProperty(kIOPMAOTAllowKey, kIOPMDriverClassNetwork, 64);
+	}
+	if (!strcmp("CentauriBeta", getName())) {
+		setProperty(kIOPMAOTAllowKey, kIOPMDriverClassNetwork, 64);
+	}
+#endif
+}
+#endif /* DEBUG || DEVELOPMENT */
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -4966,6 +5086,10 @@ IOService::startCandidate( IOService * service )
 	if (recordTime) {
 		clock_get_uptime(&startTime);
 	}
+
+#if DEBUG || DEVELOPMENT
+	service->__patchProperties();
+#endif /* DEBUG || DEVELOPMENT */
 
 	ok = service->start(this);
 
@@ -5315,6 +5439,9 @@ IOService::setRootMedia(IOService * root)
 	UNLOCKNOTIFY();
 
 	if (unhide) {
+		if (root) {
+			root->addPMDriverClass(kIOPMDriverClassStorage);
+		}
 		publishHiddenMedia(root);
 	}
 }
@@ -5328,6 +5455,9 @@ IOService::canTerminateForReplacement(IOService * client)
 
 	assert(kIOServiceRootMediaParentInvalid != gIOServiceRootMediaParent);
 
+	if (!gIOServiceHideIOMedia) {
+		return false;
+	}
 	if (!client->propertyExists(gIOPrimaryDriverTerminateOptionsKey)) {
 		return false;
 	}
@@ -6309,6 +6439,8 @@ IOService::setNotification(
 		if (handler == &_IOServiceMatchingNotificationHandler) {
 			notify->compatHandler = ((_IOServiceMatchingNotificationHandlerRef *)ref)->handler;
 			notify->ref = ((_IOServiceMatchingNotificationHandlerRef *)ref)->ref;
+		} else if (handler == &IOServiceMatchingNotificationHandlerToBlock) {
+			notify->ref = Block_copy(ref);
 		} else {
 			notify->ref = ref;
 		}
@@ -6506,20 +6638,9 @@ IOService::addMatchingNotification(
 	IOServiceMatchingNotificationHandlerBlock handler)
 {
 	IONotifier * notify;
-	void       * block;
-
-	block = Block_copy(handler);
-	if (!block) {
-		return NULL;
-	}
 
 	notify = addMatchingNotification(type, matching,
-	    &IOServiceMatchingNotificationHandlerToBlock, NULL, block, priority);
-
-	if (!notify) {
-		Block_release(block);
-	}
-
+	    &IOServiceMatchingNotificationHandlerToBlock, NULL, handler, priority);
 	return notify;
 }
 
@@ -7297,6 +7418,16 @@ bool
 IOUserResources::matchPropertyTable( OSDictionary * table )
 {
 	return IOResourcesMatchPropertyTable(this, table);
+}
+
+IOReturn
+IOUserResources::powerStateWillChangeTo(IOPMPowerFlags flags, unsigned long state, IOService * service)
+{
+	assert(service == getPMRootDomain());
+	if (service != getPMRootDomain()) {
+		return kIOReturnSuccess;
+	}
+	return IOServicePH::rootWillChangeTo(flags, state);
 }
 
 // --

@@ -44,6 +44,7 @@
 #include "CSSParser.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserOptions.h"
+#include "CSSSerializationContext.h"
 #include "CalculationCategory.h"
 #include "CalculationValue.h"
 #include "Logging.h"
@@ -55,7 +56,7 @@
 
 namespace WebCore {
 
-RefPtr<CSSCalcValue> CSSCalcValue::parse(CSSParserTokenRange& tokens, const CSSParserContext& context, Calculation::Category category, CSS::Range range, CSSCalcSymbolsAllowed symbolsAllowed, CSSPropertyParserOptions propertyOptions)
+RefPtr<CSSCalcValue> CSSCalcValue::parse(CSSParserTokenRange& tokens, CSS::PropertyParserState& state, Calculation::Category category, CSS::Range range, CSSCalcSymbolsAllowed symbolsAllowed, CSSPropertyParserOptions propertyOptions)
 {
     auto parserOptions = CSSCalc::ParserOptions {
         .category = category,
@@ -71,7 +72,7 @@ RefPtr<CSSCalcValue> CSSCalcValue::parse(CSSParserTokenRange& tokens, const CSSP
         .allowZeroValueLengthRemovalFromSum = false,
     };
 
-    auto tree = CSSCalc::parseAndSimplify(tokens, context, parserOptions, simplificationOptions);
+    auto tree = CSSCalc::parseAndSimplify(tokens, state, parserOptions, simplificationOptions);
     if (!tree)
         return nullptr;
 
@@ -107,6 +108,30 @@ Ref<CSSCalcValue> CSSCalcValue::copySimplified(const CSSToLengthConversionData& 
         .symbolTable = symbolTable,
         .allowZeroValueLengthRemovalFromSum = true,
     };
+
+    if (!canSimplify(m_tree, simplificationOptions))
+        return const_cast<CSSCalcValue&>(*this);
+
+    return create(m_category, m_range, copyAndSimplify(m_tree, simplificationOptions));
+}
+
+Ref<CSSCalcValue> CSSCalcValue::copySimplified(NoConversionDataRequiredToken token) const
+{
+    return copySimplified(token, { });
+}
+
+Ref<CSSCalcValue> CSSCalcValue::copySimplified(NoConversionDataRequiredToken, const CSSCalcSymbolTable& symbolTable) const
+{
+    auto simplificationOptions = CSSCalc::SimplificationOptions {
+        .category = m_category,
+        .range = m_range,
+        .conversionData = std::nullopt,
+        .symbolTable = symbolTable,
+        .allowZeroValueLengthRemovalFromSum = true,
+    };
+
+    if (!canSimplify(m_tree, simplificationOptions))
+        return const_cast<CSSCalcValue&>(*this);
 
     return create(m_category, m_range, copyAndSimplify(m_tree, simplificationOptions));
 }
@@ -162,20 +187,16 @@ CSSUnitType CSSCalcValue::primitiveType() const
     return CSSUnitType::CSS_NUMBER;
 }
 
-bool CSSCalcValue::requiresConversionData() const
-{
-    return m_tree.requiresConversionData;
-}
-
 void CSSCalcValue::collectComputedStyleDependencies(ComputedStyleDependencies& dependencies) const
 {
     CSSCalc::collectComputedStyleDependencies(m_tree, dependencies);
 }
 
-String CSSCalcValue::customCSSText() const
+String CSSCalcValue::customCSSText(const CSS::SerializationContext& context) const
 {
     auto options = CSSCalc::SerializationOptions {
         .range = m_range,
+        .serializationContext = context,
     };
     return CSSCalc::serializationForCSS(m_tree, options);
 }
@@ -294,17 +315,17 @@ Ref<CalculationValue> CSSCalcValue::createCalculationValue(NoConversionDataRequi
 
 void CSSCalcValue::dump(TextStream& ts) const
 {
-    ts << indent << "(" << "CSSCalcValue";
+    ts << indent << '(' << "CSSCalcValue"_s;
 
     TextStream multilineStream;
     multilineStream.setIndent(ts.indent() + 2);
 
-    multilineStream.dumpProperty("minimum value", m_range.min);
-    multilineStream.dumpProperty("maximum value", m_range.max);
-    multilineStream.dumpProperty("expression", customCSSText());
+    multilineStream.dumpProperty("minimum value"_s, m_range.min);
+    multilineStream.dumpProperty("maximum value"_s, m_range.max);
+    multilineStream.dumpProperty("expression"_s, customCSSText(CSS::defaultSerializationContext()));
 
     ts << multilineStream.release();
-    ts << ")\n";
+    ts << ")\n"_s;
 }
 
 TextStream& operator<<(TextStream& ts, const CSSCalcValue& value)

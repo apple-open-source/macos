@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 WTF_EXTERN_C_BEGIN
 
 enum {

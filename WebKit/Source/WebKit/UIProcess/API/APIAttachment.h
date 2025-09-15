@@ -69,7 +69,7 @@ public:
 #if PLATFORM(COCOA)
     void cloneFileWrapperTo(Attachment&);
     bool shouldUseFileWrapperIconForDirectory() const;
-    void doWithFileWrapper(Function<void(NSFileWrapper *)>&&) const;
+    void doWithFileWrapper(NOESCAPE Function<void(NSFileWrapper *)>&&) const;
     void setFileWrapper(NSFileWrapper *);
     void setFileWrapperAndUpdateContentType(NSFileWrapper *, NSString *contentType);
     WTF::String utiType() const;
@@ -113,10 +113,13 @@ private:
     WeakPtr<WebKit::WebPageProxy> m_webPage;
     InsertionState m_insertionState { InsertionState::NotInserted };
     WebCore::AttachmentAssociatedElementType m_associatedElementType { WebCore::AttachmentAssociatedElementType::None };
-    bool m_hasEnclosingImage { false };
+#if PLATFORM(COCOA)
     bool m_isCreatedFromSerializedRepresentation { false };
+#endif
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(Attachment);
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)

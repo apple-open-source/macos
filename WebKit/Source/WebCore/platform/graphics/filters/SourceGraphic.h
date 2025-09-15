@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Alex Mathews <possessedpenguinbob@gmail.com>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +25,9 @@
 
 namespace WebCore {
 
-class SourceGraphic : public FilterEffect {
+class SourceGraphic final : public FilterEffect {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SourceGraphic);
 public:        
     WEBCORE_EXPORT static Ref<SourceGraphic> create(DestinationColorSpace = DestinationColorSpace::SRGB());
 

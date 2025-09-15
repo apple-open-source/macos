@@ -372,6 +372,8 @@ class MemberVariable(object):
             return 'NSPersonNameComponents'
         if value.startswith('Array'):
             return 'NSArray'
+        if value == 'Set':
+            return 'NSSet'
         return value
 
     def ns_type_pointer(self):
@@ -543,10 +545,12 @@ def one_argument_coder_declaration(type, template_argument):
     return result
 
 
-def argument_coder_declarations(serialized_types, skip_nested):
+def argument_coder_declarations(serialized_types, skip_nested, webkit_platform):
     result = []
     for type in serialized_types:
         if type.nested == skip_nested:
+            continue
+        if (webkit_platform is not None and type.webkit_platform != webkit_platform):
             continue
         if type.templates:
             for template in type.templates:
@@ -682,7 +686,7 @@ def generate_header(serialized_types, serialized_enums, additional_forward_decla
     result.append('class Decoder;')
     result.append('class Encoder;')
     result.append('class StreamConnectionEncoder;')
-    result = result + argument_coder_declarations(serialized_types, True)
+    result = result + argument_coder_declarations(serialized_types, True, None)
     result.append('')
     result.append('} // namespace IPC\n')
     result.append('')
@@ -835,7 +839,7 @@ def encode_type(type):
 def decode_cf_type(type):
     result = []
     result.append(f'    auto result = decoder.decode<{type.cf_wrapper_type()}>();')
-    result.append('    if (UNLIKELY(!decoder.isValid()))')
+    result.append('    if (!decoder.isValid()) [[unlikely]]')
     result.append('        return std::nullopt;')
     if type.to_cf_method is not None:
         result.append(f'    return {type.to_cf_method};')
@@ -843,23 +847,34 @@ def decode_cf_type(type):
         result.append('    return result->toCF();')
     return result
 
-def decode_type(type):
+
+def should_decode_ref(member, serialized_types):
+    for serialized_type in serialized_types:
+        if serialized_type.namespace_and_name() == member.type:
+            return serialized_type.members_are_subclasses
+    return False
+
+
+def decode_type(type, serialized_types):
     if type.cf_type is not None:
         return decode_cf_type(type)
 
     result = []
     if type.parent_class is not None:
-        result = result + decode_type(type.parent_class)
+        result = result + decode_type(type.parent_class, serialized_types)
 
     if type.members_are_subclasses:
         result.append(f'    auto type = decoder.decode<{type.subclass_enum_name()}>();')
         result.append('    UNUSED_PARAM(type);')
-        result.append('    if (UNLIKELY(!decoder.isValid()))')
+        result.append('    if (!decoder.isValid()) [[unlikely]]')
         result.append('        return std::nullopt;')
         result.append('')
 
     if type.has_optional_tuple_bits() and type.populate_from_empty_constructor:
         result.append(f'    {type.namespace_and_name()} result;')
+
+    if type.debug_decoding_failure:
+        result.append('    bool addedDecodingFailureIndex = false;')
 
     for i in range(len(type.serialized_members())):
         member = type.serialized_members()[i]
@@ -886,7 +901,7 @@ def decode_type(type):
             result.append(f'    if (type == {type.subclass_enum_name()}::{member.name}) {{')
             typename = f'{member.namespace}::{member.name}'
             result.append(f'        auto result = decoder.decode<Ref<{typename}>>();')
-            result.append('        if (UNLIKELY(!decoder.isValid()))')
+            result.append('        if (!decoder.isValid()) [[unlikely]]')
             result.append('            return std::nullopt;')
             result.append('        return WTFMove(*result);')
             result.append('    }')
@@ -916,20 +931,25 @@ def decode_type(type):
                 result.append('    }')
         else:
             assert len(decodable_classes) == 0
-            result.append(f'    auto {sanitized_variable_name} = decoder.decode<{member.type}>();')
+            if should_decode_ref(member, serialized_types):
+                result.append(f'    auto {sanitized_variable_name} = decoder.decode<Ref<{member.type}>>();')
+            else:
+                result.append(f'    auto {sanitized_variable_name} = decoder.decode<{member.type}>();')
             if 'EncodeRequestBody' in member.attributes:
                 result.append(f'    if ({sanitized_variable_name}) {{')
                 result.append(f'        if (auto {sanitized_variable_name}Body = decoder.decode<IPC::FormDataReference>())')
                 result.append(f'            {sanitized_variable_name}->setHTTPBody({sanitized_variable_name}Body->takeData());')
                 result.append('    }')
             if type.debug_decoding_failure:
-                result.append(f'    if (UNLIKELY(!{sanitized_variable_name}))')
-                result.append(f'        decoder.setIndexOfDecodingFailure({str(i)});')
+                result.append(f'    if (!{sanitized_variable_name} && !addedDecodingFailureIndex) [[unlikely]] {{')
+                result.append(f'        decoder.addIndexOfDecodingFailure({str(i)});')
+                result.append('        addedDecodingFailureIndex = true;')
+                result.append('    }')
         for attribute in member.attributes:
             match = re.search(r'Validator=\'(.*)\'', attribute)
             if match:
                 validator, = match.groups()
-                result.append('    if (UNLIKELY(!decoder.isValid()))')
+                result.append('    if (!decoder.isValid()) [[unlikely]]')
                 result.append('        return std::nullopt;')
                 result.append('')
                 result.append(f'    if (!({validator}))')
@@ -989,7 +1009,7 @@ def construct_type(type, specialization, indentation):
     return result
 
 
-def generate_one_impl(type, template_argument):
+def generate_one_impl(type, template_argument, serialized_types):
     result = []
     name_with_template = type.namespace_and_name()
     if template_argument is not None:
@@ -1045,10 +1065,10 @@ def generate_one_impl(type, template_argument):
     else:
         result.append(f'std::optional<{name_with_template}> ArgumentCoder<{name_with_template}>::decode(Decoder& decoder)')
     result.append('{')
-    result = result + decode_type(type)
+    result = result + decode_type(type, serialized_types)
     if type.cf_type is None:
         if not type.members_are_subclasses:
-            result.append('    if (UNLIKELY(!decoder.isValid()))')
+            result.append('    if (!decoder.isValid()) [[unlikely]]')
             result.append('        return std::nullopt;')
             if type.populate_from_empty_constructor and not type.has_optional_tuple_bits():
                 result.append(f'    {name_with_template} result;')
@@ -1147,17 +1167,17 @@ def generate_impl(serialized_types, serialized_enums, headers, generating_webkit
             result.append(f'#endif // {type.condition}')
         result.append('')
 
-    if not generating_webkit_platform_impl:
-        result = result + argument_coder_declarations(serialized_types, False)
-        result.append('')
+    result = result + argument_coder_declarations(serialized_types, False, generating_webkit_platform_impl)
+    result.append('')
+
     for type in serialized_types:
         if type.webkit_platform != generating_webkit_platform_impl:
             continue
         if type.templates:
             for template in type.templates:
-                result.extend(generate_one_impl(type, template))
+                result.extend(generate_one_impl(type, template, serialized_types))
         else:
-            result.extend(generate_one_impl(type, None))
+            result.extend(generate_one_impl(type, None, serialized_types))
     result.append('} // namespace IPC')
     result.append('')
     result.append('namespace WTF {')
@@ -1257,7 +1277,7 @@ def generate_one_serialized_type_info(type):
         result.append(f'#if {type.condition}')
     result.append(f'        {{ "{type.name_declaration_for_serialized_type_info()}"_s, {{')
     if type.members_are_subclasses:
-        result.append('            { "std::variant<"')
+        result.append('            { "Variant<"')
         for i in range(len(type.members)):
             member = type.members[i]
             if member.condition is not None:
@@ -1648,10 +1668,10 @@ def parse_serialized_types(file):
             declaration = match.groups()[0]
             additional_forward_declarations.append(ConditionalForwardDeclaration(declaration, type_condition))
             continue
-        match = re.search(r'using (.*) = std::variant<$', line)
+        match = re.search(r'using (.*) = Variant<$', line)
         if match:
             line_number = line_number + 1
-            alias_lines = ['std::variant<']
+            alias_lines = ['Variant<']
             while not file_lines[line_number].startswith('>'):
                 alias_lines.append('    ' + file_lines[line_number])
                 line_number = line_number + 1
@@ -1733,7 +1753,7 @@ def generate_webkit_secure_coding_impl(serialized_types, headers):
     result.append('    return [archiver accumulatedDictionary];')
     result.append('}')
     result.append('')
-    result.append('static RetainPtr<NSDictionary> dictionaryForWebKitSecureCodingType(id object)')
+    result.append('[[maybe_unused]] static RetainPtr<NSDictionary> dictionaryForWebKitSecureCodingType(id object)')
     result.append('{')
     result.append('    if (WebKit::conformsToWebKitSecureCoding(object))')
     result.append('        return [object _webKitPropertyListData];')

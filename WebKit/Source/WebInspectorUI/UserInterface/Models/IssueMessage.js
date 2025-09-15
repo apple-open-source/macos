@@ -49,6 +49,7 @@ WI.IssueMessage = class IssueMessage extends WI.Object
             break;
 
         case WI.ConsoleMessage.MessageSource.CSS:
+        case WI.ConsoleMessage.MessageSource.Accessibility:
         case WI.ConsoleMessage.MessageSource.XML:
             this._type = WI.IssueMessage.Type.PageIssue;
             break;
@@ -63,7 +64,6 @@ WI.IssueMessage = class IssueMessage extends WI.Object
 
         case WI.ConsoleMessage.MessageSource.ConsoleAPI:
         case WI.ConsoleMessage.MessageSource.Storage:
-        case WI.ConsoleMessage.MessageSource.Appcache:
         case WI.ConsoleMessage.MessageSource.Rendering:
         case WI.ConsoleMessage.MessageSource.Media:
         case WI.ConsoleMessage.MessageSource.Mediasource:

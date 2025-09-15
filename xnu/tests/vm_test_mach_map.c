@@ -7,6 +7,7 @@
  */
 #include <darwintest.h>
 #include <darwintest_utils.h>
+#include "try_read_write.h"
 
 #include <dlfcn.h>
 #include <fcntl.h>
@@ -34,6 +35,14 @@
 
 #include <sys/mman.h>
 #include <sys/syslimits.h>
+
+#include <mach-o/dyld.h>
+
+#if __has_include(<os/security_config_private.h>)
+#import <os/security_config_private.h>     // for os_security_config_get()
+#endif /* __has_include(<os/security_config_private.h>) */
+
+#include "test_utils.h"
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
@@ -2245,4 +2254,310 @@ T_DECL(mach_vm_remap_new_task_read_port,
 		ret = waitpid(pid, &status, 0);
 		T_EXPECT_EQ_INT(ret, pid, "waitpid: child was stopped or terminated");
 	}
+}
+
+
+static void
+zsm_vm_map(size_t size,
+    int flags,
+    mem_entry_name_port_t port,
+    memory_object_offset_t offset,
+    boolean_t copy,
+    vm_prot_t cur_protection,
+    vm_prot_t max_protection,
+    vm_inherit_t inheritance,
+    mach_vm_address_t *out_addr,
+    size_t *out_size
+    )
+{
+	mach_vm_address_t addr_info = 0;
+	if (!(flags & VM_FLAGS_ANYWHERE)) {
+		flags |= VM_FLAGS_ANYWHERE;
+	}
+
+	cur_protection &= max_protection;
+	kern_return_t kr = mach_vm_map(mach_task_self(), &addr_info, size, 0, flags, port, offset,
+	    copy, cur_protection, max_protection, inheritance);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_vm_map");
+	T_LOG("mapped memory at %llx", addr_info);
+
+	*out_addr = addr_info;
+	*out_size = size;
+}
+
+static mem_entry_name_port_t
+zsm_vm_mach_make_memory_entry(mach_vm_address_t addr, size_t size, int flags,
+    mem_entry_name_port_t parent,
+    kern_return_t expected_kr, bool discard)
+{
+	T_LOG("making memory entry for addr=%llx  size=%zx", addr, size);
+	mem_entry_name_port_t port = 0;
+	kern_return_t kr = mach_make_memory_entry(mach_task_self(), &size, addr, flags, &port, parent);
+	T_ASSERT_EQ(kr, expected_kr, "mach_make_memory_entry expected return %d", kr);
+	if (kr == KERN_SUCCESS) {
+		T_ASSERT_NE(port, 0, "got non zero port");
+		if (discard) {
+			mach_port_deallocate(mach_task_self(), port);
+			port = 0;
+		}
+	}
+	return port;
+}
+
+T_DECL(memory_entry_zero_sized,
+    "Test that creating a zero-sized memory-entry with parent fails correctly")
+{
+	mach_vm_address_t addr = 0;
+	size_t size = 0;
+	kern_return_t kr;
+	zsm_vm_map(0xa7c000,
+	    0,        /* flags */
+	    0,        /* port */
+	    0,        /* offset */
+	    0,        /* copy */
+	    VM_PROT_EXECUTE, VM_PROT_EXECUTE,
+	    0x1,         /* inheritance */
+	    &addr, &size);
+	mem_entry_name_port_t parent_entry = zsm_vm_mach_make_memory_entry(addr, size, 0, 0, KERN_SUCCESS, false);
+
+	zsm_vm_mach_make_memory_entry(0, 0, 0, parent_entry, KERN_INVALID_ARGUMENT, true);
+	zsm_vm_mach_make_memory_entry(0, 1, 0, parent_entry, KERN_SUCCESS, true);
+	zsm_vm_mach_make_memory_entry(1, 0, 0, parent_entry, KERN_SUCCESS, true);
+
+	zsm_vm_mach_make_memory_entry(PAGE_SIZE, 0, 0, parent_entry, KERN_INVALID_ARGUMENT, true);
+	zsm_vm_mach_make_memory_entry(PAGE_SIZE, 1, 0, parent_entry, KERN_SUCCESS, true);
+	zsm_vm_mach_make_memory_entry(PAGE_SIZE + 1, 0, 0, parent_entry, KERN_SUCCESS, true);
+
+	kr = mach_port_deallocate(mach_task_self(), parent_entry);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_port_deallocate");
+	kr = mach_vm_deallocate(mach_task_self(), addr, size);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_vm_deallocate");
+}
+
+T_DECL(memory_entry_null_obj,
+    "Test creating a memory-entry with null vm_object")
+{
+	mach_vm_address_t addr = 0;
+	size_t size = 0;
+	kern_return_t kr = 0;
+	uint8_t value = 0;
+
+	// create an allocation with vm_object == NULL
+	zsm_vm_map(0x604000, /* size */
+	    0,           /* flags */
+	    0,           /* port */
+	    0,           /* offset */
+	    TRUE,         /* copy */
+	    VM_PROT_NONE, VM_PROT_NONE,
+	    0x0,         /* inheritance */
+	    &addr, &size);
+
+	// verify it's NONE
+	bool read_success = try_read_byte(addr, &value, &kr);
+	T_ASSERT_FALSE(read_success, "can't read from NONE address");
+	bool write_succeded = try_write_byte(addr, 42, &kr);
+	T_ASSERT_FALSE(write_succeded, "can't write to NONE address");
+
+	// size 0 entry of the allocated memory - should fail
+	zsm_vm_mach_make_memory_entry(addr, /*size=*/ 0, /*flags=*/ 0x0, /*parent=*/ 0x0, KERN_INVALID_ARGUMENT, true);
+
+	// trying to get a 'copy' entry of a PROT_NONE entry
+	zsm_vm_mach_make_memory_entry(addr, size, /*flags=*/ 0x0, /*parent=*/ 0x0, KERN_PROTECTION_FAILURE, true);
+
+	// get a 'share' entry of a PROT_NONE entry and remap it
+	mem_entry_name_port_t np = zsm_vm_mach_make_memory_entry(addr, size, MAP_MEM_VM_SHARE, 0x0, KERN_SUCCESS, false);
+
+	mach_vm_address_t m_addr = 0;
+	size_t m_size = 0;
+	zsm_vm_map(size,
+	    0,            /* size */
+	    np,
+	    0,            /* offset */
+	    FALSE,        /* copy */
+	    VM_PROT_NONE, VM_PROT_NONE,
+	    0x0,                         /* inheritance */
+	    &m_addr, &m_size);
+
+	// try to accessremapped area
+	read_success = try_read_byte(m_addr, &value, &kr);
+	T_ASSERT_FALSE(read_success, "can't read from NONE address");
+	write_succeded = try_write_byte(m_addr, 42, &kr);
+	T_ASSERT_FALSE(write_succeded, "can't write to NONE address");
+
+	kr = mach_port_deallocate(mach_task_self(), np);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_port_deallocate");
+	kr = mach_vm_deallocate(mach_task_self(), addr, size);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_vm_deallocate");
+	kr = mach_vm_deallocate(mach_task_self(), m_addr, m_size);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_vm_deallocate mapped");
+}
+
+#if __arm64e__
+#define TARGET_CPU_ARM64E true
+#else
+#define TARGET_CPU_ARM64E false
+#endif
+
+T_DECL(vm_region_recurse_tpro_info,
+    "Ensure metadata returned by vm_region_recurse correct reflects TPRO status",
+    T_META_ENABLED(TARGET_CPU_ARM64E),
+    XNU_T_META_SOC_SPECIFIC,
+    T_META_ASROOT(true))
+{
+	T_SETUPBEGIN;
+
+	/* First things first, do nothing unless we're TPRO enabled */
+	if (!(os_security_config_get() & OS_SECURITY_CONFIG_TPRO)) {
+		T_SKIP("Skipping because we're not running under TPRO");
+		return;
+	}
+
+	/* Given an allocation from dyld's heap */
+	const char* tpro_allocation = _dyld_get_image_name(0);
+
+	/* And an allocation from our own heap (which is not TPRO) */
+	mach_vm_address_t non_tpro_allocation;
+	mach_vm_size_t alloc_size = PAGE_SIZE;
+	kern_return_t kr = mach_vm_allocate(
+		mach_task_self(),
+		&non_tpro_allocation,
+		alloc_size,
+		VM_FLAGS_ANYWHERE );
+	T_ASSERT_MACH_SUCCESS(kr, "Allocated non-TPRO region");
+	/* (And write to it to be sure we populate a VM object) */
+	memset((uint8_t*)non_tpro_allocation, 0, alloc_size);
+
+	T_SETUPEND;
+
+	/* When we query the attributes of the region covering the TPRO-enabled buffer */
+	mach_vm_address_t addr = (mach_vm_address_t)tpro_allocation;
+	mach_vm_size_t addr_size = 16;
+	uint32_t nesting_depth = UINT_MAX;
+	mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_V2_COUNT_64;
+	vm_region_submap_info_data_64_t region_info;
+	kr = vm_region_recurse_64(mach_task_self(), (vm_address_t*)&addr, (vm_size_t*)&addr_size, &nesting_depth, (vm_region_recurse_info_t)&region_info, &count);
+
+	/* Then our metadata confirms that the region contains a TPRO entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query TPRO-enabled region");
+	T_ASSERT_TRUE(region_info.flags & VM_REGION_FLAG_TPRO_ENABLED, "Expected metadata to reflect a TPRO entry");
+
+	/* And when we query the same thing via the 'short' info */
+	addr = (mach_vm_address_t)tpro_allocation;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
+	vm_region_submap_short_info_data_64_t short_info;
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&short_info, &count);
+
+	/* Then the short metadata also confirms that the region contains a TPRO entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query TPRO-enabled region");
+	T_ASSERT_TRUE(short_info.flags & VM_REGION_FLAG_TPRO_ENABLED, "Expected metadata to reflect a TPRO entry");
+
+	/* And when we query the attributes of the region covering the non-TPRO allocation */
+	addr = non_tpro_allocation;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_INFO_V2_COUNT_64;
+	memset(&region_info, 0, sizeof(region_info));
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&region_info, &count);
+
+	/* Then our metadata confirm that the region does not contain a TPRO entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query non-TPRO region");
+	T_ASSERT_FALSE(region_info.flags & VM_REGION_FLAG_TPRO_ENABLED, "Expected metadata to reflect no TPRO entry");
+
+	/* And when we query the same thing via the 'short' info */
+	addr = non_tpro_allocation;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
+	memset(&short_info, 0, sizeof(short_info));
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&short_info, &count);
+
+	/* Then the short metadata also confirms that the region does not contain a TPRO entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query non-TPRO region");
+	T_ASSERT_FALSE(short_info.flags & VM_REGION_FLAG_TPRO_ENABLED, "Expected metadata to reflect no TPRO entry");
+
+	/* Cleanup */
+	kr = mach_vm_deallocate(mach_task_self(), non_tpro_allocation, alloc_size);
+	T_ASSERT_MACH_SUCCESS(kr, "deallocate memory");
+}
+
+T_DECL(vm_region_recurse_jit_info,
+    "Ensure metadata returned by vm_region_recurse correct reflects JIT status",
+    XNU_T_META_SOC_SPECIFIC,
+    /* Only attempt to run on macOS so we don't need to worry about JIT policy */
+    T_META_ENABLED(TARGET_OS_OSX),
+    T_META_ASROOT(true))
+{
+	T_SETUPBEGIN;
+
+	/* Given a JIT region */
+	mach_vm_size_t alloc_size = PAGE_SIZE * 4;
+	void* jit_region = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_JIT, -1, 0);
+	T_ASSERT_NE_PTR(jit_region, MAP_FAILED, "MAP_JIT");
+
+	/* And a non-JIT region */
+	mach_vm_address_t non_jit_allocation;
+	kern_return_t kr = mach_vm_allocate(
+		mach_task_self(),
+		&non_jit_allocation,
+		alloc_size,
+		VM_FLAGS_ANYWHERE);
+	T_ASSERT_MACH_SUCCESS(kr, "Allocated non-JIT region");
+	/* (And write to it to be sure we populate a VM object) */
+	memset((uint8_t*)non_jit_allocation, 0, alloc_size);
+
+	T_SETUPEND;
+
+	/* When we query the attributes of the region covering the JIT-enabled buffer */
+	mach_vm_address_t addr = (mach_vm_address_t)jit_region;
+	mach_vm_size_t addr_size = alloc_size;
+	uint32_t nesting_depth = UINT_MAX;
+	mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_V2_COUNT_64;
+	vm_region_submap_info_data_64_t region_info;
+	kr = vm_region_recurse_64(mach_task_self(), (vm_address_t*)&addr, (vm_size_t*)&addr_size, &nesting_depth, (vm_region_recurse_info_t)&region_info, &count);
+
+	/* Then our metadata confirms that the region contains a JIT entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query JIT-enabled region");
+	T_ASSERT_TRUE(region_info.flags & VM_REGION_FLAG_JIT_ENABLED, "Expected metadata to reflect a JIT entry");
+
+	/* And when we query the same thing via the 'short' info */
+	addr = (mach_vm_address_t)jit_region;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
+	vm_region_submap_short_info_data_64_t short_info;
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&short_info, &count);
+
+	/* Then the short metadata also confirms that the region contains a JIT entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query JIT-enabled region");
+	T_ASSERT_TRUE(short_info.flags & VM_REGION_FLAG_JIT_ENABLED, "Expected metadata to reflect a JIT entry");
+
+	/* And when we query the attributes of the region covering the non-JIT allocation */
+	addr = non_jit_allocation;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_INFO_V2_COUNT_64;
+	memset(&region_info, 0, sizeof(region_info));
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&region_info, &count);
+
+	/* Then our metadata confirm that the region does not contain a JIT entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query non-JIT region");
+	T_ASSERT_FALSE(region_info.flags & VM_REGION_FLAG_JIT_ENABLED, "Expected metadata to reflect no JIT entry");
+
+	/* And when we query the same thing via the 'short' info */
+	addr = non_jit_allocation;
+	addr_size = alloc_size;
+	nesting_depth = UINT_MAX;
+	count = VM_REGION_SUBMAP_SHORT_INFO_COUNT_64;
+	memset(&short_info, 0, sizeof(short_info));
+	kr = mach_vm_region_recurse(mach_task_self(), (mach_vm_address_t*)&addr, (mach_vm_size_t*)&addr_size, &nesting_depth, (vm_region_info_t)&short_info, &count);
+
+	/* Then the short metadata also confirms that the region does not contain a JIT entry */
+	T_ASSERT_MACH_SUCCESS(kr, "Query non-JIT region");
+	T_ASSERT_FALSE(short_info.flags & VM_REGION_FLAG_JIT_ENABLED, "Expected metadata to reflect no JIT entry");
+
+	/* Cleanup */
+	kr = mach_vm_deallocate(mach_task_self(), non_jit_allocation, alloc_size);
+	T_ASSERT_MACH_SUCCESS(kr, "deallocate memory");
 }

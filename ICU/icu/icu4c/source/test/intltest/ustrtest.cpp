@@ -77,6 +77,9 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
     TESTCASE_AUTO(TestNullPointers);
     TESTCASE_AUTO(TestUnicodeStringInsertAppendToSelf);
     TESTCASE_AUTO(TestLargeAppend);
+#if APPLE_ICU_CHANGES // rdar://156096279
+    TESTCASE_AUTO(TestLargeMemory);
+#endif
     TESTCASE_AUTO(TestU16StringView);
     TESTCASE_AUTO(TestWStringView);
     TESTCASE_AUTO_END;
@@ -2350,6 +2353,21 @@ void UnicodeStringTest::TestUnicodeStringInsertAppendToSelf() {
     str.insert(2, sub);
     assertEquals("", u"abbcdcde", str);
 }
+
+#if APPLE_ICU_CHANGES // rdar://156096279
+void UnicodeStringTest::TestLargeMemory() {
+#if U_PLATFORM_IS_LINUX_BASED || U_PLATFORM_IS_DARWIN_BASED
+    if(quick) { return; }
+    IcuTestErrorCode status(*this, "TestLargeMemory");
+    constexpr uint32_t len = 2147483643;
+    char16_t *buf = new char16_t[len];
+    if (buf == nullptr) { return; }
+    uprv_memset(buf, 0x4e, len * 2);
+    icu::UnicodeString test(buf, len);
+    delete [] buf;
+#endif
+}
+#endif
 
 void UnicodeStringTest::TestLargeAppend() {
     if(quick) return;

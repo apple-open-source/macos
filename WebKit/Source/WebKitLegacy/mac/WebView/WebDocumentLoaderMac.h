@@ -40,9 +40,9 @@ class ResourceRequest;
 
 class WebDocumentLoaderMac : public WebCore::DocumentLoader {
 public:
-    static Ref<WebDocumentLoaderMac> create(const WebCore::ResourceRequest& request, const WebCore::SubstituteData& data)
+    static Ref<WebDocumentLoaderMac> create(WebCore::ResourceRequest&& request, WebCore::SubstituteData&& data)
     {
-        return adoptRef(*new WebDocumentLoaderMac(request, data));
+        return adoptRef(*new WebDocumentLoaderMac(WTFMove(request), WTFMove(data)));
     }
 
     void setDataSource(WebDataSource *, WebView*);
@@ -53,7 +53,7 @@ public:
     void decreaseLoadCount(WebCore::ResourceLoaderIdentifier);
 
 private:
-    WebDocumentLoaderMac(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
+    WebDocumentLoaderMac(WebCore::ResourceRequest&&, WebCore::SubstituteData&&);
 
     virtual void attachToFrame();
     virtual void detachFromFrame(WebCore::LoadWillContinueInAnotherProcess);

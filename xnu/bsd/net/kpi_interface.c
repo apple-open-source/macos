@@ -55,6 +55,7 @@
 #include <libkern/OSAtomic.h>
 #include <kern/locks.h>
 #include <kern/clock.h>
+#include <kern/uipc_domain.h>
 #include <sys/sockio.h>
 #include <sys/proc.h>
 #include <sys/sysctl.h>
@@ -281,7 +282,8 @@ ifnet_allocate_extended(const struct ifnet_init_eparams *einit0,
 		}
 
 		einit.output = NULL;
-		if (einit.output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+		if (!IFNET_MODEL_IS_VALID(einit.output_sched_model)) {
+			panic("wrong model %u", einit.output_sched_model);
 			return EINVAL;
 		}
 
@@ -569,6 +571,11 @@ ifnet_allocate_extended(const struct ifnet_init_eparams *einit0,
 		}
 
 		/*
+		 * Set the default inband wake packet tagging for the interface family
+		 */
+		init_inband_wake_pkt_tagging_for_family(ifp);
+
+		/*
 		 * Increment the generation count on interface creation
 		 */
 		ifp->if_creation_generation_id = os_atomic_inc(&if_creation_generation_count, relaxed);
@@ -835,7 +842,7 @@ ifnet_set_idle_flags_locked(ifnet_t ifp, u_int32_t new_flags, u_int32_t mask)
 	 * be done at attach time.  Otherwise, if it is called after
 	 * ifnet detach, then it is a no-op.
 	 */
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		ifp->if_idle_new_flags = new_flags;
 		ifp->if_idle_new_flags_mask = mask;
 		return 0;
@@ -875,7 +882,7 @@ ifnet_set_link_quality(ifnet_t ifp, int quality)
 		goto done;
 	}
 
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		err = ENXIO;
 		goto done;
 	}
@@ -913,7 +920,7 @@ ifnet_set_interface_state(ifnet_t ifp,
 		goto done;
 	}
 
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		err = ENXIO;
 		goto done;
 	}
@@ -935,7 +942,7 @@ ifnet_get_interface_state(ifnet_t ifp,
 		goto done;
 	}
 
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		err = ENXIO;
 		goto done;
 	}
@@ -1189,9 +1196,7 @@ ifnet_set_tso_mtu(ifnet_t interface, sa_family_t family, u_int32_t mtuLen)
 		struct ifclassq *ifq = interface->if_snd;
 		ASSERT(ifq != NULL);
 		/* Inform all transmit queues about the new TSO MTU */
-		IFCQ_LOCK(ifq);
-		ifnet_update_sndq(ifq, CLASSQ_EV_LINK_MTU);
-		IFCQ_UNLOCK(ifq);
+		ifclassq_update(ifq, CLASSQ_EV_LINK_MTU, false);
 	}
 
 	return error;
@@ -1478,7 +1483,7 @@ ifnet_set_bandwidths(struct ifnet *ifp, struct if_bandwidths *output_bw,
 	}
 
 	if (output_bw != NULL) {
-		(void) ifnet_set_output_bandwidths(ifp, output_bw, FALSE);
+		(void) ifnet_set_output_bandwidths(ifp, output_bw);
 	}
 
 	return 0;
@@ -1508,8 +1513,7 @@ ifnet_set_link_status_outbw(struct ifnet *ifp)
 }
 
 errno_t
-ifnet_set_output_bandwidths(struct ifnet *ifp, struct if_bandwidths *bw,
-    boolean_t locked)
+ifnet_set_output_bandwidths(struct ifnet *ifp, struct if_bandwidths *bw)
 {
 	struct if_bandwidths old_bw;
 	struct ifclassq *ifq;
@@ -1518,10 +1522,7 @@ ifnet_set_output_bandwidths(struct ifnet *ifp, struct if_bandwidths *bw,
 	VERIFY(ifp != NULL && bw != NULL);
 
 	ifq = ifp->if_snd;
-	if (!locked) {
-		IFCQ_LOCK(ifq);
-	}
-	IFCQ_LOCK_ASSERT_HELD(ifq);
+	IFCQ_LOCK(ifq);
 
 	old_bw = ifp->if_output_bw;
 	if (bw->eff_bw != 0) {
@@ -1545,12 +1546,9 @@ ifnet_set_output_bandwidths(struct ifnet *ifp, struct if_bandwidths *bw,
 	/* Adjust queue parameters if needed */
 	if (old_bw.eff_bw != ifp->if_output_bw.eff_bw ||
 	    old_bw.max_bw != ifp->if_output_bw.max_bw) {
-		ifnet_update_sndq(ifq, CLASSQ_EV_LINK_BANDWIDTH);
+		ifclassq_update(ifq, CLASSQ_EV_LINK_BANDWIDTH, true);
 	}
-
-	if (!locked) {
-		IFCQ_UNLOCK(ifq);
-	}
+	IFCQ_UNLOCK(ifq);
 
 	/*
 	 * If this is a Wifi interface, update the values in
@@ -1673,7 +1671,7 @@ ifnet_set_latencies(struct ifnet *ifp, struct if_latencies *output_lt,
 	}
 
 	if (output_lt != NULL) {
-		(void) ifnet_set_output_latencies(ifp, output_lt, FALSE);
+		(void) ifnet_set_output_latencies(ifp, output_lt);
 	}
 
 	if (input_lt != NULL) {
@@ -1684,8 +1682,7 @@ ifnet_set_latencies(struct ifnet *ifp, struct if_latencies *output_lt,
 }
 
 errno_t
-ifnet_set_output_latencies(struct ifnet *ifp, struct if_latencies *lt,
-    boolean_t locked)
+ifnet_set_output_latencies(struct ifnet *ifp, struct if_latencies *lt)
 {
 	struct if_latencies old_lt;
 	struct ifclassq *ifq;
@@ -1693,10 +1690,7 @@ ifnet_set_output_latencies(struct ifnet *ifp, struct if_latencies *lt,
 	VERIFY(ifp != NULL && lt != NULL);
 
 	ifq = ifp->if_snd;
-	if (!locked) {
-		IFCQ_LOCK(ifq);
-	}
-	IFCQ_LOCK_ASSERT_HELD(ifq);
+	IFCQ_LOCK(ifq);
 
 	old_lt = ifp->if_output_lt;
 	if (lt->eff_lt != 0) {
@@ -1714,12 +1708,9 @@ ifnet_set_output_latencies(struct ifnet *ifp, struct if_latencies *lt,
 	/* Adjust queue parameters if needed */
 	if (old_lt.eff_lt != ifp->if_output_lt.eff_lt ||
 	    old_lt.max_lt != ifp->if_output_lt.max_lt) {
-		ifnet_update_sndq(ifq, CLASSQ_EV_LINK_LATENCY);
+		ifclassq_update(ifq, CLASSQ_EV_LINK_LATENCY, true);
 	}
-
-	if (!locked) {
-		IFCQ_UNLOCK(ifq);
-	}
+	IFCQ_UNLOCK(ifq);
 
 	return 0;
 }
@@ -1777,7 +1768,7 @@ ifnet_set_poll_params(struct ifnet *ifp, struct ifnet_poll_params *p)
 
 	if (ifp == NULL) {
 		return EINVAL;
-	} else if (!ifnet_is_attached(ifp, 1)) {
+	} else if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
@@ -1803,7 +1794,7 @@ ifnet_poll_params(struct ifnet *ifp, struct ifnet_poll_params *p)
 
 	if (ifp == NULL || p == NULL) {
 		return EINVAL;
-	} else if (!ifnet_is_attached(ifp, 1)) {
+	} else if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
@@ -2330,7 +2321,7 @@ ifnet_lladdr_copy_bytes_internal(ifnet_t interface, void *__sized_by(lladdr_len)
 	 * Make sure to accomodate the largest possible
 	 * size of SA(if_lladdr)->sa_len.
 	 */
-	_CASSERT(sizeof(sdlbuf) == (SOCK_MAXADDRLEN + 1));
+	static_assert(sizeof(sdlbuf) == (SOCK_MAXADDRLEN + 1));
 
 	if (interface == NULL || lladdr == NULL) {
 		return EINVAL;
@@ -3283,7 +3274,7 @@ ifnet_set_delegate(ifnet_t ifp, ifnet_t delegated_ifp)
 
 	if (ifp == NULL) {
 		return EINVAL;
-	} else if (!ifnet_is_attached(ifp, 1)) {
+	} else if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
@@ -3307,8 +3298,6 @@ ifnet_set_delegate(ifnet_t ifp, ifnet_t delegated_ifp)
 	}
 	bzero(&ifp->if_delegated, sizeof(ifp->if_delegated));
 	if (delegated_ifp != NULL && ifp != delegated_ifp) {
-		uint32_t        set_eflags;
-
 		ifp->if_delegated.ifp = delegated_ifp;
 		ifnet_reference(delegated_ifp);
 		ifp->if_delegated.type = delegated_ifp->if_type;
@@ -3321,13 +3310,6 @@ ifnet_set_delegate(ifnet_t ifp, ifnet_t delegated_ifp)
 		ifp->if_delegated.ultra_constrained =
 		    delegated_ifp->if_xflags & IFXF_ULTRA_CONSTRAINED ? 1 : 0;
 
-		/*
-		 * Propogate flags related to ECN from delegated interface
-		 */
-		if_clear_eflags(ifp, IFEF_ECN_ENABLE | IFEF_ECN_DISABLE);
-		set_eflags = (delegated_ifp->if_eflags &
-		    (IFEF_ECN_ENABLE | IFEF_ECN_DISABLE));
-		if_set_eflags(ifp, set_eflags);
 		printf("%s: is now delegating %s (type 0x%x, family %u, "
 		    "sub-family %u)\n", ifp->if_xname, delegated_ifp->if_xname,
 		    delegated_ifp->if_type, delegated_ifp->if_family,
@@ -3359,7 +3341,7 @@ ifnet_get_delegate(ifnet_t ifp, ifnet_t *pdelegated_ifp)
 {
 	if (ifp == NULL || pdelegated_ifp == NULL) {
 		return EINVAL;
-	} else if (!ifnet_is_attached(ifp, 1)) {
+	} else if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
@@ -3477,7 +3459,7 @@ ifnet_link_status_report(ifnet_t ifp, const void *__sized_by(buffer_len) buffer,
 	 * Make sure that the interface is attached but there is no need
 	 * to take a reference because this call is coming from the driver.
 	 */
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		ifnet_lock_done(ifp);
 		return ENXIO;
 	}
@@ -3652,7 +3634,7 @@ ifnet_get_unsent_bytes(ifnet_t interface, int64_t *unsent_bytes)
 
 	bytes = *unsent_bytes = 0;
 
-	if (!IF_FULLY_ATTACHED(interface)) {
+	if (!ifnet_is_fully_attached(interface)) {
 		return ENXIO;
 	}
 
@@ -3675,7 +3657,7 @@ ifnet_get_buffer_status(const ifnet_t ifp, ifnet_buffer_status_t *buf_status)
 
 	bzero(buf_status, sizeof(*buf_status));
 
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		return ENXIO;
 	}
 
@@ -3697,7 +3679,7 @@ ifnet_normalise_unsent_data(void)
 	ifnet_head_lock_shared();
 	TAILQ_FOREACH(ifp, &ifnet_head, if_link) {
 		ifnet_lock_exclusive(ifp);
-		if (!IF_FULLY_ATTACHED(ifp)) {
+		if (!ifnet_is_fully_attached(ifp)) {
 			ifnet_lock_done(ifp);
 			continue;
 		}
@@ -3735,4 +3717,47 @@ ifnet_get_low_power_mode(ifnet_t ifp, boolean_t *on)
 
 	*on = ((ifp->if_xflags & IFXF_LOW_POWER) != 0);
 	return 0;
+}
+
+errno_t
+ifnet_set_rx_flow_steering(ifnet_t ifp, boolean_t on)
+{
+	errno_t error = 0;
+
+	if (ifp == NULL) {
+		return EINVAL;
+	}
+
+	if (on) {
+		error = if_set_xflags(ifp, IFXF_RX_FLOW_STEERING);
+	} else {
+		if_clear_xflags(ifp, IFXF_RX_FLOW_STEERING);
+	}
+
+	return error;
+}
+
+errno_t
+ifnet_get_rx_flow_steering(ifnet_t ifp, boolean_t *on)
+{
+	if (ifp == NULL || on == NULL) {
+		return EINVAL;
+	}
+
+	*on = ((ifp->if_xflags & IFXF_RX_FLOW_STEERING) != 0);
+	return 0;
+}
+
+void
+ifnet_enable_cellular_thread_group(ifnet_t ifp)
+{
+	VERIFY(ifp != NULL);
+
+	/* This function can only be called when the ifp is just created and
+	 * not yet attached.
+	 */
+	VERIFY(ifp->if_inp == NULL);
+	VERIFY(ifp->if_refflags & IFRF_EMBRYONIC);
+
+	if_set_xflags(ifp, IFXF_REQUIRE_CELL_THREAD_GROUP);
 }

@@ -43,6 +43,7 @@
  * @abstract
  * String property containing the type of acceleration for pointer.
  * Supported types are:
+ *      <code>kIOHIDMouseAccelerationTypeKey<code>
  *      <code>kIOHIDPointerAccelerationKey</code>
  *      <code>kIOHIDMouseScrollAccelerationKey</code>
  *      <code>kIOHIDTrackpadAccelerationType</code>
@@ -197,5 +198,13 @@
                     If the key is not set then the device will have acceleration applied to it's events by default.
  */
 #define kIOHIDScrollAccelerationSupportKey     "HIDSupportsScrollAcceleration"
+
+/*!
+     @defined kIOHIDEventServiceSensorControlOptionsKey
+     @discussion Properties queried on creation of IOHIDService,  allow filters to alter default behavior for the service.
+     @abstract Property to report bit mask of default controls service should support.
+     @discussion A number  value that represents bit mask of IOHIDServiceSensorControlOptions.
+ */
+#define kIOHIDEventServiceSensorControlOptionsKey  "HIDDefaultSensorControlOptions"
 
 #endif /* IOHIDDeviceTypes_h */

@@ -104,7 +104,7 @@ dbgwrap_status_t
 ml_dbgwrap_halt_cpu(int cpu_index, uint64_t timeout_ns)
 {
 	cpu_data_t *cdp = cpu_datap(cpu_index);
-	if ((cdp == NULL) || (cdp->coresight_base[CORESIGHT_UTT] == 0)) {
+	if ((cdp == NULL) || (cdp->coresight_base[CORESIGHT_UTT] == 0) || (cdp->coresight_base[CORESIGHT_ED] == 0)) {
 		return DBGWRAP_ERR_UNSUPPORTED;
 	}
 
@@ -118,6 +118,23 @@ ml_dbgwrap_halt_cpu(int cpu_index, uint64_t timeout_ns)
 	if (!os_atomic_cmpxchg(&halt_from_cpu, (uint32_t)-1, (unsigned int)curcpu, acq_rel) &&
 	    (halt_from_cpu != (uint32_t)curcpu)) {
 		return DBGWRAP_ERR_INPROGRESS;
+	}
+
+	/* Accessing EDPRSR or DBGWRAP when cluster is powered off would result in LLC bus error. Hence, check
+	 * the cluster power status to make sure these PIO registers are accessible.*/
+	if (!PE_cpu_power_check_kdp(cpu_index)) {
+		return DBGWRAP_WARN_CPU_OFFLINE;
+	}
+
+	/* Ensure memory-mapped coresight registers can be written */
+	*((volatile uint32_t *)(cdp->coresight_base[CORESIGHT_ED] + ARM_DEBUG_OFFSET_DBGLAR)) = ARM_DBG_LOCK_ACCESS_KEY;
+
+	/* A core that is not fully powered (e.g. idling in wfi) can still be halted; the dbgwrap
+	 * register and certain coresight registers such EDPRSR are in the always-on domain and their
+	 * values are retained over ACC power down. And the OS lock defaults to being set but we clear
+	 * it first thing when CPU is up, so use that to detect the offline state of individual CPU. */
+	if (*((volatile uint32_t *)(cdp->coresight_base[CORESIGHT_ED] + EDPRSR_REG_OFFSET)) & EDPRSR_OSLK) {
+		return DBGWRAP_WARN_CPU_OFFLINE;
 	}
 
 	volatile dbgwrap_reg_t *dbgWrapReg = (volatile dbgwrap_reg_t *)(cdp->coresight_base[CORESIGHT_UTT] + DBGWRAP_REG_OFFSET);
@@ -232,19 +249,11 @@ ml_dbgwrap_halt_cpu_with_state(int cpu_index, uint64_t timeout_ns, dbgwrap_threa
 		return DBGWRAP_ERR_UNSUPPORTED;
 	}
 
-	/* Ensure memory-mapped coresight registers can be written */
-	*((volatile uint32_t *)(cdp->coresight_base[CORESIGHT_ED] + ARM_DEBUG_OFFSET_DBGLAR)) = ARM_DBG_LOCK_ACCESS_KEY;
-
 	dbgwrap_status_t status = ml_dbgwrap_halt_cpu(cpu_index, timeout_ns);
 
-	/* A core that is not fully powered (e.g. idling in wfi) can still be halted; the dbgwrap
-	 * register and certain coresight registers such EDPRSR are in the always-on domain.
-	 * However, EDSCR/EDITR are not in the always-on domain and will generate a parity abort
-	 * on read.  EDPRSR can be safely read in all cases, and the OS lock defaults to being set
-	 * but we clear it first thing, so use that to detect the offline state. */
-	if (*((volatile uint32_t *)(cdp->coresight_base[CORESIGHT_ED] + EDPRSR_REG_OFFSET)) & EDPRSR_OSLK) {
+	if (status == DBGWRAP_WARN_CPU_OFFLINE) {
 		bzero(state, sizeof(*state));
-		return DBGWRAP_WARN_CPU_OFFLINE;
+		return status;
 	}
 
 	uint32_t instr;

@@ -31,7 +31,7 @@
 #include "DetachedRTCDataChannel.h"
 #include "Event.h"
 #include "EventTarget.h"
-#include "ExceptionOr.h"
+#include "EventTargetInterfaces.h"
 #include "NetworkSendQueue.h"
 #include "RTCDataChannelHandler.h"
 #include "RTCDataChannelHandlerClient.h"
@@ -49,6 +49,7 @@ namespace WebCore {
 
 class Blob;
 class RTCPeerConnectionHandler;
+template<typename> class ExceptionOr;
 
 class RTCDataChannel final : public RefCounted<RTCDataChannel>, public ActiveDOMObject, public RTCDataChannelHandlerClient, public EventTarget {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RTCDataChannel);
@@ -58,6 +59,7 @@ public:
 
     static Ref<RTCDataChannel> create(ScriptExecutionContext&, std::unique_ptr<RTCDataChannelHandler>&&, String&&, RTCDataChannelInit&&, RTCDataChannelState);
     static Ref<RTCDataChannel> create(ScriptExecutionContext&, RTCDataChannelIdentifier, String&&, RTCDataChannelInit&&, RTCDataChannelState);
+    WEBCORE_EXPORT virtual ~RTCDataChannel();
 
     bool ordered() const { return *m_options.ordered; }
     std::optional<unsigned short> maxPacketLifeTime() const { return m_options.maxPacketLifeTime; }

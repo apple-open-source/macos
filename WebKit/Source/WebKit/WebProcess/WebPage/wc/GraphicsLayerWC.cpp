@@ -106,7 +106,7 @@ public:
     FloatRect coverageRect() const final { return { }; };
     bool tilesWouldChangeForCoverageRect(const FloatRect&) const final { return false; }
     void setTiledScrollingIndicatorPosition(const FloatPoint&) final { }
-    void setTopContentInset(float) final { }
+    void setObscuredContentInsets(const FloatBoxExtent&) final { }
     void setVelocity(const VelocityData&) final { }
     void setTileSizeUpdateDelayDisabledForTesting(bool) final { };
     void setScrollability(OptionSet<Scrollability>) final { }
@@ -142,6 +142,9 @@ public:
     float tilingScaleFactor() const final { return 1; }
     IntRect bounds() const final { return { { }, IntSize(m_owner.size()) }; };
     IntRect boundsWithoutMargin() const final { return bounds(); };
+    void clearObscuredInsetsAdjustments() final { }
+    void obscuredInsetsWillChange(FloatBoxExtent&&) final { }
+    FloatRect adjustedTileClipRectForObscuredInsets(const FloatRect&) const final { return { }; }
 
 private:
     bool m_isInWindow { false };
@@ -538,8 +541,7 @@ void GraphicsLayerWC::flushCompositingState(const FloatRect& passedVisibleRect)
     // passedVisibleRect doesn't contain the scrollbar area. Inflate it.
     FloatRect visibleRect = passedVisibleRect;
     visibleRect.inflate(20.f);
-    TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect));
-    state.setSecondaryQuad(FloatQuad { visibleRect });
+    TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect), FloatQuad { visibleRect });
     recursiveCommitChanges(state);
 }
 
@@ -722,10 +724,10 @@ GraphicsLayerWC::VisibleAndCoverageRects GraphicsLayerWC::computeVisibleAndCover
     if (masksToBounds()) {
         ASSERT(accumulation == TransformState::FlattenTransform);
         // Flatten, and replace the quad in the TransformState with one that is clipped to this layer's bounds.
-        state.flatten();
-        state.setQuad(clipRectForSelf);
         if (state.isMappingSecondaryQuad())
-            state.setSecondaryQuad(FloatQuad { clipRectForSelf });
+            state.reset(clipRectForSelf, clipRectForSelf);
+        else
+            state.reset(clipRectForSelf);
     }
 
     FloatRect coverageRect = clipRectForSelf;

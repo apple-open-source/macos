@@ -74,7 +74,6 @@
 
 #import "CKKSAnalytics.h"
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #endif
@@ -281,7 +280,6 @@
                 values[[NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsNumberOfSyncKeys]] = syncKeyCount;
             }
 
-            BOOL hasTLKs = [view.viewKeyHierarchyState isEqualToString:SecCKKSZoneKeyStateReady];
             BOOL syncedClassARecently = fuzzyDaysSinceClassASync >= 0 && fuzzyDaysSinceClassASync < 7;
             BOOL syncedClassCRecently = fuzzyDaysSinceClassCSync >= 0 && fuzzyDaysSinceClassCSync < 7;
             BOOL incomingQueueIsErrorFree = ckks.lastIncomingQueueOperation.error == nil;
@@ -293,7 +291,15 @@
             NSString* incomingQueueIsErrorFreeKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsIncomingQueueIsErrorFree];
             NSString* outgoingQueueIsErrorFreeKey = [NSString stringWithFormat:@"%@-%@", viewName, CKKSAnalyticsOutgoingQueueIsErrorFree];
 
-            values[hasTLKsKey] = @(hasTLKs);
+            NSError* haveTLKsError = nil;
+            BOOL hasTLKs = [ckks haveTLKsLocally:view error:&haveTLKsError];
+            if(haveTLKsError != nil) {
+                ckksnotice("metrics", view, "Unable to check haveTLKs: %@", haveTLKsError);
+                NSString* errorKey = [NSString stringWithFormat:@"%@-%@-fetchFailed", viewName, CKKSAnalyticsHasTLKs];
+                values[errorKey] = @(haveTLKsError.code);
+            } else {
+                values[hasTLKsKey] = @(hasTLKs);
+            }
             values[syncedClassARecentlyKey] = @(syncedClassARecently);
             values[syncedClassCRecentlyKey] = @(syncedClassCRecently);
             values[incomingQueueIsErrorFreeKey] = @(incomingQueueIsErrorFree);

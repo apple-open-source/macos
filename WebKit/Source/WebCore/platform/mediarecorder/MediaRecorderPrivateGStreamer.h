@@ -24,10 +24,12 @@
 #include "GRefPtrGStreamer.h"
 #include "MediaRecorderPrivate.h"
 #include "SharedBuffer.h"
+#include <gst/app/gstappsink.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Condition.h>
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
+#include <wtf/MediaTime.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
@@ -70,11 +72,11 @@ private:
     GRefPtr<GstEncodingContainerProfile> containerProfile();
     MediaStreamPrivate& stream() const { return m_stream; }
     void processSample(GRefPtr<GstSample>&&);
+    GstFlowReturn handleSample(GstAppSink*, GRefPtr<GstSample>&&);
     void notifyPosition(GstClockTime);
     void notifyEOS();
 
     GRefPtr<GstEncodingProfile> m_audioEncodingProfile;
-    GRefPtr<GstEncodingProfile> m_videoEncodingProfile;
     String m_videoCodec;
     GRefPtr<GstTranscoder> m_transcoder;
     GRefPtr<GstTranscoderSignalAdapter> m_signalAdapter;

@@ -85,7 +85,7 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
         secnotice("keychainitemupgrade", "upgrading persistent refs");
         CFErrorRef upgradeError = nil;
         bool inProgress = false;
-        bool success = SecKeychainUpgradePersistentReferences(&inProgress, &upgradeError);
+        bool success = SecServerKeychainUpgradePersistentReferences(&inProgress, &upgradeError);
         
         if ([self.lockStateTracker isLockedError:(__bridge NSError *)(upgradeError)]) {
             OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade

@@ -50,7 +50,7 @@ public:
     Wasm::TypeIndex typeIndex() const { return m_importableFunction.typeIndex; }
     Wasm::Type type() const { return { Wasm::TypeKind::Ref, typeIndex() }; }
     WasmToWasmImportableFunction::LoadLocation entrypointLoadLocation() const { return m_importableFunction.entrypointLoadLocation; }
-    const uintptr_t* boxedWasmCalleeLoadLocation() const { return m_importableFunction.boxedWasmCalleeLoadLocation; }
+    const CalleeBits* boxedWasmCalleeLoadLocation() const { return m_importableFunction.boxedWasmCalleeLoadLocation; }
     const Wasm::WasmOrJSImportableFunction& importableFunction() const { return m_importableFunction; }
     const Wasm::RTT* rtt() const { return m_importableFunction.rtt; }
     const Wasm::FunctionSignature& signature() const;

@@ -50,7 +50,7 @@
     [ImplementedAs=webkitEnterFullscreen] undefined webkitEnterFullScreen();
     [ImplementedAs=webkitExitFullscreen] undefined webkitExitFullScreen();
 
-    [Conditional=WIRELESS_PLAYBACK_TARGET] attribute boolean webkitWirelessVideoPlaybackDisabled;
+    [Conditional=WIRELESS_PLAYBACK_TARGET, ReflectSetter] attribute boolean webkitWirelessVideoPlaybackDisabled;
 
     // The number of frames that have been decoded and made available for playback.
     [Conditional=MEDIA_STATISTICS] readonly attribute unsigned long webkitDecodedFrameCount;

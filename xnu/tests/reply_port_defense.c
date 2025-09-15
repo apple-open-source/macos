@@ -5,9 +5,9 @@
 #include <spawn.h>
 #include <mach/mach.h>
 #include <sys/sysctl.h>
+#include <sys/csr.h>
 #include <signal.h>
 #include "excserver_protect_state.h"
-#include "../osfmk/ipc/ipc_init.h"
 #include "../osfmk/mach/port.h"
 #include "../osfmk/kern/exc_guard.h"
 #include "exc_helpers.h"
@@ -15,7 +15,6 @@
 #include "cs_helpers.h"
 #include <TargetConditionals.h>
 
-#define MAX_TEST_NUM 10
 #define MAX_ARGV 3
 
 extern char **environ;
@@ -34,6 +33,82 @@ T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_VERSION("IPC"),
 	T_META_TIMEOUT(10),
 	T_META_RUN_CONCURRENTLY(TRUE));
+
+static bool
+check_current_cs_flags(code_signing_config_t expected_cs_config)
+{
+	code_signing_config_t cur_cs_config = 0;
+	size_t cs_config_size = sizeof(cur_cs_config);
+	sysctlbyname("security.codesigning.config", &cur_cs_config, &cs_config_size, NULL, 0);
+	return cur_cs_config & expected_cs_config;
+}
+
+static bool
+unrestricted_debugging()
+{
+	/* AMFI often disables security features if debugging is unrestricted */
+	bool unrestricted_debugging = check_current_cs_flags(CS_CONFIG_UNRESTRICTED_DEBUGGING);
+	if (unrestricted_debugging) {
+		T_LOG("UNRESTRICTED DEBUGGING");
+	}
+	return unrestricted_debugging;
+}
+
+static bool
+sip_disabled()
+{
+#if XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE
+	/* SIP can only be disabled on macOS */
+	bool sip_disabled = csr_check(CSR_ALLOW_UNRESTRICTED_FS) != 0;
+	if (sip_disabled) {
+		T_LOG("SIP DISABLED");
+	}
+	return sip_disabled;
+#else
+	return false;
+#endif
+}
+
+static bool
+ipc_hardening_disabled()
+{
+#if TARGET_OS_OSX || TARGET_OS_BRIDGE
+	/*
+	 * CS_CONFIG_GET_OUT_OF_MY_WAY (enabled via AMFI boot-args)
+	 * disables IPC security features. This boot-arg previously
+	 * caused a headache for developers on macos, who frequently use it for
+	 * testing purposes, because all of their 3rd party apps will
+	 * crash due to being treated as platform code. Unfortunately
+	 * BATS runs with this boot-arg enabled very frequently.
+	 */
+	bool enforcement_disabled = check_current_cs_flags(CS_CONFIG_GET_OUT_OF_MY_WAY);
+	if (enforcement_disabled) {
+		T_LOG("IPC HARDENING ENFORCEMENT IS DISABLED");
+	} else {
+		T_LOG("IPC HARDENING ENABLED");
+	}
+	return enforcement_disabled;
+#else /* TARGET_OS_OSX || TARGET_OS_BRIDGE */
+	/* mach hardening is only disabled by boot-args on macOS */
+	return false;
+#endif
+}
+
+static bool
+is_release_kernel()
+{
+	int kernel_type = 0;
+	size_t kernel_type_size = sizeof(kernel_type);
+	int r;
+	r = sysctlbyname("kern.development", &kernel_type, &kernel_type_size, NULL, 0);
+	if (r < 0) {
+		T_WITH_ERRNO;
+		T_SKIP("could not find \"kern.development\" sysctl");
+	}
+	return kernel_type == 0;
+}
+
+
 
 static mach_port_t
 alloc_exception_port(void)
@@ -116,9 +191,10 @@ catch_mach_exception_raise_identity_protected(
 {
 #pragma unused(exception_port, thread_id, task_id_token)
 
-	T_ASSERT_GT_UINT(codeCnt, 0, "CodeCnt");
+	T_ASSERT_GT_UINT(codeCnt, 1, "CodeCnt");
 
-	T_LOG("Caught exception type: %d code: 0x%llx", exception, codes[0]);
+	T_LOG("Caught %d codes", codeCnt);
+	T_LOG("Caught exception type: %d code[0]: 0x%llx code[1]:0x%llx", exception, codes[0], codes[1]);
 	exception_taken = exception;
 	if (exception == EXC_GUARD) {
 		received_exception_code = EXC_GUARD_DECODE_GUARD_FLAVOR((uint64_t)codes[0]);
@@ -157,6 +233,8 @@ exception_server_thread(void *arg)
 static void
 reply_port_defense(const bool thirdparty_hardened, int test_index, mach_exception_data_type_t expected_exception_code, bool triggers_exception)
 {
+	/* reset exception code before running this test */
+	received_exception_code = 0;
 	int ret = 0;
 
 	uint32_t task_exc_guard = 0;
@@ -234,32 +312,22 @@ T_DECL(reply_port_defense,
     "Test reply port semantics violations",
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
     T_META_CHECK_LEAKS(false),
-    T_META_TAG_VM_NOT_PREFERRED) {
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE)) {
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
 	bool triggers_exception = true;
-	/* The first test is setup as moving immovable receive right of a reply port. */
-	reply_port_defense(true, 0, kGUARD_EXC_IMMOVABLE, triggers_exception);
-	reply_port_defense(false, 0, kGUARD_EXC_IMMOVABLE, triggers_exception);
-
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_IMMOVABLE;
+	int test_num = 0;
 	int rp_defense_max_test_idx = 3;
-	/* Run the reply_port_defense tests 1, 2, and 3 */
-	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_INVALID_RIGHT;
-	for (int i = 1; i <= rp_defense_max_test_idx; i++) {
+	/* Run the reply_port_defense tests 0, 1, 2 */
+	for (int i = test_num; i < rp_defense_max_test_idx; i++) {
 		reply_port_defense(true, i, expected_exception_code, triggers_exception);
 		reply_port_defense(false, i, expected_exception_code, triggers_exception);
 	}
-}
-
-T_DECL(test_move_provisional_reply_port,
-    "provisional reply ports are movable",
-    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
-    T_META_CHECK_LEAKS(false),
-    T_META_ENABLED(TARGET_OS_OSX || TARGET_OS_BRIDGE)) {
-	int test_num = 4;
-	mach_exception_data_type_t expected_exception_code = 0;
-	bool triggers_exception = false;
-
-	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
-	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(true, 3, kGUARD_EXC_INVALID_RIGHT, triggers_exception);
+	reply_port_defense(false, 3, kGUARD_EXC_INVALID_RIGHT, triggers_exception);
 }
 
 T_DECL(test_unentitled_thread_set_exception_ports,
@@ -270,32 +338,12 @@ T_DECL(test_unentitled_thread_set_exception_ports,
 	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_EXCEPTION_BEHAVIOR_ENFORCE;
 	bool triggers_exception = true;
 
-#if TARGET_OS_OSX
-	T_SKIP("Test disabled on macOS due to SIP disabled and AMFI boot args usage on BATS");
-	/*
-	 * CS_CONFIG_GET_OUT_OF_MY_WAY (enabled via AMFI boot-args)
-	 * disables this security feature. This boot-arg previously
-	 * caused a headache for developers on macos, who frequently use it for
-	 * testing purposes, because all of their 3rd party apps will
-	 * crash due to being treated as platform code. Unfortunately
-	 * BATS runs with this boot-arg enabled.
-	 */
-	code_signing_config_t cs_config = 0;
-	size_t cs_config_size = sizeof(cs_config);
-	sysctlbyname("security.codesigning.config", &cs_config, &cs_config_size, NULL, 0);
-	if (cs_config & CS_CONFIG_GET_OUT_OF_MY_WAY) {
-		expected_exception_code = 0;
-		triggers_exception = false;
-		T_LOG("task identity security policy for thread_set_exception_ports"
-		    " disabled due to AMFI boot-args.");
-	} else
-#endif /* TARGET_OS_OSX */
-	{
-		T_LOG("task identity security policy for thread_set_exception_ports enabled");
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
 	}
 
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
-	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+	// reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
 }
 
 T_DECL(test_unentitled_thread_set_state,
@@ -305,12 +353,11 @@ T_DECL(test_unentitled_thread_set_state,
     T_META_ENABLED(false /* rdar://133955889 */))
 {
 	int test_num = 6;
-	mach_exception_data_type_t expected_exception_code = (mach_exception_data_type_t)kGUARD_EXC_THREAD_SET_STATE;
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_THREAD_SET_STATE;
 	bool triggers_exception = true;
-
-#if TARGET_OS_OSX
-	T_SKIP("Test disabled on macOS due to mach hardening opt out");
-#endif /* TARGET_OS_OSX */
 
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
@@ -321,7 +368,10 @@ T_DECL(unentitled_set_exception_ports_pass,
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
     T_META_CHECK_LEAKS(false)) {
 	int test_num = 7;
-	mach_exception_data_type_t expected_exception_code = (mach_exception_data_type_t)0;
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_NONE;
 	bool triggers_exception = false;
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
@@ -331,29 +381,189 @@ T_DECL(unentitled_set_exception_ports_pass,
 T_DECL(kobject_reply_port_defense,
     "sending messages to kobjects without a proper reply port should crash",
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_TAG_VM_PREFERRED,
     T_META_CHECK_LEAKS(false),
-    T_META_ENABLED(!TARGET_OS_OSX)) {     /* disable on macOS due to BATS boot-args */
+    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE)) {         /* disable on macOS due to BATS boot-args */
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
 	int test_num = 9;
-#if __x86_64__
-	mach_exception_data_type_t expected_exception_code = (mach_exception_data_type_t)kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS;
-#else
-	mach_exception_data_type_t expected_exception_code = (mach_exception_data_type_t)kGUARD_EXC_SEND_INVALID_REPLY;
-#endif
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_KOBJECT_REPLY_PORT_SEMANTICS;
 	bool triggers_exception = true;
+
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
 }
 
-T_DECL(test_alloc_provisional_reply_port,
-    "1p is not allowed to create provisional reply ports on iOS+",
+T_DECL(test_alloc_weak_reply_port,
+    "1p is not allowed to create weak reply ports",
     T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
-    T_META_CHECK_LEAKS(false),
-    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE && !TARGET_OS_XR)) {
+    T_META_CHECK_LEAKS(false)) {
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+
 	int test_num = 10;
-	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_PROVISIONAL_REPLY_PORT;
+	mach_exception_data_type_t expected_exception_code;
 	bool triggers_exception = true;
 
+#if TARGET_OS_OSX || TARGET_OS_BRIDGE
+	expected_exception_code = kGUARD_EXC_PROVISIONAL_REPLY_PORT;
+#else
+	expected_exception_code = kGUARD_EXC_INVALID_MPO_ENTITLEMENT;
+#endif /* TARGET_OS_OSX || TARGET_OS_BRIDGE */
+
 	/* rdar://136996362 (iOS+ telemetry for restricting 1P usage of provisional reply port) */
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+T_DECL(test_move_service_port,
+    "service ports are immovable",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false)) {
+	int test_num = 11;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_SERVICE_PORT_VIOLATION_FATAL;
+	bool triggers_exception = true;
+
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+
+T_DECL(test_notification_policy,
+    "registering notifications on an mktimer crashes",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE)) {         /* disable on macOS due to BATS boot-args */
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_INVALID_NOTIFICATION_REQ;
+	bool triggers_exception = true;
+
+	int test_num = 12;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+
+	test_num = 13;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+
+	test_num = 14;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+
+T_DECL(test_reply_port_extract_right_disallowed,
+    "mach_port_extract_right disallowed on reply port",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false)) {
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+
+	int test_num = 15;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_INVALID_RIGHT;
+	bool triggers_exception = true;
+
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+T_DECL(test_mach_task_self_send_movability,
+    "mach_task_self is immovable unless you have called ",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false)) {
+	if (ipc_hardening_disabled()) {
+		T_SKIP("hardening disabled due to boot-args");
+	}
+
+	int test_num = 16;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_IMMOVABLE;
+	bool triggers_exception = true;
+
+	if (sip_disabled() || unrestricted_debugging()) {
+		/*
+		 * see `proc_check_get_movable_control_port`:
+		 * enforcement is always controlled by entitlements and
+		 * unrestricted debugging boot-arg
+		 * or if SIP is disabled
+		 */
+		expected_exception_code = 0;
+		triggers_exception = false;
+	}
+
+	/*
+	 * it should fail on reply_port_defense_client_3P_hardened because it doesn't
+	 * have com.apple.security.get-movable-control-port
+	 */
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	test_num = 17; /* These tests crash the same way */
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+
+	/*
+	 * it should succeed on reply_port_defense_client because it
+	 * has com.apple.security.get-movable-control-port
+	 */
+	test_num = 16;
+	expected_exception_code = 0;
+	triggers_exception = false;
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+	test_num = 17;
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+
+T_DECL(test_send_immovability,
+    "ensure that send immovability is set on ports, even if they are not copied out",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false)) {
+	/* attempt to move ports created by mach port construct */
+
+
+	/* test_move_newly_constructed_port_immovable_send */
+	int test_num = 18;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_IMMOVABLE;
+	bool triggers_exception = true;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+
+	/* test_move_special_reply_port */
+	test_num = 19;
+	expected_exception_code = kGUARD_EXC_IMMOVABLE;
+	triggers_exception = true;
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+T_DECL(test_reply_port_header_disposition,
+    "Ensure only make_send_once is allowed for reply port",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false),
+    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE)) {
+#if TARGET_OS_OSX || TARGET_OS_BRIDGE
+	T_SKIP("disabled on macos");
+#endif
+	int test_num = 20;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_SEND_INVALID_REPLY;
+	bool triggers_exception = true;
+
+	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
+	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
+}
+
+T_DECL(test_service_port_as_exception_port,
+    "Ensure both service and weak service port can be used as exception port",
+    T_META_IGNORECRASHES(".*reply_port_defense_client.*"),
+    T_META_CHECK_LEAKS(false)) {
+	int test_num = 21;
+	mach_exception_data_type_t expected_exception_code = kGUARD_EXC_NONE;
+	bool triggers_exception = false;
+
 	reply_port_defense(true, test_num, expected_exception_code, triggers_exception);
 	reply_port_defense(false, test_num, expected_exception_code, triggers_exception);
 }

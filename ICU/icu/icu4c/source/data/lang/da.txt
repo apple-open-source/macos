@@ -132,6 +132,7 @@ da{
         crs{"seselwa (kreol-fransk)"}
         cs{"tjekkisk"}
         csb{"kasjubisk"}
+        cst{"chochenyo"}
         csw{"swampy cree"}
         cu{"kirkeslavisk"}
         cv{"tjuvasjisk"}
@@ -227,6 +228,7 @@ da{
         hak{"hakka-kinesisk"}
         haw{"hawaiiansk"}
         hax{"sydhaida"}
+        hch{"wixárika"}
         he{"hebraisk"}
         hi{"hindi"}
         hil{"hiligaynon"}
@@ -255,6 +257,7 @@ da{
         inh{"ingush"}
         io{"ido"}
         is{"islandsk"}
+        isc{"iskonawa"}
         it{"italiensk"}
         iu{"inuktitut"}
         ja{"japansk"}
@@ -492,6 +495,7 @@ da{
         sh{"serbokroatisk"}
         shi{"tachelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"tchadisk arabisk"}
         si{"singalesisk"}
         sid{"sidamo"}
@@ -807,13 +811,15 @@ da{
     }
     Types{
         calendar{
+            bangla{"bangla-kalender"}
             buddhist{"buddhistisk kalender"}
             chinese{"kinesisk kalender"}
             coptic{"koptisk kalender"}
-            dangi{"dangi-kalender"}
+            dangi{"koreansk kalender"}
             ethiopic{"etiopisk kalender"}
             ethiopic-amete-alem{"etiopisk amete-alem-kalender"}
             gregorian{"gregoriansk kalender"}
+            gujarati{"gujarati-kalender"}
             hebrew{"jødisk kalender"}
             indian{"indisk nationalkalender"}
             islamic{"hijri-kalendar"}
@@ -823,8 +829,16 @@ da{
             islamic-umalqura{"hijri-kalender (Umm al-Qura)"}
             iso8601{"ISO-8601-kalender"}
             japanese{"japansk kalender"}
+            kannada{"kannada-kalender"}
+            malayalam{"malayalam-kalender"}
+            marathi{"marathi-kalender"}
+            odia{"odia-kalender"}
             persian{"persisk kalender"}
             roc{"kalender for Republikken Kina"}
+            tamil{"tamil-kalender"}
+            telugu{"telugu-kalender"}
+            vietnamese{"vietnamesisk kalender"}
+            vikram{"vikram-kalender"}
         }
         cf{
             account{"format for regnskabsvaluta"}

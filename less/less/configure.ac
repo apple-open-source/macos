@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 
-# Copyright (C) 1984-2011  Mark Nudelman
+# Copyright (C) 1984-2024  Mark Nudelman
 #
 # You may distribute under the terms of either the GNU General Public
 # License or the Less License, as specified in the README file.
@@ -9,13 +9,13 @@
 # contact the author, see the README file.
 
 # Autoconf initialization.
-AC_INIT(less, 1)
+AC_INIT([less],[1])
 AC_CONFIG_SRCDIR([forwback.c])
-AC_CONFIG_HEADER([defines.h])
+AC_CONFIG_HEADERS([defines.h])
 
 # Checks for programs.
 AC_PROG_CC
-AC_ISC_POSIX
+AC_SEARCH_LIBS([strerror],[cposix])
 AC_PROG_GCC_TRADITIONAL
 AC_PROG_INSTALL
 
@@ -35,9 +35,20 @@ AC_CHECK_LIB(termlib, tgetent, [have_termlib=yes], [have_termlib=no])
 # at least on Solaris 10 (2.10)) and in -lintl on SCO Unix.
 AC_SEARCH_LIBS([regcmp], [gen intl PW])
 
+# Checks for header files.
+AC_CHECK_HEADERS_ONCE([ctype.h errno.h fcntl.h inttypes.h limits.h stdckdint.h stdio.h stdlib.h string.h termcap.h ncurses/termcap.h ncursesw/termcap.h termio.h termios.h time.h unistd.h values.h linux/magic.h sys/ioctl.h sys/stream.h sys/types.h sys/wait.h time.h wctype.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_HEADER_STAT
+AC_C_CONST
+AC_TYPE_OFF_T
+AC_TYPE_SIZE_T
+
 # Checks for terminal libraries
 AC_MSG_CHECKING([for working terminal libraries])
 TERMLIBS=
+include_termcap_h=
+if test "x$ac_cv_header_termcap_h" = xyes; then include_termcap_h="#include <termcap.h>"; elif test "x$ac_cv_header_ncurses_termcap_h" = xyes; then include_termcap_h="#include <ncurses/termcap.h>"; elif test "x$ac_cv_header_ncursesw_termcap_h" = xyes; then include_termcap_h="#include <ncursesw/termcap.h>"; fi
 
 # Check for systems where curses is broken.
 curses_broken=0
@@ -52,27 +63,25 @@ fi
 
 if test $curses_broken = 0; then
 
-# -- Try tinfo.
-if test "x$TERMLIBS" = x; then
-  if test $have_tinfo = yes; then
-    TERMLIBS="-ltinfo"
-    SAVE_LIBS=$LIBS
-    LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
-    LIBS=$SAVE_LIBS
-    if test $termok = no; then TERMLIBS=""; fi
-  fi
-fi
-
 # -- Try tinfow.
 if test "x$TERMLIBS" = x; then
   if test $have_tinfow = yes; then
     TERMLIBS="-ltinfow"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
+    LIBS=$SAVE_LIBS
+    if test $termok = no; then TERMLIBS=""; fi
+  fi
+fi
+
+# -- Try tinfo.
+if test "x$TERMLIBS" = x; then
+  if test $have_tinfo = yes; then
+    TERMLIBS="-ltinfo"
+    SAVE_LIBS=$LIBS
+    LIBS="$LIBS $TERMLIBS"
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -84,8 +93,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lxcurses"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -97,8 +105,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lncursesw"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -110,8 +117,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lncurses"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK([#include <termcap.h>], [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -123,8 +129,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lcurses"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -137,8 +142,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lcurses -ltermcap"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -152,8 +156,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-ltermcap"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -165,8 +168,7 @@ if test "x$TERMLIBS" = x; then
     TERMLIBS="-lcurses -ltermlib"
     SAVE_LIBS=$LIBS
     LIBS="$LIBS $TERMLIBS"
-    AC_TRY_LINK(, [tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);],
-      [termok=yes], [termok=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[$include_termcap_h]], [[tgetent(0,0); tgetflag(0); tgetnum(0); tgetstr(0,0);]])],[termok=yes],[termok=no])
     LIBS=$SAVE_LIBS
     if test $termok = no; then TERMLIBS=""; fi
   fi
@@ -178,17 +180,6 @@ if test "x$TERMLIBS" = x; then
 fi
 AC_MSG_RESULT(using $TERMLIBS)
 LIBS="$LIBS $TERMLIBS"
-
-# Checks for header files.
-AC_HEADER_STDC
-AC_CHECK_HEADERS([ctype.h errno.h fcntl.h limits.h stdio.h stdlib.h string.h termcap.h termio.h termios.h time.h unistd.h values.h sys/ioctl.h sys/stream.h wctype.h])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_HEADER_STAT
-AC_C_CONST
-AC_TYPE_OFF_T
-AC_TYPE_SIZE_T
-AC_HEADER_TIME
 
 # Autoheader templates for symbols defined later by AC_DEFINE.
 AH_TEMPLATE([HAVE_GNU_REGEX],
@@ -211,8 +202,6 @@ AH_TEMPLATE([HAVE_REGEXEC2],
 	[])
 AH_TEMPLATE([HAVE_VOID],
 	[Define HAVE_VOID if your compiler supports the "void" type.])
-AH_TEMPLATE([HAVE_FLOAT],
-	[Define HAVE_FLOAT if your compiler supports the "double" type.])
 AH_TEMPLATE([HAVE_CONST],
 	[Define HAVE_CONST if your compiler supports the "const" modifier.])
 AH_TEMPLATE([HAVE_STAT_INO],
@@ -251,65 +240,53 @@ AH_TEMPLATE([SECURE_COMPILE],
 	[Define SECURE_COMPILE=1 to build a secure version of less.])
 
 # Checks for identifiers.
-AC_TYPE_OFF_T
 AC_MSG_CHECKING(for void)
-AC_TRY_COMPILE(, [void *foo = 0;], 
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_VOID)], [AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[void *foo = 0;]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_VOID)],[AC_MSG_RESULT(no)])
 AC_MSG_CHECKING(for const)
-AC_TRY_COMPILE(, [const int foo = 0;], 
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_CONST)], [AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[const int foo = 0;]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_CONST)],[AC_MSG_RESULT(no)])
 AC_MSG_CHECKING(for time_t)
-AC_TRY_COMPILE([#include <time.h>], [time_t t = 0;],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_TIME_T)], [AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[time_t t = 0;]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_TIME_T)],[AC_MSG_RESULT(no)])
 AC_MSG_CHECKING(for st_ino in struct stat)
-AC_TRY_COMPILE([#include <sys/types.h>
-#include <sys/stat.h>],
-  [struct stat s; dev_t dev = s.st_dev; ino_t ino = s.st_ino;],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STAT_INO)], [AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/stat.h>]], [[struct stat s; dev_t dev = s.st_dev; ino_t ino = s.st_ino;]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STAT_INO)],[AC_MSG_RESULT(no)])
 
 # Checks for ANSI function prototypes.
 AC_MSG_CHECKING(for ANSI function prototypes)
-AC_TRY_COMPILE([], [int f(int a) { return a; }],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_ANSI_PROTOS)], [AC_MSG_RESULT(no)])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[int f(int a) { return a; }]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_ANSI_PROTOS)],[AC_MSG_RESULT(no)])
 
 # Checks for library functions.
-AC_TYPE_SIGNAL
-AC_CHECK_FUNCS([fchmod fsync nanosleep poll popen realpath _setjmp sigprocmask sigsetmask snprintf stat system ttyname usleep])
+AC_CHECK_FUNCS([fchmod fsync nanosleep poll popen realpath _setjmp sigprocmask sigsetmask snprintf stat strsignal system ttyname usleep])
 
 # AC_CHECK_FUNCS may not work for inline functions, so test these separately.
 AC_MSG_CHECKING(for memcpy)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_STRING_H
 #include <string.h>
-#endif], [memcpy(0,0,0);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MEMCPY)], [AC_MSG_RESULT(no)])
+#endif]], [[memcpy(0,0,0);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_MEMCPY)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for strchr)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_STRING_H
 #include <string.h>
-#endif], [strchr("x",'x');],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRCHR)], [AC_MSG_RESULT(no)])
+#endif]], [[strchr("x",'x');]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRCHR)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for strstr)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_STRING_H
 #include <string.h>
-#endif], [strstr("x","x");],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRSTR)], [AC_MSG_RESULT(no)])
+#endif]], [[strstr("x","x");]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRSTR)],[AC_MSG_RESULT(no)])
 
 # Some systems have termios.h but not the corresponding functions.
 AC_CHECK_FUNC(tcgetattr, AC_DEFINE(HAVE_TERMIOS_FUNCS))
 
 AC_MSG_CHECKING(for fileno)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_STDIO_H
 #include <stdio.h>
-#endif], [static int x; x = fileno(stdin);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_FILENO)], [AC_MSG_RESULT(no)])
+#endif]], [[static int x; x = fileno(stdin);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_FILENO)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for strerror)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_STDIO_H
 #include <stdio.h>
 #endif
@@ -318,88 +295,66 @@ AC_TRY_LINK([
 #endif
 #if HAVE_ERRNO_H
 #include <errno.h>
-#endif], [static char *x; x = strerror(0);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRERROR)], [AC_MSG_RESULT(no)])
+#endif]], [[static char *x; x = strerror(0);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_STRERROR)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for sys_errlist)
-AC_TRY_LINK(, [extern char *sys_errlist[]; static char **x; x = sys_errlist;], 
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SYS_ERRLIST)], [AC_MSG_RESULT(no)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[extern char *sys_errlist[]; static char **x; x = sys_errlist;]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SYS_ERRLIST)],[AC_MSG_RESULT(no)])
 
 AC_CHECK_TYPES([sigset_t],,,[#include <signal.h>])
 
 AC_MSG_CHECKING(for sigemptyset)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <signal.h>
-], [sigset_t s; sigemptyset(&s);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SIGEMPTYSET)], [AC_MSG_RESULT(no)])
+]], [[sigset_t s; sigemptyset(&s);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_SIGEMPTYSET)],[AC_MSG_RESULT(no)])
 
 have_errno=no
 AC_MSG_CHECKING(for errno)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_ERRNO_H
 #include <errno.h>
-#endif], [static int x; x = errno;], 
-  [AC_MSG_RESULT(yes - in errno.h); AC_DEFINE(HAVE_ERRNO) have_errno=yes])
+#endif]], [[static int x; x = errno;]])],[AC_MSG_RESULT(yes - in errno.h); AC_DEFINE(HAVE_ERRNO) have_errno=yes],[])
 if test $have_errno = no; then
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_ERRNO_H
 #include <errno.h>
-#endif], [extern int errno; static int x; x = errno;], 
-  [AC_MSG_RESULT(yes - must define); AC_DEFINE(HAVE_ERRNO) AC_DEFINE(MUST_DEFINE_ERRNO)],
-  [AC_MSG_RESULT(no)])
+#endif]], [[extern int errno; static int x; x = errno;]])],[AC_MSG_RESULT(yes - must define); AC_DEFINE(HAVE_ERRNO) AC_DEFINE(MUST_DEFINE_ERRNO)],[AC_MSG_RESULT(no)])
 fi
 
 AC_MSG_CHECKING(for locale)
-AC_TRY_LINK([#include <locale.h>
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <locale.h>
 #include <ctype.h>
-#include <langinfo.h>], [setlocale(LC_CTYPE,""); isprint(0); iscntrl(0);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LOCALE)], [AC_MSG_RESULT(no)])
+#include <langinfo.h>]], [[setlocale(LC_CTYPE,""); isprint(0); iscntrl(0);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_LOCALE)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for ctype functions)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #if HAVE_CTYPE_H
 #include <ctype.h>
-#endif], [static int x; x = isupper(x); x = tolower(x); x = toupper(x);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_UPPER_LOWER)], [AC_MSG_RESULT(no)])
+#endif]], [[static int x; x = isupper(x); x = tolower(x); x = toupper(x);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_UPPER_LOWER)],[AC_MSG_RESULT(no)])
 
 AC_MSG_CHECKING(for wctype functions)
-AC_TRY_LINK([#include <wctype.h>], [iswlower(0); iswupper(0); towlower(0); towupper(0);],
-  [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_WCTYPE)], [AC_MSG_RESULT(no)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <wctype.h>]], [[iswlower(0); iswupper(0); towlower(0); towupper(0);]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_WCTYPE)],[AC_MSG_RESULT(no)])
 
 # Checks for external variable ospeed in the termcap library.
 have_ospeed=no
 AC_MSG_CHECKING(termcap for ospeed)
-AC_TRY_LINK([
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
 #if HAVE_TERMIOS_H
 #include <termios.h>
 #endif
 #if HAVE_TERMCAP_H
 #include <termcap.h>
-#endif], [ospeed = 0;],
-[AC_MSG_RESULT(yes - in termcap.h); AC_DEFINE(HAVE_OSPEED) have_ospeed=yes])
+#endif]], [[ospeed = 0;]])],[AC_MSG_RESULT(yes - in termcap.h); AC_DEFINE(HAVE_OSPEED) have_ospeed=yes],[])
 if test $have_ospeed = no; then
-AC_TRY_LINK(, [extern short ospeed; ospeed = 0;], 
-  [AC_MSG_RESULT(yes - must define); AC_DEFINE(HAVE_OSPEED) AC_DEFINE(MUST_DEFINE_OSPEED)],
-  [AC_MSG_RESULT(no)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[]], [[extern short ospeed; ospeed = 0;]])],[AC_MSG_RESULT(yes - must define); AC_DEFINE(HAVE_OSPEED) AC_DEFINE(MUST_DEFINE_OSPEED)],[AC_MSG_RESULT(no)])
 fi
 
 # Compile in secure mode?
 AC_ARG_WITH(secure,
   [  --with-secure           Compile in secure mode],
-  AC_DEFINE(SECURE_COMPILE, 1), AC_DEFINE(SECURE_COMPILE, 0))
-
-# Should we use floating point?
-AC_MSG_CHECKING(for floating point)
-AC_ARG_WITH(no-float,
-  [  --with-no-float         Do not use floating point],
-  WANT_NO_FLOAT=1, WANT_NO_FLOAT=0)
-if test $WANT_NO_FLOAT = 0; then
-  AC_TRY_LINK(, [double f1 = 12.5; double f2 = f1*f1/2.5;], 
-    [AC_MSG_RESULT(yes); AC_DEFINE(HAVE_FLOAT)], [AC_MSG_RESULT(no)])
-else
-  AC_MSG_RESULT(disabled by user)
-fi
+  AC_DEFINE(SECURE_COMPILE, 1)
+  AC_SUBST(SECURE_COMPILE,1), AC_DEFINE(SECURE_COMPILE, 0)
+  AC_SUBST(SECURE_COMPILE,0))
 
 # Checks for regular expression functions.
 have_regex=no
@@ -417,30 +372,27 @@ if test $WANT_REGEX = auto -o $WANT_REGEX = posix; then
 # Some versions of Solaris have a regcomp() function, but it doesn't work!
 # So we run a test program.  If we're cross-compiling, do it the old way.
 AC_MSG_CHECKING(for POSIX regcomp)
-AC_TRY_RUN([
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <sys/types.h>
 #include <regex.h>
-main() { regex_t r; regmatch_t rm; char *text = "xabcy";
-if (regcomp(&r, "abc", 0)) exit(1);
-if (regexec(&r, text, 1, &rm, 0)) exit(1);
+int main() { regex_t r; regmatch_t rm; char *text = "xabcy";
+if (regcomp(&r, "abc", 0)) return (1);
+if (regexec(&r, text, 1, &rm, 0)) return (1);
 #ifndef __WATCOMC__
-if (rm.rm_so != 1) exit(1); /* check for correct offset */
+if (rm.rm_so != 1) return (1); /* check for correct offset */
 #else
-if (rm.rm_sp != text + 1) exit(1); /* check for correct offset */
+if (rm.rm_sp != text + 1) return (1); /* check for correct offset */
 #endif
-exit(0); }],
-  have_posix_regex=yes, have_posix_regex=no, have_posix_regex=unknown)
+return (0); }]])],[have_posix_regex=yes],[have_posix_regex=no],[have_posix_regex=unknown])
 if test $have_posix_regex = yes; then
   AC_MSG_RESULT(yes)
   AC_DEFINE(HAVE_POSIX_REGCOMP) supported_regex="$supported_regex posix"
   have_regex=yes
 elif test $have_posix_regex = unknown; then
-  AC_TRY_LINK([
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[
 #include <sys/types.h>
-#include <regex.h>],
-  [regex_t *r; regfree(r);],
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_POSIX_REGCOMP) have_regex=yes; supported_regex="$supported_regex posix")
+#include <regex.h>]], [[regex_t *r; regfree(r);]])],[AC_MSG_RESULT(yes)
+  AC_DEFINE(HAVE_POSIX_REGCOMP) have_regex=yes; supported_regex="$supported_regex posix"],[])
 else
   AC_MSG_RESULT(no)
 fi
@@ -478,9 +430,8 @@ fi
 if test $have_regex = no; then
 if test $WANT_REGEX = auto -o $WANT_REGEX = regcomp; then
 AC_MSG_CHECKING(for V8 regcomp)
-AC_TRY_LINK([
-#include "regexp.h"], [regcomp("");],
-[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_V8_REGCOMP) have_regex=yes; supported_regex="$supported_regex regcomp"],[AC_MSG_RESULT(no)])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include "regexp.h"]], [[regcomp("");]])],[AC_MSG_RESULT(yes); AC_DEFINE(HAVE_V8_REGCOMP) have_regex=yes; supported_regex="$supported_regex regcomp"],[AC_MSG_RESULT(no)])
 fi
 fi
 
@@ -595,12 +546,18 @@ AH_TOP([
  * PIPEC is 1 if you wish to have the "|" command
  * which allows the user to pipe data into a shell command.
  */
-#define	PIPEC		(!SECURE)
+#define	PIPEC		(!SECURE && HAVE_POPEN)
 
 /*
  * LOGFILE is 1 if you wish to allow the -o option (to create log files).
  */
 #define	LOGFILE		(!SECURE)
+
+/*
+ * OSC8_SEARCH is 1 if you wish to allow the ^O^O and related commands
+ * (to open OSC8 hyperlinks).
+ */
+#define OSC8_LINK	1
 
 /*
  * GNU_OPTIONS is 1 if you wish to support the GNU-style command
@@ -627,6 +584,7 @@ AH_TOP([
 #define	LESSKEYFILE		".less"
 #define	LESSKEYFILE_SYS		SYSDIR "/sysless"
 #define	DEF_LESSKEYINFILE	".lesskey"
+#define	LESSKEYINFILE_SYS	SYSDIR "/syslesskey"
 #define LESSHISTFILE		".lesshst"
 
 
@@ -699,6 +657,9 @@ AH_TOP([
 /* Define to 1 if you have the strstr() function. */
 #define HAVE_STRSTR 1
 
+/* Define to 1 to support reading lesskey source files (not just binary). */
+#define HAVE_LESSKEYSRC 1
+
 /*
  * Sizes of various buffers.
  */
@@ -723,6 +684,9 @@ AH_TOP([
 #define	TAGLINE_SIZE	1024	/* Max size of line in tags file */
 #define	TABSTOP_MAX	128	/* Max number of custom tab stops */
 #endif
+
+/* Define as the return type of signal handlers (int or void).  */
+#define RETSIGTYPE void
 
 /* Settings automatically determined by configure.  */
 ])

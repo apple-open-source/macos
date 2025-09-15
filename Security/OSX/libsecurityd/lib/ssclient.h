@@ -49,6 +49,9 @@ namespace SecurityServer {
 
 #endif //__cplusplus
 
+#define LATEST_SERVER_VERSION 1
+#define SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT 1
+#define SERVER_MACH_VERSION_NO_VERSION_GIVEN 0
 
 //
 // Unique-identifier blobs for key objects
@@ -199,6 +202,17 @@ public:
     void lockAll(bool forSleep);
     void unlock(DbHandle db);
     void unlock(DbHandle db, const CssmData &passPhrase);
+
+    // for indirect unlocking via DP keychain
+    void unlockKeybag(DbHandle db, const CssmData &passphrase);
+    KeyHandle pushForLaterUnlock(const CssmData &passphrase);
+    void unlock(DbHandle db, const KeyHandle kh);
+    void changePassphrase(DbHandle db, const KeyHandle kh);
+    void changeKeybagPassphrase(DbHandle db, const CssmData &oldPassphrase, const CssmData &newPassphrase);
+    KeyHandle generateDerivedEntropy(const CssmData &salt, const CssmData &passphrase);
+    void releaseHandle(const KeyHandle kh);
+    void getDerivedEntropy(const KeyHandle kh, CssmData& entropy);
+
     void stashDb(DbHandle db);
     void stashDbCheck(DbHandle db);
     bool isLocked(DbHandle db);
@@ -367,6 +381,7 @@ public:
 	
 private:
 	static Port findSecurityd();
+	static uint32_t getServerVersion(Port serverPort);
 	void getAcl(AclKind kind, GenericHandle key, const char *tag,
 		uint32 &count, AclEntryInfo * &info, Allocator &alloc);
 	void changeAcl(AclKind kind, GenericHandle key,
@@ -394,6 +409,7 @@ private:
 		Thread() : registered(false), notifySeq(0) { }
 		operator bool() const { return registered; }
 		
+		ReceivePort receivePort;	// dedicated reply port (send right held by SecurityServer)
 		ReplyPort replyPort;	// dedicated reply port (send right held by SecurityServer)
         bool registered;		// has been registered with SecurityServer
 		uint32 notifySeq; // notification sequence number
@@ -404,6 +420,7 @@ private:
 		Port serverPort;
 		RefPointer<OSXCode> myself;
 		ThreadNexus<Thread> thread;
+		uint32_t serverVersion;
 	};
 
 	static ModuleNexus<Global> mGlobal;

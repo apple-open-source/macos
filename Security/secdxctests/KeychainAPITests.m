@@ -308,7 +308,6 @@
     XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecParam, @"Should have failed to add item by ref");
 #endif
 }
-
 - (void)testInetReturnRef
 {
     NSDictionary* addQuery =
@@ -409,7 +408,7 @@ static void SecDbTestCorruptionHandler(void)
     self.keychainDirectoryPrefix = corruptedKeychainPath;
 
      secd_test_setup_temp_keychain([corruptedKeychainPath UTF8String], ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+        CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
 
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
             int fd = open(keychain_path, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -439,7 +438,7 @@ static void SecDbTestCorruptionHandler(void)
     SecDbResetCorruptionExitHandler();
     CFReleaseNull(result);
 
-    NSString* markerpath = [NSString stringWithFormat:@"%@-iscorrupt", CFBridgingRelease(__SecKeychainCopyPath())];
+    NSString* markerpath = [NSString stringWithFormat:@"%@-iscorrupt", CFBridgingRelease(SecServerKeychainCopyPath())];
     struct stat info = {};
     XCTAssertEqual(stat([markerpath UTF8String], &info), 0, "Unable to stat corruption marker: %{darwin.errno}d", errno);
 }
@@ -485,7 +484,7 @@ static void SecDbTestCorruptionHandler(void)
 
     XCTAssertEqual(SecItemDelete((__bridge CFDictionaryRef)query), errSecSuccess, @"Should have deleted item from keychain");
 
-    CFStringRef keychainPath = __SecKeychainCopyPath();
+    CFStringRef keychainPath = SecServerKeychainCopyPath();
     CFStringRef corruptFilename = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@-iscorrupt"), keychainPath);
 
     CFStringPerformWithCString(corruptFilename, ^(const char *filename) {
@@ -851,7 +850,7 @@ static void SecDbTestCorruptionHandler(void)
     };
 
     __block CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, &cferror, ^bool {
             SecDbItemRef item = SecDbItemCreateWithAttributes(NULL, kc_class_with_name(kSecClassGenericPassword), (__bridge CFDictionaryRef)addQuery, KEYBAG_DEVICE, &cferror);
 
@@ -905,7 +904,7 @@ static void SecDbTestCorruptionHandler(void)
 
     // Modify the cdat/mdat columns in the keychain db
     __block CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         return kc_transaction_type(dbt, kSecDbExclusiveTransactionType, &cferror, ^bool {
             CFErrorRef updateError = NULL;
 
@@ -1205,7 +1204,7 @@ static void SecDbTestCorruptionHandler(void)
         .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
     };
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassInternetPassword,
         (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
         (id)kSecAttrAccount : @"TestAccount",
@@ -1220,7 +1219,7 @@ static void SecDbTestCorruptionHandler(void)
                                      (id)kSecReturnAttributes : @YES,
                                      (id)kSecMatchLimit : (id)kSecMatchLimitOne
     };
-    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
+    XCTAssertEqual(SecServerItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
     XCTAssertNil((__bridge id)error, @"error should be nil");
     XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
     XCTAssertTrue(isDictionary(result), "result should be a dictionary");
@@ -1235,7 +1234,7 @@ static void SecDbTestCorruptionHandler(void)
                        (id)kSecReturnAttributes : @YES,
                        (id)kSecMatchLimit : (id)kSecMatchLimitOne
     };
-    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
+    XCTAssertEqual(SecServerItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), true, @"Should have found item in keychain");
     XCTAssertNil((__bridge id)error, @"error should be nil");
     XCTAssertNotNil((__bridge id)result, @"Should have received a dictionary back from SecItemCopyMatching");
     XCTAssertTrue(isDictionary(result), "result should be a dictionary");
@@ -1251,7 +1250,7 @@ static void SecDbTestCorruptionHandler(void)
                        (id)kSecReturnAttributes : @YES,
                        (id)kSecMatchLimit : (id)kSecMatchLimitOne
     };
-    XCTAssertEqual(_SecItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), false, @"Should not found item in keychain");
+    XCTAssertEqual(SecServerItemCopyMatching((__bridge CFDictionaryRef)findHostQuery, &client, &result, &error), false, @"Should not found item in keychain");
     XCTAssertNotNil((__bridge id)error, @"error should be populated");
     XCTAssertEqual(errSecItemNotFound, CFErrorGetCode(error), "expecting no matching items found");
     
@@ -1362,19 +1361,19 @@ static void SecDbTestCorruptionHandler(void)
 
     // now force a phase 3 item upgrade
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1434,7 +1433,7 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(oldStylePersistRef3);
     CFReleaseNull(uuidStylePersistRef);
     
-    clearLastRowIDHandledForTests();
+    SecServerClearLastRowIDHandledForTests();
 }
 
 - (void)testBatchingOfRowIDs
@@ -1467,19 +1466,19 @@ static void SecDbTestCorruptionHandler(void)
 
     // now force a phase 3 item upgrade, inProgress bit should be true
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1488,19 +1487,19 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(kcError);
 
     // now force a phase 3 item upgrade /again/ and the inProgress bit should be true
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1509,25 +1508,25 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(kcError);
 
     // now force a phase 3 item upgrade /again/ and the inProgress bit should be false
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
     });
     
-    clearLastRowIDHandledForTests();
+    SecServerClearLastRowIDHandledForTests();
 }
 
 - (void)testContinuedProcessingKeychainItemsIfLowerRowIDsAreCorrupt
@@ -1554,10 +1553,10 @@ static void SecDbTestCorruptionHandler(void)
         XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)addQuery, &result), errSecSuccess, @"Should have succeeded in adding test item to keychain");
     }
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         /* corrupt all the password */
-        NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
+        NSString *keychain_path = CFBridgingRelease(SecServerKeychainCopyPath());
         char corrupt_item_sql[80];
         sqlite3 *db;
 
@@ -1604,19 +1603,19 @@ static void SecDbTestCorruptionHandler(void)
 
     // now force a phase 3 item upgrade, inProgress bit should be true
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1625,19 +1624,19 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(kcError);
 
     // now force a phase 3 item upgrade /again/ and the inProgress bit should be true
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1646,19 +1645,19 @@ static void SecDbTestCorruptionHandler(void)
     CFReleaseNull(kcError);
 
     // now force a phase 3 item upgrade /again/ and the inProgress bit should be true
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1666,19 +1665,19 @@ static void SecDbTestCorruptionHandler(void)
     
     
     // now force a phase 3 item upgrade /again again/ and the inProgress bit should remain false even with 100 corrupted items
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
 
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
 
             return (bool)true;
         });
@@ -1696,7 +1695,7 @@ static void SecDbTestCorruptionHandler(void)
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)copyMatchingCorruptQuery, &item), errSecItemNotFound);
     XCTAssertNil((__bridge id)item, "item should be nil");
     
-    clearLastRowIDHandledForTests();
+    SecServerClearLastRowIDHandledForTests();
 }
 
 - (void)testDSItemMergeWithPersistentRefs
@@ -1817,7 +1816,7 @@ static void SecDbTestCorruptionHandler(void)
     XCTAssertTrue(isDictionary(item), "item should be a dictionary");
 
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             SOSObjectRef mergedItem = NULL;
@@ -2253,7 +2252,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     query[(id)kSecReturnPersistentRef] = @YES;
 
     CFTypeRef item = NULL;
-    XCTAssertTrue(_SecItemCopyMatching((__bridge CFDictionaryRef)query, &client, &item, &localError));
+    XCTAssertTrue(SecServerItemCopyMatching((__bridge CFDictionaryRef)query, &client, &item, &localError));
     XCTAssertNotNil((__bridge id)item, "item should not be nil");
     XCTAssertTrue(isDictionary(item), "item should be a dictionary");
     CFDataRef foundPref = CFDictionaryGetValue(item, kSecValuePersistentRef);
@@ -2281,7 +2280,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
     };
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassInternetPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2291,7 +2290,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert Internet password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2301,7 +2300,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassCertificate,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2310,7 +2309,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert certificate to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2320,7 +2319,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassCertificate,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2329,7 +2328,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert certificate to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2339,7 +2338,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2349,7 +2348,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert unsynced key to keep");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2359,7 +2358,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2369,7 +2368,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2379,7 +2378,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert unsynced key to keep");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2389,7 +2388,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2399,7 +2398,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2409,7 +2408,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert unsynced key to keep");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2419,7 +2418,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2429,7 +2428,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second generic password to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2439,7 +2438,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert unsynced key to keep");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2449,7 +2448,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert first key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2459,7 +2458,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2469,7 +2468,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     }, &client, NULL, NULL), "Should insert second key to remove");
 
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassInternetPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2480,7 +2479,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     }, &client, NULL, NULL), "Should insert generated password to remove");
 
     // Items in this access group aren't removed on sign out.
-    XCTAssertTrue(_SecItemAdd((__bridge CFDictionaryRef)@{
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass: (id)kSecClassInternetPassword,
         (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
@@ -2511,7 +2510,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         dispatch_group_enter(notificationGroup);
 
         CFErrorRef rawError = NULL;
-        XCTAssertTrue(_SecDeleteItemsOnSignOut(&client, &rawError), "Should remove items on sign out");
+        XCTAssertTrue(SecServerDeleteItemsOnSignOut(&client, &rawError), "Should remove items on sign out");
         NSError *error = CFBridgingRelease(rawError);
         XCTAssertNil(error, "Should not return error for removing items on sign out");
 
@@ -2521,7 +2520,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2538,7 +2537,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2555,7 +2554,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassCertificate,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2572,7 +2571,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2589,7 +2588,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassCertificate,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2607,7 +2606,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2623,7 +2622,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     {
         CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2641,7 +2640,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2657,7 +2656,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     {
         CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2675,7 +2674,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2691,7 +2690,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     {
         CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2709,7 +2708,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassGenericPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2725,7 +2724,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     {
         CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2743,7 +2742,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2760,7 +2759,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2777,7 +2776,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
     {
         CFTypeRef rawResult = NULL;
         CFErrorRef rawError = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2792,7 +2791,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
 
     {
         CFTypeRef rawResult = NULL;
-        bool ok = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
             (id)kSecClass: (id)kSecClassInternetPassword,
             (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
@@ -2807,7 +2806,6 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
         XCTAssertEqualObjects(result.firstObject[(id)kSecAttrAccount], @"account2");
     }
 }
-
 @end
 
 #endif

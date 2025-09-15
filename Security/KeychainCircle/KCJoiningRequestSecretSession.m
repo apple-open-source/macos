@@ -37,7 +37,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "MetricsOverrideForTests.h"
@@ -98,7 +97,7 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCopyStart description:@"Failed to copy start message"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -121,7 +120,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateVersion2Message description:@"failed to create version 2 message"];
             }
             secerror("failed to create version 2 message: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -138,7 +137,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateVersion1Message description:@"failed to create version 1 message"];
             }
             secerror("failed to create version 1 message: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -152,7 +151,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncodeInitialMessage description:@"failed to create initial message"];
             }
             secerror("failed to create version initial message: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -160,7 +159,7 @@ typedef enum {
         }
     }
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
     return initialMessage;
 }
 
@@ -297,12 +296,12 @@ typedef enum {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateHandleChallengeMessage description:@"failed to create response message"];
         }
         secerror("Failed to create response message: %@", localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
     }
     return messageOut;
 }
@@ -334,13 +333,13 @@ typedef enum {
                         localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCopyResponseForSecret description:@"failed to copy response"];
                     }
                     secerror("joining: Failed to copy response message: %@", localError);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                    [eventS sendMetricWithResult:NO error:localError];
                     if (error) {
                         *error = localError;
                     }
                 } else {
                     secnotice("joining", "successfully copied response message");
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    [eventS sendMetricWithResult:YES error:nil];
                 }
                 return messageOut;
             } else {
@@ -350,13 +349,13 @@ typedef enum {
                         localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToHandleChallengeData description:@"failed to handle challenge data"];
                     }
                     secerror("joining: failed to handle challenge data: %@", localError);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                    [eventS sendMetricWithResult:NO error:localError];
                     if (error) {
                         *error = localError;
                     }
                 } else {
                     secnotice("joining", "successfully handled challenge data");
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    [eventS sendMetricWithResult:YES error:nil];
                 }
                 return messageOut;
             }
@@ -366,7 +365,7 @@ typedef enum {
             }
             secerror("joining: next secret is nil: %@", localError);
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -377,7 +376,7 @@ typedef enum {
     if ([message type] != kVerification) {
         localError = [NSError errorWithDomain:KCErrorDomain code:kExpectedVerificationMessageType description:@"Expected verification!"];
         secerror("joining: expected vertification message type: %@", localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -391,7 +390,7 @@ typedef enum {
             localError = [NSError errorWithDomain:KCErrorDomain code:kVerifyConfirmationFailed description:[NSString stringWithFormat:@"Got verification but  acceptor doesn't have matching secret: %@", self]];
         }
         secerror("joining: Verification failed: %@, error: %@", self, localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -405,7 +404,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kDecryptAndVerifyFailed description:@"decrypt and verify failed"];
             }
             secerror("joining: decrypt and verify failed: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -419,7 +418,7 @@ typedef enum {
             }
             secerror("joining: decode from der failed: %@", localError);
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -431,7 +430,7 @@ typedef enum {
 
     self->_state = kRequestSecretDone;
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 
     return [NSData data];
 }

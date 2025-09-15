@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -147,30 +147,26 @@ bool RemoteImageDecoderAVF::frameHasAlphaAtIndex(size_t index) const
     return m_frameInfos[index].hasAlpha;
 }
 
-unsigned RemoteImageDecoderAVF::frameBytesAtIndex(size_t, SubsamplingLevel) const
-{
-    return size().area() * 4;
-}
-
 PlatformImagePtr RemoteImageDecoderAVF::createFrameImageAtIndex(size_t index, SubsamplingLevel, const DecodingOptions&)
 {
     if (m_frameImages.contains(index))
         return m_frameImages.get(index);
 
-    auto createFrameImage = [&] {
-        auto gpuProcessConnection = m_gpuProcessConnection.get();
+    Ref protectedThis { *this };
+    auto createFrameImage = [&protectedThis, index] {
+        RefPtr gpuProcessConnection = protectedThis->m_gpuProcessConnection.get();
         if (!gpuProcessConnection)
             return;
 
-        auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex(m_identifier, index), 0);
+        auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteImageDecoderAVFProxy::CreateFrameImageAtIndex(protectedThis->m_identifier, index), 0);
         auto [imageHandle] = sendResult.takeReplyOr(std::nullopt);
         if (!imageHandle)
             return;
 
         imageHandle->takeOwnershipOfMemory(MemoryLedger::Graphics);
 
-        if (auto bitmap = ShareableBitmap::create(WTFMove(*imageHandle)))
-            m_frameImages.add(index, bitmap->makeCGImage());
+        if (RefPtr bitmap = ShareableBitmap::create(WTFMove(*imageHandle)))
+            protectedThis->m_frameImages.add(index, bitmap->makeCGImage());
     };
 
     callOnMainRunLoopAndWait(WTFMove(createFrameImage));

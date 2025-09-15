@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2014 Google Inc. All rights reserved.
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,7 @@
 #include "DocumentInlines.h"
 #include "DynamicsCompressorNode.h"
 #include "EventNames.h"
+#include "EventTargetInterfaces.h"
 #include "FFTFrame.h"
 #include "FrameLoader.h"
 #include "GainNode.h"
@@ -76,7 +77,7 @@
 #include "PlatformMediaSessionManager.h"
 #include "ScriptController.h"
 #include "ScriptProcessorNode.h"
-#include "ScriptTelemetryCategory.h"
+#include "ScriptTrackingPrivacyCategory.h"
 #include "StereoPannerNode.h"
 #include "StereoPannerOptions.h"
 #include "WaveShaperNode.h"
@@ -127,7 +128,7 @@ static OptionSet<NoiseInjectionPolicy> effectiveNoiseInjectionPolicies(Document&
     auto documentPolicies = document.noiseInjectionPolicies();
     if (documentPolicies.contains(NoiseInjectionPolicy::Minimal))
         policies.add(NoiseInjectionPolicy::Minimal);
-    if (documentPolicies.contains(NoiseInjectionPolicy::Enhanced) && document.requiresScriptExecutionTelemetry(ScriptTelemetryCategory::Audio))
+    if (documentPolicies.contains(NoiseInjectionPolicy::Enhanced) && document.requiresScriptTrackingPrivacyProtection(ScriptTrackingPrivacyCategory::Audio))
         policies.add(NoiseInjectionPolicy::Enhanced);
     return policies;
 }
@@ -181,7 +182,7 @@ void BaseAudioContext::lazyInitialize()
     if (m_isAudioThreadFinished)
         return;
 
-    destination().initialize();
+    protectedDestination()->initialize();
 
     m_isInitialized = true;
 }
@@ -207,7 +208,7 @@ void BaseAudioContext::uninitialize()
         return;
 
     // This stops the audio thread and all audio rendering.
-    destination().uninitialize();
+    protectedDestination()->uninitialize();
 
     // Don't allow the context to initialize a second time after it's already been explicitly uninitialized.
     m_isAudioThreadFinished = true;
@@ -271,7 +272,7 @@ void BaseAudioContext::stop()
     m_isStopScheduled = true;
 
     ASSERT(document());
-    document()->updateIsPlayingMedia();
+    protectedDocument()->updateIsPlayingMedia();
 
     uninitialize();
     clear();
@@ -280,6 +281,11 @@ void BaseAudioContext::stop()
 Document* BaseAudioContext::document() const
 {
     return downcast<Document>(scriptExecutionContext());
+}
+
+RefPtr<Document> BaseAudioContext::protectedDocument() const
+{
+    return document();
 }
 
 bool BaseAudioContext::wouldTaintOrigin(const URL& url) const
@@ -312,21 +318,21 @@ void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<Audi
     audioData->pin();
 
     auto p = m_audioDecoder->decodeAsync(audioData.copyRef(), sampleRate());
-    p->whenSettled(RunLoop::current(), [this, audioData = WTFMove(audioData), activity = makePendingActivity(*this), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise)] (DecodingTaskPromise::Result&& result) mutable {
-        queueTaskKeepingObjectAlive(*this, TaskSource::InternalAsyncTask, [audioData = WTFMove(audioData), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise), result = WTFMove(result)]() mutable {
+    p->whenSettled(RunLoop::currentSingleton(), [audioData = WTFMove(audioData), activity = makePendingActivity(*this), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise)] (DecodingTaskPromise::Result&& result) mutable {
+        activity->object().queueTaskKeepingObjectAlive(activity->object(), TaskSource::InternalAsyncTask, [audioData = WTFMove(audioData), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise), result = WTFMove(result)](auto&) mutable {
 
             audioData->unpin();
 
             if (!result) {
                 promise->reject(WTFMove(result.error()));
                 if (errorCallback)
-                    errorCallback->handleEvent(nullptr);
+                    errorCallback->invoke(nullptr);
                 return;
             }
             auto audioBuffer = WTFMove(result.value());
             promise->resolve<IDLInterface<AudioBuffer>>(audioBuffer.get());
             if (successCallback)
-                successCallback->handleEvent(audioBuffer.ptr());
+                successCallback->invoke(audioBuffer.ptr());
         });
     });
 }
@@ -668,7 +674,7 @@ void BaseAudioContext::updateTailProcessingNodes()
         // for disableOutputsForFinishedTailProcessingNodes() to process later on the main thread.
         ASSERT(!m_finishedTailProcessingNodes.contains(node));
         m_finishedTailProcessingNodes.append(WTFMove(node));
-        m_tailProcessingNodes.remove(i - 1);
+        m_tailProcessingNodes.removeAt(i - 1);
     }
 
     if (m_finishedTailProcessingNodes.isEmpty() || m_disableOutputsForTailProcessingScheduled)
@@ -894,7 +900,7 @@ void BaseAudioContext::postTask(Function<void()>&& task)
 {
     ASSERT(isMainThread());
     if (!m_isStopScheduled)
-        queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, WTFMove(task));
+        queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [task = WTFMove(task)](auto&) mutable { task(); });
 }
 
 const SecurityOrigin* BaseAudioContext::origin() const
@@ -967,7 +973,7 @@ void BaseAudioContext::workletIsReady()
 
     // If we're already rendering when the worklet becomes ready, we need to restart
     // rendering in order to switch to the audio worklet thread.
-    destination().restartRendering();
+    protectedDestination()->restartRendering();
 }
 
 #if !RELEASE_LOG_DISABLED

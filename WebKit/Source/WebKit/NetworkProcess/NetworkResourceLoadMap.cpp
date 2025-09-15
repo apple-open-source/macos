@@ -25,7 +25,9 @@
 
 #include "config.h"
 #include "NetworkResourceLoadMap.h"
+
 #include "NetworkResourceLoader.h"
+#include <algorithm>
 
 namespace WebKit {
 
@@ -67,7 +69,7 @@ RefPtr<NetworkResourceLoader> NetworkResourceLoadMap::take(WebCore::ResourceLoad
         return nullptr;
 
     if (loader->originalRequest().hasUpload())
-        setHasUpload(WTF::anyOf(m_loaders.values(), [](auto& loader) { return loader->originalRequest().hasUpload(); }));
+        setHasUpload(std::ranges::any_of(m_loaders.values(), [](auto& loader) { return loader->originalRequest().hasUpload(); }));
 
     return loader;
 }

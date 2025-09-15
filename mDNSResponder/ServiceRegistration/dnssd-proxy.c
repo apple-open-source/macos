@@ -1,6 +1,6 @@
 /* dnssd-proxy.c
  *
- * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,6 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <stdarg.h>
-#include <notify.h>
 #ifdef IOLOOP_MACOS
 #include <AssertMacros.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -67,24 +66,18 @@
 #include "srp-tls.h"
 #include "srp-gw.h"
 #include "srp-proxy.h"
-#include "cti-services.h"
-#include "route.h"
 #include "srp-replication.h"
-#if THREAD_DEVICE
-#  include "state-machine.h"
-#  include "service-publisher.h"
-#endif
-#if SRP_FEATURE_NAT64
-#include "dns_sd_private.h"
-#include "nat64-macos.h"
-#endif
-#include "advertising_proxy_services.h"
 #include "srp-dnssd.h"
+#include "srp-strict.h"
 
 #define RESPONSE_WINDOW_MSECS 800
 #define RESPONSE_WINDOW_USECS (RESPONSE_WINDOW_MSECS * 1000) // 800ms in microseconds.
 
+#if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 extern srp_server_t *srp_servers;
+#else
+#define srp_servers NULL
+#endif
 #define SERIAL(x) ((x) == NULL ? 0 : (x)->serial)
 
 // When do we build dnssd-proxy?
@@ -245,7 +238,6 @@ struct dnssd_proxy_advertisements {
     DNSRecordRef ptr_record_ref;    // Used to update the advertised PTR record.
     char *domain_to_advertise;      // The domain to be advertised in NS and PTR records.
     srp_server_t *server_state;
-    SCDynamicStoreContext sc_context;
 };
 
 #if SRP_FEATURE_DISCOVERY_PROXY_SERVER
@@ -287,16 +279,13 @@ dnssd_txn_t *shared_discovery_txn;
 wakeup_t *discovery_restart_wakeup;
 
 #if SRP_FEATURE_DYNAMIC_CONFIGURATION
+#endif // #if (SRP_FEATURE_DYNAMIC_CONFIGURATION)
 static char uuid_name[DNS_MAX_NAME_SIZE + 1];
-static char my_name_buf[DNS_MAX_NAME_SIZE + 1];
-static CFStringRef sc_dynamic_store_key_host_name;
 static char local_host_name[DNS_MAX_NAME_SIZE + 1];
+#if !SRP_FEATURE_DYNAMIC_CONFIGURATION || THREAD_DEVICE
 static char local_host_name_dot_local[DNS_MAX_NAME_SIZE + 1];
-#endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#endif
 
-#if THREAD_BORDER_ROUTER && SRP_FEATURE_SRP_COMBINED_DNSSD_PROXY
-extern char *thread_interface_name;
-#endif // THREAD_BORDER_ROUTER && SRP_FEATURE_COMBINED_DNSSD_PROXY
 
 // Globals
 
@@ -352,19 +341,17 @@ extern void *srp_test_tls_listener_context;
 static void dns_push_start(dnssd_query_t *query);
 
 #if SRP_FEATURE_DYNAMIC_CONFIGURATION
-static void served_domain_free(served_domain_t *const served_domain);
+static void served_domain_free(served_domain_t *served_domain);
 #endif
 
 static served_domain_t *NULLABLE
 new_served_domain(dp_interface_t *const NULLABLE interface, const char * NONNULL domain);
 
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
 static served_domain_t *NULLABLE
 find_served_domain(const char *const NONNULL domain);
+#endif
 
-static bool
-string_ends_with(const char *const NONNULL str, const char *const NONNULL suffix);
-#endif // STUB_ROUTER
 
 static void dp_query_towire_reset(dnssd_query_t *query);
 
@@ -373,21 +360,11 @@ static served_domain_t *NONNULL
 add_new_served_domain_with_interface(const char *const NONNULL name,
     const addr_t *const NULLABLE address, const addr_t *const NULLABLE mask);;
 
-#if STUB_ROUTER
-static bool
-dnssd_hardwired_add_or_remove_address_in_domain(const char *const NONNULL name,
-    const char *const NONNULL domain_to_change, const addr_t *const NONNULL address, const bool add);
-#endif // STUB_ROUTER
 
 static bool
 dnssd_hardwired_setup_dns_push_for_domain(served_domain_t *const NONNULL served_domain);
 #endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
-#if STUB_ROUTER
-static bool
-start_timer_to_advertise(dnssd_proxy_advertisements_t *NONNULL context,
-    const char *const NULLABLE domain_to_advertise, const uint32_t interval);
-#endif
 
 static bool
 interface_process_addr_change(dp_interface_t *const NONNULL interface, const addr_t *const NONNULL address,
@@ -467,9 +444,6 @@ dp_start_question(question_t *question, bool dns64)
 #if SRP_FEATURE_LOCAL_DISCOVERY
     if (question_interface == kDNSServiceInterfaceIndexInfra) {
         int ret = -1;
-#if STUB_ROUTER
-        ret = route_get_current_infra_interface_index();
-#else
         static unsigned en0_ifindex = 0;
         if (en0_ifindex == 0) {
             en0_ifindex = if_nametoindex("en0");
@@ -480,7 +454,6 @@ dp_start_question(question_t *question, bool dns64)
         if (en0_ifindex != 0) {
             ret = en0_ifindex;
         }
-#endif // STUB_ROUTER
         // If we don't have an infrastructure interface, refuse the query.
         if (ret < 0) {
             return kDNSServiceErr_Refused;
@@ -681,15 +654,15 @@ dp_tracker_finalize(dp_tracker_t *tracker)
     if (tracker->connection) {
         ioloop_comm_release(tracker->connection);
     }
-    free(tracker);
+    srp_strict_free(&tracker);
 }
 
 static void
 dp_answer_free(answer_t *answer)
 {
     if (answer != NULL) {
-        free(answer->fullname);
-        free(answer);
+        srp_strict_free(&answer->fullname);
+        srp_strict_free(&answer);
     }
 }
 
@@ -714,8 +687,8 @@ question_finalize(question_t *question)
 {
     INFO("[QU%d] type %d class %d " PRI_S_SRP, SERIAL(question), question->type, question->qclass, question->name);
     dp_question_answers_free(question);
-    free(question->name);
-    free(question);
+    srp_strict_free(&question->name);
+    srp_strict_free(&question);
 }
 
 static void
@@ -744,6 +717,7 @@ dp_question_cancel(question_t *question)
             questions = &q_cur->next;
         }
     }
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
     // If this was the last question, see if the served domain is still on the served domain list; if not,
     // this is the last reference, so free it.
     if (question->served_domain != NULL && question->served_domain->questions == NULL) {
@@ -758,6 +732,7 @@ dp_question_cancel(question_t *question)
             question->served_domain = NULL;
         }
     }
+#endif
     RELEASE_HERE(question, question); // Release from the list.
 }
 
@@ -778,10 +753,7 @@ dnssd_query_finalize(void *context)
         ioloop_wakeup_release(query->wakeup);
         query->wakeup = NULL;
     }
-    if (query->response != NULL) {
-        free(query->response);
-        query->response = NULL;
-    }
+    srp_strict_free(&query->response);
     if (query->response_msg != NULL) {
         dns_message_free(query->response_msg);
         query->response_msg = NULL;
@@ -790,7 +762,7 @@ dnssd_query_finalize(void *context)
         RELEASE_HERE(query->question, question);
         query->question = NULL;
     }
-    free(query);
+    srp_strict_free(&query);
     dp_num_outstanding_queries--;
 }
 
@@ -1171,10 +1143,15 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
     const bool translate = (question->served_domain != NULL) && (!hardwired_response);
 
     if (rdlen == 0) {
-        INFO("[Q%d][QU%d] eliding zero-length response for " PRI_S_SRP " " PUB_S_SRP " %d",
-             SERIAL(query), SERIAL(question), fullname, dns_rrtype_to_string(rrtype), rrclass);
-        record_added = false;
-        goto exit;
+        if (query->dso != NULL) {
+            INFO("[Q%d][QU%d] adding zero-length DSO response for " PRI_S_SRP " " PUB_S_SRP " %d",
+                 SERIAL(query), SERIAL(question), fullname, dns_rrtype_to_string(rrtype), rrclass);
+        } else {
+            INFO("[Q%d][QU%d] eliding zero-length response for " PRI_S_SRP " " PUB_S_SRP " %d",
+                 SERIAL(query), SERIAL(question), fullname, dns_rrtype_to_string(rrtype), rrclass);
+            record_added = false;
+            goto exit;
+        }
     }
     // Don't send A records for 127.* nor AAAA records for ::1
     if (dont_elide) {
@@ -1239,7 +1216,12 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
 
     answer.type = rrtype;
     answer.qclass = rrclass;
-    if (dns_rdata_parse_data(&answer, rdata, &offp, rdlen, rdlen, 0)) {
+
+    bool put_raw;
+    if (rdlen != 0) {
+        const bool rdata_parsed = dns_rdata_parse_data(&answer, rdata, &offp, rdlen, rdlen, 0);
+        require_action(rdata_parsed, raw,
+                       put_raw = true; ERROR("[Q%d][QU%d] rdata didn't parse!!", SERIAL(query), SERIAL(question)));
         switch(rrtype) {
             case dns_rrtype_cname:
             case dns_rrtype_ptr:
@@ -1257,9 +1239,9 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
             default:
                 INFO("[Q%d][QU%d] record type " PUB_S_SRP " not translated", SERIAL(query), SERIAL(question), dns_rrtype_to_string(rrtype));
                 dns_rrdata_free(&answer);
+                put_raw = true;
                 goto raw;
         }
-
         dns_name_print(name, rbuf, sizeof rbuf);
 
         if (translate && is_in_local_domain(name)) {
@@ -1279,9 +1261,18 @@ dp_query_add_data_to_response(dnssd_query_t *query, const char *fullname, uint16
 
         dns_name_free(name);
         dns_rdlength_end(towire);
+        put_raw = false;
     } else {
-        ERROR("[Q%d][QU%d] rdata from mDNSResponder didn't parse!!", SERIAL(query), SERIAL(question));
-    raw:
+        // rdlen == 0
+        if (query->dso != NULL) {
+            INFO("Adding a special 0-length rdata response for DSO, possibly a removing update");
+        } else {
+            ERROR("[Q%d][QU%d] rdata didn't parse!!", SERIAL(query), SERIAL(question));
+        }
+        put_raw = true;
+    }
+raw:
+    if (put_raw) {
         TOWIRE_CHECK("rdlen", towire, dns_u16_to_wire(towire, rdlen));
         TOWIRE_CHECK("rdata", towire, dns_rdata_raw_data_to_wire(towire, rdata, rdlen));
     }
@@ -1317,7 +1308,7 @@ dnssd_hardwired_add(served_domain_t *sdt,
     total += domainlen;
     total += 1; // NUL
 
-    hp = calloc(1, total + 4);
+    hp = srp_strict_calloc(1, total + 4);
     if (hp == NULL) {
         ERROR("no memory for %s %s", name, domain);
         return;
@@ -1378,7 +1369,7 @@ dnssd_hardwired_add(served_domain_t *sdt,
             INFO("superseding " PRI_S_SRP " name " PRI_S_SRP " type %d rdlen %d", old->fullname,
                  old->name, old->type, old->rdlen);
             hp->next = old->next;
-            free(old);
+            srp_strict_free(hrp);
         } else {
             INFO("inserting before " PRI_S_SRP " name " PRI_S_SRP " type %d rdlen %d", old->fullname,
                  old->name, old->type, old->rdlen);
@@ -1392,7 +1383,47 @@ dnssd_hardwired_add(served_domain_t *sdt,
          hp->fullname, hp->name, hp->type, hp->rdlen);
 }
 
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
+static bool
+is_valid_address_to_publish(const addr_t *const NONNULL address)
+{
+    bool is_valid = true;
+
+    if (address->sa.sa_family == AF_INET) {
+        const struct in_addr *const ipv4_address = &(address->sin.sin_addr);
+        const bool is_linklocal = is_in_addr_link_local(ipv4_address);
+        const bool is_loopback = is_in_addr_loopback(ipv4_address);
+
+        if (is_linklocal || is_loopback) {
+            IPv4_ADDR_GEN_SRP(&ipv4_address, ipv4_address_buf);
+            INFO("ignoring the address for interface - address: " PRI_IPv4_ADDR_SRP ", address type: " PUB_S_SRP ".",
+                IPv4_ADDR_PARAM_SRP(&ipv4_address, ipv4_address_buf), is_linklocal ? "link local" : "loopback");
+            is_valid = false;
+        }
+
+    } else if (address->sa.sa_family == AF_INET6) {
+        const struct in6_addr *const ipv6_address = &(address->sin6.sin6_addr);
+        const bool is_linklocal = IN6_IS_ADDR_LINKLOCAL(ipv6_address);
+        const bool is_loopback = IN6_IS_ADDR_LOOPBACK(ipv6_address);
+
+        if (is_linklocal || is_loopback) {
+            IPv6_ADDR_GEN_SRP(ipv6_address->s6_addr, ipv6_address_buf);
+            INFO("ignoring the address for interface - address: " PRI_IPv6_ADDR_SRP ", address type: " PUB_S_SRP ".",
+                IPv6_ADDR_PARAM_SRP(ipv6_address->s6_addr, ipv6_address_buf), is_linklocal ? "link local" : "loopback");
+            is_valid = false;
+        }
+
+    } else {
+        // It is possible that MAC address is added for the interface, so ignore it.
+        INFO("Non IPv4/IPv6 address added for the interface - sa_family: %u", address->sa.sa_family);
+        is_valid = false;
+    }
+
+    return is_valid;
+}
+#endif
+
+#  if SRP_FEATURE_DYNAMIC_CONFIGURATION
 static bool
 dnssd_hardwired_remove_record(served_domain_t *const NONNULL sdt, const char *const NONNULL name, const char *const NONNULL domain, size_t rdlen,
     const void *const NULLABLE rdata, uint16_t type)
@@ -1432,72 +1463,13 @@ dnssd_hardwired_remove_record(served_domain_t *const NONNULL sdt, const char *co
     } else {
         sdt->hardwired_responses = current->next;
     }
-    free(current);
+    srp_strict_free(&current);
 
     removed = true;
 exit:
     return removed;
 }
 
-static bool
-dnssd_hardwired_add_or_remove_addr_record(served_domain_t *const NONNULL sdt, const addr_t *const NONNULL addr,
-    const char *const NONNULL name, bool add)
-{
-    dns_wire_t wire;
-    dns_towire_state_t towire;
-    bool succeeded;
-
-    memset(&towire, 0, sizeof towire);
-    towire.message = &wire;
-    towire.p = wire.data;
-    towire.lim = towire.p + sizeof wire.data;
-
-    const void *rdata_ptr;
-    size_t addr_len;
-    uint16_t addr_type;
-    if (addr->sa.sa_family == AF_INET) {
-        rdata_ptr = &addr->sin.sin_addr;
-        addr_len = sizeof(addr->sin.sin_addr);
-        addr_type = dns_rrtype_a;
-    } else { // addr.sa.sa_family == AF_INET6
-        rdata_ptr = &addr->sin6.sin6_addr;
-        addr_len = sizeof(addr->sin6.sin6_addr);
-        addr_type = dns_rrtype_aaaa;
-    }
-    dns_rdata_raw_data_to_wire(&towire, rdata_ptr, addr_len);
-
-    if (add) {
-        dnssd_hardwired_add(sdt, name, name[0] == '\0' ? sdt->domain : sdt->domain_ld, towire.p - wire.data, wire.data,
-            addr_type);
-        succeeded = true;
-    } else {
-        succeeded = dnssd_hardwired_remove_record(sdt, name,  name[0] == '\0' ? sdt->domain : sdt->domain_ld,
-            towire.p - wire.data, wire.data, addr_type);
-    }
-
-    return succeeded;
-}
-
-static bool
-dnssd_hardwired_add_or_remove_address_in_domain(const char *const NONNULL name,
-    const char *const NONNULL domain_to_change, const addr_t *const NONNULL address, const bool add)
-{
-    bool succeeded;
-
-    served_domain_t *served_domain = find_served_domain(domain_to_change);
-    require_action_quiet(served_domain != NULL, exit, succeeded = false;
-        ERROR("could not find served domain with the specified domain name - domain name: " PRI_S_SRP, domain_to_change)
-    );
-
-    succeeded = dnssd_hardwired_add_or_remove_addr_record(served_domain, address, name, add);
-    require_action_quiet(succeeded, exit, succeeded = false;
-        ERROR("failed to " PUB_S_SRP " address record - domain name: " PRI_S_SRP,
-            domain_to_change, add ? "add" : "remove")
-    );
-
-exit:
-    return succeeded;
-}
 
 static bool
 dnssd_hardwired_generate_ptr_name(const addr_t *const NONNULL addr, const addr_t *const NONNULL mask,
@@ -1595,135 +1567,19 @@ exit:
     return succeeded;
 }
 
-static bool
-dnssd_hardwired_add_or_remove_ptr_in_domain(const char *const NONNULL domain_to_change,
-    const addr_t *const NONNULL address, const addr_t *const NONNULL mask, const bool add)
-{
-    bool succeeded;
-
-    served_domain_t *served_domain = find_served_domain(domain_to_change);
-    require_action_quiet(served_domain != NULL, exit, succeeded = false;
-        ERROR("could not find served domain with the specified domain name - domain name: " PRI_S_SRP, domain_to_change)
-    );
-
-    succeeded = dnssd_hardwired_add_or_remove_ptr_record(served_domain, address, mask, add);
-    require_action_quiet(succeeded, exit, succeeded = false;
-        ERROR("failed to " PUB_S_SRP " address record - domain name: " PRI_S_SRP,
-            add ? "adding" : "removing", domain_to_change)
-    );
-
-exit:
-    return succeeded;
-}
-
-static bool
-is_valid_address_to_publish(const addr_t *const NONNULL address)
-{
-    bool is_valid = true;
-
-    if (address->sa.sa_family == AF_INET) {
-        const struct in_addr *const ipv4_address = &(address->sin.sin_addr);
-        const bool is_linklocal = is_in_addr_link_local(ipv4_address);
-        const bool is_loopback = is_in_addr_loopback(ipv4_address);
-
-        if (is_linklocal || is_loopback) {
-            IPv4_ADDR_GEN_SRP(&ipv4_address, ipv4_address_buf);
-            INFO("ignoring the address for interface - address: " PRI_IPv4_ADDR_SRP ", address type: " PUB_S_SRP ".",
-                IPv4_ADDR_PARAM_SRP(&ipv4_address, ipv4_address_buf), is_linklocal ? "link local" : "loopback");
-            is_valid = false;
-        }
-
-    } else if (address->sa.sa_family == AF_INET6) {
-        const struct in6_addr *const ipv6_address = &(address->sin6.sin6_addr);
-        const bool is_linklocal = IN6_IS_ADDR_LINKLOCAL(ipv6_address);
-        const bool is_loopback = IN6_IS_ADDR_LOOPBACK(ipv6_address);
-
-        if (is_linklocal || is_loopback) {
-            IPv6_ADDR_GEN_SRP(ipv6_address->s6_addr, ipv6_address_buf);
-            INFO("ignoring the address for interface - address: " PRI_IPv6_ADDR_SRP ", address type: " PUB_S_SRP ".",
-                IPv6_ADDR_PARAM_SRP(ipv6_address->s6_addr, ipv6_address_buf), is_linklocal ? "link local" : "loopback");
-            is_valid = false;
-        }
-
-    } else {
-        // It is possible that MAC address is added for the interface, so ignore it.
-        INFO("Non IPv4/IPv6 address added for the interface - sa_family: %u", address->sa.sa_family);
-        is_valid = false;
-    }
-
-    return is_valid;
-}
-
-static bool
-dnssd_hardwired_process_addr_change(const addr_t *const NONNULL addr, const addr_t *const NONNULL mask, const bool add)
-{
-    bool succeeded;
-
-    if (!is_valid_address_to_publish(addr)) {
-        succeeded = true;
-        goto exit;
-    }
-
-    // Update the <local host name>.home.arpa. address mapping.
-    succeeded = dnssd_hardwired_add_or_remove_address_in_domain("", my_name, addr, add);
-    if (!succeeded) {
-        ERROR("failed to update address record for domain - domain: " PRI_S_SRP, my_name);
-        goto exit;
-    }
-
-    // Update the <local host name>.<Thread ID>.thread.home.arpa. address mapping.
-    succeeded = dnssd_hardwired_add_or_remove_address_in_domain(local_host_name, THREAD_DOMAIN_WITH_ID, addr, add);
-    if (!succeeded) {
-        ERROR("failed to update address record for domain - domain: " PUB_S_SRP, THREAD_DOMAIN_WITH_ID);
-        goto exit;
-    }
-
-    // Update the default.service.arpa. address mapping.
-    succeeded = dnssd_hardwired_add_or_remove_address_in_domain(local_host_name, DEFAULT_SERVICE_ARPA_DOMAIN, addr, add);
-    if (!succeeded) {
-        ERROR("failed to update address record for domain - domain: " PUB_S_SRP, DEFAULT_SERVICE_ARPA_DOMAIN);
-        goto exit;
-    }
-
-#if SRP_FEATURE_LOCAL_DISCOVERY
-    // Update the default.service.arpa. address mapping.
-    succeeded = dnssd_hardwired_add_or_remove_address_in_domain(local_host_name, DOT_LOCAL_DOMAIN, addr, add);
-    if (!succeeded) {
-        ERROR("failed to update address record for domain - domain: " PUB_S_SRP, LOCAL);
-        goto exit;
-    }
-#endif
-
-    // Setup the "_lb.dns-sd"
-    // Update the "reverse mapping from address to browsing domain" for each eligible served domain under IPv6 or IPv4
-    // reverse lookup domain.
-    if (addr->sa.sa_family == AF_INET6) {
-        succeeded = dnssd_hardwired_add_or_remove_ptr_in_domain(IPV6_REVERSE_LOOKUP_DOMAIN, addr, mask, add);
-    } else if (addr->sa.sa_family == AF_INET) {
-        succeeded = dnssd_hardwired_add_or_remove_ptr_in_domain(IPV4_REVERSE_LOOKUP_DOMAIN, addr, mask, add);
-    } else {
-        char buf[INET6_ADDRSTRLEN];
-        IOLOOP_NTOP(addr, buf);
-        INFO("Skipping non IPv6/IPv4 address - addr:" PRI_S_SRP, buf);
-        succeeded = true;
-    }
-
-exit:
-    return succeeded;
-}
 
 static void
 dnssd_hardwired_lbdomains_setup(void)
 {
     served_domain_t *ipv6, *ipv4;
-#if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#    if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
     // When dnssd-proxy is combined with srp-mdns-proxy, IPv4 and IPv6 reverse look up domain is set from the begining.
     ipv4 = find_served_domain(IPV4_REVERSE_LOOKUP_DOMAIN);
     ipv6 = find_served_domain(IPV6_REVERSE_LOOKUP_DOMAIN);
-#else // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#    else // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
     ipv4 = new_served_domain(NULL, IPV4_REVERSE_LOOKUP_DOMAIN);
     ipv6 = new_served_domain(NULL, IPV6_REVERSE_LOOKUP_DOMAIN);
-#endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#    endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
     require_action_quiet(ipv4 != NULL && ipv6 != NULL, exit, ERROR("cannot find/create new served domain"));
 
     for (served_domain_t *addr_domain = served_domains; addr_domain; addr_domain = addr_domain->next) {
@@ -1755,7 +1611,7 @@ dnssd_hardwired_lbdomains_setup(void)
 exit:
     return;
 }
-#endif
+#  endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
 static void
 dnssd_hardwired_setup(void)
@@ -1763,7 +1619,7 @@ dnssd_hardwired_setup(void)
     dns_wire_t wire;
     dns_towire_state_t towire;
     served_domain_t *sdt;
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
     dns_name_t *my_name_parsed = my_name == NULL ? NULL : dns_pres_name_parse(my_name);
 #endif
 
@@ -1798,7 +1654,7 @@ dnssd_hardwired_setup(void)
         // overwritten immediately; otherwise it will be overwritten when the TLS key has been generated and signed.
         dnssd_hardwired_add(sdt, "_dns-push-tls._tcp", sdt->domain_ld, towire.p - wire.data, wire.data, dns_rrtype_srv);
 
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
         char namebuf[DNS_MAX_NAME_SIZE + 1];
         const char *local_name;
         addr_t addr;
@@ -1848,19 +1704,10 @@ dnssd_hardwired_setup(void)
                 }
             }
         }
-#endif // STUB_ROUTER
+#endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
         // NS
         RESET;
-#if STUB_ROUTER
-        if (string_ends_with(sdt->domain, THREAD_DOMAIN)) {
-            // For served domain in the THREAD_DOMAIN, set the NS record to the local host name:
-            // For example, openthread.thread.home.arpa. NS Office.local.
-            // XXX is this right?
-            require_quiet(local_host_name_dot_local[0] != 0, exit);
-            dns_full_name_to_wire(NULL, &towire, local_host_name_dot_local);
-        } else
-#endif
         if (uuid_name[0] != 0) {
             dns_name_to_wire(NULL, &towire, uuid_name);
             dns_full_name_to_wire(NULL, &towire, sdt->domain);
@@ -1882,8 +1729,8 @@ dnssd_hardwired_setup(void)
     }
 
     // Setup hardwired response A/AAAA record for <local host name>.home.arpa.
-#if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
+#  if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
     // When dnssd-proxy is combined with srp-mdns-proxy, we get the address from the interface address list not from the
     // config file, so we search through the served domains for all available address.
     if (my_name_parsed != NULL) {
@@ -1904,11 +1751,11 @@ dnssd_hardwired_setup(void)
     require_action(default_service_arpa_domain != NULL, exit,
         ERROR("Failed to find thread domain - domain: " PUB_S_SRP, DEFAULT_SERVICE_ARPA_DOMAIN));
 
-#if SRP_FEATURE_LOCAL_DISCOVERY
+#    if SRP_FEATURE_LOCAL_DISCOVERY
     served_domain_t *const dot_local_domain = find_served_domain(DOT_LOCAL_DOMAIN);
     require_action(dot_local_domain != NULL, exit,
         ERROR("Failed to find thread domain - domain: " PUB_S_SRP, DOT_LOCAL_DOMAIN));
-#endif
+#    endif
     for (const served_domain_t *domain = served_domains; domain != NULL; domain = domain->next) {
         if (domain->interface == NULL) {
             continue;
@@ -1946,15 +1793,14 @@ dnssd_hardwired_setup(void)
             dnssd_hardwired_add(default_service_arpa_domain, local_host_name, default_service_arpa_domain->domain_ld,
                 towire.p - wire.data, wire.data, rr_type);
 
-#if SRP_FEATURE_LOCAL_DISCOVERY
+#    if SRP_FEATURE_LOCAL_DISCOVERY
             // <local host name>.local. A/AAAA <IP address>
             dnssd_hardwired_add(dot_local_domain, local_host_name, dot_local_domain->domain_ld,
                 towire.p - wire.data, wire.data, rr_type);
-#endif
+#    endif
         }
     }
-#endif
-#else // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
+#  else // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
     if (my_name_parsed != NULL) {
         dns_name_free(my_name_parsed);
         my_name_parsed = NULL;
@@ -1967,6 +1813,7 @@ dnssd_hardwired_setup(void)
                 // AAAA
                 // A
                 RESET;
+                addr_t addr;
                 memset(&addr, 0, sizeof addr);
                 getipaddr(&addr, publish_addrs[i]);
                 if (addr.sa.sa_family == AF_INET) {
@@ -1979,37 +1826,24 @@ dnssd_hardwired_setup(void)
             }
         }
     }
-#endif // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
+#  endif // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 
-#if STUB_ROUTER
     // Setup _lb._udp.<reversed IP address> PTR record for the domain we are advertising, for example:
     // _lb._udp.0.0.168.192.in-addr.arpa. PTR my-discovery-proxy-en0.home.arpa.
     dnssd_hardwired_lbdomains_setup();
+#endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
+#if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
+    dnssd_hardwired_lbdomains_setup();
+#endif
+
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION && SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 exit:
 #endif
     return;
 }
 
 #if SRP_FEATURE_DYNAMIC_CONFIGURATION
-static void
-dnssd_hardwired_clear(void)
-{
-    INFO("Clearing all hardwired response");
-    for (served_domain_t *domain = served_domains; domain != NULL; domain = domain->next) {
-        hardwired_t *hardwired_responses = domain->hardwired_responses;
-        if (hardwired_responses == NULL) {
-            continue;
-        }
-
-        domain->hardwired_responses = NULL;
-        hardwired_t *next_response;
-        for (hardwired_t *response = hardwired_responses; response != NULL; response = next_response) {
-            next_response = response->next;
-            free(response);
-        }
-    }
-}
 
 static void
 dnssd_hardwired_push_setup(void)
@@ -2034,6 +1868,8 @@ dnssd_hardwired_deny_service_existence_for_served_domain(served_domain_t *const 
 {
     dns_wire_t wire;
     dns_towire_state_t towire;
+
+    memset(&wire, 0, DNS_HEADER_SIZE + 1);
 
 #define RESET \
     memset(&towire, 0, sizeof towire); \
@@ -2089,14 +1925,6 @@ dnssd_hardwired_setup_for_served_domain(served_domain_t *const NONNULL served_do
 
     // Setup NS record for this served domain.
     RESET;
-#if STUB_ROUTER
-    if (string_ends_with(served_domain->domain, THREAD_DOMAIN)) {
-        // If the response requires the translation from <served domain> to ".local." and the response ends in
-        // ".local.", truncate it.
-        require_action_quiet(local_host_name_dot_local[0] != 0, exit, succeeded = false);
-        dns_full_name_to_wire(NULL, &towire, local_host_name_dot_local);
-    } else
-#endif
     if (uuid_name[0] != 0) {
         dns_name_to_wire(NULL, &towire, uuid_name);
         dns_full_name_to_wire(NULL, &towire, served_domain->domain);
@@ -2154,15 +1982,6 @@ dnssd_hardwired_setup_dns_push_for_domain(served_domain_t *const NONNULL served_
     dns_u16_to_wire(&towire, 0); // weight
     dns_u16_to_wire(&towire, 853); // port
 
-#if STUB_ROUTER
-    if (string_ends_with(served_domain->domain, THREAD_DOMAIN)) {
-        // If the served domain is subdomain of "thread.home.arpa.", use name <local host name>.local for the DNS push
-        // service. Currently we only support DNS push in "thread.home.arpa." domain in local subnet, so DNS push
-        // service for "thread.home.arpa." will be registered with a name in ".local.".
-        require_action_quiet(local_host_name_dot_local[0] != 0, exit, succeeded = false);
-        dns_full_name_to_wire(NULL, &towire, local_host_name_dot_local);
-    } else
-#endif
     if (uuid_name[0] != 0) {
         // Use <local host name>.<domain>
         dns_name_to_wire(NULL, &towire, uuid_name);
@@ -2185,7 +2004,7 @@ exit:
 static bool
 embiggen(dnssd_query_t *query)
 {
-    dns_wire_t *nr = malloc(query->data_size + DNS_DATA_SIZE + DNS_HEADER_SIZE); // increments wire size by DNS_DATA_SIZE
+    dns_wire_t *nr = srp_strict_malloc(query->data_size + DNS_DATA_SIZE + DNS_HEADER_SIZE); // increments wire size by DNS_DATA_SIZE
     if (nr == NULL) {
         return false;
     }
@@ -2197,7 +2016,7 @@ embiggen(dnssd_query_t *query)
     query->towire.p_rdlength = NULL;
     query->towire.p_opt = NULL;
     query->towire.message = nr;
-    free(query->response);
+    srp_strict_free(&query->response);
     query->response = nr;
     return true;
 }
@@ -2307,7 +2126,7 @@ dp_dns_queries_finished(dnssd_query_t *answered_query)
 
     // Copy records from the response.
     for (int i = 0; i < 4; i++) {
-        dns_rr_t *section, **first_section = NULL, **source_section = NULL;
+        dns_rr_t *section = NULL, **first_section = NULL, **source_section = NULL;
         unsigned section_count = 0, source_count = 0, *first_count = NULL;
 
         // Start with the second message, since the first is already populated.
@@ -2332,17 +2151,19 @@ dp_dns_queries_finished(dnssd_query_t *answered_query)
 
             // If this is the first matching query, expand the current section to be able to fit all of the data we're
             // copying in, and then copy the data from the first section.
-            if (first_section == source_section) {
-                section = calloc(section_count, sizeof(*section));
-                require_action_quiet(section != NULL, exit,
-                                     dns_rcode_set(answered_query->response, dns_rcode_servfail);
-                                     ERROR("Unable to allocate memory for query response section on " PRI_S_SRP, name));
-                memcpy(section, *first_section, source_count * sizeof(*section));
-                memset(*first_section, 0, source_count * sizeof(*section)); // NULL out any pointers
-                free(*first_section);
-                *first_section = section;
-            } else {
-                dp_move_rrs(*first_section, first_count, *source_section, source_count, section_count, i != 0);
+            if (section_count > 0) {
+                if (first_section == source_section) {
+                    section = srp_strict_calloc(section_count, sizeof(*section));
+                    require_action_quiet(section != NULL, exit,
+                                         dns_rcode_set(answered_query->response, dns_rcode_servfail);
+                                         ERROR("Unable to allocate memory for query response section on " PRI_S_SRP, name));
+                    memcpy(section, *first_section, source_count * sizeof(*section));
+                    memset(*first_section, 0, source_count * sizeof(*section)); // NULL out any pointers
+                    srp_strict_free(first_section);
+                    *first_section = section;
+                } else {
+                    dp_move_rrs(*first_section, first_count, *source_section, source_count, section_count, i != 0);
+                }
             }
         }
     }
@@ -2403,10 +2224,6 @@ dp_query_send_dns_response(dnssd_query_t *query, const char *context_description
         TOWIRE_CHECK("ttl", towire, dns_ttl_to_wire(towire, 3600));
         TOWIRE_CHECK("rdlength_begin ", towire, dns_rdlength_begin(towire));
         if (0) {
-#if STUB_ROUTER
-        } else if (srp_servers->stub_router_enabled && my_name != NULL) {
-            TOWIRE_CHECK(my_name, towire, dns_full_name_to_wire(NULL, towire, my_name));
-#endif
         } else if (uuid_name[0] != 0) {
             TOWIRE_CHECK("uuid_name", towire, dns_name_to_wire(NULL, towire, uuid_name));
             TOWIRE_CHECK("&query->enclosing_domain_pointer 2", towire,
@@ -2696,11 +2513,11 @@ dnssd_proxy_find_usable_interface_address(srp_server_t *UNUSED server_state, add
                     INFO("matched " PUB_S_SRP, sd->domain);
                     for (interface_addr_t *address = sd->interface->addresses; address != NULL; address = address->next) {
                         if (rrtype == dns_rrtype_aaaa) {
-                            if (address->addr.sa.sa_family == AF_INET6 &&
+                            if (address->addr.sa.sa_family == AF_INET6
 #ifndef SRP_TEST_SERVER
-                                !IN6_IS_ADDR_LINKLOCAL(&address->addr.sin6.sin6_addr) &&
+                                && !IN6_IS_ADDR_LINKLOCAL(&address->addr.sin6.sin6_addr)
 #endif
-                                !is_thread_mesh_synthetic_address(&address->addr.sin6.sin6_addr))
+                                )
                             {
                                 return address;
                             }
@@ -2782,9 +2599,9 @@ dnssd_hardwired_response(dnssd_query_t *query, DNSServiceQueryRecordReply UNUSED
         }
         // If it's an IPv6 address and NOT a v4-mapped address, and it's not a synthesized anycast or rloc
         // address, we can just use it.
-        else if (local->sa.sa_family == AF_INET6 && question->type == dns_rrtype_aaaa &&
-                 memcmp(&local->sin6.sin6_addr, v4mapped, sizeof(v4mapped)) &&
-                 !is_thread_mesh_synthetic_address(&local->sin6.sin6_addr))
+        else if (local->sa.sa_family == AF_INET6 && question->type == dns_rrtype_aaaa
+                 && memcmp(&local->sin6.sin6_addr, v4mapped, sizeof(v4mapped))
+            )
         {
             struct in6_addr response = local->sin6.sin6_addr;
             dp_query_add_data_to_response(query, question->name, question->type, dns_qclass_in, 16,
@@ -2987,6 +2804,7 @@ dns_push_query_answer_process(DNSServiceFlags flags, DNSServiceErrorType errorCo
                               const char *fullname, uint16_t rrtype, uint16_t rrclass,
                               uint16_t rdlen, const void *rdata, uint32_t ttl, dnssd_query_t *query, bool send);
 
+
 // This is the callback for both dns query and dns push query results.
 static void
 dns_question_callback(DNSServiceRef UNUSED sdRef, DNSServiceFlags flags, uint32_t interfaceIndex,
@@ -3014,17 +2832,17 @@ dns_question_callback(DNSServiceRef UNUSED sdRef, DNSServiceFlags flags, uint32_
             }
             if (send) {
                 // Add the extra space rdlen stores rdata at the end
-                answer_t *answer = calloc(1, sizeof(*answer) + rdlen);
+                answer_t *answer = srp_strict_calloc(1, sizeof(*answer) + rdlen);
                 if (answer == NULL) {
                     ERROR("[QU%d] unable to allocate memory for answer - name: " PRI_S_SRP ", rrtype: " PUB_S_SRP
                           ", rrclass: " PUB_S_SRP ", rdlen: %u.", SERIAL(question),
                           fullname, dns_rrtype_to_string(rrtype), dns_qclass_to_string(rrclass), rdlen);
                     return;
                 }
-                answer->fullname = strdup(fullname);
+                answer->fullname = srp_strict_strdup(fullname);
                 if (answer->fullname == NULL) {
                     ERROR("[QU%d] strdup failed to copy the answer name: " PRI_S_SRP, SERIAL(question), fullname);
-                    free(answer);
+                    srp_strict_free(&answer);
                     return;
                 }
                 answer->interface_index = interfaceIndex;
@@ -3103,8 +2921,8 @@ dns_question_callback(DNSServiceRef UNUSED sdRef, DNSServiceFlags flags, uint32_
 #endif
         return; // This doesn't count as a result.
     }
-    query = question->queries;
-    while(query != NULL) {
+
+    for (query = question->queries; query != NULL; query = next) {
         next = query->question_next;
         if (query->dso != NULL) {
             dns_push_query_answer_process(flags, errorCode, fullname, rrtype, rrclass,
@@ -3113,7 +2931,6 @@ dns_question_callback(DNSServiceRef UNUSED sdRef, DNSServiceFlags flags, uint32_
             dns_query_answer_process(flags, errorCode, fullname, rrtype, rrclass,
                                      rdlen, rdata, ttl, query, send);
         }
-        query = next;
     }
     dp_question_cache_remove_queries(question);
 }
@@ -3189,10 +3006,10 @@ dp_query_question_cache_copy(dns_rr_t *search_term, bool *new)
 
     // If no cache entry was found, create one
     if (*questions == NULL) {
-        new_question = calloc(1, sizeof(*new_question));
+        new_question = srp_strict_calloc(1, sizeof(*new_question));
         require_action_quiet(new_question != NULL, exit,
                              ERROR("Unable to allocate memory for question entry on " PRI_S_SRP, name));
-        new_question->name = strdup(name);
+        new_question->name = srp_strict_strdup(name);
         require_action_quiet(new_question->name != NULL, exit,
                              ERROR("unable to allocate memory for question name on " PRI_S_SRP, name));
         new_question->type = search_term->type;
@@ -3374,7 +3191,7 @@ dp_query_create(dp_tracker_t *tracker, dns_rr_t *question, message_t *message, d
     served_domain_t *sdt = dp_served(question->name, name, sizeof name);
     int xid = message == NULL ? 0 : ntohs(message->wire.id);
 
-    dnssd_query_t *query = calloc(1,sizeof *query);
+    dnssd_query_t *query = srp_strict_calloc(1,sizeof *query);
     require_action_quiet(query != NULL, exit, *rcode = dns_rcode_servfail;
                          ERROR("Unable to allocate memory for query on " PRI_S_SRP, name));
     RETAIN_HERE(query, dnssd_query); // for the caller
@@ -3391,7 +3208,7 @@ dp_query_create(dp_tracker_t *tracker, dns_rr_t *question, message_t *message, d
              message, dso != NULL ? "push" : " dns", question->type, question->qclass, name);
     }
 
-    query->response = malloc(sizeof *query->response);
+    query->response = srp_strict_malloc(sizeof *query->response);
     require_action_quiet(query->response != NULL, exit, *rcode = dns_rcode_servfail;
                          ERROR("[Q%d] Unable to allocate memory for query response on " PRI_S_SRP,
                                SERIAL(query), name));
@@ -3444,7 +3261,6 @@ exit:
     return query;
 }
 
-
 static void
 dns_push_query_answer_process(DNSServiceFlags flags, DNSServiceErrorType errorCode,
                               const char *fullname, uint16_t rrtype, uint16_t rrclass,
@@ -3480,9 +3296,6 @@ dns_push_query_answer_process(DNSServiceFlags flags, DNSServiceErrorType errorCo
                      "name: " PRI_S_SRP ", rrtype: " PUB_S_SRP ", rrclass: " PUB_S_SRP ", rdlen: %u, ttl: %u.",
                      SERIAL(query), fullname, dns_rrtype_to_string(rrtype), dns_qclass_to_string(rrclass), rdlen, ttl_to_send);
             } else {
-                // See <https://tools.ietf.org/html/rfc8765#section-6.3.1>.
-#define TTL_TO_REMOVE_INDIVIDUAL_RECORDS    0xFFFFFFFF
-#define TTL_TO_REMOVE_MULTIPLE_RECORDS      0xFFFFFFFE
                 if (rdlen == 0) {
                     // Remove specified RRset from a name in given class:
                     // TTL = 0xFFFFFFFE, RDLEN = 0,
@@ -3524,6 +3337,7 @@ dns_push_query_answer_process(DNSServiceFlags flags, DNSServiceErrorType errorCo
         dnssd_query_cancel(query);
     }
 }
+
 
 static void
 dns_push_subscribe(dp_tracker_t *tracker, const dns_wire_t *header, dso_state_t *dso, dns_rr_t *question,
@@ -3806,7 +3620,6 @@ dp_keepalive_response_send(dso_keepalive_context_t *keepalive_event, dso_state_t
     uint8_t dsobuf[SRPL_KEEPALIVE_MESSAGE_LENGTH];
     dns_towire_state_t towire;
     struct iovec iov;
-    uint16_t *p_dso_length;
     dso_message_t state;
 
     if (dso->transport == NULL) {
@@ -3820,7 +3633,6 @@ dp_keepalive_response_send(dso_keepalive_context_t *keepalive_event, dso_state_t
     towire.message = (dns_wire_t *)dsobuf;
     towire.p_rdlength = NULL;
     towire.p_opt = NULL;
-    p_dso_length = NULL;
 
     dso_make_message(&state, dsobuf, sizeof(dsobuf), dso, false /* unidirectional */, true /* response */,
                      keepalive_event->xid, dns_rcode_noerror, dso->transport, NULL);
@@ -4035,6 +3847,7 @@ dp_tracker_dso_state_change(const dso_life_cycle_t cycle, void *const context, d
     return false;
 }
 
+
 static void
 dnssd_proxy_dns_evaluate(comm_t *comm, message_t *message, dp_tracker_t *tracker)
 {
@@ -4042,7 +3855,7 @@ dnssd_proxy_dns_evaluate(comm_t *comm, message_t *message, dp_tracker_t *tracker
     unsigned offset = 0;
 
     if (tracker == NULL) {
-        tracker = calloc(1, sizeof(*tracker));
+        tracker = srp_strict_calloc(1, sizeof(*tracker));
         if (tracker == NULL) {
             ERROR("[C%d] " PRI_S_SRP ": no memory for a connection tracker object!", SERIAL(comm), comm->name);
             goto fail;
@@ -4086,6 +3899,8 @@ dnssd_proxy_dns_evaluate(comm_t *comm, message_t *message, dp_tracker_t *tracker
             comm->dso = tracker->dso;
         }
         dp_tracker_not_idle(tracker);
+
+
         dso_message_received(comm->dso, (uint8_t *)&message->wire, message->length, message);
         break;
 
@@ -4169,7 +3984,7 @@ dns_proxy_input(comm_t *comm, message_t *message, void *context)
 }
 
 // usage is only called when we are building standalone dnssd-proxy, not the combined one.
-#if (!SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#if !SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY && !SRP_FEATURE_DYNAMIC_CONFIGURATION
 static int
 usage(const char *progname)
 {
@@ -4177,7 +3992,7 @@ usage(const char *progname)
     ERROR("ex: dnssd-proxy");
     return 1;
 }
-#endif // #if (!SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#endif // !SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY && !SRP_FEATURE_DYNAMIC_CONFIGURATION
 
 // Called whenever we get a connection.
 static void UNUSED
@@ -4190,16 +4005,16 @@ connected(comm_t *comm)
 static served_domain_t *NULLABLE
 new_served_domain(dp_interface_t *const NULLABLE interface, const char *const NONNULL domain)
 {
-    served_domain_t *sdt = calloc(1, sizeof *sdt);
+    served_domain_t *sdt = srp_strict_calloc(1, sizeof *sdt);
     if (sdt == NULL) {
         ERROR("Unable to allocate served domain %s", domain);
         return NULL;
     }
     size_t domain_len = strlen(domain);
-    sdt->domain_ld = malloc(domain_len + 2);
+    sdt->domain_ld = srp_strict_malloc(domain_len + 2);
     if (sdt->domain_ld == NULL) {
         ERROR("Unable to allocate served domain name %s", domain);
-        free(sdt);
+        srp_strict_free(&sdt);
         return NULL;
     }
     sdt->domain_ld[0] = '.';
@@ -4213,7 +4028,7 @@ new_served_domain(dp_interface_t *const NULLABLE interface, const char *const NO
         } else {
             ERROR("invalid domain name: %s", sdt->domain);
         }
-        free(sdt);
+        srp_strict_free(&sdt);
         return NULL;
     }
     sdt->next = served_domains;
@@ -4223,7 +4038,7 @@ new_served_domain(dp_interface_t *const NULLABLE interface, const char *const NO
     return sdt;
 }
 
-#if STUB_ROUTER
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
 static served_domain_t *NULLABLE
 find_served_domain(const char *const NONNULL domain)
 {
@@ -4236,12 +4051,10 @@ find_served_domain(const char *const NONNULL domain)
 
     return current;
 }
-#endif
 
 // served domain can only go away when combined with srp-mdns-proxy and interface going up and down.
-#if SRP_FEATURE_DYNAMIC_CONFIGURATION
 static void
-served_domain_free(served_domain_t *const served_domain)
+served_domain_free(served_domain_t * served_domain)
 {
     INFO("served domain removed - domain name: " PRI_S_SRP, served_domain->domain);
 
@@ -4251,12 +4064,10 @@ served_domain_free(served_domain_t *const served_domain)
         interface_addr_t *next;
         for (;current != NULL; current = next) {
             next = current->next;
-            free(current);
+            srp_strict_free(&current);
         }
-        if (served_domain->interface->name != NULL) {
-            free(served_domain->interface->name);
-        }
-        free(served_domain->interface);
+        srp_strict_free(&served_domain->interface->name);
+        srp_strict_free(&served_domain->interface);
     }
 
     // free hardwired_t *NULLABLE hardwired_responses
@@ -4265,7 +4076,7 @@ served_domain_free(served_domain_t *const served_domain)
         hardwired_t *next;
         for (; current != NULL; current = next) {
             next = current->next;
-            free(current);
+            srp_strict_free(&current);
         }
     }
 
@@ -4275,14 +4086,14 @@ served_domain_free(served_domain_t *const served_domain)
     }
 
     // free char *NONNULL domain_ld;
-    free(served_domain->domain_ld);
+    srp_strict_free(&served_domain->domain_ld);
 
 #ifdef SRP_TEST_SERVER
     last_freed_domain = served_domain;
 #endif
 
     // free served_domain_t *
-    free(served_domain);
+    srp_strict_free(&served_domain);
 }
 
 static void
@@ -4292,45 +4103,8 @@ delete_served_domain(served_domain_t *const served_domain)
         served_domain_free(served_domain);
     }
 }
-
-#if STUB_ROUTER
-served_domain_t *
-delete_served_domain_by_interface_name(const char *const NONNULL interface_name)
-{
-    served_domain_t *current;
-    served_domain_t *prev = NULL;
-    for(current= served_domains; current != NULL; prev = current, current = current->next) {
-        if (current->interface == NULL) {
-            continue;
-        }
-        if (strcmp(interface_name, current->interface->name) != 0) {
-            continue;
-        }
-
-        INFO("served domain deleted with interface - "
-            "domain: " PRI_S_SRP ", interface name: " PUB_S_SRP, current->domain, interface_name);
-
-        // Since we are removing the entire served domain and the interface, the addresses that are associated with
-        // this interface will also be removed. Therefore, any hardwired response that contains these addresses should
-        // also be removed.
-        for (interface_addr_t *address = current->interface->addresses; address != NULL; address = address->next) {
-            dnssd_hardwired_process_addr_change(&address->addr, &address->mask, false);
-        }
-
-        if (prev == NULL) {
-            served_domains = current->next;
-        } else {
-            prev->next = current->next;
-        }
-
-        delete_served_domain(current);
-        break;
-    }
-
-    return current;
-}
-#endif // STUB_ROUTER
 #endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
+
 
 // Dynamic interface detection...
 // This is called whenever a new interface address is encountered.
@@ -4372,14 +4146,6 @@ dnssd_proxy_ifaddr_callback(srp_server_t *UNUSED server_state, void *UNUSED cont
         goto exit;
     }
 
-#if THREAD_BORDER_ROUTER && SRP_FEATURE_COMBINED_DNSSD_PROXY
-    // Ignore Thread interface
-    bool is_valid_address = thread_interface_name == NULL || strcmp(thread_interface_name, name) != 0;
-    if (!is_valid_address) {
-        INFO("skipping thread interface address");
-        goto exit;
-    }
-#endif
 
     // Add/remove the address from the corresponding served domain.
     served_domain_t **sp = &served_domains;
@@ -4436,16 +4202,13 @@ dnssd_proxy_ifaddr_callback(srp_server_t *UNUSED server_state, void *UNUSED cont
     }
 #endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
-#if STUB_ROUTER
-    // Added or removed address will possibly need hardwired response to be updated.
-    dnssd_hardwired_process_addr_change(address, mask, event_type == interface_address_added);
-#endif
 
 exit:
     return;
 }
 
 #if !SRP_FEATURE_DYNAMIC_CONFIGURATION
+
 // Config file parsing...
 static bool
 interface_handler(void * UNUSED context, const char * UNUSED filename, char **hunks, int UNUSED num_hunks,
@@ -4607,34 +4370,14 @@ config_file_verb_t dp_verbs[] = {
 #define NUMCFVERBS ((sizeof dp_verbs) / sizeof (config_file_verb_t))
 #endif // !SRP_FEATURE_DYNAMIC_CONFIGURATION
 
+#if !defined(EXCLUDE_TLS)
 static wakeup_t *tls_listener_wakeup;
 static int tls_listener_index;
 static void dnssd_tls_listener_restart(comm_t *NONNULL listener, void *NULLABLE context);
+#endif
 
-static void dnssd_tls_key_change_notification_send(void)
-{
-    static int dnssd_tls_change_notification_token = NOTIFY_TOKEN_INVALID;
 
-    if (dnssd_tls_change_notification_token == NOTIFY_TOKEN_INVALID) {
-        uint32_t notifyStatus = notify_register_check(kDNSSDAdvertisingProxyTLSKeyUpdateNotification,
-                                                      &dnssd_tls_change_notification_token);
-        if (notifyStatus != NOTIFY_STATUS_OK) {
-            dnssd_tls_change_notification_token = NOTIFY_TOKEN_INVALID;
-            ERROR("notify_register_check(%s) failed with %u", kDNSSDAdvertisingProxyTLSKeyUpdateNotification, notifyStatus);
-            return;
-        }
-    }
-
-    if (dnssd_tls_change_notification_token != NOTIFY_TOKEN_INVALID) {
-        uint32_t notifyStatus = notify_post(kDNSSDAdvertisingProxyTLSKeyUpdateNotification);
-        if (notifyStatus != NOTIFY_STATUS_OK) {
-            ERROR("notify_post(%s) %u", kDNSSDAdvertisingProxyTLSKeyUpdateNotification, notifyStatus);
-            notify_cancel(dnssd_tls_change_notification_token);
-            dnssd_tls_change_notification_token = NOTIFY_TOKEN_INVALID;
-        }
-    }
-}
-
+#if !defined(EXCLUDE_TLS)
 static void
 dnssd_tls_listener_ready(void *UNUSED context, uint16_t port)
 {
@@ -4674,8 +4417,6 @@ static void dnssd_tls_listener_listen(void *context, bool init_daemon)
         goto exit;
     }
 
-    // Notify about intial key update
-    dnssd_tls_key_change_notification_send();
 
     // Schedule a wake up timer to rotate the expired TLS certificate.
     schedule_tls_certificate_rotation(&tls_listener_wakeup, dnssd_proxy_listeners[tls_listener_index]);
@@ -4703,7 +4444,6 @@ dnssd_tls_listener_restart(comm_t *UNUSED in_listener, void *context)
         }
 
         // Send TLS key update notification
-        dnssd_tls_key_change_notification_send();
         dnssd_tls_listener_listen(NULL, false);
     } else {
         INFO("Creation of TLS listener failed; reattempting in 10s.");
@@ -4718,12 +4458,15 @@ dnssd_tls_listener_restart(comm_t *UNUSED in_listener, void *context)
         ioloop_add_wake_event(tls_listener_wakeup, context, dnssd_tls_listener_relisten, NULL, 10 * MSEC_PER_SEC);
     }
 }
+#endif // !defined(EXCLUDE_TLS)
 
 static void
 dnssd_push_setup(void)
 {
+#if !defined(EXCLUDE_TLS)
     tls_listener_index = dnssd_proxy_num_listeners++;
     dnssd_tls_listener_listen(NULL, true);
+#endif // !defined(EXCLUDE_TLS)
 
     // Only set hardwired response when dynamic configuration is enabled.  Dynamic configuration
     // sets up hardwired response when new address of the interface is added.
@@ -4879,11 +4622,11 @@ add_new_served_domain_with_interface(const char *const NONNULL name,
 #endif
     bool succeeded;
 
-    new_interface = calloc(1, sizeof(*new_interface));
+    new_interface = srp_strict_calloc(1, sizeof(*new_interface));
     require_action_quiet(new_interface != NULL, exit, succeeded = false;
         ERROR("calloc failed - name: " PRI_S_SRP ", allocate size: %lu", name, sizeof(*new_interface)));
 
-    new_interface->name = strdup(name);
+    new_interface->name = srp_strict_strdup(name);
     require_action_quiet(new_interface->name != NULL, exit, succeeded = false;
         ERROR("strdup failed to copy interface name - interface name: " PRI_S_SRP, name));
 
@@ -4905,7 +4648,7 @@ add_new_served_domain_with_interface(const char *const NONNULL name,
     if (address != NULL) {
         require_action_quiet(mask != NULL, exit, succeeded = false);
 
-        new_interface->addresses = calloc(1, sizeof(*new_interface->addresses));
+        new_interface->addresses = srp_strict_calloc(1, sizeof(*new_interface->addresses));
         require_action_quiet(new_interface->addresses != NULL, exit, succeeded = false;
             ERROR("calloc failed - allocated size: %lu", sizeof(*new_interface->addresses)));
         new_interface->addresses->addr = *address;
@@ -4913,9 +4656,6 @@ add_new_served_domain_with_interface(const char *const NONNULL name,
     }
 
     char *per_interface_served_domain;
-#if STUB_ROUTER
-    char served_domain_buffer[DNS_MAX_NAME_SIZE];
-#endif
     if (local_only_interface) {
         // All queries sent to <Thread ID>.thread.home.arpa. will only be proxied to local only interface.
         per_interface_served_domain = THREAD_DOMAIN_WITH_ID;
@@ -4926,20 +4666,9 @@ add_new_served_domain_with_interface(const char *const NONNULL name,
         per_interface_served_domain = DOT_LOCAL_DOMAIN;
 #endif
     } else {
-#if STUB_ROUTER
-        int bytes_written = snprintf(served_domain_buffer, sizeof(served_domain_buffer),
-            "%s-%s." HOME_NET_DOMAIN, local_host_name, name);
-        require_action_quiet(bytes_written > 0 && (size_t)bytes_written < sizeof(served_domain_buffer), exit,
-            succeeded = false;
-            ERROR("snprintf failed - local host name: " PRI_S_SRP ", interface name: " PUB_S_SRP
-                ", name buffer size: %lu", my_name, name, sizeof(served_domain_buffer))
-        );
-        per_interface_served_domain = served_domain_buffer;
-#else
         ERROR("unexpected served domain " PRI_S_SRP, name);
         succeeded = false;
         goto exit;
-#endif
     }
 
     served_domain = new_served_domain(new_interface, per_interface_served_domain);
@@ -4957,12 +4686,10 @@ exit:
             if (new_interface->addresses != NULL) {
                 verify_action(new_interface->addresses->next == NULL,
                     ERROR("multiple addresses added for this new interface"));
-                free(new_interface->addresses);
+                srp_strict_free(&new_interface->addresses);
             }
-            if (new_interface->name != NULL) {
-                free(new_interface->name);
-            }
-            free(new_interface);
+            srp_strict_free(&new_interface->name);
+            srp_strict_free(&new_interface);
         }
     }
 
@@ -5027,7 +4754,7 @@ interface_add_new_address(dp_interface_t *const NONNULL interface, const addr_t 
 {
     bool succeeded;
 
-    interface_addr_t *new_if_addr = calloc(1, sizeof(*new_if_addr));
+    interface_addr_t *new_if_addr = srp_strict_calloc(1, sizeof(*new_if_addr));
     require_action_quiet(new_if_addr != NULL, exit, succeeded = false;
         ERROR("calloc failed - allocated size: %zu", sizeof(*new_if_addr)));
     new_if_addr->addr = *address;
@@ -5066,7 +4793,7 @@ interface_remove_old_address(dp_interface_t *const NONNULL interface, const addr
     }
     current = *ap;
     *ap = current->next;
-    free(current);
+    srp_strict_free(&current);
 
     succeeded = true;
 exit:
@@ -5095,137 +4822,11 @@ exit:
     return succeeded;
 }
 
-static void
-towire_init(dns_wire_t * const NONNULL wire_ptr, dns_towire_state_t * const NONNULL towire_ptr)
-{
-    memset(wire_ptr, 0, sizeof(*wire_ptr));
-    memset(towire_ptr, 0, sizeof(*towire_ptr));
-    towire_ptr->message = wire_ptr;
-    towire_ptr->lim = &wire_ptr->data[DNS_DATA_SIZE];
-    towire_ptr->p = wire_ptr->data;
-}
-
-#if STUB_ROUTER
-static bool
-string_ends_with(const char *const NONNULL str, const char *const NONNULL suffix)
-{
-    size_t str_len = strlen(str);
-    size_t suffix_len = strlen(suffix);
-    bool ret;
-
-    if (str_len < suffix_len) {
-        ret = false;
-        goto exit;
-    }
-
-    if (strcmp(str + (str_len-suffix_len), suffix) != 0) {
-        ret = false;
-        goto exit;
-    }
-
-    ret = true;
-exit:
-    return ret;
-}
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
 #endif
+
 
 #if SRP_FEATURE_DYNAMIC_CONFIGURATION
-#if STUB_ROUTER
-static bool
-served_domain_change_domain_name(void)
-{
-    bool succeeded = true;
-
-    served_domain_t *next;
-    for (served_domain_t *current = served_domains; current != NULL; current = next) {
-        next = current->next;
-        if (!string_ends_with(current->domain, HOME_NET_DOMAIN)) {
-            continue;
-        }
-        // Skip local only interface because only served domain <Thread ID>.thread.home.arpa. does not contain domain
-        // string.
-        if (current->interface != NULL && strcmp(LOCAL_ONLY_PSEUDO_INTERFACE, current->interface->name) == 0) {
-            continue;
-        }
-
-        // Constructs new served domain name.
-        char *new_served_domain_name;
-        char new_served_domain_buff[DNS_MAX_NAME_SIZE];
-
-        if (0) {
-        } else if (current->interface != NULL) { // <local host name>-<interface name>.home.arpa.
-            const dp_interface_t *const interface = current->interface;
-            int bytes_written = snprintf(new_served_domain_buff, sizeof(new_served_domain_buff),
-                "%s-%s." HOME_NET_DOMAIN, local_host_name, interface->name);
-            require_action_quiet(bytes_written > 0 && (size_t)bytes_written < sizeof(new_served_domain_buff), exit,
-                succeeded = false; ERROR("snprintf failed"));
-            new_served_domain_name = new_served_domain_buff;
-        } else { // <local host name>.home.arpa.
-            int bytes_written = snprintf(new_served_domain_buff, sizeof(new_served_domain_buff),
-                "%s." HOME_NET_DOMAIN, local_host_name);
-            require_action_quiet(bytes_written > 0 && (size_t)bytes_written < sizeof(new_served_domain_buff), exit,
-                succeeded = false; ERROR("snprintf failed"));
-            new_served_domain_name = new_served_domain_buff;
-        }
-
-        INFO("Updating served domain from " PRI_S_SRP " to " PRI_S_SRP, current->domain, new_served_domain_name);
-
-        // Free the old served domain name.
-        free(current->domain_ld);
-        dns_name_free(current->domain_name);
-
-        // Set the new served domain name.
-        size_t domain_len = strlen(new_served_domain_name);
-        current->domain_ld = malloc(domain_len + 2);
-        require_action_quiet(current->domain_ld != NULL, for_loop_exit, succeeded = false;
-            ERROR("malloc failed - allocated length: %zu", domain_len + 2));
-        current->domain_ld[0] = '.';
-        current->domain = current->domain_ld + 1;
-        memcpy(current->domain, new_served_domain_name, domain_len);
-        current->domain[domain_len] = '\0';
-
-        current->domain_name = dns_pres_name_parse(current->domain);
-        require_action_quiet(current->domain_name != NULL, for_loop_exit, succeeded = false;
-            ERROR("failed to create parsed DNS name - domain name to be parsed: " PRI_S_SRP, current->domain)
-        );
-
-    for_loop_exit:
-        if (!succeeded) {
-            delete_served_domain(current);
-        }
-    }
-
-exit:
-    return succeeded;
-}
-#endif // STUB_ROUTER
-
-static bool
-served_domain_process_name_change(void)
-{
-    bool succeeded;
-
-    // Deletes all hardwired response set in the served domain.
-    dnssd_hardwired_clear();
-
-#if STUB_ROUTER
-    // Since local host name changes, we need to reflect the change in the served domain name.
-    succeeded = served_domain_change_domain_name();
-    require_action_quiet(succeeded, exit, ERROR("served_domain_change_domain_name failed"));
-#endif
-
-    // Re-set the hardwired response
-    dnssd_hardwired_setup();
-
-    // Re-set the DNS push hardwired response
-    dnssd_hardwired_push_setup();
-
-    succeeded = true;
-#if STUB_ROUTER
-exit:
-#endif
-    return succeeded;
-}
 
 static bool
 initialize_uuid_name(srp_server_t *UNUSED server_state)
@@ -5244,181 +4845,17 @@ initialize_uuid_name(srp_server_t *UNUSED server_state)
     return true;
 }
 
-static bool
-update_my_name(CFStringRef local_host_name_cfstr)
-{
-    bool succeeded;
-    size_t name_length;
-
-    if (local_host_name_cfstr == NULL) {
-        // If we are a thread device and not a stub router, make up a hostname for the remote server in case we need it.
-        char localhost[] = "localhost.";
-        name_length = sizeof(localhost);
-        memcpy(local_host_name, localhost, name_length);
-        memcpy(local_host_name_dot_local, localhost, name_length);
-        memcpy(my_name_buf, localhost, name_length);
-    } else {
-        // local host name to c string.
-        succeeded = CFStringGetCString(local_host_name_cfstr, local_host_name, sizeof(local_host_name),
-                                       kCFStringEncodingUTF8);
-        require_action_quiet(succeeded, exit, succeeded = false;
-                             ERROR("CFStringGetCString failed - local host name: " PRI_S_SRP,
-                                   CFStringGetCStringPtr(local_host_name_cfstr, kCFStringEncodingUTF8))
-            );
-        name_length = strlen(local_host_name);
-
-        // Validate the local host name.
-        for (size_t i = 0; i < name_length; i++) {
-            char ch = local_host_name[i];
-            bool is_valid_char = isalnum(ch) || (ch == '-');
-            require_action_quiet(is_valid_char, exit, succeeded = false;
-                                 ERROR("invalid DNS name - name: " PUB_S_SRP, local_host_name));
-        }
-
-        require_action_quiet(name_length + sizeof(DOT_HOME_NET_DOMAIN) <= sizeof(my_name_buf),
-                             exit,
-                             succeeded = false;
-                             ERROR("generated name too long: " PUB_S_SRP DOT_HOME_NET_DOMAIN, local_host_name));
-
-        // Update existing local host name in my_name.
-        memcpy(my_name_buf, local_host_name, name_length);
-        memcpy(my_name_buf + name_length, DOT_HOME_NET_DOMAIN, sizeof(DOT_HOME_NET_DOMAIN));
-
-        // Update existing local host name with .local suffix.
-        int bytes_written = snprintf(local_host_name_dot_local, sizeof(local_host_name_dot_local), "%s" DOT_LOCAL, local_host_name);
-        if (bytes_written < 0 || (size_t) bytes_written > sizeof(local_host_name_dot_local)) {
-           ERROR("snprintf failed - name length: %lu, max: %lu", strlen(local_host_name) + sizeof(DOT_LOCAL),
-                 sizeof(local_host_name_dot_local));
-           succeeded = false;
-           goto exit;
-        }
-    }
-    my_name = my_name_buf;
-
-    succeeded = true;
-    INFO(PUB_S_SRP " my_name: " PRI_S_SRP ", local host name: " PRI_S_SRP, my_name == NULL ? "initialized" : "updated",
-         my_name, local_host_name_dot_local);
-
-exit:
-    return succeeded;
-}
-
-// Gets called when name change event happens
-static void
-monitor_name_changes_callback(SCDynamicStoreRef store, CFArrayRef changed_keys, void *context)
-{
-    bool succeeded;
-    CFStringRef local_host_name_cfstring = NULL;
-    dnssd_proxy_advertisements_t *advertisements = context;
-
-    // Check if name changes.
-    CFRange range = {0, CFArrayGetCount(changed_keys)};
-    const bool host_name_changed = CFArrayContainsValue(changed_keys, range, sc_dynamic_store_key_host_name);
-    if (!host_name_changed) {
-        goto exit;
-    }
-
-    // Get the new local host name.
-    local_host_name_cfstring = SCDynamicStoreCopyLocalHostName(store);
-    require_action_quiet(local_host_name_cfstring != NULL, exit, ERROR("failed to get updated local host name"));
-
-    // Update the old my_name
-    succeeded = update_my_name(local_host_name_cfstring);
-    require_action_quiet(succeeded, exit, ERROR("failed to update my name"));
-
-    // With the new local host name, update the served domains and hardwired response.
-    succeeded = served_domain_process_name_change();
-    require_action_quiet(succeeded, exit, ERROR("failed to process name change for served domains"));
-
-    if (advertisements->txn != NULL) {
-        dns_wire_t wire;
-        dns_towire_state_t towire;
-        towire_init(&wire, &towire);
-        dns_full_name_to_wire(NULL, &towire, local_host_name_dot_local);
-
-        DNSServiceErrorType err = DNSServiceUpdateRecord(advertisements->service_ref, advertisements->ns_record_ref, 0,
-            towire.p - wire.data, wire.data, 0);
-        if (err != kDNSServiceErr_NoError) {
-            ERROR("DNSServiceUpdateRecord failed to update NS record to new name - name: " PRI_S_SRP,
-                local_host_name_dot_local);
-        }
-
-        INFO("Updating record - new NS record rdata: " PRI_S_SRP, local_host_name_dot_local);
-    }
-
-exit:
-    if (local_host_name_cfstring != NULL) {
-        CFRelease(local_host_name_cfstring);
-    }
-    return;
-}
-
-static bool
-monitor_name_changes(dnssd_proxy_advertisements_t *advertisements)
-{
-    bool succeeded;
-    SCDynamicStoreRef store = NULL;
-    const void *monitored_keys[1];
-    CFArrayRef monitored_keys_array = NULL;
-
-    // Set the callback function for name change event.
-    store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("dnssd-proxy:watch for name change events"),
-                                 monitor_name_changes_callback, &advertisements->sc_context);
-    require_action_quiet(store != NULL, exit, succeeded = false; ERROR("failed to create SCDynamicStoreRef"));
-
-    // Set the key to be monitored, which is host name
-    sc_dynamic_store_key_host_name = SCDynamicStoreKeyCreateHostNames(kCFAllocatorDefault);
-    require_action_quiet(sc_dynamic_store_key_host_name != NULL, exit, succeeded = false;
-        ERROR("failed to create SCDynamicStoreKey for host name"));
-
-    monitored_keys[0] = sc_dynamic_store_key_host_name;
-    monitored_keys_array = CFArrayCreate(kCFAllocatorDefault, monitored_keys, countof(monitored_keys),
-        &kCFTypeArrayCallBacks);
-    require_action_quiet(monitored_keys_array != NULL, exit, succeeded = false;
-        ERROR("failed to create CFArrayRef for monitored keys"));
-
-    succeeded = SCDynamicStoreSetNotificationKeys(store, monitored_keys_array, NULL);
-    require_action_quiet(succeeded, exit, ERROR("SCDynamicStoreSetNotificationKeys failed"));
-
-    succeeded = SCDynamicStoreSetDispatchQueue(store, dispatch_get_main_queue());
-    require_action_quiet(succeeded, exit, ERROR("SCDynamicStoreSetDispatchQueue failed"));
-
-    succeeded = true;
-    INFO("Start to monitor local host name changes");
-exit:
-    if (!succeeded) {
-        if (store != NULL) {
-            CFRelease(store);
-        }
-    }
-    if (monitored_keys_array != NULL) {
-        CFRelease(monitored_keys_array);
-    }
-    return succeeded;
-}
 
 static bool
 initialize_my_name_and_monitoring(srp_server_t *server_state)
 {
-    bool succeeded;
-    CFStringRef local_host_name_cfstring = NULL;
-
-    // Set notification from configd.
-    succeeded = monitor_name_changes(server_state->dnssd_proxy_advertisements);
-    require_action_quiet(succeeded, exit, ERROR("failed to monitor name changes"));
-
-    // Get the initial local host name
-    local_host_name_cfstring = SCDynamicStoreCopyLocalHostName(NULL);
-    require_action_quiet(local_host_name != NULL, exit, succeeded = false; ERROR("failed to get local host name"));
-
-    succeeded = update_my_name(local_host_name_cfstring);
-    require_action_quiet(succeeded, exit, ERROR("failed to update myname"));
-
-exit:
-    if (local_host_name_cfstring != NULL) {
-        CFRelease(local_host_name_cfstring);
+    size_t ret = gethostname(local_host_name, sizeof(local_host_name));
+    if (ret >= sizeof(local_host_name)) {
+        local_host_name[sizeof(local_host_name) - 1] = 0;
     }
-    return succeeded;
+
+    // XXX Should monitor changes to hostname, but currently we don't for POSIX.
+    return true;
 }
 
 #ifndef SRP_TEST_SERVER
@@ -5438,7 +4875,6 @@ start_dnssd_proxy_listener(void)
 {
     bool succeeded;
 
-#if STUB_ROUTER
 #ifndef NOT_HAVE_SA_LEN
 #  define SA_LEN_INIT addr.sa.sa_len = sizeof(addr.sin6)
 #else
@@ -5469,7 +4905,6 @@ start_dnssd_proxy_listener(void)
     require_action_quiet(dnssd_proxy_listeners[dnssd_proxy_num_listeners] != NULL, exit, succeeded = false;
         ERROR("failed to start TCP listener - listener index: %d", dnssd_proxy_num_listeners));
     dnssd_proxy_num_listeners++;
-#endif // STUB_ROUTER
 
     dnssd_push_setup();
 
@@ -5486,360 +4921,6 @@ exit:
 
 #define ADVERTISEMENT_RETRY_TIMER 10 * MSEC_PER_SEC
 
-#if STUB_ROUTER
-static void
-advertisements_finalize(void *context)
-{
-    dnssd_proxy_advertisements_t *advertisements_context = context;
-    advertisements_context->txn = NULL;
-}
-
-static void
-advertisements_failed(void *UNUSED context, int status)
-{
-    ERROR("%d", status);
-}
-
-static void
-advertisements_callback(DNSServiceRef sd_ref, DNSRecordRef record_ref, DNSServiceFlags UNUSED flags,
-                        DNSServiceErrorType error, void *context)
-{
-    dnssd_proxy_advertisements_t *advertisements_context = context;
-
-    if (error == kDNSServiceErr_NoError) {
-        const char * const description = record_ref == advertisements_context->ns_record_ref ? "NS" : "PTR";
-        INFO("record registered successfully - registered: " PUB_S_SRP, description);
-    } else if (error == kDNSServiceErr_ServiceNotRunning) {
-        // The record is not being advertised because mDNSResponder stopped running for some reason (like crashes),
-        // in which case, we will stop the previous DNSService operation and start a new one 10s later.
-
-        // Release the previous DNSServiceRef.
-        if (advertisements_context->service_ref != sd_ref) {
-            ERROR("Invalid DNSServiceRef - context->service_ref: %p, sd_ref: %p", advertisements_context->service_ref,
-                sd_ref);
-        }
-        if (advertisements_context->txn != NULL) {
-            ioloop_dnssd_txn_cancel(advertisements_context->txn);
-            ioloop_dnssd_txn_release(advertisements_context->txn);
-            advertisements_context->txn = NULL;
-        }
-        advertisements_context->service_ref = NULL;
-
-        // Restart the advertisement.
-        bool succeeded = start_timer_to_advertise(advertisements_context, NULL, ADVERTISEMENT_RETRY_TIMER);
-        if (!succeeded) {
-            ERROR("start_timer_to_advertise failed");
-        } else {
-            INFO("mDNSResponder stopped running, preparing to re-advertise the PTR and NS records");
-        }
-    } else {
-        ERROR("record not registered - error: %d", error);
-    }
-}
-
-static void
-advertise_dnssd_proxy_callback(void *NONNULL context)
-{
-    DNSServiceErrorType err;
-    bool succeeded;
-    bool dns_service_initialized = false;
-    dns_wire_t wire;
-    dns_towire_state_t towire;
-    dnssd_proxy_advertisements_t *advertisement_context = context;
-    srp_server_t *server_state = advertisement_context->server_state;
-    const char *const domain_to_advertise = advertisement_context->domain_to_advertise;
-
-    INFO("Start advertising lb._dns-sd._udp.local. PTR and openthread.thread.home.arpa.local NS records");
-
-    // Create DNSServiceRef
-    err = DNSServiceCreateConnection(&advertisement_context->service_ref);
-    if (err != kDNSServiceErr_NoError) {
-        ERROR("DNSServiceCreateConnection failed");
-        succeeded = false;
-        goto exit;
-    }
-    dns_service_initialized = true;
-
-    // Setup lb._dns-sd._udp.local. PTR openthread.thread.home.arpa.
-    towire_init(&wire, &towire);
-    dns_full_name_to_wire(NULL, &towire, domain_to_advertise);
-
-    err = DNSServiceRegisterRecord(advertisement_context->service_ref, &advertisement_context->ptr_record_ref,
-                                   kDNSServiceFlagsShared, server_state->advertise_interface, AUTOMATIC_BROWSING_DOMAIN,
-                                   kDNSServiceType_PTR, kDNSServiceClass_IN, towire.p - wire.data, wire.data, 0,
-                                   advertisements_callback, advertisement_context);
-    if (err != kDNSServiceErr_NoError) {
-        ERROR("DNSServiceRegisterRecord failed - record: " PUB_S_SRP " PTR " PRI_S_SRP, AUTOMATIC_BROWSING_DOMAIN,
-              domain_to_advertise);
-        succeeded = false;
-        goto exit;
-    }
-
-    // Setup openthread.thread.home.arpa. NS <local host name>.local.
-    towire_init(&wire, &towire);
-    dns_full_name_to_wire(NULL, &towire, local_host_name_dot_local);
-
-    err = DNSServiceRegisterRecord(advertisement_context->service_ref, &advertisement_context->ns_record_ref,
-                                   kDNSServiceFlagsShared | kDNSServiceFlagsForceMulticast,
-                                   server_state->advertise_interface, domain_to_advertise, kDNSServiceType_NS,
-                                   kDNSServiceClass_IN, towire.p - wire.data, wire.data, 0,
-                                   advertisements_callback, advertisement_context);
-    if (err != kDNSServiceErr_NoError) {
-        ERROR("DNSServiceRegisterRecord failed - record: " PUB_S_SRP " NS " PRI_S_SRP, domain_to_advertise,
-            local_host_name_dot_local);
-        succeeded = false;
-        goto exit;
-    }
-
-    // Start the running loop
-    advertisement_context->txn = ioloop_dnssd_txn_add(advertisement_context->service_ref, advertisement_context,
-                                                      advertisements_finalize, advertisements_failed);
-    if (advertisement_context->txn == NULL) {
-        ERROR("ioloop_dnssd_txn_add failed");
-        succeeded = false;
-        goto exit;
-    }
-
-    INFO("Advertising records - " PUB_S_SRP " PTR " PRI_S_SRP ", " PRI_S_SRP " NS " PRI_S_SRP,
-         AUTOMATIC_BROWSING_DOMAIN, domain_to_advertise, domain_to_advertise, local_host_name_dot_local);
-    succeeded = true;
-exit:
-    if (!succeeded) {
-        if (dns_service_initialized) {
-            DNSServiceRefDeallocate(advertisement_context->service_ref);
-            advertisement_context->service_ref = NULL;
-        }
-        if (err == kDNSServiceErr_ServiceNotRunning) {
-            ERROR("mDNSResponder is not running yet when trying to advertise PTR and NS records, try again 10s later");
-            // advertise_dnssd_proxy_callback will be called again 10s later, since we did not cancel the timer.
-        } else {
-            // Other kDNSServiceErr, should be impossible. If it happens, give up advertising the records.
-            ioloop_cancel_wake_event(advertisement_context->wakeup_timer);
-        }
-    } else {
-        // Since we registered successfully, there is no need to trigger another timer to set the records.
-        // Stop the timer.
-        ioloop_cancel_wake_event(advertisement_context->wakeup_timer);
-    }
-}
-
-static bool
-start_timer_to_advertise(dnssd_proxy_advertisements_t *NONNULL context,
-    const char *const NULLABLE domain_to_advertise, const uint32_t interval)
-{
-    bool succeeded;
-
-    // Only create timer once.
-    if (context->wakeup_timer == NULL) {
-        context->wakeup_timer = ioloop_wakeup_create();
-        if (context->wakeup_timer == NULL) {
-            succeeded = false;
-            goto exit;
-        }
-    }
-
-    // Only copy advertised domain once.
-    if (context->domain_to_advertise == NULL) {
-        if (domain_to_advertise == NULL) {
-            succeeded = false;
-            goto exit;
-        }
-
-        context->domain_to_advertise = strdup(domain_to_advertise);
-        if (context->domain_to_advertise == NULL) {
-            succeeded = false;
-            goto exit;
-        }
-    }
-
-    // Start the timer, finalize callback is not necessary here because the context should always be available.
-    succeeded = ioloop_add_wake_event(context->wakeup_timer, context, advertise_dnssd_proxy_callback, NULL, interval);
-    if (!succeeded) {
-        goto exit;
-    }
-
-    succeeded = true;
-exit:
-    if (!succeeded) {
-        if (context->domain_to_advertise != NULL) {
-            free(context->domain_to_advertise);
-            context->domain_to_advertise = NULL;
-        }
-        if (context->wakeup_timer != NULL) {
-            ioloop_wakeup_release(context->wakeup_timer);
-            context->wakeup_timer = NULL;
-        }
-    }
-    return succeeded;
-}
-
-#if SRP_FEATURE_DISCOVERY_PROXY_SERVER
-
-static bool
-start_timer_to_advertise_dnssd_dp_proxy(dnssd_dp_proxy_advertisements_t *context, uint32_t interval);
-
-static void
-dp_advertisements_finalize(void *const context)
-{
-    dnssd_dp_proxy_advertisements_t *advertisements_context = context;
-    advertisements_context->txn = NULL;
-}
-
-static void
-dp_advertisements_failed(void *const UNUSED context, const int status)
-{
-    ERROR("push service advertisement failed  -- error: %d", status);
-}
-
-static void
-dp_advertisements_callback(const DNSServiceRef UNUSED sd_ref, const DNSServiceFlags UNUSED flags,
-                           const DNSServiceErrorType error, const char *const name, const char *const reg_type,
-                           const char *const domain, void *const context)
-{
-    dnssd_dp_proxy_advertisements_t *const ads_ctx = context;
-    if (error == kDNSServiceErr_NoError) {
-        INFO("Push service registered successfully -- %s.%s%s", name, reg_type, domain);
-    } else if (error == kDNSServiceErr_ServiceNotRunning) {
-        if (ads_ctx->txn != NULL) {
-            ioloop_dnssd_txn_cancel(ads_ctx->txn);
-            ioloop_dnssd_txn_forget(&ads_ctx->txn);
-        }
-        ads_ctx->service_ref = NULL;
-
-        const bool succeeded = start_timer_to_advertise_dnssd_dp_proxy(ads_ctx, ADVERTISEMENT_RETRY_TIMER);
-        if (!succeeded) {
-            ERROR("start_timer_to_advertise_dnssd_dp_proxy failed");
-        } else {
-            INFO("mDNSResponder stopped running, preparing to re-advertise DNS push service");
-        }
-    } else {
-        ERROR("Push service not registered -- error: %d", error);
-    }
-}
-
-static void
-advertise_dnssd_dp_proxy_callback(void *const context)
-{
-    DNSServiceRef service_ref = NULL;
-    dnssd_txn_t *txn = NULL;
-    dnssd_dp_proxy_advertisements_t *const advertisement_context = context;
-    srp_server_t *const server_state = advertisement_context->server_state;
-    int bytes_written = 0;
-
-    // Construct ,_local,_openthread#thread#home#arpa
-    const char *domains_support_push[] = {
-        DOT_LOCAL_DOMAIN,
-        THREAD_BROWSING_DOMAIN,
-    };
-    char subtype_domains[256];
-    size_t current_len = 0;
-    for (size_t i = 0; i < countof(domains_support_push); i++) {
-        const char *const domain_supports_push = domains_support_push[i];
-        const size_t len = strlen(domain_supports_push);
-        char subtype_domain[128];
-        // Convert domain name like `_openthread.thread.home.arpa` to `_openthread#thread#home#arpa`.
-        require_quiet(len < sizeof(subtype_domain), exit);
-        for (size_t j = 0; j < len + 1; j++) {
-            if (domain_supports_push[j] == '.') {
-                subtype_domain[j] = '#';
-            } else {
-                subtype_domain[j] = domain_supports_push[j];
-            }
-        }
-        // Remove the trailing '#'.
-        if (subtype_domain[len - 1] == '#') {
-            subtype_domain[len - 1] = '\0';
-        }
-
-        bytes_written = snprintf(subtype_domains + current_len, sizeof(subtype_domains) - current_len, ",_%s",
-                                 subtype_domain);
-        require_quiet((bytes_written > 0) && ((size_t)bytes_written < (sizeof(subtype_domains) - current_len)), exit);
-        current_len += bytes_written;
-    }
-
-    // Construct _dnssd-dp._tcp,_local,_openthread#thread#home#arpa with subtype.
-    char reg_type[128];
-    bytes_written = snprintf(reg_type, sizeof(reg_type), "_dnssd-dp._tcp%s", subtype_domains);
-    require_quiet((bytes_written > 0) && ((size_t)bytes_written < sizeof(reg_type)), exit);
-
-    // Construct service instance name like: p128-undulw2d1vktd1
-    const uint8_t priority = 128;
-    const char * const random_identifier = uuid_name;
-    char name[128];
-    bytes_written = snprintf(name, sizeof(name), "p%03d-%s", priority, random_identifier);
-    require_quiet((bytes_written > 0) && ((size_t)bytes_written < sizeof(name)), exit);
-
-    const uint16_t dp_port = dnssd_proxy_tls_port;
-
-    // The registered PTRs will be like:
-    // _openthread#thread#home#arpa._sub._dnssd-dp._tcp.local   PTR p128-undulw2d1vktd1._dnssd-dp._tcp.local
-    // _local._sub._dnssd-dp._tcp.local                         PTR p128-undulw2d1vktd1._dnssd-dp._tcp.local
-    const DNSServiceErrorType dnsssd_err = DNSServiceRegister(&service_ref, 0, server_state->advertise_interface, name,
-        reg_type, DOT_LOCAL_DOMAIN, NULL, htons(dp_port), 0, NULL, dp_advertisements_callback, context);
-    require_action_quiet(dnsssd_err == kDNSServiceErr_NoError, exit,
-        ERROR("DNSServiceRegisterRecord failed -- error: %d", dnsssd_err));
-
-    txn = ioloop_dnssd_txn_add(service_ref, advertisement_context, dp_advertisements_finalize,
-                               dp_advertisements_failed);
-    require_quiet(txn != NULL, exit);
-
-    advertisement_context->service_ref = service_ref;
-    service_ref = NULL;
-    advertisement_context->txn = txn;
-    txn = NULL;
-    INFO("Advertising push discovery service -- reg_type: %s.%s, service instance name: %s._dnssd-dp._tcp.%s",
-         reg_type, DOT_LOCAL_DOMAIN, name, DOT_LOCAL_DOMAIN);
-
-exit:
-    DNSServiceRefSourceForget(&service_ref);
-    if (txn != NULL) {
-        ioloop_dnssd_txn_cancel(txn);
-        ioloop_dnssd_txn_forget(&txn);
-    }
-}
-
-static bool
-start_timer_to_advertise_dnssd_dp_proxy(dnssd_dp_proxy_advertisements_t *const context, const uint32_t interval)
-{
-    bool succeeded;
-    wakeup_t *wakeup_timer = context->wakeup_timer;
-
-    if (wakeup_timer == NULL) {
-        wakeup_timer = ioloop_wakeup_create();
-    } else {
-        ioloop_wakeup_retain(wakeup_timer);
-    }
-    require_action_quiet(wakeup_timer != NULL, exit, succeeded = false);
-
-    succeeded = ioloop_add_wake_event(wakeup_timer, context, advertise_dnssd_dp_proxy_callback, NULL, interval);
-    require_quiet(succeeded, exit);
-
-    if (context->wakeup_timer == NULL) {
-        context->wakeup_timer = wakeup_timer;
-        wakeup_timer = NULL;
-    }
-
-exit:
-    ioloop_wakeup_forget(&wakeup_timer);
-    return succeeded;
-}
-
-static bool
-advertise_dnssd_dp_proxy(srp_server_t *const server_state)
-{
-    return start_timer_to_advertise_dnssd_dp_proxy(server_state->dnssd_dp_proxy_advertisements,
-        ADVERTISEMENT_RETRY_TIMER);
-}
-
-static bool
-is_eligible_to_provide_push_discovery_service(void)
-{
-    return true;
-}
-
-#endif // SRP_FEATURE_DISCOVERY_PROXY_SERVER
-
-#endif // STUB_ROUTER
 
 #if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 #  if SRP_FEATURE_DYNAMIC_CONFIGURATION
@@ -5861,20 +4942,7 @@ served_domain_init(srp_server_t *server_state)
     require_action_quiet(my_name_served_domain != NULL, exit, succeeded = false;
         ERROR("failed to create new served domain - domain name: " PUB_S_SRP, my_name));
 
-#if STUB_ROUTER
-    if (server_state->stub_router_enabled) {
-        // ip6.arpa.
-        // in-addr.arpa.
-        ipv6 = new_served_domain(NULL, IPV6_REVERSE_LOOKUP_DOMAIN);
-        ipv4 = new_served_domain(NULL, IPV4_REVERSE_LOOKUP_DOMAIN);
-        require_action_quiet(ipv6 != NULL && ipv4 != NULL, exit, succeeded = false;
-                             ERROR("failed to create new served domain for reverse look up -  domain name: " PUB_S_SRP ", " PUB_S_SRP,
-                                   IPV6_REVERSE_LOOKUP_DOMAIN, IPV4_REVERSE_LOOKUP_DOMAIN)
-            );
-    }
-#else
     (void)server_state;
-#endif
 
     // THREAD_BROWSING_DOMAIN
     // It will be served by kDNSServiceInterfaceIndexLocalOnly, which is a pseudo interface.
@@ -5932,31 +5000,18 @@ bool
 init_dnssd_proxy(srp_server_t *server_state)
 {
     bool succeeded;
+#if SRP_FEATURE_DYNAMIC_CONFIGURATION
     dnssd_proxy_advertisements_t *advertisements = server_state->dnssd_proxy_advertisements;
     if (advertisements == NULL) {
-        advertisements = calloc(1, sizeof(*advertisements));
+        advertisements = srp_strict_calloc(1, sizeof(*advertisements));
         require_action_quiet(advertisements != NULL, exit,
                              succeeded = false;
                              ERROR("no memory for advertisements"));
         server_state->dnssd_proxy_advertisements = advertisements;
         advertisements->server_state = server_state;
-        advertisements->sc_context.info = advertisements;
     }
+#endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
-#if STUB_ROUTER
-#if SRP_FEATURE_DISCOVERY_PROXY_SERVER
-    if (is_eligible_to_provide_push_discovery_service()) {
-        dnssd_dp_proxy_advertisements_t *dp_ads = server_state->dnssd_dp_proxy_advertisements;
-        if (dp_ads == NULL) {
-            dp_ads = calloc(1, sizeof(*dp_ads));
-            require_action_quiet(dp_ads != NULL, exit,
-                                 succeeded = false; ERROR("no memory for push discovery service advertisements"));
-            server_state->dnssd_dp_proxy_advertisements = dp_ads;
-            dp_ads->server_state = server_state;
-        }
-    }
-#endif // SRP_FEATURE_DISCOVERY_PROXY_SERVER
-#endif // STUB_ROUTER
 
 #if SRP_FEATURE_DYNAMIC_CONFIGURATION
     succeeded = configure_dnssd_proxy();
@@ -5968,11 +5023,10 @@ init_dnssd_proxy(srp_server_t *server_state)
     require_action_quiet(succeeded, exit, ERROR("initialize_my_name_and_monitoring failed"));
     succeeded = initialize_uuid_name(server_state);
     require_action_quiet(succeeded, exit, ERROR("initialize_uuid_name failed"));
-#if STUB_ROUTER
-    if (!server_state->stub_router_enabled) {
-        served_domain_process_name_change();
-    }
-#endif
+    ioloop_map_interface_addresses(server_state, NULL, &served_domains, dnssd_proxy_ifaddr_callback);
+
+    // Set up hardwired answers
+    dnssd_hardwired_setup();
 
 #else // SRP_FEATURE_DYNAMIC_CONFIGURATION
     // Read the config file
@@ -5986,16 +5040,17 @@ init_dnssd_proxy(srp_server_t *server_state)
                          exit,
                          ERROR("Please configure at least one my-ipv4-addr and/or one my-ipv6-addr."));
 
-    ioloop_map_interface_addresses(server_state, NULL, &served_domains, dnssd_proxy_ifaddr_callback);
+    ioloop_map_interface_addresses(NULL, NULL, &served_domains, dnssd_proxy_ifaddr_callback);
 
     // Set up hardwired answers
     dnssd_hardwired_setup();
 #endif // SRP_FEATURE_DYNAMIC_CONFIGURATION
 
+#ifndef EXCLUDE_TLS
     succeeded = srp_tls_init();
     require_action_quiet(succeeded, exit, ERROR("srp_tls_init failed."));
 
-#if !SRP_FEATURE_CAN_GENERATE_TLS_CERT
+#  if !SRP_FEATURE_CAN_GENERATE_TLS_CERT
     // The tls_fail flag allows us to run the proxy in such a way that TLS connections will fail.
     // This is never what you want in production, but is useful for testing.
     if (!tls_fail) {
@@ -6012,31 +5067,25 @@ init_dnssd_proxy(srp_server_t *server_state)
                              exit, ERROR("srp_tls_server_init failed."));
         require_action_quiet(srp_tls_client_init(), exit, ERROR("srp_tls_client_init failed."));
     }
-#endif
+#  endif
+#endif // !defined(EXCLUDE_TLS)
 
     succeeded = start_dnssd_proxy_listener();
     require_action_quiet(succeeded, exit, ERROR("start_dnssd_proxy_listener failed"));
 
-#if STUB_ROUTER
-    if (server_state->stub_router_enabled) {
-    #if SRP_FEATURE_DISCOVERY_PROXY_SERVER
-        if (server_state->dnssd_dp_proxy_advertisements != NULL) {
-            succeeded = advertise_dnssd_dp_proxy(server_state);
-            require_action_quiet(succeeded, exit, ERROR("advertise_dnssd_dp_proxy failed"));
-        }
-    #endif
-    }
-#endif
 
-#if SRP_FEATURE_DYNAMIC_CONFIGURATION
+#if SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
+#  if SRP_FEATURE_DYNAMIC_CONFIGURATION
     succeeded = served_domain_init(server_state);
-#endif
+#  endif
+#endif // SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 
 exit:
     return succeeded;
 }
 
-#if !SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
+#if !SRP_FEATURE_DYNAMIC_CONFIGURATION
+
 int
 main(int argc, char **argv)
 {
@@ -6063,7 +5112,7 @@ main(int argc, char **argv)
         return 1;
     }
 
-    init_dnssd_proxy();
+    init_dnssd_proxy(NULL);
 
     ioloop();
 }

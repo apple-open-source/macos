@@ -39,6 +39,9 @@
 
 #include <mach/mach_time.h>
 #include <sys/cdefs.h>
+#ifdef MACH_KERNEL_PRIVATE
+#include <ipc/ipc_object.h>
+#endif /* MACH_KERNEL_PRIVATE */
 
 __BEGIN_DECLS
 
@@ -54,6 +57,11 @@ extern kern_return_t    mk_timer_arm(
 extern kern_return_t    mk_timer_cancel(
 	mach_port_name_t        name,
 	uint64_t               *result_time);
+
+#ifdef MACH_KERNEL_PRIVATE
+extern void             mk_timer_port_label_dealloc(
+	ipc_object_label_t      label);
+#endif /* MACH_KERNEL_PRIVATE */
 
 /* mk_timer_flags */
 #define MK_TIMER_NORMAL         (0)

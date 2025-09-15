@@ -27,6 +27,7 @@
 
 #include "ArgumentCoders.h"
 #include "ColorControlSupportsAlpha.h"
+#include "FrameInfoData.h"
 #include "IdentifierTypes.h"
 #include <WebCore/AutocapitalizeTypes.h>
 #include <WebCore/Autofill.h>
@@ -134,13 +135,14 @@ struct FocusedElementInformation {
     bool shouldAvoidResizingWhenInputViewBoundsChange { false };
     bool shouldAvoidScrollingWhenFocusedContentIsVisible { false };
     bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation { false };
+    bool shouldHideSoftTopScrollEdgeEffect { false };
     bool isFocusingWithValidationMessage { false };
     bool preventScroll { false };
 
     FocusedElementInformationIdentifier identifier;
     Markable<WebCore::ScrollingNodeID> containerScrollingNodeID;
 
-    Markable<WebCore::FrameIdentifier> frameID;
+    std::optional<FrameInfoData> frame;
 };
 #endif
 

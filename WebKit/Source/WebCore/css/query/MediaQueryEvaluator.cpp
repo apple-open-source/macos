@@ -82,11 +82,13 @@ bool MediaQueryEvaluator::evaluate(const MediaQuery& query) const
             return EvaluationResult::Unknown;
 
         auto defaultStyle = RenderStyle::create();
-        auto fontDescription = defaultStyle.fontDescription();
         auto size = Style::fontSizeForKeyword(CSSValueMedium, false, *document);
-        fontDescription.setComputedSize(size);
-        fontDescription.setSpecifiedSize(size);
-        defaultStyle.setFontDescription(WTFMove(fontDescription));
+        if (size != defaultStyle.fontDescription().specifiedSize()) {
+            auto fontDescription = defaultStyle.fontDescription();
+            fontDescription.setSpecifiedSize(size);
+            fontDescription.setComputedSize(size);
+            defaultStyle.setFontDescription(WTFMove(fontDescription));
+        }
 
         FeatureEvaluationContext context { *document, { *m_rootElementStyle, &defaultStyle, nullptr, document->renderView() }, nullptr };
         return evaluateCondition(*query.condition, context);

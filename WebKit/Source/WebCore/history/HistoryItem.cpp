@@ -206,15 +206,15 @@ void HistoryItem::setOriginalURLString(const String& urlString)
     notifyChanged();
 }
 
-void HistoryItem::setReferrer(const String& referrer)
+void HistoryItem::setReferrer(String&& referrer)
 {
-    m_referrer = referrer;
+    m_referrer = WTFMove(referrer);
     notifyChanged();
 }
 
-void HistoryItem::setTitle(const String& title)
+void HistoryItem::setTitle(String&& title)
 {
-    m_title = title;
+    m_title = WTFMove(title);
     notifyChanged();
 }
 

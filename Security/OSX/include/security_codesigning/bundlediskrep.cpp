@@ -726,6 +726,10 @@ size_t BundleDiskRep::pageSize(const SigningContext &ctx)
 	return mExecRep->pageSize(ctx);
 }
 
+size_t BundleDiskRep::pageSize(const SigningContext &ctx, const Architecture *arch)
+{
+	return mExecRep->pageSize(ctx, arch);
+}
 
 //
 // Strict validation.

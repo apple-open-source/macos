@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,7 +84,7 @@ Ref<ViewGestureController> ViewGestureController::create(WebPageProxy& page)
 ViewGestureController::ViewGestureController(WebPageProxy& webPageProxy)
     : m_webPageProxy(webPageProxy)
     , m_webPageProxyIdentifier(webPageProxy.identifier())
-    , m_swipeActiveLoadMonitoringTimer(RunLoop::main(), this, &ViewGestureController::checkForActiveLoads)
+    , m_swipeActiveLoadMonitoringTimer(RunLoop::mainSingleton(), "ViewGestureController::SwipeActiveLoadMonitoringTimer"_s, this, &ViewGestureController::checkForActiveLoads)
 #if !PLATFORM(IOS_FAMILY)
     , m_pendingSwipeTracker(webPageProxy, *this)
 #endif
@@ -144,6 +144,22 @@ ViewGestureController* ViewGestureController::controllerForGesture(WebPageProxyI
     return gestureControllerIter->value.ptr();
 }
 
+#if PLATFORM(COCOA)
+
+RefPtr<WebBackForwardListItem> ViewGestureController::itemForSwipeDirection(SwipeDirection direction) const
+{
+    RefPtr backForwardList = backForwardListForNavigation();
+    if (!backForwardList)
+        return { };
+
+    if (direction == SwipeDirection::Back)
+        return backForwardList->goBackItemSkippingItemsWithoutUserGesture();
+
+    return backForwardList->goForwardItemSkippingItemsWithoutUserGesture();
+}
+
+#endif
+
 ViewGestureController::GestureID ViewGestureController::takeNextGestureID()
 {
     static GestureID nextGestureID;
@@ -177,7 +193,7 @@ void ViewGestureController::setAlternateBackForwardListSourcePage(WebPageProxy* 
     m_alternateBackForwardListSourcePage = page;
 }
 
-bool ViewGestureController::canSwipeInDirection(SwipeDirection direction) const
+bool ViewGestureController::canSwipeInDirection(SwipeDirection direction, DeferToConflictingGestures deferToConflictingGestures) const
 {
     if (!m_swipeGestureEnabled)
         return false;
@@ -191,6 +207,9 @@ bool ViewGestureController::canSwipeInDirection(SwipeDirection direction) const
     if (fullScreenManager && fullScreenManager->isFullScreen())
         return false;
 #endif
+
+    if (deferToConflictingGestures == DeferToConflictingGestures::Yes && !page->canStartNavigationSwipeAtLastInteractionLocation())
+        return false;
 
     RefPtr<WebPageProxy> alternateBackForwardListSourcePage = m_alternateBackForwardListSourcePage.get();
     Ref<WebBackForwardList> backForwardList = alternateBackForwardListSourcePage ? alternateBackForwardListSourcePage->backForwardList() : page->backForwardList();
@@ -295,7 +314,7 @@ void ViewGestureController::checkForActiveLoads()
 }
 
 ViewGestureController::SnapshotRemovalTracker::SnapshotRemovalTracker()
-    : m_watchdogTimer(RunLoop::main(), this, &SnapshotRemovalTracker::watchdogTimerFired)
+    : m_watchdogTimer(RunLoop::mainSingleton(), "SnapshotRemovalTracker::SnapshotRemovalTracker::WatchdogTimer"_s, this, &SnapshotRemovalTracker::watchdogTimerFired)
 {
 }
 
@@ -483,7 +502,7 @@ bool ViewGestureController::PendingSwipeTracker::scrollEventCanBecomeSwipe(Platf
         return false;
 
     potentialSwipeDirection = tryingToSwipeBack ? SwipeDirection::Back : SwipeDirection::Forward;
-    return protectedViewGestureController()->canSwipeInDirection(potentialSwipeDirection);
+    return protectedViewGestureController()->canSwipeInDirection(potentialSwipeDirection, DeferToConflictingGestures::No);
 }
 
 bool ViewGestureController::PendingSwipeTracker::handleEvent(PlatformScrollEvent event)
@@ -578,9 +597,10 @@ void ViewGestureController::startSwipeGesture(PlatformScrollEvent event, SwipeDi
 
     page->recordAutomaticNavigationSnapshot();
 
+    Ref backForwardList = page->backForwardList();
     RefPtr targetItem = (direction == SwipeDirection::Back)
-        ? page->protectedBackForwardList()->goBackItemSkippingItemsWithoutUserGesture()
-        : page->protectedBackForwardList()->goForwardItemSkippingItemsWithoutUserGesture();
+        ? backForwardList->goBackItemSkippingItemsWithoutUserGesture()
+        : backForwardList->goForwardItemSkippingItemsWithoutUserGesture();
     if (!targetItem)
         return;
 
@@ -595,7 +615,7 @@ bool ViewGestureController::isPhysicallySwipingLeft(SwipeDirection direction) co
     return isLTR != isSwipingForward;
 }
 
-bool ViewGestureController::shouldUseSnapshotForSize(ViewSnapshot& snapshot, FloatSize swipeLayerSize, float topContentInset)
+bool ViewGestureController::shouldUseSnapshotForSize(ViewSnapshot& snapshot, FloatSize swipeLayerSize, FloatBoxExtent obscuredContentInsets)
 {
     RefPtr page = m_webPageProxy.get();
     if (!page)
@@ -605,7 +625,7 @@ bool ViewGestureController::shouldUseSnapshotForSize(ViewSnapshot& snapshot, Flo
     if (snapshot.deviceScaleFactor() != deviceScaleFactor)
         return false;
 
-    FloatSize unobscuredSwipeLayerSizeInDeviceCoordinates = swipeLayerSize - FloatSize(0, topContentInset);
+    FloatSize unobscuredSwipeLayerSizeInDeviceCoordinates = swipeLayerSize - FloatSize(obscuredContentInsets.left(), obscuredContentInsets.top());
     unobscuredSwipeLayerSizeInDeviceCoordinates.scale(deviceScaleFactor);
     if (snapshot.size() != unobscuredSwipeLayerSizeInDeviceCoordinates)
         return false;
@@ -654,7 +674,7 @@ void ViewGestureController::willEndSwipeGesture(WebBackForwardListItem& targetIt
     m_didStartProvisionalLoad = false;
     m_pendingNavigation = page->goToBackForwardItem(targetItem);
 
-    RefPtr currentItem = page->protectedBackForwardList()->currentItem();
+    RefPtr currentItem = Ref { page->backForwardList() }->currentItem();
     // The main frame will not be navigated so hide the snapshot right away.
     if (currentItem && currentItem->itemIsClone(targetItem)) {
         removeSwipeSnapshot();
@@ -776,8 +796,8 @@ void ViewGestureController::applyMagnification()
     if (m_frameHandlesMagnificationGesture) {
         if (RefPtr page = m_webPageProxy.get())
             page->scalePage(m_magnification, roundedIntPoint(m_magnificationOrigin), [] { });
-    } else if (auto* drawingArea = m_webPageProxy ? m_webPageProxy->drawingArea() : nullptr)
-        drawingArea->adjustTransientZoom(m_magnification, scaledMagnificationOrigin(m_magnificationOrigin, m_magnification));
+    } else if (RefPtr drawingArea = m_webPageProxy ? m_webPageProxy->drawingArea() : nullptr)
+        drawingArea->adjustTransientZoom(m_magnification, scaledMagnificationOrigin(m_magnificationOrigin, m_magnification), m_magnificationOrigin);
 }
 
 void ViewGestureController::endMagnificationGesture()
@@ -796,7 +816,7 @@ void ViewGestureController::endMagnificationGesture()
     if (m_frameHandlesMagnificationGesture)
         page->scalePage(newMagnification, roundedIntPoint(m_magnificationOrigin), [] { });
     else {
-        if (auto drawingArea = page->drawingArea())
+        if (RefPtr drawingArea = page->drawingArea())
             drawingArea->commitTransientZoom(newMagnification, scaledMagnificationOrigin(m_magnificationOrigin, newMagnification));
     }
 

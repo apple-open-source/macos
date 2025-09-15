@@ -37,6 +37,7 @@
 #include <vm/pmap.h>
 #include <ipc/ipc_types.h>
 #include <ipc/ipc_port.h>
+#include <ipc/ipc_space.h>
 #include <kern/ipc_kobject.h>
 #include <kern/kern_types.h>
 #include <libkern/ptrauth_utils.h>
@@ -113,9 +114,6 @@ ptrauth_data_tests(void)
 
 	/* _vm_map */
 	ALLOC_VALIDATE_DATA_PTR(struct _vm_map, pmap_t, pmap, "_vm_map.pmap");
-
-	/* ipc_port */
-	ALLOC_VALIDATE_DATA_PTR(struct ipc_port, ipc_kobject_label_t, ip_kolabel, "ipc_port.kolabel");
 
 	/* ipc_kobject_label */
 	ALLOC_VALIDATE_DATA_PTR(struct ipc_kobject_label, ipc_kobject_t, ikol_alt_port, "ipc_kobject_label.ikol_alt_port");

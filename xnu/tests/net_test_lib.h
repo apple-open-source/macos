@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -67,6 +67,11 @@
 #include "inet_transfer.h"
 #include "bpflib.h"
 #include "in_cksum.h"
+
+#include <mach/mach_host.h>
+#include <mach/mach_error.h>
+
+extern kern_return_t mach_zone_force_gc(host_t host);
 
 extern bool G_debug;
 
@@ -181,6 +186,8 @@ void inet_dgram_socket_close(void);
 extern int inet6_dgram_socket_get(void);
 void inet6_dgram_socket_close(void);
 
+extern bool inet6_get_linklocal_address(unsigned int if_index, struct in6_addr *ret_addr);
+
 extern int ifnet_create(const char * ifname);
 
 extern int ifnet_create_2(char * ifname, size_t len);
@@ -199,6 +206,9 @@ extern int ifnet_set_flags(const char * ifname,
     uint16_t flags_set, uint16_t flags_clear);
 
 extern void ifnet_add_ip_address(char *ifname, struct in_addr addr,
+    struct in_addr mask);
+
+extern void ifnet_remove_ip_address(char *ifname, struct in_addr addr,
     struct in_addr mask);
 
 extern int ifnet_set_mtu(const char * ifname, int mtu);
@@ -240,5 +250,7 @@ extern bool has_ipv4_default_route(void);
 extern bool has_ipv6_default_route(void);
 
 extern int bridge_add_member(const char * bridge, const char * member);
+
+extern void force_zone_gc(void);
 
 #endif /* __net_test_lib_h__ */

@@ -47,7 +47,8 @@ static volatile bool cap_usable;
 
 static size_t
 bad_instruction_handler(mach_port_t task __unused, mach_port_t thread __unused,
-    exception_type_t type __unused, mach_exception_data_t codes __unused)
+    exception_type_t type __unused, mach_exception_data_t codes __unused,
+    uint64_t exception_pc __unused)
 {
 	cap_usable = false;
 	return 4;
@@ -515,6 +516,7 @@ try_sme_i16i64(void)
                "smstop"                                 "\n"
         );
 }
+
 
 
 static void

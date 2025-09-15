@@ -381,6 +381,12 @@ _Static_assert((_COMM_PAGE64_BASE_ADDRESS >= _COMM_PAGE64_NESTING_START) &&
 
 #define _COMM_PAGE_APT_ACTIVE                   (_COMM_PAGE_START_ADDRESS+0x341)        // uint8_t for APT active status (infrequently mutated)
 
+#if defined(PRIVATE)
+#define _COMM_PAGE_SECURITY_RESEARCH_DEVICE_ERM_ACTIVE (_COMM_PAGE_START_ADDRESS+0x342) // uint8_t for ERM active status (set at boot time)
+#else
+#define _COMM_PAGE_RESERVED_0                   (_COMM_PAGE_START_ADDRESS+0x342)
+#endif
+
 #define _COMM_PAGE_END                          (_COMM_PAGE_START_ADDRESS+0xfff)        // end of common page
 
 #if defined(__LP64__)

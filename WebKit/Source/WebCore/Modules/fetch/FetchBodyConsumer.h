@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -61,14 +61,14 @@ public:
     void append(const SharedBuffer&);
 
     bool hasData() const { return !!m_buffer; }
-    const FragmentedSharedBuffer* data() const { return m_buffer.get().get(); }
+    const FragmentedSharedBuffer* data() const LIFETIME_BOUND { return m_buffer.get().get(); }
     void setData(Ref<FragmentedSharedBuffer>&&);
 
     RefPtr<FragmentedSharedBuffer> takeData();
     RefPtr<JSC::ArrayBuffer> takeAsArrayBuffer();
     String takeAsText();
 
-    bool hasPendingActivity() const { return m_formDataConsumer ? m_formDataConsumer->hasPendingActivity() : false; }
+    bool hasPendingActivity() const;
 
     void setType(Type type) { m_type = type; }
 
@@ -93,6 +93,9 @@ public:
 private:
     Ref<Blob> takeAsBlob(ScriptExecutionContext*, const String& contentType);
     void resetConsumePromise();
+
+    RefPtr<ReadableStreamToSharedBufferSink> protectedSink() { return m_sink; }
+    RefPtr<FormDataConsumer> protectedFormDataConsumer() { return m_formDataConsumer; }
 
     Type m_type;
     SharedBufferBuilder m_buffer;

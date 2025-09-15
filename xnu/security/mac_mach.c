@@ -87,7 +87,7 @@ mac_task_check_expose_task(struct task *task, mach_task_flavor_t flavor)
 	if (p == NULL) {
 		return ESRCH;
 	}
-	struct proc_ident pident = proc_ident(p);
+	struct proc_ident pident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 
 	struct ucred *cred = kauth_cred_get();
 	proc_rele(p);
@@ -113,7 +113,7 @@ mac_task_check_task_id_token_get_task(struct task *task, mach_task_flavor_t flav
 		if (target_proc == NULL) {
 			return ESRCH;
 		}
-		pident = proc_ident(target_proc);
+		pident = proc_ident_with_policy(target_proc, IDENT_VALIDATION_PROC_EXACT);
 		pidentp = &pident;
 		proc_rele(target_proc);
 	}
@@ -179,7 +179,7 @@ mac_task_check_get_task_special_port(struct task *task, struct task *target, int
 		if (target_proc == NULL) {
 			return ESRCH;
 		}
-		pident = proc_ident(target_proc);
+		pident = proc_ident_with_policy(target_proc, IDENT_VALIDATION_PROC_EXACT);
 		pidentp = &pident;
 		proc_rele(target_proc);
 	}
@@ -209,7 +209,7 @@ mac_task_check_set_task_special_port(struct task *task, struct task *target, int
 		return ESRCH;
 	}
 
-	struct proc_ident pident = proc_ident(targetp);
+	struct proc_ident pident = proc_ident_with_policy(targetp, IDENT_VALIDATION_PROC_EXACT);
 	proc_rele(targetp);
 
 	MAC_CHECK(proc_check_set_task_special_port,
@@ -238,7 +238,7 @@ mac_task_check_set_task_exception_ports(struct task *task, struct task *target, 
 		return ESRCH;
 	}
 
-	struct proc_ident pident = proc_ident(targetp);
+	struct proc_ident pident = proc_ident_with_policy(targetp, IDENT_VALIDATION_PROC_EXACT);
 	proc_rele(targetp);
 
 	for (exception = FIRST_EXCEPTION; exception < EXC_TYPES_COUNT; exception++) {
@@ -274,7 +274,7 @@ mac_task_check_set_thread_exception_ports(struct task *task, struct task *target
 		return ESRCH;
 	}
 
-	struct proc_ident pident = proc_ident(targetp);
+	struct proc_ident pident = proc_ident_with_policy(targetp, IDENT_VALIDATION_PROC_EXACT);
 	proc_rele(targetp);
 
 	for (exception = FIRST_EXCEPTION; exception < EXC_TYPES_COUNT; exception++) {

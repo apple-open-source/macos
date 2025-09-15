@@ -25,6 +25,10 @@
 
 #pragma once
 
+namespace WebCore {
+enum class AutoplayPolicy : uint8_t;
+}
+
 namespace WebKit {
     
 enum class WebsiteAutoplayPolicy : uint8_t {
@@ -33,5 +37,7 @@ enum class WebsiteAutoplayPolicy : uint8_t {
     AllowWithoutSound,
     Deny
 };
+
+WebCore::AutoplayPolicy core(WebsiteAutoplayPolicy);
 
 }

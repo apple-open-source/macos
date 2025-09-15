@@ -664,7 +664,7 @@ pkt_mnglr_init(void)
 	/*
 	 * Compile time verifications
 	 */
-	_CASSERT(PKT_MNGLR_MAX_FILTER_COUNT == MAX_PACKET_MANGLER);
+	static_assert(PKT_MNGLR_MAX_FILTER_COUNT == MAX_PACKET_MANGLER);
 
 	/*
 	 * Register kernel control

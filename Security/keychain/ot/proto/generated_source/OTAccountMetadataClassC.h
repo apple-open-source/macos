@@ -157,11 +157,14 @@ __attribute__((visibility("hidden")))
 @interface OTAccountMetadataClassC : PBCodable <NSCopying>
 {
     int64_t _epoch;
+    uint64_t _lastEscrowRepairAttempted;
+    uint64_t _lastEscrowRepairTriggered;
     uint64_t _lastHealthCheckup;
     NSString *_altDSID;
     OTAccountMetadataClassC_AttemptedAJoinState _attemptedJoin;
     OTAccountMetadataClassC_CDPState _cdpState;
     OTAccountMetadataClassC_AccountState _icloudAccountState;
+    NSString *_machineID;
     NSString *_oldPeerID;
     NSString *_peerID;
     NSData *_secureElementIdentity;
@@ -176,6 +179,8 @@ __attribute__((visibility("hidden")))
     BOOL _warnedTooManyPeers;
     struct {
         uint epoch:1;
+        uint lastEscrowRepairAttempted:1;
+        uint lastEscrowRepairTriggered:1;
         uint lastHealthCheckup:1;
         uint attemptedJoin:1;
         uint cdpState:1;
@@ -225,8 +230,6 @@ __attribute__((visibility("hidden")))
 @property (nonatomic, readonly) BOOL hasSyncingPolicy;
 /**
  * Used during development
- * reserved 9;
- * reserved 10;
  * This holds the current syncing policy for the local peer, including the view list.
  */
 @property (nonatomic, retain) NSData *syncingPolicy;
@@ -251,9 +254,7 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic) BOOL hasIsInheritedAccount;
 /**
- * reserved 16;
  * Used during development
- * reserved 17;
  * This is true if the device used inheritance key
  */
 @property (nonatomic) BOOL isInheritedAccount;
@@ -273,6 +274,18 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasOldPeerID;
 @property (nonatomic, retain) NSString *oldPeerID;
+
+@property (nonatomic) BOOL hasLastEscrowRepairTriggered;
+/** Time escrow repair was last triggered (milliseconds since 1970) */
+@property (nonatomic) uint64_t lastEscrowRepairTriggered;
+
+@property (nonatomic) BOOL hasLastEscrowRepairAttempted;
+/** Time escrow repair last attempted to enroll with escrow proxy (milliseconds since 1970) */
+@property (nonatomic) uint64_t lastEscrowRepairAttempted;
+
+@property (nonatomic, readonly) BOOL hasMachineID;
+/** Machine id */
+@property (nonatomic, retain) NSString *machineID;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

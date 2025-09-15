@@ -42,6 +42,12 @@ bool appleVisualEffectNeedsBackdrop(AppleVisualEffect effect)
     case AppleVisualEffect::BlurChromeMaterial:
         return true;
     case AppleVisualEffect::None:
+#if HAVE(MATERIAL_HOSTING)
+    case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassSubduedMaterial:
+    case AppleVisualEffect::GlassMediaControlsMaterial:
+    case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
+#endif
     case AppleVisualEffect::VibrancyLabel:
     case AppleVisualEffect::VibrancySecondaryLabel:
     case AppleVisualEffect::VibrancyTertiaryLabel:
@@ -57,52 +63,149 @@ bool appleVisualEffectNeedsBackdrop(AppleVisualEffect effect)
     return false;
 }
 
+bool appleVisualEffectAppliesFilter(AppleVisualEffect effect)
+{
+    switch (effect) {
+    case AppleVisualEffect::None:
+    case AppleVisualEffect::BlurUltraThinMaterial:
+    case AppleVisualEffect::BlurThinMaterial:
+    case AppleVisualEffect::BlurMaterial:
+    case AppleVisualEffect::BlurThickMaterial:
+    case AppleVisualEffect::BlurChromeMaterial:
+#if HAVE(MATERIAL_HOSTING)
+    case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassSubduedMaterial:
+    case AppleVisualEffect::GlassMediaControlsMaterial:
+    case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
+#endif
+        return false;
+    case AppleVisualEffect::VibrancyLabel:
+    case AppleVisualEffect::VibrancySecondaryLabel:
+    case AppleVisualEffect::VibrancyTertiaryLabel:
+    case AppleVisualEffect::VibrancyQuaternaryLabel:
+    case AppleVisualEffect::VibrancyFill:
+    case AppleVisualEffect::VibrancySecondaryFill:
+    case AppleVisualEffect::VibrancyTertiaryFill:
+    case AppleVisualEffect::VibrancySeparator:
+        return true;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+#if HAVE(MATERIAL_HOSTING)
+bool appleVisualEffectIsHostedMaterial(AppleVisualEffect effect)
+{
+    switch (effect) {
+    case AppleVisualEffect::GlassMaterial:
+    case AppleVisualEffect::GlassSubduedMaterial:
+    case AppleVisualEffect::GlassMediaControlsMaterial:
+    case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
+        return true;
+    case AppleVisualEffect::None:
+    case AppleVisualEffect::BlurUltraThinMaterial:
+    case AppleVisualEffect::BlurThinMaterial:
+    case AppleVisualEffect::BlurMaterial:
+    case AppleVisualEffect::BlurThickMaterial:
+    case AppleVisualEffect::BlurChromeMaterial:
+    case AppleVisualEffect::VibrancyLabel:
+    case AppleVisualEffect::VibrancySecondaryLabel:
+    case AppleVisualEffect::VibrancyTertiaryLabel:
+    case AppleVisualEffect::VibrancyQuaternaryLabel:
+    case AppleVisualEffect::VibrancyFill:
+    case AppleVisualEffect::VibrancySecondaryFill:
+    case AppleVisualEffect::VibrancyTertiaryFill:
+    case AppleVisualEffect::VibrancySeparator:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
+}
+#endif
+
 TextStream& operator<<(TextStream& ts, AppleVisualEffect effect)
 {
     switch (effect) {
     case AppleVisualEffect::None:
-        ts << "none";
+        ts << "none"_s;
         break;
     case AppleVisualEffect::BlurUltraThinMaterial:
-        ts << "blur-material-ultra-thin";
+        ts << "blur-material-ultra-thin"_s;
         break;
     case AppleVisualEffect::BlurThinMaterial:
-        ts << "blur-material-thin";
+        ts << "blur-material-thin"_s;
         break;
     case AppleVisualEffect::BlurMaterial:
-        ts << "blur-material";
+        ts << "blur-material"_s;
         break;
     case AppleVisualEffect::BlurThickMaterial:
-        ts << "blur-material-thick";
+        ts << "blur-material-thick"_s;
         break;
     case AppleVisualEffect::BlurChromeMaterial:
-        ts << "blur-material-chrome";
+        ts << "blur-material-chrome"_s;
         break;
+#if HAVE(MATERIAL_HOSTING)
+    case AppleVisualEffect::GlassMaterial:
+        ts << "glass-material"_s;
+        break;
+    case AppleVisualEffect::GlassSubduedMaterial:
+        ts << "glass-material-subdued"_s;
+        break;
+    case AppleVisualEffect::GlassMediaControlsMaterial:
+        ts << "glass-material-media-controls";
+        break;
+    case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
+        ts << "glass-material-media-controls-subdued";
+        break;
+#endif
     case AppleVisualEffect::VibrancyLabel:
-        ts << "vibrancy-label";
+        ts << "vibrancy-label"_s;
         break;
     case AppleVisualEffect::VibrancySecondaryLabel:
-        ts << "vibrancy-secondary-label";
+        ts << "vibrancy-secondary-label"_s;
         break;
     case AppleVisualEffect::VibrancyTertiaryLabel:
-        ts << "vibrancy-tertiary-label";
+        ts << "vibrancy-tertiary-label"_s;
         break;
     case AppleVisualEffect::VibrancyQuaternaryLabel:
-        ts << "vibrancy-quaternary-label";
+        ts << "vibrancy-quaternary-label"_s;
         break;
     case AppleVisualEffect::VibrancyFill:
-        ts << "vibrancy-fill";
+        ts << "vibrancy-fill"_s;
         break;
     case AppleVisualEffect::VibrancySecondaryFill:
-        ts << "vibrancy-secondary-fill";
+        ts << "vibrancy-secondary-fill"_s;
         break;
     case AppleVisualEffect::VibrancyTertiaryFill:
-        ts << "vibrancy-tertiary-fill";
+        ts << "vibrancy-tertiary-fill"_s;
         break;
     case AppleVisualEffect::VibrancySeparator:
-        ts << "vibrancy-separator";
+        ts << "vibrancy-separator"_s;
         break;
     }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, AppleVisualEffectData::ColorScheme colorScheme)
+{
+    switch (colorScheme) {
+    case AppleVisualEffectData::ColorScheme::Light:
+        ts << "light"_s;
+        break;
+    case AppleVisualEffectData::ColorScheme::Dark:
+        ts << "dark"_s;
+        break;
+    }
+    return ts;
+}
+
+TextStream& operator<<(TextStream& ts, AppleVisualEffectData effectData)
+{
+    ts.dumpProperty("effect"_s, effectData.effect);
+    ts.dumpProperty("contextEffect"_s, effectData.contextEffect);
+    ts.dumpProperty("colorScheme"_s, effectData.colorScheme);
     return ts;
 }
 

@@ -1587,13 +1587,13 @@ skip_oinp:
 		ASSERT(inp->inp_flowhash != 0);
 	}
 
-	tcp_set_max_rwinscale(tp, so);
+	tp->request_r_scale = tcp_get_max_rwinscale(tp, so);
 
 	soisconnecting(so);
 	tcpstat.tcps_connattempt++;
 	TCP_LOG_STATE(tp, TCPS_SYN_SENT);
 	tp->t_state = TCPS_SYN_SENT;
-	tp->t_timer[TCPT_KEEP] = OFFSET_FROM_START(tp, TCP_CONN_KEEPINIT(tp));
+	tp->t_timer[TCPT_KEEP] = tcp_offset_from_start(tp, TCP_CONN_KEEPINIT(tp));
 	tp->iss = tcp_new_isn(tp);
 	tcp_sendseqinit(tp);
 	tp->t_connect_time = tcp_now;
@@ -1721,13 +1721,13 @@ tcp6_connect(struct tcpcb *tp, struct sockaddr *nam, struct proc *p)
 		    (htonl(ip6_randomflowlabel()) & IPV6_FLOWLABEL_MASK);
 	}
 
-	tcp_set_max_rwinscale(tp, so);
+	tp->request_r_scale = tcp_get_max_rwinscale(tp, so);
 
 	soisconnecting(so);
 	tcpstat.tcps_connattempt++;
 	TCP_LOG_STATE(tp, TCPS_SYN_SENT);
 	tp->t_state = TCPS_SYN_SENT;
-	tp->t_timer[TCPT_KEEP] = OFFSET_FROM_START(tp,
+	tp->t_timer[TCPT_KEEP] = tcp_offset_from_start(tp,
 	    TCP_CONN_KEEPINIT(tp));
 	tp->iss = tcp_new_isn(tp);
 	tcp_sendseqinit(tp);
@@ -1780,10 +1780,6 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 		ti->tcpi_flags |= TCPI_FLAG_LOSSRECOVERY;
 	}
 
-	if (tp->t_flags & TF_STREAMING_ON) {
-		ti->tcpi_flags |= TCPI_FLAG_STREAMING_ON;
-	}
-
 	ti->tcpi_rto = tp->t_timer[TCPT_REXMT] ? tp->t_rxtcur : 0;
 	ti->tcpi_snd_mss = tp->t_maxseg;
 	ti->tcpi_rcv_mss = tp->t_maxseg;
@@ -1813,14 +1809,14 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 		ti->tcpi_snd_bw = (tp->t_bwmeas->bw_sndbw * 8000);
 	}
 
-	ti->tcpi_txpackets = inp != NULL ? inp->inp_stat->txpackets : 0;
-	ti->tcpi_txbytes = inp != NULL ? inp->inp_stat->txbytes : 0;
+	ti->tcpi_txpackets = inp != NULL ? inp->inp_mstat.ms_total.ts_txpackets : 0;
+	ti->tcpi_txbytes = inp != NULL ? inp->inp_mstat.ms_total.ts_txbytes : 0;
 	ti->tcpi_txretransmitbytes = tp->t_stat.txretransmitbytes;
 	ti->tcpi_txretransmitpackets = tp->t_stat.rxmitpkts;
 	ti->tcpi_txunacked = tp->snd_max - tp->snd_una;
 
-	ti->tcpi_rxpackets = inp != NULL ? inp->inp_stat->rxpackets : 0;
-	ti->tcpi_rxbytes = inp != NULL ? inp->inp_stat->rxbytes : 0;
+	ti->tcpi_rxpackets = inp != NULL ? inp->inp_mstat.ms_total.ts_rxpackets : 0;
+	ti->tcpi_rxbytes = inp != NULL ? inp->inp_mstat.ms_total.ts_rxbytes : 0;
 	ti->tcpi_rxduplicatebytes = tp->t_stat.rxduplicatebytes;
 	ti->tcpi_rxoutoforderbytes = tp->t_stat.rxoutoforderbytes;
 
@@ -1828,20 +1824,25 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 		ti->tcpi_synrexmits = (uint8_t)tp->t_stat.rxmitsyns;
 	}
 	if (inp != NULL) {
-		ti->tcpi_cell_rxpackets = inp->inp_cstat->rxpackets;
-		ti->tcpi_cell_rxbytes = inp->inp_cstat->rxbytes;
-		ti->tcpi_cell_txpackets = inp->inp_cstat->txpackets;
-		ti->tcpi_cell_txbytes = inp->inp_cstat->txbytes;
+		ti->tcpi_cell_rxpackets = inp->inp_mstat.ms_cellular.ts_rxpackets;
+		ti->tcpi_cell_rxbytes = inp->inp_mstat.ms_cellular.ts_rxbytes;
+		ti->tcpi_cell_txpackets = inp->inp_mstat.ms_cellular.ts_txpackets;
+		ti->tcpi_cell_txbytes = inp->inp_mstat.ms_cellular.ts_txbytes;
 
-		ti->tcpi_wifi_rxpackets = inp->inp_wstat->rxpackets;
-		ti->tcpi_wifi_rxbytes = inp->inp_wstat->rxbytes;
-		ti->tcpi_wifi_txpackets = inp->inp_wstat->txpackets;
-		ti->tcpi_wifi_txbytes = inp->inp_wstat->txbytes;
+		ti->tcpi_wifi_rxpackets = inp->inp_mstat.ms_wifi_infra.ts_rxpackets +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_rxpackets;
+		ti->tcpi_wifi_rxbytes = inp->inp_mstat.ms_wifi_infra.ts_rxbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_rxbytes;
 
-		ti->tcpi_wired_rxpackets = inp->inp_Wstat->rxpackets;
-		ti->tcpi_wired_rxbytes = inp->inp_Wstat->rxbytes;
-		ti->tcpi_wired_txpackets = inp->inp_Wstat->txpackets;
-		ti->tcpi_wired_txbytes = inp->inp_Wstat->txbytes;
+		ti->tcpi_wifi_txpackets = inp->inp_mstat.ms_wifi_infra.ts_txpackets +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_txpackets;
+		ti->tcpi_wifi_txbytes = inp->inp_mstat.ms_wifi_infra.ts_txbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_txbytes;
+
+		ti->tcpi_wired_rxpackets = inp->inp_mstat.ms_wired.ts_rxpackets;
+		ti->tcpi_wired_rxbytes = inp->inp_mstat.ms_wired.ts_rxbytes;
+		ti->tcpi_wired_txpackets = inp->inp_mstat.ms_wired.ts_txpackets;
+		ti->tcpi_wired_txbytes = inp->inp_mstat.ms_wired.ts_txbytes;
 	}
 	tcp_get_connectivity_status(tp, &ti->tcpi_connstatus);
 
@@ -1864,7 +1865,7 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 
 	ti->tcpi_ecn_client_setup = !!(tp->ecn_flags & (TE_SETUPSENT | TE_ACE_SETUPSENT));
 	ti->tcpi_ecn_server_setup = !!(tp->ecn_flags & (TE_SETUPRECEIVED | TE_ACE_SETUPRECEIVED));
-	ti->tcpi_ecn_success = (TCP_ECN_ENABLED(tp) || TCP_ACC_ECN_ON(tp)) ? 1 : 0;
+	ti->tcpi_ecn_success = (TCP_ECN_ENABLED(tp) || tp->accurate_ecn_on) ? 1 : 0;
 	ti->tcpi_ecn_lost_syn = !!(tp->ecn_flags & TE_LOST_SYN);
 	ti->tcpi_ecn_lost_synack = !!(tp->ecn_flags & TE_LOST_SYNACK);
 
@@ -1918,18 +1919,21 @@ tcp_fill_info(struct tcpcb *tp, struct tcp_info *ti)
 	 * As some of the AccECN fields are initialized to non-zero
 	 * values, we subtract the initial values.
 	 */
-	ti->tcpi_received_ce_packets = tp->t_aecn.t_rcv_ce_packets - 5;
-	ti->tcpi_received_ect0_bytes = tp->t_aecn.t_rcv_ect0_bytes - 1;
-	ti->tcpi_received_ect1_bytes = tp->t_aecn.t_rcv_ect1_bytes - 1;
+	ti->tcpi_received_ce_packets = tp->t_aecn.t_rcv_ce_packets ? tp->t_aecn.t_rcv_ce_packets - 5 : 0;
+	ti->tcpi_received_ect0_bytes = tp->t_aecn.t_rcv_ect0_bytes ? tp->t_aecn.t_rcv_ect0_bytes - 1 : 0;
+	ti->tcpi_received_ect1_bytes = tp->t_aecn.t_rcv_ect1_bytes ? tp->t_aecn.t_rcv_ect1_bytes - 1 : 0;
 	ti->tcpi_received_ce_bytes = tp->t_aecn.t_rcv_ce_bytes;
-	ti->tcpi_delivered_ect0_bytes = tp->t_aecn.t_snd_ect0_bytes - 1;
-	ti->tcpi_delivered_ect1_bytes = tp->t_aecn.t_snd_ect1_bytes - 1;
+	ti->tcpi_delivered_ect0_bytes = tp->t_aecn.t_snd_ect0_bytes ? tp->t_aecn.t_snd_ect0_bytes - 1 : 0;
+	ti->tcpi_delivered_ect1_bytes = tp->t_aecn.t_snd_ect1_bytes ? tp->t_aecn.t_snd_ect1_bytes - 1 : 0;
 	ti->tcpi_delivered_ce_bytes = tp->t_aecn.t_snd_ce_bytes;
 
-	ti->tcpi_l4s_enabled = TCP_L4S_ENABLED(tp);
+	ti->tcpi_l4s_enabled = tp->l4s_enabled;
 
 	ti->tcpi_flow_control_total_time = inp->inp_fadv_total_time;
 	ti->tcpi_rcvwnd_limited_total_time = tp->t_rcvwnd_limited_total_time;
+
+	ti->tcpi_pacing_rate = tp->t_pacer.rate;
+	ti->tcpi_max_pacing_rate = inp->inp_max_pacing_rate;
 }
 
 __private_extern__ errno_t
@@ -2077,12 +2081,12 @@ tcp_connection_fill_info(struct tcpcb *tp, struct tcp_connection_info *tci)
 	tci->tcpi_rttcur = tp->t_rttcur;
 	tci->tcpi_srtt = (tp->t_srtt >> TCP_RTT_SHIFT);
 	tci->tcpi_rttvar = (tp->t_rttvar >> TCP_RTTVAR_SHIFT);
-	tci->tcpi_txpackets = inp != NULL ? inp->inp_stat->txpackets : 0;
-	tci->tcpi_txbytes = inp != NULL ? inp->inp_stat->txbytes : 0;
+	tci->tcpi_txpackets = inp != NULL ? inp->inp_mstat.ms_total.ts_txpackets : 0;
+	tci->tcpi_txbytes = inp != NULL ? inp->inp_mstat.ms_total.ts_txbytes : 0;
 	tci->tcpi_txretransmitbytes = tp->t_stat.txretransmitbytes;
 	tci->tcpi_txretransmitpackets = tp->t_stat.rxmitpkts;
-	tci->tcpi_rxpackets = inp != NULL ? inp->inp_stat->rxpackets : 0;
-	tci->tcpi_rxbytes = inp != NULL ? inp->inp_stat->rxbytes : 0;
+	tci->tcpi_rxpackets = inp != NULL ? inp->inp_mstat.ms_total.ts_rxpackets : 0;
+	tci->tcpi_rxbytes = inp != NULL ? inp->inp_mstat.ms_total.ts_rxbytes : 0;
 	tci->tcpi_rxoutoforderbytes = tp->t_stat.rxoutoforderbytes;
 
 	tci->tcpi_tfo_syn_data_rcv = !!(tp->t_tfo_stats & TFO_S_SYNDATA_RCV);
@@ -2451,7 +2455,7 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 				tp->t_keepidle = optval * TCP_RETRANSHZ;
 				/* reset the timer to new value */
 				if (TCPS_HAVEESTABLISHED(tp->t_state)) {
-					tp->t_timer[TCPT_KEEP] = OFFSET_FROM_START(tp,
+					tp->t_timer[TCPT_KEEP] = tcp_offset_from_start(tp,
 					    TCP_CONN_KEEPIDLE(tp));
 					tcp_check_timer_state(tp);
 				}
@@ -2470,7 +2474,7 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 				tp->t_keepinit = optval * TCP_RETRANSHZ;
 				if (tp->t_state == TCPS_SYN_RECEIVED ||
 				    tp->t_state == TCPS_SYN_SENT) {
-					tp->t_timer[TCPT_KEEP] = OFFSET_FROM_START(tp,
+					tp->t_timer[TCPT_KEEP] = tcp_offset_from_start(tp,
 					    TCP_CONN_KEEPINIT(tp));
 					tcp_check_timer_state(tp);
 				}
@@ -2489,7 +2493,7 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 				tp->t_keepintvl = optval * TCP_RETRANSHZ;
 				if (tp->t_state == TCPS_FIN_WAIT_2 &&
 				    TCP_CONN_MAXIDLE(tp) > 0) {
-					tp->t_timer[TCPT_2MSL] = OFFSET_FROM_START(tp,
+					tp->t_timer[TCPT_2MSL] = tcp_offset_from_start(tp,
 					    TCP_CONN_MAXIDLE(tp));
 					tcp_check_timer_state(tp);
 				}
@@ -2508,7 +2512,7 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 				tp->t_keepcnt = optval;
 				if (tp->t_state == TCPS_FIN_WAIT_2 &&
 				    TCP_CONN_MAXIDLE(tp) > 0) {
-					tp->t_timer[TCPT_2MSL] = OFFSET_FROM_START(tp,
+					tp->t_timer[TCPT_2MSL] = tcp_offset_from_start(tp,
 					    TCP_CONN_MAXIDLE(tp));
 					tcp_check_timer_state(tp);
 				}
@@ -2624,9 +2628,9 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 			if (optval < 0 || optval > 1) {
 				error = EINVAL;
 			} else if (optval == 0) {
-				tp->t_flagsext &= ~(TF_NOSTRETCHACK);
+				tp->t_flagsext &= ~(TF_QUICKACK);
 			} else {
-				tp->t_flagsext |= TF_NOSTRETCHACK;
+				tp->t_flagsext |= TF_QUICKACK;
 			}
 			break;
 		case TCP_DISABLE_BLACKHOLE_DETECTION:
@@ -2671,9 +2675,6 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 			} else {
 				tcp_disable_tfo(tp);
 			}
-			break;
-		case TCP_FASTOPEN_FORCE_HEURISTICS:
-
 			break;
 		case TCP_FASTOPEN_FORCE_ENABLE:
 			error = sooptcopyin(sopt, &optval, sizeof(optval),
@@ -2899,9 +2900,6 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 			}
 			optval = !!TFO_ENABLED(tp);
 			break;
-		case TCP_FASTOPEN_FORCE_HEURISTICS:
-			optval = 0;
-			break;
 		case TCP_FASTOPEN_FORCE_ENABLE:
 			optval = (tp->t_flagsext & TF_FASTOPEN_FORCE_ENABLE) ? 1 : 0;
 			break;
@@ -2943,7 +2941,7 @@ tcp_ctloutput(struct socket *so, struct sockopt *sopt)
 			}
 			break;
 		case TCP_SENDMOREACKS:
-			if (tp->t_flagsext & TF_NOSTRETCHACK) {
+			if (tp->t_flagsext & TF_QUICKACK) {
 				optval = 1;
 			} else {
 				optval = 0;
@@ -3007,12 +3005,11 @@ done:
 }
 
 /*
- * tcp_sendspace and tcp_recvspace are the default send and receive window
- * sizes, respectively.  These are obsolescent (this information should
- * be set by the route).
+ * tcp_sendspace and tcp_recvspace are the initial send and receive window
+ * sizes, respectively.
  */
-uint32_t       tcp_sendspace = 1448 * 256;
-uint32_t       tcp_recvspace = 1448 * 384;
+uint32_t       tcp_sendspace = 128 * 1024;
+uint32_t       tcp_recvspace = 128 * 1024;
 
 /* During attach, the size of socket buffer allocated is limited to
  * sb_max in sbreserve. Disallow setting the tcp send and recv space
@@ -3306,7 +3303,7 @@ static __attribute__((unused)) void
 tcpsockopt_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((int)0) {

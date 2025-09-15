@@ -51,6 +51,7 @@ extern void DACommandExecute( CFURLRef                 executable,
                               uid_t                    userUID,
                               gid_t                    userGID,
                               int                      fd,
+                              Boolean                  disableEarlyMalloc,
                               DACommandExecuteCallback callback,
                               void *                   callbackContext,
                               ... );

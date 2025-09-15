@@ -61,10 +61,10 @@ WI.HeapSnapshotClassDataGridNode = class HeapSnapshotClassDataGridNode extends W
 
         if (columnIdentifier === "className") {
             const internal = false;
-            let {className, isObjectSubcategory} = this._data;
+            let {className, isObjectSubcategory, isElementSubcategory} = this._data;
             let fragment = document.createDocumentFragment();
             let iconElement = fragment.appendChild(document.createElement("img"));
-            iconElement.classList.add("icon", WI.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(className, internal, isObjectSubcategory));
+            iconElement.classList.add("icon", WI.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(className, internal, isObjectSubcategory, isElementSubcategory));
             let nameElement = fragment.appendChild(document.createElement("span"));
             nameElement.classList.add("class-name");
             nameElement.textContent = className;

@@ -1,6 +1,7 @@
 #include <darwintest.h>
 #include <darwintest_utils.h>
 
+#include <string.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <mach/mach.h>
@@ -66,7 +67,6 @@ get_permanent_mapping(mach_vm_size_t size)
 
 T_DECL(permanent_mapping, "check permanent mappings semantics", T_META_TAG_VM_PREFERRED)
 {
-	kern_return_t kr;
 	mach_vm_size_t size = 1 << 20;
 	struct child_rc rc;
 
@@ -185,4 +185,17 @@ T_DECL(permanent_mapping, "check permanent mappings semantics", T_META_TAG_VM_PR
 		T_QUIET; T_EXPECT_EQ(*(int *)addr, 42, "we can still read what we wrote");
 	});
 	T_EXPECT_EQ(rc.sig, SIGBUS, "accessing the mapping caused a SIGBUS");
+}
+
+T_DECL(vm_tag_describe,
+    "test mach_vm_tag_describe()",
+    T_META_TAG_VM_PREFERRED)
+{
+	for (unsigned int i = 0; i <= VM_MEMORY_COUNT; i++) {
+		const char *desc = mach_vm_tag_describe(i);
+		T_LOG("%i: %s", i, desc);
+		T_ASSERT_NOTNULL(desc, "Tag description (%i) is non-null", i);
+		T_EXPECT_NE_STR(desc, "", "Tag description (%i) is non-empty", i);
+		T_EXPECT_LE(strlen(desc), 24UL, "Tag description must be less than 24 characters");
+	}
 }

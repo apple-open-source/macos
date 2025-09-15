@@ -41,7 +41,9 @@ messages -> WebExtensionController {
     [Validator=inTestingMode] TestEqual(bool result, String expected, String actual, String message, String sourceURL, unsigned lineNumber)
     [Validator=inTestingMode] TestLogMessage(String message, String sourceURL, unsigned lineNumber)
     [Validator=inTestingMode] TestSentMessage(String message, String argument, String sourceURL, unsigned lineNumber)
-    [Validator=inTestingMode] TestFinished(bool result, String message, String sourceURL, unsigned lineNumber)
+    [Validator=inTestingMode] TestAdded(String testName, String sourceURL, unsigned lineNumber)
+    [Validator=inTestingMode] TestStarted(String testName, String sourceURL, unsigned lineNumber)
+    [Validator=inTestingMode] TestFinished(String testName, bool result, String message, String sourceURL, unsigned lineNumber)
 }
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

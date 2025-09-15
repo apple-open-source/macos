@@ -29,6 +29,7 @@
 #include "RenderLayerModelObject.h"
 #include "Timer.h"
 #include <wtf/CheckedRef.h>
+#include <wtf/SegmentedVector.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
@@ -70,6 +71,8 @@ public:
     WEBCORE_EXPORT void layout(bool canDeferUpdateLayerPositions = false);
     bool needsLayout(OptionSet<LayoutOptions> layoutOptions = { }) const;
 
+    void interleavedLayout();
+
     // We rely on the side-effects of layout, like compositing updates, to update state in various subsystems
     // whose dependencies are poorly defined. This call triggers such updates.
     void setNeedsLayoutAfterViewConfigurationChange();
@@ -96,7 +99,7 @@ public:
     bool inPaintableState() const { return layoutPhase() != LayoutPhase::InRenderTreeLayout && layoutPhase() != LayoutPhase::InViewSizeAdjust && (layoutPhase() != LayoutPhase::InPostLayout || inAsynchronousTasks()); }
 
     bool isSkippedContentForLayout(const RenderElement&) const;
-    bool isSkippedContentRootForLayout(const RenderElement&) const;
+    bool isSkippedContentRootForLayout(const RenderBox&) const;
 
     bool isPercentHeightResolveDisabledFor(const RenderBox& flexItem);
 
@@ -155,13 +158,16 @@ public:
     void startTrackingRenderLayerPositionUpdates() { m_renderLayerPositionUpdateCount = 0; }
     unsigned renderLayerPositionUpdateCount() const { return m_renderLayerPositionUpdateCount; }
 
+    bool addToDetachedRendererList(RenderPtr<RenderObject>&& renderer) const { return m_detachedRendererList.append(WTFMove(renderer)); }
+    void deleteDetachedRenderersNow() const { m_detachedRendererList.clear(); }
+
 private:
     friend class LayoutScope;
     friend class LayoutStateMaintainer;
     friend class LayoutStateDisabler;
     friend class SubtreeLayoutStateMaintainer;
     friend class FlexPercentResolveDisabler;
-    friend class ContentVisibilityForceLayoutScope;
+    friend class ContentVisibilityOverrideScope;
 
     bool needsLayoutInternal() const;
 
@@ -197,8 +203,11 @@ private:
     void disablePaintOffsetCache() { m_paintOffsetCacheDisableCount++; }
     void enablePaintOffsetCache() { ASSERT(m_paintOffsetCacheDisableCount > 0); m_paintOffsetCacheDisableCount--; }
 
-    bool needsSkippedContentLayout() const { return m_needsSkippedContentLayout; }
-    void setNeedsSkippedContentLayout(bool needsSkippedContentLayout) { m_needsSkippedContentLayout = needsSkippedContentLayout; }
+    bool isVisiblityHiddenIgnored() const { return m_visiblityHiddenIsIgnored; }
+    void setIsVisiblityHiddenIgnored(bool ignored) { m_visiblityHiddenIsIgnored = ignored; }
+
+    bool isVisiblityAutoIgnored() const { return m_visiblityAutoIsIgnored; }
+    void setIsVisiblityAutoIgnored(bool ignored) { m_visiblityAutoIsIgnored = ignored; }
 
     void disablePercentHeightResolveFor(const RenderBox& flexItem);
     void enablePercentHeightResolveFor(const RenderBox& flexItem);
@@ -209,6 +218,7 @@ private:
     Ref<LocalFrameView> protectedView() const;
     RenderView* renderView() const;
     Document* document() const;
+    RefPtr<Document> protectedDocument() const;
 
     SingleThreadWeakRef<LocalFrameView> m_frameView;
     Timer m_layoutTimer;
@@ -220,7 +230,8 @@ private:
     bool m_needsFullRepaint { true };
     bool m_inAsynchronousTasks { false };
     bool m_setNeedsLayoutWasDeferred { false };
-    bool m_needsSkippedContentLayout { false };
+    bool m_visiblityHiddenIsIgnored { false };
+    bool m_visiblityAutoIsIgnored { false };
     bool m_updateCompositingLayersIsPending { false };
     LayoutPhase m_layoutPhase { LayoutPhase::OutsideLayout };
     enum class LayoutNestedState : uint8_t  { NotInLayout, NotNested, Nested };
@@ -253,6 +264,16 @@ private:
         bool operator==(const RepaintRectEnvironment&) const = default;
     };
     RepaintRectEnvironment m_lastRepaintRectEnvironment;
+
+    class DetachedRendererList {
+    public:
+        bool append(RenderPtr<RenderObject>&&);
+        void clear() { m_renderers.clear(); }
+
+    private:
+        SegmentedVector<std::unique_ptr<RenderObject>, 50> m_renderers;
+    };
+    mutable DetachedRendererList m_detachedRendererList;
 };
 
 } // namespace WebCore

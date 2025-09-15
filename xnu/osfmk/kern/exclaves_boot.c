@@ -276,13 +276,13 @@ exclaves_boot_exclavekit(void)
 	}
 
 	/*
-	 * Treat a failure to boot exclavekit as a transition to the
-	 * EXCLAVES_BS_BOOTED_FAILURE state and return a failure. On RELEASE we
-	 * simply panic as exclavekit is required.
+	 * If framebank initialization fails, treat a failure to boot exclavekit
+	 * as a transition to the EXCLAVES_BS_BOOTED_FAILURE state
+	 * and return a failure. On RELEASE we simply panic as exclavekit is required.
 	 */
 	kern_return_t kr = exclaves_frame_mint_populate();
 	if (kr != KERN_SUCCESS) {
-		exclaves_requirement_assert(EXCLAVES_R_EXCLAVEKIT,
+		exclaves_requirement_assert(EXCLAVES_R_FRAMEBANK,
 		    "failed to populate frame mint");
 		exclaves_boot_status_set(EXCLAVES_BS_BOOTED_FAILURE);
 		return KERN_FAILURE;
@@ -306,7 +306,18 @@ exclaves_boot(exclaves_boot_stage_t boot_stage)
 		break;
 
 	case EXCLAVES_BOOT_STAGE_EXCLAVEKIT:
-		kr = exclaves_boot_exclavekit();
+		if (!exclaves_requirement_is_relaxed(EXCLAVES_R_EXCLAVEKIT)) {
+			kr = exclaves_boot_exclavekit();
+		} else {
+			/*
+			 * If booting exclavekit was skipped due to a relaxed requirement,
+			 * treat that as a transiton to the EXCLAVES_BS_BOOTED_FAILURE
+			 * state and return a failure. On RELEASE we simply panic
+			 * as exclavekit is required.
+			 */
+			exclaves_requirement_assert(EXCLAVES_R_EXCLAVEKIT, "booting exclavekit skipped");
+			exclaves_boot_status_set(EXCLAVES_BS_BOOTED_FAILURE);
+		}
 		break;
 
 	default:

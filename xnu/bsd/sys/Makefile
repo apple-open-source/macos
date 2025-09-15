@@ -15,7 +15,8 @@ EXPINC_SUBDIRS = \
 # Files that are public on macOS, but private on embedded
 EMBEDDED_PRIVATE_DATAFILES = \
 	disk.h dtrace.h dtrace_glue.h dtrace_impl.h fasttrap.h fasttrap_isa.h ioctl_compat.h kdebug.h \
-	kern_control.h kernel_types.h proc_info.h protosw.h reboot.h ttychars.h ttydev.h ubc.h vnode.h
+	kern_control.h kern_event.h kernel_types.h proc_info.h protosw.h reboot.h sys_domain.h ttychars.h \
+	ttydev.h ubc.h vnode.h
 
 ifeq ($(filter $(SUPPORTED_EMBEDDED_PLATFORMS) $(SUPPORTED_SIMULATOR_PLATFORMS),$(PLATFORM)),)
 EXTRA_DATAFILES = $(EMBEDDED_PRIVATE_DATAFILES)
@@ -36,19 +37,19 @@ DATAFILES = $(sort \
 	errno.h ev.h event.h fcntl.h file.h filedesc.h \
 	fileport.h filio.h fsgetpath.h gmon.h \
 	ioccom.h ioctl.h \
-	ipc.h kernel.h kern_event.h lctx.h loadable_fs.h lock.h lockf.h \
+	ipc.h kernel.h lctx.h loadable_fs.h lock.h lockf.h \
 	kauth.h kdebug_signpost.h lockstat.h malloc.h \
 	mbuf.h mman.h mount.h msg.h msgbuf.h netport.h param.h paths.h pipe.h poll.h \
 	proc.h ptrace.h queue.h quota.h resource.h resourcevar.h \
 	sbuf.h posix_sem.h posix_shm.h random.h sdt.h\
 	select.h sem.h semaphore.h shm.h signal.h signalvar.h snapshot.h socket.h socketvar.h sockio.h stat.h stdio.h \
-	sysctl.h syslimits.h syslog.h sys_domain.h termios.h  time.h \
+	sysctl.h syslimits.h syslog.h termios.h  time.h \
 	timeb.h times.h trace.h tty.h ttycom.h \
 	ttydefaults.h types.h ucontext.h ucred.h uio.h un.h unistd.h unpcb.h \
 	user.h utfconv.h utsname.h vadvise.h vcmd.h \
 	vm.h vmmeter.h vmparam.h vnode_if.h vsock.h vstat.h wait.h xattr.h \
 	_select.h _structs.h _types.h _endian.h __endian.h domain.h \
-	spawn.h timex.h commpage.h log_data.h \
+	spawn.h timex.h commpage.h log_data.h endian.h \
 	$(EXTRA_DATAFILES))
 
 # Installs header file for DriverKit drivers -
@@ -74,13 +75,13 @@ PRIVATE_DATAFILES = $(sort \
 	csr.h \
 	decmpfs.h \
 	dirent_private.h \
-	disk.h \
+	disk_private.h \
 	disklabel.h \
 	domain.h \
 	event.h \
 	event_log.h \
 	event_private.h \
-	fcntl.h \
+	fcntl_private.h \
 	fileport.h \
 	fsctl.h \
 	fsevents.h \
@@ -94,13 +95,15 @@ PRIVATE_DATAFILES = $(sort \
 	kdebug.h \
 	kdebug_private.h \
 	kdebug_triage.h \
+	kern_control_private.h \
 	kern_debug.h \
-	kern_event.h \
+	kern_event_private.h \
 	kern_memorystatus.h \
 	kern_memorystatus_freeze.h \
 	kern_overrides.h \
 	kern_sysctl.h \
 	mbuf.h \
+	mem_acct_private.h \
 	mman.h \
 	monotonic.h \
 	persona.h \
@@ -124,13 +127,14 @@ PRIVATE_DATAFILES = $(sort \
 	spawn.h \
 	spawn_internal.h \
 	stackshot.h \
-	sys_domain.h \
+	sys_domain_private.h \
 	tree.h \
 	ulock.h \
 	unpcb.h \
 	ux_exception.h \
 	variant_internal.h \
 	vsock.h \
+	vsock_private.h \
 	work_interval.h \
 	process_policy.h \
 	proc_uuid_policy.h \
@@ -184,10 +188,12 @@ PRIVATE_KERNELFILES = \
 	decmpfs.h \
 	dirent_private.h \
 	disktab.h \
+	disk_private.h \
 	eventhandler.h \
 	event_log.h \
 	event_private.h \
 	fbt.h \
+	fcntl_private.h \
 	fileport.h \
 	fsctl.h \
 	fslog.h \
@@ -196,6 +202,8 @@ PRIVATE_KERNELFILES = \
 	kpi_private.h \
 	ktrace.h \
 	kdebug_triage.h \
+	kern_control_private.h \
+	kern_event_private.h \
 	linker_set.h \
 	mach_swapon.h \
 	monotonic.h \
@@ -215,6 +223,7 @@ PRIVATE_KERNELFILES = \
 	socket_private.h \
 	sockio_private.h \
 	stackshot.h \
+	sys_domain_private.h \
 	timeb.h times.h \
 	tprintf.h \
 	tty.h  ttychars.h \
@@ -223,6 +232,7 @@ PRIVATE_KERNELFILES = \
 	variant_internal.h \
 	vfs_context.h \
 	vmmeter.h \
+	vsock_private.h \
 	reason.h \
 	spawn_internal.h \
 	priv.h \
@@ -282,9 +292,10 @@ EXPORT_MI_DIR = sys
 # /usr/local/include
 INSTALL_MI_LCL_LIST = $(sort \
 	attr_private.h coalition_private.h code_signing.h codesign.h content_protection.h csr.h decmpfs.h dirent_private.h \
-	event_log.h event_private.h fsevents.h fsgetpath_private.h guarded.h kdebug_private.h \
-	kern_memorystatus.h preoslog.h proc_info_private.h reason.h resource_private.h \
-	socket_private.h sockio_private.h stackshot.h work_interval.h ${EXTRA_PRIVATE_DATAFILES})
+	disk_private.h event_log.h event_private.h fcntl_private.h fsevents.h fsgetpath_private.h guarded.h kas_info.h \
+	kdebug_private.h kern_control_private.h kern_event_private.h kern_memorystatus.h mem_acct_private.h preoslog.h \
+	proc_info_private.h reason.h resource_private.h socket_private.h sockio_private.h stackshot.h sys_domain_private.h \
+	vsock_private.h work_interval.h ${EXTRA_PRIVATE_DATAFILES})
 
 # /System/Library/Frameworks/System.framework/PrivateHeaders
 INSTALL_SF_MI_LCL_LIST = ${DATAFILES} ${PRIVATE_DATAFILES}

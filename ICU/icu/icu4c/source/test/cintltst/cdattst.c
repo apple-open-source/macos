@@ -107,6 +107,7 @@ static void TestLongDayPeriodDefaults(void); // rdar://17278425
 static void TestIndianAMPM(void); // rdar://142529306, rdar://142529982, rdar://126856083, rdar://128190439
 static void TestTaiwanDayPeriods(void); // rdar://142599503
 static void TestMonthAndDayNames(void); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
+static void TestFinnishSunday(void); // rdar://152838495
 #endif  // APPLE_ICU_CHANGES
 
 void addDateForTest(TestNode** root);
@@ -142,16 +143,22 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestLocaleNameCrash);
 #if APPLE_ICU_CHANGES
 // rdar://
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestStandardPatterns);
+#endif
     TESTCASE(TestApplyPatnOverridesTimeSep);
     TESTCASE(Test12HrFormats);
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(Test12HrPatterns);
+#endif
 #if !U_PLATFORM_HAS_WIN32_API
     TESTCASE(TestTimeUnitFormat); /* Apple-specific */
     TESTCASE(TestTimeUnitFormatWithNumStyle); /* Apple-specific */
 #endif
     TESTCASE(TestMapPatternCharToFields); /* rdar://62136559 */
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
+#endif
 #if WRITE_HOUR_MISMATCH_ERRS
     TESTCASE(WriteHourMismatchErrs); /* rdar://52980140 */
 #endif
@@ -164,15 +171,24 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestNarrowQuarters);   // rdar://79238094
     TESTCASE(TestAbbreviationForSeptember); // rdar://87654639
     TESTCASE(TestParseTooStrict); // rdar://106745488
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestRgSubtag); // rdar://106566783
+#endif
     TESTCASE(TestTimeFormatInheritance); // rdar://106179361
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestRelativeDateTime); // rdar://114975916
+#endif
     TESTCASE(TestUkrainianDayNames); // rdar:122185743
     TESTCASE(TestBadLocaleID); // rdar://131338112, rdar://130919763
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestLongDayPeriodDefaults); // rdar://17278425
+#endif
     TESTCASE(TestIndianAMPM); // rdar://142529306, rdar://142529982, rdar://126856083, rdar://128190439
+#if U_PLATFORM_IS_DARWIN_BASED
     TESTCASE(TestTaiwanDayPeriods); // // rdar://142599503
+#endif
     TESTCASE(TestMonthAndDayNames); // rdar://143103676, rdar://132385606, rdar://132231977, rdar://140215649
+    TESTCASE(TestFinnishSunday); // rdar://152838495
 #endif  // APPLE_ICU_CHANGES
 }
 /* Testing the DateFormat API */
@@ -2508,15 +2524,15 @@ static const StandardPatternItem stdPatternItems[] = {
     // See hack in test code for "rkt"; depending on the system test is being run on,"rkt" may fall back to
     // patterns from root (egular space before AM) or en (\u202F before AM). Test needs to handle both.
     { "rkt",   UDAT_NONE, UDAT_SHORT, u"5:10 AM" }, // rkt (no locale) => rkt_Beng_BD, BD pref cycle h unlike root H
-    // Add tests for rdar://47494884 (all results also changed by rdar://17278425)
-    { "ur_PK",      UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
-    { "ur_IN",      UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
-    { "ur_Arab",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
-    { "ur_Aran",    UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
-    { "ur_Arab_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
-    { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" },
-    { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
-    { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فرو، 2015، 5:10 صبح" }, // result changed for rdar://126856083
+    // Add tests for rdar://47494884 (results changed for rdar://142529982 and rdar://147813183)
+    { "ur_PK",      UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_IN",      UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Arab",    UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Aran",    UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Arab_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
+    { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, u"25 فروری، 2015، ‎5:10 AM" },
     // Add tests for rdar://59940681
     { "zh@calendar=buddhist",      UDAT_NONE, UDAT_MEDIUM, u"05:10:00" },
     { "zh@calendar=buddhist",      UDAT_NONE, UDAT_SHORT,  u"05:10" },
@@ -2570,12 +2586,34 @@ static const StandardPatternItem stdPatternItems[] = {
     { "zh_TW", UDAT_NONE, UDAT_SHORT, u"清晨5:10" },
     { "hi_IN", UDAT_NONE, UDAT_SHORT, u"सुबह 5:10" },
     { "hi_US", UDAT_NONE, UDAT_SHORT, u"सुबह 5:10" },
-    // add test for rdar://129389486
-    { "ta",    UDAT_LONG, UDAT_SHORT, u"25 பிப்ரவரி, 2015, காலை 5:10" },
+    // add test for rdar://129389486 (also changed for rdar://142529982)
+    { "ta",    UDAT_LONG, UDAT_SHORT, u"25 பிப்ரவரி, 2015, 5:10 AM" },
     // add test for rdar://140753035
     { "hi",    UDAT_LONG, UDAT_SHORT, u"25 फ़रवरी 2015, सुबह 5:10" },
-    // add test for rdar://128053661
-    { "or",    UDAT_LONG, UDAT_SHORT, u"ଫେବୃଆରୀ 25, 2015, 5:10 AM" },
+    // add test for rdar://128053661 (changed for rdar://126684566)
+    { "or",    UDAT_LONG, UDAT_SHORT, u"25 ଫେବୃଆରୀ 2015, 5:10 AM" },
+    // add tests for rdar://126684566
+    { "gu",    UDAT_FULL,   UDAT_NONE, u"25 ફેબ્રુઆરી, 2015, બુધવાર" },
+    { "gu",    UDAT_LONG,   UDAT_NONE, u"25 ફેબ્રુઆરી, 2015" },
+    { "gu",    UDAT_MEDIUM, UDAT_NONE, u"25 ફેબ૰, 2015" },
+    { "gu",    UDAT_SHORT,  UDAT_NONE, u"25/02/15" },
+    { "kn",    UDAT_FULL,   UDAT_NONE, u"ಬುಧವಾರ, 25 ಫೆಬ್ರವರಿ 2015" },
+    { "kn",    UDAT_LONG,   UDAT_NONE, u"25 ಫೆಬ್ರವರಿ 2015" },
+    { "kn",    UDAT_MEDIUM, UDAT_NONE, u"25 ಫೆಬ್ರ 2015" },
+    { "kn",    UDAT_SHORT,  UDAT_NONE, u"25/2/15" },
+    { "or",    UDAT_FULL,   UDAT_NONE, u"ବୁଧବାର, 25 ଫେବୃଆରୀ 2015" },
+    { "or",    UDAT_LONG,   UDAT_NONE, u"25 ଫେବୃଆରୀ 2015" },
+    { "or",    UDAT_MEDIUM, UDAT_NONE, u"25 ଫେବୃଆରୀ 2015" },
+    { "or",    UDAT_SHORT,  UDAT_NONE, u"25/2/15" },
+    { "te",    UDAT_FULL,   UDAT_NONE, u"25 ఫిబ్రవరి 2015, బుధవారం" },
+    { "te",    UDAT_LONG,   UDAT_NONE, u"25 ఫిబ్రవరి 2015" },
+    { "te",    UDAT_MEDIUM, UDAT_NONE, u"25 ఫిబ్ర 2015" },
+    { "te",    UDAT_SHORT,  UDAT_NONE, u"25-2-15" },
+    { "mr",    UDAT_FULL,   UDAT_NONE, u"बुधवार, 25 फेब्रुवारी, 2015" },
+    { "mr",    UDAT_LONG,   UDAT_NONE, u"25 फेब्रुवारी, 2015" },
+    { "mr",    UDAT_MEDIUM, UDAT_NONE, u"25 फेब्रु, 2015" },
+    { "mr",    UDAT_SHORT,  UDAT_NONE, u"25/2/15" },
+
 
    // terminator
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
@@ -4854,7 +4892,7 @@ static void TestRelativeDateTime(void) {
         { "fi_FI", UDAT_MEDIUM_RELATIVE, u"tänään klo 17.00" },
         { "fi_FI", UDAT_SHORT_RELATIVE,  u"tänään klo 17.00" },
         // rdar://129389486
-        { "ta",    UDAT_LONG_RELATIVE,   u"இன்று, மாலை 5:00" },
+        { "ta",    UDAT_LONG_RELATIVE,   u"இன்று, 5:00 PM" },
         // rdar://140753035
         { "hi",    UDAT_LONG_RELATIVE,   u"आज, शाम 5:00" },
         // rdar://128053661
@@ -4989,7 +5027,8 @@ static void TestLongDayPeriodDefaults(void) {
 static void TestIndianAMPM(void) {
     UChar* testData[]  = {
         // NOTE: "@ldpn=no" is an internal cheat code to simulate having the log-day-period-name feature turned off
-        u"kn@ldpn=no", u"03:45 PM", u"06:30 AM", // rdar://142529306 (actually fixed by CLDR 46)
+        u"gu@ldpn=no", u"3:45 PM",  u"6:30 AM", // rdar://145633817
+        u"kn@ldpn=no", u"3:45 PM",  u"6:30 AM", // rdar://142529306 (actually fixed by CLDR 46) and rdar://145633817
         u"pa@ldpn=no", u"3:45 PM",  u"6:30 AM",  // rdar://142529982
         u"ur@ldpn=no", u"\u200e3:45 PM",  u"\u200e6:30 AM",  // rdar://126856083, rdar://143869868
         u"ta@ldpn=no", u"3:45 PM",  u"6:30 AM",  // rdar://128190439 (actually fixed by CLDR 46)
@@ -5113,6 +5152,42 @@ static void TestMonthAndDayNames(void) {
         udat_close(df);
     }
 }
+
+// rdar://152838495
+static void TestFinnishSunday(void) {
+    const UDate june29 = 1751180400000.0; // Sunday, June 29, 2025
+    const UDate june30 = 1751266800000.0; // Monday, June 30, 2025
+    
+    struct TestCase {
+        const UChar* skeleton;
+        UDate date;
+        const UChar* expectedResult;
+    } testCases[] = {
+        { u"yMMMMEEEEd", june29, u"sunnuntaina 29. kesäkuuta 2025" },
+        { u"EEEE",       june29, u"sunnuntai" },
+        { u"yMMMMEEEEd", june30, u"maanantaina 30. kesäkuuta 2025" },
+        { u"EEEE",       june30, u"maanantai" },
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open("fi", &err);
+        UChar pattern[50];
+        udatpg_getBestPattern(dtpg, testCases[i].skeleton, -1, pattern, 50, &err);
+        UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, "fi", u"America/Los_Angeles", -1, pattern, -1, &err);
+        
+        if (assertSuccess("Error setting up date formatter", &err)) {
+            UChar result[200];
+            udat_format(df, testCases[i].date, result, 200, NULL, &err);
+            if (assertSuccess("Error formatting date", &err)) {
+                assertUEquals("Wrong formatting result", testCases[i].expectedResult, result);
+            }
+        }
+        udat_close(df);
+        udatpg_close(dtpg);
+    }
+}
+
 
 #endif  // APPLE_ICU_CHANGES
 

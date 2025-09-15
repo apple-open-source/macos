@@ -29,6 +29,7 @@
 #include "CustomUndoStep.h"
 #include "Document.h"
 #include "Editor.h"
+#include "ExceptionOr.h"
 #include "FrameDestructionObserverInlines.h"
 #include "LocalFrame.h"
 #include "UndoItem.h"

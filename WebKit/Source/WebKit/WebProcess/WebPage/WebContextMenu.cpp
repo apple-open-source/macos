@@ -28,6 +28,7 @@
 #include "ContextMenuContextData.h"
 #include "MessageSenderInlines.h"
 #include "UserData.h"
+#include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
@@ -51,9 +52,13 @@ WebContextMenu::~WebContextMenu()
 
 void WebContextMenu::show()
 {
-    ContextMenuController& controller = m_page->corePage()->contextMenuController();
+    Ref page = *m_page;
+    auto& controller = page->corePage()->contextMenuController();
     RefPtr frame = controller.hitTestResult().innerNodeFrame();
     if (!frame)
+        return;
+    RefPtr webFrame = WebFrame::fromCoreFrame(*frame);
+    if (!webFrame)
         return;
     RefPtr view = frame->view();
     if (!view)
@@ -67,7 +72,7 @@ void WebContextMenu::show()
 
     ContextMenuContextData contextMenuContextData(menuLocation, menuItems, controller.context());
 
-    m_page->showContextMenuFromFrame(frame->frameID(), contextMenuContextData, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()));
+    page->showContextMenuFromFrame(webFrame->info(), contextMenuContextData, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()));
 }
 
 void WebContextMenu::itemSelected(const WebContextMenuItemData& item)

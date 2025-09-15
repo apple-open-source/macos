@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include <wtf/HashTable.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/Platform.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -71,7 +74,6 @@ public:
         ResourceLoadInfo,
         SecurityOrigin,
         SessionState,
-        SerializedScriptValue,
         String,
         TargetedElementInfo,
         TargetedElementRequest,
@@ -201,6 +203,7 @@ public:
         WebsiteDataStoreConfiguration,
         WebsitePolicies,
         WindowFeatures,
+        CompletionListener,
 
 #if ENABLE(WEB_AUTHN)
         WebAuthenticationAssertionResponse,
@@ -243,14 +246,11 @@ public:
     template<typename T, typename... Args>
     static void constructInWrapper(id <WKObject> wrapper, Args&&... args)
     {
-        Object& object = wrapper._apiObject;
-
-        apiObjectsUnderConstruction().add(&object, (__bridge CFTypeRef)wrapper);
-
-        new (&object) T(std::forward<Args>(args)...);
+        apiObjectsUnderConstruction().add(&wrapper._apiObject, (__bridge CFTypeRef)wrapper);
+        new (&wrapper._apiObject) T(std::forward<Args>(args)...);
     }
 
-    id <WKObject> wrapper() const { return (__bridge id <WKObject>)m_wrapper; }
+    id wrapper() const { return (__bridge id)m_wrapper; }
 #endif
 
     void ref() const;

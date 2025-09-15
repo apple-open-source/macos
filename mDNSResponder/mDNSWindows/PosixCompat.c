@@ -24,7 +24,7 @@ typedef ULONG (WINAPI * if_nametoindex_funcptr_t)(PCSTR name);
 
 
 unsigned
-if_nametoindex( const char * ifname )
+if_nametoindex_win( const char * ifname )
 {
 	HMODULE library;
 	unsigned index = 0;
@@ -50,7 +50,7 @@ if_nametoindex( const char * ifname )
 
 
 char*
-if_indextoname( unsigned ifindex, char * ifname )
+if_indextoname_win( unsigned ifindex, char * ifname )
 {
 	HMODULE library;
 	char * name = NULL;

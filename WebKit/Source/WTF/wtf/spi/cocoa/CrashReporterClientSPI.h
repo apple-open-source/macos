@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if __has_include(<CrashReporterClient.h>)
 
 #include <CrashReporterClient.h>

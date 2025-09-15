@@ -105,7 +105,7 @@ void WebInspectorUI::windowObjectCleared()
         m_frontendHost->disconnectClient();
 
     m_frontendHost = InspectorFrontendHost::create(this, m_page->corePage());
-    m_frontendHost->addSelfToGlobalObjectInWorld(mainThreadNormalWorld());
+    m_frontendHost->addSelfToGlobalObjectInWorld(mainThreadNormalWorldSingleton());
 }
 
 void WebInspectorUI::frontendLoaded()
@@ -329,7 +329,7 @@ bool WebInspectorUI::supportsDiagnosticLogging()
 
 void WebInspectorUI::logDiagnosticEvent(const String& eventName, const DiagnosticLoggingClient::ValueDictionary& dictionary)
 {
-    m_page->corePage()->diagnosticLoggingClient().logDiagnosticMessageWithValueDictionary(eventName, "Web Inspector Frontend Diagnostics"_s, dictionary, ShouldSample::No);
+    m_page->corePage()->checkedDiagnosticLoggingClient()->logDiagnosticMessageWithValueDictionary(eventName, "Web Inspector Frontend Diagnostics"_s, dictionary, ShouldSample::No);
 }
 
 void WebInspectorUI::setDiagnosticLoggingAvailable(bool available)

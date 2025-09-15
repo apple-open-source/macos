@@ -85,7 +85,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     };
 
     // Move things to the system keychain, going into "edu mode'
-    is(_SecServerTransmogrifyToSystemKeychain(&client, &error), true, "_SecServerTransmogrifyToSystemKeychain: %@", error);
+    is(SecServerTransmogrifyToSystemKeychain(&client, &error), true, "SecServerTransmogrifyToSystemKeychain: %@", error);
 
     CFDataRef musr = SecMUSRCreateActiveUserUUID(502);
 
@@ -93,14 +93,14 @@ secd_21_transmogrify(int argc, char *const *argv)
     client.musr = musr;
 
     // Check that the item is in the system keychain
-    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+    res = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"user-label-me",
         (id)kSecUseSystemKeychain : (id)kCFBooleanTrue,
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
         (id)kSecReturnData : @(YES)
     }, &client, (CFTypeRef *)&result, &error);
-    is(res, true, "_SecItemCopyMatching(system)");
+    is(res, true, "SecServerItemCopyMatching(system)");
 
     ok(isDictionary(result), "found item");
     if (isDictionary(result)) {
@@ -116,11 +116,11 @@ secd_21_transmogrify(int argc, char *const *argv)
     CFReleaseNull(result);
 
     // Check sync bubble
-    // Note that we are already in "edu mode", because we called _SecServerTransmogrifyToSystemKeychain above.
+    // Note that we are already in "edu mode", because we called SecServerTransmogrifyToSystemKeychain above.
     // This means the DB is (most likely) protected by the system keybag.
 
     // Add an item to the 502 active user keychain
-    res = _SecItemAdd((__bridge CFDictionaryRef)@{
+    res = SecServerItemAdd((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"com.apple.ProtectedCloudStorage",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
@@ -130,7 +130,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     is(res, true, "SecItemAdd(userforsyncbubble)");
 
     // Check that the item is in the 502 active user keychain
-    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+    res = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
@@ -146,13 +146,13 @@ secd_21_transmogrify(int argc, char *const *argv)
     CFReleaseNull(result);
 
     // Now copy things to the sync bubble keychain
-    ok(_SecServerTransmogrifyToSyncBubble((__bridge CFArrayRef)@[@"com.apple.mailq.sync.xpc" ], client.uid, &client, &error),
-       "_SecServerTransmogrifyToSyncBubble: %@", error);
+    ok(SecServerTransmogrifyToSyncBubble((__bridge CFArrayRef)@[@"com.apple.mailq.sync.xpc" ], client.uid, &client, &error),
+       "SecServerTransmogrifyToSyncBubble: %@", error);
 
     CFReleaseNull(error);
 
     // Check the 502 active user keychain again, since the item should have been copied, not moved.
-    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+    res = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
@@ -168,7 +168,7 @@ secd_21_transmogrify(int argc, char *const *argv)
     SecSecuritySetMusrMode(true, 503, 503);
 
     // Now check that the item exists in the syncbubble keychain for user 502
-    res = _SecItemCopyMatching((__bridge CFDictionaryRef)@{
+    res = SecServerItemCopyMatching((__bridge CFDictionaryRef)@{
         (id)kSecClass :  (id)kSecClassGenericPassword,
         (id)kSecAttrAccount :  @"pcs-label-me",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,

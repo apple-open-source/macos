@@ -127,7 +127,7 @@ int secd_02_upgrade_while_locked(int argc, char *const *argv)
 
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_02_upgrade_while_locked", ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+        CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
         
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
             writeFile(keychain_path, ios6_1_keychain_2_db, ios6_1_keychain_2_db_len);            

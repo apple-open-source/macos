@@ -29,6 +29,7 @@
 #include "SharedBuffer.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/cf/VectorCF.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -60,7 +61,7 @@ KeyedEncoderCF::~KeyedEncoderCF()
 
 void KeyedEncoderCF::encodeBytes(const String& key, std::span<const uint8_t> bytes)
 {
-    RetainPtr data = adoptCF(CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, bytes.data(), bytes.size(), kCFAllocatorNull));
+    RetainPtr data = toCFDataNoCopy(bytes, kCFAllocatorNull);
     CFDictionarySetValue(m_dictionaryStack.last(), key.createCFString().get(), data.get());
 }
 

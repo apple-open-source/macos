@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,14 +28,18 @@
 
 #include "FloatRect.h"
 #include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include "ImageDecoderCG.h"
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
+#include "SVGImage.h"
+#include "SVGImageForContainer.h"
 #include "UTIRegistry.h"
 #include "UTIUtilities.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <ImageIO/ImageIO.h>
 #include <WebCore/ShareableBitmap.h>
+#include <wtf/FileHandle.h>
 #include <wtf/FileSystem.h>
 #include <wtf/cf/VectorCF.h>
 #include <wtf/text/CString.h>
@@ -43,7 +47,7 @@
 
 namespace WebCore {
 
-WorkQueue& sharedImageTranscodingQueue()
+WorkQueue& sharedImageTranscodingQueueSingleton()
 {
     static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("com.apple.WebKit.ImageTranscoding"_s));
     return queue.get();
@@ -64,15 +68,15 @@ static String transcodeImage(const String& path, const String& destinationUTI, c
     // The File object depends solely on the extension to know the MIME type of the file.
     auto suffix = makeString('.', destinationExtension);
     auto [destinationPath, destinationFileHandle] = FileSystem::openTemporaryFile("tempImage"_s, suffix);
-    if (destinationFileHandle == FileSystem::invalidPlatformFileHandle) {
+    if (!destinationFileHandle) {
         RELEASE_LOG_ERROR(Images, "transcodeImage: Destination image could not be created: %s %s\n", path.utf8().data(), destinationUTI.utf8().data());
         return nullString();
     }
 
     CGDataConsumerCallbacks callbacks = {
         [](void* info, const void* buffer, size_t count) -> size_t {
-            auto handle = *static_cast<FileSystem::PlatformFileHandle*>(info);
-            return FileSystem::writeToFile(handle, unsafeMakeSpan(static_cast<const uint8_t*>(buffer), count));
+            auto& handle = *static_cast<FileSystem::FileHandle*>(info);
+            return handle.write(unsafeMakeSpan(static_cast<const uint8_t*>(buffer), count)).value_or(0);
         },
         nullptr
     };
@@ -84,12 +88,11 @@ static String transcodeImage(const String& path, const String& destinationUTI, c
 
     if (!CGImageDestinationFinalize(destination.get())) {
         RELEASE_LOG_ERROR(Images, "transcodeImage: Image transcoding fails: %s %s\n", path.utf8().data(), destinationUTI.utf8().data());
-        FileSystem::closeFile(destinationFileHandle);
+        destinationFileHandle = { };
         FileSystem::deleteFile(destinationPath);
         return nullString();
     }
 
-    FileSystem::closeFile(destinationFileHandle);
     return destinationPath;
 }
 
@@ -159,7 +162,7 @@ Expected<std::pair<String, Vector<IntSize>>, ImageDecodingError> utiAndAvailable
     return std::make_pair(WTFMove(uti), WTFMove(sizes));
 }
 
-static RefPtr<NativeImage> createNativeImageFromData(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize)
+static RefPtr<NativeImage> tryCreateNativeImageFromBitmapImageData(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize)
 {
     Ref buffer = FragmentedSharedBuffer::create(data);
     Ref imageDecoder = ImageDecoderCG::create(buffer.get(), AlphaOption::Premultiplied, GammaAndColorProfileOption::Applied);
@@ -188,6 +191,21 @@ static RefPtr<NativeImage> createNativeImageFromData(std::span<const uint8_t> da
     return NativeImage::create(WTFMove(image));
 }
 
+static void tryCreateNativeImageFromData(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize, CompletionHandler<void(RefPtr<NativeImage>&&)>&& completionHandler)
+{
+    if (RefPtr nativeImage = tryCreateNativeImageFromBitmapImageData(data, preferredSize)) {
+        completionHandler(WTFMove(nativeImage));
+        return;
+    }
+    SVGImage::tryCreateFromData(data, [completionHandler = WTFMove(completionHandler)](auto svgImage) mutable {
+        if (!svgImage) {
+            completionHandler(nullptr);
+            return;
+        }
+        completionHandler(svgImage->nativeImage(svgImage->size()));
+    });
+}
+
 static Vector<Ref<ShareableBitmap>> createBitmapsFromNativeImage(NativeImage& image, std::span<const unsigned> lengths)
 {
     Vector<Ref<ShareableBitmap>> bitmaps;
@@ -205,62 +223,107 @@ static Vector<Ref<ShareableBitmap>> createBitmapsFromNativeImage(NativeImage& im
     return bitmaps;
 }
 
+static RefPtr<NativeImage> createNativeImageFromSVGImage(SVGImage& image, const IntSize& size)
+{
+    RefPtr buffer = ImageBuffer::create(size, RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8);
+    if (!buffer)
+        return nullptr;
+
+    Ref svgImageContainer = SVGImageForContainer::create(&image, size, 1, { });
+    buffer->context().drawImage(svgImageContainer.get(), FloatPoint::zero());
+
+    return ImageBuffer::sinkIntoNativeImage(WTFMove(buffer));
+}
+
+static Vector<Ref<ShareableBitmap>> createBitmapsFromSVGImage(SVGImage& image, std::span<const unsigned> lengths)
+{
+    Vector<Ref<ShareableBitmap>> bitmaps;
+    for (auto length : lengths) {
+        IntSize size { (int)length, (int)length };
+        RefPtr nativeImage = createNativeImageFromSVGImage(image, size);
+        if (!nativeImage)
+            return { };
+
+        RefPtr bitmap = ShareableBitmap::createFromImageDraw(*nativeImage, DestinationColorSpace::SRGB());
+        if (!bitmap)
+            return { };
+
+        bitmaps.append(bitmap.releaseNonNull());
+    }
+
+    return bitmaps;
+}
+
 void createBitmapsFromImageData(std::span<const uint8_t> data, std::span<const unsigned> lengths, CompletionHandler<void(Vector<Ref<ShareableBitmap>>&&)>&& completionHandler)
 {
-    if (RefPtr nativeImage = createNativeImageFromData(data, std::nullopt)) {
+    if (RefPtr nativeImage = tryCreateNativeImageFromBitmapImageData(data, std::nullopt)) {
         completionHandler(createBitmapsFromNativeImage(*nativeImage, lengths));
         return;
     }
 
-    return completionHandler({ });
+    SVGImage::tryCreateFromData(data, [lengthsVector = Vector<unsigned> { lengths }, completionHandler = WTFMove(completionHandler)](auto svgImage) mutable {
+        if (!svgImage) {
+            completionHandler({ });
+            return;
+        }
+        completionHandler(createBitmapsFromSVGImage(*svgImage, lengthsVector.span()));
+    });
 }
 
 RefPtr<SharedBuffer> createIconDataFromBitmaps(Vector<Ref<ShareableBitmap>>&& bitmaps)
 {
     if (bitmaps.isEmpty())
+        return nullptr;
+
+    constexpr auto icoUTI = "com.microsoft.ico"_s;
+    RetainPtr cfUTI = icoUTI.createCFString();
+    RetainPtr colorSpace = adoptCF(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
+    RetainPtr destinationData = adoptCF(CFDataCreateMutable(0, 0));
+    RetainPtr destination = adoptCF(CGImageDestinationCreateWithData(destinationData.get(), cfUTI.get(), bitmaps.size(), nullptr));
+
+    for (Ref bitmap : bitmaps) {
+        RetainPtr cgImage = bitmap->makeCGImageCopy();
+        if (!cgImage) {
+            RELEASE_LOG_ERROR(Images, "createIconDataFromBitmaps: Fails to create CGImage with size { %d , %d }", bitmap->size().width(), bitmap->size().height());
             return nullptr;
-
-        constexpr auto icoUTI = "com.microsoft.ico"_s;
-        RetainPtr cfUTI = icoUTI.createCFString();
-        RetainPtr colorSpace = adoptCF(CGColorSpaceCreateWithName(kCGColorSpaceSRGB));
-        RetainPtr destinationData = adoptCF(CFDataCreateMutable(0, 0));
-        RetainPtr destination = adoptCF(CGImageDestinationCreateWithData(destinationData.get(), cfUTI.get(), bitmaps.size(), nullptr));
-
-        for (Ref bitmap : bitmaps) {
-            RetainPtr cgImage = bitmap->makeCGImageCopy();
-            if (!cgImage) {
-                RELEASE_LOG_ERROR(Images, "createIconDataFromBitmaps: Fails to create CGImage with size { %d , %d }", bitmap->size().width(), bitmap->size().height());
-                return nullptr;
-            }
-
-            CGImageDestinationAddImage(destination.get(), cgImage.get(), nullptr);
         }
 
-        if (!CGImageDestinationFinalize(destination.get()))
-            return nullptr;
+        CGImageDestinationAddImage(destination.get(), cgImage.get(), nullptr);
+    }
 
-        return SharedBuffer::create(destinationData.get());
+    if (!CGImageDestinationFinalize(destination.get()))
+        return nullptr;
+
+    return SharedBuffer::create(destinationData.get());
 }
 
+// FIXME: This does not implement preferredSize for SVG at the moment as there are no callers that pass preferredSize.
 void decodeImageWithSize(std::span<const uint8_t> data, std::optional<FloatSize> preferredSize, CompletionHandler<void(RefPtr<ShareableBitmap>&&)>&& completionHandler)
 {
-    auto nativeImage = createNativeImageFromData(data, preferredSize);
-    if (!nativeImage)
-        return completionHandler(nullptr);
+    tryCreateNativeImageFromData(data, preferredSize, [completionHandler = WTFMove(completionHandler)](auto nativeImage) mutable {
+        if (!nativeImage) {
+            completionHandler(nullptr);
+            return;
+        }
 
-    auto sourceColorSpace = nativeImage->colorSpace();
-    auto destinationColorSpace = sourceColorSpace.supportsOutput() ? sourceColorSpace : DestinationColorSpace::SRGB();
-    RefPtr bitmap = ShareableBitmap::create({ nativeImage->size(), destinationColorSpace });
-    if (!bitmap)
-        return completionHandler(nullptr);
+        auto sourceColorSpace = nativeImage->colorSpace();
+        auto destinationColorSpace = sourceColorSpace.supportsOutput() ? sourceColorSpace : DestinationColorSpace::SRGB();
+        RefPtr bitmap = ShareableBitmap::create({ nativeImage->size(), destinationColorSpace });
+        if (!bitmap) {
+            completionHandler(nullptr);
+            return;
+        }
 
-    auto context = bitmap->createGraphicsContext();
-    if (!context)
-        return completionHandler(nullptr);
+        auto context = bitmap->createGraphicsContext();
+        if (!context) {
+            completionHandler(nullptr);
+            return;
+        }
 
-    FloatRect rect { { }, nativeImage->size() };
-    context->drawNativeImage(*nativeImage, rect, rect, { CompositeOperator::Copy });
-    completionHandler(WTFMove(bitmap));
+        FloatRect rect { { }, nativeImage->size() };
+        context->drawNativeImage(*nativeImage, rect, rect, { CompositeOperator::Copy });
+        completionHandler(WTFMove(bitmap));
+    });
 }
 
 } // namespace WebCore

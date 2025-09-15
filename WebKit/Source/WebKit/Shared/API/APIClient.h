@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <array>
+#include <ranges>
 #include <tuple>
 #include <wtf/StdLibExtras.h>
 
@@ -54,7 +55,7 @@ public:
     {
 #if ASSERT_ENABLED
         auto interfaceSizes = InterfaceSizes<ClientVersions>::sizes();
-        ASSERT(std::is_sorted(interfaceSizes.begin(), interfaceSizes.end()));
+        ASSERT(std::ranges::is_sorted(interfaceSizes));
 #endif
 
         initialize(nullptr);

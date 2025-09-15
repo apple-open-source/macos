@@ -156,6 +156,7 @@ headers: "CommonHeader.h"
 headers: "CommonHeader.h"
 [CustomHeader] class Namespace::CommonClass {
     int value;
+    WebCore::TimingFunction nonRefMemberWithSubclasses;
 }
 
 headers: "CommonHeader.h"
@@ -354,7 +355,7 @@ NSNull wrapped by CoreIPCNull
     bool left();
 }
 
-using WebCore::ConditionalVariant = std::variant<
+using WebCore::ConditionalVariant = Variant<
     int,
 #if USE(CHAR)
     char,
@@ -362,4 +363,4 @@ using WebCore::ConditionalVariant = std::variant<
     double
 >;
 
-using WebCore::NonConditionalVariant = std::variant<int, double>
+using WebCore::NonConditionalVariant = Variant<int, double>

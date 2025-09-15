@@ -74,7 +74,7 @@ RefPtr<WebCore::Document> TextAnimationController::document() const
         return nullptr;
     }
 
-    RefPtr frame = corePage->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage->focusController().focusedOrMainFrame();
     if (!frame) {
         ASSERT_NOT_REACHED();
         return nullptr;
@@ -191,13 +191,13 @@ void TextAnimationController::addInitialTextAnimationForActiveWritingToolsSessio
     if (!animatingRange || animatingRange->collapsed())
         return;
 
-    auto textIndicatorData = createTextIndicatorForRange(*animatingRange);
-    if (!textIndicatorData)
+    RefPtr textIndicator = createTextIndicatorForRange(*animatingRange);
+    if (!textIndicator)
         return;
 
     removeInitialTextAnimationForActiveWritingToolsSession();
 
-    m_webPage->addTextAnimationForAnimationID(initialAnimationID, { WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation }, *textIndicatorData);
+    m_webPage->addTextAnimationForAnimationID(initialAnimationID, { WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation }, textIndicator);
 
     m_initialAnimationID = initialAnimationID;
 }
@@ -222,8 +222,8 @@ void TextAnimationController::addSourceTextAnimationForActiveWritingToolsSession
 
     auto replacedRange = WebCore::resolveCharacterRange(*sessionRange, replaceCharacterRange, defaultTextAnimationControllerTextIteratorBehaviors);
 
-    auto textIndicatorData = createTextIndicatorForRange(replacedRange);
-    if (!textIndicatorData) {
+    RefPtr textIndicator = createTextIndicatorForRange(replacedRange);
+    if (!textIndicator) {
         completionHandler(WebCore::TextAnimationRunMode::RunAnimation);
         return;
     }
@@ -239,7 +239,7 @@ void TextAnimationController::addSourceTextAnimationForActiveWritingToolsSession
     }
 
     // On iOS this will search for the completion handler to pass the text indicator to so that the animation can continue.
-    m_webPage->addTextAnimationForAnimationID(sourceAnimationUUID, { WebCore::TextAnimationType::Source, runMode, WTF::UUID(WTF::UUID::emptyValue), sourceAnimationUUID, destinationAnimationUUID }, *textIndicatorData, WTFMove(completionHandler));
+    m_webPage->addTextAnimationForAnimationID(sourceAnimationUUID, { WebCore::TextAnimationType::Source, runMode, WTF::UUID(WTF::UUID::emptyValue), sourceAnimationUUID, destinationAnimationUUID }, textIndicator, WTFMove(completionHandler));
     m_activeAnimation = sourceAnimationUUID;
     m_textAnimationRanges.append({ sourceAnimationUUID, replaceCharacterRange });
 }
@@ -285,14 +285,13 @@ void TextAnimationController::addDestinationTextAnimationForActiveWritingToolsSe
         }
     }
 
-    auto textIndicatorData = createTextIndicatorForRange(replacedRangeAfterReplace);
-
-    if (!textIndicatorData) {
+    RefPtr textIndicator = createTextIndicatorForRange(replacedRangeAfterReplace);
+    if (!textIndicator) {
         m_webPage->didEndPartialIntelligenceTextAnimation();
         return;
     }
 
-    m_webPage->addTextAnimationForAnimationID(destinationAnimationUUID, { WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation, unanimatedRangeUUID, sourceAnimationUUID }, *textIndicatorData, [weakWebPage = WeakPtr { *m_webPage }](WebCore::TextAnimationRunMode runMode) mutable {
+    m_webPage->addTextAnimationForAnimationID(destinationAnimationUUID, { WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation, unanimatedRangeUUID, sourceAnimationUUID }, textIndicator, [weakWebPage = WeakPtr { *m_webPage }](WebCore::TextAnimationRunMode runMode) mutable {
         if (runMode == WebCore::TextAnimationRunMode::DoNotRun)
             return;
 
@@ -353,27 +352,25 @@ void TextAnimationController::saveSnapshotOfTextPlaceholderForAnimation(const We
         WebCore::TextIndicatorOption::RespectTextColor
     };
 
-    auto textIndicator = WebCore::TextIndicator::createWithRange(placeholderRange, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });
-    if (textIndicator)
-        m_placeholderTextIndicatorData = textIndicator->data();
+    m_placeholderTextIndicator = WebCore::TextIndicator::createWithRange(placeholderRange, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });
 }
 
-std::optional<WebCore::TextIndicatorData> TextAnimationController::createTextIndicatorForRange(const WebCore::SimpleRange& range)
+RefPtr<WebCore::TextIndicator> TextAnimationController::createTextIndicatorForRange(const WebCore::SimpleRange& range)
 {
     if (!m_webPage) {
         ASSERT_NOT_REACHED();
-        return std::nullopt;
+        return nullptr;
     }
 
     RefPtr corePage = m_webPage->corePage();
     if (!corePage) {
         ASSERT_NOT_REACHED();
-        return std::nullopt;
+        return nullptr;
     }
 
     // For smart replies, we need to use a blank snapshot
-    if (range.collapsed() && (m_placeholderTextIndicatorData))
-        return *m_placeholderTextIndicatorData;
+    if (range.collapsed() && m_placeholderTextIndicator)
+        return m_placeholderTextIndicator;
 
     std::optional<WebCore::TextIndicatorData> textIndicatorData;
     constexpr OptionSet textIndicatorOptions {
@@ -386,10 +383,7 @@ std::optional<WebCore::TextIndicatorData> TextAnimationController::createTextInd
 #endif
     };
 
-    if (auto textIndicator = WebCore::TextIndicator::createWithRange(range, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { }))
-        textIndicatorData = textIndicator->data();
-
-    return textIndicatorData;
+    return WebCore::TextIndicator::createWithRange(range, textIndicatorOptions, WebCore::TextIndicatorPresentationTransition::None, { });
 }
 
 void TextAnimationController::clearAnimationsForActiveWritingToolsSession()
@@ -411,12 +405,12 @@ void TextAnimationController::clearAnimationsForActiveWritingToolsSession()
 }
 
 // FIXME: This shouldn't be called anymore, make sure that that is true, and remove.
-void TextAnimationController::createTextIndicatorForTextAnimationID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+void TextAnimationController::createTextIndicatorForTextAnimationID(const WTF::UUID& uuid, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&& completionHandler)
 {
     auto sessionRange = contextRangeForTextAnimationID(uuid);
 
     if (!sessionRange) {
-        completionHandler(std::nullopt);
+        completionHandler(nullptr);
         return;
     }
 

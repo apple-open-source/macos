@@ -22,6 +22,7 @@
 #include "JSTestAsyncKeyValueIterable.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAsyncIterator.h"
@@ -168,7 +169,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestAsyncKeyValueIterableConstructor, (JSGlobalObject
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestAsyncKeyValueIterablePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestAsyncKeyValueIterable::getConstructor(vm, prototype->globalObject()));
 }
@@ -189,7 +190,7 @@ public:
     {
         if constexpr (mode == JSC::SubspaceAccess::Concurrently)
             return nullptr;
-        return WebCore::subspaceForImpl<TestAsyncKeyValueIterableIterator, UseCustomHeapCellType::No>(vm,
+        return WebCore::subspaceForImpl<TestAsyncKeyValueIterableIterator, UseCustomHeapCellType::No>(vm, "TestAsyncKeyValueIterableIterator"_s,
             [] (auto& spaces) { return spaces.m_clientSubspaceForTestAsyncKeyValueIterableIterator.get(); },
             [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestAsyncKeyValueIterableIterator = std::forward<decltype(space)>(space); },
             [] (auto& spaces) { return spaces.m_subspaceForTestAsyncKeyValueIterableIterator.get(); },
@@ -264,7 +265,7 @@ JSC_ANNOTATE_HOST_FUNCTION(TestAsyncKeyValueIterableIteratorBaseOnPromiseFulfill
 JSC_ANNOTATE_HOST_FUNCTION(TestAsyncKeyValueIterableIteratorBaseOnPromiseRejected, TestAsyncKeyValueIterableIteratorBase::onPromiseRejected);
 JSC::GCClient::IsoSubspace* JSTestAsyncKeyValueIterable::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestAsyncKeyValueIterable, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestAsyncKeyValueIterable, UseCustomHeapCellType::No>(vm, "JSTestAsyncKeyValueIterable"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestAsyncKeyValueIterable.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestAsyncKeyValueIterable = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestAsyncKeyValueIterable.get(); },
@@ -304,7 +305,9 @@ extern "C" { extern void (*const __identifier("??_7TestAsyncKeyValueIterable@Web
 #else
 extern "C" { extern void* _ZTVN7WebCore25TestAsyncKeyValueIterableE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestAsyncKeyValueIterable>, void>> static inline void verifyVTable(TestAsyncKeyValueIterable* ptr) {
+template<std::same_as<TestAsyncKeyValueIterable> T>
+static inline void verifyVTable(TestAsyncKeyValueIterable* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

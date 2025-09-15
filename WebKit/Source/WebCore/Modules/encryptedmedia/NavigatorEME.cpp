@@ -58,14 +58,6 @@ struct LogArgument<Vector<T>> {
     }
 };
 
-template<typename T>
-struct LogArgument<std::optional<T>> {
-    static String toString(const std::optional<T>& value)
-    {
-        return value ? "nullopt"_s : LogArgument<T>::toString(value.value());
-    }
-};
-
 }
 
 namespace WebCore {
@@ -104,14 +96,15 @@ void NavigatorEME::requestMediaKeySystemAccess(Navigator& navigator, Document& d
     }
 
     auto request = MediaKeySystemRequest::create(document, keySystem, WTFMove(promise));
-    request->setAllowCallback([keySystem, supportedConfigurations = WTFMove(supportedConfigurations), weakDocument = WeakPtr { document }, logger = WTFMove(logger), identifier = WTFMove(identifier)](Ref<DeferredPromise>&& promise) mutable {
+    request->setAllowCallback([keySystem, supportedConfigurations = WTFMove(supportedConfigurations), weakDocument = WeakPtr { document }, logger = WTFMove(logger), identifier = WTFMove(identifier)](String&& mediaKeysHashSalt, RefPtr<DeferredPromise>&& promise) mutable {
         RefPtr document = weakDocument.get();
         if (!document) {
-            promise->reject(ExceptionCode::InvalidStateError);
+            if (promise)
+                promise->reject(ExceptionCode::InvalidStateError);
             return;
         }
 
-        document->postTask([promise = WTFMove(promise), keySystem, logger = WTFMove(logger), identifier = WTFMove(identifier), supportedConfigurations = WTFMove(supportedConfigurations)] (ScriptExecutionContext& context) mutable {
+        document->postTask([promise = WTFMove(promise), keySystem, logger = WTFMove(logger), identifier = WTFMove(identifier), supportedConfigurations = WTFMove(supportedConfigurations), mediaKeysHashSalt = WTFMove(mediaKeysHashSalt)] (ScriptExecutionContext& context) mutable {
             // 3. Let document be the calling context's Document.
             // 4. Let origin be the origin of document.
             // 5. Let promise be a new promise.
@@ -120,13 +113,14 @@ void NavigatorEME::requestMediaKeySystemAccess(Navigator& navigator, Document& d
             //      String comparison is case-sensitive.
             if (!CDM::supportsKeySystem(keySystem)) {
                 infoLog(logger, identifier, "Rejected: keySystem(", keySystem, ") not supported");
-                promise->reject(ExceptionCode::NotSupportedError);
+                if (promise)
+                    promise->reject(ExceptionCode::NotSupportedError);
                 return;
             }
 
             // 6.2. Let implementation be the implementation of keySystem.
             auto& document = downcast<Document>(context);
-            auto implementation = CDM::create(document, keySystem);
+            auto implementation = CDM::create(document, keySystem, mediaKeysHashSalt);
             tryNextSupportedConfiguration(document, WTFMove(implementation), WTFMove(supportedConfigurations), WTFMove(promise), WTFMove(logger), WTFMove(identifier));
         });
     });
@@ -141,7 +135,7 @@ static void tryNextSupportedConfiguration(Document& document, RefPtr<CDM>&& impl
         // 6.3.2. Let supported configuration be the result of executing the Get Supported Configuration
         //        algorithm on implementation, candidate configuration, and origin.
         MediaKeySystemConfiguration candidateConfiguration = WTFMove(supportedConfigurations.first());
-        supportedConfigurations.remove(0);
+        supportedConfigurations.removeAt(0);
 
         CDM::SupportedConfigurationCallback callback = [weakDocument = WeakPtr { document }, implementation = implementation, supportedConfigurations = WTFMove(supportedConfigurations), promise, logger = WTFMove(logger), identifier = WTFMove(identifier)] (std::optional<MediaKeySystemConfiguration> supportedConfiguration) mutable {
             RefPtr document = weakDocument.get();
@@ -165,7 +159,8 @@ static void tryNextSupportedConfiguration(Document& document, RefPtr<CDM>&& impl
 
                 // 6.3.3.2. Resolve promise with access and abort the parallel steps of this algorithm.
                 infoLog(logger, identifier, "Resolved: keySystem(", keySystem, "), supportedConfiguration(", supportedConfiguration, ")");
-                promise->resolveWithNewlyCreated<IDLInterface<MediaKeySystemAccess>>(WTFMove(access));
+                if (promise)
+                    promise->resolveWithNewlyCreated<IDLInterface<MediaKeySystemAccess>>(WTFMove(access));
                 return;
             }
 
@@ -177,7 +172,8 @@ static void tryNextSupportedConfiguration(Document& document, RefPtr<CDM>&& impl
 
     // 6.4. Reject promise with a NotSupportedError.
     infoLog(logger, identifier, "Rejected: empty supportedConfigurations");
-    promise->reject(ExceptionCode::NotSupportedError);
+    if (promise)
+        promise->reject(ExceptionCode::NotSupportedError);
 }
 
 } // namespace WebCore

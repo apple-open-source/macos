@@ -464,6 +464,18 @@ log_encode_fmt(os_log_context_t ctx, const char *format, va_list args)
 				// Skipping field width, libtrace takes care of it.
 				break;
 
+			case 'e':
+			case 'E':
+			case 'a': // float hex
+			case 'A': // float hex upper
+			case 'g':
+			case 'f':
+				// floats are always promoted to doubles
+				value.f = va_arg(args, double);
+				err = log_encode_fmt_arg(&value.f, sizeof(value.f), OSLF_CMD_TYPE_SCALAR, ctx);
+				done = true;
+				break;
+
 			default:
 				return EINVAL;
 			}

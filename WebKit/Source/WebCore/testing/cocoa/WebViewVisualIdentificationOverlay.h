@@ -29,11 +29,11 @@
 #import <UIKit/UIKit.h>
 #endif
 
-#import <WebCore/PlatformView.h>
+#import <WebCore/CocoaView.h>
 
 WEBCORE_EXPORT
 @interface WebViewVisualIdentificationOverlay : NSObject
 
-+ (void)installForWebViewIfNeeded:(PlatformView *)view kind:(NSString *)kind deprecated:(BOOL)isDeprecated;
++ (void)installForWebViewIfNeeded:(CocoaView *)view kind:(NSString *)kind deprecated:(BOOL)isDeprecated;
 
 @end

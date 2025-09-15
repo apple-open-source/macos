@@ -53,6 +53,8 @@ extern boolean_t              panic_stackshot_active(void);
 extern kern_return_t do_panic_stackshot(void *context);
 extern void *                 stackshot_alloc_with_size(size_t size, kern_return_t *err);
 
+extern uint64_t kcdata_get_task_ss_flags(task_t task, bool from_stackshot);
+
 /* Allocates an array of elements of a type from the stackshot buffer. Works in regular & panic stackshots. */
 #define stackshot_alloc_arr(type, count, err) stackshot_alloc_with_size(sizeof(type) * (count), err)
 

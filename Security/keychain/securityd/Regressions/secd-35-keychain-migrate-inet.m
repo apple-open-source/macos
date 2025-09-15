@@ -58,7 +58,7 @@ int secd_35_keychain_migrate_inet(int argc, char *const *argv)
 
     /* custom keychain dir */
     secd_test_setup_temp_keychain("secd_35_keychain_migrate_inet", ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+        CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
 
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
             writeFile(keychain_path, ios8_inet_keychain_2_db, ios8_inet_keychain_2_db_len);

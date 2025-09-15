@@ -20,9 +20,13 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[EnabledBy=SomeOtherFeature]
+[
+    WantsSendCancelReply,
+    EnabledBy=SomeOtherFeature
+]
 messages -> TestWithValidator {
     AlwaysEnabled(String url)
     [Validator=ValidateFunction] EnabledIfPassValidation(String url)
     [EnabledBy=SomeFeature, Validator=ValidateFunction] EnabledIfSomeFeatureEnabledAndPassValidation(String url)
+    MessageWithReply(String url) -> (String reply, double value)
 }

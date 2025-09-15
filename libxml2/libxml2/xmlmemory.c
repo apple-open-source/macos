@@ -81,6 +81,7 @@ void xmlMallocBreakpoint(void);
 #if defined(LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS)
 #undef xmlMemMalloc
 #undef xmlMemRealloc
+#undef xmlMemFree
 #undef xmlMemoryStrdup
 
 #undef xmlMallocLoc

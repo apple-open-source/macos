@@ -28,6 +28,7 @@
 #include "FloatRoundedRect.h"
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorTextBox.h"
+#include "PaintInfo.h"
 #include "RenderObject.h"
 #include "TextBoxSelectableRange.h"
 #include "TextDecorationPainter.h"
@@ -40,10 +41,8 @@ class Document;
 class RenderCombineText;
 class RenderStyle;
 class RenderText;
-class ShadowData;
 struct CompositionUnderline;
 struct MarkedText;
-struct PaintInfo;
 struct StyledMarkedText;
 
 class TextBoxPainter {
@@ -110,8 +109,8 @@ protected:
     const bool m_isCombinedText;
     const bool m_isPrinting;
     const bool m_haveSelection;
-    const bool m_containsComposition;
-    const bool m_useCustomUnderlines;
+    bool m_containsComposition { false };
+    bool m_useCustomUnderlines { false };
     std::optional<bool> m_emphasisMarkExistsAndIsAbove { };
 };
 

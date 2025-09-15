@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -291,7 +291,7 @@ static RetainPtr<NSArray>& additionalWebPlugInPaths()
         while ((plugin = [pluginEnumerator nextObject])) {
             const auto& pluginInfo = [plugin pluginInfo];
             for (size_t i = 0; i < pluginInfo.mimes.size(); ++i)
-                [MIMETypes addObject:pluginInfo.mimes[i].type];
+                [MIMETypes addObject:pluginInfo.mimes[i].type.createNSString().get()];
         }
 
         // Register plug-in views and representations.
@@ -405,9 +405,9 @@ static RetainPtr<NSArray>& additionalWebPlugInPaths()
 - (void)_addPlugin:(WebBasePluginPackage *)plugin
 {
     ASSERT(plugin);
-    NSString *pluginPath = [plugin path];
+    RetainPtr pluginPath = [plugin path].createNSString();
     ASSERT(pluginPath);
-    [plugins setObject:plugin forKey:pluginPath];
+    [plugins setObject:plugin forKey:pluginPath.get()];
     [plugin wasAddedToPluginDatabase:self];
 }
 
@@ -418,20 +418,20 @@ static RetainPtr<NSArray>& additionalWebPlugInPaths()
     // Unregister plug-in's MIME type registrations
     const auto& pluginInfo = [plugin pluginInfo];
     for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
-        NSString *MIMEType = pluginInfo.mimes[i].type;
+        RetainPtr MIMEType = pluginInfo.mimes[i].type.createNSString();
 
-        if ([registeredMIMETypes containsObject:MIMEType]) {
+        if ([registeredMIMETypes containsObject:MIMEType.get()]) {
             if (self == sharedDatabase())
-                [WebView _unregisterPluginMIMEType:MIMEType];
-            [registeredMIMETypes removeObject:MIMEType];
+                [WebView _unregisterPluginMIMEType:MIMEType.get()];
+            [registeredMIMETypes removeObject:MIMEType.get()];
         }
     }
 
     // Remove plug-in from database
-    NSString *pluginPath = [plugin path];
+    RetainPtr pluginPath = [plugin path].createNSString();
     ASSERT(pluginPath);
     auto protectedPlugin = retainPtr(plugin);
-    [plugins removeObjectForKey:pluginPath];
+    [plugins removeObjectForKey:pluginPath.get()];
     [plugin wasRemovedFromPluginDatabase:self];
 }
 

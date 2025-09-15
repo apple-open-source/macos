@@ -96,6 +96,7 @@
 #include <sys/mcache.h>
 
 #include <libkern/libkern.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <net/if.h>
@@ -2973,7 +2974,6 @@ igmp_handle_state_change(struct in_multi *inm, struct igmp_ifinfo *igi,
     struct igmp_tparams *itp)
 {
 	struct ifnet            *ifp;
-	int                      retval = 0;
 
 	INM_LOCK_ASSERT_HELD(inm);
 	IGI_LOCK_ASSERT_NOTHELD(igi);
@@ -3008,13 +3008,13 @@ igmp_handle_state_change(struct in_multi *inm, struct igmp_ifinfo *igi,
 
 	IF_DRAIN(&inm->inm_scq);
 
-	retval = igmp_v3_enqueue_group_record(&inm->inm_scq, inm, 1, 0, 0);
+	int retval = igmp_v3_enqueue_group_record(&inm->inm_scq, inm, 1, 0, 0);
 	itp->cst = (inm->inm_scq.ifq_len > 0);
 	IGMP_PRINTF(("%s: enqueue record = %d\n", __func__, retval));
+	// N.B.: igmp_v3_enqueue_group_record() returned the number of bytes sent.
 	if (retval <= 0) {
 		IGI_UNLOCK(igi);
-		retval *= -1;
-		goto done;
+		return -retval;
 	}
 	/*
 	 * If record(s) were enqueued, start the state-change
@@ -3025,7 +3025,7 @@ igmp_handle_state_change(struct in_multi *inm, struct igmp_ifinfo *igi,
 	itp->sct = 1;
 	IGI_UNLOCK(igi);
 done:
-	return retval;
+	return 0;
 }
 
 /*
@@ -4024,7 +4024,7 @@ igmp_sendpkt(struct mbuf *m)
 	/*
 	 * Check if the ifnet is still attached.
 	 */
-	if (ifp == NULL || !ifnet_is_attached(ifp, 0)) {
+	if (ifp == NULL || !ifnet_is_fully_attached(ifp)) {
 		os_log_error(OS_LOG_DEFAULT, "%s: dropped 0x%llx as interface went away\n",
 		    __func__, (uint64_t)VM_KERNEL_ADDRPERM(m));
 		m_freem(m);
@@ -4215,10 +4215,9 @@ igmp_init(struct protosw *pp, struct domain *dp)
 
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
-	if (igmp_initialized) {
+	if (!os_atomic_cmpxchg(&igmp_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	igmp_initialized = 1;
 	os_log(OS_LOG_DEFAULT, "%s: initializing\n", __func__);
 	igmp_timers_are_running = 0;
 	LIST_INIT(&igi_head);

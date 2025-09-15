@@ -63,7 +63,7 @@ for name, classes in types.items():
     ranges.sort();
     
     if emitTables and classes["UseTable"] and (not "Inverse" in classes):
-        array = ("static const char _%sData[65536] = {\n" % name);
+        array = ("static constinit const char _%sData[65536] = {\n" % name);
         i = 0
         for (min,max) in ranges:
             while i < min:

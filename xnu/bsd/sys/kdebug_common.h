@@ -46,7 +46,7 @@
 #endif // defined(__x86_64__)
 
 #define TRIAGE_EVENTS_PER_STORAGE_UNIT   128
-#define TRIAGE_MIN_STORAGE_UNITS_PER_CPU 1
+#define TRIAGE_MIN_STORAGE_UNITS_PER_CPU 2
 
 #define TRACE_EVENTS_PER_STORAGE_UNIT   2048
 #define TRACE_MIN_STORAGE_UNITS_PER_CPU 4
@@ -164,27 +164,16 @@ void kdebug_lck_init(void);
 int kdebug_storage_lock(struct kd_control *ctl);
 void kdebug_storage_unlock(struct kd_control *ctl, int intrs_en);
 
-/*
- * Disable wrapping and return true if trace wrapped, false otherwise.
- */
-bool kdebug_disable_wrap(struct kd_control *ctl, kdebug_emit_filter_t *old_emit,
-    kdebug_live_flags_t *old_live_flags);
+bool kdebug_storage_alloc(
+	struct kd_control *kd_ctrl_page,
+	struct kd_buffer *kd_data_page,
+	int cpu);
 
-int create_buffers_triage(void);
+void create_buffers_triage(void);
 
 int create_buffers(struct kd_control *ctl, struct kd_buffer *buf, vm_tag_t tag);
 
 void delete_buffers(struct kd_control *ctl, struct kd_buffer *buf);
-
-void kernel_debug_write(struct kd_control *ctl, struct kd_buffer *buf,
-    struct kd_record kd_rec);
-
-int kernel_debug_read(struct kd_control *ctl, struct kd_buffer *buf,
-    user_addr_t buffer, size_t *number, vnode_t vp, vfs_context_t ctx,
-    uint32_t file_version);
-
-extern int     RAW_file_written;
-#define RAW_FLUSH_SIZE (2 * 1024 * 1024)
 
 void commpage_update_kdebug_state(void);
 

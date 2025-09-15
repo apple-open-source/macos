@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "CSSVariableData.h"
 #include "Document.h"
 #include "Page.h"
+#include "StyleCustomProperty.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -93,7 +94,7 @@ void ConstantPropertyMap::setValueForProperty(ConstantProperty property, Ref<CSS
         buildValues();
 
     auto& name = nameForProperty(property);
-    m_values->set(name, CSSCustomPropertyValue::createSyntaxAll(name, WTFMove(data)));
+    m_values->set(name, Style::CustomProperty::createForVariableData(name, WTFMove(data)));
 }
 
 void ConstantPropertyMap::buildValues()

@@ -949,11 +949,10 @@ def PVWalkARM(pai, verbose_level = vHUMAN):
             if pvh_raw & (1 << 55):
                 pvh_flags.append("RETIRED")
             if pvh_raw & (1 << 54):
-                if kern.globals.page_protection_type > kern.PAGE_PROTECTION_TYPE_PPL:
-                    pvh_flags.append("SLEEPABLE_LOCK")
-            if pvh_raw & (1 << 52):
                 if kern.globals.page_protection_type <= kern.PAGE_PROTECTION_TYPE_PPL:
                     pvh_flags.append("SECURE_FLUSH_NEEDED")
+                else:
+                    pvh_flags.append("SLEEPABLE_LOCK")
             if kern.arch.startswith('arm64') and pvh_raw & (1 << 61):
                 pvh_flags.append("LOCK")
 
@@ -1550,3 +1549,63 @@ def PmapPaIndex(cmd_args=None):
 
     print("Physical Address: {:#x}".format(phys_addr))
     print("PAI: {:d}".format(pai))
+
+@lldb_command('pmapdumpsurts')
+def PmapDumpSurts(cmd_args=None):
+    """ Dump the SURT list.
+
+        Syntax: (lldb) pmapdumpsurts
+    """
+    from scheduler import IterateBitmap
+
+    if "surt_list" not in kern.globals:
+        raise NotImplementedError("SURT is not supported on this device.")
+
+    i = 0
+    for surt_page in IterateLinkageChain(kern.globals.surt_list, 'surt_page_t *', 'surt_chain'):
+        print(f"SURT Page {i} at physical address {hex(surt_page.surt_page_pa)}")
+        print('')
+        print('Allocation status (O: free, X: allocated):')
+        bitmap_visual = bytearray('X' * 128, 'ascii')
+        for free_bit in IterateBitmap(surt_page.surt_page_free_bitmap[0]):
+            bitmap_index = 127 - free_bit
+            bitmap_visual[bitmap_index:(bitmap_index + 1)] = b'O'
+        for free_bit in IterateBitmap(surt_page.surt_page_free_bitmap[1]):
+            bitmap_index = 127 - (free_bit + 64)
+            bitmap_visual[bitmap_index:(bitmap_index + 1)] = b'O'
+
+        for j in range(0, 128, 8):
+            print(f"{bitmap_visual[j:(j+8)].decode('ascii')} bit [{127 - j}:{120 - j}]")
+
+        print('')
+        print('SURT list structure raw:')
+        print(dereference(surt_page))
+        print('')
+        print('')
+
+        i = i + 1
+
+@lldb_command('showallpmaps')
+def ShowAllPmaps(cmd_args=None):
+    """ Dump all pmaps.
+
+        Syntax: (lldb) showallpmaps
+    """
+    for pmap in IterateQueue(kern.globals.map_pmap_list, 'pmap_t', 'pmaps'):
+        print(dereference(pmap))
+        print()
+
+@lldb_command('pmapforroottablepa')
+def PmapForRootTablePa(cmd_args=None):
+    """ Dump the pmap with matching root TTE physical address.
+
+        Syntax: (lldb) pmapforroottablepa <pa>
+    """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError('Invalid argument, expecting the physical address of a root translation table')
+
+    pa = kern.GetValueFromAddress(cmd_args[0], 'unsigned long')
+    for pmap in IterateQueue(kern.globals.map_pmap_list, 'pmap_t', 'pmaps'):
+        if pmap.ttep == pa:
+            print(dereference(pmap))
+            print()

@@ -157,8 +157,15 @@ MACHINE_TIMEOUT_DEV_WRITEABLE(stackshot_interrupt_masked_timeout, "sshot-interru
 #define XCALL_ACK_TIMEOUT_NS ((uint64_t) 6000000000)
 uint64_t xcall_ack_timeout_abstime;
 
-boot_args const_boot_args __attribute__((section("__DATA, __const")));
-boot_args      *BootArgs __attribute__((section("__DATA, __const")));
+#ifndef __BUILDING_XNU_LIBRARY__
+#define BOOTARGS_SECTION_ATTR __attribute__((section("__DATA, __const")))
+#else /* __BUILDING_XNU_LIBRARY__ */
+/* Special segments are not used when building for user-mode */
+#define BOOTARGS_SECTION_ATTR
+#endif /* __BUILDING_XNU_LIBRARY__ */
+
+boot_args const_boot_args BOOTARGS_SECTION_ATTR;
+boot_args      *BootArgs BOOTARGS_SECTION_ATTR;
 
 /**
  * The SPTM provides a second set of boot arguments, on top of those
@@ -730,24 +737,40 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 	configure_misc_apple_boot_args();
 	configure_misc_apple_regs(true);
 
-#if (DEVELOPMENT || DEBUG)
-	unsigned long const *platform_stall_ptr = NULL;
+#if HAS_UPSI_FAILURE_INJECTION
+	/* UPSI (Universal Panic and Stall Injection) Logic
+	 * iBoot/XNU are both configured for failure injection at specific stages
+	 * The injected failure and stage is populated through EDT properties by iBoot
+	 *
+	 * iBoot populates the EDT properties for XNU based upon PMU scratch bits
+	 * This is done because the EDT is available sooner in XNU than the PMU Kext
+	 */
+	uint64_t const *upsi_info = NULL;
 
+	/* Not usable TUNABLE here because TUNABLEs are parsed at a later point. */
 	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
 		panic("%s: Unable to find 'chosen' DT node", __FUNCTION__);
 	}
 
-	// Not usable TUNABLE here because TUNABLEs are parsed at a later point.
-	if (SecureDTGetProperty(chosen, "xnu_platform_stall", (void const **)&platform_stall_ptr,
+	/* Check if there is a requested injection stage */
+	if (SecureDTGetProperty(chosen, "injection_stage", (void const **)&upsi_info,
 	    &dt_entry_size) == kSuccess) {
-		xnu_platform_stall_value = *platform_stall_ptr;
+		assert3u(dt_entry_size, ==, 8);
+		xnu_upsi_injection_stage = *upsi_info;
 	}
 
-	platform_stall_panic_or_spin(PLATFORM_STALL_XNU_LOCATION_ARM_INIT);
+	/* Check if there is a requested injection action */
+	if (SecureDTGetProperty(chosen, "injection_action", (void const **)&upsi_info,
+	    &dt_entry_size) == kSuccess) {
+		assert3u(dt_entry_size, ==, 8);
+		xnu_upsi_injection_action = *upsi_info;
+	}
+
+	check_for_failure_injection(XNU_STAGE_ARM_INIT);
 
 	chosen = NULL; // Force a re-lookup later on since VM addresses are not final at this point
 	dt_entry_size = 0;
-#endif
+#endif // HAS_UPSI_FAILURE_INJECTION
 
 #if HAS_ARM_FEAT_SME
 	(void)PE_parse_boot_argn("enable_sme", &enable_sme, sizeof(enable_sme));
@@ -874,6 +897,57 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 #endif  /* __ARM_PAN_AVAILABLE__ */
 
 
+	/**
+	 * Check SPTM feature flag for ARM_LARGE_MEMORY irrespective of XNU
+	 * definition to detect mismatch in cases where ARM_LARGE_MEMORY is
+	 * defined in SPTM but not in XNU and vice versa.
+	 */
+	const uint64_t sptm_is_large_memory = SPTMArgs->feature_flags & SPTM_FEATURE_LARGE_MEMORY;
+	const uint64_t sptm_is_large_memory_kernonly = SPTMArgs->feature_flags & SPTM_FEATURE_LARGE_MEMORY_KERNONLY;
+#if ARM_LARGE_MEMORY
+	const uint64_t xnu_is_large_memory = SPTM_FEATURE_LARGE_MEMORY;
+#if ARM_LARGE_MEMORY_KERNONLY
+	const uint64_t xnu_is_large_memory_kernonly = SPTM_FEATURE_LARGE_MEMORY_KERNONLY;
+#else /* ARM_LARGE_MEMORY_KERNONLY */
+	const uint64_t xnu_is_large_memory_kernonly = 0;
+#endif /* ARM_LARGE_MEMORY_KERNONLY */
+#else /* ARM_LARGE_MEMORY */
+	const uint64_t xnu_is_large_memory = 0;
+	const uint64_t xnu_is_large_memory_kernonly = 0;
+#endif /* ARM_LARGE_MEMORY */
+
+	if (sptm_is_large_memory != xnu_is_large_memory) {
+		panic("Mismatch of ARM_LARGE_MEMORY in SPTM (%#llx)/XNU (%#llx)", sptm_is_large_memory, xnu_is_large_memory);
+	}
+
+	if (sptm_is_large_memory_kernonly != xnu_is_large_memory_kernonly) {
+		panic("Mismatch of ARM_LARGE_MEMORY_KERNONLY in SPTM (%#llx)/XNU (%#llx)",
+		    sptm_is_large_memory_kernonly, xnu_is_large_memory_kernonly);
+	}
+
+	/*
+	 * gPhysBase/Size only represent kernel-managed memory. These globals represent
+	 * the actual DRAM base address and size as reported by iBoot through the
+	 * device tree.
+	 */
+	unsigned long const *dram_base;
+	unsigned long const *dram_size;
+	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
+		panic("%s: Unable to find 'chosen' DT node", __FUNCTION__);
+	}
+
+	if (SecureDTGetProperty(chosen, "dram-base", (void const **)&dram_base, &dt_entry_size) != kSuccess) {
+		panic("%s: Unable to find 'dram-base' entry in the 'chosen' DT node", __FUNCTION__);
+	}
+
+	if (SecureDTGetProperty(chosen, "dram-size", (void const **)&dram_size, &dt_entry_size) != kSuccess) {
+		panic("%s: Unable to find 'dram-size' entry in the 'chosen' DT node", __FUNCTION__);
+	}
+
+	gDramBase = *dram_base;
+	gDramSize = *dram_size;
+	pmap_first_pnum = (ppnum_t)atop(gDramBase);
+
 	arm_vm_init(xmaxmem, args);
 
 	if (debug_boot_arg) {
@@ -970,29 +1044,6 @@ arm_init(boot_args *args, sptm_bootstrap_args_xnu_t *sptm_boot_args)
 #if HIBERNATION
 	pal_hib_init();
 #endif /* HIBERNATION */
-
-	/*
-	 * gPhysBase/Size only represent kernel-managed memory. These globals represent
-	 * the actual DRAM base address and size as reported by iBoot through the
-	 * device tree.
-	 */
-	unsigned long const *dram_base;
-	unsigned long const *dram_size;
-	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
-		panic("%s: Unable to find 'chosen' DT node", __FUNCTION__);
-	}
-
-	if (SecureDTGetProperty(chosen, "dram-base", (void const **)&dram_base, &dt_entry_size) != kSuccess) {
-		panic("%s: Unable to find 'dram-base' entry in the 'chosen' DT node", __FUNCTION__);
-	}
-
-	if (SecureDTGetProperty(chosen, "dram-size", (void const **)&dram_size, &dt_entry_size) != kSuccess) {
-		panic("%s: Unable to find 'dram-size' entry in the 'chosen' DT node", __FUNCTION__);
-	}
-
-	gDramBase = *dram_base;
-	gDramSize = *dram_size;
-	pmap_first_pnum = (ppnum_t)atop(gDramBase);
 
 	/*
 	 * Initialize the stack protector for all future calls
@@ -1432,6 +1483,12 @@ arm_vm_prot_init(__unused boot_args * args)
 	vm_kernelcache_top = end_kern;
 }
 
+static void
+arm_vm_slide_region(vm_offset_t phys_start, size_t size)
+{
+	sptm_slide_region(phys_start, (unsigned int)(size >> PAGE_SHIFT));
+}
+
 /*
  * return < 0 for a < b
  *          0 for a == b
@@ -1460,7 +1517,7 @@ arm_vm_prot_finalize(boot_args * args __unused)
 	 */
 
 	/* Slide KLDDATA */
-	sptm_slide_region(segKLDDATAB, (unsigned int)(segSizeKLDDATA >> PAGE_SHIFT));
+	arm_vm_slide_region(segKLDDATAB, segSizeKLDDATA);
 
 	/*
 	 * Replace the boot CPU's stacks with properly-guarded dynamically allocated stacks.
@@ -1471,7 +1528,7 @@ arm_vm_prot_finalize(boot_args * args __unused)
 	arm64_replace_bootstack(&BootCpuData);
 
 	/* Slide early-boot data */
-	sptm_slide_region(segBOOTDATAB, (unsigned int)(segSizeBOOTDATA >> PAGE_SHIFT));
+	arm_vm_slide_region(segBOOTDATAB, segSizeBOOTDATA);
 
 	/* Slide linkedit, unless otherwise requested */
 	bool keep_linkedit = false;
@@ -1488,15 +1545,15 @@ arm_vm_prot_finalize(boot_args * args __unused)
 #endif /* KASAN_DYNAMIC_DENYLIST */
 
 	if (!keep_linkedit) {
-		sptm_slide_region(segLINKB, (unsigned int)(segSizeLINK >> PAGE_SHIFT));
+		arm_vm_slide_region(segLINKB, segSizeLINK);
 		if (segSizePLKLINKEDIT) {
 			/* Prelinked kernel LINKEDIT */
-			sptm_slide_region(segPLKLINKEDITB, (unsigned int)(segSizePLKLINKEDIT >> PAGE_SHIFT));
+			arm_vm_slide_region(segPLKLINKEDITB, segSizePLKLINKEDIT);
 		}
 	}
 
 	/* Slide prelinked kernel plists */
-	sptm_slide_region(segPRELINKINFOB, (unsigned int)(segSizePRELINKINFO >> PAGE_SHIFT));
+	arm_vm_slide_region(segPRELINKINFOB, segSizePRELINKINFO);
 
 	/*
 	 * Free the portion of memory that precedes the first usable region, known
@@ -1534,7 +1591,7 @@ alloc_ptpage(sptm_pt_level_t level, bool map_static)
 {
 	pmap_paddr_t paddr = 0;
 
-#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR))
+#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR))
 	map_static = FALSE;
 #endif
 
@@ -1593,7 +1650,7 @@ init_image_offsets(size_t debug_header_entry, vm_image_offsets *offsets)
 #define ARM64_PHYSMAP_SLIDE_MASK  (ARM64_PHYSMAP_SLIDE_RANGE - 1)
 
 void
-arm_vm_init(uint64_t memory_size, boot_args * args)
+arm_vm_init(uint64_t memory_size_override, boot_args * args)
 {
 	vm_map_address_t va_l1, va_l1_end;
 	tt_entry_t       *cpu_l1_tte;
@@ -1628,18 +1685,21 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 
 	/* Obtain total memory size, including non-managed memory */
 	mem_actual = args->memSizeActual ? args->memSizeActual : mem_size;
-
-	if ((memory_size != 0) && (mem_size > memory_size)) {
-		mem_size = memory_size;
-		max_mem_actual = memory_size;
+	if ((memory_size_override != 0) && (mem_size > memory_size_override)) {
+		{
+			mem_size = memory_size_override;
+		}
+		max_mem_actual = memory_size_override;
 	} else {
 		max_mem_actual = mem_actual;
 	}
 
+#if !defined(ARM_LARGE_MEMORY)
 	/* Make sure the system does not have more physical memory than what can be mapped */
 	if (mem_size >= ((VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) / 2)) {
 		panic("Unsupported memory configuration %lx", mem_size);
 	}
+#endif /* !defined(ARM_LARGE_MEMORY) */
 
 	physmap_base = SPTMArgs->physmap_base;
 	physmap_end = static_memory_end = SPTMArgs->physmap_end;
@@ -1822,11 +1882,19 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 		 */
 		use_xnu_restricted = false;
 
+
+
 #endif /* XNU_TARGET_OS_OSX */
 	}
 
-	sane_size = mem_size - (avail_start - gPhysBase);
-	max_mem = mem_size;
+
+	if (memory_size_override && memory_size_override < mem_size) {
+		max_mem = memory_size_override;
+		sane_size = memory_size_override - (avail_start - gPhysBase);
+	} else {
+		max_mem = mem_size;
+		sane_size = mem_size - (avail_start - gPhysBase);
+	}
 	// vm_kernel_slide is set by arm_init()->arm_slide_rebase_and_sign_image()
 	vm_kernel_slid_base = segLOWESTTEXT;
 	vm_kernel_stext = segTEXTB;
@@ -1880,7 +1948,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	va_l1_end += round_page(args->Video.v_height * args->Video.v_rowBytes);
 	va_l1_end = (va_l1_end + 0x00000000007FFFFFULL) & 0xFFFFFFFFFF800000ULL;
 
-	cpu_l1_tte = cpu_tte + ((va_l1 & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(va_l1, TCR_EL1_BOOT);
 
 	while (va_l1 < va_l1_end) {
 		va_l2 = va_l1;
@@ -1921,7 +1989,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	va_l1 = (VM_MAX_KERNEL_ADDRESS & CPUWINDOWS_BASE_MASK) - PE_EARLY_BOOT_VA;
 	va_l1_end = VM_MAX_KERNEL_ADDRESS;
 
-	cpu_l1_tte = cpu_tte + ((va_l1 & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(va_l1, TCR_EL1_BOOT);
 
 	while (va_l1 < va_l1_end) {
 		va_l2 = va_l1;

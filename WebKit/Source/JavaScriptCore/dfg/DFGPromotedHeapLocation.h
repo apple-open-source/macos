@@ -47,12 +47,16 @@ struct Node;
 
 enum PromotedLocationKind {
     InvalidPromotedLocationKind,
-    
+
     ActivationScopePLoc,
     ActivationSymbolTablePLoc,
     ArgumentCountPLoc,
     ArgumentPLoc,
     ArgumentsCalleePLoc,
+    ArrayPLoc,
+    ArrayLengthPropertyPLoc,
+    ArrayButterflyPropertyPLoc,
+    ArrayIndexedPropertyPLoc,
     ClosureVarPLoc,
     InternalFieldObjectPLoc,
     FunctionActivationPLoc,
@@ -198,8 +202,6 @@ struct PromotedHeapLocationHash {
 } } // namespace JSC::DFG
 
 namespace WTF {
-
-void printInternal(PrintStream&, JSC::DFG::PromotedLocationKind);
 
 template<typename T> struct DefaultHash;
 template<> struct DefaultHash<JSC::DFG::PromotedHeapLocation> : JSC::DFG::PromotedHeapLocationHash { };

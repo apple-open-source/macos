@@ -61,6 +61,8 @@ public:
 private:
     StyleBackgroundData();
     StyleBackgroundData(const StyleBackgroundData&);
+
+    bool containsCurrentColor() const;
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, const StyleBackgroundData&);

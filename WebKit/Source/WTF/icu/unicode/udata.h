@@ -4,7 +4,7 @@
 ******************************************************************************
 *
 *   Copyright (C) 1999-2014, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *
 ******************************************************************************
 *   file name:  udata.h

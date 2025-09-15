@@ -41,7 +41,7 @@ class ProcessThrottlerActivity;
 class WebProcessPool;
 class WebsiteDataStore;
 
-class WebProcessCache final : public CanMakeCheckedPtr<WebProcessCache> {
+class WebProcessCache final : public CanMakeThreadSafeCheckedPtr<WebProcessCache> {
     WTF_MAKE_TZONE_ALLOCATED(WebProcessCache);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebProcessCache);
 public:
@@ -76,6 +76,7 @@ private:
 
         Ref<WebProcessProxy> takeProcess();
         WebProcessProxy& process() { ASSERT(m_process); return *m_process; }
+        RefPtr<WebProcessProxy> protectedProcess() const { return m_process; }
         void startSuspensionTimer();
 
 #if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(WPE)

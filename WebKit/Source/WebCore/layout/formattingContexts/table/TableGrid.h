@@ -225,7 +225,7 @@ public:
     bool isSpanned(SlotPosition);
 
 private:
-    using SlotMap = UncheckedKeyHashMap<SlotPosition, std::unique_ptr<Slot>>;
+    using SlotMap = HashMap<SlotPosition, std::unique_ptr<Slot>>;
 
     Columns m_columns;
     Rows m_rows;

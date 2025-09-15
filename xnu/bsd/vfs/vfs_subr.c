@@ -99,6 +99,7 @@
 #include <sys/syslog.h>
 #include <sys/ubc_internal.h>
 #include <sys/vm.h>
+#include <sys/xattr.h>
 #include <sys/sysctl.h>
 #include <sys/filedesc.h>
 #include <sys/fcntl.h>
@@ -608,7 +609,7 @@ vnode_umount_preflight(mount_t mp, vnode_t skipvp, int flags)
 		if ((vp->v_usecount != 0) && ((vp->v_usecount - vp->v_kusecount) != 0)) {
 			ret = 1;
 			if (print_busy_vnodes && ((flags & FORCECLOSE) == 0)) {
-				vprint("vnode_umount_preflight - busy vnode", vp);
+				vprint_path("vnode_umount_preflight - busy vnode", vp);
 			} else {
 				return ret;
 			}
@@ -618,7 +619,7 @@ vnode_umount_preflight(mount_t mp, vnode_t skipvp, int flags)
 			if (vp->v_iocount > 0) {
 				ret = 1;
 				if (print_busy_vnodes && ((flags & FORCECLOSE) == 0)) {
-					vprint("vnode_umount_preflight - busy vnode", vp);
+					vprint_path("vnode_umount_preflight - busy vnode", vp);
 				} else {
 					return ret;
 				}
@@ -2228,7 +2229,7 @@ found_alias:
 		nvp->v_specinfo->si_opencount = 0;
 		nvp->v_specinfo->si_initted = 0;
 		nvp->v_specinfo->si_throttleable = 0;
-		nvp->v_specinfo->si_devbsdunit = LOWPRI_MAX_NUM_DEV;
+		nvp->v_specinfo->si_devbsdunit = LOWPRI_MAX_NUM_DEV - 1;
 
 		SPECHASH_LOCK();
 
@@ -2343,13 +2344,12 @@ vnode_ref_ext(vnode_t vp, int fmode, int flags)
 	/*
 	 * if you are the owner of drain/termination, can acquire usecount
 	 */
-	if ((flags & VNODE_REF_FORCE) == 0) {
-		if ((vp->v_lflag & (VL_DRAIN | VL_TERMINATE | VL_DEAD))) {
-			if (vp->v_owner != current_thread()) {
-				error = ENOENT;
-				goto out;
-			}
-		}
+	if (((flags & VNODE_REF_FORCE) == 0) &&
+	    ((vp->v_lflag & (VL_DRAIN | VL_TERMINATE | VL_DEAD))) &&
+	    !(vp->v_lflag & VL_OPSCHANGE) &&
+	    (vp->v_owner != current_thread())) {
+		error = ENOENT;
+		goto out;
 	}
 
 	/* Enable atomic ops on v_usecount without the vnode lock */
@@ -2966,12 +2966,12 @@ loop:
 			continue;
 		}
 
+		vnode_unlock(vp);
 		/* log vnodes blocking unforced unmounts */
 		if (print_busy_vnodes && first_try && ((flags & FORCECLOSE) == 0)) {
-			vprint("vflush - busy vnode", vp);
+			vprint_path("vflush - busy vnode", vp);
 		}
 
-		vnode_unlock(vp);
 		mount_lock(mp);
 		busy++;
 	}
@@ -3610,17 +3610,39 @@ int     prtactive = 0;          /* 1 => print out reclaim of active vnodes */
 static const char *typename[] =
 { "VNON", "VREG", "VDIR", "VBLK", "VCHR", "VLNK", "VSOCK", "VFIFO", "VBAD" };
 
-void
-vprint(const char *label, struct vnode *vp)
+static void
+vprint_internal(const char *label, struct vnode *vp, bool with_path)
 {
 	char sbuf[64];
 
 	if (label != NULL) {
 		printf("%s: ", label);
 	}
-	printf("name %s type %s, usecount %d, writecount %d\n",
-	    vp->v_name, typename[vp->v_type],
-	    vp->v_usecount, vp->v_writecount);
+
+	if (with_path) {
+		char const *path = NULL;
+		char *vn_path = NULL;
+		vm_size_t vn_pathlen = MAXPATHLEN;
+
+		vn_path = zalloc(ZV_NAMEI);
+		if (vn_getpath(vp, vn_path, (int*)&vn_pathlen) == 0) {
+			path = vn_path;
+		} else {
+			path = "(get vnode path failed)";
+		}
+
+		printf("name %s, type %s, usecount %d, writecount %d, path %s\n",
+		    vp->v_name, typename[vp->v_type],
+		    vp->v_usecount, vp->v_writecount, path);
+
+		if (vn_path) {
+			zfree(ZV_NAMEI, vn_path);
+		}
+	} else {
+		printf("name %s, type %s, usecount %d, writecount %d\n",
+		    vp->v_name, typename[vp->v_type],
+		    vp->v_usecount, vp->v_writecount);
+	}
 	sbuf[0] = '\0';
 	if (vp->v_flag & VROOT) {
 		strlcat(sbuf, "|VROOT", sizeof(sbuf));
@@ -3641,8 +3663,20 @@ vprint(const char *label, struct vnode *vp)
 		strlcat(sbuf, "|VALIASED", sizeof(sbuf));
 	}
 	if (sbuf[0] != '\0') {
-		printf("vnode flags (%s\n", &sbuf[1]);
+		printf("vnode flags (%s)\n", &sbuf[1]);
 	}
+}
+
+void
+vprint(const char *label, struct vnode *vp)
+{
+	vprint_internal(label, vp, false);
+}
+
+void
+vprint_path(const char *label, struct vnode *vp)
+{
+	vprint_internal(label, vp, true);
 }
 
 static int
@@ -6162,6 +6196,7 @@ vnode_drop_internal(vnode_t vp, bool locked)
 		return vp;
 	}
 
+	vnode_lock_convert(vp);
 	vnode_list_lock();
 
 	/*
@@ -6182,7 +6217,7 @@ vnode_drop_internal(vnode_t vp, bool locked)
 
 #if CONFIG_MACF
 		struct label *tmpl = mac_vnode_label(vp);
-		vp->v_label = NULL;
+		os_atomic_store(&vp->v_label, NULL, release);
 #endif /* CONFIG_MACF */
 
 		vnode_unlock(vp);
@@ -6798,6 +6833,7 @@ vnode_reclaim_internal(struct vnode * vp, int locked, int reuse, int flags)
 		panic("vnode reclaim in progress");
 	}
 	vp->v_lflag |= VL_TERMINATE;
+	vp->v_lflag &= ~VL_OPSCHANGE;
 
 	vn_clearunionwait(vp, 1);
 
@@ -7180,9 +7216,11 @@ vnode_create_internal(uint32_t flavor, uint32_t size, void *data, vnode_t *vpp,
 			vp->v_name = vfs_addname(cnp->cn_nameptr, cnp->cn_namelen, cnp->cn_hash, 0);
 		}
 
-		if ((cnp->cn_flags & UNIONCREATED) == UNIONCREATED) {
-			vp->v_flag |= VISUNION;
+#if NAMEDSTREAMS
+		if (cnp->cn_flags & MARKISSHADOW) {
+			vp->v_flag |= VISSHADOW;
 		}
+#endif
 	}
 	if ((param->vnfs_flags & VNFS_CANTCACHE) == 0) {
 		/*
@@ -7345,8 +7383,6 @@ vnode_initialize(uint32_t __unused flavor, uint32_t size, void *data, vnode_t *v
 	 * vnode_create_internal.
 	 */
 	vnode_lock_spin(*vpp);
-	VNASSERT(((*vpp)->v_iocount == 1), *vpp,
-	    ("vnode_initialize : iocount not 1, is %d", (*vpp)->v_iocount));
 	VNASSERT(((*vpp)->v_usecount == 0), *vpp,
 	    ("vnode_initialize : usecount not 0, is %d", (*vpp)->v_usecount));
 	VNASSERT(((*vpp)->v_lflag & VL_DEAD), *vpp,
@@ -8206,6 +8242,10 @@ dot_underbar_check_paired_vnode(struct componentname *cnp, vnode_t vp,
 	int error = 0;
 	bool dvp_needs_put = false;
 
+	if (cnp->cn_namelen <= 2 || cnp->cn_nameptr[0] != '.' || cnp->cn_nameptr[1] != '_') {
+		return 0;
+	}
+
 	if (!dvp) {
 		if ((dvp = vnode_getparent(vp)) == NULLVP) {
 			return 0;
@@ -8240,7 +8280,7 @@ dot_underbar_check_paired_vnode(struct componentname *cnp, vnode_t vp,
 int
 vn_authorize_unlink(vnode_t dvp, vnode_t vp, struct componentname *cnp, vfs_context_t ctx, __unused void *reserved)
 {
-#if !CONFIG_MACF
+#if (!CONFIG_MACF && !NAMEDRSRCFORK)
 #pragma unused(cnp)
 #endif
 	int error = 0;
@@ -8259,14 +8299,26 @@ vn_authorize_unlink(vnode_t dvp, vnode_t vp, struct componentname *cnp, vfs_cont
 	if (!error) {
 		error = mac_vnode_check_unlink(ctx, dvp, vp, cnp);
 #if CONFIG_APPLEDOUBLE
-		if (!error && !(NATIVE_XATTR(dvp)) &&
-		    (cnp->cn_namelen > (sizeof("._a") - 1)) &&
-		    cnp->cn_nameptr[0] == '.' && cnp->cn_nameptr[1] == '_') {
+		if (!error && !NATIVE_XATTR(dvp)) {
 			error = dot_underbar_check_paired_vnode(cnp, vp, dvp, ctx);
 		}
 #endif /* CONFIG_APPLEDOUBLE */
 	}
 #endif /* MAC */
+
+	/* authorize file's resource fork */
+#if NAMEDRSRCFORK
+	if (!error && cnp && (cnp->cn_flags & CN_WANTSRSRCFORK)) {
+		/* If CN_WANTSRSRCFORK is set, that implies that 'dvp' is the base file and 'vp' is the namedstream file */
+#if CONFIG_MACF
+		error = mac_vnode_check_deleteextattr(ctx, dvp, XATTR_RESOURCEFORK_NAME);
+#endif /* MAC */
+		if (!error) {
+			error = vnode_authorize(dvp, NULL, KAUTH_VNODE_WRITE_EXTATTRIBUTES, ctx);
+		}
+	}
+#endif /* NAMEDRSRCFORK */
+
 	if (!error) {
 		error = vnode_authorize(vp, dvp, KAUTH_VNODE_DELETE, ctx);
 	}
@@ -8337,9 +8389,7 @@ vn_authorize_open_existing(vnode_t vp, struct componentname *cnp, int fmode, vfs
 		}
 	}
 #if CONFIG_APPLEDOUBLE
-	if (fmode & (FWRITE | O_TRUNC) && !(NATIVE_XATTR(vp)) &&
-	    (cnp->cn_namelen > (sizeof("._a") - 1)) &&
-	    cnp->cn_nameptr[0] == '.' && cnp->cn_nameptr[1] == '_') {
+	if (fmode & (FWRITE | O_TRUNC) && !NATIVE_XATTR(vp)) {
 		error = dot_underbar_check_paired_vnode(cnp, vp, NULLVP, ctx);
 		if (error) {
 			return error;
@@ -8347,6 +8397,39 @@ vn_authorize_open_existing(vnode_t vp, struct componentname *cnp, int fmode, vfs
 	}
 #endif /* CONFIG_APPLEDOUBLE */
 #endif
+
+	/* authorize file's resource fork */
+#if NAMEDRSRCFORK
+	if (cnp && (cnp->cn_flags & CN_WANTSRSRCFORK)) {
+		/* If CN_WANTSRSRCFORK is set, that implies that 'pvp' is the base file and 'vp' is the namedstream file */
+		vnode_t pvp = vnode_getparent(vp);
+		if (pvp == NULLVP) {
+			return ENOENT;
+		}
+
+#if CONFIG_MACF
+		error = mac_vnode_check_getextattr(ctx, pvp, XATTR_RESOURCEFORK_NAME, NULL);
+		if (error) {
+			vnode_put(pvp);
+			return error;
+		}
+#endif /* MAC */
+
+		action = 0;
+		if (fmode & FREAD) {
+			action |= KAUTH_VNODE_READ_EXTATTRIBUTES;
+		}
+		if (fmode & (FWRITE | O_TRUNC)) {
+			action |= KAUTH_VNODE_WRITE_EXTATTRIBUTES;
+		}
+		error = vnode_authorize(pvp, NULL, action, ctx);
+		if (error) {
+			vnode_put(pvp);
+			return error;
+		}
+		vnode_put(pvp);
+	}
+#endif /* NAMEDRSRCFORK */
 
 	/* compute action to be authorized */
 	action = 0;
@@ -8399,6 +8482,7 @@ vn_authorize_create(vnode_t dvp, struct componentname *cnp, struct vnode_attr *v
 #endif
 	/* Creation case */
 	int error;
+	kauth_action_t action = KAUTH_VNODE_ADD_FILE;
 
 	if (cnp->cn_ndp == NULL) {
 		panic("NULL cn_ndp");
@@ -8415,6 +8499,21 @@ vn_authorize_create(vnode_t dvp, struct componentname *cnp, struct vnode_attr *v
 		}
 	}
 
+	/* authorize file's resource fork */
+#if NAMEDRSRCFORK
+	if (cnp && (cnp->cn_flags & CN_WANTSRSRCFORK)) {
+		/* If CN_WANTSRSRCFORK is set, that implies that 'dvp' is the base file and 'vp' is the namedstream file */
+#if CONFIG_MACF
+		error = mac_vnode_check_setextattr(ctx, dvp, XATTR_RESOURCEFORK_NAME, NULL);
+		if (error) {
+			return error;
+		}
+#endif /* MAC */
+
+		action |= KAUTH_VNODE_WRITE_EXTATTRIBUTES;
+	}
+#endif /* NAMEDRSRCFORK */
+
 #if CONFIG_MACF
 	error = mac_vnode_check_create(ctx, dvp, cnp, vap);
 	if (error) {
@@ -8422,7 +8521,7 @@ vn_authorize_create(vnode_t dvp, struct componentname *cnp, struct vnode_attr *v
 	}
 #endif /* CONFIG_MACF */
 
-	return vnode_authorize(dvp, NULL, KAUTH_VNODE_ADD_FILE, ctx);
+	return vnode_authorize(dvp, NULL, action, ctx);
 }
 
 int
@@ -8483,15 +8582,11 @@ vn_authorize_renamex_with_paths(struct vnode *fdvp, struct vnode *fvp, struct co
 		error = mac_vnode_check_rename(ctx, fdvp, fvp, fcnp, tdvp, tvp, tcnp);
 	}
 #if CONFIG_APPLEDOUBLE
-	if (!error && !(NATIVE_XATTR(fdvp)) &&
-	    fcnp->cn_namelen > (sizeof("._a") - 1) &&
-	    fcnp->cn_nameptr[0] == '.' && fcnp->cn_nameptr[1] == '_') {
+	if (!error && !NATIVE_XATTR(fdvp)) {
 		error = dot_underbar_check_paired_vnode(fcnp, fvp, fdvp, ctx);
 	}
 	/* Currently no Filesystem that does not support native xattrs supports rename swap */
-	if (!error && swap && !(NATIVE_XATTR(tdvp)) &&
-	    (tcnp->cn_namelen > (sizeof("._a") - 1)) &&
-	    (tcnp->cn_nameptr[0] == '.') && (tcnp->cn_nameptr[1] == '_')) {
+	if (!error && swap && !NATIVE_XATTR(tdvp)) {
 		error = dot_underbar_check_paired_vnode(tcnp, tvp, tdvp, ctx);
 	}
 #endif /* CONFIG_APPLEDOUBLE */
@@ -9178,6 +9273,18 @@ vauth_dir_ingroup(vauth_ctx vcp, int *ismember, int idontknow)
 	return error;
 }
 
+static int
+vfs_context_ignores_node_permissions(vfs_context_t ctx)
+{
+	if (proc_ignores_node_permissions(vfs_context_proc(ctx))) {
+		return 1;
+	}
+	if (get_bsdthread_info(vfs_context_thread(ctx))->uu_flag & UT_IGNORE_NODE_PERMISSIONS) {
+		return 1;
+	}
+	return 0;
+}
+
 /*
  * Test the posix permissions in (vap) to determine whether (credential)
  * may perform (action)
@@ -9226,7 +9333,7 @@ vnode_authorize_posix(vauth_ctx vcp, int action, int on_dir)
 	 * Processes with the appropriate entitlement can marked themselves as
 	 * ignoring file/directory permissions if they own it.
 	 */
-	if (!owner_ok && proc_ignores_node_permissions(vfs_context_proc(vcp->ctx))) {
+	if (!owner_ok && vfs_context_ignores_node_permissions(vcp->ctx)) {
 		owner_ok = 1;
 	}
 
@@ -9424,7 +9531,7 @@ vnode_authorize_delete(vauth_ctx vcp, boolean_t cached_delete_child)
 
 		switch (eval.ae_result) {
 		case KAUTH_RESULT_DENY:
-			if (vauth_file_owner(vcp) && proc_ignores_node_permissions(vfs_context_proc(vcp->ctx))) {
+			if (vauth_file_owner(vcp) && vfs_context_ignores_node_permissions(vcp->ctx)) {
 				KAUTH_DEBUG("%p    Override DENY due to entitlement", vcp->vp);
 				return 0;
 			}
@@ -9496,7 +9603,7 @@ vnode_authorize_delete(vauth_ctx vcp, boolean_t cached_delete_child)
 		}
 		switch (eval.ae_result) {
 		case KAUTH_RESULT_DENY:
-			if (vauth_dir_owner(vcp) && proc_ignores_node_permissions(vfs_context_proc(vcp->ctx))) {
+			if (vauth_dir_owner(vcp) && vfs_context_ignores_node_permissions(vcp->ctx)) {
 				KAUTH_DEBUG("%p    Override DENY due to entitlement", vcp->vp);
 				return 0;
 			}
@@ -9623,7 +9730,7 @@ vnode_authorize_simple(vauth_ctx vcp, kauth_ace_rights_t acl_rights, kauth_ace_r
 
 		switch (eval.ae_result) {
 		case KAUTH_RESULT_DENY:
-			if (vauth_file_owner(vcp) && proc_ignores_node_permissions(vfs_context_proc(vcp->ctx))) {
+			if (vauth_file_owner(vcp) && vfs_context_ignores_node_permissions(vcp->ctx)) {
 				KAUTH_DEBUG("%p    Override DENY due to entitlement", vcp->vp);
 				return 0;
 			}
@@ -9817,7 +9924,7 @@ vnode_authorize_checkimmutable(mount_t mp, vauth_ctx vcp,
 				} else {
 					owner = vauth_file_owner(vcp);
 				}
-				if (owner && proc_ignores_node_permissions(vfs_context_proc(vcp->ctx))) {
+				if (owner && vfs_context_ignores_node_permissions(vcp->ctx)) {
 					error = vnode_immutable(vap, append, 1);
 				}
 			}
@@ -13322,4 +13429,63 @@ vnode_rdadvise(vnode_t vp, off_t offset, int len, vfs_context_t ctx)
 	ra_struct.ra_count = len;
 
 	return VNOP_IOCTL(vp, F_RDADVISE, (caddr_t)&ra_struct, 0, ctx);
+}
+
+int
+vnode_hasmultipath(vnode_t vp)
+{
+	struct vnode_attr va;
+	bool is_local_volume = !!(vp->v_mount->mnt_flag & MNT_LOCAL);
+	bool link_locked = false;
+	int has_multipath = 0;
+	int error;
+
+	/*
+	 * If the volume doesn't support directory hard link then the directory
+	 * can't be a hard link.
+	 */
+	if ((vp->v_type == VDIR) && is_local_volume &&
+	    !(vp->v_mount->mnt_kern_flag & MNTK_DIR_HARDLINKS)) {
+		goto out;
+	}
+
+	vnode_link_lock(vp);
+	link_locked = true;
+
+	if (is_local_volume && (vp->v_ext_flag & VE_NOT_HARDLINK)) {
+		goto out;
+	}
+
+	/*
+	 * Not all file systems adopt vnode_setmultipath() to mark a vnode is
+	 * hard link (VISHARDLINK) so we need to call into the file system to get
+	 * the link count attributes to determine if the vnode has multiple paths.
+	 */
+	VATTR_INIT(&va);
+	VATTR_WANTED(&va, va_nlink);
+	VATTR_WANTED(&va, va_dirlinkcount);
+
+	error = vnode_getattr(vp, &va, vfs_context_current());
+	if (error) {
+		goto out;
+	}
+
+	if ((vp->v_type == VDIR) && VATTR_IS_SUPPORTED(&va, va_dirlinkcount)) {
+		has_multipath = (va.va_dirlinkcount > 1);
+	} else if (VATTR_IS_SUPPORTED(&va, va_nlink)) {
+		has_multipath = (va.va_nlink > 1);
+	}
+
+	if (has_multipath == 0) {
+		vnode_lock_spin(vp);
+		vp->v_ext_flag |= VE_NOT_HARDLINK;
+		vnode_unlock(vp);
+	}
+
+out:
+	if (link_locked) {
+		vnode_link_unlock(vp);
+	}
+
+	return has_multipath;
 }

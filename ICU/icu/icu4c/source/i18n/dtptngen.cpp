@@ -514,6 +514,10 @@ U_CFUNC void U_CALLCONV deleteAllowedHourFormats(void *ptr) {
 // Close hashmap at cleanup.
 U_CFUNC UBool U_CALLCONV allowedHourFormatsCleanup() {
     uhash_close(localeToAllowedHourFormatsMap);
+#if APPLE_ICU_CHANGES // rdar://137998419
+    localeToAllowedHourFormatsMap = nullptr;
+    initOnce.reset();
+#endif
     return true;
 }
 
@@ -2113,9 +2117,9 @@ DateTimePatternGenerator::localeUsesLongDayPeriods(const Locale& locale) {
     // is enabled or we're running the tests.  BUT: We previously enabled long day period names in Traditional Chinese,
     // with rdar://106179361, with a different implementation.  So for zh_Hant, this function always returns true,
     // and for all other languages we check this flag.
-    const char *progname = getprogname();
+#if U_PLATFORM_IS_DARWIN_BASED
     bool featureEnabled = os_feature_enabled(ICU, longDayPeriodNames);
-    if (uprv_strcmp(progname, "cintltst") == 0 || uprv_strcmp(progname, "intltest") == 0 || uprv_strcmp(progname, "xctest") == 0) {
+    if (uaprv_isRunningUnitTests()) {
         featureEnabled = true;
     }
     // this is an internal hack to allow the unit tests a way to simulate the longDayPeriodNames feature flag
@@ -2131,7 +2135,11 @@ DateTimePatternGenerator::localeUsesLongDayPeriods(const Locale& locale) {
     // rather than us doing that ourselves.  I've filed https://unicode-org.atlassian.net/browse/ICU-22735
     // to request this.
     const char* kLanguagesThatUseLongDayPeriods[] = {
-        "bn", "gu", "hi", "kn", "ml", "mr", "or", "pa", "ta", "te", "ur" // for "zh" see below
+//        "bn", "gu", "hi", "kn", "ml", "mr", "or", "pa", "ta", "te", "ur" // for "zh" see below
+        // rdar://146804900: For the first release of the feature, we're just doing Hindi and Chinese
+        // TODO: Over future releases, add the other languages back again (as appropriate, after
+        // we've done the necessary research)
+        "hi" // for "zh" see below
     };
     
     if (featureEnabled) {
@@ -2152,6 +2160,7 @@ DateTimePatternGenerator::localeUsesLongDayPeriods(const Locale& locale) {
             }
         }
     }
+#endif
     return false;
 }
 #endif  // APPLE_ICU_CHANGES

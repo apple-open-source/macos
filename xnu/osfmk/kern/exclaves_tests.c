@@ -134,9 +134,10 @@ exclaves_sensor_kpi_test(int64_t in, int64_t *out)
 	bool success = true;
 	exclaves_debug_printf(show_test_output, "%s: STARTING\n", __func__);
 
-	// TODO: EIC-based camera tests are disabled until rdar://132025387
 	exclaves_sensor_type_t sensors[] = {
-		EXCLAVES_SENSOR_MIC,
+		EXCLAVES_SENSOR_TEST,
+		EXCLAVES_SENSOR_TEST_MIL,
+		EXCLAVES_SENSOR_TEST_CIL,
 	};
 	unsigned num_sensors = sizeof(sensors) / sizeof(sensors[0]);
 	exclaves_sensor_status_t sensor_status = EXCLAVES_SENSOR_STATUS_DENIED;

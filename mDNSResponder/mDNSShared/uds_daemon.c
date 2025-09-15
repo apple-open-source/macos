@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/param.h>
 #endif
 
 #include <stdlib.h>
@@ -43,50 +44,18 @@
 #include <sys/socket.h>     // for getsockopt
 #endif //LOCAL_PEEREPID
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-#include "D2D.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-#include "cf_support.h"
-#include "mDNSMacOSX.h"
-#include <os/feature_private.h>
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-#include <mdns/signed_result.h>
-#include <mdns/system.h>
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-#include "QuerierSupport.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSD_XPC_SERVICE)
-#include "dnssd_server.h"
-#endif
 
 #if MDNSRESPONDER_SUPPORTS(COMMON, LOCAL_DNS_RESOLVER_DISCOVERY)
 #include "discover_resolver.h"
 #endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_STATE)
-#include "resolved_cache.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
-#include "dns_sd_internal.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DISCOVERY)
-#include "cf_support.h"
-#include "misc_utilities.h"
-#include "system_utilities.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-#include <mdns/powerlog.h>
-#endif
 
 #include "mdns_strict.h"
 
@@ -252,25 +221,7 @@ mDNSexport DNameListElem *AutoBrowseDomains;        // List created from those l
     }                                                                                                               \
     while(0)
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    #define UDS_LOG_RDATA_WITH_RID_QID_DNSSEC(CATEGORY, LEVEL, RID, QID, RR_PTR, FORMAT, ...)               \
-        do                                                                                                  \
-        {                                                                                                   \
-            const dnssec_result_t _dnssec_result = resource_record_get_validation_result(RR_PTR);           \
-            if (_dnssec_result == dnssec_indeterminate)                                                     \
-            {                                                                                               \
-                UDS_LOG_RDATA_WITH_RID_QID(CATEGORY, LEVEL, (RID), (QID), RR_PTR, FORMAT, ##__VA_ARGS__);   \
-            }                                                                                               \
-            else                                                                                            \
-            {                                                                                               \
-                UDS_LOG_RDATA_WITH_RID_QID(CATEGORY, LEVEL, (RID), (QID), RR_PTR,                           \
-                    FORMAT ", dnssec: " PUB_DNSSEC_RESULT, ##__VA_ARGS__, _dnssec_result);                  \
-            }                                                                                               \
-        }                                                                                                   \
-        while(0)
-#else
     #define UDS_LOG_RDATA_WITH_RID_QID_DNSSEC UDS_LOG_RDATA_WITH_RID_QID
-#endif
 
 #define UDS_LOG_ANSWER_EVENT_WITH_FORMAT(CATEGORY, LEVEL, RID, QID, RR_PTR, EXPIRED, FORMAT, ...)       \
     UDS_LOG_RDATA_WITH_RID_QID_DNSSEC(CATEGORY, LEVEL, RID, QID, RR_PTR, EXPIRED, FORMAT, ##__VA_ARGS__)
@@ -303,12 +254,8 @@ mDNSexport DNameListElem *AutoBrowseDomains;        // List created from those l
 
 mDNSlocal mDNSu32 GetNewRequestID(void)
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSD_XPC_SERVICE)
-    return dnssd_server_get_new_request_id();
-#else
     static mDNSu32 s_last_id = 0;
     return ++s_last_id;
-#endif
 }
 
 NORETURN_ATTRIBUTE
@@ -467,6 +414,20 @@ mDNSexport void LogMcastStateInfo(mDNSBool mflag, mDNSBool start, mDNSBool mstat
     }
 }
 
+mDNSlocal reply_state * dequeue_reply(request_state *const req)
+{
+    reply_state *const reply = req->replies;
+    if (reply)
+    {
+        req->replies = reply->next;
+        if (!req->replies)
+        {
+            req->replies_tail = &req->replies;
+        }
+    }
+    return reply;
+}
+
 mDNSlocal void abort_request(request_state *req)
 {
     if (req->terminate == (req_termination_fn) ~0)
@@ -480,13 +441,6 @@ mDNSlocal void abort_request(request_state *req)
     // If this is actually a shared connection operation, then its req->terminate function will scan
     // the all_requests list and terminate any subbordinate operations sharing this file descriptor
     if (req->terminate) req->terminate(req);
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    if (req->custom_service_id != 0)
-    {
-        Querier_DeregisterCustomDNSService(req->custom_service_id);
-        req->custom_service_id = 0;
-    }
-#endif
 
     if (!dnssd_SocketValid(req->sd))
     {
@@ -511,11 +465,10 @@ mDNSlocal void abort_request(request_state *req)
         udsSupportRemoveFDFromEventLoop(req->sd, req->platform_data);       // Note: This also closes file descriptor req->sd for us
         if (req->errsd != req->sd) { dnssd_close(req->errsd); req->errsd = req->sd; }
 
-        while (req->replies)    // free pending replies
+        reply_state *reply;
+        while ((reply = dequeue_reply(req)) != NULL) // free pending replies
         {
-            reply_state *ptr = req->replies;
-            req->replies = req->replies->next;
-            freeL("reply_state (abort)", ptr);
+            freeL("reply_state (abort)", reply);
         }
     }
 
@@ -552,47 +505,6 @@ mDNSexport int IsDebugSocketInUse(void)
 }
 #endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-mDNSlocal dispatch_queue_t _get_trust_results_dispatch_queue(void)
-{
-    static dispatch_once_t  once    = 0;
-    static dispatch_queue_t queue   = NULL;
-
-    dispatch_once(&once, ^{
-        dispatch_queue_attr_t const attr = dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_UTILITY, 0);
-        queue = dispatch_queue_create("com.apple.mDNSResponder.trust_results-queue", attr);
-    });
-    return queue;
-}
-
-mDNSlocal mDNSBool _prepare_trusts_for_request(request_state * const request)
-{
-    if (request->trusts == NULL)
-    {
-        request->trusts = CFArrayCreateMutable(kCFAllocatorDefault, 0, &mdns_cfarray_callbacks);
-        if (!request->trusts)
-        {
-            return mDNSfalse;
-        }
-    }
-    return mDNStrue;
-}
-
-#define mdns_trusts_forget_with_invalidation(PTR) \
-    do                                            \
-    {                                             \
-        if (*(PTR))                               \
-        {                                         \
-            (void)mdns_cfarray_enumerate(*(PTR),  \
-            ^ bool (mdns_trust_t trust)           \
-            {                                     \
-                mdns_trust_invalidate(trust);     \
-                return true;                      \
-            });                                   \
-            mdns_cf_forget((PTR));                \
-        }                                         \
-    } while(0)
-#endif
 
 mDNSlocal void resolve_result_finalize(request_resolve *resolve);
 #define resolve_result_forget(PTR)              \
@@ -619,15 +531,6 @@ mDNSlocal void request_state_forget(request_state **const ptr)
     freeL("request_browse/request_state_forget", req->browse);
     freeL("request_port_mapping/request_state_forget", req->pm);
     freeL("GetAddrInfoClientRequest/request_state_forget", req->addrinfo);
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-    mdns_forget(&req->peer_token);
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mdns_trusts_forget_with_invalidation(&req->trusts);
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    mdns_forget(&req->signed_obj);
-#endif
     freeL("request_state/request_state_forget", req);
     *ptr = mDNSNULL;
 }
@@ -681,7 +584,6 @@ mDNSlocal reply_state *create_reply(const reply_op_t op, const size_t datalen, r
 mDNSlocal void append_reply(request_state *req, reply_state *rep)
 {
     request_state *r;
-    reply_state **ptr;
 
     if (req->no_reply)
     {
@@ -690,121 +592,12 @@ mDNSlocal void append_reply(request_state *req, reply_state *rep)
     }
 
     r = req->primary ? req->primary : req;
-    ptr = &r->replies;
-    while (*ptr) ptr = &(*ptr)->next;
-    *ptr = rep;
     rep->next = NULL;
+    *r->replies_tail = rep;
+    r->replies_tail = &rep->next;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-mDNSlocal const uint8_t * _get_signed_data_tlvs(request_state *const request, size_t *const out_length)
-{
-    const mDNSu8 *data = NULL;
-    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS))
-    {
-        const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
-        const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-        DNSServiceValidationPolicy policy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_VALIDATION_POLICY, mDNSNULL);
-        if (policy == kDNSServiceValidationPolicyRequired)
-        {
-            request->sign_result = mDNStrue;
-            size_t len;
-            data = get_tlv(start, end, IPC_TLV_TYPE_SERVICE_ATTR_VALIDATION_DATA, &len);
-            if (out_length)
-            {
-                *out_length = len;
-            }
-        }
-    }
-    return data;
-}
 
-mDNSlocal mStatus get_signed_result_flags_tlvs(request_state *const request)
-{
-    // No data is expected in this case
-    (void)_get_signed_data_tlvs(request, NULL);
-    return mStatus_NoError;
-}
-
-mDNSlocal mStatus get_signed_browse_tlvs(request_state *const request)
-{
-    size_t len = 0;
-    const mDNSu8 * const data = _get_signed_data_tlvs(request, &len);
-    if (request->sign_result)
-    {
-        if (!data)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG, "get_signed_browse_tlvs data invalid");
-            return mStatus_Invalid;
-        }
-
-        OSStatus err;
-        mdns_signed_browse_result_t signed_obj = mdns_signed_browse_result_create_from_data(data, len, &err);
-        if (!signed_obj || err != 0)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG,
-                "get_signed_browse_tlvs len %zu data invalid %ld", len, (long)err);
-            return mStatus_Invalid;
-        }
-
-        request->signed_obj = mdns_signed_result_upcast(signed_obj);
-    }
-    return mStatus_NoError;
-}
-
-mDNSlocal mStatus get_signed_resolve_tlvs(request_state *const request)
-{
-    size_t len = 0;
-    const mDNSu8 * const data = _get_signed_data_tlvs(request, &len);
-    if (request->sign_result)
-    {
-        if (!data)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG, "get_signed_resolve_tlvs data invalid");
-            return mStatus_Invalid;
-        }
-
-        OSStatus err;
-        mdns_signed_resolve_result_t signed_obj = mdns_signed_resolve_result_create_from_data(data, len, &err);
-        if (!signed_obj || err != 0)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG,
-                "get_signed_resolve_tlvs len %zu data invalid %ld", len, (long)err);
-            return mStatus_Invalid;
-        }
-
-        request->signed_obj = mdns_signed_result_upcast(signed_obj);
-    }
-    return mStatus_NoError;
-}
-
-mDNSlocal void put_signed_result_tlvs(const uint8_t *data, uint16_t length, ipc_msg_hdr * const hdr,
-    uint8_t ** const ptr, const uint8_t * const limit)
-{
-    put_tlv(IPC_TLV_TYPE_SERVICE_ATTR_VALIDATION_DATA, length, data, ptr, limit);
-    hdr->ipc_flags |= IPC_FLAGS_TRAILING_TLVS;
-}
-#endif
-
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-mDNSlocal void get_tracker_info_tlvs(request_state *const request)
-{
-    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS))
-    {
-        const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
-        const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-        uint32_t result = get_tlv_uint32(start, end, IPC_TLV_TYPE_GET_TRACKER_STR, mDNSNULL);
-        request->addTrackerInfo = (result != 0) ? mDNStrue : mDNSfalse;
-    }
-}
-
-mDNSlocal void put_tracker_hostname_tlvs(const char * hostname, ipc_msg_hdr * const hdr, uint8_t ** const ptr,
-    const uint8_t * const limit)
-{
-    put_tlv_string(IPC_TLV_TYPE_SERVICE_ATTR_TRACKER_STR, hostname, ptr, limit, NULL);
-    hdr->ipc_flags |= IPC_FLAGS_TRAILING_TLVS;
-}
-#endif
 
 // Generates a response message giving name, type, domain, plus interface index,
 // suitable for a browse result or service registration result.
@@ -847,32 +640,6 @@ mDNSlocal mStatus GenerateNTDResponse(const domainname *const servicename, const
         len += (strlen(namestr) + 1);
         len += (strlen(typestr) + 1);
         len += (strlen(domstr) + 1);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-        mdns_signed_browse_result_t signed_result = NULL;
-        const uint8_t *signed_data = NULL;
-        uint16_t signed_data_length = 0;
-        if (request->sign_result && servicename)
-        {
-            OSStatus error;
-            signed_result = mdns_signed_browse_result_create(servicename->c, interface_index, &error);
-            if (!signed_result || error != 0)
-            {
-                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR, "GenerateBrowseReply signed_browse failed %ld",
-                    (long)error);
-            }
-            else
-            {
-                size_t temp_size = 0;
-                const uint8_t * temp_data = mdns_signed_result_get_data(signed_result, &temp_size);
-                if (temp_size <= UINT16_MAX)
-                {
-                    signed_data = temp_data;
-                    signed_data_length = (uint16_t)temp_size;
-                    len += get_required_tlv_length(signed_data_length);
-                }
-            }
-        }
-#endif
 
         // Build reply header
         *rep = create_reply(op, len, request);
@@ -885,13 +652,6 @@ mDNSlocal mStatus GenerateNTDResponse(const domainname *const servicename, const
         put_string(namestr, &data);
         put_string(typestr, &data);
         put_string(domstr, &data);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-        if (signed_data)
-        {
-            put_signed_result_tlvs(signed_data, signed_data_length, (*rep)->mhdr, &data, data+len);
-        }
-        mdns_forget(&signed_result);
-#endif
 
         return mStatus_NoError;
     }
@@ -1123,67 +883,6 @@ mDNSlocal mDNSBool AuthorizedDomain(const request_state * const request, const d
 // ***************************************************************************
 // MARK: - external helpers
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-mDNSlocal void external_start_advertising_helper(service_instance *const instance)
-{
-    AuthRecord *st = instance->subtypes;
-    ExtraResourceRecord *e;
-    mDNSu32 i;
-    const pid_t requestPID = instance->request->process_id;
-
-    const request_servicereg *const servicereg = instance->request->servicereg;
-    if (mDNSIPPortIsZero(servicereg->port))
-    {
-        LogInfo("external_start_advertising_helper: Not registering service with port number zero");
-        return;
-    }
-
-    if (instance->external_advertise) LogMsg("external_start_advertising_helper: external_advertise already set!");
-
-    for (i = 0; i < servicereg->num_subtypes; i++)
-        external_start_advertising_service(&st[i].resrec, instance->request->flags, requestPID);
-
-    external_start_advertising_service(&instance->srs.RR_PTR.resrec, instance->request->flags, requestPID);
-    external_start_advertising_service(&instance->srs.RR_SRV.resrec, instance->request->flags, requestPID);
-    external_start_advertising_service(&instance->srs.RR_TXT.resrec, instance->request->flags, requestPID);
-
-    for (e = instance->srs.Extras; e; e = e->next)
-        external_start_advertising_service(&e->r.resrec, instance->request->flags, requestPID);
-
-    instance->external_advertise = mDNStrue;
-}
-
-mDNSlocal void external_stop_advertising_helper(service_instance *const instance)
-{
-    AuthRecord *st = instance->subtypes;
-    ExtraResourceRecord *e;
-    mDNSu32 i;
-
-    if (!instance->external_advertise) return;
-
-    LogInfo("external_stop_advertising_helper: calling external_stop_advertising_service");
-
-    if (instance->request)
-    {
-        const pid_t requestPID = instance->request->process_id;
-        for (i = 0; i < instance->request->servicereg->num_subtypes; i++)
-        {
-            external_stop_advertising_service(&st[i].resrec, instance->request->flags, requestPID);
-        }
-
-        external_stop_advertising_service(&instance->srs.RR_PTR.resrec, instance->request->flags, requestPID);
-        external_stop_advertising_service(&instance->srs.RR_SRV.resrec, instance->request->flags, requestPID);
-        external_stop_advertising_service(&instance->srs.RR_TXT.resrec, instance->request->flags, requestPID);
-
-        for (e = instance->srs.Extras; e; e = e->next)
-        {
-            external_stop_advertising_service(&e->r.resrec, instance->request->flags, requestPID);
-        }
-    }
-
-    instance->external_advertise = mDNSfalse;
-}
-#endif  // MDNSRESPONDER_SUPPORTS(APPLE, D2D)
 
 // ***************************************************************************
 // MARK: - DNSServiceRegister
@@ -1206,9 +905,6 @@ mDNSlocal void unlink_and_free_service_instance(service_instance *srv)
 {
     ExtraResourceRecord *e = srv->srs.Extras, *tmp;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-    external_stop_advertising_helper(srv);
-#endif
 
     // clear pointers from parent struct
     if (srv->request)
@@ -1355,13 +1051,6 @@ mDNSlocal void regservice_callback(mDNS *const m, ServiceRecordSet *const srs, m
             LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u] regservice_callback: " PRI_DM_NAME " is not valid DNS-SD SRV name", instance->request->request_id, DM_NAME_PARAM(srs->RR_SRV.resrec.name));
         else { append_reply(instance->request, rep); instance->clientnotified = mDNStrue; }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        if (callExternalHelpers(servicereg->InterfaceID, &instance->domain, instance->request->flags))
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u] regservice_callback: calling external_start_advertising_helper()", instance->request->request_id);
-            external_start_advertising_helper(instance);
-        }
-#endif
         if (servicereg->autoname && CountPeerRegistrations(srs) == 0)
             RecordUpdatedNiceLabel(0);   // Successfully got new name, tell user immediately
     }
@@ -1369,9 +1058,6 @@ mDNSlocal void regservice_callback(mDNS *const m, ServiceRecordSet *const srs, m
     {
         if (instance->request && instance->renameonmemfree)
         {
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            external_stop_advertising_helper(instance);
-#endif
             instance->renameonmemfree = 0;
             err = mDNS_RenameAndReregisterService(m, srs, &instance->request->servicereg->name);
             if (err)
@@ -1386,9 +1072,6 @@ mDNSlocal void regservice_callback(mDNS *const m, ServiceRecordSet *const srs, m
         const request_servicereg *const servicereg = instance->request->servicereg;
         if (servicereg->autorename)
         {
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            external_stop_advertising_helper(instance);
-#endif
             if (servicereg->autoname && CountPeerRegistrations(srs) == 0)
             {
                 // On conflict for an autoname service, rename and reregister *all* autoname services
@@ -1423,10 +1106,6 @@ mDNSlocal void regservice_callback(mDNS *const m, ServiceRecordSet *const srs, m
     }
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
-    #define PUB_REG_RESULT              "%{public, mdnsresponder:reg_result}d"
-    #define REG_RESULT_PARAM(result)    (result)
-#else
     #define PUB_REG_RESULT              "%s"
     #define REG_RESULT_PARAM(result)    (get_reg_result_description(result))
 
@@ -1451,7 +1130,6 @@ mDNSlocal const char * get_reg_result_description(const mStatus result)
     }
     return result_description;
 }
-#endif // MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
 
 mDNSlocal void regrecord_callback(mDNS *const m, AuthRecord *rr, mStatus result)
 {
@@ -1545,15 +1223,6 @@ mDNSlocal void regrecord_callback(mDNS *const m, AuthRecord *rr, mStatus result)
                           "[R%u] regrecord_callback: external_advertise already set!", request->request_id);
             }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            if (callExternalHelpers(re->origInterfaceID, &rr->namestorage, request->flags))
-            {
-                LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-                          "[R%u] regrecord_callback: calling external_start_advertising_service", request->request_id);
-                external_start_advertising_service(&rr->resrec, request->flags, request->process_id);
-                re->external_advertise = mDNStrue;
-            }
-#endif
         }
     }
 }
@@ -1690,20 +1359,8 @@ mDNSlocal void connection_termination(request_state *request)
         if (ptr->external_advertise)
         {
             ptr->external_advertise = mDNSfalse;
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            external_stop_advertising_service(&ptr->rr->resrec, request->flags, request->process_id);
-#endif
         }
         LogMcastS(ptr->rr, request, reg_stop);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-        if (ptr->powerlog_start_time != 0)
-        {
-            const AuthRecord *const ar = ptr->rr;
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            mdns_clang_static_analyzer_acknowledge_nonnull(ar->resrec.name);
-            mdns_powerlog_register_record_stop(request->pid_name, ar->resrec.name->c, ptr->powerlog_start_time, usesAWDL);
-        }
-#endif
         mDNS_Deregister(&mDNSStorage, ptr->rr);     // Will free ptr->rr for us
         freeL("registered_record_entry/connection_termination", ptr);
     }
@@ -1799,13 +1456,6 @@ mDNSlocal mStatus _handle_regrecord_request_start(request_state *request, AuthRe
     }
     else
     {
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-        if ((rr->resrec.InterfaceID != mDNSInterface_LocalOnly) && IsLocalDomain(rr->resrec.name))
-        {
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            re->powerlog_start_time = mdns_powerlog_register_record_start(request->pid_name, record->name->c, usesAWDL);
-        }
-#endif
         LogMcastS(rr, request, reg_start);
         re->next = request->reg_recs;
         request->reg_recs = re;
@@ -1813,115 +1463,6 @@ mDNSlocal mStatus _handle_regrecord_request_start(request_state *request, AuthRe
     return err;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-
-mDNSlocal void _return_regrecord_request_error(request_state *request, mStatus error)
-{
-    reply_state *rep;
-    if (GenerateNTDResponse(NULL, 0, request, &rep, reg_record_reply_op, 0, error) != mStatus_NoError)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "[R%u] DNSServiceRegisterRecord _return_regrecord_request_error: error(%d)", request->request_id, error);
-    }
-    else
-    {
-        append_reply(request, rep);
-    }
-}
-
-mDNSlocal mStatus _handle_regrecord_request_with_trust(request_state *request, AuthRecord * rr)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_WARNING, "[R%u] _handle_regrecord_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_regrecord_request_start(request, rr);
-    }
-    else
-    {
-        const char *service_ptr = NULL;
-        char type_str[MAX_ESCAPED_DOMAIN_NAME] = "";
-        domainlabel name;
-        domainname type, domain;
-        bool good = DeconstructServiceName(rr->resrec.name, &name, &type, &domain);
-        if (good)
-        {
-            ConvertDomainNameToCString(&type, type_str);
-            service_ptr = type_str;
-        }
-
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        mdns_trust_status_t status = mdns_trust_check_bonjour(*token, service_ptr, &flags);
-        switch (status)
-        {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    freeL("AuthRecord/_handle_regrecord_request_with_trust", rr);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, service_ptr, flags);
-                if (!trust)
-                {
-                    freeL("AuthRecord/_handle_regrecord_request_with_trust", rr);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_set_context(trust, rr);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("AuthRecord/_handle_regrecord_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        AuthRecord * _rr =  mdns_trust_get_context(trust);
-                        if (_rr)
-                        {
-                            if (!error)
-                            {
-                                mdns_trust_set_context(trust, NULL); // _handle_regrecord_request_start handles free
-                                error = _handle_regrecord_request_start(request, _rr);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_regrecord_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_handle_regrecord_request_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_regrecord_request_start(request, rr);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-     }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
 
 // Add a TSR record when DNSServiceRegisterRecordWithAttribute is called with timestamp set correctly
 mDNSlocal mStatus regRecordAddTSRRecord(request_state *const request, AuthRecord *const rr, const mDNSs32 tsrTimestamp, 
@@ -2033,10 +1574,6 @@ mDNSlocal _ConflictResult conflictWithAuthRecordsOrFlush(mDNS *const m, const Au
                 LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
                     "conflictWithAuthRecordsOrFlush - deregistering " PRI_S " InterfaceID %p",
                     ARDisplayString(&mDNSStorage, rp), rp->resrec.InterfaceID);
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-                // See if this record was also registered with any D2D plugins.
-                D2D_stop_advertising_record(rp);
-#endif
                 mDNS_Deregister_internal(m, rp, mDNS_Dereg_stale);
                 result = _ConflictResult_Flushed;
             }
@@ -2126,7 +1663,7 @@ mDNSlocal mStatus handle_regrecord_request(request_state *request)
     AuthRecord *currentTSR = mDNSNULL;
     if (rr)
     {
-        if (foundTSRParams && !getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
+        if (foundTSRParams && !getValidContinuousTSRTime(&timestampContinuous, tsrTimestamp, 0))
         {
             LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "tsrTimestamp[%u] out of range (%d) on TSR for " PRI_DM_NAME "",
                       tsrTimestamp, MaxTimeSinceReceived, DM_NAME_PARAM(rr->resrec.name));
@@ -2171,19 +1708,7 @@ mDNSlocal mStatus handle_regrecord_request(request_state *request)
             freeL("AuthRecord/handle_regrecord_request", rr);
             return mStatus_StaleData;
         }
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-        if (os_feature_enabled(mDNSResponder, bonjour_privacy) &&
-            IsLocalDomain(rr->resrec.name))
-        {
-            err = _handle_regrecord_request_with_trust(request, rr);
-        }
-        else
-        {
-            err = _handle_regrecord_request_start(request, rr);
-        }
-#else
         err = _handle_regrecord_request_start(request, rr);
-#endif
     }
     if (!err && foundTSRParams)
     {
@@ -2250,9 +1775,6 @@ mDNSlocal void regservice_termination_callback(request_state *const request)
             DM_NAME_PARAM(srv_rr->name), mDNS_DomainNameFNV1aHash(srv_rr->name), mDNSVal16(srv_rr->rdata->u.srv.port));
 
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        external_stop_advertising_helper(p);
-#endif
 
         // Clear backpointer *before* calling mDNS_DeregisterService/unlink_and_free_service_instance
         // We don't need unlink_and_free_service_instance to cut its element from the list, because we're already advancing
@@ -2266,14 +1788,6 @@ mDNSlocal void regservice_termination_callback(request_state *const request)
             unlink_and_free_service_instance(p);
             // Don't touch service_instance *p after this -- it's likely to have been freed already
         }
-    #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-        if (request->powerlog_start_time != 0)
-        {
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            mdns_powerlog_service_register_stop(request->pid_name, servicereg->type.c, request->powerlog_start_time, usesAWDL);
-            request->powerlog_start_time = 0;
-        }
-    #endif
     }
     if (servicereg->txtdata)
     {
@@ -2334,14 +1848,6 @@ mDNSlocal mStatus add_record_to_service(request_state *const request, service_in
     LogMcastS(&srs->RR_PTR, request, reg_start);
 
     extra->ClientID = request->hdr.reg_index;
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-    if (   instance->external_advertise
-           && callExternalHelpers(servicereg->InterfaceID, &instance->domain, request->flags))
-    {
-        LogInfo("add_record_to_service: calling external_start_advertising_service");
-        external_start_advertising_service(&extra->r.resrec, request->flags, request->process_id);
-    }
-#endif
     return result;
 }
 
@@ -2416,17 +1922,9 @@ mDNSlocal void update_callback(mDNS *const m, AuthRecord *const rr, RData *oldrd
     if (external_advertise)
     {
         ResourceRecord ext = rr->resrec;
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        DNSServiceFlags flags = deriveD2DFlagsFromAuthRecType(rr->ARType);
-#endif
 
         if (ext.rdlength == oldrdlen && mDNSPlatformMemSame(&ext.rdata->u, &oldrd->u, oldrdlen)) goto exit;
         SetNewRData(&ext, oldrd, oldrdlen);
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        external_stop_advertising_service(&ext, flags, 0);
-        LogRedact(MDNS_LOG_CATEGORY_D2D, MDNS_LOG_DEFAULT, "update_callback: calling external_start_advertising_service");
-        external_start_advertising_service(&rr->resrec, flags, 0);
-#endif
     }
 exit:
     if (oldrd != &rr->rdatastorage) freeL("RData/update_callback", oldrd);
@@ -2474,7 +1972,7 @@ mDNSlocal mStatus handle_tsr_update_request(const request_state *const request, 
     mStatus result = mStatus_NoError;
     AuthRecord *currentTSR = mDNSGetTSRForAuthRecord(&mDNSStorage, rr);
     mDNSs32 timestampContinuous;
-    if (!getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
+    if (!getValidContinuousTSRTime(&timestampContinuous, tsrTimestamp, 0))
     {
         LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR, "tsrTimestamp[%u] out of range (%d) on TSR for " PRI_DM_NAME "",
                   tsrTimestamp, MaxTimeSinceReceived, DM_NAME_PARAM(rr->resrec.name));
@@ -2649,7 +2147,7 @@ mDNSlocal mStatus remove_record(request_state *request)
             "[R%u->Rec%u] DNSServiceRemoveRecord -- ifindex: %d, client pid: %d (" PUB_S "), "
             "duration: " PUB_TIME_DUR ", name: " PRI_DM_NAME "(%x), ",
             request->request_id, e->key, (mDNSs32)ifIndex, request->process_id, request->pid_name, duration,
-            DM_NAME_PARAM(record->name), nameHash);
+            DM_NAME_PARAM_NONNULL(record->name), nameHash);
     }
     else
     {
@@ -2660,20 +2158,9 @@ mDNSlocal mStatus remove_record(request_state *request)
     e->rr->RecordContext = NULL;
     if (e->external_advertise)
     {
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        external_stop_advertising_service(&e->rr->resrec, request->flags, request->process_id);
-#endif
         e->external_advertise = mDNSfalse;
     }
     LogMcastS(e->rr, request, reg_stop);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (e->powerlog_start_time != 0)
-    {
-        const AuthRecord *const ar = e->rr;
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_register_record_stop(request->pid_name, ar->resrec.name->c, e->powerlog_start_time, usesAWDL);
-    }
-#endif
     err = mDNS_Deregister(&mDNSStorage, e->rr);     // Will free e->rr for us; we're responsible for freeing e
     if (err)
     {
@@ -2694,12 +2181,6 @@ mDNSlocal mStatus remove_extra(const request_state *const request, service_insta
         if (ptr->ClientID == request->hdr.reg_index) // found match
         {
             *rrtype = ptr->r.resrec.rrtype;
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            if (serv->external_advertise)
-            {
-                external_stop_advertising_service(&ptr->r.resrec, request->flags, request->process_id);
-            }
-#endif
             err = mDNS_RemoveRecordFromService(&mDNSStorage, &serv->srs, ptr, FreeExtraRR, ptr);
             break;
         }
@@ -2865,7 +2346,7 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
         mDNSu32 namehash;
         domainname full_hostname;
 
-        if(!getValidContinousTSRTime(&timestampContinuous, tsrTimestamp))
+        if(!getValidContinuousTSRTime(&timestampContinuous, tsrTimestamp, 0))
         {
             LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
                 "tsrTimestamp[%u] out of range (%d) on TSR", tsrTimestamp, MaxTimeSinceReceived);
@@ -2947,13 +2428,6 @@ mDNSlocal mStatus register_service_instance(request_state *const request, const 
                                   mDNSNULL, servicereg->txtdata, servicereg->txtlen,
                                   instance->subtypes, servicereg->num_subtypes,
                                   interfaceID, regservice_callback, instance, request->flags);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (!result && (request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && DomainIsLocal)
-    {
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        request->powerlog_start_time = mdns_powerlog_service_register_start(request->pid_name, servicereg->type.c, usesAWDL);
-    }
-#endif
     if (!result && foundTSRParams)
     {
         AuthRecord *currentTSR = mDNSGetTSRForAuthRecord(&mDNSStorage, &instance->srs.RR_SRV);
@@ -3115,117 +2589,6 @@ mDNSlocal mStatus _handle_regservice_request_start(request_state *const request,
     return err;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-
-mDNSlocal void _return_regservice_request_error(request_state *const request, const mStatus error)
-{
-    request_servicereg *const servicereg = request->servicereg;
-    if (servicereg->txtdata)
-    {
-        freeL("service_info txtdata", servicereg->txtdata);
-        servicereg->txtdata = NULL;
-    }
-
-    reply_state *rep;
-    if (GenerateNTDResponse(NULL, 0, request, &rep, reg_service_reply_op, 0, error) != mStatus_NoError)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT, "[R%u] DNSServiceRegister _return_regservice_request_error: error(%d)", request->request_id, error);
-    }
-    else
-    {
-        append_reply(request, rep);
-    }
-}
-
-mDNSlocal mStatus _handle_regservice_request_with_trust(request_state *const request, const domainname *const d)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_WARNING, "[R%u] _handle_regservice_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_regservice_request_start(request, d);
-    }
-    else
-    {
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        const request_servicereg *const servicereg = request->servicereg;
-        mdns_trust_status_t status = mdns_trust_check_register_service(*token, servicereg->type_as_string, &flags);
-        switch (status) {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, servicereg->type_as_string, flags);
-                if (!trust)
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                void * context = mallocL("context/_handle_regservice_request_with_trust", sizeof(domainname));
-                if (!context)
-                {
-                    my_perror("ERROR: mallocL context/_handle_regservice_request_with_trust");
-                    mdns_release(trust);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                memcpy(context, d, sizeof(domainname));
-                mdns_trust_set_context(trust, context);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("context/_handle_regservice_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        const domainname * _d = mdns_trust_get_context(trust);
-                        if (_d)
-                        {
-                            if (!error)
-                            {
-                                error = _handle_regservice_request_start(request, _d);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_regservice_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_register_service_instance_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_regservice_request_start(request, d);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-    }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
 
 mDNSlocal mStatus handle_regservice_request(request_state *const request)
 {
@@ -3388,24 +2751,7 @@ mDNSlocal mStatus handle_regservice_request(request_state *const request)
     // what kind of request this is, and therefore what kind of list validation is required.
     request->terminate = NULL;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    if (os_feature_enabled(mDNSResponder, bonjour_privacy) &&
-        (servicereg->default_domain || IsLocalDomain(&d)))
-    {
-        err = _handle_regservice_request_with_trust(request, &d);
-        if (err == mStatus_NoAuth && servicereg->txtdata)
-        {
-            freeL("service_info txtdata", servicereg->txtdata);
-            servicereg->txtdata = NULL;
-        }
-    }
-    else
-    {
-        err = _handle_regservice_request_start(request, &d);
-    }
-#else
     err = _handle_regservice_request_start(request, &d);
-#endif
 
 exit:
     return(err);
@@ -3490,71 +2836,11 @@ mDNSlocal void SetQuestionPolicy(DNSQuestion *q, request_state *req)
     //debugf("SetQuestionPolicy: q->euid[%d] q->pid[%d] uuid is valid : %s", q->euid, q->pid, req->validUUID ? "true" : "false");
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DISCOVERY)
-mDNSlocal CFArrayRef _get_unicast_discovery_dns_services(request_state *info)
-{
-    CFArrayRef result = NULL;
-    CFMutableArrayRef defArray = NULL;
-    mdns_require_action_quiet(info->peer_token, exit, uds_log_error(
-        "[R%u] No peer audit token to get unicast discovery IP addresses", info->request_id));
-
-    defArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &mdns_cfarray_callbacks);
-    require_quiet(defArray, exit);
-
-    const audit_token_t *const token = mdns_audit_token_get_token(info->peer_token);
-    util_device_media_access_unicast_addr_enumerate(token,
-    ^bool(uint8_t family, uint8_t *addr, uint32_t ifindex)
-    {
-        mdns_dns_service_definition_t definition = NULL;
-        require_quiet(addr, exit);
-
-        definition = mdns_dns_service_definition_create();
-        require_quiet(definition, exit);
-
-        mdns_address_t serverAddr;
-        if (family == AF_INET) {
-            uint32_t ipv4_addr;
-            memcpy(&ipv4_addr, addr, sizeof(ipv4_addr));
-            serverAddr = mdns_address_create_ipv4(ipv4_addr, mDNSVal16(MulticastDNSPort));
-        } else if (family == AF_INET6) {
-            uint8_t ipv6_addr[16];
-            memcpy(&ipv6_addr, addr, sizeof(ipv6_addr));
-            serverAddr = mdns_address_create_ipv6(ipv6_addr, mDNSVal16(MulticastDNSPort), ifindex);
-        } else {
-            serverAddr = NULL;
-        }
-        require_quiet(serverAddr, exit);
-
-        OSStatus err = mdns_dns_service_definition_append_server_address(definition, serverAddr);
-        mdns_forget(&serverAddr);
-        require_noerr(err, exit);
-
-        mdns_dns_service_definition_set_interface_index(definition, ifindex, true);
-
-        CFArrayAppendValue(defArray, definition);
-
-    exit:
-        mdns_forget(&definition);
-        return true;
-    });
-
-    result = defArray;
-    defArray = NULL;
-
-exit:
-    STRICT_DISPOSE_CF_OBJECT(defArray);
-    return result;
-}
-#endif
 
 mDNSlocal mStatus add_domain_to_browser(request_state *info, const domainname *d)
 {
     browser_t *b, *p;
-#if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DISCOVERY)
-    __block mStatus err;
-#else
     mStatus err;
-#endif
 
     request_browse *const browse = info->browse;
     for (p = browse->browsers; p; p = p->next)
@@ -3563,56 +2849,6 @@ mDNSlocal mStatus add_domain_to_browser(request_state *info, const domainname *d
         { debugf("add_domain_to_browser %##s already in list", d->c); return mStatus_AlreadyRegistered; }
     }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, UNICAST_DISCOVERY)
-    if (info->sign_result && SameDomainName(d, &localdomain))
-    {
-        CFArrayRef definitions = _get_unicast_discovery_dns_services(info);
-        if (definitions)
-        {
-            err = mStatus_NoError;
-            mdns_cfarray_enumerate(definitions,
-            ^ bool (const mdns_dns_service_definition_t definition)
-            {
-                const uint32_t ifIndex = mdns_dns_service_definition_get_interface_index(definition);
-                mdns_address_t addr = mdns_dns_service_definition_get_first_address(definition);
-                if (!addr)
-                {
-                    return true;
-                }
-                browser_t *ubrowse = (browser_t *) callocL("browser_t", sizeof(*ubrowse));
-                if (!ubrowse)
-                {
-                    err = mStatus_NoMemoryErr;
-                    return false;
-                }
-                AssignDomainName(&ubrowse->domain, d);
-                SetQuestionPolicy(&ubrowse->q, info);
-                ubrowse->q.request_id = info->request_id; // This browse request is started on behalf of the original browse request.
-                ubrowse->q.UnicastMDNSResolver = mDNSAddr_from_sockaddr(mdns_address_get_sockaddr(addr));
-                mDNSInterfaceID InterfaceID = mDNSPlatformInterfaceIDfromInterfaceIndex(&mDNSStorage, ifIndex);
-                err = mDNS_StartBrowse(&mDNSStorage, &ubrowse->q, &browse->regtype, d, InterfaceID, info->flags,
-                                        mDNSfalse, (info->flags & kDNSServiceFlagsBackgroundTrafficClass) != 0, mDNSNULL, info);
-                if (err)
-                {
-                    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                        "[R%u] mDNS_StartBrowse returned error (UNICAST_DISCOVERY) -- "
-                        "error: %d, type: " PRI_DM_NAME ", domain: " PRI_DM_NAME,
-                        info->request_id, err, DM_NAME_PARAM(&browse->regtype), DM_NAME_PARAM(d));
-                    freeL("browser_t/add_domain_to_browser", ubrowse);
-                }
-                else
-                {
-                    ubrowse->next = browse->browsers;
-                    browse->browsers = ubrowse;
-                    LogMcastQ(&ubrowse->q, info, q_start);
-                }
-                return true;
-            });
-            STRICT_DISPOSE_CF_OBJECT(definitions);
-            if (err != mStatus_NoError) return err;
-        }
-    }
-#endif
 
     b = (browser_t *) callocL("browser_t", sizeof(*b));
     if (!b) return mStatus_NoMemoryErr;
@@ -3631,23 +2867,7 @@ mDNSlocal mStatus add_domain_to_browser(request_state *info, const domainname *d
         b->next = browse->browsers;
         browse->browsers = b;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-        if ((info->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && SameDomainName(d, &localdomain))
-        {
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(info->interfaceIndex, info->flags);
-            info->powerlog_start_time = mdns_powerlog_browse_start(info->pid_name, browse->regtype.c, usesAWDL);
-        }
-#endif
         LogMcastQ(&b->q, info, q_start);
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        if (callExternalHelpers(browse->interface_id, &b->domain, info->flags))
-        {
-            domainname tmp;
-            ConstructServiceName(&tmp, NULL, &browse->regtype, &b->domain);
-            LogDebug("add_domain_to_browser: calling external_start_browsing_for_service()");
-            external_start_browsing_for_service(browse->interface_id, &tmp, kDNSType_PTR, info->flags, info->process_id);
-        }
-#endif
     }
     return err;
 }
@@ -3671,14 +2891,6 @@ mDNSlocal void browse_termination_callback(request_state *info)
     {
         browser_t *ptr = browse->browsers;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-        if (callExternalHelpers(ptr->q.InterfaceID, &ptr->domain, ptr->q.flags))
-        {
-            domainname tmp;
-            ConstructServiceName(&tmp, NULL, &browse->regtype, &ptr->domain);
-            external_stop_browsing_for_service(ptr->q.InterfaceID, &tmp, kDNSType_PTR, ptr->q.flags, info->process_id);
-        }
-#endif
 
         UDS_LOG_CLIENT_REQUEST(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT, "DNSServiceBrowse STOP", &ptr->q.qname,
             info, mDNStrue, "service name: " PRI_DM_NAME, DM_NAME_PARAM(&ptr->q.qname));
@@ -3688,14 +2900,6 @@ mDNSlocal void browse_termination_callback(request_state *info)
         LogMcastQ(&ptr->q, info, q_stop);
         freeL("browser_t/browse_termination_callback", ptr);
     }
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (info->powerlog_start_time != 0)
-    {
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(info->interfaceIndex, info->flags);
-        mdns_powerlog_browse_stop(info->pid_name, browse->regtype.c, info->powerlog_start_time, usesAWDL);
-        info->powerlog_start_time = 0;
-    }
-#endif
 }
 
 mDNSlocal void udsserver_automatic_browse_domain_changed(const DNameListElem *const d, const mDNSBool add)
@@ -4141,137 +3345,6 @@ mDNSlocal mStatus _handle_browse_request_start(request_state *request, const cha
     return(err);
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-
-mDNSlocal void _return_browse_request_error(request_state *request, mStatus error)
-{
-    reply_state *rep;
-
-    GenerateBrowseReply(NULL, 0, request, &rep, browse_reply_op, 0, error);
-
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-        "[R%u] DNSServiceBrowse _return_browse_request_error: error (%d)", request->request_id, error);
-
-    append_reply(request, rep);
-}
-
-mDNSlocal mStatus _handle_browse_request_with_trust(request_state *request, const char * domain)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_WARNING, "[R%u] _handle_browse_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_browse_request_start(request, domain);
-    }
-    else
-    {
-        char typestr[MAX_ESCAPED_DOMAIN_NAME];
-        typestr[0] = 0;
-        domainlabel dName;
-        domainname dType, dDomain;
-        const request_browse *const browse = request->browse;
-        if (DeconstructServiceName(&browse->regtype, &dName, &dType, &dDomain))
-        {
-            ConvertDomainNameToCString(&dType, typestr);
-        }
-        else
-        {
-            ConvertDomainNameToCString(&browse->regtype, typestr);
-        }
-
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        mdns_trust_status_t status = mdns_trust_check_bonjour(*token, typestr, &flags);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-        if ((flags & mdns_trust_flags_system_privileged) != mdns_trust_flags_system_privileged)
-        {
-            request->sign_result = mDNSfalse; // Reset this flag if not system privileged
-        }
-        if ((flags & mdns_trust_flags_media_discovery_entitlement) == mdns_trust_flags_media_discovery_entitlement)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEBUG,
-                "[R%u] _handle_browse_request_with_trust: has media discovery entitlement", request->request_id);
-            request->sign_result = mDNStrue; // Always sign results for media discovery entitlement
-        }
-#endif
-        switch (status)
-        {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, typestr, flags);
-                if (!trust )
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-
-                size_t len = strlen(domain) + 1;
-                void * context = mallocL("context/_handle_browse_request_with_trust", len);
-                if (!context)
-                {
-                    my_perror("ERROR: mallocL context/_handle_browse_request_with_trust");
-                    mdns_release(trust);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                memcpy(context, domain, len);
-                mdns_trust_set_context(trust, context);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("context/_handle_browse_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        const char * _domain = mdns_trust_get_context(trust);
-                        if (_domain)
-                        {
-                            if (!error)
-                            {
-                                error = _handle_browse_request_start(request, _domain);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_browse_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_handle_browse_request_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_browse_request_start(request, domain);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-    }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
 
 mDNSlocal mStatus handle_browse_request(request_state *request)
 {
@@ -4313,10 +3386,6 @@ mDNSlocal mStatus handle_browse_request(request_state *request)
 
     if (!request->msgptr) { LogMsg("%3d: DNSServiceBrowse(unreadable parameters)", request->sd); return(mStatus_BadParamErr); }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    err = get_signed_result_flags_tlvs(request);
-    if (err) { LogMsg("%3d: handle_browse_request err reading Validation TLVS", request->sd); return(err); }
-#endif
 
     request->flags = flags;
     request->interfaceIndex = interfaceIndex;
@@ -4365,22 +3434,7 @@ mDNSlocal mStatus handle_browse_request(request_state *request)
     // browses to be added, and we'll need to cancel them before freeing this memory.
     request->terminate = NULL;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    domainname d;
-    if (!MakeDomainNameFromDNSNameString(&d, domain)) return(mStatus_BadParamErr);
-
-    if (os_feature_enabled(mDNSResponder, bonjour_privacy) &&
-        (browse->default_domain || IsLocalDomain(&d) || browse->ForceMCast))
-    {
-        err = _handle_browse_request_with_trust(request, domain);
-    }
-    else
-    {
-        err = _handle_browse_request_start(request, domain);
-    }
-#else
     err = _handle_browse_request_start(request, domain);
-#endif
 
 exit:
     return(err);
@@ -4400,20 +3454,6 @@ mDNSlocal void resolve_termination_callback(request_state *request)
     mDNS_StopQuery(&mDNSStorage, &resolve->qtxt);
     mDNS_StopQuery(&mDNSStorage, &resolve->qsrv);
     LogMcastQ(&resolve->qsrv, request, q_stop);
-#if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-    if (resolve->external_advertise)
-    {
-        external_stop_resolving_service(resolve->qsrv.InterfaceID, &resolve->qsrv.qname, request->flags, request->process_id);
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (request->powerlog_start_time != 0)
-    {
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_resolve_stop(request->pid_name, resolve->qsrv.qname.c, request->powerlog_start_time, usesAWDL);
-        request->powerlog_start_time = 0;
-    }
-#endif
 }
 
 typedef struct {
@@ -4439,24 +3479,8 @@ mDNSlocal mStatus _handle_resolve_request_start(request_state *const request, co
         else
         {
             request->terminate = resolve_termination_callback;
-        #if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-            if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(&params->fqdn))
-            {
-                const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-                request->powerlog_start_time = mdns_powerlog_resolve_start(request->pid_name, params->fqdn.c, usesAWDL);
-            }
-        #endif
             LogMcastQ(&resolve->qsrv, request, q_start);
-        #if MDNSRESPONDER_SUPPORTS(APPLE, D2D)
-            if (callExternalHelpers(params->InterfaceID, &params->fqdn, request->flags))
-            {
-                resolve->external_advertise    = mDNStrue;
-                LogInfo("handle_resolve_request: calling external_start_resolving_service()");
-                external_start_resolving_service(params->InterfaceID, &params->fqdn, request->flags, request->process_id);
-            }
-        #else
             (void)params;
-        #endif
         }
     }
     return err;
@@ -4616,7 +3640,6 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     // We need to return SRV target name, SRV port number and TXT rdata to the client.
     // Set them to the empty data filled with 0 initially.
     const mDNSu8 temp_empty_data[1] = {0};
-    const mDNSu8 *srv_target_data = temp_empty_data;
     mDNSIPPort srv_port = {0};
     const mDNSu8 *txt_rdata = temp_empty_data;
     mDNSu16 txt_rdlength = 0;
@@ -4624,7 +3647,6 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     // If SRV or TXT record is positive, set the pointer to the rdata we have copied before.
     if (!resolve->srv_negative)
     {
-        srv_target_data = resolve->srv_target_name->c;
         srv_port = resolve->srv_port;
     }
     if (!resolve->txt_negative)
@@ -4642,49 +3664,6 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     len += strlen(target) + 1;
     len += 2 * sizeof(mDNSu16);  // port, txtLen
     len += txt_rdlength;
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    mdns_signed_resolve_result_t signed_result = NULL;
-    const uint8_t *signed_data = NULL;
-    uint16_t signed_data_length = 0;
-    if (req->sign_result && req->signed_obj && AddRecord)
-    {
-        OSStatus err;
-        mdns_signed_browse_result_t browseResult = mdns_signed_browse_result_downcast(req->signed_obj);
-        if (!browseResult)
-        {
-            err = mStatus_Invalid;
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                "[R%u->Q%u] resolve_result_callback mdns_signed_resolve_result_downcast failed",
-                req->request_id, mDNSVal16(question->TargetQID));
-        }
-        else
-        {
-            // If the SRV record is negative, then we will sign rdata filled with zeros.
-            signed_result = mdns_signed_resolve_result_create(browseResult, srv_target_data, srv_port.NotAnInteger,
-                interface_index, txt_rdata, txt_rdlength, &err);
-        }
-        if (!signed_result || err != 0)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                "[R%u->Q%u] resolve_result_callback signed_resolve failed %ld", req->request_id,
-                mDNSVal16(question->TargetQID), (long)err);
-        }
-        else
-        {
-            size_t temp_size = 0;
-            const uint8_t * temp_data = mdns_signed_result_get_data(signed_result, &temp_size);
-            if (temp_size <= UINT16_MAX)
-            {
-                signed_data = temp_data;
-                signed_data_length = (uint16_t)temp_size;
-                len += get_required_tlv_length(signed_data_length);
-            }
-        }
-    }
-#else
-    // To suppress the unused variable warning when `MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)` is disabled.
-    (void)srv_target_data;
-#endif
 
     // allocate/init reply header
     rep = create_reply(resolve_reply_op, len, req);
@@ -4701,13 +3680,6 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     *data++ = srv_port.b[1];
     put_uint16(txt_rdlength, &data);
     put_rdata(txt_rdlength, txt_rdata, &data);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    if (signed_data)
-    {
-        put_signed_result_tlvs(signed_data, signed_data_length, rep->mhdr, &data, data+len);
-    }
-    mdns_forget(&signed_result);
-#endif
 
     if (error == kDNSServiceErr_NoError)
     {
@@ -4725,133 +3697,6 @@ mDNSlocal void resolve_result_callback(mDNS *const m, DNSQuestion *question, con
     append_reply(req, rep);
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-
-mDNSlocal void _return_resolve_request_error(request_state * request, mStatus error)
-{
-    size_t len;
-    char * emptystr = "\0";
-    uint8_t *data;
-    reply_state *rep;
-
-    LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEFAULT,
-       "[R%u] DNSServiceResolve _return_resolve_request_error: error(%d)", request->request_id, error);
-
-    // calculate reply length
-    len = sizeof(DNSServiceFlags);
-    len += sizeof(mDNSu32);  // interface index
-    len += sizeof(DNSServiceErrorType);
-    len += 2; // name, target
-    len += 2 * sizeof(mDNSu16);  // port, txtLen
-    len += 0; //req->u.resolve.txt->rdlength;
-
-    rep = create_reply(resolve_reply_op, len, request);
-
-    rep->rhdr->flags = 0;
-    rep->rhdr->ifi   = 0;
-    rep->rhdr->error = (DNSServiceErrorType)dnssd_htonl((mDNSu32)error);
-
-    data = (uint8_t *)&rep->rhdr[1];
-
-    // write reply data to message
-    put_string(emptystr, &data); // name
-    put_string(emptystr, &data); // target
-    put_uint16(0,        &data); // port
-    put_uint16(0,        &data); // txtLen
-
-    append_reply(request, rep);
-}
-
-mDNSlocal mStatus _handle_resolve_request_with_trust(request_state *request, const _resolve_start_params_t * const params)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_WARNING, "[R%u] _handle_resolve_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_resolve_request_start(request, params);
-    }
-    else
-    {
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        mdns_trust_status_t status = mdns_trust_check_bonjour(*token, params->regtype, &flags);
-        switch (status)
-        {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, params->regtype, flags);
-                if (!trust )
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-
-                void * context = mallocL("context/_handle_resolve_request_with_trust", sizeof(_resolve_start_params_t));
-                if (!context)
-                {
-                    my_perror("ERROR: mallocL context/_handle_resolve_request_with_trust");
-                    mdns_release(trust);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                memcpy(context, params, sizeof(_resolve_start_params_t));
-                mdns_trust_set_context(trust, context);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("context/_handle_resolve_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        _resolve_start_params_t * _params =  mdns_trust_get_context(trust);
-                        if (_params)
-                        {
-                            if (!error)
-                            {
-                                error = _handle_resolve_request_start(request, _params);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_resolve_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_handle_resolve_request_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_resolve_request_start(request, params);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-    }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
 
 mDNSlocal mStatus handle_resolve_request(request_state *request)
 {
@@ -4904,10 +3749,6 @@ mDNSlocal mStatus handle_resolve_request(request_state *request)
 
     if (!request->msgptr) { LogMsg("%3d: DNSServiceResolve(unreadable parameters)", request->sd); return(mStatus_BadParamErr); }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    err = get_signed_browse_tlvs(request);
-    if (err) { LogMsg("%3d: handle_resolve_request err reading Validation TLVS", request->sd); return(err); }
-#endif
 
     if (build_domainname_from_strings(&params.fqdn, name, params.regtype, domain) < 0)
     { LogMsg("ERROR: handle_resolve_request bad “%s” “%s” “%s”", name, params.regtype, domain); return(mStatus_BadParamErr); }
@@ -4969,58 +3810,7 @@ mDNSlocal mStatus handle_resolve_request(request_state *request)
         &resolve->qsrv.qname, request, mDNSfalse, "SRV name: " PRI_DM_NAME, DM_NAME_PARAM(&resolve->qsrv.qname));
 
     request->terminate = NULL;
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mDNSBool trust_check_done = mDNSfalse;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    if (request->signed_obj)
-    {
-        mdns_signed_browse_result_t browseResult = mdns_signed_browse_result_downcast(request->signed_obj);
-        if (browseResult &&
-            mdns_signed_browse_result_contains(browseResult, params.fqdn.c, interfaceIndex))
-        {
-            if (mdns_system_is_signed_result_uuid_valid(mdns_signed_result_get_uuid(browseResult)))
-            {
-                LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_DEBUG,
-                    "[R%u] DNSServiceResolve: Allowing signed result", request->request_id);
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-                trust_check_done = mDNStrue;
-#endif
-            }
-            else
-            {
-                LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                    "[R%u] DNSServiceResolve: Signed result UUID revoked.", request->request_id);
-                return mStatus_PolicyDenied;
-            }
-        }
-        else
-        {
-            LogRedact(MDNS_LOG_CATEGORY_MDNS, MDNS_LOG_ERROR,
-                "[R%u] DNSServiceResolve: Signed result does not cover service: " PRI_DM_NAME ", ifindex: %u.",
-                request->request_id, DM_NAME_PARAM(&resolve->qsrv.qname), interfaceIndex);
-            request->sign_result = mDNSfalse;
-            mdns_forget(&request->signed_obj);
-        }
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    domainname d;
-    if (!MakeDomainNameFromDNSNameString(&d, domain)) return(mStatus_BadParamErr);
-
-    if (!trust_check_done                                   &&
-        os_feature_enabled(mDNSResponder, bonjour_privacy)  &&
-        (IsLocalDomain(&d) || resolve->qsrv.ForceMCast))
-    {
-        err = _handle_resolve_request_with_trust(request, &params);
-    }
-    else
-    {
-        err = _handle_resolve_request_start(request, &params);
-    }
-#else
     err = _handle_resolve_request_start(request, &params);
-#endif
 
 exit:
     return(err);
@@ -5038,31 +3828,8 @@ mDNSlocal void queryrecord_result_reply(mDNS *const m, DNSQuestion *const questi
     reply_state *rep;
     uint8_t *data;
     request_state *req = (request_state *)context;
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_STATE)
-    bool addTrackerState = (resolved_cache_is_enabled() && AddRecord &&
-                            ((answer->rrtype == kDNSType_A) || (answer->rrtype == kDNSType_AAAA)));
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    const char *tracker_hostname = NULL;
-    if (addTrackerState && req->addTrackerInfo)
-    {
-        if (resolved_cache_get_tracker_state(question, &tracker_hostname, NULL, NULL, NULL) == tracker_state_known_tracker &&
-            !tracker_hostname)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                "[R%u->Q%u] queryrecord_result_reply NULL tracker hostname",
-                req->request_id, mDNSVal16(question->TargetQID));
-        }
-    }
-#endif
     ConvertDomainNameToCString(answer->name, name);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    if (dns_question_is_dnssec_requestor(question))
-    {
-        flags |= dns_service_flags_init_with_dnssec_result(question, answer);
-    }
-#endif
 
     const mDNSBool isMDNSQuestion = mDNSOpaque16IsZero(question->TargetQID);
     if (req->hdr.op == query_request)
@@ -5091,86 +3858,6 @@ mDNSlocal void queryrecord_result_reply(mDNS *const m, DNSQuestion *const questi
     len += 3 * sizeof(mDNSu16); // type, class, rdlen
     len += answer->rdlength;
     len += sizeof(mDNSu32);     // TTL
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    mdns_signed_result_t signed_result = NULL;
-    const uint8_t *signed_data = NULL;
-    uint16_t signed_data_length = 0;
-    if (req->sign_result && req->signed_obj && AddRecord &&
-        (answer->rrtype == kDNSType_A || answer->rrtype == kDNSType_AAAA || answer->rrtype == kDNSType_TXT))
-    {
-        OSStatus err = 0;
-        if (answer->rrtype == kDNSType_A || answer->rrtype == kDNSType_AAAA)
-        {
-            mdns_signed_hostname_result_t hostnameResult = NULL;
-            mdns_signed_resolve_result_t resolveResult = mdns_signed_resolve_result_downcast(req->signed_obj);
-            if (!resolveResult)
-            {
-                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                    "[R%u->Q%u] queryrecord_result_reply mdns_signed_resolve_result_downcast failed",
-                    req->request_id, mDNSVal16(question->TargetQID));
-            }
-            else
-            {
-                if (answer->rrtype == kDNSType_AAAA)
-                {
-                    hostnameResult = mdns_signed_hostname_result_create_ipv6(resolveResult, answer->rdata->u.data,
-                        interface_index, &err);
-                }
-                else if (answer->rrtype == kDNSType_A)
-                {
-                    hostnameResult = mdns_signed_hostname_result_create_ipv4(resolveResult, answer->rdata->u.data, &err);
-                }
-
-                if (hostnameResult)
-                {
-                    signed_result = mdns_signed_result_upcast(hostnameResult);
-                }
-            }
-        }
-        else if (answer->rrtype == kDNSType_TXT)
-        {
-            mdns_signed_browse_result_t newBrowseResult = NULL;
-            mdns_signed_browse_result_t browseResult = mdns_signed_browse_result_downcast(req->signed_obj);
-            if (!browseResult)
-            {
-                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                    "[R%u->Q%u] queryrecord_result_reply mdns_signed_browse_result_downcast failed",
-                    req->request_id, mDNSVal16(question->TargetQID));
-            }
-            else
-            {
-                newBrowseResult = mdns_signed_browse_result_create_txt_variant(browseResult, interface_index,
-                    answer->rdata->u.data, answer->rdlength, &err);
-                if (newBrowseResult)
-                {
-                    signed_result = mdns_signed_result_upcast(newBrowseResult);
-                }
-            }
-        }
-        if (!signed_result || err != 0)
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR, "[R%u->Q%u] queryrecord_result_reply signed_result failed %ld",
-                req->request_id, mDNSVal16(question->TargetQID), (long)err);
-        }
-        else
-        {
-            size_t temp_size = 0;
-            const uint8_t * temp_data = mdns_signed_result_get_data(signed_result, &temp_size);
-            if (temp_size <= UINT16_MAX)
-            {
-                signed_data = temp_data;
-                signed_data_length = (uint16_t)temp_size;
-                len += get_required_tlv_length(signed_data_length);
-            }
-        }
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    if (tracker_hostname)
-    {
-        len += get_required_tlv_string_length(tracker_hostname);
-    }
-#endif
 
     rep = create_reply(req->hdr.op == query_request ? query_reply_op : addrinfo_reply_op, len, req);
 
@@ -5198,27 +3885,6 @@ mDNSlocal void queryrecord_result_reply(mDNS *const m, DNSQuestion *const questi
             LogMsg("queryrecord_result_reply putRData failed %d", (mDNSu8 *)rep->rhdr + len - (mDNSu8 *)data);
     data += answer->rdlength;
     put_uint32(AddRecord ? answer->rroriginalttl : 0, &data);
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    if (signed_data)
-    {
-        put_signed_result_tlvs(signed_data, signed_data_length, rep->mhdr, &data, data+len);
-    }
-    mdns_forget(&signed_result);
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    if (tracker_hostname)
-    {
-        put_tracker_hostname_tlvs(tracker_hostname, rep->mhdr, &data, data + len);
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG, "[R%u->Q%u] queryrecord_result_reply add tracker " PRI_S,
-            req->request_id, mDNSVal16(question->TargetQID), tracker_hostname);
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_STATE)
-    if (addTrackerState)
-    {
-        resolved_cache_update_tracking(question);
-    }
-#endif
     append_reply(req, rep);
 }
 
@@ -5233,15 +3899,6 @@ mDNSlocal void queryrecord_termination_callback(request_state *request)
         DM_NAME_PARAM_NONNULL(qname), DNS_TYPE_PARAM(qtype));
 
     QueryRecordClientRequestStop(request->queryrecord);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (request->powerlog_start_time != 0)
-    {
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_clang_static_analyzer_acknowledge_nonnull(qname);
-        mdns_powerlog_query_record_stop(request->pid_name, qname->c, request->powerlog_start_time, usesAWDL);
-        request->powerlog_start_time = 0;
-    }
-#endif
 }
 
 typedef struct
@@ -5258,225 +3915,16 @@ static void _uds_queryrecord_params_init(uds_queryrecord_params_t *const params)
     params->cr.qnameStr = params->qname;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-static void _uds_queryrecord_params_copy(uds_queryrecord_params_t *const dst, const uds_queryrecord_params_t *const src)
-{
-	*dst = *src;
-    // Be careful when copying pointers. Each parameters object should point to its own buffers.
-    dst->cr.qnameStr = dst->qname;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    if (src->cr.resolverUUID)
-    {
-        dst->cr.resolverUUID = dst->resolverUUID;
-    }
-#endif
-}
-#endif
 
 mDNSlocal mStatus _handle_queryrecord_request_start(request_state *request, const uds_queryrecord_params_t *const params)
 {
     request->terminate = queryrecord_termination_callback;
     QueryRecordClientRequest *queryrecord = request->queryrecord;
     const mStatus err = QueryRecordClientRequestStart(queryrecord, &params->cr, queryrecord_result_reply, request);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (!err)
-    {
-        const domainname *const qname = QueryRecordClientRequestGetQName(queryrecord);
-        if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(qname))
-        {
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            request->powerlog_start_time = mdns_powerlog_query_record_start(request->pid_name, qname->c, usesAWDL);
-        }
-    }
-#endif
     return err;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
 
-mDNSlocal void _return_queryrecord_request_error(request_state * request, mStatus error)
-{
-    size_t len;
-    char * emptystr = "\0";
-    uint8_t *data;
-    reply_state *rep;
-
-    LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEFAULT,
-       "[R%u] DNSService" PUB_S " _return_queryrecord_request_error: error(%d)",
-       request->request_id, request->hdr.op == query_request ? "QueryRecord" : "GetAddrInfo", error);
-
-    len = sizeof(DNSServiceFlags);  // calculate reply data length
-    len += sizeof(mDNSu32);     // interface index
-    len += sizeof(DNSServiceErrorType);
-    len += strlen(emptystr) + 1;
-    len += 3 * sizeof(mDNSu16); // type, class, rdlen
-    len += 0;//answer->rdlength;
-    len += sizeof(mDNSu32);     // TTL
-
-    rep = create_reply(request->hdr.op == query_request ? query_reply_op : addrinfo_reply_op, len, request);
-
-    rep->rhdr->flags = 0;
-    rep->rhdr->ifi   = 0;
-    rep->rhdr->error = (DNSServiceErrorType)dnssd_htonl((mDNSu32)error);
-
-    data = (uint8_t *)&rep->rhdr[1];
-
-    put_string(emptystr,    &data);
-    put_uint16(0,           &data);
-    put_uint16(0,           &data);
-    put_uint16(0,           &data);
-    data += 0;
-    put_uint32(0,           &data);
-
-    append_reply(request, rep);
-}
-
-mDNSlocal mStatus _handle_queryrecord_request_with_trust(request_state *request,
-    const uds_queryrecord_params_t *const params)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_WARNING, "[R%u] _handle_queryrecord_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_queryrecord_request_start(request, params);
-    }
-    else
-    {
-        const char *service_ptr = NULL;
-        char type_str[MAX_ESCAPED_DOMAIN_NAME] = "";
-        domainname query_name;
-        if (MakeDomainNameFromDNSNameString(&query_name, params->qname))
-        {
-            domainlabel name;
-            domainname type, domain;
-            bool good = DeconstructServiceName(&query_name, &name, &type, &domain);
-            if (good)
-            {
-                ConvertDomainNameToCString(&type, type_str);
-                service_ptr = type_str;
-            }
-        }
-
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        mdns_trust_status_t status = mdns_trust_check_query(*token, params->qname, service_ptr,
-            params->cr.qtype, (params->cr.flags & kDNSServiceFlagsForceMulticast) != 0, &flags);
-        switch (status)
-        {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, service_ptr, flags);
-                if (!trust )
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-
-                uds_queryrecord_params_t *const context =
-                    (uds_queryrecord_params_t *)mallocL("context/_handle_queryrecord_request_with_trust", sizeof(*context));
-                if (!context)
-                {
-                    my_perror("ERROR: mallocL context/_handle_queryrecord_request_with_trust");
-                    mdns_release(trust);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                _uds_queryrecord_params_copy(context, params);
-                mdns_trust_set_context(trust, context);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("context/_handle_queryrecord_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        uds_queryrecord_params_t * _params =  mdns_trust_get_context(trust);
-                        if (_params)
-                        {
-                            if (!error)
-                            {
-                                error = _handle_queryrecord_request_start(request, _params);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_queryrecord_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_handle_queryrecord_request_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_queryrecord_request_start(request, params);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-    }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
-
-#if MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
-mDNSlocal void get_queryrecord_tlvs(request_state *const request, uds_queryrecord_params_t *const params)
-{
-    mdns_require_quiet(request->msgptr, exit);
-    mdns_require_quiet(request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS, exit);
-
-    const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
-    const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-    const mDNSu32 aaaaPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_AAAA_POLICY, mDNSNULL);
-    params->cr.useAAAAFallback = (aaaaPolicy == kDNSServiceAAAAPolicyFallback);
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    const mDNSu8 *const resolverOverride = get_tlv_uuid(start, end, IPC_TLV_TYPE_RESOLVER_OVERRIDE);
-    if (resolverOverride)
-    {
-        mDNSPlatformMemCopy(params->resolverUUID, resolverOverride, MDNS_UUID_SIZE);
-        params->cr.resolverUUID = params->resolverUUID;
-        params->cr.overrideDNSService = mDNStrue;
-    }
-    else
-    {
-        const mDNSu32 failoverPolicy = get_tlv_uint32(start, end, IPC_TLV_TYPE_SERVICE_ATTR_FAILOVER_POLICY, mDNSNULL);
-        params->cr.useFailover = (failoverPolicy == kDNSServiceFailoverPolicyAllow);
-        size_t len;
-        const mDNSu8 *const data = get_tlv(start, end, IPC_TLV_TYPE_RESOLVER_CONFIG_PLIST_DATA, &len);
-        if (data)
-        {
-            params->cr.customID = Querier_RegisterCustomDNSServiceWithPListData(data, len);
-            request->custom_service_id = params->cr.customID;
-        }
-        params->cr.needEncryption = (get_tlv_uint32(start, end, IPC_TLV_TYPE_REQUIRE_PRIVACY, mDNSNULL) != 0);
-    }
-#endif
-
-exit:
-    return;
-}
-#endif
 
 mDNSlocal mStatus handle_queryrecord_request(request_state *request)
 {
@@ -5502,9 +3950,6 @@ mDNSlocal mStatus handle_queryrecord_request(request_state *request)
     params.cr.effectivePID   = request->validUUID ? 0 : request->process_id;
     params.cr.effectiveUUID  = request->validUUID ? request->uuid : mDNSNULL;
     params.cr.peerUID        = request->uid;
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-    params.cr.peerToken      = request->peer_token;
-#endif
     if (!request->msgptr)
     {
         LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
@@ -5514,20 +3959,7 @@ mDNSlocal mStatus handle_queryrecord_request(request_state *request)
     }
     request->flags           = params.cr.flags;
     request->interfaceIndex  = params.cr.interfaceIndex;
-#if MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
-    get_queryrecord_tlvs(request, &params);
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    err = get_signed_browse_tlvs(request);
-    if (err) { LogMsg("%3d: handle_queryrecord_request err reading Validation TLVS", request->sd); return(err); }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    get_tracker_info_tlvs(request);
-#endif
     mDNSBool enablesDNSSEC = mDNSfalse;
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    enablesDNSSEC = dns_service_flags_enables_dnssec(request->flags);
-#endif
 
     domainname query_name;
     const mDNSu8 *const nextUnusedBytes = MakeDomainNameFromDNSNameString(&query_name, params.qname);
@@ -5545,35 +3977,6 @@ mDNSlocal mStatus handle_queryrecord_request(request_state *request)
 
     request->terminate = NULL;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mDNSBool trust_check_done = mDNSfalse;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    if (request->signed_obj)
-    {
-        mdns_signed_browse_result_t browseResult = mdns_signed_browse_result_downcast(request->signed_obj);
-        if (browseResult && mdns_signed_browse_result_contains(browseResult, query_name.c, request->interfaceIndex))
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG,
-                "[R%u] DNSServiceQueryRecord: Allowing signed result", request->request_id);
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-            trust_check_done = mDNStrue;
-#endif
-        }
-        else
-        {
-            request->sign_result = mDNSfalse;
-            mdns_forget(&request->signed_obj);
-        }
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    if (!trust_check_done && os_feature_enabled(mDNSResponder, bonjour_privacy) )
-    {
-        err = _handle_queryrecord_request_with_trust(request, &params);
-    }
-    else
-#endif
     {
         err = _handle_queryrecord_request_start(request, &params);
     }
@@ -5968,22 +4371,11 @@ mDNSlocal void addrinfo_termination_callback(request_state *request)
         mDNStrue, "hostname: " PRI_DM_NAME, DM_NAME_PARAM(GetAddrInfoClientRequestGetQName(addrinfo)));
 
     GetAddrInfoClientRequestStop(addrinfo);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (request->powerlog_start_time != 0)
-    {
-        const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-        mdns_powerlog_getaddrinfo_stop(request->pid_name, request->powerlog_start_time, usesAWDL);
-        request->powerlog_start_time = 0;
-    }
-#endif
 }
 
 typedef struct {
     mDNSu32     protocols;
     char        hostname[MAX_ESCAPED_DOMAIN_NAME];
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mDNSBool    require_privacy;
-#endif
 } _addrinfo_start_params_t;
 
 mDNSlocal mStatus _handle_addrinfo_request_start(request_state *request, const _addrinfo_start_params_t * const params)
@@ -6002,128 +4394,10 @@ mDNSlocal mStatus _handle_addrinfo_request_start(request_state *request, const _
     gaiParams.effectivePID   = request->validUUID ? 0 : request->process_id;
     gaiParams.effectiveUUID  = request->validUUID ? request->uuid : mDNSNULL;
     gaiParams.peerUID        = request->uid;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    gaiParams.needEncryption = params->require_privacy ? mDNStrue : mDNSfalse;
-    gaiParams.customID       = request->custom_service_id;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-    gaiParams.peerToken      = request->peer_token;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    get_tracker_info_tlvs(request);
-#endif
     err = GetAddrInfoClientRequestStart(request->addrinfo, &gaiParams, queryrecord_result_reply, request);
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    if (!err)
-    {
-        const domainname *const qname = GetAddrInfoClientRequestGetQName(request->addrinfo);
-        if ((request->interfaceIndex != kDNSServiceInterfaceIndexLocalOnly) && IsLocalDomain(qname))
-        {
-            const mDNSBool usesAWDL = ClientRequestUsesAWDL(request->interfaceIndex, request->flags);
-            request->powerlog_start_time = mdns_powerlog_getaddrinfo_start(request->pid_name, usesAWDL);
-        }
-    }
-#endif
     return err;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-
-mDNSlocal void _return_addrinfo_request_error(request_state * request, mStatus error)
-{
-    _return_queryrecord_request_error(request, error);
-}
-
-mDNSlocal mStatus _handle_addrinfo_request_with_trust(request_state *request, const _addrinfo_start_params_t * const params)
-{
-    mStatus err;
-    if (!request->peer_token)
-    {
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_WARNING, "[R%u] _handle_addrinfo_request_with_trust: no audit token for pid(%s %d)", request->request_id, request->pid_name, request->process_id);
-        err = _handle_addrinfo_request_start(request, params);
-    }
-    else
-    {
-        const audit_token_t *const token = mdns_audit_token_get_token(request->peer_token);
-        mdns_trust_flags_t flags = mdns_trust_flags_none;
-        mdns_trust_status_t status = mdns_trust_check_getaddrinfo(*token, params->hostname, &flags);
-        switch (status)
-        {
-            case mdns_trust_status_denied:
-            case mdns_trust_status_pending:
-            {
-                if (!_prepare_trusts_for_request(request))
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                mdns_trust_t trust = mdns_trust_create(*token, NULL, flags);
-                if (!trust )
-                {
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-
-                void * context = mallocL("context/_handle_addrinfo_request_with_trust", sizeof(_addrinfo_start_params_t));
-                if (!context)
-                {
-                    my_perror("ERROR: mallocL context/_handle_addrinfo_request_with_trust");
-                    mdns_release(trust);
-                    err = mStatus_NoMemoryErr;
-                    goto exit;
-                }
-                memcpy(context, params, sizeof(_addrinfo_start_params_t));
-                mdns_trust_set_context(trust, context);
-                mdns_trust_service_set_context_finalizer(trust, ^(void *ref)
-                {
-                    freeL("context/_handle_addrinfo_request_with_trust finalizer", ref);
-                });
-                mdns_trust_set_queue(trust, _get_trust_results_dispatch_queue());
-                mdns_trust_set_event_handler(trust, ^(mdns_trust_event_t event, mdns_trust_status_t update)
-                {
-                    if (event == mdns_trust_event_result)
-                    {
-                        mStatus error = (update != mdns_trust_status_granted) ? mStatus_PolicyDenied : mStatus_NoError;
-                        KQueueLock();
-                        _addrinfo_start_params_t * _params =  mdns_trust_get_context(trust);
-                        if (_params)
-                        {
-                            if (!error)
-                            {
-                                error = _handle_addrinfo_request_start(request, _params);
-                                // No context means the request was canceled before we got here
-                            }
-                            if (error) // (not else if) Always check for error result
-                            {
-                                _return_addrinfo_request_error(request, error);
-                            }
-                        }
-                        KQueueUnlock("_handle_addrinfo_request_with_trust");
-                    }
-                });
-                CFArrayAppendValue(request->trusts, trust);
-                mdns_release(trust);
-                mdns_trust_activate(trust);
-                err = mStatus_NoError;
-                break;
-            }
-
-            case mdns_trust_status_no_entitlement:
-                err = mStatus_NoAuth;
-                break;
-
-            case mdns_trust_status_granted:
-                err = _handle_addrinfo_request_start(request, params);
-                break;
-
-            MDNS_COVERED_SWITCH_DEFAULT:
-                err = mStatus_UnknownErr;
-        }
-    }
-exit:
-    return err;
-}
-#endif // TRUST_ENFORCEMENT
 
 mDNSlocal mStatus handle_addrinfo_request(request_state *request)
 {
@@ -6151,35 +4425,10 @@ mDNSlocal mStatus handle_addrinfo_request(request_state *request)
         err = mStatus_BadParamErr;
         goto exit;
     }
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    params.require_privacy = mDNSfalse;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER) && MDNSRESPONDER_SUPPORTS(APPLE, IPC_TLV)
-    if (request->msgptr && (request->hdr.ipc_flags & IPC_FLAGS_TRAILING_TLVS))
-    {
-        size_t len;
-        const mDNSu8 *const start = (const mDNSu8 *)request->msgptr;
-        const mDNSu8 *const end   = (const mDNSu8 *)request->msgend;
-        const mDNSu8 *const data = get_tlv(start, end, IPC_TLV_TYPE_RESOLVER_CONFIG_PLIST_DATA, &len);
-        if (data)
-        {
-            request->custom_service_id = Querier_RegisterCustomDNSServiceWithPListData(data, len);
-        }
-        const mDNSu32 u32 = get_tlv_uint32(start, end, IPC_TLV_TYPE_REQUIRE_PRIVACY, mDNSNULL);
-        params.require_privacy = (u32 != 0) ? mDNStrue : mDNSfalse;
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    err = get_signed_resolve_tlvs(request);
-    if (err) { LogMsg("%3d: handle_addrinfo_request err reading Validation TLVS", request->sd); return(err); }
-#endif
     request->flags          = flags;
     request->interfaceIndex = interfaceIndex;
 
     mDNSBool enablesDNSSEC = mDNSfalse;
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    enablesDNSSEC = dns_service_flags_enables_dnssec(request->flags);
-#endif
 
     domainname qname;
     MakeDomainNameFromDNSNameString(&qname, params.hostname);
@@ -6189,53 +4438,7 @@ mDNSlocal mStatus handle_addrinfo_request(request_state *request)
 
     request->terminate = NULL;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    mDNSBool trust_check_done = mDNSfalse;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    if (request->signed_obj)
-    {
-        mdns_signed_resolve_result_t resolveResult = mdns_signed_resolve_result_downcast(request->signed_obj);
-        if (resolveResult &&
-            mdns_signed_resolve_result_contains(resolveResult, params.hostname, interfaceIndex))
-        {
-            if (mdns_system_is_signed_result_uuid_valid(mdns_signed_result_get_uuid(resolveResult)))
-            {
-                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_DEBUG,
-                    "[R%u] DNSServiceGetAddrInfo: Allowing signed result", request->request_id);
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-                trust_check_done = mDNStrue;
-#endif
-            }
-            else
-            {
-                LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                    "[R%u] DNSServiceGetAddrInfo: Signed result UUID revoked.", request->request_id);
-                return mStatus_PolicyDenied;
-            }
-        }
-        else
-        {
-            LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-                "[R%u] DNSServiceGetAddrInfo: Signed result does not cover hostname: " PRI_S ", ifindex: %u.",
-                request->request_id, params.hostname, request->interfaceIndex);
-            request->sign_result = mDNSfalse;
-            mdns_forget(&request->signed_obj);
-        }
-    }
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    if (!trust_check_done && os_feature_enabled(mDNSResponder, bonjour_privacy))
-    {
-        err = _handle_addrinfo_request_with_trust(request, &params);
-    }
-    else
-    {
-        err = _handle_addrinfo_request_start(request, &params);
-    }
-#else
     err = _handle_addrinfo_request_start(request, &params);
-#endif
 
 exit:
     return(err);
@@ -6250,6 +4453,7 @@ mDNSlocal request_state *NewRequest(void)
     request_state **p = &all_requests;
     request = (request_state *) callocL("request_state", sizeof(*request));
     if (!request) FatalError("ERROR: calloc");
+    request->replies_tail = &request->replies;
     while (*p) p = &(*p)->next;
     *p = request;
     return(request);
@@ -6536,40 +4740,10 @@ mDNSlocal void returnAsyncErrorCode(request_state *const request, const mStatus 
     append_reply(request, rep);
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-mDNSlocal mStatus request_state_prepare_audit_token(request_state *const req)
-{
-    mStatus err;
-    mdns_require_action_quiet(!req->peer_token, exit, err = mStatus_NoError);
-
-    audit_token_t token;
-    memset(&token, 0, sizeof(token));
-    const OSStatus token_err = mdns_system_get_peer_audit_token_from_uds_connection(req->sd, &token);
-    mdns_require_noerr_action_quiet(token_err, exit, err = mStatus_NoError;
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_ERROR,
-        "[R%u] Failed to get peer audit token -- error: %ld, client pid: %lld (" PUB_S ")",
-        req->request_id, (long)token_err, (long long)req->process_id, req->pid_name));
-
-    req->peer_token = mdns_audit_token_create(&token);
-    mdns_require_action_quiet(req->peer_token, exit, err = mStatus_NoMemoryErr;
-        LogRedact(MDNS_LOG_CATEGORY_DEFAULT, MDNS_LOG_FAULT,
-        "[R%u] Failed to create peer audit token -- client pid: %lld (" PUB_S ")",
-        req->request_id, (long long)req->process_id, req->pid_name));
-
-    err = mStatus_NoError;
-
-exit:
-    return err;
-}
-#endif
 
 mDNSlocal mStatus handle_client_request(request_state *req)
 {
     mStatus err = mStatus_NoError;
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-    err = request_state_prepare_audit_token(req);
-    mdns_require_noerr_quiet(err, exit);
-#endif
     switch(req->hdr.op)
     {
             // These are all operations that have their own first-class request_state object
@@ -6610,9 +4784,6 @@ mDNSlocal mStatus handle_client_request(request_state *req)
             err = mStatus_BadParamErr;
             break;
     }
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-exit:
-#endif
     return err;
 }
 
@@ -6703,9 +4874,6 @@ mDNSlocal void request_callback(int fd, void *info)
             newreq->request_id = GetNewRequestID();
             newreq->request_start_time_secs = 0;
             newreq->last_full_log_time_secs = 0;
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-            mdns_replace(&newreq->peer_token, req->peer_token);
-#endif
             // if the parent request is a delegate connection, copy the
             // relevant bits
             if (req->validUUID)
@@ -7120,17 +5288,10 @@ mDNSlocal void LogClientInfoToFD(int fd, request_state *req)
     else if (req->terminate == queryrecord_termination_callback)
     {
         const QueryRecordClientRequest *const queryrecord = req->queryrecord;
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-        const bool redacted = (queryrecord->op.q.logPrivacyLevel == dnssd_log_privacy_level_private);
-#endif
 
         LogToFD(fd, "%s DNSServiceQueryRecord      0x%08X %2d %##s (%s) PID[%d](%s)", prefix, req->flags,
             req->interfaceIndex,
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-            redacted ? PRIVATE_DOMAIN_NAME : QueryRecordClientRequestGetQName(queryrecord),
-#else
             QueryRecordClientRequestGetQName(queryrecord),
-#endif
             DNSTypeName(QueryRecordClientRequestGetType(queryrecord)),
             req->process_id, req->pid_name);
     }
@@ -7157,27 +5318,12 @@ mDNSlocal void LogClientInfoToFD(int fd, request_state *req)
     else if (req->terminate == addrinfo_termination_callback)
     {
         const GetAddrInfoClientRequest *const addrinfo = req->addrinfo;
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-        bool redacted = false;
-        if (addrinfo->op4)
-        {
-            redacted = (addrinfo->op4->q.logPrivacyLevel == dnssd_log_privacy_level_private);
-        }
-        else if (addrinfo->op6)
-        {
-            redacted = (addrinfo->op6->q.logPrivacyLevel == dnssd_log_privacy_level_private);
-        }
-#endif
 
         LogToFD(fd, "%s DNSServiceGetAddrInfo      0x%08X %2d %s%s %##s PID[%d](%s)", prefix, req->flags,
             req->interfaceIndex,
             addrinfo->protocols & kDNSServiceProtocol_IPv4 ? "v4" : "  ",
             addrinfo->protocols & kDNSServiceProtocol_IPv6 ? "v6" : "  ",
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-            redacted ? PRIVATE_DOMAIN_NAME : GetAddrInfoClientRequestGetQName(req->addrinfo),
-#else
             GetAddrInfoClientRequestGetQName(req->addrinfo),
-#endif
             req->process_id, req->pid_name);
     }
     else
@@ -7283,16 +5429,8 @@ mDNSlocal void GetMcastClients(request_state *req)
 {
     if (req->terminate == connection_termination)
     {
-        int num_records = 0, num_ops = 0;
         const registered_record_entry *p;
         request_state *r;
-        for (p = req->reg_recs; p; p=p->next)
-        {
-            num_records++;
-        }
-        for (r = req->next; r; r=r->next)
-            if (r->primary == req)
-                num_ops++;
         for (p = req->reg_recs; p; p=p->next)
         {
             if (!AuthRecord_uDNS(p->rr))
@@ -7354,16 +5492,8 @@ mDNSlocal void LogMcastClientInfo(request_state *req)
         LogMcastNoIdent("No operation yet on this socket");
     else if (req->terminate == connection_termination)
     {
-        int num_records = 0, num_ops = 0;
         const registered_record_entry *p;
         request_state *r;
-        for (p = req->reg_recs; p; p=p->next)
-        {
-            num_records++;
-        }
-        for (r = req->next; r; r=r->next)
-            if (r->primary == req)
-                num_ops++;
         for (p = req->reg_recs; p; p=p->next)
         {
             if (!AuthRecord_uDNS(p->rr))
@@ -7599,18 +5729,9 @@ mDNSlocal void LogAuthRecordsToFD(int fd,
 mDNSlocal void PrintOneCacheRecordToFD(int fd, const CacheRecord *cr, mDNSu32 slot, const mDNSu32 remain, const char *ifname, mDNSu32 *CacheUsed)
 {
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    char *dnssec_description = dnssec_obj_resource_record_member_copy_state_dump_description(cr->resrec.dnssec, NULL);
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-    const mDNSBool redacted = (cr->PrivacyLevel == mDNSCRLogPrivacyLevel_Private);
-#endif
 
     LogToFD(fd, "%3d %s%8d %-7s%s %-6s"
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-              "   %-40s"
-#endif
               "%s",
               slot,
               cr->CRActiveQuestion ? "*" : " ",
@@ -7619,20 +5740,10 @@ mDNSlocal void PrintOneCacheRecordToFD(int fd, const CacheRecord *cr, mDNSu32 sl
               (cr->resrec.RecordType == kDNSRecordTypePacketNegative)  ? "-" :
               (cr->resrec.RecordType & kDNSRecordTypePacketUniqueMask) ? " " : "+",
               DNSTypeName(cr->resrec.rrtype),
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-              dnssec_description,
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-              redacted ? "     " PRIVATE_RECORD_DESCRIPTION : CRDisplayString(&mDNSStorage, cr)
-#else
               CRDisplayString(&mDNSStorage, cr)
-#endif
             );
     (*CacheUsed)++;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    mdns_free(dnssec_description);
-#endif
 }
 
 mDNSlocal void PrintCachedRecordsToFD(int fd, const CacheRecord *cr, mDNSu32 slot, const mDNSu32 remain, const char *ifname, mDNSu32 *CacheUsed)
@@ -7708,16 +5819,8 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
                 const char *ifname;
                 mDNSInterfaceID InterfaceID = cr->resrec.InterfaceID;
                 mDNSu32 *const countPtr = InterfaceID ? &mcastRecordCount : &ucastRecordCount;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-                const mdns_dns_service_t dnsservice = mdns_cache_metadata_get_dns_service(cr->resrec.metadata);
-                if (!InterfaceID && dnsservice && mdns_dns_service_is_interface_scoped(dnsservice))
-                {
-                    InterfaceID = (mDNSInterfaceID)(uintptr_t)mdns_dns_service_get_interface_index(dnsservice);
-                }
-#else
                 if (!InterfaceID && cr->resrec.rDNSServer && cr->resrec.rDNSServer->scopeType)
                     InterfaceID = cr->resrec.rDNSServer->interface;
-#endif
                 ifname = InterfaceNameForID(m, InterfaceID);
                 if (cr->CRActiveQuestion) CacheActive++;
                 PrintOneCacheRecordToFD(fd, cr, slot, remain, ifname, countPtr);
@@ -7759,13 +5862,8 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
         CacheUsed = 0;
         CacheActive = 0;
         LogToFD(fd, "   Int  Next if     T NumAns "
-    #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
                 "VDNS                               "
-    #endif
                 "Qptr               DupOf              SU SQ "
-    #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-                "DNSSEC "
-    #endif
                 "Type    Name");
         for (q = m->Questions; q; q=q->next)
         {
@@ -7775,37 +5873,20 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
             CacheUsed++;
             if (q->ThisQInterval) CacheActive++;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-            const mDNSBool redacted = (q->logPrivacyLevel == dnssd_log_privacy_level_private);
-#endif
 
             LogToFD(fd, "%6d%6d %-7s%s %6d "
-                #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
                     "0x%08x%08x%08x%08x "
-                #endif
                     "0x%p 0x%p %1d %2d  "
-                #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-                    "%-7s"
-                #endif
                     "%-8s%##s%s",
                       i, n,
                       ifname ? ifname : mDNSOpaque16IsZero(q->TargetQID) ? "" : "-U-",
                       mDNSOpaque16IsZero(q->TargetQID) ? (q->LongLived ? "l" : " ") : (q->LongLived ? "L" : "O"),
                       q->CurrentAnswers,
-                #if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
                       q->validDNSServers.l[3], q->validDNSServers.l[2], q->validDNSServers.l[1], q->validDNSServers.l[0],
-                #endif
                       q, q->DuplicateOf,
                       q->SuppressUnusable, q->Suppressed,
-                #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-                      dns_question_is_dnssec_requestor(q) ? "YES" : "NO",
-                #endif
                       DNSTypeName(q->qtype),
-                #if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-                      redacted ? PRIVATE_DOMAIN_NAME->c : q->qname.c,
-                #else
                       q->qname.c,
-                #endif
                       q->DuplicateOf ? " (dup)" : "");
         }
         LogToFD(fd, "%lu question%s; %lu active", CacheUsed, CacheUsed > 1 ? "s" : "", CacheActive);
@@ -7918,9 +5999,6 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
 
     LogToFD(fd, "---- Task Scheduling Timers ----");
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, BONJOUR_ON_DEMAND)
-    LogToFD(fd, "BonjourEnabled %d", m->BonjourEnabled);
-#endif
 
     if (!m->NewQuestions)
         LogToFD(fd, "NewQuestion <NONE>");
@@ -7946,10 +6024,6 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
     LogToFD(fd, "m->WABLBrowseQueriesCount %d", m->WABLBrowseQueriesCount);
     LogToFD(fd, "m->WABRegQueriesCount %d", m->WABRegQueriesCount);
     LogToFD(fd, "m->AutoTargetServices %u", m->AutoTargetServices);
-#if MDNSRESPONDER_SUPPORTS(APPLE, RANDOM_AWDL_HOSTNAME)
-    LogToFD(fd, "m->AutoTargetAWDLIncludedCount %u", m->AutoTargetAWDLIncludedCount);
-    LogToFD(fd, "m->AutoTargetAWDLOnlyCount     %u", m->AutoTargetAWDLOnlyCount);
-#endif
 
     LogToFD(fd, "                         ABS (hex)  ABS (dec)  REL (hex)  REL (dec)");
     LogToFD(fd, "m->timenow               %08X %11d", now, now);
@@ -7967,9 +6041,6 @@ mDNSexport void udsserver_info_dump_to_fd(int fd)
     LogTimerToFD(fd, "m->NextScheduledSPS     ", m->NextScheduledSPS);
     LogTimerToFD(fd, "m->NextScheduledKA      ", m->NextScheduledKA);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, BONJOUR_ON_DEMAND)
-    LogTimerToFD(fd, "m->NextBonjourDisableTime ", m->NextBonjourDisableTime);
-#endif
 
     LogTimerToFD(fd, "m->NextScheduledSPRetry ", m->NextScheduledSPRetry);
     LogTimerToFD(fd, "m->DelaySleep           ", m->DelaySleep);
@@ -8128,9 +6199,8 @@ mDNSexport mDNSs32 udsserver_idle(mDNSs32 nextevent)
             result = send_msg(r);   // Returns t_morecoming if buffer full because client is not reading
             if (result == t_complete)
             {
-                reply_state *fptr = r->replies;
-                r->replies = r->replies->next;
-                freeL("reply_state/udsserver_idle", fptr);
+                reply_state *reply = dequeue_reply(r);
+                freeL("reply_state/udsserver_idle", reply);
                 r->time_blocked = 0; // reset failure counter after successful send
                 r->unresponsiveness_reports = 0;
                 continue;

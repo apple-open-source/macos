@@ -65,7 +65,7 @@
 pthread_key_t CURRENT_CONNECTION_KEY;
 
 // From SecItemServer, should be a acl-check block
-bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
+bool SecServerItemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
 
 static keyclass_t kc_parse_keyclass(CFTypeRef value, CFErrorRef *error);
 static CFTypeRef kc_encode_keyclass(keyclass_t keyclass);
@@ -147,10 +147,9 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     /* Precalculate output blob length. */
     /* Use 256 bit AES key for bulkKey. */
 #define bulkKeySize 32
-    const uint32_t maxKeyWrapOverHead = 8 + 32;
     uint8_t bulkKey[bulkKeySize];
     CFMutableDataRef bulkKeyWrapped = CFDataCreateMutable(NULL, 0);
-    CFDataSetLength(bulkKeyWrapped, bulkKeySize + maxKeyWrapOverHead);
+    CFDataSetLength(bulkKeyWrapped, MAX(APPLE_KEYSTORE_MAX_ASYM_WRAPPED_KEY_LEN, AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN));
     uint32_t key_wrapped_size;
     size_t ivLen = 0;
     const uint8_t *iv = NULL;
@@ -476,19 +475,23 @@ bool ks_decrypt_data(keybag_handle_t keybag, struct backup_keypair* bkp, CFTypeR
                 access_control = SecAccessControlCreateFromData(NULL, (__bridge CFDataRef)accessControlData, error);
                 [itemAttributes removeObjectForKey:@"SecAccessControl"];
                 if (CFEqual(kAKSKeyOpDelete, cryptoOp)) {
-                    ok = [item deleteWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
+                    @autoreleasepool {
+                        ok = [item deleteWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
+                    }
                 } else {
                     /* Should also try and decrypt if there are ACL contraints */
                     if (decryptSecretData || SecAccessControlGetConstraints(access_control)) {
-                        NSDictionary* secretAttributes = [item secretAttributesWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
-                        if (secretAttributes) {
-                            if (decryptSecretData) {
-                                [itemAttributes addEntriesFromDictionary:secretAttributes];
-                            }
-                        } else {
-                            ok = false;
-                            if (localError.code == errSecDecode && version == 8) {
-                                secerror("ks_decrypt_data failed to decrypt secretdata: version %u mismatch with content", version);
+                        @autoreleasepool {
+                            NSDictionary* secretAttributes = [item secretAttributesWithAcmContext:(__bridge NSData*)acm_context accessControl:access_control callerAccessGroups:(__bridge NSArray*)caller_access_groups keyDiversify:keyDiversify error:&localError];
+                            if (secretAttributes) {
+                                if (decryptSecretData) {
+                                    [itemAttributes addEntriesFromDictionary:secretAttributes];
+                                }
+                            } else {
+                                ok = false;
+                                if (localError.code == errSecDecode && version == 8) {
+                                    secerror("ks_decrypt_data failed to decrypt secretdata: version %u mismatch with content", version);
+                                }
                             }
                         }
                     }
@@ -1020,9 +1023,11 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
     else if (q->q_match_policy || q->q_match_valid_on_date || q->q_match_trusted_only) {
         decryptSecretData = true;
     }
+    @autoreleasepool {
+        require_quiet((ok = ks_decrypt_data(q->q_keybag, NULL, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
+                                            q->q_caller_access_groups, item, &version, decryptSecretData, keyclass, error)), out);
+    }
 
-    require_quiet((ok = ks_decrypt_data(q->q_keybag, NULL, kAKSKeyOpDecrypt, &ac, q->q_use_cred_handle, edata, q->q_class,
-                                        q->q_caller_access_groups, item, &version, decryptSecretData, keyclass, error)), out);
     if (version < 2) {
         SecError(errSecDecode, error, CFSTR("version is unexpected: %d"), (int)version);
         ok = false;
@@ -1030,7 +1035,7 @@ bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
     }
 
     ac_data = SecAccessControlCopyData(ac);
-    if (!itemInAccessGroup(*item, accessGroups)) {
+    if (!SecServerItemInAccessGroup(*item, accessGroups)) {
         secerror("item's accessGroup '%@' not in %@",
                  CFDictionaryGetValue(*item, kSecAttrAccessGroup),
                  accessGroups);

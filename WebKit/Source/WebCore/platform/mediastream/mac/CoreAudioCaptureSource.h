@@ -28,6 +28,7 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "AudioSession.h"
+#include "BaseAudioSharedUnit.h"
 #include "CAAudioStreamDescription.h"
 #include "CaptureDevice.h"
 #include "RealtimeMediaSource.h"
@@ -47,7 +48,6 @@ namespace WebCore {
 
 class AudioSampleBufferList;
 class AudioSampleDataSource;
-class BaseAudioSharedUnit;
 class CaptureDeviceInfo;
 class WebAudioSourceProviderAVFObjC;
 
@@ -61,6 +61,7 @@ public:
     CMClockRef timebaseClock();
 
     void handleNewCurrentMicrophoneDevice(const CaptureDevice&);
+    void echoCancellationChanged();
 
     WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
     virtual ~CoreAudioCaptureSource();
@@ -87,6 +88,7 @@ private:
 #endif
 
     std::optional<Vector<int>> discreteSampleRates() const final { return { { 8000, 16000, 32000, 44100, 48000, 96000 } }; }
+    const AudioStreamDescription* audioStreamDescription() const final;
 
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
@@ -109,6 +111,7 @@ private:
 
     bool m_canResumeAfterInterruption { true };
     bool m_isReadyToStart { false };
+    bool m_echoCancellationChanging { false };
 
     std::optional<bool> m_echoCancellationCapability;
     BaseAudioSharedUnit* m_overrideUnit { nullptr };

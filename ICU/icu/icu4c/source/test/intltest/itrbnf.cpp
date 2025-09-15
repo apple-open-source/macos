@@ -82,7 +82,9 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(30, TestDFRounding);
         TESTCASE(31, TestMemoryLeak22899);
         TESTCASE(32, TestInfiniteRecursion);
-        TESTCASE(33, TestGujaratiSpellout);
+        TESTCASE(33, testOmissionReplacementWithPluralRules);
+        TESTCASE(34, TestGujaratiSpellout);
+        TESTCASE(35, TestMarathiSpellout);
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -1923,6 +1925,45 @@ IntlTestRBNF::TestGujaratiSpellout()
 }
 
 void
+IntlTestRBNF::TestMarathiSpellout()
+{
+  UErrorCode status = U_ZERO_ERROR;
+  RuleBasedNumberFormat* guFormatter
+      = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale("mr"), status);
+
+  if (U_FAILURE(status)) {
+      errcheckln(status, "FAIL: could not construct formatter - %s", u_errorName(status));
+  } else {
+      static const char* testDataDefault[][2] = {
+        { "1", "\\u090f\\u0915" }, // एक
+        { "6", "\\u0938\\u0939\\u093e" }, // सहा
+        { "16", "\\u0938\\u094b\\u0933\\u093e" }, // सोळा
+        { "20", "\\u0935\\u0940\\u0938" }, // वीस
+        { "24", "\\u091a\\u094b\\u0935\\u0940\\u0938" }, // चोवीस
+        { "26", "\\u0938\\u0935\\u094d\\u0935\\u0940\\u0938" }, // सव्वीस
+        { "73", "\\u0924\\u094d\\u0930\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930" }, // त्र्याहत्तर
+        { "88", "\\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0910\\u0902\\u0936\\u0940" }, // अठ्ठ्याऐंशी
+        { "100", "\\u090f\\u0915\\u0936\\u0947" }, // एकशे
+        { "106", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0939\\u093e" }, // एकशे सहा
+        { "127", "\\u090f\\u0915\\u0936\\u0947 \\u0938\\u0924\\u094d\\u0924\\u093e\\u0935\\u0940\\u0938" }, // एकशे सत्तावीस
+        { "200", "\\u0926\\u094b\\u0928\\u0936\\u0947" }, // दोनशे
+        { "579", "\\u092a\\u093e\\u091a\\u0936\\u0947 \\u090f\\u0915\\u094b\\u0923\\u0910\\u0902\\u0936\\u0940" }, // पाचशे एकोणऐंशी
+        { "1,000", "\\u090f\\u0915 \\u0939\\u091c\\u093e\\u0930" }, // एक हजार
+        { "2,000", "\\u0926\\u094b\\u0928 \\u0939\\u091c\\u093e\\u0930" }, // दोन हजार
+        { "3,004", "\\u0924\\u0940\\u0928 \\u0939\\u091c\\u093e\\u0930 \\u091a\\u093e\\u0930" }, // तीन हजार चार
+        { "4,567", "\\u091a\\u093e\\u0930 \\u0939\\u091c\\u093e\\u0930 \\u092a\\u093e\\u091a\\u0936\\u0947 \\u0938\\u0926\\u0941\\u0938\\u0937\\u094d\\u091f" }, // चार हजार पाचशे सदुसष्ट
+        { "15,943", "\\u092a\\u0902\\u0927\\u0930\\u093e \\u0939\\u091c\\u093e\\u0930 \\u0928\\u090a\\u0936\\u0947 \\u0924\\u094d\\u0930\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938" }, // पंधरा हजार नऊशे त्रेचाळीस
+        { "2,345,678", "\\u0924\\u0947\\u0935\\u0940\\u0938 \\u0932\\u093e\\u0916 \\u092a\\u0902\\u091a\\u0947\\u091a\\u093e\\u0933\\u0940\\u0938 \\u0939\\u091c\\u093e\\u0930 \\u0938\\u0939\\u093e\\u0936\\u0947 \\u0905\\u0920\\u094d\\u0920\\u094d\\u092f\\u093e\\u0939\\u0924\\u094d\\u0924\\u0930"}, // तेवीस लाख पंचेचाळीस हजार सहाशे अठ्ठ्याहत्तर
+        { "-36", "\\u0935\\u091c\\u093e \\u091b\\u0924\\u094d\\u0924\\u0940\\u0938" }, // वजा छत्तीस
+        { "234.567", "\\u0926\\u094b\\u0928\\u0936\\u0947 \\u091a\\u094c\\u0924\\u0940\\u0938 \\u092a\\u0942\\u0930\\u094d\\u0923\\u093e\\u0902\\u0915 \\u092a\\u093e\\u091a \\u0938\\u0939\\u093e \\u0938\\u093e\\u0924" }, // दोनशे चौतीस पूर्णांक पाच सहा सात
+        { nullptr, nullptr }
+      };
+      doTest(guFormatter, testDataDefault, true);
+  }
+  delete guFormatter;
+}
+
+void
 IntlTestRBNF::TestSmallValues()
 {
     UErrorCode status = U_ZERO_ERROR;
@@ -2124,7 +2165,15 @@ IntlTestRBNF::TestAllLocales()
     const Locale* locales = Locale::getAvailableLocales(count);
     for (int i = 0; i < count; ++i) {
         const Locale* loc = &locales[i];
-
+#if APPLE_ICU_CHANGES
+        // rdar://145171191 - following languages have only the spellout for day names, which have range 1-30 and can't roundtrip with values from numbers[]
+        const char * lang = loc->getName();
+        if ( strcmp(lang, "bn") == 0 || strcmp(lang, "kn") == 0 || strcmp(lang, "ml") == 0 || strcmp(lang, "mr") == 0
+            || strcmp(lang, "or") == 0 || strcmp(lang, "pa") == 0 || strcmp(lang, "te") == 0 || strcmp(lang, "ur") == 0
+            ) {
+          continue;
+        }
+#endif // APPLE_ICU_CHANGES
         for (int j = 0; j < 2; ++j) {
             UErrorCode status = U_ZERO_ERROR;
             RuleBasedNumberFormat* f = new RuleBasedNumberFormat(static_cast<URBNFRuleSetTag>(j), *loc, status);
@@ -2742,6 +2791,97 @@ IntlTestRBNF::TestInfiniteRecursion() {
             // the error code.  But for now, we probably won't end up here and don't care if we do
         }
     }
+}
+
+/**
+ * This test is a little contrived for English, but the grammar is relevant for several languages, including:
+ * Latin, Germanic, Slavic and Indic.
+ * It's pretty common, especially for ordinals, to use different words as a magnitude unit and when it's the final word.
+ * Several languages need grammatical agreement between the final and non-final magnitude unit
+ * with the numerical quantity before the unit. This test is the equivalent seen in other languages.
+ */
+void
+IntlTestRBNF::testOmissionReplacementWithPluralRules() {
+    UnicodeString rules("%cardinal:\n"
+            "-x: minus >>;\n"
+            "x.x: << point >>;\n"
+            "Inf: infinite;\n"
+            "NaN: not a number;\n"
+            "zero; one; two; three; four; five; six; seven; eight; nine;\n"
+            "ten; eleven; twelve; thirteen; fourteen; fifteen; sixteen; seventeen; eighteen; nineteen;\n"
+            "20: twenty[->>];\n"
+            "30: thirty[->>];\n"
+            "40: forty[->>];\n"
+            "50: fifty[->>];\n"
+            "60: sixty[->>];\n"
+            "70: seventy[->>];\n"
+            "80: eighty[->>];\n"
+            "90: ninety[->>];\n"
+            "100: << hundred[ >>];\n"
+            "1000: << thousand[ >>];\n"
+            "1000000: << million[ >>];\n"
+            "1000000000: << billion[ >>];\n"
+            "1000000000000: << trillion[ >>];\n"
+            "1000000000000000: =#,##0=;\n"
+            "%ordinal:\n"
+            "-x: minus >>;\n"
+            "x.x: =#,##0.#=;\n"
+            "Inf: infinitieth;\n"
+            "zeroth; first; second; third; fourth; fifth; sixth; seventh; eighth; ninth;\n"
+            "tenth; eleventh; twelfth;\n"
+            "13: =%cardinal=th;\n"
+            "20: twent[y->>|ieth];\n"
+            "30: thirt[y->>|ieth];\n"
+            "40: fort[y->>|ieth];\n"
+            "50: fift[y->>|ieth];\n"
+            "60: sixt[y->>|ieth];\n"
+            "70: sevent[y->>|ieth];\n"
+            "80: eight[y->>|ieth];\n"
+            "90: ninet[y->>|ieth];\n"
+            "100: <%cardinal< [$(cardinal,one{hundred}other{hundreds})$ >>|$(cardinal,one{hundredth}other{hundredths})$];\n"
+            "1000: <%cardinal< [$(cardinal,one{thousand}other{thousands})$ >>|$(cardinal,one{thousandth}other{thousandths})$];\n"
+            "1000000: <%cardinal< [$(cardinal,one{million}other{millions})$ >>|$(cardinal,one{millionth}other{millionths})$];\n"
+            "1000000000: <%cardinal< [$(cardinal,one{billion}other{billions})$ >>|$(cardinal,one{billionth}other{billionths})$];\n"
+            "1000000000000: <%cardinal< [$(cardinal,one{trillion}other{trillions})$ >>|$(cardinal,one{trillionth}other{trillionths})$];\n"
+            "1000000000000000: =#,##0=$(ordinal,one{st}two{nd}few{rd}other{th})$;");
+    UErrorCode status = U_ZERO_ERROR;
+    UParseError perror;
+    icu::RuleBasedNumberFormat rbnf(rules, icu::Locale::getEnglish(), perror, status);
+
+    const char * const enTestFullData[][2] = {
+            {"20", "twentieth"},
+            {"21", "twenty-first"},
+            {"29", "twenty-ninth"},
+            {"30", "thirtieth"},
+            {"31", "thirty-first"},
+            {"39", "thirty-ninth"},
+            {"100", "one hundredth"},
+            {"101", "one hundred first"},
+            {"200", "two hundredths"},
+            {"201", "two hundreds first"},
+            {"300", "three hundredths"},
+            {"301", "three hundreds first"},
+            {"1000", "one thousandth"},
+            {"1001", "one thousand first"},
+            {"1100", "one thousand one hundredth"},
+            {"1101", "one thousand one hundred first"},
+            {"1200", "one thousand two hundredths"},
+            {"1201", "one thousand two hundreds first"},
+            {"2000", "two thousandths"},
+            {"2001", "two thousands first"},
+            {"2100", "two thousands one hundredth"},
+            {"2101", "two thousands one hundred first"},
+            {"8000", "eight thousandths"},
+            {"8001", "eight thousands first"},
+            {"888000", "eight hundred eighty-eight thousandths"},
+            {"888001", "eight hundred eighty-eight thousands first"},
+            {"888100", "eight hundred eighty-eight thousands one hundredth"},
+            {"999101", "nine hundred ninety-nine thousands one hundred first"},
+            {"999200", "nine hundred ninety-nine thousands two hundredths"},
+            {"999201", "nine hundred ninety-nine thousands two hundreds first"},
+            { nullptr, nullptr }
+    };
+    doTest(&rbnf, enTestFullData, false);
 }
 
 /* U_HAVE_RBNF */

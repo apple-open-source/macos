@@ -1015,7 +1015,11 @@ do that if not LCP
         }
 
         for (;;) {
+#ifdef __KPI_MBUF_HAS_MBUF_DATA_SAFE
+            start = mbuf_data_safe(m);
+#else
             start = mbuf_data(m);
+#endif
             len = (int)mbuf_len(m);
             stop = start + len;
             while (len > 0) {

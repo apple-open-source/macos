@@ -177,9 +177,7 @@ struct ip6protosw inet6sw[] = {
 		.pr_input =             udp6_input,
 		.pr_ctlinput =          udp6_ctlinput,
 		.pr_ctloutput =         udp_ctloutput,
-#if !INET       /* don't call initialization twice */
 		.pr_init =              udp_init,
-#endif /* !INET */
 		.pr_usrreqs =           &udp6_usrreqs,
 		.pr_lock =              udp_lock,
 		.pr_unlock =            udp_unlock,
@@ -196,9 +194,7 @@ struct ip6protosw inet6sw[] = {
 		.pr_input =             tcp6_input,
 		.pr_ctlinput =          tcp6_ctlinput,
 		.pr_ctloutput =         tcp_ctloutput,
-#if !INET       /* don't call initialization and timeout routines twice */
 		.pr_init =              tcp_init,
-#endif /* !INET */
 		.pr_drain =             tcp_drain,
 		.pr_usrreqs =           &tcp6_usrreqs,
 		.pr_lock =              tcp_lock,
@@ -215,9 +211,7 @@ struct ip6protosw inet6sw[] = {
 		.pr_output =            rip6_pr_output,
 		.pr_ctlinput =          rip6_ctlinput,
 		.pr_ctloutput =         rip6_ctloutput,
-#if !INET       /* don't call initialization and timeout routines twice */
 		.pr_init =              rip_init,
-#endif /* !INET */
 		.pr_usrreqs =           &rip6_usrreqs,
 		.pr_unlock =            rip_unlock,
 		.pr_update_last_owner = inp_update_last_owner,
@@ -357,49 +351,28 @@ in6_dinit(struct domain *dp)
 
 	inet6domain = dp;
 
-	_CASSERT(sizeof(struct protosw) == sizeof(struct ip6protosw));
-	_CASSERT(offsetof(struct ip6protosw, pr_entry) ==
-	    offsetof(struct protosw, pr_entry));
-	_CASSERT(offsetof(struct ip6protosw, pr_domain) ==
-	    offsetof(struct protosw, pr_domain));
-	_CASSERT(offsetof(struct ip6protosw, pr_protosw) ==
-	    offsetof(struct protosw, pr_protosw));
-	_CASSERT(offsetof(struct ip6protosw, pr_type) ==
-	    offsetof(struct protosw, pr_type));
-	_CASSERT(offsetof(struct ip6protosw, pr_protocol) ==
-	    offsetof(struct protosw, pr_protocol));
-	_CASSERT(offsetof(struct ip6protosw, pr_flags) ==
-	    offsetof(struct protosw, pr_flags));
-	_CASSERT(offsetof(struct ip6protosw, pr_input) ==
-	    offsetof(struct protosw, pr_input));
-	_CASSERT(offsetof(struct ip6protosw, pr_output) ==
-	    offsetof(struct protosw, pr_output));
-	_CASSERT(offsetof(struct ip6protosw, pr_ctlinput) ==
-	    offsetof(struct protosw, pr_ctlinput));
-	_CASSERT(offsetof(struct ip6protosw, pr_ctloutput) ==
-	    offsetof(struct protosw, pr_ctloutput));
-	_CASSERT(offsetof(struct ip6protosw, pr_usrreqs) ==
-	    offsetof(struct protosw, pr_usrreqs));
-	_CASSERT(offsetof(struct ip6protosw, pr_init) ==
-	    offsetof(struct protosw, pr_init));
-	_CASSERT(offsetof(struct ip6protosw, pr_drain) ==
-	    offsetof(struct protosw, pr_drain));
-	_CASSERT(offsetof(struct ip6protosw, pr_sysctl) ==
-	    offsetof(struct protosw, pr_sysctl));
-	_CASSERT(offsetof(struct ip6protosw, pr_lock) ==
-	    offsetof(struct protosw, pr_lock));
-	_CASSERT(offsetof(struct ip6protosw, pr_unlock) ==
-	    offsetof(struct protosw, pr_unlock));
-	_CASSERT(offsetof(struct ip6protosw, pr_getlock) ==
-	    offsetof(struct protosw, pr_getlock));
-	_CASSERT(offsetof(struct ip6protosw, pr_filter_head) ==
-	    offsetof(struct protosw, pr_filter_head));
-	_CASSERT(offsetof(struct ip6protosw, pr_old) ==
-	    offsetof(struct protosw, pr_old));
-	_CASSERT(offsetof(struct ip6protosw, pr_update_last_owner) ==
-	    offsetof(struct protosw, pr_update_last_owner));
-	_CASSERT(offsetof(struct ip6protosw, pr_copy_last_owner) ==
-	    offsetof(struct protosw, pr_copy_last_owner));
+	static_assert(sizeof(struct protosw) == sizeof(struct ip6protosw));
+	static_assert(offsetof(struct ip6protosw, pr_entry) == offsetof(struct protosw, pr_entry));
+	static_assert(offsetof(struct ip6protosw, pr_domain) == offsetof(struct protosw, pr_domain));
+	static_assert(offsetof(struct ip6protosw, pr_protosw) == offsetof(struct protosw, pr_protosw));
+	static_assert(offsetof(struct ip6protosw, pr_type) == offsetof(struct protosw, pr_type));
+	static_assert(offsetof(struct ip6protosw, pr_protocol) == offsetof(struct protosw, pr_protocol));
+	static_assert(offsetof(struct ip6protosw, pr_flags) == offsetof(struct protosw, pr_flags));
+	static_assert(offsetof(struct ip6protosw, pr_input) == offsetof(struct protosw, pr_input));
+	static_assert(offsetof(struct ip6protosw, pr_output) == offsetof(struct protosw, pr_output));
+	static_assert(offsetof(struct ip6protosw, pr_ctlinput) == offsetof(struct protosw, pr_ctlinput));
+	static_assert(offsetof(struct ip6protosw, pr_ctloutput) == offsetof(struct protosw, pr_ctloutput));
+	static_assert(offsetof(struct ip6protosw, pr_usrreqs) == offsetof(struct protosw, pr_usrreqs));
+	static_assert(offsetof(struct ip6protosw, pr_init) == offsetof(struct protosw, pr_init));
+	static_assert(offsetof(struct ip6protosw, pr_drain) == offsetof(struct protosw, pr_drain));
+	static_assert(offsetof(struct ip6protosw, pr_lock) == offsetof(struct protosw, pr_lock));
+	static_assert(offsetof(struct ip6protosw, pr_unlock) == offsetof(struct protosw, pr_unlock));
+	static_assert(offsetof(struct ip6protosw, pr_getlock) == offsetof(struct protosw, pr_getlock));
+	static_assert(offsetof(struct ip6protosw, pr_filter_head) == offsetof(struct protosw, pr_filter_head));
+	static_assert(offsetof(struct ip6protosw, pr_old) == offsetof(struct protosw, pr_old));
+	static_assert(offsetof(struct ip6protosw, pr_update_last_owner) == offsetof(struct protosw, pr_update_last_owner));
+	static_assert(offsetof(struct ip6protosw, pr_copy_last_owner) == offsetof(struct protosw, pr_copy_last_owner));
+	static_assert(offsetof(struct ip6protosw, pr_mem_acct) == offsetof(struct protosw, pr_mem_acct));
 
 	/*
 	 * Attach first, then initialize.  ip6_init() needs raw IP6 handler.

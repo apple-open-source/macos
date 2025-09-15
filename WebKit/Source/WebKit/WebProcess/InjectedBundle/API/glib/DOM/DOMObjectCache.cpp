@@ -23,8 +23,8 @@
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/LocalDOMWindow.h>
-#include <WebCore/LocalFrame.h>
-#include <WebCore/Node.h>
+#include <WebCore/LocalFrameInlines.h>
+#include <WebCore/NodeInlines.h>
 #include <glib-object.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -97,11 +97,11 @@ public:
     {
         ASSERT(!m_objects.contains(&data));
 
-        auto* domWindow = m_frame->document()->domWindow();
-        if (domWindow && (!m_domWindowObserver || m_domWindowObserver->window() != domWindow)) {
+        auto* window = m_frame->document()->window();
+        if (window && (!m_domWindowObserver || m_domWindowObserver->window() != window)) {
             // New LocalDOMWindow, clear the cache and create a new DOMWindowObserver.
             clear();
-            m_domWindowObserver = makeUnique<DOMWindowObserver>(*domWindow, *this);
+            m_domWindowObserver = makeUnique<DOMWindowObserver>(*window, *this);
         }
 
         m_objects.append(&data);
@@ -158,7 +158,7 @@ private:
         for (auto* data : objects)
             g_object_weak_unref(data->object, DOMObjectCacheFrameObserver::objectFinalizedCallback, this);
 
-        RunLoop::main().dispatch([objects] {
+        RunLoop::mainSingleton().dispatch([objects] {
             for (auto* data : objects)
                 data->clearObject();
         });

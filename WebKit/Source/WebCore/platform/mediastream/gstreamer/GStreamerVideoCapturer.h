@@ -25,6 +25,7 @@
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
 
 #include "GStreamerCapturer.h"
+#include "IntSize.h"
 
 namespace WebCore {
 
@@ -35,14 +36,12 @@ class GStreamerVideoCapturer final : public GStreamerCapturer {
     friend class MockRealtimeVideoSourceGStreamer;
 public:
     GStreamerVideoCapturer(GStreamerCaptureDevice&&);
-    GStreamerVideoCapturer(const char* sourceFactory, CaptureDevice::DeviceType);
+    GStreamerVideoCapturer(const PipeWireCaptureDevice&);
     ~GStreamerVideoCapturer() = default;
 
-    GstElement* createSource() final;
+    void setupPipeline() final;
     GstElement* createConverter() final;
     const char* name() final { return "Video"; }
-
-    using NodeAndFD = std::pair<uint32_t, int>;
 
     using SinkVideoFrameCallback = Function<void(Ref<VideoFrameGStreamer>&&)>;
     void setSinkVideoFrameCallback(SinkVideoFrameCallback&&);
@@ -50,15 +49,12 @@ public:
 private:
     bool setSize(const IntSize&);
     const IntSize& size() const { return m_size; }
+
     bool setFrameRate(double);
     void reconfigure();
 
-    GstVideoInfo getBestFormat();
+    bool isCapturingDisplay() const;
 
-    void setPipewireNodeAndFD(const NodeAndFD& nodeAndFd) { m_nodeAndFd = nodeAndFd; }
-    bool isCapturingDisplay() const { return m_nodeAndFd.has_value(); }
-
-    std::optional<NodeAndFD> m_nodeAndFd;
     GRefPtr<GstElement> m_videoSrcMIMETypeFilter;
     std::pair<unsigned long, SinkVideoFrameCallback> m_sinkVideoFrameCallback;
     IntSize m_size;

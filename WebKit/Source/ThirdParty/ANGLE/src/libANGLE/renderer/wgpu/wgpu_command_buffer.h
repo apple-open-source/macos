@@ -10,7 +10,7 @@
 #include "common/debug.h"
 #include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
-#include <dawn/webgpu_cpp.h>
+#include <webgpu/webgpu.h>
 #include <unordered_set>
 
 namespace rx
@@ -126,24 +126,27 @@ struct SetBindGroupCommand
     uint32_t pad0;
     union
     {
-        const wgpu::BindGroup *bindGroup;
+        WGPUBindGroup bindGroup;
         uint64_t pad1;  // Pad to 64 bits on 32-bit systems
     };
 };
 
 struct SetBlendConstantCommand
 {
-    uint64_t pad;
+    float r;
+    float g;
+    float b;
+    float a;
 };
 
 struct SetIndexBufferCommand
 {
     union
     {
-        const wgpu::Buffer *buffer;
+        WGPUBuffer buffer;
         uint64_t pad0;  // Pad to 64 bits on 32-bit systems
     };
-    wgpu::IndexFormat format;
+    WGPUIndexFormat format;
     uint32_t pad1;
     uint64_t offset;
     uint64_t size;
@@ -158,7 +161,7 @@ struct SetPipelineCommand
 {
     union
     {
-        const wgpu::RenderPipeline *pipeline;
+        WGPURenderPipeline pipeline;
         uint64_t padding;  // Pad to 64 bits on 32-bit systems
     };
 };
@@ -182,9 +185,11 @@ struct SetVertexBufferCommand
     uint32_t pad0;
     union
     {
-        const wgpu::Buffer *buffer;
+        WGPUBuffer buffer;
         uint64_t pad1;  // Pad to 64 bits on 32-bit systems
     };
+    uint64_t offset;
+    uint64_t size;
 };
 
 struct SetViewportCommand
@@ -237,23 +242,25 @@ class CommandBuffer
                      uint32_t firstIndex,
                      int32_t baseVertex,
                      uint32_t firstInstance);
-    void setBindGroup(uint32_t groupIndex, wgpu::BindGroup bindGroup);
-    void setPipeline(wgpu::RenderPipeline pipeline);
+    void setBindGroup(uint32_t groupIndex, BindGroupHandle bindGroup);
+    void setBlendConstant(float r, float g, float b, float a);
+    void setPipeline(RenderPipelineHandle pipeline);
     void setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
     void setViewport(float x, float y, float width, float height, float minDepth, float maxDepth);
-    void setIndexBuffer(wgpu::Buffer buffer,
-                        wgpu::IndexFormat format,
+    void setIndexBuffer(BufferHandle buffer,
+                        WGPUIndexFormat format,
                         uint64_t offset,
                         uint64_t size);
-    void setVertexBuffer(uint32_t slot, wgpu::Buffer buffer);
+    void setVertexBuffer(uint32_t slot, BufferHandle buffer, uint64_t offset, uint64_t size);
 
     void clear();
 
     bool hasCommands() const { return mCommandCount > 0; }
     bool hasSetScissorCommand() const { return mHasSetScissorCommand; }
     bool hasSetViewportCommand() const { return mHasSetViewportCommand; }
+    bool hasSetBlendConstantCommand() const { return mHasSetBlendConstantCommand; }
 
-    void recordCommands(wgpu::RenderPassEncoder encoder);
+    void recordCommands(const DawnProcTable *wgpu, RenderPassEncoderHandle encoder);
 
   private:
     struct CommandBlock
@@ -293,12 +300,13 @@ class CommandBuffer
     size_t mCommandCount = 0;
     bool mHasSetScissorCommand  = false;
     bool mHasSetViewportCommand = false;
+    bool mHasSetBlendConstantCommand = false;
 
     // std::unordered_set required because it does not move elements and stored command reference
     // addresses in the set
-    std::unordered_set<wgpu::RenderPipeline> mReferencedRenderPipelines;
-    std::unordered_set<wgpu::Buffer> mReferencedBuffers;
-    std::unordered_set<wgpu::BindGroup> mReferencedBindGroups;
+    std::unordered_set<RenderPipelineHandle> mReferencedRenderPipelines;
+    std::unordered_set<BufferHandle> mReferencedBuffers;
+    std::unordered_set<BindGroupHandle> mReferencedBindGroups;
 
     void nextCommandBlock();
 

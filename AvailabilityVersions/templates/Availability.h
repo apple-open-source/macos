@@ -411,6 +411,9 @@
      *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
      *   watchOSApplicationExtension, driverkit, visionos, visionOSApplicationExtension
      *
+     *   Within each platform a tuple of versions will represent the version the API was
+     *   introduced in, followed by the version it was deperecated in.
+     *
      * Examples:
      *
      *    __API_DEPRECATED("Deprecated", macos(10.4, 10.8))
@@ -436,6 +439,10 @@
      *   ios, iOSApplicationExtension, tvos, tvOSApplicationExtension, watchos,
      *   watchOSApplicationExtension, bridgeos, driverkit, visionos, visionOSApplicationExtension
      *
+     *   Within each platform a tuple of versions will represent the version the API was
+     *   introduced in, followed by the version it was deperecated in, and finally the version it
+     *   was removed in.
+     *
      * Examples:
      *
      *    __API_OBSOLETED("No longer supported", macos(10.4, 10.8, 11.0))
@@ -444,12 +451,14 @@
      *    __API_OBSOLETED_WITH_REPLACEMENT("-setName:", tvos(10.0, 10.4, 12.0), ios(9.0, 10.0, 11.0))
      *    __API_OBSOLETED_WITH_REPLACEMENT("SomeClassName", macos(10.4, 10.6, 11.0), watchos(2.0, 3.0, 4.0))
      */
+
 // @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED,__API_OBSOLETED_MSG,argCount=1)@@
 // @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_REP,argCount=1)@@
 
 // @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED,__API_OBSOLETED_BEGIN,argCount=1,scoped_availablity=TRUE)@@
 
 // @@AVAILABILITY_MACRO_INTERFACE(__API_OBSOLETED_WITH_REPLACEMENT,__API_OBSOLETED_WITH_REPLACEMENT_BEGIN,argCount=1,scoped_availablity=TRUE)@@
+
 
     /*
      * API Unavailability
@@ -478,7 +487,7 @@
 #endif
 
 #ifndef __API_AVAILABLE_END
-  #define __API_AVAILABLE_END(...)
+  #define __API_AVAILABLE_END
 #endif
 
 #ifndef __API_DEPRECATED
@@ -490,7 +499,7 @@
 #endif
 
 #ifndef __API_DEPRECATED_END
-  #define __API_DEPRECATED_END(...)
+  #define __API_DEPRECATED_END
 #endif
 
 #ifndef __API_DEPRECATED_WITH_REPLACEMENT
@@ -502,7 +511,7 @@
 #endif
 
 #ifndef __API_DEPRECATED_WITH_REPLACEMENT_END
-  #define __API_DEPRECATED_WITH_REPLACEMENT_END(...)
+  #define __API_DEPRECATED_WITH_REPLACEMENT_END
 #endif
 
 #ifndef __API_OBSOLETED
@@ -514,7 +523,7 @@
 #endif
 
 #ifndef __API_OBSOLETED_END
-  #define __API_OBSOLETED_END(...)
+  #define __API_OBSOLETED_END
 #endif
 
 #ifndef __API_OBSOLETED_WITH_REPLACEMENT
@@ -526,7 +535,7 @@
 #endif
 
 #ifndef __API_OBSOLETED_WITH_REPLACEMENT_END
-  #define __API_OBSOLETED_WITH_REPLACEMENT_END(...)
+  #define __API_OBSOLETED_WITH_REPLACEMENT_END
 #endif
 
 #ifndef __API_UNAVAILABLE
@@ -538,7 +547,7 @@
 #endif
 
 #ifndef __API_UNAVAILABLE_END
-  #define __API_UNAVAILABLE_END(...)
+  #define __API_UNAVAILABLE_END
 #endif
 
 /*
@@ -554,7 +563,7 @@
 #endif
 
 #ifndef __SPI_AVAILABLE_END
-  #define __SPI_AVAILABLE_END(...)
+  #define __SPI_AVAILABLE_END
 #endif
 
 #ifndef __SPI_DEPRECATED

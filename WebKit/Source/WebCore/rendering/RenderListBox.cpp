@@ -54,6 +54,7 @@
 #include "RenderLayer.h"
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
+#include "RenderObjectInlines.h"
 #include "RenderScrollbar.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
@@ -67,6 +68,7 @@
 #include "StyleTreeResolver.h"
 #include "UnicodeBidi.h"
 #include "WheelEventTestMonitor.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <math.h>
 #include <wtf/StackStats.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -154,7 +156,7 @@ void RenderListBox::updateFromElement()
 
         computeFirstIndexesVisibleInPaddingBeforeAfterAreas();
 
-        setNeedsLayoutAndPrefWidthsRecalc();
+        setNeedsLayoutAndPreferredWidthsUpdate();
     }
 }
 
@@ -237,7 +239,7 @@ void RenderListBox::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, L
 
     auto& logicalWidth = style().logicalWidth();
     if (logicalWidth.isCalculated())
-        minLogicalWidth = std::max(0_lu, valueForLength(logicalWidth, 0_lu));
+        minLogicalWidth = std::max(0_lu, Style::evaluate(logicalWidth, 0_lu));
     else if (!logicalWidth.isPercent())
         minLogicalWidth = maxLogicalWidth;
 }
@@ -250,14 +252,14 @@ void RenderListBox::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = 0;
     m_maxPreferredLogicalWidth = 0;
 
-    if (style().logicalWidth().isFixed() && style().logicalWidth().value() > 0)
-        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().logicalWidth());
+    if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->value > 0)
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
     else
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
     RenderBox::computePreferredLogicalWidths(style().logicalMinWidth(), style().logicalMaxWidth(), writingMode().isHorizontal() ? horizontalBorderAndPaddingExtent() : verticalBorderAndPaddingExtent());
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
 unsigned RenderListBox::size() const
@@ -306,9 +308,9 @@ RenderBox::LogicalExtentComputedValues RenderListBox::computeLogicalHeight(Layou
     return RenderBox::computeLogicalHeight(logicalHeight, logicalTop);
 }
 
-LayoutUnit RenderListBox::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
+LayoutUnit RenderListBox::baselinePosition(bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
 {
-    auto baseline = RenderBox::baselinePosition(baselineType, firstLine, lineDirection, linePositionMode);
+    auto baseline = RenderBox::baselinePosition(firstLine, lineDirection, linePositionMode);
     if (!shouldApplyLayoutContainment())
         baseline -= baselineAdjustment;
     return baseline;
@@ -1197,7 +1199,7 @@ void RenderListBox::destroyScrollbar()
         return;
 
     if (!m_scrollbar->isCustomScrollbar())
-        ScrollableArea::willRemoveScrollbar(m_scrollbar.get(), m_scrollbar->orientation());
+        ScrollableArea::willRemoveScrollbar(*m_scrollbar, m_scrollbar->orientation());
     m_scrollbar->removeFromParent();
     m_scrollbar = nullptr;
 }

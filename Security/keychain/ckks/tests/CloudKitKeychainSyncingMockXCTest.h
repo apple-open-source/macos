@@ -152,7 +152,7 @@ plaintextPCSServiceIdentifier:(NSNumber* _Nullable)pcsServiceIdentifier
         plaintextPCSPublicKey:(NSData* _Nullable)pcsPublicKey
    plaintextPCSPublicIdentity:(NSData* _Nullable)pcsPublicIdentity;
 
-- (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account;
+- (CKRecord*)createFakeKeychainTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account;
 - (CKRecord*)createFakeMultiuserRecord:(CKRecordZoneID*)zoneID musr:(NSUUID*)musruuid recordName:(NSString*)recordName account:(NSString*)account;
 
 - (CKKSItem*)newItem:(CKRecordID*)recordID withNewItemData:(NSDictionary*) dictionary key:(CKKSKey*)key plaintextPCSServiceIdentifier:(NSNumber* _Nullable)plaintextPCSServiceIdentifier plaintextPCSPublicKey:(NSData* _Nullable)plaintextPCSPublicKey plaintextPCSPublicIdentity:(NSData* _Nullable)plaintextPCSPublicIdentity;

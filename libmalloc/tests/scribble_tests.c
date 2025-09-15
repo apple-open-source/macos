@@ -105,17 +105,18 @@ T_DECL(malloc_scribble_check, "check MallocScribble works",
 		free(ptr);
 	}
 
-	// Make sure memory returned by malloc_zone_malloc_with_options_np() is
+	// Make sure memory returned by malloc_zone_malloc_with_options() is
 	// correct
-	ptr = malloc_zone_malloc_with_options_np(NULL, sizeof(void *), KiB(1), 0);
+	ptr = malloc_zone_malloc_with_options(NULL, MALLOC_ZONE_MALLOC_DEFAULT_ALIGN, KiB(1),
+			MALLOC_ZONE_MALLOC_OPTION_NONE);
 	T_EXPECT_TRUE(memchk(ptr, SCRIBBLE_ALLOC_BYTE, KiB(1)),
-			"malloc_zone_malloc_with_options_np()");
+			"malloc_zone_malloc_with_options()");
 	free(ptr);
 
-	ptr = malloc_zone_malloc_with_options_np(NULL, sizeof(void *), KiB(1),
-			MALLOC_NP_OPTION_CLEAR);
+	ptr = malloc_zone_malloc_with_options(NULL, MALLOC_ZONE_MALLOC_DEFAULT_ALIGN, KiB(1),
+			MALLOC_ZONE_MALLOC_OPTION_CLEAR);
 	T_EXPECT_TRUE(memchk(ptr, 0, KiB(1)),
-			"malloc_zone_malloc_with_options_np(MALLOC_NP_OPTION_CLEAR)");
+			"malloc_zone_malloc_with_options(MALLOC_ZONE_MALLOC_OPTION_CLEAR)");
 	free(ptr);
 
 	// Allocate and free many allocations smaller than the zero on free

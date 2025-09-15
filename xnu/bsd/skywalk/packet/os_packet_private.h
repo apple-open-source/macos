@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -314,9 +314,9 @@ struct __user_buflet {
 
 #ifdef KERNEL
 #define BUF_CTOR(_buf, _baddr, _bidx, _dlim, _dlen, _doff, _nbaddr, _nbidx, _bflag) do {  \
-	_CASSERT(sizeof ((_buf)->buf_addr) == sizeof (mach_vm_address_t)); \
-	_CASSERT(sizeof ((_buf)->buf_idx) == sizeof (obj_idx_t));       \
-	_CASSERT(sizeof ((_buf)->buf_dlim) == sizeof (uint32_t));       \
+	static_assert(sizeof ((_buf)->buf_addr) == sizeof (mach_vm_address_t)); \
+	static_assert(sizeof ((_buf)->buf_idx) == sizeof (obj_idx_t));       \
+	static_assert(sizeof ((_buf)->buf_dlim) == sizeof (uint32_t));       \
 	BUF_BADDR(_buf, _baddr);                                        \
 	BUF_NBFT_ADDR(_buf, _nbaddr);                                   \
 	BUF_BIDX(_buf, _bidx);                                          \
@@ -464,7 +464,7 @@ struct __user_quantum {
 	(_kqum)->qum_flow_id_val64[1] = 0;                                   \
 	(_kqum)->qum_qflags = (_flags);                                      \
 	(_kqum)->qum_len = (_len);                                           \
-	_CASSERT(sizeof(METADATA_IDX(_kqum)) == sizeof(obj_idx_t));          \
+	static_assert(sizeof(METADATA_IDX(_kqum)) == sizeof(obj_idx_t));          \
 	*(obj_idx_t *)(uintptr_t)&METADATA_IDX(_kqum) = (_qidx);             \
 	BUF_CTOR(&(_kqum)->qum_buf[0], (_baddr), (_bidx), (_dlim), 0, 0, 0,  \
 	    OBJ_IDX_NONE, 0);                                                \
@@ -793,15 +793,15 @@ struct __user_packet {
 #define __PKT_F_PKT_DATA        0x0000010000000000ULL /* (K) */
 #define PKT_F_PROMISC           0x0000020000000000ULL /* (U+K) */
 #define PKT_F_OPT_VLTAG         0x0000040000000000ULL /* (U+K) */
-#define PKT_F_OPT_VLTAG_IN_PKT  0x0000080000000000ULL /* (U+K) */
+/*                              0x0000080000000000ULL    (reserved) */
 #define __PKT_F_TX_PORT_DATA    0x0000100000000000ULL /* (K) */
 #define PKT_F_OPT_EXP_ACTION    0x0000200000000000ULL /* (U+K) */
 #define PKT_F_OPT_APP_METADATA  0x0000400000000000ULL /* (U+K) */
 #define PKT_F_L4S               0x0000800000000000ULL /* (U+K) */
 #define PKT_F_OPT_TX_TIMESTAMP  0x0001000000000000ULL /* (U+K) */
-/*                              0x0002000000000000ULL */
-/*                              0x0004000000000000ULL */
-/*                              0x0008000000000000ULL */
+#define PKT_F_PRIV_HAS_QSET_ID  0x0002000000000000ULL /* (K) */
+#define PKT_F_ULPN              0x0004000000000000ULL /* (U+K) */
+#define __PKT_F_LPW             0x0008000000000000ULL /* (K) */
 /*                              0x0010000000000000ULL */
 /*                              0x0020000000000000ULL */
 /*                              0x0040000000000000ULL */
@@ -821,7 +821,7 @@ struct __user_packet {
 #define PKT_F_OPT_DATA                                                  \
 	(PKT_F_OPT_GROUP_START | PKT_F_OPT_GROUP_END |                  \
 	PKT_F_OPT_EXPIRE_TS | PKT_F_OPT_TOKEN |                         \
-	PKT_F_OPT_VLTAG | PKT_F_OPT_VLTAG_IN_PKT | PKT_F_OPT_EXP_ACTION | \
+	PKT_F_OPT_VLTAG | PKT_F_OPT_EXP_ACTION |                        \
 	PKT_F_OPT_APP_METADATA | PKT_F_OPT_TX_TIMESTAMP)
 
 #ifdef KERNEL
@@ -831,7 +831,7 @@ struct __user_packet {
 #define PKT_F_USER_MASK                                                 \
 	(PKT_F_BACKGROUND | PKT_F_REALTIME | PKT_F_REXMT |              \
 	PKT_F_LAST_PKT | PKT_F_OPT_DATA | PKT_F_PROMISC |               \
-	PKT_F_TRUNCATED | PKT_F_WAKE_PKT | PKT_F_L4S)
+	PKT_F_TRUNCATED | PKT_F_WAKE_PKT | PKT_F_L4S | PKT_F_ULPN)
 
 /*
  * Aliases for kernel-only flags.  See notes above.  The ones marked
@@ -907,8 +907,7 @@ struct __user_packet {
 #define SK_PTR_ADDR(_p)         ((uint64_t)(_p) & SK_PTR_ADDR_MASK)
 #define SK_PTR_ADDR_ENC(_p)     ((uint64_t)(_p) & SK_PTR_ADDR_MASK)
 
-#define SK_PTR_ENCODE(_p, _t, _s)       \
-	(SK_PTR_ADDR_ENC(_p) | SK_PTR_TYPE_ENC(_t) | SK_PTR_SUBTYPE_ENC(_s))
+#define SK_PTR_ENCODE(_p, _t, _s) ((uint64_t)(_p))
 
 #define SK_PTR_ADDR_UQUM(_ph)   (__unsafe_forge_single(struct __user_quantum *, SK_PTR_ADDR(_ph)))
 #define SK_PTR_ADDR_UPKT(_ph)   (__unsafe_forge_single(struct __user_packet *, SK_PTR_ADDR(_ph)))
@@ -921,12 +920,6 @@ __BEGIN_DECLS
 extern struct mbuf *kern_packet_get_mbuf(const kern_packet_t);
 __END_DECLS
 #else /* !KERNEL */
-#if defined(LIBSYSCALL_INTERFACE)
-__BEGIN_DECLS
-extern void pkt_subtype_assert_fail(const packet_t, uint64_t, uint64_t);
-extern void pkt_type_assert_fail(const packet_t, uint64_t);
-__END_DECLS
-#endif /* LIBSYSCALL_INTERFACE */
 #endif /* !KERNEL */
 #if defined(LIBSYSCALL_INTERFACE) || defined(BSD_KERNEL_PRIVATE)
 #include <skywalk/packet_common.h>

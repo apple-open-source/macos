@@ -131,7 +131,7 @@
     XCTAssertNotNil(nserror, "NSError exists when things break");
 
     __weak __typeof(self) weakSelf = self;
-    kc_with_dbt(true, &error, ^bool (SecDbConnectionRef dbconn) {
+    kc_with_dbt(true, NULL , &error, ^bool (SecDbConnectionRef dbconn) {
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "called while self still exists");
 

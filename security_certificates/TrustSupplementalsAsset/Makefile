@@ -20,9 +20,9 @@ asset:
 	ditto v1/Info.plist ${ASSET_DIR}
 	mkdir -p ${ASSET_DATA}
 	plutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o  ${ASSET_DATA}/CertificatePinning.plist
-	python ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist
+	python3 ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist
 	plutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs.plist
-	python ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist
+	python3 ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -non_tls -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist
 	plutil -convert binary1 ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist
 	plutil -convert binary1 AnalyticsSamplingRates.plist -o  ${ASSET_DATA}/AnalyticsSamplingRates.plist
 	plutil -convert binary1 AppleCertificateAuthorities.plist -o  ${ASSET_DATA}/AppleCertificateAuthorities.plist
@@ -48,5 +48,5 @@ clean:
 stage: asset asset2
 	echo "PKITrustSupplementals staging"
 	rm -rf staged
-	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 1006
+	$(shell /usr/bin/xcrun --find assettool) stage -p . -s staged -b ${BASE_URL} -v 1007
 	$(shell /usr/bin/xcrun --find assettool) sign -s staged

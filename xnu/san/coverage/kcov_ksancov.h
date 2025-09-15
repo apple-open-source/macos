@@ -40,23 +40,30 @@
 #define KSANCOV_PATH "/dev/" KSANCOV_DEVNODE
 
 /* Set mode */
-#define KSANCOV_IOC_TRACE        _IOW('K', 1, size_t) /* number of pcs */
-#define KSANCOV_IOC_COUNTERS     _IO('K', 2)
-#define KSANCOV_IOC_STKSIZE      _IOW('K', 3, size_t) /* number of pcs */
+#define KSANCOV_IOC_TRACE            _IOW('K', 1, size_t) /* number of pcs */
+#define KSANCOV_IOC_COUNTERS         _IO('K', 2)
+#define KSANCOV_IOC_STKSIZE          _IOW('K', 3, size_t) /* number of pcs */
 
 /* Establish a shared mapping of the coverage buffer. */
-#define KSANCOV_IOC_MAP          _IOWR('K', 8, struct ksancov_buf_desc)
+#define KSANCOV_IOC_MAP              _IOWR('K', 8, struct ksancov_buf_desc)
 
 /* Establish a shared mapping of the edge address buffer. */
-#define KSANCOV_IOC_MAP_EDGEMAP  _IOWR('K', 9, struct ksancov_buf_desc)
+#define KSANCOV_IOC_MAP_EDGEMAP      _IOWR('K', 9, struct ksancov_buf_desc)
 
 /* Log the current thread */
-#define KSANCOV_IOC_START        _IOW('K', 10, uintptr_t)
-#define KSANCOV_IOC_NEDGES       _IOR('K', 50, size_t)
-#define KSANCOV_IOC_TESTPANIC    _IOW('K', 20, uint64_t)
+#define KSANCOV_IOC_START            _IOW('K', 10, uintptr_t)
+#define KSANCOV_IOC_NEDGES           _IOR('K', 50, size_t)
+#define KSANCOV_IOC_TESTPANIC        _IOW('K', 20, uint64_t)
 
 /* Operations related to on-demand instrumentation */
-#define KSANCOV_IOC_ON_DEMAND    _IOWR('K', 60, struct ksancov_on_demand_msg)
+#define KSANCOV_IOC_ON_DEMAND        _IOWR('K', 60, struct ksancov_on_demand_msg)
+
+/* Set comparison log mode */
+#define KSANCOV_IOC_CMPS_TRACE       _IOW('K', 70, size_t) /* number of cmps */
+#define KSANCOV_IOC_CMPS_TRACE_FUNC  _IOW('K', 71, size_t) /* number of cmps */
+
+/* Establish a shared mapping of the comparisons buffer. */
+#define KSANCOV_IOC_CMPS_MAP         _IOWR('K', 90, struct ksancov_buf_desc)
 
 /*
  * ioctl
@@ -74,6 +81,7 @@ typedef enum {
 	KS_OD_GET_GATE = 1,
 	KS_OD_SET_GATE = 2,
 	KS_OD_GET_RANGE = 3,
+	KS_OD_GET_BUNDLE = 4,
 } ksancov_on_demand_operation_t;
 
 struct ksancov_on_demand_msg {
@@ -85,6 +93,7 @@ struct ksancov_on_demand_msg {
 			uint32_t start;
 			uint32_t stop;
 		} range;
+		uint64_t pc;
 	};
 };
 
@@ -92,13 +101,13 @@ struct ksancov_on_demand_msg {
  * shared kernel-user mapping
  */
 
-#define KSANCOV_MAX_EDGES       (1 << 24)
-#define KSANCOV_MAX_HITS        UINT8_MAX
-#define KSANCOV_TRACE_MAGIC     (uint32_t)0x5AD17F5BU
-#define KSANCOV_COUNTERS_MAGIC  (uint32_t)0x5AD27F6BU
-#define KSANCOV_EDGEMAP_MAGIC   (uint32_t)0x5AD37F7BU
-#define KSANCOV_STKSIZE_MAGIC   (uint32_t)0x5AD47F8BU
-
+#define KSANCOV_MAX_EDGES         (1 << 24)
+#define KSANCOV_MAX_HITS          UINT8_MAX
+#define KSANCOV_TRACE_MAGIC       (uint32_t)0x5AD17F5BU
+#define KSANCOV_COUNTERS_MAGIC    (uint32_t)0x5AD27F6BU
+#define KSANCOV_EDGEMAP_MAGIC     (uint32_t)0x5AD37F7BU
+#define KSANCOV_STKSIZE_MAGIC     (uint32_t)0x5AD47F8BU
+#define KSANCOV_CMPS_TRACE_MAGIC  (uint32_t)0x5AD47F9BU
 
 __BEGIN_DECLS
 
@@ -110,6 +119,9 @@ void kcov_ksancov_trace_guard(uint32_t *, void *);
 void kcov_ksancov_trace_pc(kcov_thread_data_t *, uint32_t *, void*, uintptr_t);
 void kcov_ksancov_trace_pc_guard_init(uint32_t *, uint32_t *);
 void kcov_ksancov_pcs_init(uintptr_t *, uintptr_t *);
+void kcov_ksancov_trace_cmp(kcov_thread_data_t *, uint32_t, uint64_t, uint64_t, void*);
+void kcov_ksancov_trace_cmp_func(kcov_thread_data_t *, uint32_t, const void*, size_t, const void*, size_t, void*, bool);
+bool kcov_ksancov_must_instrument(uintptr_t);
 
 __END_DECLS
 
@@ -121,6 +133,8 @@ __END_DECLS
 #define kcov_ksancov_trace_pc(dev, guardp, caller, sp)
 #define kcov_ksancov_trace_pc_guard_init(start, stop)
 #define kcov_ksancov_pcs_init(start, stop)
+#define kcov_ksancov_trace_cmp(data, type, arg1, arg2, caller)
+#define kcov_ksancov_trace_cmp_func(data, type, arg1, arg2, size, caller, always_log)
 
 #endif /* CONFIG_KSANCOV */
 

@@ -28,7 +28,7 @@
 #include "FloatRoundedRect.h"
 #include "GraphicsLayer.h"
 #include <wtf/RetainPtr.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
@@ -80,6 +80,9 @@ enum class PlatformCALayerLayerType : uint8_t {
 #if HAVE(CORE_MATERIAL)
         LayerTypeMaterialLayer,
 #endif
+#if HAVE(MATERIAL_HOSTING)
+        LayerTypeMaterialHostingLayer,
+#endif
         LayerTypeShapeLayer,
         LayerTypeScrollContainerLayer,
 #if ENABLE(MODEL_ELEMENT)
@@ -92,7 +95,7 @@ enum class PlatformCALayerLayerType : uint8_t {
         LayerTypeHost,
 };
 
-class WEBCORE_EXPORT PlatformCALayer : public ThreadSafeRefCounted<PlatformCALayer, WTF::DestructionThread::Main> {
+class WEBCORE_EXPORT PlatformCALayer : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PlatformCALayer, WTF::DestructionThread::Main> {
     friend class PlatformCALayerCocoa;
 public:
     static CFTimeInterval currentTimeToMediaTime(MonotonicTime);
@@ -147,6 +150,7 @@ public:
     bool canHaveBackingStore() const;
 
     virtual PlatformCALayer* superlayer() const = 0;
+    RefPtr<PlatformCALayer> protectedSuperlayer() const { return superlayer(); }
     virtual void removeFromSuperlayer() = 0;
     virtual void setSublayers(const PlatformCALayerList&) = 0;
     virtual PlatformCALayerList sublayersForLogging() const = 0;
@@ -296,6 +300,13 @@ public:
     virtual GraphicsLayer::CustomAppearance customAppearance() const = 0;
     virtual void updateCustomAppearance(GraphicsLayer::CustomAppearance) = 0;
 
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    virtual bool setNeedsDisplayIfEDRHeadroomExceeds(float);
+
+    virtual void setTonemappingEnabled(bool);
+    virtual bool tonemappingEnabled() const;
+#endif
+
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     virtual bool isSeparated() const = 0;
     virtual void setIsSeparated(bool) = 0;
@@ -310,8 +321,8 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    virtual AppleVisualEffect appleVisualEffect() const = 0;
-    virtual void setAppleVisualEffect(AppleVisualEffect) = 0;
+    virtual AppleVisualEffectData appleVisualEffectData() const = 0;
+    virtual void setAppleVisualEffectData(AppleVisualEffectData) = 0;
 #endif
 
     virtual TiledBacking* tiledBacking() = 0;
@@ -344,6 +355,8 @@ public:
     static void drawLayerContents(GraphicsContext&, PlatformCALayer*, RepaintRectList&, OptionSet<GraphicsLayerPaintBehavior>);
     static void drawRepaintIndicator(GraphicsContext&, PlatformCALayer*, int repaintCount, Color customBackgroundColor = { });
     static CGRect frameForLayer(const PlatformLayer*);
+
+    static ContentsFormat contentsFormatForLayer(PlatformCALayerClient* = nullptr);
 
     virtual void markFrontBufferVolatileForTesting() { }
     void moveToLayerPool();

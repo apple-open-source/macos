@@ -18,17 +18,8 @@ __attribute__((visibility("hidden")))
 {
     OTPrivateKey *_peerEncryptionPrivKey;
     OTPrivateKey *_peerSigningPrivKey;
-    NSData *_reserved1;
-    NSData *_reserved2;
 }
 
-
-@property (nonatomic, readonly) BOOL hasReserved1;
-/** tags 1 and 2 were briefly used during development for the raw private key data, with nothing to specify the key type. */
-@property (nonatomic, retain) NSData *reserved1;
-
-@property (nonatomic, readonly) BOOL hasReserved2;
-@property (nonatomic, retain) NSData *reserved2;
 
 @property (nonatomic, readonly) BOOL hasPeerSigningPrivKey;
 @property (nonatomic, retain) OTPrivateKey *peerSigningPrivKey;

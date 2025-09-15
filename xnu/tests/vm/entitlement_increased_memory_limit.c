@@ -61,6 +61,7 @@ T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("VM"),
+	T_META_BOOTARGS_SET("memstat_no_task_limit_increase=1"),
 	T_META_TAG_VM_PREFERRED);
 
 static int32_t old_entitled_max_task_pmem = 0;

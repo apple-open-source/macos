@@ -62,8 +62,7 @@
 	X(int32_t, path_mtu_discovery, 1)                               \
 	X(int32_t, local_slowstart_flightsize, 8)                       \
 	X(uint32_t, ecn_setup_percentage, 50)                           \
-	X(int32_t, ecn_initiate_out, 0)                                 \
-	X(int32_t, ecn_negotiate_in, 0)                                 \
+	X(int32_t, ecn, 1)                                              \
 	X(int32_t, packetchain, 50)                                     \
 	X(int32_t, socket_unlocked_on_output, 1)                        \
 	X(int32_t, min_iaj_win, 16)                                     \
@@ -97,22 +96,17 @@
 	X(int32_t, broken_peer_syn_rexmit_thres, 10)                    \
 	X(int32_t, pmtud_blackhole_detection, 1)                        \
 	X(uint32_t, pmtud_blackhole_mss, 1200)                          \
-	X(int32_t, sendspace, 1448*256)                                 \
-	X(int32_t, recvspace, 1448*384)                                 \
+	X(int32_t, sendspace, 1024*128)                                 \
+	X(int32_t, recvspace, 1024*128)                                 \
 	X(uint32_t, microuptime_init, 0)                                \
 	X(uint32_t, now_init, 0)                                        \
 	X(uint32_t, challengeack_limit, 10)                             \
-	X(int32_t, do_rfc5961, 1)                                       \
 	X(int32_t, init_rtt_from_cache, 1)                              \
 	X(uint32_t, autotunereorder, 1)                                 \
 	X(uint32_t, do_ack_compression, 1)                              \
 	X(uint32_t, ack_compression_rate, 5)                            \
-	X(int32_t, do_better_lr, 1)                                     \
 	X(int32_t, cubic_minor_fixes, 1)                                \
 	X(int32_t, cubic_rfc_compliant, 1)                              \
-	X(int32_t, aggressive_rcvwnd_inc, 1)                            \
-	X(int32_t, ack_strategy, 1)                                     \
-	X(int32_t, flow_control_response, 1)                            \
 	X(int32_t, randomize_timestamps, 1)                             \
 	X(uint32_t, ledbat_plus_plus, 1)                                \
 	X(uint32_t, use_ledbat, 0)                                      \
@@ -141,6 +135,7 @@
 #define SKMEM_SYSCTL_TCP_HAS_RACK 1
 #define SKMEM_SYSCTL_TCP_HAS_L4S 1
 #define SKMEM_SYSCTL_TCP_HAS_LINK_HEURISTICS 1
+#define SKMEM_SYSCTL_TCP_HAS_REFACTORED_ECN 1
 /*
  * When adding a new type above, be sure to add a corresponding
  * printf format below. Clients use NW_SYSCTL_PRI_##type

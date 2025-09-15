@@ -20,10 +20,10 @@
 #  ARM_EXTRAS_BASE = [ config_pmap_ppl ]
 #endif
 #  KERNEL_BASE =    [ arm64 medium msgb_large config_requires_u32_munging config_delay_idle_sleep config_proc_udata_storage config_uexc config_darkboot ARM_EXTRAS_BASE ]
-#  KERNEL_RELEASE = [ KERNEL_BASE ]
+#  KERNEL_RELEASE = [ KERNEL_BASE release ]
 #  KERNEL_DEV =     [ KERNEL_BASE development mach_assert config_xnupost proc_ref_debug config_proc_resource_limits config_ext_paniclog ]
 #  KERNEL_DEBUG =   [ KERNEL_BASE debug mach_assert config_xnupost config_waitq_stats config_workloop_debug config_proc_resource_limits config_ext_paniclog ]
-#  BSD_BASE =       [ mach_bsd sysv_sem sysv_msg sysv_shm config_netboot config_imageboot psynch config_proc_uuid_policy config_coredump pgo config_personas ]
+#  BSD_BASE =       [ mach_bsd sysv_sem sysv_msg sysv_shm config_netboot config_imageboot psynch config_proc_uuid_policy config_coredump config_ucoredump pgo config_personas ]
 #  BSD_RELEASE =    [ BSD_BASE ]
 #  BSD_DEV =        [ BSD_BASE config_vnguard ]
 #  BSD_DEBUG =      [ BSD_BASE config_vnguard ]
@@ -32,11 +32,11 @@
 #  FILESYS_DEV =    [ FILESYS_BASE config_iocount_trace ]
 #  FILESYS_DEBUG =  [ FILESYS_BASE config_iocount_trace ]
 #  NFS =            [ nfsserver ]
-#  SKYWALK_BASE =   [ skywalk config_nexus_user_pipe config_nexus_kernel_pipe config_nexus_monitor config_nexus_flowswitch config_nexus_netif ]
+#  SKYWALK_BASE =   [ skywalk config_nexus_user_pipe config_nexus_kernel_pipe config_nexus_flowswitch config_nexus_netif ]
 #  SKYWALK_RELEASE = [ SKYWALK_BASE ]
 #  SKYWALK_DEV =    [ SKYWALK_BASE ]
 #  SKYWALK_DEBUG =  [ SKYWALK_BASE ]
-#  NETWORKING =     [ inet bpfilter dummynet traffic_mgt sendfile ah_all_crypto bond vlan gif stf ifnet_input_chk config_mbuf_jumbo if_bridge MULTIPATH if_fake if_redirect remote_vif ]
+#  NETWORKING =     [ inet bpfilter dummynet traffic_mgt sendfile ah_all_crypto bond vlan gif stf ifnet_input_chk if_bridge MULTIPATH if_fake if_redirect remote_vif ]
 #  NETWORKING_RELEASE = [ NETWORKING ]
 #  NETWORKING_DEV = [ NETWORKING_RELEASE packet_mangler if_headless kctl_test ]
 #  NETWORKING_DEBUG = [ NETWORKING_DEV ]
@@ -84,7 +84,7 @@
 #  VM_EXTRA_DEV =   [ ]
 #else
 #  VM_EXTRA =       [ ]
-#  VM_EXTRA_DEV =   [ pgzalloc ]
+#  VM_EXTRA_DEV =   [ ]
 #endif /* MASTER_CONFIG_ENABLE_KERNEL_TAG && MASTER_CONFIG_ENABLE_SPTM */
 #  VM_BASE =        [ vm_pressure_events memorystatus config_code_decryption encrypted_swap config_deferred_reclaim VM_EXTRA ]
 #  VM_RELEASE =     [ VM_BASE ]
@@ -121,8 +121,6 @@ options	  CONFIG_MACH_APPROXIMATE_TIME
 options   CONFIG_KERNEL_INTEGRITY		# <kernel_integrity>
 
 options CONFIG_MACF_LAZY_VNODE_LABELS   # Turn on labels, don't preallocate
-
-options CONFIG_HYPERVISOR_PUBLIC   # unrestricted entitlement for hypervisor
 
 options   CONFIG_RESLIDE_SHARED_CACHE		# <reslide_shared_cache>
 options   CONFIG_KERNEL_TBI		# <kernel_tbi>

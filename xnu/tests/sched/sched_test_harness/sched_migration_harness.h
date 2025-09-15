@@ -18,16 +18,18 @@ typedef enum {
 typedef struct {
 	test_cpu_type_t cpu_type;
 	int num_cpus;
+	int cluster_id;
 	int die_id;
 } test_pset_t;
 
 typedef struct {
 	test_pset_t *psets;
 	int num_psets;
+	int total_cpus;
 } test_hw_topology_t;
 
-extern int                   cpu_id_to_cluster_id(int cpu_id);
-extern int                   cluster_id_to_cpu_id(int cluster_id);
+extern int                   pset_id_to_cpu_id(int pset_id);
+extern int                   cpu_id_to_pset_id(int cpu_id);
 extern test_hw_topology_t    get_hw_topology(void);
 extern void                  set_hw_topology(test_hw_topology_t hw_topology);
 
@@ -40,7 +42,12 @@ extern test_hw_topology_t dual_die; // 2E + 4P + 4P + 2E + 4P + 4P
 extern void      init_migration_harness(test_hw_topology_t hw_topology);
 extern void      set_tg_sched_bucket_preferred_pset(struct thread_group *tg, int sched_bucket, int cluster_id);
 extern void      set_thread_cluster_bound(test_thread_t thread, int cluster_id);
+extern int       choose_pset_for_thread(test_thread_t thread);
 extern bool      choose_pset_for_thread_expect(test_thread_t thread, int expected_cluster_id);
+extern test_thread_t  cpu_steal_thread(int cpu_id);
+extern bool      cpu_processor_balance(int cpu_id);
+extern bool      thread_avoid_processor_expect(test_thread_t thread, int cpu_id, bool quantum_expiry, bool avoid_expected);
+extern void      cpu_expire_quantum(int cpu_id);
 extern void      set_current_processor(int cpu_id);
 extern void      set_pset_load_avg(int cluster_id, int QoS, uint64_t load_avg);
 extern void      set_pset_recommended(int cluster_id);
@@ -64,3 +71,4 @@ extern void      cpu_send_ipi_for_thread(int cpu_id, test_thread_t thread, test_
 #define QOS_PARALLELISM_REALTIME        0x2
 #define QOS_PARALLELISM_CLUSTER_SHARED_RESOURCE              0x4
 extern bool      max_parallelism_expect(int qos, uint64_t options, uint32_t expected_parallelism);
+extern int       iterate_pset_search_order_expect(int src_pset_id, uint64_t candidate_map, int sched_bucket, int *expected_pset_ids, int num_psets);

@@ -219,9 +219,11 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
             // COMPATIBILITY (iOS 18.0, macOS 15.0): `Console.ClearReason.Frontend` did not exist yet.
             // COMPATIBILITY (iOS 18.0, macOS 15.0): `Console.setConsoleClearAPIEnabled` did not exist yet.
             console.assert(InspectorBackend.hasCommand("Console.setConsoleClearAPIEnabled"));
-            console.assert(WI.settings.consoleClearAPIEnabled.value);
-            // fallthrough
+            this._clearMessages();
+            return;
+
         case WI.ConsoleManager.ClearReason.ConsoleAPI:
+            console.assert(WI.settings.consoleClearAPIEnabled.value);
             this._clearMessages();
             return;
 

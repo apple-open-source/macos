@@ -73,7 +73,11 @@ TextBoxIterator lineLeftmostTextBoxFor(const RenderText& text)
     if (auto* lineLayout = LayoutIntegration::LineLayout::containing(text))
         return lineLayout->textBoxesFor(text);
 
-    return { BoxLegacyPath { text.firstLegacyTextBox() } };
+    if (CheckedPtr svgText = dynamicDowncast<RenderSVGInlineText>(text))
+        return { BoxLegacyPath { svgText->firstLegacyTextBox() } };
+
+    // During teardown we may hit this codepath _after_ the display content is destroyed (e.g. calling repaint on RenderText).
+    return { BoxLegacyPath { nullptr } };
 }
 
 TextBoxIterator textBoxFor(const LegacyInlineTextBox* legacyInlineTextBox)

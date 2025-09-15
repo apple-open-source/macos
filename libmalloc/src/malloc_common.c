@@ -163,7 +163,6 @@ malloc_zone_pressure_relief_fallback(malloc_zone_t *zone, size_t goal)
 	return 0;
 }
 
-
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
 ___BUG_IN_CLIENT_OF_LIBMALLOC_POINTER_BEING_FREED_WAS_NOT_ALLOCATED(

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,27 +29,28 @@
 #include "DebugPageOverlays.h"
 #include "Document.h"
 #include "InspectorInstrumentation.h"
+#include "LayoutBoxGeometry.h"
+#include "LayoutContext.h"
 #include "LayoutDisallowedScope.h"
+#include "LayoutIntegrationLineLayout.h"
+#include "LayoutState.h"
+#include "LayoutTreeBuilder.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "Quirks.h"
+#include "RenderBoxInlines.h"
+#include "RenderDescendantIterator.h"
 #include "RenderElement.h"
 #include "RenderElementInlines.h"
+#include "RenderLayerCompositor.h"
 #include "RenderLayoutState.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyle.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
 #include "StyleScope.h"
-#include "LayoutBoxGeometry.h"
-#include "LayoutContext.h"
-#include "LayoutIntegrationLineLayout.h"
-#include "LayoutState.h"
-#include "LayoutTreeBuilder.h"
-#include "RenderDescendantIterator.h"
-#include "RenderLayerCompositor.h"
-#include "RenderStyleInlines.h"
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -116,16 +117,16 @@ public:
         , m_schedulingIsEnabled(layoutContext.m_layoutSchedulingIsEnabled, false)
         , m_previousScrollType(layoutContext.view().currentScrollType())
     {
-        m_view.setCurrentScrollType(ScrollType::Programmatic);
+        m_view->setCurrentScrollType(ScrollType::Programmatic);
     }
         
     ~LayoutScope()
     {
-        m_view.setCurrentScrollType(m_previousScrollType);
+        m_view->setCurrentScrollType(m_previousScrollType);
     }
         
 private:
-    LocalFrameView& m_view;
+    const Ref<LocalFrameView> m_view;
     SetForScope<LocalFrameViewLayoutContext::LayoutNestedState> m_nestedState;
     SetForScope<bool> m_schedulingIsEnabled;
     ScrollType m_previousScrollType;
@@ -158,9 +159,9 @@ void LocalFrameViewLayoutContext::layout(bool canDeferUpdateLayerPositions)
     if (view().hasOneRef())
         return;
 
-    Style::Scope::QueryContainerUpdateContext queryContainerUpdateContext;
-    while (document() && document()->styleScope().updateQueryContainerState(queryContainerUpdateContext)) {
-        document()->updateStyleIfNeeded();
+    Style::Scope::LayoutDependencyUpdateContext layoutDependencyUpdateContext;
+    while (document() && document()->styleScope().invalidateForLayoutDependencies(layoutDependencyUpdateContext)) {
+        protectedDocument()->updateStyleIfNeeded();
 
         if (!needsLayout())
             break;
@@ -170,6 +171,18 @@ void LocalFrameViewLayoutContext::layout(bool canDeferUpdateLayerPositions)
         if (view().hasOneRef())
             return;
     }
+}
+
+void LocalFrameViewLayoutContext::interleavedLayout()
+{
+    LOG_WITH_STREAM(Layout, stream << "LocalFrameView " << &view() << " LocalFrameViewLayoutContext::interleavedLayout() with size " << view().layoutSize());
+
+    Ref protectedView(view());
+
+    performLayout(false);
+
+    Style::Scope::LayoutDependencyUpdateContext layoutDependencyUpdateContext;
+    document()->styleScope().invalidateForLayoutDependencies(layoutDependencyUpdateContext);
 }
 
 void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPositions)
@@ -207,7 +220,7 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
     {
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InPreLayout);
 
-        if (!document()->isInStyleInterleavedLayoutForSelfOrAncestor()) {
+        if (!protectedDocument()->isInStyleInterleavedLayoutForSelfOrAncestor()) {
             // If this is a new top-level layout and there are any remaining tasks from the previous layout, finish them now.
             if (!isLayoutNested() && m_postLayoutTaskTimer.isActive())
                 runPostLayoutTasks();
@@ -231,6 +244,7 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
         m_firstLayout = false;
     }
 
+    Vector<FloatQuad> layoutAreas;
     {
         TraceScope tracingScope(RenderTreeLayoutStart, RenderTreeLayoutEnd);
         SetForScope layoutPhase(m_layoutPhase, LayoutPhase::InRenderTreeLayout);
@@ -244,6 +258,8 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
 #if ENABLE(TEXT_AUTOSIZING)
         applyTextSizingIfNeeded(*layoutRoot.get());
 #endif
+        layoutRoot->absoluteQuads(layoutAreas);
+
         clearSubtreeLayoutRoot();
         ASSERT(m_percentHeightIgnoreList.isEmptyIgnoringNullReferences());
 
@@ -276,7 +292,7 @@ void LocalFrameViewLayoutContext::performLayout(bool canDeferUpdateLayerPosition
         protectedView()->didLayout(layoutRoot, canDeferUpdateLayerPositions);
         runOrScheduleAsynchronousTasks(canDeferUpdateLayerPositions);
     }
-    InspectorInstrumentation::didLayout(frame, *layoutRoot);
+    InspectorInstrumentation::didLayout(frame, layoutAreas);
     DebugPageOverlays::didLayout(frame);
 }
 
@@ -462,7 +478,8 @@ void LocalFrameViewLayoutContext::scheduleLayout()
     // FIXME: We should assert the page is not in the back/forward cache, but that is causing
     // too many false assertions. See <rdar://problem/7218118>.
     ASSERT(frame().view() == &view());
-    if (!document())
+    RefPtr document = this->document();
+    if (!document)
         return;
 
     if (subtreeLayoutRoot())
@@ -471,14 +488,14 @@ void LocalFrameViewLayoutContext::scheduleLayout()
     if (isLayoutPending())
         return;
 
-    if (!isLayoutSchedulingEnabled() || !document()->shouldScheduleLayout())
+    if (!isLayoutSchedulingEnabled() || !document->shouldScheduleLayout())
         return;
     if (!needsLayout())
         return;
 
 #if !LOG_DISABLED
-    if (!document()->ownerElement())
-        LOG(Layout, "LocalFrameView %p layout timer scheduled at %.3fs", this, document()->timeSinceDocumentCreation().value());
+    if (!document->ownerElement())
+        LOG(Layout, "LocalFrameView %p layout timer scheduled at %.3fs", this, document->timeSinceDocumentCreation().value());
 #endif
 
     InspectorInstrumentation::didInvalidateLayout(protectedFrame());
@@ -599,17 +616,17 @@ bool LocalFrameViewLayoutContext::canPerformLayout() const
 void LocalFrameViewLayoutContext::applyTextSizingIfNeeded(RenderElement& layoutRoot)
 {
     ASSERT(document());
-    if (document()->quirks().shouldIgnoreTextAutoSizing())
+    if (protectedDocument()->quirks().shouldIgnoreTextAutoSizing())
         return;
-    auto& settings = layoutRoot.settings();
-    bool idempotentMode = settings.textAutosizingUsesIdempotentMode();
-    if (!settings.textAutosizingEnabled() || idempotentMode || renderView()->printing())
+    Ref settings = layoutRoot.settings();
+    bool idempotentMode = settings->textAutosizingUsesIdempotentMode();
+    if (!settings->textAutosizingEnabled() || idempotentMode || renderView()->printing())
         return;
-    auto minimumZoomFontSize = settings.minimumZoomFontSize();
+    auto minimumZoomFontSize = settings->minimumZoomFontSize();
     if (!idempotentMode && !minimumZoomFontSize)
         return;
     auto textAutosizingWidth = layoutRoot.page().textAutosizingWidth();
-    if (auto overrideWidth = settings.textAutosizingWindowSizeOverrideWidth())
+    if (auto overrideWidth = settings->textAutosizingWindowSizeOverrideWidth())
         textAutosizingWidth = overrideWidth;
     if (!idempotentMode && !textAutosizingWidth)
         return;
@@ -657,16 +674,26 @@ void LocalFrameViewLayoutContext::addLayoutDelta(const LayoutSize& delta)
 
 bool LocalFrameViewLayoutContext::isSkippedContentForLayout(const RenderElement& renderer) const
 {
-    if (needsSkippedContentLayout())
+    if (isVisiblityHiddenIgnored() || isVisiblityAutoIgnored()) {
+        // In theory we should only descend into a hidden/auto subree when hidden/auto root is ignored (see isSkippedContentRootForLayout below).
         return false;
+    }
     return renderer.isSkippedContent();
 }
 
-bool LocalFrameViewLayoutContext::isSkippedContentRootForLayout(const RenderElement& renderer) const
+bool LocalFrameViewLayoutContext::isSkippedContentRootForLayout(const RenderBox& renderBox) const
 {
-    if (needsSkippedContentLayout())
+    if (!isSkippedContentRoot(renderBox))
         return false;
-    return isSkippedContentRoot(renderer);
+
+    auto contentVisibility = renderBox.style().contentVisibility();
+    if (contentVisibility == ContentVisibility::Hidden && isVisiblityHiddenIgnored())
+        return false;
+
+    if (contentVisibility == ContentVisibility::Auto && isVisiblityAutoIgnored())
+        return false;
+
+    return true;
 }
 
 #if ASSERT_ENABLED
@@ -729,6 +756,27 @@ void LocalFrameViewLayoutContext::popLayoutState()
     }
 }
 
+bool LocalFrameViewLayoutContext::DetachedRendererList::append(RenderPtr<RenderObject>&& detachedRenderer)
+{
+    ASSERT(!detachedRenderer->parent());
+    ASSERT(!detachedRenderer->beingDestroyed());
+
+    if (detachedRenderer->renderTreeBeingDestroyed())
+        return false;
+
+    if (is<RenderWidget>(detachedRenderer)) {
+        // FIXME: Cleanup RenderWidget's destruction process (ref vs. delete this. see RenderObject::destroy)
+        return false;
+    }
+
+    static constexpr int maximumNumberOfDetachedRenderers = 5000;
+    if (m_renderers.size() == maximumNumberOfDetachedRenderers)
+        clear();
+
+    m_renderers.append(detachedRenderer.release());
+    return true;
+}
+
 void LocalFrameViewLayoutContext::setBoxNeedsTransformUpdateAfterContainerLayout(RenderBox& box, RenderBlock& container)
 {
     auto it = m_containersWithDescendantsNeedingTransformUpdate.ensure(container, [] { return Vector<SingleThreadWeakPtr<RenderBox>>({ }); });
@@ -785,12 +833,17 @@ Ref<LocalFrameView> LocalFrameViewLayoutContext::protectedView() const
 
 RenderView* LocalFrameViewLayoutContext::renderView() const
 {
-    return view().renderView();
+    return protectedView()->renderView();
 }
 
 Document* LocalFrameViewLayoutContext::document() const
 {
     return frame().document();
+}
+
+RefPtr<Document> LocalFrameViewLayoutContext::protectedDocument() const
+{
+    return document();
 }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
@@ -50,20 +50,21 @@ namespace WebCore {
 
 class GraphicsContext;
 
+struct PatternParameters {
+    PatternParameters(bool repeatX = true, bool repeatY = true, AffineTransform patternSpaceTransform = { })
+        : repeatX(repeatX)
+        , repeatY(repeatY)
+        , patternSpaceTransform(patternSpaceTransform)
+    {
+    }
+    bool repeatX;
+    bool repeatY;
+    AffineTransform patternSpaceTransform;
+};
+
 class Pattern final : public ThreadSafeRefCounted<Pattern> {
 public:
-    struct Parameters {
-        Parameters(bool repeatX = true, bool repeatY = true, AffineTransform patternSpaceTransform = { })
-            : repeatX(repeatX)
-            , repeatY(repeatY)
-            , patternSpaceTransform(patternSpaceTransform)
-        {
-        }
-        bool repeatX;
-        bool repeatY;
-        AffineTransform patternSpaceTransform;
-    };
-
+    using Parameters = PatternParameters;
     WEBCORE_EXPORT static Ref<Pattern> create(SourceImage&& tileImage, const Parameters& = { });
     WEBCORE_EXPORT ~Pattern();
 
@@ -94,5 +95,6 @@ private:
     SourceImage m_tileImage;
     Parameters m_parameters;
 };
+
 
 } //namespace

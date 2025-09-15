@@ -112,7 +112,7 @@ __libkernel_init_late(_libkernel_late_init_config_t config)
 {
 	if (config->version >= 1) {
 #if SYSTEM_VERSION_COMPAT_ENABLED
-#if TARGET_OS_OSX && !defined(__i386__)
+#if SYSTEM_VERSION_COMPAT_HAS_MODE_MACOSX
 		if (config->enable_system_version_compat) {
 			/* enable the version compatibility shim for this process (macOS only) */
 
@@ -122,6 +122,7 @@ __libkernel_init_late(_libkernel_late_init_config_t config)
 
 			system_version_compat_mode = SYSTEM_VERSION_COMPAT_MODE_MACOSX;
 
+#if SYSTEM_VERSION_COMPAT_NEEDS_SYSCTL
 			/*
 			 * tell the kernel the shim is enabled for this process so it can shim any
 			 * necessary sysctls
@@ -129,7 +130,12 @@ __libkernel_init_late(_libkernel_late_init_config_t config)
 			int enable = 1;
 			__sysctlbyname("kern.system_version_compat", strlen("kern.system_version_compat"),
 			    NULL, NULL, &enable, sizeof(enable));
-		} else if ((config->version >= 2) && config->enable_ios_version_compat) {
+#endif /* SYSTEM_VERSION_COMPAT_NEEDS_SYSCTL */
+		}
+#endif /* SYSTEM_VERSION_COMPAT_HAS_MODE_MACOSX */
+#if SYSTEM_VERSION_COMPAT_HAS_MODE_IOS
+		if (!config->enable_system_version_compat &&
+		    (config->version >= 2) && config->enable_ios_version_compat) {
 			/* enable the iOS ProductVersion compatibility shim for this process */
 
 			/* first hook up the shims we reference from open{at}() */
@@ -143,8 +149,7 @@ __libkernel_init_late(_libkernel_late_init_config_t config)
 			 * don't need to inform the kernel that this app has the SystemVersion shim enabled.
 			 */
 		}
-#endif /* TARGET_OS_OSX && !defined(__i386__) */
-
+#endif /* SYSTEM_VERSION_COMPAT_HAS_MODE_IOS */
 #endif /* SYSTEM_VERSION_COMPAT_ENABLED */
 
 #if POSIX_SPAWN_FILTERING_ENABLED

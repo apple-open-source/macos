@@ -42,7 +42,7 @@
 - (NSString *)aLink
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::alinkAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::alinkAttr).createNSString().autorelease();
 }
 
 - (void)setALink:(NSString *)newALink
@@ -54,7 +54,7 @@
 - (NSString *)background
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::backgroundAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::backgroundAttr).createNSString().autorelease();
 }
 
 - (void)setBackground:(NSString *)newBackground
@@ -66,7 +66,7 @@
 - (NSString *)bgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr).createNSString().autorelease();
 }
 
 - (void)setBgColor:(NSString *)newBgColor
@@ -78,7 +78,7 @@
 - (NSString *)link
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::linkAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::linkAttr).createNSString().autorelease();
 }
 
 - (void)setLink:(NSString *)newLink
@@ -90,7 +90,7 @@
 - (NSString *)text
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::textAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::textAttr).createNSString().autorelease();
 }
 
 - (void)setText:(NSString *)newText
@@ -102,7 +102,7 @@
 - (NSString *)vLink
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::vlinkAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::vlinkAttr).createNSString().autorelease();
 }
 
 - (void)setVLink:(NSString *)newVLink

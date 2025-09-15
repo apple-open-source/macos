@@ -79,6 +79,7 @@ extern const CFStringRef kDADiskDescriptionBusPathKey          /* ( CFString    
 
 extern const CFStringRef kDADiskDescriptionFSKitPrefix         /* -- Key Prefix -- */  API_AVAILABLE(macos(14.4));
 
+extern const CFStringRef kDADiskDescriptionRepairRunningKey               /* ( CFBoolean    ) */  API_AVAILABLE(macos(16.0));
 
 #ifndef __DISKARBITRATIOND__
 

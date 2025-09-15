@@ -1,6 +1,6 @@
 /*
  Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- Copyright (C) 2012 Igalia S.L.
+ Copyright (C) 2012, 2025 Igalia S.L.
  Copyright (C) 2012 Adobe Systems Incorporated
 
  This library is free software; you can redistribute it and/or
@@ -85,19 +85,81 @@ BitmapTexture::BitmapTexture(const IntSize& size, OptionSet<Flags> flags)
     , m_size(size)
     , m_pixelFormat(PixelFormat::RGBA8)
 {
+#if USE(GBM)
+    if (m_flags.contains(Flags::BackedByDMABuf)) {
+        OptionSet<MemoryMappedGPUBuffer::BufferFlag> bufferFlags;
+        if (flags.contains(Flags::ForceLinearBuffer))
+            bufferFlags.add(MemoryMappedGPUBuffer::BufferFlag::ForceLinear);
+
+        m_memoryMappedGPUBuffer = MemoryMappedGPUBuffer::create(m_size, bufferFlags);
+
+        // Proceed as usual with GL texture creation if the dma-buf creation failed.
+        // as we only want to allocate the dma-buf, but neither map it, nor create a texture now - but when we
+        // need it (from the thread that needs it!).
+        if (allocateTextureFromMemoryMappedGPUBuffer())
+            return;
+
+        m_flags.remove(Flags::BackedByDMABuf);
+    }
+#endif
+
     GLint boundTexture = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
 
-    glGenTextures(1, &m_id);
-    glBindTexture(GL_TEXTURE_2D, m_id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_size.width(), m_size.height(), 0, textureFormat, s_pixelDataType, nullptr);
+    allocateTexture();
 
     glBindTexture(GL_TEXTURE_2D, boundTexture);
 }
+
+void BitmapTexture::createTexture()
+{
+    ASSERT(!m_id);
+    auto filter = m_flags.contains(Flags::UseNearestTextureFilter) ? GL_NEAREST : GL_LINEAR;
+    glGenTextures(1, &m_id);
+    glBindTexture(GL_TEXTURE_2D, m_id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
+
+void BitmapTexture::allocateTexture()
+{
+    createTexture();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_size.width(), m_size.height(), 0, textureFormat, s_pixelDataType, nullptr);
+}
+
+#if USE(GBM)
+bool BitmapTexture::allocateTextureFromMemoryMappedGPUBuffer()
+{
+    if (!m_memoryMappedGPUBuffer)
+        return false;
+
+    if (auto eglImage = m_memoryMappedGPUBuffer->createEGLImageFromDMABuf()) {
+        createTexture();
+        glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, eglImage);
+
+        auto& display = WebCore::PlatformDisplay::sharedDisplay();
+        display.destroyEGLImage(eglImage);
+        return true;
+    }
+
+    LOG_ERROR("Cannot create EGLImage from dma-buf -- rendering will be broken.");
+    return false;
+}
+
+BitmapTexture::BitmapTexture(EGLImage image, OptionSet<Flags> flags)
+    : m_flags(flags)
+{
+    GLint boundTexture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
+
+    createTexture();
+    glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, image);
+
+    glBindTexture(GL_TEXTURE_2D, boundTexture);
+}
+#endif
 
 void BitmapTexture::swapTexture(BitmapTexture& other)
 {
@@ -105,6 +167,10 @@ void BitmapTexture::swapTexture(BitmapTexture& other)
     RELEASE_ASSERT(!m_flags.contains(Flags::DepthBuffer));
     RELEASE_ASSERT(!other.m_flags.contains(Flags::DepthBuffer));
 
+#if USE(GBM)
+    std::swap(m_memoryMappedGPUBuffer, other.m_memoryMappedGPUBuffer);
+#endif
+    std::swap(m_flags, other.m_flags);
     std::swap(m_id, other.m_id);
 
     // This texture needs to be in the same pixel format as the 'other'
@@ -116,6 +182,11 @@ void BitmapTexture::swapTexture(BitmapTexture& other)
 
 void BitmapTexture::reset(const IntSize& size, OptionSet<Flags> flags)
 {
+#if USE(GBM)
+    // We don't support switching from dmabuf backing to regular textures -- there is no use-case for that scenario.
+    RELEASE_ASSERT(m_flags.contains(Flags::BackedByDMABuf) == flags.contains(Flags::BackedByDMABuf));
+#endif
+
     m_flags = flags;
     m_shouldClear = true;
     m_pixelFormat = PixelFormat::RGBA8;
@@ -141,11 +212,34 @@ void BitmapTexture::reset(const IntSize& size, OptionSet<Flags> flags)
         m_clipStack = { };
     }
 
-    if (m_size != size) {
-        m_size = size;
-        glBindTexture(GL_TEXTURE_2D, m_id);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_size.width(), m_size.height(), 0, textureFormat, s_pixelDataType, nullptr);
+    if (m_size == size)
+        return;
+    m_size = size;
+
+    GLint boundTexture = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &boundTexture);
+
+#if USE(GBM)
+    if (m_memoryMappedGPUBuffer) {
+        if (m_id) {
+            // Recreate GL texture, if it was present before.
+            glDeleteTextures(1, &m_id);
+            m_id = 0;
+        }
+
+        // Recreate MemoryMappedGPUBuffer with new size.
+        m_memoryMappedGPUBuffer = MemoryMappedGPUBuffer::create(m_size, m_memoryMappedGPUBuffer->flags());
+
+        if (allocateTextureFromMemoryMappedGPUBuffer()) {
+            glBindTexture(GL_TEXTURE_2D, boundTexture);
+            return;
+        }
     }
+#endif
+
+    glBindTexture(GL_TEXTURE_2D, m_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_size.width(), m_size.height(), 0, textureFormat, s_pixelDataType, nullptr);
+    glBindTexture(GL_TEXTURE_2D, boundTexture);
 }
 
 void BitmapTexture::updateContents(const void* srcData, const IntRect& targetRect, const IntPoint& sourceOffset, int bytesPerLine, PixelFormat pixelFormat)
@@ -156,6 +250,19 @@ void BitmapTexture::updateContents(const void* srcData, const IntRect& targetRec
         ASSERT(targetRect.location().isZero());
         m_pixelFormat = pixelFormat;
     }
+
+#if USE(GBM)
+    // Use OpenGL to update multi-plane textures via glTexSubImage2D -- mmap() mode is only intended for single-plane images.
+    if (m_memoryMappedGPUBuffer && m_memoryMappedGPUBuffer->isLinear()) {
+        RELEASE_ASSERT(sourceOffset.isZero());
+        if (auto writeScope = makeGPUBufferWriteScope(*m_memoryMappedGPUBuffer)) {
+            m_memoryMappedGPUBuffer->updateContents(*writeScope, srcData, targetRect, bytesPerLine);
+            return;
+        }
+
+        LOG_ERROR("BitmapTexture::updateContents(), failed to obtain MemoryMappedGPUBuffer write scope, fallback to OpenGL.");
+    }
+#endif
 
     glBindTexture(GL_TEXTURE_2D, m_id);
 
@@ -173,7 +280,7 @@ void BitmapTexture::updateContents(const void* srcData, const IntRect& targetRec
     if (requireSubImageBuffer) {
         WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib/Win port
         temporaryData.resize(targetRect.width() * targetRect.height() * bytesPerPixel);
-        auto dst = temporaryData.data();
+        auto dst = temporaryData.mutableSpan().data();
         data = dst;
         auto bits = static_cast<const uint8_t*>(srcData);
         auto src = bits + sourceOffset.y() * bytesPerLine + sourceOffset.x() * bytesPerPixel;
@@ -349,11 +456,6 @@ BitmapTexture::~BitmapTexture()
         glDeleteRenderbuffers(1, &m_stencilBufferObject);
 }
 
-void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID)
-{
-    copyFromExternalTexture(sourceTextureID, { 0, 0, m_size.width(), m_size.height() }, { });
-}
-
 void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID, const IntRect& targetRect, const IntSize& sourceOffset)
 {
     RELEASE_ASSERT(sourceOffset.width() + targetRect.width() <= m_size.width());
@@ -390,11 +492,6 @@ void BitmapTexture::copyFromExternalTexture(GLuint sourceTextureID, const IntRec
     glBindTexture(GL_TEXTURE_2D, boundTexture);
     glActiveTexture(boundActiveTexture);
     glDeleteFramebuffers(1, &copyFbo);
-}
-
-void BitmapTexture::copyFromExternalTexture(BitmapTexture& sourceTexture, const IntRect& sourceRect, const IntSize& destinationOffset)
-{
-    copyFromExternalTexture(sourceTexture.id(), sourceRect, destinationOffset);
 }
 
 OptionSet<TextureMapperFlags> BitmapTexture::colorConvertFlags() const

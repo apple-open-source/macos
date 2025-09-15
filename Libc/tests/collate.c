@@ -1,3 +1,5 @@
+#include <sys/param.h>
+
 #include <TargetConditionals.h>
 #include <errno.h>
 #include <limits.h>
@@ -5,6 +7,7 @@
 #include <regex.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <xlocale.h>
 
 #include <darwintest.h>
@@ -350,4 +353,32 @@ T_DECL(collate_equivalence, "Test __collate_lookup() behavior",
 
 		lower = false;
 	}
+}
+
+T_DECL(collate_subst_legacy, "Test legacy substitution behavior") {
+	char cwdbuf[MAXPATHLEN], *cwd, *localepath;
+	const char *curloc;
+	int ret;
+
+	cwd = getcwd(cwdbuf, sizeof(cwdbuf));
+	T_ASSERT_NE_PTR(cwd, NULL, NULL);
+
+	ret = asprintf(&localepath, "%s/locales", cwd);
+	T_ASSERT_GT(ret, 0, NULL);
+
+	T_LOG("Setting PATH_LOCALE to %s", localepath);
+	ret = setenv("PATH_LOCALE", localepath, 1);
+	T_ASSERT_EQ(ret, 0, NULL);
+
+	/* They should not be equivalent in the C locale. */
+	setlocale(LC_COLLATE, "C");
+	ret = strcoll("ss", "\xdf");
+	T_ASSERT_NE(ret, 0, NULL);
+
+	curloc = setlocale(LC_COLLATE, "legacy.subst");
+	T_ASSERT_EQ_STR(curloc, "legacy.subst", "Set LC_COLLATE to a legacy definition");
+
+	ret = strcoll("ss", "\xdf");
+	T_ASSERT_EQ(ret, 0, "Compare with substitutions applied");
+	free(localepath);
 }

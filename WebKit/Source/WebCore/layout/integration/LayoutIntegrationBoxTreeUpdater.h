@@ -30,6 +30,7 @@
 
 namespace WebCore {
 
+class Document;
 class RenderBlock;
 class RenderBoxModelObject;
 class RenderElement;
@@ -47,12 +48,13 @@ class InitialContainingBlock;
 namespace LayoutIntegration {
 
 #if ENABLE(TREE_DEBUGGING)
-struct InlineContent;
+class InlineContent;
 #endif
 
 class BoxTreeUpdater {
 public:
     BoxTreeUpdater(RenderBlock&);
+    BoxTreeUpdater(RenderBlock&, const Document&);
     ~BoxTreeUpdater();
 
     CheckedRef<Layout::ElementBox> build();
@@ -81,6 +83,7 @@ private:
     void insertChild(UniqueRef<Layout::Box>, RenderObject&, const RenderObject* beforeChild = nullptr);
 
     RenderBlock& m_rootRenderer;
+    CheckedPtr<const Document> m_document;
 };
 
 #if ENABLE(TREE_DEBUGGING)

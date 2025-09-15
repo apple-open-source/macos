@@ -165,7 +165,7 @@ static Vector<EncodedResourceCryptographicDigest> strongestMetadataFromSet(Vecto
     return result;
 }
 
-static Ref<FormData> createReportFormData(const String& type, const URL& url, const String& userAgent, const Function<void(JSON::Object&)>& populateBody)
+static Ref<FormData> createReportFormData(const String& type, const URL& url, const String& userAgent, NOESCAPE const Function<void(JSON::Object&)>& populateBody)
 {
     auto body = JSON::Object::create();
     populateBody(body);
@@ -224,7 +224,7 @@ void reportHashesIfNeeded(const CachedResource& resource)
     if (!document)
         return;
 
-    auto csp = document->checkedContentSecurityPolicy();
+    CheckedRef csp = *document->contentSecurityPolicy();
     URL documentURL = document->url();
 
     auto& hashesToReport = csp->hashesToReport();
@@ -247,10 +247,7 @@ void reportHashesIfNeeded(const CachedResource& resource)
             body.setString("type"_s, "subresource"_s);
             body.setString("destination"_s, "script"_s);
         });
-        Vector<String> endpoints;
-        for (auto endpoint : fixedEndpoints)
-            endpoints.append(endpoint);
-        document->sendReportToEndpoints(documentURL, { }, WTFMove(endpoints), WTFMove(report), ViolationReportType::CSPHashReport);
+        document->sendReportToEndpoints(documentURL, { }, fixedEndpoints, WTFMove(report), ViolationReportType::CSPHashReport);
     }
 }
 

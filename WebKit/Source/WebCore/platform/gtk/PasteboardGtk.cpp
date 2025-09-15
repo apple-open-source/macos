@@ -263,7 +263,7 @@ void Pasteboard::setDragImage(DragImage, const IntPoint&)
 
 void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, std::optional<size_t>)
 {
-    text.text = platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name);
+    text.text = platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name, "text/plain"_s);
 }
 
 void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolicy policy, std::optional<size_t>)
@@ -288,8 +288,8 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
 
     auto types = platformStrategies()->pasteboardStrategy()->types(m_name);
     if (types.contains("text/html"_s)) {
-        auto buffer = platformStrategies()->pasteboardStrategy()->readBufferFromClipboard(m_name, "text/html"_s);
-        if (buffer && reader.readHTML(String::fromUTF8(buffer->span())))
+        auto text = platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name, "text/html"_s);
+        if (!text.isNull() && reader.readHTML(text))
             return;
     }
 
@@ -311,8 +311,8 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
             return;
     }
 
-    if (types.contains(textPlainContentTypeAtom()) || types.contains("text/plain;charset=utf-8"_s)) {
-        auto text = platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name);
+    if (types.contains("text/plain"_s) || types.contains("text/plain;charset=utf-8"_s)) {
+        auto text = platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name, textPlainContentTypeAtom());
         if (!text.isNull() && reader.readPlainText(text))
             return;
     }
@@ -412,13 +412,8 @@ String Pasteboard::readOrigin()
 
 String Pasteboard::readString(const String& type)
 {
-    if (!m_selectionData) {
-        if (type.startsWith("text/plain"_s))
-            return platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name);
-
-        auto buffer = platformStrategies()->pasteboardStrategy()->readBufferFromClipboard(m_name, type);
-        return buffer ? String::fromUTF8(buffer->span()) : String();
-    }
+    if (!m_selectionData)
+        return platformStrategies()->pasteboardStrategy()->readTextFromClipboard(m_name, type);
 
     switch (selectionDataTypeFromHTMLClipboardType(type)) {
     case ClipboardDataTypeURIList:

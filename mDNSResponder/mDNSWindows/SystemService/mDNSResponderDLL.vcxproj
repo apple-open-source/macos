@@ -129,6 +129,7 @@
       </PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>
       </PrecompiledHeaderOutputFile>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -159,6 +160,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4127;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -187,6 +189,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4127;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -207,6 +210,7 @@
       <WarningLevel>Level4</WarningLevel>
       <CallingConvention>StdCall</CallingConvention>
       <DisableSpecificWarnings>4127;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -232,6 +236,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4127;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -255,6 +260,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <DisableSpecificWarnings>4127;4201;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -279,6 +285,7 @@
     <ClInclude Include="..\..\mDNSShared\uds_daemon.h" />
     <ClInclude Include="..\mDNSWin32.h" />
     <ClInclude Include="..\Poll.h" />
+    <ClInclude Include="..\PosixCompat.h" />
     <ClInclude Include="..\Secret.h" />
     <ClInclude Include="mDNSResponderLib.h" />
     <ClInclude Include="Resource.h" />
@@ -300,6 +307,7 @@
     <ClCompile Include="..\..\mDNSShared\uds_daemon.c" />
     <ClCompile Include="..\mDNSWin32.c" />
     <ClCompile Include="..\Poll.c" />
+    <ClCompile Include="..\PosixCompat.c" />
     <ClCompile Include="..\Secret.c" />
     <ClCompile Include="..\VisualStudioSupport.cpp" />
     <ClCompile Include="dllmain.cpp" />

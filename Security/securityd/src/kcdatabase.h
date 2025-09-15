@@ -218,6 +218,8 @@ public:
     void authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred);
     bool checkCredentials(const AccessCredentials* creds);
     void changePassphrase(const AccessCredentials *cred);
+    void changePassphraseTo(const CssmData &passphrase); // for re-encrypting with indirect passphrase
+    void changeKeybagPassphrase(const CssmData &oldPassphrase, const CssmData &newPassphrase); // for indirect passphrase case
 	RefPointer<Key> extractMasterKey(Database &db, const AccessCredentials *cred,
 		const AclEntryPrototype *owner, uint32 usage, uint32 attrs);
     void commitSecretsForSync(KeychainDatabase &cloneDb);
@@ -226,6 +228,9 @@ public:
 	void lockDb();											// unconditional lock
 	void unlockDb(bool unlockKeybag);                       // full-feature unlock
 	void unlockDb(const CssmData &passphrase, bool unlockKeybag);	// unlock with passphrase
+	// unlock only the keybag with passphrase, but no-op if this is not a login keychain,
+	// as other keychains don't pertain.
+	void unlockKeybag(const CssmData &passphrase);
     
     void stashDbCheck();                                    // check AppleKeyStore for master key
     void stashDb();                                         // stash master key in AppleKeyStore
@@ -276,6 +281,7 @@ protected:
 	void makeUnlocked(bool unlockKeybag);	// interior version of unlock()
 	void makeUnlocked(const AccessCredentials *cred, bool unlockKeybag); // like () with explicit cred
 	void makeUnlocked(const CssmData &passphrase, bool unlockKeybag);	 // interior version of unlock(CssmData)
+	void makeKeybagUnlocked(const CssmData &passphrase);                 // interior version of unlockKeybag(CssmData)
 	
 	void establishOldSecrets(const AccessCredentials *creds);
 	bool establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason, bool change);

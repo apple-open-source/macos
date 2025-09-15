@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2011-2013, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *******************************************************************************
 *   file name:  messagepattern.h
 *   encoding:   UTF-8

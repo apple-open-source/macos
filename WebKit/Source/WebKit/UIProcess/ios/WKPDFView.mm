@@ -52,6 +52,7 @@
 #import <wtf/WeakObjCPtr.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/NSURLExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if PLATFORM(APPLETV)
 #import "PDFKitSoftLink.h"
@@ -196,8 +197,9 @@ static void* kvoContext = &kvoContext;
 {
     auto webEvent = adoptNS([[WKWebEvent alloc] initWithEvent:event]);
 
-    if ([_keyboardScrollingAnimator beginWithEvent:webEvent.get()])
+    if ([_keyboardScrollingAnimator beginWithEvent:webEvent.get() scrollView:[_webView _scrollViewInternal]])
         return YES;
+
     [_keyboardScrollingAnimator handleKeyEvent:webEvent.get()];
     return NO;
 }
@@ -223,7 +225,7 @@ static void* kvoContext = &kvoContext;
     if (!(self = [super initWithFrame:frame webView:webView]))
         return nil;
 
-    _keyboardScrollingAnimator = adoptNS([[WKKeyboardScrollViewAnimator alloc] initWithScrollView:webView._scrollViewInternal]);
+    _keyboardScrollingAnimator = adoptNS([[WKKeyboardScrollViewAnimator alloc] init]);
     _webView = webView;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
@@ -615,7 +617,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
 
 - (NSURL *)_URLWithPageIndex:(NSInteger)pageIndex
 {
-    return [NSURL URLWithString:[NSString stringWithFormat:@"#page%ld", (long)pageIndex + 1] relativeToURL:[_webView URL]];
+    return [NSURL URLWithString:adoptNS([[NSString alloc] initWithFormat:@"#page%ld", (long)pageIndex + 1]).get() relativeToURL:[_webView URL]];
 }
 
 - (void)_goToURL:(NSURL *)url atLocation:(CGPoint)location
@@ -676,7 +678,7 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
 - (void)pdfHostViewControllerExtensionProcessDidCrash:(PDFHostViewController *)controller
 {
     // FIXME 40916725: PDFKit should dispatch this message to the main thread like it does for other delegate messages.
-    RunLoop::main().dispatch([webView = _webView] {
+    RunLoop::mainSingleton().dispatch([webView = _webView] {
         if (auto page = [webView _page])
             page->dispatchProcessDidTerminate(page->legacyMainFrameProcess(), WebKit::ProcessTerminationReason::Crash);
     });
@@ -697,8 +699,8 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     NSDictionary *representations = @{
-        (NSString *)kUTTypeUTF8PlainText : (NSString *)_positionInformation.url.string(),
-        (NSString *)kUTTypeURL : (NSURL *)_positionInformation.url,
+        bridge_cast(kUTTypeUTF8PlainText) : _positionInformation.url.string().createNSString().get(),
+        bridge_cast(kUTTypeURL) : _positionInformation.url.createNSURL().get(),
     };
 ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -709,7 +711,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant openElementAtLocation:(CGPoint)location
 {
-    [self _goToURL:_positionInformation.url atLocation:location];
+    [self _goToURL:_positionInformation.url.createNSURL().get() atLocation:location];
 }
 
 - (void)actionSheetAssistant:(WKActionSheetAssistant *)assistant shareElementWithURL:(NSURL *)url rect:(CGRect)boundingRect

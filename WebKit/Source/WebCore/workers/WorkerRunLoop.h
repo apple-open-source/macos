@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * Copyright (C) 2017-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -115,7 +115,15 @@ public:
 
 private:
     friend class RunLoopSetup;
-    MessageQueueWaitResult runInMode(WorkerOrWorkletGlobalScope*, const ModePredicate&);
+
+    struct RunInModeResult {
+        MessageQueueWaitResult messageQueueResult;
+        bool firedSharedTimer { false };
+        bool firedRunLoopTimer { false };
+        String activeRunLoopTimersBeforeFiring;
+        String activeRunLoopTimersAfterFiring;
+    };
+    RunInModeResult runInMode(WorkerOrWorkletGlobalScope*, const ModePredicate&);
 
     // Runs any clean up tasks that are currently in the queue and returns.
     // This should only be called when the context is closed or loop has been terminated.

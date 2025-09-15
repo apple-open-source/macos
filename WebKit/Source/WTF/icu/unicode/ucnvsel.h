@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2008-2011, International Business Machines
-*   Corporation, Google and others.  All Rights Reserved.
+*   Corporation, Google and others.  All rights reserved.
 *
 *******************************************************************************
 */

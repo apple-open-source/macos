@@ -149,6 +149,7 @@ struct coalition_resource_usage {
 	uint64_t gpu_energy_nj; /* nanojoules that I did */
 	uint64_t gpu_energy_nj_billed_to_me; /* nanojoules that others did on my behalf */
 	uint64_t gpu_energy_nj_billed_to_others; /* nanojoules that I did on others' behalf */
+	uint64_t swapins;
 };
 
 #ifdef PRIVATE

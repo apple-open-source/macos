@@ -127,6 +127,7 @@
 
 #include <libkern/libkern.h>
 
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #if NBPFILTER > 0
@@ -162,6 +163,7 @@
 #include <net/pfvar.h>
 
 #include <net/route.h>
+#include <net/droptap.h>
 #include <dev/random/randomdev.h>
 
 #include <netinet/bootp.h>
@@ -2753,7 +2755,7 @@ bridge_delete_member(struct bridge_softc *sc, struct bridge_iflist *bif)
 	BRIDGE_UNLOCK(sc);
 
 	/* only perform these steps if the interface is still attached */
-	if (ifnet_is_attached(ifs, 1)) {
+	if (ifnet_get_ioref(ifs)) {
 #if SKYWALK
 		add_netagent = (bif_flags & BIFF_NETAGENT_REMOVED) != 0;
 
@@ -2804,7 +2806,7 @@ bridge_delete_member(struct bridge_softc *sc, struct bridge_iflist *bif)
 	kfree_type(struct bridge_iflist, bif);
 	ifs->if_bridge = NULL;
 #if SKYWALK
-	if (add_netagent && ifnet_is_attached(ifs, 1)) {
+	if (add_netagent && ifnet_get_ioref(ifs)) {
 		(void)ifnet_add_netagent(ifs);
 		ifnet_decr_iorefcnt(ifs);
 	}
@@ -2905,7 +2907,7 @@ bridge_ioctl_add(struct bridge_softc *sc, void *__sized_by(arg_len) arg, size_t 
 	}
 
 	/* prevent the interface from detaching while we add the member */
-	if (!ifnet_is_attached(ifs, 1)) {
+	if (!ifnet_get_ioref(ifs)) {
 		return ENXIO;
 	}
 
@@ -5063,7 +5065,8 @@ bridge_verify_checksum_list(ifnet_t bridge_ifp, struct bridge_iflist * dbif,
 			error = bridge_verify_checksum(&scan, &dbif->bif_stats);
 			if (error != 0) {
 				if (scan != NULL) {
-					m_freem(scan);
+					m_drop(scan, DROPTAP_FLAG_DIR_IN,
+					    DROP_REASON_BRIDGE_CHECKSUM, NULL, 0);
 					scan = NULL;
 				}
 			}
@@ -5414,7 +5417,9 @@ bridge_enqueue(ifnet_t bridge_ifp, ifnet_t src_if, ifnet_t dst_if,
 		}
 		if (error != 0) {
 			if (scan != NULL) {
-				m_freem(scan);
+				m_drop(scan,
+				    direction == pkt_direction_RX ? DROPTAP_FLAG_DIR_IN : DROPTAP_FLAG_DIR_OUT,
+				    DROP_REASON_BRIDGE_HWASSIST, NULL, 0);
 				scan = NULL;
 			}
 			out_errors++;
@@ -5555,7 +5560,8 @@ bridge_member_output(struct bridge_softc *sc, ifnet_t ifp, mbuf_t *data)
 
 		BRIDGE_LOCK2REF(sc, error);
 		if (error != 0) {
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_OUT,
+			    DROP_REASON_BRIDGE_NOREF, NULL, 0);
 			return EJUSTRETURN;
 		}
 
@@ -5609,7 +5615,8 @@ bridge_member_output(struct bridge_softc *sc, ifnet_t ifp, mbuf_t *data)
 		BRIDGE_UNREF(sc);
 
 		if ((ifp->if_flags & IFF_RUNNING) == 0) {
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_OUT,
+			    DROP_REASON_BRIDGE_NOT_RUNNING, NULL, 0);
 			return EJUSTRETURN;
 		}
 		/* allow packet to continue on the originating interface */
@@ -5623,7 +5630,8 @@ sendunicast:
 
 	bridge_span(sc, etypef, m);
 	if ((dst_if->if_flags & IFF_RUNNING) == 0) {
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_OUT,
+		    DROP_REASON_BRIDGE_NOT_RUNNING, NULL, 0);
 		BRIDGE_UNLOCK(sc);
 		return EJUSTRETURN;
 	}
@@ -5643,7 +5651,8 @@ sendunicast:
 		 * Drop the packet because the packet can't be sent
 		 * if the source MAC is incorrect.
 		 */
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_OUT,
+		    DROP_REASON_BRIDGE_MAC_NAT_FAILURE, NULL, 0);
 	}
 	return EJUSTRETURN;
 }
@@ -6513,22 +6522,26 @@ bridge_forward_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 {
 	bool                    checksum_ok = false;
 	ChecksumOperation       cksum_op;
-	ifnet_t                 bridge_ifp;
+	ifnet_t                 bridge_ifp = NULL;
 	struct bridge_iflist *  dbif;
 	uint32_t                sc_filter_flags;
 	ifnet_t                 src_if;
+	drop_reason_t           drop_reason = DROP_REASON_BRIDGE_UNSPECIFIED;
 
 	if ((dst_if->if_flags & IFF_RUNNING) == 0) {
+		drop_reason = DROP_REASON_BRIDGE_NOT_RUNNING;
 		goto drop;
 	}
 	dbif = bridge_lookup_member_if(sc, dst_if);
 	if (dbif == NULL) {
 		/* Not a member of the bridge (anymore?) */
+		drop_reason = DROP_REASON_BRIDGE_NOT_A_MEMBER;
 		goto drop;
 	}
 
 	/* Private segments can not talk to each other */
 	if ((sbif->bif_ifflags & dbif->bif_ifflags & IFBIF_PRIVATE) != 0) {
+		drop_reason = DROP_REASON_BRIDGE_PRIVATE_SEGMENT;
 		goto drop;
 	}
 	bridge_ifp = sc->sc_ifp;
@@ -6586,7 +6599,7 @@ bridge_forward_list(struct bridge_softc *sc, struct bridge_iflist * sbif,
 
 drop:
 	BRIDGE_UNLOCK(sc);
-	m_freem_list(m);
+	m_drop_list(m, bridge_ifp, DROPTAP_FLAG_DIR_IN, drop_reason, NULL, 0);
 	return;
 }
 
@@ -8781,7 +8794,8 @@ bridge_mac_nat_arp_translate(mbuf_t *data, struct mac_nat_record *mnr,
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback failed");
-		m_freem(*data);
+		m_drop(*data, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_MAC_NAT_FAILURE, NULL, 0);
 		*data = NULL;
 	}
 	return;
@@ -8805,7 +8819,8 @@ bridge_mac_nat_ip_translate(mbuf_t *data, struct mac_nat_record *mnr)
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback uh_sum failed");
-		m_freem(*data);
+		m_drop(*data, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_MAC_NAT_FAILURE, NULL, 0);
 		*data = NULL;
 	}
 	/* update the DHCP must broadcast flag */
@@ -8817,7 +8832,8 @@ bridge_mac_nat_ip_translate(mbuf_t *data, struct mac_nat_record *mnr)
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback dp_flags failed");
-		m_freem(*data);
+		m_drop(*data, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_MAC_NAT_FAILURE, NULL, 0);
 		*data = NULL;
 	}
 }
@@ -8856,7 +8872,8 @@ bridge_mac_nat_ipv6_translate(mbuf_t *data, struct mac_nat_record *mnr,
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback lladdr failed");
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_MAC_NAT_FAILURE, NULL, 0);
 		*data = NULL;
 		return;
 	}
@@ -8876,7 +8893,8 @@ bridge_mac_nat_ipv6_translate(mbuf_t *data, struct mac_nat_record *mnr,
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback cksum=0 failed");
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_CHECKSUM, NULL, 0);
 		*data = NULL;
 		return;
 	}
@@ -8888,7 +8906,8 @@ bridge_mac_nat_ipv6_translate(mbuf_t *data, struct mac_nat_record *mnr,
 	if (error != 0) {
 		BRIDGE_LOG(LOG_NOTICE, BR_DBGF_MAC_NAT,
 		    "mbuf_copyback cksum failed");
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_CHECKSUM, NULL, 0);
 		*data = NULL;
 		return;
 	}
@@ -9291,7 +9310,7 @@ bridge_pf(struct mbuf **mp, struct ifnet *ifp, uint32_t sc_filter_flags,
 	return 0;
 
 bad:
-	m_freem(*mp);
+	m_drop(*mp, DROPTAP_FLAG_DIR_IN, DROP_REASON_BRIDGE_PF, NULL, 0);
 	*mp = NULL;
 	return error;
 }
@@ -9331,7 +9350,8 @@ bridge_filter_arp_list(struct bridge_iflist * bif, mbuf_t m)
 				    sizeof(struct ether_header) +
 				    sizeof(struct ip));
 			}
-			m_freem(scan);
+			m_drop(scan, DROPTAP_FLAG_DIR_IN,
+			    DROP_REASON_BRIDGE_HOST_FILTER, NULL, 0);
 			scan = NULL;
 		}
 		if (scan != NULL) {
@@ -9350,6 +9370,7 @@ bridge_filter_checksum(ifnet_t bridge_ifp, struct bridge_iflist * bif, mbuf_t m,
 	errno_t                 error;
 	ip_packet_info          info;
 	u_int                   mac_hlen = sizeof(struct ether_header);
+	drop_reason_t           drop_reason = DROP_REASON_BRIDGE_UNSPECIFIED;
 
 	if (host_filter) {
 		dbgf |= BR_DBGF_HOSTFILTER;
@@ -9365,6 +9386,7 @@ bridge_filter_checksum(ifnet_t bridge_ifp, struct bridge_iflist * bif, mbuf_t m,
 		    "%s(%s) bridge_get_ip_proto failed %d",
 		    bridge_ifp->if_xname,
 		    bif->bif_ifp->if_xname, error);
+		drop_reason = DROP_REASON_BRIDGE_NO_PROTO;
 		goto drop;
 	}
 	if (host_filter) {
@@ -9388,6 +9410,7 @@ bridge_filter_checksum(ifnet_t bridge_ifp, struct bridge_iflist * bif, mbuf_t m,
 		}
 		if (drop) {
 			BRIDGE_HF_DROP(brhf_ip_bad_proto, __func__, __LINE__);
+			drop_reason = DROP_REASON_BRIDGE_BAD_PROTO;
 			goto drop;
 		}
 		bridge_hostfilter_stats.brhf_ip_ok += 1;
@@ -9400,6 +9423,7 @@ bridge_filter_checksum(ifnet_t bridge_ifp, struct bridge_iflist * bif, mbuf_t m,
 			    "%s(%s) bridge_offload_checksum failed %d",
 			    bridge_ifp->if_xname,
 			    bif->bif_ifp->if_xname, error);
+			drop_reason = DROP_REASON_BRIDGE_CHECKSUM;
 			goto drop;
 		}
 	}
@@ -9414,7 +9438,7 @@ drop:
 			    sizeof(struct ether_header) +
 			    sizeof(struct ip));
 		}
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN, drop_reason, NULL, 0);
 		m = NULL;
 	}
 	return NULL;
@@ -9653,7 +9677,8 @@ bridge_input_list(struct bridge_softc * sc, ifnet_t ifp,
 	}
 	if (host_filter_drop) {
 		BRIDGE_UNLOCK(sc);
-		m_freem_list(list.head);
+		m_drop_list(list.head, bridge_ifp, DROPTAP_FLAG_DIR_IN,
+		    DROP_REASON_BRIDGE_HOST_FILTER, NULL, 0);
 		list.head = list.tail = NULL;
 		goto done;
 	}
@@ -9830,7 +9855,8 @@ bridge_input_list(struct bridge_softc * sc, ifnet_t ifp,
 			/* if a member is shost, there's a loop, drop it */
 			if (bridge_find_member(sc, shost, bif) != NULL) {
 				BRIDGE_UNLOCK(sc);
-				m_freem_list(list.head);
+				m_drop_list(list.head, bridge_ifp, DROPTAP_FLAG_DIR_IN,
+				    DROP_REASON_BRIDGE_LOOP, NULL, 0);
 				list.head = list.tail = NULL;
 				goto done;
 			}
@@ -10551,7 +10577,8 @@ gso_tcp(ifnet_t ifp, mbuf_t m, u_int mac_hlen, bool is_ipv4, bool is_tx)
 		    ifp->if_xname, error,
 		    is_tx ? "TX" : "RX");
 		if (m != NULL) {
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_IN,
+			    DROP_REASON_BRIDGE_CHECKSUM, NULL, 0);
 			m = NULL;
 		}
 		goto no_segment;

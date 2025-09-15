@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,7 +59,7 @@ public:
     static bool supportsKeySystem(const String&);
     static bool isPersistentType(MediaKeySessionType);
 
-    static Ref<CDM> create(Document&, const String& keySystem);
+    static Ref<CDM> create(Document&, const String& keySystem, const String& mediaKeysHashSalt);
     ~CDM();
 
     using SupportedConfigurationCallback = Function<void(std::optional<MediaKeySystemConfiguration>)>;
@@ -82,19 +82,22 @@ public:
 
     String storageDirectory() const;
 
+    const String& mediaKeysHashSalt() const { return m_mediaKeysHashSalt; }
+
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
     uint64_t logIdentifier() const { return m_logIdentifier; }
 #endif
 
 private:
-    CDM(Document&, const String& keySystem);
+    CDM(Document&, const String& keySystem, const String& mediaKeysHashSalt);
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
     String m_keySystem;
+    String m_mediaKeysHashSalt;
     std::unique_ptr<CDMPrivate> m_private;
 };
 

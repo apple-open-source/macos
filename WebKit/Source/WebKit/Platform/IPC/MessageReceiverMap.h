@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/HashFunctions.h>
 #include <wtf/HashMap.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/CString.h>

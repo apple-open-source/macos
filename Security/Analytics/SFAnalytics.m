@@ -42,6 +42,8 @@
 #import "utilities/SecFileLocations.h"
 #import "utilities/debugging.h"
 
+#include "Analytics/Clients/LocalKeychainAnalytics.h"
+
 #if TARGET_OS_OSX
 #include <sys/sysctl.h>
 #include <membership.h>
@@ -153,6 +155,7 @@ NSString* const SFAnalyticsErrorDomain = @"com.apple.security.sfanalytics";
 // Local constants
 NSString* const SFAnalyticsEventBuild = @"build";
 NSString* const SFAnalyticsEventProduct = @"product";
+NSString* const SFAnalyticsEventProductVersion = @"version";
 NSString* const SFAnalyticsEventModelID = @"modelid";
 NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
@@ -202,6 +205,7 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
 
 + (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename
 {
+    [self logConsumerProcessInfo];
     WithPathInKeychainDirectory(CFSTR("Analytics"), ^(const char *path) {
 #if TARGET_OS_IPHONE
         /* We need _securityd, _trustd, and root all to be able to write. They share no groups. */
@@ -248,6 +252,7 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
 
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid
 {
+    [self logConsumerProcessInfo];
     // Create the top-level directory with full access
     NSMutableString *directory = [NSMutableString stringWithString:@"sfanalytics"];
     WithPathInProtectedDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
@@ -285,10 +290,32 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInProtectedDirectory((__bridge CFStringRef)path) path];
 }
 
++ (void)logConsumerProcessInfo
+{
+    // Make sure we log once on every process lifecycle on internal builds
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        if (os_variant_has_internal_diagnostics("com.apple.security")) {
+            NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+            NSString *processName = [processInfo processName];
+            NSString* xpcServiceName = [[processInfo environment] objectForKey:@"XPC_SERVICE_NAME"];
+            NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
+            attributes[@"process"] = processName;
+            attributes[@"xpcService"] = xpcServiceName;
+            NSString *eventName = [NSString stringWithFormat:@"SFAnalyticsConsumer-%@", processName];
+            dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+                [[LocalKeychainAnalytics logger] logRockwellFailureForEventNamed:eventName withAttributes:attributes];
+            });
+        }
+    });
+}
+
 + (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename
 {
     static dispatch_once_t onceToken;
     [self removeLegacyDefaultAnalyticsDatabasePath:basename usingDispatchToken:&onceToken];
+    
+    [self logConsumerProcessInfo];
 #if TARGET_OS_OSX
     uid_t euid = geteuid();
     uuid_t currentUserUuid;
@@ -505,32 +532,20 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
 
 - (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key
 {
-    __weak __typeof(self) weakSelf = self;
+
     dispatch_sync(_queue, ^{
-        __strong __typeof(self) strongSelf = weakSelf;
-        if (strongSelf) {
-            [strongSelf.database setProperty:[data base64EncodedStringWithOptions:0] forKey:key];
-        }
+        [self.database setDataProperty:data forKey:key];
     });
 }
 
 - (NSData*)dataPropertyForKey:(NSString*)key
 {
-    NSData* result = nil;
-    __block NSString *string = nil;
-    __weak __typeof(self) weakSelf = self;
+    __block NSData* result = nil;
     dispatch_sync(_queue, ^{
-        __strong __typeof(self) strongSelf = weakSelf;
-        if (strongSelf) {
-            string = [strongSelf.database propertyForKey:key];
-        }
+        result = [self.database dataPropertyForKey:key];
     });
-    if (string) {
-        result = [[NSData alloc] initWithBase64EncodedString:string options:0];
-    }
     return result;
 }
-
 
 - (NSString* _Nullable)metricsAccountID
 {
@@ -586,7 +601,8 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
 + (void)addOSVersionToEvent:(NSMutableDictionary*)eventDict {
     static dispatch_once_t onceToken;
     static NSString *build = NULL;
-    static NSString *product = NULL;
+    static NSString *productName = NULL;
+    static NSString *productVersion = NULL;
     static NSString *modelID = nil;
     static BOOL internal = NO;
     dispatch_once(&onceToken, ^{
@@ -594,16 +610,19 @@ static NSString *const SFAnalyticsUnderlyingErrorMultipleUnderlyingError= @"m";
         if (version == NULL)
             return;
         build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
-        product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+        productName = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+        productVersion = version[(__bridge NSString *)_kCFSystemVersionProductVersionKey];
         internal = os_variant_has_internal_diagnostics("com.apple.security");
-
         modelID = [self hwModelID];
     });
     if (build) {
         eventDict[SFAnalyticsEventBuild] = build;
     }
-    if (product) {
-        eventDict[SFAnalyticsEventProduct] = product;
+    if (productName) {
+        eventDict[SFAnalyticsEventProduct] = productName;
+    }
+    if (productVersion) {
+        eventDict[SFAnalyticsEventProductVersion] = productVersion;
     }
     if (modelID) {
         eventDict[SFAnalyticsEventModelID] = modelID;

@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2011 Google Inc.  All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -189,13 +189,13 @@ CString WebSocketHandshake::clientHandshakeMessage() const
         "\r\n"_s).utf8();
 }
 
-ResourceRequest WebSocketHandshake::clientHandshakeRequest(const Function<String(const URL&)>& cookieRequestHeaderFieldValue) const
+ResourceRequest WebSocketHandshake::clientHandshakeRequest(NOESCAPE const Function<String(const URL&)>& cookieRequestHeaderFieldValue) const
 {
     // Keep the following consistent with clientHandshakeMessage just above.
 
     auto cookie = m_allowCookies ? cookieRequestHeaderFieldValue(httpURLForAuthenticationAndCookies()) : emptyString();
     auto extensions = m_extensionDispatcher.createHeaderValue();
-    ResourceRequest request { m_url };
+    ResourceRequest request { URL { m_url } };
     request.setHTTPMethod("GET"_s);
     request.setHTTPHeaderField(HTTPHeaderName::Connection, "Upgrade"_s);
     request.setHTTPHeaderField(HTTPHeaderName::Host, hostName(m_url, m_secure));

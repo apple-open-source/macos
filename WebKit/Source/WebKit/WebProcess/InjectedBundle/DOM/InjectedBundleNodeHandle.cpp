@@ -32,6 +32,8 @@
 #include "WebLocalFrameLoaderClient.h"
 #include <JavaScriptCore/APICast.h>
 #include <WebCore/Document.h>
+#include <WebCore/FrameDestructionObserverInlines.h>
+#include <WebCore/FrameInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/HTMLFrameElement.h>
@@ -43,13 +45,14 @@
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/JSNode.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/Node.h>
 #include <WebCore/Page.h>
-#include <WebCore/Position.h>
+#include <WebCore/PositionInlines.h>
 #include <WebCore/Range.h>
 #include <WebCore/RenderElement.h>
+#include <WebCore/RenderText.h>
 #include <WebCore/ShareableBitmap.h>
 #include <WebCore/SimpleRange.h>
 #include <WebCore/Text.h>
@@ -74,8 +77,8 @@ static DOMNodeHandleCache& domNodeHandleCache()
 
 RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(JSContextRef, JSObjectRef object)
 {
-    Node* node = JSNode::toWrapped(toJS(object)->vm(), toJS(object));
-    return getOrCreate(node);
+    RefPtr node = JSNode::toWrapped(toJS(object)->vm(), toJS(object));
+    return getOrCreate(node.get());
 }
 
 RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(Node* node)
@@ -88,12 +91,12 @@ RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(Node* nod
 
 Ref<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(Node& node)
 {
-    if (auto existingHandle = domNodeHandleCache().get(node))
+    if (RefPtr existingHandle = domNodeHandleCache().get(node))
         return Ref<InjectedBundleNodeHandle>(*existingHandle);
 
     auto nodeHandle = InjectedBundleNodeHandle::create(node);
-    if (nodeHandle->coreNode())
-        domNodeHandleCache().add(*nodeHandle->coreNode(), nodeHandle.get());
+    if (RefPtr node = nodeHandle->coreNode())
+        domNodeHandleCache().add(*node, nodeHandle.get());
     return nodeHandle;
 }
 
@@ -112,11 +115,16 @@ InjectedBundleNodeHandle::InjectedBundleNodeHandle(Node& node)
 
 InjectedBundleNodeHandle::~InjectedBundleNodeHandle()
 {
-    if (m_node)
-        domNodeHandleCache().remove(*m_node);
+    if (RefPtr node = m_node)
+        domNodeHandleCache().remove(*node);
 }
 
 Node* InjectedBundleNodeHandle::coreNode()
+{
+    return m_node.get();
+}
+
+RefPtr<Node> InjectedBundleNodeHandle::protectedCoreNode()
 {
     return m_node.get();
 }
@@ -126,7 +134,7 @@ RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::document()
     if (!m_node)
         return nullptr;
 
-    return getOrCreate(m_node->document());
+    return getOrCreate(m_node->protectedDocument());
 }
 
 // Additional DOM Operations
@@ -146,7 +154,7 @@ IntRect InjectedBundleNodeHandle::absoluteBoundingRect(bool* isReplaced)
     if (!m_node)
         return { };
 
-    return m_node->pixelSnappedAbsoluteBoundingRect(isReplaced);
+    return protectedCoreNode()->pixelSnappedAbsoluteBoundingRect(isReplaced);
 }
 
 static RefPtr<WebImage> imageForRect(LocalFrameView* frameView, const IntRect& paintingRect, const std::optional<float>& bitmapWidth, SnapshotOptions options)
@@ -204,17 +212,17 @@ RefPtr<WebImage> InjectedBundleNodeHandle::renderedImage(SnapshotOptions options
     if (!m_node)
         return nullptr;
 
-    auto* frame = m_node->document().frame();
+    RefPtr frame = m_node->document().frame();
     if (!frame)
         return nullptr;
 
-    auto* frameView = frame->view();
+    RefPtr frameView = frame->view();
     if (!frameView)
         return nullptr;
 
-    m_node->document().updateLayout();
+    m_node->protectedDocument()->updateLayout();
 
-    RenderObject* renderer = m_node->renderer();
+    CheckedPtr renderer = m_node->renderer();
     if (!renderer)
         return nullptr;
 
@@ -227,7 +235,7 @@ RefPtr<WebImage> InjectedBundleNodeHandle::renderedImage(SnapshotOptions options
     }
 
     frameView->setNodeToDraw(m_node.get());
-    auto image = imageForRect(frameView, paintingRect, bitmapWidth, options);
+    RefPtr image = imageForRect(frameView.get(), paintingRect, bitmapWidth, options);
     frameView->setNodeToDraw(0);
 
     return image;
@@ -374,7 +382,7 @@ IntRect InjectedBundleNodeHandle::htmlInputElementAutoFillButtonBounds()
     if (!input)
         return IntRect();
 
-    auto autoFillButton = input->autoFillButtonElement();
+    RefPtr autoFillButton = input->autoFillButtonElement();
     if (!autoFillButton)
         return IntRect();
 
@@ -415,11 +423,9 @@ bool InjectedBundleNodeHandle::isSelectElement() const
 
 bool InjectedBundleNodeHandle::isSelectableTextNode() const
 {
-    if (!is<Text>(m_node))
-        return false;
-
-    auto renderer = m_node->renderer();
-    return renderer && renderer->style().usedUserSelect() != UserSelect::None;
+    if (CheckedPtr renderText = dynamicDowncast<RenderText>(m_node->renderer()))
+        return renderText->style().usedUserSelect() != UserSelect::None;
+    return false;
 }
 
 RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::htmlTableCellElementCellAbove()
@@ -428,7 +434,7 @@ RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::htmlTableCellElementC
     if (!tableCell)
         return nullptr;
 
-    return getOrCreate(tableCell->cellAbove());
+    return getOrCreate(tableCell->protectedCellAbove().get());
 }
 
 RefPtr<WebFrame> InjectedBundleNodeHandle::documentFrame()
@@ -437,7 +443,7 @@ RefPtr<WebFrame> InjectedBundleNodeHandle::documentFrame()
     if (!document)
         return nullptr;
 
-    auto* frame = document->frame();
+    RefPtr frame = document->frame();
     if (!frame)
         return nullptr;
 
@@ -446,11 +452,11 @@ RefPtr<WebFrame> InjectedBundleNodeHandle::documentFrame()
 
 RefPtr<WebFrame> InjectedBundleNodeHandle::htmlIFrameElementContentFrame()
 {
-    auto* iframeElement = dynamicDowncast<HTMLIFrameElement>(m_node.get());
+    RefPtr iframeElement = dynamicDowncast<HTMLIFrameElement>(m_node.get());
     if (!iframeElement)
         return nullptr;
 
-    auto* frame = iframeElement->contentFrame();
+    RefPtr frame = iframeElement->contentFrame();
     if (!frame)
         return nullptr;
 
@@ -460,8 +466,8 @@ RefPtr<WebFrame> InjectedBundleNodeHandle::htmlIFrameElementContentFrame()
 void InjectedBundleNodeHandle::stop()
 {
     // Invalidate handles to nodes inside documents that are about to be destroyed in order to prevent leaks.
-    if (m_node) {
-        domNodeHandleCache().remove(*m_node);
+    if (RefPtr node = m_node) {
+        domNodeHandleCache().remove(*node);
         m_node = nullptr;
     }
 }

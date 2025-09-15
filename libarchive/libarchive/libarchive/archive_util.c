@@ -459,6 +459,12 @@ get_tempdir(struct archive_string *temppath)
 	return (ARCHIVE_OK);
 }
 
+void
+__archive_get_tempdir(struct archive_string *temppath)
+{
+	return (void)get_tempdir(temppath);
+}
+
 #if defined(HAVE_MKSTEMP)
 
 /*

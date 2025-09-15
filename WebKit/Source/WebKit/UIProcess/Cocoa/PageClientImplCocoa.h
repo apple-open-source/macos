@@ -46,6 +46,7 @@ struct AppHighlight;
 
 namespace WebKit {
 
+class RemoteLayerTreeTransaction;
 struct TextAnimationData;
 enum class TextAnimationType : uint8_t;
 
@@ -56,7 +57,7 @@ public:
 
     void pageClosed() override;
 
-    void topContentInsetDidChange() final;
+    void obscuredContentInsetsDidChange() final;
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidFinishLaunching() override;
@@ -70,6 +71,10 @@ public:
 
     void themeColorWillChange() final;
     void themeColorDidChange() final;
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    void spatialBackdropSourceWillChange() final;
+    void spatialBackdropSourceDidChange() final;
+#endif
     void underPageBackgroundColorWillChange() final;
     void underPageBackgroundColorDidChange() final;
     void sampledPageTopColorWillChange() final;
@@ -96,6 +101,8 @@ public:
 #if ENABLE(APP_HIGHLIGHTS)
     void storeAppHighlight(const WebCore::AppHighlight&) final;
 #endif
+
+    void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
 
     void microphoneCaptureWillChange() final;
     void cameraCaptureWillChange() final;
@@ -127,10 +134,14 @@ public:
 #endif
 
 #if ENABLE(SCREEN_TIME)
-    void installScreenTimeWebpageController() final;
     void didChangeScreenTimeWebpageControllerURL() final;
+    void setURLIsPictureInPictureForScreenTime(bool) final;
+    void setURLIsPlayingVideoForScreenTime(bool) final;
     void updateScreenTimeWebpageControllerURL(WKWebView *);
 #endif
+
+    void viewIsBecomingVisible() override;
+    void viewIsBecomingInvisible() override;
 
 #if ENABLE(GAMEPAD)
     void setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed) final;
@@ -151,6 +162,7 @@ private:
 #if ENABLE(FULLSCREEN_API)
     void setFullScreenClientForTesting(std::unique_ptr<WebFullScreenManagerProxyClient>&&) final;
 #endif
+
 protected:
     RetainPtr<WKWebView> webView() const { return m_webView.get(); }
 

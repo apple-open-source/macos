@@ -42,7 +42,7 @@
 - (NSString *)cite
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::citeAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::citeAttr).string().createNSString().autorelease();
 }
 
 - (void)setCite:(NSString *)newCite
@@ -54,7 +54,7 @@
 - (NSString *)dateTime
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::datetimeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::datetimeAttr).createNSString().autorelease();
 }
 
 - (void)setDateTime:(NSString *)newDateTime

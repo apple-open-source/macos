@@ -67,6 +67,7 @@
 #include <net/kpi_protocol.h>
 #include <sys/protosw.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 #include <os/refcnt.h>
 

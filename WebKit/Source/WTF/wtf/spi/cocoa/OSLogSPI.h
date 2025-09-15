@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <os/log.h>
 
 #if USE(APPLE_INTERNAL_SDK)

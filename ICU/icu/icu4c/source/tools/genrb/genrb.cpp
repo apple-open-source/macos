@@ -34,6 +34,9 @@
 #include "reslist.h"
 #include "ucmndata.h"  /* TODO: for reading the pool bundle */
 #include "collationroot.h"
+#if APPLE_ICU_CHANGES // rdar://155639864
+#include <limits.h>
+#endif
 
 U_NAMESPACE_USE
 
@@ -573,7 +576,11 @@ main(int argc,
         } else {
             writePoolDir = outputDir;
         }
+#if APPLE_ICU_CHANGES // rdar://155639864
+        char outputFileName[PATH_MAX];
+#else
         char outputFileName[256];
+#endif
         newPoolBundle->write(writePoolDir, nullptr, outputFileName, sizeof(outputFileName), status);
         if(U_FAILURE(status)) {
             fprintf(stderr, "unable to write the pool bundle: %s\n", u_errorName(status));
@@ -602,7 +609,11 @@ processFile(const char *filename, const char *cp,
     CharString openFileName;
     CharString inputDirBuf;
 
+#if APPLE_ICU_CHANGES // rdar://155639864
+    char outputFileName[PATH_MAX];
+#else
     char outputFileName[256];
+#endif
     int32_t dirlen  = 0;
 
     if (U_FAILURE(status)) {

@@ -91,7 +91,7 @@ bool shouldAllowAutoFillForCellularIdentifiers(const URL& topURL)
         return lastQueriedHostResult;
 
     NSError *error = nil;
-    BOOL result = [client isAutofilleSIMIdAllowedForDomain:host error:&error];
+    BOOL result = [client isAutofilleSIMIdAllowedForDomain:host.createNSString().get() error:&error];
     if (error && !std::exchange(hasLogged, true)) {
         RELEASE_LOG_ERROR(Telephony, "Failed to query cellular AutoFill status: %{public}@", error);
         return false;

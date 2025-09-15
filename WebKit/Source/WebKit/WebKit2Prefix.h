@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,6 +65,8 @@
 #include <mutex>
 #include <string>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/TZoneMallocInlines.h>
+#include <wtf/Variant.h>
 #endif
 
 #ifdef __OBJC__

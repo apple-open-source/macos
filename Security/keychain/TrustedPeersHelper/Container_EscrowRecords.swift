@@ -1,5 +1,6 @@
 import CoreData
 import Foundation
+import InternalSwiftProtobuf
 
 private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "escrowrecords")
 

@@ -35,13 +35,17 @@
 static void usage();
 
 static void usage(void) {
-    fprintf(stderr, "Usage: fsck_fskit [-t fstype] <options> device\n");
+    fprintf(stderr, "Usage: fsck_fskit [--progress] -t fstype [Module options] device\n");
+    fprintf(stderr, "\t--progress if passed it will display the progress of fsck (optional)\n");
+    fprintf(stderr, "\t-t file system type (required) e.g. msdos\n");
     exit(DEFAULT_EXIT_CODE);
 }
 
 int main(int argc, const char * argv[]) {
 
     int ret;
+    int flags = 0;
+    int index = 1;
     bool typeOptionFound = false;
     bool typeValueFound = false;
 
@@ -49,13 +53,19 @@ int main(int argc, const char * argv[]) {
         usage();
     }
 
-    // We are only supporting `fsck_fskit -t fstype <otheroptions> someDisk`, different filesystem use different options, so we are going
+    // We are only supporting `fsck_fskit [--progress] -t fstype <otheroptions> someDisk`, different filesystem use different options, so we are going
     // to leave the option parsing to FSKit.
+    // --progress is optional, if passed it will display the progress of fsck
 
-    if (strcmp(argv[1], "-t") == 0) {
-        typeOptionFound = true;
+    if (strcmp(argv[index], "--progress") == 0) {
+        flags = SHOW_PROGRESS_FLAG;
+        index++;
     }
-    if (strncmp("-", argv[2], 1) != 0) {
+    if (strcmp(argv[index], "-t") == 0) {
+        typeOptionFound = true;
+        index++;
+    }
+    if (strncmp("-", argv[index], 1) != 0) {
         typeValueFound = true;
     }
 
@@ -64,10 +74,10 @@ int main(int argc, const char * argv[]) {
     }
 
     // invoke_tool_from_fskit expects arguments to look like "fstype <other_options> disk", so we are ignoring `fsck_fskit` and `-t` arguments.
-    argc -= 2;
-    argv += 2;
+    argc -= index;
+    argv += index;
 
-    ret = invoke_tool_from_fskit(check_fs_op, 0, argc, argv);
+    ret = invoke_tool_from_fskit(check_fs_op, flags, argc, argv);
     exit(ret);
 
 }

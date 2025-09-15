@@ -30,11 +30,10 @@
 #include "GPUPipelineLayout.h"
 #include "WebGPUPipelineDescriptorBase.h"
 
-#include <variant>
 
 namespace WebCore {
 
-using GPULayoutMode = std::variant<
+using GPULayoutMode = Variant<
     RefPtr<GPUPipelineLayout>,
     GPUAutoLayoutMode
 >;

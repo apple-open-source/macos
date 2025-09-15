@@ -23,6 +23,7 @@
 
 #import "keychain/ot/CuttlefishXPCWrapper.h"
 #import <AppleFeatures/AppleFeatures.h>
+#import <OctagonTrust/OTEscrowCheckCallResult.h>
 
 // Too complex for the static analyzer: rdar://119671856 (Infinite loop when building with "-Wcompletion-handler")
 #pragma clang diagnostic push
@@ -1126,6 +1127,8 @@ enum {NUM_RETRIES = 5};
 - (void)requestHealthCheckWithSpecificUser:(TPSpecificUser*)specificUser
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
+                       danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                                updateIdMS:(BOOL)updateIdMS
                           knownFederations:(NSArray<NSString *> *)knownFederations
                                     flowID:(NSString* _Nullable)flowID
                            deviceSessionID:(NSString* _Nullable)deviceSessionID
@@ -1144,7 +1147,40 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] requestHealthCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck repair:repair knownFederations:knownFederations flowID:flowID deviceSessionID:deviceSessionID reply:reply];
+        }] requestHealthCheckWithSpecificUser:specificUser
+                          requiresEscrowCheck:requiresEscrowCheck
+                                       repair:repair
+                          danglingPeerCleanup:danglingPeerCleanup
+                                   updateIdMS:updateIdMS
+                             knownFederations:knownFederations
+                                       flowID:flowID
+                              deviceSessionID:deviceSessionID
+                                        reply:reply];
+    } while (retry);
+}
+
+- (void)requestEscrowCheckWithSpecificUser:(TPSpecificUser*)specificUser
+                       requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                        passcodeGeneration:(UInt64)passcodeGeneration
+                          knownFederations:(nonnull NSArray<NSString *> *)knownFederations
+                         isBackgroundCheck:(BOOL)isBackgroundCheck
+                                    flowID:(NSString* _Nullable)flowID
+                           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                     reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(nil, error);
+            }
+            ++i;
+        }] requestEscrowCheckWithSpecificUser:specificUser requiresEscrowCheck:requiresEscrowCheck passcodeGeneration:passcodeGeneration knownFederations:knownFederations isBackgroundCheck:isBackgroundCheck flowID:flowID deviceSessionID:deviceSessionID reply:reply];
     } while (retry);
 }
 
@@ -1270,6 +1306,10 @@ enum {NUM_RETRIES = 5};
 
 - (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser*)specificUser
                                   forceFetch:(bool)forceFetch
+                                     altDSID:(NSString* _Nullable)altDSID
+                                      flowID:(NSString* _Nullable)flowID
+                             deviceSessionID:(NSString* _Nullable)deviceSessionID
+                              canSendMetrics:(BOOL)canSendMetrics
                                        reply:(nonnull void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable,
                                                                NSError * _Nullable))reply
 {
@@ -1286,7 +1326,13 @@ enum {NUM_RETRIES = 5};
                 reply(nil, error);
             }
             ++i;
-        }] fetchAccountSettingsWithSpecificUser:specificUser forceFetch:forceFetch reply:reply];
+        }] fetchAccountSettingsWithSpecificUser:specificUser
+         forceFetch:forceFetch
+         altDSID:altDSID
+         flowID:flowID
+         deviceSessionID:deviceSessionID
+         canSendMetrics:canSendMetrics
+         reply:reply];
     } while (retry);
 }
 
@@ -1467,6 +1513,24 @@ enum {NUM_RETRIES = 5};
             }
             ++i;
         }] fetchTrustedPeerCountWithSpecificUser:specificUser reply:reply];
+    } while (retry);
+}
+
+- (void)fetchTrustedFullPeerCountWithSpecificUser:(TPSpecificUser * _Nullable)specificUser reply:(nonnull void (^)(NSNumber * _Nullable, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC %s, (%d, %@)", __func__, i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper %s: %@", __func__, error);
+                reply(nil, error);
+            }
+            ++i;
+        }] fetchTrustedFullPeerCountWithSpecificUser:specificUser reply:reply];
     } while (retry);
 }
 

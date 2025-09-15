@@ -22,6 +22,7 @@
 #include "JSTestLegacyFactoryFunction.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
@@ -112,23 +113,23 @@ template<> EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSTestLegacyFactoryFunctionLe
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* castedThis = jsCast<JSTestLegacyFactoryFunctionLegacyFactoryFunction*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     RefPtr context = castedThis->scriptExecutionContext();
-    if (UNLIKELY(!context))
+    if (!context) [[unlikely]]
         return throwConstructorScriptExecutionContextUnavailableError(*lexicalGlobalObject, throwScope, "TestLegacyFactoryFunction"_s);
     Ref document = downcast<Document>(*context);
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto str1ConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(str1ConversionResult.hasException(throwScope)))
+    if (str1ConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->argument(1);
     auto str2ConversionResult = convertOptionalWithDefault<IDLDOMString>(*lexicalGlobalObject, argument1.value(), [&]() -> ConversionResult<IDLDOMString> { return Converter<IDLDOMString>::ReturnType { "defaultString"_s }; });
-    if (UNLIKELY(str2ConversionResult.hasException(throwScope)))
+    if (str2ConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument2 = callFrame->argument(2);
     auto str3ConversionResult = convertOptionalWithDefault<IDLDOMString>(*lexicalGlobalObject, argument2.value(), [&]() -> ConversionResult<IDLDOMString> { return typename Converter<IDLDOMString>::ReturnType { String() }; });
-    if (UNLIKELY(str3ConversionResult.hasException(throwScope)))
+    if (str3ConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     auto object = TestLegacyFactoryFunction::createForLegacyFactoryFunction(document.get(), str1ConversionResult.releaseReturnValue(), str2ConversionResult.releaseReturnValue(), str3ConversionResult.releaseReturnValue());
     if constexpr (IsExceptionOr<decltype(object)>)
@@ -217,14 +218,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestLegacyFactoryFunctionConstructor, (JSGlobalObject
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestLegacyFactoryFunctionPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestLegacyFactoryFunction::getConstructor(vm, prototype->globalObject()));
 }
 
 JSC::GCClient::IsoSubspace* JSTestLegacyFactoryFunction::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestLegacyFactoryFunction, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestLegacyFactoryFunction, UseCustomHeapCellType::No>(vm, "JSTestLegacyFactoryFunction"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestLegacyFactoryFunction.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestLegacyFactoryFunction = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestLegacyFactoryFunction.get(); },
@@ -246,7 +247,7 @@ bool JSTestLegacyFactoryFunctionOwner::isReachableFromOpaqueRoots(JSC::Handle<JS
     SUPPRESS_UNCOUNTED_LOCAL auto* jsTestLegacyFactoryFunction = jsCast<JSTestLegacyFactoryFunction*>(handle.slot()->asCell());
     SUPPRESS_UNCOUNTED_LOCAL auto& wrapped = jsTestLegacyFactoryFunction->wrapped();
     if (!wrapped.isContextStopped() && wrapped.hasPendingActivity()) {
-        if (UNLIKELY(reason))
+        if (reason) [[unlikely]]
             *reason = "ActiveDOMObject with pending activity"_s;
         return true;
      }
@@ -270,7 +271,9 @@ extern "C" { extern void (*const __identifier("??_7TestLegacyFactoryFunction@Web
 #else
 extern "C" { extern void* _ZTVN7WebCore25TestLegacyFactoryFunctionE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestLegacyFactoryFunction>, void>> static inline void verifyVTable(TestLegacyFactoryFunction* ptr) {
+template<std::same_as<TestLegacyFactoryFunction> T>
+static inline void verifyVTable(TestLegacyFactoryFunction* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

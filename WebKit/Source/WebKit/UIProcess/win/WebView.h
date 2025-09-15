@@ -155,9 +155,13 @@ private:
     bool m_isBeingDestroyed { false };
     bool m_usesOffscreenRendering { false };
 
-    std::unique_ptr<WebKit::PageClientImpl> m_pageClient;
+    const std::unique_ptr<WebKit::PageClientImpl> m_pageClient;
     RefPtr<WebPageProxy> m_page;
     WebCore::IntSize m_viewSize;
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebView)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::View; }
+SPECIALIZE_TYPE_TRAITS_END()

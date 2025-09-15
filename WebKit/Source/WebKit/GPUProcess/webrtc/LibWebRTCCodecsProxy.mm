@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -72,12 +72,12 @@ Ref<LibWebRTCCodecsProxy> LibWebRTCCodecsProxy::create(GPUConnectionToWebProcess
 
 LibWebRTCCodecsProxy::LibWebRTCCodecsProxy(GPUConnectionToWebProcess& webProcessConnection, SharedPreferencesForWebProcess& sharedPreferencesForWebProcess)
     : m_connection(webProcessConnection.connection())
-    , m_queue(webProcessConnection.protectedGPUProcess()->libWebRTCCodecsQueue())
+    , m_queue(webProcessConnection.gpuProcess().libWebRTCCodecsQueue())
     , m_videoFrameObjectHeap(webProcessConnection.videoFrameObjectHeap())
     , m_resourceOwner(webProcessConnection.webProcessIdentity())
     , m_sharedPreferencesForWebProcess(sharedPreferencesForWebProcess)
 {
-    protectedWorkQueue()->dispatch([this, protectedThis = Ref { *this }, sharedPreferencesForWebProcess] {
+    m_queue->dispatch([this, protectedThis = Ref { *this }, sharedPreferencesForWebProcess] {
         m_sharedPreferencesForWebProcess = sharedPreferencesForWebProcess;
     });
 }
@@ -86,17 +86,21 @@ LibWebRTCCodecsProxy::~LibWebRTCCodecsProxy() = default;
 
 void LibWebRTCCodecsProxy::stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFromConnection)
 {
-    protectedConnection()->removeWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName());
+    m_connection->removeWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName());
 
-    protectedWorkQueue()->dispatch([this, protectedThis = WTFMove(refFromConnection)] {
-        assertIsCurrent(workQueue());
-        auto decoders = WTFMove(m_decoders);
+    m_queue->dispatch([weakThis = ThreadSafeWeakPtr { *this }, refFromConnection = WTFMove(refFromConnection)] {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        assertIsCurrent(protectedThis->workQueue());
+        auto decoders = std::exchange(protectedThis->m_decoders, { });
         for (auto& decoder : decoders.values()) {
             while (!decoder.decodingCallbacks.isEmpty())
                 decoder.decodingCallbacks.takeFirst()(false);
         }
         decoders.clear();
-        auto encoders = WTFMove(m_encoders);
+        auto encoders = std::exchange(protectedThis->m_encoders, { });
         for (auto& encoder : encoders.values()) {
             webrtc::releaseLocalEncoder(encoder.webrtcEncoder);
             while (!encoder.encodingCallbacks.isEmpty())
@@ -107,7 +111,7 @@ void LibWebRTCCodecsProxy::stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFr
 
 void LibWebRTCCodecsProxy::initialize()
 {
-    protectedConnection()->addWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName(), protectedWorkQueue(), *this);
+    m_connection->addWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName(), m_queue, *this);
 }
 
 auto LibWebRTCCodecsProxy::createDecoderCallback(VideoDecoderIdentifier identifier, bool useRemoteFrames, bool enableAdditionalLogging)
@@ -127,7 +131,7 @@ auto LibWebRTCCodecsProxy::createDecoderCallback(VideoDecoderIdentifier identifi
     }
     return [weakThis = ThreadSafeWeakPtr { *this }, identifier, connection = m_connection, resourceOwner = m_resourceOwner, videoFrameObjectHeap = WTFMove(videoFrameObjectHeap), frameRateMonitor = WTFMove(frameRateMonitor)] (CVPixelBufferRef pixelBuffer, int64_t timeStamp, int64_t timeStampNs, bool isReordered) mutable {
         RefPtr protectedThis = weakThis.get();
-        auto scope = makeScopeExit([&] {
+        auto scope = makeScopeExit([&, pixelBuffer = retainPtr(pixelBuffer)] {
             if (!protectedThis)
                 return;
 
@@ -229,7 +233,7 @@ void LibWebRTCCodecsProxy::releaseDecoder(VideoDecoderIdentifier identifier)
     if (iterator == m_decoders.end())
         return;
 
-    protectedWorkQueue()->dispatch([decodingCallbacks = WTFMove(iterator->value.decodingCallbacks)] () mutable {
+    m_queue->dispatch([decodingCallbacks = WTFMove(iterator->value.decodingCallbacks)] () mutable {
         while (!decodingCallbacks.isEmpty())
             decodingCallbacks.takeFirst()(-2);
     });
@@ -240,10 +244,10 @@ void LibWebRTCCodecsProxy::releaseDecoder(VideoDecoderIdentifier identifier)
 
 void LibWebRTCCodecsProxy::flushDecoder(VideoDecoderIdentifier identifier, CompletionHandler<void()>&& completionHandler)
 {
-    doDecoderTask(identifier, [&](auto& decoder) {
+    doDecoderTask(identifier, [queue = Ref { m_queue }, &completionHandler](auto& decoder) {
         decoder.webrtcDecoder->flush();
         // FIXME: It would be nice to ASSERT that when executing callback, the decoding task deque is empty.
-        protectedWorkQueue()->dispatch(WTFMove(completionHandler));
+        queue->dispatch(WTFMove(completionHandler));
     });
 }
 
@@ -256,11 +260,11 @@ void LibWebRTCCodecsProxy::setDecoderFormatDescription(VideoDecoderIdentifier id
 
 void LibWebRTCCodecsProxy::decodeFrame(VideoDecoderIdentifier identifier, int64_t timeStamp, std::span<const uint8_t> data, CompletionHandler<void(bool)>&& callback) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
 {
-    doDecoderTask(identifier, [&, callback = WTFMove(callback)] (auto& decoder) mutable {
+    doDecoderTask(identifier, [identifier, connection = Ref { m_connection }, timeStamp, data, callback = WTFMove(callback)] (auto& decoder) mutable {
         if (decoder.frameRateMonitor)
             decoder.frameRateMonitor->update();
         if (decoder.webrtcDecoder->decodeFrame(timeStamp, data)) {
-            protectedConnection()->send(Messages::LibWebRTCCodecs::FailedDecoding { identifier }, 0);
+            connection->send(Messages::LibWebRTCCodecs::FailedDecoding { identifier }, 0);
             callback(false);
             return;
         }
@@ -275,7 +279,7 @@ void LibWebRTCCodecsProxy::setFrameSize(VideoDecoderIdentifier identifier, uint1
     });
 }
 
-void LibWebRTCCodecsProxy::doDecoderTask(VideoDecoderIdentifier identifier, Function<void(Decoder&)>&& task)
+void LibWebRTCCodecsProxy::doDecoderTask(VideoDecoderIdentifier identifier, NOESCAPE Function<void(Decoder&)>&& task)
 {
     assertIsCurrent(workQueue());
     auto iterator = m_decoders.find(identifier);
@@ -387,7 +391,7 @@ void LibWebRTCCodecsProxy::releaseEncoder(VideoEncoderIdentifier identifier)
 
     webrtc::releaseLocalEncoder(encoder.webrtcEncoder);
 
-    protectedWorkQueue()->dispatch([encodingCallbacks = WTFMove(encoder.encodingCallbacks)] () mutable {
+    m_queue->dispatch([encodingCallbacks = WTFMove(encoder.encodingCallbacks)] () mutable {
         while (!encodingCallbacks.isEmpty())
             encodingCallbacks.takeFirst()(-2);
     });
@@ -488,28 +492,28 @@ void LibWebRTCCodecsProxy::encodeFrame(VideoEncoderIdentifier identifier, Shared
 
 void LibWebRTCCodecsProxy::notifyEncoderResult(VideoEncoderIdentifier identifier, bool result)
 {
-    protectedWorkQueue()->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
+    m_queue->dispatch([weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
 
-        assertIsCurrent(workQueue());
-        if (auto* encoder = findEncoder(identifier))
+        assertIsCurrent(protectedThis->workQueue());
+        if (auto* encoder = protectedThis->findEncoder(identifier))
             encoder->encodingCallbacks.takeFirst()(result);
     });
 }
 
 void LibWebRTCCodecsProxy::notifyDecoderResult(VideoDecoderIdentifier identifier, bool result)
 {
-    protectedWorkQueue()->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
+    m_queue->dispatch([weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
 
-        assertIsCurrent(workQueue());
+        assertIsCurrent(protectedThis->workQueue());
 
-        auto iterator = m_decoders.find(identifier);
-        if (iterator == m_decoders.end())
+        auto iterator = protectedThis->m_decoders.find(identifier);
+        if (iterator == protectedThis->m_decoders.end())
             return;
 
         iterator->value.decodingCallbacks.takeFirst()(result);
@@ -522,7 +526,7 @@ void LibWebRTCCodecsProxy::flushEncoder(VideoEncoderIdentifier identifier, Compl
     if (auto* encoder = findEncoder(identifier))
         webrtc::flushLocalEncoder(encoder->webrtcEncoder);
     // FIXME: It would be nice to ASSERT that when executing callback, the encoding task deque is empty.
-    protectedWorkQueue()->dispatch(WTFMove(callback));
+    m_queue->dispatch(WTFMove(callback));
 }
 
 void LibWebRTCCodecsProxy::setEncodeRates(VideoEncoderIdentifier identifier, uint32_t bitRate, uint32_t frameRate, CompletionHandler<void()>&& callback)
@@ -572,7 +576,7 @@ void LibWebRTCCodecsProxy::setRTCLoggingLevel(WTFLogLevel level)
 
 void LibWebRTCCodecsProxy::updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess sharedPreferencesForWebProcess)
 {
-    protectedWorkQueue()->dispatch([this, protectedThis = Ref { *this }, sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess)] {
+    m_queue->dispatch([this, protectedThis = Ref { *this }, sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess)] {
         m_sharedPreferencesForWebProcess = sharedPreferencesForWebProcess;
     });
 }

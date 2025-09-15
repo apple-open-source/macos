@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ bool FilterResults::canCacheResult(const FilterImage& result) const
     return totalMemoryCost <= maxAllowedMemoryCost;
 }
 
-void FilterResults::setEffectResult(FilterEffect& effect, const FilterImageVector& inputs, Ref<FilterImage>&& result)
+void FilterResults::setEffectResult(FilterEffect& effect, std::span<const Ref<FilterImage>> inputs, Ref<FilterImage>&& result)
 {
     if (!canCacheResult(result))
         return;

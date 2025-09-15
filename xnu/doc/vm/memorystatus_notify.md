@@ -18,7 +18,7 @@ Processes may subscribe to notifications regarding memory limits.
 
 | Type     | Knote Flags                             | Dispatch Source Mask                          | Description                                                                         |
 | -------- | --------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------- |
-| WARN     | `NOTE_MEMORYSTATUS_PROC_LIMIT_WARN`     | `DISPATCH_MEMORYPRESSURE_PROC_LIMIT_WARN`     | Process is within 100 MB of its memory limit.                                       |
+| WARN     | `NOTE_MEMORYSTATUS_PROC_LIMIT_WARN`     | `DISPATCH_MEMORYPRESSURE_PROC_LIMIT_WARN`     | Process has reached 80% of its memory limit.                                        |
 | CRITICAL | `NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL` | `DISPATCH_MEMORYPRESSURE_PROC_LIMIT_CRITICAL` | Process has violated memory limit. Only sent if the memory limit is non-fatal/soft. |
 
 ## Memory Pressure

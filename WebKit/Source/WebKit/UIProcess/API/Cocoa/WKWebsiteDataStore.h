@@ -89,6 +89,18 @@ WK_CLASS_AVAILABLE(macos(10.11), ios(9.0))
  */
 @property (nonatomic, readonly, nullable) NSUUID *identifier WK_API_AVAILABLE(macos(14.0), ios(17.0));
 
+/* @abstract Called when the client wants to fetch WKWebsiteDataStore data.
+   @param dataTypes The set of WKWebsiteDataStore data types whose data the client wants to fetch.
+   @param completionHandler The completion handler that should be invoked with the retrieved data and possibly an error. The retrieved data will be a serialized blob. If an error occurred, the retrieved data will be nil. An error may occur if a requested data type is not supported or if the data cannot be retrieved for some other reason (such as a crash).
+ */
+- (void)fetchDataOfTypes:(NSSet<NSString *> *)dataTypes completionHandler:(WK_SWIFT_UI_ACTOR void(^)(NSData * _Nullable data, NSError * _Nullable error))completionHandler NS_SWIFT_NAME(fetchData(of:completionHandler:)) WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+/* @abstract Called when the client wants to restore WKWebsiteDataStore data.
+   @param data The serialized blob containing the data that the client wants to restore.
+   @param completionHandler The completion handler that may be invoked with an error if the data is in an invalid format or if the data cannot be restored for some other reason (such as a crash).
+ */
+- (void)restoreData:(NSData *)data completionHandler:(WK_SWIFT_UI_ACTOR void(^)(NSError * _Nullable error))completionHandler NS_SWIFT_NAME(restoreData(_:completionHandler:)) WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
 /*! @abstract Get a persistent data store.
  @param identifier An identifier that is used to uniquely identify the data store.
  @discussion If a data store with this identifier does not exist yet, it will be created. Throws exception if identifier

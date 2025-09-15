@@ -4,6 +4,7 @@ configure_file(wpe-platform-wayland.pc.in ${CMAKE_BINARY_DIR}/wpe-platform-wayla
 configure_file(wpe-platform-wayland-uninstalled.pc.in ${CMAKE_BINARY_DIR}/wpe-platform-wayland-${WPE_API_VERSION}-uninstalled.pc @ONLY)
 
 set(WPEPlatformWayland_SOURCES
+    ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEClipboardWayland.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEDisplayWayland.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEInputMethodContextWaylandV1.cpp
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEInputMethodContextWaylandV3.cpp
@@ -25,6 +26,7 @@ set(WPEPlatformWayland_SOURCES
 
 set(WPEPlatformWayland_INSTALLED_HEADERS
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/wpe-wayland.h
+    ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEClipboardWayland.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEDisplayWayland.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEScreenWayland.h
     ${WEBKIT_DIR}/WPEPlatform/wpe/wayland/WPEToplevelWayland.h
@@ -38,11 +40,13 @@ set(WPEPlatformWayland_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 set(WPEPlatformWayland_SYSTEM_INCLUDE_DIRECTORIES
+    ${GIO_UNIX_INCLUDE_DIRS}
     ${WAYLAND_INCLUDE_DIRS}
     ${WPEPlatform_SYSTEM_INCLUDE_DIRECTORIES}
 )
 
 set(WPEPlatformWayland_LIBRARIES
+    ${GIO_UNIX_LIBRARIES}
     ${WAYLAND_LIBRARIES}
     ${WPEPlatform_LIBRARIES}
 )

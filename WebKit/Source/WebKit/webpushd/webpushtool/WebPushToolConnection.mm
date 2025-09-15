@@ -132,12 +132,10 @@ void Connection::sendAuditToken()
     audit_token_t token = { 0, 0, 0, 0, 0, 0, 0, 0 };
     mach_msg_type_number_t auditTokenCount = TASK_AUDIT_TOKEN_COUNT;
     kern_return_t result = task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)(&token), &auditTokenCount);
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     if (result != KERN_SUCCESS) {
-        printf("Unable to get audit token to send\n");
+        SAFE_PRINTF("Unable to get audit token to send\n");
         return;
     }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     WebKit::WebPushD::WebPushDaemonConnectionConfiguration configuration;
     configuration.bundleIdentifierOverride = m_bundleIdentifier;
@@ -182,7 +180,7 @@ bool Connection::performSendWithAsyncReplyWithoutUsingIPCConnection(UniqueRef<IP
             return completionHandler(nullptr);
         }
 
-        auto data = xpc_dictionary_get_data_span(reply, WebKit::WebPushD::protocolEncodedMessageKey);
+        auto data = xpcDictionaryGetData(reply, WebKit::WebPushD::protocolEncodedMessageKey);
         auto decoder = IPC::Decoder::create(data, { });
         ASSERT(decoder);
 

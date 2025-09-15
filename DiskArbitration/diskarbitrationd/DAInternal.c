@@ -113,6 +113,8 @@ const CFStringRef kDADiskDescriptionMediaMatchKey      = CFSTR( "DAMediaMatch"  
 
 const CFStringRef kDADiskDescriptionFSKitPrefix        = CFSTR( "FS"                );
 
+const CFStringRef kDADiskDescriptionRepairRunningKey   = CFSTR( "DARepairRunning"   );
+
 static const char * __kDAKindNameList[] =
 {
     "disk appeared",

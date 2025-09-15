@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Canon Inc.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -29,7 +30,6 @@
 #pragma once
 
 #include "AbortSignal.h"
-#include "ExceptionOr.h"
 #include "FetchBodyOwner.h"
 #include "FetchIdentifier.h"
 #include "FetchOptions.h"
@@ -44,11 +44,12 @@ class Blob;
 class ScriptExecutionContext;
 class URLSearchParams;
 class WebCoreOpaqueRoot;
+template<typename> class ExceptionOr;
 
 class FetchRequest final : public FetchBodyOwner {
 public:
     using Init = FetchRequestInit;
-    using Info = std::variant<RefPtr<FetchRequest>, String>;
+    using Info = Variant<RefPtr<FetchRequest>, String>;
 
     using Cache = FetchOptions::Cache;
     using Credentials = FetchOptions::Credentials;
@@ -103,14 +104,12 @@ private:
 
     void stop() final;
 
-    Ref<AbortSignal> protectedSignal() const { return m_signal; }
-
     ResourceRequest m_request;
     URLKeepingBlobAlive m_requestURL;
     FetchOptions m_options;
     RequestPriority m_priority { RequestPriority::Auto };
     String m_referrer;
-    Ref<AbortSignal> m_signal;
+    const Ref<AbortSignal> m_signal;
     Markable<FetchIdentifier> m_navigationPreloadIdentifier;
     bool m_enableContentExtensionsCheck { true };
 };

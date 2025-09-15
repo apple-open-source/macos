@@ -29,7 +29,6 @@
 
 #include "APIObject.h"
 #include <WebCore/AuthenticatorTransport.h>
-#include <variant>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -55,7 +54,7 @@ class WebAuthenticationPanelClient;
 
 class WebAuthenticationPanel final : public ObjectImpl<Object::Type::WebAuthenticationPanel>, public CanMakeWeakPtr<WebAuthenticationPanel> {
 public:
-    using Response = std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>;
+    using Response = Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>;
     using Callback = CompletionHandler<void(Response&&)>;
 
     WebAuthenticationPanel();
@@ -66,6 +65,7 @@ public:
     void setMockConfiguration(WebCore::MockWebAuthenticationConfiguration&&);
 
     const WebAuthenticationPanelClient& client() const { return m_client.get(); }
+    Ref<WebAuthenticationPanelClient> protectedClient() const;
     void setClient(Ref<WebAuthenticationPanelClient>&&);
 
     // FIXME: <rdar://problem/71509848> Remove the following deprecated methods.
@@ -94,5 +94,7 @@ private:
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(WebAuthenticationPanel);
 
 #endif // ENABLE(WEB_AUTHN)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include <wtf/Assertions.h>
+#include <wtf/Platform.h>
 #include <wtf/text/WTFString.h>
 
 #if __has_include("WebKitLogDefinitions.h")
@@ -96,6 +97,7 @@ extern "C" {
     M(ContentObservation) \
     M(ContentRuleLists) \
     M(ContextMenu) \
+    M(DigitalCredentials) \
     M(DisplayLink) \
     M(DisplayLists) \
     M(DiskPersistency) \
@@ -134,6 +136,7 @@ extern "C" {
     M(PDF) \
     M(PDFAsyncRendering) \
     M(PageLoadObserver) \
+    M(Pasteboard) \
     M(PerformanceLogging) \
     M(Plugins) \
     M(Printing) \
@@ -148,7 +151,9 @@ extern "C" {
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
+    M(ResourceMonitoring) \
     M(Sandbox) \
+    M(ScreenTime) \
     M(ScrollAnimations) \
     M(Scrolling) \
     M(SecureCoding) \

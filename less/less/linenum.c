@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -62,18 +62,19 @@ struct linenum_info
 static struct linenum_info anchor;      /* Anchor of the list */
 static struct linenum_info *freelist;   /* Anchor of the unused entries */
 static struct linenum_info pool[NPOOL]; /* The pool itself */
-static struct linenum_info *spare;              /* We always keep one spare entry */
+static struct linenum_info *spare;      /* We always keep one spare entry */
+public lbool scanning_eof = FALSE;
 
 extern int linenums;
 extern int sigs;
 extern int sc_height;
-extern int screen_trashed;
+extern int header_lines;
+extern int nonum_headers;
 
 /*
  * Initialize the line number structures.
  */
-	public void
-clr_linenum(VOID_PARAM)
+public void clr_linenum(void)
 {
 	struct linenum_info *p;
 
@@ -100,9 +101,7 @@ clr_linenum(VOID_PARAM)
 /*
  * Calculate the gap for an entry.
  */
-	static void
-calcgap(p)
-	struct linenum_info *p;
+static void calcgap(struct linenum_info *p)
 {
 	/*
 	 * Don't bother to compute a gap for the anchor.
@@ -120,10 +119,7 @@ calcgap(p)
  * The specified position (pos) should be the file position of the
  * FIRST character in the specified line.
  */
-	public void
-add_lnum(linenum, pos)
-	LINENUM linenum;
-	POSITION pos;
+public void add_lnum(LINENUM linenum, POSITION pos)
 {
 	struct linenum_info *p;
 	struct linenum_info *new;
@@ -208,35 +204,46 @@ add_lnum(linenum, pos)
  * If we get stuck in a long loop trying to figure out the
  * line number, print a message to tell the user what we're doing.
  */
-	static void
-longloopmessage(VOID_PARAM)
+static void longloopmessage(void)
 {
 	ierror("Calculating line numbers", NULL_PARG);
 }
 
-static int loopcount;
+struct delayed_msg
+{
+	void (*message)(void);
+	int loopcount;
 #if HAVE_TIME
-static time_type startime;
+	time_type startime;
 #endif
+};
 
-	static void
-longish(VOID_PARAM)
+static void start_delayed_msg(struct delayed_msg *dmsg, void (*message)(void))
+{
+	dmsg->loopcount = 0;
+	dmsg->message = message;
+#if HAVE_TIME
+	dmsg->startime = get_time();
+#endif
+}
+
+static void delayed_msg(struct delayed_msg *dmsg)
 {
 #if HAVE_TIME
-	if (loopcount >= 0 && ++loopcount > 100)
+	if (dmsg->loopcount >= 0 && ++(dmsg->loopcount) > 100)
 	{
-		loopcount = 0;
-		if (get_time() >= startime + LONGTIME)
+		dmsg->loopcount = 0;
+		if (get_time() >= dmsg->startime + LONGTIME)
 		{
-			longloopmessage();
-			loopcount = -1;
+			dmsg->message();
+			dmsg->loopcount = -1;
 		}
 	}
 #else
-	if (loopcount >= 0 && ++loopcount > LONGLOOP)
+	if (dmsg->loopcount >= 0 && ++(dmsg->loopcount) > LONGLOOP)
 	{
-		longloopmessage();
-		loopcount = -1;
+		dmsg->message();
+		dmsg->loopcount = -1;
 	}
 #endif
 }
@@ -245,16 +252,15 @@ longish(VOID_PARAM)
  * Turn off line numbers because the user has interrupted
  * a lengthy line number calculation.
  */
-	static void
-abort_long(VOID_PARAM)
+static void abort_delayed_msg(struct delayed_msg *dmsg)
 {
-	if (loopcount >= 0)
+	if (dmsg->loopcount >= 0)
 		return;
 	if (linenums == OPT_ONPLUS)
 		/*
 		 * We were displaying line numbers, so need to repaint.
 		 */
-		screen_trashed = 1;
+		screen_trashed();
 	linenums = 0;
 	error("Line numbers turned off", NULL_PARG);
 }
@@ -263,13 +269,12 @@ abort_long(VOID_PARAM)
  * Find the line number associated with a given position.
  * Return 0 if we can't figure it out.
  */
-	public LINENUM
-find_linenum(pos)
-	POSITION pos;
+public LINENUM find_linenum(POSITION pos)
 {
 	struct linenum_info *p;
 	LINENUM linenum;
 	POSITION cpos;
+	struct delayed_msg dmsg;
 
 	if (!linenums)
 		/*
@@ -307,10 +312,7 @@ find_linenum(pos)
 	 * The decision is based on which way involves 
 	 * traversing fewer bytes in the file.
 	 */
-#if HAVE_TIME
-	startime = get_time();
-#endif
-	loopcount = 0;
+	start_delayed_msg(&dmsg, longloopmessage);
 	if (p == &anchor || pos - p->prev->pos < p->pos - pos)
 	{
 		/*
@@ -324,14 +326,14 @@ find_linenum(pos)
 			/*
 			 * Allow a signal to abort this loop.
 			 */
-			cpos = forw_raw_line(cpos, (char **)NULL, (int *)NULL);
+			cpos = forw_raw_line(cpos, NULL, NULL);
 			if (ABORT_SIGS()) {
-				abort_long();
+				abort_delayed_msg(&dmsg);
 				return (0);
 			}
 			if (cpos == NULL_POSITION)
 				return (0);
-			longish();
+			delayed_msg(&dmsg);
 		}
 		/*
 		 * We might as well cache it.
@@ -355,21 +357,20 @@ find_linenum(pos)
 			/*
 			 * Allow a signal to abort this loop.
 			 */
-			cpos = back_raw_line(cpos, (char **)NULL, (int *)NULL);
+			cpos = back_raw_line(cpos, NULL, NULL);
 			if (ABORT_SIGS()) {
-				abort_long();
+				abort_delayed_msg(&dmsg);
 				return (0);
 			}
 			if (cpos == NULL_POSITION)
 				return (0);
-			longish();
+			delayed_msg(&dmsg);
 		}
 		/*
 		 * We might as well cache it.
 		 */
 		add_lnum(linenum, cpos);
 	}
-	loopcount = 0;
 	return (linenum);
 }
 
@@ -377,9 +378,7 @@ find_linenum(pos)
  * Find the position of a given line number.
  * Return NULL_POSITION if we can't figure it out.
  */
-	public POSITION
-find_pos(linenum)
-	LINENUM linenum;
+public POSITION find_pos(LINENUM linenum)
 {
 	struct linenum_info *p;
 	POSITION cpos;
@@ -413,7 +412,7 @@ find_pos(linenum)
 			/*
 			 * Allow a signal to abort this loop.
 			 */
-			cpos = forw_raw_line(cpos, (char **)NULL, (int *)NULL);
+			cpos = forw_raw_line(cpos, NULL, NULL);
 			if (ABORT_SIGS())
 				return (NULL_POSITION);
 			if (cpos == NULL_POSITION)
@@ -431,7 +430,7 @@ find_pos(linenum)
 			/*
 			 * Allow a signal to abort this loop.
 			 */
-			cpos = back_raw_line(cpos, (char **)NULL, (int *)NULL);
+			cpos = back_raw_line(cpos, NULL, NULL);
 			if (ABORT_SIGS())
 				return (NULL_POSITION);
 			if (cpos == NULL_POSITION)
@@ -450,9 +449,7 @@ find_pos(linenum)
  * The argument "where" tells which line is to be considered
  * the "current" line (e.g. TOP, BOTTOM, MIDDLE, etc).
  */
-	public LINENUM
-currline(where)
-	int where;
+public LINENUM currline(int where)
 {
 	POSITION pos;
 	POSITION len;
@@ -468,4 +465,53 @@ currline(where)
 	if (pos == len)
 		linenum--;
 	return (linenum);
+}
+
+static void detlenmessage(void)
+{
+	ierror("Determining length of file", NULL_PARG);
+}
+
+/*
+ * Scan entire file, counting line numbers.
+ */
+public void scan_eof(void)
+{
+	POSITION pos = ch_zero();
+	LINENUM linenum = 0;
+	struct delayed_msg dmsg;
+
+	if (ch_seek(0))
+		return;
+	/*
+	 * scanning_eof prevents the "Waiting for data" message from 
+	 * overwriting "Determining length of file".
+	 */
+	start_delayed_msg(&dmsg, detlenmessage);
+	scanning_eof = TRUE;
+	while (pos != NULL_POSITION)
+	{
+		/* For efficiency, only add one every 256 line numbers. */
+		if ((linenum++ % 256) == 0)
+			add_lnum(linenum, pos);
+		pos = forw_raw_line(pos, NULL, NULL);
+		if (ABORT_SIGS())
+		{
+			abort_delayed_msg(&dmsg);
+			break;
+		}
+		delayed_msg(&dmsg);
+	}
+	scanning_eof = FALSE;
+}
+
+/*
+ * Return a line number adjusted for display
+ * (handles the --no-number-headers option).
+ */
+public LINENUM vlinenum(LINENUM linenum)
+{
+	if (nonum_headers)
+		linenum = (linenum < header_lines) ? 0 : linenum - header_lines;
+	return linenum;
 }

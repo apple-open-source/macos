@@ -99,6 +99,7 @@ extern const CFStringRef kDAPreferenceMountMethodkey;                 /* ( CFStr
 extern const CFStringRef kDAPreferenceDisableEjectNotificationKey;   /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceDisableUnreadableNotificationKey; /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey; /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountAlwaysRepairKey;               /* ( CFBoolean ) */
 
 extern void DAPreferenceListRefresh( void );
 
@@ -122,6 +123,8 @@ extern void    DAUnitSetState( DADiskRef disk, DAUnitState state, Boolean value 
 #if TARGET_OS_IOS
 extern Boolean DADeviceIsUnlocked( void );
 #endif
+Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole);
+Boolean DAAPFSNoVolumeRole(DADiskRef disk);
 
 extern CFStringRef DAGetFSTypeWithUUID( DAFileSystemRef filesystem , CFUUIDRef volumeUUID );
 

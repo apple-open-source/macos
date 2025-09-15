@@ -33,15 +33,15 @@
 #import "ModelConnectionToWebProcess.h"
 #import "ModelProcessModelPlayerManagerProxy.h"
 #import "ModelProcessModelPlayerMessages.h"
-#import "RealityKitBridging.h"
 #import "WKModelProcessModelLayer.h"
+#import "WKRKEntity.h"
+#import "WKStageMode.h"
 #import <RealitySystemSupport/RealitySystemSupport.h>
 #import <SurfBoardServices/SurfBoardServices.h>
 #import <WebCore/Color.h>
 #import <WebCore/LayerHostingContextIdentifier.h>
 #import <WebCore/Model.h>
 #import <WebCore/ResourceError.h>
-#import <WebCore/TransformationMatrix.h>
 #import <WebKitAdditions/REModel.h>
 #import <WebKitAdditions/REModelLoader.h>
 #import <WebKitAdditions/REPtr.h>
@@ -49,29 +49,31 @@
 #import <WebKitAdditions/WKREEngine.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/Deque.h>
 #import <wtf/MathExtras.h>
 #import <wtf/NakedPtr.h>
-#import <wtf/NakedRef.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/WeakPtr.h>
 #import <wtf/text/TextStream.h>
 
 #import "WebKitSwiftSoftLink.h"
 
-@interface WKModelProcessModelPlayerProxyObjCAdapter : NSObject<WKSRKEntityDelegate>
-- (instancetype)initWithModelProcessModelPlayerProxy:(NakedRef<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy;
+@interface WKModelProcessModelPlayerProxyObjCAdapter : NSObject<WKRKEntityDelegate, WKStageModeInteractionAware>
+- (instancetype)initWithModelProcessModelPlayerProxy:(std::reference_wrapper<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy;
 @end
 
 @implementation WKModelProcessModelPlayerProxyObjCAdapter {
-    NakedPtr<WebKit::ModelProcessModelPlayerProxy> _modelProcessModelPlayerProxy;
+    WeakPtr<WebKit::ModelProcessModelPlayerProxy> _modelProcessModelPlayerProxy;
 }
 
-- (instancetype)initWithModelProcessModelPlayerProxy:(NakedRef<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy
+- (instancetype)initWithModelProcessModelPlayerProxy:(std::reference_wrapper<WebKit::ModelProcessModelPlayerProxy>)modelProcessModelPlayerProxy
 {
     if (!(self = [super init]))
         return nil;
 
-    _modelProcessModelPlayerProxy = modelProcessModelPlayerProxy.ptr();
+    _modelProcessModelPlayerProxy = modelProcessModelPlayerProxy.get();
     return self;
 }
 
@@ -80,13 +82,20 @@
     _modelProcessModelPlayerProxy->animationPlaybackStateDidUpdate();
 }
 
+- (void)stageModeInteractionDidUpdateModel
+{
+    _modelProcessModelPlayerProxy->stageModeInteractionDidUpdateModel();
+}
+
 @end
 
 namespace WebKit {
 
+static const Seconds unloadModelDelay { 4_s };
+
 class RKModelUSD final : public WebCore::REModel {
 public:
-    static Ref<RKModelUSD> create(Ref<Model> model, RetainPtr<WKSRKEntity> entity)
+    static Ref<RKModelUSD> create(Ref<Model> model, RetainPtr<WKRKEntity> entity)
     {
         return adoptRef(*new RKModelUSD(WTFMove(model), WTFMove(entity)));
     }
@@ -94,7 +103,7 @@ public:
     virtual ~RKModelUSD() = default;
 
 private:
-    RKModelUSD(Ref<Model> model, RetainPtr<WKSRKEntity> entity)
+    RKModelUSD(Ref<Model> model, RetainPtr<WKRKEntity> entity)
         : m_model { WTFMove(model) }
         , m_entity { WTFMove(entity) }
     {
@@ -111,32 +120,34 @@ private:
         return nullptr;
     }
 
-    RetainPtr<WKSRKEntity> rootRKEntity() const final
+    RetainPtr<WKRKEntity> rootRKEntity() const final
     {
         return m_entity;
     }
 
     Ref<Model> m_model;
-    RetainPtr<WKSRKEntity> m_entity;
+    RetainPtr<WKRKEntity> m_entity;
 };
 
 class RKModelLoaderUSD final : public WebCore::REModelLoader, public CanMakeWeakPtr<RKModelLoaderUSD> {
 public:
-    static Ref<RKModelLoaderUSD> create(Model& model, REModelLoaderClient& client)
+    static Ref<RKModelLoaderUSD> create(Model& model, const std::optional<String>& attributionTaskID, std::optional<int> entityMemoryLimit, REModelLoaderClient& client)
     {
-        return adoptRef(*new RKModelLoaderUSD(model, client));
+        return adoptRef(*new RKModelLoaderUSD(model, attributionTaskID, entityMemoryLimit, client));
     }
 
     virtual ~RKModelLoaderUSD() = default;
 
-    void load();
+    void load(CompletionHandler<void()>&&);
 
     bool isCanceled() const { return m_canceled; }
 
 private:
-    RKModelLoaderUSD(Model& model, REModelLoaderClient& client)
+    RKModelLoaderUSD(Model& model, const std::optional<String>& attributionTaskID, std::optional<int> entityMemoryLimit, REModelLoaderClient& client)
         : m_canceled { false }
         , m_model { model }
+        , m_attributionTaskID { attributionTaskID }
+        , m_entityMemoryLimit(entityMemoryLimit)
         , m_client { client }
     {
     }
@@ -147,7 +158,7 @@ private:
         m_canceled = true;
     }
 
-    void didFinish(RetainPtr<WKSRKEntity> entity)
+    void didFinish(RetainPtr<WKRKEntity> entity)
     {
         if (m_canceled)
             return;
@@ -168,42 +179,118 @@ private:
     bool m_canceled { false };
 
     Ref<Model> m_model;
+    std::optional<String> m_attributionTaskID;
+    std::optional<int> m_entityMemoryLimit;
     WeakPtr<REModelLoaderClient> m_client;
 };
 
-void RKModelLoaderUSD::load()
+static ResourceError toResourceError(String payload, Model& model)
 {
-    [getWKSRKEntityClass() loadFromData:m_model->data()->createNSData().get() completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }] (WKSRKEntity *entity) mutable {
-        if (RefPtr protectedThis = weakThis.get())
-            protectedThis->didFinish(entity);
+    return ResourceError { [NSError errorWithDomain:@"RKModelLoaderUSD" code:-1 userInfo:@{
+        NSLocalizedDescriptionKey: payload.createNSString().get(),
+        NSURLErrorFailingURLErrorKey: model.url().createNSURL().get()
+    }] };
+}
+
+void RKModelLoaderUSD::load(CompletionHandler<void()>&& completionHandler)
+{
+    RetainPtr<NSString> attributionID;
+    if (m_attributionTaskID.has_value())
+        attributionID = m_attributionTaskID.value().createNSString();
+    [getWKRKEntityClass() loadFromData:m_model->data()->createNSData().get() withAttributionTaskID:attributionID.get() entityMemoryLimit:(m_entityMemoryLimit ? *m_entityMemoryLimit : 0) completionHandler:makeBlockPtr([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (WKRKEntity *entity) mutable {
+        completionHandler();
+
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        if (!entity) {
+            protectedThis->didFail(toResourceError("Failed to load the entity"_s, protectedThis->m_model));
+            return;
+        }
+
+        protectedThis->didFinish(entity);
     }).get()];
 }
 
-static Ref<REModelLoader> loadREModelUsingRKUSDLoader(Model& model, REModelLoaderClient& client)
-{
-    auto loader = RKModelLoaderUSD::create(model, client);
+class RKUSDModelLoadScheduler {
+public:
+    static RKUSDModelLoadScheduler& singleton();
+    RKUSDModelLoadScheduler() = default;
 
-    dispatch_async(dispatch_get_main_queue(), [loader] () mutable {
-        loader->load();
+    Ref<REModelLoader> scheduleModelLoad(Model&, const std::optional<String>& attributionTaskID, std::optional<int> entityMemoryLimit, REModelLoaderClient&);
+
+private:
+    void loadNextModel();
+
+    Deque<Ref<RKModelLoaderUSD>> m_pendingLoads;
+    size_t m_inProgressLoadsCount { 0 };
+};
+
+RKUSDModelLoadScheduler& RKUSDModelLoadScheduler::singleton()
+{
+    static auto scheduler = NeverDestroyed<RKUSDModelLoadScheduler>();
+    return scheduler;
+}
+
+Ref<REModelLoader> RKUSDModelLoadScheduler::scheduleModelLoad(Model& model, const std::optional<String>& attributionTaskID, std::optional<int> entityMemoryLimit, REModelLoaderClient& client)
+{
+    auto loader = RKModelLoaderUSD::create(model, attributionTaskID, entityMemoryLimit, client);
+
+    dispatch_async(dispatch_get_main_queue(), [this, loader] () mutable {
+        m_pendingLoads.append(loader);
+        loadNextModel();
     });
 
     return loader;
 }
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessModelPlayerProxy);
-
-Ref<ModelProcessModelPlayerProxy> ModelProcessModelPlayerProxy::create(ModelProcessModelPlayerManagerProxy& manager, WebCore::ModelPlayerIdentifier identifier, Ref<IPC::Connection>&& connection)
+void RKUSDModelLoadScheduler::loadNextModel()
 {
-    return adoptRef(*new ModelProcessModelPlayerProxy(manager, identifier, WTFMove(connection)));
+    dispatch_assert_queue(dispatch_get_main_queue());
+
+    static const size_t maxLimitOnParallelLoads = 3;
+    if (m_inProgressLoadsCount >= maxLimitOnParallelLoads)
+        return;
+
+    if (m_pendingLoads.isEmpty())
+        return;
+
+    auto nextLoad = m_pendingLoads.takeFirst();
+    if (nextLoad->isCanceled()) {
+        loadNextModel();
+        return;
+    }
+
+    m_inProgressLoadsCount++;
+    nextLoad->load([this] {
+        dispatch_assert_queue(dispatch_get_main_queue());
+        ASSERT(m_inProgressLoadsCount > 0);
+        m_inProgressLoadsCount--;
+        loadNextModel();
+    });
 }
 
-ModelProcessModelPlayerProxy::ModelProcessModelPlayerProxy(ModelProcessModelPlayerManagerProxy& manager, WebCore::ModelPlayerIdentifier identifier, Ref<IPC::Connection>&& connection)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(ModelProcessModelPlayerProxy);
+
+uint64_t ModelProcessModelPlayerProxy::gObjectCountForTesting = 0;
+
+Ref<ModelProcessModelPlayerProxy> ModelProcessModelPlayerProxy::create(ModelProcessModelPlayerManagerProxy& manager, WebCore::ModelPlayerIdentifier identifier, Ref<IPC::Connection>&& connection, const std::optional<String>& attributionTaskID, std::optional<int> debugEntityMemoryLimit)
+{
+    return adoptRef(*new ModelProcessModelPlayerProxy(manager, identifier, WTFMove(connection), attributionTaskID, debugEntityMemoryLimit));
+}
+
+ModelProcessModelPlayerProxy::ModelProcessModelPlayerProxy(ModelProcessModelPlayerManagerProxy& manager, WebCore::ModelPlayerIdentifier identifier, Ref<IPC::Connection>&& connection, const std::optional<String>& attributionTaskID, std::optional<int> debugEntityMemoryLimit)
     : m_id(identifier)
     , m_webProcessConnection(WTFMove(connection))
     , m_manager(manager)
+    , m_attributionTaskID(attributionTaskID)
+    , m_debugEntityMemoryLimit(debugEntityMemoryLimit)
+    , m_unloadModelTimer(RunLoop::mainSingleton(), "ModelProcessModelPlayerProxy::UnloadModelTimer"_s, this, &ModelProcessModelPlayerProxy::unloadModelTimerFired)
 {
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy initialized id=%" PRIu64, this, identifier.toUInt64());
     m_objCAdapter = adoptNS([[WKModelProcessModelPlayerProxyObjCAdapter alloc] initWithModelProcessModelPlayerProxy:*this]);
+    ++gObjectCountForTesting;
 }
 
 ModelProcessModelPlayerProxy::~ModelProcessModelPlayerProxy()
@@ -211,7 +298,18 @@ ModelProcessModelPlayerProxy::~ModelProcessModelPlayerProxy()
     if (m_loader)
         m_loader->cancel();
 
+    if (m_containerEntity.get())
+        REEntityRemoveFromSceneOrParent(m_containerEntity.get());
+
+    if (m_hostingEntity.get())
+        REEntityRemoveFromSceneOrParent(m_hostingEntity.get());
+
+    [m_stageModeInteractionDriver removeInteractionContainerFromSceneOrParent];
+
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy deallocated id=%" PRIu64, this, m_id.toUInt64());
+
+    ASSERT(gObjectCountForTesting > 0);
+    --gObjectCountForTesting;
 }
 
 std::optional<SharedPreferencesForWebProcess> ModelProcessModelPlayerProxy::sharedPreferencesForWebProcess() const
@@ -220,27 +318,6 @@ std::optional<SharedPreferencesForWebProcess> ModelProcessModelPlayerProxy::shar
         return strongManager->sharedPreferencesForWebProcess();
 
     return std::nullopt;
-}
-
-bool ModelProcessModelPlayerProxy::transformSupported(const simd_float4x4& transform)
-{
-    RESRT srt = REMakeSRTFromMatrix(transform);
-
-    // Scale must be uniform across all 3 axis
-    if (simd_reduce_max(srt.scale) - simd_reduce_min(srt.scale) > FLT_EPSILON) {
-        RELEASE_LOG_ERROR(ModelElement, "Rejecting non-uniform scaling %.05f %.05f %.05f", srt.scale[0], srt.scale[1], srt.scale[2]);
-        return false;
-    }
-
-    // Matrix must be a SRT (scale/rotation/translation) matrix - no shear.
-    // RESRT itself is already clean of shear, so we just need to see if the input is the same as the cleaned RESRT
-    simd_float4x4 noShearMatrix = RESRTMatrix(srt);
-    if (!simd_almost_equal_elements(transform, noShearMatrix, FLT_EPSILON)) {
-        RELEASE_LOG_ERROR(ModelElement, "Rejecting shear matrix");
-        return false;
-    }
-
-    return true;
 }
 
 void ModelProcessModelPlayerProxy::invalidate()
@@ -269,13 +346,11 @@ void ModelProcessModelPlayerProxy::createLayer()
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.mesh"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.material"];
     [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.texture"];
-    updatePortalAndClipping();
-    updateBackgroundColor();
 
-    [m_layer setPlayer:RefPtr { this }];
+    [m_layer setPlayer:WeakPtr { this }];
 
     LayerHostingContextOptions contextOptions;
-    m_layerHostingContext = LayerHostingContext::createForExternalHostingProcess(contextOptions);
+    m_layerHostingContext = LayerHostingContext::create(contextOptions);
     m_layerHostingContext->setRootLayer(m_layer.get());
 
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy creating remote CA layer ctxID = %" PRIu64 " id=%" PRIu64, this, layerHostingContextIdentifier().value().toUInt64(), m_id.toUInt64());
@@ -290,6 +365,50 @@ void ModelProcessModelPlayerProxy::loadModel(Ref<WebCore::Model>&& model, WebCor
     load(model, layoutSize);
 }
 
+void ModelProcessModelPlayerProxy::reloadModel(Ref<WebCore::Model>&& model, WebCore::LayoutSize layoutSize, std::optional<WebCore::TransformationMatrix> entityTransformToRestore, std::optional<WebCore::ModelPlayerAnimationState> animationStateToRestore)
+{
+    m_entityTransformToRestore = WTFMove(entityTransformToRestore);
+    m_animationStateToRestore = WTFMove(animationStateToRestore);
+    if (m_animationStateToRestore) {
+        m_autoplay = m_animationStateToRestore->autoplay();
+        m_loop = m_animationStateToRestore->loop();
+        if (auto playbackRate = m_animationStateToRestore->effectivePlaybackRate())
+            m_playbackRate = *playbackRate;
+    }
+
+    load(model, layoutSize);
+}
+
+void ModelProcessModelPlayerProxy::modelVisibilityDidChange(bool isVisible)
+{
+    m_unloadModelTimer.stop();
+
+    m_isVisible = isVisible;
+
+    if (m_isVisible)
+        m_unloadModelTimer.stop();
+    else
+        m_unloadModelTimer.startOneShot(m_unloadDelayDisabledForTesting ? 0_s : unloadModelDelay);
+}
+
+void ModelProcessModelPlayerProxy::unloadModelTimerFired()
+{
+    if (m_isVisible)
+        return;
+
+    RefPtr strongManager = m_manager.get();
+    if (!strongManager)
+        return;
+
+    if (m_loader) {
+        m_loader->cancel();
+        m_loader = nullptr;
+    }
+
+    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy::unloadModelTimerFired(): inform manager to unload model id=%" PRIu64, this, m_id.toUInt64());
+    strongManager->unloadModelPlayer(m_id);
+}
+
 // MARK: - RE stuff
 
 static inline simd_float2 makeMeterSizeFromPointSize(CGSize pointSize, CGFloat pointsPerMeter)
@@ -299,7 +418,7 @@ static inline simd_float2 makeMeterSizeFromPointSize(CGSize pointSize, CGFloat p
 
 static void computeScaledExtentsAndCenter(simd_float2 boundsOfLayerInMeters, simd_float3& boundingBoxExtents, simd_float3& boundingBoxCenter)
 {
-    if (simd_reduce_min(boundingBoxExtents) - FLT_EPSILON > 0) {
+    if (fmin(boundingBoxExtents.x, boundingBoxExtents.y) - FLT_EPSILON > 0) {
         auto boundsScaleRatios = simd_make_float2(
             boundsOfLayerInMeters.x / boundingBoxExtents.x,
             boundsOfLayerInMeters.y / boundingBoxExtents.y
@@ -309,7 +428,7 @@ static void computeScaledExtentsAndCenter(simd_float2 boundsOfLayerInMeters, sim
     }
 }
 
-static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, simd_float3 originalBoundingBoxCenter, float pitch, float yaw, bool isPortal, CGFloat pointsPerMeter)
+static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, simd_float3 originalBoundingBoxCenter, float boundingRadius, bool isPortal, CGFloat pointsPerMeter, WebCore::StageModeOperation operation, simd_quatf currentModelRotation)
 {
     auto boundsOfLayerInMeters = makeMeterSizeFromPointSize(layer.bounds.size, pointsPerMeter);
     simd_float3 boundingBoxExtents = originalBoundingBoxExtents;
@@ -317,23 +436,37 @@ static RESRT computeSRT(CALayer *layer, simd_float3 originalBoundingBoxExtents, 
     computeScaledExtentsAndCenter(boundsOfLayerInMeters, boundingBoxExtents, boundingBoxCenter);
 
     RESRT srt;
-    srt.scale = simd_make_float3(boundingBoxExtents.x / originalBoundingBoxExtents.x, boundingBoxExtents.y / originalBoundingBoxExtents.y, boundingBoxExtents.z / originalBoundingBoxExtents.z);
-    float minScale = simd_reduce_min(srt.scale);
-    srt.scale = simd_make_float3(minScale, minScale, minScale); // FIXME: assume object-fit:contain for now
+    if (operation == WebCore::StageModeOperation::None) {
+        simd_float3 scale = simd_make_float3(boundingBoxExtents.x / originalBoundingBoxExtents.x, boundingBoxExtents.y / originalBoundingBoxExtents.y, boundingBoxExtents.z / originalBoundingBoxExtents.z);
+        if (std::isnan(scale.x) || std::isnan(scale.y) || std::isnan(scale.z))
+            scale = simd_make_float3(0.0f, 0.0f, 0.0f);
 
-    // Must be normalized, but these obviously are.
-    simd_float3 xAxis = simd_make_float3(1, 0, 0);
-    simd_float3 yAxis = simd_make_float3(0, 1, 0);
+        srt.scale = scale;
+        float minScale = simd_reduce_min(srt.scale);
 
-    // FIXME: These should rotate around the center point of the model.
-    simd_quatf pitchQuat = simd_quaternion(deg2rad(pitch), xAxis);
-    simd_quatf yawQuat = simd_quaternion(deg2rad(yaw), yAxis);
-    srt.rotation = simd_mul(pitchQuat, yawQuat);
+        srt.scale = simd_make_float3(minScale, minScale, minScale);
+        srt.rotation = currentModelRotation;
 
-    if (isPortal)
-        srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z - boundingBoxExtents.z / 2.0f);
-    else
-        srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z + boundingBoxExtents.z / 2.0f);
+        if (isPortal)
+            srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z - boundingBoxExtents.z / 2.0f);
+        else
+            srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z + boundingBoxExtents.z / 2.0f);
+    } else {
+        float boundingSphereDiameter = boundingRadius * 2.0f;
+        float layerBoundingEdge = simd_reduce_min(boundsOfLayerInMeters);
+        float minScale = layerBoundingEdge / boundingSphereDiameter;
+        if (std::isnan(minScale))
+            minScale = 0.0f;
+
+        srt.scale = simd_make_float3(minScale, minScale, minScale);
+        srt.rotation = currentModelRotation;
+        boundingBoxCenter = srt.scale * originalBoundingBoxCenter;
+
+        if (isPortal)
+            srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z - boundingSphereDiameter * minScale / 2.0f);
+        else
+            srt.translation = simd_make_float3(-boundingBoxCenter.x, -boundingBoxCenter.y, -boundingBoxCenter.z + boundingSphereDiameter * minScale / 2.0f);
+    }
 
     return srt;
 }
@@ -352,66 +485,78 @@ static CGFloat effectivePointsPerMeter(CALayer *caLayer)
     return defaultPointsPerMeter;
 }
 
-void ModelProcessModelPlayerProxy::updateBackgroundColor()
+static RESRT modelStandardizedTransformSRT(RESRT originalSRT)
 {
-    if (!m_layer)
-        return;
+    constexpr float defaultScaleFactor = 0.36f;
 
-    if (m_backgroundColor.isValid())
-        [m_layer setValue:(__bridge id)cachedCGColor(m_backgroundColor).get() forKeyPath:@"separatedOptions.material.clearColor"];
-    else
-        [m_layer setValue:(__bridge id)CGColorGetConstantColor(kCGColorWhite) forKeyPath:@"separatedOptions.material.clearColor"];
+    originalSRT.scale *= defaultScaleFactor;
+    originalSRT.translation *= defaultScaleFactor;
+
+    return originalSRT;
 }
 
-void ModelProcessModelPlayerProxy::computeTransform()
+static RESRT modelLocalizedTransformSRT(RESRT originalSRT)
 {
-    if (!m_model || !m_layer)
+    constexpr float defaultScaleFactor = 0.36f;
+
+    originalSRT.scale /= defaultScaleFactor;
+    originalSRT.translation /= defaultScaleFactor;
+
+    return originalSRT;
+}
+
+void ModelProcessModelPlayerProxy::computeTransform(bool setDefaultRotation)
+{
+    if (!m_modelRKEntity || !m_layer)
         return;
 
     // FIXME: Use the value of the 'object-fit' property here to compute an appropriate SRT.
-    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_originalBoundingBoxCenter, m_pitch, m_yaw, m_hasPortal, effectivePointsPerMeter(m_layer.get()));
+    float boundingRadius = [m_modelRKEntity boundingRadius];
+    simd_quatf currentModelRotation = setDefaultRotation ? simd_quaternion(0, simd_make_float3(1, 0, 0)) : m_transformSRT.rotation;
+    RESRT newSRT = computeSRT(m_layer.get(), m_originalBoundingBoxExtents, m_originalBoundingBoxCenter, boundingRadius, m_hasPortal, effectivePointsPerMeter(m_layer.get()), m_stageModeOperation, currentModelRotation);
     m_transformSRT = newSRT;
 
-    simd_float4x4 matrix = RESRTMatrix(m_transformSRT);
+    notifyModelPlayerOfEntityTransformChange();
+}
+
+void ModelProcessModelPlayerProxy::notifyModelPlayerOfEntityTransformChange()
+{
+    RESRT newSRT = modelStandardizedTransformSRT(m_transformSRT);
+    simd_float4x4 matrix = RESRTMatrix(newSRT);
     WebCore::TransformationMatrix transform = WebCore::TransformationMatrix(matrix);
     send(Messages::ModelProcessModelPlayer::DidUpdateEntityTransform(transform));
 }
 
 void ModelProcessModelPlayerProxy::updateTransform()
 {
-    if (!m_model || !m_layer)
+    if (!m_modelRKEntity || !m_layer)
         return;
 
     [m_modelRKEntity setTransform:WKEntityTransform({ m_transformSRT.scale, m_transformSRT.rotation, m_transformSRT.translation })];
 }
 
+void ModelProcessModelPlayerProxy::updateTransformAfterLayout()
+{
+    if (m_transformNeedsUpdateAfterNextLayout) {
+        updateForCurrentStageMode();
+        m_transformNeedsUpdateAfterNextLayout = false;
+        return;
+    }
+
+    updateTransform();
+}
+
 void ModelProcessModelPlayerProxy::updateOpacity()
 {
-    if (!m_model || !m_layer)
+    if (!m_modelRKEntity || !m_layer)
         return;
 
     [m_modelRKEntity setOpacity:[m_layer opacity]];
 }
 
-void ModelProcessModelPlayerProxy::updatePortalAndClipping()
-{
-    if (!m_layer)
-        return;
-
-    if (m_hasPortal) {
-        [m_layer setValue:@YES forKeyPath:@"separatedOptions.isPortal"];
-        [m_layer setValue:@YES forKeyPath:@"separatedOptions.updates.clippingPrimitive"];
-    } else {
-        [m_layer setValue:nil forKeyPath:@"separatedOptions.isPortal"];
-        [m_layer setValue:@NO forKeyPath:@"separatedOptions.updates.clippingPrimitive"];
-    }
-
-    // FIXME: rdar://141457267 (Remove clipping when <model> doesn't have a portal)
-}
-
 void ModelProcessModelPlayerProxy::startAnimating()
 {
-    if (!m_model || !m_layer)
+    if (!m_modelRKEntity || !m_layer)
         return;
 
     [m_modelRKEntity setUpAnimationWithAutoPlay:m_autoplay];
@@ -440,27 +585,26 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     dispatch_assert_queue(dispatch_get_main_queue());
     ASSERT(&loader == m_loader.get());
 
-    bool canLoadWithRealityKit = [getWKSRKEntityClass() isLoadFromDataAvailable];
+    bool canLoadWithRealityKit = [getWKRKEntityClass() isLoadFromDataAvailable];
 
     m_loader = nullptr;
-    m_model = WTFMove(model);
     if (canLoadWithRealityKit)
-        m_modelRKEntity = m_model->rootRKEntity();
-    else if (m_model->rootEntity())
-        m_modelRKEntity = adoptNS([allocWKSRKEntityInstance() initWithCoreEntity:m_model->rootEntity()]);
+        m_modelRKEntity = model->rootRKEntity();
+    else if (model->rootEntity())
+        m_modelRKEntity = adoptNS([allocWKRKEntityInstance() initWithCoreEntity:model->rootEntity()]);
     [m_modelRKEntity setDelegate:m_objCAdapter.get()];
 
     m_originalBoundingBoxExtents = [m_modelRKEntity boundingBoxExtents];
     m_originalBoundingBoxCenter = [m_modelRKEntity boundingBoxCenter];
 
-    REPtr<REEntityRef> hostingEntity = adoptRE(REEntityCreate());
-    REEntitySetName(hostingEntity.get(), "WebKit:EntityWithRootComponent");
+    m_hostingEntity = adoptRE(REEntityCreate());
+    REEntitySetName(m_hostingEntity.get(), "WebKit:EntityWithRootComponent");
 
-    REPtr<REComponentRef> layerComponent = adoptRE(RECALayerServiceCreateRootComponent(webDefaultLayerService(), CALayerGetContext(m_layer.get()), hostingEntity.get(), nil));
-    RESceneAddEntity(m_scene.get(), hostingEntity.get());
+    REPtr<REComponentRef> layerComponent = adoptRE(RECALayerServiceCreateRootComponent(webDefaultLayerService(), CALayerGetContext(m_layer.get()), m_hostingEntity.get(), nil));
+    RESceneAddEntity(m_scene.get(), m_hostingEntity.get());
 
     CALayer *contextEntityLayer = RECALayerClientComponentGetCALayer(layerComponent.get());
-    [contextEntityLayer setSeparatedState:kCALayerSeparatedStateSeparated];
+    [contextEntityLayer setSeparatedState:kCALayerSeparatedStateTracked];
 
     RECALayerClientComponentSetShouldSyncToRemotes(layerComponent.get(), true);
 
@@ -468,42 +612,42 @@ void ModelProcessModelPlayerProxy::didFinishLoading(WebCore::REModelLoader& load
     auto clientComponentEntity = REComponentGetEntity(clientComponent);
     REEntitySetName(clientComponentEntity, "WebKit:ClientComponentEntity");
     if (canLoadWithRealityKit)
-        [m_model->rootRKEntity() setName:@"WebKit:ModelRootEntity"];
+        [model->rootRKEntity() setName:@"WebKit:ModelRootEntity"];
     else
-        REEntitySetName(m_model->rootEntity(), "WebKit:ModelRootEntity");
+        REEntitySetName(model->rootEntity(), "WebKit:ModelRootEntity");
 
-    // FIXME: Clipping workaround for rdar://125188888 (blocked by rdar://123516357 -> rdar://124718417).
-    // containerEntity is required to add a clipping primitive that is independent from model's rootEntity.
-    // Adding the primitive directly to clientComponentEntity has no visual effect.
-    constexpr float clippingBoxHalfSize = 500; // meters
-    REPtr<REEntityRef> containerEntity = adoptRE(REEntityCreate());
-    REEntitySetName(containerEntity.get(), "WebKit:ContainerEntity");
-
-    REEntitySetParent(containerEntity.get(), clientComponentEntity);
     if (canLoadWithRealityKit)
-        [m_model->rootRKEntity() setParentCoreEntity:containerEntity.get()];
-    else
-        REEntitySetParent(m_model->rootEntity(), containerEntity.get());
+        [model->rootRKEntity() setParentCoreEntity:clientComponentEntity preservingWorldTransform:NO];
+    else {
+        REEntitySetParent(model->rootEntity(), clientComponentEntity);
+    }
 
-    REEntitySubtreeAddNetworkComponentRecursive(containerEntity.get());
+    m_stageModeInteractionDriver = adoptNS([allocWKStageModeInteractionDriverInstance() initWithModel:m_modelRKEntity.get() container:clientComponentEntity delegate:m_objCAdapter.get()]);
 
-    auto clipComponent = REEntityGetOrAddComponentByClass(containerEntity.get(), REClippingPrimitiveComponentGetComponentType());
-    REClippingPrimitiveComponentSetShouldClipChildren(clipComponent, true);
-    REClippingPrimitiveComponentSetShouldClipSelf(clipComponent, true);
+    REEntitySubtreeAddNetworkComponentRecursive([m_stageModeInteractionDriver interactionContainerRef]);
+    RENetworkMarkEntityMetadataDirty([m_stageModeInteractionDriver interactionContainerRef]);
 
-    REAABB clipBounds { simd_make_float3(-clippingBoxHalfSize, -clippingBoxHalfSize, -2 * clippingBoxHalfSize),
-        simd_make_float3(clippingBoxHalfSize, clippingBoxHalfSize, 0) };
-    REClippingPrimitiveComponentClipToBox(clipComponent, clipBounds);
+    applyStageModeOperationToDriver();
 
-    RENetworkMarkEntityMetadataDirty(clientComponentEntity);
     if (!canLoadWithRealityKit)
-        RENetworkMarkEntityMetadataDirty(m_model->rootEntity());
+        RENetworkMarkEntityMetadataDirty(model->rootEntity());
 
-    updateBackgroundColor();
-    computeTransform();
-    updateTransform();
+    if (m_entityTransformToRestore) {
+        setEntityTransform(*m_entityTransformToRestore);
+        m_entityTransformToRestore = std::nullopt;
+    } else {
+        computeTransform(true);
+        updateTransform();
+    }
+    [m_stageModeInteractionDriver setContainerTransformInPortal];
+
     updateOpacity();
     startAnimating();
+    if (m_animationStateToRestore) {
+        [m_modelRKEntity setPaused:m_animationStateToRestore->paused()];
+        [m_modelRKEntity setCurrentTime:m_animationStateToRestore->currentTime().seconds()];
+        m_animationStateToRestore = std::nullopt;
+    }
 
     applyEnvironmentMapDataAndRelease();
 
@@ -519,10 +663,12 @@ void ModelProcessModelPlayerProxy::didFailLoading(WebCore::REModelLoader& loader
 
     RELEASE_LOG_ERROR(ModelElement, "%p - ModelProcessModelPlayerProxy failed to load model id=%" PRIu64 " error=\"%@\"", this, m_id.toUInt64(), error.nsError().localizedDescription);
 
-    // FIXME: Do something sensible in the failure case.
+    send(Messages::ModelProcessModelPlayer::DidFailLoading());
 }
 
 // MARK: - WebCore::ModelPlayer
+
+static int defaultEntityMemoryLimit = 100; // MB
 
 void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSize layoutSize)
 {
@@ -533,8 +679,8 @@ void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSi
 
     WKREEngine::shared().runWithSharedScene([this, protectedThis = Ref { *this }, model = Ref { model }] (RESceneRef scene) {
         m_scene = scene;
-        if ([getWKSRKEntityClass() isLoadFromDataAvailable])
-            m_loader = loadREModelUsingRKUSDLoader(model.get(), *this);
+        if ([getWKRKEntityClass() isLoadFromDataAvailable])
+            m_loader = RKUSDModelLoadScheduler::singleton().scheduleModelLoad(model.get(), m_attributionTaskID, m_debugEntityMemoryLimit ? *m_debugEntityMemoryLimit : defaultEntityMemoryLimit, *this);
         else
             m_loader = WebCore::loadREModel(model.get(), *this);
     });
@@ -542,8 +688,12 @@ void ModelProcessModelPlayerProxy::load(WebCore::Model& model, WebCore::LayoutSi
 
 void ModelProcessModelPlayerProxy::sizeDidChange(WebCore::LayoutSize layoutSize)
 {
-    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayerProxy::sizeDidChange w=%lf h=%lf id=%" PRIu64, this, layoutSize.width().toDouble(), layoutSize.height().toDouble(), m_id.toUInt64());
-    [m_layer setFrame:CGRectMake(0, 0, layoutSize.width().toDouble(), layoutSize.height().toDouble())];
+    RELEASE_LOG_INFO(ModelElement, "%p - ModelProcessModelPlayerProxy::sizeDidChange w=%lf h=%lf id=%" PRIu64, this, layoutSize.width().toDouble(), layoutSize.height().toDouble(), m_id.toUInt64());
+    auto width = layoutSize.width().toDouble();
+    auto height = layoutSize.height().toDouble();
+    if (!m_transformNeedsUpdateAfterNextLayout && m_stageModeOperation != WebCore::StageModeOperation::None && m_modelRKEntity && m_layer)
+        m_transformNeedsUpdateAfterNextLayout = width != CGRectGetWidth([m_layer frame]) || height != CGRectGetHeight([m_layer frame]);
+    [m_layer setFrame:CGRectMake(0, 0, width, height)];
 }
 
 PlatformLayer* ModelProcessModelPlayerProxy::layer()
@@ -556,15 +706,10 @@ std::optional<WebCore::LayerHostingContextIdentifier> ModelProcessModelPlayerPro
     return WebCore::LayerHostingContextIdentifier(m_layerHostingContext->contextID());
 }
 
-void ModelProcessModelPlayerProxy::setBackgroundColor(WebCore::Color color)
-{
-    m_backgroundColor = color.opaqueColor();
-    updateBackgroundColor();
-}
-
 void ModelProcessModelPlayerProxy::setEntityTransform(WebCore::TransformationMatrix transform)
 {
-    m_transformSRT = REMakeSRTFromMatrix(transform);
+    RESRT newSRT = REMakeSRTFromMatrix(transform);
+    m_transformSRT = modelLocalizedTransformSRT(newSRT);
     updateTransform();
 }
 
@@ -715,19 +860,94 @@ void ModelProcessModelPlayerProxy::setEnvironmentMap(Ref<WebCore::SharedBuffer>&
         applyEnvironmentMapDataAndRelease();
 }
 
+void ModelProcessModelPlayerProxy::beginStageModeTransform(const WebCore::TransformationMatrix& transform)
+{
+    simd_float4x4 transformMatrix = simd_float4x4(transform);
+    [m_stageModeInteractionDriver interactionDidBegin:transformMatrix];
+}
+
+void ModelProcessModelPlayerProxy::updateStageModeTransform(const WebCore::TransformationMatrix& transform)
+{
+    simd_float4x4 transformMatrix = simd_float4x4(transform);
+    [m_stageModeInteractionDriver interactionDidUpdate:transformMatrix];
+}
+
+void ModelProcessModelPlayerProxy::endStageModeInteraction()
+{
+    [m_stageModeInteractionDriver interactionDidEnd];
+}
+
+void ModelProcessModelPlayerProxy::resetModelTransformAfterDrag()
+{
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=291289
+}
+
+void ModelProcessModelPlayerProxy::stageModeInteractionDidUpdateModel()
+{
+    if (stageModeInteractionInProgress() && m_modelRKEntity)
+        updateTransformSRT();
+}
+
+bool ModelProcessModelPlayerProxy::stageModeInteractionInProgress() const
+{
+    return [m_stageModeInteractionDriver stageModeInteractionInProgress];
+}
+
+void ModelProcessModelPlayerProxy::animateModelToFitPortal(CompletionHandler<void(bool)>&& completionHandler)
+{
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=291289
+    completionHandler(true);
+}
+
+#if HAVE(MODEL_MEMORY_ATTRIBUTION)
+static void setIBLAssetOwnership(const String& attributionTaskID, REAssetRef iblAsset)
+{
+    const char* attributionIDString = attributionTaskID.utf8().data();
+
+    if (REPtr<REAssetRef> skyboxTexture = REIBLAssetGetSkyboxTexture(iblAsset)) {
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing skyboxTexture to task ID: %s", attributionIDString);
+        REAssetSetMemoryAttributionTarget(skyboxTexture.get(), attributionIDString);
+    }
+    if (REPtr<REAssetRef> diffuseTexture = REIBLAssetGetDiffuseTexture(iblAsset)) {
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing diffuseTexture to task ID: %s", attributionIDString);
+        REAssetSetMemoryAttributionTarget(diffuseTexture.get(), attributionIDString);
+    }
+    if (REPtr<REAssetRef> specularTexture = REIBLAssetGetSpecularTexture(iblAsset)) {
+        RELEASE_LOG_DEBUG(ModelElement, "Attributing specularTexture to task ID: %s", attributionIDString);
+        REAssetSetMemoryAttributionTarget(specularTexture.get(), attributionIDString);
+    }
+}
+#endif
+
 void ModelProcessModelPlayerProxy::applyEnvironmentMapDataAndRelease()
 {
     if (m_transientEnvironmentMapData) {
         if (m_transientEnvironmentMapData->size() > 0) {
-            [m_modelRKEntity applyIBLData:m_transientEnvironmentMapData->createNSData().get() withCompletion:^(BOOL succeeded) {
-                send(Messages::ModelProcessModelPlayer::DidFinishEnvironmentMapLoading(succeeded));
-            }];
+            [m_modelRKEntity applyIBLData:m_transientEnvironmentMapData->createNSData().get() attributionHandler:makeBlockPtr([weakThis = WeakPtr { *this }] (REAssetRef coreEnvironmentResourceAsset) {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis || !protectedThis->m_attributionTaskID || !coreEnvironmentResourceAsset)
+                    return;
+
+#if HAVE(MODEL_MEMORY_ATTRIBUTION)
+                setIBLAssetOwnership(*(protectedThis->m_attributionTaskID), coreEnvironmentResourceAsset);
+#endif
+            }).get() withCompletion:makeBlockPtr([weakThis = WeakPtr { *this }] (BOOL succeeded) {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
+
+                if (!succeeded)
+                    protectedThis->applyDefaultIBL();
+
+                protectedThis->send(Messages::ModelProcessModelPlayer::DidFinishEnvironmentMapLoading(succeeded));
+            }).get()];
         } else {
-            [m_modelRKEntity removeIBL];
+            applyDefaultIBL();
             send(Messages::ModelProcessModelPlayer::DidFinishEnvironmentMapLoading(true));
         }
         m_transientEnvironmentMapData = nullptr;
-    }
+    } else
+        applyDefaultIBL();
 }
 
 void ModelProcessModelPlayerProxy::setHasPortal(bool hasPortal)
@@ -737,9 +957,61 @@ void ModelProcessModelPlayerProxy::setHasPortal(bool hasPortal)
 
     m_hasPortal = hasPortal;
 
-    updatePortalAndClipping();
-    computeTransform();
+    computeTransform(true);
     updateTransform();
+}
+
+void ModelProcessModelPlayerProxy::updateForCurrentStageMode()
+{
+    if (m_stageModeOperation != WebCore::StageModeOperation::None) {
+        computeTransform(false);
+        [m_modelRKEntity recenterEntityAtTransform:WKEntityTransform({ m_transformSRT.scale, m_transformSRT.rotation, m_transformSRT.translation })];
+        updateTransformSRT();
+    }
+
+    applyStageModeOperationToDriver();
+}
+
+void ModelProcessModelPlayerProxy::setStageMode(WebCore::StageModeOperation stagemodeOp)
+{
+    if (m_stageModeOperation == stagemodeOp)
+        return;
+
+    m_stageModeOperation = stagemodeOp;
+
+    updateForCurrentStageMode();
+}
+
+void ModelProcessModelPlayerProxy::updateTransformSRT()
+{
+    WKEntityTransform entityTransform = [m_modelRKEntity transform];
+    m_transformSRT = RESRT {
+        .scale = entityTransform.scale,
+        .rotation = entityTransform.rotation,
+        .translation = entityTransform.translation
+    };
+
+    notifyModelPlayerOfEntityTransformChange();
+}
+
+void ModelProcessModelPlayerProxy::applyStageModeOperationToDriver()
+{
+    switch (m_stageModeOperation) {
+    case WebCore::StageModeOperation::Orbit: {
+        [m_stageModeInteractionDriver operationDidUpdate:WKStageModeOperationOrbit];
+        break;
+    }
+
+    case WebCore::StageModeOperation::None: {
+        [m_stageModeInteractionDriver operationDidUpdate:WKStageModeOperationNone];
+        break;
+    }
+    }
+}
+
+void ModelProcessModelPlayerProxy::applyDefaultIBL()
+{
+    [m_modelRKEntity applyDefaultIBL];
 }
 
 } // namespace WebKit

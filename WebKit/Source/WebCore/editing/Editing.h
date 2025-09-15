@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "PlatformLayerIdentifier.h"
 #include "Position.h"
 #include "TextIteratorBehavior.h"
 #include <wtf/Forward.h>
@@ -34,11 +35,13 @@
 namespace WebCore {
 
 class Document;
+class GraphicsLayer;
 class HTMLElement;
 class HTMLImageElement;
 class HTMLSpanElement;
 class HTMLTextFormControlElement;
 class RenderBlock;
+class RenderLayer;
 class VisiblePosition;
 class VisibleSelection;
 
@@ -98,7 +101,6 @@ bool isEmptyTableCell(const Node*);
 bool isTableStructureNode(const Node&);
 bool isListHTMLElement(Node*);
 bool isListItem(const Node&);
-bool isNodeRendered(const Node&);
 bool isRenderedAsNonInlineTableImageOrHR(const Node*);
 bool isNonTableCellHTMLBlockElement(const Node*);
 
@@ -116,6 +118,16 @@ PositionRange positionsForRange(const SimpleRange&);
 WEBCORE_EXPORT HashSet<RefPtr<HTMLImageElement>> visibleImageElementsInRangeWithNonLoadedImages(const SimpleRange&);
 WEBCORE_EXPORT SimpleRange adjustToVisuallyContiguousRange(const SimpleRange&);
 
+struct EnclosingLayerInfomation {
+    CheckedPtr<RenderLayer> startLayer;
+    CheckedPtr<RenderLayer> endLayer;
+    CheckedPtr<RenderLayer> enclosingLayer;
+    RefPtr<GraphicsLayer> enclosingGraphicsLayer;
+    std::optional<PlatformLayerIdentifier> enclosingGraphicsLayerID;
+};
+
+WEBCORE_EXPORT EnclosingLayerInfomation computeEnclosingLayer(const SimpleRange&);
+
 // -------------------------------------------------------------------------
 // Position
 // -------------------------------------------------------------------------
@@ -128,7 +140,7 @@ Position nextVisuallyDistinctCandidate(const Position&, SkipDisplayContents = Sk
 Position previousVisuallyDistinctCandidate(const Position&);
 
 Position firstPositionInOrBeforeNode(Node*);
-Position lastPositionInOrAfterNode(Node*);
+inline Position lastPositionInOrAfterNode(Node*);
 
 Position firstEditablePositionAfterPositionInRoot(const Position&, ContainerNode* root);
 Position lastEditablePositionBeforePositionInRoot(const Position&, ContainerNode* root);
@@ -251,13 +263,6 @@ inline Position firstPositionInOrBeforeNode(Node* node)
     if (!node)
         return { };
     return editingIgnoresContent(*node) ? positionBeforeNode(node) : firstPositionInNode(node);
-}
-
-inline Position lastPositionInOrAfterNode(Node* node)
-{
-    if (!node)
-        return { };
-    return editingIgnoresContent(*node) ? positionAfterNode(node) : lastPositionInNode(node);
 }
 
 }

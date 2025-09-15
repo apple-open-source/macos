@@ -284,7 +284,7 @@ auto TextCheckingHelper::findFirstMisspelledWord() const -> MisspelledWord
     return findMisspelledWords(Operation::FindFirst).first;
 }
 
-auto TextCheckingHelper::findFirstMisspelledWordOrUngrammaticalPhrase(bool checkGrammar) const -> std::variant<MisspelledWord, UngrammaticalPhrase>
+auto TextCheckingHelper::findFirstMisspelledWordOrUngrammaticalPhrase(bool checkGrammar) const -> Variant<MisspelledWord, UngrammaticalPhrase>
 {
     if (!unifiedTextCheckerEnabled())
         return { };
@@ -292,7 +292,7 @@ auto TextCheckingHelper::findFirstMisspelledWordOrUngrammaticalPhrase(bool check
     if (platformOrClientDrivenTextCheckerEnabled())
         return { };
 
-    std::variant<MisspelledWord, UngrammaticalPhrase> firstFoundItem;
+    Variant<MisspelledWord, UngrammaticalPhrase> firstFoundItem;
     GrammarDetail grammarDetail;
 
     String misspelledWord;

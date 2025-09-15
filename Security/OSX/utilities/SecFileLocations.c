@@ -51,17 +51,8 @@
 #include "SecFileLocations.h"
 #include "OSX/sec/Security/SecKnownFilePaths.h"
 
+#include "ipc/securityd_client.h"
 #include "SecAKSWrappers.h" // for TARGET_HAS_KEYSTORE, needed to determine edu mode
-#include <SoftLinking/SoftLinking.h>
-
-#if TARGET_OS_IOS && TARGET_HAS_KEYSTORE
-#define HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT 1
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, MobileKeyBag)
-SOFT_LINK_FUNCTION(MobileKeyBag, MKBUserTypeDeviceMode, soft_MKBUserTypeDeviceMode, CFDictionaryRef, (CFDictionaryRef options, CFErrorRef * error), (options, error))
-SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeKey, CFStringRef)
-SOFT_LINK_CONSTANT(MobileKeyBag, kMKBDeviceModeSharedIPad, CFStringRef)
-#endif
-
 
 #if TARGET_OS_OSX
 static const char * get_host_uuid(void)
@@ -174,7 +165,7 @@ bool SecSupportsEnhancedApfs(void) {
     return DeviceTree_SupportsEnhancedApfs() || SecSharedDataVolumeBootArgSet();
 }
 
-#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER && TARGET_HAS_KEYSTORE
 static bool SecForceEduMode(void) {
 #if DEBUG
     struct stat st;
@@ -190,19 +181,18 @@ static bool SecForceEduMode(void) {
 bool SecIsEduMode(void)
 {
     static bool result = false;
-#if HAVE_SOFTLINK_MOBILE_KEYBAG_SUPPORT
+#if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER && TARGET_HAS_KEYSTORE
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        CFDictionaryRef deviceMode = soft_MKBUserTypeDeviceMode(NULL, NULL);
+        CFDictionaryRef deviceMode = MKBUserTypeDeviceMode(NULL, NULL);
         if (deviceMode) {
             CFTypeRef value = NULL;
-            bool valuePresent = CFDictionaryGetValueIfPresent(deviceMode, getkMKBDeviceModeKey(), &value);
+            bool valuePresent = CFDictionaryGetValueIfPresent(deviceMode, kMKBDeviceModeKey, &value);
 
-            if (valuePresent && CFEqual(value, getkMKBDeviceModeSharedIPad())) {
+            if (valuePresent && CFEqual(value, kMKBDeviceModeSharedIPad)) {
                 result = true;
             }
-            // because SOFT_LINK_FUNCTION doesn't like CF_RETURNS_RETAINED decoration
-            [[clang::suppress]] CFReleaseNull(deviceMode);
+            CFReleaseNull(deviceMode);
         } else {
             secnotice("edumode", "Cannot determine because deviceMode is NULL");
         }

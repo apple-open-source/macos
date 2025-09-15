@@ -68,7 +68,7 @@ NetworkDataTaskCurl::NetworkDataTaskCurl(NetworkSession& session, NetworkDataTas
         request.removeCredentials();
         url = request.url();
 
-        if (auto* storageSession = m_session->networkStorageSession()) {
+        if (CheckedPtr storageSession = m_session->networkStorageSession()) {
             if (m_user.isEmpty() && m_password.isEmpty())
                 m_initialCredential = storageSession->credentialStorage().get(m_partition, url);
             else
@@ -199,7 +199,7 @@ void NetworkDataTaskCurl::curlDidReceiveData(CurlRequest&, Ref<SharedBuffer>&& b
         RELEASE_ASSERT(download);
         uint64_t bytesWritten = 0;
         for (auto& segment : buffer.get()) {
-            if (-1 == FileSystem::writeToFile(m_downloadDestinationFile, segment.segment->span())) {
+            if (!m_downloadDestinationFile.write(segment.segment->span())) {
                 download->didFail(ResourceError(CURLE_WRITE_ERROR, m_response.url()), { });
                 invalidateAndCancel();
                 return;
@@ -222,8 +222,7 @@ void NetworkDataTaskCurl::curlDidComplete(CurlRequest&, NetworkLoadMetrics&& net
     if (isDownload()) {
         auto* download = m_session->networkProcess().downloadManager().download(*m_pendingDownloadID);
         RELEASE_ASSERT(download);
-        FileSystem::closeFile(m_downloadDestinationFile);
-        m_downloadDestinationFile = FileSystem::invalidPlatformFileHandle;
+        m_downloadDestinationFile = { };
         download->didFinish();
         return;
     }
@@ -309,8 +308,8 @@ void NetworkDataTaskCurl::invokeDidReceiveResponse()
             invalidateAndCancel();
             break;
         case PolicyAction::Download: {
-            m_downloadDestinationFile = FileSystem::openFile(m_pendingDownloadLocation, FileSystem::FileOpenMode::Truncate, FileSystem::FileAccessPermission::All, !m_allowOverwriteDownload);
-            if (!FileSystem::isHandleValid(m_downloadDestinationFile)) {
+            m_downloadDestinationFile = FileSystem::openFile(m_pendingDownloadLocation, FileSystem::FileOpenMode::Truncate, FileSystem::FileAccessPermission::All, { }, !m_allowOverwriteDownload);
+            if (!m_downloadDestinationFile) {
                 if (m_client)
                     m_client->didCompleteWithError(ResourceError(CURLE_WRITE_ERROR, m_response.url()));
                 invalidateAndCancel();
@@ -350,7 +349,7 @@ void NetworkDataTaskCurl::willPerformHTTPRedirection()
     ResourceRequest request = m_firstRequest;
     if (!redirectedURL.hasFragmentIdentifier() && request.url().hasFragmentIdentifier())
         redirectedURL.setFragmentIdentifier(request.url().fragmentIdentifier());
-    request.setURL(redirectedURL);
+    request.setURL(WTFMove(redirectedURL));
 
     m_hasCrossOriginRedirect = m_hasCrossOriginRedirect || !SecurityOrigin::create(m_response.url())->canRequest(request.url(), WebCore::EmptyOriginAccessPatterns::singleton());
 
@@ -384,7 +383,7 @@ void NetworkDataTaskCurl::willPerformHTTPRedirection()
         // Only consider applying authentication credentials if this is actually a redirect and the redirect
         // URL didn't include credentials of its own.
         if (m_user.isEmpty() && m_password.isEmpty()) {
-            if (auto* storageSession = m_session->networkStorageSession()) {
+            if (CheckedPtr storageSession = m_session->networkStorageSession()) {
                 auto credential = storageSession->credentialStorage().get(m_partition, request.url());
                 if (!credential.isEmpty()) {
                     m_initialCredential = credential;
@@ -434,12 +433,12 @@ void NetworkDataTaskCurl::tryHttpAuthentication(AuthenticationChallenge&& challe
             // The stored credential wasn't accepted, stop using it. There is a race condition
             // here, since a different credential might have already been stored by another
             // NetworkDataTask, but the observable effect should be very minor, if any.
-            if (auto* storageSession = m_session->networkStorageSession())
+            if (CheckedPtr storageSession = m_session->networkStorageSession())
                 storageSession->credentialStorage().remove(m_partition, challenge.protectionSpace());
         }
 
         if (!challenge.previousFailureCount()) {
-            if (auto* storageSession = m_session->networkStorageSession()) {
+            if (CheckedPtr storageSession = m_session->networkStorageSession()) {
                 auto credential = storageSession->credentialStorage().get(m_partition, challenge.protectionSpace());
                 if (!credential.isEmpty() && credential != m_initialCredential) {
                     ASSERT(credential.persistence() == CredentialPersistence::None);
@@ -466,7 +465,7 @@ void NetworkDataTaskCurl::tryHttpAuthentication(AuthenticationChallenge&& challe
 
         if (disposition == AuthenticationChallengeDisposition::UseCredential && !credential.isEmpty()) {
             if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use && (credential.persistence() == CredentialPersistence::ForSession || credential.persistence() == CredentialPersistence::Permanent)) {
-                if (auto* storageSession = m_session->networkStorageSession())
+                if (CheckedPtr storageSession = m_session->networkStorageSession())
                     storageSession->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
             }
 
@@ -542,7 +541,7 @@ void NetworkDataTaskCurl::restartWithCredential(const ProtectionSpace& protectio
 
 void NetworkDataTaskCurl::appendCookieHeader(WebCore::ResourceRequest& request)
 {
-    if (auto* storageSession = m_session->networkStorageSession()) {
+    if (CheckedPtr storageSession = m_session->networkStorageSession()) {
         auto includeSecureCookies = request.url().protocolIs("https"_s) ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
         auto cookieHeaderField = storageSession->cookieRequestHeaderFieldValue(request.firstPartyForCookies(), WebCore::SameSiteInfo::create(request), request.url(), std::nullopt, std::nullopt, includeSecureCookies, ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No).first;
         if (!cookieHeaderField.isEmpty())
@@ -579,7 +578,7 @@ bool NetworkDataTaskCurl::shouldBlockCookies(const WebCore::ResourceRequest& req
     bool shouldBlockCookies = m_storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::EphemeralStateless;
 
     if (!shouldBlockCookies && m_session->networkStorageSession())
-        shouldBlockCookies = m_session->networkStorageSession()->shouldBlockCookies(request, m_frameID, m_pageID, m_session->networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(m_webPageProxyID));
+        shouldBlockCookies = m_session->checkedNetworkStorageSession()->shouldBlockCookies(request, m_frameID, m_pageID, m_session->networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(m_webPageProxyID));
 
     if (shouldBlockCookies)
         return true;
@@ -627,10 +626,9 @@ String NetworkDataTaskCurl::suggestedFilename() const
 
 void NetworkDataTaskCurl::deleteDownloadFile()
 {
-    if (FileSystem::isHandleValid(m_downloadDestinationFile)) {
-        FileSystem::closeFile(m_downloadDestinationFile);
+    if (m_downloadDestinationFile) {
+        m_downloadDestinationFile = { };
         FileSystem::deleteFile(m_pendingDownloadLocation);
-        m_downloadDestinationFile = FileSystem::invalidPlatformFileHandle;
     }
 }
 

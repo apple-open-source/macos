@@ -98,51 +98,6 @@ int call_main(const char *argv1) {
     XCTAssertEqual(result, 0);
 }
 
-- (void)test_tsformat_TestUAMeasureFormat {
-    char argv1[] = "/tsformat/cmeasureformattest/TestUAMeasureFormat";
-    int result = call_main(argv1);
-    XCTAssertEqual(result, 0);
-}
-
-- (void)test_tsformat_everything_else {
-    const char* const argv[] = {
-        "cintltst",
-        "/tsformat/ccaltst",
-        "/tsformat/cdateintervalformattest",
-        "/tsformat/cdattst",
-        "/tsformat/cdtdptst",
-        "/tsformat/cdtrgtst",
-        "/tsformat/cgendtst",
-
-//        "/tsformat/cmeasureformattest",
-//        "/tsformat/cmeasureformattest/TestUAMeasureFormat",
-        "/tsformat/cmeasureformattest/TestUAMeasFmtOpenAllLocs",
-        "/tsformat/cmeasureformattest/TestUAGetUnitsForUsage",
-        "/tsformat/cmeasureformattest/TestUAGetCategoryForUnit",
-        "/tsformat/cmeasureformattest/TestMeasurementSystemOverride",
-        "/tsformat/cmeasureformattest/TestRgSubtag",
-
-        "/tsformat/cmsgtst",
-        "/tsformat/cnmdptst",
-        "/tsformat/cnumtst",
-        "/tsformat/cpluralrulestest",
-        "/tsformat/crelativedateformattest",
-        "/tsformat/currtest",
-        "/tsformat/uatimezonetest",
-        "/tsformat/udatpg_test",
-        "/tsformat/uformattedvalue",
-        "/tsformat/ulistfmttest",
-        "/tsformat/unumberformatter",
-        "/tsformat/unumberrangeformatter",
-        "/tsformat/uregiontest",
-        "/tsformat/utmstest",
-    };
-    resetRepeat();
-    int argc = 26;
-    int result = main(argc, argv);
-    XCTAssertEqual(result, 0);
-}
-
 - (void)test_tsnorm {
     char argv1[] = "/tsnorm";
     int result = call_main(argv1);

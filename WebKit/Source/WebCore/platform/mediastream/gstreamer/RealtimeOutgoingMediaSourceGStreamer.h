@@ -37,10 +37,13 @@ class RealtimeOutgoingMediaSourceGStreamer : public ThreadSafeRefCountedAndCanMa
 public:
     ~RealtimeOutgoingMediaSourceGStreamer();
     void start();
-    void stop();
+
+    using StoppedCallback = Function<void()>;
+    void stop(StoppedCallback&&);
 
     const RefPtr<MediaStreamTrackPrivate>& track() const { return m_track; }
 
+    void setMediaStreamID(const String& mediaStreamId) { m_mediaStreamId = mediaStreamId; }
     const String& mediaStreamID() const { return m_mediaStreamId; }
     const GRefPtr<GstCaps>& allowedCaps() const;
     WARN_UNUSED_RETURN GRefPtr<GstCaps> rtpCaps() const;
@@ -55,7 +58,7 @@ public:
     bool configurePacketizers(GRefPtr<GstCaps>&&);
 
     GUniquePtr<GstStructure> parameters();
-    void setInitialParameters(GUniquePtr<GstStructure>&&);
+    virtual void setInitialParameters(GUniquePtr<GstStructure>&&);
     void setParameters(GUniquePtr<GstStructure>&&);
 
     void configure(GRefPtr<GstCaps>&&);
@@ -65,9 +68,9 @@ public:
     virtual WARN_UNUSED_RETURN GRefPtr<GstPad> outgoingSourcePad() const = 0;
     virtual RefPtr<GStreamerRTPPacketizer> createPacketizer(RefPtr<UniqueSSRCGenerator>, const GstStructure*, GUniquePtr<GstStructure>&&) = 0;
 
-    void replaceTrack(RefPtr<MediaStreamTrackPrivate>&&);
+    void replaceTrack(RefPtr<MediaStreamTrack>&&);
 
-    virtual void teardown();
+    void teardown();
 
     virtual void dispatchBitrateRequest(uint32_t bitrate) = 0;
 
@@ -100,7 +103,6 @@ protected:
     std::optional<RealtimeMediaSourceSettings> m_initialSettings;
     GRefPtr<GstElement> m_bin;
     GRefPtr<GstElement> m_outgoingSource;
-    GRefPtr<GstElement> m_preProcessor;
     GRefPtr<GstElement> m_tee;
     GRefPtr<GstElement> m_rtpFunnel;
     GRefPtr<GstElement> m_rtpCapsfilter;
@@ -118,9 +120,9 @@ private:
 
     void sourceMutedChanged();
 
-    void stopOutgoingSource();
+    void stopOutgoingSource(StoppedCallback&&);
+    void removeOutgoingSource();
 
-    bool linkSource();
     virtual RTCRtpCapabilities rtpCapabilities() const = 0;
     void codecPreferencesChanged();
 

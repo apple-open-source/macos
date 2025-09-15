@@ -216,7 +216,8 @@ struct vm_compressor_q_lens {
 
 typedef struct vm_compressor_q_lens       vm_compressor_q_lens_data_t;
 #define HOST_VM_COMPRESSOR_Q_LENS 7
-#define VM_COMPRESSOR_Q_LENS_COUNT sizeof(struct vm_compressor_q_lens)/sizeof(integer_t)
+#define VM_COMPRESSOR_Q_LENS_COUNT ((mach_msg_type_number_t) \
+	        (sizeof(struct vm_compressor_q_lens)/sizeof(integer_t)))
 #endif
 
 #ifdef XNU_KERNEL_PRIVATE
@@ -245,11 +246,12 @@ typedef struct vm_purgeable_info        *host_purgable_info_t;
 
 /* size of the latest version of the structure */
 #define HOST_VM_INFO64_LATEST_COUNT HOST_VM_INFO64_COUNT
-#define HOST_VM_INFO64_REV1_COUNT HOST_VM_INFO64_LATEST_COUNT
+#define HOST_VM_INFO64_REV2_COUNT HOST_VM_INFO64_COUNT
+#define HOST_VM_INFO64_REV1_COUNT ((mach_msg_type_number_t) \
+	 (offsetof(vm_statistics64_data_t, swapped_count) / sizeof(integer_t)))
 /* previous versions: adjust the size according to what was added each time */
-#define HOST_VM_INFO64_REV0_COUNT /* added compression and swapper info (14 ints) */ \
-	((mach_msg_type_number_t) \
-	 (HOST_VM_INFO64_REV1_COUNT - 14))
+#define HOST_VM_INFO64_REV0_COUNT ((mach_msg_type_number_t) \
+	 (offsetof(vm_statistics64_data_t, decompressions) / sizeof(integer_t)))
 
 /* in <mach/vm_statistics.h> */
 /* vm_extmod_statistics */

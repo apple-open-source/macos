@@ -44,14 +44,15 @@ class ScrollableArea;
 
 struct TimelineRange;
 
-TextStream& operator<<(TextStream&, Scroller);
-
 class ScrollTimeline : public AnimationTimeline {
 public:
     static Ref<ScrollTimeline> create(Document&, ScrollTimelineOptions&& = { });
     static Ref<ScrollTimeline> create(const AtomString&, ScrollAxis);
     static Ref<ScrollTimeline> create(Scroller, ScrollAxis);
+    static Ref<ScrollTimeline> createInactiveStyleOriginatedTimeline(const AtomString& name);
 
+    const WeakStyleable& sourceStyleable() const { return m_source; }
+    virtual Element* bindingsSource() const;
     virtual Element* source() const;
     void setSource(Element*);
     void setSource(const Styleable&);
@@ -62,17 +63,27 @@ public:
     const AtomString& name() const { return m_name; }
     void setName(const AtomString& name) { m_name = name; }
 
+    bool isInactiveStyleOriginatedTimeline() const { return m_isInactiveStyleOriginatedTimeline; }
+
     AnimationTimeline::ShouldUpdateAnimationsAndSendEvents documentWillUpdateAnimationsAndSendEvents() override;
+    void updateCurrentTimeIfStale();
 
     AnimationTimelinesController* controller() const override;
 
-    std::optional<WebAnimationTime> currentTime() override;
+    std::optional<WebAnimationTime> currentTime(UseCachedCurrentTime = UseCachedCurrentTime::Yes) override;
     TimelineRange defaultRange() const override;
     WeakPtr<Element, WeakPtrImplWithEventTargetData> timelineScopeDeclaredElement() const { return m_timelineScopeElement; }
     void setTimelineScopeElement(const Element&);
     void clearTimelineScopeDeclaredElement() { m_timelineScopeElement = nullptr; }
 
     virtual std::pair<WebAnimationTime, WebAnimationTime> intervalForAttachmentRange(const TimelineRange&) const;
+
+    void removeTimelineFromDocument(Element*);
+
+    struct ResolvedScrollDirection {
+        bool isVertical;
+        bool isReversed;
+    };
 
 protected:
     explicit ScrollTimeline(const AtomString&, ScrollAxis);
@@ -87,11 +98,7 @@ protected:
 
     static ScrollableArea* scrollableAreaForSourceRenderer(const RenderElement*, Document&);
 
-    struct ResolvedScrollDirection {
-        bool isVertical;
-        bool isReversed;
-    };
-    std::optional<ResolvedScrollDirection> resolvedScrollDirection() const;
+    ResolvedScrollDirection resolvedScrollDirection() const;
 
 private:
     explicit ScrollTimeline();
@@ -100,8 +107,6 @@ private:
     bool isScrollTimeline() const final { return true; }
 
     void animationTimingDidChange(WebAnimation&) override;
-
-    void removeTimelineFromDocument(Element*);
 
     struct CurrentTimeData {
         float scrollOffset { 0 };
@@ -116,7 +121,10 @@ private:
     Scroller m_scroller { Scroller::Self };
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_timelineScopeElement;
     CurrentTimeData m_cachedCurrentTimeData { };
+    bool m_isInactiveStyleOriginatedTimeline { false };
 };
+
+WTF::TextStream& operator<<(WTF::TextStream&, const ScrollTimeline&);
 
 } // namespace WebCore
 

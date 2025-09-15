@@ -53,19 +53,19 @@
 - (NSString *)identifier
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->identifier();
+    return IMPL->identifier().createNSString().autorelease();
 }
 
 - (NSString *)listStyle
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->listStyle();
+    return IMPL->listStyle().createNSString().autorelease();
 }
 
 - (NSString *)separator
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->separator();
+    return IMPL->separator().createNSString().autorelease();
 }
 
 @end

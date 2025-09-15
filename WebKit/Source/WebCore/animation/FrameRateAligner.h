@@ -55,7 +55,7 @@ private:
         bool isNew { true };
     };
 
-    UncheckedKeyHashMap<FramesPerSecond, FrameRateData> m_frameRates;
+    HashMap<FramesPerSecond, FrameRateData> m_frameRates;
     ReducedResolutionSeconds m_timestamp;
 };
 

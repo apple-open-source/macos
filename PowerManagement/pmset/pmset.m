@@ -40,7 +40,9 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOCFSerialize.h>
-
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include <LockdownMode/LockdownMode.h>
+#endif
     #define PLATFORM_HAS_DISPLAYSERVICES    1
     // ResentAmbientLightAll is defined in <DisplayServices/DisplayServices.h>
     // and implemented by DisplayServices.framework
@@ -134,6 +136,10 @@
 #define ARG_CUSTOMPOWERMODE "powermode"
 #endif // TARGET_OS_OSX
 
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+#define ARG_LDMHIBERNATE   "ldmHibernate"
+#endif
+
 // Scheduling options
 #define ARG_SCHEDULE        "schedule"
 #define ARG_SCHED           "sched"
@@ -224,6 +230,8 @@
 #define ARG_ACATTACH        "acattach"
 #define ARG_SET_DESKTOPMODE  "desktopmode"
 #define ARG_SYSTEM_ASSERTION_TIMEOUT    "systemassertiontimeout"
+#define ARG_GAMING_ACTIVE    "gamingactive"
+#define ARG_GAMING_PREFERENCE    "gamingmode"
 // special system
 #define ARG_DISABLESLEEP    "disablesleep"
 #define ARG_DISABLEFDEKEYSTORE  "destroyfvkeyonstandby"
@@ -444,6 +452,8 @@ static void set_debugFlags(char **argv);
 static void set_btInterval(char **argv);
 static void set_dwlInterval(char **argv);
 static void set_systemAssertionTimeout(char **argv);
+static void set_gamingState(char **argv);
+static void set_gamingEnergyMode(char **argv);
 static void set_saaFlags(char **argv);
 static void show_details_for_UUID(char **UUID_string);
 static void show_root_domain_user_clients(void);
@@ -4512,6 +4522,53 @@ exit:
      return -1;
  }
 
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+static void updateLDMHibernationStatus(uint32_t status)
+{
+    // are we in LDM
+    LockdownModeManager *ldm = [LockdownModeManager shared];
+    bool ldmEnabled = [ldm enabled];
+    if (!ldmEnabled) {
+        printf("Cannot change LDM hibernation settings outside of LPM mode\n");
+        return;
+    }
+    uint64_t ldmHibernationDisable = !status;
+    io_service_t                rootDomainService = IO_OBJECT_NULL;
+    io_connect_t                gRootDomainConnect = IO_OBJECT_NULL;
+    kern_return_t               kr = 0;
+    IOReturn                    ret;
+
+    // Find it
+    rootDomainService = _getRootDomain();
+    if (IO_OBJECT_NULL == rootDomainService) {
+        goto exit;
+    }
+
+    // Open it
+    kr = IOServiceOpen(rootDomainService, mach_task_self(), 0, &gRootDomainConnect);
+    if (KERN_SUCCESS != kr) {
+        printf("Failed to connect to rootDomain. rc=0x%x\n", kr);
+        goto exit;
+    }
+
+    ret = IOConnectCallMethod(gRootDomainConnect, kPMSetLDMHibernationDisable,
+                              &ldmHibernationDisable, 1,
+                    NULL, 0, NULL,
+                    NULL, NULL, NULL);
+
+    if (kIOReturnSuccess != ret)
+    {
+        printf("Failed to change LDM hibernation status. rc=0x%x\n", ret);
+        goto exit;
+    }
+
+exit:
+    if (IO_OBJECT_NULL != gRootDomainConnect)
+        IOServiceClose(gRootDomainConnect);
+    return;
+}
+#endif
+
 static int checkAndSetStrValue(char *valstr, CFStringRef settingKey, int apply,
                 CFMutableDictionaryRef ac, CFMutableDictionaryRef batt, CFMutableDictionaryRef ups)
 {
@@ -5144,7 +5201,26 @@ static int parseArgs(int argc,
         #endif
 
         return kIOReturnSuccess;
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+    } else if (0 ==strncmp(argv[1], ARG_LDMHIBERNATE, kMaxArgStringLength)) {
+        if ((getuid() != 0) && (geteuid() != 0)) {
+            fprintf(stderr, "pmset: Must be run as root.\n");
+            goto exit;
+        }
+        // Tell PMRD LDM hibernatemode
+        if(argc <= 2) {
+            printf("Error: LDM hibernate mode value should be specified. 0 for disabling hibernation and 1 for enabling hibernation\n");
+            goto exit;
+        }
+        uint32_t value = (uint32_t)strtol(argv[i+1], NULL, 0);
+        // Call PMRD
+        updateLDMHibernationStatus(value);
+        return kIOReturnSuccess;
     }
+
+#else
+    }
+#endif
 
 
 /***********
@@ -5416,6 +5492,22 @@ static int parseArgs(int argc,
                 goto exit;
               }
               set_systemAssertionTimeout(&argv[i+1]);
+              goto exit;
+          } else if (0 == strncmp(argv[i], ARG_GAMING_ACTIVE, kMaxArgStringLength))
+          {
+              if (argc <= 2) {
+                printf("Error: gaming active state is missing\n");
+                goto exit;
+              }
+              set_gamingState(&argv[i+1]);
+              goto exit;
+          } else if (0 == strncmp(argv[i], ARG_GAMING_PREFERENCE, kMaxArgStringLength))
+          {
+              if (argc <= 2) {
+                printf("Error: gaming mode preference is missing\n");
+                goto exit;
+              }
+              set_gamingEnergyMode(&argv[i+1]);
               goto exit;
           }
           else if (0 == strncmp(argv[i], ARG_MT2BOOK, kMaxArgStringLength))
@@ -7381,6 +7473,16 @@ static void set_dwlInterval(char **argv)
 }
 
 static void set_systemAssertionTimeout(char **argv)
+{
+    printf("Not supported\n");
+}
+
+static void set_gamingState(char **argv)
+{
+    printf("Not supported\n");
+}
+
+static void set_gamingEnergyMode(char **argv)
 {
     printf("Not supported\n");
 }

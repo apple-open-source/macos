@@ -77,6 +77,8 @@ public:
 private:
 #if PLATFORM(MAC)
     explicit PageBanner(CALayer *, int height, std::unique_ptr<Client>&&);
+
+    RefPtr<WebPage> protectedWebPage();
 #endif
 
     std::unique_ptr<Client> m_client;
@@ -93,3 +95,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::PageBanner)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BundlePageBanner; }
+SPECIALIZE_TYPE_TRAITS_END()

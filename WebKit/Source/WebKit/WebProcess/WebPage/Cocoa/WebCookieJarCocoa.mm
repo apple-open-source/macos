@@ -40,10 +40,9 @@ namespace WebKit {
 
 static RetainPtr<NSDictionary> policyProperties(const WebCore::SameSiteInfo& sameSiteInfo, const URL& url)
 {
-    static NSURL *emptyURL = [[NSURL alloc] initWithString:@""];
-    NSURL *nsURL = url;
+    RetainPtr nsURL = url.createNSURL();
     NSDictionary *policyProperties = @{
-        @"_kCFHTTPCookiePolicyPropertySiteForCookies": sameSiteInfo.isSameSite ? nsURL : emptyURL,
+        @"_kCFHTTPCookiePolicyPropertySiteForCookies": sameSiteInfo.isSameSite ? nsURL.get() : URL::emptyNSURL(),
         @"_kCFHTTPCookiePolicyPropertyIsTopLevelNavigation": [NSNumber numberWithBool:sameSiteInfo.isTopSite],
     };
     return policyProperties;
@@ -63,7 +62,7 @@ String WebCookieJar::cookiesInPartitionedCookieStorage(const WebCore::Document& 
         return { };
 
     __block RetainPtr<NSArray> cookies;
-    [m_partitionedStorageForDOMCookies.get() _getCookiesForURL:cookieURL mainDocumentURL:firstPartyURL partition:partition policyProperties:policyProperties(sameSiteInfo, cookieURL).get() completionHandler:^(NSArray *result) {
+    [m_partitionedStorageForDOMCookies _getCookiesForURL:cookieURL.createNSURL().get() mainDocumentURL:firstPartyURL.createNSURL().get() partition:partition.createNSString().get() policyProperties:policyProperties(sameSiteInfo, cookieURL).get() completionHandler:^(NSArray *result) {
         cookies = result;
     }];
 
@@ -94,17 +93,18 @@ void WebCookieJar::setCookiesInPartitionedCookieStorage(const WebCore::Document&
     if (partition.isEmpty())
         return;
 
-    NSHTTPCookie *cookie = [NSHTTPCookie _cookieForSetCookieString:cookieString forURL:cookieURL partition:partition];
+    RetainPtr cookie = [NSHTTPCookie _cookieForSetCookieString:cookieString.createNSString().get() forURL:cookieURL.createNSURL().get() partition:partition.createNSString().get()];
     if (!cookie || ![[cookie name] length] || [cookie isHTTPOnly])
         return;
 
-    [ensurePartitionedCookieStorage() _setCookies:@[cookie] forURL:cookieURL mainDocumentURL:firstPartyURL policyProperties:policyProperties(sameSiteInfo, cookieURL).get()];
+    RetainPtr partitionedCookieStorage = ensurePartitionedCookieStorage();
+    [partitionedCookieStorage _setCookies:@[cookie.get()] forURL:cookieURL.createNSURL().get() mainDocumentURL:firstPartyURL.createNSURL().get() policyProperties:policyProperties(sameSiteInfo, cookieURL).get()];
 }
 
 NSHTTPCookieStorage* WebCookieJar::ensurePartitionedCookieStorage()
 {
     if (!m_partitionedStorageForDOMCookies) {
-        m_partitionedStorageForDOMCookies = adoptNS([[NSHTTPCookieStorage alloc] _initWithIdentifier:@"WebCookieJar" private:true]);
+        lazyInitialize(m_partitionedStorageForDOMCookies, adoptNS([[NSHTTPCookieStorage alloc] _initWithIdentifier:@"WebCookieJar" private:true]));
         m_partitionedStorageForDOMCookies.get().cookieAcceptPolicy = NSHTTPCookieAcceptPolicyAlways;
     }
 

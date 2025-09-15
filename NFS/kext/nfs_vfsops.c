@@ -122,6 +122,7 @@ nfs_lck_group_info_t nfs_lck_group_infos[NLG_NUM_GROUPS] = {
 	{ NLG_OPEN_OWNERS, "nfs_open_owners" },
 	{ NLG_DELEGATIONS, "nfs_delegations" },
 	{ NLG_SEND_STATE, "nfs_send_state" },
+	{ NLG_SESSION, "nfs_session" },
 	{ NLG_COMMITD, "nfs_commit_thread" },
 };
 
@@ -280,7 +281,8 @@ nfs_zone_destroy(void)
  */
 
 int nfs_ticks;
-uint32_t nfs_fs_attr_bitmap[NFS_ATTR_BITMAP_LEN];
+uint32_t nfs40_fs_attr_bitmap[NFS_ATTR_BITMAP_LEN];
+uint32_t nfs41_fs_attr_bitmap[NFS_ATTR_BITMAP_LEN];
 uint32_t nfs_object_attr_bitmap[NFS_ATTR_BITMAP_LEN];
 uint32_t nfs_getattr_bitmap[NFS_ATTR_BITMAP_LEN];
 uint32_t nfs4_getattr_write_bitmap[NFS_ATTR_BITMAP_LEN];
@@ -431,6 +433,19 @@ const struct nfs_funcs nfs4_funcs = {
 	.nf_unlock_rpc = nfs4_unlock_rpc,
 	.nf_getlock_rpc = nfs4_getlock_rpc
 };
+
+const struct nfs4_funcs nfs40_funcs = {
+	.nf4_create_clientid = nfs4_setclientid,
+	.nf4_renew_rpc = nfs4_renew_rpc,
+	.nf4_release_state = nfs4_release_lockowner_rpc,
+};
+
+const struct nfs4_funcs nfs41_funcs = {
+	.nf4_create_clientid = nfs41_exchangeid,
+	.nf4_renew_rpc = nfs41_sequence_rpc,
+	.nf4_release_state = nfs41_free_stateid_rpc,
+};
+
 #endif
 
 /*
@@ -469,10 +484,11 @@ nfs_vfs_init(__unused struct vfsconf *vfsp)
 
 #if CONFIG_NFS4
 	/* NFSv4 stuff */
-	NFS4_PER_FS_ATTRIBUTES(nfs_fs_attr_bitmap);
+	NFS4_PER_FS_ATTRIBUTES(nfs40_fs_attr_bitmap, NFSV4_MINORVERSION);
+	NFS4_PER_FS_ATTRIBUTES(nfs41_fs_attr_bitmap, NFSV41_MINORVERSION);
 	NFS4_PER_OBJECT_ATTRIBUTES(nfs_object_attr_bitmap);
 	NFS4_DEFAULT_WRITE_ATTRIBUTES(nfs4_getattr_write_bitmap);
-	NFS4_DEFAULT_ATTRIBUTES(nfs_getattr_bitmap);
+	NFS4_DEFAULT_ATTRIBUTES(nfs_getattr_bitmap, NFSV4_MINORVERSION);
 	for (int i = 0; i < NFS_ATTR_BITMAP_LEN; i++) {
 		nfs_getattr_bitmap[i] &= nfs_object_attr_bitmap[i];
 		nfs4_getattr_write_bitmap[i] &= nfs_object_attr_bitmap[i];
@@ -649,15 +665,20 @@ nfs4_update_statfs(struct nfsmount *nmp, vfs_context_t ctx)
 	nfsm_chain_null(&nmreq);
 	nfsm_chain_null(&nmrep);
 
-	// PUTFH + GETATTR
-	numops = 2;
-	nfsm_chain_build_alloc_init(error, &nmreq, 15 * NFSX_UNSIGNED);
+	// SEQUENCE?, PUTFH, GETATTR
+	numops = NFS4_SEQ_OP(nmp, 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (15 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "statfs", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, nfsvers, np->n_fhp, np->n_fhsize);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 	NFS_COPY_ATTRIBUTES(nfs_getattr_bitmap, bitmap);
 	NFS4_STATFS_ATTRIBUTES(bitmap);
 	nfsm_chain_add_bitmap_supported(error, &nmreq, bitmap, nmp, np);
@@ -669,12 +690,16 @@ nfs4_update_statfs(struct nfsmount *nmp, vfs_context_t ctx)
 	    NULL, R_SOFT, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 	nfsm_assert(error, NFSTONMP(np), ENXIO);
 	nfsmout_if(error);
 	lck_mtx_lock(&nmp->nm_lock);
-	error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, &nvattr, NULL, NULL, NULL);
+	error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, nmp->nm_minor_vers, &nvattr, NULL, NULL, NULL);
 	lck_mtx_unlock(&nmp->nm_lock);
 	nfsmout_if(error);
 	if ((lockerror = nfs_node_lock(np))) {
@@ -1801,15 +1826,20 @@ nfs4_mount_update_path_with_symlink(struct nfsmount *nmp, struct nfs_fs_path *nf
 
 	link = zalloc_flags(get_zone(NFS_NAMEI), Z_WAITOK | Z_NOFAIL);
 
-	// PUTFH, READLINK
-	numops = 2;
-	nfsm_chain_build_alloc_init(error, &nmreq, 12 * NFSX_UNSIGNED);
+	// SEQUENCE?, PUTFH, READLINK
+	numops = NFS4_SEQ_OP(nmp, 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (12 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "readlink", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, NFS_VER4, fhp->fh_data, fhp->fh_len);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_READLINK);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_READLINK);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
@@ -1822,6 +1852,10 @@ nfs4_mount_update_path_with_symlink(struct nfsmount *nmp, struct nfs_fs_path *nf
 
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_READLINK);
 	nfsm_chain_get_32(error, &nmrep, len);
@@ -1938,17 +1972,6 @@ nfs4_mount(
 	nfsm_chain_null(&nmreq);
 	nfsm_chain_null(&nmrep);
 
-	/*
-	 * If no security flavors were specified we'll want to default to the server's
-	 * preferred flavor.  For NFSv4.0 we need a file handle and name to get that via
-	 * SECINFO, so we'll do that on the last component of the server path we are
-	 * mounting.  If we are mounting the server's root, we'll need to defer the
-	 * SECINFO call to the first successful LOOKUP request.
-	 */
-	if (!nmp->nm_sec.count) {
-		nmp->nm_state |= NFSSTA_NEEDSECINFO;
-	}
-
 	/* make a copy of the current location's path */
 	nfsp = &nmp->nm_locations.nl_locations[nmp->nm_locations.nl_current.nli_loc]->nl_path;
 	if (nfs_fs_path_init(&fspath, nfsp->np_compcount)) {
@@ -1967,6 +1990,32 @@ nfs4_mount(
 		goto nfsmout;
 	}
 
+	/*
+	 * If no security flavors were specified we'll want to default to the server's
+	 * preferred flavor.  For NFSv4.0 we need a file handle and name to get that via
+	 * SECINFO, so we'll do that on the last component of the server path we are
+	 * mounting.  If we are mounting the server's root, we'll need to defer the
+	 * SECINFO call to the first successful LOOKUP request.
+	 */
+	if (!nmp->nm_sec.count) {
+		if (NM_VERS41(nmp)) {
+			/* need to get SECINFO_NO_NAME for the directory being mounted */
+			sec.count = NX_MAX_SEC_FLAVORS;
+			error = nfs41_secinfo_no_name_rpc(nmp, nmp->nm_fh, vfs_context_ucred(ctx), sec.flavors, &sec.count);
+			/* [sigh] some implementations return "illegal" error for unsupported ops */
+			if (error == NFSERR_OP_ILLEGAL) {
+				error = 0;
+			}
+			nfsmout_if(error);
+			/* set our default security flavor to the first in the list */
+			if (sec.count) {
+				nmp->nm_auth = sec.flavors[0];
+			}
+		} else {
+			nmp->nm_state |= NFSSTA_NEEDSECINFO;
+		}
+	}
+
 	/* for mirror mounts, we can just use the file handle passed in */
 	if (nmp->nm_fh) {
 		dirfh.fh_len = nmp->nm_fh->fh_len;
@@ -1980,17 +2029,23 @@ nfs4_mount(
 	/* if no components, just get root */
 	if (fspath.np_compcount == 0) {
 nocomponents:
-		// PUTROOTFH + GETATTR(FH)
 		NFSREQ_SECINFO_SET(&si, NULL, NULL, 0, NULL, 0);
-		numops = 2;
-		nfsm_chain_build_alloc_init(error, &nmreq, 9 * NFSX_UNSIGNED);
+
+		// SEQUENCE?, PUTROOTFH, GETATTR(FH)
+		numops = NFS4_SEQ_OP(nmp, 2);
+		nfsm_chain_build_alloc_init(error, &nmreq, (9 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 		nfsm_chain_add_compound_header(error, &nmreq, "mount", nmp->nm_minor_vers, numops);
+		if (NM_VERS41((nmp))) {
+			numops--;
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+			nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+		}
 		numops--;
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTROOTFH);
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTROOTFH);
 		numops--;
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 		NFS_CLEAR_ATTRIBUTES(bitmap);
-		NFS4_DEFAULT_ATTRIBUTES(bitmap);
+		NFS4_DEFAULT_ATTRIBUTES(bitmap, nmp->nm_minor_vers);
 		NFS_BITMAP_SET(bitmap, NFS_FATTR_FILEHANDLE);
 		nfsm_chain_add_bitmap(error, &nmreq, bitmap, NFS_ATTR_BITMAP_LEN);
 		nfsm_chain_build_done(error, &nmreq);
@@ -2003,11 +2058,15 @@ nocomponents:
 		}
 		nfsm_chain_skip_tag(error, &nmrep);
 		nfsm_chain_get_32(error, &nmrep, numops);
+		if (NM_VERS41((nmp))) {
+			nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+			nfsm_chain_adv_sequence(error, &nmrep);
+		}
 		nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTROOTFH);
 		nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 		nfsmout_if(error);
 		NFS_CLEAR_ATTRIBUTES(nmp->nm_fsattr.nfsa_bitmap);
-		error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, &nvattr, &dirfh, NULL, NULL);
+		error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, nmp->nm_minor_vers, &nvattr, &dirfh, NULL, NULL);
 		if (!error && !NFS_BITMAP_ISSET(&nvattr.nva_bitmap, NFS_FATTR_FILEHANDLE)) {
 			printf("nfs: mount didn't return filehandle?\n");
 			error = EBADRPC;
@@ -2039,36 +2098,42 @@ nocomponents:
 				continue;
 			}
 		}
-		// PUT(ROOT)FH + LOOKUP(P) + GETFH + GETATTR
 		if (dirfh.fh_len == 0) {
 			NFSREQ_SECINFO_SET(&si, NULL, NULL, 0, isdotdot ? NULL : fspath.np_components[comp], 0);
 		} else {
 			NFSREQ_SECINFO_SET(&si, NULL, dirfh.fh_data, dirfh.fh_len, isdotdot ? NULL : fspath.np_components[comp], 0);
 		}
-		numops = 4;
-		nfsm_chain_build_alloc_init(error, &nmreq, 18 * NFSX_UNSIGNED);
+
+		// SEQUENCE?, PUT(ROOT)FH, LOOKUP(P), GETFH, GETATTR
+		numops = NFS4_SEQ_OP(nmp, 4);
+		nfsm_chain_build_alloc_init(error, &nmreq, (18 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 		nfsm_chain_add_compound_header(error, &nmreq, "mount", nmp->nm_minor_vers, numops);
+		if (NM_VERS41((nmp))) {
+			numops--;
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+			nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+		}
 		numops--;
 		if (dirfh.fh_len) {
-			nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 			nfsm_chain_add_fh(error, &nmreq, NFS_VER4, dirfh.fh_data, dirfh.fh_len);
 		} else {
-			nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTROOTFH);
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTROOTFH);
 		}
 		numops--;
 		if (isdotdot) {
-			nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_LOOKUPP);
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_LOOKUPP);
 		} else {
-			nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_LOOKUP);
+			nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_LOOKUP);
 			nfsm_chain_add_name(error, &nmreq,
 			    fspath.np_components[comp], strlen(fspath.np_components[comp]), nmp);
 		}
 		numops--;
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETFH);
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETFH);
 		numops--;
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 		NFS_CLEAR_ATTRIBUTES(bitmap);
-		NFS4_DEFAULT_ATTRIBUTES(bitmap);
+		NFS4_DEFAULT_ATTRIBUTES(bitmap, nmp->nm_minor_vers);
 		/* if no namedattr support or component is ".zfs", clear NFS_FATTR_NAMED_ATTR */
 		if (!NMFLAG(nmp, NAMEDATTR) || !strcmp(fspath.np_components[comp], ".zfs")) {
 			NFS_BITMAP_CLR(bitmap, NFS_FATTR_NAMED_ATTR);
@@ -2084,6 +2149,10 @@ nocomponents:
 		}
 		nfsm_chain_skip_tag(error, &nmrep);
 		nfsm_chain_get_32(error, &nmrep, numops);
+		if (NM_VERS41((nmp))) {
+			nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+			nfsm_chain_adv_sequence(error, &nmrep);
+		}
 		nfsm_chain_op_check(error, &nmrep, dirfh.fh_len ? NFS_OP_PUTFH : NFS_OP_PUTROOTFH);
 		nfsm_chain_op_check(error, &nmrep, isdotdot ? NFS_OP_LOOKUPP : NFS_OP_LOOKUP);
 		nfsmout_if(error);
@@ -2097,7 +2166,7 @@ nocomponents:
 		nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 		if (!error) {
 			NFS_CLEAR_ATTRIBUTES(nmp->nm_fsattr.nfsa_bitmap);
-			error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, &nvattr, NULL, NULL, &nfsls);
+			error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, nmp->nm_minor_vers, &nvattr, NULL, NULL, &nfsls);
 		}
 		nfsm_chain_cleanup(&nmrep);
 		nfsm_chain_null(&nmreq);
@@ -2222,16 +2291,22 @@ nocomponents:
 
 gotfh:
 	/* get attrs for mount point root */
-	numops = NMFLAG(nmp, NAMEDATTR) ? 3 : 2; // PUTFH + GETATTR + OPENATTR
-	nfsm_chain_build_alloc_init(error, &nmreq, 25 * NFSX_UNSIGNED);
+	// SEQUENCE?, PUTFH, GETATTR, OPENATTR?
+	numops = NFS4_SEQ_OP(nmp, NMFLAG(nmp, NAMEDATTR) ? 3 : 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (25 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "mount", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, NFS_VER4, dirfh.fh_data, dirfh.fh_len);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 	NFS_CLEAR_ATTRIBUTES(bitmap);
-	NFS4_DEFAULT_ATTRIBUTES(bitmap);
+	NFS4_DEFAULT_ATTRIBUTES(bitmap, nmp->nm_minor_vers);
 	/* if no namedattr support or last component is ".zfs", clear NFS_FATTR_NAMED_ATTR */
 	if (!NMFLAG(nmp, NAMEDATTR) || ((fspath.np_compcount > 0) && !strcmp(fspath.np_components[fspath.np_compcount - 1], ".zfs"))) {
 		NFS_BITMAP_CLR(bitmap, NFS_FATTR_NAMED_ATTR);
@@ -2239,7 +2314,7 @@ gotfh:
 	nfsm_chain_add_bitmap(error, &nmreq, bitmap, NFS_ATTR_BITMAP_LEN);
 	if (NMFLAG(nmp, NAMEDATTR)) {
 		numops--;
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_OPENATTR);
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_OPENATTR);
 		nfsm_chain_add_32(error, &nmreq, 0);
 	}
 	nfsm_chain_build_done(error, &nmreq);
@@ -2252,11 +2327,15 @@ gotfh:
 	}
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 	nfsmout_if(error);
 	NFS_CLEAR_ATTRIBUTES(nmp->nm_fsattr.nfsa_bitmap);
-	error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, &nvattr, NULL, NULL, NULL);
+	error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, nmp->nm_minor_vers, &nvattr, NULL, NULL, NULL);
 	nfsmout_if(error);
 	if (NMFLAG(nmp, NAMEDATTR)) {
 		nfsm_chain_op_check(error, &nmrep, NFS_OP_OPENATTR);
@@ -2283,6 +2362,9 @@ gotfh:
 		if (fhtype != NFS_FH_PERSISTENT) {
 			printf("nfs: warning: non-persistent file handles! for %s\n", vfs_statfs(nmp->nm_mountp)->f_mntfromname);
 		}
+	}
+	if (NM_VERS41(nmp) && !SESSION_IS_PERSISTENT(&nmp->nm_session) && !NFS_BITMAP_ISSET(nmp->nm_fsattr.nfsa_supp_attr, NFS_FATTR_SUPPATTR_EXCLCREAT)) {
+		printf("nfs: warning: was not able to fetch the suppattr_exclcreat attribute - exclusive create may fail\n");
 	}
 
 	/* make sure it's a directory */
@@ -2467,11 +2549,20 @@ nfs_mount_connect(struct nfsmount *nmp)
 
 /* Table of maximum minor version for a given version */
 uint32_t maxminorverstab[] = {
-	0, /* Version 0 (does not exist) */
-	0, /* Version 1 (does not exist) */
-	0, /* Version 2 */
-	0, /* Version 3 */
-	0, /* Version 4 */
+	0,                   /* Version 0 (does not exist) */
+	0,                   /* Version 1 (does not exist) */
+	0,                   /* Version 2 */
+	0,                   /* Version 3 */
+	NFSV41_MINORVERSION, /* Version 4 */
+};
+
+/* Table of default minor version for a given version */
+uint32_t defminorverstab[] = {
+	0,                  /* Version 0 (does not exist) */
+	0,                  /* Version 1 (does not exist) */
+	0,                  /* Version 2 */
+	0,                  /* Version 3 */
+	NFSV4_MINORVERSION, /* Version 4 */
 };
 
 #define NFS_MAX_SUPPORTED_VERSION  ((long)(sizeof (maxminorverstab) / sizeof (uint32_t) - 1))
@@ -2546,7 +2637,6 @@ mountnfs(
 		vfs_setfsprivate(mp, nmp);
 		vfs_getnewfsid(mp);
 		nmp->nm_mountp = mp;
-		vfs_setauthopaque(mp);
 		/*
 		 * Disable cache_lookup_path for NFS.  NFS lookup always needs
 		 * to be called to check if the directory attribute cache is
@@ -2643,7 +2733,7 @@ mountnfs(
 		if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_MINOR_VERSION)) {
 			xb_get_32(error, &xb, nmp->nm_minor_vers);
 		} else {
-			nmp->nm_minor_vers = maxminorverstab[nmp->nm_vers];
+			nmp->nm_minor_vers = defminorverstab[nmp->nm_vers];
 		}
 		if (nmp->nm_minor_vers > maxminorverstab[nmp->nm_vers]) {
 			error = EINVAL;
@@ -3228,9 +3318,11 @@ mountnfs(
 	} else {
 #if CONFIG_NFS4
 		nmp->nm_funcs = &nfs4_funcs;
+		nmp->nm_funcs4 = NM_VERS41(nmp) ? &nfs41_funcs : &nfs40_funcs;
 #else
 		/* don't go any further if we don't support NFS4 */
 		nmp->nm_funcs = NULL;
+		nmp->nm_funcs4 = NULL;
 		error = ENOTSUP;
 		nfsmerr_if(error);
 #endif
@@ -3392,6 +3484,7 @@ mountnfs(
 	/* For NFSv3 and greater, there is a (relatively) reliable ACCESS call. */
 	if (nmp->nm_vers > NFS_VER2 && !NMFLAG(nmp, NOOPAQUE_AUTH)) {
 		vfs_setauthopaqueaccess(mp);
+		vfs_setauthopaque(mp);
 	}
 
 	switch (nmp->nm_lockmode) {
@@ -4652,6 +4745,11 @@ nfs_mount_zombie(struct nfsmount *nmp, int nm_state_flags)
 	nmp->nm_ref++;
 	lck_mtx_unlock(&nmp->nm_lock);
 #if CONFIG_NFS4
+	/* destroy session and clientID */
+	if (NM_VERS41(nmp)) {
+		// TODO fix for forced unmount
+		nfs41_destroy_clientid(nmp, NULL, NULL, 0);
+	}
 	/* stop callbacks */
 	if ((nmp->nm_vers >= NFS_VER4) && !NMFLAG(nmp, NOCALLBACK) && nmp->nm_cbid) {
 		nfs4_mount_callback_shutdown(nmp);
@@ -4677,6 +4775,14 @@ nfs_mount_zombie(struct nfsmount *nmp, int nm_state_flags)
 		wakeup(&nmp->nm_sockthd);
 		msleep(&nmp->nm_sockthd, &nmp->nm_lock, PZERO - 1, "nfswaitsockthd", &ts);
 	}
+
+#if CONFIG_NFS4
+	/* cancel any renew timer */
+	if ((nmp->nm_vers >= NFS_VER4)) {
+		nfs_cancel_thread(&nmp->nm_renew_timer);
+	}
+#endif /* CONFIG_NFS4 */
+
 	lck_mtx_unlock(&nmp->nm_lock);
 
 	/* tear down the socket */
@@ -4692,13 +4798,8 @@ nfs_mount_zombie(struct nfsmount *nmp, int nm_state_flags)
 			np->n_dreturn.tqe_next = NFSNOLIST;
 		}
 	}
+#endif /* CONFIG_NFS4 */
 
-	/* cancel any renew timer */
-	if ((nmp->nm_vers >= NFS_VER4)) {
-		nfs_cancel_thread(&nmp->nm_renew_timer);
-	}
-
-#endif
 	lck_mtx_unlock(&nmp->nm_lock);
 
 	if (nmp->nm_state & NFSSTA_MOUNTED) {
@@ -5239,15 +5340,20 @@ nfs4_getquota(struct nfsmount *nmp, vfs_context_t ctx, uid_t id, int type, struc
 	nfsm_chain_null(&nmreq);
 	nfsm_chain_null(&nmrep);
 
-	// PUTFH + GETATTR
-	numops = 2;
-	nfsm_chain_build_alloc_init(error, &nmreq, 15 * NFSX_UNSIGNED);
+	// SEQUENCE?, PUTFH, GETATTR
+	numops = NFS4_SEQ_OP(nmp, 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (15 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "quota", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, nfsvers, np->n_fhp, np->n_fhsize);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 	NFS_CLEAR_ATTRIBUTES(bitmap);
 	NFS_BITMAP_SET(bitmap, NFS_FATTR_QUOTA_AVAIL_HARD);
 	NFS_BITMAP_SET(bitmap, NFS_FATTR_QUOTA_AVAIL_SOFT);
@@ -5259,11 +5365,15 @@ nfs4_getquota(struct nfsmount *nmp, vfs_context_t ctx, uid_t id, int type, struc
 	error = nfs_request2(np, NULL, &nmreq, NFSPROC4_COMPOUND, thd, cred, &si, 0, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 	nfsm_assert(error, NFSTONMP(np), ENXIO);
 	nfsmout_if(error);
-	error = nfs4_parsefattr(&nmrep, NULL, NULL, NULL, dqb, NULL);
+	error = nfs4_parsefattr(nmp, &nmrep, NULL, NULL, NULL, dqb, NULL);
 	nfsmout_if(error);
 	nfsm_assert(error, NFSTONMP(np), ENXIO);
 nfsmout:

@@ -38,7 +38,7 @@
 
 - (NSObject *)_web_createTarget
 {
-    WebKit::AuthenticationChallengeProxy& challenge = *reinterpret_cast<WebKit::AuthenticationChallengeProxy*>(&self._apiObject);
+    Ref challenge = *reinterpret_cast<WebKit::AuthenticationChallengeProxy*>(&self._apiObject);
 
     static dispatch_once_t token;
     static NeverDestroyed<RetainPtr<WKNSURLAuthenticationChallengeSender>> sender;
@@ -46,7 +46,7 @@
         sender.get() = adoptNS([[WKNSURLAuthenticationChallengeSender alloc] init]);
     });
 
-    return [[NSURLAuthenticationChallenge alloc] initWithAuthenticationChallenge:mac(challenge.core()) sender:sender.get().get()];
+    return [[NSURLAuthenticationChallenge alloc] initWithAuthenticationChallenge:mac(challenge->core()) sender:sender.get().get()];
 }
 
 - (WebKit::AuthenticationChallengeProxy&)_web_authenticationChallengeProxy
@@ -70,45 +70,45 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     checkChallenge(challenge);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WebKit::AuthenticationChallengeProxy& webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
+    Ref<WebKit::AuthenticationChallengeProxy> webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
 ALLOW_DEPRECATED_DECLARATIONS_END
-    webChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::Cancel);
+    webChallenge->listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::Cancel);
 }
 
 - (void)continueWithoutCredentialForAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
     checkChallenge(challenge);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WebKit::AuthenticationChallengeProxy& webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
+    Ref<WebKit::AuthenticationChallengeProxy> webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
 ALLOW_DEPRECATED_DECLARATIONS_END
-    webChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::UseCredential);
+    webChallenge->listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::UseCredential);
 }
 
 - (void)useCredential:(NSURLCredential *)credential forAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
     checkChallenge(challenge);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WebKit::AuthenticationChallengeProxy& webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
+    Ref<WebKit::AuthenticationChallengeProxy> webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
 ALLOW_DEPRECATED_DECLARATIONS_END
-    webChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::UseCredential, WebCore::Credential(credential));
+    webChallenge->listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::UseCredential, WebCore::Credential(credential));
 }
 
 - (void)performDefaultHandlingForAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
     checkChallenge(challenge);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WebKit::AuthenticationChallengeProxy& webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
+    Ref<WebKit::AuthenticationChallengeProxy> webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
 ALLOW_DEPRECATED_DECLARATIONS_END
-    webChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::PerformDefaultHandling);
+    webChallenge->listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::PerformDefaultHandling);
 }
 
 - (void)rejectProtectionSpaceAndContinueWithChallenge:(NSURLAuthenticationChallenge *)challenge
 {
     checkChallenge(challenge);
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    WebKit::AuthenticationChallengeProxy& webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
+    Ref<WebKit::AuthenticationChallengeProxy> webChallenge = ((WKNSURLAuthenticationChallenge *)challenge)._web_authenticationChallengeProxy;
 ALLOW_DEPRECATED_DECLARATIONS_END
-    webChallenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue);
+    webChallenge->listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue);
 }
 
 @end

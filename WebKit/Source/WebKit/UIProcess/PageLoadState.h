@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -188,7 +188,7 @@ public:
     void setUnreachableURL(const Transaction::Token&, const String&);
 
     const String& title() const;
-    void setTitle(const Transaction::Token&, const String&);
+    void setTitle(const Transaction::Token&, String&&);
     void setTitleFromBrowsingWarning(const Transaction::Token&, const String&);
 
     bool canGoBack() const;

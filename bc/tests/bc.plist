@@ -3667,6 +3667,60 @@
                         <key>Command</key>
                         <array>
                                 <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/bc/tests/error.sh</string>
+                                <string>bc</string>
+                                <string>37.txt</string>
+                                <string>0</string>
+                                <string>bc</string>
+                        </array>
+                        <key>ShellEnv</key>
+                        <dict>
+                                <key>BC_TEST_OUTPUT_DIR</key>
+                                <string>/tmp/bc.test</string>
+                        </dict>
+                        <key>TestName</key>
+                        <string>test_bc.bc.error_37.txt</string>
+                        <key>Timeout</key>
+                        <integer>300</integer>
+                        <key>WhenToRun</key>
+                        <array>
+                                <string>PRESUBMISSION</string>
+                                <string>NIGHTLY</string>
+                        </array>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/Tests/bc</string>
+                </dict>
+                <dict>
+                        <key>Command</key>
+                        <array>
+                                <string>/bin/sh</string>
+                                <string>/AppleInternal/Tests/bc/tests/error.sh</string>
+                                <string>bc</string>
+                                <string>38.txt</string>
+                                <string>0</string>
+                                <string>bc</string>
+                        </array>
+                        <key>ShellEnv</key>
+                        <dict>
+                                <key>BC_TEST_OUTPUT_DIR</key>
+                                <string>/tmp/bc.test</string>
+                        </dict>
+                        <key>TestName</key>
+                        <string>test_bc.bc.error_38.txt</string>
+                        <key>Timeout</key>
+                        <integer>300</integer>
+                        <key>WhenToRun</key>
+                        <array>
+                                <string>PRESUBMISSION</string>
+                                <string>NIGHTLY</string>
+                        </array>
+                        <key>WorkingDirectory</key>
+                        <string>/AppleInternal/Tests/bc</string>
+                </dict>
+                <dict>
+                        <key>Command</key>
+                        <array>
+                                <string>/bin/sh</string>
                                 <string>/AppleInternal/Tests/bc/tests/test.sh</string>
                                 <string>dc</string>
                                 <string>decimal</string>

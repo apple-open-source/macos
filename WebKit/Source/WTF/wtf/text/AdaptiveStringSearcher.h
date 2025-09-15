@@ -30,8 +30,6 @@
 #include <wtf/text/StringCommon.h>
 #include <wtf/text/StringView.h>
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 namespace WTF {
 
 //---------------------------------------------------------------------
@@ -65,8 +63,9 @@ public:
     static constexpr int bmMinPatternLength = 7;
 
     static constexpr bool exceedsOneByte(LChar) { return false; }
-    static constexpr bool exceedsOneByte(UChar c) { return c > 0xff; }
+    static constexpr bool exceedsOneByte(char16_t c) { return c > 0xff; }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     template <typename PatternChar, typename SubjectChar>
     static inline int findFirstCharacter(std::span<const PatternChar> pattern, std::span<const SubjectChar> subject, int index)
     {
@@ -92,6 +91,7 @@ public:
             return -1;
         return static_cast<int>(charPos - subjectPtr);
     }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 };
 
 class AdaptiveStringSearcherTables {
@@ -172,6 +172,7 @@ private:
 
     void populateBoyerMooreTable();
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     static inline int charOccurrence(int* badCharOccurrence, SubjectChar charCode)
     {
         if constexpr (sizeof(SubjectChar) == 1)
@@ -187,6 +188,7 @@ private:
         int equivClass = charCode % ucharAlphabetSize;
         return badCharOccurrence[equivClass];
     }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     // The following tables are shared by all searches.
     // TODO(lrn): Introduce a way for a pattern to keep its tables
@@ -197,6 +199,7 @@ private:
     // pattern.
     int* badCharTable() { return m_tables.badCharShiftTable(); }
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     // Store for the BoyerMoore good suffix shift table.
     int* goodSuffixShiftTable()
     {
@@ -213,6 +216,7 @@ private:
         // to the kSuffixTable array.
         return m_tables.suffixTable() - m_start;
     }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     AdaptiveStringSearcherTables& m_tables;
     // The pattern to search for.
@@ -243,6 +247,7 @@ int AdaptiveStringSearcher<PatternChar, SubjectChar>::singleCharSearch(AdaptiveS
 // Linear Search Strategy
 //---------------------------------------------------------------------
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 // Simple linear search for short patterns. Never bails out.
 template <typename PatternChar, typename SubjectChar>
 int AdaptiveStringSearcher<PatternChar, SubjectChar>::linearSearch(AdaptiveStringSearcher<PatternChar, SubjectChar>& search, std::span<const SubjectChar> subject, int index)
@@ -511,6 +516,7 @@ int AdaptiveStringSearcher<PatternChar, SubjectChar>::initialSearch(AdaptiveStri
     }
     return -1;
 }
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 // Perform a a single stand-alone search.
 // If searching multiple times for the same pattern, a search
@@ -528,5 +534,3 @@ int searchString(AdaptiveStringSearcherTables& tables, std::span<const SubjectCh
 using WTF::AdaptiveStringSearcher;
 using WTF::AdaptiveStringSearcherTables;
 using WTF::searchString;
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

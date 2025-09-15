@@ -34,13 +34,14 @@
 
 namespace WebKit {
 
-FrameProcess::FrameProcess(WebProcessProxy& process, BrowsingContextGroup& group, const WebCore::Site& site, const WebPreferences& preferences)
+FrameProcess::FrameProcess(WebProcessProxy& process, BrowsingContextGroup& group, const WebCore::Site& site, const WebPreferences& preferences, InjectBrowsingContextIntoProcess injectBrowsingContextIntoProcess)
     : m_process(process)
     , m_browsingContextGroup(group)
     , m_site(site)
 {
     if (preferences.siteIsolationEnabled()) {
-        group.addFrameProcess(*this);
+        if (injectBrowsingContextIntoProcess == InjectBrowsingContextIntoProcess::Yes)
+            group.addFrameProcess(*this);
         process.didStartUsingProcessForSiteIsolation(site);
     } else
         m_browsingContextGroup = nullptr;
@@ -48,8 +49,8 @@ FrameProcess::FrameProcess(WebProcessProxy& process, BrowsingContextGroup& group
 
 FrameProcess::~FrameProcess()
 {
-    if (m_browsingContextGroup)
-        m_browsingContextGroup->removeFrameProcess(*this);
+    if (RefPtr group = m_browsingContextGroup.get())
+        group->removeFrameProcess(*this);
 }
 
 }

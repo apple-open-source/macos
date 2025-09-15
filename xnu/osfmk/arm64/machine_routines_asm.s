@@ -77,6 +77,10 @@ Lcre_start_\@:
 
 	COPYIO_RECOVER_TABLE_SYM	copyio_recover_table
 
+.macro COPYIO_STACK_PROLOG
+0:
+	ARM64_STACK_PROLOG
+.endmacro
 
 #if defined(HAS_APPLE_PAC)
 
@@ -459,7 +463,8 @@ L_mmu_kvtop_wpreflight_invalid:
 	.align 2
 copyio_error:
 	POP_FRAME							// Return the error populated in x0
-	ARM64_STACK_EPILOG					// by the exception handler
+	                                    // by the exception handler
+	ARM64_STACK_EPILOG
 
 #if CONFIG_XNUPOST
 /*
@@ -485,89 +490,112 @@ LEXT(arm64_panic_lockdown_test_copyio_fault_pc)
 #endif /* CONFIG_XNUPOST */
 
 /*
+ * We have several different _bcopy{in|out} implementations, with slightly different
+ * recovery models. This macro provides a common backbone for all of them, so that
+ * we don't risk (implementation/optimization) differences among them.
+ */
+.macro BCOPY_IMPL src, dst, len, end_label
+    // \src: Source pointer
+    // \dst: Destination pointer
+    // \len: Length
+    // \end_label: Label to jump to at the end of the copy
+
+    /* If len is less than 256 bytes, do 16 bytewise copy */
+    cmp     \len, #256
+    b.lt    2f
+    sub     \len, \len, #256
+    /* 256 bytes at a time */
+1:
+    /* 0-64 bytes */
+    ldp     x3, x4, [\src]
+    stp     x3, x4, [\dst]
+    ldp     x5, x6, [\src, #16]
+    stp     x5, x6, [\dst, #16]
+    ldp     x3, x4, [\src, #32]
+    stp     x3, x4, [\dst, #32]
+    ldp     x5, x6, [\src, #48]
+    stp     x5, x6, [\dst, #48]
+
+    /* 64-128 bytes */
+    ldp     x3, x4, [\src, #64]
+    stp     x3, x4, [\dst, #64]
+    ldp     x5, x6, [\src, #80]
+    stp     x5, x6, [\dst, #80]
+    ldp     x3, x4, [\src, #96]
+    stp     x3, x4, [\dst, #96]
+    ldp     x5, x6, [\src, #112]
+    stp     x5, x6, [\dst, #112]
+
+    /* 128-192 bytes */
+    ldp     x3, x4, [\src, #128]
+    stp     x3, x4, [\dst, #128]
+    ldp     x5, x6, [\src, #144]
+    stp     x5, x6, [\dst, #144]
+    ldp     x3, x4, [\src, #160]
+    stp     x3, x4, [\dst, #160]
+    ldp     x5, x6, [\src, #176]
+    stp     x5, x6, [\dst, #176]
+
+    /* 192-256 bytes */
+    ldp     x3, x4, [\src, #192]
+    stp     x3, x4, [\dst, #192]
+    ldp     x5, x6, [\src, #208]
+    stp     x5, x6, [\dst, #208]
+    ldp     x3, x4, [\src, #224]
+    stp     x3, x4, [\dst, #224]
+    ldp     x5, x6, [\src, #240]
+    stp     x5, x6, [\dst, #240]
+
+    add     \src, \src, #256
+    add     \dst, \dst, #256
+
+    subs    \len, \len, #256
+    b.ge    1b
+
+    /* Fixup the len and test for completion */
+    adds    \len, \len, #256
+    b.eq    \end_label
+
+2:
+    /* If len is less than 16 bytes, just do a bytewise copy */
+    cmp     \len, #16
+    b.lt    4f
+    sub     \len, \len, #16
+
+3:
+    /* 16 bytes at a time */
+    ldp     x3, x4, [\src], #16
+    stp     x3, x4, [\dst], #16
+    subs    \len, \len, #16
+    b.ge    3b
+
+    /* Fixup the len and test for completion */
+    adds    \len, \len, #16
+    b.eq    \end_label
+
+4:  /* Bytewise */
+    subs    \len, \len, #1
+    ldrb    w3, [\src], #1
+    strb    w3, [\dst], #1
+    b.hi    4b
+
+    //Fallthrough if copy finishes here.
+.endm
+
+/*
  * int _bcopyin(const user_addr_t src, char *dst, vm_size_t len)
  */
 	.text
 	.align 2
 	.globl EXT(_bcopyin)
 LEXT(_bcopyin)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
-	COPYIO_RECOVER_RANGE 5f
-	/* If len is less than 256 bytes, do 16 bytewise copy */
-	cmp		x2, #256
-	b.lt	2f
-	sub		x2, x2, #256
-	/* 256 bytes at a time */
-1:
-	/* 0-64 bytes */
-	ldp		x3, x4, [x0]
-	stp		x3, x4, [x1]
-	ldp		x5, x6, [x0, #16]
-	stp		x5, x6, [x1, #16]
-	ldp		x3, x4, [x0, #32]
-	stp		x3, x4, [x1, #32]
-	ldp		x5, x6, [x0, #48]
-	stp		x5, x6, [x1, #48]
+	COPYIO_RECOVER_RANGE _bcopyin_end
 
-	/* 64-128 bytes */
-	ldp		x3, x4, [x0, #64]
-	stp		x3, x4, [x1, #64]
-	ldp		x5, x6, [x0, #80]
-	stp		x5, x6, [x1, #80]
-	ldp		x3, x4, [x0, #96]
-	stp		x3, x4, [x1, #96]
-	ldp		x5, x6, [x0, #112]
-	stp		x5, x6, [x1, #112]
+	BCOPY_IMPL x0, x1, x2, _bcopyin_end
 
-	/* 128-192 bytes */
-	ldp		x3, x4, [x0, #128]
-	stp		x3, x4, [x1, #128]
-	ldp		x5, x6, [x0, #144]
-	stp		x5, x6, [x1, #144]
-	ldp		x3, x4, [x0, #160]
-	stp		x3, x4, [x1, #160]
-	ldp		x5, x6, [x0, #176]
-	stp		x5, x6, [x1, #176]
-
-	/* 192-256 bytes */
-	ldp		x3, x4, [x0, #192]
-	stp		x3, x4, [x1, #192]
-	ldp		x5, x6, [x0, #208]
-	stp		x5, x6, [x1, #208]
-	ldp		x3, x4, [x0, #224]
-	stp		x3, x4, [x1, #224]
-	ldp		x5, x6, [x0, #240]
-	stp		x5, x6, [x1, #240]
-
-	add		x0, x0, #256
-	add		x1, x1, #256
-
-	subs	x2, x2, #256
-	b.ge	1b
-	/* Fixup the len and test for completion */
-	adds	x2, x2, #256
-	b.eq	5f
-2:
-	/* If len is less than 16 bytes, just do a bytewise copy */
-	cmp		x2, #16
-	b.lt	4f
-	sub		x2, x2, #16
-3:
-	/* 16 bytes at a time */
-	ldp		x3, x4, [x0], #16
-	stp		x3, x4, [x1], #16
-	subs	x2, x2, #16
-	b.ge	3b
-	/* Fixup the len and test for completion */
-	adds	x2, x2, #16
-	b.eq	5f
-4:	/* Bytewise */
-	subs	x2, x2, #1
-	ldrb	w3, [x0], #1
-	strb	w3, [x1], #1
-	b.hi	4b
-5:
+_bcopyin_end:	
 	mov		x0, xzr
 	/*
 	 * x3, x4, x5 and x6 now contain user-controlled values which may be used to form
@@ -580,7 +608,7 @@ LEXT(_bcopyin)
 	mov		x5, xzr
 	mov		x6, xzr
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_bcopyin)
 
 #if CONFIG_DTRACE
 /*
@@ -590,7 +618,7 @@ LEXT(_bcopyin)
 	.align 2
 	.globl EXT(dtrace_nofault_copy8)
 LEXT(dtrace_nofault_copy8)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 1f
 	ldrb		w8, [x0]
@@ -598,7 +626,7 @@ LEXT(dtrace_nofault_copy8)
 	strb		w8, [x1]
 	mov		x0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(dtrace_nofault_copy8)
 
 /*
  * int dtrace_nofault_copy16(const char *src, uint32_t *dst)
@@ -607,7 +635,7 @@ LEXT(dtrace_nofault_copy8)
 	.align 2
 	.globl EXT(dtrace_nofault_copy16)
 LEXT(dtrace_nofault_copy16)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 1f
 	ldrh		w8, [x0]
@@ -615,7 +643,7 @@ LEXT(dtrace_nofault_copy16)
 	strh		w8, [x1]
 	mov		x0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(dtrace_nofault_copy16)
 
 
 #endif /* CONFIG_DTRACE */
@@ -632,7 +660,7 @@ LEXT(dtrace_nofault_copy32)
 #endif
 	.globl EXT(_copyin_atomic32)
 LEXT(_copyin_atomic32)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 1f
 	ldr		w8, [x0]
@@ -645,7 +673,7 @@ LEXT(_copyin_atomic32)
 	 * C wrapper. So, no need to zero it out here.
 	 */
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_copyin_atomic32)
 
 /*
  * int _copyin_atomic32_wait_if_equals(const user_addr_t src, uint32_t value)
@@ -654,7 +682,7 @@ LEXT(_copyin_atomic32)
 	.align 2
 	.globl EXT(_copyin_atomic32_wait_if_equals)
 LEXT(_copyin_atomic32_wait_if_equals)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 2f
 	ldxr		w8, [x0]
@@ -672,7 +700,7 @@ LEXT(_copyin_atomic32_wait_if_equals)
 	 * C wrapper. So, no need to zero it out here.
 	 */
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_copyin_atomic32_wait_if_equals)
 
 
 /*
@@ -687,7 +715,7 @@ LEXT(dtrace_nofault_copy64)
 #endif
 	.globl EXT(_copyin_atomic64)
 LEXT(_copyin_atomic64)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE Lcopyin_atomic64_common
 	ldr		x8, [x0]
@@ -700,7 +728,7 @@ Lcopyin_atomic64_common:
 	 * C wrapper. So, no need to zero it out here.
 	 */
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_copyin_atomic64)
 
 
 /*
@@ -710,14 +738,14 @@ Lcopyin_atomic64_common:
 	.align 2
 	.globl EXT(_copyout_atomic32)
 LEXT(_copyout_atomic32)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 1f
 	str		w0, [x1]
 1:
 	mov		x0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_copyout_atomic32)
 
 /*
  * int _copyout_atomic64(uint64_t u64, user_addr_t dst)
@@ -726,15 +754,14 @@ LEXT(_copyout_atomic32)
 	.align 2
 	.globl EXT(_copyout_atomic64)
 LEXT(_copyout_atomic64)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE 1f
 	str		x0, [x1]
 1:
 	mov		x0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
-
+	ARM64_STACK_EPILOG EXT(_copyout_atomic64)
 
 /*
  * int _bcopyout(const char *src, user_addr_t dst, vm_size_t len)
@@ -743,85 +770,16 @@ LEXT(_copyout_atomic64)
 	.align 2
 	.globl EXT(_bcopyout)
 LEXT(_bcopyout)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
-	COPYIO_RECOVER_RANGE 5f
-	/* If len is less than 256 bytes, do 16 bytewise copy */
-	cmp		x2, #256
-	b.lt	2f
-	sub		x2, x2, #256
-	/* 256 bytes at a time */
-1:
-	/* 0-64 bytes */
-	ldp		x3, x4, [x0]
-	stp		x3, x4, [x1]
-	ldp		x5, x6, [x0, #16]
-	stp		x5, x6, [x1, #16]
-	ldp		x3, x4, [x0, #32]
-	stp		x3, x4, [x1, #32]
-	ldp		x5, x6, [x0, #48]
-	stp		x5, x6, [x1, #48]
+	COPYIO_RECOVER_RANGE _bcopyout_end
 
-	/* 64-128 bytes */
-	ldp		x3, x4, [x0, #64]
-	stp		x3, x4, [x1, #64]
-	ldp		x5, x6, [x0, #80]
-	stp		x5, x6, [x1, #80]
-	ldp		x3, x4, [x0, #96]
-	stp		x3, x4, [x1, #96]
-	ldp		x5, x6, [x0, #112]
-	stp		x5, x6, [x1, #112]
+	BCOPY_IMPL x0, x1, x2, _bcopyout_end
 
-	/* 128-192 bytes */
-	ldp		x3, x4, [x0, #128]
-	stp		x3, x4, [x1, #128]
-	ldp		x5, x6, [x0, #144]
-	stp		x5, x6, [x1, #144]
-	ldp		x3, x4, [x0, #160]
-	stp		x3, x4, [x1, #160]
-	ldp		x5, x6, [x0, #176]
-	stp		x5, x6, [x1, #176]
-
-	/* 192-256 bytes */
-	ldp		x3, x4, [x0, #192]
-	stp		x3, x4, [x1, #192]
-	ldp		x5, x6, [x0, #208]
-	stp		x5, x6, [x1, #208]
-	ldp		x3, x4, [x0, #224]
-	stp		x3, x4, [x1, #224]
-	ldp		x5, x6, [x0, #240]
-	stp		x5, x6, [x1, #240]
-
-	add		x0, x0, #256
-	add		x1, x1, #256
-	subs	x2, x2, #256
-	b.ge	1b
-	/* Fixup the len and test for completion */
-	adds	x2, x2, #256
-	b.eq	5f
-2:
-	/* If len is less than 16 bytes, just do a bytewise copy */
-	cmp		x2, #16
-	b.lt	4f
-	sub		x2, x2, #16
-3:
-	/* 16 bytes at a time */
-	ldp		x3, x4, [x0], #16
-	stp		x3, x4, [x1], #16
-	subs	x2, x2, #16
-	b.ge	3b
-	/* Fixup the len and test for completion */
-	adds	x2, x2, #16
-	b.eq	5f
-4:  /* Bytewise */
-	subs	x2, x2, #1
-	ldrb	w3, [x0], #1
-	strb	w3, [x1], #1
-	b.hi	4b
-5:
+_bcopyout_end:
 	mov		x0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_bcopyout)
 
 /*
  * int _bcopyinstr(
@@ -834,7 +792,7 @@ LEXT(_bcopyout)
 	.align 2
 	.globl EXT(_bcopyinstr)
 LEXT(_bcopyinstr)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE Lcopyinstr_done
 	mov		x4, #0						// x4 - total bytes copied
@@ -875,7 +833,7 @@ Lcopyinstr_done:
 	mov x4, xzr
 	mov x5, xzr
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_bcopyinstr)
 
 /*
  * int copyinframe(const vm_address_t frame_addr, char *kernel_addr, bool is64bit)
@@ -898,7 +856,7 @@ Lcopyinstr_done:
 	.align 2
 	.globl EXT(copyinframe)
 LEXT(copyinframe)
-	ARM64_STACK_PROLOG
+	COPYIO_STACK_PROLOG
 	PUSH_FRAME
 	COPYIO_RECOVER_RANGE Lcopyinframe_done
 	cbnz	w2, Lcopyinframe64 		// Check frame size
@@ -932,7 +890,7 @@ Lcopyinframe_valid:
 
 Lcopyinframe_done:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(copyinframe)
 
 
 /*
@@ -993,7 +951,7 @@ LEXT(hw_lck_ticket_reserve_orig_allow_invalid)
 
 7:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(hw_lck_ticket_reserve_orig_allow_invalid)
 
 9: /* invalid */
 #if !defined(__ARM_ARCH_8_2__)
@@ -1001,7 +959,7 @@ LEXT(hw_lck_ticket_reserve_orig_allow_invalid)
 #endif
 	mov		w0, #0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(hw_lck_ticket_reserve_orig_allow_invalid)
 
 /*
  * uint32_t arm_debug_read_dscr(void)
@@ -1080,6 +1038,13 @@ vm_sleep_individual_cpu:
 	orr		x9, x9, x10
 	msr		CPU_OVRD, x9
 	isb
+#else
+	// Mask timer IRQs before entering WFI
+	mrs     x9, ACNTHV_CTL_EL2
+	mov     x10, #(~ACNTHV_CTL_EL2_EN_MASK)
+	and     x9, x9, x10
+	msr     ACNTHV_CTL_EL2, x9
+	isb
 #endif
 is_deep_sleep:
 #endif
@@ -1143,6 +1108,11 @@ Lwfi_inst:
 	dsb		sy
 	isb		sy
 	wfi
+#if NO_CPU_OVRD
+	// Clear any spurious IPIs received during CPU shutdown
+	mov     x9, #0x1
+	msr     S3_5_C15_C1_1, x9
+#endif
 	b		Lwfi_inst
 
 /*
@@ -1163,7 +1133,7 @@ LEXT(arm64_force_wfi_clock_gate)
 #endif
 	
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(arm64_force_wfi_clock_gate)
 
 
 #if HAS_RETENTION_STATE
@@ -1233,7 +1203,7 @@ LEXT(arm64_replace_bootstack)
 	mrs		x4, DAIF					// Load current DAIF; use x4 as pinst may trash x1-x3
 	msr		DAIFSet, #(DAIFSC_STANDARD_DISABLE)		// Disable all asynchronous exceptions
 	// Set SP_EL1 to exception stack
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	mov		x1, lr
 	bl		EXT(pinst_spsel_1)
 	mov		lr, x1
@@ -1244,7 +1214,7 @@ LEXT(arm64_replace_bootstack)
 	msr		SPSel, #0
 	msr		DAIF, x4					// Restore interrupt state
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(arm64_replace_bootstack)
 
 #ifdef MONITOR
 /*
@@ -1400,7 +1370,7 @@ Lintr_enabled_panic:
 	brk		#0
 Lintr_enabled_str:
 	/*
-	 * Please see the "Signing spilled register state" section of doc/pac.md
+	 * Please see the "Signing spilled register state" section of doc/arm/pac.md
 	 * for an explanation of why this is bad and how it should be fixed.
 	 */
 	.asciz "Signed thread state manipulated with interrupts enabled"
@@ -1530,7 +1500,7 @@ LEXT(ml_addrperm_pacga)
 /*
  * ptrauth_utils_sign_blob_generic(const void * ptr, size_t len_bytes, uint64_t data, int flags)
  *
- * See "Signing arbitrary data blobs" of doc/pac.md
+ * See "Signing arbitrary data blobs" of doc/arm/pac.md
  */
 	.text
 	.align 2
@@ -1593,7 +1563,7 @@ Lepilogue_cookie:
 
 Lsign_ret:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(ptrauth_utils_sign_blob_generic)
 
 #endif // defined(HAS_APPLE_PAC)
 

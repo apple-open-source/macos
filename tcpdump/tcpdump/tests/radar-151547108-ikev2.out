@@ -1,0 +1,19 @@
+    1  06:33:15.168039 IP 192.168.68.4.500 > 172.16.42.1.500: isakmp: parent_sa ikev2_init[I]
+    2  06:33:15.180456 IP 172.16.42.1.500 > 192.168.68.4.500: isakmp: parent_sa ikev2_init[R]
+    3  06:33:15.182132 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  intmd[I]
+    4  06:33:15.182135 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  intmd[I]
+    5  06:33:15.182148 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  intmd[I]
+    6  06:33:15.197916 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: child_sa  intmd[R]
+    7  06:33:15.200727 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  ikev2_auth[I]
+    8  06:33:15.213986 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: child_sa  ikev2_auth[R]
+    9  06:33:20.106279 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: parent_sa child_sa
+   10  06:33:20.111820 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: parent_sa child_sa[IR]
+   11  06:33:20.126832 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: child_sa  followup
+   12  06:33:20.126839 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: child_sa  followup
+   13  06:33:20.128806 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  followup[IR]
+   14  06:33:20.128880 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  followup[IR]
+   15  06:33:20.128881 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  followup[IR]
+   16  06:33:20.137402 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: child_sa  inf2
+   17  06:33:20.139458 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: child_sa  inf2[IR]
+   18  06:33:22.603120 IP 192.168.68.4.4500 > 172.16.42.1.4500: NONESP-encap: isakmp: parent_sa inf2
+   19  06:33:22.612940 IP 172.16.42.1.4500 > 192.168.68.4.4500: NONESP-encap: isakmp: parent_sa inf2[IR]

@@ -27,7 +27,6 @@
 
 #include "DownloadID.h"
 #include "DownloadMap.h"
-#include "NetworkDataTask.h"
 #include "PendingDownload.h"
 #include "PolicyDecision.h"
 #include "SandboxExtension.h"
@@ -61,6 +60,7 @@ namespace WebKit {
 class AuthenticationManager;
 class Download;
 class NetworkConnectionToWebProcess;
+class NetworkDataTask;
 class NetworkLoad;
 class PendingDownload;
 
@@ -85,7 +85,9 @@ public:
         virtual void didDestroyDownload() = 0;
         virtual IPC::Connection* downloadProxyConnection() = 0;
         virtual IPC::Connection* parentProcessConnectionForDownloads() = 0;
+        RefPtr<IPC::Connection> protectedParentProcessConnectionForDownloads();
         virtual AuthenticationManager& downloadsAuthenticationManager() = 0;
+        Ref<AuthenticationManager> protectedDownloadsAuthenticationManager();
         virtual NetworkSession* networkSession(PAL::SessionID) const = 0;
     };
 
@@ -123,6 +125,7 @@ public:
     AuthenticationManager& downloadsAuthenticationManager();
     
     Client& client() { return m_client; }
+    Ref<Client> protectedClient() { return m_client.get(); }
 
 private:
     CheckedRef<Client> m_client;

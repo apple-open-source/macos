@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1468,9 +1468,11 @@ Supplicant_connecting(SupplicantRef supp, SupplicantEvent event,
 	    }
 	    supp->start_count++;
 	}
-	EAPOLSocketTransmit(supp->sock,
+	if (EAPOLSocketTransmit(supp->sock,
 			    kEAPOLPacketTypeStart,
-			    NULL, 0);
+			       NULL, 0) < 0) {
+	    EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit failed");
+	}
 	Timer_set_relative(supp->timer, t,
 			   (void *)Supplicant_connecting,
 			   (void *)supp, 
@@ -2403,11 +2405,11 @@ fetch_mib_eap_configuration(SupplicantRef supp)
 static bool
 is_factory_ota_auth_requested(void)
 {
-#if TARGET_OS_IOS && !TARGET_OS_VISION
+#if (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION
     return FactoryOTAConfigurationAccessIsInFactoryMode();
-#else /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#else /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
     return false;
-#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#endif /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
 }
 
 static void
@@ -2465,10 +2467,10 @@ factory_ota_access_callback(void *context, FOTAEAPConfigurationRef configuration
 static void
 fetch_factory_ota_eap_configuration(SupplicantRef supp)
 {
-#if TARGET_OS_IOS && !TARGET_OS_VISION
+#if (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION
     EAPLOG_FL(LOG_INFO, "fetching EAP configuration from Factory OTA client");
     FactoryOTAConfigurationAccessFetchEAPConfiguration(factory_ota_access_callback, supp);
-#endif /* TARGET_OS_IOS && !TARGET_OS_VISION */
+#endif /* (TARGET_OS_IOS || TARGET_OS_OSX) && !TARGET_OS_VISION */
     return;
 }
 
@@ -3188,9 +3190,11 @@ Supplicant_logoff(SupplicantRef supp, SupplicantEvent event, void * evdata)
 	supp->state = kSupplicantStateLogoff;
 	supp->last_status = kEAPClientStatusOK;
 	eap_client_free(supp);
-	EAPOLSocketTransmit(supp->sock,
-			    kEAPOLPacketTypeLogoff,
-			    NULL, 0);
+	if (EAPOLSocketTransmit(supp->sock,
+				kEAPOLPacketTypeLogoff,
+				NULL, 0) < 0) {
+	    EAPLOG_FL(LOG_NOTICE, "EAPOLSocketTransmit failed");
+	}
 	Supplicant_report_status(supp);
 	break;
     default:

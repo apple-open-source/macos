@@ -44,7 +44,7 @@ constexpr bool needsToGrowToProduceCString(UErrorCode);
 //
 // Example:
 //
-//    Vector<UChar, 32> buffer;
+//    Vector<char16_t, 32> buffer;
 //    auto status = callBufferProducingFunction(ucal_getDefaultTimeZone, buffer);
 //
 template<typename FunctionType, typename ...ArgumentTypes> UErrorCode callBufferProducingFunction(const FunctionType&, ArgumentTypes&&...);
@@ -79,7 +79,7 @@ template<typename FirstArgumentType, typename ...OtherArgumentTypes> auto argume
 
 template<typename CharacterType, size_t inlineCapacity, typename ...OtherArgumentTypes> auto argumentTuple(Vector<CharacterType, inlineCapacity>& buffer, OtherArgumentTypes&&... otherArguments)
 {
-    return tuple_cat(std::make_tuple(buffer.data(), buffer.size()), argumentTuple(std::forward<OtherArgumentTypes>(otherArguments)...));
+    return tuple_cat(std::make_tuple(buffer.mutableSpan().data(), buffer.size()), argumentTuple(std::forward<OtherArgumentTypes>(otherArguments)...));
 }
 
 template<typename FirstArgumentType, typename ...OtherArgumentTypes> auto argumentTuple(FirstArgumentType&& firstArgument, OtherArgumentTypes&&... otherArguments)

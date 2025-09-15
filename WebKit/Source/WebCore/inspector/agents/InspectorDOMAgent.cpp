@@ -39,13 +39,11 @@
 #include "AudioTrackConfiguration.h"
 #include "AudioTrackList.h"
 #include "CSSComputedStyleDeclaration.h"
-#include "CSSParser.h"
 #include "CSSPropertyNames.h"
 #include "CSSPropertySourceData.h"
 #include "CSSRule.h"
 #include "CSSRuleList.h"
-#include "CSSSelector.h"
-#include "CSSSelectorList.h"
+#include "CSSSelectorParser.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
 #include "CharacterData.h"
@@ -55,9 +53,11 @@
 #include "ContainerNode.h"
 #include "Cookie.h"
 #include "CookieJar.h"
+#include "CustomElementRegistry.h"
 #include "DOMEditor.h"
 #include "DOMException.h"
 #include "DOMPatchSupport.h"
+#include "DocumentFullscreen.h"
 #include "DocumentInlines.h"
 #include "DocumentType.h"
 #include "Editing.h"
@@ -66,18 +66,18 @@
 #include "EventListener.h"
 #include "EventNames.h"
 #include "FrameTree.h"
-#include "FullscreenManager.h"
 #include "HTMLElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLScriptElement.h"
+#include "HTMLSlotElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTemplateElement.h"
 #include "HTMLVideoElement.h"
 #include "HitTestResult.h"
+#include "InspectorBackendClient.h"
 #include "InspectorCSSAgent.h"
-#include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorHistory.h"
 #include "InspectorNodeFinder.h"
@@ -274,7 +274,7 @@ public:
 
 #if ENABLE(FULLSCREEN_API)
         if (event.type() == eventNames().webkitfullscreenchangeEvent || event.type() == eventNames().fullscreenchangeEvent)
-            data->setBoolean("enabled"_s, !!node->document().fullscreenManager().fullscreenElement());
+            data->setBoolean("enabled"_s, !!node->document().fullscreen().fullscreenElement());
 #endif // ENABLE(FULLSCREEN_API)
 
         auto timestamp = m_domAgent.m_environment.executionStopwatch().elapsedTime().seconds();
@@ -304,7 +304,7 @@ String InspectorDOMAgent::toErrorString(Exception&& exception)
 InspectorDOMAgent::InspectorDOMAgent(PageAgentContext& context, InspectorOverlay& overlay)
     : InspectorAgentBase("DOM"_s, context)
     , m_injectedScriptManager(context.injectedScriptManager)
-    , m_frontendDispatcher(makeUnique<Inspector::DOMFrontendDispatcher>(context.frontendRouter))
+    , m_frontendDispatcher(makeUniqueRef<Inspector::DOMFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(Inspector::DOMBackendDispatcher::create(context.backendDispatcher, this))
     , m_inspectedPage(context.inspectedPage)
     , m_overlay(overlay)
@@ -322,7 +322,7 @@ Ref<InspectorOverlay> InspectorDOMAgent::protectedOverlay() const
     return m_overlay.get();
 }
 
-void InspectorDOMAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
+void InspectorDOMAgent::didCreateFrontendAndBackend()
 {
     m_history = makeUnique<InspectorHistory>();
     m_domEditor = makeUnique<DOMEditor>(*m_history);
@@ -645,6 +645,51 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::requestChildNodes(In
     pushChildNodesToFrontend(nodeId, sanitizedDepth);
 
     return { };
+}
+
+Inspector::CommandResult<std::optional<Inspector::Protocol::DOM::NodeId>> InspectorDOMAgent::requestAssignedSlot(Inspector::Protocol::DOM::NodeId nodeId)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr slotElement = node->assignedSlot();
+    if (!slotElement)
+        return { };
+
+    auto slotElementId = pushNodePathToFrontend(errorString, slotElement.get());
+    if (!slotElementId)
+        return makeUnexpected(errorString);
+
+    return { slotElementId };
+}
+
+Inspector::CommandResult<Ref<JSON::ArrayOf<Inspector::Protocol::DOM::NodeId>>> InspectorDOMAgent::requestAssignedNodes(Inspector::Protocol::DOM::NodeId nodeId)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr slotElement = dynamicDowncast<HTMLSlotElement>(node);
+    if (!slotElement)
+        return makeUnexpected("Node for given nodeId is not a slot element"_s);
+
+    auto assignedNodeIds = JSON::ArrayOf<Inspector::Protocol::DOM::NodeId>::create();
+    if (const auto* weakAssignedNodes = slotElement->assignedNodes()) {
+        for (const auto& weakAssignedNode : *weakAssignedNodes) {
+            if (RefPtr assignedNode = weakAssignedNode.get()) {
+                auto assignedNodeId = pushNodePathToFrontend(errorString, assignedNode.get());
+                if (!assignedNodeId)
+                    return makeUnexpected(errorString);
+                assignedNodeIds->addItem(assignedNodeId);
+            }
+        }
+    }
+    return assignedNodeIds;
 }
 
 Inspector::Protocol::ErrorStringOr<std::optional<Inspector::Protocol::DOM::NodeId>> InspectorDOMAgent::querySelector(Inspector::Protocol::DOM::NodeId nodeId, const String& selector)
@@ -1016,7 +1061,7 @@ Inspector::Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Inspector::Protocol::DOM::E
     if (includeAncestors.value_or(true)) {
         for (RefPtr ancestor = node->parentOrShadowHostNode(); ancestor; ancestor = ancestor->parentOrShadowHostNode())
             ancestors.append(ancestor.get());
-        if (auto* window = node->document().domWindow())
+        if (auto* window = node->document().window())
             ancestors.append(window);
     }
 
@@ -1318,7 +1363,7 @@ void InspectorDOMAgent::setSearchingForNode(Inspector::Protocol::ErrorString& er
 
     protectedOverlay()->didSetSearchingForNode(m_searchingForNode);
 
-    if (InspectorClient* client = m_inspectedPage->inspectorController().inspectorClient())
+    if (InspectorBackendClient* client = m_inspectedPage->inspectorController().inspectorBackendClient())
         client->elementSelectionChanged(m_searchingForNode);
 }
 
@@ -1475,8 +1520,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightSelector(co
     if (!document)
         return makeUnexpected("Missing document of frame for given frameId"_s);
 
-    CSSParser parser(*document);
-    auto selectorList = parser.parseSelectorList(selectorString);
+    auto selectorList = CSSSelectorParser::parseSelectorList(selectorString, CSSParserContext(*document));
     if (!selectorList)
         return { };
 
@@ -1493,14 +1537,14 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::highlightSelector(co
         auto isInUserAgentShadowTree = descendantElement->isInUserAgentShadowTree();
         auto pseudoId = descendantElement->pseudoId();
 
-        for (const auto* selector = selectorList->first(); selector; selector = CSSSelectorList::next(selector)) {
-            if (isInUserAgentShadowTree && (selector->match() != CSSSelector::Match::PseudoElement || selector->value() != descendantElement->userAgentPart()))
+        for (auto& selector : *selectorList) {
+            if (isInUserAgentShadowTree && (selector.match() != CSSSelector::Match::PseudoElement || selector.value() != descendantElement->userAgentPart()))
                 continue;
 
             SelectorChecker::CheckingContext context(SelectorChecker::Mode::ResolvingStyle);
             context.pseudoId = pseudoId;
 
-            if (selectorChecker.match(*selector, *descendantElement, context)) {
+            if (selectorChecker.match(selector, *descendantElement, context)) {
                 if (seenNodes.add(*descendantElement))
                     nodeList.append(*descendantElement);
             }
@@ -1930,7 +1974,7 @@ Ref<Inspector::Protocol::DOM::Node> InspectorDOMAgent::buildObjectForNode(Node* 
     case Node::PROCESSING_INSTRUCTION_NODE:
         nodeName = node->nodeName();
         localName = node->localName();
-        FALLTHROUGH;
+        [[fallthrough]];
     case Node::TEXT_NODE:
     case Node::COMMENT_NODE:
     case Node::CDATA_SECTION_NODE:
@@ -2092,7 +2136,7 @@ Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEv
         if (auto* scriptExecutionContext = eventTarget.scriptExecutionContext())
             document = dynamicDowncast<Document>(*scriptExecutionContext);
         else if (RefPtr node = dynamicDowncast<Node>(eventTarget))
-            document = &node->document();
+            document = node->document();
 
         JSC::JSObject* handlerObject = nullptr;
         JSC::JSGlobalObject* globalObject = nullptr;
@@ -2118,7 +2162,7 @@ Ref<Inspector::Protocol::DOM::EventListener> InspectorDOMAgent::buildObjectForEv
                 // If the handler is not actually a function, see if it implements the EventListener interface and use that.
                 auto handleEventValue = handlerObject->get(globalObject, JSC::Identifier::fromString(vm, "handleEvent"_s));
 
-                if (UNLIKELY(scope.exception()))
+                if (scope.exception()) [[unlikely]]
                     scope.clearException();
 
                 if (handleEventValue)
@@ -3124,6 +3168,28 @@ Inspector::Protocol::ErrorStringOr<void> InspectorDOMAgent::setAllowEditingUserA
     return { };
 }
 
+static Inspector::Protocol::DOM::VideoProjectionMetadataKind videoProjectionMetadataKind(VideoProjectionMetadataKind kind)
+{
+    switch (kind) {
+    case VideoProjectionMetadataKind::Unknown:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::Unknown;
+    case VideoProjectionMetadataKind::Equirectangular:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::Equirectangular;
+    case VideoProjectionMetadataKind::HalfEquirectangular:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::HalfEquirectangular;
+    case VideoProjectionMetadataKind::EquiAngularCubemap:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::EquiAngularCubemap;
+    case VideoProjectionMetadataKind::Parametric:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::Parametric;
+    case VideoProjectionMetadataKind::Pyramid:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::Pyramid;
+    case VideoProjectionMetadataKind::AppleImmersiveVideo:
+        return Inspector::Protocol::DOM::VideoProjectionMetadataKind::AppleImmersiveVideo;
+    }
+    ASSERT_NOT_REACHED();
+    return Inspector::Protocol::DOM::VideoProjectionMetadataKind::Unknown;
+}
+
 Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::MediaStats>> InspectorDOMAgent::getMediaStats(Inspector::Protocol::DOM::NodeId nodeId)
 {
 #if ENABLE(VIDEO)
@@ -3162,7 +3228,7 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::MediaStats>> In
         .release();
     stats->setViewport(WTFMove(viewportJSON));
 
-    if (RefPtr window = mediaElement->document().domWindow())
+    if (RefPtr window = mediaElement->document().window())
         stats->setDevicePixelRatio(window->devicePixelRatio());
 
     if (videoTrack) {
@@ -3187,6 +3253,22 @@ Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::MediaStats>> In
             .setHeight(configuration.height())
             .setWidth(configuration.width())
             .release();
+        if (auto metadata = configuration.spatialVideoMetadata()) {
+            auto metadataJSON = Inspector::Protocol::DOM::SpatialVideoMetadata::create()
+                .setWidth(metadata->size.width())
+                .setHeight(metadata->size.height())
+                .setHorizontalFOVDegrees(metadata->horizontalFOVDegrees)
+                .setBaseline(metadata->baseline)
+                .setDisparityAdjustment(metadata->disparityAdjustment)
+                .release();
+            videoJSON->setSpatialVideoMetadata(WTFMove(metadataJSON));
+        }
+        if (auto metadata = configuration.videoProjectionMetadata()) {
+            auto metadataJSON = Inspector::Protocol::DOM::VideoProjectionMetadata::create()
+                .setKind(videoProjectionMetadataKind(metadata->kind))
+                .release();
+            videoJSON->setVideoProjectionMetadata(WTFMove(metadataJSON));
+        }
         stats->setVideo(WTFMove(videoJSON));
     }
 

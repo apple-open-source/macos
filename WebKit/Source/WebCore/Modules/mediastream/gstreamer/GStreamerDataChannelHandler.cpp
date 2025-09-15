@@ -22,6 +22,7 @@
 
 #if USE(GSTREAMER_WEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "EventNames.h"
 #include "GStreamerWebRTCUtils.h"
 #include "RTCDataChannel.h"

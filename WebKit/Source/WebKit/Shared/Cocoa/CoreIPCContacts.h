@@ -94,7 +94,7 @@ private:
 struct CoreIPCContactLabeledValue {
     String identifier;
     String label;
-    std::variant<CoreIPCDateComponents, CoreIPCCNPhoneNumber, CoreIPCCNPostalAddress, CoreIPCString> value;
+    Variant<CoreIPCDateComponents, CoreIPCCNPhoneNumber, CoreIPCCNPostalAddress, CoreIPCString> value;
 
     template <typename T> static bool allValuesAreOfType(const Vector<CoreIPCContactLabeledValue>& values) {
         for (auto& value : values) {
@@ -111,14 +111,12 @@ public:
 
     RetainPtr<id> toID() const;
 
-    static bool isValidCNContactType(NSInteger);
-
 private:
     friend struct IPC::ArgumentCoder<CoreIPCCNContact, void>;
     CoreIPCCNContact() = default;
 
     String m_identifier;
-    NSInteger m_contactType { 0 };
+    bool m_personContactType { false };
 
     String m_namePrefix;
     String m_givenName;

@@ -103,7 +103,7 @@ build_variant() {
 
 build_variants() {
     target=$1
-    
+
     case $variants in
         all|testing)
             build_variant testing $target "ENABLE_PAS_TESTING"

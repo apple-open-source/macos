@@ -163,10 +163,8 @@
 		925383DA1BD03D5100F745DB /* stress_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 925383D11BD03B4A00F745DB /* stress_test.c */; };
 		93C629F52ACB71240006CBDA /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
 		93C629F72ACB71240006CBDA /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
-		93D0A0822B16ABAA00009B69 /* EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json in Sources */ = {isa = PBXBuildFile; fileRef = 93D0A0782B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json */; };
 		93D0A0832B16ABBB00009B69 /* EVE.libmalloc.exclavekit-darwintest.bundle.definition.json in Sources */ = {isa = PBXBuildFile; fileRef = 93D0A0762B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.bundle.definition.json */; };
 		93D0A0922B16AFB700009B69 /* EVE.libmalloc.exclavecore-darwintest.bundle.definition.json in Sources */ = {isa = PBXBuildFile; fileRef = 93D0A0752B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.bundle.definition.json */; };
-		93D0A0932B16AFB700009B69 /* EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json in Sources */ = {isa = PBXBuildFile; fileRef = 93D0A0792B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json */; };
 		93D319B62AF5B2100045F3DF /* xzone_metapool.c in Sources */ = {isa = PBXBuildFile; fileRef = 93C629F42ACB71240006CBDA /* xzone_metapool.c */; };
 		96C6DA2027DAC25C008D0061 /* magazine_large_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 96C6DA1F27DAC25C008D0061 /* magazine_large_tests.m */; };
 		B218ABB22B0816DF00CB20FC /* xzone_introspect.c in Sources */ = {isa = PBXBuildFile; fileRef = B293DBC22AB1223E00EA1B30 /* xzone_introspect.c */; };
@@ -213,6 +211,8 @@
 		B24C35932AB27D0A00E3870E /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = C957426D1BF2C0C80027269A /* internal.h */; };
 		B24C35A02AB2821800E3870E /* malloc_printf.c in Sources */ = {isa = PBXBuildFile; fileRef = B65FBE2B2087AA2F00E21F59 /* malloc_printf.c */; };
 		B24C35A32AB28FA400E3870E /* early_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E18E02B29777E0A00EE7E0D /* early_malloc.c */; };
+		B24C5D7C2D14DA760050A0BE /* ktrace.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B61341DD20114B070038D163 /* ktrace.framework */; };
+		B24C5D822D14DA8B0050A0BE /* ktrace_count.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B24C5D812D14DA8B0050A0BE /* ktrace_count.cpp */; };
 		B24F712F29AE9C880064241F /* _malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 2B67B5672040B3A50003E78F /* _malloc.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		B24F713429B0052D0064241F /* malloc_common.c in Sources */ = {isa = PBXBuildFile; fileRef = B66C71D82034BFAE0047E265 /* malloc_common.c */; settings = {COMPILER_FLAGS = "$(MALLOC_BOUNDS_ATTRIBUTES_SUPPORT)"; }; };
 		B24F713529B005330064241F /* malloc_common.h in Headers */ = {isa = PBXBuildFile; fileRef = B66C71D72034BFAE0047E265 /* malloc_common.h */; };
@@ -659,11 +659,8 @@
 		93C629F42ACB71240006CBDA /* xzone_metapool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xzone_metapool.c; sourceTree = "<group>"; };
 		93D0A0752B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.bundle.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavecore-darwintest.bundle.definition.json"; path = "System/ExclaveCore/usr/local/share/bundle/EVE.libmalloc.exclavecore-darwintest.bundle.definition.json"; sourceTree = SDKROOT; };
 		93D0A0762B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.bundle.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.bundle.definition.json"; path = "System/ExclaveCore/usr/local/share/bundle/EVE.libmalloc.exclavekit-darwintest.bundle.definition.json"; sourceTree = SDKROOT; };
-		93D0A0782B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json"; path = "System/ExclaveCore/usr/local/share/bundle/EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json"; sourceTree = SDKROOT; };
-		93D0A0792B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json"; path = "System/ExclaveCore/usr/local/share/bundle/EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json"; sourceTree = SDKROOT; };
 		93D0A07B2B16AB1F00009B69 /* EVE.libmalloc.exclavecore-darwintest.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavecore-darwintest.component.definition.json"; path = "System/ExclaveCore/usr/local/share/component/EVE.libmalloc.exclavecore-darwintest.component.definition.json"; sourceTree = SDKROOT; };
 		93D0A07D2B16AB1F00009B69 /* EVE.libmalloc.exclavekit-darwintest.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.component.definition.json"; path = "System/ExclaveCore/usr/local/share/component/EVE.libmalloc.exclavekit-darwintest.component.definition.json"; sourceTree = SDKROOT; };
-		93D0A07E2B16AB1F00009B69 /* EVE.libmalloc.exclavecore-darwintest.new.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavecore-darwintest.new.component.definition.json"; path = "System/ExclaveCore/usr/local/share/component/EVE.libmalloc.exclavecore-darwintest.new.component.definition.json"; sourceTree = SDKROOT; };
 		93D0A0852B16AE5A00009B69 /* libmalloc_exclavecore_darwintests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_exclavecore_darwintests.xcconfig; sourceTree = "<group>"; };
 		93D0A0862B16AE5A00009B69 /* libmalloc_exclavekit_darwintests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_exclavekit_darwintests.xcconfig; sourceTree = "<group>"; };
 		93D0A0902B16AFA000009B69 /* exclavecore-darwintest-SystemBundle.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "exclavecore-darwintest-SystemBundle.bundle"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -673,6 +670,8 @@
 		B23096182AB4F3DE00917598 /* xzone_introspect.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = xzone_introspect.h; path = src/xzone/xzone_introspect.h; sourceTree = SOURCE_ROOT; };
 		B2395C7629EE0962006E9545 /* _ptrcheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = _ptrcheck.h; sourceTree = "<group>"; };
 		B23F6AB02A982F630062A4E0 /* libmalloc_common.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_common.xcconfig; sourceTree = "<group>"; };
+		B24C5D802D14DA760050A0BE /* libmalloc_ktrace */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_ktrace; sourceTree = BUILT_PRODUCTS_DIR; };
+		B24C5D812D14DA8B0050A0BE /* ktrace_count.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ktrace_count.cpp; sourceTree = "<group>"; };
 		B24F716229B2927B0064241F /* libmicrotest.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmicrotest.a; path = System/ExclaveKit/usr/lib/libmicrotest.a; sourceTree = SDKROOT; };
 		B2507D572A3A677700FC0B66 /* malloc_private_exclaves.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = malloc_private_exclaves.modulemap; sourceTree = "<group>"; };
 		B26D4A9B2A32B1D000591E03 /* libmalloc_exclavecore.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_exclavecore.xcconfig; sourceTree = "<group>"; };
@@ -687,7 +686,6 @@
 		B2BF0A9A2C069910008F9700 /* EVE.libmalloc.exclavekit-darwintest.asan.bundle.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.asan.bundle.definition.json"; path = "System/ExclaveCore/usr/local/share/bundle/EVE.libmalloc.exclavekit-darwintest.asan.bundle.definition.json"; sourceTree = SDKROOT; };
 		B2BF0A9B2C069AB7008F9700 /* EVE.libmalloc.exclavecore-darwintest.asan.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavecore-darwintest.asan.component.definition.json"; path = "System/ExclaveCore/usr/local/share/component/EVE.libmalloc.exclavecore-darwintest.asan.component.definition.json"; sourceTree = SDKROOT; };
 		B2BF0A9C2C069AB7008F9700 /* EVE.libmalloc.exclavekit-darwintest.asan.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.asan.component.definition.json"; path = "System/ExclaveCore/usr/local/share/component/EVE.libmalloc.exclavekit-darwintest.asan.component.definition.json"; sourceTree = SDKROOT; };
-		B2BF0A9D2C069BA8008F9700 /* EVE.libmalloc.exclavekit-darwintest.new.component.definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "EVE.libmalloc.exclavekit-darwintest.new.component.definition.json"; path = "System/ExclaveCore/usr/local/share/componen/EVE.libmalloc.exclavekit-darwintest.new.component.definition.json"; sourceTree = SDKROOT; };
 		B2C02C0429A8529900BD0C10 /* _platform.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _platform.h; sourceTree = "<group>"; };
 		B2CDBA0A2A8164AA00E76A55 /* allocator.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = allocator.modulemap; sourceTree = "<group>"; };
 		B2F5F14329726BC500DFEFBB /* liblibc.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = liblibc.tbd; path = System/ExclaveKit/usr/lib/system/liblibc.tbd; sourceTree = SDKROOT; };
@@ -808,6 +806,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B24C5D7A2D14DA760050A0BE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B24C5D7C2D14DA760050A0BE /* ktrace.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B26D4A9D2A32B3CC00591E03 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -878,6 +884,7 @@
 		08C28B411D501D2C000AE997 /* tools */ = {
 			isa = PBXGroup;
 			children = (
+				B24C5D812D14DA8B0050A0BE /* ktrace_count.cpp */,
 				B6D2ED552007D91A007AF994 /* malloc_replay.cpp */,
 				B6D2ED562007D91A007AF994 /* malloc_replay.h */,
 			);
@@ -1010,6 +1017,7 @@
 				B293DBCD2AB272BA00EA1B30 /* libmalloc_exclaves_introspector.framework */,
 				93EF33422B16A224000BA829 /* exclavekit-darwintest-SystemBundle.bundle */,
 				93D0A0902B16AFA000009B69 /* exclavecore-darwintest-SystemBundle.bundle */,
+				B24C5D802D14DA760050A0BE /* libmalloc_ktrace */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1115,16 +1123,12 @@
 			children = (
 				93D0A0752B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.bundle.definition.json */,
 				B2BF0A992C069910008F9700 /* EVE.libmalloc.exclavecore-darwintest.asan.bundle.definition.json */,
-				93D0A0792B16AAE500009B69 /* EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json */,
 				93D0A07B2B16AB1F00009B69 /* EVE.libmalloc.exclavecore-darwintest.component.definition.json */,
 				B2BF0A9B2C069AB7008F9700 /* EVE.libmalloc.exclavecore-darwintest.asan.component.definition.json */,
-				93D0A07E2B16AB1F00009B69 /* EVE.libmalloc.exclavecore-darwintest.new.component.definition.json */,
 				93D0A0762B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.bundle.definition.json */,
 				B2BF0A9A2C069910008F9700 /* EVE.libmalloc.exclavekit-darwintest.asan.bundle.definition.json */,
-				93D0A0782B16AAE500009B69 /* EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json */,
 				93D0A07D2B16AB1F00009B69 /* EVE.libmalloc.exclavekit-darwintest.component.definition.json */,
 				B2BF0A9C2C069AB7008F9700 /* EVE.libmalloc.exclavekit-darwintest.asan.component.definition.json */,
-				B2BF0A9D2C069BA8008F9700 /* EVE.libmalloc.exclavekit-darwintest.new.component.definition.json */,
 			);
 			name = Definitions;
 			sourceTree = "<group>";
@@ -1475,6 +1479,22 @@
 			productReference = 93EF33422B16A224000BA829 /* exclavekit-darwintest-SystemBundle.bundle */;
 			productType = "com.apple.product-type.bundle";
 		};
+		B24C5D772D14DA760050A0BE /* libmalloc_ktrace */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B24C5D7D2D14DA760050A0BE /* Build configuration list for PBXNativeTarget "libmalloc_ktrace" */;
+			buildPhases = (
+				B24C5D782D14DA760050A0BE /* Sources */,
+				B24C5D7A2D14DA760050A0BE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libmalloc_ktrace;
+			productName = libmalloc_ktrace;
+			productReference = B24C5D802D14DA760050A0BE /* libmalloc_ktrace */;
+			productType = "com.apple.product-type.tool";
+		};
 		B26D4A9F2A32B3CC00591E03 /* libmalloc_exclavecore */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B26D4AA62A32B3CC00591E03 /* Build configuration list for PBXNativeTarget "libmalloc_exclavecore" */;
@@ -1687,6 +1707,7 @@
 				3FE91FFD16A9109E00D1238A /* libmalloc_eOS */,
 				C0CE452F1C52C90500C24048 /* libmalloc_static */,
 				F7FC75702979045000D3F81F /* libmalloc_type_stubs */,
+				B24C5D772D14DA760050A0BE /* libmalloc_ktrace */,
 				B6D2ED492007D76F007AF994 /* libmalloc_replay */,
 				456E51C8197DF0D600A7E488 /* libmalloc_stress_test */,
 				925383D41BD03C0500F745DB /* darwintests */,
@@ -1926,7 +1947,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2BF0AD82C06BE97008F9700 /* EVE.libmalloc.exclavecore-darwintest.asan.bundle.definition.json in Sources */,
-				93D0A0932B16AFB700009B69 /* EVE.libmalloc.exclavecore-darwintest.new.bundle.definition.json in Sources */,
 				93D0A0922B16AFB700009B69 /* EVE.libmalloc.exclavecore-darwintest.bundle.definition.json in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1936,8 +1956,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2BF0AD72C06BE8E008F9700 /* EVE.libmalloc.exclavekit-darwintest.asan.bundle.definition.json in Sources */,
-				93D0A0822B16ABAA00009B69 /* EVE.libmalloc.exclavekit-darwintest.new.bundle.definition.json in Sources */,
 				93D0A0832B16ABBB00009B69 /* EVE.libmalloc.exclavekit-darwintest.bundle.definition.json in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B24C5D782D14DA760050A0BE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B24C5D822D14DA8B0050A0BE /* ktrace_count.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2413,6 +2440,82 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		B24C5D7E2D14DA760050A0BE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_COMPLETION_HANDLER_MISUSE = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/src";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
+				VALID_ARCHS = "armv6 armv7 arm64 arm64_32 armv7k x86_64 x86_64h";
+			};
+			name = Debug;
+		};
+		B24C5D7F2D14DA760050A0BE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_COMPLETION_HANDLER_MISUSE = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_PEDANTIC = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/src";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				"SKIP_INSTALL[sdk=iphonesimulator*]" = YES;
+				SUPPORTED_PLATFORMS = "macosx iphoneos iphonesimulator appletvos appletvsimulator watchos watchsimulator";
+				VALID_ARCHS = "armv6 armv7 arm64 arm64_32 armv7k x86_64 x86_64h";
 			};
 			name = Release;
 		};
@@ -2986,6 +3089,15 @@
 			buildConfigurations = (
 				93EF33442B16A224000BA829 /* Debug */,
 				93EF33452B16A224000BA829 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B24C5D7D2D14DA760050A0BE /* Build configuration list for PBXNativeTarget "libmalloc_ktrace" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B24C5D7E2D14DA760050A0BE /* Debug */,
+				B24C5D7F2D14DA760050A0BE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

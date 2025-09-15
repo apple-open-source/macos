@@ -3,7 +3,7 @@
 /*
 ***************************************************************************
 * Copyright (C) 2008-2016, International Business Machines Corporation
-* and others. All Rights Reserved.
+* and others. All rights reserved.
 ***************************************************************************
 *   file name:  uspoof.h
 *   encoding:   UTF-8

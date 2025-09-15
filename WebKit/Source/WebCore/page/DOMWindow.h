@@ -25,7 +25,9 @@
 
 #pragma once
 
+#include "DocumentEnums.h"
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "GlobalWindowIdentifier.h"
 #include "ImageBitmap.h"
 #include "ScrollTypes.h"
@@ -112,7 +114,7 @@ public:
     using RefCounted::deref;
 
     WEBCORE_EXPORT Location& location();
-    virtual void setLocation(LocalDOMWindow& activeWindow, const URL& completedURL, NavigationHistoryBehavior, SetLocationLocking = SetLocationLocking::LockHistoryBasedOnGestureState) = 0;
+    virtual void setLocation(LocalDOMWindow& activeWindow, const URL& completedURL, NavigationHistoryBehavior, SetLocationLocking = SetLocationLocking::LockHistoryBasedOnGestureState, CanNavigateState = CanNavigateState::Unchecked) = 0;
 
     bool closed() const;
     WEBCORE_EXPORT void close();

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "InlineIteratorBox.h"
 #include "InlineIteratorLineBox.h"
 #include "RenderBoxModelObjectInlines.h"
 

@@ -64,7 +64,8 @@ struct NavigationActionData {
     bool openedByDOMWithOpener { false };
     bool hasOpener { false };
     bool isPerformingHTTPFallback { false };
-    bool isContentExtensionRedirect { false };
+    bool isInitialFrameSrcLoad { false };
+    bool isContentRuleListRedirect { false };
     String openedMainFrameName;
     WebCore::SecurityOriginData requesterOrigin;
     WebCore::SecurityOriginData requesterTopOrigin;
@@ -87,6 +88,7 @@ struct NavigationActionData {
     std::optional<WebCore::NavigationIdentifier> navigationID;
     WebCore::ResourceRequest originalRequest;
     WebCore::ResourceRequest request;
+    String invalidURLString;
 };
 
 }

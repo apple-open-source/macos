@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>gen/FreeBSD/</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/lib/libc/gen</string>
+		<key>OpenSourceImportDate</key>
+		<string>2025-04-03</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>basename.c, basename.3: Add basename_r() (12198545)</string>
+			<string>basename.c: Drop const qualifier in conformance mode.</string>
+			<string>basename.3: Add reference to compat(5) (4736315)</string>
+			<string>clock.3: DOC: man clock is wrong (6022994)</string>
+			<string>clock.3: DOC: Remove missing clocks(7) references (7758441)</string>
+			<string>dirname.c: dirname_r: use memmove instead of memcpy (35875546)</string>
+			<string>dirname.c, dirname.3: Add dirname_r() (12198545)</string>
+			<string>dirname.c: Drop const qualifier when in conformance mode.</string>
+			<string>dirname.3: Add reference to compat(5) (4736315)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+	</dict>
+</array>
+</plist>

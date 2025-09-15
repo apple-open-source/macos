@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,8 +32,9 @@
 #import "Cursor.h"
 #import "Document.h"
 #import "FontCascade.h"
+#import "FrameInlines.h"
 #import "GraphicsContext.h"
-#import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameView.h"
 #import "Page.h"
 #import "PlatformMouseEvent.h"
@@ -91,7 +92,7 @@ void Widget::setFocus(bool focused)
     if (!focused)
         return;
 
-    auto* frame = LocalFrame::frameForWidget(*this);
+    RefPtr frame = LocalFrame::frameForWidget(*this);
     if (!frame)
         return;
 
@@ -99,7 +100,7 @@ void Widget::setFocus(bool focused)
  
     // Call this even when there is no platformWidget(). WK2 will focus on the widget in the UIProcess.
     NSView *view = [platformWidget() _webcore_effectiveFirstResponder];
-    if (Page* page = frame->page())
+    if (RefPtr page = frame->page())
         page->chrome().focusNSView(view);
 
     END_BLOCK_OBJC_EXCEPTIONS
@@ -274,7 +275,32 @@ void Widget::removeFromSuperview()
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
+// MARK: -
+
 // These are here to deal with flipped coords on Mac.
+
+IntPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, IntPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return IntPoint([rootWidget->platformWidget() convertPoint:point toView:nil]);
+    END_BLOCK_OBJC_EXCEPTIONS
+    return point;
+}
+
+FloatPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, FloatPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return [rootWidget->platformWidget() convertPoint:point toView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+    return point;
+}
+
 IntRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const IntRect& rect)
 {
     if (!rootWidget->platformWidget())
@@ -285,6 +311,44 @@ IntRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, cons
     END_BLOCK_OBJC_EXCEPTIONS
 
     return rect;
+}
+
+FloatRect Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const FloatRect& rect)
+{
+    if (!rootWidget->platformWidget())
+        return rect;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return [rootWidget->platformWidget() convertRect:rect toView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return rect;
+}
+
+// MARK: -
+
+IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, IntPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return IntPoint([rootWidget->platformWidget() convertPoint:point fromView:nil]);
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
+}
+
+FloatPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, FloatPoint point)
+{
+    if (!rootWidget->platformWidget())
+        return point;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    return [rootWidget->platformWidget() convertPoint:point fromView:nil];
+    END_BLOCK_OBJC_EXCEPTIONS
+
+    return point;
 }
 
 IntRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const IntRect& rect)
@@ -299,28 +363,19 @@ IntRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, cons
     return rect;
 }
 
-IntPoint Widget::convertFromRootToContainingWindow(const Widget* rootWidget, const IntPoint& point)
+FloatRect Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const FloatRect& rect)
 {
     if (!rootWidget->platformWidget())
-        return point;
+        return rect;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return IntPoint([rootWidget->platformWidget() convertPoint:point toView:nil]);
-    END_BLOCK_OBJC_EXCEPTIONS
-    return point;
-}
-
-IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, const IntPoint& point)
-{
-    if (!rootWidget->platformWidget())
-        return point;
-
-    BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return IntPoint([rootWidget->platformWidget() convertPoint:point fromView:nil]);
+    return [rootWidget->platformWidget() convertRect:rect fromView:nil];
     END_BLOCK_OBJC_EXCEPTIONS
 
-    return point;
+    return rect;
 }
+
+// MARK: -
 
 NSView *Widget::platformWidget() const
 {

@@ -26,6 +26,7 @@
 
 #import "Analytics/SFAnalyticsDefines.h"
 #import "Analytics/SFAnalyticsSQLiteStore.h"
+#import "Analytics/Protobuf/SECSFARules.h"
 #import <Security/SFAnalytics.h>
 #import <CoreFoundation/CFPriv.h>
 #import <OSAnalytics/OSAnalytics.h>
@@ -94,6 +95,9 @@ NSString* const SFAnalyticsDevicePercentageInternalKey = @"DevicePercentageInter
 NSString* const SFAnalyticsDevicePercentageSeedKey = @"DevicePercentageSeed";
 
 NSString* const SupdErrorDomain = @"com.apple.security.supd";
+
+static NSString* SFCollectionConfig = @"SFCollectionConfig";
+
 
 #define SFANALYTICS_SPLUNK_DEV 0
 #define OS_CRASH_TRACER_LOG_BUG_TYPE "226"
@@ -562,8 +566,8 @@ static NSMutableDictionary<NSString *, NSMutableDictionary<NSString *, SFAnalyti
         self.terseMetrics = YES;
         [clients addObject:[SFAnalyticsClient getSharedClientNamed:@"swtransparency"
                                              orCreateWithStorePath:[self.class databasePathForSWTransparency]
-                                            requireDeviceAnalytics:NO
-                                            requireiCloudAnalytics:YES]];
+                                            requireDeviceAnalytics:YES
+                                            requireiCloudAnalytics:NO]];
     }
 
 
@@ -2212,6 +2216,79 @@ static bool ShouldInitializeWithAsset(NSBundle *trustStoreBundle, NSURL *directo
     }
     reply(YES, nil);
 }
+
+- (void)setSFACollection:(NSData *)collection
+                forTopic:(NSString *)clientName
+                   reply:(void (^)(NSError *))reply
+{
+    NSError *error;
+    
+    if (![self checkSupdEntitlement]) {
+        error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(error);
+        return;
+    }
+    if (clientName == nil) {
+        reply(nil);
+        return;
+    }
+    
+    /* first validate that compression works */
+    
+    if ([SFAnalytics validateSFACollection:collection error:&error] == NO){
+        reply(error);
+        return;
+    }
+
+    /* there is valid rules, let try to store them */
+    
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        for (SFAnalyticsClient *client in topic.topicClients) {
+            if ([client.name isEqual:clientName] == NO) {
+                continue;
+            }
+            [client withStore:^(SFAnalyticsSQLiteStore *store) {
+                [store setDataProperty:collection forKey:SFCollectionConfig];
+            }];
+            reply(nil);
+            return;
+        }
+    }
+
+    reply([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecNoSuchAttr userInfo:nil]);
+}
+
+- (void)getSFACollectionForCollection:(NSString *)clientName
+                   reply:(void (^)(NSData *, NSError *))reply
+{
+    if (![self checkSupdEntitlement]) {
+        NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:nil];
+        reply(nil, error);
+        return;
+    }
+    if (clientName == nil) {
+        reply(nil, nil);
+        return;
+    }
+    
+    for (SFAnalyticsTopic* topic in _analyticsTopics) {
+        for (SFAnalyticsClient *client in topic.topicClients) {
+            if ([client.name isEqual:clientName] == NO) {
+                continue;
+            }
+            __block NSData *data = nil;
+            [client withStore:^(SFAnalyticsSQLiteStore *store) {
+                data = [store dataPropertyForKey:SFCollectionConfig];
+            }];
+            reply(data, nil);
+            return;
+        }
+    }
+
+    reply(nil, [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecNoSuchAttr userInfo:nil]);
+}
+
+
 
 - (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply
 {

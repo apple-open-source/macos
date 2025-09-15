@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -105,11 +105,11 @@ private:
     WeakPtr<WebCore::Element, WebCore::WeakPtrImplWithEventTargetData> m_parent;
 
     RefPtr<WebCore::Element> m_element;
-    RetainPtr<PDFAnnotation> m_annotation;
+    const RetainPtr<PDFAnnotation> m_annotation;
 
-    RefPtr<PDFPluginAnnotationEventListener> m_eventListener;
+    const RefPtr<PDFPluginAnnotationEventListener> m_eventListener;
 
-    RefPtr<PDFPluginBase> m_plugin;
+    const RefPtr<PDFPluginBase> m_plugin;
 };
 
 } // namespace WebKit

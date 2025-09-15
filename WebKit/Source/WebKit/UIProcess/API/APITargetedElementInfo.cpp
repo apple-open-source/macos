@@ -83,8 +83,9 @@ void TargetedElementInfo::childFrames(CompletionHandler<void(Vector<Ref<FrameTre
         if (frame->page() != page)
             continue;
 
-        frame->getFrameInfo([aggregator, aggregateData](auto&& data) {
-            aggregateData->append(WTFMove(data));
+        frame->getFrameTree([aggregator, aggregateData](auto&& data) {
+            if (data)
+                aggregateData->append(WTFMove(*data));
         });
     }
 }

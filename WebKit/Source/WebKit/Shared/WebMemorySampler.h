@@ -53,6 +53,7 @@
 
 #include "SandboxExtension.h"
 #include <WebCore/Timer.h>
+#include <wtf/FileHandle.h>
 #include <wtf/FileSystem.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
@@ -91,7 +92,7 @@ private:
     void initializeTimers(double);
     void sampleTimerFired();
     void stopTimerFired();
-    void appendCurrentMemoryUsageToFile(FileSystem::PlatformFileHandle&);
+    void appendCurrentMemoryUsageToFile();
     void sendMemoryPressureEvent();
     
     SystemMallocStats sampleSystemMalloc() const;
@@ -99,7 +100,7 @@ private:
     WebMemoryStatistics sampleWebKit() const;
     String processName() const;
     
-    FileSystem::PlatformFileHandle m_sampleLogFile { FileSystem::invalidPlatformFileHandle };
+    FileSystem::FileHandle m_sampleLogFile;
     String m_sampleLogFilePath;
     WebCore::Timer m_sampleTimer;
     WebCore::Timer m_stopTimer;

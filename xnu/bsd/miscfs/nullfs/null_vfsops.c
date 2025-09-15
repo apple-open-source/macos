@@ -80,9 +80,6 @@
 
 #define NULLFS_ENTITLEMENT "com.apple.private.nullfs_allow"
 
-#define SIZEOF_MEMBER(type, member) (sizeof(((type *)0)->member))
-#define MAX_MNT_FROM_LENGTH (SIZEOF_MEMBER(struct vfsstatfs, f_mntfromname))
-
 static int
 nullfs_vfs_getlowerattr(mount_t mp, struct vfs_attr * vfap, vfs_context_t ctx)
 {
@@ -166,9 +163,9 @@ nullfs_mount(struct mount * mp, __unused vnode_t devvp, user_addr_t user_data, v
 
 	/* This could happen if the system is configured for 32 bit inodes instead of
 	 * 64 bit */
-	if (count > MAX_MNT_FROM_LENGTH) {
+	if (count > sizeof(vfs_statfs(mp)->f_mntfromname)) {
 		error = EINVAL;
-		NULLFSDEBUG("nullfs: path to translocate too large for this system %ld vs %ld\n", count, MAX_MNT_FROM_LENGTH);
+		NULLFSDEBUG("nullfs: path to translocate too large for this system %ld vs %ld\n", count, sizeof(vfs_statfs(mp)->f_mntfromname));
 		goto error;
 	}
 
@@ -240,7 +237,7 @@ nullfs_mount(struct mount * mp, __unused vnode_t devvp, user_addr_t user_data, v
 
 	/* fill in the stat block */
 	sp = vfs_statfs(mp);
-	strlcpy(sp->f_mntfromname, path, MAX_MNT_FROM_LENGTH);
+	strlcpy(sp->f_mntfromname, path, sizeof(sp->f_mntfromname));
 
 	sp->f_flags = flags;
 

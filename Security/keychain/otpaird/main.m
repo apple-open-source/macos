@@ -24,7 +24,10 @@ static _Atomic bool pairing_retry_is_scheduled = false;
 int
 main(void)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
     static OTPairingService *service;
+#pragma clang diagnostic pop
 
     @autoreleasepool {
         service = [OTPairingService sharedService];

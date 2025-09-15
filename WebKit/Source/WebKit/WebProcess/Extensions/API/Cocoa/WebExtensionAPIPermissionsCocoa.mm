@@ -93,20 +93,20 @@ void WebExtensionAPIPermissions::request(NSDictionary *details, Ref<WebExtension
 
     if (!validatePermissionsDetails(permissions, origins, matchPatterns, apiName, &errorMessage)) {
         // Chrome reports this error as callback error and not an exception, so do the same.
-        callback->reportError(toErrorString(apiName, nullString(), errorMessage));
+        callback->reportError(toErrorString(apiName, nullString(), errorMessage).createNSString().get());
         return;
     }
 
     if (!WebCore::UserGestureIndicator::processingUserGesture()) {
         // Chrome reports this error as callback error and not an exception, so do the same.
-        callback->reportError(toErrorString(apiName, nullString(), @"must be called during a user gesture"));
+        callback->reportError(toErrorString(apiName, nullString(), @"must be called during a user gesture").createNSString().get());
         return;
     }
 
     if (!verifyRequestedPermissions(permissions, matchPatterns, apiName, &errorMessage)) {
         // Chrome reports these errors as callback errors and not exceptions, so do the same. Instead of round tripping
         // to the UI process, we can answer this here and report the error right away.
-        callback->reportError(toErrorString(apiName, nullString(), errorMessage));
+        callback->reportError(toErrorString(apiName, nullString(), errorMessage).createNSString().get());
         return;
     }
 
@@ -129,13 +129,13 @@ void WebExtensionAPIPermissions::remove(NSDictionary *details, Ref<WebExtensionC
     WebExtension::MatchPatternSet matchPatterns;
     if (!validatePermissionsDetails(permissions, origins, matchPatterns, apiName, &errorMessage)) {
         // Chrome reports this error as callback error and not an exception, so do the same.
-        callback->reportError(toErrorString(apiName, nullString(), errorMessage));
+        callback->reportError(toErrorString(apiName, nullString(), errorMessage).createNSString().get());
         return;
     }
 
     if (!verifyRequestedPermissions(permissions, matchPatterns, apiName, &errorMessage)) {
         // Chrome reports this error as callback error and not an exception, so do the same.
-        callback->reportError(toErrorString(apiName, nullString(), errorMessage));
+        callback->reportError(toErrorString(apiName, nullString(), errorMessage).createNSString().get());
         return;
     }
 
@@ -171,29 +171,29 @@ bool WebExtensionAPIPermissions::verifyRequestedPermissions(HashSet<String>& per
 
     if ([callingAPIName isEqualToString:@"permissions.remove()"]) {
         if (permissions.size() && permissions.intersectionWith(allowedPermissions).size()) {
-            *outExceptionString = toErrorString(nullString(), permissionsKey, @"required permissions cannot be removed");
+            *outExceptionString = toErrorString(nullString(), permissionsKey, @"required permissions cannot be removed").createNSString().autorelease();
             return false;
         }
 
         for (auto& requestedPattern : matchPatterns) {
             for (auto& allowedPattern : allowedHostPermissions) {
                 if (allowedPattern->matchesPattern(requestedPattern, { WebExtensionMatchPattern::Options::IgnorePaths })) {
-                    *outExceptionString = toErrorString(nullString(), originsKey, @"required permissions cannot be removed");
+                    *outExceptionString = toErrorString(nullString(), originsKey, @"required permissions cannot be removed").createNSString().autorelease();
                     return false;
                 }
             }
         }
     }
 
-    allowedPermissions.add(extension->optionalPermissions().begin(), extension->optionalPermissions().end());
-    allowedHostPermissions.add(extension->optionalPermissionMatchPatterns().begin(), extension->optionalPermissionMatchPatterns().end());
+    allowedPermissions.addAll(extension->optionalPermissions());
+    allowedHostPermissions.addAll(extension->optionalPermissionMatchPatterns());
 
     bool requestingPermissionsNotDeclaredInManifest = (permissions.size() && !permissions.isSubset(allowedPermissions)) || (matchPatterns.size() && !allowedHostPermissions.size());
     if (requestingPermissionsNotDeclaredInManifest) {
         if ([callingAPIName isEqualToString:@"permissions.remove()"])
-            *outExceptionString = toErrorString(nullString(), permissionsKey, @"only permissions specified in the manifest may be removed");
+            *outExceptionString = toErrorString(nullString(), permissionsKey, @"only permissions specified in the manifest may be removed").createNSString().autorelease();
         else
-            *outExceptionString = toErrorString(nullString(), permissionsKey, @"only permissions specified in the manifest may be requested");
+            *outExceptionString = toErrorString(nullString(), permissionsKey, @"only permissions specified in the manifest may be requested").createNSString().autorelease();
         return false;
     }
 
@@ -208,9 +208,9 @@ bool WebExtensionAPIPermissions::verifyRequestedPermissions(HashSet<String>& per
 
         if (!matchFound) {
             if ([callingAPIName isEqualToString:@"permissions.remove()"])
-                *outExceptionString = toErrorString(nullString(), originsKey, @"only permissions specified in the manifest may be removed");
+                *outExceptionString = toErrorString(nullString(), originsKey, @"only permissions specified in the manifest may be removed").createNSString().autorelease();
             else
-                *outExceptionString = toErrorString(nullString(), originsKey, @"only permissions specified in the manifest may be requested");
+                *outExceptionString = toErrorString(nullString(), originsKey, @"only permissions specified in the manifest may be requested").createNSString().autorelease();
             return false;
         }
     }
@@ -222,7 +222,7 @@ bool WebExtensionAPIPermissions::validatePermissionsDetails(HashSet<String>& per
 {
     for (auto& permission : permissions) {
         if (!WebExtension::supportedPermissions().contains(permission)) {
-            *outExceptionString = toErrorString(nullString(), permissionsKey, @"'%@' is not a valid permission", (NSString *)permission);
+            *outExceptionString = toErrorString(nullString(), permissionsKey, @"'%@' is not a valid permission", permission.createNSString().get()).createNSString().autorelease();
             return false;
         }
     }
@@ -230,7 +230,7 @@ bool WebExtensionAPIPermissions::validatePermissionsDetails(HashSet<String>& per
     for (auto& origin : origins) {
         auto pattern = WebExtensionMatchPattern::getOrCreate(origin);
         if (!pattern || !pattern->isSupported()) {
-            *outExceptionString = toErrorString(nullString(), originsKey, @"'%@' is not a valid pattern", (NSString *)origin);
+            *outExceptionString = toErrorString(nullString(), originsKey, @"'%@' is not a valid pattern", origin.createNSString().get()).createNSString().autorelease();
             return false;
         }
 

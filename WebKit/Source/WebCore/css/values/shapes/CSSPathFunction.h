@@ -55,10 +55,10 @@ template<size_t I> const auto& get(const Path& value)
         return value.data;
 }
 
-template<> struct Serialize<Path> { void operator()(StringBuilder&, const Path&); };
+template<> struct Serialize<Path> { void operator()(StringBuilder&, const SerializationContext&, const Path&); };
 
 template<> struct ComputedStyleDependenciesCollector<Path::Data> { void operator()(ComputedStyleDependencies&, const Path::Data&); };
-template<> struct CSSValueChildrenVisitor<Path::Data> { IterationStatus operator()(const Function<IterationStatus(CSSValue&)>&, const Path::Data&); };
+template<> struct CSSValueChildrenVisitor<Path::Data> { IterationStatus operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>&, const Path::Data&); };
 
 } // namespace CSS
 } // namespace WebCore

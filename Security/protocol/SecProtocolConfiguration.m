@@ -703,9 +703,12 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
     xpc_dictionary_set_uint64(dict, kAllowsArbitraryLoadsForMedia, (uint64_t)media_loads);
     xpc_dictionary_set_uint64(dict, kAllowsLocalNetworking, (uint64_t)local_networking);
 
-    NSDictionary *exception_domains = [plist_dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", kExceptionDomains]];
+    NSDictionary *exception_domains = [plist_dictionary valueForKey:@kExceptionDomains];
     if (exception_domains == nil) {
         return true;
+    } else if (![exception_domains isKindOfClass:[NSDictionary class]]) {
+        os_log_error(OS_LOG_DEFAULT, "App Transport Security exceptions must be a dictionary");
+        return false;
     }
 
     xpc_object_t domain_map = xpc_dictionary_get_dictionary(dict, kExceptionDomains);

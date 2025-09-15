@@ -71,7 +71,7 @@ WI.CodeMirrorCompletionController = class CodeMirrorCompletionController extends
         this._codeMirror.on("blur", this._handleHideActionListener);
         this._codeMirror.on("scroll", this._handleHideActionListener);
 
-        this._updatePromise = null;
+        this._updatePromiseResolver = null;
     }
 
     // Public
@@ -205,11 +205,12 @@ WI.CodeMirrorCompletionController = class CodeMirrorCompletionController extends
     {
         this._resolveUpdatePromise(WI.CodeMirrorCompletionController.UpdatePromise.Canceled);
 
-        var update = this._updatePromise = new WI.WrappedPromise;
+        let {promise, resolve} = Promise.withResolvers();
+        this._updatePromiseResolver = resolve;
 
         this._completeAtCurrentPosition(force);
 
-        return update.promise;
+        return promise;
     }
 
     // Protected
@@ -237,11 +238,11 @@ WI.CodeMirrorCompletionController = class CodeMirrorCompletionController extends
 
     _resolveUpdatePromise(message)
     {
-        if (!this._updatePromise)
+        if (!this._updatePromiseResolver)
             return;
 
-        this._updatePromise.resolve(message);
-        this._updatePromise = null;
+        this._updatePromiseResolver(message);
+        this._updatePromiseResolver = null;
     }
 
     get _currentReplacementText()

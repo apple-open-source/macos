@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class LocalFrame;
+class ResourceMonitor;
 
 enum class ResourceMonitorEligibility : uint8_t { Unsure, NotEligible, Eligible };
 
@@ -49,16 +50,21 @@ public:
 
     ~ResourceMonitorChecker();
 
+    void registerResourceMonitor(ResourceMonitor&);
+    void unregisterResourceMonitor(ResourceMonitor&);
+
     void checkEligibility(ContentExtensions::ResourceLoadInfo&&, CompletionHandler<void(Eligibility)>&&);
-    bool checkNetworkUsageExceedingThreshold(size_t usage) const { return usage >= m_networkUsageThreshold; }
 
     WEBCORE_EXPORT void setContentRuleList(ContentExtensions::ContentExtensionsBackend&&);
-    WEBCORE_EXPORT void setNetworkUsageThreshold(size_t threshold, double randomness = networkUsageThresholdRandomness);
+    WEBCORE_EXPORT void setNetworkUsageThreshold(size_t threshold, double randomness = defaultNetworkUsageThresholdRandomness);
+
+    WEBCORE_EXPORT size_t networkUsageThreshold() const;
+    WEBCORE_EXPORT size_t networkUsageThresholdWithNoise() const;
 
     static constexpr Seconds ruleListPreparationTimeout = 10_s;
     static constexpr auto defaultEligibility = ResourceMonitorEligibility::NotEligible;
-    WEBCORE_EXPORT static constexpr size_t networkUsageThreshold = 4 * MB;
-    WEBCORE_EXPORT static constexpr double networkUsageThresholdRandomness = 0.0325;
+    WEBCORE_EXPORT static constexpr size_t defaultNetworkUsageThreshold = 4 * MB;
+    WEBCORE_EXPORT static constexpr double defaultNetworkUsageThresholdRandomness = 0.0325;
 
 private:
     ResourceMonitorChecker();
@@ -66,13 +72,13 @@ private:
     Eligibility checkEligibility(const ContentExtensions::ResourceLoadInfo&);
     void finishPendingQueries(Function<Eligibility(const ContentExtensions::ResourceLoadInfo&)> checker);
 
-    Ref<WorkQueue> protectedWorkQueue() { return m_workQueue; }
-
-    Ref<WorkQueue> m_workQueue;
+    const Ref<WorkQueue> m_workQueue;
     std::unique_ptr<ContentExtensions::ContentExtensionsBackend> m_ruleList;
     Vector<std::pair<ContentExtensions::ResourceLoadInfo, CompletionHandler<void(Eligibility)>>> m_pendingQueries;
+    WeakHashSet<ResourceMonitor> m_resourceMonitors;
+    size_t m_networkUsageThreshold { defaultNetworkUsageThreshold };
+    double m_networkUsageThresholdRandomness { defaultNetworkUsageThresholdRandomness };
     bool m_ruleListIsPreparing { true };
-    size_t m_networkUsageThreshold;
 };
 
 } // namespace WebCore

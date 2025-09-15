@@ -107,6 +107,8 @@
 #include <sys/proc.h>
 #include <sys/syslog.h>
 
+#include <kern/uipc_socket.h>
+
 #include <machine/endian.h>
 
 #include <net/if.h>
@@ -165,8 +167,7 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 	int flags;
 	struct sockaddr_in6 tmp;
 	struct in6_addr storage;
-	int sotc = SO_TC_UNSPEC;
-	int netsvctype = _NET_SERVICE_TYPE_UNSPEC;
+	struct sock_cm_info sockcminfo;
 	struct ip6_out_args ip6oa;
 	struct flowadv *__single adv = &ip6oa.ip6oa_flowadv;
 	struct socket *__single so = in6p->in6p_socket;
@@ -249,8 +250,11 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 	}
 #endif
 
+	sock_init_cm_info(&sockcminfo, so);
+
 	if (control) {
-		sotc = so_tc_from_control(control, &netsvctype);
+		sock_parse_cm_info(control, &sockcminfo);
+
 		if ((error = ip6_setpktopts(control, &opt,
 		    in6p->in6p_outputopts, IPPROTO_UDP)) != 0) {
 			drop_reason = DROP_REASON_IP6_BAD_OPTION;
@@ -262,12 +266,8 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 		optp = in6p->in6p_outputopts;
 	}
 
-	if (sotc == SO_TC_UNSPEC) {
-		sotc = so->so_traffic_class;
-		netsvctype = so->so_netsvctype;
-	}
-	ip6oa.ip6oa_sotc = sotc;
-	ip6oa.ip6oa_netsvctype = netsvctype;
+	ip6oa.ip6oa_sotc = sockcminfo.sotc;
+	ip6oa.ip6oa_netsvctype = sockcminfo.netsvctype;
 
 	in6p->inp_sndinprog_cnt++;
 	sndinprog_cnt_used = true;
@@ -569,7 +569,10 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 		/* Copy the cached route and take an extra reference */
 		in6p_route_copyout(in6p, &ro);
 
-		set_packet_service_class(m, so, sotc, PKT_SCF_IPV6);
+		set_packet_service_class(m, so, sockcminfo.sotc, PKT_SCF_IPV6);
+		if (sockcminfo.tx_time) {
+			mbuf_set_tx_time(m, sockcminfo.tx_time);
+		}
 
 		m->m_pkthdr.pkt_flowsrc = FLOWSRC_INPCB;
 		m->m_pkthdr.pkt_flowid = in6p->inp_flowhash;
@@ -631,15 +634,13 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 		}
 
 		if (error == 0 && nstat_collect) {
-			stats_functional_type ifnet_count_type = stats_functional_type_none;
+			stats_functional_type ifnet_count_type = stats_functional_type_unclassified;
 
 			if (in6p->in6p_route.ro_rt != NULL) {
 				ifnet_count_type = IFNET_COUNT_TYPE(in6p->in6p_route.
 				    ro_rt->rt_ifp);
 			}
-			INP_ADD_STAT(in6p, ifnet_count_type, txpackets, 1);
-			INP_ADD_STAT(in6p, ifnet_count_type, txbytes, ulen);
-			inp_set_activity_bitmap(in6p);
+			INP_ADD_TXSTAT(in6p, ifnet_count_type, 1, ulen);
 		}
 
 		if (flowadv && (adv->code == FADV_FLOW_CONTROLLED ||
@@ -707,7 +708,9 @@ udp6_output(struct in6pcb *in6p, struct mbuf *m, struct sockaddr *addr6,
 				 * outgoing interface
 				 */
 				if (ip6oa.ip6oa_flags & IP6OAF_BOUND_IF) {
+					ifnet_head_lock_shared();
 					outif = ifindex2ifnet[ip6oa.ip6oa_boundif];
+					ifnet_head_done();
 				} else {
 					outif = rt->rt_ifp;
 				}

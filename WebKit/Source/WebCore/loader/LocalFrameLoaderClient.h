@@ -30,6 +30,7 @@
 #pragma once
 
 #include "FrameLoaderClient.h"
+#include "IntPoint.h"
 #include "LayoutMilestone.h"
 #include "LinkIcon.h"
 #include "LoaderMalloc.h"
@@ -67,7 +68,7 @@ OBJC_CLASS NSView;
 
 namespace WebCore {
 
-class AXCoreObject;
+class AXIsolatedTree;
 class AuthenticationChallenge;
 class CachedFrame;
 class CachedResourceRequest;
@@ -103,6 +104,8 @@ enum class UsedLegacyTLS : bool;
 enum class WasPrivateRelayed : bool;
 enum class FromDownloadAttribute : bool { No , Yes };
 enum class IsSameDocumentNavigation : bool { No, Yes };
+enum class ShouldGoToHistoryItem : uint8_t { No, Yes, ItemUnknown };
+enum class ProcessSwapDisposition : uint8_t;
 
 struct BackForwardItemIdentifierType;
 struct StringWithDirection;
@@ -117,9 +120,11 @@ public:
     void ref() const;
     void deref() const;
 
+    virtual bool isWebLocalFrameLoaderClient() const { return false; }
+
     // An inline function cannot be the first non-abstract virtual function declared
     // in the class as it results in the vtable being generated as a weak symbol.
-    // This hurts performance (in Mac OS X at least, when loading frameworks), so we
+    // This hurts performance (in macOS at least, when loading frameworks), so we
     // don't want to do it in WebKit.
     virtual bool hasHTMLView() const;
 
@@ -218,7 +223,9 @@ public:
     virtual void updateGlobalHistory() = 0;
     virtual void updateGlobalHistoryRedirectLinks() = 0;
 
-    virtual bool shouldGoToHistoryItem(HistoryItem&, IsSameDocumentNavigation) const = 0;
+    virtual ShouldGoToHistoryItem shouldGoToHistoryItem(HistoryItem&, IsSameDocumentNavigation, ProcessSwapDisposition processSwapDisposition) const = 0;
+    virtual bool supportsAsyncShouldGoToHistoryItem() const = 0;
+    virtual void shouldGoToHistoryItemAsync(HistoryItem&, CompletionHandler<void(ShouldGoToHistoryItem)>&&) const = 0;
 
     // This frame has displayed inactive content (such as an image) from an
     // insecure source.  Inactive content cannot spread to other frames.
@@ -246,7 +253,7 @@ public:
     virtual void didFinishLoad() = 0;
     virtual void prepareForDataSourceReplacement() = 0;
 
-    virtual Ref<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) = 0;
+    virtual Ref<DocumentLoader> createDocumentLoader(ResourceRequest&&, SubstituteData&&) = 0;
     virtual void updateCachedDocumentLoader(DocumentLoader&) = 0;
     virtual void setTitle(const StringWithDirection&, const URL&) = 0;
 
@@ -284,7 +291,7 @@ public:
     virtual RemoteAXObjectRef accessibilityRemoteObject() = 0;
     virtual IntPoint accessibilityRemoteFrameOffset() = 0;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    virtual void setAXIsolatedTreeRoot(AXCoreObject*) = 0;
+    virtual void setIsolatedTree(Ref<WebCore::AXIsolatedTree>&&) = 0;
 #endif
     virtual void willCacheResponse(DocumentLoader*, ResourceLoaderIdentifier, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) const = 0;
     virtual std::optional<double> dataDetectionReferenceDate() { return std::nullopt; }
@@ -379,6 +386,8 @@ public:
 #if ENABLE(CONTENT_EXTENSIONS)
     virtual void didExceedNetworkUsageThreshold();
 #endif
+
+    virtual bool shouldSuppressLayoutMilestones() const { return false; }
 
 protected:
     explicit LocalFrameLoaderClient(FrameLoader&);

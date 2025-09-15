@@ -17,69 +17,14 @@
 #include "libANGLE/renderer/wgpu/ContextWgpu.h"
 #include "libANGLE/renderer/wgpu/RenderTargetWgpu.h"
 #include "libANGLE/renderer/wgpu/wgpu_utils.h"
+#include "webgpu/webgpu.h"
 
 namespace rx
 {
 
-namespace
-{
-bool CompareColorRenderPassAttachments(const wgpu::RenderPassColorAttachment &attachment1,
-                                       const wgpu::RenderPassColorAttachment &attachment2)
-{
-
-    if (attachment1.nextInChain != nullptr || attachment2.nextInChain != nullptr)
-    {
-        return false;
-    }
-
-    return attachment1.view.Get() == attachment2.view.Get() &&
-           attachment1.depthSlice == attachment2.depthSlice &&
-           attachment1.resolveTarget.Get() == attachment2.resolveTarget.Get() &&
-           attachment1.loadOp == attachment2.loadOp && attachment1.storeOp == attachment2.storeOp &&
-           attachment1.clearValue.r == attachment2.clearValue.r &&
-           attachment1.clearValue.g == attachment2.clearValue.g &&
-           attachment1.clearValue.b == attachment2.clearValue.b &&
-           attachment1.clearValue.a == attachment2.clearValue.a;
-}
-
-bool CompareColorRenderPassAttachmentVectors(
-    const std::vector<wgpu::RenderPassColorAttachment> &attachments1,
-    const std::vector<wgpu::RenderPassColorAttachment> &attachments2)
-{
-    if (attachments1.size() != attachments2.size())
-    {
-        return false;
-    }
-
-    for (uint32_t i = 0; i < attachments1.size(); ++i)
-    {
-        if (!CompareColorRenderPassAttachments(attachments1[i], attachments2[i]))
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-bool CompareDepthStencilRenderPassAttachments(
-    const wgpu::RenderPassDepthStencilAttachment &attachment1,
-    const wgpu::RenderPassDepthStencilAttachment &attachment2)
-{
-    return attachment1.view.Get() == attachment2.view.Get() &&
-           attachment1.depthLoadOp == attachment2.depthLoadOp &&
-           attachment1.depthStoreOp == attachment2.depthStoreOp &&
-           attachment1.depthClearValue == attachment2.depthClearValue &&
-           attachment1.stencilLoadOp == attachment2.stencilLoadOp &&
-           attachment1.stencilStoreOp == attachment2.stencilStoreOp &&
-           attachment1.stencilClearValue == attachment2.stencilClearValue &&
-           attachment1.stencilReadOnly == attachment2.stencilReadOnly;
-}
-}  // namespace
-
 FramebufferWgpu::FramebufferWgpu(const gl::FramebufferState &state) : FramebufferImpl(state)
 {
-    mCurrentColorAttachmentFormats.fill(wgpu::TextureFormat::Undefined);
+    mCurrentColorAttachmentFormats.fill(WGPUTextureFormat_Undefined);
 }
 
 FramebufferWgpu::~FramebufferWgpu() {}
@@ -116,42 +61,31 @@ angle::Result FramebufferWgpu::clear(const gl::Context *context, GLbitfield mask
 
     ContextWgpu *contextWgpu = GetImplAs<ContextWgpu>(context);
 
-    gl::ColorF colorClearValue           = context->getState().getColorClearValue();
+    webgpu::PackedRenderPassDescriptor clearRenderPassDesc;
+
+    gl::ColorF clearValue                = context->getState().getColorClearValue();
     gl::DrawBufferMask clearColorBuffers = mState.getEnabledDrawBuffers();
-    wgpu::Color clearValue;
-    clearValue.r = colorClearValue.red;
-    clearValue.g = colorClearValue.green;
-    clearValue.b = colorClearValue.blue;
-    clearValue.a = colorClearValue.alpha;
-    std::vector<wgpu::RenderPassColorAttachment> colorAttachments;
-    wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
     float depthValue      = 1;
     uint32_t stencilValue = 0;
     for (size_t enabledDrawBuffer : clearColorBuffers)
     {
-        colorAttachments.push_back(webgpu::CreateNewClearColorAttachment(
-            clearValue, wgpu::kDepthSliceUndefined,
+        clearRenderPassDesc.colorAttachments.push_back(webgpu::CreateNewClearColorAttachment(
+            clearValue, WGPU_DEPTH_SLICE_UNDEFINED,
             mRenderTargetCache.getColorDraw(mState, enabledDrawBuffer)->getTextureView()));
+    }
+
+    if (clearDepth || clearStencil)
+    {
+        depthValue             = context->getState().getDepthClearValue();
+        stencilValue           = static_cast<uint32_t>(context->getState().getStencilClearValue());
+        clearRenderPassDesc.depthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
+            depthValue, stencilValue, mRenderTargetCache.getDepthStencil()->getTextureView(),
+            clearDepth, clearStencil);
     }
 
     // Attempt to end a render pass if one has already been started.
     bool isActiveRenderPass =
-        !CompareColorRenderPassAttachmentVectors(mCurrentColorAttachments, colorAttachments) ||
-        contextWgpu->hasActiveRenderPass();
-
-    if (clearDepth || clearStencil)
-    {
-
-        depthValue             = context->getState().getDepthClearValue();
-        stencilValue           = static_cast<uint32_t>(context->getState().getStencilClearValue());
-        depthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
-            depthValue, stencilValue, mRenderTargetCache.getDepthStencil()->getTextureView(),
-            clearDepth, clearStencil);
-
-        isActiveRenderPass =
-            isActiveRenderPass || !CompareDepthStencilRenderPassAttachments(
-                                      depthStencilAttachment, mCurrentDepthStencilAttachment);
-    }
+        mCurrentRenderPassDesc != clearRenderPassDesc || contextWgpu->hasActiveRenderPass();
 
     if (mDeferredClears.any())
     {
@@ -179,9 +113,8 @@ angle::Result FramebufferWgpu::clear(const gl::Context *context, GLbitfield mask
                 {
                     deferredClearValue.stencilValue = mDeferredClears.getStencilValue();
                 }
-                renderTarget->getImage()->stageClear(
-                    renderTarget->getImage()->toGlLevel(renderTarget->getLevelIndex()),
-                    deferredClearValue, false, false);
+                renderTarget->getImage()->stageClear(renderTarget->getGlLevel(), deferredClearValue,
+                                                     false, false);
             }
             if (mDeferredClears.hasDepth() || mDeferredClears.hasStencil())
             {
@@ -189,9 +122,9 @@ angle::Result FramebufferWgpu::clear(const gl::Context *context, GLbitfield mask
                 dsClearValue.depthValue          = mDeferredClears.getDepthValue();
                 dsClearValue.stencilValue        = mDeferredClears.getStencilValue();
                 RenderTargetWgpu *renderTarget   = mRenderTargetCache.getDepthStencil();
-                renderTarget->getImage()->stageClear(
-                    renderTarget->getImage()->toGlLevel(renderTarget->getLevelIndex()),
-                    dsClearValue, mDeferredClears.hasDepth(), mDeferredClears.hasStencil());
+                renderTarget->getImage()->stageClear(renderTarget->getGlLevel(), dsClearValue,
+                                                     mDeferredClears.hasDepth(),
+                                                     mDeferredClears.hasStencil());
             }
             mDeferredClears.reset();
         }
@@ -203,8 +136,7 @@ angle::Result FramebufferWgpu::clear(const gl::Context *context, GLbitfield mask
         ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
     }
 
-    setUpForRenderPass(contextWgpu, (clearDepth || clearStencil), std::move(colorAttachments),
-                       depthStencilAttachment);
+    mCurrentRenderPassDesc = std::move(clearRenderPassDesc);
     ANGLE_TRY(contextWgpu->startRenderPass(mCurrentRenderPassDesc));
     ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
     return angle::Result::Continue;
@@ -271,6 +203,7 @@ angle::Result FramebufferWgpu::readPixels(const gl::Context *context,
         // nothing to read
         return angle::Result::Continue;
     }
+    gl::Rectangle flippedArea = getReadArea(context, clippedArea);
 
     ContextWgpu *contextWgpu = GetImplAs<ContextWgpu>(context);
 
@@ -284,10 +217,20 @@ angle::Result FramebufferWgpu::readPixels(const gl::Context *context,
                                                        origArea, clippedArea, &params,
                                                        &outputSkipBytes));
 
-    params.reverseRowOrder = !params.reverseRowOrder;
+    if (mFlipY)
+    {
+        params.reverseRowOrder = !params.reverseRowOrder;
+    }
 
-    webgpu::ImageHelper *sourceImageHelper = getReadPixelsRenderTarget()->getImage();
-    ANGLE_TRY(sourceImageHelper->readPixels(contextWgpu, params.area, params,
+    // Does not handle reading from depth/stencil buffer(s).
+    ASSERT(format != GL_DEPTH_COMPONENT && format != GL_STENCIL_INDEX);
+
+    RenderTargetWgpu *readRT = getReadPixelsRenderTarget();
+    uint32_t layer           = readRT->getLayer();
+
+    webgpu::ImageHelper *sourceImageHelper = readRT->getImage();
+    ANGLE_TRY(sourceImageHelper->readPixels(contextWgpu, flippedArea, params,
+                                            readRT->getLevelIndex(), layer,
                                             static_cast<uint8_t *>(pixels) + outputSkipBytes));
 
     return angle::Result::Continue;
@@ -333,7 +276,7 @@ angle::Result FramebufferWgpu::syncState(const gl::Context *context,
                 RenderTargetWgpu *rt       = mRenderTargetCache.getDepthStencil();
                 mCurrentDepthStencilFormat = (rt && rt->getImage())
                                                  ? rt->getImage()->toWgpuTextureFormat()
-                                                 : wgpu::TextureFormat::Undefined;
+                                                 : WGPUTextureFormat_Undefined;
                 if (binding == GL_DRAW_FRAMEBUFFER)
                 {
                     contextWgpu->setDepthStencilFormat(mCurrentDepthStencilFormat);
@@ -379,7 +322,7 @@ angle::Result FramebufferWgpu::syncState(const gl::Context *context,
                 RenderTargetWgpu *rt = mRenderTargetCache.getColorDraw(mState, colorIndexGL);
                 mCurrentColorAttachmentFormats[colorIndexGL] =
                     (rt && rt->getImage()) ? rt->getImage()->toWgpuTextureFormat()
-                                           : wgpu::TextureFormat::Undefined;
+                                           : WGPUTextureFormat_Undefined;
                 if (binding == GL_DRAW_FRAMEBUFFER)
                 {
                     contextWgpu->setColorAttachmentFormat(
@@ -433,17 +376,27 @@ RenderTargetWgpu *FramebufferWgpu::getReadPixelsRenderTarget() const
 }
 
 void FramebufferWgpu::addNewColorAttachments(
-    std::vector<wgpu::RenderPassColorAttachment> newColorAttachments)
+    std::vector<webgpu::PackedRenderPassColorAttachment> newColorAttachments)
 {
-    mNewColorAttachments.insert(mCurrentColorAttachments.end(), newColorAttachments.begin(),
-                                newColorAttachments.end());
+    if (!mNewRenderPassDesc.has_value())
+    {
+        mNewRenderPassDesc = webgpu::PackedRenderPassDescriptor();
+    }
+
+    for (webgpu::PackedRenderPassColorAttachment &colorAttachment : newColorAttachments)
+    {
+        mNewRenderPassDesc->colorAttachments.push_back(colorAttachment);
+    }
 }
 
 void FramebufferWgpu::updateDepthStencilAttachment(
-    wgpu::RenderPassDepthStencilAttachment newRenderPassDepthStencilAttachment)
+    webgpu::PackedRenderPassDepthStencilAttachment newRenderPassDepthStencilAttachment)
 {
-    mNewDepthStencilAttachment      = std::move(newRenderPassDepthStencilAttachment);
-    mAddedNewDepthStencilAttachment = true;
+    if (!mNewRenderPassDesc.has_value())
+    {
+        mNewRenderPassDesc = webgpu::PackedRenderPassDescriptor();
+    }
+    mNewRenderPassDesc->depthStencilAttachment = std::move(newRenderPassDepthStencilAttachment);
 }
 
 angle::Result FramebufferWgpu::flushOneColorAttachmentUpdate(const gl::Context *context,
@@ -511,9 +464,7 @@ angle::Result FramebufferWgpu::flushAttachmentUpdates(const gl::Context *context
     }
 
     // If we added any new attachments, we start a render pass to fully flush the updates.
-    if ((!mNewColorAttachments.empty() &&
-         mNewColorAttachments.size() != mCurrentColorAttachments.size()) ||
-        mAddedNewDepthStencilAttachment)
+    if (mNewRenderPassDesc.has_value())
     {
         ANGLE_TRY(startRenderPassNewAttachments(contextWgpu));
     }
@@ -527,32 +478,28 @@ angle::Result FramebufferWgpu::flushDeferredClears(ContextWgpu *contextWgpu)
         return angle::Result::Continue;
     }
     ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
-    mCurrentColorAttachments.clear();
+
+    webgpu::PackedRenderPassDescriptor clearRenderPassDesc;
     for (size_t colorIndexGL : mState.getColorAttachmentsMask())
     {
         if (!mDeferredClears.test(colorIndexGL))
         {
             continue;
         }
-        mCurrentColorAttachments.push_back(webgpu::CreateNewClearColorAttachment(
+        clearRenderPassDesc.colorAttachments.push_back(webgpu::CreateNewClearColorAttachment(
             mDeferredClears[colorIndexGL].clearColor, mDeferredClears[colorIndexGL].depthSlice,
             mRenderTargetCache.getColorDraw(mState, colorIndexGL)->getTextureView()));
     }
     if (mRenderTargetCache.getDepthStencil() &&
         (mDeferredClears.hasDepth() || mDeferredClears.hasStencil()))
     {
-        mCurrentDepthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
+        clearRenderPassDesc.depthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
             mDeferredClears.getDepthValue(), mDeferredClears.getStencilValue(),
             mRenderTargetCache.getDepthStencil()->getTextureView(), !mDeferredClears.hasDepth(),
             !mDeferredClears.hasStencil());
-        mCurrentRenderPassDesc.depthStencilAttachment = &mCurrentDepthStencilAttachment;
     }
-    else
-    {
-        mCurrentRenderPassDesc.depthStencilAttachment = nullptr;
-    }
-    mCurrentRenderPassDesc.colorAttachmentCount = mCurrentColorAttachments.size();
-    mCurrentRenderPassDesc.colorAttachments     = mCurrentColorAttachments.data();
+
+    mCurrentRenderPassDesc = std::move(clearRenderPassDesc);
     ANGLE_TRY(contextWgpu->startRenderPass(mCurrentRenderPassDesc));
     ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
 
@@ -564,10 +511,10 @@ angle::Result FramebufferWgpu::startRenderPassNewAttachments(ContextWgpu *contex
     // Flush out a render pass if there is an active one.
     ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
 
-    setUpForRenderPass(contextWgpu, mAddedNewDepthStencilAttachment, mNewColorAttachments,
-                       mNewDepthStencilAttachment);
-    mNewColorAttachments.clear();
-    mAddedNewDepthStencilAttachment = false;
+    ASSERT(mNewRenderPassDesc.has_value());
+    mCurrentRenderPassDesc = std::move(mNewRenderPassDesc.value());
+    mNewRenderPassDesc.reset();
+
     ANGLE_TRY(contextWgpu->startRenderPass(mCurrentRenderPassDesc));
     return angle::Result::Continue;
 }
@@ -576,60 +523,34 @@ angle::Result FramebufferWgpu::startNewRenderPass(ContextWgpu *contextWgpu)
 {
     ANGLE_TRY(contextWgpu->endRenderPass(webgpu::RenderPassClosureReason::NewRenderPass));
 
-    mCurrentColorAttachments.clear();
+    webgpu::PackedRenderPassDescriptor newRenderPass;
     for (size_t colorIndexGL : mState.getColorAttachmentsMask())
     {
-        wgpu::RenderPassColorAttachment colorAttachment;
+        webgpu::PackedRenderPassColorAttachment colorAttachment;
         colorAttachment.view =
             mRenderTargetCache.getColorDraw(mState, colorIndexGL)->getTextureView();
-        colorAttachment.depthSlice = wgpu::kDepthSliceUndefined;
-        colorAttachment.loadOp     = wgpu::LoadOp::Load;
-        colorAttachment.storeOp    = wgpu::StoreOp::Store;
+        colorAttachment.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+        colorAttachment.loadOp     = WGPULoadOp_Load;
+        colorAttachment.storeOp    = WGPUStoreOp_Store;
 
-        mCurrentColorAttachments.push_back(colorAttachment);
+        newRenderPass.colorAttachments.push_back(colorAttachment);
     }
     if (mRenderTargetCache.getDepthStencil())
     {
-        mCurrentDepthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
+        newRenderPass.depthStencilAttachment = webgpu::CreateNewDepthStencilAttachment(
             contextWgpu->getState().getDepthClearValue(),
             static_cast<uint32_t>(contextWgpu->getState().getStencilClearValue()),
             mRenderTargetCache.getDepthStencil()->getTextureView(), mState.hasDepth(),
             mState.hasStencil());
-        mCurrentRenderPassDesc.depthStencilAttachment = &mCurrentDepthStencilAttachment;
-    }
-    else
-    {
-        mCurrentRenderPassDesc.depthStencilAttachment = nullptr;
     }
 
-    mCurrentRenderPassDesc.colorAttachmentCount = mCurrentColorAttachments.size();
-    mCurrentRenderPassDesc.colorAttachments     = mCurrentColorAttachments.data();
+    mCurrentRenderPassDesc = std::move(newRenderPass);
     ANGLE_TRY(contextWgpu->startRenderPass(mCurrentRenderPassDesc));
 
     return angle::Result::Continue;
 }
 
-void FramebufferWgpu::setUpForRenderPass(
-    ContextWgpu *contextWgpu,
-    bool depthOrStencil,
-    std::vector<wgpu::RenderPassColorAttachment> colorAttachments,
-    wgpu::RenderPassDepthStencilAttachment depthStencilAttachment)
-{
-    if (depthOrStencil)
-    {
-        mCurrentDepthStencilAttachment                = std::move(depthStencilAttachment);
-        mCurrentRenderPassDesc.depthStencilAttachment = &mCurrentDepthStencilAttachment;
-    }
-    else
-    {
-        mCurrentRenderPassDesc.depthStencilAttachment = nullptr;
-    }
-    mCurrentColorAttachments                    = std::move(colorAttachments);
-    mCurrentRenderPassDesc.colorAttachmentCount = mCurrentColorAttachments.size();
-    mCurrentRenderPassDesc.colorAttachments     = mCurrentColorAttachments.data();
-}
-
-void FramebufferWgpu::mergeClearWithDeferredClears(wgpu::Color clearValue,
+void FramebufferWgpu::mergeClearWithDeferredClears(const gl::ColorF &clearValue,
                                                    gl::DrawBufferMask clearColorBuffers,
                                                    float depthValue,
                                                    uint32_t stencilValue,
@@ -640,18 +561,37 @@ void FramebufferWgpu::mergeClearWithDeferredClears(wgpu::Color clearValue,
     for (size_t enabledDrawBuffer : clearColorBuffers)
     {
         mDeferredClears.store(static_cast<uint32_t>(enabledDrawBuffer),
-                              {clearValue, wgpu::kDepthSliceUndefined, 0, 0});
+                              {clearValue, WGPU_DEPTH_SLICE_UNDEFINED, 0, 0});
     }
     if (clearDepth)
     {
         mDeferredClears.store(webgpu::kUnpackedDepthIndex,
-                              {clearValue, wgpu::kDepthSliceUndefined, depthValue, 0});
+                              {clearValue, WGPU_DEPTH_SLICE_UNDEFINED, depthValue, 0});
     }
     if (clearStencil)
     {
         mDeferredClears.store(webgpu::kUnpackedStencilIndex,
-                              {clearValue, wgpu::kDepthSliceUndefined, 0, stencilValue});
+                              {clearValue, WGPU_DEPTH_SLICE_UNDEFINED, 0, stencilValue});
     }
+}
+
+gl::Rectangle FramebufferWgpu::getReadArea(const gl::Context *context,
+                                           const gl::Rectangle &glArea) const
+{
+    RenderTargetWgpu *readRT = getReadPixelsRenderTarget();
+    if (!readRT)
+    {
+        readRT = mRenderTargetCache.getDepthStencil();
+    }
+    ASSERT(readRT);
+    gl::Rectangle flippedArea = glArea;
+    if (mFlipY)
+    {
+        flippedArea.y = readRT->getImage()->getLevelSize(readRT->getLevelIndex()).height -
+                        flippedArea.y - flippedArea.height;
+    }
+
+    return flippedArea;
 }
 
 }  // namespace rx

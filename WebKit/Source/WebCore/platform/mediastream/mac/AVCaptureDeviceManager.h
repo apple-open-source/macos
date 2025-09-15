@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@ class AVCaptureDeviceManager final : public CaptureDeviceManager {
 public:
     static AVCaptureDeviceManager& singleton();
 
-    void refreshCaptureDevices() { refreshCaptureDevicesInternal([] { }, ShouldSetUserPreferredCamera::No); };
+    void refreshCaptureDevices(CompletionHandler<void()>&& = [] { });
 
 private:
     static bool isAvailable();
@@ -59,15 +59,14 @@ private:
 
     void computeCaptureDevices(CompletionHandler<void()>&&) final;
     const Vector<CaptureDevice>& captureDevices() final;
+    void processRefreshedCaptureDevices(CompletionHandler<void()>&&, Vector<CaptureDevice>&&);
 
     void registerForDeviceNotifications();
     void updateCachedAVCaptureDevices();
     Vector<CaptureDevice> retrieveCaptureDevices();
     RetainPtr<NSArray> currentCameras();
 
-    enum class ShouldSetUserPreferredCamera : bool { No, Yes };
-    void refreshCaptureDevicesInternal(CompletionHandler<void()>&&, ShouldSetUserPreferredCamera);
-    void setUserPreferredCamera();
+    void setUserPreferredCamera(CompletionHandler<void()>&&);
 
     RetainPtr<WebCoreAVCaptureDeviceManagerObserver> m_objcObserver;
     Vector<CaptureDevice> m_devices;
@@ -75,7 +74,7 @@ private:
     RetainPtr<NSArray> m_avCaptureDeviceTypes;
     bool m_isInitialized { false };
 
-    Ref<WorkQueue> m_dispatchQueue;
+    const Ref<WorkQueue> m_dispatchQueue;
 };
 
 } // namespace WebCore

@@ -208,7 +208,7 @@ NS_ASSUME_NONNULL_BEGIN
 {
     int i = 0;
     int c = 0;
-    BOOL isLegal = true;
+    BOOL isLegal = YES;
 
     for (i = 0, c = 0; i < LABEL_LENGTH; i++) {
         c = (u_char)label[i];
@@ -216,10 +216,10 @@ NS_ASSUME_NONNULL_BEGIN
         if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c)) {
             if (c != 0)  {
                 os_log(OS_LOG_DEFAULT, "%s: Illegal character: %c", __FUNCTION__, c);
-                isLegal = false;
+                isLegal = NO;
             } else if (i == 0) {
                 os_log(OS_LOG_DEFAULT, "%s: empty label", __FUNCTION__);
-                isLegal = false;
+                isLegal = NO;
             }
             break;
         }
@@ -473,25 +473,26 @@ uint16_t dos2unicodeConv[32] = {
                                    from:(void *)buffer
                              startingAt:(off_t)offset
                                  length:(size_t)nbyte
+                         forceSyncWrite:(bool)forceSync
 {
     NSError *error = nil;
-#if DEBUG
+#if TARGET_OS_OSX
+    if (forceSync) {
+        [device metadataWriteFrom:buffer
+                       startingAt:offset
+                           length:nbyte
+                            error:&error];
+    } else {
+        [device delayedMetadataWriteFrom:buffer
+                              startingAt:offset
+                                  length:nbyte
+                                   error:&error];
+    }
+#else
     [device metadataWriteFrom:buffer
                    startingAt:offset
                        length:nbyte
                         error:&error];
-#else
-    #if TARGET_OS_OSX
-    [device delayedMetadataWriteFrom:buffer
-                          startingAt:offset
-                              length:nbyte
-                               error:&error];
-#else
-    [device metadataWriteFrom:buffer
-                   startingAt:offset
-                       length:nbyte
-                        error:&error];
-    #endif
 #endif
 
     if (error) {

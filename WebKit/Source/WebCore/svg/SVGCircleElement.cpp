@@ -27,6 +27,7 @@
 #include "NodeName.h"
 #include "RenderSVGEllipse.h"
 #include "SVGElementInlines.h"
+#include "SVGParsingError.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -64,7 +65,7 @@ SVGAnimatedProperty* SVGCircleElement::propertyForAttribute(const QualifiedName&
 
 void SVGCircleElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    SVGParsingError parseError = NoError;
+    auto parseError = SVGParsingError::None;
 
     switch (name.nodeName()) {
     case AttributeNames::cxAttr:

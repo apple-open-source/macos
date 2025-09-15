@@ -72,6 +72,7 @@
 #include <mach/port.h>
 #ifdef MACH_KERNEL_PRIVATE
 #include <mach_debug/mach_debug_types.h>
+#include <kern/ipc_kobject.h>
 #endif
 #include <stdint.h>
 
@@ -129,7 +130,7 @@ typedef io_object_t io_connect_t;
 typedef io_object_t io_ident_t;
 typedef io_object_t uext_object_t;
 
-extern void iokit_add_reference( io_object_t obj, natural_t type );
+extern void iokit_add_reference( io_object_t obj );
 extern void iokit_remove_reference( io_object_t obj );
 extern void iokit_remove_connect_reference( io_object_t obj );
 extern void iokit_port_object_description(io_object_t obj, kobject_description_t desc);
@@ -144,7 +145,7 @@ extern ipc_port_t iokit_make_connect_port( io_connect_t obj );
 extern ipc_port_t iokit_make_ident_port( io_ident_t obj );
 
 extern void iokit_kobject_retain(io_kobject_t machPort);
-extern io_object_t iokit_copy_object_for_consumed_kobject(io_kobject_t machPort, natural_t type);
+extern io_object_t iokit_copy_object_for_consumed_kobject(io_kobject_t machPort);
 
 #else
 

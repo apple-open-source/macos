@@ -400,6 +400,14 @@ class OctagonPairingTests: OctagonTestsBase {
     var fcInitiator: FCPairingFakeSOSControl!
     var fcAcceptor: FCPairingFakeSOSControl!
 
+    static func follower(model: String) -> Bool {
+        if model.hasPrefix("AppleTV") ||
+           model.hasPrefix("AudioAccessory") {
+            return true
+        }
+        return false
+    }
+
     override func setUp() {
         // We want the Passwords view to exist, so that we can check the piggybacking TLK channel
         if self.mockDeviceInfo == nil {
@@ -410,7 +418,7 @@ class OctagonPairingTests: OctagonTestsBase {
                                                           osVersion: actualDeviceAdapter.osVersion())
         }
 
-        if self.mockDeviceInfo.mockModelID.contains("AppleTV") || self.mockDeviceInfo.mockModelID.contains("AudioAccessory") {
+        if Self.follower(model: self.mockDeviceInfo.mockModelID) {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
             ])

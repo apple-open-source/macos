@@ -138,13 +138,7 @@ T_DECL(TESTNAME, "CS OP, code sign operations test")
 
 	/* Verify the returned CDHashes match and are the correct type */
 	T_ASSERT_EQ_INT(memcmp(cdhash_info.hash, cdhash, sizeof(cdhash)), 0, "Comparing CDHashes");
-
-#if TARGET_OS_WATCH
-	/* watchOS prefers SHA1 hashes for now */
-	T_ASSERT_EQ_INT(cdhash_info.type, CS_HASHTYPE_SHA1, "Checking returned CDHash type [SHA1]");
-#else
 	T_ASSERT_EQ_INT(cdhash_info.type, CS_HASHTYPE_SHA256, "Checking returned CDHash type [SHA256]");
-#endif
 
 	/*
 	 * Only run the following tests if not HARD since otherwise

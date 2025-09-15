@@ -23,12 +23,15 @@
 
 #if os(visionOS)
 
-import LinearMediaKit
-import WebKitSwift
+#if canImport(AVKit, _version: 1270)
+@_spi(LinearMediaKit) @_spi(LinearMediaKit_WebKitOnly) import AVKit
+#else
+@_spi(WebKitOnly) import LinearMediaKit
+#endif
 
 // MARK: Objective-C Implementations
 
-@_objcImplementation extension WKSLinearMediaContentMetadata {
+@objc @implementation extension WKSLinearMediaContentMetadata {
     let title: String?
     let subtitle: String?
     
@@ -38,7 +41,7 @@ import WebKitSwift
     }
 }
 
-@_objcImplementation extension WKSLinearMediaTimeRange {
+@objc @implementation extension WKSLinearMediaTimeRange {
     let lowerBound: TimeInterval
     let upperBound: TimeInterval
 
@@ -48,7 +51,7 @@ import WebKitSwift
     }
 }
 
-@_objcImplementation extension WKSLinearMediaTrack {
+@objc @implementation extension WKSLinearMediaTrack {
     let localizedDisplayName: String
 
     init(localizedDisplayName: String) {
@@ -56,7 +59,7 @@ import WebKitSwift
     }
 }
 
-@_objcImplementation extension WKSLinearMediaSpatialVideoMetadata {
+@objc @implementation extension WKSLinearMediaSpatialVideoMetadata {
     let width: Int32
     let height: Int32
     let horizontalFOVDegrees: Float
@@ -69,6 +72,50 @@ import WebKitSwift
         self.horizontalFOVDegrees = horizontalFOVDegrees
         self.baseline = baseline
         self.disparityAdjustment = disparityAdjustment
+    }
+}
+
+@objc @implementation extension WKSPlayableViewControllerHost {
+    @nonobjc private let base = PlayableViewController()
+
+    var viewController: UIViewController {
+        base
+    }
+
+    var automaticallyDockOnFullScreenPresentation: Bool {
+        get { base.automaticallyDockOnFullScreenPresentation }
+        set { base.automaticallyDockOnFullScreenPresentation = newValue }
+    }
+
+    var dismissFullScreenOnExitingDocking: Bool {
+        get { base.dismissFullScreenOnExitingDocking }
+        set { base.dismissFullScreenOnExitingDocking = newValue }
+    }
+
+    var environmentPickerButtonViewController: UIViewController? {
+        base.environmentPickerButtonViewController
+    }
+
+    @nonobjc final var playable: (any Playable)? {
+        get {
+            #if USE_APPLE_INTERNAL_SDK
+            base.playable
+            #else
+            nil
+            #endif
+        }
+        set { base.playable = newValue }
+    }
+
+    @nonobjc final var prefersAutoDimming: Bool {
+        get {
+            #if USE_APPLE_INTERNAL_SDK
+            base.prefersAutoDimming
+            #else
+            false
+            #endif
+        }
+        set { base.prefersAutoDimming = newValue }
     }
 }
 
@@ -115,7 +162,8 @@ extension WKSLinearMediaContentMode {
     }
 
     static var `default`: WKSLinearMediaContentMode {
-        .init(.default)
+        // `ContentMode.default` is invalid; workaround by using the value of it directly.
+        .init(.scaleAspectFit)
     }
 }
 
@@ -149,6 +197,10 @@ extension WKSLinearMediaPresentationState: CustomStringConvertible {
             return "fullscreen"
         case .exitingFullscreen:
             return "exitingFullscreen"
+        case .enteringExternal:
+            return "enteringExternal"
+        case .external:
+            return "external"
         @unknown default:
             fatalError()
         }
@@ -228,7 +280,7 @@ extension WKSLinearMediaTimeRange {
     }
 }
 
-extension WKSLinearMediaTrack: @retroactive Track {
+@_spi(Internal) extension WKSLinearMediaTrack: Track {
 }
 
 extension WKSLinearMediaSpatialVideoMetadata {

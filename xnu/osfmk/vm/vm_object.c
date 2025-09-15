@@ -83,6 +83,7 @@
 #include <kern/processor.h>
 #include <kern/misc_protos.h>
 #include <kern/policy_internal.h>
+#include <kern/coalition.h>
 
 #include <sys/kdebug.h>
 #include <sys/kdebug_triage.h>
@@ -324,6 +325,9 @@ static const struct vm_object vm_object_template = {
 	.pages_created = 0,
 	.pages_used = 0,
 	.scan_collisions = 0,
+#if COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1
+	.vo_chead_hint = 0,
+#endif /* COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1 */
 #if CONFIG_PHANTOM_CACHE
 	.phantom_object_id = 0,
 #endif
@@ -933,7 +937,64 @@ take_page:
 	return NULL;
 }
 
+#if COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1
 
+/* This is the actual number of filling cheads that's going to be used.
+ * must be 1 <= vm_cheads <= COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT */
+TUNABLE_WRITEABLE(uint32_t, vm_cheads, "vm_cheads", 8);
+/* This determines what criteria is used for selecting the chead,
+ * either the PID of the grabber task or it's coalition */
+TUNABLE_WRITEABLE(vm_chead_select_t, vm_chead_select, "vm_chead_select", CSEL_BY_PID);
+/* This determines if the grabber-id is set on every page-fault insert or just the first insert */
+TUNABLE_WRITEABLE(boolean_t, vm_chead_rehint, "vm_chead_rehint", false);
+
+/*
+ * This function is called from vm_page_insert_internal(). When it's called from the context
+ * of a vm_fault where a task has just requested a new page/paged-in a existing page,
+ * this function records some bits of information about the task. These bits are then
+ * going to be used when the page is sent to the compressor to select the compressor-head
+ * that will be used.
+ * The goal of this is to make pages that come from the same task/coalition be compressed to the
+ * same compressor segment, This helps the locality of swap-in and decompression.
+ * This optimization relies on a heuristic assumptions that the vm_object is only ever mapped
+ * in a single task/coalition. vm_objects that violate this would not benefit from this optimization.
+ * See also vm_pageout_select_filling_chead()
+ */
+void
+vm_object_set_chead_hint(
+	vm_object_t     object)
+{
+	if (!object->internal) {
+		/* not relevant for pages that are not going to get to the compressor */
+		return;
+	}
+
+	if (object->vo_chead_hint != 0 && !vm_chead_rehint) {
+		/* there's already a value there and we don't want to set it again */
+		return;
+	}
+	task_t cur_task = current_task_early();
+	if (cur_task == TASK_NULL || cur_task == kernel_task || vm_cheads <= 1) {
+		/* avoid doing extra work for the kernel map case */
+		object->vo_chead_hint = 0;
+		return;
+	}
+	int value = 0;
+	if (vm_chead_select == CSEL_BY_PID) {
+		value = task_pid(cur_task);
+	} else if (vm_chead_select == CSEL_BY_COALITION) {
+		/* The choice of coalition type is not very significant here since both
+		 * types seem to have a similar task division. */
+		coalition_t coalition = task_get_coalition(cur_task, COALITION_TYPE_JETSAM);
+		if (coalition != COALITION_NULL) {
+			value = coalition_id(coalition);
+		}
+	}
+	uint32_t mod_by = MIN(vm_cheads, COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT);
+	object->vo_chead_hint = (uint8_t)value % mod_by;
+}
+
+#endif /* COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1 */
 
 #define EVICT_PREPARE_LIMIT     64
 #define EVICT_AGE               10
@@ -2846,26 +2907,34 @@ vm_object_zero_page(vm_page_t m)
 kern_return_t
 vm_object_zero(
 	vm_object_t                     object,
-	vm_object_offset_t              cur_offset,
+	vm_object_offset_t              *cur_offset_p,
 	vm_object_offset_t              end_offset)
 {
 	kern_return_t ret;
 
 	vm_object_lock_assert_exclusive(object);
-	ret = vm_object_zero_preflight(object, cur_offset, end_offset);
+	ret = vm_object_zero_preflight(object, *cur_offset_p, end_offset);
 	if (ret != KERN_SUCCESS) {
 		return ret;
 	}
 
-	while (cur_offset < end_offset) {
-		vm_page_t m = vm_page_lookup(object, cur_offset);
+	while (*cur_offset_p < end_offset) {
+		vm_page_t m = vm_page_lookup(object, *cur_offset_p);
 
 		if (m != VM_PAGE_NULL && m->vmp_busy) {
 			vm_page_sleep(object, m, THREAD_UNINT, LCK_SLEEP_DEFAULT);
 			/* Object lock was dropped -- reverify validity */
-			ret = vm_object_zero_preflight(object, cur_offset, end_offset);
+			ret = vm_object_zero_preflight(object, *cur_offset_p, end_offset);
 			if (ret != KERN_SUCCESS) {
 				return ret;
+			}
+			if (object->copy_strategy == MEMORY_OBJECT_COPY_SYMMETRIC) {
+				/*
+				 * Our mapping could have been made "needs_copy" while
+				 * the map and object were unlocked.
+				 * We need to do the mapping preflight again...
+				 */
+				return KERN_SUCCESS;
 			}
 			continue;
 		}
@@ -2876,12 +2945,12 @@ vm_object_zero(
 		 * we dropped the object lock during the lookup retry the lookup for the
 		 * cur_offset.
 		 */
-		if (page_is_paged_out(object, cur_offset)) {
-			vm_object_compressor_pager_state_clr(object, cur_offset);
+		if (page_is_paged_out(object, *cur_offset_p)) {
+			vm_object_compressor_pager_state_clr(object, *cur_offset_p);
 		} else {
 			vm_object_zero_page(m);
 		}
-		cur_offset += PAGE_SIZE_64;
+		*cur_offset_p += PAGE_SIZE_64;
 		/*
 		 * TODO: May need a vm_object_lock_yield_shared in this loop if it takes
 		 * too long, as holding the object lock for too long can stall pageout
@@ -3199,7 +3268,7 @@ uint32_t vm_page_busy_absent_skipped = 0;
  *		an error, this parameter will contain the value
  *		VM_OBJECT_NULL.
  */
-__private_extern__ kern_return_t
+__exported_hidden kern_return_t
 vm_object_copy_slowly(
 	vm_object_t             src_object,
 	vm_object_offset_t      src_offset,
@@ -6219,14 +6288,14 @@ vm_object_get_page_counts(
 	vm_object_t             object,
 	vm_object_offset_t      offset,
 	vm_object_size_t        size,
-	unsigned int            *resident_page_count,
-	unsigned int            *dirty_page_count)
+	uint64_t               *resident_page_count,
+	uint64_t               *dirty_page_count,
+	uint64_t               *swapped_page_count)
 {
-	kern_return_t           kr = KERN_SUCCESS;
-	boolean_t               count_dirty_pages = FALSE;
 	vm_page_t               p = VM_PAGE_NULL;
 	unsigned int            local_resident_count = 0;
 	unsigned int            local_dirty_count = 0;
+	unsigned int            local_swapped_count = 0;
 	vm_object_offset_t      cur_offset = 0;
 	vm_object_offset_t      end_offset = 0;
 
@@ -6234,57 +6303,60 @@ vm_object_get_page_counts(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-
 	cur_offset = offset;
-
 	end_offset = offset + size;
 
 	vm_object_lock_assert_exclusive(object);
 
-	if (dirty_page_count != NULL) {
-		count_dirty_pages = TRUE;
-	}
-
-	if (resident_page_count != NULL && count_dirty_pages == FALSE) {
+	if (resident_page_count != NULL &&
+	    dirty_page_count == NULL &&
+	    offset == 0 &&
+	    object->vo_size == size) {
 		/*
 		 * Fast path when:
 		 * - we only want the resident page count, and,
 		 * - the entire object is exactly covered by the request.
 		 */
-		if (offset == 0 && (object->vo_size == size)) {
-			*resident_page_count = object->resident_page_count;
-			goto out;
+		local_resident_count = object->resident_page_count;
+		if (object->internal && object->pager != NULL) {
+			local_swapped_count = vm_compressor_pager_get_count(object->pager);
 		}
+		goto out;
 	}
 
-	if (object->resident_page_count <= (size >> PAGE_SHIFT)) {
+	if (object->resident_page_count <= (size >> PAGE_SHIFT) &&
+	    swapped_page_count == NULL) {
+		/*
+		 * Faster path when we don't care about non-resident pages and the object has
+		 * fewer resident pages than the requested range.
+		 */
 		vm_page_queue_iterate(&object->memq, p, vmp_listq) {
 			if (p->vmp_offset >= cur_offset && p->vmp_offset < end_offset) {
 				local_resident_count++;
-
-				if (count_dirty_pages) {
-					if (p->vmp_dirty || (p->vmp_wpmapped && pmap_is_modified(VM_PAGE_GET_PHYS_PAGE(p)))) {
-						local_dirty_count++;
-					}
+				if (p->vmp_dirty ||
+				    (p->vmp_wpmapped && pmap_is_modified(VM_PAGE_GET_PHYS_PAGE(p)))) {
+					local_dirty_count++;
 				}
 			}
 		}
-	} else {
-		for (cur_offset = offset; cur_offset < end_offset; cur_offset += PAGE_SIZE_64) {
-			p = vm_page_lookup(object, cur_offset);
+		goto out;
+	}
 
-			if (p != VM_PAGE_NULL) {
-				local_resident_count++;
+	for (cur_offset = offset; cur_offset < end_offset; cur_offset += PAGE_SIZE_64) {
+		p = vm_page_lookup(object, cur_offset);
 
-				if (count_dirty_pages) {
-					if (p->vmp_dirty || (p->vmp_wpmapped && pmap_is_modified(VM_PAGE_GET_PHYS_PAGE(p)))) {
-						local_dirty_count++;
-					}
-				}
+		if (p != VM_PAGE_NULL) {
+			local_resident_count++;
+			if (p->vmp_dirty ||
+			    (p->vmp_wpmapped && pmap_is_modified(VM_PAGE_GET_PHYS_PAGE(p)))) {
+				local_dirty_count++;
 			}
+		} else if (page_is_paged_out(object, cur_offset)) {
+			local_swapped_count++;
 		}
 	}
 
+out:
 	if (resident_page_count != NULL) {
 		*resident_page_count = local_resident_count;
 	}
@@ -6293,8 +6365,11 @@ vm_object_get_page_counts(
 		*dirty_page_count = local_dirty_count;
 	}
 
-out:
-	return kr;
+	if (swapped_page_count != NULL) {
+		*swapped_page_count = local_swapped_count;
+	}
+
+	return KERN_SUCCESS;
 }
 
 

@@ -31,6 +31,7 @@
 #import "FloatRect.h"
 #import "GraphicsContextCG.h"
 #import "IntRect.h"
+#import "NativeImage.h"
 
 #if PLATFORM(IOS_FAMILY)
 #import "WebCoreThread.h"

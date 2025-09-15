@@ -12,6 +12,7 @@
 #import "DATelemetry.h"
 #import "DADisk.h"
 #import "DAFileSystem.h"
+#import "DASupport.h"
 #import "DALog.h"
 #import <Foundation/Foundation.h>
 
@@ -36,11 +37,6 @@ typedef enum DATelemetryFSType {
     DATelemetryFSTypeMSDOSEFI
 } DATelemetryFSType;
 
-typedef enum DATelemetryFSImplementation {
-    DATelemetryFSImplementationKext = 0,
-    DATelemetryFSImplementationFSKit,
-    DATelemetryFSImplementationUserFS
-} DATelemetryFSImplementation;
 
 typedef enum DATelemetryDiskState {
     DATelemetryDiskStateUnknown = 0,
@@ -80,16 +76,18 @@ typedef enum DATelemetryOperationType {
 } DATelemetryOperationType;
 
 typedef struct __DATelemetry {
-    DATelemetryOperationType operationType;
-    CFStringRef              fsType;
-    CFStringRef              fsImplementation;
-    int                      status;
-    uint32_t                 volumeFlags;
-    uint64_t                 volumeSize;
-    uint64_t                 durationNs;
-    bool                     unmountForced;
-    pid_t                    dissenterPid;
-    bool                     dissentedViaAPI;
+    DATelemetryOperationType    operationType;
+    CFStringRef                 fsType;
+    DATelemetryFSImplementation fsImplementation;
+    int                         status;
+    uint32_t                    volumeFlags;
+    uint64_t                    volumeSize;
+    uint64_t                    durationNs;
+    bool                        unmountForced;
+    pid_t                       dissenterPid;
+    bool                        dissentedViaAPI;
+    bool                        isExternal;
+    bool                        automounted;
 } __DATelemetry;
 
 static NSString *__DA_pidToFirstPartyProcName( pid_t pid )
@@ -114,7 +112,7 @@ static NSString *__DA_pidToFirstPartyProcName( pid_t pid )
     {
         if ( proc_name( pid , procnamebuf , sizeof( procnamebuf ) ) )
         {
-            return [NSString stringWithUTF8String:procnamebuf];
+            return [[NSString alloc] initWithUTF8String:procnamebuf];
         }
     }
     
@@ -184,25 +182,32 @@ static DATelemetryFSType __DA_fsTypeToTelemetryValue( CFStringRef fsType )
     return ret;
 }
 
-static DATelemetryFSImplementation __DA_fsImplementationToTelemetryValue( CFStringRef fsImplementation )
+// Determine which path is used for disk operations
+static DATelemetryFSImplementation __DA_fsImplementation( CFStringRef fsType , bool isExternal , bool usedFSKit )
 {
-    /* If we don't have an fsImplmentation, default to kext */
-    if ( fsImplementation == NULL )
-    {
-        return DATelemetryFSImplementationKext;
-    }
-    
-    if ( !CFStringCompare( fsImplementation , CFSTR("UserFS") , kCFCompareCaseInsensitive ) )
-    {
-        return DATelemetryFSImplementationUserFS;
-    }
-    
-    if ( !CFStringCompare( fsImplementation , CFSTR("FSKit") , kCFCompareCaseInsensitive ) )
+    if ( usedFSKit )
     {
         return DATelemetryFSImplementationFSKit;
     }
     
-    return DATelemetryFSImplementationKext;
+    switch ( __DA_fsTypeToTelemetryValue( fsType ) ) {
+        case DATelemetryFSTypeMSDOS:
+            return DATelemetryFSImplementationUserFS;
+        case DATelemetryFSTypeEXFAT:
+            return DATelemetryFSImplementationUserFS;
+        case DATelemetryFSTypeAPFS:
+            return ( isExternal ) ? DATelemetryFSImplementationUserFS : DATelemetryFSImplementationKext;
+        case DATelemetryFSTypeHFS:
+#if TARGET_OS_OSX
+            return DATelemetryFSImplementationKext;
+#else
+            return ( isExternal ) ? DATelemetryFSImplementationUserFS : DATelemetryFSImplementationKext;
+#endif
+        case DATelemetryFSTypeNTFS:
+            return DATelemetryFSImplementationUserFS;
+        default:
+            return DATelemetryFSImplementationKext;
+    }
 }
 
 /* Map any .util or mount status codes to errno */
@@ -292,16 +297,13 @@ static bool __DAOperationHasDissenter( DATelemetryOperationType op )
 
 static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
 {
-    NSMutableDictionary *result = [NSMutableDictionary new];
-    
+    NSMutableDictionary *result = [[NSMutableDictionary alloc] init];
+
     /* Handle shared fields here */
     result[@"operation_type"] = @( telemetry->operationType );
     result[@"fs_type"] = @( __DA_fsTypeToTelemetryValue( telemetry->fsType ) );
-    
-    if ( telemetry->operationType != DATelemetryOpEject )
-    {
-        result[@"fs_implementation"] = @( __DA_fsImplementationToTelemetryValue( telemetry->fsImplementation ) );
-    }
+    result[@"is_external"] = @( telemetry->isExternal );
+    result[@"fs_implementation"] = @( telemetry->fsImplementation );
     
     if ( telemetry->operationType != DATelemetryOpRemove )
     {
@@ -327,7 +329,7 @@ static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
             result[@"volume_size"] = @( telemetry->volumeSize );
             break;
         case DATelemetryOpMount:
-            // Accounted for in common fields
+            result[@"automount"] = @( telemetry->automounted );
             break;
         case DATelemetryOpEject:
             // Accounted for in common fields
@@ -348,17 +350,25 @@ static NSDictionary *__DATelemetrySerialize( __DATelemetry *telemetry )
 }
 
 // Perform all operations with strings first before sending the event lazily to ensure they are still in memory
-int DATelemetrySendProbeEvent( int status , CFStringRef fsType , CFStringRef fsImplementation , uint64_t durationNs , int cleanStatus )
+int DATelemetrySendProbeEvent( int status ,
+                               CFStringRef fsType ,
+                               DADiskRef disk ,
+                               uint64_t durationNs ,
+                               int cleanStatus )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
+    CFStringRef fsImplementation;
+    bool isExternal = DADiskIsExternalVolume( disk );
+    bool probedWithFSKit = DADiskGetState( disk , _kDADiskStateProbedWithFSKit );
     
     telemetry.operationType = DATelemetryOpProbe;
     telemetry.fsType = fsType;
-    telemetry.fsImplementation = fsImplementation;
+    telemetry.fsImplementation = __DA_fsImplementation( fsType , isExternal , probedWithFSKit );
     telemetry.status = status;
     telemetry.durationNs = durationNs;
     telemetry.volumeFlags = ( cleanStatus == 0 ) ? DA_TELEMETRY_VOLUME_CLEAN : 0;
+    telemetry.isExternal = isExternal;
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -366,20 +376,46 @@ int DATelemetrySendProbeEvent( int status , CFStringRef fsType , CFStringRef fsI
         return eventInfo;
     });
 #endif
+    
     return 0;
 }
 
-int DATelemetrySendFSCKEvent( int status , CFStringRef fsType , CFStringRef fsImplementation , uint64_t durationNs , uint64_t volumeSize )
+int DATelemetrySendFSCKEvent( int status , DADiskRef disk , uint64_t durationNs )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
     
+    CFNumberRef diskSize = DADiskGetDescription( disk , kDADiskDescriptionMediaSizeKey );
+    DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
+    CFStringRef kind = NULL;
+    uint64_t volumeSize = 0;
+    bool isExternal = false;
+    bool probedWithFSKit = false;
+    
+    if ( diskSize )
+    {
+        volumeSize = ___CFNumberGetIntegerValue( diskSize );
+    }
+    
+    if ( filesystem != NULL )
+    {
+        kind = DAGetFSTypeWithUUID( filesystem ,
+                                    DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+    
+    if ( disk )
+    {
+        isExternal = DADiskIsExternalVolume( disk );
+        probedWithFSKit = DADiskGetState( disk , _kDADiskStateProbedWithFSKit );
+    }
+    
     telemetry.operationType = DATelemetryOpFSCK;
-    telemetry.fsType = fsType;
-    telemetry.fsImplementation = fsImplementation;
+    telemetry.fsType = kind;
+    telemetry.fsImplementation = __DA_fsImplementation( kind , isExternal , probedWithFSKit );
     telemetry.status = status;
     telemetry.durationNs = durationNs;
     telemetry.volumeSize = volumeSize;
+    telemetry.isExternal = isExternal;
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -390,39 +426,24 @@ int DATelemetrySendFSCKEvent( int status , CFStringRef fsType , CFStringRef fsIm
     return 0;
 }
 
-int DATelemetrySendMountEvent( int status , CFStringRef fsType , bool useUserFS , uint64_t durationNs )
+int DATelemetrySendMountEvent( int status ,
+                               CFStringRef fsType ,
+                               DATelemetryFSImplementation mountType ,
+                               bool automount ,
+                               bool isExternal ,
+                               uint64_t durationNs )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
+    CFStringRef TelemetryMountStr;
     
     telemetry.operationType = DATelemetryOpMount;
     telemetry.fsType = fsType;
     telemetry.status = status;
     telemetry.durationNs = durationNs;
-    
-    // Use the FSKit guidelines for whether or not the fs was mounted with FSKit or UserFS
-    if ( ! useUserFS )
-    {
-        telemetry.fsImplementation = CFSTR("kext");
-    }
-    else
-    {
-        switch ( __DA_fsTypeToTelemetryValue( fsType ) ) {
-            case DATelemetryFSTypeMSDOS:
-                telemetry.fsImplementation = ( os_feature_enabled(FSKit, msdosUseFSKitModule) )
-                    ? CFSTR("FSKit") : CFSTR("UserFS");
-                break;
-            case DATelemetryFSTypeEXFAT: // Move these filesystems as we update their mount path to FSKit
-            case DATelemetryFSTypeAPFS:
-            case DATelemetryFSTypeHFS:
-            case DATelemetryFSTypeNTFS:
-                telemetry.fsImplementation = CFSTR("UserFS");
-                break;
-            default: // Third-party FSModules
-                telemetry.fsImplementation = CFSTR("FSKit");
-                break;
-        }
-    }
+    telemetry.automounted = automount;
+    telemetry.isExternal = isExternal;
+    telemetry.fsImplementation = mountType;
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -433,16 +454,43 @@ int DATelemetrySendMountEvent( int status , CFStringRef fsType , bool useUserFS 
     return 0;
 }
 
-int DATelemetrySendEjectEvent( int status , CFStringRef fsType , pid_t dissenterPid )
+int DATelemetrySendEjectEvent( int status , DADiskRef disk , pid_t dissenterPid )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
+    DAFileSystemRef filesystem;
+    CFStringRef fsType = NULL;
+    DATelemetryFSImplementation implementation = DATelemetryFSImplementationKext;
+    bool isExternal = false;
+    
+    if ( disk )
+    {
+        filesystem = DADiskGetFileSystem( disk );
+        isExternal = DADiskIsExternalVolume( disk );
+        
+        if ( filesystem )
+        {
+            fsType = DAGetFSTypeWithUUID( filesystem ,
+                                          DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+        }
+        
+        // Eject telemetry FSImplementation should match unmount and mount telemetry
+        if ( DADiskGetState( disk , _kDADiskStateMountedWithFSKit ) )
+        {
+            implementation = DATelemetryFSImplementationFSKit;
+        }
+        else if ( DADiskGetState( disk , _kDADiskStateMountedWithUserFS ) )
+        {
+            implementation = DATelemetryFSImplementationUserFS;
+        }
+    }
     
     telemetry.operationType = DATelemetryOpEject;
     telemetry.fsType = fsType;
-    telemetry.fsImplementation = NULL;
     telemetry.status = status;
     telemetry.dissenterPid = dissenterPid;
+    telemetry.isExternal = isExternal;
+    telemetry.fsImplementation = implementation;
     
     eventInfo = __DATelemetrySerialize( &telemetry );
 #if TARGET_OS_OSX || TARGET_OS_IOS
@@ -453,54 +501,68 @@ int DATelemetrySendEjectEvent( int status , CFStringRef fsType , pid_t dissenter
     return 0;
 }
 
-int DATelemetrySendTerminationEvent( CFStringRef fsType ,
-                                     CFStringRef fsImplementation ,
-                                     bool isMounted ,
-                                     bool isAppeared ,
-                                     bool isProbing ,
-                                     bool isFSCKRunning ,
-                                     bool isMounting ,
-                                     bool isUnrepairable ,
-                                     bool isRemoved )
+int DATelemetrySendTerminationEvent( DADiskRef disk )
 {
+    DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
+    bool diskIsUnrepairable, diskIsMounted, diskIsProbing, isExternal = false, probedWithFSKit = false;
+    CFStringRef kind = NULL;
+    
+    isExternal = DADiskIsExternalVolume( disk );
+    probedWithFSKit = DADiskGetState( disk , _kDADiskStateProbedWithFSKit );
+    
+    /* Use the same unrepairable check as the path for calling DADialogShowDeviceUnrepairable */
+    diskIsUnrepairable = DADiskGetState( disk , kDADiskStateStagedUnrepairable )
+        && DADiskGetState( disk, kDADiskStateRequireRepair )
+        && DADiskGetState( disk, _kDADiskStateMountAutomatic )
+        && DADiskGetClaim( disk ) == NULL;
+    
+    diskIsMounted = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) != NULL;
+    diskIsProbing = DADiskGetState( disk , kDADiskStateStagedProbe )
+        && DADiskGetState( disk , kDADiskStateCommandActive );
+    
+    if ( filesystem != NULL )
+    {
+        kind = DAGetFSTypeWithUUID( filesystem , DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
     uint32_t volumeFlags = 0;
     
     telemetry.operationType = DATelemetryOpRemove;
-    telemetry.fsType = fsType;
+    telemetry.fsType = kind ;
     telemetry.status = -1;
-    telemetry.fsImplementation = fsImplementation;
+    telemetry.fsImplementation = __DA_fsImplementation( kind , isExternal , probedWithFSKit ); // should match probe event
+    telemetry.isExternal = isExternal;
     
-    if ( isRemoved )
+    if ( DADiskGetState( disk , kDADiskStateZombie ) )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_IS_REMOVED;
     }
-    if ( isAppeared )
+    if ( DADiskGetState( disk , kDADiskStateStagedAppear ) )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_IS_APPEAR;
     }
-    if ( isProbing )
+    if ( diskIsProbing )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_IS_PROBE;
     }
-    if ( isFSCKRunning )
+    if ( DADiskGetState( disk , kDADiskStateRequireRepair ) )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_IS_FSCK;
     }
-    if ( isMounting )
+    if ( DADiskGetState( disk , kDADiskStateMountOngoing ) )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_IS_MOUNTING;
     }
-    if ( isUnrepairable )
+    if ( diskIsUnrepairable )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_UNREPAIRABLE;
     }
-    if ( isMounted )
+    if ( diskIsMounted )
     {
         volumeFlags |= DA_TELEMETRY_VOLUME_MOUNTED;
     }
-
     
     telemetry.volumeFlags = volumeFlags;
     
@@ -513,16 +575,38 @@ int DATelemetrySendTerminationEvent( CFStringRef fsType ,
     return 0;
 }
 
-int DATelemetrySendUnmountEvent( int status , CFStringRef fsType , CFStringRef fsImplementation,
-                                 bool forced , pid_t dissenterPid ,
-                                 bool dissentedViaAPI , uint64_t durationNs )
+int DATelemetrySendUnmountEvent( int status ,
+                                 DADiskRef disk ,
+                                 bool forced ,
+                                 pid_t dissenterPid ,
+                                 bool dissentedViaAPI ,
+                                 uint64_t durationNs )
 {
     __DATelemetry telemetry;
     NSDictionary *eventInfo;
+    DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
+    CFStringRef fsType = NULL;
+    DATelemetryFSImplementation implementation = DATelemetryFSImplementationKext;
+    
+    if ( filesystem != NULL )
+    {
+        fsType = DAGetFSTypeWithUUID( filesystem ,
+                                      DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
+    }
+    
+    if ( DADiskGetState( disk , _kDADiskStateMountedWithFSKit ) )
+    {
+        implementation = DATelemetryFSImplementationFSKit;
+    }
+    else if ( DADiskGetState( disk , _kDADiskStateMountedWithUserFS ) )
+    {
+        implementation = DATelemetryFSImplementationUserFS;
+    }
     
     telemetry.operationType = DATelemetryOpUnmount;
     telemetry.fsType = fsType;
-    telemetry.fsImplementation = fsImplementation;
+    telemetry.fsImplementation = implementation;
+    telemetry.isExternal = DADiskIsExternalVolume( disk );
     telemetry.status = status;
     telemetry.durationNs = durationNs;
     telemetry.unmountForced = forced;

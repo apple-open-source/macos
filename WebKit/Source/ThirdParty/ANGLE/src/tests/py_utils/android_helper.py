@@ -78,7 +78,7 @@ def _InitializeAndroid(apk_path):
         if _Global.IsMultiUser():
             # TODO(b/361388557): Switch to a content provider for this, i.e. `content write`
             logging.warning(
-                'Using app dir for external storage, may not work with chromium scripts, may require `setenforce 0`'
+                '\n\n!!!!! Using app dir for external storage, may not work with chromium scripts, may require `setenforce 0` !!!!!\n'
             )
             _Global.external_storage = _Global.base_dir + 'chromium_tests_root/'
     else:
@@ -163,6 +163,12 @@ def _AdbShell(cmd):
     return output
 
 
+def _AdbShellWithRunAs(cmd):
+    if _Global.use_run_as:
+        cmd = "run-as com.android.angle.test sh -c '{cmd}'".format(cmd=cmd)
+    return _AdbShell(cmd)
+
+
 def _GetAdbRoot(shell_id, su_path):
     if int(shell_id) == 0:
         logging.info('adb already got root')
@@ -232,7 +238,10 @@ def _AddRestrictedTracesJson():
         '../../src/tests/restricted_traces/*/*.json',
         'gen/trace_list.json',
     ])
-    _AdbShell('r=' + _Global.external_storage + '; tar -xf $r/t.tar -C $r/ && rm $r/t.tar')
+    _AdbShell(
+        'r=' + _Global.external_storage +
+        '; tar --no-same-permissions --no-same-owner -xf $r/t.tar -C $r/ && rm $r/t.tar && chmod -R o+r $r/'
+    )
 
 
 def _AddDeqpFiles(suite_name):
@@ -255,7 +264,10 @@ def _AddDeqpFiles(suite_name):
         patterns.append('gen/vk_gl_cts_data/data/gles2/data/brick.png')
 
     _MakeTar(_Global.external_storage + 'deqp.tar', patterns)
-    _AdbShell('r=' + _Global.external_storage + '; tar -xf $r/deqp.tar -C $r/ && rm $r/deqp.tar')
+    _AdbShell(
+        'r=' + _Global.external_storage +
+        '; tar --no-same-permissions --no-same-owner -xf $r/deqp.tar -C $r/ && rm $r/deqp.tar && chmod -R o+r $r/'
+    )
 
 
 def _GetDeviceApkPath():
@@ -341,6 +353,10 @@ def PrepareTestSuite(suite_name):
 
     if suite_name == ANGLE_TRACE_TEST_SUITE:
         _AddRestrictedTracesJson()
+        _AdbRun([
+            'push', '../../src/tests/perf_tests/angle_trace_tests_expectations.txt',
+            _Global.external_storage + 'src/tests/perf_tests/angle_trace_tests_expectations.txt'
+        ])
 
     if '_deqp_' in suite_name:
         _AddDeqpFiles(suite_name)
@@ -469,6 +485,7 @@ def _SetCaptureProps(env, device_out_dir):
         'ANGLE_CAPTURE_FRAME_START': 'debug.angle.capture.frame_start',
         'ANGLE_CAPTURE_FRAME_END': 'debug.angle.capture.frame_end',
         'ANGLE_CAPTURE_TRIGGER': 'debug.angle.capture.trigger',
+        'ANGLE_CAPTURE_END_CAPTURE': 'debug.angle.capture.end_capture',
         'ANGLE_CAPTURE_LABEL': 'debug.angle.capture.label',
         'ANGLE_CAPTURE_COMPRESSION': 'debug.angle.capture.compression',
         'ANGLE_CAPTURE_VALIDATION': 'debug.angle.capture.validation',
@@ -605,8 +622,11 @@ def RunTests(test_suite, args, stdoutfile=None, log_output=True):
             if perf_output_path:
                 _AdbRun(['pull', device_perf_path, perf_output_path])
 
-        if log_output:
+        if log_output or result:
             logging.info(output.decode())
+
+        if result:
+            logging.error('Tests failed, see stdout above')
 
         if stdoutfile:
             with open(stdoutfile, 'wb') as f:

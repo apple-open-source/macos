@@ -12,13 +12,19 @@
 #include "angle_gl.h"
 #include "anglebase/numerics/safe_conversions.h"
 #include "common/PackedGLEnums_autogen.h"
+#include "common/log_utils.h"
+#include "common/mathutil.h"
+#include "common/utilities.h"
 #include "compiler/translator/wgsl/OutputUniformBlocks.h"
 #include "libANGLE/Error.h"
 #include "libANGLE/Program.h"
+#include "libANGLE/ProgramExecutable.h"
 #include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/wgpu/ContextWgpu.h"
+#include "libANGLE/renderer/wgpu/TextureWgpu.h"
 #include "libANGLE/renderer/wgpu/wgpu_helpers.h"
 #include "libANGLE/renderer/wgpu/wgpu_pipeline_state.h"
+#include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
 namespace rx
 {
@@ -36,11 +42,14 @@ ProgramExecutableWgpu::~ProgramExecutableWgpu() = default;
 
 void ProgramExecutableWgpu::destroy(const gl::Context *context) {}
 
-angle::Result ProgramExecutableWgpu::updateUniformsAndGetBindGroup(ContextWgpu *contextWgpu,
-                                                                   wgpu::BindGroup *outBindGroup)
+angle::Result ProgramExecutableWgpu::updateUniformsAndGetBindGroup(
+    ContextWgpu *contextWgpu,
+    webgpu::BindGroupHandle *outBindGroup)
 {
     if (mDefaultUniformBlocksDirty.any())
     {
+        const DawnProcTable *wgpu = webgpu::GetProcs(contextWgpu);
+
         // TODO(anglebug.com/376553328): this creates an entire new buffer every time a single
         // uniform changes, and the old ones are just garbage collected. This should be optimized.
         webgpu::BufferHelper defaultUniformBuffer;
@@ -56,9 +65,9 @@ angle::Result ProgramExecutableWgpu::updateUniformsAndGetBindGroup(ContextWgpu *
             return angle::Result::Stop;
         }
 
-        ANGLE_TRY(defaultUniformBuffer.initBuffer(
-            contextWgpu->getDevice(), requiredSpace,
-            wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, webgpu::MapAtCreation::Yes));
+        ANGLE_TRY(defaultUniformBuffer.initBuffer(wgpu, contextWgpu->getDevice(), requiredSpace,
+                                                  WGPUBufferUsage_Uniform | WGPUBufferUsage_CopyDst,
+                                                  webgpu::MapAtCreation::Yes));
 
         ASSERT(defaultUniformBuffer.valid());
 
@@ -74,13 +83,13 @@ angle::Result ProgramExecutableWgpu::updateUniformsAndGetBindGroup(ContextWgpu *
         ANGLE_TRY(defaultUniformBuffer.unmap());
 
         // Create the BindGroupEntries
-        std::vector<wgpu::BindGroupEntry> bindings;
+        std::vector<WGPUBindGroupEntry> bindings;
         auto addBindingToGroupIfNecessary = [&](uint32_t bindingIndex, gl::ShaderType shaderType) {
             if (mDefaultUniformBlocks[shaderType]->uniformData.size() != 0)
             {
-                wgpu::BindGroupEntry bindGroupEntry;
+                WGPUBindGroupEntry bindGroupEntry = WGPU_BIND_GROUP_ENTRY_INIT;
                 bindGroupEntry.binding = bindingIndex;
-                bindGroupEntry.buffer  = defaultUniformBuffer.getBuffer();
+                bindGroupEntry.buffer             = defaultUniformBuffer.getBuffer().get();
                 bindGroupEntry.offset  = offsets[shaderType];
                 bindGroupEntry.size    = mDefaultUniformBlocks[shaderType]->uniformData.size();
                 bindings.push_back(bindGroupEntry);
@@ -93,17 +102,122 @@ angle::Result ProgramExecutableWgpu::updateUniformsAndGetBindGroup(ContextWgpu *
         addBindingToGroupIfNecessary(sh::kDefaultFragmentUniformBlockBinding,
                                      gl::ShaderType::Fragment);
 
-        // A bind group contains one or multiple bindings
-        wgpu::BindGroupDescriptor bindGroupDesc{};
-        bindGroupDesc.layout = mDefaultBindGroupLayout;
+        WGPUBindGroupDescriptor bindGroupDesc = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
+        bindGroupDesc.layout                  = mDefaultBindGroupLayout.get();
         // There must be as many bindings as declared in the layout!
         bindGroupDesc.entryCount = bindings.size();
         bindGroupDesc.entries    = bindings.data();
-        mDefaultBindGroup        = contextWgpu->getDevice().CreateBindGroup(&bindGroupDesc);
+        mDefaultBindGroup        = webgpu::BindGroupHandle::Acquire(
+            wgpu, wgpu->deviceCreateBindGroup(contextWgpu->getDevice().get(), &bindGroupDesc));
     }
 
     ASSERT(mDefaultBindGroup);
     *outBindGroup = mDefaultBindGroup;
+
+    return angle::Result::Continue;
+}
+
+angle::Result ProgramExecutableWgpu::getSamplerAndTextureBindGroup(
+    ContextWgpu *contextWgpu,
+    webgpu::BindGroupHandle *outBindGroup)
+{
+    if (mSamplerBindingsDirty)
+    {
+        const DawnProcTable *wgpu = webgpu::GetProcs(contextWgpu);
+
+        const gl::ActiveTexturesCache &completeTextures =
+            contextWgpu->getState().getActiveTexturesCache();
+
+        std::vector<WGPUBindGroupEntry> bindings;
+        bindings.reserve(mExecutable->getSamplerBindings().size() * 2);
+
+        // Hold refs to samplers and texture views created in this function until the bind group is
+        // created
+        std::vector<webgpu::SamplerHandle> samplers;
+        samplers.reserve(mExecutable->getSamplerBindings().size());
+
+        std::vector<webgpu::TextureViewHandle> textureViews;
+        textureViews.reserve(mExecutable->getSamplerBindings().size());
+
+        for (uint32_t textureIndex = 0; textureIndex < mExecutable->getSamplerBindings().size();
+             ++textureIndex)
+        {
+            const gl::SamplerBinding &samplerBinding =
+                mExecutable->getSamplerBindings()[textureIndex];
+
+            if (samplerBinding.textureUnitsCount != 1)
+            {
+                // TODO(anglebug.com/389145696): arrays of samplers not yet supported
+                UNIMPLEMENTED();
+                return angle::Result::Stop;
+            }
+            for (uint32_t arrayElement = 0; arrayElement < samplerBinding.textureUnitsCount;
+                 ++arrayElement)
+            {
+                GLuint textureUnit = samplerBinding.getTextureUnit(
+                    mExecutable->getSamplerBoundTextureUnits(), arrayElement);
+                gl::Texture *texture = completeTextures[textureUnit];
+                gl::Sampler *sampler = contextWgpu->getState().getSampler(textureUnit);
+                uint32_t samplerSlot = (textureIndex + arrayElement) * 2;
+                uint32_t textureSlot = samplerSlot + 1;
+                if (!texture)
+                {
+                    // TODO(anglebug.com/389145696): no support for incomplete textures.
+                    UNIMPLEMENTED();
+                    return angle::Result::Stop;
+                }
+                const gl::SamplerState *samplerState =
+                    sampler ? &sampler->getSamplerState() : &texture->getSamplerState();
+                if (samplerBinding.format == gl::SamplerFormat::Shadow)
+                {
+                    // TODO(anglebug.com/389145696): no support for shadow samplers yet.
+                    UNIMPLEMENTED();
+                    return angle::Result::Stop;
+                }
+                TextureWgpu *textureWgpu = webgpu::GetImpl(texture);
+
+                // TODO(anglebug.com/389145696): potentially cache sampler.
+                WGPUSamplerDescriptor sampleDesc  = gl_wgpu::GetWgpuSamplerDesc(samplerState);
+                webgpu::SamplerHandle wgpuSampler = webgpu::SamplerHandle::Acquire(
+                    wgpu, wgpu->deviceCreateSampler(contextWgpu->getDevice().get(), &sampleDesc));
+                samplers.push_back(wgpuSampler);
+
+                WGPUBindGroupEntry samplerBindGroupEntry = WGPU_BIND_GROUP_ENTRY_INIT;
+                samplerBindGroupEntry.binding = samplerSlot;
+                samplerBindGroupEntry.sampler            = wgpuSampler.get();
+
+                bindings.push_back(samplerBindGroupEntry);
+
+                WGPUBindGroupEntry textureBindGroupEntry = WGPU_BIND_GROUP_ENTRY_INIT;
+                textureBindGroupEntry.binding = textureSlot;
+
+                webgpu::TextureViewHandle textureView;
+                ANGLE_TRY(textureWgpu->getImage()->createFullTextureView(
+                    textureView,
+                    /*desiredViewDimension=*/gl_wgpu::GetWgpuTextureViewDimension(
+                        samplerBinding.textureType)));
+                textureViews.push_back(textureView);
+                textureBindGroupEntry.textureView = textureView.get();
+                bindings.push_back(textureBindGroupEntry);
+
+            }  // for array elements
+        }  // for sampler bindings
+
+        // A bind group contains one or multiple bindings
+        WGPUBindGroupDescriptor bindGroupDesc = WGPU_BIND_GROUP_DESCRIPTOR_INIT;
+        ASSERT(mSamplersAndTexturesBindGroupLayout);
+        bindGroupDesc.layout = mSamplersAndTexturesBindGroupLayout.get();
+        // There must be as many bindings as declared in the layout!
+        bindGroupDesc.entryCount      = bindings.size();
+        bindGroupDesc.entries         = bindings.data();
+        mSamplersAndTexturesBindGroup = webgpu::BindGroupHandle::Acquire(
+            wgpu, wgpu->deviceCreateBindGroup(contextWgpu->getDevice().get(), &bindGroupDesc));
+
+        mSamplerBindingsDirty = false;
+    }
+
+    ASSERT(mSamplersAndTexturesBindGroup);
+    *outBindGroup = mSamplersAndTexturesBindGroup;
 
     return angle::Result::Continue;
 }
@@ -192,7 +306,7 @@ void ProgramExecutableWgpu::setUniform1iv(GLint location, GLsizei count, const G
     const gl::LinkedUniform &linkedUniform   = mExecutable->getUniforms()[locationInfo.index];
     if (linkedUniform.isSampler())
     {
-        // TODO(anglebug.com/42267100): handle samplers.
+        mSamplerBindingsDirty = true;
         return;
     }
 
@@ -351,9 +465,9 @@ TranslatedWGPUShaderModule &ProgramExecutableWgpu::getShaderModule(gl::ShaderTyp
 
 angle::Result ProgramExecutableWgpu::getRenderPipeline(ContextWgpu *context,
                                                        const webgpu::RenderPipelineDesc &desc,
-                                                       wgpu::RenderPipeline *pipelineOut)
+                                                       webgpu::RenderPipelineHandle *pipelineOut)
 {
-    gl::ShaderMap<wgpu::ShaderModule> shaders;
+    gl::ShaderMap<webgpu::ShaderModuleHandle> shaders;
     for (gl::ShaderType shaderType : gl::AllShaderTypes())
     {
         shaders[shaderType] = mShaderModules[shaderType].module;
@@ -370,44 +484,123 @@ void ProgramExecutableWgpu::genBindingLayoutIfNecessary(ContextWgpu *context)
     {
         return;
     }
-    // TODO(anglebug.com/42267100): for now, only create a wgpu::PipelineLayout with the default
-    // uniform block. Will need to be extended for driver uniforms, UBOs, and textures/samplers.
-    // Also, possibly provide this layout as a compilation hint to createShaderModule().
 
-    std::vector<wgpu::BindGroupLayoutEntry> bindGroupLayoutEntries;
-    auto addBindGroupLayoutEntryIfNecessary = [&](uint32_t bindingIndex, gl::ShaderType shaderType,
-                                                  wgpu::ShaderStage wgpuVisibility) {
+    const DawnProcTable *wgpu = webgpu::GetProcs(context);
+
+    // TODO(anglebug.com/42267100): for now, only create a wgpu::PipelineLayout with the default
+    // uniform block, driver uniform block, and textures/samplers. Will need to be extended for
+    // UBOs. Also, possibly provide this layout as a compilation hint to createShaderModule().
+
+    std::vector<WGPUBindGroupLayoutEntry> defaultBindGroupLayoutEntries;
+    auto addDefaultBindGroupLayoutEntryIfNecessary = [&](uint32_t bindingIndex,
+                                                         gl::ShaderType shaderType,
+                                                         WGPUShaderStage wgpuVisibility) {
         if (mDefaultUniformBlocks[shaderType]->uniformData.size() != 0)
         {
-            wgpu::BindGroupLayoutEntry bindGroupLayoutEntry;
-            bindGroupLayoutEntry.visibility  = wgpuVisibility;
-            bindGroupLayoutEntry.binding     = bindingIndex;
-            bindGroupLayoutEntry.buffer.type = wgpu::BufferBindingType::Uniform;
+            WGPUBindGroupLayoutEntry bindGroupLayoutEntry = WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
+            bindGroupLayoutEntry.visibility               = wgpuVisibility;
+            bindGroupLayoutEntry.binding                  = bindingIndex;
+            bindGroupLayoutEntry.buffer.type              = WGPUBufferBindingType_Uniform;
             // By setting a `minBindingSize`, some validation is pushed from every draw call to
             // pipeline creation time.
             bindGroupLayoutEntry.buffer.minBindingSize =
                 mDefaultUniformBlocks[shaderType]->uniformData.size();
-            bindGroupLayoutEntries.push_back(bindGroupLayoutEntry);
+            bindGroupLayoutEntry.texture.sampleType    = WGPUTextureSampleType_BindingNotUsed;
+            bindGroupLayoutEntry.sampler.type          = WGPUSamplerBindingType_BindingNotUsed;
+            bindGroupLayoutEntry.storageTexture.access = WGPUStorageTextureAccess_BindingNotUsed;
+            defaultBindGroupLayoutEntries.push_back(bindGroupLayoutEntry);
         }
     };
     // Default uniform blocks for each of the vertex shader and the fragment shader.
-    addBindGroupLayoutEntryIfNecessary(sh::kDefaultVertexUniformBlockBinding,
-                                       gl::ShaderType::Vertex, wgpu::ShaderStage::Vertex);
-    addBindGroupLayoutEntryIfNecessary(sh::kDefaultFragmentUniformBlockBinding,
-                                       gl::ShaderType::Fragment, wgpu::ShaderStage::Fragment);
+    addDefaultBindGroupLayoutEntryIfNecessary(sh::kDefaultVertexUniformBlockBinding,
+                                              gl::ShaderType::Vertex, WGPUShaderStage_Vertex);
+    addDefaultBindGroupLayoutEntryIfNecessary(sh::kDefaultFragmentUniformBlockBinding,
+                                              gl::ShaderType::Fragment, WGPUShaderStage_Fragment);
 
     // Create a bind group layout with these entries.
-    wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-    bindGroupLayoutDesc.entryCount = bindGroupLayoutEntries.size();
-    bindGroupLayoutDesc.entries    = bindGroupLayoutEntries.data();
-    mDefaultBindGroupLayout = context->getDevice().CreateBindGroupLayout(&bindGroupLayoutDesc);
+    WGPUBindGroupLayoutDescriptor defaultBindGroupLayoutDesc =
+        WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
+    defaultBindGroupLayoutDesc.entryCount = defaultBindGroupLayoutEntries.size();
+    defaultBindGroupLayoutDesc.entries    = defaultBindGroupLayoutEntries.data();
+    mDefaultBindGroupLayout               = webgpu::BindGroupLayoutHandle::Acquire(
+        wgpu,
+        wgpu->deviceCreateBindGroupLayout(context->getDevice().get(), &defaultBindGroupLayoutDesc));
 
-    // Create the pipeline layout. This is a list where each element N corresponds to the @group(N)
-    // in the compiled shaders.
-    wgpu::PipelineLayoutDescriptor layoutDesc{};
-    layoutDesc.bindGroupLayoutCount = 1;
-    layoutDesc.bindGroupLayouts     = &mDefaultBindGroupLayout;
-    mPipelineLayout                 = context->getDevice().CreatePipelineLayout(&layoutDesc);
+    // Add the textures/samplers to the second bind group.
+    std::vector<WGPUBindGroupLayoutEntry> samplersAndTexturesBindGroupLayoutEntries;
+
+    // For each sampler binding, the translator should have generated 2 WGSL bindings, a sampler and
+    // a texture, with incrementing binding numbers starting from 0.
+    for (size_t i = 0; i < mExecutable->getSamplerBindings().size(); i++)
+    {
+        const gl::SamplerBinding &samplerBinding = mExecutable->getSamplerBindings()[i];
+
+        {
+            WGPUBindGroupLayoutEntry samplerBindGroupLayoutEntry =
+                WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
+            samplerBindGroupLayoutEntry.visibility =
+                WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
+            samplerBindGroupLayoutEntry.binding     = angle::base::checked_cast<uint32_t>(i * 2);
+            samplerBindGroupLayoutEntry.buffer.type = WGPUBufferBindingType_BindingNotUsed;
+            samplerBindGroupLayoutEntry.texture.sampleType = WGPUTextureSampleType_BindingNotUsed;
+            samplerBindGroupLayoutEntry.sampler.type =
+                samplerBinding.format == gl::SamplerFormat::Shadow
+                    ? WGPUSamplerBindingType_Comparison
+                    : WGPUSamplerBindingType_Filtering;
+            samplerBindGroupLayoutEntry.storageTexture.access =
+                WGPUStorageTextureAccess_BindingNotUsed;
+
+            samplersAndTexturesBindGroupLayoutEntries.push_back(samplerBindGroupLayoutEntry);
+        }
+
+        {
+            WGPUBindGroupLayoutEntry textureBindGroupLayoutEntry =
+                WGPU_BIND_GROUP_LAYOUT_ENTRY_INIT;
+            textureBindGroupLayoutEntry.visibility =
+                WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
+            textureBindGroupLayoutEntry.binding = angle::base::checked_cast<uint32_t>(i * 2 + 1);
+            textureBindGroupLayoutEntry.buffer.type = WGPUBufferBindingType_BindingNotUsed;
+            textureBindGroupLayoutEntry.texture.sampleType =
+                gl_wgpu::GetTextureSampleType(samplerBinding.format);
+            textureBindGroupLayoutEntry.texture.viewDimension =
+                gl_wgpu::GetWgpuTextureViewDimension(samplerBinding.textureType);
+            textureBindGroupLayoutEntry.sampler.type = WGPUSamplerBindingType_BindingNotUsed;
+            textureBindGroupLayoutEntry.storageTexture.access =
+                WGPUStorageTextureAccess_BindingNotUsed;
+            samplersAndTexturesBindGroupLayoutEntries.push_back(textureBindGroupLayoutEntry);
+        }
+    }
+
+    // Create a bind group layout with these entries.
+    WGPUBindGroupLayoutDescriptor texturesAndSamplersBindGroupLayoutDesc =
+        WGPU_BIND_GROUP_LAYOUT_DESCRIPTOR_INIT;
+    texturesAndSamplersBindGroupLayoutDesc.entryCount =
+        samplersAndTexturesBindGroupLayoutEntries.size();
+    texturesAndSamplersBindGroupLayoutDesc.entries =
+        samplersAndTexturesBindGroupLayoutEntries.data();
+    mSamplersAndTexturesBindGroupLayout = webgpu::BindGroupLayoutHandle::Acquire(
+        wgpu, wgpu->deviceCreateBindGroupLayout(context->getDevice().get(),
+                                                &texturesAndSamplersBindGroupLayoutDesc));
+
+    // Driver uniforms bind groups are handled by ContextWgpu.
+
+    // TODO(anglebug.com/376553328): now add UBO bindings.
+
+    // Create the pipeline layout. This is a list where each element N corresponds to the
+    // @group(N) in the compiled shaders.
+    std::array<WGPUBindGroupLayout, sh::kMaxBindGroup + 1> groupLayouts = {};
+
+    groupLayouts[sh::kDefaultUniformBlockBindGroup] = mDefaultBindGroupLayout.get();
+    groupLayouts[sh::kTextureAndSamplerBindGroup]   = mSamplersAndTexturesBindGroupLayout.get();
+    groupLayouts[sh::kDriverUniformBindGroup] = context->getDriverUniformBindGroupLayout().get();
+    static_assert(sh::kDriverUniformBindGroup == sh::kMaxBindGroup,
+                  "More bind groups added without changing the layout");
+
+    WGPUPipelineLayoutDescriptor layoutDesc = WGPU_PIPELINE_LAYOUT_DESCRIPTOR_INIT;
+    layoutDesc.bindGroupLayoutCount = groupLayouts.size();
+    layoutDesc.bindGroupLayouts     = groupLayouts.data();
+    mPipelineLayout                         = webgpu::PipelineLayoutHandle::Acquire(
+        wgpu, wgpu->deviceCreatePipelineLayout(context->getDevice().get(), &layoutDesc));
 }
 
 }  // namespace rx

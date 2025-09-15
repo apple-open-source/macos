@@ -74,7 +74,7 @@ OptionSet<ResourceType> toResourceType(CachedResource::Type type, ResourceReques
         if (requester == ResourceRequestRequester::XHR
             || requester == ResourceRequestRequester::Fetch)
             return { ResourceType::Fetch };
-        FALLTHROUGH;
+        [[fallthrough]];
     case CachedResource::Type::Beacon:
     case CachedResource::Type::Ping:
     case CachedResource::Type::Icon:
@@ -87,8 +87,10 @@ OptionSet<ResourceType> toResourceType(CachedResource::Type type, ResourceReques
 #endif
         return { ResourceType::Other };
 
+#if ENABLE(VIDEO)
     case CachedResource::Type::TextTrackResource:
         return { ResourceType::Media };
+#endif
 
     };
     ASSERT_NOT_REACHED();
@@ -150,11 +152,34 @@ std::optional<OptionSet<LoadContext>> readLoadContext(StringView name)
     return std::nullopt;
 }
 
+std::optional<RequestMethod> readRequestMethod(StringView name)
+{
+    if (equalIgnoringASCIICase(name, "get"_s))
+        return RequestMethod::Get;
+    if (equalIgnoringASCIICase(name, "head"_s))
+        return RequestMethod::Head;
+    if (equalIgnoringASCIICase(name, "options"_s))
+        return RequestMethod::Options;
+    if (equalIgnoringASCIICase(name, "trace"_s))
+        return RequestMethod::Trace;
+    if (equalIgnoringASCIICase(name, "put"_s))
+        return RequestMethod::Put;
+    if (equalIgnoringASCIICase(name, "delete"_s))
+        return RequestMethod::Delete;
+    if (equalIgnoringASCIICase(name, "post"_s))
+        return RequestMethod::Post;
+    if (equalIgnoringASCIICase(name, "patch"_s))
+        return RequestMethod::Patch;
+    if (equalIgnoringASCIICase(name, "connect"_s))
+        return RequestMethod::Connect;
+    return std::nullopt;
+}
+
 bool ResourceLoadInfo::isThirdParty() const
 {
     return !RegistrableDomain(mainDocumentURL).matches(resourceURL);
 }
-    
+
 ResourceFlags ResourceLoadInfo::getResourceFlags() const
 {
     ResourceFlags flags = 0;
@@ -162,7 +187,44 @@ ResourceFlags ResourceLoadInfo::getResourceFlags() const
     flags |= type.toRaw();
     flags |= isThirdParty() ? static_cast<ResourceFlags>(LoadType::ThirdParty) : static_cast<ResourceFlags>(LoadType::FirstParty);
     flags |= mainFrameContext ? static_cast<ResourceFlags>(LoadContext::TopFrame) : static_cast<ResourceFlags>(LoadContext::ChildFrame);
+    flags |= static_cast<ResourceFlags>(requestMethod);
     return flags;
+}
+
+ASCIILiteral resourceTypeToString(OptionSet<ResourceType> resourceTypes)
+{
+    switch (*resourceTypes.begin()) {
+    case ResourceType::TopDocument:
+        return "top-document"_s;
+    case ResourceType::ChildDocument:
+        return "child-document"_s;
+    case ResourceType::Image:
+        return "image"_s;
+    case ResourceType::StyleSheet:
+        return "style-sheet"_s;
+    case ResourceType::Script:
+        return "script"_s;
+    case ResourceType::Font:
+        return "font"_s;
+    case ResourceType::WebSocket:
+        return "websocket"_s;
+    case ResourceType::Fetch:
+        return "fetch"_s;
+    case ResourceType::SVGDocument:
+        return "svg-document"_s;
+    case ResourceType::Media:
+        return "media"_s;
+    case ResourceType::Popup:
+        return "popup"_s;
+    case ResourceType::Ping:
+        return "ping"_s;
+    case ResourceType::CSPReport:
+        return "csp-report"_s;
+    case ResourceType::Other:
+        return "other"_s;
+    default:
+        return "raw"_s;
+    }
 }
 
 } // namespace WebCore::ContentExtensions

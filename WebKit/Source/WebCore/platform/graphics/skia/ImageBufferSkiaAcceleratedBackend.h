@@ -28,12 +28,9 @@
 #if USE(SKIA)
 #include "ImageBuffer.h"
 #include "ImageBufferSkiaSurfaceBackend.h"
-#include <wtf/Lock.h>
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
-
-class GLFence;
 
 class ImageBufferSkiaAcceleratedBackend final : public ImageBufferSkiaSurfaceBackend
 {
@@ -41,12 +38,12 @@ class ImageBufferSkiaAcceleratedBackend final : public ImageBufferSkiaSurfaceBac
     WTF_MAKE_NONCOPYABLE(ImageBufferSkiaAcceleratedBackend);
 public:
     static std::unique_ptr<ImageBufferSkiaAcceleratedBackend> create(const Parameters&, const ImageBufferCreationContext&);
+    static std::unique_ptr<ImageBufferSkiaAcceleratedBackend> create(const Parameters&, const ImageBufferCreationContext&, sk_sp<SkSurface>&&);
     ~ImageBufferSkiaAcceleratedBackend();
 
     static constexpr RenderingMode renderingMode = RenderingMode::Accelerated;
 
 private:
-    static std::unique_ptr<ImageBufferSkiaAcceleratedBackend> create(const Parameters&, const ImageBufferCreationContext&, sk_sp<SkSurface>&&);
     ImageBufferSkiaAcceleratedBackend(const Parameters&, sk_sp<SkSurface>&&);
 
     void prepareForDisplay() final;
@@ -55,23 +52,13 @@ private:
     RefPtr<NativeImage> createNativeImageReference() final;
 
     void getPixelBuffer(const IntRect&, PixelBuffer&) final;
-    void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
-
-    void finishAcceleratedRenderingAndCreateFence() final;
-    void waitForAcceleratedRenderingFenceCompletion() final;
-
-    const GrDirectContext* skiaGrContext() const final { return m_skiaGrContext; }
-    RefPtr<ImageBuffer> copyAcceleratedImageBufferBorrowingBackendRenderTarget(const ImageBuffer&) const final;
+    void putPixelBuffer(const PixelBufferSourceView&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
 
 #if USE(COORDINATED_GRAPHICS)
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() const final;
 
     RefPtr<GraphicsLayerContentsDisplayDelegate> m_layerContentsDisplayDelegate;
 #endif
-
-    const GrDirectContext* m_skiaGrContext { nullptr };
-    std::unique_ptr<GLFence> m_fence WTF_GUARDED_BY_LOCK(m_fenceLock);
-    Lock m_fenceLock;
 };
 
 } // namespace WebCore

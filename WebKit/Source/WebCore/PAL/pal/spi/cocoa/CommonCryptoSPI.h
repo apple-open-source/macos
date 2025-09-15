@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <CommonCrypto/CommonCrypto.h>
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -42,7 +44,7 @@
 enum {
     kCCDigestNone = 0,
     kCCDigestSHA1 = 8,
-    kCCDigestSHA224 = 9,
+    DeprecatedCCDigestSHA224 = 9,
     kCCDigestSHA256 = 10,
     kCCDigestSHA384 = 11,
     kCCDigestSHA512 = 12,

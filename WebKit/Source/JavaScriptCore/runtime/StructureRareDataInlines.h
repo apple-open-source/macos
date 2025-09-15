@@ -30,6 +30,7 @@
 #include "JSString.h"
 #include "StructureChain.h"
 #include "StructureRareData.h"
+#include "VM.h"
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -71,6 +72,12 @@ public:
 private:
     PackedCellPtr<StructureRareData> m_structureRareData;
 };
+
+template<typename CellType, SubspaceAccess>
+inline GCClient::IsoSubspace* StructureRareData::subspaceFor(VM& vm)
+{
+    return &vm.structureRareDataSpace();
+}
 
 inline void StructureRareData::setPreviousID(VM& vm, Structure* structure)
 {

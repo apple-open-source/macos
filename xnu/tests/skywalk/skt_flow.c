@@ -236,6 +236,87 @@ skt_flow_config_main(int argc, char *argv[])
 }
 
 int
+skt_flow_conn_idle_main(int argc, char *argv[])
+{
+	ifname = FETH0_NAME;
+	our_mask = sktc_make_in_addr(IN_CLASSC_NET);
+	our_ip = sktc_feth0_in_addr();
+	dst_ip = sktc_feth1_in_addr();
+
+	T_LOG("\nTesting flow connection idle API\n");
+
+	bzero(&handles, sizeof(handles));
+	strlcpy(handles.netif_ifname, ifname, sizeof(handles.netif_ifname));
+	handles.netif_addr = our_ip;
+	handles.netif_mask = our_mask;
+	sktc_create_flowswitch_no_address(&handles, -1, -1, -1, -1, 0);
+
+	T_LOG("add a flow\n");
+	struct sktu_flow *flow;
+	flow = sktu_create_nexus_flow(&handles, AF_INET, &our_ip, &dst_ip, IPPROTO_TCP, 1234, 1234);
+	assert(flow);
+
+	T_LOG("verify flow default (negative) CONNECTION_IDLE flag\n");
+	struct sk_stats_flow sf;
+	int ret = sktu_get_nexus_flow_stats(flow->uuid, &sf);
+	assert(ret == 0);
+	assert((sf.sf_flags & SFLOWF_CONNECTION_IDLE) == 0);
+
+	uuid_t rand_uuid;
+	do {
+		uuid_generate(rand_uuid);
+	} while (uuid_compare(rand_uuid, flow->uuid) == 0);
+
+	// should return ENOENT with mismatching flow uuid
+	T_LOG("verify ENOENT with INVALID flow\n");
+	ret = os_nexus_flow_set_connection_idle(handles.fsw_nx_uuid, rand_uuid, false);
+	assert(ret != 0);
+	assert(errno == ENOENT);
+
+	/* should fail with EPERM from another PID */
+	T_LOG("verify EPERM with INVALID PID\n");
+	int child_pid;
+	if ((child_pid = fork()) == -1) {
+		SKT_LOG("fork: %s\n", strerror(errno));
+		exit(1);
+	}
+	if (child_pid == 0) {
+		ret = os_nexus_flow_set_connection_idle(handles.fsw_nx_uuid, flow->uuid, false);
+		exit(errno);
+	} else {
+		int child_status;
+		wait(&child_status);
+		assert(WIFEXITED(child_status));
+		assert(WEXITSTATUS(child_status) == EPERM);
+	}
+
+	T_LOG("verify setting flow CONNECTION_IDLE\n");
+	ret = os_nexus_flow_set_connection_idle(handles.fsw_nx_uuid, flow->uuid, true);
+	assert(ret == 0);
+
+	ret = sktu_get_nexus_flow_stats(flow->uuid, &sf);
+	assert(ret == 0);
+	assert((sf.sf_flags & SFLOWF_CONNECTION_IDLE) != 0);
+
+	T_LOG("verify clearing flow CONNECTION_IDLE\n");
+	ret = os_nexus_flow_set_connection_idle(handles.fsw_nx_uuid, flow->uuid, false);
+	assert(ret == 0);
+
+	ret = sktu_get_nexus_flow_stats(flow->uuid, &sf);
+	assert(ret == 0);
+	assert((sf.sf_flags & SFLOWF_CONNECTION_IDLE) == 0);
+
+	T_LOG("verify EPERM with netif nexus\n");
+	ret = os_nexus_flow_set_connection_idle(handles.netif_nx_uuid, flow->uuid, true);
+	assert(ret != 0);
+	assert(errno == EPERM);
+
+	T_LOG("\n");
+
+	return 0;
+}
+
+int
 skt_flow_req_main(int argc, char *argv[])
 {
 	ifname = FETH0_NAME;
@@ -318,5 +399,12 @@ struct skywalk_test skt_flow_config = {
 	"flowconfig", "test skywalk flow config api",
 	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_FLOWSWITCH | SK_FEATURE_NETNS,
 	skt_flow_config_main, { NULL },
+	skt_flow_req_net_init, skt_flow_req_net_fini,
+};
+
+struct skywalk_test skt_flow_conn_idle = {
+	"flowconnidle", "test skywalk flow connection idle api",
+	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_FLOWSWITCH | SK_FEATURE_NETNS,
+	skt_flow_conn_idle_main, { NULL },
 	skt_flow_req_net_init, skt_flow_req_net_fini,
 };

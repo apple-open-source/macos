@@ -188,7 +188,7 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
     Identifier moduleKey = key.toPropertyKey(globalObject);
     RETURN_IF_EXCEPTION(scope, promise->rejectWithCaughtException(globalObject, scope));
 
-    if (UNLIKELY(![context moduleLoaderDelegate])) {
+    if (![context moduleLoaderDelegate]) [[unlikely]] {
         scope.release();
         promise->reject(globalObject, createError(globalObject, "No module loader provided."_s));
         return promise;
@@ -206,18 +206,18 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
             return encodedJSUndefined();
         };
 
-        if (UNLIKELY(![script isKindOfClass:[JSScript class]]))
+        if (![script isKindOfClass:[JSScript class]]) [[unlikely]]
             return rejectPromise("First argument of resolution callback is not a JSScript"_s);
 
         JSScript* jsScript = static_cast<JSScript *>(script);
 
         JSSourceCode* source = [jsScript jsSourceCode];
-        if (UNLIKELY([jsScript type] != kJSScriptTypeModule))
+        if ([jsScript type] != kJSScriptTypeModule) [[unlikely]]
             return rejectPromise("The JSScript that was provided did not have expected type of kJSScriptTypeModule."_s);
 
         NSURL *sourceURL = [jsScript sourceURL];
         String oldModuleKey { [sourceURL absoluteString] };
-        if (UNLIKELY(Identifier::fromString(vm, oldModuleKey) != moduleKey))
+        if (Identifier::fromString(vm, oldModuleKey) != moduleKey) [[unlikely]]
             return rejectPromise(makeString("The same JSScript was provided for two different identifiers, previously: "_s, oldModuleKey, " and now: "_s, moduleKey.string()));
 
         strongPromise.get()->resolve(globalObject, source);
@@ -264,7 +264,7 @@ JSValue JSAPIGlobalObject::moduleLoaderEvaluate(JSGlobalObject* globalObject, JS
     if ([moduleLoaderDelegate respondsToSelector:@selector(willEvaluateModule:)] || [moduleLoaderDelegate respondsToSelector:@selector(didEvaluateModule:)]) {
         String moduleKey = key.toWTFString(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
-        url = [NSURL URLWithString:static_cast<NSString *>(moduleKey)];
+        url = [NSURL URLWithString:moduleKey.createNSString().get()];
     }
 
     if ([moduleLoaderDelegate respondsToSelector:@selector(willEvaluateModule:)])

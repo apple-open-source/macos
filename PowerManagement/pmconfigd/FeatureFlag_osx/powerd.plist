@@ -12,5 +12,10 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>dossier</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
 </dict>
 </plist>

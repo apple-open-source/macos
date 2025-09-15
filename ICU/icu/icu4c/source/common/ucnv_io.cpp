@@ -40,6 +40,9 @@
 #include "uarrsort.h"
 #include "uassert.h"
 #include "udataswp.h"
+#if APPLE_ICU_CHANGES // rdar://155639864
+#include "udatamem.h"
+#endif
 #include "cstring.h"
 #include "cmemory.h"
 #include "ucnv_io.h"
@@ -235,16 +238,34 @@ static void U_CALLCONV initAliasData(UErrorCode &errCode) {
     const uint32_t *sectionSizes;
     uint32_t tableStart;
     uint32_t currOffset;
+#if APPLE_ICU_CHANGES // rdar://155639864
+    int32_t sizeOfData;
+    int32_t sizeOfTOC;
+#endif
 
     ucln_common_registerCleanup(UCLN_COMMON_UCNV_IO, ucnv_io_cleanup);
 
     U_ASSERT(gAliasData == nullptr);
     data = udata_openChoice(nullptr, DATA_TYPE, DATA_NAME, isAcceptable, nullptr, &errCode);
-    if(U_FAILURE(errCode)) {
+    if (U_FAILURE(errCode)) {
         return;
     }
 
     sectionSizes = static_cast<const uint32_t*>(udata_getMemory(data));
+#if APPLE_ICU_CHANGES // rdar://155639864
+    int32_t dataLength = udata_getLength(data); // This is the length minus the UDataInfo size
+    if (dataLength <= int32_t(sizeof(uint32_t))) {
+        // We don't even have a TOC!
+        goto invalidFormat;
+    }
+    table = reinterpret_cast<const uint16_t*>(sectionSizes);
+    tableStart = sectionSizes[0];
+    sizeOfTOC = (tableStart + 1) * sizeof(uint32_t);
+    if (tableStart < minTocLength || dataLength <= sizeOfTOC) {
+        // We don't have a whole TOC!
+        goto invalidFormat;
+    }
+#else
     table = reinterpret_cast<const uint16_t*>(sectionSizes);
 
     tableStart      = sectionSizes[0];
@@ -253,6 +274,7 @@ static void U_CALLCONV initAliasData(UErrorCode &errCode) {
         udata_close(data);
         return;
     }
+#endif
     gAliasData = data;
 
     gMainTable.converterListSize      = sectionSizes[1];
@@ -264,11 +286,29 @@ static void U_CALLCONV initAliasData(UErrorCode &errCode) {
     gMainTable.optionTableSize        = sectionSizes[7];
     gMainTable.stringTableSize        = sectionSizes[8];
 
+#if APPLE_ICU_CHANGES // rdar://155639864
+    if (tableStart > minTocLength) {
+        gMainTable.normalizedStringTableSize = sectionSizes[9];
+    }
+
+    sizeOfData = sizeOfTOC;
+    for (uint32_t section = 1; section <= tableStart; section++) {
+        sizeOfData += sectionSizes[section] * sizeof(uint16_t);
+    }
+    if (dataLength < sizeOfData) {
+        // Truncated file!
+        goto invalidFormat;
+    }
+    // There may be some extra padding at the end, or this is a new file format with extra data that we can't read yet.
+
+    currOffset = (tableStart + 1) * (sizeof(uint32_t)/sizeof(uint16_t));
+#else
     if (tableStart > 8) {
         gMainTable.normalizedStringTableSize = sectionSizes[9];
     }
 
     currOffset = tableStart * (sizeof(uint32_t)/sizeof(uint16_t)) + (sizeof(uint32_t)/sizeof(uint16_t));
+#endif
     gMainTable.converterList = table + currOffset;
 
     currOffset += gMainTable.converterListSize;
@@ -306,6 +346,13 @@ static void U_CALLCONV initAliasData(UErrorCode &errCode) {
     currOffset += gMainTable.stringTableSize;
     gMainTable.normalizedStringTable = ((gMainTable.optionTable->stringNormalizationType == UCNV_IO_UNNORMALIZED)
         ? gMainTable.stringTable : (table + currOffset));
+#if APPLE_ICU_CHANGES // rdar://155639864
+    return;
+
+invalidFormat:
+    errCode = U_INVALID_FORMAT_ERROR;
+    udata_close(data);
+#endif
 }
 
 

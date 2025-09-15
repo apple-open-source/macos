@@ -62,6 +62,7 @@ extern CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete;
 @property BOOL resync;
 
 @property (nullable) CKServerChangeToken* changeToken;
+@property BOOL fetchNewestChangesFirst;
 @end
 
 @class CKKSCloudKitDeletion;
@@ -79,7 +80,8 @@ extern CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete;
                 zoneID:(CKRecordZoneID*)zoneID
         newChangeToken:(CKServerChangeToken*)changeToken
             moreComing:(BOOL)moreComing
-                resync:(BOOL)resync;
+                resync:(BOOL)resync
+fetchNewestChangesFirst:(BOOL)fetchNewestChangesFirst;
 @end
 
 // I don't understand why recordType isn't part of record ID, but deletions come in as both things

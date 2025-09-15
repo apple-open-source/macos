@@ -63,7 +63,7 @@ NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTas
     , m_shouldContentSniff(parameters.contentSniffingPolicy)
     , m_shouldPreconnectOnly(parameters.shouldPreconnectOnly)
     , m_sourceOrigin(parameters.sourceOrigin)
-    , m_timeoutSource(RunLoop::main(), this, &NetworkDataTaskSoup::timeoutFired)
+    , m_timeoutSource(RunLoop::mainSingleton(), "NetworkDataTaskSoup::TimeoutSource"_s, this, &NetworkDataTaskSoup::timeoutFired)
 {
     auto request = parameters.request;
     if (request.url().protocolIsInHTTPFamily()) {
@@ -78,9 +78,9 @@ NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTas
             request.removeCredentials();
 
             if (m_user.isEmpty() && m_password.isEmpty())
-                m_initialCredential = m_session->networkStorageSession()->credentialStorage().get(m_partition, request.url());
+                m_initialCredential = m_session->checkedNetworkStorageSession()->credentialStorage().get(m_partition, request.url());
             else
-                m_session->networkStorageSession()->credentialStorage().set(m_partition, Credential(m_user, m_password, CredentialPersistence::None), request.url());
+                m_session->checkedNetworkStorageSession()->credentialStorage().set(m_partition, Credential(m_user, m_password, CredentialPersistence::None), request.url());
         }
         applyAuthenticationToRequest(request);
     }
@@ -616,7 +616,7 @@ void NetworkDataTaskSoup::applyAuthenticationToRequest(ResourceRequest& request)
     auto url = request.url();
     url.setUser(m_user);
     url.setPassword(m_password);
-    request.setURL(url);
+    request.setURL(WTFMove(url));
 
     m_user = String();
     m_password = String();
@@ -735,17 +735,17 @@ void NetworkDataTaskSoup::authenticate(AuthenticationChallenge&& challenge)
             // The stored credential wasn't accepted, stop using it. There is a race condition
             // here, since a different credential might have already been stored by another
             // NetworkDataTask, but the observable effect should be very minor, if any.
-            m_session->networkStorageSession()->credentialStorage().remove(m_partition, challenge.protectionSpace());
+            m_session->checkedNetworkStorageSession()->credentialStorage().remove(m_partition, challenge.protectionSpace());
         }
 
         if (!challenge.previousFailureCount()) {
-            auto credential = m_session->networkStorageSession()->credentialStorage().get(m_partition, challenge.protectionSpace());
+            auto credential = m_session->checkedNetworkStorageSession()->credentialStorage().get(m_partition, challenge.protectionSpace());
             if (!credential.isEmpty() && credential != m_initialCredential) {
                 ASSERT(credential.persistence() == CredentialPersistence::None);
 
                 if (isAuthenticationFailureStatusCode(challenge.failureResponse().httpStatusCode())) {
                     // Store the credential back, possibly adding it as a default for this directory.
-                    m_session->networkStorageSession()->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
+                    m_session->checkedNetworkStorageSession()->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
                 }
 
                 completeAuthentication(challenge, credential);
@@ -764,7 +764,7 @@ void NetworkDataTaskSoup::authenticate(AuthenticationChallenge&& challenge)
     // will become session credentials after the first use.
     if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use && persistentCredentialStorageEnabled()) {
         auto protectionSpace = challenge.protectionSpace();
-        m_session->networkStorageSession()->getCredentialFromPersistentStorage(protectionSpace, m_cancellable.get(),
+        m_session->checkedNetworkStorageSession()->getCredentialFromPersistentStorage(protectionSpace, m_cancellable.get(),
             [this, protectedThis = Ref { *this }, authChallenge = WTFMove(challenge)] (Credential&& credential) mutable {
                 if (m_state == State::Canceling || m_state == State::Completed || !m_client) {
                     clearRequest();
@@ -801,7 +801,7 @@ void NetworkDataTaskSoup::continueAuthenticate(AuthenticationChallenge&& challen
                 // we place the credentials in the store even though libsoup will never fire the authenticate signal again for
                 // this protection space.
                 if (credential.persistence() == CredentialPersistence::ForSession || credential.persistence() == CredentialPersistence::Permanent)
-                    m_session->networkStorageSession()->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
+                    m_session->checkedNetworkStorageSession()->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
 
                 if (credential.persistence() == CredentialPersistence::Permanent && persistentCredentialStorageEnabled()) {
                     m_protectionSpaceForPersistentStorage = challenge.protectionSpace();
@@ -917,7 +917,7 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
     URL redirectedURL = URL(m_response.url(), m_response.httpHeaderField(HTTPHeaderName::Location));
     if (!redirectedURL.hasFragmentIdentifier() && request.url().hasFragmentIdentifier())
         redirectedURL.setFragmentIdentifier(request.url().fragmentIdentifier());
-    request.setURL(redirectedURL);
+    request.setURL(WTFMove(redirectedURL));
 
     m_networkLoadMetrics.hasCrossOriginRedirect = m_networkLoadMetrics.hasCrossOriginRedirect || !SecurityOrigin::create(m_currentRequest.url())->canRequest(request.url(), WebCore::EmptyOriginAccessPatterns::singleton());
 
@@ -966,7 +966,7 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
         request.clearHTTPOrigin();
     } else if (url.protocolIsInHTTPFamily() && m_storedCredentialsPolicy == StoredCredentialsPolicy::Use) {
         if (m_user.isEmpty() && m_password.isEmpty()) {
-            auto credential = m_session->networkStorageSession()->credentialStorage().get(m_partition, request.url());
+            auto credential = m_session->checkedNetworkStorageSession()->credentialStorage().get(m_partition, request.url());
             if (!credential.isEmpty())
                 m_initialCredential = credential;
         }
@@ -1036,7 +1036,7 @@ void NetworkDataTaskSoup::read()
     RefPtr<NetworkDataTaskSoup> protectedThis(this);
     ASSERT(m_inputStream);
     m_readBuffer.grow(gDefaultReadBufferSize);
-    g_input_stream_read_async(m_inputStream.get(), m_readBuffer.data(), m_readBuffer.size(), RunLoopSourcePriority::AsyncIONetwork, m_cancellable.get(),
+    g_input_stream_read_async(m_inputStream.get(), m_readBuffer.mutableSpan().data(), m_readBuffer.size(), RunLoopSourcePriority::AsyncIONetwork, m_cancellable.get(),
         reinterpret_cast<GAsyncReadyCallback>(readCallback), protectedThis.leakRef());
 }
 
@@ -1113,7 +1113,7 @@ void NetworkDataTaskSoup::didRequestNextPart(GRefPtr<GInputStream>&& inputStream
     m_inputStream = WTFMove(inputStream);
     auto* headers = soup_multipart_input_stream_get_headers(m_multipartInputStream.get());
     auto contentType = String::fromLatin1(soup_message_headers_get_one(headers, "Content-Type"));
-    m_response = ResourceResponse(m_firstRequest.url(), extractMIMETypeFromMediaType(contentType),
+    m_response = ResourceResponse(URL { m_firstRequest.url() }, extractMIMETypeFromMediaType(contentType),
         soup_message_headers_get_content_length(headers), extractCharsetFromMediaType(contentType).toString());
     m_response.updateFromSoupMessageHeaders(headers);
     dispatchDidReceiveResponse();
@@ -1220,7 +1220,7 @@ void NetworkDataTaskSoup::didGetHeaders()
     // incorrect credentials or polluting the keychain with invalid credentials.
     auto statusCode = soup_message_get_status(m_soupMessage.get());
     if (!isAuthenticationFailureStatusCode(statusCode) && statusCode < 500 && persistentCredentialStorageEnabled()) {
-        m_session->networkStorageSession()->saveCredentialToPersistentStorage(m_protectionSpaceForPersistentStorage, m_credentialForPersistentStorage);
+        m_session->checkedNetworkStorageSession()->saveCredentialToPersistentStorage(m_protectionSpaceForPersistentStorage, m_credentialForPersistentStorage);
         m_protectionSpaceForPersistentStorage = ProtectionSpace();
         m_credentialForPersistentStorage = Credential();
     }
@@ -1427,7 +1427,7 @@ void NetworkDataTaskSoup::writeDownloadCallback(GOutputStream* outputStream, GAs
 void NetworkDataTaskSoup::writeDownload()
 {
     RefPtr<NetworkDataTaskSoup> protectedThis(this);
-    g_output_stream_write_all_async(m_downloadOutputStream.get(), m_readBuffer.data(), m_readBuffer.size(), RunLoopSourcePriority::AsyncIONetwork, m_cancellable.get(),
+    g_output_stream_write_all_async(m_downloadOutputStream.get(), m_readBuffer.span().data(), m_readBuffer.size(), RunLoopSourcePriority::AsyncIONetwork, m_cancellable.get(),
         reinterpret_cast<GAsyncReadyCallback>(writeDownloadCallback), protectedThis.leakRef());
 }
 
@@ -1590,14 +1590,8 @@ bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const
 
 void NetworkDataTaskSoup::protocolUpgradedViaHSTS(SoupMessage* soupMessage)
 {
-    if (!m_response.isNull() && !m_response.httpHeaderField(HTTPHeaderName::Location).isEmpty()) {
-        // We handle HSTS upgrades as a redirection to let Web and UI processes know about the URL change, but in
-        // case of redirection, the new request is originated in the network process, so we can just update the URL.
-        m_currentRequest.setURL(soupURIToURL(soup_message_get_uri(m_soupMessage.get())));
-    } else {
-        m_response = ResourceResponse::syntheticRedirectResponse(m_currentRequest.url(), soupURIToURL(soup_message_get_uri(soupMessage)));
-        continueHTTPRedirection();
-    }
+    m_response = ResourceResponse::syntheticRedirectResponse(m_currentRequest.url(), soupURIToURL(soup_message_get_uri(soupMessage)));
+    continueHTTPRedirection();
 }
 
 #if USE(SOUP2)
@@ -1694,7 +1688,7 @@ void NetworkDataTaskSoup::fileQueryInfoCallback(GFile* file, GAsyncResult* resul
 
 void NetworkDataTaskSoup::didGetFileInfo(GFileInfo* info)
 {
-    m_response.setURL(m_firstRequest.url());
+    m_response.setURL(URL { m_firstRequest.url() });
     if (g_file_info_get_file_type(info) == G_FILE_TYPE_DIRECTORY) {
         m_response.setMimeType("text/html"_s);
         m_response.setExpectedContentLength(-1);

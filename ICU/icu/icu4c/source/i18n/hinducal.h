@@ -35,6 +35,9 @@ U_NAMESPACE_BEGIN
       	int32_t degrees;
         int32_t minutes;
         int32_t seconds;
+        double fractionalDegrees() const {
+            return degrees + ((double)minutes / 60) + ((double)seconds / 3600);
+        }
   };
 
   class Location {
@@ -56,6 +59,12 @@ U_NAMESPACE_BEGIN
       	HinduDate(int32_t y, int32_t m, bool lM, int32_t d, bool lD) {
       		year = y; month = m; leapMonth = lM; day = d; leapDay = lD;
       	}
+  };
+
+  enum EHinduCalendarType {
+    AMANTA,
+    PURNIMANTA,
+    SOLAR
   };
 
 /**
@@ -131,11 +140,6 @@ class U_I18N_API HinduLunarCalendar : public Calendar {
   // clone
   virtual HinduLunarCalendar* clone() const override;
     
-  /*
-   * Is leap day, a Hindu calendar specific
-   */
- UBool isLeapDay() const;
-
  private:
 
   ///////////////////////////////////////////////////////////////
@@ -143,7 +147,6 @@ class U_I18N_API HinduLunarCalendar : public Calendar {
   ///////////////////////////////////////////////////////////////
 
   UBool isLeapYear;
-  UBool leapDay;
   Location hinduLocation;
   int32_t fEpochYear;   // Start year of this Hindu calendar instance.
   const TimeZone* fZoneAstroCalc;   // Zone used for the astronomical calculation
@@ -159,6 +162,8 @@ class U_I18N_API HinduLunarCalendar : public Calendar {
   virtual int64_t handleComputeMonthStart(int32_t eyear, int32_t month, UBool useMonth, UErrorCode& status) const override;
   virtual int32_t handleGetExtendedYear(UErrorCode& status) override;
   virtual void handleComputeFields(int32_t julianDay, UErrorCode &status) override;
+  virtual int32_t handleComputeOrdinalDay(int32_t monthStart) override;
+  virtual EHinduCalendarType getHinduCalendarType() const;
   virtual const UFieldResolutionTable* getFieldResolutionTable() const override;
 
  public:
@@ -188,7 +193,6 @@ class U_I18N_API HinduLunarCalendar : public Calendar {
   int32_t fixedFromHinduLunar(HinduDate lDate) const;  // Fixed date corresponding to Hindu lunar date lDate.
   int32_t hinduDayCount(int32_t date) const;  // Elapsed days (Ahargana) to date since Hindu epoch (KY)
   int32_t hinduLunarNewYear(int32_t gYear) const; // Fixed date of Hindu lunisolar new year in a given Gregorian year
-
   
     // Calendar helpers
   int32_t gregorianNewYear(int32_t gYear) const;
@@ -197,6 +201,8 @@ class U_I18N_API HinduLunarCalendar : public Calendar {
   // Internal hindu
 protected:
   double ujjainOffset() const;
+    virtual int32_t getYearOffset() const;
+    virtual int32_t getMonthOffset() const;
 
   ///////////////////////////////////////////////////////////////
   //      Math and algo helpers
@@ -300,7 +306,10 @@ private:
 
  public:
 
-
+#ifdef __CalendarTest__
+  friend void CalendarTest::TestHinduCalendarGetMonthLength();
+  friend void CalendarTest::TestHinduCalendarComputeMonthStart();
+#endif
 };
 
 /*
@@ -369,14 +378,39 @@ public:
     
 protected:
     virtual void handleComputeFields(int32_t julianDay, UErrorCode &status) override;
+    virtual int32_t handleComputeOrdinalDay(int32_t monthStart) override;
+    virtual EHinduCalendarType getHinduCalendarType() const override;
+    virtual int32_t handleGetLimit(UCalendarDateFields field, ELimitType limitType) const override;
+    virtual int32_t handleGetMonthLength(int32_t extendedYear, int32_t month, UErrorCode& status) const override;
+    virtual int64_t handleComputeMonthStart(int32_t eyear, int32_t month, UBool useMonth, UErrorCode& status) const override;
+public:
+ virtual void add(UCalendarDateFields field, int32_t amount, UErrorCode &status) override;
+ virtual void add(EDateFields field, int32_t amount, UErrorCode &status) override;
+ virtual void roll(UCalendarDateFields field, int32_t amount, UErrorCode &status) override;
     
     ///////////////////////////////////////////////////////////////
     // Internal methods & astronomical calculations
     ///////////////////////////////////////////////////////////////
 
-   private:
-    HinduDate hinduSolarFromFixed(int32_t date) const;  // Hindu solar date, new-moon scheme, equivalent to fixed date.
-    int nextMonthStart(double critical, int approx) const;
+   protected:
+    virtual HinduDate hinduSolarFromFixedWithLookup(int32_t date) const;
+    virtual HinduDate hinduSolarFromFixed(int32_t date) const;  // Hindu solar date, new-moon scheme, equivalent to fixed date.
+    virtual int64_t doHandleComputeMonthStart(int32_t extendedYear, int32_t month, UErrorCode& status) const;
+    virtual int nextMonthStart(double critical, int approx) const;
+    virtual double getDayTransition(int32_t date) const;
+    virtual int32_t zodiac(double critical) const;
+    virtual int32_t hinduCalendarYear(double critical) const;
+    virtual double solarLongitude(double critical) const;
+    virtual double siderealYear() const;
+    virtual int32_t getYearOffset() const override;
+    virtual int32_t getLookupTableBaseYear() const;
+    virtual const int32_t* getLookupTable() const;
+    virtual int32_t getLookupTableLength() const;
+    
+#ifdef __CalendarTest__
+  friend void CalendarTest::TestHinduCalendarGetMonthLength();
+  friend void CalendarTest::TestHinduCalendarComputeMonthStart();
+#endif
 };
 
 /*
@@ -432,6 +466,10 @@ public:
     
     // clone
     virtual HinduLunisolarVikramCalendar* clone() const override;
+protected:
+    virtual int64_t handleComputeMonthStart(int32_t eyear, int32_t month, UBool useMonth, UErrorCode& status) const override;
+    virtual int32_t getYearOffset() const override;
+    virtual EHinduCalendarType getHinduCalendarType() const override;
 };
 
 /*
@@ -487,6 +525,9 @@ public:
     
     // clone
     virtual HinduLunisolarGujaratiCalendar* clone() const override;
+protected:
+    virtual int32_t getYearOffset() const override;
+    virtual int32_t getMonthOffset() const override;
 };
 
 /*
@@ -542,6 +583,8 @@ public:
     
     // clone
     virtual HinduLunisolarKannadaCalendar* clone() const override;
+protected:
+    virtual int32_t getYearOffset() const override;
 };
 
 /*
@@ -597,6 +640,8 @@ public:
     
     // clone
     virtual HinduLunisolarMarathiCalendar* clone() const override;
+protected:
+    virtual int32_t getYearOffset() const override;
 };
 
 /*
@@ -652,6 +697,8 @@ public:
     
     // clone
     virtual HinduLunisolarTeluguCalendar* clone() const override;
+protected:
+    virtual int32_t getYearOffset() const override;
 };
 
 
@@ -708,6 +755,13 @@ public:
     
     // clone
     virtual HinduSolarBanglaCalendar* clone() const override;
+    
+protected:
+    virtual double getDayTransition(int32_t date) const override;
+    virtual int32_t getYearOffset() const override;
+    virtual int32_t getLookupTableBaseYear() const override;
+    virtual const int32_t* getLookupTable() const override;
+    virtual int32_t getLookupTableLength() const override;
 };
 
 /*
@@ -763,6 +817,14 @@ public:
     
     // clone
     virtual HinduSolarMalayalamCalendar* clone() const override;
+    
+protected:
+    virtual double getDayTransition(int32_t date) const override;
+    virtual int32_t getYearOffset() const override;
+    virtual int32_t getMonthOffset() const override;
+    virtual int32_t getLookupTableBaseYear() const override;
+    virtual const int32_t* getLookupTable() const override;
+    virtual int32_t getLookupTableLength() const override;
 };
 
 /*
@@ -818,6 +880,14 @@ public:
     
     // clone
     virtual HinduSolarOdiaCalendar* clone() const override;
+    
+protected:
+    virtual double getDayTransition(int32_t date) const override;
+    virtual int32_t getYearOffset() const override;
+    virtual int32_t getMonthOffset() const override;
+    virtual int32_t getLookupTableBaseYear() const override;
+    virtual const int32_t* getLookupTable() const override;
+    virtual int32_t getLookupTableLength() const override;
 };
 
 /*
@@ -873,6 +943,17 @@ public:
     
     // clone
     virtual HinduSolarTamilCalendar* clone() const override;
+    
+protected:
+    virtual int32_t getYearOffset() const override;
+    virtual double getDayTransition(int32_t date) const override;
+    virtual int32_t zodiac(double critical) const override;
+    virtual int32_t hinduCalendarYear(double critical) const override;
+    virtual double solarLongitude(double critical) const override;
+    virtual double siderealYear() const override;
+    virtual int32_t getLookupTableBaseYear() const override;
+    virtual const int32_t* getLookupTable() const override;
+    virtual int32_t getLookupTableLength() const override;
 };
 
 

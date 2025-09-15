@@ -37,6 +37,7 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
+#include "NodeInlines.h"
 #include "Page.h"
 #include "PopupMenu.h"
 #include "RenderBoxInlines.h"
@@ -210,7 +211,7 @@ void RenderSearchField::updateCancelButtonVisibility() const
 
 Visibility RenderSearchField::visibilityForCancelButton() const
 {
-    return (style().usedVisibility() == Visibility::Hidden || inputElement().value().isEmpty()) ? Visibility::Hidden : Visibility::Visible;
+    return (style().usedVisibility() == Visibility::Hidden || inputElement().value()->isEmpty()) ? Visibility::Hidden : Visibility::Visible;
 }
 
 const AtomString& RenderSearchField::autosaveName() const
@@ -283,8 +284,19 @@ PopupMenuStyle RenderSearchField::itemStyle(unsigned) const
 
 PopupMenuStyle RenderSearchField::menuStyle() const
 {
-    return PopupMenuStyle(style().visitedDependentColorWithColorFilter(CSSPropertyColor), style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor), style().fontCascade(), style().usedVisibility() == Visibility::Visible,
-        style().display() == DisplayType::None, true, style().textIndent(), writingMode().bidiDirection(), isOverride(style().unicodeBidi()), PopupMenuStyle::CustomBackgroundColor);
+    return PopupMenuStyle(
+        style().visitedDependentColorWithColorFilter(CSSPropertyColor),
+        style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor),
+        style().fontCascade(),
+        nullString(),
+        style().usedVisibility() == Visibility::Visible,
+        style().display() == DisplayType::None,
+        true,
+        Style::toPlatform(style().textIndent().length),
+        writingMode().bidiDirection(),
+        isOverride(style().unicodeBidi()),
+        PopupMenuStyle::CustomBackgroundColor
+    );
 }
 
 int RenderSearchField::clientInsetLeft() const

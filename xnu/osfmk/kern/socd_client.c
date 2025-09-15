@@ -48,6 +48,7 @@ typedef struct {
 static SECURITY_READ_ONLY_LATE(socd_client_cfg_t) socd_client_cfg = {0};
 static SECURITY_READ_ONLY_LATE(bool) socd_client_trace_available = false;
 static SECURITY_READ_WRITE(bool) socd_client_trace_has_sticky_events = false;
+static bool PERCPU_DATA(is_in_buffer_write); // = false
 
 /* Run-time state */
 static struct {
@@ -120,12 +121,22 @@ socd_client_trace(
 	vm_offset_t offset;
 	bool has_sticky;
 	uint32_t tries = 0;
+	bool *is_buf_wr;
 
 	available = os_atomic_load(&socd_client_trace_available, dependency);
 
 	if (__improbable(!available)) {
 		return;
 	}
+
+	/* is_in_buffer_write is an indicator that the code is in SOCD buffer write routine */
+	is_buf_wr = PERCPU_GET(is_in_buffer_write);
+	if (*is_buf_wr) {
+		/* If we are here this means previously code already entered SOCD buffer write routine but never exited meaning it caused a panic.
+		 * To avoid recursive panic returning here */
+		return;
+	}
+	*is_buf_wr = true;
 
 	len = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_len, available);
 	offset = os_atomic_load_with_dependency_on(&socd_client_cfg.trace_buff_offset, available);
@@ -163,6 +174,8 @@ socd_client_trace(
 
 		break;
 	}
+
+	*is_buf_wr = false;
 
 	/* Duplicate tracepoint to kdebug */
 	if (!debug_is_current_cpu_in_panic_state()) {

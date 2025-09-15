@@ -53,17 +53,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit LoadURL(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 #endif
 
@@ -79,17 +80,21 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     LoadURL(const String& url, int64_t value)
-        : m_arguments(url, value)
+        : m_url(url)
+        , m_value(value)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
+        encoder << m_value;
     }
 
 private:
-    std::tuple<const String&, int64_t> m_arguments;
+    const String& m_url;
+    int64_t m_value;
 };
 #endif
 

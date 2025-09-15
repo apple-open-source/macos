@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -76,6 +76,12 @@ static libSC_info_server_t	S_nwi_info;
  * Note: all accesses should be made while running on the _nwi_server_queue()
  */
 static _nwi_sync_handler_t	S_sync_handler	= NULL;
+
+/*
+ * S_server_connection
+ * - global variable to avoid showing up as a leak
+ */
+static xpc_connection_t	S_server_connection;
 
 
 #pragma mark -
@@ -438,7 +444,6 @@ add_state_handler(void)
 #pragma mark -
 #pragma mark Network information server SPIs
 
-
 __private_extern__
 void
 load_NetworkInformation(CFBundleRef		bundle,
@@ -503,11 +508,11 @@ load_NetworkInformation(CFBundleRef		bundle,
 
 	xpc_connection_resume(c);
 
-SC_log(LOG_DEBUG, "XPC server \"%s\" started", name);
-
+	/* avoid showing up as a leak */
+	S_server_connection = c;
+	SC_log(LOG_DEBUG, "XPC server \"%s\" started", name);
 	return;
 }
-
 
 __private_extern__
 _Bool

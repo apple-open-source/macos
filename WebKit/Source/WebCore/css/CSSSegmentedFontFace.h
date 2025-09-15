@@ -63,7 +63,7 @@ private:
     void fontLoaded(CSSFontFace&) final;
 
     // FIXME: Add support for font-feature-values in the key for this cache.
-    UncheckedKeyHashMap<std::tuple<FontDescriptionKey, FontPaletteValues>, FontRanges> m_cache;
+    HashMap<std::tuple<FontDescriptionKey, FontPaletteValues>, FontRanges> m_cache;
     Vector<Ref<CSSFontFace>, 1> m_fontFaces;
 };
 

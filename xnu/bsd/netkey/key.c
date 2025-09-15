@@ -653,13 +653,12 @@ key_init(struct protosw *pp, struct domain *dp __unused)
 
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
-	_CASSERT(PFKEY_ALIGN8(sizeof(struct sadb_msg)) <= _MHLEN);
-	_CASSERT(MAX_REPLAY_WINDOWS == MBUF_TC_MAX);
+	static_assert(PFKEY_ALIGN8(sizeof(struct sadb_msg)) <= _MHLEN);
+	static_assert(MAX_REPLAY_WINDOWS == MBUF_TC_MAX);
 
-	if (key_initialized) {
+	if (!os_atomic_cmpxchg(&key_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	key_initialized = 1;
 
 	for (i = 0; i < SPIHASHSIZE; i++) {
 		LIST_INIT(&spihash[i]);
@@ -2273,7 +2272,7 @@ key_gather_mbuf(struct mbuf *m, const struct sadb_msghdr *mhp,
 
 		if (idx == SADB_EXT_RESERVED) {
 			len = PFKEY_ALIGN8(sizeof(struct sadb_msg));
-			MGETHDR(n, M_WAITOK, MT_DATA); // sadb_msg len < MHLEN - enforced by _CASSERT
+			MGETHDR(n, M_WAITOK, MT_DATA); // sadb_msg len < MHLEN - enforced by static_assert()
 			if (!n) {
 				goto fail;
 			}

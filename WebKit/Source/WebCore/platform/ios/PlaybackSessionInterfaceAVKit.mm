@@ -255,9 +255,9 @@ void PlaybackSessionInterfaceAVKit::rateChanged(OptionSet<PlaybackSessionModel::
         [m_contentSource setRate:playbackState.contains(PlaybackSessionModel::PlaybackState::Playing) ? playbackRate : 0];
 }
 
-void PlaybackSessionInterfaceAVKit::seekableRangesChanged(const TimeRanges& timeRanges, double, double)
+void PlaybackSessionInterfaceAVKit::seekableRangesChanged(const PlatformTimeRanges& timeRanges, double, double)
 {
-    [m_contentSource setSeekableTimeRanges:makeNSArray(timeRanges.ranges()).get()];
+    [m_contentSource setSeekableTimeRanges:makeNSArray(timeRanges).get()];
 }
 
 void PlaybackSessionInterfaceAVKit::canPlayFastReverseChanged(bool canPlayFastReverse)
@@ -269,7 +269,7 @@ void PlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const Vect
 {
     RetainPtr audioOptions = adoptNS([[NSMutableArray alloc] initWithCapacity:options.size()]);
     for (auto& option : options) {
-        RetainPtr audioOption = adoptNS([[WebAVListItem alloc] initWithLocalizedTitle:option.displayName]);
+        RetainPtr audioOption = adoptNS([[WebAVListItem alloc] initWithLocalizedTitle:option.displayName.createNSString().get()]);
         [audioOptions addObject:audioOption.get()];
     }
 
@@ -281,7 +281,7 @@ void PlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Ve
 {
     RetainPtr captionOptions = adoptNS([[NSMutableArray alloc] initWithCapacity:options.size()]);
     for (auto& option : options) {
-        RetainPtr captionOption = adoptNS([[WebAVListItem alloc] initWithLocalizedTitle:option.displayName]);
+        RetainPtr captionOption = adoptNS([[WebAVListItem alloc] initWithLocalizedTitle:option.displayName.createNSString().get()]);
         [captionOptions addObject:captionOption.get()];
     }
 
@@ -327,8 +327,8 @@ void PlaybackSessionInterfaceAVKit::stopObservingNowPlayingMetadata()
 
 void PlaybackSessionInterfaceAVKit::nowPlayingMetadataChanged(const NowPlayingMetadata& metadata)
 {
-    [m_contentSource setTitle:metadata.title];
-    [m_contentSource setSubtitle:metadata.artist];
+    [m_contentSource setTitle:metadata.title.createNSString().get()];
+    [m_contentSource setSubtitle:metadata.artist.createNSString().get()];
 }
 
 #if !RELEASE_LOG_DISABLED

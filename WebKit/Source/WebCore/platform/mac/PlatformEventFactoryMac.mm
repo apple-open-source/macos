@@ -30,6 +30,7 @@
 
 #import "KeyEventCocoa.h"
 #import "Logging.h"
+#import "MouseEventTypes.h"
 #import "PlatformScreen.h"
 #import "Scrollbar.h"
 #import "WindowsKeyboardCodes.h"
@@ -45,12 +46,10 @@ namespace WebCore {
 
 NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *window)
 {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return flipScreenPoint([window convertBaseToScreen:windowPoint], screen(window));
-ALLOW_DEPRECATED_DECLARATIONS_END
+    return flipScreenPoint([window convertPointToScreen:windowPoint], screen(window));
 }
 
-static NSPoint globalPointForEvent(NSEvent *event)
+NSPoint globalPointForEvent(NSEvent *event)
 {
     switch ([event type]) {
     case NSEventTypePressure:
@@ -73,7 +72,7 @@ static NSPoint globalPointForEvent(NSEvent *event)
     }
 }
 
-static IntPoint pointForEvent(NSEvent *event, NSView *windowView)
+IntPoint pointForEvent(NSEvent *event, NSView *windowView)
 {
     switch ([event type]) {
     case NSEventTypePressure:
@@ -102,10 +101,21 @@ static IntPoint pointForEvent(NSEvent *event, NSView *windowView)
     }
 }
 
-static MouseButton mouseButtonForEvent(NSEvent *event)
+static MouseButton currentMouseButton()
+{
+    NSUInteger pressedMouseButtons = [NSEvent pressedMouseButtons];
+    if (!pressedMouseButtons)
+        return MouseButton::None;
+    if (pressedMouseButtons == 1 << 0)
+        return MouseButton::Left;
+    if (pressedMouseButtons == 1 << 1)
+        return MouseButton::Right;
+    return MouseButton::Middle;
+}
+
+MouseButton mouseButtonForEvent(NSEvent *event)
 {
     switch ([event type]) {
-    case NSEventTypePressure:
     case NSEventTypeLeftMouseDown:
     case NSEventTypeLeftMouseUp:
     case NSEventTypeLeftMouseDragged:
@@ -118,17 +128,21 @@ static MouseButton mouseButtonForEvent(NSEvent *event)
     case NSEventTypeOtherMouseUp:
     case NSEventTypeOtherMouseDragged:
         return MouseButton::Middle;
+    case NSEventTypePressure:
+    case NSEventTypeMouseEntered:
+    case NSEventTypeMouseExited:
+        return currentMouseButton();
     default:
         return MouseButton::None;
     }
 }
 
-static unsigned short currentlyPressedMouseButtons()
+unsigned short currentlyPressedMouseButtons()
 {
     return static_cast<unsigned short>([NSEvent pressedMouseButtons]);
 }
 
-static PlatformEvent::Type mouseEventTypeForEvent(NSEvent* event)
+PlatformEvent::Type mouseEventTypeForEvent(NSEvent *event)
 {
     switch ([event type]) {
     case NSEventTypeLeftMouseDragged:
@@ -151,7 +165,7 @@ static PlatformEvent::Type mouseEventTypeForEvent(NSEvent* event)
     }
 }
 
-static int clickCountForEvent(NSEvent *event)
+int clickCountForEvent(NSEvent *event)
 {
     switch ([event type]) {
     case NSEventTypeLeftMouseDown:
@@ -201,15 +215,19 @@ static PlatformWheelEventPhase phaseForEvent(NSEvent *event)
     return phaseFromNSEventPhase([event phase]);
 }
 
-static inline String textFromEvent(NSEvent* event)
+String textFromEvent(NSEvent *event, bool replacesSoftSpace)
 {
+    if (replacesSoftSpace)
+        return emptyString();
     if ([event type] == NSEventTypeFlagsChanged)
         return emptyString();
     return String([event characters]);
 }
 
-static inline String unmodifiedTextFromEvent(NSEvent* event)
+String unmodifiedTextFromEvent(NSEvent *event, bool replacesSoftSpace)
 {
+    if (replacesSoftSpace)
+        return emptyString();
     if ([event type] == NSEventTypeFlagsChanged)
         return emptyString();
     return String([event charactersIgnoringModifiers]);
@@ -252,7 +270,7 @@ String keyForKeyEvent(NSEvent *event)
     // https://developer.apple.com/reference/appkit/nsevent/1534183-characters
     if (!length)
         return "Dead"_s;
-    // High unicode codepoints are coded with a character sequence in Mac OS X.
+    // High unicode codepoints are coded with a character sequence in macOS.
     if (length > 1)
         return s;
     return keyForCharCode([s characterAtIndex:0]);
@@ -507,7 +525,7 @@ String keyIdentifierForKeyEvent(NSEvent* event)
     return keyIdentifierForCharCode([s characterAtIndex:0]);
 }
 
-static bool isKeypadEvent(NSEvent* event)
+bool isKeypadEvent(NSEvent *event)
 {
     // Check that this is the type of event that has a keyCode.
     switch ([event type]) {
@@ -612,7 +630,7 @@ WallTime eventTimeStampSince1970(NSTimeInterval timestamp)
     return WallTime::fromRawSeconds(static_cast<double>(cachedStartupTimeIntervalSince1970() + timestamp));
 }
 
-static inline bool isKeyUpEvent(NSEvent *event)
+bool isKeyUpEvent(NSEvent *event)
 {
     if ([event type] != NSEventTypeFlagsChanged)
         return [event type] == NSEventTypeKeyUp;
@@ -621,42 +639,47 @@ static inline bool isKeyUpEvent(NSEvent *event)
     switch ([event keyCode]) {
     case 54: // Right Command
     case 55: // Left Command
-        return !([event modifierFlags] & NSEventModifierFlagCommand);
+        return !(event.modifierFlags & NSEventModifierFlagCommand);
 
     case 57: // Capslock
-        return !([event modifierFlags] & NSEventModifierFlagCapsLock);
+        return !(event.modifierFlags & NSEventModifierFlagCapsLock);
 
     case 56: // Left Shift
     case 60: // Right Shift
-        return !([event modifierFlags] & NSEventModifierFlagShift);
+        return !(event.modifierFlags & NSEventModifierFlagShift);
 
     case 58: // Left Alt
     case 61: // Right Alt
-        return !([event modifierFlags] & NSEventModifierFlagOption);
+        return !(event.modifierFlags & NSEventModifierFlagOption);
 
     case 59: // Left Ctrl
     case 62: // Right Ctrl
-        return !([event modifierFlags] & NSEventModifierFlagControl);
+        return !(event.modifierFlags & NSEventModifierFlagControl);
 
     case 63: // Function
-        return !([event modifierFlags] & NSEventModifierFlagFunction);
+        return !(event.modifierFlags & NSEventModifierFlagFunction);
     }
     return false;
 }
 
 OptionSet<PlatformEvent::Modifier> modifiersForEvent(NSEvent *event)
 {
+    return modifiersForModifierFlags(event.modifierFlags);
+}
+
+OptionSet<PlatformEvent::Modifier> modifiersForModifierFlags(NSEventModifierFlags flags)
+{
     OptionSet<PlatformEvent::Modifier> modifiers;
 
-    if (event.modifierFlags & NSEventModifierFlagShift)
+    if (flags & NSEventModifierFlagShift)
         modifiers.add(PlatformEvent::Modifier::ShiftKey);
-    if (event.modifierFlags & NSEventModifierFlagControl)
+    if (flags & NSEventModifierFlagControl)
         modifiers.add(PlatformEvent::Modifier::ControlKey);
-    if (event.modifierFlags & NSEventModifierFlagOption)
+    if (flags & NSEventModifierFlagOption)
         modifiers.add(PlatformEvent::Modifier::AltKey);
-    if (event.modifierFlags & NSEventModifierFlagCommand)
+    if (flags & NSEventModifierFlagCommand)
         modifiers.add(PlatformEvent::Modifier::MetaKey);
-    if (event.modifierFlags & NSEventModifierFlagCapsLock)
+    if (flags & NSEventModifierFlagCapsLock)
         modifiers.add(PlatformEvent::Modifier::CapsLockKey);
 
     return modifiers;

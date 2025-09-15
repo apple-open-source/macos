@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,7 +88,7 @@ public:
         if (index > numberOfItems())
             index = numberOfItems();
 
-        auto item = insert(index, WTFMove(newItem));
+        auto item = insertAt(index, WTFMove(newItem));
         commitChange();
         return item;
     }
@@ -100,7 +100,7 @@ public:
             return result.releaseException();
         ASSERT(result.releaseReturnValue());
 
-        auto item = replace(index, WTFMove(newItem));
+        auto item = replaceAt(index, WTFMove(newItem));
         commitChange();
         return item;
     }
@@ -112,7 +112,7 @@ public:
             return result.releaseException();
         ASSERT(result.releaseReturnValue());
 
-        auto item = remove(index);
+        auto item = removeAt(index);
         commitChange();
         return item;
     }
@@ -194,9 +194,9 @@ protected:
 
     virtual void detachItems() { }
     virtual ItemType at(unsigned index) const = 0;
-    virtual ItemType insert(unsigned index, ItemType&&) = 0;
-    virtual ItemType replace(unsigned index, ItemType&&) = 0;
-    virtual ItemType remove(unsigned index) = 0;
+    virtual ItemType insertAt(unsigned index, ItemType&&) = 0;
+    virtual ItemType replaceAt(unsigned index, ItemType&&) = 0;
+    virtual ItemType removeAt(unsigned index) = 0;
     virtual ItemType append(ItemType&&) = 0;
 
     Vector<ItemType> m_items;

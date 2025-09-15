@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple, Inc.  All Rights Reserved.
+ * Copyright © 2017, 2024 Apple, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,7 @@ public:
 private:
     WebServiceWorkerFetchTaskClient(Ref<IPC::Connection>&&, WebCore::ServiceWorkerIdentifier, WebCore::SWServerConnectionIdentifier, WebCore::FetchIdentifier, bool needsContinueDidReceiveResponseMessage);
 
-    void didReceiveResponse(const WebCore::ResourceResponse&) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&) final;
     void didReceiveRedirection(const WebCore::ResourceResponse&) final;
     void didReceiveData(const WebCore::SharedBuffer&) final;
     void didReceiveFormDataAndFinish(Ref<WebCore::FormData>&&) final;
@@ -102,7 +102,7 @@ private:
     std::unique_ptr<BlobLoader> m_blobLoader;
     bool m_needsContinueDidReceiveResponseMessage { false };
     bool m_waitingForContinueDidReceiveResponseMessage { false };
-    std::variant<std::nullptr_t, WebCore::SharedBufferBuilder, Ref<WebCore::FormData>, UniqueRef<WebCore::ResourceError>> m_responseData;
+    Variant<std::nullptr_t, WebCore::SharedBufferBuilder, Ref<WebCore::FormData>, UniqueRef<WebCore::ResourceError>> m_responseData;
     WebCore::NetworkLoadMetrics m_networkLoadMetrics;
     bool m_didFinish { false };
     bool m_isDownload { false };

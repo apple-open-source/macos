@@ -195,19 +195,19 @@ kasan_arm64_align_to_page(vm_offset_t *addrp, vm_offset_t *sizep)
 static uint64_t *
 kasan_arm64_lookup_l1(uint64_t *base, vm_offset_t address)
 {
-	return base + ((address & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	return base + L1_TABLE_T1_INDEX(address, TCR_EL1_BOOT);
 }
 
 static uint64_t *
 kasan_arm64_lookup_l2(uint64_t *base, vm_offset_t address)
 {
-	return base + ((address & ARM_TT_L2_INDEX_MASK) >> ARM_TT_L2_SHIFT);
+	return base + L2_TABLE_INDEX(address);
 }
 
 static uint64_t *
 kasan_arm64_lookup_l3(uint64_t *base, vm_offset_t address)
 {
-	return base + ((address & ARM_TT_L3_INDEX_MASK) >> ARM_TT_L3_SHIFT);
+	return base + L3_TABLE_INDEX(address);
 }
 
 /*
@@ -384,7 +384,7 @@ kasan_arch_init(void)
 	/* Map the physical aperture */
 	kasan_map_shadow(physmap_vbase, physmap_vtop - physmap_vbase, true);
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* Pre-allocate all the L3 page table pages to avoid triggering KTRR */
 	kasan_map_shadow_internal(VM_MIN_KERNEL_ADDRESS,
 	    VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS + 1, KASAN_ARM64_PREALLOCATE_TRANSLATION);

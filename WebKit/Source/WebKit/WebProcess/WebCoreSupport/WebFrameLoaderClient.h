@@ -70,7 +70,7 @@ protected:
     void updateSandboxFlags(WebCore::SandboxFlags);
     void updateOpener(const WebCore::Frame&);
 
-    Ref<WebFrame> m_frame;
+    const Ref<WebFrame> m_frame;
     ScopeExit<Function<void()>> m_frameInvalidator;
 };
 

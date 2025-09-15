@@ -45,6 +45,8 @@
 #include "SecKeyCurve25519Priv.h"
 #include "SecKeyCurve448Priv.h"
 #include "SecKyberKey.h"
+#include "SecMLKEMKey.h"
+#include "SecMLDSAKey.h"
 #include "SecCTKKeyPriv.h"
 #include <Security/SecBasePriv.h>
 
@@ -1197,8 +1199,13 @@ SecKeyRef SecKeyCreateFromPublicBytes(CFAllocatorRef allocator, CFIndex algorith
                                            keyData, keyDataLength,
                                            kSecKeyEncodingBytes);
         case kSecKyberAlgorithmID:
-            return SecKeyCreateKyberPublicKey(allocator, keyData, keyDataLength);
-
+            return SecKeyCreateKyberPublicKey(allocator,
+                                              keyData, keyDataLength);
+        case kSecMLKEMAlgorithmID:
+            return SecKeyCreateMLKEMPublicKey(allocator,
+                                              keyData, keyDataLength);                                              
+        case kSecMLDSAAlgorithmID:
+            return SecKeyCreateMLDSAPublicKey(allocator, keyData, keyDataLength);
         default:
             return NULL;
     }
@@ -1456,6 +1463,19 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
                             SecError(errSecParam, error, CFSTR("Kyber public key creation from data failed"));
                         }
                         break;
+                    case 110: // kSecAttrKeyTypeMLKEM
+                        key = SecKeyCreateMLKEMPublicKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("ML-KEM public key creation from data failed"));
+                        }
+                        break;
+                    case 111: // kSecAttrKeyTypeMLDSA
+                        key = SecKeyCreateMLDSAPublicKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("ML-DSA public key creation from data failed"));
+                        }
+                        break;                        
+
                     default:
                         SecError(errSecParam, error, CFSTR("Unsupported public key type: %@ (algorithm: %@)"), ktype, @(algorithm));
                         break;
@@ -1515,9 +1535,22 @@ SecKeyRef SecKeyCreateWithData(CFDataRef keyData, CFDictionaryRef parameters, CF
                     case 109: // kSecAttrKeyTypeKyber
                         key = SecKeyCreateKyberPrivateKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
                         if (key == NULL) {
-                            SecError(errSecParam, error, CFSTR("Kyber public key creation from data failed"));
+                            SecError(errSecParam, error, CFSTR("Kyber private key creation from data failed"));
                         }
                         break;
+                    case 110: // kSecAttrKeyTypeMLKEM
+                        key = SecKeyCreateMLKEMPrivateKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("ML-KEM private key creation from data failed"));
+                        }
+                        break;
+                    case 111: // kSecAttrKeyTypeMLDSA
+                        key = SecKeyCreateMLDSAPrivateKey(allocator, CFDataGetBytePtr(keyData), CFDataGetLength(keyData));
+                        if (key == NULL) {
+                            SecError(errSecParam, error, CFSTR("ML-DSA private key creation from data failed"));
+                        }
+                        break;                        
+
                     default:
                         SecError(errSecParam, error, CFSTR("Unsupported private key type: %@"), ktype);
                         break;
@@ -1613,6 +1646,15 @@ CFDictionaryRef SecKeyCopyAttributes(SecKeyRef key) {
                 case kSecX448AlgorithmID:
                     CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeX448);
                     break;
+                case kSecKyberAlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeKyber);
+                    break;
+                case kSecMLKEMAlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeMLKEM);
+                    break;
+                case kSecMLDSAAlgorithmID:
+                    CFDictionarySetValue(dict, kSecAttrKeyType, kSecAttrKeyTypeMLDSA);
+                    break;
             }
 
             if (key->key_class->rawSign != NULL || key->key_class->decrypt != NULL) {
@@ -1684,6 +1726,10 @@ SecKeyRef SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
                 status = SecX448KeyGeneratePair(parameters, &pubKey, &privKey);
             } else if (CFEqualSafe(ktype, kSecAttrKeyTypeKyber)) {
                 status = SecKyberKeyGeneratePair(parameters, &pubKey, &privKey);
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeMLKEM)) {
+                status = SecMLKEMKeyGeneratePair(parameters, &pubKey, &privKey);                
+            } else if (CFEqualSafe(ktype, kSecAttrKeyTypeMLDSA)) {
+                status = SecMLDSAKeyGeneratePair(parameters, &pubKey, &privKey);
             } else {
                 SecError(errSecParam, error, CFSTR("incorrect or missing kSecAttrKeyType in key generation request"));
             }
@@ -1905,6 +1951,10 @@ static CFMutableArrayRef SecKeyCreateAlgorithmArray(SecKeyAlgorithm algorithm) {
     return result;
 }
 
+/// Used by CryptoKit to pass the `context` parameter into CryptoTokenKit
+/// SecKey so far doesn't support passing of `context` to ML-DSA signing
+const CFStringRef kSecKeySignatureParameterContext = CFSTR("signatureContext");
+
 CFDataRef SecKeyCreateSignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFErrorRef *error) {
     @autoreleasepool {
         os_activity_t activity = os_activity_create("SecKeyCreateSignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
@@ -2016,14 +2066,14 @@ CFDataRef SecKeyCopyKeyExchangeResult(SecKeyRef key, SecKeyAlgorithm algorithm, 
     }
 }
 
-CFDataRef SecKeyCreateEncapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef *encapsulatedKey, CFErrorRef *error) {
+CFDataRef SecKeyCreateEncapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef *sharedKey, CFErrorRef *error) {
     @autoreleasepool {
         os_activity_t activity = os_activity_create("SecKeyCreateEncapsulatedKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
         os_activity_scope(activity);
         SecKeyCheck(key);
 
-        if (encapsulatedKey == NULL) {
-            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateEncapsulatedKey() requires encapsulatedKey output parameter"];
+        if (sharedKey == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateEncapsulatedKey() requires sharedKey output parameter"];
         }
         CFErrorRef localError = NULL;
         SecKeyOperationContext context = { key, kSecKeyOperationTypeEncapsulate, SecKeyCreateAlgorithmArray(algorithm) };
@@ -2033,8 +2083,12 @@ CFDataRef SecKeyCreateEncapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, 
         if (result == nil) {
             return NULL;
         }
-        *encapsulatedKey = CFBridgingRetain(result[0]);
-        return CFBridgingRetain(result[1]);
+
+        /// result = SecKyberPublicKeyCopyOperationResult:156 - return CFBridgingRetain(@[ek, sk]);
+        /// result[0] = The output encapsulated key
+        /// result[1] = The output shared key
+        *sharedKey = CFBridgingRetain(result[1]);
+        return CFBridgingRetain(result[0]);
     }
 }
 
@@ -2069,6 +2123,31 @@ Boolean SecKeyIsAlgorithmSupported(SecKeyRef key, SecKeyOperationType operation,
         CFReleaseSafe(res);
         CFReleaseSafe(error);
         SecKeyOperationContextDestroy(&context);
+        return result;
+    }
+}
+
+/// This is mainly used to support ML-DSA with context provided in the `parameters`
+/// Generally `SecKeyCreateSignature` is preferred for non-context ML-DSA.
+CFDataRef SecKeyCreateMLDSASignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFDictionaryRef parameters, CFErrorRef *error) {
+    @autoreleasepool {
+        os_activity_t activity = os_activity_create("SecKeyCreateMLDSASignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+        os_activity_scope(activity);
+        SecKeyCheck(key);
+
+        if (dataToSign == NULL) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateMLDSASignature() called with NULL dataToSign"];
+        }
+
+        if (SecKeyGetAlgorithmId(key) != kSecMLDSAAlgorithmID) {
+            [NSException raise:NSInvalidArgumentException format:@"SecKeyCreateMLDSASignature() requires an ML-DSA key"];
+        }
+
+        CFErrorRef localError = NULL;
+        SecKeyOperationContext context = { key, kSecKeyOperationTypeSign, SecKeyCreateAlgorithmArray(algorithm) };
+        CFDataRef result = SecKeyRunAlgorithmAndCopyResult(&context, dataToSign, parameters, &localError);
+        SecKeyOperationContextDestroy(&context);
+        SecKeyErrorPropagate(result != NULL, localError, error);
         return result;
     }
 }

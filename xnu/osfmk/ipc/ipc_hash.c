@@ -70,7 +70,6 @@
 #include <ipc/ipc_object.h>
 #include <ipc/ipc_entry.h>
 #include <ipc/ipc_hash.h>
-#include <ipc/ipc_init.h>
 #include <os/hash.h>
 
 #include <mach/kern_return.h>

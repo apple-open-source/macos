@@ -36,6 +36,7 @@
 #include <mach/vm32_map_server.h>
 #include <mach/mach_host.h>
 #include <mach/host_priv.h>
+#include <mach/upl.h>
 
 #include <kern/ledger.h>
 #include <kern/host.h>
@@ -46,7 +47,7 @@
 #include <vm/vm_fault_internal.h>
 #include <vm/vm_map_internal.h>
 #include <vm/vm_object_internal.h>
-#include <vm/vm_pageout_xnu.h>
+#include <vm/vm_pageout_internal.h>
 #include <vm/vm_protos.h>
 #include <vm/vm_memtag.h>
 #include <vm/vm_memory_entry_xnu.h>
@@ -55,10 +56,12 @@
 #include <vm/vm_page_internal.h>
 #include <vm/vm_shared_region_xnu.h>
 #include <vm/vm_far.h>
+#include <vm/vm_upl.h>
 
 #include <kern/zalloc.h>
 #include <kern/zalloc_internal.h>
 
+#include <sys/code_signing.h>
 #include <sys/errno.h> /* for the sysctl tests */
 
 #include <tests/xnupost.h> /* for testing-related functions and macros */
@@ -109,7 +112,7 @@ vm_test_collapse_compressor(void)
 	/* map backing object */
 	backing_offset = 0;
 	kr = vm_map_enter(kernel_map, &backing_offset, backing_size, 0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(),
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(),
 	    backing_object, 0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -159,7 +162,7 @@ vm_test_collapse_compressor(void)
 	/* map top object */
 	top_offset = 0;
 	kr = vm_map_enter(kernel_map, &top_offset, top_size, 0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(),
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(),
 	    top_object, 0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -452,7 +455,7 @@ vm_test_device_pager_transpose(void)
 	    vm_sanitize_wrap_addr_ref(&device_mapping),
 	    size,
 	    0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(),
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(),
 	    (void *)device_pager,
 	    0,
 	    FALSE,
@@ -885,7 +888,7 @@ vm_test_map_copy_adjust_to_target(void)
 	addr4k = 0x1000;
 	size4k = 0x3000;
 	kr = vm_map_enter(map4k, &addr4k, size4k, 0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(), obj1, 0,
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(), obj1, 0,
 	    FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
 	    VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -896,7 +899,7 @@ vm_test_map_copy_adjust_to_target(void)
 	addr16k = 0x4000;
 	size16k = 0x8000;
 	kr = vm_map_enter(map16k, &addr16k, size16k, 0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(), obj1, 0,
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(), obj1, 0,
 	    FALSE, VM_PROT_DEFAULT, VM_PROT_DEFAULT,
 	    VM_INHERIT_DEFAULT);
 	assert(kr == KERN_SUCCESS);
@@ -1094,7 +1097,7 @@ vm_test_per_mapping_internal_accounting(void)
 	    &device_addr,
 	    PAGE_SIZE,
 	    0,
-	    VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(),
+	    VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(),
 	    device_object,
 	    0,
 	    FALSE,               /* copy */
@@ -1391,51 +1394,6 @@ vm_tests(void)
 
 	return kr;
 }
-
-/*
- * Checks that vm_map_delete() can deal with map unaligned entries.
- * rdar://88969652
- */
-static int
-vm_map_non_aligned_test(__unused int64_t in, int64_t *out)
-{
-	vm_map_t map = current_map();
-	mach_vm_size_t size = 2 * VM_MAP_PAGE_SIZE(map);
-	mach_vm_address_t addr;
-	vm_map_entry_t entry;
-	kern_return_t kr;
-
-	if (VM_MAP_PAGE_SHIFT(map) > PAGE_SHIFT) {
-		kr = mach_vm_allocate(map, &addr, size, VM_FLAGS_ANYWHERE);
-		if (kr != KERN_SUCCESS) {
-			return ENOMEM;
-		}
-
-		vm_map_lock(map);
-		if (!vm_map_lookup_entry(map, addr, &entry)) {
-			panic("couldn't find the entry we just made: "
-			    "map:%p addr:0x%0llx", map, addr);
-		}
-
-		/*
-		 * Now break the entry into:
-		 *  2 * 4k
-		 *  2 * 4k
-		 *  1 * 16k
-		 */
-		vm_map_clip_end(map, entry, addr + VM_MAP_PAGE_SIZE(map));
-		entry->map_aligned = FALSE;
-		vm_map_clip_end(map, entry, addr + PAGE_SIZE * 2);
-		vm_map_unlock(map);
-
-		kr = mach_vm_deallocate(map, addr, size);
-		assert(kr == KERN_SUCCESS);
-	}
-
-	*out = 1;
-	return 0;
-}
-SYSCTL_TEST_REGISTER(vm_map_non_aligned, vm_map_non_aligned_test);
 
 static inline vm_map_t
 create_map(mach_vm_address_t map_start, mach_vm_address_t map_end)
@@ -1837,60 +1795,6 @@ vm_map_null_tests(__unused int64_t in, int64_t *out)
 }
 SYSCTL_TEST_REGISTER(vm_map_null, vm_map_null_tests);
 
-#if CONFIG_PROB_GZALLOC
-extern vm_offset_t pgz_protect_for_testing_only(zone_t zone, vm_offset_t addr, void *fp);
-
-static int
-vm_memory_entry_pgz_test(__unused int64_t in, int64_t *out)
-{
-	kern_return_t kr;
-	ipc_port_t mem_entry_ptr;
-	mach_vm_address_t allocation_addr = 0;
-	vm_size_t size = PAGE_SIZE;
-
-	allocation_addr = (mach_vm_address_t) kalloc_data(size, Z_WAITOK);
-	if (!allocation_addr) {
-		*out = -1;
-		return 0;
-	}
-
-	/*
-	 * Make sure we get a pgz protected address
-	 * If we aren't already protected, try to protect it
-	 */
-	if (!pgz_owned(allocation_addr)) {
-		zone_id_t zid = zone_id_for_element((void *) allocation_addr, size);
-		zone_t zone = &zone_array[zid];
-		allocation_addr = pgz_protect_for_testing_only(zone, allocation_addr, __builtin_frame_address(0));
-	}
-	/*
-	 * If we still aren't protected, tell userspace to skip the test
-	 */
-	if (!pgz_owned(allocation_addr)) {
-		*out = 2;
-		return 0;
-	}
-
-	kr = mach_make_memory_entry(kernel_map, &size, (mach_vm_offset_t) allocation_addr, VM_PROT_READ | VM_PROT_WRITE | MAP_MEM_VM_COPY, &mem_entry_ptr, IPC_PORT_NULL);
-	assert(kr == KERN_SUCCESS);
-
-	ipc_port_release(mem_entry_ptr);
-	kfree_data(allocation_addr, size);
-
-	*out = 1;
-	return 0;
-}
-#else /* CONFIG_PROB_GZALLOC */
-static int
-vm_memory_entry_pgz_test(__unused int64_t in, int64_t *out)
-{
-	*out = 1;
-	return 0;
-}
-#endif /* CONFIG_PROB_GZALLOC */
-
-SYSCTL_TEST_REGISTER(vm_memory_entry_pgz, vm_memory_entry_pgz_test);
-
 
 static int
 vm_map_copyio_test(__unused int64_t in, int64_t *out)
@@ -2258,11 +2162,801 @@ vm_get_wimg_mode(int64_t in, int64_t *out)
 		return ENOTSUP;
 	}
 
+	*out = 0;
 	vm_object_t obj = VME_OBJECT(entry);
-	*out = obj->wimg_bits;
+	if (obj != VM_OBJECT_NULL) {
+		*out = obj->wimg_bits;
+	}
 
 	vm_map_unlock_read(map);
 	return 0;
 }
 SYSCTL_TEST_REGISTER(vm_get_wimg_mode, vm_get_wimg_mode);
 
+/*
+ * Make sure copies from 4k->16k maps doesn't lead to address space holes
+ */
+static int
+vm_map_4k_16k_test(int64_t in, int64_t *out)
+{
+#if PMAP_CREATE_FORCE_4K_PAGES
+	const mach_vm_size_t alloc_size = (36 * 1024);
+	assert((alloc_size % FOURK_PAGE_SHIFT) == 0);
+	assert((alloc_size % SIXTEENK_PAGE_SHIFT) != 0);
+	assert(alloc_size > msg_ool_size_small); // avoid kernel buffer copy optimization
+
+	/* initialize maps */
+	pmap_t pmap_4k, pmap_16k;
+	vm_map_t map_4k, map_16k;
+	pmap_4k = pmap_create_options(NULL, 0, PMAP_CREATE_64BIT | PMAP_CREATE_FORCE_4K_PAGES);
+	assert(pmap_4k);
+	map_4k = vm_map_create_options(pmap_4k, MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS, VM_MAP_CREATE_PAGEABLE);
+	assert(map_4k != VM_MAP_NULL);
+	vm_map_set_page_shift(map_4k, FOURK_PAGE_SHIFT);
+
+	pmap_16k = pmap_create_options(NULL, 0, PMAP_CREATE_64BIT);
+	assert(pmap_16k);
+	map_16k = vm_map_create_options(pmap_16k, MACH_VM_MIN_ADDRESS, MACH_VM_MAX_ADDRESS, VM_MAP_CREATE_PAGEABLE);
+	assert(map_16k != VM_MAP_NULL);
+	assert(VM_MAP_PAGE_SHIFT(map_16k) == SIXTEENK_PAGE_SHIFT);
+
+	/* create mappings in 4k map */
+	/* allocate space */
+	vm_address_t address_4k;
+	kern_return_t kr = vm_allocate_external(map_4k, &address_4k, alloc_size, VM_FLAGS_ANYWHERE);
+	assert3u(kr, ==, KERN_SUCCESS); /* reserve space for 4k entries in 4k map */
+
+	/* overwrite with a bunch of 4k entries */
+	for (mach_vm_address_t addr = address_4k; addr < (address_4k + alloc_size); addr += FOURK_PAGE_SIZE) {
+		/* allocate 128MB objects, so that they don't get coalesced, preventing entry simplification */
+		vm_object_t object = vm_object_allocate(ANON_CHUNK_SIZE, map_4k->serial_id);
+		kr = vm_map_enter(map_4k, &addr, FOURK_PAGE_SIZE, /* mask */ 0,
+		    VM_MAP_KERNEL_FLAGS_FIXED(.vmf_overwrite = TRUE), object, /* offset */ 0,
+		    /* copy */ false, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
+		assert3u(kr, ==, KERN_SUCCESS); /* overwrite the 4k chunk at addr with its own entry */
+	}
+
+	/* set up vm_map_copy_t */
+	vm_map_copy_t copy;
+	kr = vm_map_copyin(map_4k, address_4k, alloc_size, true, &copy);
+	assert3u(kr, ==, KERN_SUCCESS); /* copyin from 4k map succeeds */
+
+	/* write out the vm_map_copy_t to the 16k map */
+	vm_address_t address_16k;
+	if (in == 0) {
+		/* vm_map_copyout */
+		vm_map_address_t tmp_address;
+		kr = vm_map_copyout(map_16k, &tmp_address, copy);
+		assert3u(kr, ==, KERN_SUCCESS); /* copyout into 16k map suceeds */
+		address_16k = (vm_address_t)tmp_address;
+	} else if (in == 1) {
+		/* vm_map_copy_overwrite */
+		/* reserve space */
+		kr = vm_allocate_external(map_16k, &address_16k, alloc_size, VM_FLAGS_ANYWHERE);
+		assert3u(kr, ==, KERN_SUCCESS); /* reserve space in 16k map succeeds */
+
+		/* do the overwrite */
+		kr = vm_map_copy_overwrite(map_16k, address_16k, copy, alloc_size,
+		    true);
+		assert3u(kr, ==, KERN_SUCCESS); /* copy_overwrite into 16k map succeds */
+	} else {
+		panic("invalid vm_map_4k_16k_test variant: %lld", in);
+	}
+
+	/* validate that everything is combined into one large 16k-aligned entry */
+	mach_vm_size_t expected_size = VM_MAP_ROUND_PAGE(alloc_size, SIXTEENK_PAGE_MASK);
+	vm_map_lock_read(map_16k);
+	vm_map_entry_t entry;
+	bool address_in_map = vm_map_lookup_entry(map_16k, address_16k, &entry);
+	assert(address_in_map); /* address_16k found in map_16k */
+	assert3u((entry->vme_end - entry->vme_start), ==, expected_size); /* 4k entries combined into a single 16k entry */
+	vm_map_unlock_read(map_16k);
+#else /* !PMAP_CREATE_FORCE_4K_PAGES */
+	(void)in;
+#endif /* !PMAP_CREATE_FORCE_4K_PAGES */
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_4k_16k, vm_map_4k_16k_test);
+
+static int
+vm_vector_upl_test(int64_t in, int64_t *out)
+{
+	extern upl_t vector_upl_create(vm_offset_t, uint32_t);
+	extern boolean_t vector_upl_set_subupl(upl_t, upl_t, uint32_t);
+
+	upl_t vector_upl = NULL;
+	vm_address_t kva = 0;
+
+	*out = 0;
+
+	struct {
+		uint64_t iov;
+		uint16_t iovcnt;
+	} args;
+
+	struct {
+		uint64_t base;
+		uint32_t len;
+	} *iov;
+
+	size_t iovsize = 0;
+	iov = NULL;
+
+	int error = copyin((user_addr_t)in, &args, sizeof(args));
+	if ((error != 0) || (args.iovcnt == 0)) {
+		goto vector_upl_test_done;
+	}
+
+	iovsize = sizeof(*iov) * args.iovcnt;
+
+	iov = kalloc_data(iovsize, Z_WAITOK_ZERO);
+	if (iov == NULL) {
+		error = ENOMEM;
+		goto vector_upl_test_done;
+	}
+
+	error = copyin((user_addr_t)args.iov, iov, iovsize);
+	if (error != 0) {
+		goto vector_upl_test_done;
+	}
+
+	vector_upl = vector_upl_create(iov->base & PAGE_MASK, args.iovcnt);
+	upl_size_t vector_upl_size = 0;
+
+	/* Create each sub-UPL and append it to the top-level vector UPL. */
+	for (uint16_t i = 0; i < args.iovcnt; i++) {
+		upl_t subupl;
+		upl_size_t upl_size = iov[i].len;
+		unsigned int upl_count = 0;
+		upl_control_flags_t upl_flags = UPL_SET_IO_WIRE | UPL_SET_LITE | UPL_WILL_MODIFY | UPL_SET_INTERNAL;
+		kern_return_t kr = vm_map_create_upl(current_map(),
+		    (vm_map_offset_t)iov[i].base,
+		    &upl_size,
+		    &subupl,
+		    NULL,
+		    &upl_count,
+		    &upl_flags,
+		    VM_KERN_MEMORY_DIAG);
+		if (kr != KERN_SUCCESS) {
+			printf("vm_map_create_upl[%d](%p, 0x%lx) returned 0x%x\n",
+			    (int)i, (void*)iov[i].base, (unsigned long)iov[i].len, kr);
+			error = EIO;
+			goto vector_upl_test_done;
+		}
+		/* This effectively transfers our reference to subupl over to vector_upl. */
+		vector_upl_set_subupl(vector_upl, subupl, upl_size);
+		vector_upl_set_iostate(vector_upl, subupl, vector_upl_size, upl_size);
+		vector_upl_size += upl_size;
+	}
+
+	/* Map the vector UPL as a single KVA region and modify the page contents by adding 1 to each char. */
+	kern_return_t kr = vm_upl_map(kernel_map, vector_upl, &kva);
+	if (kr != KERN_SUCCESS) {
+		error = ENOMEM;
+		goto vector_upl_test_done;
+	}
+
+	char *buf = (char*)kva;
+	for (upl_size_t i = 0; i < vector_upl_size; i++) {
+		buf[i] = buf[i] + 1;
+	}
+	*out = (int64_t)vector_upl_size;
+
+vector_upl_test_done:
+
+	if (kva != 0) {
+		vm_upl_unmap(kernel_map, vector_upl);
+	}
+
+	if (vector_upl != NULL) {
+		/* Committing the vector UPL will release and deallocate each of its sub-UPLs. */
+		upl_commit(vector_upl, NULL, 0);
+		upl_deallocate(vector_upl);
+	}
+
+	if (iov != NULL) {
+		kfree_data(iov, iovsize);
+	}
+
+	return error;
+}
+SYSCTL_TEST_REGISTER(vm_vector_upl, vm_vector_upl_test);
+
+/*
+ * Test that wiring copy delay memory pushes pages to its copy object
+ */
+static int
+vm_map_wire_copy_delay_memory_test(__unused int64_t in, int64_t *out)
+{
+	kern_return_t kr;
+	vm_map_t map;
+	mach_vm_address_t address_a, address_b, address_c;
+	vm_prot_t cur_prot, max_prot;
+	vm_map_entry_t entry;
+	vm_object_t object;
+	vm_page_t m;
+	bool result;
+
+	T_BEGIN("vm_map_wire_copy_delay_memory_test");
+	map = create_map(0x100000000ULL, 0x200000000ULL);
+
+	address_a = 0;
+	kr = mach_vm_allocate(
+		map,
+		&address_a,
+		/* size */ PAGE_SIZE,
+		VM_FLAGS_ANYWHERE);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_allocate A");
+
+	address_b = 0;
+	kr = mach_vm_remap(
+		map,
+		&address_b,
+		/* size */ PAGE_SIZE,
+		/* mask */ 0,
+		VM_FLAGS_ANYWHERE,
+		map,
+		address_a,
+		/* copy */ FALSE,
+		&cur_prot,
+		&max_prot,
+		VM_INHERIT_NONE);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_remap A->B");
+
+	address_c = 0;
+	kr = mach_vm_remap(
+		map,
+		&address_c,
+		/* size */ PAGE_SIZE,
+		/* mask */ 0,
+		VM_FLAGS_ANYWHERE,
+		map,
+		address_b,
+		/* copy */ TRUE,
+		&cur_prot,
+		&max_prot,
+		VM_INHERIT_NONE);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_remap B->C");
+
+	kr = mach_vm_protect(
+		map,
+		address_c,
+		/* size */ PAGE_SIZE,
+		/* set_max */ FALSE,
+		VM_PROT_READ);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "mach_vm_protect C");
+
+	kr = vm_map_wire_kernel(
+		map,
+		/* begin */ address_b,
+		/* end */ address_b + PAGE_SIZE,
+		VM_PROT_NONE,
+		VM_KERN_MEMORY_OSFMK,
+		false);
+	T_ASSERT_EQ_INT(kr, KERN_SUCCESS, "vm_map_wire_kernel B");
+
+	vm_map_lock(map);
+	result = vm_map_lookup_entry(map, address_c, &entry);
+	T_ASSERT_EQ_INT(result, true, "vm_map_lookup_entry");
+
+	object = VME_OBJECT(entry);
+	T_ASSERT_NOTNULL(object, "C's object should not be null");
+	vm_object_lock(object);
+
+	m = vm_page_lookup(object, /* offset */ 0);
+	T_ASSERT_NOTNULL(m, "C should have a page pushed to it");
+
+	/* cleanup */
+	vm_object_unlock(object);
+	vm_map_unlock(map);
+	cleanup_map(&map);
+
+	T_END;
+	*out = 1;
+	return 0;
+}
+SYSCTL_TEST_REGISTER(vm_map_wire_copy_delay_memory, vm_map_wire_copy_delay_memory_test);
+
+
+/*
+ * Compare the contents of an original userspace buffer with that kernel mapping of a UPL created
+ * against that userspace buffer.  Also validate that the physical pages in the UPL's page list
+ * match the physical pages backing the kernel mapping at the pmap layer.  Furthermore, if UPL creation
+ * was expected to copy the original buffer, validate that the backing pages for the userspace buffer
+ * don't match the kernel/UPL pages, otherwise validate that they do match.
+ */
+static int
+upl_buf_compare(user_addr_t src, upl_t upl, const void *upl_buf, upl_size_t size, bool copy_expected)
+{
+	int error = 0;
+	void *temp = kalloc_data(PAGE_SIZE, Z_WAITOK);
+
+	upl_size_t i = 0;
+	while (i < size) {
+		size_t bytes = MIN(size - i, PAGE_SIZE);
+		error = copyin(src + i, temp, bytes);
+		if (!error && (memcmp(temp, (const void*)((uintptr_t)upl_buf + i), bytes) != 0)) {
+			printf("%s: memcmp(%p, %p, %zu) failed, src[0] = 0x%llx, buf[0] = 0x%llx\n",
+			    __func__, (void*)(src + i), (const void*)((uintptr_t)upl_buf + i), bytes, *((unsigned long long*)temp), *((unsigned long long*)((uintptr_t)upl_buf + i)));
+			error = EINVAL;
+		}
+		if (!error) {
+			ppnum_t user_pa = pmap_find_phys(current_map()->pmap, (addr64_t)src + i);
+			ppnum_t upl_pa = pmap_find_phys(kernel_pmap, (addr64_t)upl_buf + i);
+			if ((upl_pa == 0) || /* UPL is wired, PA should always be valid */
+			    (!copy_expected && (upl_pa != user_pa)) ||
+			    (copy_expected && (upl_pa == user_pa)) ||
+			    (upl_pa != (upl->page_list[i >> PAGE_SHIFT].phys_addr))) {
+				printf("%s: PA verification[%u] failed: copy=%u, upl_pa = 0x%lx, user_pa = 0x%lx, page list PA = 0x%lx\n",
+				    __func__, (unsigned)i, (unsigned)copy_expected, (unsigned long)upl_pa, (unsigned long)user_pa,
+				    (unsigned long)upl->page_list[i].phys_addr);
+				error = EFAULT;
+			}
+		}
+		if (error) {
+			break;
+		}
+		i += bytes;
+	}
+
+	kfree_data(temp, PAGE_SIZE);
+
+	return error;
+}
+
+static int
+vm_upl_test(int64_t in, int64_t *out __unused)
+{
+	upl_t upl = NULL;
+	vm_address_t kva = 0;
+
+	struct {
+		uint64_t ptr; /* Base address of buffer in userspace */
+		uint32_t size; /* Size of userspace buffer (in bytes) */
+		char test_pattern; /* Starting char of test pattern we should write (if applicable) */
+		bool copy_expected; /* Is UPL creation expected to create a copy of the original buffer? */
+		bool should_fail; /* Is UPL creation expected to fail due to permissions checking? */
+		bool upl_rw; /* Should the UPL be created RW (!UPL_COPYOUT_FROM) instead of RO? */
+	} args;
+	int error = copyin((user_addr_t)in, &args, sizeof(args));
+	if ((error != 0) || (args.size == 0)) {
+		goto upl_test_done;
+	}
+
+	upl_size_t upl_size = args.size;
+	unsigned int upl_count = 0;
+	upl_control_flags_t upl_flags = UPL_SET_IO_WIRE | UPL_SET_LITE | UPL_SET_INTERNAL;
+	if (!args.upl_rw) {
+		upl_flags |= UPL_COPYOUT_FROM;
+	} else {
+		upl_flags |= UPL_WILL_MODIFY;
+	}
+	kern_return_t kr = vm_map_create_upl(current_map(),
+	    (vm_map_offset_t)args.ptr,
+	    &upl_size,
+	    &upl,
+	    NULL,
+	    &upl_count,
+	    &upl_flags,
+	    VM_KERN_MEMORY_DIAG);
+	if (args.should_fail && (kr == KERN_PROTECTION_FAILURE)) {
+		goto upl_test_done;
+	} else if (args.should_fail && (kr == KERN_SUCCESS)) {
+		printf("%s: vm_map_create_upl(%p, 0x%lx) did not fail as expected\n",
+		    __func__, (void*)args.ptr, (unsigned long)args.size);
+		error = EIO;
+		goto upl_test_done;
+	} else if (kr != KERN_SUCCESS) {
+		printf("%s: vm_map_create_upl(%p, 0x%lx) returned 0x%x\n",
+		    __func__, (void*)args.ptr, (unsigned long)args.size, kr);
+		error = kr;
+		goto upl_test_done;
+	}
+
+	kr = vm_upl_map(kernel_map, upl, &kva);
+	if (kr != KERN_SUCCESS) {
+		error = kr;
+		printf("%s: vm_upl_map() returned 0x%x\n", __func__, kr);
+		goto upl_test_done;
+	}
+
+	/* Ensure the mapped UPL contents match the original user buffer contents */
+	error = upl_buf_compare((user_addr_t)args.ptr, upl, (void*)kva, upl_size, args.copy_expected);
+
+	if (error) {
+		printf("%s: upl_buf_compare(%p, %p, %zu) failed\n",
+		    __func__, (void*)args.ptr, (void*)kva, (size_t)upl_size);
+	}
+
+	if (!error && args.upl_rw) {
+		/*
+		 * If the UPL is writable, update the contents so that userspace can
+		 * validate that it sees the updates.
+		 */
+		for (unsigned int i = 0; i < (upl_size / sizeof(unsigned int)); i++) {
+			((unsigned int*)kva)[i] = (unsigned int)args.test_pattern + i;
+		}
+	}
+
+upl_test_done:
+
+	if (kva != 0) {
+		vm_upl_unmap(kernel_map, upl);
+	}
+
+	if (upl != NULL) {
+		upl_commit(upl, NULL, 0);
+		upl_deallocate(upl);
+	}
+
+	return error;
+}
+SYSCTL_TEST_REGISTER(vm_upl, vm_upl_test);
+
+static int
+vm_upl_submap_test(int64_t in, int64_t *out __unused)
+{
+	vm_map_address_t start = 0x180000000ULL;
+	vm_map_address_t end = start + 0x180000000ULL;
+
+	upl_t upl = NULL;
+	vm_address_t kva = 0;
+	int error = 0;
+
+	/*
+	 * Create temporary pmap and VM map for nesting our submap.
+	 * We can't directly nest our submap into the current user map, because it will
+	 * have already nested the shared region, and our security model doesn't allow
+	 * multiple nested pmaps.
+	 */
+	pmap_t temp_pmap = pmap_create_options(NULL, 0, PMAP_CREATE_64BIT);
+
+	vm_map_t temp_map = VM_MAP_NULL;
+	if (temp_pmap != PMAP_NULL) {
+		temp_map = vm_map_create_options(temp_pmap, 0, 0xfffffffffffff, 0);
+	}
+
+	/* Now create the pmap and VM map that will back the submap entry in 'temp_map'. */
+	pmap_t nested_pmap = pmap_create_options(NULL, 0, PMAP_CREATE_64BIT | PMAP_CREATE_NESTED);
+
+	vm_map_t nested_map = VM_MAP_NULL;
+	if (nested_pmap != PMAP_NULL) {
+#if defined(__arm64__)
+		pmap_set_nested(nested_pmap);
+#endif /* defined(__arm64__) */
+#if CODE_SIGNING_MONITOR
+		csm_setup_nested_address_space(nested_pmap, start, end - start);
+#endif
+		nested_map = vm_map_create_options(nested_pmap, 0, end - start, 0);
+	}
+
+	if (temp_map == VM_MAP_NULL || nested_map == VM_MAP_NULL) {
+		error = ENOMEM;
+		printf("%s: failed to create VM maps\n", __func__);
+		goto upl_submap_test_done;
+	}
+
+	nested_map->is_nested_map = TRUE;
+	nested_map->vmmap_sealed = VM_MAP_WILL_BE_SEALED;
+
+	struct {
+		uint64_t ptr; /* Base address of original buffer in userspace */
+		uint64_t upl_base; /* Base address in 'temp_map' against which UPL should be created */
+		uint32_t size; /* Size of userspace buffer in bytes */
+		uint32_t upl_size; /* Size of UPL to create in bytes */
+		bool upl_rw; /* Should the UPL be created RW (!UPL_COPYOUT_FROM) instead of RO? */
+	} args;
+	error = copyin((user_addr_t)in, &args, sizeof(args));
+	if ((error != 0) || (args.size == 0) || (args.upl_size == 0)) {
+		goto upl_submap_test_done;
+	}
+
+	/*
+	 * Remap the original userspace buffer into the nested map, with CoW protection.
+	 * This will not actually instantiate new mappings in 'nested_pmap', but will instead create
+	 * new shadow object of the original object for the userspace buffer in the nested map.
+	 * Mappings would only be created in 'nested_pmap' upon a later non-CoW fault of the nested region,
+	 * which we aren't doing here.  That's fine, as we're not testing pmap functionality here; we
+	 * only care that UPL creation produces the expected results at the VM map/entry level.
+	 */
+	mach_vm_offset_t submap_start = 0;
+
+	vm_prot_ut remap_cur_prot = vm_sanitize_wrap_prot(VM_PROT_READ);
+	vm_prot_ut remap_max_prot = vm_sanitize_wrap_prot(VM_PROT_READ);
+
+	kern_return_t kr = mach_vm_remap_new_kernel(nested_map, (mach_vm_offset_ut*)&submap_start, args.size, 0,
+	    VM_MAP_KERNEL_FLAGS_FIXED(.vm_tag = VM_KERN_MEMORY_OSFMK), current_map(), args.ptr, TRUE,
+	    &remap_cur_prot, &remap_max_prot, VM_INHERIT_NONE);
+	if (kr != KERN_SUCCESS) {
+		printf("%s: failed to remap source buffer to nested map: 0x%x\n", __func__, kr);
+		error = kr;
+		goto upl_submap_test_done;
+	}
+
+	vm_map_seal(nested_map, true);
+	pmap_set_shared_region(temp_pmap, nested_pmap, start, end - start);
+
+	/* Do the actual nesting. */
+	vm_map_reference(nested_map);
+	kr = vm_map_enter(temp_map, &start, end - start, 0,
+	    VM_MAP_KERNEL_FLAGS_FIXED(.vmkf_submap = TRUE, .vmkf_nested_pmap =  TRUE), (vm_object_t)(uintptr_t) nested_map, 0,
+	    true, VM_PROT_READ | VM_PROT_WRITE, VM_PROT_READ | VM_PROT_WRITE, VM_INHERIT_DEFAULT);
+
+	if (kr != KERN_SUCCESS) {
+		error = kr;
+		printf("%s: failed to enter nested map in test map: 0x%x\n", __func__, kr);
+		vm_map_deallocate(nested_map);
+		goto upl_submap_test_done;
+	}
+
+	/* Validate that the nesting operation produced the expected submap entry in 'temp_map'. */
+	vm_map_entry_t submap_entry;
+	if (!vm_map_lookup_entry(temp_map, args.upl_base, &submap_entry) || !submap_entry->is_sub_map) {
+		error = ENOENT;
+		printf("%s: did not find submap entry at beginning up UPL region\n", __func__);
+		goto upl_submap_test_done;
+	}
+
+	upl_size_t upl_size = args.upl_size;
+	unsigned int upl_count = 0;
+	upl_control_flags_t upl_flags = UPL_SET_IO_WIRE | UPL_SET_LITE | UPL_SET_INTERNAL;
+	if (!args.upl_rw) {
+		upl_flags |= UPL_COPYOUT_FROM;
+	}
+	kr = vm_map_create_upl(temp_map,
+	    (vm_map_offset_t)args.upl_base,
+	    &upl_size,
+	    &upl,
+	    NULL,
+	    &upl_count,
+	    &upl_flags,
+	    VM_KERN_MEMORY_DIAG);
+
+	if (kr != KERN_SUCCESS) {
+		error = kr;
+		printf("%s: failed to create UPL for submap: 0x%x\n", __func__, kr);
+		goto upl_submap_test_done;
+	}
+
+	/* Validate that UPL creation unnested a portion of the submap entry. */
+	if (!vm_map_lookup_entry(temp_map, args.upl_base, &submap_entry) || submap_entry->is_sub_map) {
+		error = ENOENT;
+		printf("%s: did not find non-submap entry at beginning up UPL region\n", __func__);
+		goto upl_submap_test_done;
+	}
+
+	kr = vm_upl_map(kernel_map, upl, &kva);
+	if (kr != KERN_SUCCESS) {
+		error = kr;
+		goto upl_submap_test_done;
+	}
+
+	/*
+	 * Compare the original userspace buffer to the ultimate kernel mapping of the UPL.
+	 * The unnesting and CoW faulting performed as part of UPL creation should have copied the original buffer
+	 * pages, so we expect the two buffers to be backed by different pages.
+	 */
+	error = upl_buf_compare((user_addr_t)args.ptr + (args.upl_base - start), upl, (void*)kva, upl_size, true);
+
+	if (!error) {
+		/*
+		 * Now validate that the nested region in 'temp_map' matches the original buffer.
+		 * The unnesting and CoW faulting performed as part of UPL creation should have acted directly
+		 * upon 'temp_map', so the backing pages should be the same here.
+		 */
+		vm_map_switch_context_t switch_ctx = vm_map_switch_to(temp_map);
+		error = upl_buf_compare((user_addr_t)args.upl_base, upl, (void*)kva, upl_size, false);
+		vm_map_switch_back(switch_ctx);
+	}
+
+upl_submap_test_done:
+
+	if (kva != 0) {
+		vm_upl_unmap(kernel_map, upl);
+	}
+
+	if (upl != NULL) {
+		upl_commit(upl, NULL, 0);
+		upl_deallocate(upl);
+	}
+
+	if (temp_map != VM_MAP_NULL) {
+		vm_map_deallocate(temp_map);
+		temp_pmap = PMAP_NULL;
+	}
+	if (nested_map != VM_MAP_NULL) {
+		vm_map_deallocate(nested_map);
+		nested_pmap = PMAP_NULL;
+	}
+
+	if (temp_pmap != PMAP_NULL) {
+		pmap_destroy(temp_pmap);
+	}
+	if (nested_pmap != PMAP_NULL) {
+		pmap_destroy(nested_pmap);
+	}
+
+	return error;
+}
+SYSCTL_TEST_REGISTER(vm_upl_submap, vm_upl_submap_test);
+
+#if CONFIG_SPTM
+
+static void
+page_clean_timeout(thread_call_param_t param0, __unused thread_call_param_t param1)
+{
+	vm_page_t m = (vm_page_t)param0;
+	vm_object_t object = VM_PAGE_OBJECT(m);
+	vm_object_lock(object);
+	m->vmp_cleaning = false;
+	vm_page_wakeup(object, m);
+	vm_object_unlock(object);
+}
+
+/**
+ * This sysctl is meant to exercise very specific functionality that can't be exercised through
+ * the normal vm_map_create_upl() path.  It operates directly against the vm_object backing
+ * the specified address range, and does not take any locks against the VM map to guarantee
+ * stability of the specified address range.  It is therefore meant to be used against
+ * VM regions directly allocated by the userspace caller and guaranteed to not be altered by
+ * other threads.  The regular vm_upl/vm_upl_submap sysctls should be preferred over this
+ * if at all possible.
+ */
+static int
+vm_upl_object_test(int64_t in, int64_t *out __unused)
+{
+	upl_t upl = NULL;
+
+	struct {
+		uint64_t ptr; /* Base address of buffer in userspace */
+		uint32_t size; /* Size of userspace buffer (in bytes) */
+		bool upl_rw;
+		bool should_fail; /* Is UPL creation expected to fail due to permissions checking? */
+		bool exec_fault;
+	} args;
+	int error = copyin((user_addr_t)in, &args, sizeof(args));
+	if ((error != 0) || (args.size == 0)) {
+		goto upl_object_test_done;
+	}
+
+	upl_size_t upl_size = args.size;
+	unsigned int upl_count = 0;
+	upl_control_flags_t upl_flags = UPL_SET_IO_WIRE | UPL_SET_LITE | UPL_SET_INTERNAL;
+	if (!args.upl_rw) {
+		upl_flags |= UPL_COPYOUT_FROM;
+	} else {
+		upl_flags |= UPL_WILL_MODIFY;
+	}
+
+	vm_map_entry_t entry;
+	vm_object_t object;
+	vm_page_t m __unused;
+
+	if (!vm_map_lookup_entry(current_map(), args.ptr, &entry) || entry->is_sub_map) {
+		error = ENOENT;
+		printf("%s: did not find entry at beginning up UPL region\n", __func__);
+		goto upl_object_test_done;
+	}
+
+	object = VME_OBJECT(entry);
+	if (object == VM_OBJECT_NULL) {
+		error = ENOENT;
+		printf("%s: No VM object associated with entry at beginning of UPL region\n", __func__);
+		goto upl_object_test_done;
+	}
+
+	vm_object_reference(object);
+
+	kern_return_t kr = vm_object_iopl_request(object,
+	    (vm_object_offset_t)(args.ptr - entry->vme_start + VME_OFFSET(entry)),
+	    upl_size,
+	    &upl,
+	    NULL,
+	    &upl_count,
+	    upl_flags,
+	    VM_KERN_MEMORY_DIAG);
+
+	if (args.exec_fault) {
+		/*
+		 * The page may have already been retyped to its "final" executable type by a prior fault,
+		 * so simulate a page recycle operation in order to ensure that our simulated exec fault below
+		 * will attempt to retype it.
+		 */
+		vm_object_lock(object);
+		m = vm_page_lookup(object, (VME_OFFSET(entry) + ((vm_map_address_t)args.ptr - entry->vme_start)));
+		assert(m != VM_PAGE_NULL);
+		assert(m->vmp_iopl_wired);
+		ppnum_t pn = VM_PAGE_GET_PHYS_PAGE(m);
+		pmap_disconnect(pn);
+		pmap_lock_phys_page(pn);
+		pmap_recycle_page(pn);
+		pmap_unlock_phys_page(pn);
+		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), VM_PROT_EXECUTE | VM_PROT_READ, 0, PMAP_MAPPING_TYPE_INFER),
+		    "pmap will not retype for vm_page_t %p", m);
+		vm_object_unlock(object);
+	}
+
+	if (args.should_fail && (kr == KERN_PROTECTION_FAILURE)) {
+		goto upl_object_test_done;
+	} else if (args.should_fail && (kr == KERN_SUCCESS)) {
+		printf("%s: vm_object_iopl_request(%p, 0x%lx) did not fail as expected\n",
+		    __func__, (void*)args.ptr, (unsigned long)args.size);
+		error = EIO;
+		goto upl_object_test_done;
+	} else if (kr != KERN_SUCCESS) {
+		printf("%s: vm_object_iopl_request(%p, 0x%lx) returned 0x%x\n",
+		    __func__, (void*)args.ptr, (unsigned long)args.size, kr);
+		error = kr;
+		goto upl_object_test_done;
+	}
+
+	if (args.exec_fault) {
+		kr = vm_fault(current_map(),
+		    (vm_map_address_t)args.ptr,
+		    VM_PROT_EXECUTE | VM_PROT_READ,
+		    FALSE,
+		    VM_KERN_MEMORY_NONE,
+		    THREAD_UNINT,
+		    NULL,
+		    0);
+		/* Exec page retype attempt with in-flight IOPL should be forbidden. */
+		if (kr != KERN_PROTECTION_FAILURE) {
+			printf("%s: vm_fault(%p) did not fail as expected\n", __func__, (void*)args.ptr);
+			error = ((kr == KERN_SUCCESS) ? EIO : kr);
+			goto upl_object_test_done;
+		}
+		assertf(pmap_will_retype(current_map()->pmap, (vm_map_address_t)args.ptr, VM_PAGE_GET_PHYS_PAGE(m), VM_PROT_EXECUTE | VM_PROT_READ, 0, PMAP_MAPPING_TYPE_INFER),
+		    "pmap will not retype for vm_page_t %p", m);
+	}
+
+upl_object_test_done:
+
+	if (upl != NULL) {
+		upl_commit(upl, NULL, 0);
+		upl_deallocate(upl);
+	}
+
+	if ((error == 0) && args.exec_fault) {
+		/*
+		 * Exec page retype attempt without in-flight IOPL should ultimately succeed, but should
+		 * block if the page is being cleaned.  Simulate that scenario with a thread call to "finish"
+		 * the clean operation and wake up the waiting fault handler after 1s.
+		 */
+		vm_object_lock(object);
+		assert(!m->vmp_iopl_wired);
+		m->vmp_cleaning = true;
+		vm_object_unlock(object);
+		thread_call_t page_clean_timer_call = thread_call_allocate(page_clean_timeout, m);
+		uint64_t deadline;
+		clock_interval_to_deadline(1, NSEC_PER_SEC, &deadline);
+		thread_call_enter_delayed(page_clean_timer_call, deadline);
+		kr = vm_fault(current_map(),
+		    (vm_map_address_t)args.ptr,
+		    VM_PROT_EXECUTE | VM_PROT_READ,
+		    FALSE,
+		    VM_KERN_MEMORY_NONE,
+		    THREAD_UNINT,
+		    NULL,
+		    0);
+		/*
+		 * Thread call should no longer be active, as its expiry should have been the thing that
+		 * unblocked the fault above.
+		 */
+		assert(!thread_call_isactive(page_clean_timer_call));
+		thread_call_free(page_clean_timer_call);
+		if (kr != KERN_SUCCESS) {
+			printf("%s: vm_fault(%p) did not succeed as expected\n", __func__, (void*)args.ptr);
+			error = kr;
+		}
+	}
+
+	if (object != VM_OBJECT_NULL) {
+		vm_object_deallocate(object);
+	}
+
+	return error;
+}
+SYSCTL_TEST_REGISTER(vm_upl_object, vm_upl_object_test);
+
+#endif /* CONFIG_SPTM */

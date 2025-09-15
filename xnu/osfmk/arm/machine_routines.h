@@ -101,46 +101,39 @@ void siq_cpu_init(void);
 
 #ifdef XNU_KERNEL_PRIVATE
 
+char ml_get_current_core_type(void);
+
 /* did this interrupt context interrupt userspace? */
 bool ml_did_interrupt_userspace(void);
 
-/* Clear interrupt spin debug state for thread */
+#if SCHED_HYGIENE_DEBUG
+void _ml_interrupt_masked_debug_start(uintptr_t handler_addr, int type);
+void _ml_interrupt_masked_debug_end(void);
+#endif /* SCHED_HYGIENE_DEBUG */
+
+static inline void
+ml_interrupt_masked_debug_start(void *handler_addr, int type)
+{
+#if SCHED_HYGIENE_DEBUG
+	if (static_if(sched_debug_interrupt_disable)) {
+		_ml_interrupt_masked_debug_start((uintptr_t)handler_addr, type);
+	}
+#else /* !SCHED_HYGIENE_DEBUG */
+#pragma unused(handler_addr, type)
+#endif /* SCHED_HYGIENE_DEBUG */
+}
+
+static inline void
+ml_interrupt_masked_debug_end(void)
+{
+#if SCHED_HYGIENE_DEBUG
+	if (static_if(sched_debug_interrupt_disable)) {
+		_ml_interrupt_masked_debug_end();
+	}
+#endif /* SCHED_HYGIENE_DEBUG */
+}
 
 #if SCHED_HYGIENE_DEBUG
-void mt_cur_cpu_cycles_instrs_speculative(uint64_t *cycles, uint64_t *instrs);
-
-#if CONFIG_CPU_COUNTERS
-#define INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread)                                          \
-	    if (static_if(sched_debug_pmc)) {                                                   \
-	        mt_cur_cpu_cycles_instrs_speculative(&thread->machine.intmask_cycles,           \
-	                &thread->machine.intmask_instr);                                        \
-	    }
-#else /* CONFIG_CPU_COUNTERS */
-#define INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread)
-#endif /* !CONFIG_CPU_COUNTERS */
-
-#define INTERRUPT_MASKED_DEBUG_START(handler_addr, type)                                    \
-do {                                                                                        \
-	if (static_if(sched_debug_interrupt_disable) && os_atomic_load(&interrupt_masked_timeout, relaxed) > 0) { \
-	    thread_t thread = current_thread();                                                 \
-	    thread->machine.int_type = type;                                                    \
-	    thread->machine.int_handler_addr = (uintptr_t)VM_KERNEL_STRIP_PTR(handler_addr);    \
-	    thread->machine.inthandler_timestamp = ml_get_sched_hygiene_timebase();             \
-	    INTERRUPT_MASKED_DEBUG_CAPTURE_PMC(thread);                                         \
-	    thread->machine.int_vector = (uintptr_t)NULL;                                       \
-    }                                                                                       \
-} while (0)
-
-#define INTERRUPT_MASKED_DEBUG_END()                                                                               \
-do {                                                                                                               \
-	if (static_if(sched_debug_interrupt_disable) && os_atomic_load(&interrupt_masked_timeout, relaxed) > 0) {  \
-	    thread_t thread = current_thread();                                                                    \
-	    ml_handle_interrupt_handler_duration(thread);                                                          \
-	    thread->machine.inthandler_timestamp = 0;                                                              \
-	    thread->machine.inthandler_abandon = false;                                                            \
-	}                                                                                                          \
-} while (0)
-
 void ml_irq_debug_start(uintptr_t handler, uintptr_t vector);
 void ml_irq_debug_end(void);
 void ml_irq_debug_abandon(void);
@@ -151,22 +144,18 @@ void ml_spin_debug_clear_self(void);
 void ml_handle_interrupts_disabled_duration(thread_t thread);
 void ml_handle_stackshot_interrupt_disabled_duration(thread_t thread);
 void ml_handle_interrupt_handler_duration(thread_t thread);
-
-#else /* SCHED_HYGIENE_DEBUG */
-
-#define INTERRUPT_MASKED_DEBUG_START(handler_addr, type)
-#define INTERRUPT_MASKED_DEBUG_END()
-
 #endif /* SCHED_HYGIENE_DEBUG */
 
 extern bool ml_snoop_thread_is_on_core(thread_t thread);
 extern boolean_t ml_is_quiescing(void);
 extern void ml_set_is_quiescing(boolean_t);
 extern uint64_t ml_get_booter_memory_size(void);
-#endif
+
+#endif /* XNU_KERNEL_PRIVATE */
 
 /* Type for the Time Base Enable function */
 typedef void (*time_base_enable_t)(cpu_id_t cpu_id, boolean_t enable);
+
 #if defined(PEXPERT_KERNEL_PRIVATE) || defined(MACH_KERNEL_PRIVATE)
 /* Type for the Processor Cache Dispatch function */
 typedef void (*cache_dispatch_t)(cpu_id_t cpu_id, unsigned int select, unsigned int param0, unsigned int param1);
@@ -267,9 +256,10 @@ ex_cb_action_t ex_cb_invoke(
 	vm_offset_t         far);
 
 typedef enum {
-	CLUSTER_TYPE_SMP = 0,
-	CLUSTER_TYPE_E   = 1,
-	CLUSTER_TYPE_P   = 2,
+	CLUSTER_TYPE_INVALID = -1,
+	CLUSTER_TYPE_SMP     = 0,
+	CLUSTER_TYPE_E       = 1,
+	CLUSTER_TYPE_P       = 2,
 	MAX_CPU_TYPES,
 } cluster_type_t;
 
@@ -369,7 +359,9 @@ struct ml_processor_info {
 	uint32_t                        log_id;
 	uint32_t                        l2_access_penalty; /* unused */
 	uint32_t                        cluster_id;
+
 	cluster_type_t                  cluster_type;
+
 	uint32_t                        l2_cache_id;
 	uint32_t                        l2_cache_size;
 	uint32_t                        l3_cache_id;
@@ -1060,33 +1052,35 @@ typedef void (*sched_perfcontrol_deadline_passed_t)(uint64_t deadline);
  * Context Switch Callout
  *
  * Parameters:
- * event        - The perfcontrol_event for this callout
- * cpu_id       - The CPU doing the context switch
- * timestamp    - The timestamp for the context switch
- * flags        - Flags for other relevant information
- * offcore      - perfcontrol_data structure for thread going off-core
- * oncore       - perfcontrol_data structure for thread going on-core
- * cpu_counters - perfcontrol_cpu_counters for the CPU doing the switch
+ * event              - The perfcontrol_event for this callout
+ * cpu_id             - The CPU doing the context switch
+ * timestamp          - The timestamp for the context switch
+ * flags              - Flags for other relevant information
+ * offcore            - perfcontrol_data structure for thread going off-core
+ * oncore             - perfcontrol_data structure for thread going on-core
+ * cpu_counters       - perfcontrol_cpu_counters for the CPU doing the switch
+ * timeout_ticks      - Per core timer timeout
  */
 typedef void (*sched_perfcontrol_csw_t)(
 	perfcontrol_event event, uint32_t cpu_id, uint64_t timestamp, uint32_t flags,
 	struct perfcontrol_thread_data *offcore, struct perfcontrol_thread_data *oncore,
-	struct perfcontrol_cpu_counters *cpu_counters, __unused void *unused);
+	struct perfcontrol_cpu_counters *cpu_counters, uint64_t *timeout_ticks);
 
 
 /*
  * Thread State Update Callout
  *
  * Parameters:
- * event        - The perfcontrol_event for this callout
- * cpu_id       - The CPU doing the state update
- * timestamp    - The timestamp for the state update
- * flags        - Flags for other relevant information
- * thr_data     - perfcontrol_data structure for the thread being updated
+ * event              - The perfcontrol_event for this callout
+ * cpu_id             - The CPU doing the state update
+ * timestamp          - The timestamp for the state update
+ * flags              - Flags for other relevant information
+ * thr_data           - perfcontrol_data structure for the thread being updated
+ * timeout_ticks      - Per core timer timeout
  */
 typedef void (*sched_perfcontrol_state_update_t)(
 	perfcontrol_event event, uint32_t cpu_id, uint64_t timestamp, uint32_t flags,
-	struct perfcontrol_thread_data *thr_data, __unused void *unused);
+	struct perfcontrol_thread_data *thr_data, uint64_t *timeout_ticks);
 
 /*
  * Thread Group Blocking Relationship Callout
@@ -1113,6 +1107,19 @@ typedef void (*sched_perfcontrol_thread_group_unblocked_t)(
 	thread_group_data_t unblocked_tg, thread_group_data_t unblocking_tg, uint32_t flags, perfcontrol_state_t unblocked_thr_state);
 
 /*
+ * Per core timer expired callout
+ *
+ * Parameters:
+ * now                  - Current time
+ * flags                - Flags for other relevant information
+ * cpu_id               - The CPU for which the timer expired
+ * timeout_ticks        - Per core timer timeout
+ */
+typedef void (*sched_perfcontrol_running_timer_expire_t)(
+	uint64_t now, uint32_t flags, uint32_t cpu_id, uint64_t *timeout_ticks);
+
+
+/*
  * Callers should always use the CURRENT version so that the kernel can detect both older
  * and newer structure layouts. New callbacks should always be added at the end of the
  * structure, and xnu should expect existing source recompiled against newer headers
@@ -1120,17 +1127,18 @@ typedef void (*sched_perfcontrol_thread_group_unblocked_t)(
  * to reset callbacks to their default in-kernel values.
  */
 
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_0 (0) /* up-to oncore */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_1 (1) /* up-to max_runnable_latency */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_2 (2) /* up-to work_interval_notify */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_3 (3) /* up-to thread_group_deinit */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_4 (4) /* up-to deadline_passed */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_5 (5) /* up-to state_update */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_6 (6) /* up-to thread_group_flags_update */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_7 (7) /* up-to work_interval_ctl */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_8 (8) /* up-to thread_group_unblocked */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_9 (9) /* allows CLPC to specify resource contention flags */
-#define SCHED_PERFCONTROL_CALLBACKS_VERSION_CURRENT SCHED_PERFCONTROL_CALLBACKS_VERSION_6
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_0   (0) /* up-to oncore */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_1   (1) /* up-to max_runnable_latency */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_2   (2) /* up-to work_interval_notify */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_3   (3) /* up-to thread_group_deinit */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_4   (4) /* up-to deadline_passed */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_5   (5) /* up-to state_update */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_6   (6) /* up-to thread_group_flags_update */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_7   (7) /* up-to work_interval_ctl */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_8   (8) /* up-to thread_group_unblocked */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_9   (9) /* allows CLPC to specify resource contention flags */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_10  (10) /* allows CLPC to register a per core timer callback */
+#define SCHED_PERFCONTROL_CALLBACKS_VERSION_CURRENT SCHED_PERFCONTROL_CALLBACKS_VERSION_10
 
 struct sched_perfcontrol_callbacks {
 	unsigned long version; /* Use SCHED_PERFCONTROL_CALLBACKS_VERSION_CURRENT */
@@ -1148,6 +1156,7 @@ struct sched_perfcontrol_callbacks {
 	sched_perfcontrol_work_interval_ctl_t         work_interval_ctl;
 	sched_perfcontrol_thread_group_blocked_t      thread_group_blocked;
 	sched_perfcontrol_thread_group_unblocked_t    thread_group_unblocked;
+	sched_perfcontrol_running_timer_expire_t      running_timer_expire;
 };
 typedef struct sched_perfcontrol_callbacks *sched_perfcontrol_callbacks_t;
 
@@ -1186,16 +1195,37 @@ extern void sched_perfcontrol_thread_group_preferred_clusters_set(void *machine_
 /*
  * Edge Scheduler-CLPC Interface
  *
- * sched_perfcontrol_edge_matrix_get()/sched_perfcontrol_edge_matrix_set()
+ * sched_perfcontrol_edge_matrix_by_qos_get()/sched_perfcontrol_edge_matrix_by_qos_set()
  *
- * The Edge scheduler uses edges between clusters to define the likelihood of migrating threads
- * across clusters. The edge config between any two clusters defines the edge weight and whether
- * migation and steal operations are allowed across that edge. The getter and setter allow CLPC
- * to query and configure edge properties between various clusters on the platform.
+ * For each QoS, the Edge scheduler uses edges between clusters to define the likelihood of
+ * migrating threads of that QoS across the clusters. The edge config between any two clusters
+ * defines the edge weight and whether migation and steal operations are allowed across that
+ * edge. The getter and setter allow CLPC to query and configure edge properties between various
+ * clusters on the platform.
+ *
+ * The edge_matrix is a flattened array of dimension num_psets X num_psets X num_classes, where
+ * num_classes equals PERFCONTROL_CLASS_MAX and the scheduler will map perfcontrol classes onto
+ * QoS buckets. For perfcontrol classes lacking an equivalent QoS bucket, the "set" operation is
+ * a no-op, and the "get" operation returns zeroed edges.
  */
 
-extern void sched_perfcontrol_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_request_bitmap, uint64_t flags, uint64_t matrix_order);
-extern void sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changes_bitmap, uint64_t flags, uint64_t matrix_order);
+extern void sched_perfcontrol_edge_matrix_by_qos_get(sched_clutch_edge *edge_matrix, bool *edge_requested, uint64_t flags, uint64_t num_psets, uint64_t num_classes);
+extern void sched_perfcontrol_edge_matrix_by_qos_set(sched_clutch_edge *edge_matrix, bool *edge_changed, uint64_t flags, uint64_t num_psets, uint64_t num_classes);
+
+/*
+ * sched_perfcontrol_edge_matrix_get()/sched_perfcontrol_edge_matrix_set()
+ *
+ * Legacy interface for getting/setting the edge config properties, which determine the edge
+ * weight and whether steal and migration are allowed between any two clusters. Since the
+ * edge matrix has a per-QoS dimension, sched_perfcontrol_edge_matrix_set() sets the
+ * configuration to be the same across all QoSes. sched_perfcontrol_edge_matrix_get() reads
+ * the edge matrix setting from the highest QoS (fixed priority).
+ *
+ * Superceded by sched_perfcontrol_edge_matrix_by_qos_get()/sched_perfcontrol_edge_matrix_by_qos_set()
+ */
+
+extern void sched_perfcontrol_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_requested, uint64_t flags, uint64_t matrix_order);
+extern void sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changed, uint64_t flags, uint64_t matrix_order);
 
 /*
  * sched_perfcontrol_edge_cpu_rotation_bitmasks_get()/sched_perfcontrol_edge_cpu_rotation_bitmasks_set()
@@ -1467,20 +1497,6 @@ bool ml_is_secure_hib_supported(void);
 bool ml_task_uses_1ghz_timebase(const task_t task);
 #endif /* XNU_KERNEL_PRIVATE */
 
-#ifdef KERNEL_PRIVATE
-/**
- * Given a physical address, return whether that address is owned by the secure
- * world.
- *
- * @note This does not include memory shared between XNU and the secure world.
- *
- * @param paddr The physical address to check.
- *
- * @return True if the physical address is owned and being used exclusively by
- *        the secure world, false otherwise.
- */
-bool ml_paddr_is_exclaves_owned(vm_offset_t paddr);
-#endif /* KERNEL_PRIVATE */
 
 
 

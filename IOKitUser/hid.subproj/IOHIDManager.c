@@ -1382,6 +1382,12 @@ void IOHIDManagerUnscheduleFromRunLoop(
         CFDictionaryRemoveAllValues(manager->removalNotifiers);
     }
 
+    if (manager->initialEnumSource) {
+        CFRunLoopSourceInvalidate(manager->initialEnumSource);
+        CFRelease(manager->initialEnumSource);
+        manager->initialEnumSource = NULL;
+    }
+
     manager->runLoop        = NULL;
     manager->runLoopMode    = NULL;
     os_unfair_recursive_lock_unlock(&manager->managerLock);

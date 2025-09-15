@@ -163,7 +163,7 @@ nfs_dump_mbuf(const char *func, int lineno, const char *msg, mbuf_t mb)
 int
 nfs_maperr(const char *func, int error)
 {
-	if (error < NFSERR_BADHANDLE || error > NFSERR_DIRBUFDROPPED) {
+	if (error < NFSERR_BADHANDLE || error > NFSERR_SEQSTATUSERR) {
 		return error;
 	}
 	switch (error) {
@@ -178,8 +178,17 @@ nfs_maperr(const char *func, int error)
 	case NFSERR_STALE_STATEID:
 	case NFSERR_EXPIRED:
 	case NFSERR_BAD_STATEID:
+	case NFSERR_BADSESSION:   /* NFSv4.1 */
+	case NFSERR_DEADSESSION:  /* NFSv4.1 */
+	case NFSERR_SEQSTATUSERR: /* NFSv4.1 */
 		printf("%s: nfs recover err returned %d\n", func, error);
 		return EIO;
+	case NFSERR_RETRYUNCACHEDREP: /* NFSv4.1 */
+		printf("%s: Attempted a retry of a Compound that requested not be placed in the reply cache %d\n", func, error);
+		return EAGAIN;
+	case NFSERR_SEQFALSERETRY: /* NFSv4.1 */
+		printf("%s: Server detected that the retried request is not the same as the original request %d\n", func, error);
+		return EAGAIN;
 	case NFSERR_BADHANDLE:
 	case NFSERR_SERVERFAULT:
 	case NFSERR_BADTYPE:
@@ -1124,8 +1133,8 @@ nfsm_rpchead(
  * Just a wrapper around kauth_cred_getgroups to handle the case of a server supporting less
  * than NGROUPS.
  */
-static size_t
-get_auxiliary_groups(kauth_cred_t cred, gid_t groups[NGROUPS], size_t count)
+size_t
+nfs_get_auxiliary_groups(kauth_cred_t cred, gid_t groups[NGROUPS], size_t count)
 {
 	gid_t pgid;
 	size_t maxcount = count < NGROUPS ? count + 1 : NGROUPS;
@@ -1184,7 +1193,7 @@ nfsm_rpchead2(__unused struct nfsmount *nmp, int sotype, int prog, int vers, int
 		if (!cred) {
 			return EINVAL;
 		}
-		groupcount = get_auxiliary_groups(cred, grouplist, count);
+		groupcount = nfs_get_auxiliary_groups(cred, grouplist, count);
 		auth_len = ((uint32_t)groupcount + 5) * NFSX_UNSIGNED;
 		break;
 	}
@@ -1304,7 +1313,7 @@ add_cred:
 			 */
 			error = 0;
 			req->r_auth = auth_type = RPCAUTH_SYS;
-			groupcount = get_auxiliary_groups(cred, grouplist, count);
+			groupcount = nfs_get_auxiliary_groups(cred, grouplist, count);
 			auth_len = ((uint32_t)groupcount + 5) * NFSX_UNSIGNED;
 			authsiz = nfsm_rndup(auth_len);
 			goto add_cred;

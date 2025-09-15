@@ -152,7 +152,7 @@ _vsyslog(int pri, const char *fmt, va_list ap, void *addr, bool mirror)
 		os_log_type_t type = shim_syslog_to_log_type[level];
 
 		va_copy(ap_copy, ap);
-		os_log_with_args(OS_LOG_DEFAULT, type, fmt, ap_copy, addr);
+		os_log_with_args_4syslog(OS_LOG_DEFAULT, type, fmt, ap_copy, addr);
 		va_end(ap_copy);
 
 		if ((eval & EVAL_TEXT_FILE) && !mirror)

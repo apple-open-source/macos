@@ -141,10 +141,10 @@ static RetainPtr<id> makeNSArrayElement(const ApplePayInstallmentItem& item)
     auto installmentItem = adoptNS([PAL::allocPKPaymentInstallmentItemInstance() init]);
     [installmentItem setInstallmentItemType:platformItemType(item.type)];
     [installmentItem setAmount:toDecimalNumber(item.amount)];
-    [installmentItem setCurrencyCode:item.currencyCode];
-    [installmentItem setProgramIdentifier:item.programIdentifier];
+    [installmentItem setCurrencyCode:item.currencyCode.createNSString().get()];
+    [installmentItem setProgramIdentifier:item.programIdentifier.createNSString().get()];
     [installmentItem setApr:toDecimalNumber(item.apr)];
-    [installmentItem setProgramTerms:item.programTerms];
+    [installmentItem setProgramTerms:item.programTerms.createNSString().get()];
     return installmentItem;
 }
 
@@ -166,15 +166,15 @@ static std::optional<ApplePayInstallmentItem> makeVectorElement(const ApplePayIn
 
 static RetainPtr<NSDictionary> applicationMetadataDictionary(const ApplePayInstallmentConfiguration& configuration)
 {
-    if (NSData *applicationMetadata = [configuration.applicationMetadata dataUsingEncoding:NSUTF8StringEncoding])
-        return dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:applicationMetadata options:0 error:nil]);
+    if (RetainPtr applicationMetadata = [configuration.applicationMetadata.createNSString() dataUsingEncoding:NSUTF8StringEncoding])
+        return dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:applicationMetadata.get() options:0 error:nil]);
     return { };
 }
 
 static String applicationMetadataString(NSDictionary *dictionary)
 {
-    if (NSData *applicationMetadata = dictionary ? [NSJSONSerialization dataWithJSONObject:dictionary options:NSJSONWritingSortedKeys error:nil] : nil)
-        return adoptNS([[NSString alloc] initWithData:applicationMetadata encoding:NSUTF8StringEncoding]).get();
+    if (RetainPtr applicationMetadata = dictionary ? [NSJSONSerialization dataWithJSONObject:dictionary options:NSJSONWritingSortedKeys error:nil] : nil)
+        return adoptNS([[NSString alloc] initWithData:applicationMetadata.get() encoding:NSUTF8StringEncoding]).get();
     return { };
 }
 
@@ -188,14 +188,14 @@ static RetainPtr<PKPaymentInstallmentConfiguration> createPlatformConfiguration(
     [configuration setFeature:platformFeatureType(coreConfiguration.featureType)];
 
     [configuration setBindingTotalAmount:toDecimalNumber(coreConfiguration.bindingTotalAmount)];
-    [configuration setCurrencyCode:coreConfiguration.currencyCode];
+    [configuration setCurrencyCode:coreConfiguration.currencyCode.createNSString().get()];
     [configuration setInStorePurchase:coreConfiguration.isInStorePurchase];
     [configuration setOpenToBuyThresholdAmount:toDecimalNumber(coreConfiguration.openToBuyThresholdAmount)];
 
-    auto merchandisingImageData = adoptNS([[NSData alloc] initWithBase64EncodedString:coreConfiguration.merchandisingImageData options:0]);
+    auto merchandisingImageData = adoptNS([[NSData alloc] initWithBase64EncodedString:coreConfiguration.merchandisingImageData.createNSString().get() options:0]);
     [configuration setMerchandisingImageData:merchandisingImageData.get()];
-    [configuration setInstallmentMerchantIdentifier:coreConfiguration.merchantIdentifier];
-    [configuration setReferrerIdentifier:coreConfiguration.referrerIdentifier];
+    [configuration setInstallmentMerchantIdentifier:coreConfiguration.merchantIdentifier.createNSString().get()];
+    [configuration setReferrerIdentifier:coreConfiguration.referrerIdentifier.createNSString().get()];
 
     if (!PAL::getPKPaymentInstallmentItemClass())
         return configuration;

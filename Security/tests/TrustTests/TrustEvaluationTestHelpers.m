@@ -34,6 +34,7 @@
 @property NSMutableArray *policies;
 @property BOOL enableTestCertificates;
 @property BOOL disableCT;
+@property BOOL disableNetwork;
 @property BOOL featureFlagsNotEnabled;
 @property NSNumber *expectedFFResult;
 @end
@@ -164,6 +165,7 @@ const NSString *kSecTrustTestEnableTestCerts= @"EnableTestCertificates"; /* Opti
 const NSString *kSecTrustTestDisableBridgeOS= @"BridgeOSDisable";   /* Optional; value: boolean */
 const NSString *kSecTrustTestDisableCT      = @"DisableCT";         /* Optional; value: boolean */
 const NSString *kSecTrustTestDirectory      = @"CertDirectory";     /* Required; value: string */
+const NSString *kSecTrustTestDisableNetwork = @"DisableNetwork";    /* Optional; value: boolean */
 
 /* Feature flags
  * If feature flags are provided in the test dictionary, the behavior of the test will change if the FFs
@@ -440,6 +442,8 @@ errOut:
      * determine whether to expect failure for production devices. */
     self.enableTestCertificates = [testDict[kSecTrustTestEnableTestCerts] boolValue];
 
+    self.disableNetwork = [testDict[kSecTrustTestDisableNetwork] boolValue];
+
     /* We need to skip CT checks on some of these to prevent needing to replace test certs regularly (see rdar://132272332) */
     self.disableCT = [testDict[kSecTrustTestDisableCT] boolValue];
 
@@ -505,6 +509,12 @@ errOut:
                                errOut,
                                "failed to create trust ref");
     self.trust = trust;
+
+    if (self.disableNetwork) {
+        require_noerr_string(SecTrustSetNetworkFetchAllowed(trust, !self.disableNetwork),
+                             errOut,
+                             "failed to disable network fetching");
+    }
 
     /* Optionally set anchors in trust object */
     if (testDict[kSecTrustTestAnchors]) {

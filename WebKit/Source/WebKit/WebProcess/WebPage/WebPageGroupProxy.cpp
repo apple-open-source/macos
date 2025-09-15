@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,13 +35,13 @@
 
 namespace WebKit {
 
-Ref<WebPageGroupProxy> WebPageGroupProxy::create(const WebPageGroupData& data)
+Ref<WebPageGroupProxy> WebPageGroupProxy::create(WebPageGroupData&& data)
 {
-    return adoptRef(*new WebPageGroupProxy(data));
+    return adoptRef(*new WebPageGroupProxy(WTFMove(data)));
 }
 
-WebPageGroupProxy::WebPageGroupProxy(const WebPageGroupData& data)
-    : m_data(data)
+WebPageGroupProxy::WebPageGroupProxy(WebPageGroupData&& data)
+    : m_data(WTFMove(data))
     , m_pageGroup(WebCore::PageGroup::pageGroup(m_data.identifier))
 {
 }

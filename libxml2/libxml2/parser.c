@@ -1727,7 +1727,7 @@ nsPush(xmlParserCtxtPtr ctxt, const xmlChar *prefix, const xmlChar *URL)
     } else if (ctxt->nsNr >= ctxt->nsMax) {
         const xmlChar ** tmp;
 
-        if (ctxt->nsMax > SIZE_MAX / 2 / sizeof(ctxt->nsTab[0])) {
+        if (ctxt->nsMax < 0 || ctxt->nsMax > INT_MAX / (2 * (int)sizeof(ctxt->nsTab[0]))) {
             xmlErrMemory(ctxt, NULL);
             return (-1);
         }
@@ -1835,7 +1835,7 @@ inputPush(xmlParserCtxtPtr ctxt, xmlParserInputPtr value)
     if (ctxt->inputNr >= ctxt->inputMax) {
         size_t newSize = ctxt->inputMax * 2;
         xmlParserInputPtr *tmp;
-        if (ctxt->inputMax > SIZE_MAX / 2 / sizeof(*tmp)) {
+        if (ctxt->inputMax < 0 || ctxt->inputMax > INT_MAX / (2 * (int)sizeof(*tmp))) {
             xmlErrMemory(ctxt, NULL);
             return (-1);
         }
@@ -1895,7 +1895,7 @@ nodePush(xmlParserCtxtPtr ctxt, xmlNodePtr value)
     if (ctxt->nodeNr >= ctxt->nodeMax) {
         xmlNodePtr *tmp;
 
-        if ((size_t) ctxt->nodeMax > SIZE_MAX / 2 / sizeof(ctxt->nodeTab[0])) {
+        if (ctxt->nodeMax < 0 || ctxt->nodeMax > INT_MAX / (2 * (int)sizeof(ctxt->nodeTab[0]))) {
             xmlErrMemory(ctxt, NULL);
             return (-1);
         }
@@ -2417,6 +2417,11 @@ xmlPushInput(xmlParserCtxtPtr ctxt, xmlParserInputPtr input) {
     if (ctxt->instate == XML_PARSER_EOF)
         return(-1);
     ret = inputPush(ctxt, input);
+    if (ret < 0) {
+        xmlFreeInputStream(input);
+        xmlFreeParserCtxt(ctxt);
+        return(-1);
+    }
     GROW;
     return(ret);
 }
@@ -8765,7 +8770,7 @@ xmlParseStartTag(xmlParserCtxtPtr ctxt) {
 	    } else if (nbatts + 4 > maxatts) {
 	        const xmlChar **n;
 
-            if (maxatts > SIZE_MAX / 2 / sizeof(const xmlChar *)) {
+            if (maxatts < 0 || maxatts > INT_MAX / (2 * (int)sizeof(const xmlChar *))) {
                 xmlErrMemory(ctxt, NULL);
                 if (attvalue != NULL)
                     xmlFree(attvalue);
@@ -9981,7 +9986,7 @@ xmlParseCDSect(xmlParserCtxtPtr ctxt) {
 	if (len + 5 >= size) {
 	    xmlChar *tmp;
 
-        if (size > SIZE_MAX / 2 / sizeof(xmlChar*)) {
+        if (size < 0 || size > INT_MAX / (2 * (int)sizeof(xmlChar*))) {
             xmlFree(buf);
             xmlErrMemory(ctxt, NULL);
             return;
@@ -10392,7 +10397,7 @@ xmlParseVersionNum(xmlParserCtxtPtr ctxt) {
     while ((cur >= '0') && (cur <= '9')) {
 	if (len + 1 >= size) {
 	    xmlChar *tmp;
-        if (size > SIZE_MAX / 2 / sizeof(xmlChar)) {
+        if (size < 0 || size > INT_MAX / (2 * (int)sizeof(xmlChar))) {
             xmlFree(buf);
             xmlErrMemory(ctxt, NULL);
             return(NULL);
@@ -10499,7 +10504,7 @@ xmlParseEncName(xmlParserCtxtPtr ctxt) {
 	    if (len + 1 >= size) {
 	        xmlChar *tmp;
 
-        if (size > SIZE_MAX / 2 / sizeof(xmlChar)) {
+        if (size < 0 || size > INT_MAX / (2 * (int)sizeof(xmlChar))) {
             xmlErrMemory(ctxt, NULL);
             xmlFree(buf);
             return(NULL);
@@ -12704,7 +12709,11 @@ xmlCreatePushParserCtxt(xmlSAXHandlerPtr sax, void *user_data,
     }
     inputStream->buf = buf;
     xmlBufResetInput(inputStream->buf->buffer, inputStream);
-    inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
     /*
      * If the caller didn't provide an initial 'chunk' for determining
@@ -12809,7 +12818,12 @@ xmlCreateIOParserCtxt(xmlSAXHandlerPtr sax, void *user_data,
 	xmlFreeParserCtxt(ctxt);
 	return(NULL);
     }
-    inputPush(ctxt, inputStream);
+
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
     return(ctxt);
 }
@@ -14147,7 +14161,11 @@ xmlCreateEntityParserCtxtInternal(const xmlChar *URL, const xmlChar *ID,
 	    return(NULL);
 	}
 
-	inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
 	if ((ctxt->directory == NULL) && (directory == NULL))
 	    directory = xmlParserGetDirectory((char *)URL);
@@ -14161,7 +14179,11 @@ xmlCreateEntityParserCtxtInternal(const xmlChar *URL, const xmlChar *ID,
 	    return(NULL);
 	}
 
-	inputPush(ctxt, inputStream);
+	if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
 	if ((ctxt->directory == NULL) && (directory == NULL))
 	    directory = xmlParserGetDirectory((char *)uri);
@@ -14231,7 +14253,12 @@ xmlCreateURLParserCtxt(const char *filename, int options)
 	return(NULL);
     }
 
-    inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
+
     if ((ctxt->directory == NULL) && (directory == NULL))
         directory = xmlParserGetDirectory(filename);
     if ((ctxt->directory == NULL) && (directory != NULL))
@@ -14429,7 +14456,11 @@ xmlSetupParserForBuffer(xmlParserCtxtPtr ctxt, const xmlChar* buffer,
     input->base = buffer;
     input->cur = buffer;
     input->end = &buffer[xmlStrlen(buffer)];
-    inputPush(ctxt, input);
+    if (inputPush(ctxt, input) < 0) {
+        xmlFreeInputStream(input);
+        xmlFreeParserCtxt(ctxt);
+        return;
+    }
 }
 
 /**
@@ -14529,7 +14560,12 @@ xmlCreateMemoryParserCtxt(const char *buffer, int size) {
     input->buf = buf;
     xmlBufResetInput(input->buf->buffer, input);
 
-    inputPush(ctxt, input);
+    if (inputPush(ctxt, input) < 0) {
+        xmlFreeInputStream(input);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
+
     return(ctxt);
 }
 
@@ -15110,7 +15146,11 @@ xmlCtxtResetPush(xmlParserCtxtPtr ctxt, const char *chunk,
     inputStream->buf = buf;
     xmlBufResetInput(buf->buffer, inputStream);
 
-    inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(1);
+    }
 
     if ((size > 0) && (chunk != NULL) && (ctxt->input != NULL) &&
         (ctxt->input->buf != NULL)) {
@@ -15462,7 +15502,13 @@ xmlReadFd(int fd, const char *URL, const char *encoding, int options)
 	xmlFreeParserCtxt(ctxt);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
+
     return (xmlDoRead(ctxt, URL, encoding, options, 0));
 }
 
@@ -15509,7 +15555,11 @@ xmlReadIO(xmlInputReadCallback ioread, xmlInputCloseCallback ioclose,
 	xmlFreeParserCtxt(ctxt);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (xmlDoRead(ctxt, URL, encoding, options, 0));
 }
 
@@ -15544,7 +15594,11 @@ xmlCtxtReadDoc(xmlParserCtxtPtr ctxt, const xmlChar * cur,
     if (stream == NULL) {
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (xmlDoRead(ctxt, URL, encoding, options, 1));
 }
 
@@ -15578,7 +15632,11 @@ xmlCtxtReadFile(xmlParserCtxtPtr ctxt, const char *filename,
     if (stream == NULL) {
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (xmlDoRead(ctxt, NULL, encoding, options, 1));
 }
 
@@ -15622,7 +15680,11 @@ xmlCtxtReadMemory(xmlParserCtxtPtr ctxt, const char *buffer, int size,
 	return(NULL);
     }
 
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (xmlDoRead(ctxt, URL, encoding, options, 1));
 }
 
@@ -15666,7 +15728,11 @@ xmlCtxtReadFd(xmlParserCtxtPtr ctxt, int fd,
         xmlFreeParserInputBuffer(input);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (xmlDoRead(ctxt, URL, encoding, options, 1));
 }
 

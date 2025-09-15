@@ -159,7 +159,7 @@ egl::Error SurfaceMtl::unMakeCurrent(const gl::Context *context)
     return egl::NoError();
 }
 
-egl::Error SurfaceMtl::swap(const gl::Context *context)
+egl::Error SurfaceMtl::swap(const gl::Context *context, SurfaceSwapFeedback *feedback)
 {
     return egl::NoError();
 }
@@ -171,37 +171,37 @@ egl::Error SurfaceMtl::postSubBuffer(const gl::Context *context,
                                      EGLint height)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 egl::Error SurfaceMtl::querySurfacePointerANGLE(EGLint attribute, void **value)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 egl::Error SurfaceMtl::bindTexImage(const gl::Context *context, gl::Texture *texture, EGLint buffer)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 egl::Error SurfaceMtl::releaseTexImage(const gl::Context *context, EGLint buffer)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 egl::Error SurfaceMtl::getSyncValues(EGLuint64KHR *ust, EGLuint64KHR *msc, EGLuint64KHR *sbc)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 egl::Error SurfaceMtl::getMscRate(EGLint *numerator, EGLint *denominator)
 {
     UNIMPLEMENTED();
-    return egl::EglBadAccess();
+    return egl::Error(EGL_BAD_ACCESS);
 }
 
 void SurfaceMtl::setSwapInterval(const egl::Display *display, EGLint interval) {}
@@ -468,11 +468,11 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
     {
         if ([mLayer isKindOfClass:CAMetalLayer.class])
         {
-            mMetalLayer.retainAssign(static_cast<CAMetalLayer *>(mLayer));
+            mMetalLayer = static_cast<CAMetalLayer *>(mLayer);
         }
         else
         {
-            mMetalLayer             = [[[CAMetalLayer alloc] init] ANGLE_MTL_AUTORELEASE];
+            mMetalLayer             = angle::adoptObjCPtr([[CAMetalLayer alloc] init]);
             mMetalLayer.get().frame = mLayer.frame;
         }
 
@@ -498,7 +498,7 @@ egl::Error WindowSurfaceMtl::initialize(const egl::Display *display)
     return egl::NoError();
 }
 
-egl::Error WindowSurfaceMtl::swap(const gl::Context *context)
+egl::Error WindowSurfaceMtl::swap(const gl::Context *context, SurfaceSwapFeedback *feedback)
 {
     ANGLE_TO_EGL_TRY(swapImpl(context));
 
@@ -670,14 +670,14 @@ angle::Result WindowSurfaceMtl::obtainNextDrawable(const gl::Context *context)
             contextMtl->onBackbufferResized(context, this);
         }
 
-        mCurrentDrawable.retainAssign([mMetalLayer nextDrawable]);
+        mCurrentDrawable = [mMetalLayer nextDrawable];
         if (!mCurrentDrawable)
         {
             // The GPU might be taking too long finishing its rendering to the previous frame.
             // Try again, indefinitely wait until the previous frame render finishes.
             // TODO: this may wait forever here
             mMetalLayer.get().allowsNextDrawableTimeout = NO;
-            mCurrentDrawable.retainAssign([mMetalLayer nextDrawable]);
+            mCurrentDrawable                            = [mMetalLayer nextDrawable];
             mMetalLayer.get().allowsNextDrawableTimeout = YES;
         }
 
@@ -694,7 +694,9 @@ angle::Result WindowSurfaceMtl::obtainNextDrawable(const gl::Context *context)
         }
         mColorTextureInitialized = false;
 
-        ANGLE_MTL_LOG("Current metal drawable size=%d,%d", mColorTexture->width(mtl::MipmapNativeLevel(0)),  mColorTexture->height(mtl::MipmapNativeLevel(0)));
+        ANGLE_MTL_LOG("Current metal drawable size=%d,%d",
+                      mColorTexture->width(mtl::MipmapNativeLevel(0)),
+                      mColorTexture->height(mtl::MipmapNativeLevel(0)));
 
         // Now we have to resize depth stencil buffers if required.
         ANGLE_TRY(ensureCompanionTexturesSizeCorrect(context));
@@ -759,7 +761,7 @@ EGLint OffscreenSurfaceMtl::getHeight() const
     return mSize.height;
 }
 
-egl::Error OffscreenSurfaceMtl::swap(const gl::Context *context)
+egl::Error OffscreenSurfaceMtl::swap(const gl::Context *context, SurfaceSwapFeedback *feedback)
 {
     // Check for surface resize.
     ANGLE_TO_EGL_TRY(ensureTexturesSizeCorrect(context));

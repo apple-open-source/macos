@@ -30,7 +30,19 @@
 #include <wtf/MainThread.h>
 #include <wtf/Threading.h>
 
+//
+// On Android, WebDriver is built as a shared library, and the process is spawned
+// from the Java side, which calls into a C++ function using JNI, and that in turn
+// jumps into the entry point. The mangled name is used directly, from the code at
+// https://github.com/Igalia/wpe-android/blob/b918e3f8b86eda406436cb251c2e7b10a529008c/wpeview/src/main/cpp/Service/EntryPoint.cpp#L55
+//
+#if OS(ANDROID)
+namespace WebKit {
+__attribute__((visibility("default")))
+int WebDriverProcessMain(int argc, char** argv)
+#else
 int main(int argc, char** argv)
+#endif
 {
     WebDriver::WebDriverService::platformInit();
 
@@ -42,3 +54,6 @@ int main(int argc, char** argv)
     WebDriver::WebDriverService service;
     return service.run(argc, argv);
 }
+#if OS(ANDROID)
+}
+#endif

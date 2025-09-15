@@ -42,6 +42,9 @@
 #include <IOKit/IOHibernatePrivate.h>
 #include <pthread.h>
 #include <notify.h>
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include <LockdownMode/LockdownMode.h>
+#endif
 
 #include "PMSettings.h"
 #include "BatteryTimeRemaining.h"
@@ -66,8 +69,13 @@ enum
 {
     // 2GB
     kStandbyDesktopHibernateFileSize = 2ULL*1024*1024*1024,
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    // 2GB
+    kStandbyPortableHibernateFileSize = 2ULL*1024*1024*1024,
+#else
     // 1GB
     kStandbyPortableHibernateFileSize = 1ULL*1024*1024*1024
+#endif
 };
 
 
@@ -661,7 +669,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
 
                     if (patchpath)
                         *patchpath = save;
-                    fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 01600);
+                    fd = open(path, O_CREAT | O_TRUNC | O_RDWR | O_NOFOLLOW, 01600);
                     if (-1 == fd)
                         break;
                     if (-1 == fchmod(fd, 01600))
@@ -696,8 +704,23 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
 			unlink(path);
 	}
 
-    if (modeNum)
+    if (modeNum) {
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+        if (modeValue != (kIOHibernateModeOn | kIOHibernateModeSleep)) {
+            LockdownModeManager *ldm = [LockdownModeManager shared];
+            bool ldmStatus = [ldm enabled];
+            INFO_LOG("LDM status: %d", ldmStatus);
+            if (ldmStatus) {
+                int mode = (kIOHibernateModeOn | kIOHibernateModeSleep);
+                CFNumberRef modeCF = CFNumberCreate(NULL, kCFNumberIntType, &mode);
+                modeNum = modeCF;
+            }
+        }
+#endif
+        INFO_LOG("Setting Hibernate mode to %@", modeNum);
         IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateModeKey), modeNum);
+
+    }
 
 
     if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFreeRatioKey)))

@@ -33,9 +33,11 @@
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
 #include <wtf/CompletionHandler.h>
+#include <wtf/CrossThreadCopier.h>
 
 namespace WebCore {
 
+class Exception;
 class ScriptExecutionContext;
 
 struct CacheQueryOptions;
@@ -58,7 +60,7 @@ Exception convertToExceptionAndLog(ScriptExecutionContext*, Error);
 WEBCORE_EXPORT bool queryCacheMatch(const ResourceRequest& request, const ResourceRequest& cachedRequest, const ResourceResponse&, const CacheQueryOptions&);
 WEBCORE_EXPORT bool queryCacheMatch(const ResourceRequest&, const URL&, bool hasVaryStar, const HashMap<String, String>& varyHeaders, const CacheQueryOptions&);
 
-using ResponseBody = std::variant<std::nullptr_t, Ref<FormData>, Ref<SharedBuffer>>;
+using ResponseBody = Variant<std::nullptr_t, Ref<FormData>, Ref<SharedBuffer>>;
 WEBCORE_EXPORT ResponseBody isolatedResponseBody(const ResponseBody&);
 WEBCORE_EXPORT ResponseBody copyResponseBody(const ResponseBody&);
 

@@ -11,6 +11,8 @@
 			<string>SecureTransportTests</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/XCTests/com.apple.security/</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 			<key>Command</key>
 			<array>
 				<string>BATS_XCTEST_CMD</string>

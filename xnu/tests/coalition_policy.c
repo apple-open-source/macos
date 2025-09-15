@@ -41,6 +41,8 @@
 #include <mach/task_policy.h>
 #include <mach/mach.h>
 
+#include <sched/sched_test_utils.h>
+
 T_GLOBAL_META(T_META_NAMESPACE("xnu.scheduler"),
     T_META_RADAR_COMPONENT_NAME("xnu"),
     T_META_RADAR_COMPONENT_VERSION("scheduler"),
@@ -142,6 +144,13 @@ restore_coalition_state(void)
 	    "coalition_policy_set(%lld, COALITION_POLICY_SUPPRESS, COALITION_POLICY_SUPPRESS_NONE)", jet_id);
 }
 
+static void
+quiesce(int argc, char *const *argv)
+{
+	if (!wait_for_quiescence_default(argc, argv)) {
+		T_LOG("WARN: System did not quiesce. BG threads may experience starvation, causing this test to fail.");
+	}
+}
 
 T_DECL(coalition_suppress_read_entitled, "COALITION_POLICY_SUPPRESS should be readable with entitlement")
 {
@@ -184,6 +193,7 @@ T_DECL(coalition_suppress_read_rsrc_coalition, "COALITION_POLICY_SUPPRESS should
 T_DECL(coalition_suppress_set, "COALITION_POLICY_SUPPRESS should be settable with entitlement")
 {
 	T_ATEND(restore_coalition_state);
+	quiesce(argc, argv);
 
 	uint64_t jet_id = get_jet_id();
 
@@ -199,6 +209,7 @@ T_DECL(coalition_suppress_set, "COALITION_POLICY_SUPPRESS should be settable wit
 T_DECL(coalition_suppress_set_check_task, "current task should become BG when coalition changes", T_META_ASROOT(true))
 {
 	T_ATEND(restore_coalition_state);
+	quiesce(argc, argv);
 
 	uint64_t jet_id = get_jet_id();
 
@@ -222,6 +233,7 @@ T_DECL(coalition_suppress_set_check_task, "current task should become BG when co
 T_DECL(coalition_suppress_child_bg, "child spawned into bg coalition should be bg", T_META_ASROOT(true))
 {
 	T_ATEND(restore_coalition_state);
+	quiesce(argc, argv);
 
 	uint64_t jet_id = get_jet_id();
 
@@ -270,6 +282,7 @@ T_DECL(coalition_suppress_child_bg, "child spawned into bg coalition should be b
 T_DECL(coalition_suppress_child_change_bg, "child changing coalition to bg should affect parent", T_META_ASROOT(true))
 {
 	T_ATEND(restore_coalition_state);
+	quiesce(argc, argv);
 
 	uint64_t jet_id = get_jet_id();
 

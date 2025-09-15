@@ -112,7 +112,7 @@ void SVGTextMetricsBuilder::advanceComplexText()
 
 void SVGTextMetricsBuilder::initializeMeasurementWithTextRenderer(RenderSVGInlineText& text)
 {
-    m_text = &text;
+    m_text = text;
     m_textPosition = 0;
     m_currentMetrics = SVGTextMetrics();
     m_complexStartToCurrentMetrics = SVGTextMetrics();
@@ -157,7 +157,7 @@ std::tuple<unsigned, UChar> SVGTextMetricsBuilder::measureTextRenderer(RenderSVG
         if (data.allCharactersMap)
             attributes->clear();
         else
-            textMetricsValues->resize(0);
+            textMetricsValues->shrink(0);
     }
 
     initializeMeasurementWithTextRenderer(text);

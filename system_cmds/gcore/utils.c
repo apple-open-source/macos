@@ -1,10 +1,15 @@
 /*
- * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ * Copyright (c) 2025 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
 #include "utils.h"
 #include "region.h"
+
+#include <mach/mach.h>
+#include <mach/mach_vm.h>
+
+#include <sys/sysctl.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -18,35 +23,44 @@
 void
 err_mach(kern_return_t kr, const struct region *r, const char *fmt, ...)
 {
+    const size_t size = 1024;
+    char buf[size];
+    int count = 0;
+
     va_list ap;
     va_start(ap, fmt);
-    if (0 != kr)
-        printf("%s: ", pgm);
-    if (NULL != r)
-        printf("%016llx-%016llx ", R_ADDR(r), R_ENDADDR(r));
-    vprintf(fmt, ap);
+    if (0 != kr) {
+        count += snprintf(buf + count, size - count, "%s: ", pgm);
+    }
+    if (NULL != r) {
+        count += snprintf(buf + count, size - count,
+            "%016llx-%016llx ", R_ADDR(r), R_ENDADDR(r));
+    }
+    count += vsnprintf(buf + count, size - count, fmt, ap);
     va_end(ap);
 
     if (0 != kr) {
-        printf(": failed: %s (0x%x)", mach_error_string(kr), kr);
+        count += snprintf(buf + count, size - count,
+            ": failed: %s (0x%x)", mach_error_string(kr), kr);
         switch (err_get_system(kr)) {
             case err_get_system(err_mach_ipc):
                 /* 0x10000000  == (4 << 26) */
-                printf(" => fatal\n");
-                exit(127);
+                snprintf(buf + count, size - count, " => fatal\n");
+                os_log_error(glog, "%{public}s", buf);
+                exit(EX_OSERR);
             default:
-                putchar('\n');
                 break;
         }
-    } else
-        putchar('\n');
+    }
+    os_log_error(glog, "%{public}s", buf);
 }
 
 static void
 vprintvr(const struct vm_range *vr, const char *restrict fmt, va_list ap)
 {
-	if (NULL != vr)
-		printf("%016llx-%016llx ", V_ADDR(vr), V_ENDADDR(vr));
+    if (NULL != vr) {
+        printf("%016llx-%016llx ", V_ADDR(vr), V_ENDADDR(vr));
+    }
 	vprintf(fmt, ap);
 }
 
@@ -75,7 +89,7 @@ const char *
 str_hsize(hsize_str_t hstr, uint64_t size)
 {
     humanize_number(hstr, sizeof (hsize_str_t) - 1, size, "",
-                    HN_AUTOSCALE, HN_B | HN_NOSPACE | HN_DECIMAL | HN_IEC_PREFIXES);
+        HN_AUTOSCALE, HN_B | HN_NOSPACE | HN_DECIMAL | HN_IEC_PREFIXES);
     return hstr;
 }
 
@@ -114,8 +128,9 @@ str_shared(int sm)
 		[SM_SHARED_ALIASED]		= "sm=s/a",
 		[SM_LARGE_PAGE]			= "sm=lpg",
 	};
-	if ((unsigned)sm < sizeof (sstr) / sizeof (sstr[0]))
-		return sstr[sm];
+    if ((unsigned)sm < sizeof (sstr) / sizeof (sstr[0])) {
+        return sstr[sm];
+    }
 	return "sm=???";
 }
 
@@ -130,8 +145,9 @@ str_purgable(int pu, int sm)
 		[VM_PURGABLE_EMPTY]			= "p=e",
 		[VM_PURGABLE_DENY]			= "   ",
 	};
-	if ((unsigned)pu < sizeof (pstr) / sizeof (pstr[0]))
-		return pstr[pu];
+    if ((unsigned)pu < sizeof (pstr) / sizeof (pstr[0])) {
+        return pstr[pu];
+    }
 	return "p=?";
 }
 
@@ -139,36 +155,34 @@ str_purgable(int pu, int sm)
  * c.f. VMURegionTypeDescriptionForTagShareProtAndPager.
  */
 const char *
-str_tag(tag_str_t tstr, int tag, int share_mode, vm_prot_t curprot, int external_pager)
+str_tag(tag_str_t tstr, const struct region *r)
 {
 	const char *rtype;
 
-	switch (tag) {
+    switch (r->r_info.user_tag) {
 		case 0:
-			if (external_pager)
-				rtype = "mapped file";
-			else if (SM_TRUESHARED == share_mode)
-				rtype = "shared memory";
-			else
-				rtype = "VM_allocate";
+            if (r->r_info.external_pager) {
+                rtype = "mapped file";
+            } else if (r->r_incommregion) {
+                rtype = "commpage";
+            } else if (SM_TRUESHARED == r->r_info.share_mode) {
+                rtype = "shared memory";
+            } else {
+                rtype = "VM_allocate";
+            }
 			break;
 		case VM_MEMORY_MALLOC:
-			if (VM_PROT_NONE == curprot)
-				rtype = "MALLOC guard page";
-			else if (SM_EMPTY == share_mode)
-				rtype = "MALLOC";
-			else
-				rtype = "MALLOC metadata";
+            rtype = "MALLOC";
 			break;
         case VM_MEMORY_STACK:
-            if (VM_PROT_NONE == curprot)
-                rtype = "Stack guard";
-            else
-                rtype = "Stack";
+            rtype = "Stack";
             break;
-#if defined(CONFIG_DEBUG) || defined(CONFIG_GCORE_MAP)
-		case VM_MEMORY_MALLOC_SMALL:
-			rtype = "MALLOC_SMALL";
+        case (uint32_t)-1:
+            rtype = "Owned unmapped";
+            break;
+#if defined(CONFIG_DEBUG)
+        case VM_MEMORY_MALLOC_SMALL:
+            rtype = "MALLOC_SMALL";
 			break;
 		case VM_MEMORY_MALLOC_LARGE:
 			rtype = "MALLOC_LARGE";
@@ -197,6 +211,12 @@ str_tag(tag_str_t tstr, int tag, int share_mode, vm_prot_t curprot, int external
 		case VM_MEMORY_MALLOC_NANO:
 			rtype = "MALLOC_NANO";
 			break;
+        case VM_MEMORY_MALLOC_MEDIUM:
+            rtype = "MALLOC_MEDIUM";
+            break;
+        case VM_MEMORY_MALLOC_PROB_GUARD:
+            rtype = "MALLOC_PROB_GUARD";
+            break;
 		case VM_MEMORY_MACH_MSG:
 			rtype = "Mach message";
 			break;
@@ -303,6 +323,7 @@ str_tag(tag_str_t tstr, int tag, int share_mode, vm_prot_t curprot, int external
 			rtype = "Assets Library";
 			break;
 		case VM_MEMORY_OS_ALLOC_ONCE:
+            // libplatform and libpthread, zfod
 			rtype = "OS Alloc Once";
 			break;
 		case VM_MEMORY_LIBDISPATCH:
@@ -341,82 +362,138 @@ str_tag(tag_str_t tstr, int tag, int share_mode, vm_prot_t curprot, int external
 		case VM_MEMORY_SCENEKIT:
 			rtype = "SceneKit";
 			break;
+        case VM_MEMORY_DFR:
+            rtype = "DFR";
+            break;
 		case VM_MEMORY_SKYWALK:
 			rtype = "Skywalk Networking";
 			break;
+        case VM_MEMORY_IOSURFACE:
+            rtype = "IO Surface";
+            break;
+        case VM_MEMORY_LIBNETWORK:
+            rtype = "libnetwork";
+            break;
+        case VM_MEMORY_AUDIO:
+            rtype = "Audio";
+            break;
+        case VM_MEMORY_VIDEOBITSTREAM:
+            rtype = "Video Bitstream";
+            break;
+        case VM_MEMORY_CM_XPC:
+            rtype = "CoreMedia XPC";
+            break;
+        case VM_MEMORY_CM_RPC:
+            rtype = "CoreMedia RPC";
+            break;
+        case VM_MEMORY_CM_MEMORYPOOL:
+            rtype = "CoreMedia Memory Pool";
+            break;
+        case VM_MEMORY_CM_READCACHE:
+            rtype = "CoreMedia Readcache";
+            break;
+        case VM_MEMORY_CM_CRABS:
+            rtype = "CoreMedia Crabs";
+            break;
+        case VM_MEMORY_QUICKLOOK_THUMBNAILS:
+            rtype = "Quicklook Thumbnails";
+            break;
+        case VM_MEMORY_ACCOUNTS:
+            rtype = "Accounts";
+            break;
+        case VM_MEMORY_SANITIZER:
+            rtype = "Sanitizer";
+            break;
+        case VM_MEMORY_IOACCELERATOR:
+            rtype = "IO Accelerator";
+            break;
+        case VM_MEMORY_CM_REGWARP:
+            rtype = "CoreMedia Regwarp";
+            break;
+        case VM_MEMORY_EAR_DECODER:
+            rtype = "Embedded Acoustic Recognition Decoder";
+            break;
+        case VM_MEMORY_COREUI_CACHED_IMAGE_DATA:
+            rtype = "CoreUI Cached Image Data";
+            break;
+        case VM_MEMORY_COLORSYNC:
+            rtype = "ColorSync";
+            break;
+        case VM_MEMORY_BTINFO:
+            rtype = "BT Info";
+            break;
+        case VM_MEMORY_CM_HLS:
+            rtype = "CoreMedia HLS";
+            break;
+        case VM_MEMORY_ROSETTA:
+            rtype = "Rosetta";
+            break;
+        case VM_MEMORY_ROSETTA_THREAD_CONTEXT:
+            rtype = "Rosetta Thread Context";
+            break;
+        case VM_MEMORY_ROSETTA_INDIRECT_BRANCH_MAP:
+            rtype = "Rosetta Indirect Branch Map";
+            break;
+        case VM_MEMORY_ROSETTA_RETURN_STACK:
+            rtype = "Rosetta Return Stack";
+            break;
+        case VM_MEMORY_ROSETTA_EXECUTABLE_HEAP:
+            rtype = "Rosetta Executable Heap";
+            break;
+        case VM_MEMORY_ROSETTA_USER_LDT:
+            rtype = "Rosetta User LDT";
+            break;
+        case VM_MEMORY_ROSETTA_ARENA:
+            rtype = "Rosetta Arena";
+            break;
+        case VM_MEMORY_ROSETTA_10:
+            rtype = "Rosetta 10";
+            break;
+        case VM_MEMORY_APPLICATION_SPECIFIC_1 ... VM_MEMORY_APPLICATION_SPECIFIC_16:
+            snprintf(tstr, sizeof(tag_str_t), "App Specific %u",
+                r->r_info.user_tag - VM_MEMORY_APPLICATION_SPECIFIC_1 + 1);
+            return tstr;
 #endif
 		default:
-            rtype = NULL;
-            break;
+            // VM_MAKE_TAG() squeezes the tag into the top 8 bits.
+            // However, user_tag is a uint32_t, so it can ultimately
+            // have more bits
+            snprintf(tstr, sizeof (tag_str_t), "tag #%u/0x%x",
+                (uint8_t)r->r_info.user_tag, r->r_info.user_tag);
+            return tstr;
     }
-    if (rtype)
-        snprintf(tstr, sizeof (tag_str_t), "%s", rtype);
-    else
-        snprintf(tstr, sizeof (tag_str_t), "tag #%d", tag);
+    snprintf(tstr, sizeof (tag_str_t), "%s", rtype);
     return tstr;
-}
-
-const char *
-str_tagr(tag_str_t tstr, const struct region *r) {
-    return str_tag(tstr, r->r_info.user_tag, r->r_info.share_mode, r->r_info.protection, r->r_info.external_pager);
-}
-
-/*
- * Put two strings together separated by a '+' sign
- * If the string gets too long, then add an ellipsis and
- * stop concatenating it.
- */
-char *
-strconcat(const char *s0, const char *s1, size_t maxlen)
-{
-    const char ellipsis[] = "...";
-    const char junction[] = ", ";
-    const size_t s0len = strlen(s0);
-    size_t nmlen = s0len + strlen(s1) + strlen(junction) + 1;
-    if (maxlen > strlen(ellipsis) && nmlen > maxlen) {
-        if (strcmp(s0 + s0len - strlen(ellipsis), ellipsis) == 0)
-            return strdup(s0);
-        s1 = ellipsis;
-        nmlen = s0len + strlen(s1) + strlen(junction) + 1;
-    }
-    char *p = malloc(nmlen);
-    if (p) {
-        strlcpy(p, s0, nmlen);
-        strlcat(p, junction, nmlen);
-        strlcat(p, s1, nmlen);
-    }
-    return p;
-}
-
-unsigned long
-simple_namehash(const char *nm)
-{
-	unsigned long result = 5381;
-	int c;
-	while (0 != (c = *nm++))
-		result = (result * 33) ^ c;
-	return result;  /* modified djb2 */
 }
 
 int
 bounded_pwrite(int fd, const void *addr, size_t size, off_t off, bool *nocache, ssize_t *nwrittenp)
 {
-	if (opt->sizebound && off + (off_t)size > opt->sizebound)
-		return EFBIG;
+    if (opt->sizebound && off + (off_t)size > opt->sizebound) {
+        if (OPTIONS_DEBUG(opt, 1)) {
+            // Really shouldn't happen unless dump size estimate is wrong!
+            printf("offset %lld will exceed bound %lld\n",
+                off + (off_t)size, opt->sizebound);
+        }
+        return EFBIG;
+    }
 
 	bool oldnocache = *nocache;
-	if (size >= opt->ncthresh && !oldnocache)
-		*nocache = 0 == fcntl(fd, F_NOCACHE, 1);
-	else if (size < opt->ncthresh && oldnocache)
-		*nocache = 0 != fcntl(fd, F_NOCACHE, 0);
-	if (OPTIONS_DEBUG(opt, 3) && oldnocache ^ *nocache)
-		printf("F_NOCACHE now %sabled on fd %d\n", *nocache ? "en" : "dis", fd);
-
+    if (size >= opt->ncthresh && !oldnocache) {
+        *nocache = 0 == fcntl(fd, F_NOCACHE, 1);
+    } else if (size < opt->ncthresh && oldnocache) {
+        *nocache = 0 != fcntl(fd, F_NOCACHE, 0);
+    }
+    if (OPTIONS_DEBUG(opt, 3) && oldnocache ^ *nocache) {
+        printf("F_NOCACHE now %sabled on fd %d\n", *nocache ? "en" : "dis", fd);
+    }
 	const ssize_t nwritten = pwrite(fd, addr, size, off);
-	if (-1 == nwritten)
-		return errno;
-	if (nwrittenp)
-		*nwrittenp = nwritten;
+    if (-1 == nwritten) {
+        return errno;
+    }
+    if (nwrittenp) {
+        *nwrittenp = nwritten;
+    }
 	return 0;
 }
 
@@ -451,4 +528,36 @@ bounded_write_zero(int fd, size_t size, ssize_t *nwrittenp)
         return 0;
     }
     return ENOMEM;
+}
+
+bool
+task_port_is_corpse(mach_port_t task_port)
+{
+    mach_vm_address_t kcd_addr_begin;
+    mach_vm_size_t kcd_size;
+    
+    kern_return_t kr = task_map_corpse_info_64(mach_task_self(),
+        task_port, &kcd_addr_begin, &kcd_size);
+    if (kr != KERN_SUCCESS) {
+        return false;
+    }
+    mach_vm_deallocate(mach_task_self(), kcd_addr_begin, kcd_size);
+    return true;
+}
+
+int
+virtual_address_size(uint32_t *abitsp)
+{
+    static uint32_t abits = 0;
+    if (abits == 0) {
+        size_t abits_size = sizeof(abits);
+        if (sysctlbyname("machdep.virtual_address_size",
+            &abits, &abits_size, NULL, 0) != 0) {
+            return errno;
+        }
+        assert(sizeof(abits) == abits_size);
+        assert(abits > 0);
+    }
+    *abitsp = abits;
+    return 0;
 }

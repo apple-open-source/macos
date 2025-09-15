@@ -61,7 +61,7 @@ public:
     void setAutoplayPolicy(WebKit::WebsiteAutoplayPolicy policy) { m_data.autoplayPolicy = policy; }
 
 #if ENABLE(DEVICE_ORIENTATION)
-    WebCore::DeviceOrientationOrMotionPermissionState deviceOrientationAndMotionAccessState() const { return m_data.deviceOrientationAndMotionAccessState; }
+    std::optional<WebCore::DeviceOrientationOrMotionPermissionState> deviceOrientationAndMotionAccessState() const { return m_data.deviceOrientationAndMotionAccessState; }
     void setDeviceOrientationAndMotionAccessState(WebCore::DeviceOrientationOrMotionPermissionState state) { m_data.deviceOrientationAndMotionAccessState = state; }
 #endif
 
@@ -71,19 +71,20 @@ public:
     WebKit::WebsitePopUpPolicy popUpPolicy() const { return m_data.popUpPolicy; }
     void setPopUpPolicy(WebKit::WebsitePopUpPolicy policy) { m_data.popUpPolicy = policy; }
 
+    RefPtr<WebKit::WebsiteDataStore> protectedWebsiteDataStore() const;
     WebKit::WebsiteDataStore* websiteDataStore() const { return m_websiteDataStore.get(); }
     void setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&&);
     
     WebKit::WebUserContentControllerProxy* userContentController() const { return m_userContentController.get(); }
     void setUserContentController(RefPtr<WebKit::WebUserContentControllerProxy>&&);
 
-    void setCustomUserAgent(const WTF::String& customUserAgent) { m_data.customUserAgent = customUserAgent; }
+    void setCustomUserAgent(WTF::String&& customUserAgent) { m_data.customUserAgent = WTFMove(customUserAgent); }
     const WTF::String& customUserAgent() const { return m_data.customUserAgent; }
 
-    void setCustomUserAgentAsSiteSpecificQuirks(const WTF::String& customUserAgent) { m_data.customUserAgentAsSiteSpecificQuirks = customUserAgent; }
+    void setCustomUserAgentAsSiteSpecificQuirks(WTF::String&& customUserAgent) { m_data.customUserAgentAsSiteSpecificQuirks = WTFMove(customUserAgent); }
     const WTF::String& customUserAgentAsSiteSpecificQuirks() const { return m_data.customUserAgentAsSiteSpecificQuirks; }
 
-    void setCustomNavigatorPlatform(const WTF::String& customNavigatorPlatform) { m_data.customNavigatorPlatform = customNavigatorPlatform; }
+    void setCustomNavigatorPlatform(WTF::String&& customNavigatorPlatform) { m_data.customNavigatorPlatform = WTFMove(customNavigatorPlatform); }
     const WTF::String& customNavigatorPlatform() const { return m_data.customNavigatorPlatform; }
 
     WebKit::WebContentMode preferredContentMode() const { return m_data.preferredContentMode; }
@@ -156,8 +157,10 @@ private:
     RefPtr<WebKit::WebUserContentControllerProxy> m_userContentController;
     std::optional<bool> m_lockdownModeEnabled;
 #if PLATFORM(COCOA)
-    std::unique_ptr<WebKit::LockdownModeObserver> m_lockdownModeObserver;
+    const std::unique_ptr<WebKit::LockdownModeObserver> m_lockdownModeObserver;
 #endif
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(WebsitePolicies);

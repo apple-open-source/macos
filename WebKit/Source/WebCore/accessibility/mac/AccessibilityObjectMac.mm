@@ -41,7 +41,7 @@
 #import "LocalFrame.h"
 #import "LocalFrameView.h"
 #import "LocalizedStrings.h"
-#import "RenderObject.h"
+#import "RenderObjectInlines.h"
 #import "Settings.h"
 #import "TextCheckerClient.h"
 #import "TextCheckingHelper.h"
@@ -68,21 +68,21 @@ void AccessibilityObject::detachPlatformWrapper(AccessibilityDetachmentType)
 
 void AccessibilityObject::detachFromParent()
 {
-    if (isAttachment())
-        overrideAttachmentParent(nullptr);
+    overrideAttachmentParent(nullptr);
 }
 
 void AccessibilityObject::overrideAttachmentParent(AccessibilityObject* parent)
 {
-    if (!isAttachment())
+    if (!isAttachment()) [[likely]]
         return;
-    
+
+    RefPtr axParent = parent;
     id parentWrapper = nil;
-    if (parent) {
-        if (parent->isIgnored())
-            parent = parent->parentObjectUnignored();
-        parentWrapper = parent->wrapper();
-    }
+    if (axParent && axParent->isIgnored())
+        axParent = axParent->parentObjectUnignored();
+
+    if (axParent)
+        parentWrapper = axParent->wrapper();
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[wrapper() attachmentView] accessibilitySetOverrideValue:parentWrapper forAttribute:NSAccessibilityParentAttribute];
@@ -97,7 +97,7 @@ FloatRect AccessibilityObject::primaryScreenRect() const
 FloatRect AccessibilityObject::convertRectToPlatformSpace(const FloatRect& rect, AccessibilityConversionSpace space) const
 {
     // WebKit1 code path... platformWidget() exists.
-    auto* frameView = documentFrameView();
+    RefPtr frameView = documentFrameView();
     if (frameView && frameView->platformWidget()) {
         CGPoint point = CGPointMake(rect.x(), rect.y());
         CGSize size = CGSizeMake(rect.size().width(), rect.size().height());
@@ -143,21 +143,21 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (isMenuListPopup() || isMenuListOption())
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (roleValue() == AccessibilityRole::Mark)
+    if (role() == AccessibilityRole::Mark)
         return AccessibilityObjectInclusion::IncludeObject;
 
     // Never expose an unknown object on the Mac. Clients of the AX API will not know what to do with it.
     // Special case is when the unknown object is actually an attachment.
-    if (roleValue() == AccessibilityRole::Unknown && !isAttachment())
+    if (role() == AccessibilityRole::Unknown && !isAttachment())
         return AccessibilityObjectInclusion::IgnoreObject;
     
-    if (roleValue() == AccessibilityRole::Inline && !isStyleFormatGroup())
+    if (role() == AccessibilityRole::Inline && !isStyleFormatGroup())
         return AccessibilityObjectInclusion::IgnoreObject;
 
     if (RenderObject* renderer = this->renderer()) {
         // The legend element is ignored if it lives inside of a fieldset element that uses it to generate alternative text.
         if (renderer->isLegend()) {
-            Element* element = this->element();
+            RefPtr element = this->element();
             if (element && ancestorsOfType<HTMLFieldSetElement>(*element).first())
                 return AccessibilityObjectInclusion::IgnoreObject;
         }
@@ -168,80 +168,36 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     
 bool AccessibilityObject::caretBrowsingEnabled() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && frame->settings().caretBrowsingEnabled();
 }
 
 void AccessibilityObject::setCaretBrowsingEnabled(bool on)
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return;
     frame->settings().setCaretBrowsingEnabled(on);
 }
 
-String AccessibilityObject::rolePlatformString() const
+AXCoreObject::AccessibilityChildrenVector AccessibilityObject::allSortedLiveRegions() const
 {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (isAttachment())
-        return [[wrapper() attachmentView] accessibilityAttributeValue:NSAccessibilityRoleAttribute];
-
-    if (isRemoteFrame())
-        return [remoteFramePlatformElement().get() accessibilityAttributeValue:NSAccessibilityRoleAttribute];
-ALLOW_DEPRECATED_DECLARATIONS_END
-
-    auto role = roleValue();
-
-    // If it is a label with just static text or an anonymous math operator, remap role to StaticText.
-    // The mfenced element creates anonymous RenderMathMLOperators with no RenderText
-    // descendants. These anonymous renderers are the only accessible objects
-    // containing the operator.
-    if ((role == AccessibilityRole::Label && is<AccessibilityLabel>(*this) && downcast<AccessibilityLabel>(*this).containsOnlyStaticText())
-        || isAnonymousMathOperator())
-        role = AccessibilityRole::StaticText;
-    else if (role == AccessibilityRole::Canvas && canvasHasFallbackContent())
-        role = AccessibilityRole::Group;
-
-    return Accessibility::roleToPlatformString(role);
+    CheckedPtr cache = axObjectCache();
+    if (!cache)
+        return { };
+    return cache->sortedLiveRegions();
 }
 
-static bool isEmptyGroup(AccessibilityObject& object)
+AXCoreObject::AccessibilityChildrenVector AccessibilityObject::allSortedNonRootWebAreas() const
 {
-#if ENABLE(MODEL_ELEMENT)
-    if (object.isModel())
-        return false;
-#endif
-
-    if (object.isRemoteFrame())
-        return false;
-
-    return [object.rolePlatformString() isEqual:NSAccessibilityGroupRole]
-        && object.unignoredChildren().isEmpty()
-        && ![renderWidgetChildren(object) count];
-}
-
-NSArray *renderWidgetChildren(const AXCoreObject& object)
-{
-    if (!object.isWidget())
-        return nil;
-
-    id child = Accessibility::retrieveAutoreleasedValueFromMainThread<id>([object = Ref { object }] () -> RetainPtr<id> {
-        auto* widget = object->widget();
-        return widget ? widget->accessibilityObject() : nil;
-    });
-
-    if (child)
-        return @[child];
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return [object.platformWidget() accessibilityAttributeValue:NSAccessibilityChildrenAttribute];
-ALLOW_DEPRECATED_DECLARATIONS_END
+    CheckedPtr cache = axObjectCache();
+    if (!cache)
+        return { };
+    return cache->sortedNonRootWebAreas();
 }
 
 String AccessibilityObject::subrolePlatformString() const
 {
-    if (isEmptyGroup(*const_cast<AccessibilityObject*>(this)))
-        return @"AXEmptyGroup";
-
     if (isSecureField())
         return NSAccessibilitySecureTextFieldSubrole;
     if (isSearchField())
@@ -263,13 +219,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return "AXModel"_s;
 #endif
 
-    AccessibilityRole role = roleValue();
+    auto role = this->role();
     if (role == AccessibilityRole::HorizontalRule)
         return "AXContentSeparator"_s;
     if (role == AccessibilityRole::ToggleButton)
         return NSAccessibilityToggleSubrole;
-    if (role == AccessibilityRole::Footer)
-        return "AXFooter"_s;
+    if (role == AccessibilityRole::SectionFooter)
+        return "AXSectionFooter"_s;
+    if (role == AccessibilityRole::SectionHeader)
+        return "AXSectionHeader"_s;
     if (role == AccessibilityRole::SpinButtonPart) {
         if (isIncrementor())
             return NSAccessibilityIncrementArrowSubrole;
@@ -292,8 +250,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             return "AXDescriptionList"_s;
     }
 
+    if (listBoxInterpretation() == ListBoxInterpretation::ActuallyStaticList)
+        return "AXContentList"_s;
+
     // ARIA content subroles.
     switch (role) {
+    case AccessibilityRole::Form:
+        return "AXLandmarkForm"_s;
     case AccessibilityRole::LandmarkBanner:
         return "AXLandmarkBanner"_s;
     case AccessibilityRole::LandmarkComplementary:
@@ -309,6 +272,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return "AXLandmarkRegion"_s;
     case AccessibilityRole::LandmarkSearch:
         return "AXLandmarkSearch"_s;
+    case AccessibilityRole::SectionFooter:
+        return "AXSectionFooter"_s;
+    case AccessibilityRole::SectionHeader:
+        return "AXSectionHeader"_s;
     case AccessibilityRole::ApplicationAlert:
         return "AXApplicationAlert"_s;
     case AccessibilityRole::ApplicationAlertDialog:
@@ -436,131 +403,20 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return "AXCodeStyleGroup"_s;
 
     using namespace HTMLNames;
-    auto tag = tagName();
-    if (tag == kbdTag)
+    auto elementName = this->elementName();
+    if (elementName == ElementName::HTML_kbd)
         return "AXKeyboardInputStyleGroup"_s;
-    if (tag == preTag)
+    if (elementName == ElementName::HTML_pre)
         return "AXPreformattedStyleGroup"_s;
-    if (tag == sampTag)
+    if (elementName == ElementName::HTML_samp)
         return "AXSampleStyleGroup"_s;
-    if (tag == varTag)
+    if (elementName == ElementName::HTML_var)
         return "AXVariableStyleGroup"_s;
-    if (tag == citeTag)
+    if (elementName == ElementName::HTML_cite)
         return "AXCiteStyleGroup"_s;
     ASSERT_WITH_MESSAGE(!isStyleFormatGroup(), "Should've been able to compute a subrole for style format group object");
 
     return String();
-}
-
-String AccessibilityObject::rolePlatformDescription() const
-{
-    // Attachments have the AXImage role, but may have different subroles.
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if (isAttachment())
-        return [[wrapper() attachmentView] accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
-
-    if (isRemoteFrame())
-        return [remoteFramePlatformElement().get() accessibilityAttributeValue:NSAccessibilityRoleDescriptionAttribute];
-ALLOW_DEPRECATED_DECLARATIONS_END
-
-    NSString *axRole = rolePlatformString();
-
-    if ([axRole isEqualToString:NSAccessibilityGroupRole]) {
-        if (isOutput())
-            return AXOutputText();
-
-        String ariaLandmarkRoleDescription = this->ariaLandmarkRoleDescription();
-        if (!ariaLandmarkRoleDescription.isEmpty())
-            return ariaLandmarkRoleDescription;
-
-        switch (roleValue()) {
-        case AccessibilityRole::Audio:
-            return localizedMediaControlElementString("AudioElement"_s);
-        case AccessibilityRole::Definition:
-            return AXDefinitionText();
-        case AccessibilityRole::DescriptionListTerm:
-        case AccessibilityRole::Term:
-            return AXDescriptionListTermText();
-        case AccessibilityRole::DescriptionListDetail:
-            return AXDescriptionListDetailText();
-        case AccessibilityRole::Details:
-            return AXDetailsText();
-        case AccessibilityRole::Feed:
-            return AXFeedText();
-        case AccessibilityRole::Footer:
-            return AXFooterRoleDescriptionText();
-        case AccessibilityRole::Mark:
-            return AXMarkText();
-        case AccessibilityRole::Video:
-            return localizedMediaControlElementString("VideoElement"_s);
-        case AccessibilityRole::GraphicsDocument:
-            return AXARIAContentGroupText("ARIADocument"_s);
-        default:
-            return { };
-        }
-    }
-
-    if ([axRole isEqualToString:@"AXWebArea"])
-        return AXWebAreaText();
-
-    if ([axRole isEqualToString:@"AXLink"])
-        return AXLinkText();
-
-    if ([axRole isEqualToString:@"AXListMarker"])
-        return AXListMarkerText();
-
-    if ([axRole isEqualToString:@"AXImageMap"])
-        return AXImageMapText();
-
-    if ([axRole isEqualToString:@"AXHeading"])
-        return AXHeadingText();
-
-    if ([axRole isEqualToString:NSAccessibilityTextFieldRole]) {
-        if (RefPtr input = dynamicDowncast<HTMLInputElement>(node())) {
-            if (input->isEmailField())
-                return AXEmailFieldText();
-            if (input->isTelephoneField())
-                return AXTelephoneFieldText();
-            if (input->isURLField())
-                return AXURLFieldText();
-            if (input->isNumberField())
-                return AXNumberFieldText();
-
-            // These input types are not enabled on mac yet, we check the type attribute for now.
-            // FIXME: "date", "time", and "datetime-local" are enabled on macOS.
-            auto& type = input->attributeWithoutSynchronization(HTMLNames::typeAttr);
-            if (equalLettersIgnoringASCIICase(type, "date"_s))
-                return AXDateFieldText();
-            if (equalLettersIgnoringASCIICase(type, "time"_s))
-                return AXTimeFieldText();
-            if (equalLettersIgnoringASCIICase(type, "week"_s))
-                return AXWeekFieldText();
-            if (equalLettersIgnoringASCIICase(type, "month"_s))
-                return AXMonthFieldText();
-            if (equalLettersIgnoringASCIICase(type, "datetime-local"_s))
-                return AXDateTimeFieldText();
-        }
-    }
-
-    if (isFileUploadButton())
-        return AXFileUploadButtonText();
-
-    // Only returning for DL (not UL or OL) because description changed with HTML5 from 'definition list' to
-    // superset 'description list' and does not return the same values in AX API on some OS versions.
-    if (isDescriptionList())
-        return AXDescriptionListText();
-
-    if (roleValue() == AccessibilityRole::HorizontalRule)
-        return AXHorizontalRuleDescriptionText();
-
-    // AppKit also returns AXTab for the role description for a tab item.
-    if (isTabItem())
-        return NSAccessibilityRoleDescription(@"AXTab", nil);
-
-    if (isSummary())
-        return AXSummaryText();
-
-    return { };
 }
 
 // NSAttributedString support.
@@ -568,14 +424,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 static void attributedStringSetCompositionAttributes(NSMutableAttributedString *attrString, Node& node, const SimpleRange& textSimpleRange)
 {
 #if HAVE(INLINE_PREDICTIONS)
-    auto& editor = node.document().editor();
-    if (&node != editor.compositionNode())
+    Ref editor = node.document().editor();
+    if (&node != editor->compositionNode())
         return;
 
     auto scope = makeRangeSelectingNodeContents(node);
     auto textRange = characterRange(scope, textSimpleRange);
 
-    auto& annotations = editor.customCompositionAnnotations();
+    auto& annotations = editor->customCompositionAnnotations();
     if (auto it = annotations.find(NSTextCompletionAttributeName); it != annotations.end()) {
         for (auto& annotationRange : it->value) {
             auto intersectionRange = NSIntersectionRange(textRange, annotationRange);
@@ -658,7 +514,7 @@ RetainPtr<NSAttributedString> attributedStringCreate(Node& node, StringView text
 
 Vector<uint8_t> AXRemoteFrame::generateRemoteToken() const
 {
-    if (auto* parent = parentObject()) {
+    if (RefPtr parent = parentObject()) {
         // We use the parent's wrapper so that the remote frame acts as a pass through for the remote token bridge.
         return makeVector([NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:parent->wrapper()]);
     }
@@ -676,153 +532,6 @@ void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uin
     if (auto* cache = axObjectCache())
         cache->onRemoteFrameInitialized(*this);
 }
-
-namespace Accessibility {
-
-PlatformRoleMap createPlatformRoleMap()
-{
-    struct RoleEntry {
-        AccessibilityRole value;
-        NSString *string;
-    };
-    static const RoleEntry roles[] = {
-        { AccessibilityRole::Unknown, NSAccessibilityUnknownRole },
-        { AccessibilityRole::Button, NSAccessibilityButtonRole },
-        { AccessibilityRole::RadioButton, NSAccessibilityRadioButtonRole },
-        { AccessibilityRole::Checkbox, NSAccessibilityCheckBoxRole },
-        { AccessibilityRole::Slider, NSAccessibilitySliderRole },
-        { AccessibilityRole::TabGroup, NSAccessibilityTabGroupRole },
-        { AccessibilityRole::TextField, NSAccessibilityTextFieldRole },
-        { AccessibilityRole::StaticText, NSAccessibilityStaticTextRole },
-        { AccessibilityRole::TextArea, NSAccessibilityTextAreaRole },
-        { AccessibilityRole::ScrollArea, NSAccessibilityScrollAreaRole },
-        { AccessibilityRole::PopUpButton, NSAccessibilityPopUpButtonRole },
-        { AccessibilityRole::Table, NSAccessibilityTableRole },
-        { AccessibilityRole::Application, NSAccessibilityApplicationRole },
-        { AccessibilityRole::Group, NSAccessibilityGroupRole },
-        { AccessibilityRole::TextGroup, NSAccessibilityGroupRole },
-        { AccessibilityRole::RadioGroup, NSAccessibilityRadioGroupRole },
-        { AccessibilityRole::List, NSAccessibilityListRole },
-        { AccessibilityRole::Directory, NSAccessibilityListRole },
-        { AccessibilityRole::ScrollBar, NSAccessibilityScrollBarRole },
-        { AccessibilityRole::Image, NSAccessibilityImageRole },
-        { AccessibilityRole::MenuBar, NSAccessibilityMenuBarRole },
-        { AccessibilityRole::Menu, NSAccessibilityMenuRole },
-        { AccessibilityRole::MenuItem, NSAccessibilityMenuItemRole },
-        { AccessibilityRole::MenuItemCheckbox, NSAccessibilityMenuItemRole },
-        { AccessibilityRole::MenuItemRadio, NSAccessibilityMenuItemRole },
-        { AccessibilityRole::Column, NSAccessibilityColumnRole },
-        { AccessibilityRole::Row, NSAccessibilityRowRole },
-        { AccessibilityRole::Toolbar, NSAccessibilityToolbarRole },
-        { AccessibilityRole::ProgressIndicator, NSAccessibilityProgressIndicatorRole },
-        { AccessibilityRole::Meter, NSAccessibilityLevelIndicatorRole },
-        { AccessibilityRole::ComboBox, NSAccessibilityComboBoxRole },
-        { AccessibilityRole::DateTime, @"AXDateTimeArea" },
-        { AccessibilityRole::Splitter, NSAccessibilitySplitterRole },
-        { AccessibilityRole::Code, NSAccessibilityGroupRole },
-        { AccessibilityRole::ColorWell, NSAccessibilityColorWellRole },
-        { AccessibilityRole::Link, NSAccessibilityLinkRole },
-        { AccessibilityRole::Grid, NSAccessibilityTableRole },
-        { AccessibilityRole::TreeGrid, NSAccessibilityTableRole },
-        { AccessibilityRole::WebCoreLink, NSAccessibilityLinkRole },
-        { AccessibilityRole::ImageMapLink, NSAccessibilityLinkRole },
-        { AccessibilityRole::ImageMap, @"AXImageMap" },
-        { AccessibilityRole::ListMarker, @"AXListMarker" },
-        { AccessibilityRole::WebArea, @"AXWebArea" },
-        { AccessibilityRole::Heading, @"AXHeading" },
-        { AccessibilityRole::ListBox, NSAccessibilityListRole },
-        { AccessibilityRole::ListBoxOption, NSAccessibilityStaticTextRole },
-        { AccessibilityRole::Cell, NSAccessibilityCellRole },
-        { AccessibilityRole::GridCell, NSAccessibilityCellRole },
-        { AccessibilityRole::TableHeaderContainer, NSAccessibilityGroupRole },
-        { AccessibilityRole::ColumnHeader, NSAccessibilityCellRole },
-        { AccessibilityRole::RowHeader, NSAccessibilityCellRole },
-        { AccessibilityRole::Definition, NSAccessibilityGroupRole },
-        { AccessibilityRole::DescriptionListDetail, NSAccessibilityGroupRole },
-        { AccessibilityRole::DescriptionListTerm, NSAccessibilityGroupRole },
-        { AccessibilityRole::Term, NSAccessibilityGroupRole },
-        { AccessibilityRole::DescriptionList, NSAccessibilityListRole },
-        { AccessibilityRole::SliderThumb, NSAccessibilityValueIndicatorRole },
-        { AccessibilityRole::WebApplication, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkBanner, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkComplementary, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkDocRegion, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkContentInfo, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkMain, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkNavigation, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkRegion, NSAccessibilityGroupRole },
-        { AccessibilityRole::LandmarkSearch, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationAlert, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationAlertDialog, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationDialog, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationLog, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationMarquee, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationStatus, NSAccessibilityGroupRole },
-        { AccessibilityRole::ApplicationTimer, NSAccessibilityGroupRole },
-        { AccessibilityRole::Document, NSAccessibilityGroupRole },
-        { AccessibilityRole::DocumentArticle, NSAccessibilityGroupRole },
-        { AccessibilityRole::DocumentMath, NSAccessibilityGroupRole },
-        { AccessibilityRole::DocumentNote, NSAccessibilityGroupRole },
-        { AccessibilityRole::Emphasis, NSAccessibilityGroupRole },
-        { AccessibilityRole::UserInterfaceTooltip, NSAccessibilityGroupRole },
-        { AccessibilityRole::Tab, NSAccessibilityRadioButtonRole },
-        { AccessibilityRole::TabList, NSAccessibilityTabGroupRole },
-        { AccessibilityRole::TabPanel, NSAccessibilityGroupRole },
-        { AccessibilityRole::Tree, NSAccessibilityOutlineRole },
-        { AccessibilityRole::TreeItem, NSAccessibilityRowRole },
-        { AccessibilityRole::ListItem, NSAccessibilityGroupRole },
-        { AccessibilityRole::Paragraph, NSAccessibilityGroupRole },
-        { AccessibilityRole::Label, NSAccessibilityGroupRole },
-        { AccessibilityRole::Form, NSAccessibilityGroupRole },
-        { AccessibilityRole::Generic, NSAccessibilityGroupRole },
-        { AccessibilityRole::SpinButton, NSAccessibilityIncrementorRole },
-        { AccessibilityRole::SpinButtonPart, @"AXIncrementorArrow" },
-        { AccessibilityRole::Footer, NSAccessibilityGroupRole },
-        { AccessibilityRole::ToggleButton, NSAccessibilityCheckBoxRole },
-        { AccessibilityRole::Canvas, NSAccessibilityImageRole },
-        { AccessibilityRole::SVGRoot, NSAccessibilityGroupRole },
-        { AccessibilityRole::Legend, NSAccessibilityGroupRole },
-        { AccessibilityRole::MathElement, NSAccessibilityGroupRole },
-        { AccessibilityRole::Audio, NSAccessibilityGroupRole },
-        { AccessibilityRole::Video, NSAccessibilityGroupRole },
-        { AccessibilityRole::HorizontalRule, NSAccessibilitySplitterRole },
-        { AccessibilityRole::Blockquote, NSAccessibilityGroupRole },
-        { AccessibilityRole::Switch, NSAccessibilityCheckBoxRole },
-        { AccessibilityRole::SearchField, NSAccessibilityTextFieldRole },
-        { AccessibilityRole::Pre, NSAccessibilityGroupRole },
-        { AccessibilityRole::RubyInline, NSAccessibilityGroupRole },
-        { AccessibilityRole::RubyText, NSAccessibilityGroupRole },
-        { AccessibilityRole::Details, NSAccessibilityGroupRole },
-        { AccessibilityRole::Summary, NSAccessibilityDisclosureTriangleRole },
-        { AccessibilityRole::SVGTextPath, NSAccessibilityGroupRole },
-        { AccessibilityRole::SVGText, NSAccessibilityGroupRole },
-        { AccessibilityRole::SVGTSpan, NSAccessibilityGroupRole },
-        { AccessibilityRole::Inline, NSAccessibilityGroupRole },
-        { AccessibilityRole::Mark, NSAccessibilityGroupRole },
-        { AccessibilityRole::Time, NSAccessibilityGroupRole },
-        { AccessibilityRole::Feed, NSAccessibilityGroupRole },
-        { AccessibilityRole::Figure, NSAccessibilityGroupRole },
-        { AccessibilityRole::Footnote, NSAccessibilityGroupRole },
-        { AccessibilityRole::GraphicsDocument, NSAccessibilityGroupRole },
-        { AccessibilityRole::GraphicsObject, NSAccessibilityGroupRole },
-        { AccessibilityRole::GraphicsSymbol, NSAccessibilityImageRole },
-        { AccessibilityRole::Caption, NSAccessibilityGroupRole },
-        { AccessibilityRole::Deletion, NSAccessibilityGroupRole },
-        { AccessibilityRole::Insertion, NSAccessibilityGroupRole },
-        { AccessibilityRole::Strong, NSAccessibilityGroupRole },
-        { AccessibilityRole::Subscript, NSAccessibilityGroupRole },
-        { AccessibilityRole::Superscript, NSAccessibilityGroupRole },
-        { AccessibilityRole::Model, NSAccessibilityGroupRole },
-        { AccessibilityRole::Suggestion, NSAccessibilityGroupRole },
-        { AccessibilityRole::RemoteFrame, NSAccessibilityGroupRole },
-    };
-    PlatformRoleMap roleMap;
-    for (auto& role : roles)
-        roleMap.add(static_cast<unsigned>(role.value), role.string);
-    return roleMap;
-}
-
-} // namespace Accessibility
 
 } // WebCore
 

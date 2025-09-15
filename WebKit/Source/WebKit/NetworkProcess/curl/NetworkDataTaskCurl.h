@@ -33,7 +33,7 @@
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
-#include <wtf/FileSystem.h>
+#include <wtf/FileHandle.h>
 #include <wtf/MonotonicTime.h>
 
 namespace WebCore {
@@ -114,7 +114,7 @@ private:
     unsigned m_authFailureCount { 0 };
 
     bool m_allowOverwriteDownload { false };
-    FileSystem::PlatformFileHandle m_downloadDestinationFile { FileSystem::invalidPlatformFileHandle };
+    FileSystem::FileHandle m_downloadDestinationFile;
 
     bool m_blockingCookies { false };
 

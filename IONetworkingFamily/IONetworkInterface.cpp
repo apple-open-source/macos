@@ -1004,6 +1004,7 @@ UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
 bool IONetworkInterface::inputEvent(UInt32 type, void * data)
 {
     bool      success = true;
+    ifnet_t   eventIfp = getIfnet();
 
     struct {
         kern_event_msg  header;
@@ -1023,7 +1024,7 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
             // Send an event only if DLIL has a reference to this
             // interface.
             linkData = (const IONetworkLinkEventData *) data;
-            if (!_backingIfnet || !linkData)
+            if (!eventIfp || !linkData)
                 break;
 
             // Use link speed to report bandwidth for legacy drivers
@@ -1033,7 +1034,7 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
 
                 bw.max_bw = linkData->linkSpeed;
                 bw.eff_bw = linkData->linkSpeed;
-                ifnet_set_bandwidths(_backingIfnet, &bw, &bw);
+                ifnet_set_bandwidths(eventIfp, &bw, &bw);
             }
 
             if ((type == kIONetworkEventTypeLinkUp) ||
@@ -1046,11 +1047,11 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
                 event.header.kev_subclass  = KEV_DL_SUBCLASS;
                 event.header.event_code    = (type == kIONetworkEventTypeLinkUp) ?
                                              KEV_DL_LINK_ON : KEV_DL_LINK_OFF;
-				event.header.event_data[0] = ifnet_family(_backingIfnet);
-                event.unit                 = ifnet_unit(_backingIfnet);
-                strncpy(&event.if_name[0], ifnet_name(_backingIfnet), IFNAMSIZ);
+				event.header.event_data[0] = ifnet_family(eventIfp);
+                event.unit                 = ifnet_unit(eventIfp);
+                strncpy(&event.if_name[0], ifnet_name(eventIfp), IFNAMSIZ);
 
-                ifnet_event(_backingIfnet, &event.header);
+                ifnet_event(eventIfp, &event.header);
 
                 retain();
                 if (thread_call_enter1(_inputEventThreadCall, (thread_call_param_t)(uintptr_t)type) == TRUE)

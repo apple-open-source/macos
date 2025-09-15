@@ -71,6 +71,8 @@ private:
 
 	IOReturn            secureAttemptIdleSleepAbort( uint32_t *outReverted);
 
+	IOReturn            secureSetLockdownModeHibernation( uint32_t status);
+
 public:
 
 	virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;

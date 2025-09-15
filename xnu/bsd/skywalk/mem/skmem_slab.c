@@ -31,6 +31,7 @@
 #include <pexpert/pexpert.h>    /* for PE_parse_boot_argn */
 #include <libkern/OSDebug.h>    /* for OSBacktrace */
 #include <kern/sched_prim.h>    /* for assert_wait */
+#include <kern/uipc_domain.h>
 #include <vm/vm_memtag.h>
 
 static struct skmem_slab *skmem_slab_create(struct skmem_cache *, uint32_t);
@@ -132,9 +133,9 @@ skmem_slab_create(struct skmem_cache *skm, uint32_t skmflag)
 		--chunks;
 	}
 
-	SK_DF(SK_VERB_MEM_CACHE, "skm 0x%llx sl 0x%llx",
+	SK_DF(SK_VERB_MEM_CACHE, "skm %p sl %p",
 	    SK_KVA(skm), SK_KVA(sl));
-	SK_DF(SK_VERB_MEM_CACHE, "  [%u] [0x%llx-0x%llx)", sl->sl_seg->sg_index,
+	SK_DF(SK_VERB_MEM_CACHE, "  [%u] [%p-%p)", sl->sl_seg->sg_index,
 	    SK_KVA(slab), SK_KVA(slab + objsize));
 
 	return sl;
@@ -164,9 +165,9 @@ skmem_slab_destroy(struct skmem_cache *skm, struct skmem_slab *sl)
 
 	ASSERT(sl->sl_refcnt == 0);
 
-	SK_DF(SK_VERB_MEM_CACHE, "skm 0x%llx sl 0x%llx",
+	SK_DF(SK_VERB_MEM_CACHE, "skm %p sl %p",
 	    SK_KVA(skm), SK_KVA(sl));
-	SK_DF(SK_VERB_MEM_CACHE, "  [%u] [0x%llx-0x%llx)", sl->sl_seg->sg_index,
+	SK_DF(SK_VERB_MEM_CACHE, "  [%u] [%p-%p)", sl->sl_seg->sg_index,
 	    SK_KVA(slab), SK_KVA((uintptr_t)slab + skm->skm_objsize));
 
 	/*

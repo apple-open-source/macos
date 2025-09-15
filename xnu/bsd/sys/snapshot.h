@@ -51,11 +51,15 @@ int fs_snapshot_rename(int, const char *, const char *, uint32_t) __OSX_AVAILABL
 #endif /* !KERNEL */
 
 /* fs_snapshot_mount() supported flags */
+#define SNAPSHOT_MNT_RESERVED1          0x00000001    /* same as MNT_RDONLY */
+#define SNAPSHOT_MNT_NOEXEC             0x00000004    /* same as MNT_NOEXEC */
 #define SNAPSHOT_MNT_NOSUID             0x00000008    /* same as MNT_NOSUID */
 #define SNAPSHOT_MNT_NODEV              0x00000010    /* same as MNT_NODEV */
 #define SNAPSHOT_MNT_DONTBROWSE         0x00100000    /* same as MNT_DONTBROWSE */
 #define SNAPSHOT_MNT_IGNORE_OWNERSHIP   0x00200000    /* same as MNT_IGNORE_OWNERSHIP */
 #define SNAPSHOT_MNT_NOFOLLOW           0x08000000    /* same as MNT_NOFOLLOW */
+
+#define SNAPSHOT_MNT_VALIDMASK          0x0830001d
 
 #ifndef KERNEL
 

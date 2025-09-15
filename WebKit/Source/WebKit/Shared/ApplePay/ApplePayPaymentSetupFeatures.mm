@@ -37,9 +37,9 @@
 
 namespace WebKit {
 
-static NSArray<PKPaymentSetupFeature *> *toPlatformFeatures(Vector<Ref<WebCore::ApplePaySetupFeature>>&& features)
+static RetainPtr<NSArray<PKPaymentSetupFeature *>> toPlatformFeatures(Vector<Ref<WebCore::ApplePaySetupFeature>>&& features)
 {
-    NSMutableArray *platformFeatures = [NSMutableArray arrayWithCapacity:features.size()];
+    RetainPtr platformFeatures = adoptNS([[NSMutableArray alloc] initWithCapacity:features.size()]);
     for (auto& feature : features) {
         [platformFeatures addObject:feature->platformFeature()];
     }

@@ -28,6 +28,8 @@
 #include <libxml/HTMLtree.h>
 #include <libxml/globals.h>
 
+#include "private/parser.h"
+
 /* #define DEBUG_SAX2 */
 /* #define DEBUG_SAX2_TREE */
 
@@ -460,18 +462,13 @@ xmlSAX2ExternalSubset(void *ctx, const xmlChar *name,
 	                 xmlMalloc(5 * sizeof(xmlParserInputPtr));
 	if (ctxt->inputTab == NULL) {
 	    xmlSAX2ErrMemory(ctxt, "xmlSAX2ExternalSubset");
-	    ctxt->input = oldinput;
-	    ctxt->inputNr = oldinputNr;
-	    ctxt->inputMax = oldinputMax;
-	    ctxt->inputTab = oldinputTab;
-	    ctxt->charset = oldcharset;
-	    ctxt->encoding = oldencoding;
-	    return;
+        goto error;
 	}
 	ctxt->inputNr = 0;
 	ctxt->inputMax = 5;
 	ctxt->input = NULL;
-	xmlPushInput(ctxt, input);
+    if (xmlPushInput(ctxt, input) < 0)
+            goto error;
 
 	/*
 	 * On the fly encoding conversion if needed
@@ -500,8 +497,10 @@ xmlSAX2ExternalSubset(void *ctx, const xmlChar *name,
 
 	while (ctxt->inputNr > 1)
 	    xmlPopInput(ctxt);
-	xmlFreeInputStream(ctxt->input);
-        xmlFree(ctxt->inputTab);
+
+error:
+    xmlFreeInputStream(input);
+    xmlFree(ctxt->inputTab);
 
 	/*
 	 * Restore the parsing context of the main entity
@@ -538,27 +537,41 @@ xmlParserInputPtr
 xmlSAX2ResolveEntity(void *ctx, const xmlChar *publicId, const xmlChar *systemId)
 {
     xmlParserCtxtPtr ctxt = (xmlParserCtxtPtr) ctx;
-    xmlParserInputPtr ret;
+    xmlParserInputPtr ret = NULL;
     xmlChar *URI;
-    const char *base = NULL;
+    const xmlChar *base = NULL;
 
     if (ctx == NULL) return(NULL);
     if (ctxt->input != NULL)
-	base = ctxt->input->filename;
+        base = BAD_CAST ctxt->input->filename;
     if (base == NULL)
-	base = ctxt->directory;
+        base = BAD_CAST ctxt->directory;
 
-    URI = xmlBuildURI(systemId, (const xmlChar *) base);
+    if ((xmlStrlen(systemId) > XML_MAX_URI_LENGTH) ||
+        (xmlStrlen(base) > XML_MAX_URI_LENGTH)) {
+        xmlFatalErrMsg(ctxt, XML_ERR_INVALID_URI, "URI too long", NULL, NULL);
+        return(NULL);
+    }
+
+    URI = xmlBuildURI(systemId, base);
+    if (URI == NULL) {
+        xmlSAX2ErrMemory(ctxt, "xmlSAX2ResolveEntity");
+        return(NULL);
+    }
 
 #ifdef DEBUG_SAX
     xmlGenericError(xmlGenericErrorContext,
 	    "SAX.xmlSAX2ResolveEntity(%s, %s)\n", publicId, systemId);
 #endif
+    
+    if (xmlStrlen(URI) > XML_MAX_URI_LENGTH) {
+        xmlFatalErrMsg(ctxt, XML_ERR_INVALID_URI, "URI too long", NULL, NULL);
+    } else {
+        ret = xmlLoadExternalEntity((const char *) URI,
+                                    (const char *) publicId, ctxt);
+    }
 
-    ret = xmlLoadExternalEntity((const char *) URI,
-				(const char *) publicId, ctxt);
-    if (URI != NULL)
-	xmlFree(URI);
+    xmlFree(URI);
     return(ret);
 }
 
@@ -689,19 +702,29 @@ xmlSAX2EntityDecl(void *ctx, const xmlChar *name, int type,
 	    ctxt->sax->warning(ctxt->userData,
 	     "Entity(%s) already defined in the external subset\n", name);
 	if ((ent != NULL) && (ent->URI == NULL) && (systemId != NULL)) {
-	    xmlChar *URI;
-	    const char *base = NULL;
+        xmlChar *URI;
+        const char *base = NULL;
 
-	    if (ctxt->input != NULL)
-		base = ctxt->input->filename;
-	    if (base == NULL)
-		base = ctxt->directory;
+        if (ctxt->input != NULL)
+            base = ctxt->input->filename;
+        if (base == NULL)
+            base = ctxt->directory;
 
-	    URI = xmlBuildURI(systemId, (const xmlChar *) base);
-	    ent->URI = URI;
+        URI = xmlBuildURI(systemId, (const xmlChar *) base);
+        if (URI == NULL) {
+            xmlSAX2ErrMemory(ctxt, "xmlSAX2EntityDecl");
+            return;
+        }
+
+        if (xmlStrlen(URI) > XML_MAX_URI_LENGTH) {
+            xmlFatalErrMsg(ctxt, XML_ERR_INVALID_URI, "URI too long", name, NULL);
+            xmlFree(URI);
+        } else {
+            ent->URI = URI;
+        }
 	}
     } else {
-	xmlFatalErrMsg(ctxt, XML_ERR_ENTITY_PROCESSING,
+        xmlFatalErrMsg(ctxt, XML_ERR_ENTITY_PROCESSING,
 	               "SAX.xmlSAX2EntityDecl(%s) called while not in subset\n",
 		       name, NULL);
     }
@@ -2098,7 +2121,9 @@ xmlSAX2AttributeNs(xmlParserCtxtPtr ctxt,
 		    xmlChar *fullname;
 
 		    fullname = xmlBuildQName(localname, prefix, fn, 50);
-		    if (fullname != NULL) {
+                    if (fullname == NULL) {
+                        xmlSAX2ErrMemory(ctxt, "xmlSAX2AttributeNs");
+                    } else {
 			ctxt->vctxt.valid = 1;
 		        nvalnorm = xmlValidCtxtNormalizeAttributeValue(
 			                 &ctxt->vctxt, ctxt->myDoc,

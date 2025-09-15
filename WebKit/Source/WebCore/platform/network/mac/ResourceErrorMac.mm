@@ -100,15 +100,15 @@ static RetainPtr<NSError> createNSErrorFromResourceErrorBase(const ResourceError
     RetainPtr<NSMutableDictionary> userInfo = adoptNS([[NSMutableDictionary alloc] init]);
 
     if (!resourceError.localizedDescription().isEmpty())
-        [userInfo setValue:resourceError.localizedDescription() forKey:NSLocalizedDescriptionKey];
+        [userInfo setValue:resourceError.localizedDescription().createNSString().get() forKey:NSLocalizedDescriptionKey];
 
     if (!resourceError.failingURL().isEmpty()) {
-        [userInfo setValue:(NSString *)resourceError.failingURL().string() forKey:@"NSErrorFailingURLStringKey"];
-        if (NSURL *cocoaURL = (NSURL *)resourceError.failingURL())
-            [userInfo setValue:cocoaURL forKey:@"NSErrorFailingURLKey"];
+        [userInfo setValue:resourceError.failingURL().string().createNSString().get() forKey:@"NSErrorFailingURLStringKey"];
+        if (RetainPtr cocoaURL = resourceError.failingURL().createNSURL())
+            [userInfo setValue:cocoaURL.get() forKey:NSURLErrorFailingURLErrorKey];
     }
 
-    return adoptNS([[NSError alloc] initWithDomain:resourceError.domain() code:resourceError.errorCode() userInfo:userInfo.get()]);
+    return adoptNS([[NSError alloc] initWithDomain:resourceError.domain().createNSString().get() code:resourceError.errorCode() userInfo:userInfo.get()]);
 }
 
 ResourceError::ResourceError(NSError *nsError)
@@ -165,7 +165,8 @@ ResourceError::ErrorRecoveryMethod ResourceError::errorRecoveryMethod() const
     lazyInit();
 
     bool isRecoverableError { false };
-    if ([m_domain isEqualToString:NSURLErrorDomain]) {
+    RetainPtr nsDomain = m_domain.createNSString();
+    if ([nsDomain isEqualToString:NSURLErrorDomain]) {
         switch (m_errorCode) {
         case NSURLErrorTimedOut:
         case NSURLErrorCannotFindHost:
@@ -189,7 +190,7 @@ ResourceError::ErrorRecoveryMethod ResourceError::errorRecoveryMethod() const
         case NSURLErrorClientCertificateRequired:
             isRecoverableError = true;
         }
-    } else if ([m_domain isEqualToString:@"WebKitErrorDomain"]) {
+    } else if ([nsDomain isEqualToString:@"WebKitErrorDomain"]) {
         // FIXME: These literals should be moved into a central location that is shared with WebKit::API.
         constexpr auto httpsUpgradeRedirectLoop { 304 };
         isRecoverableError = m_errorCode == httpsUpgradeRedirectLoop;
@@ -228,7 +229,7 @@ void ResourceError::platformLazyInit()
     RetainPtr userInfo = [m_platformError userInfo];
     if (auto *failingURLString = dynamic_objc_cast<NSString>([userInfo valueForKey:@"NSErrorFailingURLStringKey"]))
         m_failingURL = URL { failingURLString };
-    else if (auto *failingURL = dynamic_objc_cast<NSURL>([userInfo valueForKey:@"NSErrorFailingURLKey"]))
+    else if (auto *failingURL = dynamic_objc_cast<NSURL>([userInfo valueForKey:NSURLErrorFailingURLErrorKey]))
         m_failingURL = URL { failingURL };
     // Workaround for <rdar://problem/6554067>
     m_localizedDescription = m_failingURL.string();
@@ -315,15 +316,15 @@ String ResourceError::blockedTrackerHostName() const
 
 bool ResourceError::hasMatchingFailingURLKeys() const
 {
-    if (id nsErrorFailingURL = [nsError().userInfo objectForKey:@"NSErrorFailingURLKey"]) {
-        auto *failingURL = dynamic_objc_cast<NSURL>(nsErrorFailingURL);
+    if (RetainPtr<id> nsErrorFailingURL = [nsError().userInfo objectForKey:NSURLErrorFailingURLErrorKey]) {
+        RetainPtr failingURL = dynamic_objc_cast<NSURL>(nsErrorFailingURL.get());
         if (!failingURL)
             return false;
-        if (id nsErrorFailingURLString = [nsError().userInfo objectForKey:@"NSErrorFailingURLStringKey"]) {
-            auto *failingURLString = dynamic_objc_cast<NSString>(nsErrorFailingURLString);
+        if (RetainPtr<id> nsErrorFailingURLString = [nsError().userInfo objectForKey:@"NSErrorFailingURLStringKey"]) {
+            RetainPtr failingURLString = dynamic_objc_cast<NSString>(nsErrorFailingURLString.get());
             if (!failingURLString)
                 return false;
-            if (![failingURL isEqual:URL(failingURLString)])
+            if (![failingURL isEqual:URL(failingURLString.get()).createNSURL().get()])
                 return false;
         }
     }

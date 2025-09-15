@@ -49,7 +49,7 @@ WebBackForwardCacheEntry::WebBackForwardCacheEntry(WebBackForwardCache& backForw
     , m_processIdentifier(processIdentifier)
     , m_backForwardItemID(backForwardItemID)
     , m_suspendedPage(WTFMove(suspendedPage))
-    , m_expirationTimer(RunLoop::main(), this, &WebBackForwardCacheEntry::expirationTimerFired)
+    , m_expirationTimer(RunLoop::mainSingleton(), "WebBackForwardCacheEntry::ExpirationTimer"_s, this, &WebBackForwardCacheEntry::expirationTimerFired)
 {
     m_expirationTimer.startOneShot(expirationDelay);
 }
@@ -87,7 +87,7 @@ void WebBackForwardCacheEntry::expirationTimerFired()
 {
     ASSERT(m_backForwardItemID);
     RELEASE_LOG(BackForwardCache, "%p - WebBackForwardCacheEntry::expirationTimerFired backForwardItemID=%s, hasSuspendedPage=%d", this, m_backForwardItemID->toString().utf8().data(), !!m_suspendedPage);
-    auto* item = WebBackForwardListItem::itemForID(*m_backForwardItemID);
+    RefPtr item = WebBackForwardListItem::itemForID(*m_backForwardItemID);
     ASSERT(item);
     if (RefPtr backForwardCache = m_backForwardCache.get())
         backForwardCache->removeEntry(*item);

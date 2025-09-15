@@ -20,7 +20,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-using WebCore::FontPlatformData::IPCData = std::variant<WebCore::FontPlatformSerializedData, WebCore::FontPlatformSerializedCreationData>;
+using WebCore::FontPlatformData::IPCData = Variant<WebCore::FontPlatformSerializedData, WebCore::FontPlatformSerializedCreationData>;
 
 [RefCounted] class WebCore::Font {
     WebCore::FontInternalAttributes attributes();

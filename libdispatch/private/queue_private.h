@@ -540,6 +540,38 @@ void
 dispatch_async_swift_job(dispatch_queue_t queue, void *swift_job,
 	qos_class_t qos);
 
+/*!
+ * @function dispatch_queue_get_threadid_4wdt
+ *
+ * @abstract
+ * Returns the threadid of the thread that currently holds the drain lock of a
+ * serial queue.
+ *
+ * @discussion
+ * This SPI is intended only for debugging purposes of stuck queues. It is
+ * inherently racy, since the thread holding the queue's drain lock may change
+ * or the thread may exit while this thread is looking up the owner.
+ *
+ * @param queue
+ * The queue to query. The queue must be a serial queue (either a
+ * dispatch_serial_queue, dispatch_workloop, or the main queue).
+ *
+ * @param thread_id
+ * On success, the thread_id of the thread blocking queue will be stored to
+ * this pointer.
+ *
+ * @result
+ * On success, this function will return zero. Otherwise an error number will
+ * be returned to indicate the error:
+ * - EINVAL: The passed queue was invalid
+ * - ESRCH: The queue drainer couldn't be found, either because the queue isn't
+ *   locked or the thread exited before we could look up its ID
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0))
+DISPATCH_EXPORT DISPATCH_NONNULL1 DISPATCH_NONNULL2
+int
+dispatch_queue_get_threadid_4wdt(dispatch_queue_t queue, uint64_t *thread_id);
+
 __END_DECLS
 
 DISPATCH_ASSUME_NONNULL_END

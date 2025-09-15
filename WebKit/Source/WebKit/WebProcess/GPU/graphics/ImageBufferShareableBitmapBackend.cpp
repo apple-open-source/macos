@@ -27,6 +27,7 @@
 #include "ImageBufferShareableBitmapBackend.h"
 
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/PixelBuffer.h>
 #include <WebCore/ShareableBitmap.h>
 #include <wtf/StdLibExtras.h>
@@ -67,7 +68,7 @@ size_t ImageBufferShareableBitmapBackend::calculateMemoryCost(const Parameters& 
 
 std::unique_ptr<ImageBufferShareableBitmapBackend> ImageBufferShareableBitmapBackend::create(const Parameters& parameters, const ImageBufferCreationContext& creationContext)
 {
-    ASSERT(parameters.pixelFormat == ImageBufferPixelFormat::BGRA8 || parameters.pixelFormat == ImageBufferPixelFormat::BGRX8);
+    ASSERT(parameters.bufferFormat.pixelFormat == ImageBufferPixelFormat::BGRA8 || parameters.bufferFormat.pixelFormat == ImageBufferPixelFormat::BGRX8);
 
     IntSize backendSize = calculateSafeBackendSize(parameters);
     if (backendSize.isEmpty())
@@ -157,7 +158,7 @@ void ImageBufferShareableBitmapBackend::getPixelBuffer(const IntRect& srcRect, P
     ImageBufferBackend::getPixelBuffer(srcRect, m_bitmap->span(), destination);
 }
 
-void ImageBufferShareableBitmapBackend::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
+void ImageBufferShareableBitmapBackend::putPixelBuffer(const PixelBufferSourceView& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
     ImageBufferBackend::putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat, m_bitmap->mutableSpan());
 }

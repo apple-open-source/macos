@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -185,23 +185,37 @@ static int reexec(cpu_type_t cputype, const char *guardenv)
 	execsize = (uint32_t)sizeof(execpath);
 	ret = _NSGetExecutablePath(execpath, &execsize);
 	if (ret != 0) {
-        free(newenvp);
+		free(newenvp);
 		return -1;
 	}
 
 	ret = posix_spawnattr_init(&attr);
 	if (ret != 0) {
-        free(newenvp);
+		free(newenvp);
 		return -1;
 	}
 	ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC);
 	if (ret != 0) {
-        free(newenvp);
+		free(newenvp);
 		return -1;
 	}
-	ret = posix_spawnattr_setbinpref_np(&attr, 1, &cputype, &copied);
-	if (ret != 0 || copied != 1) {
-        free(newenvp);
+
+	cpu_type_t cputypes[2] = { cputype, 0 };
+	size_t count = 1;
+	if ((cputype & CPU_ARCH_ABI64) == 0) {
+		/*
+		 * Some processors allow instructions that were designed for
+		 * LP64 ABIs to be used to provide better performance in
+		 * an ILP32 hybrid ABI e.g. arm64 vs. arm64_32 vs. arm
+		 * Prefer the hybrid ABI.
+		 */
+		cputypes[1] = cputypes[0];
+		cputypes[0] |= CPU_ARCH_ABI64_32;
+		count = 2;
+	}
+	ret = posix_spawnattr_setbinpref_np(&attr, count, cputypes, &copied);
+	if (ret != 0 || copied != count) {
+		free(newenvp);
 		return -1;
 	}
 
@@ -216,7 +230,7 @@ static int reexec(cpu_type_t cputype, const char *guardenv)
 #endif
 
 	ret = posix_spawn(NULL, execpath, NULL, &attr, argv, newenvp);
-    free(newenvp);
+	free(newenvp);
 	if (ret != 0) {
 		errno = ret;
 		return -1;

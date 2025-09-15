@@ -60,7 +60,7 @@
 #include <libproc.h>
 
 # if	defined(AF_VSOCK)
-#include <sys/vsock.h>
+#include <sys/vsock_private.h>
 # endif	/* defined(AF_VSOCK) */
 
 # if DARWINV<900

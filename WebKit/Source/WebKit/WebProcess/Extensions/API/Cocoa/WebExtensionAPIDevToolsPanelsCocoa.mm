@@ -54,7 +54,7 @@ void WebExtensionAPIDevToolsPanels::createPanel(WebPageProxyIdentifier webPagePr
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsPanelsCreate(webPageProxyIdentifier, title, iconPath, pagePath), [this, protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Inspector::ExtensionTabID, WebExtensionError>&& result) mutable {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 

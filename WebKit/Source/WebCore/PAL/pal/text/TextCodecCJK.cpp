@@ -28,6 +28,7 @@
 
 #include "EncodingTables.h"
 #include <mutex>
+#include <ranges>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CodePointIterator.h>
 #include <wtf/text/MakeString.h>
@@ -182,7 +183,7 @@ static const JIS0208EncodeIndex& jis0208EncodeIndex()
     return *table;
 }
 
-String TextCodecCJK::decodeCommon(std::span<const uint8_t> bytes, bool flush, bool stopOnError, bool& sawError, const Function<SawError(uint8_t, StringBuilder&)>& byteParser)
+String TextCodecCJK::decodeCommon(std::span<const uint8_t> bytes, bool flush, bool stopOnError, bool& sawError, NOESCAPE const Function<SawError(uint8_t, StringBuilder&)>& byteParser)
 {
     StringBuilder result;
     result.reserveCapacity(bytes.size());
@@ -483,7 +484,7 @@ String TextCodecCJK::iso2022JPDecode(std::span<const uint8_t> bytes, bool flush,
             break;
         case ISO2022JPDecoderState::TrailByte:
             m_iso2022JPDecoderState = ISO2022JPDecoderState::LeadByte;
-            FALLTHROUGH;
+            [[fallthrough]];
         case ISO2022JPDecoderState::EscapeStart:
             sawError = true;
             result.append(replacementCharacter);
@@ -854,8 +855,6 @@ static const std::array<std::pair<uint32_t, char32_t>, 207>& gb18030Ranges()
     return ranges;
 }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 // https://encoding.spec.whatwg.org/#index-gb18030-ranges-code-point
 static std::optional<char32_t> gb18030RangesCodePoint(uint32_t pointer)
 {
@@ -863,10 +862,10 @@ static std::optional<char32_t> gb18030RangesCodePoint(uint32_t pointer)
         return std::nullopt;
     if (pointer == 7457)
         return 0xE7C7;
-    auto upperBound = std::upper_bound(gb18030Ranges().begin(), gb18030Ranges().end(), makeFirstAdapter(pointer), CompareFirst { });
-    ASSERT(upperBound != gb18030Ranges().begin());
-    uint32_t offset = (upperBound - 1)->first;
-    char32_t codePointOffset = (upperBound - 1)->second;
+    auto& ranges = gb18030Ranges();
+    auto upperBound = std::ranges::upper_bound(ranges, makeFirstAdapter(pointer), CompareFirst { });
+    ASSERT(upperBound != ranges.begin());
+    auto [offset, codePointOffset] = ranges[upperBound - ranges.begin() - 1];
     return codePointOffset + pointer - offset;
 }
 
@@ -875,14 +874,12 @@ static uint32_t gb18030RangesPointer(char32_t codePoint)
 {
     if (codePoint == 0xE7C7)
         return 7457;
-    auto upperBound = std::upper_bound(gb18030Ranges().begin(), gb18030Ranges().end(), makeSecondAdapter(codePoint), CompareSecond { });
-    ASSERT(upperBound != gb18030Ranges().begin());
-    uint32_t pointerOffset = (upperBound - 1)->first;
-    char32_t offset = (upperBound - 1)->second;
+    auto& ranges = gb18030Ranges();
+    auto upperBound = std::ranges::upper_bound(ranges, makeSecondAdapter(codePoint), CompareSecond { });
+    ASSERT(upperBound != ranges.begin());
+    auto [pointerOffset, offset] = ranges[upperBound - ranges.begin() - 1];
     return pointerOffset + codePoint - offset;
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 using GB18030EncodeIndex = std::array<std::pair<UChar, uint16_t>, 23940>;
 static const GB18030EncodeIndex& gb18030EncodeIndex()

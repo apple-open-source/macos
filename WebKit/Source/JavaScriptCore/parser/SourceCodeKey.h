@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2015 Yusuke Suzuki <utatane.tea@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,7 @@ private:
 };
 
 class SourceCodeKey {
+    WTF_MAKE_FAST_ALLOCATED(SourceCodeKey);
     friend class CachedSourceCodeKey;
 
 public:
@@ -104,6 +105,8 @@ public:
     StringView string() const { return m_sourceCode.view(); }
 
     StringView host() const { return m_sourceCode.provider().sourceOrigin().url().host(); }
+
+    int functionConstructorParametersEndPosition() const { return m_functionConstructorParametersEndPosition; }
 
     bool operator==(const SourceCodeKey& other) const
     {

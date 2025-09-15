@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,7 @@ class FontCache : public CanMakeCheckedPtr<FontCache> {
     WTF_MAKE_NONCOPYABLE(FontCache);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FontCache);
 public:
-    WEBCORE_EXPORT static FontCache& forCurrentThread();
+    WEBCORE_EXPORT static CheckedRef<FontCache> forCurrentThread();
     static FontCache* forCurrentThreadIfExists();
     static FontCache* forCurrentThreadIfNotDestroyed();
 
@@ -227,8 +227,8 @@ private:
     // These functions are implemented by each platform (unclear which functions this comment applies to).
     WEBCORE_EXPORT std::unique_ptr<FontPlatformData> createFontPlatformData(const FontDescription&, const AtomString& family, const FontCreationContext&, OptionSet<FontLookupOptions>);
 
-    static std::optional<ASCIILiteral> alternateFamilyName(const String&);
-    static std::optional<ASCIILiteral> platformAlternateFamilyName(const String&);
+    static ASCIILiteral alternateFamilyName(const String&);
+    static ASCIILiteral platformAlternateFamilyName(const String&);
 
 #if PLATFORM(MAC)
     bool shouldAutoActivateFontIfNeeded(const AtomString& family);
@@ -242,7 +242,7 @@ private:
 
     WeakHashSet<FontSelector> m_clients;
     struct FontDataCaches;
-    UniqueRef<FontDataCaches> m_fontDataCaches;
+    const UniqueRef<FontDataCaches> m_fontDataCaches;
     FontCascadeCache m_fontCascadeCache;
     SystemFallbackFontCache m_systemFallbackFontCache;
     MemoryCompactLookupOnlyRobinHoodHashSet<AtomString> m_familiesUsingBackslashAsYenSign;
@@ -254,19 +254,19 @@ private:
 #endif
 
 #if PLATFORM(MAC)
-    UncheckedKeyHashSet<AtomString> m_knownFamilies;
+    HashSet<AtomString> m_knownFamilies;
 #endif
 
 #if PLATFORM(COCOA)
     FontDatabase m_databaseAllowingUserInstalledFonts { AllowUserInstalledFonts::Yes };
     FontDatabase m_databaseDisallowingUserInstalledFonts { AllowUserInstalledFonts::No };
 
-    using FallbackFontSet = UncheckedKeyHashSet<RetainPtr<CTFontRef>, WTF::RetainPtrObjectHash<CTFontRef>, WTF::RetainPtrObjectHashTraits<CTFontRef>>;
+    using FallbackFontSet = HashSet<RetainPtr<CTFontRef>, WTF::RetainPtrObjectHash<CTFontRef>, WTF::RetainPtrObjectHashTraits<CTFontRef>>;
     FallbackFontSet m_fallbackFonts;
 
     ListHashSet<String> m_seenFamiliesForPrewarming;
     ListHashSet<String> m_fontNamesRequiringSystemFallbackForPrewarming;
-    RefPtr<WorkQueue> m_prewarmQueue;
+    const RefPtr<WorkQueue> m_prewarmQueue;
 
     FontFamilySpecificationCoreTextCache m_fontFamilySpecificationCoreTextCache;
     SystemFontDatabaseCoreText m_systemFontDatabaseCoreText;

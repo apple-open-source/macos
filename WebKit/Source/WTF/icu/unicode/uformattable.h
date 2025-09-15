@@ -3,7 +3,7 @@
 /*
 ********************************************************************************
 * Copyright (C) 2013-2014, International Business Machines Corporation and others.
-* All Rights Reserved.
+* All rights reserved.
 ********************************************************************************
 *
 * File UFORMATTABLE.H

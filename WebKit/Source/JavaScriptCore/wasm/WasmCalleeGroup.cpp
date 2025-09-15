@@ -229,7 +229,7 @@ void CalleeGroup::releaseBBQCallee(const AbstractLocker&, FunctionCodeIndex func
     // We could have triggered a tier up from a BBQCallee has MemoryMode::BoundsChecking
     // but is currently running a MemoryMode::Signaling memory. In that case there may
     // be nothing to release.
-    if (LIKELY(!m_bbqCallees.isEmpty())) {
+    if (!m_bbqCallees.isEmpty()) [[likely]] {
         if (RefPtr bbqCallee = m_bbqCallees[functionIndex].convertToWeak()) {
             bbqCallee->reportToVMsForDestruction();
             return;

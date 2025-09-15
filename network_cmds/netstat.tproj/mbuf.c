@@ -100,12 +100,11 @@ int nmbtypes = sizeof(mbstat.m_mtypes) / sizeof(short);
 bool seen[256];			/* "have we seen this type yet?" */
 
 mb_stat_t *mb_stat;
-unsigned int njcl, njclbytes;
+unsigned int njclbytes;
 mleak_stat_t *mleak_stat;
 struct mleak_table table;
 
 #define	KERN_IPC_MB_STAT	"kern.ipc.mb_stat"
-#define	KERN_IPC_NJCL		"kern.ipc.njcl"
 #define	KERN_IPC_NJCL_BYTES	"kern.ipc.njclbytes"
 #define	KERN_IPC_MLEAK_TABLE	"kern.ipc.mleak_table"
 #define	KERN_IPC_MLEAK_TOP_TRACE "kern.ipc.mleak_top_trace"
@@ -160,14 +159,14 @@ mbpr(void)
 			m_clfree = cp->mbcl_total - cp->mbcl_active;
 		} else if (cp->mbcl_size == mbstat.m_bigmclbytes) {
 			m_bigclfree = cp->mbcl_total - cp->mbcl_active;
-		} else if (njcl > 0 && cp->mbcl_size == njclbytes) {
+		} else if (cp->mbcl_size == njclbytes) {
 			m_16kclfree = cp->mbcl_total - cp->mbcl_active;
 			m_16kclusters = cp->mbcl_total;
 		} else if (cp->mbcl_size == (m_msize + mbstat.m_mclbytes)) {
 			m_mbufclfree = cp->mbcl_total - cp->mbcl_active;
 		} else if (cp->mbcl_size == (m_msize + mbstat.m_bigmclbytes)) {
 			m_mbufbigclfree = cp->mbcl_total - cp->mbcl_active;
-		} else if (njcl > 0 && cp->mbcl_size == (m_msize + njclbytes)) {
+		} else if (cp->mbcl_size == (m_msize + njclbytes)) {
 			m_mbuf16kclfree = cp->mbcl_total - cp->mbcl_active;
 		}
 	}
@@ -190,10 +189,6 @@ mbpr(void)
 			if (i == 0)
 				printf(MB_STAT_HDR1);
 
-			if (njcl == 0 &&
-			    cp->mbcl_size > (m_msize + mbstat.m_bigmclbytes))
-				continue;
-
 			printf("%-10s %5u %8u %8u %8u %5s %8u %8u %9s\n",
 			    cp->mbcl_cname, cp->mbcl_size, cp->mbcl_active,
 			    cp->mbcl_ctotal, cp->mbcl_total,
@@ -207,10 +202,6 @@ mbpr(void)
 		if (mflag > 2) {
 			if (i == 0)
 				printf(MB_STAT_HDR2);
-
-			if (njcl == 0 &&
-			    cp->mbcl_size > (m_msize + mbstat.m_bigmclbytes))
-				continue;
 
 			printf("%-10s %8u %8llu %8llu %8u %8u %8llu\n",
 			    cp->mbcl_cname, cp->mbcl_mc_waiter_cnt,
@@ -254,11 +245,9 @@ mbpr(void)
 	printf("%u/%u mbuf 4KB clusters in use\n",
 	       (unsigned int)(mbstat.m_bigclusters - m_bigclfree),
 	       (unsigned int)mbstat.m_bigclusters);
-	if (njcl > 0) {
-		printf("%u/%u mbuf %uKB clusters in use\n",
-		    m_16kclusters - m_16kclfree, m_16kclusters,
-		    njclbytes/1024);
-	}
+	printf("%u/%u mbuf %uKB clusters in use\n",
+	    m_16kclusters - m_16kclfree, m_16kclusters,
+	    njclbytes/1024);
 	totused = totmem - totfree;
 	if (totmem == 0)
 		totpct = 0;
@@ -461,8 +450,6 @@ mbpr_getdata(void)
 	}
 
 skip:
-	len = sizeof (njcl);
-	(void) sysctlbyname(KERN_IPC_NJCL, &njcl, &len, 0, 0);
 	len = sizeof (njclbytes);
 	(void) sysctlbyname(KERN_IPC_NJCL_BYTES, &njclbytes, &len, 0, 0);
 

@@ -138,6 +138,7 @@
 #include <sys/kdebug_triage.h>
 #include <vm/vm_kern_xnu.h>
 #include <vm/vm_map_xnu.h>
+#include <ipc/ipc_space.h>
 
 #if CONFIG_MACF
 #include <security/mac_mach_internal.h>

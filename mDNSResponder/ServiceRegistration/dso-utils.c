@@ -16,6 +16,7 @@
  */
 
 #include <netinet/in.h>
+#include <stdio.h>
 #include "dns-msg.h"
 #include "ioloop.h"
 #include "dso-utils.h"

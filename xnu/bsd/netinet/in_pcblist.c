@@ -616,7 +616,7 @@ inpcb_get_if_ports_used(ifnet_t ifp, int protocol, uint32_t flags,
 					    fbuf, sizeof(fbuf));
 				}
 
-				os_log(OS_LOG_DEFAULT,
+				os_log(wake_packet_log_handle,
 				    "inpcb_get_if_ports_used: route is down %s %s:%u %s:%u ifp %s proc %s:%d",
 				    SOCK_PROTO(inp->inp_socket) == IPPROTO_TCP ? "tcp" : "udp",
 				    lbuf, ntohs(inp->inp_lport), fbuf, ntohs(inp->inp_fport),
@@ -713,7 +713,7 @@ inpcb_get_if_ports_used(ifnet_t ifp, int protocol, uint32_t flags,
 				    fbuf, sizeof(fbuf));
 			}
 
-			os_log(OS_LOG_DEFAULT,
+			os_log(wake_packet_log_handle,
 			    "inpcb_get_if_ports_used: no wake from sleep %s %s:%u %s:%u ifp %s proc %s:%d",
 			    SOCK_PROTO(inp->inp_socket) == IPPROTO_TCP ? "tcp" : "udp",
 			    lbuf, ntohs(inp->inp_lport), fbuf, ntohs(inp->inp_fport),
@@ -750,7 +750,7 @@ inpcb_get_ports_used(ifnet_t ifp, int protocol, uint32_t flags,
 
 		error = ifnet_list_get_all(IFNET_FAMILY_ANY, &ifp_list, &count);
 		if (error != 0) {
-			os_log_error(OS_LOG_DEFAULT,
+			os_log_error(wake_packet_log_handle,
 			    "%s: ifnet_list_get_all() failed %d",
 			    __func__, error);
 			return;

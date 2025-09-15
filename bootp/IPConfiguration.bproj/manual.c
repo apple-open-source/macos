@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -171,10 +171,10 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		  manual_inactive(service_p);
 		  break;
 	      }
-	      (void)service_set_address(service_p,
-					service_requested_ip_addr(service_p),
-					service_requested_ip_mask(service_p),
-					service_requested_ip_dest(service_p));
+	      service_set_address(service_p,
+				  service_requested_ip_addr(service_p),
+				  service_requested_ip_mask(service_p),
+				  service_requested_ip_dest(service_p));
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	      break;
 	  }
@@ -239,10 +239,10 @@ manual_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 
 	  /* set the new address */
-	  (void)service_set_address(service_p,
-				    service_requested_ip_addr(service_p),
-				    service_requested_ip_mask(service_p),
-				    service_requested_ip_dest(service_p));
+	  service_set_address(service_p,
+			      service_requested_ip_addr(service_p),
+			      service_requested_ip_mask(service_p),
+			      service_requested_ip_dest(service_p));
 	  ServiceRemoveAddressConflict(service_p);
 	  if (service_router_is_iaddr_valid(service_p)
 	      && (service_requested_ip_addr(service_p).s_addr
@@ -297,10 +297,10 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  }
 	  if ((if_flags(if_p) & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
 	      /* set the new address */
-	      (void)service_set_address(service_p, 
-					service_requested_ip_addr(service_p),
-					service_requested_ip_mask(service_p),
-					service_requested_ip_dest(service_p));
+	      service_set_address(service_p,
+				  service_requested_ip_addr(service_p),
+				  service_requested_ip_mask(service_p),
+				  service_requested_ip_dest(service_p));
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	      break;
 	  }
@@ -376,10 +376,10 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 					    method_data->manual.mask);
 	      service_set_requested_ip_dest(service_p,
 					    method_data->manual.dest);
-	      (void)service_set_address(service_p, 
-					method_data->manual.addr,
-					method_data->manual.mask,
-					method_data->manual.dest);
+	      service_set_address(service_p,
+				  method_data->manual.addr,
+				  method_data->manual.mask,
+				  method_data->manual.dest);
 	      /* publish new mask */
 	      ServicePublishSuccessIPv4(service_p, NULL);
 	  }

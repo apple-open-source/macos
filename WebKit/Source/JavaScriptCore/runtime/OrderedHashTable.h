@@ -228,7 +228,9 @@ public:
             value = getValueFunctor();
             RETURN_IF_EXCEPTION(scope, { });
 
-            Helper::addImpl(globalObject, this, storage, key, value, result);
+            // Call to getValueFunctor can modify our state, so we need to re-check the index
+            // There is a chance that callback inserts an entry for this |key|.
+            add(globalObject, key, value);
             RETURN_IF_EXCEPTION(scope, { });
         }
 

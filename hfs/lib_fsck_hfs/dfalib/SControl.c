@@ -357,7 +357,7 @@ DoAgain:
 	dataArea.calculatedVCB->vcbDriverWriteRef = fsWriteRef;
 
 	// Only show the progress bar if we're doing a real check.
-    start_progress();
+    start_progress(rdevnode, (const char*)dataArea.volumeName);
 
 	//
 	//	Now verify the volume
@@ -527,7 +527,7 @@ termScav:
 		
     fsckPrintFormat( fsckContext, fsckProgress, 100);	// End each run with 100% message, if desired
     draw_progress(100);
-    end_progress();
+    end_progress(err);
     
 	if (exitEarly && majorErrors)
 		err = MAJOREXIT;

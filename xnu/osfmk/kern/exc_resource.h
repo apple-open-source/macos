@@ -136,7 +136,8 @@
 
 /* RESOURCE_TYPE_MEMORY flavors */
 #define FLAVOR_HIGH_WATERMARK   1       /* Indicates that the exception is due to memory limit warning */
-#define FLAVOR_DIAG_MEMLIMIT    2       /* Indicates that the exception is due to a preset diagnostics memory consumption threshold  */
+#define FLAVOR_DIAG_MEMLIMIT    2       /* Indicates that the exception is due to a preset diagnostics memory consumption threshold */
+#define FLAVOR_CONCLAVE_LIMIT   3       /* Indicates that the exception is due to the hard conclave memory limit */
 
 /*
  * RESOURCE_TYPE_MEMORY / FLAVOR_HIGH_WATERMARK

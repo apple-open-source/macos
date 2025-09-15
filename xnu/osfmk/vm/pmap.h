@@ -155,6 +155,11 @@ extern void             pmap_disable_user_jop(
 #include <mach_assert.h>
 
 #include <machine/pmap.h>
+
+#if CONFIG_SPTM
+#include <arm64/sptm/sptm.h>
+#endif
+
 /*
  *	Routines used for initialization.
  *	There is traditionally also a pmap_bootstrap,
@@ -218,6 +223,17 @@ __enum_decl(pmap_mapping_type_t, uint8_t, {
 	PMAP_MAPPING_TYPE_ROZONE = XNU_ROZONE,
 	PMAP_MAPPING_TYPE_RESTRICTED = XNU_KERNEL_RESTRICTED
 });
+
+#define PMAP_PAGE_IS_USER_EXECUTABLE(m) \
+({ \
+	const sptm_paddr_t __paddr = ptoa(VM_PAGE_GET_PHYS_PAGE(m)); \
+	const sptm_frame_type_t __frame_type = sptm_get_frame_type(__paddr); \
+	sptm_type_is_user_executable(__frame_type); \
+})
+
+extern bool pmap_will_retype(pmap_t pmap, vm_map_address_t vaddr, ppnum_t pn,
+    vm_prot_t prot, unsigned int options, pmap_mapping_type_t mapping_type);
+
 #else
 __enum_decl(pmap_mapping_type_t, uint8_t, {
 	PMAP_MAPPING_TYPE_INFER = 0,
@@ -450,6 +466,16 @@ extern void pmap_sync_page_data_phys(ppnum_t pa);
 extern void pmap_sync_page_attributes_phys(ppnum_t pa);
 
 
+/**
+ * pmap entry point for performing platform-specific integrity checks and cleanup when
+ * the VM is about to free a page.  This function will typically at least validate
+ * that the page has no outstanding mappings or other references, and depending
+ * upon the platform may also take additional steps to reset page state.
+ *
+ * @param pn The page that is about to be freed by the VM.
+ */
+extern void pmap_recycle_page(ppnum_t pn);
+
 /*
  * debug/assertions. pmap_verify_free returns true iff
  * the given physical page is mapped into no pmap.
@@ -639,6 +665,11 @@ extern void(pmap_pageable)(
 
 extern uint64_t pmap_shared_region_size_min(pmap_t map);
 
+extern void
+    pmap_set_shared_region(pmap_t,
+    pmap_t,
+    addr64_t,
+    uint64_t);
 extern kern_return_t pmap_nest(pmap_t,
     pmap_t,
     addr64_t,
@@ -649,19 +680,9 @@ extern kern_return_t pmap_unnest(pmap_t,
 
 #define PMAP_UNNEST_CLEAN       1
 
-#if __arm64__
-#if CONFIG_SPTM
-#define PMAP_FORK_NEST 1
-#endif /* CONFIG_SPTM */
-
-#if PMAP_FORK_NEST
 extern kern_return_t pmap_fork_nest(
 	pmap_t old_pmap,
-	pmap_t new_pmap,
-	vm_map_offset_t *nesting_start,
-	vm_map_offset_t *nesting_end);
-#endif /* PMAP_FORK_NEST */
-#endif /* __arm64__ */
+	pmap_t new_pmap);
 
 extern kern_return_t pmap_unnest_options(pmap_t,
     addr64_t,
@@ -698,6 +719,8 @@ extern const pmap_t     kernel_pmap;            /* The kernel's map */
 #define PMAP_CREATE_TEST           0x4 /* pmap will be used for testing purposes only */
 #define PMAP_CREATE_KNOWN_FLAGS (PMAP_CREATE_64BIT | PMAP_CREATE_EPT | PMAP_CREATE_TEST)
 
+#define PMAP_CREATE_NESTED         0   /* this flag is a nop on x86 */
+
 #else
 
 #define PMAP_CREATE_STAGE2         0
@@ -720,9 +743,11 @@ extern const pmap_t     kernel_pmap;            /* The kernel's map */
 
 #define PMAP_CREATE_TEST           0x40 /* pmap will be used for testing purposes only */
 
+#define PMAP_CREATE_NESTED         0x80 /* pmap will not try to allocate a subpage root table to save space */
+
 /* Define PMAP_CREATE_KNOWN_FLAGS in terms of optional flags */
 #define PMAP_CREATE_KNOWN_FLAGS (PMAP_CREATE_64BIT | PMAP_CREATE_STAGE2 | PMAP_CREATE_DISABLE_JOP | \
-    PMAP_CREATE_FORCE_4K_PAGES | PMAP_CREATE_X86_64 | PMAP_CREATE_ROSETTA | PMAP_CREATE_TEST)
+    PMAP_CREATE_FORCE_4K_PAGES | PMAP_CREATE_X86_64 | PMAP_CREATE_ROSETTA | PMAP_CREATE_TEST | PMAP_CREATE_NESTED)
 
 #endif /* __x86_64__ */
 
@@ -756,6 +781,11 @@ extern const pmap_t     kernel_pmap;            /* The kernel's map */
 
 /* Indicates that pmap_enter() or pmap_remove() is being called with preemption already disabled. */
 #define PMAP_OPTIONS_NOPREEMPT  0x80000
+
+#if CONFIG_SPTM
+/* Requests pmap_disconnect() to reset the page frame type (only meaningful for SPTM systems) */
+#define PMAP_OPTIONS_RETYPE 0x100000
+#endif /* CONFIG_SPTM */
 
 #define PMAP_OPTIONS_MAP_TPRO 0x40000
 

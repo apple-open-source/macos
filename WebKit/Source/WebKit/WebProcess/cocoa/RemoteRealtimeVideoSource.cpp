@@ -57,9 +57,9 @@ RemoteRealtimeVideoSource::RemoteRealtimeVideoSource(RemoteRealtimeMediaSourcePr
 
 RemoteRealtimeVideoSource::~RemoteRealtimeVideoSource() = default;
 
-bool RemoteRealtimeVideoSource::setShouldApplyRotation(bool shouldApplyRotation)
+bool RemoteRealtimeVideoSource::setShouldApplyRotation()
 {
-    connection().send(Messages::UserMediaCaptureManagerProxy::SetShouldApplyRotation { identifier(), shouldApplyRotation }, 0);
+    connection().send(Messages::UserMediaCaptureManagerProxy::SetShouldApplyRotation { identifier() }, 0);
     return true;
 }
 

@@ -50,8 +50,6 @@ service_port_get_throttled(int *is_throttled)
 
 T_DECL(mach_service_port, "Create a port with a service port label", T_META_CHECK_LEAKS(false)) {
 	mach_port_t connection_port;
-	mach_port_t notify_port;
-	mach_port_t previous;
 	uint64_t fpid = 0;
 	boolean_t is_throttled;
 
@@ -78,23 +76,7 @@ T_DECL(mach_service_port, "Create a port with a service port label", T_META_CHEC
 	T_ASSERT_MACH_SUCCESS(kr, "mach_port_construct %u", connection_port);
 
 	kr = mach_port_is_connection_for_service(mach_task_self(), connection_port, service_port, &fpid);
-	if (kr != KERN_SUCCESS || kr != KERN_NOT_SUPPORTED) {
-		T_LOG("mach_port_is_connection_for_service kr = %d, fpid = %llu", kr, fpid);
-	}
-
-	// notification port for the service port to come back on
-	kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &notify_port);
-	T_ASSERT_MACH_SUCCESS(kr, "mach_port_allocate notify_port");
-
-	kr = mach_port_insert_right(mach_task_self(), notify_port, notify_port, MACH_MSG_TYPE_MAKE_SEND);
-	T_ASSERT_MACH_SUCCESS(kr, "mach_port_insert_right notify_port");
-
-	T_LOG("service port: 0x%x, notify port: 0x%x\n", service_port, notify_port);
-
-	kr = mach_port_request_notification(mach_task_self(), service_port, MACH_NOTIFY_PORT_DESTROYED, 0, notify_port,
-	    MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
-	T_ASSERT_MACH_SUCCESS(kr, "mach_port_request_notification service_port");
-	T_ASSERT_EQ(previous, MACH_PORT_NULL, "previous null");
+	T_ASSERT_MACH_SUCCESS(kr, "mach_port_is_connection_for_service");
 
 	/* Test port throttling flag */
 	kr = service_port_get_throttled(&is_throttled);
@@ -118,12 +100,6 @@ T_DECL(mach_service_port, "Create a port with a service port label", T_META_CHEC
 	/* Attempt to destroy port */
 	kr = mach_port_destruct(mach_task_self(), service_port, 0, SP_CONTEXT);
 	T_ASSERT_MACH_SUCCESS(kr, "mach_port_destruct service_port");
-
-	/*
-	 * Recover the service port because the port must have been destroyed and sent the notification by now
-	 */
-	kr = mach_msg_server_once(notify_server, MACH_MSG_SIZE_RELIABLE, notify_port, MACH_RCV_TIMEOUT);
-	T_ASSERT_MACH_SUCCESS(kr, "mach_msg_server_once notify_port");
 
 	T_LOG("done");
 }

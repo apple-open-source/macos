@@ -3,7 +3,7 @@
 /*  
 **********************************************************************
 *   Copyright (C) 2002-2016, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 **********************************************************************
 *   file name:  uconfig.h
 *   encoding:   UTF-8

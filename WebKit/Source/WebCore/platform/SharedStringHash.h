@@ -33,15 +33,13 @@ namespace WebCore {
 
 using SharedStringHash = uint32_t;
 
-// This is a hash value, but it can be used as a key in UncheckedKeyHashMap. So, we need to avoid producing deleted-value in UncheckedKeyHashMap, which is -1.
+// This is a hash value, but it can be used as a key in HashMap. So, we need to avoid producing deleted-value in HashMap, which is -1.
 struct SharedStringHashHash {
     static unsigned hash(SharedStringHash key) { return static_cast<unsigned>(key); }
     static bool equal(SharedStringHash a, SharedStringHash b) { return a == b; }
     static const bool safeToCompareToEmptyOrDeleted = true;
     static constexpr SharedStringHash deletedValue = std::numeric_limits<SharedStringHash>::max();
 };
-
-using SharedStringHashMarkableTraits = IntegralMarkableTraits<SharedStringHash, SharedStringHashHash::deletedValue>;
 
 // Returns the hash of the string that will be used for visited link coloring.
 WEBCORE_EXPORT SharedStringHash computeSharedStringHash(const String& url);

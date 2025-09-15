@@ -23,10 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkCacheSpeculativeLoadManager_h
-#define NetworkCacheSpeculativeLoadManager_h
-
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+#pragma once
 
 #include "NetworkCache.h"
 #include "NetworkCacheStorage.h"
@@ -88,8 +85,9 @@ private:
     static bool canUsePendingPreload(const SpeculativeLoad&, const WebCore::ResourceRequest& actualRequest);
 
     Ref<Storage> protectedStorage() const;
+    Ref<Cache> protectedCache() const;
 
-    WeakRef<Cache> m_cache;
+    const WeakRef<Cache> m_cache;
     ThreadSafeWeakPtr<Storage> m_storage; // Not expected to be null.
 
     class PendingFrameLoad;
@@ -107,7 +105,3 @@ private:
 } // namespace NetworkCache
 
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-
-#endif // NetworkCacheSpeculativeLoadManager_h

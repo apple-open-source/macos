@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +46,9 @@
 #include <WebCore/CommonAtomStrings.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/LogInitialization.h>
+#include <WebCore/MediaPlayer.h>
 #include <WebCore/MemoryRelease.h>
 #include <WebCore/NowPlayingManager.h>
-#include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/Language.h>
 #include <wtf/LogInitialization.h>
@@ -92,6 +92,9 @@ GPUProcess::GPUProcess()
     : m_idleExitTimer(*this, &GPUProcess::tryExitIfUnused)
 {
     RELEASE_LOG(Process, "%p - GPUProcess::GPUProcess:", this);
+#if ASSERT_ENABLED && PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    CoreAudioSharedUnit::singleton().allowStarting();
+#endif
 }
 
 GPUProcess::~GPUProcess()
@@ -215,7 +218,7 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters,
 {
     CompletionHandlerCallingScope callCompletionHandler(WTFMove(completionHandler));
 
-    applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
+    applyProcessCreationParameters(WTFMove(parameters.auxiliaryProcessParameters));
     RELEASE_LOG(Process, "%p - GPUProcess::initializeGPUProcess:", this);
     WTF::Thread::setCurrentThreadIsUserInitiated();
     WebCore::initializeCommonAtomStrings();
@@ -247,11 +250,7 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters,
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
     SandboxExtension::consumePermanently(parameters.containerCachesDirectoryExtensionHandle);
-    SandboxExtension::consumePermanently(parameters.containerTemporaryDirectoryExtensionHandle);
-#endif
-#if PLATFORM(IOS_FAMILY)
-    SandboxExtension::consumePermanently(parameters.compilerServiceExtensionHandles);
-    SandboxExtension::consumePermanently(parameters.dynamicIOKitExtensionHandles);
+    grantAccessToContainerTempDirectory(parameters.containerTemporaryDirectoryExtensionHandle);
 #endif
 
     populateMobileGestaltCache(WTFMove(parameters.mobileGestaltExtensionHandle));
@@ -286,19 +285,9 @@ void GPUProcess::updateGPUProcessPreferences(GPUProcessPreferences&& preferences
         MediaSessionManagerCocoa::setShouldUseModernAVContentKeySession(*m_preferences.shouldUseModernAVContentKeySession);
 #endif
 
-#if ENABLE(ALTERNATE_WEBM_PLAYER)
-    if (updatePreference(m_preferences.alternateWebMPlayerEnabled, preferences.alternateWebMPlayerEnabled))
-        PlatformMediaSessionManager::setAlternateWebMPlayerEnabled(*m_preferences.alternateWebMPlayerEnabled);
-#endif
-
-#if HAVE(SC_CONTENT_SHARING_PICKER)
-    if (updatePreference(m_preferences.useSCContentSharingPicker, preferences.useSCContentSharingPicker))
-        PlatformMediaSessionManager::setUseSCContentSharingPicker(*m_preferences.useSCContentSharingPicker);
-#endif
-
 #if ENABLE(VP9)
     if (updatePreference(m_preferences.vp9DecoderEnabled, preferences.vp9DecoderEnabled)) {
-        PlatformMediaSessionManager::setShouldEnableVP9Decoder(*m_preferences.vp9DecoderEnabled);
+        VP9TestingOverrides::singleton().setShouldEnableVP9Decoder(*m_preferences.vp9DecoderEnabled);
 #if PLATFORM(COCOA)
         if (!m_haveEnabledVP9Decoder && *m_preferences.vp9DecoderEnabled) {
             m_haveEnabledVP9Decoder = true;
@@ -306,9 +295,10 @@ void GPUProcess::updateGPUProcessPreferences(GPUProcessPreferences&& preferences
         }
 #endif
     }
-    if (preferences.swVPDecodersAlwaysEnabled != std::exchange(m_preferences.swVPDecodersAlwaysEnabled, preferences.swVPDecodersAlwaysEnabled))
-        PlatformMediaSessionManager::setSWVPDecodersAlwaysEnabled(m_preferences.swVPDecodersAlwaysEnabled);
 #if PLATFORM(COCOA)
+    if (preferences.swVPDecodersAlwaysEnabled != std::exchange(m_preferences.swVPDecodersAlwaysEnabled, preferences.swVPDecodersAlwaysEnabled))
+        VP9TestingOverrides::singleton().setSWVPDecodersAlwaysEnabled(m_preferences.swVPDecodersAlwaysEnabled);
+
     if (!m_haveEnabledSWVP9Decoder && WebCore::shouldEnableSWVP9Decoder()) {
         WebCore::registerWebKitVP9Decoder();
         m_haveEnabledSWVP9Decoder = true;
@@ -378,15 +368,6 @@ void GPUProcess::didDrawRemoteToPDF(PageIdentifier pageID, RefPtr<SharedBuffer>&
 void GPUProcess::setMockCaptureDevicesEnabled(bool isEnabled)
 {
     WebCore::MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(isEnabled);
-}
-
-void GPUProcess::setUseSCContentSharingPicker(bool use)
-{
-#if HAVE(SC_CONTENT_SHARING_PICKER)
-    WebCore::PlatformMediaSessionManager::setUseSCContentSharingPicker(use);
-#else
-    UNUSED_PARAM(use);
-#endif
 }
 
 void GPUProcess::setOrientationForMediaCapture(WebCore::IntDegrees orientation)
@@ -469,9 +450,9 @@ void GPUProcess::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool
     WebCore::MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
 }
 
-void GPUProcess::triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay)
+void GPUProcess::triggerMockCaptureConfigurationChange(bool forCamera, bool forMicrophone, bool forDisplay)
 {
-    WebCore::MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
+    WebCore::MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forCamera, forMicrophone, forDisplay);
 }
 
 void GPUProcess::setShouldListenToVoiceActivity(bool shouldListen)

@@ -45,6 +45,7 @@ typedef uint32_t code_signing_config_t;
 #define CS_CONFIG_GET_OUT_OF_MY_WAY      (1 << 3)
 #define CS_CONFIG_INTEGRITY_SKIP         (1 << 4)
 #define CS_CONFIG_RELAX_PROFILE_TRUST    (1 << 5)
+#define CS_CONFIG_DEV_MODE_POLICY        (1 << 6)
 
 /* Config - Features */
 #define CS_CONFIG_REM_SUPPORTED            (1 << 25)
@@ -91,6 +92,7 @@ typedef uint64_t image4_cs_trap_t;
 #define XNU_SUPPORTS_SECURE_CHANNEL_SHARED_PAGE 1
 #define XNU_SUPPORTS_CSM_DEVICE_STATE 1
 #define XNU_SUPPORTS_REGISTER_PROFILE 1
+#define XNU_SUPPORTS_RESEARCH_STATE 1
 
 /* Forward declarations */
 struct cs_blob;
@@ -122,6 +124,7 @@ typedef struct _cs_profile_register_t {
 #if XNU_KERNEL_PRIVATE
 
 #include <sys/code_signing_internal.h>
+#include <pexpert/pexpert.h>
 #include <libkern/img4/interface.h>
 #include <libkern/image4/dlxk.h>
 
@@ -133,6 +136,10 @@ typedef struct _cs_profile_register_t {
 
 /* Common developer mode state variable */
 extern bool *developer_mode_enabled;
+
+/* Common research mode state variables */
+extern bool research_mode_enabled;
+extern bool extended_research_mode_enabled;
 
 /**
  * This function is used to allocate code signing data which in some cases needs to
@@ -179,6 +186,23 @@ image4_get_object_spec_from_index(
 	}
 
 	return obj_spec;
+}
+
+/**
+ * Research modes are only allowed when we're using a virtual device, security research
+ * device or when we're using a dev-fused device.
+ */
+static inline bool
+allow_research_modes(void)
+{
+	if (PE_vmm_present != 0) {
+		return true;
+	} else if ((PE_esdm_fuses & (1 << 0)) != 0) {
+		return true;
+	} else if (PE_i_can_has_debugger(NULL) == true) {
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -241,6 +265,30 @@ disable_developer_mode(void);
  */
 bool
 developer_mode_state(void);
+
+/*
+ * Query the current state of research mode on the system. This call never traps into
+ * the monitor environment as the state is queried at boot and saved in read-only-late
+ * memory.
+ *
+ * This state can only ever be enabled on platforms which support the trusted execution
+ * monitor environment. The state requires research fusing and the use of a security
+ * research device.
+ */
+bool
+research_mode_state(void);
+
+/*
+ * Query the current state of extended research mode on the system. This call never traps
+ * into the monitor environment as the state is queried at boot and saved in read-only-late
+ * memory.
+ *
+ * This state can only ever be enabled on platforms which support the trusted execution
+ * monitor environment. The state requires research fusing and the use of a security
+ * research device.
+ */
+bool
+extended_research_mode_state(void);
 
 /**
  * Attempt to enable restricted execution mode on the system. Not all systems support
@@ -628,6 +676,19 @@ csm_reconstitute_code_signature(
 	void *monitor_sig_obj,
 	vm_address_t *unneeded_addr,
 	vm_size_t *unneeded_size);
+
+/**
+ * Setup a nested address space object with the required base address and size for the
+ * nested region. The code signing monitor will enforce that code signature associations
+ * can only be made within this address region.
+ *
+ * This must be called before any associations can be made with the nested address space.
+ */
+kern_return_t
+csm_setup_nested_address_space(
+	pmap_t pmap,
+	const vm_address_t region_addr,
+	const vm_size_t region_size);
 
 /**
  * Associate a code signature with an address space for a specified region with the

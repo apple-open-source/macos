@@ -30,6 +30,8 @@
 
 #import "Chrome.h"
 #import "ChromeClient.h"
+#import "ColorCocoa.h"
+#import "ContainerNodeInlines.h"
 #import "CompositeEditCommand.h"
 #import "DocumentInlines.h"
 #import "DocumentMarkerController.h"
@@ -38,6 +40,7 @@
 #import "FrameSelection.h"
 #import "GeometryUtilities.h"
 #import "HTMLConverter.h"
+#import "HTMLBodyElement.h"
 #import "IntelligenceTextEffectsSupport.h"
 #import "Logging.h"
 #import "NodeRenderStyle.h"
@@ -46,6 +49,7 @@
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import "WebContentReader.h"
+#import <pal/spi/cocoa/NSAttributedStringSPI.h>
 #import <ranges>
 #import <wtf/Scope.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -159,6 +163,45 @@ static std::optional<SimpleRange> contextRangeForSession(Document& document, con
     return selection.firstRange();
 }
 
+static RetainPtr<NSAttributedString> attributedStringApplyingBodyTextColorIfNecessary(const Document& document, NSAttributedString *originalAttributedString)
+{
+    RetainPtr attributedString = adoptNS([[NSMutableAttributedString alloc] initWithAttributedString:originalAttributedString]);
+
+    __block BOOL attributedStringHasSpecifiedTextColor = NO;
+    [originalAttributedString enumerateAttributesInRange:NSMakeRange(0, originalAttributedString.length) options:0 usingBlock:^(NSDictionary<NSAttributedStringKey, id> *attributes, NSRange, BOOL *stop) {
+        // FIXME: This is a static analysis false positive.
+        SUPPRESS_UNRETAINED_ARG if (attributes[NSForegroundColorAttributeName]) {
+            attributedStringHasSpecifiedTextColor = YES;
+            *stop = YES;
+        }
+    }];
+
+    if (attributedStringHasSpecifiedTextColor)
+        return attributedString;
+
+    RefPtr body = document.body();
+    if (!body)
+        return attributedString;
+
+    CheckedPtr renderer = body->renderer();
+    if (!renderer)
+        return attributedString;
+
+    CheckedRef style = renderer->style();
+
+    Color textColor = style->visitedDependentColorWithColorFilter(CSSPropertyColor);
+    if (!textColor.isVisible())
+        return attributedString;
+
+    RetainPtr attributes = @{
+        NSForegroundColorAttributeName: cocoaColor(textColor).get(),
+    };
+
+    [attributedString addAttributes:attributes.get() range:NSMakeRange(0, [attributedString length])];
+
+    return attributedString;
+}
+
 #pragma mark - WritingToolsController implementation.
 
 WritingToolsController::WritingToolsController(Page& page)
@@ -195,7 +238,7 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
 
         m_state = CompositionState { { }, { WritingToolsCompositionCommand::create(Ref { *document }, *contextRange) }, *session };
 
-        completionHandler({ { WTF::UUID { 0 }, AttributedString::fromNSAttributedString(adoptNS([[NSAttributedString alloc] initWithString:@""])), CharacterRange { 0, 0 } } });
+        completionHandler({ { std::nullopt, AttributedString::fromNSAttributedString(adoptNS([[NSAttributedString alloc] initWithString:@""])), CharacterRange { 0, 0 } } });
         return;
     }
 
@@ -245,7 +288,7 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
     // Postcondition: the selected text character range must be a valid range within the
     // attributed string formed by the context range; the length of the entire context range
     // being equal to the length of the attributed string implies the range is valid.
-    if (UNLIKELY(attributedStringCharacterCount != contextRangeCharacterCount)) {
+    if (attributedStringCharacterCount != contextRangeCharacterCount) [[unlikely]] {
         RELEASE_LOG_ERROR(WritingTools, "WritingToolsController::willBeginWritingToolsSession (%s) => attributed string length (%u) != context range length (%llu)", session->identifier.toString().utf8().data(), attributedStringCharacterCount, contextRangeCharacterCount);
         ASSERT_NOT_REACHED();
         completionHandler({ });
@@ -291,7 +334,7 @@ void WritingToolsController::proofreadingSessionDidReceiveSuggestions(const Writ
         return;
     }
 
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = m_page->focusController().focusedOrMainFrame();
     IgnoreSelectionChangeForScope ignoreSelectionChanges { *frame };
 
     auto sessionRange = makeSimpleRange(state->contextRange);
@@ -307,7 +350,7 @@ void WritingToolsController::proofreadingSessionDidReceiveSuggestions(const Writ
 
     auto adjustedProcessedRangeBeforeReplacement = resolveCharacterRange(sessionRange, { adjustedProcessedRangeLocation, processedRange.length });
 
-    UncheckedKeyHashSet<WTF::UUID> transparentContentMarkerIdentifiers;
+    HashSet<WTF::UUID> transparentContentMarkerIdentifiers;
 
     document->markers().forEach(adjustedProcessedRangeBeforeReplacement, { DocumentMarkerType::TransparentContent }, [&](auto&, auto marker) {
         auto& data = std::get<DocumentMarker::TransparentContentData>(marker.data());
@@ -600,7 +643,7 @@ void WritingToolsController::compositionSessionDidReceiveTextWithReplacementRang
 
     // Precondition: the range is always relative to the context's attributed text, so by definition it must
     // be strictly less than the length of the attributed string.
-    if (UNLIKELY(contextTextCharacterCount < range.location + range.length)) {
+    if (contextTextCharacterCount < range.location + range.length) [[unlikely]] {
         RELEASE_LOG_ERROR(WritingTools, "WritingToolsController::compositionSessionDidReceiveTextWithReplacementRange (%s) => trying to replace a range larger than the context range (context range length: %u, range.location %llu, range.length %llu)", state->session.identifier.toString().utf8().data(), contextTextCharacterCount, range.location, range.length);
         compositionSessionDidFinishReplacement();
         ASSERT_NOT_REACHED();
@@ -630,7 +673,7 @@ void WritingToolsController::compositionSessionDidReceiveTextWithReplacementRang
     auto sessionRange = state->reappliedCommands.last()->endingContextRange();
     auto sessionRangeCharacterCount = characterCount(sessionRange);
 
-    if (UNLIKELY(range.length + sessionRangeCharacterCount < contextTextCharacterCount)) {
+    if (range.length + sessionRangeCharacterCount < contextTextCharacterCount) [[unlikely]] {
         RELEASE_LOG_ERROR(WritingTools, "WritingToolsController::compositionSessionDidReceiveTextWithReplacementRange (%s) => the range offset by the character count delta must have a non-negative size (context range length: %u, range.length %llu, session length: %llu)", state->session.identifier.toString().utf8().data(), contextTextCharacterCount, range.length, sessionRangeCharacterCount);
         compositionSessionDidFinishReplacement();
         ASSERT_NOT_REACHED();
@@ -1072,7 +1115,7 @@ RefPtr<Document> WritingToolsController::document() const
         return nullptr;
     }
 
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = m_page->focusController().focusedOrMainFrame();
     if (!frame) {
         ASSERT_NOT_REACHED();
         return nullptr;
@@ -1181,8 +1224,8 @@ std::optional<std::tuple<Node&, DocumentMarker&>> WritingToolsController::findTe
         if (data.suggestionID != textSuggestionID)
             return false;
 
-        targetNode = &node;
-        targetMarker = &marker;
+        targetNode = node;
+        targetMarker = marker;
 
         return true;
     });
@@ -1211,8 +1254,8 @@ std::optional<std::tuple<Node&, DocumentMarker&>> WritingToolsController::findTe
         if (!contains(TreeType::ComposedTree, markerRange, range))
             return false;
 
-        targetNode = &node;
-        targetMarker = &marker;
+        targetNode = node;
+        targetMarker = marker;
 
         return true;
     });
@@ -1252,7 +1295,11 @@ void WritingToolsController::replaceContentsOfRangeInSession(ProofreadingState& 
 
 void WritingToolsController::replaceContentsOfRangeInSession(CompositionState& state, const SimpleRange& range, const AttributedString& replacementText, WritingToolsCompositionCommand::State commandState)
 {
-    RefPtr fragment = createFragment(*document()->frame(), replacementText.nsAttributedString().get(), { FragmentCreationOptions::NoInterchangeNewlines, FragmentCreationOptions::SanitizeMarkup });
+    RetainPtr platformReplacementText = replacementText.nsAttributedString();
+    if (state.session.compositionType == WritingTools::Session::CompositionType::SmartReply)
+        platformReplacementText = attributedStringApplyingBodyTextColorIfNecessary(*document(), platformReplacementText.get());
+
+    RefPtr fragment = createFragment(*document()->frame(), platformReplacementText.get(), { FragmentCreationOptions::NoInterchangeNewlines, FragmentCreationOptions::SanitizeMarkup });
     if (!fragment) {
         ASSERT_NOT_REACHED();
         return;

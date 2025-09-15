@@ -32,7 +32,7 @@ header: <WebCore/Pasteboard.h>
 #if !PLATFORM(WIN)
     WebCore::PasteboardURL url;
 #endif
-#if !(PLATFORM(GTK) || PLATFORM(WIN))
+#if !(PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN))
     RefPtr<WebCore::SharedBuffer> resourceData;
     String resourceMIMEType;
     Vector<std::pair<String, RefPtr<WebCore::SharedBuffer>>> clientTypesAndData;
@@ -54,13 +54,13 @@ header: <WebCore/Pasteboard.h>
     String dataInStringFormat;
     Vector<std::pair<String, RefPtr<WebCore::SharedBuffer>>> clientTypesAndData;
 #endif
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     String contentOrigin;
     bool canSmartCopyOrDelete;
     String text;
     String markup;
 #endif
-#if USE(LIBWPE)
+#if USE(LIBWPE) && !PLATFORM(WPE)
     String text;
     String markup;
 #endif
@@ -73,7 +73,7 @@ header: <WebCore/Pasteboard.h>
 #if PLATFORM(MAC)
     String userVisibleForm
 #endif
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     String markup
 #endif
 };

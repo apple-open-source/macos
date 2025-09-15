@@ -53,7 +53,7 @@ public:
 
     void lock()
     {
-        if (LIKELY(m_word.compareExchangeWeak(0, isLockedBit, std::memory_order_acquire))) {
+        if (m_word.compareExchangeWeak(0, isLockedBit, std::memory_order_acquire)) [[likely]] {
             // WordLock acquired!
             return;
         }
@@ -63,7 +63,7 @@ public:
 
     void unlock()
     {
-        if (LIKELY(m_word.compareExchangeWeak(isLockedBit, 0, std::memory_order_release))) {
+        if (m_word.compareExchangeWeak(isLockedBit, 0, std::memory_order_release)) [[likely]] {
             // WordLock released, and nobody was waiting!
             return;
         }

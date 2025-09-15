@@ -60,7 +60,7 @@ public:
     bool hasListener(RefPtr<WebExtensionCallbackHandler>);
 #endif
 
-    void enumerateListeners(WebExtensionTabIdentifier, WebExtensionWindowIdentifier, const ResourceLoadInfo&, const Function<void(WebExtensionCallbackHandler&, const Vector<String>&)>&);
+    void enumerateListeners(WebExtensionTabIdentifier, WebExtensionWindowIdentifier, const ResourceLoadInfo&, NOESCAPE const Function<void(WebExtensionCallbackHandler&, const Vector<String>&)>&);
     void invokeListenersWithArgument(NSDictionary *argument, WebExtensionTabIdentifier, WebExtensionWindowIdentifier, const ResourceLoadInfo&);
 
     void removeAllListeners();

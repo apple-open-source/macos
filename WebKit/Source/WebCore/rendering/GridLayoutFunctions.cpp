@@ -75,8 +75,8 @@ LayoutUnit computeMarginLogicalSizeForGridItem(const RenderGrid& grid, GridTrack
 bool hasRelativeOrIntrinsicSizeForGridItem(const RenderBox& gridItem, GridTrackSizingDirection direction)
 {
     if (direction == GridTrackSizingDirection::ForColumns)
-        return gridItem.hasRelativeLogicalWidth() || gridItem.style().logicalWidth().isIntrinsicOrAuto();
-    return gridItem.hasRelativeLogicalHeight() || gridItem.style().logicalHeight().isIntrinsicOrAuto();
+        return gridItem.hasRelativeLogicalWidth() || gridItem.style().logicalWidth().isIntrinsicOrLegacyIntrinsicOrAuto();
+    return gridItem.hasRelativeLogicalHeight() || gridItem.style().logicalHeight().isIntrinsicOrLegacyIntrinsicOrAuto();
 }
 
 static ExtraMarginsFromSubgrids extraMarginForSubgrid(const RenderGrid& parent, unsigned startLine, unsigned endLine, GridTrackSizingDirection direction)
@@ -159,19 +159,18 @@ bool isGridItemInlineSizeDependentOnBlockConstraints(const RenderBox& gridItem, 
     if (isAspectRatioBlockSizeDependentGridItem(gridItem))
         return true;
 
-
-    auto hasAspectRatioAndInlineSizeDependsOnBlockSize = [](const RenderObject& renderer) {
-        auto& rendererStyle = renderer.style();
-        bool rendererHasAspectRatio = renderer.hasIntrinsicAspectRatio() || rendererStyle.hasAspectRatio();
-
-        return rendererHasAspectRatio && rendererStyle.logicalWidth().isAuto() && !rendererStyle.logicalHeight().isIntrinsicOrAuto();
-    };
-
     // Stretch alignment allows the grid item content to resolve against the stretched size.
     if (gridItemAlignSelf != ItemPosition::Stretch)
         return false;
 
-    for (auto& gridItemChild : childrenOfType<RenderObject>(gridItem)) {
+    auto hasAspectRatioAndInlineSizeDependsOnBlockSize = [](auto& renderer) {
+        auto& rendererStyle = renderer.style();
+        bool rendererHasAspectRatio = renderer.hasIntrinsicAspectRatio() || rendererStyle.hasAspectRatio();
+
+        return rendererHasAspectRatio && rendererStyle.logicalWidth().isAuto() && !rendererStyle.logicalHeight().isIntrinsicOrLegacyIntrinsicOrAuto();
+    };
+
+    for (auto& gridItemChild : childrenOfType<RenderBox>(gridItem)) {
         if (hasAspectRatioAndInlineSizeDependsOnBlockSize(gridItemChild))
             return true;
     }
@@ -230,17 +229,6 @@ void clearOverridingContentSizeForGridItem(const RenderGrid& renderGrid, RenderB
         direction == GridTrackSizingDirection::ForColumns ? gridItem.clearOverridingBorderBoxLogicalWidth() : gridItem.clearOverridingBorderBoxLogicalHeight();
     else
         direction == GridTrackSizingDirection::ForColumns ? gridItem.clearOverridingBorderBoxLogicalHeight() : gridItem.clearOverridingBorderBoxLogicalWidth();
-}
-
-
-GridAxis gridAxisForDirection(GridTrackSizingDirection direction)
-{
-    return direction == GridTrackSizingDirection::ForColumns ? GridAxis::GridRowAxis : GridAxis::GridColumnAxis;
-}
-
-GridTrackSizingDirection gridDirectionForAxis(GridAxis axis)
-{
-    return axis == GridAxis::GridRowAxis ? GridTrackSizingDirection::ForColumns : GridTrackSizingDirection::ForRows;
 }
 
 } // namespace GridLayoutFunctions

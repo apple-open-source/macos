@@ -519,6 +519,10 @@ static void TestConvert(void)
         int32_t i = 0;  
 
         err = U_ZERO_ERROR;
+#ifdef APPLE_XCODE_BUILD // rdar://145099448 & rdar://145866894
+        strcpy(ucs_file_name, loadTestData(&err));
+        strcat(ucs_file_name, U_FILE_SEP_STRING);
+#else
 #ifdef U_TOPSRCDIR
         strcpy(ucs_file_name, U_TOPSRCDIR U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING);
 #else
@@ -539,6 +543,7 @@ static void TestConvert(void)
         
         strcat(ucs_file_name,".."U_FILE_SEP_STRING);
 #endif
+#endif // APPLE_XCODE_BUILD
         strcat(ucs_file_name, CodePagesTestFiles[codepage_index]);
 
         ucs_file_in = fopen(ucs_file_name,"rb");

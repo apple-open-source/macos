@@ -33,16 +33,16 @@
 
 namespace WebCore {
 
-AccessibilityTableColumn::AccessibilityTableColumn(AXID axID)
-    : AccessibilityMockObject(axID)
+AccessibilityTableColumn::AccessibilityTableColumn(AXID axID, AXObjectCache& cache)
+    : AccessibilityMockObject(axID, cache)
 {
 }
 
 AccessibilityTableColumn::~AccessibilityTableColumn() = default;
 
-Ref<AccessibilityTableColumn> AccessibilityTableColumn::create(AXID axID)
+Ref<AccessibilityTableColumn> AccessibilityTableColumn::create(AXID axID, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityTableColumn(axID));
+    return adoptRef(*new AccessibilityTableColumn(axID, cache));
 }
 
 void AccessibilityTableColumn::setParent(AccessibilityObject* parent)
@@ -106,6 +106,10 @@ void AccessibilityTableColumn::addChildren()
 
         addChild(*cell);
     }
+
+#ifndef NDEBUG
+    verifyChildrenIndexInParent();
+#endif
 }
     
 } // namespace WebCore

@@ -33,13 +33,14 @@
  * - split out from ipconfigd.c
  */
 
-#include "sysconfig.h"
-#include "globals.h"
 #include <CoreFoundation/CFArray.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include "sysconfig.h"
+#include "globals.h"
 #include "DNSNameList.h"
+#include "DNSEncryptedServers.h"
 #include "cfutil.h"
 #include "symbol_scope.h"
 #include "dhcp_thread.h"
@@ -532,6 +533,8 @@ DNSEntityCreateWithDHCPInfo(const char * if_name, dhcp_info_t * info_p)
     int				dns_server_len = 0;
     uint8_t *			dns_search = NULL;
     int				dns_search_len = 0;
+    uint8_t *			dns_dnr_data = NULL;
+    int				dns_dnr_data_len = 0;
     dhcpol_t *			options;
 
     if (info_p == NULL || info_p->options == NULL) {
@@ -557,34 +560,61 @@ DNSEntityCreateWithDHCPInfo(const char * if_name, dhcp_info_t * info_p)
 			       dhcptag_domain_search_e,
 			       &dns_search_len);
     }
+    /* DNR option len allows > 255 octets, use concatenation from RFC 3396  */
+    if (dhcp_parameter_is_ok(dhcptag_encrypted_dns_server_e)) {
+	dns_dnr_data = (uint8_t *)
+	    dhcpol_option_copy(options,
+			       dhcptag_encrypted_dns_server_e,
+			       &dns_dnr_data_len);
+    }
     array = createDNSServersArray(if_name, dns_server, dns_server_len);
-    if (array != NULL) {
-	dns_dict 
-	    = CFDictionaryCreateMutable(NULL, 0,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(dns_dict, kSCPropNetDNSServerAddresses, 
-			     array);
-	CFRelease(array);
-	
-	if (dns_domain != NULL) {
-	    process_domain_name(dns_domain, dns_domain_len,
-				(dns_search != NULL), dns_dict);
-	}
-	if (dns_search != NULL) {
-	    CFArrayRef	dns_search_array;
+    if (array == NULL) {
+	my_log(LOG_NOTICE, "%s: bad DNS servers array", __func__);
+	goto done;
+    }
+    dns_dict
+	= CFDictionaryCreateMutable(NULL, 0,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(dns_dict, kSCPropNetDNSServerAddresses, array);
+    CFRelease(array);
 
-	    dns_search_array
-		= DNSNameListCreateArray(dns_search, dns_search_len);
-	    if (dns_search_array != NULL) {
-		CFDictionarySetValue(dns_dict, kSCPropNetDNSSearchDomains,
-				     dns_search_array);
-		CFRelease(dns_search_array);
-	    }
-	}
+    if (dns_domain != NULL) {
+	process_domain_name(dns_domain, dns_domain_len,
+			    (dns_search != NULL), dns_dict);
     }
     if (dns_search != NULL) {
+	CFArrayRef	dns_search_array;
+
+	dns_search_array
+	    = DNSNameListCreateArray(dns_search, dns_search_len);
+	if (dns_search_array != NULL) {
+	    CFDictionarySetValue(dns_dict, kSCPropNetDNSSearchDomains,
+				 dns_search_array);
+	    CFRelease(dns_search_array);
+	}
+    }
+    if (dns_dnr_data != NULL) {
+	CFArrayRef encrypted_servers = NULL;
+
+	encrypted_servers =
+	DNSEncryptedServerListCreateWithDHCPv4Data(dns_dnr_data,
+						   dns_dnr_data_len);
+	if (encrypted_servers != NULL) {
+	    CFDictionarySetValue(dns_dict,
+				 kSCPropNetDNSEncryptedServers,
+				 encrypted_servers);
+	    CFRelease(encrypted_servers);
+	}
+
+    }
+
+done:
+    if (dns_search != NULL) {
 	free(dns_search);
+    }
+    if (dns_dnr_data != NULL) {
+	free(dns_dnr_data);
     }
     return (dns_dict);
 }
@@ -635,10 +665,12 @@ my_CFStringArrayMerge(CFMutableArrayRef merge, CFArrayRef list)
 
 STATIC CFMutableArrayRef
 my_DHCPv6OptionListCopyDNSInfo(DHCPv6OptionListRef options,
-			       CFArrayRef * dns_search_list_p)
+			       CFArrayRef * dns_search_list_p,
+			       CFArrayRef * dns_encrypted_servers_p)
 {
     CFMutableArrayRef		dns_server_list = NULL;
     CFArrayRef			dns_search_list = NULL;
+    CFArrayRef			dns_encrypted_servers = NULL;
     const struct in6_addr *	servers;
     int				servers_count = 0;
     int				servers_length;
@@ -653,6 +685,7 @@ my_DHCPv6OptionListCopyDNSInfo(DHCPv6OptionListRef options,
 	servers_count = servers_length / sizeof(struct in6_addr);
     }
     if (servers_count == 0) {
+	/* if no unencrypted servers are listed, skips looking for the rest */
 	goto done;
     }
     dns_server_list = CFArrayCreateMutable(NULL,
@@ -675,18 +708,27 @@ my_DHCPv6OptionListCopyDNSInfo(DHCPv6OptionListRef options,
 	}
     }
 
+    /* encrypted servers via DNR */
+    if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_V6_DNR)) {
+	dns_encrypted_servers =
+	DHCPv6OptionDNRCopyAllDNSEncryptedServers(options);
+    }
+
  done:
     *dns_search_list_p = dns_search_list;
+    *dns_encrypted_servers_p = dns_encrypted_servers;
     return (dns_server_list);
 }
 
 STATIC CFArrayRef
 my_RouterAdvertisementCopyDNSInfo(RouterAdvertisementRef ra,
 				  const char * if_name,
-				  CFArrayRef * dns_search_list_p)
+				  CFArrayRef * dns_search_list_p,
+				  CFArrayRef * dns_encrypted_servers_p)
 {
     CFMutableArrayRef		dns_server_list = NULL;
     CFArrayRef			dns_search_list = NULL;
+    CFArrayRef			dns_encrypted_server_list = NULL;
     uint32_t 			lifetime;
     CFAbsoluteTime		now;
     const struct in6_addr *	servers;
@@ -728,8 +770,15 @@ my_RouterAdvertisementCopyDNSInfo(RouterAdvertisementRef ra,
 	}
     }
 
+    /* check for encrypted DNS resolvers via DNR */
+    if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_V6_DNR)) {
+	dns_encrypted_server_list =
+	RouterAdvertisementCopyAllDNSEncryptedServers(ra);
+    }
+
  done:
     *dns_search_list_p = dns_search_list;
+    *dns_encrypted_servers_p = dns_encrypted_server_list;
     return (dns_server_list);
 }
 
@@ -739,11 +788,13 @@ DNSEntityCreateWithIPv6Info(const char * if_name, ipv6_info_t * info_p)
     CFArrayRef			dns_servers;
     CFArrayRef			dhcp_dns_search = NULL;
     CFMutableArrayRef		dhcp_dns_servers = NULL;
+    CFArrayRef			dhcp_dns_encrypted_servers = NULL;
     CFMutableDictionaryRef	dict = NULL;
     DHCPv6OptionListRef 	options;
     RouterAdvertisementRef	ra;
     CFArrayRef			ra_dns_search = NULL;
     CFArrayRef			ra_dns_servers = NULL;
+    CFArrayRef			ra_dns_encrypted_servers = NULL;
 
     if (info_p == NULL) {
 	goto done;
@@ -757,14 +808,18 @@ DNSEntityCreateWithIPv6Info(const char * if_name, ipv6_info_t * info_p)
     options = info_p->options;
     if (options != NULL) {
 	dhcp_dns_servers
-	    = my_DHCPv6OptionListCopyDNSInfo(options, &dhcp_dns_search);
+	    = my_DHCPv6OptionListCopyDNSInfo(options,
+					     &dhcp_dns_search,
+					     &dhcp_dns_encrypted_servers);
     }
 
     /* check RA */
     ra = info_p->ra;
     if (ra != NULL) {
 	ra_dns_servers
-	    = my_RouterAdvertisementCopyDNSInfo(ra, if_name, &ra_dns_search);
+	    = my_RouterAdvertisementCopyDNSInfo(ra, if_name,
+						&ra_dns_search,
+						&ra_dns_encrypted_servers);
     }
 
     /* no DNS servers, no DNS information */
@@ -810,10 +865,35 @@ DNSEntityCreateWithIPv6Info(const char * if_name, ipv6_info_t * info_p)
 	/* no merge required, just use DNSSL */
 	CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains, ra_dns_search);
     }
+
+    /* DNS Encrypted Servers */
+    if (dhcp_dns_encrypted_servers != NULL
+	&& ra_dns_encrypted_servers != NULL) {
+	    CFMutableArrayRef merge = NULL;
+
+	    merge = CFArrayCreateMutableCopy(NULL, 0, dhcp_dns_encrypted_servers);
+	    my_CFMutableArrayMergeArray(merge, ra_dns_encrypted_servers,
+					DNSEncryptedServerListCompareEntries);
+	    CFArraySortValues(merge,
+			      CFRangeMake(0, CFArrayGetCount(merge)),
+			      DNSEncryptedServerListSortByServicePriority,
+			      NULL);
+	    CFDictionarySetValue(dict, kSCPropNetDNSEncryptedServers, merge);
+	    CFRelease(merge);
+    } else if (dhcp_dns_encrypted_servers != NULL) {
+	CFDictionarySetValue(dict, kSCPropNetDNSEncryptedServers,
+			     dhcp_dns_encrypted_servers);
+    } else if (ra_dns_encrypted_servers != NULL) {
+	CFDictionarySetValue(dict, kSCPropNetDNSEncryptedServers,
+			     ra_dns_encrypted_servers);
+    }
+
     my_CFRelease(&dhcp_dns_search);
     my_CFRelease(&dhcp_dns_servers);
+    my_CFRelease(&dhcp_dns_encrypted_servers);
     my_CFRelease(&ra_dns_search);
     my_CFRelease(&ra_dns_servers);
+    my_CFRelease(&ra_dns_encrypted_servers);
 
  done:
     return (dict);
@@ -887,7 +967,13 @@ DNSEntityCreateWithInfo(const char * if_name,
     dict = CFDictionaryCreateMutableCopy(NULL, 0, dnsv4);
     merge_dict_arrays(dict, dnsv4, dnsv6, kSCPropNetDNSServerAddresses);
     merge_dict_arrays(dict, dnsv4, dnsv6, kSCPropNetDNSSearchDomains);
-    
+    /*
+     * This merges all v4 and all v6 entries without nested comparison.
+     * The entries from the 2 different lists can never be equal, unless
+     * the local network supports ADN-only DNR, which we don't support.
+     */
+    merge_dict_arrays(dict, dnsv4, dnsv6, kSCPropNetDNSEncryptedServers);
+
     my_CFRelease(&dnsv4);
     my_CFRelease(&dnsv6);
     return (dict);
@@ -1137,16 +1223,7 @@ route_dict_create(const struct in_addr * dest, const struct in_addr * mask,
  ** PvD Options
  **/
 
-#ifndef kSCPropNetPvDIdentifier
-#define kSCPropNetPvDIdentifier			CFSTR("Identifier")
-#define kSCPropNetPvDSequenceNumber		CFSTR("SequenceNumber")
-#define kSCPropNetPvDHTTPSupported		CFSTR("HTTPSupported")
-#define kSCPropNetPvDDelay			CFSTR("Delay")
-#define kSCPropNetPvDLegacy			CFSTR("Legacy")
-#define kSCPropNetPvDAdditionalInformation	CFSTR("AdditionalInformation")
-#endif
-
-CFDictionaryRef
+PRIVATE_EXTERN CFDictionaryRef
 PvDEntityCreateWithInfo(ipv6_info_t * info_p)
 {
     RA_PvDFlagsDelay            flags = { 0 };

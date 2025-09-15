@@ -62,7 +62,7 @@ static void createMenuItem(const ContextMenuContextData &context, HMENU menu, co
     switch (data.type()) {
     case ContextMenuItemType::Action:
     case ContextMenuItemType::CheckableAction:
-        ::AppendMenu(menu, flags | MF_STRING, data.action(), data.title().wideCharacters().data());
+        ::AppendMenu(menu, flags | MF_STRING, data.action(), data.title().wideCharacters().span().data());
         break;
     case ContextMenuItemType::Separator:
         ::AppendMenu(menu, flags | MF_SEPARATOR, data.action(), nullptr);
@@ -70,7 +70,7 @@ static void createMenuItem(const ContextMenuContextData &context, HMENU menu, co
     case ContextMenuItemType::Submenu:
         HMENU submenu = createMenu(context);
         populate(context, submenu, data.submenu());
-        ::AppendMenu(menu, flags | MF_POPUP, (UINT_PTR)submenu, data.title().wideCharacters().data());
+        ::AppendMenu(menu, flags | MF_POPUP, (UINT_PTR)submenu, data.title().wideCharacters().span().data());
         break;
     }
 }
@@ -95,15 +95,16 @@ void WebContextMenuProxyWin::showContextMenuWithItems(Vector<Ref<WebContextMenuI
 
     UINT flags = TPM_RIGHTBUTTON | TPM_TOPALIGN | TPM_VERPOSANIMATION | TPM_HORIZONTAL | TPM_LEFTALIGN | TPM_HORPOSANIMATION;
     auto location = m_context.menuLocation();
-    location.scale(page()->deviceScaleFactor());
+    location.scale(page()->intrinsicDeviceScaleFactor());
     POINT pt = location;
     HWND wnd = reinterpret_cast<HWND>(page()->viewWidget());
     ::ClientToScreen(wnd, &pt);
     ::TrackPopupMenuEx(m_menu, flags, pt.x, pt.y, wnd, nullptr);
 }
 
-WebContextMenuProxyWin::WebContextMenuProxyWin(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+WebContextMenuProxyWin::WebContextMenuProxyWin(WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     : WebContextMenuProxy(page, WTFMove(context), userData)
+    , m_frameInfo(WTFMove(frameInfo))
 {
     m_menu = createMenu(m_context);
 }

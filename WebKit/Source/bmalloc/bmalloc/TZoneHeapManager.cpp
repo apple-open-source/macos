@@ -60,7 +60,7 @@ static unsigned bucketsForSmallSizes { defaultBucketsForSmallSizes };
 static unsigned bucketsForLargeSizes { defaultBucketsForLargeSizes };
 static unsigned maxSmallSize { defaultMaxSmallSize };
 
-static bool requirePerBootPrimodialSeed;
+static bool requirePerBootPrimordialSeed;
 
 static constexpr bool verbose = false;
 
@@ -120,31 +120,27 @@ TZoneHeapManager::TZoneHeapManager()
 
 void determineTZoneMallocFallback()
 {
-    static Mutex s_mutex;
-    LockHolder lock(s_mutex);
-    {
-        if (tzoneMallocFallback != TZoneMallocFallback::Undecided)
-            return;
+    if (tzoneMallocFallback != TZoneMallocFallback::Undecided)
+        return;
 
-        if (Environment::get()->isDebugHeapEnabled()) {
-            tzoneMallocFallback = TZoneMallocFallback::ForceDebugMalloc;
-            return;
-        }
-
-        const char* env = getenv("bmalloc_TZoneHeap");
-        if (env && (!strcasecmp(env, "false") || !strcasecmp(env, "no") || !strcmp(env, "0"))) {
-            tzoneMallocFallback = TZoneMallocFallback::ForceDebugMalloc;
-            return;
-        }
-
-        tzoneMallocFallback = TZoneMallocFallback::DoNotFallBack;
+    if (Environment::get()->isSystemHeapEnabled()) {
+        tzoneMallocFallback = TZoneMallocFallback::ForceDebugMalloc;
+        return;
     }
+
+    const char* env = getenv("bmalloc_TZoneHeap");
+    if (env && (!strcasecmp(env, "false") || !strcasecmp(env, "no") || !strcmp(env, "0"))) {
+        tzoneMallocFallback = TZoneMallocFallback::ForceDebugMalloc;
+        return;
+    }
+
+    tzoneMallocFallback = TZoneMallocFallback::DoNotFallBack;
 }
 
 void TZoneHeapManager::requirePerBootSeed()
 {
     RELEASE_BASSERT(s_state < State::Seeded);
-    requirePerBootPrimodialSeed = true;
+    requirePerBootPrimordialSeed = true;
 }
 
 void TZoneHeapManager::setBucketParams(unsigned smallSizeCount, unsigned largeSizeCount, unsigned smallSizeLimit)
@@ -220,7 +216,7 @@ void TZoneHeapManager::init()
     auto sysctlResult = sysctl(mib, 2, &timeValue, &size, nullptr, 0);
     if (sysctlResult) {
         TZONE_LOG_DEBUG("kern.boottime is required for TZoneHeap initialization: %d errno %d\n", sysctlResult, errno);
-        RELEASE_BASSERT(!sysctlResult || !requirePerBootPrimodialSeed);
+        RELEASE_BASSERT(!sysctlResult || !requirePerBootPrimordialSeed);
         // Some clients of JSC may not have access to kern.boottime. In those cases, use a fallback.
         gettimeofday(&timeValue, NULL);
     }
@@ -325,6 +321,25 @@ static char* nameForType(LockHolder&, unsigned typeSize, unsigned alignment, uns
         typeNameTemplate.nameTemplate.index[IndexSize - i - 1] = '0' + index % 10;
         index /= 10;
     }
+
+    return &typeNameTemplate.string[0];
+}
+
+static char* nameForTypeNonCompact(LockHolder&, unsigned typeSize, unsigned alignment)
+{
+    for (unsigned i = 0; i < SizeBase64Size; ++i) {
+        typeNameTemplate.nameTemplate.sizeBase64[SizeBase64Size - i - 1] = base64Chars[typeSize % 64];
+        typeSize >>= 6;
+    }
+
+    for (unsigned i = 0; i < AlignmentBase64Size; ++i) {
+        typeNameTemplate.nameTemplate.alignmentBase64[AlignmentBase64Size - i - 1] = base64Chars[alignment % 64];
+        alignment >>= 6;
+    }
+
+    // Use the index bytes to say that this heap is non-compact.
+    typeNameTemplate.nameTemplate.index[0] = 'N';
+    typeNameTemplate.nameTemplate.index[1] = 'C';
 
     return &typeNameTemplate.string[0];
 }
@@ -521,6 +536,21 @@ TZoneHeapManager::TZoneTypeBuckets* TZoneHeapManager::populateBucketsForSizeClas
     buckets->bucketUseCounts.resize(bucketCount);
 #endif
 
+    // Fill in non-compact bucket.
+
+#if TZONE_VERBOSE_DEBUG
+    char* typeName = nameForTypeNonCompact(lock, SizeAndAlignment::decodeSize(sizeAndAlignment), SizeAndAlignment::decodeAlignment(sizeAndAlignment));
+    memcpy(buckets->nonCompactBucket.typeName, typeName, typeNameLen);
+#else
+    PAS_UNUSED_PARAM(lock);
+    setNextTypeName(buckets->nonCompactBucket.typeName, typeNameLen);
+#endif
+    buckets->nonCompactBucket.type.size = SizeAndAlignment::decodeSize(sizeAndAlignment);
+    buckets->nonCompactBucket.type.alignment = SizeAndAlignment::decodeAlignment(sizeAndAlignment);
+    buckets->nonCompactBucket.type.name = buckets->nonCompactBucket.typeName;
+    buckets->nonCompactBucket.heapref.type = (const pas_heap_type*)(&buckets->nonCompactBucket.type);
+    buckets->nonCompactBucket.heapref.is_non_compact_heap = true;
+
     for (unsigned i = 0; i < bucketCount; ++i) {
 #if TZONE_VERBOSE_DEBUG
         char* typeName = !i ? nameForType(lock, SizeAndAlignment::decodeSize(sizeAndAlignment), SizeAndAlignment::decodeAlignment(sizeAndAlignment), i) : nameForTypeUpdateIndex(lock, i);
@@ -534,6 +564,7 @@ TZoneHeapManager::TZoneTypeBuckets* TZoneHeapManager::populateBucketsForSizeClas
         buckets->buckets[i].type.name = buckets->buckets[i].typeName;
 
         buckets->buckets[i].heapref.type = (const pas_heap_type*)(&buckets->buckets[i].type);
+        buckets->buckets[i].heapref.is_non_compact_heap = false;
     }
 
     m_heapRefsBySizeAndAlignment.set(sizeAndAlignment, buckets);
@@ -548,6 +579,9 @@ BINLINE pas_heap_ref* TZoneHeapManager::heapRefForTZoneType(const TZoneSpecifica
         bucketsForSize = bucket.value();
     else
         bucketsForSize = populateBucketsForSizeClass(lock, spec.sizeAndAlignment);
+
+    if (spec.allocationMode == CompactAllocationMode::NonCompact && PAS_USE_COMPACT_ONLY_TZONE_HEAP)
+        return &bucketsForSize->nonCompactBucket.heapref;
 
     unsigned bucket = tzoneBucketForKey(spec, bucketsForSize->numberOfBuckets, lock);
 
@@ -600,6 +634,7 @@ pas_heap_ref* TZoneHeapManager::TZoneHeapManager::heapRefForTZoneTypeDifferentSi
     TZoneSpecification newSpec = {
         spec.addressOfHeapRef,
         static_cast<unsigned>(requestedSize),
+        spec.allocationMode,
         SizeAndAlignment::encode(newSize, alignment),
 #if BUSE_TZONE_SPEC_NAME_ARG
         spec.name

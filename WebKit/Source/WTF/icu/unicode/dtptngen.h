@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 * Copyright (C) 2007-2016, International Business Machines Corporation and
-* others. All Rights Reserved.
+* others. All rights reserved.
 *******************************************************************************
 *
 * File DTPTNGEN.H

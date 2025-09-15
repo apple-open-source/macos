@@ -40,6 +40,9 @@
 #include <machine/machine_routines.h>
 #include <libkern/OSKextLibPrivate.h>
 #include <libkern/kernel_mach_header.h>
+#if __arm64__
+#include <pexpert/arm64/platform.h>
+#endif
 
 #define TAG "[trap_telemetry] "
 
@@ -66,6 +69,9 @@
 
 /** Number of last events per-CPU to remember and reject. */
 #define DEBOUNCE_RECORD_COUNT (2)
+
+/** Length of the kernel_platform string (eg t8132). */
+#define KERNEL_PLATFORM_STR_LEN 12
 
 /**
  * When true, trap telemetry will not report events to CoreAnalytics.
@@ -103,6 +109,7 @@ typedef struct match_record {
 
 typedef struct rsb_entry {
 	match_record_s record;
+	trap_telemetry_extra_data_u extra_data;
 	trap_telemetry_options_s options;
 	size_t bt_frames_count;
 	uintptr_t bt_frames[TRAP_TELEMETRY_BT_FRAMES];
@@ -137,10 +144,23 @@ CA_EVENT(kernel_breakpoint_event,
 
 CA_EVENT(trap_telemetry_internal,
     CA_STATIC_STRING(TRAP_TELEMETRY_BT_STR_LEN), backtrace,
+    CA_STATIC_STRING(KERNEL_PLATFORM_STR_LEN), kernel_platform,
     CA_INT, trap_code,
     CA_INT, trap_offset,
     CA_INT, trap_type,
     CA_STATIC_STRING(CA_UUID_LEN), trap_uuid);
+
+CA_EVENT(latency_violations,
+    CA_STATIC_STRING(TRAP_TELEMETRY_BT_STR_LEN), backtrace,
+    CA_STATIC_STRING(KERNEL_PLATFORM_STR_LEN), kernel_platform,
+    CA_STATIC_STRING(CA_UUID_LEN), uuid,
+    CA_INT, violation_code,
+    CA_INT, violation_cpi,
+    CA_STATIC_STRING(2), violation_cpu_type,
+    CA_INT, violation_duration,
+    CA_INT, violation_freq,
+    CA_INT, violation_payload,
+    CA_INT, violation_threshold);
 
 /* ~* Splay tree *~ */
 static int
@@ -730,6 +750,16 @@ rsb_entry_submit(rsb_entry_s *rsb_e)
 			rsb_e->bt_frames,
 			rsb_e->bt_frames_count);
 
+#if __arm64__
+		/*
+		 * We want the value of ARM64_SOC_NAME define as a string, so we need
+		 * to do a two level indirection of macros to get to it.
+		 */
+#define tostr(s) __STRINGIFY(s)
+		strlcpy(event->kernel_platform, tostr(ARM64_SOC_NAME), KERNEL_PLATFORM_STR_LEN);
+#undef tostr
+#endif
+
 		/*
 		 * Internal events report the UUID of the binary containing the
 		 * fault PC and offset of the fault PC into the executable region of
@@ -754,9 +784,42 @@ rsb_entry_submit(rsb_entry_s *rsb_e)
 
 		event->trap_type = (uint32_t)rsb_e->record.trap_type;
 		event->trap_code = rsb_e->record.trap_code;
+
 		break;
 	}
 
+	case TRAP_TELEMETRY_CA_EVENT_LATENCY: {
+		ca_event = CA_EVENT_ALLOCATE(latency_violations);
+		CA_EVENT_TYPE(latency_violations) * event = ca_event->data;
+
+		backtrace_to_offset_bt_string(
+			/* buf */ event->backtrace,
+			/* buf_len */ TRAP_TELEMETRY_BT_STR_LEN,
+			rsb_e->bt_frames,
+			rsb_e->bt_frames_count);
+
+#if __arm64__
+		/*
+		 * We want the value of ARM64_SOC_NAME define as a string, so we need
+		 * to do a two level indirection of macros to get to it.
+		 */
+#define tostr(s) __STRINGIFY(s)
+		strlcpy(event->kernel_platform, tostr(ARM64_SOC_NAME), KERNEL_PLATFORM_STR_LEN);
+#undef tostr
+#endif
+		strlcpy(event->uuid, kernel_uuid_string, CA_UUID_LEN);
+		(void)scnprintf(event->violation_cpu_type, 2, "%c",
+		    rsb_e->extra_data.latency_data.violation_cpu_type);
+
+		event->violation_code = (uint32_t)rsb_e->record.trap_type;
+		event->violation_cpi = rsb_e->extra_data.latency_data.violation_cpi;
+		event->violation_freq = rsb_e->extra_data.latency_data.violation_freq;
+		event->violation_duration = rsb_e->extra_data.latency_data.violation_duration;
+		event->violation_threshold = rsb_e->extra_data.latency_data.violation_threshold;
+		event->violation_payload = rsb_e->extra_data.latency_data.violation_payload;
+
+		break;
+	}
 	default: {
 		panic("Unexpected telemetry CA event: %u\n",
 		    options.telemetry_ca_event);
@@ -1059,11 +1122,12 @@ trap_telemetry_report_exception(
 	return rsb_enqueue_if_needed(&submission_e);
 }
 
-__attribute__((noinline))
-bool
-trap_telemetry_report_simulated_trap(
+__attribute__((always_inline))
+static bool
+trap_telemetry_report_simulated_trap_impl(
 	trap_telemetry_type_t trap_type,
 	uint64_t trap_code,
+	trap_telemetry_extra_data_u *extra_data,
 	trap_telemetry_options_s options)
 {
 	if (should_ignore_trap(trap_type, trap_code, options)) {
@@ -1101,6 +1165,7 @@ trap_telemetry_report_simulated_trap(
 			trap_type,
 			trap_code,
 			options,
+			extra_data,
 			/* fault_pc */ frames[0],
 			/* frames */ frames + 1,
 			/* frames_valid_count */ frames_valid_count - 1);
@@ -1110,10 +1175,35 @@ trap_telemetry_report_simulated_trap(
 			trap_type,
 			trap_code,
 			options,
+			extra_data,
 			/* fault_pc */ (uintptr_t)__builtin_return_address(0),
 			/* frames */ NULL,
 			/* frames_valid_count */ 0);
 	}
+}
+
+__attribute__((noinline))
+bool
+trap_telemetry_report_simulated_trap(
+	trap_telemetry_type_t trap_type,
+	uint64_t trap_code,
+	trap_telemetry_options_s options)
+{
+	return trap_telemetry_report_simulated_trap_impl(trap_type, trap_code, NULL, options);
+}
+
+__attribute__((noinline))
+bool
+trap_telemetry_report_latency_violation(
+	trap_telemetry_type_t trap_type,
+	trap_telemetry_latency_s latency_data)
+{
+	return trap_telemetry_report_simulated_trap_impl(trap_type, 0,
+	           (trap_telemetry_extra_data_u *)&latency_data,
+	           (trap_telemetry_options_s) {
+		.telemetry_ca_event = TRAP_TELEMETRY_CA_EVENT_LATENCY,
+		.report_once_per_site = false
+	});
 }
 
 bool
@@ -1121,6 +1211,7 @@ trap_telemetry_report_simulated_trap_with_backtrace(
 	trap_telemetry_type_t trap_type,
 	uint64_t trap_code,
 	trap_telemetry_options_s options,
+	trap_telemetry_extra_data_u *extra_data,
 	uintptr_t fault_pc,
 	uintptr_t *frames,
 	size_t frames_valid_count)
@@ -1136,6 +1227,9 @@ trap_telemetry_report_simulated_trap_with_backtrace(
 	rsb_entry_s submission_e = { 0 };
 	submission_e.record.trap_type = trap_type;
 	submission_e.record.trap_code = trap_code;
+	if (extra_data != NULL) {
+		submission_e.extra_data = *extra_data;
+	}
 	submission_e.options = options;
 
 	// only copy up to TRAP_TELEMETRY_BT_FRAMES frames

@@ -125,7 +125,7 @@ private:
     std::span<const CharacterType> m_data;
 };
 
-template<typename StringType, typename Function> decltype(auto) readCharactersForParsing(StringType&& string, Function&& functor)
+template<typename StringType, typename Function> decltype(auto) readCharactersForParsing(StringType&& string, NOESCAPE const Function& functor)
 {
     if (string.is8Bit())
         return functor(StringParsingBuffer { string.span8() });

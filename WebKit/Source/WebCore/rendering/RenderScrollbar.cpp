@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009, 2013, 2015 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RenderScrollbar.h"
 
+#include "ContainerNodeInlines.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "RenderScrollbarPart.h"

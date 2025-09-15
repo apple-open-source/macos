@@ -28,7 +28,7 @@
 
 #include <TargetConditionals.h>
 
-#if TARGET_OS_OSX
+#if SEC_OS_OSX
 
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
@@ -132,6 +132,9 @@ enum
 
     // Recoding of this database is complete
     CSSM_APPLECSPDL_DB_RECODE_FINISHED = CSSM_APPLE_PRIVATE_CSPDL_CODE_27,
+
+    // Get the salt for a database
+    CSSM_APPLECSPDL_DB_COPY_SALT = CSSM_APPLE_PRIVATE_CSPDL_CODE_28,
 };
 
 /* AppleCSPDL passthrough parameters */
@@ -183,6 +186,6 @@ typedef struct DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER cssm_applecspdl_db_
 }
 #endif
 
-#endif /* TARGET_OS_OSX */
+#endif /* SEC_OS_OSX */
 
 #endif	/* _CSSMAPPLE_PRIV_H_ */

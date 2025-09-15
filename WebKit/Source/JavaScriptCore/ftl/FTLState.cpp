@@ -67,14 +67,14 @@ State::State(Graph& graph)
     graph.m_plan.setFinalizer(makeUnique<JITFinalizer>(graph.m_plan));
     finalizer = static_cast<JITFinalizer*>(graph.m_plan.finalizer());
 
-    proc = makeUnique<Procedure>(/* usesSIMD = */ false);
+    proc = makeUniqueWithoutFastMallocCheck<Procedure>(/* usesSIMD = */ false);
 
     if (graph.m_vm.shouldBuilderPCToCodeOriginMapping())
         proc->setNeedsPCToOriginMap();
 
     proc->setOriginPrinter(
         [] (PrintStream& out, B3::Origin origin) {
-            out.print(std::bit_cast<Node*>(origin.data()));
+            out.print(origin.dfgOrigin());
         });
 
     proc->setFrontendData(&graph);
@@ -84,79 +84,81 @@ void State::dumpDisassembly(PrintStream& out, LinkBuffer& linkBuffer, const Scop
 {
     B3::Air::Disassembler* disassembler = proc->code().disassembler();
 
-    out.print("Generated ", graph.m_plan.mode(), " code for ", CodeBlockWithJITType(graph.m_codeBlock, JITType::FTLJIT), ", instructions size = ", graph.m_codeBlock->instructionsSize(), ":\n");
+    out.atomically([&](auto&) {
+        out.print("Generated ", graph.m_plan.mode(), " code for ", CodeBlockWithJITType(graph.m_codeBlock, JITType::FTLJIT), ", instructions size = ", graph.m_codeBlock->instructionsSize(), ":\n");
 
-    B3::Value* currentB3Value = nullptr;
-    Node* currentDFGNode = nullptr;
+        B3::Value* currentB3Value = nullptr;
+        Node* currentDFGNode = nullptr;
 
-    UncheckedKeyHashSet<B3::Value*> printedValues;
-    UncheckedKeyHashSet<Node*> printedNodes;
-    const char* dfgPrefix = "DFG " "    ";
-    const char* b3Prefix  = "b3  " "          ";
-    const char* airPrefix = "Air " "              ";
-    const char* asmPrefix = "asm " "                ";
+        UncheckedKeyHashSet<B3::Value*> printedValues;
+        UncheckedKeyHashSet<Node*> printedNodes;
+        const char* dfgPrefix = "DFG " "    ";
+        const char* b3Prefix  = "b3  " "          ";
+        const char* airPrefix = "Air " "              ";
+        const char* asmPrefix = "asm " "                ";
 
-    auto printDFGNode = [&] (Node* node) {
-        if (currentDFGNode == node)
-            return;
-
-        currentDFGNode = node;
-        if (!currentDFGNode)
-            return;
-
-        perDFGNodeCallback(node);
-
-        UncheckedKeyHashSet<Node*> localPrintedNodes;
-        WTF::Function<void(Node*)> printNodeRecursive = [&] (Node* node) {
-            if (printedNodes.contains(node) || localPrintedNodes.contains(node))
+        auto printDFGNode = [&] (Node* node) {
+            if (currentDFGNode == node)
                 return;
 
-            localPrintedNodes.add(node);
-            graph.doToChildren(node, [&] (Edge child) {
-                printNodeRecursive(child.node());
-            });
-            graph.dump(out, dfgPrefix, node);
+            currentDFGNode = node;
+            if (!currentDFGNode)
+                return;
+
+            perDFGNodeCallback(node);
+
+            UncheckedKeyHashSet<Node*> localPrintedNodes;
+            WTF::Function<void(Node*)> printNodeRecursive = [&] (Node* node) {
+                if (printedNodes.contains(node) || localPrintedNodes.contains(node))
+                    return;
+
+                localPrintedNodes.add(node);
+                graph.doToChildren(node, [&] (Edge child) {
+                    printNodeRecursive(child.node());
+                });
+                graph.dump(out, dfgPrefix, node);
+            };
+            printNodeRecursive(node);
+            printedNodes.add(node);
         };
-        printNodeRecursive(node);
-        printedNodes.add(node);
-    };
 
-    auto printB3Value = [&] (B3::Value* value) {
-        if (currentB3Value == value)
-            return;
-
-        currentB3Value = value;
-        if (!currentB3Value)
-            return;
-
-        printDFGNode(std::bit_cast<Node*>(value->origin().data()));
-
-        UncheckedKeyHashSet<B3::Value*> localPrintedValues;
-        auto printValueRecursive = recursableLambda([&] (auto self, B3::Value* value) -> void {
-            if (printedValues.contains(value) || localPrintedValues.contains(value))
+        auto printB3Value = [&] (B3::Value* value) {
+            if (currentB3Value == value)
                 return;
 
-            localPrintedValues.add(value);
-            for (unsigned i = 0; i < value->numChildren(); i++)
-                self(value->child(i));
-            out.print(b3Prefix);
-            value->deepDump(proc.get(), out);
-            out.print("\n");
+            currentB3Value = value;
+            if (!currentB3Value)
+                return;
+
+            printDFGNode(value->origin().dfgOrigin());
+
+            UncheckedKeyHashSet<B3::Value*> localPrintedValues;
+            auto printValueRecursive = recursableLambda([&] (auto self, B3::Value* value) -> void {
+                if (printedValues.contains(value) || localPrintedValues.contains(value))
+                    return;
+
+                localPrintedValues.add(value);
+                for (unsigned i = 0; i < value->numChildren(); i++)
+                    self(value->child(i));
+                out.print(b3Prefix);
+                value->deepDump(proc.get(), out);
+                out.print("\n");
+            });
+
+            printValueRecursive(currentB3Value);
+            printedValues.add(value);
+        };
+
+        B3::Value* prevOrigin = nullptr;
+        auto forEachInst = scopedLambda<void(B3::Air::Inst&)>([&] (B3::Air::Inst& inst) {
+            if (inst.origin != prevOrigin) {
+                printB3Value(inst.origin);
+                prevOrigin = inst.origin;
+            }
         });
 
-        printValueRecursive(currentB3Value);
-        printedValues.add(value);
-    };
-
-    B3::Value* prevOrigin = nullptr;
-    auto forEachInst = scopedLambda<void(B3::Air::Inst&)>([&] (B3::Air::Inst& inst) {
-        if (inst.origin != prevOrigin) {
-            printB3Value(inst.origin);
-            prevOrigin = inst.origin;
-        }
+        disassembler->dump(proc->code(), out, linkBuffer, airPrefix, asmPrefix, forEachInst);
     });
-
-    disassembler->dump(proc->code(), out, linkBuffer, airPrefix, asmPrefix, forEachInst);
     linkBuffer.didAlreadyDisassemble();
 }
 

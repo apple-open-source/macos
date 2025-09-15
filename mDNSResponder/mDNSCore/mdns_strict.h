@@ -94,6 +94,8 @@
 
 #define MDNS_DISPOSE_DNS_SERVICE_REF(obj) _MDNS_STRICT_DISPOSE_TEMPLATE(obj, DNSServiceRefDeallocate)
 
+#define MDNS_NRDM_DISPOSE(obj) _MDNS_STRICT_DISPOSE_TEMPLATE(obj, nr_device_monitor_release)
+
 #ifdef BlockForget
 // Redfine BlockForget to bypass poisoned Block_release
 #undef BlockForget
@@ -139,6 +141,20 @@ void _mdns_strict_strlcpy(char * const restrict dst, const char * const restrict
 }
 #define mdns_strlcpy			_mdns_strict_strlcpy
 
+#if defined(__APPLE__)
+	#define MDNS_DISPOSE_BLOCK(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, _Block_release)
+	#define MDNS_DISPOSE_CF_OBJECT(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, CFRelease)
+	#define MDNS_DISPOSE_XPC(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, xpc_release)
+	#define MDNS_DISPOSE_DISPATCH(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, dispatch_release)
+	#define MDNS_DISPOSE_NW(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, nw_release)
+	#define MDNS_DISPOSE_SEC(obj) \
+		_MDNS_STRICT_DISPOSE_TEMPLATE(obj, sec_release)
+#endif // defined(__APPLE__)
 
 #define MDNS_DISPOSE_DNS_SERVICE_REF(obj) _MDNS_STRICT_DISPOSE_TEMPLATE(obj, DNSServiceRefDeallocate)
 

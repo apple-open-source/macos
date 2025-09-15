@@ -666,6 +666,8 @@ process_upl_to_commit:
 			kr = KERN_FAILURE;
 			goto done;
 		}
+		assertf(upl->flags & UPL_INTERNAL, "%s: sub-upl %p of vector upl %p has no internal page list",
+		    __func__, upl, vector_upl);
 		page_list = upl->page_list;
 		subupl_size -= size;
 		subupl_offset += size;
@@ -904,6 +906,7 @@ process_upl_to_commit:
 
 					if (m->vmp_wire_count == 0) {
 						m->vmp_q_state = VM_PAGE_NOT_ON_Q;
+						m->vmp_iopl_wired = false;
 						unwired_count++;
 
 					}

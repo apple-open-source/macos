@@ -30,7 +30,7 @@
     DispatchedTo=WebContent
 ]
 messages -> RemoteRemoteCommandListener {
-    DidReceiveRemoteControlCommand(enum:uint8_t WebCore::PlatformMediaSessionRemoteControlCommandType command, struct WebCore::PlatformMediaSession::RemoteCommandArgument argument)
+    DidReceiveRemoteControlCommand(enum:uint8_t WebCore::PlatformMediaSessionRemoteControlCommandType command, struct WebCore::PlatformMediaSessionRemoteCommandArgument argument)
 }
 
 #endif

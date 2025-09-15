@@ -23,6 +23,7 @@
 #include <new>
 #include <stdlib.h>
 #include <wtf/DebugHeap.h>
+#include <wtf/MallocCommon.h>
 #include <wtf/StdLibExtras.h>
 
 #if !USE(SYSTEM_MALLOC)
@@ -149,17 +150,6 @@ namespace WTF {
 WTF_EXPORT_PRIVATE void fastSetMaxSingleAllocationSize(size_t);
 #endif
 
-class TryMallocReturnValue {
-public:
-    TryMallocReturnValue(void*);
-    TryMallocReturnValue(TryMallocReturnValue&&);
-    ~TryMallocReturnValue();
-    template<typename T> bool getValue(T*&) WARN_UNUSED_RETURN;
-private:
-    void operator=(TryMallocReturnValue&&) = delete;
-    mutable void* m_data;
-};
-
 WTF_EXPORT_PRIVATE bool isFastMallocEnabled();
 
 // These functions call CRASH() if an allocation fails.
@@ -209,44 +199,12 @@ WTF_EXPORT_PRIVATE void releaseFastMallocFreeMemoryForThisThread();
 WTF_EXPORT_PRIVATE void fastCommitAlignedMemory(void*, size_t);
 WTF_EXPORT_PRIVATE void fastDecommitAlignedMemory(void*, size_t);
 
-WTF_EXPORT_PRIVATE void fastEnableMiniMode();
+WTF_EXPORT_PRIVATE void fastEnableMiniMode(bool forceMiniMode = false);
 
 WTF_EXPORT_PRIVATE void fastDisableScavenger();
 
 // allocate with guard pages at a rate of 1/guardMallocRate
 WTF_EXPORT_PRIVATE void forceEnablePGM(uint16_t guardMallocRate);
-
-class ForbidMallocUseForCurrentThreadScope {
-public:
-#if ASSERT_ENABLED
-    WTF_EXPORT_PRIVATE ForbidMallocUseForCurrentThreadScope();
-    WTF_EXPORT_PRIVATE ~ForbidMallocUseForCurrentThreadScope();
-#else
-    ForbidMallocUseForCurrentThreadScope() = default;
-    ~ForbidMallocUseForCurrentThreadScope() { }
-#endif
-
-    ForbidMallocUseForCurrentThreadScope(const ForbidMallocUseForCurrentThreadScope&) = delete;
-    ForbidMallocUseForCurrentThreadScope(ForbidMallocUseForCurrentThreadScope&&) = delete;
-    ForbidMallocUseForCurrentThreadScope& operator=(const ForbidMallocUseForCurrentThreadScope&) = delete;
-    ForbidMallocUseForCurrentThreadScope& operator=(ForbidMallocUseForCurrentThreadScope&&) = delete;
-};
-
-class DisableMallocRestrictionsForCurrentThreadScope {
-public:
-#if ASSERT_ENABLED
-    WTF_EXPORT_PRIVATE DisableMallocRestrictionsForCurrentThreadScope();
-    WTF_EXPORT_PRIVATE ~DisableMallocRestrictionsForCurrentThreadScope();
-#else
-    DisableMallocRestrictionsForCurrentThreadScope() = default;
-    ~DisableMallocRestrictionsForCurrentThreadScope() { }
-#endif
-
-    DisableMallocRestrictionsForCurrentThreadScope(const DisableMallocRestrictionsForCurrentThreadScope&) = delete;
-    DisableMallocRestrictionsForCurrentThreadScope(DisableMallocRestrictionsForCurrentThreadScope&&) = delete;
-    DisableMallocRestrictionsForCurrentThreadScope& operator=(const DisableMallocRestrictionsForCurrentThreadScope&) = delete;
-    DisableMallocRestrictionsForCurrentThreadScope& operator=(DisableMallocRestrictionsForCurrentThreadScope&&) = delete;
-};
 
 struct FastMallocStatistics {
     size_t reservedVMBytes;
@@ -260,29 +218,6 @@ WTF_EXPORT_PRIVATE void fastMallocDumpMallocStats();
 // This defines a type which holds an unsigned integer and is the same
 // size as the minimally aligned memory allocation.
 typedef unsigned long long AllocAlignmentInteger;
-
-inline TryMallocReturnValue::TryMallocReturnValue(void* data)
-    : m_data(data)
-{
-}
-
-inline TryMallocReturnValue::TryMallocReturnValue(TryMallocReturnValue&& source)
-    : m_data(source.m_data)
-{
-    source.m_data = nullptr;
-}
-
-inline TryMallocReturnValue::~TryMallocReturnValue()
-{
-    ASSERT(!m_data);
-}
-
-template<typename T> inline bool TryMallocReturnValue::getValue(T*& data)
-{
-    data = static_cast<T*>(m_data);
-    m_data = nullptr;
-    return data;
-}
 
 // C++ STL allocator implementation. You can integrate fastMalloc into STL containers.
 // e.g. std::unordered_map<Key, Value, std::hash<Key>, std::equal_to<Key>, FastAllocator<std::pair<const Key, Value>>>.
@@ -312,6 +247,8 @@ public:
 };
 
 template<typename T, typename U> inline bool operator==(const FastAllocator<T>&, const FastAllocator<U>&) { return true; }
+
+struct FastCompactMalloc;
 
 struct FastMalloc {
     static void* malloc(size_t size) { return fastMalloc(size); }
@@ -349,10 +286,14 @@ struct FastMalloc {
     
     static void free(void* p) { fastFree(p); }
 
+    static void fastFree(void* p) { ::WTF::fastFree(p); }
+
     static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity)
     {
-        return capacity + capacity / 4 + 1;
+        return std::max(capacity + capacity / 2, capacity + 1);
     }
+
+    using CompactMalloc = FastCompactMalloc;
 };
 
 struct FastAlignedMalloc {
@@ -397,9 +338,11 @@ struct FastCompactMalloc {
 
     static void free(void* p) { fastFree(p); }
 
+    static void fastFree(void* p) { ::WTF::fastFree(p); }
+
     static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity)
     {
-        return capacity + capacity / 4 + 1;
+        return std::max(capacity + capacity / 2, capacity + 1);
     }
 };
 
@@ -466,13 +409,11 @@ inline constexpr std::enable_if_t<!WTF::IsTypeComplete<std::remove_pointer_t<T>>
     return AllowCompactPointers<std::remove_const_t<std::remove_pointer_t<T>>*>::value;
 }
 
-using WTF::DisableMallocRestrictionsForCurrentThreadScope;
 using WTF::FastAlignedMalloc;
 using WTF::FastAllocator;
 using WTF::FastMalloc;
 using WTF::FastCompactMalloc;
 using WTF::FastFree;
-using WTF::ForbidMallocUseForCurrentThreadScope;
 using WTF::isFastMallocEnabled;
 using WTF::fastCalloc;
 using WTF::fastFree;
@@ -500,12 +441,6 @@ using WTF::tryFastCompactCalloc;
 using WTF::tryFastCompactMalloc;
 using WTF::tryFastCompactZeroedMalloc;
 using WTF::fastCompactAlignedMalloc;
-
-#if OS(DARWIN)
-#define WTF_PRIVATE_INLINE __private_extern__ inline __attribute__((always_inline))
-#else
-#define WTF_PRIVATE_INLINE inline __attribute__((always_inline))
-#endif
 
 #define WTF_MAKE_FAST_ALLOCATED_IMPL \
     void* operator new(size_t, void* p) { return p; } \
@@ -539,7 +474,7 @@ using WTF::fastCompactAlignedMalloc;
     { \
         ::WTF::fastFree(p); \
     } \
-    using WTFIsFastAllocated = int; \
+    using WTFIsFastMallocAllocated = int; \
 
 #define WTF_MAKE_FAST_COMPACT_ALLOCATED_IMPL \
     WTF_ALLOW_COMPACT_POINTERS_IMPL; \
@@ -574,7 +509,7 @@ using WTF::fastCompactAlignedMalloc;
     { \
         ::WTF::fastFree(p); \
     } \
-    using WTFIsFastAllocated = int; \
+    using WTFIsFastMallocAllocated = int; \
 
 // FIXME: WTF_MAKE_FAST_ALLOCATED should take class name so that we can create malloc_zone per this macro.
 // https://bugs.webkit.org/show_bug.cgi?id=205702
@@ -632,7 +567,7 @@ using __thisIsHereToForceASemicolonAfterThisMacro UNUSED_TYPE_ALIAS = int
     { \
         classname##Malloc::free(p); \
     } \
-    using WTFIsFastAllocated = int; \
+    using WTFIsFastMallocAllocated = int; \
 
 #define WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(classname) \
 public: \
@@ -693,7 +628,7 @@ using __thisIsHereToForceASemicolonAfterThisMacro UNUSED_TYPE_ALIAS = int
 void operator delete(T* object, std::destroying_delete_t, size_t size) { \
     ASSERT_UNUSED(size, sizeof(T) == size); \
     object->T::~T(); \
-    if (UNLIKELY(object->checkedPtrCountWithoutThreadCheck())) { \
+    if (object->checkedPtrCountWithoutThreadCheck()) [[unlikely]] { \
         zeroBytes(object); \
         return; \
     } \

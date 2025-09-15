@@ -197,6 +197,9 @@ static void cluster_iostate_wait(struct clios *iostate, u_int target, const char
 
 static void cluster_syncup(vnode_t vp, off_t newEOF, int (*)(buf_t, void *), void *callback_arg, int flags);
 
+static int cluster_handle_split_pagein(vnode_t vp, upl_t upl, upl_offset_t upl_offset, off_t f_offset,
+    u_int io_size, int rounded_size, int local_flags, int (*callback)(buf_t, void *), void *callback_arg);
+
 static void cluster_read_upl_release(upl_t upl, int start_pg, int last_pg, int take_reference);
 static int cluster_copy_ubc_data_internal(vnode_t vp, struct uio *uio, int *io_resid, int mark_dirty, int take_reference);
 
@@ -320,6 +323,18 @@ uint32_t throttle_max_iosize = (128 * 1024);
 
 SYSCTL_INT(_debug, OID_AUTO, lowpri_throttle_max_iosize, CTLFLAG_RW | CTLFLAG_LOCKED, &throttle_max_iosize, 0, "");
 
+uint32_t split_pgin = 1;
+uint32_t split_all_pgin = 1;
+uint32_t split_all_pgin_equal = 0;
+uint32_t split_pgin_headio = 0;
+
+SYSCTL_INT(_kern, OID_AUTO, split_pagein_io, CTLFLAG_RW | CTLFLAG_LOCKED, &split_pgin, 0, "");
+#if DEVELOPMENT || DEBUG
+SYSCTL_INT(_kern, OID_AUTO, split_pagein_io_all, CTLFLAG_RW | CTLFLAG_LOCKED, &split_all_pgin, 0, "");
+SYSCTL_INT(_kern, OID_AUTO, split_pagein_io_equal, CTLFLAG_RW | CTLFLAG_LOCKED, &split_all_pgin_equal, 0, "");
+SYSCTL_INT(_kern, OID_AUTO, split_pagein_do_headio, CTLFLAG_RW | CTLFLAG_LOCKED, &split_pgin_headio, 0, "");
+#endif
+
 struct verify_buf {
 	TAILQ_ENTRY(verify_buf) vb_entry;
 	buf_t vb_cbp;
@@ -342,7 +357,7 @@ static struct verify_buf verify_bufs[MAX_VERIFY_THREADS * MAX_REQUESTS_PER_THREA
  */
 static int verify_in_flight = 0;
 
-#if defined(XNU_TARGET_OS_IOS)
+#if defined(XNU_TARGET_OS_IOS) || defined(XNU_TARGET_OS_XR)
 #define NUM_DEFAULT_THREADS 2
 #elif defined(XNU_TARGET_OS_OSX)
 #define NUM_DEFAULT_THREADS 4
@@ -878,6 +893,96 @@ enqueue_buf_for_verify(buf_t cbp, void *callback_arg)
 }
 
 static int
+cluster_handle_verification(buf_t cbp_head, vnode_t vp, upl_t upl, int upl_offset, int transaction_size, int error)
+{
+	off_t start_off = cbp_head->b_clfoffset;
+	void *verify_ctx = cbp_head->b_attr.ba_un.verify_ctx;
+	caddr_t verify_buf = NULL;
+	uint32_t verify_length = transaction_size;
+	vnode_verify_flags_t verify_flags = VNODE_VERIFY_CONTEXT_FREE;
+	int verify_error = EAGAIN;
+
+	assert(cbp_head->b_attr.ba_flags & BA_WILL_VERIFY);
+
+	cbp_head->b_attr.ba_un.verify_ctx = NULL;
+	if (error) {
+		goto free_context;
+	}
+
+	/*
+	 * If we don't have a precomputed hash, we make a single call to both
+	 * verify and free the context. If we have a precomputed hash, then we
+	 * make two separate calls - one to verify the hash and the second one to
+	 * free. If the filesystem returns EAGAIN we fall back to the non
+	 * precomputed hash case.
+	 */
+	if (cbp_head->b_attr.ba_verify_type && cbp_head->b_attr.ba_flags & BA_VERIFY_VALID) {
+		verify_buf = (caddr_t)buf_verifyptr_with_size(cbp_head, transaction_size, &verify_length);
+		verify_flags = VNODE_VERIFY_WITH_CONTEXT | VNODE_VERIFY_PRECOMPUTED;
+
+		if (verify_buf && verify_length) {
+			verify_error = VNOP_VERIFY(vp, start_off, (uint8_t *)verify_buf, verify_length,
+			    NULL, &verify_ctx, verify_flags, NULL, NULL);
+		} else {
+			verify_error = EAGAIN;
+		}
+
+		verify_buf = NULL;
+		verify_length = transaction_size;
+		verify_flags = VNODE_VERIFY_CONTEXT_FREE;
+	}
+
+	if (verify_error != EAGAIN) {
+		error = verify_error;
+	} else {
+		vm_offset_t vaddr;
+
+		/*
+		 * Map it in.
+		 *
+		 * ubc_upl_map_range unfortunately cannot handle concurrent map
+		 * requests for the same UPL and returns failures when it can't
+		 * map. The map exclusive mechanism enforces mutual exclusion
+		 * for concurrent requests.
+		 */
+		verify_error = 0;
+		os_atomic_inc(&verify_in_flight, relaxed);
+		upl_set_map_exclusive(upl);
+		error = ubc_upl_map_range(upl, upl_offset, round_page(transaction_size), VM_PROT_DEFAULT, &vaddr);
+		if (error) {
+			upl_clear_map_exclusive(upl);
+			printf("ubc_upl_map_range returned error %d upl = %p, upl_offset = %d, size = %d",
+			    error, upl, (int)upl_offset, (int)round_page(transaction_size));
+			error  = EIO;
+			if (os_atomic_dec_orig(&verify_in_flight, relaxed) == 0) {
+				panic("verify_in_flight underflow");
+			}
+		} else {
+			verify_buf = (caddr_t)vaddr;
+			verify_flags |= VNODE_VERIFY_WITH_CONTEXT;
+		}
+	}
+
+free_context:
+	verify_error = VNOP_VERIFY(vp, start_off, (uint8_t *)verify_buf, verify_length,
+	    NULL, &verify_ctx, verify_flags, NULL, NULL);
+	if (!error) {
+		error = verify_error;
+	}
+
+	if (verify_buf) {
+		(void)ubc_upl_unmap_range(upl, upl_offset, round_page(transaction_size));
+		upl_clear_map_exclusive(upl);
+		verify_buf = NULL;
+		if (os_atomic_dec_orig(&verify_in_flight, relaxed) == 0) {
+			panic("verify_in_flight underflow");
+		}
+	}
+
+	return error;
+}
+
+static int
 cluster_ioerror(upl_t upl, int upl_offset, int abort_size, int error, int io_flags, vnode_t vp)
 {
 	int upl_abort_code = 0;
@@ -936,7 +1041,7 @@ cluster_iodone(buf_t bp, void *callback_arg)
 	async = cluster_verify_threads &&
 	    (os_atomic_load(&cbp_head->b_attr.ba_flags, acquire) & BA_ASYNC_VERIFY);
 
-	assert(!async || cbp_head->b_attr.ba_verify_ctx);
+	assert(!async || cbp_head->b_attr.ba_un.verify_ctx);
 
 	if (cbp_head->b_trans_next || !(cbp_head->b_flags & B_EOT)) {
 		lck_mtx_lock_spin(&cl_transaction_mtxp);
@@ -1016,7 +1121,6 @@ cluster_iodone_finish(buf_t cbp_head, void *callback_arg)
 	buf_t   real_bp;
 	vnode_t vp;
 	struct  clios *iostate;
-	void    *verify_ctx;
 
 	error       = 0;
 	total_size  = 0;
@@ -1083,54 +1187,8 @@ cluster_iodone_finish(buf_t cbp_head, void *callback_arg)
 		cluster_zero(upl, zero_offset, PAGE_SIZE - (zero_offset & PAGE_MASK), real_bp);
 	}
 
-	verify_ctx = cbp_head->b_attr.ba_verify_ctx;
-	cbp_head->b_attr.ba_verify_ctx = NULL;
-	if (verify_ctx) {
-		vnode_verify_flags_t verify_flags = VNODE_VERIFY_CONTEXT_FREE;
-		caddr_t verify_buf = NULL;
-		off_t start_off = cbp_head->b_clfoffset;
-		size_t verify_length = transaction_size;
-		vm_offset_t vaddr;
-
-		if (!error) {
-			/*
-			 * Map it in.
-			 *
-			 * ubc_upl_map_range unfortunately cannot handle concurrent map
-			 * requests for the same UPL and returns failures when it can't
-			 * map. The map exclusive mechanism enforces mutual exclusion
-			 * for concurrent requests.
-			 */
-			os_atomic_inc(&verify_in_flight, relaxed);
-			upl_set_map_exclusive(upl);
-			error = ubc_upl_map_range(upl, upl_offset, round_page(transaction_size), VM_PROT_DEFAULT, &vaddr);
-			if (error) {
-				upl_clear_map_exclusive(upl);
-				printf("ubc_upl_map_range returned error %d upl = %p, upl_offset = %d, size = %d",
-				    error, upl, (int)upl_offset, (int)round_page(transaction_size));
-				error  = EIO;
-				if (os_atomic_dec_orig(&verify_in_flight, relaxed) == 0) {
-					panic("verify_in_flight underflow");
-				}
-			} else {
-				verify_buf = (caddr_t)vaddr;
-				verify_flags |= VNODE_VERIFY_WITH_CONTEXT;
-			}
-		}
-
-		int verify_error = VNOP_VERIFY(vp, start_off, (uint8_t *)verify_buf, verify_length, 0, &verify_ctx, verify_flags, NULL);
-		if (!error) {
-			error = verify_error;
-		}
-
-		if (verify_buf) {
-			(void)ubc_upl_unmap_range(upl, upl_offset, round_page(transaction_size));
-			upl_clear_map_exclusive(upl);
-			verify_buf = NULL;
-			if (os_atomic_dec_orig(&verify_in_flight, relaxed) == 0) {
-				panic("verify_in_flight underflow");
-			}
-		}
+	if (cbp_head->b_attr.ba_un.verify_ctx) {
+		error = cluster_handle_verification(cbp_head, vp, upl, upl_offset, transaction_size, error);
 	} else if (cbp_head->b_attr.ba_flags & BA_WILL_VERIFY) {
 		error = EBADMSG;
 	}
@@ -1303,7 +1361,7 @@ cluster_EOT(buf_t cbp_head, buf_t cbp_tail, int zero_offset, size_t verify_block
 		}
 
 		error = VNOP_VERIFY(vp, start_off, NULL, length,
-		    &verify_block_size, &verify_ctx, VNODE_VERIFY_CONTEXT_ALLOC, NULL);
+		    &verify_block_size, &verify_ctx, VNODE_VERIFY_CONTEXT_ALLOC, NULL, NULL);
 
 		assert(!(error && verify_ctx));
 
@@ -1322,7 +1380,7 @@ cluster_EOT(buf_t cbp_head, buf_t cbp_tail, int zero_offset, size_t verify_block
 					os_atomic_dec(&cluster_verify_threads, relaxed);
 				}
 			}
-			cbp_head->b_attr.ba_verify_ctx = verify_ctx;
+			cbp_head->b_attr.ba_un.verify_ctx = verify_ctx;
 			/*
 			 * At least one thread is busy (at the time we
 			 * checked), so we can let it get queued for
@@ -1330,12 +1388,12 @@ cluster_EOT(buf_t cbp_head, buf_t cbp_tail, int zero_offset, size_t verify_block
 			 * this wrong.
 			 */
 			if (os_atomic_load(&verify_in_flight, relaxed)) {
-				/* This flag and the setting of ba_verify_ctx needs to be ordered */
+				/* This flag and the setting of ba_un.verify_ctx needs to be ordered */
 				os_atomic_or(&cbp_head->b_attr.ba_flags, BA_ASYNC_VERIFY, release);
 			}
 		}
 	} else {
-		cbp_head->b_attr.ba_verify_ctx = NULL;
+		cbp_head->b_attr.ba_un.verify_ctx = NULL;
 	}
 
 	cbp_head->b_validend = zero_offset;
@@ -1471,6 +1529,7 @@ cluster_io(vnode_t vp, upl_t upl, vm_offset_t upl_offset, off_t f_offset, int no
 	mount_t mp;
 	size_t verify_block_size = 0;
 	vm_offset_t upl_end_offset;
+	vnode_verify_kind_t verify_kind = VK_HASH_NONE;
 	boolean_t   need_EOT = FALSE;
 
 	/*
@@ -1538,7 +1597,7 @@ cluster_io(vnode_t vp, upl_t upl, vm_offset_t upl_offset, off_t f_offset, int no
 		/* See if we can do cluster verification (pageins and aligned reads) */
 		if ((flags & CL_PAGEIN || cluster_verify_threads) &&
 		    !(mp->mnt_kern_flag & MNTK_VIRTUALDEV) &&
-		    (VNOP_VERIFY(vp, f_offset, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL) == 0) &&
+		    (VNOP_VERIFY(vp, f_offset, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL, &verify_kind) == 0) &&
 		    verify_block_size) {
 			if (verify_block_size != PAGE_SIZE) {
 				verify_block_size = 0;
@@ -1549,16 +1608,22 @@ cluster_io(vnode_t vp, upl_t upl, vm_offset_t upl_offset, off_t f_offset, int no
 			}
 			/*
 			 * For reads, only allow cluster verification if f_offset
-			 * and upl_offset are both page aligned. If they are not
-			 * page aligned, leave it to the filesystem to do verification
-			 * Furthermore, the size also has to be aligned to page size.
-			 * Strictly speaking the alignments need to be for verify_block_size
+			 * and upl_offset are both page aligned. Additionally, for direct reads,
+			 * require that the length of the write also be page aligned.
+			 * If they are not  page aligned, leave it to the filesystem to do verification.
+			 * Strictly speaking, the alignments need to be for verify_block_size
 			 * but since the only verify_block_size that is currently supported
 			 * is page size, we check against page alignment.
 			 */
 			if (verify_block_size && !(flags & CL_PAGEIN) &&
-			    ((f_offset & PAGE_MASK) || (upl_offset & PAGE_MASK) || (non_rounded_size & PAGE_MASK))) {
+			    ((f_offset & PAGE_MASK) || (upl_offset & PAGE_MASK) ||
+			    ((flags & CL_DIRECT_IO) && (non_rounded_size & PAGE_MASK)))) {
 				verify_block_size = 0;
+				verify_kind = VK_HASH_NONE;
+			}
+			if (verify_block_size && verify_kind && !upl_has_fs_verify_info(upl)) {
+				upl_set_fs_verify_info(upl,
+				    (upl_adjusted_size(upl, PAGE_MASK) / mp->mnt_devblocksize) * get_num_bytes_for_verify_kind(verify_kind));
 			}
 		}
 	} else {
@@ -2224,6 +2289,9 @@ create_cached_upl:
 		}
 		if (verify_block_size) {
 			cbp->b_attr.ba_flags |= BA_WILL_VERIFY;
+			if (verify_kind) {
+				cbp->b_attr.ba_verify_type = verify_kind;
+			}
 		}
 
 		cbp->b_lblkno = lblkno;
@@ -2668,6 +2736,133 @@ cluster_pagein(vnode_t vp, upl_t upl, upl_offset_t upl_offset, off_t f_offset,
 	return cluster_pagein_ext(vp, upl, upl_offset, f_offset, size, filesize, flags, NULL, NULL);
 }
 
+#define SPLIT_PAGEIN_MAX_IOSIZE 32768
+
+/*
+ * Do a big pagein request as multiple I/Os - the first I/O will be for
+ * SPLIT_PAGEIN_MAX_IOSIZE (32K)sized which includes the page that the caused
+ * the fault and then i/o will be initiated for the remaining.
+ */
+static int
+cluster_handle_split_pagein(vnode_t vp, upl_t upl, upl_offset_t upl_offset, off_t f_offset,
+    u_int io_size, int rounded_size, int local_flags, int (*callback)(buf_t, void *), void *callback_arg)
+{
+	upl_page_info_t *pl = ubc_upl_pageinfo(upl);
+	const off_t start_f_offset = f_offset;
+	const upl_offset_t start_upl_offset = upl_offset;
+	const int start_pg = upl_offset >> PAGE_SHIFT;
+	const int last_pg = ((upl_offset + rounded_size) >> PAGE_SHIFT) - 1;
+	u_int split_io_size = SPLIT_PAGEIN_MAX_IOSIZE;
+	u_int head_io_size = 0;
+	int retval = 0;
+	int error = 0;
+	int pg;
+
+	assert(SPLIT_PAGEIN_MAX_IOSIZE >= (2 * PAGE_SIZE));
+
+	for (pg = start_pg; (pg <= last_pg) && !(upl_page_is_needed(pl, pg)); pg++) {
+		;
+	}
+
+	/*
+	 * The global variables affecting behaviour
+	 * split_all_pgin -> Split pageins even if we don't find the needed page.
+	 * split_pgin_headio -> for a pagein in which there is a head calculated,
+	 *                   do the head i/o or not.
+	 *
+	 * split_all_pgin_equal -> split the entire bug request into equal sized small i/os of 32K.
+	 *
+	 * Whichever way the i/o is split, the i/o for the needed page always happens first and then we decide
+	 * whether we have to do i/o for the head and then if we need to issue equal sized i/o.
+	 *
+	 * By default we are set up to do only the i/o for the needed page, followed by a "unsplit" tail.
+	 */
+	if ((pg > start_pg) && (pg <= last_pg)) {
+		head_io_size = ((pg - start_pg) * PAGE_SIZE);
+
+		if (head_io_size < SPLIT_PAGEIN_MAX_IOSIZE) {
+			head_io_size = 0;
+		} else if (!split_all_pgin) {
+			goto out;
+		} else if ((rounded_size - head_io_size) <= SPLIT_PAGEIN_MAX_IOSIZE) {
+			head_io_size = (rounded_size - SPLIT_PAGEIN_MAX_IOSIZE);
+		} else {
+			head_io_size &= ~(SPLIT_PAGEIN_MAX_IOSIZE - 1);
+		}
+
+		assertf(io_size > head_io_size, "io_size is %d, head_io_size = %d", io_size, head_io_size);
+
+		if (head_io_size) {
+			upl_offset += head_io_size;
+			f_offset += head_io_size;
+			io_size -= head_io_size;
+
+			if (!split_pgin_headio) {
+				if (local_flags & CL_COMMIT) {
+					ubc_upl_abort_range(upl, start_upl_offset, head_io_size,
+					    UPL_ABORT_FREE_ON_EMPTY | UPL_ABORT_ERROR);
+				}
+				head_io_size = 0;
+			}
+
+			split_io_size = MIN(SPLIT_PAGEIN_MAX_IOSIZE, io_size);
+		}
+
+		assertf(io_size >= split_io_size, "io_size is %d, split_io_size = %d", io_size, split_io_size);
+	} else if ((pg > last_pg) && !split_all_pgin) {
+		goto out;
+	}
+
+	/* This is the 32K i/o for the "needed" page */
+	retval = cluster_io(vp, upl, upl_offset, f_offset, split_io_size,
+	    local_flags | CL_READ | CL_PAGEIN, (buf_t)NULL, (struct clios *)NULL, callback, callback_arg);
+
+	io_size -= split_io_size;
+
+	if (io_size) {
+		upl_offset += split_io_size;
+		f_offset += split_io_size;
+	} else if (head_io_size) {
+		io_size = head_io_size;
+		head_io_size = 0;
+		upl_offset = start_upl_offset;
+		f_offset = start_f_offset;
+	}
+
+	while (io_size) {
+		if (split_all_pgin_equal && (io_size > SPLIT_PAGEIN_MAX_IOSIZE)) {
+			split_io_size = SPLIT_PAGEIN_MAX_IOSIZE;
+		} else {
+			split_io_size = io_size;
+		}
+
+		assertf(io_size >= split_io_size, "io_size is %d, split_io_size = %d", io_size, split_io_size);
+
+		/* We have to issue this i/o anyway even if we get an error from any of the previous ones */
+		error = cluster_io(vp, upl, upl_offset, f_offset, split_io_size,
+		    local_flags | CL_READ | CL_PAGEIN, (buf_t)NULL, (struct clios *)NULL, callback, callback_arg);
+		if (!retval) {
+			retval = error;
+		}
+
+		io_size -= split_io_size;
+
+		if ((io_size == 0) && head_io_size) {
+			io_size = head_io_size;
+			head_io_size = 0;
+			upl_offset = start_upl_offset;
+			f_offset = start_f_offset;
+		} else if (io_size) {
+			upl_offset += split_io_size;
+			f_offset += split_io_size;
+		}
+	}
+
+	return retval;
+out:
+	return cluster_io(vp, upl, upl_offset, f_offset, io_size,
+	           local_flags | CL_READ | CL_PAGEIN, (buf_t)NULL, (struct clios *)NULL, callback, callback_arg);
+}
 
 int
 cluster_pagein_ext(vnode_t vp, upl_t upl, upl_offset_t upl_offset, off_t f_offset,
@@ -2731,6 +2926,11 @@ cluster_pagein_ext(vnode_t vp, upl_t upl, upl_offset_t upl_offset, off_t f_offse
 	if (size > rounded_size && (local_flags & CL_COMMIT)) {
 		ubc_upl_abort_range(upl, upl_offset + rounded_size,
 		    size - rounded_size, UPL_ABORT_FREE_ON_EMPTY | UPL_ABORT_ERROR);
+	}
+
+	if ((io_size > SPLIT_PAGEIN_MAX_IOSIZE) && vnode_isonssd(vp) && split_pgin) {
+		return cluster_handle_split_pagein(vp, upl, upl_offset, f_offset, io_size,
+		           rounded_size, local_flags, callback, callback_arg);
 	}
 
 	retval = cluster_io(vp, upl, upl_offset, f_offset, io_size,
@@ -4826,7 +5026,7 @@ cluster_read_copy(vnode_t vp, struct uio *uio, u_int32_t io_req_size, off_t file
 			 * is performed in the File system.
 			 */
 			size_t verify_block_size = 0;
-			if ((VNOP_VERIFY(vp, start_offset, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL) == 0) /* && verify_block_size */) {
+			if ((VNOP_VERIFY(vp, start_offset, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL, NULL) == 0) /* && verify_block_size */) {
 				for (uio_last = last_pg; uio_last < pages_in_upl; uio_last++) {
 					if (!upl_valid_page(pl, uio_last)) {
 						break;
@@ -5162,6 +5362,7 @@ cluster_read_direct(vnode_t vp, struct uio *uio, off_t filesize, int *read_type,
 	upl_t            upl = NULL;
 	upl_page_info_t  *pl;
 	off_t            max_io_size;
+	size_t           verify_block_size = 0;
 	vm_offset_t      upl_offset, vector_upl_offset = 0;
 	upl_size_t       upl_size = 0, vector_upl_size = 0;
 	vm_size_t        upl_needed_size;
@@ -5196,6 +5397,7 @@ cluster_read_direct(vnode_t vp, struct uio *uio, off_t filesize, int *read_type,
 	int              vector_upl_index = 0;
 	upl_t            vector_upl = NULL;
 	cl_direct_read_lock_t *lock = NULL;
+	uint32_t verify_mask = 0;
 
 	assert(vm_map_page_shift(current_map()) >= PAGE_SHIFT);
 
@@ -5269,6 +5471,14 @@ cluster_read_direct(vnode_t vp, struct uio *uio, off_t filesize, int *read_type,
 		uio_acct = uio_duplicate(uio);
 	}
 
+	retval = VNOP_VERIFY(vp, 0, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL, NULL);
+	if (retval) {
+		verify_block_size = 0;
+	} else if (verify_block_size) {
+		assert((verify_block_size & (verify_block_size - 1)) == 0);
+		verify_mask = verify_block_size - 1;
+	}
+
 next_dread:
 	io_req_size = *read_length;
 	iov_base = uio_curriovbase(uio);
@@ -5302,6 +5512,18 @@ next_dread:
 		 * the offset in memory must be on a device block boundary
 		 * so that we can guarantee that we can generate an
 		 * I/O that ends on a page boundary in cluster_io
+		 */
+		misaligned = 1;
+	}
+
+	if (verify_block_size && !misaligned && ((uio_offset(uio) & verify_mask) || (uio_resid(uio) & verify_mask))) {
+		/*
+		 * If the offset is not aligned to the verification block size
+		 * or the size is not aligned to the verification block size,
+		 * we simply send this through the cached i/o path as that is
+		 * what the Filesystem will end up doing anyway i.e. it will
+		 * read all the remaining data in order to verify it and then
+		 * discard the data it has read.
 		 */
 		misaligned = 1;
 	}

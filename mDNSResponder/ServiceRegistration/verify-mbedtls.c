@@ -30,7 +30,6 @@
 #include "dns-msg.h"
 #include "srp-crypto.h"
 
-
 // Given a DNS message, a signature, and a public key, validate the message
 bool
 srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
@@ -75,16 +74,18 @@ srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
     mbedtls_sha256_init(&sha);
     memset(hash, 0, sizeof hash);
 
-    if ((status = mbedtls_mpi_read_binary(&pubkey.X, key->data.key.key, ECDSA_KEY_PART_SIZE)) != 0 ||
-        (status = mbedtls_mpi_read_binary(&pubkey.Y, key->data.key.key + ECDSA_KEY_PART_SIZE, ECDSA_KEY_PART_SIZE)) != 0) {
+    if ((status = mbedtls_mpi_read_binary(&pubkey.private_X, key->data.key.key, ECDSA_KEY_PART_SIZE)) != 0 ||
+        (status = mbedtls_mpi_read_binary(&pubkey.private_Y, key->data.key.key + ECDSA_KEY_PART_SIZE, ECDSA_KEY_PART_SIZE)) != 0)
+    {
         mbedtls_strerror(status, errbuf, sizeof errbuf);
         ERROR("mbedtls_mpi_read_binary: reading key: " PUB_S_SRP, errbuf);
     }
-    mbedtls_mpi_lset(&pubkey.Z, 1);
+    mbedtls_mpi_lset(&pubkey.private_Z, 1);
 
     if ((status = mbedtls_mpi_read_binary(&r, signature->data.sig.signature, ECDSA_SHA256_SIG_PART_SIZE)) != 0 ||
         (status = mbedtls_mpi_read_binary(&s, signature->data.sig.signature + ECDSA_SHA256_SIG_PART_SIZE,
-                                          ECDSA_SHA256_SIG_PART_SIZE)) != 0) {
+                                          ECDSA_SHA256_SIG_PART_SIZE)) != 0)
+    {
         mbedtls_strerror(status, errbuf, sizeof errbuf);
         ERROR("mbedtls_mpi_read_binary: reading signature: " PUB_S_SRP, errbuf);
     }
@@ -103,19 +104,20 @@ srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
     }
     memcpy(rdata, &message->data[signature->data.sig.start + SIG_HEADERLEN], SIG_STATIC_RDLEN);
     if (!dns_name_to_wire_canonical(rdata + SIG_STATIC_RDLEN, rdlen - SIG_STATIC_RDLEN,
-                                    signature->data.sig.signer)) {
+                                    signature->data.sig.signer))
+    {
         // Should never happen.
         ERROR("dns_name_wire_length and dns_name_to_wire_canonical got different lengths!");
         return 0;
     }
 
     // First compute the hash across the SIG RR, then hash the message up to the SIG RR
-    if ((status = mbedtls_sha256_starts_ret(&sha, 0)) != 0 ||
-        (status = srp_mbedtls_sha256_update_ret("rdata", &sha, rdata, rdlen)) != 0 ||
-        (status = srp_mbedtls_sha256_update_ret("message", &sha, (uint8_t *)message,
-                                                signature->data.sig.start +
-                                                (sizeof *message) - DNS_DATA_SIZE)) != 0 ||
-        (status = srp_mbedtls_sha256_finish_ret(&sha, hash)) != 0) {
+    if ((status = mbedtls_sha256_starts(&sha, 0)) != 0 ||
+        (status = srp_mbedtls_sha256_update("rdata", &sha, rdata, rdlen)) != 0 ||
+        (status = srp_mbedtls_sha256_update("message", &sha, (uint8_t *)message,
+                                                signature->data.sig.start + (sizeof *message) - DNS_DATA_SIZE)) != 0 ||
+        (status = srp_mbedtls_sha256_finish(&sha, hash)) != 0)
+    {
         // Put it back
         message->arcount = htons(ntohs(message->arcount) + 1);
         mbedtls_strerror(status, errbuf, sizeof errbuf);
@@ -139,20 +141,13 @@ srp_sig0_verify(dns_wire_t *message, dns_rr_t *key, dns_rr_t *signature)
 void
 srp_print_key(srp_key_t *key)
 {
-    mbedtls_ecp_keypair *ecp = mbedtls_pk_ec(key->key);
     char errbuf[64];
     uint8_t buf[ECDSA_KEY_SIZE];
     uint8_t b64buf[((ECDSA_KEY_SIZE * 4) / 3) + 6];
     size_t b64len;
     int status;
 
-    // Currently ECP only.
-    if ((status = mbedtls_mpi_write_binary(&ecp->Q.X, buf, ECDSA_KEY_PART_SIZE)) != 0 ||
-        (status = mbedtls_mpi_write_binary(&ecp->Q.Y, buf + ECDSA_KEY_PART_SIZE, ECDSA_KEY_PART_SIZE)) != 0) {
-        mbedtls_strerror(status, errbuf, sizeof errbuf);
-        ERROR("mbedtls_mpi_write_binary: " PUB_S_SRP, errbuf);
-        return;
-    }
+    srp_pubkey_copy(buf, sizeof(buf), key);
 
     status = mbedtls_base64_encode(b64buf, sizeof b64buf, &b64len, buf, ECDSA_KEY_SIZE);
     if (status != 0) {

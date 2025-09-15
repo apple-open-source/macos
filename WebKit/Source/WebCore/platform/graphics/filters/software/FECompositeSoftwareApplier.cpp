@@ -4,7 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2021-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,10 +39,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(FECompositeSoftwareApplier);
 FECompositeSoftwareApplier::FECompositeSoftwareApplier(const FEComposite& effect)
     : Base(effect)
 {
-    ASSERT(m_effect.operation() != CompositeOperationType::FECOMPOSITE_OPERATOR_ARITHMETIC);
+    ASSERT(m_effect->operation() != CompositeOperationType::FECOMPOSITE_OPERATOR_ARITHMETIC);
 }
 
-bool FECompositeSoftwareApplier::apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const
+bool FECompositeSoftwareApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
     auto& input2 = inputs[1].get();
@@ -60,7 +60,7 @@ bool FECompositeSoftwareApplier::apply(const Filter&, const FilterImageVector& i
     auto inputImageRect = input.absoluteImageRectRelativeTo(result);
     auto inputImageRect2 = input2.absoluteImageRectRelativeTo(result);
 
-    switch (m_effect.operation()) {
+    switch (m_effect->operation()) {
     case CompositeOperationType::FECOMPOSITE_OPERATOR_UNKNOWN:
         return false;
 

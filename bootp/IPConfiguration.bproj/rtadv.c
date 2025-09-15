@@ -235,7 +235,7 @@ _new_pvd_info_request(ServiceRef service_p,
     /* make and save new context */
     PvDInfoContextSetPvDID(&rtadv->pvd_context, pvdid);
     PvDInfoContextSetSequenceNumber(&rtadv->pvd_context, seqnr);
-    ipv6_prefixes = RouterAdvertisementCopyPrefixes(ra);
+    ipv6_prefixes = RouterAdvertisementCopyPrefixes(ra, NULL);
     if (ipv6_prefixes == NULL) {
 	my_log(LOG_ERR, "%s: couldn't copy prefixes from RA", __func__);
 	goto done;
@@ -544,26 +544,19 @@ rtadv_set_clat46_address(ServiceRef service_p)
     uint8_t		partial_addr = 0;
     int			ret = 0;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
-    int			s;
     boolean_t		success = FALSE;
 
     if (service_clat46_is_active(service_p)) {
 	return (TRUE);
     }
-    s = inet_dgram_socket();
-    if (s < 0) {
-	my_log(LOG_ERR, "socket failed, %s (%d)",
-	       strerror(errno), errno);
-	goto done;
-    }
     interface_set_noarp(if_name(if_p), TRUE);
     partial_addr = S_clat46_address_allocate(if_name(if_p));
     addr = S_make_clat46_address(partial_addr);
-    ret = inet_aifaddr(s, if_name(if_p), addr, &G_ip_broadcast, &addr);
+    ret = inet_aifaddr(if_name(if_p), addr, &G_ip_broadcast, &addr);
     if (ret == 0) {
 	uint64_t	eflags = 0;
 
-	(void)interface_get_eflags(s, if_name(if_p), &eflags);
+	interface_get_eflags(if_name(if_p), &eflags);
 	if ((eflags & IFEF_CLAT46) != 0
 	    || inet6_clat46_start(if_name(if_p)) == 0) {
 	    my_log(LOG_NOTICE,
@@ -576,7 +569,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 	    my_log(LOG_ERR,
 		   "RTADV %s: failed to enable CLAT46",
 		   if_name(if_p));
-	    (void)inet_difaddr(s, if_name(if_p), addr);
+	    (void)inet_difaddr(if_name(if_p), addr);
 	    ServiceDetachIPv4(service_p);
 	}
 	flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
@@ -586,9 +579,6 @@ rtadv_set_clat46_address(ServiceRef service_p)
 	       "RTADV %s: set CLAT46 address " IP_FORMAT " failed, %s (%d)",
 	       if_name(if_p), IP_LIST(&addr), strerror(ret), ret);
     }
-    close(s);
-
- done:
     if (success) {
 	rtadv->clat46_partial = partial_addr;
     }
@@ -599,8 +589,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 }
 
 STATIC void
-remove_all_clat46_addresses(int s, interface_t * if_p,
-			    uint8_t partial_addr)
+remove_all_clat46_addresses(interface_t * if_p, uint8_t partial_addr)
 {
     for (uint8_t i = CLAT46_ADDRESS_START; i <= CLAT46_ADDRESS_END; i++) {
 	struct in_addr	addr;
@@ -610,7 +599,7 @@ remove_all_clat46_addresses(int s, interface_t * if_p,
 	    continue;
 	}
 	addr = S_make_clat46_address(i);
-	if (inet_difaddr(s, if_name(if_p), addr) == 0) {
+	if (inet_difaddr(if_name(if_p), addr) == 0) {
 	    my_log(LOG_NOTICE,
 		   "RTADV %s: removed CLAT46 address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&addr));
@@ -628,14 +617,7 @@ rtadv_remove_clat46_address_only(ServiceRef service_p, boolean_t all)
     interface_t *	if_p = service_interface(service_p);
     uint8_t		partial_addr;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
-    int			s;
 
-    s = inet_dgram_socket();
-    if (s < 0) {
-	my_log(LOG_ERR, "socket failed, %s (%d)",
-	       strerror(errno), errno);
-	return;
-    }
     /* re-enable ARP */
     interface_set_noarp(if_name(if_p), FALSE);
 
@@ -645,7 +627,7 @@ rtadv_remove_clat46_address_only(ServiceRef service_p, boolean_t all)
 	S_clat46_address_release(if_name(if_p), partial_addr);
 	rtadv->clat46_partial = 0;
 	addr = S_make_clat46_address(partial_addr);
-	if (inet_difaddr(s, if_name(if_p), addr) == 0) {
+	if (inet_difaddr(if_name(if_p), addr) == 0) {
 	    my_log(LOG_NOTICE,
 		   "RTADV %s: removed CLAT46 address " IP_FORMAT,
 		   if_name(if_p), IP_LIST(&addr));
@@ -662,13 +644,12 @@ rtadv_remove_clat46_address_only(ServiceRef service_p, boolean_t all)
     }
     if (all) {
 	/* cleanup any addresses that could have been assigned previously */
-	remove_all_clat46_addresses(s, if_p, partial_addr);
+	remove_all_clat46_addresses(if_p, partial_addr);
     }
-    (void)interface_get_eflags(s, if_name(if_p), &eflags);
+    interface_get_eflags(if_name(if_p), &eflags);
     if ((eflags & IFEF_CLAT46) != 0) {
 	inet6_clat46_stop(if_name(if_p));
     }
-    close(s);
     ServiceDetachIPv4(service_p);
     return;
 }
@@ -1434,32 +1415,68 @@ rtadv_router_expired(ServiceRef service_p,
 }
 
 STATIC CFStringRef
-create_signature(RouterAdvertisementRef ra,
-		 inet6_addrinfo_t * list_p, int list_count)
+copy_prefix_from_ra(RouterAdvertisementRef ra, CFNumberRef * ret_prefix_length)
+{
+    CFStringRef		prefix = NULL;
+    CFNumberRef		prefix_length = NULL;
+    CFArrayRef		prefix_lengths = NULL;
+    CFArrayRef		prefixes = NULL;
+
+    prefixes = RouterAdvertisementCopyPrefixes(ra, &prefix_lengths);
+    if (prefixes == NULL) {
+	goto done;
+    }
+    prefix = CFArrayGetValueAtIndex(prefixes, 0);
+    prefix_length = CFArrayGetValueAtIndex(prefix_lengths, 0);
+    CFRetain(prefix);
+    CFRetain(prefix_length);
+    my_CFRelease(&prefixes);
+    my_CFRelease(&prefix_lengths);
+
+ done:
+    *ret_prefix_length = prefix_length;
+    return (prefix);
+}
+
+STATIC CFStringRef
+create_signature(RouterAdvertisementRef ra, struct in6_addr * dhcp_address_p)
 {
     const uint8_t *	lladdr;
     int			lladdr_length;
-    struct in6_addr	netaddr;
-    char 		ntopbuf[INET6_ADDRSTRLEN];
-    CFMutableStringRef	sig_str;
-
-    if (list_p == NULL || list_count == 0 || ra == NULL) {
-	return (NULL);
-    }
+    CFStringRef		prefix = NULL;
+    CFNumberRef		prefix_length = NULL;
+    CFMutableStringRef	sig_str = NULL;
 
     lladdr = RouterAdvertisementGetSourceLinkAddress(ra, &lladdr_length);
     if (lladdr == NULL) {
-	return (NULL);
+	goto done;
     }
-    netaddr = list_p[0].addr;
-    in6_netaddr(&netaddr, list_p[0].prefix_length);
+    prefix = copy_prefix_from_ra(ra, &prefix_length);
+    if (prefix == NULL) {
+	/* the RA doesn't have a prefix */
+	int		length = 64; /* assume 64-bit prefix */
+	struct in6_addr	netaddr;
+
+	if (dhcp_address_p == NULL) {
+	    /* this can happen if RA has M bit but DHCPv6 isn't done yet */
+	    goto done;
+	}
+	netaddr = *dhcp_address_p;
+	in6_netaddr(&netaddr, length);
+
+	/* use the DHCPv6 address/64 */
+	prefix = my_CFStringCreateWithIPv6Address(&netaddr);
+	prefix_length = CFNumberCreate(NULL, kCFNumberIntType, &length);
+    }
     sig_str = CFStringCreateMutable(NULL, 0);
     CFStringAppendFormat(sig_str, NULL,
-			 CFSTR("IPv6.Prefix=%s/%d;IPv6.RouterHardwareAddress="),
-			 inet_ntop(AF_INET6, &netaddr,
-				   ntopbuf, sizeof(ntopbuf)),
-			 list_p[0].prefix_length);
+			 CFSTR("IPv6.Prefix=%@/%@;IPv6.RouterHardwareAddress="),
+			 prefix, prefix_length);
     my_CFStringAppendBytesAsHex(sig_str, lladdr, lladdr_length, ':');
+
+ done:
+    my_CFRelease(&prefix);
+    my_CFRelease(&prefix_length);
     return (sig_str);
 }
 
@@ -1492,19 +1509,11 @@ rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
     int			i;
     interface_t *	if_p = service_interface(service_p);
     inet6_addrinfo_t *	scan;
-    int			sockfd;
 
-    sockfd = inet6_dgram_socket();
-    if (sockfd < 0) {
-	my_log(LOG_ERR,
-	       "RTADV %s: failed to open socket, %s",
-	       if_name(if_p), strerror(errno));
-	return;
-    }
     for (i = 0, scan = list; i < count; scan++, i++) {
 	char 	ntopbuf[INET6_ADDRSTRLEN];
 
-	if (inet6_aifaddr(sockfd, if_name(if_p),
+	if (inet6_aifaddr(if_name(if_p),
 			  &scan->addr, NULL, scan->prefix_length,
 			  scan->addr_flags | IN6_IFF_SWIFTDAD,
 			  scan->valid_lifetime,
@@ -1523,7 +1532,6 @@ rtadv_trigger_dad(ServiceRef service_p, inet6_addrinfo_t * list, int count)
 		   scan->prefix_length);
 	}
     }
-    close(sockfd);
     return;
 }
 
@@ -1576,12 +1584,13 @@ rtadv_address_changed_common(ServiceRef service_p,
 	}
     }
     if (rtadv->renew || !try_was_zero) {
-	int			count;
-	boolean_t		dhcp_has_address = FALSE;
-	inet6_addrlist_t	dhcp_addr_list;
 	uint32_t		autoconf_count = 0;
+	int			count;
 	uint32_t		deprecated_count = 0;
 	uint32_t		detached_count = 0;
+	inet6_addrlist_t	dhcp_addr_list;
+	struct in6_addr		dhcp_address;
+	struct in6_addr *	dhcp_address_p = NULL;
 	int			i;
 	ipv6_info_t		info;
 	inet6_addrinfo_t	list[addr_list_p->count];
@@ -1593,7 +1602,10 @@ rtadv_address_changed_common(ServiceRef service_p,
 	inet6_addrlist_init(&dhcp_addr_list);
 	if (rtadv->dhcp_client != NULL) {
 	    DHCPv6ClientCopyAddresses(rtadv->dhcp_client, &dhcp_addr_list);
-	    dhcp_has_address = (dhcp_addr_list.count != 0);
+	    if (dhcp_addr_list.count != 0) {
+		dhcp_address = dhcp_addr_list.list[0].addr;
+		dhcp_address_p = &dhcp_address;
+	    }
 	}
 
 	/* only copy autoconf and DHCP addresses */
@@ -1654,7 +1666,7 @@ rtadv_address_changed_common(ServiceRef service_p,
 	    /* fill in information from DHCPv6 */
 	    if (rtadv->dhcp_client != NULL
 		&& DHCPv6ClientGetInfo(rtadv->dhcp_client, &info)) {
-		if (dhcp_has_address && rtadv->dhcpv6_complete == 0) {
+		if (dhcp_address_p != NULL && rtadv->dhcpv6_complete == 0) {
 		    rtadv->dhcpv6_complete = timer_get_current_time();
 		}
 	    }
@@ -1706,7 +1718,7 @@ rtadv_address_changed_common(ServiceRef service_p,
 	    }
 	    router_p = RouterAdvertisementGetSourceIPAddress(rtadv->ra);
 	    router_count = 1;
-	    signature = create_signature(rtadv->ra, list, count);
+	    signature = create_signature(rtadv->ra, dhcp_address_p);
 	}
 	ServicePublishSuccessIPv6(service_p, list, count,
 				  router_p, router_count,

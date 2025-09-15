@@ -29,7 +29,7 @@
 
 WK_HEADER_AUDIT_BEGIN(nullability, sendability)
 
-WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
+WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4))
 @protocol WKWebExtensionControllerDelegatePrivate <WKWebExtensionControllerDelegate>
 @optional
 
@@ -58,10 +58,23 @@ WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
 - (void)_webExtensionController:(WKWebExtensionController *)controller receivedTestMessage:(NSString *)message withArgument:(id)argument andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber;
 
 /*!
+ @abstract Delegate for the `browser.test.addTest()` JavaScript testing API.
+ @discussion Default implementation logs a message to the system console that a test was added with `testName`. Test harnesses should use this to perform actions when a new test has been added to the queue.
+ */
+- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestAddedWithName:(NSString *)testName andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber;
+
+/*!
+ @abstract Delegate for the `browser.test.addTest()` JavaScript testing API.
+ @discussion Default implementation logs a message to the system console that a test was started with `testName`. Test harnesses should use this to perform actions at the start of a test.
+ */
+- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestStartedWithName:(NSString *)testName andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber;
+
+/*!
  @abstract Delegate for the `browser.test.notifyPass()` and `browser.test.notifyFail()` JavaScript testing APIs.
  @discussion Default implementation logs a message to the system console when `result` is `NO`. Test harnesses should use this to exit the run loop and record a test pass or failure.
+ @note This is also called with the test results of a test that was added with `browser.test.addTest()`.
  */
-- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestFinishedWithResult:(BOOL)result message:(NSString *)message andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber;
+- (void)_webExtensionController:(WKWebExtensionController *)controller recordTestFinishedWithName:(NSString *)testName result:(BOOL)result message:(NSString *)message andSourceURL:(NSString *)sourceURL lineNumber:(unsigned)lineNumber;
 
 /*!
  @abstract Delegate notification about the creation of the background web view in the web extension context.

@@ -9,12 +9,17 @@
 #import "keychain/ot/OTPersonaAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTSecureBackupAdapter.h"
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import <Security/SecEscrowRequest.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+@protocol EscrowChecker
+- (void)checkEscrowCheck:(BOOL)isBackgroundCheck reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply;
+@end
 
 // Used for dependency injection into most OctagonStateTransition operations
 @interface OTOperationDependencies : NSObject
@@ -33,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property id<OTAuthKitAdapter> authKitAdapter;
 @property id<OTPersonaAdapter> personaAdapter;
 @property id<OTDeviceInformationAdapter> deviceInformationAdapter;
+@property id<OTSecureBackupAdapter> secureBackupAdapter;
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly, weak) CKKSKeychainView* ckks;
 
@@ -46,6 +52,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, strong) NSString* deviceSessionID;
 @property (nonatomic) BOOL permittedToSendMetrics;
 
+@property (nonatomic) BOOL accountIsW;
+
+@property (readonly, weak) id<EscrowChecker> escrowChecker;
+
 - (instancetype)initForContainer:(NSString*)containerName
                        contextID:(NSString*)contextID
                    activeAccount:(TPSpecificUser* _Nullable)activeAccount
@@ -57,6 +67,7 @@ NS_ASSUME_NONNULL_BEGIN
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
+             secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                  ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker *)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
@@ -65,7 +76,9 @@ NS_ASSUME_NONNULL_BEGIN
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
           permittedToSendMetrics:(BOOL)permittedToSendMetrics
-             reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker;
+                      accountIsW:(BOOL)accountIsW
+             reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                   escrowChecker:(id<EscrowChecker>)escrowChecker;
 
 @end
 

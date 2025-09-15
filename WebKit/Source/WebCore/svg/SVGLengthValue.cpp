@@ -26,6 +26,7 @@
 #include "SVGElement.h"
 #include "SVGLengthContext.h"
 #include "SVGParserUtilities.h"
+#include "SVGParsingError.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/FastCharacterComparison.h>
 #include <wtf/text/MakeString.h>
@@ -215,9 +216,9 @@ SVGLengthValue SVGLengthValue::construct(SVGLengthMode lengthMode, StringView va
     SVGLengthValue length(lengthMode);
 
     if (length.setValueAsString(valueAsString).hasException())
-        parseError = ParsingAttributeFailedError;
+        parseError = SVGParsingError::ParsingFailed;
     else if (negativeValuesMode == SVGLengthNegativeValuesMode::Forbid && length.valueInSpecifiedUnits() < 0)
-        parseError = NegativeValueForbiddenError;
+        parseError = SVGParsingError::ForbiddenNegativeValue;
 
     return length;
 }

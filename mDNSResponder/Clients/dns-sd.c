@@ -89,55 +89,6 @@ static const char kFilePathSep = '\\';
     #if !defined(IFNAMSIZ)
      #define IFNAMSIZ 16
     #endif
-    #define if_nametoindex if_nametoindex_win
-    #define if_indextoname if_indextoname_win
-
-typedef PCHAR (WINAPI * if_indextoname_funcptr_t)(ULONG index, PCHAR name);
-typedef ULONG (WINAPI * if_nametoindex_funcptr_t)(PCSTR name);
-
-unsigned if_nametoindex_win(const char *ifname)
-{
-    HMODULE library;
-    unsigned index = 0;
-
-    // Try and load the IP helper library dll
-    if ((library = LoadLibrary(TEXT("Iphlpapi")) ) != NULL )
-    {
-        if_nametoindex_funcptr_t if_nametoindex_funcptr;
-
-        // On Vista and above there is a Posix like implementation of if_nametoindex
-        if ((if_nametoindex_funcptr = (if_nametoindex_funcptr_t) GetProcAddress(library, "if_nametoindex")) != NULL )
-        {
-            index = if_nametoindex_funcptr(ifname);
-        }
-
-        FreeLibrary(library);
-    }
-
-    return index;
-}
-
-char * if_indextoname_win( unsigned ifindex, char *ifname)
-{
-    HMODULE library;
-    char * name = NULL;
-
-    // Try and load the IP helper library dll
-    if ((library = LoadLibrary(TEXT("Iphlpapi")) ) != NULL )
-    {
-        if_indextoname_funcptr_t if_indextoname_funcptr;
-
-        // On Vista and above there is a Posix like implementation of if_indextoname
-        if ((if_indextoname_funcptr = (if_indextoname_funcptr_t) GetProcAddress(library, "if_indextoname")) != NULL )
-        {
-            name = if_indextoname_funcptr(ifindex, ifname);
-        }
-
-        FreeLibrary(library);
-    }
-
-    return name;
-}
 
 static size_t _sa_len(const struct sockaddr *addr)
 {

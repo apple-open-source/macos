@@ -30,10 +30,10 @@
 
 namespace API {
 
-Ref<Data> Data::createWithoutCopying(RetainPtr<NSData> data)
+Ref<Data> Data::createWithoutCopying(NSData *data)
 {
-    auto dataSpan = WTF::span(data.get());
-    return createWithoutCopying(dataSpan, [data = WTFMove(data)] { });
+    auto dataSpan = WTF::span(data);
+    return createWithoutCopying(dataSpan, [data = RetainPtr { data }] { });
 }
 
 } // namespace API

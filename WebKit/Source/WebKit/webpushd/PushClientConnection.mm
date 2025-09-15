@@ -116,7 +116,7 @@ static bool isValidPushPartition(String partition)
         return true;
 
     // On iOS, the push partition is expected to match the format of a web clip identifier.
-    auto isASCIIDigitOrUpper = [](UChar character) {
+    auto isASCIIDigitOrUpper = [](char16_t character) {
         return isASCIIDigit(character) || isASCIIUpper(character);
     };
     return partition.length() == 32 && partition.containsOnly<isASCIIDigitOrUpper>();
@@ -210,6 +210,12 @@ PushClientConnection::PushClientConnection(xpc_connection_t connection, String&&
     , m_dataStoreIdentifier(WTFMove(dataStoreIdentifier))
     , m_declarativeWebPushEnabled(declarativeWebPushEnabled)
 {
+}
+
+PushClientConnection::~PushClientConnection()
+{
+    for (auto& origin : m_inspectedServiceWorkerOrigins)
+        WebPushDaemon::singleton().setServiceWorkerOriginIsBeingInspected(origin, false);
 }
 
 void PushClientConnection::initializeConnection(WebPushDaemonConnectionConfiguration&&)
@@ -386,6 +392,24 @@ void PushClientConnection::getAppBadgeForTesting(CompletionHandler<void(std::opt
 void PushClientConnection::setProtocolVersionForTesting(unsigned version, CompletionHandler<void()>&& completionHandler)
 {
     WebPushDaemon::singleton().setProtocolVersionForTesting(*this, version, WTFMove(completionHandler));
+}
+
+void PushClientConnection::setServiceWorkerIsBeingInspected(URL&& scopeURL, bool isInspected, CompletionHandler<void()>&& completionHandler)
+{
+    auto origin = WebCore::SecurityOriginData::fromURL(scopeURL);
+    if (origin.isOpaque() || origin.isNull())
+        return;
+
+    bool didChange = false;
+    if (!isInspected && m_inspectedServiceWorkerOrigins.remove(origin))
+        didChange = true;
+    else if (isInspected && m_inspectedServiceWorkerOrigins.add(origin).isNewEntry)
+        didChange = true;
+
+    if (didChange)
+        WebPushDaemon::singleton().setServiceWorkerOriginIsBeingInspected(origin, isInspected);
+
+    completionHandler();
 }
 
 } // namespace WebPushD

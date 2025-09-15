@@ -22,6 +22,7 @@
 #include "JSTestNode.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMPromiseProxy.h"
 #include "DeprecatedGlobalSettings.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
@@ -268,7 +269,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestNodeConstructor, (JSGlobalObject* lexicalGlobalOb
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestNodePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestNode::getConstructor(vm, prototype->globalObject()));
 }
@@ -293,7 +294,7 @@ static inline bool setJSTestNode_nameSetter(JSGlobalObject& lexicalGlobalObject,
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLDOMString>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setName(nativeValueConversionResult.releaseReturnValue());
@@ -403,7 +404,7 @@ public:
     {
         if constexpr (mode == JSC::SubspaceAccess::Concurrently)
             return nullptr;
-        return WebCore::subspaceForImpl<TestNodeIterator, UseCustomHeapCellType::No>(vm,
+        return WebCore::subspaceForImpl<TestNodeIterator, UseCustomHeapCellType::No>(vm, "TestNodeIterator"_s,
             [] (auto& spaces) { return spaces.m_clientSubspaceForTestNodeIterator.get(); },
             [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNodeIterator = std::forward<decltype(space)>(space); },
             [] (auto& spaces) { return spaces.m_subspaceForTestNodeIterator.get(); },
@@ -481,7 +482,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestNodePrototypeFunction_forEach, (JSC::JSGlobalObje
 
 JSC::GCClient::IsoSubspace* JSTestNode::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestNode, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestNode, UseCustomHeapCellType::No>(vm, "JSTestNode"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestNode.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestNode = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestNode.get(); },
@@ -506,7 +507,9 @@ extern "C" { extern void (*const __identifier("??_7TestNode@WebCore@@6B@")[])();
 #else
 extern "C" { extern void* _ZTVN7WebCore8TestNodeE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestNode>, void>> static inline void verifyVTable(TestNode* ptr) {
+template<std::same_as<TestNode> T>
+static inline void verifyVTable(TestNode* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

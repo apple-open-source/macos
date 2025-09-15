@@ -1,3 +1,11 @@
 #include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AppleFeatures.xcconfig"
 
 BOOTCACHES_PLIST = ./bootcaches.plist
+
+// #ifndef __OPEN_SOURCE__
+// Solve:  rdar://149021061&149020945
+// Proxima related things are internal to apple, need to hide this section/
+BOOTCACHES_PLIST_PROXIMA_0 = ./bootcaches.plist
+BOOTCACHES_PLIST_PROXIMA_1 = ./bootcaches.proxima.plist
+BOOTCACHES_PLIST = $(BOOTCACHES_PLIST_PROXIMA_$(APPLE_FEATURE_PROXIMA:default=0))
+// #endif __OPEN_SOURCE__

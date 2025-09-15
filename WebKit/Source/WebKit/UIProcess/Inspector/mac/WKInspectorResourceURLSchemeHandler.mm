@@ -56,7 +56,7 @@
 - (NSSet<NSURL *> *)mainResourceURLsForCSP
 {
     if (!_mainResourceURLsForCSP)
-        _mainResourceURLsForCSP = adoptNS([[NSSet alloc] initWithObjects:[NSURL URLWithString:WebKit::WebInspectorUIProxy::inspectorPageURL()], [NSURL URLWithString:WebKit::WebInspectorUIProxy::inspectorTestPageURL()], nil]);
+        _mainResourceURLsForCSP = adoptNS([[NSSet alloc] initWithObjects:adoptNS([[NSURL alloc] initWithString:WebKit::WebInspectorUIProxy::inspectorPageURL().createNSString().get()]).get(), adoptNS([[NSURL alloc] initWithString:WebKit::WebInspectorUIProxy::inspectorTestPageURL().createNSString().get()]).get(), nil]);
 
     return _mainResourceURLsForCSP.get();
 }
@@ -77,7 +77,7 @@
     if (!_fileLoadOperations)
         _fileLoadOperations = adoptNS([[NSMapTable alloc] initWithKeyOptions:NSPointerFunctionsStrongMemory valueOptions:NSPointerFunctionsStrongMemory capacity:5]);
 
-    NSBlockOperation *operation = [NSBlockOperation blockOperationWithBlock:^{
+    RetainPtr operation = [NSBlockOperation blockOperationWithBlock:^{
         [_fileLoadOperations removeObjectForKey:urlSchemeTask];
 
         NSURL *requestURL = urlSchemeTask.request.URL;
@@ -98,21 +98,21 @@
             return;
         }
 
-        NSString *mimeType = WebCore::MIMETypeRegistry::mimeTypeForExtension(String(fileURLForRequest.pathExtension));
+        RetainPtr mimeType = WebCore::MIMETypeRegistry::mimeTypeForExtension(String(fileURLForRequest.pathExtension)).createNSString();
         if (!mimeType)
             mimeType = @"application/octet-stream";
 
         RetainPtr<NSMutableDictionary> headerFields = adoptNS(@{
             @"Access-Control-Allow-Origin": @"*",
-            @"Content-Length": [NSString stringWithFormat:@"%zu", (size_t)fileData.length],
-            @"Content-Type": mimeType,
+            @"Content-Length": adoptNS([[NSString alloc] initWithFormat:@"%zu", (size_t)fileData.length]).get(),
+            @"Content-Type": mimeType.get(),
         }.mutableCopy);
 
         // Allow fetches for resources that use a registered custom URL scheme.
         if (_allowedURLSchemesForCSP && [self.mainResourceURLsForCSP containsObject:requestURL]) {
-            NSString *listOfCustomProtocols = [NSString stringWithFormat:@"%@:", [_allowedURLSchemesForCSP.get().allObjects componentsJoinedByString:@": "]];
-            NSString *stringForCSPPolicy = [NSString stringWithFormat:@"connect-src * %@; img-src * file: blob: resource: %@", listOfCustomProtocols, listOfCustomProtocols];
-            [headerFields setObject:stringForCSPPolicy forKey:@"Content-Security-Policy"];
+            RetainPtr listOfCustomProtocols = adoptNS([[NSString alloc] initWithFormat:@"%@:", [_allowedURLSchemesForCSP.get().allObjects componentsJoinedByString:@": "]]);
+            RetainPtr stringForCSPPolicy = adoptNS([[NSString alloc] initWithFormat:@"connect-src * %@; img-src * file: blob: resource: %@", listOfCustomProtocols.get(), listOfCustomProtocols.get()]);
+            [headerFields setObject:stringForCSPPolicy.get() forKey:@"Content-Security-Policy"];
         }
 
         RetainPtr<NSHTTPURLResponse> urlResponse = adoptNS([[NSHTTPURLResponse alloc] initWithURL:urlSchemeTask.request.URL statusCode:200 HTTPVersion:nil headerFields:headerFields.get()]);
@@ -121,8 +121,8 @@
         [urlSchemeTask didFinish];
     }];
     
-    [_fileLoadOperations setObject:operation forKey:urlSchemeTask];
-    [[NSOperationQueue mainQueue] addOperation:operation];
+    [_fileLoadOperations setObject:operation.get() forKey:urlSchemeTask];
+    [[NSOperationQueue mainQueue] addOperation:operation.get()];
 }
 
 - (void)webView:(WKWebView *)webView stopURLSchemeTask:(id <WKURLSchemeTask>)urlSchemeTask

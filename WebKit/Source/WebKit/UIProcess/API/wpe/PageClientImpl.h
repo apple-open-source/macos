@@ -87,7 +87,7 @@ private:
     WebCore::IntSize viewSize() override;
     bool isViewWindowActive() override;
     bool isViewFocused() override;
-    bool isViewVisible() override;
+    bool isActiveViewVisible() override;
     bool isViewInWindow() override;
 
     void processDidExit() override;
@@ -118,13 +118,13 @@ private:
 
     void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool) override;
 #if ENABLE(TOUCH_EVENTS)
-    void doneWithTouchEvent(const NativeWebTouchEvent&, bool) override;
+    void doneWithTouchEvent(const WebTouchEvent&, bool) override;
 #endif
     void wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&) override;
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
 #if ENABLE(CONTEXT_MENUS)
-    Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, ContextMenuContextData&&, const UserData&) override;
+    Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&) override;
 #endif
 
     RefPtr<WebColorPicker> createColorPicker(WebPageProxy&, const WebCore::Color& intialColor, const WebCore::IntRect&, ColorControlSupportsAlpha, Vector<WebCore::Color>&&) override;
@@ -153,6 +153,7 @@ private:
     void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
 
     void didChangeBackgroundColor() override;
+    void themeColorDidChange() override;
     void isPlayingAudioWillChange() final { }
     void isPlayingAudioDidChange() final { }
 
@@ -167,16 +168,18 @@ private:
 
     void closeFullScreenManager() override;
     bool isFullScreen() override;
-    void enterFullScreen(CompletionHandler<void(bool)>&&) override;
-    void exitFullScreen() override;
-    void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
-    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
+    void enterFullScreen(WebCore::FloatSize, CompletionHandler<void(bool)>&&) override;
+    void exitFullScreen(CompletionHandler<void()>&&) override;
+    void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void(bool)>&&) override;
+    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&&) override;
 #endif
 
     UnixFileDescriptor hostFileDescriptor() final;
     void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() override;
+
+    bool effectiveAppearanceIsDark() const override;
 
     void didChangeWebPageID() const override;
 
@@ -185,6 +188,9 @@ private:
     WebKitWebResourceLoadManager* webResourceLoadManager() override;
 
     WKWPE::View& m_view;
+#if ENABLE(FULLSCREEN_API)
+    std::unique_ptr<WebFullScreenManagerProxyClient> m_fullscreenClientForTesting;
+#endif
 };
 
 } // namespace WebKit

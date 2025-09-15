@@ -94,6 +94,7 @@ public:
 	virtual const Requirements *defaultRequirements(const Architecture *arch,
 		const SigningContext &ctx);							// default internal requirements [none]
 	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
+	virtual size_t pageSize(const SigningContext &ctx, const Architecture* arch);
 
 	virtual void strictValidate(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags); // perform strict validation
 	virtual void strictValidateStructure(const CodeDirectory* cd, const ToleratedErrors& tolerated, SecCSFlags flags) { }; // perform structural strict validation
@@ -146,13 +147,7 @@ public:
 
 		virtual const CodeDirectory::HashAlgorithms &digestAlgorithms() const = 0;
 		virtual void setDigestAlgorithms(CodeDirectory::HashAlgorithms types) = 0;
-		
-		void setDigestAlgorithm(CodeDirectory::HashAlgorithm type)
-		{
-			CodeDirectory::HashAlgorithms types;
-			types.insert(type);
-			setDigestAlgorithms(types);
-		}
+		virtual void addDigestAlgorithm(CodeDirectory::HashAlgorithm type) = 0;
 	};
 
 protected:
@@ -160,7 +155,8 @@ protected:
 	static std::string canonicalIdentifier(const std::string &name);
 	
 public:
-	static const size_t segmentedPageSize = 4096;	// default page size for system-paged signatures
+	static const size_t segmentedPageSize = 4096;	// default page size for system-paged signatures (Intel and armv7)
+	static const size_t newSegmentedPageSize = 16384; // default page size for system-pages signatures (Arm64)
 	static const size_t monolithicPageSize = 0;		// default page size for non-Mach-O executables
 };
 

@@ -202,6 +202,34 @@ DISPATCH_EXPORT
 int
 dispatch_lock_override_end(qos_class_t override_to_end);
 
+/*!
+ * @function dispatch_verify_current_queue_4swiftonly
+ *
+ * @abstract
+ * This function is invoked by the Swift Concurrency runtime when trying to warn
+ * about isolation mismatches in code that the Swift compiler can't statically
+ * prove the correctness of.
+ *
+ * @discussion
+ * This SPI is intended only for improving the information available in
+ * warnings and diagnostic messages. This function returning false does not
+ * guarantee that the calling context is able to call `dispatch_sync` onto
+ * `expected_queue` without deadlocking or crashing.
+ *
+ * THIS SHOULD NOT BE USED BY ANYONE THAT IS NOT THE SWIFT CONCURRENCY RUNTIME.
+ *
+ * @param expected_queue
+ * The queue that the Swift runtime expects to be running on.
+ *
+ * @return
+ * Returns true when libdispatch knows that the calling context is running on
+ * `expected_queue`, false otherwise.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0))
+DISPATCH_EXPORT
+bool
+dispatch_verify_current_queue_4swiftonly(dispatch_queue_t expected_queue);
+
 __END_DECLS
 DISPATCH_ASSUME_NONNULL_END
 #endif

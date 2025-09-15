@@ -33,7 +33,7 @@
 };
 
 struct WebKit::WebFoundTextRange {
-    std::variant<WebKit::WebFoundTextRange::DOMData, WebKit::WebFoundTextRange::PDFData> data;
+    Variant<WebKit::WebFoundTextRange::DOMData, WebKit::WebFoundTextRange::PDFData> data;
     AtomString frameIdentifier;
     uint64_t order;
 }

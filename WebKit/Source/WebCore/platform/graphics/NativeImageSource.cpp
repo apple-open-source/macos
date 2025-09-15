@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ NativeImageSource::NativeImageSource(Ref<NativeImage>&& nativeImage)
 
 void NativeImageSource::dump(TextStream& ts) const
 {
-    ts.dumpProperty("size", size());
+    ts.dumpProperty("size"_s, size());
 }
 
 } // namespace WebCore

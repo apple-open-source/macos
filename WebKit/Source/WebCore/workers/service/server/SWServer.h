@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 #include "BackgroundFetchRecordIdentifier.h"
 #include "BackgroundFetchStore.h"
 #include "ClientOrigin.h"
-#include "ExceptionOr.h"
 #include "NotificationPayload.h"
 #include "PageIdentifier.h"
 #include "SWServerDelegate.h"
@@ -82,7 +81,10 @@ struct RetrieveRecordsOptions;
 struct ServiceWorkerClientQueryOptions;
 struct ServiceWorkerContextData;
 struct ServiceWorkerRegistrationData;
+struct ServiceWorkerRoute;
 struct WorkerFetchResult;
+
+template<typename> class ExceptionOr;
 
 class SWServer : public RefCountedAndCanMakeWeakPtr<SWServer> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(SWServer, WEBCORE_EXPORT);
@@ -163,6 +165,8 @@ public:
     WEBCORE_EXPORT static Ref<SWServer> create(SWServerDelegate&, UniqueRef<SWOriginStore>&&, bool processTerminationDelayEnabled, String&& registrationDatabaseDirectory, PAL::SessionID, bool shouldRunServiceWorkersOnMainThreadForTesting, bool hasServiceWorkerEntitlement, std::optional<unsigned> overrideServiceWorkerRegistrationCountTestingValue, ServiceWorkerIsInspectable);
     WEBCORE_EXPORT ~SWServer();
 
+    WEBCORE_EXPORT void close();
+
     WEBCORE_EXPORT void clearAll(CompletionHandler<void()>&&);
     WEBCORE_EXPORT void clear(const SecurityOriginData&, CompletionHandler<void()>&&);
     WEBCORE_EXPORT void clear(const ClientOrigin&, CompletionHandler<void()>&&);
@@ -200,6 +204,7 @@ public:
     WEBCORE_EXPORT void addConnection(Ref<Connection>&&);
     WEBCORE_EXPORT void removeConnection(SWServerConnectionIdentifier);
     Connection* connection(SWServerConnectionIdentifier identifier) const { return m_connections.get(identifier); }
+    RefPtr<Connection> protectedConnection(SWServerConnectionIdentifier identifier) const { return connection(identifier); }
 
     const HashMap<SWServerConnectionIdentifier, Ref<Connection>>& connections() const { return m_connections; }
     WEBCORE_EXPORT bool canHandleScheme(StringView) const;
@@ -268,15 +273,15 @@ public:
 
     ScriptExecutionContextIdentifier clientIdFromVisibleClientId(const String& visibleIdentifier) const { return m_visibleClientIdToInternalClientIdMap.get(visibleIdentifier); }
 
-    void forEachServiceWorker(const Function<bool(const SWServerWorker&)>&) const;
+    void forEachServiceWorker(NOESCAPE const Function<bool(const SWServerWorker&)>&) const;
     bool hasClientsWithOrigin(const ClientOrigin& origin) { return m_clientIdentifiersPerOrigin.contains(origin); }
 
     enum class ShouldDelayRemoval : bool { No, Yes };
     ShouldDelayRemoval removeContextConnectionIfPossible(const RegistrableDomain&);
 
     std::optional<ServiceWorkerRegistrationIdentifier> clientIdentifierToControllingRegistration(ScriptExecutionContextIdentifier) const;
-    WEBCORE_EXPORT void forEachClientForOrigin(const ClientOrigin&, const Function<void(ServiceWorkerClientData&)>&);
-    void forEachClientForOrigin(const ClientOrigin&, const Function<void(const ServiceWorkerClientData&)>&) const;
+    WEBCORE_EXPORT void forEachClientForOrigin(const ClientOrigin&, NOESCAPE const Function<void(ServiceWorkerClientData&)>&);
+    void forEachClientForOrigin(const ClientOrigin&, NOESCAPE const Function<void(const ServiceWorkerClientData&)>&) const;
 
     struct GatheredClientData {
         ClientOrigin clientOrigin;
@@ -291,10 +296,11 @@ public:
     RefPtr<BackgroundFetchRecordLoader> createBackgroundFetchRecordLoader(BackgroundFetchRecordLoaderClient& client, const BackgroundFetchRequest& request, size_t responseDataSize, const WebCore::ClientOrigin& origin) { return m_delegate->createBackgroundFetchRecordLoader(client, request, responseDataSize, origin); }
     Ref<BackgroundFetchStore> createBackgroundFetchStore() { return m_delegate->createBackgroundFetchStore(); }
     WEBCORE_EXPORT BackgroundFetchEngine& backgroundFetchEngine();
+    WEBCORE_EXPORT Ref<BackgroundFetchEngine> protectedBackgroundFetchEngine();
 
     WEBCORE_EXPORT Vector<ServiceWorkerClientPendingMessage> releaseServiceWorkerClientPendingMessage(ScriptExecutionContextIdentifier);
 
-    WEBCORE_EXPORT void postMessageToServiceWorkerClient(ScriptExecutionContextIdentifier, const MessageWithMessagePorts&, ServiceWorkerIdentifier, const String&, const Function<void(ScriptExecutionContextIdentifier, const MessageWithMessagePorts&, const ServiceWorkerData&, const String&)>&);
+    WEBCORE_EXPORT void postMessageToServiceWorkerClient(ScriptExecutionContextIdentifier, const MessageWithMessagePorts&, ServiceWorkerIdentifier, const String&, NOESCAPE const Function<void(ScriptExecutionContextIdentifier, const MessageWithMessagePorts&, const ServiceWorkerData&, const String&)>&);
 
     WEBCORE_EXPORT OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtectionsFromClient(const ClientOrigin&) const;
 
@@ -302,6 +308,11 @@ public:
 
     unsigned runningOrTerminatingCount() const { return m_runningOrTerminatingWorkers.size(); }
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    WEBCORE_EXPORT void reportNetworkUsageToAllWorkerClients(ServiceWorkerIdentifier, size_t bytesTransferredOverNetworkDelta);
+#endif
+
+    WEBCORE_EXPORT void addRoutes(ServiceWorkerRegistrationIdentifier, Vector<ServiceWorkerRoute>&&, CompletionHandler<void(Expected<void, ExceptionData>&&)>&&);
     WEBCORE_EXPORT bool addHandlerIfHasControlledClients(CompletionHandler<void()>&&);
 
 private:
@@ -341,6 +352,9 @@ private:
 
     ResourceRequest createScriptRequest(const URL&, const ServiceWorkerJobData&, SWServerRegistration&);
 
+    enum class ShouldUpdateRegistrations : bool { No, Yes };
+    void unregisterServiceWorkerClientInternal(const ClientOrigin&, ScriptExecutionContextIdentifier, ShouldUpdateRegistrations);
+
     WeakPtr<SWServerDelegate> m_delegate;
 
     HashMap<SWServerConnectionIdentifier, Ref<Connection>> m_connections;
@@ -365,7 +379,7 @@ private:
     Vector<CompletionHandler<void()>> m_controlledClientsBecomesEmptyHandlers;
     MemoryCompactRobinHoodHashMap<String, ScriptExecutionContextIdentifier> m_visibleClientIdToInternalClientIdMap;
 
-    UniqueRef<SWOriginStore> m_originStore;
+    const UniqueRef<SWOriginStore> m_originStore;
     RefPtr<SWRegistrationStore> m_registrationStore;
     HashMap<RegistrableDomain, Vector<ServiceWorkerContextData>> m_pendingContextDatas;
     HashMap<RegistrableDomain, HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>>> m_serviceWorkerRunRequests;

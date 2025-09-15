@@ -46,7 +46,7 @@ std::unique_ptr<ImageBufferShareableMappedIOSurfaceBitmapBackend> ImageBufferSha
     if (backendSize.isEmpty())
         return nullptr;
 
-    auto surface = IOSurface::create(creationContext.surfacePool, backendSize, parameters.colorSpace, IOSurface::Name::ImageBuffer, convertToIOSurfaceFormat(parameters.pixelFormat));
+    auto surface = IOSurface::create(RefPtr { creationContext.surfacePool }.get(), backendSize, parameters.colorSpace, IOSurface::Name::ImageBuffer, convertToIOSurfaceFormat(parameters.bufferFormat.pixelFormat), UseLosslessCompression::No);
     if (!surface)
         return nullptr;
     if (creationContext.resourceOwner)
@@ -55,7 +55,7 @@ std::unique_ptr<ImageBufferShareableMappedIOSurfaceBitmapBackend> ImageBufferSha
     if (!lockAndContext)
         return nullptr;
     CGContextClearRect(lockAndContext->context.get(), FloatRect(FloatPoint::zero(), backendSize));
-    return makeUnique<ImageBufferShareableMappedIOSurfaceBitmapBackend>(parameters, WTFMove(surface), WTFMove(*lockAndContext), creationContext.surfacePool);
+    return makeUnique<ImageBufferShareableMappedIOSurfaceBitmapBackend>(parameters, WTFMove(surface), WTFMove(*lockAndContext), creationContext.surfacePool.get());
 }
 
 ImageBufferShareableMappedIOSurfaceBitmapBackend::ImageBufferShareableMappedIOSurfaceBitmapBackend(const Parameters& parameters, std::unique_ptr<IOSurface> surface, IOSurface::LockAndContext&& lockAndContext, IOSurfacePool* ioSurfacePool)
@@ -87,7 +87,7 @@ std::optional<ImageBufferBackendHandle> ImageBufferShareableMappedIOSurfaceBitma
 GraphicsContext& ImageBufferShareableMappedIOSurfaceBitmapBackend::context()
 {
     if (m_context) {
-        CGContextRef cgContext = m_context->platformContext();
+        RetainPtr<CGContextRef> cgContext = m_context->platformContext();
         if (m_lock || !cgContext) {
             // The existing context is a valid context and the IOSurface is locked, or alternatively
             // the existing context is an invalid context, for some reason we ran into an error previously.
@@ -97,7 +97,7 @@ GraphicsContext& ImageBufferShareableMappedIOSurfaceBitmapBackend::context()
         // The IOSurface is unlocked for every flush to prepare for external access by the compositor.
         // Re-lock on first context() request after the external access has ended and new update starts.
         if (auto lock = m_surface->lock<IOSurface::AccessMode::ReadWrite>()) {
-            if (lock->surfaceBaseAddress() == CGBitmapContextGetData(cgContext)) {
+            if (lock->surfaceBaseAddress() == CGBitmapContextGetData(cgContext.get())) {
                 m_lock = WTFMove(lock);
                 return *m_context;
             }
@@ -190,7 +190,7 @@ void ImageBufferShareableMappedIOSurfaceBitmapBackend::getPixelBuffer(const IntR
     ASSERT_NOT_REACHED(); // Not applicable for LayerBacking.
 }
 
-void ImageBufferShareableMappedIOSurfaceBitmapBackend::putPixelBuffer(const PixelBuffer&, const IntRect&, const IntPoint&, AlphaPremultiplication)
+void ImageBufferShareableMappedIOSurfaceBitmapBackend::putPixelBuffer(const PixelBufferSourceView&, const IntRect&, const IntPoint&, AlphaPremultiplication)
 {
     ASSERT_NOT_REACHED(); // Not applicable for LayerBacking.
 }

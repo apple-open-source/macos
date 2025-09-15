@@ -43,7 +43,7 @@ public:
         return vm.moduleProgramExecutableSpace<mode>();
     }
 
-    static ModuleProgramExecutable* create(JSGlobalObject*, const SourceCode&);
+    static ModuleProgramExecutable* tryCreate(JSGlobalObject*, const SourceCode&);
 
     static void destroy(JSCell*);
 

@@ -178,6 +178,9 @@ const SecKeyAlgorithm kSecKeyAlgorithmEdDSASignatureMessageCurve25519SHA512 = CF
 const SecKeyAlgorithm kSecKeyAlgorithmEdDSASignatureMessageCurve448SHAKE256 = CFSTR("algid:sign:EdDSA:message-Curve448:SHAKE256");
 
 const SecKeyAlgorithm kSecKeyAlgorithmKEMKyber = CFSTR("algid:kem:kyber");
+const SecKeyAlgorithm kSecKeyAlgorithmKEMMLKEM = CFSTR("algid:kem:ML-KEM");
+
+const SecKeyAlgorithm kSecKeyAlgorithmMLDSASignatureMessage = CFSTR("algid:sign:ML-DSA:message");
 
 void SecKeyOperationContextDestroy(SecKeyOperationContext *context) {
     CFReleaseNull(context->algorithm);
@@ -897,7 +900,7 @@ static CFTypeRef SecKeyECIESCopyDecryptedData(SecKeyOperationContext *context, S
             CFIndex keySize = (SecKeyGetCFIndexFromRef(CFDictionaryGetValue(parameters, kSecAttrKeySizeInBits)) + 7) / 8;
             keyEncodedSize = keySize;
         }
-            
+
         require_action_quiet(CFDataGetLength(in1) >= keyEncodedSize, out,
                              SecError(errSecParam, error, CFSTR("%@: too small input packet for ECIES decrypt"), context->key));
         ciphertextBuffer = CFDataGetBytePtr(in1);

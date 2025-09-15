@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, 2016-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -333,7 +333,8 @@ nwi_state_add_ifstate(nwi_state_t state, const char* ifname, int af,
 		      void * ifa, struct sockaddr * vpn_server_addr, uint32_t reach_flags);
 
 void
-nwi_ifstate_set_signature(nwi_ifstate_t ifstate, uint8_t * signature);
+nwi_ifstate_set_signature(nwi_ifstate_t ifstate,
+			  uint8_t signature[NWI_SIGNATURE_LENGTH]);
 
 void
 nwi_state_clear(nwi_state_t state, int af);

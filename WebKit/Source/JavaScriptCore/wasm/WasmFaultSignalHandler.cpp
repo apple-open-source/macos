@@ -29,6 +29,7 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "ExecutableAllocator.h"
+#include "JSCellInlines.h"
 #include "JSWebAssemblyInstance.h"
 #include "LLIntData.h"
 #include "MachineContext.h"

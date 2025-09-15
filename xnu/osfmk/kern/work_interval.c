@@ -47,8 +47,6 @@
 #include <mach/notify.h>
 #include <os/refcnt.h>
 
-#include <stdatomic.h>
-
 /*
  * With the introduction of auto-join work intervals, it is possible
  * to change the work interval (and related thread group) of a thread in a
@@ -75,6 +73,7 @@ static kern_return_t thread_set_work_interval(thread_t, struct work_interval *, 
 static void work_interval_port_no_senders(ipc_port_t, mach_port_mscount_t);
 
 IPC_KOBJECT_DEFINE(IKOT_WORK_INTERVAL,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = work_interval_port_no_senders);
 
@@ -1222,9 +1221,8 @@ kern_work_interval_create(thread_t thread,
 		mach_port_name_t name = MACH_PORT_NULL;
 
 		/* work_interval has a +1 ref, moves to the port */
-		work_interval->wi_port = ipc_kobject_alloc_port(
-			(ipc_kobject_t)work_interval, IKOT_WORK_INTERVAL,
-			IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
+		work_interval->wi_port = ipc_kobject_alloc_port(work_interval,
+		    IKOT_WORK_INTERVAL, IPC_KOBJECT_ALLOC_MAKE_SEND);
 
 
 		name = ipc_port_copyout_send(work_interval->wi_port, current_space());
@@ -1410,6 +1408,10 @@ kern_work_interval_set_workload_id(mach_port_name_t port_name,
 		const bool wc_avail = workload_config_available();
 		if (!wc_avail) {
 			wlida_flags = WORK_INTERVAL_WORKLOAD_ID_RT_ALLOWED;
+		}
+
+		if (workload_id_args->wlida_flags & WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED) {
+			wlida_flags |= WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED;
 		}
 
 		/*

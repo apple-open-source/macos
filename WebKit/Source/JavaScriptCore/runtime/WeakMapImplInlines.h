@@ -57,14 +57,14 @@ static ALWAYS_INLINE bool canBeHeldWeakly(JSValue value)
 template <typename WeakMapBucket>
 ALWAYS_INLINE void WeakMapImpl<WeakMapBucket>::add(VM& vm, JSCell* key, JSValue value)
 {
-    DisallowGC disallowGC;
+    AssertNoGC assertNoGC;
     add(vm, key, value, jsWeakMapHash(key));
 }
 
 template <typename WeakMapBucket>
 ALWAYS_INLINE void WeakMapImpl<WeakMapBucket>::add(VM& vm, JSCell* key, JSValue value, uint32_t hash)
 {
-    DisallowGC disallowGC;
+    AssertNoGC assertNoGC;
     ASSERT_WITH_MESSAGE(jsWeakMapHash(key) == hash, "We expect hash value is what we expect.");
 
     addInternal(vm, key, value, hash);

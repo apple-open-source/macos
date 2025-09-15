@@ -23,7 +23,6 @@
 
 #include "AudioEncoder.h"
 
-#include "GRefPtrGStreamer.h"
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
@@ -34,12 +33,12 @@ class GStreamerInternalAudioEncoder;
 class GStreamerAudioEncoder : public AudioEncoder {
     WTF_MAKE_TZONE_ALLOCATED(GStreamerAudioEncoder);
 public:
-    static void create(const String& codecName, const Config&, CreateCallback&&, DescriptionCallback&&, OutputCallback&&);
+    static Ref<CreatePromise> create(const String& codecName, const Config&, DescriptionCallback&&, OutputCallback&&);
 
     ~GStreamerAudioEncoder();
 
 private:
-    GStreamerAudioEncoder(DescriptionCallback&&,  OutputCallback&&, GRefPtr<GstElement>&&);
+    GStreamerAudioEncoder(Ref<GStreamerInternalAudioEncoder>&&);
 
     Ref<EncodePromise> encode(RawFrame&&) final;
     Ref<GenericPromise> flush() final;

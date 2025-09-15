@@ -172,7 +172,7 @@ skt_mangle_rx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		NULL,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	ring_id = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);
@@ -263,7 +263,7 @@ skt_mangle_tx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		NULL,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	ring_id = os_channel_ring_id(channel, CHANNEL_FIRST_TX_RING);

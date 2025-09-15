@@ -368,6 +368,7 @@ struct domain;
 
 extern int ip_checkrouteralert(struct mbuf *);
 extern int ip_ctloutput(struct socket *, struct sockopt *sopt);
+extern void ip_proto_input(protocol_family_t protocol, mbuf_t packet_list);
 extern void ip_drain(void);
 extern void ip_init(struct protosw *, struct domain *);
 extern int ip_output(struct mbuf *, struct mbuf *, struct route *, int,

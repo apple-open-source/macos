@@ -29,7 +29,7 @@ CUPS_ModuleMapUnifdefOptions=-UBUILD_FOR_MACOS
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-513.7" \
+		  --with-cups-build="cups-522" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
@@ -199,3 +199,7 @@ else
 	$(INSTALL_FILE) $(BuildDirectory)/$(Project).modulemap $(DSTROOT)/usr/local/include/$(Project).modulemap
 endif
 	$(INSTALL_FILE) $(BuildDirectory)/$(Project)_private.modulemap $(DSTROOT)/usr/local/include/$(Project)_private.modulemap
+
+
+installtests:
+	xcodebuild build-for-testing -project cups/xcode/CUPS.xcodeproj -scheme cups-ATP -testProductsPath $(DSTROOT)/AppleInternal/Tests/cups/cups-ATP.xctestproduct

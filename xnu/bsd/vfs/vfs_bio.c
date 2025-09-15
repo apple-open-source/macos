@@ -183,6 +183,22 @@ typedef struct {
 
 fs_buffer_cache_gc_callout_t fs_callouts[FS_BUFFER_CACHE_GC_CALLOUTS_MAX_SIZE] = { {NULL, NULL} };
 
+static const uint32_t num_bytes_for_verify_kind[NUM_VERIFY_KIND] = {
+	[VK_HASH_NONE]     =  0,
+	[VK_HASH_SHA3_256] = 32,
+	[VK_HASH_SHA3_384] = 48,
+	[VK_HASH_SHA3_512] = 64,
+};
+
+uint32_t
+get_num_bytes_for_verify_kind(vnode_verify_kind_t verify_kind)
+{
+	if (verify_kind < NUM_VERIFY_KIND) {
+		return num_bytes_for_verify_kind[verify_kind];
+	}
+	return 0;
+}
+
 static __inline__ int
 buf_timestamp(void)
 {
@@ -625,6 +641,153 @@ bufattr_willverify(bufattr_t bap)
 		return 1;
 	}
 	return 0;
+}
+
+vnode_verify_kind_t
+bufattr_verifykind(bufattr_t bap)
+{
+	return bap->ba_verify_type;
+}
+
+void
+bufattr_setverifyvalid(bufattr_t bap)
+{
+	assert(bap->ba_verify_type);
+	bap->ba_flags |= BA_VERIFY_VALID;
+}
+
+uint8_t *
+buf_verifyptr_with_size(buf_t bp, int verify_size, uint32_t *len)
+{
+	upl_t upl;
+	vnode_t vp;
+	mount_t mp;
+	uint32_t num_bytes;
+	uint8_t *buf;
+	uint32_t size;
+
+	if (!len) {
+		return NULL;
+	}
+
+	*len = 0;
+	if (!(os_atomic_load(&bp->b_attr.ba_verify_type, relaxed))) {
+		return NULL;
+	}
+
+	vp = bp->b_vp;
+	if (vp) {
+		mp = vp->v_mount;
+	} else {
+		mp = NULL;
+	}
+
+	num_bytes = get_num_bytes_for_verify_kind(bp->b_attr.ba_verify_type);
+
+	if (!(bp->b_flags & B_CLUSTER)) {
+		if (bp->b_attr.ba_un.verify_ptr && bp->b_bcount && vp) {
+			if (vnode_isspec(bp->b_vp)) {
+				*len = (bp->b_bcount / vp->v_specsize) *  num_bytes;
+			} else if (mp && mp->mnt_devblocksize) {
+				*len = (bp->b_bcount / mp->mnt_devblocksize) *  num_bytes;
+			} else {
+				return NULL;
+			}
+			return bp->b_attr.ba_un.verify_ptr;
+		}
+		return NULL;
+	}
+
+	if (!(bp->b_attr.ba_flags & BA_WILL_VERIFY)) {
+		return NULL;
+	}
+
+	upl = bp->b_upl;
+	if (!(upl && vp && mp && mp->mnt_devblocksize)) {
+		return NULL;
+	}
+
+	buf = upl_fs_verify_buf(upl, &size);
+	if (!(buf && size && len && num_bytes)) {
+		return NULL;
+	}
+
+	if (!verify_size) {
+		verify_size = bp->b_bcount;
+	}
+	*len = (verify_size / mp->mnt_devblocksize) * num_bytes;
+	assert(*len <= size);
+
+	if (bp->b_uploffset == 0) {
+		return buf;
+	} else {
+		uint32_t start = (bp->b_uploffset / mp->mnt_devblocksize) * num_bytes;
+
+		assert((start + *len) <= size);
+		return buf + start;
+	}
+}
+
+uint8_t *
+buf_verifyptr(buf_t bp, uint32_t *len)
+{
+	return buf_verifyptr_with_size(bp, 0, len);
+}
+
+uint8_t *
+bufattr_verifyptr(bufattr_t bap, uint32_t *len)
+{
+	return buf_verifyptr_with_size(__container_of(bap, struct buf, b_attr), 0, len);
+}
+
+errno_t
+buf_verify_enable(buf_t bp, vnode_verify_kind_t verify_type)
+{
+	uint32_t num_bytes;
+
+	if ((bp->b_flags & B_CLUSTER) || !(bp->b_bcount)) {
+		return EINVAL;
+	}
+
+	if (vnode_isspec(bp->b_vp)) {
+		num_bytes = (bp->b_bcount / bp->b_vp->v_specsize) * get_num_bytes_for_verify_kind(verify_type);
+	} else if (bp->b_vp->v_mount && bp->b_vp->v_mount->mnt_devblocksize) {
+		num_bytes = (bp->b_bcount / bp->b_vp->v_mount->mnt_devblocksize) * get_num_bytes_for_verify_kind(verify_type);
+	} else {
+		return EINVAL;
+	}
+
+	uint8_t *verify_ptr = kalloc_data(num_bytes, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	if (os_atomic_cmpxchg(&bp->b_attr.ba_verify_type, 0, verify_type, acq_rel)) {
+		assert(bp->b_attr.ba_un.verify_ptr == NULL);
+		bp->b_attr.ba_un.verify_ptr = verify_ptr;
+	} else {
+		kfree_data(verify_ptr, num_bytes);
+	}
+
+	return 0;
+}
+
+void
+buf_verify_free(buf_t bp)
+{
+	if ((bp->b_flags & B_CLUSTER) || !(bp->b_bcount)) {
+		return;
+	}
+
+	if (os_atomic_load(&bp->b_attr.ba_verify_type, relaxed)) {
+		uint32_t num_bytes;
+
+		if (vnode_isspec(bp->b_vp)) {
+			num_bytes = (bp->b_bcount / bp->b_vp->v_specsize) * get_num_bytes_for_verify_kind(bp->b_attr.ba_verify_type);
+		} else if (bp->b_vp->v_mount && bp->b_vp->v_mount->mnt_devblocksize) {
+			num_bytes = (bp->b_bcount / bp->b_vp->v_mount->mnt_devblocksize) * get_num_bytes_for_verify_kind(bp->b_attr.ba_verify_type);
+		} else {
+			return;
+		}
+		kfree_data(bp->b_attr.ba_un.verify_ptr, num_bytes);
+		os_atomic_store(&bp->b_attr.ba_verify_type, 0, release);
+	}
 }
 
 errno_t
@@ -2845,6 +3008,8 @@ buf_brelse(buf_t bp)
 			panic("brelse: UPL set for non VREG; vp=%p", bp->b_vp);
 		}
 	}
+
+	buf_verify_free(bp);
 
 	/*
 	 * If it's locked, don't report an error; try again later.

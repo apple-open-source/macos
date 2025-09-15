@@ -42,6 +42,7 @@
 #include <CoreAudio/CoreAudioTypes.h>
 #include <CoreMedia/CMTime.h>
 #include <mutex>
+#include <numbers>
 #include <wtf/Locker.h>
 #include <wtf/MediaTime.h>
 
@@ -118,6 +119,8 @@ static String codecStringForMediaVideoCodecId(FourCharCode codec)
     case kCMVideoCodecType_HEVC: return "hev1.1.6.L93.B0"_s; // HEVC progressive, non-packed stream, Main Profile, Main Tier, Level 3.1
     case kAudioFormatMPEG4AAC: return "mp4a.40.2"_s;
     case kAudioFormatOpus: return "opus"_s;
+    case kAudioFormatLinearPCM: return "pcm"_s;
+    case kAudioFormatAppleLossless: return "alac"_s;
     default:
         ASSERT_NOT_REACHED("Unsupported codec");
         return ""_s;
@@ -161,7 +164,11 @@ bool MediaRecorderPrivateEncoder::initialize(const MediaRecorderPrivateOptions& 
             m_videoCodec = 'vp08';
         else if (codec == "opus"_s)
             m_audioCodec = kAudioFormatOpus;
-        else if (!isWebM && (startsWithLettersIgnoringASCIICase(codec, "avc1"_s)))
+        else if (codec == "pcm"_s)
+            m_audioCodec = kAudioFormatLinearPCM;
+        else if (!isWebM && codec == "alac"_s)
+            m_audioCodec = kAudioFormatAppleLossless;
+        else if (startsWithLettersIgnoringASCIICase(codec, "avc1"_s))
             m_videoCodec = kCMVideoCodecType_H264;
         else if (!isWebM && (codec.startsWith("hev1."_s) || codec.startsWith("hvc1."_s)))
             m_videoCodec = kCMVideoCodecType_HEVC;
@@ -182,6 +189,8 @@ bool MediaRecorderPrivateEncoder::initialize(const MediaRecorderPrivateOptions& 
         else
             return false; // unsupported codec.
     }
+
+    RELEASE_LOG(WebRTC, "MediaRecorderPrivateEncoder::initialize isWebM=%d, audioCodec=%d, videCodec=%d", isWebM, hasAudio() ? (int)m_audioCodec : -1, hasVideo() ? (int)m_videoCodec : -1);
 
     m_audioBitsPerSecond = options.audioBitsPerSecond.value_or(0);
     m_videoBitsPerSecond = options.videoBitsPerSecond.value_or(0);
@@ -284,7 +293,8 @@ void MediaRecorderPrivateEncoder::appendAudioSampleBuffer(const PlatformAudioDat
         m_currentStreamDescription = toCAAudioStreamDescription(description);
         addRingBuffer(description);
         m_currentAudioSampleCount = 0;
-    }
+    } else
+        clearRingBuffersIfPossible();
 
     auto currentAudioTime = m_currentAudioTime;
     m_lastEnqueuedAudioTimeUs = m_currentAudioTime.toMicroseconds();
@@ -302,16 +312,23 @@ void MediaRecorderPrivateEncoder::appendAudioSampleBuffer(const PlatformAudioDat
     m_currentAudioSampleCount += sampleCount;
 }
 
-void MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged(const AudioStreamBasicDescription& description)
+void MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged(const AudioStreamBasicDescription& description, InProcessCARingBuffer* newRingBuffer, size_t ringBufferId)
 {
     assertIsCurrent(queueSingleton());
 
+    if (!newRingBuffer) {
+        m_hadError = true;
+        return;
+    }
     if (!m_originalOutputDescription) {
-        AudioStreamBasicDescription outputDescription = { };
-        outputDescription.mFormatID = m_audioCodec;
-        outputDescription.mChannelsPerFrame = description.mChannelsPerFrame;
-        outputDescription.mSampleRate = description.mSampleRate;
-        m_originalOutputDescription = outputDescription;
+        if (m_audioCodec != kAudioFormatLinearPCM) {
+            AudioStreamBasicDescription outputDescription = { };
+            outputDescription.mFormatID = m_audioCodec;
+            outputDescription.mChannelsPerFrame = description.mChannelsPerFrame;
+            outputDescription.mSampleRate = description.mSampleRate;
+            m_originalOutputDescription = outputDescription;
+        } else
+            m_originalOutputDescription = CAAudioStreamDescription { description.mSampleRate, description.mChannelsPerFrame, AudioStreamDescription::Float32, CAAudioStreamDescription::IsInterleaved::Yes }.streamDescription();
     }
 
     CMFormatDescriptionRef newFormat = nullptr;
@@ -340,42 +357,39 @@ void MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged(const AudioStre
         return;
     }
 
-    updateCurrentRingBufferIfNeeded();
+    m_currentRingBuffer = newRingBuffer;
+    m_currentRingBufferId = ringBufferId;
 }
 
 void MediaRecorderPrivateEncoder::addRingBuffer(const AudioStreamDescription& description)
 {
     auto asbd = *std::get<const AudioStreamBasicDescription*>(description.platformDescription().description);
-    Locker locker { m_ringBuffersLock };
-    m_ringBuffers.append(InProcessCARingBuffer::allocate(asbd, description.sampleRate() * 2)); // allocate 2s of buffer.
-    queueSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, description = asbd] {
+    m_ringBuffers.append(std::make_pair(InProcessCARingBuffer::allocate(asbd, description.sampleRate() * 2), ++m_lastRingBufferId)); // allocate 2s of buffer.
+    queueSingleton().dispatch([weakThis = ThreadSafeWeakPtr { *this }, description = asbd, newRingBuffer = m_ringBuffers.last().first.get(), lastRingBufferId = m_lastRingBufferId] {
         if (RefPtr protectedThis = weakThis.get())
-            protectedThis->audioSamplesDescriptionChanged(description);
+            protectedThis->audioSamplesDescriptionChanged(description, newRingBuffer, lastRingBufferId);
     });
 }
 
 void MediaRecorderPrivateEncoder::writeDataToRingBuffer(AudioBufferList* list, size_t sampleCount, size_t totalSampleCount)
 {
-    Locker locker { m_ringBuffersLock };
-    if (m_ringBuffers.isEmpty() || !m_ringBuffers.last())
+    ASSERT(!m_ringBuffers.isEmpty());
+    if (!m_ringBuffers.last().first)
         return;
-    m_ringBuffers.last()->store(list, sampleCount, totalSampleCount);
+    m_ringBuffers.last().first->store(list, sampleCount, totalSampleCount);
 }
 
-void MediaRecorderPrivateEncoder::updateCurrentRingBufferIfNeeded()
+void MediaRecorderPrivateEncoder::clearRingBuffersIfPossible()
 {
-    assertIsCurrent(queueSingleton());
-
-    Locker locker { m_ringBuffersLock };
-    if (m_currentRingBuffer) {
-        ASSERT(m_ringBuffers.size() > 1);
-        m_ringBuffers.removeFirst();
-    }
-    m_currentRingBuffer = m_ringBuffers.first().get();
-    if (!m_currentRingBuffer) {
-        RELEASE_LOG_ERROR(MediaStream, "MediaRecorderPrivateEncoder::audioSamplesDescriptionChanged: out of memory error occurred");
-        m_hadError = true;
-    }
+    if (m_ringBuffers.size() == 1)
+        return;
+    size_t currentRingBufferId = m_currentRingBufferId;
+    while (m_ringBuffers.size() > 1) {
+        if (m_ringBuffers.first().second < currentRingBufferId)
+            m_ringBuffers.removeFirst();
+        else
+            break;
+    };
 }
 
 void MediaRecorderPrivateEncoder::audioSamplesAvailable(const MediaTime& time, size_t sampleCount, size_t totalSampleCount)
@@ -447,7 +461,7 @@ void MediaRecorderPrivateEncoder::appendVideoFrame(MediaTime sampleTime, Ref<Vid
         m_firstVideoFrameProcessed = true;
 
         if (frame->rotation() != VideoFrame::Rotation::None || frame->isMirrored()) {
-            m_videoTransform = CGAffineTransformMakeRotation(static_cast<int>(frame->rotation()) * M_PI / 180);
+            m_videoTransform = CGAffineTransformMakeRotation(static_cast<int>(frame->rotation()) * std::numbers::pi / 180);
             if (frame->isMirrored())
                 m_videoTransform = CGAffineTransformScale(*m_videoTransform, -1, 1);
         }
@@ -564,6 +578,17 @@ void MediaRecorderPrivateEncoder::enqueueCompressedAudioSampleBuffers()
         return;
     }
 
+    auto processSample = [&](auto&& sample) {
+        assertIsCurrent(queueSingleton());
+        if (m_pendingAudioFramePromise && m_pendingAudioFramePromise->first <= sample->presentationEndTime()) {
+            m_pendingAudioFramePromise->second.resolve();
+            m_pendingAudioFramePromise.reset();
+        }
+        if (!m_hasStartedAudibleAudioFrame && sample->duration())
+            m_hasStartedAudibleAudioFrame = true;
+        m_encodedAudioFrames.append(samplesBlockFromCMSampleBuffer(sample->sampleBuffer(), m_audioCompressedAudioInfo.get()));
+    };
+
     while (RetainPtr sampleBlock = audioConverter()->takeOutputSampleBuffer()) {
         if (m_formatChangedOccurred) {
             // Writing audio samples requiring an edit list is forbidden by the AVAssetWriterInput when used with fMP4, remove the keys.
@@ -571,15 +596,13 @@ void MediaRecorderPrivateEncoder::enqueueCompressedAudioSampleBuffers()
             PAL::CMRemoveAttachment(sampleBlock.get(), PAL::kCMSampleBufferAttachmentKey_TrimDurationAtEnd);
         }
 
-        for (Ref sample : MediaSampleAVFObjC::create(sampleBlock.get(), *m_audioTrackIndex)->divide()) {
-            if (m_pendingAudioFramePromise && m_pendingAudioFramePromise->first <= sample->presentationEndTime()) {
-                m_pendingAudioFramePromise->second.resolve();
-                m_pendingAudioFramePromise.reset();
-            }
-            if (!m_hasStartedAudibleAudioFrame && sample->duration())
-                m_hasStartedAudibleAudioFrame = true;
-            m_encodedAudioFrames.append(samplesBlockFromCMSampleBuffer(sample->sampleBuffer(), m_audioCompressedAudioInfo.get()));
+        if (m_audioCodec == kAudioFormatLinearPCM) {
+            processSample(MediaSampleAVFObjC::create(sampleBlock.get(), *m_audioTrackIndex));
+            continue;
         }
+
+        for (Ref sample : MediaSampleAVFObjC::create(sampleBlock.get(), *m_audioTrackIndex)->divide())
+            processSample(sample);
     }
 }
 
@@ -866,11 +889,6 @@ void MediaRecorderPrivateEncoder::stopRecording()
 
         m_isPaused = false;
 
-        {
-            Locker locker { m_ringBuffersLock };
-            m_ringBuffers.clear();
-        }
-
         RefPtr converter = audioConverter();
         if (!converter)
             return;
@@ -905,7 +923,7 @@ void MediaRecorderPrivateEncoder::stopRecording()
     });
 }
 
-void MediaRecorderPrivateEncoder::fetchData(CompletionHandler<void(RefPtr<FragmentedSharedBuffer>&&, double)>&& completionHandler)
+void MediaRecorderPrivateEncoder::fetchData(CompletionHandler<void(Ref<FragmentedSharedBuffer>&&, double)>&& completionHandler)
 {
     assertIsMainThread();
 

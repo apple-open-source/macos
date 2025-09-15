@@ -41,6 +41,7 @@
 #import <objc/runtime.h>
 #import <stdio.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -74,7 +75,7 @@ static NSEventModifierFlags currentModifierFlags(id self, SEL _cmd)
 
 static RetainPtr<NSKeyedUnarchiver> createUnarchiver(std::span<const uint8_t> span)
 {
-    RetainPtr data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<uint8_t*>(span.data()) length:span.size() freeWhenDone:NO]);
+    RetainPtr data = toNSDataNoCopy(span, FreeWhenDone::No);
     RetainPtr unarchiver = adoptNS([[NSKeyedUnarchiver alloc] initForReadingFromData:data.get() error:nullptr]);
     unarchiver.get().decodingFailurePolicy = NSDecodingFailurePolicyRaiseException;
     return unarchiver;
@@ -118,7 +119,7 @@ bool InjectedBundle::initialize(const WebProcessCreationParameters& parameters, 
         }
     }
 
-    m_platformBundle = [[NSBundle alloc] initWithPath:m_path];
+    m_platformBundle = adoptNS([[NSBundle alloc] initWithPath:m_path.createNSString().get()]);
     if (!m_platformBundle) {
         WTFLogAlways("InjectedBundle::load failed - Could not create the bundle.\n");
         return false;
@@ -126,7 +127,7 @@ bool InjectedBundle::initialize(const WebProcessCreationParameters& parameters, 
 
     WKBundleAdditionalClassesForParameterCoderFunctionPtr additionalClassesForParameterCoderFunction = nullptr;
     WKBundleInitializeFunctionPtr initializeFunction = nullptr;
-    if (NSString *executablePath = m_platformBundle.executablePath) {
+    if (NSString *executablePath = [m_platformBundle executablePath]) {
         if (dlopen_preflight(executablePath.fileSystemRepresentation)) {
             // We don't hold onto this handle anywhere more permanent since we never dlclose.
             if (void* handle = dlopen(executablePath.fileSystemRepresentation, RTLD_LAZY | RTLD_GLOBAL | RTLD_FIRST)) {
@@ -188,7 +189,7 @@ bool InjectedBundle::initialize(const WebProcessCreationParameters& parameters, 
         return false;
     }
 
-    WKWebProcessPlugInController* plugInController = WebKit::wrapper(*this);
+    RetainPtr plugInController = WebKit::wrapper(*this);
     [plugInController _setPrincipalClassInstance:instance.get()];
 
     if ([instance respondsToSelector:@selector(additionalClassesForParameterCoder)])
@@ -198,7 +199,7 @@ bool InjectedBundle::initialize(const WebProcessCreationParameters& parameters, 
         return false;
 
     if ([instance respondsToSelector:@selector(webProcessPlugIn:initializeWithObject:)])
-        [instance webProcessPlugIn:plugInController initializeWithObject:nil];
+        [instance webProcessPlugIn:plugInController.get() initializeWithObject:nil];
 
     return true;
 }
@@ -227,13 +228,13 @@ void InjectedBundle::extendClassesForParameterCoder(API::Array& classes)
         }
     
         CString className = classNameString->string().utf8();
-        Class objectClass = objc_lookUpClass(className.data());
+        RetainPtr objectClass = objc_lookUpClass(className.data());
         if (!objectClass) {
             WTFLogAlways("InjectedBundle::extendClassesForParameterCoder - Class %s is not a valid Objective C class.\n", className.data());
             break;
         }
 
-        [mutableSet.get() addObject:objectClass];
+        [mutableSet.get() addObject:objectClass.get()];
     }
 
     m_classesForCoder = mutableSet;
@@ -261,7 +262,7 @@ void InjectedBundle::setBundleParameter(const String& key, std::span<const uint8
     if (!m_bundleParameters && parameter)
         m_bundleParameters = adoptNS([[WKWebProcessBundleParameters alloc] initWithDictionary:@{ }]);
 
-    [m_bundleParameters setParameter:parameter forKey:key];
+    [m_bundleParameters setParameter:parameter forKey:key.createNSString().get()];
 }
 
 void InjectedBundle::setBundleParameters(std::span<const uint8_t> value)

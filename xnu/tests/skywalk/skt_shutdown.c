@@ -66,7 +66,7 @@ skt_shutdown_common(int argc, char *argv[], int method)
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	channelfd = os_channel_get_fd(channel);

@@ -15,6 +15,7 @@ init_migration_harness(test_hw_topology_t hw_topology)
 	/* Sets up _log and ATEND to close it */
 	init_harness_logging(T_NAME);
 	assert(_log != NULL);
+	assert(hw_topology.num_psets > 0 && hw_topology.total_cpus > 0);
 
 	fprintf(_log, "\tinitializing migration harness\n");
 	set_hw_topology(hw_topology);
@@ -35,13 +36,53 @@ set_thread_cluster_bound(test_thread_t thread, int cluster_id)
 	impl_set_thread_cluster_bound(thread, cluster_id);
 }
 
+int
+choose_pset_for_thread(test_thread_t thread)
+{
+	int chosen_pset_id = impl_choose_pset_for_thread(thread);
+	fprintf(_log, "for thread %p we chose pset_id %d\n", (void *)thread, chosen_pset_id);
+	return chosen_pset_id;
+}
+
 bool
 choose_pset_for_thread_expect(test_thread_t thread, int expected_cluster_id)
 {
-	int chosen_pset_id = impl_choose_pset_for_thread(thread);
+	int chosen_pset_id = choose_pset_for_thread(thread);
 	fprintf(_log, "%s: for thread %p we chose pset_id %d, expecting %d\n", chosen_pset_id == expected_cluster_id ?
 	    "PASS" : "FAIL", (void *)thread, chosen_pset_id, expected_cluster_id);
 	return chosen_pset_id == expected_cluster_id;
+}
+
+bool
+thread_avoid_processor_expect(test_thread_t thread, int cpu_id, bool quantum_expiry, bool avoid_expected)
+{
+	bool avoiding = impl_thread_avoid_processor(thread, cpu_id, quantum_expiry);
+	fprintf(_log, "%s: thread %p would avoid cpu %d? %d, expecting to avoid? %d\n", avoiding == avoid_expected ?
+	    "PASS" : "FAIL", (void *)thread, cpu_id, avoiding, avoid_expected);
+	return avoiding == avoid_expected;
+}
+
+void
+cpu_expire_quantum(int cpu_id)
+{
+	impl_cpu_expire_quantum(cpu_id);
+	fprintf(_log, "cpu %d expired quantum\n", cpu_id);
+}
+
+test_thread_t
+cpu_steal_thread(int cpu_id)
+{
+	test_thread_t stolen_thread = impl_steal_thread(cpu_id);
+	fprintf(_log, "on cpu %d, stole thread %p\n", cpu_id, (void *)stolen_thread);
+	return stolen_thread;
+}
+
+bool
+cpu_processor_balance(int cpu_id)
+{
+	bool doing_rebalance = impl_processor_balance(cpu_id);
+	fprintf(_log, "on cpu %d, doing rebalance? %d\n", cpu_id, doing_rebalance);
+	return doing_rebalance;
 }
 
 void
@@ -108,4 +149,26 @@ max_parallelism_expect(int qos, uint64_t options, uint32_t expected_parallelism)
 	fprintf(_log, "expected parallelism %u for QoS %d options %llx, found parallelism %u\n",
 	    expected_parallelism, qos, options, found_parallelism);
 	return found_parallelism == expected_parallelism;
+}
+
+int
+iterate_pset_search_order_expect(int src_pset_id, uint64_t candidate_map, int sched_bucket,
+    int *expected_pset_ids, int num_psets)
+{
+	int *search_order = impl_iterate_pset_search_order(src_pset_id, candidate_map, sched_bucket);
+	fprintf(_log, "for src pset %d candidate map %llx bucket %d, we found search order:\t",
+	    src_pset_id, candidate_map, sched_bucket);
+	int first_failure_ind = -1;
+	for (int i = 0; (i < num_psets) && (search_order[i] != -1); i++) {
+		fprintf(_log, "%2d ", search_order[i]);
+		if ((expected_pset_ids[i] != search_order[i]) && (first_failure_ind == -1)) {
+			first_failure_ind = i;
+		}
+	}
+	fprintf(_log, "\n\t%s: expected search order:\t", (first_failure_ind == -1) ? "PASS" : "FAIL");
+	for (int i = 0; i < num_psets; i++) {
+		fprintf(_log, "%2d ", expected_pset_ids[i]);
+	}
+	fprintf(_log, "\n");
+	return first_failure_ind;
 }

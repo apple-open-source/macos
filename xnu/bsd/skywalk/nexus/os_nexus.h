@@ -81,12 +81,6 @@ typedef enum {
 	NEXUS_TYPE_NET_IF,              /* network interface (kernel) */
 	NEXUS_TYPE_FLOW_SWITCH,         /* flow switch (user/kernel) */
 #ifdef BSD_KERNEL_PRIVATE
-	/*
-	 * Monitor nexus isn't directly usable on its own; we just
-	 * need a type definition here for it to act as a pseudo
-	 * domain provider.
-	 */
-	NEXUS_TYPE_MONITOR,             /* monitor (user) */
 	NEXUS_TYPE_MAX,                 /* this needs to be last */
 	NEXUS_TYPE_UNDEFINED = -1,      /* for kernel internal use */
 #endif /* BSD_KERNEL_PRIVATE */
@@ -711,6 +705,8 @@ typedef enum {
 	KERN_NEXUS_CAPAB_INTERFACE_ADVISORY = 1,
 	/* extends queue set functionality: e.g. notify steering info */
 	KERN_NEXUS_CAPAB_QSET_EXTENSIONS,
+	/* Rx flow steering to support AOP offload traffic */
+	KERN_NEXUS_CAPAB_RX_FLOW_STEERING,
 } kern_nexus_capab_t;
 
 typedef errno_t (*nxprov_capab_config_fn_t)(kern_nexus_provider_t nexus_prov,
@@ -754,6 +750,19 @@ struct kern_nexus_capab_qset_extensions {
 	kern_nexus_capab_qsext_notify_steering_info_fn_t cqe_notify_steering_info;
 };
 
+
+#define KERN_NEXUS_CAPAB_RX_FLOW_STEERING_VERSION_1 1
+typedef errno_t (*kern_nexus_capab_rx_flow_steering_config_fn_t)(
+	void *provider_context,
+	uint32_t id,
+	struct ifnet_traffic_descriptor_common *td,
+	uint32_t action);
+struct kern_nexus_capab_rx_flow_steering {
+	uint32_t kncrxfs_version;
+	void *kncrxfs_prov_ctx;
+	kern_nexus_capab_rx_flow_steering_config_fn_t kncrxfs_config;
+};
+
 /*
  * Nexus provider init (version 1)
  */
@@ -771,8 +780,8 @@ struct kern_nexus_provider_init {
 	nxprov_sync_tx_fn_t     nxpi_sync_tx;           /* required */
 	nxprov_sync_rx_fn_t     nxpi_sync_rx;           /* required */
 	nxprov_tx_doorbell_fn_t nxpi_tx_doorbell;       /* required (netif) */
-	nxprov_sync_packets_fn_t nxpi_rx_sync_packets;  /* optional (netif) */
-	nxprov_sync_packets_fn_t nxpi_tx_sync_packets;  /* optional (netif) */
+	nxprov_sync_packets_fn_t nxpi_rx_sync_packets;  /* DO NOT USE (netif) */
+	nxprov_sync_packets_fn_t nxpi_tx_sync_packets;  /* DO NOT USE (netif) */
 	nxprov_capab_config_fn_t nxpi_config_capab;     /* optional (netif) */
 };
 
@@ -1073,10 +1082,6 @@ extern errno_t kern_nexus_netif_llink_remove(struct kern_nexus *,
 
 extern errno_t kern_netif_qset_tx_queue_len(kern_netif_qset_t,
     uint32_t, uint32_t *, uint32_t *);
-
-extern void kern_netif_set_qset_combined(kern_netif_qset_t qset);
-
-extern void kern_netif_set_qset_separate(kern_netif_qset_t qset);
 
 /*
  * Misc.

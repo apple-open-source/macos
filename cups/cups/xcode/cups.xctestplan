@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "7B5D1FF3-3398-4C9C-89F6-D911295E2AD8",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:CUPS.xcodeproj",
+        "identifier" : "08B7519D2C90C6B90050C9CD",
+        "name" : "TestLibCups"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -119,8 +119,8 @@ public:
     void addChild(TextureMapperLayer*);
 
 #if ENABLE(DAMAGE_TRACKING)
-    void setDamagePropagation(bool enabled) { m_damagePropagation = enabled; }
-    void setDamage(const Damage&);
+    void setDamagePropagationEnabled(bool enabled) { m_damagePropagationEnabled = enabled; }
+    void setDamage(Damage&&);
     void collectDamage(TextureMapper&, Damage&);
 #endif
 
@@ -187,14 +187,16 @@ private:
     void collect3DRenderingContextLayers(Vector<TextureMapperLayer*>&);
 
 #if ENABLE(DAMAGE_TRACKING)
-    bool canInferDamage() const { return m_damagePropagation && !m_damage.isInvalid(); }
     void collectDamageRecursive(TextureMapperPaintOptions&, Damage&);
     void collectDamageSelfAndChildren(TextureMapperPaintOptions&, Damage&);
     void collectDamageSelf(TextureMapperPaintOptions&, Damage&);
     void collectDamageSelfChildrenReplicaFilterAndMask(TextureMapperPaintOptions&, Damage&);
     void collectDamageSelfChildrenFilterAndMask(TextureMapperPaintOptions&, Damage&);
-    void damageWholeLayerDueToTransformChange(const TransformationMatrix& beforeChange, const TransformationMatrix& afterChange);
-    FloatRect transformRectForDamage(const FloatRect&, const TransformationMatrix&, const TextureMapperPaintOptions&);
+    void collectDamageFromLayerAboutToBeRemoved(TextureMapperLayer&);
+    ALWAYS_INLINE Damage& ensureDamageInLayerCoordinateSpace();
+    ALWAYS_INLINE Damage& ensureDamageInGlobalCoordinateSpace();
+    inline void damageWholeLayer();
+    void damageWholeLayerIncludingItsRectFromPreviousFrame();
 #endif
 
     bool isVisible() const;
@@ -286,10 +288,12 @@ private:
     bool m_isReplica { false };
 
 #if ENABLE(DAMAGE_TRACKING)
-    bool m_damagePropagation { false };
-    Damage m_damage; // In layer coordinate space.
-    Damage m_inferredDamage; // In global coordinate space.
+    bool m_damagePropagationEnabled { false };
+    bool m_collectDamageDespiteBeingInvisible { false };
+    std::optional<Damage> m_damageInLayerCoordinateSpace;
+    std::optional<Damage> m_damageInGlobalCoordinateSpace;
     FloatRect m_accumulatedOverlapRegionDamage;
+    std::optional<FloatRect> m_previousLayerRectInGlobalCoordinateSpace;
 #endif
 
     struct {

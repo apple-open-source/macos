@@ -31,7 +31,7 @@
 .\"
 .\" $FreeBSD: src/lib/libc/stdlib/grantpt.3,v 1.3 2003/09/14 13:41:57 ru Exp $
 .\"
-.Dd February 2, 2005
+.Dd June 17, 2025
 .Os
 .Dt GRANTPT 3
 .Sh NAME
@@ -97,9 +97,7 @@ is left untouched.
 .Pp
 The
 .Fn ptsname
-and
-.Fn ptsname_r
-functions return the full pathname of the replica device
+function returns a pointer to the full pathname of the replica device
 counterpart to the primary device specified with
 .Fa fildes .
 This value can be used
@@ -107,11 +105,18 @@ to subsequently open the appropriate replica after
 .Fn posix_openpt
 and
 .Fn grantpt
-have been called. The
+have been called.
+The
 .Fn ptsname
-function is not guaranteed to be reentrant or thread safe. The
+function is not guaranteed to be reentrant or thread safe.
+The
 .Fn ptsname_r
-function takes a buffer and length as arguments to avoid this problem.
+function stores the full pathname of the replica device in the
+buffer pointed to by its
+.Fa buffer
+argument, up to a maximum length of
+.Fa buflen
+including the terminating NUL.
 .Pp
 The
 .Fn unlockpt
@@ -149,7 +154,8 @@ is set to indicate the error.
 .Pp
 The
 .Fn ptsname_r
-function returns 0 if successful.  On failure, it returns -1 and the global variable
+function returns 0 if successful.
+On failure, it returns -1 and the global variable
 .Va errno
 is set to indicate the error.
 .Pp
@@ -184,14 +190,16 @@ to:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 The
-.Va buffer
-argument is NULL.
+.Fa buffer
+argument is
+.Dv NULL .
 .El
 .Bl -tag -width Er
 .It Bq Er ERANGE
 The
-.Va bufsize
-argument is smaller than the length of the string to be returned.
+.Fa buflen
+argument is smaller than the length of the string to be returned,
+including the terminating NUL.
 .El
 .Pp
 In addition, the

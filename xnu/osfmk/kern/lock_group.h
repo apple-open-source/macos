@@ -88,7 +88,7 @@ extern void             lck_grp_free(
 	lck_grp_t              *grp);
 
 #if XNU_KERNEL_PRIVATE
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 /*
  * Arguments wrapped in LCK_GRP_ARG() will be elided
@@ -254,7 +254,7 @@ lck_opts_get(void)
 	return LcksOpts;
 }
 
-#pragma GCC visibility pop
+__exported_pop
 
 
 #endif /* XNU_KERNEL_PRIVATE */

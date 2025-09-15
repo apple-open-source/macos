@@ -286,6 +286,7 @@ exit:
 IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_t port)
 {
     IOReturn result;
+    bool skipCleanup = false;
     
     require_action(!isInactive(), exit, result=kIOReturnOffline);
     require_action(_queue, exit, result=kIOReturnError);
@@ -294,10 +295,17 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPortGated(mach_port_
     
     _port = port;
     _queue->setNotificationPort(port);
+
+#if DEVELOPMENT || KASAN
+    // To support testing for 154632669, do not cleanup pending reports when user client removes its
+    // notification port upon cancellation. This will delay full termination until all reports
+    // complete (i.e., timeout).
+    skipCleanup = _properties->getObject("test-hook-154632669") == kOSBooleanTrue;
+#endif
     
     // 43101337 clear pending reports when our port is cleared, otherwise we will
     // wait until the timeout occurs, which could be a very long time.
-    if (!_port && _commandGate) {
+    if (!_port && _commandGate && !skipCleanup) {
         cleanupPendingReports();
     }
     
@@ -487,12 +495,12 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     require_action(strnlen((const char *) propertiesData, propertiesLength) < propertiesLength, exit, result=kIOReturnInternalError);
 
     object = OSUnserializeXML((const char *)propertiesData, propertiesLength);
-    require_action(object, exit, result=kIOReturnInternalError);
+    require_action(object, exit, result=kIOReturnInternalError ; HIDServiceLogError("OSUnserializeXML:NULL"););
     
     OSSafeReleaseNULL(_properties);
     
     _properties = OSDynamicCast(OSDictionary, object);
-    require_action(_properties, exit, result=kIOReturnNoMemory);
+    require_action(_properties, exit, result=kIOReturnInternalError ; HIDServiceLogError("properties is not OSDictionary"));
     _properties->retain();
     
     if (IsIOHIDRestrictedIOKitPropertyDictionary(_properties)) {
@@ -799,7 +807,6 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
 
     if (report->getLength() > kMaxQueueReportSize) {
         bool status;
-        header.reportFlags |= kIOHIDResourceOOBReport;
         IOMemoryMap *overSizedReportMap = report->createMappingInTask(_owningTask, 0, kIOMapAnywhere | kIOMapReadOnly);
         if (!overSizedReportMap) {
             HIDLogError("Could not create large report mapping.");
@@ -817,6 +824,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
 
         // Assigning a buffer here is overkill, but we want to keep the same interface for the enqueue reports.
         report = IOBufferMemoryDescriptor::withBytes(&reportInfo, sizeof(IOHIDResourceOOBReportInfo), kIODirectionInOut);
+        header.reportFlags |= kIOHIDResourceOOBReport;
         header.length = (uint32_t)report->getLength();
         HIDLogDebug("Created OOB report data: %#llx(%d)", (uint64_t)reportInfo.token, (uint32_t)reportInfo.length);
     }
@@ -980,7 +988,9 @@ void IOHIDResourceDeviceUserClient::setNextAsyncTimeout()
 {
     __block AbsoluteTime nextDeadline = UINT64_MAX;
     OSSet              * set          = OSSet::withSet(_pending);
+    OSSet              * timedOut     = OSSet::withCapacity(set->getCount());
     require_action(set, exit, HIDLogError("Failed to allocate pending set copy"));
+    require_action(timedOut, exit, HIDLogError("Failed to allocate set for requests that timed out"));
 
     _asyncReportTimer->cancelTimeout();
 
@@ -999,8 +1009,7 @@ void IOHIDResourceDeviceUserClient::setNextAsyncTimeout()
             return false;
         }
 
-        pResult->completion.action(pResult->completion.target, pResult->completion.parameter, kIOReturnTimeout, pResult->descriptor ? (uint32_t)pResult->descriptor->getLength() : 0);
-        OSSafeReleaseNULL(pResult->descriptor);
+        timedOut->setObject(object);
         _pending->removeObject(object);
         _outstandingAsyncCount--;
         return false;
@@ -1009,8 +1018,18 @@ void IOHIDResourceDeviceUserClient::setNextAsyncTimeout()
     if (nextDeadline < UINT64_MAX) {
         _asyncReportTimer->wakeAtTime(nextDeadline);
     }
+
+    timedOut->iterateObjects(^bool(OSObject *object) {
+        __ReportResult * pResult = (__ReportResult*)((OSValueObject<__ReportResult>*)object)->getBytesNoCopy();
+
+        pResult->completion.action(pResult->completion.target, pResult->completion.parameter, kIOReturnTimeout, pResult->descriptor ? (uint32_t)pResult->descriptor->getLength() : 0);
+        OSSafeReleaseNULL(pResult->descriptor);
+        return false;
+    });
+
 exit:
     OSSafeReleaseNULL(set);
+    OSSafeReleaseNULL(timedOut);
     return;
 }
 

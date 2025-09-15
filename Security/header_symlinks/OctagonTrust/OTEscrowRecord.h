@@ -157,12 +157,6 @@ NS_INLINE OTEscrowRecord_SOSViability StringAsOTEscrowRecord_SOSViability(NSStri
 @property (nonatomic, retain) NSString *label;
 
 @property (nonatomic) BOOL hasSilentAttemptAllowed;
-/**
- * optional reserved string reserved5 = 5;
- * optional reserved string reserved6 = 6;
- * optional reserved string reserved7 = 7;
- * optional reserved string reserved8 = 8;
- */
 @property (nonatomic) uint64_t silentAttemptAllowed;
 
 @property (nonatomic) BOOL hasRecordStatus;

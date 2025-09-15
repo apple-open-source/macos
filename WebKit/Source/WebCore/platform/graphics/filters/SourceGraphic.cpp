@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -79,7 +79,7 @@ std::unique_ptr<FilterEffectApplier> SourceGraphic::createSoftwareApplier() cons
 
 TextStream& SourceGraphic::externalRepresentation(TextStream& ts, FilterRepresentation) const
 {
-    ts << indent << "[SourceGraphic]\n";
+    ts << indent << "[SourceGraphic]\n"_s;
     return ts;
 }
 

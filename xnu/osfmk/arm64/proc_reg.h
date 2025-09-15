@@ -80,14 +80,22 @@
 #include <pexpert/arm/board_config.h>
 #endif
 
+#if !CONFIG_SPTM
 /*
  * Processor registers for ARM
  */
 #if __ARM_42BIT_PA_SPACE__
-/* For now, force the issue! */
-/* We need more VA space for the identity map to bootstrap the MMU */
+/**
+ * On PPL, the identity map requires a smaller T0SZ value because DRAM starts
+ * at a PA not mappable by only 3 bits in L1 table on platforms with 42-bit
+ * PA space. On SPTM, this is overcome by boot with a smaller T0SZ and resize
+ * to the __ARM64_PMAP_SUBPAGE_L1__ T0SZ when the identity map is no longer
+ * used.
+ */
 #undef __ARM64_PMAP_SUBPAGE_L1__
+#undef __ARM64_PMAP_KERN_SUBPAGE_L1__
 #endif /* __ARM_42BIT_PA_SPACE__ */
+#endif /* !CONFIG_SPTM */
 
 /* For arm platforms, create one pset per cluster */
 #define MAX_PSETS MAX_CPU_CLUSTERS
@@ -551,9 +559,7 @@
 
 #if HAS_ARM_FEAT_SME
 // 60   EnTP2           Enable TPIDR2_EL0 at EL0
-#define SCTLR_OTHER               (1ULL << 60)
-#else
-#define SCTLR_OTHER               (0)
+#define SCTLR_TP2_ENABLED         (1ULL << 60)
 #endif
 
 #define SCTLR_EPAN_ENABLED        (1ULL << 57)
@@ -586,6 +592,7 @@
 
 // 35    BT0 PACIxSP acts as a BTI C landing pad rather than BTI JC at EL0
 #define SCTLR_BT0_ENABLED         (1ULL << 35)
+
 
 // 26    UCI User Cache Instructions
 #define SCTLR_UCI_ENABLED         (1ULL << 26)
@@ -699,18 +706,27 @@
 #define SCTLR_BT_DEFAULT                0
 #endif /* BTI_ENFORCED */
 
+#if HAS_ARM_FEAT_SME
+#define SCTLR_TP2_DEFAULT      SCTLR_TP2_ENABLED
+#else
+#define SCTLR_TP2_DEFAULT      0
+#endif
+
+#define SCTLR_OTHER            0
+
 #define SCTLR_EL1_REQUIRED \
 	(SCTLR_RESERVED | SCTLR_UCI_ENABLED | SCTLR_nTWE_WFE_ENABLED | SCTLR_DZE_ENABLED | \
 	 SCTLR_I_ENABLED | SCTLR_SED_DISABLED | SCTLR_CP15BEN_ENABLED | SCTLR_BT_DEFAULT | \
 	 SCTLR_SA0_ENABLED | SCTLR_SA_ENABLED | SCTLR_C_ENABLED | SCTLR_M_ENABLED |        \
 	 SCTLR_EPAN_DEFAULT | SCTLR_EIS_DEFAULT | SCTLR_EOS_DEFAULT | SCTLR_DSSBS_DEFAULT | \
-	 SCTLR_PAC_KEYS_DEFAULT | SCTLR_OTHER)
+	 SCTLR_PAC_KEYS_DEFAULT | SCTLR_TP2_DEFAULT | SCTLR_OTHER)
 
 #define SCTLR_EL1_OPTIONAL \
 	(SCTLR_EPAN_OPTIONAL)
 
 #define SCTLR_EL1_DEFAULT \
 	(SCTLR_EL1_REQUIRED | SCTLR_EL1_OPTIONAL)
+
 
 /*
  * Coprocessor Access Control Register (CPACR)
@@ -867,6 +883,7 @@
  */
 
 #define TCR_T0SZ_SHIFT          0ULL
+#define TCR_T0SZ_MASK           0x3FULL
 #define TCR_TSZ_BITS            6ULL
 #define TCR_TSZ_MASK            ((1ULL << TCR_TSZ_BITS) - 1ULL)
 
@@ -902,6 +919,7 @@
 #endif
 
 #define TCR_T1SZ_SHIFT          16ULL
+#define TCR_T1SZ_MASK           0x3FULL
 
 #define TCR_A1_ASID1            (1ULL << 22ULL)
 #define TCR_EPD1_TTBR1_DISABLED (1ULL << 23ULL)
@@ -974,6 +992,7 @@
 #define TCR_EL1_EXTRA            0
 
 
+
 /*
  * Multiprocessor Affinity Register (MPIDR_EL1)
  *
@@ -1030,24 +1049,27 @@
 #endif /* __ARM64_PMAP_SUBPAGE_L1__ */
 #endif /* __ARM_16K_PG__ */
 
-#if defined(APPLE_ARM64_ARCH_FAMILY)
-/* T0SZ must be the same as T1SZ */
-#define T1SZ_BOOT T0SZ_BOOT
-#else /* defined(APPLE_ARM64_ARCH_FAMILY) */
+#if __ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM
+#define T0SZ_EARLY_BOOT 17ULL
+#endif /*__ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM */
+
+#if HAS_ARM_INDEPENDENT_TNSZ
 #ifdef __ARM_16K_PG__
-#if __ARM64_PMAP_SUBPAGE_L1__
+#if __ARM64_PMAP_KERN_SUBPAGE_L1__
 #define T1SZ_BOOT 25ULL
-#else /* !__ARM64_PMAP_SUBPAGE_L1__ */
+#else /* !__ARM64_PMAP_KERN_SUBPAGE_L1__ */
 #define T1SZ_BOOT 17ULL
-#endif /* !__ARM64_PMAP_SUBPAGE_L1__ */
+#endif /* !__ARM64_PMAP_KERN_SUBPAGE_L1__ */
 #else /* __ARM_16K_PG__ */
-#if __ARM64_PMAP_SUBPAGE_L1__
+#if __ARM64_PMAP_KERN_SUBPAGE_L1__
 #define T1SZ_BOOT 26ULL
-#else /* __ARM64_PMAP_SUBPAGE_L1__ */
+#else /* __ARM64_PMAP_KERN_SUBPAGE_L1__ */
 #define T1SZ_BOOT 25ULL
-#endif /*__ARM64_PMAP_SUBPAGE_L1__*/
+#endif /*__ARM64_PMAP_KERN_SUBPAGE_L1__*/
 #endif /* __ARM_16K_PG__ */
-#endif /* defined(APPLE_ARM64_ARCH_FAMILY) */
+#else /* HAS_ARM_INDEPENDENT_TNSZ */
+#define T1SZ_BOOT T0SZ_BOOT
+#endif /* HAS_ARM_INDEPENDENT_TNSZ */
 
 #if __ARM_42BIT_PA_SPACE__
 #define TCR_IPS_VALUE TCR_IPS_42BITS
@@ -1075,12 +1097,32 @@
 	 TCR_TBI0_TOPBYTE_IGNORED | (TCR_TBID0_ENABLE) | TCR_E0PD_VALUE | \
 	 TCR_EL1_DTBI | TCR_EL1_ASID | TCR_EL1_EXTRA)
 
+#if __ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM
+#define TCR_EL1_BASE_BOOT \
+	(TCR_IPS_VALUE | TCR_SH0_OUTER | TCR_ORGN0_WRITEBACK |         \
+	 TCR_IRGN0_WRITEBACK | (T0SZ_EARLY_BOOT << TCR_T0SZ_SHIFT) |          \
+	 TCR_SH1_OUTER | TCR_ORGN1_WRITEBACK | \
+	 TCR_IRGN1_WRITEBACK | (TCR_TG1_GRANULE_SIZE) |                 \
+	 TCR_TBI0_TOPBYTE_IGNORED | (TCR_TBID0_ENABLE) | TCR_E0PD_VALUE | \
+	 TCR_EL1_DTBI | TCR_EL1_ASID | TCR_EL1_EXTRA)
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ && CONFIG_SPTM */
+
 #if __ARM_KERNEL_PROTECT__
 #define TCR_EL1_BOOT (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
 #define T1SZ_USER (T1SZ_BOOT + 1)
 #define TCR_EL1_USER (TCR_EL1_BASE | (T1SZ_USER << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
 #else
+#if CONFIG_SPTM
+#if __ARM64_PMAP_SUBPAGE_L1__
+#define TCR_EL1_BOOT (TCR_EL1_BASE_BOOT | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
+#define TCR_EL1_FINAL (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
+#else /* !__ARM64_PMAP_SUBPAGE_L1__ */
 #define TCR_EL1_BOOT (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
+#define TCR_EL1_FINAL TCR_EL1_BOOT
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+#else /* !CONFIG_SPTM */
+#define TCR_EL1_BOOT (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_SIZE))
+#endif /* CONFIG_SPTM */
 #endif /* __ARM_KERNEL_PROTECT__ */
 
 #define TCR_EL1_4KB  (TCR_EL1_BASE | (T1SZ_BOOT << TCR_T1SZ_SHIFT) | (TCR_TG0_GRANULE_4KB))
@@ -1093,6 +1135,243 @@
 
 
 
+/*
+ * Hypervisor Fine-Grained Read Trap Register (HFGRTR)
+ */
+
+#define HFGRTR_AMAIR2_SHIFT 63
+#define HFGRTR_AMAIR2 (1ULL << HFGRTR_AMAIR2_SHIFT)
+#define HFGRTR_MAIR2_SHIFT 62
+#define HFGRTR_MAIR2 (1ULL << HFGRTR_MAIR2_SHIFT)
+#define HFGRTR_S2POR_SHIFT 61
+#define HFGRTR_S2POR (1ULL << HFGRTR_S2POR_SHIFT)
+#define HFGRTR_POR_EL1_SHIFT 60
+#define HFGRTR_POR_EL1 (1ULL << HFGRTR_POR_EL1_SHIFT)
+#define HFGRTR_POR_EL0_SHIFT 59
+#define HFGRTR_POR_EL0 (1ULL << HFGRTR_POR_EL0_SHIFT)
+#define HFGRTR_PIR_SHIFT 58
+#define HFGRTR_PIR (1ULL << HFGRTR_PIR_SHIFT)
+#define HFGRTR_PIRE0_SHIFT 57
+#define HFGRTR_PIRE0 (1ULL << HFGRTR_PIRE0_SHIFT)
+#define HFGRTR_RCWMASK_SHIFT 56
+#define HFGRTR_RCWMASK (1ULL << HFGRTR_RCWMASK_SHIFT)
+#define HFGRTR_TPIDR2_SHIFT 55
+#define HFGRTR_TPIDR2 (1ULL << HFGRTR_TPIDR2_SHIFT)
+#define HFGRTR_SMPRI_SHIFT 54
+#define HFGRTR_SMPRI (1ULL << HFGRTR_SMPRI_SHIFT)
+#define HFGRTR_GCS_EL1_SHIFT 53
+#define HFGRTR_GCS_EL1 (1ULL << HFGRTR_GCS_EL1_SHIFT)
+#define HFGRTR_GCS_EL0_SHIFT 52
+#define HFGRTR_GCS_EL0 (1ULL << HFGRTR_GCS_EL0_SHIFT)
+#define HFGRTR_ACCDATA_SHIFT 50
+#define HFGRTR_ACCDATA (1ULL << HFGRTR_ACCDATA_SHIFT)
+#define HFGRTR_ERXADDR_SHIFT 49
+#define HFGRTR_ERXADDR (1ULL << HFGRTR_ERXADDR_SHIFT)
+#define HFGRTR_ERXPFGCDN_SHIFT 48
+#define HFGRTR_ERXPFGCDN (1ULL << HFGRTR_ERXPFGCDN_SHIFT)
+#define HFGRTR_ERXPFGCTL_SHIFT 47
+#define HFGRTR_ERXPFGCTL (1ULL << HFGRTR_ERXPFGCTL_SHIFT)
+#define HFGRTR_ERXPFGF_SHIFT 46
+#define HFGRTR_ERXPFGF (1ULL << HFGRTR_ERXPFGF_SHIFT)
+#define HFGRTR_ERXMISC_SHIFT 45
+#define HFGRTR_ERXMISC (1ULL << HFGRTR_ERXMISC_SHIFT)
+#define HFGRTR_ERXSTATUS_SHIFT 44
+#define HFGRTR_ERXSTATUS (1ULL << HFGRTR_ERXSTATUS_SHIFT)
+#define HFGRTR_ERXCTLR_SHIFT 43
+#define HFGRTR_ERXCTLR (1ULL << HFGRTR_ERXCTLR_SHIFT)
+#define HFGRTR_ERXFR_SHIFT 42
+#define HFGRTR_ERXFR (1ULL << HFGRTR_ERXFR_SHIFT)
+#define HFGRTR_ERRSELR_SHIFT 41
+#define HFGRTR_ERRSELR (1ULL << HFGRTR_ERRSELR_SHIFT)
+#define HFGRTR_ERRIDR_SHIFT 40
+#define HFGRTR_ERRIDR (1ULL << HFGRTR_ERRIDR_SHIFT)
+#define HFGRTR_ICC_IGRPEN_SHIFT 39
+#define HFGRTR_ICC_IGRPEN (1ULL << HFGRTR_ICC_IGRPEN_SHIFT)
+#define HFGRTR_VBAR_SHIFT 38
+#define HFGRTR_VBAR (1ULL << HFGRTR_VBAR_SHIFT)
+#define HFGRTR_TTBR1_SHIFT 37
+#define HFGRTR_TTBR1 (1ULL << HFGRTR_TTBR1_SHIFT)
+#define HFGRTR_TTBR0_SHIFT 36
+#define HFGRTR_TTBR0 (1ULL << HFGRTR_TTBR0_SHIFT)
+#define HFGRTR_TPIDR_EL0_SHIFT 35
+#define HFGRTR_TPIDR_EL0 (1ULL << HFGRTR_TPIDR_EL0_SHIFT)
+#define HFGRTR_TPIDRRO_SHIFT 34
+#define HFGRTR_TPIDRRO (1ULL << HFGRTR_TPIDRRO_SHIFT)
+#define HFGRTR_TPIDR_EL1_SHIFT 33
+#define HFGRTR_TPIDR_EL1 (1ULL << HFGRTR_TPIDR_EL1_SHIFT)
+#define HFGRTR_TCR_SHIFT 32
+#define HFGRTR_TCR (1ULL << HFGRTR_TCR_SHIFT)
+#define HFGRTR_SCXTNUM_EL0_SHIFT 31
+#define HFGRTR_SCXTNUM_EL0 (1ULL << HFGRTR_SCXTNUM_EL0_SHIFT)
+#define HFGRTR_SCXTNUM_EL1_SHIFT 30
+#define HFGRTR_SCXTNUM_EL1 (1ULL << HFGRTR_SCXTNUM_EL1_SHIFT)
+#define HFGRTR_SCTLR_SHIFT 29
+#define HFGRTR_SCTLR (1ULL << HFGRTR_SCTLR_SHIFT)
+#define HFGRTR_REVIDR_SHIFT 28
+#define HFGRTR_REVIDR (1ULL << HFGRTR_REVIDR_SHIFT)
+#define HFGRTR_PAR_SHIFT 27
+#define HFGRTR_PAR (1ULL << HFGRTR_PAR_SHIFT)
+#define HFGRTR_MPIDR_SHIFT 26
+#define HFGRTR_MPIDR (1ULL << HFGRTR_MPIDR_SHIFT)
+#define HFGRTR_MIDR_SHIFT 25
+#define HFGRTR_MIDR (1ULL << HFGRTR_MIDR_SHIFT)
+#define HFGRTR_MAIR_SHIFT 24
+#define HFGRTR_MAIR (1ULL << HFGRTR_MAIR_SHIFT)
+#define HFGRTR_LORSA_SHIFT 23
+#define HFGRTR_LORSA (1ULL << HFGRTR_LORSA_SHIFT)
+#define HFGRTR_LORN_SHIFT 22
+#define HFGRTR_LORN (1ULL << HFGRTR_LORN_SHIFT)
+#define HFGRTR_LORID_SHIFT 21
+#define HFGRTR_LORID (1ULL << HFGRTR_LORID_SHIFT)
+#define HFGRTR_LOREA_SHIFT 20
+#define HFGRTR_LOREA (1ULL << HFGRTR_LOREA_SHIFT)
+#define HFGRTR_LORC_SHIFT 19
+#define HFGRTR_LORC (1ULL << HFGRTR_LORC_SHIFT)
+#define HFGRTR_ISR_SHIFT 18
+#define HFGRTR_ISR (1ULL << HFGRTR_ISR_SHIFT)
+#define HFGRTR_FAR_SHIFT 17
+#define HFGRTR_FAR (1ULL << HFGRTR_FAR_SHIFT)
+#define HFGRTR_ESR_SHIFT 16
+#define HFGRTR_ESR (1ULL << HFGRTR_ESR_SHIFT)
+#define HFGRTR_DCZID_SHIFT 15
+#define HFGRTR_DCZID (1ULL << HFGRTR_DCZID_SHIFT)
+#define HFGRTR_CTR_SHIFT 14
+#define HFGRTR_CTR (1ULL << HFGRTR_CTR_SHIFT)
+#define HFGRTR_CSSELR_SHIFT 13
+#define HFGRTR_CSSELR (1ULL << HFGRTR_CSSELR_SHIFT)
+#define HFGRTR_CPACR_SHIFT 12
+#define HFGRTR_CPACR (1ULL << HFGRTR_CPACR_SHIFT)
+#define HFGRTR_CONTEXTIDR_SHIFT 11
+#define HFGRTR_CONTEXTIDR (1ULL << HFGRTR_CONTEXTIDR_SHIFT)
+#define HFGRTR_CLIDR_SHIFT 10
+#define HFGRTR_CLIDR (1ULL << HFGRTR_CLIDR_SHIFT)
+#define HFGRTR_CCSIDR_SHIFT 9
+#define HFGRTR_CCSIDR (1ULL << HFGRTR_CCSIDR_SHIFT)
+#define HFGRTR_APIBKEY_SHIFT 8
+#define HFGRTR_APIBKEY (1ULL << HFGRTR_APIBKEY_SHIFT)
+#define HFGRTR_APIAKEY_SHIFT 7
+#define HFGRTR_APIAKEY (1ULL << HFGRTR_APIAKEY_SHIFT)
+#define HFGRTR_APGAKEY_SHIFT 6
+#define HFGRTR_APGAKEY (1ULL << HFGRTR_APGAKEY_SHIFT)
+#define HFGRTR_APDBKEY_SHIFT 5
+#define HFGRTR_APDBKEY (1ULL << HFGRTR_APDBKEY_SHIFT)
+#define HFGRTR_APDAKEY_SHIFT 4
+#define HFGRTR_APDAKEY (1ULL << HFGRTR_APDAKEY_SHIFT)
+#define HFGRTR_AMAIR_SHIFT 3
+#define HFGRTR_AMAIR (1ULL << HFGRTR_AMAIR_SHIFT)
+#define HFGRTR_AIDR_SHIFT 2
+#define HFGRTR_AIDR (1ULL << HFGRTR_AIDR_SHIFT)
+#define HFGRTR_AFSR1_SHIFT 1
+#define HFGRTR_AFSR1 (1ULL << HFGRTR_AFSR1_SHIFT)
+#define HFGRTR_AFSR0_SHIFT 0
+#define HFGRTR_AFSR0 (1ULL << HFGRTR_AFSR0_SHIFT)
+
+/*
+ * Hypervisor Fine-Grained Write Trap Register (HFGWTR)
+ */
+
+#define HFGWTR_AMAIR2_SHIFT 63
+#define HFGWTR_AMAIR2 (1ULL << HFGWTR_AMAIR2_SHIFT)
+#define HFGWTR_MAIR2_SHIFT 62
+#define HFGWTR_MAIR2 (1ULL << HFGWTR_MAIR2_SHIFT)
+#define HFGWTR_S2POR_SHIFT 61
+#define HFGWTR_S2POR (1ULL << HFGWTR_S2POR_SHIFT)
+#define HFGWTR_POR_EL1_SHIFT 60
+#define HFGWTR_POR_EL1 (1ULL << HFGWTR_POR_EL1_SHIFT)
+#define HFGWTR_POR_EL0_SHIFT 59
+#define HFGWTR_POR_EL0 (1ULL << HFGWTR_POR_EL0_SHIFT)
+#define HFGWTR_PIR_SHIFT 58
+#define HFGWTR_PIR (1ULL << HFGWTR_PIR_SHIFT)
+#define HFGWTR_PIRE0_SHIFT 57
+#define HFGWTR_PIRE0 (1ULL << HFGWTR_PIRE0_SHIFT)
+#define HFGWTR_RCWMASK_SHIFT 56
+#define HFGWTR_RCWMASK (1ULL << HFGWTR_RCWMASK_SHIFT)
+#define HFGWTR_TPIDR2_SHIFT 55
+#define HFGWTR_TPIDR2 (1ULL << HFGWTR_TPIDR2_SHIFT)
+#define HFGWTR_SMPRI_SHIFT 54
+#define HFGWTR_SMPRI (1ULL << HFGWTR_SMPRI_SHIFT)
+#define HFGWTR_GCS_EL1_SHIFT 53
+#define HFGWTR_GCS_EL1 (1ULL << HFGWTR_GCS_EL1_SHIFT)
+#define HFGWTR_GCS_EL0_SHIFT 52
+#define HFGWTR_GCS_EL0 (1ULL << HFGWTR_GCS_EL0_SHIFT)
+#define HFGWTR_ACCDATA_SHIFT 50
+#define HFGWTR_ACCDATA (1ULL << HFGWTR_ACCDATA_SHIFT)
+#define HFGWTR_ERXADDR_SHIFT 49
+#define HFGWTR_ERXADDR (1ULL << HFGWTR_ERXADDR_SHIFT)
+#define HFGWTR_ERXPFGCDN_SHIFT 48
+#define HFGWTR_ERXPFGCDN (1ULL << HFGWTR_ERXPFGCDN_SHIFT)
+#define HFGWTR_ERXPFGCTL_SHIFT 47
+#define HFGWTR_ERXPFGCTL (1ULL << HFGWTR_ERXPFGCTL_SHIFT)
+#define HFGWTR_ERXMISC_SHIFT 45
+#define HFGWTR_ERXMISC (1ULL << HFGWTR_ERXMISC_SHIFT)
+#define HFGWTR_ERXSTATUS_SHIFT 44
+#define HFGWTR_ERXSTATUS (1ULL << HFGWTR_ERXSTATUS_SHIFT)
+#define HFGWTR_ERXCTLR_SHIFT 43
+#define HFGWTR_ERXCTLR (1ULL << HFGWTR_ERXCTLR_SHIFT)
+#define HFGWTR_ERRSELR_SHIFT 41
+#define HFGWTR_ERRSELR (1ULL << HFGWTR_ERRSELR_SHIFT)
+#define HFGWTR_ICC_IGRPEN_SHIFT 39
+#define HFGWTR_ICC_IGRPEN (1ULL << HFGWTR_ICC_IGRPEN_SHIFT)
+#define HFGWTR_VBAR_SHIFT 38
+#define HFGWTR_VBAR (1ULL << HFGWTR_VBAR_SHIFT)
+#define HFGWTR_TTBR1_SHIFT 37
+#define HFGWTR_TTBR1 (1ULL << HFGWTR_TTBR1_SHIFT)
+#define HFGWTR_TTBR0_SHIFT 36
+#define HFGWTR_TTBR0 (1ULL << HFGWTR_TTBR0_SHIFT)
+#define HFGWTR_TPIDR_EL0_SHIFT 35
+#define HFGWTR_TPIDR_EL0 (1ULL << HFGWTR_TPIDR_EL0_SHIFT)
+#define HFGWTR_TPIDRRO_SHIFT 34
+#define HFGWTR_TPIDRRO (1ULL << HFGWTR_TPIDRRO_SHIFT)
+#define HFGWTR_TPIDR_EL1_SHIFT 33
+#define HFGWTR_TPIDR_EL1 (1ULL << HFGWTR_TPIDR_EL1_SHIFT)
+#define HFGWTR_TCR_SHIFT 32
+#define HFGWTR_TCR (1ULL << HFGWTR_TCR_SHIFT)
+#define HFGWTR_SCXTNUM_EL0_SHIFT 31
+#define HFGWTR_SCXTNUM_EL0 (1ULL << HFGWTR_SCXTNUM_EL0_SHIFT)
+#define HFGWTR_SCXTNUM_EL1_SHIFT 30
+#define HFGWTR_SCXTNUM_EL1 (1ULL << HFGWTR_SCXTNUM_EL1_SHIFT)
+#define HFGWTR_SCXTNUM_SHIFT 30
+#define HFGWTR_SCXTNUM (1ULL << HFGWTR_SCXTNUM_SHIFT)
+#define HFGWTR_SCTLR_SHIFT 29
+#define HFGWTR_SCTLR (1ULL << HFGWTR_SCTLR_SHIFT)
+#define HFGWTR_PAR_SHIFT 27
+#define HFGWTR_PAR (1ULL << HFGWTR_PAR_SHIFT)
+#define HFGWTR_MAIR_SHIFT 24
+#define HFGWTR_MAIR (1ULL << HFGWTR_MAIR_SHIFT)
+#define HFGWTR_LORSA_SHIFT 23
+#define HFGWTR_LORSA (1ULL << HFGWTR_LORSA_SHIFT)
+#define HFGWTR_LORN_SHIFT 22
+#define HFGWTR_LORN (1ULL << HFGWTR_LORN_SHIFT)
+#define HFGWTR_LOREA_SHIFT 20
+#define HFGWTR_LOREA (1ULL << HFGWTR_LOREA_SHIFT)
+#define HFGWTR_LORC_SHIFT 19
+#define HFGWTR_LORC (1ULL << HFGWTR_LORC_SHIFT)
+#define HFGWTR_FAR_SHIFT 17
+#define HFGWTR_FAR (1ULL << HFGWTR_FAR_SHIFT)
+#define HFGWTR_ESR_SHIFT 16
+#define HFGWTR_ESR (1ULL << HFGWTR_ESR_SHIFT)
+#define HFGWTR_CSSELR_SHIFT 13
+#define HFGWTR_CSSELR (1ULL << HFGWTR_CSSELR_SHIFT)
+#define HFGWTR_CPACR_SHIFT 12
+#define HFGWTR_CPACR (1ULL << HFGWTR_CPACR_SHIFT)
+#define HFGWTR_CONTEXTIDR_SHIFT 11
+#define HFGWTR_CONTEXTIDR (1ULL << HFGWTR_CONTEXTIDR_SHIFT)
+#define HFGWTR_APIBKEY_SHIFT 8
+#define HFGWTR_APIBKEY (1ULL << HFGWTR_APIBKEY_SHIFT)
+#define HFGWTR_APIAKEY_SHIFT 7
+#define HFGWTR_APIAKEY (1ULL << HFGWTR_APIAKEY_SHIFT)
+#define HFGWTR_APGAKEY_SHIFT 6
+#define HFGWTR_APGAKEY (1ULL << HFGWTR_APGAKEY_SHIFT)
+#define HFGWTR_APDBKEY_SHIFT 5
+#define HFGWTR_APDBKEY (1ULL << HFGWTR_APDBKEY_SHIFT)
+#define HFGWTR_APDAKEY_SHIFT 4
+#define HFGWTR_APDAKEY (1ULL << HFGWTR_APDAKEY_SHIFT)
+#define HFGWTR_AMAIR_SHIFT 3
+#define HFGWTR_AMAIR (1ULL << HFGWTR_AMAIR_SHIFT)
+#define HFGWTR_AFSR1_SHIFT 1
+#define HFGWTR_AFSR1 (1ULL << HFGWTR_AFSR1_SHIFT)
+#define HFGWTR_AFSR0_SHIFT 0
+#define HFGWTR_AFSR0 (1ULL << HFGWTR_AFSR0_SHIFT)
 
 /*
  * Monitor Debug System Control Register (MDSCR)
@@ -1128,18 +1407,241 @@
 #define MDSCR_SS                        (1ULL << MDSCR_SS_SHIFT)
 
 /*
+ * Hypervisor Debug Fine-Grained Read Trap Register (HDFGRTR_EL2)
+ */
+#define HDFGRTR_PMBIDR_SHIFT            63
+#define HDFGRTR_PMBIDR                  (1ULL << HDFGRTR_PMBIDR_SHIFT)
+#define HDFGRTR_PMSNEVFR_SHIFT          62
+#define HDFGRTR_PMSNEVFR                (1ULL << HDFGRTR_PMSNEVFR_SHIFT)
+#define HDFGRTR_BRBDATA_SHIFT           61
+#define HDFGRTR_BRBDATA                 (1ULL << HDFGRTR_BRBDATA_SHIFT)
+#define HDFGRTR_BRBCTL_SHIFT            60
+#define HDFGRTR_BRBCTL                  (1ULL << HDFGRTR_BRBCTL_SHIFT)
+#define HDFGRTR_BRBIDR_SHIFT            59
+#define HDFGRTR_BRBIDR                  (1ULL << HDFGRTR_BRBIDR_SHIFT)
+#define HDFGRTR_PMCEID_SHIFT            58
+#define HDFGRTR_PMCEID                  (1ULL << HDFGRTR_PMCEID_SHIFT)
+#define HDFGRTR_PMUSERENR_SHIFT         57
+#define HDFGRTR_PMUSERENR               (1ULL << HDFGRTR_PMUSERENR_SHIFT)
+#define HDFGRTR_TRBTRG_SHIFT            56
+#define HDFGRTR_TRBTRG                  (1ULL << HDFGRTR_TRBTRG_SHIFT)
+#define HDFGRTR_TRBSR_SHIFT             55
+#define HDFGRTR_TRBSR                   (1ULL << HDFGRTR_TRBSR_SHIFT)
+#define HDFGRTR_TRBPTR_SHIFT            54
+#define HDFGRTR_TRBPTR                  (1ULL << HDFGRTR_TRBPTR_SHIFT)
+#define HDFGRTR_TRBMAR_SHIFT            53
+#define HDFGRTR_TRBMAR                  (1ULL << HDFGRTR_TRBMAR_SHIFT)
+#define HDFGRTR_TRBLIMITR_SHIFT         52
+#define HDFGRTR_TRBLIMITR               (1ULL << HDFGRTR_TRBLIMITR_SHIFT)
+#define HDFGRTR_TRBIDR_SHIFT            51
+#define HDFGRTR_TRBIDR                  (1ULL << HDFGRTR_TRBIDR_SHIFT)
+#define HDFGRTR_TRBBASER_SHIFT          50
+#define HDFGRTR_TRBBASER                (1ULL << HDFGRTR_TRBBASER_SHIFT)
+#define HDFGRTR_TRCVICTLR_SHIFT         48
+#define HDFGRTR_TRCVICTLR               (1ULL << HDFGRTR_TRCVICTLR_SHIFT)
+#define HDFGRTR_TRCSTATR_SHIFT          47
+#define HDFGRTR_TRCSTATR                (1ULL << HDFGRTR_TRCSTATR_SHIFT)
+#define HDFGRTR_TRCSSCSR_SHIFT          46
+#define HDFGRTR_TRCSSCSR                (1ULL << HDFGRTR_TRCSSCSR_SHIFT)
+#define HDFGRTR_TRCSEQSTR_SHIFT         45
+#define HDFGRTR_TRCSEQSTR               (1ULL << HDFGRTR_TRCSEQSTR_SHIFT)
+#define HDFGRTR_TRCPRGCTLR_SHIFT        44
+#define HDFGRTR_TRCPRGCTLR              (1ULL << HDFGRTR_TRCPRGCTLR_SHIFT)
+#define HDFGRTR_TRCOSLSR_SHIFT          43
+#define HDFGRTR_TRCOSLSR                (1ULL << HDFGRTR_TRCOSLSR_SHIFT)
+#define HDFGRTR_TRCIMSPEC_SHIFT         41
+#define HDFGRTR_TRCIMSPEC               (1ULL << HDFGRTR_TRCIMSPEC_SHIFT)
+#define HDFGRTR_TRCID_SHIFT             40
+#define HDFGRTR_TRCID                   (1ULL << HDFGRTR_TRCID_SHIFT)
+#define HDFGRTR_TRCCNTVR_SHIFT          37
+#define HDFGRTR_TRCCNTVR                (1ULL << HDFGRTR_TRCCNTVR_SHIFT)
+#define HDFGRTR_TRCCLAIM_SHIFT          36
+#define HDFGRTR_TRCCLAIM                (1ULL << HDFGRTR_TRCCLAIM_SHIFT)
+#define HDFGRTR_TRCAUXCTLR_SHIFT        35
+#define HDFGRTR_TRCAUXCTLR              (1ULL << HDFGRTR_TRCAUXCTLR_SHIFT)
+#define HDFGRTR_TRCAUTHSTATUS_SHIFT     34
+#define HDFGRTR_TRCAUTHSTATUS           (1ULL << HDFGRTR_TRCAUTHSTATUS_SHIFT)
+#define HDFGRTR_TRC_SHIFT               33
+#define HDFGRTR_TRC                     (1ULL << HDFGRTR_TRC_SHIFT)
+#define HDFGRTR_PMSLATFR_SHIFT          32
+#define HDFGRTR_PMSLATFR                (1ULL << HDFGRTR_PMSLATFR_SHIFT)
+#define HDFGRTR_PMSIRR_SHIFT            31
+#define HDFGRTR_PMSIRR                  (1ULL << HDFGRTR_PMSIRR_SHIFT)
+#define HDFGRTR_PMSIDR_SHIFT            30
+#define HDFGRTR_PMSIDR                  (1ULL << HDFGRTR_PMSIDR_SHIFT)
+#define HDFGRTR_PMSICR_SHIFT            29
+#define HDFGRTR_PMSICR                  (1ULL << HDFGRTR_PMSICR_SHIFT)
+#define HDFGRTR_PMSFCR_SHIFT            28
+#define HDFGRTR_PMSFCR                  (1ULL << HDFGRTR_PMSFCR_SHIFT)
+#define HDFGRTR_PMSEVFR_SHIFT           27
+#define HDFGRTR_PMSEVFR                 (1ULL << HDFGRTR_PMSEVFR_SHIFT)
+#define HDFGRTR_PMSCR_SHIFT             26
+#define HDFGRTR_PMSCR                   (1ULL << HDFGRTR_PMSCR_SHIFT)
+#define HDFGRTR_PMBSR_SHIFT             25
+#define HDFGRTR_PMBSR                   (1ULL << HDFGRTR_PMBSR_SHIFT)
+#define HDFGRTR_PMBPTR_SHIFT            24
+#define HDFGRTR_PMBPTR                  (1ULL << HDFGRTR_PMBPTR_SHIFT)
+#define HDFGRTR_PMBLIMITR_SHIFT         23
+#define HDFGRTR_PMBLIMITR               (1ULL << HDFGRTR_PMBLIMITR_SHIFT)
+#define HDFGRTR_PMMIR_SHIFT             22
+#define HDFGRTR_PMMIR                   (1ULL << HDFGRTR_PMMIR_SHIFT)
+#define HDFGRTR_PMSELR_SHIFT            19
+#define HDFGRTR_PMSELR                  (1ULL << HDFGRTR_PMSELR_SHIFT)
+#define HDFGRTR_PMOVS_SHIFT             18
+#define HDFGRTR_PMOVS                   (1ULL << HDFGRTR_PMOVS_SHIFT)
+#define HDFGRTR_PMINTEN_SHIFT           17
+#define HDFGRTR_PMINTEN                 (1ULL << HDFGRTR_PMINTEN_SHIFT)
+#define HDFGRTR_PMCNTEN_SHIFT           16
+#define HDFGRTR_PMCNTEN                 (1ULL << HDFGRTR_PMCNTEN_SHIFT)
+#define HDFGRTR_PMCCNTR_SHIFT           15
+#define HDFGRTR_PMCCNTR                 (1ULL << HDFGRTR_PMCCNTR_SHIFT)
+#define HDFGRTR_PMCCFILTR_SHIFT         14
+#define HDFGRTR_PMCCFILTR               (1ULL << HDFGRTR_PMCCFILTR_SHIFT)
+#define HDFGRTR_PMEVTYPER_SHIFT         13
+#define HDFGRTR_PMEVTYPER               (1ULL << HDFGRTR_PMEVTYPER_SHIFT)
+#define HDFGRTR_PMEVCNTR_SHIFT          12
+#define HDFGRTR_PMEVCNTR                (1ULL << HDFGRTR_PMEVCNTR_SHIFT)
+#define HDFGRTR_OSDLR_SHIFT             11
+#define HDFGRTR_OSDLR                   (1ULL << HDFGRTR_OSDLR_SHIFT)
+#define HDFGRTR_OSECCR_SHIFT            10
+#define HDFGRTR_OSECCR                  (1ULL << HDFGRTR_OSECCR_SHIFT)
+#define HDFGRTR_OSLSR_SHIFT             9
+#define HDFGRTR_OSLSR                   (1ULL << HDFGRTR_OSLSR_SHIFT)
+#define HDFGRTR_DBGPRCR_SHIFT           7
+#define HDFGRTR_DBGPRCR                 (1ULL << HDFGRTR_DBGPRCR_SHIFT)
+#define HDFGRTR_DBGAUTHSTATUS_SHIFT     6
+#define HDFGRTR_DBGAUTHSTATUS           (1ULL << HDFGRTR_DBGAUTHSTATUS_SHIFT)
+#define HDFGRTR_DBGCLAIM_SHIFT          5
+#define HDFGRTR_DBGCLAIM                (1ULL << HDFGRTR_DBGCLAIM_SHIFT)
+#define HDFGRTR_MDSCR_SHIFT             4
+#define HDFGRTR_MDSCR                   (1ULL << HDFGRTR_MDSCR_SHIFT)
+#define HDFGRTR_DBGWVR_SHIFT            3
+#define HDFGRTR_DBGWVR                  (1ULL << HDFGRTR_DBGWVR_SHIFT)
+#define HDFGRTR_DBGWCR_SHIFT            2
+#define HDFGRTR_DBGWCR                  (1ULL << HDFGRTR_DBGWCR_SHIFT)
+#define HDFGRTR_DBGBVR_SHIFT            1
+#define HDFGRTR_DBGBVR                  (1ULL << HDFGRTR_DBGBVR_SHIFT)
+#define HDFGRTR_DBGBCR_SHIFT            0
+#define HDFGRTR_DBGBCR                  (1ULL << HDFGRTR_DBGBCR_SHIFT)
+
+/*
+ * Hypervisor Debug Fine-Grained Write Trap Register (HDFGWTR_EL2)
+ */
+#define HDFGWTR_PMSNEVFR_SHIFT          62
+#define HDFGWTR_PMSNEVFR                (1ULL << HDFGWTR_PMSNEVFR_SHIFT)
+#define HDFGWTR_BRBDATA_SHIFT           61
+#define HDFGWTR_BRBDATA                 (1ULL << HDFGWTR_BRBDATA_SHIFT)
+#define HDFGWTR_BRBCTL_SHIFT            60
+#define HDFGWTR_BRBCTL                  (1ULL << HDFGWTR_BRBCTL_SHIFT)
+#define HDFGWTR_PMUSERENR_SHIFT         57
+#define HDFGWTR_PMUSERENR               (1ULL << HDFGWTR_PMUSERENR_SHIFT)
+#define HDFGWTR_TRBTRG_SHIFT            56
+#define HDFGWTR_TRBTRG                  (1ULL << HDFGWTR_TRBTRG_SHIFT)
+#define HDFGWTR_TRBSR_SHIFT             55
+#define HDFGWTR_TRBSR                   (1ULL << HDFGWTR_TRBSR_SHIFT)
+#define HDFGWTR_TRBPTR_SHIFT            54
+#define HDFGWTR_TRBPTR                  (1ULL << HDFGWTR_TRBPTR_SHIFT)
+#define HDFGWTR_TRBMAR_SHIFT            53
+#define HDFGWTR_TRBMAR                  (1ULL << HDFGWTR_TRBMAR_SHIFT)
+#define HDFGWTR_TRBLIMITR_SHIFT         52
+#define HDFGWTR_TRBLIMITR               (1ULL << HDFGWTR_TRBLIMITR_SHIFT)
+#define HDFGWTR_TRBBASER_SHIFT          50
+#define HDFGWTR_TRBBASER                (1ULL << HDFGWTR_TRBBASER_SHIFT)
+#define HDFGWTR_TRFCR_SHIFT             49
+#define HDFGWTR_TRFCR                   (1ULL << HDFGWTR_TRFCR_SHIFT)
+#define HDFGWTR_TRCVICTLR_SHIFT         48
+#define HDFGWTR_TRCVICTLR               (1ULL << HDFGWTR_TRCVICTLR_SHIFT)
+#define HDFGWTR_TRCSSCSR_SHIFT          46
+#define HDFGWTR_TRCSSCSR                (1ULL << HDFGWTR_TRCSSCSR_SHIFT)
+#define HDFGWTR_TRCSEQSTR_SHIFT         45
+#define HDFGWTR_TRCSEQSTR               (1ULL << HDFGWTR_TRCSEQSTR_SHIFT)
+#define HDFGWTR_TRCPRGCTLR_SHIFT        44
+#define HDFGWTR_TRCPRGCTLR              (1ULL << HDFGWTR_TRCPRGCTLR_SHIFT)
+#define HDFGWTR_TRCOSLAR_SHIFT          42
+#define HDFGWTR_TRCOSLAR                (1ULL << HDFGWTR_TRCOSLAR_SHIFT)
+#define HDFGWTR_TRCIMSPEC_SHIFT         41
+#define HDFGWTR_TRCIMSPEC               (1ULL << HDFGWTR_TRCIMSPEC_SHIFT)
+#define HDFGWTR_TRCCNTVR_SHIFT          37
+#define HDFGWTR_TRCCNTVR                (1ULL << HDFGWTR_TRCCNTVR_SHIFT)
+#define HDFGWTR_TRCCLAIM_SHIFT          36
+#define HDFGWTR_TRCCLAIM                (1ULL << HDFGWTR_TRCCLAIM_SHIFT)
+#define HDFGWTR_TRCAUXCTLR_SHIFT        35
+#define HDFGWTR_TRCAUXCTLR              (1ULL << HDFGWTR_TRCAUXCTLR_SHIFT)
+#define HDFGWTR_TRC_SHIFT               33
+#define HDFGWTR_TRC                     (1ULL << HDFGWTR_TRC_SHIFT)
+#define HDFGWTR_PMSLATFR_SHIFT          32
+#define HDFGWTR_PMSLATFR                (1ULL << HDFGWTR_PMSLATFR_SHIFT)
+#define HDFGWTR_PMSIRR_SHIFT            31
+#define HDFGWTR_PMSIRR                  (1ULL << HDFGWTR_PMSIRR_SHIFT)
+#define HDFGWTR_PMSICR_SHIFT            29
+#define HDFGWTR_PMSICR                  (1ULL << HDFGWTR_PMSICR_SHIFT)
+#define HDFGWTR_PMSFCR_SHIFT            28
+#define HDFGWTR_PMSFCR                  (1ULL << HDFGWTR_PMSFCR_SHIFT)
+#define HDFGWTR_PMSEVFR_SHIFT           27
+#define HDFGWTR_PMSEVFR                 (1ULL << HDFGWTR_PMSEVFR_SHIFT)
+#define HDFGWTR_PMSCR_SHIFT             26
+#define HDFGWTR_PMSCR                   (1ULL << HDFGWTR_PMSCR_SHIFT)
+#define HDFGWTR_PMBSR_SHIFT             25
+#define HDFGWTR_PMBSR                   (1ULL << HDFGWTR_PMBSR_SHIFT)
+#define HDFGWTR_PMBPTR_SHIFT            24
+#define HDFGWTR_PMBPTR                  (1ULL << HDFGWTR_PMBPTR_SHIFT)
+#define HDFGWTR_PMBLIMITR_SHIFT         23
+#define HDFGWTR_PMBLIMITR               (1ULL << HDFGWTR_PMBLIMITR_SHIFT)
+#define HDFGWTR_PMCR_SHIFT              21
+#define HDFGWTR_PMCR                    (1ULL << HDFGWTR_PMCR_SHIFT)
+#define HDFGWTR_PMSWINC_SHIFT           20
+#define HDFGWTR_PMSWINC                 (1ULL << HDFGWTR_PMSWINC_SHIFT)
+#define HDFGWTR_PMSELR_SHIFT            19
+#define HDFGWTR_PMSELR                  (1ULL << HDFGWTR_PMSELR_SHIFT)
+#define HDFGWTR_PMOVS_SHIFT             18
+#define HDFGWTR_PMOVS                   (1ULL << HDFGWTR_PMOVS_SHIFT)
+#define HDFGWTR_PMINTEN_SHIFT           17
+#define HDFGWTR_PMINTEN                 (1ULL << HDFGWTR_PMINTEN_SHIFT)
+#define HDFGWTR_PMCNTEN_SHIFT           16
+#define HDFGWTR_PMCNTEN                 (1ULL << HDFGWTR_PMCNTEN_SHIFT)
+#define HDFGWTR_PMCCNTR_SHIFT           15
+#define HDFGWTR_PMCCNTR                 (1ULL << HDFGWTR_PMCCNTR_SHIFT)
+#define HDFGWTR_PMCCFILTR_SHIFT         14
+#define HDFGWTR_PMCCFILTR               (1ULL << HDFGWTR_PMCCFILTR_SHIFT)
+#define HDFGWTR_PMEVTYPER_SHIFT         13
+#define HDFGWTR_PMEVTYPER               (1ULL << HDFGWTR_PMEVTYPER_SHIFT)
+#define HDFGWTR_PMEVCNTR_SHIFT          12
+#define HDFGWTR_PMEVCNTR                (1ULL << HDFGWTR_PMEVCNTR_SHIFT)
+#define HDFGWTR_OSDLR_SHIFT             11
+#define HDFGWTR_OSDLR                   (1ULL << HDFGWTR_OSDLR_SHIFT)
+#define HDFGWTR_OSECCR_SHIFT            10
+#define HDFGWTR_OSECCR                  (1ULL << HDFGWTR_OSECCR_SHIFT)
+#define HDFGWTR_OSLAR_SHIFT             8
+#define HDFGWTR_OSLAR                   (1ULL << HDFGWTR_OSLAR_SHIFT)
+#define HDFGWTR_DBGPRCR_SHIFT           7
+#define HDFGWTR_DBGPRCR                 (1ULL << HDFGWTR_DBGPRCR_SHIFT)
+#define HDFGWTR_DBGCLAIM_SHIFT          5
+#define HDFGWTR_DBGCLAIM                (1ULL << HDFGWTR_DBGCLAIM_SHIFT)
+#define HDFGWTR_MDSCR_SHIFT             4
+#define HDFGWTR_MDSCR                   (1ULL << HDFGWTR_MDSCR_SHIFT)
+#define HDFGWTR_DBGWVR_SHIFT            3
+#define HDFGWTR_DBGWVR                  (1ULL << HDFGWTR_DBGWVR_SHIFT)
+#define HDFGWTR_DBGWCR_SHIFT            2
+#define HDFGWTR_DBGWCR                  (1ULL << HDFGWTR_DBGWCR_SHIFT)
+#define HDFGWTR_DBGBVR_SHIFT            1
+#define HDFGWTR_DBGBVR                  (1ULL << HDFGWTR_DBGBVR_SHIFT)
+#define HDFGWTR_DBGBCR_SHIFT            0
+#define HDFGWTR_DBGBCR                  (1ULL << HDFGWTR_DBGBCR_SHIFT)
+
+/*
  * Translation Table Base Register (TTBR)
  *
- *  63    48 47               x x-1  0
- * +--------+------------------+------+
- * |  ASID  |   Base Address   | zero |
- * +--------+------------------+------+
+ *  63    48 47               x x-1  1   0
+ * +--------+------------------+------+---+
+ * |  ASID  |   Base Address   | zero |CnP|
+ * +--------+------------------+------+---+
  *
  */
 #define TTBR_ASID_SHIFT 48
 #define TTBR_ASID_MASK  0xffff000000000000
 
-#define TTBR_BADDR_MASK 0x0000ffffffffffff
+#define TTBR_BADDR_MASK 0x0000fffffffffffe
+#define TTBR_CNP        0x0000000000000001
 
 /*
  * Memory Attribute Indirection Register
@@ -1248,7 +1750,7 @@
 #if HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM
 #define CACHE_ATTRINDX_RT CACHE_ATTRINDX_WRITECOMB
 #else
-#define CACHE_ATTRINDX_RT CACHE_ATTRINDX_DISABLE
+#define CACHE_ATTRINDX_RT CACHE_ATTRINDX_POSTED_COMBINED_REORDERED
 #endif /* HAS_UCNORMAL_MEM || APPLEVIRTUALPLATFORM */
 
 
@@ -1329,32 +1831,28 @@
 #define ARM_16K_TT_L1_SIZE       0x0000001000000000ULL /* size of area covered by a tte */
 #define ARM_16K_TT_L1_OFFMASK    0x0000000fffffffffULL /* offset within an L1 entry */
 #define ARM_16K_TT_L1_SHIFT      36                    /* page descriptor shift */
-#if __ARM64_PMAP_SUBPAGE_L1__ && __ARM_16K_PG__
-/* This config supports 512GB per TTBR. */
-#define ARM_16K_TT_L1_INDEX_MASK 0x0000007000000000ULL /* mask for getting index into L1 table from virtual address */
-#else /* __ARM64_PMAP_SUBPAGE_L1__ */
-#define ARM_16K_TT_L1_INDEX_MASK 0x00007ff000000000ULL /* mask for getting index into L1 table from virtual address */
-#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+#define ARM_16K_TT_L1_INDEX_MASK 0x00007ff000000000ULL
 
 /* 4K L1 */
 #define ARM_4K_TT_L1_SIZE       0x0000000040000000ULL /* size of area covered by a tte */
 #define ARM_4K_TT_L1_OFFMASK    0x000000003fffffffULL /* offset within an L1 entry */
 #define ARM_4K_TT_L1_SHIFT      30                    /* page descriptor shift */
-#if __ARM64_PMAP_SUBPAGE_L1__ && !__ARM_16K_PG__
-/* This config supports 256GB per TTBR. */
-#define ARM_4K_TT_L1_INDEX_MASK 0x0000003fc0000000ULL /* mask for getting index into L1 table from virtual address */
-#else /* __ARM64_PMAP_SUBPAGE_L1__ */
-/* IPA[38:30] mask for getting index into L1 table from virtual address */
+
 #define ARM_4K_TT_L1_INDEX_MASK 0x0000007fc0000000ULL
+/*
+ * Enable concatenated tables if:
+ * 1. We have a 42-bit PA, and
+ * 2. Either we're using 4k pages or mixed mode is supported.
+ */
 #if __ARM_42BIT_PA_SPACE__
+#if !__ARM_16K_PG__ || __ARM_MIXED_PAGE_SIZE__
 /* IPA[39:30] mask for getting index into L1 concatenated table from virtual address */
 #define ARM_4K_TT_L1_40_BIT_CONCATENATED_INDEX_MASK 0x000000ffc0000000ULL
+#endif /* !__ARM_16K_PG__ || __ARM_MIXED_PAGE_SIZE__ */
 #endif /* __ARM_42BIT_PA_SPACE__ */
-#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
 
 /* some sugar for getting pointers to page tables and entries */
-
-#define L1_TABLE_INDEX(va) (((va) & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT)
+#define L1_TABLE_T1_INDEX(va, tcr) (((va) & ARM_PTE_T1_REGION_MASK(tcr)) >> ARM_TT_L1_SHIFT)
 #define L2_TABLE_INDEX(va) (((va) & ARM_TT_L2_INDEX_MASK) >> ARM_TT_L2_SHIFT)
 #define L3_TABLE_INDEX(va) (((va) & ARM_TT_L3_INDEX_MASK) >> ARM_TT_L3_SHIFT)
 
@@ -1588,6 +2086,16 @@
 #define ARM_TTE_TYPE_BLOCK          0x0000000000000000ULL          /* block entry type */
 #define ARM_TTE_TYPE_L3BLOCK        0x0000000000000002ULL
 
+/* Base AttrIndx transforms */
+#define ARM_TTE_ATTRINDXSHIFT           (2)
+#define ARM_TTE_ATTRINDXBITS            (0x7ULL)
+#define ARM_TTE_ATTRINDX(x)             (((x) & ARM_TTE_ATTRINDXBITS) << ARM_TTE_ATTRINDXSHIFT)  /* memory attributes index */
+#define ARM_TTE_EXTRACT_ATTRINDX(x)     (((x) >> ARM_TTE_ATTRINDXSHIFT) & ARM_TTE_ATTRINDXBITS)  /* extract memory attributes index */
+#define ARM_TTE_ATTRINDXMASK            ARM_TTE_ATTRINDX(ARM_TTE_ATTRINDXBITS)                   /* mask memory attributes index */
+#define ARM_TTE_ATTRINDX_AIE(x)         0ULL
+#define ARM_TTE_ATTRINDXMASK_AIE        0ULL
+#define ARM_TTE_EXTRACT_ATTRINDX_AIE(x) 0ULL
+
 #ifdef __ARM_16K_PG__
 /*
  * Note that L0/L1 block entries are disallowed for the 16KB granule size; what
@@ -1612,8 +2120,8 @@
 #define ARM_TTE_BLOCK_AP(x)         ((x)<<ARM_TTE_BLOCK_APSHIFT)   /* access protection */
 #define ARM_TTE_BLOCK_APMASK        (0x3 << ARM_TTE_BLOCK_APSHIFT)
 
-#define ARM_TTE_BLOCK_ATTRINDX(x)   ((x) << 2)                     /* memory attributes index */
-#define ARM_TTE_BLOCK_ATTRINDXMASK  (0x7ULL << 2)                  /* mask memory attributes index */
+#define ARM_TTE_BLOCK_ATTRINDX(x)   (ARM_TTE_ATTRINDX_AIE(x) | ARM_TTE_ATTRINDX(x))   /* memory attributes index */
+#define ARM_TTE_BLOCK_ATTRINDXMASK  (ARM_TTE_ATTRINDXMASK_AIE | ARM_TTE_ATTRINDXMASK) /* mask memory attributes index */
 
 #define ARM_TTE_BLOCK_SH(x)         ((x) << 8)                     /* access shared */
 #define ARM_TTE_BLOCK_SHMASK        (0x3ULL << 8)                  /* mask access shared */
@@ -1642,6 +2150,7 @@
 #define ARM_TTE_TABLE_MASK          0x0000fffffffff000ULL          /* mask for extracting pointer to next table (works at any level) */
 
 #define ARM_TTE_TABLE_APSHIFT       61
+#define ARM_TTE_TABLE_AP_MASK       (0x3ULL << ARM_TTE_TABLE_APSHIFT)
 #define ARM_TTE_TABLE_AP_NO_EFFECT  0x0ULL
 #define ARM_TTE_TABLE_AP_USER_NA    0x1ULL
 #define ARM_TTE_TABLE_AP_RO         0x2ULL
@@ -1656,6 +2165,22 @@
 
 #define ARM_TTE_TABLE_PXN           0x0800000000000000ULL          /* value for privilege no execute bit */
 #define ARM_TTE_TABLE_PXNMASK       0x0800000000000000ULL          /* privilege execute mask */
+
+/** Software use TTE bits which the kernel actually uses. */
+#define ARM_TTE_TABLE_SW_RESERVED_MASK (0x0000000000000000ULL)
+
+/**
+ * Table TTE bits which must be set to zero by software when the TTE is valid.
+ */
+#define ARM_TTE_TABLE_RESERVED_MASK \
+	(~(ARM_TTE_VALID | \
+	   ARM_TTE_TYPE_MASK | \
+	   ARM_TTE_TABLE_MASK  | \
+	   ARM_TTE_TABLE_SW_RESERVED_MASK | \
+	   ARM_TTE_TABLE_PXNMASK | \
+	   ARM_TTE_TABLE_XNMASK | \
+	   ARM_TTE_TABLE_AP_MASK | \
+	   ARM_TTE_TABLE_NS_MASK))
 
 #if __ARM_KERNEL_PROTECT__
 #define ARM_TTE_BOOT_BLOCK_LOWER \
@@ -1695,7 +2220,14 @@
 #define ARM_PTE_MASK    0x0000fffffffff000ULL /* mask for output address in PTE */
 #endif
 
+#define ARM_PTE_T0SZ(TCR) (((TCR) >> TCR_T0SZ_SHIFT) & TCR_T0SZ_MASK)
+#define ARM_PTE_T1SZ(TCR) (((TCR) >> TCR_T1SZ_SHIFT) & TCR_T1SZ_MASK)
+#define ARM_PTE_REGION_MASK(SZ) ((1ULL << (64 - (SZ))) - 1)
 #define ARM_TTE_PA_MASK 0x0000fffffffff000ULL
+
+/* Handle Page table address bits in a TCR-aware way. */
+#define ARM_PTE_T0_REGION_MASK(TCR) (ARM_PTE_REGION_MASK(ARM_PTE_T0SZ(TCR)))
+#define ARM_PTE_T1_REGION_MASK(TCR) (ARM_PTE_REGION_MASK(ARM_PTE_T1SZ(TCR)))
 
 /*
  * L3 Page table entries
@@ -1753,9 +2285,9 @@
 #define ARM_PTE_APMASK             (0x3ULL << 6)         /* mask access protections */
 #define ARM_PTE_EXTRACT_AP(x)      (((x) >> 6) & 0x3ULL) /* extract access protections from PTE */
 
-#define ARM_PTE_ATTRINDX(x)        (uint64_t)((x) << 2)  /* memory attributes index */
-#define ARM_PTE_ATTRINDXMASK       (0x7ULL << 2)         /* mask memory attributes index */
-#define ARM_PTE_EXTRACT_ATTRINDX(x) (((x) >> 2) & 0x7ULL) /* extract memory attributes index */
+#define ARM_PTE_ATTRINDX(x)         (uint64_t)(ARM_TTE_ATTRINDX_AIE(x) | ARM_TTE_ATTRINDX(x))       /* memory attributes index */
+#define ARM_PTE_ATTRINDXMASK        (ARM_TTE_ATTRINDXMASK_AIE | ARM_TTE_ATTRINDXMASK)               /* mask memory attributes index */
+#define ARM_PTE_EXTRACT_ATTRINDX(x) (ARM_TTE_EXTRACT_ATTRINDX_AIE(x) | ARM_TTE_EXTRACT_ATTRINDX(x)) /* extract memory attributes index */
 
 #define ARM_PTE_SH(x)              ((x) << 8)            /* access shared */
 #define ARM_PTE_SHMASK             (0x3ULL << 8)         /* mask access shared */
@@ -1806,10 +2338,29 @@
 #define ARM_PTE_WIRED_MASK         0x0400000000000000ULL /* software wired mask */
 
 #define ARM_PTE_WRITEABLE          0x0800000000000000ULL /* value for software writeable bit */
-#define ARM_PTE_WRITABLE           ARM_PTE_WRITEABLE
 #define ARM_PTE_WRITEABLE_MASK     0x0800000000000000ULL /* software writeable mask */
+#define ARM_PTE_WRITABLE           ARM_PTE_WRITEABLE
 
+/** Software use PTE bits which the kernel actually uses. */
 #define ARM_PTE_SW_RESERVED_MASK   (ARM_PTE_WIRED_MASK | ARM_PTE_WRITEABLE_MASK)
+
+/**
+ * PTE bits which must be set to zero by software when the PTE is valid.
+ */
+#define ARM_PTE_RESERVED_MASK \
+	(~(ARM_PTE_TYPE_MASK | \
+	   ARM_PTE_ATTRINDXMASK | \
+	   ARM_PTE_NS_MASK | \
+	   ARM_PTE_APMASK | \
+	   ARM_PTE_SHMASK | \
+	   ARM_PTE_AFMASK | \
+	   ARM_PTE_NG_MASK | \
+	   ARM_PTE_PAGE_MASK  | \
+	   ARM_PTE_GP_MASK | \
+	   ARM_PTE_HINT_MASK | \
+	   ARM_PTE_PNXMASK | \
+	   ARM_PTE_NXMASK | \
+	   ARM_PTE_SW_RESERVED_MASK))
 
 #define ARM_PTE_BOOT_PAGE_BASE \
 	(ARM_PTE_TYPE_VALID | ARM_PTE_SH(SH_OUTER_MEMORY) |       \
@@ -2056,6 +2607,17 @@ typedef enum {
  */
 #define ISS_DA_FNV_SHIFT 10
 #define ISS_DA_FNV      (0x1 << ISS_DA_FNV_SHIFT)
+
+#define ISS_DA_ISV_SHIFT 24
+#define ISS_DA_ISV       (0x1 << ISS_DA_ISV_SHIFT)
+
+#define ISS_DA_SAS_MASK  0x3
+#define ISS_DA_SAS_SHIFT 22
+#define ISS_DA_SAS(x)    (((x) >> ISS_DA_SAS_SHIFT) & ISS_DA_SAS_MASK)
+
+#define ISS_DA_SRT_MASK  0x1f
+#define ISS_DA_SRT_SHIFT 16
+#define ISS_DA_SRT(x)    (((x) >> ISS_DA_SRT_SHIFT) & ISS_DA_SRT_MASK)
 
 #define ISS_DA_EA_SHIFT  9
 #define ISS_DA_EA        (0x1 << ISS_DA_EA_SHIFT)
@@ -2318,6 +2880,8 @@ typedef enum {
 #define MIDR_BRAVA_ACCP    (0x055 << MIDR_EL1_PNUM_SHIFT)
 
 
+
+
 /*
  * Apple-ISA-Extensions ID Register.
  */
@@ -2339,6 +2903,7 @@ typedef enum {
 #define CORESIGHT_OFFSET(x) ((x) * 0x10000)
 #define CORESIGHT_REGIONS   4
 #define CORESIGHT_SIZE      0x1000
+
 
 
 
@@ -2479,6 +3044,7 @@ typedef enum {
  * +------+------+------+------+-------+-------+------+
  */
 
+
 #define ID_AA64ISAR2_EL1_CSSC_OFFSET    52
 #define ID_AA64ISAR2_EL1_CSSC_MASK      (0xfull << ID_AA64ISAR2_EL1_CSSC_OFFSET)
 #define ID_AA64ISAR2_EL1_CSSC_EN        (1ull << ID_AA64ISAR2_EL1_CSSC_OFFSET)
@@ -2494,6 +3060,7 @@ typedef enum {
 #define ID_AA64ISAR2_EL1_WFxT_OFFSET    0
 #define ID_AA64ISAR2_EL1_WFxT_MASK      (0xfull << ID_AA64ISAR2_EL1_WFxT_OFFSET)
 #define ID_AA64ISAR2_EL1_WFxT_EN        (1ull << ID_AA64ISAR2_EL1_WFxT_OFFSET)
+
 
 /*
  * ID_AA64MMFR0_EL1 - AArch64 Memory Model Feature Register 0
@@ -2520,6 +3087,10 @@ typedef enum {
 #define ID_AA64MMFR2_EL1_AT_LSE2_EN     (1ull << ID_AA64MMFR2_EL1_AT_OFFSET)
 #define ID_AA64MMFR2_EL1_VARANGE_OFFSET 16
 #define ID_AA64MMFR2_EL1_VARANGE_MASK   (0xfull << ID_AA64MMFR2_EL1_VARANGE_OFFSET)
+
+#define ID_AA64MMFR2_EL1_CNP_OFFSET     0
+#define ID_AA64MMFR2_EL1_CNP_MASK       (0xfull << ID_AA64MMFR2_EL1_CNP_OFFSET)
+#define ID_AA64MMFR2_EL1_CNP_EN         (1ull << ID_AA64MMFR2_EL1_CNP_OFFSET)
 
 /*
  * ID_AA64PFR0_EL1 - AArch64 Processor Feature Register 0
@@ -2583,6 +3154,7 @@ typedef enum {
 
 
 
+
 /*
  * ID_AA64MMFR1_EL1 - AArch64 Memory Model Feature Register 1
  *
@@ -2609,6 +3181,7 @@ typedef enum {
  * +------+------+--------+--------+------+--------+--------+------+-------+--------+--------+---------+--------+------+
  */
 
+
 #define ID_AA64SMFR0_EL1_SMEver_OFFSET  56
 #define ID_AA64SMFR0_EL1_SMEver_MASK    (0xfull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
 #define ID_AA64SMFR0_EL1_SMEver_SME     (0ull << ID_AA64SMFR0_EL1_SMEver_OFFSET)
@@ -2625,6 +3198,7 @@ typedef enum {
 #define ID_AA64SMFR0_EL1_I16I32_OFFSET  44
 #define ID_AA64SMFR0_EL1_I16I32_MASK    (0xfull << ID_AA64SMFR0_EL1_I16I32_OFFSET)
 #define ID_AA64SMFR0_EL1_I16I32_EN      (0x5ull << ID_AA64SMFR0_EL1_I16I32_OFFSET)
+
 
 
 #define ID_AA64SMFR0_EL1_I8I32_OFFSET   36
@@ -2691,6 +3265,10 @@ typedef enum {
 #define CTR_EL0_L1Ip_PIPT (3ULL << CTR_EL0_L1Ip_OFFSET)
 #define CTR_EL0_L1Ip_MASK (3ULL << CTR_EL0_L1Ip_OFFSET)
 
+
+#define ACNTHV_CTL_EL2                          S3_1_C15_C7_4
+#define ACNTHV_CTL_EL2_EN_OFFSET                0
+#define ACNTHV_CTL_EL2_EN_MASK                  (1ULL << ACNTHV_CTL_EL2_EN_OFFSET)
 
 #ifdef __ASSEMBLER__
 
@@ -3032,4 +3610,8 @@ nop
 #endif
 
 
+#if HAS_ESB
+#define DISR_A_SHIFT 31
+#define DISR_A       (1ULL << DISR_A_SHIFT)
+#endif
 #endif /* _ARM64_PROC_REG_H_ */

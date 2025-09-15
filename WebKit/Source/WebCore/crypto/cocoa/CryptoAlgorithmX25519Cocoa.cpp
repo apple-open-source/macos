@@ -47,10 +47,10 @@ static std::optional<Vector<uint8_t>> deriveBitsCoreCrypto(const Vector<uint8_t>
     ccec25519pubkey derivedKey;
     static_assert(sizeof(derivedKey) == ed25519KeySize);
 #if HAVE(CORE_CRYPTO_SIGNATURES_INT_RETURN_VALUE)
-    if (cccurve25519(derivedKey, baseKey.data(), publicKey.data()))
+    if (cccurve25519(derivedKey, baseKey.span().data(), publicKey.span().data()))
         return std::nullopt;
 #else
-    cccurve25519(derivedKey, baseKey.data(), publicKey.data());
+    cccurve25519(derivedKey, baseKey.span().data(), publicKey.span().data());
 #endif
     return Vector<uint8_t>(std::span { derivedKey });
 }

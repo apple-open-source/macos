@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,9 +30,11 @@
 
 #include "InbandTextTrackPrivate.h"
 #include "InbandTextTrackPrivateClient.h"
+#include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/TZoneMalloc.h>
 
 typedef const struct opaqueCMFormatDescription* CMFormatDescriptionRef;
+typedef struct opaqueCMSampleBuffer* CMSampleBufferRef;
 
 namespace JSC {
 class ArrayBuffer;
@@ -40,24 +42,23 @@ class ArrayBuffer;
 
 namespace WebCore {
 
-class AVFInbandTrackParent {
-public:
-    virtual ~AVFInbandTrackParent();
-    
-    virtual void trackModeChanged() = 0;
-};
-
 class InbandTextTrackPrivateAVF : public InbandTextTrackPrivate {
     WTF_MAKE_TZONE_ALLOCATED(InbandTextTrackPrivateAVF);
 public:
     virtual ~InbandTextTrackPrivateAVF();
 
     TrackID id() const final { return m_trackID; }
+    Kind kind() const override { return m_kind; }
+    AtomString label() const override { return m_label; }
+    AtomString language() const override { return m_language; }
 
-    void setMode(InbandTextTrackPrivate::Mode) override;
+    void setMode(InbandTextTrackPrivate::Mode) final;
 
-    int trackIndex() const override { return m_index; }
+    int trackIndex() const final { return m_index; }
     void setTextTrackIndex(int index) { m_index = index; }
+
+    virtual bool isOutOfBandTextTrackPrivateAVF() const { return false; }
+    virtual bool isInbandTextTrackPrivateAVFObjC() const { return false; }
 
     virtual void disconnect();
 
@@ -78,16 +79,24 @@ public:
     };
     virtual Category textTrackCategory() const = 0;
     
-    MediaTime startTimeVariance() const override { return MediaTime(1, 4); }
+    MediaTime startTimeVariance() const final { return MediaTime(1, 4); }
 
-    virtual bool readNativeSampleBuffer(CFArrayRef nativeSamples, CFIndex, RefPtr<JSC::ArrayBuffer>&, MediaTime&, CMFormatDescriptionRef&);
-    
+    InbandTextTrackType inbandTextTrackType() const override { return InbandTextTrackType::AVFTrack; }
+    void processVTTSample(CMSampleBufferRef, const MediaTime&);
+
+    using ModeChangedCallback = Function<void()>;
+
 protected:
-    InbandTextTrackPrivateAVF(AVFInbandTrackParent*, TrackID, CueFormat);
+    InbandTextTrackPrivateAVF(TrackID, CueFormat, ModeChangedCallback&&);
+
+    void setKind(Kind kind) { m_kind = kind; }
+    void setId(TrackID newId) { m_trackID = newId; }
+    void setLabel(const AtomString& label) { m_label = label; }
+    void setLanguage(const AtomString& language) { m_language = language; }
 
     Ref<InbandGenericCue> processCueAttributes(CFAttributedStringRef);
     void processAttributedStrings(CFArrayRef, const MediaTime&);
-    void processNativeSamples(CFArrayRef, const MediaTime&);
+    void processVTTSamples(CFArrayRef, const MediaTime&);
     void removeCompletedCues();
 
     Vector<uint8_t> m_sampleInputBuffer;
@@ -97,27 +106,37 @@ private:
     ASCIILiteral logClassName() const final { return "InbandTextTrackPrivateAVF"_s; }
 #endif
 
+    bool processVTTFileHeader(CMFormatDescriptionRef);
+    bool readVTTSampleBuffer(CMSampleBufferRef, CMFormatDescriptionRef&);
+
     MediaTime m_currentCueStartTime;
     MediaTime m_currentCueEndTime;
 
     Vector<Ref<InbandGenericCue>> m_cues;
-    AVFInbandTrackParent* m_owner;
+    ModeChangedCallback m_modeChangedCallback;
 
     enum PendingCueStatus {
         None,
         DeliveredDuringSeek,
         Valid
     };
-    PendingCueStatus m_pendingCueStatus;
+    PendingCueStatus m_pendingCueStatus { None };
 
-    int m_index;
-    bool m_hasBeenReported;
-    bool m_seeking;
-    bool m_haveReportedVTTHeader;
-    const TrackID m_trackID { 0 };
+    Kind m_kind { Kind::None };
+    AtomString m_label;
+    AtomString m_language;
+    int m_index { 0 };
+    TrackID m_trackID { 0 };
+    bool m_hasBeenReported { false };
+    bool m_seeking { false };
+    bool m_haveReportedVTTHeader { false };
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::InbandTextTrackPrivateAVF)
+static bool isType(const WebCore::InbandTextTrackPrivate& track) { return track.inbandTextTrackType() == WebCore::InbandTextTrackPrivate::InbandTextTrackType::AVFTrack; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif //  ENABLE(VIDEO) && (USE(AVFOUNDATION) || PLATFORM(IOS_FAMILY))
 

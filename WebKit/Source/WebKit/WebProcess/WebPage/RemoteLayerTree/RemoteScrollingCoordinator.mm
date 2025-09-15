@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,23 +59,27 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteScrollingCoordinator);
 RemoteScrollingCoordinator::RemoteScrollingCoordinator(WebPage* page)
     : AsyncScrollingCoordinator(page->corePage())
     , m_webPage(page)
+    , m_pageIdentifier(page->identifier())
 {
-    WebProcess::singleton().addMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->identifier(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_pageIdentifier, *this);
 }
 
 RemoteScrollingCoordinator::~RemoteScrollingCoordinator()
 {
-    WebProcess::singleton().removeMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_webPage->identifier());
+    WebProcess::singleton().removeMessageReceiver(Messages::RemoteScrollingCoordinator::messageReceiverName(), m_pageIdentifier);
 }
 
 void RemoteScrollingCoordinator::scheduleTreeStateCommit()
 {
+    if (!m_webPage)
+        return;
+
     m_webPage->drawingArea()->triggerRenderingUpdate();
 }
 
 bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const LocalFrameView& frameView) const
 {
-    RenderView* renderView = frameView.renderView();
+    CheckedPtr renderView = frameView.renderView();
     return renderView && renderView->usesCompositing();
 }
 
@@ -199,21 +203,21 @@ WheelEventHandlingResult RemoteScrollingCoordinator::handleWheelEventForScrollin
 
 void RemoteScrollingCoordinator::scrollingTreeNodeScrollbarVisibilityDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, bool isVisible)
 {
-    auto* frameView = frameViewForScrollingNode(nodeID);
+    RefPtr frameView = frameViewForScrollingNode(nodeID);
     if (!frameView)
         return;
 
-    if (auto* scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+    if (CheckedPtr scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
         scrollableArea->scrollbarsController().setScrollbarVisibilityState(orientation, isVisible);
 }
 
 void RemoteScrollingCoordinator::scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, int minimumThumbLength)
 {
-    auto* frameView = frameViewForScrollingNode(nodeID);
+    RefPtr frameView = frameViewForScrollingNode(nodeID);
     if (!frameView)
         return;
 
-    if (auto* scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
+    if (CheckedPtr scrollableArea = frameView->scrollableAreaForScrollingNodeID(nodeID))
         scrollableArea->scrollbarsController().setScrollbarMinimumThumbLength(orientation, minimumThumbLength);
 }
 

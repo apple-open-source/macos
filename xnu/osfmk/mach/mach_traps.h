@@ -68,6 +68,7 @@
 
 #include <stdint.h>
 
+#include <mach/error.h>
 #include <mach/std_types.h>
 #include <mach/mach_types.h>
 #include <mach/kern_return.h>
@@ -367,6 +368,10 @@ extern kern_return_t debug_control_port_for_pid(
 	mach_port_name_t target_tport,
 	int pid,
 	mach_port_name_t *t);
+
+extern mach_error_t mach_vm_reclaim_update_kernel_accounting_trap(
+	mach_port_name_t target_tport,
+	uint64_t *bytes_reclaimed);
 
 #else   /* KERNEL */
 
@@ -916,6 +921,15 @@ struct iokit_user_client_trap_args {
 };
 kern_return_t iokit_user_client_trap(
 	struct iokit_user_client_trap_args *args);
+
+#if __LP64__
+struct mach_vm_reclaim_update_kernel_accounting_trap_args {
+	PAD_ARG_(mach_port_name_t, target_task);
+	PAD_ARG_(user_addr_t, bytes_reclaimed_out);
+};
+extern mach_error_t mach_vm_reclaim_update_kernel_accounting_trap(
+	struct mach_vm_reclaim_update_kernel_accounting_trap_args *args);
+#endif /* __LP64__ */
 
 #undef PAD_
 #undef PADL_

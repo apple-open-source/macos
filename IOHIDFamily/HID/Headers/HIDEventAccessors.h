@@ -65,6 +65,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+@interface HIDEvent (HIDTouchSensitiveButtonEvent)
+
+@end
+
 @interface HIDEvent (HIDPowerEvent)
 
 @end
@@ -78,6 +82,10 @@ NS_ASSUME_NONNULL_BEGIN
 @interface HIDEvent (HIDMotionGestureEvent)
 
 + (instancetype)motionGestureEvent:(uint64_t)timestamp gestureType:(uint32_t)gestureType progress:(double)progress options:(uint32_t)options;
+
+@end
+
+@interface HIDEvent (HIDForceStageEvent)
 
 @end
 

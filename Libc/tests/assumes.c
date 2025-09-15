@@ -3,13 +3,13 @@
 
 #include <darwintest.h>
 
-static const char *__unsafe_indexable expected_message = NULL;
+static const char *_LIBC_CSTR expected_message = NULL;
 
 static void
 os_crash_function(const char *message)
 {
 	if (expected_message) {
-		T_ASSERT_EQ_STR(__terminated_by_to_indexable(message), __unsafe_forge_single(const char *, expected_message), NULL);
+		T_ASSERT_EQ_STR(message, expected_message, NULL);
 		T_END;
 	} else {
 		T_PASS("Got crash message: %s", message);

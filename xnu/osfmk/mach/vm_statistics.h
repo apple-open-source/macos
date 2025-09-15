@@ -66,6 +66,9 @@
 #ifndef _MACH_VM_STATISTICS_H_
 #define _MACH_VM_STATISTICS_H_
 
+
+#include <Availability.h>
+#include <os/base.h>
 #include <stdbool.h>
 #include <sys/cdefs.h>
 
@@ -73,6 +76,8 @@
 #include <mach/machine/kern_return.h>
 
 __BEGIN_DECLS
+
+#pragma mark VM Statistics
 
 /*
  * vm_statistics
@@ -141,7 +146,7 @@ struct vm_statistics64 {
 	natural_t       wire_count;             /* # of pages wired down */
 	uint64_t        zero_fill_count;        /* # of zero fill pages */
 	uint64_t        reactivations;          /* # of pages reactivated */
-	uint64_t        pageins;                /* # of pageins */
+	uint64_t        pageins;                /* # of pageins (lifetime) */
 	uint64_t        pageouts;               /* # of pageouts */
 	uint64_t        faults;                 /* # of faults */
 	uint64_t        cow_faults;             /* # of copy-on-writes */
@@ -158,15 +163,17 @@ struct vm_statistics64 {
 	natural_t       speculative_count;      /* # of pages speculative */
 
 	/* added for rev1 */
-	uint64_t        decompressions;         /* # of pages decompressed */
-	uint64_t        compressions;           /* # of pages compressed */
-	uint64_t        swapins;                /* # of pages swapped in (via compression segments) */
-	uint64_t        swapouts;               /* # of pages swapped out (via compression segments) */
+	uint64_t        decompressions;         /* # of pages decompressed (lifetime) */
+	uint64_t        compressions;           /* # of pages compressed (lifetime) */
+	uint64_t        swapins;                /* # of pages swapped in via compressor segments (lifetime) */
+	uint64_t        swapouts;               /* # of pages swapped out via compressor segments (lifetime) */
 	natural_t       compressor_page_count;  /* # of pages used by the compressed pager to hold all the compressed data */
 	natural_t       throttled_count;        /* # of pages throttled */
 	natural_t       external_page_count;    /* # of pages that are file-backed (non-swap) */
 	natural_t       internal_page_count;    /* # of pages that are anonymous */
 	uint64_t        total_uncompressed_pages_in_compressor; /* # of pages (uncompressed) held within the compressor. */
+	/* added for rev2 */
+	uint64_t        swapped_count;          /* # of compressor-stored pages currently stored in swap */
 } __attribute__((aligned(8)));
 
 typedef struct vm_statistics64  *vm_statistics64_t;
@@ -231,6 +238,8 @@ typedef struct vm_purgeable_info        *vm_purgeable_info_t;
 #define VM_PAGE_QUERY_PAGE_CS_TAINTED   0x200
 #define VM_PAGE_QUERY_PAGE_CS_NX        0x400
 #define VM_PAGE_QUERY_PAGE_REUSABLE     0x800
+
+#pragma mark User Flags
 
 /*
  * VM allocation flags:
@@ -364,33 +373,28 @@ typedef struct vm_purgeable_info        *vm_purgeable_info_t;
 __enum_decl(virtual_memory_guard_exception_code_t, uint32_t, {
 	kGUARD_EXC_DEALLOC_GAP  = 1,
 	kGUARD_EXC_RECLAIM_COPYIO_FAILURE = 2,
-	kGUARD_EXC_SEC_LOOKUP_DENIED = 3,
 	kGUARD_EXC_RECLAIM_INDEX_FAILURE = 4,
-	kGUARD_EXC_SEC_RANGE_DENIED = 6,
-	kGUARD_EXC_SEC_ACCESS_FAULT = 7,
 	kGUARD_EXC_RECLAIM_DEALLOCATE_FAILURE = 8,
-	kGUARD_EXC_SEC_COPY_DENIED = 16,
-	kGUARD_EXC_SEC_SHARING_DENIED = 32,
-	kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT = 64,
+	kGUARD_EXC_RECLAIM_ACCOUNTING_FAILURE = 9,
+	kGUARD_EXC_SEC_IOPL_ON_EXEC_PAGE = 10,
+	kGUARD_EXC_SEC_EXEC_ON_IOPL_PAGE = 11,
+	kGUARD_EXC_SEC_UPL_WRITE_ON_EXEC_REGION = 12,
+	/*
+	 * rdar://151450801 (Remove spurious kGUARD_EXC_SEC_ACCESS_FAULT and kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT once CrashReporter is aligned)
+	 */
+	kGUARD_EXC_SEC_ACCESS_FAULT = 98,
+	kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT = 99,
+	/* VM policy decisions */
+	kGUARD_EXC_SEC_COPY_DENIED = 100,
+	kGUARD_EXC_SEC_SHARING_DENIED = 101,
+
 });
+
 
 #ifdef XNU_KERNEL_PRIVATE
 
-static inline bool
-vm_guard_is_sec_access(uint32_t flavor)
-{
-	return flavor == kGUARD_EXC_SEC_ACCESS_FAULT ||
-	       flavor == kGUARD_EXC_SEC_ASYNC_ACCESS_FAULT;
-}
 
-static inline bool
-vm_guard_is_sec_policy(uint32_t flavor)
-{
-	return flavor == kGUARD_EXC_SEC_LOOKUP_DENIED ||
-	       flavor == kGUARD_EXC_SEC_RANGE_DENIED ||
-	       flavor == kGUARD_EXC_SEC_COPY_DENIED ||
-	       flavor == kGUARD_EXC_SEC_SHARING_DENIED;
-}
+#pragma mark Map Ranges
 
 /*!
  * @enum vm_map_range_id_t
@@ -423,6 +427,10 @@ vm_guard_is_sec_policy(uint32_t flavor)
  * @const KMEM_RANGE_ID_DATA
  * Range containing allocations that are bags of bytes and contain no
  * pointers.
+ *
+ * @const KMEM_RANGE_ID_DATA_SHARED
+ * Range containing allocations that are bags of bytes and contain no
+ * pointers and meant to be shared with external domains.
  */
 __enum_decl(vm_map_range_id_t, uint8_t, {
 	KMEM_RANGE_ID_NONE,
@@ -431,10 +439,11 @@ __enum_decl(vm_map_range_id_t, uint8_t, {
 	KMEM_RANGE_ID_PTR_2,
 	KMEM_RANGE_ID_SPRAYQTN,
 	KMEM_RANGE_ID_DATA,
+	KMEM_RANGE_ID_DATA_SHARED,
 
 	KMEM_RANGE_ID_FIRST   = KMEM_RANGE_ID_PTR_0,
 	KMEM_RANGE_ID_NUM_PTR = KMEM_RANGE_ID_PTR_2,
-	KMEM_RANGE_ID_MAX     = KMEM_RANGE_ID_DATA,
+	KMEM_RANGE_ID_MAX     = KMEM_RANGE_ID_DATA_SHARED,
 
 	/* these UMEM_* correspond to the MACH_VM_RANGE_* tags and are ABI */
 	UMEM_RANGE_ID_DEFAULT = 0, /* same as MACH_VM_RANGE_DEFAULT */
@@ -454,6 +463,8 @@ typedef vm_map_range_id_t       kmem_range_id_t;
 #define KMEM_RANGE_MAX          (UMEM_RANGE_ID_MAX < KMEM_RANGE_ID_MAX \
 	                        ? KMEM_RANGE_ID_MAX : UMEM_RANGE_ID_MAX)
 #define KMEM_RANGE_BITS         kmem_log2down(2 * KMEM_RANGE_MAX - 1)
+
+#pragma mark Kernel Flags
 
 typedef union {
 	struct {
@@ -566,8 +577,12 @@ typedef union {
 #define VM_MAP_KERNEL_FLAGS_ANYWHERE_PERMANENT(...) \
 	VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmf_permanent = true, __VA_ARGS__)
 
-#define VM_MAP_KERNEL_FLAGS_DATA_ANYWHERE(...) \
+#define VM_MAP_KERNEL_FLAGS_DATA_BUFFERS_ANYWHERE(...) \
 	VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmkf_range_id = KMEM_RANGE_ID_DATA, __VA_ARGS__)
+
+#define VM_MAP_KERNEL_FLAGS_DATA_SHARED_ANYWHERE(...) \
+	VM_MAP_KERNEL_FLAGS_ANYWHERE(.vmkf_range_id = kmem_needs_data_share_range() ? \
+	                    KMEM_RANGE_ID_DATA_SHARED : KMEM_RANGE_ID_DATA, __VA_ARGS__)
 
 typedef struct {
 	unsigned int
@@ -582,6 +597,8 @@ typedef struct {
 }
 
 #endif /* XNU_KERNEL_PRIVATE */
+
+#pragma mark Ledger Tags
 
 /* current accounting postmark */
 #define __VM_LEDGER_ACCOUNTING_POSTMARK 2019032600
@@ -610,6 +627,14 @@ typedef struct {
 #define VM_LEDGER_FLAGS_USER (VM_LEDGER_FLAG_NO_FOOTPRINT | VM_LEDGER_FLAG_NO_FOOTPRINT_FOR_DEBUG)
 #define VM_LEDGER_FLAGS_ALL (VM_LEDGER_FLAGS_USER | VM_LEDGER_FLAG_FROM_KERNEL)
 
+#pragma mark User Memory Tags
+
+/*
+ * These tags may be used to identify memory regions created with
+ * `mach_vm_map()` or `mach_vm_allocate()` via the top 8 bits of the `flags`
+ * parameter. Users should pass `VM_MAKE_TAG(tag) | flags` (see section
+ * "User Flags").
+ */
 #define VM_MEMORY_MALLOC 1
 #define VM_MEMORY_MALLOC_SMALL 2
 #define VM_MEMORY_MALLOC_LARGE 3
@@ -638,6 +663,8 @@ typedef struct {
 /* Was a nested pmap (VM_MEMORY_SHARED_PMAP) which has now been unnested */
 #define VM_MEMORY_UNSHARED_PMAP 35
 
+/* for libchannel memory, mostly used on visionOS for communication with realtime threads */
+#define VM_MEMORY_LIBCHANNEL 36
 
 // Placeholders for now -- as we analyze the libraries and find how they
 // use memory, we can make these labels more specific.
@@ -649,6 +676,7 @@ typedef struct {
 #define VM_MEMORY_JAVA 44
 #define VM_MEMORY_COREDATA 45
 #define VM_MEMORY_COREDATA_OBJECTIDS 46
+
 #define VM_MEMORY_ATS 50
 #define VM_MEMORY_LAYERKIT 51
 #define VM_MEMORY_CGIMAGE 52
@@ -744,6 +772,8 @@ typedef struct {
 /* DHMM data */
 #define VM_MEMORY_DHMM 84
 
+/* memory needed for DFR related actions */
+#define VM_MEMORY_DFR 85
 
 /* memory allocated by SceneKit.framework */
 #define VM_MEMORY_SCENEKIT 86
@@ -800,6 +830,9 @@ typedef struct {
 /* memory allocated by CoreMedia */
 #define VM_MEMORY_CM_HLS 106
 
+/* memory allocated for CompositorServices */
+#define VM_MEMORY_COMPOSITOR_SERVICES 107
+
 /* Reserve 230-239 for Rosetta */
 #define VM_MEMORY_ROSETTA 230
 #define VM_MEMORY_ROSETTA_THREAD_CONTEXT 231
@@ -811,7 +844,21 @@ typedef struct {
 #define VM_MEMORY_ROSETTA_10 239
 
 /* Reserve 240-255 for application */
-#define VM_MEMORY_APPLICATION_SPECIFIC_1 240
+#define VM_MEMORY_APPLICATION_SPECIFIC_1  240
+#define VM_MEMORY_APPLICATION_SPECIFIC_2  241
+#define VM_MEMORY_APPLICATION_SPECIFIC_3  242
+#define VM_MEMORY_APPLICATION_SPECIFIC_4  243
+#define VM_MEMORY_APPLICATION_SPECIFIC_5  244
+#define VM_MEMORY_APPLICATION_SPECIFIC_6  245
+#define VM_MEMORY_APPLICATION_SPECIFIC_7  246
+#define VM_MEMORY_APPLICATION_SPECIFIC_8  247
+#define VM_MEMORY_APPLICATION_SPECIFIC_9  248
+#define VM_MEMORY_APPLICATION_SPECIFIC_10 249
+#define VM_MEMORY_APPLICATION_SPECIFIC_11 250
+#define VM_MEMORY_APPLICATION_SPECIFIC_12 251
+#define VM_MEMORY_APPLICATION_SPECIFIC_13 252
+#define VM_MEMORY_APPLICATION_SPECIFIC_14 253
+#define VM_MEMORY_APPLICATION_SPECIFIC_15 254
 #define VM_MEMORY_APPLICATION_SPECIFIC_16 255
 
 #define VM_MEMORY_COUNT 256
@@ -820,16 +867,33 @@ typedef struct {
 #define VM_MAKE_TAG(tag) ((tag) << 24)
 #endif /* XNU_KERNEL_PRIVATE */
 
+#if PRIVATE && !KERNEL
+///
+/// Return a human-readable description for a given VM user tag.
+///
+/// - Parameters:
+///   - tag: A VM tag between `[0,VM_MEMORY_COUNT)`
+///
+/// - Returns: A string literal description of the tag
+///
+__SPI_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0), visionos(3.0), bridgeos(10.0))
+OS_EXPORT
+const char *mach_vm_tag_describe(unsigned int tag);
+#endif /* PRIVATE && !KERNEL */
 
 #if KERNEL_PRIVATE
 
-/* kernel map tags */
-/* please add new definition strings to zprint */
+#pragma mark Kernel Tags
+
+#if XNU_KERNEL_PRIVATE
 /*
- *  When making a new VM_KERN_MEMORY_*, update tests vm_parameter_validation_[user|kern]
- *  and their expected results; they deliberately call VM functions with invalid
- *  kernel tag values and you may be turning one of those invalid tags valid.
+ *  When making a new VM_KERN_MEMORY_*, update:
+ *   - tests vm_parameter_validation_[user|kern]
+ *     and their expected results; they deliberately call VM functions with invalid
+ *     kernel tag values and you may be turning one of those invalid tags valid.
+ *   - vm_kern_memory_names, which is used to map tags to their string name
  */
+#endif /* XNU_KERNEL_PRIVATE */
 
 #define VM_KERN_MEMORY_NONE             0
 
@@ -870,14 +934,14 @@ typedef struct {
 #define VM_KERN_MEMORY_EXCLAVES_SHARED  36
 #define VM_KERN_MEMORY_KALLOC_SHARED    37
 /* add new tags here and adjust first-dynamic value */
-#define VM_KERN_MEMORY_FIRST_DYNAMIC    38
-#define VM_KERN_MEMORY_CPUTRACE         39
+#define VM_KERN_MEMORY_CPUTRACE         38
+#define VM_KERN_MEMORY_FIRST_DYNAMIC    39
 
 /* out of tags: */
 #define VM_KERN_MEMORY_ANY              255
 #define VM_KERN_MEMORY_COUNT            256
 
-/* end kernel map tags */
+#pragma mark Kernel Wired Counts
 
 // mach_memory_info.flags
 #define VM_KERN_SITE_TYPE               0x000000FF
@@ -891,6 +955,13 @@ typedef struct {
 #define VM_KERN_SITE_ZONE               0x00000800
 #define VM_KERN_SITE_ZONE_VIEW          0x00001000
 #define VM_KERN_SITE_KALLOC             0x00002000      /* zone field is size class */
+
+/* Kernel Memory Counters */
+#if XNU_KERNEL_PRIVATE
+/*
+ *  When making a new VM_KERN_COUNT_*, also update vm_kern_count_names
+ */
+#endif /* XNU_KERNEL_PRIVATE */
 
 #define VM_KERN_COUNT_MANAGED           0
 #define VM_KERN_COUNT_RESERVED          1
@@ -918,7 +989,6 @@ typedef struct {
 
 /* The number of VM_KERN_COUNT_ stats. New VM_KERN_COUNT_ entries should be less than this. */
 #define VM_KERN_COUNTER_COUNT           15
-
 
 #endif /* KERNEL_PRIVATE */
 

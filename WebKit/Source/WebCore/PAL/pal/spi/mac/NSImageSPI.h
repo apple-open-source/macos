@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,6 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <wtf/Platform.h>
 
 #if PLATFORM(MAC)
@@ -41,7 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @interface NSImage (NSSystemSymbols)
-+ (nullable NSImage *)_imageWithSystemSymbolName:(NSString *) symbolName;
++ (nullable instancetype)imageWithPrivateSystemSymbolName:(NSString *)name accessibilityDescription:(nullable NSString *)description;
 @end
 
 NS_ASSUME_NONNULL_END
@@ -55,16 +59,5 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 NS_ASSUME_NONNULL_END
-
-#if HAVE(ALTERNATE_ICONS)
-
-NS_ASSUME_NONNULL_BEGIN
-
-extern const NSImageHintKey NSImageHintSymbolFont;
-extern const NSImageHintKey NSImageHintSymbolScale;
-
-NS_ASSUME_NONNULL_END
-
-#endif // HAVE(ALTERNATE_ICONS)
 
 #endif // USE(APPLE_INTERNAL_SDK)

@@ -531,7 +531,7 @@ IOServiceGetBusyState(
     @abstract Wait for an IOService's busyState to be zero.
     @discussion Blocks the caller until an IOService is non busy, see IOServiceGetBusyState.
     @param service The IOService wait on.
-    @param waitTime Specifies a maximum time to wait.
+    @param waitTime Specifies a maximum time to wait. Pass NULL to wait forever.
     @result Returns an error code if mach synchronization primitives fail, kIOReturnTimeout, or kIOReturnSuccess. */
 
 kern_return_t
@@ -555,7 +555,7 @@ IOKitGetBusyState(
     @abstract Wait for all IOServices' busyState to be zero.
     @discussion Blocks the caller until all IOServices are non busy, see IOKitGetBusyState.
     @param mainPort The main port obtained from IOMainPort(). Pass kIOMainPortDefault to look up the default main port.
-    @param waitTime Specifies a maximum time to wait.
+    @param waitTime Specifies a maximum time to wait. Pass NULL to wait forever.
     @param options Specifies the options to be passed to the kernel
     @result Returns an error code if mach synchronization primitives fail, kIOReturnTimeout, or kIOReturnSuccess. */
 

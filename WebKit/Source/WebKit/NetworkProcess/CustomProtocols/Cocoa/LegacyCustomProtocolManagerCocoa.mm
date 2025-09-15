@@ -61,7 +61,7 @@ void LegacyCustomProtocolManager::networkProcessCreated(NetworkProcess& networkP
     };
 
     RELEASE_ASSERT(!firstNetworkProcess() || !hasRegisteredSchemes(RefPtr { protectedFirstNetworkProcess()->supplement<LegacyCustomProtocolManager>() }.get()));
-    firstNetworkProcess() = &networkProcess;
+    firstNetworkProcess() = networkProcess;
 }
 
 @interface WKCustomProtocol : NSURLProtocol {
@@ -169,9 +169,9 @@ bool LegacyCustomProtocolManager::supportsScheme(const String& scheme)
 
 static inline void dispatchOnInitializationRunLoop(WKCustomProtocol* protocol, void (^block)())
 {
-    CFRunLoopRef runloop = protocol.initializationRunLoop;
-    CFRunLoopPerformBlock(runloop, kCFRunLoopDefaultMode, block);
-    CFRunLoopWakeUp(runloop);
+    RetainPtr<CFRunLoopRef> runloop = protocol.initializationRunLoop;
+    CFRunLoopPerformBlock(runloop.get(), kCFRunLoopDefaultMode, block);
+    CFRunLoopWakeUp(runloop.get());
 }
 
 void LegacyCustomProtocolManager::didFailWithError(LegacyCustomProtocolID customProtocolID, const WebCore::ResourceError& error)

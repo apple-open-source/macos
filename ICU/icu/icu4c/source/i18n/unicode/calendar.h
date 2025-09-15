@@ -1735,6 +1735,18 @@ protected:
      */
     virtual int32_t handleComputeJulianDay(UCalendarDateFields bestField, UErrorCode &status);
 
+#if APPLE_ICU_CHANGES // rdar://153018943
+    /**
+     * Subclasses may override this.
+     * This method calculates the ordinal day of the month based on the month start and the Calendar's internal fields
+     * Calendars with leap and skip days should override this
+     * @param monthStart julian day indicated the start of the month
+     * @return calculated ordinal day.
+     * @internal
+     */
+    virtual int32_t handleComputeOrdinalDay(int32_t monthStart);
+#endif // APPLE_ICU_CHANGES
+    
     /**
      * Subclasses must override this to convert from week fields
      * (YEAR_WOY and WEEK_OF_YEAR) to an extended year in the case

@@ -99,7 +99,7 @@
     for (auto& selectors : _info->selectors()) {
         RetainPtr nsSelectors = adoptNS([[NSMutableArray alloc] initWithCapacity:selectors.size()]);
         for (auto& selector : selectors)
-            [nsSelectors addObject:selector];
+            [nsSelectors addObject:selector.createNSString().get()];
         [result addObject:nsSelectors.get()];
     }
     return result.autorelease();
@@ -107,17 +107,17 @@
 
 - (NSString *)renderedText
 {
-    return _info->renderedText();
+    return _info->renderedText().createNSString().autorelease();
 }
 
 - (NSString *)searchableText
 {
-    return _info->searchableText();
+    return _info->searchableText().createNSString().autorelease();
 }
 
 - (NSString *)screenReaderText
 {
-    return _info->screenReaderText();
+    return _info->screenReaderText().createNSString().autorelease();
 }
 
 - (_WKRectEdge)offsetEdges
@@ -168,7 +168,7 @@
 {
     RetainPtr result = adoptNS([NSMutableSet<NSURL *> new]);
     for (auto& url : _info->mediaAndLinkURLs())
-        [result addObject:(NSURL *)url];
+        [result addObject:url.createNSURL().get()];
     return result.autorelease();
 }
 
@@ -217,7 +217,7 @@
 
     auto bounds = _info->boundsInRootView();
     return [NSString stringWithFormat:@"<%@ %p \"%@\" at {{%.0f,%.0f},{%.0f,%.0f}}>"
-        , self.class, self, (NSString *)firstSelector
+        , self.class, self, firstSelector.createNSString().get()
         , bounds.x(), bounds.y(), bounds.width(), bounds.height()];
 }
 

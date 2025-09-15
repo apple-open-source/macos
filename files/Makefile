@@ -129,11 +129,11 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/Utilities/.DS_Store"
+endif
 
-	# <rdar://problem/63655752>
+	# <rdar://problem/63655752&152545005>
 	$(_v) $(LN) -fs SystemVersion.plist "$(Destination)/System/Library/CoreServices/.SystemVersionPlatform.plist"
 
-endif
 ifneq "$(CONTENT_PLATFORM)" "ios_sim"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
 	$(_v) $(CHMOD) -h 0755 "$(Destination)/tmp"

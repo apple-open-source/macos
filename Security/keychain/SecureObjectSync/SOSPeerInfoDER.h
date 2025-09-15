@@ -10,7 +10,7 @@
 #define _sec_SOSPeerInfoDER_
 
 #include <corecrypto/ccder.h>
-#include <utilities/der_date.h>
+#include "utilities/der_date.h"
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 
 #include <stdio.h>

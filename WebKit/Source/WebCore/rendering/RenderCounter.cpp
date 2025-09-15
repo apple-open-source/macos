@@ -23,6 +23,7 @@
 #include "RenderCounter.h"
 
 #include "CSSCounterStyleRegistry.h"
+#include "ContainerNodeInlines.h"
 #include "CounterDirectives.h"
 #include "CounterNode.h"
 #include "Document.h"
@@ -33,6 +34,7 @@
 #include "PseudoElement.h"
 #include "RenderElementInlines.h"
 #include "RenderListItem.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
 #include <wtf/StdLibExtras.h>
@@ -48,7 +50,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderCounter);
 
-using CounterMap = UncheckedKeyHashMap<AtomString, Ref<CounterNode>>;
+using CounterMap = HashMap<AtomString, Ref<CounterNode>>;
 using CounterMaps = SingleThreadWeakHashMap<RenderElement, std::unique_ptr<CounterMap>>;
 
 static CounterNode* makeCounterNode(RenderElement&, const AtomString& identifier, bool alwaysCreateCounter);

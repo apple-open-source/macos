@@ -93,6 +93,7 @@
 - (BOOL) gameDone;
 - (BOOL) brandNewGame;
 - (NSString *)nonLocalPlayerID;
+- (void)postQueuedLoadGameNotificationIfNeeded;
 
 @end
 

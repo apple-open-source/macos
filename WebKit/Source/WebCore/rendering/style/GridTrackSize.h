@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
  * Copyright (C) 2013, 2014 Igalia S.L.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,17 +32,19 @@
 
 #pragma once
 
-#include "GridLength.h"
+#include "StyleGridTrackBreadth.h"
 
 namespace WebCore {
 
-enum GridTrackSizeType {
-    LengthTrackSizing,
-    MinMaxTrackSizing,
-    FitContentTrackSizing
+using namespace CSS::Literals;
+
+enum class GridTrackSizeType : uint8_t {
+    Length,
+    MinMax,
+    FitContent
 };
 
-// This class represents a <track-size> from the spec. Althought there are 3 different types of
+// This class represents a <track-size> from the spec. Although there are 3 different types of
 // <track-size> there is always an equivalent minmax() representation that could represent any of
 // them. The only special case is fit-content(argument) which is similar to minmax(auto,
 // max-content) except that the track size is clamped at argument if it is greater than the auto
@@ -49,48 +52,59 @@ enum GridTrackSizeType {
 // exactly as auto.
 //
 // We're using a separate attribute to store fit-content argument even though we could directly use
-// m_maxTrackBreadth. The reason why we don't do it is because the maxTrackBreadh() call is a hot
+// m_maxTrackBreadth. The reason why we don't do it is because the maxTrackBreadth() call is a hot
 // spot, so adding a conditional statement there (to distinguish between fit-content and any other
 // case) was causing a severe performance drop.
 class GridTrackSize {
 public:
-    GridTrackSize(const GridLength& length = GridLength({ }), GridTrackSizeType trackSizeType = LengthTrackSizing)
+    GridTrackSize(const Style::GridTrackBreadth& breadth = Style::GridTrackBreadth(CSS::Keyword::Auto { }), GridTrackSizeType trackSizeType = GridTrackSizeType::Length)
         : m_type(trackSizeType)
-        , m_minTrackBreadth(trackSizeType == FitContentTrackSizing ? Length(LengthType::Auto) : length)
-        , m_maxTrackBreadth(trackSizeType == FitContentTrackSizing ? Length(LengthType::Auto) : length)
-        , m_fitContentTrackBreadth(trackSizeType == FitContentTrackSizing ? length : GridLength(Length(LengthType::Fixed)))
+        , m_minTrackBreadth(trackSizeType == GridTrackSizeType::FitContent ? Style::GridTrackBreadth(CSS::Keyword::Auto { }) : breadth)
+        , m_maxTrackBreadth(trackSizeType == GridTrackSizeType::FitContent ? Style::GridTrackBreadth(CSS::Keyword::Auto { }) : breadth)
+        , m_fitContentTrackBreadth(trackSizeType == GridTrackSizeType::FitContent ? breadth : Style::GridTrackBreadth(0_css_px))
     {
-        ASSERT(trackSizeType == LengthTrackSizing || trackSizeType == FitContentTrackSizing);
-        ASSERT(trackSizeType != FitContentTrackSizing || length.isLength());
+        ASSERT(trackSizeType == GridTrackSizeType::Length || trackSizeType == GridTrackSizeType::FitContent);
+        ASSERT(trackSizeType != GridTrackSizeType::FitContent || breadth.isLength());
         cacheMinMaxTrackBreadthTypes();
     }
 
-    GridTrackSize(const GridLength& minTrackBreadth, const GridLength& maxTrackBreadth)
-        : m_type(MinMaxTrackSizing)
+    GridTrackSize(const Style::GridTrackBreadth& minTrackBreadth, const Style::GridTrackBreadth& maxTrackBreadth)
+        : m_type(GridTrackSizeType::MinMax)
         , m_minTrackBreadth(minTrackBreadth)
         , m_maxTrackBreadth(maxTrackBreadth)
-        , m_fitContentTrackBreadth(GridLength(Length(LengthType::Fixed)))
+        , m_fitContentTrackBreadth(0_css_px)
     {
         cacheMinMaxTrackBreadthTypes();
     }
 
-    const GridLength& fitContentTrackBreadth() const
+    GridTrackSize(Style::GridTrackBreadth&& minTrackBreadth, Style::GridTrackBreadth&& maxTrackBreadth)
+        : m_type(GridTrackSizeType::MinMax)
+        , m_minTrackBreadth(WTFMove(minTrackBreadth))
+        , m_maxTrackBreadth(WTFMove(maxTrackBreadth))
+        , m_fitContentTrackBreadth(0_css_px)
     {
-        ASSERT(m_type == FitContentTrackSizing);
+        cacheMinMaxTrackBreadthTypes();
+    }
+
+    const Style::GridTrackBreadth& fitContentTrackBreadth() const
+    {
+        ASSERT(m_type == GridTrackSizeType::FitContent);
         return m_fitContentTrackBreadth;
     }
 
-    const GridLength& minTrackBreadth() const { return m_minTrackBreadth; }
-    const GridLength& maxTrackBreadth() const { return m_maxTrackBreadth; }
+    const Style::GridTrackBreadth& minTrackBreadth() const { return m_minTrackBreadth; }
+    const Style::GridTrackBreadth& maxTrackBreadth() const { return m_maxTrackBreadth; }
 
     GridTrackSizeType type() const { return m_type; }
 
     bool isContentSized() const { return m_minTrackBreadth.isContentSized() || m_maxTrackBreadth.isContentSized(); }
-    bool isFitContent() const { return m_type == FitContentTrackSizing; }
+    bool isFitContent() const { return m_type == GridTrackSizeType::FitContent; }
 
     bool operator==(const GridTrackSize& other) const
     {
-        return m_type == other.m_type && m_minTrackBreadth == other.m_minTrackBreadth && m_maxTrackBreadth == other.m_maxTrackBreadth
+        return m_type == other.m_type
+            && m_minTrackBreadth == other.m_minTrackBreadth
+            && m_maxTrackBreadth == other.m_maxTrackBreadth
             && m_fitContentTrackBreadth == other.m_fitContentTrackBreadth;
     }
 
@@ -128,9 +142,9 @@ public:
 
 private:
     GridTrackSizeType m_type;
-    GridLength m_minTrackBreadth;
-    GridLength m_maxTrackBreadth;
-    GridLength m_fitContentTrackBreadth;
+    Style::GridTrackBreadth m_minTrackBreadth;
+    Style::GridTrackBreadth m_maxTrackBreadth;
+    Style::GridTrackBreadth m_fitContentTrackBreadth;
 
     bool m_minTrackBreadthIsAuto : 1;
     bool m_maxTrackBreadthIsAuto : 1;

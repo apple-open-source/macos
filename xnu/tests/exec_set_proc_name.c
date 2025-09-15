@@ -2,6 +2,8 @@
 #include <libproc.h>
 #include <darwintest.h>
 #include <darwintest_utils.h>
+#include <mach-o/dyld.h>
+
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.spawn"),

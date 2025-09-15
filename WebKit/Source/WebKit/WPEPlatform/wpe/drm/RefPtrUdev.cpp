@@ -32,40 +32,40 @@ namespace WTF {
 
 struct udev* DefaultRefDerefTraits<struct udev>::refIfNotNull(struct udev* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_ref(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<struct udev>::derefIfNotNull(struct udev* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_unref(ptr);
 }
 
 struct udev_device* DefaultRefDerefTraits<struct udev_device>::refIfNotNull(struct udev_device* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_device_ref(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<struct udev_device>::derefIfNotNull(struct udev_device* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_device_unref(ptr);
 }
 
 struct udev_enumerate* DefaultRefDerefTraits<struct udev_enumerate>::refIfNotNull(struct udev_enumerate* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_enumerate_ref(ptr);
     return ptr;
 }
 
 void DefaultRefDerefTraits<struct udev_enumerate>::derefIfNotNull(struct udev_enumerate* ptr)
 {
-    if (LIKELY(ptr))
+    if (ptr) [[likely]]
         udev_enumerate_unref(ptr);
 }
 

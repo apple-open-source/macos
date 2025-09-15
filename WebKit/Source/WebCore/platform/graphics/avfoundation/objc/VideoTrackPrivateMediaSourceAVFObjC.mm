@@ -38,7 +38,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(VideoTrackPrivateMediaSourceAVFObjC);
 
 VideoTrackPrivateMediaSourceAVFObjC::VideoTrackPrivateMediaSourceAVFObjC(AVAssetTrack* track)
-    : m_impl(makeUnique<AVTrackPrivateAVFObjCImpl>(track))
+    : m_impl(AVTrackPrivateAVFObjCImpl::create(track))
 {
     resetPropertiesFromTrack();
 }
@@ -53,12 +53,6 @@ void VideoTrackPrivateMediaSourceAVFObjC::resetPropertiesFromTrack()
     setLabel(m_impl->label());
     setLanguage(m_impl->language());
     setConfiguration(m_impl->videoTrackConfiguration());
-}
-
-void VideoTrackPrivateMediaSourceAVFObjC::setAssetTrack(AVAssetTrack *track)
-{
-    m_impl = makeUnique<AVTrackPrivateAVFObjCImpl>(track);
-    resetPropertiesFromTrack();
 }
 
 AVAssetTrack* VideoTrackPrivateMediaSourceAVFObjC::assetTrack() const

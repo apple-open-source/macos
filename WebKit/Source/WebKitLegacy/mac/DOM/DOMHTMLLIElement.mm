@@ -42,7 +42,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr).createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType
@@ -54,7 +54,7 @@
 - (int)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getIntegralAttribute(WebCore::HTMLNames::valueAttr);
+    return IMPL->integralAttribute(WebCore::HTMLNames::valueAttr);
 }
 
 - (void)setValue:(int)newValue

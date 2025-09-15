@@ -31,14 +31,16 @@
 #include "PaintInfo.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderLayer.h"
+#include "RenderObjectInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderViewTransitionCapture);
 
-RenderViewTransitionCapture::RenderViewTransitionCapture(Type type, Document& document, RenderStyle&& style)
+RenderViewTransitionCapture::RenderViewTransitionCapture(Type type, Document& document, RenderStyle&& style, bool isRootElement)
     : RenderReplaced(type, document, WTFMove(style), { }, ReplacedFlag::IsViewTransitionCapture)
+    , m_isRootElementCapture(isRootElement)
 {
 }
 
@@ -69,7 +71,7 @@ void RenderViewTransitionCapture::intrinsicSizeChanged()
     if (intrinsicSize() == m_imageIntrinsicSize)
         return;
     setIntrinsicSize(m_imageIntrinsicSize);
-    setPreferredLogicalWidthsDirty(true);
+    setNeedsPreferredWidthsUpdate();
     setNeedsLayout();
 }
 
@@ -85,8 +87,8 @@ void RenderViewTransitionCapture::paintReplaced(PaintInfo& paintInfo, const Layo
     FloatRect paintRect = m_localOverflowRect;
 
     InterpolationQualityMaintainer interpolationMaintainer(context, ImageQualityController::interpolationQualityFromStyle(style()));
-    if (m_oldImage)
-        context.drawImageBuffer(*m_oldImage, paintRect, { context.compositeOperation() });
+    if (RefPtr oldImage = m_oldImage)
+        context.drawImageBuffer(*oldImage, paintRect, { context.compositeOperation() });
 }
 
 void RenderViewTransitionCapture::layout()
@@ -107,8 +109,19 @@ void RenderViewTransitionCapture::updateFromStyle()
 {
     RenderReplaced::updateFromStyle();
 
-    if (effectiveOverflowX() != Overflow::Visible || effectiveOverflowY() != Overflow::Visible)
+    // The ::view-transition-new(root) capture should hold exactly the snapshot containing
+    // block without overflow, but can host layers that extend outside this area. Force overflow
+    // clipping.
+    if (effectiveOverflowX() != Overflow::Visible || effectiveOverflowY() != Overflow::Visible || (m_isRootElementCapture && style().pseudoElementType() == PseudoId::ViewTransitionNew))
         setHasNonVisibleOverflow();
+}
+
+void RenderViewTransitionCapture::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderReplaced::styleDidChange(diff, oldStyle);
+
+    if (oldStyle && oldStyle->usedVisibility() != style().usedVisibility() && hasLayer())
+        layer()->setNeedsCompositingLayerConnection();
 }
 
 LayoutPoint RenderViewTransitionCapture::captureContentInset() const

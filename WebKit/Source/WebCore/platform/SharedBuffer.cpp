@@ -167,8 +167,8 @@ static Vector<uint8_t> combineSegmentsData(const FragmentedSharedBuffer::DataSeg
 
 Ref<SharedBuffer> FragmentedSharedBuffer::makeContiguous() const
 {
-    if (m_contiguous)
-        return Ref { *static_cast<SharedBuffer*>(const_cast<FragmentedSharedBuffer*>(this)) };
+    if (RefPtr sharedBuffer = dynamicDowncast<SharedBuffer>(*const_cast<FragmentedSharedBuffer*>(this)))
+        return sharedBuffer.releaseNonNull();
     if (!m_segments.size())
         return SharedBuffer::create();
     if (m_segments.size() == 1)
@@ -330,14 +330,14 @@ Ref<FragmentedSharedBuffer> FragmentedSharedBuffer::copy() const
     return clone;
 }
 
-void FragmentedSharedBuffer::forEachSegment(const Function<void(std::span<const uint8_t>)>& apply) const
+void FragmentedSharedBuffer::forEachSegment(NOESCAPE const Function<void(std::span<const uint8_t>)>& apply) const
 {
     auto segments = m_segments;
     for (auto& segment : segments)
         segment.segment->iterate(apply);
 }
 
-void DataSegment::iterate(const Function<void(std::span<const uint8_t>)>& apply) const
+void DataSegment::iterate(NOESCAPE const Function<void(std::span<const uint8_t>)>& apply) const
 {
 #if USE(FOUNDATION)
     if (auto* data = std::get_if<RetainPtr<CFDataRef>>(&m_immutableData))
@@ -346,7 +346,7 @@ void DataSegment::iterate(const Function<void(std::span<const uint8_t>)>& apply)
     apply(span());
 }
 
-void FragmentedSharedBuffer::forEachSegmentAsSharedBuffer(const Function<void(Ref<SharedBuffer>&&)>& apply) const
+void FragmentedSharedBuffer::forEachSegmentAsSharedBuffer(NOESCAPE const Function<void(Ref<SharedBuffer>&&)>& apply) const
 {
     auto protectedThis = Ref { *this };
     for (auto& segment : m_segments)
@@ -546,10 +546,8 @@ SharedBuffer::SharedBuffer(FileSystem::MappedFileData&& data)
 RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath, FileSystem::MappedFileMode mappedFileMode, MayUseFileMapping mayUseFileMapping)
 {
     if (mayUseFileMapping == MayUseFileMapping::Yes) {
-        bool mappingSuccess;
-        FileSystem::MappedFileData mappedFileData(filePath, mappedFileMode, mappingSuccess);
-        if (mappingSuccess)
-            return adoptRef(new SharedBuffer(WTFMove(mappedFileData)));
+        if (auto mappedFileData = FileSystem::mapFile(filePath, mappedFileMode))
+            return adoptRef(new SharedBuffer(WTFMove(*mappedFileData)));
     }
 
     auto buffer = FileSystem::readEntireFile(filePath);
@@ -640,7 +638,7 @@ std::span<const uint8_t> DataSegment::span() const
         [](const FileSystem::MappedFileData& data) { return data.span(); },
         [](const Provider& provider) { return provider.span(); }
     );
-    return std::visit(visitor, m_immutableData);
+    return WTF::visit(visitor, m_immutableData);
 }
 
 bool DataSegment::containsMappedFileData() const
@@ -680,7 +678,8 @@ void SharedBufferBuilder::initialize(Ref<FragmentedSharedBuffer>&& buffer)
 
 RefPtr<ArrayBuffer> SharedBufferBuilder::tryCreateArrayBuffer() const
 {
-    return m_buffer ? m_buffer->tryCreateArrayBuffer() : ArrayBuffer::tryCreate();
+    RefPtr buffer = m_buffer;
+    return buffer ? buffer->tryCreateArrayBuffer() : ArrayBuffer::tryCreate();
 }
 
 Ref<FragmentedSharedBuffer> SharedBufferBuilder::take()

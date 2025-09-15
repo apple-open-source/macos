@@ -87,7 +87,7 @@ public:
 
     void execute()
     {
-        m_parallelEnvironment.execute(reinterpret_cast<unsigned char*>(m_parameters.data()));
+        m_parallelEnvironment.execute(reinterpret_cast<unsigned char*>(m_parameters.mutableSpan().data()));
     }
 
 private:

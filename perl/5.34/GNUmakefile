@@ -222,7 +222,8 @@ $(OBJROOT)/$(PROJECT)::
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/ff1f9f59360afeebd6f75ca1502f5c3ebf077da3.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/0001-Apply-upstream-patch-73bc3211d5e683f5027b335f232795c0fabde31b.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/0002-Apply-upstream-c58b55d0c22c86ec015e694450585b0c23c4750c.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/87f42aa0e0096e9a346c9672aa3a0bd3bef8c1dd.patch)
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/87f42aa0e0096e9a346c9672aa3a0bd3bef8c1dd.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-CVE-2025-40909.patch)
 
 
 

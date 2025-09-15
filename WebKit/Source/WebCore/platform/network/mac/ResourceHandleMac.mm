@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -141,7 +141,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
         URL urlWithCredentials(firstRequest().url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPassword(d->m_password);
-        firstRequest().setURL(urlWithCredentials);
+        firstRequest().setURL(WTFMove(urlWithCredentials));
     }
 
     if (shouldUseCredentialStorage && firstRequest().url().protocolIsInHTTPFamily()) {
@@ -285,8 +285,8 @@ void ResourceHandle::cancel()
     LOG(Network, "Handle %p cancel connection %p", this, d->m_connection.get());
 
     // Leaks were seen on HTTP tests without this; can be removed once <rdar://problem/6886937> is fixed.
-    if (d->m_currentMacChallenge)
-        [[d->m_currentMacChallenge sender] cancelAuthenticationChallenge:d->m_currentMacChallenge];
+    if (RetainPtr challenge = d->m_currentMacChallenge.get())
+        [[challenge sender] cancelAuthenticationChallenge:challenge.get()];
 
     [d->m_connection.get() cancel];
 }
@@ -509,7 +509,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
 #endif // PLATFORM(IOS_FAMILY)
 
     d->m_currentMacChallenge = challenge.nsURLAuthenticationChallenge();
-    d->m_currentWebChallenge = core(d->m_currentMacChallenge);
+    d->m_currentWebChallenge = core(d->m_currentMacChallenge.get().get());
     d->m_currentWebChallenge.setAuthenticationClient(this);
 
     // FIXME: Several concurrent requests can return with the an authentication challenge for the same protection space.
@@ -529,8 +529,8 @@ bool ResourceHandle::tryHandlePasswordBasedAuthentication(const AuthenticationCh
         return false;
 
     if (!d->m_user.isEmpty() || !d->m_password.isEmpty()) {
-        auto credential = adoptNS([[NSURLCredential alloc] initWithUser:d->m_user
-            password:d->m_password persistence:NSURLCredentialPersistenceForSession]);
+        auto credential = adoptNS([[NSURLCredential alloc] initWithUser:d->m_user.createNSString().get()
+            password:d->m_password.createNSString().get() persistence:NSURLCredentialPersistenceForSession]);
         d->m_currentMacChallenge = challenge.nsURLAuthenticationChallenge();
         d->m_currentWebChallenge = challenge;
         receivedCredential(challenge, Credential(credential.get()));
@@ -594,6 +594,7 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         return;
     }
 
+    RetainPtr currentChallenge = d->m_currentMacChallenge.get();
     if (credential.persistence() == CredentialPersistence::ForSession && challenge.protectionSpace().authenticationScheme() != ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested) {
         // Manage per-session credentials internally, because once NSURLCredentialPersistenceForSession is used, there is no way
         // to ignore it for a particular request (short of removing it altogether).
@@ -602,10 +603,10 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         if (challenge.failureResponse().httpStatusCode() == httpStatus401Unauthorized)
             urlToStore = challenge.failureResponse().url();
         if (auto* networkStorageSession = d->m_context->storageSession())
-            networkStorageSession->credentialStorage().set(d->m_partition, webCredential, ProtectionSpace([d->m_currentMacChallenge protectionSpace]), urlToStore);
-        [[d->m_currentMacChallenge sender] useCredential:webCredential.nsCredential() forAuthenticationChallenge:d->m_currentMacChallenge];
+            networkStorageSession->credentialStorage().set(d->m_partition, webCredential, ProtectionSpace([currentChallenge protectionSpace]), urlToStore);
+        [[currentChallenge sender] useCredential:webCredential.nsCredential() forAuthenticationChallenge:currentChallenge.get()];
     } else
-        [[d->m_currentMacChallenge sender] useCredential:credential.nsCredential() forAuthenticationChallenge:d->m_currentMacChallenge];
+        [[currentChallenge sender] useCredential:credential.nsCredential() forAuthenticationChallenge:currentChallenge.get()];
 
     clearAuthentication();
 }
@@ -618,7 +619,8 @@ void ResourceHandle::receivedRequestToContinueWithoutCredential(const Authentica
     if (!AuthenticationChallengeBase::equalForWebKitLegacyChallengeComparison(challenge, d->m_currentWebChallenge))
         return;
 
-    [[d->m_currentMacChallenge sender] continueWithoutCredentialForAuthenticationChallenge:d->m_currentMacChallenge];
+    RetainPtr currentChallenge = d->m_currentMacChallenge.get();
+    [[currentChallenge sender] continueWithoutCredentialForAuthenticationChallenge:currentChallenge.get()];
 
     clearAuthentication();
 }
@@ -642,7 +644,8 @@ void ResourceHandle::receivedRequestToPerformDefaultHandling(const Authenticatio
     if (!AuthenticationChallengeBase::equalForWebKitLegacyChallengeComparison(challenge, d->m_currentWebChallenge))
         return;
 
-    [[d->m_currentMacChallenge sender] performDefaultHandlingForAuthenticationChallenge:d->m_currentMacChallenge];
+    RetainPtr currentChallenge = d->m_currentMacChallenge.get();
+    [[currentChallenge sender] performDefaultHandlingForAuthenticationChallenge:currentChallenge.get()];
 
     clearAuthentication();
 }
@@ -655,7 +658,8 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& c
     if (!AuthenticationChallengeBase::equalForWebKitLegacyChallengeComparison(challenge, d->m_currentWebChallenge))
         return;
 
-    [[d->m_currentMacChallenge sender] rejectProtectionSpaceAndContinueWithChallenge:d->m_currentMacChallenge];
+    RetainPtr currentChallenge = d->m_currentMacChallenge.get();
+    [[currentChallenge sender] rejectProtectionSpaceAndContinueWithChallenge:currentChallenge.get()];
 
     clearAuthentication();
 }

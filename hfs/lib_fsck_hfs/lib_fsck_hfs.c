@@ -356,3 +356,11 @@ int fsck_get_verbosity_level () {
 void fsck_set_verbosity_level (int val) {
     state.verbosityLevel = val;
 }
+
+void fsck_set_check_update_routines(fsck_hfs_check_start_func_t check_start,
+                                    fsck_hfs_check_update_func_t check_update,
+                                    fsck_hfs_check_done_func_t check_done) {
+    ctx.check_start = check_start;
+    ctx.check_update = check_update;
+    ctx.check_done = check_done;
+}

@@ -42,7 +42,7 @@
 - (NSString *)clear
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::clearAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::clearAttr).createNSString().autorelease();
 }
 
 - (void)setClear:(NSString *)newClear

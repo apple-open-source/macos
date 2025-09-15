@@ -49,19 +49,19 @@ static constexpr ASCIILiteral allHostsAndSchemesPattern = "*://*/*"_s;
 
 WebExtensionMatchPattern::URLSchemeSet& WebExtensionMatchPattern::extensionSchemes()
 {
-    static MainThreadNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "webkit-extension"_s };
+    static MainRunLoopNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "webkit-extension"_s };
     return schemes;
 }
 
 WebExtensionMatchPattern::URLSchemeSet& WebExtensionMatchPattern::validSchemes()
 {
-    static MainThreadNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "*"_s, "http"_s, "https"_s, "file"_s, "ftp"_s, "webkit-extension"_s };
+    static MainRunLoopNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "*"_s, "http"_s, "https"_s, "file"_s, "ftp"_s, "webkit-extension"_s };
     return schemes;
 }
 
 WebExtensionMatchPattern::URLSchemeSet& WebExtensionMatchPattern::supportedSchemes()
 {
-    static MainThreadNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "*"_s, "http"_s, "https"_s, "webkit-extension"_s };
+    static MainRunLoopNeverDestroyed<URLSchemeSet> schemes = std::initializer_list<String> { "*"_s, "http"_s, "https"_s, "webkit-extension"_s };
     return schemes;
 }
 
@@ -87,7 +87,7 @@ bool WebExtensionMatchPattern::patternsMatchPattern(const MatchPatternSet& match
 
 static HashMap<String, RefPtr<WebExtensionMatchPattern>>& patternCache()
 {
-    static MainThreadNeverDestroyed<HashMap<String, RefPtr<WebExtensionMatchPattern>>> cache;
+    static MainRunLoopNeverDestroyed<HashMap<String, RefPtr<WebExtensionMatchPattern>>> cache;
     return cache;
 }
 

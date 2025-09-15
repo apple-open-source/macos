@@ -29164,7 +29164,12 @@ xmlSchemaValidateStream(xmlSchemaValidCtxtPtr ctxt,
         ret = -1;
 	goto done;
     }
-    inputPush(pctxt, inputStream);
+    if (inputPush(pctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        ret = -1;
+        goto done;
+    }
+
     ctxt->parserCtxt = pctxt;
     ctxt->input = input;
 

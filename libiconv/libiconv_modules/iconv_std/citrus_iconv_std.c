@@ -366,8 +366,7 @@ cstombx(struct _citrus_iconv_std_encoding *se,
 			}
 		}
 
-		if (ret == 0)
-			*nresult = acc;
+		*nresult = acc;
 	}
 
 	return (ret);

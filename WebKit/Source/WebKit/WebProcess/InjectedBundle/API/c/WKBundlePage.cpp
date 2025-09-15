@@ -61,7 +61,7 @@
 #include "WebProcess.h"
 #include <WebCore/AXCoreObject.h>
 #include <WebCore/AXObjectCache.h>
-#include <WebCore/CSSParser.h>
+#include <WebCore/CSSPropertyParserConsumer+Color.h>
 #include <WebCore/CaptionUserPreferences.h>
 #include <WebCore/CompositionHighlight.h>
 #include <WebCore/FocusController.h>
@@ -170,7 +170,7 @@ WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef pageRef, W
     if (!page)
         return nullptr;
 
-    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(page->mainFrame().frameID(), WebKit::toIntPoint(point));
+    RefPtr contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(page->mainFrame().frameID(), WebKit::toIntPoint(point));
     if (!contextMenu)
         return nullptr;
 
@@ -211,7 +211,7 @@ void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
     if (!page)
         return nullptr;
 
-    RefPtr focusedOrMainFrame = page->checkedFocusController()->focusedOrMainFrame();
+    RefPtr focusedOrMainFrame = page->focusController().focusedOrMainFrame();
     if (!focusedOrMainFrame)
         return nullptr;
     RefPtr focusedDocument = focusedOrMainFrame->document();
@@ -276,6 +276,13 @@ bool WKAccessibilityEnhancedAccessibilityEnabled()
 void WKAccessibilitySetForceInitialFrameCaching(bool shouldForce)
 {
     WebCore::AXObjectCache::setForceInitialFrameCaching(shouldForce);
+}
+
+void WKBundlePageSetEditable(WKBundlePageRef pageRef, bool isEditable)
+{
+    WebKit::WebPage* webPage = WebKit::toImpl(pageRef);
+    if (WebCore::Page* page = webPage ? webPage->corePage() : nullptr)
+        page->setEditable(isEditable);
 }
 
 void WKBundlePageSetDefersLoading(WKBundlePageRef, bool)
@@ -380,11 +387,6 @@ bool WKBundlePageCanHandleRequest(WKURLRequestRef requestRef)
     if (!requestRef)
         return false;
     return WebKit::WebPage::canHandleRequest(WebKit::toImpl(requestRef)->resourceRequest());
-}
-
-bool WKBundlePageFindString(WKBundlePageRef pageRef, WKStringRef target, WKFindOptions findOptions)
-{
-    return WebKit::toImpl(pageRef)->findStringFromInjectedBundle(WebKit::toWTFString(target), WebKit::toFindOptions(findOptions));
 }
 
 void WKBundlePageReplaceStringMatches(WKBundlePageRef pageRef, WKArrayRef matchIndicesRef, WKStringRef replacementText, bool selectionOnly)
@@ -502,10 +504,10 @@ void WKBundlePageSetComposition(WKBundlePageRef pageRef, WKStringRef text, int f
             std::optional<WebCore::Color> foregroundHighlightColor;
 
             if (auto backgroundColor = dictionary->get("color"_s))
-                backgroundHighlightColor = WebCore::CSSParser::parseColorWithoutContext(downcast<API::String>(backgroundColor)->string());
+                backgroundHighlightColor = WebCore::CSSPropertyParserHelpers::deprecatedParseColorRawWithoutContext(downcast<API::String>(backgroundColor)->string());
 
             if (auto foregroundColor = dictionary->get("foregroundColor"_s))
-                foregroundHighlightColor = WebCore::CSSParser::parseColorWithoutContext(downcast<API::String>(foregroundColor)->string());
+                foregroundHighlightColor = WebCore::CSSPropertyParserHelpers::deprecatedParseColorRawWithoutContext(downcast<API::String>(foregroundColor)->string());
 
             highlights.append({
                 static_cast<unsigned>(startOffset),
@@ -689,7 +691,7 @@ bool WKBundlePageIsSuspended(WKBundlePageRef pageRef)
 
 void WKBundlePageAddUserScript(WKBundlePageRef pageRef, WKStringRef source, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames)
 {
-    WebKit::toImpl(pageRef)->addUserScript(WebKit::toWTFString(source), WebKit::InjectedBundleScriptWorld::normalWorld(), WebKit::toUserContentInjectedFrames(injectedFrames), WebKit::toUserScriptInjectionTime(injectionTime));
+    WebKit::toImpl(pageRef)->addUserScript(WebKit::toWTFString(source), WebKit::InjectedBundleScriptWorld::normalWorldSingleton(), WebKit::toUserContentInjectedFrames(injectedFrames), WebKit::toUserScriptInjectionTime(injectionTime));
 }
 
 void WKBundlePageAddUserScriptInWorld(WKBundlePageRef page, WKStringRef source, WKBundleScriptWorldRef scriptWorld, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames)

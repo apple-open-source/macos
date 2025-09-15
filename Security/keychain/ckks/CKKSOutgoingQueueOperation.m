@@ -45,13 +45,13 @@
 #import "utilities/SecCoreAnalytics.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #define OQEDELAY SecCKKSTestsEnabled() ? 10 : 30*60
 
 @interface CKKSOutgoingQueueOperation ()
 @property OctagonState* ckErrorState;
+@property NSOperation* finishedOp;
 @end
 
 @implementation CKKSOutgoingQueueOperation
@@ -149,18 +149,40 @@
 
     [self.deps.overallLaunch addEvent:@"process-outgoing-queue-begin"];
 
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
+                                                                                       altDSID:self.deps.activeAccount.altDSID
+                                                                                     eventName:kSecurityRTCEventNameProcessOutgoingQueue
+                                                                               testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                      category:kSecurityRTCEventCategoryAccountDataAccessRecovery
+                                                                                    sendMetric:self.deps.sendMetric];
+
+    __block int successfulItemsProcessed = 0;
+    __block int errorItemsProcessed = 0;
+    __block int attemptedAdditions = 0;
+    __block int attemptedDeletions = 0;
+    __block int attemptedModificiations = 0;
+
+    self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
+        STRONGIFY(self);
+        ckksnotice_global("ckksoutgoing", "Finished processing the outgoing queue: %@", self.error ?: @"no error");
+          [eventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@(attemptedAdditions),
+                               kSecurityRTCFieldItemsToDelete:@(attemptedDeletions),
+                               kSecurityRTCFieldItemsToModify:@(attemptedModificiations),
+                               kSecurityRTCFieldErrorItemsProcessed:@(errorItemsProcessed),
+                               kSecurityRTCFieldSuccessfulItemsProcessed:@(successfulItemsProcessed)}];
+        if (self.error) {
+            [eventS sendMetricWithResult:NO error:self.error];
+        } else {
+            [eventS sendMetricWithResult:YES error:nil];
+        }
+    }];
+    [self dependOnBeforeGroupFinished:self.finishedOp];
+
     for(CKKSKeychainViewState* viewState in self.deps.activeManagedViews) {
         if (self.deps.syncingPolicy.isInheritedAccount || ![self.deps.syncingPolicy isSyncingEnabledForView:viewState.zoneID.zoneName]) {
             ckksnotice("ckksoutgoing", viewState, "Item syncing for this view is disabled");
             continue;
         }
-
-        AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithCKKSMetrics:@{}
-                                                                                           altDSID:self.deps.activeAccount.altDSID
-                                                                                         eventName:kSecurityRTCEventNameProcessOutgoingQueue
-                                                                                   testsAreEnabled:SecCKKSTestsEnabled()
-                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery
-                                                                                        sendMetric:self.deps.sendMetric];
 
         // Each zone should get its own transaction, in case errors cause us to roll back queue modifications after marking entries as in-flight
         [databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
@@ -173,12 +195,11 @@
             if(!queueEntries || error) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Error fetching outgoing queue records: %@", error);
                 self.error = error;
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
                 return CKKSDatabaseTransactionRollback;
             }
 
             bool fullUpload = queueEntries.count >= SecCKKSOutgoingQueueItemsAtOnce;
-            [eventS addMetrics:@{kSecurityRTCFieldNumKeychainItems:@(queueEntries.count), kSecurityRTCFieldIsFullUpload:@(fullUpload)}];
+            [eventS addMetrics:@{kSecurityRTCFieldIsFullUpload:@(fullUpload)}];
 
             [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventOutgoingQueue zone:viewState.zoneID.zoneName count:[queueEntries count]];
 
@@ -203,8 +224,6 @@
             if(error != nil) {
                 ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't load current class keys: %@", error);
                 self.error = error;
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
-
                 return CKKSDatabaseTransactionRollback;
             }
 
@@ -330,9 +349,6 @@
                     self.deps.currentOutgoingQueueOperationGroup = nil;
                 }
 
-                [eventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@0, kSecurityRTCFieldItemsToDelete:@0, kSecurityRTCFieldItemsToModify:@0, kSecurityRTCFieldErrorItemsProcessed:@0, kSecurityRTCFieldSuccessfulItemsProcessed:@0}];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
-
                 self.nextState = self.intendedState;
                 return true;
             }
@@ -397,8 +413,6 @@
                 ckksinfo("ckksoutgoing", recordID.zoneID, "Record to delete: %@", recordID);
             }
 
-            __block int successfulItemsProcessed = 0;
-            __block int errorItemsProcessed = 0;
             modifyRecordsOperation.perRecordSaveBlock = ^(CKRecordID *recordID, CKRecord * _Nullable record, NSError * _Nullable error) {
                 if(!error) {
                     successfulItemsProcessed++;
@@ -424,19 +438,22 @@
                 [uploadOQEsEventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@(recordsToSave.count),
                                                kSecurityRTCFieldItemsToDelete:@(recordIDsToDelete.count),
                                                kSecurityRTCFieldItemsToModify:@(recordIDsModified.count)}];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadOQEsEventS success:ckerror ? NO : YES error:ckerror];
+                [uploadOQEsEventS sendMetricWithResult:ckerror ? NO : YES error:ckerror];
 
 
-                [eventS addMetrics:@{kSecurityRTCFieldItemsToAdd:@(recordsToSave.count), kSecurityRTCFieldItemsToDelete:@(recordIDsToDelete.count), kSecurityRTCFieldItemsToModify:@(recordIDsModified.count), kSecurityRTCFieldErrorItemsProcessed:@(errorItemsProcessed), kSecurityRTCFieldSuccessfulItemsProcessed:@(successfulItemsProcessed)}];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:ckerror ? NO : YES error:ckerror];
+                attemptedAdditions += recordsToSave.count;
+                attemptedDeletions += recordIDsToDelete.count;
+                attemptedModificiations += recordIDsModified.count;
             };
+            [self.finishedOp addDependency:modifyRecordsOperation];
             [self dependOnBeforeGroupFinished:modifyRecordsOperation];
             [self.deps.ckdatabase addOperation:modifyRecordsOperation];
 
             return CKKSDatabaseTransactionCommit;
         }];
-        
     }
+
+    [self runBeforeGroupFinished:self.finishedOp];
 }
 
 - (void)modifyRecordsCompleted:(CKKSKeychainViewState*)viewState
@@ -641,7 +658,7 @@
             [plstats deletedOQE:oqe];
         }
         
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:saveCKMirrorEntriesEventS success:self.error ? NO : YES error:self.error];
+        [saveCKMirrorEntriesEventS sendMetricWithResult:self.error ? NO : YES error:self.error];
         [plstats commit];
 
         [self.deps.overallLaunch addEvent:@"process-outgoing-queue-complete"];
@@ -694,7 +711,6 @@
                           viewState:(CKKSKeychainViewState*)viewState
 {
     NSError* error = nil;
-    uint64_t count = 0;
 
     // At this stage, cloudkit doesn't give us record types
     if([recordID.recordName isEqualToString:SecCKKSKeyClassA] ||
@@ -715,7 +731,6 @@
             ckkserror("ckksoutgoing", viewState.zoneID, "Couldn't set OQE %@ as error: %@", recordID.recordName, error);
             self.error = error;
         }
-        count ++;
     }
 }
 

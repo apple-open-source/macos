@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, 2018, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2018, 2019, 2020, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -151,6 +151,7 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 	3. application has active VPN configurations installed.
 	4. application has active NEDNSSettingsManager configurations installed.
 
+	- An application will receive NULL if it is linked against iOS 19.0 SDK (or newer) regardless of fulfillment of the above requirements.
 	- An application that is linked against iOS 12.0 SDK and above must have the "com.apple.developer.networking.wifi-info" entitlement.
 	- An application will receive a pseudo network information if it is linked against an SDK before iOS 13.0, and if it fails to meet any of the
 	  above requirements.
@@ -178,7 +179,7 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 CFDictionaryRef __nullable
 CNCopyCurrentNetworkInfo	(CFStringRef	interfaceName)
 API_DEPRECATED_WITH_REPLACEMENT("[NEHotspotNetwork fetchCurrentWithCompletionHandler:]", ios(4.1, API_TO_BE_DEPRECATED), macCatalyst(14.0, API_TO_BE_DEPRECATED))
-SPI_AVAILABLE(macos(10.6), tvos(9.0), watchos(1.0), bridgeos(1.0));
+SPI_AVAILABLE(macos(10.6), tvos(9.0), watchos(1.0), bridgeos(1.0), visionos(3.0));
 
 __END_DECLS
 

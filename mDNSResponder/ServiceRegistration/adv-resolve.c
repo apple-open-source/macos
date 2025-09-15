@@ -26,6 +26,7 @@
 
 #include "srp.h"
 #include "advertising_proxy_services.h"
+#include "srp-strict.h"
 
 #undef ERROR
 #define ERROR(fmt, ...) os_log_error(adv_log, "%{public}s: " # fmt, __FUNCTION__, ##__VA_ARGS__)
@@ -87,7 +88,7 @@ struct adv_service_state {
 static void
 adv_service_state_finalize(adv_service_state_t *state)
 {
-    free(state->service_type);
+    srp_strict_free(&state->service_type);
     if (state->null_browse_ref != NULL) {
         FAULT("state->null_browse_ref is non-null: %p", state->null_browse_ref);
         DNSServiceRefDeallocate(state->null_browse_ref);
@@ -107,7 +108,7 @@ adv_service_state_finalize(adv_service_state_t *state)
             RELEASE_HERE(state->subscribers[i], advertising_proxy_subscription);
         }
     }
-    free(state->subscribers);
+    srp_strict_free(&state->subscribers);
 }
 
 static void
@@ -141,9 +142,9 @@ struct adv_instance_state {
 static void
 adv_instance_state_finalize(adv_instance_state_t *state)
 {
-    free(state->name);
-    free(state->service_type);
-    free(state->domain);
+    srp_strict_free(&state->name);
+    srp_strict_free(&state->service_type);
+    srp_strict_free(&state->domain);
     if (state->resolve_ref != NULL) {
         FAULT("state->resolve_ref is non-null: %p", state->resolve_ref);
         DNSServiceRefDeallocate(state->resolve_ref); // shouldn't be possible
@@ -153,7 +154,7 @@ adv_instance_state_finalize(adv_instance_state_t *state)
             RELEASE_HERE(state->subscribers[i], advertising_proxy_subscription);
         }
     }
-    free(state->subscribers);
+    srp_strict_free(&state->subscribers);
     if (state->nsn != NULL) {
         FAULT("state->nsn is not NULL (%p)", state->nsn);
     }
@@ -189,13 +190,13 @@ advertising_proxy_resolver_init(os_log_t log_thingy)
 static adv_service_state_t *
 adv_service_state_create(const char *regtype)
 {
-    adv_service_state_t *state = calloc(1, sizeof(*state));
+    adv_service_state_t *state = srp_strict_calloc(1, sizeof(*state));
     if (state == NULL) {
         ERROR("no memory for service state %{public}s", regtype);
         goto out;
     }
     RETAIN_HERE(state, adv_service_state);
-    state->service_type = strdup(regtype);
+    state->service_type = srp_strict_strdup(regtype);
     if (state->service_type == NULL) {
         RELEASE_HERE(state, adv_service_state);
         state = NULL;
@@ -208,23 +209,23 @@ out:
 static adv_instance_state_t *
 adv_instance_state_create(const char *name, const char *regtype, const char *domain)
 {
-    adv_instance_state_t *ret = NULL, *state = calloc(1, sizeof(*state));
+    adv_instance_state_t *ret = NULL, *state = srp_strict_calloc(1, sizeof(*state));
     if (state == NULL) {
         ERROR("no memory for state %{private}s . %{public}s", name, regtype);
     } else {
         RETAIN_HERE(state, adv_instance_state);
-        state->name = strdup(name);
+        state->name = srp_strict_strdup(name);
         if (state->name == NULL) {
             ERROR("no memory for name %{private}s . %{public}s", name, regtype);
             goto out;
         }
-        state->service_type = strdup(regtype);
+        state->service_type = srp_strict_strdup(regtype);
         if (state->service_type == NULL) {
             ERROR("no memory for service type %{private}s . %{public}s", name, regtype);
             goto out;
         }
         if (domain != NULL) {
-            state->domain = strdup(domain);
+            state->domain = srp_strict_strdup(domain);
             if (state->domain == NULL) {
                 ERROR("no memory for domain %{private}s . %{public}s", name, domain);
                 goto out;
@@ -243,7 +244,7 @@ out:
 static advertising_proxy_subscription_t *
 advertising_proxy_subscription_create(void)
 {
-    advertising_proxy_subscription_t *subscription = calloc(1, sizeof(*subscription));
+    advertising_proxy_subscription_t *subscription = srp_strict_calloc(1, sizeof(*subscription));
     if (subscription == NULL) {
         goto out;
     }
@@ -377,14 +378,14 @@ adv_subscriber_add(size_t *num_subscribers, advertising_proxy_subscription_t ***
         }
     }
     size_t new_max = subscribers == NULL ? INITIAL_MAX_SUBSCRIBERS : max_subscribers * 2;
-    advertising_proxy_subscription_t **new_subscribers = calloc(new_max, sizeof(*subscribers));
+    advertising_proxy_subscription_t **new_subscribers = srp_strict_calloc(new_max, sizeof(*subscribers));
     if (new_subscribers == NULL) {
         ERROR("no memory for %zu subscribers", new_max);
         return;
     }
     if (*p_subscribers != NULL) {
         memcpy(new_subscribers, subscribers, max_subscribers * sizeof(*subscribers));
-        free(*p_subscribers);
+        srp_strict_free(p_subscribers);
     }
     *p_subscribers = new_subscribers;
     new_subscribers[max_subscribers] = subscriber;

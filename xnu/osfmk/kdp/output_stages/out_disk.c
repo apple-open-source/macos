@@ -209,11 +209,13 @@ disk_stage_read(struct kdp_output_stage *stage, uint64_t offset, uint64_t length
 	return err;
 }
 
-static void
-disk_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+disk_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -316,7 +318,7 @@ disk_stage_initialize(struct kdp_output_stage *stage)
 
 	stage->kos_data_size = sizeof(struct disk_stage_data);
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		return ret;
 	}

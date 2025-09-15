@@ -41,6 +41,7 @@
 
 extern uint32_t dyld_pager_count;
 extern uint32_t dyld_pager_count_max;
+extern const struct memory_object_pager_ops dyld_pager_ops;
 
 /*
  * VM call to implement map_with_linking_np() system call.

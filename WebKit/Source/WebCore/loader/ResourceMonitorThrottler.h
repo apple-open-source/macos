@@ -25,7 +25,8 @@
 
 #pragma once
 
-#include <wtf/ApproximateTime.h>
+#include <wtf/CompletionHandler.h>
+#include <wtf/ContinuousApproximateTime.h>
 #include <wtf/HashMap.h>
 #include <wtf/PriorityQueue.h>
 #include <wtf/Vector.h>
@@ -33,15 +34,26 @@
 
 namespace WebCore {
 
+class ResourceMonitorPersistence;
+
 class ResourceMonitorThrottler final {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT ResourceMonitorThrottler();
-    WEBCORE_EXPORT ResourceMonitorThrottler(size_t count, Seconds duration, size_t maxHosts);
+    ResourceMonitorThrottler(String&& databaseDirectoryPath, size_t count, Seconds duration, size_t maxHosts);
+    ~ResourceMonitorThrottler();
 
-    WEBCORE_EXPORT bool tryAccess(const String& host, ApproximateTime = ApproximateTime::now());
+    void openDatabase(String&& path);
+    void closeDatabase();
+    void recordAccess(const String& host, ContinuousApproximateTime);
 
-    WEBCORE_EXPORT void setCountPerDuration(size_t, Seconds);
+    bool tryAccess(const String& host, ContinuousApproximateTime);
+    void clearAllData();
+
+    void setCountPerDuration(size_t count, Seconds duration);
+
+    static constexpr size_t defaultThrottleAccessCount = 5;
+    static constexpr Seconds defaultThrottleDuration = 24_h;
+    static constexpr size_t defaultMaxHosts = 100;
 
 private:
     struct Config {
@@ -51,27 +63,30 @@ private:
     };
 
     class AccessThrottler final {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         AccessThrottler() = default;
 
-        bool tryAccessAndUpdateHistory(ApproximateTime, const Config&);
-        bool tryExpire(ApproximateTime, const Config&);
-        ApproximateTime oldestAccessTime() const;
-        ApproximateTime newestAccessTime() const { return m_newestAccessTime; }
+        bool tryAccessAndUpdateHistory(ContinuousApproximateTime, const Config&);
+        bool tryExpire(ContinuousApproximateTime, const Config&);
+        ContinuousApproximateTime oldestAccessTime() const;
+        ContinuousApproximateTime newestAccessTime() const { return m_newestAccessTime; }
 
     private:
-        void removeExpired(ApproximateTime);
+        void removeExpired(ContinuousApproximateTime);
 
-        PriorityQueue<ApproximateTime> m_accessTimes;
-        ApproximateTime m_newestAccessTime { -ApproximateTime::infinity() };
+        PriorityQueue<ContinuousApproximateTime> m_accessTimes;
+        ContinuousApproximateTime m_newestAccessTime { -ContinuousApproximateTime::infinity() };
     };
 
     AccessThrottler& throttlerForHost(const String& host);
     void removeExpiredThrottler();
     void removeOldestThrottler();
+    void maintainHosts(ContinuousApproximateTime);
 
     Config m_config;
     HashMap<String, AccessThrottler> m_throttlersByHost;
+    std::unique_ptr<ResourceMonitorPersistence> m_persistence;
 };
 
 }

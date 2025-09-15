@@ -400,6 +400,15 @@ enum name_basis {
 typedef int platform_open(const struct sess *, const struct flist *, int);
 typedef int platform_flist_sent(struct sess *, int, const struct flist *);
 
+struct	froot {
+	char		*rootpath;
+	int		 refcount;
+	int		 rootfd;	/* root dirfd */
+};
+
+struct froot *froot_acquire(struct froot *);
+void froot_release(struct froot *);
+
 struct	flist {
 	char		*path; /* path relative to root */
 	int		 pdfd; /* dirfd for partial */
@@ -407,13 +416,21 @@ struct	flist {
 	struct flstat	 st; /* file information */
 	char		*link; /* symlink target, hlink name, or NULL */
 	unsigned char    md[MD4_DIGEST_LENGTH]; /* MD4 hash for --checksum */
-	int		 flstate; /* flagged for redo, or complete? */
 	int32_t		 iflags; /* Itemize flags */
 	enum name_basis	 basis; /* name basis */
-	int		 sendidx; /* Sender index */
-	platform_open	*open; /* special open() for this entry */
-	platform_flist_sent	*sent; /* notify the platform an entry was sent */
-	struct fldstat	 dstat; /* original destination file information */
+	enum fmode	 fmode; /* Sender/receiver */
+	union {
+		struct {
+			struct froot	*froot;
+			platform_open	*open; /* special open() for this entry */
+			platform_flist_sent	*sent; /* notify the platform an entry was sent */
+		};	/* Sender state, not available in the receiver */
+		struct {
+			struct fldstat	 dstat; /* original destination file information */
+			int	 flstate; /* flagged for redo, or complete? */
+			int	 sendidx; /* Sender index */
+		};	/* Receiver state, not available in the sender */
+	};
 };
 
 /*
@@ -439,8 +456,9 @@ struct fl {
 	struct flist *flp;
 	size_t sz;   /* Actual entries */
 	size_t max;  /* Allocated size */
+	struct sess *sess;	/* Associated session */
 };
-void fl_init(struct fl *);
+void fl_init(struct sess *, struct fl *);
 long fl_new_index(struct fl *); /* Returns index of new element */
 struct flist *fl_new(struct fl *); /* Returns pointer to new element */
 struct flist *fl_atindex(struct fl *, size_t idx);
@@ -931,6 +949,7 @@ int	 cfg_param_str(struct daemon_cfg *, const char *, const char *,
 	    const char **);
 int	 cfg_has_param(struct daemon_cfg *, const char *, const char *);
 
+void	fl_init(struct sess *, struct fl *);
 int	flist_dir_cmp(const void *, const void *);
 int	flist_fts_check(struct sess *, FTSENT *, enum fmode);
 int	flist_del(struct sess *, int, const struct flist *, size_t);
@@ -1027,6 +1046,8 @@ int	io_read_ulong(struct sess *, int, uint64_t *);
 int	io_read_vstring(struct sess *, int, char **);
 int	io_write_buf_tagged(struct sess *, int, const void *, size_t,
 	    enum iotag);
+int	io_write_buf_tagged_safe(struct sess *, int, const void *, size_t,
+	    enum iotag);
 int	io_write_buf(struct sess *, int, const void *, size_t);
 int	io_write_byte(struct sess *, int, uint8_t);
 int	io_write_int_tagged(struct sess *, int, int32_t, enum iotag);
@@ -1043,6 +1064,8 @@ int	io_write_blocking(int fd, const void *buf, size_t sz);
 int	io_data_written(struct sess *, int, const void *, size_t);
 
 int	io_lowbuffer_alloc(struct sess *, void **, size_t *, size_t *, size_t);
+int	io_lowbuffer_alloc_safe(struct sess *, void **, size_t *, size_t *,
+	    size_t);
 void	io_lowbuffer_int(struct sess *, void *, size_t *, size_t, int32_t);
 void	io_lowbuffer_short(struct sess *, void *, size_t *, size_t, int32_t);
 void	io_lowbuffer_buf(struct sess *, void *, size_t *, size_t, const void *,

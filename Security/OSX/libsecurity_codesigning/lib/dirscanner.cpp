@@ -89,7 +89,14 @@ bool DirScanner::initialized()
 	
 void DirScanner::unlink(const struct dirent* ent, int flags)
 {
-	UnixError::check(::unlinkat(dirfd(this->dp), ent->d_name, flags));
+	if (this->dp == NULL) {
+		UnixError::check(-1);
+	}
+	int fd = dirfd(this->dp);
+	if (fd == -1) {
+		UnixError::throwMe();
+	}
+	UnixError::check(::unlinkat(fd, ent->d_name, flags));
 }
 
 bool DirScanner::isRegularFile(dirent* dp)

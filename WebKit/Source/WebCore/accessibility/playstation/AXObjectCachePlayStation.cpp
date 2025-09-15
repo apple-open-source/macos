@@ -86,7 +86,7 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNoti
         || object.document()->childNeedsStyleRecalc())
         return;
 
-    RefPtr protectedObject = &object;
+    RefPtr protectedObject = object;
     switch (notification) {
     case AXNotification::SelectedChildrenChanged:
         protectedObject = downcast<AccessibilityObject>(notifyChildrenSelectionChange(protectedObject.get()));

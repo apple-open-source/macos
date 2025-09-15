@@ -42,7 +42,8 @@ enum {
     dhcptype_ip_mult_e  	 = 11,
     dhcptype_ip_pairs_e 	 = 12,
     dhcptype_dns_namelist_e	 = 13,
-    dhcptype_classless_route_e	 = 14,
+    dhcptype_dns_dnr_data_e	 = 14,
+    dhcptype_classless_route_e	 = 15,
     dhcptype_last_e     	 = dhcptype_classless_route_e,
 };
 

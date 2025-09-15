@@ -9,6 +9,7 @@
 #include <poll.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <libproc.h>
 
 T_GLOBAL_META(T_META_NAMESPACE("xnu.poll"),
     T_META_RUN_CONCURRENTLY(true));
@@ -143,6 +144,10 @@ leak_thread(void *ptr)
 		memset(buffer, 0, 16392 * 8);
 
 		// Dump the kevent udatas for self
+		// PT: Note that this is exposed by libproc but isn't declared in the header,
+		// hence the forward declaration here. It seems fine to expose this in the header,
+		// but I'm unsure of the implications.
+		int proc_list_uptrs(int pid, uint64_t *buf, uint32_t bufsz);
 		int ret = proc_list_uptrs(getpid(), buffer, 16392 * 8);
 
 		if (ret > 0) {

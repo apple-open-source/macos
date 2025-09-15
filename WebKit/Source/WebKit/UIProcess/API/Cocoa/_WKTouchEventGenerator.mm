@@ -30,6 +30,7 @@
 
 #import "UIKitSPI.h"
 #import <mach/mach_time.h>
+#import <numbers>
 #import <pal/spi/cocoa/IOKitSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/IndexedRange.h>
@@ -73,7 +74,7 @@ static CFTimeInterval secondsSinceAbsoluteTime(CFAbsoluteTime startTime)
 
 static double simpleCurveInterpolation(double a, double b, double t)
 {
-    return a + (b - a) * sin(sin(t * M_PI / 2) * t * M_PI / 2);
+    return a + (b - a) * sin(sin(t * std::numbers::pi / 2) * t * std::numbers::pi / 2);
 }
 
 static CGPoint calculateNextCurveLocation(CGPoint a, CGPoint b, CFTimeInterval t)
@@ -207,7 +208,7 @@ static void delayBetweenMove(int eventIndex, double elapsed)
         auto contextId = window._contextId;
         ASSERT(contextId);
 
-        RunLoop::main().dispatch([strongEvent = retainPtr(eventRef), contextId] {
+        RunLoop::mainSingleton().dispatch([strongEvent = retainPtr(eventRef), contextId] {
             BKSHIDEventSetDigitizerInfo(strongEvent.get(), contextId, false, false, NULL, 0, 0);
             [[UIApplication sharedApplication] _enqueueHIDEvent:strongEvent.get()];
         });
@@ -233,7 +234,7 @@ static void delayBetweenMove(int eventIndex, double elapsed)
         auto contextId = window._contextId;
         ASSERT(contextId);
 
-        RunLoop::main().dispatch([markerEvent = WTFMove(markerEvent), contextId] {
+        RunLoop::mainSingleton().dispatch([markerEvent = WTFMove(markerEvent), contextId] {
             BKSHIDEventSetDigitizerInfo(markerEvent.get(), contextId, false, false, NULL, 0, 0);
             [[UIApplication sharedApplication] _enqueueHIDEvent:markerEvent.get()];
         });
@@ -283,7 +284,7 @@ static void delayBetweenMove(int eventIndex, double elapsed)
 - (void)touchDown:(CGPoint)location touchCount:(NSUInteger)touchCount window:(UIWindow *)window
 {
     Vector<CGPoint, HIDMaxTouchCount> locations(std::min(touchCount, HIDMaxTouchCount), location);
-    [self touchDownAtPoints:locations.data() touchCount:locations.size() window:window];
+    [self touchDownAtPoints:locations.mutableSpan().data() touchCount:locations.size() window:window];
 }
 
 - (void)liftUpAtPoints:(CGPoint*)rawLocations touchCount:(NSUInteger)touchCount window:(UIWindow *)window
@@ -306,7 +307,7 @@ static void delayBetweenMove(int eventIndex, double elapsed)
 - (void)liftUp:(CGPoint)location touchCount:(NSUInteger)touchCount window:(UIWindow *)window
 {
     Vector<CGPoint, HIDMaxTouchCount> locations(std::min(touchCount, HIDMaxTouchCount), location);
-    [self liftUpAtPoints:locations.data() touchCount:locations.size() window:window];
+    [self liftUpAtPoints:locations.mutableSpan().data() touchCount:locations.size() window:window];
 }
 
 - (void)moveToPoints:(CGPoint*)rawNewLocations touchCount:(NSUInteger)touchCount duration:(NSTimeInterval)seconds window:(UIWindow *)window

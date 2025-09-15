@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -130,8 +130,8 @@ public:
     void unregisterGroup(EventLoopTaskGroup&);
     void stopAssociatedGroupsIfNecessary();
 
-    void forEachAssociatedContext(const Function<void(ScriptExecutionContext&)>&);
-    bool findMatchingAssociatedContext(const Function<bool(ScriptExecutionContext&)>&);
+    void forEachAssociatedContext(NOESCAPE const Function<void(ScriptExecutionContext&)>&);
+    bool findMatchingAssociatedContext(NOESCAPE const Function<bool(ScriptExecutionContext&)>&);
     void addAssociatedContext(ScriptExecutionContext&);
     void removeAssociatedContext(ScriptExecutionContext&);
 
@@ -190,7 +190,7 @@ public:
     {
         ASSERT(isReadyToStop());
         m_state = State::Stopped;
-        if (auto* eventLoop = m_eventLoop.get())
+        if (RefPtr eventLoop = m_eventLoop.get())
             eventLoop->stopGroup(*this);
     }
 
@@ -231,7 +231,7 @@ public:
     void didAddTimer(EventLoopTimer&);
     void didRemoveTimer(EventLoopTimer&);
 
-    Ref<JSC::MicrotaskDispatcher> jsMicrotaskDispatcher() const;
+    JSC::MicrotaskDispatcher& jsMicrotaskDispatcher() const { return m_jsMicrotaskDispatcher; }
 
 private:
     enum class State : uint8_t { Running, Suspended, ReadyToStop, Stopped };
@@ -240,7 +240,7 @@ private:
 
     WeakPtr<EventLoop> m_eventLoop;
     WeakHashSet<EventLoopTimer> m_timers;
-    Ref<JSC::MicrotaskDispatcher> m_jsMicrotaskDispatcher;
+    const Ref<JSC::MicrotaskDispatcher> m_jsMicrotaskDispatcher;
     State m_state { State::Running };
 };
 

@@ -113,6 +113,7 @@ typedef NS_ENUM(uint8_t, iterateClustersResult) {
                                                             uint32_t numOfContigClusters))reply;
 
 -(void)setDirtyBitValue:(dirtyBitValue)newValue
+       forceWriteToDisk:(bool)forceWriteToDisk
            replyHandler:(void (^)(NSError * _Nullable error))reply;
 
 

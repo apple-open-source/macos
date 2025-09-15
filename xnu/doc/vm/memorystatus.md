@@ -35,13 +35,13 @@ The memorystatus code lives on the BSD side of xnu. It's comprised of the follow
 - `bsd/kern/kern_memorystatus_policy.c`
   Contains the policy decisions around when to perform which action.
 - `bsd/kern/kern_memorystatus_freeze.c`
-  Implementation of the freezer. See `doc/memorystatus/freezer.md` for details.
+  Implementation of the freezer. See `doc/vm/freezer.md` for details.
 - `bsd/kern/kern_memorystatus.c`
   Contains mechanical code to implement the kill and swap actions. Should not contain any policy
   (that should be in `bsd/kern/kern_memorystatus_policy.c`), but that's a recent refactor so
   is a bit of a WIP.
 - `bsd/kern/kern_memorystatus_notify.c`
-  Contains both the policy and mechanical bits to send out memory pressure notifications. See `doc/memorystatus/notify.md`
+  Contains both the policy and mechanical bits to send out memory pressure notifications. See `doc/vm/memorystatus_notify.md`
 
 And the following headers:
 - `bsd/kern/kern_memorystatus_internal.h`
@@ -55,7 +55,7 @@ And the following headers:
 The memorystatus subsystem is designed around a central health check.
 All of the fields in this health check are defined in the `memorystatus_system_health_t` struct. See `bsd/kern/kern_memorystatus_internal.h` for the struct definition. 
 
-Most of the monitoring and actions taken by the memorystatus subsystem happen in the `memorystatus_thread` (`bsd/kern/kern_memorystatus.c`). However, there are some synchronous actions that happen on other threads. See `doc/memorystatus/kill.md` for more documentation on specific kill types.
+Most of the monitoring and actions taken by the memorystatus subsystem happen in the `memorystatus_thread` (`bsd/kern/kern_memorystatus.c`). However, there are some synchronous actions that happen on other threads. See `doc/vm/memorystatus_kills.md` for more documentation on specific kill types.
 
 Whenever it's woken up the memorystatus thread does the following:
 1. Fill in the system health state by calling `memorystatus_health_check`)
@@ -75,7 +75,7 @@ The memorystatus subsystem has 210 priority levels. Every process in the system 
 Each priority level is tracked as a TAILQ linked list . There is one global array, `memstat_bucket`, containing all of these TAILQ lists.
 A process's priority is tracked in the proc structure (See `bsd/sys/proc_internal.h`). `p_memstat_effective_priority` stores the proc's current jetsam priority, and `p_memstat_list` stores the TAILQ linkage. All lists are protected by the `proc_list_mlock` (Yes this is bad for scalability. Ideally we'd use finer grain locking or at least not share the global lock with the scheduler. See [rdar://36390487](rdar://36390487)) .
 
-Many kill types kill in ascending jetsam priority level. See `doc/memorystatus/kill.md` for more details.
+Many kill types kill in ascending jetsam priority level. See `doc/vm/memorystatus_kills.md` for more details.
 The jetsam band is either asserted by [RunningBoard](https://stashweb.sd.apple.com/projects/COREOS/repos/runningboard/browse) (apps and runningboard managed daemons) or determined by the jetsam priority set in the [JetsamProperties](https://stashweb.sd.apple.com/projects/COREOS/repos/jetsamproperties/browse) database.
 
 For reference, here are some of the band numbers:
@@ -142,7 +142,7 @@ This section lists the threads that comprise the memorystatus subsystem. More de
 
 ### VM\_memorystatus\_1
 
-This is the jetsam thread. It's responsible for running the system health check and performing most jetsam kills (see `doc/memorystatus/kill.md` for a kill breakdown).
+This is the jetsam thread. It's responsible for running the system health check and performing most jetsam kills (see `doc/vm/memorystatus_kills.md` for a kill breakdown).
 
 It's woken up via a call to `memorystatus_thread_wake` whenever any subsystem determines we're running low on a monitored resource. The wakeup is blind and the thread will immediately do a health check to determine what's wrong with the system.
 
@@ -150,7 +150,7 @@ NB: There are technically three memorystatus threads: `VM_memorystatus_1`, `VM_m
 
 ### VM\_freezer
 
-This is the freezer thread. It's responsible for freezing processes under memory pressure and demoting processes when the freezer is full. See `doc/memorystatus/freeze.md` for more details on the freezer.
+This is the freezer thread. It's responsible for freezing processes under memory pressure and demoting processes when the freezer is full. See `doc/vm/freezer.md` for more details on the freezer.
 
 It's woken up by issuing a `thread_wakeup` call to the `memorystatus_freeze_wakeup` global. This is done in `memorystatus_pages_update` if `memorystatus_freeze_thread_should_run` returns true. It's also done whenever `memorystatus_on_inactivity` runs.
 

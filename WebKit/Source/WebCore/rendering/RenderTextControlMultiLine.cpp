@@ -98,12 +98,12 @@ LayoutUnit RenderTextControlMultiLine::computeControlLogicalHeight(LayoutUnit li
     return lineHeight * textAreaElement().rows() + nonContentHeight;
 }
 
-LayoutUnit RenderTextControlMultiLine::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderTextControlMultiLine::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
-    return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode);
+    return RenderBox::baselinePosition(firstLine, direction, linePositionMode);
 }
 
-void RenderTextControlMultiLine::layoutExcludedChildren(bool relayoutChildren)
+void RenderTextControlMultiLine::layoutExcludedChildren(RelayoutChildren relayoutChildren)
 {
     RenderTextControl::layoutExcludedChildren(relayoutChildren);
     HTMLElement* placeholder = textFormControlElement().placeholderElement();
@@ -111,7 +111,7 @@ void RenderTextControlMultiLine::layoutExcludedChildren(bool relayoutChildren)
     if (!placeholderRenderer)
         return;
     if (CheckedPtr placeholderBox = dynamicDowncast<RenderBox>(placeholderRenderer)) {
-        placeholderBox->mutableStyle().setLogicalWidth(Length(contentBoxLogicalWidth() - placeholderBox->borderAndPaddingLogicalWidth(), LengthType::Fixed));
+        placeholderBox->mutableStyle().setLogicalWidth(Style::PreferredSize::Fixed { contentBoxLogicalWidth() - placeholderBox->borderAndPaddingLogicalWidth() });
         placeholderBox->layoutIfNeeded();
         placeholderBox->setX(borderLeft() + paddingLeft());
         placeholderBox->setY(borderTop() + paddingTop());

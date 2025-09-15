@@ -70,6 +70,7 @@
 // both ways, we need a separate copy of our code when ARC is enabled.
 #if __has_feature(objc_arc)
 #define BlockPtr BlockPtrArc
+#define makeBlockPtr makeBlockPtrArc
 #endif
 
 namespace WTF {

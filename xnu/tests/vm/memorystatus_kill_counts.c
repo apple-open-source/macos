@@ -46,14 +46,18 @@ spawn_and_jetsam(int32_t band)
 	T_QUIET; T_ASSERT_POSIX_ZERO(error, "spawn child");
 	prop.priority = band;
 	prop.user_data = 0;
-	error = memorystatus_control(MEMORYSTATUS_CMD_SET_PRIORITY_PROPERTIES, child, 0, &prop, sizeof(prop));
-	T_QUIET; T_ASSERT_POSIX_ZERO(error, "set child properties");
+	error = memorystatus_control(MEMORYSTATUS_CMD_SET_PROCESS_IS_MANAGED, child, 1, NULL, 0);
+	T_QUIET; T_ASSERT_POSIX_ZERO(error, "set child managed");
+	error = memorystatus_control(MEMORYSTATUS_CMD_SET_PRIORITY_PROPERTIES, child, MEMORYSTATUS_SET_PRIORITY_ASSERTION, &prop, sizeof(prop));
+	T_QUIET; T_ASSERT_POSIX_ZERO(error, "set child priority");
 	error = memorystatus_control(MEMORYSTATUS_CMD_TEST_JETSAM, child, 0, NULL, 0);
 	T_QUIET; T_ASSERT_POSIX_ZERO(error, "jetsam child");
 }
 
 #define N_TEST_BANDS 5
-int32_t test_bands[N_TEST_BANDS] = {0, 30, 35, 40, 45};
+// Insert at head to skip idle aging
+int32_t test_bands[N_TEST_BANDS] = {JETSAM_PRIORITY_IDLE_HEAD, JETSAM_PRIORITY_BACKGROUND, 35, JETSAM_PRIORITY_MAIL, 45};
+int32_t expected_bands[N_TEST_BANDS] = {JETSAM_PRIORITY_IDLE, JETSAM_PRIORITY_BACKGROUND, 35, JETSAM_PRIORITY_MAIL, 45};
 int32_t proc_counts[N_TEST_BANDS] = {2, 3, 1, 2, 4};
 
 #define BUFFER_SIZE (sizeof(uint32_t) * (JETSAM_REASON_MEMORYSTATUS_MAX + 1))
@@ -76,8 +80,8 @@ T_DECL(memorystatus_kill_counts, "jetsam kill counts",
 	void (^get_all_kill_counts)(uint32_t**, int) = ^(uint32_t **buffers, int flags){
 		int i, error;
 		for (i = 0; i < N_TEST_BANDS; i++) {
-			error = get_kill_counts(buffers[i], BUFFER_SIZE, test_bands[i], flags);
-			T_ASSERT_POSIX_ZERO(error, "get kill counts (band %d)", test_bands[i]);
+			error = get_kill_counts(buffers[i], BUFFER_SIZE, expected_bands[i], flags);
+			T_ASSERT_POSIX_ZERO(error, "get kill counts (band %d)", expected_bands[i]);
 		}
 	};
 

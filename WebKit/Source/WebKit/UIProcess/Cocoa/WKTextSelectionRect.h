@@ -32,8 +32,16 @@
 #endif
 
 namespace WebCore {
+class FloatQuad;
 class SelectionGeometry;
 }
+
+@class WKTextSelectionRect;
+
+@protocol WKTextSelectionRectDelegate
+- (CGFloat)scaleFactorForSelectionRect:(WKTextSelectionRect *)rect;
+- (WebCore::FloatQuad)selectionRect:(WKTextSelectionRect *)rect convertQuadToSelectionContainer:(const WebCore::FloatQuad&)quad;
+@end
 
 #if PLATFORM(IOS_FAMILY)
 @interface WKTextSelectionRect : UITextSelectionRect
@@ -42,7 +50,7 @@ class SelectionGeometry;
 #endif
 
 - (instancetype)initWithCGRect:(CGRect)rect;
-- (instancetype)initWithSelectionGeometry:(const WebCore::SelectionGeometry&)selectionGeometry scaleFactor:(CGFloat)scaleFactor;
+- (instancetype)initWithSelectionGeometry:(const WebCore::SelectionGeometry&)selectionGeometry delegate:(id<WKTextSelectionRectDelegate>)delegate;
 
 @end
 

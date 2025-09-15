@@ -22,6 +22,7 @@
 #include "JSTestAsyncIterable.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAsyncIterator.h"
@@ -167,7 +168,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestAsyncIterableConstructor, (JSGlobalObject* lexica
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestAsyncIterablePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestAsyncIterable::getConstructor(vm, prototype->globalObject()));
 }
@@ -188,7 +189,7 @@ public:
     {
         if constexpr (mode == JSC::SubspaceAccess::Concurrently)
             return nullptr;
-        return WebCore::subspaceForImpl<TestAsyncIterableIterator, UseCustomHeapCellType::No>(vm,
+        return WebCore::subspaceForImpl<TestAsyncIterableIterator, UseCustomHeapCellType::No>(vm, "TestAsyncIterableIterator"_s,
             [] (auto& spaces) { return spaces.m_clientSubspaceForTestAsyncIterableIterator.get(); },
             [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestAsyncIterableIterator = std::forward<decltype(space)>(space); },
             [] (auto& spaces) { return spaces.m_subspaceForTestAsyncIterableIterator.get(); },
@@ -263,7 +264,7 @@ JSC_ANNOTATE_HOST_FUNCTION(TestAsyncIterableIteratorBaseOnPromiseFulfilled, Test
 JSC_ANNOTATE_HOST_FUNCTION(TestAsyncIterableIteratorBaseOnPromiseRejected, TestAsyncIterableIteratorBase::onPromiseRejected);
 JSC::GCClient::IsoSubspace* JSTestAsyncIterable::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestAsyncIterable, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestAsyncIterable, UseCustomHeapCellType::No>(vm, "JSTestAsyncIterable"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestAsyncIterable.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestAsyncIterable = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestAsyncIterable.get(); },
@@ -303,7 +304,9 @@ extern "C" { extern void (*const __identifier("??_7TestAsyncIterable@WebCore@@6B
 #else
 extern "C" { extern void* _ZTVN7WebCore17TestAsyncIterableE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestAsyncIterable>, void>> static inline void verifyVTable(TestAsyncIterable* ptr) {
+template<std::same_as<TestAsyncIterable> T>
+static inline void verifyVTable(TestAsyncIterable* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

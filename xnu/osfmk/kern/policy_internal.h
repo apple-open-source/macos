@@ -73,7 +73,7 @@ extern kern_return_t task_importance(task_t task, integer_t importance);
 #define TASK_POLICY_THREAD              0x8
 #define TASK_POLICY_COALITION           0x10
 
-/* flavors (also DBG_IMPORTANCE subclasses  0x20 - 0x40) */
+/* flavors (also DBG_IMPORTANCE subclasses  0x20 - 0x50) */
 
 /* internal or external, thread or task */
 #define TASK_POLICY_DARWIN_BG           IMP_TASK_POLICY_DARWIN_BG
@@ -97,6 +97,7 @@ extern kern_return_t task_importance(task_t task, integer_t importance);
 #define TASK_POLICY_WATCHERS_BG         IMP_TASK_POLICY_WATCHERS_BG
 #define TASK_POLICY_SFI_MANAGED         IMP_TASK_POLICY_SFI_MANAGED
 #define TASK_POLICY_ALL_SOCKETS_BG      IMP_TASK_POLICY_ALL_SOCKETS_BG
+#define TASK_POLICY_RUNAWAY_MITIGATION  IMP_TASK_POLICY_RUNAWAY_MITIGATION
 
 #define TASK_POLICY_BASE_LATENCY_AND_THROUGHPUT_QOS IMP_TASK_POLICY_BASE_LATENCY_AND_THROUGHPUT_QOS /* latency as value1, throughput as value2 */
 #define TASK_POLICY_OVERRIDE_LATENCY_AND_THROUGHPUT_QOS  IMP_TASK_POLICY_OVERRIDE_LATENCY_AND_THROUGHPUT_QOS /* latency as value1, throughput as value2 */
@@ -114,7 +115,7 @@ extern kern_return_t task_importance(task_t task, integer_t importance);
 #define TASK_POLICY_IOTIER_KEVENT_OVERRIDE IMP_TASK_POLICY_IOTIER_KEVENT_OVERRIDE
 #define TASK_POLICY_WI_DRIVEN           IMP_TASK_POLICY_WI_DRIVEN
 
-#define TASK_POLICY_MAX                 0x41
+#define TASK_POLICY_MAX                 0x42
 
 /* The main entrance to task policy is this function */
 extern void proc_set_task_policy(task_t task, int category, int flavor, int value);
@@ -168,7 +169,6 @@ _Static_assert(IOSCHED_METADATA_EXPEDITED_TIER < IOSCHED_METADATA_TIER,
 #endif /* CONFIG_IOSCHED */
 
 extern int proc_get_darwinbgstate(task_t task, uint32_t *flagsp);
-extern int task_get_apptype(task_t);
 
 #ifdef MACH_BSD
 extern void proc_apply_task_networkbg(int pid, thread_t thread);
@@ -217,9 +217,6 @@ extern int task_importance_drop_file_lock_assertion(task_t target_task, uint32_t
 extern int task_importance_hold_legacy_external_assertion(task_t target_task, uint32_t count);
 extern int task_importance_drop_legacy_external_assertion(task_t target_task, uint32_t count);
 #endif /* IMPORTANCE_INHERITANCE */
-
-/* Functions used by process_policy.c */
-extern boolean_t proc_task_is_tal(task_t task);
 
 /* Arguments to proc_set_task_ruse_cpu */
 #define TASK_POLICY_RESOURCE_ATTRIBUTE_NONE             0x00
@@ -275,7 +272,7 @@ extern void thread_drop_kevent_override(thread_t thread);
 /* for ipc_pset.c */
 extern thread_qos_t thread_get_requested_qos(thread_t thread, int *relpri);
 
-extern boolean_t task_is_app(task_t task);
+extern bool task_is_app(task_t task);
 
 extern const struct thread_requested_policy default_thread_requested_policy;
 /*

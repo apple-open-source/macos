@@ -150,6 +150,7 @@ sv{
         crs{"seychellisk kreol"}
         cs{"tjeckiska"}
         csb{"kasjubiska"}
+        cst{"chochenyo"}
         csw{"träskcree"}
         cu{"kyrkslaviska"}
         cv{"tjuvasjiska"}
@@ -254,6 +255,7 @@ sv{
         hak{"hakka"}
         haw{"hawaiiska"}
         hax{"sydhaida"}
+        hch{"wixárika"}
         he{"hebreiska"}
         hi{"hindi"}
         hi_Latn{"hindi (latinsk)"}
@@ -284,6 +286,7 @@ sv{
         inh{"ingusjiska"}
         io{"ido"}
         is{"isländska"}
+        isc{"iskonawa"}
         it{"italienska"}
         iu{"inuktitut"}
         izh{"ingriska"}
@@ -554,6 +557,7 @@ sv{
         sh{"serbokroatiska"}
         shi{"tachelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"Tchad-arabiska"}
         si{"singalesiska"}
         sid{"sidamo"}
@@ -909,6 +913,7 @@ sv{
     }
     Types{
         calendar{
+            bangla{"bengalisk kalender"}
             buddhist{"buddistisk kalender"}
             chinese{"kinesisk kalender"}
             coptic{"koptisk kalender"}
@@ -916,6 +921,7 @@ sv{
             ethiopic{"etiopisk kalender"}
             ethiopic-amete-alem{"etiopisk amete-alem-kalender"}
             gregorian{"gregoriansk kalender"}
+            gujarati{"gujaratisk kalender"}
             hebrew{"hebreisk kalender"}
             indian{"indisk kalender"}
             islamic{"hijrakalender"}
@@ -925,8 +931,16 @@ sv{
             islamic-umalqura{"hijrakalender, Umm Al-Qura"}
             iso8601{"ISO 8601-kalender"}
             japanese{"japansk kalender"}
+            kannada{"kanaresisk kalender"}
+            malayalam{"malayalamkalender"}
+            marathi{"marathisk kalender"}
+            odia{"oriya-kalender"}
             persian{"persisk kalender"}
             roc{"kinesiska republikens kalender"}
+            tamil{"tamilsk kalender"}
+            telugu{"telugukalender"}
+            vietnamese{"vietnamesisk kalender"}
+            vikram{"vikramkalender"}
         }
         cf{
             account{"redovisningsformat"}

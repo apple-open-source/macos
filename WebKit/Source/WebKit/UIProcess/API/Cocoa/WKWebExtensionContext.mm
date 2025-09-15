@@ -115,7 +115,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionContext, WebExtensionContext
 
 - (NSURL *)baseURL
 {
-    return Ref { *_webExtensionContext }->baseURL();
+    return Ref { *_webExtensionContext }->baseURL().createNSURL().autorelease();
 }
 
 - (void)setBaseURL:(NSURL *)baseURL
@@ -131,7 +131,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionContext, WebExtensionContext
 
 - (NSString *)uniqueIdentifier
 {
-    return Ref { *_webExtensionContext }->uniqueIdentifier();
+    return Ref { *_webExtensionContext }->uniqueIdentifier().createNSString().autorelease();
 }
 
 - (void)setUniqueIdentifier:(NSString *)uniqueIdentifier
@@ -180,12 +180,12 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionContext, WebExtensionContext
 
 - (NSURL *)optionsPageURL
 {
-    return Ref { *_webExtensionContext }->optionsPageURL();
+    return Ref { *_webExtensionContext }->optionsPageURL().createNSURL().autorelease();
 }
 
 - (NSURL *)overrideNewTabPageURL
 {
-    return Ref { *_webExtensionContext }->overrideNewTabPageURL();
+    return Ref { *_webExtensionContext }->overrideNewTabPageURL().createNSURL().autorelease();
 }
 
 static inline WallTime toImpl(NSDate *date)
@@ -199,7 +199,7 @@ static inline NSDictionary<WKWebExtensionPermission, NSDate *> *toAPI(const WebK
     NSMutableDictionary<WKWebExtensionPermission, NSDate *> *result = [NSMutableDictionary dictionaryWithCapacity:permissions.size()];
 
     for (auto& entry : permissions)
-        [result setObject:WebKit::toAPI(entry.value) forKey:entry.key];
+        [result setObject:WebKit::toAPI(entry.value) forKey:entry.key.createNSString().get()];
 
     return [result copy];
 }
@@ -318,7 +318,7 @@ static inline NSSet<WKWebExtensionPermission> *toAPI(const WebKit::WebExtensionC
     NSMutableSet<WKWebExtensionPermission> *result = [NSMutableSet setWithCapacity:permissions.size()];
 
     for (auto& permission : permissions)
-        [result addObject:permission];
+        [result addObject:permission.createNSString().get()];
 
     return [result copy];
 }
@@ -568,6 +568,11 @@ static inline WebKit::WebExtensionContext::PermissionState toImpl(WKWebExtension
     NSParameterAssert([command isKindOfClass:WKWebExtensionCommand.class]);
 
     Ref { *_webExtensionContext }->performCommand([command _protectedWebExtensionCommand].get(), WebKit::WebExtensionContext::UserTriggered::Yes);
+}
+
+- (void)_resetCommands
+{
+    Ref { *_webExtensionContext }->resetCommands();
 }
 
 #if TARGET_OS_IPHONE
@@ -836,7 +841,7 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
 
 - (NSURL *)_backgroundContentURL
 {
-    return self._protectedWebExtensionContext->backgroundContentURL();
+    return self._protectedWebExtensionContext->backgroundContentURL().createNSURL().autorelease();
 }
 
 - (void)_sendTestMessage:(NSString *)message withArgument:(id)argument
@@ -844,6 +849,16 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
     NSParameterAssert([message isKindOfClass:NSString.class]);
 
     self._protectedWebExtensionContext->sendTestMessage(message, argument);
+}
+
+- (void)_sendTestStartedWithArgument:(id)argument
+{
+    self._protectedWebExtensionContext->sendTestStarted(argument);
+}
+
+- (void)_sendTestFinishedWithArgument:(id)argument
+{
+    self._protectedWebExtensionContext->sendTestFinished(argument);
 }
 
 #if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
@@ -1156,6 +1171,10 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
 {
 }
 
+- (void)_resetCommands
+{
+}
+
 #if TARGET_OS_IPHONE
 - (BOOL)performCommandForKeyCommand:(UIKeyCommand *)keyCommand
 {
@@ -1263,6 +1282,14 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
 }
 
 - (void)_sendTestMessage:(NSString *)message withArgument:(id)argument
+{
+}
+
+- (void)_sendTestStartedWithArgument:(nullable id)argument
+{
+}
+
+- (void)_sendTestFinishedWithArgument:(nullable id)argument
 {
 }
 

@@ -35,7 +35,6 @@ namespace {
 
 struct DispatchWorkItem {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
-    Ref<WorkQueueBase> m_workQueue;
     Function<void()> m_function;
     void operator()() { m_function(); }
 };
@@ -51,24 +50,21 @@ template<typename T> static void dispatchWorkItem(void* dispatchContext)
 
 void WorkQueueBase::dispatch(Function<void()>&& function)
 {
-    dispatch_async_f(m_dispatchQueue.get(), new DispatchWorkItem { Ref { *this }, WTFMove(function) }, dispatchWorkItem<DispatchWorkItem>);
+    dispatch_async_f(m_dispatchQueue.get(), new DispatchWorkItem { WTFMove(function) }, dispatchWorkItem<DispatchWorkItem>);
 }
 
 void WorkQueueBase::dispatchWithQOS(Function<void()>&& function, QOS qos)
 {
-    dispatch_block_t blockWithQOS = dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, Thread::dispatchQOSClass(qos), 0, makeBlockPtr([function = WTFMove(function)] () mutable {
+    auto blockWithQOS = adoptOSObject(dispatch_block_create_with_qos_class(DISPATCH_BLOCK_ENFORCE_QOS_CLASS, Thread::dispatchQOSClass(qos), 0, makeBlockPtr([function = WTFMove(function)] () mutable {
         function();
         function = { };
-    }).get());
-    dispatch_async(m_dispatchQueue.get(), blockWithQOS);
-#if !__has_feature(objc_arc)
-    Block_release(blockWithQOS);
-#endif
+    }).get()));
+    dispatch_async(m_dispatchQueue.get(), blockWithQOS.get());
 }
 
 void WorkQueueBase::dispatchAfter(Seconds duration, Function<void()>&& function)
 {
-    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, duration.nanosecondsAs<int64_t>()), m_dispatchQueue.get(), new DispatchWorkItem { Ref { *this },  WTFMove(function) }, dispatchWorkItem<DispatchWorkItem>);
+    dispatch_after_f(dispatch_time(DISPATCH_TIME_NOW, duration.nanosecondsAs<int64_t>()), m_dispatchQueue.get(), new DispatchWorkItem { WTFMove(function) }, dispatchWorkItem<DispatchWorkItem>);
 }
 
 void WorkQueueBase::dispatchSync(Function<void()>&& function)
@@ -86,7 +82,7 @@ void WorkQueueBase::platformInitialize(ASCIILiteral name, Type type, QOS qos)
 {
     dispatch_queue_attr_t attr = type == Type::Concurrent ? DISPATCH_QUEUE_CONCURRENT : DISPATCH_QUEUE_SERIAL;
     attr = dispatch_queue_attr_make_with_qos_class(attr, Thread::dispatchQOSClass(qos), 0);
-    m_dispatchQueue = adoptOSObject(dispatch_queue_create(name, attr));
+    lazyInitialize(m_dispatchQueue, adoptOSObject(dispatch_queue_create(name, attr)));
     dispatch_set_context(m_dispatchQueue.get(), this);
     // We use &s_uid for the key, since it's convenient. Dispatch does not dereference it.
     // We use s_uid to generate the id so that WorkQueues and Threads share the id namespace.

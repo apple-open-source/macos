@@ -171,7 +171,7 @@ public:
             ASSERT(m_representation == GraphicsLayerRepresentation);
             return LayerRepresentation(m_graphicsLayer.get());
         case PlatformLayerRepresentation:
-            return m_graphicsLayer ? platformLayerFromGraphicsLayer(*m_graphicsLayer) : nullptr;
+            return m_graphicsLayer ? platformLayerFromGraphicsLayer(Ref { *m_graphicsLayer }) : nullptr;
         case PlatformLayerIDRepresentation:
             return LayerRepresentation(m_layerID);
         }
@@ -241,8 +241,8 @@ enum class ScrollingStateNodeProperty : uint64_t {
     HeaderLayer                                 = 1LLU << 50, // Not serialized
     FooterLayer                                 = 1LLU << 43, // Not serialized
     BehaviorForFixedElements                    = FooterHeight << 1,
-    TopContentInset                             = BehaviorForFixedElements << 1,
-    VisualViewportIsSmallerThanLayoutViewport   = TopContentInset << 1,
+    ObscuredContentInsets                       = BehaviorForFixedElements << 1,
+    VisualViewportIsSmallerThanLayoutViewport   = ObscuredContentInsets << 1,
     AsyncFrameOrOverflowScrollingEnabled        = VisualViewportIsSmallerThanLayoutViewport << 1,
     WheelEventGesturesBecomeNonBlocking         = AsyncFrameOrOverflowScrollingEnabled << 1,
     ScrollingPerformanceTestingEnabled          = WheelEventGesturesBecomeNonBlocking << 1,
@@ -256,6 +256,7 @@ enum class ScrollingStateNodeProperty : uint64_t {
     LayoutConstraintData                        = 1LLU << 2, // Same value as TotalContentsSize
     // ScrollingStateFixedNode, ScrollingStateStickyNode
     ViewportConstraints                         = 1LLU << 1, // Same value as ScrollableAreaSize, RelatedOverflowScrollingNodes and OverflowScrollingNode
+    ViewportAnchorLayer                         = 1LLU << 2, // Same value as TotalContentsSize
     // ScrollingStateOverflowScrollProxyNode
     OverflowScrollingNode                       = 1LLU << 1, // Same value as ScrollableAreaSize, ViewportConstraints and RelatedOverflowScrollingNodes
     // ScrollingStateFrameHostingNode
@@ -320,7 +321,7 @@ public:
     const Vector<Ref<ScrollingStateNode>>& children() const { return m_children; }
     Vector<Ref<ScrollingStateNode>> takeChildren() { return std::exchange(m_children, { }); }
     WEBCORE_EXPORT void setChildren(Vector<Ref<ScrollingStateNode>>&&);
-    void traverse(const Function<void(ScrollingStateNode&)>&);
+    void traverse(NOESCAPE const Function<void(ScrollingStateNode&)>&);
 
     void appendChild(Ref<ScrollingStateNode>&&);
     void insertChild(Ref<ScrollingStateNode>&&, size_t index);

@@ -187,7 +187,7 @@
 {
     RELEASE_ASSERT(m_wrappedURL);
     auto bytes = bytesAsVector(bridge_cast([m_wrappedURL.get() absoluteURL]));
-    [coder encodeBytes:bytes.data() length:bytes.size()];
+    [coder encodeBytes:bytes.span().data() length:bytes.size()];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -204,7 +204,7 @@
     }
 
     if (!m_wrappedURL)
-        m_wrappedURL = adoptNS([[NSURL alloc] initWithString:@""]);
+        m_wrappedURL = URL::emptyNSURL();
 
     return self;
 }
@@ -428,13 +428,14 @@ NSType typeFromObject(id object)
         return NSType::SecureCoding;
 #endif
 
+    RELEASE_LOG_FAULT(IPC, "WebKit::typeFromObject: Unknown NSType inferred from object of type '%s'", class_getName(object_getClass(object)));
     ASSERT_NOT_REACHED();
     return NSType::Unknown;
 }
 
 static inline bool isSerializableFont(CTFontRef font)
 {
-    return adoptCF(CTFontCopyAttribute(font, kCTFontURLAttribute));
+    return !!adoptCF(CTFontCopyAttribute(font, kCTFontURLAttribute));
 }
 
 bool isSerializableValue(id value)

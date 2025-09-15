@@ -50,7 +50,7 @@
 
 .macro ClearFrameAndReturn
 	ldp       fp, lr, [sp], #16
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _strncmp
 .endm
 
 #include "../mach/arm/vm_param.h"

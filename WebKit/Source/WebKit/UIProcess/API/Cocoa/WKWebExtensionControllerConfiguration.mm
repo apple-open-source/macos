@@ -160,7 +160,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionControllerConfiguration, Web
 - (NSUUID *)identifier
 {
     if (auto identifier = self._protectedWebExtensionControllerConfiguration->identifier())
-        return identifier.value();
+        return identifier.value().createNSUUID().autorelease();
     return nil;
 }
 
@@ -198,7 +198,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionControllerConfiguration, Web
 - (NSString *)_storageDirectoryPath
 {
     if (auto& directory = _webExtensionControllerConfiguration->storageDirectory(); !directory.isEmpty())
-        return directory;
+        return directory.createNSString().autorelease();
     return nil;
 }
 

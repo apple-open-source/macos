@@ -84,7 +84,7 @@ private:
     Vector<WeakPtr<PlatformGamepad>> m_gamepadVector;
     HashMap<IOHIDDeviceRef, std::unique_ptr<HIDGamepad>> m_gamepadMap;
 
-    RetainPtr<IOHIDManagerRef> m_manager;
+    const RetainPtr<IOHIDManagerRef> m_manager;
 
     bool m_initialGamepadsConnected { false };
     bool m_ignoresGameControllerFrameworkDevices { false };
@@ -93,7 +93,7 @@ private:
     Timer m_inputNotificationTimer;
 
 #if HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
-    UncheckedKeyHashSet<IOHIDDeviceRef> m_gameControllerManagedGamepads;
+    HashSet<IOHIDDeviceRef> m_gameControllerManagedGamepads;
 #endif // HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
 };
 

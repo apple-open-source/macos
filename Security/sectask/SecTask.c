@@ -34,7 +34,6 @@
 #include <System/sys/codesign.h>
 #include <bsm/libbsm.h>
 #include <inttypes.h>
-#include <syslog.h>
 #include <utilities/SecCFWrappers.h>
 #include <xpc/private.h>
 #include <CoreEntitlements/CoreEntitlements.h>
@@ -251,7 +250,7 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     // Get cs_flags
     if (csops_task(task, CS_OPS_STATUS, &cs_flags, sizeof(cs_flags)) == -1) {
         // Not a fatal error, but worth logging
-        syslog(LOG_NOTICE, "SecTaskLoadEntitlements: failed to get cs_flags, error=%d, pid=%d", errno, pid);
+        secwarning("SecTaskLoadEntitlements: failed to get cs_flags, error=%d, pid=%d", errno, pid);
     }
 
 #if TARGET_OS_SIMULATOR
@@ -266,19 +265,8 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
             int entitlementErrno = errno;
 
             if (cs_flags != 0) {	// was signed
-                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", entitlementErrno, cs_flags, pid);	// to ease diagnostics
-
-                CFStringRef description = SecTaskCopyDebugDescription(task);
-                char *descriptionBuf = NULL;
-                CFIndex descriptionSize = CFStringGetLength(description) * 4;
-                descriptionBuf = (char *)malloc(descriptionSize);
-                if (!CFStringGetCString(description, descriptionBuf, descriptionSize, kCFStringEncodingUTF8)) {
-                    descriptionBuf[0] = 0;
-                }
-
-                syslog(LOG_NOTICE, "SecTaskCopyDebugDescription: %s", descriptionBuf);
-                CFReleaseNull(description);
-                free(descriptionBuf);
+                secwarning("SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d task=%@",
+                           entitlementErrno, cs_flags, pid, task);	// to ease diagnostics
             }
 
             // EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
@@ -314,7 +302,7 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
 #if TARGET_OS_SIMULATOR
         entitlements = (CFMutableDictionaryRef) CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListMutableContainers, NULL, error);
 #else
-        if (!CE_OK(CEManagedContextFromCFData(CECRuntime, data, &ceCtx))) {
+        if (!CE_OK(SecCEContextFromCFData(data, &ceCtx))) {
             secinfo("SecTask", "couldn't create a managed context from csops call %d", pid);
             CFReleaseNull(data);
             ret = EDOM;    // don't use EINVAL here; it conflates problems with syscall error returns
@@ -362,7 +350,7 @@ out:
     if (ret && error && *error==NULL) {
         *error = CFErrorCreate(NULL, kCFErrorDomainPOSIX, ret, NULL);
     }
-    CEReleaseManagedContext(&ceCtx);
+    SecCEReleaseContext(&ceCtx);
     return ret == 0;
 }
 

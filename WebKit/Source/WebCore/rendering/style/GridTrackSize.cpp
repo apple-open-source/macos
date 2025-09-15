@@ -34,12 +34,12 @@ TextStream& operator<<(TextStream& ts, const GridTrackSize& o)
 {
     // FIXME: this should be expanded to use the other class members.
     switch (o.type()) {
-    case LengthTrackSizing:
-        return ts << "size";
-    case MinMaxTrackSizing:
-        return ts << "minmax()";
-    case FitContentTrackSizing:
-        return ts << "fit-content()";
+    case GridTrackSizeType::Length:
+        return ts << "size"_s;
+    case GridTrackSizeType::MinMax:
+        return ts << "minmax()"_s;
+    case GridTrackSizeType::FitContent:
+        return ts << "fit-content()"_s;
     }
     return ts;
 }

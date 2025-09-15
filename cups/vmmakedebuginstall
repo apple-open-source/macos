@@ -1,0 +1,294 @@
+#!/bin/bash
+#
+# Builds and installs cups into a cloned sumac2 Arm VM.
+#
+# Common usage:
+#
+#     Create a new VM and install a macOS version on to it:
+#		./vmmakedebuginstall
+#
+#	  Build cups, clone an existing VM, and install the built cups system:
+#		./vmmakedebuginstall -v <vm_name>
+#
+# The sumac2, virtual guest supervisor, is used to create, clone and run VMs.
+#
+# Useful sumac2 commands:
+#
+#	Show all of the existing VMs:
+#		sumac2 list
+#
+#	Run one of the VMs:
+#		sumac2 run --name <vm_name> -i vnc
+#
+#	Stop a running VM:
+#		sumac2 stop --name <vm_name>
+#
+#	Delete a VM:
+#		sumac2 remove --name <vm_name>
+#
+
+BUILDDIR=`pwd`
+
+# The root is built into the user's Download folder. This folder is used as the share-point
+# for the guest VM. That lets the VM install the root from this share-point.
+BASEROOT="$HOME/Downloads"
+BUILTROOT="cups.build.root"
+TMPROOT="${BASEROOT}/${BUILTROOT}"
+
+# The root is tar'd to preserve the file permissions between the host and the guest VM
+TARFILE="cups.build.tgz"
+TARFILEPATH="${BASEROOT}/${TARFILE}"
+
+DSTROOT=/
+BUILDROOT="${BUILDROOT:=`pwd`}"
+SUDO=/usr/bin/sudo
+FILTERBUILD="../filterbuild.pl"
+
+CONFIGURATION="Debug"
+
+TARGETS=" ipp libcups cupsd"
+
+# Remove the build directory if true
+DO_CLEAN=0
+
+# True if the VM clone is running
+CLONE_IS_RUNNING=0
+
+# Run a fresh VM even if one is already running
+FRESH_VM=0
+
+RC_ARCHS_ARM="arm64e"
+RC_ARCHS_INTEL="x86_64"
+RC_ARCHS=$RC_ARCHS_ARM
+
+BASE_VM=""
+
+# Convert the current directory to a sed expression...
+SEDCWD="`pwd | sed -e '1,$s/\//\\\\\//g'`"
+
+PRODUCT="Virtual Mac"
+
+# Log the command being executed
+function run	{ echo Running: $*; eval $* || { echo ERROR RUNNING COMMAND: $?; exit -1; } }
+
+# Create a new VM, defang it, and install an OS on to it
+create_vm () {
+
+	# Create the VM so that we can set the share point.
+
+	#sumac2 create --name "${1}" --product "${PRODUCT}" --machine nram=8GiB --share ~/Downloads
+
+	# Download the OS and install it on a VM with the same name
+
+	green-restore --vm-name "${1}" --vm-sumac2 \
+	--create-vm "${PRODUCT}" \
+	--vm-name "${1}" \
+	--vm-nram 8 \
+	--vm-shared-folder ~/Downloads \
+	--disable-sip --golive --defang \
+	--user local --password rootbeer \
+	--autologin --passwordless \
+	--disable-security --disable-sleep --disable-screenlock --disable-screensaver --disable-analytics \
+	--vm-no-boot \
+	--bundle $1
+
+	if [ "$?" -ne "0" ]; then
+	  echo "Due to error, removing VM ${1}."
+	  sumac2 remove --name $1
+	  exit 1
+	fi
+}
+
+# Parse command-line options...
+while getopts cCfm:uv:w option
+do
+	case "$option"
+	in
+		c)
+			# cleaninstall
+			echo "Doing clean install..."
+			DO_CLEAN=1
+			;;
+
+		f)
+			# Restart the clone VM even if already running.
+			FRESH_VM=1
+			echo "Fresh VM request."
+			;;
+
+		m)
+			# build only the supplied module
+			TARGETS="$OPTARG"
+			#	Need to change the root name, so that "darwinup upgrade" doesn't unexpectedly delete stuff
+			;;
+
+		u)
+			FILTERBUILD=""
+			;;
+
+		v)
+			# The name of the VM to clone. The root is placed in the cloned VM.
+			BASE_VM="$OPTARG"
+			echo "Using VM $BASE_VM"
+			;;
+
+		w)
+			# Show warnings, too
+			FILTERBUILD="../filterbuild.pl -w"
+			;;
+
+		\?)
+			echo "Usage: vmmakedebuginstall [-cfuw] [-m <modulename>] [-v <vm_name>]"
+			echo ""
+			echo "If run without any parameters the script will prompt for information to create a new VM and install an OS. (account:local pw:rootbeer)"
+			echo ""
+			echo "The -c option removes all of the build directories to do a clean recompile."
+			echo ""
+			echo "The -f option runs a fresh clone VM, even if one is already running."
+			echo ""
+			echo "The -m <module> option builds only the supplied module (e.g. directory)"
+			echo ""
+			echo "The -u option provides unfiltered build results. This is useful for inspecting what the build lines actually are."
+			echo ""
+			echo "The -v <vm_name> specifies the VM to clone. The root is installed in the clone."
+			echo ""
+			echo "The -w option causes warnings to be shown at the end of a build."
+			exit 2
+	esac
+done
+
+# Make sure we are on an Apple Silicon machine.
+machine=`machine`
+if [[ ""${machine}"" =~ "*arm64*" ]]; then
+    echo "The sumac2 virtual machine supervisor requires an Apple Silicon Mac."
+	exit 1
+fi
+
+# If a base VM was not provided. See if the user wants to create one.
+# If we create one, the user will need to use Purple Install to put an OS in the VM.
+# They can run this script again, passing in the new VM name with the -v option.
+
+if [ "${BASE_VM}" == "" ]; then
+	echo "An existing VM was not provided on the command line: -v <vm_name>."
+    read -p "Do you want to create a new VM? [y/n]: " yn
+    case $yn in
+
+        [Yy]* )
+			if ! command -v green-restore &> /dev/null
+			then
+			    echo "green-restore is need to perform the install. It can be installed by installing Home Diagnostics."
+			    exit
+			fi
+			read -p "What build would you like to install in new VM? (example: RomeC22C50) " BASE_VM
+			create_vm ${BASE_VM}
+			echo "Configure the new VM to your preferences: sumac2 run --name ${BASE_VM} -i vnc"
+			echo "Build and install a printing root into a clone of ${BASE_VM}: ./vmmakedebuginstall -v ${BASE_VM}"
+			exit 0
+			;;
+
+        * )
+			echo "Existing VM's:"
+			sumac2 list
+			;;
+    esac
+	exit
+fi
+
+# Clone the VM
+CLONE_VM="${BASE_VM}_Clone"
+
+# Check for an already running or existing VM
+CLONE_STATUS="$(sumac2 list --name ${CLONE_VM} --fields status --headers never 2> /dev/null)"
+
+case $CLONE_STATUS in
+running)
+	echo "${CLONE_VM} VM already running."
+	CLONE_IS_RUNNING=1
+	;;
+
+shutdown)
+	echo "${CLONE_VM} VM exists but it not running. Removing old ${CLONE_VM} VM."
+	sumac2 remove --name ${CLONE_VM} -f
+	;;
+
+*)
+	# Clone doesn't exist
+	;;
+esac
+
+# A request for a fresh VM means we need to stop a currently running VM
+
+if [ $FRESH_VM -eq 1 ] && [ $CLONE_IS_RUNNING -eq 1 ]
+then
+	echo "Fresh VM: ${CLONE_VM} VM already running. Stopping and removing it."
+	sumac2 stop --name ${CLONE_VM} -f
+	sumac2 remove --name ${CLONE_VM} -f
+	CLONE_IS_RUNNING=0
+fi
+
+# If the clone isn't already running, then clone a new one.
+
+if [ $CLONE_IS_RUNNING -eq 0 ]
+then
+	echo "Cloning ${BASE_VM} as ${CLONE_VM} VM"
+	sumac2 clone --name $BASE_VM $CLONE_VM
+	echo "Starting ${CLONE_VM} VM"
+	sumac2 run --name ${CLONE_VM} -i vnc &
+fi
+
+echo "Starting build/install on `date` for $TARGETLIST"
+
+if [ $DO_CLEAN = 1 ]; then
+	echo "=== Cleaning up by removing ${TMPROOT} and ${TARFILEPATH} on `date` ==="
+	$SUDO rm -rf "${TMPROOT}"
+	$SUDO rm -rf "${TARFILEPATH}"
+fi
+
+sudo rm -rf "${TMPROOT}"
+
+for target in ${TARGETS}; do
+    case $target in
+        "ipp"|"cupsd")
+            echo "Building target: $target"
+            xcodebuild -project ./cups/xcode/CUPS.xcodeproj -target $target DSTROOT="${TMPROOT}" -configuration Debug install
+            ;;
+		"libcups")
+            echo "Building target: $target"
+            xcodebuild -project ./cups/xcode/CUPS.xcodeproj -target $target DSTROOT="${TMPROOT}" -configuration Debug install
+			mv "${TMPROOT}"/usr/lib/libcups.dylib "${TMPROOT}"/usr/lib/libcups.2.dylib
+			;;
+        *)
+            echo "Unknown target: $target"
+            ;;
+    esac
+done
+
+sudo chown -R root:wheel  "${TMPROOT}"
+
+#
+# Tar up the root so that the permissions are maintained when we install on the guest VM
+echo "Tarring ${TMPROOT} to ${TARFILEPATH}"
+sudo tar --exclude "Applications/Xcode.app"  -czf ${TARFILEPATH} -C ${TMPROOT} .
+
+# If the clone isn't ready yet, then wait for it to become responsive
+CLONE_STATUS="$(sumac2 list --name ${CLONE_VM} --fields status --headers never 2> /dev/null)"
+while [ "$CLONE_STATUS" != "running" ]
+do
+	echo "${CLONE_VM}: Waiting for it to be running. Current status is ${CLONE_STATUS}..."
+	sleep 0.5
+	CLONE_STATUS="$(sumac2 list --name ${CLONE_VM} --fields status --headers never 2> /dev/null)"
+done
+echo "${CLONE_VM}: state is ${CLONE_STATUS}"
+
+# Run darwinup in the cloned VM
+# This assumes that the VM has been built with --share ~/Downloads so that the
+# guest VM can acccess ~/Downloads as /Volumes/My\ Shared\ Files/Downloads.
+# The OS needs to boot before we can install the root, so wait.
+sumac2 exec --name ${CLONE_VM} "darwinup install /Volumes/My\ Shared\ Files/Downloads/${TARFILE}"
+while [ $? -ne 0 ]
+do
+	echo "${CLONE_VM}: Waiting for macOS to boot..."
+	sleep 1.0
+	sumac2 exec --name ${CLONE_VM} "darwinup install /Volumes/My\ Shared\ Files/Downloads/${TARFILE}"
+done
+echo "${CLONE_VM} VM: Installed ${TARFILE}."

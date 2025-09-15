@@ -34,13 +34,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <Security/SecKeychain.h>
+#include <Security/SecKeychainPriv.h>
+#include <Security/SecCoreAnalytics.h>
+#include "utilities/SecCFRelease.h"
 
 static int
-do_keychain_show_info(const char *keychainName)
+do_keychain_show_info(const char *keychainName, Boolean showSalt)
 {
 	SecKeychainRef keychain = NULL;
     SecKeychainSettings keychainSettings = { SEC_KEYCHAIN_SETTINGS_VERS1 };
 	OSStatus result;
+    CFDataRef salt = NULL;
 
 	if (keychainName)
 	{
@@ -59,40 +63,81 @@ do_keychain_show_info(const char *keychainName)
 		goto loser;
 	}
 
+    if (showSalt) {
+        result = SecKeychainCopySalt(keychain, &salt);
+        if (result)
+        {
+            sec_error("SecKeychainCopySalt %s: %s", keychainName ? keychainName : "<NULL>", sec_errstr(result));
+            goto loser;
+        }
+    }
+
     fprintf(stderr,"Keychain \"%s\"%s%s",
 		keychainName ? keychainName : "<NULL>",
 		keychainSettings.lockOnSleep ? " lock-on-sleep" : "",
 		keychainSettings.useLockInterval ? " use-lock-interval" : "");
-	if (keychainSettings.lockInterval == INT_MAX)
-		fprintf(stderr," no-timeout\n");
-	else
-		fprintf(stderr," timeout=%ds\n", (int)keychainSettings.lockInterval);
+	if (keychainSettings.lockInterval == INT_MAX) {
+		fprintf(stderr," no-timeout");
+	} else {
+		fprintf(stderr," timeout=%ds", (int)keychainSettings.lockInterval);
+	}
+
+    if (salt) {
+        fprintf(stderr, " salt=");
+        CFIndex end = CFDataGetLength(salt);
+        const UInt8 * ptr = CFDataGetBytePtr(salt);
+        for (CFIndex i=0;i<end;i++) {
+            fprintf(stderr,"%02X", ptr[i]);
+        }
+    }
+
+    fprintf(stderr,"\n");
 
 loser:
-	if (keychain)
-		CFRelease(keychain);
+	CFReleaseNull(keychain);
+	CFReleaseNull(salt);
 	return result;
 }
 
 int
 keychain_show_info(int argc, char * const *argv)
 {
-	char *keychainName = NULL;
-	int  result = 0;
+    // ensure that use of `security show-keychain-info` during early boot doesn't hang waiting to send CA events at shutdown (rdar://146406899)
+    SecCoreAnalyticsSetEnabledForProcess(false);
 
-	if (argc == 2)
+	char *keychainName = NULL;
+    int ch, result = 0;
+    Boolean showSalt = FALSE;
+
+    while ((ch = getopt(argc, argv, "s")) != -1)
+    {
+        switch  (ch)
+        {
+        case 's':
+            showSalt = TRUE;
+            break;
+        case '?':
+        default:
+            return SHOW_USAGE_MESSAGE;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+	if (argc == 1)
 	{
-		keychainName = argv[1];
+		keychainName = argv[0];
 		if (*keychainName == '\0')
 		{
 			result = 2;
 			goto loser;
 		}
 	}
-	else if (argc != 1)
+	else if (argc != 0)
 		return SHOW_USAGE_MESSAGE;
 
-	result = do_keychain_show_info(keychainName);
+	result = do_keychain_show_info(keychainName, showSalt);
 
 loser:
 	return result;

@@ -103,7 +103,7 @@
 - (NSURL *)_webkit_canonicalize_with_wtf
 {
     auto url = WTF::URL(self);
-    return url.isValid() ? (NSURL *)url : nil;
+    return url.isValid() ? url.createNSURL().autorelease() : nil;
 }
 
 - (NSURL *)_webkit_URLByRemovingFragment 
@@ -185,7 +185,7 @@
 
 - (NSString *)_webkit_stringByReplacingValidPercentEscapes
 {
-    return PAL::decodeURLEscapeSequences(String(self));
+    return PAL::decodeURLEscapeSequences(String(self)).createNSString().autorelease();
 }
 
 - (NSString *)_webkit_scriptIfJavaScriptURL
@@ -198,14 +198,16 @@
 
 - (NSString *)_web_decodeHostName
 {
-    NSString *name = WTF::decodeHostName(self);
-    return !name ? self : name;
+    if (RetainPtr name = WTF::decodeHostName(self))
+        return name.autorelease();
+    return self;
 }
 
 - (NSString *)_web_encodeHostName
 {
-    NSString *name = WTF::encodeHostName(self);
-    return !name ? self : name;
+    if (RetainPtr name = WTF::encodeHostName(self))
+        return name.autorelease();
+    return self;
 }
 
 - (NSString *)_webkit_decodeHostName

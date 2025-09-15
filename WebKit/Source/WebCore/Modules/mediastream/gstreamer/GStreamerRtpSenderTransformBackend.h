@@ -42,7 +42,7 @@ private:
 
     // RTCRtpTransformBackend
     void setTransformableFrameCallback(Callback&&) final;
-    void requestKeyFrame() final;
+    bool requestKeyFrame(const String&) final;
 
     GRefPtr<GstWebRTCRTPSender> m_rtcSender;
 };

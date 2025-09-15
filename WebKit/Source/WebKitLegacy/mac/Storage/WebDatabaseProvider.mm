@@ -27,15 +27,16 @@
 #import "WebDatabaseManagerPrivate.h"
 
 #import <wtf/FileSystem.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 String WebDatabaseProvider::indexedDatabaseDirectoryPath()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *databasesDirectory = [defaults objectForKey:WebDatabaseDirectoryDefaultsKey];
-    if (!databasesDirectory || ![databasesDirectory isKindOfClass:[NSString class]])
-        databasesDirectory = FileSystem::pathByAppendingComponent("~/Library/WebKit/Databases/___IndexedDB"_s, String([[NSBundle mainBundle] bundleIdentifier]));
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr databasesDirectory = dynamic_objc_cast<NSString>([defaults objectForKey:WebDatabaseDirectoryDefaultsKey]);
+    if (!databasesDirectory)
+        databasesDirectory = FileSystem::pathByAppendingComponent("~/Library/WebKit/Databases/___IndexedDB"_s, String([[NSBundle mainBundle] bundleIdentifier])).createNSString();
     else
-        databasesDirectory = FileSystem::pathByAppendingComponent(String(databasesDirectory), "___IndexedDB"_s);
+        databasesDirectory = FileSystem::pathByAppendingComponent(String(databasesDirectory.get()), "___IndexedDB"_s).createNSString();
     
     return [databasesDirectory stringByStandardizingPath];
 }

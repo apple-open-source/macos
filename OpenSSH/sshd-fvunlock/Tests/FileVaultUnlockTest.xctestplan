@@ -1,0 +1,29 @@
+{
+  "configurations" : [
+    {
+      "id" : "250F15F1-3F37-4647-826D-18C598AB76C5",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:OpenSSH.xcodeproj",
+      "identifier" : "479193AB2D76617D006E3989",
+      "name" : "ssh-fv-unlock"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:OpenSSH.xcodeproj",
+        "identifier" : "470775682D78C96700A8278F",
+        "name" : "FileVaultUnlockTests"
+      }
+    }
+  ],
+  "version" : 1
+}

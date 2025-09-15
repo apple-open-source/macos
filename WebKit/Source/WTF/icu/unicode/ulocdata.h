@@ -4,7 +4,7 @@
 ******************************************************************************
 *                                                                            *
 * Copyright (C) 2003-2015, International Business Machines                   *
-*                Corporation and others. All Rights Reserved.                *
+*                Corporation and others. All rights reserved.                *
 *                                                                            *
 ******************************************************************************
 *   file name:  ulocdata.h

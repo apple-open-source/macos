@@ -1,4 +1,16 @@
 module DarwinPrivate.net [system] {
+  #ifndef XNU_PLATFORM_MacOSX
+  module bpf {
+    header "net/bpf.h"
+    export *
+  }
+
+  #endif
+  explicit module bpf_private {
+    header "net/bpf_private.h"
+    export *
+  }
+
   module if_ipsec {
     header "net/if_ipsec.h"
     export *

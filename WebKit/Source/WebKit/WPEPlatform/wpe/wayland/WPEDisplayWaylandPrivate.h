@@ -33,6 +33,7 @@
 struct xdg_wm_base* wpeDisplayWaylandGetXDGWMBase(WPEDisplayWayland*);
 WPE::WaylandSeat* wpeDisplayWaylandGetSeat(WPEDisplayWayland*);
 WPE::WaylandCursor* wpeDisplayWaylandGetCursor(WPEDisplayWayland*);
+struct wl_data_device_manager* wpeDisplayWaylandGetDataDeviceManager(WPEDisplayWayland*);
 WPEScreen* wpeDisplayWaylandFindScreen(WPEDisplayWayland*, struct wl_output*);
 struct zwp_linux_dmabuf_v1* wpeDisplayWaylandGetLinuxDMABuf(WPEDisplayWayland*);
 struct zwp_linux_explicit_synchronization_v1* wpeDisplayWaylandGetLinuxExplicitSync(WPEDisplayWayland*);

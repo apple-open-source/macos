@@ -55,7 +55,9 @@
 
         if (target == SecuritydXPCClient_TargetSession_FOREGROUND) {
 #if TARGET_OS_OSX
-            secinfo("SecuritydXPCClient", "Targeting foreground session not supported on this platform");
+            uid_t euid = geteuid();
+            secinfo("SecuritydXPCClient", "Area 151: A complete hack around a complete hack, targeting session for euid %d", euid);
+            xpc_connection_set_target_uid(self.connection._xpcConnection, euid);
 #else
             secinfo("SecuritydXPCClient", "Possibly targeting foreground session");
             if (xpc_user_sessions_enabled()) {
@@ -141,7 +143,7 @@
         [interface setClasses:arrayOfCKKSPCSIdentityQueries forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:NO];
         [interface setClasses:arrayOfCKKSPCSIdentityQueryResults forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:0 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secItemFetchPCSIdentityByKeyOutOfBand:forceFetch:complete:) argumentIndex:1 ofReply:YES];
-
+        [interface setClasses:errClasses forSelector:@selector(secKeychainCopyDatabasePath:) argumentIndex:1 ofReply:YES];
     }
     @catch(NSException* e) {
         secerror("Could not configure SecuritydXPCProtocol: %@", e);

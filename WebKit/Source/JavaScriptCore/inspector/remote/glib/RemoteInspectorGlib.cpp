@@ -94,7 +94,7 @@ void RemoteInspector::stopInternal(StopSource)
 
     updateHasActiveDebugSession();
 
-    m_pausedAutomaticInspectionCandidates.clear();
+    m_automaticInspectionCandidates.clear();
     m_socketConnection = nullptr;
 }
 
@@ -212,7 +212,7 @@ void RemoteInspector::pushListingsSoon()
 
     m_pushScheduled = true;
 
-    RunLoop::current().dispatch([this] {
+    RunLoop::currentSingleton().dispatch([this] {
         Locker locker { m_mutex };
         if (m_pushScheduled)
             pushListingsNow();
@@ -318,6 +318,13 @@ void RemoteInspector::requestAutomationSession(const char* sessionID, const Clie
 
     m_client->requestAutomationSession(String::fromUTF8(sessionID), capabilities);
     updateClientCapabilities();
+}
+
+void RemoteInspector::automationConnectionDidClose()
+{
+    if (!m_client)
+        return;
+    m_client->closeAutomationSession();
 }
 
 void RemoteInspector::setInspectorServerAddress(CString&& address)

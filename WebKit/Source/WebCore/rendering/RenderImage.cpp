@@ -4,7 +4,7 @@
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2003-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011-2012. All rights reserved.
  *
@@ -58,6 +58,7 @@
 #include "RenderElementInlines.h"
 #include "RenderFragmentedFlow.h"
 #include "RenderImageResourceStyleImage.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderStyleSetters.h"
 #include "RenderTheme.h"
@@ -305,16 +306,16 @@ LayoutUnit RenderImage::computeReplacedLogicalHeight(std::optional<LayoutUnit> e
     return RenderReplaced::computeReplacedLogicalHeight(estimatedUsedWidth);
 }
 
-LayoutUnit RenderImage::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderImage::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     LayoutUnit offset;
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
     if (isMultiRepresentationHEIC()) {
-        auto metrics = style().fontCascade().primaryFont().metricsForMultiRepresentationHEIC();
+        auto metrics = style().fontCascade().primaryFont()->metricsForMultiRepresentationHEIC();
         offset = LayoutUnit::fromFloatRound(metrics.descent);
     }
 #endif
-    return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode) - offset;
+    return RenderBox::baselinePosition(firstLine, direction, linePositionMode) - offset;
 }
 
 void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
@@ -409,7 +410,9 @@ void RenderImage::repaintOrMarkForLayout(ImageSizeChangeType imageSizeChange, co
         if (rect) {
             // The image changed rect is in source image coordinates (pre-zooming),
             // so map from the bounds of the image to the contentsBox.
-            repaintRect.intersect(enclosingIntRect(mapRect(*rect, FloatRect(FloatPoint(), imageResource().imageSize(1.0f)), repaintRect)));
+            RefPtr<Image> srcImg = imageResource().image(flooredIntSize(contentBoxSize()));
+            FloatSize sourceSize = srcImg->size() / style().usedZoom();
+            repaintRect.intersect(enclosingIntRect(mapRect(*rect, FloatRect(FloatPoint(), sourceSize), repaintRect)));
         }
         repaintRectangle(repaintRect);
     }
@@ -461,22 +464,6 @@ bool RenderImage::shouldDisplayBrokenImageIcon() const
     return imageResource().errorOccurred();
 }
 
-bool RenderImage::hasNonBitmapImage() const
-{
-    if (!imageResource().cachedImage())
-        return false;
-
-    Image* image = cachedImage()->imageForRenderer(this);
-    return image && !is<BitmapImage>(image);
-}
-
-bool RenderImage::hasAnimatedImage() const
-{
-    if (auto* image = cachedImage() ? cachedImage()->image() : nullptr)
-        return image->isAnimated();
-    return false;
-}
-
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
 bool RenderImage::isMultiRepresentationHEIC() const
 {
@@ -515,6 +502,8 @@ static bool isDeferredImage(Element* element)
 
 void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
+    ASSERT(!isSkippedContentRoot(*this));
+
     GraphicsContext& context = paintInfo.context();
     if (context.invalidatingImagesWithAsyncDecodes()) {
         if (cachedImage() && cachedImage()->isClientWaitingForAsyncDecoding(*this))
@@ -754,6 +743,8 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
 #if USE(SKIA)
         StrictImageClamping::No,
 #endif
+        paintInfo.paintBehavior.contains(PaintBehavior::DrawsHDRContent) ? DrawsHDRContent::Yes : DrawsHDRContent::No,
+        style().dynamicRangeLimit().toPlatformDynamicRangeLimit()
     };
 
     auto drawResult = ImageDrawResult::DidNothing;
@@ -864,6 +855,12 @@ void RenderImage::updateAltText()
         m_altText = input->altText();
     else if (auto* image = dynamicDowncast<HTMLImageElement>(*element()))
         m_altText = image->altText();
+
+    if (m_altText.isNull()) {
+        // We check isNull() and not isEmpty() because we don't want to override empty-string
+        // alt text provided by either of the above branches.
+        m_altText = style().contentAltText();
+    }
 }
 
 bool RenderImage::canHaveChildren() const
@@ -906,17 +903,17 @@ void RenderImage::computeIntrinsicRatioInformation(FloatSize& intrinsicSize, Flo
 
     // Don't compute an intrinsic ratio to preserve historical WebKit behavior if we're painting alt text and/or a broken image.
     if (shouldDisplayBrokenImageIcon()) {
-        if (style().aspectRatioType() == AspectRatioType::AutoAndRatio && !isShowingAltText())
-            intrinsicRatio = FloatSize::narrowPrecision(style().aspectRatioLogicalWidth(), style().aspectRatioLogicalHeight());
+        if (style().aspectRatio().isAutoAndRatio() && !isShowingAltText())
+            intrinsicRatio = FloatSize::narrowPrecision(style().aspectRatioLogicalWidth().value, style().aspectRatioLogicalHeight().value);
         else
             intrinsicRatio = { 1.0, 1.0 };
         return;
     }
 }
 
-bool RenderImage::needsPreferredWidthsRecalculation() const
+bool RenderImage::shouldInvalidatePreferredWidths() const
 {
-    if (RenderReplaced::needsPreferredWidthsRecalculation())
+    if (RenderReplaced::shouldInvalidatePreferredWidths())
         return true;
     return embeddedContentBox();
 }

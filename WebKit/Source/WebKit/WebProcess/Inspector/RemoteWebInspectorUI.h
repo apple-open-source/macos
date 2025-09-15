@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -144,9 +144,10 @@ public:
 
 private:
     explicit RemoteWebInspectorUI(WebPage&);
+    const Ref<WebPage> protectedWebPage();
 
     WeakRef<WebPage> m_page;
-    Ref<WebCore::InspectorFrontendAPIDispatcher> m_frontendAPIDispatcher;
+    const Ref<WebCore::InspectorFrontendAPIDispatcher> m_frontendAPIDispatcher;
     RefPtr<WebCore::InspectorFrontendHost> m_frontendHost;
 #if ENABLE(INSPECTOR_EXTENSIONS)
     RefPtr<WebInspectorUIExtensionController> m_extensionController;

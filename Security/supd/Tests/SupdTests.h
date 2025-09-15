@@ -13,7 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) SFAnalytics* swtransparencyAnalytics;
 @property (readonly) supd* supd;
 
-+ (NSData *_Nullable)supd_gzipInflate:(NSData *)data;
++ (NSData *_Nullable)supd_gzipInflate:(NSData *_Nullable)data;
 
 @end
 

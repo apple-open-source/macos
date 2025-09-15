@@ -183,6 +183,7 @@
 				60BD236A0736E82C00AC1192 /* Headers */,
 				60BD23700736E82C00AC1192 /* Resources */,
 				60A599521517B6F800CB67C2 /* ShellScript */,
+				72CC9E782DB8430F00A1A912 /* Compile Icons */,
 				60BD23780736E82C00AC1192 /* Sources */,
 			);
 			buildRules = (
@@ -247,7 +248,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info.plist ${SRCROOT}/config/IOBDStorageFamily.exports\nfi\n/usr/local/bin/iconcompiler -i \"BD\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-RE\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n";
+			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info.plist ${SRCROOT}/config/IOBDStorageFamily.exports\nfi\n";
 		};
 		60FD67AD0D3FFAE0000D088D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -261,6 +262,24 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "headers=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/storage/*.h\";\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n";
+		};
+		72CC9E782DB8430F00A1A912 /* Compile Icons */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile Icons";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i \"BD\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-R\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n/usr/local/bin/iconcompiler -i \"BD-RE\" -r \"$PROJECT_DIR/IconResources\" -o \"$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\" || exit 1\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

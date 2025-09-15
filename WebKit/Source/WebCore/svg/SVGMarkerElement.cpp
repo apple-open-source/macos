@@ -28,6 +28,7 @@
 #include "NodeName.h"
 #include "RenderSVGResourceMarker.h"
 #include "SVGNames.h"
+#include "SVGParsingError.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -64,11 +65,11 @@ AffineTransform SVGMarkerElement::viewBoxToViewTransform(float viewWidth, float 
 
 void SVGMarkerElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    SVGParsingError parseError = NoError;
+    auto parseError = SVGParsingError::None;
     switch (name.nodeName()) {
     case AttributeNames::markerUnitsAttr: {
         auto propertyValue = SVGPropertyTraits<SVGMarkerUnitsType>::fromString(newValue);
-        if (propertyValue > 0)
+        if (propertyValue != SVGMarkerUnitsType::Unknown)
             Ref { m_markerUnits }->setBaseValInternal<SVGMarkerUnitsType>(propertyValue);
         return;
     }

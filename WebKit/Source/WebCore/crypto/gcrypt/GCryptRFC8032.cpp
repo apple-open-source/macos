@@ -22,6 +22,7 @@
 
 #include <pal/crypto/gcrypt/Handle.h>
 #include <pal/crypto/gcrypt/Utilities.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 namespace GCrypt {
@@ -46,7 +47,7 @@ bool validateEd25519KeyPair(const Vector<uint8_t>& privateKey, const Vector<uint
         // For Ed25519, the private-key data is hashed using SHA-512. The lower 32 bytes
         // are scanned as MPI data, meaning they also have to be reversed.
         std::array<uint8_t, 32> hddata;
-        memcpy(hddata.data(), privateKey.data(), 32);
+        memcpySpan(std::span { hddata }, privateKey.span());
 
         std::array<uint8_t, 64> digest;
         gcry_md_hash_buffer(GCRY_MD_SHA512, digest.data(), hddata.data(), hddata.size());
@@ -101,7 +102,7 @@ bool validateEd25519KeyPair(const Vector<uint8_t>& privateKey, const Vector<uint
             }
 
             result = Vector<uint8_t>(numBytes, uint8_t(0));
-            error = gcry_mpi_print(GCRYMPI_FMT_USG, result.data(), result.size(), nullptr, yMPI);
+            error = gcry_mpi_print(GCRYMPI_FMT_USG, result.mutableSpan().data(), result.size(), nullptr, yMPI);
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
                 return false;
@@ -115,7 +116,7 @@ bool validateEd25519KeyPair(const Vector<uint8_t>& privateKey, const Vector<uint
         std::copy(result.rbegin(), std::next(result.rbegin(), resultSize), qData.begin());
     }
 
-    return !memcmp(qData.begin(), publicKey.data(), 32);
+    return equalSpans(std::span { qData }, publicKey.span());
 }
 
 } } } // namespace WebCore::GCrypt::RFC8032

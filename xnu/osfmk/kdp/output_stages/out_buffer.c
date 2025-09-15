@@ -41,14 +41,16 @@ struct buffer_stage_data {
 	char   buffer[];
 };
 
-static void
-buffer_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+buffer_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	struct buffer_stage_data *data = (struct buffer_stage_data *) stage->kos_data;
 
 	data->current_size = 0;
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -154,7 +156,7 @@ buffer_stage_initialize(struct kdp_output_stage *stage, size_t buffer_size)
 
 	stage->kos_data_size = sizeof(struct buffer_stage_data) + buffer_size;
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		printf("buffer_stage_initialize failed to allocate memory. Error 0x%x\n", ret);
 		return ret;

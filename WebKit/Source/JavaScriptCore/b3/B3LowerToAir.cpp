@@ -2589,6 +2589,24 @@ private:
         append(div, m_eax, m_edx, tmp(m_value->child(1)));
         append(Move, result, tmp(m_value));
     }
+
+    void appendX86MulHigh()
+    {
+        using namespace Air;
+        Air::Opcode opcode = m_value->type() == Int32 ? X86MulHigh32 : X86MulHigh64;
+        append(Move, tmp(m_value->child(1)), m_eax);
+        append(opcode, tmp(m_value->child(0)), m_eax, m_edx);
+        append(Move, m_edx, tmp(m_value));
+    }
+
+    void appendX86UMulHigh()
+    {
+        using namespace Air;
+        Air::Opcode opcode = m_value->type() == Int32 ? X86UMulHigh32 : X86UMulHigh64;
+        append(Move, tmp(m_value->child(1)), m_eax);
+        append(opcode, tmp(m_value->child(0)), m_eax, m_edx);
+        append(Move, m_edx, tmp(m_value));
+    }
     
     Air::Opcode loadLinkOpcode(Width width, bool fence)
     {
@@ -3208,7 +3226,7 @@ private:
                     return false;
                 Value* multiplyLeft = m_value->child(0)->child(0);
                 Value* multiplyRight = m_value->child(0)->child(1);
-                Air::Opcode airOpcode = tryOpcodeForType(MultiplyNeg32, MultiplyNeg64, m_value->type());
+                Air::Opcode airOpcode = tryOpcodeForType(MultiplyNeg32, MultiplyNeg64, MultiplyNegDouble, MultiplyNegFloat, m_value->type());
                 auto tryNewAirOpcode = [&] () -> Air::Opcode {
                     if (airOpcode != MultiplyNeg64)
                         return Air::Oops;
@@ -3273,6 +3291,24 @@ private:
                 return;
 
             appendBinOp<Mul32, Mul64, MulDouble, MulFloat, Commutative>(left, right);
+            return;
+        }
+
+        case MulHigh: {
+            if constexpr (isX86()) {
+                appendX86MulHigh();
+                return;
+            }
+            appendBinOp<MulHigh32, MulHigh64, Air::Oops, Air::Oops>(m_value->child(0), m_value->child(1));
+            return;
+        }
+
+        case UMulHigh: {
+            if constexpr (isX86()) {
+                appendX86UMulHigh();
+                return;
+            }
+            appendBinOp<UMulHigh32, UMulHigh64, Air::Oops, Air::Oops>(m_value->child(0), m_value->child(1));
             return;
         }
 
@@ -3759,12 +3795,29 @@ private:
             if (tryAppendUBFIZ())
                 return;
 
-            // SBFIZ Pattern: d = ((src << amount) >> amount) << lsb
-            // where: amount = datasize - width
             auto tryAppendSBFIZ = [&] () -> bool {
                 Air::Opcode opcode = opcodeForType(InsertSignedBitfieldInZero32, InsertSignedBitfieldInZero64, m_value->type());
                 if (!isValidForm(opcode, Arg::Tmp, Arg::Imm, Arg::Imm, Arg::Tmp))
                     return false;
+
+                // SBFIZ Pattern: d = SExt32(src) << lsb
+                if (left->opcode() == SExt32) {
+                    Value* srcValue = left->child(0);
+                    Value* lsbValue = right;
+                    if (!canBeInternal(left))
+                        return false;
+                    if (!imm(lsbValue))
+                        return false;
+                    int64_t lsb = lsbValue->asInt();
+                    if (lsb < 0 || lsb > 32)
+                        return false;
+                    append(opcode, tmp(srcValue), imm(lsbValue), imm(32), tmp(m_value));
+                    commitInternal(left);
+                    return true;
+                }
+
+                // SBFIZ Pattern: d = ((src << amount) >> amount) << lsb
+                // where: amount = datasize - width
                 if (left->opcode() != SShr || left->child(0)->opcode() != Shl)
                     return false;
 
@@ -3852,6 +3905,39 @@ private:
             if (tryAppendSBFX())
                 return;
 
+            auto tryAppendMultiplySignExtend32 = [&] () -> bool {
+                if (m_value->type() != Int32)
+                    return false;
+
+                if (!isValidForm(MultiplySignExtend32, Arg::Tmp, Arg::Tmp, Arg::Tmp))
+                    return false;
+
+                if (left->opcode() != MulHigh)
+                    return false;
+
+                if (!canBeInternal(left))
+                    return false;
+
+                if (!imm(right))
+                    return false;
+
+                if (right->asInt() < 0)
+                    return false;
+
+                int64_t shiftAmount = 0;
+                if (!WTF::safeAdd<int64_t>(right->asInt(), 32, shiftAmount) || shiftAmount >= 64)
+                    return false;
+
+                Tmp beforeShift = m_code.newTmp(GP);
+                append(MultiplySignExtend32, tmp(left->child(0)), tmp(left->child(1)), beforeShift);
+                append(Rshift64, beforeShift, imm(shiftAmount), tmp(m_value));
+                commitInternal(left);
+                return true;
+            };
+
+            if (tryAppendMultiplySignExtend32())
+                return;
+
             appendShift<Rshift32, Rshift64>(left, right);
             return;
         }
@@ -3859,6 +3945,39 @@ private:
         case ZShr: {
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
+
+            auto tryAppendMultiplyZeroExtend32 = [&] () -> bool {
+                if (m_value->type() != Int32)
+                    return false;
+
+                if (!isValidForm(MultiplyZeroExtend32, Arg::Tmp, Arg::Tmp, Arg::Tmp))
+                    return false;
+
+                if (left->opcode() != UMulHigh)
+                    return false;
+
+                if (!canBeInternal(left))
+                    return false;
+
+                if (!imm(right))
+                    return false;
+
+                if (right->asInt() < 0)
+                    return false;
+
+                int64_t shiftAmount = 0;
+                if (!WTF::safeAdd<int64_t>(right->asInt(), 32, shiftAmount) || shiftAmount >= 64)
+                    return false;
+
+                Tmp beforeShift = m_code.newTmp(GP);
+                append(MultiplyZeroExtend32, tmp(left->child(0)), tmp(left->child(1)), beforeShift);
+                append(Urshift64, beforeShift, imm(shiftAmount), tmp(m_value));
+                commitInternal(left);
+                return true;
+            };
+
+            if (tryAppendMultiplyZeroExtend32())
+                return;
 
             appendShift<Urshift32, Urshift64>(left, right);
             return;
@@ -3892,6 +4011,11 @@ private:
 
         case Floor: {
             appendUnOp<Air::Oops, Air::Oops, FloorDouble, FloorFloat>(m_value->child(0));
+            return;
+        }
+
+        case FTrunc: {
+            appendUnOp<Air::Oops, Air::Oops, TruncDouble, TruncFloat>(m_value->child(0));
             return;
         }
 
@@ -4281,6 +4405,12 @@ private:
             return;
         case B3::VectorMul:
             emitSIMDBinaryOp(Air::VectorMul);
+            return;
+        case B3::VectorMulHigh:
+            emitSIMDBinaryOp(Air::VectorMulHigh);
+            return;
+        case B3::VectorMulLow:
+            emitSIMDBinaryOp(Air::VectorMulLow);
             return;
         case B3::VectorDotProduct:
             emitSIMDMonomorphicBinaryOp(Air::VectorDotProduct);
@@ -4703,11 +4833,53 @@ private:
         }
 
         case IToD: {
+            auto tryAppendUToD = [&](Value* value) {
+                if (!isValidForm(ConvertUInt32ToDouble, Arg::Tmp, Arg::Tmp))
+                    return false;
+
+                if (value->child(0)->type() != Int64)
+                    return false;
+
+                if (value->child(0)->opcode() != ZExt32)
+                    return false;
+
+                if (!canBeInternal(m_value->child(0)))
+                    return false;
+
+                append(ConvertUInt32ToDouble, tmp(value->child(0)->child(0)), tmp(value));
+                commitInternal(m_value->child(0));
+                return true;
+            };
+
+            if (tryAppendUToD(m_value))
+                return;
+
             appendUnOp<ConvertInt32ToDouble, ConvertInt64ToDouble>(m_value->child(0));
             return;
         }
 
         case IToF: {
+            auto tryAppendUToF = [&](Value* value) {
+                if (!isValidForm(ConvertUInt32ToFloat, Arg::Tmp, Arg::Tmp))
+                    return false;
+
+                if (value->child(0)->type() != Int64)
+                    return false;
+
+                if (value->child(0)->opcode() != ZExt32)
+                    return false;
+
+                if (!canBeInternal(m_value->child(0)))
+                    return false;
+
+                append(ConvertUInt32ToFloat, tmp(value->child(0)->child(0)), tmp(value));
+                commitInternal(m_value->child(0));
+                return true;
+            };
+
+            if (tryAppendUToF(m_value))
+                return;
+
             appendUnOp<ConvertInt32ToFloat, ConvertInt64ToFloat>(m_value->child(0));
             return;
         }
@@ -5379,6 +5551,8 @@ void lowerToAir(Procedure& procedure)
 IGNORE_RETURN_TYPE_WARNINGS_END
 #endif
 
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 #endif // USE(JSVALUE64)
 
 #pragma pop_macro("RotateLeft32")
@@ -5388,7 +5562,5 @@ IGNORE_RETURN_TYPE_WARNINGS_END
 #pragma pop_macro("StoreFence")
 #pragma pop_macro("LoadFence")
 #pragma pop_macro("MemoryFence")
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #endif // ENABLE(B3_JIT)

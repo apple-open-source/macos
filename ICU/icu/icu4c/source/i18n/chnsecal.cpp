@@ -198,6 +198,9 @@ static const int32_t LIMITS[UCAL_FIELD_COUNT][4] = {
     {/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1}, // MILLISECONDS_IN_DAY
     {        0,        0,        1,        1}, // IS_LEAP_MONTH
     {        0,        0,       11,       12}, // ORDINAL_MONTH
+#if APPLE_ICU_CHANGES // rdar://138880732
+    {/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1}, // IS_REPEATED_DAY
+#endif // APPLE_ICU_CHANGES
 };
 
 
@@ -373,7 +376,9 @@ int64_t ChineseCalendar::handleComputeMonthStart(int32_t eyear, int32_t month, U
 // rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
 // The Apple changes to use a static table of new-year adjustments is incomparible with the OSICU 76
 // changes to the Dangi calendar
-    bool canUseAdjustmentTable = uprv_strcmp(getType(), "dangi") != 0;
+// (also rdar://24832944 for the Vietnamese calendar)
+    bool canUseAdjustmentTable = ((uprv_strcmp(getType(), "dangi") != 0) && (uprv_strcmp(getType(), "vietnamese") != 0));
+
     int32_t theNewYear = newYear(setting, canUseAdjustmentTable, gyear, status);
 #else
     int32_t theNewYear = newYear(setting, gyear, status);
@@ -974,7 +979,8 @@ void ChineseCalendar::handleComputeFields(int32_t julianDay, UErrorCode & status
 // rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
 // The Apple changes to use a static table of new-year adjustments is incomparible with the OSICU 76
 // changes to the Dangi calendar
-    bool canUseAdjustmentTable = uprv_strcmp(getType(), "dangi") != 0;
+// (also rdar://24832944 for the Vietnamese calendar)
+    bool canUseAdjustmentTable = ((uprv_strcmp(getType(), "dangi") != 0) && (uprv_strcmp(getType(), "vietnamese") != 0));
     struct MonthInfo monthInfo = computeMonthInfo(setting, canUseAdjustmentTable, gyear, days, status);
 #else
     struct MonthInfo monthInfo = computeMonthInfo(setting, gyear, days, status);

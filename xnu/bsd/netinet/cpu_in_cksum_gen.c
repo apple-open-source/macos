@@ -79,11 +79,6 @@
 #define CKSUM_ERR(fmt, args...) fprintf_stderr(fmt, ## args)
 #endif /* !KERNEL */
 
-/* compile time assert */
-#ifndef _CASSERT
-#define _CASSERT(x)     _Static_assert(x, "compile-time assertion failed")
-#endif /* !_CASSERT */
-
 #ifndef VERIFY
 #define VERIFY(EX) ((void)0)
 #endif /* !VERIFY */
@@ -94,6 +89,10 @@
 
 #define PREDICT_TRUE(x)         __builtin_expect(!!((long)(x)), 1L)
 #define PREDICT_FALSE(x)        __builtin_expect(!!((long)(x)), 0L)
+
+#if !defined(static_assert)
+#define static_assert(x) _Static_assert(x, #x)
+#endif
 
 /* fake mbuf struct used only for calling os_cpu_in_cksum_mbuf() */
 struct _mbuf {
@@ -168,20 +167,20 @@ os_cpu_in_cksum(const void *__sized_by(len) data, uint32_t len, uint32_t initial
 	 * sure the offsets are as expected.
 	 */
 #if defined(__LP64__)
-	_CASSERT(offsetof(struct _mbuf, _m_next) == 0);
-	_CASSERT(offsetof(struct _mbuf, _m_data) == 16);
-	_CASSERT(offsetof(struct _mbuf, _m_len) == 24);
+	static_assert(offsetof(struct _mbuf, _m_next) == 0);
+	static_assert(offsetof(struct _mbuf, _m_data) == 16);
+	static_assert(offsetof(struct _mbuf, _m_len) == 24);
 #else /* !__LP64__ */
-	_CASSERT(offsetof(struct _mbuf, _m_next) == 0);
-	_CASSERT(offsetof(struct _mbuf, _m_data) == 8);
-	_CASSERT(offsetof(struct _mbuf, _m_len) == 12);
+	static_assert(offsetof(struct _mbuf, _m_next) == 0);
+	static_assert(offsetof(struct _mbuf, _m_data) == 8);
+	static_assert(offsetof(struct _mbuf, _m_len) == 12);
 #endif /* !__LP64__ */
 #ifdef KERNEL
-	_CASSERT(offsetof(struct _mbuf, _m_next) ==
+	static_assert(offsetof(struct _mbuf, _m_next) ==
 	    offsetof(struct mbuf, m_next));
-	_CASSERT(offsetof(struct _mbuf, _m_data) ==
+	static_assert(offsetof(struct _mbuf, _m_data) ==
 	    offsetof(struct mbuf, m_data));
-	_CASSERT(offsetof(struct _mbuf, _m_len) ==
+	static_assert(offsetof(struct _mbuf, _m_len) ==
 	    offsetof(struct mbuf, m_len));
 #endif /* KERNEL */
 	struct _mbuf m = {

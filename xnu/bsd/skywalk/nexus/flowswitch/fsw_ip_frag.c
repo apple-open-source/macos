@@ -73,6 +73,7 @@
 #include <skywalk/os_skywalk_private.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <skywalk/nexus/flowswitch/fsw_var.h>
+#include <kern/uipc_domain.h>
 
 #define IPFM_MAX_FRAGS_PER_QUEUE        128     /* RFC 791 64K/(512 min MTU) */
 #define IPFM_MAX_QUEUES                 1024    /* same as ip/ip6 */
@@ -179,6 +180,8 @@ static void ipf_free_pkt(struct ipf *f);
 static void ipfq_drain(struct fsw_ip_frag_mgr *mgr);
 static void ipfq_reap(struct fsw_ip_frag_mgr *mgr);
 static int ipfq_drain_sysctl SYSCTL_HANDLER_ARGS;
+static struct mbuf *ipf_pkt2mbuf(struct fsw_ip_frag_mgr *, struct __kern_packet *);
+static void ipf_icmp6_error_flag(struct mbuf *, int, int, int, int);
 void ipf_icmp_param_err(struct fsw_ip_frag_mgr *, struct __kern_packet *pkt,
     int param);
 void ipf_icmp_timeout_err(struct fsw_ip_frag_mgr *, struct ipf *f);
@@ -375,6 +378,27 @@ fsw_ip_frag_reass_v6(struct fsw_ip_frag_mgr *mgr, struct __kern_packet **pkt,
 	bcopy(src, (void *)key.ipfk_addr, IPFK_LEN_V6);
 	key.ipfk_len = IPFK_LEN_V6;
 	key.ipfk_ident = ip6f->ip6f_ident;
+
+	/*
+	 * https://tools.ietf.org/html/rfc8200#page-20
+	 * If the first fragment does not include all headers through an
+	 * Upper-Layer header, then that fragment should be discarded and
+	 * an ICMP Parameter Problem, Code 3, message should be sent to
+	 * the source of the fragment, with the Pointer field set to zero.
+	 */
+	if (fragoff == 0) {
+		struct __kern_packet *p = *pkt;
+		struct mbuf *m = ipf_pkt2mbuf(mgr, p);
+		if (__probable(m != NULL)) {
+			if (!ip6_pkt_has_ulp(m)) {
+				ipf_icmp6_error_flag(m, ICMP6_PARAM_PROB,
+				    ICMP6_PARAMPROB_FIRSTFRAG_INCOMP_HDR, 0, 0);
+				return EINVAL;
+			} else {
+				mbuf_freem(m);
+			}
+		}
+	}
 
 	err = ipf_process(mgr, pkt, &key, unfragpartlen, fragoff, fragpartlen,
 	    fragflag, nfrags, tlen);

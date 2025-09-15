@@ -37,6 +37,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/SystemPreviewSPI.h>
 #import <wtf/Assertions.h>
+#import <wtf/FileHandle.h>
 #import <wtf/FileSystem.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/SoftLinking.h>
@@ -105,13 +106,12 @@ SOFT_LINK_CLASS(AssetViewer, ASVInlinePreview);
 
     String fileName = makeString(WTF::UUID::createVersion4(), ".usdz"_s);
     auto filePath = FileSystem::pathByAppendingComponent(pathToDirectory, fileName);
-    auto file = FileSystem::openFile(filePath, FileSystem::FileOpenMode::Truncate);
-    if (file <= 0)
+    auto fileHandle = FileSystem::openFile(filePath, FileSystem::FileOpenMode::Truncate);
+    if (!fileHandle)
         return NO;
 
-    auto byteCount = static_cast<std::size_t>(FileSystem::writeToFile(file, model.data()->span()));
+    auto byteCount = fileHandle.write(model.data()->span());
     ASSERT_UNUSED(byteCount, byteCount == model.data()->size());
-    FileSystem::closeFile(file);
     _filePath = filePath;
 
     return YES;
@@ -128,7 +128,7 @@ SOFT_LINK_CLASS(AssetViewer, ASVInlinePreview);
     _preview = adoptNS([allocASVInlinePreviewInstance() initWithFrame:bounds]);
     [self.layer addSublayer:[_preview layer]];
 
-    auto url = adoptNS([[NSURL alloc] initFileURLWithPath:_filePath]);
+    RetainPtr url = adoptNS([[NSURL alloc] initFileURLWithPath:_filePath.createNSString().get()]);
 
     [_preview setupRemoteConnectionWithCompletionHandler:^(NSError *contextError) {
         if (contextError) {

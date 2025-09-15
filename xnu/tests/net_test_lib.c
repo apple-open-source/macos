@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,7 @@
 #define RTM_BUFLEN (sizeof(struct rt_msghdr) + 6 * SOCK_MAXADDRLEN)
 
 #define ROUNDUP(a) \
-((a) > 0 ? (1 + (((a) - 1) | (sizeof(long) - 1))) : sizeof(long))
+((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint32_t) - 1))) : sizeof(uint32_t))
 
 bool G_debug;
 
@@ -63,7 +63,6 @@ siocll_start(int s, const char * ifname)
 	result = ioctl(s, SIOCLL_START, &ifra_in6);
 	T_QUIET;
 	T_ASSERT_POSIX_SUCCESS(result, "SIOCLL_START %s", ifname);
-	return;
 }
 
 static void
@@ -92,7 +91,6 @@ nd_flags_set(int s, const char * if_name,
 		    "SIOCSIFINFO_FLAGS(%s) 0x%x",
 		    if_name, nd.ndi.flags);
 	}
-	return;
 }
 
 
@@ -106,15 +104,17 @@ siocprotoattach_in6(int s, const char * name)
 	strncpy(ifra.ifra_name, name, sizeof(ifra.ifra_name));
 	result = ioctl(s, SIOCPROTOATTACH_IN6, &ifra);
 	T_ASSERT_POSIX_SUCCESS(result, "SIOCPROTOATTACH_IN6(%s)", name);
-	return;
 }
 
 static void
-siocaifaddr(int s, char *ifname, struct in_addr addr, struct in_addr mask)
+sioc_a_or_d_ifaddr(int s, char *ifname, struct in_addr addr, struct in_addr mask,
+    bool add)
 {
 	struct ifaliasreq       ifra;
 	char                    ntopbuf_ip[INET_ADDRSTRLEN];
 	char                    ntopbuf_mask[INET_ADDRSTRLEN];
+	unsigned long           request;
+	const char *            request_str;
 	int                     ret;
 	struct sockaddr_in *    sin;
 
@@ -131,12 +131,30 @@ siocaifaddr(int s, char *ifname, struct in_addr addr, struct in_addr mask)
 	sin->sin_family = AF_INET;
 	sin->sin_addr = mask;
 
-	ret = ioctl(s, SIOCAIFADDR, &ifra);
+	if (add) {
+		request = SIOCAIFADDR;
+		request_str = "SIOCAIFADDR";
+	} else {
+		request = SIOCDIFADDR;
+		request_str = "SIOCDIFADDR";
+	}
+	ret = ioctl(s, request, &ifra);
 	inet_ntop(AF_INET, &addr, ntopbuf_ip, sizeof(ntopbuf_ip));
 	inet_ntop(AF_INET, &sin->sin_addr, ntopbuf_mask, sizeof(ntopbuf_mask));
-	T_ASSERT_POSIX_SUCCESS(ret, "SIOCAIFADDR %s %s %s",
+	T_ASSERT_POSIX_SUCCESS(ret, "%s %s %s %s", request_str,
 	    ifname, ntopbuf_ip, ntopbuf_mask);
-	return;
+}
+
+static void
+siocaifaddr(int s, char *ifname, struct in_addr addr, struct in_addr mask)
+{
+	sioc_a_or_d_ifaddr(s, ifname, addr, mask, true);
+}
+
+static void
+siocdifaddr(int s, char *ifname, struct in_addr addr, struct in_addr mask)
+{
+	sioc_a_or_d_ifaddr(s, ifname, addr, mask, false);
 }
 
 
@@ -532,6 +550,14 @@ ifnet_add_ip_address(char *ifname, struct in_addr addr, struct in_addr mask)
 	int             s = inet_dgram_socket_get();
 
 	siocaifaddr(s, ifname, addr, mask);
+}
+
+void
+ifnet_remove_ip_address(char *ifname, struct in_addr addr, struct in_addr mask)
+{
+	int             s = inet_dgram_socket_get();
+
+	siocdifaddr(s, ifname, addr, mask);
 }
 
 int
@@ -981,4 +1007,146 @@ bridge_add_member(const char * bridge, const char * member)
 	T_QUIET;
 	T_ASSERT_POSIX_SUCCESS(ret, "%s %s %s", __func__, bridge, member);
 	return ret;
+}
+
+/*
+**  stolen from bootp/bootplib/util.c
+**
+**/
+
+static int
+rt_xaddrs(char * cp, const char * cplim, struct rt_addrinfo * rtinfo)
+{
+	int         i;
+	struct sockaddr *   sa;
+
+	bzero(rtinfo->rti_info, sizeof(rtinfo->rti_info));
+	for (i = 0; (i < RTAX_MAX) && (cp < cplim); i++) {
+		if ((rtinfo->rti_addrs & (1 << i)) == 0) {
+			continue;
+		}
+		sa = (struct sockaddr *)cp;
+		if ((cp + sa->sa_len) > cplim) {
+			return EINVAL;
+		}
+		rtinfo->rti_info[i] = sa;
+		cp += ROUNDUP(sa->sa_len);
+	}
+	return 0;
+}
+
+/**
+**  stolen from bootp/IPConfiguration.bproj/iputil.c
+**
+** inet6_addrlist_*
+**/
+
+#define s6_addr16 __u6_addr.__u6_addr16
+
+static char *
+copy_if_info(unsigned int if_index, int af, int *ret_len_p)
+{
+	char *          buf = NULL;
+	size_t          buf_len = 0;
+	int             mib[6];
+
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = af;
+	mib[4] = NET_RT_IFLIST;
+	mib[5] = (int)if_index;
+
+	*ret_len_p = 0;
+	if (sysctl(mib, 6, NULL, &buf_len, NULL, 0) < 0) {
+		T_LOG("sysctl() size failed: %s", strerror(errno));
+		goto failed;
+	}
+	buf_len *= 2; /* just in case something changes */
+	buf = malloc(buf_len);
+	if (sysctl(mib, 6, buf, &buf_len, NULL, 0) < 0) {
+		free(buf);
+		buf = NULL;
+		T_LOG("sysctl() failed: %s", strerror(errno));
+		goto failed;
+	}
+	*ret_len_p = (int)buf_len;
+
+failed:
+	return buf;
+}
+
+bool
+inet6_get_linklocal_address(unsigned int if_index, struct in6_addr *ret_addr)
+{
+	char *          buf = NULL;
+	char *          buf_end;
+	int             buf_len;
+	bool            found = FALSE;
+	char *scan;
+	struct rt_msghdr *rtm;
+
+	bzero(ret_addr, sizeof(*ret_addr));
+	buf = copy_if_info(if_index, AF_INET6, &buf_len);
+	if (buf == NULL) {
+		goto done;
+	}
+	buf_end = buf + buf_len;
+	for (scan = buf; scan < buf_end; scan += rtm->rtm_msglen) {
+		struct ifa_msghdr * ifam;
+		struct rt_addrinfo  info;
+
+		/* ALIGN: buf aligned (from calling copy_if_info), scan aligned,
+		 * cast ok. */
+		rtm = (struct rt_msghdr *)(void *)scan;
+		T_LOG("rtm_version %d rtm_type %d", rtm->rtm_version, rtm->rtm_type);
+		if (rtm->rtm_version != RTM_VERSION) {
+			continue;
+		}
+		if (rtm->rtm_type == RTM_NEWADDR) {
+			errno_t         error;
+			struct sockaddr_in6 *sin6_p;
+
+			ifam = (struct ifa_msghdr *)rtm;
+			info.rti_addrs = ifam->ifam_addrs;
+			error = rt_xaddrs((char *)(ifam + 1),
+			    ((char *)ifam) + ifam->ifam_msglen,
+			    &info);
+			if (error) {
+				T_LOG("couldn't extract rt_addrinfo %s (%d)\n",
+				    strerror(error), error);
+				goto done;
+			}
+			/* ALIGN: info.rti_info aligned (sockaddr), cast ok. */
+			sin6_p = (struct sockaddr_in6 *)(void *)info.rti_info[RTAX_IFA];
+			if (sin6_p == NULL
+			    || sin6_p->sin6_len < sizeof(struct sockaddr_in6)) {
+				continue;
+			}
+			if (IN6_IS_ADDR_LINKLOCAL(&sin6_p->sin6_addr)) {
+				*ret_addr = sin6_p->sin6_addr;
+				ret_addr->s6_addr16[1] = 0; /* mask scope id */
+				found = TRUE;
+				break;
+			}
+		}
+	}
+
+done:
+	if (buf != NULL) {
+		free(buf);
+	}
+	return found;
+}
+
+void
+force_zone_gc(void)
+{
+	kern_return_t kr = mach_zone_force_gc(mach_host_self());
+
+	if (kr != KERN_SUCCESS) {
+		T_LOG("mach_zone_force_gc(): failed with error %s\n", mach_error_string(kr));
+	} else {
+		T_LOG("mach_zone_force_gc(): success\n");
+	}
 }

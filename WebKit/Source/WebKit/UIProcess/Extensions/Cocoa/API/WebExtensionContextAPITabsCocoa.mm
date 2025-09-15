@@ -103,7 +103,7 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
     }
 
     if (parameters.url)
-        configuration.url = parameters.url.value();
+        configuration.url = parameters.url.value().createNSURL().get();
 
     [delegate webExtensionController:extensionController->wrapper() openNewTabUsingConfiguration:configuration forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<WKWebExtensionTab> newTab, NSError *error) mutable {
         if (error) {
@@ -434,16 +434,17 @@ void WebExtensionContext::tabsCaptureVisibleTab(WebPageProxyIdentifier webPagePr
             }
 
 #if USE(APPKIT)
-            auto cgImage = [image CGImageForProposedRect:nil context:nil hints:nil];
+            RetainPtr<CGImage> cgImage = [image CGImageForProposedRect:nil context:nil hints:nil];
 #else
-            auto cgImage = image.CGImage;
+            RetainPtr<CGImage> cgImage = image.CGImage;
 #endif
             if (!cgImage) {
                 completionHandler({ });
                 return;
             }
 
-            completionHandler(URL { WebCore::dataURL(cgImage, toMIMEType(imageFormat), imageQuality) });
+            // FIXME: This is a static analysis false positive.
+            SUPPRESS_UNRETAINED_ARG completionHandler(URL { WebCore::dataURL(cgImage.get(), toMIMEType(imageFormat), imageQuality) });
         });
     });
 }
@@ -483,10 +484,13 @@ void WebExtensionContext::tabsSendMessage(WebExtensionTabIdentifier tabIdentifie
         return;
     }
 
+    auto targetParametersCopy = targetParameters;
+    targetParametersCopy.pageProxyIdentifier = webView._protectedPage->identifier();
+
     Ref callbackAggregator = EagerCallbackAggregator<void(Expected<String, WebExtensionError>)>::create(WTFMove(completionHandler), { });
 
     for (Ref process : processes) {
-        process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeMessageEvent(targetContentWorldType, messageJSON, targetParameters, senderParameters), [callbackAggregator](String&& replyJSON) {
+        process->sendWithAsyncReply(Messages::WebExtensionContextProxy::DispatchRuntimeMessageEvent(targetContentWorldType, messageJSON, targetParametersCopy, senderParameters), [callbackAggregator](String&& replyJSON) {
             if (replyJSON.isNull())
                 return;
 
@@ -616,10 +620,10 @@ void WebExtensionContext::tabsExecuteScript(WebPageProxyIdentifier webPageProxyI
         if (parameters.code)
             scriptData = SourcePair { parameters.code.value(), URL { } };
         else {
-            NSString *filePath = parameters.files.value().first();
-            scriptData = sourcePairForResource(filePath, *this);
+            RetainPtr filePath = parameters.files.value().first().createNSString();
+            scriptData = sourcePairForResource(filePath.get(), *this);
             if (!scriptData) {
-                completionHandler(toWebExtensionError(apiName, nullString(), @"Invalid resource: %@", filePath));
+                completionHandler(toWebExtensionError(apiName, nullString(), @"Invalid resource: %@", filePath.get()));
                 return;
             }
         }

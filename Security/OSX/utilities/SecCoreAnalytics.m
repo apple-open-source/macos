@@ -33,6 +33,12 @@
 
 NSString* const SecCoreAnalyticsValue = @"value";
 
+static bool gSecCoreAnalyticsEnabled = true;
+
+void SecCoreAnalyticsSetEnabledForProcess(bool enabled){
+    gSecCoreAnalyticsEnabled = enabled;
+}
+
 @interface SecCoreAnalytics ()
 
 + (NSString*)appNameFromPath:(NSString*)path;
@@ -192,25 +198,24 @@ void SecCoreAnalyticsSendLegacyKeychainUIEvent(const char* dialogType, const cha
 
 @implementation SecCoreAnalytics
 
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CoreAnalytics);
-
-SOFT_LINK_FUNCTION(CoreAnalytics, AnalyticsSendEvent, soft_AnalyticsSendEvent, \
-    void, (NSString* eventName, NSDictionary<NSString*,NSObject*>* eventPayload),(eventName, eventPayload));
-SOFT_LINK_FUNCTION(CoreAnalytics, AnalyticsSendEventLazy, soft_AnalyticsSendEventLazy, \
-    void, (NSString* eventName, NSDictionary<NSString*,NSObject*>* (^eventPayloadBuilder)(void)),(eventName, eventPayloadBuilder));
-
 + (void)sendEvent:(NSString*) eventName event:(NSDictionary<NSString*,NSObject*>*)event
 {
-    if (isCoreAnalyticsAvailable()) {
-        soft_AnalyticsSendEvent(eventName, event);
+    if(!gSecCoreAnalyticsEnabled) {
+        secnotice("seccoreanalytics", "Skipping sending event %@ due to process configuration", eventName);
+        return;
     }
+
+    AnalyticsSendEvent(eventName, event);
 }
 
 + (void)sendEventLazy:(NSString*) eventName builder:(NSDictionary<NSString*,NSObject*>* (^)(void))builder
 {
-    if (isCoreAnalyticsAvailable()) {
-        soft_AnalyticsSendEventLazy(eventName, builder);
+    if(!gSecCoreAnalyticsEnabled) {
+        secnotice("seccoreanalytics", "Skipping sending event %@ due to process configuration", eventName);
+        return;
     }
+
+    AnalyticsSendEventLazy(eventName, builder);
 }
 
 + (NSString*)appNameFromPath:(NSString*)path

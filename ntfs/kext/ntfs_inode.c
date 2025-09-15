@@ -90,7 +90,7 @@
  *
  * Locking: Caller must hold the @ntfs_inode_hash_lock.
  */
-BOOL ntfs_inode_test(ntfs_inode *ni, const ntfs_attr *na)
+NTFS_BOOL ntfs_inode_test(ntfs_inode *ni, const ntfs_attr *na)
 {
 	if (ni->mft_no != na->mft_no)
 		return FALSE;
@@ -115,7 +115,7 @@ BOOL ntfs_inode_test(ntfs_inode *ni, const ntfs_attr *na)
 	 * If looking for raw inode but found non-raw one or looking for
 	 * non-raw inode and found raw one this is a mismatch.
 	 */
-	if ((BOOL)NInoRaw(ni) != na->raw)
+	if ((NTFS_BOOL)NInoRaw(ni) != na->raw)
 		return FALSE;
 	/* Match! */
 	return TRUE;
@@ -326,14 +326,14 @@ static inline enum vtype ntfs_inode_get_vtype(ntfs_inode *ni)
  *
  * Return 0 on success and errno on error.
  */
-errno_t ntfs_inode_add_vnode_attr(ntfs_inode *ni, const BOOL is_system,
-		vnode_t parent_vn, struct componentname *cn, BOOL isstream)
+errno_t ntfs_inode_add_vnode_attr(ntfs_inode *ni, const NTFS_BOOL is_system,
+		vnode_t parent_vn, struct componentname *cn, NTFS_BOOL isstream)
 {
 	s64 data_size;
 	errno_t err;
 	enum vtype vtype;
 	struct vnode_fsparam vn_fsp;
-	BOOL cache_name = FALSE;
+	NTFS_BOOL cache_name = FALSE;
 
 	ntfs_debug("Entering.");
 	/* Get the vnode type corresponding to the inode mode type. */
@@ -459,7 +459,7 @@ errno_t ntfs_inode_add_vnode_attr(ntfs_inode *ni, const BOOL is_system,
  *
  * Return 0 on success and errno on error.
  */
-errno_t ntfs_inode_get(ntfs_volume *vol, ino64_t mft_no, const BOOL is_system,
+errno_t ntfs_inode_get(ntfs_volume *vol, ino64_t mft_no, const NTFS_BOOL is_system,
 		const lck_rw_type_t lock, ntfs_inode **nni, vnode_t parent_vn,
 		struct componentname *cn)
 {
@@ -698,7 +698,7 @@ err:
  * Locking: The base ntfs inode @base_ni must be locked (@base_ni->lock).
  */
 errno_t ntfs_attr_inode_lookup(ntfs_inode *base_ni, ATTR_TYPE type,
-		ntfschar *name, u32 name_len, const BOOL raw, ntfs_inode **nni)
+		ntfschar *name, u32 name_len, const NTFS_BOOL raw, ntfs_inode **nni)
 {
 	ntfs_inode *ni;
 	ntfs_attr na;
@@ -798,16 +798,16 @@ errno_t ntfs_attr_inode_lookup(ntfs_inode *base_ni, ATTR_TYPE type,
  * TODO: For now we do not store a name for attribute inodes.
  */
 errno_t ntfs_attr_inode_get_or_create(ntfs_inode *base_ni, ATTR_TYPE type,
-		ntfschar *name, u32 name_len, const BOOL is_system,
-		const BOOL raw, const int options, const lck_rw_type_t lock,
+		ntfschar *name, u32 name_len, const NTFS_BOOL is_system,
+		const NTFS_BOOL raw, const int options, const lck_rw_type_t lock,
 		ntfs_inode **nni)
 {
 	ntfs_inode *ni;
 	vnode_t vn;
 	int err;
-	BOOL promoted;
+	NTFS_BOOL promoted;
 	ntfs_attr na;
-	BOOL isstream = FALSE;
+	NTFS_BOOL isstream = FALSE;
 
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x, "
 			"is_system is %s, raw is %s, options 0x%x, lock 0x%x.",
@@ -1082,7 +1082,7 @@ err:
  * TODO: For now we do not store a name for attribute inodes.
  */
 errno_t ntfs_index_inode_get(ntfs_inode *base_ni, ntfschar *name, u32 name_len,
-		const BOOL is_system, ntfs_inode **nni)
+		const NTFS_BOOL is_system, ntfs_inode **nni)
 {
 	ntfs_inode *ni;
 	ntfs_attr na;
@@ -1242,7 +1242,7 @@ errno_t ntfs_extent_inode_get(ntfs_inode *base_ni, MFT_REF mref,
  * Return 0 on success and errno on error.  On error, *@is_system is undefined.
  */
 static errno_t ntfs_inode_is_extended_system(ntfs_attr_search_ctx *ctx,
-		BOOL *is_system)
+		NTFS_BOOL *is_system)
 {
 	ntfs_volume *vol;
 	unsigned nr_links;
@@ -1455,7 +1455,7 @@ err:
  *
  * Locking: Caller must hold the inode lock (@ni->lock).
  */
-static BOOL ntfs_finder_info_is_unused(ntfs_inode *ni)
+static NTFS_BOOL ntfs_finder_info_is_unused(ntfs_inode *ni)
 {
 	FINDER_INFO fi;
 
@@ -1534,7 +1534,7 @@ errno_t ntfs_inode_afpinfo_write(ntfs_inode *ni)
 	unsigned afp_size;
 	sle32 backup_time;
 	errno_t err;
-	BOOL delete, update;
+	NTFS_BOOL delete, update;
 
 	backup_time = ntfs_utc2ad(ni->backup_time);
 	delete = FALSE;
@@ -1616,7 +1616,7 @@ errno_t ntfs_inode_afpinfo_write(ntfs_inode *ni)
 		 * files.
 		 */
 		if (!S_ISDIR(ni->mode) || NInoEncrypted(ni)) {
-			BOOL need_set_archive_bit = TRUE;
+			NTFS_BOOL need_set_archive_bit = TRUE;
 			if (ni->vol->major_ver >= 2) {
 				if (ni->mft_no <= FILE_Extend)
 					need_set_archive_bit = FALSE;
@@ -1951,7 +1951,7 @@ info_err:
 		/* Find first extent of the unnamed data attribute. */
 		err = ntfs_attr_lookup(AT_DATA, AT_UNNAMED, 0, 0, NULL, 0, ctx);
 		if (err) {
-			BOOL is_system;
+			NTFS_BOOL is_system;
 
 			ni->allocated_size = ni->data_size =
 					ni->initialized_size = 0;
@@ -2555,7 +2555,7 @@ static errno_t ntfs_attr_inode_read_or_create(ntfs_inode *base_ni,
 		 * files.
 		 */
 		if (!S_ISDIR(base_ni->mode) || NInoEncrypted(base_ni)) {
-			BOOL need_set_archive_bit = TRUE;
+			NTFS_BOOL need_set_archive_bit = TRUE;
 			if (vol->major_ver >= 2) {
 				if (base_ni->mft_no <= FILE_Extend)
 					need_set_archive_bit = FALSE;
@@ -2835,7 +2835,7 @@ static errno_t ntfs_index_inode_read(ntfs_inode *base_ni, ntfs_inode *ni)
 	u8 *ir_end, *index_end;
 	ntfs_inode *bni;
 	errno_t err;
-	BOOL is_dir_index = (S_ISDIR(base_ni->mode) && ni->name == I30);
+	NTFS_BOOL is_dir_index = (S_ISDIR(base_ni->mode) && ni->name == I30);
 	
 	ntfs_debug("Entering for mft_no 0x%llx, index name length 0x%x.",
 			(unsigned long long)ni->mft_no,
@@ -3156,7 +3156,7 @@ err:
 static inline void ntfs_inode_free(ntfs_inode *ni)
 {
 	ntfs_volume *vol = ni->vol;
-	BOOL do_release;
+	NTFS_BOOL do_release;
 
 	/* No need to lock at this stage as no one else has a reference. */
 	if (ni->nr_extents > 0) {
@@ -3497,8 +3497,8 @@ static errno_t ntfs_inode_sync_to_mft_record(ntfs_inode *ni)
 	FILENAME_ATTR *fn;
 	errno_t err;
 	FILE_ATTR_FLAGS file_attributes = 0;
-	BOOL ignore_errors, dirty_times, dirty_file_attributes, dirty_sizes;
-	BOOL dirty_set_file_bits, modified;
+	NTFS_BOOL ignore_errors, dirty_times, dirty_file_attributes, dirty_sizes;
+	NTFS_BOOL dirty_set_file_bits, modified;
 	static const char ies[] = "Failed to update directory index entry(ies) "
 			"of inode 0x%llx because %s (error %d).  Run chkdsk "
 			"or touch the inode again to retry the update.";
@@ -4090,7 +4090,7 @@ err:
  * $MFT.
  */
 errno_t ntfs_inode_sync(ntfs_inode *ni, const int ioflags,
-		const BOOL skip_mft_record_sync)
+		const NTFS_BOOL skip_mft_record_sync)
 {
 	ntfs_inode *base_ni;
 	errno_t err;
@@ -4248,7 +4248,7 @@ errno_t ntfs_inode_sync(ntfs_inode *ni, const int ioflags,
  *
  * Return 0 on success and the error code on error.
  */
-errno_t ntfs_inode_get_name_and_parent_mref(ntfs_inode *ni, BOOL have_parent,
+errno_t ntfs_inode_get_name_and_parent_mref(ntfs_inode *ni, NTFS_BOOL have_parent,
 		MFT_REF *parent_mref, const char *name)
 {
 	MFT_REF mref;
@@ -4262,7 +4262,7 @@ errno_t ntfs_inode_get_name_and_parent_mref(ntfs_inode *ni, BOOL have_parent,
 	unsigned link_count = ni->link_count;
 	signed res_size = 0;
 	errno_t err;
-	BOOL name_present;
+	NTFS_BOOL name_present;
 	ntfschar ntfs_name_buf[link_count > 1 ? NTFS_MAX_NAME_LEN : 0];
 
 	ntfs_debug("Entering for mft_no 0x%llx.",
@@ -4472,7 +4472,7 @@ err:
  * Note both @parent_ni and @child_ni must be directory inodes.
  */
 errno_t ntfs_inode_is_parent(ntfs_inode *parent_ni, ntfs_inode *child_ni,
-		BOOL *is_parent, ntfs_inode *forbid_ni)
+		NTFS_BOOL *is_parent, ntfs_inode *forbid_ni)
 {
 	ntfs_volume *vol;
 	ntfs_inode *root_ni, *ni;

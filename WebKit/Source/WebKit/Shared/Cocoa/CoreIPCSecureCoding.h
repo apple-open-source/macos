@@ -45,7 +45,7 @@ struct AuxiliaryProcessCreationParameters;
 namespace SecureCoding {
 
 const HashSet<String>* classNamesExemptFromSecureCodingCrash();
-void applyProcessCreationParameters(const AuxiliaryProcessCreationParameters&);
+void applyProcessCreationParameters(AuxiliaryProcessCreationParameters&&);
 
 } // namespace SecureCoding
 

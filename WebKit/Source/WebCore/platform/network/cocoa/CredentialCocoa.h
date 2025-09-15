@@ -51,13 +51,13 @@ public:
 
     WEBCORE_EXPORT bool isEmpty() const;
 
-    bool encodingRequiresPlatformData() const { return m_nsCredential && encodingRequiresPlatformData(m_nsCredential.get()); }
+    bool encodingRequiresPlatformData() const { return m_nsCredential && encodingRequiresPlatformData(RetainPtr { m_nsCredential }.get()); }
 
     WEBCORE_EXPORT NSURLCredential *nsCredential() const;
 
     static bool platformCompare(const Credential&, const Credential&);
 
-    using IPCData = std::variant<NonPlatformData, RetainPtr<NSURLCredential>>;
+    using IPCData = Variant<NonPlatformData, RetainPtr<NSURLCredential>>;
     WEBCORE_EXPORT static Credential fromIPCData(IPCData&&);
     WEBCORE_EXPORT IPCData ipcData() const;
 

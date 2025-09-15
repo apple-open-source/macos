@@ -646,6 +646,10 @@ class OctagonCustodianTests: OctagonTestsBase {
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             let vouchers = dump!["vouchers"]
             XCTAssertNotNil(vouchers, "vouchers should not be nil")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joinedPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             stableInfoAcceptorCheckDumpCallback.fulfill()
         }
         self.wait(for: [stableInfoAcceptorCheckDumpCallback], timeout: 10)
@@ -777,6 +781,10 @@ class OctagonCustodianTests: OctagonTestsBase {
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             let vouchers = dump!["vouchers"]
             XCTAssertNotNil(vouchers, "vouchers should not be nil")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joinedPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             stableInfoAcceptorCheckDumpCallback.fulfill()
         }
         self.wait(for: [stableInfoAcceptorCheckDumpCallback], timeout: 10)

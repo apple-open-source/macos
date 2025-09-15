@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -29,51 +29,84 @@
 #define _WIN32_WINNT 0x400
 #endif
 #include <windows.h>
-public DWORD console_mode;
+#ifndef ENABLE_EXTENDED_FLAGS
+#define ENABLE_EXTENDED_FLAGS 0x80
+#define ENABLE_QUICK_EDIT_MODE 0x40
+#endif
+#ifndef ENABLE_VIRTUAL_TERMINAL_INPUT
+#define ENABLE_VIRTUAL_TERMINAL_INPUT 0x0200
+#endif
 public HANDLE tty;
+public DWORD init_console_input_mode;
+public DWORD curr_console_input_mode;
+public DWORD base_console_input_mode;
+public DWORD mouse_console_input_mode;
 #else
 public int tty;
 #endif
+extern int sigs;
 #if LESSTEST
 public char *ttyin_name = NULL;
-public int rstat_file = -1;
+public lbool is_lesstest(void)
+{
+	return ttyin_name != NULL;
+}
 #endif /*LESSTEST*/
-extern int sigs;
-extern int utf_mode;
-extern char *active_dashp_command;
-extern int add_newline;
-extern int wheel_lines;
 
 #ifdef __APPLE__
+extern int add_newline;
+extern char *active_dashp_command;
 extern int is_tty;
 #endif
 
-/*
- * Get name of tty device.
- */
 #if !MSDOS_COMPILER
-	public char *
-tty_device(VOID_PARAM)
+static int open_tty_device(constant char* dev)
 {
-	char *dev = NULL;
-#if HAVE_TTYNAME
-	dev = ttyname(2);
+#if OS2
+	/* The __open() system call translates "/dev/tty" to "con". */
+	return __open(dev, OPEN_READ);
+#else
+	return open(dev, OPEN_READ);
 #endif
-	if (dev == NULL)
-		dev = "/dev/tty";
+}
+
+/*
+ * Open the tty device.
+ * Try ttyname(), then try /dev/tty, then use file descriptor 2.
+ * In Unix, file descriptor 2 is usually attached to the screen,
+ * but also usually lets you read from the keyboard.
+ */
+public int open_tty(void)
+{
+	int fd = -1;
 #if LESSTEST
-	if (ttyin_name != NULL)
-		dev = ttyin_name;
+	if (is_lesstest())
+		fd = open_tty_device(ttyin_name);
 #endif /*LESSTEST*/
-	return dev;
+#if HAVE_TTYNAME
+	if (fd < 0)
+	{
+		constant char *dev = ttyname(2);
+		if (dev != NULL)
+			fd = open_tty_device(dev);
+	}
+#endif
+	if (fd < 0)
+		fd = open_tty_device("/dev/tty");
+	if (fd < 0)
+		fd = 2;
+#ifdef __MVS__
+	struct f_cnvrt cvtreq = {SETCVTON, 0, 1047};
+	fcntl(fd, F_CONTROL_CVT, &cvtreq);
+#endif
+	return fd;
 }
 #endif /* MSDOS_COMPILER */
 
 /*
  * Open keyboard for input.
  */
-	public void
-open_getchr(VOID_PARAM)
+public void open_getchr(void)
 {
 #if MSDOS_COMPILER==WIN32C
 	/* Need this to let child processes inherit our console handle */
@@ -84,9 +117,14 @@ open_getchr(VOID_PARAM)
 	tty = CreateFile("CONIN$", GENERIC_READ | GENERIC_WRITE,
 			FILE_SHARE_READ, &sa, 
 			OPEN_EXISTING, 0L, NULL);
-	GetConsoleMode(tty, &console_mode);
-	/* Make sure we get Ctrl+C events. */
-	SetConsoleMode(tty, ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT);
+	GetConsoleMode(tty, &init_console_input_mode);
+	/* base mode: ensure we get ctrl-C events, and don't get VT input. */
+	base_console_input_mode = (init_console_input_mode | ENABLE_PROCESSED_INPUT) & ~ENABLE_VIRTUAL_TERMINAL_INPUT;
+	/* mouse mode: enable mouse and disable quick edit. */
+	mouse_console_input_mode = (base_console_input_mode | ENABLE_MOUSE_INPUT | ENABLE_EXTENDED_FLAGS) & ~ENABLE_QUICK_EDIT_MODE;
+	/* Start with base mode. If --mouse is given, switch to mouse mode in init_mouse. */
+	curr_console_input_mode = base_console_input_mode;
+	SetConsoleMode(tty, curr_console_input_mode);
 #else
 #if MSDOS_COMPILER
 	extern int fd0;
@@ -105,20 +143,7 @@ open_getchr(VOID_PARAM)
 	(void) __djgpp_set_ctrl_c(1);
 #endif
 #else
-	/*
-	 * Try /dev/tty.
-	 * If that doesn't work, use file descriptor 2,
-	 * which in Unix is usually attached to the screen,
-	 * but also usually lets you read from the keyboard.
-	 */
-#if OS2
-	/* The __open() system call translates "/dev/tty" to "con". */
-	tty = __open(tty_device(), OPEN_READ);
-#else
-	tty = open(tty_device(), OPEN_READ);
-#endif
-	if (tty < 0)
-		tty = 2;
+	tty = open_tty();
 #endif
 #endif
 }
@@ -126,27 +151,24 @@ open_getchr(VOID_PARAM)
 /*
  * Close the keyboard.
  */
-	public void
-close_getchr(VOID_PARAM)
+public void close_getchr(void)
 {
 #if MSDOS_COMPILER==WIN32C
-	SetConsoleMode(tty, console_mode);
+	SetConsoleMode(tty, init_console_input_mode);
 	CloseHandle(tty);
 #endif
 }
 
 #if MSDOS_COMPILER==WIN32C
 /*
- * Close the pipe, restoring the keyboard (CMD resets it, losing the mouse).
+ * Close the pipe, restoring the console mode (CMD resets it, losing the mouse).
  */
-	int
-pclose(f)
-	FILE *f;
+public int pclose(FILE *f)
 {
 	int result;
 
 	result = _pclose(f);
-	SetConsoleMode(tty, ENABLE_PROCESSED_INPUT | ENABLE_MOUSE_INPUT);
+	SetConsoleMode(tty, curr_console_input_mode);
 	return result;
 }
 #endif
@@ -154,8 +176,7 @@ pclose(f)
 /*
  * Get the number of lines to scroll when mouse wheel is moved.
  */
-	public int
-default_wheel_lines(VOID_PARAM)
+public int default_wheel_lines(void)
 {
 	int lines = 1;
 #if MSDOS_COMPILER==WIN32C
@@ -168,29 +189,16 @@ default_wheel_lines(VOID_PARAM)
 	return lines;
 }
 
-#if LESSTEST
-	public void
-rstat(st)
-	char st;
-{
-	if (rstat_file < 0)
-		return;
-	lseek(rstat_file, SEEK_SET, 0);
-	write(rstat_file, &st, 1);
-}
-#endif /*LESSTEST*/
-
 /*
  * Get a character from the keyboard.
  */
-	public int
-getchr(VOID_PARAM)
+public int getchr(void)
 {
 #ifdef __APPLE__
 	static bool use_stderr = true;	/* Maybe */
 #endif
 	char c;
-	int result;
+	ssize_t result;
 
 	if (active_dashp_command) {
 		/* Use it until all gone */
@@ -202,7 +210,7 @@ getchr(VOID_PARAM)
 				add_newline = 0;
 				return (c & 0377);
 			}
-		} else 
+		} else
 			return (c & 0377);
 	}
 
@@ -225,16 +233,16 @@ getchr(VOID_PARAM)
 			result = poll(&pfd, 1, 0);
 
 			if (result <= 0 ||
-			    (pfd.revents & POLLRDNORM) == 0) {
+				(pfd.revents & POLLRDNORM) == 0) {
 				/* Not readable, don't try to
 				 * use stderr anymore. */
 				use_stderr = false;
 				goto no_stderr;
-			}
+		}
 
-			errbuf_sz = read(STDERR_FILENO, errbuf, sizeof(errbuf));
-			if (errbuf_sz > 0)
-				errpos = 0;
+		errbuf_sz = read(STDERR_FILENO, errbuf, sizeof(errbuf));
+		if (errbuf_sz > 0)
+			errpos = 0;
 		}
 		if (errbuf_sz <= 0)
 		{
@@ -253,6 +261,7 @@ getchr(VOID_PARAM)
 	}
 no_stderr:
 #endif
+
 	do
 	{
 		flush();
@@ -271,17 +280,11 @@ no_stderr:
 		if (c == '\003')
 			return (READ_INTR);
 #else
-#if LESSTEST
-		rstat('R');
-#endif /*LESSTEST*/
 		{
 			unsigned char uc;
 			result = iread(tty, &uc, sizeof(char));
 			c = (char) uc;
 		}
-#if LESSTEST
-		rstat('B');
-#endif /*LESSTEST*/
 		if (result == READ_INTR)
 			return (READ_INTR);
 		if (result < 0)
@@ -291,6 +294,14 @@ no_stderr:
 			 * because error calls getchr!
 			 */
 			quit(QUIT_ERROR);
+		}
+#endif
+#if LESSTEST
+		if (c == LESS_DUMP_CHAR)
+		{
+			dump_screen();
+			result = 0;
+			continue;
 		}
 #endif
 #if 0 /* allow entering arbitrary hex chars for testing */

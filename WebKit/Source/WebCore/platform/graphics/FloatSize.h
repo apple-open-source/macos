@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2003-2023 Apple Inc.  All rights reserved.
- * Copyright (C) 2014 Google Inc.  All rights reserved.
- * Copyright (C) 2005 Nokia.  All rights reserved.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Google Inc. All rights reserved.
+ * Copyright (C) 2005 Nokia. All rights reserved.
  *               2008 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -161,18 +161,6 @@ public:
 
     friend bool operator==(const FloatSize&, const FloatSize&) = default;
 
-    struct MarkableTraits {
-        constexpr static bool isEmptyValue(const FloatSize& size)
-        {
-            return size.isNaN();
-        }
-
-        constexpr static FloatSize emptyValue()
-        {
-            return FloatSize::nanSize();
-        }
-    };
-
 private:
     float m_width { 0 };
     float m_height { 0 };
@@ -295,6 +283,19 @@ struct LogArgument<WebCore::FloatSize> {
     static String toString(const WebCore::FloatSize& size)
     {
         return size.toJSONString();
+    }
+};
+
+template<>
+struct MarkableTraits<WebCore::FloatSize> {
+    constexpr static bool isEmptyValue(const WebCore::FloatSize& size)
+    {
+        return size.isNaN();
+    }
+
+    constexpr static WebCore::FloatSize emptyValue()
+    {
+        return WebCore::FloatSize::nanSize();
     }
 };
     

@@ -62,7 +62,7 @@ private:
     WGPUXRSubImage backing() const { return m_backing.get(); }
 
     WebGPUPtr<WGPUXRSubImage> m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
 };
 
 } // namespace WebCore::WebGPU

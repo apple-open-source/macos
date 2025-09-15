@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -210,9 +210,10 @@ manual_v6_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	my_log(LOG_INFO, "%s %s: starting", ServiceGetMethodString(service_p),
 	       if_name(if_p));
 	method_data = (ipconfig_method_data_t)event_data;
-	ServiceSetRequestedIPv6Address(service_p,
-				       &method_data->manual_v6.addr,
-				       method_data->manual_v6.prefix_length);
+	ServiceSetRequestedIPv6Information(service_p,
+					   &method_data->manual_v6.addr,
+					   method_data->manual_v6.prefix_length,
+					   &method_data->manual_v6.router);
 	manual_v6_start(service_p);
 	manual_v6_simulate_address_changed(service_p);
 	break;

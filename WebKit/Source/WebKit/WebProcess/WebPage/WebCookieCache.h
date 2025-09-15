@@ -28,14 +28,16 @@
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/CookieChangeListener.h>
 #include <WebCore/CookieJar.h>
+#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/SameSiteInfo.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/Ref.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RefCounter.h>
 
 namespace WebCore {
 struct Cookie;
-class NetworkStorageSession;
 enum class ShouldRelaxThirdPartyCookieBlocking : bool;
 }
 
@@ -44,10 +46,17 @@ namespace WebKit {
 enum PendingCookieUpdateCounterType { };
 using PendingCookieUpdateCounter = RefCounter<PendingCookieUpdateCounterType>;
 
-class WebCookieCache final : public WebCore::CookieChangeListener {
+class WebCookieCache final : public RefCounted<WebCookieCache>, public WebCore::CookieChangeListener {
 public:
-    WebCookieCache() = default;
+    static Ref<WebCookieCache> create()
+    {
+        return adoptRef(*new WebCookieCache);
+    }
+
     virtual ~WebCookieCache();
+
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     bool isSupported();
 
@@ -65,7 +74,11 @@ public:
     void setOptInCookiePartitioningEnabled(bool);
 
 private:
+    WebCookieCache() = default;
+
     WebCore::NetworkStorageSession& inMemoryStorageSession();
+    CheckedRef<WebCore::NetworkStorageSession> checkedInMemoryStorageSession() { return inMemoryStorageSession(); }
+
     void pruneCacheIfNecessary();
     bool cacheMayBeOutOfSync() const;
 

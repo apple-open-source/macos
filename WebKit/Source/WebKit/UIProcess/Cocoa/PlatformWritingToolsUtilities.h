@@ -27,6 +27,7 @@
 
 #if ENABLE(WRITING_TOOLS)
 
+#import <WebCore/CocoaWritingToolsTypes.h>
 #import <WebCore/WritingToolsTypes.h>
 #import <pal/spi/cocoa/WritingToolsSPI.h>
 #import <wtf/RetainPtr.h>
@@ -54,7 +55,7 @@ namespace WebKit {
 
 #pragma mark - Conversions from web types to platform types.
 
-PlatformWritingToolsBehavior convertToPlatformWritingToolsBehavior(WebCore::WritingTools::Behavior);
+CocoaWritingToolsBehavior convertToCocoaWritingToolsBehavior(WebCore::WritingTools::Behavior);
 
 WTRequestedTool convertToPlatformRequestedTool(WebCore::WritingTools::RequestedTool);
 
@@ -64,7 +65,7 @@ RetainPtr<WTContext> convertToPlatformContext(const WebCore::WritingTools::Conte
 
 #pragma mark - Conversions from platform types to web types.
 
-WebCore::WritingTools::Behavior convertToWebWritingToolsBehavior(PlatformWritingToolsBehavior);
+WebCore::WritingTools::Behavior convertToWebWritingToolsBehavior(CocoaWritingToolsBehavior);
 
 WebCore::WritingTools::RequestedTool convertToWebRequestedTool(WTRequestedTool);
 

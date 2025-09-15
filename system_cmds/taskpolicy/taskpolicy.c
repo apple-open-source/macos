@@ -37,6 +37,7 @@
 
 #include <spawn.h>
 #include <spawn_private.h>
+#include <sys/kern_memorystatus.h>
 #include <sys/spawn_internal.h>
 
 #define QOS_PARAMETER_LATENCY 0
@@ -54,6 +55,9 @@ int main(int argc, char * argv[])
 {
 	int ch, ret;
 	pid_t pid = 0;
+	int memlimit_mb = -1;
+	bool set_memlimit = false;
+	int jetsam_priority = JETSAM_PRIORITY_DEFAULT;
 	posix_spawnattr_t attr;
 	extern char **environ;
 	bool flagx = false, flagX = false, flagb = false, flagB = false, flaga = false, flag_s = false;
@@ -63,7 +67,7 @@ int main(int argc, char * argv[])
 	struct task_qos_policy qosinfo = { LATENCY_QOS_TIER_UNSPECIFIED, THROUGHPUT_QOS_TIER_UNSPECIFIED };
 	uint64_t qos_clamp = POSIX_SPAWN_PROC_CLAMP_NONE;
 
-	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:asS:")) != -1) {
+	while ((ch = getopt(argc, argv, "xXbBd:g:c:t:l:p:asS:m:j:")) != -1) {
 		switch (ch) {
 			case 'x':
 				flagx = true;
@@ -116,6 +120,21 @@ int main(int argc, char * argv[])
 				pid = atoi(optarg);
 				if (pid == 0) {
 					warnx("Invalid pid '%s' specified", optarg);
+					usage();
+				}
+				break;
+			case 'm':
+				memlimit_mb = atoi(optarg);
+				set_memlimit = true;
+				if (memlimit_mb == 0) {
+					warnx("Invalid memory limit '%s' specified", optarg);
+					usage();
+				}
+				break;
+			case 'j':
+				jetsam_priority = atoi(optarg);
+				if (jetsam_priority < JETSAM_PRIORITY_IDLE_HEAD || jetsam_priority > JETSAM_PRIORITY_MAX) {
+					warnx("Invalid jetsam priority '%s' specified", optarg);
 					usage();
 				}
 				break;
@@ -238,6 +257,15 @@ int main(int argc, char * argv[])
 		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_set_qos_clamp_np");
 	}
 
+	if (set_memlimit || jetsam_priority != JETSAM_PRIORITY_DEFAULT) {
+		short flags = 0;
+		if (set_memlimit) {
+			flags |= (POSIX_SPAWN_JETSAM_MEMLIMIT_ACTIVE_FATAL | POSIX_SPAWN_JETSAM_MEMLIMIT_INACTIVE_FATAL);
+		}
+		ret = posix_spawnattr_setjetsam_ext(&attr, flags, jetsam_priority, memlimit_mb, memlimit_mb);
+		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setjetsam_ext");
+	}
+
 	if (flaga) {
 		ret = posix_spawnattr_setprocesstype_np(&attr, POSIX_SPAWN_PROC_TYPE_APP_DEFAULT);
 		if (ret != 0) errc(EX_NOINPUT, ret, "posix_spawnattr_setprocesstype_np");
@@ -260,7 +288,8 @@ int main(int argc, char * argv[])
 static void usage(void)
 {
 	fprintf(stderr, "Usage: %s [-x|-X] [-d <policy>] [-g <policy>] [-c <clamp>] [-b] [-t <tier>]\n"
-                    "                  [-l <tier>] [-a] [-s] [-S <shims>] <program> [<pargs> [...]]\n", getprogname());
+                    "                  [-l <tier>] [-a] [-s] [-S <shims>] [-m <limit>] [-j <pri>]\n"
+					"                  <program> [<pargs> [...]]\n", getprogname());
 	fprintf(stderr, "       %s [-b|-B] [-t <tier>] [-l <tier>] -p pid\n", getprogname());
 	exit(EX_USAGE);
 }

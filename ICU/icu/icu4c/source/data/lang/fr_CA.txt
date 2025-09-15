@@ -26,6 +26,7 @@ fr_CA{
         goh{"vieux haut-allemand"}
         gu{"gujarati"}
         ii{"yi de Sichuan"}
+        isc{"iskonawa"}
         ken{"kenyang"}
         kl{"kalaallisut"}
         ks{"kashmiri"}

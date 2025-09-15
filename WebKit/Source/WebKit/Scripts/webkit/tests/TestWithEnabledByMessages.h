@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit AlwaysEnabled(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class ConditionallyEnabled {
@@ -76,17 +77,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit ConditionallyEnabled(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class ConditionallyEnabledAnd {
@@ -99,13 +101,16 @@ public:
     static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool deferSendingIfSuspended = false;
 
-    auto&& arguments()
+    ConditionallyEnabledAnd()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 class ConditionallyEnabledOr {
@@ -118,13 +123,16 @@ public:
     static constexpr bool replyCanDispatchOutOfOrder = false;
     static constexpr bool deferSendingIfSuspended = false;
 
-    auto&& arguments()
+    ConditionallyEnabledOr()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 } // namespace TestWithEnabledBy

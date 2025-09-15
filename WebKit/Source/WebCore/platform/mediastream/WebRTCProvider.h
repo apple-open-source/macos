@@ -53,7 +53,6 @@ public:
     virtual ~WebRTCProvider() = default;
 
     static bool webRTCAvailable();
-    static void setH264HardwareEncoderAllowed(bool);
 
     virtual RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection();
 
@@ -82,6 +81,8 @@ public:
 
     void setPortAllocatorRange(StringView);
     std::optional<std::pair<int, int>> portAllocatorRange() const;
+
+    virtual bool isLibWebRTCProvider() const { return false; }
 
 protected:
 #if ENABLE(WEB_RTC)

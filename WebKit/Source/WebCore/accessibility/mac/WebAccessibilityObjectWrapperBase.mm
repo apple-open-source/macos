@@ -44,9 +44,12 @@
 #import "AccessibilityTableCell.h"
 #import "AccessibilityTableColumn.h"
 #import "AccessibilityTableRow.h"
+#import "BoundaryPointInlines.h"
 #import "ColorMac.h"
 #import "ContextMenuController.h"
 #import "Editing.h"
+#import "FrameDestructionObserverInlines.h"
+#import "FrameInlines.h"
 #import "FrameSelection.h"
 #import "LayoutRect.h"
 #import "LocalizedStrings.h"
@@ -59,6 +62,7 @@
 #import "TextIterator.h"
 #import "VisibleUnits.h"
 #import <Accessibility/Accessibility.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <pal/cocoa/AccessibilitySoftLink.h>
 
@@ -235,11 +239,6 @@ using namespace WebCore;
 #define NSAccessibilityVisitedLinkSearchKey @"AXVisitedLinkSearchKey"
 #endif
 
-// Search
-#ifndef NSAccessibilityImmediateDescendantsOnly
-#define NSAccessibilityImmediateDescendantsOnly @"AXImmediateDescendantsOnly"
-#endif
-
 static NSArray *convertMathPairsToNSArray(const AccessibilityObject::AccessibilityMathMultiscriptPairs& pairs, NSString *subscriptKey, NSString *superscriptKey)
 {
     return createNSArray(pairs, [&] (auto& pair) {
@@ -301,10 +300,11 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 - (void)attachIsolatedObject:(AXIsolatedObject*)isolatedObject
 {
+    ASSERT(!isMainThread());
     ASSERT(isolatedObject && (!_identifier || *_identifier == isolatedObject->objectID()));
+
     m_isolatedObject = isolatedObject;
-    if (isMainThread())
-        m_isolatedObjectInitialized = true;
+    m_isolatedObjectInitialized = !!isolatedObject;
 
     if (!_identifier)
         _identifier = m_isolatedObject.get()->objectID();
@@ -312,7 +312,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 - (BOOL)hasIsolatedObject
 {
-    return !!m_isolatedObject.get();
+    return m_isolatedObjectInitialized.load();
 }
 #endif
 
@@ -327,6 +327,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 - (void)detachIsolatedObject:(AccessibilityDetachmentType)detachmentType
 {
     m_isolatedObject = nullptr;
+    m_isolatedObjectInitialized = false;
 }
 #endif
 
@@ -337,12 +338,18 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
     // If it does become invalidated, self.axBackingObject will be nil.
     retainPtr(self).autorelease();
 
-    auto* backingObject = self.axBackingObject;
-    if (!backingObject)
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
+    if (!backingObject) {
+        if (!isMainThread()) {
+            // It's possible our backing object just hasn't been attached yet.
+            // Try again after making sure all isolated trees are up-to-date, which could
+            // attach an object to this wrapper.
+            AXTreeStore<AXIsolatedTree>::applyPendingChangesForAllIsolatedTrees();
+            return m_isolatedObject.get();
+        }
         return nil;
-
+    }
     backingObject->updateBackingStore();
-
     return self.axBackingObject;
 }
 #else
@@ -378,7 +385,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     ASSERT(AXObjectCache::isIsolatedTreeEnabled());
-    return m_isolatedObject.get().get();
+    return m_isolatedObject.get();
 #else
     ASSERT_NOT_REACHED();
     return nullptr;
@@ -397,7 +404,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 - (NSArray<NSString *> *)baseAccessibilitySpeechHint
 {
-    return [(NSString *)self.axBackingObject->speechHintAttributeValue() componentsSeparatedByString:@" "];
+    return [self.axBackingObject->speechHint().createNSString() componentsSeparatedByString:@" "];
 }
 
 #if HAVE(ACCESSIBILITY_FRAMEWORK)
@@ -411,7 +418,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
     auto extendedDescription = backingObject->extendedDescription();
     if (extendedDescription.length()) {
         accessibilityCustomContent = adoptNS([[NSMutableArray alloc] init]);
-        AXCustomContent *contentItem = [PAL::getAXCustomContentClass() customContentWithLabel:WEB_UI_STRING("description", "description detail") value:extendedDescription];
+        AXCustomContent *contentItem = [PAL::getAXCustomContentClass() customContentWithLabel:WEB_UI_STRING("description", "description detail").createNSString().get() value:extendedDescription.createNSString().get()];
         // Set this to high, so that it's always spoken.
         [contentItem setImportance:AXCustomContentImportanceHigh];
         [accessibilityCustomContent addObject:contentItem];
@@ -423,7 +430,7 @@ NSArray *makeNSArray(const WebCore::AXCoreObject::AccessibilityChildrenVector& c
 
 - (NSString *)baseAccessibilityHelpText
 {
-    return self.axBackingObject->helpTextAttributeValue();
+    return self.axBackingObject->helpTextAttributeValue().createNSString().autorelease();
 }
 
 struct PathConversionInfo {
@@ -496,20 +503,31 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 // advancing forward by line from top and backwards by line from the bottom, until we have a visible range.
 - (NSRange)accessibilityVisibleCharacterRange
 {
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis()) {
+        RefPtr<AXCoreObject> backingObject = self.baseUpdateBackingStore;
+        if (!backingObject)
+            return NSMakeRange(NSNotFound, 0);
+        std::optional range = backingObject->visibleCharacterRange();
+        return range ? *range : NSMakeRange(NSNotFound, 0);
+    }
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+
     return Accessibility::retrieveValueFromMainThread<NSRange>([protectedSelf = retainPtr(self)] () -> NSRange {
-        auto backingObject = protectedSelf.get().baseUpdateBackingStore;
+        RefPtr<AXCoreObject> backingObject = protectedSelf.get().baseUpdateBackingStore;
         if (!backingObject)
             return NSMakeRange(NSNotFound, 0);
 
         auto elementRange = makeNSRange(backingObject->simpleRange());
         if (elementRange.location == NSNotFound)
             return elementRange;
-        
-        auto visibleRange = makeNSRange(backingObject->visibleCharacterRange());
-        if (visibleRange.location == NSNotFound)
-            return visibleRange;
 
-        return NSMakeRange(visibleRange.location - elementRange.location, visibleRange.length);
+        std::optional visibleRange = backingObject->visibleCharacterRange();
+        if (!visibleRange || visibleRange->location == NSNotFound)
+            return NSMakeRange(NSNotFound, 0);
+
+        return NSMakeRange(visibleRange->location - elementRange.location, visibleRange->length);
     });
 }
 
@@ -522,7 +540,7 @@ static void convertPathToScreenSpaceFunction(PathConversionInfo& conversion, con
 
 - (CGRect)convertRectToSpace:(const WebCore::FloatRect&)rect space:(AccessibilityConversionSpace)space
 {
-    RefPtr backingObject = dynamicDowncast<AccessibilityObject>(self.baseUpdateBackingStore);
+    RefPtr<AXCoreObject> backingObject = self.baseUpdateBackingStore;
     if (!backingObject)
         return CGRectZero;
 
@@ -534,13 +552,13 @@ NSRange makeNSRange(std::optional<SimpleRange> range)
     if (!range)
         return NSMakeRange(NSNotFound, 0);
     
-    auto& document = range->start.document();
-    auto* frame = document.frame();
+    Ref document = range->start.document();
+    RefPtr frame = document->frame();
     if (!frame)
         return NSMakeRange(NSNotFound, 0);
 
-    auto* rootEditableElement = frame->selection().selection().rootEditableElement();
-    auto* scope = rootEditableElement ? rootEditableElement : document.documentElement();
+    RefPtr rootEditableElement = frame->selection().selection().rootEditableElement();
+    RefPtr scope = rootEditableElement ? rootEditableElement : document->documentElement();
     if (!scope)
         return NSMakeRange(NSNotFound, 0);
 
@@ -564,8 +582,8 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
     // directly in the document DOM, so serialization is problematic. Our solution is
     // to use the root editable element of the selection start as the positional base.
     // That fits with AppKit's idea of an input context.
-    auto selectionRoot = document->frame()->selection().selection().rootEditableElement();
-    auto scope = selectionRoot ? selectionRoot : document->documentElement();
+    RefPtr selectionRoot = document->frame()->selection().selection().rootEditableElement();
+    RefPtr scope = selectionRoot ? selectionRoot : document->documentElement();
     if (!scope)
         return std::nullopt;
 
@@ -575,15 +593,15 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
 - (WebCore::AXCoreObject*)baseUpdateBackingStore
 {
 #if PLATFORM(MAC)
-    auto* backingObject = self.updateObjectBackingStore;
+    RefPtr<AXCoreObject> backingObject = self.updateObjectBackingStore;
     if (!backingObject)
         return nullptr;
 #else
     if (![self _prepareAccessibilityCall])
         return nullptr;
-    auto* backingObject = self.axBackingObject;
+    RefPtr<AXCoreObject> backingObject = self.axBackingObject;
 #endif
-    return backingObject;
+    return backingObject.get();
 }
 
 - (NSArray<NSDictionary *> *)lineRectsAndText
@@ -620,33 +638,32 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
             else if ([item isKindOfClass:WebAccessibilityObjectWrapper.class]) {
 #if PLATFORM(MAC)
                 auto *wrapper = static_cast<WebAccessibilityObjectWrapper *>(item);
-                auto* object = wrapper.axBackingObject;
+                RefPtr<AXCoreObject> object = wrapper.axBackingObject;
                 if (!object)
                     continue;
 
-                NSString *label;
-                switch (object->roleValue()) {
+                RetainPtr<NSString> label;
+                switch (object->role()) {
                 case AccessibilityRole::StaticText:
-                    label = object->stringValue();
+                    label = object->stringValue().createNSString();
                     break;
                 case AccessibilityRole::Image: {
                     String name = object->titleAttributeValue();
                     if (name.isEmpty())
                         name = object->descriptionAttributeValue();
-                    label = name;
+                    label = name.createNSString();
                     break;
                 }
                 default:
-                    label = nil;
                     break;
                 }
 #else
-                NSString *label = static_cast<WebAccessibilityObjectWrapper *>(item).accessibilityLabel;
+                RetainPtr<NSString> label = static_cast<WebAccessibilityObjectWrapper *>(item).accessibilityLabel;
 #endif
                 if (!label)
                     continue;
 
-                auto attributedLabel = adoptNS([[NSAttributedString alloc] initWithString:label]);
+                auto attributedLabel = adoptNS([[NSAttributedString alloc] initWithString:label.get()]);
                 [text appendAttributedString:attributedLabel.get()];
             }
         }
@@ -678,7 +695,7 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
 
 - (NSString *)ariaLandmarkRoleDescription
 {
-    return self.axBackingObject->ariaLandmarkRoleDescription();
+    return self.axBackingObject->ariaLandmarkRoleDescription().createNSString().autorelease();
 }
 
 - (NSString *)accessibilityPlatformMathSubscriptKey
@@ -721,13 +738,13 @@ std::optional<SimpleRange> makeDOMRange(Document* document, NSRange range)
     auto editingStyles = axObject->resolvedEditingStyles();
     for (String& key : editingStyles.keys()) {
         auto value = editingStyles.get(key);
-        id result = WTF::switchOn(value,
-            [] (String& typedValue) -> id { return (NSString *)typedValue; },
-            [] (bool& typedValue) -> id { return @(typedValue); },
-            [] (int& typedValue) -> id { return @(typedValue); },
+        RetainPtr result = WTF::switchOn(value,
+            [] (String& typedValue) -> RetainPtr<id> { return typedValue.createNSString(); },
+            [] (bool& typedValue) -> RetainPtr<id> { return @(typedValue); },
+            [] (int& typedValue) -> RetainPtr<id> { return @(typedValue); },
             [] (auto&) { return nil; }
         );
-        results[(NSString *)key] = result;
+        results[key.createNSString().get()] = result.get();
     }
     return results;
 }
@@ -750,6 +767,11 @@ static BOOL accessibilityShouldRepostNotifications;
 
 static bool isValueTypeSupported(id value)
 {
+#if PLATFORM(MAC)
+    if (value && CFGetTypeID((__bridge CFTypeRef)value) == AXTextMarkerGetTypeID())
+        return true;
+#endif // PLATFORM(MAC)
+
     return [value isKindOfClass:[NSString class]] || [value isKindOfClass:[NSNumber class]] || [value isKindOfClass:[WebAccessibilityObjectWrapperBase class]];
 }
 
@@ -796,27 +818,27 @@ static NSDictionary *dictionaryRemovingNonSupportedTypes(NSDictionary *dictionar
         ASSERT(notificationName);
         userInfo = dictionaryRemovingNonSupportedTypes(userInfo);
         NSDictionary *info = [NSDictionary dictionaryWithObjectsAndKeys:notificationName, @"notificationName", userInfo, @"userInfo", nil];
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"AXDRTNotification" object:self userInfo:info];
+        [[NSNotificationCenter defaultCenter] postNotificationName:NSAccessibilityDRTNotificationNotification object:self userInfo:info];
     }
 }
 
 - (NSString *)innerHTML
 {
     if (RefPtr<AXCoreObject> backingObject = self.axBackingObject)
-        return backingObject->innerHTML();
+        return backingObject->innerHTML().createNSString().autorelease();
     return nil;
 }
 
 - (NSString *)outerHTML
 {
     if (RefPtr<AXCoreObject> backingObject = self.axBackingObject)
-        return backingObject->outerHTML();
+        return backingObject->outerHTML().createNSString().autorelease();
     return nil;
 }
 
 #pragma mark Search helpers
 
-typedef UncheckedKeyHashMap<String, AccessibilitySearchKey> AccessibilitySearchKeyMap;
+using AccessibilitySearchKeyMap = HashMap<String, AccessibilitySearchKey>;
 
 struct SearchKeyEntry {
     String key;
@@ -898,22 +920,21 @@ AccessibilitySearchCriteria accessibilitySearchCriteriaForSearchPredicate(AXCore
     AccessibilitySearchCriteria criteria;
     criteria.anchorObject = &object;
 
-    WebAccessibilityObjectWrapperBase *startElement = [parameter objectForKey:@"AXStartElement"];
-    id startRange = [parameter objectForKey:@"AXStartRange"];
-    NSString *direction = [parameter objectForKey:@"AXDirection"];
-    NSNumber *immediateDescendantsOnly = [parameter objectForKey:NSAccessibilityImmediateDescendantsOnly];
-    NSNumber *resultsLimit = [parameter objectForKey:@"AXResultsLimit"];
-    NSString *searchText = [parameter objectForKey:@"AXSearchText"];
-    NSNumber *visibleOnly = [parameter objectForKey:@"AXVisibleOnly"];
-    id searchKey = [parameter objectForKey:@"AXSearchKey"];
+    WebAccessibilityObjectWrapperBase *startElement = [parameter objectForKey:NSAccessibilitySearchCurrentElementKey];
+    id startRange = [parameter objectForKey:NSAccessibilitySearchCurrentRangeKey];
+    NSString *direction = [parameter objectForKey:NSAccessibilitySearchDirectionKey];
+    NSNumber *immediateDescendantsOnly = [parameter objectForKey:NSAccessibilityImmediateDescendantsOnlyKey];
+    NSNumber *resultsLimit = [parameter objectForKey:NSAccessibilitySearchResultsLimitKey];
+    NSString *searchText = [parameter objectForKey:NSAccessibilitySearchTextKey];
+    NSNumber *visibleOnly = [parameter objectForKey:NSAccessibilityVisibleOnlyKey];
+    id searchKey = [parameter objectForKey:NSAccessibilitySearchIdentifiersKey];
 
     if ([startElement isKindOfClass:[WebAccessibilityObjectWrapperBase class]])
         criteria.startObject = startElement.axBackingObject;
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    if ([startRange isKindOfClass:[NSValue class]] && !strcmp([(NSValue *)startRange objCType], @encode(NSRange)))
+    if ([startRange isKindOfClass:[NSValue class]] && nsValueHasObjCType<NSRange>((NSValue *)startRange))
         criteria.startRange = [(NSValue *)startRange rangeValue];
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+
 #if PLATFORM(MAC)
     else if (startRange && CFGetTypeID((__bridge CFTypeRef)startRange) == AXTextMarkerRangeGetTypeID()) {
         AXTextMarkerRange markerRange { (AXTextMarkerRangeRef)startRange };
@@ -926,7 +947,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 #endif
 
     if ([direction isKindOfClass:[NSString class]])
-        criteria.searchDirection = [direction isEqualToString:@"AXDirectionNext"] ? AccessibilitySearchDirection::Next : AccessibilitySearchDirection::Previous;
+        criteria.searchDirection = [direction isEqualToString:NSAccessibilitySearchDirectionNext] ? AccessibilitySearchDirection::Next : AccessibilitySearchDirection::Previous;
 
     if ([immediateDescendantsOnly isKindOfClass:[NSNumber class]])
         criteria.immediateDescendantsOnly = [immediateDescendantsOnly boolValue];

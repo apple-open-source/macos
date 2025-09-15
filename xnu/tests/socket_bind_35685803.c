@@ -13,6 +13,8 @@
 #include <stdbool.h>
 #include <TargetConditionals.h>
 
+#include "net_test_lib.h"
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static bool debug;
@@ -177,6 +179,8 @@ run_multithreaded_bind_test(int number_of_runs, bool v6, int socket_count)
 		multithreaded_bind_test(v6, socket_count);
 	}
 	T_PASS("multithreaded_bind_test %s", v6 ? "IPv6" : "IPv4");
+
+	force_zone_gc();
 #endif /* TARGET_OS_BRIDGE */
 }
 

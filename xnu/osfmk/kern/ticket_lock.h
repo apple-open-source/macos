@@ -58,9 +58,6 @@ __BEGIN_DECLS
  *
  * This lower level interface supports an @c *_allow_invalid()
  * to implement advanced memory reclamation schemes using sequestering.
- * Do note that when @c CONFIG_PROB_GZALLOC is engaged, and the target lock
- * comes from a zone, PGZ must be handled manually.
- * See ipc_object_lock_allow_invalid() for an example of that.
  *
  * @c hw_lck_ticket_invalidate() must be used on locks
  * that will be used this way: in addition to make subsequent calls to

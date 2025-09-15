@@ -100,6 +100,10 @@ void LegacyRenderSVGEllipse::calculateRadiiAndCenter()
     m_radii = FloatSize(
         lengthContext.valueForLength(rx.isAuto() ? ry : rx, SVGLengthMode::Width),
         lengthContext.valueForLength(ry.isAuto() ? rx : ry, SVGLengthMode::Height));
+    if (rx.isAuto())
+        m_radii.setWidth(m_radii.height());
+    else if (ry.isAuto())
+        m_radii.setHeight(m_radii.width());
 }
 
 void LegacyRenderSVGEllipse::fillShape(GraphicsContext& context) const

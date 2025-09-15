@@ -29,6 +29,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "CommonAtomStrings.h"
+#include "ContainerNodeInlines.h"
 #include "ContextMenuController.h"
 #include "ElementInlines.h"
 #include "ElementRareData.h"
@@ -170,9 +171,9 @@ bool handleEvent(HTMLElement& element, Event& event)
             RefPtr image = imageFromImageElementNode(*shadowHost);
             if (!image)
                 return false;
-            page->chrome().client().handleImageServiceClick(point, *image, *shadowHost);
+            page->chrome().client().handleImageServiceClick(frame->frameID(), point, *image, *shadowHost);
         } else if (RefPtr shadowHost = dynamicDowncast<HTMLAttachmentElement>(target->shadowHost()))
-            page->chrome().client().handlePDFServiceClick(point, *shadowHost);
+            page->chrome().client().handlePDFServiceClick(frame->frameID(), point, *shadowHost);
 
         event.setDefaultHandled();
         return true;

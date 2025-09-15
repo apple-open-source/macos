@@ -52,7 +52,7 @@ void GStreamerIncomingTrackProcessor::configure(ThreadSafeWeakPtr<GStreamerMedia
         caps = adoptGRef(gst_pad_query_caps(m_pad.get(), nullptr));
 
     ASCIILiteral typeName;
-    if (doCapsHaveType(caps.get(), "audio")) {
+    if (doCapsHaveType(caps.get(), "audio"_s)) {
         typeName = "audio"_s;
         m_data.type = RealtimeMediaSource::Type::Audio;
     } else {
@@ -61,12 +61,7 @@ void GStreamerIncomingTrackProcessor::configure(ThreadSafeWeakPtr<GStreamerMedia
     }
     m_data.caps = WTFMove(caps);
 
-    m_data.mediaStreamBinName = makeString("incoming-"_s, typeName, "-track-"_s, unsafeSpan(GST_OBJECT_NAME(m_pad.get())));
-    m_bin = gst_bin_new(m_data.mediaStreamBinName.ascii().data());
     GST_DEBUG_OBJECT(m_bin.get(), "Processing track with caps %" GST_PTR_FORMAT, m_data.caps.get());
-
-    g_object_get(m_pad.get(), "transceiver", &m_data.transceiver.outPtr(), nullptr);
-
     auto structure = gst_caps_get_structure(m_data.caps.get(), 0);
     if (auto ssrc = gstStructureGet<unsigned>(structure, "ssrc"_s)) {
         m_data.ssrc = *ssrc;
@@ -77,6 +72,15 @@ void GStreamerIncomingTrackProcessor::configure(ThreadSafeWeakPtr<GStreamerMedia
                 m_sdpMsIdAndTrackId = { components[0], components[1] };
         }
     }
+
+    if (auto mid = gstStructureGetString(structure, "a-mid"))
+        m_data.mid = mid.toString();
+
+    m_data.mediaStreamBinName = makeString("incoming-"_s, typeName, "-track-"_s, m_data.ssrc, '-', unsafeSpan(GST_OBJECT_NAME(m_pad.get())));
+    m_bin = gst_bin_new(m_data.mediaStreamBinName.ascii().data());
+
+    g_object_get(m_pad.get(), "transceiver", &m_data.transceiver.outPtr(), nullptr);
+
     if (auto msIdAttribute = gstStructureGetString(structure, "a-msid"_s)) {
         if (msIdAttribute.startsWith(' '))
             m_sdpMsIdAndTrackId = { emptyString(), msIdAttribute.substring(1).toString() };
@@ -125,7 +129,7 @@ String GStreamerIncomingTrackProcessor::mediaStreamIdFromPad()
 {
     // Look-up the mediastream ID, using the msid attribute, fall back to pad name if there is no msid.
     String mediaStreamId;
-    if (gstObjectHasProperty(m_pad.get(), "msid")) {
+    if (gstObjectHasProperty(m_pad.get(), "msid"_s)) {
         GUniqueOutPtr<char> msid;
         g_object_get(m_pad.get(), "msid", &msid.outPtr(), nullptr);
         if (msid) {
@@ -160,7 +164,7 @@ void GStreamerIncomingTrackProcessor::retrieveMediaStreamAndTrackIdFromSDP()
     unsigned mLineIndex;
     g_object_get(m_data.transceiver.get(), "mlineindex", &mLineIndex, nullptr);
     const auto media = gst_sdp_message_get_media(description->sdp, mLineIndex);
-    if (UNLIKELY(!media))
+    if (!media) [[unlikely]]
         return;
 
     const char* msidAttribute = gst_sdp_media_get_attribute_val(media, "msid");
@@ -202,7 +206,7 @@ GRefPtr<GstElement> GStreamerIncomingTrackProcessor::incomingTrackProcessor()
     }
 
     GST_DEBUG_OBJECT(m_bin.get(), "Preparing video decoder for depayloaded RTP packets");
-    GRefPtr<GstElement> decodebin = makeGStreamerElement("decodebin3", nullptr);
+    GRefPtr<GstElement> decodebin = makeGStreamerElement("decodebin3"_s);
     m_isDecoding = true;
 
     g_signal_connect(decodebin.get(), "deep-element-added", G_CALLBACK(+[](GstBin*, GstBin*, GstElement* element, gpointer userData) {
@@ -253,7 +257,7 @@ GRefPtr<GstElement> GStreamerIncomingTrackProcessor::incomingTrackProcessor()
 
 GRefPtr<GstElement> GStreamerIncomingTrackProcessor::createParser()
 {
-    GRefPtr<GstElement> parsebin = makeGStreamerElement("parsebin", nullptr);
+    GRefPtr<GstElement> parsebin = makeGStreamerElement("parsebin"_s);
     g_signal_connect(parsebin.get(), "element-added", G_CALLBACK(+[](GstBin*, GstElement* element, gpointer userData) {
         String elementClass = unsafeSpan(gst_element_get_metadata(element, GST_ELEMENT_METADATA_KLASS));
         auto classifiers = elementClass.split('/');
@@ -303,11 +307,7 @@ void GStreamerIncomingTrackProcessor::installRtpBufferPadProbe(const GRefPtr<Gst
         auto buffer = GST_PAD_PROBE_INFO_BUFFER(info);
         {
             GstMappedRtpBuffer rtpBuffer(buffer, GST_MAP_READ);
-            if (UNLIKELY(!rtpBuffer))
-                return GST_PAD_PROBE_OK;
-
-            // Do not process further if this packet doesn't mark the end of a frame.
-            if (!gst_rtp_buffer_get_marker(rtpBuffer.mappedData()))
+            if (!rtpBuffer) [[unlikely]]
                 return GST_PAD_PROBE_OK;
 
             videoFrameTimeMetadata.rtpTimestamp = gst_rtp_buffer_get_timestamp(rtpBuffer.mappedData());
@@ -318,7 +318,7 @@ void GStreamerIncomingTrackProcessor::installRtpBufferPadProbe(const GRefPtr<Gst
             videoFrameTimeMetadata.captureTime = Seconds::fromNanoseconds(gst_rtcp_ntp_to_unix(ntpTimestamp));
         }
 
-        auto modifiedBuffer = webkitGstBufferSetVideoFrameTimeMetadata(GRefPtr(buffer), WTFMove(videoFrameTimeMetadata));
+        auto modifiedBuffer = webkitGstBufferSetVideoFrameMetadata(GRefPtr(buffer), videoFrameTimeMetadata);
         GST_PAD_PROBE_INFO_DATA(info) = modifiedBuffer.leakRef();
         return GST_PAD_PROBE_OK;
     }, gst_caps_new_empty_simple("timestamp/x-ntp"), reinterpret_cast<GDestroyNotify>(gst_caps_unref));

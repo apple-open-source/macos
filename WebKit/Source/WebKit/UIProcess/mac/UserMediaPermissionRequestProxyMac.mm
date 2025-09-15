@@ -33,13 +33,13 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<UserMediaPermissionRequestProxy> UserMediaPermissionRequestProxy::create(UserMediaPermissionRequestManagerProxy& manager, std::optional<UserMediaRequestIdentifier> userMediaID, FrameIdentifier mainFrameID, FrameIdentifier frameID, Ref<SecurityOrigin>&& userMediaDocumentOrigin, Ref<SecurityOrigin>&& topLevelDocumentOrigin, Vector<CaptureDevice>&& audioDevices, Vector<CaptureDevice>&& videoDevices, MediaStreamRequest&& request, CompletionHandler<void(bool)>&& decisionCompletionHandler)
+Ref<UserMediaPermissionRequestProxy> UserMediaPermissionRequestProxy::create(UserMediaPermissionRequestManagerProxy& manager, std::optional<UserMediaRequestIdentifier> userMediaID, FrameIdentifier mainFrameID, FrameInfoData&& frameInfo, Ref<SecurityOrigin>&& userMediaDocumentOrigin, Ref<SecurityOrigin>&& topLevelDocumentOrigin, Vector<CaptureDevice>&& audioDevices, Vector<CaptureDevice>&& videoDevices, MediaStreamRequest&& request, CompletionHandler<void(bool)>&& decisionCompletionHandler)
 {
-    return adoptRef(*new UserMediaPermissionRequestProxyMac(manager, userMediaID, mainFrameID, frameID, WTFMove(userMediaDocumentOrigin), WTFMove(topLevelDocumentOrigin), WTFMove(audioDevices), WTFMove(videoDevices), WTFMove(request), WTFMove(decisionCompletionHandler)));
+    return adoptRef(*new UserMediaPermissionRequestProxyMac(manager, userMediaID, mainFrameID, WTFMove(frameInfo), WTFMove(userMediaDocumentOrigin), WTFMove(topLevelDocumentOrigin), WTFMove(audioDevices), WTFMove(videoDevices), WTFMove(request), WTFMove(decisionCompletionHandler)));
 }
 
-UserMediaPermissionRequestProxyMac::UserMediaPermissionRequestProxyMac(UserMediaPermissionRequestManagerProxy& manager, std::optional<UserMediaRequestIdentifier> userMediaID, FrameIdentifier mainFrameID, FrameIdentifier frameID, Ref<SecurityOrigin>&& userMediaDocumentOrigin, Ref<SecurityOrigin>&& topLevelDocumentOrigin, Vector<CaptureDevice>&& audioDevices, Vector<CaptureDevice>&& videoDevices, MediaStreamRequest&& request, CompletionHandler<void(bool)>&& decisionCompletionHandler)
-    : UserMediaPermissionRequestProxy(manager, userMediaID, mainFrameID, frameID, WTFMove(userMediaDocumentOrigin), WTFMove(topLevelDocumentOrigin), WTFMove(audioDevices), WTFMove(videoDevices), WTFMove(request), WTFMove(decisionCompletionHandler))
+UserMediaPermissionRequestProxyMac::UserMediaPermissionRequestProxyMac(UserMediaPermissionRequestManagerProxy& manager, std::optional<UserMediaRequestIdentifier> userMediaID, FrameIdentifier mainFrameID, FrameInfoData&& frameInfo, Ref<SecurityOrigin>&& userMediaDocumentOrigin, Ref<SecurityOrigin>&& topLevelDocumentOrigin, Vector<CaptureDevice>&& audioDevices, Vector<CaptureDevice>&& videoDevices, MediaStreamRequest&& request, CompletionHandler<void(bool)>&& decisionCompletionHandler)
+    : UserMediaPermissionRequestProxy(manager, userMediaID, mainFrameID, WTFMove(frameInfo), WTFMove(userMediaDocumentOrigin), WTFMove(topLevelDocumentOrigin), WTFMove(audioDevices), WTFMove(videoDevices), WTFMove(request), WTFMove(decisionCompletionHandler))
 {
 }
 
@@ -50,10 +50,10 @@ UserMediaPermissionRequestProxyMac::~UserMediaPermissionRequestProxyMac()
 void UserMediaPermissionRequestProxyMac::invalidate()
 {
 #if ENABLE(MEDIA_STREAM)
-    if (m_hasPendingGetDispayMediaPrompt) {
+    if (m_hasPendingGetDisplayMediaPrompt) {
         if (RefPtr page = protectedManager()->page())
             DisplayCaptureSessionManager::singleton().cancelGetDisplayMediaPrompt(*page);
-        m_hasPendingGetDispayMediaPrompt = false;
+        m_hasPendingGetDisplayMediaPrompt = false;
     }
 #endif
     UserMediaPermissionRequestProxy::invalidate();
@@ -69,17 +69,17 @@ void UserMediaPermissionRequestProxyMac::promptForGetDisplayMedia(UserMediaDispl
     if (!page)
         return;
 
-    m_hasPendingGetDispayMediaPrompt = true;
+    m_hasPendingGetDisplayMediaPrompt = true;
     DisplayCaptureSessionManager::singleton().promptForGetDisplayMedia(promptType, *page, topLevelDocumentSecurityOrigin().data(), [protectedThis = Ref { *this }](std::optional<CaptureDevice> device) mutable {
 
-        protectedThis->m_hasPendingGetDispayMediaPrompt = false;
+        protectedThis->m_hasPendingGetDisplayMediaPrompt = false;
 
         if (!device) {
             protectedThis->deny(UserMediaPermissionRequestProxy::UserMediaAccessDenialReason::PermissionDenied);
             return;
         }
 
-        protectedThis->setEligibleVideoDeviceUIDs({ device.value() });
+        protectedThis->setEligibleVideoDevices({ device.value() });
         protectedThis->allow(String(), device.value().persistentId());
     });
 #else
@@ -92,7 +92,10 @@ bool UserMediaPermissionRequestProxyMac::canRequestDisplayCapturePermission()
 #if ENABLE(MEDIA_STREAM)
     auto overridePreference = DisplayCaptureSessionManager::singleton().overrideCanRequestDisplayCapturePermissionForTesting();
     RefPtr manager = this->manager();
-    if (!manager || !manager->page() || (!overridePreference && manager->page()->preferences().requireUAGetDisplayMediaPrompt()))
+    if (!manager)
+        return false;
+    RefPtr page = manager->page();
+    if (!page || (!overridePreference && page->protectedPreferences()->requireUAGetDisplayMediaPrompt()))
         return false;
 
     return DisplayCaptureSessionManager::singleton().canRequestDisplayCapturePermission();

@@ -159,11 +159,15 @@ EXCLUDED_SOURCES += \
 # Exclaves don't support dispatch_apply, which this perf test relies on
 EXCLUDED_SOURCES += basic_malloc_free_perf.c
 
-# These two tests both include C files to test submodules, which causes symbol
+# Guarded range is not implemented for Exclaves
+EXCLUDED_SOURCES += guarded_range_tests.c
+
+# These tests both include C files to test submodules, which causes symbol
 # conflicts in the statically linked exclavecore tests
 ifeq ($(MALLOC_EXCLAVECORE),YES)
 EXCLUDED_SOURCES += \
 	mfm_test.c \
+	xzone_segment_tests.c \
 	xzone_metapool_tests.c
 endif # MALLOC_EXCLAVECORE
 else
@@ -226,18 +230,50 @@ scribble_tests: OTHER_CFLAGS += -I../src
 malloc_size_test: OTHER_CFLAGS += -I../src
 xzone: OTHER_LDFLAGS += -ldarwintest_utils
 
-# -fno-builtin also disables TMO
-#
-# Build this test with no explicit TMO options to validate that it gets TMO
-# automatically on platforms where that's expected
-
 enablement_tests: OTHER_LDFLAGS += -lobjc -fobjc-arc -ldarwintest_utils
+
+EXCLUDED_SOURCES += entitlement_test_tool.c guarded_range_test_tool.c
+
+ifeq ($(MALLOC_EXCLAVES),NO)
+hardened_heap_test_tool: entitlement_test_tool.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements hardened_heap_test_tool-entitlements.plist $(SYMROOT)/assets/hardened_heap_test_tool
+
+install-hardened_heap_test_tool: hardened_heap_test_tool
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/hardened_heap_test_tool $(INSTALLDIR)/assets
+
+hardened_browser_test_tool: entitlement_test_tool.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements hardened_browser_test_tool-entitlements.plist $(SYMROOT)/assets/hardened_browser_test_tool
+
+install-hardened_browser_test_tool: hardened_browser_test_tool
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/hardened_browser_test_tool $(INSTALLDIR)/assets
+
+guarded_range_test_tool: guarded_range_test_tool.c
+	mkdir -p $(SYMROOT)/assets/
+	$(CC) -o $(SYMROOT)/assets/$@ $(CFLAGS) $(OTHER_CFLAGS) $(LDFLAGS) $(OTHER_LDFLAGS) $<
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/assets/guarded_range_test_tool
+
+install-guarded_range_test_tool: guarded_range_test_tool
+	mkdir -p $(INSTALLDIR)/assets
+	@cp $(SYMROOT)/assets/guarded_range_test_tool $(INSTALLDIR)/assets
+
+CUSTOM_TARGETS += hardened_heap_test_tool hardened_browser_test_tool guarded_range_test_tool
+endif
 
 MALLOC_TYPE_SWIFT_OBJS := $(addsuffix .o,$(addprefix malloc_type_swift_,$(ARCH_CONFIGS)))
 MALLOC_TYPE_SYM_SWIFT_OBJS := $(addprefix $(SYMROOT)/,$(MALLOC_TYPE_SWIFT_OBJS))
 
 memory_pressure: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS))
 
+# -fno-builtin also disables TMO
+#
+# Build this test with no explicit TMO options to validate that it gets TMO
+# automatically on platforms where that's expected
 malloc_type: OTHER_CFLAGS := $(filter-out -fno-builtin -fno-typed-memory-operations,$(OTHER_CFLAGS))
 malloc_type: OTHER_CFLAGS += $(SYMROOT)/malloc_type_cpp.o $(MALLOC_TYPE_SYM_SWIFT_OBJS) $(SYMROOT)/malloc_type_objc.o
 malloc_type: $(SYMROOT)/malloc_type_cpp.o $(MALLOC_TYPE_SYM_SWIFT_OBJS) $(SYMROOT)/malloc_type_objc.o
@@ -267,6 +303,8 @@ malloc_type_callsite: $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_CFLAGS += $(SYMROOT)/malloc_type_callsite_cpp.o
 malloc_type_callsite: OTHER_LDFLAGS += -lc++
 
+
+guarded_range_tests: OTHER_LDFLAGS := -ldarwintest_utils
 
 ifeq ($(MALLOC_EXCLAVES),NO)
 # BATS test plist handling

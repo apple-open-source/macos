@@ -33,6 +33,7 @@
 #include "RemoteLayerBackingStore.h"
 #include "TransactionID.h"
 #include <WebCore/Color.h>
+#include <WebCore/FixedContainerEdges.h>
 #include <WebCore/FloatPoint3D.h>
 #include <WebCore/FloatSize.h>
 #include <WebCore/HTMLMediaElementIdentifier.h>
@@ -64,6 +65,10 @@
 #include <WebCore/ModelContext.h>
 #endif
 
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+#include <wtf/MachSendRightAnnotated.h>
+#endif
+
 namespace WebKit {
 
 struct LayerProperties;
@@ -88,6 +93,9 @@ public:
         struct NoAdditionalData { };
         struct CustomData {
             uint32_t hostingContextID { 0 };
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+            std::optional<WTF::MachSendRightAnnotated> sendRightAnnotated;
+#endif
             float hostingDeviceScaleFactor { 1 };
             bool preservesFlip { false };
         };
@@ -96,7 +104,7 @@ public:
             WebCore::FloatSize initialSize;
             WebCore::FloatSize naturalSize;
         };
-        using AdditionalData = std::variant<
+        using AdditionalData = Variant<
             NoAdditionalData, // PlatformCALayerRemote and PlatformCALayerRemoteTiledBacking
             CustomData, // PlatformCALayerRemoteCustom
 #if ENABLE(MODEL_ELEMENT)
@@ -120,6 +128,9 @@ public:
 
         std::optional<WebCore::LayerHostingContextIdentifier> hostIdentifier() const;
         uint32_t hostingContextID() const;
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+        std::optional<WTF::MachSendRightAnnotated> sendRightAnnotated() const;
+#endif
         bool preservesFlip() const;
         float hostingDeviceScaleFactor() const;
 
@@ -128,7 +139,7 @@ public:
 #endif
     };
 
-    explicit RemoteLayerTreeTransaction();
+    explicit RemoteLayerTreeTransaction(TransactionID);
     ~RemoteLayerTreeTransaction();
     RemoteLayerTreeTransaction(RemoteLayerTreeTransaction&&);
     RemoteLayerTreeTransaction& operator=(RemoteLayerTreeTransaction&&);
@@ -162,6 +173,9 @@ public:
 
     WebCore::IntSize contentsSize() const { return m_contentsSize; }
     void setContentsSize(const WebCore::IntSize& size) { m_contentsSize = size; };
+
+    WebCore::IntSize scrollGeometryContentSize() const { return m_scrollGeometryContentSize; }
+    void setScrollGeometryContentSize(const WebCore::IntSize& size) { m_scrollGeometryContentSize = size; };
 
     WebCore::IntPoint scrollOrigin() const { return m_scrollOrigin; }
     void setScrollOrigin(const WebCore::IntPoint& origin) { m_scrollOrigin = origin; };
@@ -199,7 +213,10 @@ public:
 
     std::optional<WebCore::PlatformLayerIdentifier> scrolledContentsLayerID() const { return m_scrolledContentsLayerID.asOptional(); }
     void setScrolledContentsLayerID(std::optional<WebCore::PlatformLayerIdentifier> layerID) { m_scrolledContentsLayerID = layerID; }
-#endif
+
+    std::optional<WebCore::PlatformLayerIdentifier> mainFrameClipLayerID() const { return m_mainFrameClipLayerID.asOptional(); }
+    void setMainFrameClipLayerID(std::optional<WebCore::PlatformLayerIdentifier> layerID) { m_mainFrameClipLayerID = layerID; }
+#endif // PLATFORM(MAC)
 
     uint64_t renderTreeSize() const { return m_renderTreeSize; }
     void setRenderTreeSize(uint64_t renderTreeSize) { m_renderTreeSize = renderTreeSize; }
@@ -232,7 +249,6 @@ public:
     void setAvoidsUnsafeArea(bool avoidsUnsafeArea) { m_avoidsUnsafeArea = avoidsUnsafeArea; }
 
     TransactionID transactionID() const { return m_transactionID; }
-    void setTransactionID(TransactionID transactionID) { m_transactionID = transactionID; }
 
     ActivityStateChangeID activityStateChangeID() const { return m_activityStateChangeID; }
     void setActivityStateChangeID(ActivityStateChangeID activityStateChangeID) { m_activityStateChangeID = activityStateChangeID; }
@@ -258,8 +274,14 @@ public:
     void setAcceleratedTimelineTimeOrigin(Seconds timeOrigin) { m_acceleratedTimelineTimeOrigin = timeOrigin; }
 #endif
 
+    const std::optional<WebCore::FixedContainerEdges>& fixedContainerEdges() const { return m_fixedContainerEdges; }
+    void setFixedContainerEdges(const WebCore::FixedContainerEdges& edges) { m_fixedContainerEdges = edges; }
+
 private:
     friend struct IPC::ArgumentCoder<RemoteLayerTreeTransaction, void>;
+
+    // Do not use, IPC constructor only
+    explicit RemoteLayerTreeTransaction();
 
     Markable<WebCore::PlatformLayerIdentifier> m_rootLayerID;
     ChangedLayers m_changedLayers;
@@ -274,6 +296,7 @@ private:
     Vector<TransactionCallbackID> m_callbackIDs;
 
     WebCore::IntSize m_contentsSize;
+    WebCore::IntSize m_scrollGeometryContentSize;
     WebCore::IntPoint m_scrollOrigin;
     WebCore::LayoutSize m_baseLayoutViewportSize;
     WebCore::LayoutPoint m_minStableLayoutViewportOrigin;
@@ -282,10 +305,12 @@ private:
     WebCore::Color m_themeColor;
     WebCore::Color m_pageExtendedBackgroundColor;
     WebCore::Color m_sampledPageTopColor;
+    std::optional<WebCore::FixedContainerEdges> m_fixedContainerEdges;
 
 #if PLATFORM(MAC)
     Markable<WebCore::PlatformLayerIdentifier> m_pageScalingLayerID; // Only used for non-delegated scaling.
     Markable<WebCore::PlatformLayerIdentifier> m_scrolledContentsLayerID;
+    Markable<WebCore::PlatformLayerIdentifier> m_mainFrameClipLayerID;
 #endif
 
     double m_pageScaleFactor { 1 };

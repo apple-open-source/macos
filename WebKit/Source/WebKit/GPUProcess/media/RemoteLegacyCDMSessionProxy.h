@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,6 +80,7 @@ private:
     void sendMessage(Uint8Array*, String destinationURL) final;
     void sendError(MediaKeyErrorCode, uint32_t systemCode) final;
     String mediaKeysStorageDirectory() const final;
+    String mediaKeysHashSalt() const final { return m_mediaKeysHashSalt; }
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
     uint64_t logIdentifier() const final { return m_logIdentifier; }
@@ -89,7 +90,7 @@ private:
 
     // Messages
     using GenerateKeyCallback = CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&, const String&, unsigned short, uint32_t)>;
-    void generateKeyRequest(const String& mimeType, RefPtr<WebCore::SharedBuffer>&& initData, GenerateKeyCallback&&);
+    void generateKeyRequest(const String& mimeType, RefPtr<WebCore::SharedBuffer>&& initData, const String& mediaKeysHashSalt, GenerateKeyCallback&&);
     void releaseKeys();
     using UpdateCallback = CompletionHandler<void(bool, RefPtr<WebCore::SharedBuffer>&&, unsigned short, uint32_t)>;
     void update(RefPtr<WebCore::SharedBuffer>&& update, UpdateCallback&&);
@@ -99,13 +100,14 @@ private:
     WeakPtr<RemoteLegacyCDMFactoryProxy> m_factory;
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 
     RemoteLegacyCDMSessionIdentifier m_identifier;
     RefPtr<WebCore::LegacyCDMSession> m_session;
     WeakPtr<RemoteMediaPlayerProxy> m_player;
+    String m_mediaKeysHashSalt;
 };
 
 }

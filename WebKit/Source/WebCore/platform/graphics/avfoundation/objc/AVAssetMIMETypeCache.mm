@@ -76,7 +76,7 @@ static bool isMultichannelOpusAvailable()
         size_t count = propertySize / sizeof(AudioChannelLayoutTag);
         Vector<AudioChannelLayoutTag> channelLayoutTags(count, { });
 
-        error = PAL::AudioFormatGetProperty(kAudioFormatProperty_AvailableDecodeChannelLayoutTags, sizeof(asbd), &asbd, &propertySize, channelLayoutTags.data());
+        error = PAL::AudioFormatGetProperty(kAudioFormatProperty_AvailableDecodeChannelLayoutTags, sizeof(asbd), &asbd, &propertySize, channelLayoutTags.mutableSpan().data());
         if (error != noErr)
             return false;
 
@@ -113,14 +113,12 @@ bool AVAssetMIMETypeCache::canDecodeExtendedType(const ContentType& typeParamete
 
     ASSERT(isAvailable());
 
-#if HAVE(AVURLASSET_ISPLAYABLEEXTENDEDMIMETYPEWITHOPTIONS)
-    if (PAL::canLoad_AVFoundation_AVURLAssetExtendedMIMETypePlayabilityTreatPlaylistMIMETypesAsISOBMFFMediaDataContainersKey()
-        && [PAL::getAVURLAssetClass() respondsToSelector:@selector(isPlayableExtendedMIMEType:options:)]) {
-        if ([PAL::getAVURLAssetClass() isPlayableExtendedMIMEType:type.raw() options:@{ AVURLAssetExtendedMIMETypePlayabilityTreatPlaylistMIMETypesAsISOBMFFMediaDataContainersKey: @YES }])
+    if (PAL::canLoad_AVFoundation_AVURLAssetExtendedMIMETypePlayabilityTreatPlaylistMIMETypesAsISOBMFFMediaDataContainersKey()) {
+        if ([PAL::getAVURLAssetClass() isPlayableExtendedMIMEType:type.raw().createNSString().get() options:@{ AVURLAssetExtendedMIMETypePlayabilityTreatPlaylistMIMETypesAsISOBMFFMediaDataContainersKey: @YES }])
             return true;
     } else
-#endif
-    if ([PAL::getAVURLAssetClass() isPlayableExtendedMIMEType:type.raw()])
+
+    if ([PAL::getAVURLAssetClass() isPlayableExtendedMIMEType:type.raw().createNSString().get()])
         return true;
 
 #endif // ENABLE(VIDEO) && USE(AVFOUNDATION)

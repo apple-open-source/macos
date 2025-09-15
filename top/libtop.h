@@ -59,6 +59,10 @@ typedef struct libtop_i64_values {
 	uint64_t previous;
 } libtop_i64_values_t;
 
+typedef struct hvwait_data {
+	uint64_t invol_wait;
+} hvwait_data_t;
+
 /*
  * Type used for specifying a printing function that is called when an error
  * occurs.  libtop does not print a '\n' at the end of the string, so it is
@@ -88,6 +92,12 @@ typedef struct {
 	host_cpu_load_info_data_t cpu;
 	host_cpu_load_info_data_t b_cpu;
 	host_cpu_load_info_data_t p_cpu;
+
+	/* hypervisor host wait times */
+	boolean_t hvw_is_active;
+	hvwait_data_t hvw;
+	hvwait_data_t b_hvw;
+	hvwait_data_t p_hvw;
 
 	/* Load averages for 1, 5, and 15 minutes. */
 	float loadavg[3];
@@ -434,6 +444,11 @@ const libtop_psamp_t *libtop_piterate(void);
  * Returns zero for success, non-zero for error.
  */
 int libtop_preg(pid_t a_pid, libtop_preg_t a_preg);
+
+/*
+ * {En,Dis}able collection of hv wait samples
+ */
+void libtop_init_hvwait(boolean_t active);
 
 /*
  * Set the interval between framework updates.

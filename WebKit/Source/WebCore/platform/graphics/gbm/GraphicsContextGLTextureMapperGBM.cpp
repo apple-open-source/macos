@@ -110,7 +110,7 @@ GraphicsContextGLTextureMapperGBM::DrawingBuffer GraphicsContextGLTextureMapperG
     struct gbm_bo* bo = nullptr;
     bool disableModifiers = m_drawingBufferFormat.modifiers.size() == 1 && m_drawingBufferFormat.modifiers[0] == DRM_FORMAT_MOD_INVALID;
     if (!disableModifiers && !m_drawingBufferFormat.modifiers.isEmpty())
-        bo = gbm_bo_create_with_modifiers2(device, size.width(), size.height(), m_drawingBufferFormat.fourcc, m_drawingBufferFormat.modifiers.data(), m_drawingBufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
+        bo = gbm_bo_create_with_modifiers2(device, size.width(), size.height(), m_drawingBufferFormat.fourcc, m_drawingBufferFormat.modifiers.span().data(), m_drawingBufferFormat.modifiers.size(), GBM_BO_USE_RENDERING);
     if (!bo)
         bo = gbm_bo_create(device, size.width(), size.height(), m_drawingBufferFormat.fourcc, GBM_BO_USE_RENDERING);
     if (!bo)
@@ -161,7 +161,7 @@ GraphicsContextGLTextureMapperGBM::DrawingBuffer GraphicsContextGLTextureMapperG
 
     attributes.append(EGL_NONE);
 
-    auto* image = EGL_CreateImageKHR(m_displayObj, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attributes.data());
+    auto* image = EGL_CreateImageKHR(m_displayObj, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attributes.span().data());
     gbm_bo_destroy(bo);
     if (!image)
         return { };

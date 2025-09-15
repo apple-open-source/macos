@@ -66,6 +66,7 @@ public:
     const GdkEvent* nativeEvent() const { return m_nativeEvent.get(); }
 #elif USE(LIBWPE)
     NativeWebTouchEvent(struct wpe_input_touch_event*, float deviceScaleFactor);
+    bool isNativeWebTouchEvent() const final { return true; }
     const struct wpe_input_touch_event_raw* nativeFallbackTouchPoint() const { return &m_fallbackTouchPoint; }
 #if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
     NativeWebTouchEvent(WPEEvent*, Vector<WebPlatformTouchPoint>&&);

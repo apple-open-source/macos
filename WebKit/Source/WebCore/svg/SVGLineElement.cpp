@@ -27,6 +27,7 @@
 #include "NodeName.h"
 #include "RenderSVGShape.h"
 #include "SVGLengthValue.h"
+#include "SVGParsingError.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -54,7 +55,7 @@ Ref<SVGLineElement> SVGLineElement::create(const QualifiedName& tagName, Documen
 
 void SVGLineElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    SVGParsingError parseError = NoError;
+    auto parseError = SVGParsingError::None;
 
     switch (name.nodeName()) {
     case AttributeNames::x1Attr:

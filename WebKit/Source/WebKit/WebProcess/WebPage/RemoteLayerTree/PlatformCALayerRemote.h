@@ -32,6 +32,7 @@
 #include <WebCore/PlatformCALayer.h>
 #include <WebCore/PlatformCALayerDelegatedContents.h>
 #include <WebCore/PlatformLayer.h>
+#include <wtf/MachSendRightAnnotated.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -46,7 +47,6 @@ class ModelContext;
 }
 
 namespace WebKit {
-
 
 using LayerHostingContextID = uint32_t;
 
@@ -223,6 +223,12 @@ public:
     void setScrollingNodeID(std::optional<WebCore::ScrollingNodeID>) override;
 #endif
 
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool setNeedsDisplayIfEDRHeadroomExceeds(float) override;
+    void setTonemappingEnabled(bool) override;
+    bool tonemappingEnabled() const override;
+#endif
+
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
     bool isSeparated() const override;
     void setIsSeparated(bool) override;
@@ -237,8 +243,8 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    WebCore::AppleVisualEffect appleVisualEffect() const override;
-    void setAppleVisualEffect(WebCore::AppleVisualEffect) override;
+    WebCore::AppleVisualEffectData appleVisualEffectData() const override;
+    void setAppleVisualEffectData(WebCore::AppleVisualEffectData) override;
 #endif
 
     WebCore::TiledBacking* tiledBacking() override { return nullptr; }
@@ -266,10 +272,17 @@ public:
     void markFrontBufferVolatileForTesting() override;
     virtual void populateCreationProperties(RemoteLayerTreeTransaction::LayerCreationProperties&, const RemoteLayerTreeContext&, WebCore::PlatformCALayer::LayerType);
 
-    bool containsBitmapOnly() const;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    bool allowsDynamicContentScaling() const;
+#endif
 
     void purgeFrontBufferForTesting() override;
     void purgeBackBufferForTesting() override;
+
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+    void setSendRightAnnotated(WTF::MachSendRightAnnotated sendRightAnnotated) { m_sendRightAnnotated = sendRightAnnotated; }
+    std::optional<WTF::MachSendRightAnnotated> sendRightAnnotated() const { return m_sendRightAnnotated; }
+#endif
 
 protected:
     PlatformCALayerRemote(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext&);
@@ -286,7 +299,7 @@ private:
     WebCore::DestinationColorSpace displayColorSpace() const;
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    RemoteLayerBackingStore::IncludeDisplayList shouldIncludeDisplayListInBackingStore() const;
+    WebCore::IncludeDynamicContentScalingDisplayList shouldIncludeDisplayListInBackingStore() const;
 #endif
 
     bool requiresCustomAppearanceUpdateOnBoundsChange() const;
@@ -300,6 +313,10 @@ private:
 
     bool m_acceleratesDrawing { false };
     WeakPtr<RemoteLayerTreeContext> m_context;
+
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+    std::optional<WTF::MachSendRightAnnotated> m_sendRightAnnotated;
+#endif
 };
 
 } // namespace WebKit

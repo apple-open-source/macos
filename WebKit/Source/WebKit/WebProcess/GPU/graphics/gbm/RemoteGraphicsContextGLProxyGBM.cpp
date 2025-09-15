@@ -53,7 +53,7 @@ private:
     RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() final { return m_layerContentsDisplayDelegate.copyRef(); }
     void prepareForDisplay() final;
 
-    Ref<GraphicsLayerContentsDisplayDelegate> m_layerContentsDisplayDelegate;
+    const Ref<GraphicsLayerContentsDisplayDelegate> m_layerContentsDisplayDelegate;
     RefPtr<DMABufBuffer> m_drawingBuffer;
     RefPtr<DMABufBuffer> m_displayBuffer;
 };

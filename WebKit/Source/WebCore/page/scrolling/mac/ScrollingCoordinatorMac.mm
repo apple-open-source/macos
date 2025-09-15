@@ -24,12 +24,11 @@
  */
 
 #import "config.h"
+#import "ScrollingCoordinatorMac.h"
 
 #if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
 
-#import "ScrollingCoordinatorMac.h"
-
-#import "LocalFrame.h"
+#import "LocalFrameInlines.h"
 #import "LocalFrameView.h"
 #import "Logging.h"
 #import "Page.h"

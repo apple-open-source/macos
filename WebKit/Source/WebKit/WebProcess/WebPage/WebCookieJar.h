@@ -93,11 +93,11 @@ private:
     NSHTTPCookieStorage* ensurePartitionedCookieStorage();
 #endif
 
-    mutable WebCookieCache m_cache;
+    const Ref<WebCookieCache> m_cache;
     HashMap<String, WeakHashSet<WebCore::CookieChangeListener>> m_changeListeners;
 
 #if PLATFORM(COCOA)
-    RetainPtr<NSHTTPCookieStorage> m_partitionedStorageForDOMCookies;
+    const RetainPtr<NSHTTPCookieStorage> m_partitionedStorageForDOMCookies;
 #endif
 };
 

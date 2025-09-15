@@ -121,6 +121,30 @@ dispatch_assert_queue_barrier(dispatch_queue_t dq)
 	_dispatch_assert_queue_barrier_fail(dq);
 }
 
+bool
+dispatch_verify_current_queue_4swiftonly(dispatch_queue_t dq)
+{
+	// Implementation of this is pretty much the same as dispatch_assert_queue
+	// however, rather than crashing, we return true if we are on the queue, or
+	// false otherwise
+	unsigned long metatype = dx_metatype(dq);
+	if (unlikely(metatype != _DISPATCH_LANE_TYPE &&
+			metatype != _DISPATCH_WORKLOOP_TYPE)) {
+		DISPATCH_CLIENT_CRASH(metatype,
+				"invalid queue passed to dispatch_am_i_on_queue_4swiftonly()");
+	}
+
+	uint64_t dq_state = os_atomic_load(&dq->dq_state, relaxed);
+	if (likely(_dq_state_drain_locked_by_self(dq_state))) {
+		return true;
+	}
+	if (likely(_dispatch_thread_frame_find_queue(dq))) {
+		return true;
+	}
+
+	return false;
+}
+
 #pragma mark -
 #pragma mark dispatch_allow_send_signals
 
@@ -3332,6 +3356,34 @@ dispatch_queue_get_qos_class(dispatch_queue_t dq, int *relpri_ptr)
 	return _dispatch_qos_to_qos_class(qos);
 }
 
+int
+dispatch_queue_get_threadid_4wdt(dispatch_queue_t dq, uint64_t *thread_id)
+{
+	*thread_id = 0;
+
+	unsigned long type = dx_type(dq);
+	if (type != DISPATCH_QUEUE_SERIAL_TYPE &&
+			type != DISPATCH_WORKLOOP_TYPE &&
+			type != DISPATCH_QUEUE_MAIN_TYPE)
+	{
+		return EINVAL;
+	}
+
+	uint64_t dq_state = os_atomic_load(&dq->dq_state, relaxed);
+	dispatch_lock dl = (dispatch_lock)dq_state;
+	dispatch_tid tid = _dispatch_lock_owner(dl);
+	if (tid == DLOCK_OWNER_NULL) {
+		return ESRCH;
+	}
+
+	pthread_t thread = pthread_from_mach_thread_np(tid);
+	if (!thread) {
+		return ESRCH;
+	}
+
+	return pthread_threadid_np(thread, thread_id);
+}
+
 static void
 _dispatch_lane_set_width(void *ctxt)
 {
@@ -6443,6 +6495,12 @@ _dispatch_mgr_invoke(void)
 		.ddi_eventlist = evbuf,
 #endif
 	};
+	if (unlikely(_dispatch_deferred_free_unotes_get())) {
+		// mgr_invoke should only be called on fresh pthread_create()'d
+		// threads, so we shouldn't have previous TSDs from being a wl drainer
+		DISPATCH_INTERNAL_CRASH(_dispatch_deferred_free_unotes_get(),
+				"Unexpected contents in DDI TSD");
+	}
 
 	_dispatch_deferred_items_set(&ddi);
 	for (;;) {
@@ -6694,6 +6752,14 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 				&_dispatch_mgr_q, (uint64_t)*nevents);
 		ddi.ddi_wlh = DISPATCH_WLH_ANON;
 	}
+#if DISPATCH_HAVE_DIRECT_KNOTES
+	dispatch_unote_class_t du = _dispatch_deferred_free_unotes_get();
+	if (unlikely(du)) {
+		// don't pay the function call cost in the common case that we didn't
+		// persist unotes across thread park
+		_dispatch_free_deferred_unotes(du);
+	}
+#endif
 	_dispatch_deferred_items_set(&ddi);
 	_dispatch_event_loop_merge(events, *nevents);
 
@@ -6707,6 +6773,7 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 				ddi.ddi_stashed_dou._do);
 		if (ddi.ddi_wlh == DISPATCH_WLH_ANON) {
 			dispatch_assert(ddi.ddi_nevents == 0);
+			dispatch_assert(ddi.ddi_unote_freelist == NULL);
 			_dispatch_deferred_items_set(NULL);
 			_dispatch_trace_runtime_event(worker_unpark, ddi.ddi_stashed_rq, 0);
 			_dispatch_root_queue_drain_deferred_item(&ddi
@@ -6727,7 +6794,7 @@ _dispatch_wlh_worker_thread(dispatch_wlh_t wlh, dispatch_kevent_t events,
 		}
 	}
 
-	_dispatch_deferred_items_set(NULL);
+	_dispatch_deferred_free_unotes_set(ddi.ddi_unote_freelist);
 	if (!is_manager && !ddi.ddi_stashed_dou._do) {
 		_dispatch_perfmon_end(perfmon_thread_event_no_steal);
 	}
@@ -7399,6 +7466,16 @@ _dispatch_worker_thread2(pthread_priority_t pp)
 
 	int pending = os_atomic_dec(&dq->dgq_pending, acquire);
 	dispatch_assert(pending >= 0);
+
+#if DISPATCH_HAVE_DIRECT_KNOTES
+	dispatch_unote_class_t du = _dispatch_deferred_free_unotes_get();
+	if (unlikely(du)) {
+		// If this thread was previously a workloop servicer, it may have saved
+		// some unotes that needed to be freed once we get back to userspace
+		_dispatch_free_deferred_unotes(du);
+		_dispatch_deferred_free_unotes_set(NULL);
+	}
+#endif
 
 	invoke_flags |= DISPATCH_INVOKE_WORKER_DRAIN | DISPATCH_INVOKE_REDIRECTING_DRAIN;
 	_dispatch_root_queue_drain(dq, dq->dq_priority, invoke_flags);
@@ -8462,13 +8539,26 @@ _dispatch_wlh_cleanup(void *ctxt)
 	_dispatch_queue_release_storage(wlh);
 }
 
-DISPATCH_NORETURN
 static void DISPATCH_TSD_DTOR_CC
 _dispatch_deferred_items_cleanup(void *ctxt)
 {
+#if DISPATCH_HAVE_DIRECT_KNOTES
+	// This destructor should only be called when an idle thread unparks to do
+	// cleanup before exiting. In that case, it might still have a unote
+	// freelist which needs to be freed.
+	if (!((uintptr_t)ctxt & DISPATCH_UNOTE_FREELIST_REF)) {
+		// ctxt not having LSb set indicates that it's a ddi, not a freelist,
+		// which means that the thread exited while servicing a workloop.
+		DISPATCH_INTERNAL_CRASH(ctxt,
+				"Premature thread exit with unhandled deferred items");
+	}
+	uintptr_t du = (uintptr_t)ctxt & ~DISPATCH_UNOTE_FREELIST_REF;
+	_dispatch_free_deferred_unotes((dispatch_unote_class_t) du);
+#else
 	// POSIX defines that destructors are only called if 'ctxt' is non-null
 	DISPATCH_INTERNAL_CRASH(ctxt,
 			"Premature thread exit with unhandled deferred items");
+#endif
 }
 
 DISPATCH_NORETURN

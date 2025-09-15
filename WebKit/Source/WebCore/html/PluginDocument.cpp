@@ -25,6 +25,7 @@
 #include "config.h"
 #include "PluginDocument.h"
 
+#include "ContainerNodeInlines.h"
 #include "DocumentLoader.h"
 #include "FrameLoader.h"
 #include "HTMLBodyElement.h"
@@ -41,6 +42,7 @@
 #include "RawDataDocumentParser.h"
 #include "RenderEmbeddedObject.h"
 #include "StyleSheetContents.h"
+#include "UserScriptTypes.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
@@ -106,11 +108,6 @@ void PluginDocumentParser::createDocumentStructure()
 
     if (document.frame())
         document.frame()->injectUserScripts(UserScriptInjectionTime::DocumentStart);
-
-#if PLATFORM(IOS_FAMILY)
-    // Should not be able to zoom into standalone plug-in documents.
-    document.processViewport("user-scalable=no"_s, ViewportArguments::Type::PluginDocument);
-#endif
 
     auto body = HTMLBodyElement::create(document);
     rootElement->appendChild(body);
@@ -189,7 +186,7 @@ PluginViewBase* PluginDocument::pluginWidget()
 
 void PluginDocument::setPluginElement(HTMLPlugInElement& element)
 {
-    m_pluginElement = &element;
+    m_pluginElement = element;
 }
 
 void PluginDocument::detachFromPluginElement()

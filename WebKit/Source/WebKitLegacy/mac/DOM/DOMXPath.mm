@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@
 
 - (NSString *)lookupNamespaceURI:(NSString *)prefix
 {
-    return IMPL->lookupNamespaceURI(prefix);
+    return IMPL->lookupNamespaceURI(prefix).createNSString().autorelease();
 }
 
 @end

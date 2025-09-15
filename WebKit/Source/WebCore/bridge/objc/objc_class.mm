@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2012 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,7 +85,7 @@ ObjcClass* ObjcClass::classForIsA(ClassStructPtr isa)
 typedef Vector<char, 256> JSNameConversionBuffer;
 static inline void convertJSMethodNameToObjc(const CString& jsName, JSNameConversionBuffer& buffer)
 {
-    auto characters = jsName.unsafeSpanIncludingNullTerminator();
+    auto characters = jsName.spanIncludingNullTerminator();
     buffer.reserveInitialCapacity(characters.size());
     for (size_t i = 0; i < characters.size(); ++i) {
         if (characters[i] == '$') {
@@ -110,7 +110,7 @@ Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
     CString jsName = name.ascii();
     JSNameConversionBuffer buffer;
     convertJSMethodNameToObjc(jsName, buffer);
-    RetainPtr<NSString> methodName = adoptNS([[NSString alloc] initWithCString:buffer.data() encoding:NSASCIIStringEncoding]);
+    RetainPtr<NSString> methodName = adoptNS([[NSString alloc] initWithCString:buffer.span().data() encoding:NSASCIIStringEncoding]);
 
     Method* methodPtr = 0;
     ClassStructPtr thisClass = _isa;
@@ -119,7 +119,7 @@ Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
         auto objcMethodList = class_copyMethodListSpan(thisClass);
         for (auto& objcMethod : objcMethodList.span()) {
             SEL objcMethodSelector = method_getName(objcMethod);
-            const char* objcMethodSelectorName = sel_getName(objcMethodSelector);
+            auto objcMethodSelectorName = unsafeSpan(sel_getName(objcMethodSelector));
             NSString* mappedName = nil;
 
             // See if the class wants to exclude the selector from visibility in JavaScript.
@@ -133,9 +133,7 @@ Method* ObjcClass::methodNamed(PropertyName propertyName, Instance*) const
             if ([thisClass respondsToSelector:@selector(webScriptNameForSelector:)])
                 mappedName = [thisClass webScriptNameForSelector:objcMethodSelector];
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-            if ((mappedName && [mappedName isEqual:methodName.get()]) || !strcmp(objcMethodSelectorName, buffer.data())) {
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+            if ((mappedName && [mappedName isEqual:methodName.get()]) || equalSpans(objcMethodSelectorName, unsafeSpan(buffer.span().data()))) {
                 auto method = makeUnique<ObjcMethod>(thisClass, objcMethodSelector);
                 methodPtr = method.get();
                 m_methodCache.add(name.impl(), WTFMove(method));
@@ -215,9 +213,7 @@ Field* ObjcClass::fieldNamed(PropertyName propertyName, Instance* instance) cons
                 if ([thisClass respondsToSelector:@selector(webScriptNameForKey:)])
                     mappedName = [thisClass webScriptNameForKey:objcIvarName];
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-                if ((mappedName && [mappedName isEqual:fieldName.get()]) || !strcmp(objcIvarName, jsName.data())) {
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+                if ((mappedName && [mappedName isEqual:fieldName.get()]) || equalSpans(unsafeSpan(objcIvarName), jsName.span())) {
                     auto newField = makeUnique<ObjcField>(objcIVar);
                     field = newField.get();
                     m_fieldCache.add(name.impl(), WTFMove(newField));

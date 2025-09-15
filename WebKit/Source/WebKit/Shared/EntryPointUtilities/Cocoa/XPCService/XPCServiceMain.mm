@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,14 @@
 
 #import "Logging.h"
 #import "WKCrashReporter.h"
+#import "WebKitServiceNames.h"
 #import "XPCEndpointMessages.h"
 #import "XPCServiceEntryPoint.h"
 #import "XPCUtilities.h"
 #import <CoreFoundation/CoreFoundation.h>
 #import <mach/mach.h>
 #import <pal/spi/cf/CFUtilitiesSPI.h>
+#import <pal/spi/cocoa/CoreServicesSPI.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <sys/sysctl.h>
 #import <wtf/BlockPtr.h>
@@ -41,9 +43,10 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/WTFProcess.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
+#import <wtf/darwin/XPCExtras.h>
 #import <wtf/spi/cocoa/OSLogSPI.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
-#import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/MakeString.h>
 
 #if __has_include(<WebKitAdditions/DyldCallbackAdditions.h>)
@@ -77,9 +80,7 @@ static void initializeCFPrefs()
 #if ENABLE(CFPREFS_DIRECT_MODE)
     // Enable CFPrefs direct mode to avoid unsuccessfully attempting to connect to the daemon and getting blocked by the sandbox.
     _CFPrefsSetDirectModeEnabled(YES);
-#if HAVE(CF_PREFS_SET_READ_ONLY)
     _CFPrefsSetReadOnly(YES);
-#endif
 #endif // ENABLE(CFPREFS_DIRECT_MODE)
 }
 
@@ -92,9 +93,6 @@ static void initializeLogd(bool disableLogging)
     }
 #else
     UNUSED_PARAM(disableLogging);
-#endif
-
-    os_trace_set_mode(OS_TRACE_MODE_INFO | OS_TRACE_MODE_DEBUG);
 
     // Log a long message to make sure the XPC connection to the log daemon for oversized messages is opened.
     // This is needed to block launchd after the WebContent process has launched, since access to launchd is
@@ -103,6 +101,7 @@ static void initializeLogd(bool disableLogging)
     memsetSpan(std::span { stringWithSpaces }, ' ');
     stringWithSpaces.back() = '\0';
     RELEASE_LOG(Process, "Initialized logd %s", stringWithSpaces.data());
+#endif
 }
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
@@ -113,7 +112,7 @@ NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashDueWebKitFrameworkVersionMi
 }
 static void checkFrameworkVersion(xpc_object_t message)
 {
-    auto uiProcessWebKitBundleVersion = xpc_dictionary_get_wtfstring(message, "WebKitBundleVersion"_s);
+    auto uiProcessWebKitBundleVersion = xpcDictionaryGetString(message, "WebKitBundleVersion"_s);
     auto webkitBundleVersion = ASCIILiteral::fromLiteralUnsafe(WEBKIT_BUNDLE_VERSION);
     if (!uiProcessWebKitBundleVersion.isNull() && uiProcessWebKitBundleVersion != webkitBundleVersion) {
         auto errorMessage = makeString("WebKit framework version mismatch: "_s, uiProcessWebKitBundleVersion, " != "_s, webkitBundleVersion);
@@ -124,6 +123,20 @@ static void checkFrameworkVersion(xpc_object_t message)
 #endif // PLATFORM(MAC)
 
 static bool s_isWebProcess = false;
+
+static void setUserDirSuffix(ASCIILiteral suffix)
+{
+#if PLATFORM(IOS_FAMILY)
+    if (_set_user_dir_suffix(suffix)) {
+        RELEASE_LOG(IPC, "Successfully set temp dir");
+        confstr(_CS_DARWIN_USER_TEMP_DIR, nullptr, 0);
+        return;
+    }
+    RELEASE_LOG_ERROR(IPC, "Failed to set temp dir: errno = %d", errno);
+#else
+    UNUSED_PARAM(suffix);
+#endif
+}
 
 void XPCServiceEventHandler(xpc_connection_t peer)
 {
@@ -154,7 +167,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
         handleXPCExitMessage(event);
 #endif
 
-        String messageName = xpc_dictionary_get_wtfstring(event, "message-name"_s);
+        String messageName = xpcDictionaryGetString(event, "message-name"_s);
         if (!messageName) {
             RELEASE_LOG_ERROR(IPC, "XPCServiceEventHandler: 'message-name' is not present in the XPC dictionary");
             return;
@@ -165,11 +178,11 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             bool disableLogging = xpc_dictionary_get_bool(event, "disable-logging");
             initializeLogd(disableLogging);
 
-            if (xpc_object_t languages = xpc_dictionary_get_value(event, "OverrideLanguages")) {
+            if (RetainPtr languages = xpc_dictionary_get_value(event, "OverrideLanguages")) {
                 Vector<String> newLanguages;
                 @autoreleasepool {
-                    xpc_array_apply(languages, makeBlockPtr([&newLanguages](size_t index, xpc_object_t value) {
-                        newLanguages.append(String::fromUTF8(xpc_string_get_string_ptr(value)));
+                    xpc_array_apply(languages.get(), makeBlockPtr([&newLanguages](size_t index, xpc_object_t value) {
+                        newLanguages.append(xpcStringGetString(value));
                         return true;
                     }).get());
                 }
@@ -185,36 +198,40 @@ void XPCServiceEventHandler(xpc_connection_t peer)
 #if PLATFORM(IOS_FAMILY)
             auto containerEnvironmentVariables = xpc_dictionary_get_value(event, "ContainerEnvironmentVariables");
             xpc_dictionary_apply(containerEnvironmentVariables, ^(const char *key, xpc_object_t value) {
-                setenv(key, xpc_string_get_string_ptr(value), 1);
+                setenv(key, xpc_string_get_string_ptr(value), 1);  // NOLINT
                 return true;
             });
 #endif
 
-            String serviceName = xpc_dictionary_get_wtfstring(event, "service-name"_s);
+            String serviceName = xpcDictionaryGetString(event, "service-name"_s);
             if (!serviceName) {
                 RELEASE_LOG_ERROR(IPC, "XPCServiceEventHandler: 'service-name' is not present in the XPC dictionary");
                 return;
             }
+
             CFStringRef entryPointFunctionName = nullptr;
-            if (serviceName.startsWith("com.apple.WebKit.WebContent"_s)) {
+            if (serviceName.startsWith(webContentServiceName)) {
                 s_isWebProcess = true;
+                setUserDirSuffix(webContentServiceName);
                 entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(WEBCONTENT_SERVICE_INITIALIZER));
-            } else if (serviceName == "com.apple.WebKit.Networking"_s)
+            } else if (serviceName == networkingServiceName) {
+                setUserDirSuffix(networkingServiceName);
                 entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(NETWORK_SERVICE_INITIALIZER));
-            else if (serviceName == "com.apple.WebKit.GPU"_s)
+            } else if (serviceName == gpuServiceName) {
+                setUserDirSuffix(gpuServiceName);
                 entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(GPU_SERVICE_INITIALIZER));
-            else if (serviceName == "com.apple.WebKit.Model"_s)
+            } else if (serviceName == modelServiceName)
                 entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(MODEL_SERVICE_INITIALIZER));
             else {
                 RELEASE_LOG_ERROR(IPC, "XPCServiceEventHandler: Unexpected 'service-name': %{public}s", serviceName.utf8().data());
                 return;
             }
 
-            CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
+            RetainPtr webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
             typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t);
-            InitializerFunction initializerFunctionPtr = reinterpret_cast<InitializerFunction>(CFBundleGetFunctionPointerForName(webKitBundle, entryPointFunctionName));
+            InitializerFunction initializerFunctionPtr = reinterpret_cast<InitializerFunction>(CFBundleGetFunctionPointerForName(webKitBundle.get(), entryPointFunctionName));
             if (!initializerFunctionPtr) {
-                RELEASE_LOG_FAULT(IPC, "Exiting: Unable to find entry point in WebKit.framework with name: %s", [(__bridge NSString *)entryPointFunctionName UTF8String]);
+                RELEASE_LOG_FAULT(IPC, "Exiting: Unable to find entry point in WebKit.framework with name: %s", [bridge_cast(entryPointFunctionName) UTF8String]);
                 [[NSRunLoop mainRunLoop] performBlock:^{
                     exitProcess(EXIT_FAILURE);
                 }];
@@ -233,7 +250,7 @@ void XPCServiceEventHandler(xpc_connection_t peer)
             if (fd != -1)
                 dup2(fd, STDERR_FILENO);
 
-            WorkQueue::main().dispatchSync([initializerFunctionPtr, event = OSObjectPtr<xpc_object_t>(event), retainedPeerConnection] {
+            WorkQueue::mainSingleton().dispatchSync([initializerFunctionPtr, event = OSObjectPtr<xpc_object_t>(event), retainedPeerConnection] {
                 WTF::initializeMainThread();
 
                 initializeCFPrefs();
@@ -262,8 +279,8 @@ int XPCServiceMain(int, const char**)
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #if ASAN_ENABLED
         // EXC_RESOURCE on ASAN builds freezes the process for several minutes: rdar://65027596
-        if (char *disableFreezingOnExcResource = getenv("DISABLE_FREEZING_ON_EXC_RESOURCE")) {
-            if (!strcasecmp(disableFreezingOnExcResource, "yes") || !strcasecmp(disableFreezingOnExcResource, "true") || !strcasecmp(disableFreezingOnExcResource, "1")) {
+        if (auto* disableFreezingOnExcResource = getenv("DISABLE_FREEZING_ON_EXC_RESOURCE")) {
+            if (equalIgnoringASCIICase(disableFreezingOnExcResource, "yes"_s) || equalIgnoringASCIICase(disableFreezingOnExcResource, "true"_s) || equalIgnoringASCIICase(disableFreezingOnExcResource, "1"_s)) {
                 int val = 1;
                 int rc = sysctlbyname("debug.toggle_address_reuse", nullptr, 0, &val, sizeof(val));
                 if (rc < 0)

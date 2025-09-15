@@ -1665,6 +1665,10 @@ smb2fs_fullpath(struct mbchain *mbp, struct smbnode *dnp,
 	}
     
 	if (name) {
+        if (name_len > (SMB_MAXFNAMELEN * 2)) {
+            SMBERROR("%s: Illegal name len %zu\n", __FUNCTION__, name_len);
+            return EINVAL;
+        }
         /* Add separator char only if we added a path from above */
         if (len > 0) {
             error = mb_put_uint16le(mbp, sep_char);
@@ -1681,6 +1685,10 @@ smb2fs_fullpath(struct mbchain *mbp, struct smbnode *dnp,
     
     /* Add Stream Name */
 	if (strm_name) {
+        if (strm_name_len > (SMB_MAXFNAMELEN * 2)) {
+            SMBERROR("%s: Illegal stream len %zu\n", __FUNCTION__ , strm_name_len);
+            return EINVAL;
+        }
         /* Add separator char */
         error = mb_put_uint16le(mbp, stream_sep_char);
         if (error) {

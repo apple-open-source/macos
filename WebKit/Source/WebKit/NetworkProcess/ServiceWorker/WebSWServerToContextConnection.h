@@ -99,6 +99,10 @@ public:
 
     void terminateIdleServiceWorkers();
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void reportNetworkUsageToWorkerClient(const WebCore::ScriptExecutionContextIdentifier, uint64_t bytesTransferredOverNetworkDelta) final;
+#endif
+
 private:
     WebSWServerToContextConnection(NetworkConnectionToWebProcess&, WebPageProxyIdentifier, WebCore::Site&&, std::optional<WebCore::ScriptExecutionContextIdentifier>, WebCore::SWServer&);
 
@@ -115,6 +119,7 @@ private:
     void skipWaiting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);
 
     // Messages back from the SW host process
+    void setAsInspected(WebCore::ServiceWorkerIdentifier, bool);
     void workerTerminated(WebCore::ServiceWorkerIdentifier);
 
     // Messages to the SW host WebProcess
@@ -134,7 +139,7 @@ private:
     void connectionIsNoLongerNeeded() final;
     void terminateDueToUnresponsiveness() final;
     void openWindow(WebCore::ServiceWorkerIdentifier, const URL&, OpenWindowCallback&&) final;
-    void reportConsoleMessage(WebCore::ServiceWorkerIdentifier, MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier);
+    void reportConsoleMessage(WebCore::ServiceWorkerIdentifier, MessageSource, MessageLevel, const String& message, uint64_t requestIdentifier);
 
     void connectionClosed();
 

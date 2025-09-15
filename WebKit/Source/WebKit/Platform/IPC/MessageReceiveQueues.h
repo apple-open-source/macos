@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ public:
     void enqueueMessage(Connection& connection, UniqueRef<Decoder>&& message) final
     {
         m_dispatcher.dispatch([connection = Ref { connection }, message = WTFMove(message), receiver = Ref { m_receiver.get() }]() mutable {
-            connection->dispatchMessageReceiverMessage(receiver, WTFMove(message));
+            connection->dispatchMessageReceiverMessage(receiver.get(), WTFMove(message));
         });
     }
 private:
@@ -57,7 +57,7 @@ private:
 class WorkQueueMessageReceiverQueue final : public MessageReceiveQueue {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(WorkQueueMessageReceiverQueue);
 public:
-    WorkQueueMessageReceiverQueue(WorkQueue& queue, WorkQueueMessageReceiver& receiver)
+    WorkQueueMessageReceiverQueue(WorkQueue& queue, WorkQueueMessageReceiverBase& receiver)
         : m_queue(queue)
         , m_receiver(receiver)
     {
@@ -66,13 +66,13 @@ public:
 
     void enqueueMessage(Connection& connection, UniqueRef<Decoder>&& message) final
     {
-        Ref { m_queue }->dispatch([connection = Ref { connection }, message = WTFMove(message), receiver = m_receiver]() mutable {
+        m_queue->dispatch([connection = Ref { connection }, message = WTFMove(message), receiver = m_receiver]() mutable {
             connection->dispatchMessageReceiverMessage(receiver.get(), WTFMove(message));
         });
     }
 private:
-    Ref<WorkQueue> m_queue;
-    Ref<WorkQueueMessageReceiver> m_receiver;
+    const Ref<WorkQueue> m_queue;
+    const Ref<WorkQueueMessageReceiverBase> m_receiver;
 };
 
 } // namespace IPC

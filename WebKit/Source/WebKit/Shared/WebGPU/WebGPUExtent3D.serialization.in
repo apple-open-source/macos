@@ -28,6 +28,6 @@ header: "WebGPUExtent3D.h"
     WebCore::WebGPU::IntegerCoordinate depthOrArrayLayers;
 };
 
-using WebKit::WebGPU::Extent3D = std::variant<Vector<WebCore::WebGPU::IntegerCoordinate>, WebKit::WebGPU::Extent3DDict>;
+using WebKit::WebGPU::Extent3D = Variant<Vector<WebCore::WebGPU::IntegerCoordinate>, WebKit::WebGPU::Extent3DDict>;
 
 #endif

@@ -164,10 +164,10 @@
 #define DBG_FNC_DLIL_IFOUT      DLILDBG_CODE(DBG_DLIL_STATIC, (3 << 8))
 
 #define IF_DATA_REQUIRE_ALIGNED_64(f)   \
-	_CASSERT(!(offsetof(struct if_data_internal, f) % sizeof (u_int64_t)))
+	static_assert(!(offsetof(struct if_data_internal, f) % sizeof(u_int64_t)))
 
 #define IFNET_IF_DATA_REQUIRE_ALIGNED_64(f)     \
-	_CASSERT(!(offsetof(struct ifnet, if_data.f) % sizeof (u_int64_t)))
+	static_assert(!(offsetof(struct ifnet, if_data.f) % sizeof(u_int64_t)))
 
 enum {
 	kProtoKPI_v1    = 1,
@@ -179,8 +179,6 @@ enum {
 #else
 #define DLIL_PRINTF     kprintf
 #endif
-
-extern unsigned int ifnet_debug;
 
 
 extern unsigned int net_rxpoll;
@@ -232,7 +230,6 @@ struct dlil_ifnet {
 	TAILQ_ENTRY(dlil_ifnet) dl_if_link;     /* dlil_ifnet link */
 	u_int32_t dl_if_flags;                  /* flags (below) */
 	u_int32_t dl_if_refcnt;                 /* refcnt */
-	void (*dl_if_trace)(struct dlil_ifnet *, int); /* ref trace callback */
 	void    *dl_if_uniqueid __sized_by_or_null(dl_if_uniqueid_len);                /* unique interface id */
 	size_t  dl_if_uniqueid_len;             /* length of the unique id */
 	char    dl_if_namestorage[IFNAMSIZ];    /* interface name storage */
@@ -251,23 +248,7 @@ struct dlil_ifnet {
 /* Values for dl_if_flags (private to DLIL) */
 #define DLIF_INUSE      0x1     /* DLIL ifnet recycler, ifnet in use */
 #define DLIF_REUSE      0x2     /* DLIL ifnet recycles, ifnet is not new */
-#define DLIF_DEBUG      0x4     /* has debugging info */
 
-#define IF_REF_TRACE_HIST_SIZE  8       /* size of ref trace history */
-
-/* For gdb */
-extern unsigned int if_ref_trace_hist_size;
-
-struct dlil_ifnet_dbg {
-	struct dlil_ifnet       dldbg_dlif;             /* dlil_ifnet */
-	u_int16_t               dldbg_if_refhold_cnt;   /* # ifnet references */
-	u_int16_t               dldbg_if_refrele_cnt;   /* # ifnet releases */
-	/*
-	 * Circular lists of ifnet_{reference,release} callers.
-	 */
-	ctrace_t                dldbg_if_refhold[IF_REF_TRACE_HIST_SIZE];
-	ctrace_t                dldbg_if_refrele[IF_REF_TRACE_HIST_SIZE];
-};
 
 #define DLIL_TO_IFP(s)  (&s->dl_if)
 #define IFP_TO_DLIL(s)  ((struct dlil_ifnet *)s)
@@ -302,7 +283,6 @@ struct proto_input_entry;
  */
 extern kern_return_t dlil_affinity_set(struct thread *, u_int32_t);
 extern boolean_t packet_has_vlan_tag(struct mbuf * m);
-void log_hexdump(void *__sized_by(len) data, size_t len);
 
 /*
  * Monitor routines.

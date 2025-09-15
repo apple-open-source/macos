@@ -128,17 +128,6 @@ class LinkTaskVk final : public vk::ErrorContext, public LinkTask
             return angle::Result::Stop;
         }
 
-        // Accumulate relevant perf counters
-        const angle::VulkanPerfCounters &from = getPerfCounters();
-        angle::VulkanPerfCounters &to         = contextVk->getPerfCounters();
-
-        to.pipelineCreationCacheHits += from.pipelineCreationCacheHits;
-        to.pipelineCreationCacheMisses += from.pipelineCreationCacheMisses;
-        to.pipelineCreationTotalCacheHitsDurationNs +=
-            from.pipelineCreationTotalCacheHitsDurationNs;
-        to.pipelineCreationTotalCacheMissesDurationNs +=
-            from.pipelineCreationTotalCacheMissesDurationNs;
-
         return angle::Result::Continue;
     }
 
@@ -288,6 +277,13 @@ void LinkTaskVk::initDefaultUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMa
     ProgramExecutableVk *executableVk = vk::GetImpl(mExecutable);
     const auto &uniforms              = mExecutable->getUniforms();
 
+    // Reserve enough storage for the layoutInfo.
+    for (const gl::ShaderType shaderType : mExecutable->getLinkedShaderStages())
+    {
+        executableVk->getSharedDefaultUniformBlock(shaderType)
+            ->uniformLayout.reserve(mExecutable->getUniformLocations().size());
+    }
+
     for (const gl::VariableLocation &location : mExecutable->getUniformLocations())
     {
         gl::ShaderMap<sh::BlockMemberInfo> layoutInfo;
@@ -318,7 +314,6 @@ void LinkTaskVk::initDefaultUniformLayoutMapping(gl::ShaderMap<sh::BlockLayoutMa
                         layoutInfo[shaderType] = it->second;
                     }
                 }
-
                 ASSERT(found);
             }
         }

@@ -97,4 +97,10 @@ httpSaveCredentials(const char *path, cups_array_t *credentials, const char *com
   (void)common_name;
   return (-1);
 }
+int
+httpDeleteCredentials(const char *common_name)
+{
+ (void)commonName;
+ return -1;
+}
 #endif /* HAVE_SSL */

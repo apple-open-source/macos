@@ -51,6 +51,7 @@ class TextureMapperLayer;
 
 #if USE(SKIA)
 class SkiaPaintingEngine;
+class SkiaRecordingResult;
 #endif
 #if USE(CAIRO)
 namespace Cairo {
@@ -96,8 +97,7 @@ public:
     void invalidateTarget();
 
 #if ENABLE(DAMAGE_TRACKING)
-    void setDamagePropagation(bool enabled) { m_damagePropagation = enabled; }
-    bool damagePropagation() const { return m_damagePropagation; }
+    void setDamagePropagationEnabled(bool enabled) { m_damagePropagationEnabled = enabled; }
 #endif
 
     void setPosition(FloatPoint&&);
@@ -152,10 +152,7 @@ public:
     void setContentsColor(const Color&);
     void setContentsTileSize(const FloatSize&);
     void setContentsTilePhase(const FloatSize&);
-    void setDirtyRegion(Vector<IntRect, 1>&&);
-#if ENABLE(DAMAGE_TRACKING)
-    void setDamage(Damage&&);
-#endif
+    void setDirtyRegion(Damage&&);
 
     void setFilters(const FilterOperations&);
     void setMask(CoordinatedPlatformLayer*);
@@ -185,6 +182,10 @@ public:
     RunLoop* compositingRunLoop() const;
 
     Ref<CoordinatedTileBuffer> paint(const IntRect&);
+#if USE(SKIA)
+    Ref<SkiaRecordingResult> record(const IntRect&);
+    Ref<CoordinatedTileBuffer> replay(const RefPtr<SkiaRecordingResult>&, const IntRect&);
+#endif
     void waitUntilPaintingComplete();
 
 private:
@@ -244,7 +245,7 @@ private:
     bool m_needsTilesUpdate { false };
 
 #if ENABLE(DAMAGE_TRACKING)
-    bool m_damagePropagation { false };
+    bool m_damagePropagationEnabled { false };
 #endif
 
     Lock m_lock;
@@ -296,7 +297,7 @@ private:
     float m_debugBorderWidth WTF_GUARDED_BY_LOCK(m_lock) { 0 };
     int m_repaintCount WTF_GUARDED_BY_LOCK(m_lock) { -1 };
 #if ENABLE(DAMAGE_TRACKING)
-    Damage m_damage WTF_GUARDED_BY_LOCK(m_lock);
+    std::optional<Damage> m_damage WTF_GUARDED_BY_LOCK(m_lock);
 #endif
 #if ENABLE(SCROLLING_THREAD)
     Markable<ScrollingNodeID> m_scrollingNodeID WTF_GUARDED_BY_LOCK(m_lock);

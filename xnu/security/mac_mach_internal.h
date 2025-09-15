@@ -62,15 +62,14 @@
 #include <stdint.h>
 
 /* mac_do_machexc() flags */
-#define	MAC_DOEXCF_TRACED	0x01	/* Only do mach exeception if
-					   being ptrace()'ed */
+#define MAC_DOEXCF_TRACED       0x01    /* Only do mach exeception if being ptrace()'ed */
 struct exception_action;
 struct proc;
 struct uthread;
 struct task;
 
-int	mac_do_machexc(int64_t code, int64_t subcode, uint32_t flags __unused);
-int	mac_schedule_userret(void);
+int     mac_do_machexc(int64_t code, int64_t subcode, uint32_t flags __unused);
+int     mac_schedule_userret(void);
 
 /* telemetry */
 int mac_schedule_telemetry(void);

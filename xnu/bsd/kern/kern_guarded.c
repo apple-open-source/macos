@@ -1268,7 +1268,8 @@ vng_guard_violation(const struct vng_info *vgi,
 		}
 	}
 
-	if (vng_policy_flags & (kVNG_POLICY_EXC | kVNG_POLICY_EXC_CORPSE)) {
+	if (vng_policy_flags &
+	    (kVNG_POLICY_EXC | kVNG_POLICY_EXC_CORPSE | kVNG_POLICY_EXC_CORE)) {
 		/* EXC_GUARD exception */
 		const struct vng_owner *vgo = TAILQ_FIRST(&vgi->vgi_owners);
 		pid_t pid = vgo ? proc_pid(vgo->vgo_p) : 0;
@@ -1283,7 +1284,8 @@ vng_guard_violation(const struct vng_info *vgi,
 
 		lck_rw_unlock_shared(&llock);
 
-		if (vng_policy_flags & kVNG_POLICY_EXC_CORPSE) {
+		if (vng_policy_flags &
+		    (kVNG_POLICY_EXC_CORPSE | kVNG_POLICY_EXC_CORE)) {
 			char *path;
 			int len = MAXPATHLEN;
 
@@ -1294,7 +1296,10 @@ vng_guard_violation(const struct vng_info *vgi,
 			if (*path && len) {
 				r = vng_reason_from_pathname(path, len);
 			}
-			task_violated_guard(code, subcode, r, TRUE); /* not fatal */
+			const bool backtrace_only =
+			    !(vng_policy_flags & kVNG_POLICY_EXC_CORE);
+			/* not fatal */
+			task_violated_guard(code, subcode, r, backtrace_only);
 			if (NULL != r) {
 				os_reason_free(r);
 			}

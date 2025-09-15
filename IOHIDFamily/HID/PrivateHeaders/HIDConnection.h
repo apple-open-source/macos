@@ -11,6 +11,8 @@
 #import <Foundation/Foundation.h>
 #import <HID/HIDBase.h>
 #import <IOKit/hidobjc/HIDConnectionBase.h>
+#import <IOKit/hidobjc/HIDConnectionBase.h>
+#import <IOKit/hid/IOHIDEventSystemConnection.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -26,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface HIDConnection (HIDFramework)
 
 @property (readonly) NSString *uuid;
+
+@property (readonly) IOHIDEventSystemConnectionType type;
 
 -(void)getAuditToken:(audit_token_t *)token;
 

@@ -86,6 +86,7 @@
 #include <netinet6/ip6_var.h>
 
 #include <net/pfvar.h>
+#include <net/droptap.h>
 
 struct pf_frent {
 	LIST_ENTRY(pf_frent)    fr_next;
@@ -758,7 +759,8 @@ insert:
 		m->m_pkthdr.csum_rx_val = csum;
 		m->m_pkthdr.csum_rx_start = sizeof(struct ip);
 		m->m_pkthdr.csum_flags = (*frag)->fr_csum_flags;
-	} else if ((m->m_pkthdr.rcvif->if_flags & IFF_LOOPBACK) ||
+	} else if ((m->m_pkthdr.rcvif != NULL &&
+	    m->m_pkthdr.rcvif->if_flags & IFF_LOOPBACK) ||
 	    (m->m_pkthdr.pkt_flags & PKTF_LOOP)) {
 		/* loopback checksums are always OK */
 		m->m_pkthdr.csum_data = 0xffff;
@@ -794,7 +796,7 @@ drop_fragment:
 	/* Oops - fail safe - drop packet */
 	pool_put(&pf_frent_pl, frent);
 	pf_nfrents--;
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_BAD_FRAGMENT, NULL, 0);
 	return NULL;
 }
 
@@ -1085,7 +1087,8 @@ no_mem:
 		(*frag)->fr_flags |= PFFRAG_SEENLAST;
 	}
 
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN,
+	    DROP_REASON_PF_MEM_ALLOC, NULL, 0);
 	return NULL;
 
 drop_fragment:
@@ -1104,7 +1107,8 @@ drop_fragment:
 		(*frag)->fr_flags |= PFFRAG_DROP;
 	}
 
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN,
+	    DROP_REASON_PF_BAD_FRAGMENT, NULL, 0);
 	return NULL;
 }
 
@@ -1402,7 +1406,8 @@ insert:
 		m->m_pkthdr.csum_rx_val = csum;
 		m->m_pkthdr.csum_rx_start = sizeof(struct ip6_hdr);
 		m->m_pkthdr.csum_flags = (*frag)->fr_csum_flags;
-	} else if ((m->m_pkthdr.rcvif->if_flags & IFF_LOOPBACK) ||
+	} else if ((m->m_pkthdr.rcvif != NULL &&
+	    m->m_pkthdr.rcvif->if_flags & IFF_LOOPBACK) ||
 	    (m->m_pkthdr.pkt_flags & PKTF_LOOP)) {
 		/* loopback checksums are always OK */
 		m->m_pkthdr.csum_data = 0xffff;
@@ -1450,7 +1455,7 @@ insert:
 	    sizeof(*ftag), M_NOWAIT, m);
 	if (mtag == NULL) {
 		/* XXX: add stats */
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_MEM_ALLOC, NULL, 0);
 		return NULL;
 	}
 	ftag = (struct pf_fragment_tag *)mtag->m_tag_data;
@@ -1470,7 +1475,7 @@ drop_fragment:
 	/* Oops - fail safe - drop packet */
 	pool_put(&pf_frent_pl, frent);
 	--pf_nfrents;
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_BAD_FRAGMENT, NULL, 0);
 	return NULL;
 }
 
@@ -1787,7 +1792,7 @@ no_mem:
 		(*frag)->fr_flags |= PFFRAG_SEENLAST;
 	}
 
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_MEM_ALLOC, NULL, 0);
 	return NULL;
 
 drop_fragment:
@@ -1806,7 +1811,7 @@ drop_fragment:
 		(*frag)->fr_flags |= PFFRAG_DROP;
 	}
 
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_BAD_FRAGMENT, NULL, 0);
 	return NULL;
 }
 
@@ -2031,7 +2036,7 @@ pf_normalize_ip(pbuf_t *pbuf, int dir, struct pfi_kif *kif, u_short *reason,
 		frent = pool_get(&pf_frent_pl, PR_NOWAIT);
 		if (frent == NULL) {
 			REASON_SET(reason, PFRES_MEMORY);
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_PF_MEM_ALLOC, NULL, 0);
 			return PF_DROP;
 		}
 		pf_nfrents++;

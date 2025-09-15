@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -52,6 +52,8 @@ RealtimeOutgoingAudioSourceCocoa::RealtimeOutgoingAudioSourceCocoa(Ref<MediaStre
     : RealtimeOutgoingAudioSource(WTFMove(audioSource))
     , m_sampleConverter(AudioSampleDataSource::create(LibWebRTCAudioFormat::sampleRate * 2, source()))
 {
+    if (auto* description = source().protectedSource()->audioStreamDescription())
+        updateSampleConverter(*description);
 }
 
 RealtimeOutgoingAudioSourceCocoa::~RealtimeOutgoingAudioSourceCocoa() = default;
@@ -88,6 +90,17 @@ bool RealtimeOutgoingAudioSourceCocoa::hasBufferedEnoughData()
     return writtenAudioDuration >= readAudioDuration + 0.01;
 }
 
+void RealtimeOutgoingAudioSourceCocoa::updateSampleConverter(const AudioStreamDescription& streamDescription)
+{
+    m_inputStreamDescription = toCAAudioStreamDescription(streamDescription);
+    auto status  = m_sampleConverter->setInputFormat(*m_inputStreamDescription);
+    ASSERT_UNUSED(status, !status);
+
+    m_outputStreamDescription = libwebrtcAudioFormat(LibWebRTCAudioFormat::sampleRate, streamDescription.numberOfChannels());
+    status = m_sampleConverter->setOutputFormat(m_outputStreamDescription->streamDescription());
+    ASSERT(!status);
+}
+
 // May get called on a background thread.
 void RealtimeOutgoingAudioSourceCocoa::audioSamplesAvailable(const MediaTime&, const PlatformAudioData& audioData, const AudioStreamDescription& streamDescription, size_t sampleCount)
 {
@@ -97,13 +110,7 @@ void RealtimeOutgoingAudioSourceCocoa::audioSamplesAvailable(const MediaTime&, c
             m_writeCount = (m_writeCount * streamDescription.sampleRate()) / m_inputStreamDescription->sampleRate();
         }
 
-        m_inputStreamDescription = toCAAudioStreamDescription(streamDescription);
-        auto status  = m_sampleConverter->setInputFormat(*m_inputStreamDescription);
-        ASSERT_UNUSED(status, !status);
-
-        m_outputStreamDescription = libwebrtcAudioFormat(LibWebRTCAudioFormat::sampleRate, streamDescription.numberOfChannels());
-        status = m_sampleConverter->setOutputFormat(m_outputStreamDescription->streamDescription());
-        ASSERT(!status);
+        updateSampleConverter(streamDescription);
     }
 
     // Let's skip pushing samples if we are too slow pulling them.
@@ -133,28 +140,32 @@ void RealtimeOutgoingAudioSourceCocoa::audioSamplesAvailable(const MediaTime&, c
 void RealtimeOutgoingAudioSourceCocoa::pullAudioData()
 {
     // libwebrtc expects 10 ms chunks.
-    size_t chunkSampleCount = m_outputStreamDescription->sampleRate() / 100;
-    size_t bufferSize = chunkSampleCount * LibWebRTCAudioFormat::sampleByteSize * m_outputStreamDescription->numberOfChannels();
+    constexpr size_t chunkSampleCount = LibWebRTCAudioFormat::sampleRate / 100;
+    size_t numberOfChannels = m_outputStreamDescription->numberOfChannels();
+    size_t bufferSize = chunkSampleCount * LibWebRTCAudioFormat::sampleByteSize * numberOfChannels;
     m_audioBuffer.grow(bufferSize);
 
     AudioBufferList bufferList;
     bufferList.mNumberBuffers = 1;
     auto& firstBuffer = span(bufferList)[0];
-    firstBuffer.mNumberChannels = m_outputStreamDescription->numberOfChannels();
+    firstBuffer.mNumberChannels = numberOfChannels;
     firstBuffer.mDataByteSize = bufferSize;
-    firstBuffer.mData = m_audioBuffer.data();
+    firstBuffer.mData = m_audioBuffer.mutableSpan().data();
 
-    if (isSilenced() !=  m_sampleConverter->muted())
+    if (isSilenced() != m_sampleConverter->muted())
         m_sampleConverter->setMuted(isSilenced());
 
-    m_sampleConverter->pullAvailableSamplesAsChunks(bufferList, chunkSampleCount, m_readCount, [this, chunkSampleCount] {
+    m_sampleConverter->pullAvailableSamplesAsChunks(bufferList, chunkSampleCount, m_readCount, [this, numberOfChannels] {
         m_readCount += chunkSampleCount;
-        sendAudioFrames(m_audioBuffer.data(), LibWebRTCAudioFormat::sampleSize, m_outputStreamDescription->sampleRate(), m_outputStreamDescription->numberOfChannels(), chunkSampleCount);
+        sendAudioFrames(m_audioBuffer.span(), LibWebRTCAudioFormat::sampleSize, LibWebRTCAudioFormat::sampleRate, numberOfChannels, chunkSampleCount);
     });
 }
 
 void RealtimeOutgoingAudioSourceCocoa::sourceUpdated()
 {
+    if (auto* description = source().protectedSource()->audioStreamDescription())
+        updateSampleConverter(*description);
+
 #if !RELEASE_LOG_DISABLED
     m_sampleConverter->setLogger(source().logger(), source().logIdentifier());
 #endif

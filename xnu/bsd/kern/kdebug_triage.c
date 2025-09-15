@@ -22,6 +22,7 @@
 
 #include <sys/kdebug_common.h>
 #include <sys/kdebug_triage.h>
+#include <machine/atomic.h>
 
 #define TRIAGE_KDCOPYBUF_COUNT 128
 #define TRIAGE_KDCOPYBUF_SIZE  (TRIAGE_KDCOPYBUF_COUNT * sizeof(kd_buf))
@@ -31,8 +32,6 @@ struct kd_control kd_control_triage = {
 	.mode = KDEBUG_MODE_TRIAGE,
 	.kdebug_events_per_storage_unit = TRIAGE_EVENTS_PER_STORAGE_UNIT,
 	.kdebug_min_storage_units_per_cpu = TRIAGE_MIN_STORAGE_UNITS_PER_CPU,
-	.kdebug_kdcopybuf_count = TRIAGE_KDCOPYBUF_COUNT,
-	.kdebug_kdcopybuf_size = TRIAGE_KDCOPYBUF_SIZE,
 	.kdc_flags = KDBG_DEBUGID_64,
 	.kdc_emit = KDEMIT_DISABLE,
 	.kdc_oldest_time = 0
@@ -45,9 +44,8 @@ struct kd_buffer kd_buffer_triage = {
 	.kdb_region_count = 0,
 	.kdb_info = NULL,
 	.kd_bufs = NULL,
-	.kdcopybuf = NULL
+	.kdcopybuf = NULL,
 };
-
 
 static LCK_GRP_DECLARE(ktriage_grp, "ktriage");
 static LCK_MTX_DECLARE(ktriage_mtx, &ktriage_grp);
@@ -64,54 +62,28 @@ ktriage_unlock(void)
 	lck_mtx_unlock(&ktriage_mtx);
 }
 
-int
+__startup_func
+void
 create_buffers_triage(void)
 {
-	int error = 0;
-	int events_per_storage_unit, min_storage_units_per_cpu;
-
 	if (kd_control_triage.kdc_flags & KDBG_BUFINIT) {
-		panic("create_buffers_triage shouldn't be called once we have inited the triage system.");
+		panic("kdebug_triage: double-init");
 	}
 
-	events_per_storage_unit = kd_control_triage.kdebug_events_per_storage_unit;
-	min_storage_units_per_cpu = kd_control_triage.kdebug_min_storage_units_per_cpu;
+	uint32_t cpu_count = kdbg_cpu_count();
+	kd_control_triage.kdebug_cpus = cpu_count;
+	kd_control_triage.alloc_cpus = cpu_count;
+	uint32_t storage_count = cpu_count * kd_control_triage.kdebug_min_storage_units_per_cpu;
 
-	kd_control_triage.kdebug_cpus = kdbg_cpu_count();
-	kd_control_triage.alloc_cpus = kd_control_triage.kdebug_cpus;
-	kd_control_triage.kdc_coprocs = NULL;
+	kd_buffer_triage.kdb_storage_count = storage_count;
+	kd_buffer_triage.kdb_event_count = storage_count * kd_control_triage.kdebug_events_per_storage_unit;
 
-	if (kd_buffer_triage.kdb_event_count < (kd_control_triage.kdebug_cpus * events_per_storage_unit * min_storage_units_per_cpu)) {
-		kd_buffer_triage.kdb_storage_count = kd_control_triage.kdebug_cpus * min_storage_units_per_cpu;
-	} else {
-		kd_buffer_triage.kdb_storage_count = kd_buffer_triage.kdb_event_count / events_per_storage_unit;
+	int error = create_buffers(&kd_control_triage, &kd_buffer_triage, VM_KERN_MEMORY_TRIAGE);
+	if (error != 0) {
+		panic("kdebug_triage: failed to create buffers, error = %d", error);
 	}
-
-	kd_buffer_triage.kdb_event_count = kd_buffer_triage.kdb_storage_count * events_per_storage_unit;
-
-	kd_buffer_triage.kd_bufs = NULL;
-
-	error = create_buffers(&kd_control_triage, &kd_buffer_triage, VM_KERN_MEMORY_TRIAGE);
-
-	if (!error) {
-		kd_control_triage.kdc_oldest_time = mach_continuous_time();
-		kd_control_triage.enabled = 1;
-		kd_buffer_triage.kdb_storage_threshold = kd_buffer_triage.kdb_storage_count / 2;
-	}
-
-	return error;
-}
-
-__attribute__((noreturn))
-void
-delete_buffers_triage(void)
-{
-	/*
-	 * If create_buffers() for triage mode fails, it will call the generic delete_buffers() to
-	 * free the resources. This specific call should never be invoked because we expect the
-	 * triage system to always be ON.
-	 */
-	panic("delete_buffers_triage shouldn't be invoked");
+	// Immediately enable triage recording.
+	kd_control_triage.enabled = 1;
 }
 
 ktriage_strings_t ktriage_subsystems_strings[KDBG_TRIAGE_SUBSYS_MAX + 1];
@@ -150,38 +122,191 @@ ktriage_convert_to_string(uint64_t debugid, uintptr_t arg, char *buf, uint32_t b
 	return;
 }
 
+static void
+_write_triage_record_nopreempt(uintptr_t debugid, uintptr_t arg, uintptr_t thread_id)
+{
+	uint64_t now = 0;
+	uint32_t bindx;
+	kd_buf *kd;
+	struct kd_storage *kdsp_actual;
+	union kds_ptr kds_raw;
+
+	if (!kd_control_triage.enabled) {
+		return;
+	}
+	int cpu = cpu_number();
+	struct kd_bufinfo *info = &kd_buffer_triage.kdb_info[cpu];
+	const uint32_t events_per_storage = kd_control_triage.kdebug_events_per_storage_unit;
+
+	while (true) {
+		kds_raw = info->kd_list_tail;
+
+		if (kds_raw.raw != KDS_PTR_NULL) {
+			kdsp_actual = POINTER_FROM_KDS_PTR(kd_buffer_triage.kd_bufs, kds_raw);
+			bindx = kdsp_actual->kds_bufindx;
+		} else {
+			kdsp_actual = NULL;
+			bindx = events_per_storage;
+		}
+
+		if (kdsp_actual == NULL || bindx >= events_per_storage) {
+			if (kdebug_storage_alloc(&kd_control_triage, &kd_buffer_triage, cpu) == false) {
+				break;
+			}
+			continue;
+		}
+
+		now = mach_continuous_time() & KDBG_TIMESTAMP_MASK;
+		if (OSCompareAndSwap(bindx, bindx + 1, &kdsp_actual->kds_bufindx)) {
+			kd = &kdsp_actual->kds_records[bindx];
+
+			kd->debugid = 0;
+			kd->arg1 = arg;
+			kd->arg2 = 0;
+			kd->arg3 = 0;
+			kd->arg4 = debugid;
+			kd->arg5 = thread_id;
+			kd->timestamp = now;
+
+			os_atomic_inc(&kdsp_actual->kds_bufcnt, release);
+			break;
+		}
+	}
+}
+
 void
 ktriage_record(
 	uint64_t thread_id,
 	uint64_t debugid,
 	uintptr_t arg)
 {
-	struct kd_record kd_rec;
-
 	if (thread_id == 0) {
 		thread_id = thread_tid(current_thread());
 	}
+	disable_preemption();
+	_write_triage_record_nopreempt(debugid, arg, thread_id);
+	enable_preemption();
+}
 
-	kd_rec.cpu = -1;
-	kd_rec.timestamp = -1;
+static struct kd_storage *
+_find_triage_min_storage(uint64_t thread_id)
+{
+	uint64_t earliest_time = UINT64_MAX;
+	struct kd_storage *min_store = NULL;
 
-	/*
-	 * use 64-bit debugid per our flag KDBG_DEBUGID_64
-	 * that is set in kd_control_triage (on LP64 only).
-	 */
-	assert(kd_control_triage.kdc_flags & KDBG_DEBUGID_64);
+	// Find the earliest record from all CPUs.
+	for (unsigned int cpu = 0; cpu < kd_control_triage.kdebug_cpus; cpu++) {
+		struct kd_bufinfo *info = &kd_buffer_triage.kdb_info[cpu];
+		union kds_ptr store_ptr = info->kd_list_head;
+		if (store_ptr.raw == KDS_PTR_NULL) {
+			continue;
+		}
+		struct kd_storage *store = POINTER_FROM_KDS_PTR(kd_buffer_triage.kd_bufs, store_ptr);
+		kd_buf *found_rec = NULL;
 
-	kd_rec.debugid = 0;
-	kd_rec.arg4 = (uintptr_t)debugid;
+		while (store) {
+			unsigned int last_read = store->kds_readlast;
+			unsigned int const limit = os_atomic_load(&store->kds_bufcnt, acquire);
+			while (last_read < limit) {
+				// Skip any records that didn't come from the target thread.
+				kd_buf *rec = &store->kds_records[last_read];
+				if (rec->arg5 == thread_id) {
+					found_rec = rec;
+					break;
+				}
+				last_read++;
+			}
+			if (found_rec) {
+				store->kds_readlast = last_read;
+				break;
+			}
 
-	kd_rec.arg1 = arg;
-	kd_rec.arg2 = 0;
-	kd_rec.arg3 = 0;
-	kd_rec.arg5 = (uintptr_t)thread_id;
+			store_ptr = store->kds_next;
+			if (store_ptr.raw == KDS_PTR_NULL) {
+				break;
+			}
+			store = POINTER_FROM_KDS_PTR(kd_buffer_triage.kd_bufs, store_ptr);
+		}
 
-	kernel_debug_write(&kd_control_triage,
-	    &kd_buffer_triage,
-	    kd_rec);
+		if (found_rec) {
+			uint64_t t = found_rec->timestamp;
+			if (t < earliest_time) {
+				earliest_time = t;
+				min_store = store;
+			}
+		}
+	}
+	return min_store;
+}
+
+/// Copy a time-ordered series of records pertaining to the given thread to a
+/// buffer.  Returns the number of records written into the buffer.
+///
+/// Mutual exclusion must be provided by the caller.
+///
+/// This is similar to `_read_trace_records`, except for a few triage-specific
+/// additions and the removal of significant complexity for handling lost
+/// events, coprocessors, and direct file writing.
+static size_t
+_read_triage_records(kd_buf *read_buffer,
+    size_t max_count,
+    uint64_t thread_id)
+{
+	struct kd_bufinfo *bufinfos = kd_buffer_triage.kdb_info;
+	struct kd_region *region = kd_buffer_triage.kd_bufs;
+
+	size_t avail_count = MIN(max_count, kd_buffer_triage.kdb_event_count);
+	size_t read_count = 0;
+
+	if (avail_count == 0 ||
+	    !(kd_control_triage.kdc_flags & KDBG_BUFINIT)) {
+		return 0;
+	}
+
+	// `thread_call` threads created due to corpse creation may already have the
+	// eager preemption bit set, so don't over-do it.
+	bool set_preempt = !(thread_is_eager_preempt(current_thread()));
+	if (set_preempt) {
+		thread_set_eager_preempt(current_thread());
+	}
+
+	// Prevent any writers from stealing storage units -- just drop their logs
+	// on the floor instead.
+	int intrs_en = kdebug_storage_lock(&kd_control_triage);
+	kd_control_triage.kdc_flags |= KDBG_NOWRAP;
+	kdebug_storage_unlock(&kd_control_triage, intrs_en);
+
+	// Clear out any previous accumulated state from earlier reads, as triage
+	// wants to reconsider all available data.
+	for (unsigned int cpu = 0; cpu < kd_control_triage.kdebug_cpus; cpu++) {
+		struct kd_bufinfo *info = &bufinfos[cpu];
+		info->kd_prev_timebase = 0;
+		union kds_ptr kdsp = info->kd_list_head;
+		while (kdsp.raw != KDS_PTR_NULL) {
+			struct kd_storage *store = POINTER_FROM_KDS_PTR(region, kdsp);
+			store->kds_readlast = 0;
+			kdsp = store->kds_next;
+		}
+	}
+
+	while (avail_count) {
+		struct kd_storage *min_store = _find_triage_min_storage(thread_id);
+		if (min_store == NULL) {
+			break;
+		}
+		*read_buffer++ = min_store->kds_records[min_store->kds_readlast++];
+		avail_count--;
+		read_count++;
+	}
+
+	intrs_en = kdebug_storage_lock(&kd_control_triage);
+	kd_control_triage.kdc_flags &= ~KDBG_NOWRAP;
+	kdebug_storage_unlock(&kd_control_triage, intrs_en);
+	if (set_preempt) {
+		thread_clear_eager_preempt(current_thread());
+	}
+
+	return read_count;
 }
 
 void
@@ -190,11 +315,9 @@ ktriage_extract(
 	void *buf,
 	uint32_t bufsz)
 {
-	size_t i, record_bytes, record_cnt, record_bufsz;
+	size_t record_cnt = 0, record_bufsz;
 	void *record_buf;
 	void *local_buf;
-	int ret;
-
 
 	if (thread_id == 0 || buf == NULL || bufsz < KDBG_TRIAGE_MAX_STRLEN) {
 		return;
@@ -203,43 +326,28 @@ ktriage_extract(
 	local_buf = buf;
 	bzero(local_buf, bufsz);
 
-	record_bytes = record_bufsz = kd_buffer_triage.kdb_event_count * sizeof(kd_buf);
+	record_bufsz = kd_buffer_triage.kdb_event_count * sizeof(kd_buf);
 	record_buf = kalloc_data(record_bufsz, Z_WAITOK);
-
 	if (record_buf == NULL) {
-		ret = ENOMEM;
+		printf("kdebug_triage: failed to allocate %lu bytes for record\n",
+		    record_bufsz);
+		return;
 	} else {
 		ktriage_lock();
-		ret = kernel_debug_read(&kd_control_triage,
-		    &kd_buffer_triage,
-		    (user_addr_t) record_buf, &record_bytes, NULL, NULL, 0);
+		record_cnt = _read_triage_records(record_buf,
+		    kd_buffer_triage.kdb_event_count, thread_id);
 		ktriage_unlock();
 	}
 
-	if (ret) {
-		printf("ktriage_extract: kernel_debug_read failed with %d\n", ret);
-		kfree_data(record_buf, record_bufsz);
-		return;
-	}
-
-	kd_buf *kd = (kd_buf*) record_buf;
-	i = 0;
-	record_cnt = record_bytes; /* kernel_debug_read() takes number of bytes that it
-	                            * converts to kd_bufs. It processes a max of those and
-	                            * returns number of kd_buf read/processed. We use a
-	                            * different variable here to make our units clear.
-	                            */
-
-	while (i < record_cnt) {
-		if (kd->arg5 == (uintptr_t)thread_id) {
-			ktriage_convert_to_string(kd->arg4, kd->arg1, local_buf, KDBG_TRIAGE_MAX_STRLEN);
-			local_buf = (void *)((uintptr_t)local_buf + KDBG_TRIAGE_MAX_STRLEN);
-			bufsz -= KDBG_TRIAGE_MAX_STRLEN;
-			if (bufsz < KDBG_TRIAGE_MAX_STRLEN) {
-				break;
-			}
+	kd_buf *kd = (kd_buf *)record_buf;
+	for (size_t i = 0; i < record_cnt; i++) {
+		assert3u(kd->arg5, ==, thread_id);
+		ktriage_convert_to_string(kd->arg4, kd->arg1, local_buf, KDBG_TRIAGE_MAX_STRLEN);
+		local_buf = (void *)((uintptr_t)local_buf + KDBG_TRIAGE_MAX_STRLEN);
+		bufsz -= KDBG_TRIAGE_MAX_STRLEN;
+		if (bufsz < KDBG_TRIAGE_MAX_STRLEN) {
+			break;
 		}
-		i++;
 		kd++;
 	}
 
@@ -346,6 +454,9 @@ const char *vm_triage_strings[] =
 	[KDBG_TRIAGE_VM_ALLOCATE_KERNEL_BADMAP_ERROR] = "mach_vm_allocate_kernel failed due to bad map\n",
 	[KDBG_TRIAGE_VM_ALLOCATE_KERNEL_BADSIZE_ERROR] = "mach_vm_allocate_kernel failed due to bad size\n",
 	[KDBG_TRIAGE_VM_ALLOCATE_KERNEL_VMMAPENTER_ERROR] = "mach_vm_allocate_kernel failed within call to vm_map_enter\n",
+	[KDBG_TRIAGE_VM_IOPL_ON_EXEC_PAGE] = "Attempted I/O wiring of page with executable mapping\n",
+	[KDBG_TRIAGE_VM_EXEC_ON_IOPL_PAGE] = "Attempted executable mapping of page already wired for I/O\n",
+	[KDBG_TRIAGE_VM_UPL_WRITE_ON_EXEC_REGION] = "Attempted writable UPL against executable VM region\n",
 };
 /* VM end */
 

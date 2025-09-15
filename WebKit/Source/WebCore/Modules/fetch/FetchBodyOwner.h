@@ -30,7 +30,6 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
-#include "ExceptionOr.h"
 #include "FetchBody.h"
 #include "FetchBodySource.h"
 #include "FetchHeaders.h"
@@ -42,6 +41,8 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
+
+template<typename> class ExceptionOr;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(FetchBodyOwner);
 
@@ -126,11 +127,13 @@ private:
 
         // FetchLoaderClient API
         void didReceiveResponse(const ResourceResponse&) final;
-        void didReceiveData(const SharedBuffer& buffer) final { owner.blobChunk(buffer); }
+        void didReceiveData(const SharedBuffer& buffer) final { protectedOwner()->blobChunk(buffer); }
         void didFail(const ResourceError&) final;
         void didSucceed(const NetworkLoadMetrics&) final;
 
-        FetchBodyOwner& owner;
+        Ref<FetchBodyOwner> protectedOwner() const { return owner.get(); }
+
+        WeakRef<FetchBodyOwner> owner;
         std::unique_ptr<FetchLoader> loader;
     };
 
@@ -138,13 +141,13 @@ protected:
     std::optional<FetchBody> m_body;
     bool m_isDisturbed { false };
     RefPtr<FetchBodySource> m_readableStreamSource;
-    Ref<FetchHeaders> m_headers;
+    const Ref<FetchHeaders> m_headers;
 
 private:
     std::optional<BlobLoader> m_blobLoader;
     bool m_isBodyOpaque { false };
 
-    std::variant<std::nullptr_t, Exception, ResourceError> m_loadingError;
+    Variant<std::nullptr_t, Exception, ResourceError> m_loadingError;
 };
 
 } // namespace WebCore

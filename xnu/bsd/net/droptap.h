@@ -111,6 +111,8 @@ struct droptap_header {
 #define DROPTAP_IPSEC   6
 #define DROPTAP_IP6     7
 #define DROPTAP_MPTCP   8
+#define DROPTAP_PF      9
+#define DROPTAP_BRIDGE  10
 
 #define DROPTAP_UNSPEC  0
 
@@ -142,6 +144,7 @@ struct droptap_header {
 	X(DROP_REASON_AQM_BK_SYS_THROTTLED,         DROPTAP_SKYWALK, DROPTAP_AQM,  3,  "AQM BK_SYS throttled")                       \
 	X(DROP_REASON_AQM_PURGE_FLOW,               DROPTAP_SKYWALK, DROPTAP_AQM,  4,  "AQM purge flow")                             \
 	X(DROP_REASON_AQM_DROP,                     DROPTAP_SKYWALK, DROPTAP_AQM,  5,  "AQM drop")                                   \
+	X(DROP_REASON_AQM_HIGH_DELAY,               DROPTAP_SKYWALK, DROPTAP_AQM,  6,  "AQM drop due to high delay")                 \
 	/* Socket */                                                                                                                 \
 	X(DROP_REASON_FULL_SOCK_RCVBUF,             DROPTAP_BSD,     DROPTAP_SOCK, 1,  "Socket receive buffer full")                 \
 	/* DLIL */                                                                                                                   \
@@ -159,6 +162,32 @@ struct droptap_header {
 	X(DROP_REASON_DLIL_TSO_NOT_OK,              DROPTAP_BSD,     DROPTAP_DLIL, 12, "DLIL interface TSO not OK")                  \
 	/* MPTCP */                                                                                                                  \
 	X(DROP_REASON_MPTCP_INPUT_MALFORMED,        DROPTAP_BSD,     DROPTAP_MPTCP,1,  "MPTCP input packet malformed")               \
+	X(DROP_REASON_MPTCP_REASSEMBLY_ALLOC,       DROPTAP_BSD,     DROPTAP_MPTCP,2,  "MPTCP reassembly allocation")                \
+	/* PF */                                                                                                                     \
+	X(DROP_REASON_PF_UNSPECIFIED,               DROPTAP_BSD,     DROPTAP_PF,   1,  "PF unspecified reason")                      \
+	X(DROP_REASON_PF_UNDERSIZED,                DROPTAP_BSD,     DROPTAP_PF,   2,  "PF undersized")                              \
+	X(DROP_REASON_PF_NO_ROUTE,                  DROPTAP_BSD,     DROPTAP_PF,   3,  "PF no route")                                \
+	X(DROP_REASON_PF_NULL_IFP,                  DROPTAP_BSD,     DROPTAP_PF,   4,  "PF NULL ifp")                                \
+	X(DROP_REASON_PF_NO_TSO,                    DROPTAP_BSD,     DROPTAP_PF,   5,  "PF No TSO?")                                 \
+	X(DROP_REASON_PF_CANNOT_FRAGMENT,           DROPTAP_BSD,     DROPTAP_PF,   6,  "PF Cannot fragment")                         \
+	X(DROP_REASON_PF_OVERLAPPING_FRAGMENT,      DROPTAP_BSD,     DROPTAP_PF,   7,  "PF overlapping fragment")                    \
+	X(DROP_REASON_PF_BAD_FRAGMENT,              DROPTAP_BSD,     DROPTAP_PF,   8,  "PF overlapping fragment")                    \
+	X(DROP_REASON_PF_MEM_ALLOC,                 DROPTAP_BSD,     DROPTAP_PF,   9,  "PF memory allocation")                       \
+	X(DROP_REASON_PF_DROP,                      DROPTAP_BSD,     DROPTAP_PF,   10, "PF drop")                                    \
+	/* BRIDGE */                                                                                                                 \
+	X(DROP_REASON_BRIDGE_UNSPECIFIED,           DROPTAP_BSD,     DROPTAP_BRIDGE,   1,  "Bridge unspecified reason")              \
+	X(DROP_REASON_BRIDGE_CHECKSUM,              DROPTAP_BSD,     DROPTAP_BRIDGE,   2,  "Bridge checksum")                        \
+	X(DROP_REASON_BRIDGE_NOT_RUNNING,           DROPTAP_BSD,     DROPTAP_BRIDGE,   3,  "Bridge not running")                     \
+	X(DROP_REASON_BRIDGE_PRIVATE_SEGMENT,       DROPTAP_BSD,     DROPTAP_BRIDGE,   4,  "Bridge private segment")                 \
+	X(DROP_REASON_BRIDGE_NO_PROTO,              DROPTAP_BSD,     DROPTAP_BRIDGE,   5,  "Bridge unknown protocol")                \
+	X(DROP_REASON_BRIDGE_BAD_PROTO,             DROPTAP_BSD,     DROPTAP_BRIDGE,   6,  "Bridge bad protocol")                    \
+	X(DROP_REASON_BRIDGE_MAC_NAT_FAILURE,       DROPTAP_BSD,     DROPTAP_BRIDGE,   7,  "Bridge NAT failure")                     \
+	X(DROP_REASON_BRIDGE_HOST_FILTER,           DROPTAP_BSD,     DROPTAP_BRIDGE,   8,  "Bridge host filter")                     \
+	X(DROP_REASON_BRIDGE_HWASSIST,              DROPTAP_BSD,     DROPTAP_BRIDGE,   9,  "Bridge HW assisst")                      \
+	X(DROP_REASON_BRIDGE_NOREF,                 DROPTAP_BSD,     DROPTAP_BRIDGE,   10, "Bridge noref")                           \
+	X(DROP_REASON_BRIDGE_PF,                    DROPTAP_BSD,     DROPTAP_BRIDGE,   11, "Bridge PF")                              \
+	X(DROP_REASON_BRIDGE_LOOP,                  DROPTAP_BSD,     DROPTAP_BRIDGE,   12, "Bridge loop")                            \
+	X(DROP_REASON_BRIDGE_NOT_A_MEMBER,          DROPTAP_BSD,     DROPTAP_BRIDGE,   13, "Bridge not a member")                    \
 	/* TCP */                                                                                                                    \
 	X(DROP_REASON_TCP_RST,                      DROPTAP_BSD,     DROPTAP_TCP,  1,  "TCP connection reset")                       \
 	X(DROP_REASON_TCP_REASSEMBLY_ALLOC,         DROPTAP_BSD,     DROPTAP_TCP,  2,  "TCP reassembly allocation")                  \
@@ -199,7 +228,9 @@ struct droptap_header {
 	X(DROP_REASON_TCP_BAD_ACK,                  DROPTAP_BSD,     DROPTAP_TCP,  37, "TCP bad ACK")                                \
 	X(DROP_REASON_TCP_BAD_RST,                  DROPTAP_BSD,     DROPTAP_TCP,  38, "TCP bad RST")                                \
 	X(DROP_REASON_TCP_PAWS,                     DROPTAP_BSD,     DROPTAP_TCP,  39, "TCP PAWS")                                   \
-	X(DROP_REASON__TCP_REASS_MEMORY_PRESSURE,   DROPTAP_BSD,     DROPTAP_TCP,  40, "TCP reassembly queue memory pressure")       \
+	X(DROP_REASON_TCP_REASS_MEMORY_PRESSURE,    DROPTAP_BSD,     DROPTAP_TCP,  40, "TCP reassembly queue memory pressure")       \
+	X(DROP_REASON_TCP_CREATE_SERVER_SOCKET,     DROPTAP_BSD,     DROPTAP_TCP,  41, "TCP create server socket failed")            \
+	X(DROP_REASON_TCP_INSEQ_MEMORY_PRESSURE,    DROPTAP_BSD,     DROPTAP_TCP,  42, "TCP in-seq input under memory pressure")     \
 	/* IP */                                                                                                                     \
 	X(DROP_REASON_IP_UNKNOWN_MULTICAST_GROUP,   DROPTAP_BSD,     DROPTAP_IP,   2, "IP unknown multicast group join")             \
 	X(DROP_REASON_IP_INVALID_ADDR,              DROPTAP_BSD,     DROPTAP_IP,   3, "Invalid IP address")                          \
@@ -248,7 +279,7 @@ struct droptap_header {
 	X(DROP_REASON_IP_MULTICAST_NO_PORT,         DROPTAP_BSD,     DROPTAP_IP,   46, "IP Multicast no port")                       \
 	X(DROP_REASON_IP_EISCONN,                   DROPTAP_BSD,     DROPTAP_IP,   47, "IP Socket is already connected")             \
 	X(DROP_REASON_IP_EAFNOSUPPORT,              DROPTAP_BSD,     DROPTAP_IP,   48, "IP Address family not supported by protocol family") \
-	X(DROP_REASON_IP_NO_SOCK,                   DROPTAP_BSD,     DROPTAP_IP,   49, "IP No matching sock") \
+	X(DROP_REASON_IP_NO_SOCK,                   DROPTAP_BSD,     DROPTAP_IP,   49, "IP No matching sock")                         \
 	/* IPsec */                                                                                                                  \
 	X(DROP_REASON_IPSEC_REJECT,                 DROPTAP_BSD,     DROPTAP_IPSEC,1,  "IPsec reject")                               \
 	/* IPv6 */                                                                                                                   \
@@ -268,6 +299,30 @@ struct droptap_header {
 	X(DROP_REASON_IP6_ADDR_UNSPECIFIED,         DROPTAP_BSD,     DROPTAP_IP6,  14, "IPv6 Address is unspecified")                \
 	X(DROP_REASON_IP6_FRAG_OVERLAPPING,         DROPTAP_BSD,     DROPTAP_IP6,  15, "IPv6 Fragment overlaping")                   \
 	X(DROP_REASON_IP6_FRAG_MIXED_CE,            DROPTAP_BSD,     DROPTAP_IP6,  16, "IPv6 Fragment mixed CE bits")                \
+	X(DROP_REASON_IP6_RA_NOT_LL,                DROPTAP_BSD,     DROPTAP_IP6,  17, "IPv6 RA src is not LL")                      \
+	X(DROP_REASON_IP6_RA_BAD_LLADDR_LEN,        DROPTAP_BSD,     DROPTAP_IP6,  18, "IPv6 RA bad LL length")                      \
+	X(DROP_REASON_IP6_RS_BAD_LLADDR_LEN,        DROPTAP_BSD,     DROPTAP_IP6,  19, "IPv6 RS bad LL length")                      \
+	X(DROP_REASON_IP6_MEM_ALLOC,                DROPTAP_BSD,     DROPTAP_IP6,  20, "IPv6 memory allocation")                     \
+	X(DROP_REASON_IP6_TOO_BIG,                  DROPTAP_BSD,     DROPTAP_IP6,  21, "IPv6 too big for MTU")                       \
+	X(DROP_REASON_IP6_POSSIBLE_LOOP,            DROPTAP_BSD,     DROPTAP_IP6,  22, "IPv6 possible loop")                         \
+	X(DROP_REASON_IP6_ICMP_DROP,                DROPTAP_BSD,     DROPTAP_IP6,  23, "IPv6 ICMPv6 drop")                           \
+	X(DROP_REASON_IP6_BAD_NI,                   DROPTAP_BSD,     DROPTAP_IP6,  24, "IPv6 bad NI")                                \
+	X(DROP_REASON_IP6_NS_FROM_NON_NEIGHBOR,     DROPTAP_BSD,     DROPTAP_IP6,  25, "IPv6 NS from non-neighbor")                  \
+	X(DROP_REASON_IP6_NS_TO_MULTICAST,          DROPTAP_BSD,     DROPTAP_IP6,  26, "IPv6 NS targeting multicast")                \
+	X(DROP_REASON_IP6_NS_BAD_ND_OPT,            DROPTAP_BSD,     DROPTAP_IP6,  27, "IPv6 NS with invalid ND opt")                \
+	X(DROP_REASON_IP6_NS_BAD_LLADDR_LEN,        DROPTAP_BSD,     DROPTAP_IP6,  28, "IPv6 NS bad LL length")                      \
+	X(DROP_REASON_IP6_NS_DUPLICATE_ADDRESS,     DROPTAP_BSD,     DROPTAP_IP6,  29, "IPv6 NS duplicate address")                  \
+	X(DROP_REASON_IP6_NS_INVALID_TARGET,        DROPTAP_BSD,     DROPTAP_IP6,  30, "IPv6 NS invalid target")                     \
+	X(DROP_REASON_IP6_NA_INVALID_TARGET,        DROPTAP_BSD,     DROPTAP_IP6,  31, "IPv6 NA invalid target")                     \
+	X(DROP_REASON_IP6_NA_DST_MULTICAST,         DROPTAP_BSD,     DROPTAP_IP6,  32, "IPv6 NA destination is multicast")           \
+	X(DROP_REASON_IP6_NA_UNKNOWN_SRC_ADDR,      DROPTAP_BSD,     DROPTAP_IP6,  33, "IPv6 NA destination is multicast")           \
+	X(DROP_REASON_IP6_NA_BAD_LLADDR_LEN,        DROPTAP_BSD,     DROPTAP_IP6,  34, "IPv6 NA bad LL length")                      \
+	X(DROP_REASON_IP6_NA_NOT_CACHED_SCOPED,     DROPTAP_BSD,     DROPTAP_IP6,  35, "IPv6 NA not cached scoped ")                 \
+	X(DROP_REASON_IP6_NA_NOT_CACHED,            DROPTAP_BSD,     DROPTAP_IP6,  36, "IPv6 NA not cached")                         \
+	X(DROP_REASON_IP6_NA_MISSING_LLADDR_OPT,    DROPTAP_BSD,     DROPTAP_IP6,  37, "IPv6 NA missing lladdr opt")                 \
+	X(DROP_REASON_IP6_NA_MISSING_ROUTE,         DROPTAP_BSD,     DROPTAP_IP6,  38, "IPv6 NA missing route info")                 \
+	X(DROP_REASON_IP6_BAD_UDP_CHECKSUM,         DROPTAP_BSD,     DROPTAP_IP6,  39, "IPv6 invalid UDP checksum")                  \
+	X(DROP_REASON_IP6_ILLEGAL_PORT,             DROPTAP_BSD,     DROPTAP_IP6,  40, "IPv6 Illegal port")                          \
 	/* UDP */                                                                                                                    \
 	X(DROP_REASON_UDP_SET_PORT_FAILURE,         DROPTAP_BSD,     DROPTAP_UDP,  1, "UDP failed to set ephemeral port ")           \
 	X(DROP_REASON_UDP_DST_PORT_ZERO,            DROPTAP_BSD,     DROPTAP_UDP,  2, "UDP destination port zero")                   \
@@ -278,6 +333,9 @@ struct droptap_header {
 	X(DROP_REASON_UDP_NECP,                     DROPTAP_BSD,     DROPTAP_UDP,  7, "UDP denied by NECP")                          \
 	X(DROP_REASON_UDP_CANNOT_SAVE_CONTROL,      DROPTAP_BSD,     DROPTAP_UDP,  8, "UDP cannot save control mbufs")               \
 	X(DROP_REASON_UDP_IPSEC,                    DROPTAP_BSD,     DROPTAP_UDP,  9, "UDP IPsec")                                   \
+	X(DROP_REASON_UDP_PACKET_SHORTER_THAN_HEADER, DROPTAP_BSD,   DROPTAP_UDP,  10, "UDP packet shorter than header")             \
+	X(DROP_REASON_UDP_NAT_KEEPALIVE,            DROPTAP_BSD,     DROPTAP_UDP,  11, "UDP NAT keepalive")                          \
+	X(DROP_REASON_UDP_PCB_GARBAGE_COLLECTED,    DROPTAP_BSD,     DROPTAP_UDP,  12, "UDP PCB garbage collected")                  \
 
 typedef enum drop_reason : uint32_t {
 #define X(reason, component, domain, code, ...) \

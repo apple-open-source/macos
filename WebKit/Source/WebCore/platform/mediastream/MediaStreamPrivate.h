@@ -2,7 +2,7 @@
  * Copyright (C) 2011, 2015 Ericsson AB. All rights reserved.
  * Copyright (C) 2012 Google Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
- * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -91,9 +91,9 @@ public:
 
     MediaStreamTrackPrivateVector tracks() const;
     bool hasTracks() const { return !m_trackSet.isEmpty(); }
-    void forEachTrack(const Function<void(const MediaStreamTrackPrivate&)>&) const;
-    void forEachTrack(const Function<void(MediaStreamTrackPrivate&)>&);
-    MediaStreamTrackPrivate* activeVideoTrack() { return m_activeVideoTrack; }
+    void forEachTrack(NOESCAPE const Function<void(const MediaStreamTrackPrivate&)>&) const;
+    void forEachTrack(NOESCAPE const Function<void(MediaStreamTrackPrivate&)>&);
+    MediaStreamTrackPrivate* activeVideoTrack() { return m_activeVideoTrack.get(); }
 
     bool active() const { return m_isActive; }
     void updateActiveState();
@@ -132,7 +132,7 @@ private:
     void updateActiveVideoTrack();
 
     bool computeActiveState();
-    void forEachObserver(const Function<void(MediaStreamPrivateObserver&)>&);
+    void forEachObserver(NOESCAPE const Function<void(MediaStreamPrivateObserver&)>&);
 
 #if !RELEASE_LOG_DISABLED
     ASCIILiteral logClassName() const final { return "MediaStreamPrivate"_s; }
@@ -141,11 +141,11 @@ private:
 
     WeakHashSet<MediaStreamPrivateObserver> m_observers;
     String m_id;
-    MediaStreamTrackPrivate* m_activeVideoTrack { nullptr };
+    WeakPtr<MediaStreamTrackPrivate> m_activeVideoTrack;
     MemoryCompactRobinHoodHashMap<String, Ref<MediaStreamTrackPrivate>> m_trackSet;
     bool m_isActive { false };
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 };

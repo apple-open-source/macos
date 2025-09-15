@@ -126,8 +126,25 @@
     return error;
 }
 
+-(NSError * _Nullable)metaWriteToFATs:(void *)buffer
+                           startingAt:(off_t)volumeOffset
+{
+    return [self metaWriteToFATs:buffer
+                      startingAt:volumeOffset
+                  forceSyncWrite:false];
+}
+
 -(NSError * _Nullable)syncMetaWriteToFATs:(void *)buffer
                                startingAt:(off_t)volumeOffset
+{
+    return [self metaWriteToFATs:buffer
+                      startingAt:volumeOffset
+                  forceSyncWrite:true];
+}
+
+-(NSError * _Nullable)metaWriteToFATs:(void *)buffer
+                           startingAt:(off_t)volumeOffset
+                       forceSyncWrite:(bool)forceSync
 {
     NSError *error = nil;
     uint64_t length = 0;
@@ -151,7 +168,8 @@
         error = [Utilities metaWriteToDevice:self.device
                                         from:buffer
                                   startingAt:volumeOffset + i * self.fsInfo.fatSize
-                                      length:length];
+                                      length:length
+                              forceSyncWrite:forceSync];
     }
     return error;
 }
@@ -166,14 +184,6 @@
     __block uint32_t countedFreeClusters = 0;
     __block bool first = true;
     __block NSError *error = nil;
-
-    [self getDirtyBitValue:^(NSError * _Nullable dirtyBitError, dirtyBitValue value) {
-        if (dirtyBitError) {
-            error = dirtyBitError;
-        } else {
-            self.fsInfo.dirtyBitValue = value;
-        }
-    }];
 
     while (readOffset <= self.fsInfo.fatOffset + self.fsInfo.fatSize) {
         error = [self syncMetaReadFromFAT:[block.data mutableBytes] startingAt:readOffset];
@@ -543,8 +553,8 @@ out:
                  [self.fsOps setFatEntryForCluster:currCluster
                                              entry:currEntry
                                          withValue:nextCluster & self.fsInfo.FATMask];
-                 nsError = [self syncMetaWriteToFATs:[currFatBlock.data mutableBytes]
-                                          startingAt:currReadOffset];
+                 nsError = [self metaWriteToFATs:[currFatBlock.data mutableBytes]
+                                      startingAt:currReadOffset];
                  if (nsError != nil) {
                      os_log_fault(OS_LOG_DEFAULT, "%s: Failed to write to the device", __FUNCTION__);
                      nsError = fs_errorForPOSIXError(EIO);
@@ -696,8 +706,8 @@ out:
                                         withValue:firstAllocatedCluster & self.fsInfo.FATMask];
 
                 /* Write back the linked cluster */
-                nsError = [self syncMetaWriteToFATs:[prevFatBlock mutableBytes]
-                                         startingAt:prevReadOffset];
+                nsError = [self metaWriteToFATs:[prevFatBlock mutableBytes]
+                                     startingAt:prevReadOffset];
 
                 if (nsError) {
                     return reply(nsError, 0, 0, 0);
@@ -847,8 +857,8 @@ out:
                 entryOffset = [self getOffsetForClusterEntry:currCluster];
             }
             /* Write to the device what we just freed, don't override errors from inner loop */
-            nsError = [self syncMetaWriteToFATs:[block mutableBytes]
-                                     startingAt:readOffset];
+            nsError = [self metaWriteToFATs:[block mutableBytes]
+                                 startingAt:readOffset];
             if (nsError) {
                 return reply(nsError);
             }
@@ -915,8 +925,8 @@ out:
                 entryOffset = [self getOffsetForClusterEntry:currCluster];
             }
 
-            [self syncMetaWriteToFATs:[fatBlock.data mutableBytes]
-                           startingAt:readOffset];
+            [self metaWriteToFATs:[fatBlock.data mutableBytes]
+                       startingAt:readOffset];
         }
 
         if (freedClusters == numClusters) {
@@ -1109,7 +1119,14 @@ out:
     });
 }
 
-/** Fetch and return the dirty bit value from the FAT. */
+/**
+ * Fetch and return the dirty bit value from the FAT.
+ *
+ * ** NOTES: **
+ * 1. Should not be called for FAT12.
+ * 2. Should only be called during mount!  After mount, we hold an in-memory copy of the dirty
+ *   bit, and the on-disk dirty bit might not be up-to-date.
+ */
 -(void)getDirtyBitValue:(void (^)(NSError * _Nullable error,
                                   dirtyBitValue value))reply
 {
@@ -1130,11 +1147,13 @@ out:
 
 /** Set the given value to the dirty bit location in FAT. */
 -(void)setDirtyBitValue:(dirtyBitValue)newValue
+       forceWriteToDisk:(bool)forceWriteToDisk
            replyHandler:(void (^)(NSError * _Nullable error))reply
 {
     dispatch_barrier_sync(self.fatQueue, ^{
 
         NSError *error = nil;
+        bool writeToDisk = forceWriteToDisk;
 
         if (self.fsInfo.type == FAT12) {
             /* In FAT12 we don't have a dirty bit. */
@@ -1142,11 +1161,31 @@ out:
         }
 
         if (self.fsInfo.dirtyBitValue != newValue) {
-            /* Write to FAT only when we're really changing the dirty bit value. */
+            /* Set the in-memory dirty bit to the new value. */
+#if TARGET_OS_OSX
+            /*
+             * On macOS - write to disk only when setting the disk dirty for the
+             * first time (or in case we've been explicitely asked to write it
+             * to disk).
+             */
+            if (newValue == dirtyBitDirty && self.fsInfo.dirtyBitValueOnDisk == dirtyBitClean) {
+                writeToDisk = true;
+            }
+#else
+            /* On iOS - always write the change to disk */
+            writeToDisk = true;
+#endif
+            self.fsInfo.dirtyBitValue = newValue;
+        }
 
-            FATBlock *fatBlock = [[FATBlock alloc] initWithOffset:[self getRWOffsetForClusterEntry:[self.fsOps getDirtyBitCluster]] andLength:self.rwSize];
+        if (writeToDisk) {
+            /* Write the new (or existing) dirty bit value to disk. */
 
-            error = [self syncMetaReadFromFAT:fatBlock.data.mutableBytes startingAt:fatBlock.startOffset];
+            FATBlock *fatBlock = [[FATBlock alloc] initWithOffset:[self getRWOffsetForClusterEntry:[self.fsOps getDirtyBitCluster]]
+                                                        andLength:self.rwSize];
+
+            error = [self syncMetaReadFromFAT:fatBlock.data.mutableBytes
+                                   startingAt:fatBlock.startOffset];
             if (error) {
                 os_log_error(OS_LOG_DEFAULT, "%s: Couldn't read FAT block from disk. Error = %@.", __FUNCTION__, error);
                 return reply(error);
@@ -1163,8 +1202,7 @@ out:
                 os_log_error(OS_LOG_DEFAULT, "%s: Couldn't write FAT block to disk. Error = %@.", __FUNCTION__, error);
                 return reply(error);
             }
-
-            self.fsInfo.dirtyBitValue = newValue;
+            self.fsInfo.dirtyBitValueOnDisk = newValue;
         }
         return reply(nil);
     });

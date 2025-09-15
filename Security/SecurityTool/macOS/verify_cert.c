@@ -288,6 +288,9 @@ verify_cert(int argc, char * const *argv)
 		} else {
 			policyID = policyOidString;
 		}
+        if (client) {
+            CFDictionarySetValue(properties, kSecPolicyClient, kCFBooleanTrue);
+        }
 		if (policyID) {
 			policyRef = SecPolicyCreateWithProperties(policyID, properties);
 			if(!policyRef) {

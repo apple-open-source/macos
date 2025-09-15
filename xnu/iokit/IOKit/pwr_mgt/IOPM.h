@@ -370,7 +370,17 @@ enum {
 	 * When set, driver is informing PM that it is holding the network
 	 * interface up to do TCPKeepAlive
 	 */
-	kIOPMDriverAssertionNetworkKeepAliveActiveBit   = 0x200
+	kIOPMDriverAssertionNetworkKeepAliveActiveBit   = 0x200,
+
+	/*! kIOPMDriverAssertionForceWakeupBit
+	 * When set, the system will immediately wake up the CPU after going to sleep.
+	 */
+	kIOPMDriverAssertionForceWakeupBit              = 0x400,
+
+	/*! kIOPMDriverAssertionForceFullWakeupBit
+	 * When set, the system will immediately do a full wakeup after going to sleep.
+	 */
+	kIOPMDriverAssertionForceFullWakeupBit          = 0x800,
 };
 
 /* kIOPMAssertionsDriverKey
@@ -968,7 +978,8 @@ enum {
 	kIOPMSystemCapabilityCPU        = 0x01,
 	kIOPMSystemCapabilityGraphics   = 0x02,
 	kIOPMSystemCapabilityAudio      = 0x04,
-	kIOPMSystemCapabilityNetwork    = 0x08
+	kIOPMSystemCapabilityNetwork    = 0x08,
+	kIOPMSystemCapabilityAOT        = 0x10,
 };
 
 #endif /* ! _IOKIT_IOPM_H */

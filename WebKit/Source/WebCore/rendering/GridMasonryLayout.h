@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "GridTrackSizingAlgorithm.h"
 #include "LayoutUnit.h"
 #include "RenderBox.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -55,8 +56,6 @@ public:
     LayoutUnit gridGap() const { return m_masonryAxisGridGap; };
 
 private:
-    GridSpan gridAxisPositionUsingPackAutoFlow(const RenderBox& item) const;
-    GridSpan gridAxisPositionUsingNextAutoFlow(const RenderBox& item);
     GridArea gridAreaForIndefiniteGridAxisItem(const RenderBox& item);
     GridArea gridAreaForDefiniteGridAxisItem(const RenderBox&) const;
 
@@ -79,8 +78,8 @@ private:
     unsigned m_gridAxisTracksCount;
 
     Vector<LayoutUnit> m_runningPositions;
-    UncheckedKeyHashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_itemOffsets;
-    RenderGrid& m_renderGrid;
+    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_itemOffsets;
+    const CheckedRef<RenderGrid> m_renderGrid;
     LayoutUnit m_masonryAxisGridGap;
     LayoutUnit m_gridContentSize;
 

@@ -55,9 +55,8 @@
 #endif
 #endif
 
-/* see discussion in string/FreeBSD/strxfrm for this value */
-#define COLLATE_MAX_PRIORITY ((1 << 24) - 1)
-#define COLLATE_SUBST_PRIORITY (0x40000000)	/* bit indicates subst table */
+#define	COLLATE_MAX_PRIORITY	(0x7fffffff)	/* max signed value */
+#define	COLLATE_SUBST_PRIORITY	(0x40000000)	/* bit indicates subst table */
 
 #define DIRECTIVE_UNDEF 0x00
 #define DIRECTIVE_FORWARD 0x01

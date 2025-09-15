@@ -59,6 +59,8 @@
 #include <skywalk/os_skywalk_private.h>
 #include <skywalk/nexus/netif/nx_netif.h>
 
+#include <kern/uipc_domain.h>
+
 #define KEV_EVTID(code) BSDDBG_CODE(DBG_BSD_KEVENT, (code))
 
 struct ch_event_result {
@@ -86,7 +88,7 @@ static struct kern_channel *ch_find(struct kern_nexus *, nexus_port_t,
 static int ch_ev_thresh_validate(struct kern_nexus *, enum txrx,
     struct ch_ev_thresh *);
 static struct kern_channel *ch_connect(struct kern_nexus *, struct chreq *,
-    struct kern_channel *, struct nxbind *, struct proc *, int, int *);
+    struct nxbind *, struct proc *, int, int *);
 static void ch_disconnect(struct kern_channel *);
 static int ch_set_lowat_thresh(struct kern_channel *, enum txrx,
     struct sockopt *);
@@ -179,10 +181,9 @@ SKMEM_TAG_DEFINE(skmem_tag_ch_key, SKMEM_TAG_CH_KEY);
 static void
 ch_redzone_init(void)
 {
-	_CASSERT(sizeof(__ch_umd_redzone_cookie) ==
-	    sizeof(((struct __metadata_preamble *)0)->mdp_redzone));
-	_CASSERT(METADATA_PREAMBLE_SZ == sizeof(struct __metadata_preamble));
-	_CASSERT(sizeof(struct __slot_desc) == 8);
+	static_assert(sizeof(__ch_umd_redzone_cookie) == sizeof(((struct __metadata_preamble *)0)->mdp_redzone));
+	static_assert(METADATA_PREAMBLE_SZ == sizeof(struct __metadata_preamble));
+	static_assert(sizeof(struct __slot_desc) == 8);
 
 	/* Initialize random user red zone cookie values */
 	do {
@@ -201,8 +202,8 @@ channel_init(void)
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(!__ch_inited);
 
-	_CASSERT(offsetof(struct __user_packet, pkt_qum) == 0);
-	_CASSERT(offsetof(struct __kern_packet, pkt_qum) == 0);
+	static_assert(offsetof(struct __user_packet, pkt_qum) == 0);
+	static_assert(offsetof(struct __kern_packet, pkt_qum) == 0);
 
 	ch_redzone_init();
 
@@ -299,8 +300,8 @@ csi_selrecord_one(struct __kern_channel_ring *kring, struct proc *p, void *wql)
 	struct ch_selinfo *csi = &kring->ckr_si;
 
 	CSI_LOCK(csi);
-	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (0x%llx) kr %s (0x%llx) "
-	    "si 0x%llx si_flags 0x%x", (kring->ckr_tx == NR_TX) ? "W" : "R",
+	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (%p) kr %s (%p) "
+	    "si %p si_flags 0x%x", (kring->ckr_tx == NR_TX) ? "W" : "R",
 	    KRNA(kring)->na_name, SK_KVA(KRNA(kring)), kring->ckr_name,
 	    SK_KVA(kring), SK_KVA(&csi->csi_si), csi->csi_si.si_flags);
 
@@ -315,7 +316,7 @@ csi_selrecord_all(struct nexus_adapter *na, enum txrx t, struct proc *p,
 	struct ch_selinfo *csi = &na->na_si[t];
 
 	CSI_LOCK(csi);
-	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (0x%llx) si 0x%llx si_flags 0x%x",
+	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (%p) si %p si_flags 0x%x",
 	    (t == NR_TX) ? "W" : "R", na->na_name, SK_KVA(na),
 	    SK_KVA(&csi->csi_si), csi->csi_si.si_flags);
 
@@ -380,12 +381,12 @@ csi_selwakeup_one(struct __kern_channel_ring *kring, boolean_t nodelay,
 	struct ch_selinfo *csi = &kring->ckr_si;
 
 	CSI_LOCK(csi);
-	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (0x%llx) kr %s (0x%llx) "
-	    "si 0x%llx si_flags 0x%x nodelay %u kev %u sel %u hint 0x%b",
+	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (%p) kr %s (%p) "
+	    "si %p si_flags 0x%x nodelay %u kev %u sel %u hint 0x%x",
 	    (kring->ckr_tx == NR_TX) ? "W" : "R", KRNA(kring)->na_name,
 	    SK_KVA(KRNA(kring)), kring->ckr_name, SK_KVA(kring),
 	    SK_KVA(&csi->csi_si), csi->csi_si.si_flags, nodelay,
-	    within_kevent, selwake, hint, CHAN_FILT_HINT_BITS);
+	    within_kevent, selwake, hint);
 
 	csi_selwakeup_common(csi, nodelay, within_kevent, selwake, hint);
 	CSI_UNLOCK(csi);
@@ -398,11 +399,11 @@ csi_selwakeup_all(struct nexus_adapter *na, enum txrx t, boolean_t nodelay,
 	struct ch_selinfo *csi = &na->na_si[t];
 
 	CSI_LOCK(csi);
-	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (0x%llx) si 0x%llx "
-	    "si_flags 0x%x nodelay %u kev %u sel %u hint 0x%b",
+	SK_DF(SK_VERB_EVENTS, "[%s] na \"%s\" (%p) si %p "
+	    "si_flags 0x%x nodelay %u kev %u sel %u hint 0x%x",
 	    (t == NR_TX) ? "W" : "R", na->na_name, SK_KVA(na),
 	    SK_KVA(&csi->csi_si), csi->csi_si.si_flags, nodelay,
-	    within_kevent, selwake, hint, CHAN_FILT_HINT_BITS);
+	    within_kevent, selwake, hint);
 
 	switch (t) {
 	case NR_RX:
@@ -508,7 +509,7 @@ filt_chrwdetach(struct knote *kn, boolean_t write)
 	si = &csi->csi_si;
 
 	CSI_LOCK(csi);
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx kn 0x%llx (%s%s) "
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p kn %p (%s%s) "
 	    "si_flags 0x%x", ch->ch_na->na_name, SK_KVA(ch->ch_na),
 	    SK_KVA(ch), SK_KVA(kn), (kn->kn_flags & EV_POLL) ? "poll," : "",
 	    write ? "write" : "read", si->si_flags);
@@ -551,8 +552,8 @@ filt_chrw(struct knote *kn, long hint, int events)
 #pragma unused(hint)
 #pragma unused(events)
 #endif
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx "
-	    "kn 0x%llx (%s%s) hint 0x%x", ch->ch_na->na_name,
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p "
+	    "kn %p (%s%s) hint 0x%x", ch->ch_na->na_name,
 	    SK_KVA(ch->ch_na), SK_KVA(ch), SK_KVA(kn),
 	    (kn->kn_flags & EV_POLL) ? "poll," : "",
 	    (events == POLLOUT) ?  "write" : "read",
@@ -807,7 +808,7 @@ filt_chrwattach(struct knote *kn, __unused struct kevent_qos_s *kev)
 
 	CSI_UNLOCK(csi);
 
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx kn 0x%llx (%s%s)",
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p kn %p (%s%s)",
 	    na->na_name, SK_KVA(na), SK_KVA(ch), SK_KVA(kn),
 	    (kn->kn_flags & EV_POLL) ? "poll," : "",
 	    (ev == EVFILT_WRITE) ?  "write" : "read");
@@ -909,9 +910,9 @@ filt_che_attach(struct knote *kn, __unused struct kevent_qos_s *kev)
 	struct ch_selinfo *csi;
 	long hint = 0;
 
-	_CASSERT(CHAN_FILT_HINT_FLOW_ADV_UPD == NOTE_FLOW_ADV_UPDATE);
-	_CASSERT(CHAN_FILT_HINT_CHANNEL_EVENT == NOTE_CHANNEL_EVENT);
-	_CASSERT(CHAN_FILT_HINT_IF_ADV_UPD == NOTE_IF_ADV_UPD);
+	static_assert(CHAN_FILT_HINT_FLOW_ADV_UPD == NOTE_FLOW_ADV_UPDATE);
+	static_assert(CHAN_FILT_HINT_CHANNEL_EVENT == NOTE_CHANNEL_EVENT);
+	static_assert(CHAN_FILT_HINT_IF_ADV_UPD == NOTE_IF_ADV_UPD);
 
 	ASSERT(kn->kn_filter == EVFILT_NW_CHANNEL);
 
@@ -936,7 +937,7 @@ filt_che_attach(struct knote *kn, __unused struct kevent_qos_s *kev)
 		/* on registration force an event */
 		hint |= CHAN_FILT_HINT_FLOW_ADV_UPD;
 	}
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx kn 0x%llx (%s)",
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p kn %p (%s)",
 	    ch->ch_na->na_name, SK_KVA(ch->ch_na), SK_KVA(ch), SK_KVA(kn),
 	    "EVFILT_NW_CHANNEL");
 	return filt_chan_extended_common(kn, hint);
@@ -963,7 +964,7 @@ filt_che_detach(struct knote *kn)
 	CSI_UNLOCK(csi);
 	lck_mtx_unlock(&ch->ch_lock);
 
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx kn 0x%llx (%s)",
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p kn %p (%s)",
 	    ch->ch_na->na_name, SK_KVA(ch->ch_na), SK_KVA(ch), SK_KVA(kn),
 	    "EVFILT_NW_CHANNEL");
 }
@@ -983,9 +984,8 @@ filt_che_event(struct knote *kn, long hint)
 	if ((hint & CHAN_FILT_HINT_CHANNEL_EVENT) != 0) {
 		VERIFY((ch->ch_flags & CHANF_EVENT_RING) != 0);
 	}
-	SK_DF(SK_VERB_EVENTS, "na \"%s\" (0x%llx) ch 0x%llx hint 0x%b)",
-	    ch->ch_na->na_name, SK_KVA(ch->ch_na), SK_KVA(ch), hint,
-	    CHAN_FILT_HINT_BITS);
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) ch %p hint 0x%lx)",
+	    ch->ch_na->na_name, SK_KVA(ch->ch_na), SK_KVA(ch), hint);
 	return filt_chan_extended_common(kn, hint);
 }
 
@@ -1060,6 +1060,7 @@ int
 ch_kqfilter(struct kern_channel *ch, struct knote *kn,
     struct kevent_qos_s *kev)
 {
+	SK_LOG_VAR(char dbgbuf[CH_DBGBUF_SIZE]);
 	int result;
 
 	lck_mtx_lock(&ch->ch_lock);
@@ -1067,8 +1068,8 @@ ch_kqfilter(struct kern_channel *ch, struct knote *kn,
 
 	if (__improbable(ch->ch_na == NULL || !NA_IS_ACTIVE(ch->ch_na) ||
 	    na_reject_channel(ch, ch->ch_na))) {
-		SK_ERR("%s(%d): channel is non-permissive, flags 0x%b", ch->ch_name,
-		    ch->ch_pid, ch->ch_flags, CHANF_BITS);
+		SK_ERR("channel is non-permissive %s",
+		    ch2str(ch, dbgbuf, sizeof(dbgbuf)));
 		knote_set_error(kn, ENXIO);
 		lck_mtx_unlock(&ch->ch_lock);
 		return 0;
@@ -1132,9 +1133,9 @@ ch_event_log(const char *prefix, const struct kern_channel *ch,
     struct proc *p, const struct nexus_adapter *na,
     int events, int revents)
 {
-	SK_DF(SK_VERB_EVENTS, "%s: na \"%s\" (0x%llx) ch 0x%llx %s(%d) "
-	    "th 0x%llx ev 0x%x rev 0x%x", prefix, na->na_name, SK_KVA(na),
-	    SK_KVA(ch), sk_proc_name_address(p), sk_proc_pid(p),
+	SK_DF(SK_VERB_EVENTS, "%s: na \"%s\" (%p) ch %p %s(%d) "
+	    "th %p ev 0x%x rev 0x%x", prefix, na->na_name, SK_KVA(na),
+	    SK_KVA(ch), sk_proc_name(p), sk_proc_pid(p),
 	    SK_KVA(current_thread()), events, revents);
 }
 #endif /* SK_LOG */
@@ -1205,7 +1206,7 @@ ch_event(struct kern_channel *ch, int events, void *wql,
 	protect = sk_sync_protect();
 
 	/* update our work timestamp */
-	na->na_work_ts = _net_uptime;
+	na->na_work_ts = net_uptime();
 
 	/* and make this channel eligible for draining again */
 	if (na->na_flags & NAF_DRAINING) {
@@ -1493,8 +1494,6 @@ ch_find(struct kern_nexus *nx, nexus_port_t port, ring_id_t ring_id)
 		/* see comments in ch_open() */
 		if (cinfo->cinfo_nx_port != port) {
 			continue;
-		} else if (cinfo->cinfo_ch_mode & CHMODE_MONITOR) {
-			continue;
 		} else if (cinfo->cinfo_ch_ring_id != CHANNEL_RING_ID_ANY &&
 		    ring_id != cinfo->cinfo_ch_ring_id &&
 		    ring_id != CHANNEL_RING_ID_ANY) {
@@ -1521,18 +1520,17 @@ ch_open_log1(const uuid_t p_uuid, struct proc *p, nexus_port_t port)
 	uuid_string_t uuidstr;
 
 	SK_D("%s(%d) uniqueid %llu exec_uuid %s port %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), proc_uniqueid(p),
+	    sk_proc_name(p), sk_proc_pid(p), proc_uniqueid(p),
 	    sk_uuid_unparse(p_uuid, uuidstr), port);
 }
 
 SK_LOG_ATTRIBUTE
 static void
 ch_open_log2(struct proc *p, nexus_port_t port, ring_id_t ring,
-    uint32_t mode, const char *mode_bits, int err)
+    uint32_t mode, int err)
 {
-	SK_D("%s(%d) port %u ring %d mode 0x%b err %d",
-	    sk_proc_name_address(p), sk_proc_pid(p), port, (int)ring,
-	    mode, mode_bits, err);
+	SK_D("%s(%d) port %u ring %d mode 0x%x err %d",
+	    sk_proc_name(p), sk_proc_pid(p), port, (int)ring, mode, err);
 }
 #endif /* SK_LOG */
 
@@ -1583,33 +1581,13 @@ ch_open(struct ch_init *init, struct proc *p, int fd, int *err)
 		}
 	}
 
-	/* "no copy" is valid only when at least one tx/rx mon flag is set */
-	if (!(mode & CHMODE_MONITOR) && (mode & CHMODE_MONITOR_NO_COPY)) {
-		mode &= ~CHMODE_MONITOR_NO_COPY;
-	}
-
-	if (mode & CHMODE_MONITOR) {
-		if ((*err = skywalk_priv_check_cred(p, cred,
-		    PRIV_SKYWALK_OBSERVE_ALL)) != 0) {
-			goto done;
-		}
-		/* Don't allow non-root processes to monitor channels. */
-		if (kauth_cred_issuser(cred) == 0) {
-			*err = EPERM;
-			goto done;
-		}
-	}
-
 	/*
 	 * Check with the nexus to see if the port is bound; if so, prepare
 	 * our nxbind structure that we'll need to pass down to the nexus
 	 * for it compare.  If the caller provides a key, we take it over
 	 * and will free it ourselves (as part of freeing nxbind.)
-	 *
-	 * If this is a monitor channel, skip this altogether since the check
-	 * for PRIV_SKYWALK_OBSERVE_ALL privilege has been done above.
 	 */
-	if (!(mode & CHMODE_MONITOR) && !NX_ANONYMOUS_PROV(nx)) {
+	if (!NX_ANONYMOUS_PROV(nx)) {
 		/*
 		 * -fbounds-safety: ci_key is user_addr_t (aka uint64_t), so
 		 * can't mark it as __sized_by. Forge it instead.
@@ -1638,54 +1616,36 @@ ch_open(struct ch_init *init, struct proc *p, int fd, int *err)
 	}
 
 	/*
-	 * There can only be one owner of {port,ring_id} tuple.  Once
-	 * owned, this can be made available among multiple monitors.
+	 * There can only be one owner of {port,ring_id} tuple.
 	 * CHANNEL_RING_ID_ANY (-1) ring_id gives exclusive rights over
 	 * all rings.  Further attempts to own any or all of the rings
 	 * will be declined.
 	 *
-	 * Multiple monitors are allowed to exist.  If a channel has been
-	 * bound to CHANNEL_RING_ID_ANY, any or all of its rings can be
-	 * monitored.  If an owning channel has been bound to an individual
-	 * ring, only that ring can be monitored, either by specifying the
-	 * equivalent ring_id or CHANNEL_RING_ID_ANY at monitor open time.
-	 *
 	 * For example, assuming a 2-rings setup for port 'p':
 	 *
 	 * owner{p,-1}
-	 *      will allow:
-	 *              monitor{p,-1}, monitor{p,0}, monitor{p,1}
 	 *      will not allow:
 	 *              owner{p,-1}, owner{p,0}, owner{p,1}
 	 *
 	 * owner{p,0}
 	 *      will allow:
-	 *		owner{p,1}, monitor{p,-1}, monitor{p,0}
+	 *		owner{p,1}
 	 *	will not allow:
-	 *		owner{p,-1}, owner{p,0}, monitor{p,1}
+	 *		owner{p,-1}, owner{p,0}
 	 */
 	if ((ch0 = ch_find(nx, port, ring)) != NULL) {
-		SK_D("found ch0 0x%llx", SK_KVA(ch0));
-		/*
-		 * Unless this is a monitor channel, allow only at
-		 * most one owner of the {port,ring_id} tuple.
-		 */
-		if (!(mode & CHMODE_MONITOR)) {
+		SK_D("found ch0 %p", SK_KVA(ch0));
 #if SK_LOG
-			uuid_string_t uuidstr;
-			char *na_name = (ch0->ch_na != NULL) ?
-			    ch0->ch_na->na_name : "";
+		uuid_string_t uuidstr;
+		char *na_name = (ch0->ch_na != NULL) ?
+		    ch0->ch_na->na_name : "";
 
-			SK_DSC(p, "ch %s flags (0x%x) exists on port %d on "
-			    "nx %s, owner %s(%d)", na_name, ch0->ch_flags, port,
-			    sk_uuid_unparse(nx->nx_uuid, uuidstr),
-			    ch0->ch_name, ch0->ch_pid);
+		SK_PERR(p, "ch %s flags (0x%x) exists on port %d on "
+		    "nx %s, owner %s(%d)", na_name, ch0->ch_flags, port,
+		    sk_uuid_unparse(nx->nx_uuid, uuidstr),
+		    ch0->ch_name, ch0->ch_pid);
 #endif /* SK_LOG */
-			*err = EBUSY;
-			goto done;
-		}
-	} else if (mode & CHMODE_MONITOR) {
-		*err = ENXIO;
+		*err = EBUSY;
 		goto done;
 	}
 
@@ -1697,13 +1657,13 @@ ch_open(struct ch_init *init, struct proc *p, int fd, int *err)
 	chr.cr_ring_id = ring;
 
 	/* upon success, returns a channel with reference held */
-	ch = ch_connect(nx, &chr, ch0, nxb, p, fd, err);
+	ch = ch_connect(nx, &chr, nxb, p, fd, err);
 
 done:
 
 #if SK_LOG
 	if (__improbable(sk_verbose != 0)) {
-		ch_open_log2(p, port, ring, mode, CHMODE_BITS, *err);
+		ch_open_log2(p, port, ring, mode, *err);
 	}
 #endif /* SK_LOG */
 
@@ -1749,7 +1709,7 @@ ch_open_special(struct kern_nexus *nx, struct chreq *chr, boolean_t nonxref,
 	}
 
 	/* upon success, returns a channel with reference held */
-	ch = ch_connect(nx, chr, NULL, NULL, kernproc, -1, err);
+	ch = ch_connect(nx, chr, NULL, kernproc, -1, err);
 	if (ch != NULL) {
 		/*
 		 * nonxref channels don't hold any reference to the nexus,
@@ -1778,13 +1738,12 @@ ch_open_special(struct kern_nexus *nx, struct chreq *chr, boolean_t nonxref,
 	if (nx->nx_prov != NULL) {
 		nxdom_prov_name = NX_DOM_PROV(nx)->nxdom_prov_name;
 	}
-	SK_D("nx 0x%llx (%s:\"%s\":%d:%d) spec_uuid \"%s\" mode 0x%b err %d",
+	SK_D("nx %p (%s:\"%s\":%d:%d) spec_uuid \"%s\" mode 0x%x err %d",
 	    SK_KVA(nx),
 	    (nxdom_prov_name != NULL) ? nxdom_prov_name : "",
 	    (na_name != NULL) ? na_name : "",
 	    (int)chr->cr_port, (int)chr->cr_ring_id,
-	    sk_uuid_unparse(chr->cr_spec_uuid, uuidstr), chr->cr_mode,
-	    CHMODE_BITS, *err);
+	    sk_uuid_unparse(chr->cr_spec_uuid, uuidstr), chr->cr_mode, *err);
 #endif /* SK_LOG */
 
 done:
@@ -1806,12 +1765,11 @@ ch_close_common(struct kern_channel *ch, boolean_t locked, boolean_t special)
 	const char *nxdom_prov_name = (ch->ch_nexus != NULL) ?
 	    NX_DOM_PROV(ch->ch_nexus)->nxdom_prov_name : "";
 
-	SK_D("ch 0x%llx (%s:%s:\"%s\":%u:%d)",
+	SK_D("ch %p (%s:%s:\"%s\":%u:%d) uuid %s flags 0x%x",
 	    SK_KVA(ch), nxdom_name, nxdom_prov_name, na_name,
-	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id);
-	SK_D("  UUID:    %s", sk_uuid_unparse(ch->ch_info->cinfo_ch_id,
-	    uuidstr));
-	SK_D("  flags:   0x%b", ch->ch_flags, CHANF_BITS);
+	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id,
+	    sk_uuid_unparse(ch->ch_info->cinfo_ch_id, uuidstr),
+	    ch->ch_flags);
 #endif /* SK_LOG */
 	struct kern_nexus *nx = ch->ch_nexus;
 
@@ -1977,11 +1935,11 @@ ch_connect_log1(const struct kern_nexus *nx, const struct ch_info *cinfo,
 
 	ASSERT(ch_schema != NULL || (ch->ch_flags & CHANF_KERNEL));
 	if (ch_schema != NULL) {
-		SK_D("channel_schema at 0x%llx", SK_KVA(ch_schema));
+		SK_D("channel_schema at %p", SK_KVA(ch_schema));
 		SK_D("  kern_name:     \"%s\"", ch_schema->csm_kern_name);
 		SK_D("  kern_uuid:     %s",
 		    sk_uuid_unparse(ch_schema->csm_kern_uuid, uuidstr));
-		SK_D("  flags:         0x%b", ch_schema->csm_flags, CSM_BITS);
+		SK_D("  flags:         0x%x", ch_schema->csm_flags);
 		SK_D("  tx_rings:      %u [%u,%u]", ch_schema->csm_tx_rings,
 		    cinfo->cinfo_first_tx_ring, cinfo->cinfo_last_tx_ring);
 		SK_D("  rx_rings:      %u [%u,%u]", ch_schema->csm_rx_rings,
@@ -2011,27 +1969,27 @@ ch_connect_log1(const struct kern_nexus *nx, const struct ch_info *cinfo,
 		SK_D("  nexusadv_ofs:  0x%llx", ch_schema->csm_nexusadv_ofs);
 	}
 
-	SK_D("ch 0x%llx (%s:%s:\"%s\":%u:%d)",
+	SK_D("ch %p (%s:%s:\"%s\":%u:%d)",
 	    SK_KVA(ch), nxdom_prov->nxdom_prov_dom->nxdom_name,
 	    nxdom_prov->nxdom_prov_name, ch->ch_na->na_name,
 	    cinfo->cinfo_nx_port, (int)cinfo->cinfo_ch_ring_id);
 	SK_D("  ch UUID: %s", sk_uuid_unparse(cinfo->cinfo_ch_id, uuidstr));
 	SK_D("  nx UUID: %s", sk_uuid_unparse(nx->nx_uuid, uuidstr));
-	SK_D("  flags:   0x%b", ch->ch_flags, CHANF_BITS);
-	SK_D("  task:    0x%llx %s(%d)", SK_KVA(ch->ch_mmap.ami_maptask),
-	    sk_proc_name_address(p), sk_proc_pid(p));
+	SK_D("  flags:   0x%x", ch->ch_flags);
+	SK_D("  task:    %p %s(%d)", SK_KVA(ch->ch_mmap.ami_maptask),
+	    sk_proc_name(p), sk_proc_pid(p));
 	SK_D("  txlowat: %u (%s)", cinfo->cinfo_tx_lowat.cet_value,
 	    ((cinfo->cinfo_tx_lowat.cet_unit == CHANNEL_THRESHOLD_UNIT_BYTES) ?
 	    "bytes" : "slots"));
 	SK_D("  rxlowat: %u (%s)", cinfo->cinfo_rx_lowat.cet_value,
 	    ((cinfo->cinfo_rx_lowat.cet_unit == CHANNEL_THRESHOLD_UNIT_BYTES) ?
 	    "bytes" : "slots"));
-	SK_D("  mmapref: 0x%llx", SK_KVA(ch->ch_mmap.ami_mapref));
+	SK_D("  mmapref: %p", SK_KVA(ch->ch_mmap.ami_mapref));
 	SK_D("  mapaddr: 0x%llx", (uint64_t)cinfo->cinfo_mem_base);
-	SK_D("  mapsize: 0x%llx (%llu KB)",
+	SK_D("  mapsize: %llu (%llu KB)",
 	    (uint64_t)cinfo->cinfo_mem_map_size,
 	    (uint64_t)cinfo->cinfo_mem_map_size >> 10);
-	SK_D("  memsize: 0x%llx (%llu KB)",
+	SK_D("  memsize: %llu (%llu KB)",
 	    (uint64_t)chr->cr_memsize, (uint64_t)chr->cr_memsize >> 10);
 	SK_D("  offset:  0x%llx", (uint64_t)cinfo->cinfo_schema_offset);
 }
@@ -2048,8 +2006,8 @@ ch_connect_log2(const struct kern_nexus *nx, int err)
 #endif /* SK_LOG */
 
 static struct kern_channel *
-ch_connect(struct kern_nexus *nx, struct chreq *chr, struct kern_channel *ch0,
-    struct nxbind *nxb, struct proc *p, int fd, int *err)
+ch_connect(struct kern_nexus *nx, struct chreq *chr, struct nxbind *nxb,
+    struct proc *p, int fd, int *err)
 {
 	struct kern_nexus_domain_provider *nxdom_prov;
 	struct kern_channel *ch = NULL;
@@ -2136,11 +2094,11 @@ ch_connect(struct kern_nexus *nx, struct chreq *chr, struct kern_channel *ch0,
 		goto done;
 	}
 
-	SK_D("%s(%d) %snexus port %u requested", sk_proc_name_address(p),
-	    sk_proc_pid(p), reserved_port ? "[reserved] " : "", chr->cr_port);
+	SK_PDF(SK_VERB_CHANNEL, p, "%snexus port %u requested",
+	    reserved_port ? "[reserved] " : "", chr->cr_port);
 
 	if ((*err = nxdom_prov->nxdom_prov_dom->nxdom_connect(nxdom_prov,
-	    nx, ch, chr, ch0, nxb, p)) != 0) {
+	    nx, ch, chr, nxb, p)) != 0) {
 		goto done;
 	}
 
@@ -2501,7 +2459,7 @@ ch_free(struct kern_channel *ch)
 	ASSERT(!(ch->ch_flags & (CHANF_ATTACHED | CHANF_EXT_CONNECTED |
 	    CHANF_EXT_PRECONNECT | CHANF_IF_ADV)));
 	lck_mtx_destroy(&ch->ch_lock, &channel_lock_group);
-	SK_DF(SK_VERB_MEM, "ch 0x%llx FREE", SK_KVA(ch));
+	SK_DF(SK_VERB_MEM, "ch %p FREE", SK_KVA(ch));
 	ASSERT(ch->ch_info != NULL);
 	zfree(ch_info_zone, ch->ch_info);
 	ch->ch_info = NULL;
@@ -2552,16 +2510,29 @@ ch_release(struct kern_channel *ch)
 	return lastref;
 }
 
-/*
- * -fbounds-safety: Why is the arg void *? All callers pass struct kern_channel *
- */
 void
-ch_dtor(struct kern_channel *arg)
+ch_dtor(struct kern_channel *ch)
 {
-	struct kern_channel *ch = arg;
-
 	SK_LOCK();
 	ch_close(ch, TRUE);
 	(void) ch_release_locked(ch);
 	SK_UNLOCK();
+}
+
+void
+ch_update_upp_buf_stats(struct kern_channel *ch, struct kern_pbufpool *pp)
+{
+	uint64_t buf_inuse = pp->pp_u_bufinuse;
+	struct __user_channel_schema *csm = ch->ch_schema;
+	os_atomic_store(&csm->csm_upp_buf_inuse, buf_inuse, relaxed);
+}
+
+SK_NO_INLINE_ATTRIBUTE
+char *
+ch2str(const struct kern_channel *ch, char *__counted_by(dsz)dst, size_t dsz)
+{
+	(void) sk_snprintf(dst, dsz, "%p %s flags 0x%b",
+	    SK_KVA(ch), ch->ch_name, ch->ch_flags, CHANF_BITS);
+
+	return dst;
 }

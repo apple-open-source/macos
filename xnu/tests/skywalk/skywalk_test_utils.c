@@ -252,14 +252,11 @@ sktc_build_nexus(nexus_controller_t ncd, struct sktc_nexus_attr *sktc_attr,
 #define SKTU_CHANNEL_CREATE_NOMEM_RETRIES       16
 
 channel_t
-sktu_channel_create_extended(const uuid_t uuid,
-    const nexus_port_t port, const ring_dir_t dir,
-    const ring_id_t rid, const channel_attr_t attr,
-    uint64_t exclusive, uint64_t monitor,
-    uint64_t txlowatunit, uint64_t txlowatval,
-    uint64_t rxlowatunit, uint64_t rxlowatval,
-    uint64_t userpacketpool, uint64_t defunctok,
-    uint64_t event_ring, uint64_t low_latency)
+sktu_channel_create_extended(const uuid_t uuid, const nexus_port_t port,
+    const ring_dir_t dir, const ring_id_t rid, const channel_attr_t attr,
+    uint64_t exclusive, uint64_t txlowatunit, uint64_t txlowatval,
+    uint64_t rxlowatunit, uint64_t rxlowatval, uint64_t userpacketpool,
+    uint64_t defunctok, uint64_t event_ring, uint64_t low_latency)
 {
 	channel_attr_t tmpattr;
 	int error;
@@ -276,11 +273,6 @@ sktu_channel_create_extended(const uuid_t uuid,
 
 	if (exclusive != -1) {
 		error = os_channel_attr_set(tmpattr, CHANNEL_ATTR_EXCLUSIVE, exclusive);
-		SKTC_ASSERT_ERR(!error);
-	}
-
-	if (monitor != -1) {
-		error = os_channel_attr_set(tmpattr, CHANNEL_ATTR_MONITOR, monitor);
 		SKTC_ASSERT_ERR(!error);
 	}
 
@@ -339,12 +331,6 @@ retry:
 	SKTC_ASSERT_ERR(!error);
 	assert(scratch != 1);
 	assert(exclusive == -1 || exclusive == scratch);
-
-	scratch = -1;
-	error = os_channel_attr_get(tmpattr, CHANNEL_ATTR_MONITOR, &scratch);
-	SKTC_ASSERT_ERR(!error);
-	assert(scratch != -1);
-	assert(exclusive == -1 || monitor == scratch);
 
 	scratch = -1;
 	error = os_channel_attr_get(tmpattr, CHANNEL_ATTR_TX_LOWAT_UNIT, &scratch);
@@ -744,7 +730,7 @@ sktc_bind_tcp4_flow(nexus_controller_t ncd, const uuid_t fsw, in_port_t in_port,
 
 	// XXX fails, see the fswbind25 for standalone test for this
 	assert(nfr.nfr_nx_port == nx_port);
-	T_LOG("got ephemeral port %d\n", ntohs(nfr.nfr_saddr.sin.sin_port));
+	SKT_LOG("got ephemeral port %d\n", ntohs(nfr.nfr_saddr.sin.sin_port));
 
 	/* Validate the ephemeral ports */
 	if (!error && !in_port) {
@@ -1085,8 +1071,8 @@ sktu_create_interface(sktu_if_type_t type, sktu_if_flag_t flags)
 	int error;
 	int tunsock;
 	const char *CONTROL_NAME;
-	int OPT_ENABLE_NETIF, OPT_ATTACH_FSW;
-	int enable_netif, attach_fsw;
+	int OPT_ENABLE_NETIF, OPT_ATTACH_FSW, OPT_ENABLE_CHANNEL;
+	int enable_netif, attach_fsw, enable_channel;
 	int scratch;
 
 	assert(type == SKTU_IFT_UTUN || type == SKTU_IFT_IPSEC);
@@ -1094,14 +1080,17 @@ sktu_create_interface(sktu_if_type_t type, sktu_if_flag_t flags)
 		CONTROL_NAME = UTUN_CONTROL_NAME;
 		OPT_ENABLE_NETIF = UTUN_OPT_ENABLE_NETIF;
 		OPT_ATTACH_FSW = UTUN_OPT_ATTACH_FLOWSWITCH;
+		OPT_ENABLE_CHANNEL = UTUN_OPT_ENABLE_CHANNEL;
 	} else {
 		CONTROL_NAME = IPSEC_CONTROL_NAME;
 		OPT_ENABLE_NETIF = IPSEC_OPT_ENABLE_NETIF;
 		OPT_ATTACH_FSW = 0;
+		OPT_ENABLE_CHANNEL = IPSEC_OPT_ENABLE_CHANNEL;
 	}
 
 	enable_netif = ((flags & SKTU_IFF_ENABLE_NETIF) != 0) ? 1 : 0;
 	attach_fsw = ((flags & SKTU_IFF_NO_ATTACH_FSW) != 0) ? 0 : 1;
+	enable_channel = ((flags & SKTU_IFF_ENABLE_CHANNEL) != 0) ? 1 : 0;
 
 	/* XXX Remove this retry nonsense when this is fixed:
 	 * <rdar://problem/37340313> creating an interface without specifying specific interface name should not return EBUSY
@@ -1151,6 +1140,14 @@ sktu_create_interface(sktu_if_type_t type, sktu_if_flag_t flags)
 		assert(scratchlen == sizeof(scratch));
 		assert(enable_netif == scratch);
 
+		error = setsockopt(tunsock, SYSPROTO_CONTROL, OPT_ENABLE_CHANNEL, &enable_channel, sizeof(enable_channel));
+		SKTC_ASSERT_ERR(!error);
+		scratchlen = sizeof(scratch);
+		error = getsockopt(tunsock, SYSPROTO_CONTROL, OPT_ENABLE_CHANNEL, &scratch, &scratchlen);
+		SKTC_ASSERT_ERR(!error);
+		assert(scratchlen == sizeof(scratch));
+		assert(enable_channel == scratch);
+
 		/* only applicable for utun */
 		if (type == SKTU_IFT_UTUN) {
 			error = setsockopt(tunsock, SYSPROTO_CONTROL, OPT_ATTACH_FSW, &attach_fsw, sizeof(attach_fsw));
@@ -1164,6 +1161,7 @@ sktu_create_interface(sktu_if_type_t type, sktu_if_flag_t flags)
 			tunsock = -1;
 			continue;
 		}
+		SKTC_ASSERT_ERR(!error);
 
 		error = fcntl(tunsock, F_SETFD, FD_CLOEXEC);
 		if (error != 0) {
@@ -1190,33 +1188,14 @@ sktu_create_interface_channel(sktu_if_type_t type, int tunsock)
 	channel_t channel;
 	socklen_t uuidlen;
 	int error;
-	int OPT_ENABLE_CHANNEL;
 	int OPT_GET_CHANNEL_UUID;
 
 	if (type == SKTU_IFT_UTUN) {
-		OPT_ENABLE_CHANNEL = UTUN_OPT_ENABLE_CHANNEL;
 		OPT_GET_CHANNEL_UUID = UTUN_OPT_GET_CHANNEL_UUID;
 	} else {
 		assert(type == SKTU_IFT_IPSEC);
-		OPT_ENABLE_CHANNEL = IPSEC_OPT_ENABLE_CHANNEL;
 		OPT_GET_CHANNEL_UUID = IPSEC_OPT_GET_CHANNEL_UUID;
 	}
-
-	if (type == SKTU_IFT_UTUN) {
-		int enable = 1;
-		error = setsockopt(tunsock, SYSPROTO_CONTROL, OPT_ENABLE_CHANNEL, &enable, sizeof(enable));
-		if (error != 0) {
-			SKT_LOG("setsockopt returned error %d, errno %d\n", error, errno);
-		}
-		SKTC_ASSERT_ERR(error == 0);
-	}
-
-	int scratch;
-	socklen_t scratchlen = sizeof(scratch);
-	error = getsockopt(tunsock, SYSPROTO_CONTROL, OPT_ENABLE_CHANNEL, &scratch, &scratchlen);
-	SKTC_ASSERT_ERR(!error);
-	assert(scratchlen == sizeof(scratch));
-	assert(1 == scratch);
 
 	uuidlen = sizeof(uuid);
 	error = getsockopt(tunsock, SYSPROTO_CONTROL, OPT_GET_CHANNEL_UUID, uuid, &uuidlen);
@@ -1227,7 +1206,7 @@ sktu_create_interface_channel(sktu_if_type_t type, int tunsock)
 	channel = sktu_channel_create_extended(uuid,
 	    NEXUS_PORT_KERNEL_PIPE_CLIENT,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, attr,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	return channel;
@@ -1648,7 +1627,7 @@ sktu_channel_port_init(channel_port_t ch_port, uuid_t instance,
 	bzero(ch_port, sizeof(*ch_port));
 	chan = sktu_channel_create_extended(instance, port,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, enable_upp ? 1 : -1, 1,
+	    -1, -1, -1, -1, -1, enable_upp ? 1 : -1, 1,
 	    enable_event_ring ? 1 : -1, low_latency ? 1 : -1);
 	if (chan == NULL) {
 		SKT_LOG("Can't open channel on port %d, %s\n", port,

@@ -200,7 +200,7 @@ void handlePCMMessage(std::span<const uint8_t> encodedMessage)
 
     std::optional<typename Info::ArgsTuple> arguments;
     decoder >> arguments;
-    if (UNLIKELY(!arguments))
+    if (!arguments) [[unlikely]]
         return;
 
     IPC::callMemberFunction(&daemonManagerSingleton(), Info::MemberFunction, WTFMove(*arguments));
@@ -212,7 +212,7 @@ static void handlePCMMessageSetDebugModeIsEnabled(const Daemon::Connection& conn
     Daemon::Decoder decoder(encodedMessage);
     std::optional<bool> enabled;
     decoder >> enabled;
-    if (UNLIKELY(!enabled))
+    if (!enabled) [[unlikely]]
         return;
 
     auto& connectionSet = DaemonConnectionSet::singleton();
@@ -233,7 +233,7 @@ void handlePCMMessageWithReply(std::span<const uint8_t> encodedMessage, Completi
 
     std::optional<typename Info::ArgsTuple> arguments;
     decoder >> arguments;
-    if (UNLIKELY(!arguments))
+    if (!arguments) [[unlikely]]
         return;
 
     typename Info::Reply completionHandler { [replySender = WTFMove(replySender)] (auto&&... args) mutable {

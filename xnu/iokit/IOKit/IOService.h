@@ -1676,11 +1676,12 @@ public:
 	static void iokitDaemonLaunched();
 	void resetRematchProperties();
 	bool hasUserServer() const;
-	static void userSpaceWillReboot();
+	static void setWillUserspaceReboot();
+	static bool getWillUserspaceReboot();
 	static void userSpaceDidReboot();
 	kern_return_t CopyProperties_Local(OSDictionary ** properties);
 
-	IOStateNotificationItem * stateNotificationItemCopy(OSString * itemName, OSDictionary * schema);
+	IOStateNotificationItem * stateNotificationItemCopy(OSString * itemName, OSDictionary * initialValue);
 	kern_return_t stateNotificationListenerAdd(OSArray * items,
 	    IOStateNotificationListenerRef * outRef,
 	    IOStateNotificationHandler handler);
@@ -2096,6 +2097,13 @@ public:
 
 	UInt32 getPowerState( void );
 
+/*! @function getDesiredPowerState
+ *   @abstract Determines a device's desired power state.
+ *   @discussion A device's "desired power state" is updated at the start of each power state transition (e.g. transition from state 1 to state 0, or state 0 to state 2).
+ *   @result The desired power state's index into the device's power state array. */
+
+	UInt32 getDesiredPowerState( void );
+
 /*! @function setPowerState
  *   @abstract Requests a power managed driver to change the power state of its device.
  *   @discussion A power managed driver must override <code>setPowerState</code> to take part in system power management. After a driver is registered with power management, the system uses <code>setPowerState</code> to power the device off and on for system sleep and wake.
@@ -2255,6 +2263,7 @@ public:
 	bool getBlockingDriverCall(thread_t *thread, const void **callMethod);
 	void cancelIdlePowerDown(IOService * service);
 	void cancelIdlePowerDownSync( void );
+	bool currentOrPendingPowerState(uint32_t state);
 
 protected:
 	bool tellClientsWithResponse( int messageType );
@@ -2388,6 +2397,10 @@ private:
 	IOReturn configureSimplePowerReport(IOReportConfigureAction action, void *result );
 	IOReturn updateSimplePowerReport( IOReportConfigureAction action, void *result, void *destination );
 	void waitForPMDriverCall( IOService * target = NULL );
+	void addPMDriverClass(uint64_t driverClass);
+#if DEBUG || DEVELOPMENT
+	void __patchProperties(void);
+#endif
 
 	friend class IOUserServer;
 #endif /* XNU_KERNEL_PRIVATE */

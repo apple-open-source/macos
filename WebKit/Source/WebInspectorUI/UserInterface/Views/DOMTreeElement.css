@@ -48,7 +48,7 @@ body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-with
     color: var(--text-color);
 }
 
-.event-badge-popover-content {
+.event-badge-popover-content, .slot-filled-badge-popover-content {
     overflow: hidden;
 }
 
@@ -60,6 +60,23 @@ body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-with
 
 .event-badge-popover-content > .details-section.event-listeners .details-section {
     border-inline: 1px solid var(--border-color);
+}
+
+.slot-filled-badge-popover-content > table {
+    border-collapse: collapse;
+}
+
+.slot-filled-badge-popover-content > table > tr + tr > td {
+    padding-top: 2px;
+}
+
+.slot-filled-badge-popover-content > table > tr > td:first-child {
+    font-family: -webkit-system-font, sans-serif;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+    vertical-align: top;
+    color: var(--console-secondary-text-color);
 }
 
 @media (prefers-color-scheme: dark) {

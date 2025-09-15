@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "NumericStrings.h"
 #include "SlotVisitorMacros.h"
 #include "SmallStrings.h"
+#include "SourceTaintedOrigin.h"
 #include "StringReplaceCache.h"
 #include "StringSplitCache.h"
 #include "Strong.h"
@@ -64,7 +65,6 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "WasmContext.h"
 #include "WeakGCMap.h"
 #include "WriteBarrier.h"
-#include <variant>
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/DoublyLinkedList.h>
@@ -81,9 +81,12 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include <wtf/ThreadSafeRefCountedWithSuppressingSaferCPPChecking.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
 #include <wtf/UniqueArray.h>
+#include <wtf/WeakRandom.h>
 #include <wtf/text/AdaptiveStringSearcher.h>
+#include <wtf/text/StringImpl.h>
 #include <wtf/text/SymbolImpl.h>
 #include <wtf/text/SymbolRegistry.h>
+#include <wtf/text/UniquedStringImpl.h>
 
 #if ENABLE(REGEXP_TRACING)
 #include <wtf/ListHashSet.h>
@@ -227,13 +230,15 @@ public:
     // WebCore has a one-to-one mapping of threads to VMs;
     // create() should only be called once
     // on a thread, this is the 'default' VM (it uses the
-    // thread's default string uniquing table from Thread::current()).
+    // thread's default string uniquing table from Thread::currentSingleton()).
     enum class VMType { Default, APIContextGroup };
 
     struct ClientData {
         JS_EXPORT_PRIVATE virtual ~ClientData() { };
 
         JS_EXPORT_PRIVATE virtual String overrideSourceURL(const StackFrame&, const String& originalSourceURL) const = 0;
+
+        virtual bool isWebCoreJSClientData() const { return false; }
     };
 
     bool usingAPI() { return vmType != VMType::Default; }
@@ -349,6 +354,8 @@ public:
     };
     JS_EXPORT_PRIVATE void performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSet<SchedulerOptions>);
 
+    Structure* immutableButterflyStructure(IndexingType indexingType) { return rawImmutableButterflyStructure(indexingType).get(); }
+
     // Keep super frequently accessed fields top in VM.
     unsigned disallowVMEntryCount { 0 };
 private:
@@ -365,11 +372,14 @@ public:
     EntryFrame* topEntryFrame { nullptr };
 private:
     OptionSet<EntryScopeService> m_entryScopeServices;
+public:
+    bool didEnterVM { false };
+private:
     VMTraps m_traps;
 
     VMIdentifier m_identifier;
-    RefPtr<JSLock> m_apiLock;
-    Ref<WTF::RunLoop> m_runLoop;
+    const Ref<JSLock> m_apiLock;
+    const Ref<WTF::RunLoop> m_runLoop;
 
     WeakRandom m_random;
     WeakRandom m_heapRandom;
@@ -384,6 +394,8 @@ private:
     {
         m_entryScopeServices.remove(service);
     }
+
+    WriteBarrier<Structure>& rawImmutableButterflyStructure(IndexingType indexingType) { return immutableButterflyStructures[arrayIndexFromIndexingType(indexingType) - NumberOfIndexingShapes]; }
 
 public:
     Heap heap;
@@ -463,7 +475,8 @@ public:
     WriteBarrier<Structure> regExpStructure;
     WriteBarrier<Structure> symbolStructure;
     WriteBarrier<Structure> symbolTableStructure;
-    WriteBarrier<Structure> immutableButterflyStructures[NumberOfCopyOnWriteIndexingModes];
+    std::array<WriteBarrier<Structure>, NumberOfCopyOnWriteIndexingModes> immutableButterflyStructures;
+    WriteBarrier<Structure> immutableButterflyOnlyAtomStringsStructure;
     WriteBarrier<Structure> sourceCodeStructure;
     WriteBarrier<Structure> scriptFetcherStructure;
     WriteBarrier<Structure> scriptFetchParametersStructure;
@@ -497,7 +510,7 @@ public:
     Weak<NativeExecutable> m_fastRemoteFunctionExecutable;
     Weak<NativeExecutable> m_slowRemoteFunctionExecutable;
 
-    Ref<DeferredWorkTimer> deferredWorkTimer;
+    const Ref<DeferredWorkTimer> deferredWorkTimer;
 
     JSCell* currentlyDestructingCallbackObject { nullptr };
     const ClassInfo* currentlyDestructingCallbackObjectClassInfo { nullptr };
@@ -531,26 +544,27 @@ public:
 
     JSCell* orderedHashTableDeletedValue()
     {
-        if (LIKELY(m_orderedHashTableDeletedValue))
+        if (m_orderedHashTableDeletedValue) [[likely]]
             return m_orderedHashTableDeletedValue.get();
         return orderedHashTableDeletedValueSlow();
     }
 
     JSCell* orderedHashTableSentinel()
     {
-        if (LIKELY(m_orderedHashTableSentinel))
+        if (m_orderedHashTableSentinel) [[likely]]
             return m_orderedHashTableSentinel.get();
         return orderedHashTableSentinelSlow();
     }
 
     JSPropertyNameEnumerator* emptyPropertyNameEnumerator()
     {
-        if (LIKELY(m_emptyPropertyNameEnumerator))
+        if (m_emptyPropertyNameEnumerator) [[likely]]
             return m_emptyPropertyNameEnumerator.get();
         return emptyPropertyNameEnumeratorSlow();
     }
 
     WeakGCMap<SymbolImpl*, Symbol, PtrHash<SymbolImpl*>> symbolImplToSymbolMap;
+    WeakGCMap<StringImpl*, JSString, PtrHash<StringImpl*>> atomStringToJSStringMap;
 
     enum class DeletePropertyMode {
         // Default behaviour of deleteProperty, matching the spec.
@@ -615,7 +629,7 @@ public:
     NativeExecutable* getHostFunction(NativeFunction, ImplementationVisibility, NativeFunction constructor, const String& name);
     NativeExecutable* getHostFunction(NativeFunction, ImplementationVisibility, Intrinsic, NativeFunction constructor, const DOMJIT::Signature*, const String& name);
 
-    NativeExecutable* getBoundFunction(bool isJSFunction);
+    NativeExecutable* getBoundFunction(bool isJSFunction, SourceTaintedOrigin taintedness);
     NativeExecutable* getRemoteFunction(bool isJSFunction);
 
     CodePtr<JSEntryPtrTag> getCTIInternalFunctionTrampolineFor(CodeSpecializationKind);
@@ -773,7 +787,7 @@ public:
     static constexpr size_t patternContextBufferSize = 0; // Space allocated to save nested parenthesis context
 #endif
 
-    Ref<CompactTDZEnvironmentMap> m_compactVariableMap;
+    const Ref<CompactTDZEnvironmentMap> m_compactVariableMap;
 
     LazyUniqueRef<VM, HasOwnPropertyCache> m_hasOwnPropertyCache;
     ALWAYS_INLINE HasOwnPropertyCache* hasOwnPropertyCache() { return m_hasOwnPropertyCache.getIfExists(); }
@@ -811,7 +825,7 @@ public:
 
     bool currentThreadIsHoldingAPILock() const { return m_apiLock->currentThreadIsHoldingLock(); }
 
-    JSLock& apiLock() { return *m_apiLock; }
+    JSLock& apiLock() { return m_apiLock.get(); }
     CodeCache* codeCache() { return m_codeCache.get(); }
     IntlCache& intlCache() { return *m_intlCache; }
 
@@ -1043,7 +1057,6 @@ private:
 
 public:
     SentinelLinkedList<MicrotaskQueue, BasicRawSentinelNode<MicrotaskQueue>> m_microtaskQueues;
-    bool didEnterVM { false };
 private:
     bool m_failNextNewCodeBlock { false };
     bool m_globalConstRedeclarationShouldThrow { true };
@@ -1071,7 +1084,7 @@ private:
     LazyUniqueRef<VM, HeapProfiler> m_heapProfiler;
     LazyUniqueRef<VM, AdaptiveStringSearcherTables> m_stringSearcherTables;
 #if ENABLE(SAMPLING_PROFILER)
-    RefPtr<SamplingProfiler> m_samplingProfiler;
+    const RefPtr<SamplingProfiler> m_samplingProfiler;
 #endif
     std::unique_ptr<FuzzerAgent> m_fuzzerAgent;
     LazyUniqueRef<VM, ShadowChicken> m_shadowChicken;
@@ -1094,7 +1107,7 @@ private:
     UncheckedKeyHashMap<const JSInstruction*, std::pair<unsigned, std::unique_ptr<uintptr_t>>> m_loopHintExecutionCounts;
 
     MicrotaskQueue m_defaultMicrotaskQueue;
-    Ref<Waiter> m_syncWaiter;
+    const Ref<Waiter> m_syncWaiter;
 
     std::atomic<int64_t> m_numberOfActiveJITPlans { 0 };
 
@@ -1155,7 +1168,7 @@ namespace WTF {
 template<> struct DefaultRefDerefTraits<JSC::VM> {
     static ALWAYS_INLINE JSC::VM* refIfNotNull(JSC::VM* ptr)
     {
-        if (LIKELY(ptr))
+        if (ptr) [[likely]]
             ptr->refSuppressingSaferCPPChecking();
         return ptr;
     }
@@ -1168,7 +1181,7 @@ template<> struct DefaultRefDerefTraits<JSC::VM> {
 
     static ALWAYS_INLINE void derefIfNotNull(JSC::VM* ptr)
     {
-        if (LIKELY(ptr))
+        if (ptr) [[likely]]
             ptr->derefSuppressingSaferCPPChecking();
     }
 };

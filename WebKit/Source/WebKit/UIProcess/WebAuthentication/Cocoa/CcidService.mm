@@ -62,7 +62,7 @@ Ref<CcidService> CcidService::create(AuthenticatorTransportServiceObserver& obse
 
 CcidService::CcidService(AuthenticatorTransportServiceObserver& observer)
     : FidoService(observer)
-    , m_restartTimer(RunLoop::main(), this, &CcidService::platformStartDiscovery)
+    , m_restartTimer(RunLoop::mainSingleton(), "CcidService::RestartTimer"_s, this, &CcidService::platformStartDiscovery)
 {
 }
 
@@ -118,7 +118,7 @@ void CcidService::updateSlots(NSArray *slots)
         slotsSet.add(name);
         auto it = m_slotObservers.find(name);
         if (it == m_slotObservers.end()) {
-            [[TKSmartCardSlotManager defaultManager] getSlotWithName:nsName reply:makeBlockPtr([this, name](TKSmartCardSlot * _Nullable slot) mutable {
+            [[TKSmartCardSlotManager defaultManager] getSlotWithName:nsName reply:makeBlockPtr([this, protectedThis = Ref { *this }, name](TKSmartCardSlot * _Nullable slot) mutable {
                 auto slotObserver = adoptNS([[_WKSmartCardSlotStateObserver alloc] initWithService:this slot:WTFMove(slot)]);
                 m_slotObservers.add(name, slotObserver);
                 [slot addObserver:slotObserver.get() forKeyPath:@"state" options:NSKeyValueObservingOptionNew | NSKeyValueObservingOptionInitial context:nil];
@@ -188,8 +188,8 @@ void CcidService::updateSlots(NSArray *slots)
         [self removeObserver];
         return;
     case TKSmartCardSlotStateValidCard: {
-        auto* smartCard = [object makeSmartCard];
-        callOnMainRunLoop([service = m_service, smartCard = retainPtr(smartCard)] () mutable {
+        RetainPtr smartCard = [object makeSmartCard];
+        callOnMainRunLoop([service = m_service, smartCard = WTFMove(smartCard)] () mutable {
             if (!service)
                 return;
             service->onValidCard(WTFMove(smartCard));

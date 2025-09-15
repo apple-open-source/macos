@@ -66,7 +66,7 @@ bool WebExtensionAPIExtension::parseViewFilters(NSDictionary *filter, std::optio
         else if ([typeString isEqualToString:tabKey])
             viewType = ViewType::Tab;
         else {
-            *outExceptionString = toErrorString(nullString(), typeKey, @"it must specify either 'popup' or 'tab'");
+            *outExceptionString = toErrorString(nullString(), typeKey, @"it must specify either 'popup' or 'tab'").createNSString().autorelease();
             return false;
         }
     }
@@ -88,7 +88,7 @@ bool WebExtensionAPIExtension::parseViewFilters(NSDictionary *filter, std::optio
 
 bool WebExtensionAPIExtension::isPropertyAllowed(const ASCIILiteral& name, WebPage*)
 {
-    if (UNLIKELY(extensionContext().isUnsupportedAPI(propertyPath(), name)))
+    if (extensionContext().isUnsupportedAPI(propertyPath(), name)) [[unlikely]]
         return false;
 
     // This method was removed in manifest version 3.
@@ -103,7 +103,7 @@ NSURL *WebExtensionAPIExtension::getURL(NSString *resourcePath, NSString **outEx
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/extension/getURL
 
-    return URL { extensionContext().baseURL(), resourcePath };
+    return URL { extensionContext().baseURL(), resourcePath }.createNSURL().autorelease();
 }
 
 JSValue *WebExtensionAPIExtension::getBackgroundPage(JSContextRef context)

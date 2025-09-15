@@ -192,7 +192,8 @@ exit:
         err = [Utilities metaWriteToDevice:self.resource
                                       from:(void*)((char*)linkContent.mutableBytes + accWriteLength)
                                 startingAt:offset
-                                    length:writeLength];
+                                    length:writeLength
+                            forceSyncWrite:false];
         if (err) {
             os_log_error(OS_LOG_DEFAULT, "%s: Failed to write link content into the device", __FUNCTION__);
             break;
@@ -240,9 +241,8 @@ exit:
             err = error;
         }];
 
-        // Since link size is const, every file, that its cluster length not equals to link cluster length,
-        // is automaticly not a link
-        if (err || (expectedNumOfClusters > totalNumOfClusters)) {
+        if (err) {
+            os_log_error(OS_LOG_DEFAULT, "%s: Failed to get the item's cluster chain. Error = %@.", __FUNCTION__, err);
             return reply(false, nil);
         }
 
@@ -264,8 +264,12 @@ exit:
         startCluster = nextCluster;
     }
 
-    if (expectedNumOfClusters != totalNumOfClusters)
-    {
+    /*
+     * Since symlink size is a constant, every file with number of clusters not
+     * equals to symlink's expected number of clusters is automatically not a
+     * symlink.
+     */
+    if (expectedNumOfClusters != totalNumOfClusters) {
         return reply(false, nil);
     }
 
@@ -521,6 +525,7 @@ exit:
 
     /* Set the dirty bit */
     [self.fatManager setDirtyBitValue:dirtyBitDirty
+                     forceWriteToDisk:false
                          replyHandler:^(NSError * _Nullable fatError) {
         if (fatError) {
             /* Don't fail the creation. Just log the error. */
@@ -1309,6 +1314,16 @@ exit:
                 }
             }
 
+            /* Set the dirty bit */
+            [self.fatManager setDirtyBitValue:dirtyBitDirty
+                             forceWriteToDisk:false
+                                 replyHandler:^(NSError * _Nullable fatError) {
+                if (fatError) {
+                    /* Don't fail the remove. Just log the error. */
+                    os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
+                }
+            }];
+
             /*
              * Purge first, because if this fails, we can't write these clusters
              * to disk, as we free them later on.
@@ -1391,7 +1406,7 @@ exit:
         ([sourceName.string isEqualToString:destinationName.string])) {
         os_log_debug(OS_LOG_DEFAULT, "%s: source and destination are the same", __FUNCTION__);
         // Nothing to do if names are the same
-        return reply(nil, nil);
+        return reply(destinationName, nil);
     }
 
     if (!sourceFatItem || sourceFatItem.isDeleted) {
@@ -1412,7 +1427,15 @@ exit:
         return reply(nil, fs_errorForPOSIXError(ENOENT));
     }
 
-    dispatch_sync(sourceFatItem.queue, ^{
+    /* If we have an overItem, lets cast it */
+    if (overItem != nil && overItem != sourceItem) {
+        overFatItem = [FATItem dynamicCast:overItem];
+        if (!overFatItem || overFatItem.isDeleted) {
+            return reply(nil, fs_errorForPOSIXError(EINVAL));
+        }
+    }
+
+    void (^renameBlock)(void) = ^{
         DirEntryData *sourceDirEntryData = sourceFatItem.entryData;
         __block DirEntryData *newDirEntryData = nil;
         __block DirEntryData *dotDotEntryData = nil;
@@ -1438,30 +1461,31 @@ exit:
                 tmp = [DirItem dynamicCast:tmp.parentDir];
             }
         }
-        
+
         /* Set the dirty bit */
         [self.fatManager setDirtyBitValue:dirtyBitDirty
+                         forceWriteToDisk:false
                              replyHandler:^(NSError * _Nullable fatError) {
             if (fatError) {
                 /* Don't fail the rename. Just log the error. */
                 os_log_error(OS_LOG_DEFAULT, "%s: Couldn't set the dirty bit. Error = %@.", __func__, fatError);
             }
         }];
-        
+
         // Get source attributes needed for creating a new directory entry
         FSItemGetAttributesRequest *getAttr = [self getAttrRequestForNewDirEntry];
         FSItemAttributes *sourceAttr = [sourceFatItem getAttributes:getAttr];
-        
+
         __block DirNameCache *srcNameCache = nil;
         __block DirNameCache *dstNameCache = nil;
-        
+
         [self.nameCachePool getNameCacheForDir:dstDirItem
                                     cachedOnly:true
                                   replyHandler:^(NSError * _Nullable poolError, DirNameCache * _Nullable cache, bool isNew) {
             // We do not need to do anything if we did not get a name cache for any reason
             dstNameCache = cache;
         }];
-        
+
         /*
          * If the source and destination children are the same, then it is a rename
          * that may be changing the case of the name. For that, we pretend like
@@ -1469,15 +1493,7 @@ exit:
          * constructing the destination's directory entry set).
          */
         if (sourceItem != overItem) {
-            if (overItem != nil) {
-                overFatItem = [FATItem dynamicCast:overItem];
-                if (!overFatItem || overFatItem.isDeleted) {
-                    err = fs_errorForPOSIXError(EINVAL);
-                    goto exit;
-                    
-                }
-                
-            } else {
+            if (overItem == nil) {
                 // Get overItem if exist.
                 [dstDirItem lookupDirEntryNamed:destinationName
                                    dirNameCache:dstNameCache
@@ -1492,7 +1508,7 @@ exit:
                                                        dirEntryData:dirEntryData];
                     }
                 }];
-                
+
                 if (err) {
                     if (err.code != ENOENT) {
                         os_log_error(OS_LOG_DEFAULT, "%s: lookupName destinationName returned an error %@", __FUNCTION__, err);
@@ -1502,7 +1518,7 @@ exit:
                 }
             }
         }
-        
+
         if (overFatItem) {
             // In case we are going to override existing item, we need to remove it before performing the actual rename
             toDirEntryData = overFatItem.entryData;
@@ -1518,7 +1534,7 @@ exit:
                     goto exit;
                 }
             }
-            
+
             // In case of directory rename - check that destination directory is empty
             if (toDirEntryData.type == FSItemTypeDirectory) {
                 overDirItem = [DirItem dynamicCast:overFatItem];
@@ -1527,33 +1543,33 @@ exit:
                     err = fs_errorForPOSIXError(EIO);
                     goto exit;
                 }
-                
+
                 err = [overDirItem checkIfEmpty];
-                
+
                 if (err) {
                     os_log_error(OS_LOG_DEFAULT, "%s: overDirItem checkIfEmpty %@", __FUNCTION__, err);
                     goto exit;
                 }
             }
-            
+
             // Update directory version.
             dstDirItem.dirVersion++;
-            
+
             // Mark all node directory entries as deleted
             err = [dstDirItem markDirEntriesAsDeletedAndUpdateMtime:overFatItem];
-            
+
             if (err) {
                 os_log_error(OS_LOG_DEFAULT, "%s: unable to remove 'toItem' %@", __FUNCTION__, err);
                 goto exit;
             }
-            [_itemCache removeItem:overFatItem];
-            
+            [self->_itemCache removeItem:overFatItem];
+
             if (dstNameCache) {
                 [dstNameCache removeDirEntryNamed:(char *)destinationName.data.bytes
                                          ofLength:destinationName.data.length
                                       offsetInDir:overFatItem.entryData.firstEntryOffsetInDir];
             }
-            
+
             /*
              * Release clusters only if the node is unlinked i.e a overItem wasn't
              * passed but the internal lookup above returned overFatItem.
@@ -1569,14 +1585,14 @@ exit:
                                               replyHandler:^(NSError * _Nullable error) {
                     err = error;
                 }];
-                
+
                 if (err) {
                     os_log_error(OS_LOG_DEFAULT, "%s: unable to free toItem clusters %@", __FUNCTION__, err);
                     goto exit;
                 }
             }
         }
-        
+
         // Perform the switch
         // write new entry in destination directory
         isFromSymlink = [SymLinkItem dynamicCast:sourceItem] ? true : false;
@@ -1593,14 +1609,13 @@ exit:
                 newEntryOffset = offsetInDir;
             }
         }];
-        
+
         if (err) {
             os_log_error(OS_LOG_DEFAULT, "%s: create new entry failed with error = %@.", __FUNCTION__, err);
             goto exit;
         }
-        
-        [_itemCache removeItem:sourceFatItem];
-        
+        [self->_itemCache removeItem:sourceFatItem];
+
         // Update the necessary fields of source item
         // Get the new direcory entries
         [dstDirItem lookupDirEntryNamed:destinationName
@@ -1614,17 +1629,17 @@ exit:
                 newDirEntryData = dirEntryData;
             }
         }];
-        
+
         if (err) {
             os_log_error(OS_LOG_DEFAULT, "%s: lookup new entry failed with error = %@.", __FUNCTION__, err);
             goto exit;
         }
-        
-        //Copy the new Name
+
+        // Copy the new Name
         sourceFatItem.name = destinationName;
         // Switching dirNode pointer to toDirNode
         sourceFatItem.parentDir = dstDirItem;
-        
+
         if (dstNameCache) {
             [dstNameCache insertDirEntryNamed:(char *)destinationName.data.bytes
                                      ofLength:destinationName.data.length
@@ -1632,7 +1647,7 @@ exit:
             [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
             dstNameCache = nil;
         }
-        
+
         /*
          * WE ARE NOW COMMITTED TO THE RENAME -- IT CAN NO LONGER FAIL, UNLESS WE
          * UNWIND THE ENTIRE TRANSACTION.
@@ -1643,31 +1658,31 @@ exit:
             // We do not need to do anything if we did not get a name cache for any reason
             srcNameCache = cache;
         }];
-        
-        // remove old entry from source directory
+
+        // Remove old entry from source directory
         err = [sourceDirItem markDirEntriesAsDeletedAndUpdateMtime:sourceFatItem];
         if (err) {
             os_log_error(OS_LOG_DEFAULT, "%s: unable to remove old file / directory entry %@", __FUNCTION__, err);
         }
-        
+
         if (srcNameCache) {
             [srcNameCache removeDirEntryNamed:(char *)sourceName.data.bytes
                                      ofLength:sourceName.data.length
                                   offsetInDir:sourceFatItem.entryData.firstEntryOffsetInDir];
             [self.nameCachePool doneWithNameCacheForDir:sourceDirItem];
         }
-        
+
         sourceFatItem.entryData = newDirEntryData;
-        
+
         /* Insert the new item to the items cache */
-        [_itemCache insertItem:sourceFatItem replyHandler:^(FATItem * _Nullable cachedItem,
+        [self->_itemCache insertItem:sourceFatItem replyHandler:^(FATItem * _Nullable cachedItem,
                                                             NSError * _Nullable error) {
             if (error) {
                 err = error;
             }
             // TODO: Do we check if the cachedItem != sourceFatItem? If so, what do we do?
         }];
-        
+
         // In case of directory rename - we need to update '..' with the new parent cluster
         if ((sourceDirEntryData.type == FSItemTypeDirectory) && (sourceDirectory != destinationDirectory)) {
             // Get the '..' entry of 'To' Directory
@@ -1683,7 +1698,7 @@ exit:
                     dotDotEntryData = dirEntryData;
                 }
             }];
-            
+
             if (err) {
                 os_log_error(OS_LOG_DEFAULT, "%s: unable to lookup .. %@", __FUNCTION__, err);
             } else {
@@ -1691,7 +1706,7 @@ exit:
                                   fileSystemInfo:self.systemInfo];
             }
         }
-        
+
         //Update Directory version
         sourceDirItem.dirVersion++;
     exit:
@@ -1699,7 +1714,62 @@ exit:
             [self.nameCachePool doneWithNameCacheForDir:dstDirItem];
         }
         return reply(destinationName, err);
-    });
+    };
+
+    /*
+     * For rename, we need to lock 2 to 4 items - src/dst directories, source
+     * item and dest item, if exists.
+     * Locking an item is done by calling dispatch_sync on the item's queue.
+     * The logic is as follows:
+     * - If source and destinations dirs are the same:
+     *   - Lock the directory and the source item. If the dest item exists,
+     *     lock it too.
+     * - Else (source and destination dirs are not the same):
+     *   - Lock both directories and source item. If over item exists, lock it
+     *     too.
+     */
+    if (sourceDirItem == dstDirItem) {
+        /* Rename in the same directory */
+        dispatch_async(sourceDirItem.queue, ^{
+            dispatch_sync(sourceFatItem.queue, ^{
+                if (overFatItem == nil) {
+                    renameBlock();
+                } else {
+                    dispatch_sync(overFatItem.queue, ^{
+                        renameBlock();
+                    });
+                }
+            });
+        });
+    } else {
+        /*
+         * To avoid deadlocking when having simultaneous rename A/B -> C/D and
+         * C/D -> A/B make sure we are using the queues in the same order.
+         */
+        DirItem *firstDir,*secondDir;
+
+        if (sourceDirItem < dstDirItem) {
+            firstDir = sourceDirItem;
+            secondDir = dstDirItem;
+        } else {
+            firstDir = dstDirItem;
+            secondDir = sourceDirItem;
+
+        }
+        dispatch_async(firstDir.queue, ^{
+            dispatch_sync(secondDir.queue, ^{
+                dispatch_sync(sourceFatItem.queue, ^{
+                    if (overFatItem == nil) {
+                        renameBlock();
+                    } else {
+                        dispatch_sync(overFatItem.queue, ^{
+                            renameBlock();
+                        });
+                    }
+                });
+            });
+        });
+    }
 }
 
 - (void)setAttributes:(FSItemSetAttributesRequest *)newAttributes
@@ -1722,7 +1792,9 @@ exit:
             return reply(nil, fs_errorForPOSIXError(EINVAL));
         }
         
-        [self.fatManager setDirtyBitValue:true replyHandler:^(NSError * _Nullable error) {
+        [self.fatManager setDirtyBitValue:dirtyBitDirty
+                         forceWriteToDisk:false
+                             replyHandler:^(NSError * _Nullable error) {
             if (error) {
                 os_log_error(OS_LOG_DEFAULT, "%s: Failed to set dirty bit", __func__);
             }
@@ -1757,25 +1829,34 @@ exit:
             os_log_error(OS_LOG_DEFAULT, "%s: sync failed, error %@", __func__, err);
         }
 
+        if (self.systemInfo.type == FAT12 ||
+            self.systemInfo.dirtyBitValue == dirtyBitDirty) {
+            /*
+             * If the dirty bit is set, we might have dirty metadata blocks
+             *  which weren't written to disk yet. Flush them all.
+             * (FAT12 doesn't have a dirty bit, so we have to assume that the
+             * volume is dirty).
+             */
+            if (flags & FSSyncFlagsNoWait) {
+                [self.resource asynchronousMetadataFlushWithError:&err];
+            } else {
+                [self.resource metadataFlushWithError:&err];
+            }
+            if (err) {
+                os_log_error(OS_LOG_DEFAULT, "%s: Metadata flush failed (%d), flags 0x%lx", __FUNCTION__, (int)err.fs_posixCode, flags);
+            }
+        }
+
         /* If there are no open preallocated / unlinked files, clear dirty bit */
         if (([self getNumberOfPreallocatedFiles] == 0) &&
             ([self getNumberOfOpenUnlinkedFiles] == 0)) {
             [self.fatManager setDirtyBitValue:dirtyBitClean
+                             forceWriteToDisk:false
                                  replyHandler:^(NSError * _Nullable error) {
                 if (error) {
                     return reply(error);
                 }
             }];
-        }
-
-        if (flags & FSSyncFlagsNoWait) {
-            [self.resource asynchronousMetadataFlushWithError:&err];
-        } else {
-            [self.resource metadataFlushWithError:&err];
-        }
-
-        if (err) {
-            os_log_error(OS_LOG_DEFAULT, "%s: Metadata flush failed (%d), flags 0x%lx", __FUNCTION__, (int)err.fs_posixCode, flags);
         }
 
         return reply(err);
@@ -1833,14 +1914,25 @@ exit:
         }
     #endif
 
-        /* Verify FS is clean, log if dirty */
-        [self.fatManager getDirtyBitValue:^(NSError * _Nullable error, dirtyBitValue value) {
-            if (error) {
-                os_log_error(OS_LOG_DEFAULT, "%s: Failed to read dirty bit value, error %@", __func__, error);
-            } else if ((value == dirtyBitDirty) || (value == dirtyBitUnknown)) {
-                os_log_error(OS_LOG_DEFAULT, "%s: unmounting, file system state is %s", __func__, value == dirtyBitDirty ? "dirty" : "unknown");
+        if (self.systemInfo.type != FAT12) {
+            /* FAT12 doesn't have a dirty bit. */
+            if (self.systemInfo.dirtyBitValue == dirtyBitClean) {
+                /*
+                 * If the in-memory dirty bit is clean, mark the file system clean
+                 * on disk.
+                 */
+                [self.fatManager setDirtyBitValue:dirtyBitClean
+                                 forceWriteToDisk:true
+                                     replyHandler:^(NSError * _Nullable error) {
+                    if (error) {
+                        os_log_error(OS_LOG_DEFAULT, "%s: Failed to clean dirty bit, error %@", __func__, error);
+                        return reply();
+                    }
+                }];
+            } else {
+                os_log_error(OS_LOG_DEFAULT, "%s: unmounting, file system state is %s", __func__, self.systemInfo.dirtyBitValue == dirtyBitDirty ? "dirty" : "unknown");
             }
-        }];
+        }
 
         return reply();
     });
@@ -2082,6 +2174,7 @@ replyHandler:(nonnull void (^)(NSError * _Nullable))reply
         __block NSError* err = nil;
 
         [self.fatManager setDirtyBitValue:dirtyBitDirty
+                         forceWriteToDisk:false
                              replyHandler:^(NSError * _Nullable fatError) {
             if (fatError) {
                 /* Log the error, keep going */

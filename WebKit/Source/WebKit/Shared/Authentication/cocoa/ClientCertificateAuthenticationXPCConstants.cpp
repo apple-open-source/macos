@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "ClientCertificateAuthenticationXPCConstants.h"
+
+#include <wtf/text/ASCIILiteral.h>
 
 #if HAVE(SEC_KEY_PROXY)
 

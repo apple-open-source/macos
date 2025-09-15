@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,8 @@ SliderThumbMac::SliderThumbMac(SliderThumbPart& owningPart, ControlFactoryMac& c
 {
     ASSERT(m_owningPart.type() == StyleAppearance::SliderThumbHorizontal || m_owningPart.type() == StyleAppearance::SliderThumbVertical);
 }
+
+SliderThumbMac::~SliderThumbMac() = default;
 
 void SliderThumbMac::updateCellStates(const FloatRect& rect, const ControlStyle& style)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -700,13 +700,8 @@ inctl_ifaddr(struct ifnet *ifp, struct in_ifaddr *ia, u_long cmd,
 
 	case SIOCDIFADDR:               /* struct ifreq */
 		VERIFY(ia != NULL);
-		error = ifnet_ioctl(ifp, PF_INET, SIOCDIFADDR, ia);
-		if (error == EOPNOTSUPP) {
-			error = 0;
-		}
-		if (error != 0) {
-			break;
-		}
+
+		(void)ifnet_ioctl(ifp, PF_INET, SIOCDIFADDR, ia);
 
 		/* Fill out the kernel event information */
 		ev_msg.vendor_code      = KEV_VENDOR_APPLE;
@@ -2239,7 +2234,7 @@ static __attribute__((unused)) void
 ipproto_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((u_int16_t)0) {
@@ -2431,6 +2426,7 @@ ipsockopt_cassert(void)
 	case IP_NO_IFT_CELLULAR:
 // #define IP_NO_IFT_PDP           IP_NO_IFT_CELLULAR /* deprecated */
 	case IP_OUT_IF:
+	case IP_RECV_LINK_ADDR_TYPE:
 		;
 	}
 }

@@ -53,7 +53,9 @@
 // All backup paths ultimately lead to SecServerCopyKeychainPlist which does the actual exporting,
 // so this test ought to suffice for all backup configurations
 - (void)testAppClipDoesNotBackup {
-
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     // First add a "regular" item for each class, which we expect to be in the backup later
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -232,7 +234,8 @@
 - (void)testSecItemBackupAndRestoreWithPersistentRefs
 {
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
-
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain : @YES,
@@ -306,6 +309,8 @@
 // tests restoring a backup of items that don't already exist in the keychain and sets a new UUID for each
 - (void)testSecItemRestoreBackupOldStylePrefsAndAddUUIDPersistentRefs
 {
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain : @YES,
@@ -383,6 +388,8 @@
 // tests restoring a backup of items that already exist in the keychain but without UUID persistent references set
 - (void)testSecItemRestoreItemBackupAndAddUUIDPersistentRefs
 {
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain : @YES,
@@ -444,7 +451,9 @@
 - (void)testSecItemRestoreConflictedUUIDPersistentReferenceItems
 {
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
-
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     NSData* oldPassword = [@"password" dataUsingEncoding:NSUTF8StringEncoding];
     NSData* updatedPassword = [@"updatedPassword" dataUsingEncoding:NSUTF8StringEncoding];
 
@@ -530,6 +539,9 @@
 // tests restoring a backup of sysbound items that don't already exist in the keychain and sets a new UUID for each
 - (void)testSecItemRestoreSysboundBackupAndAddUUIDPersistentRefs
 {
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain : @YES,
@@ -594,7 +606,9 @@
 - (void)testSecItemRestoreSysboundBackupAndUpdateUUIDPersistentRefs
 {
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
-
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     NSMutableDictionary* query = [@{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecUseDataProtectionKeychain : @YES,
@@ -652,5 +666,139 @@
 
 
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(false);
+}
+
+-(void)helperBackupShouldHaveTombstones:(BOOL)shouldHave
+{
+    // Add a non-tombstone & tombstone item to each of genp, inet, keys, cert class
+    NSArray *allowedAccessGroups = @[
+        @"com.apple.hap.pairing"
+    ];
+    SecurityClient client = {
+        .accessGroups = (__bridge CFArrayRef)allowedAccessGroups,
+    };
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrAccount : @"genp",
+        (id)kSecAttrService: @"service0",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert generic password");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrAccount: @"account0",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert Internet password");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrCertificateType: @"type0",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert certificate");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom,
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+    }, &client, NULL, NULL), "Should insert unsynced key to keep");
+    
+    // Add tombstone items to each of genp, inet, keys, cert class
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrService: @"service1",
+        (id)kSecAttrAccount : @"genp",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrTombstone: @YES,
+    }, &client, NULL, NULL), "Should insert tombstone generic password");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrAccount: @"account1",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrTombstone: @YES,
+    }, &client, NULL, NULL), "Should insert tombstone Internet password");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassCertificate,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @YES,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrCertificateType: @"type1",
+        (id)kSecValueData:[@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrTombstone: @YES,
+    }, &client, NULL, NULL), "Should insert tombstone certificate");
+    
+    XCTAssertTrue(SecServerItemAdd((__bridge CFDictionaryRef)@{
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecAttrSynchronizable: @NO,
+        (id)kSecAttrAccessGroup: @"com.apple.hap.pairing",
+        (id)kSecAttrLabel: @"origin.example.net",
+        (id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandomPKA,
+        (id)kSecValueData: [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrTombstone: @YES,
+    }, &client, NULL, NULL), "Should insert tombstone key");
+    
+    CFErrorRef cferror = NULL;
+    kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
+        CFErrorRef cfcferror = NULL;
+        keybag_handle_t keybag_none = KEYBAG_NONE;
+        NSDictionary* backup = (__bridge_transfer NSDictionary*)SecServerCopyKeychainPlist(dbt, SecSecurityClientGet(), &keybag_none, kSecBackupableItemFilter, &cfcferror);
+        XCTAssertNil(CFBridgingRelease(cfcferror), "Shouldn't error creating a 'backup'");
+        XCTAssertNotNil(backup, "Creating a 'backup' should have succeeded");
+        // Check tombstones status based on `shouldHave` flag
+        for (NSString *itemClass in backup) {
+            NSArray<NSDictionary*>* items = backup[itemClass];
+            if (shouldHave) {
+                XCTAssertEqual(items.count, 2, "Should have both items as part of backup");
+            } else {
+                XCTAssertEqual(items.count, 1, "Should have only non-tombstone as part of backup");
+                XCTAssertEqualObjects(items[0][@"tomb"], @(0), "Should be non-tombstone item");
+            }
+        }
+        return true;
+    });
+    XCTAssertNil(CFBridgingRelease(cferror), "Shouldn't error mucking about in the db");
+}
+
+-(void)testBackupAvoidsTombstonesWhenSOSDisabled {
+    // We should avoid tombstones into backups whenever SOS is disabled
+    OctagonSetSOSFeatureEnabled(false);
+    [self helperBackupShouldHaveTombstones:NO];
+}
+
+-(void)testBackupTombstonesWhenSOSEnabled {
+    // We should have tombstones into backups whenever SOS is enabled
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    [self helperBackupShouldHaveTombstones:YES];
 }
 @end

@@ -79,6 +79,7 @@
 #include <sys/sdt.h>
 #include <sys/kernel.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <net/dlil.h>
@@ -115,7 +116,11 @@
 #include <sys/kauth.h>
 #endif
 
+
+#include <skywalk/os_skywalk_private.h>
+
 #include <IOKit/IOBSD.h>
+
 
 /*
  * Synchronization notes:
@@ -411,10 +416,10 @@ static int sysctl_rt_verbose SYSCTL_HANDLER_ARGS;
 
 SYSCTL_DECL(_net_route);
 SYSCTL_PROC(_net_route, OID_AUTO, verbose,
-		CTLTYPE_INT | CTLFLAG_LOCKED | CTLFLAG_RW | CTLFLAG_ANYBODY,
-		&rt_verbose, 0,
-		sysctl_rt_verbose, "I",
-		"Route logging verbosity level");
+    CTLTYPE_INT | CTLFLAG_LOCKED | CTLFLAG_RW | CTLFLAG_ANYBODY,
+    &rt_verbose, 0,
+    sysctl_rt_verbose, "I",
+    "Route logging verbosity level");
 
 static int
 sysctl_rt_verbose SYSCTL_HANDLER_ARGS
@@ -436,10 +441,10 @@ sysctl_rt_verbose SYSCTL_HANDLER_ARGS
 	}
 
 	if (!(kauth_cred_issuser(kauth_cred_get()) != 0 ||
-				IOCurrentTaskHasEntitlement("com.apple.private.networking.elevated-logging"))) {
+	    IOCurrentTaskHasEntitlement("com.apple.private.networking.elevated-logging"))) {
 #if (DEBUG || DEVELOPMENT)
 		os_log(OS_LOG_DEFAULT, "%s:%s: sysctl not allowed\n",
-				proc_name_string, __func__);
+		    proc_name_string, __func__);
 #endif
 		error = EPERM;
 		goto done;
@@ -456,12 +461,12 @@ sysctl_rt_verbose SYSCTL_HANDLER_ARGS
 done:
 #if (DEBUG || DEVELOPMENT)
 	os_log(OS_LOG_DEFAULT, "%s:%s return: verbose is %d "
-			"and error is %d\n", proc_name_string, __func__, rt_verbose, error);
+	    "and error is %d\n", proc_name_string, __func__, rt_verbose, error);
 #endif
 	return error;
 }
 
-	static void
+static void
 rtable_init(struct radix_node_head * __single * __header_indexable table)
 {
 	struct domain *dom;
@@ -484,14 +489,10 @@ route_init(void)
 {
 	int size;
 
-	_CASSERT(offsetof(struct route, ro_rt) ==
-	    offsetof(struct route_in6, ro_rt));
-	_CASSERT(offsetof(struct route, ro_srcia) ==
-	    offsetof(struct route_in6, ro_srcia));
-	_CASSERT(offsetof(struct route, ro_flags) ==
-	    offsetof(struct route_in6, ro_flags));
-	_CASSERT(offsetof(struct route, ro_dst) ==
-	    offsetof(struct route_in6, ro_dst));
+	static_assert(offsetof(struct route, ro_rt) == offsetof(struct route_in6, ro_rt));
+	static_assert(offsetof(struct route, ro_srcia) == offsetof(struct route_in6, ro_srcia));
+	static_assert(offsetof(struct route, ro_flags) == offsetof(struct route_in6, ro_flags));
+	static_assert(offsetof(struct route, ro_dst) == offsetof(struct route_in6, ro_dst));
 
 	PE_parse_boot_argn("rte_debug", &rte_debug, sizeof(rte_debug));
 	if (rte_debug != 0) {
@@ -3203,7 +3204,7 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 
 	if (rt_verbose > 1) {
 		empty_dst = ((af == AF_INET && SIN(dst)->sin_addr.s_addr == 0) ||
-				     (af == AF_INET6 && IN6_IS_ADDR_UNSPECIFIED(&SIN6(dst)->sin6_addr)));
+		    (af == AF_INET6 && IN6_IS_ADDR_UNSPECIFIED(&SIN6(dst)->sin6_addr)));
 	}
 
 	/*
@@ -3410,44 +3411,44 @@ rt_lookup_common(boolean_t lookup_only, boolean_t coarse, struct sockaddr *dst,
 		}
 	}
 
-    if (rn == NULL) {
-        if (rt_verbose > 1 && !empty_dst) {
-            if (af == AF_INET) {
-                (void) inet_ntop(af, &SIN(dst)->sin_addr.s_addr,
-                        s_dst, sizeof(s_dst));
-            } else {
-                (void) inet_ntop(af, &SIN6(dst)->sin6_addr,
-                        s_dst, sizeof(s_dst));
-            }
+	if (rn == NULL) {
+		if (rt_verbose > 1 && !empty_dst) {
+			if (af == AF_INET) {
+				(void) inet_ntop(af, &SIN(dst)->sin_addr.s_addr,
+				    s_dst, sizeof(s_dst));
+			} else {
+				(void) inet_ntop(af, &SIN6(dst)->sin6_addr,
+				    s_dst, sizeof(s_dst));
+			}
 
-            if (netmask != NULL && af == AF_INET) {
-                (void) inet_ntop(af, &SIN(netmask)->sin_addr.s_addr,
-                        s_netmask, sizeof(s_netmask));
-            }
-            if (netmask != NULL && af == AF_INET6) {
-                (void) inet_ntop(af, &SIN6(netmask)->sin6_addr,
-                        s_netmask, sizeof(s_netmask));
-            } else {
-                *s_netmask = '\0';
-            }
-            os_log(OS_LOG_DEFAULT, "%s:%d (%s, %s, %u) return NULL\n",
-                    __func__, __LINE__, s_dst, s_netmask, ifscope);
-        }
-    } else if (rt_verbose > 2) {
-        char dbuf[MAX_SCOPE_ADDR_STR_LEN];
-        rtentry_ref_t rt = RT(rn);
+			if (netmask != NULL && af == AF_INET) {
+				(void) inet_ntop(af, &SIN(netmask)->sin_addr.s_addr,
+				    s_netmask, sizeof(s_netmask));
+			}
+			if (netmask != NULL && af == AF_INET6) {
+				(void) inet_ntop(af, &SIN6(netmask)->sin6_addr,
+				    s_netmask, sizeof(s_netmask));
+			} else {
+				*s_netmask = '\0';
+			}
+			os_log(OS_LOG_DEFAULT, "%s:%d (%s, %s, %u) return NULL\n",
+			    __func__, __LINE__, s_dst, s_netmask, ifscope);
+		}
+	} else if (rt_verbose > 2) {
+		char dbuf[MAX_SCOPE_ADDR_STR_LEN];
+		rtentry_ref_t rt = RT(rn);
 
-        rt_str(rt, dbuf, sizeof(dbuf), gbuf, sizeof(gbuf));
+		rt_str(rt, dbuf, sizeof(dbuf), gbuf, sizeof(gbuf));
 
-        os_log(OS_LOG_DEFAULT, "%s %u return %p to %s->%s->%s ifa_ifp %s\n",
-                __func__, ifscope, rt,
-                dbuf, gbuf,
-                (rt->rt_ifp != NULL) ? rt->rt_ifp->if_xname : "",
-                (rt->rt_ifa->ifa_ifp != NULL) ?
-                rt->rt_ifa->ifa_ifp->if_xname : "");
-    }
+		os_log(OS_LOG_DEFAULT, "%s %u return %p to %s->%s->%s ifa_ifp %s\n",
+		    __func__, ifscope, rt,
+		    dbuf, gbuf,
+		    (rt->rt_ifp != NULL) ? rt->rt_ifp->if_xname : "",
+		    (rt->rt_ifa->ifa_ifp != NULL) ?
+		    rt->rt_ifa->ifa_ifp->if_xname : "");
+	}
 
-    return RT(rn);
+	return RT(rn);
 }
 
 struct rtentry *
@@ -4775,7 +4776,7 @@ static __attribute__((unused)) void
 rtm_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((u_int16_t)0) {
@@ -4829,4 +4830,58 @@ rtv_cassert(void)
 	case RTV_REFRESH_HOST:
 		;
 	}
+}
+
+static inline ether_addr_t *
+_sockaddr_get_lladdr(struct sockaddr * gateway)
+{
+	ether_addr_t *lladdr = NULL;
+
+	if (gateway && gateway->sa_family == AF_LINK) {
+		struct sockaddr_dl *sdl = SDL(gateway);
+
+		if (sdl->sdl_alen != 0) {
+			lladdr = (ether_addr_t *)LLADDR(sdl);
+		}
+	}
+	return lladdr;
+}
+
+uint64_t
+rt_lookup_qset_id(route_t rt, bool skip_if_no_change)
+{
+	ifnet_t ifp = rt->rt_ifp;
+	uint64_t qset_id;
+
+	if (!ifp->if_eth_traffic_rule_count) {
+		DTRACE_IP1(no__eth__rules, route_t, rt);
+		qset_id = 0;
+		goto done;
+	} else if (!ifnet_sync_traffic_rule_genid(ifp, &rt->rt_tr_genid) &&
+	    skip_if_no_change) {
+		DTRACE_IP1(same__eth__rule__genid, route_t, rt);
+		qset_id = rt->rt_qset_id;
+		goto done;
+	}
+
+	uint16_t eth_type = (rt_key(rt)->sa_family == AF_INET)
+	    ? ETHERTYPE_IP : ETHERTYPE_IPV6;
+	ether_addr_t *eth_raddr = _sockaddr_get_lladdr(rt->rt_gateway);
+
+	int err = nxctl_eth_traffic_rule_find_qset_id(ifp->if_xname,
+	    eth_type, eth_raddr, &rt->rt_qset_id);
+	if (err != 0) {
+		DTRACE_IP3(qset__id__not__found__eth,
+		    route_t, rt,
+		    uint16_t, eth_type, ether_addr_t *, eth_raddr);
+		rt->rt_qset_id = 0;
+	} else {
+		DTRACE_IP3(qset__id__found__eth,
+		    route_t, rt,
+		    uint16_t, eth_type, ether_addr_t *, eth_raddr);
+	}
+	qset_id = rt->rt_qset_id;
+
+done:
+	return qset_id;
 }

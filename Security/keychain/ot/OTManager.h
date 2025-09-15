@@ -37,6 +37,7 @@
 #import "keychain/ot/OTTapToRadarAdapter.h"
 #import "keychain/ot/OTTooManyPeersAdapter.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTSecureBackupAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import <Security/SecEscrowRequest.h>
 #import "keychain/ckks/CKKSAccountStateTracker.h"
@@ -71,6 +72,7 @@ NS_ASSUME_NONNULL_BEGIN
                tooManyPeersAdapter:(id<OTTooManyPeersAdapter>)tooManyPeersAdapter
                  tapToRadarAdapter:(id<OTTapToRadarAdapter>)tapToRadarAdapter
           deviceInformationAdapter:(id<OTDeviceInformationAdapter>)deviceInformationAdapter
+               secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                     personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                 apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                 escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass

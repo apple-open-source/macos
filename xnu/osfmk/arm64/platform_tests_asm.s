@@ -29,6 +29,28 @@
 #include <arm64/asm.h>
 #include <pexpert/arm64/board_config.h>
 
+.macro SAVE_CALLEE_REGISTERS
+	stp		x19, x20, [sp, #-(16 * 10)]!
+	stp		x21, x22, [sp, #0x10]
+	stp		x23, x24, [sp, #0x20]
+	stp		x25, x26, [sp, #0x30]
+	stp		x27, x28, [sp, #0x40]
+	stp		x29, x30, [sp, #0x50]
+	stp		q4, q5, [sp, #0x60]
+	stp		q6, q7, [sp, #0x80]
+.endmacro
+
+.macro LOAD_CALLEE_REGISTERS
+	ldp		x21, x22, [sp, #0x10]
+	ldp		x23, x24, [sp, #0x20]
+	ldp		x25, x26, [sp, #0x30]
+	ldp		x27, x28, [sp, #0x40]
+	ldp		x29, x30, [sp, #0x50]
+	ldp		q4, q5, [sp, #0x60]
+	ldp		q6, q7, [sp, #0x80]
+	ldp		x19, x20, [sp], #(16*10)
+.endmacro
+
 
 /**
  * Raise a sync exception while LR is being used as a GPR.
@@ -111,19 +133,6 @@ LEXT(arm64_panic_lockdown_test_fpac)
 	ret
 #endif /* __ARM_ARCH_8_6__ */
 
-#if BTI_ENFORCED && CONFIG_BTI_TELEMETRY
-	.globl EXT(arm64_panic_lockdown_test_bti_telemetry)
-LEXT(arm64_panic_lockdown_test_bti_telemetry)
-	ARM64_PROLOG
-	/*
-	 * Trigger a BTI exception on the first instruction *after* the landing pad.
-	 */
-0:
-	nop
-	adr		x0, 0b
-	br		x0
-#endif /* BTI_ENFORCED && CONFIG_BTI_TELEMETRY */
-
 /*
  * SP1 Panic Lockdown Tests
  *
@@ -133,28 +142,6 @@ LEXT(arm64_panic_lockdown_test_bti_telemetry)
  * SP_EL0 as we stay on SP1 for the entire vector. As such, we need to save all
  * callee saved registers here.
  */
-
-.macro SAVE_CALLEE_REGISTERS
-	stp		x19, x20, [sp, #-(16 * 10)]!
-	stp		x21, x22, [sp, #0x10]
-	stp		x23, x24, [sp, #0x20]
-	stp		x25, x26, [sp, #0x30]
-	stp		x27, x28, [sp, #0x40]
-	stp		x29, x30, [sp, #0x50]
-	stp		q4, q5, [sp, #0x60]
-	stp		q6, q7, [sp, #0x80]
-.endmacro
-
-.macro LOAD_CALLEE_REGISTERS
-	ldp		x21, x22, [sp, #0x10]
-	ldp		x23, x24, [sp, #0x20]
-	ldp		x25, x26, [sp, #0x30]
-	ldp		x27, x28, [sp, #0x40]
-	ldp		x29, x30, [sp, #0x50]
-	ldp		q4, q5, [sp, #0x60]
-	ldp		q6, q7, [sp, #0x80]
-	ldp		x19, x20, [sp], #(16*10)
-.endmacro
 
 /**
  * arm64_panic_lockdown_test_sp1_invalid_stack
@@ -190,7 +177,7 @@ LEXT(arm64_panic_lockdown_test_sp1_invalid_stack_handler)
 	/* Return 1 to indicate success */
 	mov		x0, #1
 	LOAD_CALLEE_REGISTERS
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(arm64_panic_lockdown_test_sp1_invalid_stack)
 
 /**
  * arm64_panic_lockdown_test_sp1_exception_in_vector
@@ -212,7 +199,7 @@ LEXT(arm64_panic_lockdown_test_sp1_exception_in_vector_handler)
 	/* Return 1 to indicate success */
 	mov		x0, #1
 	LOAD_CALLEE_REGISTERS
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(arm64_panic_lockdown_test_sp1_exception_in_vector)
 
 #endif /* CONFIG_SPTM */
 
@@ -238,7 +225,7 @@ LEXT(arm64_bti_test_call_shim)
 	blr		x0
 #endif /* __has_feature(ptrauth_calls) */
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(arm64_bti_test_call_shim)
 
 	.globl EXT(arm64_bti_test_func_with_no_landing_pad)
 LEXT(arm64_bti_test_func_with_no_landing_pad)
@@ -271,3 +258,5 @@ LEXT(arm64_bti_test_func_with_pac_landing_pad)
 	retab
 #endif /* __has_feature(ptrauth_returns) */
 #endif /* BTI_ENFORCED */
+
+

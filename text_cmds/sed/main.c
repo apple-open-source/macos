@@ -34,19 +34,6 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif
-
-#ifndef lint
-static const char sccsid[] = "@(#)main.c	8.2 (Berkeley) 1/3/94";
-#endif
-
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/param.h>
@@ -121,7 +108,7 @@ u_long linenum;
 
 static void add_compunit(enum e_cut, char *);
 static void add_file(char *);
-static void usage(void);
+static void usage(void) __dead2;
 
 int
 main(int argc, char *argv[])
@@ -163,10 +150,8 @@ main(int argc, char *argv[])
 			break;
 		case 'e':
 			eflag = 1;
-			if ((temp_arg = malloc(strlen(optarg) + 2)) == NULL)
-				err(1, "malloc");
-			strcpy(temp_arg, optarg);
-			strcat(temp_arg, "\n");
+			if (asprintf(&temp_arg, "%s\n", optarg) == -1)
+				err(1, "asprintf");
 			add_compunit(CU_STRING, temp_arg);
 			break;
 		case 'f':
@@ -199,7 +184,9 @@ main(int argc, char *argv[])
 
 	/* First usage case; script is the first arg */
 	if (!eflag && !fflag && *argv) {
-		add_compunit(CU_STRING, *argv);
+		if (asprintf(&temp_arg, "%s\n", *argv) == -1)
+			err(1, "asprintf");
+		add_compunit(CU_STRING, temp_arg);
 		argv++;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #import "Logging.h"
 #import "RemoteLayerTreeNode.h"
 #import "RemoteScrollingCoordinatorProxy.h"
+#import "RemoteScrollingTreeCocoa.h"
 #import "ScrollingTreeFrameScrollingNodeRemoteMac.h"
 #import "ScrollingTreeOverflowScrollingNodeRemoteMac.h"
 #import "ScrollingTreePluginScrollingNodeRemoteMac.h"
@@ -71,8 +72,8 @@ RemoteScrollingTreeMac::~RemoteScrollingTreeMac() = default;
 
 void RemoteScrollingTreeMac::handleWheelEventPhase(ScrollingNodeID nodeID, PlatformWheelEventPhase phase)
 {
-    auto* targetNode = nodeForID(nodeID);
-    if (auto* node = dynamicDowncast<ScrollingTreeScrollingNode>(targetNode))
+    RefPtr targetNode = nodeForID(nodeID);
+    if (RefPtr node = dynamicDowncast<ScrollingTreeScrollingNode>(targetNode))
         node->handleWheelEventPhase(phase);
 }
 
@@ -86,35 +87,35 @@ void RemoteScrollingTreeMac::displayDidRefresh(PlatformDisplayID)
 
 void RemoteScrollingTreeMac::scrollingTreeNodeWillStartScroll(ScrollingNodeID nodeID)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this, nodeID] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, nodeID] {
         RemoteScrollingTree::scrollingTreeNodeWillStartScroll(nodeID);
     });
 }
 
 void RemoteScrollingTreeMac::scrollingTreeNodeDidEndScroll(ScrollingNodeID nodeID)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this, nodeID] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, nodeID] {
         RemoteScrollingTree::scrollingTreeNodeDidEndScroll(nodeID);
     });
 }
 
 void RemoteScrollingTreeMac::clearNodesWithUserScrollInProgress()
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this] {
         RemoteScrollingTree::clearNodesWithUserScrollInProgress();
     });
 }
 
 void RemoteScrollingTreeMac::scrollingTreeNodeDidBeginScrollSnapping(ScrollingNodeID nodeID)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this, nodeID] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, nodeID] {
         RemoteScrollingTree::scrollingTreeNodeDidBeginScrollSnapping(nodeID);
     });
 }
 
 void RemoteScrollingTreeMac::scrollingTreeNodeDidEndScrollSnapping(ScrollingNodeID nodeID)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this, nodeID] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, nodeID] {
         RemoteScrollingTree::scrollingTreeNodeDidEndScrollSnapping(nodeID);
     });
 }
@@ -204,8 +205,8 @@ void RemoteScrollingTreeMac::hasNodeWithAnimatedScrollChanged(bool hasNodeWithAn
 {
     ASSERT(ScrollingThread::isCurrentThread());
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, hasNodeWithAnimatedScroll] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, hasNodeWithAnimatedScroll] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->hasNodeWithAnimatedScrollChanged(hasNodeWithAnimatedScroll);
     });
 }
@@ -214,8 +215,8 @@ void RemoteScrollingTreeMac::setRubberBandingInProgressForNode(ScrollingNodeID n
 {
     ScrollingTree::setRubberBandingInProgressForNode(nodeID, isRubberBanding);
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, isRubberBanding] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, isRubberBanding] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->setRubberBandingInProgressForNode(nodeID, isRubberBanding);
     });
 }
@@ -236,13 +237,13 @@ void RemoteScrollingTreeMac::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNo
 
     // Happens when the this is called as a result of the scrolling tree commmit.
     if (RunLoop::isMain()) {
-        if (auto* scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
+        if (CheckedPtr scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
         return;
     }
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingThreadAddedPendingUpdate();
     });
 }
@@ -251,15 +252,15 @@ void RemoteScrollingTreeMac::scrollingTreeNodeDidStopAnimatedScroll(ScrollingTre
 {
     // Happens when the this is called as a result of the scrolling tree commmit.
     if (RunLoop::isMain()) {
-        if (auto* scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
+        if (CheckedPtr scrollingCoordinatorProxy = this->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingTreeNodeDidStopAnimatedScroll(node.scrollingNodeID());
         return;
     }
 
     ASSERT(ScrollingThread::isCurrentThread());
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID = node.scrollingNodeID()] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID = node.scrollingNodeID()] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingTreeNodeDidStopAnimatedScroll(nodeID);
     });
 }
@@ -283,32 +284,32 @@ bool RemoteScrollingTreeMac::scrollingTreeNodeRequestsKeyboardScroll(ScrollingNo
 
 void RemoteScrollingTreeMac::currentSnapPointIndicesDidChange(ScrollingNodeID nodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, horizontal, vertical] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, horizontal, vertical] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->currentSnapPointIndicesDidChange(nodeID, horizontal, vertical);
     });
 }
 
 void RemoteScrollingTreeMac::reportExposedUnfilledArea(MonotonicTime time, unsigned unfilledArea)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, time, unfilledArea] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, time, unfilledArea] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->reportExposedUnfilledArea(time, unfilledArea);
     });
 }
 
 void RemoteScrollingTreeMac::reportSynchronousScrollingReasonsChanged(MonotonicTime timestamp, OptionSet<SynchronousScrollingReason> reasons)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, timestamp, reasons] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, timestamp, reasons] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->reportSynchronousScrollingReasonsChanged(timestamp, reasons);
     });
 }
 
 void RemoteScrollingTreeMac::receivedWheelEventWithPhases(PlatformWheelEventPhase phase, PlatformWheelEventPhase momentumPhase)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, phase, momentumPhase] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, phase, momentumPhase] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->receivedWheelEventWithPhases(phase, momentumPhase);
     });
 }
@@ -394,8 +395,8 @@ void RemoteScrollingTreeMac::deferWheelEventTestCompletionForReason(ScrollingNod
     if (!isMonitoringWheelEvents())
         return;
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, reason] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, reason] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->deferWheelEventTestCompletionForReason(nodeID, reason);
     });
 }
@@ -405,8 +406,8 @@ void RemoteScrollingTreeMac::removeWheelEventTestCompletionDeferralForReason(Scr
     if (!isMonitoringWheelEvents())
         return;
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, reason] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, reason] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->removeWheelEventTestCompletionDeferralForReason(nodeID, reason);
     });
 }
@@ -423,7 +424,7 @@ void RemoteScrollingTreeMac::unlockLayersForHitTesting()
 
 static std::optional<ScrollingNodeID> scrollingNodeIDForLayer(CALayer *layer)
 {
-    auto* layerTreeNode = RemoteLayerTreeNode::forCALayer(layer);
+    RefPtr layerTreeNode = RemoteLayerTreeNode::forCALayer(layer);
     if (!layerTreeNode)
         return std::nullopt;
 
@@ -432,46 +433,25 @@ static std::optional<ScrollingNodeID> scrollingNodeIDForLayer(CALayer *layer)
 
 static bool isScrolledBy(const ScrollingTree& tree, ScrollingNodeID scrollingNodeID, CALayer *hitLayer)
 {
-    for (CALayer *layer = hitLayer; layer; layer = [layer superlayer]) {
-        auto nodeID = scrollingNodeIDForLayer(layer);
+    for (RetainPtr layer = hitLayer; layer; layer = [layer superlayer]) {
+        auto nodeID = scrollingNodeIDForLayer(layer.get());
         if (nodeID == scrollingNodeID)
             return true;
 
-        auto* scrollingNode = tree.nodeForID(nodeID);
-        if (auto* scollProxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(scrollingNode)) {
+        RefPtr scrollingNode = tree.nodeForID(nodeID);
+        if (RefPtr scollProxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(scrollingNode)) {
             auto actingOverflowScrollingNodeID = scollProxyNode->overflowScrollingNodeID();
             if (actingOverflowScrollingNodeID == scrollingNodeID)
                 return true;
         }
 
-        if (auto* positionedNode = dynamicDowncast<ScrollingTreePositionedNode>(scrollingNode)) {
+        if (RefPtr positionedNode = dynamicDowncast<ScrollingTreePositionedNode>(scrollingNode)) {
             if (positionedNode->relatedOverflowScrollingNodes().contains(scrollingNodeID))
                 return false;
         }
     }
 
     return false;
-}
-
-static const EventRegion* eventRegionForLayer(CALayer *layer)
-{
-    auto* layerTreeNode = RemoteLayerTreeNode::forCALayer(layer);
-    if (!layerTreeNode)
-        return nullptr;
-
-    return &layerTreeNode->eventRegion();
-}
-
-static bool layerEventRegionContainsPoint(CALayer *layer, CGPoint localPoint)
-{
-    auto* eventRegion = eventRegionForLayer(layer);
-    if (!eventRegion)
-        return false;
-
-    // Scrolling changes boundsOrigin on the scroll container layer, but we computed its event region ignoring scroll position, so factor out bounds origin.
-    FloatPoint boundsOrigin = layer.bounds.origin;
-    FloatPoint originRelativePoint = localPoint - toFloatSize(boundsOrigin);
-    return eventRegion->contains(roundedIntPoint(originRelativePoint));
 }
 
 RefPtr<ScrollingTreeNode> RemoteScrollingTreeMac::scrollingNodeForPoint(FloatPoint point)
@@ -484,7 +464,7 @@ RefPtr<ScrollingTreeNode> RemoteScrollingTreeMac::scrollingNodeForPoint(FloatPoi
 
     RetainPtr scrolledContentsLayer { static_cast<CALayer*>(rootScrollingNode->scrolledContentsLayer()) };
 
-    auto rootContentsLayerPosition = LocalFrameView::positionForRootContentLayer(rootScrollingNode->currentScrollPosition(), FloatPoint { 0, 0 }, rootScrollingNode->topContentInset(), rootScrollingNode->headerHeight());
+    auto rootContentsLayerPosition = LocalFrameView::positionForRootContentLayer(rootScrollingNode->currentScrollPosition(), { }, rootScrollingNode->obscuredContentInsets(), rootScrollingNode->headerHeight());
     auto pointInContentsLayer = point;
     pointInContentsLayer.moveBy(rootContentsLayerPosition);
 
@@ -544,44 +524,34 @@ RefPtr<ScrollingTreeNode> RemoteScrollingTreeMac::scrollingNodeForPoint(FloatPoi
 #if ENABLE(WHEEL_EVENT_REGIONS)
 OptionSet<EventListenerRegionType> RemoteScrollingTreeMac::eventListenerRegionTypesForPoint(FloatPoint point) const
 {
-    auto* rootScrollingNode = rootNode();
+    RefPtr rootScrollingNode = downcast<ScrollingTreeFrameScrollingNodeMac>(rootNode());
     if (!rootScrollingNode)
         return { };
 
     ASSERT(m_layerHitTestMutex.isLocked());
 
-    auto rootContentsLayer = static_cast<ScrollingTreeFrameScrollingNodeMac*>(rootScrollingNode)->rootContentsLayer();
+    auto rootContentsLayer = rootScrollingNode->rootContentsLayer();
 
-    Vector<LayerAndPoint, 16> layersAtPoint;
-    collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), point, layerEventRegionContainsPoint);
-
-    if (layersAtPoint.isEmpty())
-        return { };
-
-    auto [hitLayer, localPoint] = layersAtPoint.last();
-    if (!hitLayer)
-        return { };
-
-    auto* eventRegion = eventRegionForLayer(hitLayer.get());
+    auto* eventRegion = eventRegionForPoint(rootScrollingNode->rootContentsLayer().get(), point);
     if (!eventRegion)
         return { };
 
-    return eventRegion->eventListenerRegionTypesForPoint(roundedIntPoint(localPoint));
+    return eventRegion->eventListenerRegionTypesForPoint(roundedIntPoint(point));
 }
 #endif
 
 void RemoteScrollingTreeMac::scrollingTreeNodeScrollbarVisibilityDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, bool isVisible)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, orientation, isVisible] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, orientation, isVisible] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingTreeNodeScrollbarVisibilityDidChange(nodeID, orientation, isVisible);
     });
 }
 
 void RemoteScrollingTreeMac::scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, int minimumThumbLength)
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, nodeID, orientation, minimumThumbLength] {
-        if (auto* scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, nodeID, orientation, minimumThumbLength] {
+        if (CheckedPtr scrollingCoordinatorProxy = protectedThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(nodeID, orientation, minimumThumbLength);
     });
 }

@@ -522,7 +522,7 @@ oslog_init_firehose(void)
 
 	kmem_alloc(kernel_map, &kernel_firehose_addr, size + ptoa(2),
 	    KMA_NOFAIL | KMA_PERMANENT | KMA_GUARD_FIRST | KMA_GUARD_LAST |
-	    KMA_DATA | KMA_ZERO, VM_KERN_MEMORY_LOG);
+	    KMA_DATA_SHARED | KMA_ZERO, VM_KERN_MEMORY_LOG);
 
 	kernel_firehose_addr += PAGE_SIZE;
 	/* register buffer with firehose */

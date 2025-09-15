@@ -51,6 +51,9 @@
     <ClCompile Include="..\Poll.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\PosixCompat.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\Secret.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -96,6 +99,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Poll.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\PosixCompat.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Resource.h">

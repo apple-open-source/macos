@@ -64,6 +64,15 @@ public:
 
     bool alwaysOnLoggingAllowed() const;
 
+    enum class ConfigurationTaskFlags : uint8_t {
+        InitialConfiguration = 1 << 0,
+        TargetClientsConfiguration = 1 << 1,
+        TargetMonitoringConfiguration = 1 << 2,
+        WatchdogTimerConfiguration = 1 << 3,
+    };
+    using ConfigurationTasks = OptionSet<ConfigurationTaskFlags>;
+    String toString(ConfigurationTasks);
+
 protected:
     WebMediaSessionManager();
     virtual ~WebMediaSessionManager();
@@ -88,16 +97,6 @@ private:
     void configurePlaybackTargetMonitoring();
     void configureWatchdogTimer();
 
-    enum ConfigurationTaskFlags {
-        NoTask = 0,
-        InitialConfigurationTask = 1 << 0,
-        TargetClientsConfigurationTask = 1 << 1,
-        TargetMonitoringConfigurationTask = 1 << 2,
-        WatchdogTimerConfigurationTask = 1 << 3,
-    };
-    typedef unsigned ConfigurationTasks;
-    String toString(ConfigurationTasks);
-
     void scheduleDelayedTask(ConfigurationTasks);
     void taskTimerFired();
 
@@ -111,7 +110,7 @@ private:
     Vector<std::unique_ptr<ClientState>> m_clientState;
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     std::unique_ptr<WebCore::MediaPlaybackTargetPickerMock> m_pickerOverride;
-    ConfigurationTasks m_taskFlags { NoTask };
+    ConfigurationTasks m_taskFlags;
     std::unique_ptr<WebMediaSessionLogger> m_logger;
     Seconds m_currentWatchdogInterval;
     bool m_externalOutputDeviceAvailable { false };
@@ -130,6 +129,16 @@ template<typename> struct LogArgument;
 
 template<> struct LogArgument<WebCore::MediaProducerMediaStateFlags> {
     static String toString(WebCore::MediaProducerMediaStateFlags flags) { return WebCore::mediaProducerStateString(flags); }
+};
+
+template<> struct EnumTraits<WebCore::WebMediaSessionManager::ConfigurationTaskFlags> {
+    using values = EnumValues<
+        WebCore::WebMediaSessionManager::ConfigurationTaskFlags,
+        WebCore::WebMediaSessionManager::ConfigurationTaskFlags::InitialConfiguration,
+        WebCore::WebMediaSessionManager::ConfigurationTaskFlags::TargetClientsConfiguration,
+        WebCore::WebMediaSessionManager::ConfigurationTaskFlags::TargetMonitoringConfiguration,
+        WebCore::WebMediaSessionManager::ConfigurationTaskFlags::WatchdogTimerConfiguration
+    >;
 };
 
 } // namespace WTF

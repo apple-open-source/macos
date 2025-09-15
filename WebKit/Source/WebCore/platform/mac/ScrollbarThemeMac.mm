@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,7 @@
 
 namespace WebCore {
 
-using ScrollbarSet = UncheckedKeyHashSet<SingleThreadWeakRef<Scrollbar>>;
+using ScrollbarSet = HashSet<SingleThreadWeakRef<Scrollbar>>;
 
 static ScrollbarSet& scrollbarMap()
 {
@@ -89,7 +89,7 @@ using WebCore::ScrollbarSet;
     if (theme.isMockTheme())
         return;
 
-    static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
+    downcast<ScrollbarThemeMac>(theme).preferencesChanged();
 
     for (auto& scrollbar : scrollbarMap()) {
         scrollbar->styleChanged();
@@ -105,7 +105,7 @@ using WebCore::ScrollbarSet;
     if (theme.isMockTheme())
         return;
 
-    static_cast<ScrollbarThemeMac&>(theme).preferencesChanged();
+    downcast<ScrollbarThemeMac>(theme).preferencesChanged();
 }
 
 + (void)registerAsObserver
@@ -247,13 +247,13 @@ void ScrollbarThemeMac::updateScrollbarOverlayStyle(Scrollbar& scrollbar)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     NSScrollerImp *painter = scrollerImpForScrollbar(scrollbar);
     switch (scrollbar.scrollableArea().scrollbarOverlayStyle()) {
-    case ScrollbarOverlayStyleDefault:
+    case ScrollbarOverlayStyle::Default:
         [painter setKnobStyle:NSScrollerKnobStyleDefault];
         break;
-    case ScrollbarOverlayStyleDark:
+    case ScrollbarOverlayStyle::Dark:
         [painter setKnobStyle:NSScrollerKnobStyleDark];
         break;
-    case ScrollbarOverlayStyleLight:
+    case ScrollbarOverlayStyle::Light:
         [painter setKnobStyle:NSScrollerKnobStyleLight];
         break;
     }
@@ -550,12 +550,14 @@ bool ScrollbarThemeMac::paint(Scrollbar& scrollbar, GraphicsContext& context, co
         context.translate(scrollbarRect.location());
         paintScrollbar(scrollbar, context);
     } else {
-        auto imageBuffer = [&] {
-            auto buffer = context.createImageBuffer(scrollbarRect.size(), scrollbar.deviceScaleFactor(), DestinationColorSpace::SRGB(), context.renderingMode(), RenderingMethod::Local);
-            paintScrollbar(scrollbar, buffer->context());
-            return buffer;
-        }();
-        context.drawImageBuffer(*imageBuffer, scrollbarRect);
+        if (auto imageBuffer = [&] -> RefPtr<ImageBuffer> {
+            if (auto buffer = context.createImageBuffer(scrollbarRect.size(), scrollbar.deviceScaleFactor(), DestinationColorSpace::SRGB(), context.renderingMode(), RenderingMethod::Local)) {
+                paintScrollbar(scrollbar, buffer->context());
+                return buffer;
+            }
+            return nullptr;
+        }())
+            context.drawImageBuffer(*imageBuffer, scrollbarRect);
     }
 
     return true;
@@ -565,6 +567,13 @@ void ScrollbarThemeMac::paintScrollCorner(ScrollableArea& area, GraphicsContext&
 {
     if (context.paintingDisabled())
         return;
+
+#if ENABLE(FORM_CONTROL_REFRESH)
+    // The scrollbar tracks will be pill shaped, so they cannot be visually
+    // contiguous with the corner. Paint nothing.
+    if (area.formControlRefreshEnabled())
+        return;
+#endif
 
     // Keep this in sync with ScrollAnimatorMac's effectiveAppearanceForScrollerImp:.
     LocalDefaultSystemAppearance localAppearance(area.useDarkAppearanceForScrollbars());

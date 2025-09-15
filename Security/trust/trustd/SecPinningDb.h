@@ -32,7 +32,7 @@
 #define _SECURITY_SECPINNINGDB_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <utilities/SecDb.h>
+#include "utilities/SecDb.h"
 
 __BEGIN_DECLS
 

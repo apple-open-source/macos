@@ -71,7 +71,9 @@ public class Certificate {
             if ret != 0 {
                 throw SwiftCertificateError.noEmailAddressInCertificate
             }
-            let emailSw = emailAddCF as! [String]
+            guard let emailSw = emailAddCF as? [String] else {
+                fatalError("Certificate email addresses not coercible")
+            }
             return emailSw
         }
     }

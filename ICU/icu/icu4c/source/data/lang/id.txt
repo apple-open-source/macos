@@ -141,6 +141,7 @@ id{
         crs{"Seselwa Kreol Prancis"}
         cs{"Ceko"}
         csb{"Kashubia"}
+        cst{"Chochenyo"}
         csw{"Cree Rawa"}
         cu{"Bahasa Gereja Slavonia"}
         cv{"Chuvash"}
@@ -228,6 +229,7 @@ id{
         hai{"Haida"}
         haw{"Hawaii"}
         hax{"Haida Selatan"}
+        hch{"Wixárika"}
         he{"Ibrani"}
         hi{"Hindi"}
         hif{"Hindi Fiji"}
@@ -256,6 +258,7 @@ id{
         inh{"Ingushetia"}
         io{"Ido"}
         is{"Islandia"}
+        isc{"Iskonawa"}
         it{"Italia"}
         iu{"Inuktitut"}
         ja{"Jepang"}
@@ -497,6 +500,7 @@ id{
         sh{"Serbo-Kroasia"}
         shi{"Tachelhit"}
         shn{"Shan"}
+        shp{"Shipibo-Konibo"}
         shu{"Arab Suwa"}
         si{"Sinhala"}
         sid{"Sidamo"}
@@ -846,13 +850,15 @@ id{
     }
     Types{
         calendar{
+            bangla{"Kalender Bangla"}
             buddhist{"Kalender Buddha"}
             chinese{"Kalender Tionghoa"}
             coptic{"Kalender Koptik"}
-            dangi{"Kalender Dangi"}
+            dangi{"Kalender Korea"}
             ethiopic{"Kalender Etiopia"}
             ethiopic-amete-alem{"Kalender Amete Alem Etiopia"}
             gregorian{"Kalender Gregorian"}
+            gujarati{"Kalender Gujarat"}
             hebrew{"Kalender Ibrani"}
             indian{"Kalender Nasional India"}
             islamic{"Kalender Hijriah"}
@@ -862,8 +868,16 @@ id{
             islamic-umalqura{"Kalender Hijriah (Umm al-Qura)"}
             iso8601{"Kalender ISO-8601"}
             japanese{"Kalender Jepang"}
+            kannada{"Kalender Kannada"}
+            malayalam{"Kalender Malayalam"}
+            marathi{"Kalender Marathi"}
+            odia{"Kalender Odia"}
             persian{"Kalender Persia"}
             roc{"Kalender Min-guo"}
+            tamil{"Kalender Tamil"}
+            telugu{"Kalender Telugu"}
+            vietnamese{"Kalender Vietnam"}
+            vikram{"Kalender Vikram"}
         }
         cf{
             account{"Format Mata Uang Akuntansi"}

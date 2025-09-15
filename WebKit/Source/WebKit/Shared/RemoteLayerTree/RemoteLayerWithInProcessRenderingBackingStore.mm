@@ -61,15 +61,14 @@ bool RemoteLayerWithInProcessRenderingBackingStore::hasFrontBuffer() const
 
 bool RemoteLayerWithInProcessRenderingBackingStore::frontBufferMayBeVolatile() const
 {
-    if (!m_bufferSet.m_frontBuffer)
-        return false;
-    return m_bufferSet.m_frontBuffer->volatilityState() == WebCore::VolatilityState::Volatile;
+    RefPtr frontBuffer = m_bufferSet.m_frontBuffer;
+    return frontBuffer && frontBuffer->volatilityState() == WebCore::VolatilityState::Volatile;
 }
 
 void RemoteLayerWithInProcessRenderingBackingStore::clearBackingStore()
 {
     m_bufferSet.clearBuffers();
-    m_contentsBufferHandle = std::nullopt;
+    RemoteLayerBackingStore::clearBackingStore();
 }
 
 static std::optional<ImageBufferBackendHandle> handleFromBuffer(ImageBuffer& buffer)
@@ -86,8 +85,10 @@ std::optional<ImageBufferBackendHandle> RemoteLayerWithInProcessRenderingBacking
 }
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-std::optional<ImageBufferBackendHandle> RemoteLayerWithInProcessRenderingBackingStore::displayListHandle() const
+std::optional<DynamicContentScalingDisplayList> RemoteLayerWithInProcessRenderingBackingStore::displayListHandle() const
 {
+    if (auto list = m_layer->owner()->platformCALayerDynamicContentScalingDisplayList(m_layer.ptr()))
+        return list;
     if (RefPtr frontBuffer = m_bufferSet.m_frontBuffer)
         return frontBuffer->dynamicContentScalingDisplayList();
     return std::nullopt;
@@ -103,17 +104,18 @@ DynamicContentScalingResourceCache RemoteLayerWithInProcessRenderingBackingStore
 
 void RemoteLayerWithInProcessRenderingBackingStore::createContextAndPaintContents()
 {
-    if (!m_bufferSet.m_frontBuffer) {
+    RefPtr frontBuffer = m_bufferSet.m_frontBuffer;
+    if (!frontBuffer) {
         ASSERT(m_layer->owner()->platformCALayerDelegatesDisplay(m_layer.ptr()));
         return;
     }
 
-    GraphicsContext& context = m_bufferSet.m_frontBuffer->context();
+    GraphicsContext& context = frontBuffer->context();
     GraphicsContextStateSaver outerSaver(context);
     WebCore::FloatRect layerBounds { { }, m_parameters.size };
 
     m_bufferSet.prepareBufferForDisplay(layerBounds, m_dirtyRegion, m_paintingRects, drawingRequiresClearedPixels());
-    drawInContext(m_bufferSet.m_frontBuffer->context());
+    drawInContext(frontBuffer->context());
 }
 
 class ImageBufferBackingStoreFlusher final : public ThreadSafeImageBufferSetFlusher {
@@ -143,8 +145,9 @@ std::unique_ptr<ThreadSafeImageBufferSetFlusher> RemoteLayerWithInProcessRenderi
 {
     if (flushType == ThreadSafeImageBufferSetFlusher::FlushType::BackendHandlesOnly)
         return nullptr;
-    m_bufferSet.m_frontBuffer->flushDrawingContextAsync();
-    return ImageBufferBackingStoreFlusher::create(m_bufferSet.m_frontBuffer->createFlusher());
+    RefPtr frontBuffer = m_bufferSet.m_frontBuffer;
+    frontBuffer->flushDrawingContextAsync();
+    return ImageBufferBackingStoreFlusher::create(frontBuffer->createFlusher());
 }
 
 bool RemoteLayerWithInProcessRenderingBackingStore::setBufferVolatile(RefPtr<WebCore::ImageBuffer>& buffer, bool forcePurge)
@@ -162,13 +165,14 @@ bool RemoteLayerWithInProcessRenderingBackingStore::setBufferVolatile(RefPtr<Web
 
 SetNonVolatileResult RemoteLayerWithInProcessRenderingBackingStore::setBufferNonVolatile(Buffer& buffer)
 {
-    if (!buffer.imageBuffer)
+    RefPtr imageBuffer = buffer.imageBuffer;
+    if (!imageBuffer)
         return SetNonVolatileResult::Valid; // Not really valid but the caller only checked the Empty state.
 
-    if (buffer.imageBuffer->volatilityState() == VolatilityState::NonVolatile)
+    if (imageBuffer->volatilityState() == VolatilityState::NonVolatile)
         return SetNonVolatileResult::Valid;
 
-    return buffer.imageBuffer->setNonVolatile();
+    return imageBuffer->setNonVolatile();
 }
 
 bool RemoteLayerWithInProcessRenderingBackingStore::setBufferVolatile(BufferType bufferType, bool forcePurge)
@@ -189,30 +193,29 @@ bool RemoteLayerWithInProcessRenderingBackingStore::setBufferVolatile(BufferType
 }
 
 template<typename ImageBufferType>
-static RefPtr<ImageBuffer> allocateBufferInternal(RemoteLayerBackingStore::Type type, const WebCore::FloatSize& logicalSize, WebCore::RenderingPurpose purpose, float resolutionScale, const WebCore::DestinationColorSpace& colorSpace, WebCore::ImageBufferPixelFormat pixelFormat, WebCore::ImageBufferCreationContext& creationContext)
+static RefPtr<ImageBuffer> allocateBufferInternal(RemoteLayerBackingStore::Type type, const WebCore::FloatSize& logicalSize, WebCore::RenderingPurpose purpose, float resolutionScale, const WebCore::DestinationColorSpace& colorSpace, WebCore::ImageBufferFormat bufferFormat, WebCore::ImageBufferCreationContext& creationContext)
 {
     switch (type) {
     case RemoteLayerBackingStore::Type::IOSurface:
-        return WebCore::ImageBuffer::create<ImageBufferShareableMappedIOSurfaceBackend, ImageBufferType>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, creationContext);
+        return WebCore::ImageBuffer::create<ImageBufferShareableMappedIOSurfaceBackend, ImageBufferType>(logicalSize, resolutionScale, colorSpace, bufferFormat, purpose, creationContext);
     case RemoteLayerBackingStore::Type::Bitmap:
-        return WebCore::ImageBuffer::create<ImageBufferShareableBitmapBackend, ImageBufferType>(logicalSize, resolutionScale, colorSpace, pixelFormat, purpose, creationContext);
+        return WebCore::ImageBuffer::create<ImageBufferShareableBitmapBackend, ImageBufferType>(logicalSize, resolutionScale, colorSpace, bufferFormat, purpose, creationContext);
     }
 }
 
 RefPtr<WebCore::ImageBuffer> RemoteLayerWithInProcessRenderingBackingStore::allocateBuffer()
 {
-    auto purpose = m_layer->containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
     ImageBufferCreationContext creationContext;
-    creationContext.surfacePool = &WebCore::IOSurfacePool::sharedPoolSingleton();
+    creationContext.surfacePool = WebCore::IOSurfacePool::sharedPoolSingleton();
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    if (m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
+    if (m_parameters.includeDisplayList == WebCore::IncludeDynamicContentScalingDisplayList::Yes) {
         creationContext.dynamicContentScalingResourceCache = ensureDynamicContentScalingResourceCache();
-        return allocateBufferInternal<DynamicContentScalingBifurcatedImageBuffer>(type(), size(), purpose, scale(), colorSpace(), pixelFormat(), creationContext);
+        return allocateBufferInternal<DynamicContentScalingBifurcatedImageBuffer>(type(), size(), RenderingPurpose::LayerBacking, scale(), colorSpace(), { pixelFormat(), UseLosslessCompression::No }, creationContext);
     }
 #endif
 
-    return allocateBufferInternal<ImageBuffer>(type(), size(), purpose, scale(), colorSpace(), pixelFormat(), creationContext);
+    return allocateBufferInternal<ImageBuffer>(type(), size(), RenderingPurpose::LayerBacking, scale(), colorSpace(), { pixelFormat(), UseLosslessCompression::No }, creationContext);
 }
 
 void RemoteLayerWithInProcessRenderingBackingStore::ensureFrontBuffer()
@@ -235,9 +238,6 @@ void RemoteLayerWithInProcessRenderingBackingStore::prepareToDisplay()
     }
 
     LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
-
-    if (performDelegatedLayerDisplay())
-        return;
 
     m_contentsBufferHandle = std::nullopt;
     auto displayRequirement = m_bufferSet.swapBuffersForDisplay(hasEmptyDirtyRegion(), supportsPartialRepaint());
@@ -269,10 +269,10 @@ void RemoteLayerWithInProcessRenderingBackingStore::encodeBufferAndBackendInfos(
 
 void RemoteLayerWithInProcessRenderingBackingStore::dump(WTF::TextStream& ts) const
 {
-    ts.dumpProperty("front buffer", m_bufferSet.m_frontBuffer);
-    ts.dumpProperty("back buffer", m_bufferSet.m_backBuffer);
-    ts.dumpProperty("secondaryBack buffer", m_bufferSet.m_secondaryBackBuffer);
-    ts.dumpProperty("is opaque", isOpaque());
+    ts.dumpProperty("front buffer"_s, m_bufferSet.m_frontBuffer);
+    ts.dumpProperty("back buffer"_s, m_bufferSet.m_backBuffer);
+    ts.dumpProperty("secondaryBack buffer"_s, m_bufferSet.m_secondaryBackBuffer);
+    ts.dumpProperty("is opaque"_s, isOpaque());
 }
 
 } // namespace WebKit

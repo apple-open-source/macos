@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +55,7 @@ public:
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
 
     void setSpatialVideoMetadata(const std::optional<SpatialVideoMetadata>&) { }
+    void setVideoProjectionMetadata(const std::optional<VideoProjectionMetadata>&) { }
     void setVideoPresentationModel(VideoPresentationModel* model) { m_videoPresentationModel = model; }
     void setupFullscreen(const FloatRect&, const FloatSize&, UIView*, HTMLMediaElementEnums::VideoFullscreenMode, bool, bool, bool) { }
     void enterFullscreen() { }
@@ -102,7 +103,7 @@ private:
     void incrementCheckedPtrCount() const final { CanMakeCheckedPtr::incrementCheckedPtrCount(); }
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
 
-    Ref<NullPlaybackSessionInterface> m_playbackSessionInterface;
+    const Ref<NullPlaybackSessionInterface> m_playbackSessionInterface;
     ThreadSafeWeakPtr<VideoPresentationModel> m_videoPresentationModel;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -142,6 +142,12 @@
 	sizeof (uint32_t))
 #define	ADVANCE(x, n) (x += ROUNDUP((n)->sa_len))
 
+#define NDDRFBITS \
+	"\020\1INSTALLED\2IFSCOPE\3STATIC\4MAPPED\5INELIGIBLE\6LOCAL"
+
+#define NDRABITS \
+	"\020\3PROXY\4RTPREF_HIGH\5RTPREF_LOW\6HA\7OTHER\10MANAGED"
+
 static int pid;
 static int cflag;
 static int nflag;
@@ -169,7 +175,7 @@ static void ifinfo(int, char **);
 static void rtrlist(void);
 static void plist(void);
 static void pfx_flush(void);
-static void rtrlist(void);
+static void rtilist(void);
 static void rtr_flush(void);
 static void harmonize_rtr(void);
 static void getdefif(void);
@@ -179,6 +185,7 @@ static char *ether_str(struct sockaddr_dl *);
 static void ts_print(const struct timeval *);
 static void read_cga_parameters(void);
 static void write_cga_parameters(const char[]);
+static void printb(const char *s, unsigned v, const char *bits);
 
 static char *rtpref_str[] = {
 	"medium",		/* 00 */
@@ -192,10 +199,10 @@ main(int argc, char **argv)
 {
 	int ch;
 	int aflag = 0, dflag = 0, sflag = 0, Hflag = 0, pflag = 0, rflag = 0,
-	    Pflag = 0, Rflag = 0, lflag = 0, xflag = 0, wflag = 0;
+	    Pflag = 0, Rflag = 0, lflag = 0, xflag = 0, wflag = 0, zflag = 0;
 
 	pid = getpid();
-	while ((ch = getopt(argc, argv, "acndfIilprstA:HPRxwW")) != -1)
+	while ((ch = getopt(argc, argv, "acndfIilprstA:HPRxwWz")) != -1)
 		switch ((char) ch) {
 		case 'a':
 			aflag = 1;
@@ -268,6 +275,9 @@ main(int argc, char **argv)
 				usage();
 			write_cga_parameters(argv[2]);
 			exit(0);
+		case 'z':
+			zflag = 1;
+			break;
 		default:
 			usage();
 		}
@@ -315,6 +325,10 @@ main(int argc, char **argv)
 	}
 	if (wflag) {
 		read_cga_parameters();
+		exit(0);
+	}
+	if (zflag) {
+		rtilist();
 		exit(0);
 	}
 
@@ -686,7 +700,7 @@ again:;
 		printf("%-*.*s %-*.*s %*.*s", addrwidth, addrwidth, host_buf,
 		    llwidth, llwidth, ether_str(sdl), ifwidth, ifwidth, ifname);
 
-		/* Print neighbor discovery specific informations */
+		/* Print neighbor discovery specific information */
 		nbi = getnbrinfo(&sin->sin6_addr, sdl->sdl_index, 1);
 		if (nbi) {
 			if (nbi->expire > time.tv_sec) {
@@ -902,7 +916,7 @@ again:;
 		else
 			printf(" %-9.9s", "expired");
 
-		/* Print neighbor discovery specific informations */
+		/* Print neighbor discovery specific information */
 		nbi = getnbrinfo(&sin->sin6_addr, sdl->sdl_index, 1);
 		if (nbi) {
 			switch (nbi->state) {
@@ -1083,22 +1097,22 @@ static void
 usage(void)
 {
 	printf("usage: ndp hostname\n");
-	printf("       ndp -a[lnt]\n");
-	printf("       ndp [-nt] -A wait\n");
+	printf("       ndp -a[lntx]\n");
+	printf("       ndp -A wait [-nt]\n");
 	printf("       ndp -c[nt]\n");
 	printf("       ndp -d[nt] hostname\n");
 	printf("       ndp -f[nt] filename\n");
-	printf("       ndp -i interface [flags...]\n");
-	printf("       ndp -I [interface|delete]\n");
-	printf("       ndp -p\n");
-	printf("       ndp -r\n");
-	printf("       ndp -s hostname ether_addr [temp] [proxy]\n");
 	printf("       ndp -H\n");
+	printf("       ndp -i interface [flags...]\n");
+	printf("       ndp -I [interface | delete]\n");
+	printf("       ndp -p\n");
 	printf("       ndp -P\n");
+	printf("       ndp -r\n");
 	printf("       ndp -R\n");
+	printf("       ndp -s hostname ether_addr [temp] [proxy]\n");
 	printf("       ndp -w\n");
 	printf("       ndp -W cfgfile\n");
-	printf("       ndp -x\n");
+	printf("       ndp -z[n]\n");
 	exit(1);
 }
 
@@ -1269,10 +1283,6 @@ ifinfo(int argc, char **argv)
 	close(s);
 }
 
-#ifndef ND_RA_FLAG_RTPREF_MASK	/* XXX: just for compilation on *BSD release */
-#define	ND_RA_FLAG_RTPREF_MASK	0x18 /* 00011000 */
-#endif
-
 static void
 rtrlist(void)
 {
@@ -1326,6 +1336,87 @@ rtrlist(void)
 	}
 	free(buf);
 }
+
+#ifdef ICMPV6CTL_ND6_RTILIST
+static void
+rtilist(void)
+{
+	int mib[] = { CTL_NET, PF_INET6, IPPROTO_ICMPV6, ICMPV6CTL_ND6_RTILIST };
+	char *buf;
+	struct in6_route_info *p, *ep, *n;
+	struct in6_defrouter *dr;
+	size_t l;
+	struct timeval time;
+
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), NULL, &l, NULL, 0)
+			< 0) {
+		err(1, "sysctl(ICMPV6CTL_ND6_RTILIST)");
+		/*NOTREACHED*/
+	}
+	buf = malloc(l);
+	if (!buf) {
+		errx(1, "not enough core");
+		/*NOTREACHED*/
+	}
+	if (sysctl(mib, sizeof (mib) / sizeof (mib[0]), buf, &l, NULL, 0)
+			< 0) {
+		err(1, "sysctl(ICMPV6CTL_ND6_RTILIST)");
+		/*NOTREACHED*/
+	}
+
+	ep = (struct in6_route_info *)(buf + l);
+	for (p = (struct in6_route_info *)buf; p < ep; p = n) {
+
+		dr = (struct in6_defrouter *)(p + 1);
+		n = (struct in6_route_info *)&dr[p->defrtrs];
+
+		inet_ntop(AF_INET6, &p->prefix, host_buf, sizeof(host_buf));
+		printf("prefix: %s/%d\n", host_buf, p->prefixlen);
+
+		if (p->defrtrs) {
+			int j;
+			struct in6_defrouter *x;
+
+			x = (struct in6_defrouter *)(p + 1);
+			printf("  routers:\n");
+			for (j = 0; j < p->defrtrs; j++) {
+				int rtpref;
+
+				if (getnameinfo((struct sockaddr *)&x->rtaddr,
+								x->rtaddr.sin6_len, host_buf, sizeof(host_buf), NULL, 0,
+								NI_WITHSCOPEID | (nflag ? NI_NUMERICHOST : 0)) != 0) {
+					strlcpy(host_buf, "?", sizeof (host_buf));
+				}
+
+				printf("    %s if=%s", host_buf, if_indextoname(x->if_index, ifix_buf));
+
+				rtpref = ((x->flags & ND_RA_FLAG_RTPREF_MASK) >> 3) & 0xff;
+				printf(", pref=%s", rtpref_str[rtpref]);
+
+				gettimeofday(&time, 0);
+				printf(", expires=%s\n", x->expire == 0 ? "Never" : sec2str(x->expire - time.tv_sec));
+
+				if (x->flags || x->stateflags) {
+					printf("        ");
+					if (x->flags) {
+						printb("flags", x->flags, NDRABITS);
+						printf(" ");
+					}
+					if (x->stateflags) {
+						printb("stateflags", x->stateflags, NDDRFBITS);
+					}
+					printf("\n");
+				}
+
+				x++;
+
+			}
+
+		}
+	}
+	free(buf);
+}
+#endif
 
 static void
 plist(void)
@@ -1417,8 +1508,7 @@ plist(void)
 					strlcpy(namebuf, "?", sizeof (namebuf));
 				printf("    %s", namebuf);
 
-				nbi = getnbrinfo(&sin6->sin6_addr, p->if_index,
-				    0);
+				nbi = getnbrinfo(&sin6->sin6_addr, p->if_index, 0);
 				if (nbi) {
 					switch (nbi->state) {
 					case ND6_LLINFO_REACHABLE:
@@ -1430,12 +1520,14 @@ plist(void)
 					default:
 						printf(" (unreachable)\n");
 					}
-				} else
+				} else {
 					printf(" (no neighbor state)\n");
+				}
 				sin6++;
 			}
-		} else
+		} else {
 			printf("  No advertising router\n");
+		}
 	}
 	free(buf);
 }
@@ -1676,7 +1768,7 @@ write_cga_parameters(const char filename[])
 	fp = fopen(filename, "r");
 	if (fp == NULL)
 		err(1, "opening '%s' for reading.", filename);
-	
+
 	newn = fread(newb, 1, sizeof (newb), fp);
 	if (feof(fp) == 0)
 		err(1, "parameters too large");
@@ -1689,4 +1781,35 @@ write_cga_parameters(const char filename[])
 	    newn);
 	if (error != 0)
 		err(1, "sysctlbyname");
+}
+
+/*
+ * Print a value a la the %b format of the kernel's printf
+ */
+static void
+printb(const char *s, unsigned v, const char *bits)
+{
+	int i, any = 0;
+	char c;
+
+	if (bits && *bits == 8)
+		printf("%s=%o", s, v);
+	else
+		printf("%s=%x", s, v);
+	bits++;
+	if (bits) {
+		putchar('<');
+		while ((i = *bits++) != '\0') {
+			if (v & (1 << (i-1))) {
+				if (any)
+					putchar(',');
+				any = 1;
+				for (; (c = *bits) > 32; bits++)
+					putchar(c);
+			} else
+				for (; *bits > 32; bits++)
+					;
+		}
+		putchar('>');
+	}
 }

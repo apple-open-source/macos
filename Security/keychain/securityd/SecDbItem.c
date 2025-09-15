@@ -1815,9 +1815,7 @@ static CFStringRef SecDbItemCopyUpdateSQL(SecDbItemRef old_item, SecDbItemRef ne
     CFStringAppend(sql, new_item->class->name);
     CFStringAppend(sql, CFSTR(" SET "));
     bool needComma = false;
-    CFIndex used_attr = 0;
     SecDbForEachAttrWithMask(new_item->class, attr, kSecDbInFlag) {
-        ++used_attr;
         SecDbAppendElementEquals(sql, attr->name, &needComma);
     }
 

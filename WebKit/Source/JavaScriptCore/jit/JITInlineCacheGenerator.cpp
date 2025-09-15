@@ -43,7 +43,7 @@ namespace JSC {
 JITInlineCacheGenerator::JITInlineCacheGenerator(CodeBlock*, CompileTimeStructureStubInfo stubInfo, JITType, CodeOrigin, AccessType accessType)
     : m_accessType(accessType)
 {
-    std::visit(WTF::makeVisitor(
+    WTF::visit(WTF::makeVisitor(
         [&](StructureStubInfo* stubInfo) {
             m_stubInfo = stubInfo;
         },
@@ -120,7 +120,7 @@ JITGetByIdGenerator::JITGetByIdGenerator(
     , m_cacheType(cacheType)
 {
     RELEASE_ASSERT(base.payloadGPR() != value.tagGPR());
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, cacheType, codeOrigin, callSite, usedRegisters, propertyName, base, value, stubInfoGPR);
     }, stubInfo);
 }
@@ -201,7 +201,7 @@ JITGetByIdWithThisGenerator::JITGetByIdWithThisGenerator(
     : JITByIdGenerator(codeBlock, stubInfo, jitType, codeOrigin, AccessType::GetByIdWithThis, base, value)
 {
     RELEASE_ASSERT(thisRegs.payloadGPR() != thisRegs.tagGPR());
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, AccessType::GetByIdWithThis, CacheType::GetByIdSelf, codeOrigin, callSite, usedRegisters, propertyName, value, base, thisRegs, stubInfoGPR);
     }, stubInfo);
 }
@@ -233,7 +233,7 @@ JITPutByIdGenerator::JITPutByIdGenerator(
     AccessType accessType)
         : JITByIdGenerator(codeBlock, stubInfo, jitType, codeOrigin, accessType, base, value)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::PutByIdReplace, codeOrigin, callSite, usedRegisters, propertyName, base, value, stubInfoGPR, scratch);
     }, stubInfo);
 }
@@ -280,7 +280,7 @@ void JITPutByIdGenerator::generateFastPath(CCallHelpers& jit)
 JITDelByValGenerator::JITDelByValGenerator(CodeBlock* codeBlock, CompileTimeStructureStubInfo stubInfo, JITType jitType, CodeOrigin codeOrigin, CallSiteIndex callSiteIndex, AccessType accessType, const RegisterSetBuilder& usedRegisters, JSValueRegs base, JSValueRegs property, JSValueRegs result, GPRReg stubInfoGPR)
     : Base(codeBlock, stubInfo, jitType, codeOrigin, accessType)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, property, result, stubInfoGPR);
     }, stubInfo);
 }
@@ -310,7 +310,7 @@ void JITDelByValGenerator::finalize(LinkBuffer& fastPath, LinkBuffer& slowPath)
 JITDelByIdGenerator::JITDelByIdGenerator(CodeBlock* codeBlock, CompileTimeStructureStubInfo stubInfo, JITType jitType, CodeOrigin codeOrigin, CallSiteIndex callSiteIndex, AccessType accessType, const RegisterSetBuilder& usedRegisters, CacheableIdentifier propertyName, JSValueRegs base, JSValueRegs result, GPRReg stubInfoGPR)
     : Base(codeBlock, stubInfo, jitType, codeOrigin, accessType)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, propertyName, base, result, stubInfoGPR);
     }, stubInfo);
 }
@@ -340,7 +340,7 @@ void JITDelByIdGenerator::finalize(LinkBuffer& fastPath, LinkBuffer& slowPath)
 JITInByValGenerator::JITInByValGenerator(CodeBlock* codeBlock, CompileTimeStructureStubInfo stubInfo, JITType jitType, CodeOrigin codeOrigin, CallSiteIndex callSiteIndex, AccessType accessType, const RegisterSetBuilder& usedRegisters, JSValueRegs base, JSValueRegs property, JSValueRegs result, GPRReg arrayProfileGPR, GPRReg stubInfoGPR)
     : Base(codeBlock, stubInfo, jitType, codeOrigin, accessType)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, property, result, arrayProfileGPR, stubInfoGPR);
     }, stubInfo);
 }
@@ -375,7 +375,7 @@ JITInByIdGenerator::JITInByIdGenerator(
     : JITByIdGenerator(codeBlock, stubInfo, jitType, codeOrigin, AccessType::InById, base, value)
 {
     RELEASE_ASSERT(base.payloadGPR() != value.tagGPR());
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, AccessType::InById, CacheType::InByIdSelf, codeOrigin, callSite, usedRegisters, propertyName, base, value, stubInfoGPR);
     }, stubInfo);
 }
@@ -422,7 +422,7 @@ JITInstanceOfGenerator::JITInstanceOfGenerator(
     bool prototypeIsKnownObject)
     : JITInlineCacheGenerator(codeBlock, stubInfo, jitType, codeOrigin, AccessType::InstanceOf)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, AccessType::InstanceOf, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, result, value, prototype, stubInfoGPR, prototypeIsKnownObject);
     }, stubInfo);
 }
@@ -454,7 +454,7 @@ JITGetByValGenerator::JITGetByValGenerator(CodeBlock* codeBlock, CompileTimeStru
     , m_base(base)
     , m_result(result)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, property, result, arrayProfileGPR, stubInfoGPR);
     }, stubInfo);
 }
@@ -492,7 +492,7 @@ JITGetByValWithThisGenerator::JITGetByValWithThisGenerator(CodeBlock* codeBlock,
     , m_base(base)
     , m_result(result)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, property, thisRegs, result, arrayProfileGPR, stubInfoGPR);
     }, stubInfo);
 }
@@ -532,7 +532,7 @@ JITPutByValGenerator::JITPutByValGenerator(CodeBlock* codeBlock, CompileTimeStru
     , m_base(base)
     , m_value(value)
 {
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, property, value, arrayProfileGPR, stubInfoGPR);
     }, stubInfo);
 }
@@ -563,7 +563,7 @@ JITPrivateBrandAccessGenerator::JITPrivateBrandAccessGenerator(CodeBlock* codeBl
     : Base(codeBlock, stubInfo, jitType, codeOrigin, accessType)
 {
     ASSERT(accessType == AccessType::CheckPrivateBrand || accessType == AccessType::SetPrivateBrand);
-    std::visit([&](auto* stubInfo) {
+    WTF::visit([&](auto* stubInfo) {
         setUpStubInfo(*stubInfo, codeBlock, accessType, CacheType::Unset, codeOrigin, callSiteIndex, usedRegisters, base, brand, stubInfoGPR);
     }, stubInfo);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,13 +72,14 @@
 #import "WebViewInternal.h"
 #import <JavaScriptCore/InitializeThreading.h>
 #import <QuartzCore/QuartzCore.h>
-#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/CSSStyleProperties.h>
 #import <WebCore/CachedImage.h>
 #import <WebCore/CachedResourceClient.h>
 #import <WebCore/CachedResourceLoader.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/CompositionHighlight.h>
+#import <WebCore/ContainerNodeInlines.h>
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
 #import <WebCore/DeprecatedGlobalSettings.h>
@@ -106,6 +107,7 @@
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
+#import <WebCore/ImageAdapter.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LegacyWebArchive.h>
@@ -1221,7 +1223,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<NSAttributedString> attributedString;
     if ([types containsObject:WebCore::legacyRTFDPasteboardType()])
         attributedString = adoptNS([[NSAttributedString alloc] initWithRTFD:[pasteboard dataForType:WebCore::legacyRTFDPasteboardType()] documentAttributes:NULL]);
-    if (attributedString == nil && [types containsObject:WebCore::legacyRTFPasteboardType()])
+    if (!attributedString && [types containsObject:WebCore::legacyRTFPasteboardType()])
         attributedString = adoptNS([[NSAttributedString alloc] initWithRTF:[pasteboard dataForType:WebCore::legacyRTFPasteboardType()] documentAttributes:NULL]);
     if (attributedString)
         return adoptNS([[attributedString string] copy]).autorelease();
@@ -1355,7 +1357,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     // Put HTML on the pasteboard.
     if ([types containsObject:WebArchivePboardType]) {
-        if (auto coreArchive = WebCore::LegacyWebArchive::createFromSelection(core([self _frame]))) {
+        if (auto coreArchive = WebCore::LegacyWebArchive::createFromSelection(core([self _frame]), { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No })) {
             if (RetainPtr<CFDataRef> data = coreArchive ? coreArchive->rawDataRepresentation() : 0)
                 [pasteboard setData:(__bridge NSData *)data.get() forType:WebArchivePboardType];
         }
@@ -1501,9 +1503,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSEventTypeMouseMoved
         location:[[self window]
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        convertScreenToBase:[NSEvent mouseLocation]]
-ALLOW_DEPRECATED_DECLARATIONS_END
+        convertPointFromScreen:[NSEvent mouseLocation]]
         modifierFlags:[[NSApp currentEvent] modifierFlags]
         timestamp:[NSDate timeIntervalSinceReferenceDate]
         windowNumber:[[self window] windowNumber]
@@ -2082,9 +2082,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     NSEvent *fakeEvent = [NSEvent mouseEventWithType:NSEventTypeLeftMouseDragged
         location:[[self window]
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        convertScreenToBase:[NSEvent mouseLocation]]
-ALLOW_DEPRECATED_DECLARATIONS_END
+        convertPointFromScreen:[NSEvent mouseLocation]]
         modifierFlags:[[NSApp currentEvent] modifierFlags]
         timestamp:[NSDate timeIntervalSinceReferenceDate]
         windowNumber:[[self window] windowNumber]
@@ -2154,11 +2152,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (![self _hasSelection])
         return nil;
 
-    auto* coreFrame = core([self _frame]);
+    RefPtr coreFrame = core([self _frame]);
     if (!coreFrame)
         return nil;
-
-    Ref protectedCoreFrame(*coreFrame);
 
     WebCore::TextIndicatorData textIndicator;
     auto dragImage = createDragImageForSelection(*coreFrame, textIndicator);
@@ -2285,7 +2281,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     String filename = [imageMIMEType stringByReplacingOccurrencesOfString:@"/" withString:@"."];
     auto resource = adoptNS([[WebResource alloc] initWithData:[pasteboard dataForType:pasteboardType]
-        URL:URL::fakeURLWithRelativePart(filename) MIMEType:imageMIMEType textEncodingName:nil frameName:nil]);
+        URL:URL::fakeURLWithRelativePart(filename).createNSURL().get() MIMEType:imageMIMEType textEncodingName:nil frameName:nil]);
     return [[self _dataSource] _documentFragmentWithImageResource:resource.get()];
 }
 
@@ -3337,7 +3333,7 @@ IGNORE_WARNINGS_END
                 pageSize = WebCore::FloatSize(minPageLogicalHeight, minPageLogicalWidth);
                 originalPageSize = WebCore::FloatSize(originalPageHeight, originalPageWidth);
             }
-            coreView->forceLayoutForPagination(pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize ? WebCore::AdjustViewSize : WebCore::DoNotAdjustViewSize);
+            coreView->forceLayoutForPagination(pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize ? WebCore::AdjustViewSize::Yes : WebCore::AdjustViewSize::No);
         } else {
             coreView->forceLayout(!adjustViewSize);
             if (adjustViewSize)
@@ -3473,75 +3469,75 @@ static RetainPtr<NSArray> fixMenusReceivedFromOldClients(NSArray *delegateSuppli
         if (tag == WebMenuItemTagOther) {
             // Restore the specific tag for items on which we temporarily set WebMenuItemTagOther to match old behavior.
             NSString *title = [item title];
-            if ([title isEqualToString:contextMenuItemTagOpenLink()])
+            if ([title isEqualToString:contextMenuItemTagOpenLink().createNSString().get()])
                 modernTag = WebMenuItemTagOpenLink;
-            else if ([title isEqualToString:contextMenuItemTagIgnoreGrammar()])
+            else if ([title isEqualToString:contextMenuItemTagIgnoreGrammar().createNSString().get()])
                 modernTag = WebMenuItemTagIgnoreGrammar;
-            else if ([title isEqualToString:contextMenuItemTagSpellingMenu()])
+            else if ([title isEqualToString:contextMenuItemTagSpellingMenu().createNSString().get()])
                 modernTag = WebMenuItemTagSpellingMenu;
-            else if ([title isEqualToString:contextMenuItemTagShowSpellingPanel(true)] || [title isEqualToString:contextMenuItemTagShowSpellingPanel(false)])
+            else if ([title isEqualToString:contextMenuItemTagShowSpellingPanel(true).createNSString().get()] || [title isEqualToString:contextMenuItemTagShowSpellingPanel(false).createNSString().get()])
                 modernTag = WebMenuItemTagShowSpellingPanel;
-            else if ([title isEqualToString:contextMenuItemTagCheckSpelling()])
+            else if ([title isEqualToString:contextMenuItemTagCheckSpelling().createNSString().get()])
                 modernTag = WebMenuItemTagCheckSpelling;
-            else if ([title isEqualToString:contextMenuItemTagCheckSpellingWhileTyping()])
+            else if ([title isEqualToString:contextMenuItemTagCheckSpellingWhileTyping().createNSString().get()])
                 modernTag = WebMenuItemTagCheckSpellingWhileTyping;
-            else if ([title isEqualToString:contextMenuItemTagCheckGrammarWithSpelling()])
+            else if ([title isEqualToString:contextMenuItemTagCheckGrammarWithSpelling().createNSString().get()])
                 modernTag = WebMenuItemTagCheckGrammarWithSpelling;
-            else if ([title isEqualToString:contextMenuItemTagFontMenu()])
+            else if ([title isEqualToString:contextMenuItemTagFontMenu().createNSString().get()])
                 modernTag = WebMenuItemTagFontMenu;
-            else if ([title isEqualToString:contextMenuItemTagShowFonts()])
+            else if ([title isEqualToString:contextMenuItemTagShowFonts().createNSString().get()])
                 modernTag = WebMenuItemTagShowFonts;
-            else if ([title isEqualToString:contextMenuItemTagBold()])
+            else if ([title isEqualToString:contextMenuItemTagBold().createNSString().get()])
                 modernTag = WebMenuItemTagBold;
-            else if ([title isEqualToString:contextMenuItemTagItalic()])
+            else if ([title isEqualToString:contextMenuItemTagItalic().createNSString().get()])
                 modernTag = WebMenuItemTagItalic;
-            else if ([title isEqualToString:contextMenuItemTagUnderline()])
+            else if ([title isEqualToString:contextMenuItemTagUnderline().createNSString().get()])
                 modernTag = WebMenuItemTagUnderline;
-            else if ([title isEqualToString:contextMenuItemTagOutline()])
+            else if ([title isEqualToString:contextMenuItemTagOutline().createNSString().get()])
                 modernTag = WebMenuItemTagOutline;
-            else if ([title isEqualToString:contextMenuItemTagStyles()])
+            else if ([title isEqualToString:contextMenuItemTagStyles().createNSString().get()])
                 modernTag = WebMenuItemTagStyles;
-            else if ([title isEqualToString:contextMenuItemTagShowColors()])
+            else if ([title isEqualToString:contextMenuItemTagShowColors().createNSString().get()])
                 modernTag = WebMenuItemTagShowColors;
-            else if ([title isEqualToString:contextMenuItemTagSpeechMenu()])
+            else if ([title isEqualToString:contextMenuItemTagSpeechMenu().createNSString().get()])
                 modernTag = WebMenuItemTagSpeechMenu;
-            else if ([title isEqualToString:contextMenuItemTagStartSpeaking()])
+            else if ([title isEqualToString:contextMenuItemTagStartSpeaking().createNSString().get()])
                 modernTag = WebMenuItemTagStartSpeaking;
-            else if ([title isEqualToString:contextMenuItemTagStopSpeaking()])
+            else if ([title isEqualToString:contextMenuItemTagStopSpeaking().createNSString().get()])
                 modernTag = WebMenuItemTagStopSpeaking;
-            else if ([title isEqualToString:contextMenuItemTagWritingDirectionMenu()])
+            else if ([title isEqualToString:contextMenuItemTagWritingDirectionMenu().createNSString().get()])
                 modernTag = WebMenuItemTagWritingDirectionMenu;
-            else if ([title isEqualToString:contextMenuItemTagDefaultDirection()])
+            else if ([title isEqualToString:contextMenuItemTagDefaultDirection().createNSString().get()])
                 modernTag = WebMenuItemTagDefaultDirection;
-            else if ([title isEqualToString:contextMenuItemTagLeftToRight()])
+            else if ([title isEqualToString:contextMenuItemTagLeftToRight().createNSString().get()])
                 modernTag = WebMenuItemTagLeftToRight;
-            else if ([title isEqualToString:contextMenuItemTagRightToLeft()])
+            else if ([title isEqualToString:contextMenuItemTagRightToLeft().createNSString().get()])
                 modernTag = WebMenuItemTagRightToLeft;
-            else if ([title isEqualToString:contextMenuItemTagInspectElement()])
+            else if ([title isEqualToString:contextMenuItemTagInspectElement().createNSString().get()])
                 modernTag = WebMenuItemTagInspectElement;
-            else if ([title isEqualToString:contextMenuItemTagCorrectSpellingAutomatically()])
+            else if ([title isEqualToString:contextMenuItemTagCorrectSpellingAutomatically().createNSString().get()])
                 modernTag = WebMenuItemTagCorrectSpellingAutomatically;
-            else if ([title isEqualToString:contextMenuItemTagSubstitutionsMenu()])
+            else if ([title isEqualToString:contextMenuItemTagSubstitutionsMenu().createNSString().get()])
                 modernTag = WebMenuItemTagSubstitutionsMenu;
-            else if ([title isEqualToString:contextMenuItemTagShowSubstitutions(true)] || [title isEqualToString:contextMenuItemTagShowSubstitutions(false)])
+            else if ([title isEqualToString:contextMenuItemTagShowSubstitutions(true).createNSString().get()] || [title isEqualToString:contextMenuItemTagShowSubstitutions(false).createNSString().get()])
                 modernTag = WebMenuItemTagShowSubstitutions;
-            else if ([title isEqualToString:contextMenuItemTagSmartCopyPaste()])
+            else if ([title isEqualToString:contextMenuItemTagSmartCopyPaste().createNSString().get()])
                 modernTag = WebMenuItemTagSmartCopyPaste;
-            else if ([title isEqualToString:contextMenuItemTagSmartQuotes()])
+            else if ([title isEqualToString:contextMenuItemTagSmartQuotes().createNSString().get()])
                 modernTag = WebMenuItemTagSmartQuotes;
-            else if ([title isEqualToString:contextMenuItemTagSmartDashes()])
+            else if ([title isEqualToString:contextMenuItemTagSmartDashes().createNSString().get()])
                 modernTag = WebMenuItemTagSmartDashes;
-            else if ([title isEqualToString:contextMenuItemTagSmartLinks()])
+            else if ([title isEqualToString:contextMenuItemTagSmartLinks().createNSString().get()])
                 modernTag = WebMenuItemTagSmartLinks;
-            else if ([title isEqualToString:contextMenuItemTagTextReplacement()])
+            else if ([title isEqualToString:contextMenuItemTagTextReplacement().createNSString().get()])
                 modernTag = WebMenuItemTagTextReplacement;
-            else if ([title isEqualToString:contextMenuItemTagTransformationsMenu()])
+            else if ([title isEqualToString:contextMenuItemTagTransformationsMenu().createNSString().get()])
                 modernTag = WebMenuItemTagTransformationsMenu;
-            else if ([title isEqualToString:contextMenuItemTagMakeUpperCase()])
+            else if ([title isEqualToString:contextMenuItemTagMakeUpperCase().createNSString().get()])
                 modernTag = WebMenuItemTagMakeUpperCase;
-            else if ([title isEqualToString:contextMenuItemTagMakeLowerCase()])
+            else if ([title isEqualToString:contextMenuItemTagMakeLowerCase().createNSString().get()])
                 modernTag = WebMenuItemTagMakeLowerCase;
-            else if ([title isEqualToString:contextMenuItemTagCapitalize()])
+            else if ([title isEqualToString:contextMenuItemTagCapitalize().createNSString().get()])
                 modernTag = WebMenuItemTagCapitalize;
             else {
             // We don't expect WebMenuItemTagOther for any items other than the ones we explicitly handle.
@@ -3580,13 +3576,13 @@ static RetainPtr<NSMenuItem> createShareMenuItem(const WebCore::HitTestResult& h
     auto items = adoptNS([[NSMutableArray alloc] init]);
 
     if (!hitTestResult.absoluteLinkURL().isEmpty()) {
-        NSURL *absoluteLinkURL = hitTestResult.absoluteLinkURL();
-        [items addObject:absoluteLinkURL];
+        RetainPtr absoluteLinkURL = hitTestResult.absoluteLinkURL().createNSURL();
+        [items addObject:absoluteLinkURL.get()];
     }
 
     if (!hitTestResult.absoluteMediaURL().isEmpty() && hitTestResult.isDownloadableMedia()) {
-        NSURL *downloadableMediaURL = hitTestResult.absoluteMediaURL();
-        [items addObject:downloadableMediaURL];
+        RetainPtr downloadableMediaURL = hitTestResult.absoluteMediaURL().createNSURL();
+        [items addObject:downloadableMediaURL.get()];
     }
 
     if (auto* image = hitTestResult.image()) {
@@ -3595,8 +3591,8 @@ static RetainPtr<NSMenuItem> createShareMenuItem(const WebCore::HitTestResult& h
     }
 
     if (!hitTestResult.selectedText().isEmpty()) {
-        NSString *selectedText = hitTestResult.selectedText();
-        [items addObject:selectedText];
+        RetainPtr selectedText = hitTestResult.selectedText().createNSString();
+        [items addObject:selectedText.get()];
     }
 
     if (![items count])
@@ -3630,7 +3626,7 @@ static RetainPtr<NSMenuItem> createMenuItem(const WebCore::HitTestResult& hitTes
     switch (item.type()) {
     case WebCore::ContextMenuItemType::Action:
     case WebCore::ContextMenuItemType::CheckableAction: {
-        auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title() action:@selector(forwardContextMenuAction:) keyEquivalent:@""]);
+        RetainPtr menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title().createNSString().get() action:@selector(forwardContextMenuAction:) keyEquivalent:@""]);
 
         if (auto tag = toTag(item.action()))
             [menuItem setTag:*tag];
@@ -3652,7 +3648,7 @@ static RetainPtr<NSMenuItem> createMenuItem(const WebCore::HitTestResult& hitTes
                 [menu addItem:menuItem];
         }
 
-        auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title() action:nullptr keyEquivalent:@""]);
+        RetainPtr menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title().createNSString().get() action:nullptr keyEquivalent:@""]);
 
         if (auto tag = toTag(item.action()))
             [menuItem setTag:*tag];
@@ -4357,7 +4353,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     RetainPtr<NSFileWrapper> wrapper;
-    NSURL *draggingElementURL = nil;
+    RetainPtr<NSURL> draggingElementURL;
 
     if (auto tiffResource = _private->promisedDragTIFFDataSource) {
         if (auto* buffer = tiffResource->resourceBuffer()) {
@@ -4365,9 +4361,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             draggingElementURL = [response URL];
             wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:buffer->makeContiguous()->createNSData().get()]);
             NSString* filename = [response suggestedFilename];
-            NSString* trueExtension(tiffResource->image()->filenameExtension());
-            if (!matchesExtensionOrEquivalent(filename, trueExtension))
-                filename = [[filename stringByAppendingString:@"."] stringByAppendingString:trueExtension];
+            RetainPtr trueExtension = tiffResource->image()->filenameExtension().createNSString();
+            if (!matchesExtensionOrEquivalent(filename, trueExtension.get()))
+                filename = [[filename stringByAppendingString:@"."] stringByAppendingString:trueExtension.get()];
             [wrapper setPreferredFilename:filename];
         }
     }
@@ -4384,12 +4380,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
         const URL& imageURL = page->dragController().draggingImageURL();
         if (!imageURL.isEmpty())
-            draggingElementURL = imageURL;
+            draggingElementURL = imageURL.createNSURL();
 
-        wrapper = [[self _dataSource] _fileWrapperForURL:draggingElementURL];
+        wrapper = [[self _dataSource] _fileWrapperForURL:draggingElementURL.get()];
     }
     
-    if (wrapper == nil) {
+    if (!wrapper) {
         LOG_ERROR("Failed to create image file.");
         return nil;
     }
@@ -5044,9 +5040,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 #if PLATFORM(IOS_FAMILY)
         return [accTree accessibilityHitTest:point];
 #else
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        NSPoint windowCoord = [[self window] convertScreenToBase:point];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        NSPoint windowCoord = [[self window] convertPointFromScreen:point];
         return [accTree accessibilityHitTest:[self convertPoint:windowCoord fromView:nil]];
 #endif
     }
@@ -5092,7 +5086,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return nil;
     // NSTextView does something more efficient by parsing the attributes only, but that's not available in API.
     auto string = adoptNS([[NSAttributedString alloc] initWithRTF:data documentAttributes:NULL]);
-    if (string == nil || [string length] == 0)
+    if (!string || [string length] == 0)
         return nil;
     return [string fontAttributesInRange:NSMakeRange(0, 1)];
 }
@@ -5108,9 +5102,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSString *)_colorAsString:(NSColor *)color
 {
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSColor *rgbColor = [color colorUsingColorSpaceName:NSDeviceRGBColorSpace];
-ALLOW_DEPRECATED_DECLARATIONS_END
+    NSColor *rgbColor = [color colorUsingColorSpace:NSColorSpace.deviceRGBColorSpace];
     // FIXME: If color is non-nil and rgbColor is nil, that means we got some kind
     // of fancy color that can't be converted to RGB. Changing that to "transparent"
     // might not be great, but it's probably OK.
@@ -5210,7 +5202,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_applyStyleToSelection:(DOMCSSStyleDeclaration *)style withUndoAction:(WebCore::EditAction)undoAction
 {
-    [self _applyEditingStyleToSelection:WebCore::EditingStyle::create(core(style)) withUndoAction:undoAction];
+    RefPtr styleProperties = dynamicDowncast<WebCore::CSSStyleProperties>(core(style));
+    if (!styleProperties)
+        return;
+
+    [self _applyEditingStyleToSelection:WebCore::EditingStyle::create(styleProperties.get()) withUndoAction:undoAction];
 }
 
 - (void)_applyEditingStyleToSelection:(Ref<WebCore::EditingStyle>&&)editingStyle withUndoAction:(WebCore::EditAction)undoAction
@@ -5351,9 +5347,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     WebView *webView = [self _webView];
     if ([[webView _editingDelegateForwarder] webView:webView shouldApplyStyle:style toElementsInDOMRange:range]) {
         if (auto* coreFrame = core([self _frame])) {
-            // FIXME: We shouldn't have to make a copy here.
-            Ref<WebCore::MutableStyleProperties> properties(core(style)->copyProperties());
-            coreFrame->editor().applyStyle(properties.ptr(), [self _undoActionFromColorPanelWithSelector:selector]);
+            if (RefPtr styleProperties = dynamicDowncast<WebCore::CSSStyleProperties>(core(style))) {
+                // FIXME: We shouldn't have to make a copy here.
+                Ref<WebCore::MutableStyleProperties> properties(styleProperties->copyProperties());
+                coreFrame->editor().applyStyle(properties.ptr(), [self _undoActionFromColorPanelWithSelector:selector]);
+            }
         }
     }
 
@@ -5969,11 +5967,11 @@ static BOOL writingDirectionKeyBindingsEnabled()
     for (size_t i = 0; i < commands.size(); ++i) {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (commands[i].commandName == "insertText:"_s)
-            [self insertText:commands[i].text];
+            [self insertText:commands[i].text.createNSString().get()];
         else if (commands[i].commandName == "noop:"_s)
             ; // Do nothing. This case can be removed once <rdar://problem/9025012> is fixed.
         else
-            [self doCommandBySelector:NSSelectorFromString(commands[i].commandName)];
+            [self doCommandBySelector:NSSelectorFromString(commands[i].commandName.createNSString().get())];
 ALLOW_DEPRECATED_DECLARATIONS_END
     }
     parameters->event->keypressCommands().clear();
@@ -6029,7 +6027,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         // (e.g. Tab that inserts a Tab character, or Enter).
         bool haveTextInsertionCommands = false;
         for (size_t i = 0; i < commands.size(); ++i) {
-            if ([self coreCommandBySelector:NSSelectorFromString(commands[i].commandName)].isTextInsertion())
+            if ([self coreCommandBySelector:NSSelectorFromString(commands[i].commandName.createNSString().get())].isTextInsertion())
                 haveTextInsertionCommands = true;
         }
         // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
@@ -6907,7 +6905,7 @@ static CGImageRef imageFromRect(WebCore::LocalFrame* frame, CGRect rect)
     size_t bitsPerComponent = 8;
     size_t bitsPerPixel = 4 * bitsPerComponent;
     size_t bytesPerRow = ((bitsPerPixel + 7) / 8) * width;
-    RetainPtr<CGContextRef> context = adoptCF(CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, WebCore::sRGBColorSpaceRef(), kCGImageAlphaPremultipliedLast));
+    RetainPtr<CGContextRef> context = adoptCF(CGBitmapContextCreate(NULL, width, height, bitsPerComponent, bytesPerRow, WebCore::sRGBColorSpaceSingleton(), kCGImageAlphaPremultipliedLast));
     if (!context)
         return nil;
     
@@ -6959,14 +6957,12 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
     if (![self _hasSelection])
         return nil;
 
-    auto* coreFrame = core([self _frame]);
+    RefPtr coreFrame = core([self _frame]);
     if (!coreFrame)
         return nil;
 
-    Ref<WebCore::LocalFrame> protectedCoreFrame(*coreFrame);
-
 #if PLATFORM(IOS_FAMILY)
-    return selectionImage(coreFrame, forceBlackText);
+    return selectionImage(coreFrame.get(), forceBlackText);
 #else
     WebCore::TextIndicatorData textIndicator;
     return createDragImageForSelection(*coreFrame, textIndicator, forceBlackText).autorelease();
@@ -7150,9 +7146,9 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
 
 // Disable Writing Tools in WebKitLegacy.
 
-- (NSInteger /* PlatformWritingToolsBehavior */)writingToolsBehavior
+- (NSInteger /* CocoaWritingToolsBehavior */)writingToolsBehavior
 {
-    return -1; // PlatformWritingToolsBehaviorNone
+    return -1; // CocoaWritingToolsBehaviorNone
 }
 
 - (BOOL)providesWritingToolsContextMenu
@@ -7183,7 +7179,7 @@ static CGImageRef selectionImage(WebCore::LocalFrame* frame, bool forceBlackText
 
 + (NSURL *)_web_uniqueWebDataURL
 {
-    return URL::fakeURLWithRelativePart(emptyString());
+    return URL::fakeURLWithRelativePart(emptyString()).createNSURL().autorelease();
 }
 
 @end

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  * Copyright (C) 2011, 2012 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@ NativeWebKeyboardEvent::NativeWebKeyboardEvent(WebEventType type, const String& 
 }
 
 NativeWebKeyboardEvent::NativeWebKeyboardEvent(const NativeWebKeyboardEvent& event)
-    : WebKeyboardEvent(WebEvent(event.type(), event.modifiers(), event.timestamp()), event.text(), event.key(), event.code(), event.keyIdentifier(), event.windowsVirtualKeyCode(), event.nativeVirtualKeyCode(), event.handledByInputMethod(), std::optional<Vector<WebCore::CompositionUnderline>>(event.preeditUnderlines()), std::optional<EditingRange>(event.preeditSelectionRange()), Vector<String>(event.commands()), event.isAutoRepeat(), event.isKeypad())
+    : WebKeyboardEvent(event)
     , m_nativeEvent(event.nativeEvent() ? constructNativeEvent(event.nativeEvent()) : nullptr)
 {
 }

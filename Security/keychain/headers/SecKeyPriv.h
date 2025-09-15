@@ -47,6 +47,9 @@
 #include <AvailabilityMacros.h>
 #endif
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
+
 __BEGIN_DECLS
 
 typedef struct __SecDERKey {
@@ -350,6 +353,8 @@ enum {
     kSecEd448AlgorithmID = 6,
     kSecX448AlgorithmID = 7,
     kSecKyberAlgorithmID = 8,
+    kSecMLKEMAlgorithmID = 9,
+    kSecMLDSAAlgorithmID = 10,
 };
 
 /*!
@@ -866,6 +871,23 @@ CFDataRef SecKeyCreateDecapsulatedKey(SecKeyRef key, SecKeyAlgorithm algorithm, 
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
 
 /*!
+    @function SecKeyCreateMLDSASignature
+    @abstract Given an ML-DSA private key and data to sign, generate a digital signature.
+    @param key ML-DSA Private key with which to sign.
+    @param algorithm One of SecKeyAlgorithm constants suitable to generate a signature with this key.
+    @param dataToSign The data to be signed, typically the digest of the actual data.
+    @param parameters Dictionary with additional parameters for signature verification. Supported parameters are:
+        - kSecKeySignatureParameterContext: context string (a byte string of 255 or fewer bytes) for domain separation
+    @param error On error, will be populated with an error object describing the failure.
+    See "Security Error Codes" (SecBase.h).
+    @result The signature over dataToSign represented as a CFData, or NULL on failure.
+    @discussion Computes digital signature using specified key over input data. The operation algorithm
+    further defines the exact format of input data, operation to be performed and output signature.
+ */
+CFDataRef _Nullable SecKeyCreateMLDSASignature(SecKeyRef key, SecKeyAlgorithm algorithm, CFDataRef dataToSign, CFDictionaryRef parameters, CFErrorRef *error)
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), visionos(3.0));
+
+/*!
  @enum SecKeySystemKeyType
  @abstract Defines types of builtin system keys.
 */
@@ -1034,6 +1056,31 @@ static const SecKeyOperationType kSecKeyOperationTypeDecapsulate = (SecKeyOperat
 extern const SecKeyAlgorithm kSecKeyAlgorithmKEMKyber
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
 
+/*!
+ @constant kSecKeyAlgorithmKEMMLKEM
+ KEM (Key Encapsulation Mechanism) ML-KEM algorithm.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmKEMMLKEM
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+
+/*!
+ @constant kSecKeyAlgorithmMLDSASignatureMessage
+ ML-DSA signature algorithm. Non-hashed/non-digested message is expected as the input.
+ In case of a Secure Enclave backed key, digest is generated automatically from input data of any size.
+ Digest/prehash is created using ExternalMu-ML-DSA.
+ */
+extern const SecKeyAlgorithm kSecKeyAlgorithmMLDSASignatureMessage
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+
+/*!
+ @constant kSecKeySignatureParameterContext
+ Value of this key shall be CFDataRef with context (a byte string of 255 or fewer bytes) used for domain separation.
+ */
+extern const CFStringRef kSecKeySignatureParameterContext
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), visionos(3.0));
+
 __END_DECLS
+
+#pragma clang diagnostic pop
 
 #endif /* !_SECURITY_SECKEYPRIV_H_ */

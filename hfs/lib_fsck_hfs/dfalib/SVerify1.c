@@ -178,6 +178,12 @@ out:
  *
  * Note also that it does direct reads, rather than going through
  * the cache code.  This simplifies getting the JIB.
+ *
+ * Note that we stack-allocate a block for the journal info block.  We only
+ * need to read enough data to cover the jib's fields, rather than a
+ * whole allocation block.  So we read only one hardware block instead of
+ * the whole allocation block.  We checked earlier that the hardware block
+ * size can't be more than 16 KiB.
  */
 
 static OSErr
@@ -194,6 +200,7 @@ GetJournalInfoBlock(SGlobPtr GPtr, JournalInfoBlock *jibp, UInt32 *bsizep)
 	ReleaseBlockOptions rbOptions;
 	BlockDescriptor block;
 	size_t blockSize = 0;
+	size_t physBlockSize;
 	off_t embeddedOffset = 0;
 
 	vhp = (HFSPlusVolumeHeader *) NULL;
@@ -247,15 +254,16 @@ GetJournalInfoBlock(SGlobPtr GPtr, JournalInfoBlock *jibp, UInt32 *bsizep)
 	// journalInfoBlock is not automatically swapped
 	jiBlk = SW32(vhp->journalInfoBlock);
 	blockSize = vhp->blockSize;
+	physBlockSize = fsck_get_dev_block_size();
 	(void)ReleaseVolumeBlock(vcb, &block, rbOptions);
 
 	if (jiBlk) {
 		int jfd = GPtr->DrvNum;
-		uint8_t block[blockSize];
+		uint8_t block[physBlockSize];
 		ssize_t nread;
 
-		nread = pread(jfd, block, blockSize, (off_t)jiBlk * blockSize + embeddedOffset);
-		if (nread == blockSize) {
+		nread = pread(jfd, block, physBlockSize, (off_t)jiBlk * blockSize + embeddedOffset);
+		if ((size_t)nread == physBlockSize) {
 			if (jibp)
 				memcpy(jibp, block, sizeof(JournalInfoBlock));
 			if (bsizep)
@@ -264,8 +272,8 @@ GetJournalInfoBlock(SGlobPtr GPtr, JournalInfoBlock *jibp, UInt32 *bsizep)
 		} else {
 			if (state.debug) {
 				fsck_print(ctx, LOG_TYPE_INFO, "%s: Tried to read JIB, got %zd\n", __FUNCTION__, nread);
-				result = EINVAL;
 			}
+			result = EINVAL;
 		}
 	}
 
@@ -326,6 +334,13 @@ typedef struct journal_header {
  * from the journal device, so putting this in another function was
  * duplicative and error-prone.  By making it a structure instead of
  * discrete arguments, it can also be extended in the future if necessary.)
+ *
+ * Note that we stack-allocate a block for the journal header.  We only
+ * need to read enough data to cover the header's fields, rather than a
+ * whole allocation block.  This is important when the volume has very
+ * large allocation blocks.  So we read only one hardware block instead of
+ * the whole allocation block.  We checked earlier that the hardware block
+ * size can't be more than 16 KiB.
  */
 int
 IsJournalEmpty(SGlobPtr GPtr, fsckJournalInfo_t *jp)
@@ -334,16 +349,16 @@ IsJournalEmpty(SGlobPtr GPtr, fsckJournalInfo_t *jp)
 	OSErr result;
 	OSErr err = 0;
 	JournalInfoBlock jib;
-	UInt32 bsize;
+	UInt32 physBlockSize = fsck_get_dev_block_size();
 
-	result = GetJournalInfoBlock(GPtr, &jib, &bsize);
+	result = GetJournalInfoBlock(GPtr, &jib, NULL);
 	if (result == 0) {
 	/* jib is not byte swapped */
 		/* If the journal needs to be initialized, it's empty. */
 		if ((SW32(jib.flags) & kJIJournalNeedInitMask) == 0) {
 			off_t hdrOffset = SW64(jib.offset);
 			struct journal_header *jhdr;
-			uint8_t block[bsize];
+			uint8_t block[physBlockSize];
 			ssize_t nread;
 			int jfd = -1;
 
@@ -369,17 +384,17 @@ IsJournalEmpty(SGlobPtr GPtr, fsckJournalInfo_t *jp)
 				jp->jnlSize = SW64(jib.size);
 			}
 
-			nread = pread(jfd, block, bsize, hdrOffset);
+			nread = pread(jfd, block, physBlockSize, hdrOffset);
 			if (nread == -1) {
 				if (state.debug) {
 					fsck_print(ctx, LOG_TYPE_INFO, "Could not read journal from descriptor %d: %s", jfd, strerror(errno));
 				}
 				err = errno;
-			} else if (nread != bsize) {
+			} else if (nread != physBlockSize) {
 				if (state.debug) {
-					fsck_print(ctx, LOG_TYPE_INFO, "Only read %zd bytes from journal (expected %zd)", nread, bsize);
-					err = EINVAL;
+					fsck_print(ctx, LOG_TYPE_INFO, "Only read %zd bytes from journal (expected %zd)", nread, physBlockSize);
 				}
+				err = EINVAL;
 			}
 			if (jp == NULL)
 				close(jfd);

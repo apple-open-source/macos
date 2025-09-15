@@ -312,18 +312,10 @@ T_DECL(excessive_sampling,
 		"ensure that microstackshots are not being sampled too frequently",
 		T_META_REQUIRES_SYSCTL_EQ("kern.monotonic.supported", 1), T_META_TAG_VM_NOT_ELIGIBLE)
 {
-	unsigned int interrupt_sample_rate = 0;
-	size_t sysctl_size = sizeof(interrupt_sample_rate);
-	T_QUIET;
-	T_ASSERT_POSIX_SUCCESS(sysctlbyname(
-			"kern.microstackshot.interrupt_sample_rate",
-			&interrupt_sample_rate, &sysctl_size, NULL, 0),
-			"query interrupt sample rate");
 	unsigned int pmi_counter = 0;
 	uint64_t pmi_period = 0;
 	(void)query_pmi_params(&pmi_counter, &pmi_period);
 
-	T_LOG("interrupt sample rate: %uHz", interrupt_sample_rate);
 	T_LOG("PMI counter: %u", pmi_counter);
 	T_LOG("PMI period: %llu", pmi_period);
 

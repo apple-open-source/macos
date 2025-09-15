@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2008, Google Inc. All rights reserved.
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008 Google Inc. All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -81,8 +81,8 @@ void ScriptCachedFrameData::restore(LocalFrame& frame)
         if (auto* window = m_windows.get(world).get())
             windowProxy->setWindow(window->vm(), *window);
         else {
-            ASSERT(frame.document()->domWindow());
-            auto& domWindow = *frame.document()->domWindow();
+            ASSERT(frame.document()->window());
+            auto& domWindow = *frame.document()->window();
             if (&windowProxy->wrapped() == &domWindow)
                 continue;
 

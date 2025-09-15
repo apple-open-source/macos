@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <arm/misc_protos.h>
+
 #include <mach/exclaves.h>
 #include <mach/kern_return.h>
 
@@ -56,13 +58,14 @@
 #include <sys/event.h>
 #include <sys/reason.h>
 
+#include "exclaves_aoe.h"
 #include "exclaves_conclave.h"
 #include "exclaves_debug.h"
+#include "exclaves_memory.h"
 #include "exclaves_resource.h"
 #include "exclaves_sensor.h"
 #include "exclaves_shared_memory.h"
 #include "exclaves_xnuproxy.h"
-#include "exclaves_memory.h"
 
 #include "kern/exclaves.tightbeam.h"
 
@@ -360,6 +363,7 @@ lookup_resource_by_id(exclaves_resource_domain_t *domain, uint64_t id,
     xnuproxy_resourcetype_s type)
 {
 	__block exclaves_resource_t *resource = NULL;
+
 	table_get(domain->d_table_id, &id, sizeof(id), ^bool (void *data) {
 		exclaves_resource_t *tmp = data;
 		if (tmp->r_type == type) {
@@ -400,10 +404,66 @@ exclaves_resource_domain_alloc(const char *scope)
 	return domain;
 }
 
+static void
+exclaves_resource_insert_name_table(xnuproxy_resourcetype_s type __unused, const char *name,
+    exclaves_resource_domain_t *domain, exclaves_resource_t *resource)
+{
+	table_item_t *name_item = kalloc_type(table_item_t,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
+
+	name_item->i_key = resource->r_name;
+	name_item->i_key_len = strlen(resource->r_name);
+	name_item->i_value = resource;
+
+	assertf(lookup_resource_by_name(domain, name, type) == NULL,
+	    "Duplicate entry in exclaves resource table for \"%s\" , \"%s\"", domain->d_name, name);
+	table_put(domain->d_table_name, name, strlen(name), name_item);
+}
+
+static void
+exclaves_resource_insert_id_table(xnuproxy_resourcetype_s type, uint64_t id,
+    exclaves_resource_t *resource)
+{
+	switch (type) {
+	case XNUPROXY_RESOURCETYPE_NOTIFICATION: {
+		/* Stick the newly created resource into the ID table. */
+		table_item_t *id_item = kalloc_type(table_item_t,
+		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
+		id_item->i_key = &resource->r_id;
+		id_item->i_key_len = sizeof(resource->r_id);
+		id_item->i_value = resource;
+
+		/*
+		 * Globally unique notification ids are added to the kernel domain for
+		 * lookup while signalling
+		 */
+		exclaves_resource_domain_t *kernel_domain = lookup_domain(EXCLAVES_DOMAIN_KERNEL);
+		table_put(kernel_domain->d_table_id, &id, sizeof(id), id_item);
+
+		break;
+	}
+
+	default:
+		break;
+	}
+}
+
 static exclaves_resource_t *
 exclaves_resource_alloc(xnuproxy_resourcetype_s type, const char *name, uint64_t id,
     exclaves_resource_domain_t *domain, bool connected)
 {
+	if (type == XNUPROXY_RESOURCETYPE_NOTIFICATION) {
+		exclaves_resource_t *resource = exclaves_notification_lookup_by_id(id);
+		if (resource != NULL) {
+			/*
+			 * Name entry should refer to the resource associated with the
+			 * already present id
+			 */
+			exclaves_resource_insert_name_table(type, name, domain, resource);
+			return NULL;
+		}
+	}
+
 	exclaves_resource_t *resource = kalloc_type(exclaves_resource_t,
 	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
@@ -417,47 +477,24 @@ exclaves_resource_alloc(xnuproxy_resourcetype_s type, const char *name, uint64_t
 	 * Each resource has an associated kobject of type
 	 * IKOT_EXCLAVES_RESOURCE.
 	 */
-	ipc_port_t port = ipc_kobject_alloc_port((ipc_kobject_t)resource,
-	    IKOT_EXCLAVES_RESOURCE, IPC_KOBJECT_ALLOC_NSREQUEST);
+	ipc_port_t port = ipc_kobject_alloc_port(resource,
+	    IKOT_EXCLAVES_RESOURCE, IPC_KOBJECT_ALLOC_NONE);
 	resource->r_port = port;
 
 	lck_mtx_init(&resource->r_mutex, &resource_lck_grp, NULL);
 
 	(void) strlcpy(resource->r_name, name, sizeof(resource->r_name));
 
-
-	/* Stick the newly created resource into the name table. */
-	table_item_t *name_item = kalloc_type(table_item_t,
-	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-
-	name_item->i_key = resource->r_name;
-	name_item->i_key_len = strlen(resource->r_name);
-	name_item->i_value = resource;
-
-	assert(lookup_resource_by_name(domain, name, type) == NULL);
-	table_put(domain->d_table_name, name, strlen(name), name_item);
+	/*
+	 * Add the resource to the name table, used for lookup
+	 */
+	exclaves_resource_insert_name_table(type, name, domain, resource);
 
 	/*
 	 * Some types also need to lookup by id in addition to looking up by
 	 * name.
 	 */
-	switch (type) {
-	case XNUPROXY_RESOURCETYPE_NOTIFICATION: {
-		/* Stick the newly created resource into the ID table. */
-		table_item_t *id_item = kalloc_type(table_item_t,
-		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-		id_item->i_key = &resource->r_id;
-		id_item->i_key_len = sizeof(resource->r_id);
-		id_item->i_value = resource;
-
-		assert(lookup_resource_by_id(domain, id, type) == NULL);
-		table_put(domain->d_table_id, &id, sizeof(id), id_item);
-		break;
-	}
-
-	default:
-		break;
-	}
+	exclaves_resource_insert_id_table(type, id, resource);
 
 	return resource;
 }
@@ -469,6 +506,7 @@ static void exclaves_resource_no_senders(ipc_port_t port,
     mach_port_mscount_t mscount);
 
 IPC_KOBJECT_DEFINE(IKOT_EXCLAVES_RESOURCE,
+    .iko_op_movable_send = true,
     .iko_op_stable = true,
     .iko_op_no_senders = exclaves_resource_no_senders);
 
@@ -499,8 +537,11 @@ populate_conclave_services(void)
 
 			if (cm != NULL) {
 				conclave_resource_t *c = &cm->r_conclave;
-				bitmap_set(c->c_service_bitmap,
-				    (uint32_t)resource->r_id);
+				if (exclaves_is_forwarding_resource(resource)) {
+					return (bool)false;
+				}
+				assert3u(resource->r_id, <, CONCLAVE_SERVICE_MAX);
+				bitmap_set(c->c_service_bitmap, (uint32_t)resource->r_id);
 				return (bool)false;
 			}
 
@@ -516,6 +557,77 @@ populate_conclave_services(void)
 			 * happen if a conclave manager doesn't have a populated
 			 * endpoint (for example during bringup).
 			 */
+			return (bool)false;
+		});
+
+		return (bool)false;
+	});
+	/* END IGNORE CODESTYLE */
+}
+
+/*
+ * The aoe_service_table is a hash table which contains a map of aoe service to
+ * conclave.
+ */
+static table_t aoe_service_table = {
+	.t_buckets = (queue_chain_t *)(queue_chain_t[TABLE_LEN]){},
+	.t_buckets_count = TABLE_LEN,
+};
+
+exclaves_resource_t *
+exclaves_conclave_lookup_by_aoeserviceid(uint64_t id)
+{
+	__block exclaves_resource_t *resource = NULL;
+	table_get(&aoe_service_table, &id, sizeof(id), ^bool (void *data) {
+		resource = data;
+		return true;
+	});
+
+	/* Ignore entries not marked connected. */
+	if (resource == NULL || !resource->r_connected) {
+		return NULL;
+	}
+
+	return resource;
+}
+
+static void
+populate_aoeservice_to_conclave(void)
+{
+	table_init(&aoe_service_table);
+
+	/* BEGIN IGNORE CODESTYLE */
+	iterate_domains(^(exclaves_resource_domain_t *domain) {
+
+		exclaves_resource_t *cm = exclaves_resource_lookup_by_name(
+		    EXCLAVES_DOMAIN_KERNEL, domain->d_name,
+		    XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER);
+		if (cm == NULL) {
+			return (bool)false;
+		}
+
+		iterate_resources(domain, ^(exclaves_resource_t *resource) {
+			if (resource->r_type != XNUPROXY_RESOURCETYPE_ALWAYSONEXCLAVESSERVICE) {
+				return (bool)false;
+			}
+
+			/* Found an ALWAYSONEXCLAVESSERVICE, add an entry to the map. */
+
+			/* Assert that there's no existing entry. */
+			assert3p(exclaves_conclave_lookup_by_aoeserviceid(resource->r_id),
+			    ==, NULL);
+
+			/* Stick the newly created resource into the table. */
+			table_item_t *item = kalloc_type(table_item_t,
+			    Z_WAITOK | Z_ZERO | Z_NOFAIL);
+
+			item->i_key = &resource->r_id;
+			item->i_key_len = sizeof(resource->r_id);
+			item->i_value = cm;
+
+			table_put(&aoe_service_table, &resource->r_id,
+			    sizeof(resource->r_id), item);
+
 			return (bool)false;
 		});
 
@@ -551,9 +663,14 @@ exclaves_resource_init(void)
 		exclaves_resource_t *resource = exclaves_resource_alloc(type,
 		    name, id, domain, connected);
 
+		if (!resource) {
+			assert3u(type, ==, XNUPROXY_RESOURCETYPE_NOTIFICATION);
+			return;
+		}
+
 		/*
 		 * Type specific initialization.
-		 */
+		 */	
 		switch (type) {
 		case XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER:
 			exclaves_conclave_init(resource);
@@ -563,13 +680,11 @@ exclaves_resource_init(void)
 			exclaves_notification_init(resource);
 			break;
 
-		case XNUPROXY_RESOURCETYPE_SERVICE:
-			assert3u(resource->r_id, <, CONCLAVE_SERVICE_MAX);
-			break;
-
 		default:
 			break;
 		}
+
+
 	});
 	/* END IGNORE CODESTYLE */
 
@@ -579,6 +694,9 @@ exclaves_resource_init(void)
 
 	/* Populate the conclave service ID bitmaps. */
 	populate_conclave_services();
+
+	/* Build a map of AOE service -> conclave. */
+	populate_aoeservice_to_conclave();
 
 	return KERN_SUCCESS;
 }
@@ -597,9 +715,23 @@ exclaves_resource_lookup_by_name(const char *domain_name, const char *name,
 
 	exclaves_resource_t *r = lookup_resource_by_name(domain, name, type);
 
-	/* Ignore entries not marked connected. */
-	if (r == NULL || !r->r_connected) {
+	if (r == NULL) {
 		return NULL;
+	}
+
+	/*
+	 * Ignore exclave resources that are not connected
+	 */
+	if (!r->r_connected) {
+		switch (r->r_type) {
+		case XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER:
+		case XNUPROXY_RESOURCETYPE_SERVICE:
+			if (exclaves_is_forwarding_resource(r)) {
+				break;
+			}
+		default:
+			return NULL;
+		}
 	}
 
 	return r;
@@ -748,32 +880,16 @@ exclaves_resource_create_port_name(exclaves_resource_t *resource, ipc_space_t sp
 {
 	assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 0);
 
-	ipc_port_t port = resource->r_port;
-
-	ip_mq_lock(port);
-
-	/* Create an armed send right. */
-	kern_return_t ret = ipc_kobject_make_send_nsrequest_locked(port,
-	    resource, IKOT_EXCLAVES_RESOURCE);
-	if (ret != KERN_SUCCESS &&
-	    ret != KERN_ALREADY_WAITING) {
-		ip_mq_unlock(port);
-		exclaves_resource_release(resource);
-		return ret;
-	}
-
 	/*
-	 * If there was already a send right, then the port already has an
-	 * associated use count so drop this one.
+	 * make a send right and donate our reference for
+	 * exclaves_resource_no_senders if this is the first send right
 	 */
-	if (port->ip_srights > 1) {
-		assert3u(os_atomic_load(&resource->r_usecnt, relaxed), >, 1);
+	if (!ipc_kobject_make_send_lazy_alloc_port(&resource->r_port,
+	    resource, IKOT_EXCLAVES_RESOURCE)) {
 		exclaves_resource_release(resource);
 	}
 
-	ip_mq_unlock(port);
-
-	*name = ipc_port_copyout_send(port, space);
+	*name = ipc_port_copyout_send(resource->r_port, space);
 	if (!MACH_PORT_VALID(*name)) {
 		/*
 		 * ipc_port_copyout_send() releases the send right on failure
@@ -818,6 +934,8 @@ exclaves_conclave_init(exclaves_resource_t *resource)
 	conclave->c_active_stopcall = false;
 	conclave->c_downcall_thread = THREAD_NULL;
 	conclave->c_task = TASK_NULL;
+
+	queue_init(&conclave->c_aoe_q);
 }
 
 kern_return_t
@@ -887,6 +1005,9 @@ exclaves_conclave_detach(exclaves_resource_t *resource, task_t task)
 	assert3u(conclave->c_request, ==, CONCLAVE_R_NONE);
 	assert3p(task->conclave, !=, NULL);
 	assert3p(resource, ==, task->conclave);
+
+	/* Cleanup any residual AOE state. */
+	exclaves_aoe_teardown();
 
 	task->conclave = NULL;
 	conclave->c_task = TASK_NULL;
@@ -959,8 +1080,13 @@ exclaves_conclave_launch(exclaves_resource_t *resource)
 		 * This should only ever happen if the EXCLAVEKIT requirement was
 		 * relaxed.
 		 */
-		exclaves_requirement_assert(EXCLAVES_R_EXCLAVEKIT,
-		    "failed to boot to exclavekit");
+		if (exclaves_requirement_is_relaxed(EXCLAVES_R_EXCLAVEKIT) ||
+		    exclaves_requirement_is_relaxed(EXCLAVES_R_FRAMEBANK)) {
+			exclaves_debug_printf(show_errors,
+			    "exclaves: requirement was relaxed, ignoring error: failed to boot to exclavekit\n");
+		} else {
+			panic("exclaves: requirement failed: failed to boot to exclavekit\n");
+		}
 		return KERN_NOT_SUPPORTED;
 	}
 
@@ -976,6 +1102,26 @@ exclaves_conclave_launch(exclaves_resource_t *resource)
 	conclave->c_request |= CONCLAVE_R_LAUNCH_REQUESTED;
 	kr = exclaves_update_state_machine_locked(resource);
 	return kr;
+}
+
+bool
+exclaves_is_forwarding_resource(exclaves_resource_t *resource)
+{
+	if (resource->r_type == XNUPROXY_RESOURCETYPE_CONCLAVEMANAGER ||
+	    resource->r_type == XNUPROXY_RESOURCETYPE_SERVICE) {
+		if (resource->r_id > EXCLAVES_FORWARDING_RESOURCE_ID_BASE) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void
+exclaves_conclave_prepare_teardown(task_t task __unused)
+{
+	/* We explicitly do not handle HAS_ARM_FEAT_SME here because it's always
+	 * handled on exclaves_enter
+	 */
 }
 
 static kern_return_t
@@ -1558,9 +1704,9 @@ exclaves_notification_signal(exclaves_resource_t *exclaves_resource, long event_
 }
 
 exclaves_resource_t *
-exclaves_notification_lookup_by_id(const char *domain, uint64_t id)
+exclaves_notification_lookup_by_id(uint64_t id)
 {
-	return exclaves_resource_lookup_by_id(domain, id,
+	return exclaves_resource_lookup_by_id(EXCLAVES_DOMAIN_KERNEL, id,
 	           XNUPROXY_RESOURCETYPE_NOTIFICATION);
 }
 
@@ -1946,6 +2092,28 @@ exclaves_resource_audio_memory_copyout(exclaves_resource_t *resource,
 	}
 
 	return KERN_SUCCESS;
+}
+
+#pragma mark AOE Service
+
+void
+exclaves_resource_aoeservice_iterate(const char *domain_name,
+    bool (^cb)(exclaves_resource_t *))
+{
+	assert3u(strlen(domain_name), >, 0);
+
+	exclaves_resource_domain_t *domain = lookup_domain(domain_name);
+	if (domain == NULL) {
+		return;
+	}
+
+	iterate_resources(domain, ^(exclaves_resource_t *resource) {
+		if (resource->r_type != XNUPROXY_RESOURCETYPE_ALWAYSONEXCLAVESSERVICE) {
+		        return (bool)false;
+		}
+
+		return cb(resource);
+	});
 }
 
 #endif /* CONFIG_EXCLAVES */

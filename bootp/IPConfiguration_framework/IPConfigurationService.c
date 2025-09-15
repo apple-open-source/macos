@@ -48,12 +48,26 @@
 #include "ipconfig_types.h"
 #include "ipconfig_ext.h"
 #include "symbol_scope.h"
+#include "util.h"
 #include "cfutil.h"
 #include "ipconfig.h"
 #include "IPConfigurationLog.h"
 #include "IPConfigurationServiceInternal.h"
 #include "IPConfigurationService.h"
 #include "IPConfigurationPrivate.h"
+
+#define INCR_COUNT_CHECK(count, array)		\
+	do {								\
+		if ((count) >= countof(array)) {			\
+		    IPConfigLog(LOG_NOTICE,				\
+				"%s:%d INCR_COUNT_CHECK: %d >= %d",	\
+				__func__, __LINE__,			\
+				(int)count, (int)countof(array));	\
+		}							\
+		else {							\
+		    (count)++;						\
+		}							\
+	} while (0);
 
 const CFStringRef 
 kIPConfigurationServiceOptionEnableDAD = _kIPConfigurationServiceOptionEnableDAD;
@@ -89,6 +103,9 @@ STATIC const CFStringRef kSCPropNetIPv6LinkLocalAddress = CFSTR("LinkLocalAddres
 
 const CFStringRef
 kIPConfigurationServiceOptionClearState = _kIPConfigurationServiceOptionClearState;
+
+const CFStringRef
+kIPConfigurationServiceOptionEnableL4S = _kIPConfigurationServiceOptionEnableL4S;
 
 /**
  ** IPConfigurationService
@@ -261,6 +278,7 @@ typedef struct {
     CFStringRef			apn_name;
     CFBooleanRef		clear_state;
     Boolean			is_ipv6;
+    CFBooleanRef		enable_l4s;
     union {
 	IPv4Config		v4;
 	IPv6Config		v6;
@@ -307,18 +325,19 @@ plist_validate_bool(CFDictionaryRef plist,
     CFBooleanRef	bool_val;
     Boolean		is_valid = FALSE;
 
-    *ret_bool = NULL;
     bool_val = CFDictionaryGetValue(plist, prop);
     if (bool_val != NULL) {
+	/* if the property is specified, it must be a boolean */
 	if (isA_CFBoolean(bool_val) == NULL) {
-	    IPConfigLog(LOG_NOTICE, "%@' invalid", prop);
+	    bool_val = NULL;
+	    IPConfigLog(LOG_NOTICE, "invalid '%@' option", prop);
 	    goto done;
 	}
     }
     is_valid = TRUE;
-    *ret_bool = bool_val;
 
  done:
+    *ret_bool = bool_val;
     return (is_valid);
 }
 
@@ -352,13 +371,13 @@ createIPv6Entity(IPv6ConfigRef v6)
 	count = 0;
 	keys[count] = kSCPropNetIPv6ConfigMethod;
 	values[count] = kSCValNetIPv6ConfigMethodAutomatic;
-	count++;
+	INCR_COUNT_CHECK(count, keys);
 
 	/* add the IPv6 link-local address if specified */
 	if (v6->ll_addr != NULL) {
 	    keys[count] = kSCPropNetIPv6LinkLocalAddress;
 	    values[count] = v6->ll_addr;
-	    count++;
+	    INCR_COUNT_CHECK(count, keys);
 	}
 	/* create the default IPv6 dictionary */
 	dict = CFDictionaryCreate(NULL, keys, values, count,
@@ -392,7 +411,7 @@ createIPv4Entity(IPv4ConfigRef v4)
 STATIC CFDictionaryRef
 config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 {
-#define N_KEYS_VALUES	10
+#define N_KEYS_VALUES   11
     int			count;
     CFDictionaryRef	config_dict;
     CFBooleanRef	clear_state;
@@ -407,7 +426,7 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
     count = 0;
     keys[count] = _kIPConfigurationServiceOptionMonitorPID;
     values[count] = kCFBooleanTrue;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     /* 1 */
     /* no publish */
@@ -416,21 +435,21 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
     }
     keys[count] = _kIPConfigurationServiceOptionNoPublish;
     values[count] = params->no_publish;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     /* 2 */
     /* mtu */
     if (params->mtu != NULL) {
 	keys[count] = kIPConfigurationServiceOptionMTU;
 	values[count] = params->mtu;
-	count++;
+	INCR_COUNT_CHECK(count, keys);
     }
 
     /* 3 */
     /* serviceID */
     keys[count] = _kIPConfigurationServiceOptionServiceID;
     values[count] = serviceID;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     /* 4 */
     /* clear state */
@@ -441,14 +460,14 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
     }
     keys[count] = _kIPConfigurationServiceOptionClearState;
     values[count] = clear_state;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     /* 5 */
     /* APN name */
     if (params->apn_name != NULL) {
 	keys[count] = kIPConfigurationServiceOptionAPNName;
 	values[count] = params->apn_name;
-	count++;
+	INCR_COUNT_CHECK(count, keys);
     }
     if (params->is_ipv6) {
 	/* 6 */
@@ -456,7 +475,7 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 	if (params->v6.perform_nud != NULL) {
 	    keys[count] = kIPConfigurationServiceOptionPerformNUD;
 	    values[count] = params->v6.perform_nud;
-	    count++;
+	    INCR_COUNT_CHECK(count, keys);
 	}
 
 	/* 7 */
@@ -464,7 +483,7 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 	if (params->v6.enable_dad != NULL) {
 	    keys[count] = kIPConfigurationServiceOptionEnableDAD;
 	    values[count] = params->v6.enable_dad;
-	    count++;
+	    INCR_COUNT_CHECK(count, keys);
 	}
 
 	/* 8 */
@@ -472,15 +491,22 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
 	if (params->v6.enable_clat46 != NULL) {
 	    keys[count] = kIPConfigurationServiceOptionEnableCLAT46;
 	    values[count] = params->v6.enable_clat46;
-	    count++;
+	    INCR_COUNT_CHECK(count, keys);
 	}
 	/* 9 */
 	/* enable DHCPv6 */
 	if (params->v6.enable_dhcpv6 != NULL) {
 	    keys[count] = kIPConfigurationServiceOptionEnableDHCPv6;
 	    values[count] = params->v6.enable_dhcpv6;
-	    count++;
+	    INCR_COUNT_CHECK(count, keys);
 	}
+    }
+    /* 10 */
+    /* enable L4S */
+    if (params->enable_l4s != NULL) {
+	keys[count] = kIPConfigurationServiceOptionEnableL4S;
+	values[count] = params->enable_l4s;
+	INCR_COUNT_CHECK(count, keys);
     }
     options
 	= CFDictionaryCreate(NULL, keys, values, count,
@@ -498,11 +524,11 @@ config_dict_create(CFStringRef serviceID, ConfigParamsRef params)
     count = 0;
     keys[count] = kIPConfigurationServiceOptions;
     values[count] = options;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     keys[count] = proto_key;
     values[count] = proto_dict;
-    count++;
+    INCR_COUNT_CHECK(count, keys);
 
     config_dict
 	= CFDictionaryCreate(NULL, keys, values, count,
@@ -994,15 +1020,12 @@ IPConfigurationServiceCreateInternal(CFStringRef interface_name,
     /* create the configuration, encapsulated as XML plist data */
     if (options != NULL) {
 	/* common options */
-	params.no_publish
-	    = CFDictionaryGetValue(options,
-				   _kIPConfigurationServiceOptionNoPublish);
+	if (!plist_validate_bool(options,
+				 _kIPConfigurationServiceOptionNoPublish,
+				 &params.no_publish)) {
+	    goto done;
+	}
 	if (params.no_publish != NULL) {
-	    if (isA_CFBoolean(params.no_publish) == NULL) {
-		IPConfigLog(LOG_NOTICE, "invalid '%@' option",
-			    _kIPConfigurationServiceOptionNoPublish);
-		goto done;
-	    }
 	    no_publish = CFBooleanGetValue(params.no_publish);
 	}
 	params.mtu = CFDictionaryGetValue(options,
@@ -1021,13 +1044,14 @@ IPConfigurationServiceCreateInternal(CFStringRef interface_name,
 			  kIPConfigurationServiceOptionAPNName);
 	    goto done;
 	}
-	params.clear_state
-	    = CFDictionaryGetValue(options,
-				   kIPConfigurationServiceOptionClearState);
-	if (params.clear_state != NULL
-	    && isA_CFBoolean(params.clear_state) == NULL) {
-	    IPConfigLogFL(LOG_NOTICE, "invalid '%@' option",
-			  kIPConfigurationServiceOptionClearState);
+	if (!plist_validate_bool(options,
+				 kIPConfigurationServiceOptionClearState,
+				 &params.clear_state)) {
+	    goto done;
+	}
+	if (!plist_validate_bool(options,
+				 kIPConfigurationServiceOptionEnableL4S,
+				 &params.enable_l4s)) {
 	    goto done;
 	}
 

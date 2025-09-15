@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -182,16 +182,6 @@ static int if_fake_low_latency = 0;
 SYSCTL_INT(_net_link_fake, OID_AUTO, low_latency, CTLFLAG_RW | CTLFLAG_LOCKED,
     &if_fake_low_latency, 0, "Fake interface with a low latency qset");
 
-static int if_fake_switch_combined_mode = 0;
-SYSCTL_INT(_net_link_fake, OID_AUTO, switch_combined_mode,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &if_fake_switch_combined_mode, 0,
-    "Switch a qset between combined and separate mode during dequeues");
-
-static int if_fake_switch_mode_frequency = 10;
-SYSCTL_INT(_net_link_fake, OID_AUTO, switch_mode_frequency,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &if_fake_switch_mode_frequency, 0,
-    "The number of dequeues before we switch between the combined and separated mode");
-
 static int if_fake_tso_support = 0;
 SYSCTL_INT(_net_link_fake, OID_AUTO, tso_support, CTLFLAG_RW | CTLFLAG_LOCKED,
     &if_fake_tso_support, 0, "Fake interface with support for TSO offload");
@@ -211,6 +201,10 @@ SYSCTL_INT(_net_link_fake, OID_AUTO, separate_frame_header,
     CTLFLAG_RW | CTLFLAG_LOCKED,
     &if_fake_separate_frame_header, 0, "Put frame header in separate mbuf");
 
+static int if_fake_fail_ioctl = 0;
+SYSCTL_INT(_net_link_fake, OID_AUTO, fail_ioctl, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &if_fake_fail_ioctl, 0, "Fake interface fail ioctl");
+
 typedef enum {
 	IFF_PP_MODE_GLOBAL = 0,         /* share a global pool */
 	IFF_PP_MODE_PRIVATE = 1,        /* creates its own rx/tx pool */
@@ -220,6 +214,10 @@ static iff_pktpool_mode_t if_fake_pktpool_mode = IFF_PP_MODE_GLOBAL;
 SYSCTL_INT(_net_link_fake, OID_AUTO, pktpool_mode, CTLFLAG_RW | CTLFLAG_LOCKED,
     &if_fake_pktpool_mode, IFF_PP_MODE_GLOBAL,
     "Fake interface packet pool mode (0 global, 1 private, 2 private split");
+
+static int if_fake_rx_flow_steering_support = 0;
+SYSCTL_INT(_net_link_fake, OID_AUTO, rx_flow_steering_support, CTLFLAG_RW | CTLFLAG_LOCKED,
+    &if_fake_rx_flow_steering_support, 0, "Fake interface with support for Rx flow steering");
 
 #define FETH_LINK_LAYER_AGGRETATION_FACTOR_MAX 512
 #define FETH_LINK_LAYER_AGGRETATION_FACTOR_DEF 96
@@ -714,6 +712,7 @@ typedef uint16_t        iff_flags_t;
 #define IFF_FLAGS_VLAN_TAGGING          0x0100
 #define IFF_FLAGS_SEPARATE_FRAME_HEADER 0x0200
 #define IFF_FLAGS_NX_ATTACHED           0x0400
+#define IFF_FLAGS_RX_FLOW_STEERING      0x0800
 
 #if SKYWALK
 
@@ -736,7 +735,6 @@ typedef struct {
 	uint32_t                fqs_idx;
 	uint32_t                fqs_dequeue_cnt;
 	uint64_t                fqs_id;
-	boolean_t               fqs_combined_mode;
 } fake_qset;
 
 typedef struct {
@@ -893,6 +891,17 @@ feth_set_supports_vlan_tagging(if_fake_ref fakeif)
 	fakeif->iff_flags |= IFF_FLAGS_VLAN_TAGGING;
 }
 
+static inline void
+feth_set_supports_rx_flow_steering(if_fake_ref fakeif)
+{
+	fakeif->iff_flags |= IFF_FLAGS_RX_FLOW_STEERING;
+}
+
+static inline bool
+feth_supports_rx_flow_steering(if_fake_ref fakeif)
+{
+	return (fakeif->iff_flags & IFF_FLAGS_RX_FLOW_STEERING) != 0;
+}
 
 #define FETH_MAXUNIT    IF_MAXUNIT
 #define FETH_ZONE_MAX_ELEM      MIN(IFNETS_MAX, FETH_MAXUNIT)
@@ -961,8 +970,7 @@ get_max_mtu(int bsd_mode, unsigned int max_mtu)
 	unsigned int    mtu;
 
 	if (bsd_mode != 0) {
-		mtu = (njcl > 0) ? (M16KCLBYTES - ETHER_HDR_LEN)
-		    : MBIGCLBYTES - ETHER_HDR_LEN;
+		mtu = M16KCLBYTES - ETHER_HDR_LEN;
 		if (mtu > max_mtu) {
 			mtu = max_mtu;
 		}
@@ -2565,6 +2573,37 @@ fill_capab_qset_extensions(if_fake_ref fakeif, void *contents, uint32_t *len)
 }
 
 static errno_t
+feth_nx_rx_flow_steering_config(void *prov_ctx, uint32_t id,
+    struct ifnet_traffic_descriptor_common *td, uint32_t action)
+{
+#pragma unused(td)
+	if_fake_ref fakeif = prov_ctx;
+
+	FAKE_LOG(LOG_DEBUG, FE_DBGF_MISC,
+	    "%s: nx_rx_flow_steering_config: id 0x%x, action %u",
+	    fakeif->iff_name, id, action);
+	return 0;
+}
+
+static errno_t
+fill_capab_rx_flow_steering(if_fake_ref fakeif, void *contents, uint32_t *len)
+{
+	struct kern_nexus_capab_rx_flow_steering * __single capab = contents;
+
+	if (*len != sizeof(*capab)) {
+		return EINVAL;
+	}
+	if (capab->kncrxfs_version !=
+	    KERN_NEXUS_CAPAB_RX_FLOW_STEERING_VERSION_1) {
+		return EINVAL;
+	}
+
+	capab->kncrxfs_prov_ctx = fakeif;
+	capab->kncrxfs_config = feth_nx_rx_flow_steering_config;
+	return 0;
+}
+
+static errno_t
 feth_nx_capab_config(kern_nexus_provider_t nxprov, kern_nexus_t nx,
     kern_nexus_capab_t capab, void *contents, uint32_t *len)
 {
@@ -2581,6 +2620,9 @@ feth_nx_capab_config(kern_nexus_provider_t nxprov, kern_nexus_t nx,
 		break;
 	case KERN_NEXUS_CAPAB_QSET_EXTENSIONS:
 		error = fill_capab_qset_extensions(fakeif, contents, len);
+		break;
+	case KERN_NEXUS_CAPAB_RX_FLOW_STEERING:
+		error = fill_capab_rx_flow_steering(fakeif, contents, len);
 		break;
 	default:
 		error = ENOTSUP;
@@ -2658,7 +2700,7 @@ create_netif_provider_and_instance(if_fake_ref fakeif,
 		.nxpi_config_capab = feth_nx_capab_config,
 	};
 
-	_CASSERT(IFF_MAX_RX_RINGS == 1);
+	static_assert(IFF_MAX_RX_RINGS == 1);
 	err = kern_nexus_attr_create(&nexus_attr);
 	if (err != 0) {
 		FAKE_LOG(LOG_NOTICE, FE_DBGF_LIFECYCLE,
@@ -2923,7 +2965,6 @@ feth_nx_tx_qset_notify(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 {
 #pragma unused(nxprov)
 	if_fake_ref             fakeif;
-	ifnet_t                 ifp;
 	ifnet_t                 peer_ifp;
 	if_fake_ref             peer_fakeif = NULL;
 	struct netif_stats *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
@@ -2950,7 +2991,6 @@ feth_nx_tx_qset_notify(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 		feth_unlock();
 		return 0;
 	}
-	ifp = fakeif->iff_ifp;
 	peer_ifp = fakeif->iff_peer;
 	if (peer_ifp != NULL) {
 		peer_fakeif = ifnet_get_if_fake(peer_ifp);
@@ -2974,17 +3014,6 @@ feth_nx_tx_qset_notify(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	} else {
 		FAKE_LOG(LOG_DEBUG, FE_DBGF_OUTPUT, "peer_ifp is NULL");
 		goto done;
-	}
-
-	if (if_fake_switch_combined_mode &&
-	    qset->fqs_dequeue_cnt >= if_fake_switch_mode_frequency) {
-		if (qset->fqs_combined_mode) {
-			kern_netif_set_qset_separate(qset->fqs_qset);
-		} else {
-			kern_netif_set_qset_combined(qset->fqs_qset);
-		}
-		qset->fqs_combined_mode = !qset->fqs_combined_mode;
-		qset->fqs_dequeue_cnt = 0;
 	}
 
 	for (i = 0; i < qset->fqs_tx_queue_cnt; i++) {
@@ -3016,7 +3045,6 @@ feth_nx_queue_tx_push(kern_nexus_provider_t nxprov,
 {
 #pragma unused(nxprov)
 	if_fake_ref             fakeif;
-	ifnet_t                 ifp;
 	ifnet_t                 peer_ifp;
 	if_fake_ref             peer_fakeif = NULL;
 	struct netif_stats      *nifs = &NX_NETIF_PRIVATE(nexus)->nif_stats;
@@ -3039,7 +3067,6 @@ feth_nx_queue_tx_push(kern_nexus_provider_t nxprov,
 		    (connected ? "true" : "false"));
 		goto done;
 	}
-	ifp = fakeif->iff_ifp;
 	peer_ifp = fakeif->iff_peer;
 	if (peer_ifp != NULL) {
 		peer_fakeif = ifnet_get_if_fake(peer_ifp);
@@ -3264,7 +3291,7 @@ create_netif_llink_provider_and_instance(if_fake_ref fakeif,
 	 * Assume llink id is same as the index for if_fake.
 	 * This is not required for other drivers.
 	 */
-	_CASSERT(NETIF_LLINK_ID_DEFAULT == 0);
+	static_assert(NETIF_LLINK_ID_DEFAULT == 0);
 	fill_llink_info_and_params(fakeif, 0, &llink_init,
 	    NETIF_LLINK_ID_DEFAULT, qsets, if_fake_qset_cnt,
 	    KERN_NEXUS_NET_LLINK_DEFAULT);
@@ -3455,6 +3482,9 @@ feth_ifnet_set_attrs(if_fake_ref fakeif, ifnet_t ifp)
 		    "ifnet_set_offload(%s, 0x%x) succeeded",
 		    ifp->if_xname, offload);
 	}
+	if (feth_supports_rx_flow_steering(fakeif)) {
+		ifnet_set_rx_flow_steering(ifp, true);
+	}
 }
 
 static void
@@ -3499,12 +3529,14 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 	bool                            multi_buflet;
 	iff_pktpool_mode_t              pktpool_mode;
 	bool                            tso_support;
+	bool                            rx_flow_steering_support;
 
 	/* make local copy of globals needed to make consistency checks below */
 	bsd_mode = (if_fake_bsd_mode != 0);
 	multi_buflet = (if_fake_multibuflet != 0);
 	tso_support = (if_fake_tso_support != 0);
 	pktpool_mode = if_fake_pktpool_mode;
+	rx_flow_steering_support = (if_fake_rx_flow_steering_support != 0);
 
 	if (!bsd_mode) {
 		/* consistency checks */
@@ -3535,7 +3567,7 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 	fakeif->iff_llink = iff_llink;
 	fakeif->iff_retain_count = 1;
 #define FAKE_ETHER_NAME_LEN     (sizeof(FAKE_ETHER_NAME) - 1)
-	_CASSERT(FAKE_ETHER_NAME_LEN == 4);
+	static_assert(FAKE_ETHER_NAME_LEN == 4);
 	strbufcpy(mac_address, FAKE_ETHER_NAME);
 	mac_address[ETHER_ADDR_LEN - 2] = (unit & 0xff00) >> 8;
 	mac_address[ETHER_ADDR_LEN - 1] = unit & 0xff;
@@ -3611,6 +3643,10 @@ feth_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 		fakeif->iff_tx_drop_rate = if_fake_tx_drops;
 		fakeif->iff_tx_completion_mode = if_tx_completion_mode;
 		fakeif->iff_tx_exp_policy = if_fake_tx_exp_policy;
+
+		if (rx_flow_steering_support) {
+			feth_set_supports_rx_flow_steering(fakeif);
+		}
 	}
 	feth_init.tx_headroom = fakeif->iff_tx_headroom;
 #endif /* SKYWALK */
@@ -4246,6 +4282,15 @@ feth_ioctl(ifnet_t ifp, u_long cmd, void * data)
 		} else if ((ifp->if_flags & IFF_RUNNING) != 0) {
 			/* marked down, clear running */
 			error = ifnet_set_flags(ifp, 0, IFF_RUNNING);
+		}
+		break;
+
+	case SIOCDIFADDR:
+		if (if_fake_fail_ioctl != 0) {
+			FAKE_LOG(LOG_NOTICE, FE_DBGF_LIFECYCLE,
+			    "%s: failing SIOCDIFADDR with EPWROFF",
+			    ifp->if_xname);
+			error = EPWROFF;
 		}
 		break;
 

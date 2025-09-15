@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2024 Apple Inc.  All rights reserved.
  */
 
-#include "loader_additions.h"
-#include "dyld_shared_cache.h"
 #include "region.h"
 #include "notes.h"
 
@@ -27,19 +25,39 @@ typedef struct segment_command native_segment_command_t;
 #define NATIVE_LC_SEGMENT	LC_SEGMENT
 #endif
 
-static __inline const struct load_command *next_lc(const struct load_command *lc) {
-	if (lc->cmdsize && (lc->cmdsize & 3) == 0)
-		return (const void *)((caddr_t)lc + lc->cmdsize);
-	return NULL;
-}
+extern native_mach_header_t *make_corefile_mach_header(void *,
+    const native_mach_header_t *);
+extern native_mach_header_t *get_aout_mach_header(task_t);
 
-extern native_segment_command_t *make_native_segment_command(void *, const struct vm_range *, const struct file_range *, vm_prot_t, vm_prot_t);
+extern struct note_command *make_task_crashinfo_note(native_mach_header_t *,
+    struct note_command *, struct write_segment_data *,
+    const struct task_crashinfo_note_data *);
+extern struct note_command *make_region_infos_note(native_mach_header_t *,
+    struct note_command *, struct write_segment_data *,
+    const struct region_infos_note_data *);
+extern struct note_command *make_addrable_bits_note(native_mach_header_t *,
+    struct load_command *, struct write_segment_data *,
+    const struct note_addrable_bits *);
+extern struct note_command *make_all_image_infos_note(native_mach_header_t *,
+    struct load_command *, struct write_segment_data *,
+    const struct all_image_infos_note_data *);
+extern struct note_command *make_process_metadata_note(native_mach_header_t *,
+    struct load_command *, struct write_segment_data *,
+    const struct process_metadata_note_data *);
 
-extern native_mach_header_t *make_corefile_mach_header(void *);
-extern struct proto_coreinfo_command *make_coreinfo_command(native_mach_header_t *, void *, const uuid_t, uint64_t, uint64_t);
+extern mach_vm_size_t size_task_crashinfo_note(
+    const struct task_crashinfo_note_data *);
+extern mach_vm_size_t size_region_infos_note(
+    const struct region_infos_note_data *);
+extern mach_vm_size_t size_addrable_bits_note(
+    const struct note_addrable_bits *);
+extern mach_vm_size_t size_all_image_infos_note(
+    const struct all_image_infos_note_data *);
+extern mach_vm_size_t size_process_metadata_note(
+    const struct process_metadata_note_data *);
 
-extern struct note_command *make_task_crashinfo_note(native_mach_header_t *, struct note_command *, struct write_segment_data *, const struct task_crashinfo_note_data *);
-extern struct note_command *make_region_infos_note(native_mach_header_t *, struct note_command *, struct write_segment_data *, const struct region_infos_note_data *);
+struct note_command;
+extern void validate_note_content(const struct note_command *, const char *, int);
 
 extern void set_collect_phys_footprint(bool);
 
@@ -52,16 +70,16 @@ static __inline void mach_header_inc_sizeofcmds(native_mach_header_t *mh, uint32
 }
 
 struct size_core {
-    unsigned long count; /* number-of-objects */
-    size_t headersize;   /* size in mach header */
-    mach_vm_offset_t memsize;     /* size in memory */
+    unsigned long count;        /* number-of-objects */
+    size_t headersize;          /* size used in mach header */
+    mach_vm_offset_t memsize;   /* size copied from memory */
+    mach_vm_offset_t zfodsize;  /* size of zero-fill segments */
+    task_t task;
 };
 
 struct size_segment_data {
     struct size_core ssd_vanilla;  /* full segments with data */
     struct size_core ssd_sparse;   /* sparse segments with data */
-    struct size_core ssd_fileref;  /* full & sparse segments with uuid file references */
-    struct size_core ssd_zfod;     /* full segments with zfod pages */
 };
 
 struct write_segment_data {
@@ -69,7 +87,7 @@ struct write_segment_data {
     native_mach_header_t *wsd_mh;
     void *wsd_lc;
     int wsd_fd;
-	bool wsd_nocache;
+    bool wsd_nocache;
     off_t wsd_foffset;
     off_t wsd_nwritten;
 };

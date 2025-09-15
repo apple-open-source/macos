@@ -189,7 +189,11 @@
     return state;
 }
 
+@end
+
 #pragma mark - Field Coding support
+
+@implementation OTAccountMetadataClassC (NSSecureCodingSupport)
 
 - (void)setTPSyncingPolicy:(TPSyncingPolicy*)policy
 {
@@ -256,6 +260,30 @@
     }
 
     return [[TPPBSecureElementIdentity alloc] initWithData:d];
+}
+
+- (NSDate* _Nullable)memoizedLastHealthCheck
+{
+    return [self _dateForMillisecondsSinceEpoch:self.lastHealthCheckup];
+}
+
+- (NSDate* _Nullable)memoizedLastEscrowRepairTriggered
+{
+    return [self _dateForMillisecondsSinceEpoch:self.lastEscrowRepairTriggered];
+}
+
+- (NSDate* _Nullable)memoizedLastEscrowRepairAttempted
+{
+    return [self _dateForMillisecondsSinceEpoch:self.lastEscrowRepairAttempted];
+}
+
+- (NSDate* _Nullable)_dateForMillisecondsSinceEpoch:(uint64_t)timestamp
+{
+    NSDate* result = nil;
+    if (timestamp != 0) {
+        result = [[NSDate alloc] initWithTimeIntervalSince1970:(NSTimeInterval)timestamp / 1000.0];
+    }
+    return result;
 }
 
 @end

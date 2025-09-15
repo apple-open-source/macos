@@ -64,6 +64,19 @@ void RemoteRealtimeAudioSource::setIsInBackground(bool value)
     connection().send(Messages::UserMediaCaptureManagerProxy::SetIsInBackground { identifier(), value }, 0);
 }
 
+void RemoteRealtimeAudioSource::setDescription(const WebCore::CAAudioStreamDescription& description)
+{
+    m_description = description;
+}
+
+const WebCore::AudioStreamDescription* RemoteRealtimeAudioSource::audioStreamDescription() const
+{
+    if (!m_description)
+        return nullptr;
+
+    return &m_description.value();
+}
+
 }
 
 #endif

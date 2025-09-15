@@ -70,7 +70,7 @@ public:
     };
     WEBCORE_EXPORT static AudioVideoSelectedTracks selectTracks(MediaStreamPrivate&);
 
-    using FetchDataCallback = CompletionHandler<void(RefPtr<FragmentedSharedBuffer>&&, const String& mimeType, double)>;
+    using FetchDataCallback = CompletionHandler<void(Ref<FragmentedSharedBuffer>&&, const String& mimeType, double)>;
     virtual void fetchData(FetchDataCallback&&) = 0;
     virtual String mimeType() const = 0;
 
@@ -106,8 +106,8 @@ private:
     virtual void resumeRecording(CompletionHandler<void()>&&) = 0;
 
 private:
-    bool m_shouldMuteAudio { false };
-    bool m_shouldMuteVideo { false };
+    std::atomic<bool> m_shouldMuteAudio { false };
+    std::atomic<bool> m_shouldMuteVideo { false };
     RefPtr<RealtimeMediaSource> m_audioSource;
     RefPtr<RealtimeMediaSource> m_videoSource;
     RefPtr<RealtimeMediaSource> m_pausedAudioSource;

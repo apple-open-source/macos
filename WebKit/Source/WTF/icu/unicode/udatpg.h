@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2007-2015, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *
 *******************************************************************************
 *   file name:  udatpg.h

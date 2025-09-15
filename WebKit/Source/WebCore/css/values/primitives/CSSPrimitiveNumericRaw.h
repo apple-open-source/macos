@@ -219,7 +219,7 @@ template<Range R = All, typename V = double> struct FlexRaw : PrimitiveNumericRa
 
 // MARK: Dimension + Percentage Primitives Raw
 
-template<Range R = All, typename V = double> struct AnglePercentageRaw : PrimitiveNumericRaw<R, AnglePercentageUnit, V> {
+template<Range R = All, typename V = float> struct AnglePercentageRaw : PrimitiveNumericRaw<R, AnglePercentageUnit, V> {
     using Base = PrimitiveNumericRaw<R, AnglePercentageUnit, V>;
     using Base::Base;
 };

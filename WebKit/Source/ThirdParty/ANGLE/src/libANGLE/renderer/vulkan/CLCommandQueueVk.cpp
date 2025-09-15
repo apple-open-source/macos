@@ -192,10 +192,10 @@ angle::Result CLCommandQueueVk::init()
                                 renderer->getQueueFamilyIndex(), getProtectionType()),
                             CL_OUT_OF_RESOURCES);
 
-    ANGLE_CL_IMPL_TRY_ERROR(mContext->getRenderer()->getOutsideRenderPassCommandBufferHelper(
-                                mContext, &mCommandPool.outsideRenderPassPool,
-                                &mOutsideRenderPassCommandsAllocator, &mComputePassCommands),
-                            CL_OUT_OF_RESOURCES);
+    ANGLE_CL_IMPL_TRY_ERROR(
+        mContext->getRenderer()->getOutsideRenderPassCommandBufferHelper(
+            mContext, &mCommandPool.outsideRenderPassPool, &mComputePassCommands),
+        CL_OUT_OF_RESOURCES);
 
     // Generate initial QueueSerial for command buffer helper
     ANGLE_CL_IMPL_TRY_ERROR(mContext->getRenderer()->allocateQueueSerialIndex(&mQueueSerialIndex),
@@ -514,14 +514,17 @@ angle::Result CLCommandQueueVk::enqueueFillBuffer(const cl::Buffer &buffer,
     ANGLE_TRY(processWaitlist(waitEvents));
 
     CLBufferVk *bufferVk = &buffer.getImpl<CLBufferVk>();
-    if (mComputePassCommands->usesBuffer(bufferVk->getBuffer()))
-    {
-        ANGLE_TRY(finishInternal());
-    }
 
-    ANGLE_TRY(bufferVk->fillWithPattern(pattern, patternSize, offset, size));
+    // Stage a transfer routine
+    HostTransferConfig config;
+    config.type        = CL_COMMAND_FILL_BUFFER;
+    config.patternSize = patternSize;
+    config.offset      = offset;
+    config.size        = size;
+    config.srcHostPtr  = pattern;
+    ANGLE_TRY(addToHostTransferList(bufferVk, config));
 
-    ANGLE_TRY(createEvent(eventCreateFunc, cl::ExecutionStatus::Complete));
+    ANGLE_TRY(createEvent(eventCreateFunc, cl::ExecutionStatus::Queued));
 
     return angle::Result::Continue;
 }
@@ -747,6 +750,26 @@ angle::Result CLCommandQueueVk::addToHostTransferList(CLBufferVk *srcBuffer,
             // Config transfer barrier
             srcStageMask             = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             dstStageMask             = VK_PIPELINE_STAGE_HOST_BIT;
+            memBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+            memBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+            break;
+        }
+        case CL_COMMAND_FILL_BUFFER:
+        {
+            VkBufferCopy copyRegion = {transferConfig.offset, transferConfig.offset,
+                                       transferConfig.size};
+            ANGLE_TRY(transferBufferHandleVk.fillWithPattern(
+                transferConfig.srcHostPtr, transferConfig.patternSize, transferConfig.offset,
+                transferConfig.size));
+            copyRegion.srcOffset += transferBufferHandleVk.getOffset();
+            copyRegion.dstOffset += srcBuffer->getOffset();
+            mComputePassCommands->getCommandBuffer().copyBuffer(
+                transferBufferHandleVk.getBuffer().getBuffer(), srcBuffer->getBuffer().getBuffer(),
+                1, &copyRegion);
+
+            // Config transfer barrier
+            srcStageMask             = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            dstStageMask             = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             memBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
             memBarrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
             break;
@@ -1316,7 +1339,7 @@ angle::Result CLCommandQueueVk::enqueueNativeKernel(cl::UserFunc userFunc,
                                                     void *args,
                                                     size_t cbArgs,
                                                     const cl::BufferPtrs &buffers,
-                                                    const std::vector<size_t> bufferPtrOffsets,
+                                                    const std::vector<size_t> &bufferPtrOffsets,
                                                     const cl::EventPtrs &waitEvents,
                                                     CLEventImpl::CreateFunc *eventCreateFunc)
 {
@@ -1437,6 +1460,7 @@ angle::Result CLCommandQueueVk::syncHostBuffers(HostTransferEntries &hostTransfe
                 hostTransferEntry.transferBufferHandle->getImpl<CLBufferVk>();
             switch (hostTransferEntry.transferConfig.type)
             {
+                case CL_COMMAND_FILL_BUFFER:
                 case CL_COMMAND_WRITE_BUFFER:
                 case CL_COMMAND_WRITE_BUFFER_RECT:
                     // Nothing left to do here
@@ -1479,14 +1503,14 @@ angle::Result CLCommandQueueVk::addMemoryDependencies(cl::Memory *clMem)
     mCommandsStateMap[mComputePassCommands->getQueueSerial()].memories.emplace_back(clMem);
 
     // Handle possible resource RAW hazard
-    bool insertBarrier = false;
+    bool needsBarrier = false;
     if (clMem->getFlags().intersects(CL_MEM_READ_WRITE))
     {
         // Texel buffers have backing buffer objects
         if (mDependencyTracker.contains(clMem) || mDependencyTracker.contains(parentMem) ||
             mDependencyTracker.size() == kMaxDependencyTrackerSize)
         {
-            insertBarrier = true;
+            needsBarrier = true;
             mDependencyTracker.clear();
         }
         mDependencyTracker.insert(clMem);
@@ -1504,12 +1528,9 @@ angle::Result CLCommandQueueVk::addMemoryDependencies(cl::Memory *clMem)
                                          vkMem.getImage().getAspectFlags(),
                                          vk::ImageLayout::ComputeShaderWrite, &vkMem.getImage());
     }
-    else if (insertBarrier && cl::IsBufferType(clMem->getType()))
+    if (needsBarrier)
     {
-        CLBufferVk &vkMem = clMem->getImpl<CLBufferVk>();
-
-        mComputePassCommands->bufferWrite(mContext, VK_ACCESS_SHADER_WRITE_BIT,
-                                          vk::PipelineStage::ComputeShader, &vkMem.getBuffer());
+        ANGLE_TRY(insertBarrier());
     }
 
     return angle::Result::Continue;
@@ -1520,7 +1541,6 @@ angle::Result CLCommandQueueVk::processKernelResources(CLKernelVk &kernelVk)
     bool podBufferPresent              = false;
     uint32_t podBinding                = 0;
     VkDescriptorType podDescriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bool needsBarrier = false;
     const CLProgramVk::DeviceProgramData *devProgramData =
         kernelVk.getProgram()->getDeviceProgramData(mCommandQueue.getDevice().getNative());
     ASSERT(devProgramData != nullptr);
@@ -1554,8 +1574,44 @@ angle::Result CLCommandQueueVk::processKernelResources(CLKernelVk &kernelVk)
     mCommandsStateMap[mComputePassCommands->getQueueSerial()].kernels.emplace_back(
         &kernelVk.getFrontendObject());
 
-    // Process each kernel argument/resource
+    // Process descriptor sets used by the kernel
     vk::DescriptorSetArray<UpdateDescriptorSetsBuilder> updateDescriptorSetsBuilders;
+
+    UpdateDescriptorSetsBuilder &literalSamplerDescSetBuilder =
+        updateDescriptorSetsBuilders[DescriptorSetIndex::LiteralSampler];
+
+    // Create/Setup Literal Sampler
+    for (const ClspvLiteralSampler &literalSampler : devProgramData->reflectionData.literalSamplers)
+    {
+        cl::SamplerPtr clLiteralSampler =
+            cl::SamplerPtr(cl::Sampler::Cast(this->mContext->getFrontendObject().createSampler(
+                literalSampler.normalizedCoords, literalSampler.addressingMode,
+                literalSampler.filterMode)));
+
+        // Release immediately to ensure correct refcount
+        clLiteralSampler->release();
+        ASSERT(clLiteralSampler != nullptr);
+        CLSamplerVk &vkLiteralSampler = clLiteralSampler->getImpl<CLSamplerVk>();
+
+        VkDescriptorImageInfo &samplerInfo =
+            literalSamplerDescSetBuilder.allocDescriptorImageInfo();
+        samplerInfo.sampler     = vkLiteralSampler.getSamplerHelper().get().getHandle();
+        samplerInfo.imageView   = VK_NULL_HANDLE;
+        samplerInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+        VkWriteDescriptorSet &writeDescriptorSet =
+            literalSamplerDescSetBuilder.allocWriteDescriptorSet();
+        writeDescriptorSet.descriptorCount = 1;
+        writeDescriptorSet.descriptorType  = VK_DESCRIPTOR_TYPE_SAMPLER;
+        writeDescriptorSet.pImageInfo      = &samplerInfo;
+        writeDescriptorSet.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writeDescriptorSet.dstSet = kernelVk.getDescriptorSet(DescriptorSetIndex::LiteralSampler);
+        writeDescriptorSet.dstBinding = literalSampler.binding;
+
+        mCommandsStateMap[mComputePassCommands->getQueueSerial()].samplers.emplace_back(
+            clLiteralSampler);
+    }
+
     CLKernelArguments args = kernelVk.getArgs();
     UpdateDescriptorSetsBuilder &kernelArgDescSetBuilder =
         updateDescriptorSetsBuilders[DescriptorSetIndex::KernelArguments];
@@ -1601,10 +1657,10 @@ angle::Result CLCommandQueueVk::processKernelResources(CLKernelVk &kernelVk)
                 uint32_t offset = roundDownPow2(arg.pushConstOffset, 4u);
                 uint32_t size =
                     roundUpPow2(arg.pushConstOffset + arg.pushConstantSize, 4u) - offset;
-                ASSERT(offset + size <= kernelVk.getPodArgumentsData().size());
+                ASSERT(offset + size <= kernelVk.getPodArgumentPushConstantsData().size());
                 mComputePassCommands->getCommandBuffer().pushConstants(
                     kernelVk.getPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, offset, size,
-                    &kernelVk.getPodArgumentsData()[offset]);
+                    &kernelVk.getPodArgumentPushConstantsData()[offset]);
                 break;
             }
             case NonSemanticClspvReflectionArgumentWorkgroup:
@@ -1679,10 +1735,9 @@ angle::Result CLCommandQueueVk::processKernelResources(CLKernelVk &kernelVk)
                 // Update image/descriptor info
                 VkDescriptorImageInfo &imageInfo =
                     kernelArgDescSetBuilder.allocDescriptorImageInfo();
-                imageInfo.imageLayout =
-                    arg.type == NonSemanticClspvReflectionArgumentStorageImage
-                        ? VK_IMAGE_LAYOUT_GENERAL
-                        : vkMem.getImage().getCurrentLayout(mContext->getRenderer());
+                imageInfo.imageLayout = arg.type == NonSemanticClspvReflectionArgumentStorageImage
+                                            ? VK_IMAGE_LAYOUT_GENERAL
+                                            : vkMem.getImage().getCurrentLayout();
                 imageInfo.imageView = vkMem.getImageView().getHandle();
                 imageInfo.sampler   = VK_NULL_HANDLE;
                 VkWriteDescriptorSet &writeDescriptorSet =
@@ -1824,11 +1879,6 @@ angle::Result CLCommandQueueVk::processKernelResources(CLKernelVk &kernelVk)
 
             ++descriptorSetIndex;
         }
-    }
-
-    if (needsBarrier)
-    {
-        ANGLE_TRY(insertBarrier());
     }
 
     return angle::Result::Continue;
@@ -1973,45 +2023,14 @@ angle::Result CLCommandQueueVk::createEvent(CLEventImpl::CreateFunc *createFunc,
 {
     if (createFunc != nullptr)
     {
-        *createFunc = [this, initialStatus, queueSerial = mComputePassCommands->getQueueSerial()](
+        *createFunc = [initialStatus, queueSerial = mComputePassCommands->getQueueSerial()](
                           const cl::Event &event) {
-            auto eventVk = new (std::nothrow) CLEventVk(event);
+            auto eventVk = new (std::nothrow) CLEventVk(event, initialStatus, queueSerial);
             if (eventVk == nullptr)
             {
-                ERR() << "Failed to create event obj!";
-                ANGLE_CL_SET_ERROR(CL_OUT_OF_HOST_MEMORY);
+                ERR() << "Failed to create cmd event obj!";
                 return CLEventImpl::Ptr(nullptr);
             }
-
-            if (initialStatus == cl::ExecutionStatus::Complete)
-            {
-                // Submission finished at this point, just set event to complete
-                if (IsError(eventVk->setStatusAndExecuteCallback(cl::ToCLenum(initialStatus))))
-                {
-                    ANGLE_CL_SET_ERROR(CL_OUT_OF_RESOURCES);
-                }
-            }
-            else if (mCommandQueue.getProperties().intersects(CL_QUEUE_PROFILING_ENABLE))
-            {
-                // We also block for profiling so that we get timestamps per-command
-                if (IsError(mCommandQueue.getImpl<CLCommandQueueVk>().finish()))
-                {
-                    ANGLE_CL_SET_ERROR(CL_OUT_OF_RESOURCES);
-                }
-                // Submission finished at this point, just set event to complete
-                if (IsError(eventVk->setStatusAndExecuteCallback(CL_COMPLETE)))
-                {
-                    ANGLE_CL_SET_ERROR(CL_OUT_OF_RESOURCES);
-                }
-            }
-            else
-            {
-                eventVk->setQueueSerial(queueSerial);
-                // Save a reference to this event to set event transitions
-                std::lock_guard<std::mutex> lock(mCommandQueueMutex);
-                mCommandsStateMap[queueSerial].events.emplace_back(&eventVk->getFrontendObject());
-            }
-
             return CLEventImpl::Ptr(eventVk);
         };
     }
@@ -2213,7 +2232,7 @@ angle::Result CLCommandQueueVk::processPrintfBuffer()
     ASSERT(mPrintfInfos);
 
     cl::MemoryPtr clMem = getOrCreatePrintfBuffer();
-    CLBufferVk &vkMem = clMem->getImpl<CLBufferVk>();
+    CLBufferVk &vkMem   = clMem->getImpl<CLBufferVk>();
 
     unsigned char *data = nullptr;
     ANGLE_TRY(vkMem.map(data, 0));
@@ -2239,6 +2258,16 @@ bool CLCommandQueueVk::hasUserEventDependency() const
 {
     return std::any_of(mExternalEvents.begin(), mExternalEvents.end(),
                        [](const cl::EventPtr event) { return event->isUserEvent(); });
+}
+
+void CLCommandQueueVk::addEventReference(CLEventVk &eventVk)
+{
+    ASSERT(eventVk.getQueueSerial().valid());
+    ASSERT(eventVk.getQueueSerial().getIndex() == mQueueSerialIndex);
+
+    std::lock_guard<std::mutex> lock(mCommandQueueMutex);
+
+    mCommandsStateMap[eventVk.getQueueSerial()].events.emplace_back(&eventVk.getFrontendObject());
 }
 
 }  // namespace rx

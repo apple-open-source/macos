@@ -1,19 +1,17 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2025 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
 #include "vm.h"
 #include "region.h"
 #include "utils.h"
-#include "dyld.h"
 #include "threads.h"
 #include "sparse.h"
 #include "vanilla.h"
 #include "corefile.h"
 
 #include <sys/types.h>
-#include <sys/sysctl.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <libproc.h>
@@ -32,37 +30,163 @@
 
 #include <mach/mach.h>
 
-static struct subregion *
-new_subregion(
-    const mach_vm_offset_t vmaddr,
-    const mach_vm_offset_t vmsize,
-    const native_segment_command_t *sc,
-    const struct libent *le)
+#pragma mark Simple Region Optimization
+
+static walk_return_t
+simple_region_optimization(struct region *r, __unused void *arg)
 {
-    if ((vmaddr != 0 && vmsize != 0) && (vmaddr < vmaddr + vmsize))
-    {
-        struct subregion *s = malloc(sizeof (*s));
-        
-        assert(vmaddr != 0 && vmsize != 0);
-        assert(vmaddr < vmaddr + vmsize);
-        s->s_segcmd = *sc;
-        
-        S_SETADDR(s, vmaddr);
-        S_SETSIZE(s, vmsize);
-        
-        s->s_libent = le;
-        s->s_isuuidref = false;
-        s->s_isshared_dyld = false;
-        return s;
-    } else {
-        return NULL;
+    assert(0 != R_SIZE(r));
+    
+    hsize_str_t hstr;
+    tag_str_t tstr;
+
+    /*
+     * Elide always unreadable regions
+     */
+    if ((r->r_info.max_protection & VM_PROT_READ) != VM_PROT_READ) {
+        if (OPTIONS_DEBUG(opt, 2)) {
+            printr(r, "elided %s %s (%s/%s inaccessible)\n",
+                str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r),
+                str_prot(r->r_info.protection),
+                str_prot(r->r_info.max_protection));
+        }
+        return WALK_DELETE_REGION;
     }
+#ifdef CONFIG_SUBMAP
+    /*
+     * Elide submaps (here for debugging purposes?)
+     */
+    if (r->r_info.is_submap) {
+        if (OPTIONS_DEBUG(opt, 2)) {
+            printr(r, "elided %s %s (submap)\n",
+                str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r));
+        }
+        return WALK_DELETE_REGION;
+    }
+#endif
+    /*
+     * Elide currently unreadable regions for certain tags
+     */
+    if (r->r_info.protection == VM_PROT_NONE) {
+        switch (r->r_info.user_tag) {
+            case VM_MEMORY_STACK:
+            case VM_MEMORY_MALLOC:
+            case VM_MEMORY_MALLOC_SMALL:
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printr(r, "elided %s %s (%s/%s guard)\n",
+                        str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r),
+                        str_prot(r->r_info.protection),
+                        str_prot(r->r_info.max_protection));
+                }
+                return WALK_DELETE_REGION;
+            default:
+//                if (r->r_info.share_mode == SM_EMPTY) {
+//                    if (OPTIONS_DEBUG(opt, 2)) {
+//                        printr(r, "elided %s %s (%s/%s empty)\n",
+//                            str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r),
+//                            str_prot(r->r_info.protection),
+//                            str_prot(r->r_info.max_protection));
+//                    }
+//                    return WALK_DELETE_REGION;
+//                }
+                break;
+        }
+    }
+    
+    /*
+     * Elide "Owned unmapped memory". These fake regions are useful for
+     * accounting purposes but don't contain any backing memory.
+     */
+    const unsigned owned_unmapped_memory_tag = (unsigned)-1;
+    if (r->r_info.user_tag == owned_unmapped_memory_tag) {
+        if (OPTIONS_DEBUG(opt, 2)) {
+            printr(r, "elided %s %s (accounting)\n",
+                str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r));
+        }
+        return WALK_DELETE_REGION;
+    }
+
+    /*
+     * Elide magic unmapped rosetta pages that cannot be remapped readable
+     */
+    if (!r->r_insharedregion && r->r_info.share_mode == SM_EMPTY &&
+        0 == (r->r_info.protection & VM_PROT_READ)) {
+        switch (r->r_info.user_tag) {
+            case VM_MEMORY_ROSETTA_THREAD_CONTEXT:
+            case VM_MEMORY_ROSETTA_RETURN_STACK:
+            case VM_MEMORY_ROSETTA:
+                if (OPTIONS_DEBUG(opt, 2)) {
+                    printr(r, "elided %s %s (%s/%s inaccessible)\n",
+                        str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r),
+                        str_prot(r->r_info.protection),
+                        str_prot(r->r_info.max_protection));
+                }
+                return WALK_DELETE_REGION;
+        }
+    }
+
+    return WALK_CONTINUE;
+}
+
+void
+simple_regionlist_optimization(struct regionhead *rh)
+{
+    walk_region_list(rh, simple_region_optimization, NULL);
+}
+
+#pragma mark Stack-only Optimization
+
+/*
+ * Only keep regions that are tagged as "stack"
+ */
+static walk_return_t
+stackonly_content(struct region *r, void *__unused arg)
+{
+    if (in_stack_tagged_region(r)) {
+        return WALK_CONTINUE;
+    }
+    if (OPTIONS_DEBUG(opt, 2)) {
+        hsize_str_t hstr;
+        tag_str_t tstr;
+        printr(r, "elided %s %s (not stack)\n",
+            str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r));
+    }
+    return WALK_DELETE_REGION;
+}
+
+void
+retain_only_stack(struct regionhead *rh)
+{
+    walk_region_list(rh, stackonly_content, NULL);
+}
+
+#pragma mark Modified-only Content Optimization
+
+/*
+ * Sometimes only part(s) of a region contain interesting content, where
+ * "interesting" means modified pages. That's what subregions are used for.
+ */
+static struct subregion *
+new_subregion(struct vm_range range, subregiontype type)
+{
+    assert(range.addr != 0 && range.size != 0);
+    assert(range.addr < range.addr + range.size);
+    struct subregion *s = malloc(sizeof(*s));
+    if (s) {
+        S_SETADDR(s, range.addr);
+        S_SETSIZE(s, range.size);
+        S_SETTYPE(s, type);
+    }
+    return s;
 }
 
 static void
 del_subregion(struct subregion *s)
 {
-    poison(s, 0xfacefac1, sizeof (*s));
+    assert(S_ADDR(s) != 0);
+    assert(S_SIZE(s) != 0);
+    assert(S_TYPE(s) == SR_DIRTY || S_TYPE(s) == SR_CLEAN);
+    poison(s, 0xfacefac1, sizeof(*s));
     free(s);
 }
 
@@ -71,9 +195,10 @@ clean_subregions(struct region *r)
 {
 	if (r->r_nsubregions) {
 		assert(r->r_subregions);
-		for (unsigned i = 0; i < r->r_nsubregions; i++)
-			del_subregion(r->r_subregions[i]);
-		poison(r->r_subregions, 0xfac1fac1, sizeof (r->r_subregions[0]) * r->r_nsubregions);
+        for (unsigned i = 0; i < r->r_nsubregions; i++) {
+            del_subregion(r->r_subregions[i]);
+        }
+		poison(r->r_subregions, 0xfac1fac1, sizeof(r->r_subregions[0]) * r->r_nsubregions);
 		free(r->r_subregions);
 		r->r_nsubregions = 0;
 		r->r_subregions = NULL;
@@ -91,428 +216,248 @@ rop_sparse_delete(struct region *r)
     free(r);
 }
 
-#define NULLsc  ((native_segment_command_t *)0)
+struct modified_content_args {
+    task_t mca_task;
+};
 
-static bool
-issamesubregiontype(const struct subregion *s0, const struct subregion *s1) {
-    return 0 == strncmp(S_MACHO_TYPE(s0), S_MACHO_TYPE(s1), sizeof (NULLsc->segname));
-}
+// footprint does
+// (disp & VM_PAGE_QUERY_PAGE_DIRTY) ||
+//  ((disp & VM_PAGE_QUERY_PRESENT) && !(disp && VM_PAGE_QUERY_PAGE_EXTERNAL)
 
-bool
-issubregiontype(const struct subregion *s, const char *sctype) {
-    return 0 == strncmp(S_MACHO_TYPE(s), sctype, sizeof (NULLsc->segname));
-}
+// libmalloc and PerfUtils does
+//if (disp & VM_PAGE_QUERY_PAGE_PRESENT) {
+//    if (disp & (VM_PAGE_QUERY_PAGE_COPIED|VM_PAGE_QUERY_PAGE_DIRTY)) {
+//        magazine.pages_dirty++;
+//    }
+//} else if (disp & VM_PAGE_QUERY_PAGE_PAGED_OUT) {
+//    magazine.pages_dirty++;
+//}
 
-static void
-elide_subregion(struct region *r, unsigned ind)
+// OrderFiles does
+// if (disposition & (VM_PAGE_QUERY_PAGE_DIRTY | VM_PAGE_QUERY_PAGE_PAGED_OUT))
+
+static subregiontype
+page_type(int disp)
 {
-    del_subregion(r->r_subregions[ind]);
-    for (unsigned j = ind; j < r->r_nsubregions - 1; j++)
-        r->r_subregions[j] = r->r_subregions[j+1];
-    assert(r->r_nsubregions != 0);
-    r->r_subregions[--r->r_nsubregions] = NULL;
+    if (disp & VM_PAGE_QUERY_PAGE_PRESENT) {
+        if (disp & (VM_PAGE_QUERY_PAGE_COPIED|VM_PAGE_QUERY_PAGE_DIRTY)) {
+            return SR_DIRTY;
+        }
+    } else if (disp & VM_PAGE_QUERY_PAGE_PAGED_OUT) {
+        return SR_DIRTY;
+    }
+    return SR_CLEAN;
 }
 
 struct subregionlist {
-    STAILQ_ENTRY(subregionlist) srl_linkage;
+    STAILQ_ENTRY(subregionlist) srl_link;
     struct subregion *srl_s;
 };
-typedef STAILQ_HEAD(, subregionlist) subregionlisthead_t;
+
+/*
+ * Two separate allocations. Start with the subregions on a
+ * subregionlist tail queue, then repack if needed into an array
+ * of subregions hanging off a struct region.
+ */
+static struct subregionlist *
+new_subregionlist(struct vm_range range, subregiontype t)
+{
+    struct subregion *s = new_subregion(range, t);
+    if (s) {
+        struct subregionlist *srl = calloc(1, sizeof(*srl));
+        if (srl) {
+            srl->srl_s = s;
+            return srl;
+        }
+        del_subregion(s);
+    }
+    return NULL;
+}
 
 static walk_return_t
-add_subregions_for_libent(
-    subregionlisthead_t *srlh,
-    const struct region *r,
-    const native_mach_header_t *mh,
-    const mach_vm_offset_t __unused mh_taddr,	// address in target
-    const struct libent *le)
+modified_content(struct region *r, void *arg)
 {
-    const struct load_command *lc = (const void *)(mh + 1);
-	mach_vm_offset_t objoff = le->le_objoff;
-    for (unsigned n = 0; n < mh->ncmds; n++) {
+    hsize_str_t hstr;
+    tag_str_t tstr;
 
-        const native_segment_command_t *sc;
-
-        switch (lc->cmd) {
-            case NATIVE_LC_SEGMENT:
-                sc = (const void *)lc;
-
-                if (0 == sc->vmaddr && strcmp(sc->segname, SEG_PAGEZERO) == 0)
-                    break;
-				mach_vm_offset_t lo = sc->vmaddr + objoff;
-				mach_vm_offset_t hi = lo + sc->vmsize;
-
-                /* Eliminate non-overlapping sections first */
-
-                if (R_ENDADDR(r) - 1 < lo)
-                    break;
-                if (hi - 1 < R_ADDR(r))
-                    break;
-
-                /*
-                 * Some part of this segment is in the region.
-                 * Trim the edges in the case where we span regions.
-                 */
-                if (lo < R_ADDR(r))
-                    lo = R_ADDR(r);
-                if (hi > R_ENDADDR(r))
-                    hi = R_ENDADDR(r);
-
-                struct subregionlist *srl = calloc(1, sizeof (*srl));
-                struct subregion *s = new_subregion(lo, hi - lo, sc, le);
-                if (s!=NULL) {
-                    assert(sc->fileoff >= 0);
-                    srl->srl_s = s;
-                    STAILQ_INSERT_HEAD(srlh, srl, srl_linkage);
-                    
-                    if (OPTIONS_DEBUG(opt, 2)) {
-                        hsize_str_t hstr;
-                        printr(r, "subregion %llx-%llx %7s %12s\t%s [%s off %lu for %lu nsects %u flags %x]\n",
-                               S_ADDR(s), S_ENDADDR(s),
-                               str_hsize(hstr, S_SIZE(s)),
-                               sc->segname,
-                               S_FILENAME(s),
-                               str_prot(sc->initprot),
-                               (unsigned long)sc->fileoff,
-                               (unsigned long)sc->filesize,
-                               sc->nsects, sc->flags);
-                    }
-                }
-                break;
-            default:
-                break;
-        }
-        if (lc->cmdsize)
-            lc = (const void *)((caddr_t)lc + lc->cmdsize);
-        else
-            break;
+    if (r->r_incommregion) {
+        // preserve the commpage
+        return WALK_CONTINUE;
     }
-    return WALK_CONTINUE;
-}
-
-/*
- * Because we aggregate information from multiple sources, there may
- * be duplicate subregions.  Eliminate them here.
- *
- * Note that the each library in the shared cache points
- * separately at a single, unified (large!) __LINKEDIT section; these
- * get removed here too.
- *
- * Assumes the subregion array is sorted by address!
- */
-static void
-eliminate_duplicate_subregions(struct region *r)
-{
-    unsigned i = 1;
-    while (i < r->r_nsubregions) {
-        struct subregion *s0 = r->r_subregions[i-1];
-        struct subregion *s1 = r->r_subregions[i];
-
-        if (S_ADDR(s0) != S_ADDR(s1) || S_SIZE(s0) != S_SIZE(s1)) {
-            i++;
-            continue;
-        }
-        if (memcmp(&s0->s_segcmd, &s1->s_segcmd, sizeof (s0->s_segcmd)) != 0) {
-            i++;
-            continue;
-        }
-        if (OPTIONS_DEBUG(opt, 3))
-            printr(r, "eliding duplicate %s subregion (%llx-%llx) file %s\n",
-                   S_MACHO_TYPE(s1), S_ADDR(s1), S_ENDADDR(s1), S_FILENAME(s1));
-        /* If the duplicate subregions aren't mapping the same file (?), forget the name */
-        if (s0->s_libent != s1->s_libent)
-            s0->s_libent = s1->s_libent = NULL;
-        elide_subregion(r, i);
-    }
-}
-
-/*
- * See if any of the dyld information we have can better describe this
- * region of the target address space.
- */
-walk_return_t
-decorate_memory_region(struct region *r, void *arg)
-{
-	if (r->r_inzfodregion || r->r_incommregion)
-		return WALK_CONTINUE;
-
-    const dyld_process_info dpi = arg;
-
-    __block walk_return_t retval = WALK_CONTINUE;
-    __block subregionlisthead_t srlhead = STAILQ_HEAD_INITIALIZER(srlhead);
-
-    _dyld_process_info_for_each_image(dpi, ^(uint64_t __unused mhaddr, const uuid_t uuid, __unused const char *path) {
-        if (WALK_CONTINUE == retval) {
-            const struct libent *le = libent_lookup_byuuid(uuid);
-            assert(le->le_mhaddr == mhaddr);
-			bool shouldskip = false;
-			if (V_SIZE(&le->le_vr))
-				shouldskip = (R_ENDADDR(r) < V_ADDR(&le->le_vr) ||
-							  R_ADDR(r) > V_ENDADDR(&le->le_vr));
-			if (!shouldskip)
-                retval = add_subregions_for_libent(&srlhead, r, le->le_mh, le->le_mhaddr, le);
-        }
-    });
-    if (WALK_CONTINUE != retval)
-        goto done;
 
     /*
-     * Take the unsorted list of subregions, if any,
-     * and hang a sorted array of ranges on the region structure.
+     * Seems like a simple test on r->r_info.pages_dirtied + swapped_out
+     * would let you identify unmodified segments quickly, but experimentally
+     * it appears that some regions still have dirty pages despite what
+     * r_info says.
      */
-    if (!STAILQ_EMPTY(&srlhead)) {
-        struct subregionlist *srl;
-        STAILQ_FOREACH(srl, &srlhead, srl_linkage) {
-            r->r_nsubregions++;
+    
+    /*
+     * Eliminate r-x and r-- regions of the shared cache.
+     */
+    if (r->r_insharedregion && r->r_info.external_pager &&
+        ((r->r_info.max_protection | r->r_info.protection) & VM_PROT_WRITE) == 0 &&
+        r->r_info.pages_dirtied == 0 && r->r_info.pages_swapped_out == 0) {
+        if (OPTIONS_DEBUG(opt, 2)) {
+            printr(r, "elided %s %s (shared cache, %s)\n",
+                str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r),
+                str_prot(r->r_info.max_protection));
         }
-        assert(r->r_nsubregions);
+        return WALK_DELETE_REGION;
+    }
 
-        r->r_subregions = calloc(r->r_nsubregions, sizeof (void *));
-        unsigned i = 0;
-        STAILQ_FOREACH(srl, &srlhead, srl_linkage) {
-            r->r_subregions[i++] = srl->srl_s;
+    const struct modified_content_args *mca = arg;
+    const size_t pagesize_app = 1ul << pageshift_app;
+    const mach_vm_address_t starta = R_ADDR(r);
+    const mach_vm_address_t enda = R_ENDADDR(r);
+    const mach_vm_size_t npages = (enda + pagesize_app - 1 - starta) / pagesize_app;
+    int *disp = calloc(1, (size_t)(npages * sizeof(*disp)));
+    if (disp == NULL) {
+        if (OPTIONS_DEBUG(opt, 1)) {
+            printr(r, "failed to allocate memory for page attributes\n");
         }
-        qsort_b(r->r_subregions, r->r_nsubregions, sizeof (void *),
-                ^(const void *a, const void *b) {
-                    const struct subregion *lhs = *(struct subregion **)a;
-                    const struct subregion *rhs = *(struct subregion **)b;
-                    if (S_ADDR(lhs) > S_ADDR(rhs))
-                        return 1;
-                    if (S_ADDR(lhs) < S_ADDR(rhs))
-                        return -1;
-                    return 0;
-                });
+        return WALK_CONTINUE;
+    }
+    
+    mach_vm_size_t page_count = npages;
+    kern_return_t kr = mach_vm_page_range_query(mca->mca_task,
+        starta, npages * pagesize_app, (mach_vm_address_t)disp, &page_count);
+    if (kr != KERN_SUCCESS) {
+        if (OPTIONS_DEBUG(opt, 1)) {
+            err_mach(kr, r, "fetch page attributes");
+        }
+        free(disp);
+        return WALK_CONTINUE;
+    }
 
-        eliminate_duplicate_subregions(r);
+    struct subregionlisthead {
+        STAILQ_HEAD(, subregionlist) head;
+        unsigned nelem;
+    } data = {
+        .head = STAILQ_HEAD_INITIALIZER(data.head),
+        .nelem = 0,
+    };
 
-		if (r->r_info.external_pager) {
-			/*
-			 * Only very specific segment types get to be filerefs
-			 */
-			for (i = 0; i < r->r_nsubregions; i++) {
-				struct subregion *s = r->r_subregions[i];
-				/*
-				 * Anything marked writable is trivially disqualified; we're
-				 * going to copy it anyway.
-				 */
-				if (s->s_segcmd.initprot & VM_PROT_WRITE)
-					continue;
+    /*
+     * Some regions are copy-on-write with a few dirty pages. We want the
+     * debugger to see the clean pages in the region as present (and zeroed),
+     * so in those cases, we also record the clean pages and write them
+     * out using a "zfod" segment in the core header i.e. with filesize == 0.
+     */
+    const bool record_clean = r->r_info.external_pager == 0 &&
+        (r->r_info.share_mode == SM_COW || r->r_info.share_mode == SM_PRIVATE);
 
-				/* __TEXT and __LINKEDIT are our real targets */
-				if (!issubregiontype(s, SEG_TEXT) && !issubregiontype(s, SEG_LINKEDIT) && !issubregiontype(s, "__UNICODE")) {
-					if (OPTIONS_DEBUG(opt, 3)) {
-						hsize_str_t hstr;
-						printvr(S_RANGE(s), "skipping read-only %s segment %s\n", S_MACHO_TYPE(s), str_hsize(hstr, S_SIZE(s)));
-					}
-					continue;
-				}
-                
-                if (is_range_part_of_the_shared_library_address_space(s->s_range.addr,s->s_range.size))
-                    s->s_isshared_dyld = true;
-				if (r->r_insharedregion) {
-					/*
-					 * Part of the shared region: things get more complicated.
-					 */
-					if (r->r_fileref) {
-						/*
-						 * There's a file reference here for the whole region.
-						 * For __TEXT subregions, we could, in principle (though
-						 * see below) generate references to the individual
-						 * dylibs that dyld reports in the region. If the
-						 * debugger could then use the __LINKEDIT info in the
-						 * file, then we'd be done.  But as long as the dump
-						 * includes __LINKEDIT sections, we're going to
-						 * end up generating a file reference to the combined
-						 * __LINKEDIT section in the shared cache anyway, so
-						 * we might as well do that for the __TEXT regions as
-						 * well.
-						 */
-						s->s_libent = r->r_fileref->fr_libent;
-						s->s_isuuidref = true;
-					} else {
-						/*
-						 * If we get here, it's likely that the shared cache
-						 * name can't be found e.g. update_dyld_shared_cache(1).
-						 * For __TEXT subregions, we could generate refs to
-						 * the individual dylibs, but note that the mach header
-						 * and segment commands in memory are still pointing
-						 * into the shared cache so any act of reconstruction
-						 * is fiendishly complex.  So copy it.
-						 */
-						assert(!s->s_isuuidref);
-					}
-				} else {
-					/* Just a regular dylib? */
-					if (s->s_libent)
-						s->s_isuuidref = true;
-				}
-			}
-		}
-	}
-    assert(WALK_CONTINUE == retval);
+    struct subregionlist * (^listelem)(ppnum_t, ppnum_t) = ^(ppnum_t s, ppnum_t l) {
+        struct vm_range vr = {
+            .addr = starta + s * pagesize_app,
+            .size = l * pagesize_app,
+        };
+        return new_subregionlist(vr, page_type(disp[s]));
+    };
 
+    ppnum_t start = 0;
+    ppnum_t run_length = 1;
+    for (ppnum_t pgno = 1; pgno < page_count; pgno++) {
+
+        const subregiontype now = page_type(disp[pgno]);
+        const subregiontype prev = page_type(disp[pgno-1]);
+
+        if (now == prev) {
+            // clean -> clean || dirty -> dirty
+            run_length++;
+            continue;
+        }
+        // clean -> dirty || dirty -> clean
+        if (prev == SR_DIRTY || record_clean) {
+            struct subregionlist *srl = listelem(start, run_length);
+            if (srl == NULL) {
+                goto done;
+            }
+            STAILQ_INSERT_TAIL(&data.head, srl, srl_link);
+            data.nelem += 1;
+        }
+        start = pgno;
+        run_length = 1;
+    }
+    
+    // Handle the trailing edge
+
+    if (page_count &&
+        (page_type(disp[start]) == SR_DIRTY || record_clean)) {
+        struct subregionlist *srl = listelem(start, run_length);
+        if (srl == NULL) {
+            goto done;
+        }
+        STAILQ_INSERT_TAIL(&data.head, srl, srl_link);
+        data.nelem += 1;
+    }
+
+    switch (data.nelem) {
+        case 0:
+            /*
+             * No subregions implicitly means we only looked for dirty pages,
+             * (and there weren't any), so just discard the region
+             * altogether e.g. this is an unmodified anon region or
+             * unmodified mapped file
+             */
+            assert(!record_clean);
+            if (OPTIONS_DEBUG(opt, 2)) {
+                printr(r, "elided %s %s (no modified pages)\n",
+                    str_hsize(hstr, R_SIZE(r)), str_tag(tstr, r));
+            }
+            free(disp);
+            return WALK_DELETE_REGION;
+
+        case 1: {
+            const struct subregion *s = STAILQ_FIRST(&data.head)->srl_s;
+            if (R_ADDR(r) == S_ADDR(s) && R_ENDADDR(r) == S_ENDADDR(s)) {
+                /*
+                 * Only one subregion == the region!
+                 * If it was all dirty, just use the existing vanilla
+                 * region representation.
+                 */
+                if (S_TYPE(s) == SR_DIRTY) {
+                    break;
+                }
+            }
+        }
+            /* FALLTHROUGH */
+        default:
+            // Move subregions from the tailq to an array
+            r->r_subregions = calloc(data.nelem, sizeof(void *));
+            if (r->r_subregions == NULL) {
+                break;  // stick with a region description
+            }
+            r->r_nsubregions = 0;
+            struct subregionlist *srl;
+            STAILQ_FOREACH(srl, &data.head, srl_link) {
+                r->r_subregions[r->r_nsubregions++] = srl->srl_s;
+                srl->srl_s = NULL;  // ownership transferred!
+            }
+            assert(data.nelem == r->r_nsubregions);
+            r->r_op = &sparse_ops;
+    }
+    
 done:
-    if (!STAILQ_EMPTY(&srlhead)) {
+    if (data.nelem) {
+        // Destroy the temporary subregion list (and any lurking subregions)
         struct subregionlist *srl, *trl;
-        STAILQ_FOREACH_SAFE(srl, &srlhead, srl_linkage, trl) {
+        STAILQ_FOREACH_SAFE(srl, &data.head, srl_link, trl) {
+            if (srl->srl_s) {
+                del_subregion(srl->srl_s);
+            }
             free(srl);
         }
     }
-    return retval;
-}
-
-/*
- * Strip region of all decoration
- *
- * Invoked (on every region!) after an error during the initial
- * 'decoration' phase to discard potentially incomplete information.
- */
-walk_return_t
-undecorate_memory_region(struct region *r, __unused void *arg)
-{
-    assert(&sparse_ops != r->r_op);
-    return r->r_nsubregions ? clean_subregions(r) : WALK_CONTINUE;
-}
-
-/*
- * This optimization occurs -after- the vanilla_region_optimizations(),
- * and -after- we've tagged zfod and first-pass fileref's.
- */
-walk_return_t
-sparse_region_optimization(struct region *r, __unused void *arg)
-{
-    assert(&sparse_ops != r->r_op);
-
-    if (r->r_inzfodregion) {
-        /*
-         * Pure zfod region: almost certainly a more compact
-         * representation - keep it that way.
-         */
-		if (OPTIONS_DEBUG(opt, 3))
-			printr(r, "retaining zfod region\n");
-        assert(&zfod_ops == r->r_op);
-        return clean_subregions(r);
-    }
-
-	if (r->r_insharedregion && 0 == r->r_nsubregions) {
-		/*
-		 * A segment in the shared region needs to be
-		 * identified with an LC_SEGMENT that dyld claims,
-		 * otherwise (we assert) it's not useful to the dump.
-		 */
-		if (OPTIONS_DEBUG(opt, 2)) {
-			hsize_str_t hstr;
-			printr(r, "not referenced in dyld info => "
-				   "eliding %s range in shared region\n",
-				   str_hsize(hstr, R_SIZE(r)));
-		}
-		if (0 == r->r_info.pages_dirtied && 0 == r->r_info.pages_swapped_out)
-			return WALK_DELETE_REGION;
-		if (OPTIONS_DEBUG(opt, 2)) {
-			hsize_str_t hstr;
-			printr(r, "dirty pages, but not referenced in dyld info => "
-				   "NOT eliding %s range in shared region\n",
-				   str_hsize(hstr, R_SIZE(r)));
-		}
-	}
-
-	if (r->r_fileref) {
-		/*
-		 * Already have a fileref for the whole region: already
-		 * a more compact representation - keep it that way.
-		 */
-		if (OPTIONS_DEBUG(opt, 3))
-			printr(r, "retaining fileref region\n");
-		assert(&fileref_ops == r->r_op);
-		return clean_subregions(r);
-	}
-
-    if (r->r_nsubregions > 1) {
-        /*
-         * Merge adjacent or identical subregions that have no file reference
-         * (Reducing the number of subregions reduces header overhead and
-         * improves compressability)
-         */
-        unsigned i = 1;
-        while (i < r->r_nsubregions) {
-            struct subregion *s0 = r->r_subregions[i-1];
-            struct subregion *s1 = r->r_subregions[i];
-
-            if (s0->s_isuuidref) {
-                i++;
-                continue; /* => destined to be a fileref */
-            }
-            if (!issamesubregiontype(s0, s1)) {
-                i++;
-                continue; /* merge-able subregions must have same "type" */
-            }
-
-            if (S_ENDADDR(s0) == S_ADDR(s1)) {
-                /* directly adjacent subregions */
-                if (OPTIONS_DEBUG(opt, 2))
-                    printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- adjacent\n",
-                           S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-                S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
-                elide_subregion(r, i);
-                continue;
-            }
-
-            const mach_vm_size_t pfn[2] = {
-                S_ADDR(s0) >> pageshift_host,
-                S_ADDR(s1) >> pageshift_host
-            };
-            const mach_vm_size_t endpfn[2] = {
-                (S_ENDADDR(s0) - 1) >> pageshift_host,
-                (S_ENDADDR(s1) - 1) >> pageshift_host
-            };
-
-            if (pfn[0] == pfn[1] && pfn[0] == endpfn[0] && pfn[0] == endpfn[1]) {
-                /* two small subregions share a host page */
-                if (OPTIONS_DEBUG(opt, 2))
-                    printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- same page\n",
-                           S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-                S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
-                elide_subregion(r, i);
-                continue;
-            }
-
-            if (pfn[1] == 1 + endpfn[0]) {
-                /* subregions are pagewise-adjacent: bigger chunks to compress */
-                if (OPTIONS_DEBUG(opt, 2))
-                    printr(r, "merging subregions (%llx-%llx + %llx-%llx) -- adjacent pages\n",
-                           S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-                S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
-                elide_subregion(r, i);
-                continue;
-            }
-            /* Join regions with an offset < 7 bytes to avoid problems with DYLD dirty regions boundaries*/
-            if (endpfn[0] + 7 >= pfn[1] ) {
-                /* subregions are pagewise-adjacent: bigger chunks to compress */
-                if (OPTIONS_DEBUG(opt, 2))
-                    printr(r, "Nerging subregions (%llx-%llx + %llx-%llx) -- adjacent pages\n",
-                           S_ADDR(s0), S_ENDADDR(s0), S_ADDR(s1), S_ENDADDR(s1));
-                S_SETSIZE(s0, S_ENDADDR(s1) - S_ADDR(s0));
-                elide_subregion(r, i);
-                continue;
-            }
-
-            i++;    /* this isn't the subregion we're looking for */
-        }
-    }
-
-	if (1 == r->r_nsubregions) {
-		struct subregion *s = r->r_subregions[0];
-		if (!s->s_isuuidref &&
-			R_ADDR(r) == S_ADDR(s) && R_ENDADDR(r) == S_ENDADDR(s)) {
-			if (OPTIONS_DEBUG(opt, 3))
-				printr(r, "subregion (%llx-%llx) reverts to region\n",
-					   S_ADDR(s), S_ENDADDR(s));
-			return clean_subregions(r);
-		}
-	}
-
-    if (r->r_nsubregions)
-        r->r_op = &sparse_ops;
-
+    free(disp);
     return WALK_CONTINUE;
+}
+
+void
+retain_only_modified(struct regionhead *rh, task_t task)
+{
+    struct modified_content_args mca = {
+        .mca_task = task,
+    };
+    walk_region_list(rh, modified_content, &mca);
 }

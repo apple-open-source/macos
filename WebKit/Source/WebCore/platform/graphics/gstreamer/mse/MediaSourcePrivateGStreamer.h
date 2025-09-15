@@ -61,7 +61,7 @@ public:
 
     constexpr MediaPlatformType platformType() const final { return MediaPlatformType::GStreamer; }
 
-    AddStatus addSourceBuffer(const ContentType&, RefPtr<SourceBufferPrivate>&) override;
+    AddStatus addSourceBuffer(const ContentType&, const MediaSourceConfiguration&, RefPtr<SourceBufferPrivate>&) override;
 
     void durationChanged(const MediaTime&) override;
     void markEndOfStream(EndOfStreamStatus) override;
@@ -77,8 +77,33 @@ public:
 
     void detach();
 
-    TrackID registerTrackId(TrackID);
-    bool unregisterTrackId(TrackID);
+    // Similar to TrackPrivateBaseGStreamer::TrackType, but with a new value (Invalid) for when the codec is
+    // not supported on this system, which should result in ParsingFailed error being thrown in SourceBuffer.
+    enum StreamType { Audio, Video, Text, Unknown, Invalid };
+
+    struct RegisteredTrack {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED(RegisteredTrack);
+    public:
+
+        RegisteredTrack()
+            : id(0)
+            , index(0)
+            , streamType(Invalid)
+        { }
+
+        RegisteredTrack(TrackID id, size_t index, StreamType streamType)
+            : id(id)
+            , index(index)
+            , streamType(streamType)
+        { }
+
+        TrackID id;
+        size_t index;
+        StreamType streamType;
+    };
+
+    RegisteredTrack registerTrack(TrackID, StreamType);
+    void unregisterTrack(TrackID);
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
@@ -96,16 +121,24 @@ private:
     ThreadSafeWeakPtr<MediaPlayerPrivateGStreamerMSE> m_playerPrivate;
     bool m_hasAllTracks { false };
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 
     uint64_t m_nextSourceBufferID { 0 };
 
-    // Stores known track IDs, so we can work around ID collisions between multiple source buffers.
-    // The registry is placed here to enforce ID uniqueness specifically by player, not by process,
-    // since its not an issue if multiple players use the same ID, and we want to preserve IDs as much as possible.
-    UncheckedKeyHashSet<TrackID, WTF::IntHash<TrackID>, WTF::UnsignedWithZeroKeyHashTraits<TrackID>> m_trackIdRegistry;
+    // Stores info on known tracks, so we can:
+    // 1) Work around collision in track ID between multiple source buffers.
+    //    The registry is placed here to enforce ID uniqueness specifically by player, not by process,
+    //    since it's not an issue if multiple players use the same ID, and we want to preserve IDs as much as possible.
+    // 2) Assign indices sequentially by track type.
+    //    This means the first track of a type will always have index 0,
+    //    the next of the same type will be assigned 1, and so on, which:
+    //    - matches how MediaPlayerPrivateGStreamer assigns indices
+    //    - how {Audio,Video,Text}TrackList stores its tracks
+    //    - prevents a potential out-of-bounds crash in TextTrackList
+    //    Just like for IDs, we store known indices here to enforce uniqueness by player.
+    HashMap<TrackID, RegisteredTrack, WTF::IntHash<TrackID>, WTF::UnsignedWithZeroKeyHashTraits<TrackID>> m_trackRegistry;
 };
 
 } // namespace WebCore

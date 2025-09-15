@@ -130,7 +130,6 @@ struct rtentry;		/* declarations in <net/if.h> */
 #endif
 
 #ifdef __APPLE__
-
 #ifdef HAVE_PKTAP_API
 #include "pcap-pktap.h"
 #endif

@@ -1,0 +1,81 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.00000,0.00000,0.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : 0.25,
+      "layers" : [
+        {
+          "blend-mode" : "multiply",
+          "glass" : false,
+          "image-name" : "7.layer.8.svg",
+          "name" : "7.layer.8",
+          "opacity" : 1
+        },
+        {
+          "blend-mode" : "multiply",
+          "glass" : false,
+          "image-name" : "6.eye.svg",
+          "name" : "6.eye",
+          "opacity" : 1
+        },
+        {
+          "blend-mode" : "multiply",
+          "glass" : false,
+          "image-name" : "5.nostril.svg",
+          "name" : "5.nostril",
+          "opacity" : 1
+        },
+        {
+          "blend-mode" : "multiply",
+          "glass" : false,
+          "image-name" : "4.jawshadow.svg",
+          "name" : "4.jawshadow",
+          "opacity" : 1
+        },
+        {
+          "fill-specializations" : [
+            {
+              "appearance" : "tinted",
+              "value" : {
+                "solid" : "gray:0.60000,1.00000"
+              }
+            }
+          ],
+          "image-name" : "3.horse.svg",
+          "name" : "3.horse",
+          "opacity" : 0.97
+        }
+      ]
+    },
+    {
+      "blur-material" : 0.5,
+      "layers" : [
+        {
+          "image-name" : "9.base2.svg",
+          "name" : "9.base2"
+        },
+        {
+          "image-name" : "8.base1.svg",
+          "name" : "8.base1"
+        }
+      ],
+      "opacity" : 0.97
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "2.checkers.svg",
+          "name" : "2.checkers"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

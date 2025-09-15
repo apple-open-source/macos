@@ -63,7 +63,7 @@ class IntlMathematicalValue {
     WTF_MAKE_TZONE_ALLOCATED(IntlMathematicalValue);
 public:
     enum class NumberType { Integer, Infinity, NaN, };
-    using Value = std::variant<double, CString>;
+    using Value = Variant<double, CString>;
 
     IntlMathematicalValue() = default;
 
@@ -89,16 +89,16 @@ public:
             case NumberType::Integer: {
                 double value = std::get<double>(m_value);
                 if (isNegativeZero(value))
-                    m_value = CString("-0");
+                    m_value = CString("-0"_s);
                 else
                     m_value = String::number(value).ascii();
                 break;
             }
             case NumberType::NaN:
-                m_value = CString("nan");
+                m_value = CString("nan"_s);
                 break;
             case NumberType::Infinity:
-                m_value = CString(m_sign ? "-infinity" : "infinity");
+                m_value = CString(m_sign ? "-infinity"_s : "infinity"_s);
                 break;
             }
         }

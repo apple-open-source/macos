@@ -205,7 +205,7 @@ void MediaPlayerPrivateAVFoundation::load(const String& url)
 }
 
 #if ENABLE(MEDIA_SOURCE)
-void MediaPlayerPrivateAVFoundation::load(const URL&, const ContentType&, MediaSourcePrivateClient&)
+void MediaPlayerPrivateAVFoundation::load(const URL&, const LoadOptions&, MediaSourcePrivateClient&)
 {
     setNetworkState(MediaPlayer::NetworkState::FormatError);
 }
@@ -266,8 +266,9 @@ void MediaPlayerPrivateAVFoundation::seekToTarget(const SeekTarget& target)
 {
     if (m_seeking) {
         ALWAYS_LOG(LOGIDENTIFIER, "saving pending seek");
-        m_pendingSeek = [this, target]() {
-            seekToTarget(target);
+        m_pendingSeek = [weakThis = ThreadSafeWeakPtr { * this }, target]() {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->seekToTarget(target);
         };
         return;
     }
@@ -781,8 +782,8 @@ void MediaPlayerPrivateAVFoundation::processNewAndRemovedTextTracks(const Vector
                 continue;
             }
             if (player)
-                player->removeTextTrack(*m_textTracks[i]);
-            m_textTracks.remove(i);
+                player->removeTextTrack(Ref { *m_textTracks[i] });
+            m_textTracks.removeAt(i);
         }
     }
 

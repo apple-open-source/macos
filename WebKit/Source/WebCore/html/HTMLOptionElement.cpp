@@ -5,7 +5,7 @@
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2010-2017 Google Inc. All rights reserved.
- * Copyright (C) 2011 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (C) 2011 Motorola Mobility, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -81,7 +81,7 @@ ExceptionOr<Ref<HTMLOptionElement>> HTMLOptionElement::createForLegacyFactoryFun
     }
 
     if (!value.isNull())
-        element->setValue(value);
+        element->setAttributeWithoutSynchronization(valueAttr, value);
     if (defaultSelected)
         element->setAttributeWithoutSynchronization(selectedAttr, emptyAtom());
     element->setSelected(selected);
@@ -108,7 +108,7 @@ String HTMLOptionElement::text() const
 
     // FIXME: Is displayStringModifiedByEncoding helpful here?
     // If it's correct here, then isn't it needed in the value and label functions too?
-    return document().displayStringModifiedByEncoding(text).trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
+    return protectedDocument()->displayStringModifiedByEncoding(text).trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
 }
 
 void HTMLOptionElement::setText(String&& text)
@@ -143,6 +143,12 @@ HTMLFormElement* HTMLOptionElement::form() const
     if (RefPtr selectElement = ownerSelectElement())
         return selectElement->form();
     return nullptr;
+}
+
+HTMLFormElement* HTMLOptionElement::formForBindings() const
+{
+    // FIXME: The downcast should be unnecessary, but the WPT was written before https://github.com/WICG/webcomponents/issues/1072 was resolved. Update once the WPT has been updated.
+    return dynamicDowncast<HTMLFormElement>(retargetReferenceTargetForBindings(form())).get();
 }
 
 int HTMLOptionElement::index() const
@@ -196,8 +202,8 @@ void HTMLOptionElement::attributeChanged(const QualifiedName& name, const AtomSt
         break;
     }
     case AttributeNames::valueAttr:
-        for (auto& dataList : ancestorsOfType<HTMLDataListElement>(*this))
-            dataList.optionElementChildrenChanged();
+        for (Ref dataList : ancestorsOfType<HTMLDataListElement>(*this))
+            dataList->optionElementChildrenChanged();
         break;
     default:
         HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -210,12 +216,7 @@ String HTMLOptionElement::value() const
     const AtomString& value = attributeWithoutSynchronization(valueAttr);
     if (!value.isNull())
         return value;
-    return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
-}
-
-void HTMLOptionElement::setValue(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(valueAttr, value);
+    return collectOptionInnerTextCollapsingWhitespace();
 }
 
 bool HTMLOptionElement::selected(AllowStyleInvalidation allowStyleInvalidation) const
@@ -247,15 +248,15 @@ void HTMLOptionElement::setSelectedState(bool selected, AllowStyleInvalidation a
 
     m_isSelected = selected;
 
-    if (CheckedPtr cache = document().existingAXObjectCache())
+    if (CheckedPtr cache = protectedDocument()->existingAXObjectCache())
         cache->onSelectedChanged(*this);
 }
 
 void HTMLOptionElement::childrenChanged(const ChildChange& change)
 {
     Vector<Ref<HTMLDataListElement>> ancestors;
-    for (auto& dataList : ancestorsOfType<HTMLDataListElement>(*this))
-        ancestors.append(dataList);
+    for (Ref dataList : ancestorsOfType<HTMLDataListElement>(*this))
+        ancestors.append(WTFMove(dataList));
     for (auto& dataList : ancestors)
         dataList->optionElementChildrenChanged();
     if (change.source != ChildChange::Source::Clone) {
@@ -280,29 +281,24 @@ String HTMLOptionElement::label() const
 {
     String label = attributeWithoutSynchronization(labelAttr);
     if (!label.isNull())
-        return label.trim(isASCIIWhitespace);
-    return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
+        return label;
+    return collectOptionInnerTextCollapsingWhitespace();
 }
 
 // Same as label() but ignores the label content attribute in quirks mode for compatibility with other browsers.
 String HTMLOptionElement::displayLabel() const
 {
     if (document().inQuirksMode())
-        return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
+        return collectOptionInnerTextCollapsingWhitespace();
     return label();
-}
-
-void HTMLOptionElement::setLabel(const AtomString& label)
-{
-    setAttributeWithoutSynchronization(labelAttr, label);
 }
 
 void HTMLOptionElement::willResetComputedStyle()
 {
     // FIXME: This is nasty, we ask our owner select to repaint even if the new
     // style is exactly the same.
-    if (auto select = ownerSelectElement()) {
-        if (auto renderer = select->renderer())
+    if (RefPtr select = ownerSelectElement()) {
+        if (CheckedPtr renderer = select->renderer())
             renderer->repaint();
     }
 }
@@ -311,8 +307,8 @@ String HTMLOptionElement::textIndentedToRespectGroupLabel() const
 {
     RefPtr parent = parentNode();
     if (is<HTMLOptGroupElement>(parent))
-        return makeString("    "_s, displayLabel());
-    return displayLabel();
+        return makeString("    "_s, label());
+    return label();
 }
 
 bool HTMLOptionElement::isDisabledFormControl() const
@@ -327,16 +323,17 @@ bool HTMLOptionElement::isDisabledFormControl() const
 String HTMLOptionElement::collectOptionInnerText() const
 {
     StringBuilder text;
-    for (RefPtr node = firstChild(); node; ) {
+    // Text nodes inside script elements are not part of the option text.
+    for (RefPtr node = firstChild(); node; node = isScriptElement(*node) ? NodeTraversal::nextSkippingChildren(*node, this) : NodeTraversal::next(*node, this)) {
         if (auto* textNode = dynamicDowncast<Text>(*node))
             text.append(textNode->data());
-        // Text nodes inside script elements are not part of the option text.
-        if (auto* element = dynamicDowncast<Element>(*node); element && isScriptElement(*element))
-            node = NodeTraversal::nextSkippingChildren(*node, this);
-        else
-            node = NodeTraversal::next(*node, this);
     }
     return text.toString();
+}
+
+String HTMLOptionElement::collectOptionInnerTextCollapsingWhitespace() const
+{
+    return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
 }
 
 } // namespace

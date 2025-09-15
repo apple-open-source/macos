@@ -36,12 +36,14 @@ using namespace JSC;
 
 String convertEnumerationToString(TestStandaloneEnumeration enumerationValue)
 {
-    static const std::array<NeverDestroyed<String>, 2> values {
+    static const std::array<NeverDestroyed<String>, 3> values {
         MAKE_STATIC_STRING_IMPL("enumValue1"),
         MAKE_STATIC_STRING_IMPL("enumValue2"),
+        MAKE_STATIC_STRING_IMPL("enum-value3"),
     };
     static_assert(static_cast<size_t>(TestStandaloneEnumeration::EnumValue1) == 0, "TestStandaloneEnumeration::EnumValue1 is not 0 as expected");
     static_assert(static_cast<size_t>(TestStandaloneEnumeration::EnumValue2) == 1, "TestStandaloneEnumeration::EnumValue2 is not 1 as expected");
+    static_assert(static_cast<size_t>(TestStandaloneEnumeration::EnumValue3) == 2, "TestStandaloneEnumeration::EnumValue3 is not 2 as expected");
     ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
@@ -53,12 +55,13 @@ template<> JSString* convertEnumerationToJS(VM& vm, TestStandaloneEnumeration en
 
 template<> std::optional<TestStandaloneEnumeration> parseEnumerationFromString<TestStandaloneEnumeration>(const String& stringValue)
 {
-    static constexpr std::array<std::pair<ComparableASCIILiteral, TestStandaloneEnumeration>, 2> mappings {
+    static constexpr std::array<std::pair<ComparableASCIILiteral, TestStandaloneEnumeration>, 3> mappings {
+        std::pair<ComparableASCIILiteral, TestStandaloneEnumeration> { "enum-value3"_s, TestStandaloneEnumeration::EnumValue3 },
         std::pair<ComparableASCIILiteral, TestStandaloneEnumeration> { "enumValue1"_s, TestStandaloneEnumeration::EnumValue1 },
         std::pair<ComparableASCIILiteral, TestStandaloneEnumeration> { "enumValue2"_s, TestStandaloneEnumeration::EnumValue2 },
     };
     static constexpr SortedArrayMap enumerationMapping { mappings };
-    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); LIKELY(enumerationValue))
+    if (auto* enumerationValue = enumerationMapping.tryGet(stringValue); enumerationValue) [[likely]]
         return *enumerationValue;
     return std::nullopt;
 }
@@ -70,7 +73,7 @@ template<> std::optional<TestStandaloneEnumeration> parseEnumeration<TestStandal
 
 template<> ASCIILiteral expectedEnumerationValues<TestStandaloneEnumeration>()
 {
-    return "\"enumValue1\", \"enumValue2\""_s;
+    return "\"enumValue1\", \"enumValue2\", \"enum-value3\""_s;
 }
 
 } // namespace WebCore

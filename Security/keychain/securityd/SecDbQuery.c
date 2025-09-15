@@ -980,10 +980,10 @@ bool query_destroy(Query *q, CFErrorRef *error) {
 bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
     if (ok && !q->q_error) {
         if (q->q_sync_changed || (q->q_changed && !SecMUSRIsSingleUserView(q->q_musrView))) {
-            SecKeychainChanged();
+            SecServerKeychainChanged();
         }
         if (q->q_shared_changed) {
-            SecSharedItemsChanged();
+            SecServerSharedItemsChanged();
         }
     }
     return query_destroy(q, error) && ok;

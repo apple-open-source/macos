@@ -24,7 +24,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# $FreeBSD$
 #
 
 atf_test_case inplace_hardlink_src
@@ -175,6 +174,53 @@ enhanced_body()
 	atf_check -o inline:"o_0\n" sed -HE -e 's/\<(\d)/o/' <input
 }
 
+atf_test_case minus_e
+minus_e_head()
+{
+	atf_set "descr" "Verify that -e and implicit arg do the same thing"
+}
+minus_e_body()
+{
+	printf "ab\n" > a
+	atf_check -o 'inline:--\nab\n' sed -e $'1 i\\\n--' a
+	atf_check -o 'inline:--\nab\n' sed    $'1 i\\\n--' a
+}
+
+atf_test_case command_c
+command_c_head()
+{
+	atf_set "descr" "Verify that the 'c' command starts a new cycle"
+}
+command_c_body()
+{
+	printf "%s\n" a b c d e f > a
+	printf "%s\n" x c d e f > expected
+
+	atf_check -o file:expected sed '
+/a/,/b/c\
+x
+' a
+
+	atf_check -o file:expected sed '
+/a/,/b/c\
+x
+$!N
+' a
+}
+
+atf_test_case command_D
+command_D_head()
+{
+	atf_set "descr" "Test handling of an empty pattern space"
+}
+command_D_body()
+{
+	printf "hello\n\nworld\n" > a
+
+	atf_check -o file:a sed -e 's/^//;P;D' a
+	atf_check -o file:a sed -e 's/^//;$!N;P;D' a
+}
+
 atf_init_test_cases()
 {
 	atf_add_test_case inplace_command_q
@@ -184,5 +230,8 @@ atf_init_test_cases()
 	atf_add_test_case commands_on_stdin
 	atf_add_test_case hex_subst
 	atf_add_test_case bracket_y
+	atf_add_test_case minus_e
+	atf_add_test_case command_c
+	atf_add_test_case command_D
 	atf_add_test_case enhanced
 }

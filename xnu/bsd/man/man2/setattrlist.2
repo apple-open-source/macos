@@ -237,7 +237,7 @@ parameter is a bit set that controls the behaviour of
 .Fn setattrlist .
 The following option bits are defined.
 .
-.Bl -tag -width XXXbitmapcount
+.Bl -tag -width FSOPT_RESOLVE_BENEATH
 .
 .It FSOPT_NOFOLLOW
 If this bit is set, 
@@ -255,6 +255,14 @@ the last component of
 In addition, if a symbolic link is encountered
 before the final component, an error is
 returned
+.
+.It FSOPT_RESOLVE_BENEATH
+If this bit is set,
+.Fn setattrlistat
+and
+.Fa path
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .
 .El
 .
@@ -408,6 +416,10 @@ argument is not an absolute path and
 is neither
 .Dv AT_FDCWD
 nor a file descriptor associated with a directory.
+.It Bq Er ENOTCAPABLE
+if FSOPT_RESOLVE_BENEATH was passed and
+.Fa path
+does not reside in the directory hierarchy beneath the starting directory.
 .El
 .Pp
 .

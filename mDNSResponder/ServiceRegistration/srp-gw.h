@@ -63,6 +63,7 @@ struct service {
     service_t *NULLABLE base_type; // A pointer back in the list, or to self
     dns_rr_t *NONNULL rr; // The service name is rr->name.
     dns_name_t *NONNULL zone;
+    bool consumed; // For compression, says we've already emitted this one.
 };
 
 typedef struct service_instance service_instance_t;

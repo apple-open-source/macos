@@ -88,8 +88,8 @@ static const u8 ntfs_legal_ansi_char_array[0x40] = {
  * false if they are not identical.  If @case_sensitive is false, the @upcase
  * table is used to perform a case insensitive comparison.
  */
-BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
-		const ntfschar *s2, size_t s2_len, const BOOL case_sensitive,
+NTFS_BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
+		const ntfschar *s2, size_t s2_len, const NTFS_BOOL case_sensitive,
 		const ntfschar *upcase, const u32 upcase_len)
 {
 	if (s1_len != s2_len)
@@ -119,7 +119,7 @@ BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
  */
 int ntfs_collate_names(const ntfschar *name1, const u32 name1_len,
 		const ntfschar *name2, const u32 name2_len, const int err_val,
-		const BOOL case_sensitive, const ntfschar *upcase,
+		const NTFS_BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len)
 {
 	u32 cnt, min_len;

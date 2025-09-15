@@ -216,8 +216,24 @@ struct pktap_buffer_v2_hdr_extra {
 #define PTH_FLAG_NEXUS_CHAN     0x00040000 /* Packet on a nexus channel */
 #define PTH_FLAG_V2_HDR         0x00080000 /* Version 2 of pktap */
 #define PTH_FLAG_WAKE_PKT       0x00100000 /* Packet caused system to ake from sleep */
+#define PTH_FLAG_ULPN           0x00200000 /* Packet transitted coprocessor */
+#define PTH_FLAG_LPW            0x00400000 /* Packet in low power wake */
 
 #include <net/droptap.h>
+
+#ifdef KERNEL_PRIVATE
+#if SKYWALK
+#include <skywalk/os_skywalk.h>
+extern void pktap_input_packet(struct ifnet *, protocol_family_t, uint32_t,
+    pid_t, const char *, pid_t, const char *, kern_packet_t,
+    const void *__sized_by(header_len) header, size_t header_len,
+    uint8_t, uint32_t, uint32_t);
+extern void pktap_output_packet(struct ifnet *, protocol_family_t, uint32_t,
+    pid_t, const char *, pid_t, const char *, kern_packet_t,
+    const void *__sized_by(header_len) header, size_t header_len,
+    uint8_t, uint32_t, uint32_t);
+#endif /* SKYWALK */
+#endif /* KERNEL_PRIVATE */
 
 #ifdef BSD_KERNEL_PRIVATE
 
@@ -238,17 +254,6 @@ extern void pktap_fill_proc_info(struct pktap_header *, protocol_family_t,
     struct mbuf *, u_int32_t, int, struct ifnet *);
 extern void pktap_finalize_proc_info(struct pktap_header *);
 extern void pktap_v2_finalize_proc_info(struct pktap_v2_hdr *);
-#if SKYWALK
-#include <skywalk/os_skywalk.h>
-extern void pktap_input_packet(struct ifnet *, protocol_family_t, uint32_t,
-    pid_t, const char *, pid_t, const char *, kern_packet_t,
-    const void *__sized_by(header_len) header, size_t header_len,
-    uint8_t, uint32_t, uint32_t);
-extern void pktap_output_packet(struct ifnet *, protocol_family_t, uint32_t,
-    pid_t, const char *, pid_t, const char *, kern_packet_t,
-    const void *__sized_by(header_len) header, size_t header_len,
-    uint8_t, uint32_t, uint32_t);
-#endif /* SKYWALK */
 extern void convert_to_pktap_header_to_v2(struct bpf_packet *bpf_pkt, bool truncate);
 #endif /* BSD_KERNEL_PRIVATE */
 #endif /* PRIVATE */

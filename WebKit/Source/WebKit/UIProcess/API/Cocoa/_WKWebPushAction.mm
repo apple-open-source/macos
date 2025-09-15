@@ -52,12 +52,12 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
     if (pushPartition.length != 32)
         return nil;
 
-    RetainPtr uuidString = [NSString stringWithFormat:@"%@-%@-%@-%@-%@",
+    RetainPtr uuidString = adoptNS([[NSString alloc] initWithFormat:@"%@-%@-%@-%@-%@",
         [pushPartition substringWithRange:NSMakeRange(0, 8)],
         [pushPartition substringWithRange:NSMakeRange(8, 4)],
         [pushPartition substringWithRange:NSMakeRange(12, 4)],
         [pushPartition substringWithRange:NSMakeRange(16, 4)],
-        [pushPartition substringWithRange:NSMakeRange(20, 12)]];
+        [pushPartition substringWithRange:NSMakeRange(20, 12)]]);
     return adoptNS([[NSUUID alloc] initWithUUIDString:uuidString.get()]);
 }
 
@@ -87,12 +87,12 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
     if (!type || ![type isKindOfClass:[NSString class]])
         return nil;
 
-    _WKWebPushAction *result = [[_WKWebPushAction alloc] init];
-    result.version = version;
-    result.webClipIdentifier = uuid.get();
-    result.type = type;
+    RetainPtr result = adoptNS([[_WKWebPushAction alloc] init]);
+    result.get().version = version;
+    result.get().webClipIdentifier = uuid.get();
+    result.get().type = type;
 
-    return [result autorelease];
+    return result.autorelease();
 }
 
 + (_WKWebPushAction *)_webPushActionWithNotificationResponse:(UNNotificationResponse *)response
@@ -145,14 +145,14 @@ static RetainPtr<NSUUID> uuidFromPushPartition(NSString *pushPartition)
 - (UIBackgroundTaskIdentifier)beginBackgroundTaskForHandling
 {
 #if PLATFORM(IOS)
-    NSString *taskName;
+    RetainPtr<NSString> taskName;
     if (_webClipIdentifier)
-        taskName = [NSString stringWithFormat:@"%@ for %@", self._nameForBackgroundTaskAndLogging, _webClipIdentifier];
+        taskName = adoptNS([[NSString alloc] initWithFormat:@"%@ for %@", self._nameForBackgroundTaskAndLogging, _webClipIdentifier]);
     else
-        taskName = [NSString stringWithFormat:@"%@", self._nameForBackgroundTaskAndLogging];
+        taskName = adoptNS([[NSString alloc] initWithFormat:@"%@", self._nameForBackgroundTaskAndLogging]);
 
-    return [UIApplication.sharedApplication beginBackgroundTaskWithName:taskName expirationHandler:^{
-        RELEASE_LOG_ERROR(Push, "Took too long to handle Web Push action: '%@'", taskName);
+    return [UIApplication.sharedApplication beginBackgroundTaskWithName:taskName.get() expirationHandler:^{
+        RELEASE_LOG_ERROR(Push, "Took too long to handle Web Push action: '%@'", taskName.get());
     }];
 #else
     return 0;

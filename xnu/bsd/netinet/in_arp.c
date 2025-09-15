@@ -85,10 +85,11 @@
 #include <netinet/in_var.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
-#include <kern/zalloc.h>
 
-#include <kern/thread.h>
 #include <kern/sched_prim.h>
+#include <kern/thread.h>
+#include <kern/uipc_domain.h>
+#include <kern/zalloc.h>
 
 #include <net/sockaddr_utils.h>
 
@@ -1428,66 +1429,67 @@ arp_lookup_ip(ifnet_t ifp, const struct sockaddr_in *net_dest,
 		}
 		rt_ifa = route->rt_ifa;
 
-		/* Become a regular mutex, just in case */
-		RT_CONVERT_LOCK(route);
-		IFLR_LOCK_SPIN(lr);
+		if (unreachable || (llinfo->la_flags & LLINFO_PROBING)) {
+			/* Become a regular mutex, just in case */
+			RT_CONVERT_LOCK(route);
+			IFLR_LOCK_SPIN(lr);
 
-		if ((unreachable || (llinfo->la_flags & LLINFO_PROBING)) &&
-		    lr->lr_probes < arp_unicast_lim) {
-			/*
-			 * Thus mark the entry with la_probeexp deadline to
-			 * trigger the probe timer to be scheduled (if not
-			 * already).  This gets cleared the moment we get
-			 * an ARP reply.
-			 */
-			probing = TRUE;
-			if (lr->lr_probes == 0) {
-				llinfo->la_probeexp = (timenow + arpt_probe);
-				llinfo->la_flags |= LLINFO_PROBING;
+			if (lr->lr_probes < arp_unicast_lim) {
 				/*
-				 * Provide notification that ARP unicast
-				 * probing has started.
-				 * We only do it for the first unicast probe
-				 * attempt.
+				 * Thus mark the entry with la_probeexp deadline to
+				 * trigger the probe timer to be scheduled (if not
+				 * already).  This gets cleared the moment we get
+				 * an ARP reply.
 				 */
-				send_probe_notif = TRUE;
-			}
+				probing = TRUE;
+				if (lr->lr_probes == 0) {
+					llinfo->la_probeexp = (timenow + arpt_probe);
+					llinfo->la_flags |= LLINFO_PROBING;
+					/*
+					 * Provide notification that ARP unicast
+					 * probing has started.
+					 * We only do it for the first unicast probe
+					 * attempt.
+					 */
+					send_probe_notif = TRUE;
+				}
 
-			/*
-			 * Start the unicast probe and anticipate a reply;
-			 * afterwards, return existing entry to caller and
-			 * let it be used anyway.  If peer is non-existent
-			 * we'll broadcast ARP next time around.
-			 */
-			lr->lr_probes++;
-			SOCKADDR_ZERO(&sdl, sizeof(sdl));
-			sdl.sdl_alen = ifp->if_addrlen;
-			bcopy(&lr->lr_key.addr, LLADDR(&sdl),
-			    ifp->if_addrlen);
-			IFLR_UNLOCK(lr);
-			IFA_LOCK_SPIN(rt_ifa);
-			ifa_addref(rt_ifa);
-			sa = rt_ifa->ifa_addr;
-			IFA_UNLOCK(rt_ifa);
-			rtflags = route->rt_flags;
-			RT_UNLOCK(route);
-			dlil_send_arp(ifp, ARPOP_REQUEST, NULL, sa,
-			    SDL(&sdl),
-			    SA(net_dest), rtflags);
-			ifa_remref(rt_ifa);
-			RT_LOCK(route);
-			goto release;
-		} else {
-			IFLR_UNLOCK(lr);
-			if (!unreachable &&
-			    !(llinfo->la_flags & LLINFO_PROBING)) {
 				/*
-				 * Normal case where peer is still reachable,
-				 * we're not probing and if_addrlen is anything
-				 * but IF_LLREACH_MAXLEN.
+				 * Start the unicast probe and anticipate a reply;
+				 * afterwards, return existing entry to caller and
+				 * let it be used anyway.  If peer is non-existent
+				 * we'll broadcast ARP next time around.
 				 */
+				lr->lr_probes++;
+				SOCKADDR_ZERO(&sdl, sizeof(sdl));
+				sdl.sdl_alen = ifp->if_addrlen;
+				bcopy(&lr->lr_key.addr, LLADDR(&sdl),
+				    ifp->if_addrlen);
+				IFLR_UNLOCK(lr);
+				IFA_LOCK_SPIN(rt_ifa);
+				ifa_addref(rt_ifa);
+				sa = rt_ifa->ifa_addr;
+				IFA_UNLOCK(rt_ifa);
+				rtflags = route->rt_flags;
+				RT_UNLOCK(route);
+				dlil_send_arp(ifp, ARPOP_REQUEST, NULL, sa,
+				    SDL(&sdl),
+				    SA(net_dest), rtflags);
+				ifa_remref(rt_ifa);
+				RT_LOCK(route);
 				goto release;
 			}
+
+			IFLR_UNLOCK(lr);
+		}
+		if (!unreachable &&
+		    !(llinfo->la_flags & LLINFO_PROBING)) {
+			/*
+			 * Normal case where peer is still reachable,
+			 * we're not probing and if_addrlen is anything
+			 * but IF_LLREACH_MAXLEN.
+			 */
+			goto release;
 		}
 	}
 
@@ -1603,6 +1605,18 @@ release:
 	}
 
 	if (route != NULL) {
+		/* Set qset id only if there are traffic rules. Else, for bridge
+		 * use cases, the flag will be set and traffic rules won't be
+		 * run on the downstream interface.
+		 */
+		if (result == 0 && ifp->if_eth_traffic_rule_count) {
+			uint64_t qset_id = rt_lookup_qset_id(route, true);
+			if (packet != NULL) {
+				packet->m_pkthdr.pkt_ext_flags |= PKTF_EXT_QSET_ID_VALID;
+				packet->m_pkthdr.pkt_mpriv_qsetid = qset_id;
+			}
+		}
+
 		if (send_probe_notif) {
 			arp_send_probe_notification(route);
 		}
@@ -2115,6 +2129,7 @@ match:
 	llinfo->la_prbreq_cnt = 0;
 
 	if (rt_evcode) {
+		rt_lookup_qset_id(route, false);
 		/*
 		 * Enqueue work item to invoke callback for this route entry
 		 */

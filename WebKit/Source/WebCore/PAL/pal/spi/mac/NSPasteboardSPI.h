@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 // FIXME: This should include AppKit/AppKitPrivate.h when using the internal SDK,
 // but that file won't compile as C++.
 
@@ -32,4 +34,5 @@ extern NSString *_NXSmartPaste;
 
 @interface NSPasteboard ()
 - (NSData *)_dataWithoutConversionForType:(NSString *)type securityScoped:(BOOL)securityScoped;
+- (BOOL)_setExpirationDate:(NSDate *)date;
 @end

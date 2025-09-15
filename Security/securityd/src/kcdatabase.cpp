@@ -747,6 +747,69 @@ void KeychainDatabase::changePassphrase(const AccessCredentials *cred)
 }
 
 //
+// Change the passphrase on a database to an indirect passphrase
+//
+void KeychainDatabase::changePassphraseTo(const CssmData &passphrase)
+{
+    // get and hold the common lock (don't let other threads break in here)
+    StLock<Mutex> _(common());
+
+    if (isLocked()) {
+        secerror("dp_login: changePassphraseTo KC locked");
+        MacOSError::throwMe(errSecAuthFailed);
+    }
+
+    if (!common().isLoginKeychain()) {
+        secerror("dp_login: changePassphraseTo not the keychain you're looking for");
+        MacOSError::throwMe(errSecInvalidKeychain);
+    }
+
+    // Passing mBlob here maintains the same salt, since that's the lookup key used by the DP keychain
+    secinfo("dp_login", "Database %s(%p) changing master secret based on indirect passphrase", common().dbName(), this);
+    common().setup(mBlob, passphrase, false);
+
+    if (mSecret) { mSecret.reset(); }
+    common().invalidateBlob();    // blob state changed
+    secinfo("dp_login", "Database %s(%p) master secret changed", common().dbName(), this);
+    encode();            // force rebuild of local blob
+
+    // send out a notification
+    notify(kNotificationEventPassphraseChanged);
+
+    // I guess this counts as an activity
+    activity();
+}
+
+//
+// Change the passphrase on the keybag only (indirect passphrase case)
+//
+void KeychainDatabase::changeKeybagPassphrase(const CssmData &oldPassphrase, const CssmData &newPassphrase)
+{
+    // get and hold the common lock (don't let other threads break in here)
+    StLock<Mutex> _(common());
+
+    // Double check that the keychain is unlocked
+    if (isLocked()) {
+        secerror("dp_login: changeKeybagPassphrase KC locked");
+        MacOSError::throwMe(errSecAuthFailed);
+    }
+
+    if (!common().isLoginKeychain()) {
+        secerror("dp_login: changePassphraseTo not the keychain you're looking for");
+        MacOSError::throwMe(errSecInvalidKeychain);
+    }
+
+    secinfo("dp_login", "Changing passphrase on keybag, not db %s(%p)", common().dbName(), this);
+    change_secret_on_keybag(*this, oldPassphrase.data(), (int)oldPassphrase.length(), newPassphrase.data(), (int)newPassphrase.length());
+
+    // send out a notification
+    notify(kNotificationEventPassphraseChanged);
+
+    // I guess this counts as an activity
+    activity();
+}
+
+//
 // Second stage of keychain synchronization: overwrite the original keychain's
 // (this KeychainDatabase's) operational secrets
 //
@@ -1020,6 +1083,12 @@ void KeychainDatabase::unlockDb(const CssmData &passphrase, bool unlockKeybag)
 	makeUnlocked(passphrase, unlockKeybag);
 }
 
+void KeychainDatabase::unlockKeybag(const CssmData &passphrase)
+{
+    StLock<Mutex> _(common());
+    makeKeybagUnlocked(passphrase);
+}
+
 void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeybag)
 {
 	if (isLocked()) {
@@ -1032,16 +1101,23 @@ void KeychainDatabase::makeUnlocked(const CssmData &passphrase, bool unlockKeyba
 			CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
 	}
 
-    if (unlockKeybag && common().isLoginKeychain()) {
+	if (unlockKeybag) {
+		makeKeybagUnlocked(passphrase);
+	}
+
+	assert(!isLocked());
+	assert(mValidData);
+}
+
+void KeychainDatabase::makeKeybagUnlocked(const CssmData &passphrase)
+{
+    if (common().isLoginKeychain()) {
         bool locked = false;
         service_context_t context = common().session().get_current_service_context();
         if (!common().session().keybagGetState(session_keybag_check_master_key) || ((kb_is_locked(&context, &locked, NULL) == 0) && locked)) {
             unlock_keybag(*this, passphrase.data(), (int)passphrase.length());
         }
     }
-
-	assert(!isLocked());
-	assert(mValidData);
 }
 
 

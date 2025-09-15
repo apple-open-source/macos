@@ -75,7 +75,7 @@ static ParseResult parseWindowIdentifier(NSDictionary *options)
     return toErrorString(nullString(), @"options", @"'windowId' must be a number");
 }
 
-static std::variant<WebExtensionActionClickBehavior, SidebarError> parseActionClickBehavior(NSDictionary *behavior)
+static Variant<WebExtensionActionClickBehavior, SidebarError> parseActionClickBehavior(NSDictionary *behavior)
 {
     static NSDictionary<NSString *, id> *types = @{
         actionClickBehaviorKey: @YES.class,

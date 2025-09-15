@@ -71,15 +71,13 @@ __END_DECLS
 #define PFM64_MAX     (1ULL<<44)
 
 
-#define DLOGC(configurator, fmt, args...)                  \
-    do {                                    \
-        if ((configurator->fFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
-            IOLog(fmt, ## args);            \
-        if (configurator->fFlags & kIOPCIConfiguratorKPrintf) \
-            kprintf(fmt, ## args);          \
-    } while(0)
+#define DLOGC(domainId, fmt, args...) \
+	pci_log(domainId, ENUMERATION, fmt, ## args)
 
-#define DLOG(fmt, args...)      DLOGC(this, fmt, ## args);
+#define DLOG_A(fmt, args...) \
+	pci_log(fDomainId, ALWAYS_ON, fmt, ## args)
+
+#define DLOG(fmt, args...)      DLOGC(fDomainId, fmt, ## args);
 #define DLOGI(fmt, args...)     do { if (dolog) DLOG(fmt, ## args); } while (0);
 
 #define DLOG_RANGE(name, range) if (range) {                                \
@@ -140,7 +138,7 @@ OSDefineMetaClassAndStructors( IOPCIConfigurator, IOService )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool CLASS::init(IOWorkLoop * wl, uint32_t flags)
+bool CLASS::init(IOWorkLoop * wl, uint32_t flags, uint32_t domainId)
 {
     uint64_t pfmSize;
 
@@ -151,6 +149,7 @@ bool CLASS::init(IOWorkLoop * wl, uint32_t flags)
     fPFM64Size = PFM64_SIZE;
     fResetStartTime = 0;
     fResetWaitTime = 0;
+	fDomainId  = domainId;
 
     if (PE_parse_boot_argn("pci64", &pfmSize, sizeof(pfmSize)))
     {
@@ -373,7 +372,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			if (!arg) break;
 			/* fall thru */
         case kConfigOpPaused:
-			DLOG("kConfigOpPaused%s at " D() "\n",
+			DLOG_A("kConfigOpPaused%s at " D() "\n",
 				op == kConfigOpShadowed ? "(shadowed)" : "", DEVICE_IDENT(entry));
 
 			if (kPCIDeviceStateRequestPause & entry->deviceState)
@@ -386,8 +385,13 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 			{
 #if !ACPI_SUPPORT
 				// Prevent the device/bridge from initiating/forwarding memory or I/O requests
-				entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
-				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand & ~kIOPCICommandBusLead);
+				// during pause handling.
+				if (op == kConfigOpPaused)
+				{
+					entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
+					configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand & ~kIOPCICommandBusLead);
+					entry->commandSaved = true;
+				}
 #endif
 				entry->deviceState |= kPCIDeviceStatePaused;
 				if (fStates & kIOPCIConfiguratorMPSOverride)
@@ -401,9 +405,13 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
         case kConfigOpUnpaused:
 			if (kPCIDeviceStatePaused & entry->deviceState)
 			{
-				DLOG("kConfigOpUnpaused at " D() "\n", DEVICE_IDENT(entry));
+				DLOG_A("kConfigOpUnpaused at " D() "\n", DEVICE_IDENT(entry));
 #if !ACPI_SUPPORT
-				configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
+				if (entry->commandSaved)
+				{
+					configWrite16(entry, kIOPCIConfigCommand, entry->pausedCommand);
+					entry->commandSaved = false;
+				}
 #endif
 				entry->deviceState &= ~kPCIDeviceStatePaused;
 				if (fStates & kIOPCIConfiguratorMPSOverridePause)
@@ -435,10 +443,10 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 
         case kConfigOpRealloc:
 
-			DLOG("[ PCI configuration begin ]\n");
+			DLOG_A("[ PCI configuration begin ]\n");
 			fChangedServices = OSSet::withCapacity(8);
 			configure(0);
-			DLOG("[ PCI configuration end, bridges %d, devices %d, changed %d, waiting %d ]\n", 
+			DLOG_A("[ PCI configuration end, bridges %d, devices %d, changed %d, waiting %d ]\n", 
 				  fBridgeCount, fDeviceCount, fChangedServices->getCount(), fWaitingPause);
 
 			if (entry)
@@ -562,8 +570,7 @@ bool CLASS::createRoot(void)
     root->endDeviceNum = 31;
 
 
-	IOLog  ("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
-	kprintf("pci (build %s %s), flags 0x%x\n", __TIME__, __DATE__, gIOPCIFlags);
+	IOLog  ("pci (build %s %s), flags 0x%x, log mode flags 0x%x, log flags 0x%x, log RCs 0x%x\n", __TIME__, __DATE__, gIOPCIFlags, gIOPCILogModeFlags, gIOPCILogFlags, gIOPCILogDomains);
 
     root->deviceState |= kPCIDeviceStateScanned | kPCIDeviceStateConfigurationDone;
     fRoot = root;
@@ -1163,13 +1170,13 @@ void CLASS::matchDTEntry( IORegistryEntry * dtEntry, void * _context )
         if (!match->dtEntry)
         {
             match->dtEntry = dtEntry;
-            DLOGC(context->me, "Found PCI device for DT entry [%s] " D() "\n",
+            DLOGC(context->me->fDomainId, "Found PCI device for DT entry [%s] " D() "\n",
                  dtEntry->getName(), DEVICE_IDENT(match));
         }
     }
     else
     {
-        DLOGC(context->me, "NOT FOUND: PCI device for DT entry [%s] " D() "\n",
+        DLOGC(context->me->fDomainId, "NOT FOUND: PCI device for DT entry [%s] " D() "\n",
                 dtEntry->getName(), 0, bridge->secBusNum, deviceNum, functionNum, 0, 0);
     }
 
@@ -1216,13 +1223,13 @@ void CLASS::matchACPIEntry( IORegistryEntry * dtEntry, void * _context )
         if (!match->acpiDevice)
         {
             match->acpiDevice = dtEntry;
-            DLOGC(context->me, "Found PCI device for ACPI entry [%s] " D() "\n",
+            DLOGC(context->me->fDomainId, "Found PCI device for ACPI entry [%s] " D() "\n",
                  dtEntry->getName(), DEVICE_IDENT(match));
         }
     }
     else
     {
-        DLOGC(context->me, "NOT FOUND: PCI device for ACPI entry [%s] " D() "\n",
+        DLOGC(context->me->fDomainId, "NOT FOUND: PCI device for ACPI entry [%s] " D() "\n",
                 dtEntry->getName(), 0, bridge->secBusNum, deviceNum, functionNum, 0, 0);
     }
 }
@@ -1263,47 +1270,68 @@ void CLASS::bridgeConnectDeviceTree(IOPCIConfigEntry * bridge)
 }
 
 //---------------------------------------------------------------------------
-void CLASS::topologyMPSOverride(IOPCIConfigEntry * node)
-{
-	// preorderTraversal
-	if (node != NULL)
-	{
-		node->expressMaxPayload = MIN_MPS;
-		topologyMPSOverride(node->peer);
-		topologyMPSOverride(node->child);
-	}
-}
 
-//---------------------------------------------------------------------------
-
-void CLASS::bridgeMPSOverride(IOPCIConfigEntry * bridge)
+void CLASS::calculateTopologyMPS(IOPCIConfigEntry * bridge)
 {
     IOPCIConfigEntry * child;
     for (child = bridge->child; child; child = child->peer)
     {
         if (kPCIDeviceStateHidden & child->deviceState)     continue;
-        if ((child->expressCapBlock == 0) || (child->dtEntry == NULL))     continue;
-        OSData* maxPayloadOverride = OSDynamicCast(OSData, child->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize));
-        if (maxPayloadOverride == NULL)     continue;
-        uint8_t expressCaps = child->expressCaps & kPCIECapDevicePortType;
-        // MPS override should only be set at Root Port, Switch USP, or EP
-        if ((expressCaps == kPCIEPortTypeUpstreamPCIESwitch) || (expressCaps == kPCIEPortTypePCIERootPort) || (expressCaps == kPCIEPortTypePCIEEndpoint))
+        if (child->expressCapBlock == 0) continue;
+        // check pci-max-payload-size setting in EDT
+        if (child->dtEntry != NULL)
         {
-            uint8_t overrideMaxPayload = *reinterpret_cast<const uint32_t*>(maxPayloadOverride->getBytesNoCopy());
-            if (overrideMaxPayload > child->expressMaxPayload)
-            {
-                IOLog("Cannot override %s's MPS to %u which is higher than its MPS Capability %u\n", child->dtEntry->getName(), overrideMaxPayload, child->expressMaxPayload);
-            }
-            else if (overrideMaxPayload < child->expressMaxPayload)
-            {
-                child->expressMaxPayload = overrideMaxPayload;
-                DLOG("MPS override for" D() " =  %u\n", DEVICE_IDENT(child), child->expressMaxPayload);
-                // If the MPS override is for the root port's link partner, then also change the root port's MPS
-                if (child->parent == child->rootPortEntry)
-                {
-                    child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
-                }
-            }
+           OSData* maxPayloadOverride = OSDynamicCast(OSData, child->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize));
+           if (maxPayloadOverride != NULL)
+           {
+              uint8_t overrideMPS = *reinterpret_cast<const uint32_t*>(maxPayloadOverride->getBytesNoCopy()) & 0xFF;
+              if (overrideMPS > child->expressMaxPayload)
+              {
+                 IOLog("Cannot override %s's MPS to %u which is higher than its MPS Capability %u\n", child->dtEntry->getName(), overrideMPS, child->expressMaxPayload);
+              }
+              else
+              {
+                 child->expressMaxPayload = overrideMPS;
+                 DLOG("MPS override for" D() " =  %u\n", DEVICE_IDENT(child), child->expressMaxPayload);
+              }
+           }
+        }
+
+        // calculate MPS
+        // the topology's MPS will be determined by the device with the lowest MPS capability.
+        // topology's MPS is root port's MPS
+        if (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload)
+        {
+           // if hot-plug capable hierarchy
+           // if not, this is a native hierarchy and can update root port's MPS safely during enumeration on boot
+           if ((bridge->supportsHotPlug & kPCIHotPlugTunnel))
+           {
+              // if root port's MPS > MIN_MPS (only possible on CIO80 capable root)
+              // else, root port MPS = MIN_MPS and we shouldn't be here, device's MPS cannot be smaller than RP
+              if (child->rootPortEntry->expressMaxPayload > MIN_MPS)
+              {
+#if !ACPI_SUPPORT
+                 // check if this is rootPortEntry -> no need to trigger pause if we're enumerating root port
+                 // check if this is the rootPort's link partner - no need to trigger a pause here, we can just change rootPort MPS below
+                 // check if we haven't already requested pause to do MPS override
+                 // check if we are not in paused state to service the MPS override
+                 // -> trigger pci pause & change the topology MPS to 128B
+                 if ((child != child->rootPortEntry) && (bridge != child->rootPortEntry)
+				 && !(fStates & kIOPCIConfiguratorMPSOverride) && !(bridge->deviceState & (kPCIDeviceStateRequestPause | kPCIDeviceStatePaused)))
+                 {
+                    IOLog("Request pause to lower MPS on CIO80 host\n");
+                    fStates |= kIOPCIConfiguratorMPSOverride;
+                    // request pause on the root port's link partner to pause the entire topology
+                    child->rootPortEntry->child->deviceState |= kPCIDeviceStateRequestPause;
+                    markChanged(child->rootPortEntry->child);
+                    fWaitingPause++;
+                    return;
+                 }
+#endif
+              }
+           }
+           DLOG_A("  root port's expressMaxPayload 0x%x -> 0x%x\n", child->rootPortEntry->expressMaxPayload, child->expressMaxPayload);
+           child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
         }
     }
 }
@@ -1431,7 +1459,7 @@ void CLASS::bridgeFinishProbe(IOPCIConfigEntry * bridge)
 		if (kPCIDeviceStateTreeConnected & child->deviceState) continue;
         child->deviceState |= kPCIDeviceStateTreeConnected;
 
-		DLOG("bridge " D() " supportsHotPlug %d, linkInterrupts %d\n",
+		DLOG_A("bridge " D() " supportsHotPlug %d, linkInterrupts %d\n",
 			  DEVICE_IDENT(child),
 			  child->supportsHotPlug, child->linkInterrupts);
 
@@ -1574,6 +1602,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
             if (!ok) continue;
             nub->reserved->configEntry = child;
             nub->reserved->hostBridge = child->hostBridge;
+            nub->reserved->domainId = fDomainId;
             child->dtNub = nub;
 #if ACPI_SUPPORT
             child->dtEntry = nub;
@@ -1629,7 +1658,7 @@ bool CLASS::bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge)
             && pciDevice->getProperty(kIOPCIResourcedKey))
         {
             // relocate existing device
-            DLOG("IOPCIDevice::relocate at " D() "\n", DEVICE_IDENT(child));
+            DLOG_A("IOPCIDevice::relocate at " D() "\n", DEVICE_IDENT(child));
             for (uint32_t idx = 0; idx < kIOPCIRangeCount; idx++)
             {
                 IOPCIRange * range;
@@ -1744,7 +1773,7 @@ uint16_t CLASS::waitForLinkUp(IOPCIConfigEntry * bridge)
 	{
 		uint64_t nanoTime = 0;
 		absolutetime_to_nanoseconds(timeElapsed, &nanoTime);
-		DLOG("IOPCIConfigurator::waitForLinkUp waited for %llu ms for " B() " to link up\n", nanoTime/1000, BRIDGE_IDENT(bridge));
+		DLOG_A("IOPCIConfigurator::waitForLinkUp waited for %llu ms for " B() " to link up\n", nanoTime/1000, BRIDGE_IDENT(bridge));
 		// Wait 100 ms after link up before making any configuration requests (PCI Express Base 5.0 - 6.6.1)
 		// Following a Conventional Reset of a device, within 1.0 s the device must be able to receive a Configuration Request and return a Successful Completion if the Request is valid (PCI Express Base 5.0 - 6.6.1)
 		// We only wait if we have not reached the upper bound of the wait time
@@ -1850,7 +1879,7 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 									  |  (1 << kIOPCIRangeBridgePFMemory));
 		}
 
-		DLOG("bridge " D() " %s linkStatus 0x%04x, linkCaps 0x%04x\n",
+		DLOG_A("bridge " D() " %s linkStatus 0x%04x, linkCaps 0x%04x\n",
 			 DEVICE_IDENT(bridge), 
 			 noLink    ? "nolink " : "",
 			 linkStatus, bridge->linkCaps);
@@ -2043,7 +2072,7 @@ void CLASS::deleteConfigEntry(IOPCIConfigEntry *entry)
 		{
 			if (entry->ranges[rangeIndex])
 			{
-				DLOG("Warning: leaking device " D()"'s range #%d\n", DEVICE_IDENT(entry), rangeIndex);
+				DLOG_A("Warning: leaking device " D()"'s range #%d\n", DEVICE_IDENT(entry), rangeIndex);
 			}
 		}
 
@@ -2064,7 +2093,7 @@ void CLASS::deleteConfigEntry(IOPCIConfigEntry *entry)
         	entry->dtNub->detachAbove(gIODTPlane);
 		}
 
-		DLOG("deleted %p, bridges %d devices %d\n", entry, fBridgeCount, fDeviceCount);
+		DLOG_A("deleted %p, bridges %d devices %d\n", entry, fBridgeCount, fDeviceCount);
 		IOFreeType(entry, IOPCIConfigEntry);
 }
 
@@ -2083,7 +2112,7 @@ void CLASS::bridgeMarkChildDead(IOPCIConfigEntry * bridge, IOPCIConfigEntry * de
 		bridgeMarkChildDead(dead, child);
 	}
 
-    DLOG("bridge " B() " marking child %p " D() " dead\n",
+    DLOG_A("bridge " B() " marking child %p " D() " dead\n",
          BRIDGE_IDENT(bridge), dead, DEVICE_IDENT(dead));
 
 	if (kPCIDeviceStateRequestPause & dead->deviceState)
@@ -2096,7 +2125,7 @@ void CLASS::bridgeMarkChildDead(IOPCIConfigEntry * bridge, IOPCIConfigEntry * de
 		&& (dead->dtNub->inPlane(gIOServicePlane) == false))
 	{
 		// If dead isn't in the service plane, it won't terminate; remove it immediately.
-		DLOG("bridge %p dead child at " D() " never entered service plane\n", bridge, DEVICE_IDENT(dead));
+		DLOG_A("bridge %p dead child at " D() " never entered service plane\n", bridge, DEVICE_IDENT(dead));
 
 		bridgeRemoveChild(bridge, dead);
 	}
@@ -2114,7 +2143,7 @@ void CLASS::bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead
         bridgeRemoveChild(dead, child);
     }
 
-    DLOG("bridge " B() " removing child %p " D() "\n",
+    DLOG_A("bridge " B() " removing child %p " D() "\n",
          BRIDGE_IDENT(bridge), dead, DEVICE_IDENT(dead));
 
 	if ((bridge == bridge->rootPortEntry) && !bridge->dtEntry->getProperty(kIOPCIExpressMaxPayloadSize))
@@ -2213,7 +2242,7 @@ void CLASS::bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead)
 	// parent, bridge. If a device is not present in the service plane, free it
 	// immediately.
 
-    DLOG("bridge %p dead child at " D() "\n", bridge, DEVICE_IDENT(dead));
+    DLOG_A("bridge %p dead child at " D() "\n", bridge, DEVICE_IDENT(dead));
 	markChanged(dead);
 
 	bridgeMarkChildDead(bridge, dead);
@@ -2242,7 +2271,7 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
             continue;
         if (space.bits == child->space.bits)
         {
-            DLOG("bridge %p scan existing child at " D() " state 0x%x\n",
+            DLOG_A("bridge %p scan existing child at " D() " state 0x%x\n",
                  bridge, DEVICE_IDENT(child), child->deviceState);
 
             // check bars?
@@ -2291,7 +2320,7 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
            IOSleepWithLeeway(1, 1);
            if ((mach_absolute_time() - startTime) > timeout)
            {
-               DLOG("Endpoint failed to respond successfully after spec mandated wait time\n");
+               DLOG_A("Endpoint failed to respond successfully after spec mandated wait time\n");
                return NULL;
            }
            vendorProduct = configRead32(bridge, kIOPCIConfigVendorID, &space);
@@ -2319,7 +2348,7 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
         DLOG("Device " D() " has root port " D() "\n", DEVICE_IDENT(child), DEVICE_IDENT(child->rootPortEntry));
     }
 
-    DLOG("Found type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
+    DLOG_A("Found type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
          child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
          DEVICE_IDENT(child),
          child->deviceState);
@@ -2432,49 +2461,6 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 		child->expressDeviceCaps2 = configRead32(child, child->expressCapBlock + 0x24);
 		child->expressMaxPayload  = (child->expressDeviceCaps1 & 7);
 		DLOG("  expressMaxPayload Capability 0x%x\n", child->expressMaxPayload);
-
-#if !ACPI_SUPPORT
-		// check if root is tunneled and MPS > 128B -> This means we have a CIO80 SoC connected to a USB4v2 capable switch
-		// check if this is rootPortEntry -> no need to trigger pause if we're enumerating root port
-		// check if this is the rootPort's link partner - no need to trigger a pause here, we can just change rootPort MPS below
-		// check if device MPS == 128B -> trigger pci pause & change the topology MPS to 128B
-
-		// this will also resolve ASM SATA WA rdar://134837798 since the point of both ASM SATA WA
-		// and setting topology MPS = 128B is to avoid modifying device's MRRS
-
-		// long term solution: make this logic to accommodate for lowest MPS capability instead of 128B (for future where lowest maybe 256B or higher)
-		// we will implement it as part of the IOPCIFamily revamp since this is AS specific
-		if (!bridge->isHostBridge && (bridge->supportsHotPlug & kPCIHotPlugTunnel) && (bridge->rootPortEntry->expressMaxPayload > MIN_MPS)
-				&& !(fStates & kIOPCIConfiguratorMPSOverride) && !(bridge->deviceState & (kPCIDeviceStateRequestPause | kPCIDeviceStatePaused))
-				&& (child != child->rootPortEntry) && (bridge != child->rootPortEntry) && (child->expressMaxPayload == MIN_MPS))
-		{
-			IOLog("Work around to support MPS 128B device on CIO80 host\n");
-			fStates |= kIOPCIConfiguratorMPSOverride;
-			FOREACH_CHILD(bridge->rootPortEntry, child)
-			{
-				child->deviceState |= kPCIDeviceStateRequestPause;
-				markChanged(child);
-				fWaitingPause++;
-			}
-		}
-#endif
-
-		if (child != child->rootPortEntry)
-		{
-			if (bridge == child->rootPortEntry)
-			{
-				if (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload)
-				{
-					DLOG("  root port's expressMaxPayload 0x%x -> 0x%x\n", child->rootPortEntry->expressMaxPayload, child->expressMaxPayload);
-					child->rootPortEntry->expressMaxPayload = child->expressMaxPayload;
-				}
-			}
-			if (child->expressMaxPayload > bridge->expressMaxPayload)
-			{
-				child->expressMaxPayload = bridge->expressMaxPayload;
-			}
-			DLOG("  expressMaxPayload Setting 0x%x\n", child->expressMaxPayload)
-		}
 	}
 
 	if (kIOPCIConfiguratorAER & gIOPCIFlags)
@@ -2492,14 +2478,14 @@ IOPCIConfigEntry* CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddre
 
 void CLASS::bridgeProbeChildRanges( IOPCIConfigEntry * bridge, uint32_t resetMask )
 {
-	DLOG("bridge " D() " %s probe child ranges\n",
+	DLOG_A("bridge " D() " %s probe child ranges\n",
 		 DEVICE_IDENT(bridge), resetMask ? "reset " : "");
 
 	FOREACH_CHILD(bridge, child)
 	{
         if (kPCIDeviceStateDeadOrHidden & child->deviceState) continue;
 
-        DLOG("Probing type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
+        DLOG_A("Probing type %u device class-code 0x%06x cmd 0x%04x at " D() " [state 0x%x]\n",
              child->headerType, child->classCode, configRead16(child, kIOPCIConfigCommand),
              DEVICE_IDENT(child),
              child->deviceState);
@@ -2831,7 +2817,7 @@ void CLASS::deviceProbeRanges( IOPCIConfigEntry * device, uint32_t resetMask )
         range = device->ranges[idx];
         if (!range)
             continue;
-        DLOG("  [0x%x %s] 0x%llx:0x%llx\n",
+        DLOG_A("  [0x%x %s] 0x%llx:0x%llx\n",
              (idx == kIOPCIRangeExpansionROM) ? 
                 kIOPCIConfigExpansionROMBase : idx * 4 + kIOPCIConfigBaseAddress0,
              gPCIResourceTypeName[range->type], range->start, range->proposedSize);
@@ -3094,7 +3080,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 				   || ((!bootScan) && bridge->ranges[kIOPCIRangeBridgeBusNumber]->size)))));
 		if (haveBus)
 		{
-			DLOG("scan %s" B() "\n", bootScan ? "(boot) " : "", BRIDGE_IDENT(bridge));
+			DLOG_A("scan %s" B() "\n", bootScan ? "(boot) " : "", BRIDGE_IDENT(bridge));
 			if (kPCIStatic != (kPCIHPTypeMask & bridge->supportsHotPlug))
 			{
 				resetMask = ((1 << kIOPCIResourceTypeMemory)
@@ -3106,7 +3092,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 			bridge->deviceState |= kPCIDeviceStateScanned;
 			if (kPCIDeviceStateChildChanged & bridge->deviceState) 
 			{
-				DLOG("bridge " B() " child change\n", BRIDGE_IDENT(bridge));
+				DLOG_A("bridge " B() " child change\n", BRIDGE_IDENT(bridge));
 				bridge->deviceState &= ~(kPCIDeviceStateTotalled | kPCIDeviceStateAllocated 
 										| kPCIDeviceStateAllocatedBus);
 			}
@@ -3114,7 +3100,7 @@ int32_t CLASS::scanProc(void * ref, IOPCIConfigEntry * bridge)
 
         // associate bootrom devices
         bridgeConnectDeviceTree(bridge);
-        bridgeMPSOverride(bridge);
+        calculateTopologyMPS(bridge);
         // scan ranges
         if (haveBus) bridgeProbeChildRanges(bridge, resetMask);
         bridgeFinishProbe(bridge);
@@ -4053,13 +4039,13 @@ int32_t CLASS::bridgeAllocateResources(IOPCIConfigEntry * bridge, uint32_t typeM
 			if (treeInState(child, 
 				kPCIDeviceStatePaused, kPCIDeviceStatePaused))            continue;
 
-			DLOG("Request pause for " D() "\n", DEVICE_IDENT(child));
+			DLOG_A("Request pause (due to resource limit) for " D() "\n", DEVICE_IDENT(child));
 			child->deviceState |= kPCIDeviceStateRequestPause;
 			markChanged(child);
 			fWaitingPause++;
 			result = -1;
 		}
-        if (true == result) DLOG("  exhausted\n");
+        if (true == result) DLOG_A("  exhausted\n");
     }
 
     if (!result)
@@ -4573,7 +4559,9 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 			if ((fStates & kIOPCIConfiguratorMPSOverride) && (child->deviceState & kPCIDeviceStatePaused))
 			{
 				fStates &= ~kIOPCIConfiguratorMPSOverride;
-				topologyMPSOverride(child->rootPortEntry);
+				// in the future, we want to intelligently set RP MPS to the lowest MPS in the topology
+				// for now, we will set RP MPS = 128B until pause is more stable
+				child->rootPortEntry->expressMaxPayload = MIN_MPS;
 				// since the root port is not paused, this is the USP connected to the root port. We need to manually update root port's MPS.
 				uint32_t rootPortDeviceControl = configRead16(child->rootPortEntry, child->rootPortEntry->expressCapBlock + 0x08);
 				uint32_t rootPortNewControl = rootPortDeviceControl & ~(7 << 5);
@@ -4581,55 +4569,19 @@ int32_t CLASS::bridgeFinalizeConfigProc(void * unused, IOPCIConfigEntry * bridge
 				configWrite16(child->rootPortEntry, child->rootPortEntry->expressCapBlock + 0x08, rootPortNewControl);
 			}
 			newControl    = deviceControl & ~(7 << 5);
-			newControl    |= ((child->expressMaxPayload & 7) << 5);
-			if (child->isBridge && child != child->rootPortEntry && (child->expressMaxPayload == child->rootPortEntry->expressMaxPayload))
+			newControl    |= ((child->rootPortEntry->expressMaxPayload & 7) << 5);
+			if (!child->isBridge && (child->hostBridgeEntry->expressEndpointMaxReadRequestSize != -1))
 			{
 				newControl = newControl & ~(7 << 12);
-				newControl |= (DEFAULT_MRRS << 12);
-			}
-			if (!child->isBridge)
-			{
-				bool epMRRSOverride = (child->hostBridgeEntry->expressEndpointMaxReadRequestSize != -1);
-				bool epMPSLowerThanRPMPS = (child->expressMaxPayload < child->rootPortEntry->expressMaxPayload);
-				int8_t tmpEPMRRS = -1;
-				if (epMPSLowerThanRPMPS && epMRRSOverride)
-				{
-					// if EP MPS < RP MPS and we have EP MRRS override, EP MRRS = min(EP MPS, EP MRRS override)
-					tmpEPMRRS = (child->expressMaxPayload < child->hostBridgeEntry->expressEndpointMaxReadRequestSize) ? child->expressMaxPayload : child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
-				}
-				else if (epMPSLowerThanRPMPS && !epMRRSOverride)
-				{
-					// if EP MPS < RP MPS and there's no EP MRRS override, EP MRRS = EP MPS
-					tmpEPMRRS = child->expressMaxPayload;
-				}
-				else if (!epMPSLowerThanRPMPS)
-				{
-					if (epMRRSOverride)
-					{
-						// if EP MPS == RP MPS and we have EP MRRS override, EP MRRS = EP MRRS override
-						tmpEPMRRS = child->hostBridgeEntry->expressEndpointMaxReadRequestSize;
-					}
-					else
-					{
-						// if EP MPS == RP MPS and there's no EP MRRS override, EP MRRS = 512
-						tmpEPMRRS = DEFAULT_MRRS;
-					}
-				}
-
-				if (tmpEPMRRS != -1)
-				{
-					tmpEPMRRS = (tmpEPMRRS & 7);
-					newControl = newControl & ~(7 << 12);
-					newControl |= (tmpEPMRRS << 12);
-					DLOG("device " D() " Max Read Request Size set to 0x%x\n", DEVICE_IDENT(child), tmpEPMRRS);
-				}
+				newControl |= (child->hostBridgeEntry->expressEndpointMaxReadRequestSize << 12);
+				DLOG("device " D() " Max Read Request Size set to 0x%x\n", DEVICE_IDENT(child), (newControl >> 12) & 7);
 			}
 			if (newControl != deviceControl)
 			{
 				configWrite16(child, child->expressCapBlock + 0x08, newControl);
-				DLOG("payload set 0x%08x -> 0x%08x (at " D() "), maxPayload 0x%x\n",
+				DLOG_A("payload set 0x%08x -> 0x%08x (at " D() "), maxPayload 0x%x\n",
 					  deviceControl, newControl,
-					  DEVICE_IDENT(child), child->expressMaxPayload);
+					  DEVICE_IDENT(child), child->rootPortEntry->expressMaxPayload);
             }
 		}
 	}

@@ -32,12 +32,98 @@
 #include "CSSParserTokenRange.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyParser.h"
+#include "CSSPropertyParserConsumer+CSSPrimitiveValueResolver.h"
 #include "CSSPropertyParserConsumer+Ident.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
+#include "CSSPropertyParserConsumer+Timeline.h"
+#include "CSSPropertyParserState.h"
+#include "Length.h"
 
 namespace WebCore {
 namespace CSSPropertyParserHelpers {
 
-RefPtr<CSSValue> consumeKeyframesName(CSSParserTokenRange& range, const CSSParserContext&)
+Vector<std::pair<CSSValueID, double>> consumeKeyframeKeyList(CSSParserTokenRange& range, CSS::PropertyParserState& state)
+{
+    // <keyframe-selector> = from | to | <percentage [0,100]> | <timeline-range-name> <percentage>
+    // https://drafts.csswg.org/css-animations-1/#typedef-keyframe-selector
+
+    enum class RestrictedToZeroToHundredRange : bool { No, Yes };
+    auto consumeAndConvertPercentage = [&](CSSParserTokenRange& range, RestrictedToZeroToHundredRange restricted) -> std::optional<double> {
+        // FIXME: We use resolveAsPercentageDeprecated() to deal with calc() and % values.
+        // We will eventually want to return a CSS value that can be kept as-is on a
+        // BlendingKeyframe so that resolution happens when we have the necessary context
+        // when the keyframes are associated with a target element.
+        if (auto percentageValue = CSSPrimitiveValueResolver<CSS::Percentage<>>::consumeAndResolve(range, state)) {
+            auto resolvedPercentage = percentageValue->resolveAsPercentageDeprecated();
+            if (restricted == RestrictedToZeroToHundredRange::No)
+                return resolvedPercentage / 100;
+            if (resolvedPercentage >= 0 && resolvedPercentage <= 100)
+                return resolvedPercentage / 100;
+        }
+        return { };
+    };
+
+    auto timelineRange = [&](CSSParserTokenRange& range, CSSValueID id) -> std::optional<std::pair<CSSValueID, double>> {
+        if (CSSPropertyParserHelpers::isAnimationRangeKeyword(id)) {
+            // "normal" will be considered valid by isAnimationRangeKeyword() but is not valid for a @keyframes rule.
+            if (id == CSSValueNormal)
+                return { };
+            if (auto convertedPercentage = consumeAndConvertPercentage(range, RestrictedToZeroToHundredRange::No))
+                return { { id, *convertedPercentage } };
+        }
+        return { };
+    };
+
+    Vector<std::pair<CSSValueID, double>> result;
+    while (true) {
+        range.consumeWhitespace();
+
+        if (auto tokenValue = consumeIdent(range)) {
+            auto valueId = tokenValue->valueID();
+            if (valueId == CSSValueFrom)
+                result.append({ CSSValueNormal, 0 });
+            else if (valueId == CSSValueTo)
+                result.append({ CSSValueNormal, 1 });
+            else if (auto pair = timelineRange(range, valueId))
+                result.append(*pair);
+            else
+                return { }; // Parser error, invalid value in keyframe selector
+        } else if (auto convertedPercentage = consumeAndConvertPercentage(range, RestrictedToZeroToHundredRange::Yes))
+            result.append({ CSSValueNormal, *convertedPercentage });
+        else
+            return { }; // Parser error, invalid value in keyframe selector
+
+        if (range.atEnd()) {
+            result.shrinkToFit();
+            return result;
+        }
+
+        if (range.consume().type() != CommaToken)
+            return { }; // Parser error
+    }
+}
+
+Vector<std::pair<CSSValueID, double>> parseKeyframeKeyList(const String& string, const CSSParserContext& context)
+{
+    auto tokenizer = CSSTokenizer(string);
+    auto range = tokenizer.tokenRange();
+
+    // Handle leading whitespace.
+    range.consumeWhitespace();
+
+    auto state = CSS::PropertyParserState { .context = context };
+    auto result = consumeKeyframeKeyList(range, state);
+
+    // Handle trailing whitespace.
+    range.consumeWhitespace();
+
+    if (!range.atEnd())
+        return { };
+
+    return result;
+}
+
+RefPtr<CSSValue> consumeKeyframesName(CSSParserTokenRange& range, CSS::PropertyParserState&)
 {
     // <keyframes-name> = <custom-ident> | <string>
     // https://drafts.csswg.org/css-animations/#typedef-keyframes-name

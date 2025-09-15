@@ -22,8 +22,9 @@
 #include "JSTestDefaultToJSONInherit.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DeprecatedGlobalSettings.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -44,6 +45,7 @@
 #include "JSTestDefaultToJSONIndirectInheritance.h"
 #include "JSTestDefaultToJSONInheritFinal.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSArray.h>
@@ -179,7 +181,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDefaultToJSONInheritConstructor, (JSGlobalObject*
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestDefaultToJSONInheritPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestDefaultToJSONInherit::getConstructor(vm, prototype->globalObject()));
 }
@@ -204,7 +206,7 @@ static inline bool setJSTestDefaultToJSONInherit_inheritLongAttributeSetter(JSGl
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLLong>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setInheritLongAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -289,7 +291,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDefaultToJSONInheritPrototypeFunction_toJSON, (JS
 
 JSC::GCClient::IsoSubspace* JSTestDefaultToJSONInherit::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestDefaultToJSONInherit, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestDefaultToJSONInherit, UseCustomHeapCellType::No>(vm, "JSTestDefaultToJSONInherit"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestDefaultToJSONInherit.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDefaultToJSONInherit = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestDefaultToJSONInherit.get(); },

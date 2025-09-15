@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,14 @@
 
 #include "APIFrameInfo.h"
 #include "MessageSenderInlines.h"
+#include "SharedBufferReference.h"
 #include "URLSchemeTaskParameters.h"
 #include "WebErrors.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebURLSchemeHandler.h"
+#include "WebURLSchemeHandlerIdentifier.h"
+#include <WebCore/ResourceLoaderIdentifier.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -44,7 +47,7 @@ Ref<WebURLSchemeTask> WebURLSchemeTask::create(WebURLSchemeHandler& handler, Web
 
 WebURLSchemeTask::WebURLSchemeTask(WebURLSchemeHandler& handler, WebPageProxy& page, WebProcessProxy& process, PageIdentifier webPageID, URLSchemeTaskParameters&& parameters, SyncLoadCompletionHandler&& syncCompletionHandler)
     : m_urlSchemeHandler(handler)
-    , m_process(&process)
+    , m_process(process)
     , m_resourceLoaderID(parameters.taskIdentifier)
     , m_pageProxyID(page.identifier())
     , m_webPageID(webPageID)
@@ -95,7 +98,7 @@ auto WebURLSchemeTask::willPerformRedirection(ResourceResponse&& response, Resou
     }
 
     RefPtr page = m_pageProxyID ? WebProcessProxy::webPage(*m_pageProxyID) : nullptr;
-    if (!page || !m_process)
+    if (!page)
         return ExceptionType::None;
 
     m_waitingForRedirectCompletionHandlerCallback = true;
@@ -106,7 +109,7 @@ auto WebURLSchemeTask::willPerformRedirection(ResourceResponse&& response, Resou
             completionHandler(WTFMove(request));
     };
 
-    m_process->sendWithAsyncReply(Messages::WebPage::URLSchemeTaskWillPerformRedirection(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response, request), WTFMove(innerCompletionHandler), page->webPageIDInMainFrameProcess());
+    m_process->sendWithAsyncReply(Messages::WebPage::URLSchemeTaskWillPerformRedirection(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response, request), WTFMove(innerCompletionHandler), *m_webPageID);
 
     return ExceptionType::None;
 }
@@ -143,7 +146,7 @@ auto WebURLSchemeTask::didPerformRedirection(WebCore::ResourceResponse&& respons
     return ExceptionType::None;
 }
 
-auto WebURLSchemeTask::didReceiveResponse(const ResourceResponse& response) -> ExceptionType
+auto WebURLSchemeTask::didReceiveResponse(ResourceResponse&& response) -> ExceptionType
 {
     ASSERT(RunLoop::isMain());
 
@@ -164,7 +167,7 @@ auto WebURLSchemeTask::didReceiveResponse(const ResourceResponse& response) -> E
     if (isSync())
         m_syncResponse = response;
 
-    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveResponse(m_urlSchemeHandler->identifier(), m_resourceLoaderID, response), *m_webPageID);
+    m_process->send(Messages::WebPage::URLSchemeTaskDidReceiveResponse(m_urlSchemeHandler->identifier(), m_resourceLoaderID, WTFMove(response)), *m_webPageID);
     return ExceptionType::None;
 }
 
@@ -222,21 +225,6 @@ auto WebURLSchemeTask::didComplete(const ResourceError& error) -> ExceptionType
     m_urlSchemeHandler->taskCompleted(*pageProxyID(), *this);
 
     return ExceptionType::None;
-}
-
-void WebURLSchemeTask::pageDestroyed()
-{
-    ASSERT(RunLoop::isMain());
-
-    m_pageProxyID = std::nullopt;
-    m_webPageID = std::nullopt;
-    m_process = nullptr;
-    m_stopped = true;
-    
-    if (isSync()) {
-        Locker locker { m_requestLock };
-        m_syncCompletionHandler({ }, failedCustomProtocolSyncLoad(m_request), { });
-    }
 }
 
 void WebURLSchemeTask::stop()

@@ -40,9 +40,20 @@
 
 #import <pal/cf/CoreMediaSoftLink.h>
 
+SPECIALIZE_TYPE_TRAITS_BEGIN(mkvmuxer::AudioTrack)
+    static bool isType(const mkvmuxer::Track& track) { return track.type() == mkvmuxer::Tracks::kAudio; }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(mkvmuxer::VideoTrack)
+    static bool isType(const mkvmuxer::Track& track) { return track.type() == mkvmuxer::Tracks::kVideo; }
+SPECIALIZE_TYPE_TRAITS_END()
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaRecorderPrivateWriterWebM);
+
+static constexpr auto kH264CodecId = "V_MPEG4/ISO/AVC"_s;
+static constexpr auto kPcmCodecId = "A_PCM/FLOAT/IEEE"_s;
 
 static const char* mkvCodeIcForMediaVideoCodecId(FourCC codec)
 {
@@ -51,7 +62,9 @@ static const char* mkvCodeIcForMediaVideoCodecId(FourCC codec)
     case 'vp92':
     case kCMVideoCodecType_VP9: return mkvmuxer::Tracks::kVp9CodecId;
     case kCMVideoCodecType_AV1: return mkvmuxer::Tracks::kAv1CodecId;
+    case kCMVideoCodecType_H264: return kH264CodecId.characters();
     case kAudioFormatOpus: return mkvmuxer::Tracks::kOpusCodecId;
+    case kAudioFormatLinearPCM: return kPcmCodecId.characters();
     default:
         ASSERT_NOT_REACHED("Unsupported codec");
         return "";
@@ -92,13 +105,16 @@ public:
         auto trackIndex = m_segment.AddAudioTrack(info.rate, info.channels, 0);
         if (!trackIndex)
             return { };
-        auto* audioTrack = reinterpret_cast<mkvmuxer::AudioTrack*>(m_segment.GetTrackByNumber(trackIndex));
+        auto* audioTrack = downcast<mkvmuxer::AudioTrack>(m_segment.GetTrackByNumber(trackIndex));
         ASSERT(audioTrack);
         audioTrack->set_bit_depth(32u);
         audioTrack->set_codec_id(mkvCodeIcForMediaVideoCodecId(info.codecName));
-        auto description = audioStreamDescriptionFromAudioInfo(info);
-        auto opusHeader = createOpusPrivateData(description.streamDescription());
-        audioTrack->SetCodecPrivate(opusHeader.data(), opusHeader.size());
+        ASSERT(info.codecName == kAudioFormatOpus || info.codecName == kAudioFormatLinearPCM);
+        if (info.codecName == kAudioFormatOpus) {
+            auto description = audioStreamDescriptionFromAudioInfo(info);
+            auto opusHeader = createOpusPrivateData(description.streamDescription());
+            audioTrack->SetCodecPrivate(opusHeader.span().data(), opusHeader.size());
+        }
         return trackIndex;
     }
 
@@ -107,9 +123,11 @@ public:
         auto trackIndex = m_segment.AddVideoTrack(info.size.width(), info.size.height(), 0);
         if (!trackIndex)
             return { };
-        auto* videoTrack = reinterpret_cast<mkvmuxer::VideoTrack*>(m_segment.GetTrackByNumber(trackIndex));
+        auto* videoTrack = downcast<mkvmuxer::VideoTrack>(m_segment.GetTrackByNumber(trackIndex));
         ASSERT(videoTrack);
         videoTrack->set_codec_id(mkvCodeIcForMediaVideoCodecId(info.codecName));
+        if (RefPtr atomData = info.atomData; atomData && atomData->span().size())
+            videoTrack->SetCodecPrivate(atomData->span().data(), atomData->span().size());
         return trackIndex;
     }
 

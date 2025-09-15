@@ -42,7 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface CKKSZoneChangeFetcher : NSObject <CKKSZoneUpdateReceiverProtocol>
 @property (readonly) Class<CKKSFetchRecordZoneChangesOperation> fetchRecordZoneChangesOperationClass;
-@property (readonly) CKContainer* container;
+@property CKContainer* container;
 @property CKKSReachabilityTracker* reachabilityTracker;
 
 @property (readonly) NSError* lastCKFetchError;
@@ -75,6 +75,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 // I don't recommend using these unless you're a test.
 @property CKKSNearFutureScheduler* fetchScheduler;
+
+// Don't use this unless you really need to introspect an executing fetch in a test.
+@property (nullable) CKKSFetchAllRecordZoneChangesOperation* currentFetch;
+
 @end
 
 NS_ASSUME_NONNULL_END

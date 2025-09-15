@@ -78,7 +78,7 @@ struct __kern_buflet_ext {
 } __attribute((packed));
 
 #define KBUF_CTOR(_kbuf, _baddr, _bidxreg, _bc, _pp, _large) do {       \
-	_CASSERT(sizeof ((_kbuf)->buf_addr) == sizeof (mach_vm_address_t));\
+	static_assert(sizeof ((_kbuf)->buf_addr) == sizeof (mach_vm_address_t));\
 	/* kernel variant (deconst) */                                  \
 	BUF_CTOR(_kbuf, _baddr, _bidxreg, (_large) ? PP_BUF_SIZE_LARGE(_pp) :\
 	    PP_BUF_SIZE_DEF(_pp), 0, 0, (_kbuf)->buf_nbft_addr,         \
@@ -94,7 +94,7 @@ struct __kern_buflet_ext {
 #define KBUF_EXT_CTOR(_kbuf, _ubuf, _baddr, _bidxreg, _bc,              \
 	    _bft_idx_reg, _pp, _large) do {                             \
 	ASSERT(_bft_idx_reg != OBJ_IDX_NONE);                           \
-	_CASSERT(sizeof((_kbuf)->buf_flag) == sizeof(uint16_t));        \
+	static_assert(sizeof((_kbuf)->buf_flag) == sizeof(uint16_t));        \
 	/* we don't set buf_nbft_addr here as during construction it */ \
 	/* is used by skmem batch alloc logic                        */ \
 	*__DECONST(uint16_t *, &(_kbuf)->buf_flag) = BUFLET_FLAG_EXTERNAL;\
@@ -180,13 +180,13 @@ struct __kern_buflet_ext {
 	ASSERT((_skb)->buf_nbft_addr == 0);                             \
 	ASSERT((_skb)->buf_nbft_idx == OBJ_IDX_NONE);                   \
 	ASSERT(!((_dkb)->buf_flag & BUFLET_FLAG_EXTERNAL));             \
-	_CASSERT(sizeof(struct __kern_buflet) == 50);                   \
+	static_assert(sizeof(struct __kern_buflet) == 50);                   \
 	/* copy everything in the kernel buflet */                      \
 	sk_copy64_40((uint64_t *)(void *)(_skb), (uint64_t *)(void *)(_dkb));\
 	((uint64_t *)(void *)(_dkb))[5] = ((uint64_t *)(void *)(_skb))[5];   \
 	((uint16_t *)(void *)(_dkb))[24] = ((uint16_t *)(void *)(_skb))[24]; \
 	ASSERT((_dkb)->buf_ctl == (_skb)->buf_ctl);                     \
-	_CASSERT(sizeof((_dkb)->buf_flag) == sizeof(uint16_t));         \
+	static_assert(sizeof((_dkb)->buf_flag) == sizeof(uint16_t));         \
 	*__DECONST(uint16_t *, &(_dkb)->buf_flag) &= ~BUFLET_FLAG_EXTERNAL;\
 	if (__probable((_dkb)->buf_ctl != NULL)) {                      \
 	        skmem_bufctl_use(__DECONST(struct skmem_bufctl *,       \
@@ -216,14 +216,14 @@ struct __kern_quantum {
 
 #define KQUM_CTOR(_kqum, _midx, _uqum, _pp, _qflags) do {               \
 	ASSERT((uintptr_t)(_kqum) != (uintptr_t)(_uqum));               \
-	_CASSERT(sizeof(METADATA_IDX(_kqum)) == sizeof(obj_idx_t));     \
+	static_assert(sizeof(METADATA_IDX(_kqum)) == sizeof(obj_idx_t));     \
 	/* kernel variant (deconst) */                                  \
 	_KQUM_CTOR(_kqum, (PP_KERNEL_ONLY(_pp) ?                        \
 	    QUM_F_KERNEL_ONLY : 0) | _qflags, 0, 0, OBJ_IDX_NONE,       \
 	    PP_BUF_SIZE_DEF((_pp)), _midx);                             \
-	_CASSERT(NEXUS_META_TYPE_MAX <= UINT16_MAX);                    \
+	static_assert(NEXUS_META_TYPE_MAX <= UINT16_MAX);                    \
 	METADATA_TYPE(_kqum) = (uint16_t)(_pp)->pp_md_type;             \
-	_CASSERT(NEXUS_META_SUBTYPE_MAX <= UINT16_MAX);                 \
+	static_assert(NEXUS_META_SUBTYPE_MAX <= UINT16_MAX);                 \
 	METADATA_SUBTYPE(_kqum) = (uint16_t)(_pp)->pp_md_subtype;       \
 	*(struct kern_pbufpool **)(uintptr_t)&(_kqum)->qum_pp = (_pp);  \
 	*(struct __user_quantum **)(uintptr_t)&(_kqum)->qum_user = (_uqum); \
@@ -255,13 +255,13 @@ _UUID_MATCH(uuid_t u1, uuid_t u2)
 }
 
 #define _UUID_COPY(_dst, _src) do {                                     \
-	_CASSERT(sizeof (uuid_t) == 16);                                \
+	static_assert(sizeof(uuid_t) == 16);                                \
 	sk_copy64_16((uint64_t *)(void *)_src, (uint64_t *)(void *)_dst); \
 } while (0)
 
 #define _UUID_CLEAR(_u) do {                            \
 	uint64_t *__dst = (uint64_t *)(void *)(_u);     \
-	_CASSERT(sizeof (uuid_t) == 16);                \
+	static_assert(sizeof(uuid_t) == 16);                \
 	*(__dst++) = 0; /* qw[0] */                     \
 	*(__dst)   = 0; /* qw[1] */                     \
 } while (0)
@@ -276,8 +276,8 @@ _UUID_MATCH(uuid_t u1, uuid_t u2)
  */
 #define _QUM_COPY(_skq, _dkq) do {                                          \
 	volatile uint16_t _sf = ((_dkq)->qum_qflags & QUM_F_SAVE_MASK);     \
-	_CASSERT(sizeof (_sf) == sizeof ((_dkq)->qum_qflags));              \
-	_CASSERT(offsetof(struct __quantum, __q_flags) == 24);              \
+	static_assert(sizeof(_sf) == sizeof((_dkq)->qum_qflags));              \
+	static_assert(offsetof(struct __quantum, __q_flags) == 24);              \
 	/* copy everything above (and excluding) __q_flags */               \
 	sk_copy64_24((uint64_t *)(void *)&(_skq)->qum_com,                  \
 	    (uint64_t *)(void *)&(_dkq)->qum_com);                          \
@@ -307,8 +307,8 @@ _UUID_MATCH(uuid_t u1, uuid_t u2)
  * after __q_flags.  This macro is used only during externalize.
  */
 #define _QUM_EXTERNALIZE(_kq, _uq) do {                                  \
-	_CASSERT(offsetof(struct __quantum, __q_flags) == 24);           \
-	_CASSERT(sizeof(METADATA_IDX(_uq)) == sizeof(obj_idx_t));        \
+	static_assert(offsetof(struct __quantum, __q_flags) == 24);           \
+	static_assert(sizeof(METADATA_IDX(_uq)) == sizeof(obj_idx_t));        \
 	/* copy __quantum excluding qum_qflags */                        \
 	sk_copy64_24((uint64_t *)(void *)&(_kq)->qum_com,                \
 	    (uint64_t *)(void *)&(_uq)->qum_com);                        \
@@ -475,8 +475,8 @@ struct __kern_packet {
 	/* save packet flags since it might be wiped out */             \
 	volatile uint64_t __pflags = (_pflags);                         \
 	/* first wipe it clean */                                       \
-	_CASSERT(sizeof(struct __packet_com) == 32);                    \
-	_CASSERT(sizeof(struct __packet) == 32);                        \
+	static_assert(sizeof(struct __packet_com) == 32);                    \
+	static_assert(sizeof(struct __packet) == 32);                        \
 	sk_zero_32(&(_p)->pkt_com.__pkt_data[0]);                       \
 	/* then initialize */                                           \
 	(_p)->pkt_pflags = (__pflags);                                  \
@@ -485,16 +485,15 @@ struct __kern_packet {
 
 #define _PKT_CTOR(_p, _pflags, _bufcnt, _maxfrags) do {                 \
 	_PKT_COM_INIT(_p, _pflags);                                     \
-	_CASSERT(sizeof ((_p)->pkt_bufs_max) == sizeof (uint16_t));     \
-	_CASSERT(sizeof ((_p)->pkt_bufs_cnt) == sizeof (uint16_t));     \
+	static_assert(sizeof((_p)->pkt_bufs_max) == sizeof(uint16_t));     \
+	static_assert(sizeof((_p)->pkt_bufs_cnt) == sizeof(uint16_t));     \
 	/* deconst */                                                   \
 	*(uint16_t *)(uintptr_t)&(_p)->pkt_bufs_max = (_maxfrags);      \
 	*(uint16_t *)(uintptr_t)&(_p)->pkt_bufs_cnt = (_bufcnt);        \
 } while (0)
 
 #define KPKT_CLEAR_MBUF_PKT_DATA(_pk) do {                              \
-	_CASSERT(offsetof(struct __kern_packet, pkt_mbuf) ==            \
-	    offsetof(struct __kern_packet, pkt_pkt));                   \
+	static_assert(offsetof(struct __kern_packet, pkt_mbuf) == offsetof(struct __kern_packet, pkt_pkt));                   \
 	(_pk)->pkt_pflags &= ~(PKT_F_MBUF_MASK|PKT_F_PKT_MASK);         \
 	/* the following also clears pkt_pkt */                         \
 	(_pk)->pkt_mbuf = NULL;                                         \
@@ -511,7 +510,7 @@ struct __kern_packet {
 } while (0)
 
 #define KPKT_CLEAR_FLOW_INIT(_fl) do {                                  \
-	_CASSERT(sizeof ((_fl)->flow_init_data) == 128);                \
+	static_assert(sizeof((_fl)->flow_init_data) == 128);                \
 	sk_zero_128(&(_fl)->flow_init_data[0]);                         \
 } while (0)
 
@@ -568,9 +567,9 @@ struct __kern_packet {
 	if (((_p)->pkt_pflags & PKT_F_TX_COMPL_DATA) == 0) {            \
 	        ASSERT((_p)->pkt_pflags & PKT_F_TX_COMPL_ALLOC);        \
 	        (_p)->pkt_pflags |= PKT_F_TX_COMPL_DATA;                \
-	        _CASSERT(sizeof((_p)->pkt_tx_compl_data64) == 24);      \
+	        static_assert(sizeof((_p)->pkt_tx_compl_data64) == 24);      \
 	/* 32-bit compl_data should be in the union */          \
-	        _CASSERT(sizeof((_p)->pkt_tx_compl_data) <= 24);        \
+	        static_assert(sizeof((_p)->pkt_tx_compl_data) <= 24);        \
 	        (_p)->pkt_tx_compl_data64[0] = 0;                       \
 	        (_p)->pkt_tx_compl_data64[1] = 0;                       \
 	        (_p)->pkt_tx_compl_data64[2] = 0;                       \
@@ -583,7 +582,7 @@ struct __kern_packet {
  */
 #define _PKT_COPY_OPT_DATA(_skp, _dkp) do {                             \
 	if (__improbable(((_skp)->pkt_pflags & PKT_F_OPT_DATA) != 0)) { \
-	        _CASSERT(sizeof(struct __packet_opt) == 40);            \
+	        static_assert(sizeof(struct __packet_opt) == 40);            \
 	        ASSERT((_skp)->pkt_pflags & PKT_F_OPT_ALLOC);           \
 	        sk_copy64_40((uint64_t *)(struct __packet_opt *__header_bidi_indexable)(_skp)->pkt_com_opt,   \
 	            (uint64_t *)(struct __packet_opt *__header_bidi_indexable)(_dkp)->pkt_com_opt);           \
@@ -600,9 +599,9 @@ struct __kern_packet {
  * after __p_flags.
  */
 #define _PKT_COPY(_skp, _dkp) do {                                      \
-	_CASSERT(sizeof(struct __packet) == 32);                        \
-	_CASSERT(sizeof(struct __packet_com) == 32);                    \
-	_CASSERT(offsetof(struct __packet, __p_flags) == 24);           \
+	static_assert(sizeof(struct __packet) == 32);                        \
+	static_assert(sizeof(struct __packet_com) == 32);                    \
+	static_assert(offsetof(struct __packet, __p_flags) == 24);           \
 	/* copy __packet excluding pkt_pflags */                        \
 	sk_copy64_24((uint64_t *)(struct __packet *__header_bidi_indexable)&(_skp)->pkt_com,    \
 	    (uint64_t *)(struct __packet *__header_bidi_indexable)&(_dkp)->pkt_com);            \
@@ -632,9 +631,9 @@ struct __kern_packet {
  */
 #define _PKT_INTERNALIZE(_up, _kp) do {                                 \
 	volatile uint64_t _kf = ((_kp)->pkt_pflags & ~PKT_F_USER_MASK); \
-	_CASSERT(sizeof(struct __packet) == 32);                        \
-	_CASSERT(sizeof(struct __packet_com) == 32);                    \
-	_CASSERT(offsetof(struct __packet, __p_flags) == 24);           \
+	static_assert(sizeof(struct __packet) == 32);                        \
+	static_assert(sizeof(struct __packet_com) == 32);                    \
+	static_assert(offsetof(struct __packet, __p_flags) == 24);           \
 	/* copy __packet excluding pkt_pflags */                        \
 	sk_copy64_24((uint64_t *)(void *)&(_up)->pkt_com,               \
 	    (uint64_t *)(void *)&(_kp)->pkt_com);                       \
@@ -642,7 +641,7 @@ struct __kern_packet {
 	(_kp)->pkt_pflags = ((_up)->pkt_pflags & PKT_F_USER_MASK) | _kf;\
 	/* copy (internalize) __packet_opt if applicable */             \
 	if (__improbable(((_kp)->pkt_pflags & PKT_F_OPT_DATA) != 0)) {  \
-	        _CASSERT(sizeof(struct __packet_opt) == 40);            \
+	        static_assert(sizeof(struct __packet_opt) == 40);            \
 	        ASSERT((_kp)->pkt_pflags & PKT_F_OPT_ALLOC);            \
 	        sk_copy64_40((uint64_t *)(void *)&(_up)->pkt_com_opt,   \
 	            (uint64_t *)(struct __packet_opt *__header_bidi_indexable)(_kp)->pkt_com_opt); \
@@ -659,9 +658,9 @@ struct __kern_packet {
  * after __p_flags.  This macro is used only during externalize.
  */
 #define _PKT_EXTERNALIZE(_kp, _up) do {                                 \
-	_CASSERT(sizeof(struct __packet) == 32);                        \
-	_CASSERT(sizeof(struct __packet_com) == 32);                    \
-	_CASSERT(offsetof(struct __packet, __p_flags) == 24);           \
+	static_assert(sizeof(struct __packet) == 32);                        \
+	static_assert(sizeof(struct __packet_com) == 32);                    \
+	static_assert(offsetof(struct __packet, __p_flags) == 24);           \
 	/* copy __packet excluding pkt_pflags */                        \
 	sk_copy64_24((uint64_t *)(void *)&(_kp)->pkt_com,               \
 	    (uint64_t *)(void *)&(_up)->pkt_com);                       \
@@ -669,20 +668,17 @@ struct __kern_packet {
 	(_up)->pkt_pflags = ((_kp)->pkt_pflags & PKT_F_USER_MASK);      \
 	/* copy (externalize) __packet_opt if applicable */             \
 	if (__improbable(((_kp)->pkt_pflags & PKT_F_OPT_DATA) != 0)) {  \
-	        _CASSERT(sizeof(struct __packet_opt) == 40);            \
+	        static_assert(sizeof(struct __packet_opt) == 40);            \
 	        ASSERT((_kp)->pkt_pflags & PKT_F_OPT_ALLOC);            \
 	        sk_copy64_40((uint64_t *)(struct __packet_opt *__header_bidi_indexable)(_kp)->pkt_com_opt, \
 	            (uint64_t *)(void *)&(_up)->pkt_com_opt);           \
 	}                                                               \
 } while (0)
 
-#define SK_PTR_ADDR_KQUM(_ph)   __unsafe_forge_single(struct __kern_quantum *, \
-	                            (SK_PTR_ADDR(_ph)))
-#define SK_PTR_ADDR_KPKT(_ph)   __unsafe_forge_single(struct __kern_packet *, \
-	                            (SK_PTR_ADDR(_ph)))
+#define SK_PTR_ADDR_KQUM(_ph)   __unsafe_forge_single(struct __kern_quantum *, (_ph))
+#define SK_PTR_ADDR_KPKT(_ph)   __unsafe_forge_single(struct __kern_packet *, (_ph))
 #define SK_PTR_KPKT(_pa)        ((struct __kern_packet *)(void *)(_pa))
-#define SK_PKT2PH(_pkt) \
-    (SK_PTR_ENCODE((_pkt), METADATA_TYPE((_pkt)), METADATA_SUBTYPE((_pkt))))
+#define SK_PKT2PH(_pkt)         ((uint64_t)(_pkt))
 
 /*
  * Set the length of the data to various places: __user_slot_desc,
@@ -696,43 +692,21 @@ struct __kern_packet {
 	struct __kern_quantum *_q =                                     \
 	    (struct __kern_quantum *)(void *)(_md);                     \
 	_q->qum_len = (_len);                                           \
-	switch (METADATA_TYPE(_q)) {                                    \
-	case NEXUS_META_TYPE_PACKET: {                                  \
-	        struct __kern_packet *_p =                              \
-	            (struct __kern_packet *)(void *)(_md);              \
-	        struct __kern_buflet *_kbft;                            \
-	        PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);      \
-	        _kbft->buf_dlen = (_len);                               \
-	        _kbft->buf_doff = (_doff);                              \
-	        break;                                                  \
-	}                                                               \
-	default:                                                        \
-	        ASSERT(METADATA_TYPE(_q) == NEXUS_META_TYPE_QUANTUM);   \
-	        _q->qum_buf[0].buf_dlen = (_len);                       \
-	        _q->qum_buf[0].buf_doff = (_doff);                      \
-	        break;                                                  \
-	}                                                               \
+	struct __kern_packet *_p =                                      \
+	    (struct __kern_packet *)(void *)(_md);                      \
+	struct __kern_buflet *_kbft;                                    \
+	PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);              \
+	_kbft->buf_dlen = (_len);                                       \
+	_kbft->buf_doff = (_doff);                                      \
 } while (0)
 
 #define METADATA_ADJUST_LEN(_md, _len, _doff) do {                      \
-	struct __kern_quantum *_q =                                     \
-	    (struct __kern_quantum *)(void *)(_md);                     \
-	switch (METADATA_TYPE(_q)) {                                    \
-	case NEXUS_META_TYPE_PACKET: {                                  \
-	        struct __kern_packet *_p =                              \
-	            (struct __kern_packet *)(void *)(_md);              \
-	        struct __kern_buflet *_kbft;                            \
-	        PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);      \
-	        _kbft->buf_dlen += (_len);                               \
-	        _kbft->buf_doff = (_doff);                              \
-	        break;                                                  \
-	}                                                               \
-	default:                                                        \
-	        ASSERT(METADATA_TYPE(_q) == NEXUS_META_TYPE_QUANTUM);   \
-	        _q->qum_buf[0].buf_dlen += (_len);                      \
-	        _q->qum_buf[0].buf_doff = (_doff);                      \
-	        break;                                                  \
-	}                                                               \
+	struct __kern_packet *_p =                                      \
+	    (struct __kern_packet *)(void *)(_md);                      \
+	struct __kern_buflet *_kbft;                                    \
+	PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);              \
+	_kbft->buf_dlen += (_len);                                      \
+	_kbft->buf_doff = (_doff);                                      \
 } while (0)
 
 __attribute__((always_inline))
@@ -849,8 +823,6 @@ typedef void (pkt_copy_to_mbuf_t)(const enum txrx, kern_packet_t,
     const boolean_t, const uint16_t);
 
 __BEGIN_DECLS
-extern void pkt_subtype_assert_fail(const kern_packet_t, uint64_t, uint64_t);
-extern void pkt_type_assert_fail(const kern_packet_t, uint64_t);
 
 extern pkt_copy_from_pkt_t pkt_copy_from_pkt;
 extern pkt_copy_from_pkt_t pkt_copy_multi_buflet_from_pkt;

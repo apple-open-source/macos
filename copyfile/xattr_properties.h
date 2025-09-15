@@ -46,12 +46,21 @@ __BEGIN_DECLS
  * CopyOperationIntentShare indicates that the EA is attached to an object that
  * is being given out to other people.  For example, saving to a public folder,
  * or attaching to an email message.
+ *
+ * CopyOperationIntentSync indicates that the EA is attached to an object that
+ * is being synced to other storages for the same user.  For example synced to
+ * iCloud.
+ *
+ * CopyOperationIntentBackup indicates that the EA is attached to an object
+ * that is being backed-up.  For example, being backed-up to Time Machine.
  */
 
 typedef enum {
 	CopyOperationIntentCopy = 1,
 	CopyOperationIntentSave,
 	CopyOperationIntentShare,
+	CopyOperationIntentSync,
+	CopyOperationIntentBackup,
 } CopyOperationIntent_t;
 
 typedef uint64_t CopyOperationProperties_t;

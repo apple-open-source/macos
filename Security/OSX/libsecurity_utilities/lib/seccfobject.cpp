@@ -34,9 +34,6 @@
 
 #include <list>
 #include <security_utilities/globalizer.h>
-#if( __cplusplus <= 201103L)
-#include <stdatomic.h>
-#endif
 
 SecPointerBase::SecPointerBase(const SecPointerBase& p)
 {

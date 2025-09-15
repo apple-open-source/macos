@@ -47,7 +47,7 @@ RenderMathMLSpace::~RenderMathMLSpace() = default;
 
 void RenderMathMLSpace::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = spaceWidth();
 
@@ -56,7 +56,7 @@ void RenderMathMLSpace::computePreferredLogicalWidths()
 
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
 LayoutUnit RenderMathMLSpace::spaceWidth() const
@@ -79,13 +79,13 @@ void RenderMathMLSpace::getSpaceHeightAndDepth(LayoutUnit& height, LayoutUnit& d
     }
 }
 
-void RenderMathMLSpace::layoutBlock(bool relayoutChildren, LayoutUnit)
+void RenderMathMLSpace::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     layoutFloatingChildren();

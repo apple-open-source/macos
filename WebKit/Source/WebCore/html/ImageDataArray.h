@@ -32,7 +32,6 @@
 #include <JavaScriptCore/Float16Array.h>
 #include <JavaScriptCore/Uint8ClampedArray.h>
 #include <optional>
-#include <variant>
 #include <wtf/JSONValues.h>
 
 namespace WebCore {
@@ -44,6 +43,7 @@ public:
 
     ImageDataArray(Ref<JSC::Uint8ClampedArray>&&);
     ImageDataArray(Ref<JSC::Float16Array>&&);
+    ImageDataArray(ImageDataArray&& original, std::optional<ImageDataStorageFormat> overridingStorageFormat);
 
     static std::optional<ImageDataArray> tryCreate(size_t, ImageDataStorageFormat, std::span<const uint8_t> = { });
 
@@ -64,10 +64,12 @@ public:
 private:
     ImageDataArray(Ref<JSC::ArrayBufferView>&&);
 
+    Ref<ArrayBufferView> extractBufferViewWithStorageFormat(std::optional<ImageDataStorageFormat>) &&;
+
     // Needed by `toJS<IDLUnion<IDLUint8ClampedArray, ...>, const ImageDataArray&>()`
     template<typename IDL, bool needsState, bool needsGlobalObject> friend struct JSConverterOverloader;
-    using Variant = std::variant<RefPtr<JSC::Uint8ClampedArray>, RefPtr<JSC::Float16Array>>;
-    operator Variant() const;
+    using DataVariant = Variant<RefPtr<JSC::Uint8ClampedArray>, RefPtr<JSC::Float16Array>>;
+    operator DataVariant() const;
 
     Ref<JSC::ArrayBufferView> m_arrayBufferView;
 };

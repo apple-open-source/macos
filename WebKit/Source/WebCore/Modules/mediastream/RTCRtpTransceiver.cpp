@@ -34,6 +34,7 @@
 
 #if ENABLE(WEB_RTC)
 
+#include "Logging.h"
 #include "RTCPeerConnection.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>

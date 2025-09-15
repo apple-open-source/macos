@@ -73,19 +73,12 @@
 #include <kern/assert.h>
 #include <kern/macro_help.h>
 #include <kern/kern_types.h>
-#include <kern/waitq.h>
 
 #include <ipc/ipc_kmsg.h>
 #include <ipc/ipc_object.h>
 #include <ipc/ipc_types.h>
 
 #include <sys/event.h>
-
-/* this type doesn't exist and is only used to do math */
-struct ipc_object_waitq {
-	struct ipc_object       iowq_object;
-	struct waitq            iowq_waitq;
-};
 
 typedef struct ipc_mqueue {
 	circle_queue_head_t     imq_messages;
@@ -98,12 +91,10 @@ typedef struct ipc_mqueue {
 	 * in ipc_mqueue.
 	 */
 	uint32_t                imq_context;
-#if MACH_FLIPC
-	struct flipc_port       *imq_fport; // Null for local port, or ptr to flipc port
-#endif
+
 	union {
 		/*
-		 * Special Reply Ports (ip_specialreply == true):
+		 * Special Reply Ports (ip_type() == IOT_SPECIAL_REPLY_PORT):
 		 *   only use imq_srp_owner_thread
 		 *
 		 * Ports, based on ip_sync_link_state, use:
@@ -125,8 +116,7 @@ typedef struct ipc_mqueue {
 #define imq_full(mq)            ((mq)->imq_msgcount >= (mq)->imq_qlimit)
 #define imq_full_kernel(mq)     ((mq)->imq_msgcount >= MACH_PORT_QLIMIT_KERNEL)
 
-extern int ipc_mqueue_full;
-// extern int ipc_mqueue_rcv;
+extern const bool ipc_mqueue_full;
 
 #define IPC_MQUEUE_FULL         CAST_EVENT64_T(&ipc_mqueue_full)
 #define IPC_MQUEUE_RECEIVE      NO_EVENT64
@@ -182,17 +172,6 @@ extern wait_result_t ipc_mqueue_receive_on_thread_and_unlock(
 	int                     interruptible,
 	thread_t                thread);
 
-/* Continuation routine for message receive */
-extern void ipc_mqueue_receive_continue(
-	void                    *param,
-	wait_result_t           wresult);
-
-/* Select a message from a queue and try to post it to ourself */
-extern void ipc_mqueue_select_on_thread_locked(
-	ipc_mqueue_t            port_mq,
-	mach_msg_option64_t     option64,
-	thread_t                thread);
-
 /* Peek into a messaqe queue to see if there are messages */
 extern unsigned ipc_mqueue_peek(
 	ipc_mqueue_t            mqueue,
@@ -211,16 +190,6 @@ extern unsigned ipc_mqueue_peek_locked(
 	mach_msg_max_trailer_t  *msg_trailerp,
 	ipc_kmsg_t              *kmsgp);
 
-#if MACH_FLIPC
-/* Release an mqueue/port reference that was granted by MACH64_PEEK_MSG */
-extern void ipc_mqueue_release_peek_ref(
-	ipc_mqueue_t            mqueue);
-#endif /* MACH_FLIPC */
-
-/* Clear a message count reservation */
-extern void ipc_mqueue_release_msgcount(
-	ipc_mqueue_t            port_mq);
-
 /* Change a queue limit */
 extern void ipc_mqueue_set_qlimit_locked(
 	ipc_mqueue_t            mqueue,
@@ -238,8 +207,7 @@ extern mach_msg_return_t ipc_mqueue_copyin(
 	ipc_object_t            *objectp);
 
 /* Safe to use the klist ptr */
-extern bool
-ipc_port_has_klist(
+extern bool ipc_port_has_klist(
 	ipc_port_t              port);
 
 #endif  /* _IPC_IPC_MQUEUE_H_ */

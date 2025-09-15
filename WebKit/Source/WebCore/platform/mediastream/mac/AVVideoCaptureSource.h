@@ -27,7 +27,7 @@
 
 #if ENABLE(MEDIA_STREAM) && HAVE(AVCAPTUREDEVICE)
 
-#include "IntSizeHash.h"
+#include "IntSize.h"
 #include "OrientationNotifier.h"
 #include "RealtimeVideoCaptureSource.h"
 #include "Timer.h"
@@ -79,7 +79,7 @@ public:
     void captureDeviceSuspendedDidChange();
     void captureOutputDidFinishProcessingPhoto(RetainPtr<AVCapturePhotoOutput>, RetainPtr<AVCapturePhoto>, RetainPtr<NSError>);
 
-    void configurationChanged();
+    void configurationChanged() final;
 
 private:
     AVVideoCaptureSource(AVCaptureDevice*, const CaptureDevice&, MediaDeviceHashSalts&&, std::optional<PageIdentifier>);
@@ -175,7 +175,7 @@ private:
     RetainPtr<AVCaptureSession> m_session;
     RetainPtr<AVCaptureDevice> m_device;
 
-    RetainPtr<AVCapturePhotoOutput> m_photoOutput WTF_GUARDED_BY_CAPABILITY(RunLoop::main());
+    RetainPtr<AVCapturePhotoOutput> m_photoOutput WTF_GUARDED_BY_CAPABILITY(RunLoop::mainSingleton());
     std::unique_ptr<TakePhotoNativePromise::Producer> m_photoProducer WTF_GUARDED_BY_LOCK(m_photoLock);
 
     Lock m_photoLock;
@@ -200,7 +200,7 @@ private:
     std::unique_ptr<Timer> m_startupTimer;
 #endif
     std::unique_ptr<Timer> m_verifyCapturingTimer;
-    uint64_t m_framesCount { 0 };
+    std::atomic<uint64_t> m_framesCount { 0 };
     uint64_t m_lastFramesCount { 0 };
     int64_t m_defaultTorchMode { 0 };
     OptionSet<RealtimeMediaSourceSettings::Flag> m_pendingSettingsChanges;

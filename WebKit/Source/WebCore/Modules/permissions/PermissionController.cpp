@@ -44,6 +44,11 @@ PermissionController& PermissionController::shared()
     return *controller;
 }
 
+Ref<PermissionController> PermissionController::protectedShared()
+{
+    return shared();
+}
+
 void PermissionController::setSharedController(Ref<PermissionController>&& controller)
 {
     ASSERT(!sharedController());

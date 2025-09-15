@@ -136,6 +136,21 @@ CopyKeyFromFile(CFStringRef file, CFStringRef key)
     return val;
 }
 
+static bool process_has_been_forked = false;
+
+#if TARGET_OS_OSX
+static void
+process_forked(void)
+{
+    process_has_been_forked = true;
+}
+
+__attribute__((constructor)) static void
+check_process(void)
+{
+    pthread_atfork(NULL, NULL, process_forked);
+}
+#endif // TARGET_OS_OSX
 #endif /* __APPLE__ */
 
 /*
@@ -339,6 +354,8 @@ init_context_from_config_file(krb5_context context)
 	if (logline) {
 	    krb5_addlog_dest(context, context->debug_dest, logline);
 	    free(logline);
+	} else if (context->flags & KRB5_CONTEXT_FLAG_FORK_SAFE) {
+	    krb5_addlog_dest(context, context->debug_dest, "0-10/ASL:normal:libkrb5");
 	} else {
 	    krb5_addlog_dest(context, context->debug_dest, "0-10/OSLOG:normal:libkrb5");
 	}
@@ -530,6 +547,10 @@ krb5_init_context_flags(unsigned int flags, krb5_context *context)
 	p->flags |= KRB5_CTX_F_HOMEDIR_ACCESS;
     HEIMDAL_MUTEX_unlock(&homedir_mutex);
 
+    if (process_has_been_forked) {
+	p->flags |= KRB5_CONTEXT_FLAG_FORK_SAFE;
+    }
+    
     if ((flags & KRB5_CONTEXT_FLAG_NO_CONFIG) == 0) {
 	ret = krb5_get_default_config_files(&files);
 	if (ret)

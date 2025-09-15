@@ -66,14 +66,8 @@ extern "C" ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
 
 #define kMaxRounding    (10)
 
-#define VTLOG(fmt, args...)                   \
-    do {                                                    						\
-        if ((gIOPCIFlags & kIOPCIConfiguratorVTLog) && !ml_at_interrupt_context())  \
-            IOLog(fmt, ## args);                           							\
-        if (gIOPCIFlags & kIOPCIConfiguratorVTLog)        							\
-            kprintf(fmt, ## args);                          						\
-    } while(0)
-
+#define VTLOG(fmt, args...) \
+	pci_log(0, DART, fmt, ## args)
 
 #if VTASRT
 

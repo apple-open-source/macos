@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,7 +27,7 @@
 #pragma once
 
 #include "FormData.h"
-#include <wtf/FileSystem.h>
+#include <wtf/FileHandle.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -58,7 +58,7 @@ private:
 
     size_t m_elementPosition { 0 };
 
-    FileSystem::PlatformFileHandle m_fileHandle { FileSystem::invalidPlatformFileHandle };
+    FileSystem::FileHandle m_fileHandle;
     size_t m_dataOffset { 0 };
 };
 

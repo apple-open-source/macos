@@ -51,6 +51,8 @@ __BEGIN_DECLS
 #define EXCLAVES_DOMAIN_KERNEL "com.apple.kernel"
 #define EXCLAVES_DOMAIN_DARWIN "com.apple.darwin"
 
+#define EXCLAVES_FORWARDING_RESOURCE_ID_BASE (1ULL << 48)
+
 /*
  * Data associated with a conclave.
  */
@@ -97,8 +99,22 @@ typedef enum __attribute__((flag_enum)) {
 	CONCLAVE_R_STOP_REQUESTED = 0x4,
 } conclave_request_t;
 
-/* The maximum number of services available in any conclave. */
-#define CONCLAVE_SERVICE_MAX 192
+/*
+ * Data associated with Always-On Exclaves endpoints stashed in the conclave
+ * resource.
+ */
+typedef struct {
+	uint64_t aoei_serviceid;
+	uint8_t aoei_message_count;
+	uint8_t aoei_work_count;
+	uint8_t aoei_worker_count;
+	bool aoei_associated;
+	queue_chain_t aoei_chain;
+	uint64_t aoei_assertion_id;
+} aoe_item_t;
+
+/* The highest service identifier in any conclave. */
+#define CONCLAVE_SERVICE_MAX 256
 
 typedef struct {
 	conclave_state_t       c_state;
@@ -110,6 +126,11 @@ typedef struct {
 	task_t XNU_PTRAUTH_SIGNED_PTR("conclave.task") c_task;
 	thread_t XNU_PTRAUTH_SIGNED_PTR("conclave.thread") c_downcall_thread;
 	bitmap_t               c_service_bitmap[BITMAP_LEN(CONCLAVE_SERVICE_MAX)];
+
+	/*
+	 * Always-On Exclaves specific.
+	 */
+	queue_head_t           c_aoe_q;
 } conclave_resource_t;
 
 typedef struct {
@@ -503,6 +524,53 @@ exclaves_conclave_get_domain(exclaves_resource_t *resource);
 extern bool
 exclaves_conclave_has_service(exclaves_resource_t *resource, uint64_t id);
 
+/*!
+ * @function exclaves_conclave_lookup_by_aoeserviceid
+ *
+ * @abstract
+ * Find a conclave by Always-On Exclaves service ID.
+ *
+ * @param id
+ * The AOE service ID.
+ *
+ * @return
+ * Pointer to the resource
+ */
+exclaves_resource_t *
+exclaves_conclave_lookup_by_aoeserviceid(uint64_t id);
+
+/*!
+ * @function exclaves_is_forwarding_resource
+ *
+ * @abstract
+ * Check if the resource is a forwarding conclave, i.e. the conclave
+ * manager isn't hosting an actual exclave resource
+ *
+ * @param resource
+ * Conclave Manager resource
+ *
+ * @return
+ * true if resource is a forwarding conclave, false otherwise
+ *
+ */
+extern bool
+exclaves_is_forwarding_resource(exclaves_resource_t *resource);
+
+/*!
+ * @function exclaves_conclave_prepare_teardown
+ *
+ * @bastract
+ * Before we can start tearing down the conclave,
+ * we may want to clear up some machine context.
+ *
+ * @param task is the pointer to owner of conclave resource.
+ *
+ */
+extern void
+exclaves_conclave_prepare_teardown(
+	task_t task);
+
+
 /* -------------------------------------------------------------------------- */
 #pragma mark Sensors
 
@@ -652,14 +720,11 @@ exclaves_notification_signal(exclaves_resource_t *resource, long event_mask);
  * @param id
  * The resource ID.
  *
- * @param domain
- * The domain to search.
- *
  * @return
  * Pointer to the resource
  */
 exclaves_resource_t *
-exclaves_notification_lookup_by_id(const char *domain, uint64_t id);
+exclaves_notification_lookup_by_id(uint64_t id);
 
 
 /* -------------------------------------------------------------------------- */
@@ -872,6 +937,30 @@ extern kern_return_t
 exclaves_resource_audio_memory_copyout(exclaves_resource_t *resource,
     user_addr_t ubuffer, mach_vm_size_t usize1, mach_vm_size_t uoffset1,
     mach_vm_size_t usize2, mach_vm_size_t uoffset2, user_addr_t ustatus);
+
+
+/* -------------------------------------------------------------------------- */
+#pragma mark Always-On Exclaves Services
+
+/*!
+ * @function exclaves_resource_aoeservice_iterate
+ *
+ * @abstract
+ * Iterate through all AOE Services for the given domain.
+ *
+ * @param domain
+ * The domain to search.
+ *
+ * @param cb
+ * The callback to call on each found AOE Service. Return true to break out
+ * early.
+ */
+/* BEGIN IGNORE CODESTYLE */
+extern void
+exclaves_resource_aoeservice_iterate(const char *domain,
+    bool (^cb)(exclaves_resource_t *));
+/* END IGNORE CODESTYLE */
+
 
 extern exclaves_resource_t *
 exclaves_resource_lookup_by_name(const char *domain_name, const char *name,

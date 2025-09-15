@@ -15,6 +15,8 @@
 namespace gl
 {
 
+void RecordVersionErrorES31(const Context *context, angle::EntryPoint entryPoint);
+
 bool ValidateTexBufferBase(const Context *context,
                            angle::EntryPoint entryPoint,
                            TextureType target,
@@ -54,7 +56,7 @@ bool ValidateCreateShaderProgramvBase(const Context *context,
                                       angle::EntryPoint entryPoint,
                                       ShaderType typePacked,
                                       GLsizei count,
-                                      const GLchar **strings);
+                                      const GLchar *const *strings);
 bool ValidateDeleteProgramPipelinesBase(const Context *context,
                                         angle::EntryPoint entryPoint,
                                         GLsizei n,
@@ -77,11 +79,6 @@ bool ValidateGetProgramPipelineivBase(const Context *context,
 bool ValidateIsProgramPipelineBase(const Context *context,
                                    angle::EntryPoint entryPoint,
                                    ProgramPipelineID pipelinePacked);
-bool ValidateProgramParameteriBase(const Context *context,
-                                   angle::EntryPoint entryPoint,
-                                   ShaderProgramID programPacked,
-                                   GLenum pname,
-                                   GLint value);
 bool ValidateProgramUniform1fBase(const Context *context,
                                   angle::EntryPoint entryPoint,
                                   ShaderProgramID programPacked,

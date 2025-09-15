@@ -26,6 +26,7 @@
 #pragma once
 
 #include "EnsureStillAliveHere.h"
+#include <wtf/text/StringView.h>
 
 namespace JSC {
 
@@ -66,6 +67,10 @@ class JSCell;
 
 template<typename T>
 struct GCOwnedDataScope {
+    WTF_FORBID_HEAP_ALLOCATION;
+public:
+    GCOwnedDataScope() = default;
+
     GCOwnedDataScope(const JSCell* cell, T value)
         : owner(cell)
         , data(value)
@@ -87,8 +92,8 @@ struct GCOwnedDataScope {
     // Convenience conversion for String -> StringView
     operator StringView() const LIFETIME_BOUND requires (std::is_same_v<std::decay_t<T>, String>) { return data; }
 
-    const JSCell* owner;
-    T data;
+    const JSCell* owner { nullptr };
+    SUPPRESS_UNCOUNTED_MEMBER T data { };
 };
 
 }

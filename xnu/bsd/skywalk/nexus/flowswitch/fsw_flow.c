@@ -29,6 +29,7 @@
 #include <skywalk/os_skywalk_private.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <skywalk/nexus/flowswitch/fsw_var.h>
+#include <skywalk/nexus/flowswitch/flow/flow_var.h>
 
 static void fsw_flow_route_ctor(void *, struct flow_route *);
 static int fsw_flow_route_resolve(void *, struct flow_route *,
@@ -52,6 +53,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 	struct proc *p;
 	int pid = req0->nfr_pid;
 	bool low_latency = ((req0->nfr_flags & NXFLOWREQF_LOW_LATENCY) != 0);
+	struct flow_entry *__single aop_fe = NULL;
 #if SK_LOG
 	uuid_string_t uuidstr;
 #endif /* SK_LOG */
@@ -107,7 +109,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 		if ((*error = msleep(&fob->fob_open_waiters, &fob->fob_lock,
 		    (PZERO + 1) | PSPIN, __FUNCTION__, NULL)) == EINTR) {
 			SK_ERR("%s(%d) binding for uuid %s was interrupted",
-			    sk_proc_name_address(p), pid,
+			    sk_proc_name(p), pid,
 			    sk_uuid_unparse(req.nfr_flow_uuid, uuidstr));
 			ASSERT(fob->fob_open_waiters > 0);
 			fob->fob_open_waiters--;
@@ -118,7 +120,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 	}
 	if (__improbable((fob->fob_busy_flags & FOBF_DEAD) != 0)) {
 		SK_ERR("%s(%d) binding for flow_uuid %s aborted due to "
-		    "dead owner", sk_proc_name_address(p), pid,
+		    "dead owner", sk_proc_name(p), pid,
 		    sk_uuid_unparse(req.nfr_flow_uuid, uuidstr));
 		*error = ENXIO;
 		goto done;
@@ -162,7 +164,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 			    &nx_port, &nxb, NULL)) != 0) {
 				sk_free_data_sized_by(nxb.nxb_key, nxb.nxb_key_len);
 				SK_ERR("%s(%d) failed to bind flow_uuid %s to a "
-				    "nx_port (err %d)", sk_proc_name_address(p),
+				    "nx_port (err %d)", sk_proc_name(p),
 				    pid, sk_uuid_unparse(req.nfr_flow_uuid,
 				    uuidstr), *error);
 				nx_port = NEXUS_PORT_ANY;
@@ -173,7 +175,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 			nx_bound = TRUE;
 
 			SK_DF(SK_VERB_FLOW, "%s(%d) flow_uuid %s associated with "
-			    "ephemeral nx_port %d", sk_proc_name_address(p),
+			    "ephemeral nx_port %d", sk_proc_name(p),
 			    pid, sk_uuid_unparse(req.nfr_flow_uuid, uuidstr),
 			    (int)nx_port);
 
@@ -186,7 +188,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 			    0 || fsw->fsw_ifp == NULL ||
 			    fsw->fsw_agent_session == NULL)) {
 				SK_ERR("%s(%d) binding for flow_uuid %s aborted "
-				    "(lost race)", sk_proc_name_address(p),
+				    "(lost race)", sk_proc_name(p),
 				    pid, sk_uuid_unparse(req.nfr_flow_uuid,
 				    uuidstr));
 				*error = ENXIO;
@@ -217,7 +219,7 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 			uuid_generate_random(uuid_key);
 
 			SK_DF(SK_VERB_FLOW, "%s(%d) flow_uuid %s associated "
-			    "with nx_port %d", sk_proc_name_address(p),
+			    "with nx_port %d", sk_proc_name(p),
 			    pid, sk_uuid_unparse(req.nfr_flow_uuid, uuidstr),
 			    (int)nx_port);
 		} else {
@@ -258,10 +260,8 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 	if ((fe = flow_entry_find_by_uuid(fo, req.nfr_flow_uuid)) != NULL) {
 #if SK_LOG
 		char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
-		SK_DSC(p, "flow uuid collision: \"%s\" already exists at "
-		    "fe 0x%llx flags 0x%b %s(%d)",
-		    fe_as_string(fe, dbgbuf, sizeof(dbgbuf)), SK_KVA(fe),
-		    fe->fe_flags, FLOWENTF_BITS, fe->fe_proc_name, fe->fe_pid);
+		SK_PERR(p, "flow uuid collision with fe \"%s\"",
+		    fe2str(fe, dbgbuf, sizeof(dbgbuf)));
 #endif /* SK_LOG */
 		*error = EEXIST;
 		flow_entry_release(&fe);
@@ -281,20 +281,27 @@ fsw_flow_add(struct nx_flowswitch *fsw, struct nx_flow_req *req0, int *error)
 	*error = flow_mgr_flow_add(nx, fm, fo, fsw->fsw_ifp, &req,
 	    fsw_flow_route_ctor, fsw_flow_route_resolve, fsw);
 
-	if (*error == 0) {
-		/* replace original request with our (modified) local copy */
-		bcopy(&req, req0, sizeof(*req0));
 
+	if (*error == 0) {
 		SK_DF(SK_VERB_FLOW, "%s(%d) flow_uuid %s is now on "
-		    "nx_port %d", sk_proc_name_address(p), pid,
+		    "nx_port %d", sk_proc_name(p), pid,
 		    sk_uuid_unparse(req.nfr_flow_uuid, uuidstr),
 		    (int)nx_port);
+
+		/* Lookup flow entry for RX steering if needed (before FOB unlock) */
+		if (req.nfr_flags & NXFLOWREQF_AOP_OFFLOAD) {
+			aop_fe = flow_entry_find_by_uuid(fo, req.nfr_flow_uuid);
+			ASSERT(aop_fe);
+		} else {
+			/* replace original request with our (modified) local copy */
+			bcopy(&req, req0, sizeof(*req0));
+		}
 	}
 
 done:
 	if (__improbable(*error != 0)) {
 		SK_ERR("%s(%d) failed to add flow_uuid %s (err %d)",
-		    sk_proc_name_address(p), pid,
+		    sk_proc_name(p), pid,
 		    sk_uuid_unparse(req.nfr_flow_uuid, uuidstr), *error);
 		if (fo != NULL) {
 			if (new_mapping) {
@@ -327,9 +334,44 @@ done:
 	}
 	FOB_UNLOCK(fob);
 
+	/* Configure RX flow steering if flow was added successfully and AOP offload is requested */
+	if (aop_fe != NULL) {
+		int rx_steering_err = flow_entry_add_rx_steering_rule(fsw, aop_fe);
+		if (rx_steering_err != 0) {
+			SK_ERR("%s(%d) failed to add RX steering rule for "
+			    "flow_uuid %s (err %d)", sk_proc_name(p), pid,
+			    sk_uuid_unparse(req.nfr_flow_uuid, uuidstr),
+			    rx_steering_err);
+			flow_entry_release(&aop_fe);
+			aop_fe = NULL;
+			/* Clean up the flow since RX steering failed */
+			fsw_flow_del(fsw, &req, true, NULL);
+			/*
+			 * Release flow stats reference count for the additional reference
+			 * that would be passed back to NECP client in successful flow creation.
+			 * Since flow creation succeeded and stats were assigned to the request
+			 * at flow_entry_alloc(), but we're now cleaning up the flow due to
+			 * RX steering failure, we must release this reference as the caller
+			 * should not receive flow stats for a flow that was cleaned up.
+			 */
+			if (req.nfr_flow_stats != NULL) {
+				flow_stats_release(req.nfr_flow_stats);
+				req.nfr_flow_stats = NULL;
+			}
+			*error = rx_steering_err;
+			fo = NULL;
+		} else {
+			/* replace original request with our (modified) local copy */
+			bcopy(&req, req0, sizeof(*req0));
+			flow_entry_release(&aop_fe);
+			aop_fe = NULL;
+		}
+	}
+
 unbusy:
 	proc_rele(p);
 	p = PROC_NULL;
+	ASSERT(aop_fe == NULL);
 	/* allow any pending detach to proceed */
 	fsw_detach_barrier_remove(fsw);
 
@@ -469,22 +511,46 @@ fsw_flow_config(struct nx_flowswitch *fsw, struct nx_flow_req *req)
 		goto done;
 	}
 
-	/* right now only support NXFLOWREQF_NOWAKEFROMSLEEP config */
 	nt = fe->fe_port_reservation;
-	if (req->nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP) {
-		os_atomic_or(&fe->fe_flags, FLOWENTF_NOWAKEFROMSLEEP, relaxed);
-		netns_change_flags(&nt, NETNS_NOWAKEFROMSLEEP, 0);
-	} else {
-		os_atomic_andnot(&fe->fe_flags, FLOWENTF_NOWAKEFROMSLEEP, relaxed);
-		netns_change_flags(&nt, 0, NETNS_NOWAKEFROMSLEEP);
-	}
-#if SK_LOG
-	char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
-	SK_DF(SK_VERB_FLOW, "%s: NOWAKEFROMSLEEP %d",
-	    fe_as_string(fe, dbgbuf, sizeof(dbgbuf)),
-	    req->nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP ? 1 : 0);
-#endif /* SK_LOG */
 
+	/*
+	 * First handle the idle/reused connection flags
+	 *
+	 * Note: That we expect either connection idle/reused to be set or
+	 * no wake from sleep to be set/cleared
+	 */
+	if (req->nfr_flags & (NXFLOWREQF_CONNECTION_IDLE | NXFLOWREQF_CONNECTION_REUSED)) {
+		if (req->nfr_flags & NXFLOWREQF_CONNECTION_IDLE) {
+			os_atomic_or(&fe->fe_flags, FLOWENTF_CONNECTION_IDLE, relaxed);
+			netns_change_flags(&nt, NETNS_CONNECTION_IDLE, 0);
+		}
+		if (req->nfr_flags & NXFLOWREQF_CONNECTION_REUSED) {
+			os_atomic_andnot(&fe->fe_flags, FLOWENTF_CONNECTION_IDLE, relaxed);
+			netns_change_flags(&nt, 0, NETNS_CONNECTION_IDLE);
+		}
+#if SK_LOG
+		char dbgbuf[256];
+		SK_DF(SK_VERB_FLOW, "%s: CONNECTION_IDLE %d CONNECTION_REUSE %d",
+		    fe2str(fe, dbgbuf, sizeof(dbgbuf)),
+		    req->nfr_flags & NXFLOWREQF_CONNECTION_IDLE ? 1 : 0,
+		    req->nfr_flags & NXFLOWREQF_CONNECTION_REUSED ? 1 : 0);
+#endif /* SK_LOG */
+	} else {
+		/* right now only support NXFLOWREQF_NOWAKEFROMSLEEP config */
+		if (req->nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP) {
+			os_atomic_or(&fe->fe_flags, FLOWENTF_NOWAKEFROMSLEEP, relaxed);
+			netns_change_flags(&nt, NETNS_NOWAKEFROMSLEEP, 0);
+		} else {
+			os_atomic_andnot(&fe->fe_flags, FLOWENTF_NOWAKEFROMSLEEP, relaxed);
+			netns_change_flags(&nt, 0, NETNS_NOWAKEFROMSLEEP);
+		}
+#if SK_LOG
+		char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
+		SK_DF(SK_VERB_FLOW, "%s: NOWAKEFROMSLEEP %d",
+		    fe2str(fe, dbgbuf, sizeof(dbgbuf)),
+		    req->nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP ? 1 : 0);
+#endif /* SK_LOG */
+	}
 done:
 	if (fe != NULL) {
 		flow_entry_release(&fe);

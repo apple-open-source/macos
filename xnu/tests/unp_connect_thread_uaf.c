@@ -10,6 +10,8 @@
 #include <darwintest.h>
 #include <unistd.h>
 
+#include "net_test_lib.h"
+
 int g_start = 0;
 int g_client = 0;
 int g_sever1 = 0;
@@ -141,6 +143,8 @@ test_unp_connect_multithread()
 		close(g_sever2);
 		close(g_sever1);
 	}
+
+	force_zone_gc();
 }
 
 T_DECL(unp_connect_thread_uaf, "Uaf due to multithreaded unp_connect", T_META_TAG_VM_PREFERRED)

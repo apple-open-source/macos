@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -38,27 +38,6 @@
 #ifndef LIBSYSCALL_INTERFACE
 #error "LIBSYSCALL_INTERFACE not defined"
 #endif /* !LIBSYSCALL_INTERFACE */
-
-#if (DEBUG || DEVELOPMENT)
-__attribute__((noreturn))
-void
-pkt_subtype_assert_fail(const packet_t ph, uint64_t type __unused,
-    uint64_t subtype __unused)
-{
-	SK_ABORT_WITH_CAUSE("invalid packet subtype", ph);
-	/* NOTREACHED */
-	__builtin_unreachable();
-}
-
-__attribute__((noreturn))
-void
-pkt_type_assert_fail(const packet_t ph, uint64_t type __unused)
-{
-	SK_ABORT_WITH_CAUSE("invalid packet type", ph);
-	/* NOTREACHED */
-	__builtin_unreachable();
-}
-#endif /* DEBUG || DEVELOPMENT */
 
 int
 os_packet_set_headroom(const packet_t ph, const uint8_t headroom)
@@ -309,16 +288,15 @@ os_packet_set_packetid(const packet_t ph, packet_id_t *pktid)
 }
 
 int
-os_packet_set_vlan_tag(const packet_t ph, const uint16_t tag,
-    const boolean_t tag_in_pkt)
+os_packet_set_vlan_tag(const packet_t ph, const uint16_t tag)
 {
-	return __packet_set_vlan_tag(ph, tag, tag_in_pkt);
+	return __packet_set_vlan_tag(ph, tag);
 }
 
 int
-os_packet_get_vlan_tag(const packet_t ph, uint16_t *tag, boolean_t *tag_in_pkt)
+os_packet_get_vlan_tag(const packet_t ph, uint16_t *tag)
 {
-	return __packet_get_vlan_tag(ph, tag, tag_in_pkt);
+	return __packet_get_vlan_tag(ph, tag);
 }
 
 uint16_t
@@ -344,6 +322,12 @@ boolean_t
 os_packet_get_wake_flag(const packet_t ph)
 {
 	return __packet_get_wake_flag(ph);
+}
+
+void
+os_packet_set_wake_flag(const packet_t ph)
+{
+	__packet_set_wake_flag(ph);
 }
 
 boolean_t

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ struct ListStyleType;
 class StyleRuleCounterStyle;
 enum CSSValueID : uint16_t;
 
-using CounterStyleMap = UncheckedKeyHashMap<AtomString, RefPtr<CSSCounterStyle>>;
+using CounterStyleMap = HashMap<AtomString, RefPtr<CSSCounterStyle>>;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSCounterStyleRegistry);
 class CSSCounterStyleRegistry {
@@ -58,7 +58,7 @@ private:
     // If no map is passed on, user-agent counter styles map will be used
     static void resolveFallbackReference(CSSCounterStyle&, CounterStyleMap* = nullptr);
     static void resolveExtendsReference(CSSCounterStyle&, CounterStyleMap* = nullptr);
-    static void resolveExtendsReference(CSSCounterStyle&, UncheckedKeyHashSet<CSSCounterStyle*>&, CounterStyleMap* = nullptr);
+    static void resolveExtendsReference(CSSCounterStyle&, HashSet<CSSCounterStyle*>&, CounterStyleMap* = nullptr);
     static RefPtr<CSSCounterStyle> counterStyle(const AtomString&, CounterStyleMap* = nullptr);
     void invalidate();
 

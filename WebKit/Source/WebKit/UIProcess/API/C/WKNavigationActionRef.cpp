@@ -41,7 +41,7 @@ bool WKNavigationActionShouldPerformDownload(WKNavigationActionRef action)
 
 WKURLRequestRef WKNavigationActionCopyRequest(WKNavigationActionRef action)
 {
-    return WebKit::toAPI(&API::URLRequest::create(WebKit::toImpl(action)->request()).leakRef());
+    return WebKit::toAPILeakingRef(API::URLRequest::create(WebKit::toImpl(action)->request()));
 }
 
 bool WKNavigationActionGetShouldOpenExternalSchemes(WKNavigationActionRef action)
@@ -51,8 +51,9 @@ bool WKNavigationActionGetShouldOpenExternalSchemes(WKNavigationActionRef action
 
 WKFrameInfoRef WKNavigationActionCopyTargetFrameInfo(WKNavigationActionRef action)
 {
-    RefPtr targetFrame = WebKit::toImpl(action)->targetFrame();
-    return targetFrame ? WebKit::toAPI(targetFrame.leakRef()) : nullptr;
+    if (RefPtr targetFrame = WebKit::toImpl(action)->targetFrame())
+        return WebKit::toAPILeakingRef(targetFrame.releaseNonNull());
+    return nullptr;
 }
 
 WKFrameNavigationType WKNavigationActionGetNavigationType(WKNavigationActionRef action)

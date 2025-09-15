@@ -52,6 +52,7 @@
 #include <net/dlil_sysctl.h>
 #include <net/dlil_var_private.h>
 #include <net/if_arp.h>
+#include <net/if_var_private.h>
 #include <net/iptap.h>
 #include <net/pktap.h>
 #include <net/droptap.h>
@@ -64,11 +65,13 @@
 #include <sys/priv.h>
 
 #include <kern/assert.h>
+#include <kern/locks.h>
+#include <kern/sched_prim.h>
 #include <kern/task.h>
 #include <kern/thread.h>
-#include <kern/sched_prim.h>
-#include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
+#include <kern/thread_group.h>
 
 #include <net/kpi_protocol.h>
 #include <net/kpi_interface.h>
@@ -150,16 +153,7 @@
 
 uint64_t if_creation_generation_count = 0;
 
-__private_extern__ unsigned int if_ref_trace_hist_size = IF_REF_TRACE_HIST_SIZE;
-
 dlil_ifnet_queue_t dlil_ifnet_head;
-
-#if DEBUG
-unsigned int ifnet_debug = 1;    /* debugging (enabled) */
-#else
-unsigned int ifnet_debug;        /* debugging (disabled) */
-#endif /* !DEBUG */
-
 
 static u_int32_t net_rtref;
 
@@ -239,7 +233,7 @@ static void ifnet_start_thread_cont(void *, wait_result_t);
 static void ifnet_poll_thread_func(void *, wait_result_t);
 static void ifnet_poll_thread_cont(void *, wait_result_t);
 
-static errno_t ifnet_enqueue_common(struct ifnet *, struct ifclassq *,
+static errno_t ifnet_enqueue_common_single(struct ifnet *, struct ifclassq *,
     classq_pkt_t *, boolean_t, boolean_t *);
 
 static void ifp_src_route_copyout(struct ifnet *, struct route *);
@@ -337,6 +331,11 @@ ifnet_filter_update_tso(struct ifnet *ifp, boolean_t filter_enable)
 	}
 	routegenid_update();
 }
+
+os_refgrp_decl(static, if_refiogrp, "if refio refcounts", NULL);
+os_refgrp_decl(static, if_datamovgrp, "if datamov refcounts", NULL);
+#define IF_DATAMOV_BITS 1
+#define IF_DATAMOV_DRAINING 1
 
 #if SKYWALK
 
@@ -777,7 +776,7 @@ skip_mtu_ioctl:
 	}
 
 	if ((drv_buf_size > NX_FSW_BUFSIZE) && (!fsw_use_max_mtu_buffer)) {
-		_CASSERT((NX_FSW_BUFSIZE * NX_PBUF_FRAGS_MAX) >= IP_MAXPACKET);
+		static_assert((NX_FSW_BUFSIZE * NX_PBUF_FRAGS_MAX) >= IP_MAXPACKET);
 		*use_multi_buflet = true;
 		/* default flowswitch buffer size */
 		*buf_size = NX_FSW_BUFSIZE;
@@ -924,7 +923,7 @@ dlil_attach_flowswitch_nexus(ifnet_t ifp)
 	 * (called by another thread) to wait until this function finishes so the
 	 * flowswitch can be cleaned up by dlil_detach_flowswitch_nexus().
 	 *
-	 * If ifnet_is_attached() is used instead, dlil_quiesce_and_detach_nexuses()
+	 * If ifnet_get_ioref() is used instead, dlil_quiesce_and_detach_nexuses()
 	 * would not wait (because ifp->if_nx_flowswitch isn't assigned) and the
 	 * created flowswitch would be left hanging and ifnet_detach_final() would never
 	 * wakeup because the existence of the flowswitch prevents the ifnet's ioref
@@ -1029,7 +1028,7 @@ ifnet_remove_netagent(ifnet_t ifp)
 boolean_t
 ifnet_attach_flowswitch_nexus(ifnet_t ifp)
 {
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		return FALSE;
 	}
 	return dlil_attach_flowswitch_nexus(ifp);
@@ -1381,84 +1380,84 @@ dlil_init(void)
 	/*
 	 * These IF_HWASSIST_ flags must be equal to their IFNET_* counterparts.
 	 */
-	_CASSERT(IF_HWASSIST_CSUM_IP == IFNET_CSUM_IP);
-	_CASSERT(IF_HWASSIST_CSUM_TCP == IFNET_CSUM_TCP);
-	_CASSERT(IF_HWASSIST_CSUM_UDP == IFNET_CSUM_UDP);
-	_CASSERT(IF_HWASSIST_CSUM_IP_FRAGS == IFNET_CSUM_FRAGMENT);
-	_CASSERT(IF_HWASSIST_CSUM_FRAGMENT == IFNET_IP_FRAGMENT);
-	_CASSERT(IF_HWASSIST_CSUM_TCPIPV6 == IFNET_CSUM_TCPIPV6);
-	_CASSERT(IF_HWASSIST_CSUM_UDPIPV6 == IFNET_CSUM_UDPIPV6);
-	_CASSERT(IF_HWASSIST_CSUM_FRAGMENT_IPV6 == IFNET_IPV6_FRAGMENT);
-	_CASSERT(IF_HWASSIST_CSUM_PARTIAL == IFNET_CSUM_PARTIAL);
-	_CASSERT(IF_HWASSIST_CSUM_ZERO_INVERT == IFNET_CSUM_ZERO_INVERT);
-	_CASSERT(IF_HWASSIST_VLAN_TAGGING == IFNET_VLAN_TAGGING);
-	_CASSERT(IF_HWASSIST_VLAN_MTU == IFNET_VLAN_MTU);
-	_CASSERT(IF_HWASSIST_TSO_V4 == IFNET_TSO_IPV4);
-	_CASSERT(IF_HWASSIST_TSO_V6 == IFNET_TSO_IPV6);
+	static_assert(IF_HWASSIST_CSUM_IP == IFNET_CSUM_IP);
+	static_assert(IF_HWASSIST_CSUM_TCP == IFNET_CSUM_TCP);
+	static_assert(IF_HWASSIST_CSUM_UDP == IFNET_CSUM_UDP);
+	static_assert(IF_HWASSIST_CSUM_IP_FRAGS == IFNET_CSUM_FRAGMENT);
+	static_assert(IF_HWASSIST_CSUM_FRAGMENT == IFNET_IP_FRAGMENT);
+	static_assert(IF_HWASSIST_CSUM_TCPIPV6 == IFNET_CSUM_TCPIPV6);
+	static_assert(IF_HWASSIST_CSUM_UDPIPV6 == IFNET_CSUM_UDPIPV6);
+	static_assert(IF_HWASSIST_CSUM_FRAGMENT_IPV6 == IFNET_IPV6_FRAGMENT);
+	static_assert(IF_HWASSIST_CSUM_PARTIAL == IFNET_CSUM_PARTIAL);
+	static_assert(IF_HWASSIST_CSUM_ZERO_INVERT == IFNET_CSUM_ZERO_INVERT);
+	static_assert(IF_HWASSIST_VLAN_TAGGING == IFNET_VLAN_TAGGING);
+	static_assert(IF_HWASSIST_VLAN_MTU == IFNET_VLAN_MTU);
+	static_assert(IF_HWASSIST_TSO_V4 == IFNET_TSO_IPV4);
+	static_assert(IF_HWASSIST_TSO_V6 == IFNET_TSO_IPV6);
 
 	/*
 	 * ... as well as the mbuf checksum flags counterparts.
 	 */
-	_CASSERT(CSUM_IP == IF_HWASSIST_CSUM_IP);
-	_CASSERT(CSUM_TCP == IF_HWASSIST_CSUM_TCP);
-	_CASSERT(CSUM_UDP == IF_HWASSIST_CSUM_UDP);
-	_CASSERT(CSUM_IP_FRAGS == IF_HWASSIST_CSUM_IP_FRAGS);
-	_CASSERT(CSUM_FRAGMENT == IF_HWASSIST_CSUM_FRAGMENT);
-	_CASSERT(CSUM_TCPIPV6 == IF_HWASSIST_CSUM_TCPIPV6);
-	_CASSERT(CSUM_UDPIPV6 == IF_HWASSIST_CSUM_UDPIPV6);
-	_CASSERT(CSUM_FRAGMENT_IPV6 == IF_HWASSIST_CSUM_FRAGMENT_IPV6);
-	_CASSERT(CSUM_PARTIAL == IF_HWASSIST_CSUM_PARTIAL);
-	_CASSERT(CSUM_ZERO_INVERT == IF_HWASSIST_CSUM_ZERO_INVERT);
-	_CASSERT(CSUM_VLAN_TAG_VALID == IF_HWASSIST_VLAN_TAGGING);
+	static_assert(CSUM_IP == IF_HWASSIST_CSUM_IP);
+	static_assert(CSUM_TCP == IF_HWASSIST_CSUM_TCP);
+	static_assert(CSUM_UDP == IF_HWASSIST_CSUM_UDP);
+	static_assert(CSUM_IP_FRAGS == IF_HWASSIST_CSUM_IP_FRAGS);
+	static_assert(CSUM_FRAGMENT == IF_HWASSIST_CSUM_FRAGMENT);
+	static_assert(CSUM_TCPIPV6 == IF_HWASSIST_CSUM_TCPIPV6);
+	static_assert(CSUM_UDPIPV6 == IF_HWASSIST_CSUM_UDPIPV6);
+	static_assert(CSUM_FRAGMENT_IPV6 == IF_HWASSIST_CSUM_FRAGMENT_IPV6);
+	static_assert(CSUM_PARTIAL == IF_HWASSIST_CSUM_PARTIAL);
+	static_assert(CSUM_ZERO_INVERT == IF_HWASSIST_CSUM_ZERO_INVERT);
+	static_assert(CSUM_VLAN_TAG_VALID == IF_HWASSIST_VLAN_TAGGING);
 
 	/*
 	 * Make sure we have at least IF_LLREACH_MAXLEN in the llreach info.
 	 */
-	_CASSERT(IF_LLREACH_MAXLEN <= IF_LLREACHINFO_ADDRLEN);
-	_CASSERT(IFNET_LLREACHINFO_ADDRLEN == IF_LLREACHINFO_ADDRLEN);
+	static_assert(IF_LLREACH_MAXLEN <= IF_LLREACHINFO_ADDRLEN);
+	static_assert(IFNET_LLREACHINFO_ADDRLEN == IF_LLREACHINFO_ADDRLEN);
 
-	_CASSERT(IFRLOGF_DLIL == IFNET_LOGF_DLIL);
-	_CASSERT(IFRLOGF_FAMILY == IFNET_LOGF_FAMILY);
-	_CASSERT(IFRLOGF_DRIVER == IFNET_LOGF_DRIVER);
-	_CASSERT(IFRLOGF_FIRMWARE == IFNET_LOGF_FIRMWARE);
+	static_assert(IFRLOGF_DLIL == IFNET_LOGF_DLIL);
+	static_assert(IFRLOGF_FAMILY == IFNET_LOGF_FAMILY);
+	static_assert(IFRLOGF_DRIVER == IFNET_LOGF_DRIVER);
+	static_assert(IFRLOGF_FIRMWARE == IFNET_LOGF_FIRMWARE);
 
-	_CASSERT(IFRLOGCAT_CONNECTIVITY == IFNET_LOGCAT_CONNECTIVITY);
-	_CASSERT(IFRLOGCAT_QUALITY == IFNET_LOGCAT_QUALITY);
-	_CASSERT(IFRLOGCAT_PERFORMANCE == IFNET_LOGCAT_PERFORMANCE);
+	static_assert(IFRLOGCAT_CONNECTIVITY == IFNET_LOGCAT_CONNECTIVITY);
+	static_assert(IFRLOGCAT_QUALITY == IFNET_LOGCAT_QUALITY);
+	static_assert(IFRLOGCAT_PERFORMANCE == IFNET_LOGCAT_PERFORMANCE);
 
-	_CASSERT(IFRTYPE_FAMILY_ANY == IFNET_FAMILY_ANY);
-	_CASSERT(IFRTYPE_FAMILY_LOOPBACK == IFNET_FAMILY_LOOPBACK);
-	_CASSERT(IFRTYPE_FAMILY_ETHERNET == IFNET_FAMILY_ETHERNET);
-	_CASSERT(IFRTYPE_FAMILY_SLIP == IFNET_FAMILY_SLIP);
-	_CASSERT(IFRTYPE_FAMILY_TUN == IFNET_FAMILY_TUN);
-	_CASSERT(IFRTYPE_FAMILY_VLAN == IFNET_FAMILY_VLAN);
-	_CASSERT(IFRTYPE_FAMILY_PPP == IFNET_FAMILY_PPP);
-	_CASSERT(IFRTYPE_FAMILY_PVC == IFNET_FAMILY_PVC);
-	_CASSERT(IFRTYPE_FAMILY_DISC == IFNET_FAMILY_DISC);
-	_CASSERT(IFRTYPE_FAMILY_MDECAP == IFNET_FAMILY_MDECAP);
-	_CASSERT(IFRTYPE_FAMILY_GIF == IFNET_FAMILY_GIF);
-	_CASSERT(IFRTYPE_FAMILY_FAITH == IFNET_FAMILY_FAITH);
-	_CASSERT(IFRTYPE_FAMILY_STF == IFNET_FAMILY_STF);
-	_CASSERT(IFRTYPE_FAMILY_FIREWIRE == IFNET_FAMILY_FIREWIRE);
-	_CASSERT(IFRTYPE_FAMILY_BOND == IFNET_FAMILY_BOND);
-	_CASSERT(IFRTYPE_FAMILY_CELLULAR == IFNET_FAMILY_CELLULAR);
-	_CASSERT(IFRTYPE_FAMILY_UTUN == IFNET_FAMILY_UTUN);
-	_CASSERT(IFRTYPE_FAMILY_IPSEC == IFNET_FAMILY_IPSEC);
+	static_assert(IFRTYPE_FAMILY_ANY == IFNET_FAMILY_ANY);
+	static_assert(IFRTYPE_FAMILY_LOOPBACK == IFNET_FAMILY_LOOPBACK);
+	static_assert(IFRTYPE_FAMILY_ETHERNET == IFNET_FAMILY_ETHERNET);
+	static_assert(IFRTYPE_FAMILY_SLIP == IFNET_FAMILY_SLIP);
+	static_assert(IFRTYPE_FAMILY_TUN == IFNET_FAMILY_TUN);
+	static_assert(IFRTYPE_FAMILY_VLAN == IFNET_FAMILY_VLAN);
+	static_assert(IFRTYPE_FAMILY_PPP == IFNET_FAMILY_PPP);
+	static_assert(IFRTYPE_FAMILY_PVC == IFNET_FAMILY_PVC);
+	static_assert(IFRTYPE_FAMILY_DISC == IFNET_FAMILY_DISC);
+	static_assert(IFRTYPE_FAMILY_MDECAP == IFNET_FAMILY_MDECAP);
+	static_assert(IFRTYPE_FAMILY_GIF == IFNET_FAMILY_GIF);
+	static_assert(IFRTYPE_FAMILY_FAITH == IFNET_FAMILY_FAITH);
+	static_assert(IFRTYPE_FAMILY_STF == IFNET_FAMILY_STF);
+	static_assert(IFRTYPE_FAMILY_FIREWIRE == IFNET_FAMILY_FIREWIRE);
+	static_assert(IFRTYPE_FAMILY_BOND == IFNET_FAMILY_BOND);
+	static_assert(IFRTYPE_FAMILY_CELLULAR == IFNET_FAMILY_CELLULAR);
+	static_assert(IFRTYPE_FAMILY_UTUN == IFNET_FAMILY_UTUN);
+	static_assert(IFRTYPE_FAMILY_IPSEC == IFNET_FAMILY_IPSEC);
 
-	_CASSERT(IFRTYPE_SUBFAMILY_ANY == IFNET_SUBFAMILY_ANY);
-	_CASSERT(IFRTYPE_SUBFAMILY_USB == IFNET_SUBFAMILY_USB);
-	_CASSERT(IFRTYPE_SUBFAMILY_BLUETOOTH == IFNET_SUBFAMILY_BLUETOOTH);
-	_CASSERT(IFRTYPE_SUBFAMILY_WIFI == IFNET_SUBFAMILY_WIFI);
-	_CASSERT(IFRTYPE_SUBFAMILY_THUNDERBOLT == IFNET_SUBFAMILY_THUNDERBOLT);
-	_CASSERT(IFRTYPE_SUBFAMILY_RESERVED == IFNET_SUBFAMILY_RESERVED);
-	_CASSERT(IFRTYPE_SUBFAMILY_INTCOPROC == IFNET_SUBFAMILY_INTCOPROC);
-	_CASSERT(IFRTYPE_SUBFAMILY_QUICKRELAY == IFNET_SUBFAMILY_QUICKRELAY);
-	_CASSERT(IFRTYPE_SUBFAMILY_VMNET == IFNET_SUBFAMILY_VMNET);
-	_CASSERT(IFRTYPE_SUBFAMILY_SIMCELL == IFNET_SUBFAMILY_SIMCELL);
-	_CASSERT(IFRTYPE_SUBFAMILY_MANAGEMENT == IFNET_SUBFAMILY_MANAGEMENT);
+	static_assert(IFRTYPE_SUBFAMILY_ANY == IFNET_SUBFAMILY_ANY);
+	static_assert(IFRTYPE_SUBFAMILY_USB == IFNET_SUBFAMILY_USB);
+	static_assert(IFRTYPE_SUBFAMILY_BLUETOOTH == IFNET_SUBFAMILY_BLUETOOTH);
+	static_assert(IFRTYPE_SUBFAMILY_WIFI == IFNET_SUBFAMILY_WIFI);
+	static_assert(IFRTYPE_SUBFAMILY_THUNDERBOLT == IFNET_SUBFAMILY_THUNDERBOLT);
+	static_assert(IFRTYPE_SUBFAMILY_RESERVED == IFNET_SUBFAMILY_RESERVED);
+	static_assert(IFRTYPE_SUBFAMILY_INTCOPROC == IFNET_SUBFAMILY_INTCOPROC);
+	static_assert(IFRTYPE_SUBFAMILY_QUICKRELAY == IFNET_SUBFAMILY_QUICKRELAY);
+	static_assert(IFRTYPE_SUBFAMILY_VMNET == IFNET_SUBFAMILY_VMNET);
+	static_assert(IFRTYPE_SUBFAMILY_SIMCELL == IFNET_SUBFAMILY_SIMCELL);
+	static_assert(IFRTYPE_SUBFAMILY_MANAGEMENT == IFNET_SUBFAMILY_MANAGEMENT);
 
-	_CASSERT(DLIL_MODIDLEN == IFNET_MODIDLEN);
-	_CASSERT(DLIL_MODARGLEN == IFNET_MODARGLEN);
+	static_assert(DLIL_MODIDLEN == IFNET_MODIDLEN);
+	static_assert(DLIL_MODARGLEN == IFNET_MODARGLEN);
 
 	PE_parse_boot_argn("net_affinity", &net_affinity,
 	    sizeof(net_affinity));
@@ -1468,8 +1467,6 @@ dlil_init(void)
 	PE_parse_boot_argn("net_rtref", &net_rtref, sizeof(net_rtref));
 
 	PE_parse_boot_argn("net_async", &net_async, sizeof(net_async));
-
-	PE_parse_boot_argn("ifnet_debug", &ifnet_debug, sizeof(ifnet_debug));
 
 	PE_parse_boot_argn("if_link_heuristics", &if_link_heuristics_flags, sizeof(if_link_heuristics_flags));
 
@@ -1549,7 +1546,6 @@ dlil_init(void)
 
 #endif /* SKYWALK */
 
-	dlil_allocation_zones_init();
 	eventhandler_lists_ctxt_init(&ifnet_evhdlr_ctxt);
 
 	TAILQ_INIT(&dlil_ifnet_head);
@@ -1647,7 +1643,7 @@ dlil_attach_filter(struct ifnet *ifp, const struct iff_filter *if_filter,
 		retval = ENXIO;
 		goto done;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		os_log(OS_LOG_DEFAULT, "%s: %s is no longer attached",
 		    __func__, if_name(ifp));
 		retval = ENXIO;
@@ -2270,6 +2266,12 @@ ifnet_start_thread_func(void *v, wait_result_t w)
 	ASSERT(ifp->if_start_thread == current_thread());
 	thread_set_thread_name(current_thread(), __unsafe_null_terminated_from_indexable(thread_name));
 
+#if CONFIG_THREAD_GROUPS
+	if (IFNET_REQUIRES_CELL_GROUP(ifp)) {
+		thread_group_join_cellular();
+	}
+#endif
+
 	/*
 	 * Treat the dedicated starter thread for lo0 as equivalent to
 	 * the driver workloop thread; if net_affinity is enabled for
@@ -2577,7 +2579,7 @@ ifnet_poll_thread_cont(void *v, wait_result_t wres)
 		 * else hold an IO refcnt to prevent the interface
 		 * from being detached (will be released below.)
 		 */
-		if (!ifnet_is_attached(ifp, 1)) {
+		if (!ifnet_get_ioref(ifp)) {
 			lck_mtx_lock_spin(&ifp->if_poll_lock);
 			break;
 		}
@@ -2713,28 +2715,8 @@ void
 ifnet_purge(struct ifnet *ifp)
 {
 	if (ifp != NULL && (ifp->if_eflags & IFEF_TXSTART)) {
-		if_qflush_snd(ifp, false);
+		if_qflush(ifp, ifp->if_snd);
 	}
-}
-
-void
-ifnet_update_sndq(struct ifclassq *ifq, cqev_t ev)
-{
-	IFCQ_LOCK_ASSERT_HELD(ifq);
-
-	if (!(IFCQ_IS_READY(ifq))) {
-		return;
-	}
-
-	if (IFCQ_TBR_IS_ENABLED(ifq)) {
-		struct tb_profile tb = {
-			.rate = ifq->ifcq_tbr.tbr_rate_raw,
-			.percent = ifq->ifcq_tbr.tbr_percent, .depth = 0
-		};
-		(void) ifclassq_tbr_set(ifq, &tb, FALSE);
-	}
-
-	ifclassq_update(ifq, ev);
 }
 
 void
@@ -2755,26 +2737,7 @@ ifnet_update_rcv(struct ifnet *ifp, cqev_t ev)
 errno_t
 ifnet_set_output_sched_model(struct ifnet *ifp, u_int32_t model)
 {
-	struct ifclassq *ifq;
-	u_int32_t omodel;
-	errno_t err;
-
-	if (ifp == NULL || model >= IFNET_SCHED_MODEL_MAX) {
-		return EINVAL;
-	} else if (!(ifp->if_eflags & IFEF_TXSTART)) {
-		return ENXIO;
-	}
-
-	ifq = ifp->if_snd;
-	IFCQ_LOCK(ifq);
-	omodel = ifp->if_output_sched_model;
-	ifp->if_output_sched_model = model;
-	if ((err = ifclassq_pktsched_setup(ifq)) != 0) {
-		ifp->if_output_sched_model = omodel;
-	}
-	IFCQ_UNLOCK(ifq);
-
-	return err;
+	return ifclassq_change(ifp->if_snd, model);
 }
 
 errno_t
@@ -2964,7 +2927,7 @@ ifnet_mcast_clear_dscp(uint8_t *__indexable buf, uint8_t ip_ver)
 }
 
 static inline errno_t
-ifnet_enqueue_ifclassq(struct ifnet *ifp, struct ifclassq *ifcq,
+ifnet_enqueue_single(struct ifnet *ifp, struct ifclassq *ifcq,
     classq_pkt_t *p, boolean_t flush, boolean_t *pdrop)
 {
 #if SKYWALK
@@ -3027,15 +2990,15 @@ ifnet_enqueue_ifclassq(struct ifnet *ifp, struct ifclassq *ifcq,
 		    p->cp_mbuf->m_pkthdr.pkt_flowsrc == FLOWSRC_INPCB) {
 			if (!(p->cp_mbuf->m_pkthdr.pkt_flags &
 			    PKTF_SO_BACKGROUND)) {
-				ifp->if_fg_sendts = (uint32_t)_net_uptime;
+				ifp->if_fg_sendts = (uint32_t)net_uptime();
 				if (fg_ts != NULL) {
-					*fg_ts = (uint32_t)_net_uptime;
+					*fg_ts = (uint32_t)net_uptime();
 				}
 			}
 			if (p->cp_mbuf->m_pkthdr.pkt_flags & PKTF_SO_REALTIME) {
-				ifp->if_rt_sendts = (uint32_t)_net_uptime;
+				ifp->if_rt_sendts = (uint32_t)net_uptime();
 				if (rt_ts != NULL) {
-					*rt_ts = (uint32_t)_net_uptime;
+					*rt_ts = (uint32_t)net_uptime();
 				}
 			}
 		}
@@ -3122,15 +3085,15 @@ ifnet_enqueue_ifclassq(struct ifnet *ifp, struct ifclassq *ifcq,
 		 * activity on a foreground flow.
 		 */
 		if (!(p->cp_kpkt->pkt_pflags & PKT_F_BACKGROUND)) {
-			ifp->if_fg_sendts = (uint32_t)_net_uptime;
+			ifp->if_fg_sendts = (uint32_t)net_uptime();
 			if (fg_ts != NULL) {
-				*fg_ts = (uint32_t)_net_uptime;
+				*fg_ts = (uint32_t)net_uptime();
 			}
 		}
 		if (p->cp_kpkt->pkt_pflags & PKT_F_REALTIME) {
-			ifp->if_rt_sendts = (uint32_t)_net_uptime;
+			ifp->if_rt_sendts = (uint32_t)net_uptime();
 			if (rt_ts != NULL) {
-				*rt_ts = (uint32_t)_net_uptime;
+				*rt_ts = (uint32_t)net_uptime();
 			}
 		}
 		pktlen = p->cp_kpkt->pkt_length;
@@ -3274,7 +3237,7 @@ ifnet_enqueue_ifclassq(struct ifnet *ifp, struct ifclassq *ifcq,
 }
 
 static inline errno_t
-ifnet_enqueue_ifclassq_chain(struct ifnet *ifp, struct ifclassq *ifcq,
+ifnet_enqueue_chain(struct ifnet *ifp, struct ifclassq *ifcq,
     classq_pkt_t *head, classq_pkt_t *tail, uint32_t cnt, uint32_t bytes,
     boolean_t flush, boolean_t *pdrop)
 {
@@ -3304,18 +3267,18 @@ ifnet_enqueue_netem(void *handle, pktsched_pkt_t *__sized_by(n_pkts)pkts, uint32
 
 	ASSERT(n_pkts >= 1);
 	for (i = 0; i < n_pkts - 1; i++) {
-		(void) ifnet_enqueue_ifclassq(ifp, NULL, &pkts[i].pktsched_pkt,
+		(void) ifnet_enqueue_single(ifp, ifp->if_snd, &pkts[i].pktsched_pkt,
 		    FALSE, &pdrop);
 	}
 	/* flush with the last packet */
-	(void) ifnet_enqueue_ifclassq(ifp, NULL, &pkts[i].pktsched_pkt,
+	(void) ifnet_enqueue_single(ifp, ifp->if_snd, &pkts[i].pktsched_pkt,
 	    TRUE, &pdrop);
 
 	return 0;
 }
 
 static inline errno_t
-ifnet_enqueue_common(struct ifnet *ifp, struct ifclassq *ifcq,
+ifnet_enqueue_common_single(struct ifnet *ifp, struct ifclassq *ifcq,
     classq_pkt_t *pkt, boolean_t flush, boolean_t *pdrop)
 {
 	if (ifp->if_output_netem != NULL) {
@@ -3325,7 +3288,7 @@ ifnet_enqueue_common(struct ifnet *ifp, struct ifclassq *ifcq,
 		*pdrop = drop ? TRUE : FALSE;
 		return error;
 	} else {
-		return ifnet_enqueue_ifclassq(ifp, ifcq, pkt, flush, pdrop);
+		return ifnet_enqueue_single(ifp, ifcq, pkt, flush, pdrop);
 	}
 }
 
@@ -3362,7 +3325,7 @@ ifnet_enqueue_mbuf(struct ifnet *ifp, struct mbuf *m, boolean_t flush,
 		}
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    !IF_FULLY_ATTACHED(ifp)) {
+	    !ifnet_is_fully_attached(ifp)) {
 		/* flag tested without lock for performance */
 		m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_ENQUEUE_IF_NOT_ATTACHED, NULL, 0);
 		*pdrop = TRUE;
@@ -3374,7 +3337,7 @@ ifnet_enqueue_mbuf(struct ifnet *ifp, struct mbuf *m, boolean_t flush,
 	}
 
 	CLASSQ_PKT_INIT_MBUF(&pkt, m);
-	return ifnet_enqueue_common(ifp, NULL, &pkt, flush, pdrop);
+	return ifnet_enqueue_common_single(ifp, NULL, &pkt, flush, pdrop);
 }
 
 errno_t
@@ -3392,7 +3355,7 @@ ifnet_enqueue_mbuf_chain(struct ifnet *ifp, struct mbuf *m_head,
 	ASSERT(ifp != NULL);
 	ASSERT((ifp->if_eflags & IFEF_TXSTART) != 0);
 
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		/* flag tested without lock for performance */
 		m_drop_list(m_head, ifp, DROPTAP_FLAG_DIR_OUT, DROP_REASON_DLIL_ENQUEUE_IF_NOT_ATTACHED, NULL, 0);
 		*pdrop = TRUE;
@@ -3405,13 +3368,13 @@ ifnet_enqueue_mbuf_chain(struct ifnet *ifp, struct mbuf *m_head,
 
 	CLASSQ_PKT_INIT_MBUF(&head, m_head);
 	CLASSQ_PKT_INIT_MBUF(&tail, m_tail);
-	return ifnet_enqueue_ifclassq_chain(ifp, NULL, &head, &tail, cnt, bytes,
+	return ifnet_enqueue_chain(ifp, NULL, &head, &tail, cnt, bytes,
 	           flush, pdrop);
 }
 
 #if SKYWALK
-static errno_t
-ifnet_enqueue_pkt_common(struct ifnet *ifp, struct ifclassq *ifcq,
+errno_t
+ifnet_enqueue_pkt(struct ifnet *ifp, struct ifclassq *ifcq,
     struct __kern_packet *kpkt, boolean_t flush, boolean_t *pdrop)
 {
 	classq_pkt_t pkt;
@@ -3426,7 +3389,7 @@ ifnet_enqueue_pkt_common(struct ifnet *ifp, struct ifclassq *ifcq,
 		}
 		return EINVAL;
 	} else if (__improbable(!(ifp->if_eflags & IFEF_TXSTART) ||
-	    !IF_FULLY_ATTACHED(ifp))) {
+	    !ifnet_is_fully_attached(ifp))) {
 		/* flag tested without lock for performance */
 		pp_free_packet(__DECONST(struct kern_pbufpool *,
 		    kpkt->pkt_qum.qum_pp), SK_PTR_ADDR(kpkt));
@@ -3440,25 +3403,11 @@ ifnet_enqueue_pkt_common(struct ifnet *ifp, struct ifclassq *ifcq,
 	}
 
 	CLASSQ_PKT_INIT_PACKET(&pkt, kpkt);
-	return ifnet_enqueue_common(ifp, ifcq, &pkt, flush, pdrop);
+	return ifnet_enqueue_common_single(ifp, ifcq, &pkt, flush, pdrop);
 }
 
 errno_t
-ifnet_enqueue_pkt(struct ifnet *ifp, struct __kern_packet *kpkt,
-    boolean_t flush, boolean_t *pdrop)
-{
-	return ifnet_enqueue_pkt_common(ifp, NULL, kpkt, flush, pdrop);
-}
-
-errno_t
-ifnet_enqueue_ifcq_pkt(struct ifnet *ifp, struct ifclassq *ifcq,
-    struct __kern_packet *kpkt, boolean_t flush, boolean_t *pdrop)
-{
-	return ifnet_enqueue_pkt_common(ifp, ifcq, kpkt, flush, pdrop);
-}
-
-static errno_t
-ifnet_enqueue_pkt_chain_common(struct ifnet *ifp, struct ifclassq *ifcq,
+ifnet_enqueue_pkt_chain(struct ifnet *ifp, struct ifclassq *ifcq,
     struct __kern_packet *k_head, struct __kern_packet *k_tail, uint32_t cnt,
     uint32_t bytes, boolean_t flush, boolean_t *pdrop)
 {
@@ -3469,7 +3418,7 @@ ifnet_enqueue_pkt_chain_common(struct ifnet *ifp, struct ifclassq *ifcq,
 	ASSERT(ifp != NULL);
 	ASSERT((ifp->if_eflags & IFEF_TXSTART) != 0);
 
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		/* flag tested without lock for performance */
 		pp_free_packet_chain(k_head, NULL);
 		*pdrop = TRUE;
@@ -3482,26 +3431,8 @@ ifnet_enqueue_pkt_chain_common(struct ifnet *ifp, struct ifclassq *ifcq,
 
 	CLASSQ_PKT_INIT_PACKET(&head, k_head);
 	CLASSQ_PKT_INIT_PACKET(&tail, k_tail);
-	return ifnet_enqueue_ifclassq_chain(ifp, ifcq, &head, &tail, cnt, bytes,
+	return ifnet_enqueue_chain(ifp, ifcq, &head, &tail, cnt, bytes,
 	           flush, pdrop);
-}
-
-errno_t
-ifnet_enqueue_pkt_chain(struct ifnet *ifp, struct __kern_packet *k_head,
-    struct __kern_packet *k_tail, uint32_t cnt, uint32_t bytes, boolean_t flush,
-    boolean_t *pdrop)
-{
-	return ifnet_enqueue_pkt_chain_common(ifp, NULL, k_head, k_tail,
-	           cnt, bytes, flush, pdrop);
-}
-
-errno_t
-ifnet_enqueue_ifcq_pkt_chain(struct ifnet *ifp, struct ifclassq *ifcq,
-    struct __kern_packet *k_head, struct __kern_packet *k_tail, uint32_t cnt,
-    uint32_t bytes, boolean_t flush, boolean_t *pdrop)
-{
-	return ifnet_enqueue_pkt_chain_common(ifp, ifcq, k_head, k_tail,
-	           cnt, bytes, flush, pdrop);
 }
 #endif /* SKYWALK */
 
@@ -3514,17 +3445,17 @@ ifnet_dequeue(struct ifnet *ifp, struct mbuf **mp)
 	if (ifp == NULL || mp == NULL) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    ifp->if_output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+	    !IFNET_MODEL_IS_VALID(ifp->if_output_sched_model)) {
 		return ENXIO;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
 #if SKYWALK
 	ASSERT(!(ifp->if_eflags & IFEF_SKYWALK_NATIVE));
 #endif /* SKYWALK */
-	rc = ifclassq_dequeue(ifp->if_snd, 1, CLASSQ_DEQUEUE_MAX_BYTE_LIMIT,
+	rc = ifclassq_dequeue(ifp->if_snd, MBUF_SC_UNSPEC, 1, CLASSQ_DEQUEUE_MAX_BYTE_LIMIT,
 	    &pkt, NULL, NULL, NULL, 0);
 	VERIFY((pkt.cp_ptype == QP_MBUF) || (pkt.cp_mbuf == NULL));
 	ifnet_decr_iorefcnt(ifp);
@@ -3543,17 +3474,17 @@ ifnet_dequeue_service_class(struct ifnet *ifp, mbuf_svc_class_t sc,
 	if (ifp == NULL || mp == NULL || !MBUF_VALID_SC(sc)) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    ifp->if_output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+	    !IFNET_MODEL_IS_VALID(ifp->if_output_sched_model)) {
 		return ENXIO;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
 #if SKYWALK
 	ASSERT(!(ifp->if_eflags & IFEF_SKYWALK_NATIVE));
 #endif /* SKYWALK */
-	rc = ifclassq_dequeue_sc(ifp->if_snd, sc, 1,
+	rc = ifclassq_dequeue(ifp->if_snd, sc, 1,
 	    CLASSQ_DEQUEUE_MAX_BYTE_LIMIT, &pkt, NULL, NULL, NULL, 0);
 	VERIFY((pkt.cp_ptype == QP_MBUF) || (pkt.cp_mbuf == NULL));
 	ifnet_decr_iorefcnt(ifp);
@@ -3573,17 +3504,17 @@ ifnet_dequeue_multi(struct ifnet *ifp, u_int32_t pkt_limit,
 	if (ifp == NULL || head == NULL || pkt_limit < 1) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    ifp->if_output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+	    !IFNET_MODEL_IS_VALID(ifp->if_output_sched_model)) {
 		return ENXIO;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
 #if SKYWALK
 	ASSERT(!(ifp->if_eflags & IFEF_SKYWALK_NATIVE));
 #endif /* SKYWALK */
-	rc = ifclassq_dequeue(ifp->if_snd, pkt_limit,
+	rc = ifclassq_dequeue(ifp->if_snd, MBUF_SC_UNSPEC, pkt_limit,
 	    CLASSQ_DEQUEUE_MAX_BYTE_LIMIT, &pkt_head, &pkt_tail, cnt, len, 0);
 	VERIFY((pkt_head.cp_ptype == QP_MBUF) || (pkt_head.cp_mbuf == NULL));
 	ifnet_decr_iorefcnt(ifp);
@@ -3606,17 +3537,17 @@ ifnet_dequeue_multi_bytes(struct ifnet *ifp, u_int32_t byte_limit,
 	if (ifp == NULL || head == NULL || byte_limit < 1) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    ifp->if_output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+	    !IFNET_MODEL_IS_VALID(ifp->if_output_sched_model)) {
 		return ENXIO;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
 #if SKYWALK
 	ASSERT(!(ifp->if_eflags & IFEF_SKYWALK_NATIVE));
 #endif /* SKYWALK */
-	rc = ifclassq_dequeue(ifp->if_snd, CLASSQ_DEQUEUE_MAX_PKT_LIMIT,
+	rc = ifclassq_dequeue(ifp->if_snd, MBUF_SC_UNSPEC, CLASSQ_DEQUEUE_MAX_PKT_LIMIT,
 	    byte_limit, &pkt_head, &pkt_tail, cnt, len, 0);
 	VERIFY((pkt_head.cp_ptype == QP_MBUF) || (pkt_head.cp_mbuf == NULL));
 	ifnet_decr_iorefcnt(ifp);
@@ -3641,17 +3572,17 @@ ifnet_dequeue_service_class_multi(struct ifnet *ifp, mbuf_svc_class_t sc,
 	    !MBUF_VALID_SC(sc)) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    ifp->if_output_sched_model >= IFNET_SCHED_MODEL_MAX) {
+	    !IFNET_MODEL_IS_VALID(ifp->if_output_sched_model)) {
 		return ENXIO;
 	}
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return ENXIO;
 	}
 
 #if SKYWALK
 	ASSERT(!(ifp->if_eflags & IFEF_SKYWALK_NATIVE));
 #endif /* SKYWALK */
-	rc = ifclassq_dequeue_sc(ifp->if_snd, sc, pkt_limit,
+	rc = ifclassq_dequeue(ifp->if_snd, sc, pkt_limit,
 	    CLASSQ_DEQUEUE_MAX_BYTE_LIMIT, &pkt_head, &pkt_tail,
 	    cnt, len, 0);
 	VERIFY((pkt_head.cp_ptype == QP_MBUF) || (pkt_head.cp_mbuf == NULL));
@@ -3751,7 +3682,7 @@ dlil_event_internal(struct ifnet *ifp, struct kev_msg *event, bool update_genera
 	lck_mtx_unlock(&ifp->if_flt_lock);
 
 	/* Get an io ref count if the interface is attached */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		goto done;
 	}
 
@@ -3868,7 +3799,7 @@ ifnet_ioctl_async(struct ifnet *ifp, u_long ioctl_code)
 	 * At this point it most likely is. We are taking a reference for
 	 * deferred processing.
 	 */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		os_log(OS_LOG_DEFAULT, "%s:%d %s Failed for ioctl %lu as interface "
 		    "is not attached",
 		    __func__, __LINE__, if_name(ifp), ioctl_code);
@@ -3948,7 +3879,7 @@ ifnet_ioctl(ifnet_t ifp, protocol_family_t proto_fam, u_long ioctl_code,
 	}
 
 	/* Get an io ref count if the interface is attached */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return EOPNOTSUPP;
 	}
 
@@ -4060,7 +3991,7 @@ dlil_set_bpf_tap(ifnet_t ifp, bpf_tap_mode mode, bpf_packet_func callback)
 
 	if (ifp->if_set_bpf_tap) {
 		/* Get an io reference on the interface if it is attached */
-		if (!ifnet_is_attached(ifp, 1)) {
+		if (!ifnet_get_ioref(ifp)) {
 			return ENXIO;
 		}
 		error = ifp->if_set_bpf_tap(ifp, mode, callback);
@@ -4078,7 +4009,7 @@ dlil_resolve_multi(struct ifnet *ifp, const struct sockaddr *proto_addr,
 	const struct sockaddr *verify;
 	proto_media_resolve_multi resolvep;
 
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return result;
 	}
 
@@ -4302,17 +4233,17 @@ ifnet_lookup(struct ifnet *ifp)
  * being called when there are outstanding io reference counts.
  */
 int
-ifnet_is_attached(struct ifnet *ifp, int refio)
+ifnet_get_ioref(struct ifnet *ifp)
 {
-	int ret;
+	bool ret;
 
-	lck_mtx_lock_spin(&ifp->if_ref_lock);
-	if ((ret = IF_FULLY_ATTACHED(ifp))) {
-		if (refio > 0) {
-			ifp->if_refio++;
+	ret = ifnet_is_fully_attached(ifp);
+	if (ret) {
+		if (os_ref_retain_try(&ifp->if_refio) == false) {
+			/* refio became 0 which means it is detaching */
+			return false;
 		}
 	}
-	lck_mtx_unlock(&ifp->if_ref_lock);
 
 	return ret;
 }
@@ -4345,40 +4276,33 @@ ifnet_decr_pending_thread_count(struct ifnet *ifp)
 void
 ifnet_incr_iorefcnt(struct ifnet *ifp)
 {
-	lck_mtx_lock_spin(&ifp->if_ref_lock);
-	VERIFY(IF_FULLY_ATTACHED(ifp));
-	VERIFY(ifp->if_refio > 0);
-	ifp->if_refio++;
-	lck_mtx_unlock(&ifp->if_ref_lock);
-}
-
-__attribute__((always_inline))
-static void
-ifnet_decr_iorefcnt_locked(struct ifnet *ifp)
-{
-	LCK_MTX_ASSERT(&ifp->if_ref_lock, LCK_MTX_ASSERT_OWNED);
-
-	VERIFY(ifp->if_refio > 0);
-	VERIFY(ifp->if_refflags & (IFRF_ATTACHED | IFRF_DETACHING));
-
-	ifp->if_refio--;
-	VERIFY(ifp->if_refio != 0 || ifp->if_datamov == 0);
-
-	/*
-	 * if there are no more outstanding io references, wakeup the
-	 * ifnet_detach thread if detaching flag is set.
-	 */
-	if (ifp->if_refio == 0 && (ifp->if_refflags & IFRF_DETACHING)) {
-		wakeup(&(ifp->if_refio));
-	}
+	os_ref_retain(&ifp->if_refio);
 }
 
 void
 ifnet_decr_iorefcnt(struct ifnet *ifp)
 {
-	lck_mtx_lock_spin(&ifp->if_ref_lock);
-	ifnet_decr_iorefcnt_locked(ifp);
-	lck_mtx_unlock(&ifp->if_ref_lock);
+	/*
+	 * if there are no more outstanding io references, wakeup the
+	 * ifnet_detach thread.
+	 */
+	if (os_ref_release_relaxed(&ifp->if_refio) == 0) {
+		lck_mtx_lock(&ifp->if_ref_lock);
+		wakeup(&(ifp->if_refio));
+		lck_mtx_unlock(&ifp->if_ref_lock);
+	}
+}
+
+static void
+ifnet_decr_iorefcnt_locked(struct ifnet *ifp)
+{
+	/*
+	 * if there are no more outstanding io references, wakeup the
+	 * ifnet_detach thread.
+	 */
+	if (os_ref_release_relaxed(&ifp->if_refio) == 0) {
+		wakeup(&(ifp->if_refio));
+	}
 }
 
 boolean_t
@@ -4386,12 +4310,14 @@ ifnet_datamov_begin(struct ifnet *ifp)
 {
 	boolean_t ret;
 
-	lck_mtx_lock_spin(&ifp->if_ref_lock);
-	if ((ret = IF_FULLY_ATTACHED_AND_READY(ifp))) {
-		ifp->if_refio++;
-		ifp->if_datamov++;
+	ret = ifnet_is_attached_and_ready(ifp);
+	if (ret) {
+		if (os_ref_retain_try(&ifp->if_refio) == false) {
+			/* refio became 0 which means it is detaching */
+			return false;
+		}
+		os_ref_retain_mask(&ifp->if_datamov, IF_DATAMOV_BITS, &if_datamovgrp);
 	}
-	lck_mtx_unlock(&ifp->if_ref_lock);
 
 	DTRACE_IP2(datamov__begin, struct ifnet *, ifp, boolean_t, ret);
 	return ret;
@@ -4400,19 +4326,20 @@ ifnet_datamov_begin(struct ifnet *ifp)
 void
 ifnet_datamov_end(struct ifnet *ifp)
 {
-	lck_mtx_lock_spin(&ifp->if_ref_lock);
-	VERIFY(ifp->if_datamov > 0);
+	uint32_t datamov;
 	/*
 	 * if there's no more thread moving data, wakeup any
 	 * drainers that's blocked waiting for this.
 	 */
-	if (--ifp->if_datamov == 0 && ifp->if_drainers > 0) {
+	datamov = os_ref_release_raw_relaxed_mask(&ifp->if_datamov, IF_DATAMOV_BITS, &if_datamovgrp);
+	if (datamov >> IF_DATAMOV_BITS == 1 && (datamov & IF_DATAMOV_DRAINING)) {
+		lck_mtx_lock(&ifp->if_ref_lock);
 		DLIL_PRINTF("Waking up drainers on %s\n", if_name(ifp));
 		DTRACE_IP1(datamov__drain__wake, struct ifnet *, ifp);
 		wakeup(&(ifp->if_datamov));
+		lck_mtx_unlock(&ifp->if_ref_lock);
 	}
-	ifnet_decr_iorefcnt_locked(ifp);
-	lck_mtx_unlock(&ifp->if_ref_lock);
+	ifnet_decr_iorefcnt(ifp);
 
 	DTRACE_IP1(datamov__end, struct ifnet *, ifp);
 }
@@ -4421,14 +4348,14 @@ static void
 ifnet_datamov_suspend_locked(struct ifnet *ifp)
 {
 	LCK_MTX_ASSERT(&ifp->if_ref_lock, LCK_MTX_ASSERT_OWNED);
-	ifp->if_refio++;
+	ifnet_incr_iorefcnt(ifp);
 	if (ifp->if_suspend++ == 0) {
 		VERIFY(ifp->if_refflags & IFRF_READY);
 		ifp->if_refflags &= ~IFRF_READY;
 	}
 }
 
-void
+static void
 ifnet_datamov_suspend(struct ifnet *ifp)
 {
 	lck_mtx_lock_spin(&ifp->if_ref_lock);
@@ -4459,8 +4386,8 @@ ifnet_datamov_drain(struct ifnet *ifp)
 	/* data movement must already be suspended */
 	VERIFY(ifp->if_suspend > 0);
 	VERIFY(!(ifp->if_refflags & IFRF_READY));
-	ifp->if_drainers++;
-	while (ifp->if_datamov != 0) {
+	os_atomic_or(&ifp->if_datamov, IF_DATAMOV_DRAINING, relaxed);
+	while (os_ref_get_count_mask(&ifp->if_datamov, IF_DATAMOV_BITS) > 1) {
 		DLIL_PRINTF("Waiting for data path(s) to quiesce on %s\n",
 		    if_name(ifp));
 		DTRACE_IP1(datamov__wait, struct ifnet *, ifp);
@@ -4469,13 +4396,12 @@ ifnet_datamov_drain(struct ifnet *ifp)
 		DTRACE_IP1(datamov__wake, struct ifnet *, ifp);
 	}
 	VERIFY(!(ifp->if_refflags & IFRF_READY));
-	VERIFY(ifp->if_drainers > 0);
-	ifp->if_drainers--;
+	os_atomic_andnot(&ifp->if_datamov, IF_DATAMOV_DRAINING, relaxed);
 	lck_mtx_unlock(&ifp->if_ref_lock);
 
 	/* purge the interface queues */
 	if ((ifp->if_eflags & IFEF_TXSTART) != 0) {
-		if_qflush_snd(ifp, false);
+		if_qflush(ifp, ifp->if_snd);
 	}
 }
 
@@ -4517,7 +4443,7 @@ dlil_attach_protocol(struct if_proto *proto,
 		return EINVAL;
 	}
 
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		os_log(OS_LOG_DEFAULT, "%s: %s is no longer attached",
 		    __func__, if_name(ifp));
 		return ENXIO;
@@ -4852,7 +4778,7 @@ ifproto_media_send_arp(struct ifnet *ifp, u_short arpop,
 }
 
 extern int if_next_index(void);
-extern int tcp_ecn_outbound;
+extern int tcp_ecn;
 
 void
 dlil_ifclassq_setup(struct ifnet *ifp, struct ifclassq *ifcq)
@@ -4868,8 +4794,8 @@ dlil_ifclassq_setup(struct ifnet *ifp, struct ifclassq *ifcq)
 		sflags |= PKTSCHEDF_QALG_DELAYBASED;
 	}
 
-	if (ifp->if_output_sched_model ==
-	    IFNET_SCHED_MODEL_DRIVER_MANAGED) {
+	if (ifp->if_output_sched_model & IFNET_SCHED_DRIVER_MANGED_MODELS) {
+		VERIFY(IFNET_MODEL_IS_VALID(ifp->if_output_sched_model));
 		sflags |= PKTSCHEDF_QALG_DRIVER_MANAGED;
 	}
 	/* Inherit drop limit from the default queue */
@@ -5065,7 +4991,8 @@ ifnet_attach(ifnet_t ifp, const struct sockaddr_dl *ll_addr)
 
 	VERIFY(ifp->if_output_sched_model == IFNET_SCHED_MODEL_NORMAL ||
 	    ifp->if_output_sched_model == IFNET_SCHED_MODEL_DRIVER_MANAGED ||
-	    ifp->if_output_sched_model == IFNET_SCHED_MODEL_FQ_CODEL);
+	    ifp->if_output_sched_model == IFNET_SCHED_MODEL_FQ_CODEL ||
+	    ifp->if_output_sched_model == IFNET_SCHED_MODEL_FQ_CODEL_DM);
 
 	dlil_ifclassq_setup(ifp, ifp->if_snd);
 
@@ -5245,15 +5172,6 @@ ifnet_attach(ifnet_t ifp, const struct sockaddr_dl *ll_addr)
 	}
 
 	/*
-	 * Enable ECN capability on this interface depending on the
-	 * value of ECN global setting
-	 */
-	if (tcp_ecn_outbound == 2 && !IFNET_IS_CELLULAR(ifp)) {
-		if_set_eflags(ifp, IFEF_ECN_ENABLE);
-		if_clear_eflags(ifp, IFEF_ECN_DISABLE);
-	}
-
-	/*
 	 * Built-in Cyclops always on policy for WiFi infra
 	 */
 	if (IFNET_IS_WIFI_INFRA(ifp) && net_qos_policy_wifi_enabled != 0) {
@@ -5345,6 +5263,8 @@ ifnet_attach(ifnet_t ifp, const struct sockaddr_dl *ll_addr)
 	ifnet_lock_exclusive(ifp);
 	lck_mtx_lock_spin(&ifp->if_ref_lock);
 	ifp->if_refflags = (IFRF_ATTACHED | IFRF_READY); /* clears embryonic */
+	os_ref_init(&ifp->if_refio, &if_refiogrp);
+	os_ref_init_mask(&ifp->if_datamov, IF_DATAMOV_BITS, &if_datamovgrp, 0);
 	lck_mtx_unlock(&ifp->if_ref_lock);
 	if (net_rtref) {
 		/* boot-args override; enable idle notification */
@@ -5418,7 +5338,7 @@ ifnet_detach(ifnet_t ifp)
 	 * IMPORTANT NOTE
 	 *
 	 * Any field in the ifnet that relies on IF_FULLY_ATTACHED()
-	 * or equivalently, ifnet_is_attached(ifp, 1), can't be modified
+	 * or equivalently, ifnet_get_ioref(ifp, 1), can't be modified
 	 * until after we've waited for all I/O references to drain
 	 * in ifnet_detach_final().
 	 */
@@ -5463,9 +5383,8 @@ ifnet_detach(ifnet_t ifp)
 		ifnet_flowadv(ifp->if_flowhash);
 	}
 
-	/* Reset ECN enable/disable flags */
 	/* Reset CLAT46 flag */
-	if_clear_eflags(ifp, IFEF_ECN_ENABLE | IFEF_ECN_DISABLE | IFEF_CLAT46);
+	if_clear_eflags(ifp, IFEF_CLAT46);
 
 	/*
 	 * We do not reset the TCP keep alive counters in case
@@ -5695,7 +5614,6 @@ ifnet_detach_final(struct ifnet *ifp)
 	struct ifaddr *ifa;
 	ifnet_detached_func if_free;
 	int i;
-	bool waited = false;
 
 	/* Let BPF know we're detaching */
 	bpfdetach(ifp);
@@ -5721,19 +5639,22 @@ ifnet_detach_final(struct ifnet *ifp)
 	 * before we proceed with ifnet_detach.  This is not a
 	 * common case, so block without using a continuation.
 	 */
-	while (ifp->if_refio > 0) {
-		waited = true;
-		DLIL_PRINTF("%s: %s waiting for IO references to drain\n",
-		    __func__, if_name(ifp));
-		(void) msleep(&(ifp->if_refio), &ifp->if_ref_lock,
-		    (PZERO - 1), "ifnet_ioref_wait", NULL);
+	if (os_ref_release_relaxed(&ifp->if_refio) > 0) {
+		bool waited = false;
+
+		while (os_ref_get_count(&ifp->if_refio) > 0) {
+			waited = true;
+			DLIL_PRINTF("%s: %s waiting for IO references to drain\n",
+			    __func__, if_name(ifp));
+			(void) msleep(&(ifp->if_refio), &ifp->if_ref_lock,
+			    (PZERO - 1), "ifnet_ioref_wait", NULL);
+		}
+		if (waited) {
+			DLIL_PRINTF("%s: %s IO references drained\n",
+			    __func__, if_name(ifp));
+		}
 	}
-	if (waited) {
-		DLIL_PRINTF("%s: %s IO references drained\n",
-		    __func__, if_name(ifp));
-	}
-	VERIFY(ifp->if_datamov == 0);
-	VERIFY(ifp->if_drainers == 0);
+	os_ref_release_last_mask(&ifp->if_datamov, IF_DATAMOV_BITS, &if_datamovgrp);
 	VERIFY(ifp->if_suspend == 0);
 	ifp->if_refflags &= ~IFRF_READY;
 	lck_mtx_unlock(&ifp->if_ref_lock);
@@ -6027,7 +5948,7 @@ ifnet_detach_final(struct ifnet *ifp)
 	lck_mtx_unlock(&ifp->if_flt_lock);
 
 	/* Last chance to drain send queue */
-	if_qflush_snd(ifp, 0);
+	if_qflush(ifp, ifp->if_snd);
 
 	/* Last chance to cleanup any cached route */
 	lck_mtx_lock(&ifp->if_cached_route_lock);
@@ -6377,20 +6298,10 @@ if_lqm_update(struct ifnet *ifp, int lqm, int locked)
 
 	VERIFY(lqm >= IFNET_LQM_MIN && lqm <= IFNET_LQM_MAX);
 
-	/* Normalize to edge */
-	if (lqm >= 0 && lqm <= IFNET_LQM_THRESH_ABORT) {
-		lqm = IFNET_LQM_THRESH_ABORT;
+	lqm = ifnet_lqm_normalize(lqm);
+	if (lqm == IFNET_LQM_THRESH_ABORT) {
 		os_atomic_or(&tcbinfo.ipi_flags, INPCBINFO_HANDLE_LQM_ABORT, relaxed);
 		inpcb_timer_sched(&tcbinfo, INPCB_TIMER_FAST);
-	} else if (lqm > IFNET_LQM_THRESH_ABORT &&
-	    lqm <= IFNET_LQM_THRESH_MINIMALLY_VIABLE) {
-		lqm = IFNET_LQM_THRESH_MINIMALLY_VIABLE;
-	} else if (lqm > IFNET_LQM_THRESH_MINIMALLY_VIABLE &&
-	    lqm <= IFNET_LQM_THRESH_POOR) {
-		lqm = IFNET_LQM_THRESH_POOR;
-	} else if (lqm > IFNET_LQM_THRESH_POOR &&
-	    lqm <= IFNET_LQM_THRESH_GOOD) {
-		lqm = IFNET_LQM_THRESH_GOOD;
 	}
 
 	/*
@@ -6629,6 +6540,9 @@ if_probe_connectivity(struct ifnet *ifp, u_int32_t conn_probe)
 	} else {
 		if_set_eflags(ifp, IFEF_PROBE_CONNECTIVITY);
 	}
+
+	os_log(OS_LOG_DEFAULT, "interface probing on %s set to %u by %s:%d",
+	    if_name(ifp), conn_probe, proc_best_name(current_proc()), proc_selfpid());
 
 #if NECP
 	necp_update_all_clients();
@@ -6895,8 +6809,8 @@ dlil_report_issues(struct ifnet *ifp, u_int8_t modid[DLIL_MODIDLEN],
 
 	VERIFY(ifp != NULL);
 	VERIFY(modid != NULL);
-	_CASSERT(sizeof(kev.modid) == DLIL_MODIDLEN);
-	_CASSERT(sizeof(kev.info) == DLIL_MODARGLEN);
+	static_assert(sizeof(kev.modid) == DLIL_MODIDLEN);
+	static_assert(sizeof(kev.info) == DLIL_MODARGLEN);
 
 	bzero(&kev, sizeof(kev));
 
@@ -6974,6 +6888,7 @@ int
 ifnet_get_throttle(struct ifnet *ifp, u_int32_t *level)
 {
 	struct ifclassq *ifq;
+	cqrq_throttle_t req = { 0, IFNET_THROTTLE_OFF };
 	int err = 0;
 
 	if (!(ifp->if_eflags & IFEF_TXSTART)) {
@@ -6983,15 +6898,8 @@ ifnet_get_throttle(struct ifnet *ifp, u_int32_t *level)
 	*level = IFNET_THROTTLE_OFF;
 
 	ifq = ifp->if_snd;
-	IFCQ_LOCK(ifq);
-	/* Throttling works only for IFCQ, not ALTQ instances */
-	if (IFCQ_IS_ENABLED(ifq)) {
-		cqrq_throttle_t req = { 0, IFNET_THROTTLE_OFF };
-
-		err = fq_if_request_classq(ifq, CLASSQRQ_THROTTLE, &req);
-		*level = req.level;
-	}
-	IFCQ_UNLOCK(ifq);
+	err = ifclassq_request(ifq, CLASSQRQ_THROTTLE, &req, false);
+	*level = req.level;
 
 	return err;
 }
@@ -7000,6 +6908,7 @@ int
 ifnet_set_throttle(struct ifnet *ifp, u_int32_t level)
 {
 	struct ifclassq *ifq;
+	cqrq_throttle_t req = { 1, level };
 	int err = 0;
 
 	if (!(ifp->if_eflags & IFEF_TXSTART)) {
@@ -7016,13 +6925,7 @@ ifnet_set_throttle(struct ifnet *ifp, u_int32_t level)
 		return EINVAL;
 	}
 
-	IFCQ_LOCK(ifq);
-	if (IFCQ_IS_ENABLED(ifq)) {
-		cqrq_throttle_t req = { 1, level };
-
-		err = fq_if_request_classq(ifq, CLASSQRQ_THROTTLE, &req);
-	}
-	IFCQ_UNLOCK(ifq);
+	err = ifclassq_request(ifq, CLASSQRQ_THROTTLE, &req, false);
 
 	if (err == 0) {
 		DLIL_PRINTF("%s: throttling level set to %d\n", if_name(ifp),
@@ -7190,7 +7093,7 @@ ifnet_flowid(struct ifnet *ifp, uint32_t *flowid)
 	if (ifp == NULL || flowid == NULL) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    !IF_FULLY_ATTACHED(ifp)) {
+	    !ifnet_is_fully_attached(ifp)) {
 		return ENXIO;
 	}
 
@@ -7207,7 +7110,7 @@ ifnet_disable_output(struct ifnet *ifp)
 	if (ifp == NULL) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    !IF_FULLY_ATTACHED(ifp)) {
+	    !ifnet_is_fully_attached(ifp)) {
 		return ENXIO;
 	}
 
@@ -7228,7 +7131,7 @@ ifnet_enable_output(struct ifnet *ifp)
 	if (ifp == NULL) {
 		return EINVAL;
 	} else if (!(ifp->if_eflags & IFEF_TXSTART) ||
-	    !IF_FULLY_ATTACHED(ifp)) {
+	    !ifnet_is_fully_attached(ifp)) {
 		return ENXIO;
 	}
 
@@ -7251,7 +7154,7 @@ ifnet_flowadv(uint32_t flowhash)
 	ifp = ifce->ifce_ifp;
 
 	/* flow hash gets recalculated per attach, so check */
-	if (ifnet_is_attached(ifp, 1)) {
+	if (ifnet_get_ioref(ifp)) {
 		if (ifp->if_flowhash == flowhash) {
 			lck_mtx_lock_spin(&ifp->if_start_lock);
 			if ((ifp->if_start_flags & IFSF_FLOW_CONTROLLED) == 0) {
@@ -7343,7 +7246,7 @@ ifnet_fc_get(uint32_t flowhash)
 	/* become regular mutex */
 	lck_mtx_convert_spin(&ifnet_fc_lock);
 
-	if (!ifnet_is_attached(ifp, 0)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		/*
 		 * This ifp is not attached or in the process of being
 		 * detached; just don't process it.
@@ -7695,7 +7598,7 @@ dlil_verify_sum16(void)
 	int n;
 
 	/* Make sure test data plus extra room for alignment fits in cluster */
-	_CASSERT((sizeof(sumdata) + (sizeof(uint64_t) * 2)) <= MCLBYTES);
+	static_assert((sizeof(sumdata) + (sizeof(uint64_t) * 2)) <= MCLBYTES);
 
 	kprintf("DLIL: running SUM16 self-tests ... ");
 
@@ -7820,7 +7723,7 @@ dlil_dt_tcall_fn(thread_call_param_t arg0, thread_call_param_t arg1)
 #pragma unused(arg1)
 	ifnet_ref_t ifp = arg0;
 
-	if (ifnet_is_attached(ifp, 1)) {
+	if (ifnet_get_ioref(ifp)) {
 		nstat_ifnet_threshold_reached(ifp->if_index);
 		ifnet_decr_iorefcnt(ifp);
 	}
@@ -7916,12 +7819,18 @@ ifnet_sync_traffic_rule_genid(ifnet_t ifp, uint32_t *genid)
 	return FALSE;
 }
 __private_extern__ void
-ifnet_update_traffic_rule_count(ifnet_t ifp, uint32_t count)
+ifnet_update_inet_traffic_rule_count(ifnet_t ifp, uint32_t count)
 {
-	os_atomic_store(&ifp->if_traffic_rule_count, count, release);
+	os_atomic_store(&ifp->if_inet_traffic_rule_count, count, relaxed);
 	ifnet_update_traffic_rule_genid(ifp);
 }
 
+__private_extern__ void
+ifnet_update_eth_traffic_rule_count(ifnet_t ifp, uint32_t count)
+{
+	os_atomic_store(&ifp->if_eth_traffic_rule_count, count, relaxed);
+	ifnet_update_traffic_rule_genid(ifp);
+}
 
 #if SKYWALK
 static bool
@@ -7940,6 +7849,7 @@ net_check_compatible_if_filter(struct ifnet *ifp)
 }
 #endif /* SKYWALK */
 
+#if CONFIG_MBUF_MCACHE
 #define DUMP_BUF_CHK() {        \
 	clen -= k;              \
 	if (clen < 1)           \
@@ -7947,6 +7857,7 @@ net_check_compatible_if_filter(struct ifnet *ifp)
 	c += k;                 \
 }
 
+#if NETWORKING
 int dlil_dump_top_if_qlen(char *__counted_by(str_len), int str_len);
 int
 dlil_dump_top_if_qlen(char *__counted_by(str_len) str, int str_len)
@@ -7988,3 +7899,5 @@ dlil_dump_top_if_qlen(char *__counted_by(str_len) str, int str_len)
 done:
 	return str_len - clen;
 }
+#endif /* NETWORKING */
+#endif /* CONFIG_MBUF_MCACHE */

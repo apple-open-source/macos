@@ -39,12 +39,28 @@ typedef struct _liblibc_plat_mem_map_t plat_map_t;
 extern uint64_t malloc_entropy[2];
 
 #if !MALLOC_TARGET_EXCLAVES
+MALLOC_NOEXPORT
+extern volatile uintptr_t entropic_base;
+
 static inline bool
 mvm_aslr_enabled(void)
 {
 	extern struct mach_header __dso_handle;
 	return _dyld_get_image_slide(&__dso_handle);
 }
+
+struct mvm_guarded_range_config_s {
+	mach_vm_address_t base_address;
+	size_t            size;
+	mach_vm_address_t carveout_address;
+};
+
+MALLOC_NOEXPORT
+extern struct mvm_guarded_range_config_s malloc_guarded_range_config;
+
+MALLOC_NOEXPORT
+void
+mvm_guarded_range_init(void);
 #endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOEXPORT

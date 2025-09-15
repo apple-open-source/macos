@@ -27,6 +27,7 @@
 #include "NodeName.h"
 #include "RenderSVGEllipse.h"
 #include "SVGElementInlines.h"
+#include "SVGParsingError.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -54,7 +55,7 @@ Ref<SVGEllipseElement> SVGEllipseElement::create(const QualifiedName& tagName, D
 
 void SVGEllipseElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    SVGParsingError parseError = NoError;
+    auto parseError = SVGParsingError::None;
 
     switch (name.nodeName()) {
     case AttributeNames::cxAttr:

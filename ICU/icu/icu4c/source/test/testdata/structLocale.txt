@@ -34339,6 +34339,7 @@ structLocale:table(nofallback){
             japanese{""}
             persian{""}
             roc{""}
+            vikram{""}
         }
         collation{
             big5han{""}
@@ -42185,6 +42186,15 @@ structLocale:table(nofallback){
                 }
             }
         }
+        vikram:alias{"structLocale/calendar/chinese"}            
+        bangla:alias{"structLocale/calendar/vikram"}            
+        gujarati:alias{"structLocale/calendar/vikram"}            
+        kannada:alias{"structLocale/calendar/vikram"}            
+        malayalam:alias{"structLocale/calendar/vikram"}            
+        marathi:alias{"structLocale/calendar/vikram"}            
+        odia:alias{"structLocale/calendar/vikram"}            
+        tamil:alias{"structLocale/calendar/vikram"}            
+        telugu:alias{"structLocale/calendar/vikram"}            
     }
     layout{
         casing{""}

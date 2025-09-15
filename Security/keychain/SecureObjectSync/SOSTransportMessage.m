@@ -142,7 +142,7 @@ bool SOSEngineHandleCodedMessage(SOSAccount* account, SOSEngineRef engine, CFStr
     });
 
     if (somethingChanged) {
-        SecKeychainChanged();
+        SecServerKeychainChanged();
     }
 
     if (result) {

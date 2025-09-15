@@ -22,6 +22,7 @@
 
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 
+#include "ExceptionOr.h"
 #include "GStreamerRtpReceiverBackend.h"
 #include "GStreamerRtpSenderBackend.h"
 #include "GStreamerWebRTCUtils.h"
@@ -65,11 +66,11 @@ std::unique_ptr<GStreamerRtpReceiverBackend> GStreamerRtpTransceiverBackend::cre
     return WTF::makeUnique<GStreamerRtpReceiverBackend>(GRefPtr(m_rtcTransceiver));
 }
 
-std::unique_ptr<GStreamerRtpSenderBackend> GStreamerRtpTransceiverBackend::createSenderBackend(GStreamerPeerConnectionBackend& backend, GStreamerRtpSenderBackend::Source&& source, GUniquePtr<GstStructure>&& initData)
+std::unique_ptr<GStreamerRtpSenderBackend> GStreamerRtpTransceiverBackend::createSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&& backend, GStreamerRtpSenderBackend::Source&& source, GUniquePtr<GstStructure>&& initData)
 {
     GRefPtr<GstWebRTCRTPSender> sender;
     g_object_get(m_rtcTransceiver.get(), "sender", &sender.outPtr(), nullptr);
-    return WTF::makeUnique<GStreamerRtpSenderBackend>(backend, WTFMove(sender), WTFMove(source), WTFMove(initData));
+    return WTF::makeUnique<GStreamerRtpSenderBackend>(WTFMove(backend), WTFMove(sender), WTFMove(source), WTFMove(initData));
 }
 
 RTCRtpTransceiverDirection GStreamerRtpTransceiverBackend::direction() const
@@ -84,7 +85,7 @@ std::optional<RTCRtpTransceiverDirection> GStreamerRtpTransceiverBackend::curren
     GstWebRTCRTPTransceiverDirection gstDirection;
     g_object_get(m_rtcTransceiver.get(), "current-direction", &gstDirection, nullptr);
     if (!gstDirection)
-        return std::nullopt;
+        return RTCRtpTransceiverDirection::Inactive;
     return toRTCRtpTransceiverDirection(gstDirection);
 }
 

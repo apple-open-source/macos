@@ -1,6 +1,6 @@
 /* srp-client.c
  *
- * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 #include "srp-api.h"
 #include "dns-msg.h"
 #include "srp-crypto.h"
+#include "srp-strict.h"
 
 // By default, never wait longer than an hour to do another registration attempt.
 #define DEFAULT_MAX_ATTEMPT_INTERVAL       1000 * 60 * 60
@@ -175,7 +176,7 @@ srp_client_set_current(client_state_t *new_client)
 int
 srp_host_init(void *context)
 {
-    client_state_t *new_client = calloc(1, sizeof(*new_client));
+    client_state_t *new_client = srp_strict_calloc(1, sizeof(*new_client));
     if (new_client == NULL) {
         return kDNSServiceErr_NoMemory;
     }
@@ -302,7 +303,7 @@ add_address(service_addr_t **list, service_addr_t **refresh,
         // This shouldn't happen, but if it does, free the old address.
         if (*p_addr != NULL) {
             ERROR("duplicate address during refresh!");
-            free(addr);
+            srp_strict_free(&addr);
             return kDNSServiceErr_NoError;
         }
 
@@ -314,7 +315,7 @@ add_address(service_addr_t **list, service_addr_t **refresh,
         return kDNSServiceErr_NoError;
     }
 
-    addr = calloc(1, sizeof *addr);
+    addr = srp_strict_calloc(1, sizeof *addr);
     if (addr == NULL) {
         return kDNSServiceErr_NoMemory;
     }
@@ -368,10 +369,8 @@ srp_add_server_address(const uint8_t *port, uint16_t rrtype, const uint8_t *NONN
 int
 srp_set_hostname(const char *NONNULL name, srp_hostname_conflict_callback_t callback)
 {
-    if (current_client->hostname != NULL) {
-        free(current_client->hostname);
-    }
-    current_client->hostname = strdup(name);
+    srp_strict_free(&current_client->hostname);
+    current_client->hostname = srp_strict_strdup(name);
     if (current_client->hostname == NULL) {
         return kDNSServiceErr_NoMemory;
     }
@@ -430,7 +429,7 @@ delete_address(service_addr_t **list, const uint8_t *port, uint16_t rrtype, cons
     if (*p_addr != NULL) {
         addr = *p_addr;
         *p_addr = addr->next;
-        free(addr);
+        srp_strict_free(&addr);
         network_state_changed = true;
         if (interface_serial_update) {
             interface_serial++;
@@ -475,43 +474,88 @@ srp_start_address_refresh(void)
 }
 
 // Call this when the address refresh is done.   This invokes srp_network_state_stable().
-int
-srp_finish_address_refresh(bool *did_something)
+static void
+srp_finish_service_address_refresh_internal(void)
 {
     service_addr_t *addr, *next;
-    int i;
-    if (!doing_refresh) {
-        return kDNSServiceErr_BadState;
+
+    next = server_refresh_state;
+    server_refresh_state = NULL;
+    if (next != NULL) {
+        network_state_changed = true;
     }
-    for (i = 0; i < 2; i++) {
-        if (i == 0) {
-            next = server_refresh_state;
-            server_refresh_state = NULL;
-        } else {
-            if (interface_refresh_state != NULL) {
-                interface_serial++;
-            }
-            next = interface_refresh_state;
-            interface_refresh_state = NULL;
-        }
-        if (next != NULL) {
-            network_state_changed = true;
-        }
-        while (next) {
-            uint8_t *rdata = (uint8_t *)&next->rr.data;
-            // Print IPv6 address directly here because the code has to be portable for ADK, and OpenThread environment
-            // has no support for INET6_ADDRSTRLEN.
-            INFO("deleted " PUB_S_SRP
-                 " address: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x port %u (%x)",
-                 i ? "interface" : "server",
+    while (next) {
+        uint8_t *rdata = (uint8_t *)&next->rr.data;
+        // Print IPv6 address directly here because the code has to be portable for ADK, and OpenThread environment
+        // has no support for INET6_ADDRSTRLEN.
+        INFO("deleted server address: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x port %u (%x)",
                  rdata[0], rdata[1], rdata[2], rdata[3], rdata[4], rdata[5], rdata[6], rdata[7],
                  rdata[8], rdata[9], rdata[10], rdata[11], rdata[12], rdata[13], rdata[14], rdata[15],
                  (next->port[0] << 8) | next->port[1], (next->port[0] << 8) | next->port[1]);
-            addr = next;
-            next = addr->next;
-            free(addr);
-        }
+        addr = next;
+        next = addr->next;
+        srp_strict_free(&addr);
     }
+}
+
+int
+srp_finish_service_address_refresh(bool *did_something)
+{
+    if (!doing_refresh) {
+        return kDNSServiceErr_BadState;
+    }
+    interfaces = interface_refresh_state;
+    interface_refresh_state = NULL;
+    srp_finish_service_address_refresh_internal();
+    doing_refresh = false;
+    return srp_network_state_stable(did_something);
+}
+
+// Call this when done refreshing interfaces only.
+static void
+srp_finish_interface_address_refresh_internal(void)
+{
+    service_addr_t *addr, *next;
+    if (interface_refresh_state != NULL) {
+        interface_serial++;
+    }
+    next = interface_refresh_state;
+    interface_refresh_state = NULL;
+    if (next != NULL) {
+        network_state_changed = true;
+    }
+    while (next) {
+        uint8_t *rdata = (uint8_t *)&next->rr.data;
+        // Print IPv6 address directly here because the code has to be portable for ADK, and OpenThread environment
+        // has no support for INET6_ADDRSTRLEN.
+        INFO("deleted interface address: %02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+                 rdata[0], rdata[1], rdata[2], rdata[3], rdata[4], rdata[5], rdata[6], rdata[7],
+                 rdata[8], rdata[9], rdata[10], rdata[11], rdata[12], rdata[13], rdata[14], rdata[15]);
+        addr = next;
+        next = addr->next;
+        srp_strict_free(&addr);
+    }
+}
+
+int
+srp_finish_interface_address_refresh(bool *did_something)
+{
+    if (!doing_refresh) {
+        return kDNSServiceErr_BadState;
+    }
+    servers = server_refresh_state;
+    server_refresh_state = NULL;
+    srp_finish_interface_address_refresh_internal();
+    doing_refresh = false;
+    return srp_network_state_stable(did_something);
+}
+
+// Call this when the address refresh is done.   This invokes srp_network_state_stable().
+int
+srp_finish_address_refresh(bool *did_something)
+{
+    srp_finish_interface_address_refresh_internal();
+    srp_finish_service_address_refresh_internal();
     doing_refresh = false;
     return srp_network_state_stable(did_something);
 }
@@ -546,7 +590,7 @@ DNSServiceUpdateRecord(DNSServiceRef sdRef, DNSRecordRef RecordRef, DNSServiceFl
     }
 
     if (rdlen != 0) {
-        txtRecord = malloc(rdlen);
+        txtRecord = srp_strict_malloc(rdlen);
         if (txtRecord == NULL) {
             return kDNSServiceErr_NoMemory;
         }
@@ -555,9 +599,7 @@ DNSServiceUpdateRecord(DNSServiceRef sdRef, DNSRecordRef RecordRef, DNSServiceFl
         registration->txtRecord = NULL;
     }
 
-    if (registration->txtRecord != NULL) {
-        free(registration->txtRecord);
-    }
+    srp_strict_free(&registration->txtRecord);
 
     registration->txtRecord = txtRecord;
     registration->txtLen = rdlen;
@@ -575,7 +617,7 @@ DNSServiceRegister(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfa
                    uint16_t txtLen, const void *txtRecord,
                    DNSServiceRegisterReply callBack, void *context)
 {
-    reg_state_t **rp, *reg = calloc(1, sizeof *reg);
+    reg_state_t **rp, *reg = srp_strict_calloc(1, sizeof *reg);
     if (reg == NULL) {
         return kDNSServiceErr_NoMemory;
     }
@@ -598,7 +640,7 @@ DNSServiceRegister(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfa
     reg->called_back = true;
 #define stashName(thing)                        \
     if (thing != NULL) {                        \
-        reg->thing = strdup(thing);             \
+        reg->thing = srp_strict_strdup(thing);  \
         if (reg->thing == NULL) {               \
             DNSServiceRefDeallocate(reg);       \
             return kDNSServiceErr_NoMemory;     \
@@ -610,10 +652,10 @@ DNSServiceRegister(DNSServiceRef *sdRef, DNSServiceFlags flags, uint32_t interfa
     stashName(regtype);
     stashName(domain);
     stashName(host);
-    reg->port = port;
+    reg->port = ntohs(port);
     reg->txtLen = txtLen;
     if (txtLen != 0) {
-        reg->txtRecord = malloc(txtLen);
+        reg->txtRecord = srp_strict_malloc(txtLen);
         if (reg->txtRecord == NULL) {
             DNSServiceRefDeallocate(reg);
             return kDNSServiceErr_NoMemory;
@@ -692,22 +734,12 @@ DNSServiceRefDeallocate(DNSServiceRef sdRef)
     if (!found || reg == NULL) {
         return;
     }
-    if (reg->name != NULL) {
-        free(reg->name);
-    }
-    if (reg->regtype != NULL) {
-        free(reg->regtype);
-    }
-    if (reg->domain != NULL) {
-        free(reg->domain);
-    }
-    if (reg->host != NULL) {
-        free(reg->host);
-    }
-    if (reg->txtRecord != NULL) {
-        free(reg->txtRecord);
-    }
-    free(reg);
+    srp_strict_free(&reg->name);
+    srp_strict_free(&reg->regtype);
+    srp_strict_free(&reg->domain);
+    srp_strict_free(&reg->host);
+    srp_strict_free(&reg->txtRecord);
+    srp_strict_free(&reg);
 }
 
 static void
@@ -718,10 +750,8 @@ update_finalize(update_context_t *update)
     if (update->udp_context != NULL) {
         srp_deactivate_udp_context(client->os_context, update->udp_context);
     }
-    if (update->message != NULL) {
-        free(update->message);
-    }
-    free(update);
+    srp_strict_free(&update->message);
+    srp_strict_free(&update);
 }
 
 static void
@@ -792,8 +822,7 @@ udp_retransmit(void *v_update_context)
     if (client->active_update->interface_serial != interface_serial) {
         client->active_update->next_retransmission_time = INITIAL_NEXT_RETRANSMISSION_TIME;
         client->active_update->next_attempt_time = INITIAL_NEXT_ATTEMPT_TIME;
-        free(context->message);
-        context->message = NULL;
+        srp_strict_free(&context->message);
     }
 
     // If next retransmission time is zero, this means that we gave up our last attempt to register, and have
@@ -850,9 +879,7 @@ udp_retransmit(void *v_update_context)
         }
         srp_disconnect_udp(context->udp_context);
         context->connected = false;
-        if (context->message != NULL) {
-            free(context->message);
-        }
+        srp_strict_free(&context->message);
         context->message = NULL;
         context->message_length = 0;
         context->next_retransmission_time = INITIAL_NEXT_RETRANSMISSION_TIME;
@@ -978,7 +1005,7 @@ conflict_print(client_state_t *client, dns_towire_state_t *towire, char **return
     if (hostname_len + 7 > DNS_MAX_LABEL_SIZE) {
         hostname_len = DNS_MAX_LABEL_SIZE - 7;
     }
-    conflict_hostname = malloc(hostname_len + 7);
+    conflict_hostname = srp_strict_malloc(hostname_len + 7);
     if (conflict_hostname == NULL) {
         if (towire != NULL) {
             towire->line = __LINE__;
@@ -1023,9 +1050,7 @@ udp_response(void *v_update_context, void *v_message, size_t message_length)
 
     // We want a different UDP source port for each transaction, so cancel the current UDP state.
     srp_disconnect_udp(context->udp_context);
-    if (context->message != NULL) {
-        free(context->message);
-    }
+    srp_strict_free(&context->message);
     context->message = NULL;
     context->message_length = 0;
     context->connected = false;
@@ -1136,9 +1161,7 @@ udp_response(void *v_update_context, void *v_message, size_t message_length)
         if (client->hostname_conflict_callback != NULL && client->hostname != NULL) {
             conflict_hostname = conflict_print(client, NULL, &chosen_hostname, client->hostname);
             client->hostname_conflict_callback(chosen_hostname);
-            if (conflict_hostname != NULL) {
-                free(conflict_hostname);
-            }
+            srp_strict_free(&conflict_hostname);
         }
 
         bool resolve_with_callback = false;
@@ -1177,8 +1200,8 @@ udp_response(void *v_update_context, void *v_message, size_t message_length)
         // retransmission time for the current server long enough to force a switch to the next server,
         // if any.
         context->next_retransmission_time = client->srp_max_retry_interval + 1;
-        err = srp_set_wakeup(client->os_context, context->udp_context,
-                             context->next_retransmission_time - 512 + srp_random16() % 1024, udp_retransmit);
+        srp_set_wakeup(client->os_context, context->udp_context,
+                       context->next_retransmission_time - 512 + srp_random16() % 1024, udp_retransmit);
         return;
     }
 out:
@@ -1234,7 +1257,7 @@ srp_client_generate_update(client_state_t *client, uint32_t update_lease_time, u
         towire.message = in_wire;
     } else {
         // Allocate a message buffer.
-        message = calloc(1, sizeof *message);
+        message = srp_strict_calloc(1, sizeof *message);
         if (message == NULL) {
             return NULL;
         }
@@ -1390,16 +1413,18 @@ srp_client_generate_update(client_state_t *client, uint32_t update_lease_time, u
                     dns_ttl_to_wire(&towire, 3600); CH;
                 }
                 dns_rdlength_begin(&towire); CH;
-                if (reg->name != NULL) {
-                    char *service_instance_name, *to_free = conflict_print(client, &towire, &service_instance_name, reg->name);
-                    dns_name_to_wire(&p_service_instance_name, &towire, service_instance_name); CH;
-                    if (to_free != NULL) {
-                        free(to_free);
+                if (primary) {
+                    if (reg->name != NULL) {
+                        char *service_instance_name, *to_free = conflict_print(client, &towire, &service_instance_name, reg->name);
+                        dns_name_to_wire(&p_service_instance_name, &towire, service_instance_name); CH;
+                        srp_strict_free(&to_free);
+                    } else {
+                        dns_name_to_wire(&p_service_instance_name, &towire, chosen_hostname); CH;
                     }
+                    dns_pointer_to_wire(&p_service_instance_name, &towire, &p_service_name); CH;
                 } else {
-                    dns_name_to_wire(&p_service_instance_name, &towire, chosen_hostname); CH;
+                    dns_pointer_to_wire(NULL, &towire, &p_service_instance_name); CH;
                 }
-                dns_pointer_to_wire(&p_service_instance_name, &towire, &p_service_name); CH;
                 dns_rdlength_end(&towire); CH;
                 INCREMENT(message->nscount);
                 primary = false;
@@ -1497,15 +1522,11 @@ srp_client_generate_update(client_state_t *client, uint32_t update_lease_time, u
     INCREMENT(message->arcount);
     *p_length = towire.p - (uint8_t *)message;
 
-    if (conflict_hostname != NULL) {
-        free(conflict_hostname);
-    }
+    srp_strict_free(&conflict_hostname);
     return message;
 
 fail:
-    if (conflict_hostname != NULL) {
-        free(conflict_hostname);
-    }
+    srp_strict_free(&conflict_hostname);
 
     if (towire.error) {
         ERROR("Ran out of message space at srp-client.c:%d (%d, %d)",
@@ -1516,7 +1537,7 @@ fail:
         client->active_update = NULL;
     }
     if (in_wire == NULL && message != NULL) {
-        free(message);
+        srp_strict_free(&message);
     }
     return NULL;
 }
@@ -1554,7 +1575,7 @@ do_srp_update(client_state_t *client, bool definite, bool *did_something)
     }
 
     // Make an update context.
-    update_context_t *active_update = calloc(1, sizeof(*active_update));
+    update_context_t *active_update = srp_strict_calloc(1, sizeof(*active_update));
     if (active_update == NULL) {
         err = kDNSServiceErr_NoMemory;
     } else {
@@ -1613,10 +1634,7 @@ srp_deregister(void *os_context)
 
     // If so, start a deregistration update; otherwise return NoSuchRecord.
     if (something_to_deregister) {
-        if (client->active_update->message) {
-            free(client->active_update->message);
-            client->active_update->message = NULL;
-        }
+        srp_strict_free(&client->active_update->message);
         client->active_update->removing = true;
         client->active_update->next_retransmission_time = INITIAL_NEXT_RETRANSMISSION_TIME;
         client->active_update->next_attempt_time = INITIAL_NEXT_ATTEMPT_TIME;
@@ -1646,10 +1664,7 @@ srp_deregister_instance(DNSServiceRef sdRef)
 found:
     rp->removing = true;
     if (client->active_update != NULL) {
-        if (client->active_update->message) {
-            free(client->active_update->message);
-            client->active_update->message = NULL;
-        }
+        srp_strict_free(&client->active_update->message);
         client->active_update->next_retransmission_time = INITIAL_NEXT_RETRANSMISSION_TIME;
         client->active_update->next_attempt_time = INITIAL_NEXT_ATTEMPT_TIME;
         udp_retransmit(client->active_update);

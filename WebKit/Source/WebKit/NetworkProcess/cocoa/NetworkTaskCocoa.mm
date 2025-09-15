@@ -57,6 +57,17 @@ NetworkTaskCocoa::NetworkTaskCocoa(NetworkSession& session)
 {
 }
 
+RetainPtr<NSURLSessionTask> NetworkTaskCocoa::protectedTask() const
+{
+    return task();
+}
+
+CheckedPtr<NetworkSession> NetworkTaskCocoa::checkedNetworkSession() const
+{
+    ASSERT(m_networkSession);
+    return m_networkSession.get();
+}
+
 static bool shouldCapCookieExpiryForThirdPartyIPAddress(const WebCore::IPAddress& remote, const WebCore::IPAddress& firstParty)
 {
     auto matchingLength = remote.matchingNetMaskLength(firstParty);
@@ -67,7 +78,8 @@ static bool shouldCapCookieExpiryForThirdPartyIPAddress(const WebCore::IPAddress
 
 bool NetworkTaskCocoa::shouldApplyCookiePolicyForThirdPartyCloaking() const
 {
-    return m_networkSession->networkStorageSession() && m_networkSession->networkStorageSession()->trackingPreventionEnabled();
+    CheckedPtr networkStorageSession = checkedNetworkSession()->networkStorageSession();
+    return networkStorageSession && networkStorageSession->trackingPreventionEnabled();
 }
 
 NSHTTPCookieStorage *NetworkTaskCocoa::statelessCookieStorage()
@@ -95,11 +107,11 @@ WebCore::RegistrableDomain NetworkTaskCocoa::lastCNAMEDomain(String cname)
     return WebCore::RegistrableDomain::uncheckedCreateFromHost(cname);
 }
 
-static NSArray<NSHTTPCookie *> *cookiesByCappingExpiry(NSArray<NSHTTPCookie *> *cookies, Seconds ageCap)
+static RetainPtr<NSArray<NSHTTPCookie *>> cookiesByCappingExpiry(NSArray<NSHTTPCookie *> *cookies, Seconds ageCap)
 {
-    auto *cappedCookies = [NSMutableArray arrayWithCapacity:cookies.count];
+    RetainPtr cappedCookies = [NSMutableArray arrayWithCapacity:cookies.count];
     for (NSHTTPCookie *cookie in cookies)
-        [cappedCookies addObject:WebCore::NetworkStorageSession::capExpiryOfPersistentCookie(cookie, ageCap)];
+        [cappedCookies addObject:WebCore::NetworkStorageSession::capExpiryOfPersistentCookie(cookie, ageCap).get()];
     return cappedCookies;
 }
 
@@ -174,7 +186,7 @@ void NetworkTaskCocoa::setCookieTransformForThirdPartyRequest(const WebCore::Res
 
         // FIXME: Consider making these session cookies, as well.
         if (!cookiePartition.isEmpty())
-            cookiesSetInResponse = cookiesBySettingPartition(cookiesSetInResponse, cookiePartition);
+            cookiesSetInResponse = cookiesBySettingPartition(cookiesSetInResponse, cookiePartition.createNSString().get());
 
         return cookiesSetInResponse;
     }).get();
@@ -188,7 +200,7 @@ void NetworkTaskCocoa::setCookieTransformForFirstPartyRequest(const WebCore::Res
 
     ASSERT(!request.isThirdParty());
     if (request.isThirdParty()) {
-        task()._cookieTransformCallback = nil;
+        protectedTask().get()._cookieTransformCallback = nil;
         return;
     }
 
@@ -197,25 +209,26 @@ void NetworkTaskCocoa::setCookieTransformForFirstPartyRequest(const WebCore::Res
     // i.e. third-party CNAME or IP address cloaking.
     auto firstPartyURL = request.firstPartyForCookies();
     auto firstPartyHostName = firstPartyURL.host().toString();
+    CheckedPtr networkSession = m_networkSession.get();
 
-    task()._cookieTransformCallback = makeBlockPtr([
+    protectedTask().get()._cookieTransformCallback = makeBlockPtr([
         requestURL = crossThreadCopy(request.url())
         , firstPartyURL = crossThreadCopy(firstPartyURL)
-        , firstPartyHostCNAME = crossThreadCopy(m_networkSession->firstPartyHostCNAMEDomain(firstPartyHostName))
-        , firstPartyAddress = crossThreadCopy(m_networkSession->firstPartyHostIPAddress(firstPartyHostName))
+        , firstPartyHostCNAME = crossThreadCopy(networkSession->firstPartyHostCNAMEDomain(firstPartyHostName))
+        , firstPartyAddress = crossThreadCopy(networkSession->firstPartyHostIPAddress(firstPartyHostName))
         , thirdPartyCNAMEDomainForTesting = crossThreadCopy(m_networkSession->thirdPartyCNAMEDomainForTesting())
         , ageCapForCNAMECloakedCookies = crossThreadCopy(m_ageCapForCNAMECloakedCookies)
         , weakTask = WeakObjCPtr<NSURLSessionTask>(task())
         , firstPartyRegistrableDomainName = crossThreadCopy(RegistrableDomain { firstPartyURL }.string())
-        , debugLoggingEnabled = m_networkSession->networkStorageSession()->trackingPreventionDebugLoggingEnabled()]
+        , debugLoggingEnabled = networkSession->networkStorageSession()->trackingPreventionDebugLoggingEnabled()]
         (NSArray<NSHTTPCookie*> *cookiesSetInResponse) -> NSArray<NSHTTPCookie*> * {
         auto task = weakTask.get();
         if (!task || ![cookiesSetInResponse count])
             return cookiesSetInResponse;
 
         auto cnameDomain = [&task]() {
-            if (auto* lastResolvedCNAMEInChain = [[task _resolvedCNAMEChain] lastObject])
-                return lastCNAMEDomain(lastResolvedCNAMEInChain);
+            if (RetainPtr lastResolvedCNAMEInChain = [[task _resolvedCNAMEChain] lastObject])
+                return lastCNAMEDomain(lastResolvedCNAMEInChain.get());
             return RegistrableDomain { };
         }();
         if (cnameDomain.isEmpty() && thirdPartyCNAMEDomainForTesting)
@@ -242,11 +255,12 @@ void NetworkTaskCocoa::setCookieTransformForFirstPartyRequest(const WebCore::Res
             };
 
             if (shouldCapCookieExpiryForThirdPartyIPAddress(*remoteAddress, *firstPartyAddress) && !needsThirdPartyIPAddressQuirk(requestURL, firstPartyRegistrableDomainName)) {
-                cookiesSetInResponse = cookiesByCappingExpiry(cookiesSetInResponse, ageCapForCNAMECloakedCookies);
+                RetainPtr cappedCookies = cookiesByCappingExpiry(cookiesSetInResponse, ageCapForCNAMECloakedCookies);
                 if (debugLoggingEnabled) {
-                    for (NSHTTPCookie *cookie in cookiesSetInResponse)
+                    for (NSHTTPCookie *cookie in cappedCookies.get())
                         RELEASE_LOG_INFO(ITPDebug, "Capped the expiry of third-party IP address cookie named %{public}@.", cookie.name);
                 }
+                return cappedCookies.autorelease();
             }
 
             return cookiesSetInResponse;
@@ -259,11 +273,12 @@ void NetworkTaskCocoa::setCookieTransformForFirstPartyRequest(const WebCore::Res
             // Don't use RetainPtr here. This array has to be retained and
             // auto released to not be released before returned to the code
             // executing the block.
-            cookiesSetInResponse = cookiesByCappingExpiry(cookiesSetInResponse, ageCapForCNAMECloakedCookies);
+            RetainPtr cappedCookies = cookiesByCappingExpiry(cookiesSetInResponse, ageCapForCNAMECloakedCookies).autorelease();
             if (debugLoggingEnabled) {
-                for (NSHTTPCookie *cookie in cookiesSetInResponse)
+                for (NSHTTPCookie *cookie in cappedCookies.get())
                     RELEASE_LOG_INFO(ITPDebug, "Capped the expiry of third-party CNAME cloaked cookie named %{public}@.", cookie.name);
             }
+            return cappedCookies.autorelease();
         }
 
         return cookiesSetInResponse;
@@ -288,7 +303,7 @@ void NetworkTaskCocoa::blockCookies()
     if (m_hasBeenSetToUseStatelessCookieStorage)
         return;
 
-    [task() _setExplicitCookieStorage:statelessCookieStorage()._cookieStorage];
+    [protectedTask() _setExplicitCookieStorage:RetainPtr { statelessCookieStorage() }.get()._cookieStorage];
     m_hasBeenSetToUseStatelessCookieStorage = true;
 }
 
@@ -299,8 +314,8 @@ void NetworkTaskCocoa::unblockCookies()
     if (!m_hasBeenSetToUseStatelessCookieStorage)
         return;
 
-    if (auto* storageSession = m_networkSession->networkStorageSession()) {
-        [task() _setExplicitCookieStorage:[storageSession->nsCookieStorage() _cookieStorage]];
+    if (CheckedPtr storageSession = checkedNetworkSession()->networkStorageSession()) {
+        [protectedTask() _setExplicitCookieStorage:[storageSession->nsCookieStorage() _cookieStorage]];
         m_hasBeenSetToUseStatelessCookieStorage = false;
     }
 }
@@ -313,7 +328,7 @@ bool NetworkTaskCocoa::shouldBlockCookies(WebCore::ThirdPartyCookieBlockingDecis
 WebCore::ThirdPartyCookieBlockingDecision NetworkTaskCocoa::requestThirdPartyCookieBlockingDecision(const WebCore::ResourceRequest& request) const
 {
     auto thirdPartyCookieBlockingDecision = storedCredentialsPolicy() == WebCore::StoredCredentialsPolicy::EphemeralStateless ? WebCore::ThirdPartyCookieBlockingDecision::All : WebCore::ThirdPartyCookieBlockingDecision::None;
-    if (CheckedPtr networkStorageSession = m_networkSession->networkStorageSession()) {
+    if (CheckedPtr networkStorageSession = checkedNetworkSession()->networkStorageSession()) {
         if (!shouldBlockCookies(thirdPartyCookieBlockingDecision))
             thirdPartyCookieBlockingDecision = networkStorageSession->thirdPartyCookieBlockingDecisionForRequest(request, frameID(), pageID(), shouldRelaxThirdPartyCookieBlocking());
     }
@@ -340,8 +355,7 @@ void NetworkTaskCocoa::updateTaskWithFirstPartyForSameSiteCookies(NSURLSessionTa
     if (request.isSameSiteUnspecified())
         return;
 #if HAVE(FOUNDATION_WITH_SAME_SITE_COOKIE_SUPPORT)
-    static NSURL *emptyURL = [[NSURL alloc] initWithString:@""];
-    task._siteForCookies = request.isSameSite() ? task.currentRequest.URL : emptyURL;
+    task._siteForCookies = RetainPtr { request.isSameSite() ? task.currentRequest.URL : URL::emptyNSURL() }.get();
     task._isTopLevelNavigation = request.isTopSite();
 #else
     UNUSED_PARAM(task);
@@ -360,7 +374,7 @@ void NetworkTaskCocoa::updateTaskWithStoragePartitionIdentifier(const WebCore::R
 
     // FIXME: Remove respondsToSelector when available with NWLoader. rdar://134913391
     if ([task() respondsToSelector:@selector(set_storagePartitionIdentifier:)])
-        task()._storagePartitionIdentifier = networkStorageSession->cookiePartitionIdentifier(request);
+        task()._storagePartitionIdentifier = networkStorageSession->cookiePartitionIdentifier(request).createNSString().get();
 }
 #endif
 
@@ -388,13 +402,13 @@ void NetworkTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&& re
     } else if (storedCredentialsPolicy() != WebCore::StoredCredentialsPolicy::EphemeralStateless && needsFirstPartyCookieBlockingLatchModeQuirk(request.firstPartyForCookies(), request.url(), redirectResponse.url()))
         unblockCookies();
 #if !RELEASE_LOG_DISABLED
-    if (m_networkSession->shouldLogCookieInformation())
-        RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkTaskCocoa::willPerformHTTPRedirection::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: %s cookies for redirect URL %s", this, pageID()->toUInt64(), frameID()->object().toUInt64(), (unsigned long)[task() taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
+    if (checkedNetworkSession()->shouldLogCookieInformation())
+        RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - NetworkTaskCocoa::willPerformHTTPRedirection::logCookieInformation: pageID=%" PRIu64 ", frameID=%" PRIu64 ", taskID=%lu: %s cookies for redirect URL %s", this, pageID() ? pageID()->toUInt64() : 0, frameID() ? frameID()->toUInt64() : 0, (unsigned long)[task() taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
 #else
     LOG(NetworkSession, "%lu %s cookies for redirect URL %s", (unsigned long)[task() taskIdentifier], (m_hasBeenSetToUseStatelessCookieStorage ? "Blocking" : "Not blocking"), request.url().string().utf8().data());
 #endif
 
-    updateTaskWithFirstPartyForSameSiteCookies(task(), request);
+    updateTaskWithFirstPartyForSameSiteCookies(protectedTask().get(), request);
 #if HAVE(ALLOW_ONLY_PARTITIONED_COOKIES)
     updateTaskWithStoragePartitionIdentifier(request);
 #endif
@@ -403,7 +417,7 @@ void NetworkTaskCocoa::willPerformHTTPRedirection(WebCore::ResourceResponse&& re
 
 ShouldRelaxThirdPartyCookieBlocking NetworkTaskCocoa::shouldRelaxThirdPartyCookieBlocking() const
 {
-    return m_networkSession->networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID());
+    return checkedNetworkSession()->networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID());
 }
 
 } // namespace WebKit

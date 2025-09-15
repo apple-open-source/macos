@@ -177,7 +177,7 @@ bool SQLiteDatabase::open(const String& filename, OpenMode openMode, OptionSet<O
 
     overrideUnauthorizedFunctions();
 
-    m_openingThread = &Thread::current();
+    m_openingThread = Thread::currentSingleton();
     if (sqlite3_extended_result_codes(m_db, 1) != SQLITE_OK)
         return false;
 
@@ -296,7 +296,7 @@ void SQLiteDatabase::close()
         ASSERT_WITH_MESSAGE(!m_statementCount, "All SQLiteTransaction objects should be destroyed before closing the database");
 
         // FIXME: This is being called on the main thread during JS GC. <rdar://problem/5739818>
-        // ASSERT(m_openingThread == &Thread::current());
+        // ASSERT(m_openingThread == &Thread::currentSingleton());
         sqlite3* db = m_db;
         {
             Locker locker { m_databaseClosingMutex };
@@ -476,6 +476,11 @@ bool SQLiteDatabase::executeCommand(ASCIILiteral query)
 bool SQLiteDatabase::tableExists(StringView tableName)
 {
     return !tableSQL(tableName).isEmpty();
+}
+
+bool SQLiteDatabase::indexExists(StringView indexName)
+{
+    return !indexSQL(indexName).isEmpty();
 }
 
 String SQLiteDatabase::tableSQL(StringView tableName)
@@ -665,7 +670,7 @@ void SQLiteDatabase::setAuthorizer(DatabaseAuthorizer& authorizer)
 
     Locker locker { m_authorizerLock };
 
-    m_authorizer = &authorizer;
+    m_authorizer = authorizer;
     
     enableAuthorizer(true);
 }
@@ -779,7 +784,7 @@ static Expected<sqlite3_stmt*, int> constructAndPrepareStatement(SQLiteDatabase&
 Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatementSlow(StringView queryString)
 {
     auto query = queryString.trim(isUnicodeCompatibleASCIIWhitespace<UChar>).utf8();
-    auto sqlStatement = constructAndPrepareStatement(*this, query.unsafeSpanIncludingNullTerminator());
+    auto sqlStatement = constructAndPrepareStatement(*this, query.spanIncludingNullTerminator());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.data());
         return makeUnexpected(sqlStatement.error());
@@ -789,7 +794,7 @@ Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatementSlow(StringView q
 
 Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatement(ASCIILiteral query)
 {
-    auto sqlStatement = constructAndPrepareStatement(*this, query.unsafeSpanIncludingNullTerminator());
+    auto sqlStatement = constructAndPrepareStatement(*this, query.spanIncludingNullTerminator());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.characters());
         return makeUnexpected(sqlStatement.error());
@@ -800,7 +805,7 @@ Expected<SQLiteStatement, int> SQLiteDatabase::prepareStatement(ASCIILiteral que
 Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatementSlow(StringView queryString)
 {
     auto query = queryString.trim(isUnicodeCompatibleASCIIWhitespace<UChar>).utf8();
-    auto sqlStatement = constructAndPrepareStatement(*this, query.unsafeSpanIncludingNullTerminator());
+    auto sqlStatement = constructAndPrepareStatement(*this, query.spanIncludingNullTerminator());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareHeapStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.data());
         return makeUnexpected(sqlStatement.error());
@@ -810,7 +815,7 @@ Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatementSl
 
 Expected<UniqueRef<SQLiteStatement>, int> SQLiteDatabase::prepareHeapStatement(ASCIILiteral query)
 {
-    auto sqlStatement = constructAndPrepareStatement(*this, query.unsafeSpanIncludingNullTerminator());
+    auto sqlStatement = constructAndPrepareStatement(*this, query.spanIncludingNullTerminator());
     if (!sqlStatement) {
         RELEASE_LOG_ERROR(SQLDatabase, "SQLiteDatabase::prepareHeapStatement: Failed to prepare statement %" PUBLIC_LOG_STRING, query.characters());
         return makeUnexpected(sqlStatement.error());

@@ -108,9 +108,8 @@ static boolean_t
 S_IPConfigurationGetInformationIsAllowed(audit_token_t audit_token)
 {
     S_process_audit_token(audit_token);
-    if (S_uid == 0
-	|| S_has_entitlement(audit_token,
-			     kIPConfigurationGetInformationEntitlement)) {
+    if (S_has_entitlement(audit_token,
+			  kIPConfigurationGetInformationEntitlement)) {
 	return (TRUE);
     }
     return (FALSE);
@@ -574,6 +573,41 @@ _ipconfig_get_dhcp_ia_id(mach_port_t p,
     *status = get_dhcp_ia_id(InterfaceNameNulTerminate(name), ia_id);
     return (KERN_SUCCESS);
 }
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_ipv4_router_info(mach_port_t server,
+			       InterfaceName name,
+			       xmlData_t * xml_data,
+			       mach_msg_type_number_t * xml_data_len,
+			       ipconfig_status_t * ret_status,
+			       audit_token_t audit_token)
+{
+    ipconfig_status_t	status;
+
+    *xml_data = NULL;
+    *xml_data_len = 0;
+    if (!S_IPConfigurationGetInformationIsAllowed(audit_token)) {
+	status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	CFDictionaryRef	info = NULL;
+
+	status = copy_if_ipv4_router_info(InterfaceNameNulTerminate(name),
+					  &info);
+	if (info != NULL) {
+	    *xml_data = (xmlDataOut_t)
+		my_CFPropertyListCreateVMData(info, xml_data_len);
+	    if (*xml_data == NULL) {
+		my_log(LOG_NOTICE, "failed to serialize data");
+		status = ipconfig_status_allocation_failed_e;
+	    }
+	    my_CFRelease(&info);
+	}
+    }
+    *ret_status = status;
+    return (KERN_SUCCESS);
+}
+
 
 typedef union {
     union __RequestUnion___ipconfig_subsystem req;

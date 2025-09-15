@@ -170,6 +170,7 @@ en{
         crs{"Seselwa Creole French"}
         cs{"Czech"}
         csb{"Kashubian"}
+        cst{"Chochenyo"}
         csw{"Swampy Cree"}
         cu{"Church Slavic"}
         cv{"Chuvash"}
@@ -275,6 +276,7 @@ en{
         hak{"Hakka Chinese"}
         haw{"Hawaiian"}
         hax{"Southern Haida"}
+        hch{"Wixárika"}
         hdn{"Northern Haida"}
         he{"Hebrew"}
         hi{"Hindi"}
@@ -308,6 +310,7 @@ en{
         inh{"Ingush"}
         io{"Ido"}
         is{"Icelandic"}
+        isc{"Iskonawa"}
         it{"Italian"}
         iu{"Inuktitut"}
         izh{"Ingrian"}
@@ -583,6 +586,7 @@ en{
         sh{"Serbo-Croatian"}
         shi{"Tachelhit"}
         shn{"Shan"}
+        shp{"Shipibo-Konibo"}
         shu{"Chadian Arabic"}
         si{"Sinhala"}
         sid{"Sidamo"}
@@ -982,13 +986,15 @@ en{
     }
     Types{
         calendar{
+            bangla{"Bangla Calendar"}
             buddhist{"Buddhist Calendar"}
             chinese{"Chinese Calendar"}
             coptic{"Coptic Calendar"}
-            dangi{"Dangi Calendar"}
+            dangi{"Korean Calendar"}
             ethiopic{"Ethiopic Calendar"}
             ethiopic-amete-alem{"Ethiopic Amete Alem Calendar"}
             gregorian{"Gregorian Calendar"}
+            gujarati{"Gujarati Calendar"}
             hebrew{"Hebrew Calendar"}
             indian{"Indian National Calendar"}
             islamic{"Hijri Calendar"}
@@ -998,8 +1004,16 @@ en{
             islamic-umalqura{"Hijri Calendar (Umm al-Qura)"}
             iso8601{"ISO-8601 Calendar"}
             japanese{"Japanese Calendar"}
+            kannada{"Kannada Calendar"}
+            malayalam{"Malayalam Calendar"}
+            marathi{"Marathi Calendar"}
+            odia{"Odia Calendar"}
             persian{"Persian Calendar"}
             roc{"Minguo Calendar"}
+            tamil{"Tamil Calendar"}
+            telugu{"Telugu Calendar"}
+            vietnamese{"Vietnamese Calendar"}
+            vikram{"Vikram Samvat Calendar"}
         }
         cf{
             account{"Accounting Currency Format"}

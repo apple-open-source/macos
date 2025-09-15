@@ -2,7 +2,6 @@ set(WebKit_OUTPUT_NAME WebKit2)
 set(WebProcess_OUTPUT_NAME WebKitWebProcess)
 set(NetworkProcess_OUTPUT_NAME WebKitNetworkProcess)
 set(GPUProcess_OUTPUT_NAME WebKitGPUProcess)
-set(PluginProcess_OUTPUT_NAME WebKitPluginProcess)
 
 include(Headers.cmake)
 include(Platform/Curl.cmake)
@@ -54,6 +53,7 @@ list(APPEND WebKit_SOURCES
     UIProcess/WebsiteData/win/WebsiteDataStoreWin.cpp
 
     UIProcess/win/AutomationClientWin.cpp
+    UIProcess/win/AutomationSessionClientWin.cpp
     UIProcess/win/PageClientImpl.cpp
     UIProcess/win/WebContextMenuProxyWin.cpp
     UIProcess/win/WebPageProxyWin.cpp
@@ -92,7 +92,6 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Platform/IPC/win"
     "${WEBKIT_DIR}/Platform/classifier"
     "${WEBKIT_DIR}/Platform/generic"
-    "${WEBKIT_DIR}/PluginProcess/win"
     "${WEBKIT_DIR}/Shared/API/c/win"
     "${WEBKIT_DIR}/Shared/win"
     "${WEBKIT_DIR}/UIProcess/API/C/win"

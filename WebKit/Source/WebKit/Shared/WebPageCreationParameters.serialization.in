@@ -76,7 +76,7 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
     double textZoomFactor;
     double pageZoomFactor;
 
-    float topContentInset;
+    WebCore::FloatBoxExtent obscuredContentInsets;
 
     float mediaVolume;
     WebCore::MediaProducerMutedStateFlags muted;
@@ -91,11 +91,9 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     WebCore::ScrollPinningBehavior scrollPinningBehavior;
 
-    std::optional<uint32_t> scrollbarOverlayStyle;
+    std::optional<WebCore::ScrollbarOverlayStyle> scrollbarOverlayStyle;
 
     bool backgroundExtendsBeyondPage;
-
-    WebKit::LayerHostingMode layerHostingMode;
 
     bool hasResourceLoadClient;
 
@@ -146,9 +144,6 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 #if HAVE(STATIC_FONT_REGISTRY)
     Vector<WebKit::SandboxExtensionHandle> fontMachExtensionHandles;
 #endif
-#if HAVE(HOSTED_CORE_ANIMATION)
-    MachSendRight acceleratedCompositingPort;
-#endif
 #if HAVE(APP_ACCENT_COLORS)
     WebCore::Color accentColor;
 #endif
@@ -180,6 +175,8 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 #endif
 
     bool needsFontAttributes;
+
+    bool needsScrollGeometryUpdates;
 
     bool iceCandidateFilteringEnabled;
     bool enumeratingAllNetworkInterfacesEnabled;
@@ -228,10 +225,6 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     bool httpsUpgradeEnabled;
 
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload;
-#endif
-
 #if ENABLE(APP_HIGHLIGHTS)
     WebCore::HighlightVisibility appHighlightsVisible;
 #endif
@@ -242,9 +235,14 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 
     bool hasResizableWindows;
 
+#if PLATFORM(MAC)
+    double overflowHeightForTopScrollEdgeEffect;
+#endif
+
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension;
 
     std::optional<WebKit::RemotePageParameters> remotePageParameters;
+    std::optional<WebKit::ProvisionalFrameCreationParameters> provisionalFrameCreationParameters;
     WebCore::FrameIdentifier mainFrameIdentifier;
     String openedMainFrameName;
     std::optional<WebCore::FrameIdentifier> mainFrameOpenerIdentifier;
@@ -277,6 +275,8 @@ enum class WebCore::UserInterfaceLayoutDirection : bool;
 #if PLATFORM(COCOA)
     String presentingApplicationBundleIdentifier;
 #endif
+
+    bool shouldSendConsoleLogsToUIProcessForTesting;
 }
 
 [Nested] struct WebKit::RemotePageParameters {

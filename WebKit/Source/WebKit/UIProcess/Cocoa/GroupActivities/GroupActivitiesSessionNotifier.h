@@ -67,4 +67,4 @@ private:
 
 }
 
-#endif
+#endif // ENABLE(MEDIA_SESSION_COORDINATOR) && HAVE(GROUP_ACTIVITIES)

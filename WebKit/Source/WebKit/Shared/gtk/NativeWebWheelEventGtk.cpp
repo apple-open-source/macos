@@ -44,7 +44,7 @@ NativeWebWheelEvent::NativeWebWheelEvent(GdkEvent* event, const WebCore::IntPoin
 }
 
 NativeWebWheelEvent::NativeWebWheelEvent(const NativeWebWheelEvent& event)
-    : WebWheelEvent({ event.type(), event.modifiers(), event.timestamp() }, event.position(), event.globalPosition(), event.delta(), event.wheelTicks(), event.granularity(), event.phase(), event.momentumPhase(), event.hasPreciseScrollingDeltas())
+    : WebWheelEvent(event)
     , m_nativeEvent(event.nativeEvent() ? constructNativeEvent(event.nativeEvent()) : nullptr)
 {
 }

@@ -870,29 +870,39 @@ NSString* Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& p
             auto stage = visibility / 2;
             WGPUBindGroupLayoutEntry newEntry = { };
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=265204 - use a set instead
+            bool isArrayLength = false;
+            uint32_t webBinding = entry.webBinding;
+            if (auto& entryName = entry.name; entryName.length()) {
+                if (entryName.endsWith("_ArrayLength"_s)) {
+                    webBinding += limits().maxBindingsPerBindGroup;
+                    isArrayLength = true;
+                }
+            }
+
             if (auto existingBindingIndex = entries.findIf([&](const WGPUBindGroupLayoutEntry& e) {
-                return e.binding == entry.webBinding;
+                return e.binding == webBinding;
             }); existingBindingIndex != notFound) {
                 entries[existingBindingIndex].visibility |= visibility;
                 std::span(entries[existingBindingIndex].metalBinding)[stage] = entry.binding;
                 if (!BindGroupLayout::equalBindingEntries(toBindingLayout(entries[existingBindingIndex]), makeBindingLayout(newEntry, entry.bindingMember)))
                     return @"Binding mismatch in auto-generated layouts";
-                entryMap.set(entry.name, entry.webBinding);
+                entryMap.set(entry.name, webBinding);
                 continue;
             }
             uint64_t bufferSizeForBinding = 0;
             WGPUBufferBindingType bufferTypeOverride = WGPUBufferBindingType_Undefined;
             if (auto& entryName = entry.name; entryName.length()) {
-                if (entryName.endsWith("_ArrayLength"_s)) {
+                if (isArrayLength) {
+                    webBinding += limits().maxBindingsPerBindGroup;
                     bufferTypeOverride = static_cast<WGPUBufferBindingType>(WGPUBufferBindingType_ArrayLength);
                     auto shortName = entryName.substring(2, entryName.length() - (sizeof("_ArrayLength") + 1));
                     if (auto it = entryMap.find(shortName); it != entryMap.end())
                         bufferSizeForBinding = it->value;
                 } else
-                    entryMap.set(entryName, entry.webBinding);
+                    entryMap.set(entryName, webBinding);
             }
 
-            newEntry.binding = entry.webBinding;
+            newEntry.binding = webBinding;
             std::span(newEntry.metalBinding)[stage] = entry.binding;
             newEntry.visibility = visibility;
             makeBindingLayout(newEntry, entry.bindingMember, bufferTypeOverride, bufferSizeForBinding);
@@ -941,7 +951,7 @@ static std::pair<Ref<RenderPipeline>, NSString*> returnInvalidRenderPipeline(Web
 
 static std::pair<Ref<RenderPipeline>, NSString*> returnInvalidRenderPipeline(WebGPU::Device &object, bool isAsync, String&& error)
 {
-    return returnInvalidRenderPipeline(object, isAsync, static_cast<NSString*>(error));
+    return returnInvalidRenderPipeline(object, isAsync, error.createNSString().get());
 }
 
 static constexpr ASCIILiteral name(WGPUCompareFunction compare)
@@ -1328,7 +1338,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
     mtlRenderPipelineDescriptor.shaderValidation = shaderValidationState();
 #endif
 
-    auto label = fromAPI(descriptor.label);
+    auto label = fromAPI(descriptor.label).createNSString();
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=249345 don't unconditionally set this to YES
     mtlRenderPipelineDescriptor.supportIndirectCommandBuffers = YES;
     auto& deviceLimits = limits();
@@ -1347,6 +1357,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
     const ShaderModule::VertexStageIn* vertexStageIn = nullptr;
     const ShaderModule::VertexOutputs* vertexOutputs = nullptr;
     BufferBindingSizesForPipeline minimumBufferSizes;
+    uint32_t vertexShaderBindingCount = 0;
     {
         if (descriptor.vertex.nextInChain)
             return returnInvalidRenderPipeline(*this, isAsync, "Vertex module has an invalid chain"_s);
@@ -1362,16 +1373,17 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
         if (NSString* error = errorValidatingVertexStageIn(vertexStageIn, *this))
             return returnInvalidRenderPipeline(*this, isAsync, error);
         NSError *error = nil;
-        auto libraryCreationResult = createLibrary(m_device, vertexModule, pipelineLayout.get(), vertexEntryPoint, label, descriptor.vertex.constantsSpan(), minimumBufferSizes, &error);
+        auto libraryCreationResult = createLibrary(m_device, vertexModule, pipelineLayout.get(), vertexEntryPoint, label.get(), descriptor.vertex.constantsSpan(), minimumBufferSizes, &error);
         if (!libraryCreationResult)
             return returnInvalidRenderPipeline(*this, isAsync, error.localizedDescription ?: @"Vertex library failed creation");
 
+        vertexShaderBindingCount = std::min<uint32_t>(libraryCreationResult->entryPointInformation.bindingCount, std::numeric_limits<uint32_t>::max());
         const auto& entryPointInformation = libraryCreationResult->entryPointInformation;
         if (!pipelineLayout) {
             if (NSString* error = addPipelineLayouts(bindGroupEntries, entryPointInformation.defaultLayout))
                 return returnInvalidRenderPipeline(*this, isAsync, error);
         }
-        auto vertexFunction = createFunction(libraryCreationResult->library, entryPointInformation, label);
+        auto vertexFunction = createFunction(libraryCreationResult->library, entryPointInformation, label.get());
         if (!vertexFunction || vertexFunction.functionType != MTLFunctionTypeVertex || entryPointInformation.specializationConstants.size() != libraryCreationResult->wgslConstantValues.size())
             return returnInvalidRenderPipeline(*this, isAsync, "Vertex function could not be created"_s);
         mtlRenderPipelineDescriptor.vertexFunction = vertexFunction;
@@ -1404,7 +1416,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
         usesFragDepth = fragmentModule->usesFragDepth(fragmentEntryPoint);
         usesSampleMask = fragmentModule->usesSampleMaskInOutput(fragmentEntryPoint);
         NSError *error = nil;
-        auto libraryCreationResult = createLibrary(m_device, *fragmentModule, pipelineLayout.get(), fragmentEntryPoint, label, fragmentDescriptor.constantsSpan(), minimumBufferSizes, &error);
+        auto libraryCreationResult = createLibrary(m_device, *fragmentModule, pipelineLayout.get(), fragmentEntryPoint, label.get(), fragmentDescriptor.constantsSpan(), minimumBufferSizes, &error);
         if (!libraryCreationResult)
             return returnInvalidRenderPipeline(*this, isAsync, error.localizedDescription ?: @"Fragment library could not be created");
 
@@ -1414,7 +1426,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
                 return returnInvalidRenderPipeline(*this, isAsync, error);
         }
 
-        auto fragmentFunction = createFunction(libraryCreationResult->library, entryPointInformation, label);
+        auto fragmentFunction = createFunction(libraryCreationResult->library, entryPointInformation, label.get());
         if (!fragmentFunction || fragmentFunction.functionType != MTLFunctionTypeFragment || entryPointInformation.specializationConstants.size() != libraryCreationResult->wgslConstantValues.size())
             return returnInvalidRenderPipeline(*this, isAsync, "Fragment function failed creation"_s);
         mtlRenderPipelineDescriptor.fragmentFunction = fragmentFunction;
@@ -1524,7 +1536,8 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
     RELEASE_ASSERT([mtlRenderPipelineDescriptor respondsToSelector:@selector(setSampleMask:)]);
     uint32_t sampleMask = RenderBundleEncoder::defaultSampleMask;
     if (auto mask = descriptor.multisample.mask; mask != sampleMask) {
-        [mtlRenderPipelineDescriptor setSampleMask:mask];
+        if (!usesSampleMask)
+            [mtlRenderPipelineDescriptor setSampleMask:mask];
         sampleMask = mask;
     }
 
@@ -1550,7 +1563,7 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
     MTLDepthClipMode mtlDepthClipMode = MTLDepthClipModeClip;
     if (descriptor.primitive.nextInChain) {
         if (!hasFeature(WGPUFeatureName_DepthClipControl) || descriptor.primitive.nextInChain->sType != WGPUSType_PrimitiveDepthClipControl || descriptor.primitive.nextInChain->next)
-            return returnInvalidRenderPipeline(*this, isAsync, "unclippedDepth used without enabling depth-clip-contro feature"_s);
+            return returnInvalidRenderPipeline(*this, isAsync, "unclippedDepth used without enabling depth-clip-control feature"_s);
 
         auto* depthClipControl = reinterpret_cast<const WGPUPrimitiveDepthClipControl*>(descriptor.primitive.nextInChain);
 
@@ -1579,15 +1592,19 @@ std::pair<Ref<RenderPipeline>, NSString*> Device::createRenderPipeline(const WGP
     if (error || !renderPipelineState)
         return returnInvalidRenderPipeline(*this, isAsync, error.localizedDescription);
 
+    if (m_renderPipelineId == Device::maxPipelines) {
+        loseTheDevice(WGPUDeviceLostReason_Undefined);
+        return returnInvalidRenderPipeline(*this, isAsync, @"too many render pipelines");
+    }
     if (!pipelineLayout) {
         auto generatedPipelineLayout = generatePipelineLayout(bindGroupEntries);
         if (!generatedPipelineLayout->isValid())
             return returnInvalidRenderPipeline(*this, isAsync, "Generated pipeline layout is not valid"_s);
 
-        return std::make_pair(RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, WTFMove(generatedPipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), *this), nil);
+        return std::make_pair(RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, WTFMove(generatedPipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
     }
 
-    return std::make_pair(RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), *this), nil);
+    return std::make_pair(RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), ++m_renderPipelineId, vertexShaderBindingCount, *this), nil);
 }
 
 void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<RenderPipeline>&&, String&& message)>&& callback)
@@ -1603,7 +1620,7 @@ void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descr
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderPipeline);
 
-RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, MTLRenderPipelineDescriptor* renderPipelineDescriptor, uint32_t colorAttachmentCount, const WGPURenderPipelineDescriptor& descriptor, RequiredBufferIndicesContainer&& requiredBufferIndices, BufferBindingSizesForPipeline&& minimumBufferSizes, Device& device)
+RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, MTLRenderPipelineDescriptor* renderPipelineDescriptor, uint32_t colorAttachmentCount, const WGPURenderPipelineDescriptor& descriptor, RequiredBufferIndicesContainer&& requiredBufferIndices, BufferBindingSizesForPipeline&& minimumBufferSizes, uint64_t uniqueId, uint32_t vertexShaderBindingCount, Device& device)
     : m_renderPipelineState(renderPipelineState)
     , m_device(device)
     , m_primitiveType(primitiveType)
@@ -1624,10 +1641,10 @@ RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, M
     , m_descriptor(descriptor)
     , m_descriptorDepthStencil(descriptor.depthStencil ? *descriptor.depthStencil : WGPUDepthStencilState())
     , m_descriptorFragment(descriptor.fragment ? *descriptor.fragment : WGPUFragmentState())
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    , m_descriptorTargets(descriptor.fragment && descriptor.fragment->targetCount ? Vector<WGPUColorTargetState>(std::span { descriptor.fragment->targets, descriptor.fragment->targetCount }) : Vector<WGPUColorTargetState>())
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    , m_descriptorTargets(descriptor.fragment && descriptor.fragment->targetCount ? Vector<WGPUColorTargetState>(unsafeMakeSpan(descriptor.fragment->targets, descriptor.fragment->targetCount)) : Vector<WGPUColorTargetState>())
     , m_minimumBufferSizes(minimumBufferSizes)
+    , m_uniqueId(uniqueId)
+    , m_vertexShaderBindingCount(vertexShaderBindingCount)
 {
     if (descriptor.depthStencil)
         m_descriptor.depthStencil = &m_descriptorDepthStencil;
@@ -1668,8 +1685,10 @@ Ref<BindGroupLayout> RenderPipeline::getBindGroupLayout(uint32_t groupIndex)
     }
 
     if (groupIndex >= pipelineLayout->numberOfBindGroupLayouts()) {
-        device->generateAValidationError("getBindGroupLayout: groupIndex is out of range"_s);
-        pipelineLayout->makeInvalid();
+        if (groupIndex >= device->limits().maxBindGroups) {
+            device->generateAValidationError("getBindGroupLayout: groupIndex is out of range"_s);
+            pipelineLayout->makeInvalid();
+        }
         return BindGroupLayout::createInvalid(device.get());
     }
 
@@ -1799,6 +1818,9 @@ const BufferBindingSizesForBindGroup* RenderPipeline::minimumBufferSizes(uint32_
 
 RefPtr<RenderPipeline> RenderPipeline::recomputeLastStrideAsStride() const
 {
+    if (m_lastStrideAsStridePipeline)
+        return m_lastStrideAsStridePipeline;
+
     MTLRenderPipelineDescriptor* clonedRenderPipelineDescriptor = [m_renderPipelineDescriptor copy];
 
     auto requiredBufferIndices = m_requiredBufferIndices;
@@ -1810,6 +1832,7 @@ RefPtr<RenderPipeline> RenderPipeline::recomputeLastStrideAsStride() const
     }
 
     NSError *error = nil;
+    RELEASE_ASSERT(m_device->device());
     id<MTLRenderPipelineState> renderPipelineState = [m_device->device() newRenderPipelineStateWithDescriptor:clonedRenderPipelineDescriptor error:&error];
     if (!renderPipelineState) {
         if (error)
@@ -1818,7 +1841,8 @@ RefPtr<RenderPipeline> RenderPipeline::recomputeLastStrideAsStride() const
     }
 
     auto minimumBufferSizes = m_minimumBufferSizes;
-    return RenderPipeline::create(renderPipelineState, m_primitiveType, m_indexType, m_frontFace, m_cullMode, m_clipMode, m_depthStencilDescriptor, m_pipelineLayout.copyRef(), m_depthBias, m_depthBiasSlopeScale, m_depthBiasClamp, m_sampleMask, clonedRenderPipelineDescriptor, m_colorAttachmentCount, m_descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), m_device);
+    m_lastStrideAsStridePipeline = RenderPipeline::create(renderPipelineState, m_primitiveType, m_indexType, m_frontFace, m_cullMode, m_clipMode, m_depthStencilDescriptor, m_pipelineLayout.copyRef(), m_depthBias, m_depthBiasSlopeScale, m_depthBiasClamp, m_sampleMask, clonedRenderPipelineDescriptor, m_colorAttachmentCount, m_descriptor, WTFMove(requiredBufferIndices), WTFMove(minimumBufferSizes), m_uniqueId, m_vertexShaderBindingCount, m_device);
+    return m_lastStrideAsStridePipeline;
 }
 
 } // namespace WebGPU

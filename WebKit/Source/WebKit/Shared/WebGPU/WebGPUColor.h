@@ -28,7 +28,6 @@
 #if ENABLE(GPU_PROCESS)
 
 #include <optional>
-#include <variant>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -41,7 +40,7 @@ struct ColorDict {
     double a { 0 };
 };
 
-using Color = std::variant<Vector<double>, ColorDict>;
+using Color = Variant<Vector<double>, ColorDict>;
 
 } // namespace WebKit::WebGPU
 

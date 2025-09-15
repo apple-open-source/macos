@@ -104,6 +104,13 @@ static void __DALog( int level, const char * format, va_list arguments )
                 
                 break;
             }
+                
+            case LOG_CRIT:
+            {
+                os_log_fault(__gDALog, "%{public}s", message );
+
+                break;
+            }
 
             default:
             {
@@ -230,6 +237,17 @@ void DALogError( const char * format, ... )
     va_start( arguments, format );
 
     __DALog( LOG_ERR, format, arguments );
+
+    va_end( arguments );
+}
+
+void DALogFault( const char * format, ... )
+{
+    va_list arguments;
+
+    va_start( arguments, format );
+
+    __DALog( LOG_CRIT, format, arguments );
 
     va_end( arguments );
 }

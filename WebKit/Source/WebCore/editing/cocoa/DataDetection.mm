@@ -29,7 +29,7 @@
 #if ENABLE(DATA_DETECTION)
 
 #import "Attr.h"
-#import "CSSStyleDeclaration.h"
+#import "BoundaryPointInlines.h"
 #import "ColorConversion.h"
 #import "ColorSerialization.h"
 #import "CommonAtomStrings.h"
@@ -60,6 +60,7 @@
 #import "VisibleUnits.h"
 #import <wtf/WorkQueue.h>
 #import <wtf/cf/TypeCastsCF.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/ParsingUtilities.h>
 #import <wtf/text/StringBuilder.h>
@@ -178,7 +179,7 @@ std::optional<DetectedItem> DataDetection::detectItemAroundHitTestResult(const H
 
 bool DataDetection::canBePresentedByDataDetectors(const URL& url)
 {
-    return [PAL::softLink_DataDetectorsCore_DDURLTapAndHoldSchemes() containsObject:(NSString *)url.protocol().convertToASCIILowercase()];
+    return [PAL::softLink_DataDetectorsCore_DDURLTapAndHoldSchemes() containsObject:url.protocol().convertToASCIILowercase().createNSString().get()];
 }
 
 bool DataDetection::isDataDetectorLink(Element& element)
@@ -202,7 +203,7 @@ bool DataDetection::canPresentDataDetectorsUIForElement(Element& element)
     if (!isDataDetectorLink(element))
         return false;
     
-    if (PAL::softLink_DataDetectorsCore_DDShouldImmediatelyShowActionSheetForURL(downcast<HTMLAnchorElement>(element).href()))
+    if (PAL::softLink_DataDetectorsCore_DDShouldImmediatelyShowActionSheetForURL(downcast<HTMLAnchorElement>(element).href().createNSURL().get()))
         return true;
     
     auto& resultAttribute = element.attributeWithoutSynchronization(x_apple_data_detectors_resultAttr);
@@ -236,12 +237,12 @@ static BOOL resultIsURL(DDResultRef result)
         return NO;
     
     static NeverDestroyed<RetainPtr<NSSet>> urlTypes = [NSSet setWithObjects:
-        (NSString *)PAL::get_DataDetectorsCore_DDBinderHttpURLKey(),
-        (NSString *)PAL::get_DataDetectorsCore_DDBinderWebURLKey(),
-        (NSString *)PAL::get_DataDetectorsCore_DDBinderMailURLKey(),
-        (NSString *)PAL::get_DataDetectorsCore_DDBinderGenericURLKey(),
-        (NSString *)PAL::get_DataDetectorsCore_DDBinderEmailKey(), nil];
-    return [urlTypes.get() containsObject:(NSString *)PAL::softLink_DataDetectorsCore_DDResultGetType(result)];
+        bridge_cast(PAL::get_DataDetectorsCore_DDBinderHttpURLKey()),
+        bridge_cast(PAL::get_DataDetectorsCore_DDBinderWebURLKey()),
+        bridge_cast(PAL::get_DataDetectorsCore_DDBinderMailURLKey()),
+        bridge_cast(PAL::get_DataDetectorsCore_DDBinderGenericURLKey()),
+        bridge_cast(PAL::get_DataDetectorsCore_DDBinderEmailKey()), nil];
+    return [urlTypes.get() containsObject:bridge_cast(PAL::softLink_DataDetectorsCore_DDResultGetType(result))];
 }
 
 static NSString *constructURLStringForResult(DDResultRef currentResult, NSString *resultIdentifier, NSDate *referenceDate, NSTimeZone *referenceTimeZone, OptionSet<DataDetectorType> detectionTypes)
@@ -619,8 +620,8 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
         if (resultRanges.isEmpty())
             continue;
 
-        NSString *identifier = dataDetectorStringForPath(indexPaths[resultIndex].get());
-        NSString *correspondingURL = constructURLStringForResult(coreResult, identifier, referenceDate, (NSTimeZone *)tz.get(), types);
+        RetainPtr identifier = dataDetectorStringForPath(indexPaths[resultIndex].get()).createNSString();
+        RetainPtr correspondingURL = constructURLStringForResult(coreResult, identifier.get(), referenceDate, (NSTimeZone *)tz.get(), types);
 
         if (!correspondingURL || searchForLinkRemovingExistingDDLinks(resultRanges.first().start.container, resultRanges.last().end.container))
             continue;
@@ -656,9 +657,9 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
             auto newTextNode = Text::create(document, WTFMove(textNodeData));
             parentNode->insertBefore(newTextNode.copyRef(), currentTextNode.get());
 
-            Ref<HTMLAnchorElement> anchorElement = HTMLAnchorElement::create(document);
-            anchorElement->setHref(correspondingURL);
-            anchorElement->setDir("ltr"_s);
+            Ref anchorElement = HTMLAnchorElement::create(document);
+            anchorElement->setAttributeWithoutSynchronization(hrefAttr, correspondingURL.get());
+            anchorElement->setAttributeWithoutSynchronization(dirAttr, "ltr"_s);
 
             if (shouldUseLightLinks) {
                 document.updateStyleIfNeeded();
@@ -689,7 +690,7 @@ static NSArray * processDataDetectorScannerResults(DDScannerRef scanner, OptionS
             // Add a special attribute to mark this URLification as the result of data detectors.
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectorsAttr, trueAtom());
             anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_typeAttr, dataDetectorTypeForCategory(PAL::softLink_DataDetectorsCore_DDResultGetCategory(coreResult)));
-            anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_resultAttr, identifier);
+            anchorElement->setAttributeWithoutSynchronization(x_apple_data_detectors_resultAttr, identifier.get());
 
             parentNode->insertBefore(WTFMove(anchorElement), currentTextNode.get());
 

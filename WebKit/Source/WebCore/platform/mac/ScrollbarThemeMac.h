@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,6 +78,7 @@ public:
 protected:
     bool hasButtons(Scrollbar&) override;
     bool hasThumb(Scrollbar&) override;
+    bool isScrollbarThemeMac() const final { return true; }
 
     IntRect backButtonRect(Scrollbar&, ScrollbarPart, bool painting = false) override;
     IntRect forwardButtonRect(Scrollbar&, ScrollbarPart, bool painting = false) override;
@@ -93,5 +94,9 @@ protected:
 };
 
 }
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ScrollbarThemeMac)
+static bool isType(const WebCore::ScrollbarTheme& scrollTheme) { return scrollTheme.isScrollbarThemeMac(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // PLATFORM(MAC)

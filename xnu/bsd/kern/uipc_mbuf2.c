@@ -453,25 +453,6 @@ m_tag_verify_cookie(struct m_tag *tag)
 
 #endif /* defined(HAS_APPLE_PAC) */
 
-
-struct m_tag *
-m_tag_create(uint32_t id, uint16_t type, int len, int wait, struct mbuf *buf)
-{
-#ifdef MB_TAG_MBUF
-	/*
-	 * Create and return an m_tag, either by re-using space in a previous tag
-	 * or by allocating a new mbuf/cluster
-	 */
-	return m_tag_create_mbuf(id, type, (uint16_t)len, wait, buf);
-#else /* MB_TAG_MBUF */
-#pragma unused(buf)
-	/*
-	 * Each packet tag has its own allocation
-	 */
-	return m_tag_alloc(id, type, (uint16_t)len, wait);
-#endif /* MB_TAG_MBUF */
-}
-
 #ifdef MB_TAG_MBUF
 /* Get a packet tag structure along with specified data following. */
 static struct m_tag *
@@ -517,7 +498,121 @@ m_tag_alloc_mbuf(u_int32_t id, u_int16_t type, uint16_t len, int wait)
 	}
 	return t;
 }
+#endif /* MB_TAG_MBUF */
 
+static struct m_tag_type_entry *
+get_m_tag_type_entry(uint32_t id, uint16_t type, struct m_tag_type_stats **pmtts)
+{
+	m_tag_type_entry_ref_t mtte = &m_tag_type_table[KERNEL_TAG_TYPE_NONE];
+
+	if (pmtts != NULL) {
+		*pmtts = &m_tag_type_stats[KERNEL_TAG_TYPE_NONE];
+	}
+
+	if (id == KERNEL_MODULE_TAG_ID) {
+		switch (type) {
+		case KERNEL_TAG_TYPE_DUMMYNET:
+		case KERNEL_TAG_TYPE_IPFILT:
+		case KERNEL_TAG_TYPE_ENCAP:
+		case KERNEL_TAG_TYPE_INET6:
+		case KERNEL_TAG_TYPE_IPSEC:
+		case KERNEL_TAG_TYPE_CFIL_UDP:
+		case KERNEL_TAG_TYPE_PF_REASS:
+		case KERNEL_TAG_TYPE_AQM:
+		case KERNEL_TAG_TYPE_DRVAUX:
+			mtte = &m_tag_type_table[type];
+			if (pmtts != NULL) {
+				*pmtts = &m_tag_type_stats[type];
+			}
+			break;
+		default:
+#if DEBUG || DEVELOPMENT
+			if (type > 0 && type < KERNEL_TAG_TYPE_COUNT) {
+				panic("get_m_tag_type_entry unexpected m_tag type %u",
+				    type);
+			}
+#endif /* DEBUG || DEVELOPMENT */
+			break;
+		}
+	}
+
+	return mtte;
+}
+
+#ifndef MB_TAG_MBUF
+static struct m_tag *
+m_tag_kalloc(uint32_t id, uint16_t type, uint16_t len, int wait, struct m_tag_type_entry *mtte)
+{
+	struct m_tag *tag = NULL;
+
+	tag = mtte->mt_alloc_func(id, type, len, wait);
+
+	if (__probable(tag != NULL)) {
+		VERIFY(IS_P2ALIGNED(tag, sizeof(uint64_t)));
+
+		if (__improbable(tag->m_tag_data == NULL)) {
+			VERIFY(len == 0);
+		} else {
+			VERIFY(len != 0);
+			VERIFY(IS_P2ALIGNED(tag->m_tag_data, sizeof(uint64_t)));
+		}
+	}
+	return tag;
+}
+
+static void
+m_tag_kfree(struct m_tag *tag, struct m_tag_type_entry *mtte)
+{
+	mtte->mt_free_func(tag);
+}
+#endif /* MB_TAG_MBUF */
+
+static struct m_tag *
+m_tag_alloc(uint32_t id, uint16_t type, int len, int wait)
+{
+	struct m_tag *tag = NULL;
+	m_tag_type_entry_ref_t mtte = NULL;
+	m_tag_type_stats_ref_t mtts = NULL;
+
+	mtte = get_m_tag_type_entry(id, type, &mtts);
+
+	if (__improbable(len < 0 || len >= MCLBYTES - sizeof(struct m_tag))) {
+		goto done;
+	}
+
+#ifdef MB_TAG_MBUF
+	tag = m_tag_alloc_mbuf(id, type, (uint16_t)len, wait);
+#else /* MB_TAG_MBUF */
+	/*
+	 * Using Z_NOWAIT could cause retransmission delays when there aren't
+	 * many other colocated types in the zone that would prime it. Use
+	 * Z_NOPAGEWAIT instead which will only fail to allocate when zalloc
+	 * needs to block on the VM for pages.
+	 */
+	if (wait & Z_NOWAIT) {
+		wait &= ~Z_NOWAIT;
+		wait |= Z_NOPAGEWAIT;
+	}
+	tag = m_tag_kalloc(id, type, (uint16_t)len, wait, mtte);
+#endif /* MB_TAG_MBUF */
+
+done:
+	if (__probable(tag != NULL)) {
+		m_tag_verify_cookie(tag);
+		assert3u(tag->m_tag_id, ==, id);
+		assert3u(tag->m_tag_type, ==, type);
+		assert3u(tag->m_tag_len, ==, len);
+
+		os_atomic_inc(&mtts->mt_alloc_count, relaxed);
+	} else {
+		os_atomic_inc(&mtts->mt_alloc_failed, relaxed);
+	}
+
+	return tag;
+}
+
+
+#ifdef MB_TAG_MBUF
 static struct m_tag *
 m_tag_create_mbuf(uint32_t id, uint16_t type, uint16_t len, int wait, struct mbuf *buf)
 {
@@ -610,6 +705,24 @@ m_tag_free_mbuf(struct m_tag *t)
 }
 #endif /* MB_TAG_MBUF */
 
+struct m_tag *
+m_tag_create(uint32_t id, uint16_t type, int len, int wait, struct mbuf *buf)
+{
+#ifdef MB_TAG_MBUF
+	/*
+	 * Create and return an m_tag, either by re-using space in a previous tag
+	 * or by allocating a new mbuf/cluster
+	 */
+	return m_tag_create_mbuf(id, type, (uint16_t)len, wait, buf);
+#else /* MB_TAG_MBUF */
+#pragma unused(buf)
+	/*
+	 * Each packet tag has its own allocation
+	 */
+	return m_tag_alloc(id, type, (uint16_t)len, wait);
+#endif /* MB_TAG_MBUF */
+}
+
 /*
  * Allocations for external data are known to not have pointers for
  * most platforms -- for macOS this is not guaranteed
@@ -682,117 +795,6 @@ m_tag_kfree_external(struct m_tag *tag)
 		m_tag_data_free(tag);
 	}
 	kfree_type(struct m_tag, tag);
-}
-
-static struct m_tag_type_entry *
-get_m_tag_type_entry(uint32_t id, uint16_t type, struct m_tag_type_stats **pmtts)
-{
-	m_tag_type_entry_ref_t mtte = &m_tag_type_table[KERNEL_TAG_TYPE_NONE];
-
-	if (pmtts != NULL) {
-		*pmtts = &m_tag_type_stats[KERNEL_TAG_TYPE_NONE];
-	}
-
-	if (id == KERNEL_MODULE_TAG_ID) {
-		switch (type) {
-		case KERNEL_TAG_TYPE_DUMMYNET:
-		case KERNEL_TAG_TYPE_IPFILT:
-		case KERNEL_TAG_TYPE_ENCAP:
-		case KERNEL_TAG_TYPE_INET6:
-		case KERNEL_TAG_TYPE_IPSEC:
-		case KERNEL_TAG_TYPE_CFIL_UDP:
-		case KERNEL_TAG_TYPE_PF_REASS:
-		case KERNEL_TAG_TYPE_AQM:
-		case KERNEL_TAG_TYPE_DRVAUX:
-			mtte = &m_tag_type_table[type];
-			if (pmtts != NULL) {
-				*pmtts = &m_tag_type_stats[type];
-			}
-			break;
-		default:
-#if DEBUG || DEVELOPMENT
-			if (type > 0 && type < KERNEL_TAG_TYPE_COUNT) {
-				panic("get_m_tag_type_entry unexpected m_tag type %u",
-				    type);
-			}
-#endif /* DEBUG || DEVELOPMENT */
-			break;
-		}
-	}
-
-	return mtte;
-}
-
-#ifndef MB_TAG_MBUF
-static struct m_tag *
-m_tag_kalloc(uint32_t id, uint16_t type, uint16_t len, int wait, struct m_tag_type_entry *mtte)
-{
-	struct m_tag *tag = NULL;
-
-	tag = mtte->mt_alloc_func(id, type, len, wait);
-
-	if (__probable(tag != NULL)) {
-		VERIFY(IS_P2ALIGNED(tag, sizeof(uint64_t)));
-
-		if (__improbable(tag->m_tag_data == NULL)) {
-			VERIFY(len == 0);
-		} else {
-			VERIFY(len != 0);
-			VERIFY(IS_P2ALIGNED(tag->m_tag_data, sizeof(uint64_t)));
-		}
-	}
-	return tag;
-}
-
-static void
-m_tag_kfree(struct m_tag *tag, struct m_tag_type_entry *mtte)
-{
-	mtte->mt_free_func(tag);
-}
-#endif /* MB_TAG_MBUF */
-
-struct m_tag *
-m_tag_alloc(uint32_t id, uint16_t type, int len, int wait)
-{
-	struct m_tag *tag = NULL;
-	m_tag_type_entry_ref_t mtte = NULL;
-	m_tag_type_stats_ref_t mtts = NULL;
-
-	mtte = get_m_tag_type_entry(id, type, &mtts);
-
-	if (__improbable(len < 0 || len >= MCLBYTES - sizeof(struct m_tag))) {
-		goto done;
-	}
-
-#ifdef MB_TAG_MBUF
-	tag = m_tag_alloc_mbuf(id, type, (uint16_t)len, wait);
-#else /* MB_TAG_MBUF */
-	/*
-	 * Using Z_NOWAIT could cause retransmission delays when there aren't
-	 * many other colocated types in the zone that would prime it. Use
-	 * Z_NOPAGEWAIT instead which will only fail to allocate when zalloc
-	 * needs to block on the VM for pages.
-	 */
-	if (wait & Z_NOWAIT) {
-		wait &= ~Z_NOWAIT;
-		wait |= Z_NOPAGEWAIT;
-	}
-	tag = m_tag_kalloc(id, type, (uint16_t)len, wait, mtte);
-#endif /* MB_TAG_MBUF */
-
-done:
-	if (__probable(tag != NULL)) {
-		m_tag_verify_cookie(tag);
-		assert3u(tag->m_tag_id, ==, id);
-		assert3u(tag->m_tag_type, ==, type);
-		assert3u(tag->m_tag_len, ==, len);
-
-		os_atomic_inc(&mtts->mt_alloc_count, relaxed);
-	} else {
-		os_atomic_inc(&mtts->mt_alloc_failed, relaxed);
-	}
-
-	return tag;
 }
 
 /* Free a packet tag. */
@@ -1261,6 +1263,22 @@ m_sum16(struct mbuf *m, uint32_t off, uint32_t len)
 
 	return (uint16_t)os_cpu_in_cksum_mbuf(m, len, off, 0);
 }
+
+/*
+ * Write packet tx_time to the mbuf's meta data.
+ */
+void
+mbuf_set_tx_time(struct mbuf *m, uint64_t tx_time)
+{
+	struct m_tag *tag = NULL;
+	tag = m_tag_create(KERNEL_MODULE_TAG_ID, KERNEL_TAG_TYPE_AQM,
+	    sizeof(uint64_t), M_WAITOK, m);
+	if (tag != NULL) {
+		m_tag_prepend(m, tag);
+		*(uint64_t *)tag->m_tag_data = tx_time;
+	}
+}
+
 
 static int
 sysctl_mb_tag_stats(__unused struct sysctl_oid *oidp,

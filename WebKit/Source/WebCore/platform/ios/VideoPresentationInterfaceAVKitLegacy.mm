@@ -821,7 +821,7 @@ WebAVPlayerLayer *VideoPresentationInterfaceAVKitLegacy::fullscreenPlayerLayer()
 void VideoPresentationInterfaceAVKitLegacy::updateRouteSharingPolicy()
 {
     if (m_playerViewController && !m_routingContextUID.isEmpty())
-        [m_playerViewController setWebKitOverrideRouteSharingPolicy:(NSUInteger)m_routeSharingPolicy routingContextUID:m_routingContextUID];
+        [m_playerViewController setWebKitOverrideRouteSharingPolicy:(NSUInteger)m_routeSharingPolicy routingContextUID:m_routingContextUID.createNSString().get()];
 }
 
 void VideoPresentationInterfaceAVKitLegacy::hasVideoChanged(bool hasVideo)
@@ -860,7 +860,7 @@ void VideoPresentationInterfaceAVKitLegacy::setupPlayerViewController()
     [m_playerViewController setAllowsPictureInPicturePlayback:m_allowsPictureInPicturePlayback];
     [playerController() setAllowsPictureInPicture:m_allowsPictureInPicturePlayback];
     if (!m_routingContextUID.isEmpty())
-        [m_playerViewController setWebKitOverrideRouteSharingPolicy:(NSUInteger)m_routeSharingPolicy routingContextUID:m_routingContextUID];
+        [m_playerViewController setWebKitOverrideRouteSharingPolicy:(NSUInteger)m_routeSharingPolicy routingContextUID:m_routingContextUID.createNSString().get()];
 
     if (!m_currentMode.hasPictureInPicture() && !m_changingStandbyOnly) {
         ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "Moving videoView to fullscreen WebAVPlayerLayerView");

@@ -36,7 +36,7 @@
 #import "keychain/ot/OTConstants.h"
 
 @class OTAccountSettings;
-@class OTEscrowMoveRequestContext;
+@class OTEscrowCheckCallResult;
 NS_ASSUME_NONNULL_BEGIN
 
 // Any client hoping to use the TrustedPeersHelperProtocol should have an entitlement
@@ -135,7 +135,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property bool resetOctagon;
 @property bool leaveTrust;
 @property bool reroll;
-@property (nullable) OTEscrowMoveRequestContext* moveRequest;
 @property uint64_t totalEscrowRecords;
 @property uint64_t collectableEscrowRecords;
 @property uint64_t collectedEscrowRecords;
@@ -155,7 +154,6 @@ NS_ASSUME_NONNULL_BEGIN
                          resetOctagon:(bool)resetOctagon
                            leaveTrust:(bool)leaveTrust
                                reroll:(bool)reroll
-                          moveRequest:(OTEscrowMoveRequestContext* _Nullable)moveRequest
                    totalEscrowRecords:(uint64_t)totalEscrowRecords
              collectableEscrowRecords:(uint64_t)collectableEscrowRecords
                collectedEscrowRecords:(uint64_t)collectedEscrowRecords
@@ -611,10 +609,21 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)requestHealthCheckWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                        requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                     repair:(BOOL)repair
+                       danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                                updateIdMS:(BOOL)updateIdMS
                           knownFederations:(NSArray<NSString *> *)knownFederations
                                     flowID:(NSString* _Nullable )flowID
                            deviceSessionID:(NSString* _Nullable )deviceSessionID
                                      reply:(void (^)(TrustedPeersHelperHealthCheckResult* _Nullable result, NSError* _Nullable error))reply;
+
+- (void)requestEscrowCheckWithSpecificUser:(TPSpecificUser*)specificUser
+                       requiresEscrowCheck:(BOOL)requiresEscrowCheck
+                        passcodeGeneration:(UInt64)passcodeGeneration
+                          knownFederations:(NSArray<NSString *> *)knownFederations
+                         isBackgroundCheck:(BOOL)isBackgroundCheck
+                                    flowID:(NSString* _Nullable)flowID
+                           deviceSessionID:(NSString* _Nullable)deviceSessionID
+                                     reply:(void (^)(OTEscrowCheckCallResult* _Nullable result, NSError* _Nullable))reply;
 
 - (void)getSupportAppInfoWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                     reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
@@ -633,6 +642,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)fetchAccountSettingsWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                   forceFetch:(bool)forceFetch
+                                     altDSID:(NSString* _Nullable)altDSID
+                                      flowID:(NSString* _Nullable)flowID
+                             deviceSessionID:(NSString* _Nullable)deviceSessionID
+                              canSendMetrics:(BOOL)canSendMetrics
                                        reply:(void (^)(NSDictionary<NSString*, TPPBPeerStableInfoSetting *> * _Nullable setting,
                                                        NSError* _Nullable error))reply;
 
@@ -657,6 +670,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)fetchTrustedPeerCountWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                         reply:(void (^)(NSNumber* _Nullable count,
                                                         NSError* _Nullable error))reply;
+
+- (void)fetchTrustedFullPeerCountWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
+                                            reply:(void (^)(NSNumber* _Nullable count,
+                                                   NSError* _Nullable error))reply;
 
 - (void)octagonContainsDistrustedRecoveryKeysWithSpecificUser:(TPSpecificUser* _Nullable)specificUser
                                                         reply:(void (^)(BOOL containsDistrusted, NSError* _Nullable error))reply;

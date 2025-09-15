@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@ public:
 
     virtual ~CDMFactoryFairPlayStreaming();
 
-    std::unique_ptr<CDMPrivate> createCDM(const String&, const CDMPrivateClient&) override;
+    std::unique_ptr<CDMPrivate> createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient&) override;
     bool supportsKeySystem(const String&) override;
 
 private:
@@ -55,7 +55,7 @@ private:
 class CDMPrivateFairPlayStreaming final : public CDMPrivate {
     WTF_MAKE_TZONE_ALLOCATED(CDMPrivateFairPlayStreaming);
 public:
-    CDMPrivateFairPlayStreaming(const CDMPrivateClient&);
+    CDMPrivateFairPlayStreaming(const String& mediaKeysHashSalt, const CDMPrivateClient&);
     virtual ~CDMPrivateFairPlayStreaming();
 
 #if !RELEASE_LOG_DISABLED
@@ -102,9 +102,13 @@ public:
     static Vector<Ref<SharedBuffer>> keyIDsForRequest(AVContentKeyRequest *);
 #endif
 
+    const String& mediaKeysHashSalt() const { return m_mediaKeysHashSalt; }
+
 private:
+    String m_mediaKeysHashSalt;
+
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     uint64_t m_logIdentifier { 0 };
 #endif
 };

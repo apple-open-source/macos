@@ -55,7 +55,7 @@
     auto& vector = _fields->fields();
     NSMutableDictionary<NSString *, NSString *> *dictionary = [NSMutableDictionary dictionaryWithCapacity:vector.size()];
     for (auto& field : vector)
-        [dictionary setObject:field.value() forKey:field.name()];
+        [dictionary setObject:field.value().createNSString().get() forKey:field.name().createNSString().get()];
     return dictionary;
 }
 

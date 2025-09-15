@@ -1116,11 +1116,13 @@ IOCatalogue::startMatching( const OSSymbol * moduleName )
 		OSSharedPtr<OSArray> dextPersonalities = kext->copyPersonalitiesArray();
 
 		if (!dextPersonalities) {
+			IORWLockUnlock(lock);
 			return false;
 		}
 
 		servicesToTerminate = OSArray::withCapacity(1);
 		if (!servicesToTerminate) {
+			IORWLockUnlock(lock);
 			return false;
 		}
 

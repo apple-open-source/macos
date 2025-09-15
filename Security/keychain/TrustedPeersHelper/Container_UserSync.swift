@@ -3,14 +3,21 @@ import Foundation
 // Apple TVs and watches have no UI to enable or disable this status.
 // So, help them out by ignoring all efforts.
 extension TPPBPeerStableInfoUserControllableViewStatus {
+    static func follower(model: String) -> Bool {
+        if model.hasPrefix("AppleTV") ||
+           model.hasPrefix("AudioAccessory") {
+            return true
+        }
+        return false
+    }
+
     func sanitizeForPlatform(permanentInfo: TPPeerPermanentInfo) -> TPPBPeerStableInfoUserControllableViewStatus {
         // Unknown is the unknown for any platform
         if self == .UNKNOWN {
             return .UNKNOWN
         }
 
-        if permanentInfo.modelID.hasPrefix("AppleTV") ||
-            permanentInfo.modelID.hasPrefix("AudioAccessory") {
+        if Self.follower(model: permanentInfo.modelID) {
             // Apple TVs, and HomePods don't have UI to set this bit. So, they should always sync the
             // user-controlled views to which they have access.
             //

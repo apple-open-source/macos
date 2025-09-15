@@ -46,6 +46,8 @@ static constexpr CFIndex cfRunLoopOrder(RunLoopObserver::WellKnownOrder order)
         return coreAnimationCommit + 1;
     case RunLoopObserver::WellKnownOrder::PostRenderingUpdate:
         return coreAnimationCommit + 2;
+    case RunLoopObserver::WellKnownOrder::OpportunisticTask:
+        return coreAnimationCommit + 3;
     case RunLoopObserver::WellKnownOrder::DisplayRefreshMonitor:
         return 1;
     }
@@ -99,7 +101,7 @@ void RunLoopObserver::invalidate()
 
 bool RunLoopObserver::isScheduled() const
 {
-    return m_runLoopObserver;
+    return !!m_runLoopObserver;
 }
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ * Copyright (c) 2025 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -8,6 +8,8 @@
 #include "utils.h"
 #include "vm.h"
 #include "notes.h"
+#include "note_addrable_bits.h"
+#include "note_all_image_infos.h"
 #include "portable_task_crash_info_t.h"
 #include "portable_region_infos_t.h"
 
@@ -18,52 +20,60 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
-#include <compression.h>
 #include <sys/param.h>
 #include <libgen.h>
+#include <ctype.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 native_mach_header_t *
-make_corefile_mach_header(void *data)
+make_corefile_mach_header(void *data, const native_mach_header_t *aoutmh)
 {
     native_mach_header_t *mh = data;
     mh->magic = NATIVE_MH_MAGIC;
     mh->filetype = MH_CORE;
+    if (aoutmh) {
+        // make the core file cpu data mirror the a.out's mach header
+        mh->cputype = aoutmh->cputype;
+        mh->cpusubtype = aoutmh->cpusubtype;
+    } else {
+        // dyld cannot find the executable? ... guess something plausible
 #if defined(__LP64__)
-    const int is64 = 1;
+        const int is64 = 1;
 #else
-    const int is64 = 0;
+        const int is64 = 0;
 #endif
 #if defined(__i386__) || defined(__x86_64__)
-    mh->cputype = is64 ? CPU_TYPE_X86_64 : CPU_TYPE_I386;
-    mh->cpusubtype = is64 ? CPU_SUBTYPE_X86_64_ALL : CPU_SUBTYPE_I386_ALL;
+        mh->cputype = is64 ? CPU_TYPE_X86_64 : CPU_TYPE_I386;
+        mh->cpusubtype = is64 ? CPU_SUBTYPE_X86_64_ALL : CPU_SUBTYPE_I386_ALL;
 #elif defined(__arm__) || defined(__arm64__)
-    mh->cputype = is64 ? CPU_TYPE_ARM64 : CPU_TYPE_ARM;
-    mh->cpusubtype = is64 ? CPU_SUBTYPE_ARM64_ALL : CPU_SUBTYPE_ARM_ALL;
+        if (is64) {
+            /* uses the ARMv8 instruction set, LP64 data model */
+            mh->cputype = CPU_TYPE_ARM64;
+            mh->cpusubtype = CPU_SUBTYPE_ARM64_ALL;
+        } else {
+#if defined(__arm64__)
+            /* ILP32 but still uses the ARMv8 instruction set */
+            mh->cputype = CPU_TYPE_ARM64_32;
+            mh->cpusubtype = CPU_SUBTYPE_ARM64_32_ALL;
+#else
+            /* ILP32 using some variant of the ARMv7 ISA */
+            mh->cputype = CPU_TYPE_ARM;
+            mh->cpusubtype = CPU_SUBTYPE_ARM_ALL;
+#endif  /* __arm64__ */
+        }
 #else
 #error undefined
 #endif
+    }
+    if (OPTIONS_DEBUG(opt, 3)) {
+        printf("core file mh cputype %d subtype 0x%x %s\n",
+            mh->cputype, mh->cpusubtype, aoutmh ? "" : "(no aout data)");
+    }
     return mh;
 }
 
-struct proto_coreinfo_command *
-make_coreinfo_command(native_mach_header_t *mh, void *data, const uuid_t aoutid, uint64_t address, uint64_t dyninfo)
-{
-    struct proto_coreinfo_command *cc = data;
-    cc->cmd = proto_LC_COREINFO;
-    cc->cmdsize = sizeof (*cc);
-    cc->version = 1;
-    cc->type = proto_CORETYPE_USER;
-	cc->pageshift = (uint16_t)pageshift_host;
-    cc->address = address;
-    uuid_copy(cc->uuid, aoutid);
-    cc->dyninfo = dyninfo;
-    mach_header_inc_ncmds(mh, 1);
-    mach_header_inc_sizeofcmds(mh, cc->cmdsize);
-    return cc;
-}
-
-native_segment_command_t *
+static native_segment_command_t *
 make_native_segment_command(void *data, const struct vm_range *vr, const struct file_range *fr, vm_prot_t maxprot, vm_prot_t initprot)
 {
     native_segment_command_t *sc = data;
@@ -79,29 +89,6 @@ make_native_segment_command(void *data, const struct vm_range *vr, const struct 
     sc->nsects = 0;
     sc->flags = 0;
     return sc;
-}
-
-static struct proto_coredata_command *
-make_coredata_command(void *data, const struct vm_range *vr, const struct file_range *fr, const vm_region_submap_info_data_64_t *info, unsigned comptype, unsigned purgable)
-{
-	struct proto_coredata_command *cc = data;
-	cc->cmd = proto_LC_COREDATA;
-	cc->cmdsize = sizeof (*cc);
-	assert(V_SIZE(vr));
-	cc->vmaddr = V_ADDR(vr);
-	cc->vmsize = V_SIZE(vr);
-	cc->fileoff = F_OFF(fr);
-	cc->filesize = F_SIZE(fr);
-	cc->maxprot = info->max_protection;
-	cc->prot = info->protection;
-	cc->flags = COMP_MAKE_FLAGS(comptype);
-	cc->share_mode = info->share_mode;
-	assert(purgable <= UINT8_MAX);
-	cc->purgable = (uint8_t)purgable;
-	assert(info->user_tag <= UINT8_MAX);
-	cc->tag = (uint8_t)info->user_tag;
-	cc->extp = info->external_pager;
-	return cc;
 }
 
 #pragma mark -- Write LC_NOTEs for memory analysis tools --
@@ -132,7 +119,7 @@ write_string_to_wsda(struct write_segment_data *wsda, const char *string)
     if (NULL == string) {
         return UINT64_MAX;
     }
-    
+
     const struct file_range fr = note_write_memory(wsda, string, strlen(string) + 1);
     return fr.off;
 }
@@ -143,9 +130,47 @@ write_uint16_array_to_wsda(struct write_segment_data *wsda, const uint16_t *arra
     if (NULL == wsda) {
         return UINT64_MAX;
     }
-    
+
     const struct file_range fr = note_write_memory(wsda, array, array_count * sizeof(*array));
     return fr.off;
+}
+
+static __inline mach_vm_size_t
+size_string(const char *s) {
+    return s ? strlen(s) + 1 : 0;
+}
+
+static __inline mach_vm_size_t
+size_uint16_array(const uint16_t *array, mach_vm_size_t array_count) {
+    return array_count * sizeof(*array);
+}
+
+mach_vm_size_t
+size_region_infos_note(const struct region_infos_note_data *rin)
+{
+    size_t size = 0;
+
+    const size_t portable_region_infos_size =
+        sizeof(struct portable_region_infos_t) +
+        sizeof(struct portable_region_info_t) * (size_t)rin->regions_count;
+
+    for (uint64_t ri = 0; ri < rin->regions_count; ri++) {
+        const struct region_infos_note_region_data *rd = &rin->regions[ri];
+        if (rd->mapped_file_path) {
+            size += size_string(rd->mapped_file_path);
+        }
+        if (rd->phys_footprint_dispositions) {
+            size += size_uint16_array(rd->phys_footprint_dispositions,
+                rd->phys_footprint_disposition_count);
+        }
+        if (rd->non_phys_footprint_dispositions) {
+            size += size_uint16_array(rd->non_phys_footprint_dispositions,
+                rd->non_phys_footprint_disposition_count);
+        }
+    }
+    size += portable_region_infos_size;
+
+    return size;
 }
 
 struct note_command *
@@ -154,13 +179,13 @@ make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct
     nc->cmd = LC_NOTE;
     nc->cmdsize = sizeof(struct note_command);
     strlcpy(nc->data_owner, "vm info", sizeof(nc->data_owner));
-    
+
     const size_t portable_region_infos_size = sizeof(struct portable_region_infos_t) + (sizeof(struct portable_region_info_t) * (size_t)region_infos_note->regions_count);
     struct portable_region_infos_t *portable_reigon_infos = calloc(1, portable_region_infos_size);
     portable_reigon_infos->major_version = PORTABLE_REGION_INFOS_CURRENT_MAJOR_VERSION;
     portable_reigon_infos->minor_version = PORTABLE_REGION_INFOS_CURRENT_MINOR_VERSION;
     portable_reigon_infos->regions_count = region_infos_note->regions_count;
-    
+
     for (uint64_t region_index = 0; region_index < region_infos_note->regions_count; region_index++) {
         const struct region_infos_note_region_data *region_data = &region_infos_note->regions[region_index];
         
@@ -168,6 +193,7 @@ make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct
         if (region_data->mapped_file_path) {
             mapped_file_path_file_offset = write_string_to_wsda(wsda, region_data->mapped_file_path);
             if (mapped_file_path_file_offset == 0) {
+                free(portable_reigon_infos);
                 return NULL;
             }
         }
@@ -176,6 +202,7 @@ make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct
         if (NULL != region_data->phys_footprint_dispositions) {
             phys_footprint_dispositions_file_offset = write_uint16_array_to_wsda(wsda, region_data->phys_footprint_dispositions, (size_t)region_data->phys_footprint_disposition_count);
             if (phys_footprint_dispositions_file_offset == 0) {
+                free(portable_reigon_infos);
                 return NULL;
             }
         }
@@ -184,6 +211,7 @@ make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct
         if (NULL != region_data->non_phys_footprint_dispositions) {
             non_phys_footprint_dispositions_file_offset = write_uint16_array_to_wsda(wsda, region_data->non_phys_footprint_dispositions, (size_t)region_data->non_phys_footprint_disposition_count);
             if (non_phys_footprint_dispositions_file_offset == 0) {
+                free(portable_reigon_infos);
                 return NULL;
             }
         }
@@ -225,19 +253,36 @@ make_region_infos_note(native_mach_header_t *mh, struct note_command *nc, struct
             .non_phys_footprint_dispositions_offset = non_phys_footprint_dispositions_file_offset,
         };
     }
-    
+
     const struct file_range portable_reigon_infos_file_range = note_write_memory(wsda, portable_reigon_infos, portable_region_infos_size);
+    free(portable_reigon_infos);
     if (portable_reigon_infos_file_range.off == 0) {
         return NULL;
     }
-    
+
     nc->offset = F_OFF(&portable_reigon_infos_file_range);
     nc->size = F_SIZE(&portable_reigon_infos_file_range);
-    
+
     mach_header_inc_ncmds(mh, 1);
     mach_header_inc_sizeofcmds(mh, nc->cmdsize);
 
     return nc;
+}
+
+mach_vm_size_t
+size_task_crashinfo_note(const struct task_crashinfo_note_data *tcn)
+{
+    mach_vm_size_t size = size_string(tcn->proc_name) + size_string(tcn->proc_path) +
+        size_string(tcn->parent_proc_name) + size_string(tcn->parent_proc_path);
+
+    if (tcn->udata_ptrs) {
+        size += sizeof(*tcn->udata_ptrs) * (size_t)tcn->udata_ptrs_count;
+    }
+    if (tcn->vm_object_query_datas) {
+        size += sizeof(*tcn->vm_object_query_datas) * (size_t)tcn->vm_object_query_datas_count;
+    }
+
+    return size + sizeof(struct portable_task_crash_info_t);
 }
 
 struct note_command *
@@ -246,7 +291,7 @@ make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, stru
     nc->cmd = LC_NOTE;
     nc->cmdsize = sizeof(struct note_command);
     strlcpy(nc->data_owner, "task crashinfo", sizeof(nc->data_owner));
-    
+
     const uint64_t proc_name_file_offset = write_string_to_wsda(wsda, task_crashinfo_note->proc_name);
     if (proc_name_file_offset == 0) {
         return NULL;
@@ -263,7 +308,7 @@ make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, stru
     if (parent_proc_path_file_offset == 0) {
         return NULL;
     }
-    
+
     assert((NULL == task_crashinfo_note->udata_ptrs && 0 == task_crashinfo_note->udata_ptrs_count) || (NULL != task_crashinfo_note->udata_ptrs && task_crashinfo_note->udata_ptrs_count > 0));
     uint64_t udata_ptrs_file_offset = UINT64_MAX;
     if (task_crashinfo_note->udata_ptrs) {
@@ -272,7 +317,7 @@ make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, stru
             return NULL;
         }
     }
-    
+
     assert((NULL == task_crashinfo_note->vm_object_query_datas && 0 == task_crashinfo_note->vm_object_query_datas_count) || (NULL != task_crashinfo_note->vm_object_query_datas && task_crashinfo_note->vm_object_query_datas_count > 0));
     uint64_t vm_object_query_datas_file_offset = UINT64_MAX;
     if (task_crashinfo_note->vm_object_query_datas) {
@@ -281,7 +326,7 @@ make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, stru
             return NULL;
         }
     }
-    
+
     struct portable_task_crash_info_t portable_task_crash_info = {
         .major_version = PORTABLE_TASK_CRASH_INFO_CURRENT_MAJOR_VERSION,
         .minor_version = PORTABLE_TASK_CRASH_INFO_CURRENT_MINOR_VERSION,
@@ -397,37 +442,380 @@ make_task_crashinfo_note(native_mach_header_t *mh, struct note_command *nc, stru
         .ledger_neural_footprint                = task_crashinfo_note->ledger_neural_footprint,
         .ledger_neural_footprint_compressed     = task_crashinfo_note->ledger_neural_footprint_compressed,
     };
-    
+
     memcpy(&portable_task_crash_info.ri_uuid, task_crashinfo_note->ri_uuid, sizeof(uuid_t));
-    
+
     const struct file_range portable_task_crash_info_file_range = note_write_memory(wsda, &portable_task_crash_info, sizeof(portable_task_crash_info));
     if (portable_task_crash_info_file_range.off == 0) {
         return NULL;
     }
-    
+
     nc->offset = F_OFF(&portable_task_crash_info_file_range);
     nc->size = F_SIZE(&portable_task_crash_info_file_range);
-    
+
     mach_header_inc_ncmds(mh, 1);
     mach_header_inc_sizeofcmds(mh, nc->cmdsize);
-    
+
     return nc;
 }
 
-static size_t
-sizeof_segment_command(void) 
+mach_vm_size_t
+size_addrable_bits_note(const struct note_addrable_bits *nab)
 {
-	return opt->extended ?
-		sizeof(struct proto_coredata_command) : sizeof(native_segment_command_t);
+    return sizeof(*nab);
+}
+
+struct note_command *
+make_addrable_bits_note(native_mach_header_t *mh, struct load_command *lc,
+    struct write_segment_data *wsda, const struct note_addrable_bits *nab)
+{
+    struct note_command *nc = (void *)lc;
+
+    nc->cmd = LC_NOTE;
+    nc->cmdsize = sizeof(struct note_command);
+    strlcpy(nc->data_owner, "addrable bits", sizeof(nc->data_owner));
+
+    const struct file_range fr = note_write_memory(wsda, nab, sizeof(*nab));
+    if (fr.off == 0) {
+        return NULL;
+    }
+    nc->offset = F_OFF(&fr);
+    nc->size = F_SIZE(&fr);
+
+    mach_header_inc_ncmds(mh, 1);
+    mach_header_inc_sizeofcmds(mh, nc->cmdsize);
+
+    return nc;
+}
+
+mach_vm_size_t
+size_all_image_infos_note(const struct all_image_infos_note_data *aiind)
+{
+    /*
+     * See the layout description in make_all_image_infos_note().
+     * XXX Because it assumes alignment, it's only an estimate.
+     */
+    off_t segment_vmaddrs_size = 0;
+    off_t filepaths_size = 0;
+
+    struct aii_image_entry_data *ied;
+    STAILQ_FOREACH(ied, &aiind->image_entries, ied_link) {
+        segment_vmaddrs_size += ied->ied_segment_count *
+            sizeof(struct note_aii_segment_vmaddr);
+        filepaths_size += ied->ied_pathlen + 1;
+    }
+
+    return sizeof(struct note_all_image_infos) +
+        sizeof(struct note_aii_image_entry) * aiind->imgcount +
+        segment_vmaddrs_size + filepaths_size;
+}
+
+struct note_command *
+make_all_image_infos_note(native_mach_header_t *mh, struct load_command *lc,
+    struct write_segment_data *wsda, const struct all_image_infos_note_data *aiind)
+{
+    struct note_command *nc = (void *)lc;
+
+    nc->cmd = LC_NOTE;
+    nc->cmdsize = sizeof(struct note_command);
+    strlcpy(nc->data_owner, "all image infos", sizeof(nc->data_owner));
+
+    /*
+     * The in-file layout is:
+     *  struct note_all_image_infos
+     *  struct note_aii_image_entry [imgcount]
+     *  struct note_aii_segment_vmaddr [segment_count][imgcount]
+     *  char stringpool [pathlen + 1][imgcount]
+     *
+     * Figure out the offsets using Jason's algorithm.
+     */
+    const off_t initial_offset = roundup(wsda->wsd_foffset, 16);
+    const off_t image_entries_offset = initial_offset +
+        sizeof(struct note_all_image_infos);
+    const off_t image_entries_size =
+        sizeof(struct note_aii_image_entry) * aiind->imgcount;
+    const off_t segment_vmaddrs_offset = image_entries_offset + image_entries_size;
+    off_t segment_vmaddrs_size = 0;
+    off_t filepaths_size = 0;
+
+    struct aii_image_entry_data *ied;
+    STAILQ_FOREACH(ied, &aiind->image_entries, ied_link) {
+        segment_vmaddrs_size += ied->ied_segment_count *
+            sizeof(struct note_aii_segment_vmaddr);
+        filepaths_size += ied->ied_pathlen + 1;
+    }
+    const off_t filepaths_offset = segment_vmaddrs_offset + segment_vmaddrs_size;
+    const off_t final_offset = filepaths_offset + filepaths_size;
+
+    // Top-level "all image infos" LC_NOTE, followed by ..
+
+    wsda->wsd_foffset = initial_offset;
+
+    struct note_all_image_infos naii = {
+        .version = NOTE_ALL_IMAGE_INFOS_CURRENT_VERSION,
+        .imgcount = aiind->imgcount,
+        .entries_fileoff = image_entries_offset,
+        .entry_size = sizeof(struct note_aii_image_entry),
+        .unused0 = 0,
+    };
+
+    struct file_range fr = note_write_memory(wsda, &naii, sizeof(naii));
+    if (fr.off == 0) {
+        return NULL;
+    }
+    assert(wsda->wsd_foffset == image_entries_offset);
+
+    nc->offset = F_OFF(&fr);
+    nc->size = F_SIZE(&fr);
+
+    mach_header_inc_ncmds(mh, 1);
+    mach_header_inc_sizeofcmds(mh, nc->cmdsize);
+
+    mach_vm_size_t bufsize = MAX(image_entries_size,
+                               MAX(segment_vmaddrs_size, filepaths_size));
+    void *buf = malloc((size_t)bufsize);
+    if (buf == NULL) {
+        return NULL;
+    }
+
+    // .. the array of image entries
+
+    off_t seg_addrs_offset = segment_vmaddrs_offset;
+    off_t filepath_offset = filepaths_offset;
+
+    struct note_aii_image_entry *aie = buf;
+    STAILQ_FOREACH(ied, &aiind->image_entries, ied_link) {
+        struct note_aii_image_entry naie = {
+            .filepath_offset = filepath_offset,
+            .load_address = ied->ied_mh,
+            .seg_addrs_offset =
+                ied->ied_segment_count > 0 ? seg_addrs_offset : UINT64_MAX,
+            .segment_count = ied->ied_segment_count,
+            .executing = 0,
+        };
+        uuid_copy(naie.uuid, ied->ied_uuid);
+        memcpy(aie, &naie, sizeof(naie));
+        aie += 1;
+        seg_addrs_offset +=
+            ied->ied_segment_count * sizeof(struct note_aii_segment_vmaddr);
+        filepath_offset += ied->ied_pathlen + 1;
+    }
+    assert((void *)aie == (void *)buf + image_entries_size);
+    if (note_write_memory(wsda, buf, (size_t)image_entries_size).off == 0) {
+        goto badwrite;
+    }
+    assert(wsda->wsd_foffset == segment_vmaddrs_offset);
+
+    // .. the arrays of segment vmaddrs
+
+    struct note_aii_segment_vmaddr *asv = buf;
+    STAILQ_FOREACH(ied, &aiind->image_entries, ied_link) {
+        memcpy(asv, ied->ied_seg_addrs, ied->ied_segment_count * sizeof(*asv));
+        asv += ied->ied_segment_count;
+    }
+    assert((void *)asv == (void *)buf + segment_vmaddrs_size);
+    if (note_write_memory(wsda, buf, (size_t)segment_vmaddrs_size).off == 0) {
+        goto badwrite;
+    }
+
+    assert(wsda->wsd_foffset == filepaths_offset);
+
+    // .. the pathname string pool that the image entries point at
+
+    char *pool = buf;
+    STAILQ_FOREACH(ied, &aiind->image_entries, ied_link) {
+        memcpy(pool, ied->ied_path, ied->ied_pathlen + 1);
+        pool += ied->ied_pathlen + 1;
+    }
+    assert((void *)pool == (void *)buf + filepaths_size);
+    if (note_write_memory(wsda, buf, (size_t)filepaths_size).off == 0) {
+        goto badwrite;
+    }
+    assert(wsda->wsd_foffset == final_offset);
+
+    wsda->wsd_foffset = roundup(final_offset, 16);
+
+    free(buf);
+    return nc;
+
+badwrite:
+    free(buf);
+    return NULL;
+}
+
+mach_vm_size_t
+size_process_metadata_note(const struct process_metadata_note_data *pmnd)
+{
+    return pmnd->jsonlength;
+}
+
+struct note_command *
+make_process_metadata_note(native_mach_header_t *mh, struct load_command *lc,
+    struct write_segment_data *wsda, const struct process_metadata_note_data *pmnd)
+{
+    struct note_command *nc = (void *)lc;
+
+    nc->cmd = LC_NOTE;
+    nc->cmdsize = sizeof(struct note_command);
+    /* Note: this name leaves no room for a terminating NUL */
+    strncpy(nc->data_owner, "process metadata", sizeof(nc->data_owner));
+
+    struct file_range fr = note_write_memory(wsda, pmnd->jsonbytes, pmnd->jsonlength);
+    if (fr.off == 0) {
+        return NULL;
+    }
+
+    nc->offset = F_OFF(&fr);
+    nc->size = F_SIZE(&fr);
+
+    mach_header_inc_ncmds(mh, 1);
+    mach_header_inc_sizeofcmds(mh, nc->cmdsize);
+    return nc;
+}
+
+static void
+map_note_data(const struct note_command *nc, int fd,
+    void (^validate)(const void *data))
+{
+    assert(fd >= 0);
+    const mach_vm_offset_t pagesize = ((mach_vm_offset_t)1 << pageshift_host);
+    const mach_vm_offset_t pagemask = pagesize - 1;
+
+    const uint64_t pgoff = nc->offset & ~pagemask;
+    const uint64_t pgend = roundup(nc->offset + nc->size, pagesize);
+    const size_t mapsize = (size_t)(pgend - pgoff);
+
+    native_mach_header_t mh;
+    if (pread(fd, &mh, sizeof(mh), 0) == -1) {
+        /* this and the mmap will fail if the core file is O_WRONLY */
+        os_log_error(glog, "pread mach header: %{darwin.errno}d", errno);
+        abort();
+    }
+    void *a = mmap(NULL, mapsize, PROT_READ, MAP_PRIVATE, fd, pgoff);
+    if (a == MAP_FAILED) {
+        os_log_error(glog, "failed to map data for LC_NOTE %{darwin.errno}d",
+            errno);
+        abort();
+    }
+    validate((const void *)(a + nc->offset - pgoff));
+    (void) munmap(a, (size_t)nc->size);
+}
+
+/*
+ * Verify the in-file content of the notes that have been written out
+ * Mostly minimal version checks.
+ * Note: nc->data_owner is 16 bytes and not NUL terminated,
+ * while the 'owner' parameter is a conventional C string.
+ */
+void
+validate_note_content(const struct note_command *nc, const char *owner, int fd)
+{
+    if (strcmp(owner, "addrable bits") == 0) {
+        map_note_data(nc, fd, ^(const void *arg) {
+            const struct note_addrable_bits *nab = arg;
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("\tnote_addrable_bits v%u: lo %u hi %u\n", nab->version,
+                       nab->low_memory_addressing_bits,
+                       nab->high_memory_addressing_bits);
+            }
+            if (nab->version != NOTE_ADDRABLE_BITS_CURRENT_VERSION) {
+                os_log_error(glog, "'%{public}s' bad version", owner);
+                abort();
+            }
+            if (nab->low_memory_addressing_bits > 64) {
+                os_log_error(glog, "'%{public}s' low bits > 64", owner);
+                abort();
+            }
+            if (nab->high_memory_addressing_bits > 64) {
+                os_log_error(glog, "'%{public}s' high bits > 64", owner);
+                abort();
+            }
+            if (nab->reserved0 != 0) {
+                os_log_error(glog, "'%{public}s' reserved0 field != 0", owner);
+                abort();
+            }
+        });
+    } else if (strcmp(owner, "process metadata") == 0) {
+        map_note_data(nc, fd, ^(const void *arg) {
+            if (nc->size == 0) {
+                os_log_error(glog, "''%{public}s' empty JSON string", owner);
+                abort();
+            }
+            const char *json = arg;
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("\t\'");
+                for (uint64_t i = 0; i < nc->size; i++) {
+                    putchar(json[i]);
+                }
+                printf("\'\n");
+            }
+            // Verify it's all ASCII at least
+            for (uint64_t i = 0; i < nc->size; i++) {
+                if (!isascii(json[i]) || json[i] == 0) {
+                    os_log_error(glog, "'%{public}s' 0x%x in json",
+                        owner, json[i]);
+                    abort();
+                }
+            }
+        });
+    } else if (strcmp(owner, "all image infos") == 0) {
+        map_note_data(nc, fd, ^(const void *arg) {
+            const struct note_all_image_infos *naii = arg;
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("\tnote_all_image_infos v%u\n",
+                    naii->version);
+            }
+            if (naii->version != NOTE_ALL_IMAGE_INFOS_CURRENT_VERSION) {
+                os_log_error(glog, "'%{public}s' bad version", owner);
+                abort();
+            }
+            if (naii->entry_size != sizeof(struct note_aii_image_entry)) {
+                os_log_error(glog, "'%{public}s' bad entry_size", owner);
+                abort();
+            }
+        });
+    } else if (strcmp(owner, "task crashinfo") == 0) {
+        map_note_data(nc, fd, ^(const void *arg) {
+            const struct portable_task_crash_info_t *ptci = arg;
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("\tportable_task_crash_info_t v%u.%u\n",
+                    ptci->major_version, ptci->minor_version);
+            }
+            if (ptci->major_version != PORTABLE_TASK_CRASH_INFO_CURRENT_MAJOR_VERSION ||
+                ptci->minor_version != PORTABLE_TASK_CRASH_INFO_CURRENT_MINOR_VERSION) {
+                os_log_error(glog, "'%{public}s' bad version", owner);
+                abort();
+            }
+        });
+    } else if (strcmp(owner, "vm info") == 0) {
+        map_note_data(nc, fd, ^(const void *arg) {
+            const struct portable_region_infos_t *pri = arg;
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("\tportable_region_infos_t v%u.%u\n",
+                    pri->major_version, pri->minor_version);
+            }
+            if (pri->major_version != PORTABLE_REGION_INFOS_CURRENT_MAJOR_VERSION ||
+                pri->minor_version != PORTABLE_REGION_INFOS_CURRENT_MINOR_VERSION) {
+                os_log_error(glog, "'%{public}s' bad version", owner);
+                abort();
+            }
+        });
+    } else {
+        os_log_error(glog, "unknown data owner: '%{public}s' LC_NOTE", owner);
+        abort();
+    }
+}
+
+static size_t
+sizeof_segment_command(void)
+{
+    return sizeof(native_segment_command_t);
 }
 
 static struct load_command *
-make_segment_command(void *data, const struct vm_range *vr, const struct file_range *fr, const vm_region_submap_info_data_64_t *info, unsigned comptype, int purgable)
+make_segment_command(void *data, const struct vm_range *vr, const struct file_range *fr, const vm_region_submap_info_data_64_t *info)
 {
-	if (opt->extended)
-		make_coredata_command(data, vr, fr, info, comptype, purgable);
-	else
-		make_native_segment_command(data, vr, fr, info->max_protection, info->protection);
+    make_native_segment_command(data, vr, fr, info->max_protection, info->protection);
 	return data;
 }
 
@@ -443,222 +831,6 @@ commit_load_command(struct write_segment_data *wsd, const struct load_command *l
     mach_header_inc_sizeofcmds(mh, lc->cmdsize);
 }
 
-#pragma mark -- Regions written as "file references" --
-
-static size_t
-cmdsize_fileref_command(const char *nm)
-{
-    size_t cmdsize = sizeof (struct proto_fileref_command);
-    size_t len;
-    if (0 != (len = strlen(nm))) {
-        len++; // NUL-terminated for mmap sanity
-        cmdsize += roundup(len, sizeof (long));
-    }
-    return cmdsize;
-}
-
-static void
-size_fileref_subregion(const struct subregion *s, struct size_core *sc)
-{
-    assert(S_LIBENT(s));
-
-    size_t cmdsize = cmdsize_fileref_command(S_PATHNAME(s));
-    sc->headersize += cmdsize;
-    sc->count++;
-    sc->memsize += S_SIZE(s);
-}
-
-static void
-size_fileref_region(const struct region *r, struct size_core *sc)
-{
-    assert(0 == r->r_nsubregions);
-    assert(!r->r_inzfodregion);
-
-    size_t cmdsize = cmdsize_fileref_command(r->r_fileref->fr_pathname);
-    sc->headersize += cmdsize;
-    sc->count++;
-    sc->memsize += R_SIZE(r);
-}
-
-static struct proto_fileref_command *
-make_fileref_command(void *data, const char *pathname, const uuid_t uuid,
-    const struct vm_range *vr, const struct file_range *fr,
-	const vm_region_submap_info_data_64_t *info, unsigned purgable)
-{
-    struct proto_fileref_command *fc = data;
-    size_t len;
-
-    fc->cmd = proto_LC_FILEREF;
-    fc->cmdsize = sizeof (*fc);
-    if (0 != (len = strlen(pathname))) {
-        /*
-         * Strings live immediately after the
-         * command, and are included in the cmdsize
-         */
-        fc->filename.offset = sizeof (*fc);
-        void *s = fc + 1;
-        strlcpy(s, pathname, ++len); // NUL-terminated for mmap sanity
-        fc->cmdsize += roundup(len, sizeof (long));
-        assert(cmdsize_fileref_command(pathname) == fc->cmdsize);
-    }
-
-	/*
-	 * A file reference allows different kinds of identifiers for
-	 * the reference to be reconstructed.
-	 */
-	assert(info->external_pager);
-
-	if (!uuid_is_null(uuid)) {
-		uuid_copy(fc->id, uuid);
-		fc->flags = FREF_MAKE_FLAGS(kFREF_ID_UUID);
-	} else {
-		struct stat st;
-		if (-1 != stat(pathname, &st) && 0 != st.st_mtimespec.tv_sec) {
-			/* "little-endian format timespec structure" */
-			struct timespec ts = st.st_mtimespec;
-			ts.tv_nsec = 0;	// allow touch(1) to fix things
-			memset(fc->id, 0, sizeof(fc->id));
-			memcpy(fc->id, &ts, sizeof(ts));
-			fc->flags = FREF_MAKE_FLAGS(kFREF_ID_MTIMESPEC_LE);
-		} else
-			fc->flags = FREF_MAKE_FLAGS(kFREF_ID_NONE);
-	}
-
-	fc->vmaddr = V_ADDR(vr);
-	assert(V_SIZE(vr));
-	fc->vmsize = V_SIZE(vr);
-
-	assert(F_OFF(fr) >= 0);
-	fc->fileoff = F_OFF(fr);
-	fc->filesize = F_SIZE(fr);
-
-    assert(info->max_protection & VM_PROT_READ);
-    fc->maxprot = info->max_protection;
-    fc->prot = info->protection;
-
-    fc->share_mode = info->share_mode;
-    assert(purgable <= UINT8_MAX);
-    fc->purgable = (uint8_t)purgable;
-    assert(info->user_tag <= UINT8_MAX);
-    fc->tag = (uint8_t)info->user_tag;
-    fc->extp = info->external_pager;
-    return fc;
-}
-
-/*
- * It's almost always more efficient to write out a reference to the
- * data than write out the data itself.
- */
-static walk_return_t
-make_fileref_subregion_command(const struct region *r, const struct subregion *s, struct write_segment_data *wsd)
-{
-    assert(S_LIBENT(s));
-    if (OPTIONS_DEBUG(opt, 1) && !issubregiontype(s, SEG_TEXT) && !issubregiontype(s, SEG_LINKEDIT))
-        printf("%s: unusual segment type %s from %s\n", __func__, S_MACHO_TYPE(s), S_FILENAME(s));
-    assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
-    assert((r->r_info.protection & VM_PROT_WRITE) == 0);
-
-    const struct libent *le = S_LIBENT(s);
-	const struct file_range fr = {
-		.off = S_MACHO_FILEOFF(s),
-		.size = S_SIZE(s),
-	};
-    const struct proto_fileref_command *fc = make_fileref_command(wsd->wsd_lc, le->le_pathname, le->le_uuid, S_RANGE(s), &fr, &r->r_info, r->r_purgable);
-
-    commit_load_command(wsd, (const void *)fc);
-    if (OPTIONS_DEBUG(opt, 3)) {
-        hsize_str_t hstr;
-        printr(r, "ref '%s' %s (vm %llx-%llx, file offset %lld for %s)\n", S_FILENAME(s), S_MACHO_TYPE(s), (uint64_t)fc->vmaddr, (uint64_t)fc->vmaddr + fc->vmsize, (int64_t)fc->fileoff, str_hsize(hstr, fc->filesize));
-    }
-    return WALK_CONTINUE;
-}
-
-/*
- * Note that we may be asked to write reference segments whose protections
- * are rw- -- this -should- be ok as we don't convert the region to a file
- * reference unless we know it hasn't been modified.
- */
-static walk_return_t
-rop_fileref_makeheader(const struct region *r, struct write_segment_data *wsd)
-{
-    assert(0 == r->r_nsubregions);
-    assert(r->r_info.user_tag != VM_MEMORY_IOKIT);
-    assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
-    assert(!r->r_inzfodregion);
-
-	const struct libent *le = r->r_fileref->fr_libent;
-	const char *pathname = r->r_fileref->fr_pathname;
-	const struct file_range fr = {
-		.off = r->r_fileref->fr_offset,
-		.size = R_SIZE(r),
-	};
-	const struct proto_fileref_command *fc = make_fileref_command(wsd->wsd_lc, pathname, le ? le->le_uuid : UUID_NULL, R_RANGE(r), &fr, &r->r_info, r->r_purgable);
-
-    commit_load_command(wsd, (const void *)fc);
-    if (OPTIONS_DEBUG(opt, 3)) {
-        hsize_str_t hstr;
-		printr(r, "ref '%s' %s (vm %llx-%llx, file offset %lld for %s)\n", pathname, "(type?)", (uint64_t)fc->vmaddr, (uint64_t)fc->vmaddr + fc->vmsize, (int64_t)fc->fileoff, str_hsize(hstr, fc->filesize));
-    }
-    return WALK_CONTINUE;
-}
-
-static walk_return_t
-rop_noop(const struct region *__unused r,
-    struct write_segment_data *__unused wsd)
-{
-    return WALK_CONTINUE;
-}
-
-/*
- * fileref regions only update the mach header, and so the header op
- * and the write op are the same, while the stream op is a no-op
- */
-const struct regionop fileref_ops = {
-    .rop_header = rop_fileref_makeheader,
-    .rop_stream = rop_noop,
-    .rop_pwrite = rop_fileref_makeheader,
-    .rop_delete = rop_fileref_delete,
-};
-
-
-#pragma mark -- ZFOD segments written only to the header --
-
-static void
-size_zfod_region(const struct region *r, struct size_core *sc)
-{
-    assert(0 == r->r_nsubregions);
-    assert(r->r_inzfodregion);
-    sc->headersize += sizeof_segment_command();
-    sc->count++;
-    sc->memsize += R_SIZE(r);
-}
-
-static walk_return_t
-rop_zfod_makeheader(const struct region *r, struct write_segment_data *wsd)
-{
-    assert(r->r_info.user_tag != VM_MEMORY_IOKIT);
-    assert((r->r_info.max_protection & VM_PROT_READ) == VM_PROT_READ);
-
-	const struct file_range fr = {
-		.off = wsd->wsd_foffset,
-		.size = 0,
-	};
-    make_segment_command(wsd->wsd_lc, R_RANGE(r), &fr, &r->r_info, 0, VM_PURGABLE_EMPTY);
-    commit_load_command(wsd, wsd->wsd_lc);
-    return WALK_CONTINUE;
-}
-
-/*
- * zfod regions only update the mach header, and so the header op
- * and the write op are the same, while the stream op is a no-op
- */
-const struct regionop zfod_ops = {
-    .rop_header = rop_zfod_makeheader,
-    .rop_stream = rop_noop,
-    .rop_pwrite = rop_zfod_makeheader,
-    .rop_delete = rop_zfod_delete,
-};
-
 #pragma mark -- Regions containing data written at offsets beyond the header --
 
 static void
@@ -666,15 +838,16 @@ report_write_memory(const struct vm_range *vr, int error, size_t size, off_t fof
 {
     hsize_str_t hsz;
     printvr(vr, "writing %ld bytes at offset %lld -> ", size, foffset);
-    if (error)
+    if (error) {
         printf("err #%d - %s ", error, strerror(error));
-    else {
+    } else {
         printf("%s ", str_hsize(hsz, nwritten));
-        if (size != (size_t)nwritten)
+        if (size != (size_t)nwritten) {
             printf("[%zd - incomplete write!] ", nwritten);
-        else if (size != V_SIZE(vr))
+        } else if (size != V_SIZE(vr)) {
             printf("(%s in memory) ",
                    str_hsize(hsz, V_SIZE(vr)));
+        }
     }
     printf("\n");
 }
@@ -726,36 +899,10 @@ stream_memory(struct write_segment_data *wsd, const void *addr, size_t size, con
     return result_write_memory(error, size, nwritten, wsd);
 }
 
-/*
- * Write a contiguous range of memory into the core file.
- * Apply compression, and chunk if necessary.
- */
-static int
-segment_compflags(compression_algorithm ca, unsigned *algnum)
-{
-    switch (ca) {
-        case COMPRESSION_LZ4:
-            *algnum = kCOMP_LZ4;
-            break;
-        case COMPRESSION_ZLIB:
-            *algnum = kCOMP_ZLIB;
-            break;
-        case COMPRESSION_LZMA:
-            *algnum = kCOMP_LZMA;
-            break;
-        case COMPRESSION_LZFSE:
-            *algnum = kCOMP_LZFSE;
-            break;
-        default:
-            err(EX_SOFTWARE, "unsupported compression algorithm %x", ca);
-    }
-    return 0;
-}
-
 static bool
 is_file_mapped_shared(const struct region *r)
 {
-    if (r->r_info.external_pager)
+    if (r->r_info.external_pager) {
         switch (r->r_info.share_mode) {
             case SM_TRUESHARED:     // sm=shm
             case SM_SHARED:         // sm=ali
@@ -764,6 +911,7 @@ is_file_mapped_shared(const struct region *r)
             default:
                 break;
         }
+    }
     return false;
 }
 
@@ -780,17 +928,20 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
         kern_return_t kr = mach_vm_allocate(mach_task_self(), &dp->addr, dp->size, VM_FLAGS_ANYWHERE);
         if (KERN_SUCCESS != kr || 0 == dp->addr) {
             err_mach(kr, r, "mach_vm_allocate c %llx-%llx", V_ADDR(vr), V_ENDADDR(vr));
-            print_one_memory_region(r);
+            if (OPTIONS_DEBUG(opt, 1)) {
+                print_one_memory_region(r);
+            }
             return WALK_ERROR;
         }
-        if (OPTIONS_DEBUG(opt, 3))
+        if (OPTIONS_DEBUG(opt, 3)) {
             printr(r, "copying from self %llx-%llx\n", V_ADDR(vr), V_ENDADDR(vr));
+        }
         memcpy((void *)dp->addr, (const void *)V_ADDR(vr), V_SIZE(vr));
         return WALK_CONTINUE;
     }
 
     if (!r->r_insharedregion && 0 == (r->r_info.protection & VM_PROT_READ)) {
-        assert(0 != (r->r_info.max_protection & VM_PROT_READ)); // simple_region_optimization()
+        assert(0 != (r->r_info.max_protection & VM_PROT_READ));
 
         /*
          * Special case: region that doesn't currently have read permission.
@@ -798,24 +949,30 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
          * from com.apple.WebKit.WebContent)
          */
         const mach_vm_offset_t pagesize_host = 1u << pageshift_host;
-        if (OPTIONS_DEBUG(opt, 3))
+        if (OPTIONS_DEBUG(opt, 3)) {
             printr(r, "unreadable (%s/%s), remap with read permission\n",
                 str_prot(r->r_info.protection), str_prot(r->r_info.max_protection));
+        }
         V_SETADDR(dp, 0);
         V_SETSIZE(dp, V_SIZE(vr));
-        vm_prot_t cprot, mprot;
-        kern_return_t kr = mach_vm_remap(mach_task_self(), &dp->addr, V_SIZE(dp), pagesize_host - 1, true, wsd->wsd_task, V_ADDR(vr), true, &cprot, &mprot, VM_INHERIT_NONE);
+        vm_prot_t cprot = VM_PROT_READ, mprot = VM_PROT_READ;
+        kern_return_t kr = mach_vm_remap_new(mach_task_self(), &dp->addr,
+            V_SIZE(dp), pagesize_host - 1, VM_FLAGS_ANYWHERE, wsd->wsd_task,
+            V_ADDR(vr), true, &cprot, &mprot, VM_INHERIT_NONE);
+        if (KERN_SUCCESS != kr) {
+            err_mach(kr, r, "mach_vm_remap_new() %llx-%llx", V_ADDR(vr), V_ENDADDR(vr));
+            return WALK_ERROR;
+        }
+        if ((cprot & VM_PROT_READ) == 0) {
+            kr = mach_vm_protect(mach_task_self(), V_ADDR(dp), V_SIZE(dp),
+                false, VM_PROT_READ);
             if (KERN_SUCCESS != kr) {
-                err_mach(kr, r, "mach_vm_remap() %llx-%llx", V_ADDR(vr), V_ENDADDR(vr));
-                return WALK_ERROR;
-            }
-            assert(r->r_info.protection == cprot && r->r_info.max_protection == mprot);
-            kr = mach_vm_protect(mach_task_self(), V_ADDR(dp), V_SIZE(dp), false, VM_PROT_READ);
-            if (KERN_SUCCESS != kr) {
-                err_mach(kr, r, "mach_vm_protect() %llx-%llx", V_ADDR(vr), V_ENDADDR(vr));
+                err_mach(kr, r, "mach_vm_protect() %llx-%llx", V_ADDR(vr),
+                    V_ENDADDR(vr));
                 mach_vm_deallocate(mach_task_self(), V_ADDR(dp), V_SIZE(dp));
                 return WALK_ERROR;
             }
+        }
         return WALK_CONTINUE;
     }
 
@@ -836,21 +993,24 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
                 if (OPTIONS_DEBUG(opt, 1)) {
                     /* not necessarily an error: mitigation below */
                     tag_str_t tstr;
-                    printr(r, "mach_vm_read() failed (%s) -- substituting zeroed region\n", str_tagr(tstr, r));
-                    if (OPTIONS_DEBUG(opt, 2))
+                    printr(r, "mach_vm_read() failed (%s) -- substituting zeroed region\n", str_tag(tstr, r));
+                    if (OPTIONS_DEBUG(opt, 2)) {
                         print_one_memory_region(r);
+                    }
                 }
                 V_SETSIZE(dp, V_SIZE(vr));
                 kr = mach_vm_allocate(mach_task_self(), &dp->addr, V_SIZE(dp), VM_FLAGS_ANYWHERE);
-                if (KERN_SUCCESS != kr || 0 == V_ADDR(dp))
+                if (KERN_SUCCESS != kr || 0 == V_ADDR(dp)) {
                     err_mach(kr, r, "mach_vm_allocate() z %llx-%llx", V_ADDR(vr), V_ENDADDR(vr));
+                }
                 break;
             }
             /*FALLTHROUGH*/
         default:
             err_mach(kr, r, "mach_vm_read() %llx-%llx", V_ADDR(vr), V_SIZE(vr));
-            if (OPTIONS_DEBUG(opt, 1))
+            if (OPTIONS_DEBUG(opt, 1)) {
                 print_one_memory_region(r);
+            }
             break;
     }
     if (kr != KERN_SUCCESS) {
@@ -861,12 +1021,7 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
     /*
      * Sometimes (e.g. searchd) we may not be able to fetch all the pages
      * from the underlying mapped file, in which case replace those pages
-     * with zfod pages (at least they compress efficiently) rather than
-     * taking a SIGBUS when compressing them.
-     *
-     * XXX Perhaps we should just catch the SIGBUS, and if the faulting address
-     * is in the right range, substitute zfod pages and rerun region compression?
-     * Complex though, because the compression code may be multithreaded.
+     * with zfod pages (at least they compress efficiently).
      */
     if (!r->r_insharedregion && is_file_mapped_shared(r)) {
         const mach_vm_offset_t pagesize_host = 1u << pageshift_host;
@@ -874,9 +1029,9 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
         if (r->r_info.pages_resident * pagesize_host == V_SIZE(dp))
             return WALK_CONTINUE;   // all pages resident, so skip ..
 
-        if (OPTIONS_DEBUG(opt, 2))
+        if (OPTIONS_DEBUG(opt, 2)) {
             printr(r, "probing %llu pages in mapped-shared file\n", V_SIZE(dp) / pagesize_host);
-
+        }
         kr = KERN_SUCCESS;
         for (mach_vm_offset_t a = V_ADDR(dp); a < V_ENDADDR(dp); a += pagesize_host) {
 
@@ -926,8 +1081,9 @@ map_memory_range(struct write_segment_data *wsd, const struct region *r, const s
         }
         if (KERN_SUCCESS != kr) {
             kr = mach_vm_deallocate(mach_task_self(), V_ADDR(dp), V_SIZE(dp));
-            if (KERN_SUCCESS != kr && OPTIONS_DEBUG(opt, 1))
+            if (KERN_SUCCESS != kr && OPTIONS_DEBUG(opt, 1)) {
                 err_mach(kr, r, "mach_vm_deallocate() pre %llx-%llx", V_ADDR(dp), V_ENDADDR(dp));
+            }
             V_SETADDR(dp, 0);
             return WALK_ERROR;
         }
@@ -944,19 +1100,17 @@ unmap_memory_range(const struct region *r, const struct vm_range *dp)
             V_ADDR(dp), V_SIZE(dp));
         if (KERN_SUCCESS != kr && OPTIONS_DEBUG(opt, 1)) {
             err_mach(kr, r, "mach_vm_deallocate() post %llx-%llx",
-            V_ADDR(dp), V_SIZE(dp));
+                V_ADDR(dp), V_SIZE(dp));
         }
     }
 }
 
 /*
  * pwrite a memory range and update the mach header to reflect it
- * Note that we can do per-segment compression here, which makes
- * things extra complicated.
  *
  * Since some regions can be inconveniently large,
- * chop them into multiple chunks as we compress them.
- * (mach_vm_read has 32-bit limitations too).
+ * chop them into multiple chunks as we work through them.
+ * (mach_vm_read has 32-bit limitations).
  */
 static walk_return_t
 pwrite_memory_range(struct write_segment_data *wsd,
@@ -970,8 +1124,6 @@ pwrite_memory_range(struct write_segment_data *wsd,
     do {
         vmsize = resid;
         vmsize = vmsize > INT32_MAX ? INT32_MAX : vmsize;
-        if (opt->chunksize > 0 && vmsize > opt->chunksize)
-            vmsize = opt->chunksize;
         assert(vmsize <= INT32_MAX);
 
         const struct vm_range vr = {
@@ -989,34 +1141,7 @@ pwrite_memory_range(struct write_segment_data *wsd,
         mach_vm_behavior_set(mach_task_self(), V_ADDR(dp), V_SIZE(dp), VM_BEHAVIOR_SEQUENTIAL);
 
         void *dstbuf = NULL;
-        unsigned algorithm = 0;
-        size_t filesize;
-
-		if (opt->extended) {
-			dstbuf = malloc(V_SIZEOF(dp));
-			if (dstbuf) {
-				filesize = compression_encode_buffer(dstbuf, V_SIZEOF(dp), srcaddr, V_SIZEOF(dp), NULL, opt->calgorithm);
-				if (filesize > 0 && filesize < V_SIZEOF(dp)) {
-					srcaddr = dstbuf;	/* the data source is now heap, compressed */
-                    mach_vm_deallocate(mach_task_self(), V_ADDR(dp), V_SIZE(dp));
-                    V_SETADDR(dp, 0);
-					if (segment_compflags(opt->calgorithm, &algorithm) != 0) {
-						free(dstbuf);
-                        mach_vm_deallocate(mach_task_self(), V_ADDR(dp), V_SIZE(dp));
-                        V_SETADDR(dp, 0);
-						step = WALK_ERROR;
-                        break;
-					}
-				} else {
-					free(dstbuf);
-					dstbuf = NULL;
-					filesize = V_SIZEOF(dp);
-				}
-			} else
-				filesize = V_SIZEOF(dp);
-			assert(filesize <= V_SIZEOF(dp));
-		} else
-			filesize = V_SIZEOF(dp);
+        const size_t filesize = V_SIZEOF(dp);
 
         assert(filesize);
 
@@ -1027,7 +1152,7 @@ pwrite_memory_range(struct write_segment_data *wsd,
 			.off = wsd->wsd_foffset,
 			.size = filesize,
 		};
-		make_segment_command(wsd->wsd_lc, &vr, &fr, &r->r_info, algorithm, r->r_purgable);
+		make_segment_command(wsd->wsd_lc, &vr, &fr, &r->r_info);
 		step = pwrite_memory(wsd, srcaddr, filesize, &vr);
 		if (dstbuf)
 			free(dstbuf);
@@ -1054,7 +1179,6 @@ makeheader_memory_range(struct write_segment_data *wsd,
     const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
 {
     assert(R_ADDR(r) <= vmaddr && R_ENDADDR(r) >= vmaddr + vmsize);
-    assert(!opt->extended);
 
     mach_vm_offset_t resid = vmsize;
     walk_return_t step = WALK_CONTINUE;
@@ -1083,7 +1207,7 @@ makeheader_memory_range(struct write_segment_data *wsd,
             .off = wsd->wsd_foffset,
             .size = filesize,
         };
-        make_segment_command(wsd->wsd_lc, &vr, &fr, &r->r_info, 0, r->r_purgable);
+        make_segment_command(wsd->wsd_lc, &vr, &fr, &r->r_info);
         // predict what will be written
         wsd->wsd_foffset += filesize;
         wsd->wsd_nwritten += filesize;
@@ -1106,7 +1230,6 @@ stream_memory_range(struct write_segment_data *wsd,
     const struct region *r, mach_vm_offset_t vmaddr, mach_vm_offset_t vmsize)
 {
     assert(R_ADDR(r) <= vmaddr && R_ENDADDR(r) >= vmaddr + vmsize);
-    assert(!opt->extended);
 
     mach_vm_offset_t resid = vmsize;
     walk_return_t step = WALK_CONTINUE;
@@ -1160,8 +1283,9 @@ getvmsize_host(const task_t task, const struct region *r)
 
     if (pageshift_host != pageshift_app) {
         is_actual_size(task, r, &vmsize_host);
-        if (OPTIONS_DEBUG(opt, 1) && R_SIZE(r) != vmsize_host)
+        if (OPTIONS_DEBUG(opt, 1) && R_SIZE(r) != vmsize_host) {
             printr(r, "(region size tweak: was %llx, is %llx)\n", R_SIZE(r), vmsize_host);
+        }
     }
     return vmsize_host;
 }
@@ -1174,51 +1298,128 @@ getvmsize_host(__unused const task_t task, const struct region *r)
 #endif
 
 static walk_return_t
-rop_sparse_nomakeheader(const struct region *__unused r,
-    struct write_segment_data *__unused wsd)
+rop_sparse_makeheader(const struct region *r, struct write_segment_data *wsd)
 {
-    printf("%s: sparse regions not supported\n", __func__);
-    return WALK_ERROR;
+    assert(r->r_nsubregions);
+
+    const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
+    const mach_vm_offset_t __unused endaddr_host = R_ADDR(r) + vmsize_host;
+
+    walk_return_t step = WALK_CONTINUE;
+    for (unsigned c = 0; c < r->r_nsubregions; c++) {
+        const struct subregion *s = r->r_subregions[c];
+
+        switch (S_TYPE(s)) {
+            case SR_CLEAN: {
+                const struct file_range fr = {
+                    .off = wsd->wsd_foffset,
+                    .size = 0,
+                };
+                make_segment_command(wsd->wsd_lc, S_RANGE(s), &fr, &r->r_info);
+                commit_load_command(wsd, wsd->wsd_lc);
+                continue;
+            }
+            case SR_DIRTY:
+                break;
+        }
+
+        mach_vm_size_t vmsize = S_SIZE(s);
+#ifdef RDAR_23744374
+        // subregion cannot start beyond file mapping (how can it be dirty?)
+        assert(S_ADDR(s) < endaddr_host);
+        if (S_ENDADDR(s) > endaddr_host) {
+            // subregion spans the end of the file mapping, adjust
+            vmsize = endaddr_host - S_ADDR(s);
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printr(r, "(subregion %llx-%llx trimmed to %llx-%llx)\n",
+                    S_ADDR(s), S_ENDADDR(s), S_ADDR(s), S_ADDR(s) + vmsize);
+            }
+        }
+#endif
+        step = makeheader_memory_range(wsd, r, S_ADDR(s), vmsize);
+        if (WALK_ERROR == step) {
+            break;
+        }
+    }
+    return step;
 }
 
 static walk_return_t
-rop_sparse_nostream(const struct region *__unused r,
-    struct write_segment_data *__unused wsd)
+rop_sparse_stream(const struct region *r, struct write_segment_data *wsd)
 {
-    printf("%s: sparse regions not supported", __func__);
-    return WALK_ERROR;
+    assert(r->r_nsubregions);
+
+    const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
+    const mach_vm_offset_t __unused endaddr_host = R_ADDR(r) + vmsize_host;
+
+    walk_return_t step = WALK_CONTINUE;
+    for (unsigned c = 0; c > r->r_nsubregions; c++) {
+        const struct subregion *s = r->r_subregions[c];
+
+        switch (S_TYPE(s)) {
+            case SR_CLEAN:
+                continue;
+            case SR_DIRTY:
+                break;
+        }
+
+        mach_vm_size_t vmsize = S_SIZE(s);
+#ifdef RDAR_23744374
+        // subregion cannot start beyond file mapping (how can it be dirty?)
+        assert(S_ADDR(s) < endaddr_host);
+        if (S_ENDADDR(s) > endaddr_host) {
+            // subregion spans the end of the file mapping, adjust
+            vmsize = endaddr_host - S_ADDR(s);
+        }
+#endif
+        step = stream_memory_range(wsd, r, S_ADDR(s), vmsize);
+        if (WALK_ERROR == step) {
+            break;
+        }
+    }
+    return step;
 }
 
 static walk_return_t
 rop_sparse_pwrite(const struct region *r, struct write_segment_data *wsd)
 {
     assert(r->r_nsubregions);
-    assert(!r->r_inzfodregion);
-    assert(NULL == r->r_fileref);
 
     const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
-    walk_return_t step = WALK_CONTINUE;
+    const mach_vm_offset_t __unused endaddr_host = R_ADDR(r) + vmsize_host;
 
+    walk_return_t step = WALK_CONTINUE;
     for (unsigned i = 0; i < r->r_nsubregions; i++) {
         const struct subregion *s = r->r_subregions[i];
-
-        if ((!opt->skinny && s->s_isuuidref) || (opt->skinny && s->s_isshared_dyld))
-            step = make_fileref_subregion_command(r, s, wsd);
-        else {
-            /* Write this one out as real data */
-            mach_vm_size_t vmsize = S_SIZE(s);
-            if (R_SIZE(r) != vmsize_host) {
-                if (S_ADDR(s) + vmsize > R_ADDR(r) + vmsize_host) {
-                    vmsize = R_ADDR(r) + vmsize_host - S_ADDR(s);
-                    if (OPTIONS_DEBUG(opt, 3))
-                        printr(r, "(subregion size tweak: was %llx, is %llx)\n",
-                               S_SIZE(s), vmsize);
-                }
+ 
+        switch (S_TYPE(s)) {
+            case SR_CLEAN: {
+                const struct file_range fr = {
+                    .off = wsd->wsd_foffset,
+                    .size = 0,
+                };
+                make_segment_command(wsd->wsd_lc, S_RANGE(s), &fr,
+                    &r->r_info);
+                commit_load_command(wsd, wsd->wsd_lc);
+                continue;
             }
-            step = pwrite_memory_range(wsd, r, S_ADDR(s), vmsize);
+            case SR_DIRTY:
+                break;
         }
-        if (WALK_ERROR == step)
+
+        mach_vm_size_t vmsize = S_SIZE(s);
+#ifdef RDAR_23744374
+        // subregion cannot start beyond file mapping (how can it be dirty?)
+        assert(S_ADDR(s) < endaddr_host);
+        if (S_ENDADDR(s) > endaddr_host) {
+            // subregion spans the end of the file mapping, adjust
+            vmsize = endaddr_host - S_ADDR(s);
+        }
+#endif
+        step = pwrite_memory_range(wsd, r, S_ADDR(s), vmsize);
+        if (WALK_ERROR == step) {
             break;
+        }
     }
     return step;
 }
@@ -1227,8 +1428,6 @@ static walk_return_t
 rop_vanilla_pwrite(const struct region *r, struct write_segment_data *wsd)
 {
     assert(0 == r->r_nsubregions);
-    assert(!r->r_inzfodregion);
-    assert(NULL == r->r_fileref);
 
     const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
     return pwrite_memory_range(wsd, r, R_ADDR(r), vmsize_host);
@@ -1238,8 +1437,6 @@ static walk_return_t
 rop_vanilla_makeheader(const struct region *r, struct write_segment_data *wsd)
 {
     assert(0 == r->r_nsubregions);
-    assert(!r->r_inzfodregion);
-    assert(NULL == r->r_fileref);
 
     const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
     return makeheader_memory_range(wsd, r, R_ADDR(r), vmsize_host);
@@ -1249,8 +1446,6 @@ static walk_return_t
 rop_vanilla_stream(const struct region *r, struct write_segment_data *wsd)
 {
     assert(0 == r->r_nsubregions);
-    assert(!r->r_inzfodregion);
-    assert(NULL == r->r_fileref);
 
     const mach_vm_size_t vmsize_host = getvmsize_host(wsd->wsd_task, r);
     return stream_memory_range(wsd, r, R_ADDR(r), vmsize_host);
@@ -1287,9 +1482,7 @@ stream_memory_region(struct region *r, void *arg)
 static unsigned long
 count_memory_range(mach_vm_offset_t vmsize)
 {
-    const mach_vm_offset_t chunksize =
-        (opt->chunksize > 0 && opt->chunksize < INT32_MAX) ?
-        opt->chunksize : INT32_MAX;
+    const mach_vm_offset_t chunksize = INT32_MAX;
     return (unsigned long)((vmsize + chunksize - 1) / chunksize);
 }
 
@@ -1300,42 +1493,48 @@ count_memory_range(mach_vm_offset_t vmsize)
 static void
 size_sparse_subregion(const struct subregion *s, struct size_core *sc)
 {
-    const unsigned long count = count_memory_range(S_SIZE(s));
+    unsigned long count;
+    switch (S_TYPE(s)) {
+        case SR_DIRTY:
+            count = count_memory_range(S_SIZE(s));
+            sc->memsize += S_SIZE(s);
+            break;
+        case SR_CLEAN:
+            count = 1;  // only writes the LC_SEGMENT in the header, no data!
+            sc->zfodsize += S_SIZE(s);
+            break;
+    }
     sc->headersize += sizeof_segment_command() * count;
     sc->count += count;
-    sc->memsize += S_SIZE(s);
 }
 
 static void
-size_sparse_region(const struct region *r, struct size_core *sc_sparse, struct size_core *sc_fileref)
+size_sparse_region(const struct region *r, struct size_core *sc_sparse)
 {
     assert(0 != r->r_nsubregions);
 
-    unsigned long entry_total = sc_sparse->count + sc_fileref->count;
+    unsigned long entry_total = sc_sparse->count;
     for (unsigned i = 0; i < r->r_nsubregions; i++) {
-        const struct subregion *s = r->r_subregions[i];
-        if ((!opt->skinny && s->s_isuuidref) || (opt->skinny && s->s_isshared_dyld))
-            size_fileref_subregion(s, sc_fileref);
-        else
-            size_sparse_subregion(s, sc_sparse);
+        size_sparse_subregion(r->r_subregions[i], sc_sparse);
     }
     if (OPTIONS_DEBUG(opt, 3)) {
         /* caused by compression breaking a large region into chunks */
-        entry_total = (sc_fileref->count + sc_sparse->count) - entry_total;
-        if (entry_total > r->r_nsubregions)
-            printr(r, "range contains %u subregions requires %lu segment commands\n",
-               r->r_nsubregions, entry_total);
+        entry_total = sc_sparse->count - entry_total;
+        if (entry_total > r->r_nsubregions) {
+            printr(r, "range containing %u subregions requires %lu segment commands\n",
+                r->r_nsubregions, entry_total);
+        }
     }
 }
 
 /*
- * Sparse regions are complex, experimental, and thus
- * streaming is currently not supported.
+ * Sparse regions contain subregions.
+ * Streaming is currently not supported.
  */
 
 const struct regionop sparse_ops = {
-    .rop_header = rop_sparse_nomakeheader,
-    .rop_stream = rop_sparse_nostream,
+    .rop_header = rop_sparse_makeheader,
+    .rop_stream = rop_sparse_stream,
     .rop_pwrite = rop_sparse_pwrite,
     .rop_delete = rop_sparse_delete,
 };
@@ -1349,9 +1548,11 @@ size_vanilla_region(const struct region *r, struct size_core *sc)
     sc->headersize += sizeof_segment_command() * count;
     sc->count += count;
     sc->memsize += R_SIZE(r);
+    assert(sc->zfodsize == 0);
 
-    if (OPTIONS_DEBUG(opt, 3) && count != 1)
+    if (OPTIONS_DEBUG(opt, 3) && count != 1) {
         printr(r, "range with 1 region, but requires %lu segment commands\n", count);
+    }
 }
 
 const struct regionop vanilla_ops = {
@@ -1366,16 +1567,13 @@ size_memory_region(struct region *r, void *arg)
 {
     struct size_segment_data *ssd = arg;
 
-    if (&zfod_ops == r->r_op)
-        size_zfod_region(r, &ssd->ssd_zfod);
-    else if (&fileref_ops == r->r_op)
-        size_fileref_region(r, &ssd->ssd_fileref);
-    else if (&sparse_ops == r->r_op)
-        size_sparse_region(r, &ssd->ssd_sparse, &ssd->ssd_fileref);
-    else if (&vanilla_ops == r->r_op)
+    if (&sparse_ops == r->r_op) {
+        size_sparse_region(r, &ssd->ssd_sparse);
+    } else if (&vanilla_ops == r->r_op) {
         size_vanilla_region(r, &ssd->ssd_vanilla);
-    else
-        errx(EX_SOFTWARE, "%s: bad op", __func__);
-
+    } else {
+        os_log_error(glog, "bad size op");
+        exit(EX_SOFTWARE);
+    }
     return WALK_CONTINUE;
 }

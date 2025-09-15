@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,10 +58,20 @@ protected:
     Ref<AnimatedPropertyType2>& property2(OwnerType& owner) const { return m_accessor2.property(owner); }
     const Ref<AnimatedPropertyType2>& property2(const OwnerType& owner) const { return m_accessor2.property(owner); }
 
+    Ref<AnimatedPropertyType1> propertyProperty1(const OwnerType& owner) const
+    {
+        return property1(owner);
+    }
+
+    Ref<AnimatedPropertyType2> propertyProperty2(const OwnerType& owner) const
+    {
+        return property2(owner);
+    }
+
     void detach(const OwnerType& owner) const override
     {
-        property1(owner)->detach();
-        property2(owner)->detach();
+        propertyProperty1(owner)->detach();
+        propertyProperty2(owner)->detach();
     }
 
     bool matches(const OwnerType& owner, const SVGAnimatedProperty& animatedProperty) const override

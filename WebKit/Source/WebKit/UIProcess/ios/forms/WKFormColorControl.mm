@@ -33,6 +33,7 @@
 #import "UIKitUtilities.h"
 #import "WKContentViewInteraction.h"
 #import "WebPageProxy.h"
+#import "WebPreferences.h"
 #import <WebCore/ColorCocoa.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/cocoa/VectorCocoa.h>

@@ -45,7 +45,7 @@ public:
 private:
     ScrollingTreeFixedNodeCocoa(ScrollingTree&, ScrollingNodeID);
 
-    CALayer* layer() const final { return m_layer.get(); }
+    CALayer *layer() const final { return m_layer.get(); }
 
     bool commitStateBeforeChildren(const ScrollingStateNode&) final;
     void applyLayerPositions() final WTF_REQUIRES_LOCK(scrollingTree()->treeLock());

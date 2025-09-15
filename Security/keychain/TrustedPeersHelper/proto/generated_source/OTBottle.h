@@ -23,11 +23,6 @@ __attribute__((visibility("hidden")))
     NSData *_peerEncryptionSPKI;
     NSString *_peerID;
     NSData *_peerSigningSPKI;
-    NSData *_reserved3;
-    NSData *_reserved4;
-    NSData *_reserved5;
-    NSData *_reserved6;
-    NSData *_reserved7;
 }
 
 
@@ -37,24 +32,12 @@ __attribute__((visibility("hidden")))
 @property (nonatomic, readonly) BOOL hasBottleID;
 @property (nonatomic, retain) NSString *bottleID;
 
-@property (nonatomic, readonly) BOOL hasReserved3;
+@property (nonatomic, readonly) BOOL hasEscrowedSigningSPKI;
 /**
  * Tags 3, 4, 5 and 6 were briefly used during development for the raw public key data, with nothing to specify the key type.
  * They are replaced with the following, encoded as SubjectPublicKeyInfo:
+ * as SubjectPublicKeyInfo (SPKI):
  */
-@property (nonatomic, retain) NSData *reserved3;
-
-@property (nonatomic, readonly) BOOL hasReserved4;
-@property (nonatomic, retain) NSData *reserved4;
-
-@property (nonatomic, readonly) BOOL hasReserved5;
-@property (nonatomic, retain) NSData *reserved5;
-
-@property (nonatomic, readonly) BOOL hasReserved6;
-@property (nonatomic, retain) NSData *reserved6;
-
-@property (nonatomic, readonly) BOOL hasEscrowedSigningSPKI;
-/** as SubjectPublicKeyInfo (SPKI): */
 @property (nonatomic, retain) NSData *escrowedSigningSPKI;
 
 @property (nonatomic, readonly) BOOL hasEscrowedEncryptionSPKI;
@@ -65,10 +48,6 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasPeerEncryptionSPKI;
 @property (nonatomic, retain) NSData *peerEncryptionSPKI;
-
-@property (nonatomic, readonly) BOOL hasReserved7;
-/** Tag 7 was briefly used during development for contents encoded with NSKeyedArchiver. */
-@property (nonatomic, retain) NSData *reserved7;
 
 @property (nonatomic, readonly) BOOL hasContents;
 @property (nonatomic, retain) OTAuthenticatedCiphertext *contents;

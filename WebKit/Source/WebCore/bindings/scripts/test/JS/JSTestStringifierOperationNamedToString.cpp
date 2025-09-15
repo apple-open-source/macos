@@ -22,6 +22,7 @@
 #include "JSTestStringifierOperationNamedToString.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -159,7 +160,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestStringifierOperationNamedToStringConstructor, (JS
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierOperationNamedToStringPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestStringifierOperationNamedToString::getConstructor(vm, prototype->globalObject()));
 }
@@ -181,7 +182,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierOperationNamedToStringPrototypeFunctio
 
 JSC::GCClient::IsoSubspace* JSTestStringifierOperationNamedToString::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestStringifierOperationNamedToString, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestStringifierOperationNamedToString, UseCustomHeapCellType::No>(vm, "JSTestStringifierOperationNamedToString"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierOperationNamedToString.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierOperationNamedToString = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestStringifierOperationNamedToString.get(); },
@@ -221,7 +222,9 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierOperationNamed
 #else
 extern "C" { extern void* _ZTVN7WebCore37TestStringifierOperationNamedToStringE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestStringifierOperationNamedToString>, void>> static inline void verifyVTable(TestStringifierOperationNamedToString* ptr) {
+template<std::same_as<TestStringifierOperationNamedToString> T>
+static inline void verifyVTable(TestStringifierOperationNamedToString* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

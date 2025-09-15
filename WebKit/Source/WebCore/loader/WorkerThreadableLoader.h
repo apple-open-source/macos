@@ -106,7 +106,6 @@ private:
     private:
         // Executed on the worker context's thread.
         void clearClientWrapper();
-        RefPtr<ThreadableLoaderClientWrapper> protectedWorkerClientWrapper() const;
 
         // All executed on the main thread.
         void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
@@ -123,7 +122,7 @@ private:
 
         // ThreadableLoaderClientWrapper is to be used on the worker context thread.
         // The ref counting is done on either thread.
-        RefPtr<ThreadableLoaderClientWrapper> m_workerClientWrapper;
+        const Ref<ThreadableLoaderClientWrapper> m_workerClientWrapper;
 
         // May be used on either thread.
         WorkerLoaderProxy* m_loaderProxy; // FIXME: Use a smart pointer.
@@ -139,7 +138,7 @@ private:
 
     void computeIsDone() final;
 
-    Ref<ThreadableLoaderClientWrapper> m_workerClientWrapper;
+    const Ref<ThreadableLoaderClientWrapper> m_workerClientWrapper;
     MainThreadBridge& m_bridge; // FIXME: Use a smart pointer.
 };
 

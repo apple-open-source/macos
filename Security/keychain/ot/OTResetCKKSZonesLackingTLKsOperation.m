@@ -13,6 +13,8 @@
 #import "keychain/ckks/CKKSKeychainView.h"
 
 #import "keychain/ot/ObjCImprovements.h"
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
 
 @interface OTResetCKKSZonesLackingTLKsOperation ()
 @property OTOperationDependencies* deps;
@@ -41,11 +43,26 @@
 {
     secnotice("octagon", "Checking if any CKKS zones need resetting");
 
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+    AAFAnalyticsEventSecurity* event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
+                                                                                                altDSID:self.deps.activeAccount.altDSID
+                                                                                                 flowID:self.deps.flowID
+                                                                                        deviceSessionID:self.deps.deviceSessionID
+                                                                                              eventName:kSecurityRTCEventNameResetCKKSZonesLackingTLKsOperation
+                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         canSendMetrics:self.deps.permittedToSendMetrics
+                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     WEAKIFY(self);
 
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         STRONGIFY(self);
         secnotice("octagon", "Finishing resetting CKKS missing TLKs operation with %@", self.error ?: @"no error");
+        if (self.error) {
+            [event sendMetricWithResult:NO error:self.error];
+        } else {
+            [event sendMetricWithResult:YES error:nil];
+        }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 

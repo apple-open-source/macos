@@ -24,9 +24,12 @@
 
 #pragma once
 
+#import <Foundation/Foundation.h>
 #import <objc/message.h>
 #import <wtf/MallocSpan.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/SystemMalloc.h>
+#import <wtf/text/StringCommon.h>
 
 #ifdef __cplusplus
 
@@ -52,12 +55,33 @@ WTF_EXPORT_PRIVATE MallocSpan<objc_method_description, SystemMalloc> protocol_co
 WTF_EXPORT_PRIVATE MallocSpan<objc_property_t, SystemMalloc> protocol_copyPropertyListSpan(Protocol *);
 WTF_EXPORT_PRIVATE MallocSpan<__unsafe_unretained Protocol *, SystemMalloc> protocol_copyProtocolListSpan(Protocol *);
 
+template<typename Type>
+std::span<const char> objcEncode()
+{
+    return unsafeSpan(@encode(Type));
+}
+
+template<typename Type>
+bool nsValueHasObjCType(NSValue *value)
+{
+    return equalSpans(unsafeSpan([value objCType]), objcEncode<Type>());
+}
+
+template<typename ReturnType>
+bool methodHasReturnType(NSMethodSignature *signature)
+{
+    return equalSpans(unsafeSpan(signature.methodReturnType), objcEncode<ReturnType>());
+}
+
 } // namespace WTF
 
 using WTF::class_copyIvarListSpan;
 using WTF::class_copyMethodListSpan;
 using WTF::class_copyPropertyListSpan;
 using WTF::class_copyProtocolListSpan;
+using WTF::methodHasReturnType;
+using WTF::nsValueHasObjCType;
+using WTF::objcEncode;
 using WTF::protocol_copyMethodDescriptionListSpan;
 using WTF::protocol_copyPropertyListSpan;
 using WTF::protocol_copyProtocolListSpan;

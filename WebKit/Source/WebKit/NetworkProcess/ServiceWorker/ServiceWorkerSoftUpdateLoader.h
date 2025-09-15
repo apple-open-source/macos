@@ -47,7 +47,7 @@ namespace WebKit {
 class NetworkLoad;
 class NetworkSession;
 
-class ServiceWorkerSoftUpdateLoader final : public NetworkLoadClient, public CanMakeWeakPtr<ServiceWorkerSoftUpdateLoader>, public CanMakeCheckedPtr<ServiceWorkerSoftUpdateLoader> {
+class ServiceWorkerSoftUpdateLoader final : public NetworkLoadClient, public CanMakeWeakPtr<ServiceWorkerSoftUpdateLoader> {
     WTF_MAKE_TZONE_ALLOCATED(ServiceWorkerSoftUpdateLoader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ServiceWorkerSoftUpdateLoader);
 public:
@@ -62,7 +62,7 @@ private:
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) final;
     void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, ResponseCompletionHandler&&) final;
-    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&, uint64_t reportedEncodedDataLength) final;
+    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
 

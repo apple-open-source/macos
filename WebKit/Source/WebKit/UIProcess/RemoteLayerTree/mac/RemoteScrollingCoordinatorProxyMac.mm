@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #import <WebCore/ScrollingStateOverflowScrollingNode.h>
 #import <WebCore/ScrollingStatePluginScrollingNode.h>
 #import <WebCore/ScrollingStatePositionedNode.h>
+#import <WebCore/ScrollingStateStickyNode.h>
 #import <WebCore/ScrollingStateTree.h>
 #import <WebCore/ScrollingTreeFrameScrollingNode.h>
 #import <WebCore/ScrollingTreeOverflowScrollProxyNode.h>
@@ -58,7 +59,7 @@ RemoteScrollingCoordinatorProxyMac::RemoteScrollingCoordinatorProxyMac(WebPagePr
     , m_eventDispatcher(RemoteLayerTreeEventDispatcher::create(*this, webPageProxy.webPageIDInMainFrameProcess()))
 #endif
 {
-    m_eventDispatcher->setScrollingTree(scrollingTree());
+    m_eventDispatcher->setScrollingTree(&scrollingTree());
 }
 
 RemoteScrollingCoordinatorProxyMac::~RemoteScrollingCoordinatorProxyMac()
@@ -77,7 +78,7 @@ void RemoteScrollingCoordinatorProxyMac::cacheWheelEventScrollingAccelerationCur
 #endif
 }
 
-void RemoteScrollingCoordinatorProxyMac::handleWheelEvent(const WebWheelEvent& wheelEvent, RectEdges<bool> rubberBandableEdges)
+void RemoteScrollingCoordinatorProxyMac::handleWheelEvent(const WebWheelEvent& wheelEvent, RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges)
 {
 #if ENABLE(SCROLLING_THREAD)
     m_eventDispatcher->handleWheelEvent(wheelEvent, rubberBandableEdges);
@@ -116,7 +117,7 @@ void RemoteScrollingCoordinatorProxyMac::hasNodeWithAnimatedScrollChanged(bool h
 #if ENABLE(SCROLLING_THREAD)
     m_eventDispatcher->hasNodeWithAnimatedScrollChanged(hasAnimatedScrolls);
 #else
-    auto* drawingArea = dynamicDowncast<RemoteLayerTreeDrawingAreaProxy>(webPageProxy().drawingArea());
+    RefPtr drawingArea = dynamicDowncast<RemoteLayerTreeDrawingAreaProxy>(webPageProxy().drawingArea());
     if (!drawingArea)
         return;
 
@@ -127,9 +128,11 @@ void RemoteScrollingCoordinatorProxyMac::hasNodeWithAnimatedScrollChanged(bool h
 void RemoteScrollingCoordinatorProxyMac::setRubberBandingInProgressForNode(ScrollingNodeID nodeID, bool isRubberBanding)
 {
     if (isRubberBanding) {
-        if (scrollingTree()->scrollingPerformanceTestingEnabled()) {
+        if (scrollingTree().scrollingPerformanceTestingEnabled()) {
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
             m_eventDispatcher->didStartRubberbanding();
-            webPageProxy().logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::StartedRubberbanding), MonotonicTime::now(), 0);
+#endif
+            protectedWebPageProxy()->logScrollingEvent(static_cast<uint32_t>(PerformanceLoggingClient::ScrollingEvent::StartedRubberbanding), MonotonicTime::now(), 0);
         }
         m_uiState.addNodeWithActiveRubberband(nodeID);
     } else
@@ -177,75 +180,81 @@ void RemoteScrollingCoordinatorProxyMac::connectStateNodeLayers(ScrollingStateTr
         switch (currNode->nodeType()) {
         case ScrollingNodeType::MainFrame:
         case ScrollingNodeType::Subframe: {
-            ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode);
+            Ref scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(currNode);
             
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
-                scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode.scrollContainerLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
+                scrollingStateNode->setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode->scrollContainerLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
-                scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode.scrolledContentsLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
+                scrollingStateNode->setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode->scrolledContentsLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::CounterScrollingLayer))
-                scrollingStateNode.setCounterScrollingLayer(layerTreeHost.layerForID(scrollingStateNode.counterScrollingLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::CounterScrollingLayer))
+                scrollingStateNode->setCounterScrollingLayer(layerTreeHost.layerForID(scrollingStateNode->counterScrollingLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::InsetClipLayer))
-                scrollingStateNode.setInsetClipLayer(layerTreeHost.layerForID(scrollingStateNode.insetClipLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::InsetClipLayer))
+                scrollingStateNode->setInsetClipLayer(layerTreeHost.layerForID(scrollingStateNode->insetClipLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ContentShadowLayer))
-                scrollingStateNode.setContentShadowLayer(layerTreeHost.layerForID(scrollingStateNode.contentShadowLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ContentShadowLayer))
+                scrollingStateNode->setContentShadowLayer(layerTreeHost.layerForID(scrollingStateNode->contentShadowLayer().layerID()));
 
             // FIXME: we should never have header and footer layers coming from the WebProcess.
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HeaderLayer))
-                scrollingStateNode.setHeaderLayer(layerTreeHost.layerForID(scrollingStateNode.headerLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::HeaderLayer))
+                scrollingStateNode->setHeaderLayer(layerTreeHost.layerForID(scrollingStateNode->headerLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::FooterLayer))
-                scrollingStateNode.setFooterLayer(layerTreeHost.layerForID(scrollingStateNode.footerLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::FooterLayer))
+                scrollingStateNode->setFooterLayer(layerTreeHost.layerForID(scrollingStateNode->footerLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
-                scrollingStateNode.setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.verticalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
+                scrollingStateNode->setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->verticalScrollbarLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
-                scrollingStateNode.setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.horizontalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
+                scrollingStateNode->setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->horizontalScrollbarLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::RootContentsLayer))
-                scrollingStateNode.setRootContentsLayer(layerTreeHost.layerForID(scrollingStateNode.rootContentsLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::RootContentsLayer))
+                scrollingStateNode->setRootContentsLayer(layerTreeHost.layerForID(scrollingStateNode->rootContentsLayer().layerID()));
             break;
         }
         case ScrollingNodeType::Overflow: {
-            ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode);
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
-                scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode.scrollContainerLayer().layerID()));
+            Ref scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(currNode);
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
+                scrollingStateNode->setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode->scrollContainerLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
-                scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode.scrolledContentsLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
+                scrollingStateNode->setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode->scrolledContentsLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
-                scrollingStateNode.setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.verticalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
+                scrollingStateNode->setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->verticalScrollbarLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
-                scrollingStateNode.setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.horizontalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
+                scrollingStateNode->setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->horizontalScrollbarLayer().layerID()));
             break;
         }
         case ScrollingNodeType::PluginScrolling: {
-            ScrollingStatePluginScrollingNode& scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode);
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
-                scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode.scrollContainerLayer().layerID()));
+            Ref scrollingStateNode = downcast<ScrollingStatePluginScrollingNode>(currNode);
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrollContainerLayer))
+                scrollingStateNode->setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode->scrollContainerLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
-                scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode.scrolledContentsLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::ScrolledContentsLayer))
+                scrollingStateNode->setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode->scrolledContentsLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
-                scrollingStateNode.setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.verticalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::VerticalScrollbarLayer))
+                scrollingStateNode->setVerticalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->verticalScrollbarLayer().layerID()));
 
-            if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
-                scrollingStateNode.setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode.horizontalScrollbarLayer().layerID()));
+            if (scrollingStateNode->hasChangedProperty(ScrollingStateNode::Property::HorizontalScrollbarLayer))
+                scrollingStateNode->setHorizontalScrollbarLayer(layerTreeHost.layerForID(scrollingStateNode->horizontalScrollbarLayer().layerID()));
             break;
         }
         case ScrollingNodeType::OverflowProxy:
         case ScrollingNodeType::FrameHosting:
         case ScrollingNodeType::PluginHosting:
         case ScrollingNodeType::Fixed:
-        case ScrollingNodeType::Sticky:
+        case ScrollingNodeType::Sticky: {
+            if (RefPtr stickyStateNode = dynamicDowncast<ScrollingStateStickyNode>(currNode)) {
+                if (stickyStateNode->hasChangedProperty(ScrollingStateNode::Property::ViewportAnchorLayer))
+                    stickyStateNode->setViewportAnchorLayer(layerTreeHost.layerForID(stickyStateNode->viewportAnchorLayer().layerID()));
+            }
+            break;
+        }
         case ScrollingNodeType::Positioned:
             break;
         }
@@ -279,7 +288,7 @@ void RemoteScrollingCoordinatorProxyMac::windowScreenWillChange()
 
 void RemoteScrollingCoordinatorProxyMac::willCommitLayerAndScrollingTrees()
 {
-    scrollingTree()->lockLayersForHitTesting();
+    scrollingTree().lockLayersForHitTesting();
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     m_eventDispatcher->lockForAnimationChanges();
 #endif
@@ -287,7 +296,7 @@ void RemoteScrollingCoordinatorProxyMac::willCommitLayerAndScrollingTrees()
 
 void RemoteScrollingCoordinatorProxyMac::didCommitLayerAndScrollingTrees()
 {
-    scrollingTree()->unlockLayersForHitTesting();
+    scrollingTree().unlockLayersForHitTesting();
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     m_eventDispatcher->unlockForAnimationChanges();
 #endif

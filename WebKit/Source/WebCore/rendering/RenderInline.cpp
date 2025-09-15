@@ -46,6 +46,7 @@
 #include "RenderLayoutState.h"
 #include "RenderLineBreak.h"
 #include "RenderListMarker.h"
+#include "RenderObjectInlines.h"
 #include "RenderTable.h"
 #include "RenderTheme.h"
 #include "RenderTreeBuilder.h"
@@ -87,7 +88,7 @@ void RenderInline::willBeDestroyed()
         if (containingBlockPaintsContinuationOutline) {
             if (RenderBlock* cb = containingBlock()) {
                 if (RenderBlock* cbCb = cb->containingBlock())
-                    ASSERT(!cbCb->paintsContinuationOutline(this));
+                    ASSERT(!cbCb->paintsContinuationOutline(*this));
             }
         }
     }
@@ -165,13 +166,16 @@ static void updateStyleOfAnonymousBlockContinuations(const RenderBlock& block, c
 void RenderInline::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
 {
     RenderBoxModelObject::styleWillChange(diff, newStyle);
+
     // RenderInlines forward their absolute positioned descendants to their (non-anonymous) containing block.
     // Check if this non-anonymous containing block can hold the absolute positioned elements when the inline is no longer positioned.
-    if (canContainAbsolutelyPositionedObjects() && newStyle.position() == PositionType::Static) {
-        auto* container = RenderObject::containingBlockForPositionType(PositionType::Absolute, *this);
-        if (container && !container->canContainAbsolutelyPositionedObjects())
-            container->removePositionedObjects(nullptr, NewContainingBlock);
-    }
+    CheckedPtr container = containingBlock();
+    if (!container)
+        return;
+
+    const RenderStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
+    if (oldStyle)
+        removeOutOfFlowBoxesIfNeededOnStyleChange(*container, *oldStyle, newStyle);
 }
 
 void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -208,7 +212,7 @@ bool RenderInline::mayAffectLayout() const
     auto mayAffectLayout = (parentRenderInline && parentRenderInline->mayAffectLayout())
         || (parentRenderInline && parentStyle->verticalAlign() != VerticalAlign::Baseline)
         || style().verticalAlign() != VerticalAlign::Baseline
-        || style().textEmphasisMark() != TextEmphasisMark::None
+        || !style().textEmphasisStyle().isNone()
         || (checkFonts && (!parentStyle->fontCascade().metricsOfPrimaryFont().hasIdenticalAscentDescentAndLineGap(style().fontCascade().metricsOfPrimaryFont())
         || parentStyle->lineHeight() != style().lineHeight()))
         || hasHardLineBreakChildOnly;
@@ -342,15 +346,9 @@ LayoutPoint RenderInline::firstInlineBoxTopLeft() const
     return { };
 }
 
-static LayoutUnit computeMargin(const RenderInline* renderer, const Length& margin)
+static LayoutUnit computeMargin(const RenderInline* renderer, const Style::MarginEdge& margin)
 {
-    if (margin.isAuto())
-        return 0;
-    if (margin.isFixed())
-        return LayoutUnit(margin.value());
-    if (margin.isPercentOrCalculated())
-        return minimumValueForLength(margin, std::max<LayoutUnit>(0, renderer->containingBlock()->contentBoxLogicalWidth()));
-    return 0;
+    return Style::evaluateMinimum(margin, [&] ALWAYS_INLINE_LAMBDA { return std::max<LayoutUnit>(0, renderer->containingBlock()->contentBoxLogicalWidth()); });
 }
 
 LayoutUnit RenderInline::marginLeft() const
@@ -434,18 +432,6 @@ VisiblePosition RenderInline::positionForPoint(const LayoutPoint& point, HitTest
 
     return containingBlock.positionForPoint(point, source, fragment);
 }
-
-class LinesBoundingBoxGeneratorContext {
-public:
-    LinesBoundingBoxGeneratorContext(FloatRect& rect) : m_rect(rect) { }
-
-    void addRect(const FloatRect& rect)
-    {
-        m_rect.uniteIfNonZero(rect);
-    }
-private:
-    FloatRect& m_rect;
-};
 
 LayoutUnit RenderInline::innerPaddingBoxWidth() const
 {
@@ -550,7 +536,7 @@ LayoutRect RenderInline::linesVisualOverflowBoundingBox() const
             ASSERT(needsLayout());
             return { };
         }
-        return layout->visualOverflowBoundingBoxRectFor(*this);
+        return layout->inkOverflowBoundingBoxRectFor(*this);
     }
 
     if (!firstLegacyInlineBox() || !lastLegacyInlineBox())
@@ -723,7 +709,7 @@ auto RenderInline::computeVisibleRectsInContainer(const RepaintRects& rects, con
     return localContainer->computeVisibleRectsInContainer(adjustedRects, container, context);
 }
 
-LayoutSize RenderInline::offsetFromContainer(RenderElement& container, const LayoutPoint&, bool* offsetDependsOnPoint) const
+LayoutSize RenderInline::offsetFromContainer(const RenderElement& container, const LayoutPoint&, bool* offsetDependsOnPoint) const
 {
     ASSERT(&container == this->container());
     
@@ -778,7 +764,7 @@ void RenderInline::mapLocalToContainer(const RenderLayerModelObject* ancestorCon
     container->mapLocalToContainer(ancestorContainer, transformState, mode, wasFixed);
 }
 
-const RenderObject* RenderInline::pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+const RenderElement* RenderInline::pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
 {
     ASSERT(ancestorToStopAt != this);
 
@@ -813,19 +799,9 @@ void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint&
     }
 }
 
-void RenderInline::dirtyLegacyLineBoxes(bool fullLayout)
+void RenderInline::deleteLegacyLineBoxes()
 {
-    if (fullLayout) {
-        m_legacyLineBoxes.deleteLineBoxes();
-        return;
-    }
-
-    m_legacyLineBoxes.dirtyLineBoxes();
-}
-
-void RenderInline::deleteLegacyLines()
-{
-    m_legacyLineBoxes.deleteLineBoxTree();
+    m_legacyLineBoxes.deleteLineBoxes();
 }
 
 std::unique_ptr<LegacyInlineFlowBox> RenderInline::createInlineFlowBox()
@@ -847,20 +823,25 @@ LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*directio
     return LayoutUnit::fromFloatCeil(lineStyle.computedLineHeight());
 }
 
-LayoutUnit RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderInline::baselinePosition(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     auto& style = firstLine ? firstLineStyle() : this->style();
     auto& fontMetrics = style.metricsOfPrimaryFont();
-    return LayoutUnit { fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2 };
+    return LayoutUnit { fontMetrics.ascent() + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2 };
 }
 
 LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child) const
 {
     // FIXME: This function isn't right with mixed writing modes.
-
-    ASSERT(isInFlowPositioned());
-    if (!isInFlowPositioned())
+    if (!isInFlowPositioned()) {
+        ASSERT_NOT_REACHED();
         return { };
+    }
+
+    if (!hasLayer()) {
+        // It looks like we are inflow positioned but no layer created yet. It essentially means we don't have an position offset yet.
+        return { };
+    }
 
     // When we have an enclosing relpositioned inline, we need to add in the offset of the first line
     // box from the rest of the content, but only in the cases where we know we're positioned
@@ -954,20 +935,20 @@ void RenderInline::paintOutline(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
     auto& styleToUse = style();
     // Only paint the focus ring by hand if the theme isn't able to draw it.
-    if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On && !theme().supportsFocusRing(styleToUse)) {
+    if (styleToUse.outlineStyle() == OutlineStyle::Auto && !theme().supportsFocusRing(*this, styleToUse)) {
         Vector<LayoutRect> focusRingRects;
         addFocusRingRects(focusRingRects, paintOffset, paintInfo.paintContainer);
         paintFocusRing(paintInfo, styleToUse, focusRingRects);
     }
 
-    if (hasOutlineAnnotation() && styleToUse.outlineStyleIsAuto() == OutlineIsAuto::Off && !theme().supportsFocusRing(styleToUse))
+    if (hasOutlineAnnotation() && styleToUse.outlineStyle() != OutlineStyle::Auto && !theme().supportsFocusRing(*this, styleToUse))
         addPDFURLRect(paintInfo, paintOffset);
 
     GraphicsContext& graphicsContext = paintInfo.context();
     if (graphicsContext.paintingDisabled())
         return;
 
-    if (styleToUse.outlineStyleIsAuto() == OutlineIsAuto::On || !styleToUse.hasOutline())
+    if (styleToUse.outlineStyle() == OutlineStyle::Auto || !styleToUse.hasOutline())
         return;
 
     if (!containingBlock()) {
@@ -1020,7 +1001,7 @@ inline bool RenderInline::willChangeCreatesStackingContext() const
 
 bool RenderInline::requiresLayer() const
 {
-    return isInFlowPositioned() || createsGroup() || hasClipPath() || shouldApplyPaintContainment() || willChangeCreatesStackingContext() || hasRunningAcceleratedAnimations() || requiresRenderingConsolidationForViewTransition();
+    return isInFlowPositioned() || createsGroup() || hasClipPath() || willChangeCreatesStackingContext() || hasRunningAcceleratedAnimations() || requiresRenderingConsolidationForViewTransition();
 }
 
 } // namespace WebCore

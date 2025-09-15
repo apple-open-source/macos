@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2023 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@
 #if ENABLE(WEB_CODECS)
 
 #include "AudioDecoder.h"
+#include "EventTargetInterfaces.h"
 #include "JSDOMPromiseDeferredForward.h"
 #include "WebCodecsAudioDecoderConfig.h"
 #include "WebCodecsAudioDecoderSupport.h"
@@ -81,8 +82,8 @@ private:
     ExceptionOr<void> resetDecoder(const Exception&);
     void setInternalDecoder(Ref<AudioDecoder>&&);
 
-    Ref<WebCodecsAudioDataOutputCallback> m_output;
-    Ref<WebCodecsErrorCallback> m_error;
+    const Ref<WebCodecsAudioDataOutputCallback> m_output;
+    const Ref<WebCodecsErrorCallback> m_error;
     RefPtr<AudioDecoder> m_internalDecoder;
     Vector<Ref<DeferredPromise>> m_pendingFlushPromises;
     bool m_isKeyChunkRequired { false };

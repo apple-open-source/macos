@@ -444,6 +444,8 @@ _msleep0
 _nanotime
 _nanouptime
 _nd6_lookup_ipv6
+_net_aop_register_provider
+_net_aop_deregister_provider
 _net_init_add
 _nop_access
 _nop_advlock

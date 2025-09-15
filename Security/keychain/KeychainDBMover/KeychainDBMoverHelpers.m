@@ -6,7 +6,7 @@
 #import <Foundation/Foundation.h>
 #import "keychain/KeychainDBMover/KeychainDBMoverHelpers.h"
 #import "keychain/KeychainDBMover/KeychainDBMover.h"
-#import "debugging.h"
+#import "utilities/debugging.h"
 
 OSStatus SecKeychainMoveUserDb(void) {
     __block OSStatus status = errSecServiceNotAvailable;

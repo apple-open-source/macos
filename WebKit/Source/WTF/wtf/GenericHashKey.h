@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include <variant>
 #include <wtf/Forward.h>
 #include <wtf/HashTraits.h>
+#include <wtf/Variant.h>
 
 namespace WTF {
 
@@ -40,13 +40,13 @@ class GenericHashKey final {
 
 public:
     constexpr GenericHashKey(Key&& key)
-        : m_value(std::in_place_type_t<Key>(), WTFMove(key))
+        : m_value(InPlaceTypeT<Key>(), WTFMove(key))
     {
     }
 
     template<typename K>
     constexpr GenericHashKey(K&& key)
-        : m_value(std::in_place_type_t<Key>(), std::forward<K>(key))
+        : m_value(InPlaceTypeT<Key>(), std::forward<K>(key))
     {
     }
 
@@ -80,7 +80,7 @@ public:
     }
 
 private:
-    std::variant<Key, EmptyKey, DeletedKey> m_value;
+    Variant<Key, EmptyKey, DeletedKey> m_value;
 };
 
 template<typename K, typename H> struct HashTraits<GenericHashKey<K, H>> : GenericHashTraits<GenericHashKey<K, H>> {

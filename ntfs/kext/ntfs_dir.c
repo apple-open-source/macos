@@ -818,7 +818,7 @@ static inline int ntfs_do_dirent(ntfs_volume *vol, INDEX_ENTRY *ie,
 static ntfs_dirhint *ntfs_dirhint_get(ntfs_inode *ni, unsigned ofs)
 {
 	ntfs_dirhint *dh;
-	BOOL need_init, need_remove;
+	NTFS_BOOL need_init, need_remove;
 	struct timeval tv;
 
 	microuptime(&tv);
@@ -915,7 +915,7 @@ static void ntfs_dirhint_put(ntfs_inode *ni, ntfs_dirhint *dh)
  *
  * Locking: Caller must hold @ni->lock for writing.
  */
-void ntfs_dirhints_put(ntfs_inode *ni, BOOL stale_only)
+void ntfs_dirhints_put(ntfs_inode *ni, NTFS_BOOL stale_only)
 {
 	ntfs_dirhint *dh, *tdh;
 	struct timeval tv;

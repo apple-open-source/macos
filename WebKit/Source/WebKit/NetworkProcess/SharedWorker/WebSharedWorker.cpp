@@ -172,7 +172,7 @@ void WebSharedWorker::resumeIfNeeded()
         connection->resumeSharedWorker(identifier());
 }
 
-void WebSharedWorker::forEachSharedWorkerObject(const Function<void(WebCore::SharedWorkerObjectIdentifier, const WebCore::TransferredMessagePort&)>& apply) const
+void WebSharedWorker::forEachSharedWorkerObject(NOESCAPE const Function<void(WebCore::SharedWorkerObjectIdentifier, const WebCore::TransferredMessagePort&)>& apply) const
 {
     for (auto& object : m_sharedWorkerObjects)
         apply(object.identifier, *object.state.port);
@@ -187,9 +187,9 @@ std::optional<WebCore::ProcessIdentifier> WebSharedWorker::firstSharedWorkerObje
 
 WebSharedWorkerServerToContextConnection* WebSharedWorker::contextConnection() const
 {
-    if (!m_server)
-        return nullptr;
-    return m_server->contextConnectionForRegistrableDomain(topRegistrableDomain());
+    if (CheckedPtr server = m_server.get())
+        return server->contextConnectionForRegistrableDomain(topRegistrableDomain());
+    return nullptr;
 }
 
 } // namespace WebKit

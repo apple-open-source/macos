@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc.  All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  * Copyright (C) 2018 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,10 +47,6 @@
 #include "WebCoreBundleWin.h"
 #include <shlobj.h>
 #include <shlwapi.h>
-#endif
-
-#if !defined(ENABLE_CURL_HTTP3)
-#define ENABLE_CURL_HTTP3 0
 #endif
 
 namespace WebCore {
@@ -133,7 +129,8 @@ CurlContext::CurlContext()
     RELEASE_ASSERT(info->features & CURL_VERSION_LARGEFILE);
     m_isAltSvcEnabled = info->features & CURL_VERSION_ALTSVC;
     m_isHttp2Enabled = info->features & CURL_VERSION_HTTP2;
-#if ENABLE_CURL_HTTP3
+    // HTTP/3 backend is supported in cURL since 8.5.0
+#if LIBCURL_VERSION_NUM >= 0x080500
     m_isHttp3Enabled = (info->features & CURL_VERSION_HTTP3) && m_isAltSvcEnabled;
 #endif
 
@@ -274,7 +271,7 @@ CURLMcode CurlMultiHandle::removeHandle(CURL* handle)
 CURLMcode CurlMultiHandle::poll(const Vector<curl_waitfd>& extraFds, int timeoutMS)
 {
     int numFds = 0;
-    return curl_multi_poll(m_multiHandle, const_cast<curl_waitfd*>(extraFds.data()), extraFds.size(), timeoutMS, &numFds);
+    return curl_multi_poll(m_multiHandle, const_cast<curl_waitfd*>(extraFds.span().data()), extraFds.size(), timeoutMS, &numFds);
 }
 
 CURLMcode CurlMultiHandle::wakeUp()
@@ -352,7 +349,7 @@ void CurlHandle::enableSSL()
     if (auto* path = std::get_if<String>(&sslHandle.getCACertInfo()))
         setCACertPath(path->utf8().data());
     else if (auto data = std::get_if<CertificateInfo::Certificate>(&sslHandle.getCACertInfo()))
-        setCACertBlob(const_cast<uint8_t*>(data->data()), data->size());
+        setCACertBlob(const_cast<uint8_t*>(data->span().data()), data->size());
 #endif
 }
 
@@ -486,7 +483,8 @@ void CurlHandle::enableHttp()
     auto isHttp3Enabled = CurlContext::singleton().isHttp3Enabled();
 
     if (m_url.protocolIs("https"_s) && (isHttp2Enabled || isHttp3Enabled)) {
-        curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, isHttp3Enabled ? CURL_HTTP_VERSION_3 : CURL_HTTP_VERSION_2TLS);
+        // The appropriate HTTP version is selected based on ALPN, Alt-Svc, etc.
+        curl_easy_setopt(m_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
         curl_easy_setopt(m_handle, CURLOPT_PIPEWAIT, 1L);
 #if LIBCURL_VERSION_NUM <= 0x075500
         curl_easy_setopt(m_handle, CURLOPT_SSL_ENABLE_ALPN, 1L);

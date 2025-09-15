@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -592,7 +592,7 @@ in6_ifattach_loopback(
 	/* add the new interface address */
 	error = in6_update_ifa(ifp, &ifra, 0, &ia);
 	if (error != 0) {
-		nd6log(error,
+		nd6log0(error,
 		    "%s: failed to configure loopback address %s (error=%d)\n",
 		    __func__, if_name(ifp), error);
 		VERIFY(ia == NULL);
@@ -897,7 +897,7 @@ in6_ifattach_aliasreq(struct ifnet *ifp, struct ifnet *altifp,
 		} else {
 			if (in6_select_iid_from_all_hw(ifp, altifp,
 			    &ifra.ifra_addr.sin6_addr) != 0) {
-				nd6log(error, "%s: no IID available\n",
+				nd6log0(error, "%s: no IID available\n",
 				    if_name(ifp));
 				return EADDRNOTAVAIL;
 			}

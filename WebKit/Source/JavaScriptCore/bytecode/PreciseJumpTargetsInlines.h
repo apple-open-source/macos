@@ -63,16 +63,26 @@ namespace JSC {
     case op_switch_imm: { \
         auto bytecode = instruction->as<OpSwitchImm>(); \
         auto& table = codeBlock->unlinkedSwitchJumpTable(bytecode.m_tableIndex); \
-        for (unsigned i = table.m_branchOffsets.size(); i--;) \
-            SWITCH_CASE(table.m_branchOffsets[i]); \
+        if (table.isList()) { \
+            for (unsigned i = 0; i < table.m_branchOffsets.size(); i += 2) \
+                SWITCH_CASE(table.m_branchOffsets[i + 1]); \
+        } else { \
+            for (unsigned i = table.m_branchOffsets.size(); i--;) \
+                SWITCH_CASE(table.m_branchOffsets[i]); \
+        } \
         SWITCH_CASE(table.m_defaultOffset); \
         break; \
     } \
     case op_switch_char: { \
         auto bytecode = instruction->as<OpSwitchChar>(); \
         auto& table = codeBlock->unlinkedSwitchJumpTable(bytecode.m_tableIndex); \
-        for (unsigned i = table.m_branchOffsets.size(); i--;) \
-            SWITCH_CASE(table.m_branchOffsets[i]); \
+        if (table.isList()) { \
+            for (unsigned i = 0; i < table.m_branchOffsets.size(); i += 2) \
+                SWITCH_CASE(table.m_branchOffsets[i + 1]); \
+        } else { \
+            for (unsigned i = table.m_branchOffsets.size(); i--;) \
+                SWITCH_CASE(table.m_branchOffsets[i]); \
+        } \
         SWITCH_CASE(table.m_defaultOffset); \
         break; \
     } \
@@ -114,7 +124,7 @@ inline int jumpTargetForInstruction(Block&& codeBlock, const JSInstructionStream
 }
 
 template<typename Block, typename Function>
-inline void extractStoredJumpTargetsForInstruction(Block&& codeBlock, const JSInstructionStream::Ref& instruction, const Function& function)
+inline void extractStoredJumpTargetsForInstruction(Block&& codeBlock, const JSInstructionStream::Ref& instruction, NOESCAPE const Function& function)
 {
 #define CASE_OP(__op) \
     case __op::opcodeID: \
@@ -131,7 +141,7 @@ SWITCH_JMP(CASE_OP, SWITCH_CASE)
 }
 
 template<typename Block, typename Function, typename CodeBlockOrHashMap>
-inline void updateStoredJumpTargetsForInstruction(Block&& codeBlock, unsigned finalOffset, JSInstructionStream::MutableRef instruction, const Function& function, CodeBlockOrHashMap& codeBlockOrHashMap)
+inline void updateStoredJumpTargetsForInstruction(Block&& codeBlock, unsigned finalOffset, JSInstructionStream::MutableRef instruction, NOESCAPE const Function& function, CodeBlockOrHashMap& codeBlockOrHashMap)
 {
 #define CASE_OP(__op) \
     case __op::opcodeID: { \

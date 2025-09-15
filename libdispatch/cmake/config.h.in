@@ -89,6 +89,10 @@
    you don't. */
 #cmakedefine01 HAVE_DECL_VQ_PURGEABLE_SPACE_CHANGE
 
+/* Define to 1 if you have the declaration of `VQ_IDLE_PURGE_NOTIFY`, and to 0 if
+   you don't */
+#cmakedefine01 HAVE_DECL_VQ_IDLE_PURGE_NOTIFY
+
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #cmakedefine01 HAVE_DLFCN_H
 

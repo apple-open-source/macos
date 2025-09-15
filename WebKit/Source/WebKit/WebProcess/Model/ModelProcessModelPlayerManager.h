@@ -55,6 +55,10 @@ public:
     void deleteModelProcessModelPlayer(WebCore::ModelPlayer&);
 
     void didReceivePlayerMessage(IPC::Connection&, IPC::Decoder&);
+    void didUnloadModelProcessModelPlayer(WebCore::ModelPlayerIdentifier);
+
+    // ModelProcessConnection::Client
+    void modelProcessConnectionDidClose(ModelProcessConnection&) override;
 
     WTF_ABSTRACT_THREAD_SAFE_REF_COUNTED_AND_CAN_MAKE_WEAK_PTR_IMPL;
 

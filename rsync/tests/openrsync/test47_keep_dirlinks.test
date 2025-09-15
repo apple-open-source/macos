@@ -8,12 +8,10 @@ set -u
 . ${tstdir-.}/lib.sh
 . ${tstdir-.}/conf.sh
 
-SYMDIR=${PWD}/keepdir$$
-
 # Create the source tree:
 #
 rm -rf src
-mkdir -p src/dir/dir/dir ${SYMDIR}
+mkdir -p src/dir/dir/dir
 
 for c in a b y z ; do
     date > src/${c}file
@@ -27,28 +25,36 @@ done
 # in the dest dir and populate it with the contents
 # from the source dir:
 #
-rm -rf dst ${SYMDIR}
-mkdir dst ${SYMDIR}
-ln -s ${SYMDIR} dst/dir
+rm -rf dst
+mkdir -p dst/keepdir
+ln -s keepdir dst/dir
 
 rsync -a --keep-dirlinks -- src/ dst/
 [ -h "dst/dir" ]
 touch src/dir dst/dir
 compare_trees -t src/dir dst/dir
-compare_trees -t src/dir ${SYMDIR}
+compare_trees -t src/dir dst/keepdir
 
 
 # rsync -a should duplicate src/ into dst/, replacing the
 # valid symlink dst/dir with a real directory from src/:
 #
-rm -rf dst ${SYMDIR}
-mkdir dst ${SYMDIR}
-ln -s ${SYMDIR} dst/dir
+rm -rf dst
+mkdir -p dst/keepdir
+ln -s keepdir dst/dir
 
 rsync -a -- src/ dst/
 [ -d "dst/dir" ]
+
+# keepdir doesn't exist in src, so we'll move it out.  We're comparing times but
+# this will obviously modify dst's, so we create a reference file with the last
+# mtime and revert it afterwards.
+touch -r dst ref
+mv dst/keepdir .
+touch -r ref dst
+
 compare_trees -t src dst
-X=$(find ${SYMDIR} | wc -l)
+X=$(find keepdir | wc -l)
 [ "$X" -eq 1 ]
 
 
@@ -56,7 +62,7 @@ X=$(find ${SYMDIR} | wc -l)
 # replacing the dangling symlink dst/dir with a real
 # directory from src/:
 #
-rm -rf dst
+rm -rf dst keepdir
 mkdir dst
 [ ! -e /foobie-bletch ]
 ln -s /foobie-bletch dst/dir
@@ -64,5 +70,3 @@ ln -s /foobie-bletch dst/dir
 rsync -a --keep-dirlinks -- src/ dst/
 [ -d "dst/dir" ]
 compare_trees -t src/dir dst/dir
-
-rm -rf ${SYMDIR}

@@ -195,12 +195,12 @@ struct memorystatus_freezer_candidate_list memorystatus_global_demote_list = {NU
 #define FREEZER_USE_ORDERED_LIST_DEFAULT 0
 #endif
 int memorystatus_freezer_use_ordered_list = FREEZER_USE_ORDERED_LIST_DEFAULT;
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freezer_use_ordered_list, &memorystatus_freezer_use_ordered_list, 0, 1, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freezer_use_ordered_list, &memorystatus_freezer_use_ordered_list, 0, 1, "");
 /*
  * When enabled, demotion candidates are chosen from memorystatus_global_demotion_list
  */
 int memorystatus_freezer_use_demotion_list = 0;
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freezer_use_demotion_list, &memorystatus_freezer_use_demotion_list, 0, 1, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freezer_use_demotion_list, &memorystatus_freezer_use_demotion_list, 0, 1, "");
 
 extern boolean_t vm_swap_max_budget(uint64_t *);
 
@@ -411,13 +411,13 @@ SYSCTL_PROC(_kern, OID_AUTO, memorystatus_freezer_thaw_percentage_fg_non_xpc_ser
 
 #define FREEZER_ERROR_STRING_LENGTH 128
 
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_pages_min, &memorystatus_freeze_pages_min, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_pages_max, &memorystatus_freeze_pages_max, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_processes_max, &memorystatus_frozen_processes_max, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_jetsam_band, &memorystatus_freeze_jetsam_band, JETSAM_PRIORITY_BACKGROUND, JETSAM_PRIORITY_FOREGROUND, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_private_shared_pages_ratio, &memorystatus_freeze_private_shared_pages_ratio, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_min_processes, &memorystatus_freeze_suspended_threshold, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_freeze_max_candidate_band, &memorystatus_freeze_max_candidate_band, JETSAM_PRIORITY_IDLE, JETSAM_PRIORITY_FOREGROUND, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_pages_min, &memorystatus_freeze_pages_min, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_pages_max, &memorystatus_freeze_pages_max, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_processes_max, &memorystatus_frozen_processes_max, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_jetsam_band, &memorystatus_freeze_jetsam_band, JETSAM_PRIORITY_BACKGROUND, JETSAM_PRIORITY_FOREGROUND, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_private_shared_pages_ratio, &memorystatus_freeze_private_shared_pages_ratio, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_min_processes, &memorystatus_freeze_suspended_threshold, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_freeze_max_candidate_band, &memorystatus_freeze_max_candidate_band, JETSAM_PRIORITY_IDLE, JETSAM_PRIORITY_FOREGROUND, "");
 static int
 sysctl_memorystatus_freeze_budget_multiplier SYSCTL_HANDLER_ARGS
 {
@@ -458,21 +458,21 @@ sysctl_memorystatus_freeze_budget_multiplier SYSCTL_HANDLER_ARGS
 	}
 	return 0;
 }
-EXPERIMENT_FACTOR_PROC(_kern, memorystatus_freeze_budget_multiplier, CTLTYPE_QUAD | CTLFLAG_RW, 0, 0, &sysctl_memorystatus_freeze_budget_multiplier, "Q", "");
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern, memorystatus_freeze_budget_multiplier, CTLTYPE_QUAD | CTLFLAG_RW, 0, 0, &sysctl_memorystatus_freeze_budget_multiplier, "Q", "");
 /*
  * max. # of frozen process demotions we will allow in our daily cycle.
  */
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_max_freeze_demotions_daily, &memorystatus_max_frozen_demotions_daily, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_max_freeze_demotions_daily, &memorystatus_max_frozen_demotions_daily, 0, UINT32_MAX, "");
 
 /*
  * min # of thaws needed by a process to protect it from getting demoted into the IDLE band.
  */
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_thaw_count_demotion_threshold, &memorystatus_thaw_count_demotion_threshold, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_thaw_count_demotion_threshold, &memorystatus_thaw_count_demotion_threshold, 0, UINT32_MAX, "");
 
 /*
  * min # of global thaws needed for us to consider refreezing these processes.
  */
-EXPERIMENT_FACTOR_UINT(_kern, memorystatus_min_thaw_refreeze_threshold, &memorystatus_min_thaw_refreeze_threshold, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, memorystatus_min_thaw_refreeze_threshold, &memorystatus_min_thaw_refreeze_threshold, 0, UINT32_MAX, "");
 
 #if DEVELOPMENT || DEBUG
 
@@ -1441,7 +1441,7 @@ sysctl_freeze_enabled SYSCTL_HANDLER_ARGS
 	return 0;
 }
 
-EXPERIMENT_FACTOR_PROC(_vm, freeze_enabled, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY, NULL, 0, sysctl_freeze_enabled, "I", "");
+EXPERIMENT_FACTOR_LEGACY_PROC(_vm, freeze_enabled, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY, NULL, 0, sysctl_freeze_enabled, "I", "");
 
 static void
 schedule_interval_reset(thread_call_t reset_thread_call, throttle_interval_t *interval)
@@ -3086,36 +3086,41 @@ memorystatus_freeze_init_proc(proc_t p)
 	}
 }
 
-
 static int
-sysctl_memorystatus_do_fastwake_warmup_all  SYSCTL_HANDLER_ARGS
+sysctl_memorystatus_do_fastwake_warmup_all SYSCTL_HANDLER_ARGS
 {
-#pragma unused(oidp, arg1, arg2)
-
 	if (!req->newptr) {
 		return EINVAL;
 	}
 
 	/* Need to be root or have entitlement */
-	if (!kauth_cred_issuser(kauth_cred_get()) && !IOCurrentTaskHasEntitlement( MEMORYSTATUS_ENTITLEMENT)) {
+	if (!kauth_cred_issuser(kauth_cred_get()) && !IOCurrentTaskHasEntitlement(MEMORYSTATUS_ENTITLEMENT)) {
 		return EPERM;
-	}
-
-	if (memorystatus_freeze_enabled == false) {
-		return ENOTSUP;
 	}
 
 	if (!VM_CONFIG_FREEZER_SWAP_IS_ACTIVE) {
 		return ENOTSUP;
 	}
 
+	if (!memorystatus_freeze_enabled && !memorystatus_swap_all_apps) {
+		/* Nothing to do. Swap is not enabled on this system. */
+		assert3u(vm_compressor_get_swapped_segment_count(), ==, 0);
+		memorystatus_log("memorystatus: swap is disabled, bypassing fast-wake warmup");
+		return 0;
+	}
+
+	memorystatus_log("memorystatus: swapping-in all swapped-out compressor "
+	    "segments\n");
+
 	do_fastwake_warmup_all();
 
 	return 0;
 }
 
-SYSCTL_PROC(_kern, OID_AUTO, memorystatus_do_fastwake_warmup_all, CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED | CTLFLAG_MASKED,
-    0, 0, &sysctl_memorystatus_do_fastwake_warmup_all, "I", "");
+SYSCTL_PROC(_kern, OID_AUTO, memorystatus_do_fastwake_warmup_all,
+    CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_LOCKED | CTLFLAG_MASKED,
+    0, 0, &sysctl_memorystatus_do_fastwake_warmup_all, "I",
+    "Swap-in any compressed data that resides in swapfiles");
 
 /*
  * Takes in a candidate list from the user_addr, validates it, and copies it into the list pointer.

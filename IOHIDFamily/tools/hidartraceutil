@@ -43,50 +43,56 @@ kHID_ES_Session_Filters_End         = (0x5238148 | DBG_FUNC_END)
 kHID_ES_Service_Filters_Start       = (0x523810c | DBG_FUNC_START)
 kHID_ES_Service_Filters_End         = (0x523810c | DBG_FUNC_END)
 kHID_ES_FiltersClientsDone          = 0x5238044
+kIOHIDDebugCode_CmplxEvtDrv_InterruptReport = 0x5230088
+kIOHIDDebugCode_IOFastPath_EnqueueSample    = 0x523008c
      
 traceTimeDelta = 0
 
 HIDEventTypeToStr = [
     'kIOHIDEventTypeNULL',
     'kIOHIDEventTypeVendorDefined',
-    'kIOHIDEventTypeButton',                  
-    'kIOHIDEventTypeKeyboard',                     
+    'kIOHIDEventTypeButton',
+    'kIOHIDEventTypeKeyboard',
     'kIOHIDEventTypeTranslation',
     'kIOHIDEventTypeRotation',
     'kIOHIDEventTypeScroll',
-    'kIOHIDEventTypeScale',           
-    'kIOHIDEventTypeZoom',                       
-    'kIOHIDEventTypeVelocity',                     
+    'kIOHIDEventTypeScale',
+    'kIOHIDEventTypeZoom',
+    'kIOHIDEventTypeVelocity',
     'kIOHIDEventTypeOrientation',
     'kIOHIDEventTypeDigitizer',
     'kIOHIDEventTypeAmbientLightSensor',
-    'kIOHIDEventTypeAccelerometer',      
-    'kIOHIDEventTypeProximity',                    
+    'kIOHIDEventTypeAccelerometer',
+    'kIOHIDEventTypeProximity',
     'kIOHIDEventTypeTemperature',
     'kIOHIDEventTypeNavigationSwipe',
     'kIOHIDEventTypePointer',
     'kIOHIDEventTypeProgress',   
-    'kIOHIDEventTypeMultiAxisPointer',      
+    'kIOHIDEventTypeMultiAxisPointer',
     'kIOHIDEventTypeGyro',
     'kIOHIDEventTypeCompass',
     'kIOHIDEventTypeZoomToggle',
     'kIOHIDEventTypeDockSwipe',
-    'kIOHIDEventTypeSymbolicHotKey',   
-    'kIOHIDEventTypePower',                      
-    'kIOHIDEventTypeLED',                          
+    'kIOHIDEventTypeSymbolicHotKey',
+    'kIOHIDEventTypePower',
+    'kIOHIDEventTypeLED',
     'kIOHIDEventTypeFluidTouchGesture',
     'kIOHIDEventTypeBoundaryScroll',
     'kIOHIDEventTypeBiometric',
-    'kIOHIDEventTypeUnicode',            
+    'kIOHIDEventTypeUnicode',
     'kIOHIDEventTypeAtmosphericPressure',
     'kIOHIDEventTypeForce',
     'kIOHIDEventTypeMotionActivity',
     'kIOHIDEventTypeMotionGesture',
-    'kIOHIDEventTypeGameController',        
-    'kIOHIDEventTypeHumidity',                     
+    'kIOHIDEventTypeGameController',
+    'kIOHIDEventTypeHumidity',
     'kIOHIDEventTypeCollection',
     'kIOHIDEventTypeBrightness',
     'kIOHIDEventTypeGenericGesture',
+    'kIOHIDEventTypeDynamicButton',
+    'kIOHIDEventTypeForceStage',
+    'kIOHIDEventTypeTouchSensitiveButton',
+    'kIOHIDEventTypeHeartRate'
 ]
 
 HIDTraceCodes = [
@@ -99,7 +105,9 @@ HIDTraceCodes = [
      kHID_ES_Session_Filters_End,
      kHID_ES_Service_Filters_Start,
      kHID_ES_Service_Filters_End,
-     kHID_ES_FiltersClientsDone
+     kHID_ES_FiltersClientsDone,
+     kIOHIDDebugCode_CmplxEvtDrv_InterruptReport,
+     kIOHIDDebugCode_IOFastPath_EnqueueSample,
 ]
 
 verbose    = False

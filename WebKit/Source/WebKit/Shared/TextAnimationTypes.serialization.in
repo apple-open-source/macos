@@ -40,9 +40,9 @@ header: <WebCore/TextAnimationTypes.h>
 [CustomHeader] struct WebCore::TextAnimationData {
     WebCore::TextAnimationType style;
     WebCore::TextAnimationRunMode runMode;
-    WTF::UUID unanimatedRangeUUID;
-    WTF::UUID sourceAnimationUUID;
-    WTF::UUID destinationAnimationUUID;
+    Markable<WTF::UUID> unanimatedRangeUUID;
+    Markable<WTF::UUID> sourceAnimationUUID;
+    Markable<WTF::UUID> destinationAnimationUUID;
 };
 
 #endif

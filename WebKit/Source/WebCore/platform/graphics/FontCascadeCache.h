@@ -122,7 +122,7 @@ struct FontDescriptionKey {
         auto fontPalette = description.fontPalette();
         auto fontSizeAdjust = description.fontSizeAdjust();
         if (!featureSettings.isEmpty() || !variationSettings.isEmpty() || !variantAlternates.isNormal() || fontPalette.type != FontPalette::Type::Normal || !fontSizeAdjust.isNone())
-            m_rareData = FontDescriptionKeyRareData::create(WTFMove(featureSettings), WTFMove(variationSettings), WTFMove(variantAlternates), WTFMove(fontPalette), WTFMove(fontSizeAdjust));
+            lazyInitialize(m_rareData, FontDescriptionKeyRareData::create(WTFMove(featureSettings), WTFMove(variationSettings), WTFMove(variantAlternates), WTFMove(fontPalette), WTFMove(fontSizeAdjust)));
     }
 
     explicit FontDescriptionKey(WTF::HashTableDeletedValueType)
@@ -188,8 +188,8 @@ private:
 inline void add(Hasher& hasher, const FontDescriptionKey& key)
 {
     add(hasher, key.m_size, key.m_fontSelectionRequest, key.m_flags, key.m_locale);
-    if (key.m_rareData)
-        add(hasher, *key.m_rareData);
+    if (RefPtr rareData = key.m_rareData)
+        add(hasher, *rareData);
 }
 
 } // namespace WebCore
@@ -274,7 +274,7 @@ public:
     Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontCascadeDescription&, FontSelector*);
 
 private:
-    UncheckedKeyHashMap<FontCascadeCacheKey, std::unique_ptr<FontCascadeCacheEntry>, FontCascadeCacheKeyHash, FontCascadeCacheKeyHashTraits> m_entries;
+    HashMap<FontCascadeCacheKey, std::unique_ptr<FontCascadeCacheEntry>, FontCascadeCacheKeyHash, FontCascadeCacheKeyHashTraits> m_entries;
 };
 
 } // namespace WebCore

@@ -219,9 +219,6 @@ SecAccessControlRef SecAccessControlCreateWithFlags(CFAllocatorRef allocator, CF
             SecAccessControlSetRequirePassword(access_control, true);
         }
 
-// Remove this when libaks_acl_cf_keys.h starts providing this symbol.
-#define kAKSKeyOpKEMDecapsulate ((CFTypeRef)CFSTR("okd"))
-
         CFIndex constraints_count = CFArrayGetCount(constraints);
         if (constraints_count > 1) {
             require_quiet(constraint = SecAccessConstraintCreateValueOfKofN(allocator, or?1:constraints_count, constraints, error), errOut);

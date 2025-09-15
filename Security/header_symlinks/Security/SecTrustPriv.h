@@ -406,6 +406,32 @@ SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error)
     __OSX_AVAILABLE(10.12) __IOS_AVAILABLE(10.0) __TVOS_AVAILABLE(10.0) __WATCHOS_AVAILABLE(3.0);
 
 /*!
+ @function SecTrustCopyPropertyListRepresentation
+ @abstract Creates a property list representation of the trust object
+ @param trust A reference to the trust object to serialize.
+ @param error A pointer to an error.
+ @result A property list object.
+ @discussion Like SecTrustSerialize, this function is intended to be used to share a SecTrustRef between processes. Saving the results to disk or sending them over network channels may cause unexpected behavior.
+ */
+__nullable CF_RETURNS_RETAINED
+CFPropertyListRef SecTrustCopyPropertyListRepresentation(SecTrustRef trust, CFErrorRef *error)
+__OSX_AVAILABLE(16.0) __IOS_AVAILABLE(19.0) __TVOS_AVAILABLE(19.0) __WATCHOS_AVAILABLE(12.0);
+
+/*!
+ @function SecTrustCreateFromPropertyListRepresentation
+ @abstract Creates a trust object from property list data
+ @param serializedTrust A reference to the serialized trust object
+ @param error A pointer to an error.
+ @result A trust object
+ @discussion This function is intended to be used to share SecTrustRefs between
+ processes. Saving the results to disk or sending them over network channels
+ may cause unexpected behavior.
+ */
+__nullable CF_RETURNS_RETAINED
+SecTrustRef SecTrustCreateFromPropertyListRepresentation(CFPropertyListRef trustPlist, CFErrorRef *error)
+__OSX_AVAILABLE(16.0) __IOS_AVAILABLE(19.0) __TVOS_AVAILABLE(19.0) __WATCHOS_AVAILABLE(12.0);
+
+/*!
  @function SecTrustGetTrustExceptionsArray
  @abstract Return the exceptions array currently set in the trust object
  @param trust A reference to the trust object

@@ -189,7 +189,7 @@ void InspectorFrontendHost::addSelfToGlobalObjectInWorld(DOMWrapperWorld& world)
     JSC::JSLockHolder lock(vm);
     auto scope = DECLARE_CATCH_SCOPE(vm);
     globalObject.putDirect(vm, JSC::Identifier::fromString(vm, "InspectorFrontendHost"_s), toJS<IDLInterface<InspectorFrontendHost>>(globalObject, globalObject, *this));
-    if (UNLIKELY(scope.exception()))
+    if (scope.exception()) [[unlikely]]
         reportException(&globalObject, scope.exception());
 }
 
@@ -443,7 +443,7 @@ void InspectorFrontendHost::killText(const String& text, bool shouldPrependToKil
     if (!m_frontendPage)
         return;
 
-    RefPtr focusedOrMainFrame = m_frontendPage->checkedFocusController()->focusedOrMainFrame();
+    RefPtr focusedOrMainFrame = m_frontendPage->focusController().focusedOrMainFrame();
     if (!focusedOrMainFrame)
         return;
 
@@ -585,7 +585,7 @@ void InspectorFrontendHost::showContextMenu(Event& event, Vector<ContextMenuItem
     RefPtr localMainFrame = m_frontendPage->localMainFrame();
     if (!localMainFrame)
         return;
-    auto& globalObject = *localMainFrame->script().globalObject(debuggerWorld());
+    auto& globalObject = *localMainFrame->script().globalObject(debuggerWorldSingleton());
     auto& vm = globalObject.vm();
     auto value = globalObject.get(&globalObject, JSC::Identifier::fromString(vm, "InspectorFrontendAPI"_s));
     ASSERT(value);
@@ -611,8 +611,14 @@ void InspectorFrontendHost::dispatchEventAsContextMenuEvent(Event& event)
         return;
 
     auto& mouseEvent = downcast<MouseEvent>(event);
-    auto& frame = *downcast<Node>(mouseEvent.target())->document().frame();
-    m_frontendPage->contextMenuController().showContextMenuAt(frame, roundedIntPoint(mouseEvent.absoluteLocation()));
+    LocalFrame& frame = *downcast<Node>(mouseEvent.target())->document().frame();
+    LayoutPoint location = mouseEvent.absoluteLocation();
+    if (RefPtr<LocalFrameView> view = frame.view()) {
+        FloatBoxExtent insets = view->obscuredContentInsets();
+        location.move(insets.left(), insets.top());
+    }
+
+    m_frontendPage->contextMenuController().showContextMenuAt(frame, roundedIntPoint(location));
 #else
     UNUSED_PARAM(event);
 #endif
@@ -678,11 +684,7 @@ bool InspectorFrontendHost::engineeringSettingsAllowed()
 
 bool InspectorFrontendHost::supportsShowCertificate() const
 {
-#if PLATFORM(COCOA)
-    return true;
-#else
-    return false;
-#endif
+    return m_frontendPage->settings().inspectorSupportsShowingCertificate();
 }
 
 bool InspectorFrontendHost::showCertificate(const String& serializedCertificate)
@@ -825,13 +827,13 @@ ExceptionOr<JSC::JSValue> InspectorFrontendHost::evaluateScriptInExtensionTab(HT
 
     Ref protectedFrame(*frame);
 
-    JSDOMGlobalObject* frameGlobalObject = frame->script().globalObject(mainThreadNormalWorld());
+    JSDOMGlobalObject* frameGlobalObject = frame->script().globalObject(mainThreadNormalWorldSingleton());
     if (!frameGlobalObject)
         return Exception { ExceptionCode::InvalidStateError, "Unable to find global object for <iframe>"_s };
 
 
     JSC::SuspendExceptionScope scope(frameGlobalObject->vm());
-    ValueOrException result = frame->script().evaluateInWorld(ScriptSourceCode(scriptSource, JSC::SourceTaintedOrigin::Untainted), mainThreadNormalWorld());
+    ValueOrException result = frame->script().evaluateInWorld(ScriptSourceCode(scriptSource, JSC::SourceTaintedOrigin::Untainted), mainThreadNormalWorldSingleton());
     
     if (!result)
         return Exception { ExceptionCode::InvalidStateError, result.error().message };

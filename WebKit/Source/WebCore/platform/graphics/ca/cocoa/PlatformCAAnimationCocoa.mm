@@ -165,16 +165,16 @@ PlatformCAAnimationCocoa::PlatformCAAnimationCocoa(AnimationType type, const Str
 {
     switch (type) {
     case AnimationType::Basic:
-        m_animation = [CABasicAnimation animationWithKeyPath:keyPath];
+        m_animation = [CABasicAnimation animationWithKeyPath:keyPath.createNSString().get()];
         break;
     case AnimationType::Group:
         m_animation = [CAAnimationGroup animation];
         break;
     case AnimationType::Keyframe:
-        m_animation = [CAKeyframeAnimation animationWithKeyPath:keyPath];
+        m_animation = [CAKeyframeAnimation animationWithKeyPath:keyPath.createNSString().get()];
         break;
     case AnimationType::Spring:
-        m_animation = [CASpringAnimation animationWithKeyPath:keyPath];
+        m_animation = [CASpringAnimation animationWithKeyPath:keyPath.createNSString().get()];
         break;
     }
 }

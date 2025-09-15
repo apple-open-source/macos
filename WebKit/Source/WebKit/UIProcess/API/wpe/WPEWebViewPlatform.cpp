@@ -35,8 +35,12 @@
 #include "NativeWebTouchEvent.h"
 #include "NativeWebWheelEvent.h"
 #include "ScreenManager.h"
+#include "UIGamepadProvider.h"
 #include "WebPreferences.h"
 #include <WebCore/Cursor.h>
+#include <WebCore/NativeImage.h>
+#include <WebCore/SystemSettings.h>
+#include <wtf/glib/GUniquePtr.h>
 
 #if USE(CAIRO)
 #include <WebCore/RefPtrCairo.h>
@@ -51,14 +55,14 @@ IGNORE_CLANG_WARNINGS_END
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #endif
 
-using namespace WebKit;
-
 namespace WKWPE {
+using namespace WebKit;
 
 ViewPlatform::ViewPlatform(WPEDisplay* display, const API::PageConfiguration& configuration)
     : m_wpeView(adoptGRef(wpe_view_new(display)))
 {
     ASSERT(m_wpeView);
+    g_object_set_data(G_OBJECT(m_wpeView.get()), "wk-view", this);
 
     m_inputMethodFilter.setUseWPEPlatformEvents(true);
     m_size.setWidth(wpe_view_get_width(m_wpeView.get()));
@@ -134,13 +138,21 @@ ViewPlatform::ViewPlatform(WPEDisplay* display, const API::PageConfiguration& co
 
     auto& pageConfiguration = m_pageProxy->configuration();
     m_pageProxy->initializeWebPage(pageConfiguration.openedSite(), pageConfiguration.initialSandboxFlags());
+
+    WebCore::SystemSettings::singleton().addObserver([this](const auto& state) {
+        if (state.darkMode)
+            page().effectiveAppearanceDidChange();
+    }, this);
 }
 
 ViewPlatform::~ViewPlatform()
 {
+    WebCore::SystemSettings::singleton().removeObserver(this);
     g_signal_handlers_disconnect_by_data(m_wpeView.get(), this);
+    dispatchPendingNextPresentationUpdateCallbacks();
     m_inputMethodFilter.setContext(nullptr);
     m_backingStore = nullptr;
+    g_object_set_data(G_OBJECT(m_wpeView.get()), "wk-view", nullptr);
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -171,9 +183,7 @@ void ViewPlatform::enterFullScreen()
 void ViewPlatform::didEnterFullScreen()
 {
     ASSERT(m_fullscreenState == WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen);
-
-    if (auto* fullScreenManagerProxy = page().fullScreenManager())
-        fullScreenManagerProxy->didEnterFullScreen();
+    // FIXME: Call CompletionHandler from PageClientImpl::beganEnterFullScreen here.
     m_fullscreenState = WebFullScreenManagerProxy::FullscreenState::InFullscreen;
 }
 
@@ -197,9 +207,6 @@ void ViewPlatform::exitFullScreen()
 void ViewPlatform::didExitFullScreen()
 {
     ASSERT(m_fullscreenState == WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen);
-
-    if (auto* fullScreenManagerProxy = page().fullScreenManager())
-        fullScreenManagerProxy->didExitFullScreen();
     m_fullscreenState = WebFullScreenManagerProxy::FullscreenState::NotInFullscreen;
 }
 
@@ -211,6 +218,34 @@ void ViewPlatform::requestExitFullScreen()
         fullScreenManagerProxy->requestExitFullScreen();
 }
 #endif // ENABLE(FULLSCREEN_API)
+
+#if ENABLE(GAMEPAD)
+WebPageProxy* ViewPlatform::platformWebPageProxyForGamepadInput()
+{
+    // Find the visible view getting the input focus in the active toplevel.
+    GUniquePtr<GList> toplevels(wpe_toplevel_list());
+    for (GList* iter = toplevels.get(); iter; iter = g_list_next(iter)) {
+        auto* toplevel = WPE_TOPLEVEL(iter->data);
+        if (wpe_toplevel_get_state(toplevel) != WPE_TOPLEVEL_STATE_ACTIVE)
+            continue;
+
+        WPEView* view = nullptr;
+        wpe_toplevel_foreach_view(toplevel, +[](WPEToplevel* toplevel, WPEView* view, gpointer userData) -> gboolean {
+            if (wpe_view_get_visible(view) && wpe_view_get_has_focus(view)) {
+                *static_cast<WPEView**>(userData) = view;
+                return TRUE;
+            }
+            return FALSE;
+        }, &view);
+
+        if (view) {
+            if (auto* wkView = g_object_get_data(G_OBJECT(view), "wk-view"))
+                return &static_cast<View*>(wkView)->page();
+        }
+    }
+    return nullptr;
+}
+#endif
 
 void ViewPlatform::updateAcceleratedSurface(uint64_t surfaceID)
 {
@@ -242,10 +277,20 @@ bool ViewPlatform::activityStateChanged(WebCore::ActivityState state, bool value
         if (m_viewStateFlags.contains(state))
             return false;
 
+#if ENABLE(GAMEPAD)
+        if (state == WebCore::ActivityState::WindowIsActive)
+            UIGamepadProvider::singleton().viewBecameActive(page());
+#endif
+
         m_viewStateFlags.add(state);
     } else {
         if (!m_viewStateFlags.contains(state))
             return false;
+
+#if ENABLE(GAMEPAD)
+        if (state == WebCore::ActivityState::WindowIsActive)
+            UIGamepadProvider::singleton().viewBecameInactive(page());
+#endif
 
         m_viewStateFlags.remove(state);
     }
@@ -312,7 +357,7 @@ Vector<WebKit::WebPlatformTouchPoint> ViewPlatform::touchPointsForEvent(WPEEvent
         double x, y;
         wpe_event_get_position(currentEvent, &x, &y);
         WebCore::IntPoint position(x, y);
-        points.append(WebPlatformTouchPoint(it.key, stateForEvent(it.key, currentEvent), position, position));
+        points.append(WebPlatformTouchPoint(it.key, stateForEvent(it.key, event), position, position));
     }
     return points;
 }
@@ -326,7 +371,8 @@ gboolean ViewPlatform::handleEvent(WPEEvent* event)
         break;
     case WPE_EVENT_POINTER_DOWN:
         m_inputMethodFilter.cancelComposition();
-        FALLTHROUGH;
+        wpe_view_focus_in(m_wpeView.get());
+        [[fallthrough]];
     case WPE_EVENT_POINTER_UP:
     case WPE_EVENT_POINTER_MOVE:
     case WPE_EVENT_POINTER_ENTER:
@@ -359,7 +405,7 @@ gboolean ViewPlatform::handleEvent(WPEEvent* event)
     case WPE_EVENT_TOUCH_DOWN:
 #if ENABLE(TOUCH_EVENTS)
         m_touchEvents.set(wpe_event_touch_get_sequence_id(event), event);
-        page().handleTouchEvent(NativeWebTouchEvent(event, touchPointsForEvent(event)));
+        page().handleTouchEvent(nullptr, NativeWebTouchEvent(event, touchPointsForEvent(event)));
 #endif
         handleGesture(event);
         return TRUE;
@@ -369,7 +415,7 @@ gboolean ViewPlatform::handleEvent(WPEEvent* event)
         m_touchEvents.set(wpe_event_touch_get_sequence_id(event), event);
         auto points = touchPointsForEvent(event);
         m_touchEvents.remove(wpe_event_touch_get_sequence_id(event));
-        page().handleTouchEvent(NativeWebTouchEvent(event, WTFMove(points)));
+        page().handleTouchEvent(nullptr, NativeWebTouchEvent(event, WTFMove(points)));
 #endif
         handleGesture(event);
         return TRUE;
@@ -377,7 +423,7 @@ gboolean ViewPlatform::handleEvent(WPEEvent* event)
     case WPE_EVENT_TOUCH_MOVE:
 #if ENABLE(TOUCH_EVENTS)
         m_touchEvents.set(wpe_event_touch_get_sequence_id(event), event);
-        page().handleTouchEvent(NativeWebTouchEvent(event, touchPointsForEvent(event)));
+        page().handleTouchEvent(nullptr, NativeWebTouchEvent(event, touchPointsForEvent(event)));
 #endif
         handleGesture(event);
         return TRUE;
@@ -419,6 +465,8 @@ void ViewPlatform::handleGesture(WPEEvent* event)
                 page().handleMouseEvent(WebKit::NativeWebMouseEvent(simulatedEvent.get()));
             }
 
+            wpe_view_focus_in(m_wpeView.get());
+
             // Mouse up on the same location.
             {
                 GRefPtr<WPEEvent> simulatedEvent = adoptGRef(wpe_event_pointer_button_new(
@@ -431,7 +479,7 @@ void ViewPlatform::handleGesture(WPEEvent* event)
     case WPE_GESTURE_DRAG:
         if (double x, y, dx, dy; wpe_gesture_controller_get_gesture_position(gestureController, &x, &y) && wpe_gesture_controller_get_gesture_delta(gestureController, &dx, &dy)) {
             GRefPtr<WPEEvent> simulatedScrollEvent = adoptGRef(wpe_event_scroll_new(
-                m_wpeView.get(), WPE_INPUT_SOURCE_MOUSE, 0, static_cast<WPEModifiers>(0), dx, dy, TRUE, FALSE, x, y
+                m_wpeView.get(), WPE_INPUT_SOURCE_TOUCHSCREEN, 0, static_cast<WPEModifiers>(0), dx, dy, TRUE, FALSE, x, y
             ));
             auto phase = wpe_gesture_controller_is_drag_begin(gestureController)
                 ? WebWheelEvent::Phase::PhaseBegan
@@ -597,15 +645,21 @@ void ViewPlatform::didLosePointerLock()
 }
 #endif
 
+void ViewPlatform::dispatchPendingNextPresentationUpdateCallbacks()
+{
+    while (!m_nextPresentationUpdateCallbacks.isEmpty()) {
+        auto callback = m_nextPresentationUpdateCallbacks.takeLast();
+        callback();
+    }
+}
+
 void ViewPlatform::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
 {
-    RELEASE_ASSERT(!m_nextPresentationUpdateCallback);
-    m_nextPresentationUpdateCallback = WTFMove(callback);
+    m_nextPresentationUpdateCallbacks.insert(0, WTFMove(callback));
     if (!m_bufferRenderedID) {
         m_bufferRenderedID = g_signal_connect_after(m_wpeView.get(), "buffer-rendered", G_CALLBACK(+[](WPEView* view, WPEBuffer*, gpointer userData) {
             auto& webView = *reinterpret_cast<ViewPlatform*>(userData);
-            if (webView.m_nextPresentationUpdateCallback)
-                webView.m_nextPresentationUpdateCallback();
+            webView.dispatchPendingNextPresentationUpdateCallbacks();
         }), this);
     }
 }

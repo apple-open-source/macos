@@ -52,5 +52,8 @@ extern  void    commpage_update_dof(boolean_t enabled);
 extern  void    commpage_update_dyld_flags(uint64_t value);
 extern uint32_t commpage_is_in_pfz64(addr64_t addr);
 extern  void    commpage_update_apt_active(bool active);
+#if defined(PRIVATE)
+extern  void    commpage_set_erm_active(bool active);
+#endif
 
 #endif /* _ARM_COMMPAGE_H */

@@ -203,7 +203,7 @@
 
     if (![_immediateActionRecognizer animationController]) {
         // FIXME: We should be able to remove the dispatch_async when rdar://problem/19502927 is resolved.
-        RunLoop::main().dispatch([self, strongSelf = retainPtr(self)] {
+        RunLoop::mainSingleton().dispatch([self, strongSelf = retainPtr(self)] {
             [self _cancelImmediateAction];
         });
     }
@@ -276,7 +276,7 @@
     if (_contentPreventsDefault)
         return adoptNS([[WebAnimationController alloc] init]).autorelease();
 
-    NSURL *url = _hitTestResult.absoluteLinkURL();
+    RetainPtr url = _hitTestResult.absoluteLinkURL().createNSURL();
     String absoluteURLString = [url absoluteString];
     if (url && _hitTestResult.URLElement()) {
         if (WTF::protocolIs(absoluteURLString, "mailto"_s)) {
@@ -362,7 +362,7 @@
     if (!_webView)
         return nil;
 
-    return _hitTestResult.absoluteLinkURL();
+    return _hitTestResult.absoluteLinkURL().createNSURL().autorelease();
 }
 
 - (NSRectEdge)menuItem:(NSMenuItem *)menuItem preferredEdgeForPoint:(NSPoint)point
@@ -498,7 +498,7 @@ static WebCore::IntRect elementBoundingBoxInWindowCoordinatesFromNode(WebCore::N
 
     [_currentActionContext setHighlightFrame:[_webView.window convertRectToScreen:elementBoundingBoxInWindowCoordinatesFromNode(_hitTestResult.URLElement())]];
 
-    NSArray *menuItems = [[PAL::getDDActionsManagerClass() sharedManager] menuItemsForTargetURL:_hitTestResult.absoluteLinkURL().string() actionContext:_currentActionContext.get()];
+    NSArray *menuItems = [[PAL::getDDActionsManagerClass() sharedManager] menuItemsForTargetURL:_hitTestResult.absoluteLinkURL().string().createNSString().get() actionContext:_currentActionContext.get()];
     if (menuItems.count != 1)
         return nil;
     
@@ -534,6 +534,7 @@ static WebCore::IntRect elementBoundingBoxInWindowCoordinatesFromNode(WebCore::N
     popupInfo.origin = NSMakePoint(rangeRect.x(), rangeRect.y() + scaledDescent);
 
     auto attributedString = editingAttributedString(range, { }).nsAttributedString();
+#if ENABLE(LEGACY_PDFKIT_PLUGIN)
     auto scaledAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[attributedString string]]);
     NSFontManager *fontManager = [NSFontManager sharedFontManager];
 
@@ -548,9 +549,12 @@ static WebCore::IntRect elementBoundingBoxInWindowCoordinatesFromNode(WebCore::N
     }];
 
     popupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(scaledAttributedString.get());
+#else
+    popupInfo.text = [attributedString string];
+#endif
 
     if (auto textIndicator = WebCore::TextIndicator::createWithRange(range, indicatorOptions, presentationTransition))
-        popupInfo.textIndicator = textIndicator->data();
+        popupInfo.textIndicator = textIndicator;
 
     editor.setIsGettingDictionaryPopupInfo(false);
     return popupInfo;
@@ -575,8 +579,13 @@ static WebCore::IntRect elementBoundingBoxInWindowCoordinatesFromNode(WebCore::N
 
     auto dictionaryRange = WTFMove(*range);
     auto dictionaryPopupInfo = [WebImmediateActionController _dictionaryPopupInfoForRange:dictionaryRange inFrame:frame indicatorOptions: { } transition: WebCore::TextIndicatorPresentationTransition::FadeIn];
+#if ENABLE(LEGACY_PDFKIT_PLUGIN)
     if (!dictionaryPopupInfo.platformData.attributedString.nsAttributedString())
         return nil;
+#else
+    if (!dictionaryPopupInfo.text)
+        return nil;
+#endif
 
     return [_webView _animationControllerForDictionaryLookupPopupInfo:dictionaryPopupInfo];
 }

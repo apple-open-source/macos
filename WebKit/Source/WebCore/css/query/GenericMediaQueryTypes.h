@@ -65,7 +65,7 @@ struct GeneralEnclosed {
     String text;
 };
 
-using QueryInParens = std::variant<Condition, Feature, GeneralEnclosed>;
+using QueryInParens = Variant<Condition, Feature, GeneralEnclosed>;
 
 struct Condition {
     LogicalOperator logicalOperator { LogicalOperator::And };

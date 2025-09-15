@@ -34,7 +34,9 @@
 #import "WebNSURLExtras.h"
 #import "WebVisitedLinkStore.h"
 #import <WebCore/HistoryItem.h>
+#import <numeric>
 #import <pal/spi/cocoa/NSCalendarDateSPI.h>
+#import <ranges>
 
 #if PLATFORM(IOS_FAMILY)
 #import <WebCore/WebCoreThreadMessage.h>
@@ -206,7 +208,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     unsigned low = 0;
     unsigned high = count;
     while (low < high) {
-        unsigned mid = low + (high - low) / 2;
+        unsigned mid = std::midpoint(low, high);
         if ([[entriesForDate objectAtIndex:mid] lastVisitedTimeInterval] >= entryDate)
             low = mid + 1;
         else
@@ -433,7 +435,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         for (DateToEntriesMap::const_iterator it = _entriesByDate->begin(); it != end; ++it)
             daysAsTimeIntervals.append(it->key);
 
-        std::sort(daysAsTimeIntervals.begin(), daysAsTimeIntervals.end());
+        std::ranges::sort(daysAsTimeIntervals);
         size_t count = daysAsTimeIntervals.size();
         _orderedLastVisitedDays = adoptNS([[NSMutableArray alloc] initWithCapacity:count]);
         for (int i = count - 1; i >= 0; i--) {
@@ -871,7 +873,7 @@ WebHistoryWriter::WebHistoryWriter(DateToEntriesMap* entriesByDate)
     DateToEntriesMap::const_iterator end = m_entriesByDate->end();
     for (DateToEntriesMap::const_iterator it = m_entriesByDate->begin(); it != end; ++it)
         m_dateKeys.append(it->key);
-    std::sort(m_dateKeys.begin(), m_dateKeys.end());
+    std::ranges::sort(m_dateKeys);
 }
 
 void WebHistoryWriter::writeHistoryItems(BinaryPropertyListObjectStream& stream)

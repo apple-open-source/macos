@@ -460,8 +460,6 @@ const char *GetEntryPointName(EntryPoint ep)
             return "eglSwapBuffers";
         case EntryPoint::EGLSwapBuffersWithDamageKHR:
             return "eglSwapBuffersWithDamageKHR";
-        case EntryPoint::EGLSwapBuffersWithFrameTokenANGLE:
-            return "eglSwapBuffersWithFrameTokenANGLE";
         case EntryPoint::EGLSwapInterval:
             return "eglSwapInterval";
         case EntryPoint::EGLTerminate:
@@ -884,8 +882,6 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glEGLImageTargetTexStorageEXT";
         case EntryPoint::GLEGLImageTargetTexture2DOES:
             return "glEGLImageTargetTexture2DOES";
-        case EntryPoint::GLEGLImageTargetTextureStorageEXT:
-            return "glEGLImageTargetTextureStorageEXT";
         case EntryPoint::GLEnable:
             return "glEnable";
         case EntryPoint::GLEnableClientState:
@@ -958,6 +954,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glFramebufferRenderbufferOES";
         case EntryPoint::GLFramebufferResolveRenderbufferWEBKIT:
             return "glFramebufferResolveRenderbufferWEBKIT";
+        case EntryPoint::GLFramebufferShadingRateEXT:
+            return "glFramebufferShadingRateEXT";
         case EntryPoint::GLFramebufferTexture:
             return "glFramebufferTexture";
         case EntryPoint::GLFramebufferTexture2D:
@@ -1084,6 +1082,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glGetFragDataIndexEXT";
         case EntryPoint::GLGetFragDataLocation:
             return "glGetFragDataLocation";
+        case EntryPoint::GLGetFragmentShadingRatesEXT:
+            return "glGetFragmentShadingRatesEXT";
         case EntryPoint::GLGetFramebufferAttachmentParameteriv:
             return "glGetFramebufferAttachmentParameteriv";
         case EntryPoint::GLGetFramebufferAttachmentParameterivOES:
@@ -1544,6 +1544,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glMultMatrixx";
         case EntryPoint::GLMultiDrawArraysANGLE:
             return "glMultiDrawArraysANGLE";
+        case EntryPoint::GLMultiDrawArraysEXT:
+            return "glMultiDrawArraysEXT";
         case EntryPoint::GLMultiDrawArraysIndirectEXT:
             return "glMultiDrawArraysIndirectEXT";
         case EntryPoint::GLMultiDrawArraysInstancedANGLE:
@@ -1554,6 +1556,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glMultiDrawElementsANGLE";
         case EntryPoint::GLMultiDrawElementsBaseVertexEXT:
             return "glMultiDrawElementsBaseVertexEXT";
+        case EntryPoint::GLMultiDrawElementsEXT:
+            return "glMultiDrawElementsEXT";
         case EntryPoint::GLMultiDrawElementsIndirectEXT:
             return "glMultiDrawElementsIndirectEXT";
         case EntryPoint::GLMultiDrawElementsInstancedANGLE:
@@ -1564,8 +1568,6 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glMultiTexCoord4f";
         case EntryPoint::GLMultiTexCoord4x:
             return "glMultiTexCoord4x";
-        case EntryPoint::GLNamedBufferStorageExternalEXT:
-            return "glNamedBufferStorageExternalEXT";
         case EntryPoint::GLNormal3f:
             return "glNormal3f";
         case EntryPoint::GLNormal3x:
@@ -1878,6 +1880,10 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glShaderBinary";
         case EntryPoint::GLShaderSource:
             return "glShaderSource";
+        case EntryPoint::GLShadingRateCombinerOpsEXT:
+            return "glShadingRateCombinerOpsEXT";
+        case EntryPoint::GLShadingRateEXT:
+            return "glShadingRateEXT";
         case EntryPoint::GLShadingRateQCOM:
             return "glShadingRateQCOM";
         case EntryPoint::GLSignalSemaphoreEXT:
@@ -1980,8 +1986,6 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glTexParameterx";
         case EntryPoint::GLTexParameterxv:
             return "glTexParameterxv";
-        case EntryPoint::GLTexStorage1DEXT:
-            return "glTexStorage1DEXT";
         case EntryPoint::GLTexStorage2D:
             return "glTexStorage2D";
         case EntryPoint::GLTexStorage2DEXT:

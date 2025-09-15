@@ -22,6 +22,7 @@
 #include "JSDOMWindow.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "HTMLFrameOwnerElement.h"
@@ -218,7 +219,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsDOMWindowConstructor, (JSGlobalObject* lexicalGlobalO
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSDOMWindowPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSDOMWindow::getConstructor(vm, prototype->globalObject()));
 }
@@ -371,7 +372,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsDOMWindow_TestPromiseRejectionEventConstructor, (JSGl
 
 JSC::GCClient::IsoSubspace* JSDOMWindow::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSDOMWindow, UseCustomHeapCellType::Yes>(vm,
+    return WebCore::subspaceForImpl<JSDOMWindow, UseCustomHeapCellType::Yes>(vm, "JSDOMWindow"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForDOMWindow.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForDOMWindow = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForDOMWindow.get(); },

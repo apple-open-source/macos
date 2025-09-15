@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DeprecatedCSSOMValue.h"
 
+#include "CSSSerializationContext.h"
 #include "DeprecatedCSSOMBoxShadowValue.h"
 #include "DeprecatedCSSOMFilterFunctionValue.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
@@ -101,6 +102,11 @@ String DeprecatedCSSOMValue::cssText() const
     }
     ASSERT_NOT_REACHED();
     return emptyString();
+}
+
+String DeprecatedCSSOMComplexValue::cssText() const
+{
+    return m_value->cssText(CSS::defaultSerializationContext());
 }
 
 unsigned short DeprecatedCSSOMComplexValue::cssValueType() const

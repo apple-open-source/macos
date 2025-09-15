@@ -106,8 +106,9 @@ CDMFactoryThunder& CDMFactoryThunder::singleton()
     return s_factory;
 }
 
-std::unique_ptr<CDMPrivate> CDMFactoryThunder::createCDM(const String& keySystem, const CDMPrivateClient&)
+std::unique_ptr<CDMPrivate> CDMFactoryThunder::createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient&)
 {
+    UNUSED_PARAM(mediaKeysHashSalt);
     ASSERT(supportsKeySystem(keySystem));
     return makeUnique<CDMPrivateThunder>(keySystem);
 }
@@ -118,24 +119,25 @@ RefPtr<CDMProxy> CDMFactoryThunder::createCDMProxy(const String& keySystem)
     return adoptRef(new CDMProxyThunder(keySystem));
 }
 
-const Vector<String>& CDMFactoryThunder::supportedKeySystems() const
+CDMFactoryThunder::CDMFactoryThunder()
 {
     ASSERT(isMainThread());
 
-    static Vector<String> supportedKeySystems;
-    if (supportedKeySystems.isEmpty()) {
-        std::string emptyString;
-        if (opencdm_is_type_supported(GStreamerEMEUtilities::s_WidevineKeySystem, emptyString.c_str()) == ERROR_NONE)
-            supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_WidevineKeySystem));
-        if (opencdm_is_type_supported(GStreamerEMEUtilities::s_ClearKeyKeySystem, emptyString.c_str()) == ERROR_NONE)
-            supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_ClearKeyKeySystem));
-        if (opencdm_is_type_supported(GStreamerEMEUtilities::s_PlayReadyKeySystems[0], emptyString.c_str()) == ERROR_NONE) {
-            supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_PlayReadyKeySystems[0]));
-            supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_PlayReadyKeySystems[1]));
-        }
-        GST_DEBUG("%zu supported key systems", supportedKeySystems.size());
+    std::string emptyString;
+    if (opencdm_is_type_supported(GStreamerEMEUtilities::s_WidevineKeySystem, emptyString.c_str()) == ERROR_NONE)
+        m_supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_WidevineKeySystem));
+    if (opencdm_is_type_supported(GStreamerEMEUtilities::s_ClearKeyKeySystem, emptyString.c_str()) == ERROR_NONE)
+        m_supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_ClearKeyKeySystem));
+    if (opencdm_is_type_supported(GStreamerEMEUtilities::s_PlayReadyKeySystems[0], emptyString.c_str()) == ERROR_NONE) {
+        m_supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_PlayReadyKeySystems[0]));
+        m_supportedKeySystems.append(String::fromLatin1(GStreamerEMEUtilities::s_PlayReadyKeySystems[1]));
     }
-    return supportedKeySystems;
+    GST_DEBUG("%zu supported key systems", m_supportedKeySystems.size());
+}
+
+const Vector<String>& CDMFactoryThunder::supportedKeySystems() const
+{
+    return m_supportedKeySystems;
 }
 
 bool CDMFactoryThunder::supportsKeySystem(const String& keySystem)
@@ -252,14 +254,14 @@ CDMInstanceThunder::CDMInstanceThunder(const String& keySystem)
 void CDMInstanceThunder::initializeWithConfiguration(const CDMKeySystemConfiguration&, AllowDistinctiveIdentifiers, AllowPersistentState,
     SuccessCallback&& callback)
 {
-    callback(Succeeded);
+    callback(CDMInstanceSuccessValue::Succeeded);
 }
 
 void CDMInstanceThunder::setServerCertificate(Ref<SharedBuffer>&& certificate,  SuccessCallback&& callback)
 {
     auto data = certificate->extractData();
-    OpenCDMError error = opencdm_system_set_server_certificate(m_thunderSystem.get(), const_cast<uint8_t*>(data.data()), data.size());
-    callback(!error ? Succeeded : Failed);
+    OpenCDMError error = opencdm_system_set_server_certificate(m_thunderSystem.get(), const_cast<uint8_t*>(data.span().data()), data.size());
+    callback(!error ? CDMInstanceSuccessValue::Succeeded : CDMInstanceSuccessValue::Failed);
 }
 
 void CDMInstanceThunder::setStorageDirectory(const String& storageDirectory)
@@ -411,7 +413,7 @@ static const char* toString(CDMInstanceSession::KeyStatus status)
 
 CDMInstanceSession::KeyStatus CDMInstanceSessionThunder::status(const KeyIDType& keyID) const
 {
-    ThunderKeyStatus status = m_session && !m_sessionID.isEmpty() ? opencdm_session_status(m_session->get(), keyID.data(), keyID.size()) : StatusPending;
+    ThunderKeyStatus status = m_session && !m_sessionID.isEmpty() ? opencdm_session_status(m_session->get(), keyID.span().data(), keyID.size()) : StatusPending;
 
     switch (status) {
     case Usable:
@@ -436,7 +438,7 @@ CDMInstanceSession::KeyStatus CDMInstanceSessionThunder::status(const KeyIDType&
 
 void CDMInstanceSessionThunder::keyUpdatedCallback(KeyIDType&& keyID)
 {
-    GST_MEMDUMP("updated key", keyID.data(), keyID.size());
+    GST_MEMDUMP("updated key", keyID.span().data(), keyID.size());
 
     auto keyStatus = status(keyID);
     GST_DEBUG("updated with with key status %s", toString(keyStatus));
@@ -452,7 +454,7 @@ void CDMInstanceSessionThunder::keyUpdatedCallback(KeyIDType&& keyID)
         std::swap(swappedKeyID[1], swappedKeyID[2]);
         std::swap(swappedKeyID[4], swappedKeyID[5]);
         std::swap(swappedKeyID[6], swappedKeyID[7]);
-        GST_MEMDUMP("updated swapped key", swappedKeyID.data(), swappedKeyID.size());
+        GST_MEMDUMP("updated swapped key", swappedKeyID.span().data(), swappedKeyID.size());
         m_doesKeyStoreNeedMerging |= m_keyStore.add(KeyHandle::create(keyStatus, WTFMove(swappedKeyID), BoxPtr<OpenCDMSession>(m_session)));
     }
 
@@ -482,7 +484,7 @@ void CDMInstanceSessionThunder::errorCallback(RefPtr<SharedBuffer>&& message)
 {
     GST_ERROR("CDM error");
     auto data = message->extractData();
-    GST_MEMDUMP("error dump", data.data(), data.size());
+    GST_MEMDUMP("error dump", data.span().data(), data.size());
     for (const auto& challengeCallback : m_challengeCallbacks)
         challengeCallback();
     m_challengeCallbacks.clear();
@@ -499,16 +501,20 @@ void CDMInstanceSessionThunder::requestLicense(LicenseType licenseType, KeyGroup
 
     // FIXME: UUID or system ID?
     auto instance = cdmInstanceThunder();
-    ASSERT(instance);
+    if (!instance) {
+        GST_WARNING("no instance, bailing out");
+        callback(WTFMove(initDataSharedBuffer), { }, false, Failed);
+        return;
+    }
     m_initData = InitData(instance->keySystem(), WTFMove(initDataSharedBuffer));
 
     GST_TRACE("Going to request a new session id, init data size %zu", m_initData.payload()->size());
     auto payloadData = m_initData.payload()->extractData();
-    GST_MEMDUMP("init data", payloadData.data(), payloadData.size());
+    GST_MEMDUMP("init data", payloadData.span().data(), payloadData.size());
 
     OpenCDMSession* session = nullptr;
     opencdm_construct_session(&instance->thunderSystem(), thunderLicenseType(licenseType), initDataType.string().utf8().data(),
-        payloadData.data(), payloadData.size(), nullptr, 0, &m_thunderSessionCallbacks, this, &session);
+        payloadData.span().data(), payloadData.size(), nullptr, 0, &m_thunderSessionCallbacks, this, &session);
     if (!session) {
         GST_ERROR("Could not create session");
         RefPtr<SharedBuffer> initData = m_initData.payload();
@@ -571,7 +577,7 @@ void CDMInstanceSessionThunder::updateLicense(const String& sessionID, LicenseTy
                     GST_DEBUG("got message of size %zu", message->size());
 #ifndef GST_DISABLE_GST_DEBUG
                     auto data = message->copyData();
-                    GST_MEMDUMP("message", data.data(), data.size());
+                    GST_MEMDUMP("message", data.span().data(), data.size());
 #endif
                     callback(false, std::nullopt, std::nullopt,
                         std::make_pair(parsedResponseMessage.typeOr(MediaKeyMessageType::LicenseRequest),
@@ -587,7 +593,7 @@ void CDMInstanceSessionThunder::updateLicense(const String& sessionID, LicenseTy
         }
     });
     auto responseData = response->extractData();
-    if (!m_session || m_sessionID.isEmpty() || opencdm_session_update(m_session->get(), responseData.data(), responseData.size()))
+    if (!m_session || m_sessionID.isEmpty() || opencdm_session_update(m_session->get(), responseData.span().data(), responseData.size()))
         sessionFailure();
 }
 
@@ -610,7 +616,7 @@ void CDMInstanceSessionThunder::loadSession(LicenseType, const String& sessionID
                     GST_DEBUG("got message of size %zu", message->size());
 #ifndef GST_DISABLE_GST_DEBUG
                     auto data = message->copyData();
-                    GST_MEMDUMP("message", data.data(), data.size());
+                    GST_MEMDUMP("message", data.span().data(), data.size());
 #endif
                     callback(std::nullopt, std::nullopt, std::make_pair(parsedResponseMessage.typeOr(MediaKeyMessageType::LicenseRequest),
                         WTFMove(message)), SuccessValue::Succeeded, SessionLoadFailure::None);

@@ -28,10 +28,14 @@
 #import "WKWebpagePreferencesInternal.h"
 
 #import "APINavigation.h"
+#import "FrameInfoData.h"
+#import "WKFrameInfoInternal.h"
+#import "WebFrameProxy.h"
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/AlignedStorage.h>
 
 @implementation WKNavigation {
-    API::ObjectStorage<API::Navigation> _navigation;
+    AlignedStorage<API::Navigation> _navigation;
 }
 
 WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
@@ -41,7 +45,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKNavigation.class, self))
         return;
 
-    _navigation->~Navigation();
+    Ref { *_navigation }->~Navigation();
 
     [super dealloc];
 }
@@ -54,6 +58,15 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (BOOL)_isUserInitiated
 {
     return _navigation->wasUserInitiated();
+}
+
+- (WKFrameInfo *)_initiatingFrame
+{
+    auto& frameInfo = _navigation->originatingFrameInfo();
+    if (!frameInfo)
+        return nil;
+    RefPtr frame = WebKit::WebFrameProxy::webFrame(frameInfo->frameID);
+    return wrapper(API::FrameInfo::create(WebKit::FrameInfoData { *frameInfo }, frame ? frame->page() : nullptr)).autorelease();
 }
 
 #if PLATFORM(IOS_FAMILY)

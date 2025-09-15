@@ -42,6 +42,8 @@ SET(libarchive_SOURCES
   archive_getdate.h
   archive_hmac.c
   archive_hmac_private.h
+  archive_hooks.c
+  archive_hooks.h
   archive_match.c
   archive_openssl_evp_private.h
   archive_openssl_hmac_private.h

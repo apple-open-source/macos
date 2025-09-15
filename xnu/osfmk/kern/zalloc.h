@@ -172,17 +172,15 @@ __options_decl(zone_create_flags_t, uint64_t, {
 	/** This zone is a built object cache */
 	ZC_OBJ_CACHE            = 0x0080000000000000,
 
-	/** Use guard pages in PGZ mode */
-	ZC_PGZ_USE_GUARDS       = 0x0100000000000000,
+	// was ZC_PGZ_USE_GUARDS  0x0100000000000000,
 
 	/** Zone doesn't support TBI tagging */
-	ZC_NO_TBI_TAG             = 0x0200000000000000,
+	ZC_NO_TBI_TAG           = 0x0200000000000000,
 
 	/** This zone will back a kalloc type */
 	ZC_KALLOC_TYPE          = 0x0400000000000000,
 
-	/** Disable PGZ for this zone */
-	ZC_NOPGZ                = 0x0800000000000000,
+	// was ZC_NOPGZ         = 0x0800000000000000,
 
 	/** This zone contains pure data */
 	ZC_DATA                 = 0x1000000000000000,
@@ -469,6 +467,7 @@ __options_decl(zalloc_flags_t, uint32_t, {
 	Z_REALLOCF      = 0x0008,
 
 #if XNU_KERNEL_PRIVATE
+	Z_NOSOFTLIMIT   = 0x0020,
 	Z_SET_NOTEARLY = 0x0040,
 	Z_SPRAYQTN      = 0x0080,
 	Z_KALLOC_ARRAY  = 0x0100,
@@ -1118,7 +1117,7 @@ extern zone_t   zinit(
 
 #include <kern/cpu_number.h>
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 #pragma mark XNU only: zalloc (extended)
 
@@ -2015,7 +2014,20 @@ __enum_decl(zone_kheap_id_t, uint8_t, {
 static inline bool
 zone_is_data_kheap(zone_kheap_id_t kheap_id)
 {
-	return kheap_id == KHEAP_ID_DATA_BUFFERS || kheap_id == KHEAP_ID_DATA_SHARED;
+	return kheap_id == KHEAP_ID_DATA_BUFFERS ||
+	       kheap_id == KHEAP_ID_DATA_SHARED;
+}
+
+static inline bool
+zone_is_data_buffers_kheap(zone_kheap_id_t kheap_id)
+{
+	return kheap_id == KHEAP_ID_DATA_BUFFERS;
+}
+
+static inline bool
+zone_is_data_shared_kheap(zone_kheap_id_t kheap_id)
+{
+	return kheap_id == KHEAP_ID_DATA_SHARED;
 }
 
 /*!
@@ -2463,71 +2475,6 @@ extern void zcache_drain(
 
 extern zone_cache_ops_t zcache_ops[ZONE_ID__FIRST_DYNAMIC];
 
-#pragma mark XNU only: PGZ support
-
-/*!
- * @function pgz_owned()
- *
- * @brief
- * Returns whether an address is PGZ owned.
- *
- * @param addr          The address to translate.
- * @returns             Whether it is PGZ owned
- */
-#if CONFIG_PROB_GZALLOC
-extern bool pgz_owned(mach_vm_address_t addr) __pure2;
-#else
-#define pgz_owned(addr) false
-#endif
-
-/*!
- * @function pgz_decode()
- *
- * @brief
- * Translates a PGZ protected virtual address to its unprotected
- * backing store.
- *
- * @discussion
- * This is exposed so that the VM can lookup the vm_page_t for PGZ protected
- * elements since the PGZ protected virtual addresses are maintained by PGZ
- * at the pmap level without the VM involvment.
- *
- * "allow_invalid" schemes relying on sequestering also need this
- * to perform the locking attempts on the unprotected address.
- *
- * @param addr          The address to translate.
- * @param size          The object size.
- * @returns             The unprotected address or @c addr.
- */
-#if CONFIG_PROB_GZALLOC
-#define pgz_decode(addr, size) \
-	((typeof(addr))__pgz_decode((mach_vm_address_t)(addr), size))
-#else
-#define pgz_decode(addr, size)  (addr)
-#endif
-
-/*!
- * @function pgz_decode_allow_invalid()
- *
- * @brief
- * Translates a PGZ protected virtual address to its unprotected
- * backing store, but doesn't assert it is still allocated/valid.
- *
- * @discussion
- * "allow_invalid" schemes relying on sequestering also need this
- * to perform the locking attempts on the unprotected address.
- *
- * @param addr          The address to translate.
- * @param want_zid      The expected zone ID for the element.
- * @returns             The unprotected address or @c addr.
- */
-#if CONFIG_PROB_GZALLOC
-#define pgz_decode_allow_invalid(addr, want_zid) \
-	((typeof(addr))__pgz_decode_allow_invalid((vm_offset_t)(addr), want_zid))
-#else
-#define pgz_decode_allow_invalid(addr, zid)  (addr)
-#endif
-
 #pragma mark XNU only: misc & implementation details
 
 struct zone_create_startup_spec {
@@ -2619,17 +2566,6 @@ __zone_flags_mix_tag(zalloc_flags_t flags, vm_tag_t tag)
 
 extern unsigned zpercpu_count(void) __pure2;
 
-#if CONFIG_PROB_GZALLOC
-
-extern vm_offset_t __pgz_decode(
-	mach_vm_address_t       addr,
-	mach_vm_size_t          size);
-
-extern vm_offset_t __pgz_decode_allow_invalid(
-	vm_offset_t             offs,
-	zone_id_t               zid);
-
-#endif
 #if DEBUG || DEVELOPMENT
 /* zone_max_zone is here (but not zalloc_internal.h) for the BSD kernel */
 extern unsigned int zone_max_zones(void);
@@ -2650,6 +2586,16 @@ extern kern_return_t zleak_update_threshold(
 extern uint32_t                 zone_map_jetsam_limit;
 
 extern kern_return_t zone_map_jetsam_set_limit(uint32_t value);
+
+/* max length of a zone name we can take from boot-args/sysctl */
+#define MAX_ZONE_NAME   32
+
+#if DEVELOPMENT || DEBUG
+
+extern kern_return_t zone_reset_peak(const char *zonename);
+extern kern_return_t zone_reset_all_peaks(void);
+
+#endif /* DEVELOPMENT || DEBUG */
 
 extern zone_t percpu_u64_zone;
 
@@ -2681,7 +2627,7 @@ mach_memory_info_sample(
 extern void     zone_gc_trim(void);
 extern void     zone_gc_drain(void);
 
-#pragma GCC visibility pop
+__exported_pop
 #endif /* XNU_KERNEL_PRIVATE */
 
 /*

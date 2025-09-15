@@ -48,7 +48,7 @@ void ArgumentCoder<GRefPtr<GtkPrintSettings>>::encode(Encoder& encoder, const GR
 std::optional<GRefPtr<GtkPrintSettings>> ArgumentCoder<GRefPtr<GtkPrintSettings>>::decode(Decoder& decoder)
 {
     auto variant = decoder.decode<GRefPtr<GVariant>>();
-    if (UNLIKELY(!variant))
+    if (!variant) [[unlikely]]
         return std::nullopt;
 
     return gtk_print_settings_new_from_gvariant(variant->get());
@@ -64,7 +64,7 @@ void ArgumentCoder<GRefPtr<GtkPageSetup>>::encode(Encoder& encoder, const GRefPt
 std::optional<GRefPtr<GtkPageSetup>> ArgumentCoder<GRefPtr<GtkPageSetup>>::decode(Decoder& decoder)
 {
     auto variant = decoder.decode<GRefPtr<GVariant>>();
-    if (UNLIKELY(!variant))
+    if (!variant) [[unlikely]]
         return std::nullopt;
 
     return gtk_page_setup_new_from_gvariant(variant->get());

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2013, 2015, 2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2013, 2015, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
  * Copyright (C) 2009 Joseph Pecoraro
  *
@@ -2098,6 +2098,16 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             text = WI.UIString("Event");
             handleClick = this._handleEventBadgeClicked.bind(this);
             break;
+
+        case WI.DOMTreeElement.BadgeType.SlotAssigned:
+            text = WI.UIString("Slotted", "Title for a badge applied to a node that is assigned to a HTMLSlotElement.");
+            handleClick = this._handleSlotAssignedBadgeClicked.bind(this);
+            break;
+
+        case WI.DOMTreeElement.BadgeType.SlotFilled:
+            text = WI.UIString("Assigned", "Title for a badge applied to HTMLSlotElement that have assigned nodes.");
+            handleClick = this._handleSlotFilledBadgeClicked.bind(this);
+            break;
         }
 
         let badgeElement = this.title.appendChild(document.createElement("span"));
@@ -2137,6 +2147,14 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
             case WI.DOMNode.LayoutFlag.Event:
                 this._createBadge(WI.DOMTreeElement.BadgeType.Event);
+                break;
+
+            case WI.DOMNode.LayoutFlag.SlotAssigned:
+                this._createBadge(WI.DOMTreeElement.BadgeType.SlotAssigned);
+                break;
+
+            case WI.DOMNode.LayoutFlag.SlotFilled:
+                this._createBadge(WI.DOMTreeElement.BadgeType.SlotFilled);
                 break;
             }
         }
@@ -2207,6 +2225,74 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         this._eventBadgePopover.presentNewContentWithFrame(contentElement, calculateTargetFrame(), preferredEdges);
     }
 
+    async _handleSlotAssignedBadgeClicked(event)
+    {
+        let slotNode = await this.representedObject.requestAssignedSlot();
+        console.assert(slotNode, this.representedObject);
+        if (!slotNode)
+            return;
+
+        WI.domManager.inspectElement(slotNode.id, {
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
+        });
+    }
+
+    async _handleSlotFilledBadgeClicked(event)
+    {
+        if (this._slotFilledBadgePopover)
+            return;
+
+        let assignedNodes = await this.representedObject.requestAssignedNodes();
+        console.assert(assignedNodes.length, this.representedObject);
+
+        if (assignedNodes.length === 1) {
+            WI.domManager.inspectElement(assignedNodes[0].id, {
+                initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
+            });
+            return;
+        }
+
+        const preferredEdges = [WI.RectEdge.MAX_X, WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y];
+        let calculateTargetFrame = () => {
+            return WI.Rect.rectFromClientRect(this._elementForBadgeType.get(WI.DOMTreeElement.BadgeType.SlotFilled).getBoundingClientRect()).pad(2);
+        };
+
+        this._slotFilledBadgePopover = new WI.Popover(this);
+        this._slotFilledBadgePopover.windowResizeHandler = (event) => {
+            this._slotFilledBadgePopover.present(calculateTargetFrame(), preferredEdges, {updateContent: true, shouldAnimate: false});
+        };
+
+        let contentElement = document.createElement("div");
+        contentElement.className = "slot-filled-badge-popover-content";
+
+        let tableContainer = contentElement.appendChild(document.createElement("table"));
+
+        for (let i = 0; i < assignedNodes.length; ++i) {
+            let rowElement = tableContainer.appendChild(document.createElement("tr"));
+
+            let indexElement = rowElement.appendChild(document.createElement("td"));
+            indexElement.textContent = i + 1;
+
+            let dataElement = rowElement.appendChild(document.createElement("td"));
+
+            let treeOutline = new WI.DOMTreeOutline({selectable: false});
+            treeOutline.setVisible(true);
+            treeOutline.rootDOMNode = assignedNodes[i];
+
+            let rootTreeElement = treeOutline.children[0];
+            rootTreeElement.showGoToArrow = true;
+            if (!rootTreeElement.hasChildren)
+                treeOutline.element.classList.add("single-node");
+
+            rootTreeElement.highlightAttribute("slot");
+            rootTreeElement.updateTitle();
+
+            dataElement.appendChild(treeOutline.element);
+        }
+
+        this._slotFilledBadgePopover.presentNewContentWithFrame(contentElement, calculateTargetFrame(), preferredEdges);
+    }
+
     _handleScrollableBadgeClicked(event)
     {
         this.representedObject.scrollIntoView();
@@ -2255,8 +2341,17 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     didDismissPopover(popover)
     {
-        if (popover === this._eventBadgePopover)
+        switch (popover) {
+        case this._eventBadgePopover:
             this._eventBadgePopover = null;
+            return;
+
+        case this._slotFilledBadgePopover:
+            this._slotFilledBadgePopover = null;
+            return;
+        }
+
+        console.assert(false, "not reached");
     }
 };
 
@@ -2287,8 +2382,10 @@ WI.DOMTreeElement.BadgeType = {
     Flex: "flex",
     Grid: "grid",
     Event: "event",
+    SlotAssigned: "slot-assigned",
+    SlotFilled: "slot-filled",
 };
-WI.settings.enabledDOMTreeBadgeTypes = new WI.Setting("enabled-dom-tree-badge-types", [WI.DOMTreeElement.BadgeType.Flex, WI.DOMTreeElement.BadgeType.Grid, WI.DOMTreeElement.BadgeType.Event, WI.DOMTreeElement.BadgeType.Scrollable]);
+WI.settings.enabledDOMTreeBadgeTypes = new WI.Setting("enabled-dom-tree-badge-types", Object.values(WI.DOMTreeElement.BadgeType));
 
 WI.DOMTreeElement.HighlightStyleClassName = "highlight";
 WI.DOMTreeElement.SearchHighlightStyleClassName = "search-highlight";

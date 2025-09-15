@@ -75,6 +75,11 @@
 @property FakeCKZone*          photosZone;
 @property (readonly) ZoneKeys* photosZoneKeys;
 
+@property CKRecordZoneID*      findMyZoneID;
+@property CKKSKeychainViewState* findMyView;
+@property FakeCKZone*          findMyZone;
+@property (readonly) ZoneKeys* findMyZoneKeys;
+
 @property CKRecordZoneID*      ptaZoneID;
 @property CKKSKeychainViewState* ptaView;
 @property FakeCKZone*          ptaZone;

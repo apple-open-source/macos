@@ -31,11 +31,45 @@
 #import "ImageAnalysisUtilities.h"
 #import <Foundation/NSBundle.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/WTFString.h>
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPreferencesDefaultValuesCocoaAdditions.mm>)
+#import <WebKitAdditions/WebPreferencesDefaultValuesCocoaAdditions.mm>
+#else
+#if HAVE(LIQUID_GLASS)
+static bool platformIsLiquidGlassEnabled()
+{
+    return true;
+}
+#endif
+#endif
+
 namespace WebKit {
+
+#if HAVE(LIQUID_GLASS)
+static std::optional<bool>& cachedIsLiqudGlassEnabled()
+{
+    static std::optional<bool> isLiquidGlassEnabled;
+    return isLiquidGlassEnabled;
+}
+
+bool isLiquidGlassEnabled()
+{
+    if (auto isLiquidGlassEnabled = cachedIsLiqudGlassEnabled())
+        return *isLiquidGlassEnabled;
+    ASSERT_WITH_MESSAGE(!isInAuxiliaryProcess(), "isLiquidGlassEnabled() must not be called before setLiquidGlassEnabled() in auxiliary processes");
+    return platformIsLiquidGlassEnabled();
+}
+
+void setLiquidGlassEnabled(bool isLiquidGlassEnabled)
+{
+    cachedIsLiqudGlassEnabled() = isLiquidGlassEnabled;
+}
+#endif // HAVE(LIQUID_GLASS)
 
 #if PLATFORM(MAC)
 bool defaultScrollAnimatorEnabled()
@@ -84,17 +118,41 @@ bool defaultRemoveBackgroundEnabled()
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
-#if HAVE(SC_CONTENT_SHARING_PICKER)
-bool defaultUseSCContentSharingPicker()
+bool defaultTopContentInsetBackgroundCanChangeAfterScrolling()
 {
-    static bool enabled = false;
-    static std::once_flag flag;
-    std::call_once(flag, [] {
-        enabled = os_feature_enabled(Bilby, Newsroom);
-    });
-    return enabled;
+#if PLATFORM(IOS_FAMILY)
+    return PAL::currentUserInterfaceIdiomIsSmallScreen();
+#else
+    return false;
+#endif
+}
+
+bool defaultContentInsetBackgroundFillEnabled()
+{
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    return isLiquidGlassEnabled();
+#else
+    return false;
+#endif
+}
+
+#if HAVE(MATERIAL_HOSTING)
+bool defaultHostedBlurMaterialInMediaControlsEnabled()
+{
+    return isLiquidGlassEnabled();
 }
 #endif
+
+bool defaultIOSurfaceLosslessCompressionEnabled()
+{
+#if HAVE(COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES) && HAVE(LOSSLESS_COMPRESSED_IOSURFACE_CG_SUPPORT)
+#define WK_CA_FEATURE_CG_COMPRESSED_IOSURFACES 15
+    return CASupportsFeature(WK_CA_FEATURE_CG_COMPRESSED_IOSURFACES);
+#undef WK_CA_FEATURE_CG_COMPRESSED_IOSURFACES
+#else
+    return false;
+#endif
+}
 
 } // namespace WebKit
 

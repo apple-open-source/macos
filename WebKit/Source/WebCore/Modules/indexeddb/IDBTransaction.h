@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "IDBActiveDOMObject.h"
 #include "IDBError.h"
 #include "IDBGetAllRecordsData.h"
@@ -146,8 +147,8 @@ public:
     bool didDispatchAbortOrCommit() const { return m_didDispatchAbortOrCommit; }
 
     IDBClient::IDBConnectionProxy& connectionProxy();
-
     void connectionClosedFromServer(const IDBError&);
+    void generateIndexKeyForRecord(const IDBResourceIdentifier& requestIdentifier, const IDBIndexInfo&, const std::optional<IDBKeyPath>&, const IDBKeyData&, const IDBValue&, std::optional<int64_t> recordID);
 
     template<typename Visitor> void visitReferencedObjectStores(Visitor&) const;
 
@@ -200,7 +201,7 @@ private:
     void clearObjectStoreOnServer(IDBClient::TransactionOperation&, IDBObjectStoreIdentifier);
     void didClearObjectStoreOnServer(IDBRequest&, const IDBResultData&);
 
-    void putOrAddOnServer(IDBClient::TransactionOperation&, RefPtr<IDBKey>, RefPtr<SerializedScriptValue>, const IndexedDB::ObjectStoreOverwriteMode&);
+    void putOrAddOnServer(IDBClient::TransactionOperation&, const IDBObjectStoreInfo&, RefPtr<IDBKey>&&, Ref<SerializedScriptValue>&&, const IndexedDB::ObjectStoreOverwriteMode&);
     void didPutOrAddOnServer(IDBRequest&, const IDBResultData&);
 
     void getRecordOnServer(IDBClient::TransactionOperation&, const IDBGetRecordData&);
@@ -238,7 +239,7 @@ private:
     void trySchedulePendingOperationTimer();
     void addCursorRequest(IDBRequest&);
 
-    Ref<IDBDatabase> m_database;
+    const Ref<IDBDatabase> m_database;
     IDBTransactionInfo m_info;
 
     IndexedDB::TransactionState m_state { IndexedDB::TransactionState::Inactive };

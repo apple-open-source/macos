@@ -45,9 +45,9 @@ pmap_abandon_measurement(void)
 #if SCHED_HYGIENE_DEBUG
 	struct _preemption_disable_pcpu *pcpu = PERCPU_GET(_preemption_disable_pcpu_data);
 	uint64_t istate = pmap_interrupts_disable();
-	if (pcpu->pdp_start.pds_mach_time != 0) {
-		pcpu->pdp_abandon = true;
-	}
+
+	kern_timeout_override(&pcpu->pdp_timeout);
+
 	pmap_interrupts_restore(istate);
 #endif /* SCHED_HYGIENE_DEBUG */
 }

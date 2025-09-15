@@ -142,7 +142,7 @@ static errno_t ntfs_cluster_free_from_rl_nolock(ntfs_volume *vol,
 errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 		const s64 count, const LCN start_lcn,
 		const NTFS_CLUSTER_ALLOCATION_ZONES zone,
-		const BOOL is_extension, ntfs_runlist *runlist)
+		const NTFS_BOOL is_extension, ntfs_runlist *runlist)
 {
 	LCN zone_start, zone_end, bmp_pos, bmp_initial_pos, last_read_pos, lcn;
 	LCN prev_lcn = 0, prev_run_len = 0, mft_zone_size;
@@ -155,7 +155,7 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 	int rlpos, rlcount, bsize;
 	errno_t err;
 	u8 pass, done_zones, search_zone, bit;
-	BOOL need_writeback = FALSE;
+	NTFS_BOOL need_writeback = FALSE;
 
 	ntfs_debug("Entering for start_vcn 0x%llx, count 0x%llx, start_lcn "
 			"0x%llx, zone %s_ZONE.", (unsigned long long)start_vcn,
@@ -1119,7 +1119,7 @@ errno_t ntfs_cluster_free_from_rl(ntfs_volume *vol, ntfs_rl_element *rl,
  */
 static errno_t ntfs_cluster_free_nolock(ntfs_inode *ni, const VCN start_vcn,
 		s64 count, ntfs_attr_search_ctx *ctx, s64 *nr_freed,
-		const BOOL is_rollback)
+		const NTFS_BOOL is_rollback)
 {
 	s64 delta, to_free, total_freed, real_freed;
 	ntfs_volume *vol;

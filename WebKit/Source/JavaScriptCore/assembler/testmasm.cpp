@@ -3830,6 +3830,38 @@ void testMoveDoubleConditionallyFloatSameArg(MacroAssembler::DoubleCondition con
     testMoveConditionallyFloatingPointSameArg(condition, testCode, arg1, floatOperands(), selectionA, selectionB);
 }
 
+void testSignExtend8To32()
+{
+    auto code = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.signExtend8To32(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto a : int8Operands()) {
+        // Ensuring the upper 32bit is zero cleared.
+        int64_t expectedResult = static_cast<int64_t>(static_cast<uint64_t>(static_cast<uint32_t>(static_cast<int32_t>(a))));
+        CHECK_EQ(invoke<int64_t>(code, a), expectedResult);
+    }
+}
+
+void testSignExtend16To32()
+{
+    auto code = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.signExtend16To32(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto a : int16Operands()) {
+        // Ensuring the upper 32bit is zero cleared.
+        int64_t expectedResult = static_cast<int64_t>(static_cast<uint64_t>(static_cast<uint32_t>(static_cast<int32_t>(a))));
+        CHECK_EQ(invoke<int64_t>(code, a), expectedResult);
+    }
+}
+
 void testSignExtend8To64()
 {
     auto code = compile([&] (CCallHelpers& jit) {
@@ -5397,8 +5429,11 @@ void testLoadBaseIndex()
             emitFunctionEpilogue(jit);
             jit.ret();
         });
-        uint16_t array[] = { 1, 2, 0x7ff3, 4, 5, };
+        uint16_t array[] = { 1, 2, 0x7ff3, 0x8000, 5, };
         CHECK_EQ(invoke<uint32_t>(test, array, static_cast<UCPURegister>(3)), 0x7ff3);
+#if CPU(REGISTER64)
+        CHECK_EQ(invoke<uint64_t>(test, array, static_cast<UCPURegister>(4)), 0xffff8000);
+#endif
     }
     {
         auto test = compile([=](CCallHelpers& jit) {
@@ -5409,6 +5444,9 @@ void testLoadBaseIndex()
         });
         uint16_t array[] = { UINT16_MAX - 1, UINT16_MAX - 2, UINT16_MAX - 3, UINT16_MAX - 4, static_cast<uint16_t>(-1), };
         CHECK_EQ(invoke<uint32_t>(test, array, static_cast<UCPURegister>(3)), static_cast<uint32_t>(-1));
+#if CPU(REGISTER64)
+        CHECK_EQ(invoke<uint64_t>(test, array, static_cast<UCPURegister>(3)), static_cast<uint32_t>(-1));
+#endif
     }
 
     // load8
@@ -5441,8 +5479,11 @@ void testLoadBaseIndex()
             emitFunctionEpilogue(jit);
             jit.ret();
         });
-        uint8_t array[] = { 1, 2, 0x73, 4, 5, };
+        uint8_t array[] = { 1, 2, 0x73, 0x80, 5, };
         CHECK_EQ(invoke<uint32_t>(test, array, static_cast<UCPURegister>(3)), 0x73);
+#if CPU(REGISTER64)
+        CHECK_EQ(invoke<uint64_t>(test, array, static_cast<UCPURegister>(4)), 0xffffff80);
+#endif
     }
     {
         auto test = compile([=](CCallHelpers& jit) {
@@ -5453,6 +5494,9 @@ void testLoadBaseIndex()
         });
         uint8_t array[] = { UINT8_MAX - 1, UINT8_MAX - 2, UINT8_MAX - 3, UINT8_MAX - 4, static_cast<uint8_t>(-1), };
         CHECK_EQ(invoke<uint32_t>(test, array, static_cast<UCPURegister>(3)), static_cast<uint32_t>(-1));
+#if CPU(REGISTER64)
+        CHECK_EQ(invoke<uint64_t>(test, array, static_cast<UCPURegister>(3)), static_cast<uint32_t>(-1));
+#endif
     }
 
     // loadDouble
@@ -5944,8 +5988,9 @@ static void testBranchConvertDoubleToInt52()
 {
     auto toInt52 = compile([](CCallHelpers& jit) {
         emitFunctionPrologue(jit);
+        constexpr bool canIgnoreNegativeZero = false;
         CCallHelpers::JumpList failureCases;
-        jit.branchConvertDoubleToInt52(FPRInfo::argumentFPR0, GPRInfo::returnValueGPR, failureCases, GPRInfo::returnValueGPR2, FPRInfo::argumentFPR1);
+        jit.branchConvertDoubleToInt52(FPRInfo::argumentFPR0, GPRInfo::returnValueGPR, failureCases, GPRInfo::returnValueGPR2, FPRInfo::argumentFPR1, canIgnoreNegativeZero);
         auto done = jit.jump();
         failureCases.link(&jit);
         jit.move(CCallHelpers::TrustedImm64(1ULL << 52), GPRInfo::returnValueGPR);
@@ -6217,6 +6262,8 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     FOR_EACH_DOUBLE_CONDITION_RUN(testMoveDoubleConditionallyDoubleSameArg);
     FOR_EACH_DOUBLE_CONDITION_RUN(testMoveDoubleConditionallyFloatSameArg);
 
+    RUN(testSignExtend8To32());
+    RUN(testSignExtend16To32());
     RUN(testSignExtend8To64());
     RUN(testSignExtend16To64());
 #endif

@@ -31,9 +31,11 @@
 #include "DecomposedGlyphs.h"
 #include "FloatRect.h"
 #include "FloatRoundedRect.h"
+#include "FontRenderOptions.h"
 #include "GLContext.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
+#include "NativeImage.h"
 #include "NotImplemented.h"
 #include "PlatformDisplay.h"
 #include "ProcessCapabilities.h"
@@ -52,6 +54,8 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkSurface.h>
 #include <skia/core/SkTileMode.h>
 #include <skia/effects/SkImageFilters.h>
+#include <skia/gpu/ganesh/GrBackendSurface.h>
+#include <skia/gpu/ganesh/SkSurfaceGanesh.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/MathExtras.h>
 
@@ -248,12 +252,13 @@ static SkSamplingOptions toSkSamplingOptions(InterpolationQuality quality)
     return SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kNearest);
 }
 
-void GraphicsContextSkia::drawSkiaImage(const sk_sp<SkImage>& image, const IntSize& size, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
+void GraphicsContextSkia::drawNativeImageInternal(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
+    auto image = nativeImage.platformImage();
     if (!image)
         return;
 
-    auto imageSize = size;
+    auto imageSize = nativeImage.size();
     if (options.orientation().usesWidthAsHeight())
         imageSize = imageSize.transposedSize();
     auto imageRect = FloatRect { { }, imageSize };
@@ -293,67 +298,26 @@ void GraphicsContextSkia::drawSkiaImage(const sk_sp<SkImage>& image, const IntSi
 
     sk_sp<SkImage> rasterImage;
     if (hasDropShadow()) {
-        if (image->isTextureBacked() && renderingMode() == RenderingMode::Unaccelerated) {
-            // When drawing GPU-backed image on CPU-backed canvas with filter, we need to convert image to CPU-backed one.
-            rasterImage = image->makeRasterImage();
-            useImage = rasterImage.get();
+        if (image->isTextureBacked()) {
+            if (renderingMode() == RenderingMode::Unaccelerated) {
+                // When drawing GPU-backed image on CPU-backed canvas with filter, we need to convert image to CPU-backed one.
+                rasterImage = image->makeRasterImage();
+                useImage = rasterImage.get();
+            } else
+                trackAcceleratedRenderingFenceIfNeeded(image);
         }
         inExtraTransparencyLayer = drawOutsetShadow(paint, [&](const SkPaint& paint) {
             m_canvas.drawImageRect(useImage, normalizedSrcRect, normalizedDestRect, toSkSamplingOptions(m_state.imageInterpolationQuality()), &paint, clampingConstraint);
         });
-    }
+    } else
+        trackAcceleratedRenderingFenceIfNeeded(image);
+
     m_canvas.drawImageRect(useImage, normalizedSrcRect, normalizedDestRect, toSkSamplingOptions(m_state.imageInterpolationQuality()), &paint, clampingConstraint);
     if (inExtraTransparencyLayer)
         endTransparencyLayer();
 
     if (options.orientation() != ImageOrientation::Orientation::None)
         m_canvas.restore();
-}
-
-void GraphicsContextSkia::drawNativeImageInternal(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
-{
-    auto* nativeImageGrContext = nativeImage.backend().skiaGrContext();
-    if (nativeImageGrContext && nativeImageGrContext != PlatformDisplay::sharedDisplay().skiaGrContext()) {
-        // If we encounter an accelerated NativeImage (skiaGrContext() != nullptr), we are in the threaded GPU rendering painting mode, verify that.
-        ASSERT(m_renderingMode == RenderingMode::Accelerated);
-        ASSERT(ProcessCapabilities::canUseAcceleratedBuffers());
-#if USE(COORDINATED_GRAPHICS)
-        ASSERT(SkiaPaintingEngine::numberOfGPUPaintingThreads() > 0);
-#endif
-        // The 'nativeImage' was produced on another thread -- to use it here, we need to create a new NativeImage, that wraps the existing GPU resource.
-        if (auto newNativeImage = nativeImage.backend().copyAcceleratedNativeImageBorrowingBackendTexture())
-            drawSkiaImage(newNativeImage->platformImage(), newNativeImage->size(), destRect, srcRect, options);
-        return;
-    }
-
-    drawSkiaImage(nativeImage.platformImage(), nativeImage.size(), destRect, srcRect, options);
-}
-
-void GraphicsContextSkia::drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect& sourceImageRect, Filter& filter, FilterResults& results)
-{
-    auto needsAcceleratedImageBufferCopy = [&]() -> bool {
-        if (m_renderingMode == RenderingMode::Unaccelerated)
-            return false;
-        if (!sourceImage || !sourceImage->skiaGrContext())
-            return false;
-        if (sourceImage->skiaGrContext() == PlatformDisplay::sharedDisplay().skiaGrContext())
-            return false;
-        return true;
-    };
-
-    if (!needsAcceleratedImageBufferCopy()) {
-        GraphicsContext::drawFilteredImageBuffer(sourceImage, sourceImageRect, filter, results);
-        return;
-    }
-
-    // If we encounter an accelerated ImageBuffer (skiaGrContext() != nullptr), we are in the threaded GPU rendering painting mode, verify that.
-    ASSERT(ProcessCapabilities::canUseAcceleratedBuffers());
-#if USE(COORDINATED_GRAPHICS)
-    ASSERT(SkiaPaintingEngine::numberOfGPUPaintingThreads() > 0);
-#endif
-    // The 'image' was produced on another thread -- to use it here, we need to create a new ImageBuffer, that wraps the existing GPU resource.
-    auto newSourceImage = sourceImage->copyAcceleratedImageBufferBorrowingBackendRenderTarget();
-    GraphicsContext::drawFilteredImageBuffer(newSourceImage.get(), sourceImageRect, filter, results);
 }
 
 // This is only used to draw borders, so we should not draw shadows.
@@ -547,11 +511,12 @@ SkPaint GraphicsContextSkia::createFillPaint() const
     return paint;
 }
 
-void GraphicsContextSkia::setupFillSource(SkPaint& paint) const
+void GraphicsContextSkia::setupFillSource(SkPaint& paint)
 {
     if (auto fillPattern = fillBrush().pattern()) {
         paint.setShader(fillPattern->createPlatformPattern({ }, toSkSamplingOptions(imageInterpolationQuality())));
         paint.setAlphaf(alpha());
+        trackAcceleratedRenderingFenceIfNeeded(paint);
     } else if (auto fillGradient = fillBrush().gradient())
         paint.setShader(fillGradient->shader(alpha(), fillBrush().gradientSpaceTransform()));
     else
@@ -572,11 +537,12 @@ SkPaint GraphicsContextSkia::createStrokePaint() const
     return paint;
 }
 
-void GraphicsContextSkia::setupStrokeSource(SkPaint& paint) const
+void GraphicsContextSkia::setupStrokeSource(SkPaint& paint)
 {
-    if (auto strokePattern = strokeBrush().pattern())
+    if (auto strokePattern = strokeBrush().pattern()) {
         paint.setShader(strokePattern->createPlatformPattern({ }, toSkSamplingOptions(imageInterpolationQuality())));
-    else if (auto strokeGradient = strokeBrush().gradient())
+        trackAcceleratedRenderingFenceIfNeeded(paint);
+    } else if (auto strokeGradient = strokeBrush().gradient())
         paint.setShader(strokeGradient->shader(alpha(), strokeBrush().gradientSpaceTransform()));
     else
         paint.setColor(SkColor(strokeBrush().color().colorWithAlphaMultipliedBy(alpha())));
@@ -656,8 +622,11 @@ IntRect GraphicsContextSkia::clipBounds() const
 
 void GraphicsContextSkia::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& destRect)
 {
-    if (auto nativeImage = nativeImageForDrawing(buffer))
-        m_canvas.clipShader(nativeImage->platformImage()->makeShader(SkTileMode::kDecal, SkTileMode::kDecal, { }, SkMatrix::Translate(SkFloatToScalar(destRect.x()), SkFloatToScalar(destRect.y()))));
+    if (auto nativeImage = nativeImageForDrawing(buffer)) {
+        auto image = nativeImage->platformImage();
+        trackAcceleratedRenderingFenceIfNeeded(image);
+        m_canvas.clipShader(image->makeShader(SkTileMode::kDecal, SkTileMode::kDecal, { }, SkMatrix::Translate(SkFloatToScalar(destRect.x()), SkFloatToScalar(destRect.y()))));
+    }
 }
 
 void GraphicsContextSkia::drawFocusRing(const Path& path, float, const Color& color)
@@ -682,54 +651,13 @@ void GraphicsContextSkia::drawFocusRing(const Vector<FloatRect>& rects, float, f
 #endif
 }
 
-void GraphicsContextSkia::drawLinesForText(const FloatPoint& point, float thickness, const DashArray& widths, bool printing, bool doubleUnderlines, StrokeStyle strokeStyle)
+void GraphicsContextSkia::drawLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> lineSegments, bool printing, bool doubleUnderlines, StrokeStyle strokeStyle)
 {
-    if (widths.isEmpty())
+    auto [rects, strokeColor] = computeRectsAndStrokeColorForLinesForText(point, thickness, lineSegments, printing, doubleUnderlines, strokeStyle);
+    if (rects.isEmpty())
         return;
-
-    Color localStrokeColor(strokeColor());
-    FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(FloatRect(point, FloatSize(widths.last(), thickness)), printing, localStrokeColor);
-    if (bounds.isEmpty())
-        return;
-
-    Vector<FloatRect, 4> dashBounds;
-    ASSERT(!(widths.size() % 2));
-    dashBounds.reserveInitialCapacity(dashBounds.size() / 2);
-
-    float dashWidth = 0;
-    switch (strokeStyle) {
-    case StrokeStyle::DottedStroke:
-        dashWidth = bounds.height();
-        break;
-    case StrokeStyle::DashedStroke:
-        dashWidth = 2 * bounds.height();
-        break;
-    case StrokeStyle::SolidStroke:
-    default:
-        break;
-    }
-
-    for (size_t i = 0; i < widths.size(); i += 2) {
-        auto left = widths[i];
-        auto width = widths[i+1] - widths[i];
-        if (!dashWidth)
-            dashBounds.append({ bounds.x() + left, bounds.y(), width, bounds.height() });
-        else {
-            auto startParticle = static_cast<int>(std::ceil(left / (2 * dashWidth)));
-            auto endParticle = static_cast<int>((left + width) / (2 * dashWidth));
-            for (auto j = startParticle; j < endParticle; ++j)
-                dashBounds.append({ bounds.x() + j * 2 * dashWidth, bounds.y(), dashWidth, bounds.height() });
-        }
-    }
-
-    if (doubleUnderlines) {
-        // The space between double underlines is equal to the height of the underline
-        for (size_t i = 0; i < widths.size(); i += 2)
-            dashBounds.append({ bounds.x() + widths[i], bounds.y() + 2 * bounds.height(), widths[i+1] - widths[i], bounds.height() });
-    }
-
-    for (auto& dash : dashBounds)
-        fillRect(dash, localStrokeColor);
+    for (auto& rect : rects)
+        fillRect(rect, strokeColor);
 }
 
 // Creates a path comprising of two triangle waves separated by some empty space in Y axis.
@@ -809,10 +737,12 @@ void GraphicsContextSkia::translate(float x, float y)
     m_canvas.translate(SkFloatToScalar(x), SkFloatToScalar(y));
 }
 
-void GraphicsContextSkia::didUpdateState(GraphicsContextState& state)
+void GraphicsContextSkia::didUpdateState(GraphicsContextState&)
 {
-    // FIXME: Handle stroke changes.
-    state.didApplyChanges();
+}
+
+void GraphicsContextSkia::didUpdateSingleState(GraphicsContextState&, GraphicsContextState::ChangeIndex)
+{
 }
 
 void GraphicsContextSkia::concatCTM(const AffineTransform& ctm)
@@ -929,11 +859,15 @@ void GraphicsContextSkia::setLineDash(const DashArray& dashArray, float dashOffs
 
     if (dashArray.size() % 2 == 1) {
         // Repeat the array to ensure even number of dash array elements, see e.g. 'stroke-dasharray' spec.
-        DashArray repeatedDashArray(dashArray);
-        repeatedDashArray.appendVector(dashArray);
-        m_skiaState.m_stroke.dash = SkDashPathEffect::Make(repeatedDashArray.data(), repeatedDashArray.size(), dashOffset);
-    } else
-        m_skiaState.m_stroke.dash = SkDashPathEffect::Make(dashArray.data(), dashArray.size(), dashOffset);
+        auto repeatedDashArray = DashArray::createWithSizeFromGenerator(dashArray.size() * 2, [&](auto i) {
+            return dashArray[i % dashArray.size()];
+        });
+        auto repeatedDashArraySpan = repeatedDashArray.span();
+        m_skiaState.m_stroke.dash = SkDashPathEffect::Make(repeatedDashArraySpan.data(), repeatedDashArraySpan.size(), dashOffset);
+    } else {
+        auto dashArraySpan = dashArray.span();
+        m_skiaState.m_stroke.dash = SkDashPathEffect::Make(dashArraySpan.data(), dashArraySpan.size(), dashOffset);
+    }
 }
 
 void GraphicsContextSkia::setLineJoin(LineJoin lineJoin)
@@ -1014,11 +948,31 @@ void GraphicsContextSkia::fillRectWithRoundedHole(const FloatRect& outerRect, co
     m_canvas.drawDRRect(SkRRect::MakeRect(outerRect), innerRRect, paint);
 }
 
-void GraphicsContextSkia::drawSkiaPattern(const sk_sp<SkImage>& image, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
+// FIXME: Make this a GraphicsContextSkia static function, and use it throughout WebCore.
+static sk_sp<SkSurface> createAcceleratedSurface(const IntSize& size)
+{
+    auto* glContext = PlatformDisplay::sharedDisplay().skiaGLContext();
+    if (!glContext || !glContext->makeContextCurrent())
+        return nullptr;
+
+    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
+    RELEASE_ASSERT(grContext);
+
+    auto imageInfo = SkImageInfo::Make(size.width(), size.height(), kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
+    SkSurfaceProps properties { 0, FontRenderOptions::singleton().subpixelOrder() };
+    auto surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kNo, imageInfo, PlatformDisplay::sharedDisplay().msaaSampleCount(), kTopLeft_GrSurfaceOrigin, &properties);
+    if (!surface || !surface->getCanvas())
+        return nullptr;
+
+    return surface;
+}
+
+void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     if (!patternTransform.isInvertible())
         return;
 
+    auto image = nativeImage.platformImage();
     if (!image)
         return;
 
@@ -1036,6 +990,7 @@ void GraphicsContextSkia::drawSkiaPattern(const sk_sp<SkImage>& image, const Int
     SkPaint paint = createFillPaint();
     paint.setBlendMode(toSkiaBlendMode(options.compositeOperator(), options.blendMode()));
 
+    auto size = nativeImage.size();
     if (spacing.isZero() && tileRect.size() == size) {
         // Check whether we're sampling the pattern beyond the image size. If this is the case, we need to set the repeat
         // flag when sampling. Otherwise we use the clamp flag. This is done to avoid a situation where the pattern is scaled
@@ -1051,35 +1006,103 @@ void GraphicsContextSkia::drawSkiaPattern(const sk_sp<SkImage>& image, const Int
             repeatY = imageSampledRect.y() < 0 || std::trunc(imageSampledRect.bottom()) > size.height();
         }
         paint.setShader(image->makeShader(repeatX ? SkTileMode::kRepeat : SkTileMode::kClamp, repeatY ? SkTileMode::kRepeat : SkTileMode::kClamp, samplingOptions, &shaderMatrix));
+        trackAcceleratedRenderingFenceIfNeeded(image);
     } else {
-        SkPictureRecorder recorder;
-        auto* recordCanvas = recorder.beginRecording(SkRect::MakeWH(tileRect.width() + spacing.width() / patternTransform.a(), tileRect.height() + spacing.height() / patternTransform.d()));
-        // The below call effectively extracts a tile from the image thus performing a clipping.
-        recordCanvas->drawImageRect(image, tileRect, SkRect::MakeWH(tileRect.width(), tileRect.height()), samplingOptions, nullptr, SkCanvas::kStrict_SrcRectConstraint);
-        auto picture = recorder.finishRecordingAsPicture();
-        paint.setShader(picture->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat, samplingOptions.filter, &shaderMatrix, nullptr));
+        auto tileFloatRectWithSpacing = FloatRect(0, 0, tileRect.width() + spacing.width() / patternTransform.a(), tileRect.height() + spacing.height() / patternTransform.d());
+        if (image->isTextureBacked()) {
+            auto enclosingTileIntRect = enclosingIntRect(tileRect);
+            auto dstRect = SkRect::MakeWH(enclosingTileIntRect.width(), enclosingTileIntRect.height());
+            auto clipRect = enclosingIntRect(tileFloatRectWithSpacing);
+            if (auto surface = createAcceleratedSurface({ clipRect.width(), clipRect.height() })) {
+                surface->getCanvas()->drawImageRect(image, tileRect, dstRect, samplingOptions, nullptr, SkCanvas::kStrict_SrcRectConstraint);
+                auto tileImage = surface->makeImageSnapshot();
+                paint.setShader(tileImage->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat, samplingOptions, &shaderMatrix));
+                trackAcceleratedRenderingFenceIfNeeded(tileImage);
+            }
+        } else {
+            auto dstRect = SkRect::MakeWH(tileRect.width(), tileRect.height());
+            auto clipRect = SkRect::MakeWH(tileFloatRectWithSpacing.width(), tileFloatRectWithSpacing.height());
+            // For raster images we can save creating a copy altogether, by using SkPicture recording instead.
+            SkPictureRecorder recorder;
+            auto* recordCanvas = recorder.beginRecording(clipRect);
+            // The below call effectively extracts a tile from the image thus performing a clipping.
+            recordCanvas->drawImageRect(image, tileRect, dstRect, samplingOptions, nullptr, SkCanvas::kStrict_SrcRectConstraint);
+            auto picture = recorder.finishRecordingAsPicture();
+            paint.setShader(picture->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat, samplingOptions.filter, &shaderMatrix, nullptr));
+        }
     }
 
     m_canvas.drawRect(destRect, paint);
 }
 
-void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
+void GraphicsContextSkia::beginRecording()
 {
-    auto* nativeImageGrContext = nativeImage.backend().skiaGrContext();
-    if (nativeImageGrContext && nativeImageGrContext != PlatformDisplay::sharedDisplay().skiaGrContext()) {
-        // If we encounter an accelerated NativeImage (skiaGrContext() != nullptr), we are in the threaded GPU rendering painting mode, verify that.
-        ASSERT(m_renderingMode == RenderingMode::Accelerated);
-        ASSERT(ProcessCapabilities::canUseAcceleratedBuffers());
-#if USE(COORDINATED_GRAPHICS)
-        ASSERT(SkiaPaintingEngine::numberOfGPUPaintingThreads() > 0);
-#endif
-        // The 'nativeImage' was produced on another thread -- to use it here, we need to create a new NativeImage, that wraps the existing GPU resource.
-        if (auto newNativeImage = nativeImage.backend().copyAcceleratedNativeImageBorrowingBackendTexture())
-            drawSkiaPattern(newNativeImage->platformImage(), newNativeImage->size(), destRect, tileRect, patternTransform, phase, spacing, options);
-        return;
+    ASSERT(m_contextMode == ContextMode::PaintingMode);
+    m_contextMode = ContextMode::RecordingMode;
+}
+
+SkiaImageToFenceMap GraphicsContextSkia::endRecording()
+{
+    ASSERT(m_contextMode == ContextMode::RecordingMode);
+    m_contextMode = ContextMode::PaintingMode;
+    return WTFMove(m_imageToFenceMap);
+}
+
+template<typename T>
+inline std::unique_ptr<GLFence> createAcceleratedRenderingFence(T object)
+{
+    auto* glContext = PlatformDisplay::sharedDisplay().skiaGLContext();
+    if (!glContext || !glContext->makeContextCurrent())
+        return nullptr;
+
+    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
+    RELEASE_ASSERT(grContext);
+
+    grContext->flush(object);
+
+    if (GLFence::isSupported()) {
+        grContext->submit(GrSyncCpu::kNo);
+
+        if (auto fence = GLFence::create())
+            return fence;
     }
 
-    drawSkiaPattern(nativeImage.platformImage(), nativeImage.size(), destRect, tileRect, patternTransform, phase, spacing, options);
+    grContext->submit(GrSyncCpu::kYes);
+    return nullptr;
+}
+
+std::unique_ptr<GLFence> GraphicsContextSkia::createAcceleratedRenderingFenceIfNeeded(SkSurface* surface)
+{
+    if (!surface || !surface->recordingContext())
+        return nullptr;
+    return createAcceleratedRenderingFence<SkSurface*>(surface);
+}
+
+std::unique_ptr<GLFence> GraphicsContextSkia::createAcceleratedRenderingFenceIfNeeded(const sk_sp<SkImage>& image)
+{
+    if (!image || !image->isTextureBacked())
+        return nullptr;
+    return createAcceleratedRenderingFence<const sk_sp<SkImage>>(image);
+}
+
+void GraphicsContextSkia::trackAcceleratedRenderingFenceIfNeeded(const sk_sp<SkImage>& image)
+{
+    if (m_contextMode != ContextMode::RecordingMode)
+        return;
+
+    if (auto fence = createAcceleratedRenderingFenceIfNeeded(image))
+        m_imageToFenceMap.add(image.get(), WTFMove(fence));
+}
+
+void GraphicsContextSkia::trackAcceleratedRenderingFenceIfNeeded(SkPaint& paint)
+{
+    if (m_contextMode != ContextMode::RecordingMode)
+        return;
+
+    auto* shader = paint.getShader();
+    auto* image = shader ? shader->isAImage(nullptr, nullptr) : nullptr;
+    if (auto fence = createAcceleratedRenderingFenceIfNeeded(sk_ref_sp(image)))
+        m_imageToFenceMap.add(image, WTFMove(fence));
 }
 
 void GraphicsContextSkia::drawSkiaText(const sk_sp<SkTextBlob>& blob, SkScalar x, SkScalar y, bool enableAntialias, bool isVertical)

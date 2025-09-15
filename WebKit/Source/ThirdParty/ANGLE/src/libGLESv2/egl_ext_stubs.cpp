@@ -457,7 +457,8 @@ const char *QueryDeviceStringEXT(Thread *thread, Device *dev, EGLint name)
             result = dev->getDeviceString(name).c_str();
             break;
         default:
-            thread->setError(EglBadDevice(), "eglQueryDeviceStringEXT", GetDeviceIfValid(dev));
+            thread->setError(egl::Error(EGL_BAD_DEVICE_EXT), "eglQueryDeviceStringEXT",
+                             GetDeviceIfValid(dev));
             return nullptr;
     }
 
@@ -862,24 +863,6 @@ const char *QueryStringiANGLE(Thread *thread, Display *display, EGLint name, EGL
                                           GetDisplayIfValid(display), nullptr);
     thread->setSuccess();
     return display->queryStringi(name, index);
-}
-
-EGLBoolean SwapBuffersWithFrameTokenANGLE(Thread *thread,
-                                          Display *display,
-                                          SurfaceID surfaceID,
-                                          EGLFrameTokenANGLE frametoken)
-{
-    Surface *eglSurface = display->getSurface(surfaceID);
-
-    ANGLE_EGL_TRY_PREPARE_FOR_CALL_RETURN(thread, display->prepareForCall(),
-                                          "eglSwapBuffersWithFrameTokenANGLE",
-                                          GetDisplayIfValid(display), EGL_FALSE);
-    ANGLE_EGL_TRY_RETURN(thread, eglSurface->swapWithFrameToken(thread->getContext(), frametoken),
-                         "eglSwapBuffersWithFrameTokenANGLE", GetDisplayIfValid(display),
-                         EGL_FALSE);
-
-    thread->setSuccess();
-    return EGL_TRUE;
 }
 
 void ReleaseHighPowerGPUANGLE(Thread *thread, Display *display, gl::ContextID contextID)

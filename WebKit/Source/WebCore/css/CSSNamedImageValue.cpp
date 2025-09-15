@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2015, 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@ CSSNamedImageValue::CSSNamedImageValue(String&& name)
 
 CSSNamedImageValue::~CSSNamedImageValue() = default;
 
-String CSSNamedImageValue::customCSSText() const
+String CSSNamedImageValue::customCSSText(const CSS::SerializationContext&) const
 {
     return makeString("-webkit-named-image("_s, m_name, ')');
 }

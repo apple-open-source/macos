@@ -39,6 +39,7 @@
 #include <IOKit/IOTimeStamp.h>
 #include <IOKit/IOReportMacros.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOKitKeysPrivate.h>
 
 #include <IOKit/pwr_mgt/IOPMlog.h>
 #include <IOKit/pwr_mgt/IOPMinformee.h>
@@ -1044,7 +1045,33 @@ IOService::addPowerChild3( IOPMRequest * request )
 		PM_LOG("%s: addPowerChild3 not in power plane\n", getName());
 	}
 
+	if (child) {
+		OSNumber * num;
+		OSObject * obj = child->copyProperty(kIOPMAOTAllowKey);
+		if ((num = OSDynamicCast(OSNumber, obj))) {
+			child->addPMDriverClass(num->unsigned64BitValue());
+			if (child->reserved->uvars && child->reserved->uvars->userServer) {
+				child->reserved->uvars->userServer->addPMDriverClass(num->unsigned64BitValue());
+			}
+		}
+		OSSafeReleaseNULL(obj);
+	}
+
 	connection->release();
+}
+
+bool
+IOService::currentOrPendingPowerState(uint32_t state)
+{
+	return (fCurrentPowerState == state) || (fHeadNotePowerState == state);
+}
+
+void
+IOService::addPMDriverClass(uint64_t driverClass)
+{
+	if (pwrMgt) {
+		fPMDriverClass |= driverClass;
+	}
 }
 
 #ifndef __LP64__
@@ -1953,6 +1980,21 @@ IOService::handlePowerDomainWillChangeTo( IOPMRequest * request )
 	// power flags should account for this power drop.
 
 	if (parentChangeFlags & kIOPMDomainPowerDrop) {
+		if (fPMDriverClass && (0 == (kIOPMDriverClassDone & fPMDriverClass))) {
+			// on first power drop, propagate driver class to its parents,
+			// so they can come on if the driver is selected to be on
+			// by considerRunMode()
+			IOService * parent = whichParent;
+			while (true) {
+				parent = (IOService *) parent->getParentEntry(gIOPowerPlane);
+				if (parent == getPMRootDomain()) {
+					break;
+				}
+				parent->addPMDriverClass(fPMDriverClass);
+				parent = (IOService *) parent->getParentEntry(gIOPowerPlane);
+			}
+			fPMDriverClass |= kIOPMDriverClassDone;
+		}
 		setParentInfo(parentPowerFlags, whichParent, true);
 	}
 
@@ -2001,7 +2043,6 @@ IOService::powerDomainDidChangeTo(
 //*********************************************************************************
 // [private] handlePowerDomainDidChangeTo
 //*********************************************************************************
-
 void
 IOService::handlePowerDomainDidChangeTo( IOPMRequest * request )
 {
@@ -2084,8 +2125,16 @@ IOService::handlePowerDomainDidChangeTo( IOPMRequest * request )
 		myChangeFlags = kIOPMParentInitiated | kIOPMDomainDidChange |
 		    (parentChangeFlags & kIOPMRootBroadcastFlags);
 
-		if (kIOPMAOTPower & fPowerStates[maxPowerState].inputPowerFlags) {
-			IOLog("aotPS %s0x%qx[%ld]\n", getName(), getRegistryEntryID(), maxPowerState);
+		if (kIOPMAOTPower & fParentsCurrentPowerFlags) {
+			if (kIOPMAOTPower & fPowerStates[maxPowerState].inputPowerFlags) {
+				if (gLPWFlags && reserved->uvars && reserved->uvars->userServer) {
+					reserved->uvars->userServer->pageout();
+				}
+			}
+		}
+
+		if (getPMRootDomain()->isAOTMode()) {
+			IOLog("aotPS[%ld] %s0x%qx\n", maxPowerState, getName(), getRegistryEntryID());
 		}
 
 		result = startPowerChange(
@@ -3556,6 +3605,21 @@ IOService::getPowerState( void )
 	return (UInt32) fCurrentPowerState;
 }
 
+//*********************************************************************************
+// [public] getDesiredPowerState
+//
+//*********************************************************************************
+
+UInt32
+IOService::getDesiredPowerState( void )
+{
+	if (!initialized) {
+		return kPowerStateZero;
+	}
+
+	return (UInt32) fDesiredPowerState;
+}
+
 #ifndef __LP64__
 //*********************************************************************************
 // [deprecated] systemWake
@@ -4158,6 +4222,10 @@ IOService::pmDriverCallout( IOService * from,
 		break;
 
 	case kDriverCallInformPreChange:
+		if (from == getPMRootDomain()) {
+			getPMRootDomain()->willNotifyInterested(from->fHeadNotePowerState);
+		}
+		OS_FALLTHROUGH;
 	case kDriverCallInformPostChange:
 		from->driverInformPowerChange();
 		break;
@@ -7652,11 +7720,34 @@ IOService::driverMaxCapabilityForDomainState( IOPMPowerFlags domainState )
 {
 	IOPMDriverCallEntry callEntry;
 	IOPMPowerStateIndex powerState = kPowerStateZero;
+	int32_t promote;
 
-	if (assertPMDriverCall(&callEntry, kIOPMDriverCallMethodMaxCapabilityForDomainState)) {
-		powerState = maxCapabilityForDomainState(domainState);
-		deassertPMDriverCall(&callEntry);
+	promote = getPMRootDomain()->considerRunMode(this, fPMDriverClass);
+
+	if ((promote < 0) && (0 == (kIOPMAOTPower & domainState))) {
+		return kPowerStateZero;
 	}
+
+	if (!assertPMDriverCall(&callEntry, kIOPMDriverCallMethodMaxCapabilityForDomainState)) {
+		return kPowerStateZero;
+	}
+
+	if ((promote > 0) && (0 != (kIOPMPowerOn & domainState))) {
+		IOPMPowerFlags newDomainState = (domainState & ~kIOPMPowerOn) | kIOPMAOTPower;
+		powerState = maxCapabilityForDomainState(newDomainState);
+	}
+
+	if (kPowerStateZero == powerState) {
+		powerState = maxCapabilityForDomainState(domainState);
+	}
+
+	if ((promote > 0) && (kPowerStateZero == powerState)
+	    && (0 != (kIOPMAOTPower & domainState))) {
+		IOPMPowerFlags newDomainState = (domainState & ~kIOPMAOTPower) | kIOPMPowerOn;
+		powerState = maxCapabilityForDomainState(newDomainState);
+	}
+	deassertPMDriverCall(&callEntry);
+
 	return powerState;
 }
 

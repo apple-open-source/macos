@@ -198,6 +198,10 @@ private:
         } temperature;
 
         struct {
+            OSArray *           elements;
+        } heartrate;
+
+        struct {
             IOHIDElement *      reportInterval;
             IOHIDElement *      maxFIFOEvents;
             IOHIDElement *      reportLatency;
@@ -251,7 +255,8 @@ private:
     bool                    parseDeviceOrientationElement(IOHIDElement * element);
     bool                    parsePhaseElement(IOHIDElement * element);
     bool                    parseProximityElement(IOHIDElement * element);
-
+    bool                    parseHeartRateElement(IOHIDElement * element);
+    
     void                    processLEDElements();
     void                    processDigitizerElements();
     void                    processMultiAxisElements();
@@ -276,7 +281,8 @@ private:
     void                    setSensorProperties();
     void                    setDeviceOrientationProperties();
     void                    setSurfaceDimensions();
-
+    void                    setHeartRateProperties();
+    
     UInt32                  checkGameControllerElement(IOHIDElement * element);
     UInt32                  checkMultiAxisElement(IOHIDElement * element);
     
@@ -306,6 +312,7 @@ private:
     void                    handleDeviceOrientationReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handlePhaseReport(AbsoluteTime timeStamp, UInt32 reportID);
     void                    handleProximityReport(AbsoluteTime, UInt32 reportID);
+    void                    handleHeartRateReport(AbsoluteTime timeStamp, UInt32 reportID);
 
     bool                    serializeCharacterGestureState(void * ref, OSSerialize * serializer);
     bool                    conformTo (UInt32 usagePage, UInt32 usage);

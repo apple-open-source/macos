@@ -2956,7 +2956,12 @@ getexmodeline(
      * Get the line, one character at a time.
      */
     got_int = FALSE;
+#ifdef __APPLE__
+    got_susp = FALSE;
+    while (!got_int && !got_susp)
+#else
     while (!got_int)
+#endif
     {
 	long    sw;
 	char_u *s;

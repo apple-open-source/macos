@@ -33,7 +33,6 @@
 #include <WebCore/WebGPULoadOp.h>
 #include <WebCore/WebGPUStoreOp.h>
 #include <optional>
-#include <variant>
 #include <wtf/Ref.h>
 #include <wtf/Vector.h>
 

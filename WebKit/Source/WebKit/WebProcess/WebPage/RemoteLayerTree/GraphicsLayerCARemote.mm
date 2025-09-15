@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,8 +59,8 @@ GraphicsLayerCARemote::GraphicsLayerCARemote(Type layerType, GraphicsLayerClient
 
 GraphicsLayerCARemote::~GraphicsLayerCARemote()
 {
-    if (RefPtr<RemoteLayerTreeContext> protectedContext = m_context.get())
-        protectedContext->graphicsLayerWillLeaveContext(*this);
+    if (RefPtr context = m_context.get())
+        context->graphicsLayerWillLeaveContext(*this);
 }
 
 bool GraphicsLayerCARemote::filtersCanBeComposited(const FilterOperations& filters)
@@ -70,50 +70,49 @@ bool GraphicsLayerCARemote::filtersCanBeComposited(const FilterOperations& filte
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformCALayer::LayerType layerType, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    auto result = PlatformCALayerRemote::create(layerType, owner, *m_context);
+    Ref context = *m_context;
+    Ref result = PlatformCALayerRemote::create(layerType, owner, context.get());
 
     if (result->canHaveBackingStore()) {
-        auto* localMainFrameView = m_context->webPage().localMainFrameView();
-        result->setContentsFormat(screenContentsFormat(localMainFrameView, owner));
+        RefPtr localMainFrameView = context->protectedWebPage()->localMainFrameView();
+        result->setContentsFormat(PlatformCALayer::contentsFormatForLayer(owner));
     }
-
     return WTFMove(result);
 }
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformLayer* platformLayer, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(platformLayer, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(platformLayer, owner, context.get());
 }
 
 #if ENABLE(MODEL_PROCESS)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(Ref<WebCore::ModelContext> modelContext, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(modelContext, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(modelContext, owner, context.get());
 }
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(Ref<WebCore::Model> model, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(model, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(model, owner, context.get());
 }
 #endif
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayerHost(WebCore::LayerHostingContextIdentifier identifier, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemoteHost::create(identifier, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemoteHost::create(identifier, owner, context.get());
 }
 
 #if HAVE(AVKIT)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformVideoLayer(WebCore::HTMLVideoElement& videoElement, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(videoElement, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(videoElement, owner, context.get());
 }
 #endif
 
@@ -124,10 +123,10 @@ Ref<PlatformCAAnimation> GraphicsLayerCARemote::createPlatformCAAnimation(Platfo
 
 void GraphicsLayerCARemote::moveToContext(RemoteLayerTreeContext& context)
 {
-    if (RefPtr protectedContext = m_context.get())
-        protectedContext->graphicsLayerWillLeaveContext(*this);
+    if (RefPtr oldContext = m_context.get())
+        oldContext->graphicsLayerWillLeaveContext(*this);
 
-    m_context = &context;
+    m_context = context;
 
     context.graphicsLayerDidEnterContext(*this);
 }
@@ -144,7 +143,7 @@ public:
         , m_drawingArea(identifier)
     { }
 
-    bool tryCopyToLayer(ImageBuffer& buffer) final
+    bool tryCopyToLayer(ImageBuffer& buffer, bool opaque) final
     {
         auto clone = buffer.clone();
         if (!clone)
@@ -163,9 +162,22 @@ public:
             Locker locker { m_surfaceLock };
             m_surfaceBackendHandle = ImageBufferBackendHandle { *backendHandle };
             m_surfaceIdentifier = clone->renderingResourceIdentifier();
+            m_contentsFormat = convertToContentsFormat(clone->pixelFormat());
+            m_opaque = opaque;
         }
 
-        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(*m_layerID, WTFMove(*backendHandle), clone->renderingResourceIdentifier()), m_drawingArea.toUInt64());
+#if HAVE(SUPPORT_HDR_DISPLAY)
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+        bool hasExtendedDynamicRangeContent = convertToContentsFormat(clone->pixelFormat()) == ContentsFormat::RGBA16F;
+#else
+        bool hasExtendedDynamicRangeContent = false;
+#endif
+        RemoteLayerBackingStoreProperties properties(WTFMove(*backendHandle), clone->renderingResourceIdentifier(), opaque, hasExtendedDynamicRangeContent);
+#else
+        RemoteLayerBackingStoreProperties properties(WTFMove(*backendHandle), clone->renderingResourceIdentifier(), opaque);
+#endif
+
+        m_connection->send(Messages::RemoteLayerTreeDrawingAreaProxy::AsyncSetLayerContents(*m_layerID, WTFMove(properties)), m_drawingArea.toUInt64());
 
         return true;
     }
@@ -173,8 +185,11 @@ public:
     void display(PlatformCALayer& layer) final
     {
         Locker locker { m_surfaceLock };
-        if (m_surfaceBackendHandle)
+        if (m_surfaceBackendHandle) {
+            downcast<PlatformCALayerRemote>(layer).setOpaque(m_opaque);
+            downcast<PlatformCALayerRemote>(layer).setContentsFormat(m_contentsFormat);
             downcast<PlatformCALayerRemote>(layer).setRemoteDelegatedContents({ ImageBufferBackendHandle { *m_surfaceBackendHandle }, { }, std::optional<RenderingResourceIdentifier>(m_surfaceIdentifier) });
+        }
     }
 
     void setDestinationLayerID(WebCore::PlatformLayerIdentifier layerID)
@@ -185,27 +200,34 @@ public:
     bool isGraphicsLayerCARemoteAsyncContentsDisplayDelegate() const final { return true; }
 
 private:
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     DrawingAreaIdentifier m_drawingArea;
     Markable<WebCore::PlatformLayerIdentifier> m_layerID;
     Lock m_surfaceLock;
     std::optional<ImageBufferBackendHandle> m_surfaceBackendHandle WTF_GUARDED_BY_LOCK(m_surfaceLock);
     Markable<WebCore::RenderingResourceIdentifier> m_surfaceIdentifier WTF_GUARDED_BY_LOCK(m_surfaceLock);
+    ContentsFormat m_contentsFormat WTF_GUARDED_BY_LOCK(m_surfaceLock) { ContentsFormat::RGBA8 };
+    bool m_opaque WTF_GUARDED_BY_LOCK(m_surfaceLock) { false };
 };
+
+} // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::GraphicsLayerCARemoteAsyncContentsDisplayDelegate)
+static bool isType(const WebCore::GraphicsLayerAsyncContentsDisplayDelegate& delegate) { return delegate.isGraphicsLayerCARemoteAsyncContentsDisplayDelegate(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+namespace WebKit {
 
 RefPtr<WebCore::GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCARemote::createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate* existing)
 {
-    RefPtr protectedContext = m_context.get();
-    if (!protectedContext || !protectedContext->drawingAreaIdentifier() || !WebProcess::singleton().parentProcessConnection())
+    RefPtr context = m_context.get();
+    if (!context || !context->drawingAreaIdentifier() || !WebProcess::singleton().parentProcessConnection())
         return nullptr;
 
-    RefPtr<GraphicsLayerCARemoteAsyncContentsDisplayDelegate> delegate;
-    if (existing && existing->isGraphicsLayerCARemoteAsyncContentsDisplayDelegate())
-        delegate = static_cast<GraphicsLayerCARemoteAsyncContentsDisplayDelegate*>(existing);
-
+    RefPtr delegate = dynamicDowncast<GraphicsLayerCARemoteAsyncContentsDisplayDelegate>(existing);
     if (!delegate) {
         ASSERT(!existing);
-        delegate = adoptRef(new GraphicsLayerCARemoteAsyncContentsDisplayDelegate(*WebProcess::singleton().parentProcessConnection(), *protectedContext->drawingAreaIdentifier()));
+        delegate = adoptRef(new GraphicsLayerCARemoteAsyncContentsDisplayDelegate(*WebProcess::singleton().parentProcessConnection(), *context->drawingAreaIdentifier()));
     }
 
     auto layerID = setContentsToAsyncDisplayDelegate(delegate, ContentsLayerPurpose::Canvas);
@@ -234,13 +256,14 @@ void GraphicsLayerCARemote::setLayerContentsToImageBuffer(PlatformCALayer* layer
     ASSERT(backendHandle);
 
     layer->setAcceleratesDrawing(true);
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    layer->setTonemappingEnabled(true);
+#endif
     downcast<PlatformCALayerRemote>(layer)->setRemoteDelegatedContents({ ImageBufferBackendHandle { *backendHandle }, { }, std::nullopt  });
 }
 
 GraphicsLayer::LayerMode GraphicsLayerCARemote::layerMode() const
 {
-    if (m_context && m_context->layerHostingMode() == LayerHostingMode::InProcess)
-        return GraphicsLayer::LayerMode::PlatformLayer;
     return GraphicsLayer::LayerMode::LayerHostingContextId;
 }
 

@@ -58,19 +58,19 @@
     self.server = [[KeychainItemUpgradeRequestServer alloc] initWithLockStateTracker:self.lockStateTracker];
 
     SecSetCustomHomeURLString((__bridge CFStringRef) tmp_dir);
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     // Actually load the database.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 }
 
 - (void)tearDown {
     [self.server.controller.persistentReferenceUpgrader cancel];
     [self.server.controller.stateMachine haltOperation];
     
-    clearRowIDAndErrorDictionary();
-    clearTestError();
-    clearLastRowIDHandledForTests();
+    SecServerClearRowIDAndErrorDictionary();
+    SecServerClearTestError();
+    SecServerClearLastRowIDHandledForTests();
     
     [super tearDown];
 
@@ -134,7 +134,7 @@
 
     NSString* descriptionString = [NSString stringWithFormat:@"Fake error %d for testing", (int)errSecInteractionNotAllowed];
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecInteractionNotAllowed userInfo:@{NSLocalizedDescriptionKey : descriptionString}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
 
@@ -151,7 +151,7 @@
     [SecMockAKS unlockAllClasses];
     self.lockStateProvider.aksCurrentlyLocked = false;
     [self.lockStateTracker recheck];
-    clearTestError();
+    SecServerClearTestError();
 
     [self.server.controller triggerKeychainItemUpdateRPC:^(NSError * _Nullable triggerError) {
         XCTAssertNil(triggerError, @"Should be no error triggering a keychain item update");
@@ -195,7 +195,7 @@
     CFNumberRef rowIDNumberRef = CFBridgingRetain([[NSNumber alloc]initWithInt:rowID]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowIDNumberRef, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
 
@@ -250,7 +250,7 @@
     [self.operationQueue addOperation:callback];
 
     // now the error is gone! the next trigger should fire and upgrade all the items successfully
-    clearRowIDAndErrorDictionary();
+    SecServerClearRowIDAndErrorDictionary();
 
     [self.server.controller.stateMachine testReleaseStateMachinePause:KeychainItemUpgradeRequestStateWaitForTrigger];
     [self.server.controller.stateMachine testPauseStateMachineAfterEntering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
@@ -268,7 +268,7 @@
     XCTAssertNil(self.server.controller.persistentReferenceUpgrader.nextFireTime, @"next fire time should be nil");
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:200];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 200");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be 200");
     CFReleaseNull(rowIDNumberRef);
 }
 
@@ -302,7 +302,7 @@
     CFNumberRef rowIDNumberRef = CFBridgingRetain([[NSNumber alloc]initWithInt:rowID]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowIDNumberRef, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
 
@@ -319,15 +319,15 @@
     XCTAssertTrue([TestsObjectiveC expectXNumberOfItemsUpgraded:199], @"expect 199 items to be upgraded");
 
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:200];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 200");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be 200");
     
     XCTAssertEqual(0, [self.server.controller.stateMachine.paused wait:10*NSEC_PER_SEC], @"State machine should churn through");
     XCTAssertEqual(0, [self.server.controller.stateMachine.stateConditions[KeychainItemUpgradeRequestStateNothingToDo] wait:10*NSEC_PER_SEC], "State machine enters NothingToDo");
     XCTAssertNil(self.server.controller.persistentReferenceUpgrader.nextFireTime, @"next fire time should be nil");
     
-    clearRowIDAndErrorDictionary();
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearRowIDAndErrorDictionary();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     [self.server.controller triggerKeychainItemUpdateRPC:^(NSError * _Nullable triggerError) {
         XCTAssertNil(triggerError, @"Should be no error triggering a keychain item update");
@@ -341,7 +341,7 @@
     XCTAssertTrue([TestsObjectiveC checkAllPersistentRefBeenUpgraded], @"all items should be upgraded");
     XCTAssertNil(self.server.controller.persistentReferenceUpgrader.nextFireTime, @"next fire time should be nil");
     expectedRowID = [[NSNumber alloc] initWithLongLong:rowID];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be %d", rowID);
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be %d", rowID);
     CFReleaseNull(rowIDNumberRef);
 }
 - (void)testErrorAuthNeededRowID50

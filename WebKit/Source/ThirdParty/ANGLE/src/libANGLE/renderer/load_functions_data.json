@@ -194,7 +194,7 @@
   },
   "GL_BGRA_EXT": {
     "NONE": {
-      "GL_UNSIGNED_BYTE": "UnreachableLoadFunction"
+      "GL_UNSIGNED_BYTE": "LoadToNative<GLubyte, 4>"
     }
   },
   "GL_COMPRESSED_RGB8_ETC2": {
@@ -593,6 +593,11 @@
   "GL_RGB10_A2_USCALED_ANGLEX" : {
     "NONE": {
       "GL_UNSIGNED_BYTE": "UnreachableLoadFunction"
+    }
+  },
+  "GL_R10X6G10X6B10X6A10X6_UNORM_ANGLEX": {
+    "R10X6G10X6B10X6A10X6_UNORM": {
+      "GL_UNSIGNED_SHORT": "LoadToNative<GLushort, 4>"
     }
   },
   "GL_COMPRESSED_RG11_EAC": {
@@ -1331,6 +1336,11 @@
     }
   },
   "GL_G8_B8_R8_3PLANE_420_UNORM_ANGLE": {
+    "NONE": {
+      "GL_UNSIGNED_BYTE": "UnimplementedLoadFunction"
+    }
+  },
+  "GL_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16_ANGLE": {
     "NONE": {
       "GL_UNSIGNED_BYTE": "UnimplementedLoadFunction"
     }

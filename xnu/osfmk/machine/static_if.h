@@ -38,10 +38,12 @@
 typedef const struct static_if_entry *static_if_entry_t;
 
 typedef struct static_if_key {
-	short                   sik_enable_count;
-	short                   sik_init_value;
-	unsigned                sik_entries_count;
+	int16_t                 sik_enable_count;
+	bool                    sik_init_value;
+	bool                    sik_modified;
+	uint32_t                sik_entries_count;
 	static_if_entry_t       sik_entries_head;
+	struct static_if_key   *sik_modified_next;
 } *static_if_key_t;
 
 #if defined (__x86_64__)
@@ -74,8 +76,9 @@ __BEGIN_DECLS
 	extern struct static_if_key_true name##_jump_key
 
 #define STATIC_IF_KEY_DEFINE_TRUE(name) \
+	__security_const_late \
 	__used struct static_if_key_true name##_jump_key = { \
-	        .key.sik_init_value = 0, \
+	        .key.sik_init_value = true, \
 	        .key.sik_enable_count = 0, \
 	}
 
@@ -83,8 +86,9 @@ __BEGIN_DECLS
 	extern struct static_if_key_false name##_jump_key
 
 #define STATIC_IF_KEY_DEFINE_FALSE(name) \
+	__security_const_late \
 	__used struct static_if_key_false name##_jump_key = { \
-	        .key.sik_init_value = -1, \
+	        .key.sik_init_value = false, \
 	        .key.sik_enable_count = -1, \
 	}
 
@@ -267,6 +271,13 @@ struct static_if_key_false {
 extern void __static_if_key_delta(
 	static_if_key_t         key,
 	int                     delta);
+
+extern static_if_key_t static_if_modified_keys;
+
+#define STATIC_IF_ABI_V1       1
+#define STATIC_IF_ABI_CURRENT  STATIC_IF_ABI_V1
+
+extern uint32_t static_if_abi;
 
 #if MACH_KERNEL_PRIVATE
 

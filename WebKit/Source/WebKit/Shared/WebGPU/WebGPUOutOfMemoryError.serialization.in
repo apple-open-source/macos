@@ -25,5 +25,5 @@
 };
 
 header: "WebGPUError.h"
-using WebKit::WebGPU::Error = std::variant<WebKit::WebGPU::OutOfMemoryError, WebKit::WebGPU::ValidationError, WebKit::WebGPU::InternalError>;
+using WebKit::WebGPU::Error = Variant<WebKit::WebGPU::OutOfMemoryError, WebKit::WebGPU::ValidationError, WebKit::WebGPU::InternalError>;
 #endif

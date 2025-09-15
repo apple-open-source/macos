@@ -2870,10 +2870,8 @@ xmlShell(xmlDocPtr doc, char *filename, xmlShellReadlineFunc input,
         while ((*cur == ' ') || (*cur == '\t'))
             cur++;
         i = 0;
-        while ((*cur != ' ') && (*cur != '\t') &&
-               (*cur != '\n') && (*cur != '\r')) {
-            if (*cur == 0)
-                break;
+        while (*cur && (*cur != ' ') && (*cur != '\t') &&
+               (*cur != '\n') && (*cur != '\r') && (i + 1 < sizeof(command))) {
             command[i++] = *cur++;
         }
         command[i] = 0;
@@ -2886,9 +2884,7 @@ xmlShell(xmlDocPtr doc, char *filename, xmlShellReadlineFunc input,
         while ((*cur == ' ') || (*cur == '\t'))
             cur++;
         i = 0;
-        while ((*cur != '\n') && (*cur != '\r') && (*cur != 0)) {
-            if (*cur == 0)
-                break;
+        while (*cur && (*cur != '\n') && (*cur != '\r') && (i + 1 < sizeof(arg))) {
             arg[i++] = *cur++;
         }
         arg[i] = 0;

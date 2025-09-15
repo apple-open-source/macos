@@ -207,8 +207,24 @@ struct  ip6po_nhinfo {
 #define ip6po_nextroute ip6po_nhinfo.ip6po_nhi_route
 
 struct  ip6_pktopts {
-	struct  mbuf *ip6po_m;  /* Pointer to mbuf storing the data */
-	int     ip6po_hlim;     /* Hoplimit for outgoing packets */
+	int16_t ip6po_hlim;     /* Hoplimit for outgoing packets */
+
+	int16_t ip6po_tclass;   /* traffic class */
+
+	int8_t  ip6po_minmtu:3,  /* fragment vs PMTU discovery policy */
+	    ip6po_prefer_tempaddr:3, /* whether temporary addresses are preferred as source address */
+	    ip6po_flags:2;
+
+#define IP6PO_MINMTU_MCASTONLY  -1 /* default; send at min MTU for multicast */
+#define IP6PO_MINMTU_DISABLE     0 /* always perform pmtu disc */
+#define IP6PO_MINMTU_ALL         1 /* always send at min MTU */
+
+#define IP6PO_TEMPADDR_SYSTEM   -1 /* follow the system default */
+#define IP6PO_TEMPADDR_NOTPREFER 0 /* not prefer temporary address */
+#define IP6PO_TEMPADDR_PREFER    1 /* prefer temporary address */
+
+#define IP6PO_DONTFRAG          0x01    /* no fragmentation (IPV6_DONTFRAG) */
+#define IP6PO_USECOA            0x02    /* use care of address */
 
 	/* Outgoing IF/address information */
 	struct  in6_pktinfo *ip6po_pktinfo;
@@ -226,28 +242,6 @@ struct  ip6_pktopts {
 
 	/* Destination options header (after a routing header) */
 	struct  ip6_dest *ip6po_dest2;
-
-	int     ip6po_tclass;   /* traffic class */
-
-	int     ip6po_minmtu;  /* fragment vs PMTU discovery policy */
-#define IP6PO_MINMTU_MCASTONLY  -1 /* default; send at min MTU for multicast */
-#define IP6PO_MINMTU_DISABLE     0 /* always perform pmtu disc */
-#define IP6PO_MINMTU_ALL         1 /* always send at min MTU */
-
-	/* whether temporary addresses are preferred as source address */
-	int     ip6po_prefer_tempaddr;
-
-#define IP6PO_TEMPADDR_SYSTEM   -1 /* follow the system default */
-#define IP6PO_TEMPADDR_NOTPREFER 0 /* not prefer temporary address */
-#define IP6PO_TEMPADDR_PREFER    1 /* prefer temporary address */
-
-	int ip6po_flags;
-#if 0   /* parameters in this block is obsolete. do not reuse the values. */
-#define IP6PO_REACHCONF 0x01    /* upper-layer reachability confirmation. */
-#define IP6PO_MINMTU    0x02    /* use minimum MTU (IPV6_USE_MIN_MTU) */
-#endif
-#define IP6PO_DONTFRAG          0x04    /* no fragmentation (IPV6_DONTFRAG) */
-#define IP6PO_USECOA            0x08    /* use care of address */
 };
 
 /*
@@ -534,7 +528,7 @@ extern int icmp6_dgram_attach(struct socket *, int, struct proc *);
 
 extern void ip6_register_m_tag(void);
 
-extern void ip6_init(struct ip6protosw *, struct domain *);
+extern void ip6_init(struct protosw *, struct domain *);
 extern void ip6_input(struct mbuf *);
 extern void ip6_setsrcifaddr_info(struct mbuf *, uint32_t, struct in6_ifaddr *);
 extern void ip6_setdstifaddr_info(struct mbuf *, uint32_t, struct in6_ifaddr *);

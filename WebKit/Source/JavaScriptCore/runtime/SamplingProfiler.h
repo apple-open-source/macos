@@ -180,7 +180,7 @@ public:
     };
 
     SamplingProfiler(VM&, Ref<Stopwatch>&&);
-    ~SamplingProfiler();
+    JS_EXPORT_PRIVATE ~SamplingProfiler();
     void noticeJSLockAcquisition();
     void noticeVMEntry();
     void shutdown();

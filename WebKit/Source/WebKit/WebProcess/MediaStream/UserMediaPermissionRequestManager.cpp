@@ -22,13 +22,15 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "FrameInfoData.h"
 #include "Logging.h"
 #include "MessageSenderInlines.h"
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/CaptureDevice.h>
-#include <WebCore/Document.h>
+#include <WebCore/CaptureDeviceWithCapabilities.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/LocalFrame.h>
@@ -65,8 +67,8 @@ Ref<WebPage> UserMediaPermissionRequestManager::protectedPage() const
 
 void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& request)
 {
-    Document* document = request.document();
-    auto* frame = document ? document->frame() : nullptr;
+    RefPtr document = request.document();
+    RefPtr frame = document ? document->frame() : nullptr;
 
     if (!frame || !document->page()) {
         request.deny(MediaAccessDenialReason::OtherFailure, emptyString());
@@ -86,7 +88,7 @@ void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& 
 
 void UserMediaPermissionRequestManager::sendUserMediaRequest(UserMediaRequest& userRequest)
 {
-    auto* frame = userRequest.document() ? userRequest.document()->frame() : nullptr;
+    RefPtr frame = userRequest.document() ? userRequest.document()->frame() : nullptr;
     if (!frame) {
         userRequest.deny(MediaAccessDenialReason::OtherFailure, emptyString());
         return;
@@ -97,8 +99,8 @@ void UserMediaPermissionRequestManager::sendUserMediaRequest(UserMediaRequest& u
     auto webFrame = WebFrame::fromCoreFrame(*frame);
     ASSERT(webFrame);
 
-    auto* topLevelDocumentOrigin = userRequest.topLevelDocumentOrigin();
-    protectedPage()->send(Messages::WebPageProxy::RequestUserMediaPermissionForFrame(userRequest.identifier(), webFrame->frameID(), userRequest.userMediaDocumentOrigin()->data(), topLevelDocumentOrigin->data(), userRequest.request()));
+    RefPtr topLevelDocumentOrigin = userRequest.topLevelDocumentOrigin();
+    protectedPage()->send(Messages::WebPageProxy::RequestUserMediaPermissionForFrame(userRequest.identifier(), webFrame->info(), userRequest.userMediaDocumentOrigin()->data(), topLevelDocumentOrigin->data(), userRequest.request()));
 }
 
 void UserMediaPermissionRequestManager::cancelUserMediaRequest(UserMediaRequest& request)
@@ -106,7 +108,7 @@ void UserMediaPermissionRequestManager::cancelUserMediaRequest(UserMediaRequest&
     if (auto removedRequest = m_ongoingUserMediaRequests.take(request.identifier()))
         return;
         
-    auto* document = request.document();
+    RefPtr document = request.document();
     if (!document)
         return;
     
@@ -157,7 +159,7 @@ void UserMediaPermissionRequestManager::userMediaAccessWasDenied(UserMediaReques
 
 void UserMediaPermissionRequestManager::enumerateMediaDevices(Document& document, CompletionHandler<void(Vector<CaptureDeviceWithCapabilities>&&, MediaDeviceHashSalts&&)>&& completionHandler)
 {
-    auto* frame = document.frame();
+    RefPtr frame = document.frame();
     if (!frame) {
         completionHandler({ }, { });
         return;

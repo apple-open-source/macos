@@ -29,6 +29,7 @@
 #import "APIConversions.h"
 #import "Device.h"
 #import <cmath>
+#import <wtf/StdLibExtras.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/text/Base64.h>
 
@@ -176,7 +177,7 @@ static Sampler::UniqueSamplerIdentifier computeDescriptorHash(MTLSamplerDescript
         return *reinterpret_cast<uint32_t*>(&f);
     };
     std::array<uint32_t, 4> uintData = { miscHash(descriptor), floatToUint32(descriptor.lodMinClamp), floatToUint32(descriptor.lodMaxClamp), floatToUint32(descriptor.maxAnisotropy) };
-    return base64EncodeToString(unsafeMakeSpan(static_cast<uint8_t*>(static_cast<void*>(&uintData[0])), sizeof(uintData)));
+    return base64EncodeToString(asByteSpan(std::span { uintData }));
 }
 
 static MTLSamplerDescriptor *createMetalDescriptorFromDescriptor(const WGPUSamplerDescriptor &descriptor)
@@ -197,7 +198,7 @@ static MTLSamplerDescriptor *createMetalDescriptorFromDescriptor(const WGPUSampl
     // https://developer.apple.com/documentation/metal/mtlsamplerdescriptor/1516164-maxanisotropy?language=objc
     // "Values must be between 1 and 16, inclusive."
     samplerDescriptor.maxAnisotropy = std::min<uint16_t>(descriptor.maxAnisotropy, 16);
-    samplerDescriptor.label = descriptor.label;
+    samplerDescriptor.label = descriptor.label.createNSString().get();
 
     return samplerDescriptor;
 }
@@ -294,14 +295,8 @@ id<MTLSamplerState> Sampler::samplerState() const
             return false;
         });
     }
-    if (cachedSamplerStates->size() >= maxArgumentBufferSamplerCount) {
-        if (!lastAccessedKeys->size())
-            return nil;
-        auto& firstKey = *lastAccessedKeys->begin();
-        cachedSamplerStates->remove(firstKey);
-        retainedSamplerStates->remove(firstKey);
-        lastAccessedKeys->removeFirst();
-    }
+    if (cachedSamplerStates->size() >= maxArgumentBufferSamplerCount)
+        return nil;
 
     samplerState = [device newSamplerStateWithDescriptor:createMetalDescriptorFromDescriptor(m_descriptor)];
     if (!samplerState)

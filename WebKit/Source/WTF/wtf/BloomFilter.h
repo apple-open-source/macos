@@ -214,9 +214,9 @@ inline void CountingBloomFilter<keyBits>::add(unsigned hash)
 {
     auto& first = firstBucket(hash);
     auto& second = secondBucket(hash);
-    if (LIKELY(first < maximumCount()))
+    if (first < maximumCount()) [[likely]]
         ++first;
-    if (LIKELY(second < maximumCount()))
+    if (second < maximumCount()) [[likely]]
         ++second;
 }
 
@@ -228,9 +228,9 @@ inline void CountingBloomFilter<keyBits>::remove(unsigned hash)
     ASSERT(first);
     ASSERT(second);
     // In case of an overflow, the bucket sticks in the table until clear().
-    if (LIKELY(first < maximumCount()))
+    if (first < maximumCount()) [[likely]]
         --first;
-    if (LIKELY(second < maximumCount()))
+    if (second < maximumCount()) [[likely]]
         --second;
 }
     

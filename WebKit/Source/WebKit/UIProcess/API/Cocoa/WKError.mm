@@ -38,59 +38,58 @@ NSString * const _WKJavaScriptExceptionLineNumberErrorKey = @"WKJavaScriptExcept
 NSString * const _WKJavaScriptExceptionColumnNumberErrorKey = @"WKJavaScriptExceptionColumnNumber";
 NSString * const _WKJavaScriptExceptionSourceURLErrorKey = @"WKJavaScriptExceptionSourceURL";
 
-NSString *localizedDescriptionForErrorCode(WKErrorCode errorCode)
+RetainPtr<NSString> localizedDescriptionForErrorCode(WKErrorCode errorCode)
 {
     switch (errorCode) {
     case WKErrorUnknown:
-        return WEB_UI_STRING("An unknown error occurred", "WKErrorUnknown description");
+        return WEB_UI_STRING("An unknown error occurred", "WKErrorUnknown description").createNSString();
 
     case WKErrorWebContentProcessTerminated:
-        return WEB_UI_STRING("The Web Content process was terminated", "WKErrorWebContentProcessTerminated description");
+        return WEB_UI_STRING("The Web Content process was terminated", "WKErrorWebContentProcessTerminated description").createNSString();
 
     case WKErrorWebViewInvalidated:
-        return WEB_UI_STRING("The WKWebView was invalidated", "WKErrorWebViewInvalidated description");
+        return WEB_UI_STRING("The WKWebView was invalidated", "WKErrorWebViewInvalidated description").createNSString();
 
     case WKErrorJavaScriptExceptionOccurred:
-        return WEB_UI_STRING("A JavaScript exception occurred", "WKErrorJavaScriptExceptionOccurred description");
-
+        return WEB_UI_STRING("A JavaScript exception occurred", "WKErrorJavaScriptExceptionOccurred description").createNSString();
     case WKErrorJavaScriptResultTypeIsUnsupported:
-        return WEB_UI_STRING("JavaScript execution returned a result of an unsupported type", "WKErrorJavaScriptResultTypeIsUnsupported description");
+        return WEB_UI_STRING("JavaScript execution returned a result of an unsupported type", "WKErrorJavaScriptResultTypeIsUnsupported description").createNSString();
 
     case WKErrorContentRuleListStoreLookUpFailed:
-        return WEB_UI_STRING("Looking up a WKContentRuleList failed", "WKErrorContentRuleListStoreLookupFailed description");
+        return WEB_UI_STRING("Looking up a WKContentRuleList failed", "WKErrorContentRuleListStoreLookupFailed description").createNSString();
 
     case WKErrorContentRuleListStoreVersionMismatch:
-        return WEB_UI_STRING("Looking up a WKContentRuleList found a binary that is incompatible", "WKErrorContentRuleListStoreVersionMismatch description");
+        return WEB_UI_STRING("Looking up a WKContentRuleList found a binary that is incompatible", "WKErrorContentRuleListStoreVersionMismatch description").createNSString();
 
     case WKErrorContentRuleListStoreCompileFailed:
-        return WEB_UI_STRING("Compiling a WKContentRuleList failed", "WKErrorContentRuleListStoreCompileFailed description");
+        return WEB_UI_STRING("Compiling a WKContentRuleList failed", "WKErrorContentRuleListStoreCompileFailed description").createNSString();
 
     case WKErrorContentRuleListStoreRemoveFailed:
-        return WEB_UI_STRING("Removing a WKContentRuleList failed", "WKErrorContentRuleListStoreRemoveFailed description");
+        return WEB_UI_STRING("Removing a WKContentRuleList failed", "WKErrorContentRuleListStoreRemoveFailed description").createNSString();
 
     case WKErrorAttributedStringContentFailedToLoad:
-        return WEB_UI_STRING("Attributed string content failed to load", "WKErrorAttributedStringContentFailedToLoad description");
+        return WEB_UI_STRING("Attributed string content failed to load", "WKErrorAttributedStringContentFailedToLoad description").createNSString();
 
     case WKErrorAttributedStringContentLoadTimedOut:
-        return WEB_UI_STRING("Timed out while loading attributed string content", "WKErrorAttributedStringContentLoadTimedOut description");
+        return WEB_UI_STRING("Timed out while loading attributed string content", "WKErrorAttributedStringContentLoadTimedOut description").createNSString();
 
     case WKErrorJavaScriptInvalidFrameTarget:
-        return WEB_UI_STRING("JavaScript execution targeted an invalid frame", "WKErrorJavaScriptInvalidFrameTarget description");
+        return WEB_UI_STRING("JavaScript execution targeted an invalid frame", "WKErrorJavaScriptInvalidFrameTarget description").createNSString();
 
     case WKErrorNavigationAppBoundDomain:
-        return WEB_UI_STRING("Attempted to navigate away from an app-bound domain or navigate after using restricted APIs", "WKErrorNavigationAppBoundDomain description");
+        return WEB_UI_STRING("Attempted to navigate away from an app-bound domain or navigate after using restricted APIs", "WKErrorNavigationAppBoundDomain description").createNSString();
 
     case WKErrorJavaScriptAppBoundDomain:
-        return WEB_UI_STRING("JavaScript execution targeted a frame that is not in an app-bound domain", "WKErrorJavaScriptAppBoundDomain description");
+        return WEB_UI_STRING("JavaScript execution targeted a frame that is not in an app-bound domain", "WKErrorJavaScriptAppBoundDomain description").createNSString();
 
     case WKErrorDuplicateCredential:
-        return WEB_UI_STRING("This credential is already present", "WKErrorDuplicateCredential description");
+        return WEB_UI_STRING("This credential is already present", "WKErrorDuplicateCredential description").createNSString();
 
     case WKErrorMalformedCredential:
-        return WEB_UI_STRING("This credential is malformed", "WKErrorMalformedCredential description");
+        return WEB_UI_STRING("This credential is malformed", "WKErrorMalformedCredential description").createNSString();
             
     case WKErrorCredentialNotFound:
-        return WEB_UI_STRING("Credential could not be found", "WKErrorCredentialNotFound description");
+        return WEB_UI_STRING("Credential could not be found", "WKErrorCredentialNotFound description").createNSString();
     }
 }
 
@@ -98,9 +97,9 @@ RetainPtr<NSError> createNSError(WKErrorCode errorCode, NSError* underlyingError
 {
     NSDictionary *userInfo = nil;
     if (underlyingError)
-        userInfo = @{ NSLocalizedDescriptionKey: localizedDescriptionForErrorCode(errorCode), NSUnderlyingErrorKey: underlyingError };
+        userInfo = @{ NSLocalizedDescriptionKey:localizedDescriptionForErrorCode(errorCode).get(), NSUnderlyingErrorKey:underlyingError };
     else
-        userInfo = @{ NSLocalizedDescriptionKey: localizedDescriptionForErrorCode(errorCode) };
+        userInfo = @{ NSLocalizedDescriptionKey:localizedDescriptionForErrorCode(errorCode).get() };
 
     return adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:errorCode userInfo:userInfo]);
 }

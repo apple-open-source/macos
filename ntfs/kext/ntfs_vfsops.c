@@ -144,7 +144,7 @@ static errno_t ntfs_blocksize_set(mount_t mp, vnode_t dev_vn, u32 blocksize,
  *
  * @mp is only needed for warning/error output, i.e. it can be NULL.
  */
-static BOOL ntfs_boot_sector_is_valid(const mount_t mp,
+static NTFS_BOOL ntfs_boot_sector_is_valid(const mount_t mp,
 		const NTFS_BOOT_SECTOR *b)
 {
 	ntfs_debug("Entering.");
@@ -2036,7 +2036,7 @@ err:
  * undefined.
  */
 static errno_t ntfs_windows_hibernation_status_check(ntfs_volume *vol,
-		BOOL *is_hibernated)
+		NTFS_BOOL *is_hibernated)
 {
 	s64 data_size;
 	MFT_REF mref;
@@ -2693,7 +2693,7 @@ static errno_t ntfs_system_inodes_get(ntfs_volume *vol)
 	ntfs_inode *root_ni, *ni;
 	vnode_t root_vn;
 	errno_t err;
-	BOOL is_hibernated;
+	NTFS_BOOL is_hibernated;
 
 	ntfs_debug("Entering.");
 	/*
@@ -3634,7 +3634,7 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 {
 	ntfs_volume *vol;
 	int vflags, err;
-	BOOL force;
+	NTFS_BOOL force;
 
 	ntfs_debug("Entering.");
 	vol = NTFS_MP(mp);
@@ -3890,7 +3890,7 @@ static int ntfs_sync_callback(vnode_t vn, void *arg)
  * Any errors are returned in @args->err.
  */
 static void ntfs_sync_helper(ntfs_inode *ni, struct ntfs_sync_args *args,
-		const BOOL skip_mft_record_sync)
+		const NTFS_BOOL skip_mft_record_sync)
 {
 	errno_t err;
 

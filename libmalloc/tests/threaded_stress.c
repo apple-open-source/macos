@@ -263,11 +263,15 @@ malloc_size_stress_thread(void *arg)
 			if (!remaining_frees--) break;
 			alloc = NULL;
 		}
+
+		// Size without taking ownership to allow another thread to race to free
+		(void)malloc_size(allocations[pos % live_allocations]);
+
 		alloc = atomic_exchange(
 				(_Atomic(void *) *)&allocations[(pos++)%live_allocations],
 				alloc);
 		if (alloc) {
-			// Size once while allocated
+			// Size again while definitely allocated
 			(void)malloc_size(alloc);
 
 			dummy = busy(second);
@@ -275,7 +279,7 @@ malloc_size_stress_thread(void *arg)
 
 			// Calling malloc_size on free pointers isn't safe in exclaves
 #if !MALLOC_TARGET_EXCLAVES
-			// Try again while (possibly) free
+			// Size again while probably free, but possibly re-allocated
 			malloc_size(alloc);
 #endif // !MALLOC_TARGET_EXCLAVES
 		}

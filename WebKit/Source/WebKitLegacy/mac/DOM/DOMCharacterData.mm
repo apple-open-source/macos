@@ -43,7 +43,7 @@
 - (NSString *)data
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->data();
+    return IMPL->data().createNSString().autorelease();
 }
 
 - (void)setData:(NSString *)newData
@@ -73,7 +73,7 @@
 - (NSString *)substringData:(unsigned)offset length:(unsigned)inLength
 {
     WebCore::JSMainThreadNullState state;
-    return raiseOnDOMError(IMPL->substringData(offset, inLength));
+    return raiseOnDOMError(IMPL->substringData(offset, inLength)).createNSString().autorelease();
 }
 
 - (void)appendData:(NSString *)inData

@@ -116,6 +116,8 @@ void PlaybackSessionInterfaceMac::currentTimeChanged(double currentTime, double 
 void PlaybackSessionInterfaceMac::rateChanged(OptionSet<PlaybackSessionModel::PlaybackState> playbackState, double playbackRate, double defaultPlaybackRate)
 {
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "playbackState: ", playbackState, ", playbackRate: ", playbackRate);
+
     auto isPlaying = playbackState.contains(PlaybackSessionModel::PlaybackState::Playing);
     WebPlaybackControlsManager* controlsManager = playBackControlsManager();
     [controlsManager setDefaultPlaybackRate:defaultPlaybackRate fromJavaScript:YES];
@@ -147,26 +149,18 @@ void PlaybackSessionInterfaceMac::endScrubbing()
     if (auto* model = playbackSessionModel())
         model->endScrubbing();
 }
-
-#if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-static RetainPtr<NSMutableArray> timeRangesToArray(const TimeRanges& timeRanges)
+#if HAVE(PIP_SKIP_PREROLL)
+void PlaybackSessionInterfaceMac::skipAd()
 {
-    RetainPtr<NSMutableArray> rangeArray = adoptNS([[NSMutableArray alloc] init]);
-
-    for (unsigned i = 0; i < timeRanges.length(); i++) {
-        const PlatformTimeRanges& ranges = timeRanges.ranges();
-        CMTimeRange range = PAL::CMTimeRangeMake(PAL::toCMTime(ranges.start(i)), PAL::toCMTime(ranges.end(i)));
-        [rangeArray addObject:[NSValue valueWithCMTimeRange:range]];
-    }
-
-    return rangeArray;
+    if (auto* model = playbackSessionModel())
+        model->skipAd();
 }
 #endif
 
-void PlaybackSessionInterfaceMac::seekableRangesChanged(const TimeRanges& timeRanges, double, double)
+void PlaybackSessionInterfaceMac::seekableRangesChanged(const PlatformTimeRanges& timeRanges, double, double)
 {
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
-    [playBackControlsManager() setSeekableTimeRanges:timeRangesToArray(timeRanges).get()];
+    [playBackControlsManager() setSeekableTimeRanges:makeNSArray(timeRanges).get()];
 #else
     UNUSED_PARAM(timeRanges);
 #endif
@@ -262,7 +256,7 @@ void PlaybackSessionInterfaceMac::setPlayBackControlsManager(WebPlaybackControls
     manager.hasEnabledVideo = duration > 0;
     manager.defaultPlaybackRate = m_playbackSessionModel->defaultPlaybackRate();
     manager.rate = m_playbackSessionModel->isPlaying() ? m_playbackSessionModel->playbackRate() : 0.;
-    manager.seekableTimeRanges = timeRangesToArray(m_playbackSessionModel->seekableRanges()).get();
+    manager.seekableTimeRanges = makeNSArray(m_playbackSessionModel->seekableRanges()).get();
     manager.canTogglePlayback = YES;
     manager.playing = m_playbackSessionModel->isPlaying();
     [manager setAudioMediaSelectionOptions:m_playbackSessionModel->audioMediaSelectionOptions() withSelectedIndex:static_cast<NSUInteger>(m_playbackSessionModel->audioMediaSelectedIndex())];

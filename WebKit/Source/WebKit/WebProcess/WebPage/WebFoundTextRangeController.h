@@ -96,6 +96,9 @@ private:
     WebCore::Document* documentForFoundTextRange(const WebFoundTextRange&) const;
     std::optional<WebCore::SimpleRange> simpleRangeFromFoundTextRange(WebFoundTextRange);
 
+    RefPtr<WebPage> protectedWebPage() const { return m_webPage.get(); }
+    RefPtr<WebCore::PageOverlay> protectedFindPageOverlay() const { return m_findPageOverlay; }
+
     WeakPtr<WebPage> m_webPage;
     RefPtr<WebCore::PageOverlay> m_findPageOverlay;
 

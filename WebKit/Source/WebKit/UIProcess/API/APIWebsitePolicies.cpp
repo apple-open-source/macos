@@ -39,7 +39,7 @@ namespace API {
 
 WebsitePolicies::WebsitePolicies()
 #if PLATFORM(COCOA)
-    : m_lockdownModeObserver(makeUniqueWithoutRefCountedCheck<WebKit::WebPagePreferencesLockdownModeObserver>(*this))
+    : m_lockdownModeObserver(makeUniqueWithoutRefCountedCheck<WebKit::WebPagePreferencesLockdownModeObserver, WebKit::LockdownModeObserver>(*this))
 #endif
 {
 }
@@ -51,13 +51,15 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
     policies->setWebsiteDataStore(m_websiteDataStore.get());
     policies->setUserContentController(m_userContentController.get());
     policies->setLockdownModeEnabled(m_lockdownModeEnabled);
-#if PLATFORM(COCOA)
-    policies->m_lockdownModeObserver = makeUniqueWithoutRefCountedCheck<WebKit::WebPagePreferencesLockdownModeObserver>(policies);
-#endif
     return policies;
 }
 
 WebsitePolicies::~WebsitePolicies() = default;
+
+RefPtr<WebKit::WebsiteDataStore> WebsitePolicies::protectedWebsiteDataStore() const
+{
+    return m_websiteDataStore;
+}
 
 void WebsitePolicies::setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&& websiteDataStore)
 {
@@ -80,4 +82,3 @@ bool WebsitePolicies::lockdownModeEnabled() const
 }
 
 }
-

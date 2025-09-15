@@ -104,7 +104,7 @@
 #include <ipc/ipc_space.h>
 #include <ipc/ipc_entry.h>
 #include <ipc/ipc_hash.h>
-#include <ipc/ipc_init.h>
+#include <ipc/ipc_policy.h>
 
 #include <kern/kern_types.h>
 #include <kern/mach_param.h>
@@ -214,8 +214,6 @@ extern size_t proc_struct_size;
 extern size_t proc_and_task_size;
 size_t task_struct_size;
 
-extern uint32_t ipc_control_port_options;
-
 extern int large_corpse_count;
 
 extern boolean_t proc_send_synchronous_EXC_RESOURCE(void *p);
@@ -227,6 +225,7 @@ static void task_suspension_no_senders(ipc_port_t, mach_msg_type_number_t);
 static inline void task_zone_init(void);
 
 static void task_store_owned_vmobject_info(task_t to_task, task_t from_task);
+static void task_set_control_port_options(task_t task, task_control_port_options_t opts);
 
 #if CONFIG_EXCLAVES
 static bool task_should_panic_on_exit_due_to_conclave_taint(task_t task);
@@ -236,14 +235,19 @@ kern_return_t task_crash_info_conclave_upcall(task_t task,
     const struct conclave_sharedbuffer_t *shared_buf, uint32_t length);
 #endif /* CONFIG_EXCLAVES */
 
-IPC_KOBJECT_DEFINE(IKOT_TASK_NAME);
+IPC_KOBJECT_DEFINE(IKOT_TASK_NAME,
+    .iko_op_movable_send = true);
 IPC_KOBJECT_DEFINE(IKOT_TASK_CONTROL,
-    .iko_op_no_senders = task_port_no_senders);
+    .iko_op_no_senders = task_port_no_senders,
+    .iko_op_movable_send = true, /* see ipc_should_mark_immovable_send */
+    .iko_op_label_free = ipc_kobject_label_free);
 IPC_KOBJECT_DEFINE(IKOT_TASK_READ,
-    .iko_op_no_senders = task_port_with_flavor_no_senders);
+    .iko_op_no_senders = task_port_with_flavor_no_senders,
+    .iko_op_label_free = ipc_kobject_label_free);
 IPC_KOBJECT_DEFINE(IKOT_TASK_INSPECT,
     .iko_op_no_senders = task_port_with_flavor_no_senders);
 IPC_KOBJECT_DEFINE(IKOT_TASK_RESUME,
+    .iko_op_movable_send = true,
     .iko_op_no_senders = task_suspension_no_senders);
 
 #if CONFIG_PROC_RESOURCE_LIMITS
@@ -251,6 +255,7 @@ static void task_fatal_port_no_senders(ipc_port_t, mach_msg_type_number_t);
 static mach_port_t task_allocate_fatal_port(void);
 
 IPC_KOBJECT_DEFINE(IKOT_TASK_FATAL,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = task_fatal_port_no_senders);
 
@@ -391,6 +396,7 @@ __options_decl(send_exec_resource_options_t, uint8_t, {
 	EXEC_RESOURCE_FATAL = 0x01,
 	EXEC_RESOURCE_DIAGNOSTIC = 0x02,
 	EXEC_RESOURCE_WARNING = 0x04,
+	EXEC_RESOURCE_CONCLAVE = 0x08 // A side memory limit independent of the main footprint.
 });
 
 /**
@@ -404,6 +410,7 @@ void init_task_ledgers(void);
 void task_footprint_exceeded(int warning, __unused const void *param0, __unused const void *param1);
 void task_wakeups_rate_exceeded(int warning, __unused const void *param0, __unused const void *param1);
 void task_io_rate_exceeded(int warning, const void *param0, __unused const void *param1);
+void task_conclave_mem_limit_exceeded(int warning, __unused const void *param0, __unused const void *param1);
 void __attribute__((noinline)) SENDING_NOTIFICATION__THIS_PROCESS_IS_CAUSING_TOO_MANY_WAKEUPS(void);
 void __attribute__((noinline)) PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb, send_exec_resource_options_t exception_options);
 void __attribute__((noinline)) SENDING_NOTIFICATION__THIS_PROCESS_IS_CAUSING_TOO_MUCH_IO(int flavor);
@@ -502,12 +509,14 @@ extern int kevent_proc_copy_uptrs(void *proc, uint64_t *buf, uint32_t bufsize);
 extern void workq_proc_suspended(struct proc *p);
 extern void workq_proc_resumed(struct proc *p);
 extern struct proc *kernproc;
+extern void * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
 
 #if CONFIG_MEMORYSTATUS
 extern void     proc_memstat_skip(struct proc* p, boolean_t set);
 extern void     memorystatus_on_ledger_footprint_exceeded(int warning, bool memlimit_is_active, bool memlimit_is_fatal);
 extern void     memorystatus_log_exception(const int max_footprint_mb, bool memlimit_is_active, bool memlimit_is_fatal);
 extern void     memorystatus_log_diag_threshold_exception(const int diag_threshold_value);
+extern void     memorystatus_on_conclave_limit_exceeded(const int max_footprint_mb);
 extern boolean_t memorystatus_allowed_vm_map_fork(task_t task, bool *is_large);
 extern uint64_t  memorystatus_available_memory_internal(struct proc *p);
 
@@ -692,6 +701,12 @@ task_set_platform_binary(
 	} else {
 		task_ro_flags_clear(task, TFRO_PLATFORM);
 	}
+	assert(task->map);
+	if (task->map) {
+		vm_map_lock(task->map);
+		vm_map_set_platform_binary(task->map, (bool)is_platform);
+		vm_map_unlock(task->map);
+	}
 }
 
 #if XNU_TARGET_OS_OSX
@@ -712,43 +727,10 @@ task_opted_out_mach_hardening(task_t task)
 }
 #endif /* XNU_TARGET_OS_OSX */
 
-/*
- * Use the `task_is_hardened_binary` macro below
- * when applying new security policies.
- *
- * Kernel security policies now generally apply to
- * "hardened binaries" - which are platform binaries, and
- * third party binaries who adopt hardened runtime on ios.
- */
 boolean_t
 task_get_platform_binary(task_t task)
 {
 	return (task_ro_flags_get(task) & TFRO_PLATFORM) != 0;
-}
-
-static boolean_t
-task_get_hardened_runtime(task_t task)
-{
-	return (task_ro_flags_get(task) & TFRO_HARDENED) != 0;
-}
-
-boolean_t
-task_is_hardened_binary(task_t task)
-{
-	return task_get_platform_binary(task) ||
-	       task_get_hardened_runtime(task);
-}
-
-void
-task_set_hardened_runtime(
-	task_t task,
-	bool is_hardened)
-{
-	if (is_hardened) {
-		task_ro_flags_set(task, TFRO_HARDENED);
-	} else {
-		task_ro_flags_clear(task, TFRO_HARDENED);
-	}
 }
 
 boolean_t
@@ -770,9 +752,9 @@ task_set_corpse(task_t task)
 }
 
 void
-task_set_immovable_pinned(task_t task)
+task_copyout_control_port(task_t task)
 {
-	ipc_task_set_immovable_pinned(task);
+	ipc_task_copyout_control_port(task);
 }
 
 /*
@@ -930,10 +912,57 @@ task_clear_return_wait(task_t task, uint32_t flags)
 	}
 }
 
+/*
+ * Set default behavior for a task's control ports
+ */
+static void
+task_set_ctrl_port_default(
+	task_t         task,
+	thread_t       thread)
+{
+	ipc_space_policy_t pol = ipc_policy_for_task(task);
+	bool movable_allowed = mac_task_check_get_movable_control_port() == 0;
+	bool is_simulated = pol & IPC_SPACE_POLICY_SIMULATED;
+	bool is_translated = false;
+
+	task_control_port_options_t opts = TASK_CONTROL_PORT_OPTIONS_NONE;
+	if (movable_allowed || is_simulated || is_translated) {
+		/* Disable control port hardening for entitled||simulated binaries */
+		opts = TASK_CONTROL_PORT_OPTIONS_NONE;
+	} else if (ipc_should_apply_policy(pol, IPC_POLICY_ENHANCED_V1)) {
+		/* set control port options for 1p code, inherited from parent task by default */
+		if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_1P_HARD) {
+			opts |= TASK_CONTROL_PORT_IMMOVABLE_HARD;
+		} else if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_1P_SOFT) {
+			opts |= TASK_CONTROL_PORT_IMMOVABLE_SOFT;
+		}
+	} else {
+		/* set control port options for 3p code, inherited from parent task by default */
+		if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_3P_HARD) {
+			opts |= TASK_CONTROL_PORT_IMMOVABLE_HARD;
+		} else if (ipc_control_port_options & ICP_OPTIONS_IMMOVABLE_3P_SOFT) {
+			opts |= TASK_CONTROL_PORT_IMMOVABLE_SOFT;
+		}
+	}
+
+	/* see `copyout_should_mark_immovable_send`, which consumes these flags */
+	task_set_control_port_options(task, opts);
+
+	/*
+	 * now that we have marked the task as immovable, copyout the task/thread ports
+	 * again so that they get marked as immovable on copyout
+	 */
+	ipc_task_copyout_control_port(task);
+	/* consumed by ipc_thread_set_immovable_pinned */
+	thread_reference(thread);
+	ipc_thread_set_immovable_pinned(thread);
+}
+
 void __attribute__((noreturn))
 task_wait_to_return(void)
 {
 	task_t task = current_task();
+	thread_t thread = current_thread();
 	uint8_t returnwaitflags;
 
 	is_write_lock(task->itk_space);
@@ -987,6 +1016,11 @@ task_wait_to_return(void)
 	}
 #endif
 
+	/*
+	 * Set task/thread control port movability now that we can call AMFI
+	 */
+	task_set_ctrl_port_default(task, thread);
+
 	thread_bootstrap_return();
 }
 
@@ -1000,6 +1034,12 @@ void
 task_post_signature_processing_hook(task_t task)
 {
 	ml_task_post_signature_processing_hook(task);
+}
+
+bool
+task_is_initproc(task_t task)
+{
+	return get_bsdtask_info(task) == initproc;
 }
 
 boolean_t
@@ -1151,7 +1191,9 @@ task_init(void)
 	}
 
 
+
 	vm_map_setup(get_task_map(kernel_task), kernel_task);
+
 	ipc_task_enable(kernel_task);
 
 #if defined(HAS_APPLE_PAC)
@@ -1264,10 +1306,10 @@ init_task_ledgers(void)
 	task_ledgers.purgeable_nonvolatile = ledger_entry_add_with_flags(t, "purgeable_nonvolatile", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.purgeable_volatile_compressed = ledger_entry_add_with_flags(t, "purgeable_volatile_compress", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.purgeable_nonvolatile_compressed = ledger_entry_add_with_flags(t, "purgeable_nonvolatile_compress", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-	task_ledgers.pages_grabbed = ledger_entry_add_with_flags(t, "pages_grabbed", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-	task_ledgers.pages_grabbed_kern = ledger_entry_add_with_flags(t, "pages_grabbed_kern", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-	task_ledgers.pages_grabbed_iopl = ledger_entry_add_with_flags(t, "pages_grabbed_iopl", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
-	task_ledgers.pages_grabbed_upl = ledger_entry_add_with_flags(t, "pages_grabbed_upl", "physmem", "count", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
+	task_ledgers.pages_grabbed = ledger_entry_add_with_flags(t, "pages_grabbed", "physmem", "count", LEDGER_ENTRY_USE_COUNTER);
+	task_ledgers.pages_grabbed_kern = ledger_entry_add_with_flags(t, "pages_grabbed_kern", "physmem", "count", LEDGER_ENTRY_USE_COUNTER);
+	task_ledgers.pages_grabbed_iopl = ledger_entry_add_with_flags(t, "pages_grabbed_iopl", "physmem", "count", LEDGER_ENTRY_USE_COUNTER);
+	task_ledgers.pages_grabbed_upl = ledger_entry_add_with_flags(t, "pages_grabbed_upl", "physmem", "count", LEDGER_ENTRY_USE_COUNTER);
 	task_ledgers.tagged_nofootprint = ledger_entry_add_with_flags(t, "tagged_nofootprint", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.tagged_footprint = ledger_entry_add_with_flags(t, "tagged_footprint", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.tagged_nofootprint_compressed = ledger_entry_add_with_flags(t, "tagged_nofootprint_compressed", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
@@ -1289,6 +1331,10 @@ init_task_ledgers(void)
 	task_ledgers.neural_nofootprint_compressed = ledger_entry_add_with_flags(t, "neural_nofootprint_compressed", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.neural_footprint_compressed = ledger_entry_add_with_flags(t, "neural_footprint_compressed", "physmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
 	task_ledgers.neural_nofootprint_total = ledger_entry_add(t, "neural_nofootprint_total", "physmem", "bytes");
+
+#if CONFIG_DEFERRED_RECLAIM
+	task_ledgers.est_reclaimable = ledger_entry_add_with_flags(t, "est_reclaimable", "virtmem", "bytes", LEDGER_ENTRY_ALLOW_PANIC_ON_NEGATIVE);
+#endif /* CONFIG_DEFERRED_RECLAIM */
 
 #if CONFIG_FREEZE
 	task_ledgers.frozen_to_swap = ledger_entry_add(t, "frozen_to_swap", "physmem", "bytes");
@@ -1462,6 +1508,7 @@ init_task_ledgers(void)
 
 #if CONFIG_MEMORYSTATUS
 	ledger_set_callback(t, task_ledgers.phys_footprint, task_footprint_exceeded, NULL, NULL);
+	ledger_set_callback(t, task_ledgers.conclave_mem, task_conclave_mem_limit_exceeded, NULL, NULL);
 #endif /* CONFIG_MEMORYSTATUS */
 
 	ledger_set_callback(t, task_ledgers.interrupt_wakeups,
@@ -1609,11 +1656,14 @@ task_create_internal(
 		task_ro_data.t_flags_ro |= (parent_t_flags_ro & (TFRO_PAC_ENFORCE_USER_STATE |
 		    TFRO_PAC_EXC_FATAL));
 #endif /* __has_feature(ptrauth_calls) */
-		/* Inherit the hardened binary flags from parent if in fork */
-		task_ro_data.t_flags_ro |= parent_t_flags_ro & (TFRO_HARDENED | TFRO_PLATFORM | TFRO_JIT_EXC_FATAL);
+		/* Inherit the platform restrictions flags from parent if in fork */
+		task_ro_data.t_flags_ro |= parent_t_flags_ro & (TFRO_PLATFORM | TFRO_JIT_EXC_FATAL);
 #if XNU_TARGET_OS_OSX
 		task_ro_data.t_flags_ro |= parent_t_flags_ro & TFRO_MACH_HARDENING_OPT_OUT;
 #endif /* XNU_TARGET_OS_OSX */
+
+		/* task_security_config options are always inherited on fork */
+		new_task->security_config = parent_task->security_config;
 	}
 
 #ifdef MACH_BSD
@@ -1692,7 +1742,6 @@ task_create_internal(
 #endif /* CONFIG_TASKWATCH */
 
 	new_task->mem_notify_reserved = 0;
-	new_task->memlimit_attrs_reserved = 0;
 
 	new_task->requested_policy = default_task_requested_policy;
 	new_task->effective_policy = default_task_effective_policy;
@@ -1702,9 +1751,6 @@ task_create_internal(
 	if (parent_task != NULL) {
 		task_ro_data.task_tokens.sec_token = *task_get_sec_token(parent_task);
 		task_ro_data.task_tokens.audit_token = *task_get_audit_token(parent_task);
-
-		/* only inherit the option bits, no effect until task_set_immovable_pinned() */
-		task_ro_data.task_control_port_options = task_get_control_port_options(parent_task);
 
 		task_ro_data.t_flags_ro |= parent_t_flags_ro & TFRO_FILTER_MSG;
 #if CONFIG_MACF
@@ -1716,9 +1762,12 @@ task_create_internal(
 	} else {
 		task_ro_data.task_tokens.sec_token = KERNEL_SECURITY_TOKEN;
 		task_ro_data.task_tokens.audit_token = KERNEL_AUDIT_TOKEN;
-
-		task_ro_data.task_control_port_options = TASK_CONTROL_PORT_OPTIONS_NONE;
 	}
+	/*
+	 * intentionally initialized to zero, it will be set before returning
+	 * to userspace in task_set_ctrl_port_default
+	 */
+	task_ro_data.task_control_port_options = TASK_CONTROL_PORT_OPTIONS_NONE;
 
 	/* must set before task_importance_init_from_parent: */
 	if (proc_ro != NULL) {
@@ -1839,10 +1888,6 @@ task_create_internal(
 	counter_alloc(&(new_task->cow_faults));
 	counter_alloc(&(new_task->messages_sent));
 	counter_alloc(&(new_task->messages_received));
-	counter_alloc(&(new_task->pages_grabbed));
-	counter_alloc(&(new_task->pages_grabbed_kern));
-	counter_alloc(&(new_task->pages_grabbed_iopl));
-	counter_alloc(&(new_task->pages_grabbed_upl));
 
 	/* Copy resource acc. info from Parent for Corpe Forked task. */
 	if (parent_task != NULL && (t_flags & TF_CORPSE_FORK)) {
@@ -1862,10 +1907,7 @@ task_create_internal(
 		new_task->purged_memory_warn = 0;
 		new_task->purged_memory_critical = 0;
 		new_task->low_mem_privileged_listener = 0;
-		new_task->memlimit_is_active = 0;
-		new_task->memlimit_is_fatal = 0;
-		new_task->memlimit_active_exc_resource = 0;
-		new_task->memlimit_inactive_exc_resource = 0;
+		os_atomic_store(&new_task->memlimit_flags, 0, relaxed);
 		new_task->task_timer_wakeups_bin_1 = 0;
 		new_task->task_timer_wakeups_bin_2 = 0;
 		new_task->task_gpu_ns = 0;
@@ -2230,10 +2272,6 @@ task_deallocate_internal(
 	counter_free(&task->cow_faults);
 	counter_free(&task->messages_sent);
 	counter_free(&task->messages_received);
-	counter_free(&task->pages_grabbed);
-	counter_free(&task->pages_grabbed_kern);
-	counter_free(&task->pages_grabbed_iopl);
-	counter_free(&task->pages_grabbed_upl);
 
 #if CONFIG_COALITIONS
 	task_release_coalitions(task);
@@ -2604,6 +2642,19 @@ task_mark_corpse(task_t task)
 		return KERN_TERMINATED;
 	}
 
+	/*
+	 * ipc_task_reset() moved to last thread_terminate_self(): rdar://75737960.
+	 * disable old ports here instead.
+	 *
+	 * The vm_map and ipc_space must exist until this function returns,
+	 * convert_port_to_{map,space}_with_flavor relies on this behavior.
+	 *
+	 * Note this must be done before we mark the port as a corpse,
+	 * so that task_port_no_senders() can determine if the no-senders
+	 * is for a real corpse or not.
+	 */
+	ipc_task_disable(task);
+
 	task_set_corpse_pending_report(task);
 	task_set_corpse(task);
 	task->crashed_thread_id = thread_tid(self_thread);
@@ -2614,15 +2665,6 @@ task_mark_corpse(task_t task)
 	task_set_uniqueid(task);
 
 	task_unlock(task);
-
-	/*
-	 * ipc_task_reset() moved to last thread_terminate_self(): rdar://75737960.
-	 * disable old ports here instead.
-	 *
-	 * The vm_map and ipc_space must exist until this function returns,
-	 * convert_port_to_{map,space}_with_flavor relies on this behavior.
-	 */
-	ipc_task_disable(task);
 
 	/* let iokit know 1 */
 	iokit_task_terminate(task, 1);
@@ -2687,23 +2729,57 @@ task_clear_corpse(task_t task)
  *	task_port_no_senders
  *
  *	Called whenever the Mach port system detects no-senders on
- *	the task port of a corpse.
- *	Each notification that comes in should terminate the task (corpse).
+ *	a control task port.
+ *
+ *	Only task ports for corpses need to take action on it,
+ *	and each notification that comes in should terminate
+ *	the task (corpse).
  */
 static void
 task_port_no_senders(ipc_port_t port, __unused mach_port_mscount_t mscount)
 {
-	task_t task = ipc_kobject_get_locked(port, IKOT_TASK_CONTROL);
+	bool   is_corpse = false;
+	task_t task;
 
-	assert(task != TASK_NULL);
-	assert(task_is_a_corpse(task));
+	ip_mq_lock(port);
+	task = ipc_kobject_get_locked(port, IKOT_TASK_CONTROL);
+	if (task == TASK_NULL || !task_is_a_corpse(task)) {
+		task = TASK_NULL;
+	} else {
+		task_reference_mig(task);
+	}
+	ip_mq_unlock(port);
 
-	/* Remove the task from global corpse task list */
-	task_remove_from_corpse_task_list(task);
+	/*
+	 * Task might be a corpse, we must inspect this under
+	 * the itk_lock to resolve the race with task_mark_corpse():
+	 *
+	 * If the task associated with the port is NULL under the itk_lock(),
+	 * then the port was a former IKOT_TASK_CONTROL port and we should
+	 * leave it alone.
+	 *
+	 * TODO: we should really make corpses use their own IKOT_TASK_CORPSE
+	 *       port type instead of these hacks.
+	 */
+	if (task) {
+		itk_lock(task);
+		ip_mq_lock(port);
+		assert(task_is_a_corpse(task));
+		is_corpse = (ipc_kobject_get_locked(port, IKOT_TASK_CONTROL) !=
+		    TASK_NULL);
+		ip_mq_unlock(port);
+		itk_unlock(task);
+		task_deallocate_mig(task);
+	}
 
-	task_clear_corpse(task);
-	vm_map_unset_corpse_source(task->map);
-	task_terminate_internal(task);
+	if (is_corpse) {
+		/* Remove the task from global corpse task list */
+		task_remove_from_corpse_task_list(task);
+
+		task_clear_corpse(task);
+		vm_map_unset_corpse_source(task->map);
+		task_terminate_internal(task);
+	}
 }
 
 /*
@@ -2714,20 +2790,19 @@ task_port_no_senders(ipc_port_t port, __unused mach_port_mscount_t mscount)
  *	should be deallocated here when there are no senders remaining.
  */
 static void
-task_port_with_flavor_no_senders(
-	ipc_port_t          port,
-	mach_port_mscount_t mscount __unused)
+task_port_with_flavor_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
 {
 	task_t task;
 	mach_task_flavor_t flavor;
 	ipc_kobject_type_t kotype;
 
 	ip_mq_lock(port);
-	if (port->ip_srights > 0) {
+	if (!ipc_kobject_is_mscount_current_locked(port, mscount)) {
 		ip_mq_unlock(port);
 		return;
 	}
-	kotype = ip_kotype(port);
+
+	kotype = ip_type(port);
 	assert((IKOT_TASK_READ == kotype) || (IKOT_TASK_INSPECT == kotype));
 	task = ipc_kobject_get_locked(port, kotype);
 	if (task != TASK_NULL) {
@@ -2762,20 +2837,18 @@ task_port_with_flavor_no_senders(
 	 * that vends out send rights to this port could resurrect it between
 	 * this notification being generated and actually being handled here.
 	 */
-	if (!ip_active(port) ||
-	    task->itk_task_ports[flavor] != port ||
-	    port->ip_srights > 0) {
+	if (task->itk_task_ports[flavor] != port ||
+	    !ipc_kobject_is_mscount_current_locked(port, mscount)) {
 		ip_mq_unlock(port);
 		itk_unlock(task);
 		task_deallocate(task);
 		return;
 	}
 
-	assert(task->itk_task_ports[flavor] == port);
 	task->itk_task_ports[flavor] = IP_NULL;
 	itk_unlock(task);
 
-	ipc_kobject_dealloc_port_and_unlock(port, 0, kotype);
+	ipc_kobject_dealloc_port_and_unlock(port, mscount, kotype);
 
 	task_deallocate(task);
 }
@@ -3100,6 +3173,9 @@ task_terminate_internal(
 	ipc_task_disable(task);
 
 #if CONFIG_EXCLAVES
+	/* before conclave can be suspended */
+	exclaves_conclave_prepare_teardown(task);
+
 	//rdar://139307390, first suspension might not have done conclave suspend.
 	first_suspension = true;
 	if (first_suspension) {
@@ -3283,6 +3359,9 @@ tasks_system_suspend(boolean_t suspend)
 		if (task == kernel_task) {
 			continue;
 		}
+		if (task_is_driver(task)) {
+			continue;
+		}
 		suspend ? task_suspend_internal(task) : task_resume_internal(task);
 	}
 	lck_mtx_unlock(&tasks_threads_lock);
@@ -3369,6 +3448,10 @@ task_start_halt_locked(task_t task, boolean_t should_mark_corpse)
 	first_suspension = true;
 	if (first_suspension || should_mark_corpse) {
 		task_unlock(task);
+
+		/* before we can teardown the conclave */
+		exclaves_conclave_prepare_teardown(task);
+
 		if (first_suspension) {
 			task_suspend_conclave(task);
 		}
@@ -3979,7 +4062,7 @@ task_threads_from_user(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	kotype = ip_kotype(port);
+	kotype = ip_type(port);
 
 	switch (kotype) {
 	case IKOT_TASK_CONTROL:
@@ -4160,9 +4243,9 @@ kern_return_t
 task_suspend(
 	task_t          task)
 {
-	kern_return_t                   kr;
-	mach_port_t                     port;
-	mach_port_name_t                name;
+	kern_return_t           kr;
+	mach_port_t             port;
+	mach_port_name_t        name;
 
 	if (task == TASK_NULL || task == kernel_task) {
 		return KERN_INVALID_ARGUMENT;
@@ -4187,10 +4270,10 @@ task_suspend(
 	port = task->itk_resume;
 	if (port == IP_NULL) {
 		port = ipc_kobject_alloc_port(task, IKOT_TASK_RESUME,
-		    IPC_KOBJECT_ALLOC_NSREQUEST | IPC_KOBJECT_ALLOC_MAKE_SEND);
+		    IPC_KOBJECT_ALLOC_MAKE_SEND);
 		task->itk_resume = port;
 	} else {
-		(void)ipc_kobject_make_send_nsrequest(port, task, IKOT_TASK_RESUME);
+		(void)ipc_kobject_make_send(port, task, IKOT_TASK_RESUME);
 	}
 	itk_unlock(task);
 
@@ -4256,7 +4339,7 @@ task_resume(
 		if (kr == KERN_SUCCESS) {
 			ipc_right_dealloc(space, resume_port_name, resume_port_entry);
 		} else {
-			ipc_right_destroy(space, resume_port_name, resume_port_entry, FALSE, 0);
+			ipc_right_destroy(space, resume_port_name, resume_port_entry);
 		}
 		/* space unlocked */
 	} else {
@@ -4390,7 +4473,6 @@ static void
 task_suspension_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
 {
 	task_t task = convert_port_to_task_suspension_token(port);
-	kern_return_t kr;
 
 	if (task == TASK_NULL) {
 		return;
@@ -4403,15 +4485,14 @@ task_suspension_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
 
 	task_lock(task);
 
-	kr = ipc_kobject_nsrequest(port, mscount, NULL);
-	if (kr == KERN_FAILURE) {
+	if (ipc_kobject_is_mscount_current(port, mscount)) {
 		/* release all the [remaining] outstanding legacy holds */
 		release_task_hold(task, TASK_HOLD_LEGACY_ALL);
 	}
 
 	task_unlock(task);
 
-	task_suspension_token_deallocate(task);         /* drop token reference */
+	task_suspension_token_deallocate(task); /* drop token reference */
 }
 
 /*
@@ -5803,6 +5884,9 @@ task_info(
 
 		struct proc *p;
 		uint32_t platform, sdk;
+
+		vmlp_api_start(TASK_INFO); /* this is the only case that is relevant to the lock */
+
 		p = current_proc();
 		platform = proc_platform(p);
 		sdk = proc_sdk(p);
@@ -5924,6 +6008,7 @@ task_info(
 
 		if (*task_info_count < TASK_VM_INFO_REV0_COUNT) {
 			error = KERN_INVALID_ARGUMENT;
+			vmlp_api_end(TASK_INFO, error);
 			break;
 		}
 
@@ -5944,6 +6029,8 @@ task_info(
 			task_unlock(task);
 			vm_map_lock_read(map);
 		}
+
+		vmlp_range_event_all(map);
 
 		vm_info->virtual_size = (typeof(vm_info->virtual_size))vm_map_adjusted_size(map);
 		vm_info->region_count = map->hdr.nentries;
@@ -6041,6 +6128,7 @@ task_info(
 
 		if ((task != current_task()) && (!task->active)) {
 			error = KERN_INVALID_ARGUMENT;
+			vmlp_api_end(TASK_INFO, error);
 			break;
 		}
 
@@ -6153,6 +6241,7 @@ task_info(
 			*task_info_count = TASK_VM_INFO_REV7_COUNT;
 		}
 
+		vmlp_api_end(TASK_INFO, error);
 		break;
 	}
 
@@ -6327,6 +6416,23 @@ task_info(
 		*task_info_count = TASK_SECURITY_CONFIG_INFO_COUNT;
 		break;
 	}
+	case TASK_IPC_SPACE_POLICY_INFO:
+	{
+		task_ipc_space_policy_info_t             ipc_space_config;
+
+		if (*task_info_count < TASK_IPC_SPACE_POLICY_INFO_COUNT) {
+			error = KERN_INVALID_ARGUMENT;
+			break;
+		}
+
+		ipc_space_config = (task_ipc_space_policy_info_t)task_info_out;
+		struct ipc_space *space = task->itk_space;
+		if (space) {
+			ipc_space_config->space_policy = (uint32_t)space->is_policy;
+			*task_info_count = TASK_SECURITY_CONFIG_INFO_COUNT;
+		}
+		break;
+	}
 	default:
 		error = KERN_INVALID_ARGUMENT;
 	}
@@ -6460,6 +6566,10 @@ task_dyld_process_info_notify_register(
 
 	if (task == TASK_NULL || task == kernel_task) {
 		return KERN_INVALID_TASK;
+	}
+
+	if (!ipc_can_stash_naked_send(sright)) {
+		return KERN_INVALID_RIGHT;
 	}
 
 	if (!IP_VALID(sright)) {
@@ -7094,51 +7204,43 @@ task_violated_guard(
 
 #if CONFIG_MEMORYSTATUS
 
-boolean_t
+bool
 task_get_memlimit_is_active(task_t task)
 {
 	assert(task != NULL);
 
-	if (task->memlimit_is_active == 1) {
-		return TRUE;
-	} else {
-		return FALSE;
-	}
+	return os_atomic_load(&task->memlimit_flags, relaxed) & TASK_MEMLIMIT_IS_ACTIVE;
 }
 
 void
-task_set_memlimit_is_active(task_t task, boolean_t memlimit_is_active)
+task_set_memlimit_is_active(task_t task, bool memlimit_is_active)
 {
 	assert(task != NULL);
 
 	if (memlimit_is_active) {
-		task->memlimit_is_active = 1;
+		os_atomic_or(&task->memlimit_flags, TASK_MEMLIMIT_IS_ACTIVE, relaxed);
 	} else {
-		task->memlimit_is_active = 0;
+		os_atomic_andnot(&task->memlimit_flags, TASK_MEMLIMIT_IS_ACTIVE, relaxed);
 	}
 }
 
-boolean_t
+bool
 task_get_memlimit_is_fatal(task_t task)
 {
 	assert(task != NULL);
 
-	if (task->memlimit_is_fatal == 1) {
-		return TRUE;
-	} else {
-		return FALSE;
-	}
+	return os_atomic_load(&task->memlimit_flags, relaxed) & TASK_MEMLIMIT_IS_FATAL;
 }
 
 void
-task_set_memlimit_is_fatal(task_t task, boolean_t memlimit_is_fatal)
+task_set_memlimit_is_fatal(task_t task, bool memlimit_is_fatal)
 {
 	assert(task != NULL);
 
 	if (memlimit_is_fatal) {
-		task->memlimit_is_fatal = 1;
+		os_atomic_or(&task->memlimit_flags, TASK_MEMLIMIT_IS_FATAL, relaxed);
 	} else {
-		task->memlimit_is_fatal = 0;
+		os_atomic_andnot(&task->memlimit_flags, TASK_MEMLIMIT_IS_FATAL, relaxed);
 	}
 }
 
@@ -7156,41 +7258,48 @@ task_set_dirty_start(task_t task, uint64_t start)
 	task_unlock(task);
 }
 
-boolean_t
-task_has_triggered_exc_resource(task_t task, boolean_t memlimit_is_active)
+bool
+task_set_exc_resource_bit(task_t task, bool memlimit_is_active)
 {
-	boolean_t triggered = FALSE;
-
-	assert(task == current_task());
-
 	/*
-	 * Returns true, if task has already triggered an exc_resource exception.
+	 * Sets the specified EXC_RESOURCE bit if not set already, and returns
+	 * true if the bit was changed (i.e. it was 0 before).
 	 */
 
-	if (memlimit_is_active) {
-		triggered = (task->memlimit_active_exc_resource ? TRUE : FALSE);
-	} else {
-		triggered = (task->memlimit_inactive_exc_resource ? TRUE : FALSE);
-	}
+	task_memlimit_flags_t memlimit_orig;
+	task_memlimit_flags_t bit =
+	    memlimit_is_active ?
+	    TASK_MEMLIMIT_ACTIVE_EXC_RESOURCE :
+	    TASK_MEMLIMIT_INACTIVE_EXC_RESOURCE;
 
-	return triggered;
+	memlimit_orig = os_atomic_or_orig(&task->memlimit_flags, bit, acquire);
+
+	return !(memlimit_orig & bit);
 }
 
 void
-task_mark_has_triggered_exc_resource(task_t task, boolean_t memlimit_is_active)
+task_reset_triggered_exc_resource(task_t task, bool memlimit_is_active)
 {
-	assert(task == current_task());
+	task_memlimit_flags_t bit =
+	    memlimit_is_active ?
+	    TASK_MEMLIMIT_ACTIVE_EXC_RESOURCE :
+	    TASK_MEMLIMIT_INACTIVE_EXC_RESOURCE;
 
-	/*
-	 * We allow one exc_resource per process per active/inactive limit.
-	 * The limit's fatal attribute does not come into play.
-	 */
+	os_atomic_andnot(&task->memlimit_flags, bit, relaxed);
+}
 
-	if (memlimit_is_active) {
-		task->memlimit_active_exc_resource = 1;
-	} else {
-		task->memlimit_inactive_exc_resource = 1;
-	}
+bool
+task_get_jetsam_realtime_audio(task_t task)
+{
+	return task->task_jetsam_realtime_audio;
+}
+
+void
+task_set_jetsam_realtime_audio(task_t task, bool realtime_audio)
+{
+	task_lock(task);
+	task->task_jetsam_realtime_audio = realtime_audio;
+	task_unlock(task);
 }
 
 #define HWM_USERCORE_MINSPACE 250 // free space (in MB) required *after* core file creation
@@ -7201,9 +7310,11 @@ PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb,
 	task_t                                          task            = current_task();
 	int                                                     pid         = 0;
 	const char                                      *procname       = "unknown";
+	const char                                      *reason         = "high watermark";
 	mach_exception_data_type_t      code[EXCEPTION_CODE_MAX];
 	boolean_t send_sync_exc_resource = FALSE;
 	void *cur_bsd_info = get_bsdtask_info(current_task());
+	int flavor = FLAVOR_HIGH_WATERMARK;
 
 #ifdef MACH_BSD
 	pid = proc_selfpid();
@@ -7254,8 +7365,23 @@ PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb,
 		    "suppressed by a boot-arg.\n", procname, pid, max_footprint_mb);
 		return;
 	}
+
+	/*
+	 * For the reason string, diagnostic limit is prioritized over fatal limit,
+	 * but for the EXC_RESOURCE flavor it's the other way round.
+	 */
+	if (exception_options & EXEC_RESOURCE_DIAGNOSTIC) {
+		reason = "diagnostics limit";
+		if (!(exception_options & EXEC_RESOURCE_FATAL)) {
+			flavor = FLAVOR_DIAG_MEMLIMIT;
+		}
+	} else if (exception_options & EXEC_RESOURCE_CONCLAVE) {
+		reason = "conclave limit";
+		flavor = FLAVOR_CONCLAVE_LIMIT;
+	}
+
 	printf("process %s [%d] crossed memory %s (%d MB); EXC_RESOURCE "
-	    "\n", procname, pid, (!(exception_options & EXEC_RESOURCE_DIAGNOSTIC) ? "high watermark" : "diagnostics limit"), max_footprint_mb);
+	    "\n", procname, pid, reason, max_footprint_mb);
 
 	/*
 	 * A task that has triggered an EXC_RESOURCE, should not be
@@ -7271,16 +7397,7 @@ PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb,
 
 	code[0] = code[1] = 0;
 	EXC_RESOURCE_ENCODE_TYPE(code[0], RESOURCE_TYPE_MEMORY);
-	/*
-	 * Regardless if there was a diag memlimit violation, fatal exceptions shall be notified always
-	 * as high level watermaks. In another words, if there was a diag limit and a watermark, and the
-	 * violation if for limit watermark, a watermark shall be reported.
-	 */
-	if (!(exception_options & EXEC_RESOURCE_FATAL)) {
-		EXC_RESOURCE_ENCODE_FLAVOR(code[0], !(exception_options & EXEC_RESOURCE_DIAGNOSTIC)  ? FLAVOR_HIGH_WATERMARK : FLAVOR_DIAG_MEMLIMIT);
-	} else {
-		EXC_RESOURCE_ENCODE_FLAVOR(code[0], FLAVOR_HIGH_WATERMARK );
-	}
+	EXC_RESOURCE_ENCODE_FLAVOR(code[0], flavor);
 	EXC_RESOURCE_HWM_ENCODE_LIMIT(code[0], max_footprint_mb);
 	/*
 	 * Do not generate a corpse fork if the violation is a fatal one
@@ -7302,7 +7419,7 @@ PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb,
 			task_resume_internal(task);
 		}
 	} else {
-		if (disable_exc_resource_during_audio && audio_active) {
+		if (disable_exc_resource_during_audio && audio_active && task->task_jetsam_realtime_audio) {
 			printf("process %s[%d] crossed memory high watermark (%d MB); EXC_RESOURCE "
 			    "suppressed due to audio playback.\n", procname, pid, max_footprint_mb);
 		} else {
@@ -7324,12 +7441,8 @@ PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND(int max_footprint_mb,
 void
 task_footprint_exceeded(int warning, __unused const void *param0, __unused const void *param1)
 {
-	ledger_amount_t max_footprint = 0;
-	ledger_amount_t max_footprint_mb = 0;
-#if DEBUG || DEVELOPMENT
-	ledger_amount_t diag_threshold_limit_mb = 0;
-	ledger_amount_t diag_threshold_limit = 0;
-#endif
+	ledger_amount_t enforced_limit_mb = 0;
+	ledger_amount_t enforced_limit = 0;
 #if CONFIG_DEFERRED_RECLAIM
 	ledger_amount_t current_footprint;
 #endif /* CONFIG_DEFERRED_RECLAIM */
@@ -7362,38 +7475,40 @@ task_footprint_exceeded(int warning, __unused const void *param0, __unused const
 
 	task = current_task();
 
-	ledger_get_limit(task->ledger, task_ledgers.phys_footprint, &max_footprint);
 #if DEBUG || DEVELOPMENT
-	ledger_get_diag_mem_threshold(task->ledger, task_ledgers.phys_footprint, &diag_threshold_limit);
-#endif
+	if (is_diag_mem_threshold == IS_DIAGNOSTICS) {
+		ledger_get_diag_mem_threshold(task->ledger, task_ledgers.phys_footprint, &enforced_limit);
+	} else {
+		ledger_get_limit(task->ledger, task_ledgers.phys_footprint, &enforced_limit);
+	}
+#else /* DEBUG || DEVELOPMENT */
+	ledger_get_limit(task->ledger, task_ledgers.phys_footprint, &enforced_limit);
+#endif /* !(DEBUG || DEVELOPMENT) */
 #if CONFIG_DEFERRED_RECLAIM
-	if (vm_deferred_reclamation_task_has_ring(task)) {
+	if (!is_warning && vm_deferred_reclamation_task_has_ring(task)) {
 		/*
 		 * Task is enrolled in deferred reclamation.
 		 * Do a reclaim to ensure it's really over its limit.
 		 */
 		vm_deferred_reclamation_task_drain(task, RECLAIM_OPTIONS_NONE);
 		ledger_get_balance(task->ledger, task_ledgers.phys_footprint, &current_footprint);
-		if (current_footprint < max_footprint) {
+		if (current_footprint < enforced_limit) {
 			return;
 		}
 	}
 #endif /* CONFIG_DEFERRED_RECLAIM */
-	max_footprint_mb = max_footprint >> 20;
-#if DEBUG || DEVELOPMENT
-	diag_threshold_limit_mb = diag_threshold_limit >> 20;
-#endif
+	enforced_limit_mb = enforced_limit >> 20;
 	memlimit_is_active = task_get_memlimit_is_active(task);
 	memlimit_is_fatal = task_get_memlimit_is_fatal(task) == FALSE ? IS_NOT_FATAL : IS_FATAL;
 #if DEBUG || DEVELOPMENT
 	if (is_diag_mem_threshold == IS_NOT_DIAGNOSTICS) {
-		task_process_crossed_limit_no_diag(task, max_footprint_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
+		task_process_crossed_limit_no_diag(task, enforced_limit_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
 	} else {
-		task_process_crossed_limit_diag(diag_threshold_limit_mb);
+		task_process_crossed_limit_diag(enforced_limit_mb);
 	}
-#else
-	task_process_crossed_limit_no_diag(task, max_footprint_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
-#endif
+#else /* DEBUG || DEVELOPMENT */
+	task_process_crossed_limit_no_diag(task, enforced_limit_mb, memlimit_is_fatal, memlimit_is_active, is_warning);
+#endif /* !(DEBUG || DEVELOPMENT) */
 }
 
 /*
@@ -7411,14 +7526,37 @@ task_process_crossed_limit_no_diag(task_t task, ledger_amount_t ledger_limit_siz
 	 * To enforce this, we monitor state based on the  memlimit's active/inactive attribute
 	 * and we disable it by marking that memlimit as exception triggered.
 	 */
-	if (is_warning == IS_NOT_WARNING && !task_has_triggered_exc_resource(task, memlimit_is_active)) {
+	if (is_warning == IS_NOT_WARNING && task_set_exc_resource_bit(task, memlimit_is_active)) {
 		PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND((int)ledger_limit_size, exception_options);
 		// If it was not a diag threshold (if was a memory limit), then we do not want more signalling,
 		// however, if was a diag limit, the user may reload a different limit and signal again the violation
 		memorystatus_log_exception((int)ledger_limit_size, memlimit_is_active, memlimit_is_fatal);
-		task_mark_has_triggered_exc_resource(task, memlimit_is_active);
 	}
 	memorystatus_on_ledger_footprint_exceeded(is_warning == IS_NOT_WARNING ? FALSE : TRUE, memlimit_is_active, memlimit_is_fatal);
+}
+
+/*
+ * Callback invoked when a task exceeds its conclave memory limit.
+ */
+void
+task_conclave_mem_limit_exceeded(__unused int warning, __unused const void *param0, __unused const void *param1)
+{
+	ledger_amount_t max_footprint = 0;
+	ledger_amount_t max_footprint_mb = 0;
+
+	task_t task = current_task();
+
+	ledger_get_limit(task->ledger, task_ledgers.conclave_mem, &max_footprint);
+	max_footprint_mb = max_footprint >> 20;
+
+	/*
+	 * The conclave memory limit is always fatal.
+	 * For the moment, we assume conclave memory isn't tied to process memory
+	 * and so this doesn't participate in the once-per-process rule above.
+	 */
+	PROC_CROSSED_HIGH_WATERMARK__SEND_EXC_RESOURCE_AND_SUSPEND((int)max_footprint_mb, EXEC_RESOURCE_FATAL | EXEC_RESOURCE_CONCLAVE);
+
+	memorystatus_on_conclave_limit_exceeded((int)max_footprint_mb);
 }
 
 #if DEBUG || DEVELOPMENT
@@ -7846,6 +7984,48 @@ task_set_thread_limit(task_t task, uint16_t thread_limit)
 	}
 }
 
+kern_return_t
+task_get_conclave_mem_limit(task_t task, uint64_t *conclave_limit)
+{
+	kern_return_t ret;
+	ledger_amount_t max;
+
+	ret = ledger_get_limit(task->ledger, task_ledgers.conclave_mem, &max);
+	if (ret != KERN_SUCCESS) {
+		return ret;
+	}
+
+	*conclave_limit = max;
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+task_set_conclave_mem_limit(task_t task, uint64_t conclave_limit)
+{
+	kern_return_t error;
+
+	if ((error = proc_check_footprint_priv())) {
+		(void) error;
+		/* Following task_set_phys_footprint_limit, always returns KERN_NO_ACCESS. */
+		return KERN_NO_ACCESS;
+	}
+
+	task_lock(task);
+
+	ledger_set_limit(task->ledger, task_ledgers.conclave_mem,
+	    (ledger_amount_t)conclave_limit << 20, 0);
+
+	if (task == current_task()) {
+		ledger_check_new_balance(current_thread(), task->ledger,
+		    task_ledgers.conclave_mem);
+	}
+
+	task_unlock(task);
+
+	return KERN_SUCCESS;
+}
+
 #if CONFIG_PROC_RESOURCE_LIMITS
 kern_return_t
 task_set_port_space_limits(task_t task, uint32_t soft_limit, uint32_t hard_limit)
@@ -8208,7 +8388,7 @@ SENDING_NOTIFICATION__THIS_PROCESS_IS_CAUSING_TOO_MANY_WAKEUPS(void)
 		    "suppressed by a boot-arg\n", procname, pid);
 		return;
 	}
-	if (disable_exc_resource_during_audio && audio_active) {
+	if (disable_exc_resource_during_audio && audio_active && task->task_jetsam_realtime_audio) {
 		os_log(OS_LOG_DEFAULT, "process %s[%d] caught causing excessive wakeups. EXC_RESOURCE "
 		    "suppressed due to audio playback\n", procname, pid);
 		return;
@@ -8470,8 +8650,8 @@ task_allocate_fatal_port(void)
 	if (kr) {
 		return MACH_PORT_NULL;
 	}
-	task_fatal_port = ipc_kobject_alloc_port((ipc_kobject_t)token, IKOT_TASK_FATAL,
-	    IPC_KOBJECT_ALLOC_NSREQUEST | IPC_KOBJECT_ALLOC_MAKE_SEND);
+	task_fatal_port = ipc_kobject_alloc_port(token, IKOT_TASK_FATAL,
+	    IPC_KOBJECT_ALLOC_MAKE_SEND);
 
 	task_id_token_set_port(token, task_fatal_port);
 
@@ -8722,24 +8902,27 @@ task_swap_mach_voucher(
 }
 
 void
-task_set_gpu_denied(task_t task, boolean_t denied)
+task_set_gpu_role(task_t task, darwin_gpu_role_t gpu_role)
 {
 	task_lock(task);
 
-	if (denied) {
-		task->t_flags |= TF_GPU_DENIED;
-	} else {
-		task->t_flags &= ~TF_GPU_DENIED;
-	}
+	os_atomic_store(&task->t_gpu_role, gpu_role, relaxed);
+
+	KDBG(IMPORTANCE_CODE(IMP_SET_GPU_ROLE, 0), gpu_role);
 
 	task_unlock(task);
+}
+
+darwin_gpu_role_t
+task_get_gpu_role(task_t task)
+{
+	return os_atomic_load(&task->t_gpu_role, relaxed);
 }
 
 boolean_t
 task_is_gpu_denied(task_t task)
 {
-	/* We don't need the lock to read this flag */
-	return (task->t_flags & TF_GPU_DENIED) ? TRUE : FALSE;
+	return (os_atomic_load(&task->t_gpu_role, relaxed) == PRIO_DARWIN_GPU_DENY) ? TRUE : FALSE;
 }
 
 /*
@@ -9252,26 +9435,22 @@ task_get_darkwake_mode(task_t task)
 }
 
 /*
- * Set default behavior for task's control port and EXC_GUARD variants that have
- * settable behavior.
+ * Set task default behavior for EXC_GUARD variants that have settable behavior.
  *
  * Platform binaries typically have one behavior, third parties another -
  * but there are special exception we may need to account for.
  */
 void
-task_set_exc_guard_ctrl_port_default(
+task_set_exc_guard_default(
 	task_t task,
-	thread_t main_thread,
 	const char *name,
-	unsigned int namelen,
+	unsigned long namelen,
 	boolean_t is_simulated,
 	uint32_t platform,
 	uint32_t sdk)
 {
-	task_control_port_options_t opts = TASK_CONTROL_PORT_OPTIONS_NONE;
-
-	if (task_is_hardened_binary(task)) {
-		/* set exc guard default behavior for hardened binaries */
+	if (task_get_platform_restrictions_version(task) >= 1) {
+		/* set exc guard default behavior for platform restrictions binaries */
 		task->task_exc_guard = (task_exc_guard_default & TASK_EXC_GUARD_ALL);
 
 		if (1 == task_pid(task)) {
@@ -9292,14 +9471,9 @@ task_set_exc_guard_ctrl_port_default(
 				}
 			}
 		}
-
-		/* set control port options for 1p code, inherited from parent task by default */
-		opts = ipc_control_port_options & ICP_OPTIONS_1P_MASK;
 	} else {
 		/* set exc guard default behavior for third-party code */
 		task->task_exc_guard = ((task_exc_guard_default >> TASK_EXC_GUARD_THIRD_PARTY_DEFAULT_SHIFT) & TASK_EXC_GUARD_ALL);
-		/* set control port options for 3p code, inherited from parent task by default */
-		opts = (ipc_control_port_options & ICP_OPTIONS_3P_MASK) >> ICP_OPTIONS_3P_SHIFT;
 	}
 
 	if (is_simulated) {
@@ -9309,15 +9483,7 @@ task_set_exc_guard_ctrl_port_default(
 		    (platform == PLATFORM_WATCHOSSIMULATOR && sdk < 0x80000)) {
 			task->task_exc_guard = TASK_EXC_GUARD_NONE;
 		}
-		/* Disable protection for control ports for simulated binaries */
-		opts = TASK_CONTROL_PORT_OPTIONS_NONE;
 	}
-
-
-	task_set_control_port_options(task, opts);
-
-	task_set_immovable_pinned(task);
-	main_thread_set_immovable_pinned(main_thread);
 }
 
 kern_return_t
@@ -9536,46 +9702,19 @@ task_ledger_settle_dirty_time_locked(task_t t)
 }
 #endif /* CONFIG_MEMORYSTATUS */
 
-static void
-task_ledger_settle_counter(ledger_t ledger, int entry, counter_t *counter)
-{
-	ledger_amount_t ledger_val;
-	kern_return_t kr;
-	uint64_t counter_val;
-
-	kr = ledger_get_balance(ledger, entry, &ledger_val);
-	if (kr != KERN_SUCCESS) {
-		return;
-	}
-
-	counter_val = counter_load(counter);
-	if (counter_val <= ledger_val) {
-		return; /* These counters should only move forward, but just in case. */
-	}
-
-	ledger_credit(ledger, entry, counter_val - ledger_val);
-}
-
 void
 task_ledger_settle(task_t t)
 {
-	ledger_t ledger;
-
-	task_lock(t);
-
-	/* Settle pages grabbed */
-	ledger = get_task_ledger(t);
-	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed, &t->pages_grabbed);
-	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_kern, &t->pages_grabbed_kern);
-	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_iopl, &t->pages_grabbed_iopl);
-	task_ledger_settle_counter(ledger, task_ledgers.pages_grabbed_upl, &t->pages_grabbed_upl);
-
 #if CONFIG_MEMORYSTATUS
+	task_lock(t);
 	/* Settle memorystatus dirty time */
 	task_ledger_settle_dirty_time_locked(t);
-#endif
-
 	task_unlock(t);
+#endif /* CONFIG_MEMORYSTATUS */
+
+#if CONFIG_DEFERRED_RECLAIM
+	vm_deferred_reclamation_settle_ledger(t);
+#endif /* CONFIG_DEFERRED_RECLAIM */
 }
 
 void
@@ -9830,10 +9969,10 @@ task_is_translated(task_t task)
 #endif
 
 /* Task runtime security mitigations configuration. */
-#define TASK_SECURITY_CONFIG_HELPER_DEFINE(suffix) \
+#define TASK_SECURITY_CONFIG_HELPER_DEFINE(suffix, checked) \
 	bool task_has_##suffix(task_t task) \
 	{ \
-	        assert(task); \
+	        assert(task);   \
 	        return (task->security_config. suffix); \
 	} \
         \
@@ -9856,8 +9995,38 @@ task_get_security_config(task_t task)
 	return (uint32_t)(task->security_config.value);
 }
 
-TASK_SECURITY_CONFIG_HELPER_DEFINE(hardened_heap)
-TASK_SECURITY_CONFIG_HELPER_DEFINE(tpro)
+TASK_SECURITY_CONFIG_HELPER_DEFINE(hardened_heap, true)
+TASK_SECURITY_CONFIG_HELPER_DEFINE(tpro, true)
+
+uint8_t
+task_get_platform_restrictions_version(task_t task)
+{
+	assert(task);
+	return task->security_config.platform_restrictions_version;
+}
+
+void
+task_set_platform_restrictions_version(task_t task, uint64_t version)
+{
+	assert(task);
+	/* platform_restrictions_version is a 3-bit field */
+	if (version < 8) {
+		task->security_config.platform_restrictions_version = (uint8_t)version;
+	}
+}
+
+uint8_t
+task_get_hardened_process_version(task_t task)
+{
+	assert(task);
+	return task->security_config.hardened_process_version;
+}
+void
+task_set_hardened_process_version(task_t task, uint64_t version)
+{
+	assert(task);
+	task->security_config.hardened_process_version = (uint8_t)version;
+}
 
 
 
@@ -9895,9 +10064,10 @@ task_set_pac_exception_fatal_flag(
 	 * We must not apply this security policy on tasks which have opted out of mach hardening to
 	 * avoid regressions in third party plugins and third party apps when using AMFI boot-args
 	 */
-	bool platform_binary = task_get_platform_binary(task);
+	ipc_space_policy_t pol = ipc_policy_for_task(task);
+	bool platform_binary = pol & IPC_SPACE_POLICY_PLATFORM;
 #if XNU_TARGET_OS_OSX
-	platform_binary &= !task_opted_out_mach_hardening(task);
+	platform_binary &= !(pol & IPC_SPACE_POLICY_OPTED_OUT);
 #endif /* XNU_TARGET_OS_OSX */
 
 	/*
@@ -9909,7 +10079,8 @@ task_set_pac_exception_fatal_flag(
 		return;
 	}
 
-	if (IOTaskHasEntitlement(task, PAC_EXCEPTION_ENTITLEMENT) || task_get_hardened_runtime(task)) {
+	if (IOTaskHasEntitlement(task, PAC_EXCEPTION_ENTITLEMENT) ||
+	    (task_get_platform_restrictions_version(task) >= 1)) {
 		pac_hardened_task = true;
 		set_flags |= TFRO_PAC_ENFORCE_USER_STATE;
 	}
@@ -10177,7 +10348,11 @@ task_get_control_port_options(task_t task)
 	return task_get_ro(task)->task_control_port_options;
 }
 
-void
+/*
+ * intentionally static, as calling this after the task has been started
+ * will have no affect, control ports cannot go from immovable back to movable
+ */
+static void
 task_set_control_port_options(task_t task, task_control_port_options_t opts)
 {
 	zalloc_ro_update_field(ZONE_ID_PROC_RO, task_get_ro(task),
@@ -10277,7 +10452,7 @@ task_launch_conclave(mach_port_name_t port __unused)
 	kern_return_t kr = KERN_FAILURE;
 	assert3u(port, ==, MACH_PORT_NULL);
 	exclaves_resource_t *conclave = task_get_conclave(current_task());
-	if (conclave == NULL) {
+	if (conclave == NULL || exclaves_is_forwarding_resource(conclave)) {
 		return kr;
 	}
 
@@ -10345,7 +10520,7 @@ task_stop_conclave(task_t task, bool gather_crash_bt)
 {
 	thread_t thread = current_thread();
 
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return;
 	}
 
@@ -10369,7 +10544,7 @@ task_suspend_conclave(task_t task)
 {
 	thread_t thread = current_thread();
 
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return;
 	}
 
@@ -10389,7 +10564,7 @@ task_resume_conclave(task_t task)
 {
 	thread_t thread = current_thread();
 
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return;
 	}
 
@@ -10408,7 +10583,7 @@ kern_return_t
 task_stop_conclave_upcall(void)
 {
 	task_t task = current_task();
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return KERN_INVALID_TASK;
 	}
 
@@ -10437,7 +10612,7 @@ task_suspend_conclave_upcall(uint64_t *scid_list, size_t scid_list_count)
 	thread_t thread;
 	int scid_count = 0;
 	kern_return_t kr;
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return KERN_INVALID_TASK;
 	}
 
@@ -10462,7 +10637,7 @@ kern_return_t
 task_crash_info_conclave_upcall(task_t task, const struct conclave_sharedbuffer_t *shared_buf,
     uint32_t length)
 {
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return KERN_INVALID_TASK;
 	}
 
@@ -10562,7 +10737,7 @@ task_add_conclave_crash_info(task_t task, void *crash_info_ptr)
 	void *crash_info;
 	uint32_t crash_info_length = 0;
 
-	if (task->conclave == NULL) {
+	if (task->conclave == NULL || exclaves_is_forwarding_resource(task->conclave)) {
 		return;
 	}
 
@@ -10617,36 +10792,4 @@ task_best_name(task_t task)
 	return proc_best_name(task_get_proc_raw(task));
 }
 
-/*
- * Set AST_MACH_EXCEPTION on all threads owned by this task.
- * Called with the task locked.
- */
-void
-task_set_ast_mach_exception(task_t task)
-{
-	spl_t s = splsched();
-
-	/* Set an AST on each of the task's threads, sending IPIs if needed */
-	thread_t thread;
-	queue_iterate(&task->threads, thread, thread_t, task_threads) {
-		if (thread == current_thread()) {
-			thread_ast_set(thread, AST_MACH_EXCEPTION);
-			ast_propagate(thread);
-		} else {
-			processor_t processor;
-
-			thread_lock(thread);
-			thread_ast_set(thread, AST_MACH_EXCEPTION);
-			processor = thread->last_processor;
-			if (processor != PROCESSOR_NULL &&
-			    processor->state == PROCESSOR_RUNNING &&
-			    processor->active_thread == thread) {
-				cause_ast_check(processor);
-			}
-			thread_unlock(thread);
-		}
-	};
-
-	splx(s);
-}
 

@@ -48,7 +48,7 @@ namespace XPath {
 
 struct Parser::Token {
     int type;
-    using TokenValue = std::variant<String, Step::Axis, NumericOp::Opcode, EqTestOp::Opcode>;
+    using TokenValue = Variant<String, Step::Axis, NumericOp::Opcode, EqTestOp::Opcode>;
     TokenValue value;
 
     Token() = delete;

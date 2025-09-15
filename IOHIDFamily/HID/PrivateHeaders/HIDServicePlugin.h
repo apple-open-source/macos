@@ -222,6 +222,17 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)clientNotification:(HIDConnection *)client added:(BOOL)added;
 
+/*!
+ * @method setHIDEventService
+ *
+ * @abstract
+ * Provides the plugin with the HIDEventService to make calls directly.
+ *
+ * @param service
+ * The service that can be used to make HIDEventService and IOHIDService calls.
+ */
+- (void)setHIDEventService:(HIDEventService *)service;
+
 @end
 
 NS_ASSUME_NONNULL_END

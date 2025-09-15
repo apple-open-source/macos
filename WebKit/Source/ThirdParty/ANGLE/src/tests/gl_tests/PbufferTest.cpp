@@ -892,6 +892,82 @@ TEST_P(PbufferTest, BindTexImageAndRedefineTexture)
     glDeleteTextures(1, &texture);
 }
 
+// Bind a Pbuffer, generate mipmap for it, and verify it renders correctly
+TEST_P(PbufferTest, BindTexImageAndGenerateMipmap)
+{
+    // Test skipped because Pbuffers are not supported or Pbuffer does not support binding to RGBA
+    // textures.
+    ANGLE_SKIP_TEST_IF(!mSupportsPbuffers || !mSupportsBindTexImage);
+    // Crash in drawQuad. http://anglebug.com/412867392
+    ANGLE_SKIP_TEST_IF(getClientMajorVersion() < 3);
+
+    EGLWindow *window = getEGLWindow();
+
+    EGLSurface pbuffer;
+    GLuint texture = 0;
+
+    static EGLint pbufferAttributes[] = {
+        EGL_WIDTH,          2,
+        EGL_HEIGHT,         1,
+        EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
+        EGL_TEXTURE_TARGET, EGL_TEXTURE_2D,
+        EGL_MIPMAP_TEXTURE, GL_TRUE,
+        EGL_NONE,
+    };
+
+    pbuffer = eglCreatePbufferSurface(window->getDisplay(), window->getConfig(), pbufferAttributes);
+    ASSERT_EGL_SUCCESS();
+
+    ASSERT_NE(EGL_NO_SURFACE, pbuffer);
+
+    // create texture
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    EXPECT_GL_NO_ERROR();
+
+    // bind pbuffer as texture storage
+    eglBindTexImage(window->getDisplay(), pbuffer, EGL_BACK_BUFFER);
+    ASSERT_EGL_SUCCESS();
+    EXPECT_GL_NO_ERROR();
+
+    unsigned int pixelValue = 0xFFFF00FF;
+    std::vector<unsigned int> pixelData(2, pixelValue);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 2, 1, GL_RGBA, GL_UNSIGNED_BYTE, &pixelData[0]);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glViewport(0, 0, 1, 1);
+    // Draw a quad and verify that it is magenta
+    glUseProgram(mTextureProgram);
+    glUniform1i(mTextureUniformLocation, 0);
+
+    drawQuad(mTextureProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+
+    // Verify that magenta was drawn
+    EXPECT_PIXEL_EQ(0, 0, 255, 0, 255, 255);
+
+    EXPECT_TRUE(eglMakeCurrent(window->getDisplay(), pbuffer, pbuffer, window->getContext()));
+    ASSERT_EGL_SUCCESS();
+    glClearColor(1.0f, 1.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    ASSERT_GL_NO_ERROR();
+
+    // Verify that yellow was drawn to pbuffer
+    EXPECT_PIXEL_EQ(0, 0, 255, 255, 0, 255);
+
+    drawQuad(mTextureProgram, "position", 0.5f);
+    EXPECT_GL_NO_ERROR();
+
+    // Verify that the texture color is still magenta (texture is disconnected from pbuffer)
+    EXPECT_PIXEL_EQ(0, 0, 255, 0, 255, 255);
+
+    glDeleteTextures(1, &texture);
+    window->makeCurrent();
+    eglDestroySurface(window->getDisplay(), pbuffer);
+}
+
 // Bind the Pbuffer to a texture, use that texture as Framebuffer color attachment and then
 // destroy framebuffer, texture and Pbuffer.
 TEST_P(PbufferTest, UseAsFramebufferColorThenDestroy)
@@ -1066,6 +1142,105 @@ TEST_P(PbufferColorspaceTest, CreateSurfaceWithColorspace)
     {
         eglDestroySurface(dpy, pbufferSurface);
     }
+}
+
+// Test the implementation for EGL_LARGEST_PBUFFER
+TEST_P(PbufferTest, LargestPbuffer)
+{
+    ANGLE_SKIP_TEST_IF(!mSupportsPbuffers);
+    ANGLE_SKIP_TEST_IF(!IsARM());
+    EGLWindow *window  = getEGLWindow();
+    EGLDisplay display = window->getDisplay();
+    EGLSurface pbufferSurface;
+
+    EGLint maxPbufferWidth;
+    EGLint maxPbufferHeight;
+    EGLint value;
+    EGLint pBufferAttributes[] = {EGL_WIDTH,           1,         EGL_HEIGHT, 1,
+                                  EGL_LARGEST_PBUFFER, EGL_FALSE, EGL_NONE};
+
+    // Check that eglCreatePbufferSurface can succeed when EGL_LARGEST_PBUFFER is set to EGL_FALSE
+    pbufferSurface = eglCreatePbufferSurface(display, window->getConfig(), pBufferAttributes);
+    ASSERT_NE(pbufferSurface, EGL_NO_SURFACE);
+    ASSERT_EGL_SUCCESS();
+
+    // Cleanup
+    eglDestroySurface(display, pbufferSurface);
+
+    EXPECT_EGL_TRUE(
+        eglGetConfigAttrib(display, window->getConfig(), EGL_MAX_PBUFFER_WIDTH, &maxPbufferWidth));
+    pBufferAttributes[1] = maxPbufferWidth + 1;
+    pBufferAttributes[5] = EGL_TRUE;
+
+    // Check that eglCreatePbufferSurface clamps an EGL_WIDTH that is too large with
+    // EGL_LARGEST_PBUFFER set
+    pbufferSurface = eglCreatePbufferSurface(display, window->getConfig(), pBufferAttributes);
+    ASSERT_NE(pbufferSurface, EGL_NO_SURFACE);
+    ASSERT_EGL_SUCCESS();
+
+    EXPECT_EGL_TRUE(eglQuerySurface(display, pbufferSurface, EGL_WIDTH, &value));
+    ASSERT_EGL_SUCCESS();
+    ASSERT_EQ(value, maxPbufferWidth);
+
+    // Cleanup
+    eglDestroySurface(display, pbufferSurface);
+
+    pBufferAttributes[1] = 1;
+
+    EXPECT_EGL_TRUE(eglGetConfigAttrib(display, window->getConfig(), EGL_MAX_PBUFFER_HEIGHT,
+                                       &maxPbufferHeight));
+    pBufferAttributes[3] = maxPbufferHeight + 1;
+
+    // Check that eglCreatePbufferSurface clamps an EGL_HEIGHT that is too large with
+    // EGL_LARGEST_PBUFFER set
+    pbufferSurface = eglCreatePbufferSurface(display, window->getConfig(), pBufferAttributes);
+    ASSERT_NE(pbufferSurface, EGL_NO_SURFACE);
+    ASSERT_EGL_SUCCESS();
+
+    EXPECT_EGL_TRUE(eglQuerySurface(display, pbufferSurface, EGL_HEIGHT, &value));
+    ASSERT_EGL_SUCCESS();
+    ASSERT_EQ(value, maxPbufferHeight);
+
+    // Cleanup
+    eglDestroySurface(display, pbufferSurface);
+}
+
+// Test the implementation for query format sizes from zero sized pbuffer surface
+TEST_P(PbufferTest, ZeroSizedSurfaceFormatQuery)
+{
+    ANGLE_SKIP_TEST_IF(!mSupportsPbuffers);
+    EGLWindow *window  = getEGLWindow();
+    EGLDisplay display = window->getDisplay();
+    EGLSurface pbufferSurface;
+
+    EGLint pBufferAttributes[] = {EGL_WIDTH, 0, EGL_HEIGHT, 0, EGL_NONE};
+
+    pbufferSurface = eglCreatePbufferSurface(display, window->getConfig(), pBufferAttributes);
+    ASSERT_NE(pbufferSurface, EGL_NO_SURFACE);
+    ASSERT_EGL_SUCCESS();
+
+    EGLint width, height;
+    EXPECT_EGL_TRUE(eglQuerySurface(display, pbufferSurface, EGL_WIDTH, &width));
+    EXPECT_EGL_TRUE(eglQuerySurface(display, pbufferSurface, EGL_HEIGHT, &height));
+    EXPECT_EQ(width, 0);
+    EXPECT_EQ(height, 0);
+
+    window->makeCurrent(pbufferSurface, pbufferSurface, window->getContext());
+
+    GLint redBits, greenBits, blueBits, alphaBits;
+    glGetIntegerv(GL_RED_BITS, &redBits);
+    glGetIntegerv(GL_GREEN_BITS, &greenBits);
+    glGetIntegerv(GL_BLUE_BITS, &blueBits);
+    glGetIntegerv(GL_ALPHA_BITS, &alphaBits);
+    ASSERT_GL_NO_ERROR();
+    EXPECT_EQ(redBits, 8);
+    EXPECT_EQ(greenBits, 8);
+    EXPECT_EQ(blueBits, 8);
+    EXPECT_EQ(alphaBits, 8);
+
+    // Cleanup
+    window->makeCurrent();
+    eglDestroySurface(display, pbufferSurface);
 }
 
 ANGLE_INSTANTIATE_TEST_ES2(PbufferTest);

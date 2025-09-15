@@ -281,19 +281,19 @@ WI.FormattedValue.createElementForPropertyPreview = function(propertyPreview)
     return WI.FormattedValue.createElementForTypesAndValue(propertyPreview.type, propertyPreview.subtype, propertyPreview.value, undefined, true, false);
 };
 
-WI.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview = function(objectPreview, previewViewMode)
+WI.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview = function(objectPreview, options = {})
 {
     if (objectPreview.subtype === "node")
-        return WI.FormattedValue.createElementForNodePreview(objectPreview);
+        return WI.FormattedValue.createElementForNodePreview(objectPreview, options);
 
     if (objectPreview.type === "function")
         return WI.FormattedValue.createElementForFunctionWithName(objectPreview.description);
 
     const object = null;
-    return new WI.ObjectPreviewView(object, objectPreview, previewViewMode).element;
+    return new WI.ObjectPreviewView(object, objectPreview, options).element;
 };
 
-WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(object, previewViewMode)
+WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(object, options = {})
 {
     if (object.subtype === "node")
         return WI.FormattedValue.createElementForNode(object);
@@ -302,7 +302,7 @@ WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(
         return WI.FormattedValue.createElementForError(object);
 
     if (object.preview)
-        return new WI.ObjectPreviewView(object, object.preview, previewViewMode);
+        return new WI.ObjectPreviewView(object, object.preview, options);
 
     return WI.FormattedValue.createElementForRemoteObject(object);
 };

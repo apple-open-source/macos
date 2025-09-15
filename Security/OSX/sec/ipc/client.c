@@ -688,7 +688,7 @@ static bool getBoolValue(CFDictionaryRef dict, CFStringRef key)
     return false;
 }
 
-static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
+static bool securityd_message_is_for_system_keychain(xpc_object_t message, uint64_t operation) {
 #if !KEYCHAIN_SUPPORTS_SPLIT_SYSTEM_KEYCHAIN
     return false;
 #else
@@ -707,6 +707,12 @@ static bool securityd_message_is_for_system_keychain(xpc_object_t message) {
         return true;
     }
 #endif // DEBUG
+
+    // SPI for CryptoTokenKit
+    if (operation == (uint64_t)sec_item_update_token_items_for_system_keychain_id) {
+        secnotice("xpc", "operation is UpdateTokenItemsForSystemKeychain, always using system keychain");
+        return true;
+    }
 
     CFErrorRef error = NULL;
     CFDictionaryRef query = SecXPCDictionaryCopyDictionaryWithoutZeroingDataInMessage(message, kSecXPCKeyQuery, &error);
@@ -798,7 +804,7 @@ __attribute__((noinline)) static xpc_object_t security_fw_CALLING_UNKNOWN_BACKEN
 XPC_RETURNS_RETAINED xpc_object_t securityd_message_with_reply_sync(xpc_object_t message, CFErrorRef *error)
 {
     uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
-    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
+    bool useSystemKeychain = securityd_message_is_for_system_keychain(message, operation);
     security_fw_backend backend = security_fw_backend_UNKNOWN;
     xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain, &backend);
 
@@ -829,7 +835,7 @@ _securityd_message_with_reply_async_inner(xpc_object_t message,
 										  uint32_t tries_left)
 {
 	uint64_t operation = xpc_dictionary_get_uint64(message, kSecXPCKeyOperation);
-    bool useSystemKeychain = securityd_message_is_for_system_keychain(message);
+    bool useSystemKeychain = securityd_message_is_for_system_keychain(message, operation);
     security_fw_backend backend = security_fw_backend_UNKNOWN;// unused in async case
     xpc_connection_t connection = securityd_connection_for_operation((enum SecXPCOperation)operation, useSystemKeychain, &backend);
 

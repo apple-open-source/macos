@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,7 +68,7 @@ using DragImage = CGImageRef;
 
 static RefPtr<ShareableBitmap> convertDragImageToBitmap(DragImage image, const IntSize& size, Frame& frame)
 {
-    auto bitmap = ShareableBitmap::create({ size, screenColorSpace(frame.mainFrame().virtualView()) });
+    auto bitmap = ShareableBitmap::create({ size, screenColorSpace(frame.protectedMainFrame()->virtualView()) });
     if (!bitmap)
         return nullptr;
 
@@ -86,7 +86,7 @@ static RefPtr<ShareableBitmap> convertDragImageToBitmap(DragImage image, const I
     return bitmap;
 }
 
-void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame)
+void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame, const std::optional<ElementIdentifier>& elementID)
 {
     auto& image = dragItem.image;
 
@@ -103,7 +103,7 @@ void WebDragClient::startDrag(DragItem dragItem, DataTransfer&, Frame& frame)
         return;
 
     m_page->willStartDrag();
-    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, WTFMove(*handle)));
+    m_page->send(Messages::WebPageProxy::StartDrag(dragItem, WTFMove(*handle), elementID));
 }
 
 void WebDragClient::didConcludeEditDrag()
@@ -117,7 +117,7 @@ void WebDragClient::didConcludeEditDrag()
 
 static WebCore::CachedImage* cachedImage(Element& element)
 {
-    auto* renderImage = dynamicDowncast<WebCore::RenderImage>(element.renderer());
+    CheckedPtr renderImage = dynamicDowncast<WebCore::RenderImage>(element.renderer());
     if (!renderImage)
         return nullptr;
     auto* image = renderImage->cachedImage();
@@ -134,7 +134,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
 
     String extension;
     if (image) {
-        extension = image->image()->filenameExtension();
+        extension = image->protectedImage()->filenameExtension();
         if (extension.isEmpty())
             return;
     }
@@ -143,18 +143,18 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
     if (title.isEmpty()) {
         title = url.lastPathComponent().toString();
         if (title.isEmpty())
-            title = WTF::userVisibleString(url);
+            title = WTF::userVisibleString(url.createNSURL().get());
     }
 
     auto archive = LegacyWebArchive::create(element);
 
-    NSURLResponse *response = image->response().nsURLResponse();
+    RetainPtr response = image->response().nsURLResponse();
     
-    auto imageBuffer = image->image()->data();
+    RefPtr imageBuffer = image->image()->data();
 
     std::optional<SharedMemory::Handle> imageHandle;
     {
-        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*imageBuffer);
+        auto sharedMemoryBuffer = SharedMemory::copyBuffer(imageBuffer.releaseNonNull());
         if (!sharedMemoryBuffer)
             return;
         imageHandle = sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly);
@@ -180,7 +180,7 @@ void WebDragClient::declareAndWriteDragImage(const String& pasteboardName, Eleme
             filename = downloadFilename;
     }
 
-    m_page->send(Messages::WebPageProxy::SetPromisedDataForImage(pasteboardName, WTFMove(*imageHandle), filename, extension, title, String([[response URL] absoluteString]), WTF::userVisibleString(url), WTFMove(*archiveHandle), element.document().originIdentifierForPasteboard()));
+    m_page->send(Messages::WebPageProxy::SetPromisedDataForImage(pasteboardName, WTFMove(*imageHandle), filename, extension, title, String([[response URL] absoluteString]), WTF::userVisibleString(url.createNSURL().get()), WTFMove(*archiveHandle), element.protectedDocument()->originIdentifierForPasteboard()));
 }
 
 #else

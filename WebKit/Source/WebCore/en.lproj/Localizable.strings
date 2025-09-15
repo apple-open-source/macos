@@ -88,6 +88,9 @@
 /* Label to describe the number of files selected in a file upload control that allows multiple files */
 "%d files" = "%d files";
 
+/* Label for PDF page number indicator. */
+"%1$d of %2$d" = "%1$d of %2$d";
+
 /* Codec Level (Codec Strings) */
 "%d.%d" = "%d.%d";
 
@@ -174,9 +177,6 @@
 
 /* Allow button title in speech recognition prompt */
 "Allow (speechrecognition)" = "Allow";
-
-/* Allow displaying QuickLook Preview of 3D model */
-"Allow (usdz QuickLook Preview)" = "Allow";
 
 /* Allow button title in user media prompt */
 "Allow (usermedia)" = "Allow";
@@ -731,7 +731,7 @@
 "Host \"%s\" is invalid." = "Host \"%s\" is invalid.";
 
 /* Phishing warning description */
-"If you believe this website is safe, you can %report-an-error%. Or, if you understand the risks involved, you can %bypass-link%." = "If you believe this website is safe, you can %report-an-error%. Or, if you understand the risks involved, you can %bypass-link%.";
+"This website was reported as deceptive by %provider-display-name%. If you believe this website is safe, you can %report-an-error% to %provider%. Or, if you understand the risks involved, you can %bypass-link%." = "This website was reported as deceptive by %provider-display-name%. If you believe this website is safe, you can %report-an-error% to %provider%. Or, if you understand the risks involved, you can %bypass-link%.";
 
 /* Action from safe browsing warning */
 "If you understand the risks involved, you can %visit-this-unsafe-site-link%." = "If you understand the risks involved, you can %visit-this-unsafe-site-link%.";
@@ -1084,9 +1084,6 @@
 /* Label for only item in menu that appears when clicking on the search field image, when no searches have been performed */
 "No recent searches" = "No recent searches";
 
-/* WKWebExtensionErrorInvalidBackgroundPersistence description for webRequest events */
-"Non-persistent background content cannot listen to `webRequest` events." = "Non-persistent background content cannot listen to `webRequest` events.";
-
 /* Option in segmented control for choosing list type in text editing */
 "None" = "None";
 
@@ -1134,9 +1131,6 @@
 
 /* Title for Open in External Application Link action button */
 "Open in “%@”" = "Open in “%@”";
-
-/* Open this 3D model? */
-"Open this 3D model?" = "Open this 3D model?";
 
 /* context menu item for PDF */
 "Open with %@" = "Open with %@";
@@ -1249,6 +1243,9 @@
 /* VP8/9 Codec Level & Profile (Codec Strings) */
 "Profile %d, Level %s" = "Profile %d, Level %s";
 
+/* Proofread context menu item */
+"Proofread" = "Proofread";
+
 /* Undo action name */
 "Raise Baseline (Undo action name)" = "Raise Baseline";
 
@@ -1281,6 +1278,9 @@
 
 /* Reset button in date input context menu */
 "Reset Button Date/Time Context Menu" = "Reset";
+
+/* Rewrite context menu item */
+"Rewrite" = "Rewrite";
 
 /* Right to Left context menu item */
 "Right to Left" = "Right to Left";
@@ -1369,6 +1369,9 @@
 /* Title for Show Text action button */
 "Show Text" = "Show Text";
 
+/* Writing Tools context menu item */
+"Show Writing Tools" = "Show Writing Tools";
+
 /* Single Page context menu item */
 "Single Page" = "Single Page";
 
@@ -1452,6 +1455,9 @@
 
 /* Accessibility announcement that the suggestions list became visible. The format argument is for the first option in the list. */
 "Suggestions list visible, %@" = "Suggestions list visible, %@";
+
+/* Summarize context menu item */
+"Summarize" = "Summarize";
 
 /* Undo action name */
 "Superscript (Undo action name)" = "Superscript";
@@ -1711,6 +1717,18 @@
 /* Title for View Spatial action button while in fullscreen */
 "View Spatial" = "View Spatial";
 
+/* Title for View Immersive action button while in fullscreen */
+"View Immersive" = "View Immersive";
+
+/* Allow displaying QuickLook Preview of 3D model */
+"View in AR (usdz QuickLook Preview)" = "View in AR";
+
+/* View in AR? */
+"View in AR?" = "View in AR?";
+
+/* View in AR? description */
+"You can view this object in 3D and place it in your surroundings using augmented reality." = "You can view this object in 3D and place it in your surroundings using augmented reality.";
+
 /* Title for View Spatial Photo action button */
 "View Spatial Photo" = "View Spatial Photo";
 
@@ -1891,6 +1909,9 @@
 /* accessibility role description for a footer */
 "footer" = "footer";
 
+/* accessibility role description for a form */
+ "form" = "form";
+
 /* Web Push Notification string to indicate the name of the Web App/Web Site a notification was sent from, such as 'from Wikipedia' */
 "from %@" = "from %@";
 
@@ -2049,6 +2070,12 @@
 
 /* accessibility role description for a horizontal rule [<hr>] */
 "separator" = "separator";
+
+/* accessibility role description for a footer region [<footer>] */
+"section footer" = "section footer";
+
+/* accessibility role description for a header region [<header>] */
+"section header" = "section header";
 
 /* accessibility label for show closed captions button */
 "show closed captions" = "show closed captions";

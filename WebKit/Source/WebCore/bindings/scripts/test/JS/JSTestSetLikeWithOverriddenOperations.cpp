@@ -22,6 +22,7 @@
 #include "JSTestSetLikeWithOverriddenOperations.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
@@ -184,7 +185,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestSetLikeWithOverriddenOperationsConstructor, (JSGl
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestSetLikeWithOverriddenOperationsPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestSetLikeWithOverriddenOperations::getConstructor(vm, prototype->globalObject()));
 }
@@ -209,7 +210,7 @@ static inline bool setJSTestSetLikeWithOverriddenOperations_addSetter(JSGlobalOb
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLLong>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setAdd(nativeValueConversionResult.releaseReturnValue());
@@ -255,11 +256,11 @@ static inline JSC::EncodedJSValue jsTestSetLikeWithOverriddenOperationsPrototype
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto keyConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(keyConversionResult.hasException(throwScope)))
+    if (keyConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLAny>(*lexicalGlobalObject, throwScope, forwardHasToSetLike(*lexicalGlobalObject, *callFrame, *castedThis, keyConversionResult.releaseReturnValue()))));
 }
@@ -317,11 +318,11 @@ static inline JSC::EncodedJSValue jsTestSetLikeWithOverriddenOperationsPrototype
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto callbackConversionResult = convert<IDLAny>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(callbackConversionResult.hasException(throwScope)))
+    if (callbackConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLAny>(*lexicalGlobalObject, throwScope, forwardForEachToSetLike(*lexicalGlobalObject, *callFrame, *castedThis, callbackConversionResult.releaseReturnValue()))));
 }
@@ -347,7 +348,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestSetLikeWithOverriddenOperationsPrototypeFunction_
 
 JSC::GCClient::IsoSubspace* JSTestSetLikeWithOverriddenOperations::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestSetLikeWithOverriddenOperations, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestSetLikeWithOverriddenOperations, UseCustomHeapCellType::No>(vm, "JSTestSetLikeWithOverriddenOperations"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestSetLikeWithOverriddenOperations.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestSetLikeWithOverriddenOperations = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestSetLikeWithOverriddenOperations.get(); },
@@ -387,7 +388,9 @@ extern "C" { extern void (*const __identifier("??_7TestSetLikeWithOverriddenOper
 #else
 extern "C" { extern void* _ZTVN7WebCore35TestSetLikeWithOverriddenOperationsE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestSetLikeWithOverriddenOperations>, void>> static inline void verifyVTable(TestSetLikeWithOverriddenOperations* ptr) {
+template<std::same_as<TestSetLikeWithOverriddenOperations> T>
+static inline void verifyVTable(TestSetLikeWithOverriddenOperations* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include "NetworkConnectionToWebProcess.h"
 #include "NetworkLoadChecker.h"
 #include "NetworkProcess.h"
+#include "NetworkSchemeRegistry.h"
 #include "WebErrors.h"
 
 #define PING_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - PingLoad::" fmt, this, ##__VA_ARGS__)
@@ -81,19 +82,20 @@ void PingLoad::initialize(NetworkProcess& networkProcess)
     // Set a very generous timeout, just in case.
     m_timeoutTimer.startOneShot(60000_s);
 
-    m_networkLoadChecker->check(ResourceRequest { m_parameters.request }, nullptr, [this, weakThis = WeakPtr { *this }, networkProcess = Ref { networkProcess }] (auto&& result) {
-        if (!weakThis)
+    m_networkLoadChecker->check(ResourceRequest { m_parameters.request }, nullptr, [weakThis = WeakPtr { *this }, networkProcess = Ref { networkProcess }] (auto&& result) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
         WTF::switchOn(result,
-            [this] (ResourceError& error) {
-                this->didFinish(error);
+            [&protectedThis] (ResourceError& error) {
+                protectedThis->didFinish(error);
             },
             [] (NetworkLoadChecker::RedirectionTriplet& triplet) {
                 // We should never send a synthetic redirect for PingLoads.
                 ASSERT_NOT_REACHED();
             },
-            [&] (ResourceRequest& request) {
-                this->loadRequest(networkProcess, WTFMove(request));
+            [&protectedThis, &networkProcess] (ResourceRequest& request) {
+                protectedThis->loadRequest(networkProcess, WTFMove(request));
             }
         );
     });
@@ -101,10 +103,10 @@ void PingLoad::initialize(NetworkProcess& networkProcess)
 
 PingLoad::~PingLoad()
 {
-    if (m_task) {
-        ASSERT(m_task->client() == this);
-        m_task->clearClient();
-        m_task->cancel();
+    if (RefPtr task = m_task) {
+        ASSERT(task->client() == this);
+        task->clearClient();
+        task->cancel();
     }
     for (auto& file : m_blobFiles) {
         if (file)
@@ -122,26 +124,27 @@ void PingLoad::didFinish(const ResourceError& error, const ResourceResponse& res
 void PingLoad::loadRequest(NetworkProcess& networkProcess, ResourceRequest&& request)
 {
     PING_RELEASE_LOG("startNetworkLoad");
-    if (auto* networkSession = networkProcess.networkSession(m_sessionID)) {
+    if (CheckedPtr networkSession = networkProcess.networkSession(m_sessionID)) {
         auto loadParameters = m_parameters.networkLoadParameters();
         loadParameters.request = WTFMove(request);
-        m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
-        m_task->resume();
+        Ref task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
+        m_task = task.copyRef();
+        task->resume();
     } else
         ASSERT_NOT_REACHED();
 }
 
 void PingLoad::willPerformHTTPRedirection(ResourceResponse&& redirectResponse, ResourceRequest&& request, RedirectCompletionHandler&& completionHandler)
 {
-    m_networkLoadChecker->checkRedirection(ResourceRequest { }, WTFMove(request), WTFMove(redirectResponse), nullptr, [this, completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
+    m_networkLoadChecker->checkRedirection(ResourceRequest { }, WTFMove(request), WTFMove(redirectResponse), nullptr, [protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
         if (!result.has_value()) {
-            this->didFinish(result.error());
+            protectedThis->didFinish(result.error());
             completionHandler({ });
             return;
         }
         auto request = WTFMove(result->redirectRequest);
         if (!request.url().protocolIsInHTTPFamily()) {
-            this->didFinish(ResourceError { String { }, 0, request.url(), "Redirection to URL with a scheme that is not HTTP(S)"_s, ResourceError::Type::AccessControl });
+            protectedThis->didFinish(ResourceError { String { }, 0, request.url(), "Redirection to URL with a scheme that is not HTTP(S)"_s, ResourceError::Type::AccessControl });
             completionHandler({ });
             return;
         }
@@ -154,7 +157,7 @@ void PingLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, Negotiat
 {
     PING_RELEASE_LOG("didReceiveChallenge");
     if (challenge.protectionSpace().authenticationScheme() == ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested) {
-        m_networkLoadChecker->networkProcess().protectedAuthenticationManager()->didReceiveAuthenticationChallenge(m_sessionID, m_parameters.webPageProxyID,  m_parameters.topOrigin ? &m_parameters.topOrigin->data() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
+        m_networkLoadChecker->protectedNetworkProcess()->protectedAuthenticationManager()->didReceiveAuthenticationChallenge(m_sessionID, m_parameters.webPageProxyID,  m_parameters.topOrigin ? &m_parameters.topOrigin->data() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
         return;
     }
     WeakPtr weakThis { *this };
@@ -197,25 +200,25 @@ void PingLoad::didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedT
 void PingLoad::wasBlocked()
 {
     PING_RELEASE_LOG("wasBlocked");
-    didFinish(blockedError(ResourceRequest { currentURL() }));
+    didFinish(blockedError(ResourceRequest { URL { currentURL() } }));
 }
 
 void PingLoad::cannotShowURL()
 {
     PING_RELEASE_LOG("cannotShowURL");
-    didFinish(cannotShowURLError(ResourceRequest { currentURL() }));
+    didFinish(cannotShowURLError(ResourceRequest { URL { currentURL() } }));
 }
 
 void PingLoad::wasBlockedByRestrictions()
 {
     PING_RELEASE_LOG("wasBlockedByRestrictions");
-    didFinish(wasBlockedByRestrictionsError(ResourceRequest { currentURL() }));
+    didFinish(wasBlockedByRestrictionsError(ResourceRequest { URL { currentURL() } }));
 }
 
 void PingLoad::wasBlockedByDisabledFTP()
 {
     PING_RELEASE_LOG("wasBlockedByDisabledFTP");
-    didFinish(ftpDisabledError(ResourceRequest(currentURL())));
+    didFinish(ftpDisabledError(ResourceRequest(URL { currentURL() })));
 }
 
 void PingLoad::timeoutTimerFired()

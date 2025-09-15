@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,8 +48,8 @@
 #import <wtf/SoftLinking.h>
 #import <wtf/Threading.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/darwin/XPCExtras.h>
 #import <wtf/spi/cf/CFBundleSPI.h>
-#import <wtf/spi/darwin/XPCSPI.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -63,12 +63,6 @@
 #import <BrowserEngineKit/BENetworkingProcess.h>
 #import <BrowserEngineKit/BERenderingProcess.h>
 #import <BrowserEngineKit/BEWebContentProcess.h>
-
-#if USE(LEGACY_EXTENSIONKIT_SPI)
-SOFT_LINK_FRAMEWORK_OPTIONAL(ServiceExtensions);
-SOFT_LINK_CLASS_OPTIONAL(ServiceExtensions, _SEServiceConfiguration);
-SOFT_LINK_CLASS_OPTIONAL(ServiceExtensions, _SEServiceManager);
-#endif // USE(LEGACY_EXTENSIONKIT_SPI)
 
 #endif // USE(EXTENSIONKIT)
 
@@ -102,43 +96,9 @@ static std::pair<ASCIILiteral, RetainPtr<NSString>> serviceNameAndIdentifier(Pro
     }
 }
 
-#if USE(LEGACY_EXTENSIONKIT_SPI)
-static void launchWithExtensionKitFallback(ProcessLauncher& processLauncher, ProcessLauncher::ProcessType processType, ProcessLauncher::Client* client, WTF::Function<void(ThreadSafeWeakPtr<ProcessLauncher> weakProcessLauncher, ExtensionProcess&& process, ASCIILiteral name, NSError *error)>&& handler)
-{
-    auto [name, identifier] = serviceNameAndIdentifier(processType, client, processLauncher.isRetryingLaunch());
-
-    RetainPtr configuration = adoptNS([alloc_SEServiceConfigurationInstance() initWithServiceIdentifier:identifier.get()]);
-    _SEServiceManager* manager = [get_SEServiceManagerClass() performSelector:@selector(sharedInstance)];
-
-    switch (processType) {
-    case ProcessLauncher::ProcessType::Web: {
-        auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](_SEExtensionProcess *_Nullable process, NSError *_Nullable error) {
-            handler(WTFMove(weakProcessLauncher), process, name, error);
-        });
-        [manager performSelector:@selector(contentProcessWithConfiguration:completion:) withObject:configuration.get() withObject:block.get()];
-        break;
-    }
-    case ProcessLauncher::ProcessType::Network: {
-        auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](_SEExtensionProcess *_Nullable process, NSError *_Nullable error) {
-            handler(WTFMove(weakProcessLauncher), process, name, error);
-        });
-        [manager performSelector:@selector(networkProcessWithConfiguration:completion:) withObject:configuration.get() withObject:block.get()];
-        break;
-    }
-    case ProcessLauncher::ProcessType::GPU: {
-        auto block = makeBlockPtr([handler = WTFMove(handler), weakProcessLauncher = ThreadSafeWeakPtr { processLauncher }, name = name](_SEExtensionProcess *_Nullable process, NSError *_Nullable error) {
-            handler(WTFMove(weakProcessLauncher), process, name, error);
-        });
-        [manager performSelector:@selector(gpuProcessWithConfiguration:completion:) withObject:configuration.get() withObject:block.get()];
-        break;
-    }
-    }
-}
-#endif // USE(LEGACY_EXTENSIONKIT_SPI)
-
 bool ProcessLauncher::hasExtensionsInAppBundle()
 {
-#if PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS)
     static bool hasExtensions = false;
     static dispatch_once_t flag;
     dispatch_once(&flag, ^{
@@ -154,12 +114,6 @@ bool ProcessLauncher::hasExtensionsInAppBundle()
 
 static void launchWithExtensionKit(ProcessLauncher& processLauncher, ProcessLauncher::ProcessType processType, ProcessLauncher::Client* client, WTF::Function<void(ThreadSafeWeakPtr<ProcessLauncher> weakProcessLauncher, ExtensionProcess&& process, ASCIILiteral name, NSError *error)>&& handler)
 {
-#if USE(LEGACY_EXTENSIONKIT_SPI)
-    if (!ProcessLauncher::hasExtensionsInAppBundle()) {
-        launchWithExtensionKitFallback(processLauncher, processType, client, WTFMove(handler));
-        return;
-    }
-#endif
     auto [name, identifier] = serviceNameAndIdentifier(processType, client, processLauncher.isRetryingLaunch());
 
     switch (processType) {
@@ -383,14 +337,15 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     xpc_dictionary_set_value(bootstrapMessage.get(), "ContainerEnvironmentVariables", containerEnvironmentVariables.get());
 #endif
 
-    if (m_client) {
-        if (m_client->shouldConfigureJSCForTesting())
+    CheckedPtr client = m_client;
+    if (client) {
+        if (client->shouldConfigureJSCForTesting())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "configure-jsc-for-testing", true);
-        if (!m_client->isJITEnabled())
+        if (!client->isJITEnabled())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-jit", true);
-        if (m_client->shouldEnableSharedArrayBuffer())
+        if (client->shouldEnableSharedArrayBuffer())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "enable-shared-array-buffer", true);
-        if (m_client->shouldDisableJITCage())
+        if (client->shouldDisableJITCage())
             xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-jit-cage", true);
     }
 
@@ -401,9 +356,9 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-bundle-identifier", applicationBundleIdentifier().utf8().data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
-    RetainPtr processName = [&] {
+    RetainPtr processName = [&]() -> RetainPtr<NSString> {
 #if PLATFORM(MAC)
-        if (auto name = NSRunningApplication.currentApplication.localizedName; name.length)
+        if (RetainPtr<NSString> name = NSRunningApplication.currentApplication.localizedName; name.get().length)
             return name;
 #endif
         return NSProcessInfo.processInfo.processName;
@@ -412,10 +367,10 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     xpc_dictionary_set_string(bootstrapMessage.get(), "service-name", name);
 
     if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web) {
-#if ENABLE(REMOVE_XPC_AND_MACH_SANDBOX_EXTENSIONS_IN_WEBCONTENT)
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
         bool disableLogging = true;
 #else
-        bool disableLogging = m_client->shouldEnableLockdownMode();
+        bool disableLogging = false;
 #endif
         xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-logging", disableLogging);
     }
@@ -426,7 +381,8 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
     }
     
     auto sdkBehaviors = sdkAlignedBehaviors();
-    xpc_dictionary_set_data(bootstrapMessage.get(), "client-sdk-aligned-behaviors", sdkBehaviors.storage().data(), sdkBehaviors.storageLengthInBytes());
+    auto sdkBehaviorBytes = sdkBehaviors.storageBytes();
+    xpc_dictionary_set_data(bootstrapMessage.get(), "client-sdk-aligned-behaviors", sdkBehaviorBytes.data(), sdkBehaviorBytes.size());
 
     auto extraInitializationData = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
 
@@ -450,7 +406,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
 #endif
 
         if (event)
-            LOG_ERROR("Error while launching %s: %s", logName.data(), xpc_dictionary_get_wtfstring(event, xpcErrorDescriptionKey).utf8().data());
+            LOG_ERROR("Error while launching %s: %s", logName.data(), xpcDictionaryGetString(event, xpcErrorDescriptionKey).utf8().data());
         else
             LOG_ERROR("Error while launching %s: No xpc_object_t event available.", logName.data());
 
@@ -473,10 +429,10 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
         processLauncher->didFinishLaunchingProcess(0, IPC::Connection::Identifier());
     };
 
-    Function<void(xpc_object_t)> eventHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl), xpcEventHandler = m_client->xpcEventHandler()] (xpc_object_t event) mutable {
+    Function<void(xpc_object_t)> eventHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl), xpcEventHandler = client->xpcEventHandler()] (xpc_object_t event) mutable {
 
         if (!event || xpc_get_type(event) == XPC_TYPE_ERROR) {
-            RunLoop::main().dispatch([errorHandlerImpl = std::exchange(errorHandlerImpl, nullptr), event = OSObjectPtr(event)] {
+            RunLoop::mainSingleton().dispatch([errorHandlerImpl = std::exchange(errorHandlerImpl, nullptr), event = OSObjectPtr(event)] {
                 if (errorHandlerImpl)
                     errorHandlerImpl(event.get());
                 else if (event.get() != XPC_ERROR_CONNECTION_INVALID)
@@ -486,7 +442,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
         }
 
         if (xpcEventHandler) {
-            RunLoop::main().dispatch([xpcEventHandler = xpcEventHandler, event = OSObjectPtr(event)] {
+            RunLoop::mainSingleton().dispatch([xpcEventHandler = xpcEventHandler, event = OSObjectPtr(event)] {
                 xpcEventHandler->handleXPCEvent(event.get());
             });
         }
@@ -497,7 +453,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
 
     xpc_connection_resume(m_xpcConnection.get());
 
-    if (UNLIKELY(m_launchOptions.shouldMakeProcessLaunchFailForTesting)) {
+    if (m_launchOptions.shouldMakeProcessLaunchFailForTesting) [[unlikely]] {
         eventHandlerBlock(nullptr);
         return;
     }
@@ -509,7 +465,7 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
         // launching and we already took care of cleaning things up.
         if (isLaunching() && xpc_get_type(reply) != XPC_TYPE_ERROR) {
             ASSERT(xpc_get_type(reply) == XPC_TYPE_DICTIONARY);
-            ASSERT(xpc_dictionary_get_wtfstring(reply, "message-name"_s) == "process-finished-launching"_s);
+            ASSERT(xpcDictionaryGetString(reply, "message-name"_s) == "process-finished-launching"_s);
 
 #if ASSERT_ENABLED
             mach_port_urefs_t sendRightCount = 0;

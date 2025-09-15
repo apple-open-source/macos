@@ -6,14 +6,12 @@
 #include <IOKit/hid/IOHIDEventMacroDefs.h>
 #include <math.h>
 
-#if TARGET_OS_VISION
 void             __IOHIDEventPopulateDigitizerLegacyData(IOHIDDigitizerLegacyEventData * legacyEventData, IOHIDDigitizerEventData * currentEventData);
 void             __IOHIDEventPopulatePointerLegacyData(IOHIDPointerLegacyEventData * legacyEventData, IOHIDPointerEventData * currentEventData);
 void             __IOHIDEventPopulateTranslationLegacyData(IOHIDTranslationLegacyEventData * legacyEventData, IOHIDTranslationEventData * currentEventData);
 void             __IOHIDEventPopulateDigitizerCurrentData(IOHIDDigitizerLegacyEventData * legacyEventData, IOHIDDigitizerEventData * currentEventData);
 void             __IOHIDEventPopulatePointerCurrentData(IOHIDPointerLegacyEventData * legacyEventData, IOHIDPointerEventData * currentEventData);
 void             __IOHIDEventPopulateTranslationCurrentData(IOHIDTranslationLegacyEventData * legacyEventData, IOHIDTranslationEventData * currentEventData);
-#endif /* TARGET_OS_VISION */
 
 
 //------------------------------------------------------------------------------
@@ -35,7 +33,7 @@ bool __IOHIDEventHasLegacyEventData(IOHIDEventType type)
 CFIndex __IOHIDEventDataAppendFromLegacyEvent(IOHIDEventData * eventData, UInt8* buffer)
 {
     CFIndex size = 0;
-#if TARGET_OS_VISION
+
     switch(eventData->type) {
         case kIOHIDEventTypeDigitizer:
             size = sizeof(IOHIDDigitizerLegacyEventData);
@@ -53,7 +51,7 @@ CFIndex __IOHIDEventDataAppendFromLegacyEvent(IOHIDEventData * eventData, UInt8*
             __IOHIDEventPopulateTranslationLegacyData((IOHIDTranslationLegacyEventData *)buffer, (IOHIDTranslationEventData *)eventData);
             break;
     }
-#endif /* TARGET_OS_VISION */
+
     return size;
 }
 
@@ -63,7 +61,7 @@ CFIndex __IOHIDEventDataAppendFromLegacyEvent(IOHIDEventData * eventData, UInt8*
 void __IOHIDEventPopulateCurrentEventData(IOHIDEventData * eventData, IOHIDEventData * newEventData)
 {
     IOHIDEventType type = (IOHIDEventType)eventData->type;
-#if TARGET_OS_VISION
+
     if(type == kIOHIDEventTypeDigitizer) {
         __IOHIDEventPopulateDigitizerCurrentData((IOHIDDigitizerLegacyEventData *)eventData, (IOHIDDigitizerEventData *)newEventData);
     } else if (type == kIOHIDEventTypePointer) {
@@ -71,10 +69,8 @@ void __IOHIDEventPopulateCurrentEventData(IOHIDEventData * eventData, IOHIDEvent
     } else if (type == kIOHIDEventTypeTranslation) {
         __IOHIDEventPopulateTranslationCurrentData((IOHIDTranslationLegacyEventData *)eventData, (IOHIDTranslationEventData *)newEventData);
     }
-#endif /* TARGET_OS_VISION */
 }
 
-#if TARGET_OS_VISION
 //------------------------------------------------------------------------------
 // __IOHIDEventPopulateDigitizerLegacyData
 //------------------------------------------------------------------------------
@@ -280,6 +276,4 @@ void __IOHIDEventPopulateTranslationCurrentData(IOHIDTranslationLegacyEventData 
     currentEventData->position.y    = CAST_FIXED_TO_DOUBLE(legacyEventData->position.y);
     currentEventData->position.z    = CAST_FIXED_TO_DOUBLE(legacyEventData->position.z);
 }
-
-#endif
 

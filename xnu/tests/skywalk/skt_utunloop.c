@@ -134,6 +134,7 @@ skt_utunloop_xfer_slots(int kq,
 	prevslotcount = slotcount = 0;
 	prevbytecount = bytecount = 0;
 	int stallcount = 0;
+	then = time(NULL);
 	start = time(NULL);
 
 	while (!g_die) {
@@ -834,7 +835,7 @@ dotraffic(void *(*sourcefunc)(void *), void *(*sinkfunc)(void *),
 
 
 static void
-skt_tunloop_common(bool doutun, bool enable_netif, bool udp, bool udpduplex, bool tcp, bool tcpduplex, bool dualstream)
+skt_tunloop_common(bool doutun, bool enable_netif, bool enable_channel, bool udp, bool udpduplex, bool tcp, bool tcpduplex, bool dualstream)
 {
 	int error;
 	int utun1, utun2;
@@ -871,6 +872,7 @@ skt_tunloop_common(bool doutun, bool enable_netif, bool udp, bool udpduplex, boo
 
 	sktu_if_type_t type = doutun ? SKTU_IFT_UTUN : SKTU_IFT_IPSEC;
 	sktu_if_flag_t flags = enable_netif ? SKTU_IFF_ENABLE_NETIF : 0;
+	flags |= enable_channel ? SKTU_IFF_ENABLE_CHANNEL : 0;
 	utun1 = sktu_create_interface(type, flags);
 	utun2 = sktu_create_interface(type, flags);
 
@@ -1012,44 +1014,10 @@ skt_tunloop_common(bool doutun, bool enable_netif, bool udp, bool udpduplex, boo
 /****************************************************************/
 
 static int
-skt_utunloopn4u1_main(int argc, char *argv[])
-{
-	g_assert_stalls12 = true;
-	skt_tunloop_common(true, false, true, false, false, false, false);
-	return 0;
-}
-
-static int
-skt_utunloopn4u2_main(int argc, char *argv[])
-{
-	g_assert_stalls12 = true;
-	g_assert_stalls21 = true;
-	skt_tunloop_common(true, false, true, true, false, false, false);
-	return 0;
-}
-
-static int
-skt_utunloopn4t1_main(int argc, char *argv[])
-{
-	g_assert_stalls12 = true;
-	skt_tunloop_common(true, false, false, false, true, false, false);
-	return 0;
-}
-
-static int
-skt_utunloopn4t2_main(int argc, char *argv[])
-{
-	g_assert_stalls12 = true;
-	g_assert_stalls21 = true;
-	skt_tunloop_common(true, false, false, false, true, true, false);
-	return 0;
-}
-
-static int
 skt_utunloopy4u1_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
-	skt_tunloop_common(true, true, true, false, false, false, false);
+	skt_tunloop_common(true, true, true, true, false, false, false, false);
 	return 0;
 }
 
@@ -1058,7 +1026,7 @@ skt_utunloopy4u2_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
 	g_assert_stalls21 = true;
-	skt_tunloop_common(true, true, true, true, false, false, false);
+	skt_tunloop_common(true, true, true, true, true, false, false, false);
 	return 0;
 }
 
@@ -1066,7 +1034,7 @@ static int
 skt_utunloopy4t1_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
-	skt_tunloop_common(true, true, false, false, true, false, false);
+	skt_tunloop_common(true, true, true, false, false, true, false, false);
 	return 0;
 }
 
@@ -1075,47 +1043,16 @@ skt_utunloopy4t2_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
 	g_assert_stalls21 = true;
-	skt_tunloop_common(true, true, false, false, true, true, false);
-	return 0;
-}
-
-static int
-skt_utunloopn1000_main(int argc, char *argv[])
-{
-	skt_tunloop_common(true, false, false, false, false, false, false);
+	skt_tunloop_common(true, true, true, false, false, true, true, false);
 	return 0;
 }
 
 static int
 skt_utunloopy1000_main(int argc, char *argv[])
 {
-	skt_tunloop_common(true, true, false, false, false, false, false);
+	skt_tunloop_common(true, true, true, false, false, false, false, false);
 	return 0;
 }
-
-struct skywalk_test skt_utunloopn4u1 = {
-	"utunloopn4u1", "open 2 utuns without netif and floods ipv4 udp packets in one direction",
-	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
-	skt_utunloopn4u1_main,
-};
-
-struct skywalk_test skt_utunloopn4u2 = {
-	"utunloopn4u2", "open 2 utuns without netif and floods ipv4 udp packets in two directions",
-	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
-	skt_utunloopn4u2_main,
-};
-
-struct skywalk_test skt_utunloopn4t1 = {
-	"utunloopn4t1", "open 2 utuns without netif and floods ipv4 tcp packets in one direction",
-	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
-	skt_utunloopn4t1_main,
-};
-
-struct skywalk_test skt_utunloopn4t2 = {
-	"utunloopn4t2", "open 2 utuns without netif and floods ipv4 tcp packets in two directions",
-	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
-	skt_utunloopn4t2_main,
-};
 
 struct skywalk_test skt_utunloopy4u1 = {
 	"utunloopy4u1", "open 2 utuns with netif and floods ipv4 udp packets in one direction",
@@ -1141,12 +1078,6 @@ struct skywalk_test skt_utunloopy4t2 = {
 	skt_utunloopy4t2_main,
 };
 
-struct skywalk_test skt_utunloopn1000 = {
-	"utunloopn1000", "open 2 utuns without netif and sleeps for 1000 seconds",
-	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
-	skt_utunloopn1000_main,
-};
-
 struct skywalk_test skt_utunloopy1000 = {
 	"utunloopy1000", "open 2 utuns with netif and sleeps for 1000 seconds",
 	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_KERNEL_PIPE,
@@ -1159,7 +1090,7 @@ static int
 skt_ipsecloopy4u1_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
-	skt_tunloop_common(false, true, true, false, false, false, false);
+	skt_tunloop_common(false, true, true, true, false, false, false, false);
 	return 0;
 }
 
@@ -1168,7 +1099,7 @@ skt_ipsecloopy4u2_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
 	g_assert_stalls21 = true;
-	skt_tunloop_common(false, true, true, true, false, false, false);
+	skt_tunloop_common(false, true, true, true, true, false, false, false);
 	return 0;
 }
 
@@ -1176,7 +1107,7 @@ static int
 skt_ipsecloopy4t1_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
-	skt_tunloop_common(false, true, false, false, true, false, false);
+	skt_tunloop_common(false, true, true, false, false, true, false, false);
 	return 0;
 }
 
@@ -1185,14 +1116,14 @@ skt_ipsecloopy4t2_main(int argc, char *argv[])
 {
 	g_assert_stalls12 = true;
 	g_assert_stalls21 = true;
-	skt_tunloop_common(false, true, false, false, true, true, false);
+	skt_tunloop_common(false, true, true, false, false, true, true, false);
 	return 0;
 }
 
 static int
 skt_ipsecloopy1000_main(int argc, char *argv[])
 {
-	skt_tunloop_common(false, true, false, false, false, false, false);
+	skt_tunloop_common(false, true, true, false, false, false, false, false);
 	return 0;
 }
 

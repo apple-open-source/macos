@@ -53,26 +53,64 @@ ScrollingTreeStickyNodeCocoa::ScrollingTreeStickyNodeCocoa(ScrollingTree& scroll
 bool ScrollingTreeStickyNodeCocoa::commitStateBeforeChildren(const ScrollingStateNode& stateNode)
 {
     if (stateNode.hasChangedProperty(ScrollingStateNode::Property::Layer))
-        m_layer = static_cast<CALayer*>(stateNode.layer());
+        m_layer = static_cast<CALayer *>(stateNode.layer());
+
+    if (stateNode.hasChangedProperty(ScrollingStateNode::Property::ViewportAnchorLayer)) {
+        if (RefPtr stickyStateNode = dynamicDowncast<ScrollingStateStickyNode>(stateNode))
+            m_viewportAnchorLayer = static_cast<CALayer *>(stickyStateNode->viewportAnchorLayer());
+    }
 
     return ScrollingTreeStickyNode::commitStateBeforeChildren(stateNode);
 }
 
 void ScrollingTreeStickyNodeCocoa::applyLayerPositions()
 {
-    auto layerPosition = computeLayerPosition();
-
-    LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeStickyNodeCocoa " << scrollingNodeID() << " constrainingRectAtLastLayout " << m_constraints.constrainingRectAtLastLayout() << " last layer pos " << m_constraints.layerPositionAtLastLayout() << " layerPosition " << layerPosition);
-
 #if ENABLE(SCROLLING_THREAD)
     if (ScrollingThread::isCurrentThread()) {
         // Match the behavior of ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers().
-        if (!scrollingTree()->isScrollingSynchronizedWithMainThread())
+        if (!scrollingTree()->isScrollingSynchronizedWithMainThread()) {
             [m_layer _web_setLayerTopLeftPosition:CGPointZero];
+            if (hasViewportClippingLayer())
+                [m_viewportAnchorLayer _web_setLayerTopLeftPosition:CGPointZero];
+        }
     }
 #endif
 
-    [m_layer _web_setLayerTopLeftPosition:layerPosition - m_constraints.alignmentOffset()];
+    auto [constrainingRect, anchorLayerPosition] = computeConstrainingRectAndAnchorLayerPosition();
+    LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeStickyNodeCocoa::applyLayerPositions() " << scrollingNodeID() << " constrainingRectAtLastLayout " << m_constraints.constrainingRectAtLastLayout() << " last layer pos " << m_constraints.layerPositionAtLastLayout());
+    if (hasViewportClippingLayer()) {
+        auto clippingLayerPosition = computeClippingLayerPosition();
+        [m_layer _web_setLayerTopLeftPosition:clippingLayerPosition];
+        LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeStickyNodeCocoa::applyLayerPositions() " << scrollingNodeID() << " clippingLayerPosition " << clippingLayerPosition);
+        anchorLayerPosition.moveBy(-clippingLayerPosition);
+    }
+    LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeStickyNodeCocoa::applyLayerPositions() " << scrollingNodeID() << " clippingLayerPosition " << anchorLayerPosition);
+    [m_viewportAnchorLayer _web_setLayerTopLeftPosition:anchorLayerPosition - m_constraints.alignmentOffset()];
+
+    if (constrainingRect)
+        setIsSticking(isCurrentlySticking(*constrainingRect));
+}
+
+void ScrollingTreeStickyNodeCocoa::setIsSticking(bool isSticking)
+{
+    if (m_isSticking == isSticking)
+        return;
+
+    if (std::exchange(m_isSticking, isSticking))
+        return;
+
+    RefPtr scrollingTree = this->scrollingTree();
+    if (!scrollingTree)
+        return;
+
+    ensureOnMainRunLoop([scrollingTree = WTFMove(scrollingTree), nodeID = scrollingNodeID()] {
+        scrollingTree->stickyScrollingTreeNodeBeganSticking(nodeID);
+    });
+}
+
+bool ScrollingTreeStickyNodeCocoa::hasViewportClippingLayer() const
+{
+    return m_viewportAnchorLayer && m_layer != m_viewportAnchorLayer;
 }
 
 FloatPoint ScrollingTreeStickyNodeCocoa::layerTopLeft() const

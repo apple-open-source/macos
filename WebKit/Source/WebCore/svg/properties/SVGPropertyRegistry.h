@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,11 +25,10 @@
 
 #pragma once
 
-#include "SVGAttributeAnimator.h"
-
 namespace WebCore {
 
 class SVGAnimatedProperty;
+class SVGAttributeAnimator;
 
 class SVGPropertyRegistry {
 public:
@@ -41,7 +40,7 @@ public:
     virtual QualifiedName animatedPropertyAttributeName(const SVGAnimatedProperty&) const = 0;
     virtual void setAnimatedPropertyDirty(const QualifiedName&, SVGAnimatedProperty&) const = 0;
     virtual std::optional<String> synchronize(const QualifiedName&) const = 0;
-    virtual UncheckedKeyHashMap<QualifiedName, String> synchronizeAllAttributes() const = 0;
+    virtual HashMap<QualifiedName, String> synchronizeAllAttributes() const = 0;
 
     virtual bool isAnimatedPropertyAttribute(const QualifiedName&) const = 0;
     virtual bool isAnimatedStylePropertyAttribute(const QualifiedName&) const = 0;

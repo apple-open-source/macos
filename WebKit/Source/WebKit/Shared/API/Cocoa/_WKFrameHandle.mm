@@ -28,6 +28,7 @@
 
 #import <WebCore/FrameIdentifier.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 @implementation _WKFrameHandle
 
@@ -55,12 +56,12 @@
 
 - (NSUInteger)hash
 {
-    return _frameHandle->frameID() ? _frameHandle->frameID()->object().toUInt64() : 0;
+    return _frameHandle->frameID() ? _frameHandle->frameID()->toUInt64() : 0;
 }
 
 - (uint64_t)frameID
 {
-    return _frameHandle->frameID() ? _frameHandle->frameID()->object().toUInt64() : 0;
+    return _frameHandle->frameID() ? _frameHandle->frameID()->toUInt64() : 0;
 }
 
 #pragma mark NSCopying protocol implementation
@@ -82,42 +83,26 @@
     if (!(self = [super init]))
         return nil;
 
-    NSNumber *frameID = [decoder decodeObjectOfClass:[NSNumber class] forKey:@"frameID"];
-    if (![frameID isKindOfClass:[NSNumber class]]) {
+    RetainPtr frameID = dynamic_objc_cast<NSNumber>([decoder decodeObjectOfClass:[NSNumber class] forKey:@"frameID"]);
+    if (!frameID) {
         [self release];
         return nil;
     }
 
-    auto rawFrameID = frameID.unsignedLongLongValue;
+    auto rawFrameID = frameID.get().unsignedLongLongValue;
     if (!ObjectIdentifier<WebCore::FrameIdentifierType>::isValidIdentifier(rawFrameID)) {
         [self release];
         return nil;
     }
 
-    NSNumber *processID = [decoder decodeObjectOfClass:[NSNumber class] forKey:@"processID"];
-    if (![processID isKindOfClass:[NSNumber class]]) {
-        [self release];
-        return nil;
-    }
-
-    auto rawProcessID = processID.unsignedLongLongValue;
-    if (!ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(rawProcessID)) {
-        [self release];
-        return nil;
-    }
-
-    API::Object::constructInWrapper<API::FrameHandle>(self, WebCore::FrameIdentifier {
-        ObjectIdentifier<WebCore::FrameIdentifierType>(rawFrameID),
-        ObjectIdentifier<WebCore::ProcessIdentifierType>(rawProcessID)
-    }, false);
+    API::Object::constructInWrapper<API::FrameHandle>(self, WebCore::FrameIdentifier(rawFrameID), false);
 
     return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    [coder encodeObject:@(_frameHandle->frameID() ? _frameHandle->frameID()->object().toUInt64() : 0) forKey:@"frameID"];
-    [coder encodeObject:@(_frameHandle->frameID() ? _frameHandle->frameID()->processIdentifier().toUInt64() : 0) forKey:@"processID"];
+    [coder encodeObject:@(_frameHandle->frameID() ? _frameHandle->frameID()->toUInt64() : 0) forKey:@"frameID"];
 }
 
 #pragma mark WKObject protocol implementation

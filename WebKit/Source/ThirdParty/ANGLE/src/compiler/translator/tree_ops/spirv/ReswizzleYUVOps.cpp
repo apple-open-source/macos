@@ -10,7 +10,6 @@
 
 #include "compiler/translator/tree_ops/spirv/EmulateYUVBuiltIns.h"
 
-#include "compiler/translator/StaticType.h"
 #include "compiler/translator/SymbolTable.h"
 #include "compiler/translator/tree_util/IntermNode_util.h"
 #include "compiler/translator/tree_util/IntermTraverse.h"
@@ -30,9 +29,9 @@ class ReswizzleYUVOpsTraverser : public TIntermTraverser
 
     bool visitAggregate(Visit visit, TIntermAggregate *node) override;
     bool visitSwizzle(Visit visit, TIntermSwizzle *node) override;
-    bool adjustOutput(TCompiler *compiler, TIntermBlock *root, const TIntermSymbol &yuvOutput);
 
   private:
+    TIntermSwizzle *transformTextureOp(TIntermAggregate *node);
 };
 
 // OpenGLES and Vulkan has different color component mapping for YUV. OpenGL spec maps R_gl=y,
@@ -42,32 +41,21 @@ class ReswizzleYUVOpsTraverser : public TIntermTraverser
 // GL order, which comes out to be R_gl=y=G_vulkan=1, G_gl=u=B_vulkan=2, B_gl=v=R_vulkan=0. i.e, {1,
 // 2, 0, 3}. This function will check if the aggregate is a texture{proj|fetch}(samplerExternal,...)
 // and if yes it will compose and return a swizzle node.
-TIntermSwizzle *CheckTextureOpWithSamplerExternal2DY2YAndSwizzle(Visit visit,
-                                                                 TIntermAggregate *node)
+TIntermSwizzle *ReswizzleYUVOpsTraverser::transformTextureOp(TIntermAggregate *node)
 {
-    if (visit != Visit::PreVisit)
-    {
-        return nullptr;
-    }
-
-    if (!BuiltInGroup::IsBuiltIn(node->getOp()))
-    {
-        return nullptr;
-    }
-
-    TOperator op = node->getFunction()->getBuiltInOp();
+    const TOperator op = node->getOp();
     if (op == EOpTexture || op == EOpTextureProj || op == EOpTexelFetch)
     {
-        TIntermSequence *arguments = node->getSequence();
-        TType const &samplerType   = (*arguments)[0]->getAsTyped()->getType();
+        const TIntermSequence &arguments = *node->getSequence();
+        TType const &samplerType         = arguments[0]->getAsTyped()->getType();
+
         if (samplerType.getBasicType() != EbtSamplerExternal2DY2YEXT)
         {
             return nullptr;
         }
 
         // texture(...).gbra
-        TIntermSwizzle *yuvSwizzle = new TIntermSwizzle(node, {1, 2, 0, 3});
-        return yuvSwizzle;
+        return new TIntermSwizzle(node, {1, 2, 0, 3});
     }
 
     return nullptr;
@@ -75,11 +63,11 @@ TIntermSwizzle *CheckTextureOpWithSamplerExternal2DY2YAndSwizzle(Visit visit,
 
 bool ReswizzleYUVOpsTraverser::visitAggregate(Visit visit, TIntermAggregate *node)
 {
-    TIntermSwizzle *yuvSwizzle = CheckTextureOpWithSamplerExternal2DY2YAndSwizzle(visit, node);
+    TIntermSwizzle *yuvSwizzle = transformTextureOp(node);
     if (yuvSwizzle != nullptr)
     {
         ASSERT(!getParentNode()->getAsSwizzleNode());
-        queueReplacement(yuvSwizzle, OriginalNode::BECOMES_CHILD);
+        queueReplacement(yuvSwizzle, OriginalNode::IS_DROPPED);
         return false;
     }
 
@@ -96,7 +84,7 @@ bool ReswizzleYUVOpsTraverser::visitSwizzle(Visit visit, TIntermSwizzle *node)
 
     // There is swizzle on YUV texture sampler, and we need to apply YUV swizzle first and
     // then followed by the original swizzle. Finally we fold the two swizzles into one.
-    TIntermSwizzle *yuvSwizzle = CheckTextureOpWithSamplerExternal2DY2YAndSwizzle(visit, aggregate);
+    TIntermSwizzle *yuvSwizzle = transformTextureOp(aggregate);
     if (yuvSwizzle != nullptr)
     {
         TIntermTyped *replacement = new TIntermSwizzle(yuvSwizzle, node->getSwizzleOffsets());
@@ -107,48 +95,32 @@ bool ReswizzleYUVOpsTraverser::visitSwizzle(Visit visit, TIntermSwizzle *node)
 
     return true;
 }
+}  // anonymous namespace
 
 // OpenGLES and Vulkan has different color component mapping for YUV. When we write YUV data, we
 // need to convert OpenGL mapping to vulkan's mapping, which comes out to be {2, 0, 1, 3}.
-bool ReswizzleYUVOpsTraverser::adjustOutput(TCompiler *compiler,
-                                            TIntermBlock *root,
-                                            const TIntermSymbol &yuvOutput)
+bool AdjustYUVOutput(TCompiler *compiler,
+                     TIntermBlock *root,
+                     TSymbolTable *symbolTable,
+                     const TIntermSymbol &yuvOutput)
 {
     TIntermBlock *block = new TIntermBlock;
 
     // output = output.brga
-    TVector<int> swizzle = {2, 0, 1, 3};
-    const int size       = yuvOutput.getType().getNominalSize();
-    if (size < 4)
-    {
-        swizzle.resize(size);
-    }
+    TVector<uint32_t> swizzle = {2, 0, 1, 3};
+    swizzle.resize(yuvOutput.getType().getNominalSize());
 
     TIntermTyped *assignment = new TIntermBinary(EOpAssign, yuvOutput.deepCopy(),
                                                  new TIntermSwizzle(yuvOutput.deepCopy(), swizzle));
     block->appendStatement(assignment);
 
-    return RunAtTheEndOfShader(compiler, root, block, mSymbolTable);
+    return RunAtTheEndOfShader(compiler, root, block, symbolTable);
 }
-}  // anonymous namespace
 
-bool ReswizzleYUVOps(TCompiler *compiler,
-                     TIntermBlock *root,
-                     TSymbolTable *symbolTable,
-                     const TIntermSymbol *yuvOutput)
+bool ReswizzleYUVTextureAccess(TCompiler *compiler, TIntermBlock *root, TSymbolTable *symbolTable)
 {
     ReswizzleYUVOpsTraverser traverser(symbolTable);
     root->traverse(&traverser);
-
-    if (!traverser.updateTree(compiler, root))
-    {
-        return false;
-    }
-
-    if (yuvOutput != nullptr && !traverser.adjustOutput(compiler, root, *yuvOutput))
-    {
-        return false;
-    }
-    return true;
+    return traverser.updateTree(compiler, root);
 }
 }  // namespace sh

@@ -30,6 +30,7 @@
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOMapper.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include "../Kernel/IOServicePrivate.h"
 
 #include <Exclaves/Exclaves.h>
@@ -657,6 +658,69 @@ IOExclaveANEUpcallHandler(uint64_t id, struct IOExclaveANEUpcallArgs *args, bool
 	}
 
 	return ret;
+}
+
+IOReturn
+IOExclaveLPWUpcallHandler(struct IOExclaveLPWUpcallArgs *args)
+{
+	IOReturn ret;
+
+	if (!args) {
+		return kIOReturnBadArgument;
+	}
+
+	IOPMrootDomain *rootDomain = IOService::getPMRootDomain();
+	if (!rootDomain) {
+		return kIOReturnInternalError;
+	}
+
+	switch (args->type) {
+	case kIOExclaveLPWUpcallTypeCreateAssertion:
+		return IOExclaveLPWCreateAssertion(&args->data.createassertion.id_out, "Exclave LPW assertion");
+	case kIOExclaveLPWUpcallTypeReleaseAssertion:
+		return IOExclaveLPWReleaseAssertion(args->data.releaseassertion.id);
+	case kIOExclaveLPWUpcallTypeRequestRunMode:
+		ret = rootDomain->requestRunMode(args->data.requestrunmode.runmode_mask);
+		break;
+	default:
+		return kIOReturnBadArgument;
+	}
+
+	return ret;
+}
+
+IOReturn
+IOExclaveLPWCreateAssertion(uint64_t *id_out, const char *desc)
+{
+	IOPMDriverAssertionID assertionID;
+
+	IOPMrootDomain *rootDomain = IOService::getPMRootDomain();
+	if (!rootDomain) {
+		return kIOReturnInternalError;
+	}
+
+	assertionID = rootDomain->createPMAssertion(
+		kIOPMDriverAssertionCPUBit | kIOPMDriverAssertionForceWakeupBit,
+		kIOPMDriverAssertionLevelOn,
+		rootDomain,
+		desc);
+	if (assertionID == 0) {
+		return kIOReturnInternalError;
+	}
+
+	*id_out = (uint64_t) assertionID;
+	return kIOReturnSuccess;
+}
+
+IOReturn
+IOExclaveLPWReleaseAssertion(uint64_t id)
+{
+	IOPMrootDomain *rootDomain = IOService::getPMRootDomain();
+	if (!rootDomain) {
+		return kIOReturnInternalError;
+	}
+
+	return rootDomain->releasePMAssertion(id);
 }
 
 /* IOService exclave methods */

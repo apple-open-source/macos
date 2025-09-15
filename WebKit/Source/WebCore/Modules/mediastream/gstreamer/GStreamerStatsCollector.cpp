@@ -33,6 +33,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/glib/WTFGType.h>
+#include <wtf/text/StringToIntegerConversion.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtc_stats_debug);
 #define GST_CAT_DEFAULT webkit_webrtc_stats_debug
@@ -278,7 +279,7 @@ static gboolean fillReportCallback(const GValue* value, Ref<ReportHolder>& repor
     if (!gst_structure_get(structure, "type", GST_TYPE_WEBRTC_STATS_TYPE, &statsType, nullptr))
         return TRUE;
 
-    if (UNLIKELY(!reportHolder->adapter))
+    if (!reportHolder->adapter) [[unlikely]]
         return TRUE;
 
     auto& report = *reportHolder->adapter;
@@ -350,6 +351,7 @@ static gboolean fillReportCallback(const GValue* value, Ref<ReportHolder>& repor
 }
 
 struct CallbackHolder {
+    RefPtr<GStreamerStatsCollector> collector;
     GStreamerStatsCollector::CollectorCallback callback;
     GStreamerStatsCollector::PreprocessCallback preprocessCallback;
     GRefPtr<GstPad> pad;
@@ -359,9 +361,16 @@ WEBKIT_DEFINE_ASYNC_DATA_STRUCT(CallbackHolder)
 
 void GStreamerStatsCollector::getStats(CollectorCallback&& callback, const GRefPtr<GstPad>& pad, PreprocessCallback&& preprocessCallback)
 {
+    static auto s_maximumReportAge = 300_ms;
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
         GST_DEBUG_CATEGORY_INIT(webkit_webrtc_stats_debug, "webkitwebrtcstats", 0, "WebKit WebRTC Stats");
+        auto expirationTime = StringView::fromLatin1(std::getenv("WEBKIT_GST_WEBRTC_STATS_CACHE_EXPIRATION_TIME_MS"));
+        if (expirationTime.isEmpty())
+            return;
+
+        if (auto milliseconds = WTF::parseInteger<int>(expirationTime))
+            s_maximumReportAge = Seconds::fromMilliseconds(*milliseconds);
     });
 
     if (!m_webrtcBin) {
@@ -369,7 +378,23 @@ void GStreamerStatsCollector::getStats(CollectorCallback&& callback, const GRefP
         return;
     }
 
+    auto now = MonotonicTime::now();
+    if (!pad) {
+        if (m_cachedGlobalReport && (now - m_cachedGlobalReport->generationTime < s_maximumReportAge)) {
+            GST_TRACE_OBJECT(m_webrtcBin.get(), "Returning cached global stats report");
+            callback(m_cachedGlobalReport->report.get());
+            return;
+        }
+    } else if (auto report = m_cachedReportsPerPad.getOptional(pad)) {
+        if (now - report->generationTime < s_maximumReportAge) {
+            GST_TRACE_OBJECT(m_webrtcBin.get(), "Returning cached stats report for pad %" GST_PTR_FORMAT, pad.get());
+            callback(report->report.get());
+            return;
+        }
+    }
+
     auto* holder = createCallbackHolder();
+    holder->collector = this;
     holder->callback = WTFMove(callback);
     holder->preprocessCallback = WTFMove(preprocessCallback);
     holder->pad = pad;
@@ -395,18 +420,33 @@ void GStreamerStatsCollector::getStats(CollectorCallback&& callback, const GRefP
             return;
         }
 
-        callOnMainThreadAndWait([holder, stats] {
+        callOnMainThreadAndWait([holder, stats] mutable {
             auto preprocessedStats = holder->preprocessCallback(holder->pad, stats);
             if (!preprocessedStats)
                 return;
-            holder->callback(RTCStatsReport::create([stats = WTFMove(preprocessedStats)](auto& mapAdapter) mutable {
+            auto report = RTCStatsReport::create([stats = WTFMove(preprocessedStats)](auto& mapAdapter) mutable {
                 auto holder = adoptRef(*new ReportHolder(&mapAdapter));
                 gstStructureForeach(stats.get(), [&](auto, const auto value) -> bool {
                     return fillReportCallback(value, holder);
                 });
-            }));
+            });
+            CachedReport cachedReport;
+            cachedReport.generationTime = MonotonicTime::now();
+            cachedReport.report = report.ptr();
+            if (holder->pad)
+                holder->collector->m_cachedReportsPerPad.set(holder->pad, WTFMove(cachedReport));
+            else
+                holder->collector->m_cachedGlobalReport = WTFMove(cachedReport);
+            holder->callback(WTFMove(report));
         });
     }, holder, reinterpret_cast<GDestroyNotify>(destroyCallbackHolder)));
+}
+
+void GStreamerStatsCollector::invalidateCache()
+{
+    ASSERT(isMainThread());
+    m_cachedGlobalReport = std::nullopt;
+    m_cachedReportsPerPad.clear();
 }
 
 #undef GST_CAT_DEFAULT

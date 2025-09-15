@@ -95,6 +95,10 @@ zh_Hant_HK{
         calendar{
             ethiopic{"埃塞俄比亞曆"}
             ethiopic-amete-alem{"埃塞俄比亞阿美德阿萊姆曆"}
+            kannada{"坎納達曆"}
+            malayalam{"馬拉雅拉姆曆"}
+            odia{"奧里雅曆"}
+            tamil{"泰米爾曆"}
         }
         collation{
             big5han{"繁體中文排序 (Big5)"}

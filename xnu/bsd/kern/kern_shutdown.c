@@ -150,6 +150,15 @@ get_system_inshutdown()
 	return system_inshutdown;
 }
 
+extern int OSKextIsInUserspaceReboot(void);
+
+int
+get_system_inuserspacereboot()
+{
+	/* set by launchd before performing a userspace reboot */
+	return OSKextIsInUserspaceReboot();
+}
+
 __abortlike
 static void
 panic_kernel(int howto, char *message)
@@ -268,6 +277,11 @@ reboot_kernel(int howto, char *message)
 		if (!(howto & RB_PANIC) || !kdp_has_polled_corefile())
 #endif /* DEVELOPMENT || DEBUG */
 		{
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
+			/* Disable user space core dump before unmounting non-system volume so
+			 * that dext cores wouldn't be written to system volume */
+			do_coredump = 0;
+#endif /* COREDUMP || CONFIG_UCOREDUMP */
 			startTime = mach_absolute_time();
 			vfs_unmountall(TRUE);
 			halt_log_enter("vfs_unmountall", 0, mach_absolute_time() - startTime);

@@ -32,11 +32,11 @@ messages -> RemoteWebInspectorUIProxy {
     ResetState()
     BringToFront()
 
-    Save(Vector<WebCore::InspectorFrontendClient::SaveData> saveDatas, bool forceSaveAs)
+    Save(Vector<WebCore::InspectorFrontendClientSaveData> saveDatas, bool forceSaveAs)
     Load(String path) -> (String content)
     PickColorFromScreen() -> (std::optional<WebCore::Color> color)
 
-    SetForcedAppearance(WebCore::InspectorFrontendClient::Appearance appearance)
+    SetForcedAppearance(enum:uint8_t WebCore::InspectorFrontendClientAppearance appearance)
 
     SetSheetRect(WebCore::FloatRect rect)
 

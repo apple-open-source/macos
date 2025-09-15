@@ -29,7 +29,7 @@
 #include "Document.h"
 #include "FloatRect.h"
 #include "FrameSelection.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "LocalFrameView.h"
 #include "NotImplemented.h"
 #include "PrintContext.h"

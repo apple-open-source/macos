@@ -299,11 +299,11 @@ If documented to output a *newly-allocated* object or a *reference* or *copy* of
 one, the caller is responsible for releasing the object when it is done.
 
 By convention, functions named `get0` return non-owning pointers. Functions
-named `new` or `get1` return owning pointers. Functions named `set0` take
-ownership of arguments. Functions named `set1` do not. They typically take a
-reference or make a copy internally. These names originally referred to the
-effect on a reference count, but the convention applies equally to
-non-reference-counted types.
+named `new` or `get1` return owning pointers. Functions named `set0` or `add0`
+take ownership of arguments. Functions named `set1` or `add1` do not. They
+typically take a reference or make a copy internally. These names originally
+referred to the effect on a reference count, but the convention applies equally
+to non-reference-counted types.
 
 API documentation may also describe more complex obligations. For instance, an
 object may borrow a pointer for longer than the duration of a single function

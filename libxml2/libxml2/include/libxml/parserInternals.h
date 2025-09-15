@@ -333,6 +333,9 @@ XMLPUBFUN xmlParserCtxtPtr XMLCALL
 			xmlCreateEntityParserCtxt(const xmlChar *URL,
 						 const xmlChar *ID,
 						 const xmlChar *base);
+XMLPUBFUN void XMLCALL
+			xmlErrMemory		(xmlParserCtxtPtr ctxt,
+						 const char *extra) LIBXML_API_AVAILABLE_MACOS26_IOS26_WATCHOS26_TVOS26;
 XMLPUBFUN int XMLCALL
 			xmlSwitchEncoding	(xmlParserCtxtPtr ctxt,
 						 xmlCharEncoding enc);
@@ -628,15 +631,6 @@ XMLPUBFUN void XMLCALL
 						 xmlEntityPtr entity);
 
 #endif /* LIBXML_LEGACY_ENABLED */
-
-#ifdef IN_LIBXML
-/*
- * internal only
- */
-XMLPUBFUN void XMLCALL
-	xmlErrMemory		(xmlParserCtxtPtr ctxt,
-				 const char *extra);
-#endif
 
 #ifdef __cplusplus
 }

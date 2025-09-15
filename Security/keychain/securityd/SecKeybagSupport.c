@@ -259,7 +259,10 @@ out:
  In bytes this means that a
  16 byte (128 bit) key returns a 24 byte wrapped key
  24 byte (192 bit) key returns a 32 byte wrapped key
- 32 byte (256 bit) key returns a 40 byte wrapped key  */
+ 32 byte (256 bit) key returns a 40 byte wrapped key
+ Note: AKS has maximum sizes of wrapped keys, so the (buffer) size of dest needs
+ to be large enough to hold the largest possible maximum wrapped key returned by AKS.
+ */
 bool ks_crypt(CFTypeRef operation, keybag_handle_t keybag, struct backup_keypair* bkp,
               keyclass_t keyclass, uint32_t textLength, const uint8_t *source, keyclass_t *actual_class, CFMutableDataRef dest,
               bool useNewBackupBehavior, CFErrorRef *error) {

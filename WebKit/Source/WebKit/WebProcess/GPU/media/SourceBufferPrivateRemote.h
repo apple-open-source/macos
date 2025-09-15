@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,9 +68,9 @@ public:
 
     constexpr WebCore::MediaPlatformType platformType() const final { return WebCore::MediaPlatformType::Remote; }
 
-    static WorkQueue& queue();
+    static WorkQueue& queueSingleton();
 
-    class MessageReceiver : public IPC::WorkQueueMessageReceiver {
+    class MessageReceiver : public IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any> {
     public:
         static Ref<MessageReceiver> create(SourceBufferPrivateRemote& parent)
         {
@@ -147,7 +147,9 @@ private:
     void setMaximumQueueDepthForTrackID(TrackID, uint64_t) final;
 
     void ensureOnDispatcherSync(Function<void()>&&);
-    void ensureWeakOnDispatcher(Function<void()>&&);
+    void ensureWeakOnDispatcher(Function<void(SourceBufferPrivateRemote&)>&&);
+
+    template<typename T> void sendToProxy(T&& message);
 
     RefPtr<MediaPlayerPrivateRemote> player() const;
 
@@ -159,7 +161,7 @@ private:
 
     friend class MessageReceiver;
     ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
-    Ref<MessageReceiver> m_receiver;
+    const Ref<MessageReceiver> m_receiver;
     const RemoteSourceBufferIdentifier m_remoteSourceBufferIdentifier;
 
     std::atomic<uint64_t> m_totalTrackBufferSizeInBytes = { 0 };
@@ -180,10 +182,16 @@ private:
     const Logger& sourceBufferLogger() const final { return m_logger.get(); }
     uint64_t sourceBufferLogIdentifier() final { return logIdentifier(); }
 
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 };
+
+template<typename T>
+void SourceBufferPrivateRemote::sendToProxy(T&& message)
+{
+    m_gpuProcessConnection.get()->connection().send(WTFMove(message), m_remoteSourceBufferIdentifier);
+}
 
 } // namespace WebKit
 

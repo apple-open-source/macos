@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2013-2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -763,9 +763,11 @@ WI.DataGrid = class DataGrid extends WI.View
         insertionIndex = Number.constrain(insertionIndex, 0, this.orderedColumns.length);
 
         // Copy configuration properties instead of keeping a reference to the passed-in object.
-        var column = Object.shallowCopy(columnData);
-        column["ordinal"] = insertionIndex;
-        column["columnIdentifier"] = columnIdentifier;
+        let column = {
+            ...columnData,
+            ordinal: insertionIndex,
+            columnIdentifier: columnIdentifier,
+        };
 
         this.orderedColumns.splice(insertionIndex, 0, columnIdentifier);
 
@@ -852,6 +854,9 @@ WI.DataGrid = class DataGrid extends WI.View
         this._fillerRowElement.insertBefore(fillerCellElement, referenceElement);
 
         this.setColumnVisible(columnIdentifier, !column.hidden);
+
+        for (let child of this.children)
+            child.refresh();
     }
 
     removeColumn(columnIdentifier)
@@ -972,7 +977,7 @@ WI.DataGrid = class DataGrid extends WI.View
         console.assert(column, "Missing column info for identifier: " + columnIdentifier);
         console.assert(typeof visible === "boolean", "New visible state should be explicit boolean", typeof visible);
 
-        if (!column || visible === !column.hidden)
+        if (!column || ("hidden" in column && visible === !column.hidden))
             return;
 
         column.element.style.width = visible ? column.width : 0;
@@ -980,9 +985,10 @@ WI.DataGrid = class DataGrid extends WI.View
 
         if (this._columnVisibilitySetting) {
             if (this._columnVisibilitySetting.value[columnIdentifier] !== visible) {
-                let copy = Object.shallowCopy(this._columnVisibilitySetting.value);
-                copy[columnIdentifier] = visible;
-                this._columnVisibilitySetting.value = copy;
+                this._columnVisibilitySetting.value = {
+                    ...this._columnVisibilitySetting.value,
+                    [columnIdentifier]: visible,
+                };
             }
         }
 
@@ -1698,7 +1704,9 @@ WI.DataGrid = class DataGrid extends WI.View
         if (this._columnChooserEnabled) {
             let didAddSeparator = false;
 
-            for (let [identifier, columnInfo] of this.columns) {
+            for (let identifier of this.orderedColumns) {
+                let columnInfo = this.columns.get(identifier);
+
                 if (columnInfo.locked)
                     continue;
 

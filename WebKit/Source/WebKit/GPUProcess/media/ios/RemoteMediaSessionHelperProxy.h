@@ -36,6 +36,7 @@
 namespace WebKit {
 
 class GPUConnectionToWebProcess;
+struct SharedPreferencesForWebProcess;
 
 class RemoteMediaSessionHelperProxy
     : public WebCore::MediaSessionHelperClient
@@ -63,10 +64,10 @@ private:
     void providePresentingApplicationPID(int, WebCore::MediaSessionHelper::ShouldOverride);
 
     // MediaSessionHelperClient
-    void applicationWillEnterForeground(SuspendedUnderLock) final;
-    void applicationDidEnterBackground(SuspendedUnderLock) final;
-    void applicationWillBecomeInactive() final;
-    void applicationDidBecomeActive() final;
+    void uiApplicationWillEnterForeground(SuspendedUnderLock) final;
+    void uiApplicationDidEnterBackground(SuspendedUnderLock) final;
+    void uiApplicationWillBecomeInactive() final;
+    void uiApplicationDidBecomeActive() final;
     void externalOutputDeviceAvailableDidChange(HasAvailableTargets) final;
     void isPlayingToAutomotiveHeadUnitDidChange(PlayingToAutomotiveHeadUnit) final;
     void activeAudioRouteDidChange(ShouldPause) final;

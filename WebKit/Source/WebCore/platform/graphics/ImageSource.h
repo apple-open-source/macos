@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,6 +80,8 @@ public:
     virtual unsigned frameCount() const { return 1; }
     virtual DestinationColorSpace colorSpace() const = 0;
     virtual std::optional<Color> singlePixelSolidColor() const = 0;
+    virtual bool hasHDRGainMap() const { return false; }
+    virtual bool hasHDRContent() const = 0;
 
     bool hasSolidColor() const;
 
@@ -101,7 +103,6 @@ public:
     // ImageFrame Metadata
     virtual Seconds frameDurationAtIndex(unsigned) const { RELEASE_ASSERT_NOT_REACHED(); return 0_s; }
     virtual ImageOrientation frameOrientationAtIndex(unsigned) const { RELEASE_ASSERT_NOT_REACHED(); return ImageOrientation::Orientation::None; }
-    virtual Headroom frameHeadroomAtIndex(unsigned) const { RELEASE_ASSERT_NOT_REACHED(); return Headroom::None; }
     virtual DecodingStatus frameDecodingStatusAtIndex(unsigned) const { RELEASE_ASSERT_NOT_REACHED(); return DecodingStatus::Invalid; }
 
     // Testing support
@@ -111,6 +112,8 @@ public:
     virtual void setClearDecoderAfterAsyncFrameRequestForTesting(bool) { RELEASE_ASSERT_NOT_REACHED(); }
     virtual void setAsyncDecodingEnabledForTesting(bool) { RELEASE_ASSERT_NOT_REACHED(); }
     virtual bool isAsyncDecodingEnabledForTesting() const { return false; }
+    virtual void setHasHDRContentForTesting() { RELEASE_ASSERT_NOT_REACHED(); }
+    virtual bool hasHDRContentForTesting() const { return false; }
 
     virtual void dump(WTF::TextStream&) const { }
 };

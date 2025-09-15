@@ -22,7 +22,12 @@
 #import "utilities/debugging.h"
 
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
+#import "keychain/ot/SecAsyncPiper.h"
 
+
+#import "keychain/ot/proto/generated_source/OTAccountSettings.h"
+#import "keychain/ot/proto/generated_source/OTWalrus.h"
+#import "keychain/ot/proto/generated_source/OTWebAccess.h"
 
 @interface KeychainSettings ()
 @property (strong) OTControl* control;
@@ -77,18 +82,43 @@
 
 - (void)updateCircleStatus
 {
+    NSError* piperError = nil;
+    SecAsyncPiper* piper = [[SecAsyncPiper alloc] initWithError:&piperError];
+    if (piperError) {
+        @synchronized (self) {
+            self.status = nil;
+            self.statusError = [piperError description];
+        }
+        return;
+    }
+
     [[KeychainSettings sharedOTControl] status:[[OTControlArguments alloc] init]
+                                         xpcFd:[piper xpcFd]
                                          reply:^(NSDictionary* result, NSError* _Nullable error) {
-                                             @synchronized (self) {
-                                                 if (error) {
-                                                     self.status = nil;
-                                                     self.statusError = [error description];
-                                                 } else {
-                                                     self.status = result;
-                                                     self.statusError = nil;
-                                                 }
-                                             }
-                                         }];
+        if (error) {
+            @synchronized (self) {
+                self.status = nil;
+                self.statusError = [error description];
+            }
+        } else {
+            NSError* internalError = nil;
+            NSDictionary* contextDump = [piper dictWithError:&internalError];
+            if (internalError) {
+                os_log(OS_LOG_DEFAULT, "Error decoding TPH json dump: %s\n", [[internalError description] UTF8String]);
+                @synchronized (self) {
+                    self.status = nil;
+                    self.statusError = [internalError description];
+                }
+            } else {
+                NSMutableDictionary* modifiableResult = [NSMutableDictionary dictionaryWithDictionary:result];
+                modifiableResult[@"contextDump"] = contextDump;
+                @synchronized (self) {
+                    self.status = modifiableResult;
+                    self.statusError = nil;
+                }
+            }
+        }
+    }];
 }
 
 - (NSArray *)specifiers {
@@ -213,14 +243,28 @@
 {
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
-    OTConfigurationContext* arguments = [[OTConfigurationContext alloc] init];
+    OTConfigurationContext* configurationContext = [[OTConfigurationContext alloc] init];
+
+    OTControlArguments* arguments = [[OTControlArguments alloc] initWithConfiguration:configurationContext];
+    __block OTAccountSettings* accountSettings = nil;
+    __block NSError* fetchError = nil;
+    [[KeychainSettings sharedOTControl] fetchAccountWideSettingsWithForceFetch:true arguments:arguments reply:^(OTAccountSettings * _Nullable retAccountSetting, NSError * _Nullable retError) {
+        accountSettings = retAccountSetting;
+        fetchError = retError;
+    }];
+    BOOL accountIsW = NO;
+    if (accountSettings.hasWalrus) {
+        accountIsW = accountSettings.walrus.enabled ? YES : NO;
+    }
+
     arguments.altDSID = [self primaryiCloudAccountAltDSID];
-    [[KeychainSettings sharedOTControl] resetAndEstablish:[[OTControlArguments alloc] initWithConfiguration:arguments]
+    [[KeychainSettings sharedOTControl] resetAndEstablish:arguments
                                               resetReason:CuttlefishResetReasonUserInitiatedReset
                                         idmsTargetContext:nil
                                    idmsCuttlefishPassword:nil
                                                notifyIdMS:false
                                           accountSettings:nil
+                                               accountIsW:accountIsW
                                                     reply:^(NSError * _Nullable error) {
                                                         if(error) {
 
@@ -275,13 +319,27 @@
 
         [specifiers addObjectsFromArray: [self loadSpecifiersFromPlistName:@"KeychainSettingsOctagonPeers" target:self]];
 
+        NSError* piperError = nil;
+        SecAsyncPiper* piper = [[SecAsyncPiper alloc] initWithError:&piperError];
+        if (piperError) {
+            os_log(OS_LOG_DEFAULT, "Error creating piper: %s\n", [[piperError description] UTF8String]);
+            return nil;
+        }
+
         void (^replyBlock)(NSDictionary* result, NSError* _Nullable error) = ^(NSDictionary* result, NSError* _Nullable error) {
-            if(error) {
-                os_log(OS_LOG_DEFAULT, "Error decoding TPH json dump: %s\n", [[error description] UTF8String]);
+            if (error) {
+                os_log(OS_LOG_DEFAULT, "Error getting TPH status: %s\n", [[error description] UTF8String]);
                 return;
             }
+
+            NSError* internalError = nil;
+            NSDictionary* contextDump = [piper dictWithError:&internalError];
+            if (internalError) {
+                os_log(OS_LOG_DEFAULT, "Error decoding TPH json dump: %s\n", [[internalError description] UTF8String]);
+                return;
+            }
+
             // Make it easy to find peer information
-            NSDictionary* contextDump = result[@"contextDump"];
             NSMutableDictionary<NSString*, NSDictionary*>* peers = [NSMutableDictionary dictionary];
             NSMutableArray<NSString*>* allPeerIDs = [NSMutableArray array];
             for(NSDictionary* peerInformation in contextDump[@"peers"]) {
@@ -325,6 +383,7 @@
         };
 
         [[KeychainSettings sharedOTControl] status:[[OTControlArguments alloc] init]
+                                             xpcFd:[piper xpcFd]
                                              reply:replyBlock];
 
         _specifiers = specifiers;

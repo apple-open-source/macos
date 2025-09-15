@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,9 +60,9 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ControlFactoryMac);
 
-RefPtr<ControlFactory> ControlFactory::create()
+Ref<ControlFactory> ControlFactory::create()
 {
-    return adoptRef(new ControlFactoryMac());
+    return adoptRef(*new ControlFactoryMac());
 }
 
 ControlFactoryMac& ControlFactoryMac::shared()
@@ -78,12 +78,8 @@ NSView *ControlFactoryMac::drawingView(const FloatRect& rect, const ControlStyle
     // Use a fake view.
     [m_drawingView setFrameSize:NSSizeFromCGSize(rect.size())];
     [m_drawingView setAppearance:[NSAppearance currentDrawingAppearance]];
-#if USE(NSVIEW_SEMANTICCONTEXT)
     if (style.states.contains(ControlStyle::State::FormSemanticContext))
         [m_drawingView _setSemanticContext:NSViewSemanticContextForm];
-#else
-    UNUSED_PARAM(style);
-#endif
     return m_drawingView.get();
 }
 

@@ -41,7 +41,7 @@ namespace WebKit {
 using namespace WebCore;
 
 #define WP_MESSAGE_CHECK(assertion, ...) { \
-    if (UNLIKELY(!(assertion))) { \
+    if (!(assertion)) [[unlikely]] { \
         RELEASE_LOG_FAULT(IPC, "Exiting: %" PUBLIC_LOG_STRING " is false", #assertion); \
         CRASH_WITH_INFO(__VA_ARGS__); \
     } \

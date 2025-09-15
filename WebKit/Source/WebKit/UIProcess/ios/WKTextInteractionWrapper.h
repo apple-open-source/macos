@@ -70,6 +70,7 @@
 
 @property (nonatomic, readonly) NSArray<UIView *> *managedTextSelectionViews;
 @property (nonatomic, readonly) UIWKTextInteractionAssistant *textInteractionAssistant;
+@property (nonatomic, readonly) UIView *selectionHighlightView;
 
 @end
 

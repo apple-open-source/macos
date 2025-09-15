@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -123,16 +123,17 @@ ImageBuffer* FilterImage::imageBufferFromPixelBuffer()
     if (m_imageBuffer)
         return m_imageBuffer.get();
 
-    m_imageBuffer = m_allocator.createImageBuffer(m_absoluteImageRect.size(), m_colorSpace, m_renderingMode);
-    if (!m_imageBuffer)
+    RefPtr imageBuffer = m_allocator.createImageBuffer(m_absoluteImageRect.size(), m_colorSpace, m_renderingMode);
+    m_imageBuffer = imageBuffer;
+    if (!imageBuffer)
         return nullptr;
 
     auto imageBufferRect = IntRect { { }, m_absoluteImageRect.size() };
 
     if (pixelBufferSlot(AlphaPremultiplication::Premultiplied))
-        m_imageBuffer->putPixelBuffer(*pixelBufferSlot(AlphaPremultiplication::Premultiplied), imageBufferRect);
+        imageBuffer->putPixelBuffer(*pixelBufferSlot(AlphaPremultiplication::Premultiplied), imageBufferRect);
     else if (pixelBufferSlot(AlphaPremultiplication::Unpremultiplied))
-        m_imageBuffer->putPixelBuffer(*pixelBufferSlot(AlphaPremultiplication::Unpremultiplied), imageBufferRect);
+        imageBuffer->putPixelBuffer(*pixelBufferSlot(AlphaPremultiplication::Unpremultiplied), imageBufferRect);
 
     return m_imageBuffer.get();
 }
@@ -143,7 +144,7 @@ static void copyImageBytes(const PixelBuffer& sourcePixelBuffer, PixelBuffer& de
 
     auto destinationSize = destinationPixelBuffer.size();
     auto rowBytes = CheckedUint32(destinationSize.width()) * 4;
-    if (UNLIKELY(rowBytes.hasOverflowed()))
+    if (rowBytes.hasOverflowed()) [[unlikely]]
         return;
 
     ConstPixelBufferConversionView source { sourcePixelBuffer.format(), rowBytes, sourcePixelBuffer.bytes() };
@@ -183,7 +184,7 @@ static void copyImageBytes(const PixelBuffer& sourcePixelBuffer, PixelBuffer& de
     auto destinationOffset = destinationRect.y() * destinationBytesPerRow + CheckedUint32(destinationRect.x()) * 4;
     auto sourceOffset = sourceRectClipped.y() * sourceBytesPerRow + CheckedUint32(sourceRectClipped.x()) * 4;
 
-    if (UNLIKELY(size.hasOverflowed() || destinationBytesPerRow.hasOverflowed() || sourceBytesPerRow.hasOverflowed() || destinationOffset.hasOverflowed() || sourceOffset.hasOverflowed()))
+    if (size.hasOverflowed() || destinationBytesPerRow.hasOverflowed() || sourceBytesPerRow.hasOverflowed() || destinationOffset.hasOverflowed() || sourceOffset.hasOverflowed()) [[unlikely]]
         return;
 
     auto destinationPixel = destinationPixelBuffer.bytes().subspan(destinationOffset.value());
@@ -253,8 +254,8 @@ PixelBuffer* FilterImage::pixelBuffer(AlphaPremultiplication alphaFormat)
 
     PixelBufferFormat format { alphaFormat, PixelFormat::RGBA8, m_colorSpace };
 
-    if (m_imageBuffer) {
-        pixelBuffer = m_imageBuffer->getPixelBuffer(format, { { }, m_absoluteImageRect.size() }, m_allocator);
+    if (RefPtr imageBuffer = m_imageBuffer) {
+        pixelBuffer = imageBuffer->getPixelBuffer(format, { { }, m_absoluteImageRect.size() }, m_allocator);
         if (!pixelBuffer)
             return nullptr;
         return pixelBuffer.get();
@@ -297,7 +298,7 @@ void FilterImage::copyPixelBuffer(PixelBuffer& destinationPixelBuffer, const Int
     auto alphaFormat = destinationPixelBuffer.format().alphaFormat;
     auto& colorSpace = destinationPixelBuffer.format().colorSpace;
 
-    auto* sourcePixelBuffer = pixelBufferSlot(alphaFormat) ? pixelBufferSlot(alphaFormat).get() : nullptr;
+    RefPtr sourcePixelBuffer = pixelBufferSlot(alphaFormat) ? pixelBufferSlot(alphaFormat).get() : nullptr;
 
     if (!sourcePixelBuffer) {
         if (requiresPixelBufferColorSpaceConversion(colorSpace)) {

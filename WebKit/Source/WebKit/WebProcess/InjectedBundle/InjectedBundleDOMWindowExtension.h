@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,10 +54,14 @@ public:
 private:
     InjectedBundleDOMWindowExtension(WebFrame*, InjectedBundleScriptWorld*);
 
-    Ref<WebCore::DOMWindowExtension> m_coreExtension;
+    const Ref<WebCore::DOMWindowExtension> m_coreExtension;
     mutable RefPtr<InjectedBundleScriptWorld> m_world;
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::InjectedBundleDOMWindowExtension)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BundleDOMWindowExtension; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // InjectedBundleDOMWindowExtension_h

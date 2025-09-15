@@ -156,6 +156,63 @@
     is(NULL, SecCertificateCreateWithPEM(NULL, (__bridge CFDataRef)pemData));
 }
 
+- (void)testCreateMultipleFromCertsBlob {
+    NSMutableData *certs = [NSMutableData dataWithBytes:_c0 length:sizeof(_c0)];
+    [certs appendBytes:_c1 length:sizeof(_c1)];
+    [certs appendBytes:_c2 length:sizeof(_c2)];
+    [certs appendBytes:_phased_c3 length:sizeof(_phased_c3)];
+
+    SecCertificateRef cert0 = NULL, cert1 = NULL, cert2 = NULL, cert3= NULL;
+    size_t used_len = 0;
+
+    cert0 = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certs);
+    XCTAssertNotEqual(cert0, NULL);
+    XCTAssertEqual(SecCertificateGetLength(cert0), sizeof(_c0));
+    used_len += (size_t)SecCertificateGetLength(cert0);
+
+    cert1 = SecCertificateCreateWithBytes(NULL, [certs bytes] + used_len, (CFIndex)([certs length] - used_len));
+    XCTAssertNotEqual(cert1, NULL);
+    XCTAssertEqual(SecCertificateGetLength(cert1), sizeof(_c1));
+    used_len += (size_t)SecCertificateGetLength(cert1);
+
+    certs = [NSMutableData dataWithBytes:([certs bytes] + used_len) length:([certs length] - used_len)];
+    used_len = 0;
+
+    cert2 = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certs);
+    XCTAssertNotEqual(cert2, NULL);
+    XCTAssertEqual(SecCertificateGetLength(cert2), sizeof(_c2));
+    used_len += (size_t)SecCertificateGetLength(cert2);
+
+    cert3 = SecCertificateCreateWithBytes(NULL, [certs bytes] + used_len, (CFIndex)([certs length] - used_len));
+    XCTAssertNotEqual(cert3, NULL);
+    XCTAssertEqual(SecCertificateGetLength(cert3), sizeof(_phased_c3));
+
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(cert2);
+    CFReleaseNull(cert3);
+}
+
+- (void)testCopyData {
+    NSMutableData *certs = [NSMutableData dataWithBytes:_c0 length:sizeof(_c0)];
+    [certs appendBytes:_c1 length:sizeof(_c1)];
+    NSData *cert0Data = [NSData dataWithBytes:_c0 length:sizeof(_c0)];
+
+    SecCertificateRef cert0 = NULL;
+
+    cert0 = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certs);
+    XCTAssertNotEqual(cert0, NULL);
+    NSData *copyData = CFBridgingRelease(SecCertificateCopyData(cert0));
+    XCTAssertEqualObjects(cert0Data, copyData);
+    CFReleaseNull(cert0);
+
+    cert0 = SecCertificateCreateWithBytes(NULL, [certs bytes], (CFIndex)[certs length]);
+    XCTAssertNotEqual(cert0, NULL);
+    copyData = CFBridgingRelease(SecCertificateCopyData(cert0));
+    XCTAssertEqualObjects(cert0Data, copyData);
+    CFReleaseNull(cert0);
+}
+
 - (void)testSelfSignedCA {
     SecCertificateRef cert0 = NULL, cert1 = NULL, cert5 = NULL;
     isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
@@ -781,6 +838,65 @@ errOut:
     XCTAssertNotNil(properties);
 
     CFReleaseNull(cert);
+}
+
+- (void)testThreadSafety {
+    SecCertificateRef cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0));
+
+    dispatch_queue_t concurrentQueue = dispatch_queue_create("com.apple.trusttests.EvalAsync.concurrent", DISPATCH_QUEUE_CONCURRENT_WITH_AUTORELEASE_POOL);
+    __block XCTestExpectation *blockExpectation = [self expectationWithDescription:@"callback occurs"];
+
+    blockExpectation.expectedFulfillmentCount = 10;
+
+    for (int i = 0; i < 10; i++) {
+        dispatch_async(concurrentQueue, ^{
+            // Keychain Item Set/Copy
+            CFStringRef fakeItem = CFStringCreateWithFormat(NULL, NULL, CFSTR("item %d"), i);
+            SecCertificateSetKeychainItem(cert0, fakeItem);
+            CFReleaseNull(fakeItem);
+            CFTypeRef copyItem = SecCertificateCopyKeychainItem(cert0);
+            CFReleaseNull(copyItem);
+            SecCertificateSetKeychainItem(cert0, NULL);
+
+            // Copy Properties Caching
+            CFArrayRef properties = SecCertificateCopyProperties(cert0);
+            XCTAssertNotEqual(NULL, properties);
+            CFReleaseNull(properties);
+            CFArrayRef localizedProperties = SecCertificateCopyLocalizedProperties(cert0, true);
+            XCTAssertNotEqual(NULL, localizedProperties);
+            CFReleaseNull(localizedProperties);
+            properties = SecCertificateCopyLocalizedProperties(cert0, false);
+            XCTAssertNotEqual(NULL, properties);
+            CFReleaseNull(properties);
+
+            // Public Key Caching
+            SecKeyRef pubKey = SecCertificateCopyKey(cert0);
+            XCTAssertNotEqual(NULL, pubKey);
+            CFReleaseNull(pubKey);
+
+            // SHA1Digest Caching
+            CFDataRef sha1 = SecCertificateGetSHA1Digest(cert0);
+            XCTAssertNotEqual(NULL, sha1);
+
+            // AKID/SKID Caching
+            CFDataRef akid = SecCertificateGetAuthorityKeyID(cert0);
+            XCTAssertNotEqual(NULL, akid);
+            CFDataRef skid = SecCertificateGetSubjectKeyID(cert0);
+            XCTAssertNotEqual(NULL, skid);
+            XCTAssert(CFEqualSafe(akid, skid));
+
+            // IsSelfSigned
+            XCTAssert(SecCertificateIsSelfSignedCA(cert0));
+            Boolean isSelfSigned = false;
+            XCTAssertEqual(errSecSuccess, SecCertificateIsSelfSigned(cert0, &isSelfSigned));
+            XCTAssert(isSelfSigned);
+
+            [blockExpectation fulfill];
+        });
+    }
+
+    [self waitForExpectations:@[blockExpectation] timeout:1.0];
+    CFReleaseNull(cert0);
 }
 
 @end

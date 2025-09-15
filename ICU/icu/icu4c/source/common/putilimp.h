@@ -629,4 +629,18 @@ U_CAPI UVoidFunction* U_EXPORT2 uprv_dlsym_func( void *lib, const char *symbolNa
  */
 U_CAPI bool U_EXPORT2 uaprv_onCalciumDevice();
 
+// rdar://145524181 (ICU time zone unit tests are using he OTA time zone data)
+/**
+ * Returns true if we're running the unit tests.
+ * This function determines this by calling getprogname() and checking whether the result is "intltest", "cintltst", "iotest" or "xctest".
+ */
+U_CAPI bool U_EXPORT2 uaprv_isRunningUnitTests();
+
+// rdar://145524181 (ICU time zone unit tests are using he OTA time zone data)
+/**
+ * Returns true if we're running XCTest.
+ * This function determines this by calling getprogname() and checking whether the result is "xctest".
+ */
+U_CAPI bool U_EXPORT2 uaprv_isRunningXCTest();
+
 #endif // APPLE_ICU_CHANGES

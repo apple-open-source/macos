@@ -48,7 +48,7 @@ void WebExtensionContext::portPostMessage(WebExtensionContentWorldType sourceCon
 
     if (!isPortConnected(sourceContentWorldType, targetContentWorldType, channelIdentifier)) {
         // The port might not be open on the other end yet. Queue the message until it does open.
-        RELEASE_LOG_DEBUG(Extensions, "Enqueued message for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(targetContentWorldType));
+        RELEASE_LOG_DEBUG(Extensions, "Enqueued message for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(targetContentWorldType).createNSString().get());
 
         auto& messages = m_portQueuedMessages.ensure({ targetContentWorldType, channelIdentifier }, [] {
             return Vector<MessagePageProxyIdentifierPair> { };
@@ -98,7 +98,7 @@ void WebExtensionContext::addPorts(WebExtensionContentWorldType sourceContentWor
     ASSERT(!addedPortCounts.isEmpty());
 
     for (auto& entry : addedPortCounts) {
-        RELEASE_LOG_DEBUG(Extensions, "Added %{public}u port(s) for channel %{public}llu in %{public}@ world for page %{public}llu", entry.value, channelIdentifier.toUInt64(), (NSString *)toDebugString(sourceContentWorldType), entry.key.toUInt64());
+        RELEASE_LOG_DEBUG(Extensions, "Added %{public}u port(s) for channel %{public}llu in %{public}@ world for page %{public}llu", entry.value, channelIdentifier.toUInt64(), toDebugString(sourceContentWorldType).createNSString().get(), entry.key.toUInt64());
 
         if (isBackgroundPage(entry.key))
             m_lastBackgroundPortActivityTime = MonotonicTime::now();
@@ -115,7 +115,7 @@ void WebExtensionContext::addPorts(WebExtensionContentWorldType sourceContentWor
 
 void WebExtensionContext::removePort(WebExtensionContentWorldType sourceContentWorldType, WebExtensionContentWorldType targetContentWorldType, WebExtensionPortChannelIdentifier channelIdentifier, WebPageProxyIdentifier webPageProxyIdentifier)
 {
-    RELEASE_LOG_DEBUG(Extensions, "Removed 1 port for channel %{public}llu in %{public}@ world for page %{public}llu", channelIdentifier.toUInt64(), (NSString *)toDebugString(sourceContentWorldType), webPageProxyIdentifier.toUInt64());
+    RELEASE_LOG_DEBUG(Extensions, "Removed 1 port for channel %{public}llu in %{public}@ world for page %{public}llu", channelIdentifier.toUInt64(), toDebugString(sourceContentWorldType).createNSString().get(), webPageProxyIdentifier.toUInt64());
 
     if (m_ports.remove({ sourceContentWorldType, channelIdentifier }))
         clearQueuedPortMessages(targetContentWorldType, channelIdentifier);
@@ -134,7 +134,7 @@ void WebExtensionContext::addNativePort(WebExtensionMessagePort& nativePort)
     constexpr auto contentWorldType = WebExtensionContentWorldType::Native;
     auto channelIdentifier = nativePort.channelIdentifier();
 
-    RELEASE_LOG_DEBUG(Extensions, "Added 1 port for channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(contentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Added 1 port for channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(contentWorldType).createNSString().get());
 
     m_ports.add({ contentWorldType, channelIdentifier });
     m_nativePortMap.add(channelIdentifier, nativePort);
@@ -145,7 +145,7 @@ void WebExtensionContext::removeNativePort(WebExtensionMessagePort& nativePort)
     constexpr auto contentWorldType = WebExtensionContentWorldType::Native;
     auto channelIdentifier = nativePort.channelIdentifier();
 
-    RELEASE_LOG_DEBUG(Extensions, "Removed 1 port for channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(contentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Removed 1 port for channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(contentWorldType).createNSString().get());
 
     clearQueuedPortMessages(WebExtensionContentWorldType::Main, channelIdentifier);
 
@@ -172,7 +172,7 @@ bool WebExtensionContext::isPortConnected(WebExtensionContentWorldType sourceCon
 {
     const auto sourceWorldCount = openPortCount(sourceContentWorldType, channelIdentifier);
 
-    RELEASE_LOG_DEBUG(Extensions, "Port channel %{public}llu has %{public}u port(s) open in %{public}@ world", channelIdentifier.toUInt64(), sourceWorldCount, (NSString *)toDebugString(sourceContentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Port channel %{public}llu has %{public}u port(s) open in %{public}@ world", channelIdentifier.toUInt64(), sourceWorldCount, toDebugString(sourceContentWorldType).createNSString().get());
 
     // When the worlds are the same, it is connected if there are 2 ports remaining.
     if (isEqual(sourceContentWorldType, targetContentWorldType))
@@ -180,7 +180,7 @@ bool WebExtensionContext::isPortConnected(WebExtensionContentWorldType sourceCon
 
     const auto targetWorldCount = openPortCount(targetContentWorldType, channelIdentifier);
 
-    RELEASE_LOG_DEBUG(Extensions, "Port channel %{public}llu has %{public}u port(s) open in %{public}@ world", channelIdentifier.toUInt64(), targetWorldCount, (NSString *)toDebugString(targetContentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Port channel %{public}llu has %{public}u port(s) open in %{public}@ world", channelIdentifier.toUInt64(), targetWorldCount, toDebugString(targetContentWorldType).createNSString().get());
 
     // When the worlds are different, it is connected if there is 1 port in each world remaining.
     return sourceWorldCount && targetWorldCount;
@@ -203,7 +203,7 @@ Vector<WebExtensionContext::MessagePageProxyIdentifierPair> WebExtensionContext:
 
 void WebExtensionContext::firePortMessageEventsIfNeeded(WebExtensionContentWorldType targetContentWorldType, std::optional<WebPageProxyIdentifier> sendingPageProxyIdentifier, WebExtensionPortChannelIdentifier channelIdentifier, const String& messageJSON)
 {
-    RELEASE_LOG_DEBUG(Extensions, "Sending message to port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(targetContentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Sending message to port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(targetContentWorldType).createNSString().get());
 
     constexpr auto type = WebExtensionEventListenerType::PortOnMessage;
 
@@ -221,7 +221,7 @@ void WebExtensionContext::firePortMessageEventsIfNeeded(WebExtensionContentWorld
 
     case WebExtensionContentWorldType::Native:
         if (RefPtr nativePort = m_nativePortMap.get(channelIdentifier))
-            nativePort->receiveMessage(parseJSON(messageJSON, JSONOptions::FragmentsAllowed), std::nullopt);
+            nativePort->receiveMessage(parseJSON(messageJSON.createNSString().get(), JSONOptions::FragmentsAllowed), std::nullopt);
         return;
 
     case WebExtensionContentWorldType::WebPage:
@@ -236,7 +236,7 @@ void WebExtensionContext::fireQueuedPortMessageEventsIfNeeded(WebExtensionConten
     if (messages.isEmpty())
         return;
 
-    RELEASE_LOG_DEBUG(Extensions, "Sending %{public}zu queued message(s) to port channel %{public}llu in %{public}@ world", messages.size(), channelIdentifier.toUInt64(), (NSString *)toDebugString(targetContentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Sending %{public}zu queued message(s) to port channel %{public}llu in %{public}@ world", messages.size(), channelIdentifier.toUInt64(), toDebugString(targetContentWorldType).createNSString().get());
 
     for (auto& entry : messages) {
         auto& sendingPageProxyIdentifier = std::get<std::optional<WebPageProxyIdentifier>>(entry);
@@ -260,7 +260,7 @@ void WebExtensionContext::sendQueuedNativePortMessagesIfNeeded(WebExtensionPortC
     RELEASE_LOG_DEBUG(Extensions, "Sending %{public}zu queued message(s) to port channel %{public}llu in native world", messages.size(), channelIdentifier.toUInt64());
 
     for (auto& entry : messages) {
-        id message = parseJSON(std::get<String>(entry), JSONOptions::FragmentsAllowed);
+        id message = parseJSON(std::get<String>(entry).createNSString().get(), JSONOptions::FragmentsAllowed);
 
         nativePort->sendMessage(message, [=](WebExtensionMessagePort::Error error) {
             if (error)
@@ -272,7 +272,7 @@ void WebExtensionContext::sendQueuedNativePortMessagesIfNeeded(WebExtensionPortC
 void WebExtensionContext::clearQueuedPortMessages(WebExtensionContentWorldType contentWorldType, WebExtensionPortChannelIdentifier channelIdentifier)
 {
     if (m_portQueuedMessages.remove({ contentWorldType, channelIdentifier }))
-        RELEASE_LOG_DEBUG(Extensions, "Cleared queued message(s) for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(contentWorldType));
+        RELEASE_LOG_DEBUG(Extensions, "Cleared queued message(s) for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(contentWorldType).createNSString().get());
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     // Inspector content world is a special alias of Main. Include it when Main is requested (and vice versa).
@@ -289,7 +289,7 @@ void WebExtensionContext::firePortDisconnectEventIfNeeded(WebExtensionContentWor
     if (isPortConnected(sourceContentWorldType, targetContentWorldType, channelIdentifier))
         return;
 
-    RELEASE_LOG_DEBUG(Extensions, "Sending disconnect event for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), (NSString *)toDebugString(targetContentWorldType));
+    RELEASE_LOG_DEBUG(Extensions, "Sending disconnect event for port channel %{public}llu in %{public}@ world", channelIdentifier.toUInt64(), toDebugString(targetContentWorldType).createNSString().get());
 
     constexpr auto type = WebExtensionEventListenerType::PortOnDisconnect;
 

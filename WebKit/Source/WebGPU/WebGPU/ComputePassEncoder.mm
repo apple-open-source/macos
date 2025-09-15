@@ -58,6 +58,7 @@ ComputePassEncoder::ComputePassEncoder(id<MTLComputeCommandEncoder> computeComma
     , m_parentEncoder(parentEncoder)
 {
     protectedParentEncoder()->lock(true);
+    RELEASE_ASSERT(m_maxDynamicOffsetAtIndex.size() >= m_device->limits().maxBindGroups);
 }
 
 ComputePassEncoder::ComputePassEncoder(CommandEncoder& parentEncoder, Device& device, NSString* errorString)
@@ -67,6 +68,7 @@ ComputePassEncoder::ComputePassEncoder(CommandEncoder& parentEncoder, Device& de
 {
     protectedParentEncoder()->lock(true);
     m_parentEncoder->setLastError(errorString);
+    RELEASE_ASSERT(m_maxDynamicOffsetAtIndex.size() >= m_device->limits().maxBindGroups);
 }
 
 ComputePassEncoder::~ComputePassEncoder()
@@ -82,11 +84,12 @@ struct EntryUsageData {
     uint32_t bindGroup;
 };
 using EntryMap = HashMap<uint64_t, EntryUsageData, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
-using EntryMapContainer = HashMap<const void*, EntryMap>;
+using TextureEntryMapContainer = HashMap<const void*, EntryMap>;
+using EntryMapContainer = HashMap<const void*, EntryUsage>;
 struct BindGroupId {
     uint32_t bindGroup { 0 };
 };
-static bool addResourceToActiveResources(const void* resourceAddress, id<MTLResource> mtlResource, OptionSet<BindGroupEntryUsage> initialUsage, EntryMapContainer& usagesForResource, BindGroupId bindGroup, uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0, WGPUTextureAspect aspect = WGPUTextureAspect_DepthOnly)
+static bool addTextureToActiveResources(const void* resourceAddress, id<MTLResource> mtlResource, OptionSet<BindGroupEntryUsage> initialUsage, TextureEntryMapContainer& usagesForResource, BindGroupId bindGroup, uint32_t baseMipLevel, uint32_t baseArrayLayer, WGPUTextureAspect aspect)
 {
     if (isTextureBindGroupEntryUsage(initialUsage)) {
         ASSERT([mtlResource conformsToProtocol:@protocol(MTLTexture)]);
@@ -130,31 +133,44 @@ static bool addResourceToActiveResources(const void* resourceAddress, id<MTLReso
 
     return true;
 }
+static bool addResourceToActiveResources(const void* resourceAddress, OptionSet<BindGroupEntryUsage> initialUsage, EntryMapContainer& usagesForResource)
+{
+    EntryUsage resourceUsage = initialUsage;
+    if (auto it = usagesForResource.find(resourceAddress); it != usagesForResource.end())
+        resourceUsage.add(it->value);
 
-static bool addResourceToActiveResources(const TextureView& texture, OptionSet<BindGroupEntryUsage> resourceUsage, BindGroupId bindGroup, EntryMapContainer& usagesForResource)
+    if (!BindGroup::allowedUsage(resourceUsage))
+        return false;
+
+    usagesForResource.set(resourceAddress, resourceUsage);
+
+    return true;
+}
+
+static bool addResourceToActiveResources(const TextureView& texture, OptionSet<BindGroupEntryUsage> resourceUsage, BindGroupId bindGroup, auto& usagesForResource)
 {
     WGPUTextureAspect textureAspect = texture.aspect();
     if (textureAspect != WGPUTextureAspect_All)
-        return addResourceToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), textureAspect);
+        return addTextureToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), textureAspect);
 
-    return addResourceToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), WGPUTextureAspect_DepthOnly) && addResourceToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), WGPUTextureAspect_StencilOnly);
+    return addTextureToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), WGPUTextureAspect_DepthOnly) && addTextureToActiveResources(&texture.apiParentTexture(), texture.parentTexture(), resourceUsage, usagesForResource, bindGroup, texture.baseMipLevel(), texture.baseArrayLayer(), WGPUTextureAspect_StencilOnly);
 }
 
-static bool addResourceToActiveResources(const BindGroupEntryUsageData::Resource& resource, id<MTLResource> mtlResource, OptionSet<BindGroupEntryUsage> resourceUsage, BindGroupId bindGroup, EntryMapContainer& usagesForResource, CommandEncoder& parentEncoder)
+static bool addResourceToActiveResources(const BindGroupEntryUsageData::Resource& resource, OptionSet<BindGroupEntryUsage> resourceUsage, BindGroupId bindGroup, EntryMapContainer& usagesForResource, TextureEntryMapContainer& textureUsagesForResource, CommandEncoder& parentEncoder)
 {
     return WTF::switchOn(resource, [&](const RefPtr<Buffer>& buffer) {
         if (buffer.get()) {
             if (resourceUsage.contains(BindGroupEntryUsage::Storage))
                 buffer->indirectBufferInvalidated(parentEncoder);
-            return addResourceToActiveResources(buffer.get(), buffer->buffer(), resourceUsage, usagesForResource, bindGroup);
+            return addResourceToActiveResources(buffer.get(), resourceUsage, usagesForResource);
         }
         return true;
     }, [&](const RefPtr<const TextureView>& textureView) {
         if (textureView.get())
-            return addResourceToActiveResources(*textureView.get(), resourceUsage, bindGroup, usagesForResource);
+            return addResourceToActiveResources(*textureView.get(), resourceUsage, bindGroup, textureUsagesForResource);
         return true;
     }, [&](const RefPtr<const ExternalTexture>& externalTexture) {
-        return addResourceToActiveResources(externalTexture.get(), mtlResource, resourceUsage, usagesForResource, bindGroup);
+        return addResourceToActiveResources(externalTexture.get(), resourceUsage, usagesForResource);
     });
 }
 
@@ -173,32 +189,38 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
     [computeCommandEncoder() setComputePipelineState:pipeline->computePipelineState()];
 
     EntryMapContainer usagesForResource;
+    TextureEntryMapContainer textureUsagesForResource;
     if (indirectBuffer)
-        addResourceToActiveResources(indirectBuffer, indirectBuffer->buffer(), BindGroupEntryUsage::Input, usagesForResource, BindGroupId { INT32_MAX });
+        addResourceToActiveResources(indirectBuffer, BindGroupEntryUsage::Input, usagesForResource);
 
     Ref pipelineLayout = pipeline->pipelineLayout();
     auto pipelineLayoutCount = pipelineLayout->numberOfBindGroupLayouts();
+    auto pipelineIdentifier = pipeline->uniqueId();
     for (auto& kvp : m_bindGroups) {
         auto bindGroupIndex = kvp.key;
+
         if (!kvp.value.get()) {
             makeInvalid(@"bind group was deallocated");
             return;
         }
         auto group = kvp.value;
-        if (group->makeSubmitInvalid(ShaderStage::Compute, pipelineLayout->optionalBindGroupLayout(bindGroupIndex))) {
-            protectedParentEncoder()->makeSubmitInvalid();
-            return;
-        }
+        if (group->hasSamplers())
+            protectedParentEncoder()->rebindSamplersPreCommit(group.get());
 
-        protectedParentEncoder()->addOnCommitHandler([group](CommandBuffer&) {
-            return group ? group->rebindSamplersIfNeeded() : true;
-        });
-        const Vector<uint32_t>* dynamicOffsets = nullptr;
-        if (auto it = m_bindGroupDynamicOffsets.find(bindGroupIndex); it != m_bindGroupDynamicOffsets.end())
-            dynamicOffsets = &it->value;
-        if (NSString* error = errorValidatingBindGroup(*group, pipeline->minimumBufferSizes(bindGroupIndex), dynamicOffsets)) {
-            makeInvalid(error);
-            return;
+        if (!group->previouslyValidatedBindGroup(bindGroupIndex, pipelineIdentifier, m_maxDynamicOffsetAtIndex[bindGroupIndex])) {
+            if (group->makeSubmitInvalid(ShaderStage::Compute, pipelineLayout->protectedOptionalBindGroupLayout(bindGroupIndex).get())) {
+                protectedParentEncoder()->makeSubmitInvalid();
+                return;
+            }
+
+            const Vector<uint32_t>* dynamicOffsets = nullptr;
+            if (auto it = m_bindGroupDynamicOffsets.find(bindGroupIndex); it != m_bindGroupDynamicOffsets.end())
+                dynamicOffsets = &it->value;
+            if (NSString* error = errorValidatingBindGroup(*group, pipeline->minimumBufferSizes(bindGroupIndex), dynamicOffsets)) {
+                makeInvalid(error);
+                return;
+            }
+            group->validatedSuccessfully(bindGroupIndex, pipelineIdentifier, m_maxDynamicOffsetAtIndex[bindGroupIndex]);
         }
         [computeCommandEncoder() setBuffer:group->computeArgumentBuffer() offset:0 atIndex:bindGroupIndex];
     }
@@ -211,7 +233,6 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
         Ref bindGroupLayout = pipelineLayout->bindGroupLayout(bindGroupIndex);
         for (auto* bindGroupResources : kvp.value) {
             for (size_t i = 0, sz = bindGroupResources->mtlResources.size(); i < sz; ++i) {
-                id<MTLResource> mtlResource = bindGroupResources->mtlResources[i];
                 auto& usageData = bindGroupResources->resourceUsages[i];
                 constexpr ShaderStage shaderStages[] = { ShaderStage::Vertex, ShaderStage::Fragment, ShaderStage::Compute, ShaderStage::Undefined };
                 std::optional<BindGroupLayout::StageMapValue> bindingAccess = std::nullopt;
@@ -223,7 +244,7 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
                 if (!bindingAccess)
                     continue;
 
-                if (!addResourceToActiveResources(usageData.resource, mtlResource, usageData.usage, BindGroupId { bindGroupIndex }, usagesForResource, protectedParentEncoder())) {
+                if (!addResourceToActiveResources(usageData.resource, usageData.usage, BindGroupId { bindGroupIndex }, usagesForResource, textureUsagesForResource, protectedParentEncoder())) {
                     makeInvalid();
                     return;
                 }
@@ -239,11 +260,9 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
     for (auto& kvp : m_bindGroupDynamicOffsets) {
         Ref pipelineLayout = pipeline->pipelineLayout();
         auto bindGroupIndex = kvp.key;
-        auto* pcomputeOffsets = pipelineLayout->computeOffsets(bindGroupIndex, kvp.value);
-        if (pcomputeOffsets && pcomputeOffsets->size()) {
-            auto& computeOffsets = *pcomputeOffsets;
-            auto startIndex = pipelineLayout->computeOffsetForBindGroup(bindGroupIndex);
-            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex), computeOffsets.span());
+        if (!pipelineLayout->updateComputeOffsets(bindGroupIndex, kvp.value, m_computeDynamicOffsets)) {
+            makeInvalid(@"Invalid offset calculation");
+            return;
         }
     }
 
@@ -357,7 +376,7 @@ void ComputePassEncoder::insertDebugMarker(String&& markerLabel)
     if (!prepareTheEncoderState())
         return;
 
-    [m_computeCommandEncoder insertDebugSignpost:markerLabel];
+    [m_computeCommandEncoder insertDebugSignpost:markerLabel.createNSString().get()];
 }
 
 bool ComputePassEncoder::validatePopDebugGroup() const
@@ -413,7 +432,7 @@ void ComputePassEncoder::pushDebugGroup(String&& groupLabel)
         return;
 
     ++m_debugGroupStackSize;
-    [m_computeCommandEncoder pushDebugGroup:groupLabel];
+    [m_computeCommandEncoder pushDebugGroup:groupLabel.createNSString().get()];
 }
 
 static void setCommandEncoder(const BindGroupEntryUsageData::Resource& resource, CommandEncoder& parentEncoder)
@@ -430,16 +449,26 @@ static void setCommandEncoder(const BindGroupEntryUsageData::Resource& resource,
     });
 }
 
-void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& group, std::span<const uint32_t> dynamicOffsets)
+void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup* groupPtr, std::optional<Vector<uint32_t>>&& dynamicOffsets)
 {
     RETURN_IF_FINISHED();
-    if (!isValidToUseWith(group, *this)) {
-        makeInvalid(@"GPUComputePassEncoder.setBindGroup: invalid bind group");
+
+    auto dynamicOffsetCount = (groupPtr && groupPtr->bindGroupLayout()) ? groupPtr->protectedBindGroupLayout()->dynamicBufferCount() : 0;
+    if (groupIndex >= m_device->limits().maxBindGroups || (dynamicOffsets && dynamicOffsetCount != dynamicOffsets->size())) {
+        makeInvalid(@"GPUComputePassEncoder.setBindGroup: groupIndex >= limits.maxBindGroups");
         return;
     }
 
-    if (groupIndex >= m_device->limits().maxBindGroups) {
-        makeInvalid(@"GPUComputePassEncoder.setBindGroup: groupIndex >= limits.maxBindGroups");
+    if (!groupPtr) {
+        m_bindGroups.remove(groupIndex);
+        m_bindGroupResources.remove(groupIndex);
+        m_bindGroupDynamicOffsets.remove(groupIndex);
+        m_maxDynamicOffsetAtIndex[groupIndex] = 0;
+    }
+
+    auto& group = *groupPtr;
+    if (!isValidToUseWith(group, *this)) {
+        makeInvalid(@"GPUComputePassEncoder.setBindGroup: invalid bind group");
         return;
     }
 
@@ -448,15 +477,16 @@ void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& grou
         makeInvalid(@"GPUComputePassEncoder.setBindGroup: bind group is nil");
         return;
     }
-    if (NSString* error = bindGroupLayout->errorValidatingDynamicOffsets(dynamicOffsets, group)) {
+    if (NSString* error = bindGroupLayout->errorValidatingDynamicOffsets(dynamicOffsets ? dynamicOffsets->span() : std::span<const uint32_t> { }, group, m_maxDynamicOffsetAtIndex[groupIndex])) {
         makeInvalid([NSString stringWithFormat:@"GPUComputePassEncoder.setBindGroup: %@", error]);
         return;
     }
 
-    if (dynamicOffsets.size())
-        m_bindGroupDynamicOffsets.set(groupIndex, Vector<uint32_t>(dynamicOffsets));
-    else
-        m_bindGroupDynamicOffsets.remove(groupIndex);
+    if (dynamicOffsets && dynamicOffsets->size()) {
+        m_bindGroupDynamicOffsets.set(groupIndex, WTFMove(*dynamicOffsets));
+        m_maxDynamicOffsetAtIndex[groupIndex] = 0;
+    } else if (m_bindGroupDynamicOffsets.remove(groupIndex))
+        m_maxDynamicOffsetAtIndex[groupIndex] = 0;
 
     Vector<const BindableResources*> resourceList;
     for (const auto& resource : group.resources()) {
@@ -484,9 +514,9 @@ void ComputePassEncoder::setPipeline(const ComputePipeline& pipeline)
         return;
     }
 
-    m_pipeline = &pipeline;
-    m_computeDynamicOffsets.resize(m_pipeline->protectedPipelineLayout()->sizeOfComputeDynamicOffsets());
-    m_computeDynamicOffsets.fill(0);
+    m_pipeline = pipeline;
+    m_computeDynamicOffsets.fill(0, m_pipeline->protectedPipelineLayout()->sizeOfComputeDynamicOffsets());
+    m_maxDynamicOffsetAtIndex.fill(0);
 
     ASSERT(pipeline.computePipelineState());
     m_threadsPerThreadgroup = pipeline.threadsPerThreadgroup();
@@ -494,7 +524,7 @@ void ComputePassEncoder::setPipeline(const ComputePipeline& pipeline)
 
 void ComputePassEncoder::setLabel(String&& label)
 {
-    m_computeCommandEncoder.label = label;
+    m_computeCommandEncoder.label = label.createNSString().get();
 }
 
 bool ComputePassEncoder::isValid() const
@@ -553,9 +583,9 @@ void wgpuComputePassEncoderPushDebugGroup(WGPUComputePassEncoder computePassEnco
     WebGPU::protectedFromAPI(computePassEncoder)->pushDebugGroup(WebGPU::fromAPI(groupLabel));
 }
 
-void wgpuComputePassEncoderSetBindGroup(WGPUComputePassEncoder computePassEncoder, uint32_t groupIndex, WGPUBindGroup group, size_t dynamicOffsetCount, const uint32_t* dynamicOffsets)
+void wgpuComputePassEncoderSetBindGroup(WGPUComputePassEncoder computePassEncoder, uint32_t groupIndex, WGPUBindGroup group, std::optional<Vector<uint32_t>>&& dynamicOffsets)
 {
-    WebGPU::protectedFromAPI(computePassEncoder)->setBindGroup(groupIndex, WebGPU::protectedFromAPI(group), unsafeMakeSpan(dynamicOffsets, dynamicOffsetCount));
+    WebGPU::protectedFromAPI(computePassEncoder)->setBindGroup(groupIndex, group ? WebGPU::protectedFromAPI(group).ptr() : nullptr, WTFMove(dynamicOffsets));
 }
 
 void wgpuComputePassEncoderSetPipeline(WGPUComputePassEncoder computePassEncoder, WGPUComputePipeline pipeline)

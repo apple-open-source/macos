@@ -441,13 +441,13 @@ processor_set_stack_usage(
 #endif /* DEVELOPMENT || DEBUG */
 }
 
-vm_offset_t
+__mockable vm_offset_t
 min_valid_stack_address(void)
 {
 	return (vm_offset_t)vm_map_min(kernel_map);
 }
 
-vm_offset_t
+__mockable vm_offset_t
 max_valid_stack_address(void)
 {
 	return (vm_offset_t)vm_map_max(kernel_map);

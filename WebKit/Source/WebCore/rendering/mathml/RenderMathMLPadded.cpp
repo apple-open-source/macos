@@ -73,7 +73,7 @@ LayoutUnit RenderMathMLPadded::mpaddedDepth(LayoutUnit contentDepth) const
 
 void RenderMathMLPadded::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     // Only the width attribute should modify the width.
     // We parse it using the preferred width of the content as its default value.
@@ -86,16 +86,16 @@ void RenderMathMLPadded::computePreferredLogicalWidths()
 
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
-void RenderMathMLPadded::layoutBlock(bool relayoutChildren, LayoutUnit)
+void RenderMathMLPadded::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     layoutFloatingChildren();
@@ -127,7 +127,7 @@ void RenderMathMLPadded::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     adjustLayoutForBorderAndPadding();
 
-    layoutPositionedObjects(relayoutChildren);
+    layoutOutOfFlowBoxes(relayoutChildren);
 
     updateScrollInfoAfterLayout();
 

@@ -25,19 +25,28 @@
 #include "config.h"
 #include "CSSSymbol.h"
 
+#include <wtf/text/TextStream.h>
+
 namespace WebCore {
 namespace CSS {
 
 // MARK: - Serialization
 
-void Serialize<SymbolRaw>::operator()(StringBuilder& builder, const SymbolRaw& value)
+void Serialize<SymbolRaw>::operator()(StringBuilder& builder, const SerializationContext&, const SymbolRaw& value)
 {
     builder.append(nameLiteralForSerialization(value.value));
 }
 
-void Serialize<Symbol>::operator()(StringBuilder& builder, const Symbol& value)
+void Serialize<Symbol>::operator()(StringBuilder& builder, const SerializationContext&, const Symbol& value)
 {
     builder.append(nameLiteralForSerialization(value.value));
+}
+
+// MARK: - Logging
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, const Symbol& value)
+{
+    return ts << nameLiteralForSerialization(value.value);
 }
 
 } // namespace CSS

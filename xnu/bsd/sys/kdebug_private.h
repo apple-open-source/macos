@@ -204,6 +204,7 @@ __BEGIN_DECLS
 
 // DBG_SECURITY private subclasses
 #define DBG_SEC_SSMA 0x02
+#define DBG_SEC_ERM  0x03
 
 #define SKYWALKDBG_CODE(SubClass, code) KDBG_CODE(DBG_DLIL, SubClass, code)
 #define PPTDBG_CODE(SubClass, code) KDBG_CODE(DBG_PPT, SubClass, code)

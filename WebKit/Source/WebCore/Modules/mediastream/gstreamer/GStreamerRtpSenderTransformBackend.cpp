@@ -22,6 +22,7 @@
 
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "NotImplemented.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -51,10 +52,11 @@ void GStreamerRtpSenderTransformBackend::setTransformableFrameCallback(Callback&
     notImplemented();
 }
 
-void GStreamerRtpSenderTransformBackend::requestKeyFrame()
+bool GStreamerRtpSenderTransformBackend::requestKeyFrame(const String&)
 {
     ASSERT(mediaType() == MediaType::Video);
     notImplemented();
+    return true;
 }
 
 } // namespace WebCore

@@ -102,7 +102,14 @@ void RefCountedEvent::releaseImpl(Renderer *renderer, RecyclerT *recycler)
     if (isLastReference)
     {
         ASSERT(recycler != nullptr);
-        recycler->recycle(std::move(*this));
+        if (renderer->getFeatures().recycleVkEvent.enabled)
+        {
+            recycler->recycle(std::move(*this));
+        }
+        else
+        {
+            destroy(renderer->getDevice());
+        }
         ASSERT(mHandle == nullptr);
     }
     else
@@ -156,7 +163,11 @@ void RefCountedEventArray::releaseToEventCollector(RefCountedEventCollector *eve
 
 bool RefCountedEventArray::initEventAtStage(Context *context, EventStage eventStage)
 {
-    ASSERT(!mBitMask[eventStage]);
+    if (mBitMask[eventStage])
+    {
+        return true;
+    }
+
     // Create the event if we have not yet so. Otherwise just use the already created event.
     if (!mEvents[eventStage].init(context, eventStage))
     {

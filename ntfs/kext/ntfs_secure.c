@@ -90,7 +90,7 @@ SDS_ENTRY *ntfs_file_sds_entry_old, *ntfs_dir_sds_entry_old;
  * Win2k+ style SDS entry.  The difference is that NT4 did not have the same
  * ACE inheritance rules so we modify the security descriptor to suit.
  */
-static void ntfs_default_sds_entry_init(SDS_ENTRY *sds, BOOL dir, BOOL old)
+static void ntfs_default_sds_entry_init(SDS_ENTRY *sds, NTFS_BOOL dir, NTFS_BOOL old)
 {
 	SECURITY_DESCRIPTOR_RELATIVE *sd;
 	ACL *dacl;

@@ -46,6 +46,7 @@
 - (void)logEndOfSessionWithReason:(NSString *)reason;
 - (void)handleRemoteDeviceIsNear;
 - (void)updateCoreSmartPowerNapState:(BOOL)active;
+- (void)handleSessionCoolOffTimer;
 
 - (void)updateInactiveState:(uint64_t)state;
 #if TARGET_OS_OSX

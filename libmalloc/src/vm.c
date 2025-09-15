@@ -24,9 +24,12 @@
 #include "internal.h"
 
 #if !MALLOC_TARGET_EXCLAVES
+volatile uintptr_t entropic_base = 0;
 static volatile uintptr_t entropic_address = 0;
-static volatile uintptr_t entropic_base = 0;
 static volatile uintptr_t entropic_limit = 0;
+
+MALLOC_NOEXPORT
+struct mvm_guarded_range_config_s malloc_guarded_range_config = {0};
 #endif // !MALLOC_TARGET_EXCLAVES
 
 MALLOC_NOEXPORT
@@ -110,6 +113,74 @@ mvm_aslr_init(void)
 #endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 }
 
+#if !MALLOC_TARGET_EXCLAVES
+static size_t
+mvm_random_page_aligned(uint32_t upper_bound)
+{
+	uint32_t max_pages = upper_bound / PAGE_SIZE;
+	uint32_t pages = arc4random_uniform(max_pages + 1);
+	return pages * PAGE_SIZE;
+}
+
+// The "guarded range" is a synthetic VA range that we create in order to
+// randomize the distance of malloc metadata from the fixed mappings that
+// are laid out at process launch.
+//
+// We implement this by mapping a PROT_NONE region: the size of this region is
+// randomly chosen between 4M and 5M. Within that region, we then punch a 1M
+// carveout, by deallocating a random piece of the guarded region VA.
+// The address of this carveout is then passed as a hint in mvm_allocate_plat
+// (whenever the provided address is zero), to nudge the VM into serving the
+// requested mappings through the carveout.
+//
+// Specifically, this is aimed at randomizing the distance between the binary's
+// __DATA segment and the malloc metadata allocated at process launch, namely
+// the initial zone allocation. Moreover, by having a variable-length tail at
+// the end of the region, we also randomize the distance between __DATA and
+// the regions mapped after malloc's metadata.
+//
+// rdar://146578480
+void
+mvm_guarded_range_init(void)
+{
+	size_t tail_size = mvm_random_page_aligned(MiB(1));
+	size_t range_size = MiB(4) + tail_size;
+	size_t carveout_size = MiB(1);
+	size_t carveout_max_offset = range_size - carveout_size - 2 * PAGE_SIZE;
+	size_t carveout_offset = mvm_random_page_aligned((uint32_t)carveout_max_offset);
+	mach_vm_address_t range_addr = 0;
+	mach_vm_address_t carveout_addr = 0;
+	kern_return_t kr = KERN_FAILURE;
+
+	// Reserve an inaccessible VA range.
+	kr = mach_vm_map(mach_task_self(), &range_addr, range_size, 0,
+			VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_MALLOC),
+			MEMORY_OBJECT_NULL, 0, FALSE, VM_PROT_NONE, VM_PROT_NONE,
+			VM_INHERIT_DEFAULT);
+	if (kr != KERN_SUCCESS) {
+		malloc_zone_error(MALLOC_ABORT_ON_ERROR, false,
+				"Failed to map guarded range: %d\n", kr);
+	}
+
+	// Punch a hole through the inaccessible VA range, creating a sub-region
+	// that can be used by the VM to satisfy mapping requests.
+	carveout_addr = range_addr + PAGE_SIZE + carveout_offset;
+	kr = mach_vm_deallocate(mach_task_self(), carveout_addr, carveout_size);
+	if (kr != KERN_SUCCESS) {
+		malloc_zone_error(MALLOC_ABORT_ON_ERROR, false,
+				"Failed to create carveout at 0x%lx"
+				" in malloc guarded range 0x%lx: %d\n",
+				(unsigned long) carveout_addr, (unsigned long) range_addr, kr);
+	}
+
+	malloc_guarded_range_config = (struct mvm_guarded_range_config_s){
+		.base_address = range_addr,
+		.size = range_size,
+		.carveout_address = carveout_addr
+	};
+}
+#endif // !MALLOC_TARGET_EXCLAVES
+
 void * __sized_by_or_null(size)
 mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int debug_flags, int vm_page_label, plat_map_t *map_out)
 {
@@ -149,6 +220,16 @@ mvm_allocate_plat(uintptr_t addr, size_t size, uint8_t align, int flags, int deb
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, false,
 				"Unsupported unpopulated allocation at address 0x%lx of size 0x%lx with flags %d\n",
 				(unsigned long) addr, (unsigned long) size, flags);
+	}
+
+	if (debug_flags & MALLOC_GUARDED_METADATA) {
+		if (addr || vm_page_label != VM_MEMORY_MALLOC) {
+			malloc_zone_error(MALLOC_ABORT_ON_ERROR | debug_flags, false,
+				"Unsupported guarded metadata allocation at address 0x%lx of size 0x%lx with flags %d and label %d\n",
+				(unsigned long) addr, (unsigned long) size, flags, vm_page_label);
+		}
+		// Pass the address of the carveout as a hint.
+		addr = (uintptr_t)malloc_guarded_range_config.base_address;
 	}
 
 
@@ -433,6 +514,8 @@ mvm_madvise_plat(void * __sized_by(sz) addr, size_t sz, int advice, unsigned deb
 	return !(kr == KERN_SUCCESS);
 }
 
+#if !defined(TESTING_XZONE_MALLOC)
+
 int
 mvm_madvise_free(void *rack, void *r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last, boolean_t scribble)
 {
@@ -584,3 +667,5 @@ mvm_reclaim_is_available(mach_vm_reclaim_id_t id)
 	return mach_vm_reclaim_is_reusable(state);
 }
 #endif // CONFIG_MAGAZINE_DEFERRED_RECLAIM
+
+#endif // !defined(TESTING_XZONE_MALLOC)

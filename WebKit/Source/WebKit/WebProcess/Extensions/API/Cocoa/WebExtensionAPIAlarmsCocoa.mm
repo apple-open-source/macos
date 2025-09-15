@@ -58,7 +58,7 @@ static inline NSDictionary *toWebAPI(const WebExtensionAlarmParameters& alarm)
 {
     NSMutableDictionary *result = [NSMutableDictionary dictionaryWithCapacity:3];
 
-    result[nameKey] = static_cast<NSString *>(alarm.name);
+    result[nameKey] = alarm.name.createNSString().get();
     result[scheduledTimeKey] = @(floor(alarm.nextScheduledTime.approximateWallTime().secondsSinceEpoch().milliseconds()));
 
     if (alarm.repeatInterval)
@@ -85,7 +85,7 @@ void WebExtensionAPIAlarms::createAlarm(NSString *name, NSDictionary *alarmInfo,
     auto *periodNumber = objectForKey<NSNumber>(alarmInfo, periodInMinutesKey);
 
     if (whenNumber && delayNumber) {
-        *outExceptionString = toErrorString(nullString(), @"info", @"it cannot specify both 'delayInMinutes' and 'when'");
+        *outExceptionString = toErrorString(nullString(), @"info", @"it cannot specify both 'delayInMinutes' and 'when'").createNSString().autorelease();
         return;
     }
 

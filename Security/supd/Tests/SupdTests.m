@@ -41,7 +41,8 @@
 static NSString* _path;
 static NSInteger _testnum;
 static NSString* build = NULL;
-static NSString* product = NULL;
+static NSString* productName = NULL;
+static NSString* productVersion = NULL;
 static NSInteger _reporterWrites;
 
 // MARK: SUPDConnectionAcceptAll
@@ -264,7 +265,8 @@ static NSInteger _reporterWrites;
         if ([event isKindOfClass:[NSDictionary class]]) {
             NSLog(@"build: \"%@\", eventbuild: \"%@\"", build, event[@"build"]);
             XCTAssertEqualObjects(event[@"build"], build, @"event contains correct build string");
-            XCTAssertEqualObjects(event[@"product"], product, @"event contains correct product string");
+            XCTAssertEqualObjects(event[@"product"], productName, @"event contains correct product string");
+            XCTAssertEqualObjects(event[@"version"], productVersion, @"event contains correct product string");
             XCTAssertTrue([event[@"eventTime"] isKindOfClass:[NSNumber class]], @"event contains an NSNumber 'eventTime");
             NSDate* eventTime = [NSDate dateWithTimeIntervalSince1970:[event[@"eventTime"] doubleValue]];
             XCTAssertTrue([[NSDate date] timeIntervalSinceDate:eventTime] < 3, @"eventTime is good");
@@ -424,7 +426,8 @@ static NSInteger _reporterWrites;
     NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
     if (version) {
         build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
-        product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+        productName = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
+        productVersion = version[(__bridge NSString *)_kCFSystemVersionProductVersionKey];
     } else {
         NSLog(@"could not get build version/product, tests should fail");
     }

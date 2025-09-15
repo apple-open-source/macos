@@ -22,7 +22,7 @@
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA) && ENABLE(VIDEO)
 
-using WebKit::SharedVideoFrame::Buffer = std::variant<std::nullptr_t, WebKit::RemoteVideoFrameReadReference, MachSendRight, WebCore::IntSize>
+using WebKit::SharedVideoFrame::Buffer = Variant<std::nullptr_t, WebKit::RemoteVideoFrameReadReference, MachSendRight, WebCore::IntSize>
 
 [RValue] struct WebKit::SharedVideoFrame {
     MediaTime time;

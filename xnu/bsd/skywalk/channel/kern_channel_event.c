@@ -59,7 +59,7 @@ __notif_dest_by_ifp(struct __notif_dest *dest, const ifnet_t ifp)
 		return EINVAL;
 	}
 
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		return ENXIO;
 	}
 
@@ -124,8 +124,7 @@ kern_channel_packet_event_notify(struct __notif_dest *dest,
     os_channel_event_type_t event_type, size_t event_dlen,
     uint8_t *__sized_by(event_dlen)event_data, uint32_t nx_port_id)
 {
-	char buf[CHANNEL_EVENT_MAX_LEN]
-	__attribute((aligned(sizeof(uint64_t))));
+	char buf[CHANNEL_EVENT_MAX_LEN] __sk_aligned(64);
 	struct __kern_channel_event *event =
 	    (struct __kern_channel_event *)(void *)buf;
 
@@ -146,9 +145,9 @@ kern_channel_packet_event_notify(struct __notif_dest *dest,
 	event->ev_dlen = (uint16_t)event_dlen;
 	memcpy(event->ev_data, event_data, event_dlen);
 
-	SK_DF(SK_VERB_EVENTS, "%s[%d] kern_channel_event: %p dest_type: %hu len: %hu "
+	SK_DF(SK_VERB_EVENTS, "%s[%d] kern_channel_event: %p dest_type: %u len: %zu "
 	    "type: %u flags: %u res: %hu dlen: %hu",
-	    dest->dest_desc, nx_port_id, event, event_dlen,
+	    dest->dest_desc, nx_port_id, SK_KVA(event), dest->dest_type, event_dlen,
 	    event->ev_type, event->ev_flags, event->_reserved, event->ev_dlen);
 
 	switch (dest->dest_type) {
@@ -297,9 +296,8 @@ kern_channel_event_notify(struct __kern_channel_ring *kring)
 {
 	ASSERT(kring->ckr_tx == NR_TX);
 
-	SK_DF(SK_VERB_EVENTS, "%s(%d) na \"%s\" (0x%llx) kr 0x%llx",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
-	    KRNA(kring)->na_name, SK_KVA(KRNA(kring)), SK_KVA(kring));
+	SK_DF(SK_VERB_EVENTS, "na \"%s\" (%p) kr %p", KRNA(kring)->na_name,
+	    SK_KVA(KRNA(kring)), SK_KVA(kring));
 
 	na_post_event(kring, TRUE, FALSE, FALSE, CHAN_FILT_HINT_CHANNEL_EVENT);
 }

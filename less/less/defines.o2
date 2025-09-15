@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -91,6 +91,12 @@
 #define	LOGFILE		(!SECURE)
 
 /*
+ * OSC8_SEARCH is 1 if you wish to allow the ^O^O and related commands
+ * (to open OSC8 hyperlinks).
+ */
+#define OSC8_LINK	1
+
+/*
  * GNU_OPTIONS is 1 if you wish to support the GNU-style command
  * line options --help and --version.
  */
@@ -115,6 +121,7 @@
 #define	LESSKEYFILE		"less.ini"
 #define	LESSKEYFILE_SYS		"C:\\sysless.ini"
 #define	DEF_LESSKEYINFILE	"lesskey.ini"
+#define	LESSKEYINFILE_SYS	"C:\\syslesskey.ini"
 #define LESSHISTFILE		"lesshst.ini"
 
 
@@ -167,6 +174,9 @@
  * HAVE_DUP is 1 if your system has the dup() call.
  */
 #define	HAVE_DUP	1
+
+/* Define to 1 to support reading lesskey source files (not just binary). */
+#define HAVE_LESSKEYSRC 1
 
 /*
  * Sizes of various buffers.

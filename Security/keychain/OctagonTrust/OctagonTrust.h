@@ -44,6 +44,7 @@
 #import <OctagonTrust/OTWalrus.h>
 #import <OctagonTrust/OTWebAccess.h>
 #import <OctagonTrust/OTNotifications.h>
+#import <OctagonTrust/OTEscrowCheckCallResult.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -309,6 +310,14 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.4), ios(13.0, 17.4), watchos(
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
 
 /* *
+  * @abstract                        Return the number of trusted full peers in Octagon
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return NSNumber                 Number of full peers trusted in Octagon
+  */
++ (NSNumber * _Nullable)trustedFullPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error;
+
+/* *
   * @abstract                        Check if any recovery keys are distrusted
   * @param ctx                       Configuration context containing parameters to setup OTClique
   * @param error                     An error parameter: filled in if the call times out or fails in any way
@@ -327,6 +336,16 @@ API_DEPRECATED("No longer needed", macos(10.15, 14.4), ios(13.0, 17.4), watchos(
                                      returns NO if the operation failed
   */
 + (BOOL)registerRecoveryKeyInSOSAndBackup:(OTConfigurationContext*)ctx recoveryKey:(NSString*)recoveryKey error:(NSError**)error;
+
+/* *
+  * @abstract                        For the current device, check to make sure there is a viable iCSC availale
+  * @param ctx                       Configuration context containing parameters to setup OTClique
+  * @param isBackgroundCheck         True if this call is not user-facing, else false
+  * @param error                     An error parameter: filled in if the call times out or fails in any way
+  * @return OTEscrowCheckCallResult* An object with information about the current iCSC enrollment
+                                     returns nil if the operation failed
+  */
++ (OTEscrowCheckCallResult * __nullable)escrowCheck:(OTConfigurationContext*)ctx isBackgroundCheck:(BOOL)isBackgroundCheck error:(NSError * __autoreleasing *)error;
 
 @end
 

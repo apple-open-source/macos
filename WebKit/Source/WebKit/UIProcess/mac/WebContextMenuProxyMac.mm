@@ -43,6 +43,7 @@
 #import "WebContextMenuItemData.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
+#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/LocalizedStrings.h>
@@ -54,10 +55,6 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/SpanCocoa.h>
-
-#if HAVE(UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK)
-#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
-#endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 #import "WebExtensionController.h"
@@ -134,8 +131,8 @@
 
 + (WKMenuTarget*)sharedMenuTarget
 {
-    static WKMenuTarget* target = [[WKMenuTarget alloc] init];
-    return target;
+    static NeverDestroyed<RetainPtr<WKMenuTarget>> target = adoptNS([[WKMenuTarget alloc] init]);
+    return target.get().get();
 }
 
 - (WebKit::WebContextMenuProxyMac*)menuProxy
@@ -150,10 +147,11 @@
 
 - (void)forwardContextMenuAction:(id)sender
 {
-    if (!_menuProxy)
+    RefPtr menuProxy = _menuProxy.get();
+    if (!menuProxy)
         return;
 
-    id representedObject = [sender representedObject];
+    RetainPtr<id> representedObject = [sender representedObject];
 
     // NSMenuItems with a represented selection handler belong solely to the UI process
     // and don't need any further processing after the selection handler is called.
@@ -164,32 +162,29 @@
 
     ASSERT(!sender || [sender isKindOfClass:NSMenuItem.class]);
     WebKit::WebContextMenuItemData item(WebCore::ContextMenuItemType::Action, static_cast<WebCore::ContextMenuAction>([sender tag]), [sender title], [sender isEnabled], [(NSMenuItem *)sender state] == NSControlStateValueOn);
-    if (representedObject) {
-        ASSERT([representedObject isKindOfClass:[WKUserDataWrapper class]]);
-        item.setUserData([static_cast<WKUserDataWrapper *>(representedObject) userData]);
-    }
+    if (representedObject)
+        item.setUserData(RefPtr { [checked_objc_cast<WKUserDataWrapper>(representedObject.get()) userData] }.get());
 
-    _menuProxy->contextMenuItemSelected(item);
+    menuProxy->contextMenuItemSelected(item);
 }
 
 #if ENABLE(WRITING_TOOLS)
 - (void)showWritingTools:(id)sender
 {
-    if (!_menuProxy)
+    RefPtr menuProxy = _menuProxy.get();
+    if (!menuProxy)
         return;
 
     WTRequestedTool tool = (WTRequestedTool)[sender tag];
 
-    _menuProxy->handleContextMenuWritingTools(WebKit::convertToWebRequestedTool(tool));
+    menuProxy->handleContextMenuWritingTools(WebKit::convertToWebRequestedTool(tool));
 }
 #endif
 
 - (void)performShare:(id)sender
 {
-    if (!_menuProxy)
-        return;
-
-    _menuProxy->handleShareMenuItem();
+    if (RefPtr menuProxy = _menuProxy.get())
+        menuProxy->handleShareMenuItem();
 }
 
 @end
@@ -207,7 +202,7 @@
     if (!(self = [super init]))
         return nil;
 
-    _menuProxy = &menuProxy;
+    _menuProxy = menuProxy;
 
     return self;
 }
@@ -216,12 +211,12 @@
 
 - (void)menuWillOpen:(NSMenu *)menu
 {
-    _menuProxy->page()->didShowContextMenu();
+    Ref { *_menuProxy }->protectedPage()->didShowContextMenu();
 }
 
 - (void)menuDidClose:(NSMenu *)menu
 {
-    _menuProxy->page()->didDismissContextMenu();
+    Ref { *_menuProxy }->protectedPage()->didDismissContextMenu();
 }
 
 @end
@@ -229,9 +224,10 @@
 namespace WebKit {
 using namespace WebCore;
 
-WebContextMenuProxyMac::WebContextMenuProxyMac(NSView *webView, WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+WebContextMenuProxyMac::WebContextMenuProxyMac(NSView *webView, WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     : WebContextMenuProxy(page, WTFMove(context), userData)
     , m_webView(webView)
+    , m_frameInfo(WTFMove(frameInfo))
 {
 }
 
@@ -246,13 +242,13 @@ void WebContextMenuProxyMac::contextMenuItemSelected(const WebContextMenuItemDat
     clearServicesMenu();
 #endif
 
-    page()->contextMenuItemSelected(item);
+    protectedPage()->contextMenuItemSelected(item, m_frameInfo);
 }
 
 #if ENABLE(WRITING_TOOLS)
 void WebContextMenuProxyMac::handleContextMenuWritingTools(WebCore::WritingTools::RequestedTool tool)
 {
-    page()->handleContextMenuWritingTools(tool);
+    protectedPage()->handleContextMenuWritingTools(tool);
 }
 #endif
 
@@ -269,19 +265,15 @@ void WebContextMenuProxyMac::setupServicesMenu()
     bool includeEditorServices = m_context.controlledDataIsEditable();
     bool hasControlledImage = m_context.controlledImage();
     bool isPDFAttachment = false;
-    auto attachment = page()->attachmentForIdentifier(m_context.controlledImageAttachmentID());
+    auto attachment = protectedPage()->attachmentForIdentifier(m_context.controlledImageAttachmentID());
     if (attachment) {
-#if HAVE(UNIFORM_TYPE_IDENTIFIERS_FRAMEWORK)
         isPDFAttachment = attachment->utiType() == String(UTTypePDF.identifier);
-#else
-        isPDFAttachment = attachment->utiType() == String(kUTTypePDF);
-#endif
     }
     NSArray *items = nil;
     RetainPtr<NSItemProvider> itemProvider;
     if (hasControlledImage) {
         if (attachment)
-            itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType()]);
+            itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType().createNSString().get()]);
         else {
             RefPtr<ShareableBitmap> image = m_context.controlledImage();
             if (!image)
@@ -298,7 +290,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     } else if (RetainPtr selection = m_context.controlledSelection().nsAttributedString())
         items = @[ selection.get() ];
     else if (isPDFAttachment) {
-        itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType()]);
+        itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType().createNSString().get()]);
         items = @[ itemProvider.get() ];
     } else {
         LOG_ERROR("No service controlled item represented in the context");
@@ -329,9 +321,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     Vector<RetainPtr<NSMenuItem>> telephoneNumberMenuItems;
 
     for (auto& telephoneNumber : m_context.selectedTelephoneNumbers()) {
-        if (NSMenuItem *item = menuItemForTelephoneNumber(telephoneNumber)) {
+        if (RetainPtr item = menuItemForTelephoneNumber(telephoneNumber)) {
             [item setIndentationLevel:1];
-            telephoneNumberMenuItems.append(item);
+            telephoneNumberMenuItems.append(WTFMove(item));
         }
     }
 
@@ -358,7 +350,7 @@ void WebContextMenuProxyMac::appendRemoveBackgroundItemToControlledImageMenuIfNe
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
     RefPtr page = this->page();
-    if (!page || !page->preferences().removeBackgroundEnabled())
+    if (!page || !page->protectedPreferences()->removeBackgroundEnabled())
         return;
 
     auto context = m_context.controlledImageElementContext();
@@ -385,8 +377,8 @@ void WebContextMenuProxyMac::appendRemoveBackgroundItemToControlledImageMenuIfNe
             if (!strongMenu)
                 return;
 
-            auto removeBackgroundItem = adoptNS([[NSMenuItem alloc] initWithTitle:contextMenuItemTitleRemoveBackground() action:@selector(removeBackground) keyEquivalent:@""]);
-            [removeBackgroundItem setImage:[NSImage imageWithSystemSymbolName:@"person.fill.viewfinder" accessibilityDescription:contextMenuItemTitleRemoveBackground()]];
+            auto removeBackgroundItem = adoptNS([[NSMenuItem alloc] initWithTitle:contextMenuItemTitleRemoveBackground().createNSString().get() action:@selector(removeBackground) keyEquivalent:@""]);
+            [removeBackgroundItem setImage:[NSImage imageWithSystemSymbolName:@"person.fill.viewfinder" accessibilityDescription:contextMenuItemTitleRemoveBackground().createNSString().get()]];
             [removeBackgroundItem setTarget:WKSharingServicePickerDelegate.sharedSharingServicePickerDelegate];
             [removeBackgroundItem setAction:@selector(removeBackground)];
             [removeBackgroundItem setIndentationLevel:[strongMenu itemArray].lastObject.indentationLevel];
@@ -416,7 +408,8 @@ void WebContextMenuProxyMac::clearServicesMenu()
 void WebContextMenuProxyMac::removeBackgroundFromControlledImage()
 {
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-    if (!page())
+    RefPtr page = this->page();
+    if (!page)
         return;
 
     auto elementContext = m_context.controlledImageElementContext();
@@ -427,11 +420,11 @@ void WebContextMenuProxyMac::removeBackgroundFromControlledImage()
     if (!data)
         return;
 
-    page()->replaceImageForRemoveBackground(*elementContext, { String(type.get()) }, span(data.get()));
+    page->replaceImageForRemoveBackground(*elementContext, { String(type.get()) }, span(data.get()));
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 }
 
-#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
+#if ENABLE(CONTEXT_MENU_IMAGES_ON_MAC)
 static void updateMenuItemImage(NSMenuItem *menuItem, const WebContextMenuItemData& webMenuItem)
 {
     if (![menuItem respondsToSelector:@selector(_setActionImage:)])
@@ -466,7 +459,7 @@ static void updateMenuItemImage(NSMenuItem *menuItem, const WebContextMenuItemDa
         break;
     }
 
-    [menuItem _setActionImage:[NSImage imageWithSystemSymbolName:symbolNameForAction(webMenuItem.action(), useAlternateImage) accessibilityDescription:nil]];
+    addImageToMenuItem(menuItem, webMenuItem.action(), useAlternateImage);
 }
 #endif
 
@@ -479,56 +472,53 @@ RetainPtr<NSMenuItem> WebContextMenuProxyMac::createShareMenuItem(ShareMenuItemT
 
     if (!hitTestData.absoluteLinkURL.isEmpty()) {
         auto absoluteLinkURL = URL({ }, hitTestData.absoluteLinkURL);
-        if (!absoluteLinkURL.isEmpty())
-            [items addObject:(NSURL *)absoluteLinkURL];
+        if (!absoluteLinkURL.isEmpty()) {
+            if (RetainPtr url = absoluteLinkURL.createNSURL())
+                [items addObject:url.get()];
+        }
     }
 
     if (hitTestData.isDownloadableMedia && !hitTestData.absoluteMediaURL.isEmpty()) {
         auto downloadableMediaURL = URL({ }, hitTestData.absoluteMediaURL);
-        if (!downloadableMediaURL.isEmpty())
-            [items addObject:(NSURL *)downloadableMediaURL];
+        if (!downloadableMediaURL.isEmpty()) {
+            if (RetainPtr url = downloadableMediaURL.createNSURL())
+                [items addObject:url.get()];
+        }
     }
 
     bool usePlaceholder = type == ShareMenuItemType::Placeholder;
     if (hitTestData.imageSharedMemory) {
         if (usePlaceholder)
             [items addObject:adoptNS([[NSImage alloc] init]).get()];
-        else if (auto image = adoptNS([[NSImage alloc] initWithData:hitTestData.imageSharedMemory->toNSData().get()])) {
-            NSString *title = hitTestData.imageText;
-            if (!title.length)
+        else if (auto image = adoptNS([[NSImage alloc] initWithData:Ref { *hitTestData.imageSharedMemory }->toNSData().get()])) {
+            RetainPtr title = hitTestData.imageText.createNSString();
+            if (![title length])
                 title = WEB_UI_NSSTRING(@"Image", "Fallback title for images in the share sheet");
 
-            auto activityItem = adoptNS([[NSPreviewRepresentingActivityItem alloc] initWithItem:image.get() title:title image:image.get() icon:nil]);
+            auto activityItem = adoptNS([[NSPreviewRepresentingActivityItem alloc] initWithItem:image.get() title:title.get() image:image.get() icon:nil]);
             [items addObject:activityItem.get()];
         }
     }
 
     if (!m_context.selectedText().isEmpty())
-        [items addObject:(NSString *)m_context.selectedText()];
+        [items addObject:m_context.selectedText().createNSString().get()];
 
     if (![items count])
         return nil;
 
     RetainPtr sharingServicePicker = adoptNS([[NSSharingServicePicker alloc] initWithItems:items.get()]);
-    RetainPtr shareMenuItem = [sharingServicePicker standardShareMenuItem];
+    RetainPtr shareMenuItem = [sharingServicePicker standardShareMenuItemRelativeToRect:hitTestData.elementBoundingBox ofView:m_webView.get().get() preferredEdge:NSMinYEdge];
 
     if (!shareMenuItem)
         return nil;
 
-#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
-    RetainPtr<NSImage> actionImage;
-    bool shouldSetMenuItemImage = page()->preferences().contextMenuImagesForInternalClientsEnabled() && [shareMenuItem respondsToSelector:@selector(_setActionImage:)];
-    if (shouldSetMenuItemImage)
-        actionImage = [shareMenuItem _actionImage];
-#endif
-
     if (usePlaceholder) {
-        shareMenuItem = adoptNS([[NSMenuItem alloc] initWithTitle:[shareMenuItem title] action:@selector(performShare:) keyEquivalent:@""]);
-#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
-        if (shouldSetMenuItemImage)
-            [shareMenuItem _setActionImage:actionImage.get()];
+        RetainPtr placeholder = adoptNS([[NSMenuItem alloc] initWithTitle:[shareMenuItem title] action:@selector(performShare:) keyEquivalent:@""]);
+        [placeholder setTarget:[WKMenuTarget sharedMenuTarget]];
+#if ENABLE(CONTEXT_MENU_IMAGES_ON_MAC)
+        [placeholder _setActionImage:[shareMenuItem _actionImage]];
 #endif
-        [shareMenuItem setTarget:[WKMenuTarget sharedMenuTarget]];
+        shareMenuItem = WTFMove(placeholder);
     } else
         [shareMenuItem setRepresentedObject:sharingServicePicker.get()];
 
@@ -553,7 +543,7 @@ void WebContextMenuProxyMac::show()
 bool WebContextMenuProxyMac::showAfterPostProcessingContextData()
 {
 #if ENABLE(CONTEXT_MENU_QR_CODE_DETECTION)
-    if (!page()->preferences().contextMenuQRCodeDetectionEnabled())
+    if (!protectedPage()->protectedPreferences()->contextMenuQRCodeDetectionEnabled())
         return false;
 
     ASSERT(m_context.webHitTestResultData());
@@ -572,7 +562,7 @@ bool WebContextMenuProxyMac::showAfterPostProcessingContextData()
         return true;
     }
 
-    if (auto potentialQRCodeNodeSnapshotImage = m_context.potentialQRCodeNodeSnapshotImage()) {
+    if (RefPtr potentialQRCodeNodeSnapshotImage = m_context.potentialQRCodeNodeSnapshotImage()) {
         auto image = potentialQRCodeNodeSnapshotImage->makeCGImage();
         requestPayloadForQRCode(image.get(), [this, protectedThis = Ref { *this }](NSString *result) mutable {
             RefPtr potentialQRCodeViewportSnapshotImage = m_context.potentialQRCodeViewportSnapshotImage();
@@ -583,7 +573,7 @@ bool WebContextMenuProxyMac::showAfterPostProcessingContextData()
             }
 
             auto fallbackImage = potentialQRCodeViewportSnapshotImage->makeCGImage();
-            requestPayloadForQRCode(fallbackImage.get(), [this, protectedThis = WTFMove(protectedThis)](NSString *result) mutable {
+            requestPayloadForQRCode(fallbackImage.get(), [this, protectedThis = Ref { *this }](NSString *result) mutable {
                 m_context.setQRCodePayloadString(result);
                 WebContextMenuProxy::show();
             });
@@ -689,6 +679,15 @@ static NSString *menuItemIdentifier(const WebCore::ContextMenuAction action)
     case ContextMenuItemTagWritingTools:
         return _WKMenuItemIdentifierWritingTools;
 
+    case ContextMenuItemTagProofread:
+        return _WKMenuItemIdentifierProofread;
+
+    case ContextMenuItemTagRewrite:
+        return _WKMenuItemIdentifierRewrite;
+
+    case ContextMenuItemTagSummarize:
+        return _WKMenuItemIdentifierSummarize;
+
     case ContextMenuItemTagCopySubject:
         return _WKMenuItemIdentifierCopySubject;
 
@@ -737,7 +736,7 @@ static RetainPtr<NSMenuItem> createMenuActionItem(const WebContextMenuItemData& 
     auto type = item.type();
     ASSERT_UNUSED(type, type == WebCore::ContextMenuItemType::Action || type == WebCore::ContextMenuItemType::CheckableAction);
 
-    auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title() action:@selector(forwardContextMenuAction:) keyEquivalent:@""]);
+    RetainPtr menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:item.title().createNSString().get() action:@selector(forwardContextMenuAction:) keyEquivalent:@""]);
 
     [menuItem setTag:item.action()];
     [menuItem setEnabled:item.enabled()];
@@ -747,7 +746,7 @@ static RetainPtr<NSMenuItem> createMenuActionItem(const WebContextMenuItemData& 
     [menuItem setIdentifier:menuItemIdentifier(item.action())];
 
     if (item.userData())
-        [menuItem setRepresentedObject:adoptNS([[WKUserDataWrapper alloc] initWithUserData:item.userData()]).get()];
+        [menuItem setRepresentedObject:adoptNS([[WKUserDataWrapper alloc] initWithUserData:item.protectedUserData().get()]).get()];
 
     return menuItem;
 }
@@ -801,7 +800,7 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
 #endif // ENABLE(IMAGE_ANALYSIS)
 
 #if HAVE(TRANSLATION_UI_SERVICES)
-    if (!page()->canHandleContextMenuTranslation() || isPopover) {
+    if (!protectedPage()->canHandleContextMenuTranslation() || isPopover) {
         filteredItems.removeAllMatching([] (auto& item) {
             return item.action() == ContextMenuItemTagTranslate;
         });
@@ -809,9 +808,10 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
 #endif
 
 #if ENABLE(WRITING_TOOLS)
-    if (!page()->canHandleContextMenuWritingTools() || isPopover) {
+    if (!protectedPage()->canHandleContextMenuWritingTools() || isPopover) {
         filteredItems.removeAllMatching([] (auto& item) {
-            return item.action() == ContextMenuItemTagWritingTools;
+            auto action = item.action();
+            return action == ContextMenuItemTagWritingTools || action == ContextMenuItemTagProofread || action == ContextMenuItemTagRewrite || action == ContextMenuItemTagSummarize;
         });
     }
 #endif
@@ -892,32 +892,29 @@ void WebContextMenuProxyMac::getContextMenuItem(const WebContextMenuItemData& it
     }
 #endif
 
-#if ENABLE(WRITING_TOOLS)
+#if ENABLE(WRITING_TOOLS) && !ENABLE(TOP_LEVEL_WRITING_TOOLS_CONTEXT_MENU_ITEMS)
     if (item.action() == ContextMenuItemTagWritingTools) {
-        // FIXME: (rdar://127608508) Remove this `respondsToSelector` check when possible.
-        if ([NSMenuItem.class respondsToSelector:@selector(standardWritingToolsMenuItem)]) {
-            RetainPtr menuItem = [NSMenuItem standardWritingToolsMenuItem];
-            [[menuItem submenu] setAutoenablesItems:NO];
+        RetainPtr menuItem = [NSMenuItem standardWritingToolsMenuItem];
+        [[menuItem submenu] setAutoenablesItems:NO];
 
-            for (NSMenuItem *subItem in [menuItem submenu].itemArray) {
-                if (subItem.isSeparatorItem)
-                    continue;
+        for (NSMenuItem *subItem in [menuItem submenu].itemArray) {
+            if (subItem.isSeparatorItem)
+                continue;
 
-                bool shouldEnableItem = [&] {
-                    RefPtr page = this->page();
-                    if (!page)
-                        return false;
+            bool shouldEnableItem = [&] {
+                RefPtr page = this->page();
+                if (!page)
+                    return false;
 
-                    return page->shouldEnableWritingToolsRequestedTool(convertToWebRequestedTool((WTRequestedTool)[subItem tag]));
-                }();
+                return page->shouldEnableWritingToolsRequestedTool(convertToWebRequestedTool((WTRequestedTool)[subItem tag]));
+            }();
 
-                subItem.enabled = static_cast<BOOL>(shouldEnableItem);
-                subItem.target = WKMenuTarget.sharedMenuTarget;
-            }
-
-            completionHandler(menuItem.get());
-            return;
+            subItem.enabled = static_cast<BOOL>(shouldEnableItem);
+            subItem.target = WKMenuTarget.sharedMenuTarget;
         }
+
+        completionHandler(menuItem.get());
+        return;
     }
 #endif
 
@@ -925,9 +922,8 @@ void WebContextMenuProxyMac::getContextMenuItem(const WebContextMenuItemData& it
     case WebCore::ContextMenuItemType::Action:
     case WebCore::ContextMenuItemType::CheckableAction: {
         RetainPtr menuItem = createMenuActionItem(item);
-#if ENABLE(CONTEXT_MENU_IMAGES_FOR_INTERNAL_CLIENTS)
-        if (page()->preferences().contextMenuImagesForInternalClientsEnabled())
-            updateMenuItemImage(menuItem.get(), item);
+#if ENABLE(CONTEXT_MENU_IMAGES_ON_MAC)
+        updateMenuItemImage(menuItem.get(), item);
 #endif
         completionHandler(menuItem.get());
         return;
@@ -939,7 +935,7 @@ void WebContextMenuProxyMac::getContextMenuItem(const WebContextMenuItemData& it
 
     case WebCore::ContextMenuItemType::Submenu: {
         getContextMenuFromItems(item.submenu(), [action = item.action(), completionHandler = WTFMove(completionHandler), enabled = item.enabled(), title = item.title(), indentationLevel = item.indentationLevel()](NSMenu *menu) mutable {
-            auto menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:title action:nullptr keyEquivalent:@""]);
+            RetainPtr menuItem = adoptNS([[NSMenuItem alloc] initWithTitle:title.createNSString().get() action:nullptr keyEquivalent:@""]);
             [menuItem setEnabled:enabled];
             [menuItem setIndentationLevel:indentationLevel];
             [menuItem setSubmenu:menu];
@@ -961,8 +957,9 @@ void WebContextMenuProxyMac::showContextMenuWithItems(Vector<Ref<WebContextMenuI
     }
 #endif
 
-    if (page()->contextMenuClient().canShowContextMenu()) {
-        page()->contextMenuClient().showContextMenu(Ref { *page() }, m_context.menuLocation(), items);
+    RefPtr page = this->page();
+    if (page->contextMenuClient().canShowContextMenu()) {
+        page->contextMenuClient().showContextMenu(*page, m_context.menuLocation(), items);
         return;
     }
 
@@ -972,7 +969,7 @@ void WebContextMenuProxyMac::showContextMenuWithItems(Vector<Ref<WebContextMenuI
 
     auto webView = m_webView.get();
     NSPoint menuLocation = [webView convertPoint:m_context.menuLocation() toView:nil];
-    auto event = page()->createSyntheticEventForContextMenu(menuLocation);
+    auto event = page->createSyntheticEventForContextMenu(menuLocation);
     [NSMenu popUpContextMenu:m_menu.get() withEvent:event.get() forView:webView.get()];
 }
 
@@ -995,7 +992,7 @@ void WebContextMenuProxyMac::useContextMenuItems(Vector<Ref<WebContextMenuItem>>
 
         [[WKMenuTarget sharedMenuTarget] setMenuProxy:this];
 
-        auto menuFromProposedMenu = [this, protectedThis = WTFMove(protectedThis)] (RetainPtr<NSMenu>&& menu) {
+        auto menuFromProposedMenu = [this, protectedThis = Ref { *this }] (RetainPtr<NSMenu>&& menu) {
             m_menuDelegate = adoptNS([[WKMenuDelegate alloc] initWithMenuProxy:*this]);
 
             m_menu = WTFMove(menu);
@@ -1031,43 +1028,43 @@ NSMenu *WebContextMenuProxyMac::platformMenu() const
     return m_menu.get();
 }
 
-static NSDictionary *contentsOfContextMenuItem(NSMenuItem *item)
+static RetainPtr<NSDictionary> contentsOfContextMenuItem(NSMenuItem *item)
 {
-    NSMutableDictionary* result = NSMutableDictionary.dictionary;
+    RetainPtr result = adoptNS([[NSMutableDictionary alloc] init]);
 
     if (item.title.length)
-        result[@"title"] = item.title;
+        result.get()[@"title"] = item.title;
 
     if (item.isSeparatorItem)
-        result[@"separator"] = @YES;
+        result.get()[@"separator"] = @YES;
     else if (!item.enabled)
-        result[@"enabled"] = @NO;
+        result.get()[@"enabled"] = @NO;
 
     if (NSInteger indentationLevel = item.indentationLevel)
-        result[@"indentationLevel"] = [NSNumber numberWithInteger:indentationLevel];
+        result.get()[@"indentationLevel"] = [NSNumber numberWithInteger:indentationLevel];
 
     if (item.state == NSControlStateValueOn)
-        result[@"checked"] = @YES;
+        result.get()[@"checked"] = @YES;
 
-    if (NSArray<NSMenuItem *> *submenuItems = item.submenu.itemArray) {
-        NSMutableArray *children = [NSMutableArray arrayWithCapacity:submenuItems.count];
-        for (NSMenuItem *submenuItem : submenuItems)
-            [children addObject:contentsOfContextMenuItem(submenuItem)];
-        result[@"children"] = children;
+    if (RetainPtr<NSArray<NSMenuItem *>> submenuItems = item.submenu.itemArray) {
+        RetainPtr children = adoptNS([[NSMutableArray alloc] initWithCapacity:[submenuItems count]]);
+        for (NSMenuItem *submenuItem : submenuItems.get())
+            [children addObject:contentsOfContextMenuItem(submenuItem).get()];
+        result.get()[@"children"] = children.get();
     }
 
     return result;
 }
 
-NSArray *WebContextMenuProxyMac::platformData() const
+RetainPtr<NSArray> WebContextMenuProxyMac::platformData() const
 {
-    NSMutableArray *result = NSMutableArray.array;
+    RetainPtr result = adoptNS([[NSMutableArray alloc] init]);
 
-    if (NSArray<NSMenuItem *> *submenuItems = [m_menu itemArray]) {
-        NSMutableArray *children = [NSMutableArray arrayWithCapacity:submenuItems.count];
-        for (NSMenuItem *submenuItem : submenuItems)
-            [children addObject:contentsOfContextMenuItem(submenuItem)];
-        [result addObject:@{ @"children": children }];
+    if (RetainPtr<NSArray<NSMenuItem *>> submenuItems = [m_menu itemArray]) {
+        RetainPtr children = adoptNS([[NSMutableArray alloc] initWithCapacity:[submenuItems count]]);
+        for (NSMenuItem *submenuItem : submenuItems.get())
+            [children addObject:contentsOfContextMenuItem(submenuItem).get()];
+        [result addObject:@{ @"children": children.get() }];
     }
 
     return result;

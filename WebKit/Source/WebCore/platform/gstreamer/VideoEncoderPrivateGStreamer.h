@@ -68,9 +68,9 @@ public:
 
     std::optional<uint32_t> getBitRate(unsigned spatialLayerIndex, unsigned temporalLayerIndex) const
     {
-        if (UNLIKELY(spatialLayerIndex >= MaxSpatialLayers))
+        if (spatialLayerIndex >= MaxSpatialLayers) [[unlikely]]
             return std::nullopt;
-        if (UNLIKELY(temporalLayerIndex >= MaxTemporalLayers))
+        if (temporalLayerIndex >= MaxTemporalLayers) [[unlikely]]
             return std::nullopt;
         return m_bitRates[spatialLayerIndex][temporalLayerIndex];
     }
@@ -87,6 +87,6 @@ private:
 };
 
 bool videoEncoderSupportsCodec(WebKitVideoEncoder*, const String&);
-bool videoEncoderSetCodec(WebKitVideoEncoder*, const String&, std::optional<WebCore::IntSize> = std::nullopt, std::optional<double> frameRate = std::nullopt);
+bool videoEncoderSetCodec(WebKitVideoEncoder*, const String&, const WebCore::IntSize&, std::optional<double> frameRate = std::nullopt, bool enableVideoFlip = false);
 void videoEncoderSetBitRateAllocation(WebKitVideoEncoder*, RefPtr<WebKitVideoEncoderBitRateAllocation>&&);
 void teardownVideoEncoderSingleton();

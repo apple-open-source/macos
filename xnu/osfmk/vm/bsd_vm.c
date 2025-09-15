@@ -46,9 +46,6 @@
 #include <kern/ipc_kobject.h>
 #include <os/refcnt.h>
 
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
-
 #include <vm/vm_map_internal.h>
 #include <vm/vm_pageout_internal.h>
 #include <vm/memory_object_internal.h>
@@ -254,6 +251,20 @@ memory_object_control_uiomove(
 			}
 
 			if (mark_dirty) {
+#if CONFIG_SPTM
+				if (__improbable(PMAP_PAGE_IS_USER_EXECUTABLE(dst_page))) {
+					/*
+					 * This is analogous to the PMAP_OPTIONS_RETYPE disconnect we perform
+					 * in vm_object_upl_request() when setting up a UPL to overwrite the
+					 * destination pages, which is the UPL-based analogue of this path.
+					 * See the comment there for the gory details, but it essentially boils
+					 * down to the same situation of being asked to overwrite page contents
+					 * that were already marked executable from some prior use of the vnode
+					 * associated with this VM object.
+					 */
+					pmap_disconnect_options(VM_PAGE_GET_PHYS_PAGE(dst_page), PMAP_OPTIONS_RETYPE, NULL);
+				}
+#endif /* CONFIG_SPTM */
 				if (dst_page->vmp_dirty == FALSE) {
 					dirty_count++;
 				}
@@ -919,7 +930,7 @@ vnode_object_create(
 	 * The vm_map call takes both named entry ports and raw memory
 	 * objects in the same parameter.  We need to make sure that
 	 * vm_map does not see this object as a named entry port.  So,
-	 * we reserve the first word in the object for a fake ip_kotype
+	 * we reserve the first word in the object for a fake object type
 	 * setting - that will tell vm_map to use it as a memory object.
 	 */
 	vnode_object->vn_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;
@@ -979,10 +990,13 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 	boolean_t do_region_footprint;
 	int       effective_page_shift, effective_page_size;
 
+	vmlp_api_start(FILL_PROCREGIONINFO);
+
 	task_lock(task);
 	map = task->map;
 	if (map == VM_MAP_NULL) {
 		task_unlock(task);
+		vmlp_api_end(FILL_PROCREGIONINFO, 0);
 		return 0;
 	}
 
@@ -998,7 +1012,7 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 
 	start = address;
 
-	if (!vm_map_lookup_entry_allow_pgz(map, start, &tmp_entry)) {
+	if (!vm_map_lookup_entry(map, start, &tmp_entry)) {
 		if ((entry = tmp_entry->vme_next) == vm_map_to_entry(map)) {
 			if (do_region_footprint &&
 			    address == tmp_entry->vme_end) {
@@ -1020,6 +1034,7 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 					/* nothing to report */
 					vm_map_unlock_read(map);
 					vm_map_deallocate(map);
+					vmlp_api_end(FILL_PROCREGIONINFO, 0);
 					return 0;
 				}
 
@@ -1052,10 +1067,12 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 
 				vm_map_unlock_read(map);
 				vm_map_deallocate(map);
+				vmlp_api_end(FILL_PROCREGIONINFO, 1);
 				return 1;
 			}
 			vm_map_unlock_read(map);
 			vm_map_deallocate(map);
+			vmlp_api_end(FILL_PROCREGIONINFO, 0);
 			return 0;
 		}
 	} else {
@@ -1063,6 +1080,7 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 	}
 
 	start = entry->vme_start;
+	vmlp_range_event_entry(map, entry);
 
 	pinfo->pri_offset = VME_OFFSET(entry);
 	pinfo->pri_protection = entry->protection;
@@ -1119,12 +1137,14 @@ fill_procregioninfo(task_t task, uint64_t arg, struct proc_regioninfo_internal *
 		if (fill_vnodeinfoforaddr(entry, vnodeaddr, vid, NULL) == 0) {
 			vm_map_unlock_read(map);
 			vm_map_deallocate(map);
+			vmlp_api_end(FILL_PROCREGIONINFO, 1);
 			return 1;
 		}
 	}
 
 	vm_map_unlock_read(map);
 	vm_map_deallocate(map);
+	vmlp_api_end(FILL_PROCREGIONINFO, 1);
 	return 1;
 }
 
@@ -1136,10 +1156,13 @@ fill_procregioninfo_onlymappedvnodes(task_t task, uint64_t arg, struct proc_regi
 	vm_map_entry_t          tmp_entry;
 	vm_map_entry_t          entry;
 
+	vmlp_api_start(FILL_PROCREGIONINFO_ONLYMAPPEDVNODES);
+
 	task_lock(task);
 	map = task->map;
 	if (map == VM_MAP_NULL) {
 		task_unlock(task);
+		vmlp_api_end(FILL_PROCREGIONINFO_ONLYMAPPEDVNODES, 0);
 		return 0;
 	}
 	vm_map_reference(map);
@@ -1147,10 +1170,11 @@ fill_procregioninfo_onlymappedvnodes(task_t task, uint64_t arg, struct proc_regi
 
 	vm_map_lock_read(map);
 
-	if (!vm_map_lookup_entry_allow_pgz(map, address, &tmp_entry)) {
+	if (!vm_map_lookup_entry(map, address, &tmp_entry)) {
 		if ((entry = tmp_entry->vme_next) == vm_map_to_entry(map)) {
 			vm_map_unlock_read(map);
 			vm_map_deallocate(map);
+			vmlp_api_end(FILL_PROCREGIONINFO_ONLYMAPPEDVNODES, 0);
 			return 0;
 		}
 	} else {
@@ -1158,6 +1182,7 @@ fill_procregioninfo_onlymappedvnodes(task_t task, uint64_t arg, struct proc_regi
 	}
 
 	while (entry != vm_map_to_entry(map)) {
+		vmlp_range_event_entry(map, entry);
 		*vnodeaddr = 0;
 		*vid = 0;
 
@@ -1193,6 +1218,7 @@ fill_procregioninfo_onlymappedvnodes(task_t task, uint64_t arg, struct proc_regi
 
 				vm_map_unlock_read(map);
 				vm_map_deallocate(map);
+				vmlp_api_end(FILL_PROCREGIONINFO_ONLYMAPPEDVNODES, 1);
 				return 1;
 			}
 		}
@@ -1203,6 +1229,7 @@ fill_procregioninfo_onlymappedvnodes(task_t task, uint64_t arg, struct proc_regi
 
 	vm_map_unlock_read(map);
 	vm_map_deallocate(map);
+	vmlp_api_end(FILL_PROCREGIONINFO_ONLYMAPPEDVNODES, 0);
 	return 0;
 }
 
@@ -1222,6 +1249,8 @@ task_find_region_details(
 	vm_map_entry_t  entry;
 	int             rc;
 
+	vmlp_api_start(TASK_FIND_REGION_DETAILS);
+
 	rc = 0;
 	*vp_p = 0;
 	*vid_p = 0;
@@ -1229,6 +1258,7 @@ task_find_region_details(
 	*start_p = 0;
 	*len_p = 0;
 	if (options & ~FIND_REGION_DETAILS_OPTIONS_ALL) {
+		vmlp_api_end(TASK_FIND_REGION_DETAILS, 0);
 		return 0;
 	}
 
@@ -1236,13 +1266,14 @@ task_find_region_details(
 	map = task->map;
 	if (map == VM_MAP_NULL) {
 		task_unlock(task);
+		vmlp_api_end(TASK_FIND_REGION_DETAILS, 0);
 		return 0;
 	}
 	vm_map_reference(map);
 	task_unlock(task);
 
 	vm_map_lock_read(map);
-	if (!vm_map_lookup_entry_allow_pgz(map, offset, &entry)) {
+	if (!vm_map_lookup_entry(map, offset, &entry)) {
 		if (options & FIND_REGION_DETAILS_AT_OFFSET) {
 			/* no mapping at this offset */
 			goto ret;
@@ -1258,6 +1289,8 @@ task_find_region_details(
 	for (;
 	    entry != vm_map_to_entry(map);
 	    entry = entry->vme_next) {
+		vmlp_range_event_entry(map, entry);
+
 		if (entry->is_sub_map) {
 			/* fallthru to check next entry */
 		} else if (fill_vnodeinfoforaddr(entry, vp_p, vid_p, is_map_shared_p)) {
@@ -1288,6 +1321,7 @@ task_find_region_details(
 ret:
 	vm_map_unlock_read(map);
 	vm_map_deallocate(map);
+	vmlp_api_end(TASK_FIND_REGION_DETAILS, rc);
 	return rc;
 }
 

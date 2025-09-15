@@ -44,18 +44,18 @@ WKTypeID WKWebsitePoliciesGetTypeID()
 
 WKWebsitePoliciesRef WKWebsitePoliciesCreate()
 {
-    return toAPI(&API::WebsitePolicies::create().leakRef());
+    return toAPILeakingRef(API::WebsitePolicies::create());
 }
 
 void WKWebsitePoliciesSetContentBlockersEnabled(WKWebsitePoliciesRef websitePolicies, bool enabled)
 {
     auto defaultEnablement = enabled ? WebCore::ContentExtensionDefaultEnablement::Enabled : WebCore::ContentExtensionDefaultEnablement::Disabled;
-    toImpl(websitePolicies)->setContentExtensionEnablement({ defaultEnablement, { } });
+    toProtectedImpl(websitePolicies)->setContentExtensionEnablement({ defaultEnablement, { } });
 }
 
 bool WKWebsitePoliciesGetContentBlockersEnabled(WKWebsitePoliciesRef websitePolicies)
 {
-    return toImpl(websitePolicies)->contentExtensionEnablement().first == WebCore::ContentExtensionDefaultEnablement::Enabled;
+    return toProtectedImpl(websitePolicies)->contentExtensionEnablement().first == WebCore::ContentExtensionDefaultEnablement::Enabled;
 }
 
 WK_EXPORT WKDictionaryRef WKWebsitePoliciesCopyCustomHeaderFields(WKWebsitePoliciesRef)
@@ -82,13 +82,13 @@ void WKWebsitePoliciesSetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolic
     if (allowedQuirks & kWKWebsiteAutoplayQuirkPerDocumentAutoplayBehavior)
         quirks.add(WebsiteAutoplayQuirk::PerDocumentAutoplayBehavior);
 
-    toImpl(websitePolicies)->setAllowedAutoplayQuirks(quirks);
+    toProtectedImpl(websitePolicies)->setAllowedAutoplayQuirks(quirks);
 }
 
 WKWebsiteAutoplayQuirk WKWebsitePoliciesGetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolicies)
 {
     WKWebsiteAutoplayQuirk quirks = 0;
-    auto allowedQuirks = toImpl(websitePolicies)->allowedAutoplayQuirks();
+    auto allowedQuirks = toProtectedImpl(websitePolicies)->allowedAutoplayQuirks();
 
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::SynthesizedPauseEvents))
         quirks |= kWKWebsiteAutoplayQuirkSynthesizedPauseEvents;
@@ -107,7 +107,7 @@ WKWebsiteAutoplayQuirk WKWebsitePoliciesGetAllowedAutoplayQuirks(WKWebsitePolici
 
 WKWebsiteAutoplayPolicy WKWebsitePoliciesGetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies)
 {
-    switch (toImpl(websitePolicies)->autoplayPolicy()) {
+    switch (toProtectedImpl(websitePolicies)->autoplayPolicy()) {
     case WebKit::WebsiteAutoplayPolicy::Default:
         return kWKWebsiteAutoplayPolicyDefault;
     case WebsiteAutoplayPolicy::Allow:
@@ -125,16 +125,16 @@ void WKWebsitePoliciesSetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies, WK
 {
     switch (policy) {
     case kWKWebsiteAutoplayPolicyDefault:
-        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Default);
+        toProtectedImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Default);
         return;
     case kWKWebsiteAutoplayPolicyAllow:
-        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Allow);
+        toProtectedImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Allow);
         return;
     case kWKWebsiteAutoplayPolicyAllowWithoutSound:
-        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::AllowWithoutSound);
+        toProtectedImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::AllowWithoutSound);
         return;
     case kWKWebsiteAutoplayPolicyDeny:
-        toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Deny);
+        toProtectedImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Deny);
         return;
     }
     ASSERT_NOT_REACHED();
@@ -142,7 +142,7 @@ void WKWebsitePoliciesSetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies, WK
 
 WKWebsitePopUpPolicy WKWebsitePoliciesGetPopUpPolicy(WKWebsitePoliciesRef websitePolicies)
 {
-    switch (toImpl(websitePolicies)->popUpPolicy()) {
+    switch (toProtectedImpl(websitePolicies)->popUpPolicy()) {
     case WebsitePopUpPolicy::Default:
         return kWKWebsitePopUpPolicyDefault;
     case WebsitePopUpPolicy::Allow:
@@ -158,13 +158,13 @@ void WKWebsitePoliciesSetPopUpPolicy(WKWebsitePoliciesRef websitePolicies, WKWeb
 {
     switch (policy) {
     case kWKWebsitePopUpPolicyDefault:
-        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Default);
+        toProtectedImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Default);
         return;
     case kWKWebsitePopUpPolicyAllow:
-        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Allow);
+        toProtectedImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Allow);
         return;
     case kWKWebsitePopUpPolicyBlock:
-        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Block);
+        toProtectedImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Block);
         return;
     }
     ASSERT_NOT_REACHED();
@@ -172,11 +172,10 @@ void WKWebsitePoliciesSetPopUpPolicy(WKWebsitePoliciesRef websitePolicies, WKWeb
 
 WKWebsiteDataStoreRef WKWebsitePoliciesGetDataStore(WKWebsitePoliciesRef websitePolicies)
 {
-    return toAPI(toImpl(websitePolicies)->websiteDataStore());
+    return toAPI(toProtectedImpl(websitePolicies)->protectedWebsiteDataStore().get());
 }
 
 void WKWebsitePoliciesSetDataStore(WKWebsitePoliciesRef websitePolicies, WKWebsiteDataStoreRef websiteDataStore)
 {
-    toImpl(websitePolicies)->setWebsiteDataStore(toImpl(websiteDataStore));
+    toProtectedImpl(websitePolicies)->setWebsiteDataStore(toProtectedImpl(websiteDataStore));
 }
-

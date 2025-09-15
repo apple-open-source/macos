@@ -84,6 +84,10 @@ private:
     float pageScaleFactor() const override;
     float deviceScaleFactor() const override;
     std::optional<float> customContentsScale(const WebCore::GraphicsLayer*) const override;
+    bool layerNeedsPlatformContext(const WebCore::GraphicsLayer*) const override;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    bool layerAllowsDynamicContentScaling(const WebCore::GraphicsLayer*) const override;
+#endif
     void tiledBackingUsageChanged(const WebCore::GraphicsLayer*, bool /*usingTiledBacking*/) override;
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
 
@@ -101,9 +105,21 @@ private:
 
     Vector<LayerCoverage> layerCoveragesForRepaintPageCoverage(RepaintRequirements, const PDFPageCoverage&) override;
 
+    void setSelectionLayerEnabled(bool) final;
+
+    RefPtr<WebCore::GraphicsLayer> protectedContentsLayer() { return m_contentsLayer; }
+    RefPtr<WebCore::GraphicsLayer> protectedPageBackgroundsContainerLayer() { return m_pageBackgroundsContainerLayer; }
+
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    RefPtr<WebCore::GraphicsLayer> protectedSelectionLayer() { return m_selectionLayer; }
+#endif
+
     RefPtr<WebCore::GraphicsLayer> m_pageBackgroundsContainerLayer;
     RefPtr<WebCore::GraphicsLayer> m_contentsLayer;
+
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
     RefPtr<WebCore::GraphicsLayer> m_selectionLayer;
+#endif
 
     HashMap<RefPtr<WebCore::GraphicsLayer>, PDFDocumentLayout::PageIndex> m_pageBackgroundLayers;
 };

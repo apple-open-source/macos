@@ -42,14 +42,11 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecEntitlements.h>
-#include <Security/SecInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecPolicy.h>
-#include <Security/SecPolicyInternal.h>
 #include <Security/SecTask.h>
-#include <Security/SecTrustInternal.h>
-#include <Security/SecuritydXPC.h>
+#include "OSX/sec/Security/SecuritydXPC.h"
 #include "keychain/KeychainDBMover/KeychainDBMoverHelpers.h"
 #include "trust/trustd/OTATrustUtilities.h"
 #include "keychain/securityd/SOSCloudCircleServer.h"
@@ -60,28 +57,28 @@
 #include "trust/trustd/SecTrustServer.h"
 #include "trust/trustd/SecTrustStoreServer.h"
 #include "keychain/securityd/spi.h"
-#include <utilities/SecAKSWrappers.h>
-#include <utilities/SecCFError.h>
-#include <utilities/SecCFWrappers.h>
-#include <utilities/SecCoreAnalytics.h>
-#include <utilities/SecDb.h>
-#include <utilities/SecDbStats.h>
-#include <utilities/SecFileLocations.h>
-#include <utilities/SecIOFormat.h>
-#include <utilities/SecPLWrappers.h>
-#include <utilities/SecXPCError.h>
-#include <utilities/debugging.h>
-#include <utilities/SecInternalReleasePriv.h>
-#include <utilities/der_plist_internal.h>
-#include <utilities/der_plist.h>
+#include "utilities/SecAKSWrappers.h"
+#include "utilities/SecCFError.h"
+#include "utilities/SecCFWrappers.h"
+#include "utilities/SecCoreAnalytics.h"
+#include "utilities/SecDb.h"
+#include "utilities/SecDbStats.h"
+#include "utilities/SecFileLocations.h"
+#include "utilities/SecIOFormat.h"
+#include "utilities/SecPLWrappers.h"
+#include "utilities/SecXPCError.h"
+#include "utilities/debugging.h"
+#include "utilities/SecInternalReleasePriv.h"
+#include "utilities/der_plist_internal.h"
+#include "utilities/der_plist.h"
 #include "trust/trustd/personalization.h"
 #include "trust/trustd/SecPinningDb.h"
 #include "keychain/securityd/SFKeychainControlManager.h"
 #include "featureflags/featureflags.h"
 
 
-#include <keychain/ckks/CKKS.h>
-#include <keychain/ckks/CKKSControlServer.h>
+#include "keychain/ckks/CKKS.h"
+#include "keychain/ckks/CKKSControlServer.h"
 #include "keychain/ot/OctagonControlServer.h"
 
 #include <AssertMacros.h>
@@ -95,7 +92,7 @@
 #endif
 #include <asl.h>
 #include <bsm/libbsm.h>
-#include <ipc/securityd_client.h>
+#include "OSX/sec/ipc/securityd_client.h"
 #include <libkern/OSAtomic.h>
 #include <mach/mach.h>
 #include <mach/message.h>
@@ -110,8 +107,8 @@
 #include <malloc/malloc.h>
 #include <unicode/uclean.h>
 
-#include <ipc/server_security_helpers.h>
-#include <ipc/server_entitlement_helpers.h>
+#include "OSX/sec/ipc/server_security_helpers.h"
+#include "OSX/sec/ipc/server_entitlement_helpers.h"
 
 #include "keychain/ot/OT.h"
 #include "keychain/escrowrequest/EscrowRequestXPCServer.h"
@@ -428,6 +425,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             case sec_item_copy_matching_id:
             case sec_item_update_id:
             case sec_item_delete_id:
+            case sec_item_update_token_items_for_system_keychain_id:
                 {
                     break;
                 }
@@ -491,7 +489,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 
                         CFTypeRef result = NULL;
                         if(entitlementsCorrect) {
-                            if (_SecItemAdd(query, &client, &result, &error) && result) {
+                            if (SecServerItemAdd(query, &client, &result, &error) && result) {
                                 SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                                 CFReleaseNull(result);
                             }
@@ -510,7 +508,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 if (query) {
                     CFStringRef sharingGroup = SecXPCDictionaryCopyString(event, kSecXPCKeySharingGroup, &error);
                     if (sharingGroup) {
-                        CFTypeRef result = _SecItemShareWithGroup(query, sharingGroup, &client, &error);
+                        CFTypeRef result = SecServerItemShareWithGroup(query, sharingGroup, &client, &error);
                         if (result) {
                             (void)SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                             CFRelease(result);
@@ -526,7 +524,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 if (!EntitlementAbsentOrFalse(sec_delete_items_on_sign_out_id, client.task, kSecEntitlementKeychainDeny, &error) || !EntitlementPresentAndTrue(sec_delete_items_on_sign_out_id, client.task, kSecEntitlementPrivateDeleteItemsOnSignOut, &error)) {
                     break;
                 }
-                bool result = _SecDeleteItemsOnSignOut(&client, &error);
+                bool result = SecServerDeleteItemsOnSignOut(&client, &error);
                 if (!result) {
                     break;
                 }
@@ -539,7 +537,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
                     if (query) {
                         CFTypeRef result = NULL;
-                        if (_SecItemCopyMatching(query, &client, &result, &error) && result) {
+                        if (SecServerItemCopyMatching(query, &client, &result, &error) && result) {
                             SecXPCDictionarySetPListWithRepair(replyMessage, kSecXPCKeyResult, result, true, &error);
                             CFReleaseNull(result);
                         }
@@ -577,7 +575,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                             }
 
                             if(entitlementsCorrect) {
-                                bool result = _SecItemUpdate(query, attributesToUpdate, &client, &error);
+                                bool result = SecServerItemUpdate(query, attributesToUpdate, &client, &error);
                                 xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                             }
                             CFReleaseNull(attributesToUpdate);
@@ -592,7 +590,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 if (EntitlementAbsentOrFalse(sec_item_add_id, client.task, kSecEntitlementKeychainDeny, &error)) {
                     CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
                     if (query) {
-                        bool result = _SecItemDelete(query, &client, &error);
+                        bool result = SecServerItemDelete(query, &client, &error);
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                         CFReleaseNull(query);
                     }
@@ -600,6 +598,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 break;
             }
             case sec_item_update_token_items_for_access_groups_id:
+            case sec_item_update_token_items_for_system_keychain_id:
             {
                 if (EntitlementAbsentOrFalse(sec_item_update_token_items_for_access_groups_id, client.task, kSecEntitlementKeychainDeny, &error) &&
                     EntitlementPresentAndTrue(sec_item_update_token_items_for_access_groups_id, client.task, kSecEntitlementUpdateTokenItems, &error)) {
@@ -607,7 +606,12 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFArrayRef accessGroups = SecXPCDictionaryCopyArray(event, kSecXPCKeyArray, &error);
                     CFArrayRef tokenItems = SecXPCDictionaryCopyArray(event, kSecXPCKeyQuery, &error);
                     if (tokenID) {
-                        bool result = _SecItemUpdateTokenItemsForAccessGroups(tokenID, accessGroups, tokenItems, &client, &error);
+                        bool result = false;
+                        if (operation == sec_item_update_token_items_for_system_keychain_id) {
+                            result = SecItemServerUpdateTokenItemsForSystemKeychain(tokenID, accessGroups, tokenItems, &client, &error);
+                        } else {
+                            result = SecItemServerUpdateTokenItemsForAccessGroups(tokenID, accessGroups, tokenItems, &client, &error);
+                        }
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                     }
                     CFReleaseNull(tokenID);
@@ -628,7 +632,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 
                 if (isBuddy || EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateDeleteAll, &error))
                 {
-                    retval = _SecItemDeleteAll(&error);
+                    retval = SecServerItemDeleteAll(&error);
                 }
 #endif
                 xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, retval);
@@ -641,7 +645,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyKeybag, &keybag, &error)) {
                         if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
                             bool emcs = SecXPCDictionaryGetBool(event, kSecXPCKeyEMCSBackup, NULL);
-                            CFDataRef backup = _SecServerKeychainCreateBackup(&client, keybag, passcode, emcs, &error);
+                            CFDataRef backup = SecServerKeychainCreateBackup(&client, keybag, passcode, emcs, &error);
                             if (backup) {
                                 int fd = SecXPCDictionaryDupFileDescriptor(event, kSecXPCKeyFileDescriptor, NULL);
                                 if (fd < 0) {
@@ -681,7 +685,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         if (keybag) {
                             CFDataRef passcode = NULL;
                             if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                                bool result = _SecServerKeychainRestore(backup, &client, keybag, passcode, &error);
+                                bool result = SecServerKeychainRestore(backup, &client, keybag, passcode, &error);
                                 xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                                 CFReleaseSafe(passcode);
                             }
@@ -709,7 +713,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     if (fd != -1) {
                         backup = SecDataCopyMmapFileDescriptor(fd, &mem, &size, &error);
                         if (backup)
-                            uuid = _SecServerBackupCopyUUID(backup, &error);
+                            uuid = SecServerBackupCopyUUID(backup, &error);
                     }
                     if (uuid)
                         SecXPCDictionarySetString(replyMessage, kSecXPCKeyResult, uuid, &error);
@@ -736,7 +740,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 } else {
                     CFDictionaryRef updates = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
                     if (updates) {
-                        CFArrayRef result = _SecServerKeychainSyncUpdateMessage(updates, &error);
+                        CFArrayRef result = SecServerKeychainSyncUpdateMessage(updates, &error);
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                         CFReleaseNull(result);
                     }
@@ -753,7 +757,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         if (keybag) {
                             CFDataRef passcode = NULL;
                             if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                                CFDictionaryRef newbackup = _SecServerBackupSyncable(oldbackup, keybag, passcode, &error);
+                                CFDictionaryRef newbackup = SecServerBackupSyncable(oldbackup, keybag, passcode, &error);
                                 if (newbackup) {
                                     SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, newbackup, &error);
                                     CFRelease(newbackup);
@@ -776,7 +780,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         if (keybag) {
                             CFDataRef passcode = NULL;
                             if (SecXPCDictionaryCopyDataOptional(event, kSecXPCKeyUserPassword, &passcode, &error)) {
-                                bool result = _SecServerRestoreSyncable(backup, keybag, passcode, &error);
+                                bool result = SecServerRestoreSyncable(backup, keybag, passcode, &error);
                                 xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, result);
                                 CFReleaseSafe(passcode);
                             }
@@ -881,7 +885,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFTypeRef result = NULL;
 
                     CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
-                    if (_SecAddSharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
+                    if (SecServerAddSharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                         CFReleaseNull(result);
                     }
@@ -1307,7 +1311,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     // false is valid, so it's safe for this parameter to be unset or incorrect type
                     bool force = xpc_dictionary_get_bool(event, "force");
                     xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult,
-                                                 _SecServerRollKeys(force, &client, &error));
+                                                 SecServerRollKeys(force, &client, &error));
                 }
                 break;
             case kSecXPCOpWaitForInitialSync:
@@ -1351,7 +1355,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         CFArrayRef services = SecXPCDictionaryCopyArray(event, "services", &error);
                         bool res = false;
                         if (uid && services) {
-                            res = _SecServerTransmogrifyToSyncBubble(services, uid, &client, &error);
+                            res = SecServerTransmogrifyToSyncBubble(services, uid, &client, &error);
                         }
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
                         CFReleaseNull(services);
@@ -1365,7 +1369,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-                        bool res = _SecServerTransmogrifyToSystemKeychain(&client, &error);
+                        bool res = SecServerTransmogrifyToSystemKeychain(&client, &error);
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
 #else
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, false);
@@ -1378,7 +1382,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 {
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementPrivateKeychainMigrateSystemKeychain, &error)) {
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
-                        bool res = _SecServerTranscryptToSystemKeychainKeybag(&client, &error);
+                        bool res = SecServerTranscryptToSystemKeychainKeybag(&client, &error);
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
 #else
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, false);
@@ -1394,7 +1398,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
                         uid_t uid = (uid_t)xpc_dictionary_get_int64(event, "uid");
                         if (uid) {
-                            res = _SecServerDeleteMUSERViews(&client, uid, &error);
+                            res = SecServerDeleteMUSERViews(&client, uid, &error);
                         }
 #endif
                         xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, res);
@@ -1519,7 +1523,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                         CFArrayRef accessGroups = SecXPCDictionaryCopyArray(event, kSecXPCKeyAccessGroups, &error);
 
                         if (accessGroups) {
-                            retval = _SecItemServerDeleteAllWithAccessGroups(accessGroups, &client, &error);
+                            retval = SecServerItemDeleteAllWithAccessGroups(accessGroups, &client, &error);
                         }
                         CFReleaseNull(accessGroups);
                     }
@@ -1558,7 +1562,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFDataRef issuer = SecXPCDictionaryCopyData(event, kSecXPCKeyNormalizedIssuer, &error);
                     CFArrayRef accessGroups = SecXPCDictionaryCopyArray(event, kSecXPCKeyAccessGroups, &error);
                     if (issuer && accessGroups) {
-                        results = _SecItemCopyParentCertificates(issuer, accessGroups, &error);
+                        results = SecItemServerCopyParentCertificates(issuer, accessGroups, &error);
                     }
                     CFReleaseNull(issuer);
                     CFReleaseNull(accessGroups);
@@ -1574,7 +1578,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                     CFDataRef serialNum = SecXPCDictionaryCopyData(event, kSecXPCKeySerialNumber, &error);
                     CFArrayRef accessGroups = SecXPCDictionaryCopyArray(event, kSecXPCKeyAccessGroups, &error);
                     if (issuer && serialNum && accessGroups) {
-                        result = _SecItemCertificateExists(issuer, serialNum, accessGroups, &error);
+                        result = SecItemServerCertificateExists(issuer, serialNum, accessGroups, &error);
                     }
                     CFReleaseNull(issuer);
                     CFReleaseNull(serialNum);

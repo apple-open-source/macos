@@ -59,7 +59,7 @@ using namespace WebKit;
     _directory = [NSURL fileURLWithPath:directory];
     _useInMemoryDatabase = useInMemoryDatabase;
 
-    NSString *extensionDatabaseQueueName = [NSString stringWithFormat:@"com.apple.WebKit.WKWebExtensionSQLiteStore.%@", _uniqueIdentifier];
+    NSString *extensionDatabaseQueueName = [[NSString alloc] initWithFormat:@"com.apple.WebKit.WKWebExtensionSQLiteStore.%@", _uniqueIdentifier];
     _databaseQueue = dispatch_queue_create([extensionDatabaseQueueName cStringUsingEncoding:NSUTF8StringEncoding], DISPATCH_QUEUE_SERIAL);
 
     return self;
@@ -330,7 +330,7 @@ using namespace WebKit;
     dispatch_assert_queue(_databaseQueue);
     ASSERT(_database);
 
-    DatabaseResult result = SQLiteDatabaseExecute(_database, [NSString stringWithFormat:@"PRAGMA user_version = %d", newVersion]);
+    DatabaseResult result = SQLiteDatabaseExecute(_database, [[NSString alloc] initWithFormat:@"PRAGMA user_version = %d", newVersion]);
     if (result != SQLITE_DONE)
         RELEASE_LOG_ERROR(Extensions, "Failed to set database version for extension %{private}@: %{public}@ (%d)", _uniqueIdentifier, _database.lastErrorMessage, result);
 
@@ -366,7 +366,7 @@ using namespace WebKit;
         ASSERT(!errorMessage.length);
         ASSERT(strongSelf->_database);
 
-        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [NSString stringWithFormat:@"SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
+        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [[NSString alloc] initWithFormat:@"SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
         if (result != SQLITE_DONE) {
             RELEASE_LOG_ERROR(Extensions, "Failed to create storage savepoint for extension %{private}@. %{public}@ (%d)", strongSelf->_uniqueIdentifier, strongSelf->_database.lastErrorMessage, result);
             errorMessage = @"Failed to create savepoint.";
@@ -398,7 +398,7 @@ using namespace WebKit;
         ASSERT(!errorMessage.length);
         ASSERT(strongSelf->_database);
 
-        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [NSString stringWithFormat:@"RELEASE SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
+        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [[NSString alloc] initWithFormat:@"RELEASE SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
         if (result != SQLITE_DONE) {
             RELEASE_LOG_ERROR(Extensions, "Failed to release storage savepoint for extension %{private}@. %{public}@ (%d)", strongSelf->_uniqueIdentifier, strongSelf->_database.lastErrorMessage, result);
             errorMessage = @"Failed to release savepoint.";
@@ -430,7 +430,7 @@ using namespace WebKit;
         ASSERT(!errorMessage.length);
         ASSERT(strongSelf->_database);
 
-        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [NSString stringWithFormat:@"ROLLBACK TO SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
+        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [[NSString alloc] initWithFormat:@"ROLLBACK TO SAVEPOINT %@", [strongSelf _savepointNameFromUUID:savepointIdentifier]]);
         if (result != SQLITE_DONE) {
             RELEASE_LOG_ERROR(Extensions, "Failed to rollback to storage savepoint for extension %{private}@. %{public}@ (%d)", strongSelf->_uniqueIdentifier, strongSelf->_database.lastErrorMessage, result);
             errorMessage = @"Failed to rollback to savepoint.";

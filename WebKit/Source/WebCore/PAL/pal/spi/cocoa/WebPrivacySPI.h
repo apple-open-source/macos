@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
 
 #if HAVE(WEB_PRIVACY_FRAMEWORK)
@@ -163,16 +165,62 @@ typedef void (^WPRestrictedOpenerDomainsCompletionHandler)(NSArray<WPRestrictedO
 @end
 #endif
 
-#if !defined(HAS_WEB_PRIVACY_RESOURCE_MONITOR_URLS_API)
 @class WKContentRuleList;
 @class WKContentRuleListStore;
 
-typedef void (^WPRuleListPreparationCompletionHandler)(WKContentRuleList *, bool, NSError *);
+typedef void (^WKWPResourcesPrepareCompletionHandler)(WKContentRuleList *, bool, NSError *);
 
 @interface WPResources (Staging_141646051)
-- (void)prepareResouceMonitorRulesForStore:(WKContentRuleListStore *)store completionHandler:(WPRuleListPreparationCompletionHandler)completionHandler;
+- (void)prepareResourceMonitorRulesForStore:(WKContentRuleListStore *)store completionHandler:(WKWPResourcesPrepareCompletionHandler)completionHandler;
 @end
-#endif
+
+typedef void (^WKWPResourcesGetSourceCompletionHandler)(NSString *, NSError *);
+
+@interface WPResources (Staging_146076707)
+- (void)requestResourceMonitorRulesSource:(WPResourceRequestOptions *)options completionHandler:(WKWPResourcesGetSourceCompletionHandler)completion;
+@end
+
+#if !__has_include(<WebPrivacy/WPFingerprintingScript.h>)
+
+#define WPResourceTypeFingerprintingScripts ((WPResourceType)9)
+
+// Staging declaration for macOS downlevels.
+@interface WPFingerprintingScript : NSObject
+@property (nonatomic, readonly) NSString *host;
+@property (nonatomic, readonly, getter=isFirstParty) BOOL firstParty;
+@property (nonatomic, readonly, getter=isTopDomain) BOOL topDomain;
+@end
+
+using WPFingerprintingScriptCompletionHandler = void (^)(NSArray<WPFingerprintingScript *> *, NSError *);
+
+@interface WPResources (Staging_135619791)
+- (void)requestFingerprintingScripts:(WPResourceRequestOptions *)options completionHandler:(WPFingerprintingScriptCompletionHandler)completion;
+@end
+
+#endif // !__has_include(<WebPrivacy/WPFingerprintingScript.h>)
+
+#if !defined(WP_SUPPORTS_SCRIPT_ACCESS_CATEGORY)
+
+typedef NS_OPTIONS(NSUInteger, WPScriptAccessCategories) {
+    WPScriptAccessCategoryNone                  = 0,
+    WPScriptAccessCategoryAudio                 = 1 << 0,
+    WPScriptAccessCategoryCanvas                = 1 << 1,
+    WPScriptAccessCategoryCookies               = 1 << 2,
+    WPScriptAccessCategoryHardwareConcurrency   = 1 << 3,
+    WPScriptAccessCategoryLocalStorage          = 1 << 4,
+    WPScriptAccessCategoryPayments              = 1 << 5,
+    WPScriptAccessCategoryQueryParameters       = 1 << 6,
+    WPScriptAccessCategoryReferrer              = 1 << 7,
+    WPScriptAccessCategoryScreenOrViewport      = 1 << 8,
+    WPScriptAccessCategorySpeech                = 1 << 9,
+    WPScriptAccessCategoryFormControls          = 1 << 10,
+};
+
+@interface WPFingerprintingScript (Staging_155749047)
+@property (nonatomic, readonly) WPScriptAccessCategories allowedCategories;
+@end
+
+#endif // !defined(WP_SUPPORTS_SCRIPT_ACCESS_CATEGORY)
 
 WTF_EXTERN_C_BEGIN
 
@@ -180,9 +228,5 @@ extern NSString *const WPNotificationUserInfoResourceTypeKey;
 extern NSNotificationName const WPResourceDataChangedNotificationName;
 
 WTF_EXTERN_C_END
-
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebPrivacySPIAdditions.h>)
-#import <WebKitAdditions/WebPrivacySPIAdditions.h>
-#endif
 
 #endif // ENABLE(ADVANCED_PRIVACY_PROTECTIONS)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Igalia S.L.
+ * Copyright (C) 2024, 2025 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,14 +29,18 @@
 #if USE(COORDINATED_GRAPHICS) && USE(SKIA)
 #include "BitmapTexturePool.h"
 #include "CoordinatedTileBuffer.h"
-#include "DisplayListRecorderImpl.h"
-#include "DisplayListReplayer.h"
 #include "GLContext.h"
-#include "GraphicsContextSkia.h"
 #include "GraphicsLayer.h"
 #include "PlatformDisplay.h"
 #include "ProcessCapabilities.h"
 #include "RenderingMode.h"
+#include "SkiaRecordingResult.h"
+#include "SkiaReplayCanvas.h"
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
+#include <skia/core/SkPictureRecorder.h>
+#include <skia/gpu/ganesh/GrBackendSurface.h>
+#include <skia/gpu/ganesh/SkImageGanesh.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/NumberOfCores.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/text/StringToIntegerConversion.h>
@@ -51,16 +55,20 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(SkiaPaintingEngine);
 //
 // If WEBKIT_SKIA_ENABLE_CPU_RENDERING=1 is set, we will allocate a CPU-only worker pool with WEBKIT_SKIA_CPU_PAINTING_THREADS threads (default: nCores/2).
 // if WEBKIT_SKIA_ENABLE_CPU_RENDERING=1 is set, and WEBKIT_SKIA_CPU_PAINTING_THREADS is set to 0, we will use CPU rendering on main thread.
+//
+// By default we use the "hybrid" mode, utilizing both CPU & GPU.
+// See below for WEBKIT_SKIA_HYBRID_PAINTING_MODE_STRATEGY.
 
 SkiaPaintingEngine::SkiaPaintingEngine(unsigned numberOfCPUThreads, unsigned numberOfGPUThreads)
 {
-    // By default, GPU rendering, if activated, takes precedence over CPU rendering.
     if (ProcessCapabilities::canUseAcceleratedBuffers()) {
         m_texturePool = makeUnique<BitmapTexturePool>();
 
         if (numberOfGPUThreads)
             m_gpuWorkerPool = WorkerPool::create("SkiaGPUWorker"_s, numberOfGPUThreads);
-    } else if (numberOfCPUThreads)
+    }
+
+    if (numberOfCPUThreads)
         m_cpuWorkerPool = WorkerPool::create("SkiaCPUWorker"_s, numberOfCPUThreads);
 }
 
@@ -71,16 +79,9 @@ std::unique_ptr<SkiaPaintingEngine> SkiaPaintingEngine::create()
     return makeUnique<SkiaPaintingEngine>(numberOfCPUPaintingThreads(), numberOfGPUPaintingThreads());
 }
 
-std::unique_ptr<DisplayList::DisplayList> SkiaPaintingEngine::recordDisplayList(RenderingMode renderingMode, const GraphicsLayer& layer, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale) const
+static bool canPerformAcceleratedRendering()
 {
-    OptionSet<DisplayList::ReplayOption> options;
-    if (renderingMode == RenderingMode::Accelerated)
-        options.add(DisplayList::ReplayOption::FlushAcceleratedImagesAndWaitForCompletion);
-
-    auto displayList = makeUnique<DisplayList::DisplayList>(options);
-    DisplayList::RecorderImpl recordingContext(*displayList, GraphicsContextState(), FloatRect({ }, dirtyRect.size()), AffineTransform());
-    paintIntoGraphicsContext(layer, recordingContext, dirtyRect, contentsOpaque, contentsScale);
-    return displayList;
+    return ProcessCapabilities::canUseAcceleratedBuffers() && PlatformDisplay::sharedDisplay().skiaGLContext();
 }
 
 void SkiaPaintingEngine::paintIntoGraphicsContext(const GraphicsLayer& layer, GraphicsContext& context, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale) const
@@ -102,64 +103,93 @@ void SkiaPaintingEngine::paintIntoGraphicsContext(const GraphicsLayer& layer, Gr
     layer.paintGraphicsLayerContents(context, clipRect);
 }
 
-bool SkiaPaintingEngine::paintDisplayListIntoBuffer(Ref<CoordinatedTileBuffer>& buffer, DisplayList::DisplayList& displayList)
+bool SkiaPaintingEngine::isHybridMode() const
 {
-    auto* canvas = buffer->canvas();
-    if (!canvas)
-        return false;
-
-    static thread_local RefPtr<ControlFactory> s_controlFactory;
-    if (!s_controlFactory)
-        s_controlFactory = ControlFactory::create();
-
-    canvas->save();
-    canvas->clear(SkColors::kTransparent);
-
-    GraphicsContextSkia context(*canvas, buffer->isBackedByOpenGL() ? RenderingMode::Accelerated : RenderingMode::Unaccelerated, RenderingPurpose::LayerBacking);
-    DisplayList::Replayer(context, displayList.items(), displayList.resourceHeap(), *s_controlFactory, displayList.replayOptions()).replay();
-
-    canvas->restore();
-    return true;
+    return m_cpuWorkerPool && m_gpuWorkerPool && canPerformAcceleratedRendering();
 }
 
-bool SkiaPaintingEngine::paintGraphicsLayerIntoBuffer(Ref<CoordinatedTileBuffer>& buffer, const GraphicsLayer& layer, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale) const
+RenderingMode SkiaPaintingEngine::decideHybridRenderingMode(const IntRect& dirtyRect, float contentsScale) const
 {
-    auto* canvas = buffer->canvas();
-    if (!canvas)
-        return false;
-
-    canvas->save();
-    canvas->clear(SkColors::kTransparent);
-
-    GraphicsContextSkia context(*canvas, buffer->isBackedByOpenGL() ? RenderingMode::Accelerated : RenderingMode::Unaccelerated, RenderingPurpose::LayerBacking);
-    paintIntoGraphicsContext(layer, context, dirtyRect, contentsOpaque, contentsScale);
-
-    canvas->restore();
-    return true;
-}
-
-static bool canPerformAcceleratedRendering()
-{
-    return ProcessCapabilities::canUseAcceleratedBuffers() && PlatformDisplay::sharedDisplay().skiaGLContext();
-}
-
-RenderingMode SkiaPaintingEngine::renderingMode() const
-{
-    if (canPerformAcceleratedRendering())
+    // Single strategy: If CPU is idle, always use it.
+    auto handlePreferCPUIfIdle = [&]() -> RenderingMode {
+        if (m_cpuWorkerPool->numberOfTasks() < numberOfCPUPaintingThreads())
+            return RenderingMode::Unaccelerated;
         return RenderingMode::Accelerated;
+    };
 
-    return RenderingMode::Unaccelerated;
-}
-
-std::optional<RenderingMode> SkiaPaintingEngine::threadedRenderingMode() const
-{
-    if (m_gpuWorkerPool && canPerformAcceleratedRendering())
-        return RenderingMode::Accelerated;
-
-    if (m_cpuWorkerPool)
+    // Single strategy: If GPU is idle, always use it.
+    auto handlePreferGPUIfIdle = [&]() -> RenderingMode {
+        if (m_gpuWorkerPool->numberOfTasks() < numberOfGPUPaintingThreads())
+            return RenderingMode::Accelerated;
         return RenderingMode::Unaccelerated;
+    };
 
-    return std::nullopt;
+    // Single strategy: If painting area exceeds a threshold, always use GPU.
+    auto handlePreferGPUAboveMinimumArea = [&]() -> RenderingMode {
+        if (dirtyRect.area() >= minimumAreaForGPUPainting())
+            return RenderingMode::Accelerated;
+        return RenderingMode::Unaccelerated;
+    };
+
+    // Single strategy: Decide randomly whether to use GPU or not.
+    auto handleMinimumFractionOfTasksUsingGPU = [&]() -> RenderingMode {
+        auto randomFraction = static_cast<double>(weakRandomNumber<uint32_t>()) / static_cast<double>(UINT32_MAX);
+        if (randomFraction <= minimumFractionOfTasksUsingGPUPainting())
+            return RenderingMode::Accelerated;
+        return RenderingMode::Unaccelerated;
+    };
+
+    // Combined strategy: default for WPE, "hybrid mode", saturates CPU painting, before using GPU.
+    auto handleCPUAffineRendering = [&]() -> RenderingMode {
+        // If there is a non-identity scaling applied, prefer GPU rendering.
+        if (contentsScale != 1)
+            return RenderingMode::Accelerated;
+
+        // If the CPU worker pool has unused workers, use them.
+        if (m_cpuWorkerPool->numberOfTasks() < numberOfCPUPaintingThreads())
+            return RenderingMode::Unaccelerated;
+
+        // If the GPU worker pool has unused workers, use them.
+        if (m_gpuWorkerPool->numberOfTasks() < numberOfGPUPaintingThreads())
+            return RenderingMode::Accelerated;
+
+        return handleMinimumFractionOfTasksUsingGPU();
+    };
+
+    // Combined strategy: default for Gtk, useful mode for high-end GPUs, saturates GPU painting, before using CPU.
+    auto handleGPUAffineRendering = [&]() -> RenderingMode {
+        // If there is a non-identity scaling applied, prefer GPU rendering.
+        if (contentsScale != 1)
+            return RenderingMode::Accelerated;
+
+        // If the GPU worker pool has unused workers, use them.
+        if (m_gpuWorkerPool->numberOfTasks() < numberOfGPUPaintingThreads())
+            return RenderingMode::Accelerated;
+
+        // If the CPU worker pool has unused workers, use them.
+        if (m_cpuWorkerPool->numberOfTasks() < numberOfCPUPaintingThreads())
+            return RenderingMode::Unaccelerated;
+
+        return handleMinimumFractionOfTasksUsingGPU();
+    };
+
+    switch (hybridPaintingStrategy()) {
+    case HybridPaintingStrategy::PreferCPUIfIdle:
+        return handlePreferCPUIfIdle();
+    case HybridPaintingStrategy::PreferGPUIfIdle:
+        return handlePreferGPUIfIdle();
+    case HybridPaintingStrategy::PreferGPUAboveMinimumArea:
+        return handlePreferGPUAboveMinimumArea();
+    case HybridPaintingStrategy::MinimumFractionOfTasksUsingGPU:
+        return handleMinimumFractionOfTasksUsingGPU();
+    case HybridPaintingStrategy::CPUAffineRendering:
+        return handleCPUAffineRendering();
+    case HybridPaintingStrategy::GPUAffineRendering:
+        return handleGPUAffineRendering();
+    }
+
+    ASSERT_NOT_REACHED();
+    return RenderingMode::Unaccelerated;
 }
 
 Ref<CoordinatedTileBuffer> SkiaPaintingEngine::createBuffer(RenderingMode renderingMode, const IntSize& size, bool contentsOpaque) const
@@ -178,56 +208,94 @@ Ref<CoordinatedTileBuffer> SkiaPaintingEngine::createBuffer(RenderingMode render
     return CoordinatedUnacceleratedTileBuffer::create(size, contentsOpaque ? CoordinatedTileBuffer::NoFlags : CoordinatedTileBuffer::SupportsAlpha);
 }
 
-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::paintLayer(const GraphicsLayer& layer, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale)
+Ref<CoordinatedTileBuffer> SkiaPaintingEngine::paint(const GraphicsLayer& layer, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale)
 {
-    // ### Asynchronous rendering on worker threads ###
-    if (auto renderingMode = SkiaPaintingEngine::threadedRenderingMode())
-        return postPaintingTask(layer, *renderingMode, dirtyRect, contentsOpaque, contentsScale);
-
     // ### Synchronous rendering on main thread ###
-    return performPaintingTask(layer, renderingMode(), dirtyRect, contentsOpaque, contentsScale);
-}
+    ASSERT(!useThreadedRendering());
 
-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::postPaintingTask(const GraphicsLayer& layer, RenderingMode renderingMode, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale)
-{
-    WTFBeginSignpost(this, RecordTile);
-    auto displayList = recordDisplayList(renderingMode, layer, dirtyRect, contentsOpaque, contentsScale);
-    WTFEndSignpost(this, RecordTile);
+    auto renderingMode = canPerformAcceleratedRendering() ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
 
-    auto buffer = createBuffer(renderingMode, dirtyRect.size(), contentsOpaque);
-    buffer->beginPainting();
-
-    auto& workerPool = renderingMode == RenderingMode::Accelerated ? *m_gpuWorkerPool.get() : *m_cpuWorkerPool.get();
-    workerPool.postTask([buffer = Ref { buffer }, displayList = WTFMove(displayList), dirtyRect]() mutable {
-        if (auto* canvas = buffer->canvas()) {
-            WTFBeginSignpost(canvas, PaintTile, "Skia/%s threaded, dirty region %ix%i+%i+%i", buffer->isBackedByOpenGL() ? "GPU" : "CPU", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
-            paintDisplayListIntoBuffer(buffer, *displayList.get());
-            WTFEndSignpost(canvas, PaintTile);
-        }
-
-        buffer->completePainting();
-
-        // Destruct display list on main thread.
-        ensureOnMainThread([displayList = WTFMove(displayList)]() mutable {
-            displayList = nullptr;
-        });
-    });
-
-    return buffer;
-}
-
-Ref<CoordinatedTileBuffer> SkiaPaintingEngine::performPaintingTask(const GraphicsLayer& layer, RenderingMode renderingMode, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale)
-{
     auto buffer = createBuffer(renderingMode, dirtyRect.size(), contentsOpaque);
     buffer->beginPainting();
 
     if (auto* canvas = buffer->canvas()) {
         WTFBeginSignpost(canvas, PaintTile, "Skia/%s, dirty region %ix%i+%i+%i", buffer->isBackedByOpenGL() ? "GPU" : "CPU", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
-        paintGraphicsLayerIntoBuffer(buffer, layer, dirtyRect, contentsOpaque, contentsScale);
+        canvas->save();
+        canvas->clear(SkColors::kTransparent);
+
+        GraphicsContextSkia context(*canvas, renderingMode, RenderingPurpose::LayerBacking);
+        paintIntoGraphicsContext(layer, context, dirtyRect, contentsOpaque, contentsScale);
+
+        canvas->restore();
         WTFEndSignpost(canvas, PaintTile);
     }
 
     buffer->completePainting();
+    return buffer;
+}
+
+Ref<SkiaRecordingResult> SkiaPaintingEngine::record(const GraphicsLayer& layer, const IntRect& recordRect, bool contentsOpaque, float contentsScale)
+{
+    // ### Asynchronous rendering on worker threads ###
+    ASSERT(useThreadedRendering());
+
+    auto renderingMode = (m_gpuWorkerPool && canPerformAcceleratedRendering()) ? RenderingMode::Accelerated : RenderingMode::Unaccelerated;
+
+    WTFBeginSignpost(this, RecordTile);
+    SkPictureRecorder pictureRecorder;
+    auto* recordingCanvas = pictureRecorder.beginRecording(recordRect.width(), recordRect.height());
+    GraphicsContextSkia recordingContext(*recordingCanvas, renderingMode, RenderingPurpose::LayerBacking);
+    recordingContext.beginRecording();
+    paintIntoGraphicsContext(layer, recordingContext, recordRect, contentsOpaque, contentsScale);
+    auto imageToFenceMap = recordingContext.endRecording();
+    auto picture = pictureRecorder.finishRecordingAsPicture();
+    WTFEndSignpost(this, RecordTile);
+
+    return SkiaRecordingResult::create(WTFMove(picture), WTFMove(imageToFenceMap), recordRect, renderingMode, contentsOpaque, contentsScale);
+}
+
+Ref<CoordinatedTileBuffer> SkiaPaintingEngine::replay(const RefPtr<SkiaRecordingResult>& recording, const IntRect& dirtyRect)
+{
+    // ### Asynchronous rendering on worker threads ###
+    ASSERT(useThreadedRendering());
+
+    auto renderingMode = recording->renderingMode();
+    if (renderingMode == RenderingMode::Accelerated && !recording->hasFences() && isHybridMode())
+        renderingMode = decideHybridRenderingMode(dirtyRect, recording->contentsScale());
+
+    auto buffer = createBuffer(renderingMode, dirtyRect.size(), recording->contentsOpaque());
+    buffer->beginPainting();
+
+    auto& workerPool = renderingMode == RenderingMode::Accelerated ? *m_gpuWorkerPool.get() : *m_cpuWorkerPool.get();
+    workerPool.postTask([buffer = Ref { buffer }, dirtyRect, recording = RefPtr { recording }]() mutable {
+        auto* canvas = buffer->canvas();
+        if (!canvas) {
+            buffer->completePainting();
+            return;
+        }
+
+        auto replayPicture = [](const sk_sp<SkPicture>& picture, SkCanvas* canvas, const IntRect& recordRect, const IntRect& paintRect) {
+            canvas->save();
+            canvas->clear(SkColors::kTransparent);
+            canvas->clipRect(SkRect::MakeXYWH(0, 0, paintRect.width(), paintRect.height()));
+            canvas->translate(recordRect.x() - paintRect.x(), recordRect.y() - paintRect.y());
+            picture->playback(canvas);
+            canvas->restore();
+        };
+
+        WTFBeginSignpost(canvas, PaintTile, "Skia/%s threaded, dirty region %ix%i+%i+%i", buffer->isBackedByOpenGL() ? "GPU" : "CPU", dirtyRect.x(), dirtyRect.y(), dirtyRect.width(), dirtyRect.height());
+        if (recording->hasFences()) {
+            auto replayCanvas = SkiaReplayCanvas::create(dirtyRect.size(), recording);
+            replayCanvas->addCanvas(canvas);
+            replayPicture(replayCanvas->picture(), &replayCanvas.get(), recording->recordRect(), dirtyRect);
+            replayCanvas->removeCanvas(canvas);
+        } else
+            replayPicture(recording->picture(), canvas, recording->recordRect(), dirtyRect);
+        WTFEndSignpost(canvas, PaintTile);
+
+        buffer->completePainting();
+    });
+
     return buffer;
 }
 
@@ -261,7 +329,8 @@ unsigned SkiaPaintingEngine::numberOfGPUPaintingThreads()
         if (!ProcessCapabilities::canUseAcceleratedBuffers())
             return;
 
-        numberOfThreads = 1; // By default, use 1 GPU worker thread, if GPU painting is active.
+        // By default, use 2 GPU worker threads if there are four or more CPU cores, otherwise use 1 thread only.
+        numberOfThreads = WTF::numberOfProcessorCores() >= 4 ? 2 : 1;
 
         if (const char* envString = getenv("WEBKIT_SKIA_GPU_PAINTING_THREADS")) {
             auto newValue = parseInteger<unsigned>(StringView::fromLatin1(envString));
@@ -273,6 +342,88 @@ unsigned SkiaPaintingEngine::numberOfGPUPaintingThreads()
     });
 
     return numberOfThreads;
+}
+
+unsigned SkiaPaintingEngine::minimumAreaForGPUPainting()
+{
+    static std::once_flag onceFlag;
+    static unsigned areaThreshold = 0;
+
+    std::call_once(onceFlag, [] {
+        areaThreshold = 256 * 256; // Prefer GPU rendering above an area of 256x256px (by default, a fourth of a 512x512 tile).
+
+        if (const char* envString = getenv("WEBKIT_SKIA_GPU_PAINTING_MIN_AREA")) {
+            if (auto newValue = parseInteger<unsigned>(StringView::fromLatin1(envString)))
+                areaThreshold = *newValue;
+        }
+    });
+
+    return areaThreshold;
+}
+
+float SkiaPaintingEngine::minimumFractionOfTasksUsingGPUPainting()
+{
+    static std::once_flag onceFlag;
+    static unsigned gpuUsagePercentage = 0;
+
+    std::call_once(onceFlag, [] {
+        gpuUsagePercentage = 50; // Half of the tasks go to CPU, half to GPU.
+
+        if (const char* envString = getenv("WEBKIT_SKIA_GPU_MIN_FRACTION_OF_TASKS_IN_PERCENT")) {
+            if (auto newValue = parseInteger<unsigned>(StringView::fromLatin1(envString)))
+                gpuUsagePercentage = *newValue;
+        }
+    });
+
+    return float(gpuUsagePercentage) / 100.0f;
+}
+
+SkiaPaintingEngine::HybridPaintingStrategy SkiaPaintingEngine::hybridPaintingStrategy()
+{
+    static std::once_flag onceFlag;
+    static HybridPaintingStrategy strategy;
+
+    std::call_once(onceFlag, [] {
+#if PLATFORM(WPE)
+        strategy = HybridPaintingStrategy::CPUAffineRendering; // Saturate CPU, before using GPU.
+#else
+        strategy = HybridPaintingStrategy::GPUAffineRendering; // Saturate GPU, before using CPU.
+#endif
+
+        if (const char* envString = getenv("WEBKIT_SKIA_HYBRID_PAINTING_MODE_STRATEGY")) {
+            auto envStringView = StringView::fromLatin1(envString);
+            if (envStringView == "PreferCPUIfIdle"_s)
+                strategy = HybridPaintingStrategy::PreferCPUIfIdle;
+            else if (envStringView == "PreferGPUIfIdle"_s)
+                strategy = HybridPaintingStrategy::PreferGPUIfIdle;
+            else if (envStringView == "PreferGPUAboveMinimumArea"_s)
+                strategy = HybridPaintingStrategy::PreferGPUAboveMinimumArea;
+            else if (envStringView == "MinimumFractionOfTasksUsingGPU"_s)
+                strategy = HybridPaintingStrategy::MinimumFractionOfTasksUsingGPU;
+            else if (envStringView == "CPUAffineRendering"_s)
+                strategy = HybridPaintingStrategy::CPUAffineRendering;
+            else if (envStringView == "GPUAffineRendering"_s)
+                strategy = HybridPaintingStrategy::GPUAffineRendering;
+        }
+    });
+
+    return strategy;
+}
+
+bool SkiaPaintingEngine::shouldUseLinearTileTextures()
+{
+    static std::once_flag onceFlag;
+    static bool shouldUseLinearTextures = false;
+
+    std::call_once(onceFlag, [] {
+        if (const char* envString = getenv("WEBKIT_SKIA_USE_LINEAR_TILE_TEXTURES")) {
+            auto envStringView = StringView::fromLatin1(envString);
+            if (envStringView == "1"_s)
+                shouldUseLinearTextures = true;
+        }
+    });
+
+    return shouldUseLinearTextures;
 }
 
 } // namespace WebCore

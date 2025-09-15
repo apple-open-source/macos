@@ -77,7 +77,7 @@
  * *@attr_list_is_needed is not defined.
  */
 errno_t ntfs_attr_list_is_needed(ntfs_inode *ni, ATTR_LIST_ENTRY *skip_entry,
-		BOOL *attr_list_is_needed)
+		NTFS_BOOL *attr_list_is_needed)
 {
 	leMFT_REF base_mref;
 	ATTR_LIST_ENTRY *entry;
@@ -234,7 +234,7 @@ errno_t ntfs_attr_list_add(ntfs_inode *base_ni, MFT_RECORD *m,
 	ATTR_LIST_ENTRY *al_entry;
 	unsigned al_alloc, al_size, bytes_free, attr_len, mp_size = 0;
 	errno_t err, err2;
-	BOOL for_mft, have_std_info, have_idx_root, insert_resident;
+	NTFS_BOOL for_mft, have_std_info, have_idx_root, insert_resident;
 	ntfs_attr_search_ctx al_ctx;
 
 	vol = base_ni->vol;
@@ -1109,7 +1109,7 @@ errno_t ntfs_attr_list_sync_shrink(ntfs_inode *ni, const unsigned start_ofs,
 	ATTR_RECORD *a;
 	unsigned mp_size;
 	errno_t err;
-	BOOL dirty_mft;
+	NTFS_BOOL dirty_mft;
 	static const char es[] = "  Leaving inconsistent metadata.  Unmount "
 			"and run chkdsk.";
 
@@ -1335,7 +1335,7 @@ errno_t ntfs_attr_list_sync_extend(ntfs_inode *base_ni, MFT_RECORD *base_m,
 	unsigned mp_size, mp_ofs, arec_size, old_arec_size;
 	errno_t err, err2;
 	le32 type;
-	BOOL dirty_mft, remap_needed;
+	NTFS_BOOL dirty_mft, remap_needed;
 	ntfs_attr_search_ctx al_ctx, actx;
 	ntfs_runlist runlist;
 

@@ -16,7 +16,7 @@
 			</dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/Libc//popen_test</string>
+				<string>/AppleInternal/Tests/Libc/popen_test</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/Libc/</string>
 				<string>-r</string>
@@ -40,7 +40,7 @@
 			</dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/Libc//popen_test</string>
+				<string>/AppleInternal/Tests/Libc/popen_test</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/Libc/</string>
 				<string>-r</string>
@@ -64,7 +64,7 @@
 			</dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/Libc//popen_test</string>
+				<string>/AppleInternal/Tests/Libc/popen_test</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/Libc/</string>
 				<string>-r</string>
@@ -88,13 +88,65 @@
 			</dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/Libc//popen_test</string>
+				<string>/AppleInternal/Tests/Libc/popen_test</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/Libc/</string>
 				<string>-r</string>
 				<string>popen_test.popen_rwmodes_test.results.txt</string>
 				<string>popen_rwmodes_test</string>
 			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>Libc.t_basedirname.basename_posix</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/Libc/t_basedirname</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/Libc/</string>
+				<string>-r</string>
+				<string>t_basedirname.basename_posix.results.txt</string>
+				<string>basename_posix</string>
+			</array>
+			<key>Description</key>
+			<string>Test basename(3) with POSIX examples</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>Libc.t_basedirname.dirname_posix</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/Libc/t_basedirname</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/Libc/</string>
+				<string>-r</string>
+				<string>t_basedirname.dirname_posix.results.txt</string>
+				<string>dirname_posix</string>
+			</array>
+			<key>Description</key>
+			<string>Test dirname(3) with POSIX examples</string>
 			<key>MayRunConcurrently</key>
 			<true/>
 			<key>Timeout</key>
@@ -112,7 +164,7 @@
 			</dict>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/Tests/Libc//t_strchrnul</string>
+				<string>/AppleInternal/Tests/Libc/t_strchrnul</string>
 				<string>-s</string>
 				<string>/AppleInternal/Tests/Libc/</string>
 				<string>-r</string>

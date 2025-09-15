@@ -21,6 +21,7 @@
 
 #include "BitmapTexture.h"
 #include "Image.h"
+#include "NativeImage.h"
 #include "TextureMapper.h"
 #include <wtf/TZoneMallocInlines.h>
 

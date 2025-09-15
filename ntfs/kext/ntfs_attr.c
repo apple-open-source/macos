@@ -232,7 +232,7 @@ errno_t ntfs_map_runlist_nolock(ntfs_inode *ni, VCN vcn,
 	MFT_RECORD *m;
 	ATTR_RECORD *a;
 	errno_t err = 0;
-	BOOL ctx_is_temporary, ctx_needs_reset;
+	NTFS_BOOL ctx_is_temporary, ctx_needs_reset;
 	ntfs_attr_search_ctx old_ctx = { { NULL, }, };
 
 	ntfs_debug("Entering for mft_no 0x%llx, vcn 0x%llx.",
@@ -434,11 +434,11 @@ done:
  *	      the runlist still being the same when this function returns.
  */
 LCN ntfs_attr_vcn_to_lcn_nolock(ntfs_inode *ni, const VCN vcn,
-		const BOOL write_locked, s64 *clusters)
+		const NTFS_BOOL write_locked, s64 *clusters)
 {
 	LCN lcn;
-	BOOL need_lock_switch = FALSE;
-	BOOL is_retry = FALSE;
+	NTFS_BOOL need_lock_switch = FALSE;
+	NTFS_BOOL is_retry = FALSE;
 
 	ntfs_debug("Entering for mft_no 0x%llx, vcn 0x%llx, %s_locked.",
 			(unsigned long long)ni->mft_no,
@@ -583,7 +583,7 @@ errno_t ntfs_attr_find_vcn_nolock(ntfs_inode *ni, const VCN vcn,
 {
 	ntfs_rl_element *rl;
 	errno_t err = 0;
-	BOOL is_retry = FALSE;
+	NTFS_BOOL is_retry = FALSE;
 
 	ntfs_debug("Entering for mft_no 0x%llx, vcn 0x%llx, with%s ctx.",
 			(unsigned long long)ni->mft_no,
@@ -669,7 +669,7 @@ err:
  */
 void ntfs_attr_search_ctx_reinit(ntfs_attr_search_ctx *ctx)
 {
-	const BOOL mft_is_locked = ctx->is_mft_locked;
+	const NTFS_BOOL mft_is_locked = ctx->is_mft_locked;
 
 	if (!ctx->base_ni) {
 		/* No attribute list. */
@@ -798,8 +798,8 @@ errno_t ntfs_attr_find_in_mft_record(const ATTR_TYPE type,
 	ntfs_volume *vol = ctx->ni->vol;
 	const ntfschar *upcase = vol->upcase;
 	const u32 upcase_len = vol->upcase_len;
-	const BOOL case_sensitive = NVolCaseSensitive(vol);
-	const BOOL is_iteration = ctx->is_iteration;
+	const NTFS_BOOL case_sensitive = NVolCaseSensitive(vol);
+	const NTFS_BOOL is_iteration = ctx->is_iteration;
 
 	/*
 	 * Iterate over attributes in mft record starting at @ctx->a, or the
@@ -987,7 +987,7 @@ static errno_t ntfs_attr_find_in_attribute_list(const ATTR_TYPE type,
 	u32 al_name_len;
 	errno_t err = 0;
 	static const char es[] = " Unmount and run chkdsk.";
-	const BOOL case_sensitive = NVolCaseSensitive(vol);
+	const NTFS_BOOL case_sensitive = NVolCaseSensitive(vol);
 
 	if (ctx->is_iteration)
 		panic("%s(): ctx->is_iteration\n", __FUNCTION__);
@@ -1469,7 +1469,7 @@ errno_t ntfs_attr_can_be_resident(
  * Return true if @a is the only attribute record in its mft record @m and
  * false if @a is not the only attribute record in its mft record @m.
  */
-BOOL ntfs_attr_record_is_only_one(MFT_RECORD *m, ATTR_RECORD *a)
+NTFS_BOOL ntfs_attr_record_is_only_one(MFT_RECORD *m, ATTR_RECORD *a)
 {
 	ATTR_RECORD *first_a, *next_a;
 
@@ -1541,7 +1541,7 @@ errno_t ntfs_attr_record_delete(ntfs_inode *base_ni, ntfs_attr_search_ctx *ctx)
 	ATTR_LIST_ENTRY *al_entry;
 	errno_t err;
 	unsigned al_ofs;
-	BOOL al_needed;
+	NTFS_BOOL al_needed;
 
 	ni = ctx->ni;
 	m = ctx->m;
@@ -2430,7 +2430,7 @@ errno_t ntfs_resident_attr_record_insert(ntfs_inode *ni,
 	unsigned name_ofs, val_ofs, al_entry_used, al_entry_len, new_al_size;
 	unsigned new_al_alloc;
 	errno_t err;
-	BOOL al_entry_added;
+	NTFS_BOOL al_entry_added;
 
 	ntfs_debug("Entering for mft_no 0x%llx, attribute type 0x%x, name_len "
 			"0x%x, val_len 0x%x.", (unsigned long long)ni->mft_no,
@@ -2759,7 +2759,7 @@ undo_al:
 		}
 	} else {
 		int err2;
-		BOOL al_needed;
+		NTFS_BOOL al_needed;
 
 		err2 = ntfs_extent_mft_record_free(ni, ctx->ni, m);
 		if (err2) {
@@ -2944,7 +2944,7 @@ errno_t ntfs_attr_make_non_resident(ntfs_inode *ni)
 	le32 type;
 	u8 old_res_attr_flags;
 	ntfs_attr_search_ctx ctx, actx;
-	BOOL al_dirty = FALSE;
+	NTFS_BOOL al_dirty = FALSE;
 
 	/* Check that the attribute is allowed to be non-resident. */
 	err = ntfs_attr_can_be_non_resident(vol, ni->type);
@@ -3574,7 +3574,7 @@ unl_err:
  */
 errno_t ntfs_attr_record_move_for_attr_list_attribute(
 		ntfs_attr_search_ctx *al_ctx, ATTR_LIST_ENTRY *al_entry,
-		ntfs_attr_search_ctx *ctx, BOOL *remap_needed)
+		ntfs_attr_search_ctx *ctx, NTFS_BOOL *remap_needed)
 {
 	ntfs_inode *base_ni, *ni;
 	MFT_RECORD *m;
@@ -3922,7 +3922,7 @@ errno_t ntfs_attr_set_initialized_size(ntfs_inode *ni, s64 new_init_size)
 	ntfs_attr_search_ctx *ctx;
 	ATTR_RECORD *a;
 	errno_t err;
-	BOOL data_size_updated = FALSE;
+	NTFS_BOOL data_size_updated = FALSE;
 
 #ifdef DEBUG
 	lck_spin_lock(&ni->size_lock);
@@ -4084,7 +4084,7 @@ errno_t ntfs_attr_extend_initialized(ntfs_inode *ni, const s64 new_init_size)
 	ntfs_rl_element *rl = NULL;
 	errno_t err;
 	unsigned attr_len;
-	BOOL locked, write_locked, is_sparse, mark_sizes_dirty;
+	NTFS_BOOL locked, write_locked, is_sparse, mark_sizes_dirty;
 
 	lck_spin_lock(&ni->size_lock);
 	if (new_init_size > ni->allocated_size)
@@ -4220,7 +4220,7 @@ do_non_resident_extend:
 	write_locked = locked = FALSE;
 	is_sparse = (NInoSparse(ni));
 	if (is_sparse) {
-		BOOL have_holes = FALSE;
+		NTFS_BOOL have_holes = FALSE;
 
 		locked = TRUE;
 		lck_rw_lock_shared(&ni->rl.lock);
@@ -5179,7 +5179,7 @@ static void ntfs_attr_sparse_clear(ntfs_inode *base_ni, ntfs_inode *ni,
  */
 errno_t ntfs_attr_instantiate_holes(ntfs_inode *ni, s64 start, s64 end,
 		s64 *new_end __attribute__((unused)),
-		BOOL atomic __attribute__((unused)))
+		NTFS_BOOL atomic __attribute__((unused)))
 {
 #if 0
 	VCN vcn, end_vcn;
@@ -5945,7 +5945,7 @@ undo1:
 errno_t ntfs_attr_extend_allocation(ntfs_inode *ni, s64 new_alloc_size,
 		const s64 new_data_size, const s64 data_start,
 		ntfs_index_context *ictx, s64 *dst_alloc_size,
-		const BOOL atomic __attribute__((unused)))
+		const NTFS_BOOL atomic __attribute__((unused)))
 {
 	VCN vcn, lowest_vcn, stop_vcn;
 	s64 start, ll, old_alloc_size, alloc_size, alloc_start, alloc_end;
@@ -5959,7 +5959,7 @@ errno_t ntfs_attr_extend_allocation(ntfs_inode *ni, s64 new_alloc_size,
 	unsigned attr_len, arec_size, name_size, mp_size, mp_ofs, max_size;
 	unsigned al_entry_len, new_al_alloc;
 	errno_t err, err2;
-	BOOL is_sparse, is_first, mp_rebuilt, al_entry_added;
+	NTFS_BOOL is_sparse, is_first, mp_rebuilt, al_entry_added;
 	ntfs_runlist runlist;
 
 	start = data_start;
@@ -7678,7 +7678,7 @@ errno_t ntfs_attr_resize(ntfs_inode *ni, s64 new_size,
 	int size_change, alloc_change;
 	unsigned mp_size, attr_len, arec_size;
 	errno_t err;
-	BOOL need_ubc_setsize = TRUE;
+	NTFS_BOOL need_ubc_setsize = TRUE;
 	static const char es[] = "  Leaving inconsistent metadata.  Unmount "
 			"and run chkdsk.";
 
@@ -8652,7 +8652,7 @@ delete_attr:
 	 */
 	if ((u8*)al_entry != del_al_start) {
 		unsigned al_ofs;
-		BOOL have_extent_records;
+		NTFS_BOOL have_extent_records;
 
 		al_ofs = del_al_start - base_ni->attr_list;
 		ntfs_attr_list_entries_delete(base_ni,
@@ -8742,7 +8742,7 @@ done:
 	 * needs archiving bit except for the core system files.
 	 */
 	if (!S_ISDIR(base_ni->mode) || NInoEncrypted(base_ni)) {
-		BOOL need_set_archive_bit = TRUE;
+		NTFS_BOOL need_set_archive_bit = TRUE;
 		if (vol->major_ver >= 2) {
 			if (ni->mft_no <= FILE_Extend)
 				need_set_archive_bit = FALSE;

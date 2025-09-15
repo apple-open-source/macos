@@ -36,7 +36,6 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTVouchWithBottleOperation ()
@@ -96,7 +95,7 @@
                                              code:OctagonErrorNoAppleAccount
                                       description:@"No altDSID configured"];
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:NO error:self.error];
+            [vouchWithBottleEvent sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -123,7 +122,7 @@
             secerror("octagon: Error preflighting voucher using bottle: %@", preflightError);
             self.error = preflightError;
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:NO error:self.error];
+            [vouchWithBottleEvent sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -156,7 +155,7 @@
             secerror("octagon: Error fetching TLKShares to recover: %@", fetchError);
             self.error = fetchError;
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:NO error:self.error];
+            [vouchWithBottleEvent sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -198,7 +197,7 @@
             secerror("octagon: Error preparing voucher using bottle: %@", vouchError);
             self.error = vouchError;
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:NO error:self.error];
+            [vouchWithBottleEvent sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -226,7 +225,7 @@
                 secnotice("octagon", "unable to save voucher: %@", saveError);
                 self.error = saveError;
                 [self runBeforeGroupFinished:self.finishedOp];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:NO error:self.error];
+                [vouchWithBottleEvent sendMetricWithResult:NO error:self.error];
                 return;
             }
         }
@@ -234,7 +233,7 @@
         secnotice("octagon", "Successfully vouched with a bottle: %@, %@", voucher, voucherSig);
         self.nextState = self.intendedState;
         [self runBeforeGroupFinished:self.finishedOp];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:vouchWithBottleEvent success:YES error:nil];
+        [vouchWithBottleEvent sendMetricWithResult:YES error:nil];
     }];
 }
 

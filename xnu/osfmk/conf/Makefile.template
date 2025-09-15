@@ -72,7 +72,8 @@ COMP_SUBDIRS = \
 
 %MACHDEP
 
-vm_tests.o_CFLAGS_ADD += -O0 -g
+# Ease debuggability of VM test code as much as possible.
+vm_tests.o_CFLAGS_ADD += -g
 
 #
 # vm_sanitize/vm_sanitize_error_compat use the UBSan verifier to detect
@@ -474,6 +475,10 @@ $(COMPONENT).filelist: $(OBJS)
 	$(_v)for obj in ${OBJS}; do	\
 		 $(ECHO) $(TARGET)/$(CURRENT_KERNEL_CONFIG)/$${obj}; \
 	done > $(COMPONENT).filelist
+
+ifeq ($(XNU_LibAllFiles),1)
+LIBOBJS := $(OBJS)
+endif
 
 $(COMPONENT).libfilelist: $(LIBOBJS)
 	@$(LOG_LDFILELIST) "lib$(COMPONENT)"

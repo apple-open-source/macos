@@ -66,6 +66,12 @@ static int __netns_inited = 0;
 #define PROTO_STR(proto)        ((proto == IPPROTO_TCP) ? "tcp" : "udp")
 #define LEN_TO_AF(len)          (((len == sizeof (struct in_addr)) ? \
 	                            AF_INET : AF_INET6))
+#define NS_PORT_ERR(_fmt, ...) do { \
+	proc_t _p = current_proc(); \
+	SK_ERR("%s(%d) port %u: " _fmt, sk_proc_name(_p), sk_proc_pid(_p), \
+	    port, ##__VA_ARGS__); \
+} while (0);
+
 /*
  * Locking
  * Netns is currently protected by a global mutex, NETNS_LOCK. This lock is
@@ -331,7 +337,7 @@ netns_ns_free(struct ns *namespace)
 	    NS_VERB_PROTO(namespace->ns_proto),
 	    "freeing %s ns for IP %s",
 	    PROTO_STR(namespace->ns_proto),
-	    inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+	    sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 	    namespace->ns_addr, tmp_ip_str, sizeof(tmp_ip_str)));
 
 	RB_FOREACH_SAFE(res, ns_reservation_tree, &namespace->ns_reservations,
@@ -475,7 +481,7 @@ _netns_get_ns(uint32_t *__sized_by(addr_len)addr, uint8_t addr_len, uint8_t prot
 	if (create && namespace == NULL) {
 		SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
 		    "allocating %s ns for IP %s",
-		    PROTO_STR(proto), inet_ntop(LEN_TO_AF(addr_len), addr,
+		    PROTO_STR(proto), sk_ntop(LEN_TO_AF(addr_len), addr,
 		    tmp_ip_str, sizeof(tmp_ip_str)));
 		NETNS_LOCK_CONVERT();
 		namespace = netns_ns_alloc(Z_WAITOK | Z_NOFAIL);
@@ -568,7 +574,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 	if (res == NULL) {
 		SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
 		    "ERROR %s:%s:%d // flags 0x%x // OUT OF MEMORY",
-		    inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+		    sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 		    namespace->ns_addr, tmp_ip_str,
 		    sizeof(tmp_ip_str)), PROTO_STR(proto), port, flags);
 		return ENOMEM;
@@ -584,7 +590,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
 	    "pre: %s:%s:%d // flags 0x%x // refs %d sky, %d ls, "
-	    "%d bsd %d pf", inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+	    "%d bsd %d pf", sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 	    namespace->ns_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 	    PROTO_STR(proto), port, flags,
 	    NETNS_REF_COUNT(res, NETNS_SKYWALK),
@@ -615,7 +621,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 				 * listener wildcard entry for this
 				 * protocol/port number means this must fail.
 				 */
-				SK_ERR("ADDRINUSE: Duplicate wildcard");
+				NS_PORT_ERR("ADDRINUSE: Duplicate wildcard");
 				err = EADDRINUSE;
 				goto done;
 			}
@@ -636,7 +642,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 					 * namespace for this port means this
 					 * must fail.
 					 */
-					SK_ERR("ADDRINUSE: Wildcard with non-wild.");
+					NS_PORT_ERR("ADDRINUSE: Wildcard with non-wild.");
 					err = EADDRINUSE;
 					goto done;
 				}
@@ -656,7 +662,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 				 * which Skywalk already has a wildcard
 				 * reservation.
 				 */
-				SK_ERR("ADDRINUSE: BSD requesting Skywalk port");
+				NS_PORT_ERR("ADDRINUSE: BSD requesting Skywalk port");
 				err = EADDRINUSE;
 				goto done;
 			}
@@ -680,7 +686,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 				    (NETNS_REF_COUNT(skres, NETNS_SKYWALK) |
 				    NETNS_REF_COUNT(skres,
 				    NETNS_LISTENER)) != 0) {
-					SK_ERR("ADDRINUSE: BSD wildcard with non-wild.");
+					NS_PORT_ERR("ADDRINUSE: BSD wildcard with non-wild.");
 					err = EADDRINUSE;
 					goto done;
 				}
@@ -692,7 +698,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 			/* check collision w/ BSD */
 			if (NETNS_REF_COUNT(res, NETNS_BSD) > 0 ||
 			    NETNS_REF_COUNT(res, NETNS_PF) > 0) {
-				SK_ERR("ERROR - Skywalk got ADDRINUSE (w/ BSD)");
+				NS_PORT_ERR("ERROR - Skywalk got ADDRINUSE (w/ BSD)");
 				err = EADDRINUSE;
 				goto done;
 			}
@@ -739,7 +745,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 						goto done;
 					}
 				}
-				SK_ERR("ERROR - Skywalk got ADDRINUSE (w/ SK connected flow)");
+				NS_PORT_ERR("ERROR - Skywalk got ADDRINUSE (w/ SK connected flow)");
 				err = EADDRINUSE;
 			}
 			/*
@@ -761,7 +767,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 				    NETNS_NS_GLOBAL_IDX(proto, NETNS_ADDRLEN_V4)], res, port) ||
 			    _netns_is_port_used(netns_global_non_wild[
 				    NETNS_NS_GLOBAL_IDX(proto, NETNS_ADDRLEN_V6)], res, port)) {
-				SK_ERR("ERROR - Listener got ADDRINUSE");
+				NS_PORT_ERR("ERROR - Listener got ADDRINUSE");
 				err = EADDRINUSE;
 			}
 			break;
@@ -770,7 +776,7 @@ _netns_reserve_common(struct ns *namespace, in_port_t port, uint32_t flags)
 		case NETNS_PF:
 			if (NETNS_REF_COUNT(res, NETNS_SKYWALK) > 0 ||
 			    NETNS_REF_COUNT(res, NETNS_LISTENER) > 0) {
-				SK_ERR("ERROR - %s got ADDRINUSE",
+				NS_PORT_ERR("ERROR - %s got ADDRINUSE",
 				    ((flags & NETNS_OWNER_MASK) == NETNS_PF) ?
 				    "PF" : "BSD");
 				err = EADDRINUSE;
@@ -795,7 +801,7 @@ done:
 		    NS_VERB_PROTO(namespace->ns_proto),
 		    "post: %s:%s:%d err %d // flags 0x%x // refs %d sky, "
 		    "%d ls, %d bsd %d pf",
-		    inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+		    sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 		    namespace->ns_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 		    PROTO_STR(namespace->ns_proto), port, err, flags,
 		    NETNS_REF_COUNT(res, NETNS_SKYWALK),
@@ -833,7 +839,7 @@ _netns_release_common(struct ns *namespace, in_port_t port, uint32_t flags)
 		SK_DF(NS_VERB_IP(namespace->ns_addr_len) |
 		    NS_VERB_PROTO(namespace->ns_proto),
 		    "ERROR %s:%s:%d // flags 0x%x // not found",
-		    inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+		    sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 		    namespace->ns_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 		    PROTO_STR(namespace->ns_proto), port, flags);
 		VERIFY(res != NULL);
@@ -842,7 +848,7 @@ _netns_release_common(struct ns *namespace, in_port_t port, uint32_t flags)
 	SK_DF(NS_VERB_IP(namespace->ns_addr_len) |
 	    NS_VERB_PROTO(namespace->ns_proto),
 	    "%s:%s:%d // flags 0x%x // refs %d sky, %d ls, %d bsd, %d pf",
-	    inet_ntop(LEN_TO_AF(namespace->ns_addr_len),
+	    sk_ntop(LEN_TO_AF(namespace->ns_addr_len),
 	    namespace->ns_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 	    PROTO_STR(namespace->ns_proto), port, flags,
 	    NETNS_REF_COUNT(res, NETNS_SKYWALK),
@@ -897,7 +903,7 @@ netns_clear_ifnet(struct ns_token *nstoken)
 		SK_DF(NS_VERB_IP(nstoken->nt_addr_len) |
 		    NS_VERB_PROTO(nstoken->nt_proto),
 		    "%s:%s:%d // removed from ifnet %d",
-		    inet_ntop(LEN_TO_AF(nstoken->nt_addr_len),
+		    sk_ntop(LEN_TO_AF(nstoken->nt_addr_len),
 		    nstoken->nt_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 		    PROTO_STR(nstoken->nt_proto), nstoken->nt_port,
 		    nstoken->nt_ifp->if_index);
@@ -941,7 +947,7 @@ _netns_reserve_kpi_common(struct ns *ns, netns_token *token,
 
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
 	    "reserving %s:%s:%d // flags 0x%x // token %svalid",
-	    inet_ntop(LEN_TO_AF(addr_len), addr, tmp_ip_str,
+	    sk_ntop(LEN_TO_AF(addr_len), addr, tmp_ip_str,
 	    sizeof(tmp_ip_str)), PROTO_STR(proto), hport, flags,
 	    NETNS_TOKEN_VALID(token) ? "" : "in");
 
@@ -965,7 +971,7 @@ _netns_reserve_kpi_common(struct ns *ns, netns_token *token,
 				SK_DF(NS_VERB_IP(nt->nt_addr_len) |
 				    NS_VERB_PROTO(nt->nt_proto),
 				    "%s:%s:%d // flags 0x%x -> 0x%x",
-				    inet_ntop(LEN_TO_AF(nt->nt_addr_len),
+				    sk_ntop(LEN_TO_AF(nt->nt_addr_len),
 				    nt->nt_addr, tmp_ip_str,
 				    sizeof(tmp_ip_str)),
 				    PROTO_STR(nt->nt_proto),
@@ -1232,12 +1238,12 @@ netns_reserve(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 	}
 
 	if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
-		SK_ERR("netns doesn't support non TCP/UDP protocol");
+		NS_PORT_ERR("netns doesn't support non TCP/UDP protocol");
 		return ENOTSUP;
 	}
 
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
-	    "%s:%s:%d // flags 0x%x", inet_ntop(LEN_TO_AF(addr_len), addr,
+	    "%s:%s:%d // flags 0x%x", sk_ntop(LEN_TO_AF(addr_len), addr,
 	    tmp_ip_str, sizeof(tmp_ip_str)), PROTO_STR(proto), ntohs(port),
 	    flags);
 
@@ -1264,10 +1270,11 @@ extern int      tcp_use_randomport;
 
 int
 netns_reserve_ephemeral(netns_token *token, uint32_t *__sized_by(addr_len)addr,
-    uint8_t addr_len, uint8_t proto, in_port_t *port, uint32_t flags,
+    uint8_t addr_len, uint8_t proto, in_port_t *pport, uint32_t flags,
     struct ns_flow_info *nfi)
 {
 	int err = 0;
+	SK_LOG_VAR(in_port_t port = *pport);
 	in_port_t first = (in_port_t)ipport_firstauto;
 	in_port_t last  = (in_port_t)ipport_lastauto;
 	in_port_t rand_port;
@@ -1287,13 +1294,13 @@ netns_reserve_ephemeral(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 	}
 
 	if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
-		SK_ERR("netns doesn't support non TCP/UDP protocol");
+		NS_PORT_ERR("netns doesn't support non TCP/UDP protocol");
 		return ENOTSUP;
 	}
 
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
-	    "%s:%s:%d // flags 0x%x", inet_ntop(LEN_TO_AF(addr_len), addr,
-	    tmp_ip_str, sizeof(tmp_ip_str)), PROTO_STR(proto), ntohs(*port),
+	    "%s:%s:%d // flags 0x%x", sk_ntop(LEN_TO_AF(addr_len), addr,
+	    tmp_ip_str, sizeof(tmp_ip_str)), PROTO_STR(proto), ntohs(port),
 	    flags);
 
 	NETNS_LOCK_SPIN();
@@ -1308,7 +1315,7 @@ netns_reserve_ephemeral(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 	if (proto == IPPROTO_UDP) {
 		if (UINT16_MAX - namespace->ns_n_reservations <
 		    NETNS_NS_UDP_EPHEMERAL_RESERVE) {
-			SK_ERR("UDP ephemeral port not available"
+			NS_PORT_ERR("UDP ephemeral port not available"
 			    "(less than 4096 UDP ports left)");
 			err = EADDRNOTAVAIL;
 			NETNS_UNLOCK();
@@ -1353,7 +1360,7 @@ netns_reserve_ephemeral(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 
 	while (true) {
 		if (n_last_port == 0) {
-			SK_ERR("ephemeral port search range includes 0");
+			NS_PORT_ERR("ephemeral port search range includes 0");
 			err = EINVAL;
 			break;
 		}
@@ -1383,14 +1390,14 @@ netns_reserve_ephemeral(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 		n_last_port = htons(last_port);
 
 		if (last_port == rand_port || first == last) {
-			SK_ERR("couldn't find free ephemeral port");
+			NS_PORT_ERR("couldn't find free ephemeral port");
 			err = EADDRNOTAVAIL;
 			break;
 		}
 	}
 
 	if (err == 0) {
-		*port = n_last_port;
+		*pport = n_last_port;
 		if (count_up) {
 			namespace->ns_last_ephemeral_port_up = last_port;
 		} else {
@@ -1439,7 +1446,7 @@ netns_release(netns_token *token)
 
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
 	    "releasing %s:%s:%d",
-	    inet_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
+	    sk_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
 	    tmp_ip_str, sizeof(tmp_ip_str)), PROTO_STR(proto),
 	    nt->nt_port);
 
@@ -1496,9 +1503,9 @@ netns_change_addr(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 	proto = nt->nt_proto;
 
 #if SK_LOG
-	inet_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
+	sk_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
 	    tmp_ip_str_1, sizeof(tmp_ip_str_1));
-	inet_ntop(LEN_TO_AF(addr_len), addr, tmp_ip_str_2,
+	sk_ntop(LEN_TO_AF(addr_len), addr, tmp_ip_str_2,
 	    sizeof(tmp_ip_str_2));
 #endif /* SK_LOG */
 	SK_DF(NS_VERB_IP(addr_len) | NS_VERB_PROTO(proto),
@@ -1528,7 +1535,8 @@ netns_change_addr(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 	    nt->nt_flags))) {
 		NETNS_LOCK_CONVERT();
 		netns_ns_cleanup(new_namespace);
-		SK_ERR("ERROR - reservation collision under new namespace");
+		SK_ERR("port %u reservation collision under new namespace",
+		    nt->nt_port);
 		goto done;
 	}
 
@@ -1559,7 +1567,8 @@ netns_change_addr(netns_token *token, uint32_t *__sized_by(addr_len)addr,
 
 		if ((err = _netns_reserve_common(global_namespace,
 		    nt->nt_port, nt->nt_flags)) != 0) {
-			SK_ERR("ERROR - reservation collision under new global namespace");
+			SK_ERR("port %u - reservation collision under new global namespace",
+			    nt->nt_port);
 			/* XXX: Should not fail. Maybe assert instead */
 			goto done;
 		}
@@ -1582,13 +1591,13 @@ _netns_set_ifnet_internal(struct ns_token *nt, struct ifnet *ifp)
 
 	NETNS_LOCK_ASSERT_HELD();
 
-	if (ifp != NULL && ifnet_is_attached(ifp, 1)) {
+	if (ifp != NULL && ifnet_get_ioref(ifp)) {
 		nt->nt_ifp = ifp;
 		LIST_INSERT_HEAD(&ifp->if_netns_tokens, nt, nt_ifp_link);
 
 		SK_DF(NS_VERB_IP(nt->nt_addr_len) | NS_VERB_PROTO(nt->nt_proto),
 		    "%s:%s:%d // added to ifnet %d",
-		    inet_ntop(LEN_TO_AF(nt->nt_addr_len),
+		    sk_ntop(LEN_TO_AF(nt->nt_addr_len),
 		    nt->nt_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 		    PROTO_STR(nt->nt_proto), nt->nt_port,
 		    ifp->if_index);
@@ -1618,7 +1627,7 @@ netns_set_ifnet(netns_token *token, ifnet_t ifp)
 	if (nt->nt_ifp == ifp) {
 		SK_DF(NS_VERB_IP(nt->nt_addr_len) | NS_VERB_PROTO(nt->nt_proto),
 		    "%s:%s:%d // ifnet already %d, exiting early",
-		    inet_ntop(LEN_TO_AF(nt->nt_addr_len),
+		    sk_ntop(LEN_TO_AF(nt->nt_addr_len),
 		    nt->nt_addr, tmp_ip_str, sizeof(tmp_ip_str)),
 		    PROTO_STR(nt->nt_proto), nt->nt_port,
 		    ifp ? ifp->if_index : -1);
@@ -1672,10 +1681,10 @@ _netns_set_state(netns_token *token, uint32_t state)
 	nt->nt_state |= state;
 
 	SK_DF(NS_VERB_IP(nt->nt_addr_len) | NS_VERB_PROTO(nt->nt_proto),
-	    "%s:%s:%d // state 0x%b",
-	    inet_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
+	    "%s:%s:%d // state 0x%x",
+	    sk_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
 	    tmp_ip_str, sizeof(tmp_ip_str)),
-	    PROTO_STR(nt->nt_proto), nt->nt_port, state, NETNS_STATE_BITS);
+	    PROTO_STR(nt->nt_proto), nt->nt_port, state);
 
 	NETNS_UNLOCK();
 }
@@ -1743,7 +1752,7 @@ netns_change_flags(netns_token *token, uint32_t set_flags,
 
 	SK_DF(NS_VERB_IP(nt->nt_addr_len) | NS_VERB_PROTO(nt->nt_proto),
 	    "%s:%s:%d // flags 0x%x -> 0x%x",
-	    inet_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
+	    sk_ntop(LEN_TO_AF(nt->nt_addr_len), nt->nt_addr,
 	    tmp_ip_str, sizeof(tmp_ip_str)),
 	    PROTO_STR(nt->nt_proto), nt->nt_port, nt->nt_flags,
 	    nt->nt_flags | set_flags & ~clear_flags);
@@ -1768,7 +1777,7 @@ netns_local_port_scan_flow_entry(struct flow_entry *fe, protocol_family_t protoc
 		return;
 	}
 
-	if (fe->fe_flags & FLOWENTF_EXTRL_PORT) {
+	if (fe->fe_flags & (FLOWENTF_EXTRL_PORT | FLOWENTF_AOP_OFFLOAD)) {
 		return;
 	}
 
@@ -1850,22 +1859,22 @@ netns_local_port_scan_flow_entry(struct flow_entry *fe, protocol_family_t protoc
 			proc_name(nfi->nfi_owner_pid, pname, sizeof(pname));
 
 			if (protocol == PF_INET) {
-				inet_ntop(PF_INET, &nfi->nfi_laddr.sin.sin_addr,
+				sk_ntop(PF_INET, &nfi->nfi_laddr.sin.sin_addr,
 				    lbuf, sizeof(lbuf));
-				inet_ntop(PF_INET, &nfi->nfi_faddr.sin.sin_addr,
+				sk_ntop(PF_INET, &nfi->nfi_faddr.sin.sin_addr,
 				    fbuf, sizeof(fbuf));
 				lport = nfi->nfi_laddr.sin.sin_port;
 				fport = nfi->nfi_faddr.sin.sin_port;
 			} else {
-				inet_ntop(PF_INET6, &nfi->nfi_laddr.sin6.sin6_addr.s6_addr,
+				sk_ntop(PF_INET6, &nfi->nfi_laddr.sin6.sin6_addr.s6_addr,
 				    lbuf, sizeof(lbuf));
-				inet_ntop(PF_INET6, &nfi->nfi_faddr.sin6.sin6_addr,
+				sk_ntop(PF_INET6, &nfi->nfi_faddr.sin6.sin6_addr,
 				    fbuf, sizeof(fbuf));
 				lport = nfi->nfi_laddr.sin6.sin6_port;
 				fport = nfi->nfi_faddr.sin6.sin6_port;
 			}
 
-			os_log(OS_LOG_DEFAULT,
+			os_log(wake_packet_log_handle,
 			    "netns_local_port_scan_flow_entry: route is down %s %s:%u %s:%u ifp %s proc %s:%d",
 			    token->nt_proto == IPPROTO_TCP ? "tcp" : "udp",
 			    lbuf, ntohs(lport), fbuf, ntohs(fport),
@@ -1889,22 +1898,22 @@ netns_local_port_scan_flow_entry(struct flow_entry *fe, protocol_family_t protoc
 		proc_name(nfi->nfi_owner_pid, pname, sizeof(pname));
 
 		if (protocol == PF_INET) {
-			inet_ntop(PF_INET, &nfi->nfi_laddr.sin.sin_addr,
+			sk_ntop(PF_INET, &nfi->nfi_laddr.sin.sin_addr,
 			    lbuf, sizeof(lbuf));
-			inet_ntop(PF_INET, &nfi->nfi_faddr.sin.sin_addr,
+			sk_ntop(PF_INET, &nfi->nfi_faddr.sin.sin_addr,
 			    fbuf, sizeof(fbuf));
 			lport = nfi->nfi_laddr.sin.sin_port;
 			fport = nfi->nfi_faddr.sin.sin_port;
 		} else {
-			inet_ntop(PF_INET6, &nfi->nfi_laddr.sin6.sin6_addr.s6_addr,
+			sk_ntop(PF_INET6, &nfi->nfi_laddr.sin6.sin6_addr.s6_addr,
 			    lbuf, sizeof(lbuf));
-			inet_ntop(PF_INET6, &nfi->nfi_faddr.sin6.sin6_addr,
+			sk_ntop(PF_INET6, &nfi->nfi_faddr.sin6.sin6_addr,
 			    fbuf, sizeof(fbuf));
 			lport = nfi->nfi_laddr.sin6.sin6_port;
 			fport = nfi->nfi_faddr.sin6.sin6_port;
 		}
 
-		os_log(OS_LOG_DEFAULT,
+		os_log(wake_packet_log_handle,
 		    "netns_local_port_scan_flow_entry: no wake from sleep %s %s:%u %s:%u ifp %s proc %s:%d",
 		    token->nt_proto == IPPROTO_TCP ? "tcp" : "udp",
 		    lbuf, ntohs(lport), fbuf, ntohs(fport),
@@ -1926,10 +1935,9 @@ netns_local_port_scan_flow_entry(struct flow_entry *fe, protocol_family_t protoc
 		(void) if_ports_used_add_flow_entry(fe, token->nt_ifp->if_index,
 		    token->nt_flow_info, token->nt_flags);
 	} else {
-		SK_ERR("%s: unknown owner port %u"
+		SK_ERR("unknown owner port %u"
 		    " nt_flags 0x%x ifindex %u nt_flow_info %p\n",
-		    __func__, token->nt_port,
-		    token->nt_flags,
+		    token->nt_port, token->nt_flags,
 		    token->nt_ifp != NULL ? token->nt_ifp->if_index : 0,
 		    token->nt_flow_info);
 	}
@@ -1945,7 +1953,7 @@ netns_get_if_local_ports(ifnet_t ifp, protocol_family_t protocol,
 		return;
 	}
 	/* Ensure that the interface is attached and won't detach */
-	if (!ifnet_is_attached(ifp, 1)) {
+	if (!ifnet_get_ioref(ifp)) {
 		return;
 	}
 	fsw = fsw_ifp_to_fsw(ifp);
@@ -1980,7 +1988,7 @@ netns_get_local_ports(ifnet_t ifp, protocol_family_t protocol,
 
 		error = ifnet_list_get_all(IFNET_FAMILY_ANY, &ifp_list, &count);
 		if (error != 0) {
-			os_log_error(OS_LOG_DEFAULT,
+			os_log_error(wake_packet_log_handle,
 			    "%s: ifnet_list_get_all() failed %d",
 			    __func__, error);
 			return error;

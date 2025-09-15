@@ -1,6 +1,6 @@
 /* srp-features.h
  *
- * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,31 +39,21 @@
 #  ifndef SRP_FEATURE_REPLICATION
 #    define SRP_FEATURE_REPLICATION 1
 #  endif
-#  ifndef THREAD_BORDER_ROUTER
-#    define THREAD_BORDER_ROUTER 1
-#  endif
-#  define STUB_ROUTER 1
 #  ifndef SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY
 #    define SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY 1
 #  endif
 #  ifndef SRP_FEATURE_DYNAMIC_CONFIGURATION
-#    define SRP_FEATURE_DYNAMIC_CONFIGURATION 0
+#    define SRP_FEATURE_DYNAMIC_CONFIGURATION 1
 #endif
 #endif
 
 // SRP_FEATURE_CAN_GENERATE_TLS_CERT: controls whether to let srp-mdns-proxy generate the TLS certificate internally.
 #if defined(__APPLE__)
-    // All the Apple platforms support security framework, so it can generate TLS certifcate internally.
-    #define SRP_FEATURE_CAN_GENERATE_TLS_CERT 1
+    // All the Apple platforms support security framework, so it can generate TLS certificate internally.
+#  define SRP_FEATURE_CAN_GENERATE_TLS_CERT 1
 #else
-    #define SRP_FEATURE_CAN_GENERATE_TLS_CERT 0
+#  define SRP_FEATURE_CAN_GENERATE_TLS_CERT 0
 #endif
-
-#if !defined(SRP_FEATURE_NAT64)
-    #define SRP_FEATURE_NAT64 0
-#endif
-
-    #define SRP_ANALYTICS 0
 
 
 // At present we never want this, but we're keeping the code around.

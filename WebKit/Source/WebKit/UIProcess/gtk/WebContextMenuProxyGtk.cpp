@@ -141,7 +141,7 @@ static inline void destroyMenuWidget(GtkWidget* widget)
 }
 #endif // USE(GTK4)
 
-static void contextMenuItemActivatedCallback(GAction* action, GVariant*, WebPageProxy* page)
+static void contextMenuItemActivatedCallback(GAction* action, GVariant*, WebContextMenuProxyGtk* menuProxy)
 {
     auto* stateType = g_action_get_state_type(action);
     gboolean isToggle = stateType && g_variant_type_equal(stateType, G_VARIANT_TYPE_BOOLEAN);
@@ -152,7 +152,7 @@ static void contextMenuItemActivatedCallback(GAction* action, GVariant*, WebPage
         state ? g_variant_get_boolean(state.get()) : false);
     if (isToggle)
         g_action_change_state(action, g_variant_new_boolean(!g_variant_get_boolean(state.get())));
-    page->contextMenuItemSelected(item);
+    menuProxy->page()->contextMenuItemSelected(item, menuProxy->frameInfo());
 }
 
 void WebContextMenuProxyGtk::append(GMenu* menu, const WebContextMenuItemGlib& menuItem)
@@ -173,7 +173,7 @@ void WebContextMenuProxyGtk::append(GMenu* menu, const WebContextMenuItemGlib& m
         if (menuItem.action() < ContextMenuItemBaseApplicationTag) {
             g_object_set_data(G_OBJECT(action), gContextMenuActionId, GINT_TO_POINTER(menuItem.action()));
             g_object_set_data_full(G_OBJECT(action), gContextMenuTitle, g_strdup(menuItem.title().utf8().data()), g_free);
-            signalHandlerId = g_signal_connect(action, "activate", G_CALLBACK(contextMenuItemActivatedCallback), page());
+            signalHandlerId = g_signal_connect(action, "activate", G_CALLBACK(contextMenuItemActivatedCallback), this);
             m_signalHandlers.set(signalHandlerId, action);
         }
         break;
@@ -287,10 +287,11 @@ void WebContextMenuProxyGtk::showContextMenuWithItems(Vector<Ref<WebContextMenuI
     popupMenuWidget(m_menu, event, rect);
 }
 
-WebContextMenuProxyGtk::WebContextMenuProxyGtk(GtkWidget* webView, WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+WebContextMenuProxyGtk::WebContextMenuProxyGtk(GtkWidget* webView, WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     : WebContextMenuProxy(page, WTFMove(context), userData)
     , m_webView(webView)
     , m_menu(createMenuWidget(m_webView))
+    , m_frameInfo(WTFMove(frameInfo))
 {
     gtk_widget_insert_action_group(GTK_WIDGET(m_menu), gContextMenuItemGroup, G_ACTION_GROUP(m_actionGroup.get()));
     webkitWebViewBaseSetActiveContextMenuProxy(WEBKIT_WEB_VIEW_BASE(m_webView), this);

@@ -42,7 +42,7 @@
 
 __BEGIN_DECLS
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 /*!
  * @enum startup_subsystem_id_t
@@ -53,7 +53,7 @@ __BEGIN_DECLS
  *
  * @discussion
  * Documentation of each subsystem initialization sequence exists in
- * @file doc/startup.md.
+ * @file doc/lifecycle/startup.md.
  */
 __enum_decl(startup_subsystem_id_t, uint32_t, {
 	STARTUP_SUB_NONE = 0,         /**< reserved for the startup subsystem  */
@@ -186,10 +186,14 @@ __enum_decl(startup_rank_t, uint32_t, {
  * @description
  * Code marked with this attribute will be unmapped after kernel lockdown.
  */
+#ifndef __BUILDING_XNU_LIBRARY__
 #define __startup_func \
 	__PLACE_IN_SECTION(STARTUP_CODE_SEGSECT) \
 	__attribute__((cold, visibility("hidden")))
-
+#else
+/* tester needs some startup function to be visible from outside the XNU library */
+#define __startup_func __unused
+#endif
 /*!
  * @macro __startup_data
  *
@@ -199,8 +203,12 @@ __enum_decl(startup_rank_t, uint32_t, {
  * @description
  * Data marked with this attribute will be unmapped after kernel lockdown.
  */
+#ifndef __BUILDING_XNU_LIBRARY__
 #define __startup_data \
 	__PLACE_IN_SECTION(STARTUP_DATA_SEGSECT)
+#else
+#define __startup_data
+#endif
 
 /*!
  * @macro __startup_const
@@ -325,11 +333,13 @@ __enum_decl(startup_rank_t, uint32_t, {
  * /<dt_base>/<dt_name>. /chosen is by convention the area where
  * synthesized values not coming from the serialized device tree are
  * being added, so this provides a way for e.g. the boot-loader to
- * set/override tunables.
+ * set/override tunables. Don't override with a boot-arg if
+ * TUNABLE_DT_NO_BOOTARG is set.
  */
 __options_decl(tunable_dt_flags_t, uint32_t, {
 	TUNABLE_DT_NONE         = 0x00000000,
 	TUNABLE_DT_CHECK_CHOSEN = 0x00000001,
+	TUNABLE_DT_NO_BOOTARG   = 0x00000002,
 });
 
 /*!
@@ -791,7 +801,7 @@ __BEGIN_DECLS
 	        .dt_base = __startup_TUNABLES_dt_base_ ## var, \
 	        .dt_name = __startup_TUNABLES_dt_name_ ## var, \
 	        .dt_chosen_override = (bool)((flags) & TUNABLE_DT_CHECK_CHOSEN), \
-	        .boot_arg_name = __startup_TUNABLES_name_ ## var, \
+	        .boot_arg_name = (flags & TUNABLE_DT_NO_BOOTARG) ? NULL : __startup_TUNABLES_name_ ## var, \
 	        .var_addr = (void *)&var, \
 	        .var_len = sizeof(type_t), \
 	        .var_is_bool = __startup_type_is_bool(type_t), \
@@ -808,7 +818,7 @@ __BEGIN_DECLS
 	        .dt_base = __startup_TUNABLES_dt_base_ ## var, \
 	        .dt_name = __startup_TUNABLES_dt_name_ ## var, \
 	        .dt_chosen_override = (bool)((flags) & TUNABLE_DT_CHECK_CHOSEN), \
-	        .boot_arg_name = __startup_TUNABLES_name_ ## var, \
+	        .boot_arg_name = (flags & TUNABLE_DT_NO_BOOTARG) ? NULL : __startup_TUNABLES_name_ ## var, \
 	        .var_addr = (void *)&var, \
 	        .var_len = sizeof(type_t), \
 	        .var_is_bool = __startup_type_is_bool(type_t), \
@@ -898,6 +908,10 @@ extern void kernel_startup_tunable_dt_init(const struct startup_tunable_dt_spec 
 extern void kernel_startup_tunable_dt_source_init(const struct startup_tunable_dt_source_spec *);
 extern void kernel_bootstrap(void);
 
+#ifdef __BUILDING_XNU_LIB_UNITTEST__
+void kernel_startup_initialize_only(startup_subsystem_id_t sysid);
+#endif
+
 /* Initialize machine dependent stuff */
 extern void machine_init(void);
 
@@ -941,13 +955,13 @@ kernel_is_macos_or_server(void)
 static inline bool
 kernel_is_macos_or_server(void)
 {
-	return !!serverperfmode;
+	return serverperfmode != 0;
 }
 #endif /* XNU_TARGET_OS_OSX */
 
 #endif  /* MACH_BSD */
 
-#pragma GCC visibility pop
+__exported_pop
 
 __END_DECLS
 

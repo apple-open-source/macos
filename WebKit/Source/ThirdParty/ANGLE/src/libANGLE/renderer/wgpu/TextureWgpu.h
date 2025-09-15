@@ -17,11 +17,13 @@
 
 namespace rx
 {
-class TextureWgpu : public TextureImpl
+class TextureWgpu : public TextureImpl, public angle::ObserverInterface
 {
   public:
     TextureWgpu(const gl::TextureState &state);
     ~TextureWgpu() override;
+
+    void onDestroy(const gl::Context *context) override;
 
     angle::Result setImage(const gl::Context *context,
                            const gl::ImageIndex &index,
@@ -171,7 +173,14 @@ class TextureWgpu : public TextureImpl
                                             GLsizei samples,
                                             FramebufferAttachmentRenderTarget **rtOut) override;
 
-    webgpu::ImageHelper *getImage() { return mImage; }
+    angle::Result ensureImageInitialized(const gl::Context *context);
+
+    void releaseOwnershipOfImage(const gl::Context *context);
+    webgpu::ImageHelper *getImage() const { return mImage; }
+
+    // We monitor the ImageHelper and set dirty bits if the ImageHelper changes. This can
+    // support changes in the ImageHelper even outside the TextureWgpu class.
+    void onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message) override;
 
   private:
     angle::Result setImageImpl(const gl::Context *context,
@@ -209,10 +218,15 @@ class TextureWgpu : public TextureImpl
                                                gl::RenderToTextureImageIndex renderToTextureIndex);
     const webgpu::Format &getBaseLevelFormat(ContextWgpu *contextWgpu) const;
 
-    webgpu::ImageHelper *mImage;
+    void setImageHelper(webgpu::ImageHelper *imageHelper, bool ownsImageHelper);
+
+    bool mOwnsImage             = false;
+    webgpu::ImageHelper *mImage = nullptr;
     gl::LevelIndex mCurrentBaseLevel;
     gl::LevelIndex mCurrentMaxLevel;
     gl::CubeFaceArray<gl::TexLevelMask> mRedefinedLevels;
+
+    angle::ObserverBinding mImageObserverBinding;
 
     // Render targets stored as array of vector of vectors
     //

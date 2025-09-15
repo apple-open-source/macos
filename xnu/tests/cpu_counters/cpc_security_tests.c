@@ -208,13 +208,17 @@ check_secure_cpmu(void)
 }
 
 T_DECL(secure_cpmu_event_restrictions, "secured CPMU should be restricted to known events",
-    _T_META_CPC_SECURE_ON_DEV, T_META_TAG_VM_NOT_ELIGIBLE)
+    _T_META_CPC_SECURE_ON_DEV,
+    T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://153473281 */)
 {
 	check_secure_cpmu();
 }
 
 T_DECL(release_cpmu_event_restrictions, "release CPMU should be restricted to known events",
-    XNU_T_META_REQUIRES_RELEASE_KERNEL, T_META_TAG_VM_NOT_ELIGIBLE)
+    XNU_T_META_REQUIRES_RELEASE_KERNEL,
+    T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://153473334 */)
 {
 	check_secure_cpmu();
 }
@@ -366,7 +370,8 @@ T_DECL(insecure_cpmu_unrestricted, "insecure CPMU should be unrestricted",
 }
 
 T_DECL(secure_kpc_counting_system, "kpc should not allow counting the kernel when secure",
-    _T_META_CPC_SECURE_ON_DEV)
+    _T_META_CPC_SECURE_ON_DEV,
+    T_META_ENABLED(false) /* rdar://131466526 */)
 {
 	kpep_db_t db = NULL;
 	int ret = kpep_db_createx(NULL, KPEP_DB_FLAG_PUBLIC_ONLY, &db);

@@ -26,6 +26,7 @@
 [
     DispatchedFrom=WebContent,
     DispatchedTo=UI,
+    SharedPreferencesNeedsConnection,
     EnabledBy=ScreenOrientationAPIEnabled
 ]
 messages -> WebScreenOrientationManagerProxy {

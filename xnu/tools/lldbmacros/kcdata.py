@@ -138,6 +138,8 @@ kcdata_type_def = {
     'STACKSHOT_KCTYPE_KERN_EXCLAVES_CRASH_THREADINFO' : 0x955,
     'STACKSHOT_KCTYPE_LATENCY_INFO_CPU': 0x956,
     'STACKSHOT_KCTYPE_TASK_EXEC_META': 0x957,
+    'STACKSHOT_KCTYPE_TASK_MEMORYSTATUS': 0x958,
+    'STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER': 0x95a,
     'KCDATA_TYPE_BUFFER_END':      0xF19158ED,
 
     'TASK_CRASHINFO_EXTMODINFO':           0x801,
@@ -893,7 +895,9 @@ KNOWN_TYPES_COLLECTION[0x905] = KCTypeDescription(0x905, (
     KCSubTypeElement.FromBasicCtype('ts_did_throttle', KCSUBTYPE_TYPE.KC_ST_UINT32, 76),
     KCSubTypeElement.FromBasicCtype('ts_latency_qos', KCSUBTYPE_TYPE.KC_ST_UINT32, 80),
     KCSubTypeElement.FromBasicCtype('ts_pid', KCSUBTYPE_TYPE.KC_ST_INT32, 84),
-    KCSubTypeElement('ts_p_comm', KCSUBTYPE_TYPE.KC_ST_CHAR, KCSubTypeElement.GetSizeForArray(32, 1), 88, 1)
+    KCSubTypeElement('ts_p_comm', KCSUBTYPE_TYPE.KC_ST_CHAR, KCSubTypeElement.GetSizeForArray(32, 1), 88, 1),
+    KCSubTypeElement.FromBasicCtype('ts_uid', KCSUBTYPE_TYPE.KC_ST_UINT32, 120),
+    KCSubTypeElement.FromBasicCtype('ts_gid', KCSUBTYPE_TYPE.KC_ST_UINT32, 124)
 ),
     'task_snapshot'
 )
@@ -1248,6 +1252,15 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_LATENCY_INFO_CPU')] = KC
             ),
             'stackshot_latency_cpu')
 
+KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER')] = KCTypeDescription(GetTypeForName('STACKSHOT_LATENCY_INFO_BUFFER'),
+            (
+                        KCSubTypeElement.FromBasicCtype('cluster_type', KCSUBTYPE_TYPE.KC_ST_INT32, 0),
+                        KCSubTypeElement.FromBasicCtype('size', KCSUBTYPE_TYPE.KC_ST_UINT64, 4),
+                        KCSubTypeElement.FromBasicCtype('used', KCSUBTYPE_TYPE.KC_ST_UINT64, 12),
+                        KCSubTypeElement.FromBasicCtype('overhead', KCSUBTYPE_TYPE.KC_ST_UINT64, 20),
+            ),
+            'stackshot_latency_buffer')
+
 KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_LATENCY_INFO_TASK')] = KCTypeDescription(GetTypeForName('STACKSHOT_KCTYPE_LATENCY_INFO_TASK'),
             (
                         KCSubTypeElement.FromBasicCtype('task_uniqueid', KCSUBTYPE_TYPE.KC_ST_UINT64, 0),
@@ -1542,6 +1555,13 @@ KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_EXCLAVE_TEXTLAYOUT_SEGME
         KCSubTypeElement.FromBasicCtype('layoutSegment_rawLoadAddress', KCSUBTYPE_TYPE.KC_ST_UINT64, 24),
     ), 'exclave_textlayout_segments')
 
+KNOWN_TYPES_COLLECTION[GetTypeForName('STACKSHOT_KCTYPE_TASK_MEMORYSTATUS')] = KCTypeDescription(GetTypeForName('STACKSHOT_KCTYPE_TASK_MEMORYSTATUS'),
+    (
+        KCSubTypeElement.FromBasicCtype('tms_current_memlimit', KCSUBTYPE_TYPE.KC_ST_INT32, 0),
+        KCSubTypeElement.FromBasicCtype('tms_effectivepriority', KCSUBTYPE_TYPE.KC_ST_INT32, 4),
+        KCSubTypeElement.FromBasicCtype('tms_requestedpriority', KCSUBTYPE_TYPE.KC_ST_INT32, 8),
+        KCSubTypeElement.FromBasicCtype('tms_assertionpriority', KCSUBTYPE_TYPE.KC_ST_INT32, 12),
+    ), 'task_memorystatus')
 
 
 def GetSecondsFromMATime(mat, tb):
@@ -1600,6 +1620,7 @@ def GetStateDescription(s):
     TH_TERMINATE2 = 0x20
     TH_WAIT_REPORT = 0x40
     TH_IDLE = 0x80
+    TH_WAKING = 0x100
     if (s & TH_WAIT):
         retval.append("TH_WAIT")
     if (s & TH_SUSP):
@@ -1616,6 +1637,8 @@ def GetStateDescription(s):
         retval.append("TH_WAIT_REPORT")
     if (s & TH_IDLE):
         retval.append("TH_IDLE")
+    if (s & TH_WAKING):
+        retval.append("TH_WAKING")
     return retval
 
 
@@ -2500,6 +2523,7 @@ PRETTIFY_FLAGS = {
         'TH_TERMINATE2',
         'TH_WAIT_REPORT',
         'TH_IDLE',
+        'TH_WAKING',
     ],
     'ts_ss_flags': [
         'kUser64_p',
@@ -2541,6 +2565,10 @@ PRETTIFY_FLAGS = {
         'kTaskDyldCompactInfoTriedFault',
         'kTaskWqExceededCooperativeThreadLimit',
         'kTaskWqExceededActiveConstrainedThreadLimit',
+        'kTaskRunawayMitigated',
+        'kTaskIsActive',
+        'kTaskIsManaged',
+        'kTaskHasAssertion',
     ],
     'turnstile_flags': [
         'turnstile_status_unknown',

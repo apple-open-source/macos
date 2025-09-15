@@ -1,6 +1,6 @@
 /* posix.c
  *
- * Copyright (c) 2018-2021 Apple, Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple, Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 
 #include <netinet/in.h>
 #include <net/if.h>
+#include <stdio.h>
+#include <time.h>
 #ifndef LINUX
 #include <netinet/in_var.h>
 #include <net/if_dl.h>
@@ -39,6 +41,7 @@
 #ifdef SRP_TEST_SERVER
 #include "test-api.h"
 #endif
+#include "srp-strict.h"
 
 #undef OBJECT_TYPE
 #define OBJECT_TYPE(x) int x##_created, x##_finalized, old_##x##_created, old_##x##_finalized;
@@ -252,7 +255,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
 #else
                 (void)file;
                 (void)line;
-                nif = calloc(1, len + 1 + sizeof(*nif));
+                nif = srp_strict_calloc(1, len + 1 + sizeof(*nif));
 #endif
                 // We don't have a way to fix nif being null; what this means is that we don't detect a new
                 // interface address.
@@ -287,8 +290,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
                             nif->addr.ether_addr.index = sdl->sdl_index;
                             nif->addr.ether_addr.family = AF_LINK;
                         } else {
-                            free(nif);
-                            nif = NULL;
+                            srp_strict_free(&nif);
                         }
 
 #endif // LINUX
@@ -317,8 +319,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
                 interface_address_state_t *list = q ? kept_ifaddrs : new_ifaddrs;
                 for (nif = list; nif; nif = nif->next) {
                     if (nif != *ip && nif->addr.sa.sa_family != AF_LINK && !strcmp(nif->name, (*ip)->name)) {
-#define TOO_MUCH_INFO
-#ifdef TOO_MUCH_INFO
+#if SRP_ROUTE_VERBOSE_LOGGING
                         char buf[INET6_ADDRSTRLEN];
                         if (nif->addr.sa.sa_family == AF_INET6) {
                             inet_ntop(AF_INET6, &nif->addr.sin6.sin6_addr, buf, sizeof(buf));
@@ -327,20 +328,20 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
                         }
                         INFO("new link-layer address not dropped because " PRI_S_SRP " - ifname: " PUB_S_SRP ", addr: "
                              PRI_MAC_ADDR_SRP, buf, (*ip)->name, MAC_ADDR_PARAM_SRP((*ip)->addr.ether_addr.addr));
-#endif // TOO_MUCH_INFO
+#endif //  SRP_ROUTE_VERBOSE_LOGGING
                         drop = false;
                         break;
                     }
                 }
             }
             if (drop) {
-#ifdef TOO_MUCH_INFO
+#if SRP_ROUTE_VERBOSE_LOGGING
                 INFO("new link-layer interface address dropped - ifname: " PUB_S_SRP
                      ", addr: " PRI_MAC_ADDR_SRP, (*ip)->name, MAC_ADDR_PARAM_SRP((*ip)->addr.ether_addr.addr));
 #endif
                 nif = *ip;
                 *ip = nif->next;
-                free(nif);
+                srp_strict_free(&nif);
             } else {
                 ip = &(*ip)->next;
             }
@@ -350,7 +351,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
     }
 #endif // LINUX
 
-#ifdef TOO_MUCH_INFO
+#if SRP_ROUTE_VERBOSE_LOGGING
     char infobuf[1000];
     int i;
     for (i = 0; i < 3; i++) {
@@ -398,7 +399,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
         *infop = 0;
         INFO(PUB_S_SRP ":" PUB_S_SRP, title, infobuf);
     }
-#endif
+#endif // SRP_ROUTE_VERBOSE_LOGGING
 
     // Report and free deleted interface addresses...
     for (ip = here; *ip; ) {
@@ -407,7 +408,7 @@ ioloop_map_interface_addresses_here_(srp_server_t *server_state, interface_addre
         if (callback != NULL) {
             callback(server_state, context, nif->name, &nif->addr, &nif->mask, nif->flags, interface_address_deleted);
         }
-        free(nif);
+        srp_strict_free(&nif);
     }
 
     // Report added interface addresses...
@@ -510,7 +511,7 @@ ioloop_message_create_(size_t message_size, const char *file, int line)
         return NULL;
     }
 
-    message = (message_t *)malloc(message_size + (sizeof(message_t)) - (sizeof(dns_wire_t)));
+    message = (message_t *)srp_strict_malloc(message_size + (sizeof(message_t)) - (sizeof(dns_wire_t)));
     if (message) {
         memset(message, 0, (sizeof(message_t)) - (sizeof(dns_wire_t)));
         RETAIN(message, message);
@@ -609,6 +610,7 @@ get_num_fds(void)
     closedir(dirfd);
     return num;
 }
+
 
 #ifdef MALLOC_DEBUG_LOGGING
 #undef malloc

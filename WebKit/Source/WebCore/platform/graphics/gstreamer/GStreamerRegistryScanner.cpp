@@ -255,7 +255,7 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::Element
     return hasElementForCaps(factoryType, caps, shouldCheckHardwareClassifier, disallowedList);
 }
 
-static Vector<GRefPtr<GstElementFactory>> findCompatibleFactories(GList* list, const GRefPtr<GstCaps>& caps, GstPadDirection direction)
+static Vector<GRefPtr<GstElementFactory>> findCompatibleFactories(GList* list, const GRefPtr<GstCaps>& caps, GstPadDirection direction, std::optional<Vector<String>> disallowedList)
 {
     Vector<GRefPtr<GstElementFactory>> results;
     results.reserveInitialCapacity(g_list_length(list));
@@ -271,6 +271,11 @@ static Vector<GRefPtr<GstElementFactory>> findCompatibleFactories(GList* list, c
             if (gst_caps_is_any(templateCaps.get()) || !gst_caps_can_intersect(caps.get(), templateCaps.get()))
                 continue;
 
+            if (disallowedList && !disallowedList->isEmpty()) {
+                auto name = StringView::fromLatin1(gst_plugin_feature_get_name(GST_PLUGIN_FEATURE_CAST(factory)));
+                if (disallowedList->contains(name))
+                    continue;
+            }
             results.append(factory);
             break;
         }
@@ -294,30 +299,12 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::Element
 
     // We can't use gst_element_factory_list_filter here because it would allow-list elements with
     // pads using ANY in their caps template.
-    auto candidates = findCompatibleFactories(elementFactories, caps, padDirection);
+    auto candidates = findCompatibleFactories(elementFactories, caps, padDirection, disallowedList);
     bool isSupported = !candidates.isEmpty();
     bool isUsingHardware = false;
     GRefPtr<GstElementFactory> selectedFactory;
     if (isSupported)
         selectedFactory = candidates.first();
-
-    if (disallowedList && !disallowedList->isEmpty()) {
-        bool hasValidCandidate = false;
-        for (auto& factory : candidates) {
-            String name = String::fromUTF8(gst_plugin_feature_get_name(GST_PLUGIN_FEATURE_CAST(factory.get())));
-            if (disallowedList->contains(name))
-                continue;
-
-            selectedFactory = factory;
-            hasValidCandidate = true;
-            break;
-        }
-        if (!hasValidCandidate) {
-            GST_WARNING("All %s elements matching caps %" GST_PTR_FORMAT " are disallowed", elementFactoryTypeToString(factoryType), caps.get());
-            isSupported = false;
-            shouldCheckHardwareClassifier = CheckHardwareClassifier::No;
-        }
-    }
 
     if (shouldCheckHardwareClassifier == CheckHardwareClassifier::Yes) {
         for (auto& factory : candidates) {
@@ -462,7 +449,7 @@ void GStreamerRegistryScanner::initializeDecoders(const GStreamerRegistryScanner
     bool matroskaSupported = factories.hasElementForMediaType(ElementFactories::Type::Demuxer, "video/x-matroska"_s);
     if (matroskaSupported) {
         auto vp8DecoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::VideoDecoder, "video/x-vp8"_s, ElementFactories::CheckHardwareClassifier::Yes, { { "vp8alphadecodebin"_s } });
-        auto vp9DecoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::VideoDecoder, "video/x-vp9"_s, ElementFactories::CheckHardwareClassifier::Yes, { { "vp9alphadecodebin"_s } });
+        auto vp9DecoderAvailable = factories.hasElementForMediaType(ElementFactories::Type::VideoDecoder, "video/x-vp9"_s, ElementFactories::CheckHardwareClassifier::Yes, { { "vp9alphadecodebin"_s, "vavp9alphadecodebin"_s } });
 
         if (vp8DecoderAvailable || vp9DecoderAvailable)
             m_decoderMimeTypeSet.add("video/webm"_s);
@@ -531,8 +518,13 @@ void GStreamerRegistryScanner::initializeDecoders(const GStreamerRegistryScanner
     };
     fillMimeTypeSetFromCapsMapping(factories, mseCompatibleMapping);
 
-    if (m_isMediaSource)
+    if (m_isMediaSource) {
+        // This ensures WebVTT will always be supported in MSE, since it's decoded directly by WebKit,
+        // so we don't actually push any WebVTT to the playback pipeline.
+        RegistryLookupResult webvttDecoderAvailable = { true, false, nullptr };
+        m_decoderCodecMap.add("wvtt"_s, webvttDecoderAvailable);
         return;
+    }
 
     // The mime-types initialized below are not supported by the MSE backend.
 
@@ -859,15 +851,26 @@ MediaPlayerEnums::SupportsType GStreamerRegistryScanner::isContentTypeSupported(
             return SupportsType::IsNotSupported;
 
 #if GST_CHECK_VERSION(1, 22, 0)
-        for (const auto& mimeCodec : codecs) {
+        for (const auto& codec : codecs) {
+            // gst_codec_utils_caps_from_mime_codec() expects a four characters string. See also RFC 6381 section 3.3.
+            auto mimeCodec = codec;
+            if (mimeCodec.length() < 4) {
+                if (mimeCodec == "vp8"_s)
+                    mimeCodec = "vp08"_s;
+                else if (mimeCodec == "vp9"_s)
+                    mimeCodec = "vp09"_s;
+                else if (mimeCodec == "av1"_s)
+                    mimeCodec = "av01"_s;
+            }
             auto codecCaps = adoptGRef(gst_codec_utils_caps_from_mime_codec(mimeCodec.ascii().data()));
             if (!codecCaps) {
                 GST_WARNING("Unable to convert codec %s to caps", mimeCodec.ascii().data());
                 continue;
             }
             auto structure = gst_caps_get_structure(codecCaps.get(), 0);
-            auto name = gstStructureGetName(structure);
-            auto caps = adoptGRef(gst_caps_new_simple("application/x-webm-enc", "original-media-type", G_TYPE_STRING, reinterpret_cast<const char*>(name.rawCharacters()), nullptr));
+            auto nameView = gstStructureGetName(structure);
+            auto name = nameView.utf8();
+            auto caps = adoptGRef(gst_caps_new_simple("application/x-webm-enc", "original-media-type", G_TYPE_STRING, name.data(), nullptr));
             if (!factories.hasElementForCaps(ElementFactories::Type::Decryptor, caps))
                 return SupportsType::IsNotSupported;
         }
@@ -896,6 +899,15 @@ MediaPlayerEnums::SupportsType GStreamerRegistryScanner::isContentTypeSupported(
             }) != notFound;
         }) != notFound;
         if (!isCodecSupported(configuration, codec, requiresHardwareSupport, caseSensitive))
+            return SupportsType::IsNotSupported;
+    }
+
+    // The 'eotf' additional mime-type parameter must be supported to be compliant with
+    // "YouTube TV HTML5 Technical Requirements"
+    // (point 16.3.1 from https://developers.google.com/youtube/devices/living-room/files/pdf-guides/YouTube_TV_HTML5_Technical_Requirements_2018.pdf).
+    const auto eotf = contentType.parameter("eotf"_s);
+    if (!eotf.isEmpty()) {
+        if (eotf != "bt709"_s && eotf != "smpte2084"_s && eotf != "arib-std-b67"_s)
             return SupportsType::IsNotSupported;
     }
     return SupportsType::IsSupported;
@@ -1075,6 +1087,18 @@ void GStreamerRegistryScanner::fillAudioRtpCapabilities(Configuration configurat
 
     if (factories.hasElementForMediaType(codecElement, "audio/x-alaw"_s) && factories.hasElementForMediaType(rtpElement, "audio/x-alaw"_s))
         capabilities.codecs.append({ .mimeType = "audio/PCMA"_s, .clockRate = 8000, .channels = 1, .sdpFmtpLine = emptyString() });
+
+    bool hasDtmfSupport = false;
+    if (configuration == Configuration::Encoding) {
+        if (auto factory = adoptGRef(gst_element_factory_find("rtpdtmfsrc")))
+            hasDtmfSupport = true;
+    } else
+        hasDtmfSupport = factories.hasElementForMediaType(rtpElement, "audio/x-raw, format=(string)S16LE"_s);
+
+    if (hasDtmfSupport) {
+        for (unsigned long clockRate : { 48000, 8000 })
+            capabilities.codecs.append({ .mimeType = "audio/telephone-event"_s, .clockRate = clockRate, .channels = 1, .sdpFmtpLine = emptyString() });
+    }
 }
 
 void GStreamerRegistryScanner::fillVideoRtpCapabilities(Configuration configuration, RTCRtpCapabilities& capabilities)
@@ -1176,9 +1200,10 @@ Vector<RTCRtpCapabilities::HeaderExtensionCapability> GStreamerRegistryScanner::
 
 GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::isRtpPacketizerSupported(const String& encoding)
 {
-    static UncheckedKeyHashMap<String, ASCIILiteral> mapping = { { "h264"_s, "video/x-h264"_s }, { "vp8"_s, "video/x-vp8"_s },
-        { "vp9"_s, "video/x-vp9"_s }, { "av1"_s, "video/x-av1"_s }, { "h265"_s, "video/x-h265"_s }, { "opus"_s, "audio/x-opus"_s },
-        { "g722"_s, "audio/G722"_s }, { "pcma"_s, "audio/x-alaw"_s }, { "pcmu"_s, "audio/x-mulaw"_s } };
+    static HashMap<String, ASCIILiteral> mapping = {
+        { "h264"_s, "video/x-h264"_s }, { "vp8"_s, "video/x-vp8"_s }, { "vp9"_s, "video/x-vp9"_s }, { "av1"_s, "video/x-av1"_s }, { "h265"_s, "video/x-h265"_s },
+        { "avc1"_s, "video/x-h264"_s }, { "vp08"_s, "video/x-vp8"_s }, { "vp09"_s, "video/x-vp9"_s }, { "av01"_s, "video/x-av1"_s }, { "hvc1"_s, "video/x-h265"_s },
+        { "opus"_s, "audio/x-opus"_s }, { "g722"_s, "audio/G722"_s }, { "pcma"_s, "audio/x-alaw"_s }, { "pcmu"_s, "audio/x-mulaw"_s } };
     auto gstCapsName = mapping.getOptional(encoding);
     if (!gstCapsName) {
         GST_WARNING("Unhandled RTP encoding-name: %s", encoding.ascii().data());
@@ -1187,6 +1212,27 @@ GStreamerRegistryScanner::RegistryLookupResult GStreamerRegistryScanner::isRtpPa
 
     ElementFactories factories(ElementFactories::Type::RtpPayloader);
     return factories.hasElementForMediaType(ElementFactories::Type::RtpPayloader, *gstCapsName);
+}
+
+bool GStreamerRegistryScanner::isRtpHeaderExtensionSupported(StringView uri)
+{
+#if GST_CHECK_VERSION(1, 20, 0)
+    return adoptGRef(gst_rtp_header_extension_create_from_uri(uri.toStringWithoutCopying().ascii().data()));
+#endif
+
+    for (auto& u : m_commonRtpExtensions) {
+        if (u == uri)
+            return true;
+    }
+    for (auto& u : m_allAudioRtpExtensions) {
+        if (u == uri)
+            return true;
+    }
+    for (auto& u : m_allVideoRtpExtensions) {
+        if (u == uri)
+            return true;
+    }
+    return false;
 }
 
 #endif // USE(GSTREAMER_WEBRTC)

@@ -109,7 +109,7 @@ int ntfs_cluster_iodone(buf_t cbp, void *arg __unused)
 	ntfs_inode *ni;
 	u8 *kend, *kaddr;
 	errno_t err, err2;
-	BOOL is_read = buf_flags(cbp) & B_READ;
+	NTFS_BOOL is_read = buf_flags(cbp) & B_READ;
 
 	ni = NTFS_I(buf_vnode(cbp));
 	size = buf_count(cbp);
@@ -355,7 +355,7 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 	void *old_transact;
 	unsigned b_flags;
 	errno_t err, err2;
-	BOOL do_fixup;
+	NTFS_BOOL do_fixup;
 
 	/* Same checks as in buf_strategy(). */
 	if (!vn || vnode_ischr(vn) || vnode_isblk(vn))
@@ -467,7 +467,7 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 			NTFS_RECORD *const rec = (NTFS_RECORD*)
 				&block_data[recno << ni->block_size_shift];
 			NTFS_RECORD_TYPE magic;
-			BOOL need_mirr_sync;
+			NTFS_BOOL need_mirr_sync;
 
 #if 0
 			need_mirr_sync = FALSE;
@@ -1161,7 +1161,7 @@ err:
  */
 static errno_t ntfs_create(vnode_t dir_vn, vnode_t *vn,
 		struct componentname *cn, struct vnode_attr *va,
-		const BOOL lock)
+		const NTFS_BOOL lock)
 {
 	ntfs_inode *ni, *dir_ni = NTFS_I(dir_vn);
 	ntfs_volume *vol;
@@ -1810,7 +1810,7 @@ static int ntfs_vnop_getattr(struct vnop_getattr_args *a)
 	unsigned flags;
 	errno_t err;
 	lck_rw_type_t lock;
-	BOOL is_root, name_is_done, have_parent;
+	NTFS_BOOL is_root, name_is_done, have_parent;
 
 	ni = NTFS_I(a->a_vp);
 	if (!ni) {
@@ -2180,7 +2180,7 @@ static int ntfs_vnop_setattr(struct vnop_setattr_args *a)
 	ntfs_volume *vol;
 	struct vnode_attr *va = a->a_vap;
 	errno_t err = 0;
-	BOOL dirty_times = FALSE;
+	NTFS_BOOL dirty_times = FALSE;
 
 	if (!ni) {
 		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
@@ -2241,7 +2241,7 @@ static int ntfs_vnop_setattr(struct vnop_setattr_args *a)
 		lck_rw_unlock_exclusive(&ni->lock);
 	if (VATTR_IS_ACTIVE(va, va_flags)) {
 		u32 flags = va->va_flags;
-		BOOL dirty_flags = FALSE;
+		NTFS_BOOL dirty_flags = FALSE;
 
 		/*
 		 * Only allow changing of supported flags.  There are two
@@ -2664,7 +2664,7 @@ static inline int ntfs_vnop_read_compressed(ntfs_inode *ni, uio_t uio,
 		last_pg = start_count >> PAGE_SHIFT;
 		do {
 			int commit_flags;
-			BOOL was_valid, was_dirty;
+			NTFS_BOOL was_valid, was_dirty;
 
 			cur_pg = next_pg;
 			/* Determine the state of the current first page. */
@@ -2797,7 +2797,7 @@ abort_err:
  * system file.
  */
 static errno_t ntfs_read(ntfs_inode *ni, uio_t uio, const int ioflags,
-		const BOOL locked)
+		const NTFS_BOOL locked)
 {
 	s64 size;
 	user_ssize_t start_count;
@@ -2988,7 +2988,7 @@ err:
 			!(vfs_flags(ni->vol->mp) & MNT_NOATIME) &&
 			!S_ISLNK(base_ni->mode) &&
 			(ni == base_ni || ni->type == AT_DATA)) {
-		BOOL need_update_time;
+		NTFS_BOOL need_update_time;
 
 		need_update_time = TRUE;
 		if (ni->vol->major_ver > 1) {
@@ -3126,7 +3126,7 @@ static int ntfs_vnop_read(struct vnop_read_args *a)
  * but needs to allow S_IFREG() instead but only if it is not a system file.
  */
 static errno_t ntfs_write(ntfs_inode *ni, uio_t uio, int ioflags,
-		BOOL write_locked)
+		NTFS_BOOL write_locked)
 {
 	s64 old_size, size, end, nr_truncated;
 	user_ssize_t old_count, count;
@@ -3138,7 +3138,7 @@ static errno_t ntfs_write(ntfs_inode *ni, uio_t uio, int ioflags,
 	u8 *kaddr;
 	int cnt;
 	errno_t err;
-	BOOL was_locked, need_uptodate;
+	NTFS_BOOL was_locked, need_uptodate;
 
 	/* Do not allow writing if mounted read-only. */
 	if (NVolReadOnly(ni->vol))
@@ -3655,7 +3655,7 @@ done:
 	 * needs archiving bit except for the core system files.
 	 */
 	if (!S_ISDIR(base_ni->mode) || NInoEncrypted(base_ni)) {
-		BOOL need_set_archive_bit = TRUE;
+		NTFS_BOOL need_set_archive_bit = TRUE;
 		if (ni->vol->major_ver >= 2) {
 			if (ni->mft_no <= FILE_Extend)
 				need_set_archive_bit = FALSE;
@@ -3732,7 +3732,7 @@ abort:
 				IO_NOZEROFILL);
 		err2 = ntfs_attr_resize(ni, truncate_size, rflags, NULL);
 		if (err2) {
-			BOOL is_dirty;
+			NTFS_BOOL is_dirty;
 
 			/*
 			 * If no other error has occured failing the truncate
@@ -4075,7 +4075,7 @@ static int ntfs_vnop_fsync(struct vnop_fsync_args *a)
  */
 static errno_t ntfs_unlink_internal(ntfs_inode *dir_ni, ntfs_inode *ni,
 		ntfschar *name, signed name_len, FILENAME_TYPE_FLAGS name_type,
-		const BOOL is_rename)
+		const NTFS_BOOL is_rename)
 {
 	ntfs_volume *vol;
 	ntfs_inode *objid_o_ni;
@@ -4088,7 +4088,7 @@ static errno_t ntfs_unlink_internal(ntfs_inode *dir_ni, ntfs_inode *ni,
 	signed ntfs_name_len;
 	unsigned fn_count, tfn_alloc;
 	errno_t err;
-	BOOL seen_dos;
+	NTFS_BOOL seen_dos;
 	FILENAME_TYPE_FLAGS seek_type, fn_type;
 
 	vol = ni->vol;
@@ -4710,7 +4710,7 @@ iput_err:
  * ntfs_vnop_inactive().
  */
 static errno_t ntfs_unlink(ntfs_inode *dir_ni, ntfs_inode *ni,
-		struct componentname *cn, const int flags, const BOOL is_rmdir)
+		struct componentname *cn, const int flags, const NTFS_BOOL is_rmdir)
 {
 	MFT_REF mref;
 	ntfs_volume *vol;
@@ -4847,7 +4847,7 @@ static errno_t ntfs_unlink(ntfs_inode *dir_ni, ntfs_inode *ni,
 	 * deleted...
 	 */
 	if (ni->file_attributes & FILE_ATTR_SYSTEM) {
-		BOOL is_system = FALSE;
+		NTFS_BOOL is_system = FALSE;
 		if (vol->major_ver <= 1) {
 			if (ni->mft_no < FILE_Extend)
 				is_system = TRUE;
@@ -5089,7 +5089,7 @@ static int ntfs_vnop_remove(struct vnop_remove_args *a)
  * Note we always create filenames in the POSIX namespace.
  */
 static errno_t ntfs_link_internal(ntfs_inode *ni, ntfs_inode *dir_ni,
-		struct componentname *cn, const BOOL is_rename,
+		struct componentname *cn, const NTFS_BOOL is_rename,
 		const ntfschar *name, const signed name_len)
 {
 	ntfs_volume *vol;
@@ -5101,7 +5101,7 @@ static errno_t ntfs_link_internal(ntfs_inode *ni, ntfs_inode *dir_ni,
 	signed ntfs_name_len;
 	unsigned fn_alloc, fn_size;
 	errno_t err, err2;
-	BOOL is_dir;
+	NTFS_BOOL is_dir;
 
 	vol = ni->vol;
 	ntfs_debug("Creating a hard link to mft_no 0x%llx, named %.*s in "
@@ -5188,7 +5188,7 @@ static errno_t ntfs_link_internal(ntfs_inode *ni, ntfs_inode *dir_ni,
 	 */
 	fn->file_attributes = ni->file_attributes;
 	if (!is_dir || NInoEncrypted(ni)) {
-		BOOL need_set_archive_bit = TRUE;
+		NTFS_BOOL need_set_archive_bit = TRUE;
 		if (vol->major_ver >= 2) {
 			if (ni->mft_no <= FILE_Extend)
 				need_set_archive_bit = FALSE;
@@ -5547,7 +5547,7 @@ static int ntfs_vnop_link(struct vnop_link_args *a)
 	 * linked to...
 	 */
 	if (ni->file_attributes & FILE_ATTR_SYSTEM) {
-		BOOL is_system = FALSE;
+		NTFS_BOOL is_system = FALSE;
 		if (vol->major_ver <= 1) {
 			if (ni->mft_no < FILE_Extend)
 				is_system = TRUE;
@@ -5720,7 +5720,7 @@ static int ntfs_vnop_rename(struct vnop_rename_args *a)
 	signed target_ntfs_name_len;
 	errno_t err, err2;
 	FILENAME_TYPE_FLAGS src_ntfs_name_type, target_ntfs_name_type;
-	BOOL have_unlinked = FALSE;
+	NTFS_BOOL have_unlinked = FALSE;
 
 	dst_name = src_name = NULL;
 	src_dir_ni = NTFS_I(a->a_fdvp);
@@ -5810,7 +5810,7 @@ static int ntfs_vnop_rename(struct vnop_rename_args *a)
 	if (src_dir_ni == dst_dir_ni)
 		lck_rw_lock_exclusive(&src_dir_ni->lock);
 	else {
-		BOOL is_parent;
+		NTFS_BOOL is_parent;
 
 		lck_mtx_lock(&vol->rename_lock);
 		err = ntfs_inode_is_parent(src_dir_ni, dst_dir_ni, &is_parent,
@@ -6047,7 +6047,7 @@ static int ntfs_vnop_rename(struct vnop_rename_args *a)
 	 */
 	if (src_ni->file_attributes & FILE_ATTR_SYSTEM || (dst_ni &&
 			dst_ni->file_attributes & FILE_ATTR_SYSTEM)) {
-		BOOL is_system = FALSE;
+		NTFS_BOOL is_system = FALSE;
 		if (vol->major_ver <= 1) {
 			if (src_ni->mft_no < FILE_Extend || (dst_ni &&
 					dst_ni->mft_no < FILE_Extend))
@@ -7255,7 +7255,7 @@ static int ntfs_vnop_inactive(struct vnop_inactive_args *args)
 	leMFT_REF *mrefs;
 	unsigned nr_mrefs;
 	errno_t err;
-	BOOL is_delete;
+	NTFS_BOOL is_delete;
 
 	if (!ni) {
 		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
@@ -7953,7 +7953,7 @@ static int ntfs_vnop_pagein(struct vnop_pagein_args *a)
 			!(vfs_flags(ni->vol->mp) & MNT_NOATIME) &&
 			!S_ISLNK(base_ni->mode) &&
 			(ni == base_ni || ni->type == AT_DATA)) {
-		BOOL need_update_time;
+		NTFS_BOOL need_update_time;
 
 		need_update_time = TRUE;
 		if (ni->vol->major_ver > 1) {
@@ -7983,7 +7983,7 @@ static int ntfs_mst_pageout(ntfs_inode *ni, upl_t upl, upl_offset_t upl_ofs,
 	unsigned rec_size, rec_shift, nr_recs, i;
 	int err;
 	NTFS_RECORD_TYPE magic = 0;
-	BOOL do_commit;
+	NTFS_BOOL do_commit;
 
 	do_commit = !(flags & UPL_NOCOMMIT);
 	if (ni->type == AT_INDEX_ALLOCATION)
@@ -8208,7 +8208,7 @@ static int ntfs_vnop_pageout(struct vnop_pageout_args *a)
 	unsigned to_write, size = a->a_size;
 	int err, flags = a->a_flags;
 	lck_rw_type_t lock_type = LCK_RW_TYPE_SHARED;
-	BOOL locked = FALSE;
+	NTFS_BOOL locked = FALSE;
 
 	if (!ni) {
 		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
@@ -8591,7 +8591,7 @@ done:
 	 * needs archiving bit except for the core system files.
 	 */
 	if (!err && (!S_ISDIR(base_ni->mode) || NInoEncrypted(base_ni))) {
-		BOOL need_set_archive_bit = TRUE;
+		NTFS_BOOL need_set_archive_bit = TRUE;
 		if (vol->major_ver > 1) {
 			if (base_ni->mft_no <= FILE_Extend)
 				need_set_archive_bit = FALSE;
@@ -8612,7 +8612,7 @@ done:
 	 * Do not update the times on symbolic links.
 	 */
 	if (!err && !S_ISLNK(base_ni->mode)) {
-		BOOL need_update_time = TRUE;
+		NTFS_BOOL need_update_time = TRUE;
 		if (vol->major_ver > 1) {
 			if (base_ni->mft_no <= FILE_Extend &&
 					base_ni != vol->root_ni)
@@ -9432,7 +9432,7 @@ rm_err:
 			 * the core system files.
 			 */
 			if (!S_ISDIR(ni->mode) || NInoEncrypted(ni)) {
-				BOOL need_set_archive_bit = TRUE;
+				NTFS_BOOL need_set_archive_bit = TRUE;
 				if (ni->vol->major_ver >= 2) {
 					if (ni->mft_no <= FILE_Extend)
 						need_set_archive_bit = FALSE;
@@ -9706,7 +9706,7 @@ static int ntfs_vnop_removexattr(struct vnop_removexattr_args *a)
 	 * needs archiving bit except for the core system files.
 	 */
 	if (!S_ISDIR(ni->mode) || NInoEncrypted(ni)) {
-		BOOL need_set_archive_bit = TRUE;
+		NTFS_BOOL need_set_archive_bit = TRUE;
 		if (ni->vol->major_ver >= 2) {
 			if (ni->mft_no <= FILE_Extend)
 				need_set_archive_bit = FALSE;
@@ -9773,7 +9773,7 @@ static int ntfs_vnop_listxattr(struct vnop_listxattr_args *args)
 	unsigned upcase_len;
 	size_t size, utf8_size;
 	errno_t err;
-	BOOL case_sensitive;
+	NTFS_BOOL case_sensitive;
 	FINDER_INFO fi;
 
 	if (!ni) {
@@ -9953,7 +9953,7 @@ static int ntfs_vnop_listxattr(struct vnop_listxattr_args *args)
 		err = ntfs_attr_inode_lookup(ni, a->type, name, name_len,
 				FALSE, &ani);
 		if (err != ENOENT) {
-			BOOL skip_it;
+			NTFS_BOOL skip_it;
 
 			if (err)
 				panic("%s() inode lookup failed (error %d).\n",
@@ -10279,7 +10279,7 @@ static int ntfs_vnop_blockmap(struct vnop_blockmap_args *a)
 	ntfs_inode *ni = NTFS_I(a->a_vp);
 	ntfs_volume *vol;
 	unsigned vcn_ofs;
-	BOOL is_write = (a->a_flags & VNODE_WRITE);
+	NTFS_BOOL is_write = (a->a_flags & VNODE_WRITE);
 
 	if (!ni) {
 		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
@@ -10889,7 +10889,7 @@ static int ntfs_vnop_removenamedstream(struct vnop_removenamedstream_args *a)
 		 * files.
 		 */
 		if (!S_ISDIR(ni->mode) || NInoEncrypted(ni)) {
-			BOOL need_set_archive_bit = TRUE;
+			NTFS_BOOL need_set_archive_bit = TRUE;
 			if (ni->vol->major_ver >= 2) {
 				if (ni->mft_no <= FILE_Extend)
 					need_set_archive_bit = FALSE;

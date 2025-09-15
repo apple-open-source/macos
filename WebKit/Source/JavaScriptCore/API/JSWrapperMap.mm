@@ -79,8 +79,8 @@ static NSString *selectorToPropertyName(const char* start)
     // at least one ':', but including a '\0'. (This is conservative if there are more than one ':').
     Vector<char, InitialBufferSize> buffer(header + strlen(firstColon + 1) + 1);
     // Copy 'header' characters, set output to point to the end of this & input to point past the first ':'.
-    memcpy(buffer.data(), start, header);
-    char* output = buffer.data() + header;
+    memcpy(buffer.mutableSpan().data(), start, header);
+    char* output = buffer.mutableSpan().data() + header;
     const char* input = start + header + 1;
 
     // On entry to the loop, we have already skipped over a ':' from the input.
@@ -103,7 +103,7 @@ static NSString *selectorToPropertyName(const char* start)
         // If we get here, we've consumed a ':' - wash, rinse, repeat.
     }
 done:
-    return [NSString stringWithUTF8String:buffer.data()];
+    return [NSString stringWithUTF8String:buffer.span().data()];
 }
 
 static bool constructorHasInstance(JSContextRef ctx, JSObjectRef constructorRef, JSValueRef possibleInstance, JSValueRef*)
@@ -326,10 +326,10 @@ static RetainPtr<NSString> makeSetterName(const char* name)
     buffer[1] = 'e';
     buffer[2] = 't';
     buffer[3] = toASCIIUpper(*name);
-    memcpy(buffer.data() + 4, name + 1, nameLength - 1);
+    memcpy(buffer.mutableSpan().data() + 4, name + 1, nameLength - 1);
     buffer[nameLength + 3] = ':';
     buffer[nameLength + 4] = '\0';
-    return @(buffer.data());
+    return @(buffer.span().data());
 }
 
 static void copyPrototypeProperties(JSContext *context, Class objcClass, Protocol *protocol, JSValue *prototypeValue)
@@ -698,16 +698,18 @@ bool supportsInitMethodConstructors()
     // There are no old clients on Apple TV, so there's no need for backwards compatibility.
     return true;
 #else
-    static const bool supportsInitMethodConstructors = []() -> bool {
+    static bool supportsInitMethodConstructors;
+    static std::once_flag once;
+    std::call_once(once, [] {
         // First check to see the version of JavaScriptCore we directly linked against.
         int32_t versionOfLinkTimeJavaScriptCore = NSVersionOfLinkTimeLibrary("JavaScriptCore");
 
         // Only do the link time version comparison if we linked directly with JavaScriptCore
         if (versionOfLinkTimeJavaScriptCore != -1)
-            return versionOfLinkTimeJavaScriptCore >= firstJavaScriptCoreVersionWithInitConstructorSupport;
-
-        return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsInitConstructors);
-    }();
+            supportsInitMethodConstructors = versionOfLinkTimeJavaScriptCore >= firstJavaScriptCoreVersionWithInitConstructorSupport;
+        else
+            supportsInitMethodConstructors = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsInitConstructors);
+    });
     return supportsInitMethodConstructors;
 #endif
 }

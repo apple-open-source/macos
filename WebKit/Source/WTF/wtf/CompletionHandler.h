@@ -29,6 +29,7 @@
 #include <utility>
 #include <wtf/Function.h>
 #include <wtf/MainThread.h>
+#include <wtf/ThreadAssertions.h>
 
 namespace WTF {
 

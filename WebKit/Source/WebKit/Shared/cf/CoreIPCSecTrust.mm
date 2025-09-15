@@ -179,17 +179,17 @@ static String updatePolicyVector(NSDictionary *policyOption, CoreIPCSecTrustData
                 if (![secondLevelArray isKindOfClass:NSArray.class])
                     return makeString("CoreIPCSecTrust::PolicyOptionValueShape::ArrayOfArrayContainingDateOrNumber second level array unexpected type for key "_s, (String)optionKey);
 
-                Vector<std::variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate>> innerVector;
+                Vector<Variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate>> innerVector;
                 innerVector.reserveCapacity(secondLevelArray.count);
 
                 for (id element in secondLevelArray) {
                     if ([element isKindOfClass:NSNumber.class]) {
                         NSNumber *e = element;
-                        std::variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate> v = CoreIPCNumber(e);
+                        Variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate> v = CoreIPCNumber(e);
                         innerVector.append(WTFMove(v));
                     } else if ([element isKindOfClass:NSDate.class]) {
                         NSDate *d = element;
-                        std::variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate> v = CoreIPCDate(d);
+                        Variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate> v = CoreIPCDate(d);
                         innerVector.append(WTFMove(v));
                     } else
                         return makeString("CoreIPCSecTrust::PolicyOptionValueShape::ArrayOfArrayContainingDateOrNumber second level array contents unexpected type for key "_s, (String)optionKey);
@@ -255,7 +255,7 @@ static String optionalArrayOfDataHelper(std::optional<Vector<CoreIPCData>>& toSe
 
 CoreIPCSecTrust::CoreIPCSecTrust(SecTrustRef trust)
 {
-    CFErrorRef error;
+    CFErrorRef error = nullptr;
 
     if (!trust)
         return;
@@ -510,7 +510,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
                 id value = [exception objectForKey:key];
                 if ([value isKindOfClass:NSData.class]) {
                     CoreIPCData data { value };
-                    std::variant<CoreIPCNumber, CoreIPCData, bool> v = WTFMove(data);
+                    Variant<CoreIPCNumber, CoreIPCData, bool> v = WTFMove(data);
                     auto p = std::make_pair(WTFMove(k), WTFMove(v));
                     innerVector.append(WTFMove(p));
                 } else if ([value isKindOfClass:NSNumber.class]) {
@@ -566,15 +566,21 @@ static RetainPtr<NSDictionary> createPolicyDictionary(const CoreIPCSecTrustData:
             },
             [&] (const CoreIPCSecTrustData::PolicyArrayOfData& a) {
                 RetainPtr array = adoptNS([[NSMutableArray alloc] initWithCapacity:a.size()]);
-                for (const auto& d : a)
-                    [array addObject:d.toID().get()];
+                for (const auto& d : a) {
+                    if (RetainPtr nsD = d.toID())
+                        [array addObject:d.toID().get()];
+                    else {
+                        RELEASE_LOG_ERROR(IPC, "CoreIPCSecTrustData had an null value in policy dictionary");
+                        ASSERT_NOT_REACHED();
+                    }
+                }
                 value = array;
             },
             [&] (const CoreIPCSecTrustData::PolicyArrayOfArrayContainingDateOrNumbers& a) {
                 RetainPtr outerArray = adoptNS([[NSMutableArray alloc] initWithCapacity:a.size()]);
-                for (const Vector<std::variant<CoreIPCNumber, CoreIPCDate>>& inner : a) {
+                for (const Vector<Variant<CoreIPCNumber, CoreIPCDate>>& inner : a) {
                     RetainPtr innerArray = adoptNS([[NSMutableArray alloc] initWithCapacity:inner.size()]);
-                    for (const std::variant<CoreIPCNumber, CoreIPCDate>& v : inner) {
+                    for (const Variant<CoreIPCNumber, CoreIPCDate>& v : inner) {
                         WTF::switchOn(v,
                             [&] (const CoreIPCNumber& i) {
                                 [innerArray addObject:i.toID().get()];
@@ -605,8 +611,14 @@ static void addToDictFromOptionalDataHelper(const std::optional<Vector<CoreIPCDa
     if (!opt)
         return;
     RetainPtr array = adoptNS([[NSMutableArray alloc] initWithCapacity:opt->size()]);
-    for (const CoreIPCData& d : *opt)
-        [array addObject:d.toID().get()];
+    for (const CoreIPCData& d : *opt) {
+        if (RetainPtr nsD = d.toID())
+            [array addObject:nsD.get()];
+        else {
+            RELEASE_LOG_ERROR(IPC, "CoreIPCSecTrustData had an null value in data helper");
+            ASSERT_NOT_REACHED();
+        }
+    }
     [dict.get() setObject:array.get() forKey:key];
 }
 
@@ -659,15 +671,27 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!m_data->certificates.isEmpty()) {
         RetainPtr certificates = adoptNS([[NSMutableArray alloc] initWithCapacity:m_data->certificates.size()]);
-        for (const CoreIPCData& cert : m_data->certificates)
-            [certificates addObject:cert.toID().get()];
+        for (const CoreIPCData& cert : m_data->certificates) {
+            if (RetainPtr nsCert = cert.toID())
+                [certificates addObject:nsCert.get()];
+            else {
+                RELEASE_LOG_ERROR(IPC, "CoreIPCSecTrustData had an null value in certificates");
+                ASSERT_NOT_REACHED();
+            }
+        }
         [dict setObject:certificates.get() forKey:@"certificates"];
     }
 
     if (!m_data->chain.isEmpty()) {
         RetainPtr chain = adoptNS([[NSMutableArray alloc] initWithCapacity:m_data->chain.size()]);
-        for (const CoreIPCData& cert : m_data->chain)
-            [chain addObject:cert.toID().get()];
+        for (const CoreIPCData& cert : m_data->chain) {
+            if (RetainPtr nsCert = cert.toID())
+                [chain addObject:nsCert.get()];
+            else {
+                RELEASE_LOG_ERROR(IPC, "CoreIPCSecTrustData had an null value in chain");
+                ASSERT_NOT_REACHED();
+            }
+        }
         [dict setObject:chain.get() forKey:@"chain"];
     }
 
@@ -762,7 +786,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [dict setObject:exceptions.get() forKey:@"exceptions"];
     }
 
-    CFErrorRef error;
+    CFErrorRef error = nullptr;
     RetainPtr trust = adoptCF(SecTrustCreateFromPropertyListRepresentation(dict.get(), &error));
     if (error) {
         RELEASE_LOG_ERROR(IPC, "CoreIPCSecTrust error creating trust object");

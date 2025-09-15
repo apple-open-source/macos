@@ -52,7 +52,7 @@ egl::Error PbufferSurfaceGLX::initialize(const egl::Display *display)
     mPbuffer = mGLX.createPbuffer(mFBConfig, attribs);
     if (!mPbuffer)
     {
-        return egl::EglBadAlloc() << "Failed to create a native GLX pbuffer.";
+        return egl::Error(EGL_BAD_ALLOC, "Failed to create a native GLX pbuffer.");
     }
 
     if (mLargest)
@@ -69,7 +69,7 @@ egl::Error PbufferSurfaceGLX::makeCurrent(const gl::Context *context)
     return egl::NoError();
 }
 
-egl::Error PbufferSurfaceGLX::swap(const gl::Context *context)
+egl::Error PbufferSurfaceGLX::swap(const gl::Context *context, SurfaceSwapFeedback *feedback)
 {
     return egl::NoError();
 }

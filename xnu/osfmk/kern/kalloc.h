@@ -203,6 +203,20 @@ KALLOC_HEAP_DECLARE(KHEAP_KT_VAR);
 	STARTUP_ARG(ZALLOC, STARTUP_RANK_MIDDLE, kheap_startup_init, var)
 
 
+STATIC_IF_KEY_DECLARE_TRUE(kexts_enroll_data_shared);
+
+#define GET_KEXT_KHEAP_DATA() \
+	static_if(kexts_enroll_data_shared) ? KHEAP_DATA_SHARED : KHEAP_DATA_BUFFERS
+
+/*
+ * Helper functions to query the status of security policies
+ * regarding data allocations. This has consequences for things
+ * like dedicated kmem range for shared data allocations
+ */
+extern bool kalloc_is_restricted_data_mode_telemetry(void);
+extern bool kalloc_is_restricted_data_mode_enforced(void);
+extern bool kmem_needs_data_share_range(void);
+
 /*
  * Allocations of type SO_NAME are known to not have pointers for
  * most platforms -- for macOS this is not guaranteed
@@ -239,8 +253,9 @@ KALLOC_HEAP_DECLARE(KHEAP_KT_VAR);
  * zone that your @c kalloc_type_view points to.
  *
  * @const KT_DATA_ONLY
- * Represents that the type is "data-only". Adopters should not
- * set this flag manually, it is meant for the compiler to set
+ * Represents that the type is "data-only" and is never shared
+ * with another security domain. Adopters should not set
+ * this flag manually, it is meant for the compiler to set
  * automatically when KALLOC_TYPE_CHECK(DATA) passes.
  *
  * @const KT_VM
@@ -524,22 +539,22 @@ typedef struct kalloc_type_var_view *kalloc_type_var_view_t;
  * do not contain any pointers
  */
 #define kalloc_data_tag(size, flags, itag) \
-	kheap_alloc_tag(KHEAP_DATA_BUFFERS, size, flags, itag)
+	kheap_alloc_tag(GET_KEXT_KHEAP_DATA(), size, flags, itag)
 #define kalloc_data(size, flags) \
-	kheap_alloc(KHEAP_DATA_BUFFERS, size, flags)
+	kheap_alloc(GET_KEXT_KHEAP_DATA(), size, flags)
 
 #define krealloc_data_tag(elem, old_size, new_size, flags, itag) \
-	__kheap_realloc(KHEAP_DATA_BUFFERS, elem, old_size, new_size, \
+	__kheap_realloc(GET_KEXT_KHEAP_DATA(), elem, old_size, new_size, \
 	    __zone_flags_mix_tag(flags, itag), NULL)
 #define krealloc_data(elem, old_size, new_size, flags) \
 	krealloc_data_tag(elem, old_size, new_size, flags, \
 	    VM_ALLOC_SITE_TAG())
 
 #define kfree_data(elem, size) \
-	kheap_free(KHEAP_DATA_BUFFERS, elem, size);
+	kheap_free(GET_KEXT_KHEAP_DATA(), elem, size);
 
 #define kfree_data_addr(elem) \
-	kheap_free_addr(KHEAP_DATA_BUFFERS, elem);
+	kheap_free_addr(GET_KEXT_KHEAP_DATA(), elem);
 
 extern void kheap_free_bounded(
 	kalloc_heap_t heap,
@@ -554,6 +569,10 @@ extern void kalloc_data_require(
 extern void kalloc_non_data_require(
 	void         *data __unsafe_indexable,
 	vm_size_t     size);
+
+extern bool kalloc_is_data_buffers(
+	void         *addr,
+	vm_size_t    size);
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -1496,7 +1515,12 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 #define kt_view_var \
 	KALLOC_CONCAT(kalloc_type_view_, __LINE__)
 
+#ifndef __BUILDING_XNU_LIBRARY__
 #define KALLOC_TYPE_SEGMENT "__DATA_CONST"
+#else /* __BUILDING_XNU_LIBRARY__ */
+/* Special segments are not used when building for user-mode */
+#define KALLOC_TYPE_SEGMENT "__DATA"
+#endif /* __BUILDING_XNU_LIBRARY__ */
 
 /*
  * When kalloc_type_impl is called from xnu, it calls zalloc_flags
@@ -1560,6 +1584,10 @@ kt_size(vm_size_t s1, vm_size_t s2, vm_size_t c2)
 /*
  * Kalloc type flags are adjusted to indicate if the type is "data-only" or
  * will use the VM or is a pointer array.
+ *
+ * There is no need to create another sig for data shared. We expect shareable
+ * allocations to be marked explicitly by the callers, by using the dedicated
+ * allocation API for shared data.
  */
 #define KALLOC_TYPE_ADJUST_FLAGS(flags, ...)                                 \
 	KALLOC_TYPE_CAST_FLAGS((flags | KT_CHANGED | KT_CHANGED2 |               \
@@ -1736,6 +1764,12 @@ static inline uint32_t
 kalloc_type_get_size(uint32_t kt_size)
 {
 	return kt_size & KALLOC_TYPE_SIZE_MASK;
+}
+
+static inline uint32_t
+kalloc_type_size(kalloc_type_view_t ktv)
+{
+	return kalloc_type_get_size(ktv->kt_size);
 }
 
 extern bool IOMallocType_from_vm(

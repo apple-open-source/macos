@@ -56,6 +56,7 @@ typedef unsigned int                    uint;
 #define extract(x, shift, width)        ((((uint64_t)(x)) >> (shift)) & mask(width))
 #define bits(x, hi, lo)                 extract((x), (lo), (hi) - (lo) + 1)
 
+#define bit_assign(x, b, e)             ((x) = (((x) & ~BIT(b))) | ((((uint64_t) (!!(e)))) << (b)))
 #define bit_set(x, b)                   ((x) |= BIT(b))
 #define bit_clear(x, b)                 ((x) &= ~BIT(b))
 #define bit_test(x, b)                  ((bool)((x) & BIT(b)))
@@ -63,26 +64,13 @@ typedef unsigned int                    uint;
 inline static uint64_t
 bit_ror64(uint64_t bitmap, uint n)
 {
-#if defined(__arm64__)
-	uint64_t result;
-	uint64_t _n = (uint64_t)n;
-	asm volatile ("ror %0, %1, %2" : "=r" (result) : "r" (bitmap), "r" (_n));
-	return result;
-#else
-	n = n & 63;
-	return (bitmap >> n) | (bitmap << (64 - n));
-#endif
+	return __builtin_rotateright64(bitmap, n);
 }
 
 inline static uint64_t
 bit_rol64(uint64_t bitmap, uint n)
 {
-#if defined(__arm64__)
-	return bit_ror64(bitmap, 64U - n);
-#else
-	n = n & 63;
-	return (bitmap << n) | (bitmap >> (64 - n));
-#endif
+	return __builtin_rotateleft64(bitmap, n);
 }
 
 /* Non-atomically clear the bit and returns whether the bit value was changed */
@@ -105,17 +93,16 @@ bit_rol64(uint64_t bitmap, uint n)
 	!_bit_is_set; \
 })
 
+/*
+ * Note on bit indexing: bit indices are offsets from the least significant bit.
+ * So the bit at index `i` would be found by `1 & (bitmap >> i)`.
+ */
+
 /* Returns the most significant '1' bit, or -1 if all zeros */
 inline static int
 bit_first(uint64_t bitmap)
 {
-#if defined(__arm64__)
-	int64_t result;
-	asm volatile ("clz %0, %1" : "=r" (result) : "r" (bitmap));
-	return 63 - (int)result;
-#else
-	return (bitmap == 0) ? -1 : 63 - __builtin_clzll(bitmap);
-#endif
+	return 63 - __builtin_clzg(bitmap, 64);
 }
 
 
@@ -144,7 +131,7 @@ bit_next(uint64_t bitmap, int previous_bit)
 inline static int
 lsb_first(uint64_t bitmap)
 {
-	return __builtin_ffsll((long long)bitmap) - 1;
+	return __builtin_ctzg(bitmap, -1);
 }
 
 /* Returns the least significant '1' bit that is more significant than previous_bit,

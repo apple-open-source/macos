@@ -60,7 +60,7 @@ void Coder<CString>::encodeForPersistence(Encoder& encoder, const CString& strin
 
     uint32_t length = string.length();
     encoder << length;
-    encoder.encodeFixedLengthData(string.span());
+    encoder.encodeFixedLengthData(byteCast<uint8_t>(string.span()));
 }
 
 std::optional<CString> Coder<CString>::decodeForPersistence(Decoder& decoder)
@@ -139,7 +139,7 @@ std::optional<String> Coder<String>::decodeForPersistence(Decoder& decoder)
 
     if (*is8Bit)
         return decodeStringText<LChar>(decoder, *length);
-    return decodeStringText<UChar>(decoder, *length);
+    return decodeStringText<char16_t>(decoder, *length);
 }
 
 void Coder<URL>::encodeForPersistence(Encoder& encoder, const URL& url)

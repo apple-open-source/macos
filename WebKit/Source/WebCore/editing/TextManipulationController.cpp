@@ -28,10 +28,11 @@
 
 #include "AccessibilityObject.h"
 #include "CharacterData.h"
-#include "Editing.h"
+#include "EditingInlines.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementRareData.h"
 #include "EventLoop.h"
+#include "EventTargetInlines.h"
 #include "HTMLBRElement.h"
 #include "HTMLElement.h"
 #include "HTMLInputElement.h"
@@ -40,6 +41,7 @@
 #include "InputTypeNames.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
+#include "NodeInlines.h"
 #include "NodeRenderStyle.h"
 #include "NodeTraversal.h"
 #include "PseudoElement.h"
@@ -50,6 +52,7 @@
 #include "TextIterator.h"
 #include "TextManipulationItem.h"
 #include "VisibleUnits.h"
+#include <algorithm>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -123,7 +126,7 @@ public:
 
 private:
     const Vector<ExclusionRule>& m_rules;
-    UncheckedKeyHashMap<Ref<Element>, ExclusionRule::Type> m_cache;
+    HashMap<Ref<Element>, ExclusionRule::Type> m_cache;
 };
 
 TextManipulationController::TextManipulationController(Document& document)
@@ -395,8 +398,8 @@ bool TextManipulationController::shouldExcludeNodeBasedOnStyle(const Node& node)
     if (!style)
         return false;
 
-    auto& font = style->fontCascade().primaryFont();
-    auto familyName = font.platformData().familyName();
+    Ref font = style->fontCascade().primaryFont();
+    auto familyName = font->platformData().familyName();
     if (familyName.isEmpty())
         return false;
 
@@ -407,7 +410,7 @@ bool TextManipulationController::shouldExcludeNodeBasedOnStyle(const Node& node)
     // FIXME: We should reconsider whether a node should be excluded if the primary font
     // used to render the node changes, since this "icon font" heuristic may return a
     // different result.
-    bool result = font.isProbablyOnlyUsedToRenderIcons();
+    bool result = font->isProbablyOnlyUsedToRenderIcons();
     m_cachedFontFamilyExclusionResults.set(familyName, result);
     return result;
 }
@@ -686,9 +689,10 @@ void TextManipulationController::flushPendingItemsForCallback()
     m_pendingItemsForCallback.clear();
 }
 
-auto TextManipulationController::completeManipulation(const Vector<WebCore::TextManipulationItem>& completionItems) -> Vector<ManipulationFailure>
+TextManipulationController::ManipulationResult TextManipulationController::completeManipulation(const Vector<TextManipulationItem>& completionItems)
 {
     Vector<ManipulationFailure> failures;
+    Vector<uint64_t> succeededIndexes;
     NodeSet containersWithoutVisualOverflowBeforeReplacement;
     for (unsigned i = 0; i < completionItems.size(); ++i) {
         auto& itemToComplete = completionItems[i];
@@ -716,8 +720,12 @@ auto TextManipulationController::completeManipulation(const Vector<WebCore::Text
         std::exchange(itemData, itemDataIterator->value);
         m_items.remove(itemDataIterator);
 
-        if (auto failureOrNullopt = replace(itemData, itemToComplete.tokens, containersWithoutVisualOverflowBeforeReplacement))
+        if (auto failureOrNullopt = replace(itemData, itemToComplete.tokens, containersWithoutVisualOverflowBeforeReplacement)) {
             failures.append(ManipulationFailure { *frameID, itemID, i, *failureOrNullopt });
+            continue;
+        }
+
+        succeededIndexes.append(i);
     }
 
     if (!containersWithoutVisualOverflowBeforeReplacement.isEmpty()) {
@@ -741,7 +749,7 @@ auto TextManipulationController::completeManipulation(const Vector<WebCore::Text
         }
     }
 
-    return failures;
+    return { WTFMove(failures), WTFMove(succeededIndexes) };
 }
 
 struct TokenExchangeData {
@@ -781,7 +789,7 @@ void TextManipulationController::updateInsertions(Vector<NodeEntry>& lastTopDown
         for (;i < currentTopDownPath.size(); ++i) {
             Ref<Node> node = currentTopDownPath[i];
             if (!insertedNodes.add(node.copyRef()).isNewEntry) {
-                auto clonedNode = node->cloneNodeInternal(node->protectedDocument(), Node::CloningOperation::OnlySelf);
+                auto clonedNode = node->cloneNode(false);
                 if (auto* data = node->eventTargetData())
                     data->eventListenerMap.copyEventListenersNotCreatedFromMarkupToTarget(clonedNode.ptr());
                 node = WTFMove(clonedNode);
@@ -817,7 +825,7 @@ auto TextManipulationController::replace(const ManipulationItemData& item, const
             newValue.append(replacementTokens[i].content);
         }
         if (item.attributeName == nullQName())
-            element->setTextContent(newValue.toString());
+            element->setTextContent(String { newValue.toString() });
         else if (RefPtr input = dynamicDowncast<HTMLInputElement>(*element); input && item.attributeName == HTMLNames::valueAttr)
             input->setValue(newValue.toString());
         else
@@ -831,7 +839,7 @@ auto TextManipulationController::replace(const ManipulationItemData& item, const
         return ManipulationFailure::Type::ContentChanged;
 
     size_t currentTokenIndex = 0;
-    UncheckedKeyHashMap<TextManipulationTokenIdentifier, TokenExchangeData> tokenExchangeMap;
+    HashMap<TextManipulationTokenIdentifier, TokenExchangeData> tokenExchangeMap;
     RefPtr<Node> commonAncestor;
     RefPtr<Node> firstContentNode;
     RefPtr<Node> lastChildOfCommonAncestorInRange;
@@ -860,7 +868,7 @@ auto TextManipulationController::replace(const ManipulationItemData& item, const
         } else
             tokensInCurrentNode = createUnit(content.text, *content.node).tokens;
 
-        bool isNodeIncluded = WTF::anyOf(tokensInCurrentNode, [] (auto& token) {
+        bool isNodeIncluded = std::ranges::any_of(tokensInCurrentNode, [](auto& token) {
             return !token.isExcluded;
         });
         for (auto& token : tokensInCurrentNode) {

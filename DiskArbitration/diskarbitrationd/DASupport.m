@@ -33,6 +33,7 @@
 #include "DAStage.h"
 #include "DAProbe.h"
 #include "DATelemetry.h"
+#include "DAMount.h"
 
 #include <dirent.h>
 #include <fsproperties.h>
@@ -424,13 +425,27 @@ static void __DAFileSystemListRefresh( const char * directory )
                     if ( strcmp( suffix, FS_DIR_SUFFIX ) == 0 )
                     {
 #ifdef DA_FSKIT
-                        if ( !gFSKitMissing
-                             && os_feature_enabled(FSKit, msdosUseFSKitModule) && strcmp(item->d_name, "msdos.fs") == 0)
+                        if ( !gFSKitMissing )
                         {
-                            DALogInfo( "Skipping msdos.fs as msdosUseFSKitModule pref is on");
-                            continue;
+                            if ( strcmp(item->d_name, "msdos.fs") == 0 )
+                            {
+                                if ( os_feature_enabled(FSKit, msdosUseFSKitModule) || os_feature_enabled(DiskArbitration , FSKitModulesProbe) )
+                                {
+                                    DALogInfo( "Skipping msdos.fs as %s pref is on" ,
+                                               os_feature_enabled(FSKit, msdosUseFSKitModule) ? "msdosUseFSKitModule" : "FSKitModulesProbe" );
+                                    continue;
+                                }
+                            }
+                            if ( strcmp(item->d_name, "exfat.fs") == 0 )
+                            {
+                                if ( os_feature_enabled(DiskArbitration , FSKitModulesProbe) )
+                                {
+                                    DALogInfo( "Skipping exfat.fs as FSKitModulesProbe pref is on" );
+                                    continue;
+                                }
+                            }
                         }
-#endif 
+#endif
 
                         
                         CFURLRef path;
@@ -509,7 +524,7 @@ CFStringRef DSFSKitGetBundleNameWithoutSuffix( CFStringRef filesystemName )
 static NSDictionary *__propertiesForFSModule( FSModuleIdentity *fsmodule ) {
     NSDictionary *extAttributes = fsmodule.attributes, *mediaTypes, *personalities;
     NSMutableDictionary *module = [[NSMutableDictionary alloc] init];
-    NSString *fsname = [NSString stringWithFormat:@"%@_fskit", extAttributes[@"FSShortName"]];
+    NSString *fsname = [[NSString alloc] initWithFormat:@"%@_fskit", extAttributes[@"FSShortName"]];
     NSNumber *supportsBlockResources = extAttributes[@"FSSupportsBlockResources"];
     
     if (fsname && module && [supportsBlockResources boolValue]) {
@@ -556,11 +571,11 @@ static void __FSKitProbeStatusCallback( int status ,
     
 #if !TARGET_OS_OSX
     if ( ( ( DADiskGetDescription( disk , kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue ) &&
-          ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == NULL ) ) ||
-        ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue ) )
-    {
-        doFsck = false;
-    }
+           ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == NULL ) ) ||
+         ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue ) )
+     {
+         doFsck = false;
+     }
 #endif
     
     /*
@@ -614,16 +629,39 @@ static void __FSKitProbeStatusCallback( int status ,
                         
                         DALogInfo( "probed disk, id = %@, with %@, ongoing.", disk , kind );
                         
-                        bundleID = DAFileSystemCopyFSBundleID( filesystem );
-
                         CFRetain( filesystem );
                         context->filesystem = filesystem;
                         CFArrayRemoveValueAtIndex( context->candidates , 0 );
-                        DAProbeWithFSKit( deviceName ,
-                                          bundleID ,
-                                          doFsck ,
-                                          __FSKitProbeStatusCallback ,
-                                          context );
+                        
+                        if ( DAFileSystemIsFSModule( filesystem ) )
+                        {
+                            bundleID = DAFileSystemCopyFSBundleID( filesystem );
+                            DAProbeWithFSKit( deviceName ,
+                                              bundleID ,
+                                              doFsck ,
+                                              __FSKitProbeStatusCallback ,
+                                              context );
+                        }
+                        else /* deferred kext probe */
+                        {
+#if TARGET_OS_IOS
+                            if ( context->containerDisk )
+                            {
+                                containerBSDPath = DADiskGetBSDPath( context->containerDisk , TRUE);
+                            }
+                            else
+                            {
+                                containerBSDPath = NULL;
+                            }
+#endif
+                            DAFileSystemProbe( filesystem ,
+                                               DADiskGetDevice( context->disk ) ,
+                                               DADiskGetBSDPath( context->disk , TRUE ) ,
+                                               containerBSDPath ,
+                                               __FSKitProbeStatusCallback ,
+                                               context ,
+                                               doFsck );
+                        }
                         return; /* Do not over-release any context */
                     }
                 }
@@ -640,23 +678,34 @@ static void __FSKitProbeStatusCallback( int status ,
         didProbe = true;
         DALogInfo( "probed disk, id = %@, with %@, success.", context->disk, kind );
     }
-    
+
     if ( context->callback )
     {
         if ( didProbe )
         {
             CFStringRef kind = NULL;
+            bool isExternal = true;
             
             if ( context->filesystem != NULL && !( status ) )
             {
                 kind = DAGetFSTypeWithUUID( context->filesystem , uuid );
             }
             
-            DATelemetrySendProbeEvent( status ,
-                                       kind ,
-                                       CFSTR("FSKit") ,
-                                       clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
-                                       cleanStatus );
+            if ( context->disk )
+            {
+                DADiskSetState( context->disk , _kDADiskStateProbedWithFSKit , TRUE );
+                DATelemetrySendProbeEvent( status ,
+                                           kind ,
+                                           disk ,
+                                           clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
+                                           cleanStatus );
+                
+                /* Clear the probe state if the probe event failed */
+                if ( status )
+                {
+                    DADiskSetState( disk , _kDADiskStateProbedWithFSKit , FALSE );
+                }
+            }
         }
         ( context->callback )( status ,
                                context->filesystem ,
@@ -726,7 +775,15 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
             DADiskRef disk = probeCallbackContext->disk;
             CFDictionaryRef probes;
             
-            DALogDebug( " created filesystem, id = %@." , filesystem );
+            // Skip probing with apfs and hfs as it interferes with existing ios unit tests.
+            if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs_fskit" ) ) ||
+                CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "apfs_fskit" ) ) )
+            {
+                CFRelease( filesystem );
+                return;
+            }
+                  
+            DALogDebug( " created filesystem, id = %@. %@" , filesystem, DAFileSystemGetKind( filesystem ) );
 
             /*
              * Process each probe. Check if it matches and call probeWithFSKit()
@@ -759,6 +816,16 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
         }
     }];
     
+    /* Add deferred probes after our FSKit candidates */
+    if ( probeCallbackContext->deferredProbes != NULL )
+    {
+        CFArrayAppendArray( probeCallbackContext->candidates ,
+                            probeCallbackContext->deferredProbes ,
+                            CFRangeMake( 0 , CFArrayGetCount( probeCallbackContext->deferredProbes ) ) );
+        CFRelease( probeCallbackContext->deferredProbes );
+        probeCallbackContext->deferredProbes = NULL;
+    }
+    
     /* Kick off the first probe and let the callback process the rest of the probes */
     __FSKitProbeStatusCallback( -1 , -1 , NULL , NULL , NULL , probeCallbackContext );
 
@@ -771,9 +838,9 @@ void __DAFileSystemGetModulesCallback( int status , void *parameter )
 int __DAFileSystemGetModulesSync( void *parameter )
 {
     __FSDAModuleContext *context = parameter;
-    FSClient *client = [FSClient new];
+    FSClient *client = [FSClient sharedInstance];
     FSAuditToken *token = nil;
-    __block NSMutableArray<NSDictionary *> *properties = [NSMutableArray new];
+    __block NSMutableArray<NSDictionary *> *properties = [[NSMutableArray alloc] init];
     dispatch_group_t group = dispatch_group_create();
     CFMutableArrayRef result = NULL;
     uid_t user = context->user;
@@ -787,8 +854,8 @@ int __DAFileSystemGetModulesSync( void *parameter )
     }
 #endif
     
-    token = [FSAuditToken new];
-    
+    token = [[FSAuditToken alloc] init];
+
     if ( user != 0 ) {
         token = [token tokenWithRuid:user];
     }
@@ -836,11 +903,15 @@ int __DAFileSystemGetModulesSync( void *parameter )
         
         if ( ( disk != NULL ) && DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
         {
+            DADiskSetState( disk , _kDADiskStateProbedWithFSKit , TRUE );
             DATelemetrySendProbeEvent( EAGAIN ,
                                        NULL ,
-                                       CFSTR("FSKit") ,
+                                       disk ,
                                        0 ,
                                        -1 );
+            
+            /* Clear the probe state for the next reprobe */
+            DADiskSetState( disk , _kDADiskStateProbedWithFSKit , FALSE );
         }
     }
     else
@@ -922,11 +993,55 @@ int __DAProbeWithFSKit( void *parameter )
 #if TARGET_OS_IOS
     user = 501;
 #endif
-    client = [FSClient new];
+    client = [FSClient sharedInstance];
     res = [FSBlockDeviceResource proxyResourceForBSDName:(__bridge NSString *) deviceName];
-    token = [FSAuditToken new];
+    token = [[FSAuditToken alloc] init];
     token = [token tokenWithRuid:user];
     
+    /* Perform limited probe */
+    res.limited = YES;
+    dispatch_group_enter( probeGroup );
+    [client probeResource:res
+              usingBundle: (__bridge NSString *) bundleID
+               auditToken:token.audit_token
+             replyHandler:^(FSProbeResult * _Nullable result,
+                            NSError * _Nullable probeErr) {
+        if ( probeErr )
+        {
+            status = (int) [probeErr code];
+        }
+        else if ( result )
+        {
+            switch ( result.result )
+            {
+                case FSMatchResultUsableButLimited:
+                case FSMatchResultUsable:
+                    status = 0;
+                    break;
+                case FSMatchResultNotRecognized:
+                    status = ENOENT;
+                    break;
+                default:
+                    status = EIO;
+            }
+        } else {
+            status = EIO;
+        }
+        if ( status )
+        {
+            context->checkStatus = status;
+        }
+        dispatch_group_leave( probeGroup );
+    }];
+    dispatch_group_wait( probeGroup , DISPATCH_TIME_FOREVER );
+    
+    if ( status )
+    {
+        return status;
+    }
+    
+    /* Perform full probe */
+    res.limited = NO;
     dispatch_group_enter( probeGroup );
     [client probeResource:res
               usingBundle: (__bridge NSString *) bundleID
@@ -1010,11 +1125,11 @@ int __DAProbeWithFSKit( void *parameter )
     if ( ( status == 0 ) && context->doFsck )
     {
         // Pass the connection to FSClient
-        messageDumper   = [FSDATaskMessage new];
+        messageDumper   = [[FSDATaskMessage alloc] init];
         msgRcvr         = [FSMessageReceiver receiverWithDelegate:messageDumper];
         connection      = [msgRcvr getConnection];
-        options         = [FSTaskOptionsBundle new];
-        
+        options         = [[FSTaskOptionsBundle alloc] init];
+
         [options addOption:[FSTaskOption optionWithoutValue:@"q"]];
 
         dispatch_group_enter( checkGroup );
@@ -1148,19 +1263,19 @@ int __DARepairWithFSKit( void *parameter )
     user = 501;
 #endif
     
-    client = [FSClient new];
+    client = [FSClient sharedInstance];
     res = [FSBlockDeviceResource proxyResourceForBSDName:(__bridge NSString *) deviceName
-                                                writable:YES];
+                                              isWritable:YES];
     
     // Pass the connection to FSClient
-    messageDumper   = [FSDATaskMessage new];
+    messageDumper   = [[FSDATaskMessage alloc] init];
     msgRcvr         = [FSMessageReceiver receiverWithDelegate:messageDumper];
     connection      = [msgRcvr getConnection];
-    options         = [FSTaskOptionsBundle new];
-    
+    options         = [[FSTaskOptionsBundle alloc] init];
+
     [options addOption:[FSTaskOption optionWithoutValue:@"y"]];
 
-    token = [FSAuditToken new];
+    token = [[FSAuditToken alloc] init];
     token = [token tokenWithRuid:user];
     
     dispatch_group_enter( group );
@@ -1392,6 +1507,10 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
 #if TARGET_OS_OSX
         if ( map != NULL )
         {
+            /* mount map entries are considered automounted, not external volumes, and use the kext path */
+            BOOL automounted = TRUE;
+            BOOL externalVolume = FALSE;
+            
             if ( __DAShouldAddMountMapEntry( ) )
             {
                 if ( !fstabEntryAdded )
@@ -1400,7 +1519,9 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
                     fstabEntryAdded = YES;
                     DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_ADDED ,
                                               CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
-                                              FALSE ,
+                                              DATelemetryFSImplementationKext ,
+                                              automounted ,
+                                              externalVolume ,
                                               0 );
                 }
             }
@@ -1409,7 +1530,9 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
                 DALogInfo( "Skipping mount map entry for %s", fs->fs_file );
                 DATelemetrySendMountEvent( DA_STATUS_FSTAB_MOUNT_SKIPPED ,
                                           CFDictionaryGetValue( map , kDAMountMapProbeKindKey ) ,
-                                          FALSE ,
+                                          DATelemetryFSImplementationKext ,
+                                          automounted ,
+                                          externalVolume ,
                                           0 );
                 CFRelease( map );
                 map = NULL;
@@ -1602,6 +1725,7 @@ const CFStringRef kDAPreferenceMountMethodkey                     = CFSTR( "DAMo
 const CFStringRef kDAPreferenceDisableEjectNotificationKey        = CFSTR( "DADisableEjectNotification" );
 const CFStringRef kDAPreferenceDisableUnreadableNotificationKey   = CFSTR( "DADisableUnreadableNotification" );
 const CFStringRef kDAPreferenceDisableUnrepairableNotificationKey = CFSTR( "DADisableUnrepairableNotification" );
+const CFStringRef kDAPreferenceMountAlwaysRepairKey               = CFSTR( "DAMountAlwaysRepair"   );
 
 void DAPreferenceListRefresh( void )
 {
@@ -1813,6 +1937,16 @@ void DAPreferenceListRefresh( void )
                 if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
                 {
                     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceDisableUnrepairableNotificationKey, value );
+                }
+            }
+            
+            value = SCPreferencesGetValue( preferences, kDAPreferenceMountAlwaysRepairKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountAlwaysRepairKey, value );
                 }
             }
             
@@ -2062,4 +2196,64 @@ CFStringRef DAGetFSTypeWithUUID( DAFileSystemRef filesystem , CFUUIDRef volumeUU
     }
     
     return kind;
+}
+
+Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole)
+{
+    CFTypeRef              roles;
+    Boolean                matchesRole = FALSE;
+
+    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
+                                            kIOServicePlane,
+                                            CFSTR( "Role" ),
+                                            kCFAllocatorDefault,
+                                            0 );
+
+    if ( roles )
+    {
+
+        if (CFGetTypeID( roles ) == CFArrayGetTypeID())
+        {
+
+            CFIndex count = CFArrayGetCount( roles );
+
+            for ( int i=0; i<count; i++ )
+            {
+                CFStringRef role = CFArrayGetValueAtIndex( roles, i );
+
+                if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
+                  ( (CFStringCompare( role, inRole, kCFCompareCaseInsensitive ) == 0) ) )
+                {
+                    matchesRole = TRUE;
+                    break;
+                }
+            }
+
+        }
+
+        CFRelease ( roles );
+    }
+
+    return matchesRole;
+}
+
+Boolean DAAPFSNoVolumeRole(DADiskRef disk)
+{
+    CFTypeRef              roles;
+    Boolean                noRole = TRUE;
+
+    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
+                                            kIOServicePlane,
+                                            CFSTR( "Role" ),
+                                            kCFAllocatorDefault,
+                                            0 );
+
+    if ( roles )
+    {
+
+        noRole = FALSE;
+        CFRelease ( roles );
+    }
+
+    return noRole;
 }

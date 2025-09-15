@@ -103,7 +103,7 @@ public:
             sample = std::exchange(m_sample, nullptr);
         }
 
-        if (LIKELY(GST_IS_SAMPLE(sample.get())))
+        if (GST_IS_SAMPLE(sample.get())) [[likely]]
             webkitVideoSinkRepaintRequested(sink, sample.get());
 
         return true;
@@ -252,7 +252,7 @@ static gboolean webkitVideoSinkEvent(GstBaseSink* baseSink, GstEvent* event)
 
         GST_DEBUG_OBJECT(sink, "Flush-start, releasing m_sample");
     }
-        FALLTHROUGH;
+        [[fallthrough]];
     default:
         return GST_BASE_SINK_CLASS(webkit_video_sink_parent_class)->event(baseSink, event);
     }

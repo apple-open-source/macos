@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2025 Apple Inc. All rights reserved.
  * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
  */
 #ifndef _PEXPERT_ARM_BOARD_CONFIG_H
@@ -140,7 +140,7 @@
 #include <pexpert/arm64/H14.h>
 
 #define MAX_L2_CLINE                   7
-#define MAX_CPUS                       8 /* Actually has 6 CPUs, see doc/xnu_build_consolidation.md for more info */
+#define MAX_CPUS                       8 /* Actually has 6 CPUs, see doc/building/xnu_build_consolidation.md for more info */
 #define MAX_CPU_CLUSTERS               2
 
 #ifndef CONFIG_SPTM
@@ -199,6 +199,8 @@
 
 
 #endif  /* ARM64_BOARD_CONFIG_T8132 */
+
+
 
 
 
@@ -264,11 +266,14 @@
 
 #define __ARM_42BIT_PA_SPACE__         1
 #define USE_APPLEARMSMP                1
+#define NO_CPU_OVRD                    1 /* CPU_OVRD register accesses are banned */
 #define XNU_SUPPORT_BOOTCPU_SHUTDOWN   1
 #define RHODES_CLUSTER_POWERDOWN_WORKAROUND 1 /* Workaround for rdar://89107373 (Rhodes cluster power down: cannot manually power down and up a core multiple times without powering down the cluster) */
 
 
 #endif  /* ARM64_BOARD_CONFIG_T6041 */
+
+
 
 
 
@@ -283,10 +288,6 @@
 #define CORE_NCTRS                     2
 
 #define USE_APPLEARMSMP                1
-
-#if XNU_TARGET_OS_WATCH
-#define PREFER_ARM64_32_BINARIES       1
-#endif
 
 #define NO_XNU_PLATFORM_ERROR_HANDLER  1
 
@@ -339,5 +340,9 @@
 
 
 
+
+#if DEBUG || DEVELOPMENT
+#define HAS_SPTM_SYSCTL 1
+#endif /* DEBUG || DEVELOPMENT */
 
 #endif /* ! _PEXPERT_ARM_BOARD_CONFIG_H */

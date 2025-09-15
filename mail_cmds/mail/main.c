@@ -48,6 +48,12 @@ __FBSDID("$FreeBSD$");
 #include <fcntl.h>
 #include "extern.h"
 
+#ifdef __APPLE__
+#include "get_compat.h"
+
+int unix2003_compat;
+#endif
+
 /*
  * Mail -- a mail program
  *
@@ -110,6 +116,10 @@ main(int argc, char *argv[])
 	char *ef, *rc;
 	char nosrc = 0;
 	sig_t prevint;
+
+#ifdef __APPLE__
+	unix2003_compat = COMPAT_MODE("bin/mailx", "Unix2003");
+#endif
 
 	/*
 	 * Set up a reasonable environment.

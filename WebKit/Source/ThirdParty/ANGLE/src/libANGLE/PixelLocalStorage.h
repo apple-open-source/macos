@@ -119,6 +119,9 @@ class PixelLocalStoragePlane : angle::NonCopyable, public angle::ObserverInterfa
     angle::ObserverBinding mTextureObserver;
 };
 
+using PixelLocalStoragePlaneVector =
+    angle::FixedVector<PixelLocalStoragePlane, IMPLEMENTATION_MAX_PIXEL_LOCAL_STORAGE_PLANES>;
+
 // Manages a collection of PixelLocalStoragePlanes and applies them to ANGLE's GL state.
 //
 // The main magic of ANGLE_shader_pixel_local_storage happens inside shaders, so we just emulate the
@@ -143,7 +146,7 @@ class PixelLocalStorage
         return mPlanes[plane];
     }
 
-    const PixelLocalStoragePlane *getPlanes() { return mPlanes.data(); }
+    const PixelLocalStoragePlaneVector &getPlanes() { return mPlanes; }
 
     size_t interruptCount() const { return mInterruptCount; }
 
@@ -166,15 +169,6 @@ class PixelLocalStorage
     void interrupt(Context *);
     void restore(Context *);
 
-    // While pixel local storage is active, the draw buffers on and after
-    // 'FirstOverriddenDrawBuffer' are blocked from the client and reserved for internal use by PLS.
-    static GLint FirstOverriddenDrawBuffer(const Caps &caps, GLuint numActivePlanes)
-    {
-        ASSERT(numActivePlanes > 0);
-        return std::min(caps.maxColorAttachmentsWithActivePixelLocalStorage,
-                        caps.maxCombinedDrawBuffersAndPixelLocalStoragePlanes - numActivePlanes);
-    }
-
   protected:
     PixelLocalStorage(const ShPixelLocalStorageOptions &, const Caps &);
 
@@ -194,8 +188,7 @@ class PixelLocalStorage
     const ShPixelLocalStorageOptions mPLSOptions;
 
   private:
-    angle::FixedVector<PixelLocalStoragePlane, IMPLEMENTATION_MAX_PIXEL_LOCAL_STORAGE_PLANES>
-        mPlanes;
+    PixelLocalStoragePlaneVector mPlanes;
     size_t mInterruptCount           = 0;
     GLsizei mActivePlanesAtInterrupt = 0;
 };

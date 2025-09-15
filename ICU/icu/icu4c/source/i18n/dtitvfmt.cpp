@@ -26,6 +26,10 @@
 #include "unicode/udisplaycontext.h"
 #include "cmemory.h"
 #include "cstring.h"
+#if APPLE_ICU_CHANGES
+// rdar://140657084 ([ICU]?: INDIA: CrystalE22E161a: Inconsistent AM-PM Time periods in the music app)
+#include "dayperiodrules.h"
+#endif // APPLE_ICU_CHANGES
 #include "dtitv_impl.h"
 #include "mutex.h"
 #include "uresimp.h"
@@ -514,13 +518,13 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
         }
 #endif  // APPLE_ICU_CHANGES
     } else if ( fromCalendar.get(UCAL_DATE, status) !=
-                toCalendar.get(UCAL_DATE, status) ) {
+               toCalendar.get(UCAL_DATE, status) ) {
         field = UCAL_DATE;
 #if APPLE_ICU_CHANGES
-// rdar:/
+        // rdar:/
         if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_DAYS &&
-                // check normalized skeleton for 'H', 'h', 'j'
-                (fSkeleton.indexOf(CAP_H) >= 0 || fSkeleton.indexOf(LOW_H) >= 0 || fSkeleton.indexOf(LOW_J) >= 0)) {
+            // check normalized skeleton for 'H', 'h', 'j'
+            (fSkeleton.indexOf(CAP_H) >= 0 || fSkeleton.indexOf(LOW_H) >= 0 || fSkeleton.indexOf(LOW_J) >= 0)) {
             UDate fromDate = fromCalendar.getTime(status);
             UDate toDate = toCalendar.getTime(status);
             int32_t fromHour = fromCalendar.get(UCAL_HOUR, status);
@@ -530,6 +534,37 @@ DateIntervalFormat::formatImpl(Calendar& fromCalendar,
                 field = UCAL_AM_PM;
             }
             fromCalendar.setTime(fromDate, status);
+            // rdar://140657084: if the times straddle a day boundary, but are still in the same day period
+            // (presumably "night"), don't show the day period twice
+            if (field == UCAL_AM_PM && fSkeleton.indexOf(CAP_B) >= 0) {
+                const DayPeriodRules* rules(DayPeriodRules::getInstance(fLocale, status));
+                fromHour = fromCalendar.get(UCAL_HOUR_OF_DAY, status);
+                toHour = toCalendar.get(UCAL_HOUR_OF_DAY, status);
+                DayPeriodRules::DayPeriod fromDP = rules->getDayPeriodForHour(fromHour);
+                DayPeriodRules::DayPeriod toDP = rules->getDayPeriodForHour(toHour);
+                if (fromDP == toDP) {
+                    field = UCAL_HOUR;
+                }
+            }
+        }
+    // rdar://140657084 ([ICU]?: INDIA: CrystalE22E161a: Inconsistent AM-PM Time periods in the music app)
+    // if the skeleton includes "B", we have to check the day period to determine the maximum different field
+    // (in here, "UCAL_AM_PM" means the day period is different)
+    } else if (fSkeleton.indexOf(CAP_B) >= 0) {
+        const DayPeriodRules* rules(DayPeriodRules::getInstance(fLocale, status));
+        int32_t fromHour = fromCalendar.get(UCAL_HOUR_OF_DAY, status);
+        int32_t toHour = toCalendar.get(UCAL_HOUR_OF_DAY, status);
+        DayPeriodRules::DayPeriod fromDP = rules->getDayPeriodForHour(fromHour);
+        DayPeriodRules::DayPeriod toDP = rules->getDayPeriodForHour(toHour);
+        
+        if (fromDP != toDP) {
+            field = UCAL_AM_PM;
+        } else if (fromHour != toHour) {
+            field = UCAL_HOUR;
+        } else {
+            // the day-period code cheats and assumes the smallest field is the minute field (or that the
+            // pattern isn't different if smaller fields are different)
+            field = UCAL_MINUTE;
         }
 #endif  // APPLE_ICU_CHANGES
     } else if ( fromCalendar.get(UCAL_AM_PM, status) !=

@@ -125,6 +125,10 @@ enum {
  */
 #define kIOPMLimitedPowerWakeRequestEntitlement    CFSTR("com.apple.private.iokit.limitedpower-wakerequest")
 
+/*! @define kIOPMAssertionSoftwareUpdateEntitlement
+ *  @abstract   Apple internal entitlement for kIOPMAssertionTypeSoftwareUpdateTask
+ */
+#define kIOPMAssertionTypeSoftwareUpdateEntitlement     CFSTR("com.apple.private.iokit.assertion-softwareupdate")
 /*!
  * @constant    kIOPMServerBootstrapName
  * @abstract    Do not use. There's no reason for any code outside of PowerManagement to use this.
@@ -516,6 +520,13 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  *
  */
 #define kIOPMAssertionTypeSystemIsActive                    CFSTR("SystemIsActive")
+
+/* @define          kIOPMAssertionTypeSoftwareUpdateTask
+ * @abstrct         Prevents device sleep in DarkWake
+ * @discussion      This assertion will keep the device awake in DarkWake and SilentRunning
+                    on battery and AC. To be used only for software updates. Requires an entitlement
+ */
+#define kIOPMAssertionTypeSoftwareUpdateTask                CFSTR("SoftwareUpdateTask")
 
 
 // Disables AC Power Inflow (requires root to initiate)
@@ -912,6 +923,12 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
  * @abstract Absolute time stamp of assertion timeout
  */
 #define kIOPMAsyncAssertionTimeoutTimestamp          CFSTR("TimeoutTimeStamp")
+
+/*!
+ * @constant kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp
+ * @abstract Absolute time stamp of assertion timeout
+ */
+#define kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp          CFSTR("PolicyTimeoutTimeStamp")
 
 /*
  * @constant kIOPMAsyncAssertionLoggedCreate
@@ -1802,6 +1819,27 @@ IOReturn IOPMSetPMPreferences(CFDictionaryRef ESPrefs);
 @result        Returns kIOReturnSuccess or an error condition if request failed.
 */
 IOReturn IOPMSetEnergyModePreference(CFStringRef energyMode, CFStringRef pwr_src);
+
+#define kIOPMGamingSessionServiceEntitlement  CFSTR("com.apple.private.iokit.gamingsessionservice")
+/*!
+ *  @function   IOPMUpdateGamingSessionState
+ *  @abstract   Update Gaming Session state with powerd
+ *
+ *  @param gamingSessionActive          True if gaming session is active
+ *
+ *  @result                 Return kIOReturnSuccess on success.
+ */
+IOReturn IOPMUpdateGamingSessionState(bool gamingSessionActive);
+
+/*!
+@function      IOPMSetGamingEnergyModePreference
+@abstract      Function for configuring mode preference while gaming
+@discussion    Entitled callers can use this function to configure the Energy Mode to be used while gaming.
+@param energyMode     Energy Mode - one of CFSTR(kIOPMEnergyModeAutomatic), CFSTR(kIOPMEnergyModeLow), CFSTR(kIOPMEnergyModeHigh)
+@result        Returns kIOReturnSuccess or an error condition if request failed.
+*/
+IOReturn IOPMSetGamingEnergyModePreference(CFStringRef energyMode);
+
 #endif // TARGET_OS_OSX
 
 /*!
@@ -3719,6 +3757,7 @@ typedef enum {
     kAsyncAssertionCreateLog,
     kAsyncAssertionReleaseLog,
     kAsyncAssertionTimeoutLog,
+    kAsyncAssertionCategoryPolicyTimeoutLog,
     kAsyncAssertionTurnOffLog,
     kAsyncAssertionTurnOnLog,
     kAsyncAssertionNameChangeLog,

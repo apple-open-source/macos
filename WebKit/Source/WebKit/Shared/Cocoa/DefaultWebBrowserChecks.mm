@@ -146,10 +146,11 @@ void determineTrackingPreventionState()
 
     bool appWasLinkedOnOrAfter = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SessionCleanupByDefault);
 
-    itpQueue() = WorkQueue::create("com.apple.WebKit.itpCheckQueue"_s);
-    itpQueue()->dispatch([appWasLinkedOnOrAfter, bundleIdentifier = applicationBundleIdentifier().isolatedCopy()] {
+    Ref queue = WorkQueue::create("com.apple.WebKit.itpCheckQueue"_s);
+    itpQueue() = queue.copyRef();
+    queue->dispatch([appWasLinkedOnOrAfter, bundleIdentifier = applicationBundleIdentifier().isolatedCopy()] {
         currentTrackingPreventionState = determineTrackingPreventionStateInternal(appWasLinkedOnOrAfter, bundleIdentifier) ? TrackingPreventionState::Enabled : TrackingPreventionState::Disabled;
-        RunLoop::main().dispatch([] {
+        RunLoop::mainSingleton().dispatch([] {
             itpQueue() = nullptr;
         });
     });
@@ -160,8 +161,8 @@ bool doesAppHaveTrackingPreventionEnabled()
     ASSERT(!isInWebKitChildProcess());
     ASSERT(RunLoop::isMain());
     // If we're still computing the ITP state on the background thread, then synchronize with it.
-    if (itpQueue())
-        itpQueue()->dispatchSync([] { });
+    if (RefPtr queue = itpQueue())
+        queue->dispatchSync([] { });
     ASSERT(currentTrackingPreventionState != TrackingPreventionState::Uninitialized);
     return currentTrackingPreventionState == TrackingPreventionState::Enabled;
 }
@@ -210,7 +211,7 @@ bool hasProhibitedUsageStrings()
     if (hasCheckedUsageStrings)
         return hasProhibitedUsageStrings;
 
-    NSDictionary *infoDictionary = [[NSBundle mainBundle] infoDictionary];
+    RetainPtr<NSDictionary> infoDictionary = [[NSBundle mainBundle] infoDictionary];
     RELEASE_ASSERT(infoDictionary);
 
     // See <rdar://problem/59979468> for details about how this list was selected.
@@ -226,7 +227,7 @@ bool hasProhibitedUsageStrings()
 
     for (NSString *prohibitedString : prohibitedStrings) {
         if ([infoDictionary objectForKey:prohibitedString]) {
-            String message = [NSString stringWithFormat:@"[In-App Browser Privacy] %@ used prohibited usage string %@.", [[NSBundle mainBundle] bundleIdentifier], prohibitedString];
+            String message = adoptNS([[NSString alloc] initWithFormat:@"[In-App Browser Privacy] %@ used prohibited usage string %@.", [[NSBundle mainBundle] bundleIdentifier], prohibitedString]).get();
             WTFLogAlways(message.utf8().data());
             hasProhibitedUsageStrings = true;
             break;
@@ -278,11 +279,11 @@ bool isFullWebBrowserOrRunningTest(const String& bundleIdentifier)
     static bool fullWebBrowser;
     static std::once_flag once;
     std::call_once(once, [] {
-        NSURL *currentURL = [[NSBundle mainBundle] bundleURL];
-        NSArray<NSURL *> *httpURLs = [[NSWorkspace sharedWorkspace] URLsForApplicationsToOpenURL:[NSURL URLWithString:@"http:"]];
-        bool canOpenHTTP = [httpURLs containsObject:currentURL];
-        NSArray<NSURL *> *httpsURLs = [[NSWorkspace sharedWorkspace] URLsForApplicationsToOpenURL:[NSURL URLWithString:@"https:"]];
-        bool canOpenHTTPS = [httpsURLs containsObject:currentURL];
+        RetainPtr<NSURL> currentURL = [[NSBundle mainBundle] bundleURL];
+        RetainPtr<NSArray<NSURL *>> httpURLs = [[NSWorkspace sharedWorkspace] URLsForApplicationsToOpenURL:[NSURL URLWithString:@"http:"]];
+        bool canOpenHTTP = [httpURLs containsObject:currentURL.get()];
+        RetainPtr<NSArray<NSURL *>> httpsURLs = [[NSWorkspace sharedWorkspace] URLsForApplicationsToOpenURL:[NSURL URLWithString:@"https:"]];
+        bool canOpenHTTPS = [httpsURLs containsObject:currentURL.get()];
         fullWebBrowser = canOpenHTTPS && canOpenHTTP;
     });
 #else

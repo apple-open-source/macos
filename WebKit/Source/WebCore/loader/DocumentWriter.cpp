@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010. Adam Barth. All rights reserved.
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,7 +73,7 @@ static inline bool canReferToParentFrameEncoding(const LocalFrame* frame, const 
 void DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL(const String& source, Document* ownerDocument)
 {
     Ref frame = *m_frame;
-    frame->protectedLoader()->stopAllLoaders();
+    frame->loader().stopAllLoaders();
 
     // If we are in the midst of changing the frame's document, don't execute script
     // that modifies the document further:
@@ -96,7 +96,7 @@ void DocumentWriter::replaceDocumentWithResultOfExecutingJavascriptURL(const Str
         }
 
         if (RefPtr parser = frame->document()->parser())
-            parser->appendBytes(*this, source.utf8().span());
+            parser->appendBytes(*this, byteCast<uint8_t>(source.utf8().span()));
     }
 
     end();
@@ -293,6 +293,11 @@ TextResourceDecoder& DocumentWriter::decoder()
         frame->protectedDocument()->setDecoder(WTFMove(decoder));
     }
     return *m_decoder;
+}
+
+Ref<TextResourceDecoder> DocumentWriter::protectedDecoder()
+{
+    return decoder();
 }
 
 void DocumentWriter::reportDataReceived()

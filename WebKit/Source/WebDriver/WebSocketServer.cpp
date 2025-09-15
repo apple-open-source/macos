@@ -27,10 +27,12 @@
 #include "WebSocketServer.h"
 
 #include "CommandResult.h"
+#include "Logging.h"
 #include "Session.h"
 #include "WebDriverService.h"
 #include <algorithm>
 #include <optional>
+#include <ranges>
 #include <wtf/JSONValues.h>
 #include <wtf/UUID.h>
 #include <wtf/text/MakeString.h>
@@ -38,9 +40,8 @@
 
 namespace WebDriver {
 
-WebSocketServer::WebSocketServer(WebSocketMessageHandler& messageHandler, WebDriverService& service)
+WebSocketServer::WebSocketServer(WebSocketMessageHandler& messageHandler)
     : m_messageHandler(messageHandler)
-    , m_service(service)
 {
 }
 
@@ -56,12 +57,12 @@ void WebSocketServer::addConnection(WebSocketMessageHandler::Connection&& connec
 
 bool WebSocketServer::isStaticConnection(const WebSocketMessageHandler::Connection& connection)
 {
-    return std::count(m_staticConnections.begin(), m_staticConnections.end(), connection);
+    return std::ranges::count(m_staticConnections, connection);
 }
 
 void WebSocketServer::removeStaticConnection(const WebSocketMessageHandler::Connection& connection)
 {
-    m_staticConnections.erase(std::find(m_staticConnections.begin(), m_staticConnections.end(), connection));
+    m_staticConnections.erase(std::ranges::find(m_staticConnections, connection));
 }
 
 void WebSocketServer::removeConnection(const WebSocketMessageHandler::Connection& connection)
@@ -71,25 +72,14 @@ void WebSocketServer::removeConnection(const WebSocketMessageHandler::Connection
         m_connectionToSession.remove(it);
 }
 
-RefPtr<Session> WebSocketServer::session(const WebSocketMessageHandler::Connection& connection)
+String WebSocketServer::sessionID(const WebSocketMessageHandler::Connection& connection) const
 {
-    String sessionId;
-
     for (const auto& pair : m_connectionToSession) {
-        if (pair.key == connection) {
-            sessionId = pair.value;
-            break;
-        }
+        if (pair.key == connection)
+            return pair.value;
     }
 
-    if (sessionId.isNull())
-        return { };
-
-    const auto& existingSession = m_service.session();
-    if (!existingSession || (existingSession->id() != sessionId))
-        return { };
-
-    return existingSession;
+    return { };
 }
 
 std::optional<WebSocketMessageHandler::Connection> WebSocketServer::connection(const String& sessionId)
@@ -154,7 +144,7 @@ String WebSocketServer::getWebSocketURL(const RefPtr<WebSocketListener> listener
 void WebSocketServer::removeResourceForSession(const String& sessionId)
 {
     auto resourceName = getResourceName(sessionId);
-    m_listener->resources.erase(std::remove(m_listener->resources.begin(), m_listener->resources.end(), resourceName), m_listener->resources.end());
+    std::erase(m_listener->resources, resourceName);
 }
 
 WebSocketMessageHandler::Message WebSocketMessageHandler::Message::fail(CommandResult::ErrorCode errorCode, std::optional<Connection> connection, std::optional<String> errorMessage, std::optional<int> commandId)
@@ -167,7 +157,8 @@ WebSocketMessageHandler::Message WebSocketMessageHandler::Message::fail(CommandR
     if (errorMessage)
         reply->setString("message"_s, *errorMessage);
 
-    reply->setInteger("error"_s, CommandResult::errorCodeToHTTPStatusCode(errorCode));
+    reply->setString("error"_s, CommandResult::errorCodeToString(errorCode));
+    reply->setString("type"_s, "error"_s);
 
     return { (connection ? (*connection) : nullptr), reply->toJSONString().utf8() };
 }
@@ -216,6 +207,41 @@ std::optional<Command> Command::fromData(const char* data, size_t dataLength)
     };
 
     return command;
+}
+
+void WebSocketServer::sendMessage(const String& sessionId, const String& message)
+{
+    auto connection = this->connection(sessionId);
+    if (!connection) {
+        RELEASE_LOG_ERROR(WebDriverBiDi, "No connection found for session %s when trying to send message: %s", sessionId.utf8().data(), message.utf8().data());
+        return;
+    }
+    sendMessage(*connection, message);
+}
+
+void WebSocketServer::sendErrorResponse(const String& sessionId, std::optional<unsigned> commandId, CommandResult::ErrorCode errorCode, const String& errorMessage, std::optional<String> stacktrace)
+{
+    auto connection = this->connection(sessionId);
+    if (!connection) {
+        RELEASE_LOG_ERROR(WebDriverBiDi, "No connection found for session %s when trying to send error response", sessionId.utf8().data());
+        return;
+    }
+    sendErrorResponse(*connection, commandId, errorCode, errorMessage, stacktrace);
+}
+
+void WebSocketServer::sendErrorResponse(WebSocketMessageHandler::Connection connection, std::optional<unsigned> commandId, CommandResult::ErrorCode errorCode, const String& errorMessage, std::optional<String> stacktrace)
+{
+    auto errorObject = JSON::Object::create();
+
+    errorObject->setString("type"_s, "error"_s);
+    errorObject->setString("error"_s, CommandResult::errorCodeToString(errorCode));
+    errorObject->setString("message"_s, errorMessage);
+    if (commandId)
+        errorObject->setInteger("id"_s, *commandId); // FIXME change to JSON::Value
+    if (stacktrace)
+        errorObject->setString("stacktrace"_s, *stacktrace);
+
+    sendMessage(connection, errorObject->toJSONString());
 }
 
 

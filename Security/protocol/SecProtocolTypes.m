@@ -329,10 +329,10 @@ dispatch_data_copyout_and_alloc(dispatch_data_t data, void **destination, size_t
 }
 
 static sec_identity_t
-sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(dispatch_data_t context_data,
-                                                                    dispatch_data_t client_identity_data,
-                                                                    dispatch_data_t server_identity_data,
-                                                                    dispatch_data_t password_data)
+sec_identity_create_client_SPAKE2PLUSV1_identity_for_scrypt_default(_Nonnull dispatch_data_t context_data,
+                                                                    _Nonnull dispatch_data_t client_identity_data,
+                                                                    _Nonnull dispatch_data_t server_identity_data,
+                                                                    _Nonnull dispatch_data_t password_data)
 {
     if (password_data == nil) {
         return SEC_NIL_BAD_INPUT;

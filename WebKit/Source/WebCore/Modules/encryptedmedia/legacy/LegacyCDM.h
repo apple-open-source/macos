@@ -41,7 +41,7 @@ class LegacyCDM;
 class CDMPrivateInterface;
 class MediaPlayer;
 
-using CreateCDM = Function<std::unique_ptr<CDMPrivateInterface>(LegacyCDM&)>;
+using CreateCDM = Function<const std::unique_ptr<CDMPrivateInterface>(LegacyCDM&)>;
 using CDMSupportsKeySystem = Function<bool(const String&)>;
 using CDMSupportsKeySystemAndMimeType = Function<bool(const String&, const String&)>;
 
@@ -84,7 +84,7 @@ private:
 
     String m_keySystem;
     CheckedPtr<LegacyCDMClient> m_client;
-    std::unique_ptr<CDMPrivateInterface> m_private;
+    const std::unique_ptr<CDMPrivateInterface> m_private;
 };
 
 }

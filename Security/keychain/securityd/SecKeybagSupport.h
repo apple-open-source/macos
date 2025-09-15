@@ -42,7 +42,13 @@
 #include <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
 #endif
 
+// Can be removed once rdar://150527583 adds this constant to the AKS headers
+#ifndef AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN
+#define AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN 128
+#endif
+
 #if USE_KEYSTORE
+
 #include <Security/SecAccessControlPriv.h>
 #endif /* USE_KEYSTORE */
 

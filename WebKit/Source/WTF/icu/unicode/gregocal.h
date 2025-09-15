@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 /*
 * Copyright (C) 1997-2013, International Business Machines Corporation and others.
-* All Rights Reserved.
+* All rights reserved.
 ********************************************************************************
 *
 * File GREGOCAL.H

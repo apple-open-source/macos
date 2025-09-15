@@ -22,8 +22,9 @@
 #include "JSTestDefaultToJSON.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DeprecatedGlobalSettings.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "EventNames.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
@@ -47,6 +48,7 @@
 #include "JSTestDefaultToJSONInheritFinal.h"
 #include "JSTestException.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
@@ -253,7 +255,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDefaultToJSONConstructor, (JSGlobalObject* lexica
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestDefaultToJSONPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestDefaultToJSON::getConstructor(vm, prototype->globalObject()));
 }
@@ -347,7 +349,7 @@ static inline bool setJSTestDefaultToJSON_firstStringAttributeSetter(JSGlobalObj
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLDOMString>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setFirstStringAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -380,7 +382,7 @@ static inline bool setJSTestDefaultToJSON_secondLongAttributeSetter(JSGlobalObje
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLLong>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setSecondLongAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -413,7 +415,7 @@ static inline bool setJSTestDefaultToJSON_thirdUnJSONableAttributeSetter(JSGloba
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLInterface<TestException>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestDefaultToJSON"_s, "thirdUnJSONableAttribute"_s, "TestException"_s); });
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setThirdUnJSONableAttribute(*nativeValueConversionResult.releaseReturnValue());
@@ -446,7 +448,7 @@ static inline bool setJSTestDefaultToJSON_fourthUnrestrictedDoubleAttributeSette
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLUnrestrictedDouble>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setFourthUnrestrictedDoubleAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -479,7 +481,7 @@ static inline bool setJSTestDefaultToJSON_fifthLongClampedAttributeSetter(JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLClampAdaptor<IDLLong>>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setFifthLongClampedAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -512,7 +514,7 @@ static inline bool setJSTestDefaultToJSON_sixthTypedefAttributeSetter(JSGlobalOb
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLDouble>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setSixthTypedefAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -545,7 +547,7 @@ static inline bool setJSTestDefaultToJSON_seventhDirectlyToJSONableAttributeSett
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLInterface<TestDefaultToJSONInheritFinal>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestDefaultToJSON"_s, "seventhDirectlyToJSONableAttribute"_s, "TestDefaultToJSONInheritFinal"_s); });
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setSeventhDirectlyToJSONableAttribute(*nativeValueConversionResult.releaseReturnValue());
@@ -578,7 +580,7 @@ static inline bool setJSTestDefaultToJSON_eighthIndirectlyAttributeSetter(JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLInterface<TestDefaultToJSONIndirectInheritance>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestDefaultToJSON"_s, "eighthIndirectlyAttribute"_s, "TestDefaultToJSONIndirectInheritance"_s); });
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setEighthIndirectlyAttribute(*nativeValueConversionResult.releaseReturnValue());
@@ -611,7 +613,7 @@ static inline bool setJSTestDefaultToJSON_ninthOptionalDirectlyToJSONableAttribu
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLNullable<IDLInterface<TestDefaultToJSONInheritFinal>>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestDefaultToJSON"_s, "ninthOptionalDirectlyToJSONableAttribute"_s, "TestDefaultToJSONInheritFinal"_s); });
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setNinthOptionalDirectlyToJSONableAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -644,7 +646,7 @@ static inline bool setJSTestDefaultToJSON_tenthFrozenArrayAttributeSetter(JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLFrozenArray<IDLBoolean>>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setTenthFrozenArrayAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -677,7 +679,7 @@ static inline bool setJSTestDefaultToJSON_eleventhSequenceAttributeSetter(JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLSequence<IDLDOMString>>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setEleventhSequenceAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -710,7 +712,7 @@ static inline bool setJSTestDefaultToJSON_twelfthInterfaceSequenceAttributeSette
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLSequence<IDLInterface<TestDefaultToJSONInheritFinal>>>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setTwelfthInterfaceSequenceAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -743,7 +745,7 @@ static inline bool setJSTestDefaultToJSON_thirteenthRecordAttributeSetter(JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLRecord<IDLDOMString, IDLUnsignedShort>>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setThirteenthRecordAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -825,7 +827,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDefaultToJSONPrototypeFunction_toJSON, (JSGlobalO
 
 JSC::GCClient::IsoSubspace* JSTestDefaultToJSON::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestDefaultToJSON, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestDefaultToJSON, UseCustomHeapCellType::No>(vm, "JSTestDefaultToJSON"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestDefaultToJSON.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDefaultToJSON = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestDefaultToJSON.get(); },
@@ -865,7 +867,9 @@ extern "C" { extern void (*const __identifier("??_7TestDefaultToJSON@WebCore@@6B
 #else
 extern "C" { extern void* _ZTVN7WebCore17TestDefaultToJSONE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestDefaultToJSON>, void>> static inline void verifyVTable(TestDefaultToJSON* ptr) {
+template<std::same_as<TestDefaultToJSON> T>
+static inline void verifyVTable(TestDefaultToJSON* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

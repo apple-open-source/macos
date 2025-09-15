@@ -280,8 +280,6 @@ struct protosw {
 	void    (*pr_init)              /* initialization hook */
 	(struct protosw *, struct domain *);
 	void    (*pr_drain)(void);      /* flush any excess space possible */
-	int     (*pr_sysctl)            /* sysctl for protocol */
-	(int *, u_int, void *, size_t *, void *, size_t);
 	int     (*pr_lock)              /* lock function for protocol */
 	(struct socket *so, int refcnt, void *debug);
 	int     (*pr_unlock)            /* unlock for protocol */
@@ -299,6 +297,9 @@ struct protosw {
 
 	void    (*pr_copy_last_owner) /* copy last socket from listener */
 	(struct socket *so, struct socket *head);
+
+	/* Memory Accounting instance for this subsystem. */
+	struct mem_acct *pr_mem_acct;
 };
 
 /*
@@ -549,13 +550,6 @@ struct pr_usrreqs {
 
 /* Values for pru_flags  */
 #define PRUF_OLD        0x10000000      /* added via net_add_proto */
-
-#ifdef BSD_KERNEL_PRIVATE
-/*
- * For faster access than net_uptime(), bypassing the initialization.
- */
-extern u_int64_t _net_uptime;
-#endif /* BSD_KERNEL_PRIVATE */
 #endif /* XNU_KERNEL_PRIVATE */
 
 __BEGIN_DECLS
@@ -615,12 +609,6 @@ extern int net_del_proto(int, int, struct domain *)
 __XNU_INTERNAL(net_del_proto);
 extern int net_add_proto_old(struct protosw_old *, struct domain_old *);
 extern int net_del_proto_old(int, int, struct domain_old *);
-extern void net_update_uptime(void);
-extern void net_update_uptime_with_time(const struct timeval *);
-extern uint64_t net_uptime(void);
-extern uint64_t net_uptime_ms(void);
-extern uint64_t net_uptime_us(void);
-extern void net_uptime2timeval(struct timeval *);
 extern struct protosw *pffindproto(int family, int protocol, int type)
 __XNU_INTERNAL(pffindproto);
 #else

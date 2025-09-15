@@ -23,19 +23,21 @@
 
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
 
+#include "DesktopPortal.h"
 #include "DisplayCaptureManager.h"
 #include "GRefPtrGStreamer.h"
 #include "GStreamerCaptureDevice.h"
 #include "GStreamerCapturer.h"
 #include "GStreamerVideoCapturer.h"
+#include "GUniquePtrGStreamer.h"
+#include "PipeWireCaptureDevice.h"
+#include "PipeWireCaptureDeviceManager.h"
 #include "RealtimeMediaSourceCenter.h"
 #include "RealtimeMediaSourceFactory.h"
-
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
-
-using NodeAndFD = GStreamerVideoCapturer::NodeAndFD;
 
 void teardownGStreamerCaptureDeviceManagers();
 
@@ -46,8 +48,9 @@ public:
     ~GStreamerCaptureDeviceManager();
     std::optional<GStreamerCaptureDevice> gstreamerDeviceWithUID(const String&);
 
+    const Vector<CaptureDevice>& speakerDevices();
     const Vector<CaptureDevice>& captureDevices() final;
-    virtual CaptureDevice::DeviceType deviceType() = 0;
+    virtual const OptionSet<CaptureDevice::DeviceType> deviceTypes() const = 0;
 
     // RealtimeMediaSourceCenterObserver interface.
     void devicesChanged() final;
@@ -57,41 +60,62 @@ public:
     void unregisterCapturer(const GStreamerCapturer&);
     void stopCapturing(const String& persistentId);
 
+    void addDevice(GRefPtr<GstDevice>&&);
+
     void teardown();
 
+protected:
+    Vector<CaptureDevice> m_devices;
+
 private:
-    void addDevice(GRefPtr<GstDevice>&&);
     void removeDevice(GRefPtr<GstDevice>&&);
+    void updateDevice(GRefPtr<GstDevice>&& newDevice, GRefPtr<GstDevice>&& oldDevice);
     void stopMonitor();
     void refreshCaptureDevices();
 
+    std::optional<GStreamerCaptureDevice> captureDeviceFromGstDevice(GRefPtr<GstDevice>&&);
+
     GRefPtr<GstDeviceMonitor> m_deviceMonitor;
     Vector<GStreamerCaptureDevice> m_gstreamerDevices;
-    Vector<CaptureDevice> m_devices;
     Vector<RefPtr<GStreamerCapturer>> m_capturers;
     bool m_isTearingDown { false };
+    Vector<CaptureDevice> m_speakerDevices;
+    RefPtr<GStreamerCapturer> m_defaultCapturer;
 };
 
 class GStreamerAudioCaptureDeviceManager final : public GStreamerCaptureDeviceManager {
     friend class NeverDestroyed<GStreamerAudioCaptureDeviceManager>;
 public:
     static GStreamerAudioCaptureDeviceManager& singleton();
-    CaptureDevice::DeviceType deviceType() final { return CaptureDevice::DeviceType::Microphone; }
+    const OptionSet<CaptureDevice::DeviceType> deviceTypes() const final { return { CaptureDevice::DeviceType::Microphone, CaptureDevice::DeviceType::Speaker }; }
 
     // ref() and deref() do nothing because this object is a singleton.
     void ref() const final { }
     void deref() const final { }
+
+private:
+    GStreamerAudioCaptureDeviceManager() = default;
 };
 
 class GStreamerVideoCaptureDeviceManager final : public GStreamerCaptureDeviceManager {
     friend class NeverDestroyed<GStreamerVideoCaptureDeviceManager>;
 public:
     static GStreamerVideoCaptureDeviceManager& singleton();
-    CaptureDevice::DeviceType deviceType() final { return CaptureDevice::DeviceType::Camera; }
+
+    CaptureSourceOrError createVideoCaptureSource(const CaptureDevice&, MediaDeviceHashSalts&&, const MediaConstraints*);
+
+    const OptionSet<CaptureDevice::DeviceType> deviceTypes() const final { return { CaptureDevice::DeviceType::Camera }; }
 
     // ref() and deref() do nothing because this object is a singleton.
     void ref() const final { }
     void deref() const final { }
+
+    static VideoCaptureFactory& videoFactory();
+
+private:
+    GStreamerVideoCaptureDeviceManager();
+    void computeCaptureDevices(CompletionHandler<void()>&&) final;
+    RefPtr<PipeWireCaptureDeviceManager> m_pipewireCaptureDeviceManager;
 };
 
 class GStreamerDisplayCaptureDeviceManager final : public DisplayCaptureManager {
@@ -112,39 +136,16 @@ public:
     // DisplayCaptureManager interface
     bool requiresCaptureDevicesEnumeration() const final { return true; }
 
-protected:
-    void notifyResponse(GVariant* parameters) { m_currentResponseCallback(parameters); }
-
 private:
     GStreamerDisplayCaptureDeviceManager();
     ~GStreamerDisplayCaptureDeviceManager();
 
-    using ResponseCallback = CompletionHandler<void(GVariant*)>;
-
-    void waitResponseSignal(const char* objectPath, ResponseCallback&& = [](GVariant*) { });
-
     Vector<CaptureDevice> m_devices;
 
-    struct Session {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
-        WTF_MAKE_NONCOPYABLE(Session);
-        Session(const NodeAndFD& nodeAndFd, String&& path)
-            : nodeAndFd(nodeAndFd)
-            , path(WTFMove(path)) { }
-
-        ~Session()
-        {
-            close(nodeAndFd.second);
-        }
-
-        NodeAndFD nodeAndFd;
-        String path;
-    };
-    HashMap<String, std::unique_ptr<Session>> m_sessions;
-
-    GRefPtr<GDBusProxy> m_proxy;
-    ResponseCallback m_currentResponseCallback;
+    HashMap<String, std::unique_ptr<PipeWireNodeData>> m_sessions;
+    RefPtr<DesktopPortalScreenCast> m_portal;
 };
-}
+
+} // namespace WebCore
 
 #endif // ENABLE(MEDIA_STREAM) && USE(GSTREAMER)

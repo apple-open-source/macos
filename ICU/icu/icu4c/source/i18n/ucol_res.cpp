@@ -39,6 +39,9 @@
 #include "charstr.h"
 #include "cmemory.h"
 #include "cstring.h"
+#if APPLE_ICU_CHANGES // rdar://155499333
+#include "collationdata.h"
+#endif
 #include "collationdatareader.h"
 #include "collationroot.h"
 #include "collationtailoring.h"
@@ -711,5 +714,16 @@ ucol_getFunctionalEquivalent(char* result, int32_t resultCapacity,
         "collations", keyword, locale,
         isAvailable, true, status);
 }
+
+#if APPLE_ICU_CHANGES // rdar://155499333
+U_CAPI UBool U_EXPORT2
+ucol_isCompressibleLeadByte(uint8_t b, UErrorCode* status) {
+    const CollationData *data = CollationRoot::getData(*status);
+    if (U_FAILURE(*status)) {
+        return false;
+    }
+    return data->isCompressibleLeadByte(b);
+}
+#endif
 
 #endif /* #if !UCONFIG_NO_COLLATION */

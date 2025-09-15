@@ -43,7 +43,7 @@
 		D63C4CE00B20BFAE0047FE0F /* IOAudioStream.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E15FFE702AD11CA29EB /* IOAudioStream.cpp */; settings = {ATTRIBUTES = (); }; };
 		D63C4CE10B20BFAE0047FE0F /* IOAudioSelectorControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235B00570F9911CA29EB /* IOAudioSelectorControl.cpp */; };
 		D63C4CE20B20BFAE0047FE0F /* IOAudioToggleControl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1B71235C00570F9911CA29EB /* IOAudioToggleControl.cpp */; };
-		D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */; settings = {ATTRIBUTES = (); }; };
+		D63C4CF40B20BFAE0047FE0F /* IOAudioEngineMixer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06F44E0EFFE702AD11CA29EB /* IOAudioEngineMixer.cpp */; settings = {ATTRIBUTES = (); COMPILER_FLAGS = "-O3"; }; };
 		D63C4CFF0B20BFAE0047FE0F /* IOAudioControl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E17FFE702AD11CA29EB /* IOAudioControl.h */; };
 		D63C4D000B20BFAE0047FE0F /* IOAudioControlUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E18FFE702AD11CA29EB /* IOAudioControlUserClient.h */; };
 		D63C4D010B20BFAE0047FE0F /* IOAudioDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06F44E19FFE702AD11CA29EB /* IOAudioDevice.h */; };

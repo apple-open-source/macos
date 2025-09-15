@@ -225,6 +225,18 @@ extern tb_error_t
     exclaves_driverkit_upcall_ane_workend(const uint64_t id, const uint64_t requestID,
     tb_error_t (^completion)(xnuupcallsv2_aneupcallsprivate_aneworkend__result_s));
 
+extern tb_error_t
+    exclaves_driverkit_upcall_lpw_createpowerassertion(
+	tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_s));
+
+extern tb_error_t
+    exclaves_driverkit_upcall_lpw_releasepowerassertion(const uint64_t assertionID,
+    tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_s));
+
+extern tb_error_t
+    exclaves_driverkit_upcall_lpw_requestrunmode(const uint64_t runmode_mask,
+    tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_s));
+
 extern kern_return_t
 exclaves_driver_service_lookup(const char *service_name, uint64_t *endpoint);
 

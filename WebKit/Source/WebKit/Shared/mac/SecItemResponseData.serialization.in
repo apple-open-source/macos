@@ -23,8 +23,8 @@
 class WebKit::SecItemResponseData {
     OSStatus resultCode()
 #if HAVE(SEC_KEYCHAIN)
-    std::variant<std::nullptr_t, Vector<RetainPtr<SecCertificateRef>>, Vector<RetainPtr<SecKeychainItemRef>>, RetainPtr<CFTypeRef>> resultObject()
+    Variant<std::nullptr_t, Vector<RetainPtr<SecCertificateRef>>, Vector<RetainPtr<SecKeychainItemRef>>, RetainPtr<CFTypeRef>> resultObject()
 #else
-    std::variant<std::nullptr_t, Vector<RetainPtr<SecCertificateRef>>, RetainPtr<CFTypeRef>> resultObject()
+    Variant<std::nullptr_t, Vector<RetainPtr<SecCertificateRef>>, RetainPtr<CFTypeRef>> resultObject()
 #endif
 }

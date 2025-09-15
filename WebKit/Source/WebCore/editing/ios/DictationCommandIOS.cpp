@@ -60,7 +60,7 @@ void DictationCommandIOS::doApply()
 
         if (interpretations.size() > 1) {
             auto alternatives = interpretations;
-            alternatives.remove(0);
+            alternatives.removeAt(0);
             addMarker(*endingSelection().toNormalizedRange(), DocumentMarkerType::DictationPhraseWithAlternatives, WTFMove(alternatives));
         }
 

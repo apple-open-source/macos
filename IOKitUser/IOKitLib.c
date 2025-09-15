@@ -3433,16 +3433,16 @@ IOServiceCopySystemStateNotificationService(
 }
 
 kern_return_t
-IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef schema)
+IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef value)
 {
 	kern_return_t kr;
 	CFMutableDictionaryRef setValue;
 
-	if (!itemName || !schema) {
+	if (!itemName || !value) {
 		return kIOReturnBadArgument;
 	}
 
-	setValue = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, schema);
+	setValue = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, value);
 	CFDictionarySetValue(setValue, CFSTR(kIOStateNotificationNameKey), itemName);
 	kr = IORegistryEntrySetCFProperty(service, CFSTR(kIOStateNotificationItemCreateKey), setValue);
 	CFRelease(setValue);

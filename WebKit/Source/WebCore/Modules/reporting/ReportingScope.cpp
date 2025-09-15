@@ -181,7 +181,7 @@ void ReportingScope::generateTestReport(String&& message, String&& group)
         if (group.isNull())
             group = "default"_s;
         
-        document->sendReportToEndpoints(testReportURL, { }, { group }, WTFMove(reportFormData), ViolationReportType::Test);
+        document->sendReportToEndpoints(testReportURL, { }, singleElementSpan(group), WTFMove(reportFormData), ViolationReportType::Test);
     }
 
     auto bodyType = testReportBody->type();

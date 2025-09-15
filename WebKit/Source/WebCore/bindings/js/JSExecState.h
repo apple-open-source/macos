@@ -136,7 +136,7 @@ public:
         {
             JSExecState currentState(&lexicalGlobalObject);
             returnValue = JSC::linkAndEvaluateModule(&lexicalGlobalObject, moduleKey, scriptFetcher);
-            if (UNLIKELY(scope.exception())) {
+            if (scope.exception()) [[unlikely]] {
                 returnedException = scope.exception();
                 if (!vm.hasPendingTerminationException())
                     scope.clearException();
@@ -216,5 +216,6 @@ JSC::JSValue functionCallHandlerFromAnyThread(JSC::JSGlobalObject*, JSC::JSValue
 JSC::JSValue evaluateHandlerFromAnyThread(JSC::JSGlobalObject*, const JSC::SourceCode&, JSC::JSValue thisValue, NakedPtr<JSC::Exception>& returnedException);
 
 ScriptExecutionContext* executionContext(JSC::JSGlobalObject*);
+RefPtr<ScriptExecutionContext> protectedExecutionContext(JSC::JSGlobalObject*);
 
 } // namespace WebCore

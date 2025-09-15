@@ -6,6 +6,7 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 
 #import "keychain/ot/OTAuthKitAdapter.h"
+#import "keychain/ot/OTDeviceInformation.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -14,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OTUpdateTPHOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                          deviceInfo:(OTDeviceInformation*)deviceInfo
                        intendedState:(OctagonState*)intendedState
                     peerUnknownState:(OctagonState* _Nullable)peerUnknownState
                    determineCDPState:(OctagonState* _Nullable)determineCDPState

@@ -78,6 +78,7 @@ struct _uint32_with_description_data {
 int _Atomic lw_corpse_obj_cnt = 0;
 
 IPC_KOBJECT_DEFINE(IKOT_KCDATA,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = kcdata_object_no_senders);
 
@@ -189,7 +190,8 @@ kcdata_object_destroy(kcdata_object_t obj)
 
 	/* Release the port */
 	if (IP_VALID(port)) {
-		ipc_kobject_dealloc_port(port, 0, IKOT_KCDATA);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    IKOT_KCDATA);
 	}
 
 	/* Release the ref for rate-limited kcdata object type(s) */
@@ -247,7 +249,7 @@ convert_kcdata_object_to_port(kcdata_object_t obj)
 	zone_require(KCDATA_OBJECT->kt_zv.zv_zone, obj);
 
 	if (!ipc_kobject_make_send_lazy_alloc_port(&obj->ko_port,
-	    obj, IKOT_KCDATA, IPC_KOBJECT_ALLOC_NONE)) {
+	    obj, IKOT_KCDATA)) {
 		kcdata_object_release(obj);
 	}
 	/* object ref consumed */

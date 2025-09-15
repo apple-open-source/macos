@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@ public:
     Ref<WebPage> protectedPage();
 
     void taskDidPerformRedirection(WebCore::ResourceLoaderIdentifier, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&&);
-    void taskDidReceiveResponse(WebCore::ResourceLoaderIdentifier, const WebCore::ResourceResponse&);
+    void taskDidReceiveResponse(WebCore::ResourceLoaderIdentifier, WebCore::ResourceResponse&&);
     void taskDidReceiveData(WebCore::ResourceLoaderIdentifier, Ref<WebCore::SharedBuffer>&&);
     void taskDidComplete(WebCore::ResourceLoaderIdentifier, const WebCore::ResourceError&);
     void taskDidStopLoading(WebURLSchemeTaskProxy&);

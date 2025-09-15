@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2011, Google Inc. All rights reserved.
- * Copyright (C) 2020, Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,8 +75,7 @@ DynamicsCompressorNode::~DynamicsCompressorNode()
 
 void DynamicsCompressorNode::process(size_t framesToProcess)
 {
-    AudioBus* outputBus = output(0)->bus();
-    ASSERT(outputBus);
+    AudioBus& outputBus = output(0)->bus();
 
     float threshold = m_threshold->finalValue();
     float knee = m_knee->finalValue();

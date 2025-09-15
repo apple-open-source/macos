@@ -143,7 +143,7 @@ static bool isSampleBufferVideoRenderer(id object)
 
     [renderer removeObserver:self forKeyPath:errorKeyPath];
     [renderer removeObserver:self forKeyPath:outputObscuredDueToInsufficientExternalProtectionKeyPath];
-    _videoRenderers.remove(_videoRenderers.find(renderer));
+    _videoRenderers.removeFirst(renderer);
 
     [NSNotificationCenter.defaultCenter removeObserver:self name:AVSampleBufferDisplayLayerFailedToDecodeNotification object:renderer];
     [NSNotificationCenter.defaultCenter removeObserver:self name:AVSampleBufferVideoRendererDidFailToDecodeNotification object:renderer];
@@ -174,7 +174,7 @@ static bool isSampleBufferVideoRenderer(id object)
     [renderer removeObserver:self forKeyPath:errorKeyPath];
     [NSNotificationCenter.defaultCenter removeObserver:self name:AVSampleBufferAudioRendererWasFlushedAutomaticallyNotification object:renderer];
 
-    _audioRenderers.remove(_audioRenderers.find(renderer));
+    _audioRenderers.removeFirst(renderer);
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void*)context

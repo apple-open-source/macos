@@ -4,7 +4,7 @@
 *******************************************************************************
 *
 *   Copyright (C) 2005-2012, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *
 *******************************************************************************
 *   file name:  ucasemap.h

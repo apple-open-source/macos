@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,9 +35,9 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ControlFactory);
 
 #if !PLATFORM(COCOA) && !USE(THEME_ADWAITA)
-RefPtr<ControlFactory> ControlFactory::create()
+Ref<ControlFactory> ControlFactory::create()
 {
-    return adoptRef(new EmptyControlFactory());
+    return adoptRef(*new EmptyControlFactory());
 }
 #endif
 

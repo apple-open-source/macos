@@ -383,7 +383,6 @@ custom_ether_verify(packet_t pkt, custom_ether_args_t *args)
 		}
 	} else {
 		struct ether_vlan_header *evh = buf;
-		boolean_t tag_in_pkt;
 		uint16_t etype, evl_tag, tag;
 		int err;
 
@@ -401,7 +400,7 @@ custom_ether_verify(packet_t pkt, custom_ether_args_t *args)
 		evl_tag = ntohs(evh->evl_tag);
 
 		/* vlan tag metadata is not expected for this test case */
-		err = os_packet_get_vlan_tag(pkt, &tag, &tag_in_pkt);
+		err = os_packet_get_vlan_tag(pkt, &tag);
 		if (err == 0) {
 			SKD1("tag not expected: 0x%x\n", tag);
 			return FALSE;

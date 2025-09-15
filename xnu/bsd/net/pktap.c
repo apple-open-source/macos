@@ -201,15 +201,15 @@ pktap_hexdump(int mask, void *__sized_by(len) addr, size_t len)
 	}
 }
 
-#define _CASSERT_OFFFSETOF_FIELD(s1, s2, f) \
-	_CASSERT(offsetof(struct s1, f) == offsetof(struct s2, f))
+#define ASSERT_OFFFSETOF_FIELD(s1, s2, f) \
+	static_assert(offsetof(struct s1, f) == offsetof(struct s2, f))
 
 __private_extern__ void
 pktap_init(void)
 {
 	int error = 0;
 
-	_CASSERT_OFFFSETOF_FIELD(pktap_header, pktap_v2_hdr, pth_flags);
+	ASSERT_OFFFSETOF_FIELD(pktap_header, pktap_v2_hdr, pth_flags);
 
 	/* Make sure we're called only once */
 	VERIFY(pktap_inited == 0);
@@ -1186,7 +1186,7 @@ pktap_bpf_tap(struct ifnet *ifp, protocol_family_t proto, struct mbuf *m,
 			u_int32_t pre_adjust = 0;
 
 			/* Verify the structure is packed */
-			_CASSERT(sizeof(hdr_buffer) == sizeof(struct pktap_header) + sizeof(u_int32_t));
+			static_assert(sizeof(hdr_buffer) == sizeof(struct pktap_header) + sizeof(u_int32_t));
 
 			bzero(&hdr_buffer, sizeof(hdr_buffer));
 			hdr->pth_length = sizeof(struct pktap_header);
@@ -1299,6 +1299,11 @@ pktap_bpf_tap(struct ifnet *ifp, protocol_family_t proto, struct mbuf *m,
 				}
 				if (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) {
 					hdr->pth_flags |= PTH_FLAG_WAKE_PKT;
+				}
+
+				/* Need to check the packet flag in case full wake has been requested */
+				if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_LPW || if_is_lpw_enabled(ifp)) {
+					hdr->pth_flags |= PTH_FLAG_LPW;
 				}
 				if (outgoing != 0) {
 					hdr->pth_comp_gencnt = m->m_pkthdr.comp_gencnt;
@@ -1450,7 +1455,13 @@ pktap_bpf_tap_packet(struct ifnet *ifp, protocol_family_t proto, uint32_t dlt,
 	if (kern_packet_get_wake_flag(pkt)) {
 		hdr->pth_flags |= PTH_FLAG_WAKE_PKT;
 	}
+
+	/* Need to check the packet flag in case full wake has been requested */
+	if (kern_packet_get_lpw_flag(pkt) || if_is_lpw_enabled(ifp)) {
+		hdr->pth_flags |= PTH_FLAG_LPW;
+	}
 	kern_packet_get_compression_generation_count(pkt, &hdr->pth_comp_gencnt);
+
 	hdr->pth_trace_tag = kern_packet_get_trace_tag(pkt);
 	hdr->pth_protocol_family = proto;
 	hdr->pth_svc = so_svc2tc((mbuf_svc_class_t)

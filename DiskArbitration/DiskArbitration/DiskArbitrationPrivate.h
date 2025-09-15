@@ -313,6 +313,9 @@ extern DADiskRef _DADiskCreateFromSerialization( CFAllocatorRef allocator, DASes
 
 extern DASessionRef _DADiskGetSession( DADiskRef disk );
 
+/*
+ * This is currently only available to clients with the entitlement "com.apple.private.diskarbitrationd.disk_set_adoption"
+ */
 extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 /*
@@ -655,6 +658,97 @@ typedef void ( ^DAIdleCallbackBlock )( void );
 
 extern void DARegisterIdleCallbackWithBlock( DASessionRef session, DAIdleCallbackBlock callback );
 
+/*!
+ * @function   DADiskMountWithBlockAndAuditToken
+ * @abstract   Mounts the volume at the specified disk object using a mount callback block and the supplied audit token..
+ * @param      disk     The disk object.
+ * @param      path     The mount path.  Pass NULL for a "standard" mount path.
+ * @param      options  The mount options.
+ * @param      callback The callback block to call once the mount completes.
+ * @param      token  The audit token for the user to mount the volume with.
+ * @discussion
+ * This SPI is meant to be used by root-running clients calling DiskArbitration on behalf of its users.
+ * Non-root clients that call this SPI will use the default audit token.
+ */
+
+extern void DADiskMountWithBlockAndAuditToken( DADiskRef __nonnull                   disk,
+                                                 CFURLRef __nullable                 path,
+                                                 DADiskMountOptions                  options,
+                                                 DADiskMountCallbackBlock __nullable callback,
+                                                 audit_token_t                       token );
+
+/*!
+ * @function   DADiskMountWithArgumentsAndBlockAndAuditToken
+ * @abstract   Mounts the volume at the specified disk object, with the specified mount options and supplied audit token.
+ * @param      disk      The disk object.
+ * @param      path      The mount path.  Pass NULL for a "standard" mount path.
+ * @param      options   The mount options.
+ * @param      callback  The callback block to call once the mount completes.
+ * @param      arguments The null-terminated list of mount options to pass to /sbin/mount -o.
+ * @param      token  The audit token for the user to mount the volume with.
+ * @discussion
+ * This SPI is meant to be used by root-running clients calling DiskArbitration on behalf of its users.
+ * Non-root clients that call this SPI will use the default audit token.
+ */
+
+extern void DADiskMountWithArgumentsAndBlockAndAuditToken( DADiskRef __nonnull                   disk,
+                                                             CFURLRef __nullable                 path,
+                                                             DADiskMountOptions                  options,
+                                                             DADiskMountCallbackBlock __nullable callback,
+                                                             CFStringRef __nullable              arguments[_Nullable],
+                                                             audit_token_t                       token );
+
+/*!
+ * @function   DADiskUnmountWithBlockAndAuditToken
+ * @abstract   Unmounts the volume at the specified disk object using the supplied audit token.
+ * @param      disk     The disk object.
+ * @param      options  The unmount options.
+ * @param      callback The callback block to call once the unmount completes.
+ * @param      token  The audit token for the user to unmount the volume with.
+ * @discussion
+ * This SPI is meant to be used by root-running clients calling DiskArbitration on behalf of its users.
+ * Non-root clients that call this SPI will use the default audit token.
+ */
+
+extern void DADiskUnmountWithBlockAndAuditToken( DADiskRef __nonnull                     disk,
+                                                   DADiskUnmountOptions                  options,
+                                                   DADiskUnmountCallbackBlock __nullable callback,
+                                                   audit_token_t                         token );
+
+/*!
+ * @function   DADiskRenameWithBlockAndAuditToken
+ * @abstract   Renames the volume at the specified disk object using the supplied audit token.
+ * @param      disk     The disk object.
+ * @param      options  The rename options.
+ * @param      callback The callback block to call once the rename completes.
+ * @param      token The audit token for the user to rename the volume with.
+ * @discussion
+ * This SPI is meant to be used by root-running clients calling DiskArbitration on behalf of its users.
+ * Non-root clients that call this SPI will use the default audit token.
+ */
+
+extern void DADiskRenameWithBlockAndAuditToken( DADiskRef __nonnull                  disk,
+                                                CFStringRef __nonnull                name,
+                                                DADiskRenameOptions                  options,
+                                                DADiskRenameCallbackBlock __nullable callback,
+                                                audit_token_t                        token );
+
+/*!
+ * @function   DADiskEjectWithBlockAndAuditToken
+ * @abstract   Ejects the specified disk object using the supplied audit token.
+ * @param      disk     The disk object.
+ * @param      options  The eject options.
+ * @param      callback The callback block to call once the ejection completes.
+ * @param      token The audit token for the user to rename the volume with.
+ * @discussion
+ * This SPI is meant to be used by root-running clients calling DiskArbitration on behalf of its users.
+ * Non-root clients that call this SPI will use the default audit token.
+ */
+
+extern void DADiskEjectWithBlockAndAuditToken( DADiskRef __nonnull                 disk,
+                                               DADiskEjectOptions                  options,
+                                               DADiskEjectCallbackBlock __nullable callback,
+                                               audit_token_t                       token );
 
 #ifdef DA_FSKIT
 

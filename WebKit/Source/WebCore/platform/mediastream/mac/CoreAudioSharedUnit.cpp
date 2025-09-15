@@ -41,7 +41,6 @@
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
 #include <sys/time.h>
-#include <wtf/Algorithms.h>
 #include <wtf/Lock.h>
 #include <wtf/MainThread.h>
 #include <wtf/NativePromise.h>
@@ -255,7 +254,7 @@ CoreAudioSharedUnit::StoredAudioUnit CoreAudioSharedUnit::takeStoredVPIOUnit()
 
 void CoreAudioSharedUnit::resetSampleRate()
 {
-    setSampleRate(m_getSampleRateCallback ? m_getSampleRateCallback() : AudioSession::sharedSession().sampleRate());
+    setSampleRate(m_getSampleRateCallback ? m_getSampleRateCallback() : AudioSession::protectedSharedSession()->sampleRate());
 }
 
 void CoreAudioSharedUnit::captureDeviceChanged()
@@ -270,7 +269,7 @@ void CoreAudioSharedUnit::captureDeviceChanged()
 
 size_t CoreAudioSharedUnit::preferredIOBufferSize()
 {
-    return AudioSession::sharedSession().bufferSize();
+    return AudioSession::protectedSharedSession()->bufferSize();
 }
 
 OSStatus CoreAudioSharedUnit::setupAudioUnit()
@@ -284,6 +283,7 @@ OSStatus CoreAudioSharedUnit::setupAudioUnit()
     mach_timebase_info(&timebaseInfo);
     m_DTSConversionRatio = 1e-9 * static_cast<double>(timebaseInfo.numer) / static_cast<double>(timebaseInfo.denom);
 
+    bool isEchoCancellationChanging = m_shouldUseVPIO != enableEchoCancellation();
     m_shouldUseVPIO = enableEchoCancellation();
     auto result = m_creationCallback ? m_creationCallback(m_shouldUseVPIO) : CoreAudioSharedInternalUnit::create(m_shouldUseVPIO);
     if (!result.has_value())
@@ -299,6 +299,12 @@ OSStatus CoreAudioSharedUnit::setupAudioUnit()
             if (m_speakerSamplesProducer)
                 m_speakerSamplesProducer->canRenderAudioChanged();
         }
+    }
+
+    if (isEchoCancellationChanging) {
+        forEachClient([](auto& client) {
+            client.echoCancellationChanged();
+        });
     }
 
 #if HAVE(VPIO_DUCKING_LEVEL_API)
@@ -486,13 +492,15 @@ OSStatus CoreAudioSharedUnit::provideSpeakerData(AudioUnitRenderActionFlags& fla
     if (m_isReconfiguring || m_shouldNotifySpeakerSamplesProducer || !m_hasNotifiedSpeakerSamplesProducer || !m_speakerSamplesProducerLock.tryLock()) {
         if (m_shouldNotifySpeakerSamplesProducer) {
             m_shouldNotifySpeakerSamplesProducer = false;
-            callOnMainThread([this, weakThis = WeakPtr { *this }] {
-                if (!weakThis)
+            callOnMainThread([weakThis = WeakPtr { *this }] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
                     return;
-                m_hasNotifiedSpeakerSamplesProducer = true;
-                Locker locker { m_speakerSamplesProducerLock };
-                if (m_speakerSamplesProducer)
-                    m_speakerSamplesProducer->captureUnitIsStarting();
+
+                protectedThis->m_hasNotifiedSpeakerSamplesProducer = true;
+                Locker locker { protectedThis->m_speakerSamplesProducerLock };
+                if (protectedThis->m_speakerSamplesProducer)
+                    protectedThis->m_speakerSamplesProducer->captureUnitIsStarting();
             });
         }
 
@@ -524,8 +532,9 @@ OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlag
         return false;
 
     // Pull through the capture unit to our mic buffer.
-    m_microphoneSampleBuffer->reset();
-    AudioBufferList& bufferList = m_microphoneSampleBuffer->bufferList();
+    RefPtr microphoneSampleBuffer = m_microphoneSampleBuffer;
+    microphoneSampleBuffer->reset();
+    AudioBufferList& bufferList = microphoneSampleBuffer->bufferList();
     if (auto err = m_ioUnit->render(&ioActionFlags, &timeStamp, inBusNumber, inNumberFrames, &bufferList)) {
         RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::processMicrophoneSamples(%p) AudioUnitRender failed with error %d (%.4s), bufferList size %d, inNumberFrames %d ", this, (int)err, (char*)&err, (int)span(bufferList)[0].mDataByteSize, (int)inNumberFrames);
         if (err == kAudio_ParamError && !m_minimumMicrophoneSampleFrames) {
@@ -550,12 +559,12 @@ OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlag
     checkTimestamps(timeStamp, adjustedHostTime);
 #endif
     m_latestMicTimeStamp = timeStamp.mSampleTime;
-    m_microphoneSampleBuffer->setTimes(adjustedHostTime, sampleTime);
+    microphoneSampleBuffer->setTimes(adjustedHostTime, sampleTime);
 
     if (volume() != 1.0)
-        m_microphoneSampleBuffer->applyGain(volume());
+        microphoneSampleBuffer->applyGain(volume());
 
-    audioSamplesAvailable(MediaTime(sampleTime, m_microphoneProcFormat->sampleRate()), m_microphoneSampleBuffer->bufferList(), *m_microphoneProcFormat, inNumberFrames);
+    audioSamplesAvailable(MediaTime(sampleTime, m_microphoneProcFormat->sampleRate()), microphoneSampleBuffer->bufferList(), *m_microphoneProcFormat, inNumberFrames);
     return noErr;
 }
 
@@ -749,8 +758,8 @@ bool CoreAudioSharedUnit::migrateToNewDefaultDevice(const CaptureDevice& capture
 
 void CoreAudioSharedUnit::prewarmAudioUnitCreation(CompletionHandler<void()>&& callback)
 {
-    if (m_audioUnitCreationWarmupPromise) {
-        m_audioUnitCreationWarmupPromise->whenSettled(RunLoop::main(), WTFMove(callback));
+    if (RefPtr audioUnitCreationWarmupPromise = m_audioUnitCreationWarmupPromise) {
+        audioUnitCreationWarmupPromise->whenSettled(RunLoop::mainSingleton(), WTFMove(callback));
         return;
     }
 
@@ -761,7 +770,7 @@ void CoreAudioSharedUnit::prewarmAudioUnitCreation(CompletionHandler<void()>&& c
 
     m_audioUnitCreationWarmupPromise = invokeAsync(WorkQueue::create("CoreAudioSharedUnit AudioUnit creation"_s, WorkQueue::QOS::UserInitiated).get(), [] {
         return createAudioUnit(true);
-    })->whenSettled(RunLoop::main(), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (auto&& vpioUnitOrError) mutable {
+    })->whenSettled(RunLoop::mainSingleton(), [weakThis = WeakPtr { *this }, callback = WTFMove(callback)] (auto&& vpioUnitOrError) mutable {
         if (weakThis && vpioUnitOrError.has_value())
             weakThis->setStoredVPIOUnit(WTFMove(vpioUnitOrError.value()));
         callback();

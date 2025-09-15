@@ -107,7 +107,7 @@
     containerOptions.bypassPCSEncryption = YES;
 
     if(!self.isPrimaryAccount) {
-        containerOptions.accountOverrideInfo = [[CKAccountOverrideInfo alloc] initWithAltDSID:self.altDSID];
+        containerOptions.accountOverrideInfo = [[CKAccountOverrideInfo alloc] initWithAccountID:self.appleAccountID];
     }
     return [[CKContainer alloc] initWithContainerID:containerID options:containerOptions];
 }

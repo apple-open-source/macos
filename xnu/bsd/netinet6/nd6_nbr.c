@@ -72,6 +72,7 @@
 #include <dev/random/randomdev.h>
 
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <net/if.h>
@@ -299,7 +300,7 @@ nd6_ns_input(
 	}
 
 	if (ip6->ip6_hlim != IPV6_MAXHLIM) {
-		nd6log(error,
+		nd6log0(error,
 		    "nd6_ns_input: invalid hlim (%d) from %s to %s on %s\n",
 		    ip6->ip6_hlim, ip6_sprintf(&ip6->ip6_src),
 		    ip6_sprintf(&ip6->ip6_dst), if_name(ifp));
@@ -339,14 +340,14 @@ nd6_ns_input(
 		}
 		if (!nd6_is_addr_neighbor(&src_sa6, ifp, 0)) {
 			nd6log(info, "nd6_ns_input: NS packet from non-neighbor\n");
-			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NS_FROM_NON_NEIGHBOR, NULL, 0);
 			goto bad;
 		}
 	}
 
 	if (IN6_IS_ADDR_MULTICAST(&taddr6)) {
 		nd6log(info, "nd6_ns_input: bad NS target (multicast)\n");
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NS_TO_MULTICAST, NULL, 0);
 		goto bad;
 	}
 
@@ -356,7 +357,7 @@ nd6_ns_input(
 	if (nd6_options(&ndopts) < 0) {
 		nd6log(info, "nd6_ns_input: invalid ND option, ignored\n");
 		/* nd6_options have incremented stats */
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NS_BAD_ND_OPT, NULL, 0);
 		goto bad;
 	}
 
@@ -470,7 +471,7 @@ nd6_ns_input(
 		    "nd6_ns_input: lladdrlen mismatch for %s "
 		    "(if %d, NS packet %d)\n",
 		    ip6_sprintf(&taddr6), ifp->if_addrlen, lladdrlen - 2);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NS_BAD_LLADDR_LEN, NULL, 0);
 		goto bad;
 	}
 
@@ -478,7 +479,7 @@ nd6_ns_input(
 		nd6log(info,
 		    "nd6_ns_input: duplicate IP6 address %s\n",
 		    ip6_sprintf(&saddr6));
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NS_DUPLICATE_ADDRESS, NULL, 0);
 		goto bad;
 	}
 
@@ -656,7 +657,7 @@ nd6_ns_output(
 
 		im6o = ip6_allocmoptions(Z_NOWAIT);
 		if (im6o == NULL) {
-			m_freem(m);
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_MEM_ALLOC, NULL, 0);
 			return;
 		}
 
@@ -918,7 +919,7 @@ exit:
 	return;
 
 bad:
-	m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
+	m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
 	goto exit;
 }
 
@@ -992,14 +993,14 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 		nd6log(error,
 		    "nd6_na_input: invalid target address %s\n",
 		    ip6_sprintf(&taddr6));
-		drop_reason = DROP_REASON_IP_DST_ADDR_NO_AVAIL;
+		drop_reason = DROP_REASON_IP6_NA_INVALID_TARGET;
 		goto bad;
 	}
 	if (IN6_IS_ADDR_MULTICAST(&daddr6)) {
 		if (is_solicited) {
 			nd6log(error,
 			    "nd6_na_input: a solicited adv is multicasted\n");
-			drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+			drop_reason = DROP_REASON_IP6_NA_DST_MULTICAST;
 			goto bad;
 		}
 	}
@@ -1023,7 +1024,7 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 			    "(if %d, NA packet %d)\n",
 			    ip6_sprintf(&taddr6), ifp->if_addrlen,
 			    lladdrlen - 2);
-			drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+			drop_reason = DROP_REASON_IP6_NA_BAD_LLADDR_LEN;
 			goto bad;
 		}
 	}
@@ -1046,12 +1047,12 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 	 */
 	if ((rt = nd6_lookup(&taddr6, 0, ifp, 0)) == NULL) {
 		if (!ip6_forwarding || !nd6_prproxy) {
-			drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+			drop_reason = DROP_REASON_IP6_NA_NOT_CACHED_SCOPED;
 			goto freeit;
 		}
 
 		if ((rt = nd6_lookup(&taddr6, 0, NULL, 0)) == NULL) {
-			drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+			drop_reason = DROP_REASON_IP6_NA_NOT_CACHED;
 			goto freeit;
 		}
 
@@ -1088,7 +1089,7 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 	    (sdl = SDL(rt->rt_gateway)) == NULL) {
 		RT_REMREF_LOCKED(rt);
 		RT_UNLOCK(rt);
-		drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+		drop_reason = DROP_REASON_IP6_NA_MISSING_ROUTE;
 		goto freeit;
 	}
 
@@ -1102,7 +1103,7 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 		if (ifp->if_addrlen && !lladdr) {
 			RT_REMREF_LOCKED(rt);
 			RT_UNLOCK(rt);
-			drop_reason = DROP_REASON_IP6_BAD_ND_STATE;
+			drop_reason = DROP_REASON_IP6_NA_MISSING_LLADDR_OPT;
 			goto freeit;
 		}
 
@@ -1132,6 +1133,8 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 			ND6_CACHE_STATE_TRANSITION(ln, ND6_LLINFO_STALE);
 			ln_setexpire(ln, timenow + nd6_gctimer);
 		}
+
+		rt_lookup_qset_id(rt, false);
 
 		/*
 		 * Enqueue work item to invoke callback for this
@@ -1268,6 +1271,7 @@ nd6_na_input(struct mbuf *m, int off, int icmp6len)
 			 */
 			/* Enqueue work item to invoke callback for this route entry */
 			if (llchange) {
+				rt_lookup_qset_id(rt, false);
 				route_event_enqueue_nwk_wq_entry(rt, NULL,
 				    ROUTE_LLENTRY_CHANGED, NULL, TRUE);
 			}
@@ -1492,7 +1496,7 @@ nd6_na_output(
 
 		im6o = ip6_allocmoptions(Z_NOWAIT);
 		if (im6o == NULL) {
-			m_freem(m);
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_MEM_ALLOC, NULL, 0);
 			return;
 		}
 
@@ -1520,7 +1524,7 @@ nd6_na_output(
 		daddr6.s6_addr32[2] = 0;
 		daddr6.s6_addr32[3] = IPV6_ADDR_INT32_ONE;
 		if (in6_setscope(&daddr6, ifp, NULL)) {
-			m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_SCOPE, NULL, 0);
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_SCOPE, NULL, 0);
 			goto exit;
 		}
 
@@ -1545,7 +1549,7 @@ nd6_na_output(
 		nd6log(info, "nd6_na_output: source can't be "
 		    "determined: dst=%s, error=%d\n",
 		    ip6_sprintf(&dst_sa.sin6_addr), error);
-		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_ND_STATE, NULL, 0);
+		m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_NA_UNKNOWN_SRC_ADDR, NULL, 0);
 		goto exit;
 	}
 	ip6->ip6_src = *src;
@@ -2038,7 +2042,8 @@ nd6_dad_timer(struct ifaddr *ifa)
 			 * becomes clear when a looped back probe is detected.
 			 */
 			nd6log0(info,
-			    "%s: a looped back NS message is detected during DAD for %s. Another DAD probe is being sent on interface %s.\n",
+			    "%s: a looped back NS message is detected during DAD for %s. "
+			    "Another DAD probe is being sent on interface %s.\n",
 			    __func__, ip6_sprintf(&ia->ia_addr.sin6_addr),
 			    if_name(ia->ia_ifp));
 			/*
@@ -2115,7 +2120,7 @@ nd6_dad_duplicated(struct ifaddr *ifa)
 	}
 	IFA_LOCK(&ia->ia_ifa);
 	DAD_LOCK(dp);
-	nd6log(error, "%s: NS in/out/loopback=%d/%d/%d, NA in=%d\n",
+	nd6log(info, "%s: NS in/out/loopback=%d/%d/%d, NA in=%d\n",
 	    __func__, dp->dad_ns_icount, dp->dad_ns_ocount, dp->dad_ns_lcount,
 	    dp->dad_na_icount);
 	candisable = FALSE;
@@ -2372,7 +2377,7 @@ nd6_dad_na_input(struct mbuf *m, struct ifnet *ifp, struct in6_addr *taddr,
 		if (ip6a && (ip6a->ip6a_flags & IP6A_HASEEN) != 0 &&
 		    bcmp(ip6a->ip6a_ehsrc, lladdr, ETHER_ADDR_LEN) != 0) {
 			IFA_UNLOCK(ifa);
-			nd6log(error, "%s: ignoring duplicate NA on %s "
+			nd6log0(info, "%s: ignoring duplicate NA on %s "
 			    "[eh_src != tgtlladdr]\n", __func__, if_name(ifp));
 			goto done;
 		}
@@ -2706,8 +2711,8 @@ nd6_alt_node_absent(struct ifnet *ifp, struct sockaddr_in6 *sin6, struct sockadd
 		    "for interface %s.\n", __func__, ip6_sprintf(&sin6->sin6_addr),
 		    ifp->if_xname);
 	} else {
-		nd6log(error, "%s: Failed to delete host route to %s "
-		    "for interface %s with error :%d.\n", __func__,
+		nd6log0(error, "%s: Failed to delete host route to %s "
+		    "for interface %s with error: %d.\n", __func__,
 		    ip6_sprintf(&sin6->sin6_addr),
 		    ifp->if_xname, error);
 	}

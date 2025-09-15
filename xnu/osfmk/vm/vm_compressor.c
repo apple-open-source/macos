@@ -55,7 +55,7 @@
 #include <san/kasan.h>
 #include <sys/kern_memorystatus_xnu.h>
 #include <os/atomic_private.h>
-#include <os/log.h>
+#include <vm/vm_log.h>
 #include <pexpert/pexpert.h>
 #include <pexpert/device_tree.h>
 
@@ -456,6 +456,12 @@ vm_compressor_needs_to_major_compact(void)
 }
 
 uint32_t
+vm_compressor_get_swapped_segment_count(void)
+{
+	return c_swappedout_count + c_swappedout_sparse_count;
+}
+
+uint32_t
 vm_compressor_incore_fragmentation_wasted_pages(void)
 {
 	/* return one of the components of the calculation in vm_compressor_needs_to_major_compact() */
@@ -488,13 +494,11 @@ vm_compressor_needs_to_minor_compact(void)
 	return is_fragmented;
 }
 
-
 uint64_t
 vm_available_memory(void)
 {
 	return ((uint64_t)AVAILABLE_NON_COMPRESSED_MEMORY) * PAGE_SIZE_64;
 }
-
 
 uint32_t
 vm_compressor_pool_size(void)
@@ -999,7 +1003,7 @@ vm_compressor_init(void)
 		}
 #else
 		if (error != 0) {
-			os_log_with_startup_serial(OS_LOG_DEFAULT, "vm_compressor_init: Unable to get swap volume capacity. error=%d\n", error);
+			vm_log_error("vm_compressor_init: Unable to get swap volume capacity. error=%d\n", error);
 		}
 #endif /* DEVELOPMENT || DEBUG */
 		if (vm_swap_volume_capacity < swap_vol_min_capacity) {
@@ -1133,7 +1137,7 @@ vm_compressor_init(void)
 	}
 
 	compressor_segment_zone = zone_create("compressor_segment",
-	    c_segment_size, ZC_PGZ_USE_GUARDS | ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
+	    c_segment_size, ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
 
 	c_segments_busy = FALSE;
 
@@ -1164,7 +1168,7 @@ vm_compressor_init(void)
 #endif
 
 		kmem_alloc(kernel_map, (vm_offset_t *)&buf, bufsize,
-		    KMA_DATA | KMA_NOFAIL | KMA_KOBJECT | KMA_PERMANENT,
+		    KMA_DATA_SHARED | KMA_NOFAIL | KMA_KOBJECT | KMA_PERMANENT,
 		    VM_KERN_MEMORY_COMPRESSOR);
 
 		/*
@@ -1260,7 +1264,7 @@ vm_compressor_kdp_init(void)
 
 	/* Allocate the per-cpu decompression pages. */
 	err = kmem_alloc(kernel_map, (vm_offset_t *)&buf, bufsize,
-	    KMA_DATA | KMA_NOFAIL | KMA_KOBJECT,
+	    KMA_DATA_SHARED | KMA_NOFAIL | KMA_KOBJECT,
 	    VM_KERN_MEMORY_COMPRESSOR);
 
 	if (err != KERN_SUCCESS) {
@@ -3412,7 +3416,14 @@ vm_compressor_process_special_swapped_in_segments(void)
 	lck_mtx_unlock_always(c_list_lock);
 }
 
-#define C_SEGMENT_SWAPPEDIN_AGE_LIMIT   10
+#define ENABLE_DYNAMIC_SWAPPED_AGE_LIMIT 1
+
+/* minimum time that segments can be in swappedin q as a grace period after they were swapped-in
+ * before they are added to age-q */
+#define C_SEGMENT_SWAPPEDIN_AGE_LIMIT_LOW  1  /* seconds */
+#define C_SEGMENT_SWAPPEDIN_AGE_LIMIT_NORMAL 10  /* seconds */
+#define C_AGE_Q_COUNT_LOW_THRESHOLD 50
+
 /*
  * Processing regular csegs means aging them.
  */
@@ -3423,12 +3434,32 @@ vm_compressor_process_regular_swapped_in_segments(boolean_t flush_all)
 	clock_sec_t     now;
 	clock_nsec_t    nsec;
 
+	unsigned long limit = C_SEGMENT_SWAPPEDIN_AGE_LIMIT_NORMAL;
+
+#ifdef ENABLE_DYNAMIC_SWAPPED_AGE_LIMIT
+	/* In normal operation, segments are kept in the swapped-in-q for a grace period of 10 seconds so that whoever
+	 * needed to decompress something from a segment that was just swapped-in would have a chance to decompress
+	 * more out of it.
+	 * If the system is in high memory pressure state, this may cause the age-q to be completely empty so that
+	 * there are no candidate segments for swap-out. In this state we use a lower limit of 1 second.
+	 * condition 1: the age-q absolute size is too low
+	 * condition 2: there are more segments in swapped-in-q than in age-q
+	 * each of these represent a bad situation which we want to try to alleviate by moving more segments from
+	 * swappped-in-q to age-q so that we have a better selection of who to swap-out
+	 */
+	if (c_age_count < C_AGE_Q_COUNT_LOW_THRESHOLD || c_age_count < c_regular_swappedin_count) {
+		limit = C_SEGMENT_SWAPPEDIN_AGE_LIMIT_LOW;
+	}
+#endif
+
 	clock_get_system_nanotime(&now, &nsec);
 
 	while (!queue_empty(&c_regular_swappedin_list_head)) {
 		c_seg = (c_segment_t)queue_first(&c_regular_swappedin_list_head);
 
-		if (flush_all == FALSE && (now - c_seg->c_swappedin_ts) < C_SEGMENT_SWAPPEDIN_AGE_LIMIT) {
+		if (flush_all == FALSE && (now - c_seg->c_swappedin_ts) < limit) {
+			/* swappedin q is sorted by the order of time of addition os if we reached a seg that's too
+			 * young, we know that all the rest after it are also too young */
 			break;
 		}
 
@@ -3845,13 +3876,11 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 	bytes_freed = 0;
 	yield_after_considered_per_pass = MAX(min_csegs_per_major_compaction, DELAYED_COMPACTIONS_PER_PASS);
 
-#if 0
 	/**
 	 * SW: Need to figure out how to properly rate limit this log because it is currently way too
 	 * noisy. rdar://99379414 (Figure out how to rate limit the fragmentation level logging)
 	 */
-	os_log(OS_LOG_DEFAULT, "memorystatus: before compaction fragmentation level %u\n", vm_compressor_fragmentation_level());
-#endif
+	vm_log_debug("before compaction fragmentation level %u\n", vm_compressor_fragmentation_level());
 
 	while (!queue_empty(&c_age_list_head) && !compaction_swapper_abort && !compressor_store_stop_compaction) {
 		if (hibernate_flushing == TRUE) {
@@ -4630,6 +4659,9 @@ c_seg_swapin(c_segment_t c_seg, boolean_t force_minor_compaction, boolean_t age_
 		}
 #endif /* CONFIG_FREEZE */
 
+		__assert_only unsigned int prev_swapped_count = os_atomic_sub_orig(
+			&vm_page_swapped_count, c_seg->c_slots_used, relaxed);
+		assert3u(prev_swapped_count, >=, c_seg->c_slots_used);
 		os_atomic_add(&compressor_bytes_used, c_seg->c_bytes_used, relaxed);
 
 		if (force_minor_compaction == TRUE) {
@@ -4790,7 +4822,7 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 	}
 
 	/*
-	 * returns with c_seg lock held
+	 * c_seg_allocate() returns with c_seg lock held
 	 * and PAGE_REPLACEMENT_DISALLOWED(TRUE)...
 	 * c_nextslot has been allocated and
 	 * c_store.c_buffer populated
@@ -4816,52 +4848,63 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 	cs->c_hash_data = vmc_hash(src, PAGE_SIZE);
 #endif
 	boolean_t incomp_copy = FALSE; /* codec indicates it already did copy an incompressible page */
-	int max_csize_adj = (max_csize - 4); /* how much size we have left in this c_seg to fill. */
+	/* The SW codec case needs 4 bytes for its header and these are not accounted for in the bytes_budget argument.
+	 * Also, the the SV-not-in-hash case needs 4 bytes. */
+	int max_csize_adj = (max_csize - 4);
+	if (__improbable(max_csize_adj < 0)) {
+		max_csize_adj = 0;
+	}
 
-	if (vm_compressor_algorithm() != VM_COMPRESSOR_DEFAULT_CODEC) {
+	if (max_csize > 0 && max_csize_adj > 0) {
+		if (vm_compressor_algorithm() != VM_COMPRESSOR_DEFAULT_CODEC) {
 #if defined(__arm64__)
-		uint16_t ccodec = CINVALID;
-		uint32_t inline_popcount;
-		if (max_csize >= C_SEG_OFFSET_ALIGNMENT_BOUNDARY) {
-			vm_memtag_disable_checking();
-			c_size = metacompressor((const uint8_t *) src,
-			    (uint8_t *) &c_seg->c_store.c_buffer[cs->c_offset],
-			    max_csize_adj, &ccodec,
-			    scratch_buf, &incomp_copy, &inline_popcount);
-			vm_memtag_enable_checking();
-			assert(inline_popcount == C_SLOT_NO_POPCOUNT);
+			uint16_t ccodec = CINVALID;
+			uint32_t inline_popcount;
+			if (max_csize >= C_SEG_OFFSET_ALIGNMENT_BOUNDARY) {
+				vm_memtag_disable_checking();
+				c_size = metacompressor((const uint8_t *) src,
+				    (uint8_t *) &c_seg->c_store.c_buffer[cs->c_offset],
+				    max_csize_adj, &ccodec,
+				    scratch_buf, &incomp_copy, &inline_popcount);
+				vm_memtag_enable_checking();
+				assert(inline_popcount == C_SLOT_NO_POPCOUNT);
 
 #if C_SEG_OFFSET_ALIGNMENT_BOUNDARY > 4
-			if (c_size > max_csize_adj) {
+				/* The case of HW codec doesn't detect overflow on its own, instead it spills the the next page
+				 * and we need to detect this happened */
+				if (c_size > max_csize_adj) {
+					c_size = -1;
+				}
+#endif
+			} else {
 				c_size = -1;
 			}
+			assert(ccodec == CCWK || ccodec == CCLZ4);
+			cs->c_codec = ccodec;
 #endif
 		} else {
-			c_size = -1;
-		}
-		assert(ccodec == CCWK || ccodec == CCLZ4);
-		cs->c_codec = ccodec;
-#endif
-	} else {
 #if defined(__arm64__)
-		vm_memtag_disable_checking();
-		cs->c_codec = CCWK;
-		__unreachable_ok_push
-		if (PAGE_SIZE == 4096) {
-			c_size = WKdm_compress_4k((WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
-			    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
-		} else {
-			c_size = WKdm_compress_16k((WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
-			    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
-		}
-		__unreachable_ok_pop
-		vm_memtag_enable_checking();
+			vm_memtag_disable_checking();
+			cs->c_codec = CCWK;
+			__unreachable_ok_push
+			if (PAGE_SIZE == 4096) {
+				c_size = WKdm_compress_4k((WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
+				    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
+			} else {
+				c_size = WKdm_compress_16k((WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
+				    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
+			}
+			__unreachable_ok_pop
+			vm_memtag_enable_checking();
 #else
-		vm_memtag_disable_checking();
-		c_size = WKdm_compress_new((const WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
-		    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
-		vm_memtag_enable_checking();
+			vm_memtag_disable_checking();
+			c_size = WKdm_compress_new((const WK_word *)(uintptr_t)src, (WK_word *)(uintptr_t)&c_seg->c_store.c_buffer[cs->c_offset],
+			    (WK_word *)(uintptr_t)scratch_buf, max_csize_adj);
+			vm_memtag_enable_checking();
 #endif
+		}
+	} else { /* max_csize == 0 or max_csize_adj == 0 */
+		c_size = -1;
 	}
 	/* c_size is the size written by the codec, or 0 if it's uniform 32 bit value or (-1 if there was not enough space
 	 * or it was incompressible) */
@@ -4879,7 +4922,7 @@ retry:  /* may need to retry if the currently filling c_seg will not have enough
 			 * right now this assumes that if the space we had is > PAGE_SIZE, then the codec failed due to incompressible input */
 
 			PAGE_REPLACEMENT_DISALLOWED(FALSE);
-			goto retry;  /* previous c_seg didn't have enought space, we finalized it and can try again with a fresh c_seg */
+			goto retry;  /* previous c_seg didn't have enough space, we finalized it and can try again with a fresh c_seg */
 		}
 		c_size = PAGE_SIZE; /* tag:WK-INCOMPRESSIBLE */
 
@@ -5358,11 +5401,14 @@ bypass_busy_check:
 #endif /* TRACK_C_SEGMENT_UTILIZATION */
 	} /* dst */
 	else {
-#if CONFIG_FREEZE
 		/*
 		 * We are freeing an uncompressed page from this c_seg and so balance the ledgers.
 		 */
 		if (C_SEG_IS_ONDISK(c_seg)) {
+			__assert_only unsigned int prev_swapped_count =
+			    os_atomic_dec_orig(&vm_page_swapped_count, relaxed);
+			assert3u(prev_swapped_count, >, 0);
+#if CONFIG_FREEZE
 			/*
 			 * The compression sweep feature will push out anonymous pages to disk
 			 * without going through the freezer path and so those c_segs, while
@@ -5387,8 +5433,8 @@ bypass_busy_check:
 
 			retval = DECOMPRESS_FAILED_BAD_Q_FREEZE;
 			goto done; /* this is intended to avoid the decrement of c_segment_pages_compressed_incore below */
-		}
 #endif /* CONFIG_FREEZE */
+		}
 	}
 
 	if (flags & C_KEEP) {
@@ -6243,7 +6289,6 @@ vm_compressor_serialize_segment_debug_info(int segno, char *buf, size_t *size, v
 
 #endif /* DEVELOPMENT || DEBUG */
 
-
 #if CONFIG_TRACK_UNMODIFIED_ANON_PAGES
 
 struct vnode;
@@ -6439,7 +6484,7 @@ again:
 	}
 	uncompress_offset = vm_uncompressed_extract_swap_offset(swapinfo);
 	if ((retval = vnode_getwithref(uncompressed_vp)) != 0) {
-		os_log_error_with_startup_serial(OS_LOG_DEFAULT, "vm_uncompressed_put: vnode_getwithref on swapfile failed with %d\n", retval);
+		vm_log_error("vm_uncompressed_put: vnode_getwithref on swapfile failed with %d\n", retval);
 	} else {
 		int i = 0;
 retry:
@@ -6496,7 +6541,7 @@ vm_uncompressed_get(ppnum_t pn, int *slot, __unused vm_compressor_options_t flag
 	}
 
 	if ((retval = vnode_getwithref(uncompressed_vp)) != 0) {
-		os_log_error_with_startup_serial(OS_LOG_DEFAULT, "vm_uncompressed_put: vnode_getwithref on swapfile failed with %d\n", retval);
+		vm_log_error("vm_uncompressed_put: vnode_getwithref on swapfile failed with %d\n", retval);
 	} else {
 		int i = 0;
 retry:

@@ -74,6 +74,7 @@
 #include <sys/mcache.h>
 #include <net/ntstat.h>
 
+#include <kern/uipc_socket.h>
 #include <kern/zalloc.h>
 #include <mach/boolean.h>
 #include <pexpert/pexpert.h>
@@ -196,22 +197,22 @@ struct udp_ip6 {
 	u_char                  uip6_init_done : 1;
 };
 
-int udp_abort(struct socket *);
-int udp_attach(struct socket *, int, struct proc *);
-int udp_bind(struct socket *, struct sockaddr *, struct proc *);
-int udp_connect(struct socket *, struct sockaddr *, struct proc *);
-int udp_connectx(struct socket *, struct sockaddr *,
+static int udp_abort(struct socket *);
+static int udp_attach(struct socket *, int, struct proc *);
+static int udp_bind(struct socket *, struct sockaddr *, struct proc *);
+static int udp_connect(struct socket *, struct sockaddr *, struct proc *);
+static int udp_connectx(struct socket *, struct sockaddr *,
     struct sockaddr *, struct proc *, uint32_t, sae_associd_t,
     sae_connid_t *, uint32_t, void *, uint32_t, struct uio *, user_ssize_t *);
-int udp_detach(struct socket *);
-int udp_disconnect(struct socket *);
-int udp_disconnectx(struct socket *, sae_associd_t, sae_connid_t);
-int udp_send(struct socket *, int, struct mbuf *, struct sockaddr *,
+static int udp_detach(struct socket *);
+static int udp_disconnect(struct socket *);
+static int udp_disconnectx(struct socket *, sae_associd_t, sae_connid_t);
+static int udp_send(struct socket *, int, struct mbuf *, struct sockaddr *,
     struct mbuf *, struct proc *);
 static void udp_append(struct inpcb *, struct ip *, struct mbuf *, int,
     struct sockaddr_in *, struct udp_in6 *, struct udp_ip6 *, struct ifnet *);
 static int udp_input_checksum(struct mbuf *, struct udphdr *, int, int);
-int udp_output(struct inpcb *, struct mbuf *, struct sockaddr *,
+static int udp_output(struct inpcb *, struct mbuf *, struct sockaddr *,
     struct mbuf *, struct proc *);
 static void ip_2_ip6_hdr(struct ip6_hdr *ip6, struct ip *ip);
 static void udp_gc(struct inpcbinfo *);
@@ -236,20 +237,31 @@ struct pr_usrreqs udp_usrreqs = {
 	.pru_defunct =          udp_defunct,
 };
 
+struct mem_acct *udp_memacct;
+
 void
 udp_init(struct protosw *pp, struct domain *dp)
 {
 #pragma unused(dp)
 	static int udp_initialized = 0;
 	struct inpcbinfo        *pcbinfo;
+	uint32_t pool_size = 0;
 
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
-	if (udp_initialized) {
+	if (udp_memacct == NULL) {
+		udp_memacct = mem_acct_register("UDP", 0, 0);
+		if (udp_memacct == NULL) {
+			panic("mem_acct_register returned NULL");
+		}
+	}
+	pp->pr_mem_acct = udp_memacct;
+
+	if (!os_atomic_cmpxchg(&udp_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	udp_initialized = 1;
-	uint32_t pool_size = (nmbclusters << MCLSHIFT) >> MBSHIFT;
+
+	pool_size = (nmbclusters << MCLSHIFT) >> MBSHIFT;
 	if (pool_size >= 96) {
 		/* Improves 10GbE UDP performance. */
 		udp_recvspace = 786896;
@@ -788,9 +800,7 @@ udp_input(struct mbuf *m, int iphlen)
 	}
 	if (nstat_collect) {
 		stats_functional_type ifnet_count_type = IFNET_COUNT_TYPE(ifp);
-		INP_ADD_STAT(inp, ifnet_count_type, rxpackets, 1);
-		INP_ADD_STAT(inp, ifnet_count_type, rxbytes, m->m_pkthdr.len);
-		inp_set_activity_bitmap(inp);
+		INP_ADD_RXSTAT(inp, ifnet_count_type, 1, m->m_pkthdr.len);
 	}
 #if CONTENT_FILTER && NECP
 	if (check_cfil && inp != NULL && inp->inp_policyresult.results.filter_control_unit == 0) {
@@ -903,10 +913,7 @@ udp_append(struct inpcb *last, struct ip *ip, struct mbuf *n, int off,
 	}
 	if (nstat_collect) {
 		stats_functional_type ifnet_count_type = IFNET_COUNT_TYPE(ifp);
-		INP_ADD_STAT(last, ifnet_count_type, rxpackets, 1);
-		INP_ADD_STAT(last, ifnet_count_type, rxbytes,
-		    n->m_pkthdr.len);
-		inp_set_activity_bitmap(last);
+		INP_ADD_RXSTAT(last, ifnet_count_type, 1, n->m_pkthdr.len);
 	}
 	so_recv_data_stat(last->inp_socket, n, 0);
 	m_adj(n, off);
@@ -1485,9 +1492,7 @@ udp_check_pktinfo(struct mbuf *control, struct ifnet **outif,
 	struct in_pktinfo *pktinfo;
 	struct ifnet *ifp;
 
-	if (outif != NULL) {
-		*outif = NULL;
-	}
+	*outif = NULL;
 
 	/*
 	 * XXX: Currently, we assume all the optional information is stored
@@ -1533,10 +1538,8 @@ udp_check_pktinfo(struct mbuf *control, struct ifnet **outif,
 				ifnet_head_done();
 				return ENXIO;
 			}
-			if (outif != NULL) {
-				ifnet_reference(ifp);
-				*outif = ifp;
-			}
+			ifnet_reference(ifp);
+			*outif = ifp;
 			ifnet_head_done();
 			laddr->s_addr = INADDR_ANY;
 			break;
@@ -1554,16 +1557,16 @@ udp_check_pktinfo(struct mbuf *control, struct ifnet **outif,
 	return 0;
 }
 
-int
+static int
 udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
     struct mbuf *control, struct proc *p)
 {
 	struct udpiphdr *ui;
 	int len = m->m_pkthdr.len;
 	struct sockaddr_in *sin;
-	struct in_addr origladdr, laddr, faddr, pi_laddr;
+	struct in_addr laddr, faddr, pi_laddr;
 	u_short lport, fport;
-	int error = 0, udp_dodisconnect = 0, pktinfo = 0;
+	int error = 0, pktinfo = 0;
 	struct socket *so = inp->inp_socket;
 	int soopts = 0;
 	struct mbuf *inpopts;
@@ -1586,9 +1589,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 
 	ifnet_ref_t outif = NULL;
 	struct flowadv *adv = &ipoa.ipoa_flowadv;
-	int sotc = SO_TC_UNSPEC;
-	int netsvctype = _NET_SERVICE_TYPE_UNSPEC;
-	struct ifnet *origoutifp = NULL;
+	struct sock_cm_info sockcminfo;
 	int flowadv = 0;
 	int tos = IPTOS_UNSPEC;
 
@@ -1628,10 +1629,13 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	}
 #endif
 
+	sock_init_cm_info(&sockcminfo, so);
+
 	if (control != NULL) {
-		tos = so_tos_from_control(control);
-		sotc = so_tc_from_control(control, &netsvctype);
-		VERIFY(outif == NULL);
+		tos = ip_tos_from_control(control);
+
+		sock_parse_cm_info(control, &sockcminfo);
+
 		error = udp_check_pktinfo(control, &outif, &pi_laddr);
 		m_freem(control);
 		control = NULL;
@@ -1643,10 +1647,6 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 			pktinfo++;
 			ipoa.ipoa_boundif = outif->if_index;
 		}
-	}
-	if (sotc == SO_TC_UNSPEC) {
-		sotc = so->so_traffic_class;
-		netsvctype = so->so_netsvctype;
 	}
 
 	KERNEL_DEBUG(DBG_LAYER_OUT_BEG, inp->inp_fport, inp->inp_lport,
@@ -1701,8 +1701,8 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	if (INP_ULTRA_CONSTRAINED_ALLOWED(inp)) {
 		ipoa.ipoa_flags |= IPOAF_ULTRA_CONSTRAINED_ALLOWED;
 	}
-	ipoa.ipoa_sotc = sotc;
-	ipoa.ipoa_netsvctype = netsvctype;
+	ipoa.ipoa_sotc = sockcminfo.sotc;
+	ipoa.ipoa_netsvctype = sockcminfo.netsvctype;
 	soopts |= IP_OUTARGS;
 
 	/*
@@ -1764,16 +1764,10 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	    (ipoa.ipoa_boundif != IFSCOPE_NONE && pktinfo)) {
 		/* temp src address for this datagram only */
 		laddr = pi_laddr;
-		origladdr.s_addr = INADDR_ANY;
-		/* we don't want to keep the laddr or route */
-		udp_dodisconnect = 1;
-		/* remember we don't care about src addr */
-		inp->inp_flags |= INP_INADDR_ANY;
 	} else {
-		origladdr = laddr = inp->inp_laddr;
+		laddr = inp->inp_laddr;
 	}
 
-	origoutifp = inp->inp_last_outifp;
 	faddr = inp->inp_faddr;
 	lport = inp->inp_lport;
 	fport = inp->inp_fport;
@@ -1788,82 +1782,72 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	sndinprog_cnt_used = true;
 
 	if (addr) {
-		sin = SIN(addr);
-		if (faddr.s_addr != INADDR_ANY) {
+		if (inp->inp_faddr.s_addr != INADDR_ANY) {
 			error = EISCONN;
 			UDP_LOG(inp, "socket already connected error EISCONN");
 			goto release;
 		}
-		if (lport == 0) {
-			inp_enter_bind_in_progress(so);
+		sin = SIN(addr);
+		faddr = sin->sin_addr;
+		fport = sin->sin_port; /* allow 0 port */
 
-			/*
-			 * In case we don't have a local port set, go through
-			 * the full connect.  We don't have a local port yet
-			 * (i.e., we can't be looked up), so it's not an issue
-			 * if the input runs at the same time we do this.
-			 */
-			/* if we have a source address specified, use that */
-			if (pi_laddr.s_addr != INADDR_ANY) {
-				inp->inp_laddr = pi_laddr;
-			}
-			/*
-			 * If a scope is specified, use it.  Scope from
-			 * IP_PKTINFO takes precendence over the the scope
-			 * set via INP_BOUND_IF.
-			 */
-			error = in_pcbconnect(inp, addr, p, ipoa.ipoa_boundif,
-			    &outif);
+		/*
+		 * Fast path case
+		 *
+		 * If neeed get a local address and a local port  to build
+		 * the packet without changing the pcb
+		 * and interfering with the input path. See 3851370.
+		 *
+		 * And don't disconnect as this could unbind the local port
+		 *
+		 * Scope from IP_PKTINFO takes precendence over the
+		 * the scope set via INP_BOUND_IF.
+		 */
+		if (laddr.s_addr == INADDR_ANY) {
+			char laddr_str[MAX_IPv4_STR_LEN];
+			char addr_str[MAX_IPv4_STR_LEN];
 
-			inp_exit_bind_in_progress(so);
+			inet_ntop(AF_INET, &laddr.s_addr, laddr_str, sizeof(laddr_str));
+			inet_ntop(AF_INET, &sin->sin_addr.s_addr, addr_str, sizeof(addr_str));
+			UDP_LOG(inp, "calling in_pcbladdr addr %s laddr %s ipoa_boundif %u outif %s",
+			    addr_str, laddr_str, ipoa.ipoa_boundif, outif != NULL ? if_name(outif) : "<null>");
 
-			if (error) {
-				UDP_LOG(inp, "in_pcbconnect error %d", error);
+			if ((error = in_pcbladdr(inp, addr, &laddr,
+			    ipoa.ipoa_boundif, &outif, 0)) != 0) {
+				UDP_LOG(inp, "in_pcbladdr error %d", error);
 				goto release;
 			}
 
-			laddr = inp->inp_laddr;
-			lport = inp->inp_lport;
-			faddr = inp->inp_faddr;
-			fport = inp->inp_fport;
-			udp_dodisconnect = 1;
-
 			/* synch up in case in_pcbladdr() overrides */
-			if (outif != NULL && ipoa.ipoa_boundif != IFSCOPE_NONE) {
+			if (outif != NULL &&
+			    ipoa.ipoa_boundif != IFSCOPE_NONE) {
 				ipoa.ipoa_boundif = outif->if_index;
 			}
-		} else {
-			/*
-			 * Fast path case
-			 *
-			 * We have a full address and a local port; use those
-			 * info to build the packet without changing the pcb
-			 * and interfering with the input path. See 3851370.
-			 *
-			 * Scope from IP_PKTINFO takes precendence over the
-			 * the scope set via INP_BOUND_IF.
-			 */
-			if (laddr.s_addr == INADDR_ANY) {
-				if ((error = in_pcbladdr(inp, addr, &laddr,
-				    ipoa.ipoa_boundif, &outif, 0)) != 0) {
-					UDP_LOG(inp, "in_pcbladdr error %d", error);
-					goto release;
-				}
-				/*
-				 * from pcbconnect: remember we don't
-				 * care about src addr.
-				 */
-				inp->inp_flags |= INP_INADDR_ANY;
 
-				/* synch up in case in_pcbladdr() overrides */
-				if (outif != NULL &&
-				    ipoa.ipoa_boundif != IFSCOPE_NONE) {
-					ipoa.ipoa_boundif = outif->if_index;
-				}
+			inet_ntop(AF_INET, &laddr.s_addr, laddr_str, sizeof(laddr_str));
+			inet_ntop(AF_INET, &sin->sin_addr.s_addr, addr_str, sizeof(addr_str));
+			UDP_LOG(inp, "after in_pcbladdr addr %s laddr %s ipoa_boundif %u outif %s",
+			    addr_str, laddr_str, ipoa.ipoa_boundif, outif != NULL ? if_name(outif) : "<null>");
+		}
+
+		if (lport == 0) {
+			inp_enter_bind_in_progress(so);
+
+			error = in_pcbsetport(laddr, addr, inp, p, 0);
+
+			if (error == 0) {
+				ASSERT(inp->inp_lport != 0);
 			}
 
-			faddr = sin->sin_addr;
-			fport = sin->sin_port;
+			inp_exit_bind_in_progress(so);
+
+			if (error != 0) {
+				UDP_LOG(inp, "in_pcbsetport error %d", error);
+				goto release;
+			}
+			lport = inp->inp_lport;
+			UDP_LOG(inp, "in_pcbsetport returned lport %u",
+			    ntohs(lport));
 		}
 	} else {
 		if (faddr.s_addr == INADDR_ANY) {
@@ -1999,8 +1983,9 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		    &laddr, &faddr, NULL, 0, &policy_id, &route_rule_id, &skip_policy_id, &pass_flags)) {
 			error = EHOSTUNREACH;
 			UDP_LOG_DROP_NECP((struct ip *)&ui->ui_i, &ui->ui_u, inp, true);
-			m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_UDP_NECP, NULL, 0);
+			m_drop_if(m, outif, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_UDP_NECP, NULL, 0);
 			m = NULL;
+			UDP_LOG(inp, "necp_socket_is_allowed_to_send_recv_v4 error %d", error);
 			goto abort;
 		}
 
@@ -2023,8 +2008,9 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	if (inp->inp_sp != NULL && ipsec_setsocket(m, inp->inp_socket) != 0) {
 		error = ENOBUFS;
 		UDP_LOG_DROP_PCB((struct ip *)&ui->ui_i, &ui->ui_u, inp, true, "ipsec_setsocket error ENOBUFS");
-		m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_UDP_IPSEC, NULL, 0);
+		m_drop_if(m, outif, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_UDP_IPSEC, NULL, 0);
 		m = NULL;
+		UDP_LOG(inp, "necp_socket_is_allowed_to_send_recv_v4 error %d", error);
 		goto abort;
 	}
 #endif /* IPSEC */
@@ -2058,7 +2044,10 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	/* Copy the cached route and take an extra reference */
 	inp_route_copyout(inp, &ro);
 
-	set_packet_service_class(m, so, sotc, 0);
+	set_packet_service_class(m, so, sockcminfo.sotc, 0);
+	if (sockcminfo.tx_time) {
+		mbuf_set_tx_time(m, sockcminfo.tx_time);
+	}
 	m->m_pkthdr.pkt_flowsrc = FLOWSRC_INPCB;
 	m->m_pkthdr.pkt_flowid = inp->inp_flowhash;
 	m->m_pkthdr.pkt_proto = IPPROTO_UDP;
@@ -2097,6 +2086,10 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 		IMO_REMREF(mopts);
 	}
 
+	if (error != 0) {
+		UDP_LOG(inp, "ip_output error %d", error);
+	}
+
 	if (check_qos_marking_again) {
 		inp->inp_policyresult.results.qos_marking_gencount = ipoa.qos_marking_gencount;
 
@@ -2108,14 +2101,12 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	}
 
 	if (error == 0 && nstat_collect) {
-		stats_functional_type ifnet_count_type = stats_functional_type_none;
+		stats_functional_type ifnet_count_type = stats_functional_type_unclassified;
 
 		if (ro.ro_rt != NULL) {
 			ifnet_count_type = IFNET_COUNT_TYPE(ro.ro_rt->rt_ifp);
 		}
-		INP_ADD_STAT(inp, ifnet_count_type, txpackets, 1);
-		INP_ADD_STAT(inp, ifnet_count_type, txbytes, len);
-		inp_set_activity_bitmap(inp);
+		INP_ADD_TXSTAT(inp, ifnet_count_type, 1, len);
 	}
 
 	if (flowadv && (adv->code == FADV_FLOW_CONTROLLED ||
@@ -2140,20 +2131,7 @@ udp_output(struct inpcb *inp, struct mbuf *m, struct sockaddr *addr,
 	}
 
 abort:
-	if (udp_dodisconnect) {
-		/* Always discard the cached route for unconnected socket */
-		ROUTE_RELEASE(&inp->inp_route);
-		in_pcbdisconnect(inp);
-		inp->inp_laddr = origladdr;     /* XXX rehash? */
-		/* no reference needed */
-		inp->inp_last_outifp = origoutifp;
-#if SKYWALK
-		if (NETNS_TOKEN_VALID(&inp->inp_netns_token)) {
-			netns_set_ifnet(&inp->inp_netns_token,
-			    inp->inp_last_outifp);
-		}
-#endif /* SKYWALK */
-	} else if (inp->inp_route.ro_rt != NULL) {
+	if (inp->inp_route.ro_rt != NULL) {
 		struct rtentry *rt = inp->inp_route.ro_rt;
 		struct ifnet *outifp;
 
@@ -2283,7 +2261,7 @@ SYSCTL_PROC(_net_inet_udp, UDPCTL_MAXDGRAM, maxdgram,
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, &udp_sendspace, 0,
     &sysctl_udp_sospace, "IU", "Maximum outgoing UDP datagram size");
 
-int
+static int
 udp_abort(struct socket *so)
 {
 	struct inpcb *inp;
@@ -2298,7 +2276,7 @@ udp_abort(struct socket *so)
 	return 0;
 }
 
-int
+static int
 udp_attach(struct socket *so, int proto, struct proc *p)
 {
 #pragma unused(proto)
@@ -2327,7 +2305,7 @@ udp_attach(struct socket *so, int proto, struct proc *p)
 	return 0;
 }
 
-int
+static int
 udp_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 {
 	struct inpcb *inp;
@@ -2365,7 +2343,7 @@ udp_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 	return error;
 }
 
-int
+static int
 udp_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 {
 	struct inpcb *inp;
@@ -2519,7 +2497,7 @@ done:
 	return error;
 }
 
-int
+static int
 udp_connectx(struct socket *so, struct sockaddr *src,
     struct sockaddr *dst, struct proc *p, uint32_t ifscope,
     sae_associd_t aid, sae_connid_t *pcid, uint32_t flags, void *arg,
@@ -2529,7 +2507,7 @@ udp_connectx(struct socket *so, struct sockaddr *src,
 	           p, ifscope, aid, pcid, flags, arg, arglen, uio, bytes_written);
 }
 
-int
+static int
 udp_detach(struct socket *so)
 {
 	struct inpcb *inp;
@@ -2557,7 +2535,7 @@ udp_detach(struct socket *so)
 	return 0;
 }
 
-int
+static int
 udp_disconnect(struct socket *so)
 {
 	struct inpcb *inp;
@@ -2589,7 +2567,7 @@ udp_disconnect(struct socket *so)
 	return 0;
 }
 
-int
+static int
 udp_disconnectx(struct socket *so, sae_associd_t aid, sae_connid_t cid)
 {
 #pragma unused(cid)
@@ -2600,7 +2578,7 @@ udp_disconnectx(struct socket *so, sae_associd_t aid, sae_connid_t cid)
 	return udp_disconnect(so);
 }
 
-int
+static int
 udp_send(struct socket *so, int flags, struct mbuf *m,
     struct sockaddr *addr, struct mbuf *control, struct proc *p)
 {

@@ -119,34 +119,6 @@ class ZonePageMetadata(MemoryObject):
         sbv = self.sbv
         return Zone(sbv.xGetIntegerByName('zm_index'))
 
-    @property
-    def pgz_slot(self):
-        addr = self.page_addr
-        kmem = self.kmem
-        if kmem.pgz_range.contains(addr):
-            return (addr - kmem.pgz_range.start) >> (kmem.page_shift + 1)
-        return None
-
-    def _pgz_alloc_frames(self, index):
-        kmem   = self.kmem
-        target = kmem.target
-        bt     = kmem.pgz_bt.xGetSiblingValueAtIndex(index)
-        return (
-            kmem.stext + pc
-            for pc in target.xIterAsInt32(
-                bt.xGetLoadAddressByName('pgz_bt'),
-                bt.xGetIntegerByName('pgz_depth')
-            )
-        )
-
-    @property
-    def pgz_alloc_bt_frames(self):
-        return self._pgz_alloc_frames(2 * self.pgz_slot)
-
-    @property
-    def pgz_free_bt_frames(self):
-        return self._pgz_alloc_frames(2 * self.pgz_slot + 1)
-
     def describe(self, verbose=False):
         kmem = self.kmem
         sbv  = self.sbv
@@ -312,21 +284,11 @@ class ZoneHeapMemoryObject(MemoryObject):
         zone  = meta.zone
         esize = zone.elem_outer_size
 
-        if kmem.pgz_range.contains(address):
-            real_addr = meta.sbv.xGetIntegerByName('zm_pgz_orig_addr')
-            page_mask = kmem.page_mask
-            elem_addr = (real_addr & page_mask) + (address & ~page_mask)
-            elem_idx  = ((elem_addr & page_mask) - zone.elem_inner_offs) // esize
-            self.real_addr = real_addr
-            self.real_meta = ZonePageMetadata._create_with_zone_address(kmem, real_addr)
-            self.pgz       = True
-        else:
-            base      = meta.page_addr + zone.elem_inner_offs
-            elem_idx  = (address - base) // esize if address >= base else -1
-            elem_addr = base + elem_idx * esize   if address >= base else None
-            self.real_addr = elem_addr
-            self.real_meta = meta
-            self.pgz       = False
+        base      = meta.page_addr + zone.elem_inner_offs
+        elem_idx  = (address - base) // esize if address >= base else -1
+        elem_addr = base + elem_idx * esize   if address >= base else None
+        self.real_addr = elem_addr
+        self.real_meta = meta
 
         self.kmem      = kmem
         self.meta      = meta
@@ -438,21 +400,7 @@ class ZoneHeapMemoryObject(MemoryObject):
         print(" element index        : {}".format(self.elem_idx))
         print(" chunk offset         : {}".format(self.address - meta.page_addr))
         print(" status               : {}".format(status))
-        if self.pgz:
-            print(" pgz orig address     : {:#x}".format(self.real_addr))
-            print()
-
-            print("PGZ Allocation backtrace:")
-            for pc in meta.pgz_alloc_bt_frames:
-                print(" " + GetSourceInformationForAddress(pc))
-
-            if status == 'free':
-                print()
-
-                print("PGZ Free backtrace:")
-                for pc in meta.pgz_free_bt_frames:
-                    print(" " + GetSourceInformationForAddress(pc))
-        elif btlog and (btlog.is_log() or status == 'allocated'):
+        if btlog and (btlog.is_log() or status == 'allocated'):
             record = next(btlog.iter_records(
                 wantElement=self.elem_addr, reverse=True), None)
             if record:

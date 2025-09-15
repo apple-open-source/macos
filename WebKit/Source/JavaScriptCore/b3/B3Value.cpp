@@ -52,7 +52,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
 namespace JSC { namespace B3 {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(Value);
+WTF_MAKE_SEQUESTERED_ARENA_ALLOCATED_IMPL(Value);
 
 #if ASSERT_ENABLED
 namespace B3ValueInternal {
@@ -329,6 +329,16 @@ Value* Value::mulConstant(Procedure&, const Value*) const
     return nullptr;
 }
 
+Value* Value::mulHighConstant(Procedure&, const Value*) const
+{
+    return nullptr;
+}
+
+Value* Value::uMulHighConstant(Procedure&, const Value*) const
+{
+    return nullptr;
+}
+
 Value* Value::checkAddConstant(Procedure&, const Value*) const
 {
     return nullptr;
@@ -459,7 +469,17 @@ Value* Value::floorConstant(Procedure&) const
     return nullptr;
 }
 
+Value* Value::fTruncConstant(Procedure&) const
+{
+    return nullptr;
+}
+
 Value* Value::sqrtConstant(Procedure&) const
+{
+    return nullptr;
+}
+
+Value* Value::purifyNaNConstant(Procedure&) const
 {
     return nullptr;
 }
@@ -551,6 +571,7 @@ bool Value::isRounded() const
     switch (opcode()) {
     case Floor:
     case Ceil:
+    case FTrunc:
     case IToD:
     case IToF:
         return true;
@@ -645,7 +666,10 @@ Effects Value::effects() const
     case Add:
     case Sub:
     case Mul:
+    case MulHigh:
+    case UMulHigh:
     case Neg:
+    case PurifyNaN:
     case BitAnd:
     case BitOr:
     case BitXor:
@@ -658,6 +682,7 @@ Effects Value::effects() const
     case Abs:
     case Ceil:
     case Floor:
+    case FTrunc:
     case Sqrt:
     case BitwiseCast:
     case SExt8:
@@ -707,6 +732,8 @@ Effects Value::effects() const
     case VectorAddSat:
     case VectorSubSat:
     case VectorMul:
+    case VectorMulHigh:
+    case VectorMulLow:
     case VectorDotProduct:
     case VectorDiv:
     case VectorMin:
@@ -872,6 +899,7 @@ ValueKey Value::key() const
     case Abs:
     case Ceil:
     case Floor:
+    case FTrunc:
     case Sqrt:
     case SExt8:
     case SExt16:
@@ -889,11 +917,14 @@ ValueKey Value::key() const
     case Check:
     case BitwiseCast:
     case Neg:
+    case PurifyNaN:
     case Depend:
         return ValueKey(kind(), type(), child(0));
     case Add:
     case Sub:
     case Mul:
+    case MulHigh:
+    case UMulHigh:
     case Div:
     case UDiv:
     case Mod:
@@ -987,6 +1018,8 @@ ValueKey Value::key() const
     case VectorAddSat:
     case VectorSubSat:
     case VectorMul:
+    case VectorMulHigh:
+    case VectorMulLow:
     case VectorDotProduct:
     case VectorDiv:
     case VectorMin:
@@ -1073,6 +1106,8 @@ Type Value::typeFor(Kind kind, Value* firstChild, Value* secondChild)
     case Add:
     case Sub:
     case Mul:
+    case MulHigh:
+    case UMulHigh:
     case Div:
     case UDiv:
     case Mod:
@@ -1080,6 +1115,7 @@ Type Value::typeFor(Kind kind, Value* firstChild, Value* secondChild)
     case FMax:
     case FMin:
     case Neg:
+    case PurifyNaN:
     case BitAnd:
     case BitOr:
     case BitXor:
@@ -1092,6 +1128,7 @@ Type Value::typeFor(Kind kind, Value* firstChild, Value* secondChild)
     case Abs:
     case Ceil:
     case Floor:
+    case FTrunc:
     case Sqrt:
     case CheckAdd:
     case CheckSub:

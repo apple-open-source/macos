@@ -51,6 +51,7 @@ T_DECL(compression_sweep,
 	kern_return_t kret = host_statistics64(mach_host_self(), HOST_VM_INFO64,
 	    (host_info64_t)&vm_stat_before, &count);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kret, "host_statistics64");
+	T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO64_COUNT, "host_statistics64 size");
 
 	size_t size = sizeof(orig_age);
 	int ret = sysctlbyname(ripe_target_age_sysctl, &orig_age, &size,
@@ -72,6 +73,7 @@ T_DECL(compression_sweep,
 	kret = host_statistics64(mach_host_self(), HOST_VM_INFO64,
 	    (host_info64_t)&vm_stat_after, &count);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kret, "host_statistics64");
+	T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO64_COUNT, "host_statistics64 size");
 
 	T_LOG("compressed %llu pages",
 	    vm_stat_after.compressions - vm_stat_before.swapouts);

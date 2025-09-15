@@ -28,6 +28,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "Quirks.h"
 #import "SystemVersion.h"
 #import <pal/spi/ios/MobileGestaltSPI.h>
 #import <pal/spi/ios/UIKitSPI.h>
@@ -88,6 +89,10 @@ static StringView deviceNameForUserAgent()
 
 String standardUserAgentWithApplicationName(const String& applicationName, const String& userAgentOSVersion, UserAgentType type)
 {
+    String overrideUserAgent = Quirks::standardUserAgentWithApplicationNameIncludingCompatOverrides(applicationName, userAgentOSVersion, type);
+    if (overrideUserAgent.length())
+        return overrideUserAgent;
+
     auto separator = applicationName.isEmpty() ? ""_s : " "_s;
 
     if (type == UserAgentType::Desktop)

@@ -54,7 +54,7 @@ template<size_t I> const auto& get(const Xywh& value)
         return value.radii;
 }
 
-template<> struct Serialize<Xywh> { void operator()(StringBuilder&, const Xywh&); };
+template<> struct Serialize<Xywh> { void operator()(StringBuilder&, const SerializationContext&, const Xywh&); };
 
 } // namespace CSS
 } // namespace WebCore

@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 #include "RenderTable.h"
 

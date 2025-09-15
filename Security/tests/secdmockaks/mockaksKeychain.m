@@ -60,6 +60,7 @@
 #import "mockaksxcbase.h"
 #import "OTConstants.h"
 #import "Affordance_OTConstants.h"
+#include <Security/SecEntitlements.h>
 
 @interface secdmockaks : mockaksxcbase
 @end
@@ -108,9 +109,9 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)tearDown
 {
-    clearTestError();
-    clearLastRowIDHandledForTests();
-    clearRowIDAndErrorDictionary();
+    SecServerClearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearRowIDAndErrorDictionary();
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     reset_current_schema_index();
     [SecMockAKS resetDecryptRefKeyFailures];
@@ -256,9 +257,9 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 - (int)getCurrentDbVersion
 {
     __block int version;
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef error = NULL;
-        SecKeychainDbGetVersion(dbt, &version, &error);
+        SecServerKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
         return true;
     });
@@ -269,7 +270,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 - (int)getCurrentSchemaVersion
 {
     __block int version;
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         const SecDbSchema *schema = current_schema();
         version = (((schema)->minorVersion) << 8) | ((schema)->majorVersion);
         return true;
@@ -348,13 +349,13 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // Nuke the keychain
     CFErrorRef error = NULL;
-    _SecItemDeleteAll(&error);
-    XCTAssertEqual(error, NULL, "_SecItemDeleteAll returned an error: %@", error);
+    SecServerItemDeleteAll(&error);
+    XCTAssertEqual(error, NULL, "SecServerItemDeleteAll returned an error: %@", error);
     CFReleaseNull(error);
     
     // Does the function work properly with an error pre-set?
     error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, errSecItemNotFound, NULL);
-    _SecItemDeleteAll(&error);
+    SecServerItemDeleteAll(&error);
     XCTAssertEqual(CFErrorGetDomain(error), kCFErrorDomainOSStatus);
     XCTAssertEqual(CFErrorGetCode(error), errSecItemNotFound);
     CFReleaseNull(error);
@@ -392,6 +393,9 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testBackupRestoreItem
 {
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     [self createManyItems];
     [self createManyKeys];
     [self createManyACLKeyItems];
@@ -449,6 +453,9 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testBackupRestoreItemUsingNewStyleAks
 {
+    OctagonSetSOSFeatureEnabled(true);
+    SetSOSCompatibilityMode(false);
+    
     [self createManyItems];
     [self createManyKeys];
     [self createManyACLKeyItems];
@@ -553,7 +560,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // We need a fresh directory to plop down our SQLite data
     SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"loadManualDB"]);
-    NSString* path = CFBridgingRelease(__SecKeychainCopyPath());
+    NSString* path = CFBridgingRelease(SecServerKeychainCopyPath());
     // On macOS the full path gets created, on iOS not (yet?)
     [self createKeychainDirectoryWithSubPath:@"loadManualDB/Library/Keychains"];
     
@@ -582,7 +589,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     __block bool ok = true;
     __block int vacuumMode = -1;
     
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         ok &= SecDbPrepare(dbt, CFSTR("PRAGMA auto_vacuum"), &localError, ^(sqlite3_stmt *stmt) {
             ok = SecDbStep(dbt, stmt, NULL, ^(bool *stop) {
                 vacuumMode = sqlite3_column_int(stmt, 0);
@@ -599,7 +606,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testUpgradeFromVersion10_5
 {
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database");
         [self loadDatabase:secdmock_db_version10_5];
     });
@@ -612,7 +619,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testUpgradeFromVersion11_1
 {
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database");
         [self loadDatabase:secdmock_db_version11_1];
     });
@@ -634,7 +641,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertNotEqual(oldSchemaIndex, -1);
     XCTAssertNotEqual(newSchemaIndex, -1);
 
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to schema version 12.5, in fresh location");
         set_current_schema_index(oldSchemaIndex);
         // We need a fresh directory for the older version DB
@@ -643,7 +650,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     // Insert some fake entries into the sharing tables. It doesn't need to be
     // valid, just enough to test that it's removed on upgrade.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef error = NULL;
 
         XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingIncomingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to incoming queue");
@@ -658,14 +665,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
         return true;
     });
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to schema version 12.6");
         set_current_schema_index(newSchemaIndex);
     });
 
     // Forcing a write operation upgrades the schema as a side effect.
-    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool(SecDbConnectionRef dbt) {
         CFErrorRef incomingQueueCFError = NULL;
         XCTAssertFalse(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingOutgoingQueue;"), &incomingQueueCFError), "Should not have incoming queue table");
         NSError *incomingQueueError = CFBridgingRelease(incomingQueueCFError);
@@ -690,7 +697,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     });
     XCTAssertNotEqual(oldSchemaIndex, -1);
 
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to schema version 12.5, in fresh location");
         set_current_schema_index(oldSchemaIndex);
         // We need a fresh directory for the older version DB
@@ -702,7 +709,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     // Insert some fake entries into the sharing tables. It doesn't need to be
     // valid, just enough to test that it's migrated.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef error = NULL;
 
         XCTAssertTrue(SecDbExec(dbt, CFSTR("INSERT INTO sharingIncomingQueue(uuid, agrp, persistref) VALUES('abc', 'com.apple.security.securityd', x'cafed00d');"), &error), "Should add row to incoming queue");
@@ -717,14 +724,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
         return true;
     });
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
 
     // Forcing a write operation upgrades the schema as a side effect.
-    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool(SecDbConnectionRef dbt) {
         // Ensure that the sharing tables were migrated correctly.
         CFErrorRef incomingQueueCFError = NULL;
         XCTAssertTrue(SecDbPrepare(dbt, CFSTR("SELECT count(*) FROM sharingIncomingQueue"), &incomingQueueCFError, ^(sqlite3_stmt *statement) {
@@ -784,7 +791,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     });
     XCTAssertNotEqual(oldSchemaIndex, -1);
 
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to schema version 12.6, in fresh location");
         set_current_schema_index(oldSchemaIndex);
         // We need a fresh directory for the older version DB
@@ -794,14 +801,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     // Insert some passwords to migrate.
     [self createManyItems];
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
 
     // Forcing a write operation upgrades the schema as a side effect.
-    kc_with_dbt(true, NULL, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool(SecDbConnectionRef dbt) {
         // Ensure that the sharing tables exist.
         CFErrorRef incomingQueueCFError = NULL;
         XCTAssertTrue(SecDbExec(dbt, CFSTR("SELECT 1 FROM sharingIncomingQueue;"), &incomingQueueCFError), "Should have incoming queue table");
@@ -827,7 +834,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testUpgradeFromPreviousVersion
 {
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to previous schema version, in fresh location");
         set_current_schema_index(1);
         // We need a fresh directory for the older version DB
@@ -836,14 +843,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     [self createManyItems];
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
 
     // force a no-op write operation, to upgrade the db
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 
     NSLog(@"find items from old database");
     [self findManyItems:50];
@@ -863,7 +870,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testSecKeychainForceUpgrade
 {
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to previous schema version, in fresh location");
         set_current_schema_index(1);
         // We need a fresh directory for the older version DB
@@ -874,8 +881,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     [self createItems:1000];
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
@@ -897,7 +904,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 {
     SecSecuritySetPersonaMusr(NULL);
 
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to previous schema version, in fresh location");
         set_current_schema_index(1);
         // We need a fresh directory for the older version DB
@@ -923,8 +930,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     SecSecuritySetPersonaMusr(NULL);
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
@@ -933,7 +940,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     OCMStub([mock forceInvalidPersona]).andReturn(true);
 
     // force a no-op write operation, to upgrade the db
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 
     [mock stopMocking];
 
@@ -954,7 +961,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testUpgradeFromPreviousVersionWithUndecodableItem
 {
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to previous schema version, in fresh location");
         set_current_schema_index(1);
         // We need a fresh directory for the older version DB
@@ -974,8 +981,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     status = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(status, errSecSuccess, "failed to add item item to keychain");
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database to current schema version");
         reset_current_schema_index();
     });
@@ -984,7 +991,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     OCMStub([mock forceUnwrapKeyDecodeFailure]).andReturn(true);
 
     // force a no-op write operation, to upgrade the db
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 
     [mock stopMocking];
 
@@ -1119,7 +1126,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     id mock = OCMClassMock([SecMockAKS class]);
     [[[[mock stub] andCall:@selector(isLockedSoon:) onObject:self] ignoringNonObjectArgs] isLocked:0];
     
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database");
         [self loadDatabase:secdmock_db_version10_5];
     });
@@ -1157,7 +1164,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     OCMStub([mock isSEPDown]).andReturn(true);
     
-    SecKeychainDbReset(^{
+    SecServerKeychainDbReset(^{
         NSLog(@"resetting database");
         [self loadDatabase:secdmock_db_version10_5];
     });
@@ -1171,10 +1178,10 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     result = SecItemCopyMatching((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, errSecNotAvailable, @"SEP not down?");
     
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef error = NULL;
         int version = 0;
-        SecKeychainDbGetVersion(dbt, &version, &error);
+        SecServerKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
         XCTAssertEqual(version, 0x50a, "managed to upgrade when we shouldn't have");
         
@@ -1188,10 +1195,10 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     result = SecItemCopyMatching((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to find test item to keychain");
     
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
         CFErrorRef error = NULL;
         int version = 0;
-        SecKeychainDbGetVersion(dbt, &version, &error);
+        SecServerKeychainDbGetVersion(dbt, &version, &error);
         XCTAssertEqual(error, NULL, "error getting version");
         const SecDbSchema *schema = current_schema();
         int schemaVersion = (((schema)->minorVersion) << 8) | ((schema)->majorVersion);
@@ -1348,14 +1355,14 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
             counter++;
         }
         
-        kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
             CFErrorRef localError = NULL;
             (void)SecDbExec(dbt, CFSTR("DELETE FROM genp"), &localError);
             CFReleaseNull(localError);
             return true;
         });
-        SecKeychainDbForceClose();
-        SecKeychainDbReset(NULL);
+        SecServerKeychainDbForceClose();
+        SecServerKeychainDbReset(NULL);
         
         XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound, "should successfully get item");
         XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)add, NULL), errSecSuccess, "should successfully add item");
@@ -1365,12 +1372,12 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
                        "should successfully get canaryItem pre %d", (int)counter);
         
         // lower database and destroy the item
-        kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+        kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) {
             CFErrorRef localError2 = NULL;
             __block bool ok = true;
             int version = 0;
             
-            SecKeychainDbGetVersion(dbt, &version, &localError2);
+            SecServerKeychainDbGetVersion(dbt, &version, &localError2);
             CFReleaseNull(localError2);
             
             // force a minor (if more then zero), otherwise pick major
@@ -1429,8 +1436,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
         });
         
         // force it to reload
-        SecKeychainDbForceClose();
-        SecKeychainDbReset(NULL);
+        SecServerKeychainDbForceClose();
+        SecServerKeychainDbReset(NULL);
         
         //dont care about result, we might have done a good number on this item
         (void)SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
@@ -1499,8 +1506,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
     
     // Drop metadata keys
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(NULL);
     [SecMockAKS setOperationsUntilUnlock:1];    // The first call is the metadata key unwrap to allow encrypting the item
     [SecMockAKS lockClassA];
     
@@ -1578,7 +1585,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
 - (void)testReadOnlyConnection {
     __block CFErrorRef connectionError = NULL;
-    bool connectionOk = kc_with_dbt(false, &connectionError, ^bool(SecDbConnectionRef dbconn) {
+    bool connectionOk = kc_with_dbt(false, NULL , &connectionError, ^bool(SecDbConnectionRef dbconn) {
         secnotice("secdb", "Doing a simple write!");
         
         NSDictionary* item = @{
@@ -1596,7 +1603,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertTrue(connectionOk, "The connection should have been fine overall");
     
     __block CFErrorRef transactionError = NULL;
-    bool transactionOk = kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+    bool transactionOk = kc_with_dbt(false, NULL , &transactionError, ^bool(SecDbConnectionRef dbconn) {
         bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
             secnotice("secdb", "Doing a write in a read transaction!");
             
@@ -1626,7 +1633,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     dispatch_queue_t contendedQueue = dispatch_queue_create("contended", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
     
     CFErrorRef cferror = NULL;
-    SecDbRef keychainDb = SecKeychainDbGetDb(&cferror);
+    SecDbRef keychainDb = SecServerKeychainDbGetDb(&cferror);
     
     XCTAssertEqual(cferror, NULL, "Should be no error extracting a keychainDb");
     XCTAssertNotEqual(keychainDb, NULL, "Should have some DB");
@@ -1653,7 +1660,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
         
         dispatch_group_async(group, asyncQueue, ^{
             __block CFErrorRef transactionError = NULL;
-            kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+            kc_with_dbt(false, NULL , &transactionError, ^bool(SecDbConnectionRef dbconn) {
                 bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
                     secnotice("secdb", "Doing a simple read transaction!");
                     
@@ -1670,7 +1677,7 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
             secnotice("secdb", "On the contended queue and planning to take a read transaction!");
             
             __block CFErrorRef transactionError = NULL;
-            kc_with_dbt(false, &transactionError, ^bool(SecDbConnectionRef dbconn) {
+            kc_with_dbt(false, NULL , &transactionError, ^bool(SecDbConnectionRef dbconn) {
                 bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &transactionError, ^bool{
                     return true;
                 });
@@ -1758,30 +1765,30 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [SecMockAKS setOperationsUntilUnlock:3];
     [SecMockAKS lockClassA];
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // now force a phase 3 item upgrade
     // expect the inProgress bool to be false because we now iterate through all of the items in case of device locked
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     [SecMockAKS setOperationsUntilUnlock:1];
     [SecMockAKS unlockAllClasses];
@@ -1789,27 +1796,27 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // now force a phase 3 item upgrade and all items will get upgraded
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:2];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     //snag all the items and check if they've been upgraded
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -1824,31 +1831,31 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefBeenUpgraded:(__bridge NSArray*)result];
 
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again and nothing should get upgraded
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     //should be nil because we upgraded all the refs before 'restarting' secd
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
 }
 
 // test with > 100 items all errSecInteractionNotAllowed
@@ -1893,47 +1900,47 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     //attempt 1 but fail
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     //attempt 1 but fail
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -1954,77 +1961,77 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // now force a phase 3 item upgrade with unlocked, first batch
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be rowID 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be rowID 100");
   
     // now force a phase 3 item upgrade with unlocked, second batch
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be rowID 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be rowID 200");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again, nothing to upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2082,107 +2089,107 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:100]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowID, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     // 1 - 99, 100 should fail
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber* expectedRowID = [[NSNumber alloc]initWithInt:99];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 99");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 99");
   
     // 99 - still stuck on 99
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 99");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 99");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearRowIDAndErrorDictionary();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearRowIDAndErrorDictionary();
+    SecServerClearTestError();
        
     //update 100
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc]initWithInt:199];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 199");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 199");
     
     //update the last one
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
     expectedRowID = [[NSNumber alloc]initWithInt:200];
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 200");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 200");
    
     
     NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -2240,106 +2247,106 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:100]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowID, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     // 1 - 99, 100 should fail
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber* expectedRowID = [[NSNumber alloc]initWithInt:99];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 99");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 99");
   
     // 99 - still stuck on 99
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 99");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 99");
     
     //simulate unlock, errors are cleared but last row id handled should still be 99
-    clearRowIDAndErrorDictionary();
-    clearTestError();
+    SecServerClearRowIDAndErrorDictionary();
+    SecServerClearTestError();
        
     //update 100
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc]initWithInt:199];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 199");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 199");
     
     //update the last one
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
     expectedRowID = [[NSNumber alloc]initWithInt:200];
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 200");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 200");
    
     
     NSDictionary* query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -2404,58 +2411,58 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // set the decode error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecDecode userInfo:@{NSLocalizedDescriptionKey : @"Fake error decoding keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     // now force a phase 3 item upgrade
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     // now force a phase 3 item upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2470,32 +2477,32 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
     
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc] initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2568,23 +2575,23 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // set the decode error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecDecode userInfo:@{NSLocalizedDescriptionKey : @"Fake error decoding keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     //1 - 100
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2592,25 +2599,25 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:100];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
     
     
     // 101 - 200
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2618,24 +2625,24 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     // now force a phase 3 item upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2655,25 +2662,25 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertEqual(CFArrayGetCount(result), 201, @"There should be 201 items returned");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     // first set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2681,19 +2688,19 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     //second set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2701,8 +2708,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2778,24 +2785,24 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:100]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowID, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     // now force a phase 3 item upgrade
     //1 - 100 // even though row 100 will hit an error, we ignore it
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2803,24 +2810,24 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:100];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
     
     // 101 - 200
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -2828,37 +2835,37 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
-    clearRowIDAndErrorDictionary();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
+    SecServerClearRowIDAndErrorDictionary();
     
     // now force a phase 3 item upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
         
     expectedRowID = [[NSNumber alloc] initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
    
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2928,59 +2935,59 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // set the authentication needed error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecAuthNeeded userInfo:@{NSLocalizedDescriptionKey : @"Fake error authentication needed keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     // now force a phase 3 item upgrade
     // expect the inProgress bool to be false because we now iterate through all of the items in case of authentication required
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     // now force a phase 3 item upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -2995,32 +3002,32 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray *)(result)];
     
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc] initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 2");
    
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3074,23 +3081,23 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // set the auth needed error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecAuthNeeded userInfo:@{NSLocalizedDescriptionKey : @"Fake error auth needed keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     //1 - 100
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -3098,24 +3105,24 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:100];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
     
     // 101 - 200
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -3123,31 +3130,31 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     // now force a phase 3 item upgrade
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
         
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
   
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3164,58 +3171,58 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
-    clearRowIDAndErrorDictionary();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
+    SecServerClearRowIDAndErrorDictionary();
     
     // now force a phase 3 item upgrade again
     // first set of 100 to upgrade after restart
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc]initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
   
     //second set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc]initWithInt:200];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3229,8 +3236,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     [self checkAllPersistentRefBeenUpgraded:(__bridge NSArray*)result];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
 }
 
 // test with > 100 items randomly errSecAuthNeeded
@@ -3288,34 +3295,34 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // set the kAKSReturnNotReady error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:kAKSReturnNotReady userInfo:@{NSLocalizedDescriptionKey : @"Fake error AKS not ready keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     // now force a phase 3 item upgrade
     // expect the inProgress bool to be true because we now stop iterating and ask to be called back again
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3330,32 +3337,32 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
     
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc]initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be 2");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3409,51 +3416,51 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // set the kAKSReturnNotReady error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:kAKSReturnNotReady userInfo:@{NSLocalizedDescriptionKey : @"Fake error kAKSReturnNotReady keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     //
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
 
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     //
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
 
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3468,58 +3475,58 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
    
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
-    clearRowIDAndErrorDictionary();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
+    SecServerClearRowIDAndErrorDictionary();
     
     // now force a phase 3 item upgrade again
     // first set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber* expectedRowID = [[NSNumber alloc] initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
     
     //second set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3590,34 +3597,34 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // set the kAKSReturnTimeout error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:kAKSReturnTimeout userInfo:@{NSLocalizedDescriptionKey : @"Fake error AKS timeout keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     // now force a phase 3 item upgrade
     // expect the inProgress bool to be true because we now stop iterating and ask to be called back again
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be nil");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3632,32 +3639,32 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
     
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc]initWithInt:2];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)lastRowIDHandledForTests(), @"should be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects(expectedRowID, (__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should be 2");
 
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3711,29 +3718,29 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // set the kAKSReturnTimeout error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:kAKSReturnTimeout userInfo:@{NSLocalizedDescriptionKey : @"Fake error kAKSReturnTimeout keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     //
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
         
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3748,57 +3755,57 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     XCTAssertEqual(CFArrayGetCount(result), 200, @"There should be 200 items returned");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     // first set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc]initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be 100");
     
     //second set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc]initWithInt:200];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"should be 200");
    
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3869,35 +3876,35 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
     
-    XCTAssertNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
+    XCTAssertNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should be NULL as a phase 3 hasn't been attempted yet");
     
     // set the errSecNotAvailable error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecNotAvailable userInfo:@{NSLocalizedDescriptionKey : @"Fake error errSecNotAvailable keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     // now force a phase 3 item upgrade
     // expect the inProgress bool to be true because we now stop iterating and ask to be called back again
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     NSNumber *expectedRowID = [[NSNumber alloc]initWithInt:2];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(),expectedRowID, @"lastRowIDHandled should be 2");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(),expectedRowID, @"lastRowIDHandled should be 2");
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3912,31 +3919,31 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
     
     //simulate secd "restart" where the in memory 'last handled row id' should be wiped
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(),expectedRowID, @"lastRowIDHandled should still be 2");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(),expectedRowID, @"lastRowIDHandled should still be 2");
 
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -3990,31 +3997,31 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     // set the errSecNotAvailable error
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errSecNotAvailable userInfo:@{NSLocalizedDescriptionKey : @"Fake error errSecNotAvailable keychain item for testing"}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
     
     //
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
 
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:100];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 100");
    
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                              (id)kSecUseDataProtectionKeychain : @(YES),
@@ -4029,57 +4036,57 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     [self checkAllPersistentRefNotBeenUpgraded:(__bridge NSArray*)result];
         
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearTestError();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearTestError();
     
     // now force a phase 3 item upgrade again
     // first set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
     expectedRowID = [[NSNumber alloc] initWithInt:100];
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should still be 100");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should still be 100");
     
     //second set of 100 to upgrade while unlocked
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
     });
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
     
     query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                (id)kSecUseDataProtectionKeychain : @(YES),
@@ -4132,24 +4139,24 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
 
     CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:50]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowID, (__bridge CFErrorRef)error);
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
     
     // now force a phase 3 item upgrade
     //1 - 49
     __block CFErrorRef kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -4157,29 +4164,29 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     NSNumber *expectedRowID = [[NSNumber alloc] initWithInt:49];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 49");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 49");
     
     //simulate secd restart
-    clearLastRowIDHandledForTests();
-    clearRowIDAndErrorDictionary();
+    SecServerClearLastRowIDHandledForTests();
+    SecServerClearRowIDAndErrorDictionary();
     
     // now force a phase 3 item upgrade again
    
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertTrue(inProgress, "inProgress bool should be true");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -4187,23 +4194,23 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:149];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 149");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 149");
    
     kcError = NULL;
-    kc_with_dbt(true, &kcError, ^(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &kcError, ^(SecDbConnectionRef dbt) {
         return kc_transaction(dbt, &kcError, ^{
             CFErrorRef localError = NULL;
             CFErrorRef phase3Error = NULL;
             bool inProgress = false;
-            bool ok = UpgradeItemPhase3(dbt, &inProgress, &phase3Error);
+            bool ok = SecServerUpgradeItemPhase3(dbt, &inProgress, &phase3Error);
             if (!ok) {
                 SecErrorPropagate(phase3Error, &localError);
             }
             
             XCTAssertFalse(inProgress, "inProgress bool should be false");
             XCTAssertNil((__bridge id)localError, "error should be nil");
-            XCTAssertTrue(ok, "UpgradeItemPhase3 should return true");
+            XCTAssertTrue(ok, "SecServerUpgradeItemPhase3 should return true");
             
             return (bool)true;
         });
@@ -4211,8 +4218,8 @@ static inline int indexOfSchemaPassingTest(bool (NS_NOESCAPE ^predicate)(const S
     
     expectedRowID = [[NSNumber alloc] initWithInt:200];
     
-    XCTAssertNotNil((__bridge NSNumber*)lastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
-    XCTAssertEqualObjects((__bridge NSNumber*)lastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
+    XCTAssertNotNil((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), @"lastRowIDHandled should not be nil");
+    XCTAssertEqualObjects((__bridge NSNumber*)SecServerLastRowIDHandledForTests(), expectedRowID, @"last row id handled should be 200");
    
     
     NSDictionary *query = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -4372,4 +4379,16 @@ static void helper_SecItemIsSystemBoundMatchAnyString(NSDictionary* baseItem, NS
     helper_SecItemIsSystemBoundMatchAnyString(item, tests, (id)kSecAttrLabel, keys_class(), true);
 }
 
+-(void)testKeychainPathWithEntitlement {
+    // DB Path through SPI
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateKeychainDatabasePath, kCFBooleanTrue);
+    CFErrorRef error = NULL;
+    CFStringRef dbpath = SecKeychainCopyDatabasePath(&error);
+    XCTAssertNil((__bridge NSError*)error, "Should not have received any error");
+    NSString *spiDBPath = (NSString *)CFBridgingRelease(dbpath);
+    XCTAssertNotNil(spiDBPath, "Should have gotten keychain db path through spi");
+    // DB path through internal method should match SPI based path
+    XCTAssertEqualObjects(spiDBPath, (NSString*)CFBridgingRelease(SecServerKeychainCopyPath()), "Should have same db paths") ;
+    CFReleaseNull(error);
+}
 @end

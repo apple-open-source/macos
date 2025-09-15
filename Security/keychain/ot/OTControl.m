@@ -33,7 +33,6 @@
 
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTControl.h"
-#import "keychain/ot/AsyncPiper.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OctagonControlServer.h"
@@ -53,7 +52,8 @@
                              contextID:OTDefaultContext
                                altDSID:nil
                                 flowID:nil
-                       deviceSessionID:nil];
+                       deviceSessionID:nil
+                        canSendMetrics:NO];
 }
 
 - (instancetype)initWithConfiguration:(OTConfigurationContext*)configuration
@@ -62,7 +62,8 @@
                              contextID:configuration.context ?: OTDefaultContext
                                altDSID:configuration.altDSID
                                 flowID:configuration.flowID
-                       deviceSessionID:configuration.deviceSessionID];
+                       deviceSessionID:configuration.deviceSessionID
+                        canSendMetrics:configuration.canSendMetrics];
 }
 
 - (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
@@ -71,7 +72,8 @@
                              contextID:OTDefaultContext
                                altDSID:altDSID
                                 flowID:nil
-                       deviceSessionID:nil];
+                       deviceSessionID:nil
+                        canSendMetrics:NO];
 }
 
 - (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID 
@@ -82,7 +84,21 @@
                              contextID:OTDefaultContext
                                altDSID:altDSID
                                 flowID:flowID
-                       deviceSessionID:deviceSessionID];
+                       deviceSessionID:deviceSessionID
+                        canSendMetrics:NO];
+}
+
+- (instancetype)initWithAltDSID:(NSString* _Nullable)altDSID
+                         flowID:(NSString* _Nullable)flowID
+                deviceSessionID:(NSString* _Nullable)deviceSessionID
+                 canSendMetrics:(BOOL)canSendMetrics
+{
+    return [self initWithContainerName:OTCKContainerName
+                             contextID:OTDefaultContext
+                               altDSID:altDSID
+                                flowID:flowID
+                       deviceSessionID:deviceSessionID
+                        canSendMetrics:canSendMetrics];
 }
 
 - (instancetype)initWithContainerName:(NSString* _Nullable)containerName
@@ -93,7 +109,8 @@
                              contextID:contextID
                                altDSID:altDSID
                                 flowID:nil
-                       deviceSessionID:nil];
+                       deviceSessionID:nil
+                        canSendMetrics:NO];
 }
 
 - (instancetype)initWithContainerName:(NSString* _Nullable)containerName
@@ -102,23 +119,40 @@
                                flowID:(NSString* _Nullable)flowID
                       deviceSessionID:(NSString* _Nullable)deviceSessionID
 {
+    return [self initWithContainerName:containerName
+                             contextID:contextID
+                               altDSID:altDSID
+                                flowID:flowID
+                       deviceSessionID:deviceSessionID
+                        canSendMetrics:NO];
+}
+
+- (instancetype)initWithContainerName:(NSString* _Nullable)containerName
+                            contextID:(NSString*)contextID
+                              altDSID:(NSString* _Nullable)altDSID
+                               flowID:(NSString* _Nullable)flowID
+                      deviceSessionID:(NSString* _Nullable)deviceSessionID
+                       canSendMetrics:(BOOL)canSendMetrics
+{
     if((self = [super init])) {
         _containerName = containerName ?: OTCKContainerName;
         _contextID = contextID;
         _altDSID = altDSID;
         _flowID = flowID;
         _deviceSessionID = deviceSessionID;
+        _canSendMetrics = canSendMetrics;
     }
     return self;
 }
 
 - (NSString*)description {
-    return [NSString stringWithFormat:@"<OTControlArguments: container:%@, context:%@, altDSID:%@, flowID: %@, deviceSessionID: %@>",
+    return [NSString stringWithFormat:@"<OTControlArguments: container:%@, context:%@, altDSID:%@, flowID: %@, deviceSessionID: %@, canSendMetrics: %d>",
             self.containerName,
             self.contextID,
             self.altDSID,
             self.flowID,
-            self.deviceSessionID];
+            self.deviceSessionID,
+            self.canSendMetrics];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -131,6 +165,7 @@
     [coder encodeObject:self.altDSID forKey:@"altDSID"];
     [coder encodeObject:self.flowID forKey:@"flowID"];
     [coder encodeObject:self.deviceSessionID forKey:@"deviceSessionID"];
+    [coder encodeBool:self.canSendMetrics forKey:@"canSendMetrics"];
 }
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder *)coder {
@@ -140,6 +175,7 @@
         _altDSID = [coder decodeObjectOfClass:[NSString class] forKey:@"altDSID"];
         _flowID = [coder decodeObjectOfClass:[NSString class] forKey:@"flowID"];
         _deviceSessionID = [coder decodeObjectOfClass:[NSString class] forKey:@"deviceSessionID"];
+        _canSendMetrics = [coder decodeBoolForKey:@"canSendMetrics"];
     }
     return self;
 }
@@ -386,36 +422,19 @@
        context:(NSString*)context
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
-    OTControlArguments *oca = [[OTControlArguments alloc] initWithContainerName:container contextID:context altDSID:nil];
-    [self status:oca reply:reply];
+    reply(nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)status:(OTControlArguments*)arguments
          reply:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
 {
-    NSError* piperError = nil;
-    AsyncPiper* piper = [[AsyncPiper alloc] initWithError:&piperError];
-    if (piperError) {
-        reply(nil, piperError);
-        return;
-    }
-
-    [self status:arguments
-           xpcFd:[piper xpcFd]
-           reply:^(NSDictionary* _Nullable result, NSError* _Nullable error){
-        if(error) {
-            reply(nil, error);
-            return;
-        }
-        NSMutableDictionary* modifiableResult = [NSMutableDictionary dictionaryWithDictionary:result];
-        NSDictionary* contextDump = [piper dictWithError:&error];
-        if(error) {
-            modifiableResult[@"contextDumpError"] = [SecXPCHelper cleanseErrorForXPC:error];
-        } else {
-            modifiableResult[@"contextDump"] = contextDump;
-        }
-        reply(modifiableResult, nil);
-    }];
+    reply(nil,
+          [NSError errorWithDomain:NSOSStatusErrorDomain
+                              code:errSecUnimplemented
+                          userInfo:nil]);
 }
 
 - (void)status:(OTControlArguments*)arguments
@@ -468,6 +487,7 @@
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
 	       notifyIdMS:(bool)notifyIdMS
           accountSettings:(OTAccountSettings *_Nullable)accountSettings
+               accountIsW:(BOOL)accountIsW
                     reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
@@ -478,6 +498,7 @@
   idmsCuttlefishPassword:idmsCuttlefishPassword
               notifyIdMS:notifyIdMS
          accountSettings:accountSettings
+              accountIsW:accountIsW
                    reply:reply];
 }
 
@@ -694,11 +715,27 @@
 - (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
              repair:(BOOL)repair
+danglingPeerCleanup:(BOOL)danglingPeerCleanup
+         updateIdMS:(BOOL)updateIdMS
               reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
-    }] healthCheck:arguments skipRateLimitingCheck:skipRateLimitingCheck repair:repair reply:reply];
+    }] healthCheck:arguments
+       skipRateLimitingCheck:skipRateLimitingCheck
+            repair:repair
+       danglingPeerCleanup:danglingPeerCleanup
+        updateIdMS:updateIdMS
+             reply:reply];
+}
+
+- (void)escrowCheck:(OTControlArguments*)arguments
+  isBackgroundCheck:(BOOL)isBackgroundCheck
+              reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError *_Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(nil, error);
+    }] escrowCheck:arguments isBackgroundCheck:isBackgroundCheck reply:reply];
 }
 
 - (void)simulateReceivePush:(OTControlArguments*)arguments
@@ -707,6 +744,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection:^(NSError* error) {
         reply(error);
     }] simulateReceivePush:arguments reply:reply];
+}
+
+- (void)simulateReceiveTDLChangePush:(OTControlArguments*)arguments
+                      reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection:^(NSError* error) {
+        reply(error);
+    }] simulateReceiveTDLChangePush:arguments reply:reply];
 }
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
@@ -952,12 +997,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 }
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                  accountIsW:(BOOL)accountIsW
                                      altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
     }] performCKServerUnreadableDataRemoval:arguments
+                                 accountIsW:accountIsW
                                     altDSID:altDSID
                                       reply:reply];
 }
@@ -968,6 +1015,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* error) {
         reply(nil, error);
     }] totalTrustedPeers:arguments reply:reply];
+}
+
+- (void)trustedFullPeers:(OTControlArguments*)arguments
+                   reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(nil, error);
+    }] trustedFullPeers:arguments reply:reply];
 }
 
 - (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
@@ -984,6 +1039,14 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* error) {
         reply(error);
     }] reroll:arguments reply:reply];
+}
+
+- (void)icscRepairReset:(OTControlArguments*)arguments
+                  reply:(void (^)(NSError *_Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] icscRepairReset:arguments reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

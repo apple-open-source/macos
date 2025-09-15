@@ -121,8 +121,16 @@ OS_CLOSED_ENUM(memorystatus_action, uint32_t,
     MEMORYSTATUS_KILL_SWAPPABLE, // Kill a swap-eligible process (even if it's running)  based on jetsam priority
     MEMORYSTATUS_KILL_IDLE, // Kill an idle process
     MEMORYSTATUS_KILL_LONG_IDLE, // Kill a long-idle process (reaper)
+    MEMORYSTATUS_NO_PAGING_SPACE, // Perform a no-paging-space-action
+    MEMORYSTATUS_PURGE_CACHES, // Purge system memory caches (e.g. corpses, deferred reclaim memory)
     MEMORYSTATUS_KILL_NONE,     // Do nothing
     );
+
+__options_closed_decl(memstat_kill_options_t, uint8_t, {
+	MEMSTAT_ONLY_SWAPPABBLE = 0x01,
+	MEMSTAT_ONLY_LONG_IDLE  = 0x02,
+	MEMSTAT_SORT_BUCKET     = 0x04,
+});
 
 /*
  * Structure to hold state for a jetsam thread.
@@ -136,6 +144,7 @@ typedef struct jetsam_state_s {
 	thread_t                        thread; /* jetsam thread pointer */
 	int                             jld_idle_kills; /*  idle jetsam kill counter for this session */
 	uint32_t                        errors; /* Error accumulator */
+	bool                            errors_cleared; /* Have we tried clearing all errors this iteration? */
 	bool                            sort_flag; /* Sort the fg band (idle on macOS) before killing? */
 	bool                            corpse_list_purged; /* Has the corpse list been purged? */
 	bool                            post_snapshot; /* Do we need to post a jetsam snapshot after this session? */
@@ -149,7 +158,7 @@ typedef struct jetsam_state_s {
  * and will continue to act until the system is considered
  * healthy.
  */
-typedef struct memorystatus_system_health {
+typedef struct memorystatus_system_health_s {
 #if CONFIG_JETSAM
 	bool msh_available_pages_below_soft;
 	bool msh_available_pages_below_idle;
@@ -163,16 +172,28 @@ typedef struct memorystatus_system_health {
 	bool msh_swapin_queue_over_limit;
 	bool msh_pageout_starved;
 #endif /* CONFIG_JETSAM */
+	bool msh_vm_pressure_warning;
+	bool msh_vm_pressure_critical;
+	bool msh_compressor_low_on_space;
 	bool msh_compressor_exhausted;
 	bool msh_swap_exhausted;
 	bool msh_swap_low_on_space;
 	bool msh_zone_map_is_exhausted;
-} memorystatus_system_health_t;
+} *memorystatus_system_health_t;
 
-void memorystatus_log_system_health(const memorystatus_system_health_t *health);
-bool memorystatus_is_system_healthy(const memorystatus_system_health_t *status);
-/* Picks a kill cause given an unhealthy system status */
-uint32_t memorystatus_pick_kill_cause(const memorystatus_system_health_t *status);
+/*
+ * @func memstat_check_system_health
+ *
+ * @brief Evaluate system memory conditions and return if the system is healthy.
+ *
+ * @discussion
+ * Evaluates various system memory conditions, including compressor size and
+ * available page quantities. If conditions indicate a kill should be
+ * performed, the system is considered "unhealthy".
+ *
+ * @returns @c true if the system is healthy, @c false otherwise.
+ */
+extern bool memstat_check_system_health(memorystatus_system_health_t status);
 
 #pragma mark Locks
 
@@ -192,6 +213,30 @@ extern int       jld_idle_kill_candidates;
 
 extern _Atomic uint64_t last_no_space_action_ts;
 extern uint64_t no_paging_space_action_throttle_delay_ns;
+
+#pragma mark Pressure Response Globals
+extern uint64_t memstat_last_cache_purge_ts;
+extern uint64_t memstat_cache_purge_backoff_ns;
+
+__options_decl(memstat_pressure_options_t, uint32_t, {
+	/* Kill long idle processes at kVMPressureWarning */
+	MEMSTAT_WARNING_KILL_LONG_IDLE = 0x01,
+	/* Kill idle processes from the notify thread at kVMPressureWarning */
+	MEMSTAT_WARNING_KILL_IDLE_THROTTLED = 0x02,
+	/* Purge memory caches (e.g. corpses, deferred reclaim rings) at kVMPressureCritical */
+	MEMSTAT_CRITICAL_PURGE_CACHES = 0x04,
+	/* Kill all idle processes at kVMPressureCritical */
+	MEMSTAT_CRITICAL_KILL_IDLE = 0x08,
+	/* Kill when at kVMPressureWarning for a prolonged period */
+	MEMSTAT_WARNING_KILL_SUSTAINED = 0x10,
+});
+/* Maximum value for sysctl handler */
+#define MEMSTAT_PRESSURE_CONFIG_MAX (0x18U)
+
+extern memstat_pressure_options_t memstat_pressure_config;
+
+#pragma mark Config Globals
+extern boolean_t memstat_reaper_enabled;
 
 #pragma mark VM globals read by the memorystatus subsystem
 
@@ -300,6 +345,24 @@ static inline bool
 _memstat_proc_is_dirty(proc_t p)
 {
 	return p->p_memstat_dirty & P_DIRTY_IS_DIRTY;
+}
+
+/*
+ * Return true if this process is self-terminating via ActivityTracking.
+ */
+static inline bool
+_memstat_proc_is_terminating(proc_t p)
+{
+	return p->p_memstat_dirty & P_DIRTY_TERMINATED;
+}
+
+/*
+ * Return true if this process has been killed and is in the process of exiting.
+ */
+static inline bool
+_memstat_proc_was_killed(proc_t p)
+{
+	return p->p_memstat_state & P_MEMSTAT_TERMINATED;
 }
 
 static inline bool
@@ -491,6 +554,12 @@ uint32_t memstat_get_proccnt_upto_priority(uint32_t max_bucket_index);
  * @brief Return the number of idle processes which may be terminated.
  */
 uint32_t memstat_get_idle_proccnt(void);
+
+/*
+ * @func memstat_get_reapable_proccnt
+ * @brief Return the number of idle, reapable processes which may be terminated.
+ */
+uint32_t memstat_get_long_idle_proccnt(void);
 
 #pragma mark Freezer
 #if CONFIG_FREEZE

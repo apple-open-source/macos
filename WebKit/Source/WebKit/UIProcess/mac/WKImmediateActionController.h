@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WKImmediateActionController_h
-#define WKImmediateActionController_h
+#pragma once
 
 #if PLATFORM(MAC)
 
@@ -33,7 +32,6 @@
 #import <pal/spi/mac/NSImmediateActionGestureRecognizerSPI.h>
 #import <wtf/CheckedPtr.h>
 #import <wtf/NakedPtr.h>
-#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 
 namespace WebKit {
@@ -79,7 +77,7 @@ enum class ImmediateActionState {
     BOOL _hasActiveImmediateAction;
 }
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)viewImpl recognizer:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)viewImpl recognizer:(NSImmediateActionGestureRecognizer *)immediateActionRecognizer;
 - (void)willDestroyView:(NSView *)view;
 - (void)didPerformImmediateActionHitTest:(const WebKit::WebHitTestResultData&)hitTestResult contentPreventsDefault:(BOOL)contentPreventsDefault userData:(API::Object*)userData;
 - (void)dismissContentRelativeChildWindows;
@@ -88,5 +86,3 @@ enum class ImmediateActionState {
 @end
 
 #endif // PLATFORM(MAC)
-
-#endif // WKImmediateActionController_h

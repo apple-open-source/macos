@@ -48,7 +48,7 @@ struct kcov_cpu_data {
 struct kcov_thread_data {
 	uint32_t               ktd_disabled;    /* disable sanitizer for a thread */
 #if CONFIG_KSANCOV
-	ksancov_dev_t          ktd_device;     /* ksancov per-thread data */
+	ksancov_dev_t          ktd_device;      /* ksancov per-thread data */
 #endif
 #if CONFIG_STKSZ
 	kcov_stksz_thread_t    ktd_stksz;       /* stack size per-thread data */

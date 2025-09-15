@@ -57,7 +57,7 @@ public:
         if (matchLength > string.length())
             return notFound;
 
-        if (UNLIKELY(!matchLength))
+        if (!matchLength) [[unlikely]]
             return 0;
 
         if (string.is8Bit()) {

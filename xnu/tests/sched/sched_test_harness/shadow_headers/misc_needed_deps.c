@@ -12,9 +12,11 @@
 /* Overrides necessary for userspace code */
 #define panic(...) ({ printf("Panicking:\n"); printf(__VA_ARGS__); abort(); })
 #define KDBG(...) (void)0
+#define KDBG_RELEASE(...) (void)0
 #define kalloc_type(x, y, z) calloc((size_t)y, sizeof(x))
 #define kfree_type(x, y, z) free(z)
 #define PE_parse_boot_argn(x, y, z) FALSE
+#define kprintf(...) printf(__VA_ARGS__)
 
 /* Mock locks */
 typedef void *lck_ticket_t;
@@ -22,15 +24,57 @@ typedef void *lck_ticket_t;
 #define decl_simple_lock_data(class, name) class int name
 #define pset_lock(x) (void)x
 #define pset_unlock(x) (void)x
+#define change_locked_pset(x, y) y
 #define pset_assert_locked(x) (void)x
 #define thread_lock(x) (void)x
 #define thread_unlock(x) (void)x
+#define simple_lock(...)
+#define simple_unlock(...)
 
 /* Processor-related */
 #define PERCPU_DECL(type_t, name) type_t name
 #include <kern/processor.h>
 processor_t processor_array[MAX_SCHED_CPUS];
 processor_set_t pset_array[MAX_PSETS];
+struct pset_node pset_nodes[MAX_AMP_CLUSTER_TYPES];
+#define pset_node0 (pset_nodes[0])
+
+pset_node_t
+pset_node_for_pset_cluster_type(pset_cluster_type_t pset_cluster_type)
+{
+	for (unsigned i = 0; i < MAX_AMP_CLUSTER_TYPES; i++) {
+		if (bitmap_is_empty(&pset_nodes[i].pset_map, MAX_PSETS)) {
+			continue;
+		}
+		if (pset_nodes[i].pset_cluster_type == pset_cluster_type) {
+			return &pset_nodes[i];
+		}
+	}
+	return PSET_NODE_NULL;
+}
+
+pset_cluster_type_t
+cluster_type_to_pset_cluster_type(cluster_type_t cluster_type)
+{
+	switch (cluster_type) {
+#if __AMP__
+	case CLUSTER_TYPE_E:
+		return PSET_AMP_E;
+	case CLUSTER_TYPE_P:
+		return PSET_AMP_P;
+#endif /* __AMP__ */
+	case CLUSTER_TYPE_SMP:
+		return PSET_SMP;
+	default:
+		panic("Unexpected cluster type %d", cluster_type);
+	}
+}
+
+cpumap_t
+pset_available_cpumap(processor_set_t pset)
+{
+	return pset->cpu_available_map & pset->recommended_bitmask;
+}
 
 /* Expected global(s) */
 static task_t kernel_task = NULL;
@@ -93,7 +137,21 @@ struct thread {
 	bool            th_shared_rsrc_enqueued[CLUSTER_SHARED_RSRC_TYPE_COUNT];
 	bool            th_shared_rsrc_heavy_user[CLUSTER_SHARED_RSRC_TYPE_COUNT];
 	bool            th_shared_rsrc_heavy_perf_control[CLUSTER_SHARED_RSRC_TYPE_COUNT];
+	bool            th_expired_quantum_on_lower_core;
+	bool            th_expired_quantum_on_higher_core;
 #endif /* CONFIG_SCHED_EDGE */
+
+	/* real-time parameters */
+	struct {                                        /* see mach/thread_policy.h */
+		uint32_t            period;
+		uint32_t            computation;
+		uint32_t            constraint;
+		bool                preemptible;
+		uint8_t             priority_offset;   /* base_pri = BASEPRI_RTQUEUES + priority_offset */
+		uint64_t            deadline;
+	}                       realtime;
+
+	uint64_t                last_made_runnable_time;        /* time when thread was unblocked or preempted */
 };
 
 void
@@ -133,6 +191,12 @@ thread_tid(
 	thread_t        thread)
 {
 	return thread != THREAD_NULL? thread->thread_id: 0;
+}
+
+void
+thread_clear_runq_locked(thread_t thread)
+{
+	thread->__runq.runq = PROCESSOR_NULL;
 }
 
 /* Satisfy recount dependency needed by osfmk/kern/sched.h */

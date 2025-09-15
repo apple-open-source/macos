@@ -39,13 +39,13 @@ using namespace WebCore;
 
 RetainPtr<PKRecurringPaymentRequest> platformRecurringPaymentRequest(const ApplePayRecurringPaymentRequest& webRecurringPaymentRequest)
 {
-    auto pkRecurringPaymentRequest = adoptNS([PAL::allocPKRecurringPaymentRequestInstance() initWithPaymentDescription:webRecurringPaymentRequest.paymentDescription regularBilling:platformRecurringSummaryItem(webRecurringPaymentRequest.regularBilling) managementURL:[NSURL URLWithString:webRecurringPaymentRequest.managementURL]]);
+    auto pkRecurringPaymentRequest = adoptNS([PAL::allocPKRecurringPaymentRequestInstance() initWithPaymentDescription:webRecurringPaymentRequest.paymentDescription.createNSString().get() regularBilling:platformRecurringSummaryItem(webRecurringPaymentRequest.regularBilling) managementURL:adoptNS([[NSURL alloc] initWithString:webRecurringPaymentRequest.managementURL.createNSString().get()]).get()]);
     if (auto& trialBilling = webRecurringPaymentRequest.trialBilling)
         [pkRecurringPaymentRequest setTrialBilling:platformRecurringSummaryItem(*trialBilling)];
     if (auto& billingAgreement = webRecurringPaymentRequest.billingAgreement; !billingAgreement.isNull())
-        [pkRecurringPaymentRequest setBillingAgreement:billingAgreement];
+        [pkRecurringPaymentRequest setBillingAgreement:billingAgreement.createNSString().get()];
     if (auto& tokenNotificationURL = webRecurringPaymentRequest.tokenNotificationURL; !tokenNotificationURL.isNull())
-        [pkRecurringPaymentRequest setTokenNotificationURL:[NSURL URLWithString:tokenNotificationURL]];
+        [pkRecurringPaymentRequest setTokenNotificationURL:adoptNS([[NSURL alloc] initWithString:tokenNotificationURL.createNSString().get()]).get()];
     return pkRecurringPaymentRequest;
 }
 

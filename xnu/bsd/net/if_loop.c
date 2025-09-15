@@ -698,12 +698,6 @@ loopattach(void)
 		    __func__, result);
 		/* NOTREACHED */
 	}
-	/*
-	 * Disable ECN on loopback as ECN serves no purpose and otherwise
-	 * TCP connections are subject to heuristics like SYN retransmits on RST
-	 */
-	if_clear_eflags(lo_ifp, IFEF_ECN_ENABLE);
-	if_set_eflags(lo_ifp, IFEF_ECN_DISABLE);
 
 	bpfattach(lo_ifp, DLT_NULL, sizeof(u_int32_t));
 }
@@ -751,6 +745,7 @@ sysctl_sched_model SYSCTL_HANDLER_ARGS
 	case IFNET_SCHED_MODEL_NORMAL:
 	case IFNET_SCHED_MODEL_DRIVER_MANAGED:
 	case IFNET_SCHED_MODEL_FQ_CODEL:
+	case IFNET_SCHED_MODEL_FQ_CODEL_DM:
 		break;
 
 	default:
@@ -783,7 +778,7 @@ sysctl_dequeue_scidx SYSCTL_HANDLER_ARGS
 		return EINVAL;
 	}
 
-	if (lo_sched_model != IFNET_SCHED_MODEL_DRIVER_MANAGED) {
+	if ((lo_sched_model & IFNET_SCHED_DRIVER_MANGED_MODELS) == 0) {
 		return ENODEV;
 	}
 

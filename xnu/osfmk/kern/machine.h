@@ -161,4 +161,6 @@ extern void machine_thread_group_blocked(struct thread_group *tg_blocked, struct
 extern void machine_thread_group_unblocked(struct thread_group *tg_unblocked, struct thread_group *tg_unblocking, uint32_t flags, thread_t unblocked_thread);
 #endif
 
+extern void machine_perfcontrol_running_timer_expire(uint64_t now, uint32_t flags, int cpu_id, uint64_t *timeout_ticks);
+
 #endif  /* _KERN_MACHINE_H_ */

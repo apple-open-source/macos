@@ -4,7 +4,6 @@
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
-#import "keychain/ot/proto/generated_source/OTAccountMetadataClassCAccountSettings.h"
 #import "keychain/ot/OTPersonaAdapter.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperSpecificUser.h"
 
@@ -58,6 +57,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (OTAccountMetadataClassC_MetricsState)fetchSendingMetricsPermitted:(NSError**)error;
 - (BOOL)persistSendingMetricsPermitted:(OTAccountMetadataClassC_MetricsState)sendingMetricsPermitted
                                  error:(NSError**)error;
+
+- (BOOL)persistLastEscrowRepairTriggered:(NSDate*)date error:(NSError**)error;
+- (BOOL)persistLastEscrowRepairAttempted:(NSDate*)date error:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

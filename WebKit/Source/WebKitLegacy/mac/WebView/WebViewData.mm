@@ -29,6 +29,7 @@
 
 #import "WebViewData.h"
 
+#import "TextIndicatorWindow.h"
 #import "WebKitLogging.h"
 #import "WebPreferenceKeysPrivate.h"
 #import "WebSelectionServiceController.h"
@@ -39,7 +40,6 @@
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/RunLoopObserver.h>
-#import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/ValidationBubble.h>
 #import <WebCore/WebCoreJITOperations.h>
 #import <pal/spi/mac/NSWindowSPI.h>

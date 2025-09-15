@@ -61,12 +61,6 @@ OTHER_IIG_CFLAGS = -I$(SRCROOT) -std=gnu++1z -isysroot $(SDKROOT) -I $(SDKROOT)/
 ALWAYS_SEARCH_USER_PATHS = NO
 WARNING_CFLAGS = -Wformat-nonliteral
 
-//VisionOS
-//Allow for legacy serialization/deserialization when using IOHIDEventCreateWithBytes and IOHIDEventReadBytes APIs
-//Currently associated with digitizer, pointer, and translation events
-LEGACY_SERIALIZATION_ENABLED[sdk=xros*] = YES
-LEGACY_SERIALIZATION_ENABLED[sdk=driverkit.xros*] = YES
-LEGACY_SERIALIZATION_ENABLED[sdk=xrsimulator*] = YES
 
 //
 //RTKIT
@@ -101,4 +95,6 @@ MODULE_VERSION = $(IOHIDFAMILY_VERSION)
 DEPLOYMENT_LOCATION = YES
 USE_HIERARCHICAL_LAYOUT_FOR_COPIED_ASIDE_PRODUCTS = YES
 
-EXCLUDED_SOURCE_FILE_NAMES[sdk=watch*][arch=*] = IOHIDEventDummyService*
+EXCLUDED_SOURCE_FILE_NAMES[sdk=watch*][arch=*] = IOHIDEventDummyService* $(SRCROOT)/IOHIDFamily/IOFastPath/* $(SRCROOT)/IOHIDFamily/IOHIDComplexEventDriver/*
+EXCLUDED_SOURCE_FILE_NAMES[sdk=appletv*][arch=*] = $(SRCROOT)/IOHIDFamily/IOFastPath/*
+EXCLUDED_SOURCE_FILE_NAMES[sdk=bridge*][arch=*] = $(SRCROOT)/IOHIDFamily/IOFastPath/*

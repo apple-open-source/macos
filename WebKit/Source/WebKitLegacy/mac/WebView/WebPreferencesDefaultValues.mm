@@ -57,12 +57,6 @@ bool defaultAllowsPictureInPictureMediaPlayback()
     return shouldAllowPictureInPictureMediaPlayback;
 }
 
-bool defaultJavaScriptCanOpenWindowsAutomatically()
-{
-    static bool shouldAllowWindowOpenWithoutUserGesture = WTF::IOSApplication::isTheSecretSocietyHiddenMystery() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoTheSecretSocietyHiddenMysteryWindowOpenQuirk);
-    return shouldAllowWindowOpenWithoutUserGesture;
-}
-
 bool defaultInlineMediaPlaybackRequiresPlaysInlineAttribute()
 {
     return PAL::deviceClassIsSmallScreen();
@@ -161,6 +155,11 @@ bool defaultNeedsKeyboardEventDisambiguationQuirks()
 }
 
 #endif // PLATFORM(MAC)
+
+bool defaultMutationEventsEnabled()
+{
+    return WTF::CocoaApplication::isAppleApplication() || !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::MutationEventsDisabledByDefault);
+}
 
 bool defaultAttachmentElementEnabled()
 {

@@ -58,6 +58,27 @@ typedef int (*fsck_exfat_print_msg_num_func_t)(fsck_client_ctx_t, int msgNum, va
  */
 typedef void (*fsck_exfat_print_debug_func_t)(fsck_client_ctx_t, unsigned long int type, const char *fmt, va_list ap);
 
+/*
+ * void (*fsck_hfs_check_start_func_t)(fsck_ctx_t, const char *device_name, const char *volume_name);
+ *
+ * This routine is used to report that a check operation started on (device_name,volume_name).
+ */
+typedef void (*fsck_hfs_check_start_func_t)(fsck_ctx_t, const char *device_name, const char *volume_name);
+
+/*
+ * void (*fsck_hfs_check_update_func_t)(fsck_ctx_t, int percentage_complete);
+ *
+ * This routine is used to report the progress of the check operation that started with fsck_hfs_check_start_func_t
+ */
+typedef void (*fsck_hfs_check_update_func_t)(fsck_ctx_t, int percentage_complete);
+
+/*
+ * void (*fsck_hfs_check_done_func_t)(fsck_ctx_t, int error);
+ *
+ * This routine is used to report the end of the check operation that started with fsck_hfs_check_start_func_t
+ */
+typedef void (*fsck_hfs_check_done_func_t)(fsck_ctx_t, int error);
+
 void fsck_init_state(void);
 
 void fsck_set_context_properties(fsck_hfs_print_msg_type_funct_t print_type,
@@ -196,4 +217,7 @@ int fsck_get_writable();
 int fsck_get_verbosity_level();
 void fsck_set_verbosity_level(int val);
 
+void fsck_set_check_update_routines(fsck_hfs_check_start_func_t,
+                                    fsck_hfs_check_update_func_t,
+                                    fsck_hfs_check_done_func_t);
 #endif /* lib_fsck_hfs_h */

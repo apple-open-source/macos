@@ -712,7 +712,7 @@ T_DECL(malloc_stress_nano, "Stress the heck out of malloc() with nano",
 	setup_and_test();
 }
 
-T_DECL(malloc_stress_msl_full, "Stress the heck out of malloc() - enable malloc stack logging, full mode", T_META_ENVVAR("MallocStackLogging=1"))
+T_DECL(malloc_stress_msl_full, "Stress the heck out of malloc() - enable malloc stack logging, full mode", T_META_ENVVAR("MallocStackLogging=full"))
 {
 	setup_and_test();
 }

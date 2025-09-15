@@ -81,11 +81,11 @@ skt_fullupipe_main(int argc, char *argv[])
 
 	channel0 = sktu_channel_create_extended(instance_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel0);
 	channel1 = sktu_channel_create_extended(instance_uuid, 1,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel1);
 
 	txring0 = os_channel_tx_ring(channel0, os_channel_ring_id(channel0, CHANNEL_FIRST_TX_RING));
@@ -277,11 +277,11 @@ skt_upipepeerclosure_main(int argc, char *argv[])
 
 	channel0 = sktu_channel_create_extended(instance_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel0);
 	channel1 = sktu_channel_create_extended(instance_uuid, 1,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel1);
 
 	txring0 = os_channel_tx_ring(channel0, os_channel_ring_id(channel0,

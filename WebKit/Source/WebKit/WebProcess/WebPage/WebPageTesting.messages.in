@@ -35,7 +35,7 @@ messages -> WebPageTesting {
 
     ClearWheelEventTestMonitor()
     ResetStateBetweenTests()
-    SetTopContentInset(float contentInset) -> ()
+    SetObscuredContentInsets(float top, float right, float bottom, float left) -> ()
     ClearCachedBackForwardListCounts() -> ()
     SetTracksRepaints(bool trackRepaints) -> ()
     DisplayAndTrackRepaints() -> ()

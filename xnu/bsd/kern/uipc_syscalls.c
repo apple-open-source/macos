@@ -1771,7 +1771,8 @@ static int
 sendit_x(proc_ref_t p, socket_ref_t so, struct sendmsg_x_args *uap, u_int *retval)
 {
 	int error = 0;
-	uio_t __single auio = NULL;
+	UIO_STACKBUF(uio_buf, UIO_SMALLIOV);
+	uio_t __single auio;
 	const bool is_p_64bit_process = IS_64BIT_PROCESS(p);
 	void *src;
 	MBUFQ_HEAD() pktlist = {};
@@ -1785,15 +1786,10 @@ sendit_x(proc_ref_t p, socket_ref_t so, struct sendmsg_x_args *uap, u_int *retva
 	*retval = 0;
 
 	/* We re-use the uio when possible */
-	auio = uio_create(1, 0,
+	auio = uio_createwithbuffer(UIO_SMALLIOV, 0,
 	    (is_p_64bit_process ? UIO_USERSPACE64 : UIO_USERSPACE32),
-	    UIO_WRITE);
-	if (auio == NULL) {
-		error = ENOBUFS;
-		DBG_PRINTF("%s uio_create() failed %d",
-		    __func__, error);
-		goto done;
-	}
+	    UIO_WRITE, &uio_buf[0],
+	    UIO_SIZEOF(UIO_SMALLIOV));
 
 	src = __unsafe_forge_bidi_indexable(void *, uap->msgp, uap->cnt);
 
@@ -3933,8 +3929,7 @@ sendfile(proc_ref_t p, struct sendfile_args *uap, __unused int *retval)
 		 * large writes only if there is a jumbo cluster pool and
 		 * if the socket is marked accordingly.
 		 */
-		jumbocl = sosendjcl && njcl > 0 &&
-		    ((so->so_flags & SOF_MULTIPAGES) || sosendjcl_ignore_capab);
+		jumbocl = (so->so_flags & SOF_MULTIPAGES) != 0;
 
 		socket_unlock(so, 0);
 		alloc_sendpkt(M_WAIT, xfsize, &nbufs, &m0, jumbocl);

@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2000-2011, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *******************************************************************************
 *
 *   file name:  uversion.h

@@ -37,7 +37,8 @@
 #include "common/system_utils.h"
 
 #if defined(ANGLE_ENABLE_ASSERTS)
-bool AreAssertionsEnabled() {
+bool AreAssertionsEnabled()
+{
     static bool enabled = [] { return angle::GetEnvironmentVar("ANGLE_DISABLE_ASSERTS") != "1"; }();
     return enabled;
 }

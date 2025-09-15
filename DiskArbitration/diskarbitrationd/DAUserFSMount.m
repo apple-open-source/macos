@@ -37,19 +37,59 @@
 #import <os/log.h>
 #import <os/feature_private.h>
 
+// For now, exfat needs to mount with UserFS, as exfat mount with FSKit is not ready yet.
+// msdos FSModule flow should stay the same as it was previously.
+// All other 3rd party FSModules will mount with the FSKit path.
+// TODO: look at this path again when FSKit mount path is ready for exfat.
+Boolean __DAMountShouldUseFSKit( CFStringRef fileSystemTypeStr , Boolean *isFSModule )
+{
+    NSString *fsType = (__bridge NSString *)fileSystemTypeStr;
+    BOOL mountWithUserFS = YES;
+    
+    if ( [fsType hasSuffix:@"_fskit"] )
+    {
+        if ( isFSModule != NULL )
+        {
+            *isFSModule = TRUE;
+        }
+        
+        if ( [fsType containsString:@"msdos"] )
+        {
+            if ( os_feature_enabled(FSKit, msdosUseFSKitModule) )
+            {
+                mountWithUserFS = NO;
+            }
+            else
+            {
+                mountWithUserFS = YES;
+            }
+        }
+        else if ( [fsType containsString:@"exfat"] )
+        {
+            mountWithUserFS = YES;
+        }
+        else
+        {
+            mountWithUserFS = NO;
+        }
+    }
+    
+    return ( mountWithUserFS == NO ) ? TRUE : FALSE;
+}
 
 int __DAMountUserFSVolume( void * parameter )
 {
-    int returnValue                            = 0;
+    int                    returnValue         = 0;
     __DAFileSystemContext *context             = parameter;
     FSAuditToken          *token;
+    Boolean                isFSModule          = FALSE;
     
     NSString *fsType       = (__bridge NSString *)context->fileSystem;
     NSString *deviceName   = (__bridge NSString *)context->deviceName;
     NSString *mountpoint   = (__bridge NSString *)context->mountPoint;
     NSString *volumeName   = (__bridge NSString *)context->volumeName;
     NSString *mountOptions = (__bridge NSString *)context->mountOptions;
-
+    
     if ( [FSClient class] == nil )
     {
         // No FSKit in the run time, bail
@@ -59,8 +99,18 @@ int __DAMountUserFSVolume( void * parameter )
         goto exit;
     }
 
-    token = [FSAuditToken new];
+    token = [[FSAuditToken alloc] init];
     token = [token tokenWithRuid:gDAConsoleUserUID];
+    
+    if ( ! __DAMountShouldUseFSKit( context->fileSystem , &isFSModule ) )
+    {
+        if ( isFSModule )
+        {
+            fsType = [fsType substringToIndex:
+                      [fsType rangeOfCharacterFromSet:
+                       [NSCharacterSet characterSetWithCharactersInString:@"_"]].location];
+        }
+    }
     
     returnValue = [FSKitDiskArbHelper DAMountUserFSVolume:fsType
                                                deviceName:deviceName

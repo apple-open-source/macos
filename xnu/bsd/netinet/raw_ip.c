@@ -79,6 +79,7 @@
 #include <sys/socketvar.h>
 #include <sys/sysctl.h>
 #include <libkern/OSAtomic.h>
+#include <kern/uipc_socket.h>
 #include <kern/zalloc.h>
 
 #include <pexpert/pexpert.h>
@@ -148,10 +149,9 @@ rip_init(struct protosw *pp, struct domain *dp)
 
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
-	if (rip_initialized) {
+	if (!os_atomic_cmpxchg(&rip_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	rip_initialized = 1;
 
 	LIST_INIT(&ripcb);
 	ripcbinfo.ipi_listhead = &ripcb;
@@ -390,6 +390,7 @@ rip_output(
 	struct inpcb *inp = sotoinpcb(so);
 	int flags = (so->so_options & SO_DONTROUTE) | IP_ALLOWBROADCAST;
 	int inp_flags = inp ? inp->inp_flags : 0;
+	struct sock_cm_info sockcminfo;
 	struct ip_out_args ipoa;
 	struct ip_moptions *imo;
 	int tos = IPTOS_UNSPEC;
@@ -464,22 +465,15 @@ rip_output(
 	ipoa.ipoa_boundif = IFSCOPE_NONE;
 	ipoa.ipoa_flags = IPOAF_SELECT_SRCIF;
 
-	int sotc = SO_TC_UNSPEC;
-	int netsvctype = _NET_SERVICE_TYPE_UNSPEC;
-
+	sock_init_cm_info(&sockcminfo, so);
 
 	if (control != NULL) {
-		tos = so_tos_from_control(control);
-		sotc = so_tc_from_control(control, &netsvctype);
+		tos = ip_tos_from_control(control);
+		sock_parse_cm_info(control, &sockcminfo);
 
 		m_freem(control);
 		control = NULL;
 	}
-	if (sotc == SO_TC_UNSPEC) {
-		sotc = so->so_traffic_class;
-		netsvctype = so->so_netsvctype;
-	}
-
 	if (inp == NULL
 #if NECP
 	    || (necp_socket_should_use_flow_divert(inp))
@@ -516,8 +510,8 @@ rip_output(
 	if (INP_ULTRA_CONSTRAINED_ALLOWED(inp)) {
 		ipoa.ipoa_flags |=  IPOAF_ULTRA_CONSTRAINED_ALLOWED;
 	}
-	ipoa.ipoa_sotc = sotc;
-	ipoa.ipoa_netsvctype = netsvctype;
+	ipoa.ipoa_sotc = sockcminfo.sotc;
+	ipoa.ipoa_netsvctype = sockcminfo.netsvctype;
 
 	if (inp->inp_flowhash == 0) {
 		inp_calc_flowhash(inp);
@@ -660,7 +654,10 @@ rip_output(
 		ROUTE_RELEASE(&inp->inp_route);
 	}
 
-	set_packet_service_class(m, so, sotc, 0);
+	set_packet_service_class(m, so, sockcminfo.sotc, 0);
+	if (sockcminfo.tx_time) {
+		mbuf_set_tx_time(m, sockcminfo.tx_time);
+	}
 	m->m_pkthdr.pkt_flowsrc = FLOWSRC_INPCB;
 	m->m_pkthdr.pkt_flowid = inp->inp_flowhash;
 	m->m_pkthdr.pkt_flags |= (PKTF_FLOW_ID | PKTF_FLOW_LOCALSRC |

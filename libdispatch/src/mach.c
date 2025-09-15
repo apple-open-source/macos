@@ -193,12 +193,12 @@ void
 _dispatch_mach_dispose(dispatch_mach_t dm, bool *allow_free)
 {
 	_dispatch_object_debug(dm, "%s", __func__);
-	_dispatch_unote_dispose(dm->dm_recv_refs);
+	_dispatch_unote_dispose(dm->dm_recv_refs, false);
 	dm->dm_recv_refs = NULL;
-	_dispatch_unote_dispose(dm->dm_send_refs);
+	_dispatch_unote_dispose(dm->dm_send_refs, false);
 	dm->dm_send_refs = NULL;
 	if (dm->dm_xpc_term_refs) {
-		_dispatch_unote_dispose(dm->dm_xpc_term_refs);
+		_dispatch_unote_dispose(dm->dm_xpc_term_refs, false);
 		dm->dm_xpc_term_refs = NULL;
 	}
 	_dispatch_lane_class_dispose(dm, allow_free);
@@ -399,7 +399,7 @@ _dispatch_mach_reply_unregister(dispatch_mach_t dm,
 		dmr->dmr_voucher = NULL;
 	}
 	if (!sync_waiter) {
-		_dispatch_unote_dispose(dmr);
+		_dispatch_unote_dispose(dmr, true);
 	}
 
 	if (dmsgr) {
@@ -1347,14 +1347,6 @@ again:
 	while (dmsr->dmsr_tail) {
 		dc = _dispatch_mach_send_get_head(dmsr);
 		do {
-			// rdar://61528779: If we have a pending EV_DELETE for a mach reply
-			// knote in our ddi, we need to send that to the kernel before we
-			// send another message. The next message could have a reply port
-			// with the same name as the knote that we've deferred deleting,
-			// which opens us up to knote collision. After we fix the unote
-			// lifecycle (rdar://146968641), this check can be removed.
-			_dispatch_clear_pending_deferred_events();
-
 			dispatch_mach_send_invoke_flags_t sf = send_flags;
 			// Only request immediate send result for the first message
 			send_flags &= ~DM_SEND_INVOKE_IMMEDIATE_SEND_MASK;

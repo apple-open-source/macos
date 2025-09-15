@@ -45,6 +45,8 @@ public:
     static unsigned calculateBytesPerRow(const IntSize&);
     static size_t calculateMemoryCost(const Parameters&);
 
+    SkSurface* surface() const final { return m_surface.get(); }
+
 protected:
     ImageBufferSkiaSurfaceBackend(const Parameters&, sk_sp<SkSurface>&&, RenderingMode);
 

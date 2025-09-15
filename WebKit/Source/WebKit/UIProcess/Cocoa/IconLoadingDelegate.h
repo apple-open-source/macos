@@ -63,7 +63,7 @@ private:
         CheckedRef<IconLoadingDelegate> m_iconLoadingDelegate;
     };
 
-    WKWebView *m_webView;
+    WeakObjCPtr<WKWebView> m_webView;
     WeakObjCPtr<id <_WKIconLoadingDelegate> > m_delegate;
 
     struct {

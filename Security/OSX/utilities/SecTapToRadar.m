@@ -37,14 +37,14 @@
 
 #include "utilities/SecInternalReleasePriv.h"
 
-#import <SoftLinking/SoftLinking.h>
 
 #if TARGET_OS_IPHONE
-SOFT_LINK_FRAMEWORK(Frameworks, MobileCoreServices)
-SOFT_LINK_CLASS(MobileCoreServices, LSApplicationWorkspace);
+// Can hard-link MobileCoreServices on iOS; no weak imports needed
 #elif TARGET_OS_OSX
-SOFT_LINK_FRAMEWORK(Frameworks, CoreServices)
-SOFT_LINK_CLASS(CoreServices, LSApplicationWorkspace);
+#import <SoftLinking/WeakLinking.h>
+
+// From CoreServices
+WEAK_IMPORT_OBJC_CLASS(LSApplicationWorkspace);
 #endif
 
 
@@ -163,10 +163,10 @@ static BOOL SecTTRDisabled = NO;
     NSURL *tapToRadarURL = [c URL];
 
 #if TARGET_OS_IPHONE
-    LSApplicationWorkspace *ws = [getLSApplicationWorkspaceClass() defaultWorkspace];
+    LSApplicationWorkspace *ws = [LSApplicationWorkspace defaultWorkspace];
     [ws openSensitiveURL:tapToRadarURL withOptions:nil];
 #elif TARGET_OS_OSX
-    LSApplicationWorkspace *ws = [getLSApplicationWorkspaceClass() defaultWorkspace];
+    LSApplicationWorkspace *ws = [LSApplicationWorkspace defaultWorkspace];
     [ws openURL:tapToRadarURL configuration:nil completionHandler:^(NSDictionary<NSString *,id> *result, NSError *error)
      {
         if (error) {

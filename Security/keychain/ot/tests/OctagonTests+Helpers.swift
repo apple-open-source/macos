@@ -67,6 +67,7 @@ extension OctagonTestsBase {
                                               passwordEquivalentToken: String? = nil,
                                               octagonCapableRecordsExist: Bool = false,
                                               overrideForJoinAfterRestore: Bool = false,
+                                              isGuitarfish: Bool = false,
                                               ckksControl: CKKSControl? = nil) -> OTConfigurationContext {
 
         let otcliqueContext = OTConfigurationContext()
@@ -81,6 +82,9 @@ extension OctagonTestsBase {
         otcliqueContext.octagonCapableRecordsExist = octagonCapableRecordsExist
         otcliqueContext.overrideForJoinAfterRestore = overrideForJoinAfterRestore
         otcliqueContext.ckksControl = ckksControl
+        otcliqueContext.flowID = "test-flowID"
+        otcliqueContext.deviceSessionID = "test-deviceSessionID"
+        otcliqueContext.isGuitarfish = isGuitarfish
         return otcliqueContext
     }
 

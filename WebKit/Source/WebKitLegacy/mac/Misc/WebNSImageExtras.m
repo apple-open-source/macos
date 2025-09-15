@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,9 +53,6 @@
     
     if(resizeDelta > 0.0){
         NSSize newSize = NSMakeSize((originalSize.width * resizeDelta), (originalSize.height * resizeDelta));
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        [self setScalesWhenResized:YES];
-ALLOW_DEPRECATED_DECLARATIONS_END
         [self setSize:newSize];
     }
 }

@@ -30,7 +30,7 @@
 
 #include <stdlib.h>
 #include <fcntl.h>
-#include <sys/mount.h>
+#include <System/sys/mount.h>
 #include <sys/stat.h>
 
 #include <darwintest.h>
@@ -74,7 +74,7 @@ statfs_compare(const char *path, struct statfs *sfs_ext, int mode, int flag, int
 	int fd;
 	struct statfs sfs;
 
-	T_LOG("Testing: path %s, sfs_ext %p, mode %s, flag 0x%x, expected_err %d", path, (void *) sfs_ext, mode_name[mode], flag, expected_err);
+	T_LOG("Testing: path %s, sfs_ext %p, mode %s, flag 0x%x, expected_err %d", path, (void *) sfs_ext, mode_name[mode], (unsigned int)flag, expected_err);
 
 	if (sfs_ext) {
 		bzero(sfs_ext, sizeof(struct statfs));

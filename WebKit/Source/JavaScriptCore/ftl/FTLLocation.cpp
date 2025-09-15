@@ -131,7 +131,7 @@ void Location::restoreInto(MacroAssembler& jit, char* savedRegisters, GPRReg res
     switch (kind()) {
     case Register:
         // B3 used some register that we don't know about!
-        dataLog("Unrecognized location: ", *this, "\n");
+        dataLogLn("Unrecognized location: ", *this);
         RELEASE_ASSERT_NOT_REACHED();
         return;
         

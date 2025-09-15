@@ -28,7 +28,7 @@
     DispatchedTo=WebContent
 ]
 messages -> RemoteCDMInstanceSession {
-    UpdateKeyStatuses(WebCore::CDMInstanceSession::KeyStatusVector keyStatuses)
+    UpdateKeyStatuses(Vector<std::pair<Ref<WebCore::SharedBuffer>, WebCore::CDMKeyStatus>> keyStatuses)
     SendMessage(enum:uint8_t WebCore::CDMMessageType type, RefPtr<WebCore::SharedBuffer> message)
     SessionIdChanged(String sessionId)
 }

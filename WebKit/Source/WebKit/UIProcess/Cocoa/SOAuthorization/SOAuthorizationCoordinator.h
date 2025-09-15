@@ -63,7 +63,7 @@ public:
     void tryAuthorize(Ref<API::PageConfiguration>&&, Ref<API::NavigationAction>&&, WebPageProxy&, NewPageCallback&&, UIClientCallback&&);
 
 private:
-    bool canAuthorize(const URL&) const;
+    void canAuthorize(const URL&, CompletionHandler<void(bool)>&&);
 
     RetainPtr<WKSOAuthorizationDelegate> m_soAuthorizationDelegate;
     bool m_hasAppSSO { false };

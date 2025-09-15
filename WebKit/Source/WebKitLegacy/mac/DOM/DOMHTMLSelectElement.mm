@@ -97,7 +97,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -121,7 +121,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->type();
+    return IMPL->type().createNSString().autorelease();
 }
 
 - (DOMHTMLOptionsCollection *)options
@@ -151,7 +151,7 @@
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->value();
+    return IMPL->value().createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue
@@ -185,11 +185,11 @@
         raiseTypeErrorException();
 
     auto& coreElement = *core(element);
-    std::variant<RefPtr<WebCore::HTMLOptionElement>, RefPtr<WebCore::HTMLOptGroupElement>> variantElement;
+    Variant<RefPtr<WebCore::HTMLOptionElement>, RefPtr<WebCore::HTMLOptGroupElement>> variantElement;
     if (is<WebCore::HTMLOptionElement>(coreElement))
-        variantElement = &downcast<WebCore::HTMLOptionElement>(coreElement);
+        variantElement = downcast<WebCore::HTMLOptionElement>(coreElement);
     else if (is<WebCore::HTMLOptGroupElement>(coreElement))
-        variantElement = &downcast<WebCore::HTMLOptGroupElement>(coreElement);
+        variantElement = downcast<WebCore::HTMLOptGroupElement>(coreElement);
     else
         raiseTypeErrorException();
     raiseOnDOMError(IMPL->add(WTFMove(variantElement), WebCore::HTMLSelectElement::HTMLElementOrInt(core(before))));

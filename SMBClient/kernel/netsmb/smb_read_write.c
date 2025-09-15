@@ -442,7 +442,7 @@ smb_rw_get_queue_id(struct smb_rw_arg *uap)
  * Depending on passed in flags, pick a queue to enqueue the work onto and then
  * wake up that thread.
  */
-void
+int
 smb_rw_proxy(void *arg)
 {
 	struct smb_rw_arg *uap = (struct smb_rw_arg *) arg;
@@ -452,7 +452,7 @@ smb_rw_proxy(void *arg)
     qi = smb_rw_get_queue_id(uap);
     if (qi < 0) {
         SMBERROR("smb_rw_get_queue_id failed");
-        return;
+        return EINVAL;
     }
     myqueue = &smb_rw_queue_tbl[qi];
 
@@ -462,7 +462,7 @@ smb_rw_proxy(void *arg)
 	if (uap == NULL || uap->flags & SMB_RW_QUEUED) {
 		lck_mtx_unlock(myqueue->rwq_lock);
         SMBERROR("Already queued or freed?\n");
-		return;  /* Already queued or freed */
+		return EINVAL;  /* Already queued or freed */
 	}
 
 	TAILQ_INSERT_TAIL(myqueue->rwq_queue, uap, sra_svcq);
@@ -487,4 +487,5 @@ smb_rw_proxy(void *arg)
 	}
 #endif
 	lck_mtx_unlock(myqueue->rwq_lock);
+    return 0;
 }

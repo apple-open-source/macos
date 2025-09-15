@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -101,7 +101,7 @@ private:
 #endif
 
     WeakRef<Page> m_page;
-    UniqueRef<ContextMenuClient> m_client;
+    const UniqueRef<ContextMenuClient> m_client;
     std::unique_ptr<ContextMenu> m_contextMenu;
     RefPtr<ContextMenuProvider> m_menuProvider;
     ContextMenuContext m_context;

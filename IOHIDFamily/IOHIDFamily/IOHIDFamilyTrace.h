@@ -66,6 +66,8 @@ enum kIOHIDDebugCodes {
     kIOHIDDebugCode_HIDDeviceEnqueueFail,
     kIOHIDDebugCode_HIDEventServiceEnqueueFail, // 32 0x5230080
     kIOHIDDebugCode_DK_Intf_HandleReport,
+    kIOHIDDebugCode_CmplxEvtDrv_InterruptReport,
+    kIOHIDDebugCode_IOFastPath_EnqueueSample,
     kIOHIDDebugCode_Invalid
 };
 

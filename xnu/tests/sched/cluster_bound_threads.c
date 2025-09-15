@@ -11,7 +11,6 @@
 #include <sys/sysctl.h>
 #include <os/tsd.h>
 #include <machine/cpu_capabilities.h>
-#include <sys/kdebug.h>
 
 #include <darwintest.h>
 #include <darwintest_utils.h>
@@ -146,19 +145,15 @@ T_DECL(cluster_soft_binding,
 	trace_handle_t trace = begin_collect_trace(argc, argv, "cluster_soft_binding");
 	T_SETUPEND;
 
-	for (int p = 0; p < 2; p++) {
+	for (unsigned int p = 0; p < platform_nperflevels(); p++) {
 		/* Ensure all cores recommended */
 		char *restore_dynamic_control_args[] = {"-d", NULL};
 		execute_clpcctrl(restore_dynamic_control_args, false);
 		bool all_cores_recommended = check_recommended_core_mask(NULL);
 		T_QUIET; T_EXPECT_TRUE(all_cores_recommended, "Not all cores are recommended for scheduling");
 
-		void *arg;
-		if (p == 0) {
-			arg = (void *)'P';
-		} else {
-			arg = (void *)'E';
-		}
+		char perflevel_char = platform_perflevel_name(p)[0];
+		void *arg = (void *)perflevel_char;
 		pthread_t bound_thread;
 		create_thread(&bound_thread, NULL, spin_bound_thread, arg);
 		sleep(1);
@@ -171,12 +166,8 @@ T_DECL(cluster_soft_binding,
 		    "%c-bound thread didn't run at least %f of %d seconds", (char)arg, runtime_threshold, observe_seconds);
 
 		/* Derecommend the bound cluster type */
-		char *derecommend_args[] = {"-C", "X", NULL};
-		if (p == 0) {
-			derecommend_args[1] = "e";
-		} else {
-			derecommend_args[1] = "p";
-		}
+		char perflevel_arg[2] = {perflevel_char, '\0'};
+		char *derecommend_args[] = {"-C", perflevel_arg, NULL};
 		execute_clpcctrl(derecommend_args, false);
 		check_recommended_core_mask(NULL);
 		sleep(1);
@@ -211,7 +202,7 @@ spin_cluster_binding(void *)
 			if (running_on_cluster != bind_cluster) {
 				T_LOG("Failed on iteration %d", t);
 				/* Mark this failure in the recorded trace */
-				kdebug_trace(ARIADNEDBG_CODE(0, 0), (uint64_t)t, (uint64_t)bind_cluster, (uint64_t)running_on_cluster, 0);
+				sched_kdebug_test_fail(t, bind_cluster, running_on_cluster, 0);
 			}
 		}
 	}

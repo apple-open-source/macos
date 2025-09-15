@@ -169,7 +169,7 @@ enum class FeatureToAnimate {
 
     ASSERT(_scroller->isScrollerFor(scrollerImp));
 
-    return _scroller->lastKnownMousePositionInScrollbar();
+    return CheckedPtr { _scroller }->lastKnownMousePositionInScrollbar();
 }
 
 - (NSRect)convertRectToLayer:(NSRect)rect
@@ -191,7 +191,8 @@ enum class FeatureToAnimate {
     if (!_scroller)
         return [NSAppearance currentDrawingAppearance];
     // The base system does not support dark Aqua, so we might get a null result.
-    if (auto *appearance = [NSAppearance appearanceNamed:_scroller->pair().useDarkAppearance() ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua])
+    // FIXME: This is a static analysis false positive.
+    SUPPRESS_UNRETAINED_ARG if (auto *appearance = [NSAppearance appearanceNamed:_scroller->pair()->useDarkAppearance() ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua])
         return appearance;
     return [NSAppearance currentDrawingAppearance];
 }
@@ -204,9 +205,11 @@ enum class FeatureToAnimate {
         scrollbarPartAnimation = nil;
     }
 
+    CGFloat currentAlpha = featureToAnimate == FeatureToAnimate::KnobAlpha ? _scroller->knobAlpha() : _scroller->trackAlpha();
+
     scrollbarPartAnimation = adoptNS([[WebScrollbarPartAnimationMac alloc] initWithScroller:_scroller.get()
         featureToAnimate:featureToAnimate
-        animateFrom:featureToAnimate == FeatureToAnimate::KnobAlpha ? _scroller->knobAlpha() : _scroller->trackAlpha()
+        animateFrom:currentAlpha
         animateTo:newAlpha
         duration:duration]);
     [scrollbarPartAnimation startAnimation];
@@ -218,7 +221,7 @@ enum class FeatureToAnimate {
         return;
 
     ASSERT(_scroller->isScrollerFor(scrollerImp));
-    _scroller->visibilityChanged(newKnobAlpha > 0);
+    CheckedPtr { _scroller }->visibilityChanged(newKnobAlpha > 0);
     [self setUpAlphaAnimation:_knobAlphaAnimation featureToAnimate:FeatureToAnimate::KnobAlpha animateAlphaTo:newKnobAlpha duration:duration];
 }
 
@@ -315,10 +318,11 @@ ScrollerMac::~ScrollerMac()
 void ScrollerMac::attach()
 {
     Locker locker { m_scrollerImpLock };
+    RefPtr pair = m_pair.get();
 
     [m_scrollerImpDelegate invalidate];
     m_scrollerImpDelegate = adoptNS([[WebScrollerImpDelegateMac alloc] initWithScroller:this]);
-    setScrollerImp([NSScrollerImp scrollerImpWithStyle:nsScrollerStyle(m_pair.scrollbarStyle()) controlSize:nsControlSizeFromScrollbarWidth(m_pair.scrollbarWidthStyle()) horizontal:m_orientation == ScrollbarOrientation::Horizontal replacingScrollerImp:nil]);
+    setScrollerImp([NSScrollerImp scrollerImpWithStyle:nsScrollerStyle(pair->scrollbarStyle()) controlSize:nsControlSizeFromScrollbarWidth(pair->scrollbarWidthStyle()) horizontal:m_orientation == ScrollbarOrientation::Horizontal replacingScrollerImp:nil]);
     [m_scrollerImp setDelegate:m_scrollerImpDelegate.get()];
 }
 
@@ -362,10 +366,12 @@ void ScrollerMac::updateValues()
 {
     Locker locker { m_scrollerImpLock };
 
-    auto values = m_pair.valuesForOrientation(m_orientation);
+    RefPtr pair = m_pair.get();
+    auto values = pair->valuesForOrientation(m_orientation);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_scrollerImp setEnabled:m_isEnabled];
+    [m_scrollerImp setUserInterfaceLayoutDirection: m_scrollbarLayoutDirection == UserInterfaceLayoutDirection::RTL ? NSUserInterfaceLayoutDirectionRightToLeft : NSUserInterfaceLayoutDirectionLeftToRight];
     [m_scrollerImp setBoundsSize:NSSizeFromCGSize([m_hostLayer bounds].size)];
     [m_scrollerImp setDoubleValue:values.value];
     [m_scrollerImp setPresentationValue:values.value];
@@ -378,7 +384,8 @@ void ScrollerMac::updateScrollbarStyle()
 {
     Locker locker { m_scrollerImpLock };
 
-    setScrollerImp([NSScrollerImp scrollerImpWithStyle:nsScrollerStyle(m_pair.scrollbarStyle()) controlSize:nsControlSizeFromScrollbarWidth(m_pair.scrollbarWidthStyle()) horizontal:m_orientation == ScrollbarOrientation::Horizontal replacingScrollerImp:nil]);
+    RefPtr pair = m_pair.get();
+    setScrollerImp([NSScrollerImp scrollerImpWithStyle:nsScrollerStyle(pair->scrollbarStyle()) controlSize:nsControlSizeFromScrollbarWidth(pair->scrollbarWidthStyle()) horizontal:m_orientation == ScrollbarOrientation::Horizontal replacingScrollerImp:nil]);
     [m_scrollerImp setDelegate:m_scrollerImpDelegate.get()];
 
     [m_scrollerImp setLayer:m_hostLayer.get()];
@@ -389,38 +396,45 @@ void ScrollerMac::updateScrollbarStyle()
 
 void ScrollerMac::updatePairScrollerImps()
 {
-    NSScrollerImp *scrollerImp = m_scrollerImp.get();
+    RetainPtr scrollerImp = m_scrollerImp.get();
+    RefPtr pair = m_pair.get();
     if (m_orientation == ScrollbarOrientation::Vertical)
-        m_pair.setVerticalScrollerImp(scrollerImp);
+        pair->setVerticalScrollerImp(scrollerImp.get());
     else
-        m_pair.setHorizontalScrollerImp(scrollerImp);
+        pair->setHorizontalScrollerImp(scrollerImp.get());
 }
 
 void ScrollerMac::mouseEnteredScrollbar()
 {
-    m_pair.ensureOnMainThreadWithProtectedThis([this] {
+    RefPtr pair = m_pair.get();
+    RetainPtr protectedScrollerImp = m_scrollerImp;
+    RetainPtr protectedPair = pair->scrollerImpPair();
+    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTFMove(protectedScrollerImp), protectedPair = WTFMove(protectedPair)](auto&) {
         // At this time, only legacy scrollbars needs to send notifications here.
-        if (m_pair.scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
+        if (pair->scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
             return;
 
-        if ([m_pair.scrollerImpPair() overlayScrollerStateIsLocked])
+        if ([protectedPair overlayScrollerStateIsLocked])
             return;
 
-        [m_scrollerImp mouseEnteredScroller];
+        [protectedScrollerImp mouseEnteredScroller];
     });
 }
 
 void ScrollerMac::mouseExitedScrollbar()
 {
-    m_pair.ensureOnMainThreadWithProtectedThis([this] {
+    RefPtr pair = m_pair.get();
+    RetainPtr protectedScrollerImp = m_scrollerImp;
+    RetainPtr protectedPair = pair->scrollerImpPair();
+    pair->ensureOnMainThreadWithProtectedThis([pair, protectedScrollerImp = WTFMove(protectedScrollerImp), protectedPair = WTFMove(protectedPair)](auto&) {
         // At this time, only legacy scrollbars needs to send notifications here.
-        if (m_pair.scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
+        if (pair->scrollbarStyle() != WebCore::ScrollbarStyle::AlwaysVisible)
             return;
 
-        if ([m_pair.scrollerImpPair() overlayScrollerStateIsLocked])
+        if ([protectedPair overlayScrollerStateIsLocked])
             return;
 
-        [m_scrollerImp mouseExitedScroller];
+        [protectedScrollerImp mouseExitedScroller];
     });
 }
 
@@ -428,7 +442,8 @@ IntPoint ScrollerMac::lastKnownMousePositionInScrollbar() const
 {
     // When we dont have an update from the Web Process, return
     // a point outside of the scrollbars
-    if (!m_pair.mouseInContentArea())
+    RefPtr pair = m_pair.get();
+    if (!pair->mouseInContentArea())
         return { -1, -1 };
     return m_lastKnownMousePositionInScrollbar;
 }
@@ -439,7 +454,8 @@ void ScrollerMac::visibilityChanged(bool isVisible)
         return;
     m_isVisible = isVisible;
 
-    if (RefPtr node = m_pair.protectedNode())
+    RefPtr pair = m_pair.get();
+    if (RefPtr node = pair->protectedNode())
         node->scrollbarVisibilityDidChange(m_orientation, isVisible);
 }
 
@@ -449,7 +465,8 @@ void ScrollerMac::updateMinimumKnobLength(int minimumKnobLength)
         return;
     m_minimumKnobLength = minimumKnobLength;
 
-    if (RefPtr node = m_pair.protectedNode())
+    RefPtr pair = m_pair.get();
+    if (RefPtr node = pair->protectedNode())
         node->scrollbarMinimumThumbLengthDidChange(m_orientation, m_minimumKnobLength);
 }
 
@@ -467,6 +484,11 @@ void ScrollerMac::setScrollbarLayoutDirection(UserInterfaceLayoutDirection scrol
 {
     Locker locker { m_scrollerImpLock };
 
+    if (m_scrollbarLayoutDirection == scrollbarLayoutDirection)
+        return;
+
+    m_scrollbarLayoutDirection = scrollbarLayoutDirection;
+    updateScrollbarStyle();
     [m_scrollerImp setUserInterfaceLayoutDirection: scrollbarLayoutDirection == UserInterfaceLayoutDirection::RTL ? NSUserInterfaceLayoutDirectionRightToLeft : NSUserInterfaceLayoutDirectionLeftToRight];
 }
 
@@ -536,7 +558,7 @@ bool ScrollerMac::hasScrollerImp()
 {
     Locker locker { m_scrollerImpLock };
 
-    return m_scrollerImp;
+    return (bool)m_scrollerImp;
 }
 
 String ScrollerMac::scrollbarState() const
@@ -549,7 +571,8 @@ String ScrollerMac::scrollbarState() const
     StringBuilder result;
     result.append([m_scrollerImp isEnabled] ? "enabled"_s: "disabled"_s);
 
-    if (m_pair.scrollbarStyle() != WebCore::ScrollbarStyle::Overlay)
+    RefPtr pair = m_pair.get();
+    if (pair->scrollbarStyle() != WebCore::ScrollbarStyle::Overlay)
         return result.toString();
 
     if ([m_scrollerImp isExpanded])

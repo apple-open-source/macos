@@ -29,7 +29,6 @@
 
 #include "WebGPUOrigin2D.h"
 #include <optional>
-#include <variant>
 
 namespace WebKit::WebGPU {
 

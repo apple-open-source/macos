@@ -31,6 +31,7 @@
 
 #include <sys/cdefs.h>
 #include <Availability.h>
+#include <stddef.h>
 
 /*
  * kas_info() ("Kernel Address Space Info") is a private interface that allows

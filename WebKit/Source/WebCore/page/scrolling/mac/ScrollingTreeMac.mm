@@ -112,14 +112,14 @@ static bool isScrolledBy(const ScrollingTree& tree, ScrollingNodeID scrollingNod
         if (nodeID == scrollingNodeID)
             return true;
 
-        auto* scrollingNode = tree.nodeForID(nodeID);
-        if (auto* proxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(scrollingNode)) {
+        RefPtr scrollingNode = tree.nodeForID(nodeID);
+        if (RefPtr proxyNode = dynamicDowncast<ScrollingTreeOverflowScrollProxyNode>(scrollingNode)) {
             auto actingOverflowScrollingNodeID = proxyNode->overflowScrollingNodeID();
             if (actingOverflowScrollingNodeID == scrollingNodeID)
                 return true;
         }
 
-        if (auto* positionedNode = dynamicDowncast<ScrollingTreePositionedNode>(scrollingNode)) {
+        if (RefPtr positionedNode = dynamicDowncast<ScrollingTreePositionedNode>(scrollingNode)) {
             if (positionedNode->relatedOverflowScrollingNodes().contains(scrollingNodeID))
                 return false;
         }
@@ -136,7 +136,7 @@ RefPtr<ScrollingTreeNode> ScrollingTreeMac::scrollingNodeForPoint(FloatPoint poi
 
     Locker locker { m_layerHitTestMutex };
 
-    auto rootContentsLayer = static_cast<ScrollingTreeFrameScrollingNodeMac*>(rootScrollingNode.get())->rootContentsLayer();
+    auto rootContentsLayer = downcast<ScrollingTreeFrameScrollingNodeMac>(rootScrollingNode.get())->rootContentsLayer();
     FloatPoint scrollOrigin = rootScrollingNode->scrollOrigin();
     auto pointInContentsLayer = point;
     pointInContentsLayer.moveBy(scrollOrigin);
@@ -197,13 +197,13 @@ RefPtr<ScrollingTreeNode> ScrollingTreeMac::scrollingNodeForPoint(FloatPoint poi
 #if ENABLE(WHEEL_EVENT_REGIONS)
 OptionSet<EventListenerRegionType> ScrollingTreeMac::eventListenerRegionTypesForPoint(FloatPoint point) const
 {
-    auto* rootScrollingNode = rootNode();
+    RefPtr rootScrollingNode = rootNode();
     if (!rootScrollingNode)
         return { };
 
     Locker locker { m_layerHitTestMutex };
 
-    auto rootContentsLayer = static_cast<ScrollingTreeFrameScrollingNodeMac*>(rootScrollingNode)->rootContentsLayer();
+    auto rootContentsLayer = downcast<ScrollingTreeFrameScrollingNodeMac>(rootScrollingNode)->rootContentsLayer();
 
     Vector<LayerAndPoint, 16> layersAtPoint;
     collectDescendantLayersAtPoint(layersAtPoint, rootContentsLayer.get(), point, layerEventRegionContainsPoint);

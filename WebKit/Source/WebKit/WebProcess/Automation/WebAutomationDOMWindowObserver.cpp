@@ -50,7 +50,8 @@ void WebAutomationDOMWindowObserver::willDestroyGlobalObjectInCachedFrame()
     Ref<WebAutomationDOMWindowObserver> protectedThis(*this);
 
     if (!m_wasDetached) {
-        ASSERT(m_window && m_window->frame());
+        // No need to check the frame, as a cached frame's document is detached from the original LocalFrame.
+        ASSERT(m_window);
         m_callback(*this);
     }
 

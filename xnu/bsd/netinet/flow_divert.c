@@ -656,7 +656,7 @@ flow_divert_add_data_statistics(struct flow_divert_pcb *fd_cb, size_t data_len, 
 {
 	struct inpcb *inp = NULL;
 	struct ifnet *ifp = NULL;
-	stats_functional_type ifnet_count_type = stats_functional_type_none;
+	stats_functional_type ifnet_count_type = stats_functional_type_unclassified;
 
 	inp = sotoinpcb(fd_cb->so);
 	if (inp == NULL) {
@@ -673,13 +673,10 @@ flow_divert_add_data_statistics(struct flow_divert_pcb *fd_cb, size_t data_len, 
 	}
 
 	if (send) {
-		INP_ADD_STAT(inp, ifnet_count_type, txpackets, 1);
-		INP_ADD_STAT(inp, ifnet_count_type, txbytes, data_len);
+		INP_ADD_TXSTAT(inp, ifnet_count_type, 1, data_len);
 	} else {
-		INP_ADD_STAT(inp, ifnet_count_type, rxpackets, 1);
-		INP_ADD_STAT(inp, ifnet_count_type, rxbytes, data_len);
+		INP_ADD_RXSTAT(inp, ifnet_count_type, 1, data_len);
 	}
-	inp_set_activity_bitmap(inp);
 }
 
 static errno_t

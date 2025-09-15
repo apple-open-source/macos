@@ -26,6 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include <libkern/OSAtomic.h>
 #include <mach/mach_types.h>
 #include <mach/thread_act_server.h>
 
@@ -1653,11 +1654,11 @@ thread_policy_update_internal_spinlocked(thread_t thread, bool recompute_priorit
 		next_qos = MAX(requested.thrp_qos_workq_override, next_qos);
 	}
 
-	if (task_effective.tep_darwinbg && task_effective.tep_adaptive_bg &&
+	if (task_effective.tep_darwinbg && task_effective.tep_promote_above_task &&
 	    requested.thrp_qos_promote > THREAD_QOS_BACKGROUND) {
 		/*
-		 * This thread is turnstile-boosted higher than the adaptive clamp
-		 * by a synchronous waiter. Allow that to override the adaptive
+		 * This thread is turnstile-boosted higher than the background clamp
+		 * by a synchronous waiter, and this clamp allows that to override the
 		 * clamp temporarily for this thread only.
 		 */
 		next.thep_promote_above_task = true;
@@ -1866,6 +1867,13 @@ thread_policy_update_internal_spinlocked(thread_t thread, bool recompute_priorit
 	}
 
 	integer_t old_base_pri = thread->base_pri;
+
+	/* promote-above-task generates its own dedicated tracepoint */
+	if (prev.thep_promote_above_task != next.thep_promote_above_task) {
+		KDBG_RELEASE(IMPORTANCE_CODE(IMP_THREAD_PROMOTE_ABOVE_TASK, 0) |
+		    (next.thep_promote_above_task ? DBG_FUNC_START : DBG_FUNC_END),
+		    thread_tid(thread), next.thep_terminated);
+	}
 
 	/*
 	 * Step 5:

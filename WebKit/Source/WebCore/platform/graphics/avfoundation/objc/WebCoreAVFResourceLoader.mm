@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,7 +67,7 @@ private:
     void stop();
 
     // CachedRawResourceClient
-    void responseReceived(CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) final;
+    void responseReceived(const CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) final;
     void dataReceived(CachedResource&, const SharedBuffer&) final;
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&, LoadWillContinueInAnotherProcess) final;
 
@@ -120,7 +120,7 @@ void CachedResourceMediaLoader::stop()
     m_resource = nullptr;
 }
 
-void CachedResourceMediaLoader::responseReceived(CachedResource& resource, const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
+void CachedResourceMediaLoader::responseReceived(const CachedResource& resource, const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT_UNUSED(resource, &resource == m_resource);
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
@@ -140,7 +140,7 @@ void CachedResourceMediaLoader::notifyFinished(CachedResource& resource, const N
 void CachedResourceMediaLoader::dataReceived(CachedResource& resource, const SharedBuffer&)
 {
     ASSERT(&resource == m_resource);
-    if (auto* data = resource.resourceBuffer())
+    if (RefPtr data = resource.resourceBuffer())
         m_parent.newDataStoredInSharedBuffer(*data);
 }
 
@@ -169,19 +169,18 @@ private:
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) final { loadFinished(); }
 
     WebCoreAVFResourceLoader& m_parent;
-    Ref<GuaranteedSerialFunctionDispatcher> m_targetDispatcher;
+    const Ref<GuaranteedSerialFunctionDispatcher> m_targetDispatcher;
     RefPtr<PlatformMediaResource> m_resource WTF_GUARDED_BY_CAPABILITY(m_targetDispatcher.get());
     SharedBufferBuilder m_buffer WTF_GUARDED_BY_CAPABILITY(m_targetDispatcher.get());
 };
 
 RefPtr<PlatformResourceMediaLoader> PlatformResourceMediaLoader::create(WebCoreAVFResourceLoader& parent, PlatformMediaResourceLoader& loader, ResourceRequest&& request)
 {
-    auto resource = loader.requestResource(WTFMove(request), PlatformMediaResourceLoader::LoadOption::DisallowCaching);
+    RefPtr resource = loader.requestResource(WTFMove(request), PlatformMediaResourceLoader::LoadOption::DisallowCaching);
     if (!resource)
         return nullptr;
-    auto* resourcePointer = resource.get();
-    auto client = adoptRef(*new PlatformResourceMediaLoader { parent, resource.releaseNonNull() });
-    resourcePointer->setClient(client.copyRef());
+    Ref client = adoptRef(*new PlatformResourceMediaLoader { parent, *resource });
+    resource->setClient(client.copyRef());
     return client;
 }
 
@@ -326,7 +325,7 @@ void WebCoreAVFResourceLoader::startLoading()
     m_isBlob = request.url().protocolIsBlob();
 #endif
 
-    if (auto* loader = parent->player()->cachedResourceLoader()) {
+    if (RefPtr loader = parent->player()->cachedResourceLoader()) {
         m_resourceMediaLoader = CachedResourceMediaLoader::create(*this, *loader, ResourceRequest(request));
         if (m_resourceMediaLoader)
             return;
@@ -374,7 +373,7 @@ bool WebCoreAVFResourceLoader::responseReceived(const String& mimeType, int stat
     if (AVAssetResourceLoadingContentInformationRequest* contentInfo = [m_avRequest contentInformationRequest]) {
         String uti = UTIFromMIMEType(mimeType);
 
-        [contentInfo setContentType:uti];
+        [contentInfo setContentType:uti.createNSString().get()];
 
         [contentInfo setContentLength:contentRange.isValid() ? contentRange.instanceLength() : expectedContentLength];
         [contentInfo setByteRangeAccessSupported:YES];

@@ -8413,8 +8413,11 @@ smb2fs_smb_get_create_options(struct smb_share *share, struct smbnode *np,
      * child (namep) in parent dir (np)
      */
     
-    /* If its a dir, then set the dir option */
-    if (vnode_type == VDIR) {
+    /*
+     * If its a dir, then set the dir option
+     * if strm_namep is also set, we're opening a named stream on that dir
+     */
+    if ((vnode_type == VDIR) && (!strm_namep)) {
         create_options |= NTCREATEX_OPTIONS_DIRECTORY;
     }
     

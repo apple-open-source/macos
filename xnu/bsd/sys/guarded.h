@@ -166,6 +166,7 @@ enum guard_vn_exception_codes {
 #define kVNG_POLICY_EXC_CORPSE  (1u << 3)
 #define kVNG_POLICY_SIGKILL     (1u << 4)
 #define kVNG_POLICY_UPRINTMSG   (1u << 5)
+#define kVNG_POLICY_EXC_CORE    (1u << 6)
 
 #if BSD_KERNEL_PRIVATE
 struct fileglob;

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -532,7 +532,7 @@ mDNSlocal void SocketDataReady(mDNS *const m, const PosixNetworkInterface *intf,
     {
         const mDNSInterfaceID InterfaceID = intf ? intf->coreIntf.InterfaceID : NULL;
         mDNSCoreReceive(m, &packet, (mDNSu8 *)&packet + packetLen,
-                        &senderAddr, senderPort, &destAddr, sock == mDNSNULL ? MulticastDNSPort : sock->port, InterfaceID);
+                        &senderAddr, senderPort, &destAddr, sock == mDNSNULL ? MulticastDNSPort : sock->port, InterfaceID, 0);
     }
 }
 

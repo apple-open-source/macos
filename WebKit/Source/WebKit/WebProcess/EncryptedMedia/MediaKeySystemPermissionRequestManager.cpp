@@ -33,7 +33,7 @@
 #include "WebFrame.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
-#include <WebCore/Document.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/LocalFrame.h>
@@ -54,8 +54,8 @@ MediaKeySystemPermissionRequestManager::MediaKeySystemPermissionRequestManager(W
 
 void MediaKeySystemPermissionRequestManager::startMediaKeySystemRequest(MediaKeySystemRequest& request)
 {
-    Document* document = request.document();
-    auto* frame = document ? document->frame() : nullptr;
+    RefPtr document = request.document();
+    RefPtr frame = document ? document->frame() : nullptr;
 
     if (!frame || !document->page()) {
         request.deny(emptyString());
@@ -75,7 +75,13 @@ void MediaKeySystemPermissionRequestManager::startMediaKeySystemRequest(MediaKey
 
 void MediaKeySystemPermissionRequestManager::sendMediaKeySystemRequest(MediaKeySystemRequest& userRequest)
 {
-    auto* frame = userRequest.document() ? userRequest.document()->frame() : nullptr;
+    RefPtr document = userRequest.document();
+    if (!document) {
+        userRequest.deny(emptyString());
+        return;
+    }
+
+    RefPtr frame = document->frame();
     if (!frame) {
         userRequest.deny(emptyString());
         return;
@@ -86,8 +92,7 @@ void MediaKeySystemPermissionRequestManager::sendMediaKeySystemRequest(MediaKeyS
     auto webFrame = WebFrame::fromCoreFrame(*frame);
     ASSERT(webFrame);
 
-    auto* topLevelDocumentOrigin = userRequest.topLevelDocumentOrigin();
-    Ref { m_page.get() }->send(Messages::WebPageProxy::RequestMediaKeySystemPermissionForFrame(userRequest.identifier(), webFrame->frameID(), topLevelDocumentOrigin->data(), userRequest.keySystem()));
+    Ref { m_page.get() }->send(Messages::WebPageProxy::RequestMediaKeySystemPermissionForFrame(userRequest.identifier(), webFrame->frameID(), document->clientOrigin(), userRequest.keySystem()));
 }
 
 void MediaKeySystemPermissionRequestManager::cancelMediaKeySystemRequest(MediaKeySystemRequest& request)
@@ -95,7 +100,7 @@ void MediaKeySystemPermissionRequestManager::cancelMediaKeySystemRequest(MediaKe
     if (auto removedRequest = m_ongoingMediaKeySystemRequests.take(request.identifier()))
         return;
 
-    auto* document = request.document();
+    RefPtr document = request.document();
     if (!document)
         return;
 
@@ -124,13 +129,13 @@ void MediaKeySystemPermissionRequestManager::mediaCanStart(Document& document)
         sendMediaKeySystemRequest(pendingRequest);
 }
 
-void MediaKeySystemPermissionRequestManager::mediaKeySystemWasGranted(MediaKeySystemRequestIdentifier requestID)
+void MediaKeySystemPermissionRequestManager::mediaKeySystemWasGranted(MediaKeySystemRequestIdentifier requestID, String&& mediaKeysHashSalt)
 {
     auto request = m_ongoingMediaKeySystemRequests.take(requestID);
     if (!request)
         return;
 
-    request->allow();
+    request->allow(WTFMove(mediaKeysHashSalt));
 }
 
 void MediaKeySystemPermissionRequestManager::mediaKeySystemWasDenied(MediaKeySystemRequestIdentifier requestID, String&& message)

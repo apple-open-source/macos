@@ -141,6 +141,17 @@
 #define kIOPSPartIdentifierCase         "Case"
 #define kIOPSPartIdentifierSingle       "Single"
 #define kIOPSPartIdentifierOther        "Other"
+#define kIOPSPartIdentifierCombined     "Combined"
+
+/*
+ * kIOPSCombinedPartsKey -
+ * reports batteries that considered a combined PowerSource.
+ * 
+ * The corresponding value array contains dictionaries that detail each individual PowerSource
+ * contributing to the combined power source. This feature is used for some accessories that have
+ * parts with identical/similar-enough batteries that they are considered to have one battery.
+ */
+#define kIOPSCombinedPartsKey		    "Combined Parts"
 
 /* Internal transport types */
 #define kIOPSAIDTransportType                   "AID"

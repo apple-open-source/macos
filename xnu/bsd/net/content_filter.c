@@ -992,10 +992,7 @@ cfil_data_length(struct mbuf *m, int *retmbcnt, int *retmbnum)
 	for (m0 = m; m0 != NULL; m0 = m0->m_next) {
 		pktlen += m0->m_len;
 		mbnum++;
-		mbcnt += _MSIZE;
-		if (m0->m_flags & M_EXT) {
-			mbcnt += m0->m_ext.ext_size;
-		}
+		mbcnt += m_capacity(m0);
 	}
 	if (retmbcnt) {
 		*retmbcnt = mbcnt;
@@ -2548,10 +2545,10 @@ cfil_init(void)
 	/*
 	 * Compile time verifications
 	 */
-	_CASSERT(CFIL_MAX_FILTER_COUNT == MAX_CONTENT_FILTER);
-	_CASSERT(sizeof(struct cfil_filter_stat) % sizeof(uint32_t) == 0);
-	_CASSERT(sizeof(struct cfil_entry_stat) % sizeof(uint32_t) == 0);
-	_CASSERT(sizeof(struct cfil_sock_stat) % sizeof(uint32_t) == 0);
+	static_assert(CFIL_MAX_FILTER_COUNT == MAX_CONTENT_FILTER);
+	static_assert(sizeof(struct cfil_filter_stat) % sizeof(uint32_t) == 0);
+	static_assert(sizeof(struct cfil_entry_stat) % sizeof(uint32_t) == 0);
+	static_assert(sizeof(struct cfil_sock_stat) % sizeof(uint32_t) == 0);
 
 	/*
 	 * Runtime time verifications

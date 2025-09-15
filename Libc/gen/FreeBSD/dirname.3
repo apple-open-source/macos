@@ -14,9 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $FreeBSD: src/lib/libc/gen/dirname.3,v 1.10 2008/11/03 05:19:45 delphij Exp $
-.\"
-.Dd October 12, 2006
+.Dd September 5, 2016
 .Dt DIRNAME 3
 .Os
 .Sh NAME
@@ -25,9 +23,7 @@
 .Sh SYNOPSIS
 .In libgen.h
 .Ft char *
-.Fo dirname
-.Fa "char *path"
-.Fc
+.Fn dirname "char *path"
 .Ft char *
 .Fo dirname_r
 .Fa "const char *path" "char *dname"
@@ -43,15 +39,6 @@ Any trailing
 .Sq \&/
 characters are not counted as part of the directory
 name.
-If
-.Fa path
-is a null pointer, the empty string, or contains no
-.Sq \&/
-characters,
-.Fn dirname
-returns a pointer to the string
-.Qq \&. ,
-signifying the current directory.
 .Sh IMPLEMENTATION NOTES
 The
 .Fn dirname
@@ -68,22 +55,18 @@ may modify the contents of the string passed to
 .Fn dirname ;
 if portability is desired,
 this should be taken into account when writing code which calls this function.
-.Sh LEGACY SYNOPSIS
-.Fd #include <libgen.h>
-.Pp
-.Ft char *
-.br
-.Fo dirname
-.Fa "const char *path"
-.Fc ;
-.Pp
-In legacy mode,
-.Fa path
-will not be changed.
 .Sh RETURN VALUES
-On successful completion,
+If
+.Fa path
+is a null pointer, the empty string, or contains no
+.Sq \&/
+characters,
 .Fn dirname
-returns a pointer to the parent directory of
+returns a pointer to the string
+.Qq \&. ,
+signifying the current directory.
+Otherwise,
+it returns a pointer to the parent directory of
 .Fa path .
 .Pp
 If
@@ -120,8 +103,9 @@ function first appeared in
 .Ox 2.2
 and
 .Fx 4.2 .
+.Pp
 The
 .Fn dirname_r
 function first appeared in OS X 10.12.
 .Sh AUTHORS
-.An "Todd C. Miller"
+.An Nuxi, the Netherlands

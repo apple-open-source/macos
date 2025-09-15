@@ -55,6 +55,8 @@ typedef NS_ENUM(NSInteger, WKInputType) {
     WKInputTypeDrawing,
 };
 
+@class WKFrameInfo;
+
 /**
  * The _WKFocusedElementInfo provides basic information about an element that
  * has been focused (either programmatically or through user interaction) but
@@ -73,6 +75,9 @@ typedef NS_ENUM(NSInteger, WKInputType) {
 
 /* The text of a label element associated with the input. */
 @property (nonatomic, readonly, copy) NSString *label;
+
+/* The frame containing the element */
+@property (nonatomic, readonly, copy) WKFrameInfo *frame WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 
 /**
  * Whether the element was focused due to user interaction. NO indicates that

@@ -27,9 +27,6 @@
 #include "PosixCompat.h"
 #endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-#include "dnssec_mdns_core.h"
-#endif
 
 #ifdef  __cplusplus
 extern "C" {
@@ -127,9 +124,7 @@ extern mDNSInterfaceID GetNextActiveInterfaceID(const NetworkInterfaceInfo *intf
 
 extern mDNSu32 mDNSRandom(mDNSu32 max);     // Returns pseudo-random result from zero to max inclusive
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 extern mDNSu32 mDNS_GetNextResolverGroupID(void);
-#endif
 
 MDNS_CLOSED_ENUM(mDNSNonCryptoHash, mDNSu8,
     mDNSNonCryptoHash_FNV1a   = 0,
@@ -311,13 +306,6 @@ static inline mDNSBool IdenticalSameNameRecord(const ResourceRecord *const r1, c
 {
     return
     (
-    #if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-        // Other than the ordinary non-DNSSEC records, there are two types of DNSSEC records:
-        // 1. DNSSEC to be validated: Records that come from DNSSEC-enabled response (with DNSSEC OK/Checking Disabled bits set).
-        // 2. DNSSEC validated: Records that come from the "DNSSEC to be validated" records, and has passed the DNSSEC validation.
-        // Only the records that have the same type can be compared.
-         (resource_records_have_same_dnssec_rr_category(r1, r2))     &&
-    #endif
          r1->rrtype         == r2->rrtype       &&
          r1->rrclass        == r2->rrclass      &&
          r1->rdlength       == r2->rdlength     &&
@@ -343,10 +331,6 @@ static inline mDNSBool IdenticalResourceRecord(const ResourceRecord *const r1, c
 
 typedef mDNSu32 RRTypeAnswersQuestionTypeFlags;
 #define kRRTypeAnswersQuestionTypeFlagsNone 0
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-#define kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRToValidate   (1U << 0)   // Use this flag to indicate that question needs "DNSSEC to be validated" records to do validation.
-#define kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRValidated    (1U << 1)   // Use this flag to indicate that question needs "DNSSEC validated" records to return to the client.
-#endif
 extern mDNSBool RRTypeAnswersQuestionType(const ResourceRecord *rr, mDNSu16 qtype, RRTypeAnswersQuestionTypeFlags flags);
 
 // Unicast NSEC records have the NSEC bit set whereas the multicast NSEC ones don't
@@ -504,19 +488,8 @@ extern mStatus mDNSSendDNSMessage(mDNS *const m, DNSMessage *const msg, mDNSu8 *
 // ***************************************************************************
 // MARK: - DNSQuestion Functions
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-extern mDNSBool DNSQuestionNeedsSensitiveLogging(const DNSQuestion *q);
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, RUNTIME_MDNS_METRICS)
-extern mDNSBool DNSQuestionCollectsMDNSMetric(const DNSQuestion *q);
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-extern mDNSBool DNSQuestionIsEligibleForMDNSAlternativeService(const DNSQuestion *q);
-extern mDNSBool DNSQuestionRequestsMDNSAlternativeService(const DNSQuestion *q);
-extern mDNSBool DNSQuestionUsesMDNSAlternativeService(const DNSQuestion *q);
-#endif
 
 // ***************************************************************************
 // MARK: - RR List Management & Task Management

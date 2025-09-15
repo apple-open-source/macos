@@ -88,6 +88,7 @@ struct EditorState {
     bool isInPlugin { false };
 #if PLATFORM(MAC)
     bool canEnableAutomaticSpellingCorrection { true };
+    bool inputMethodUsesCorrectKeyEventOrder { false };
 #endif
 
     struct PostLayoutData {
@@ -158,10 +159,12 @@ struct EditorState {
         WebCore::IntRect markedTextCaretRectAtStart;
         WebCore::IntRect markedTextCaretRectAtEnd;
         std::optional<WebCore::PlatformLayerIdentifier> enclosingLayerID;
+        Vector<WebCore::PlatformLayerIdentifier> intersectingLayerIDs;
         std::optional<WebCore::ScrollingNodeID> enclosingScrollingNodeID;
         std::optional<WebCore::ScrollingNodeID> scrollingNodeIDAtStart;
         std::optional<WebCore::ScrollingNodeID> scrollingNodeIDAtEnd;
         WebCore::ScrollOffset enclosingScrollOffset;
+        bool enclosingLayerUsesContentsLayer { false };
 #endif // PLATFORM(IOS_FAMILY)
     };
 

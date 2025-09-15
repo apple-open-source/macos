@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "IOSurface.h"
 #include "IOSurfacePool.h"
 #include "IntRect.h"
+#include "NativeImage.h"
 #include "PixelBuffer.h"
 #include <CoreGraphics/CoreGraphics.h>
 #include <pal/cg/CoreGraphicsSoftLink.h>
@@ -75,7 +76,7 @@ std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create
     if (backendSize.isEmpty())
         return nullptr;
 
-    auto surface = IOSurface::create(creationContext.surfacePool, backendSize, parameters.colorSpace, IOSurface::Name::ImageBuffer, convertToIOSurfaceFormat(parameters.pixelFormat));
+    auto surface = IOSurface::create(RefPtr { creationContext.surfacePool }.get(), backendSize, parameters.colorSpace, IOSurface::Name::ImageBuffer, convertToIOSurfaceFormat(parameters.bufferFormat.pixelFormat), parameters.bufferFormat.useLosslessCompression);
     if (!surface)
         return nullptr;
 
@@ -85,7 +86,7 @@ std::unique_ptr<ImageBufferIOSurfaceBackend> ImageBufferIOSurfaceBackend::create
 
     CGContextClearRect(cgContext.get(), FloatRect(FloatPoint::zero(), backendSize));
 
-    return std::unique_ptr<ImageBufferIOSurfaceBackend> { new ImageBufferIOSurfaceBackend { parameters, WTFMove(surface), WTFMove(cgContext), creationContext.displayID, creationContext.surfacePool } };
+    return std::unique_ptr<ImageBufferIOSurfaceBackend> { new ImageBufferIOSurfaceBackend { parameters, WTFMove(surface), WTFMove(cgContext), creationContext.displayID, creationContext.surfacePool.get() } };
 }
 
 ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& parameters, std::unique_ptr<IOSurface> surface, RetainPtr<CGContextRef> platformContext, PlatformDisplayID displayID, IOSurfacePool* ioSurfacePool)
@@ -194,7 +195,7 @@ void ImageBufferIOSurfaceBackend::getPixelBuffer(const IntRect& srcRect, PixelBu
         ImageBufferBackend::getPixelBuffer(srcRect, lock->surfaceSpan(), destination);
 }
 
-void ImageBufferIOSurfaceBackend::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
+void ImageBufferIOSurfaceBackend::putPixelBuffer(const PixelBufferSourceView& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
     prepareForExternalWrite();
     if (auto lock = m_surface->lock<IOSurface::AccessMode::ReadWrite>())
@@ -242,8 +243,17 @@ SetNonVolatileResult ImageBufferIOSurfaceBackend::setNonVolatile()
 {
     if (m_volatilityState == VolatilityState::Volatile) {
         setVolatilityState(VolatilityState::NonVolatile);
-        return m_surface->setVolatile(false);
+
+        auto previousState = m_surface->setVolatile(false);
+        if (previousState == SetNonVolatileResult::Empty) {
+            RetainPtr context = ensurePlatformContext();
+            ASSERT(CGAffineTransformIsIdentity(CGContextGetCTM(context.get())));
+            CGContextClearRect(context.get(), FloatRect({ }, size()));
+        }
+
+        return previousState;
     }
+
     ASSERT(!m_surface->isVolatile());
     return SetNonVolatileResult::Valid;
 }
@@ -296,9 +306,6 @@ void ImageBufferIOSurfaceBackend::prepareForExternalWrite()
 
 RetainPtr<CGImageRef> ImageBufferIOSurfaceBackend::createImage()
 {
-    // CGIOSurfaceContextCreateImage flushes, so clear the flush need.
-    if (m_context)
-        m_context->consumeHasDrawn();
     // Consumers may hold on to the image, so mark external writes needing the invalidation marker.
     m_mayHaveOutstandingBackingStoreReferences = true;
     return m_surface->createImage(ensurePlatformContext());
@@ -306,9 +313,6 @@ RetainPtr<CGImageRef> ImageBufferIOSurfaceBackend::createImage()
 
 RetainPtr<CGImageRef> ImageBufferIOSurfaceBackend::createImageReference()
 {
-    // CGIOSurfaceContextCreateImageReference flushes, so clear the flush need.
-    if (m_context)
-        m_context->consumeHasDrawn();
     // The reference is used only in synchronized manner, so after the use ends, we can update
     // externally without invalidation marker. Thus we do not set m_mayHaveOutstandingBackingStoreReferences.
     auto image = adoptCF(CGIOSurfaceContextCreateImageReference(ensurePlatformContext()));

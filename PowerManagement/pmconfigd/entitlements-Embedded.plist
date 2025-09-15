@@ -73,5 +73,9 @@
 	<true/>
 	<key>com.apple.powerexperienced.resourceusage</key>
 	<true/>
+	<key>com.apple.private.power.notifications</key>
+	<true/>
+	<key>com.apple.nano.nanoregistry</key>
+	<true/>
 </dict>
 </plist>

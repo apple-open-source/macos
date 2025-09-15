@@ -33,12 +33,14 @@
 #include "WebKitUserMessage.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebPageProxyMessages.h"
+#include "WebProcess.h"
 #include "WebProcessExtensionManager.h"
 #include <WebCore/Editor.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/PointerCharacteristics.h>
 #include <WebCore/Range.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/UserAgent.h>
@@ -204,6 +206,37 @@ String WebPage::platformUserAgent(const URL& url) const
         return String();
 
     return WebCore::standardUserAgentForURL(url);
+}
+
+bool WebPage::hoverSupportedByPrimaryPointingDevice() const
+{
+    return WebProcess::singleton().primaryPointingDevice() == AvailableInputDevices::Mouse;
+}
+
+bool WebPage::hoverSupportedByAnyAvailablePointingDevice() const
+{
+    return WebProcess::singleton().availableInputDevices().contains(AvailableInputDevices::Mouse);
+}
+
+std::optional<PointerCharacteristics> WebPage::pointerCharacteristicsOfPrimaryPointingDevice() const
+{
+    const auto& primaryPointingDevice = WebProcess::singleton().primaryPointingDevice();
+    if (primaryPointingDevice == AvailableInputDevices::Mouse)
+        return PointerCharacteristics::Fine;
+    if (primaryPointingDevice == AvailableInputDevices::Touchscreen)
+        return PointerCharacteristics::Coarse;
+    return std::nullopt;
+}
+
+OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailablePointingDevices() const
+{
+    OptionSet<PointerCharacteristics> pointerCharacteristics;
+    const auto& availableInputs = WebProcess::singleton().availableInputDevices();
+    if (availableInputs.contains(AvailableInputDevices::Mouse))
+        pointerCharacteristics.add(PointerCharacteristics::Fine);
+    if (availableInputs.contains(AvailableInputDevices::Touchscreen))
+        pointerCharacteristics.add(PointerCharacteristics::Coarse);
+    return pointerCharacteristics;
 }
 
 } // namespace WebKit

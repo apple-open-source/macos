@@ -54,6 +54,7 @@ _test_receiver_names = [
     'TestWithoutAttributes',
     'TestWithoutUsingIPCConnection',
     'TestWithSemaphore',
+    'TestWithSpanOfConst',
     'TestWithStream',
     'TestWithStreamBatched',
     'TestWithStreamBuffer',

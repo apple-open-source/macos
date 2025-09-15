@@ -31,6 +31,7 @@
 
 #include "CSSFontSelector.h"
 #include "CSSKeyframesRule.h"
+#include "CSSPositionTryRule.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
 #include "CSSViewTransitionRule.h"
@@ -38,6 +39,7 @@
 #include "DocumentInlines.h"
 #include "HTMLNames.h"
 #include "MediaQueryEvaluator.h"
+#include "MutableCSSSelector.h"
 #include "RuleSetBuilder.h"
 #include "SVGElement.h"
 #include "ScriptExecutionContext.h"
@@ -49,6 +51,7 @@
 #include "StyleRuleImport.h"
 #include "StyleSheetContents.h"
 #include "UserAgentParts.h"
+#include <ranges>
 
 namespace WebCore {
 namespace Style {
@@ -148,7 +151,7 @@ void RuleSet::addRule(RuleData&& ruleData, CascadeLayerIdentifier cascadeLayerId
             auto oldSize = container.size();
             container.grow(m_ruleCount);
             auto newlyAllocated = container.mutableSpan().subspan(oldSize);
-            std::fill(newlyAllocated.begin(), newlyAllocated.end(), 0);
+            std::ranges::fill(newlyAllocated, 0);
             container.last() = identifier;
         }
     };
@@ -394,7 +397,7 @@ void RuleSet::addPageRule(StyleRulePage& rule)
 
 void RuleSet::setViewTransitionRule(StyleRuleViewTransition& rule)
 {
-    m_viewTransitionRule = &rule;
+    m_viewTransitionRule = rule;
 }
 
 RefPtr<StyleRuleViewTransition> RuleSet::viewTransitionRule() const
@@ -462,7 +465,7 @@ RuleSet::CollectedMediaQueryChanges RuleSet::evaluateDynamicMediaQueryRules(cons
 {
     CollectedMediaQueryChanges collectedChanges;
 
-    UncheckedKeyHashMap<size_t, bool, DefaultHash<size_t>, WTF::UnsignedWithZeroKeyHashTraits<size_t>> affectedRulePositionsAndResults;
+    HashMap<size_t, bool, DefaultHash<size_t>, WTF::UnsignedWithZeroKeyHashTraits<size_t>> affectedRulePositionsAndResults;
 
     for (size_t i = startIndex; i < m_dynamicMediaQueryRules.size(); ++i) {
         auto& dynamicRules = m_dynamicMediaQueryRules[i];
@@ -568,6 +571,11 @@ Vector<Ref<const StyleRuleScope>> RuleSet::scopeRulesFor(const RuleData& ruleDat
     queries.reverse();
 
     return queries;
+}
+
+const RefPtr<const StyleRulePositionTry> RuleSet::positionTryRuleForName(const AtomString& name) const
+{
+    return m_positionTryRules.get(name);
 }
 
 } // namespace Style

@@ -121,7 +121,7 @@ bool GLContext::getEGLConfig(PlatformDisplay& platformDisplay, EGLConfig* config
 
     EGLint numberConfigsReturned;
     Vector<EGLConfig> configs(count);
-    if (!eglChooseConfig(display, attributeList, reinterpret_cast<EGLConfig*>(configs.data()), count, &numberConfigsReturned) || !numberConfigsReturned) {
+    if (!eglChooseConfig(display, attributeList, reinterpret_cast<EGLConfig*>(configs.mutableSpan().data()), count, &numberConfigsReturned) || !numberConfigsReturned) {
         RELEASE_LOG_INFO(Compositing, "Cannot get available EGL configurations: %s.", lastErrorString());
         return false;
     }
@@ -370,6 +370,13 @@ GLContext::GLContext(PlatformDisplay& display, EGLContext context, EGLSurface su
     ASSERT(type == Surfaceless || surface != EGL_NO_SURFACE);
     RELEASE_ASSERT(m_display.eglDisplay() != EGL_NO_DISPLAY);
     RELEASE_ASSERT(context != EGL_NO_CONTEXT);
+
+#if ENABLE(MEDIA_TELEMETRY)
+    if (m_type == WindowSurface) {
+        MediaTelemetryReport::singleton().reportWaylandInfo(*this, MediaTelemetryReport::WaylandAction::InitGfx,
+            MediaTelemetryReport::WaylandGraphicsState::GfxInitialized, MediaTelemetryReport::WaylandInputsState::InputsInitialized);
+    }
+#endif
 }
 
 GLContext::~GLContext()
@@ -385,6 +392,13 @@ GLContext::~GLContext()
 
 #if USE(WPE_RENDERER)
     destroyWPETarget();
+#endif
+
+#if ENABLE(MEDIA_TELEMETRY)
+    if (m_type == WindowSurface) {
+        MediaTelemetryReport::singleton().reportWaylandInfo(*this, MediaTelemetryReport::WaylandAction::DeinitGfx,
+            MediaTelemetryReport::WaylandGraphicsState::GfxNotInitialized, MediaTelemetryReport::WaylandInputsState::InputsInitialized);
+    }
 #endif
 }
 
@@ -593,5 +607,45 @@ GLContext::ScopedGLContextCurrent::~ScopedGLContextCurrent()
     if (m_previous.context)
         eglMakeCurrent(m_previous.display, m_previous.drawSurface, m_previous.readSurface, m_previous.context);
 }
+
+#if ENABLE(MEDIA_TELEMETRY)
+EGLDisplay GLContext::eglDisplay() const
+{
+    return m_display.eglDisplay();
+}
+
+EGLConfig GLContext::eglConfig() const
+{
+    EGLConfig config = nullptr;
+
+    if (!getEGLConfig(m_display, &config, WindowSurface)) {
+        WTFLogAlways("Cannot obtain EGL window context configuration: %s\n", lastErrorString());
+        config = nullptr;
+        ASSERT_NOT_REACHED();
+    }
+
+    return config;
+}
+
+EGLSurface GLContext::eglSurface() const
+{
+    return m_surface;
+}
+
+EGLContext GLContext::eglContext() const
+{
+    return m_context;
+}
+
+unsigned GLContext::windowWidth() const
+{
+    return parseInteger<unsigned>(StringView::fromLatin1(std::getenv("WPE_INIT_VIEW_WIDTH"))).value_or(1920);
+}
+
+unsigned GLContext::windowHeight() const
+{
+    return parseInteger<unsigned>(StringView::fromLatin1(std::getenv("WPE_INIT_VIEW_HEIGHT"))).value_or(1080);
+}
+#endif
 
 } // namespace WebCore

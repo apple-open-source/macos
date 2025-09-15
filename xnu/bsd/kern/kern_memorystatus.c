@@ -102,7 +102,7 @@ uint64_t memorystatus_freeze_last_pid_thawed_ts = 0;
 int block_corpses = 0; /* counter to block new corpses if jetsam purges them */
 
 /* For logging clarity */
-static const char *memorystatus_kill_cause_name[] = {
+static const char *memstat_kill_cause_name[] = {
 	"",                                             /* kMemorystatusInvalid							*/
 	"jettisoned",                                   /* kMemorystatusKilled							*/
 	"highwater",                                    /* kMemorystatusKilledHiwat						*/
@@ -119,7 +119,7 @@ static const char *memorystatus_kill_cause_name[] = {
 	"low-swap",                                     /* kMemorystatusKilledLowSwap                   */
 	"sustained-memory-pressure",                    /* kMemorystatusKilledSustainedPressure         */
 	"vm-pageout-starvation",                        /* kMemorystatusKilledVMPageoutStarvation       */
-	"",                                             /* Future kMemorystatusKilledConclaveLimit      */
+	"conclave-limit",                               /* kMemorystatusKilledConclaveLimit             */
 	"long-idle-exit",                               /* kMemorystatusKilledLongIdleExit				*/
 };
 
@@ -305,12 +305,13 @@ _memstat_write_memlimit_to_ledger_locked(proc_t p, bool is_active, bool drop_loc
 #define MEMORYSTATUS_REAPER_RATIO_NUM 4UL
 #define MEMORYSTATUS_REAPER_RATIO_DENOM 1UL
 
-#if (XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR)
+#if (XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR) || XNU_TARGET_OS_WATCH
 #define MEMORYSTATUS_REAPER_ENABLED_DEFAULT TRUE
 #else
 #define MEMORYSTATUS_REAPER_ENABLED_DEFAULT FALSE
-#endif /* (XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR) */
+#endif /* (XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR) || XNU_TARGET_OS_WATCH */
 #define MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT 300
+#define MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT 300
 #define MEMORYSTATUS_REAPER_MAX_PRIORITY_DEFAULT JETSAM_PRIORITY_IDLE
 #define MEMORYSTATUS_REAPER_RESCAN_SECS_DEFAULT 30
 #define MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT -1
@@ -361,6 +362,8 @@ unsigned int memorystatus_jetsam_snapshot_max = 0;
 unsigned int memorystatus_jetsam_snapshot_size = 0;
 uint64_t memorystatus_jetsam_snapshot_last_timestamp = 0;
 uint64_t memorystatus_jetsam_snapshot_timeout = 0;
+
+#define JETSAM_SNAPSHOT_TIMEOUT_SECS 30
 
 #if DEVELOPMENT || DEBUG
 /*
@@ -429,6 +432,9 @@ TUNABLE_DT_WRITEABLE(int32_t, memorystatus_entitled_bincompat_max_task_footprint
     "/defaults", "kern.entitled_bc_max_task_pmem",
     "entitled_bincompat_max_task_pmem", 0, TUNABLE_DT_NONE);
 #endif // CONFIG_SEPARATE_BINCOMPAT_ENTITLED_MEMLIMIT
+#if DEBUG || DEVELOPMENT
+TUNABLE(bool, memstat_ignore_task_limit_increase, "memstat_no_task_limit_increase", false);
+#endif /* DEBUG || DEVELOPMENT */
 
 #if __arm64__
 #if DEVELOPMENT || DEBUG
@@ -448,7 +454,7 @@ SYSCTL_INT(_kern, OID_AUTO, entitled_bincompat_max_task_pmem,
 #endif /* CONFIG_SEPARATE_BINCOMPAT_ENTITLED_MEMLIMIT */
 #else /* !(DEVELOPMENT || DEBUG) */
 SYSCTL_INT(_kern, OID_AUTO, entitled_max_task_pmem,
-    CTLFLAG_RD | CTLFLAG_LOCKED | CTLFLAG_MASKED | CTLFLAG_KERN,
+    CTLFLAG_RD | CTLFLAG_LOCKED | CTLFLAG_KERN,
     &memorystatus_entitled_max_task_footprint_mb, 0, "");
 #if CONFIG_SEPARATE_BINCOMPAT_ENTITLED_MEMLIMIT
 SYSCTL_INT(_kern, OID_AUTO, entitled_bincompat_max_task_pmem,
@@ -485,13 +491,20 @@ static void memorystatus_perform_idle_demotion(__unused void *spare1, __unused v
 static void _memstat_invalidate_idle_demotion_locked(proc_t p);
 static void _memstat_schedule_idle_demotion_locked(proc_t p);
 static void _memstat_reschedule_idle_demotion_locked(void);
-int memorystatus_update_priority_for_appnap(proc_t p, boolean_t is_appnap);
+int memorystatus_update_priority_for_appnap(proc_t p);
 vm_pressure_level_t convert_internal_pressure_level_to_dispatch_level(vm_pressure_level_t);
 boolean_t is_knote_registered_modify_task_pressure_bits(struct knote*, int, task_t, vm_pressure_level_t, vm_pressure_level_t);
 void memorystatus_klist_reset_all_for_level(vm_pressure_level_t pressure_level_to_clear);
 void memorystatus_send_low_swap_note(void);
 boolean_t memorystatus_kill_elevated_process(uint32_t cause, os_reason_t jetsam_reason, unsigned int band, int aggr_count,
     uint32_t *errors, uint64_t *memory_reclaimed);
+static bool memorystatus_kill_proc(proc_t p, uint32_t cause,
+    os_reason_t jetsam_reason, bool *killed, uint64_t *footprint_of_killed_proc);
+/* Synchronously kill a process in priority order */
+static bool memstat_kill_top_process(uint32_t cause, os_reason_t jetsam_reason,
+    int32_t max_priority, memstat_kill_options_t options,
+    int32_t *priority, uint32_t *errors, uint64_t *memory_reclaimed);
+
 uint64_t memorystatus_available_memory_internal(proc_t p);
 void memorystatus_thread_wake(void);
 static bool _memstat_consider_waking_jetsam_thread(void);
@@ -509,7 +522,7 @@ uint64_t memstat_idle_demotion_deadline = 0;
 unsigned int memorystatus_suspended_count = 0;
 #endif /* CONFIG_FREEZE */
 
-#ifdef XNU_TARGET_OS_OSX
+#if XNU_TARGET_OS_OSX
 /*
  * Effectively disable the system process and application demotion
  * logic on macOS. This means system processes and apps won't get the
@@ -672,7 +685,7 @@ sysctl_jetsam_set_apps_idle_delay_time SYSCTL_HANDLER_ARGS
 SYSCTL_PROC(_kern_memorystatus, OID_AUTO, apps_idle_delay_time_ns, CTLTYPE_INT | CTLFLAG_RW,
     0, 0, sysctl_jetsam_set_apps_idle_delay_time, "I", "Aging window for applications");
 
-SYSCTL_INT(_kern, OID_AUTO, max_task_pmem, CTLFLAG_RD | CTLFLAG_LOCKED | CTLFLAG_MASKED | CTLFLAG_KERN, &max_task_footprint_mb, 0, "");
+SYSCTL_INT(_kern, OID_AUTO, max_task_pmem, CTLFLAG_RD | CTLFLAG_LOCKED | CTLFLAG_KERN, &max_task_footprint_mb, 0, "");
 
 #if __arm64__
 int legacy_footprint_bonus_mb = 50; /* This value was chosen after looking at the top 30 apps
@@ -880,7 +893,7 @@ static void memorystatus_thread(void *param __unused, wait_result_t wr __unused)
 /* Memory Limits */
 
 static bool memorystatus_kill_specific_process(pid_t victim_pid, uint32_t cause, os_reason_t jetsam_reason);
-static bool memorystatus_kill_process_sync(pid_t victim_pid, uint32_t cause, os_reason_t jetsam_reason);
+static bool memstat_kill_process_sync(pid_t victim_pid, uint32_t cause, os_reason_t jetsam_reason);
 
 
 static int memorystatus_cmd_set_memlimit_properties(pid_t pid, user_addr_t buffer, size_t buffer_size, __unused int32_t *retval);
@@ -959,13 +972,11 @@ static void memorystatus_get_task_memory_region_count(task_t task, uint64_t *cou
 static memorystatus_proc_state_t _memstat_build_state(proc_t p);
 //static boolean_t memorystatus_issue_pressure_kevent(boolean_t pressured);
 
-static bool memorystatus_kill_top_process(bool any, bool sort_flag, uint32_t cause, os_reason_t jetsam_reason,
-    int32_t max_priority, bool only_swappable, bool only_long_idle,
-    int32_t *priority, uint32_t *errors, uint64_t *memory_reclaimed);
 static bool memorystatus_kill_processes_aggressive(uint32_t cause, int aggr_count, int32_t priority_max, int32_t max_kills, uint32_t *errors, uint64_t *memory_reclaimed);
 static boolean_t memorystatus_kill_hiwat_proc(uint32_t *errors, boolean_t *purged, uint64_t *memory_reclaimed);
 static bool _memstat_proc_is_reapable(proc_t p);
 static void _memstat_refresh_oldest_reapable_proc_info(void);
+static bool _memstat_proc_is_application(proc_t p);
 
 #if CONFIG_JETSAM
 static void _memstat_reaper_check_oldest_reapable_proc_info_timeout(void);
@@ -974,18 +985,27 @@ static void _memstat_reaper_end_sweep(void);
 static void _memstat_reaper_record_kill(uint64_t bytes_freed);
 #endif /* CONFIG_JETSAM */
 static const char* _memstat_relaunch_flags_description(uint32_t flags);
+static const char* _memstat_proc_type_description(proc_t p);
 
 
 /* Priority Band Sorting Routines */
-static int  memorystatus_sort_bucket(unsigned int bucket_index, int sort_order);
-static int  memorystatus_sort_by_largest_coalition_locked(unsigned int bucket_index, int coal_sort_order);
-static void memorystatus_sort_by_largest_process_locked(unsigned int bucket_index);
-static int  memorystatus_move_list_locked(unsigned int bucket_index, pid_t *pid_list, int list_sz);
+static int  memstat_sort_bucket(unsigned int bucket_index, memorystatus_jetsam_sort_order_t sort_order);
+static void memstat_sort_coals_locked(unsigned int bucket_index, memorystatus_jetsam_sort_order_t sort_order);
+static void memstat_sort_by_footprint_locked(unsigned int bucket_index);
+
+#define JETSAM_SORT_IDLE_DEFAULT JETSAM_SORT_FOOTPRINT_NOCOAL
+#if XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR
+#define JETSAM_SORT_FG_DEFAULT JETSAM_SORT_LRU
+#else /* XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR */
+#define JETSAM_SORT_FG_DEFAULT JETSAM_SORT_FOOTPRINT
+#endif /* !(XNU_TARGET_OS_IOS && !XNU_TARGET_OS_XR) */
+
+TUNABLE_DT(memorystatus_jetsam_sort_order_t, memstat_jetsam_fg_sort_order, "/defaults",
+    "kern.memstat_fg_sort_order", "memstat_fg_sort_order", JETSAM_SORT_FG_DEFAULT, TUNABLE_DT_NONE);
 
 /* qsort routines */
 typedef int (*cmpfunc_t)(const void *a, const void *b);
 extern void qsort(void *a, size_t n, size_t es, cmpfunc_t cmp);
-static int memstat_asc_cmp(const void *a, const void *b);
 
 /* VM pressure */
 
@@ -1028,6 +1048,7 @@ uint32_t memstat_ballast_offset = 0;
 uint32_t memstat_ctd_offset = 0;
 
 int32_t  memstat_reaper_min_age_secs = MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT;
+int32_t  memstat_reaper_min_age_apps_secs = MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT;
 boolean_t memstat_reaper_enabled = MEMORYSTATUS_REAPER_ENABLED_DEFAULT;
 uint32_t memstat_reaper_max_priority = MEMORYSTATUS_REAPER_MAX_PRIORITY_DEFAULT;
 int32_t  memstat_reaper_rescan_secs = MEMORYSTATUS_REAPER_RESCAN_SECS_DEFAULT;
@@ -1080,9 +1101,11 @@ uint32_t _Atomic memorystatus_idle_exit_kill_count = 0;
 
 TUNABLE_DT(int32_t, memorystatus_reaper_minimum_age_seconds, "/defaults",
     "kern.memstat_reaper_minage_secs", "memorystatus_reaper_minimum_age_seconds", MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT, TUNABLE_DT_NONE);
+TUNABLE_DT(int32_t, memorystatus_reaper_minimum_age_apps_seconds, "/defaults",
+    "kern.memstat_reaper_minapp_secs", "memorystatus_reaper_minimum_age_apps_seconds", MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT, TUNABLE_DT_NONE);
 TUNABLE_DT(uint32_t, memorystatus_reaper_rescan_delay_seconds, "/defaults",
     "kern.memstat_reaper_rescan_secs", "memorystatus_reaper_rescan_delay_seconds", MEMORYSTATUS_REAPER_RESCAN_SECS_DEFAULT, TUNABLE_DT_NONE);
-TUNABLE_DT(bool, memorystatus_reaper_enabled, "/defaults",
+TUNABLE_DT(boolean_t, memorystatus_reaper_enabled, "/defaults",
     "kern.memstat_reaper_enabled", "memorystatus_reaper_enabled", MEMORYSTATUS_REAPER_ENABLED_DEFAULT, TUNABLE_DT_NONE);
 
 
@@ -1120,6 +1143,10 @@ TUNABLE_WRITEABLE(bool, fast_jetsam_enabled, "fast_jetsam_enabled", true);
 
 #else /* !CONFIG_JETSAM */
 
+/*
+ * On compressor/swap exhaustion, kill the largest process regardless of
+ * its chosen process policy.
+ */
 #if DEVELOPMENT || DEBUG
 TUNABLE(bool, kill_on_no_paging_space, "-kill_on_no_paging_space", false);
 #else /* !(DEVELOPMENT || DEBUG) */
@@ -1134,13 +1161,13 @@ TUNABLE(uint64_t, no_paging_space_action_throttle_delay_ns,
 
 #endif /* CONFIG_JETSAM */
 
-#if DEVELOPMENT || DEBUG
 static inline uint32_t
 roundToNearestMB(uint32_t in)
 {
 	return (in + ((1 << 20) - 1)) >> 20;
 }
 
+#if DEVELOPMENT || DEBUG
 static int memorystatus_cmd_increase_jetsam_task_limit(pid_t pid, uint32_t byte_increase);
 #endif
 
@@ -1356,13 +1383,14 @@ SYSCTL_INT(_kern_memorystatus, OID_AUTO, ballast_offset_pages,
 SYSCTL_INT(_kern_memorystatus, OID_AUTO, ctd_offset_pages,
     CTLFLAG_RD | CTLFLAG_LOCKED,
     &memstat_ctd_offset, 0, "");
-#endif /* DEVELOPMENT || DEBUG */
+#endif /* DEBUG || DEVELOPMENT */
 
-EXPERIMENT_FACTOR_UINT(_kern_memorystatus, reaper_enabled, &memstat_reaper_enabled, FALSE, TRUE, "");
-EXPERIMENT_FACTOR_UINT(_kern_memorystatus, reaper_min_age_secs, &memstat_reaper_min_age_secs, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern_memorystatus, reaper_max_priority, &memstat_reaper_max_priority, 0, JETSAM_PRIORITY_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern_memorystatus, reaper_reap_relaunch_mask, &memstat_reaper_reap_relaunch_mask, 0, UINT32_MAX, "");
-EXPERIMENT_FACTOR_UINT(_kern_memorystatus, reaper_rescan_secs, &memstat_reaper_rescan_secs, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_enabled, &memstat_reaper_enabled, FALSE, TRUE, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_min_age_secs, &memstat_reaper_min_age_secs, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_min_age_apps_secs, &memstat_reaper_min_age_apps_secs, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_max_priority, &memstat_reaper_max_priority, 0, JETSAM_PRIORITY_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_reap_relaunch_mask, &memstat_reaper_reap_relaunch_mask, 0, UINT32_MAX, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern_memorystatus, reaper_rescan_secs, &memstat_reaper_rescan_secs, 0, UINT32_MAX, "");
 
 SYSCTL_INT(_kern_memorystatus, OID_AUTO, reaper_stats_sweep_count,
     CTLFLAG_RD | CTLFLAG_LOCKED,
@@ -1440,38 +1468,38 @@ memstat_page_shortage_threshold_experiment_handler SYSCTL_HANDLER_ARGS
 #define MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS (CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LOCKED | CTLFLAG_MASKED)
 #endif /* DEVELOPMENT || DEBUG */
 
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, soft_threshold_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, soft_threshold_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_soft_threshold, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
     "The minimum amount of available memory to maintain before killing "
     "processes which have violated there soft memory limit");
 
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, idle_threshold_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, idle_threshold_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_idle_threshold, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
     "The minimum amount of available memory to maintain before exiting idle "
     "processes");
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, critical_threshold_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, critical_threshold_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_critical_threshold, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
     "The minimum amount of available memory to maintain before killing non-idle "
     "processes");
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, reaper_threshold_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, reaper_threshold_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_reaper_threshold, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
     "The minimum amount of available memory to maintain before killing long-idle "
     "processes");
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, ballast_offset_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, ballast_offset_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_ballast_offset, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
     "An offset to apply to all non-critical page shortage thresholds when "
     "ballast is filling");
-EXPERIMENT_FACTOR_PROC(_kern_memorystatus, clear_the_decks_offset_mb,
+EXPERIMENT_FACTOR_LEGACY_PROC(_kern_memorystatus, clear_the_decks_offset_mb,
     MEMSTAT_PAGE_SHORTAGE_EXPERIMENT_FLAGS,
     &memstat_ctd_offset, 0, memstat_page_shortage_threshold_experiment_handler,
     "IU",
@@ -1712,13 +1740,13 @@ SYSCTL_PROC(_kern, OID_AUTO, memorystatus_disconnect_page_mappings, CTLTYPE_INT 
  * Input:
  *	bucket_index - jetsam priority band to be sorted.
  *	sort_order - JETSAM_SORT_xxx from kern_memorystatus.h
- *		Currently sort_order is only meaningful when handling
- *		coalitions.
  *
  * proc_list_lock must be held by the caller.
  */
 static void
-memorystatus_sort_bucket_locked(unsigned int bucket_index, int sort_order)
+memstat_sort_bucket_locked(
+	unsigned int bucket_index,
+	memorystatus_jetsam_sort_order_t sort_order)
 {
 	LCK_MTX_ASSERT(&proc_list_mlock, LCK_MTX_ASSERT_OWNED);
 	assert(bucket_index < MEMSTAT_BUCKET_COUNT);
@@ -1726,18 +1754,15 @@ memorystatus_sort_bucket_locked(unsigned int bucket_index, int sort_order)
 		return;
 	}
 
-	switch (bucket_index) {
-	case JETSAM_PRIORITY_FOREGROUND:
-		if (memorystatus_sort_by_largest_coalition_locked(bucket_index, sort_order) == 0) {
-			/*
-			 * Fall back to per process sorting when zero coalitions are found.
-			 */
-			memorystatus_sort_by_largest_process_locked(bucket_index);
-		}
+	switch (sort_order) {
+	case JETSAM_SORT_NONE:
 		break;
-	default:
-		memorystatus_sort_by_largest_process_locked(bucket_index);
+	case JETSAM_SORT_LRU:
+	case JETSAM_SORT_FOOTPRINT:
+		memstat_sort_coals_locked(bucket_index, sort_order);
 		break;
+	case JETSAM_SORT_FOOTPRINT_NOCOAL:
+		memstat_sort_by_footprint_locked(bucket_index);
 	}
 }
 
@@ -1746,43 +1771,21 @@ memorystatus_sort_bucket_locked(unsigned int bucket_index, int sort_order)
  *
  * Input:
  *	bucket_index - jetsam priority band to be sorted.
- *	sort_order - JETSAM_SORT_xxx from kern_memorystatus.h
- *		Currently sort_order is only meaningful when handling
- *		coalitions.
+ *	sort_order - sort order to use
  *
  * Return:
  *	0     on success
  *      non-0 on failure
  */
 static int
-memorystatus_sort_bucket(unsigned int bucket_index, int sort_order)
+memstat_sort_bucket(
+	unsigned int bucket_index,
+	memorystatus_jetsam_sort_order_t sort_order)
 {
-	int coal_sort_order;
-
-	/*
-	 * Verify the jetsam priority
-	 */
-	if (bucket_index >= MEMSTAT_BUCKET_COUNT) {
-		return EINVAL;
-	}
-
-#if DEVELOPMENT || DEBUG
-	if (sort_order == JETSAM_SORT_DEFAULT) {
-		coal_sort_order = COALITION_SORT_DEFAULT;
-	} else {
-		coal_sort_order = sort_order;           /* only used for testing scenarios */
-	}
-#else
-	/* Verify default */
-	if (sort_order == JETSAM_SORT_DEFAULT) {
-		coal_sort_order = COALITION_SORT_DEFAULT;
-	} else {
-		return EINVAL;
-	}
-#endif
+	assert(bucket_index < MEMSTAT_BUCKET_COUNT);
 
 	proc_list_lock();
-	memorystatus_sort_bucket_locked(bucket_index, coal_sort_order);
+	memstat_sort_bucket_locked(bucket_index, sort_order);
 	proc_list_unlock();
 
 	return 0;
@@ -1793,7 +1796,7 @@ memorystatus_sort_bucket(unsigned int bucket_index, int sort_order)
  */
 
 static void
-memorystatus_sort_by_largest_process_locked(unsigned int bucket_index)
+memstat_sort_by_footprint_locked(unsigned int bucket_index)
 {
 	proc_t p = NULL, insert_after_proc = NULL, max_proc = NULL;
 	proc_t next_p = NULL, prev_max_proc = NULL;
@@ -2105,6 +2108,12 @@ memorystatus_init(void)
 		memstat_reaper_min_age_secs = MEMORYSTATUS_REAPER_MIN_AGE_SECS_DEFAULT;
 	}
 
+	if (memorystatus_reaper_minimum_age_apps_seconds != MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT) {
+		memstat_reaper_min_age_apps_secs = memorystatus_reaper_minimum_age_apps_seconds;
+	} else {
+		memstat_reaper_min_age_apps_secs = MEMORYSTATUS_REAPER_MIN_AGE_APPS_SECS_DEFAULT;
+	}
+
 	if (memorystatus_reaper_rescan_delay_seconds != MEMORYSTATUS_REAPER_SENTINAL_VALUE_MEANING_USE_DEFAULT) {
 		memstat_reaper_rescan_secs = memorystatus_reaper_rescan_delay_seconds;
 	} else {
@@ -2200,6 +2209,14 @@ memorystatus_init(void)
 #if DEVELOPMENT || DEBUG
 	if (PE_parse_boot_argn("-memorystatus-skip-fg-notify", &i, sizeof(i))) {
 		memorystatus_should_issue_fg_band_notify = false;
+	}
+
+	if (PE_parse_boot_argn("memorystatus_kill_on_sustained_pressure", &i, sizeof(i))) {
+		if (i) {
+			memstat_pressure_config |= MEMSTAT_WARNING_KILL_SUSTAINED;
+		} else {
+			memstat_pressure_config &= ~MEMSTAT_WARNING_KILL_SUSTAINED;
+		}
 	}
 #endif /* DEVELOPMENT || DEBUG */
 
@@ -2371,6 +2388,7 @@ memorystatus_do_kill(proc_t p, uint32_t cause, os_reason_t jetsam_reason, uint64
 	case kMemorystatusKilledFCThrashing:                            jetsam_flags |= P_JETSAM_FCTHRASHING; break;
 	case kMemorystatusKilledPerProcessLimit:                        jetsam_flags |= P_JETSAM_PID; break;
 	case kMemorystatusKilledIdleExit:                                       jetsam_flags |= P_JETSAM_IDLEEXIT; break;
+	case kMemorystatusKilledConclaveLimit:                        jetsam_flags |= P_JETSAM_PID; break;
 	}
 	/* jetsam_do_kill drops a reference. */
 	os_reason_ref(jetsam_reason);
@@ -2865,6 +2883,17 @@ memstat_update_priority_locked(proc_t p,
 
 	old_bucket = &memstat_bucket[p->p_memstat_effectivepriority];
 
+	if (priority == JETSAM_PRIORITY_IDLE &&
+	    !(_memstat_proc_can_idle_exit(p) && !_memstat_proc_is_dirty(p)) &&
+	    !(_memstat_proc_is_managed(p) && !_memstat_proc_has_priority_assertion(p))) {
+		priority = JETSAM_PRIORITY_BACKGROUND;
+		memorystatus_log_error("memorystatus: %s [%d] is neither "
+		    "clean (0x%x) nor assertion-less (0x%x) and cannot "
+		    "therefore be idle - overriding to pri %d\n",
+		    proc_best_name(p), proc_getpid(p), p->p_memstat_dirty,
+		    p->p_memstat_state, priority);
+	}
+
 	if (!(options & MEMSTAT_PRIORITY_NO_AGING)) {
 		if (_memstat_proc_is_elevated(p)) {
 			/*
@@ -3065,7 +3094,7 @@ memorystatus_set_priority(proc_t p, int priority, uint64_t user_data,
 	} else if (priority == JETSAM_PRIORITY_IDLE_HEAD) {
 		/* JETSAM_PRIORITY_IDLE_HEAD inserts at the head of the idle queue */
 		priority = JETSAM_PRIORITY_IDLE;
-		options |= MEMSTAT_PRIORITY_INSERT_HEAD;
+		options |= (MEMSTAT_PRIORITY_INSERT_HEAD | MEMSTAT_PRIORITY_NO_AGING);
 	} else if ((priority < 0) || (priority >= MEMSTAT_BUCKET_COUNT)) {
 		/* Sanity check */
 		ret = EINVAL;
@@ -3131,6 +3160,21 @@ out:
 	return ret;
 }
 
+#if DEVELOPMENT || DEBUG
+static int32_t
+memstat_increased_limit(int32_t limit, int32_t increase)
+{
+	int32_t offset_limit;
+	if (limit <= 0) {
+		return 0;
+	}
+	if (os_add_overflow(limit, increase, &offset_limit)) {
+		return INT32_MAX;
+	}
+	return offset_limit;
+}
+#endif /* DEVELOPMENT || DEBUG */
+
 static int
 memstat_set_memlimits_locked(proc_t p, int32_t active_limit,
     int32_t inactive_limit, memlimit_options_t options)
@@ -3145,6 +3189,8 @@ memstat_set_memlimits_locked(proc_t p, int32_t active_limit,
 	LCK_MTX_ASSERT(&proc_list_mlock, LCK_MTX_ASSERT_OWNED);
 
 	int32_t default_active_limit = memorystatus_get_default_task_active_limit(p);
+	int32_t default_inactive_limit = memorystatus_get_default_task_inactive_limit(p);
+
 	/*
 	 * The special value of -1 specifies that this proc wants the default
 	 * memory limit
@@ -3152,6 +3198,19 @@ memstat_set_memlimits_locked(proc_t p, int32_t active_limit,
 	if (active_limit <= 0) {
 		active_limit = default_active_limit;
 	}
+	if (inactive_limit <= 0) {
+		inactive_limit = default_inactive_limit;
+	}
+
+#if DEVELOPMENT || DEBUG
+	if (p->p_memlimit_increase) {
+		/* Apply memlimit increase (for testing with overlay roots) */
+		int32_t memlimit_increase = roundToNearestMB(p->p_memlimit_increase);
+		active_limit = memstat_increased_limit(active_limit, memlimit_increase);
+		inactive_limit = memstat_increased_limit(inactive_limit, memlimit_increase);
+	}
+#endif /* DEVELOPMENT || DEBUG */
+
 	/*
 	 * Work around a bug in JetsamProperties whereby processes may mistakenly receive
 	 * ActiveSoftMemoryLimit := -1 by forcing the default task limit to be fatal.
@@ -3160,21 +3219,9 @@ memstat_set_memlimits_locked(proc_t p, int32_t active_limit,
 		options |= MEMLIMIT_ACTIVE_FATAL;
 	}
 
-	int32_t default_inactive_limit = memorystatus_get_default_task_inactive_limit(p);
-	if (inactive_limit <= 0) {
-		inactive_limit = default_inactive_limit;
-	}
 	if (default_inactive_limit && inactive_limit == default_inactive_limit) {
 		options |= MEMLIMIT_INACTIVE_FATAL;
 	}
-#if DEVELOPMENT || DEBUG
-	if (p->p_memlimit_increase) {
-		/* Apply memlimit increase (for testing with overlay roots) */
-		int32_t memlimit_increase = roundToNearestMB(p->p_memlimit_increase);
-		active_limit = active_limit + memlimit_increase;
-		inactive_limit = inactive_limit + memlimit_increase;
-	}
-#endif /* DEVELOPMENT || DEBUG */
 
 	memorystatus_log_debug(
 		"memorystatus: setting memlimit for %s [%d], "
@@ -3338,7 +3385,7 @@ static int
 memorystatus_validate_track_flags(struct proc *target_p, uint32_t pcontrol)
 {
 	/* See that the process isn't marked for termination */
-	if (target_p->p_memstat_dirty & P_DIRTY_TERMINATED) {
+	if (_memstat_proc_is_terminating(target_p)) {
 		return EBUSY;
 	}
 
@@ -3559,7 +3606,7 @@ memorystatus_dirty_set(proc_t p, boolean_t self, uint32_t pcontrol)
 		/* Dirty tracking not enabled */
 		ret = EINVAL;
 		goto exit;
-	} else if (pcontrol && (p->p_memstat_dirty & P_DIRTY_TERMINATED)) {
+	} else if (pcontrol && _memstat_proc_is_terminating(p)) {
 		/*
 		 * Process is set to be terminated and we're attempting to mark it dirty.
 		 * Set for termination and marking as clean is OK - see <rdar://problem/10594349>.
@@ -3577,7 +3624,7 @@ memorystatus_dirty_set(proc_t p, boolean_t self, uint32_t pcontrol)
 			/* Clearing the dirty shutdown flag, and the process is otherwise clean - kill */
 			p->p_memstat_dirty |= P_DIRTY_TERMINATED;
 			kill = true;
-		} else if ((flag == P_DIRTY) && (p->p_memstat_dirty & P_DIRTY_TERMINATED)) {
+		} else if ((flag == P_DIRTY) && _memstat_proc_is_terminating(p)) {
 			/* Kill previously terminated processes if set clean */
 			kill = true;
 		}
@@ -3772,7 +3819,7 @@ memorystatus_on_suspend(proc_t p)
 	_memstat_proc_set_suspended(p);
 
 	/* Check if proc is marked for termination */
-	bool kill_process = !!(p->p_memstat_dirty & P_DIRTY_TERMINATED);
+	bool kill_process = _memstat_proc_is_terminating(p);
 	proc_list_unlock();
 
 	if (kill_process) {
@@ -3919,7 +3966,7 @@ memstat_kill_idle_process(memorystatus_kill_cause_t cause,
 	/* Pick next idle exit victim. */
 	current_time = mach_absolute_time();
 
-	jetsam_reason = os_reason_create(OS_REASON_JETSAM, JETSAM_REASON_MEMORY_IDLE_EXIT);
+	jetsam_reason = os_reason_create(OS_REASON_JETSAM, (jetsam_reason_t)cause);
 	if (jetsam_reason == OS_REASON_NULL) {
 		memorystatus_log_error("memorystatus: failed to allocate jetsam reason\n");
 	}
@@ -3948,9 +3995,9 @@ memstat_kill_idle_process(memorystatus_kill_cause_t cause,
 
 	if (p) {
 		memorystatus_log(
-			"memorystatus: killing_idle_process pid %d [%s] jetsam_reason->osr_code: %llu\n",
-			proc_getpid(p), proc_best_name(p), jetsam_reason->osr_code);
-		killed = memorystatus_do_kill(p, cause, jetsam_reason, footprint_out);
+			"memorystatus: killing (idle) %s [%d] due to %s (%u)\n",
+			proc_best_name(p), proc_getpid(p), memstat_kill_cause_name[cause], cause);
+		memorystatus_kill_proc(p, cause, jetsam_reason, &killed, footprint_out);
 		proc_rele(p);
 	} else {
 		os_reason_free(jetsam_reason);
@@ -3996,11 +4043,6 @@ memorystatus_respond_to_compressor_exhaustion(void)
 	if (kill_on_no_paging_space) {
 		memorystatus_thread_wake();
 	} else {
-		if (memstat_get_idle_proccnt() > 0) {
-			/* There are idle processes to kill */
-			memorystatus_thread_wake();
-		}
-
 		/*
 		 * Throttle how often the jetsam thread is woken due to
 		 * compressor/swap exhaustion
@@ -4014,14 +4056,7 @@ memorystatus_respond_to_compressor_exhaustion(void)
 		}
 		absolutetime_to_nanoseconds(now - last_action_ts, &delta_since_last_no_space_ns);
 		if (delta_since_last_no_space_ns > no_paging_space_action_throttle_delay_ns) {
-			/* TODO: this should happen on the memorystatus thread (rdar://138409129) */
-			if (os_atomic_cmpxchg(&last_no_space_action_ts, last_action_ts, now, relaxed)) {
-				bool should_notify = no_paging_space_action();
-				if (should_notify) {
-					/* Put up the "Out of Application Memory" dialogue */
-					memorystatus_send_low_swap_note();
-				}
-			}
+			memorystatus_thread_wake();
 		}
 	}
 #endif /* CONFIG_JETSAM */
@@ -4185,6 +4220,16 @@ _memstat_relaunch_flags_description(uint32_t flags)
 		return "high";
 	default:
 		return "??";
+	}
+}
+
+const char*
+_memstat_proc_type_description(proc_t p)
+{
+	if (_memstat_proc_is_application(p)) {
+		return "app";
+	} else {
+		return "daemon";
 	}
 }
 
@@ -4434,7 +4479,11 @@ memstat_purge_caches(jetsam_state_t state)
 #if CONFIG_DEFERRED_RECLAIM
 	/* TODO: estimate memory recovered from deferred reclaim */
 	memorystatus_log("memorystatus: reclaiming all deferred user memory\n");
-	vm_deferred_reclamation_gc(RECLAIM_GC_DRAIN, RECLAIM_NO_FAULT | RECLAIM_NO_WAIT);
+	mach_vm_size_t vmdr_bytes_reclaimed;
+	vm_deferred_reclamation_gc(RECLAIM_GC_DRAIN, &vmdr_bytes_reclaimed,
+	    RECLAIM_NO_FAULT | RECLAIM_NO_WAIT);
+	memorystatus_log("memorystatus: purged %llu KiB of deferred user memory\n",
+	    vmdr_bytes_reclaimed);
 #endif /* CONFIG_DEFERRED_RECLAIM */
 
 	/* TODO: estimate wired memory recovered from zone_gc */
@@ -4608,12 +4657,12 @@ create_jetsam_reason(memorystatus_kill_cause_t cause)
 
 /*
  * Do one kill as we're marching up the priority bands.
- * This is a wrapper around memorystatus_kill_top_process that also
+ * This is a wrapper around memstat_kill_top_process that also
  * sets post_snapshot, tracks jld_idle_kills, and notifies if we're appraoching the fg band.
  */
 static bool
-memorystatus_do_priority_kill(jetsam_state_t state,
-    uint32_t kill_cause, int32_t max_priority, bool only_swappable, bool only_long_idle)
+memstat_do_priority_kill(jetsam_state_t state,
+    uint32_t kill_cause, int32_t max_priority, memstat_kill_options_t options)
 {
 	os_reason_t jetsam_reason = OS_REASON_NULL;
 	bool killed = false;
@@ -4621,15 +4670,18 @@ memorystatus_do_priority_kill(jetsam_state_t state,
 
 	jetsam_reason = create_jetsam_reason(kill_cause);
 	/*
-	 * memorystatus_kill_top_process() drops a reference,
+	 * memstat_kill_top_process() drops a reference,
 	 * so take another one so we can continue to use this exit reason
 	 * even after it returns
 	 */
 	os_reason_ref(jetsam_reason);
 
+	if (state->sort_flag) {
+		options |= MEMSTAT_SORT_BUCKET;
+	}
 	/* LRU */
-	killed = memorystatus_kill_top_process(true, state->sort_flag, kill_cause, jetsam_reason, max_priority,
-	    only_swappable, only_long_idle, &priority, &state->errors, &state->memory_reclaimed);
+	killed = memstat_kill_top_process(kill_cause, jetsam_reason, max_priority,
+	    options, &priority, &state->errors, &state->memory_reclaimed);
 	state->sort_flag = false;
 
 	if (killed) {
@@ -4661,7 +4713,31 @@ memorystatus_do_priority_kill(jetsam_state_t state,
 }
 
 static bool
-memorystatus_do_action(jetsam_state_t state, memorystatus_action_t action, uint32_t kill_cause)
+memstat_perform_no_paging_space_action(memorystatus_kill_cause_t cause)
+{
+#if !CONFIG_JETSAM
+	uint64_t now = mach_absolute_time();
+	os_atomic_store(&last_no_space_action_ts, now, relaxed);
+
+	bool should_notify = no_paging_space_action(cause);
+	if (should_notify) {
+		/*
+		 * Put up the "Out of Application Memory" dialogue. The user will be
+		 * prompted to select applications to Force Quit.
+		 */
+		memorystatus_log("memorystatus: sending out-of-application memory knote\n");
+		memorystatus_send_low_swap_note();
+		return false;
+	}
+	return true;
+#else /* CONFIG_JETSAM */
+	(void)cause;
+	panic("No-Paging-Space Action unsupported on this platform");
+#endif /* !CONFIG_JETSAM */
+}
+
+static bool
+memorystatus_do_action(jetsam_state_t state, memorystatus_action_t action, memorystatus_kill_cause_t kill_cause)
 {
 	bool killed = false;
 	os_reason_t jetsam_reason = OS_REASON_NULL;
@@ -4677,7 +4753,7 @@ memorystatus_do_action(jetsam_state_t state, memorystatus_action_t action, uint3
 		os_reason_free(jetsam_reason);
 		break;
 	case MEMORYSTATUS_KILL_TOP_PROCESS:
-		killed = memorystatus_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_MAX, false, false);
+		killed = memstat_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_MAX, 0);
 		break;
 	case MEMORYSTATUS_WAKE_SWAPPER:
 		memorystatus_log_info(
@@ -4693,16 +4769,23 @@ memorystatus_do_action(jetsam_state_t state, memorystatus_action_t action, uint3
 		vm_compressor_process_special_swapped_in_segments();
 		break;
 	case MEMORYSTATUS_KILL_SUSPENDED_SWAPPABLE:
-		killed = memorystatus_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_BACKGROUND - 1, true, false);
+		killed = memstat_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_BACKGROUND - 1, MEMSTAT_ONLY_SWAPPABBLE);
 		break;
 	case MEMORYSTATUS_KILL_SWAPPABLE:
-		killed = memorystatus_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_MAX, true, false);
+		killed = memstat_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_MAX, MEMSTAT_ONLY_SWAPPABBLE);
 		break;
 	case MEMORYSTATUS_KILL_IDLE:
-		killed = memorystatus_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_IDLE, false, false);
+		killed = memstat_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_IDLE, 0);
 		break;
 	case MEMORYSTATUS_KILL_LONG_IDLE:
-		killed = memorystatus_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_IDLE, false, true);
+		killed = memstat_do_priority_kill(state, kill_cause, JETSAM_PRIORITY_IDLE, MEMSTAT_ONLY_LONG_IDLE);
+		break;
+	case MEMORYSTATUS_NO_PAGING_SPACE:
+		killed = memstat_perform_no_paging_space_action(kill_cause);
+		break;
+	case MEMORYSTATUS_PURGE_CACHES:
+		memstat_purge_caches(state);
+		killed = true;
 		break;
 	case MEMORYSTATUS_KILL_NONE:
 		panic("memorystatus_do_action: Impossible! memorystatus_do_action called with action = NONE\n");
@@ -4785,6 +4868,7 @@ memorystatus_thread_internal(jetsam_state_t state)
 	assert(state != NULL);
 	state->jld_idle_kills = 0;
 	state->errors = 0;
+	state->errors_cleared = false;
 	state->hwm_kills = 0;
 	state->sort_flag = true;
 	state->corpse_list_purged = false;
@@ -4838,7 +4922,7 @@ memorystatus_thread_internal(jetsam_state_t state)
 		}
 
 		if (cause == kMemorystatusKilledVMCompressorThrashing || cause == kMemorystatusKilledVMCompressorSpaceShortage) {
-			memorystatus_log("memorystatus: killing due to \"%s\" - compression_ratio=%u\n", memorystatus_kill_cause_name[cause], vm_compression_ratio());
+			memorystatus_log("memorystatus: killing due to \"%s\" - compression_ratio=%u\n", memstat_kill_cause_name[cause], vm_compression_ratio());
 		}
 
 		killed = memorystatus_do_action(state, action, cause);
@@ -4852,8 +4936,55 @@ memorystatus_thread_internal(jetsam_state_t state)
 				suspended_swappable_apps_remaining = false;
 			} else if (action == MEMORYSTATUS_KILL_SUSPENDED_SWAPPABLE) {
 				suspended_swappable_apps_remaining = false;
+			} else if (action == MEMORYSTATUS_KILL_TOP_PROCESS ||
+			    action == MEMORYSTATUS_KILL_AGGRESSIVE) {
+				/*
+				 * We tried to kill a process, but failed to find anyone to kill. It's
+				 * possible we chose not to because we reclaimed some purgeable memory or
+				 * hit this thread's priority limit.
+				 */
+				if (state->memory_reclaimed == 0 && !state->limit_to_low_bands) {
+					/*
+					 * We should have found someone to kill. Either we failed because of a transient
+					 * error or we've run out of candidates and the issue is caused by the kernel.
+					 */
+					memorystatus_log("memorystatus: failed to find a process to kill!\n");
+					if (state->errors && !state->errors_cleared) {
+						/*
+						 * It's possible that all of the kill candidates had the error bit set
+						 * (e.g. because we caught them in exec()). Clear all the error bits and
+						 * try to kill them one more time in the hopes that they are now killable.
+						 */
+						memorystatus_log("memorystatus: clearing kill errors and retrying\n");
+						memorystatus_clear_errors();
+						state->errors_cleared = true;
+					} else {
+						/* The memory may be held by a corpse or zalloc. */
+						memstat_purge_caches(state);
+						struct memorystatus_system_health_s health_status;
+						bool is_system_healthy = memstat_check_system_health(&health_status);
+						if (!is_system_healthy) {
+							memorystatus_log("memorystatus: system still unhealthy after cache purge!\n");
+							/*
+							 * We trimmed the zones above but it's possible there is a bug with
+							 * working set estimation and we needed a full drain.
+							 */
+							memorystatus_log_fault("memorystatus: fully draining kernel zone allocator\n");
+							zone_gc_drain();
+							is_system_healthy = memstat_check_system_health(&health_status);
+							if (!is_system_healthy) {
+								/*
+								 * We've killed everything and purged all xnu caches. There is nothing
+								 * left to do but panic.
+								 */
+								panic("memorystatus: all victims exhausted");
+							}
+						}
+					}
+				}
 			}
 		} else {
+			/* We successfully killed a process */
 			if (cause == kMemorystatusKilledVMCompressorThrashing || cause == kMemorystatusKilledVMCompressorSpaceShortage) {
 				memorystatus_log("memorystatus: post-jetsam compressor fragmentation_level=%u\n", vm_compressor_fragmentation_level());
 			}
@@ -4863,32 +4994,6 @@ memorystatus_thread_internal(jetsam_state_t state)
 			suspended_swappable_apps_remaining = true;
 		}
 
-		if (!killed && total_memory_reclaimed == 0) {
-			memorystatus_log("memorystatus: failed to kill a process and no memory was reclaimed\n");
-			if ((action == MEMORYSTATUS_KILL_TOP_PROCESS || action == MEMORYSTATUS_KILL_AGGRESSIVE) &&
-			    memorystatus_get_available_page_count() < memorystatus_get_critical_page_shortage_threshold()) {
-				/*
-				 * Still under pressure and unable to kill a process - purge corpse memory
-				 * and get everything back from the pmap.
-				 */
-				memorystatus_log("memorystatus: ran out of %sprocesses to kill but "
-				    "system is still in critical condition\n",
-				    state->limit_to_low_bands ? "low-band " : "");
-				memstat_purge_caches(state);
-
-				if (!state->limit_to_low_bands &&
-				    memorystatus_get_available_page_count() < memorystatus_get_critical_page_shortage_threshold()) {
-					/*
-					 * Still under pressure and unable to kill a process
-					 */
-					memorystatus_log_fault("memorystatus: attempting full drain of kernel zone allocator\n");
-					zone_gc_drain();
-					if (memorystatus_get_available_page_count() < memorystatus_get_critical_page_shortage_threshold()) {
-						panic("memorystatus_jetsam_thread: no victim! available pages:%llu", (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES);
-					}
-				}
-			}
-		}
 
 		/*
 		 * If we did a kill on behalf of another subsystem (compressor or zalloc)
@@ -4981,7 +5086,7 @@ memorystatus_on_ledger_footprint_exceeded(boolean_t warning, boolean_t memlimit_
 			jetsam_reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
 		}
 
-		if (memorystatus_kill_process_sync(proc_getpid(p), kMemorystatusKilledPerProcessLimit, jetsam_reason) != TRUE) {
+		if (memstat_kill_process_sync(proc_getpid(p), kMemorystatusKilledPerProcessLimit, jetsam_reason) != TRUE) {
 			memorystatus_log_error("task_exceeded_footprint: failed to kill the current task (exiting?).\n");
 		}
 	} else {
@@ -5034,6 +5139,31 @@ memorystatus_log_diag_threshold_exception(const int diag_threshold_value)
 
 	memorystatus_log("memorystatus: %s [%d] exceeded diag threshold limit: %d MB \n",
 	    ((p && *p->p_name) ? p->p_name : "unknown"), (p ? proc_getpid(p) : -1), diag_threshold_value);
+}
+
+void
+memorystatus_on_conclave_limit_exceeded(const int max_footprint_mb)
+{
+	os_reason_t jetsam_reason = OS_REASON_NULL;
+	proc_t p = current_proc();
+
+	/*
+	 * The limit violation is logged here; it's always fatal.
+	 */
+	memorystatus_log("memorystatus: %s [%d] exceeded conclave limit: %d MB \n",
+	    ((p && *p->p_name) ? p->p_name : "unknown"), (p ? proc_getpid(p) : -1), max_footprint_mb);
+
+	jetsam_reason = os_reason_create(OS_REASON_JETSAM, JETSAM_REASON_MEMORY_CONCLAVELIMIT);
+	if (jetsam_reason == NULL) {
+		memorystatus_log_error("task_exceeded_conclave: failed to allocate jetsam reason\n");
+	} else if (corpse_for_fatal_memkill && proc_send_synchronous_EXC_RESOURCE(p) == FALSE) {
+		/* Set OS_REASON_FLAG_GENERATE_CRASH_REPORT to generate corpse */
+		jetsam_reason->osr_flags |= OS_REASON_FLAG_GENERATE_CRASH_REPORT;
+	}
+
+	if (memstat_kill_process_sync(proc_getpid(p), kMemorystatusKilledConclaveLimit, jetsam_reason) != TRUE) {
+		memorystatus_log_error("task_exceeded_conclave: failed to kill the current task (exiting?).\n");
+	}
 }
 
 /*
@@ -5105,7 +5235,7 @@ memstat_proc_is_active_locked(proc_t p)
 }
 
 static bool
-memorystatus_kill_process_sync(pid_t victim_pid, uint32_t cause, os_reason_t jetsam_reason)
+memstat_kill_process_sync(pid_t victim_pid, uint32_t cause, os_reason_t jetsam_reason)
 {
 	bool killed;
 
@@ -5125,13 +5255,15 @@ memorystatus_kill_process_sync(pid_t victim_pid, uint32_t cause, os_reason_t jet
 		if (kill_on_no_paging_space ||
 		    cause == kMemorystatusKilledZoneMapExhaustion) {
 			max_priority = JETSAM_PRIORITY_MAX;
+		} else if (cause == kMemorystatusKilledSustainedPressure) {
+			max_priority = memstat_sustained_pressure_max_pri;
 		} else {
 			max_priority = JETSAM_PRIORITY_IDLE;
 		}
 #endif /* CONFIG_JETSAM */
 		/* No pid, so kill first process */
-		killed = memorystatus_kill_top_process(true, true, cause, jetsam_reason,
-		    max_priority, false, false, NULL, &errors, &memory_reclaimed);
+		killed = memstat_kill_top_process(cause, jetsam_reason,
+		    max_priority, MEMSTAT_SORT_BUCKET, NULL, &errors, &memory_reclaimed);
 	} else {
 		killed = memorystatus_kill_specific_process(victim_pid, cause, jetsam_reason);
 	}
@@ -5189,7 +5321,7 @@ memorystatus_kill_specific_process(pid_t victim_pid, uint32_t cause, os_reason_t
 
 	proc_list_lock();
 
-	if (p->p_memstat_state & P_MEMSTAT_TERMINATED) {
+	if (_memstat_proc_was_killed(p)) {
 		/*
 		 * Someone beat us to this kill.
 		 * Nothing to do here.
@@ -5218,9 +5350,10 @@ memorystatus_kill_specific_process(pid_t victim_pid, uint32_t cause, os_reason_t
 
 	killed = memorystatus_do_kill(p, cause, jetsam_reason, &footprint_of_killed_proc);
 
-	memorystatus_log("%lu.%03d memorystatus: killing_specific_process pid %d [%s] (%s %d %llus rf:%s) %lluKB - memorystatus_available_pages: %llu\n",
+	memorystatus_log("%lu.%03d memorystatus: killing_specific_process pid %d [%s] (%s %d %llus rf:%s type:%s) %lluKB - memorystatus_available_pages: %llu\n",
 	    (unsigned long)tv_sec, tv_msec, victim_pid, ((p && *p->p_name) ? p->p_name : "unknown"),
-	    memorystatus_kill_cause_name[cause], (p ? p->p_memstat_effectivepriority: -1), time_in_priority_band_secs, (p ? _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags) : 0),
+	    memstat_kill_cause_name[cause], (p ? p->p_memstat_effectivepriority: -1), time_in_priority_band_secs,
+	    (p ? _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags) : 0), _memstat_proc_type_description(p),
 	    footprint_of_killed_proc >> 10, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES);
 
 	if (!killed) {
@@ -5678,6 +5811,7 @@ memorystatus_update_jetsam_snapshot_entry_locked(proc_t p, uint32_t kill_cause, 
 			entry->jse_killtime = killtime;
 			entry->jse_gencount = snapshot->js_gencount;
 			entry->jse_idle_delta = p->p_memstat_idle_delta;
+			entry->jse_prio_start = p->p_memstat_prio_start;
 #if CONFIG_FREEZE
 			entry->jse_thaw_count = p->p_memstat_thaw_count;
 			entry->jse_freeze_skip_reason = p->p_memstat_freeze_skip_reason;
@@ -5937,6 +6071,7 @@ memorystatus_init_jetsam_snapshot_entry_locked(proc_t p, memorystatus_jetsam_sna
 	entry->jse_gencount = gencount;                 /* indicates a pass through jetsam thread, when process was targeted to be killed */
 
 	entry->jse_idle_delta = p->p_memstat_idle_delta; /* Most recent timespan spent in idle-band */
+	entry->jse_prio_start = p->p_memstat_prio_start; /* Time moved to current band */
 
 #if CONFIG_FREEZE
 	entry->jse_freeze_skip_reason = p->p_memstat_freeze_skip_reason;
@@ -6083,83 +6218,39 @@ static const int memorystatus_artificial_snapshot_entry_count = 2;
 #if DEVELOPMENT || DEBUG
 
 /*
- * Verify that the given bucket has been sorted correctly.
- *
- * Walks through the bucket and verifies that all pids in the
- * expected_order buffer are in that bucket and in the same
- * relative order.
- *
- * The proc_list_lock must be held by the caller.
+ * Fills an array with the given pids in the order they are seen in a
+ * jetsam band.
  */
 static int
-memorystatus_verify_sort_order(unsigned int bucket_index, pid_t *expected_order, size_t num_pids)
+memorystatus_get_sort_order(
+	unsigned int bucket_index,
+	pid_t *pids,
+	pid_t *order,
+	size_t num_pids)
 {
 	LCK_MTX_ASSERT(&proc_list_mlock, LCK_MTX_ASSERT_OWNED);
 
-	int error = 0;
 	proc_t p = NULL;
-	size_t i = 0;
+	size_t i, out_idx = 0;
 
 	/*
-	 * NB: We allow other procs to be mixed in within the expected ones.
-	 * We just need the expected procs to be in the right order relative to each other.
+	 * Read out the order of all the pids into the order array.
 	 */
 	p = memorystatus_get_first_proc_locked(&bucket_index, FALSE);
 	while (p) {
-		if (proc_getpid(p) == expected_order[i]) {
-			i++;
-		}
-		if (i == num_pids) {
-			break;
+		for (i = 0; i < num_pids; i++) {
+			if (pids[i] == proc_getpid(p)) {
+				if (out_idx >= num_pids) {
+					/* Did we somehow see something twice? */
+					return EINVAL;
+				}
+				order[out_idx] = pids[i];
+				out_idx++;
+			}
 		}
 		p = memorystatus_get_next_proc_locked(&bucket_index, p, FALSE);
 	}
-	if (i != num_pids) {
-		char buffer[128];
-		size_t len = sizeof(buffer);
-		size_t buffer_idx = 0;
-		memorystatus_log_error("memorystatus_verify_sort_order: Processes in bucket %d were not sorted properly\n", bucket_index);
-		for (i = 0; i < num_pids; i++) {
-			int num_written = snprintf(buffer + buffer_idx, len - buffer_idx, "%d,", expected_order[i]);
-			if (num_written <= 0) {
-				break;
-			}
-			if (buffer_idx + (unsigned int) num_written >= len) {
-				break;
-			}
-			buffer_idx += num_written;
-		}
-		memorystatus_log_error("memorystatus_verify_sort_order: Expected order [%s]\n", buffer);
-		memset(buffer, 0, len);
-		buffer_idx = 0;
-		p = memorystatus_get_first_proc_locked(&bucket_index, FALSE);
-		i = 0;
-		memorystatus_log_error("memorystatus_verify_sort_order: Actual order:\n");
-		while (p) {
-			int num_written;
-			if (buffer_idx == 0) {
-				num_written = snprintf(buffer + buffer_idx, len - buffer_idx, "%zu: %d,", i, proc_getpid(p));
-			} else {
-				num_written = snprintf(buffer + buffer_idx, len - buffer_idx, "%d,", proc_getpid(p));
-			}
-			if (num_written <= 0) {
-				break;
-			}
-			buffer_idx += (unsigned int) num_written;
-			assert(buffer_idx <= len);
-			if (i % 10 == 0) {
-				memorystatus_log_error("memorystatus_verify_sort_order: %s\n", buffer);
-				buffer_idx = 0;
-			}
-			p = memorystatus_get_next_proc_locked(&bucket_index, p, FALSE);
-			i++;
-		}
-		if (buffer_idx != 0) {
-			memorystatus_log_error("memorystatus_verify_sort_order: %s\n", buffer);
-		}
-		error = EINVAL;
-	}
-	return error;
+	return 0;
 }
 
 /*
@@ -6173,32 +6264,24 @@ memorystatus_cmd_test_jetsam_sort(int priority,
     user_addr_t expected_order_user,
     size_t expected_order_user_len)
 {
+	pid_t *expected_order, *actual_order;
 	int error = 0;
-	unsigned int bucket_index = 0;
-	const size_t kMaxPids = 8;
-	pid_t expected_order[kMaxPids];
-	size_t copy_size = sizeof(expected_order);
-	size_t num_pids;
+	size_t num_pids = expected_order_user_len / sizeof(pid_t);
 
-	if (expected_order_user_len < copy_size) {
-		copy_size = expected_order_user_len;
-	}
-	num_pids = copy_size / sizeof(pid_t);
-
-	error = copyin(expected_order_user, expected_order, copy_size);
-	if (error != 0) {
-		return error;
-	}
-
-	if (priority == -1) {
-		/* Use as shorthand for default priority */
-		bucket_index = JETSAM_PRIORITY_DEFAULT;
-	} else {
-		bucket_index = (unsigned int)priority;
-	}
-
-	if (bucket_index >= MEMSTAT_BUCKET_COUNT) {
+	if (num_pids > 512) { /* Just so we don't allocate some huge buffer */
 		return EINVAL;
+	}
+
+	if ((priority < 0) || (priority >= MEMSTAT_BUCKET_COUNT)) {
+		return EINVAL;
+	}
+
+	expected_order = kalloc_data_tag(num_pids * sizeof(pid_t), Z_WAITOK, VM_KERN_MEMORY_DIAG);
+	actual_order = kalloc_data_tag(num_pids * sizeof(pid_t), Z_WAITOK, VM_KERN_MEMORY_DIAG);
+
+	error = copyin(expected_order_user, expected_order, expected_order_user_len);
+	if (error != 0) {
+		goto err;
 	}
 
 	/*
@@ -6207,14 +6290,20 @@ memorystatus_cmd_test_jetsam_sort(int priority,
 	 */
 	proc_list_lock();
 
-	memorystatus_sort_bucket_locked(bucket_index, sort_order);
+	memstat_sort_bucket_locked(priority, sort_order);
 
 	if (expected_order_user != CAST_USER_ADDR_T(NULL) && expected_order_user_len > 0) {
-		error = memorystatus_verify_sort_order(bucket_index, expected_order, num_pids);
+		bzero(actual_order, num_pids * sizeof(pid_t));
+		error = memorystatus_get_sort_order(priority, expected_order, actual_order, num_pids);
+		/* Even if we get an error, we still want to copyout what we had */
+		copyout(actual_order, expected_order_user, num_pids * sizeof(pid_t));
 	}
 
 	proc_list_unlock();
 
+err:
+	kfree_data(expected_order, num_pids * sizeof(pid_t));
+	kfree_data(actual_order, num_pids * sizeof(pid_t));
 	return error;
 }
 
@@ -6266,7 +6355,7 @@ networking_memstatus_callout(proc_t p, uint32_t status)
 #endif /* SOCKETS */
 
 static bool
-memorystatus_kill_proc(proc_t p, uint32_t cause, os_reason_t jetsam_reason, bool *killed, uint64_t *footprint_of_killed_proc)
+memorystatus_kill_proc(proc_t p, uint32_t cause, os_reason_t jetsam_reason, bool *killed, uint64_t *footprint_out)
 {
 	pid_t aPid = 0;
 	uint32_t aPid_ep = 0;
@@ -6348,10 +6437,10 @@ memorystatus_kill_proc(proc_t p, uint32_t cause, os_reason_t jetsam_reason, bool
 				memorystatus_purge_before_jetsam_success++;
 
 				memorystatus_log_info("memorystatus: reclaimed %llu pages (%llu purged, %llu unsecluded) from pid %d [%s] and avoided %s\n",
-				    num_pages_reclaimed, num_pages_purged, num_pages_unsecluded, aPid, ((p && *p->p_name) ? p->p_name : "unknown"), memorystatus_kill_cause_name[cause]);
+				    num_pages_reclaimed, num_pages_purged, num_pages_unsecluded, aPid, ((p && *p->p_name) ? p->p_name : "unknown"), memstat_kill_cause_name[cause]);
 
 				*killed = false;
-				*footprint_of_killed_proc = num_pages_reclaimed + num_pages_purged + num_pages_unsecluded;
+				*footprint_out = num_pages_reclaimed + num_pages_purged + num_pages_unsecluded;
 
 				return true;
 			}
@@ -6385,17 +6474,18 @@ memorystatus_kill_proc(proc_t p, uint32_t cause, os_reason_t jetsam_reason, bool
 	 */
 	os_reason_ref(jetsam_reason);
 
-	retval = memorystatus_do_kill(p, cause, jetsam_reason, footprint_of_killed_proc);
+	retval = memorystatus_do_kill(p, cause, jetsam_reason, footprint_out);
 	*killed = retval;
 
 	absolutetime_to_nanoseconds(killtime - p->p_memstat_prio_start, &time_in_priority_band_secs);
 	time_in_priority_band_secs /= NSEC_PER_SEC;
 
-	memorystatus_log("memorystatus: %s pid %d [%s] (%s %d %llus rf:%s) %lluKB - memorystatus_available_pages: %llu compressor_size:%u\n",
+	memorystatus_log("memorystatus: %s pid %d [%s] (%s %d %llus rf:%s type:%s) %lluKB - memorystatus_available_pages: %llu compressor_size:%u\n",
 	    kill_reason_string,
 	    aPid, proc_best_name(p),
-	    memorystatus_kill_cause_name[cause], aPid_ep, time_in_priority_band_secs, _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags),
-	    (*footprint_of_killed_proc) >> 10, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+	    memstat_kill_cause_name[cause], aPid_ep, time_in_priority_band_secs,
+	    _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags), _memstat_proc_type_description(p),
+	    (*footprint_out) >> 10, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
 
 	return retval;
 }
@@ -6404,9 +6494,9 @@ memorystatus_kill_proc(proc_t p, uint32_t cause, os_reason_t jetsam_reason, bool
  * Jetsam the first process in the queue.
  */
 static bool
-memorystatus_kill_top_process(bool any, bool sort_flag, uint32_t cause, os_reason_t jetsam_reason,
-    int32_t max_priority, bool only_swappable, bool only_long_idle,
-    int32_t *priority, uint32_t *errors, uint64_t *memory_reclaimed)
+memstat_kill_top_process(uint32_t cause, os_reason_t jetsam_reason,
+    int32_t max_priority, memstat_kill_options_t options,
+    int32_t *priority_out, uint32_t *errors_out, uint64_t *memory_reclaimed_out)
 {
 	pid_t aPid;
 	proc_t p = PROC_NULL, next_p = PROC_NULL;
@@ -6415,32 +6505,27 @@ memorystatus_kill_top_process(bool any, bool sort_flag, uint32_t cause, os_reaso
 	uint32_t aPid_ep;
 	uint64_t footprint_of_killed_proc = 0;
 
-#ifndef CONFIG_FREEZE
-#pragma unused(any)
-#endif
-
 	KDBG(MEMSTAT_CODE(BSD_MEMSTAT_JETSAM) | DBG_FUNC_START,
 	    MEMORYSTATUS_LOG_AVAILABLE_PAGES);
 
+	bool only_long_idle = options & MEMSTAT_ONLY_LONG_IDLE;
+	bool only_swappable = options & MEMSTAT_ONLY_SWAPPABBLE;
+	bool sort_bucket = options & MEMSTAT_SORT_BUCKET;
 
 #if CONFIG_JETSAM
-	if (sort_flag) {
-		(void)memorystatus_sort_bucket(JETSAM_PRIORITY_FOREGROUND, JETSAM_SORT_DEFAULT);
+	if (sort_bucket) {
+		(void)memstat_sort_bucket(JETSAM_PRIORITY_FOREGROUND, memstat_jetsam_fg_sort_order);
 	}
 
-	*memory_reclaimed = 0;
-
-#if VM_PRESSURE_EVENTS
-	if (cause == kMemorystatusKilledSustainedPressure) {
-		max_priority = memorystatus_sustained_pressure_maximum_band;
+	if (memory_reclaimed_out) {
+		*memory_reclaimed_out = 0;
 	}
-#endif /* VM_PRESSURE_EVENTS */
 
 	force_new_snapshot = false;
 
 #else /* CONFIG_JETSAM */
-	if (sort_flag) {
-		(void)memorystatus_sort_bucket(JETSAM_PRIORITY_IDLE, JETSAM_SORT_DEFAULT);
+	if (sort_bucket) {
+		(void)memstat_sort_bucket(JETSAM_PRIORITY_IDLE, JETSAM_SORT_IDLE_DEFAULT);
 	}
 
 	/*
@@ -6496,11 +6581,11 @@ memorystatus_kill_top_process(bool any, bool sort_flag, uint32_t cause, os_reaso
 
 		if (only_long_idle) {
 			if (!_memstat_proc_is_reapable(p)) {
-				memorystatus_log_debug("memorystatus: memorystatus_kill_top_process: skipping non-reapable process %s [%d]\n",
+				memorystatus_log_debug("memorystatus: memstat_kill_top_process: skipping non-reapable process %s [%d]\n",
 				    proc_best_name(p), p->p_pid);
 				continue;
 			}
-			memorystatus_log_debug("memorystatus: memorystatus_kill_top_process: found reapable long-idle process %s [%d]\n",
+			memorystatus_log_debug("memorystatus: memstat_kill_top_process: found reapable long-idle process %s [%d]\n",
 			    proc_best_name(p), p->p_pid);
 		}
 
@@ -6517,86 +6602,80 @@ memorystatus_kill_top_process(bool any, bool sort_flag, uint32_t cause, os_reaso
 		}
 #endif /* !CONFIG_JETSAM */
 #if CONFIG_FREEZE
-		boolean_t skip;
-		boolean_t reclaim_proc = !(p->p_memstat_state & P_MEMSTAT_LOCKED);
-		if (any || reclaim_proc) {
-			skip = FALSE;
-		} else {
-			skip = TRUE;
-		}
-
-		if (skip) {
+		if (p->p_memstat_state & P_MEMSTAT_LOCKED) {
 			continue;
-		} else
+		}
 #endif
-		{
-			if (proc_ref(p, true) == p) {
-				/*
-				 * Mark as terminated so that if exit1() indicates success, but the process (for example)
-				 * is blocked in task_exception_notify(), it'll be skipped if encountered again - see
-				 * <rdar://problem/13553476>. This is cheaper than examining P_LEXIT, which requires the
-				 * acquisition of the proc lock.
-				 */
-				p->p_memstat_state |= P_MEMSTAT_TERMINATED;
-			} else {
-				/*
-				 * We need to restart the search again because
-				 * proc_ref _can_ drop the proc_list lock
-				 * and we could have lost our stored next_p via
-				 * an exit() on another core.
-				 */
-				i = 0;
-				next_p = memorystatus_get_first_proc_locked(&i, TRUE);
-				continue;
-			}
-
+		if (proc_ref(p, true) == p) {
 			/*
-			 * Capture a snapshot if none exists and:
-			 * - we are forcing a new snapshot creation, either because:
-			 *      - on a particular platform we need these snapshots every time, OR
-			 *	- a boot-arg/embedded device tree property has been set.
-			 * - priority was not requested (this is something other than an ambient kill)
-			 * - the priority was requested *and* the targeted process is not at idle priority
+			 * Mark as terminated so that if exit1() indicates success, but the process (for example)
+			 * is blocked in task_exception_notify(), it'll be skipped if encountered again - see
+			 * <rdar://problem/13553476>. This is cheaper than examining P_LEXIT, which requires the
+			 * acquisition of the proc lock.
 			 */
-			if ((memorystatus_jetsam_snapshot_count == 0) &&
-			    (force_new_snapshot || memorystatus_idle_snapshot || ((!priority) || (priority && (aPid_ep != JETSAM_PRIORITY_IDLE))))) {
-				memorystatus_init_jetsam_snapshot_locked(NULL, 0);
-				new_snapshot = true;
-			}
-
-			proc_list_unlock();
-
-			freed_mem = memorystatus_kill_proc(p, cause, jetsam_reason, &killed, &footprint_of_killed_proc); /* purged and/or killed 'p' */
-			/* Success? */
-			if (freed_mem) {
-				*memory_reclaimed = footprint_of_killed_proc;
-				if (killed) {
-					if (priority) {
-						*priority = aPid_ep;
-					}
-				} else {
-					/* purged */
-					proc_list_lock();
-					p->p_memstat_state &= ~P_MEMSTAT_TERMINATED;
-					proc_list_unlock();
-				}
-				proc_rele(p);
-				goto exit;
-			}
-
+			p->p_memstat_state |= P_MEMSTAT_TERMINATED;
+		} else {
 			/*
-			 * Failure - first unwind the state,
-			 * then fall through to restart the search.
+			 * We need to restart the search again because
+			 * proc_ref _can_ drop the proc_list lock
+			 * and we could have lost our stored next_p via
+			 * an exit() on another core.
 			 */
-			proc_list_lock();
-			proc_rele(p);
-			p->p_memstat_state &= ~P_MEMSTAT_TERMINATED;
-			p->p_memstat_state |= P_MEMSTAT_ERROR;
-			*errors += 1;
-
 			i = 0;
 			next_p = memorystatus_get_first_proc_locked(&i, TRUE);
+			continue;
 		}
+
+		/*
+		 * Capture a snapshot if none exists and:
+		 * - we are forcing a new snapshot creation, either because:
+		 *      - on a particular platform we need these snapshots every time, OR
+		 *	- a boot-arg/embedded device tree property has been set.
+		 * - priority was not requested (this is something other than an ambient kill)
+		 * - the priority was requested *and* the targeted process is not at idle priority
+		 */
+		if ((memorystatus_jetsam_snapshot_count == 0) &&
+		    (force_new_snapshot || memorystatus_idle_snapshot || ((!priority_out) || (priority_out && (aPid_ep != JETSAM_PRIORITY_IDLE))))) {
+			memorystatus_init_jetsam_snapshot_locked(NULL, 0);
+			new_snapshot = true;
+		}
+
+		proc_list_unlock();
+
+		freed_mem = memorystatus_kill_proc(p, cause, jetsam_reason, &killed, &footprint_of_killed_proc); /* purged and/or killed 'p' */
+		/* Success? */
+		if (freed_mem) {
+			if (memory_reclaimed_out) {
+				*memory_reclaimed_out = footprint_of_killed_proc;
+			}
+			if (killed) {
+				if (priority_out) {
+					*priority_out = aPid_ep;
+				}
+			} else {
+				/* purged */
+				proc_list_lock();
+				p->p_memstat_state &= ~P_MEMSTAT_TERMINATED;
+				proc_list_unlock();
+			}
+			proc_rele(p);
+			goto exit;
+		}
+
+		/*
+		 * Failure - first unwind the state,
+		 * then fall through to restart the search.
+		 */
+		proc_list_lock();
+		proc_rele(p);
+		p->p_memstat_state &= ~P_MEMSTAT_TERMINATED;
+		p->p_memstat_state |= P_MEMSTAT_ERROR;
+		if (errors_out) {
+			*errors_out += 1;
+		}
+
+		i = 0;
+		next_p = memorystatus_get_first_proc_locked(&i, TRUE);
 	}
 
 	proc_list_unlock();
@@ -6625,7 +6704,7 @@ exit:
 #endif
 
 	KDBG(MEMSTAT_CODE(BSD_MEMSTAT_JETSAM) | DBG_FUNC_END,
-	    MEMORYSTATUS_LOG_AVAILABLE_PAGES, killed ? aPid : 0, killed, *memory_reclaimed);
+	    MEMORYSTATUS_LOG_AVAILABLE_PAGES, killed ? aPid : 0, killed, footprint_of_killed_proc);
 
 	return killed;
 }
@@ -6669,6 +6748,10 @@ _memstat_refresh_oldest_reapable_proc_info()
 			uint64_t proc_prio_start = p->p_memstat_prio_start;
 			if (proc_prio_start < oldest_prio_start) {
 				oldest_prio_start = proc_prio_start;
+				/* Since the process list is sorted in age order within priority bands,
+				 * the first process will be the oldest one, and we can bail out and skip the rest
+				 */
+				break;
 			}
 		}
 	}
@@ -6697,21 +6780,14 @@ _memstat_proc_is_reapable(proc_t proc)
 	/*
 	 *  To be potentially reapable, the process
 	 *  - must be in or below the max reapable priority and
+	 *  - must not have a relaunch probability of High or Medium (per memstat_reaper_reap_relaunch_mask)
 	 *  - must have been in that priority band longer than the reaper minimum age threshold
-	 *  - must not have a relaunch probability of High or Medium
+	 *  - must have been in that priority band longer than the reaper minimum age threshold for applications, if process is an application
 	 */
 	priority_band = proc->p_memstat_effectivepriority;
 	if (priority_band > memstat_reaper_max_priority) {
 		memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] not reapable because priority (%d) is above threshold (%d)\n",
 		    proc_best_name(proc), proc->p_pid, priority_band, memstat_reaper_max_priority);
-		return false;
-	}
-
-	absolutetime_to_nanoseconds(mach_absolute_time() - proc->p_memstat_prio_start, &time_in_priority_band_secs);
-	time_in_priority_band_secs /= NSEC_PER_SEC;
-	if (time_in_priority_band_secs < memstat_reaper_min_age_secs) {
-		memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] not reapable because age (%llu) is below min age (%d)\n",
-		    proc_best_name(proc), proc->p_pid, time_in_priority_band_secs, memstat_reaper_min_age_secs);
 		return false;
 	}
 
@@ -6730,9 +6806,40 @@ _memstat_proc_is_reapable(proc_t proc)
 		return false;
 	}
 
-	memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] is reapable; priority=%d, age=%d, relaunch_probability_acceptable_mask=0x%02X\n",
-	    proc_best_name(proc), proc->p_pid, priority_band, (uint32_t)(time_in_priority_band_secs), relaunch_probability_acceptable_mask );
+	absolutetime_to_nanoseconds(mach_absolute_time() - proc->p_memstat_prio_start, &time_in_priority_band_secs);
+	time_in_priority_band_secs /= NSEC_PER_SEC;
+
+	if (_memstat_proc_is_application(proc)) {
+		if ((time_in_priority_band_secs < memstat_reaper_min_age_apps_secs)) {
+			memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] not reapable because it is an application and age (%llu) is below min age for apps (%d)\n",
+			    proc_best_name(proc), proc->p_pid, time_in_priority_band_secs, memstat_reaper_min_age_apps_secs);
+			return false;
+		}
+	} else {
+		if (time_in_priority_band_secs < memstat_reaper_min_age_secs) {
+			memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] not reapable because age (%llu) is below min age (%d)\n",
+			    proc_best_name(proc), proc->p_pid, time_in_priority_band_secs, memstat_reaper_min_age_secs);
+			return false;
+		}
+	}
+
+	memorystatus_log_debug("_memstat_proc_is_reapable: %s [%d] is reapable; priority=%d, age=%d, relaunch_probability_acceptable_mask=0x%02X, type=%s\n",
+	    proc_best_name(proc), proc->p_pid, priority_band, (uint32_t)(time_in_priority_band_secs), relaunch_probability_acceptable_mask,
+	    _memstat_proc_type_description(proc));
 	return true;
+}
+
+static bool
+_memstat_proc_is_application(proc_t proc)
+{
+	bool isApp = false;
+
+	task_t task = proc_task(proc);
+	if (task != NULL) {
+		isApp = task_is_app( task);
+	}
+
+	return isApp;
 }
 
 /*
@@ -6768,7 +6875,7 @@ memorystatus_kill_processes_aggressive(uint32_t cause, int aggr_count,
 		 * JETSAM_PRIORITY_FOREGROUND bucket. If yes, sort the FG band based on
 		 * coalition footprint.
 		 */
-		memorystatus_sort_bucket(JETSAM_PRIORITY_FOREGROUND, JETSAM_SORT_DEFAULT);
+		memstat_sort_bucket(JETSAM_PRIORITY_FOREGROUND, memstat_jetsam_fg_sort_order);
 	}
 
 	jetsam_reason = os_reason_create(OS_REASON_JETSAM, cause);
@@ -6881,11 +6988,11 @@ memorystatus_kill_processes_aggressive(uint32_t cause, int aggr_count,
 			absolutetime_to_nanoseconds(killtime - p->p_memstat_prio_start, &time_in_priority_band_secs);
 			time_in_priority_band_secs /= NSEC_PER_SEC;
 			memorystatus_log(
-				"memorystatus: %s%d pid %d [%s] (%s %d %llus rf:%s - memorystatus_available_pages: %llu\n",
+				"memorystatus: %s%d pid %d [%s] (%s %d %llus rf:%s type:%s) - memorystatus_available_pages: %llu\n",
 				((aPid_ep == JETSAM_PRIORITY_IDLE) ? "killing_idle_process_aggressive" : "killing_top_process_aggressive"),
 				aggr_count, aPid, proc_best_name(p),
-				memorystatus_kill_cause_name[cause], aPid_ep,
-				time_in_priority_band_secs, _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags),
+				memstat_kill_cause_name[cause], aPid_ep,
+				time_in_priority_band_secs, _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags), _memstat_proc_type_description(p),
 				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES);
 
 			memorystatus_level_snapshot = memorystatus_level;
@@ -7219,12 +7326,13 @@ memorystatus_kill_elevated_process(uint32_t cause, os_reason_t jetsam_reason, un
 
 			absolutetime_to_nanoseconds(killtime - p->p_memstat_prio_start, &time_in_priority_band_secs);
 			time_in_priority_band_secs /= NSEC_PER_SEC;
-			memorystatus_log("%lu.%03d memorystatus: killing_top_process_elevated%d pid %d [%s] (%s %d %llus rf:%s) %lluKB - memorystatus_available_pages: %llu\n",
+			memorystatus_log("%lu.%03d memorystatus: killing_top_process_elevated%d pid %d [%s] (%s %d %llus rf:%s type:%s) %lluKB - memorystatus_available_pages: %llu\n",
 			    (unsigned long)tv_sec, tv_msec,
 			    aggr_count,
 			    aPid, ((p && *p->p_name) ? p->p_name : "unknown"),
-			    memorystatus_kill_cause_name[cause], aPid_ep,
+			    memstat_kill_cause_name[cause], aPid_ep,
 			    time_in_priority_band_secs, _memstat_relaunch_flags_description(p->p_memstat_relaunch_flags),
+			    _memstat_proc_type_description(p),
 			    footprint_of_killed_proc >> 10, (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES);
 
 			/* Success? */
@@ -7296,7 +7404,7 @@ memorystatus_kill_on_VM_compressor_space_shortage(bool async)
 			memorystatus_log_error("memorystatus_kill_on_VM_compressor_space_shortage -- sync: failed to allocate jetsam reason\n");
 		}
 
-		return memorystatus_kill_process_sync(-1, kMemorystatusKilledVMCompressorSpaceShortage, jetsam_reason);
+		return memstat_kill_process_sync(-1, kMemorystatusKilledVMCompressorSpaceShortage, jetsam_reason);
 	}
 }
 
@@ -7317,18 +7425,20 @@ memorystatus_kill_on_vnode_exhaustion(void)
 		memorystatus_log_error("memorystatus_kill_on_vnode_limit: failed to allocate jetsam reason\n");
 	}
 
-	return memorystatus_kill_process_sync(-1, kMemorystatusKilledVnodes, jetsam_reason);
+	return memstat_kill_process_sync(-1, kMemorystatusKilledVnodes, jetsam_reason);
 }
+
+#endif /* CONFIG_JETSAM */
 
 bool
 memorystatus_kill_on_sustained_pressure()
 {
 	os_reason_t jetsam_reason = os_reason_create(OS_REASON_JETSAM, JETSAM_REASON_MEMORY_SUSTAINED_PRESSURE);
 	if (jetsam_reason == OS_REASON_NULL) {
-		memorystatus_log_error("memorystatus_kill_on_FC_thrashing -- sync: failed to allocate jetsam reason\n");
+		memorystatus_log_error("%s() failed to allocate jetsam reason\n", __func__);
 	}
 
-	return memorystatus_kill_process_sync(-1, kMemorystatusKilledSustainedPressure, jetsam_reason);
+	return memstat_kill_process_sync(-1, kMemorystatusKilledSustainedPressure, jetsam_reason);
 }
 
 bool
@@ -7336,10 +7446,8 @@ memstat_kill_with_jetsam_reason_sync(pid_t pid, os_reason_t jetsam_reason)
 {
 	uint32_t kill_cause = jetsam_reason->osr_code <= JETSAM_REASON_MEMORYSTATUS_MAX ?
 	    (uint32_t) jetsam_reason->osr_code : JETSAM_REASON_INVALID;
-	return memorystatus_kill_process_sync(pid, kill_cause, jetsam_reason);
+	return memstat_kill_process_sync(pid, kill_cause, jetsam_reason);
 }
-
-#endif /* CONFIG_JETSAM */
 
 bool
 memorystatus_kill_on_zone_map_exhaustion(pid_t pid)
@@ -7353,7 +7461,7 @@ memorystatus_kill_on_zone_map_exhaustion(pid_t pid)
 		if (jetsam_reason == OS_REASON_NULL) {
 			memorystatus_log_error("memorystatus_kill_on_zone_map_exhaustion: failed to allocate jetsam reason\n");
 		}
-		return memorystatus_kill_process_sync(pid, kMemorystatusKilledZoneMapExhaustion, jetsam_reason);
+		return memstat_kill_process_sync(pid, kMemorystatusKilledZoneMapExhaustion, jetsam_reason);
 	}
 }
 
@@ -7864,7 +7972,6 @@ memorystatus_cmd_get_jetsam_snapshot(int32_t flags, user_addr_t buffer, size_t b
 #endif /* (DEVELOPMENT || DEBUG)*/
 				if (is_default_snapshot) {
 					snapshot->entry_count = memorystatus_jetsam_snapshot_count = 0;
-					memorystatus_jetsam_snapshot_last_timestamp = 0;
 				}
 #if CONFIG_FREEZE
 				else if (is_freezer_snapshot) {
@@ -8093,7 +8200,7 @@ memorystatus_cmd_grp_set_priorities(user_addr_t buffer, size_t buffer_size)
 		/* Allow head inserts -- but relative order is now  */
 		if (table[i].priority == JETSAM_PRIORITY_IDLE_HEAD) {
 			new_priority = JETSAM_PRIORITY_IDLE;
-			priority_options |= MEMSTAT_PRIORITY_INSERT_HEAD;
+			priority_options |= (MEMSTAT_PRIORITY_INSERT_HEAD | MEMSTAT_PRIORITY_NO_AGING);
 		} else {
 			new_priority = table[i].priority;
 		}
@@ -8395,6 +8502,26 @@ memorystatus_cmd_get_diag_memlimit_properties(pid_t pid, user_addr_t buffer, siz
 }
 #endif //DEBUG || DEVELOPMENT
 
+static int
+_memstat_get_process_conclave_mem_limit(pid_t pid, int32_t *retval)
+{
+	kern_return_t error;
+	proc_t p = proc_find(pid);
+	if (!p) {
+		return ESRCH;
+	}
+
+	uint64_t conclave_limit;
+	error = task_get_conclave_mem_limit(proc_task(p), &conclave_limit);
+
+	if (error == KERN_SUCCESS) {
+		*retval = roundToNearestMB((uint32_t)conclave_limit);
+	}
+
+	proc_rele(p);
+	return mach_to_bsd_errno(error);
+}
+
 static void
 memorystatus_get_memlimit_properties_internal(proc_t p, memorystatus_memlimit_properties_t* p_entry)
 {
@@ -8674,6 +8801,46 @@ memorystatus_cmd_convert_memlimit_mb(pid_t pid, int32_t limit, int32_t *retval)
 	proc_rele(p);
 	return error;
 }
+
+static int
+_memstat_rearm_proc_memlimit(proc_t proc, void* flagsptr)
+{
+	task_t task = proc_task(proc);
+	uint32_t flags = *((uint32_t *) flagsptr);
+
+	if (flags & MEMORYSTATUS_FLAGS_REARM_ACTIVE) {
+		task_reset_triggered_exc_resource(task, true);
+	}
+	if (flags & MEMORYSTATUS_FLAGS_REARM_INACTIVE) {
+		task_reset_triggered_exc_resource(task, false);
+	}
+
+	return 0;
+}
+
+static int
+memorystatus_cmd_rearm_memlimit(pid_t pid, uint32_t flags, __unused int32_t *retval)
+{
+	if (pid == -1) {
+		/* Re-arm all pids */
+		proc_iterate(
+			PROC_ALLPROCLIST,
+			_memstat_rearm_proc_memlimit,
+			&flags,
+			NULL,
+			NULL);
+	} else {
+		/* Re-arm one pid */
+		proc_t p = (pid == proc_selfpid()) ? proc_self() : proc_find(pid);
+		if (!p) {
+			return ESRCH;
+		}
+		_memstat_rearm_proc_memlimit(p, &flags);
+		proc_rele(p);
+	}
+
+	return 0;
+}
 #endif /* CONFIG_JETSAM */
 
 #if DEBUG || DEVELOPMENT
@@ -8872,13 +9039,22 @@ memorystatus_get_process_is_managed(pid_t pid, int *is_managed)
 		return ESRCH;
 	}
 
-	proc_list_lock();
-	*is_managed = ((p->p_memstat_state & P_MEMSTAT_MANAGED) ? 1 : 0);
+	*is_managed = memorystatus_get_proc_is_managed(p) ? 1 : 0;
+
 	proc_rele(p);
-	proc_list_unlock();
 
 	return 0;
 }
+
+bool
+memorystatus_get_proc_is_managed(proc_t proc)
+{
+	proc_list_lock();
+	bool is_managed = _memstat_proc_is_managed(proc);
+	proc_list_unlock();
+	return is_managed;
+}
+
 
 static int
 memorystatus_set_process_is_managed(pid_t pid, boolean_t set_managed)
@@ -9003,6 +9179,16 @@ memorystatus_control(struct proc *p, struct memorystatus_control_args *args, int
 	}
 #endif /* DEVELOPMENT || DEBUG */
 
+#if DEVELOPMENT || DEBUG
+	/*
+	 * On development kernels, processes should be able to re-arm themselves
+	 * without entitlement for testing.
+	 */
+	if (args->command == MEMORYSTATUS_CMD_REARM_MEMLIMIT && proc_getpid(p) == args->pid) {
+		skip_auth_check = TRUE;
+	}
+#endif
+
 	/* Need to be root or have entitlement. */
 	if (!kauth_cred_issuser(kauth_cred_get()) && !IOCurrentTaskHasEntitlement(MEMORYSTATUS_ENTITLEMENT) && !skip_auth_check) {
 		error = EPERM;
@@ -9117,6 +9303,10 @@ memorystatus_control(struct proc *p, struct memorystatus_control_args *args, int
 	case MEMORYSTATUS_CMD_CONVERT_MEMLIMIT_MB:
 		error = memorystatus_cmd_convert_memlimit_mb(args->pid, (int32_t) args->flags, ret);
 		break;
+
+	case MEMORYSTATUS_CMD_REARM_MEMLIMIT:
+		error = memorystatus_cmd_rearm_memlimit(args->pid, args->flags, ret);
+		break;
 #endif /* CONFIG_JETSAM */
 		/* Test commands */
 #if DEVELOPMENT || DEBUG
@@ -9126,7 +9316,7 @@ memorystatus_control(struct proc *p, struct memorystatus_control_args *args, int
 			memorystatus_log_error("memorystatus_control: failed to allocate jetsam reason\n");
 		}
 
-		error = memorystatus_kill_process_sync(args->pid, kMemorystatusKilled, jetsam_reason) ? 0 : EINVAL;
+		error = memstat_kill_process_sync(args->pid, kMemorystatusKilled, jetsam_reason) ? 0 : EINVAL;
 		break;
 	case MEMORYSTATUS_CMD_TEST_JETSAM_SORT:
 		error = memorystatus_cmd_test_jetsam_sort(args->pid, (int32_t)args->flags, args->buffer, args->buffersize);
@@ -9206,6 +9396,11 @@ memorystatus_control(struct proc *p, struct memorystatus_control_args *args, int
 	case MEMORYSTATUS_CMD_GET_KILL_COUNTS:
 		error = memorystatus_cmd_get_kill_counts(args->pid, args->buffer, args->buffersize, args->flags);
 		break;
+
+	case MEMORYSTATUS_CMD_GET_CONCLAVE_LIMIT:
+		error = _memstat_get_process_conclave_mem_limit(args->pid, ret);
+		break;
+
 	default:
 		error = EINVAL;
 		break;
@@ -9217,109 +9412,80 @@ out:
 
 /* Coalition support */
 
-/* sorting info for a particular priority bucket */
-typedef struct memstat_sort_info {
-	coalition_t     msi_coal;
-	uint64_t        msi_page_count;
-	pid_t           msi_pid;
-	int             msi_ntasks;
-} memstat_sort_info_t;
-
 /*
- * qsort from smallest page count to largest page count
- *
- * return < 0 for a < b
- *          0 for a == b
- *        > 0 for a > b
+ * Inserts a list of pids before the given proc in the bucket. If any of the
+ * pids in the given list are not already in the bucket, they will be ignored.
  */
-static int
-memstat_asc_cmp(const void *a, const void *b)
+static void
+memstat_insert_list_locked(
+	proc_t before,
+	unsigned int bucket_idx,
+	pid_t *pid_list,
+	int list_sz)
 {
-	const memstat_sort_info_t *msA = (const memstat_sort_info_t *)a;
-	const memstat_sort_info_t *msB = (const memstat_sort_info_t *)b;
+	int i;
+	proc_t p;
+	memstat_bucket_t *bucket;
 
-	return (int)((uint64_t)msA->msi_page_count - (uint64_t)msB->msi_page_count);
+	assert(bucket_idx < MEMSTAT_BUCKET_COUNT);
+
+	bucket = &memstat_bucket[bucket_idx];
+
+	if ((pid_list == NULL) || (list_sz <= 0)) {
+		return;
+	}
+
+	for (i = list_sz - 1; i >= 0; i--) {
+		p = proc_find_locked(pid_list[i]);
+
+		if (p == NULL || p == before) {
+			/*
+			 * We can encounter p == before when we try to sort a coalition with an in-
+			 * progress exec of the leader, such that the leader and the exec-ing
+			 * member have the same PID. Just skip over it for now, since this member
+			 * will soon be removed from the proc list anyway.
+			 */
+			continue;
+		}
+
+		if (p->p_memstat_effectivepriority != bucket_idx) {
+			/* proc not in bucket, skip it */
+			proc_rele(p);
+			continue;
+		}
+
+		TAILQ_REMOVE(&bucket->list, p, p_memstat_list);
+		TAILQ_INSERT_BEFORE(before, p, p_memstat_list);
+		proc_rele(p);
+	}
 }
-
 /*
  * Return the number of pids rearranged during this sort.
  */
-static int
-memorystatus_sort_by_largest_coalition_locked(unsigned int bucket_index, int coal_sort_order)
+static void
+memstat_sort_coals_locked(unsigned int bucket_index, memorystatus_jetsam_sort_order_t sort_order)
 {
 #define MAX_SORT_PIDS           80
-#define MAX_COAL_LEADERS        10
 
-	unsigned int b = bucket_index;
-	int nleaders = 0;
 	int ntasks = 0;
 	proc_t p = NULL;
 	coalition_t coal = COALITION_NULL;
-	int pids_moved = 0;
-	int total_pids_moved = 0;
-	int i;
-
-	/*
-	 * The system is typically under memory pressure when in this
-	 * path, hence, we want to avoid dynamic memory allocation.
-	 */
-	memstat_sort_info_t leaders[MAX_COAL_LEADERS];
 	pid_t pid_list[MAX_SORT_PIDS];
+	memstat_bucket_t *bucket;
 
-	if (bucket_index >= MEMSTAT_BUCKET_COUNT) {
-		return 0;
-	}
+	assert((sort_order == JETSAM_SORT_LRU) || (sort_order == JETSAM_SORT_FOOTPRINT));
+	assert(bucket_index < MEMSTAT_BUCKET_COUNT);
 
-	/*
-	 * Clear the array that holds coalition leader information
-	 */
-	for (i = 0; i < MAX_COAL_LEADERS; i++) {
-		leaders[i].msi_coal = COALITION_NULL;
-		leaders[i].msi_page_count = 0;          /* will hold total coalition page count */
-		leaders[i].msi_pid = 0;                 /* will hold coalition leader pid */
-		leaders[i].msi_ntasks = 0;              /* will hold the number of tasks in a coalition */
-	}
-
-	p = memorystatus_get_first_proc_locked(&b, FALSE);
-	while (p) {
-		coal = task_get_coalition(proc_task(p), COALITION_TYPE_JETSAM);
-		if (coalition_is_leader(proc_task(p), coal)) {
-			if (nleaders < MAX_COAL_LEADERS) {
-				int coal_ntasks = 0;
-				uint64_t coal_page_count = coalition_get_page_count(coal, &coal_ntasks);
-				leaders[nleaders].msi_coal = coal;
-				leaders[nleaders].msi_page_count = coal_page_count;
-				leaders[nleaders].msi_pid = proc_getpid(p);           /* the coalition leader */
-				leaders[nleaders].msi_ntasks = coal_ntasks;
-				nleaders++;
-			} else {
-				/*
-				 * We've hit MAX_COAL_LEADERS meaning we can handle no more coalitions.
-				 * Abandoned coalitions will linger at the tail of the priority band
-				 * when this sort session ends.
-				 * TODO:  should this be an assert?
-				 */
-				memorystatus_log_error(
-					"%s: WARNING: more than %d leaders in priority band [%d]\n",
-					__FUNCTION__, MAX_COAL_LEADERS, bucket_index);
-				break;
-			}
-		}
-		p = memorystatus_get_next_proc_locked(&b, p, FALSE);
-	}
-
-	if (nleaders == 0) {
-		/* Nothing to sort */
-		return 0;
-	}
-
-	/*
-	 * Sort the coalition leader array, from smallest coalition page count
-	 * to largest coalition page count.  When inserted in the priority bucket,
-	 * smallest coalition is handled first, resulting in the last to be jetsammed.
-	 */
-	if (nleaders > 1) {
-		qsort(leaders, nleaders, sizeof(memstat_sort_info_t), memstat_asc_cmp);
+	switch (sort_order) {
+	case JETSAM_SORT_LRU:
+		/* Nothing to do, buckets are already LRU */
+		break;
+	case JETSAM_SORT_FOOTPRINT:
+		/* Sort bucket by footprint first */
+		memstat_sort_by_footprint_locked(bucket_index);
+		break;
+	default:
+		panic("Invalid sort order %d passed to memstat_sort_coals", sort_order);
 	}
 
 	/*
@@ -9340,118 +9506,62 @@ memorystatus_sort_by_largest_coalition_locked(unsigned int bucket_index, int coa
 	 * Coalition members are rearranged in the priority bucket here,
 	 * based on their coalition role.
 	 */
-	total_pids_moved = 0;
-	for (i = 0; i < nleaders; i++) {
-		/* a bit of bookkeeping */
-		pids_moved = 0;
 
-		/* Coalition leaders are jetsammed last, so move into place first */
-		pid_list[0] = leaders[i].msi_pid;
-		pids_moved += memorystatus_move_list_locked(bucket_index, pid_list, 1);
+	bucket = &memstat_bucket[bucket_index];
+	p = TAILQ_FIRST(&bucket->list);
+	while (p) {
+		coal = task_get_coalition(proc_task(p), COALITION_TYPE_JETSAM);
+		if (!coalition_is_leader(proc_task(p), coal)) {
+			p = TAILQ_NEXT(p, p_memstat_list);
+			continue;
+		}
 
-		/* xpc services should jetsam after extensions */
-		ntasks = coalition_get_pid_list(leaders[i].msi_coal, COALITION_ROLEMASK_XPC,
-		    coal_sort_order, pid_list, MAX_SORT_PIDS);
+		/* undefined coalition members should be the first to jetsam */
+		ntasks = coalition_get_pid_list(coal, COALITION_ROLEMASK_UNDEF,
+		    COALITION_SORT_DEFAULT, pid_list, MAX_SORT_PIDS);
 
 		if (ntasks > 0) {
-			pids_moved += memorystatus_move_list_locked(bucket_index, pid_list,
+			memstat_insert_list_locked(p, bucket_index, pid_list,
 			    (ntasks <= MAX_SORT_PIDS ? ntasks : MAX_SORT_PIDS));
 		}
 
 		/* extensions should jetsam after unmarked processes */
-		ntasks = coalition_get_pid_list(leaders[i].msi_coal, COALITION_ROLEMASK_EXT,
-		    coal_sort_order, pid_list, MAX_SORT_PIDS);
+		ntasks = coalition_get_pid_list(coal, COALITION_ROLEMASK_EXT,
+		    COALITION_SORT_DEFAULT, pid_list, MAX_SORT_PIDS);
 
 		if (ntasks > 0) {
-			pids_moved += memorystatus_move_list_locked(bucket_index, pid_list,
+			memstat_insert_list_locked(p, bucket_index, pid_list,
 			    (ntasks <= MAX_SORT_PIDS ? ntasks : MAX_SORT_PIDS));
 		}
 
-		/* undefined coalition members should be the first to jetsam */
-		ntasks = coalition_get_pid_list(leaders[i].msi_coal, COALITION_ROLEMASK_UNDEF,
-		    coal_sort_order, pid_list, MAX_SORT_PIDS);
+		/* xpc services should jetsam after extensions */
+		ntasks = coalition_get_pid_list(coal, COALITION_ROLEMASK_XPC,
+		    COALITION_SORT_DEFAULT, pid_list, MAX_SORT_PIDS);
 
 		if (ntasks > 0) {
-			pids_moved += memorystatus_move_list_locked(bucket_index, pid_list,
+			memstat_insert_list_locked(p, bucket_index, pid_list,
 			    (ntasks <= MAX_SORT_PIDS ? ntasks : MAX_SORT_PIDS));
 		}
 
-		total_pids_moved += pids_moved;
+		/*
+		 * And then, the leader will jetsam last since we inserted everyone else
+		 * before it in the bucket
+		 */
+
+		p = TAILQ_NEXT(p, p_memstat_list);
 	} /* end for */
-
-	return total_pids_moved;
 }
 
 
-/*
- * Traverse a list of pids, searching for each within the priority band provided.
- * If pid is found, move it to the front of the priority band.
- * Never searches outside the priority band provided.
- *
- * Input:
- *	bucket_index - jetsam priority band.
- *	pid_list - pointer to a list of pids.
- *	list_sz  - number of pids in the list.
- *
- * Pid list ordering is important in that,
- * pid_list[n] is expected to jetsam ahead of pid_list[n+1].
- * The sort_order is set by the coalition default.
- *
- * Return:
- *	the number of pids found and hence moved within the priority band.
- */
-static int
-memorystatus_move_list_locked(unsigned int bucket_index, pid_t *pid_list, int list_sz)
-{
-	memstat_bucket_t *current_bucket;
-	int i;
-	int found_pids = 0;
-
-	if ((pid_list == NULL) || (list_sz <= 0)) {
-		return 0;
-	}
-
-	if (bucket_index >= MEMSTAT_BUCKET_COUNT) {
-		return 0;
-	}
-
-	current_bucket = &memstat_bucket[bucket_index];
-	for (i = 0; i < list_sz; i++) {
-		unsigned int b = bucket_index;
-		proc_t p = NULL;
-		proc_t aProc = NULL;
-		pid_t  aPid;
-		int list_index;
-
-		list_index = ((list_sz - 1) - i);
-		aPid = pid_list[list_index];
-
-		/* never search beyond bucket_index provided */
-		p = memorystatus_get_first_proc_locked(&b, FALSE);
-		while (p) {
-			if (proc_getpid(p) == aPid) {
-				aProc = p;
-				break;
-			}
-			p = memorystatus_get_next_proc_locked(&b, p, FALSE);
-		}
-
-		if (aProc == NULL) {
-			/* pid not found in this band, just skip it */
-			continue;
-		} else {
-			TAILQ_REMOVE(&current_bucket->list, aProc, p_memstat_list);
-			TAILQ_INSERT_HEAD(&current_bucket->list, aProc, p_memstat_list);
-			found_pids++;
-		}
-	}
-	return found_pids;
-}
 
 uint32_t
 memstat_get_idle_proccnt(void)
 {
 #if CONFIG_JETSAM
+	/*
+	 * On fully jetsam-enabled systems, all processes on the idle band may
+	 * be idle-exited
+	 */
 	return os_atomic_load(&memstat_bucket[JETSAM_PRIORITY_IDLE].count, relaxed);
 #else /* !CONFIG_JETSAM */
 	uint32_t count = 0;
@@ -9461,7 +9571,14 @@ memstat_get_idle_proccnt(void)
 	for (proc_t p = memorystatus_get_first_proc_locked(&bucket, FALSE);
 	    p != PROC_NULL;
 	    p = memorystatus_get_next_proc_locked(&bucket, p, FALSE)) {
-		if ((p->p_memstat_dirty & (P_DIRTY_ALLOW_IDLE_EXIT | P_DIRTY_IS_DIRTY | P_DIRTY_TERMINATED)) == (P_DIRTY_ALLOW_IDLE_EXIT)) {
+		/*
+		 * On macOS, we can only exit clean daemons. In the future, we
+		 * should include assertion-less managed daemons. Apps may make
+		 * their way into this band as well, and we cannot jetsam those.
+		 */
+		if (_memstat_proc_can_idle_exit(p) &&
+		    !_memstat_proc_is_dirty(p) &&
+		    !_memstat_proc_is_terminating(p)) {
 			count++;
 		}
 	}
@@ -9472,63 +9589,55 @@ memstat_get_idle_proccnt(void)
 }
 
 uint32_t
+memstat_get_long_idle_proccnt(void)
+{
+	uint32_t count = 0;
+	uint32_t bucket = JETSAM_PRIORITY_IDLE;
+
+	proc_list_lock();
+	for (proc_t p = memorystatus_get_first_proc_locked(&bucket, FALSE);
+	    p != PROC_NULL;
+	    p = memorystatus_get_next_proc_locked(&bucket, p, FALSE)) {
+		if (!_memstat_proc_is_dirty(p) && _memstat_proc_can_idle_exit(p) &&
+		    !_memstat_proc_is_terminating(p) && _memstat_proc_is_reapable(p)) {
+			count++;
+		}
+	}
+	proc_list_unlock();
+
+	return count;
+}
+
+uint32_t
 memstat_get_proccnt_upto_priority(uint32_t max_bucket_index)
 {
 	int32_t i = JETSAM_PRIORITY_IDLE;
 	int count = 0;
 
-	if (max_bucket_index >= MEMSTAT_BUCKET_COUNT) {
-		return -1;
-	}
+	assert3u(max_bucket_index, <=, MEMSTAT_BUCKET_COUNT);
 
 	while (i <= max_bucket_index) {
-		count += memstat_bucket[i++].count;
+		/*
+		 * NB: We don't hold the proc-list lock here; that's ok b/c this is just an
+		 * estimate.
+		 */
+		count += os_atomic_load(&memstat_bucket[i++].count, relaxed);
 	}
 
 	return count;
 }
 
 int
-memorystatus_update_priority_for_appnap(proc_t p, boolean_t is_appnap)
+memorystatus_update_priority_for_appnap(proc_t p)
 {
 #if !CONFIG_JETSAM
 	if (!p || (!isApp(p)) || (p->p_memstat_state & (P_MEMSTAT_INTERNAL | P_MEMSTAT_MANAGED))) {
 		/*
 		 * Ineligible processes OR system processes e.g. launchd.
-		 *
-		 * We also skip processes that have the P_MEMSTAT_MANAGED bit set, i.e.
-		 * they're managed by assertiond. These are iOS apps that have been ported
-		 * to macOS. assertiond might be in the process of modifying the app's
-		 * priority / memory limit - so it might have the proc_list lock, and then try
-		 * to take the task lock. Meanwhile we've entered this function with the task lock
-		 * held, and we need the proc_list lock below. So we'll deadlock with assertiond.
-		 *
-		 * It should be fine to read the P_MEMSTAT_MANAGED bit without the proc_list
-		 * lock here, since assertiond only sets this bit on process launch.
 		 */
 		return -1;
 	}
 
-	/*
-	 * For macOS only:
-	 * We would like to use memorystatus_set_priority() here to move the processes
-	 * within the bands. Unfortunately memorystatus_set_priority() calls
-	 * memorystatus_update_priority_locked() which uses any band transitions
-	 * as an indication to modify ledgers. For that it needs the task lock
-	 * and since we came into this function with the task lock held, we'll deadlock.
-	 *
-	 * Unfortunately we can't completely disable ledger updates  because we still
-	 * need the ledger updates for a subset of processes i.e. daemons.
-	 * When all processes on all platforms support memory limits, we can simply call
-	 * memorystatus_set_priority().
-	 *
-	 * It also has some logic to deal with 'aging' which, currently, is only applicable
-	 * on CONFIG_JETSAM configs. So, till every platform has CONFIG_JETSAM we'll need
-	 * to do this explicit band transition.
-	 */
-
-	memstat_bucket_t *current_bucket, *new_bucket;
-	uint64_t now;
 	int32_t priority = 0;
 
 	proc_list_lock();
@@ -9544,61 +9653,17 @@ memorystatus_update_priority_for_appnap(proc_t p, boolean_t is_appnap)
 		return 0;
 	}
 
-	if (is_appnap) {
-		current_bucket = &memstat_bucket[p->p_memstat_effectivepriority];
-		new_bucket = &memstat_bucket[JETSAM_PRIORITY_IDLE];
-		priority = JETSAM_PRIORITY_IDLE;
-	} else {
-		if (p->p_memstat_effectivepriority != JETSAM_PRIORITY_IDLE) {
-			/*
-			 * It is possible that someone pulled this process
-			 * out of the IDLE band without updating its app-nap
-			 * parameters.
-			 */
-			proc_list_unlock();
-			return 0;
-		}
-
-		current_bucket = &memstat_bucket[JETSAM_PRIORITY_IDLE];
-		new_bucket = &memstat_bucket[p->p_memstat_requestedpriority];
-		priority = p->p_memstat_requestedpriority;
-	}
-
-	now = mach_absolute_time();
-
-	TAILQ_REMOVE(&current_bucket->list, p, p_memstat_list);
-	current_bucket->count--;
-	if (p->p_memstat_relaunch_flags & (P_MEMSTAT_RELAUNCH_HIGH)) {
-		current_bucket->relaunch_high_count--;
-	}
-	TAILQ_INSERT_TAIL(&new_bucket->list, p, p_memstat_list);
-	new_bucket->count++;
-	if (p->p_memstat_relaunch_flags & (P_MEMSTAT_RELAUNCH_HIGH)) {
-		new_bucket->relaunch_high_count++;
-	}
 	/*
-	 * Record idle start or idle delta.
+	 * Update priority. We don't want the aging logic because that's only applicable on
+	 * configs with CONFIG_JETSAM.
 	 */
-	if (p->p_memstat_effectivepriority == priority) {
-		/*
-		 * This process is not transitioning between
-		 * jetsam priority buckets.  Do nothing.
-		 */
-	} else if (p->p_memstat_effectivepriority == JETSAM_PRIORITY_IDLE) {
-		/*
-		 * Transitioning out of the idle priority bucket.
-		 * Record idle delta.
-		 */
-		assert(p->p_memstat_prio_start != 0);
-		if (now > p->p_memstat_prio_start) {
-			p->p_memstat_idle_delta = now - p->p_memstat_prio_start;
-		}
+	priority = proc_get_effective_task_policy(proc_task(p), TASK_POLICY_SUP_ACTIVE) ?
+	    JETSAM_PRIORITY_BACKGROUND :
+	    p->p_memstat_requestedpriority;
+	if (_memstat_proc_has_priority_assertion(p)) {
+		priority = MAX(priority, p->p_memstat_assertionpriority);
 	}
-
-	KDBG(MEMSTAT_CODE(BSD_MEMSTAT_CHANGE_PRIORITY), proc_getpid(p), priority, p->p_memstat_effectivepriority);
-
-	p->p_memstat_effectivepriority = priority;
-	p->p_memstat_prio_start = now;
+	memstat_update_priority_locked(p, priority, MEMSTAT_PRIORITY_NO_AGING);
 
 	proc_list_unlock();
 
@@ -9606,7 +9671,6 @@ memorystatus_update_priority_for_appnap(proc_t p, boolean_t is_appnap)
 
 #else /* !CONFIG_JETSAM */
 	#pragma unused(p)
-	#pragma unused(is_appnap)
 	return -1;
 #endif /* !CONFIG_JETSAM */
 }
@@ -9653,155 +9717,6 @@ memorystatus_available_memory(struct proc *p, __unused struct memorystatus_avail
 	return 0;
 }
 
-void
-memorystatus_log_system_health(const memorystatus_system_health_t *status)
-{
-	static struct memorystatus_system_health prev_status = {0};
-
-	bool healthy = memorystatus_is_system_healthy(status);
-
-	/*
-	 * Avoid spamming logs by only logging when the system status has changed.
-	 */
-	if (prev_status.msh_zone_map_is_exhausted == status->msh_zone_map_is_exhausted &&
-	    prev_status.msh_compressor_exhausted == status->msh_compressor_exhausted &&
-	    prev_status.msh_swap_low_on_space == status->msh_swap_low_on_space &&
-	    prev_status.msh_swap_exhausted == status->msh_swap_exhausted
-#if CONFIG_JETSAM
-	    &&
-	    prev_status.msh_available_pages_below_idle == status->msh_available_pages_below_idle &&
-	    prev_status.msh_available_pages_below_soft == status->msh_available_pages_below_soft &&
-	    prev_status.msh_available_pages_below_critical == status->msh_available_pages_below_critical &&
-	    prev_status.msh_available_pages_below_reaper == status->msh_available_pages_below_reaper &&
-	    prev_status.msh_compressor_needs_to_swap == status->msh_compressor_needs_to_swap &&
-	    prev_status.msh_compressor_is_thrashing == status->msh_compressor_is_thrashing &&
-	    prev_status.msh_filecache_is_thrashing == status->msh_filecache_is_thrashing &&
-	    prev_status.msh_phantom_cache_pressure == status->msh_phantom_cache_pressure &&
-	    prev_status.msh_swapin_queue_over_limit == status->msh_swapin_queue_over_limit &&
-	    prev_status.msh_pageout_starved == status->msh_pageout_starved
-#endif /* CONFIG_JETSAM */
-	    ) {
-		/* No change */
-		return;
-	}
-
-#if CONFIG_JETSAM
-	if (healthy) {
-		if (status->msh_available_pages_below_soft) {
-			memorystatus_log(
-				"memorystatus: System will begin enforcing "
-				"soft memory limits. "
-				"memorystatus_available_pages: %llu compressor_size: %u\n",
-				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-		} else if (status->msh_available_pages_below_idle) {
-			memorystatus_log(
-				"memorystatus: System will begin enacting "
-				"idle-exits. "
-				"memorystatus_available_pages: %llu compressor_size: %u\n",
-				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-		} else if (status->msh_available_pages_below_reaper) {
-			memorystatus_log(
-				"memorystatus: System will begin reaping "
-				"long-idle processes. "
-				"memorystatus_available_pages: %llu compressor_size: %u\n",
-				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-		} else {
-			memorystatus_log(
-				"memorystatus: System is healthy. "
-				"memorystatus_available_pages: %llu compressor_size:%u\n",
-				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-		}
-	} else {
-		/* Unhealthy */
-		memorystatus_log("memorystatus: System is unhealthy! memorystatus_available_pages: %llu compressor_size:%u\n",
-		    (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-		memorystatus_log(
-			"memorystatus: {"
-			"\"available_pages_below_critical\": %d, "
-			"\"available_pages_below_idle\": %d, "
-			"\"available_pages_below_soft\": %d, "
-			"\"available_pages_below_reaper\": %d, "
-			"\"compressor_needs_to_swap\": %d, "
-			"\"compressor_exhausted\": %d, "
-			"\"compressor_is_thrashing\": %d, "
-			"\"filecache_is_thrashing\": %d, "
-			"\"zone_map_is_exhausted\": %d, "
-			"\"phantom_cache_pressure\": %d, "
-			"\"swappable_compressor_segments_over_limit\": %d, "
-			"\"swapin_queue_over_limit\": %d, "
-			"\"swap_low\": %d, "
-			"\"swap_exhausted\": %d"
-			"}\n",
-			status->msh_available_pages_below_critical,
-			status->msh_available_pages_below_idle,
-			status->msh_available_pages_below_soft,
-			status->msh_available_pages_below_reaper,
-			status->msh_compressor_needs_to_swap,
-			status->msh_compressor_exhausted,
-			status->msh_compressor_is_thrashing,
-			status->msh_filecache_is_thrashing,
-			status->msh_zone_map_is_exhausted,
-			status->msh_phantom_cache_pressure,
-			status->msh_swappable_compressor_segments_over_limit,
-			status->msh_swapin_queue_over_limit,
-			status->msh_swap_low_on_space,
-			status->msh_swap_exhausted);
-	}
-#else /* CONFIG_JETSAM */
-	memorystatus_log("memorystatus: System is %s. memorystatus_available_pages: %llu compressor_size:%u\n",
-	    healthy ? "healthy" : "unhealthy",
-	    (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
-	if (!healthy) {
-		memorystatus_log(
-			"memorystatus: {"
-			"\"compressor_exhausted\": %d, "
-			"\"zone_map_is_exhausted\": %d, "
-			"\"swap_low\": %d, "
-			"\"swap_exhausted\": %d"
-			"}\n",
-			status->msh_compressor_exhausted,
-			status->msh_zone_map_is_exhausted,
-			status->msh_swap_low_on_space,
-			status->msh_swap_exhausted);
-	}
-#endif /* CONFIG_JETSAM */
-	prev_status = *status;
-}
-
-uint32_t
-memorystatus_pick_kill_cause(const memorystatus_system_health_t *status)
-{
-	assert(!memorystatus_is_system_healthy(status));
-#if CONFIG_JETSAM
-	if (status->msh_compressor_is_thrashing) {
-		return kMemorystatusKilledVMCompressorThrashing;
-	} else if (status->msh_compressor_exhausted) {
-		return kMemorystatusKilledVMCompressorSpaceShortage;
-	} else if (status->msh_swap_low_on_space) {
-		return kMemorystatusKilledLowSwap;
-	} else if (status->msh_filecache_is_thrashing) {
-		return kMemorystatusKilledFCThrashing;
-	} else if (status->msh_zone_map_is_exhausted) {
-		return kMemorystatusKilledZoneMapExhaustion;
-	} else if (status->msh_pageout_starved) {
-		return kMemorystatusKilledVMPageoutStarvation;
-	} else {
-		assert(status->msh_available_pages_below_critical);
-		return kMemorystatusKilledVMPageShortage;
-	}
-#else /* CONFIG_JETSAM */
-	if (status->msh_zone_map_is_exhausted) {
-		return kMemorystatusKilledZoneMapExhaustion;
-	} else if (status->msh_compressor_exhausted) {
-		return kMemorystatusKilledVMCompressorSpaceShortage;
-	} else if (status->msh_swap_exhausted) {
-		return kMemorystatusKilledLowSwap;
-	} else {
-		return kMemorystatusKilled;
-	}
-#endif /* CONFIG_JETSAM */
-}
-
 #if DEVELOPMENT || DEBUG
 static int
 memorystatus_cmd_increase_jetsam_task_limit(pid_t pid, uint32_t byte_increase)
@@ -9811,6 +9726,11 @@ memorystatus_cmd_increase_jetsam_task_limit(pid_t pid, uint32_t byte_increase)
 	/* Validate inputs */
 	if ((pid == 0) || (byte_increase == 0)) {
 		return EINVAL;
+	}
+
+	if (memstat_ignore_task_limit_increase) {
+		/* If the bootarg is set, lie and say we did it */
+		return 0;
 	}
 
 	proc_t p = proc_find(pid);

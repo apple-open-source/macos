@@ -354,6 +354,31 @@ void *
 voucher_activity_get_logging_preferences(size_t *length);
 
 /*!
+ * @function voucher_activity_get_logging_preferences_with_port
+ *
+ * @abstract
+ * Return address and length of vm_map()ed configuration data for the logging
+ * subsystem using logd port.
+ *
+ * @discussion
+ * The data must be deallocated with vm_deallocate(). There is no initialization of firehose buffer involved.
+ *
+ * @param sendp
+ * The mach port for the daemon, this will be used to connect and fetch the preferences. It is the bootstrap
+ * port for logd. 
+ *
+ * @param length
+ * Pointer to size_t variable, filled with length of preferences buffer.
+ *
+ * @result
+ * Address of preferences buffer, returns NULL on error.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0))
+OS_VOUCHER_EXPORT OS_WARN_RESULT OS_NOTHROW OS_NONNULL_ALL
+void *
+voucher_activity_get_logging_preferences_with_port(mach_port_t sendp, size_t *length);
+
+/*!
  * @function voucher_activity_should_send_strings
  *
  * @abstract

@@ -807,18 +807,23 @@ coalition_resource_usage_internal(coalition_t coal, struct coalition_resource_us
 	int64_t energy_billed_to_me = 0;
 	int64_t energy_billed_to_others = 0;
 	int64_t phys_footprint = 0;
+	int64_t swapins = 0;
 	struct recount_usage stats_sum = { 0 };
 	struct recount_usage stats_perf_only = { 0 };
 	recount_coalition_usage_perf_only(&coal->r.co_recount, &stats_sum,
 	    &stats_perf_only);
 	uint64_t cpu_time_eqos[COALITION_NUM_THREAD_QOS_TYPES] = { 0 };
 	uint64_t cpu_time_rqos[COALITION_NUM_THREAD_QOS_TYPES] = { 0 };
+	memcpy(cpu_time_eqos, &coal->r.cpu_time_eqos, sizeof(cpu_time_eqos));
+	memcpy(cpu_time_rqos, &coal->r.cpu_time_rqos, sizeof(cpu_time_rqos));
 	/*
 	 * Add to that all the active tasks' ledgers. Tasks cannot deallocate
 	 * out from under us, since we hold the coalition lock.
 	 */
 	task_t task;
 	qe_foreach_element(task, &coal->r.tasks, task_coalition[COALITION_TYPE_RESOURCE]) {
+		int64_t task_phys_footprint = 0;
+
 		/*
 		 * Rolling up stats for exec copy task or exec'd task will lead to double accounting.
 		 * Cannot take task lock after taking coaliton lock
@@ -845,6 +850,14 @@ coalition_resource_usage_internal(coalition_t coal, struct coalition_resource_us
 #if CONFIG_PHYS_WRITE_ACCT
 		fs_metadata_writes += task->task_fs_metadata_writes;
 #endif /* CONFIG_PHYS_WRITE_ACCT */
+
+		/* The exited process ledger can have a phys_footprint balance, which should be ignored. */
+		kr = ledger_get_balance(task->ledger, task_ledgers.phys_footprint, (int64_t *)&task_phys_footprint);
+		if (kr != KERN_SUCCESS || task_phys_footprint < 0) {
+			task_phys_footprint = 0;
+		}
+
+		phys_footprint += task_phys_footprint;
 
 		task_update_cpu_time_qos_stats(task, cpu_time_eqos, cpu_time_rqos);
 		recount_task_usage_perf_only(task, &stats_sum, &stats_perf_only);
@@ -875,9 +888,9 @@ coalition_resource_usage_internal(coalition_t coal, struct coalition_resource_us
 		energy_billed_to_others = 0;
 	}
 
-	kr = ledger_get_balance(sum_ledger, task_ledgers.phys_footprint, (int64_t *)&phys_footprint);
-	if (kr != KERN_SUCCESS || phys_footprint < 0) {
-		phys_footprint = 0;
+	kr = ledger_get_balance(sum_ledger, task_ledgers.swapins, (int64_t *)&swapins);
+	if (kr != KERN_SUCCESS || swapins < 0) {
+		swapins = 0;
 	}
 
 	/* collect information from the coalition itself */
@@ -906,6 +919,7 @@ coalition_resource_usage_internal(coalition_t coal, struct coalition_resource_us
 	cru_out->energy_billed_to_me = (uint64_t)energy_billed_to_me;
 	cru_out->energy_billed_to_others = (uint64_t)energy_billed_to_others;
 	cru_out->phys_footprint = phys_footprint;
+	cru_out->swapins = swapins;
 
 	kr = ledger_get_entries(sum_ledger, task_ledgers.interrupt_wakeups,
 	    &credit, &debit);

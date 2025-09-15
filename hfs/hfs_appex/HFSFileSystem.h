@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 #define kMaxLogicalBlockSize (16*1024)
 
 
-@interface HFSFileSystem : FSUnaryFileSystem <FSUnaryFileSystemOperations, FSBlockDeviceOperations>
+@interface HFSFileSystem : FSUnaryFileSystem <FSUnaryFileSystemOperations>
 
 @end
 

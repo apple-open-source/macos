@@ -93,7 +93,6 @@
 
 static void logUsageInfo(const void *key __unused, const void *value, void *context)
 {
-    HIDLog("IOHIDTelemetrySessionFilter::logUsageInfo");
     HIDEventServiceTelemetry *serviceInfo = (__bridge HIDEventServiceTelemetry *)value;
     HIDEventService *service = (__bridge HIDEventService *)key;
     
@@ -191,10 +190,11 @@ static void addDebugInfo(const void *key __unused, const void *value, void *cont
 {
     //filter by non built-in services
     if(![event integerValueForField:kIOHIDEventFieldIsBuiltIn]) {
+        bool isUserActivityEvent = false;
         
         IOHIDEventPolicyValue policy = IOHIDEventGetPolicy((__bridge IOHIDEventRef)event, kIOHIDEventPowerPolicy);
-        
-        if(policy == kIOHIDEventPowerPolicyWakeSystem) {
+        isUserActivityEvent = (policy == kIOHIDEventPowerPolicyWakeSystem);
+        if(isUserActivityEvent) {
             dispatch_async(_queue, ^{
                 HIDEventServiceTelemetry *serviceInfo = (__bridge HIDEventServiceTelemetry *)CFDictionaryGetValue(self->_serviceCounts, (__bridge IOHIDServiceRef)service);
                 

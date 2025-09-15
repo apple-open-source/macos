@@ -824,7 +824,8 @@ bin_write_xml(BinaryResource *res, const char* id, const char* /*language*/, UEr
     fn[0]=0;
 
     if(res->fFileName != nullptr){
-        uprv_strcpy(fileName, res->fFileName);
+        uprv_strncpy(fileName, res->fFileName, 1023);
+        fileName[1023] = '\0';
         f = uprv_strrchr(fileName, '\\');
 
         if (f != nullptr) {

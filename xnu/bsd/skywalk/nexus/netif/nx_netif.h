@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -119,7 +119,7 @@ struct netif_queue {
 	void                            *nq_ctx;
 	kern_packet_svc_class_t         nq_svc; /* service class of TX queue */
 	uint16_t                        nq_flags;
-}__attribute__((aligned(sizeof(uint64_t))));
+} __sk_aligned(64);
 
 /* values for nq_flags */
 #define NETIF_QUEUE_EXT_INITED   0x0001 /* nxnpi_queue_init() succeeded */
@@ -196,7 +196,7 @@ struct netif_agent_flow {
 	uuid_t                  naf_flow_uuid;
 	uuid_t                  naf_bind_key;
 	nexus_port_t            naf_nx_port;
-	uint16_t                naf_flags;
+	uint32_t                naf_flags;
 	pid_t                   naf_pid;
 	union sockaddr_in_4_6   naf_daddr;
 	union sockaddr_in_4_6   naf_saddr;
@@ -204,15 +204,15 @@ struct netif_agent_flow {
 
 #define NIFNA(_na)       (__container_of((_na), struct nexus_netif_adapter, nifna_up))
 
-/* nif_flags */
 /*
- * This is named differently from the flow classification rule
- * (IPV6 ULA) because this gives us the flexibility of using
- * different types of classification in the future.
+ * Values for nif_flags
+ * Used for describing the internal state of the nx_netif structure
  */
 #define NETIF_FLAG_LOW_LATENCY          0x00000001
 #define NETIF_FLAG_COMPAT               0x00000002
 #define NETIF_FLAG_LLINK_INITIALIZED    0x00000004
+#define NETIF_FLAG_CHANGE_PENDING       0x00000008
+
 #define NETIF_IS_LOW_LATENCY(n) \
     (((n)->nif_flags & NETIF_FLAG_LOW_LATENCY) != 0)
 #define NETIF_IS_COMPAT(n) \
@@ -248,10 +248,16 @@ typedef enum {
 /* nif capabilities */
 #define NETIF_CAPAB_INTERFACE_ADVISORY 0x00000001
 #define NETIF_CAPAB_QSET_EXTENSIONS    0x00000002
+#define NETIF_CAPAB_RX_FLOW_STEERING   0x00000004
 
 struct netif_qset_extensions {
 	kern_nexus_capab_qsext_notify_steering_info_fn_t qe_notify_steering_info;
 	void *qe_prov_ctx;
+};
+
+struct netif_rx_flow_steering {
+	kern_nexus_capab_rx_flow_steering_config_fn_t config_fn;
+	void *prov_ctx;
 };
 
 /*
@@ -325,6 +331,8 @@ struct nx_netif {
 	void *nif_intf_adv_prov_ctx;
 
 	struct netif_qset_extensions nif_qset_extensions;
+
+	struct netif_rx_flow_steering nif_rx_flow_steering;
 #if (DEVELOPMENT || DEBUG)
 	struct skoid            nif_skoid;
 #endif /* !DEVELOPMENT && !DEBUG */
@@ -718,13 +726,9 @@ extern void nx_netif_vp_region_params_adjust(struct nexus_adapter *,
 
 extern void nx_netif_pktap_output(ifnet_t, int, struct __kern_packet *);
 
-extern int netif_rx_notify_default(struct __kern_channel_ring *,
+extern int netif_rx_notify(struct __kern_channel_ring *,
     struct proc *p, uint32_t);
-extern int netif_rx_notify_fast(struct __kern_channel_ring *,
-    struct proc *p, uint32_t);
-extern int netif_llw_rx_notify_default(struct __kern_channel_ring *,
-    struct proc *p, uint32_t);
-extern int netif_llw_rx_notify_fast(struct __kern_channel_ring *,
+extern int netif_llw_rx_notify(struct __kern_channel_ring *,
     struct proc *p, uint32_t);
 extern void netif_receive(struct nexus_netif_adapter *,
     struct __kern_packet *, struct nexus_pkt_stats *);
@@ -765,6 +769,8 @@ extern void nx_netif_qset_release(struct netif_qset **);
 extern void nx_netif_llink_init(struct nx_netif *);
 extern void nx_netif_llink_fini(struct nx_netif *);
 extern struct netif_qset * nx_netif_find_qset(struct nx_netif *, uint64_t);
+extern struct netif_qset * nx_netif_find_qset_with_pkt(struct ifnet *,
+    struct __kern_packet *);
 extern struct netif_qset * nx_netif_get_default_qset_noref(struct nx_netif *);
 extern int netif_qset_enqueue(struct netif_qset *, bool chain,
     struct __kern_packet *, struct __kern_packet *, uint32_t, uint32_t,
@@ -782,6 +788,12 @@ extern int nx_netif_llink_remove(struct nx_netif *,
     kern_nexus_netif_llink_id_t);
 extern int nx_netif_notify_steering_info(struct nx_netif *,
     struct netif_qset *, struct ifnet_traffic_descriptor_common *, bool);
+
+/*
+ * Rx flow steering functions
+ */
+extern int nx_netif_configure_rx_flow_steering(struct kern_nexus *, uint32_t,
+    struct ifnet_traffic_descriptor_common *, rx_flow_steering_action_t);
 __END_DECLS
 #endif /* CONFIG_NEXUS_NETIF */
 #include <skywalk/nexus/netif/nx_netif_compat.h>

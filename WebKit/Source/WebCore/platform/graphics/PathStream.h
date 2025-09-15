@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,6 +56,7 @@ public:
     void add(PathEllipseInRect) final;
     void add(PathRect) final;
     void add(PathRoundedRect) final;
+    void add(PathContinuousRoundedRect) final;
     void add(PathCloseSubpath) final;
 
     const Vector<PathSegment>& segments() const { return m_segments; }
@@ -86,19 +87,7 @@ private:
 
     bool isPathStream() const final { return true; }
 
-    template<typename DataType>
-    std::optional<DataType> singleDataType() const;
-
     std::optional<PathSegment> singleSegment() const final;
-    std::optional<PathDataLine> singleDataLine() const final;
-    std::optional<PathRect> singleRect() const final;
-    std::optional<PathRoundedRect> singleRoundedRect() const final;
-    std::optional<PathArc> singleArc() const final;
-    std::optional<PathClosedArc> singleClosedArc() const final;
-    std::optional<PathDataQuadCurve> singleQuadCurve() const final;
-    std::optional<PathDataBezierCurve> singleBezierCurve() const final;
-
-    bool isEmpty() const final { return m_segments.isEmpty(); }
 
     bool isClosed() const final;
     FloatPoint currentPoint() const final;

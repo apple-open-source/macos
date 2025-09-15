@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,24 +25,9 @@
 #include "discover_resolver.h"
 #endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
-#include "dns_push_discovery.h"
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-#include "dnssec_obj_rr_ds.h"   // For dnssec_obj_rr_ds_t.
-#include "dnssec_mdns_core.h"   // For DNSSEC-related operation on mDNSCore structures.
-#include "rdata_parser.h"       // For DNSSEC-related records parsing.
-#include "base_encoding.h"      // For base64 encoding.
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-#include <os/lock.h> // For os_unfair_lock.
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-#include "system_utilities.h" //For is_apple_internal_build().
-#endif
 
 // Disable certain benign warnings with Microsoft compilers
 #if (defined(_MSC_VER))
@@ -148,9 +133,6 @@ mDNSexport void mDNSCoreResetRecord(mDNS *const m)
 {
     m->rec.r.resrec.RecordType = 0; // Clear RecordType to show we're not still using it
     CacheRecordSetResponseFlags(&m->rec.r, zeroID);
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    MDNS_DISPOSE_DNSSEC_OBJ(m->rec.r.resrec.dnssec);
-#endif
 }
 
 // return true for RFC1918 private addresses
@@ -574,60 +556,6 @@ mDNSexport char *GetRRDisplayString_rdb(const ResourceRecord *const rr, const RD
     }
     break;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    case kDNSType_DS: {
-        // See <https://datatracker.ietf.org/doc/html/rfc4034#section-5.3> for DS RR Presentation Format.
-
-        dnssec_error_t err;
-        dnssec_obj_rr_ds_t ds = mDNSNULL;
-        char *ds_rdata_description = mDNSNULL;
-
-        ds = dnssec_obj_rr_ds_create(rr->name->c, rr->rrclass, rr->rdata->u.data, rr->rdlength, false, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR)
-        {
-            goto ds_exit;
-        }
-
-        ds_rdata_description = dnssec_obj_rr_copy_rdata_rfc_description(ds, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR)
-        {
-            goto ds_exit;
-        }
-
-        mDNS_snprintf(buffer + length, RemSpc, "%s", ds_rdata_description);
-
-    ds_exit:
-        MDNS_DISPOSE_DNSSEC_OBJ(ds);
-        mDNSPlatformMemFree(ds_rdata_description);
-    }
-    break;
-
-    case kDNSType_RRSIG: {
-        // See <https://datatracker.ietf.org/doc/html/rfc4034#section-3.2> for RRSIG RR Presentation Format.
-
-        dnssec_error_t err;
-        dnssec_obj_rr_rrsig_t rrsig = NULL;
-        char *rrsig_rdata_description = mDNSNULL;
-
-        rrsig = dnssec_obj_rr_rrsig_create(rr->name->c, rr->rdata->u.data, rr->rdlength, false, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR) {
-            goto rrsig_exit;
-        }
-
-        rrsig_rdata_description = dnssec_obj_rr_copy_rdata_rfc_description(rrsig, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR)
-        {
-            goto rrsig_exit;
-        }
-
-        mDNS_snprintf(buffer + length, RemSpc, "%s", rrsig_rdata_description);
-
-    rrsig_exit:
-        MDNS_DISPOSE_DNSSEC_OBJ(rrsig);
-		mDNSPlatformMemFree(rrsig_rdata_description);
-    }
-    break;
-#endif
 
     case kDNSType_NSEC: {
         const domainname *next = (const domainname *)rd->data;
@@ -644,32 +572,6 @@ mDNSexport char *GetRRDisplayString_rdb(const ResourceRecord *const rr, const RD
     }
     break;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    case kDNSType_DNSKEY: {
-        // See <https://datatracker.ietf.org/doc/html/rfc4034#section-2.2> for DNSKEY RR Presentation Format.
-
-        dnssec_error_t err;
-        dnssec_obj_rr_dnskey_t dnskey = mDNSNULL;
-        char *dnskey_rdata_description = mDNSNULL;
-
-        dnskey = dnssec_obj_rr_dnskey_create(rr->name->c, rr->rrclass, rr->rdata->u.data, rr->rdlength, false, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR) {
-            goto dnskey_exit;
-        }
-
-        dnskey_rdata_description = dnssec_obj_rr_copy_rdata_rfc_description(dnskey, &err);
-        if (err != DNSSEC_ERROR_NO_ERROR) {
-            goto dnskey_exit;
-        }
-
-        mDNS_snprintf(buffer + length, RemSpc, "%s", dnskey_rdata_description);
-
-    dnskey_exit:
-        MDNS_DISPOSE_DNSSEC_OBJ(dnskey);
-        mDNSPlatformMemFree(dnskey_rdata_description);
-    }
-    break;
-#endif
 
     default:            mDNS_snprintf(buffer+length, RemSpc, "RDLen %d: %.*s", rr->rdlength, rr->rdlength, rd->data);
         // Really should scan buffer to check if text is valid UTF-8 and only replace with dots if not
@@ -680,22 +582,6 @@ mDNSexport char *GetRRDisplayString_rdb(const ResourceRecord *const rr, const RD
     return(buffer);
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
-
-mDNSexport const mDNSu8 *GetPrintableRDataBytes(mDNSu8 *const outBuffer, const mDNSu32 bufferLen,
-	const mDNSu16 recordType, const mDNSu8 * const rdata, const mDNSu32 rdataLen)
-{
-	const mDNSu32 totalLen = rdataLen + 2;
-	mdns_require_return_value(bufferLen >= totalLen, mDNSNULL);
-
-	outBuffer[0] = (mDNSu8)((recordType >> 8) & 0xFF);
-	outBuffer[1] = (mDNSu8)((recordType     ) & 0xFF);
-	mDNSPlatformMemCopy(&outBuffer[2], rdata, (mDNSu32)rdataLen);
-
-	return outBuffer;
-}
-
-#endif
 
 // See comments in mDNSEmbeddedAPI.h
 #if _PLATFORM_HAS_STRONG_PRNG_
@@ -1764,11 +1650,7 @@ mDNSexport void mDNS_SetupResourceRecord(AuthRecord *rr, RData *RDataStorage, mD
     rr->resrec.rrtype            = rrtype;
     rr->resrec.rrclass           = kDNSClass_IN;
     rr->resrec.rroriginalttl     = ttl;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    rr->resrec.metadata          = NULL;
-#else
     rr->resrec.rDNSServer        = mDNSNULL;
-#endif
 //	rr->resrec.rdlength          = MUST set by client and/or in mDNS_Register_internal
 //	rr->resrec.rdestimate        = set in mDNS_Register_internal
 //	rr->resrec.rdata             = MUST be set by client
@@ -2053,7 +1935,11 @@ mDNSexport mDNSBool RRAssertsExistence(const ResourceRecord *const rr, mDNSu16 t
     if (rr->rrtype != kDNSType_NSEC) return mDNSfalse;
 
     len = DomainNameLength(&rdb->name);
-
+    // If the domain name in the NSEC RDATA is malformed, then this is an invalid NSEC record.
+    if (len > MAX_DOMAIN_NAME)
+    {
+        return mDNSfalse;
+    }
     bitmaplen = rr->rdlength - len;
     bmap = nsec + len;
     return (BitmapTypeCheck(bmap, bitmaplen, type));
@@ -2071,24 +1957,7 @@ mDNSexport mDNSBool RRAssertsNonexistence(const ResourceRecord *const rr, mDNSu1
 mDNSexport mDNSBool RRTypeAnswersQuestionType(const ResourceRecord *const rr, const mDNSu16 qtype,
     const RRTypeAnswersQuestionTypeFlags flags)
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    // This checks if the record is what the question requires:
-    // 1. If the question does not enable DNSSEC, either "DNSSEC to be validated" nor "DNSSEC validated" record answers it.
-    // 2. If the question enables DNSSEC, and it is not a duplicate question, it needs both "DNSSEC to be validated" nor "DNSSEC validated" records:
-    //    a. Get "DNSSEC to be validated" to do DNSSEC validation.
-    //    b. Get "DNSSEC validated" to return to the client.
-    // 3. If the question enables DNSSEC, and it is a duplicate question, it only needs "DNSSEC validated" records:
-    //    a. Does not need "DNSSEC to be validated" because the non-duplicate question will do the validation.
-    //    b. Get "DNSSEC validated" to return to the client.
-    const mDNSBool requiresRRToValidate = ((flags & kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRToValidate) != 0);
-    const mDNSBool requiresValidatedRR = ((flags & kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRValidated) != 0);
-    if (!resource_record_answers_dnssec_question_request_type(rr, requiresRRToValidate, requiresValidatedRR))
-    {
-        return mDNSfalse;
-    }
-#else
     (void) flags;
-#endif
 
     // OPT should not answer any questions.
     if (rr->rrtype == kDNSType_OPT)
@@ -2121,33 +1990,13 @@ mDNSexport mDNSBool RRTypeAnswersQuestionType(const ResourceRecord *const rr, co
         return mDNStrue;
     }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    // The type covered of RRSIG should match the non-duplicate DNSSEC question type, because RRSIG will be used by it
-    // to do DNSSEC validation.
-    if (resource_record_as_rrsig_answers_dnssec_question_type(rr, qtype))
-    {
-        return mDNStrue;
-    }
-#endif
 
     return mDNSfalse;
 }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-mDNSlocal mDNSBool RRMatchesQuestionService(const ResourceRecord *const rr, const DNSQuestion *const q)
-{
-    return mdns_cache_metadata_get_dns_service(rr->metadata) == q->dnsservice;
-}
-#endif
 
 mDNSlocal mDNSBool RRIsResolvedBymDNS(const ResourceRecord *const rr)
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    if (mdns_cache_metadata_get_dns_service(rr->metadata))
-    {
-        return mDNSfalse;
-    }
-#endif
     return (rr->InterfaceID != 0);
 }
 
@@ -2174,16 +2023,6 @@ mDNSlocal mDNSBool SameNameRecordAnswersQuestion(const ResourceRecord *const rr,
         q->InterfaceID && q->InterfaceID != mDNSInterface_LocalOnly &&
         rr->InterfaceID != q->InterfaceID) return(mDNSfalse);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-    if (DNSQuestionUsesMDNSAlternativeService(q))
-    {
-        if (!RRMatchesQuestionService(rr, q))
-        {
-            return mDNSfalse;
-        }
-    }
-    else
-#endif
     {
         const mDNSBool resolvedBymDNS = RRIsResolvedBymDNS(rr);
         mDNSBool ismDNSQuestion = mDNSOpaque16IsZero(q->TargetQID);
@@ -2195,13 +2034,9 @@ mDNSlocal mDNSBool SameNameRecordAnswersQuestion(const ResourceRecord *const rr,
             {
                 return mDNSfalse;
             }
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-            if (!RRMatchesQuestionService(rr, q)) return(mDNSfalse);
-#else
             const mDNSu32 idr = rr->rDNSServer ? rr->rDNSServer->resGroupID : 0;
             const mDNSu32 idq = q->qDNSServer ? q->qDNSServer->resGroupID : 0;
             if (idr != idq) return(mDNSfalse);
-#endif
         }
 
         // mDNS records can only be used to answer mDNS questions.
@@ -2218,19 +2053,6 @@ mDNSlocal mDNSBool SameNameRecordAnswersQuestion(const ResourceRecord *const rr,
 
     // RR type CNAME matches any query type. QTYPE ANY matches any RR type. QCLASS ANY matches any RR class.
     RRTypeAnswersQuestionTypeFlags flags = kRRTypeAnswersQuestionTypeFlagsNone;
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    // Primary DNSSEC requestor is the non-duplicate DNSSEC question that does the DNSSEC validation, therefore, it needs
-    // the "DNSSEC to be validated" record. (It is also DNSSEC requestor, see below)
-    if (dns_question_is_primary_dnssec_requestor(q))
-    {
-        flags |= kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRToValidate;
-    }
-    // DNSSEC requestor is the DNSSEC question that needs DNSSEC validated result.
-    if (dns_question_is_dnssec_requestor(q))
-    {
-        flags |= kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRValidated;
-    }
-#endif
 
     const mDNSBool typeMatches = RRTypeAnswersQuestionType(rr, q->qtype, flags);
     if (!typeMatches)
@@ -2340,13 +2162,6 @@ mDNSexport mDNSBool LocalOnlyRecordAnswersQuestion(AuthRecord *const ar, const D
 
     if (ar->ARType != AuthRecordLocalOnly && rr->InterfaceID && !mDNSOpaque16IsZero(q->TargetQID)) return(mDNSfalse);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    // No local only record can answer DNSSEC question.
-    if (dns_question_is_dnssec_requestor(q))
-    {
-        return mDNSfalse;
-    }
-#endif
 
     // RR type CNAME matches any query type. QTYPE ANY matches any RR type. QCLASS ANY matches any RR class.
     RRTypeAnswersQuestionTypeFlags flags = kRRTypeAnswersQuestionTypeFlagsNone;
@@ -2375,16 +2190,6 @@ mDNSexport mDNSBool AnyTypeRecordAnswersQuestion(const AuthRecord *const ar, con
         q->InterfaceID && q->InterfaceID != mDNSInterface_LocalOnly &&
         rr->InterfaceID != q->InterfaceID) return(mDNSfalse);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-    if (DNSQuestionUsesMDNSAlternativeService(q))
-    {
-        if (!RRMatchesQuestionService(rr, q))
-        {
-            return mDNSfalse;
-        }
-    }
-    else
-#endif
     {
         const mDNSBool resolvedByMDNS = RRIsResolvedBymDNS(rr);
         // Resource record received via non-mDNS channel, the server or service should match.
@@ -2392,16 +2197,9 @@ mDNSexport mDNSBool AnyTypeRecordAnswersQuestion(const AuthRecord *const ar, con
         // both the DNSServers are assumed to be NULL in that case
         if (!resolvedByMDNS)
         {
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-            if (!RRMatchesQuestionService(rr, q)) return(mDNSfalse);
-#else
             const mDNSu32 idr = rr->rDNSServer ? rr->rDNSServer->resGroupID : 0;
             const mDNSu32 idq = q->qDNSServer ? q->qDNSServer->resGroupID : 0;
             if (idr != idq) return(mDNSfalse);
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, RANDOM_AWDL_HOSTNAME)
-            if (!mDNSPlatformValidRecordForInterface(ar, q->InterfaceID)) return(mDNSfalse);
-#endif
         }
 
         // mDNS records can only be used to answer mDNS questions.
@@ -2441,15 +2239,6 @@ mDNSexport mDNSBool ResourceRecordAnswersUnicastResponse(const ResourceRecord *c
 
     // RR type CNAME matches any query type. QTYPE ANY matches any RR type. QCLASS ANY matches any RR class.
     RRTypeAnswersQuestionTypeFlags flags = kRRTypeAnswersQuestionTypeFlagsNone;
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    // Thus routine is only used for the records received from internet. Right now, we will not receive DNSSEC validated
-    // record from wire (ODoH will probably give us validated records in the future?). Therefore, we only need to check
-    // if the record answers primary DNSSEC requestor and can be used for validation.
-    if (dns_question_is_primary_dnssec_requestor(q))
-    {
-        flags |= kRRTypeAnswersQuestionTypeFlagsRequiresDNSSECRRToValidate;
-    }
-#endif
 
     const mDNSBool typeMatches = RRTypeAnswersQuestionType(rr, q->qtype, flags);
     if (!typeMatches)
@@ -3994,20 +3783,13 @@ mDNSexport const mDNSu8 *GetLargeResourceRecord(mDNS *const m, const DNSMessage 
     rr->TimeRcvd          = m ? m->timenow : 0;
     rr->DelayDelivery     = 0;
     rr->NextRequiredQuery = m ? m->timenow : 0;     // Will be updated to the real value when we call SetNextCacheCheckTimeForRecord()
-#if MDNSRESPONDER_SUPPORTS(APPLE, CACHE_ANALYTICS)
-    rr->LastCachedAnswerTime = 0;
-#endif
     rr->CRActiveQuestion  = mDNSNULL;
     rr->UnansweredQueries = 0;
     rr->LastUnansweredTime= 0;
     rr->NextInCFList      = mDNSNULL;
 
     rr->resrec.InterfaceID       = InterfaceID;
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mdns_forget(&rr->resrec.metadata);
-#else
     rr->resrec.rDNSServer = mDNSNULL;
-#endif
 
     ptr = getDomainName(msg, ptr, end, &largecr->namestorage);      // Will bail out correctly if ptr is NULL
     if (!ptr) { debugf("GetLargeResourceRecord: Malformed RR name"); return(mDNSNULL); }
@@ -4638,13 +4420,6 @@ mDNSlocal void DumpMDNSPacket(const mDNSBool sent, const DNSMessage *const msg, 
         ipv6Msg = mDNStrue;
     }
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
-    // The os_log specifier requires network byte order data.
-    SwapDNSHeaderBytesWithHeader(&hdr);
-    const mDNSu32 IDFlags = ReadField32(hdr.id.b);
-    const uint64_t counts = ReadField64(&hdr.numQuestions);
-    SwapDNSHeaderBytesWithHeader(&hdr);
-#endif
 
     // Get the (Name hash, Type) bytes array from the DNS message, where name is converted to a 4-byte hash value
     // type is converted to a 2-byte value.
@@ -5267,53 +5042,8 @@ mDNSexport mStatus mDNSSendDNSMessage(mDNS *const m, DNSMessage *const msg, mDNS
 // ***************************************************************************
 // MARK: - DNSQuestion Functions
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, LOG_PRIVACY_LEVEL)
-mDNSBool DNSQuestionNeedsSensitiveLogging(const DNSQuestion *const q)
-{
-    return is_apple_internal_build() && (q->logPrivacyLevel == dnssd_log_privacy_level_private);
-}
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, RUNTIME_MDNS_METRICS)
-mDNSBool DNSQuestionCollectsMDNSMetric(const DNSQuestion *const q)
-{
-    return (!q->DuplicateOf && mDNSOpaque16IsZero(q->TargetQID));
-}
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-
-mDNSlocal mDNSBool DNSQuestionUsesAWDL(const DNSQuestion *const q)
-{
-    if (q->InterfaceID == mDNSInterface_Any)
-    {
-        return ((q->flags & kDNSServiceFlagsIncludeAWDL) != 0);
-    }
-    else
-    {
-        return mDNSPlatformInterfaceIsAWDL(q->InterfaceID);
-    }
-}
-
-mDNSBool DNSQuestionIsEligibleForMDNSAlternativeService(const DNSQuestion *const q)
-{
-    // 0. The system is not in a demo mode where mDNS traffic is ensured to be lossless in a wired connection.
-    // 1. The question must be an mDNS question.
-    // 2. The question cannot enable resolution over AWDL.
-    //    (because the resolution over mDNS alternative service is mutual exclusive with the resolution over AWDL)
-    return (!is_airplay_demo_mode_enabled() && mDNSOpaque16IsZero(q->TargetQID) && !DNSQuestionUsesAWDL(q));
-}
-
-mDNSBool DNSQuestionRequestsMDNSAlternativeService(const DNSQuestion *const q)
-{
-    return (!mDNSOpaque16IsZero(q->TargetQID) && !Question_uDNS(q));
-}
-
-mDNSBool DNSQuestionUsesMDNSAlternativeService(const DNSQuestion *const q)
-{
-    return q->dnsservice && mdns_dns_service_is_mdns_alternative(q->dnsservice);
-}
-#endif
 
 // ***************************************************************************
 // MARK: - RR List Management & Task Management
@@ -5321,9 +5051,6 @@ mDNSBool DNSQuestionUsesMDNSAlternativeService(const DNSQuestion *const q)
 mDNSexport void mDNS_VerifyLockState(const char *const operation, const mDNSBool checkIfLockHeld,
     const mDNSu32 mDNS_busy, const mDNSu32 mDNS_reentrancy, const char *const functionName, const mDNSu32 lineNumber)
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-    static os_unfair_lock logLock = OS_UNFAIR_LOCK_INIT;
-#endif
     static const char *lastLockOperator = mDNSNULL; // The name of the function that succeeded in doing lock operation last time.
     static mDNSu32 lineNumberlastLockOperator = 0; // The line number in the source code when this function gets called last time.
 
@@ -5374,28 +5101,16 @@ mDNSexport void mDNS_VerifyLockState(const char *const operation, const mDNSBool
                 case 'D': // "Drop Lock" (it is paired with "Reclaim Lock")
                     // Add new lock state, and we need to remember who succeeds in doing the operation because it might
                     // lead to invalid lock state.
-                #if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-                    os_unfair_lock_lock(&logLock);
-                #endif
                     lastLockOperator = functionName;
                     lineNumberlastLockOperator = lineNumber;
-                #if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-                    os_unfair_lock_unlock(&logLock);
-                #endif
                     break;
 
                 case 'U': // "Unlock"
                 case 'R': // "Reclaim Lock"
                     // Remove the previous lock state, and we can remove the name and the line number that has been
                     // saved.
-                #if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-                    os_unfair_lock_lock(&logLock);
-                #endif
                     lastLockOperator = mDNSNULL;
                     lineNumberlastLockOperator = 0;
-                #if MDNSRESPONDER_SUPPORTS(APPLE, OS_UNFAIR_LOCK)
-                    os_unfair_lock_unlock(&logLock);
-                #endif
                 case 'C': // "Check Lock"
                     // "Check Lock" operation will never change the lock state, so no need to take a note for that.
                     break;
@@ -5524,9 +5239,6 @@ mDNSlocal mDNSs32 GetNextScheduledEvent(const mDNS *const m)
     if (e - m->NextScheduledSPS      > 0) e = m->NextScheduledSPS;
     if (e - m->NextScheduledKA       > 0) e = m->NextScheduledKA;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, BONJOUR_ON_DEMAND)
-    if (m->NextBonjourDisableTime && (e - m->NextBonjourDisableTime > 0)) e = m->NextBonjourDisableTime;
-#endif
 
     // Check if it is time to stop domain enumeration.
     for (const DomainEnumerationOp *op = m->domainsToDoEnumeration; op != mDNSNULL; op = op->next)
@@ -5582,19 +5294,7 @@ mDNSlocal mDNSs32 GetNextScheduledEvent(const mDNS *const m)
 
     if (m->NextBLEServiceTime && (e - m->NextBLEServiceTime > 0)) e = m->NextBLEServiceTime;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, DNSSECv2)
-    if (m->NextUpdateDNSSECValidatedCache && (e - m->NextUpdateDNSSECValidatedCache > 0))
-    {
-        e = m->NextUpdateDNSSECValidatedCache;
-    }
-#endif
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, RUNTIME_MDNS_METRICS)
-    if (m->NextMDNSResponseDelayReport && (e - m->NextMDNSResponseDelayReport > 0))
-    {
-        e = m->NextMDNSResponseDelayReport;
-    }
-#endif
 
     return(e);
 }
@@ -6115,14 +5815,12 @@ mDNSexport mDNSu32 mDNS_snprintf(char *sbuffer, mDNSu32 buflen, const char *fmt,
     return(length);
 }
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
 mDNSexport mDNSu32 mDNS_GetNextResolverGroupID(void)
 {
     static mDNSu32 lastID = 0;
     if (++lastID == 0) lastID = 1; // Valid resolver group IDs are non-zero.
     return(lastID);
 }
-#endif
 
 #define kReverseIPv6Domain  ((const domainname *) "\x3" "ip6" "\x4" "arpa")
 

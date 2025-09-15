@@ -9,9 +9,6 @@ The security_certificates project builds a set of data files into a signed bundl
     certificates/removed
         -- certificates which have been removed due to expiration or deprecation, and are no longer trusted. (A subdirectory, certificates/removed/intermediates, holds non-root CA certficates which have been removed.)
 
-    certificates/revoked
-        -- also known as "blocked" certificates, these are marked explicitly as revoked. Evaluation of a revoked certificate should always result in a non-recoverable trust failure.
-
     certificates/roots
         -- trusted root certificates. The contents of this directory will be the list of trusted roots in the store.
 

@@ -86,6 +86,7 @@
 
 #include <machine/limits.h>
 
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
 #include <net/if.h>
@@ -133,6 +134,9 @@
 #include <IOKit/IOBSD.h>
 
 #include <net/sockaddr_utils.h>
+
+extern int      udp_use_randomport;
+extern int      tcp_use_randomport;
 
 extern const char *proc_name_address(struct proc *);
 
@@ -672,7 +676,7 @@ in_pcb_check_ultra_constrained_entitled(struct inpcb *inp)
 
 	if (if_ultra_constrained_check_needed) {
 		inp->inp_flags2 |= INP2_ULTRA_CONSTRAINED_CHECKED;
-		if (IOCurrentTaskHasEntitlement(ULTRA_CONSTRAINED_ENTITLEMENT)) {
+		if (if_ultra_constrained_default_allowed || IOCurrentTaskHasEntitlement(ULTRA_CONSTRAINED_ENTITLEMENT)) {
 			inp->inp_flags2 |= INP2_ULTRA_CONSTRAINED_ALLOWED;
 		}
 	}
@@ -689,78 +693,32 @@ int
 in_pcballoc(struct socket *so, struct inpcbinfo *pcbinfo, struct proc *p)
 {
 #pragma unused(p)
+	void *__unsafe_indexable addr;
 	struct inpcb *inp;
-	caddr_t temp;
 
-	if ((so->so_flags1 & SOF1_CACHED_IN_SOCK_LAYER) == 0) {
-		void *__unsafe_indexable addr = __zalloc_flags(pcbinfo->ipi_zone,
-		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-		__builtin_assume(addr != NULL);
-		/*
-		 * N.B: the allocation above may actually be inp_tp
-		 * which is a structure that includes inpcb, but for
-		 * the purposes of this function we just touch
-		 * struct inpcb.
-		 */
-		inp = __unsafe_forge_single(struct inpcb *, addr);
-	} else {
-		inp = (struct inpcb *)(void *)so->so_saved_pcb;
-		temp = inp->inp_saved_ppcb;
-		bzero((caddr_t)inp, sizeof(*inp));
-		inp->inp_saved_ppcb = temp;
+	if (proto_memacct_hardlimit(so->so_proto)) {
+		return ENOBUFS;
 	}
+	addr = __zalloc_flags(pcbinfo->ipi_zone, Z_WAITOK_ZERO_NOFAIL);
+	__builtin_assume(addr != NULL);
+
+	proto_memacct_add(so->so_proto, kalloc_type_size(pcbinfo->ipi_zone));
+
+	/*
+	 * N.B: the allocation above may actually be inp_tp
+	 * which is a structure that includes inpcb, but for
+	 * the purposes of this function we just touch
+	 * struct inpcb.
+	 */
+	inp = __unsafe_forge_single(struct inpcb *, addr);
 
 	inp->inp_gencnt = ++pcbinfo->ipi_gencnt;
 	inp->inp_pcbinfo = pcbinfo;
 	inp->inp_socket = so;
-#define INP_ALIGN_AND_CAST(_type, _ptr) ({                                \
-	typeof((_type)(void *__header_bidi_indexable)NULL) __roundup_type;\
-	const volatile char *__roundup_align_ptr = (const volatile char *)(_ptr); \
-	__roundup_align_ptr += P2ROUNDUP((uintptr_t)__roundup_align_ptr,  \
-	                                 _Alignof(typeof(*__roundup_type))) - (uintptr_t)__roundup_align_ptr; \
-	__DEQUALIFY(_type, __roundup_align_ptr);                          \
-})
-	/* make sure inp_stat is always 64-bit aligned */
-	inp->inp_stat = INP_ALIGN_AND_CAST(struct inp_stat *, inp->inp_stat_store);
-	if (((uintptr_t)inp->inp_stat - (uintptr_t)inp->inp_stat_store) +
-	    sizeof(*inp->inp_stat) > sizeof(inp->inp_stat_store)) {
-		panic("%s: insufficient space to align inp_stat", __func__);
-		/* NOTREACHED */
-	}
-
-	/* make sure inp_cstat is always 64-bit aligned */
-	inp->inp_cstat = INP_ALIGN_AND_CAST(struct inp_stat *, inp->inp_cstat_store);
-	if (((uintptr_t)inp->inp_cstat - (uintptr_t)inp->inp_cstat_store) +
-	    sizeof(*inp->inp_cstat) > sizeof(inp->inp_cstat_store)) {
-		panic("%s: insufficient space to align inp_cstat", __func__);
-		/* NOTREACHED */
-	}
-
-	/* make sure inp_wstat is always 64-bit aligned */
-	inp->inp_wstat = INP_ALIGN_AND_CAST(struct inp_stat *, inp->inp_wstat_store);
-	if (((uintptr_t)inp->inp_wstat - (uintptr_t)inp->inp_wstat_store) +
-	    sizeof(*inp->inp_wstat) > sizeof(inp->inp_wstat_store)) {
-		panic("%s: insufficient space to align inp_wstat", __func__);
-		/* NOTREACHED */
-	}
-
-	/* make sure inp_Wstat is always 64-bit aligned */
-	inp->inp_Wstat = INP_ALIGN_AND_CAST(struct inp_stat *, inp->inp_Wstat_store);
-	if (((uintptr_t)inp->inp_Wstat - (uintptr_t)inp->inp_Wstat_store) +
-	    sizeof(*inp->inp_Wstat) > sizeof(inp->inp_Wstat_store)) {
-		panic("%s: insufficient space to align inp_Wstat", __func__);
-		/* NOTREACHED */
-	}
-
-	/* make sure inp_btstat is always 64-bit aligned */
-	inp->inp_btstat = INP_ALIGN_AND_CAST(struct inp_stat *, inp->inp_btstat_store);
-	if (((uintptr_t)inp->inp_btstat - (uintptr_t)inp->inp_btstat_store) +
-	    sizeof(*inp->inp_btstat) > sizeof(inp->inp_btstat_store)) {
-		panic("%s: insufficient space to align inp_btstat", __func__);
-		/* NOTREACHED */
-	}
-#undef INP_ALIGN_AND_CAST
 	so->so_pcb = (caddr_t)inp;
+	// There was some history about alignment of statistics counters
+	// Ensure that all is as expected
+	VERIFY(IS_P2ALIGNED(&inp->inp_mstat, sizeof(u_int64_t)));
 
 	if (so->so_proto->pr_flags & PR_PCBLOCK) {
 		lck_mtx_init(&inp->inpcb_mtx, pcbinfo->ipi_lock_grp,
@@ -779,6 +737,8 @@ in_pcballoc(struct socket *so, struct inpcbinfo *pcbinfo, struct proc *p)
 	}
 
 	(void) inp_update_policy(inp);
+
+	inp->inp_max_pacing_rate = UINT64_MAX;
 
 	lck_rw_lock_exclusive(&pcbinfo->ipi_lock);
 	inp->inp_gencnt = ++pcbinfo->ipi_gencnt;
@@ -1226,7 +1186,7 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct sockaddr *remote, str
 
 				/*
 				 * Skip if this is a restricted port as we do not want to
-				 * restricted ports as ephemeral
+				 * use restricted ports as ephemeral
 				 */
 				if (IS_RESTRICTED_IN_PORT(lport)) {
 					continue;
@@ -1288,7 +1248,7 @@ in_pcbbind(struct inpcb *inp, struct sockaddr *nam, struct sockaddr *remote, str
 
 				/*
 				 * Skip if this is a restricted port as we do not want to
-				 * restricted ports as ephemeral
+				 * use restricted ports as ephemeral
 				 */
 				if (IS_RESTRICTED_IN_PORT(lport)) {
 					continue;
@@ -1956,7 +1916,7 @@ in_pcbconnect(struct inpcb *inp, struct sockaddr *nam, struct proc *p,
 	inp->inp_faddr = sin->sin_addr;
 	inp->inp_fport = sin->sin_port;
 	if (nstat_collect && SOCK_PROTO(so) == IPPROTO_UDP) {
-		nstat_pcb_invalidate_cache(inp);
+		nstat_udp_pcb_invalidate_cache(inp);
 	}
 	in_pcbrehash(inp);
 	lck_rw_done(&inp->inp_pcbinfo->ipi_lock);
@@ -1969,7 +1929,7 @@ in_pcbdisconnect(struct inpcb *inp)
 	struct socket *so = inp->inp_socket;
 
 	if (nstat_collect && SOCK_PROTO(so) == IPPROTO_UDP) {
-		nstat_pcb_cache(inp);
+		nstat_udp_pcb_cache(inp);
 	}
 
 	inp->inp_faddr.s_addr = INADDR_ANY;
@@ -2018,8 +1978,8 @@ in_pcbdetach(struct inpcb *inp)
 	}
 #endif /* IPSEC */
 
-	if (inp->inp_stat != NULL && SOCK_PROTO(so) == IPPROTO_UDP) {
-		if (inp->inp_stat->rxpackets == 0 && inp->inp_stat->txpackets == 0) {
+	if (SOCK_PROTO(so) == IPPROTO_UDP) {
+		if (inp->inp_mstat.ms_total.ts_rxpackets == 0 && inp->inp_mstat.ms_total.ts_txpackets == 0) {
 			INC_ATOMIC_INT64_LIM(net_api_stats.nas_socket_inet_dgram_no_data);
 		}
 	}
@@ -2081,9 +2041,8 @@ in_pcbdetach(struct inpcb *inp)
 			 * Schedule a notification to report that flow is
 			 * using client side translation.
 			 */
-			if (inp->inp_stat != NULL &&
-			    (inp->inp_stat->txbytes != 0 ||
-			    inp->inp_stat->rxbytes != 0)) {
+			if (inp->inp_mstat.ms_total.ts_txbytes != 0 ||
+			    inp->inp_mstat.ms_total.ts_rxbytes != 0) {
 				if (so->so_flags & SOF_DELEGATED) {
 					in6_clat46_event_enqueue_nwk_wq_entry(
 						IN6_CLAT46_EVENT_V4_FLOW,
@@ -2165,7 +2124,6 @@ in_pcbdispose(struct inpcb *inp)
 		}
 		/* makes sure we're not called twice from so_close */
 		so->so_flags |= SOF_PCBCLEARING;
-		so->so_saved_pcb = (caddr_t)inp;
 		so->so_pcb = NULL;
 		inp->inp_socket = NULL;
 #if NECP
@@ -2177,9 +2135,9 @@ in_pcbdispose(struct inpcb *inp)
 		 * we deallocate the structure.
 		 */
 		ROUTE_RELEASE(&inp->inp_route);
-		if ((so->so_flags1 & SOF1_CACHED_IN_SOCK_LAYER) == 0) {
-			zfree(ipi->ipi_zone, inp);
-		}
+		zfree(ipi->ipi_zone, inp);
+		proto_memacct_sub(so->so_proto, kalloc_type_size(ipi->ipi_zone));
+
 		sodealloc(so);
 	}
 }
@@ -3782,10 +3740,10 @@ inp_flush(struct inpcb *inp, int optval)
 	oifp = inp->inp_last_outifp;
 
 	if (rtifp != NULL) {
-		if_qflush_sc(rtifp, so_tc2msc(optval), flowhash, NULL, NULL, 0);
+		if_qflush_sc(rtifp, so_tc2msc(optval), flowhash, NULL, NULL);
 	}
 	if (oifp != NULL && oifp != rtifp) {
-		if_qflush_sc(oifp, so_tc2msc(optval), flowhash, NULL, NULL, 0);
+		if_qflush_sc(oifp, so_tc2msc(optval), flowhash, NULL, NULL);
 	}
 
 	return 0;
@@ -4351,15 +4309,10 @@ inp_update_netns_flags(struct socket *so)
 #endif /* SKYWALK */
 
 inline void
-inp_set_activity_bitmap(struct inpcb *inp)
-{
-	in_stat_set_activity_bitmap(&inp->inp_nw_activity, net_uptime());
-}
-
-inline void
 inp_get_activity_bitmap(struct inpcb *inp, activity_bitmap_t *ab)
 {
-	bcopy(&inp->inp_nw_activity, ab, sizeof(*ab));
+	// Just grab the total bitmap until we have more precision in bitmap retrieval
+	bcopy(&inp->inp_mstat.ms_total.ts_bitmap, ab, sizeof(*ab));
 }
 
 void
@@ -4383,6 +4336,7 @@ inp_update_last_owner(struct socket *so, struct proc *p, struct proc *ep)
 	} else {
 		inp->inp_e_proc_name[0] = 0;
 	}
+	nstat_pcb_update_last_owner(inp);
 }
 
 void
@@ -4538,4 +4492,212 @@ inp_exit_bind_in_progress(struct socket *so)
 	if (__improbable(inp->inp_bind_in_progress_waiters > 0)) {
 		wakeup_one((caddr_t)&inp->inp_bind_in_progress_waiters);
 	}
+}
+
+/*
+ * XXX: this is borrowed from in6_pcbsetport(). If possible, we should
+ * share this function by all *bsd*...
+ */
+int
+in_pcbsetport(struct in_addr laddr, struct sockaddr *remote, struct inpcb *inp, struct proc *p,
+    int locked)
+{
+	struct socket *__single so = inp->inp_socket;
+	uint16_t lport = 0, first, last, rand_port;
+	uint16_t *__single lastport;
+	int count, error = 0, wild = 0;
+	boolean_t counting_down;
+	bool found, randomport;
+	struct inpcbinfo *__single pcbinfo = inp->inp_pcbinfo;
+	kauth_cred_t __single cred;
+#if SKYWALK
+	bool laddr_unspecified = laddr.s_addr == INADDR_ANY;
+#else
+#pragma unused(laddr)
+#endif
+	if (!locked) { /* Make sure we don't run into a deadlock: 4052373 */
+		if (!lck_rw_try_lock_exclusive(&pcbinfo->ipi_lock)) {
+			socket_unlock(inp->inp_socket, 0);
+			lck_rw_lock_exclusive(&pcbinfo->ipi_lock);
+			socket_lock(inp->inp_socket, 0);
+		}
+
+		/*
+		 * Check if a local port was assigned to the inp while
+		 * this thread was waiting for the pcbinfo lock
+		 */
+		if (inp->inp_lport != 0) {
+			VERIFY(inp->inp_flags2 & INP2_INHASHLIST);
+			lck_rw_done(&pcbinfo->ipi_lock);
+
+			/*
+			 * It is not an error if another thread allocated
+			 * a port
+			 */
+			return 0;
+		}
+	}
+
+	/* XXX: this is redundant when called from in6_pcbbind */
+	if ((so->so_options & (SO_REUSEADDR | SO_REUSEPORT)) == 0) {
+		wild = INPLOOKUP_WILDCARD;
+	}
+
+	randomport = (so->so_flags & SOF_BINDRANDOMPORT) > 0 ||
+	    (so->so_type == SOCK_STREAM ? tcp_use_randomport :
+	    udp_use_randomport) > 0;
+
+	if (inp->inp_flags & INP_HIGHPORT) {
+		first = (uint16_t)ipport_hifirstauto;     /* sysctl */
+		last  = (uint16_t)ipport_hilastauto;
+		lastport = &pcbinfo->ipi_lasthi;
+	} else if (inp->inp_flags & INP_LOWPORT) {
+		cred = kauth_cred_proc_ref(p);
+		error = priv_check_cred(cred, PRIV_NETINET_RESERVEDPORT, 0);
+		kauth_cred_unref(&cred);
+		if (error != 0) {
+			if (!locked) {
+				lck_rw_done(&pcbinfo->ipi_lock);
+			}
+			return error;
+		}
+		first = (uint16_t)ipport_lowfirstauto;    /* 1023 */
+		last  = (uint16_t)ipport_lowlastauto;     /* 600 */
+		lastport = &pcbinfo->ipi_lastlow;
+	} else {
+		first = (uint16_t)ipport_firstauto;       /* sysctl */
+		last  = (uint16_t)ipport_lastauto;
+		lastport = &pcbinfo->ipi_lastport;
+	}
+
+	if (first == last) {
+		randomport = false;
+	}
+	/*
+	 * Simple check to ensure all ports are not used up causing
+	 * a deadlock here.
+	 */
+	found = false;
+	if (first > last) {
+		/* counting down */
+		if (randomport) {
+			read_frandom(&rand_port, sizeof(rand_port));
+			*lastport = first - (rand_port % (first - last));
+		}
+		count = first - last;
+		counting_down = TRUE;
+	} else {
+		/* counting up */
+		if (randomport) {
+			read_frandom(&rand_port, sizeof(rand_port));
+			*lastport = first + (rand_port % (first - last));
+		}
+		count = last - first;
+		counting_down = FALSE;
+	}
+	do {
+		if (count-- < 0) {      /* completely used? */
+			/*
+			 * Undo any address bind that may have
+			 * occurred above.
+			 */
+			inp->in6p_laddr = in6addr_any;
+			inp->in6p_last_outifp = NULL;
+#if SKYWALK
+			if (NETNS_TOKEN_VALID(&inp->inp_netns_token)) {
+				netns_set_ifnet(&inp->inp_netns_token,
+				    NULL);
+			}
+#endif /* SKYWALK */
+			if (!locked) {
+				lck_rw_done(&pcbinfo->ipi_lock);
+			}
+			return EAGAIN;
+		}
+		if (counting_down) {
+			--*lastport;
+			if (*lastport > first || *lastport < last) {
+				*lastport = first;
+			}
+		} else {
+			++*lastport;
+			if (*lastport < first || *lastport > last) {
+				*lastport = first;
+			}
+		}
+		lport = htons(*lastport);
+
+		/*
+		 * Skip if this is a restricted port as we do not want to
+		 * use restricted ports as ephemeral
+		 */
+		if (IS_RESTRICTED_IN_PORT(lport)) {
+			continue;
+		}
+
+		found = (in_pcblookup_local(pcbinfo, inp->inp_laddr,
+		    lport, wild) == NULL);
+#if SKYWALK
+		if (found &&
+		    (SOCK_PROTO(so) == IPPROTO_TCP ||
+		    SOCK_PROTO(so) == IPPROTO_UDP) &&
+		    !(inp->inp_flags2 & INP2_EXTERNAL_PORT)) {
+			if (laddr_unspecified &&
+			    (inp->inp_vflag & INP_IPV6) != 0 &&
+			    (inp->inp_flags & IN6P_IPV6_V6ONLY) == 0) {
+				struct in_addr ip_zero = { .s_addr = 0 };
+
+				netns_release(&inp->inp_wildcard_netns_token);
+				if (netns_reserve_in(
+					    &inp->inp_wildcard_netns_token,
+					    ip_zero,
+					    (uint8_t)SOCK_PROTO(so), lport,
+					    NETNS_BSD, NULL) != 0) {
+					/* port in use in IPv4 namespace */
+					found = false;
+				}
+			}
+			if (found &&
+			    netns_reserve_in(&inp->inp_netns_token,
+			    inp->inp_laddr, (uint8_t)SOCK_PROTO(so), lport,
+			    NETNS_BSD, NULL) != 0) {
+				netns_release(&inp->inp_wildcard_netns_token);
+				found = false;
+			}
+		}
+#endif /* SKYWALK */
+	} while (!found);
+
+	inp->inp_lport = lport;
+	inp->inp_flags |= INP_ANONPORT;
+
+	bool is_ipv6 = (inp->inp_vflag & INP_IPV6);
+	if (is_ipv6) {
+		inp->inp_vflag &= ~INP_IPV6;
+	}
+
+	if (in_pcbinshash(inp, remote, 1) != 0) {
+		inp->inp_last_outifp = NULL;
+		inp->inp_lifscope = IFSCOPE_NONE;
+#if SKYWALK
+		netns_release(&inp->inp_netns_token);
+#endif /* SKYWALK */
+		inp->inp_lport = 0;
+		inp->inp_flags &= ~INP_ANONPORT;
+		if (is_ipv6) {
+			inp->inp_vflag |= INP_IPV6;
+		}
+		if (!locked) {
+			lck_rw_done(&pcbinfo->ipi_lock);
+		}
+		return EAGAIN;
+	}
+	if (is_ipv6) {
+		inp->inp_vflag |= INP_IPV6;
+	}
+
+	if (!locked) {
+		lck_rw_done(&pcbinfo->ipi_lock);
+	}
+	return 0;
 }

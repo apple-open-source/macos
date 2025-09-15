@@ -14,6 +14,9 @@
 .Op Fl l Ar latency_tier
 .Op Fl a
 .Op Fl s
+.Op Fl S Ar shims
+.Op Fl m Ar limit
+.Op Fl j Ar pri
 .Ar program
 .Oo
 .Ar arg1
@@ -58,6 +61,12 @@ which is interpreted case-insensitively.
 .It Fl p Ar pid
 Change settings for the process specified by
 .Ar pid .
+.It Fl m Ar limit
+Run the program with specified memory limit (in MiB).
+.It Fl j Ar pri
+Run the program at the specified jetsam priority.
+.It Fl S Ar shims
+Run the program with security transition shims in effect.
 .It Fl b
 Run the program after calling
 .Xr setpriority 2
@@ -76,8 +85,6 @@ Run the program with the resource management policies given to applications.
 Run the program with an initial suspended state by calling
 .Xr posix_spawnattr_setflags 3
 with POSIX_SPAWN_START_SUSPENDED.
-.It Fl S
-Run the program with security transition shims in effect.
 .El
 .Sh SEE ALSO
 .Xr setpriority 2 ,

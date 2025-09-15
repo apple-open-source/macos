@@ -106,32 +106,6 @@ body.docked.left #docked-resizer {
     cursor: col-resize;
 }
 
-#undocked-title-area {
-    position: absolute;
-    top: 0;
-    right: 0;
-    left: 0;
-    height: var(--undocked-title-area-height);
-    background: var(--undocked-title-area-background);
-}
-
-body.mac-platform #undocked-title-area {
-    --undocked-title-area-background: white;
-}
-
-body:not(.mac-platform) #undocked-title-area {
-    --undocked-title-area-background: linear-gradient(to bottom, hsl(0, 0%, 92%), hsl(0, 0%, 87%));
-    box-shadow: inset hsla(0, 0%, 100%, 0.5) 0 1px 1px;
-}
-
-body.docked #undocked-title-area {
-    display: none;
-}
-
-body.window-inactive #undocked-title-area {
-    --undocked-title-area-background: hsl(0, 0%, 96%);
-}
-
 input[type=range] {
     appearance: none;
 }
@@ -148,7 +122,7 @@ input[type=range]::-webkit-slider-runnable-track {
 
 #main {
     position: absolute;
-    top: calc(var(--undocked-title-area-height) + var(--tab-bar-height));
+    top: var(--tab-bar-height);
     left: 0;
     right: 0;
     bottom: 0;
@@ -549,26 +523,6 @@ body[dir=rtl] [dir=ltr] .go-to-arrow {
 }
 
 @media (prefers-color-scheme: dark) {
-    #undocked-title-area {
-        box-shadow: none;
-    }
-
-    body.mac-platform #undocked-title-area {
-        --undocked-title-area-background: var(--background-color-content);
-    }
-
-    body:not(.mac-platform) #undocked-title-area {
-        --undocked-title-area-background: linear-gradient(to bottom, hsl(0, 0%, 26%), hsl(0, 0%, 23%));
-    }
-
-    body.mac-platform.window-inactive #undocked-title-area {
-        --undocked-title-area-background: hsl(0, 0%, 11%);
-    }
-
-    body:not(.mac-platform).window-inactive #undocked-title-area {
-        --undocked-title-area-background: hsl(0, 0%, 19%);
-    }
-
     .go-to-arrow {
         filter: invert();
     }

@@ -36,6 +36,7 @@
 #include "LocalFrame.h"
 #include "NavigationScheduler.h"
 #include "SecurityOrigin.h"
+#include "ServiceWorkerContainer.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/text/MakeString.h>
@@ -128,12 +129,12 @@ String Location::origin() const
 Ref<DOMStringList> Location::ancestorOrigins() const
 {
     auto origins = DOMStringList::create();
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return origins;
-    for (auto* ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent()) {
-        if (auto* localAncestor = dynamicDowncast<LocalFrame>(ancestor))
-            origins->append(localAncestor->document()->securityOrigin().toString());
+    for (RefPtr ancestor = frame->tree().parent(); ancestor; ancestor = ancestor->tree().parent()) {
+        if (RefPtr origin = ancestor->frameDocumentSecurityOrigin())
+            origins->append(origin->toString());
     }
     return origins;
 }
@@ -245,7 +246,7 @@ ExceptionOr<void> Location::replace(LocalDOMWindow& activeWindow, LocalDOMWindow
         return { };
     ASSERT(frame->window());
 
-    auto* firstFrame = firstWindow.frame();
+    RefPtr firstFrame = firstWindow.localFrame();
     if (!firstFrame || !firstFrame->document())
         return { };
 
@@ -253,11 +254,12 @@ ExceptionOr<void> Location::replace(LocalDOMWindow& activeWindow, LocalDOMWindow
     if (!completedURL.isValid())
         return Exception { ExceptionCode::SyntaxError };
 
-    if (!activeWindow.document()->canNavigate(frame.get(), completedURL))
+    auto canNavigateState = activeWindow.document()->canNavigate(frame.get(), completedURL);
+    if (canNavigateState == CanNavigateState::Unable)
         return Exception { ExceptionCode::SecurityError };
 
     // We call LocalDOMWindow::setLocation directly here because replace() always operates on the current frame.
-    frame->window()->setLocation(activeWindow, completedURL, NavigationHistoryBehavior::Replace, SetLocationLocking::LockHistoryAndBackForwardList);
+    frame->window()->setLocation(activeWindow, completedURL, NavigationHistoryBehavior::Replace, SetLocationLocking::LockHistoryAndBackForwardList, canNavigateState);
     return { };
 }
 
@@ -269,7 +271,7 @@ void Location::reload(LocalDOMWindow& activeWindow)
 
     ASSERT(activeWindow.document());
     ASSERT(localFrame->document());
-    ASSERT(localFrame->document()->domWindow());
+    ASSERT(localFrame->document()->window());
 
     Ref activeDocument = *activeWindow.document();
     Ref targetDocument = *localFrame->document();
@@ -278,13 +280,22 @@ void Location::reload(LocalDOMWindow& activeWindow)
     // We allow one page to change the location of another. Why block attempts to reload?
     // Other location operations simply block use of JavaScript URLs cross origin.
     if (!activeDocument->protectedSecurityOrigin()->isSameOriginDomain(targetDocument->protectedSecurityOrigin())) {
-        Ref targetWindow = *targetDocument->domWindow();
+        Ref targetWindow = *targetDocument->window();
         targetWindow->printErrorMessage(targetWindow->crossDomainAccessErrorMessage(activeWindow, IncludeTargetOrigin::Yes));
         return;
     }
 
     if (targetDocument->url().protocolIsJavaScript())
         return;
+
+    if (targetDocument->quirks().shouldDelayReloadWhenRegisteringServiceWorker()) {
+        if (RefPtr container = targetDocument->serviceWorkerContainer()) {
+            container->whenRegisterJobsAreFinished([localFrame, activeDocument] {
+                localFrame->protectedNavigationScheduler()->scheduleRefresh(activeDocument);
+            });
+            return;
+        }
+    }
 
     localFrame->protectedNavigationScheduler()->scheduleRefresh(activeDocument);
 }
@@ -294,7 +305,7 @@ ExceptionOr<void> Location::setLocation(LocalDOMWindow& incumbentWindow, LocalDO
     RefPtr frame = this->frame();
     ASSERT(frame);
 
-    RefPtr firstFrame = firstWindow.frame();
+    RefPtr firstFrame = firstWindow.localFrame();
     if (!firstFrame || !firstFrame->document())
         return { };
 
@@ -303,16 +314,17 @@ ExceptionOr<void> Location::setLocation(LocalDOMWindow& incumbentWindow, LocalDO
     if (!completedURL.isValid())
         return Exception { ExceptionCode::SyntaxError, "Invalid URL"_s };
 
-    if (!incumbentWindow.document()->canNavigate(frame.get(), completedURL))
+    auto canNavigateState = incumbentWindow.document()->canNavigate(frame.get(), completedURL);
+    if (canNavigateState == CanNavigateState::Unable)
         return Exception { ExceptionCode::SecurityError };
 
     // https://html.spec.whatwg.org/multipage/nav-history-apis.html#the-location-interface:location-object-navigate
     auto historyHandling = NavigationHistoryBehavior::Auto;
-    if (!firstFrame->loader().isComplete() && firstFrame->document() && !firstFrame->document()->domWindow()->hasTransientActivation())
+    if (!firstFrame->loader().isComplete() && firstFrame->document() && !firstFrame->document()->window()->hasTransientActivation())
         historyHandling = NavigationHistoryBehavior::Replace;
 
     ASSERT(frame->window());
-    frame->window()->setLocation(incumbentWindow, completedURL, historyHandling);
+    frame->window()->setLocation(incumbentWindow, completedURL, historyHandling, SetLocationLocking::LockHistoryBasedOnGestureState, canNavigateState);
     return { };
 }
 

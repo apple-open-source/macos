@@ -54,6 +54,8 @@ class WebProcessProxy;
 struct WebExtensionTabParameters;
 struct WebExtensionTabQueryParameters;
 
+enum class ReloadFromOrigin : bool { No, Yes };
+
 enum class WebExtensionTabImageFormat : uint8_t {
     PNG,
     JPEG,
@@ -102,7 +104,7 @@ public:
     using ImageFormat = WebExtensionTabImageFormat;
 
     enum class AssumeWindowMatches : bool { No, Yes };
-    enum class ReloadFromOrigin : bool { No, Yes };
+    using ReloadFromOrigin = WebKit::ReloadFromOrigin;
 
     using WebProcessProxySet = HashSet<Ref<WebProcessProxy>>;
 

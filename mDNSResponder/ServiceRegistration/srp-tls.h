@@ -24,7 +24,6 @@
 typedef struct srp_key srp_key_t;
 
 #ifdef SRP_CRYPTO_MBEDTLS_INTERNAL
-#include <mbedtls/certs.h>
 #include <mbedtls/x509.h>
 #include <mbedtls/ssl.h>
 

@@ -27,7 +27,7 @@
 
 #if ENABLE(VIDEO)
 
-#include "PlatformView.h"
+#include "CocoaView.h"
 
 OBJC_CLASS WebAVPlayerLayer;
 OBJC_CLASS WebAVPlayerLayerView;
@@ -38,8 +38,8 @@ class VideoPresentationLayerProvider {
 public:
     WEBCORE_EXPORT virtual ~VideoPresentationLayerProvider();
 
-    PlatformView *layerHostView() const { return m_layerHostView.get(); }
-    void setLayerHostView(RetainPtr<PlatformView>&& layerHostView) { m_layerHostView = WTFMove(layerHostView); }
+    CocoaView *layerHostView() const { return m_layerHostView.get(); }
+    void setLayerHostView(RetainPtr<CocoaView>&& layerHostView) { m_layerHostView = WTFMove(layerHostView); }
 
     WebAVPlayerLayer *playerLayer() const { return m_playerLayer.get(); }
     virtual void setPlayerLayer(RetainPtr<WebAVPlayerLayer>&& layer) { m_playerLayer = WTFMove(layer); }
@@ -48,20 +48,20 @@ public:
     WebAVPlayerLayerView *playerLayerView() const { return m_playerLayerView.get(); }
     void setPlayerLayerView(RetainPtr<WebAVPlayerLayerView>&& playerLayerView) { m_playerLayerView = WTFMove(playerLayerView); }
 
-    PlatformView *videoView() const { return m_videoView.get(); }
-    void setVideoView(RetainPtr<PlatformView>&& videoView) { m_videoView = WTFMove(videoView); }
+    CocoaView *videoView() const { return m_videoView.get(); }
+    void setVideoView(RetainPtr<CocoaView>&& videoView) { m_videoView = WTFMove(videoView); }
 #endif
 
 protected:
     WEBCORE_EXPORT VideoPresentationLayerProvider();
 
 private:
-    RetainPtr<PlatformView> m_layerHostView;
+    RetainPtr<CocoaView> m_layerHostView;
     RetainPtr<WebAVPlayerLayer> m_playerLayer;
 
 #if PLATFORM(IOS_FAMILY)
     RetainPtr<WebAVPlayerLayerView> m_playerLayerView;
-    RetainPtr<PlatformView> m_videoView;
+    RetainPtr<CocoaView> m_videoView;
 #endif
 };
 

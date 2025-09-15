@@ -168,6 +168,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
     if (!configuration) {
         configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
 
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         RetainPtr<WKProcessPool> processPool;
         if (readOnlyAccessPaths().count) {
             RELEASE_ASSERT(readOnlyAccessPaths().count <= 2);
@@ -176,6 +177,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
             processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
         } else
             processPool = adoptNS([[WKProcessPool alloc] init]).get();
+        ALLOW_DEPRECATED_DECLARATIONS_END
 
         auto dataStore = [] {
             auto identifier = sourceApplicationBundleIdentifier();
@@ -187,7 +189,9 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
             return adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:configuration.get()]);
         }();
 
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [configuration setProcessPool:processPool.get()];
+        ALLOW_DEPRECATED_DECLARATIONS_END
         [configuration setWebsiteDataStore:dataStore.get()];
         [configuration setMediaTypesRequiringUserActionForPlayback:WKAudiovisualMediaTypeAll];
         [configuration _setAllowsJavaScriptMarkup:NO];
@@ -431,19 +435,19 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 
             // Make the string be an instance of the receiver class.
             RetainPtr<NSAttributedString> newAttributedString;
-            if (attributedString && self != attributedString.class) {
+            if (attributedString && self != attributedString.class)
                 newAttributedString = adoptNS([[self alloc] initWithAttributedString:attributedString]);
-                attributedString = newAttributedString.get();
-            }
+            else
+                newAttributedString = attributedString;
 
             // Make the document attributes immutable.
             RetainPtr<NSDictionary<NSAttributedStringDocumentAttributeKey, id>> newAttributes;
-            if ([attributes isKindOfClass:NSMutableDictionary.class]) {
+            if ([attributes isKindOfClass:NSMutableDictionary.class])
                 newAttributes = adoptNS([[NSDictionary alloc] initWithDictionary:attributes]);
-                attributes = newAttributes.get();
-            }
+            else
+                newAttributes = attributes;
 
-            completionHandler(attributedString, attributes, error);
+            completionHandler(newAttributedString.get(), newAttributes.get(), error);
         };
 
         auto cancel = ^(WKErrorCode errorCode, NSError* underlyingError) {
@@ -495,7 +499,7 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 
         contentNavigation = loadWebContent(webView.get());
         if (!finished)
-            attributedStringActivity = [webView _page]->protectedLegacyMainFrameProcess()->throttler().foregroundActivity("NSAttributedString serialization"_s);
+            attributedStringActivity = [webView _protectedPage]->protectedLegacyMainFrameProcess()->protectedThrottler()->foregroundActivity("NSAttributedString serialization"_s);
 
         ASSERT(contentNavigation);
         ASSERT(webView.get().loading);
@@ -537,17 +541,17 @@ static NSMutableArray<NSURL *> *readOnlyAccessPaths()
 + (void)loadFromHTMLWithData:(NSData *)data options:(NSDictionary<NSAttributedStringDocumentReadingOptionKey, id> *)options completionHandler:(NSAttributedStringCompletionHandler)completionHandler
 {
     [self _loadFromHTMLWithOptions:options contentLoader:^WKNavigation *(WKWebView *webView) {
-        auto* textEncodingName = dynamic_objc_cast<NSString>(options[NSTextEncodingNameDocumentOption]);
+        RetainPtr textEncodingName = dynamic_objc_cast<NSString>(options[NSTextEncodingNameDocumentOption]);
         auto characterEncoding = static_cast<NSStringEncoding>(dynamic_objc_cast<NSNumber>(options[NSCharacterEncodingDocumentOption]).unsignedIntegerValue);
         auto* baseURL = dynamic_objc_cast<NSURL>(options[NSBaseURLDocumentOption]);
 
         if (characterEncoding && !textEncodingName) {
             auto stringEncoding = CFStringConvertNSStringEncodingToEncoding(characterEncoding);
             if (stringEncoding != kCFStringEncodingInvalidId)
-                textEncodingName = (__bridge NSString *)CFStringConvertEncodingToIANACharSetName(stringEncoding);
+                textEncodingName = bridge_cast(CFStringConvertEncodingToIANACharSetName(stringEncoding));
         }
 
-        return [webView loadData:data MIMEType:@"text/html" characterEncodingName:textEncodingName baseURL:baseURL];
+        return [webView loadData:data MIMEType:@"text/html" characterEncodingName:textEncodingName.get() baseURL:baseURL];
     } completionHandler:completionHandler];
 }
 

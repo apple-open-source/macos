@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -16,7 +16,16 @@
 #if MSDOS_COMPILER==WIN32C
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+
+#if defined(MINGW) || defined(_MSC_VER)
+#include <locale.h>
+#include <shellapi.h>
 #endif
+
+public unsigned less_acp = CP_ACP;
+#endif
+
+#include "option.h"
 
 #ifdef __APPLE__
 #include "get_compat.h"
@@ -25,7 +34,7 @@
 #endif
 
 public char *   every_first_cmd = NULL;
-public int      new_file;
+public lbool    new_file;
 public int      is_tty;
 public IFILE    curr_ifile = NULL_IFILE;
 public IFILE    old_ifile = NULL_IFILE;
@@ -33,10 +42,11 @@ public struct scrpos initial_scrpos;
 public POSITION start_attnpos = NULL_POSITION;
 public POSITION end_attnpos = NULL_POSITION;
 public int      wscroll;
-public char *   progname;
+public constant char *progname;
 public int      quitting;
-public int      secure;
 public int      dohelp;
+public char *   init_header = NULL;
+static int      secure_allow_features;
 
 public int	file_errors = 0;
 public int	unix2003_compat = 0;
@@ -45,13 +55,13 @@ public char *	active_dashp_command = NULL;
 public char *	dashp_commands = NULL;
 #if LOGFILE
 public int      logfile = -1;
-public int      force_logfile = FALSE;
+public lbool    force_logfile = FALSE;
 public char *   namelogfile = NULL;
 #endif
 
 #if EDITOR
-public char *   editor;
-public char *   editproto;
+public constant char *   editor;
+public constant char *   editproto;
 #endif
 
 #if TAGS
@@ -61,32 +71,196 @@ extern int      jump_sline;
 #endif
 
 #ifdef WIN32
-static char consoleTitle[256];
+static wchar_t consoleTitle[256];
 #endif
 
 public int      one_screen;
 extern int      less_is_more;
 extern int      missing_cap;
 extern int      know_dumb;
-extern int      pr_type;
 extern int      quit_if_one_screen;
 extern int      no_init;
-extern int errmsgs;
+extern int      errmsgs;
+extern int      redraw_on_quit;
+extern int      term_init_done;
+extern int      first_time;
 
 #ifdef __APPLE__
 extern int flush_failed;
 #endif
 
+#if MSDOS_COMPILER==WIN32C && (defined(MINGW) || defined(_MSC_VER))
+/* malloc'ed 0-terminated utf8 of 0-terminated wide ws, or null on errors */
+static char *utf8_from_wide(constant wchar_t *ws)
+{
+	char *u8 = NULL;
+	int n = WideCharToMultiByte(CP_UTF8, 0, ws, -1, NULL, 0, NULL, NULL);
+	if (n > 0)
+	{
+		u8 = ecalloc(n, sizeof(char));
+		WideCharToMultiByte(CP_UTF8, 0, ws, -1, u8, n, NULL, NULL);
+	}
+	return u8;
+}
+
+/*
+ * similar to using UTF8 manifest to make the ANSI APIs UTF8, but dynamically
+ * with setlocale. unlike the manifest, argv and environ are already ACP, so
+ * make them UTF8. Additionally, this affects only the libc/crt API, and so
+ * e.g. fopen filename becomes UTF-8, but CreateFileA filename remains CP_ACP.
+ * CP_ACP remains the original codepage - use the dynamic less_acp instead.
+ * effective on win 10 1803 or later when compiled with ucrt, else no-op.
+ */
+static void try_utf8_locale(int *pargc, constant char ***pargv)
+{
+	char *locale_orig = strdup(setlocale(LC_ALL, NULL));
+	wchar_t **wargv = NULL, *wenv, *wp;
+	constant char **u8argv;
+	char *u8e;
+	int i, n;
+
+	if (!setlocale(LC_ALL, ".UTF8"))
+		goto cleanup;  /* not win10 1803+ or not ucrt */
+
+	/*
+	 * wargv is before glob expansion. some ucrt builds may expand globs
+	 * before main is entered, so n may be smaller than the original argc.
+	 * that's ok, because later code at main expands globs anyway.
+	 */
+	wargv = CommandLineToArgvW(GetCommandLineW(), &n);
+	if (!wargv)
+		goto bad_args;
+
+	u8argv = (constant char **) ecalloc(n + 1, sizeof(char *));
+	for (i = 0; i < n; ++i)
+	{
+		if (!(u8argv[i] = utf8_from_wide(wargv[i])))
+			goto bad_args;
+	}
+	u8argv[n] = 0;
+
+	less_acp = CP_UTF8;
+	*pargc = n;
+	*pargv = u8argv;  /* leaked on exit */
+
+	/* convert wide env to utf8 where we can, but don't abort on errors */
+	if ((wenv = GetEnvironmentStringsW()))
+	{
+		for (wp = wenv; *wp; wp += wcslen(wp) + 1)
+		{
+			if ((u8e = utf8_from_wide(wp)))
+				_putenv(u8e);
+			free(u8e);  /* windows putenv makes a copy */
+		}
+		FreeEnvironmentStringsW(wenv);
+	}
+
+	goto cleanup;
+
+bad_args:
+	error("WARNING: cannot use unicode arguments", NULL_PARG);
+	setlocale(LC_ALL, locale_orig);
+
+cleanup:
+	free(locale_orig);
+	LocalFree(wargv);
+}
+#endif
+
+static int security_feature_error(constant char *type, size_t len, constant char *name)
+{
+	PARG parg;
+	size_t msglen = len + strlen(type) + 64;
+	char *msg = ecalloc(msglen, sizeof(char));
+	SNPRINTF3(msg, msglen, "LESSSECURE_ALLOW: %s feature name \"%.*s\"", type, (int) len, name);
+	parg.p_string = msg;
+	error("%s", &parg);
+	free(msg);
+	return 0;
+}
+
+/*
+ * Return the SF_xxx value of a secure feature given the name of the feature.
+ */
+static int security_feature(constant char *name, size_t len)
+{
+	struct secure_feature { constant char *name; int sf_value; };
+	static struct secure_feature features[] = {
+		{ "edit",     SF_EDIT },
+		{ "examine",  SF_EXAMINE },
+		{ "glob",     SF_GLOB },
+		{ "history",  SF_HISTORY },
+		{ "lesskey",  SF_LESSKEY },
+		{ "lessopen", SF_LESSOPEN },
+		{ "logfile",  SF_LOGFILE },
+		{ "osc8",     SF_OSC8_OPEN },
+		{ "pipe",     SF_PIPE },
+		{ "shell",    SF_SHELL },
+		{ "stop",     SF_STOP },
+		{ "tags",     SF_TAGS },
+	};
+	int i;
+	int match = -1;
+
+	for (i = 0;  i < countof(features);  i++)
+	{
+		if (strncmp(features[i].name, name, len) == 0)
+		{
+			if (match >= 0) /* name is ambiguous */
+				return security_feature_error("ambiguous", len, name);
+			match = i;
+		}
+	}
+	if (match < 0)
+		return security_feature_error("invalid", len, name);
+	return features[match].sf_value;
+}
+
+/*
+ * Set the secure_allow_features bitmask, which controls
+ * whether certain secure features are allowed.
+ */
+static void init_secure(void)
+{
+#if SECURE
+	secure_allow_features = 0;
+#else
+	constant char *str = lgetenv("LESSSECURE");
+	if (isnullenv(str))
+		secure_allow_features = ~0; /* allow everything */
+	else
+		secure_allow_features = 0; /* allow nothing */
+
+	str = lgetenv("LESSSECURE_ALLOW");
+	if (!isnullenv(str))
+	{
+		for (;;)
+		{
+			constant char *estr;
+			while (*str == ' ' || *str == ',') ++str; /* skip leading spaces/commas */
+			if (*str == '\0') break;
+			estr = strchr(str, ',');
+			if (estr == NULL) estr = str + strlen(str);
+			while (estr > str && estr[-1] == ' ') --estr; /* trim trailing spaces */
+			secure_allow_features |= security_feature(str, ptr_diff(estr, str));
+			str = estr;
+		}
+	}
+#endif
+}
+
 /*
  * Entry point.
  */
-int
-main(argc, argv)
-	int argc;
-	char *argv[];
+int main(int argc, constant char *argv[])
 {
 	IFILE ifile;
-	char *s;
+	constant char *s;
+
+#if MSDOS_COMPILER==WIN32C && (defined(MINGW) || defined(_MSC_VER))
+	if (GetACP() != CP_UTF8)  /* not using a UTF-8 manifest */
+		try_utf8_locale(&argc, &argv);
+#endif
 
 	if (COMPAT_MODE("bin/more", "unix2003")) {
 		unix2003_compat = 1;
@@ -98,15 +272,7 @@ main(argc, argv)
 
 	progname = *argv++;
 	argc--;
-
-#if SECURE
-	secure = 1;
-#else
-	secure = 0;
-	s = lgetenv("LESSSECURE");
-	if (!isnullenv(s))
-		secure = 1;
-#endif
+	init_secure();
 
 #ifdef WIN32
 	if (getenv("HOME") == NULL)
@@ -127,13 +293,18 @@ main(argc, argv)
 			putenv(env);
 		}
 	}
-	GetConsoleTitle(consoleTitle, sizeof(consoleTitle)/sizeof(char));
+	/* on failure, consoleTitle is already a valid empty string */
+	GetConsoleTitleW(consoleTitle, countof(consoleTitle));
 #endif /* WIN32 */
 
+	/*
+	 * Process command line arguments and LESS environment arguments.
+	 * Command line arguments override environment arguments.
+	 */
 	is_tty = isatty(1);
 	init_mark();
 	init_cmds();
-	get_term();
+	init_poll();
 	init_charset();
 	init_line();
 	init_cmdhist();
@@ -144,14 +315,17 @@ main(argc, argv)
 	 * If the name of the executable program is "more",
 	 * act like LESS_IS_MORE is set.
 	 */
-	s = last_component(progname);
-	if (strcmp(s, "more") == 0)
+	if (strcmp(last_component(progname), "more") == 0)
 		less_is_more = 1;
 	else
 		unix2003_compat = 0;
+
 	init_prompt();
-	if (less_is_more) {
-		if (!unix2003_compat) {
+
+	if (less_is_more)
+	{
+		if (!unix2003_compat)
+		{
 			scan_option("-E");
 		}
 		scan_option("-m");
@@ -159,9 +333,11 @@ main(argc, argv)
 		scan_option("-X"); /* avoid alternate screen */
 		scan_option("-A"); /* search avoids current screen */
 	}
+
+	init_unsupport();
 	s = lgetenv(less_is_more ? "MORE" : "LESS");
 	if (s != NULL)
-		scan_option(save(s));
+		scan_option(s);
 
 #define isoptstring(s)  (((s)[0] == '-' || (s)[0] == '+') && (s)[1] != '\0')
 	while (argc > 0 && (isoptstring(*argv) || isoptpending()))
@@ -184,6 +360,7 @@ main(argc, argv)
 		quit(QUIT_OK);
 	}
 
+	get_term();
 	expand_cmd_tables();
 
 #if EDITOR
@@ -227,7 +404,7 @@ main(argc, argv)
 		 * Expand the pattern and iterate over the expanded list.
 		 */
 		struct textlist tlist;
-		char *filename;
+		constant char *filename;
 		char *gfilename;
 		char *qfilename;
 		
@@ -339,6 +516,12 @@ main(argc, argv)
 				one_screen = get_one_screen();
 		}
 	}
+	if (init_header != NULL)
+	{
+		opt_header(TOGGLE, init_header);
+		free(init_header);
+		init_header = NULL;
+	}
 
 	if (errmsgs > 0)
 	{
@@ -370,43 +553,51 @@ main(argc, argv)
  * Copy a string to a "safe" place
  * (that is, to a buffer allocated by calloc).
  */
-	public char *
-save(s)
-	constant char *s;
+public char * saven(constant char *s, size_t n)
 {
-	char *p;
-
-	p = (char *) ecalloc(strlen(s)+1, sizeof(char));
-	strcpy(p, s);
+	char *p = (char *) ecalloc(n+1, sizeof(char));
+	strncpy(p, s, n);
+	p[n] = '\0';
 	return (p);
+}
+
+public char * save(constant char *s)
+{
+	return saven(s, strlen(s));
+}
+
+public void out_of_memory(void)
+{
+	error("Cannot allocate memory", NULL_PARG);
+	quit(QUIT_ERROR);
 }
 
 /*
  * Allocate memory.
  * Like calloc(), but never returns an error (NULL).
  */
-	public VOID_POINTER
-ecalloc(count, size)
-	int count;
-	unsigned int size;
+public void * ecalloc(size_t count, size_t size)
 {
-	VOID_POINTER p;
+	void * p;
 
-	p = (VOID_POINTER) calloc(count, size);
-	if (p != NULL)
-		return (p);
-	error("Cannot allocate memory", NULL_PARG);
-	quit(QUIT_ERROR);
-	/*NOTREACHED*/
-	return (NULL);
+	p = (void *) calloc(count, size);
+	if (p == NULL)
+		out_of_memory();
+	return p;
 }
 
 /*
  * Skip leading spaces in a string.
  */
-	public char *
-skipsp(s)
-	char *s;
+public char * skipsp(char *s)
+{
+	while (*s == ' ' || *s == '\t')
+		s++;
+	return (s);
+}
+
+/* {{ There must be a better way. }} */
+public constant char * skipspc(constant char *s)
 {
 	while (*s == ' ' || *s == '\t')
 		s++;
@@ -418,15 +609,11 @@ skipsp(s)
  * If uppercase is true, the first string must begin with an uppercase
  * character; the remainder of the first string may be either case.
  */
-	public int
-sprefix(ps, s, uppercase)
-	char *ps;
-	char *s;
-	int uppercase;
+public size_t sprefix(constant char *ps, constant char *s, int uppercase)
 {
-	int c;
-	int sc;
-	int len = 0;
+	char c;
+	char sc;
+	size_t len = 0;
 
 	for ( ;  *s != '\0';  s++, ps++)
 	{
@@ -434,7 +621,7 @@ sprefix(ps, s, uppercase)
 		if (uppercase)
 		{
 			if (len == 0 && ASCII_IS_LOWER(c))
-				return (-1);
+				return (0);
 			if (ASCII_IS_UPPER(c))
 				c = ASCII_TO_LOWER(c);
 		}
@@ -451,9 +638,7 @@ sprefix(ps, s, uppercase)
 /*
  * Exit the program.
  */
-	public void
-quit(status)
-	int status;
+public void quit(int status)
 {
 	static int save_status;
 
@@ -472,16 +657,25 @@ quit(status)
 		status = save_status;
 	else
 		save_status = status;
-#if LESSTEST
-	rstat('Q');
-#endif /*LESSTEST*/
 	quitting = 1;
-	edit((char*)NULL);
-	save_cmdhist();
+	check_altpipe_error();
 	if (interactive())
 		clear_bot();
 	deinit();
 	flush();
+	if (redraw_on_quit && term_init_done)
+	{
+		/*
+		 * The last file text displayed might have been on an 
+		 * alternate screen, which now (since deinit) cannot be seen.
+		 * redraw_on_quit tells us to redraw it on the main screen.
+		 */
+		first_time = 1; /* Don't print "skipping" or tildes */
+		repaint();
+		flush();
+	}
+	edit((char*)NULL);
+	save_cmdhist();
 	raw_mode(0);
 #if MSDOS_COMPILER && MSDOS_COMPILER != DJGPPC
 	/* 
@@ -493,8 +687,16 @@ quit(status)
 	close(2);
 #endif
 #ifdef WIN32
-	SetConsoleTitle(consoleTitle);
+	SetConsoleTitleW(consoleTitle);
 #endif
 	close_getchr();
 	exit(status);
+} 
+	
+/*
+ * Are all the features in the features mask allowed by security?
+ */
+public int secure_allow(int features)
+{
+	return ((secure_allow_features & features) == features);
 }

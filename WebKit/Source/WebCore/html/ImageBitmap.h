@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "IDLTypes.h"
 #include "ScriptWrappable.h"
 #include <atomic>
@@ -46,6 +45,7 @@ class CanvasBase;
 class CSSStyleImageValue;
 class DestinationColorSpace;
 class FloatSize;
+class GLFence;
 class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLVideoElement;
@@ -70,6 +70,7 @@ enum class RenderingMode : uint8_t;
 struct ImageBitmapOptions;
 
 template<typename IDLType> class DOMPromiseDeferred;
+template<typename> class ExceptionOr;
 
 class DetachedImageBitmap {
 public:
@@ -89,7 +90,7 @@ private:
 class ImageBitmap final : public ScriptWrappable, public RefCounted<ImageBitmap> {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(ImageBitmap);
 public:
-    using Source = std::variant<
+    using Source = Variant<
         RefPtr<HTMLImageElement>,
 #if ENABLE(VIDEO)
         RefPtr<HTMLVideoElement>,
@@ -178,6 +179,9 @@ private:
     const bool m_originClean : 1 { false };
     const bool m_premultiplyAlpha : 1 { false };
     const bool m_forciblyPremultiplyAlpha : 1 { false };
+#if USE(SKIA)
+    std::unique_ptr<GLFence> m_fence;
+#endif
 };
 
 }

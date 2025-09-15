@@ -113,6 +113,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -138,6 +139,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -162,6 +164,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -184,6 +187,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -209,6 +213,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -233,6 +238,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <TreatSpecificWarningsAsErrors>4013</TreatSpecificWarningsAsErrors>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>../../mDNSWindows;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

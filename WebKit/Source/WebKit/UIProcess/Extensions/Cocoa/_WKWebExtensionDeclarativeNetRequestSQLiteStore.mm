@@ -111,7 +111,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
 
         ASSERT(rulesIDs.count);
 
-        _WKWebExtensionSQLiteRowEnumerator *rows = SQLiteDatabaseFetch(strongSelf->_database, [NSString stringWithFormat:@"SELECT id FROM %@ WHERE id in (%@)", strongSelf->_tableName, [rulesIDs componentsJoinedByString:@", "]]);
+        _WKWebExtensionSQLiteRowEnumerator *rows = SQLiteDatabaseFetch(strongSelf->_database, [[NSString alloc] initWithFormat:@"SELECT id FROM %@ WHERE id in (%@)", strongSelf->_tableName, [rulesIDs componentsJoinedByString:@", "]]);
 
         NSMutableArray<NSNumber *> *existingRuleIDs = [NSMutableArray array];
         for (_WKWebExtensionSQLiteRow *row in rows)
@@ -167,7 +167,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
         ASSERT(!errorMessage.length);
         ASSERT(strongSelf->_database);
 
-        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [NSString stringWithFormat:@"DELETE FROM %@ WHERE id in (%@)", strongSelf->_tableName, [ruleIDs componentsJoinedByString:@", "]]);
+        DatabaseResult result = SQLiteDatabaseExecute(strongSelf->_database, [[NSString alloc] initWithFormat:@"DELETE FROM %@ WHERE id in (%@)", strongSelf->_tableName, [ruleIDs componentsJoinedByString:@", "]]);
         if (result != SQLITE_DONE) {
             RELEASE_LOG_ERROR(Extensions, "Failed to delete rules for extension %{private}@.", strongSelf->_uniqueIdentifier);
             errorMessage = [NSString stringWithFormat:@"Failed to delete rules from %@ rules storage.", strongSelf->_storageType];
@@ -217,7 +217,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
             [bindings addObject:@"?"];
 
         auto *joinedBindings = [bindings componentsJoinedByString:@", "];
-        auto *query = [NSString stringWithFormat:@"SELECT * FROM %@ WHERE id IN (%@)", _tableName, joinedBindings];
+        auto *query = [[NSString alloc] initWithFormat:@"SELECT * FROM %@ WHERE id IN (%@)", _tableName, joinedBindings];
         auto *statement = [[_WKWebExtensionSQLiteStatement alloc] initWithDatabase:_database query:query];
 
         for (NSUInteger i = 0; i < ruleIDs.count; i++)
@@ -225,7 +225,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
 
         rows = [statement fetch];
     } else
-        rows = SQLiteDatabaseFetch(_database, [NSString stringWithFormat:@"SELECT * FROM %@", _tableName]);
+        rows = SQLiteDatabaseFetch(_database, [[NSString alloc] initWithFormat:@"SELECT * FROM %@", _tableName]);
 
     return [self _getKeysAndValuesFromRowEnumerator:rows];
 }
@@ -258,7 +258,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
     NSNumber *ruleID = objectForKey<NSNumber>(rule, @"id");
     ASSERT(ruleID);
 
-    DatabaseResult result = SQLiteDatabaseExecute(database, [NSString stringWithFormat:@"INSERT INTO %@ (id, rule) VALUES (?, ?)", _tableName], ruleID.integerValue, ruleAsData);
+    DatabaseResult result = SQLiteDatabaseExecute(database, [[NSString alloc] initWithFormat:@"INSERT INTO %@ (id, rule) VALUES (?, ?)", _tableName], ruleID.integerValue, ruleAsData);
     if (result != SQLITE_DONE) {
         RELEASE_LOG_ERROR(Extensions, "Failed to insert dynamic declarative net request rule for extension %{private}@.", _uniqueIdentifier);
         return [NSString stringWithFormat:@"Failed to add %@ rule.", _storageType];
@@ -290,7 +290,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
     dispatch_assert_queue(_databaseQueue);
     ASSERT(_database);
 
-    DatabaseResult result = SQLiteDatabaseExecute(_database, [NSString stringWithFormat:@"CREATE TABLE %@ (id INTEGER PRIMARY KEY NOT NULL, rule BLOB NOT NULL)", _tableName]);
+    DatabaseResult result = SQLiteDatabaseExecute(_database, [[NSString alloc] initWithFormat:@"CREATE TABLE %@ (id INTEGER PRIMARY KEY NOT NULL, rule BLOB NOT NULL)", _tableName]);
     if (result != SQLITE_DONE)
         RELEASE_LOG_ERROR(Extensions, "Failed to create %@ database for extension %{private}@: %{public}@ (%d)", _tableName, _uniqueIdentifier, _database.lastErrorMessage, result);
 
@@ -302,7 +302,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
     dispatch_assert_queue(_databaseQueue);
     ASSERT(_database);
 
-    DatabaseResult result = SQLiteDatabaseExecute(_database, [NSString stringWithFormat:@"DROP TABLE IF EXISTS %@", _tableName]);
+    DatabaseResult result = SQLiteDatabaseExecute(_database, [[NSString alloc] initWithFormat:@"DROP TABLE IF EXISTS %@", _tableName]);
     if (result != SQLITE_DONE)
         RELEASE_LOG_ERROR(Extensions, "Failed to reset %@ database schema for extension %{private}@: %{public}@ (%d)", _tableName, _uniqueIdentifier, _database.lastErrorMessage, result);
 
@@ -314,7 +314,7 @@ static const SchemaVersion currentDatabaseSchemaVersion = 1;
     dispatch_assert_queue(_databaseQueue);
     ASSERT(_database);
 
-    _WKWebExtensionSQLiteRowEnumerator *rows = SQLiteDatabaseFetch(_database, [NSString stringWithFormat:@"SELECT COUNT(*) FROM %@", _tableName]);
+    _WKWebExtensionSQLiteRowEnumerator *rows = SQLiteDatabaseFetch(_database, [[NSString alloc] initWithFormat:@"SELECT COUNT(*) FROM %@", _tableName]);
     return ![[rows nextObject] int64AtIndex:0];
 }
 

@@ -34,8 +34,8 @@
 
 using namespace WebCore;
 
-WebDocumentLoaderMac::WebDocumentLoaderMac(const ResourceRequest& request, const SubstituteData& substituteData)
-    : DocumentLoader(request, substituteData)
+WebDocumentLoaderMac::WebDocumentLoaderMac(ResourceRequest&& request, SubstituteData&& substituteData)
+    : DocumentLoader(WTFMove(request), WTFMove(substituteData))
     , m_dataSource(nil)
     , m_isDataSourceRetained(false)
 {

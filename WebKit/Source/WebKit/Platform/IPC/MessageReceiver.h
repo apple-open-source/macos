@@ -27,6 +27,7 @@
 
 #include <wtf/AbstractRefCounted.h>
 #include <wtf/Assertions.h>
+#include <wtf/CanMakeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 namespace IPC {

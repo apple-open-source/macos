@@ -100,8 +100,8 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)_willPerformRedirection:(NSURLResponse *)response newRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURLRequest *))completionHandler
 {
-    auto function = [protectedSelf = retainPtr(self), self, protectedResponse = retainPtr(response), response, protectedRequest = retainPtr(request), request, handler = makeBlockPtr(completionHandler)] () mutable {
-        return _urlSchemeTask->willPerformRedirection(response, request, [handler = WTFMove(handler)] (WebCore::ResourceRequest&& actualNewRequest) {
+    auto function = [strongSelf = retainPtr(self), self, response = retainPtr(response), request = retainPtr(request), handler = makeBlockPtr(completionHandler)] () mutable {
+        return _urlSchemeTask->willPerformRedirection(response.get(), request.get(), [handler = WTFMove(handler)] (WebCore::ResourceRequest&& actualNewRequest) {
             handler.get()(actualNewRequest.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody));
         });
     };
@@ -112,8 +112,8 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)didReceiveResponse:(NSURLResponse *)response
 {
-    auto function = [protectedSelf = retainPtr(self), self, protectedResponse = retainPtr(response), response] {
-        return _urlSchemeTask->didReceiveResponse(response);
+    auto function = [strongSelf = retainPtr(self), self, response = retainPtr(response)] {
+        return _urlSchemeTask->didReceiveResponse(response.get());
     };
 
     auto result = getExceptionTypeFromMainRunLoop(WTFMove(function));
@@ -122,8 +122,8 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)didReceiveData:(NSData *)data
 {
-    auto function = [protectedSelf = retainPtr(self), self, protectedData = retainPtr(data), data] () mutable {
-        return _urlSchemeTask->didReceiveData(WebCore::SharedBuffer::create(data));
+    auto function = [strongSelf = retainPtr(self), self, data = retainPtr(data)] () mutable {
+        return _urlSchemeTask->didReceiveData(WebCore::SharedBuffer::create(data.get()));
     };
 
     auto result = getExceptionTypeFromMainRunLoop(WTFMove(function));
@@ -132,7 +132,7 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)didFinish
 {
-    auto function = [protectedSelf = retainPtr(self), self] {
+    auto function = [strongSelf = retainPtr(self), self] {
         return _urlSchemeTask->didComplete({ });
     };
 
@@ -142,8 +142,8 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)didFailWithError:(NSError *)error
 {
-    auto function = [protectedSelf = retainPtr(self), self, protectedError = retainPtr(error), error] {
-        return _urlSchemeTask->didComplete(error);
+    auto function = [strongSelf = retainPtr(self), self, error = retainPtr(error)] {
+        return _urlSchemeTask->didComplete(error.get());
     };
 
     auto result = getExceptionTypeFromMainRunLoop(WTFMove(function));
@@ -152,8 +152,8 @@ static void raiseExceptionIfNecessary(WebKit::WebURLSchemeTask::ExceptionType ex
 
 - (void)_didPerformRedirection:(NSURLResponse *)response newRequest:(NSURLRequest *)request
 {
-    auto function = [protectedSelf = retainPtr(self), self, protectedResponse = retainPtr(response), response, protectedRequest = retainPtr(request), request] {
-        return _urlSchemeTask->didPerformRedirection(response, request);
+    auto function = [strongSelf = retainPtr(self), self, response = retainPtr(response), request = retainPtr(request)] {
+        return _urlSchemeTask->didPerformRedirection(response.get(), request.get());
     };
 
     auto result = getExceptionTypeFromMainRunLoop(WTFMove(function));

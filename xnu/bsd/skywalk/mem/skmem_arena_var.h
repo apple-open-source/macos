@@ -266,6 +266,8 @@ extern void skmem_arena_get_stats(struct skmem_arena *, uint64_t *,
 extern mach_vm_offset_t skmem_arena_get_region_offset(struct skmem_arena *,
     skmem_region_id_t);
 extern void skmem_arena_reap(struct skmem_arena *, boolean_t);
+extern char * ar2str(const struct skmem_arena *ar, char *__counted_by(dsz)dst,
+    size_t dsz);
 __END_DECLS
 #endif /* BSD_KERNEL_PRIVATE */
 #endif /* _SKYWALK_MEM_SKMEMARENAVAR_H */

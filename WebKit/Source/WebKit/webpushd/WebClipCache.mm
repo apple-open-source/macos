@@ -51,7 +51,7 @@ static bool webClipExists(const String& webClipIdentifier)
         return false;
 
     @autoreleasepool {
-        NSString *path = [UIWebClip pathForWebClipWithIdentifier:(NSString *)webClipIdentifier];
+        NSString *path = [UIWebClip pathForWebClipWithIdentifier:webClipIdentifier.createNSString().get()];
         if (!path)
             return false;
         path = [path stringByAppendingPathComponent:@"Info.plist"];
@@ -77,7 +77,7 @@ static String webClipIdentifierForOrigin(const String& bundleIdentifier, const W
                 continue;
 
             if (bundleIdentifier != "com.apple.SafariViewService"_s && [webClip respondsToSelector:@selector(trustedClientBundleIdentifiers)]) {
-                if (![webClip.trustedClientBundleIdentifiers containsObject:(NSString *)bundleIdentifier])
+                if (![webClip.trustedClientBundleIdentifiers containsObject:bundleIdentifier.createNSString().get()])
                     continue;
             }
 
@@ -170,7 +170,7 @@ static RetainPtr<NSArray> loadWebClipCachePropertyList(NSString *path)
 
 void WebClipCache::load()
 {
-    RetainPtr entries = loadWebClipCachePropertyList(m_path);
+    RetainPtr entries = loadWebClipCachePropertyList(m_path.createNSString().get());
     if (!entries)
         return;
 
@@ -193,12 +193,12 @@ void WebClipCache::persist()
     @autoreleasepool {
         RetainPtr<NSMutableArray> entries = adoptNS([[NSMutableArray alloc] init]);
         for (const auto& [bundleIdentifierAndOrigin, webClipIdentifier] : m_preferredWebClipIdentifiers) {
-            NSString *bundleIdentifier = (NSString *)std::get<0>(bundleIdentifierAndOrigin);
-            NSURL *url = (NSURL *)std::get<1>(bundleIdentifierAndOrigin).toURL();
+            RetainPtr bundleIdentifier = std::get<0>(bundleIdentifierAndOrigin).createNSString();
+            RetainPtr url = std::get<1>(bundleIdentifierAndOrigin).toURL().createNSURL();
             NSString *securityOriginString = [url absoluteString];
             if (!securityOriginString)
                 continue;
-            [entries addObject:@[bundleIdentifier, securityOriginString, (NSString *)webClipIdentifier]];
+            [entries addObject:@[bundleIdentifier.get(), securityOriginString, webClipIdentifier.createNSString().get()]];
         }
 
         NSError *error = nil;
@@ -208,7 +208,7 @@ void WebClipCache::persist()
             return;
         }
 
-        if (![data writeToFile:(NSString *)m_path options:NSDataWritingAtomic error:&error]) {
+        if (![data writeToFile:m_path.createNSString().get() options:NSDataWritingAtomic error:&error]) {
             RELEASE_LOG_ERROR(Push, "WebClipCache::persist failed to write to disk: %{public}@", error);
             return;
         }
@@ -222,13 +222,14 @@ HashSet<String> WebClipCache::visibleWebClipIdentifiers(const String& bundleIden
     @autoreleasepool {
         NSArray *webClips = [UIWebClip webClips];
 
+        RetainPtr nsBundleIdentifier = bundleIdentifier.createNSString();
         for (UIWebClip *webClip in webClips) {
             NSString *identifier = webClip.identifier;
             if (!identifier)
                 continue;
 
             // FIXME: Remove -respondsToSelector: check once we finish staging rdar://131961097.
-            if (bundleIdentifier == "com.apple.SafariViewService"_s || ![webClip respondsToSelector:@selector(trustedClientBundleIdentifiers)] || [webClip.trustedClientBundleIdentifiers containsObject:(NSString *)bundleIdentifier]) {
+            if (bundleIdentifier == "com.apple.SafariViewService"_s || ![webClip respondsToSelector:@selector(trustedClientBundleIdentifiers)] || [webClip.trustedClientBundleIdentifiers containsObject:nsBundleIdentifier.get()]) {
                 result.add(String { identifier });
                 continue;
             }
@@ -246,11 +247,11 @@ bool WebClipCache::isWebClipVisible(const String& bundleIdentifier, const String
     if (bundleIdentifier == "com.apple.SafariViewService"_s)
         return true;
 
-    UIWebClip *webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier];
+    UIWebClip *webClip = [UIWebClip webClipWithIdentifier:webClipIdentifier.createNSString().get()];
     if (![webClip respondsToSelector:@selector(trustedClientBundleIdentifiers)])
         return true;
 
-    return [webClip.trustedClientBundleIdentifiers containsObject:(NSString *)bundleIdentifier];
+    return [webClip.trustedClientBundleIdentifiers containsObject:bundleIdentifier.createNSString().get()];
 }
 
 } // namespace WebPushD

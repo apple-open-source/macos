@@ -29,6 +29,7 @@
 
 #import "WebDataListSuggestionsDropdown.h"
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 OBJC_CLASS WKDataListSuggestionsController;
 
@@ -50,7 +51,7 @@ private:
 
     void selectOption();
 
-    NSView *m_view;
+    WeakObjCPtr<NSView> m_view;
     RetainPtr<WKDataListSuggestionsController> m_dropdownUI;
 };
 

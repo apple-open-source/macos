@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,7 +58,6 @@ public:
         ShouldSubpixelQuantizeFonts = 1 << 13,
         ShadowsIgnoreTransforms     = 1 << 14,
         DrawLuminanceMask           = 1 << 15,
-        UseDarkAppearance           = 1 << 16,
     };
     using ChangeFlags = OptionSet<Change>;
 
@@ -142,11 +141,6 @@ public:
     bool drawLuminanceMask() const { return m_drawLuminanceMask; }
     void setDrawLuminanceMask(bool drawLuminanceMask) { setProperty(Change::DrawLuminanceMask, &GraphicsContextState::m_drawLuminanceMask, drawLuminanceMask); }
 
-    bool useDarkAppearance() const { return m_useDarkAppearance; }
-    void setUseDarkAppearance(bool useDarkAppearance) { setProperty(Change::UseDarkAppearance, &GraphicsContextState::m_useDarkAppearance, useDarkAppearance); }
-    
-    bool containsOnlyInlineChanges() const;
-    bool containsOnlyInlineStrokeChanges() const;
     void mergeLastChanges(const GraphicsContextState&, const std::optional<GraphicsContextState>& lastDrawingState = std::nullopt);
     void mergeSingleChange(const GraphicsContextState&, ChangeIndex, const std::optional<GraphicsContextState>& lastDrawingState = std::nullopt);
     void mergeAllChanges(const GraphicsContextState&);
@@ -200,7 +194,6 @@ private:
     bool m_shouldSubpixelQuantizeFonts { true };
     bool m_shadowsIgnoreTransforms { false };
     bool m_drawLuminanceMask { false };
-    bool m_useDarkAppearance { false };
 
     Purpose m_purpose { Purpose::Initial };
 };

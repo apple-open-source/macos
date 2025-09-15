@@ -44,6 +44,7 @@
 #include "srp-mdns-proxy.h"
 #include "config-parse.h"
 #include "route.h"
+#include "srp-strict.h"
 
 static void
 usage(void)

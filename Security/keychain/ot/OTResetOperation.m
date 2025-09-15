@@ -29,6 +29,9 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+
 @interface OTResetOperation ()
 @property NSString* containerName;
 @property NSString* contextID;
@@ -49,6 +52,7 @@
    idmsTargetContext:(NSString *_Nullable)idmsTargetContext
 idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
           notifyIdMS:(bool)notifyIdMS
+         accountType:(AccountTypeDuringRPD)accountType
        intendedState:(OctagonState*)intendedState
         dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
@@ -66,6 +70,7 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
         _idmsCuttlefishPassword = idmsCuttlefishPassword;
         _notifyIdMS = notifyIdMS;
         _deps = deps;
+        _accountType = accountType;
     }
     return self;
 }
@@ -74,7 +79,28 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     secnotice("octagon-authkit", "Attempting to reset octagon");
 
-    self.finishedOp = [[NSOperation alloc] init];
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+
+    AAFAnalyticsEventSecurity *resetEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
+                                                                                                     altDSID:self.deps.activeAccount.altDSID
+                                                                                                      flowID:self.deps.flowID
+                                                                                             deviceSessionID:self.deps.deviceSessionID
+                                                                                                   eventName:kSecurityRTCEventNameOTResetOperation
+                                                                                             testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                              canSendMetrics:self.deps.permittedToSendMetrics
+                                                                                                    category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
+    WEAKIFY(self);
+    self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
+        STRONGIFY(self);
+        secnotice("octagon", "Finishing resetting operation with %@", self.error ?: @"no error");
+        if (self.error) {
+            [resetEvent sendMetricWithResult:NO error:self.error];
+        } else {
+            [resetEvent sendMetricWithResult:YES error:nil];
+        }
+    }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     NSString* altDSID = self.deps.activeAccount.altDSID;
@@ -95,7 +121,6 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 
     BOOL internal = SecIsInternalRelease();
 
-    WEAKIFY(self);
     [self.cuttlefishXPCWrapper resetWithSpecificUser:self.deps.activeAccount
                                          resetReason:self.resetReason
                                    idmsTargetContext:self.idmsTargetContext

@@ -39,6 +39,7 @@
 #include <kern/locks.h>
 #include <kern/thread_group.h>
 #include <kern/sched_clutch.h>
+#include <kern/sched_rt.h>
 
 #if CONFIG_THREAD_GROUPS
 
@@ -82,6 +83,7 @@ static struct thread_group *tg_system;
 static struct thread_group *tg_background;
 static struct thread_group *tg_vm;
 static struct thread_group *tg_io_storage;
+static struct thread_group *tg_cellular;
 static struct thread_group *tg_perf_controller;
 int tg_set_by_bankvoucher;
 
@@ -140,6 +142,8 @@ thread_group_init(void)
 	thread_group_set_name(tg_io_storage, "io storage");
 	tg_perf_controller = thread_group_create_and_retain(THREAD_GROUP_FLAGS_DEFAULT);
 	thread_group_set_name(tg_perf_controller, "perf_controller");
+	tg_cellular = thread_group_create_and_retain(THREAD_GROUP_FLAGS_DEFAULT);
+	thread_group_set_name(tg_cellular, "Cellular");
 
 	/*
 	 * The thread group deallocation queue must be a thread call based queue
@@ -516,6 +520,10 @@ thread_group_find_by_id_and_retain(uint64_t id)
 	case THREAD_GROUP_PERF_CONTROLLER:
 		result = tg_perf_controller;
 		thread_group_retain(tg_perf_controller);
+		break;
+	case THREAD_GROUP_CELLULAR:
+		result = tg_cellular;
+		thread_group_retain(tg_cellular);
 		break;
 	default:
 		lck_mtx_lock(&tg_lock);
@@ -1233,6 +1241,15 @@ thread_group_join_io_storage(void)
 }
 
 void
+thread_group_join_cellular(void)
+{
+	struct thread_group *tg = thread_group_find_by_id_and_retain(THREAD_GROUP_CELLULAR);
+	assert(tg != NULL);
+	assert(current_thread()->thread_group != tg);
+	thread_set_thread_group(current_thread(), tg);
+}
+
+void
 thread_group_join_perf_controller(void)
 {
 	struct thread_group *tg = thread_group_find_by_id_and_retain(THREAD_GROUP_PERF_CONTROLLER);
@@ -1274,16 +1291,172 @@ sched_perfcontrol_thread_group_recommend(__unused void *machine_data, __unused c
 	/* Use sched_perfcontrol_thread_group_preferred_clusters_set() instead */
 }
 
-void
-sched_perfcontrol_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_request_bitmap, uint64_t flags, uint64_t matrix_order)
+static perfcontrol_class_t
+sched_bucket_to_perfcontrol_class(sched_bucket_t bucket)
 {
-	sched_edge_matrix_get(edge_matrix, edge_request_bitmap, flags, matrix_order);
+	switch (bucket) {
+	case TH_BUCKET_FIXPRI:
+		return PERFCONTROL_CLASS_ABOVEUI;
+	case TH_BUCKET_SHARE_FG:
+		return PERFCONTROL_CLASS_UI;
+	case TH_BUCKET_SHARE_IN:
+		return PERFCONTROL_CLASS_USER_INITIATED;
+	case TH_BUCKET_SHARE_DF:
+		return PERFCONTROL_CLASS_NONUI;
+	case TH_BUCKET_SHARE_UT:
+		return PERFCONTROL_CLASS_UTILITY;
+	case TH_BUCKET_SHARE_BG:
+		return PERFCONTROL_CLASS_BACKGROUND;
+	default:
+		panic("Unexpected sched bucket %d", bucket);
+	}
+}
+
+#define MAX_EDGE_MATRIX_SIZE (MAX_PSETS * MAX_PSETS * TH_BUCKET_SCHED_MAX)
+
+/*
+ * Iterate through indices of the edge matrix (dimension: num_psets X num_psets X TH_BUCKET_SCHED_MAX),
+ * and along the way, compute the corresponding index in CLPC's version of the matrix, which has
+ * dimension: num_psets X num_psets X PERFCONTROL_CLASS_MAX
+ */
+#define sched_perfcontrol_sched_edge_matrix_iterate(num_psets, edge_ind, sched_ind, ...) \
+	for (int src = 0; src < num_psets; src++) { \
+	    for (int dst = 0; dst < num_psets; dst++) { \
+	        for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) { \
+	            perfcontrol_class_t pc = sched_bucket_to_perfcontrol_class(bucket); \
+	            int edge_ind = (src * (int)num_psets * PERFCONTROL_CLASS_MAX) + (dst * PERFCONTROL_CLASS_MAX) + pc; \
+	            int sched_ind = (src * (int)num_psets * TH_BUCKET_SCHED_MAX) + (dst * TH_BUCKET_SCHED_MAX) + bucket; \
+	            __VA_ARGS__; \
+	        } \
+	    } \
+	}
+
+/* Compute the index of a realtime edge within the perfcontrol matrix. */
+static uint64_t
+rt_config_edge_index(uint64_t src_pset_id, uint64_t dst_pset_id, uint64_t num_psets)
+{
+	return (src_pset_id * num_psets * PERFCONTROL_CLASS_MAX)
+	       + (dst_pset_id * PERFCONTROL_CLASS_MAX)
+	       + PERFCONTROL_CLASS_REALTIME;
 }
 
 void
-sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changes_bitmap, uint64_t flags, uint64_t matrix_order)
+sched_perfcontrol_edge_matrix_by_qos_get(sched_clutch_edge *edge_matrix, bool *edge_requested, uint64_t flags,
+    uint64_t num_psets, __assert_only uint64_t num_classes)
 {
-	sched_edge_matrix_set(edge_matrix, edge_changes_bitmap, flags, matrix_order);
+	assert3u(num_psets, <=, MAX_PSETS);
+	assert3u(num_classes, ==, PERFCONTROL_CLASS_MAX);
+	bool sched_edge_requested[MAX_EDGE_MATRIX_SIZE] = {0};
+	sched_perfcontrol_sched_edge_matrix_iterate(num_psets, edge_matrix_ind, sched_matrix_ind, {
+		if (edge_requested[edge_matrix_ind]) {
+		        sched_edge_requested[sched_matrix_ind] = true;
+		}
+	});
+
+	sched_clutch_edge sched_matrix[MAX_EDGE_MATRIX_SIZE] = {0};
+	sched_edge_matrix_get(sched_matrix, sched_edge_requested, flags, num_psets);
+
+	sched_perfcontrol_sched_edge_matrix_iterate(num_psets, edge_matrix_ind, sched_matrix_ind, {
+		if (sched_edge_requested[sched_matrix_ind]) {
+		        edge_matrix[edge_matrix_ind] = sched_matrix[sched_matrix_ind];
+		}
+	});
+
+	bool sched_rt_requested[MAX_PSETS * MAX_PSETS] = {};
+	for (uint src = 0; src < num_psets; src++) {
+		for (uint dst = 0; dst < num_psets; dst++) {
+			const uint64_t edge_matrix_index = rt_config_edge_index(src, dst, num_psets);
+			if (sched_rt_requested[edge_matrix_index]) {
+				sched_rt_requested[src * num_psets + dst] = true;
+			}
+		}
+	}
+
+	sched_clutch_edge sched_rt_matrix[MAX_PSETS * MAX_PSETS] = {};
+	sched_rt_matrix_get(sched_rt_matrix, sched_rt_requested, num_psets);
+
+	uint64_t rt_matrix_index = 0;
+	for (uint src = 0; src < num_psets; src++) {
+		for (uint dst = 0; dst < num_psets; dst++) {
+			const uint64_t edge_matrix_index = rt_config_edge_index(src, dst, num_psets);
+			if (edge_requested[edge_matrix_index]) {
+				edge_matrix[edge_matrix_index] = sched_rt_matrix[rt_matrix_index];
+			}
+			rt_matrix_index++;
+		}
+	}
+}
+
+void
+sched_perfcontrol_edge_matrix_by_qos_set(sched_clutch_edge *edge_matrix, bool *edge_changed, uint64_t flags,
+    uint64_t num_psets, __assert_only uint64_t num_classes)
+{
+	assert3u(num_psets, <=, MAX_PSETS);
+	assert3u(num_classes, ==, PERFCONTROL_CLASS_MAX);
+	sched_clutch_edge sched_matrix[MAX_EDGE_MATRIX_SIZE] = {0};
+	bool sched_edge_changed[MAX_EDGE_MATRIX_SIZE] = {0};
+	sched_perfcontrol_sched_edge_matrix_iterate(num_psets, edge_matrix_ind, sched_matrix_ind, {
+		if (edge_changed[edge_matrix_ind]) {
+		        sched_matrix[sched_matrix_ind] = edge_matrix[edge_matrix_ind];
+		        sched_edge_changed[sched_matrix_ind] = true;
+		}
+	});
+
+	sched_edge_matrix_set(sched_matrix, sched_edge_changed, flags, num_psets);
+
+	sched_clutch_edge sched_rt_matrix[MAX_PSETS * MAX_PSETS] = {};
+	bool sched_rt_changed[MAX_PSETS * MAX_PSETS] = {};
+	for (uint src = 0; src < num_psets; src++) {
+		for (uint dst = 0; dst < num_psets; dst++) {
+			const uint64_t edge_matrix_ind = rt_config_edge_index(src, dst, num_psets);
+			const uint64_t sched_matrix_ind = src * num_psets + dst;
+			if (edge_changed[edge_matrix_ind]) {
+				sched_rt_matrix[sched_matrix_ind] = edge_matrix[edge_matrix_ind];
+				sched_rt_changed[sched_matrix_ind] = true;
+			}
+		}
+	}
+	sched_rt_matrix_set(sched_rt_matrix, sched_rt_changed, num_psets);
+}
+
+void
+sched_perfcontrol_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_requested, uint64_t flags,
+    uint64_t matrix_order)
+{
+	assert3u(matrix_order, <=, MAX_PSETS);
+	bool edge_requested_per_qos[MAX_EDGE_MATRIX_SIZE] = {0};
+	for (uint32_t i = 0; i < matrix_order * matrix_order; i++) {
+		uint32_t expanded_index = (i * TH_BUCKET_SCHED_MAX) + TH_BUCKET_FIXPRI;
+		edge_requested_per_qos[expanded_index] = edge_requested[i];
+	}
+
+	sched_clutch_edge expanded_matrix[MAX_EDGE_MATRIX_SIZE] = {0};
+	sched_edge_matrix_get(expanded_matrix, edge_requested_per_qos, flags, matrix_order);
+
+	for (uint32_t i = 0; i < matrix_order * matrix_order; i++) {
+		if (edge_requested[i]) {
+			uint32_t expanded_index = (i * TH_BUCKET_SCHED_MAX) + TH_BUCKET_FIXPRI;
+			edge_matrix[i] = expanded_matrix[expanded_index];
+		}
+	}
+}
+
+void
+sched_perfcontrol_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changed, uint64_t flags,
+    uint64_t matrix_order)
+{
+	assert3u(matrix_order, <=, MAX_PSETS);
+	bool edge_changed_per_qos[MAX_EDGE_MATRIX_SIZE] = {0};
+	sched_clutch_edge expanded_matrix[MAX_EDGE_MATRIX_SIZE] = {0};
+	for (uint32_t i = 0; i < matrix_order * matrix_order; i++) {
+		for (uint32_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
+			uint32_t expanded_index = (i * TH_BUCKET_SCHED_MAX) + bucket;
+			edge_changed_per_qos[expanded_index] = edge_changed[i];
+			expanded_matrix[expanded_index] = edge_matrix[i];
+		}
+	}
+
+	sched_edge_matrix_set(expanded_matrix, edge_changed_per_qos, flags, matrix_order);
 }
 
 void
@@ -1291,14 +1464,11 @@ sched_perfcontrol_thread_group_preferred_clusters_set(void *machine_data, uint32
     uint32_t overrides[PERFCONTROL_CLASS_MAX], sched_perfcontrol_preferred_cluster_options_t options)
 {
 	struct thread_group *tg = (struct thread_group *)((uintptr_t)machine_data - offsetof(struct thread_group, tg_machine_data));
-	uint32_t tg_bucket_preferred_cluster[TH_BUCKET_SCHED_MAX] = {
-		[TH_BUCKET_FIXPRI]   = (overrides[PERFCONTROL_CLASS_ABOVEUI] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_ABOVEUI] : tg_preferred_cluster,
-		[TH_BUCKET_SHARE_FG] = (overrides[PERFCONTROL_CLASS_UI] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_UI] : tg_preferred_cluster,
-		[TH_BUCKET_SHARE_IN] = (overrides[PERFCONTROL_CLASS_USER_INITIATED] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_USER_INITIATED] : tg_preferred_cluster,
-		[TH_BUCKET_SHARE_DF] = (overrides[PERFCONTROL_CLASS_NONUI] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_NONUI] : tg_preferred_cluster,
-		[TH_BUCKET_SHARE_UT] = (overrides[PERFCONTROL_CLASS_UTILITY] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_UTILITY] : tg_preferred_cluster,
-		[TH_BUCKET_SHARE_BG] = (overrides[PERFCONTROL_CLASS_BACKGROUND] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[PERFCONTROL_CLASS_BACKGROUND] : tg_preferred_cluster,
-	};
+	uint32_t tg_bucket_preferred_cluster[TH_BUCKET_SCHED_MAX];
+	for (sched_bucket_t bucket = 0; bucket < TH_BUCKET_SCHED_MAX; bucket++) {
+		perfcontrol_class_t pc = sched_bucket_to_perfcontrol_class(bucket);
+		tg_bucket_preferred_cluster[bucket] = (overrides[pc] != SCHED_PERFCONTROL_PREFERRED_CLUSTER_OVERRIDE_NONE) ? overrides[pc] : tg_preferred_cluster;
+	}
 	sched_edge_tg_preferred_cluster_change(tg, tg_bucket_preferred_cluster, options);
 }
 
@@ -1328,6 +1498,18 @@ sched_perfcontrol_thread_group_recommend(__unused void *machine_data, __unused c
 {
 	struct thread_group *tg = (struct thread_group *)((uintptr_t)machine_data - offsetof(struct thread_group, tg_machine_data));
 	SCHED(thread_group_recommendation_change)(tg, new_recommendation);
+}
+
+void
+sched_perfcontrol_edge_matrix_by_qos_get(__unused sched_clutch_edge *edge_matrix, __unused bool *edge_requested, __unused uint64_t flags,
+    __unused uint64_t num_psets, __unused uint64_t num_classes)
+{
+}
+
+void
+sched_perfcontrol_edge_matrix_by_qos_set(__unused sched_clutch_edge *edge_matrix, __unused bool *edge_changed, __unused uint64_t flags,
+    __unused uint64_t num_psets, __unused uint64_t num_classes)
+{
 }
 
 void

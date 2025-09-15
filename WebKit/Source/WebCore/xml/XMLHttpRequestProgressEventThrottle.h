@@ -27,6 +27,7 @@
 #pragma once
 
 #include "EventLoop.h"
+#include "XMLHttpRequest.h"
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
@@ -72,8 +73,10 @@ private:
     void flushProgressEvent();
     void dispatchEventWhenPossible(Event&);
 
-    // Weak pointer to our XMLHttpRequest object as it is the one holding us.
-    XMLHttpRequest& m_target;
+    Ref<XMLHttpRequest> protectedTarget() { return m_target.get(); }
+
+    // Weak reference to our XMLHttpRequest object as it is the one holding us.
+    WeakRef<XMLHttpRequest, WeakPtrImplWithEventTargetData> m_target;
 
     unsigned long long m_loaded { 0 };
     unsigned long long m_total { 0 };

@@ -35,12 +35,20 @@ template<typename, size_t> struct ColorComponents;
 template<size_t ColumnCount, size_t RowCount>
 class ColorMatrix {
 public:
-    template<typename ...Ts>
+    explicit constexpr ColorMatrix(std::span<const float, RowCount * ColumnCount> s)
+    {
+        std::ranges::copy(s, m_matrix.begin());
+    }
+
+    template<std::convertible_to<float> ...Ts>
     explicit constexpr ColorMatrix(Ts ...input)
         : m_matrix {{ static_cast<float>(input) ... }}
     {
         static_assert(sizeof...(Ts) == RowCount * ColumnCount);
     }
+
+    template<size_t ToColumnCount, size_t ToRowCount>
+    constexpr operator ColorMatrix<ToColumnCount, ToRowCount>() const;
 
     template<size_t NumberOfComponents>
     constexpr ColorComponents<float, NumberOfComponents> transformedColorComponents(const ColorComponents<float, NumberOfComponents>&) const;
@@ -50,11 +58,23 @@ public:
         return m_matrix[(row * ColumnCount) + column];
     }
 
+    const std::array<float, RowCount * ColumnCount>& data() const { return m_matrix; }
+
     friend bool operator==(const ColorMatrix&, const ColorMatrix&) = default;
 
 private:
     std::array<float, RowCount * ColumnCount> m_matrix;
 };
+
+template <> template <> constexpr ColorMatrix<3, 3>::operator ColorMatrix<5, 4>() const
+{
+    return ColorMatrix<5, 4> {
+        at(0, 0), at(0, 1), at(0, 2), 0, 0,
+        at(1, 0), at(1, 1), at(1, 2), 0, 0,
+        at(2, 0), at(2, 1), at(2, 2), 0, 0,
+        0, 0, 0, 1, 0
+    };
+}
 
 constexpr ColorMatrix<3, 3> brightnessColorMatrix(float amount)
 {

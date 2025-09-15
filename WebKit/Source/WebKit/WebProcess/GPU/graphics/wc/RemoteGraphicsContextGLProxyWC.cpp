@@ -76,7 +76,7 @@ private:
     {
     }
 
-    Ref<PlatformLayerDisplayDelegate> m_layerContentsDisplayDelegate;
+    const Ref<PlatformLayerDisplayDelegate> m_layerContentsDisplayDelegate;
     friend class RemoteGraphicsContextGLProxy;
 };
 

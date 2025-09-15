@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,6 +94,9 @@ get_if_ra(const char * name, xmlDataOut_t * ra_data,
 
 ipconfig_status_t
 copy_if_summary(const char * name, CFDictionaryRef * summary);
+
+ipconfig_status_t
+copy_if_ipv4_router_info(const char * name, CFDictionaryRef * summary);
 
 ipconfig_status_t
 copy_interface_list(CFArrayRef * list);

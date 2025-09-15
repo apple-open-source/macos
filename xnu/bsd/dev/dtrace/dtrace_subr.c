@@ -35,14 +35,11 @@
 #include <kern/debug.h>
 #include <kern/sched_prim.h>
 #include <kern/task.h>
+#include <machine/machine_routines.h>
 
 #if CONFIG_CSR
 #include <sys/codesign.h>
 #include <sys/csr.h>
-
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
-extern bool csr_unsafe_kernel_text;
-#endif
 #endif
 
 /*
@@ -414,13 +411,6 @@ dtrace_state_free(minor_t minor)
 	kfree_type(dtrace_state_t, state);
 }
 
-
-
-void
-dtrace_restriction_policy_load(void)
-{
-}
-
 /*
  * Check if DTrace has been restricted by the current security policy.
  */
@@ -449,7 +439,8 @@ dtrace_are_restrictions_relaxed(void)
 boolean_t
 dtrace_fbt_probes_restricted(void)
 {
-
+	if (!ml_unsafe_kernel_text())
+		return TRUE;
 #if CONFIG_CSR
 	if (dtrace_is_restricted() && !dtrace_are_restrictions_relaxed())
 		return TRUE;
@@ -462,6 +453,8 @@ boolean_t
 dtrace_sdt_probes_restricted(void)
 {
 
+	if (!ml_unsafe_kernel_text())
+		return TRUE;
 	return FALSE;
 }
 

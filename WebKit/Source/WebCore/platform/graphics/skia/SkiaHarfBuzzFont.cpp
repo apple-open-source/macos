@@ -39,7 +39,7 @@ namespace WebCore {
 
 Ref<SkiaHarfBuzzFont> SkiaHarfBuzzFont::getOrCreate(SkTypeface& typeface)
 {
-    return FontCache::forCurrentThread().harfBuzzFontCache().font(typeface);
+    return FontCache::forCurrentThread()->harfBuzzFontCache().font(typeface);
 }
 
 static hb_font_funcs_t* harfBuzzFontFunctions()
@@ -129,8 +129,8 @@ SkiaHarfBuzzFont::SkiaHarfBuzzFont(SkTypeface& typeface)
 
     if (int axisCount = typeface.getVariationDesignPosition(nullptr, 0)) {
         Vector<SkFontArguments::VariationPosition::Coordinate> axisValues(axisCount);
-        if (typeface.getVariationDesignPosition(axisValues.data(), axisValues.size()) != -1)
-            hb_font_set_variations(hbFont.get(), reinterpret_cast<hb_variation_t*>(axisValues.data()), axisValues.size());
+        if (typeface.getVariationDesignPosition(axisValues.mutableSpan().data(), axisValues.size()) != -1)
+            hb_font_set_variations(hbFont.get(), reinterpret_cast<hb_variation_t*>(axisValues.mutableSpan().data()), axisValues.size());
     }
 
     // Create a subfont with custom functions so that the missing ones are taken from the parent.
@@ -140,7 +140,7 @@ SkiaHarfBuzzFont::SkiaHarfBuzzFont(SkTypeface& typeface)
 
 SkiaHarfBuzzFont::~SkiaHarfBuzzFont()
 {
-    FontCache::forCurrentThread().harfBuzzFontCache().remove(m_uniqueID);
+    FontCache::forCurrentThread()->harfBuzzFontCache().remove(m_uniqueID);
 }
 
 static inline hb_position_t skScalarToHarfBuzzPosition(SkScalar value)
@@ -156,6 +156,7 @@ hb_font_t* SkiaHarfBuzzFont::scaledFont(const FontPlatformData& fontPlatformData
     hb_font_set_scale(m_font.get(), scale, scale);
     hb_font_set_ptem(m_font.get(), size);
     m_scaledFont = fontPlatformData.skFont();
+    m_isColorBitmapFont = fontPlatformData.isColorBitmapFont();
     return m_font.get();
 }
 
@@ -169,6 +170,23 @@ std::optional<hb_codepoint_t> SkiaHarfBuzzFont::glyph(hb_codepoint_t unicode, st
     hb_codepoint_t returnValue;
     if (hb_font_get_glyph(hb_font_get_parent(m_font.get()), unicode, variation.value_or(0), &returnValue))
         return returnValue;
+
+    if (!variation)
+        return std::nullopt;
+
+    // If we failed to get a glyph with a variation, try to get a glyph without
+    // the variation unless emoji is requested and font doesn't support colors
+    // or text is requested and it's a color font.
+    // FIXME: it would be better to check if the font has a color/text glyph for
+    // the given codepoint, but we need Skia API for that.
+    // See https://issues.skia.org/issues/374078818.
+    if (*variation == emojiVariationSelector && !m_isColorBitmapFont)
+        return std::nullopt;
+    if (*variation == textVariationSelector && m_isColorBitmapFont)
+        return std::nullopt;
+    if (hb_font_get_glyph(hb_font_get_parent(m_font.get()), unicode, 0, &returnValue))
+        return returnValue;
+
     return std::nullopt;
 }
 
@@ -193,7 +211,7 @@ void SkiaHarfBuzzFont::glyphWidths(unsigned count, const hb_codepoint_t* glyphs,
     }
 
     Vector<SkScalar, 256> widths(count);
-    m_scaledFont.getWidths(skGlyphs.data(), count, widths.data());
+    m_scaledFont.getWidths(skGlyphs.span().data(), count, widths.mutableSpan().data());
     if (!m_scaledFont.isSubpixel()) {
         for (unsigned i = 0; i < count; ++i)
             widths[i] = SkScalarRoundToInt(widths[i]);

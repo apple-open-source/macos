@@ -363,7 +363,13 @@ struct vm_object {
 #endif /* VM_OBJECT_ACCESS_TRACKING */
 
 	uint8_t                 scan_collisions;
-	uint8_t                 __object4_unused_bits[1];
+#if COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1
+	/* This value is used for selecting a chead in the compressor for internal objects.
+	 * see rdar://140849693 for a possible way to implement the chead_hint functionality
+	 * in a way that doesn't require these bits */
+	uint8_t vo_chead_hint:COMPRESSOR_PAGEOUT_CHEADS_BITS;
+#endif /*COMPRESSOR_PAGEOUT_CHEADS_COUNT */
+	uint8_t __object4_unused_bits:8 - COMPRESSOR_PAGEOUT_CHEADS_BITS;
 	vm_tag_t                wire_tag;
 
 #if CONFIG_PHANTOM_CACHE
@@ -573,6 +579,12 @@ extern void vm_io_reprioritize_init(void);
 
 extern void page_worker_init(void);
 
+__enum_closed_decl(vm_chead_select_t, uint32_t, {
+	CSEL_MIN = 1,
+	CSEL_BY_PID  = 1,
+	CSEL_BY_COALITION = 2,
+	CSEL_MAX = 2
+});
 
 #endif /* XNU_KERNEL_PRIVATE */
 

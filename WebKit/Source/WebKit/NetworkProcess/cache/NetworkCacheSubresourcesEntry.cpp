@@ -24,8 +24,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
 #include "NetworkCacheSubresourcesEntry.h"
 
 #include "Logging.h"
@@ -144,5 +142,3 @@ void SubresourcesEntry::updateSubresourceLoads(const Vector<std::unique_ptr<Subr
 
 } // namespace WebKit
 } // namespace NetworkCache
-
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)

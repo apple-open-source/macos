@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 RDK Management  All rights reserved.
+ * Copyright (C) 2020 RDK Management All rights reserved.
  * Copyright (C) 2022 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,11 +29,12 @@
 
 #if ENABLE(GAMEPAD) && USE(LIBWPE)
 
+#if WPE_CHECK_VERSION(1, 13, 90)
+
 #include "GamepadLibWPE.h"
 #include "GamepadProviderClient.h"
 #include "Logging.h"
 #include <inttypes.h>
-#include <wpe/wpe.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -49,8 +50,8 @@ GamepadProviderLibWPE& GamepadProviderLibWPE::singleton()
 
 GamepadProviderLibWPE::GamepadProviderLibWPE()
     : m_provider(wpe_gamepad_provider_create(), wpe_gamepad_provider_destroy)
-    , m_initialGamepadsConnectedTimer(RunLoop::current(), this, &GamepadProviderLibWPE::initialGamepadsConnectedTimerFired)
-    , m_inputNotificationTimer(RunLoop::current(), this, &GamepadProviderLibWPE::inputNotificationTimerFired)
+    , m_initialGamepadsConnectedTimer(RunLoop::currentSingleton(), "GamepadProviderLibWPE::InitialGamepadsConnectedTimer"_s, this, &GamepadProviderLibWPE::initialGamepadsConnectedTimerFired)
+    , m_inputNotificationTimer(RunLoop::currentSingleton(), "GamepadProviderLibWPE::InputNotificationTimer"_s, this, &GamepadProviderLibWPE::inputNotificationTimerFired)
 {
     static const struct wpe_gamepad_provider_client_interface s_client = {
         // connected
@@ -235,4 +236,5 @@ void GamepadProviderLibWPE::stopEffects(unsigned, const String&, CompletionHandl
 
 } // namespace WebCore
 
-#endif // ENABLE(GAMEPAD) && USE(LIBWPE)
+#endif // ENABLE(GAMEPAD) && USE(LIBWPE) && WPE_CHECK_VERSION(1, 13, 90)
+#endif // ENABLE(GAMEPAD) && USE(LIBWPE) && WPE_CHECK_VERSION(1, 13, 90)

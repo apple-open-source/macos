@@ -41,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
    idmsTargetContext:(NSString *_Nullable)idmsTargetContext
 idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
           notifyIdMS:(bool)notifyIdMS
+         accountType:(AccountTypeDuringRPD)accountType
        intendedState:(OctagonState*)intendedState
         dependencies:(OTOperationDependencies *)deps
           errorState:(OctagonState*)errorState
@@ -50,6 +51,7 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 @property (nullable) NSString* idmsTargetContext;
 @property (nullable) NSString* idmsCuttlefishPassword;
 @property () bool notifyIdMS;
+@property () AccountTypeDuringRPD accountType;
 @end
 
 NS_ASSUME_NONNULL_END

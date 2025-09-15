@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(CONTACTSUI)
 
 #import <ContactsUI/ContactsUI.h>

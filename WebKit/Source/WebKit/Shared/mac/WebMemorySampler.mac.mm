@@ -96,10 +96,10 @@ size_t WebMemorySampler::sampleProcessCommittedBytes() const
 
 String WebMemorySampler::processName() const
 {
-    NSString *appName = [[NSBundle mainBundle] bundleIdentifier];
+    RetainPtr appName = [[NSBundle mainBundle] bundleIdentifier];
     if (!appName)
         appName = [[NSProcessInfo processInfo] processName];
-    return String(appName);
+    return String(appName.get());
 }
   
 WebMemoryStatistics WebMemorySampler::sampleWebKit() const

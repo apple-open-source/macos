@@ -320,6 +320,7 @@ public:
 	virtual void changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred);
 	virtual void recode(const CSSM_DATA &data, const CSSM_DATA &extraData);
 	virtual void copyBlob(CssmData &data);
+	virtual void copySalt(CssmData &salt);
 	virtual void setBatchMode(Boolean mode, Boolean rollback);
 
     // Get the version of this database's encoding

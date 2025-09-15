@@ -43,14 +43,14 @@
 #include "ntfs_types.h"
 #include "ntfs_volume.h"
 
-__private_extern__ BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
-		const ntfschar *s2, size_t s2_len, const BOOL case_sensitive,
+__private_extern__ NTFS_BOOL ntfs_are_names_equal(const ntfschar *s1, size_t s1_len,
+		const ntfschar *s2, size_t s2_len, const NTFS_BOOL case_sensitive,
 		const ntfschar *upcase, const u32 upcase_len);
 
 __private_extern__ int ntfs_collate_names(const ntfschar *name1,
 		const u32 name1_len, const ntfschar *name2,
 		const u32 name2_len, const int err_val,
-		const BOOL case_sensitive, const ntfschar *upcase,
+		const NTFS_BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len);
 
 __private_extern__ int ntfs_ucsncmp(const ntfschar *s1, const ntfschar *s2,
@@ -70,7 +70,7 @@ static inline void ntfs_file_upcase_value(FILENAME_ATTR *filename_attr,
 
 static inline int ntfs_file_compare_values(FILENAME_ATTR *filename_attr1,
 		FILENAME_ATTR *filename_attr2, const int err_val,
-		const BOOL case_sensitive, const ntfschar *upcase,
+		const NTFS_BOOL case_sensitive, const ntfschar *upcase,
 		const u32 upcase_len)
 {
 	return ntfs_collate_names(filename_attr1->filename,

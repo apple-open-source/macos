@@ -49,6 +49,8 @@ T_GLOBAL_META(
 	T_META_RUN_CONCURRENTLY(true),
 	T_META_TAG_VM_NOT_ELIGIBLE);
 
+#ifdef __arm64__
+
 /* The bit to set in FPCR to enable the divide-by-zero floating point exception. */
 #define FPCR_DIV_EXC 0x200
 #define FPCR_INIT (0x0)
@@ -56,13 +58,13 @@ T_GLOBAL_META(
 /* Whether we caught the EXC_ARITHMETIC mach exception or not. */
 static volatile bool mach_exc_caught = false;
 
-#ifdef __arm64__
 static size_t
 exc_arithmetic_handler(
 	__unused mach_port_t task,
 	__unused mach_port_t thread,
 	exception_type_t type,
-	mach_exception_data_t codes_64)
+	mach_exception_data_t codes_64,
+	__unused uint64_t exception_pc)
 {
 	/* Floating point divide by zero should cause an EXC_ARITHMETIC exception. */
 	T_ASSERT_EQ(type, EXC_ARITHMETIC, "Caught an EXC_ARITHMETIC exception");
@@ -73,10 +75,11 @@ exc_arithmetic_handler(
 	mach_exc_caught = true;
 	return 4;
 }
-#endif
 
 #define KERNEL_BOOTARGS_MAX_SIZE 1024
 static char kernel_bootargs[KERNEL_BOOTARGS_MAX_SIZE];
+
+#endif  /* __arm64__ */
 
 T_DECL(armv8_fp_exception,
     "Test that ARMv8 floating point exceptions generate Mach exceptions, verify default FPCR value.")

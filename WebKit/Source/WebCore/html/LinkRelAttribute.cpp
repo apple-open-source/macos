@@ -53,7 +53,7 @@ static constexpr std::pair<ComparableLettersLiteral, LinkTypeDetails> linkTypesA
     { "alternate"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.isAlternate = true; } } },
     { "apple-touch-icon"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.iconType = LinkIconType::TouchIcon; } } },
     { "apple-touch-icon-precomposed"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.iconType = LinkIconType::TouchPrecomposedIcon; } } },
-    { "dns-prefetch"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.isDNSPrefetch = true; } } },
+    { "dns-prefetch"_s, { [](auto document) { return document.settings().linkDNSPrefetchEnabled(); }, [](auto relAttribute) { relAttribute.isDNSPrefetch = true; } } },
     { "expect"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.isInternalResourceLink = true; } } },
     { "icon"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.iconType = LinkIconType::Favicon; } } },
 #if ENABLE(APPLICATION_MANIFEST)
@@ -65,6 +65,12 @@ static constexpr std::pair<ComparableLettersLiteral, LinkTypeDetails> linkTypesA
     { "preconnect"_s, { [](auto document) { return document.settings().linkPreconnectEnabled(); }, [](auto relAttribute) { relAttribute.isLinkPreconnect = true; } } },
     { "prefetch"_s, { [](auto document) { return document.settings().linkPrefetchEnabled(); }, [](auto relAttribute) { relAttribute.isLinkPrefetch = true; } } },
     { "preload"_s, { [](auto document) { return document.settings().linkPreloadEnabled(); }, [](auto relAttribute) { relAttribute.isLinkPreload = true; } } },
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    { "spatial-backdrop"_s, {
+        [](auto document) { return document.settings().webPageSpatialBackdropEnabled(); },
+        [](auto relAttribute) { relAttribute.isSpatialBackdrop = true; }
+    } },
+#endif
     { "stylesheet"_s, { [](auto) { return true; }, [](auto relAttribute) { relAttribute.isStyleSheet = true; } } },
 };
 

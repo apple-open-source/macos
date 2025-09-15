@@ -45,17 +45,30 @@ public:
 // FIXME: This function doesn't really belong in this header.
 WEBCORE_EXPORT NSPoint globalPoint(const NSPoint& windowPoint, NSWindow *);
 
-// FIXME: WebKit2 has a lot of code copied and pasted from PlatformEventFactoryMac in WebEventFactory. More of it should be shared with WebCore.
+WEBCORE_EXPORT MouseButton mouseButtonForEvent(NSEvent *);
+WEBCORE_EXPORT unsigned short currentlyPressedMouseButtons();
+WEBCORE_EXPORT PlatformEvent::Type mouseEventTypeForEvent(NSEvent *);
+WEBCORE_EXPORT int clickCountForEvent(NSEvent *);
+WEBCORE_EXPORT NSPoint globalPointForEvent(NSEvent *);
+WEBCORE_EXPORT IntPoint pointForEvent(NSEvent *, NSView *windowView);
+WEBCORE_EXPORT IntPoint unadjustedMovementForEvent(NSEvent *);
+
+WEBCORE_EXPORT bool isKeyUpEvent(NSEvent *);
 WEBCORE_EXPORT int windowsKeyCodeForKeyEvent(NSEvent *);
 WEBCORE_EXPORT String keyIdentifierForKeyEvent(NSEvent *);
 WEBCORE_EXPORT String keyForKeyEvent(NSEvent *);
 WEBCORE_EXPORT String codeForKeyEvent(NSEvent *);
+WEBCORE_EXPORT UInt8 keyCharForEvent(NSEvent *);
+WEBCORE_EXPORT String textFromEvent(NSEvent *, bool replacesSoftSpace = false);
+WEBCORE_EXPORT String unmodifiedTextFromEvent(NSEvent *, bool replacesSoftSpace = false);
+WEBCORE_EXPORT bool isKeypadEvent(NSEvent *);
+
 WEBCORE_EXPORT WallTime eventTimeStampSince1970(NSTimeInterval);
-WEBCORE_EXPORT IntPoint unadjustedMovementForEvent(NSEvent *);
 
 WEBCORE_EXPORT OptionSet<PlatformEvent::Modifier> modifiersForEvent(NSEvent *);
+WEBCORE_EXPORT OptionSet<PlatformEvent::Modifier> modifiersForModifierFlags(NSEventModifierFlags);
+
 WEBCORE_EXPORT void getWheelEventDeltas(NSEvent *, float& deltaX, float& deltaY, BOOL& continuous);
-WEBCORE_EXPORT UInt8 keyCharForEvent(NSEvent *);
 
 #endif
 

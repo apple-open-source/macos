@@ -37,6 +37,26 @@ class NSTAT_PROVIDER(IntEnum):
 ######################################
 # Helper functions
 ######################################
+
+def FieldPtrToStructPtr(field_ptr,  field_name, element_type):
+    """ Given a pointer to a field with a structure, return a pointer to the structure itself
+    params:
+        field_ptr       - value : pointer to the field
+        field_name      - str   : string name of the field which holds the list links.
+        element_type    - str   : type of elements to be linked in the list
+    returns:
+        value : A pointer to the start of the structure
+    """
+    out_string = ""
+    if (field_ptr) :
+        tmp_element = Cast(field_ptr, element_type)
+        tmp_element_plus_offset = addressof(tmp_element.__getattr__(field_name))
+        offset = tmp_element_plus_offset - tmp_element
+        original_ptr_as_char_ptr = Cast(field_ptr, 'char *')
+        amended_ptr = original_ptr_as_char_ptr - offset
+        return kern.GetValueFromAddress(unsigned(amended_ptr), element_type)
+    return field_ptr
+
 def ReverseIterateTAILQ_AnonymousHEAD(headval, field_name, element_type):
     """ reverse iterate over a TAILQ_HEAD in kernel. refer to bsd/sys/queue.h
     params:
@@ -52,13 +72,17 @@ def ReverseIterateTAILQ_AnonymousHEAD(headval, field_name, element_type):
             print(entry)
     """
     head_first = headval.__getattr__('tqh_first')
-    head_first_addr = addressof(head_first)
-    iter_val = headval.__getattr__('tqh_last')
-    while (unsigned(iter_val) != unsigned(head_first_addr)) and (unsigned(iter_val) != 0) :
-        yield iter_val
-        element = Cast(iter_val, element_type)
-        iter_val = element.__getattr__(field_name).__getattr__('tqe_prev')
-    #end of yield loop
+    if head_first:
+        head_first_addr = FieldPtrToStructPtr(addressof(head_first),field_name, element_type)
+        head_last = headval.__getattr__('tqh_last')
+        iter_val = FieldPtrToStructPtr(head_last, field_name, element_type)
+
+        while (unsigned(iter_val) != unsigned(head_first_addr)) and (unsigned(iter_val) != 0) :
+            yield iter_val
+            element = Cast(iter_val, element_type)
+            tmp  = element.__getattr__(field_name).__getattr__('tqe_prev')
+            iter_val = FieldPtrToStructPtr(tmp, field_name, element_type)
+        #end of yield loop
 
 def ShowNstatTUShadow(inshadow):
     """ Display summary for an nstat_tu_shadow struct
@@ -121,7 +145,12 @@ def ShowNstatGShadow(inshadow):
                 format_string = " INVALID proc magic {0: <#0x}"
                 out_string += format_string.format(procmagic)
 
-    print(out_string)
+        print(out_string)
+
+        for src in IterateTAILQ_HEAD(gshad.gshad_locus.ntl_src_queue, 'nts_locus_link'):
+            ShowNstatSrc(src)
+    else:
+        print(out_string)
 
 def GetNstatProcdetailsBrief(procdetails):
     """ Display a brief summary for an nstat_procdetails struct
@@ -156,6 +185,24 @@ def ShowNstatProcdetails(procdetails):
         out_string += GetNstatProcdetailsBrief(procdetails)
 
     print(out_string)
+
+def ShowNstatSockLocus(locus):
+    """ Display a summary for an nstat_sock_locus struct
+        params:
+            locus : cvalue object which points to 'struct nstat_sock_locus *'
+    """
+    locus = Cast(locus, 'struct nstat_sock_locus *')
+    out_string = ""
+    if (locus) :
+        format_string = "nstat_sock_locus: {0: <#020x} next={1: <#020x} prev={2: <#020x}"
+        out_string += format_string.format(locus, locus.nsl_link.tqe_next, locus.nsl_link.tqe_prev)
+        out_string += GetNstatTULocusBrief(locus);
+
+    print(out_string)
+    iterator = IterateTAILQ_HEAD(locus.nsl_locus.ntl_src_queue, 'nts_locus_link')
+    for src in iterator:
+        ShowNstatSrc(src)
+
 
 def GetNstatTUShadowBrief(shadow):
     """ Display a summary for an nstat_tu_shadow struct
@@ -212,20 +259,20 @@ def GetNstatGenericShadowBrief(shadow):
 
     return out_string
 
-def GetNstatTUCookieBrief(cookie):
-    """ Display a summary for an nstat_tucookie struct
+def GetNstatTULocusBrief(cookie):
+    """ Display a summary for an nnstat_sock_locus struct
         params:
-            shadow : cvalue object which points to 'struct nstat_tucookie *'
+            cookie : cvalue object which points to 'struct nstat_sock_locus *'
         returns:
-            str : A string describing various information for the nstat_tucookie structure
+            str : A string describing various information for the nstat_sock_locus structure
     """
     out_string = ""
-    tucookie = Cast(cookie, 'struct nstat_tucookie *')
-    inp = tucookie.inp
-    pname = tucookie.pname
+    sol = Cast(cookie, 'struct nstat_sock_locus *')
+    inp = sol.nsl_inp
     inpcb = Cast(inp, 'struct inpcb *')
     inp_socket = inpcb.inp_socket
     sock = Cast(inp_socket, 'struct socket *')
+    pname = sol.nsl_pname
     format_string = " inpcb={0: <#0x}: socket={1: <#020x} process={2: <s}"
     out_string += format_string.format(inpcb, sock, pname)
     return out_string
@@ -269,7 +316,7 @@ def ShowNstatSrc(insrc):
             out_string += GetNstatGenericShadowBrief(src.nts_cookie);
         elif ((prov.nstat_provider_id == NSTAT_PROVIDER.TCP_KERNEL) or
             (prov.nstat_provider_id == NSTAT_PROVIDER.UDP_KERNEL)) :
-            out_string += GetNstatTUCookieBrief(src.nts_cookie);
+            out_string += GetNstatTULocusBrief(src.nts_cookie);
 
     print(out_string)
 
@@ -281,7 +328,7 @@ def ShowNstatClient(inclient, reverse):
     client = Cast(inclient, 'nstat_client *')
     out_string = ""
     if client :
-        format_string = "nstat_client {0: <#0x}: next={1: <#020x} src-head={2: <#020x} tail={3: <#020x}"
+        format_string = "\nnstat_client {0: <#0x}: next={1: <#020x} src-head={2: <#020x} tail={3: <#020x}"
         out_string += format_string.format(client, client.ntc_next, client.ntc_src_queue.tqh_first, client.ntc_src_queue.tqh_last)
         procdetails = client.ntc_procdetails
         if (procdetails) :
@@ -290,10 +337,10 @@ def ShowNstatClient(inclient, reverse):
 
     print(out_string)
     if reverse:
-         print("\nreverse nstat_src list:\n")
+         print("reverse nstat_src list:")
          iterator = ReverseIterateTAILQ_AnonymousHEAD(client.ntc_src_queue, 'nts_client_link', 'struct nstat_src *')
     else:
-         print("\nreverse nstat_src list:\n")
+         print("nstat_src list:")
          iterator = IterateTAILQ_HEAD(client.ntc_src_queue, 'nts_client_link')
     for src in iterator:
         ShowNstatSrc(src)
@@ -302,7 +349,7 @@ def ShowNstatClient(inclient, reverse):
 # Print functions
 ######################################
 def PrintNstatClientList(reverse):
-    print("nstat_clients list:\n")
+    print("nstat_clients list:")
     client = kern.globals.nstat_clients
     client = cast(client, 'nstat_client *')
     while client != 0:
@@ -342,6 +389,28 @@ def PrintNstatTUShadowList(reverse):
     for shad in iterator:
         ShowNstatTUShadow(shad)
 
+def PrintNstatTCPLocusList(reverse):
+    loci = kern.globals.nstat_tcp_sock_locus_head
+    if reverse:
+        print("\nreverse nstat tcp socket locus list:\n")
+        iterator = ReverseIterateTAILQ_AnonymousHEAD(loci, 'nsl_link', 'struct nstat_sock_locus *')
+    else:
+        print("\nnstat tcp socket locus list:\n")
+        iterator = IterateTAILQ_HEAD(loci, 'nsl_link')
+    for locus in iterator:
+        ShowNstatSockLocus(locus)
+
+def PrintNstatUDPLocusList(reverse):
+    loci = kern.globals.nstat_udp_sock_locus_head
+    if reverse:
+        print("\nreverse nstat udp socket locus list:\n")
+        iterator = ReverseIterateTAILQ_AnonymousHEAD(loci, 'nsl_link', 'struct nstat_sock_locus *')
+    else:
+        print("\nnstat udp socket locus list:\n")
+        iterator = IterateTAILQ_HEAD(loci, 'nsl_link')
+    for locus in iterator:
+        ShowNstatSockLocus(locus)
+
 ######################################
 # LLDB commands
 ######################################
@@ -360,5 +429,7 @@ def ShowAllNtstat(cmd_args=None, cmd_options={}) :
     PrintNstatTUShadowList(reverse)
     PrintNstatGenericShadowList(reverse)
     PrintNstatProcdetailList(reverse)
+    PrintNstatTCPLocusList(reverse)
+    PrintNstatUDPLocusList(reverse)
 
 # EndMacro: showallntstat

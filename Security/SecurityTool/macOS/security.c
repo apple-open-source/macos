@@ -71,6 +71,7 @@
 #include <CoreFoundation/CFRunLoop.h>
 #include <Security/SecBasePriv.h>
 #include <Security/SecKeychainPriv.h>
+#include <Security/SecCoreAnalytics.h>
 #include <security_asn1/secerr.h>
 #include <os/variant_private.h>
 
@@ -1115,7 +1116,6 @@ main(int argc, char * const *argv)
 	int do_leaks = 0;
 	int ch;
 
-
 	/* Do getopt stuff for global options. */
 	optind = 1;
 	optreset = 1;
@@ -1143,6 +1143,9 @@ main(int argc, char * const *argv)
 			do_verbose = 1;
 			break;
 		case 'R':
+                // ensure that use of `security -R` during early boot doesn't hang waiting to send CA events at shutdown (rdar://146406899)
+                SecCoreAnalyticsSetEnabledForProcess(false);
+
 			// "Recovery mode", do NOT ask security-checksystem to run when using keychain APIs
 			// NOTE: this is a hidden option (not in the usage message)
                 SecKeychainSystemKeychainCheckWouldDeadlock();

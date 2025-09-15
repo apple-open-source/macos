@@ -134,7 +134,7 @@ nx_netif_qset_alloc(uint8_t nrxqs, uint8_t ntxqs)
 {
 	struct netif_qset *qset;
 
-	_CASSERT(sizeof(struct netif_queue) % sizeof(uint64_t) == 0);
+	static_assert(sizeof(struct netif_queue) % sizeof(uint64_t) == 0);
 
 	qset = sk_alloc_type_header_array(struct netif_qset, struct netif_queue,
 	    nrxqs + ntxqs, Z_WAITOK | Z_NOFAIL, nx_netif_tag_qset);
@@ -264,14 +264,14 @@ nx_netif_qset_init(struct netif_qset *qset, struct netif_llink *llink,
 		nx_netif_qset_setup_ifclassq(llink, qset);
 	}
 
-
 	for (i = 0; i < qset->nqs_num_rx_queues; i++) {
 		nx_netif_driver_queue_init(qset, NETIF_QSET_RX_QUEUE(qset, i),
 		    KPKT_SC_UNSPEC, true);
 	}
 
-	if (ifp->if_output_sched_model == IFNET_SCHED_MODEL_DRIVER_MANAGED) {
+	if (ifp->if_output_sched_model & IFNET_SCHED_DRIVER_MANGED_MODELS) {
 		VERIFY(qset->nqs_num_tx_queues == _NETIF_QSET_MAX_TXQS);
+		VERIFY(IFNET_MODEL_IS_VALID(ifp->if_output_sched_model));
 		for (i = 0; i < qset->nqs_num_tx_queues; i++) {
 			nx_netif_driver_queue_init(qset,
 			    NETIF_QSET_TX_QUEUE(qset, i), svc[i], false);
@@ -465,13 +465,17 @@ nx_netif_llink_add(struct nx_netif *nif,
 	llink = nx_netif_llink_create_locked(nif, llink_init);
 	lck_rw_unlock_exclusive(&nif->nif_llink_lock);
 	VERIFY(llink != NULL);
+	ASSERT((llink->nll_flags & NETIF_LLINK_FLAG_DEFAULT) == 0);
 	err = nx_netif_llink_ext_init_queues(nif->nif_nx, llink);
 	if (err != 0) {
 		lck_rw_lock_exclusive(&nif->nif_llink_lock);
 		nx_netif_llink_destroy_locked(nif, &llink);
 		lck_rw_unlock_exclusive(&nif->nif_llink_lock);
 	} else {
-		/* increment reference for the caller */
+		/*
+		 * Increment reference to keep the same pattern as default llink
+		 * refcnt is 2 after this retain.
+		 */
 		nx_netif_llink_retain(llink);
 		*pllink = llink;
 	}
@@ -483,13 +487,14 @@ nx_netif_llink_remove(struct nx_netif *nif,
     kern_nexus_netif_llink_id_t llink_id)
 {
 	bool llink_found = false;
-	struct netif_llink *__single llink;
+	struct netif_llink *__single llink, *__single llink_tmp;
 	struct netif_stats *nifs = &nif->nif_stats;
 
 	lck_rw_lock_exclusive(&nif->nif_llink_lock);
 	STAILQ_FOREACH(llink, &nif->nif_llink_list, nll_link) {
 		if (llink->nll_link_id == llink_id) {
 			llink_found = true;
+			llink_tmp = llink;
 			break;
 		}
 	}
@@ -499,8 +504,10 @@ nx_netif_llink_remove(struct nx_netif *nif,
 		DTRACE_SKYWALK1(not__found, uint64_t, llink_id);
 		return ENOENT;
 	}
-	nx_netif_llink_ext_fini_queues(nif->nif_nx, llink);
+	ASSERT((llink_tmp->nll_flags & NETIF_LLINK_FLAG_DEFAULT) == 0);
+	nx_netif_llink_ext_fini_queues(nif->nif_nx, llink_tmp);
 	lck_rw_lock_exclusive(&nif->nif_llink_lock);
+	nx_netif_llink_release(&llink_tmp);
 	nx_netif_llink_destroy_locked(nif, &llink);
 	lck_rw_unlock_exclusive(&nif->nif_llink_lock);
 	return 0;
@@ -596,7 +603,7 @@ netif_qset_enqueue(struct netif_qset *qset, bool chain,
 		netif_ifp_inc_traffic_class_out_pkt(ifp, pkt_chain->pkt_svc_class,
 		    cnt, bytes);
 
-		err = ifnet_enqueue_pkt_chain(ifp, pkt_chain, tail, cnt,
+		err = ifnet_enqueue_pkt_chain(ifp, qset->nqs_ifcq, pkt_chain, tail, cnt,
 		    bytes, false, &pkt_drop);
 		if (__improbable(err != 0)) {
 			if ((err == EQFULL || err == EQSUSPENDED)) {
@@ -616,7 +623,7 @@ netif_qset_enqueue(struct netif_qset *qset, bool chain,
 			netif_ifp_inc_traffic_class_out_pkt(ifp, pkt->pkt_svc_class,
 			    1, pkt->pkt_length);
 
-			err = ifnet_enqueue_pkt(ifp, pkt, false, &pkt_drop);
+			err = ifnet_enqueue_pkt(ifp, qset->nqs_ifcq, pkt, false, &pkt_drop);
 			if (__improbable(err != 0)) {
 				if ((err == EQFULL || err == EQSUSPENDED)) {
 					(*flowctl)++;
@@ -780,6 +787,38 @@ def_qset:
 	return qset;
 }
 
+struct netif_qset *
+nx_netif_find_qset_with_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
+{
+	struct nx_netif *nif = NA(ifp)->nifna_netif;
+	struct netif_qset *__single qset = NULL;
+	uint64_t qset_id;
+
+	if (NX_LLINK_PROV(nif->nif_nx)) {
+		/*
+		 * Note: ifp can have either eth traffc rules or inet traffc rules
+		 * and not both.
+		 */
+		if (ifp->if_eth_traffic_rule_count) {
+			if (__probable(pkt->pkt_pflags & PKT_F_PRIV_HAS_QSET_ID)) {
+				qset = nx_netif_find_qset(nif, (uint64_t) pkt->pkt_priv);
+				ASSERT(qset != NULL);
+			} else if (nxctl_eth_traffic_rule_find_qset_id_with_pkt(
+				    ifp->if_xname, pkt, &qset_id) == 0) {
+				qset = nx_netif_find_qset(nif, qset_id);
+				ASSERT(qset != NULL);
+			}
+		} else if (ifp->if_inet_traffic_rule_count > 0 &&
+		    nxctl_inet_traffic_rule_find_qset_id_with_pkt(
+			    ifp->if_xname, pkt, &qset_id) == 0) {
+			qset = nx_netif_find_qset(nif, qset_id);
+			ASSERT(qset != NULL);
+		}
+	}
+
+	return qset;
+}
+
 void
 nx_netif_llink_init(struct nx_netif *nif)
 {
@@ -873,10 +912,6 @@ nx_netif_validate_llink_config(struct kern_nexus_netif_llink_init *init,
 				SK_ERR("has more than one default qset");
 				return EINVAL;
 			}
-			if (qsinit[i].nlqi_num_rxqs == 0) {
-				SK_ERR("num_rxqs == 0");
-				return EINVAL;
-			}
 			has_default_qset = true;
 		}
 		if (qsinit[i].nlqi_num_txqs == 0) {
@@ -965,7 +1000,7 @@ nx_netif_llink_ext_init_queues(struct kern_nexus *nx, struct netif_llink *llink)
 		    qset->nqs_idx, qset->nqs_id, qset, &qset->nqs_ctx);
 		if (err != 0) {
 			STATS_INC(nifs, NETIF_STATS_LLINK_QSET_INIT_FAIL);
-			SK_ERR("nx: 0x%llx, qset: %d, qset init err %d",
+			SK_ERR("nx: %p, qset: %d, qset init err %d",
 			    SK_KVA(nx), qset->nqs_idx, err);
 			goto out;
 		}
@@ -979,7 +1014,7 @@ nx_netif_llink_ext_init_queues(struct kern_nexus *nx, struct netif_llink *llink)
 			    i, false, drvq, &drvq->nq_ctx);
 			if (err != 0) {
 				STATS_INC(nifs, NETIF_STATS_LLINK_RXQ_INIT_FAIL);
-				SK_ERR("nx: 0x%llx qset: %d queue_init err %d",
+				SK_ERR("nx: %p qset: %d queue_init err %d",
 				    SK_KVA(nx), qset->nqs_idx, err);
 				goto out;
 			}
@@ -993,7 +1028,7 @@ nx_netif_llink_ext_init_queues(struct kern_nexus *nx, struct netif_llink *llink)
 			    i, true, drvq, &drvq->nq_ctx);
 			if (err != 0) {
 				STATS_INC(nifs, NETIF_STATS_LLINK_TXQ_INIT_FAIL);
-				SK_ERR("nx: 0x%llx qset: %d queue_init err %d",
+				SK_ERR("nx: %p qset: %d queue_init err %d",
 				    SK_KVA(nx), qset->nqs_idx, err);
 				goto out;
 			}

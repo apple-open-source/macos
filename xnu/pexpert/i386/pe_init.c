@@ -53,7 +53,8 @@ extern void pe_identify_machine(void * args);
 extern int kdb_printf(const char *format, ...) __printflike(1, 2);
 /* private globals */
 PE_state_t  PE_state;
-SECURITY_READ_ONLY_LATE(uint32_t) PE_srd_fused = 0;
+SECURITY_READ_ONLY_LATE(uint32_t) PE_esdm_fuses = 0;
+SECURITY_READ_ONLY_LATE(uint32_t) PE_vmm_present = 0;
 
 /* Clock Frequency Info */
 clock_frequency_info_t gPEClockFrequencyInfo;

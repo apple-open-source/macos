@@ -330,9 +330,9 @@ cleanup:
 }
 
 int
-od_record_check_pwpolicy(ODRecordRef record)
+od_record_check_pwpolicy(ODRecordRef record, CFErrorRef *odError)
 {
-    CFErrorRef oderror = NULL;
+    CFErrorRef localerr = NULL;
 	int retval = PAM_SERVICE_ERR;
 
 	if (NULL == record) {
@@ -341,8 +341,8 @@ od_record_check_pwpolicy(ODRecordRef record)
 		goto cleanup;
 	}
 
-    if (!ODRecordAuthenticationAllowed(record, &oderror)) {
-        switch (CFErrorGetCode(oderror)) {
+    if (!ODRecordAuthenticationAllowed(record, &localerr)) {
+        switch (CFErrorGetCode(localerr)) {
 			case kODErrorCredentialsAccountNotFound:
 				retval = PAM_USER_UNKNOWN;
 				break;
@@ -374,6 +374,9 @@ od_record_check_pwpolicy(ODRecordRef record)
 
 cleanup:
 	_LOG_DEBUG("retval: %d", retval);
+    if (odError) {
+        *odError = localerr;
+    }
 	return retval;
 }
 

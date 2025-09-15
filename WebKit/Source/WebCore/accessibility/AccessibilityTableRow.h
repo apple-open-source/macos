@@ -36,12 +36,10 @@ class AccessibilityTable;
 
 class AccessibilityTableRow : public AccessibilityRenderObject {
 public:
-    static Ref<AccessibilityTableRow> create(AXID, RenderObject&);
-    static Ref<AccessibilityTableRow> create(AXID, Node&);
+    static Ref<AccessibilityTableRow> create(AXID, RenderObject&, AXObjectCache&);
+    static Ref<AccessibilityTableRow> create(AXID, Node&, AXObjectCache&);
     virtual ~AccessibilityTableRow();
 
-    // retrieves the "row" header (a th tag in the rightmost column)
-    AccessibilityObject* rowHeader() override;
     virtual AccessibilityTable* parentTable() const;
 
     void setRowIndex(unsigned);
@@ -53,12 +51,12 @@ public:
     
     void addChildren() final;
 
-    int axColumnIndex() const final;
-    int axRowIndex() const final;
+    std::optional<unsigned> axColumnIndex() const final;
+    std::optional<unsigned> axRowIndex() const final;
 
 protected:
-    explicit AccessibilityTableRow(AXID, RenderObject&);
-    explicit AccessibilityTableRow(AXID, Node&);
+    explicit AccessibilityTableRow(AXID, RenderObject&, AXObjectCache&);
+    explicit AccessibilityTableRow(AXID, Node&, AXObjectCache&);
 
     AccessibilityRole determineAccessibilityRole() final;
 

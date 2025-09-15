@@ -157,7 +157,6 @@ MACROS = [
     ("addkextaddr", _arbitrary_kext),
     ("showzpcpu", ""),  # TODO: ?
     "memstats",
-    "showpgz",
     ("whatis", _arbitrary_kext),
     "showzcache",
     "zprint",

@@ -35,6 +35,7 @@
 #import "APISerializedScriptValue.h"
 #import "CocoaHelpers.h"
 #import "JSWebExtensionWrapper.h"
+#import "JavaScriptEvaluationResult.h"
 #import "MessageSenderInlines.h"
 #import "WebExtensionContextMessages.h"
 #import "WebExtensionTabIdentifier.h"
@@ -67,14 +68,14 @@ void WebExtensionAPIDevToolsInspectedWindow::eval(WebPageProxyIdentifier webPage
         frameURL = URL { url };
 
         if (!frameURL.value().isValid()) {
-            *outExceptionString = toErrorString(nullString(), frameURLKey, @"'%@' is not a valid URL", url);
+            *outExceptionString = toErrorString(nullString(), frameURLKey, @"'%@' is not a valid URL", url).createNSString().autorelease();
             return;
         }
     }
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsInspectedWindowEval(webPageProxyIdentifier, expression, frameURL), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Expected<std::span<const uint8_t>, WebCore::ExceptionDetails>, WebExtensionError>&& result) mutable {
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::DevToolsInspectedWindowEval(webPageProxyIdentifier, expression, frameURL), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>, WebExtensionError>&& result) mutable {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -82,15 +83,14 @@ void WebExtensionAPIDevToolsInspectedWindow::eval(WebPageProxyIdentifier webPage
 
         if (!result.value()) {
             // If an error occurred, element 0 will be undefined, and element 1 will contain an object giving details about the error.
-            callback->call(@[ undefinedValue, @{ isExceptionKey: @YES, valueKey: result.value().error().message } ]);
+            callback->call(@[ undefinedValue, @{ isExceptionKey: @YES, valueKey: result.value().error() ? result.value().error()->message.createNSString().get() : @"" } ]);
             return;
         }
 
-        Ref serializedValue = API::SerializedScriptValue::createFromWireBytes(result.value().value());
-        id scriptResult = API::SerializedScriptValue::deserialize(serializedValue->internalRepresentation());
+        RetainPtr scriptResult = result.value()->toID();
 
         // If no error occurred, element 0 will contain the result of evaluating the expression, and element 1 will be undefined.
-        callback->call(@[ scriptResult ?: undefinedValue, undefinedValue ]);
+        callback->call(@[ scriptResult ? scriptResult.get() : undefinedValue, undefinedValue ]);
     }, extensionContext().identifier());
 }
 

@@ -878,12 +878,12 @@ static JSValueRef jsObjectCall(JSGlobalContextRef jsContext, JSObjectRef functio
 {
     switch (functionType) {
     case JSC::JSCCallbackFunction::Type::Constructor:
-        return JSObjectCallAsConstructor(jsContext, function, arguments.size(), arguments.data(), exception);
+        return JSObjectCallAsConstructor(jsContext, function, arguments.size(), arguments.span().data(), exception);
     case JSC::JSCCallbackFunction::Type::Method:
         ASSERT(thisObject);
-        FALLTHROUGH;
+        [[fallthrough]];
     case JSC::JSCCallbackFunction::Type::Function:
-        return JSObjectCallAsFunction(jsContext, function, thisObject, arguments.size(), arguments.data(), exception);
+        return JSObjectCallAsFunction(jsContext, function, thisObject, arguments.size(), arguments.span().data(), exception);
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -2098,7 +2098,7 @@ JSCValue* jsc_value_new_from_json(JSCContext* context, const char* json)
         if (!jsValue)
             exception = toRef(JSC::createSyntaxError(globalObject, jsonParser.getErrorMessage()));
     } else {
-        JSC::LiteralParser<UChar, JSC::JSONReviverMode::Disabled> jsonParser(globalObject, jsonString.span16(), JSC::StrictJSON);
+        JSC::LiteralParser<char16_t, JSC::JSONReviverMode::Disabled> jsonParser(globalObject, jsonString.span16(), JSC::StrictJSON);
         jsValue = jsonParser.tryLiteralParse();
         if (!jsValue)
             exception = toRef(JSC::createSyntaxError(globalObject, jsonParser.getErrorMessage()));

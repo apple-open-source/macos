@@ -73,6 +73,7 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
     WebCore::ResourceLoader* resourceLoader() const { return m_coreLoader.get(); }
+    RefPtr<WebCore::ResourceLoader> protectedResourceLoader() const;
 
     void detachFromCoreLoader();
 
@@ -86,11 +87,13 @@ private:
     void willSendRequest(WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&&, CompletionHandler<void(WebCore::ResourceRequest&&, bool)>&&);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
     void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, bool needsContinueDidReceiveResponseMessage, std::optional<WebCore::NetworkLoadMetrics>&&);
-    void didReceiveData(IPC::SharedBufferReference&& data, uint64_t encodedDataLength);
+    void didReceiveData(IPC::SharedBufferReference&& data, uint64_t bytesTransferredOverNetwork);
     void didFinishResourceLoad(WebCore::NetworkLoadMetrics&&);
     void didFailResourceLoad(const WebCore::ResourceError&);
     void didFailServiceWorkerLoad(const WebCore::ResourceError&);
     void serviceWorkerDidNotHandle();
+    void updateResultingClientIdentifier(WTF::UUID currentIdentifier, WTF::UUID newIdentifier);
+
     void didBlockAuthenticationChallenge();
     void setWorkerStart(MonotonicTime value) { m_workerStart = value; }
 
@@ -105,11 +108,14 @@ private:
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoad(const WebCore::ContentFilterUnblockHandler&, String&& unblockRequestDeniedScript, const WebCore::ResourceError&, const URL& blockedPageURL, WebCore::SubstituteData&&);
 #endif
-    
+
+    size_t calculateBytesTransferredOverNetworkDelta(size_t bytesTransferredOverNetwork);
+
     RefPtr<WebCore::ResourceLoader> m_coreLoader;
     const std::optional<TrackingParameters> m_trackingParameters;
     WebResourceInterceptController m_interceptController;
     size_t m_numBytesReceived { 0 };
+    size_t m_bytesTransferredOverNetwork { 0 };
 
 #if ASSERT_ENABLED
     bool m_isProcessingNetworkResponse { false };

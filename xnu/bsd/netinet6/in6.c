@@ -4433,7 +4433,7 @@ static __attribute__((unused)) void
 in6ioctl_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((u_long)0) {
@@ -4720,10 +4720,10 @@ in6_iahash_insert_ptp(struct in6_ifaddr *ia)
  * values.
  */
 static __attribute__((unused)) void
-tcpsockopt_cassert(void)
+ipv6sockopt_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((int)0) {
@@ -4804,6 +4804,7 @@ tcpsockopt_cassert(void)
 	/* bsd/netinet6/in6_private.h */
 	case IPV6_NO_IFT_CELLULAR:
 	case IPV6_OUT_IF:
+	case IPV6_RECV_LINK_ADDR_TYPE:
 		;
 	}
 }

@@ -69,8 +69,11 @@ wcscoll_l(const wchar_t *ws1, const wchar_t *ws2, locale_t locale)
 	 * Note that we do one final extra pass at the end to pick
 	 * up UNDEFINED elements.  There is special handling for them.
 	 */
+#ifdef __APPLE__
+	for (pass = 0; pass < table->info->directive_count; pass++) {
+#else
 	for (pass = 0; pass <= table->info->directive_count; pass++) {
-
+#endif
 		const int32_t *st1 = NULL;
 		const int32_t *st2 = NULL;
 		const wchar_t	*w1 = ws1;

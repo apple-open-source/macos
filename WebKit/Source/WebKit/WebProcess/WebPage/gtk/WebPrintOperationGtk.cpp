@@ -30,6 +30,7 @@
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FrameDestructionObserverInlines.h>
 #include <WebCore/FrameLoader.h>
@@ -58,7 +59,10 @@
 #endif
 #elif USE(SKIA)
 #include <WebCore/GraphicsContextSkia.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/docs/SkPDFDocument.h>
+#include <skia/docs/SkPDFJpegHelpers.h>
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #endif
 
 namespace WebKit {
@@ -392,6 +396,8 @@ void WebPrintOperationGtk::endPrint()
     SkPDF::Metadata metadata;
     metadata.fCreation = skiaDateTimeNow();
     metadata.fModified = metadata.fCreation;
+    metadata.jpegDecoder = SkPDF::JPEG::Decode;
+    metadata.jpegEncoder = SkPDF::JPEG::Encode;
     if (m_printContext) {
         if (auto* document = m_printContext->frame()->document()) {
             auto title = document->title().utf8();

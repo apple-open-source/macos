@@ -132,7 +132,7 @@ static int      kauth_authorize_generic_callback(kauth_cred_t _credential, void 
     uintptr_t arg0, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
 kauth_scope_t   kauth_scope_fileop;
 
-extern int              cansignal(struct proc *, kauth_cred_t, struct proc *, int);
+extern bool              cansignal(struct proc *, kauth_cred_t, struct proc *, int);
 extern char *   get_pathbuff(void);
 extern void             release_pathbuff(char *path);
 

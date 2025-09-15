@@ -75,7 +75,7 @@ private:
 
     bool m_performingMicrotaskCheckpoint { false };
     // For the main thread the VM lives forever. For workers it's lifetime is tied to our owning WorkerGlobalScope. Regardless, we retain the VM here to be safe.
-    Ref<JSC::VM> m_vm;
+    const Ref<JSC::VM> m_vm;
     WeakPtr<EventLoop> m_eventLoop;
     JSC::MicrotaskQueue m_microtaskQueue;
 

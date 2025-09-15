@@ -967,6 +967,19 @@ PEGetPlatformEpoch(void)
 	}
 }
 
+#if defined(__arm64__)
+__attribute__((noinline))
+static void
+force_hard_hang_if_transaction_pending(void)
+{
+	/*
+	 * Intentionally force a hang if all CPUs cannot complete it
+	 * so that we get an AP watchdog hang *here*  instead of later in the panic flow.
+	 */
+	arm64_sync_tlb(true);
+}
+#endif // defined(__arm64__)
+
 /* Handle necessary platform specific actions prior to panic */
 void
 PEInitiatePanic(void)
@@ -977,7 +990,7 @@ PEInitiatePanic(void)
 	 * collection flow rather than hanging late in panic (see rdar://58062030)
 	 */
 	flush_mmu_tlb_entries_async(0, PAGE_SIZE, PAGE_SIZE, true, true);
-	arm64_sync_tlb(true);
+	force_hard_hang_if_transaction_pending();
 #endif // defined(__arm64__)
 }
 

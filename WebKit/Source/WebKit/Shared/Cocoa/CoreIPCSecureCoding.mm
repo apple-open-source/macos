@@ -33,6 +33,8 @@
 #import "WKCrashReporter.h"
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/cocoa/NSStringExtras.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/StringHash.h>
 
 namespace WebKit {
@@ -47,16 +49,15 @@ static std::unique_ptr<HashSet<String>>& internalClassNamesExemptFromSecureCodin
         if (isInAuxiliaryProcess())
             return;
 
-        NSArray *array = [[NSUserDefaults standardUserDefaults] arrayForKey:@"WebKitCrashOnSecureCodingWithExemptClassesKey"];
+        RetainPtr<NSArray> array = [[NSUserDefaults standardUserDefaults] arrayForKey:@"WebKitCrashOnSecureCodingWithExemptClassesKey"];
         if (!array)
             return;
 
         exemptClassNames.get() = WTF::makeUnique<HashSet<String>>();
 
-        for (id value in array) {
-            if (![value isKindOfClass:[NSString class]])
-                continue;
-            exemptClassNames.get()->add((NSString *)value);
+        for (id value in array.get()) {
+            if (RetainPtr string = dynamic_objc_cast<NSString>(value))
+                exemptClassNames.get()->add(string.get());
         }
     });
 
@@ -68,7 +69,7 @@ const HashSet<String>* classNamesExemptFromSecureCodingCrash()
     return internalClassNamesExemptFromSecureCodingCrash().get();
 }
 
-void applyProcessCreationParameters(const AuxiliaryProcessCreationParameters& parameters)
+void applyProcessCreationParameters(AuxiliaryProcessCreationParameters&& parameters)
 {
     RELEASE_ASSERT(isInAuxiliaryProcess());
 
@@ -92,12 +93,12 @@ bool conformsToWebKitSecureCoding(id object)
 }
 
 #if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
-NO_RETURN static void crashWithClassName(Class objectClass)
+[[noreturn]] static void crashWithClassName(Class objectClass)
 {
     WebKit::logAndSetCrashLogMessage("NSSecureCoding path used for unexpected object"_s);
 
     std::array<uint64_t, 6> values { 0, 0, 0, 0, 0, 0 };
-    strncpy(reinterpret_cast<char*>(values.data()), NSStringFromClass(objectClass).UTF8String, sizeof(values));
+    memcpySpan(asMutableByteSpan(std::span { values }), span(NSStringFromClass(objectClass)));
     CRASH_WITH_INFO(values[0], values[1], values[2], values[3], values[4], values[5]);
 }
 

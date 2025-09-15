@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "LoaderMalloc.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>

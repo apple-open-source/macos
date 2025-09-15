@@ -96,7 +96,7 @@ private:
 
     // Called by writePropertyList.
     // Returns the buffer that the writer should write into.
-    virtual UInt8* buffer(size_t) = 0;
+    virtual std::span<UInt8> buffer(size_t) = 0;
 
     friend class BinaryPropertyListPlan;
     friend class BinaryPropertyListSerializer;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,9 +63,9 @@ public:
     void addObserver(FrameLoadStateObserver&);
     void removeObserver(FrameLoadStateObserver&);
 
-    void didStartProvisionalLoad(const URL&);
-    void didExplicitOpen(const URL&);
-    void didReceiveServerRedirectForProvisionalLoad(const URL&);
+    void didStartProvisionalLoad(URL&&);
+    void didExplicitOpen(URL&&);
+    void didReceiveServerRedirectForProvisionalLoad(URL&&);
     void didFailProvisionalLoad();
     void didSuspend();
 
@@ -73,11 +73,11 @@ public:
     void didFinishLoad();
     void didFailLoad();
 
-    void didSameDocumentNotification(const URL&);
+    void didSameDocumentNotification(URL&&);
 
     State state() const { return m_state; }
     const URL& url() const { return m_url; }
-    void setURL(const URL&);
+    void setURL(URL&&);
     const URL& provisionalURL() const { return m_provisionalURL; }
 
     void setUnreachableURL(const URL&);
@@ -86,7 +86,7 @@ public:
     IsMainFrame isMainFrame() const { return m_isMainFrame; }
 
 private:
-    void forEachObserver(const Function<void(FrameLoadStateObserver&)>&);
+    void forEachObserver(NOESCAPE const Function<void(FrameLoadStateObserver&)>&);
 
     const IsMainFrame m_isMainFrame;
     State m_state { State::Finished };

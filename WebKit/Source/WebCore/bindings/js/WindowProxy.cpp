@@ -94,9 +94,8 @@ void WindowProxy::detachFromFrame()
 void WindowProxy::replaceFrame(Frame& frame)
 {
     ASSERT(m_frame);
-    ASSERT(is<LocalFrame>(m_frame) != is<LocalFrame>(frame));
     m_frame = frame;
-    setDOMWindow(frame.window());
+    setDOMWindow(frame.protectedWindow().get());
 }
 
 void WindowProxy::destroyJSWindowProxy(DOMWrapperWorld& world)
@@ -115,7 +114,7 @@ JSWindowProxy& WindowProxy::createJSWindowProxy(DOMWrapperWorld& world)
 
     VM& vm = world.vm();
 
-    Strong<JSWindowProxy> jsWindowProxy(vm, &JSWindowProxy::create(vm, *m_frame->window(), world));
+    Strong<JSWindowProxy> jsWindowProxy(vm, &JSWindowProxy::create(vm, *m_frame->protectedWindow().get(), world));
     m_jsWindowProxies->add(&world, jsWindowProxy);
     world.didCreateWindowProxy(this);
     return *jsWindowProxy.get();
@@ -139,8 +138,8 @@ JSWindowProxy& WindowProxy::createJSWindowProxyWithInitializedScript(DOMWrapperW
 
     JSLockHolder lock(world.vm());
     auto& windowProxy = createJSWindowProxy(world);
-    if (auto* localFrame = dynamicDowncast<LocalFrame>(*m_frame))
-        localFrame->script().initScriptForWindowProxy(windowProxy);
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(*m_frame))
+        localFrame->checkedScript()->initScriptForWindowProxy(windowProxy);
     return windowProxy;
 }
 
@@ -186,13 +185,13 @@ void WindowProxy::setDOMWindow(DOMWindow* newDOMWindow)
         windowProxy->setWindow(*newDOMWindow);
 
         ScriptController* scriptController = nullptr;
-        Page* page = m_frame->page();
+        RefPtr page = m_frame->page();
         if (auto* localFrame = dynamicDowncast<LocalFrame>(*m_frame))
             scriptController = &localFrame->script();
 
         // ScriptController's m_cacheableBindingRootObject persists between page navigations
         // so needs to know about the new JSDOMWindow.
-        if (auto* cacheableBindingRootObject = scriptController ? scriptController->existingCacheableBindingRootObject() : nullptr)
+        if (RefPtr cacheableBindingRootObject = scriptController ? scriptController->existingCacheableBindingRootObject() : nullptr)
             cacheableBindingRootObject->updateGlobalObject(windowProxy->window());
 
         windowProxy->attachDebugger(page ? page->debugger() : nullptr);
@@ -211,7 +210,8 @@ void WindowProxy::attachDebugger(JSC::Debugger* debugger)
 
 DOMWindow* WindowProxy::window() const
 {
-    return m_frame ? m_frame->window() : nullptr;
+    RefPtr frame = m_frame.get();
+    return frame ? frame->window() : nullptr;
 }
 
 WindowProxy::ProxyMap WindowProxy::releaseJSWindowProxies()

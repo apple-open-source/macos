@@ -56,12 +56,27 @@ WebExtensionContext::WebExtensionContext()
     webExtensionContexts().add(identifier(), *this);
 }
 
-WebExtensionContextParameters WebExtensionContext::parameters() const
+WebExtensionContextIdentifier WebExtensionContext::privilegedIdentifier() const
+{
+    if (!m_privilegedIdentifier)
+        m_privilegedIdentifier = WebExtensionContextIdentifier::generate();
+    return *m_privilegedIdentifier;
+}
+
+bool WebExtensionContext::isPrivilegedMessage(IPC::Decoder& message) const
+{
+    if (!m_privilegedIdentifier)
+        return false;
+    return m_privilegedIdentifier.value().toRawValue() == message.destinationID();
+}
+
+WebExtensionContextParameters WebExtensionContext::parameters(IncludePrivilegedIdentifier includePrivilegedIdentifier) const
 {
     RefPtr extension = m_extension;
 
     return {
         identifier(),
+        includePrivilegedIdentifier == IncludePrivilegedIdentifier::Yes ? std::optional(privilegedIdentifier()) : std::nullopt,
         baseURL(),
         uniqueIdentifier(),
         unsupportedAPIs(),

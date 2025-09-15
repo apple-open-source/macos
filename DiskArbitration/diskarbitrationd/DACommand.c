@@ -77,6 +77,7 @@ static void __DACommandExecute( char * const *           argv,
                                 UInt32                   options,
                                 uid_t                    userUID,
                                 gid_t                    userGID,
+                                Boolean                  disableEarlyMalloc,
                                 DACommandExecuteCallback callback,
                                 void *                   callbackContext,
                                 int                      filefd )
@@ -166,6 +167,10 @@ static void __DACommandExecute( char * const *           argv,
         /*
          * Run the executable.
          */
+        if ( disableEarlyMalloc )
+        {
+            setenv("MallocXzoneEarlyAlloc", "0", 1);
+        }
         status = posix_spawn(NULL, argv[0], &file_actions, &attr, argv, *_NSGetEnviron());
 
 spawn_destroy:
@@ -466,6 +471,7 @@ void DACommandExecute( CFURLRef                 executable,
                        uid_t                    userUID,
                        gid_t                    userGID,
                        int                      fd,
+                       Boolean                  disableEarlyMalloc,
                        DACommandExecuteCallback callback,
                        void *                   callbackContext,
                        ... )
@@ -538,7 +544,7 @@ void DACommandExecute( CFURLRef                 executable,
      * Run the executable.
      */
 
-    __DACommandExecute( argv, options, userUID, userGID, callback, callbackContext , fd);
+    __DACommandExecute( argv, options, userUID, userGID, disableEarlyMalloc, callback, callbackContext , fd);
 
     /*
      * Release our resources.

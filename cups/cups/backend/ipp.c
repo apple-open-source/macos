@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <os/log.h>
+
 #if defined(HAVE_GSSAPI) && defined(HAVE_XPC)
 #  include <xpc/xpc.h>
 #  define kPMPrintUIToolAgent	"com.apple.printuitool.agent"
@@ -26,7 +28,6 @@
 extern void	xpc_connection_set_target_uid(xpc_connection_t connection,
 		                              uid_t uid);
 #endif /* HAVE_GSSAPI && HAVE_XPC */
-
 
 /*
  * Bits for job-state-reasons we care about...
@@ -397,7 +398,7 @@ main(int  argc,				/* I - Number of command-line args */
 #  endif /* HAVE_XPC */
   }
 #endif /* HAVE_GSSAPI */
-
+  
  /*
   * Get the (final) content type...
   */
@@ -829,21 +830,28 @@ main(int  argc,				/* I - Number of command-line args */
       trust = httpCredentialsGetTrust(creds, hostname);
       httpCredentialsString(creds, credinfo, sizeof(credinfo));
 
-      fprintf(stderr, "DEBUG: %s (%s)\n", trust_msgs[trust], cupsLastErrorString());
-      fprintf(stderr, "DEBUG: Printer credentials: %s\n", credinfo);
+      fprintf(stderr, "DEBUG: %s: %s %s. %s\n", __func__, hostname, trust_msgs[trust], cupsLastErrorString() ? cupsLastErrorString() : "");
+      fprintf(stderr, "DEBUG: %s Printer credentials: %s\n", __func__, credinfo);
 
       if (!httpLoadCredentials(NULL, &lcreds, hostname))
       {
         httpCredentialsString(lcreds, lcredinfo, sizeof(lcredinfo));
-	fprintf(stderr, "DEBUG: Stored credentials: %s\n", lcredinfo);
+        fprintf(stderr, "DEBUG: %s: Found stored credentials for %s: %s\n", __func__, hostname, lcredinfo);
       }
-      else
-        fputs("DEBUG: No stored credentials.\n", stderr);
-
+      else {
+        fprintf(stderr, "DEBUG: %s: No stored credentials for %s.\n", __func__, hostname);
+      }
+      
       update_reasons(NULL, "-cups-pki-invalid,cups-pki-changed,cups-pki-expired,cups-pki-unknown");
       if (trusts[trust])
       {
         update_reasons(NULL, trusts[trust]);
+        
+        // We'll report the error to the user and stop the queue. Forget the old
+        // certificate. Trying to print again will trust the printer's new certicate.
+        if (trust == HTTP_TRUST_CHANGED) {
+          httpDeleteCredentials(hostname);
+        }
         return (CUPS_BACKEND_STOP);
       }
 
@@ -853,8 +861,12 @@ main(int  argc,				/* I - Number of command-line args */
         * Could not load the credentials, let's save the ones we have so we
         * can detect changes...
         */
-
-        httpSaveCredentials(NULL, creds, hostname);
+        int result = httpSaveCredentials(NULL, creds, hostname);
+        if (result) {
+          fprintf(stderr, "DEBUG: %s: Failed to save credentials for %s\n", __func__, hostname);
+        } else {
+          fprintf(stderr, "DEBUG: %s: Saved credentials for %s\n", __func__, hostname);
+        }
       }
 
       httpFreeCredentials(lcreds);
@@ -1579,13 +1591,13 @@ main(int  argc,				/* I - Number of command-line args */
     else if (job_auth == NULL && ipp_status > IPP_STATUS_ERROR_BAD_REQUEST)
       goto cleanup;
   }
-
+  
  /*
   * Then issue the print-job request...
   */
 
   job_id = 0;
-
+  
   while (!job_canceled && copies_remaining > 0)
   {
    /*
@@ -2965,7 +2977,8 @@ static void applyPreset(ipp_t *request, ipp_attribute_t *presets_supported, cons
     // For the other attributes, if the attribute is not already in the request,
     // then add the preset attribute to the request.
     const char *attrName = ippGetName(presets_attr);
-    if (attrName && strcmp(attrName, "preset-name"))
+
+    if (attrName && strcmp(attrName, "preset-name") && strcmp(attrName, "copies"))
     {
       ipp_attribute_t *existing_attr = ippFindAttribute(request, attrName, IPP_TAG_ZERO);
       

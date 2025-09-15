@@ -27,113 +27,12 @@
 #include "AutomationClientWin.h"
 
 #if ENABLE(REMOTE_INSPECTOR)
-#include "APIPageConfiguration.h"
-#include "WKAPICast.h"
+#include "AutomationSessionClientWin.h"
 #include "WebAutomationSession.h"
-#include "WebPageProxy.h"
-#include <WebKit/WKAuthenticationChallenge.h>
-#include <WebKit/WKAuthenticationDecisionListener.h>
-#include <WebKit/WKCredential.h>
-#include <WebKit/WKRetainPtr.h>
-#include <WebKit/WKString.h>
 #include <wtf/RunLoop.h>
-#endif
 
 namespace WebKit {
 
-#if ENABLE(REMOTE_INSPECTOR)
-
-// AutomationSessionClient
-AutomationSessionClient::AutomationSessionClient(const String& sessionIdentifier, const Inspector::RemoteInspector::Client::SessionCapabilities& capabilities)
-    : m_sessionIdentifier(sessionIdentifier)
-    , m_capabilities(capabilities)
-{
-}
-
-void AutomationSessionClient::close(WKPageRef pageRef, const void* clientInfo)
-{
-    auto page = WebKit::toImpl(pageRef);
-    page->setControlledByAutomation(false);
-
-    auto sessionClient = static_cast<AutomationSessionClient*>(const_cast<void*>(clientInfo));
-    sessionClient->releaseWebView(page);
-}
-
-void AutomationSessionClient::didReceiveAuthenticationChallenge(WKPageRef page, WKAuthenticationChallengeRef authenticationChallenge, const void *clientInfo)
-{
-    static_cast<AutomationSessionClient*>(const_cast<void*>(clientInfo))->didReceiveAuthenticationChallenge(page, authenticationChallenge);
-}
-
-void AutomationSessionClient::didReceiveAuthenticationChallenge(WKPageRef page, WKAuthenticationChallengeRef authenticationChallenge)
-{
-    auto decisionListener = WKAuthenticationChallengeGetDecisionListener(authenticationChallenge);
-    if (m_capabilities.acceptInsecureCertificates) {
-        auto username = adoptWK(WKStringCreateWithUTF8CString("accept server trust"));
-        auto password = adoptWK(WKStringCreateWithUTF8CString(""));
-        auto credential = adoptWK(WKCredentialCreate(username.get(), password.get(), kWKCredentialPersistenceNone));
-        WKAuthenticationDecisionListenerUseCredential(decisionListener, credential.get());
-    } else
-        WKAuthenticationDecisionListenerRejectProtectionSpaceAndContinue(decisionListener);
-}
-
-void AutomationSessionClient::requestNewPageWithOptions(WebKit::WebAutomationSession& session, API::AutomationSessionBrowsingContextOptions options, CompletionHandler<void(WebKit::WebPageProxy*)>&& completionHandler)
-{
-    auto pageConfiguration = API::PageConfiguration::create();
-    pageConfiguration->setProcessPool(session.protectedProcessPool());
-
-    RECT r { };
-    Ref newWindow = WebView::create(r, pageConfiguration, 0);
-
-    auto newPage = newWindow->page();
-    newPage->setControlledByAutomation(true);
-
-    WKPageUIClientV0 uiClient = { };
-    uiClient.base.version = 0;
-    uiClient.base.clientInfo = this;
-    uiClient.close = close;
-    WKPageSetPageUIClient(toAPI(newPage), &uiClient.base);
-
-    WKPageNavigationClientV0 navigationClient = { };
-    navigationClient.base.version = 0;
-    navigationClient.base.clientInfo = this;
-    navigationClient.didReceiveAuthenticationChallenge = didReceiveAuthenticationChallenge;
-    WKPageSetPageNavigationClient(toAPI(newPage), &navigationClient.base);
-
-    retainWebView(WTFMove(newWindow));
-
-    completionHandler(newPage);
-}
-
-void AutomationSessionClient::didDisconnectFromRemote(WebKit::WebAutomationSession& session)
-{
-    session.setClient(nullptr);
-
-    RunLoop::main().dispatch([&session] {
-        auto processPool = session.protectedProcessPool();
-        if (processPool) {
-            processPool->setAutomationSession(nullptr);
-            processPool->setPagesControlledByAutomation(false);
-        }
-    });
-}
-
-void AutomationSessionClient::retainWebView(Ref<WebView>&& webView)
-{
-    m_webViews.add(WTFMove(webView));
-}
-
-void AutomationSessionClient::releaseWebView(WebPageProxy* page)
-{
-    m_webViews.removeIf([&](auto& view) {
-        if (view->page() == page) {
-            view->close();
-            return true;
-        }
-        return false;
-    });
-}
-
-// AutomationClient
 AutomationClient::AutomationClient(WebProcessPool& processPool)
     : m_processPool(processPool)
 {
@@ -165,16 +64,17 @@ void AutomationClient::requestAutomationSession(const String& sessionIdentifier,
 
 void AutomationClient::closeAutomationSession()
 {
-    RunLoop::main().dispatch([this] {
+    RunLoop::mainSingleton().dispatch([this] {
         auto processPool = protectedProcessPool();
         if (!processPool || !processPool->automationSession())
             return;
 
         processPool->automationSession()->setClient(nullptr);
         processPool->setAutomationSession(nullptr);
+        processPool->setPagesControlledByAutomation(false);
     });
 }
 
-#endif
-
 } // namespace WebKit
+
+#endif // ENABLE(REMOTE_INSPECTOR)

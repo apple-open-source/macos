@@ -3,7 +3,7 @@
 /*
 ********************************************************************************
 *   Copyright (C) 1997-2016, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 ********************************************************************************
 *
 * File DECIMFMT.H

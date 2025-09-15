@@ -149,7 +149,7 @@ void webkit_uri_request_set_uri(WebKitURIRequest* request, const char* uri)
     if (url == request->priv->resourceRequest.url())
         return;
 
-    request->priv->resourceRequest.setURL(url);
+    request->priv->resourceRequest.setURL(WTFMove(url));
 
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GTK/WPE port
     g_object_notify_by_pspec(G_OBJECT(request), sObjProperties[PROP_URI]);

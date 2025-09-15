@@ -64,6 +64,9 @@ __END_DECLS
 #define kIOHIDManagerUserAccessProtectedEntitlement         "com.apple.hid.manager.user-access-protected"
 #define kIOHIDManagerUserAccessInterfaceRematchEntitlement  "com.apple.hid.manager.user-access-interface-rematch"
 
+/** Process serving as the event server has access to devices, e.g. to interact from within a HID session or service filter plugin */
+#define kIOHIDEventSystemServerEntitlement                  "com.apple.iohideventsystem.server"
+
 #define HIDLibUserClientLogFault(fmt, ...)   HIDLogFault("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDLibUserClientLogError(fmt, ...)   HIDLogError("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDLibUserClientLog(fmt, ...)        HIDLog("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
@@ -300,7 +303,15 @@ bool IOHIDLibUserClient::initWithTask(task_t owningTask, void * /* security_id *
         entitlement->release();
         clientEntitlements |= kHIDLibUserClientUserAccessProtectedEntitlement;
     }
-    
+
+    // IOHIDEventServer has protected access.
+    entitlement = copyClientEntitlement(owningTask, kIOHIDEventSystemServerEntitlement);
+    if (entitlement) {
+        _protectedAccessClient |= (entitlement == kOSBooleanTrue);
+        entitlement->release();
+        clientEntitlements |= kHIDLibUserClientUserAccessProtectedEntitlement;
+    }
+
     
     entitlement = copyClientEntitlement(owningTask, kIOHIDManagerUserAccessPrivilegedEntitlement);
     
@@ -731,6 +742,11 @@ IOReturn IOHIDLibUserClient::close()
 
     require_quiet(fNub && fClientOpened, exit);
 
+    // Disable TimeSync on the device if HIDBasicTimeSync crashed or exited abruptly.
+    if (kOSBooleanTrue == fNub->getProperty(kIOHIDTimeSyncEnabledKey)) {
+        fNub->setProperty(kIOHIDTimeSyncEnabledKey, kOSBooleanFalse);
+    }
+
     fNub->close(this, fCachedOptionBits);
     setValid(false);
 
@@ -893,6 +909,13 @@ IOReturn IOHIDLibUserClient::setProperties(OSObject *properties)
             ret = fNub->setProperty(kIOHIDDeviceForceInterfaceRematchKey, props->getObject(kIOHIDDeviceForceInterfaceRematchKey)) ? kIOReturnSuccess : kIOReturnError;
         }
         props->removeObject(kIOHIDDeviceForceInterfaceRematchKey);
+        require_quiet(props->getCount(), exit);
+    }
+
+    if (props && props->getObject(kIOHIDTimeSyncEnabledKey)) {
+        ret = fNub->setProperty(kIOHIDTimeSyncEnabledKey,
+            props->getObject(kIOHIDTimeSyncEnabledKey)) ? kIOReturnSuccess : kIOReturnError;
+        props->removeObject(kIOHIDTimeSyncEnabledKey);
         require_quiet(props->getCount(), exit);
     }
 

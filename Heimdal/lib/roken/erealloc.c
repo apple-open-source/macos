@@ -42,6 +42,17 @@
  * Like realloc but never fails.
  */
 
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL
+erealloc_typed (void *ptr, size_t sz, malloc_type_id_t type_id)
+{
+    void *tmp = malloc_type_realloc (ptr, sz, type_id);
+
+    if (tmp == NULL && sz != 0)
+	errx (1, "realloc %lu failed", (unsigned long)sz);
+    return tmp;
+}
+#else //defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL
 erealloc (void *ptr, size_t sz)
 {
@@ -51,3 +62,4 @@ erealloc (void *ptr, size_t sz)
 	errx (1, "realloc %lu failed", (unsigned long)sz);
     return tmp;
 }
+#endif //defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED

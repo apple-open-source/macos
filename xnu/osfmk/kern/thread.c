@@ -185,9 +185,12 @@ ZONE_DEFINE_ID(ZONE_ID_THREAD_RO, "threads_ro", struct thread_ro, ZC_READONLY);
 
 static void thread_port_with_flavor_no_senders(ipc_port_t, mach_port_mscount_t);
 
-IPC_KOBJECT_DEFINE(IKOT_THREAD_CONTROL);
+IPC_KOBJECT_DEFINE(IKOT_THREAD_CONTROL,
+    .iko_op_movable_send = true,  /* see ipc_should_mark_immovable_send */
+    .iko_op_label_free = ipc_kobject_label_free);
 IPC_KOBJECT_DEFINE(IKOT_THREAD_READ,
-    .iko_op_no_senders = thread_port_with_flavor_no_senders);
+    .iko_op_no_senders = thread_port_with_flavor_no_senders,
+    .iko_op_label_free = ipc_kobject_label_free);
 IPC_KOBJECT_DEFINE(IKOT_THREAD_INSPECT,
     .iko_op_no_senders = thread_port_with_flavor_no_senders);
 
@@ -244,7 +247,7 @@ static_assert(CTID_MAX_THREAD_NUMBER <= COMPACT_ID_MAX);
 __startup_data
 static struct thread init_thread;
 static SECURITY_READ_ONLY_LATE(uint32_t) ctid_nonce;
-COMPACT_ID_TABLE_DEFINE(static, ctid_table);
+COMPACT_ID_TABLE_DEFINE(__static_testable, ctid_table);
 
 __startup_func
 static void
@@ -263,9 +266,9 @@ STARTUP(ZALLOC, STARTUP_RANK_FOURTH, thread_zone_startup);
 static void thread_deallocate_enqueue(thread_t thread);
 static void thread_deallocate_complete(thread_t thread);
 
-static void ctid_table_remove(thread_t thread);
-static void ctid_table_add(thread_t thread);
-static void ctid_table_init(void);
+__static_testable void ctid_table_remove(thread_t thread);
+__static_testable void ctid_table_add(thread_t thread);
+__static_testable void ctid_table_init(void);
 
 #ifdef MACH_BSD
 extern void proc_exit(void *);
@@ -327,7 +330,8 @@ void __attribute__((noinline)) SENDING_NOTIFICATION__TASK_HAS_TOO_MANY_THREADS(t
 
 os_refgrp_decl(static, thread_refgrp, "thread", NULL);
 
-static inline void
+__static_testable __inline_testable void init_thread_from_template(thread_t thread);
+__static_testable __inline_testable void
 init_thread_from_template(thread_t thread)
 {
 	/*
@@ -1110,11 +1114,7 @@ thread_terminate_queue_invoke(mpsc_queue_chain_t e,
 		/*
 		 * Clear the port low two bits to tell pthread that thread is gone.
 		 */
-#ifndef NO_PORT_GEN
-		kport &= ~MACH_PORT_MAKE(0, IE_BITS_GEN_MASK + IE_BITS_GEN_ONE);
-#else
-		kport |= MACH_PORT_MAKE(0, ~(IE_BITS_GEN_MASK + IE_BITS_GEN_ONE));
-#endif
+		kport &= ~ipc_entry_name_mask(MACH_PORT_NULL);
 		(void)copyoutmap_atomic32(task->map, kport,
 		    uthread_joiner_address(uth));
 		uthread_joiner_wake(task, uth);
@@ -1286,13 +1286,8 @@ __options_decl(thread_create_internal_options_t, uint32_t, {
 	TH_OPTION_NOSUSP        = 0x02,
 	TH_OPTION_WORKQ         = 0x04,
 	TH_OPTION_MAINTHREAD    = 0x08,
+	TH_OPTION_AIO_WORKQ     = 0x10,
 });
-
-void
-main_thread_set_immovable_pinned(thread_t thread)
-{
-	ipc_main_thread_set_immovable_pinned(thread);
-}
 
 /*
  * Create a new thread.
@@ -1310,7 +1305,6 @@ thread_create_internal(
 	thread_t                                *out_thread)
 {
 	thread_t                  new_thread;
-	ipc_thread_init_options_t init_options = IPC_THREAD_INIT_NONE;
 	struct thread_ro          tro_tpl = { };
 	bool first_thread = false;
 	kern_return_t kr = KERN_FAILURE;
@@ -1355,10 +1349,6 @@ thread_create_internal(
 		init_thread_from_template(new_thread);
 	}
 
-	if (options & TH_OPTION_MAINTHREAD) {
-		init_options |= IPC_THREAD_INIT_MAINTHREAD;
-	}
-
 	os_ref_init_count_raw(&new_thread->ref_count, &thread_refgrp, 2);
 	machine_thread_create(new_thread, parent_task, first_thread);
 
@@ -1366,7 +1356,7 @@ thread_create_internal(
 
 #ifdef MACH_BSD
 	uthread_init(parent_task, get_bsdthread_info(new_thread),
-	    &tro_tpl, (options & TH_OPTION_WORKQ) != 0);
+	    &tro_tpl, (options & (TH_OPTION_WORKQ | TH_OPTION_AIO_WORKQ)) != 0);
 	if (!task_is_a_corpse(parent_task)) {
 		/*
 		 * uthread_init will set tro_cred (with a +1)
@@ -1381,7 +1371,7 @@ thread_create_internal(
 
 	lck_mtx_init(&new_thread->mutex, &thread_lck_grp, LCK_ATTR_NULL);
 
-	ipc_thread_init(parent_task, new_thread, &tro_tpl, init_options);
+	ipc_thread_init(parent_task, new_thread, &tro_tpl);
 
 	thread_ro_create(parent_task, new_thread, &tro_tpl);
 
@@ -1535,7 +1525,7 @@ thread_create_internal(
 	sched_set_thread_base_priority(new_thread, new_priority);
 
 #if defined(CONFIG_SCHED_TIMESHARE_CORE)
-	new_thread->sched_stamp = sched_tick;
+	new_thread->sched_stamp = os_atomic_load(&sched_tick, relaxed);
 #if CONFIG_SCHED_CLUTCH
 	new_thread->pri_shift = sched_clutch_thread_pri_shift(new_thread, new_thread->th_sched_bucket);
 #else /* CONFIG_SCHED_CLUTCH */
@@ -1733,12 +1723,23 @@ thread_create_waiting_internal(
 
 	thread_mtx_lock(thread);
 	thread_set_pending_block_hint(thread, block_hint);
-	if (options & TH_OPTION_WORKQ) {
+
+	switch (options & (TH_OPTION_WORKQ | TH_OPTION_AIO_WORKQ | TH_OPTION_MAINTHREAD)) {
+	case TH_OPTION_WORKQ:
 		thread->static_param = true;
 		event = workq_thread_init_and_wq_lock(task, thread);
-	} else if (options & TH_OPTION_MAINTHREAD) {
+		break;
+	case TH_OPTION_AIO_WORKQ:
+		thread->static_param = true;
+		event = aio_workq_thread_init_and_wq_lock(task, thread);
+		break;
+	case TH_OPTION_MAINTHREAD:
 		wait_interrupt = THREAD_UNINT;
+		break;
+	default:
+		panic("Invalid thread options 0x%x", options);
 	}
+
 	thread_start_in_assert_wait(thread,
 	    assert_wait_queue(event), CAST_EVENT64_T(event),
 	    wait_interrupt);
@@ -1893,6 +1894,24 @@ thread_create_workq_waiting(
 	return thread_create_waiting_internal(task, continuation, NULL,
 	           is_permanently_bound ? kThreadWaitParkedBoundWorkQueue : kThreadWaitParkedWorkQueue,
 	           options, new_thread);
+}
+
+kern_return_t
+thread_create_aio_workq_waiting(
+	task_t              task,
+	thread_continue_t   continuation,
+	thread_t            *new_thread)
+{
+	/*
+	 * Create thread, but don't pin control port just yet, in case someone calls
+	 * task_threads() and deallocates pinned port before kernel copyout happens,
+	 * which will result in pinned port guard exception. Instead, pin and copyout
+	 * atomically during workq_setup_and_run().
+	 */
+	int options = TH_OPTION_AIO_WORKQ | TH_OPTION_NOSUSP;
+
+	return thread_create_waiting_internal(task, continuation, NULL,
+	           kThreadWaitParkedWorkQueue, options, new_thread);
 }
 
 /*
@@ -2572,7 +2591,6 @@ mach_exception_ast(thread_t t)
 		};
 		exit_with_mach_exception(bsd_info, info, flags);
 	}
-
 }
 
 static void
@@ -2695,7 +2713,7 @@ SENDING_NOTIFICATION__THIS_THREAD_IS_CONSUMING_TOO_MUCH_CPU(void)
 			return;
 		}
 
-		if (disable_exc_resource_during_audio && audio_active) {
+		if (disable_exc_resource_during_audio && audio_active && task->task_jetsam_realtime_audio) {
 			printf("process %s[%d] thread %llu caught burning CPU! "
 			    "EXC_RESOURCE & termination suppressed due to audio playback\n",
 			    procname, pid, tid);
@@ -2767,7 +2785,7 @@ SENDING_NOTIFICATION__TASK_HAS_TOO_MANY_THREADS(task_t task, int thread_count)
 		return;
 	}
 
-	if (disable_exc_resource_during_audio && audio_active) {
+	if (disable_exc_resource_during_audio && audio_active && task->task_jetsam_realtime_audio) {
 		printf("process %s[%d] crossed thread count high watermark (%d), EXC_RESOURCE "
 		    "suppressed due to audio playback.\n", procname, pid, thread_count);
 		return;
@@ -3096,6 +3114,12 @@ uthread_tid(
 		return thread_tid(get_machthread(uth));
 	}
 	return 0;
+}
+
+uint64_t
+thread_c_switch(thread_t thread)
+{
+	return thread != THREAD_NULL ? thread->c_switch : 0;
 }
 
 uint16_t
@@ -4000,9 +4024,7 @@ thread_kern_get_kernel_maxpri(void)
  *	should be deallocated here when there are no senders remaining.
  */
 static void
-thread_port_with_flavor_no_senders(
-	ipc_port_t          port,
-	mach_port_mscount_t mscount __unused)
+thread_port_with_flavor_no_senders(ipc_port_t port, mach_port_mscount_t mscount)
 {
 	thread_ro_t tro;
 	thread_t thread;
@@ -4010,11 +4032,12 @@ thread_port_with_flavor_no_senders(
 	ipc_kobject_type_t kotype;
 
 	ip_mq_lock(port);
-	if (port->ip_srights > 0) {
+	if (!ipc_kobject_is_mscount_current_locked(port, mscount)) {
 		ip_mq_unlock(port);
 		return;
 	}
-	kotype = ip_kotype(port);
+
+	kotype = ip_type(port);
 	assert((IKOT_THREAD_READ == kotype) || (IKOT_THREAD_INSPECT == kotype));
 	thread = ipc_kobject_get_locked(port, kotype);
 	if (thread != THREAD_NULL) {
@@ -4050,20 +4073,18 @@ thread_port_with_flavor_no_senders(
 	 * this notification being generated and actually being handled here.
 	 */
 	tro = get_thread_ro(thread);
-	if (!ip_active(port) ||
-	    tro->tro_ports[flavor] != port ||
-	    port->ip_srights > 0) {
+	if (tro->tro_ports[flavor] != port ||
+	    !ipc_kobject_is_mscount_current_locked(port, mscount)) {
 		ip_mq_unlock(port);
 		thread_mtx_unlock(thread);
 		thread_deallocate(thread);
 		return;
 	}
 
-	assert(tro->tro_ports[flavor] == port);
 	zalloc_ro_clear_field(ZONE_ID_THREAD_RO, tro, tro_ports[flavor]);
 	thread_mtx_unlock(thread);
 
-	ipc_kobject_dealloc_port_and_unlock(port, 0, kotype);
+	ipc_kobject_dealloc_port_and_unlock(port, mscount, kotype);
 
 	thread_deallocate(thread);
 }
@@ -4100,7 +4121,7 @@ thread_self_region_page_shift_set(
 }
 
 __startup_func
-static void
+__static_testable void
 ctid_table_init(void)
 {
 	/*
@@ -4152,7 +4173,7 @@ ctid_table_remove(thread_t thread)
 thread_t
 ctid_get_thread_unsafe(ctid_t ctid)
 {
-	if (ctid && compact_id_slab_valid(&ctid_table, ctid_unmangle(ctid))) {
+	if (ctid && ctid <= CTID_MAX_THREAD_NUMBER && compact_id_slab_valid(&ctid_table, ctid_unmangle(ctid))) {
 		return *compact_id_resolve(&ctid_table, ctid_unmangle(ctid));
 	}
 	return THREAD_NULL;

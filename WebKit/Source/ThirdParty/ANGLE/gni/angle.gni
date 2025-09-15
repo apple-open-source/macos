@@ -5,8 +5,6 @@
 import("//build_overrides/angle.gni")
 
 declare_args() {
-  is_ggp = false
-
   # Extract native libs in ANGLE apk. Useful for flamegraph generation.
   angle_extract_native_libs = false
 
@@ -25,7 +23,9 @@ declare_args() {
   # Don't build dEQP by default.
   build_angle_deqp_tests = false
 
-  build_angle_end2end_tests_aosp = false
+  # Build the ANGLE end2end tests as a shared library. This shared library can (for example) be
+  # loaded by an Android APK to execute the end2end tests outside of the normal GTest framework.
+  build_angle_end2end_tests_library = false
 
   # List of traces for benchmark mode
   angle_standalone_benchmark_traces = []
@@ -70,10 +70,9 @@ if (angle_has_build) {
 
   declare_args() {
     angle_use_gbm = ozone_platform_gbm
-    angle_use_x11 = ozone_platform_x11 && !is_ggp && (is_linux || is_chromeos)
-    angle_use_wayland =
-        ozone_platform_wayland && !is_ggp && is_linux && !is_castos
-    angle_use_vulkan_display = (is_linux || is_chromeos) && !is_ggp
+    angle_use_x11 = ozone_platform_x11 && (is_linux || is_chromeos)
+    angle_use_wayland = ozone_platform_wayland && is_linux && !is_castos
+    angle_use_vulkan_display = is_linux || is_chromeos
   }
 } else {
   declare_args() {
@@ -83,8 +82,8 @@ if (angle_has_build) {
     is_lsan = false
     build_with_chromium = false
     dcheck_always_on = false
-    angle_use_x11 = (is_linux || is_chromeos) && !is_ggp
-    angle_use_wayland = is_linux && !is_ggp
+    angle_use_x11 = is_linux || is_chromeos
+    angle_use_wayland = is_linux
     use_ozone = false
     ozone_platform_gbm = false
     ozone_platform_wayland = false
@@ -95,7 +94,7 @@ if (angle_has_build) {
   }
 
   declare_args() {
-    angle_use_vulkan_display = (is_linux || is_chromeos) && !is_ggp
+    angle_use_vulkan_display = is_linux || is_chromeos
   }
 }
 
@@ -116,7 +115,7 @@ declare_args() {
   if (current_cpu == "arm64" || current_cpu == "x64" ||
       current_cpu == "mips64el" || current_cpu == "s390x" ||
       current_cpu == "ppc64" || current_cpu == "loong64" ||
-      current_cpu == "riscv64") {
+      current_cpu == "riscv64" || current_cpu == "arm64e") {
     angle_64bit_current_cpu = true
   } else if (current_cpu == "arm" || current_cpu == "x86" ||
              current_cpu == "mipsel" || current_cpu == "s390" ||
@@ -143,9 +142,7 @@ declare_args() {
   if (!is_android) {
     ndk_api_level_at_least_26 = false
   } else {
-    ndk_api_level_at_least_26 =
-        (!angle_64bit_current_cpu && android32_ndk_api_level >= 26) ||
-        (angle_64bit_current_cpu && android64_ndk_api_level >= 26)
+    ndk_api_level_at_least_26 = android_ndk_api_level >= 26
   }
 
   # Vulkan loader is statically linked on Mac. http://anglebug.com/40096682
@@ -186,15 +183,14 @@ declare_args() {
   angle_enable_gl =
       (ozone_platform_gbm || ozone_platform_wayland || !is_linux ||
        ((angle_use_x11 && !is_chromeos) || angle_use_wayland || is_castos)) &&
-      !is_fuchsia && !angle_is_winuwp && !is_ggp && !is_win_arm64 && !is_ios &&
-      !is_desktop_android
+      !is_fuchsia && !angle_is_winuwp && !is_win_arm64 && !is_ios
 
   angle_enable_vulkan =
       angle_has_build &&
       ((is_win && !angle_is_winuwp) ||
        ((is_linux || is_chromeos) &&
         (angle_use_x11 || angle_use_wayland || angle_use_vulkan_display)) ||
-       is_android || is_fuchsia || is_ggp || is_mac)
+       is_android || is_fuchsia || is_mac)
 
   # When set to true, ANGLE will not use VK_KHR_surface and VK_KHR_swapchain
   # extensions. Content can be rendered only off-screen.
@@ -247,8 +243,7 @@ if (!defined(checkout_angle_mesa)) {
 declare_args() {
   # Currently SwiftShader's Vulkan front-end doesn't build on Android.
   # Disabled by default on MSVC because of compiler warnings/errors.
-  angle_enable_swiftshader =
-      angle_enable_vulkan && !is_android && !is_ggp && is_clang
+  angle_enable_swiftshader = angle_enable_vulkan && !is_android && is_clang
 
   # Translator backend support:
   angle_enable_hlsl = angle_enable_d3d9 || angle_enable_d3d11
@@ -257,6 +252,7 @@ declare_args() {
   angle_enable_trace = false
   angle_enable_trace_android_logcat = false
   angle_enable_trace_events = false
+  angle_enable_platform_trace_events = build_with_chromium
   angle_dump_pipeline_cache_graph = false
 
   angle_always_log_info = false
@@ -309,6 +305,9 @@ declare_args() {
   angle_enable_overlay = angle_enable_vulkan && angle_debug_layers_enabled
 
   angle_build_mesa = false
+
+  # Android platform's addTraceEvent ignores the timestamp and time() is a relatively heavy call.
+  angle_trace_events_ignore_timestamp = is_android && angle_standalone
 }
 
 declare_args() {
@@ -538,7 +537,8 @@ template("angle_static_library") {
   }
 }
 
-if (angle_standalone || build_with_chromium || build_angle_end2end_tests_aosp) {
+if (angle_standalone || build_with_chromium ||
+    build_angle_end2end_tests_library) {
   template("angle_test") {
     test(target_name) {
       forward_variables_from(invoker,
@@ -615,8 +615,7 @@ if (angle_standalone || build_with_chromium || build_angle_end2end_tests_aosp) {
         }
       }
 
-      if ((is_linux && !is_chromeos) ||
-          (build_with_chromium && is_chromeos_lacros && !is_chromeos_device)) {
+      if (is_linux && !is_chromeos) {
         use_xvfb = true
       }
 

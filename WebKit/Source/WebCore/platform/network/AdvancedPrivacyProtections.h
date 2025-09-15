@@ -39,7 +39,7 @@ enum class AdvancedPrivacyProtections : uint16_t {
     FingerprintingProtections = 1 << 6,
     EnhancedNetworkPrivacy = 1 << 7,
     LinkDecorationFiltering = 1 << 8,
-    ScriptTelemetry = 1 << 9,
+    ScriptTrackingPrivacy = 1 << 9,
     FailClosedForAllHosts = 1 << 10,
 };
 

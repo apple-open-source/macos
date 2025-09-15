@@ -27,7 +27,6 @@
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #import "keychain/SigninMetrics/OctagonSignPosts.h"
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import <CloudServices/SecureBackup.h>
@@ -371,9 +370,9 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     [self.otControl waitForOctagonUpgrade:self.controlArguments reply:^(NSError *error) {
         if (error){
             secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+            [eventS sendMetricWithResult:NO error:error];
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
     }];
 }
@@ -409,7 +408,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         [self setNextStateError:localError complete:complete];
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return;
     }
 
@@ -421,14 +420,14 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         subTaskSuccess = true;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
 
         complete(false, @{ PairingPacketKey_InitialCredentialsFromAcceptor : @YES,
                            PairingPacketKey_OctagonData : @{PairingPacketKey_Version : @"O"}}, NULL);
         return;
     } else if (self.sessionSupportsOctagon && self.testFailOctagon) {
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
         complete(true, nil, NULL);
         return;
     } else if (self.sessionSupportsOctagon && !self.sessionSupportsSOS) {
@@ -439,7 +438,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         
         subTaskSuccess = true;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
         complete(false, @{ PairingPacketKey_OctagonData : @{PairingPacketKey_Version : @"O"} }, NULL);
         return;
     }
@@ -450,7 +449,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         };
         subTaskSuccess = true;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage1), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
         complete(false, @{ PairingPacketKey_InitialCredentialsFromAcceptor : @YES }, NULL);
     }
 }
@@ -491,7 +490,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             OctagonSignpostEnd(stashSignPost, OctagonSignpostNamePairingChannelInitiatorStashAccountCredential, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorStashAccountCredential), (int)stashSuccess);
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage2), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+            [eventS sendMetricWithResult:NO error:error];
             complete(true, NULL, error);
         }] stashAccountCredential:credential
          altDSID:self.peerVersionContext.altDSID
@@ -510,7 +509,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
                 if(!self.sessionSupportsOctagon){
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage2), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+                    [eventS sendMetricWithResult:NO error:error];
                     complete(true, NULL, error);
                     return;
                 } else {
@@ -519,7 +518,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                             subTaskSuccess = true;
                         }
                         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage2), (int)subTaskSuccess);
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(subTaskSuccess ? YES : NO) error:retError];
+                        [eventS sendMetricWithResult:(subTaskSuccess ? YES : NO) error:retError];
                         complete(retComplete, outdict, retError);
                     }];
                 }
@@ -529,7 +528,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                         subTaskSuccess = true;
                     }
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage2), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(subTaskSuccess ? YES : NO) error:retError];
+                    [eventS sendMetricWithResult:(subTaskSuccess ? YES : NO) error:retError];
                     complete(retSuccess, outdict, retError);
                 }];
             }
@@ -540,7 +539,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                 subTaskSuccess = true;
             }
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage2), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(subTaskSuccess ? YES : NO) error:retError];
+            [eventS sendMetricWithResult:(subTaskSuccess ? YES : NO) error:retError];
             complete(retComplete, outdict, retError);
         }];
         return;
@@ -717,7 +716,7 @@ finishPairing:(BOOL*)finishPairing
         if (rpcError || self.testFailOctagon) {
             secerror("ot-pairing: failed to create %d message: %@", self.counter, rpcError);
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:rpcError];
+            [eventS sendMetricWithResult:NO error:rpcError];
             localError = rpcError;
             return;
         } else {
@@ -730,14 +729,14 @@ finishPairing:(BOOL*)finishPairing
                 };
                 subTaskSuccess = true;
                 OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                [eventS sendMetricWithResult:YES error:nil];
                 localReply = @{}.mutableCopy;
                 *finishPairing = NO;
             }
             else {
                 subTaskSuccess = true;
                 OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                [eventS sendMetricWithResult:YES error:nil];
                 *finishPairing = YES;
             }
         }
@@ -778,7 +777,7 @@ finishPairing:(BOOL*)finishPairing
         if(![circleBlob isKindOfClass:[NSData class]]) {
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
             NSError* localError = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorTypeConfusion userInfo:NULL];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             complete(true, NULL, localError);
             return;
         }
@@ -789,7 +788,7 @@ finishPairing:(BOOL*)finishPairing
         [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             OctagonSignpostEnd(joinSignPost, OctagonSignpostNamePairingChannelInitiatorJoinSOS, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorJoinSOS), (int)joinSuccess);
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+            [eventS sendMetricWithResult:NO error:error];
             complete(true, NULL, error);
         }] joinCircleWithBlob:circleBlob altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES version:kPiggyV1 complete:^(bool success, NSError *error){
             if (success && error == nil) {
@@ -803,7 +802,7 @@ finishPairing:(BOOL*)finishPairing
                 } else {
                     secnotice("pairing", "failed to join circle with blob");
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+                    [eventS sendMetricWithResult:NO error:error];
                     complete(true, NULL, NULL);
                 }
             } else {
@@ -824,13 +823,13 @@ finishPairing:(BOOL*)finishPairing
                         
                         subTaskSuccess = true;
                         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                        [eventS sendMetricWithResult:YES error:nil];
                         complete(false, @{}, NULL);
                     } 
                     else {
                         subTaskSuccess = true;
                         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                        [eventS sendMetricWithResult:YES error:nil];
                         complete(true, NULL, NULL);
                     }
                 }
@@ -844,7 +843,7 @@ finishPairing:(BOOL*)finishPairing
             NSError* localError = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL];
             [self setNextStateError:localError complete:complete];
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             return;
         }
         OTPairingMessage *pairingMessage = [[OTPairingMessage alloc] initWithData:octagonData];
@@ -853,7 +852,7 @@ finishPairing:(BOOL*)finishPairing
             NSError* localError = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL];
             [self setNextStateError:localError complete:complete];
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage3), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             return;
         }
         OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
@@ -913,7 +912,7 @@ finishPairing:(BOOL*)finishPairing
     if (![items isKindOfClass:[NSArray class]]) {
         secnotice("pairing", "initiator no items to import");
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage4, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage4), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
         complete(true, NULL, NULL);
         return;
     }
@@ -923,7 +922,7 @@ finishPairing:(BOOL*)finishPairing
 
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage4, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage4), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+        [eventS sendMetricWithResult:NO error:error];
         complete(true, NULL, error);
     }] importInitialSyncCredentials:items complete:^(bool success, NSError *error) {
         secnotice("pairing", "initiator importInitialSyncCredentials: %{BOOL}d: %@", success, error);
@@ -932,7 +931,7 @@ finishPairing:(BOOL*)finishPairing
         }
             subTaskSuccess = true;
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelInitiatorMessage4, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelInitiatorMessage4), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:error];
+            [eventS sendMetricWithResult:YES error:error];
             complete(true, nil, nil);
     }];
 }
@@ -974,7 +973,7 @@ finishPairing:(BOOL*)finishPairing
 
         [self setNextStateError:localError complete:complete];
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
         return;
     }
@@ -1028,7 +1027,7 @@ finishPairing:(BOOL*)finishPairing
         [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull connectionError) {
             OctagonSignpostEnd(fetchStashSignPost, OctagonSignpostNamePairingChannelAcceptorFetchStashCredential, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorFetchStashCredential), (int)fetchSubtaskSuccess);
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:connectionError];
+            [eventS sendMetricWithResult:NO error:connectionError];
             complete(true, NULL, connectionError);
         }] validatedStashedAccountCredential:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES complete:^(NSData *credential, NSError *error) {
             secnotice("pairing", "acceptor validatedStashedAccountCredential: %{BOOL}d (%@)", credential != NULL, error);
@@ -1050,7 +1049,7 @@ finishPairing:(BOOL*)finishPairing
                         }
 
                         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:subTaskSuccess ? YES : NO error:retError];
+                        [eventS sendMetricWithResult:subTaskSuccess ? YES : NO error:retError];
                         complete(retComplete, outdict, retError);
                     }];
                 } else {
@@ -1060,7 +1059,7 @@ finishPairing:(BOOL*)finishPairing
                     secnotice("pairing", "acceptor reply to packet 1");
                     subTaskSuccess = true;
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    [eventS sendMetricWithResult:YES error:nil];
                     complete(false, reply, NULL);
                 }
             }
@@ -1069,7 +1068,7 @@ finishPairing:(BOOL*)finishPairing
                 NSError *noStashCredentail = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorNoStashedCredential userInfo:NULL];
                 [self setNextStateError:noStashCredentail complete:complete];
                 OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:noStashCredentail];
+                [eventS sendMetricWithResult:NO error:noStashCredentail];
                 return;
             }
             else if(self.sessionSupportsOctagon) {
@@ -1078,7 +1077,7 @@ finishPairing:(BOOL*)finishPairing
                         subTaskSuccess = true;
                     }
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:subTaskSuccess ? YES : NO error:retError];
+                    [eventS sendMetricWithResult:subTaskSuccess ? YES : NO error:retError];
                     complete(retComplete, outdict, retError);
                 }];
             }
@@ -1089,7 +1088,7 @@ finishPairing:(BOOL*)finishPairing
                 subTaskSuccess = true;
             }
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:subTaskSuccess ? YES : NO error:retError];
+            [eventS sendMetricWithResult:subTaskSuccess ? YES : NO error:retError];
             complete(retComplete, outdict, retError);
         }];
     } else {
@@ -1098,7 +1097,7 @@ finishPairing:(BOOL*)finishPairing
         [self setNextStateError:notSupported complete:complete];
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage1, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage1), (int)subTaskSuccess);
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:notSupported];
+        [eventS sendMetricWithResult:NO error:notSupported];
     }
 }
 
@@ -1218,7 +1217,7 @@ finishPairing:(BOOL*)finishPairing
         [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
             OctagonSignpostEnd(joinSignPost, OctagonSignpostNamePairingChannelAcceptorCircleJoiningBlob, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorCircleJoiningBlob), (int)joinSubTaskSuccess);
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+            [eventS sendMetricWithResult:NO error:error];
             complete(true, NULL, error);
         }] circleJoiningBlob:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES applicant:peerJoinBlob complete:^(NSData *blob, NSError *error){
             if (blob && error == nil) {
@@ -1241,7 +1240,7 @@ finishPairing:(BOOL*)finishPairing
                     }
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
 
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(subTaskSuccess ? YES : NO) error:retError];
+                    [eventS sendMetricWithResult:(subTaskSuccess ? YES : NO) error:retError];
                     complete(retComplete, outdict, retError);
                 }];
             } else {
@@ -1253,12 +1252,12 @@ finishPairing:(BOOL*)finishPairing
                     };
                     subTaskSuccess = true;
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    [eventS sendMetricWithResult:YES error:nil];
                     complete(false, reply, NULL);
                 } else {
                     subTaskSuccess = true;
                     OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    [eventS sendMetricWithResult:YES error:nil];
                     complete(true, reply, NULL);
                 }
                 secnotice("pairing", "acceptor reply to packet 2");
@@ -1270,7 +1269,7 @@ finishPairing:(BOOL*)finishPairing
                 subTaskSuccess = true;
             }
             OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage2, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage2), (int)subTaskSuccess);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(subTaskSuccess ? YES : NO) error:retError];
+            [eventS sendMetricWithResult:(subTaskSuccess ? YES : NO) error:retError];
             complete(retComplete, outdict, retError);
         }];
     }
@@ -1301,7 +1300,7 @@ finishPairing:(BOOL*)finishPairing
                                               NSError *rpcError) {
         if (rpcError || self.testFailOctagon){
             secerror("error acceptor handling octagon packet %d", self.counter);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:rpcError];
+            [eventS sendMetricWithResult:NO error:rpcError];
             localError = rpcError;
             return;
         } else {
@@ -1331,7 +1330,7 @@ finishPairing:(BOOL*)finishPairing
             reply[PairingPacketKey_OctagonData] = response.data;
 
             secnotice("pairing", "acceptor reply to packet 2");
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
             didSucceed = YES;
             *finishedPairing = finished ? YES : NO;
 
@@ -1361,7 +1360,7 @@ finishPairing:(BOOL*)finishPairing
         secnotice(pairingScope, "acceptorSecondOctagonPacket octagon data missing");
         NSError* localError = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL];
         [self setNextStateError:localError complete:complete];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return;
     }
 
@@ -1370,7 +1369,7 @@ finishPairing:(BOOL*)finishPairing
         secerror("ot-pairing: acceptorSecondOctagonPacket: no octagon message");
         NSError* localError = [NSError errorWithDomain:kKCPairingChannelErrorDomain code:KCPairingErrorOctagonMessageMissing userInfo:NULL];
         [self setNextStateError:localError complete:complete];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return;
     }
     OTApplicantToSponsorRound2M1 *prepare = pairingMessage.prepare;
@@ -1430,7 +1429,7 @@ finishPairing:(BOOL*)finishPairing
 
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage3), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:error];
+        [eventS sendMetricWithResult:NO error:error];
         complete(true, NULL, error);
     }] initialSyncCredentials:initialSyncCredentialsFlags altDSID:self.peerVersionContext.altDSID flowID:self.peerVersionContext.flowID deviceSessionID:self.peerVersionContext.deviceSessionID canSendMetrics:YES complete:^(NSArray *items, NSError *error2) {
         NSMutableDictionary *reply = [NSMutableDictionary dictionary];
@@ -1442,7 +1441,7 @@ finishPairing:(BOOL*)finishPairing
         secnotice("pairing", "acceptor reply to packet 3");
         subTaskSuccess = true;
         OctagonSignpostEnd(setupPairingChannelSignPost, OctagonSignpostNamePairingChannelAcceptorMessage3, OctagonSignpostNumber1(OctagonSignpostNamePairingChannelAcceptorMessage3), (int)subTaskSuccess);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:(error2 == nil) ? YES : NO error:error2];
+        [eventS sendMetricWithResult:(error2 == nil) ? YES : NO error:error2];
         complete(true, reply, NULL);
     }];
 }

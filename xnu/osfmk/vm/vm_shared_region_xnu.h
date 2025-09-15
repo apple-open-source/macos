@@ -188,6 +188,7 @@ struct vm_shared_region {
 	cpu_type_t              sr_cpu_type;
 	cpu_subtype_t           sr_cpu_subtype;
 	ipc_port_t              sr_mem_entry;
+	vm_map_t                sr_config_map;
 	mach_vm_offset_t        sr_first_mapping;
 	mach_vm_offset_t        sr_base_address;
 	mach_vm_size_t          sr_size;
@@ -230,8 +231,6 @@ extern uint64_t shared_region_find_key(char *shared_region_id);
 
 extern vm_shared_region_t vm_shared_region_get(
 	struct task             *task);
-extern vm_shared_region_t vm_shared_region_trim_and_get(
-	struct task             *task);
 extern void vm_shared_region_deallocate(
 	struct vm_shared_region *shared_region);
 extern void vm_shared_region_set(
@@ -241,6 +240,10 @@ extern kern_return_t vm_shared_region_sliding_valid(uint32_t slide);
 extern void vm_commpage_init(void);
 extern void vm_commpage_text_init(void);
 extern void vm_shared_region_reslide_stale(boolean_t driverkit);
+extern kern_return_t vm_shared_region_update_task(
+	struct task *task,
+	struct vm_shared_region *shared_region,
+	mach_vm_offset_t start_address);
 #endif /* XNU_KERNEL_PRIVATE */
 
 __END_DECLS

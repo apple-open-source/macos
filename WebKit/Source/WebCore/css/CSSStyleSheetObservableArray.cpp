@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022, 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022, 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,7 +53,7 @@ bool CSSStyleSheetObservableArray::setValueAt(JSC::JSGlobalObject* lexicalGlobal
     RELEASE_ASSERT(index <= m_sheets.size());
 
     auto sheetConversionResult = convert<IDLInterface<CSSStyleSheet>>(*lexicalGlobalObject, value);
-    if (UNLIKELY(sheetConversionResult.hasException(scope)))
+    if (sheetConversionResult.hasException(scope)) [[unlikely]]
         return false;
 
     if (auto exception = shouldThrowWhenAddingSheet(*sheetConversionResult.returnValue())) {

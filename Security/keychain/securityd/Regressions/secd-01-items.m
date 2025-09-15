@@ -63,7 +63,7 @@ int secd_01_items(int argc, char *const *argv)
     ok(state&keybag_state_locked, "keybag locked");
 
     
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     /* Creating a password */
     int v_eighty = 80;

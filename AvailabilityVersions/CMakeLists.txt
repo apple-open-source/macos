@@ -34,10 +34,7 @@ cmake_print_variables(DRIVERKIT)
 
 list(APPEND TEMPLATE_SOURCES  Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityInternalPrivate.h AvailabilityMacros.h
                               AvailabilityProhibitedInternal.h AvailabilityVersions.h VersionMap.h for_dyld_priv.inc os_availability.h )
-list(APPEND UNIFDEF_SOURCES   os_availability.modulemap os_availability_private.modulemap )
 
-list(APPEND LOCAL_MODULEMAPS  os_availability_private.modulemap)
-list(APPEND PUBLIC_MODULEMAPS os_availability.modulemap)
 list(APPEND LOCAL_HEADERS     AvailabilityInternalPrivate.h AvailabilityProhibitedInternal.h)
 list(APPEND PUBLIC_HEADERS    Availability.h AvailabilityInternal.h AvailabilityInternalLegacy.h AvailabilityMacros.h AvailabilityVersions.h)
 list(APPEND DYLD_HEADERS      VersionMap.h for_dyld_priv.inc)
@@ -115,15 +112,6 @@ foreach(template_source ${TEMPLATE_SOURCES})
   )
 endforeach()
 
-foreach(unifdef_source ${UNIFDEF_SOURCES})
-  add_custom_target("Generate-${unifdef_source}" ALL DEPENDS "${OBJROOT}/${unifdef_source}")
-  add_custom_command(
-    OUTPUT "${OBJROOT}/${unifdef_source}"
-    COMMAND sh "${SRCROOT}/unifdef_command.sh" ${UNIFDEF_FLAGS} -o "${OBJROOT}/${unifdef_source}" "${SRCROOT}/templates/${unifdef_source}"
-    DEPENDS "${SRCROOT}/unifdef_command.sh" "${SRCROOT}/templates/${unifdef_source}"
-  )
-endforeach()
-
 if(NOT CONFIG_KERNELKIT EQUAL "1")
   foreach(header ${DYLD_HEADERS})
     install(FILES "${OBJROOT}/${header}" DESTINATION ${DYLD_HEADERS_LOCATION} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
@@ -134,18 +122,10 @@ foreach(header ${LOCAL_HEADERS})
   install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_LOCAL_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 endforeach()
 
-foreach(modulemap ${LOCAL_MODULEMAPS})
-  install(FILES "${OBJROOT}/${modulemap}" DESTINATION ${USR_LOCAL_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
-endforeach()
-
 install(FILES "${OBJROOT}/os_availability.h" DESTINATION ${OS_INCLUDE} RENAME availability.h PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 foreach(header ${PUBLIC_HEADERS})
   install(FILES "${OBJROOT}/${header}" DESTINATION ${USR_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
-endforeach()
-
-foreach(modulemap ${PUBLIC_MODULEMAPS})
-  install(FILES "${OBJROOT}/${modulemap}" DESTINATION ${USR_INCLUDE} PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 endforeach()
 
 

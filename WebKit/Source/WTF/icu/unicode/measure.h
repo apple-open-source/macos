@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2004-2015, International Business Machines
-* Corporation and others.  All Rights Reserved.
+* Corporation and others.  All rights reserved.
 **********************************************************************
 * Author: Alan Liu
 * Created: April 26, 2004

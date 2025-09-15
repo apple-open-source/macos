@@ -53,6 +53,7 @@ WTF_DEFINE_GPTR_DELETER(GstFFTF32, gst_fft_f32_free)
 #if defined(BUILDING_WebCore) && USE(GSTREAMER_WEBRTC)
 WTF_DEFINE_GPTR_DELETER(GstWebRTCSessionDescription, gst_webrtc_session_description_free)
 WTF_DEFINE_GPTR_DELETER(GstSDPMessage, gst_sdp_message_free)
+WTF_DEFINE_GPTR_DELETER(GstSDPMedia, gst_sdp_media_free)
 #endif
 }
 

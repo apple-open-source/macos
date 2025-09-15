@@ -84,11 +84,19 @@ class BottledPeer: NSObject {
             throw Error.authCipherTextCreation
         }
 
-        let escrowSigningECPubKey: _SFECPublicKey = (escrowKeys.signingKey.publicKey as! _SFECPublicKey)
-        let escrowEncryptionECPubKey: _SFECPublicKey = escrowKeys.encryptionKey.publicKey as! _SFECPublicKey
+        guard let escrowSigningECPubKey: _SFECPublicKey = (escrowKeys.signingKey.publicKey as? _SFECPublicKey) else {
+            fatalError("escrow signing key not coercible")
+        }
+        guard let escrowEncryptionECPubKey: _SFECPublicKey = escrowKeys.encryptionKey.publicKey as? _SFECPublicKey else {
+            fatalError("escrow encryption key not coercible")
+        }
 
-        let peerSigningECPublicKey: _SFECPublicKey = peerSigningKey.publicKey as! _SFECPublicKey
-        let peerEncryptionECPublicKey: _SFECPublicKey = peerEncryptionKey.publicKey as! _SFECPublicKey
+        guard let peerSigningECPublicKey: _SFECPublicKey = peerSigningKey.publicKey as? _SFECPublicKey else {
+            fatalError("peer signing key not coercible")
+        }
+        guard let peerEncryptionECPublicKey: _SFECPublicKey = peerEncryptionKey.publicKey as? _SFECPublicKey else {
+            fatalError("peer encryption key not coercible")
+        }
 
         // Serialize the whole thing
         guard let obj = OTBottle() else {
@@ -116,7 +124,9 @@ class BottledPeer: NSObject {
         try self.peerKeys = OctagonSelfPeerKeys(peerID: peerID, signingKey: peerSigningKey, encryptionKey: peerEncryptionKey)
         self.contents = obj.data
 
-        let escrowedSigningECPublicKey = escrowKeys.signingKey.publicKey as! _SFECPublicKey
+        guard let escrowedSigningECPublicKey = escrowKeys.signingKey.publicKey as? _SFECPublicKey else {
+            fatalError("escrow signing key not coercible")
+        }
 
         self.escrowSigningPublicKey = escrowedSigningECPublicKey.keyData
         self.escrowSigningSPKI = escrowedSigningECPublicKey.encodeSubjectPublicKeyInfo()
@@ -231,7 +241,7 @@ class BottledPeer: NSObject {
 
     class func makeMeSomeEntropy(requiredLength: Int) throws -> Data {
         var bytes = Data(count: requiredLength)
-        try bytes.withUnsafeMutableBytes { (bufferPointer: UnsafeMutableRawBufferPointer) throws -> Void in
+        try bytes.withUnsafeMutableBytes { (bufferPointer: UnsafeMutableRawBufferPointer) throws in
             guard let bytes = bufferPointer.baseAddress else {
                 throw Error.entropyCreation
             }

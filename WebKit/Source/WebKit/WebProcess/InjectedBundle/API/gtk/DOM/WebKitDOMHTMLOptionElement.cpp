@@ -304,7 +304,7 @@ void webkit_dom_html_option_element_set_label(WebKitDOMHTMLOptionElement* self, 
     g_return_if_fail(WEBKIT_DOM_IS_HTML_OPTION_ELEMENT(self));
     g_return_if_fail(value);
     WebCore::HTMLOptionElement* item = WebKit::core(self);
-    item->setLabel(WTF::AtomString::fromUTF8(value));
+    item->setAttributeWithoutSynchronization(WebCore::HTMLNames::labelAttr, WTF::AtomString::fromUTF8(value));
 }
 
 gboolean webkit_dom_html_option_element_get_default_selected(WebKitDOMHTMLOptionElement* self)
@@ -356,7 +356,7 @@ void webkit_dom_html_option_element_set_value(WebKitDOMHTMLOptionElement* self, 
     g_return_if_fail(WEBKIT_DOM_IS_HTML_OPTION_ELEMENT(self));
     g_return_if_fail(value);
     WebCore::HTMLOptionElement* item = WebKit::core(self);
-    item->setValue(WTF::AtomString::fromUTF8(value));
+    item->setAttributeWithoutSynchronization(WebCore::HTMLNames::valueAttr, WTF::AtomString::fromUTF8(value));
 }
 
 gchar* webkit_dom_html_option_element_get_text(WebKitDOMHTMLOptionElement* self)

@@ -2,7 +2,7 @@
  * Copyright (C) 2007 Rob Buis <buis@kde.org>
  * Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2009 Google, Inc.  All rights reserved.
+ * Copyright (C) 2009 Google, Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -62,7 +62,13 @@ public:
     // Determines whether the passed point lies in a clipping area
     static bool pointInClippingArea(const RenderElement&, const FloatPoint&);
 
-    static void computeContainerBoundingBoxes(const RenderElement& container, FloatRect& objectBoundingBox, bool& objectBoundingBoxValid, FloatRect& repaintBoundingBox, RepaintRectCalculation = RepaintRectCalculation::Fast);
+    struct ContainerBoundingBoxes {
+        Markable<FloatRect> objectBoundingBox;
+        FloatRect repaintBoundingBox;
+    };
+
+    static ContainerBoundingBoxes computeContainerBoundingBoxes(const RenderElement&, RepaintRectCalculation = RepaintRectCalculation::Fast);
+
     static FloatRect computeContainerStrokeBoundingBox(const RenderElement& container);
     static bool paintInfoIntersectsRepaintRect(const FloatRect& localRepaintRect, const AffineTransform& localTransform, const PaintInfo&);
 

@@ -62,24 +62,21 @@ String PublicSuffixStore::platformTopPrivatelyControlledDomain(StringView domain
 {
     // This function is expected to work with the format used by cookies, so skip any leading dots.
     unsigned position = 0;
-    while (domain[position] == '.')
+    while (position < domain.length() && domain[position] == '.')
         position++;
 
-    if (position == domain.length())
+    auto tldView = domain.substring(position);
+    if (tldView.isEmpty())
         return String();
 
-    auto tldView = domain.substring(position);
     const auto tldCString = tldView.utf8();
 
     GUniqueOutPtr<GError> error;
     if (const char* baseDomain = soup_tld_get_base_domain(tldCString.data(), &error.outPtr()))
         return String::fromUTF8(baseDomain);
 
-    if (g_error_matches(error.get(), SOUP_TLD_ERROR, SOUP_TLD_ERROR_NO_BASE_DOMAIN)) {
-        if (domain.endsWithIgnoringASCIICase("web-platform.test"_s))
-            return permissiveTopPrivateDomain(tldView);
-        return String();
-    }
+    if (g_error_matches(error.get(), SOUP_TLD_ERROR, SOUP_TLD_ERROR_NO_BASE_DOMAIN))
+        return permissiveTopPrivateDomain(tldView);
 
     if (g_error_matches(error.get(), SOUP_TLD_ERROR, SOUP_TLD_ERROR_INVALID_HOSTNAME) || g_error_matches(error.get(), SOUP_TLD_ERROR, SOUP_TLD_ERROR_NOT_ENOUGH_DOMAINS))
         return String();

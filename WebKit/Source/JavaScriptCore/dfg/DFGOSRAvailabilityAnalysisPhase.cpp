@@ -157,8 +157,10 @@ public:
                             case FunctionExecutablePLoc:
                             case StructurePLoc:
                                 if (heapPair.value.isDead()) {
-                                    dataLogLn("PromotedHeapLocation is dead, but should not be: ", heapPair.key);
-                                    availabilityMap.dump(WTF::dataFile());
+                                    WTF::dataFile().atomically([&](auto&) {
+                                        dataLogLn("PromotedHeapLocation is dead, but should not be: ", heapPair.key);
+                                        availabilityMap.dump(WTF::dataFile());
+                                    });
                                     CRASH();
                                 }
                                 break;

@@ -78,7 +78,7 @@ private:
     void endFrame() final;
 
     WebGPUPtr<WGPUXRProjectionLayer> m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
 #if ENABLE(WEBXR)
     RefPtr<WebXRRigidTransform> m_webXRRigidTransform;
 #endif

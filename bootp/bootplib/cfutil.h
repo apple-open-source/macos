@@ -171,6 +171,10 @@ my_CFDictionarySetUInt64(CFMutableDictionaryRef dict, CFStringRef prop,
 void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
 
+void
+my_CFMutableArrayMergeArray(CFMutableArrayRef merge, CFArrayRef list,
+			    CFComparatorFunction cfdict_comparator);
+
 CFStringRef
 my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
 			 CFIndex component_index);

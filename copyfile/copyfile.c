@@ -486,6 +486,14 @@ add_uberace(acl_t *acl)
 		copyfile_warn("add ACL_WRITE_SECURITY");
 		goto error_exit;
 	}
+	/*
+	 * Align with Samba and windows implementations, and add
+	 * ACL_SYNCHRONIZE for an allow ACE.
+	 */
+	if (acl_add_perm(permset, ACL_SYNCHRONIZE) == -1) {
+		copyfile_warn("add ACL_SYNCHRONIZE");
+		goto error_exit;
+	}
 	if (acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == -1) {
 		copyfile_warn("set ACL_EXTENDED_ALLOW");
 		goto error_exit;
@@ -839,6 +847,7 @@ copytree(copyfile_state_t s)
 			}
 			tstate->statuscb = s->statuscb;
 			tstate->ctx = s->ctx;
+			tstate->copyIntent = s->copyIntent;
 			// If asked to by our caller, make sure that we check for
 			// an already existing destination that is a symlink.
 			if (s->internal_flags & cfDstCheckExistingSlinks)

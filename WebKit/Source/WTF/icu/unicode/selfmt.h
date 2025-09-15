@@ -3,7 +3,7 @@
 /********************************************************************
  * COPYRIGHT:
  * Copyright (c) 1997-2011, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * others. All rights reserved.
  * Copyright (C) 2010 , Yahoo! Inc.
  ********************************************************************
  *

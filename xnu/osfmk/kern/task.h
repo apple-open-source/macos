@@ -105,6 +105,8 @@
 #include <kern/queue.h>
 #include <kern/recount.h>
 #include <sys/kern_sysctl.h>
+#include <sys/resource_private.h>
+
 #if CONFIG_EXCLAVES
 #include <mach/exclaves.h>
 #endif /* CONFIG_EXCLAVES */
@@ -169,7 +171,8 @@ struct task_pend_token {
 			    tpt_update_turnstile    :1,
 			    tpt_update_tg_app_flag  :1,
 			    tpt_update_game_mode    :1,
-			    tpt_update_carplay_mode :1;
+			    tpt_update_carplay_mode :1,
+			    tpt_update_appnap       :1;
 		};
 		uint32_t tpt_value;
 	};
@@ -183,9 +186,11 @@ struct task_security_config {
 		struct {
 			uint8_t hardened_heap: 1,
 			    tpro :1,
-			reserved: 1;
+			reserved: 1,
+			platform_restrictions_version :3;
+			uint8_t hardened_process_version;
 		};
-		uint8_t value;
+		uint16_t value;
 	};
 };
 
@@ -194,10 +199,23 @@ typedef struct task_security_config task_security_config_s;
 struct task_watchports;
 #include <bank/bank_internal.h>
 
+struct ucred;
+
 #ifdef MACH_BSD
 struct proc;
 struct proc_ro;
 #endif
+
+__options_closed_decl(task_memlimit_flags_t, uint32_t, {
+	/* if set, use active attributes, otherwise use inactive attributes */
+	TASK_MEMLIMIT_IS_ACTIVE             = 0x01,
+	/* if set, exceeding current memlimit will prove fatal to the task */
+	TASK_MEMLIMIT_IS_FATAL              = 0x02,
+	/* if set, suppress exc_resource exception when task exceeds active memory limit */
+	TASK_MEMLIMIT_ACTIVE_EXC_RESOURCE   = 0x04,
+	/* if set, suppress exc_resource exception when task exceeds inactive memory limit */
+	TASK_MEMLIMIT_INACTIVE_EXC_RESOURCE = 0x08
+});
 
 struct task {
 	/* Synchronization/destruction information */
@@ -252,9 +270,7 @@ struct task {
 	integer_t               importance;             /* priority offset (BSD 'nice' value) */
 
 #define task_is_immovable(task) \
-	!!(task_get_control_port_options(task) & TASK_CONTROL_PORT_IMMOVABLE)
-#define task_is_pinned(task) \
-	!!(task_get_control_port_options(task) & TASK_CONTROL_PORT_PINNED)
+	!!(task_get_control_port_options(task) & TASK_CONTROL_PORT_IMMOVABLE_MASK)
 
 	/* Statistics */
 	uint64_t                total_runnable_time;
@@ -271,7 +287,6 @@ struct task {
 #if CONFIG_CSR
 	struct ipc_port * XNU_PTRAUTH_SIGNED_PTR("task.itk_settable_self") itk_settable_self;   /* a send right */
 #endif /* CONFIG_CSR */
-	struct ipc_port * XNU_PTRAUTH_SIGNED_PTR("task.itk_self") itk_self;                     /* immovable/pinned task port, does not hold right */
 	struct exception_action exc_actions[EXC_TYPES_COUNT];
 	/* special exception port used by task_register_hardened_exception_handler */
 	struct hardened_exception_action hardened_exception_action;
@@ -304,10 +319,6 @@ struct task {
 	counter_t cow_faults;         /* copy on write fault counter */
 	counter_t messages_sent;      /* messages sent counter */
 	counter_t messages_received;  /* messages received counter */
-	counter_t pages_grabbed;      /* pages grabbed */
-	counter_t pages_grabbed_kern; /* pages grabbed (kernel) */
-	counter_t pages_grabbed_iopl; /* pages grabbed (iopl) */
-	counter_t pages_grabbed_upl;  /* pages grabbed (upl) */
 	uint32_t decompressions;      /* decompression counter (from threads that already terminated) */
 	uint32_t syscalls_mach;       /* mach system call counter */
 	uint32_t syscalls_unix;       /* unix system call counter */
@@ -347,8 +358,6 @@ struct task {
 #define TF_USE_PSET_HINT_CLUSTER_TYPE 0x00200000                        /* bind task to task->pset_hint->pset_cluster_type */
 #define TF_DYLD_ALL_IMAGE_FINAL   0x00400000                            /* all_image_info_addr can no longer be changed */
 #define TF_HASPROC              0x00800000                              /* task points to a proc */
-#define TF_HAS_REPLY_PORT_TELEMETRY 0x10000000                          /* Rate limit telemetry for reply port security semantics violations rdar://100244531 */
-#define TF_HAS_PROVISIONAL_REPLY_PORT_TELEMETRY 0x20000000              /* Rate limit telemetry for creating provisional reply port rdar://136996362 */
 #define TF_GAME_MODE            0x40000000                              /* Set the game mode bit for CLPC */
 #define TF_CARPLAY_MODE         0x80000000                              /* Set the carplay mode bit for CLPC */
 
@@ -361,11 +370,11 @@ struct task {
  * RO-protected flags:
  */
 #define TFRO_CORPSE                     0x00000020                      /* task is a corpse */
-#define TFRO_HARDENED                   0x00000100                      /* task is a hardened runtime binary */
 #if XNU_TARGET_OS_OSX
-#define TFRO_MACH_HARDENING_OPT_OUT     0x00000200                      /* task might load third party plugins on macOS and should be opted out of mach hardening */
+#define TFRO_MACH_HARDENING_OPT_OUT     0x00000040                      /* task might load third party plugins on macOS and should be opted out of mach hardening */
 #endif /* XNU_TARGET_OS_OSX */
-#define TFRO_PLATFORM                   0x00000400                      /* task is a platform binary */
+#define TFRO_PLATFORM                   0x00000080                      /* task is a platform binary */
+
 #define TFRO_FILTER_MSG                 0x00004000                      /* task calls into message filter callback before sending a message */
 #define TFRO_PAC_EXC_FATAL              0x00010000                      /* task is marked a corpse if a PAC exception occurs */
 #define TFRO_JIT_EXC_FATAL              0x00020000                      /* kill the task on access violations from privileged JIT code */
@@ -428,18 +437,6 @@ struct task {
 #define task_clear_has_proc(task) \
 	((task)->t_flags &= ~TF_HASPROC)
 
-#define task_has_reply_port_telemetry(task) \
-	(((task)->t_flags & TF_HAS_REPLY_PORT_TELEMETRY) != 0)
-
-#define task_set_reply_port_telemetry(task) \
-	((task)->t_flags |= TF_HAS_REPLY_PORT_TELEMETRY)
-
-#define task_has_provisional_reply_port_telemetry(task) \
-	(((task)->t_flags & TF_HAS_PROVISIONAL_REPLY_PORT_TELEMETRY) != 0)
-
-#define task_set_provisional_reply_port_telemetry(task) \
-	((task)->t_flags |= TF_HAS_PROVISIONAL_REPLY_PORT_TELEMETRY)
-
 	uint32_t t_procflags;                                            /* general-purpose task flags protected by proc_lock (PL) */
 #define TPF_NONE                 0
 #define TPF_DID_EXEC             0x00000001                              /* task has been execed to a new task */
@@ -458,6 +455,8 @@ struct task {
 #define TASK_KPC_FORCED_ALL_CTRS        0x2     /* Bit in "t_kpc" signifying this task forced all counters */
 	uint32_t t_kpc; /* kpc flags */
 #endif /* CONFIG_CPU_COUNTERS */
+
+	_Atomic darwin_gpu_role_t       t_gpu_role;
 
 	bool pidsuspended; /* pid_suspend called; no threads can execute */
 	bool frozen;       /* frozen; private resident pages committed to swap */
@@ -525,11 +524,7 @@ struct task {
 	    low_mem_privileged_listener     :1,                 /* if set, task would like to know about pressure changes before other tasks on the system */
 	    mem_notify_reserved             :27;                /* reserved for future use */
 
-	uint32_t memlimit_is_active                 :1, /* if set, use active attributes, otherwise use inactive attributes */
-	    memlimit_is_fatal                   :1,     /* if set, exceeding current memlimit will prove fatal to the task */
-	    memlimit_active_exc_resource        :1,     /* if set, suppress exc_resource exception when task exceeds active memory limit */
-	    memlimit_inactive_exc_resource      :1,     /* if set, suppress exc_resource exception when task exceeds inactive memory limit */
-	    memlimit_attrs_reserved             :28;     /* reserved for future use */
+	task_memlimit_flags_t _Atomic memlimit_flags;
 
 	io_stat_info_t          task_io_stats;
 
@@ -571,6 +566,8 @@ struct task {
 	unsigned int    task_region_info_flags:1;
 	unsigned int    task_has_crossed_thread_limit:1;
 	unsigned int    task_rr_in_flight:1; /* a t_rr_synchronzie() is in flight */
+	unsigned int    task_jetsam_realtime_audio:1;
+
 	/*
 	 * A task's coalition set is "adopted" in task_create_internal
 	 * and unset in task_deallocate_internal, so each array member
@@ -638,7 +635,6 @@ ZONE_DECLARE_ID(ZONE_ID_PROC_TASK, void *);
 extern zone_t proc_task_zone;
 
 extern task_control_port_options_t task_get_control_port_options(task_t task);
-extern void task_set_control_port_options(task_t task, task_control_port_options_t opts);
 
 /*
  * EXC_GUARD default delivery behavior for optional Mach port and VM guards.
@@ -684,6 +680,13 @@ extern void             task_init(void);
 extern void             init_task_ledgers(void);
 
 extern task_t   current_task(void) __pure2;
+
+__pure2
+static inline ipc_space_t
+current_space(void)
+{
+	return current_task()->itk_space;
+}
 
 extern bool task_is_driver(task_t task);
 extern uint32_t task_ro_flags_get(task_t task);
@@ -1010,15 +1013,6 @@ extern bool     task_opted_out_mach_hardening(
 	task_t task);
 #endif /* XNU_TARGET_OS_OSX */
 
-extern void
-task_set_hardened_runtime(
-	task_t task,
-	bool is_hardened);
-
-extern boolean_t
-task_is_hardened_binary(
-	task_t task);
-
 extern boolean_t task_is_a_corpse(
 	task_t task);
 
@@ -1028,16 +1022,16 @@ extern boolean_t task_is_ipc_active(
 extern void task_set_corpse(
 	task_t task);
 
-extern void     task_set_exc_guard_ctrl_port_default(
+extern void     task_set_exc_guard_default(
 	task_t task,
-	thread_t main_thread,
 	const char *name,
-	unsigned int namelen,
+	unsigned long namelen,
 	boolean_t is_simulated,
 	uint32_t platform,
 	uint32_t sdk);
 
-extern void task_set_immovable_pinned(task_t task);
+extern void task_copyout_control_port(
+	task_t task);
 
 extern bool     task_set_ca_client_wi(
 	task_t task,
@@ -1135,6 +1129,8 @@ extern kern_return_t task_get_diag_footprint_limit_internal(task_t, uint64_t *, 
 extern kern_return_t task_set_diag_footprint_limit(task_t task, uint64_t new_limit_mb, uint64_t *old_limit_mb);
 #endif /* CONFIG_MEMORYSTATUS */
 #endif /* DEBUG || DEVELOPMENT */
+extern kern_return_t task_get_conclave_mem_limit(task_t, uint64_t *conclave_limit);
+extern kern_return_t task_set_conclave_mem_limit(task_t, uint64_t conclave_limit);
 
 extern security_token_t *task_get_sec_token(task_t task);
 extern void task_set_sec_token(task_t task, security_token_t *token);
@@ -1149,12 +1145,14 @@ extern void task_set_mach_kobj_filter_mask(task_t task, uint8_t *mask);
 extern mach_vm_address_t task_get_all_image_info_addr(task_t task);
 
 /* Jetsam memlimit attributes */
-extern boolean_t task_get_memlimit_is_active(task_t task);
-extern boolean_t task_get_memlimit_is_fatal(task_t task);
-extern void task_set_memlimit_is_active(task_t task, boolean_t memlimit_is_active);
-extern void task_set_memlimit_is_fatal(task_t task, boolean_t memlimit_is_fatal);
-extern boolean_t task_has_triggered_exc_resource(task_t task, boolean_t memlimit_is_active);
-extern void task_mark_has_triggered_exc_resource(task_t task, boolean_t memlimit_is_active);
+extern bool task_get_memlimit_is_active(task_t task);
+extern bool task_get_memlimit_is_fatal(task_t task);
+extern void task_set_memlimit_is_active(task_t task, bool memlimit_is_active);
+extern void task_set_memlimit_is_fatal(task_t task, bool memlimit_is_fatal);
+extern bool task_set_exc_resource_bit(task_t task, bool memlimit_is_active);
+extern void task_reset_triggered_exc_resource(task_t task, bool memlimit_is_active);
+extern bool task_get_jetsam_realtime_audio(task_t task);
+extern void task_set_jetsam_realtime_audio(task_t task, bool realtime_audio);
 
 extern uint64_t task_get_dirty_start(task_t task);
 extern void task_set_dirty_start(task_t task, uint64_t start);
@@ -1251,6 +1249,9 @@ struct _task_ledger_indices {
 	int pages_grabbed_kern;
 	int pages_grabbed_iopl;
 	int pages_grabbed_upl;
+#if CONFIG_DEFERRED_RECLAIM
+	int est_reclaimable;
+#endif /* CONFIG_DEFERRED_RECLAIM */
 #if CONFIG_FREEZE
 	int frozen_to_swap;
 #endif /* CONFIG_FREEZE */
@@ -1268,12 +1269,18 @@ struct _task_ledger_indices {
 #define TASK_SECURITY_CONFIG_HELPER_DECLARE(suffix) \
 	extern bool task_has_##suffix(task_t); \
 	extern void task_set_##suffix(task_t); \
-	extern void task_clear_##suffix(task_t)
+	extern void task_clear_##suffix(task_t); \
+    extern void task_no_set_##suffix(task_t task) \
 
 extern uint32_t task_get_security_config(task_t);
 
 TASK_SECURITY_CONFIG_HELPER_DECLARE(hardened_heap);
 TASK_SECURITY_CONFIG_HELPER_DECLARE(tpro);
+
+uint8_t task_get_platform_restrictions_version(task_t task);
+void    task_set_platform_restrictions_version(task_t task, uint64_t version);
+uint8_t task_get_hardened_process_version(task_t task);
+void    task_set_hardened_process_version(task_t task, uint64_t version);
 
 
 /*
@@ -1291,7 +1298,11 @@ TASK_SECURITY_CONFIG_HELPER_DECLARE(tpro);
  * flags, you need to increment this count.
  * Otherwise, PPL systems will panic at boot.
  */
+#if CONFIG_DEFERRED_RECLAIM
+#define TASK_LEDGER_NUM_SMALL_INDICES 34
+#else /* CONFIG_DEFERRED_RECLAIM */
 #define TASK_LEDGER_NUM_SMALL_INDICES 33
+#endif /* !CONFIG_DEFERRED_RECLAIM */
 extern struct _task_ledger_indices task_ledgers;
 
 /* requires task to be unlocked, returns a referenced thread */
@@ -1304,6 +1315,7 @@ extern void task_rollup_accounting_info(task_t new_task, task_t parent_task);
 extern kern_return_t task_io_monitor_ctl(task_t task, uint32_t *flags);
 extern void task_set_did_exec_flag(task_t task);
 extern void task_clear_exec_copy_flag(task_t task);
+extern bool task_is_initproc(task_t task);
 extern boolean_t task_is_exec_copy(task_t);
 extern boolean_t task_did_exec(task_t task);
 extern boolean_t task_is_active(task_t task);
@@ -1336,8 +1348,10 @@ void task_set_shared_region_id(task_t task, char *id);
 extern boolean_t task_has_assertions(task_t task);
 /* End task_policy */
 
-extern void      task_set_gpu_denied(task_t task, boolean_t denied);
+extern void      task_set_gpu_role(task_t task, darwin_gpu_role_t gpu_role);
 extern boolean_t task_is_gpu_denied(task_t task);
+/* Returns PRIO_DARWIN_GPU values defined in sys/resource_private.h */
+extern darwin_gpu_role_t      task_get_gpu_role(task_t task);
 
 extern void task_set_game_mode(task_t task, bool enabled);
 /* returns true if update must be pushed to coalition (Automatically handled by task_set_game_mode) */
@@ -1441,7 +1455,6 @@ extern boolean_t get_task_frozen(task_t);
 extern ipc_port_t convert_task_to_port(task_t);
 extern ipc_port_t convert_task_to_port_kernel(task_t);
 extern ipc_port_t convert_task_to_port_external(task_t);
-extern ipc_port_t convert_task_to_port_pinned(task_t);
 extern void       convert_task_array_to_ports(task_array_t, size_t, mach_task_flavor_t);
 
 extern ipc_port_t convert_task_read_to_port(task_t);
@@ -1591,8 +1604,6 @@ extern bool task_is_translated(task_t task);
 
 void task_procname(task_t task, char *buf, int size);
 const char *task_best_name(task_t task);
-
-void task_set_ast_mach_exception(task_t task);
 
 #endif /* MACH_KERNEL_PRIVATE */
 

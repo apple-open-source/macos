@@ -35,6 +35,7 @@ PRIVATE_DATAFILES = \
 	ip_flowid.h \
 	mptcp_var.h \
 	tcp.h \
+	tcp_cache.h \
 	tcp_cc.h \
 	tcp_log.h \
 	tcp_private.h \
@@ -78,7 +79,7 @@ INSTALL_DRIVERKIT_MI_LIST = ${DRIVERKIT_DATAFILES}
 
 INSTALL_MI_DIR = netinet
 
-INSTALL_MI_LCL_LIST = in_private.h in_stat.h tcp_private.h
+INSTALL_MI_LCL_LIST = in_private.h in_stat.h tcp_private.h mptcp_var.h
 
 INSTALL_MODULEMAP_MI_LCL_LIST = ${PRIVATE_MODULEMAPFILES}
 

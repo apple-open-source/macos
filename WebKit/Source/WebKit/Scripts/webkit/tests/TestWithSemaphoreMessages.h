@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit SendSemaphore(const IPC::Semaphore& s0)
-        : m_arguments(s0)
+        : m_s0(s0)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_s0;
     }
 
 private:
-    std::tuple<const IPC::Semaphore&> m_arguments;
+    const IPC::Semaphore& m_s0;
 };
 
 class ReceiveSemaphore {
@@ -80,13 +81,16 @@ public:
     using ReplyArguments = std::tuple<IPC::Semaphore>;
     using Reply = CompletionHandler<void(IPC::Semaphore&&)>;
     using Promise = WTF::NativePromise<IPC::Semaphore, IPC::Error>;
-    auto&& arguments()
+    ReceiveSemaphore()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 
 } // namespace TestWithSemaphore

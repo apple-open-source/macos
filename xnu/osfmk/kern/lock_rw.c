@@ -1241,6 +1241,7 @@ lck_rw_lock_exclusive_internal(
  *
  * @param lock           rw_lock to lock.
  */
+__mockable
 void
 lck_rw_lock_exclusive(
 	lck_rw_t        *lock)
@@ -1517,6 +1518,7 @@ lck_rw_lock_shared_internal(
  *
  * @param lock           rw_lock to lock.
  */
+__mockable
 void
 lck_rw_lock_shared(
 	lck_rw_t        *lock)
@@ -1720,6 +1722,7 @@ lck_rw_lock_shared_to_exclusive_success(
  *          If the function was not able to upgrade the lock, the lock will be dropped
  *          by the function.
  */
+__mockable
 boolean_t
 lck_rw_lock_shared_to_exclusive(
 	lck_rw_t        *lock)
@@ -1841,6 +1844,7 @@ lck_rw_lock_exclusive_to_shared_gen(
  *
  * @param lock           rw_lock already held in exclusive mode to downgrade.
  */
+__mockable
 void
 lck_rw_lock_exclusive_to_shared(
 	lck_rw_t        *lock)
@@ -1908,6 +1912,7 @@ _lck_rw_lock_type_panic(
  * @param lck           rw_lock to lock.
  * @param lck_rw_type   LCK_RW_TYPE_SHARED or LCK_RW_TYPE_EXCLUSIVE
  */
+__mockable
 void
 lck_rw_lock(
 	lck_rw_t        *lck,
@@ -2012,6 +2017,7 @@ lck_rw_try_lock_shared_internal(
  *
  * @returns TRUE if the lock is successfully acquired, FALSE in case it was already held.
  */
+__mockable
 boolean_t
 lck_rw_try_lock_shared(
 	lck_rw_t        *lock)
@@ -2090,6 +2096,7 @@ lck_rw_try_lock_exclusive_internal(
  *
  * @returns TRUE if the lock is successfully acquired, FALSE in case it was already held.
  */
+__mockable
 boolean_t
 lck_rw_try_lock_exclusive(
 	lck_rw_t        *lock)
@@ -2132,6 +2139,7 @@ _lck_rw_try_lock_type_panic(
  *
  * @returns TRUE if the lock is successfully acquired, FALSE in case it was already held.
  */
+__mockable
 boolean_t
 lck_rw_try_lock(
 	lck_rw_t        *lck,
@@ -2220,6 +2228,7 @@ lck_rw_done_gen(
  *
  * @param lock           rw_lock to unlock.
  */
+__mockable
 lck_rw_type_t
 lck_rw_done(
 	lck_rw_t        *lock)
@@ -2304,6 +2313,7 @@ check_waiters:
  *
  * @param lck           rw_lock held in shared mode to unlock.
  */
+__mockable
 void
 lck_rw_unlock_shared(
 	lck_rw_t        *lck)
@@ -2332,6 +2342,7 @@ lck_rw_unlock_shared(
  *
  * @param lck           rw_lock held in exclusive mode to unlock.
  */
+__mockable
 void
 lck_rw_unlock_exclusive(
 	lck_rw_t        *lck)
@@ -2362,6 +2373,7 @@ lck_rw_unlock_exclusive(
  * @param lck           rw_lock to unlock.
  * @param lck_rw_type   LCK_RW_TYPE_SHARED or LCK_RW_TYPE_EXCLUSIVE
  */
+__mockable
 void
 lck_rw_unlock(
 	lck_rw_t         *lck,
@@ -2393,6 +2405,7 @@ lck_rw_unlock(
  * @param lck   rw_lock to check.
  * @param type  assert type
  */
+__mockable
 void
 lck_rw_assert(
 	lck_rw_t        *lck,
@@ -2513,6 +2526,7 @@ kdp_rwlck_find_owner(
  *
  * @returns TRUE if the lock would yield, FALSE otherwise
  */
+__mockable
 bool
 lck_rw_lock_would_yield_shared(
 	lck_rw_t        *lck)
@@ -2577,6 +2591,7 @@ lck_rw_lock_yield_shared(
  *
  * @returns TRUE if the lock would yield, FALSE otherwise
  */
+__mockable
 bool
 lck_rw_lock_would_yield_exclusive(
 	lck_rw_t        *lck,

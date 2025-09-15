@@ -1418,7 +1418,6 @@ extern void dtrace_state_free(minor_t minor);
 /*
  * DTrace restriction checks
  */
-extern void dtrace_restriction_policy_load(void);
 extern boolean_t dtrace_is_restricted(void);
 extern boolean_t dtrace_are_restrictions_relaxed(void);
 extern boolean_t dtrace_fbt_probes_restricted(void);

@@ -1612,7 +1612,7 @@ ExpressionNode* ASTBuilder::makeAssignNode(const JSTokenLocation& location, Expr
 {
     if (!loc->isLocation()) {
         ASSERT(loc->isFunctionCall());
-        return new (m_parserArena) AssignErrorNode(location, divot, start, end);
+        return new (m_parserArena) AssignErrorNode(location, loc, divot, start, end);
     }
 
     if (loc->isResolveNode()) {

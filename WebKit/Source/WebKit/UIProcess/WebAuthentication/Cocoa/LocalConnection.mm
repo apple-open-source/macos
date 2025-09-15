@@ -35,6 +35,7 @@
 #import <wtf/RunLoop.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #import "LocalAuthenticationSoftLink.h"
 
@@ -90,7 +91,7 @@ void LocalConnection::verifyUser(const String& rpId, ClientDataType type, SecAcc
     auto options = adoptNS([[NSMutableDictionary alloc] init]);
 #if HAVE(UNIFIED_ASC_AUTH_UI)
     if ([m_context biometryType] == LABiometryTypeTouchID) {
-        [options setObject:title forKey:@(LAOptionAuthenticationTitle)];
+        [options setObject:title.createNSString().get() forKey:@(LAOptionAuthenticationTitle)];
         [options setObject:@NO forKey:@(LAOptionFallbackVisible)];
     }
 #endif
@@ -107,7 +108,7 @@ void LocalConnection::verifyUser(const String& rpId, ClientDataType type, SecAcc
             verification = UserVerification::Presence;
 
         // This block can be executed in another thread.
-        RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), verification, context = WTFMove(context)] () mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), verification, context = WTFMove(context)] () mutable {
             completionHandler(verification, context.get());
         });
     });
@@ -151,7 +152,7 @@ void LocalConnection::verifyUser(SecAccessControlRef accessControl, LAContext *c
             verification = UserVerification::Presence;
 
         // This block can be executed in another thread.
-        RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), verification] () mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), verification] () mutable {
             completionHandler(verification);
         });
     });
@@ -181,7 +182,7 @@ RetainPtr<SecKeyRef> LocalConnection::createCredentialPrivateKey(LAContext *cont
         (id)kSecAttrAccessControl: (id)accessControlRef,
         (id)kSecAttrIsPermanent: @YES,
         (id)kSecAttrAccessGroup: LocalAuthenticatorAccessGroup,
-        (id)kSecAttrLabel: secAttrLabel,
+        (id)kSecAttrLabel: secAttrLabel.createNSString().get(),
         (id)kSecAttrApplicationTag: secAttrApplicationTag,
     };
 
@@ -212,25 +213,24 @@ RetainPtr<SecKeyRef> LocalConnection::createCredentialPrivateKey(LAContext *cont
 RetainPtr<NSArray> LocalConnection::getExistingCredentials(const String& rpId)
 {
     // Search Keychain for existing credential matched the RP ID.
-    NSDictionary *query = @{
+    RetainPtr query = @{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
         (id)kSecAttrAccessGroup: LocalAuthenticatorAccessGroup,
-        (id)kSecAttrLabel: rpId,
+        (id)kSecAttrLabel: rpId.createNSString().get(),
         (id)kSecReturnAttributes: @YES,
         (id)kSecMatchLimit: (id)kSecMatchLimitAll,
         (id)kSecUseDataProtectionKeychain: @YES
     };
 
     CFTypeRef attributesArrayRef = nullptr;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &attributesArrayRef);
+    OSStatus status = SecItemCopyMatching(bridge_cast(query.get()), &attributesArrayRef);
     if (status && status != errSecItemNotFound)
         return nullptr;
-    auto retainAttributesArray = adoptCF(attributesArrayRef);
-    NSArray *sortedAttributesArray = [(NSArray *)attributesArrayRef sortedArrayUsingComparator:^(NSDictionary *a, NSDictionary *b) {
+    RetainPtr nsAttributesArray = bridge_cast(adoptCF(checked_cf_cast<CFArrayRef>(attributesArrayRef)));
+    return [nsAttributesArray sortedArrayUsingComparator:^(NSDictionary *a, NSDictionary *b) {
         return [b[(id)kSecAttrModificationDate] compare:a[(id)kSecAttrModificationDate]];
     }];
-    return retainPtr(sortedAttributesArray);
 }
 
 } // namespace WebKit

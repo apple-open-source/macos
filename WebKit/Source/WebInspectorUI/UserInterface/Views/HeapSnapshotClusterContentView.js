@@ -58,10 +58,12 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
 
     // Static
 
-    static iconStyleClassNameForClassName(className, internal, isObjectType)
+    static iconStyleClassNameForClassName(className, internal, isObjectType, isElementType)
     {
         if (internal)
             return "native";
+        if (isElementType)
+            return "node";
         if (isObjectType)
             return "object";
 
@@ -75,6 +77,7 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
         case "Promise":
         case "Error":
         case "Window":
+        case "DedicatedWorkerGlobalScope":
         case "Map Iterator":
         case "Set Iterator":
         case "Math":

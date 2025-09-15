@@ -97,6 +97,7 @@
 struct session;
 struct pgrp;
 struct proc;
+struct proc_ident;
 
 /* Exported fields for kern sysctls */
 struct extern_proc {
@@ -250,23 +251,6 @@ extern bool proc_is_third_party_debuggable_driver(proc_t p);
 
 #endif /* XNU_KERNEL_PRIVATE */
 
-#if KERNEL_PRIVATE
-/*
- * Identify a process uniquely.
- * proc_ident's fields match 1-1 with those in struct proc.
- */
-struct proc_ident {
-	uint64_t        p_uniqueid;
-	pid_t           p_pid;
-	int             p_idversion;
-};
-
-/* obtain a proc_ident from a proc_ref */
-extern struct proc_ident proc_ident(proc_t p);
-#else
-struct proc_ident;
-#endif /* KERNEL_PRIVATE */
-
 /*
  * __unsafe_indexable is a workaround for
  * rdar://88409003 (PredefinedExpr trips C string detection)
@@ -307,8 +291,38 @@ void proc_selfname(char * buf, int size);
 
 /* find a process with a given pid. This comes with a reference which needs to be dropped by proc_rele */
 extern proc_t proc_find(int pid);
-/* find a process with a given process identity */
-extern proc_t proc_find_ident(struct proc_ident const *i);
+/*
+ * Function: proc_find_ident
+ *
+ * Description: Obtain a proc ref from the provided proc_ident.
+ *
+ * Returns:
+ *    - Non-null proc_t on success
+ *    - PROC_NULL on error
+ */
+extern proc_t proc_find_ident(const proc_ident_t i);
+#ifdef KERNEL_PRIVATE
+/*
+ * Function: proc_find_ident_validated
+ *
+ * Description: Obtain a proc ref from the provided proc_ident.
+ *
+ * Returns:
+ *   - 0 on Success
+ *   - EINVAL: When the provided arguments are invalid (NULL)
+ *   - ESTALE: The process exists but is currently a zombie and has not been reaped
+ *     via wait(). Callers may choose to handle this edge case as a non-error.
+ *   - ESRCH: When the lookup or validation fails otherwise. The process
+ *     described by the identifier no longer exists.
+ */
+extern errno_t proc_find_ident_validated(const proc_ident_t i, proc_t *out);
+/* compare a proc_ident to a proc ref */
+extern bool proc_ident_equal_ref(proc_ident_t ident, proc_t proc);
+/* compare a proc_ident to another proc_ident */
+extern bool proc_ident_equal(proc_ident_t ident, proc_ident_t other);
+/* compare a proc_ident to an audit_token_t */
+extern bool proc_ident_equal_token(proc_ident_t ident, audit_token_t token);
+#endif /* KERNEL_PRIVATE */
 /* find a process with a given audit token */
 extern proc_t proc_find_audit_token(const audit_token_t token);
 /* returns a handle to current process which is referenced. The reference needs to be dropped with proc_rele */

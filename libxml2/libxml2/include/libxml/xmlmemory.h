@@ -214,6 +214,7 @@ XMLPUBFUN char * XMLCALL
 #if defined(LIBXML_HAS_DEPRECATED_MEMORY_ALLOCATION_FUNCTIONS)
 #define xmlMemMalloc(size) malloc(size)
 #define xmlMemRealloc(ptr, size) realloc(ptr, size)
+#define xmlMemFree(ptr) free(ptr)
 #define xmlMemoryStrdup(str) strdup(str)
 
 #define xmlMallocLoc(size, file, line) malloc(size)

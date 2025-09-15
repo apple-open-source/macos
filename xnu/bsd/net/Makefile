@@ -7,7 +7,7 @@ include $(MakeInc_cmd)
 include $(MakeInc_def)
 
 INSTINC_SUBDIRS = \
-	altq classq pktsched
+	altq classq pktsched aop
 
 # Additional private file for macOS
 ifeq ($(PLATFORM),MacOSX)
@@ -17,6 +17,7 @@ endif
 
 # Files that are public on macOS, but private on embedded
 EMBEDDED_PRIVATE_DATAFILES = \
+	bpf.h \
 	if_media.h \
 	if_mib.h \
 	route.h
@@ -28,7 +29,6 @@ EXTRA_PRIVATE_DATAFILES = $(EMBEDDED_PRIVATE_DATAFILES)
 endif
 
 DATAFILES= $(sort \
-	bpf.h \
 	dlil.h \
 	ethernet.h \
 	if.h \
@@ -53,7 +53,7 @@ KERNELFILES= \
 	if_ether.h init.h radix.h
 
 PRIVATE_DATAFILES = $(sort \
-	bpf.h \
+	bpf_private.h \
 	content_filter.h \
 	etherdefs.h \
 	firewire.h \
@@ -115,7 +115,7 @@ DRIVERKIT_DATAFILES = \
 PRIVATE_KERNELFILES = $(filter-out radix.h,${KERNELFILES}) \
 	bpfdesc.h ppp_comp.h \
 	zlib.h bpf_compat.h net_osdep.h \
-	flowadv.h net_perf.h
+	flowadv.h net_perf.h pktap.h
 
 INSTALL_MI_LIST	= ${DATAFILES}
 
@@ -125,8 +125,9 @@ INSTALL_DRIVERKIT_MI_LIST = ${DRIVERKIT_DATAFILES}
 
 INSTALL_MI_DIR = net
 
-INSTALL_MI_LCL_LIST = $(sort if_ipsec.h if_mib_private.h if_private.h if_var_private.h \
-	if_vlan_var.h necp.h network_agent.h route_private.h ${EXTRA_PRIVATE_DATAFILES})
+INSTALL_MI_LCL_LIST = $(sort bpf_private.h if_ipsec.h if_mib_private.h if_private.h \
+	if_var_private.h if_vlan_var.h necp.h network_agent.h route_private.h \
+	${EXTRA_PRIVATE_DATAFILES})
 
 INSTALL_MODULEMAP_MI_LCL_LIST = ${PRIVATE_MODULEMAPFILES}
 

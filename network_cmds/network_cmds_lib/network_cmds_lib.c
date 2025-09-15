@@ -26,6 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include <sys/sysctl.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,4 +100,25 @@ in_cksum(uint16_t *addr, uint16_t len)
 	sum += (sum >> 16);			/* add carry */
 	answer = ~sum;				/* truncate to 16 bits */
 	return (answer);
+}
+
+void
+proc_name(pid_t pid, char *buf, size_t buf_len)
+{
+	int name[4];
+	u_int namelen;
+	size_t infolen;
+	struct kinfo_proc info;
+
+	name[0] = CTL_KERN;
+	name[1] = KERN_PROC;
+	name[2] = KERN_PROC_PID;
+	name[3] = pid;
+	namelen = 4;
+	infolen = sizeof(info);
+	if (sysctl(name, namelen, &info, &infolen, 0, 0) != 0) {
+		snprintf(buf, buf_len, "");
+		return;
+	}
+	snprintf(buf, buf_len, "%s", info.kp_proc.p_comm);
 }

@@ -42,7 +42,6 @@ static void tcp_prague_process_ecn(struct tcpcb *tp, struct tcphdr *th, uint32_t
     uint32_t packets_marked, uint32_t packets_acked);
 static void tcp_prague_set_bytes_acked(struct tcpcb *tp, uint32_t acked);
 
-static void prague_update_pacer_state(struct tcpcb *tp);
 static void prague_ca_after_ce(struct tcpcb *tp, uint32_t acked);
 
 extern float cbrtf(float x);
@@ -75,11 +74,6 @@ struct tcp_cc_algo tcp_cc_prague = {
 #define CWND_SHIFT                  (20)
 #define MAX_ALPHA                   (1ULL << ALPHA_SHIFT)
 #define REF_RTT_RATE                (25)   /* 25 ms */
-
-#define BURST_SHIFT (12)        /* 1/(2^12) = 0.000244s, we allow a burst queue of at least 250us */
-
-#define PACING_INITIAL_RTT (100)   /* 100ms, Only used to calculate startup pacer rate */
-#define MSEC_PER_SEC       (1000)  /* milliseconds per second */
 
 static float cubic_beta = 0.7f;
 static float cubic_one_sub_beta = 0.3f;
@@ -278,7 +272,7 @@ tcp_prague_ack_rcvd(struct tcpcb *tp, struct tcphdr *th)
 		tp->snd_cwnd =  2 * tp->t_maxseg;
 	}
 
-	prague_update_pacer_state(tp);
+	tcp_update_pacer_state(tp);
 }
 
 static void
@@ -332,7 +326,7 @@ tcp_prague_post_fr(struct tcpcb *tp, __unused struct tcphdr *th)
 	 */
 	tp->snd_cwnd = tp->snd_ssthresh;
 
-	prague_update_pacer_state(tp);
+	tcp_update_pacer_state(tp);
 
 	tp->t_ccstate->reno_cwnd = 0;
 	tp->t_ccstate->reno_acked = 0;
@@ -349,31 +343,6 @@ rtt_elapsed(uint32_t largest_snd_nxt, uint32_t ack)
 	 * Packet must have been sent after the processing of this ACK
 	 */
 	return largest_snd_nxt == 0 || SEQ_GT(ack, largest_snd_nxt);
-}
-
-static void
-prague_update_pacer_state(struct tcpcb *tp)
-{
-	uint32_t srtt = tp->t_srtt >> TCP_RTT_SHIFT;
-	if (srtt == 0) {
-		srtt = PACING_INITIAL_RTT;
-	}
-
-	uint64_t rate = tp->snd_cwnd;
-
-	/* Use 200% rate when in slow start */
-	if (tp->snd_cwnd < tp->snd_ssthresh) {
-		rate *= 2;
-	}
-
-	/* Multiply by MSEC_PER_SEC as srtt is in milliseconds */
-	rate *= MSEC_PER_SEC;
-	rate = rate / srtt;
-
-	uint32_t burst = (uint32_t)(rate >> BURST_SHIFT);
-
-	tp->t_pacer.rate = rate;
-	tp->t_pacer.tso_burst_size = max(tp->t_maxseg, burst);
 }
 
 /*
@@ -571,7 +540,7 @@ tcp_prague_process_ecn(struct tcpcb *tp, struct tcphdr *th, uint32_t new_bytes_m
 
 	/* Update pacer state if cwnd has changed */
 	if (cwnd_changed) {
-		prague_update_pacer_state(tp);
+		tcp_update_pacer_state(tp);
 	}
 	/* New round for CWR */
 	tp->t_ccstate->snd_nxt_cwr = tp->snd_nxt;
@@ -643,7 +612,7 @@ tcp_prague_cwnd_init_or_reset(struct tcpcb *tp)
 	 * loss and Cubic will enter steady-state too early. It is better
 	 * to always probe to find the initial slow-start threshold.
 	 */
-	if (tp->t_inpcb->inp_stat->txbytes <= tcp_initial_cwnd(tp) &&
+	if (tp->t_inpcb->inp_mstat.ms_total.ts_txbytes <= tcp_initial_cwnd(tp) &&
 	    tp->snd_ssthresh < (TCP_MAXWIN << TCP_MAX_WINSHIFT)) {
 		tp->snd_ssthresh = TCP_MAXWIN << TCP_MAX_WINSHIFT;
 	}
@@ -652,11 +621,7 @@ tcp_prague_cwnd_init_or_reset(struct tcpcb *tp)
 	tp->t_ccstate->cubic_W_max = tp->snd_ssthresh;
 
 	/* Set initial pacer state */
-	uint64_t startup_rate =
-	    tp->snd_cwnd * MSEC_PER_SEC / PACING_INITIAL_RTT;
-	uint32_t startup_burst_size = tp->t_maxseg;
-	tp->t_pacer.rate = startup_rate;
-	tp->t_pacer.tso_burst_size = startup_burst_size;
+	tcp_update_pacer_state(tp);
 }
 
 static void
@@ -684,6 +649,8 @@ tcp_prague_after_timeout(struct tcpcb *tp)
 	 * timeout might indicate severe congestion.
 	 */
 	tp->snd_cwnd = tp->t_maxseg;
+
+	tcp_update_pacer_state(tp);
 }
 
 static int

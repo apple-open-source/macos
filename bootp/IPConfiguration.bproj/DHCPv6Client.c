@@ -300,7 +300,8 @@ STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
     kDHCPv6OPTION_DOMAIN_LIST,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
-    kDHCPv6OPTION_CLIENT_FQDN
+    kDHCPv6OPTION_V6_DNR,
+    kDHCPv6OPTION_CLIENT_FQDN,
 };
 
 STATIC void
@@ -1054,7 +1055,6 @@ DHCPv6ClientRemoveAddress(DHCPv6ClientRef client, const char * label)
 {
     interface_t *	if_p = DHCPv6ClientGetInterface(client);
     char 		ntopbuf[INET6_ADDRSTRLEN];
-    int			s;
 
     if (IN6_IS_ADDR_UNSPECIFIED(&client->our_ip)) {
 	return;
@@ -1065,22 +1065,13 @@ DHCPv6ClientRemoveAddress(DHCPv6ClientRef client, const char * label)
 	   label,
 	   inet_ntop(AF_INET6, &client->our_ip,
 		     ntopbuf, sizeof(ntopbuf)));
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	my_log(LOG_NOTICE,
-	       "DHCPv6ClientRemoveAddress(%s):socket() failed, %s (%d)",
-	       if_name(if_p), strerror(errno), errno);
-    }
-    else {
-	if (inet6_difaddr(s, if_name(if_p), &client->our_ip) < 0) {
-	    my_log(LOG_INFO,
-		   "DHCPv6ClientRemoveAddress(%s): remove %s failed, %s (%d)",
-		   if_name(if_p),
-		   inet_ntop(AF_INET6, &client->our_ip,
-			     ntopbuf, sizeof(ntopbuf)),
-		   strerror(errno), errno);
-	}
-	close(s);
+    if (inet6_difaddr(if_name(if_p), &client->our_ip) < 0) {
+	my_log(LOG_INFO,
+	       "DHCPv6ClientRemoveAddress(%s): remove %s failed, %s (%d)",
+	       if_name(if_p),
+	       inet_ntop(AF_INET6, &client->our_ip,
+			 ntopbuf, sizeof(ntopbuf)),
+	       strerror(errno), errno);
     }
     bzero(&client->our_ip, sizeof(client->our_ip));
     client->our_prefix_length = 0;
@@ -2370,23 +2361,14 @@ DHCPv6ClientBoundAddress(DHCPv6ClientRef client,
     char 			ntopbuf[INET6_ADDRSTRLEN];
     struct in6_addr		our_ip;
     int				prefix_length;
-    int				s;
 
     iaaddr = DHCPv6ClientGetIAADDR(client);
     bcopy((void *)DHCPv6OptionIAADDRGetAddress(iaaddr), &our_ip, sizeof(our_ip));
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	my_log(LOG_NOTICE,
-	       "%s(%s): socket() failed, %s (%d)",
-	       __func__, if_name(if_p), strerror(errno), errno);
-	return (false);
-    }
-
     /* if the address has changed, remove the old first */
     if (!IN6_IS_ADDR_UNSPECIFIED(&client->our_ip)
 	&& !IN6_ARE_ADDR_EQUAL(&client->our_ip, &our_ip)) {
 	inet_ntop(AF_INET6, &client->our_ip, ntopbuf, sizeof(ntopbuf));
-	if (inet6_difaddr(s, if_name(if_p), &client->our_ip) < 0) {
+	if (inet6_difaddr(if_name(if_p), &client->our_ip) < 0) {
 	    my_log(LOG_NOTICE,
 		   "%s(%s): remove %s failed, %s (%d)",
 		   __func__, if_name(if_p), ntopbuf,
@@ -2399,7 +2381,7 @@ DHCPv6ClientBoundAddress(DHCPv6ClientRef client,
     }
     prefix_length = S_get_prefix_length(&our_ip, if_link_index(if_p));
     inet_ntop(AF_INET6, &our_ip, ntopbuf, sizeof(ntopbuf));
-    if (inet6_aifaddr(s, if_name(if_p), &our_ip, NULL,
+    if (inet6_aifaddr(if_name(if_p), &our_ip, NULL,
 		      prefix_length, IN6_IFF_DYNAMIC,
 		      valid_lifetime, preferred_lifetime) < 0) {
 	my_log(LOG_NOTICE,
@@ -2420,7 +2402,6 @@ DHCPv6ClientBoundAddress(DHCPv6ClientRef client,
 
     /* and see what addresses are there now */
     DHCPv6ClientSimulateAddressChanged(client);
-    close(s);
     return (true);
 }
 

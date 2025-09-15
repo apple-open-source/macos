@@ -621,7 +621,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
     }
   }
 
-  CMTime presentationTimeStamp = CMTimeMake(frame.timeStampNs / rtc::kNumNanosecsPerMillisec, 1000);
+  CMTime presentationTimeStamp = CMTimeMake(frame.timeStampNs / webrtc::kNumNanosecsPerMillisec, 1000);
   CFDictionaryRef frameProperties = nullptr;
   if (isKeyframeRequired) {
     CFTypeRef keys[] = {kVTEncodeFrameOptionKey_ForceKeyFrame};
@@ -634,7 +634,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
                                               codecSpecificInfo,
                                               _width,
                                               _height,
-                                              frame.timeStampNs / rtc::kNumNanosecsPerMillisec,
+                                              frame.timeStampNs / webrtc::kNumNanosecsPerMillisec,
                                               frame.timeStamp,
                                               frame.duration,
                                               frame.rotation,
@@ -793,10 +793,9 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
   }
   CFMutableDictionaryRef encoderSpecs = CFDictionaryCreateMutable(nullptr, 5, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 #if !defined(WEBRTC_IOS)
-  auto useHardwareEncoder = webrtc::isH264HardwareEncoderAllowed() ? kCFBooleanTrue : kCFBooleanFalse;
   // Currently hw accl is supported above 360p on mac, below 360p
   // the compression session will be created with hw accl disabled.
-  CFDictionarySetValue(encoderSpecs, kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder, useHardwareEncoder);
+  CFDictionarySetValue(encoderSpecs, kVTVideoEncoderSpecification_EnableHardwareAcceleratedVideoEncoder, kCFBooleanTrue);
 #if !HAVE_VTB_REQUIREDLOWLATENCY
   CFDictionarySetValue(encoderSpecs, kVTVideoEncoderSpecification_RequireHardwareAcceleratedVideoEncoder, useHardwareEncoder);
 #endif
@@ -805,7 +804,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
 
 #if HAVE_VTB_REQUIREDLOWLATENCY
   if (_isH264LowLatencyEncoderEnabled && _useVCP) {
-#if defined(WEBRTC_ARCH_X86_FAMILY) && !ENABLE_LOW_LATENCY_INTEL_ENCODER_FOR_LOW_RESOLUTION
+#if defined(WEBRTC_ARCH_X86_FAMILY)
     if (_width < 192 || _height < 108) {
       int usageValue = 1;
       auto usage = CFNumberCreate(nullptr, kCFNumberIntType, &usageValue);
@@ -856,7 +855,8 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
   else
 #endif
   SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_ProfileLevel, ExtractProfile(*_profile_level_id));
-  SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_AllowFrameReordering, false);
+  if (_profile_level_id->profile != webrtc::H264Profile::kProfileConstrainedBaseline && _profile_level_id->profile != webrtc::H264Profile::kProfileBaseline)
+    SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_AllowFrameReordering, false);
   if (_enableL1T2ScalabilityMode) {
     const double kL1T2Fraction = 0.5;
     SetVTSessionProperty(_vtCompressionSession, kVTCompressionPropertyKey_BaseLayerFrameRateFraction, kL1T2Fraction);
@@ -914,7 +914,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
 
 - (void)updateBitRateAccordingActualFrameRate {
   _frameCount++;
-  auto currentTime = rtc::TimeMillis();
+  auto currentTime = webrtc::TimeMillis();
   if (!_lastFrameRateEstimationTime) {
     _lastFrameRateEstimationTime = currentTime;
     return;
@@ -987,7 +987,7 @@ uint32_t computeFramerate(uint32_t proposedFramerate, uint32_t maxAllowedFramera
     RTC_LOG(LS_INFO) << "Generated keyframe";
   }
 
-  __block std::unique_ptr<rtc::Buffer> buffer = std::make_unique<rtc::Buffer>();
+  __block std::unique_ptr<webrtc::Buffer> buffer = std::make_unique<webrtc::Buffer>();
   if (_useAnnexB) {
     if (!webrtc::H264CMSampleBufferToAnnexBBuffer(sampleBuffer, isKeyframe, buffer.get())) {
       RTC_LOG(LS_WARNING) << "Unable to parse H264 encoded buffer";

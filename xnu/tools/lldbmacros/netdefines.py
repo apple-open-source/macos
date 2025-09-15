@@ -41,7 +41,8 @@ if_flags_strings = ["UP",
 
 if_refflags_strings = ["IFRF_EMBRYONIC",
                        "IFRF_ATTACHED",
-                       "IFRF_DETACHING"
+                       "IFRF_DETACHING",
+                       "IFRF_READY"
                       ]
 
 if_eflags_strings = ["AUTOCONFIGURING",
@@ -92,19 +93,36 @@ if_xflags_strings = ["WAKE_ON_MAGIC_PACKET",
                      "MARK_WAKE_PKT",
                      "FAST_PACKET_DELIVERY",
                      "NO_TRAFFIC_SHAPING",
-                     "MANAGEMENT"
-                     "ULTRA_CONSTRAINED",
+                     "MANAGEMENT",
+                     "ULTA_CONSTRAINED",
                      "IS_VPN",
-                     "DELAYWAKEPKTEVENT",
+                     "DELAY_WAKE_PACKET_EVENTS",
                      "DISABLE_INPUT",
                      "CONGESTED_LINK",
-                     "UNUSED_0x00100000",
-                     "UNUSED_0x00200000",
+                     "IS_COMPANIONLINK",
+                     "RX_FLOW_STEERING",
                      "UNUSED_0x00400000",
                      "LINK_HEURISTICS",
                      "LINK_HEUR_OFF_PENDING",
                      "POINTOPOINT_MDNS",
+                     "INBAND_WAKE_PKT_TAGGING",
+                     "LOW_POWER_WAKE",
+                     "REQUIRE_CELL_THREAD_GROUP"
                      ]
+
+tcp_timer_strings = ["TCPT_PTO",
+                    "TCPT_DELAYFR",
+                    "TCPT_REORDER",
+                    "TCPT_REXMT",
+                    "TCPT_DELACK",
+                    "TCPT_PERSIST",
+                    "TCPT_KEEP",
+                    "TCPT_2MSL",
+                    "TCPT_JACK_RXMT",
+                    "TCPT_CELLICON"
+                    ]
+
+TCPT_MAX = 9
 
 AF_INET = 2
 AF_INET6 = 30

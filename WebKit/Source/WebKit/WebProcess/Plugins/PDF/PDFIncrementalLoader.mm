@@ -140,7 +140,7 @@ void ByteRangeRequest::completeUnconditionally(PDFIncrementalLoader& loader)
 
     auto availableRequestBytes = std::min<uint64_t>(m_count, availableBytes - m_position);
 
-    loader.dataSpanForRange(m_position, availableRequestBytes, CheckValidRanges::No, [this, &loader](std::span<const uint8_t> data) {
+    loader.dataSpanForRange(m_position, availableRequestBytes, CheckValidRanges::No, [this, loader = Ref { loader }](std::span<const uint8_t> data) {
         if (data.data())
             completeWithBytes(data, loader);
     });
@@ -285,9 +285,9 @@ Ref<PDFIncrementalLoader> PDFIncrementalLoader::create(PDFPluginBase& plugin)
 PDFIncrementalLoader::PDFIncrementalLoader(PDFPluginBase& plugin)
     : m_plugin(plugin)
     , m_streamLoaderClient(adoptRef(*new PDFPluginStreamLoaderClient(*this)))
-    , m_requestData(makeUnique<RequestData>())
+    , m_requestData(makeUniqueRef<RequestData>())
 {
-    m_pdfThread = Thread::create("PDF document thread"_s, [protectedThis = Ref { *this }, this] () mutable {
+    m_pdfThread = Thread::create("PDF document thread"_s, [protectedThis = Ref { *this }, this] mutable {
         threadEntry(WTFMove(protectedThis));
     });
 }
@@ -298,7 +298,7 @@ void PDFIncrementalLoader::clear()
 {
     // By clearing out the resource data and handling all outstanding range requests,
     // we can force the PDFThread to complete quickly
-    if (m_pdfThread) {
+    if (RefPtr pdfThread = m_pdfThread) {
         unconditionalCompleteOutstandingRangeRequests();
         {
             Locker locker { m_wasPDFThreadTerminationRequestedLock };
@@ -307,7 +307,7 @@ void PDFIncrementalLoader::clear()
                 dataSemaphore.signal();
             });
         }
-        m_pdfThread->waitForCompletion();
+        pdfThread->waitForCompletion();
     }
 }
 
@@ -556,7 +556,7 @@ void PDFIncrementalLoader::requestDidCompleteWithBytes(ByteRangeRequest& request
     UNUSED_PARAM(byteCount);
 #endif
 
-    if (auto* streamLoader = request.streamLoader())
+    if (RefPtr streamLoader = request.streamLoader())
         forgetStreamLoader(*streamLoader);
 }
 
@@ -570,7 +570,7 @@ void PDFIncrementalLoader::requestDidCompleteWithAccumulatedData(ByteRangeReques
 
     appendAccumulatedDataToDataBuffer(request);
 
-    if (auto* streamLoader = request.streamLoader())
+    if (RefPtr streamLoader = request.streamLoader())
         forgetStreamLoader(*streamLoader);
 }
 
@@ -644,7 +644,7 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(std::span<uint8_t> b
     if (!dataSemaphore)
         return 0;
 
-    RunLoop::protectedMain()->dispatch([protectedLoader = Ref { *this }, dataSemaphore, position, buffer, &bytesProvided] {
+    RunLoop::mainSingleton().dispatch([protectedLoader = Ref { *this }, dataSemaphore, position, buffer, &bytesProvided] {
         if (dataSemaphore->wasSignaled())
             return;
         protectedLoader->getResourceBytesAtPosition(buffer.size(), position, [buffer, dataSemaphore, &bytesProvided](std::span<const uint8_t> bytes) {
@@ -716,7 +716,7 @@ void PDFIncrementalLoader::dataProviderGetByteRanges(CFMutableArrayRef buffers, 
     Vector<RetainPtr<CFDataRef>> dataResults(ranges.size());
 
     // FIXME: Once we support multi-range requests, make a single request for all ranges instead of <ranges.size()> individual requests.
-    RunLoop::protectedMain()->dispatch([protectedLoader = Ref { *this }, &dataResults, ranges, dataSemaphore]() mutable {
+    RunLoop::mainSingleton().dispatch([protectedLoader = Ref { *this }, &dataResults, ranges, dataSemaphore]() mutable {
         if (dataSemaphore->wasSignaled())
             return;
         Ref callbackAggregator = CallbackAggregator::create([dataSemaphore] {
@@ -756,8 +756,8 @@ void PDFIncrementalLoader::transitionToMainThreadDocument()
     plugin->adoptBackgroundThreadDocument(WTFMove(m_backgroundThreadDocument));
 
     // If the plugin was manually destroyed, the m_pdfThread might already be gone.
-    if (m_pdfThread) {
-        m_pdfThread->waitForCompletion();
+    if (RefPtr pdfThread = m_pdfThread) {
+        pdfThread->waitForCompletion();
         m_pdfThread = nullptr;
     }
 }
@@ -771,7 +771,7 @@ void PDFIncrementalLoader::threadEntry(Ref<PDFIncrementalLoader>&& protectedLoad
         dataProviderReleaseInfoCallback,
     };
 
-    auto scopeExit = makeScopeExit([protectedLoader = WTFMove(protectedLoader)] () mutable {
+    auto scopeExit = makeScopeExit([protectedLoader = WTFMove(protectedLoader)] mutable {
         // Keep the PDFPlugin alive until the end of this function and the end
         // of the last main thread task submitted by this function.
         callOnMainRunLoop([protectedLoader = WTFMove(protectedLoader)] { });
@@ -854,18 +854,18 @@ void PDFIncrementalLoader::logStreamLoader(TextStream& stream, NetscapePlugInStr
 void PDFIncrementalLoader::logState(TextStream& ts)
 {
     if (m_pdfThread)
-        ts << "Initial PDF thread is still in progress\n";
+        ts << "Initial PDF thread is still in progress\n"_s;
     else
-        ts << "Initial PDF thread has completed\n";
+        ts << "Initial PDF thread has completed\n"_s;
 
-    ts << "Have completed " << m_completedRangeRequests << " range requests (" << m_completedNetworkRangeRequests << " from the network)\n";
-    ts << "There are " << m_threadsWaitingOnCallback << " data provider threads waiting on a reply\n";
-    ts << "There are " << m_requestData->outstandingByteRangeRequests.size() << " byte range requests outstanding\n";
+    ts << "Have completed "_s << m_completedRangeRequests << " range requests ("_s << m_completedNetworkRangeRequests << " from the network)\n"_s;
+    ts << "There are "_s << m_threadsWaitingOnCallback << " data provider threads waiting on a reply\n"_s;
+    ts << "There are "_s << m_requestData->outstandingByteRangeRequests.size() << " byte range requests outstanding\n"_s;
 
-    ts << "There are " << m_requestData->streamLoaderMap.size() << " active network stream loaders: ";
+    ts << "There are "_s << m_requestData->streamLoaderMap.size() << " active network stream loaders: "_s;
     for (auto& loader : m_requestData->streamLoaderMap.keys())
         logStreamLoader(ts, *loader);
-    ts << "\n";
+    ts << '\n';
 }
 
 #endif

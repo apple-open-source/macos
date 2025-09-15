@@ -34,7 +34,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)name
 {
-    return _name;
+    return _name.createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)name

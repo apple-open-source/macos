@@ -143,18 +143,18 @@ WI.FileUtilities = class FileUtilities {
                 });
             }
 
-            let wrappedPromise = new WI.WrappedPromise;
-            let fileReader = new FileReader;
-            fileReader.addEventListener("loadend", () => {
-                wrappedPromise.resolve({
-                    displayType,
-                    url,
-                    content: parseDataURL(fileReader.result).data,
-                    base64Encoded: true,
+            return new Promise((resolve, reject) => {
+                let fileReader = new FileReader;
+                fileReader.addEventListener("loadend", () => {
+                    resolve({
+                        displayType,
+                        url,
+                        content: parseDataURL(fileReader.result).data,
+                        base64Encoded: true,
+                    });
                 });
+                fileReader.readAsDataURL(content);
             });
-            fileReader.readAsDataURL(content);
-            return wrappedPromise.promise;
         });
         if (promises.includes(null)) {
             InspectorFrontendHost.beep();

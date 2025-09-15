@@ -30,6 +30,7 @@
 #include <sys/socketvar.h>
 #include <net/bpf.h>
 #include <net/droptap.h>
+#include <net/if_ports_used.h>
 #include <net/if_var_private.h>
 #include <net/kpi_interface.h>
 #include <net/pktap.h>
@@ -330,6 +331,10 @@ droptap_bpf_tap_packet(kern_packet_t pkt, uint32_t flags,
 	if (kern_packet_get_wake_flag(pkt)) {
 		hdr->pth_flags |= PTH_FLAG_WAKE_PKT;
 	}
+	/* Need to check the packet flag in case full wake has been requested */
+	if (kern_packet_get_lpw_flag(pkt) || if_is_lpw_enabled(ifp)) {
+		hdr->pth_flags |= PTH_FLAG_LPW;
+	}
 	hdr->pth_trace_tag = kern_packet_get_trace_tag(pkt);
 	hdr->pth_svc = so_svc2tc((mbuf_svc_class_t)
 	    kern_packet_get_service_class(pkt));
@@ -430,6 +435,9 @@ droptap_bpf_tap_mbuf(struct mbuf *m, uint16_t flags,
 	}
 	if (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) {
 		hdr->pth_flags |= PTH_FLAG_WAKE_PKT;
+	}
+	if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_LPW || if_is_lpw_enabled(ifp)) {
+		hdr->pth_flags |= PTH_FLAG_LPW;
 	}
 
 	hdr->pth_svc = so_svc2tc(m->m_pkthdr.pkt_svc);

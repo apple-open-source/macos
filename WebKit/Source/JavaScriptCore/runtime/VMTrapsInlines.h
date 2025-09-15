@@ -38,7 +38,7 @@ inline void VMTraps::deferTermination(DeferAction deferAction)
 {
     auto originalCount = m_deferTerminationCount++;
     ASSERT(m_deferTerminationCount < UINT_MAX);
-    if (UNLIKELY(originalCount == 0 && vm().exception()))
+    if (!originalCount && vm().exception()) [[unlikely]]
         deferTerminationSlow(deferAction);
 }
 
@@ -46,7 +46,7 @@ inline void VMTraps::undoDeferTermination(DeferAction deferAction)
 {
     ASSERT(m_deferTerminationCount > 0);
     ASSERT(!m_suspendedTerminationException || vm().hasTerminationRequest());
-    if (UNLIKELY(--m_deferTerminationCount == 0 && vm().hasTerminationRequest()))
+    if (!--m_deferTerminationCount && vm().hasTerminationRequest()) [[unlikely]]
         undoDeferTerminationSlow(deferAction);
 }
 

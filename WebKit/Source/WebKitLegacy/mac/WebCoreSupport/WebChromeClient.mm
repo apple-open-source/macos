@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,7 @@
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <Foundation/Foundation.h>
+#import <JavaScriptCore/ConsoleTypes.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorChooser.h>
 #import <WebCore/ContextMenu.h>
@@ -62,11 +63,11 @@
 #import <WebCore/CookieConsentDecisionResult.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DataListSuggestionPicker.h>
+#import <WebCore/DocumentFullscreen.h>
 #import <WebCore/Element.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FileIconLoader.h>
 #import <WebCore/FloatRect.h>
-#import <WebCore/FullscreenManager.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
@@ -126,9 +127,9 @@ NSString *WebConsoleMessageJSMessageSource = @"JSMessageSource";
 NSString *WebConsoleMessageNetworkMessageSource = @"NetworkMessageSource";
 NSString *WebConsoleMessageConsoleAPIMessageSource = @"ConsoleAPIMessageSource";
 NSString *WebConsoleMessageStorageMessageSource = @"StorageMessageSource";
-NSString *WebConsoleMessageAppCacheMessageSource = @"AppCacheMessageSource";
 NSString *WebConsoleMessageRenderingMessageSource = @"RenderingMessageSource";
 NSString *WebConsoleMessageCSSMessageSource = @"CSSMessageSource";
+NSString *WebConsoleMessageAccessibilityMessageSource = @"AccessibilityMessageSource";
 NSString *WebConsoleMessageSecurityMessageSource = @"SecurityMessageSource";
 NSString *WebConsoleMessageContentBlockerMessageSource = @"ContentBlockerMessageSource";
 NSString *WebConsoleMessageMediaMessageSource = @"MediaMessageSource";
@@ -260,9 +261,9 @@ RefPtr<Page> WebChromeClient::createWindow(LocalFrame& frame, const String& open
 
 #if ENABLE(FULLSCREEN_API)
     if (RefPtr document = frame.document()) {
-        if (CheckedPtr fullscreenManager = document->fullscreenManagerIfExists()) {
-            if (fullscreenManager->currentFullscreenElement())
-                fullscreenManager->cancelFullscreen();
+        if (RefPtr documentFullscreen = document->fullscreenIfExists()) {
+            if (documentFullscreen->fullscreenElement())
+                documentFullscreen->fullyExitFullscreen();
         }
     }
 #endif
@@ -398,12 +399,12 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageConsoleAPIMessageSource;
     case MessageSource::Storage:
         return WebConsoleMessageStorageMessageSource;
-    case MessageSource::AppCache:
-        return WebConsoleMessageAppCacheMessageSource;
     case MessageSource::Rendering:
         return WebConsoleMessageRenderingMessageSource;
     case MessageSource::CSS:
         return WebConsoleMessageCSSMessageSource;
+    case MessageSource::Accessibility:
+        return WebConsoleMessageAccessibilityMessageSource;
     case MessageSource::Security:
         return WebConsoleMessageSecurityMessageSource;
     case MessageSource::ContentBlocker:
@@ -475,10 +476,10 @@ void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel lev
 
     NSString *messageSource = stringForMessageSource(source);
     auto dictionary = @{
-        @"message": (NSString *)message,
+        @"message": message.createNSString().get(),
         @"lineNumber": @(lineNumber),
         @"columnNumber": @(columnNumber),
-        @"sourceURL": (NSString *)sourceURL,
+        @"sourceURL": sourceURL.createNSString().get(),
         @"MessageSource": messageSource,
         @"MessageLevel": stringForMessageLevel(level),
     };
@@ -499,9 +500,9 @@ bool WebChromeClient::canRunBeforeUnloadConfirmPanel()
     return [[m_webView UIDelegate] respondsToSelector:@selector(webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:)];
 }
 
-bool WebChromeClient::runBeforeUnloadConfirmPanel(const String& message, LocalFrame& frame)
+bool WebChromeClient::runBeforeUnloadConfirmPanel(String&& message, LocalFrame& frame)
 {
-    return CallUIDelegateReturningBoolean(true, m_webView, @selector(webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:), message, kit(&frame));
+    return CallUIDelegateReturningBoolean(true, m_webView, @selector(webView:runBeforeUnloadConfirmPanelWithMessage:initiatedByFrame:), message.createNSString().get(), kit(&frame));
 }
 
 void WebChromeClient::closeWindow()
@@ -529,14 +530,14 @@ void WebChromeClient::runJavaScriptAlert(LocalFrame& frame, const String& messag
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:);
     if ([delegate respondsToSelector:selector]) {
-        CallUIDelegate(m_webView, selector, message, kit(&frame));
+        CallUIDelegate(m_webView, selector, message.createNSString().get(), kit(&frame));
         return;
     }
 
     // Call the old version of the delegate method if it is implemented.
     selector = @selector(webView:runJavaScriptAlertPanelWithMessage:);
     if ([delegate respondsToSelector:selector]) {
-        CallUIDelegate(m_webView, selector, message);
+        CallUIDelegate(m_webView, selector, message.createNSString().get());
         return;
     }
 }
@@ -546,12 +547,12 @@ bool WebChromeClient::runJavaScriptConfirm(LocalFrame& frame, const String& mess
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:);
     if ([delegate respondsToSelector:selector])
-        return CallUIDelegateReturningBoolean(NO, m_webView, selector, message, kit(&frame));
+        return CallUIDelegateReturningBoolean(NO, m_webView, selector, message.createNSString().get(), kit(&frame));
 
     // Call the old version of the delegate method if it is implemented.
     selector = @selector(webView:runJavaScriptConfirmPanelWithMessage:);
     if ([delegate respondsToSelector:selector])
-        return CallUIDelegateReturningBoolean(NO, m_webView, selector, message);
+        return CallUIDelegateReturningBoolean(NO, m_webView, selector, message.createNSString().get());
 
     return NO;
 }
@@ -560,20 +561,20 @@ bool WebChromeClient::runJavaScriptPrompt(LocalFrame& frame, const String& promp
 {
     id delegate = [m_webView UIDelegate];
     SEL selector = @selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:);
-    NSString *defaultString = defaultText;
+    RetainPtr defaultString = defaultText.createNSString();
     if ([delegate respondsToSelector:selector]) {
-        result = (NSString *)CallUIDelegate(m_webView, selector, prompt, defaultString, kit(&frame));
+        result = (NSString *)CallUIDelegate(m_webView, selector, prompt.createNSString().get(), defaultString.get(), kit(&frame));
         return !result.isNull();
     }
 
     // Call the old version of the delegate method if it is implemented.
     selector = @selector(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:);
     if ([delegate respondsToSelector:selector]) {
-        result = (NSString *)CallUIDelegate(m_webView, selector, prompt, defaultString);
+        result = (NSString *)CallUIDelegate(m_webView, selector, prompt.createNSString().get(), defaultString.get());
         return !result.isNull();
     }
 
-    result = [[WebDefaultUIDelegate sharedUIDelegate] webView:m_webView runJavaScriptTextInputPanelWithPrompt:prompt defaultText:defaultString initiatedByFrame:kit(&frame)];
+    result = [[WebDefaultUIDelegate sharedUIDelegate] webView:m_webView runJavaScriptTextInputPanelWithPrompt:prompt.createNSString().get() defaultText:defaultString.get() initiatedByFrame:kit(&frame)];
     return !result.isNull();
 }
 
@@ -679,7 +680,7 @@ void WebChromeClient::setToolTip(const String& toolTip)
 {
     NSView<WebDocumentView> *documentView = [[[m_webView _selectedOrMainFrame] frameView] documentView];
     if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _setToolTip:toolTip];
+        [(WebHTMLView *)documentView _setToolTip:toolTip.createNSString().get()];
 }
 
 void WebChromeClient::print(LocalFrame& frame, const StringWithDirection&)
@@ -696,7 +697,7 @@ void WebChromeClient::exceededDatabaseQuota(LocalFrame& frame, const String& dat
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     auto webOrigin = adoptNS([[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:&frame.document()->securityOrigin()]);
-    CallUIDelegate(m_webView, @selector(webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:), kit(&frame), webOrigin.get(), (NSString *)databaseName);
+    CallUIDelegate(m_webView, @selector(webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:), kit(&frame), webOrigin.get(), databaseName.createNSString().get());
 
     END_BLOCK_OBJC_EXCEPTIONS
 }
@@ -721,6 +722,10 @@ RefPtr<DateTimeChooser> WebChromeClient::createDateTimeChooser(DateTimeChooserCl
 }
 
 void WebChromeClient::setTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
+{
+}
+
+void WebChromeClient::updateTextIndicator(const WebCore::TextIndicatorData& indicatorData) const
 {
 }
 
@@ -767,7 +772,7 @@ void WebChromeClient::runOpenPanel(LocalFrame&, FileChooser& chooser)
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebChromeClient::showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&)
+void WebChromeClient::showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&&)
 {
 }
 
@@ -948,7 +953,7 @@ void WebChromeClient::triggerRenderingUpdate()
 
 #if ENABLE(VIDEO)
 
-bool WebChromeClient::canEnterVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const
+bool WebChromeClient::canEnterVideoFullscreen(HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const
 {
 #if !PLATFORM(IOS_FAMILY) || HAVE(AVKIT)
     return true;
@@ -1043,30 +1048,36 @@ bool WebChromeClient::supportsFullScreenForElement(const Element& element, bool 
 #endif
 }
 
-void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode mode)
+// FIXME: Remove this when rdar://144645925 is resolved.
+void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode, CompletionHandler<void(ExceptionOr<void>)>&& willEnterFullscreen, CompletionHandler<bool(bool)>&& didEnterFullscreen)
 {
-    UNUSED_PARAM(mode);
     SEL selector = @selector(webView:enterFullScreenForElement:listener:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
-        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:&element]);
+        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:&element initialCompletionHandler:WTFMove(willEnterFullscreen) finalCompletionHandler:[didEnterFullscreen = WTFMove(didEnterFullscreen)] (bool result) mutable {
+            didEnterFullscreen(result);
+        }]);
         CallUIDelegate(m_webView, selector, kit(&element), listener.get());
     }
 #if !PLATFORM(IOS_FAMILY)
     else
-        [m_webView _enterFullScreenForElement:&element];
+        [m_webView _enterFullScreenForElement:&element willEnterFullscreen:WTFMove(willEnterFullscreen) didEnterFullscreen:[didEnterFullscreen = WTFMove(didEnterFullscreen)] (bool result) mutable {
+            didEnterFullscreen(result);
+        }];
 #endif
 }
 
-void WebChromeClient::exitFullScreenForElement(Element* element)
+void WebChromeClient::exitFullScreenForElement(Element* element, CompletionHandler<void()>&& completionHandler)
 {
     SEL selector = @selector(webView:exitFullScreenForElement:listener:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
-        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element]);
+        auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element initialCompletionHandler:[completionHandler = WTFMove(completionHandler)] (auto) mutable {
+            completionHandler();
+        } finalCompletionHandler:nullptr]);
         CallUIDelegate(m_webView, selector, kit(element), listener.get());
     }
 #if !PLATFORM(IOS_FAMILY)
     else
-        [m_webView _exitFullScreenForElement:element];
+        [m_webView _exitFullScreenForElement:element completionHandler:WTFMove(completionHandler)];
 #endif
 }
 
@@ -1074,7 +1085,7 @@ void WebChromeClient::exitFullScreenForElement(Element* element)
 
 #if ENABLE(SERVICE_CONTROLS)
 
-void WebChromeClient::handleSelectionServiceClick(WebCore::FrameSelection& selection, const Vector<String>& telephoneNumbers, const WebCore::IntPoint& point)
+void WebChromeClient::handleSelectionServiceClick(WebCore::FrameIdentifier, WebCore::FrameSelection& selection, const Vector<String>& telephoneNumbers, const WebCore::IntPoint& point)
 {
     [m_webView _selectionServiceController].handleSelectionServiceClick(selection, telephoneNumbers, point);
 }
@@ -1115,7 +1126,7 @@ void WebChromeClient::setMockMediaPlaybackTargetPickerEnabled(bool enabled)
 
 void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, MediaPlaybackTargetContext::MockState state)
 {
-    [m_webView _setMockMediaPlaybackTargetPickerName:name state:state];
+    [m_webView _setMockMediaPlaybackTargetPickerName:name.createNSString().get() state:state];
 }
 
 void WebChromeClient::mockMediaPlaybackTargetPickerDismissPopup()

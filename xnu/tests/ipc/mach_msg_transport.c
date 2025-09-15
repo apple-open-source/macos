@@ -43,7 +43,6 @@ t_port_construct_full(
 }
 #define t_port_construct()      t_port_construct_full(MPO_INSERT_SEND_RIGHT, 1)
 
-
 static void
 t_port_destruct_full(
 	mach_port_name_t       *name,
@@ -228,7 +227,7 @@ T_DECL(mach_msg_trailer, "check trailer generation")
 		kr = t_receive(rcv_name, &buf.hdr, sizeof(buf), topts);
 		T_ASSERT_MACH_SUCCESS(kr, "receiving message with trailer %d", i);
 
-		T_EXPECT_EQ(buf.hdr.msgh_size, sizeof(buf.hdr), "msgh_size");
+		T_EXPECT_EQ((unsigned long)buf.hdr.msgh_size, sizeof(buf.hdr), "msgh_size");
 		T_EXPECT_EQ(buf.trailer.msgh_trailer_type, MACH_MSG_TRAILER_FORMAT_0, "msgh_trailer_type");
 		T_EXPECT_EQ(buf.trailer.msgh_trailer_size, tsize, "msgh_trailer_size");
 		if (tsize > offsetof(mach_msg_max_trailer_t, msgh_sender)) {
@@ -520,9 +519,19 @@ static void
 t_mach_msg_descriptor_port_array(bool pseudo_receive)
 {
 	mach_port_name_t rcv_name, port1, port2;
+	uint32_t mpo_flags;
 	kern_return_t kr;
 
-	rcv_name = t_port_construct();
+	/*
+	 * Receive rights can receive OOL ports array only if
+	 * the port is of a dedicated type that allows it.
+	 *
+	 * This type is created by using the MPO_CONNECTION_PORT_WITH_PORT_ARRAY
+	 * flag, which also requires the task to have the relevant
+	 * entitlement.
+	 */
+	mpo_flags = MPO_INSERT_SEND_RIGHT | MPO_CONNECTION_PORT_WITH_PORT_ARRAY;
+	rcv_name = t_port_construct_full(mpo_flags, 1);
 	port1    = t_port_construct();
 	port2    = t_port_construct();
 
@@ -530,73 +539,48 @@ t_mach_msg_descriptor_port_array(bool pseudo_receive)
 		t_fill_port(rcv_name, 1);
 	}
 
-	for (size_t i = 0; i < port_dispositions[i]; i++) {
-		mach_msg_type_name_t disp = port_dispositions[i];
-		mach_port_name_t name1 = port1;
-		mach_port_name_t name2 = port2;
-		struct msg_complex_port_array msg;
-		mach_port_name_t *array;
+	/*
+	 * We only allow MACH_MSG_TYPE_COPY_SEND disposition
+	 * for OOL ports array descriptors.
+	 */
+	mach_msg_type_name_t disp = MACH_MSG_TYPE_COPY_SEND;
+	mach_port_name_t name1 = port1;
+	mach_port_name_t name2 = port2;
+	struct msg_complex_port_array msg;
+	mach_port_name_t *array;
 
-		if (disp == MACH_MSG_TYPE_MOVE_SEND_ONCE) {
-			name1 = t_make_sonce(port1);
-			name2 = t_make_sonce(port2);
-		}
+	t_fill_complex_port_array_msg(&msg, disp, name1, name2);
 
-		t_fill_complex_port_array_msg(&msg, disp, name1, name2);
+	kr = t_send(rcv_name, &msg.base, &msg.trailer, MACH64_SEND_TIMEOUT);
+	if (pseudo_receive) {
+		T_ASSERT_MACH_ERROR(kr, MACH_SEND_TIMED_OUT,
+		    "pseudo-rcv(disposition:%d)", disp);
+	} else {
+		T_ASSERT_MACH_SUCCESS(kr, "send(disposition:%d)", disp);
 
-		kr = t_send(rcv_name, &msg.base, &msg.trailer, MACH64_SEND_TIMEOUT);
-		if (pseudo_receive) {
-			T_ASSERT_MACH_ERROR(kr, MACH_SEND_TIMED_OUT,
-			    "pseudo-rcv(disposition:%d)", disp);
-		} else {
-			T_ASSERT_MACH_SUCCESS(kr, "send(disposition:%d)", disp);
-
-			kr = t_receive(rcv_name, &msg.base.header, sizeof(msg),
-			    MACH64_MSG_OPTION_NONE);
-			T_ASSERT_MACH_SUCCESS(kr, "recv(disposition:%d)", disp);
-		}
-
-		switch (disp) {
-		case MACH_MSG_TYPE_MOVE_RECEIVE:
-			disp = MACH_MSG_TYPE_PORT_RECEIVE;
-			break;
-		case MACH_MSG_TYPE_MOVE_SEND:
-		case MACH_MSG_TYPE_COPY_SEND:
-		case MACH_MSG_TYPE_MAKE_SEND:
-			disp = MACH_MSG_TYPE_PORT_SEND;
-			break;
-		case MACH_MSG_TYPE_MOVE_SEND_ONCE:
-		case MACH_MSG_TYPE_MAKE_SEND_ONCE:
-			disp = MACH_MSG_TYPE_PORT_SEND_ONCE;
-			break;
-		}
-
-		array = msg.dsc.address;
-
-		T_ASSERT_EQ(msg.base.header.msgh_bits & MACH_MSGH_BITS_COMPLEX,
-		    MACH_MSGH_BITS_COMPLEX, "verify complex");
-		T_ASSERT_EQ(msg.base.body.msgh_descriptor_count, 1u, "verify dsc count");
-		T_ASSERT_EQ((mach_msg_descriptor_type_t)msg.dsc.type, MACH_MSG_OOL_PORTS_DESCRIPTOR, "verify type");
-		T_ASSERT_EQ((mach_msg_type_name_t)msg.dsc.disposition, disp, "verify disposition");
-		T_ASSERT_EQ(msg.dsc.count, 2u, "verify count");
-		T_ASSERT_EQ((bool)msg.dsc.deallocate, true, "verify deallocate");
-
-		if (disp == MACH_MSG_TYPE_PORT_RECEIVE ||
-		    disp == MACH_PORT_TYPE_SEND) {
-			T_ASSERT_EQ(array[0], name1, "verify name");
-			T_ASSERT_EQ(array[1], name2, "verify name");
-		}
-
-		if (disp == MACH_MSG_TYPE_PORT_SEND_ONCE) {
-			t_deallocate_sonce(array[0]);
-			t_deallocate_sonce(array[1]);
-		}
-
-		t_vm_deallocate(array, sizeof(array[0]) * msg.dsc.count);
+		kr = t_receive(rcv_name, &msg.base.header, sizeof(msg),
+		    MACH64_MSG_OPTION_NONE);
+		T_ASSERT_MACH_SUCCESS(kr, "recv(disposition:%d)", disp);
 	}
 
-	t_port_destruct_full(&port1, 3, 0); /* did a COPY_SEND and a MAKE_SEND */
-	t_port_destruct_full(&port2, 3, 0); /* did a COPY_SEND and a MAKE_SEND */
+	disp = MACH_MSG_TYPE_PORT_SEND;
+	array = msg.dsc.address;
+
+	T_ASSERT_EQ(msg.base.header.msgh_bits & MACH_MSGH_BITS_COMPLEX,
+	    MACH_MSGH_BITS_COMPLEX, "verify complex");
+	T_ASSERT_EQ(msg.base.body.msgh_descriptor_count, 1u, "verify dsc count");
+	T_ASSERT_EQ((mach_msg_descriptor_type_t)msg.dsc.type, MACH_MSG_OOL_PORTS_DESCRIPTOR, "verify type");
+	T_ASSERT_EQ((mach_msg_type_name_t)msg.dsc.disposition, disp, "verify disposition");
+	T_ASSERT_EQ(msg.dsc.count, 2u, "verify count");
+	T_ASSERT_EQ((bool)msg.dsc.deallocate, true, "verify deallocate");
+
+	T_ASSERT_EQ(array[0], name1, "verify name");
+	T_ASSERT_EQ(array[1], name2, "verify name");
+
+	t_vm_deallocate(array, sizeof(array[0]) * msg.dsc.count);
+
+	t_port_destruct_full(&port1, 2, 0); /* did a COPY_SEND */
+	t_port_destruct_full(&port2, 2, 0); /* did a COPY_SEND */
 	t_port_destruct(&rcv_name);
 }
 

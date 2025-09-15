@@ -100,7 +100,6 @@ T_GLOBAL_META(
 	X(kqueue_lowat_note_slots, "test kqueue low watermark (slot watermark on knote)") \
 	X(change_len, "test kernel resilience to modified slot lengths") \
 	X(big_len, "test unrealistically large slot lengths") \
-	X(internalizemetdata, "test internalizex packet metadata verification") \
 	X(ringidtx, "test opening tx ringids") \
 	X(ringidrx, "test opening rx ringids") \
 	X(closekqk, "test closing kqueue in kqueue") \
@@ -112,10 +111,7 @@ T_GLOBAL_META(
 	X(bindupipeanon, "test binds a channel to an anonymous user pipe nexus") \
 	X(bindupipekey, "test binds a channel to a non-anonymous user pipe nexus") \
 	X(bindfswanon, "test binds a channel to an anonymous flowswitch nexus") \
-	X(bindfswkey, "test binds a channel to a non-anonymous flowswitch nexus") \
 	X(bindnetifkey, "test binds a channel to a non-anonymous netif nexus") \
-	X(flowswitch_ns_reserve, "test confirms that flowswitches can reserve L4 ports") \
-	X(flowswitch_ns_reserve2, "thorough test of netns for both BSD & flowswitch, IPv4/v6") \
 	X(netifcompata, "Test setup and teardown netifcompat on feth0") \
 	X(netifcompatb, "Test setup and teardown netifcompat on feth0 with deferred close channel") \
 	X(netifcompatc, "Test setup and teardown netifcompat on feth0 with deferred detach and close channel") \
@@ -126,31 +122,25 @@ T_GLOBAL_META(
 	X(fsw29301703a, "Test open 63 channels to a flowswitch") \
 	X(fsw29301703b, "Test open 200 channels to a flowswitch") \
 	X(fsw29301703c, "Open too many channels to a flowswitch") \
-	X(fswbindany, "Test attempts to bind to port -1 of flowswitch") \
 	X(fswbind0, "Test attempts to bind to port 0 of flowswitch") \
 	X(fswbind1, "Test attempts to bind to port 1 of flowswitch") \
 	X(fswbind512, "Test attempts to bind to port 512 of flowswitch") \
-	X(fswbind2, "Test attempts to bind to port 2 of flowswitch") \
-	X(fswbind5, "Test attempts to bind to port 5 of flowswitch") \
 	X(fullupipe, "Test rx on full tx pipe") \
 	X(upipepeerclosure, "Test channel operations on upipe with no peer") \
-	X(listener, "Test skywalk listener flow creation check") \
-	X(listener_stress, "Test stress skywalk listener flows") \
-	X(listener_reuse, "Test stress skywalk listener reuse") \
 	X(copy_cksum_single, "Test copy/checksum code: single buffer") \
 	X(copy_cksum_multi, "Test copy/checksum code: buffer chain") \
+	X(reass, "UDP fragmentation reassembly (channel flow Rx)") \
+	X(reass_default_setting, "UDP fragmentation reassembly (channel flow Rx) (without forcing ip_reass sysctl)") \
 	X(reass_timeout, "Test send partial fragment to flowswitch and check for ICMPv6 time exceeded reply") \
 	X(reass_bad_fraglen, "Test send fragment with bad fragment length (!= 8*) to flowswitch and check for ICMPv6 param header reply") \
 	X(reass_atomic, "Test send atomic ICMP echo fragment to flowswitch and check for reply") \
 	X(reass_fuzz_queue_limit, "Test fuzz flowswitch to hit fragment limit") \
 	X(cksum, "Test checksum code") \
 	X(memory, "Test skmem allocator basic and advanced tests") \
-	X(flow_req, "Test skywalk flow request api") \
 	X(flow_req_ll, "Test skywalk flow request api for low latency flows") \
 	X(flow_config, "Test skywalk flow config api") \
-	X(flowlookup, "Test test flow lookup by send/receive of packets") \
+	X(flow_conn_idle, "Test skywalk flow connection idle api") \
 	X(libcuckoo, "Test Cuckoo hashtable library basic and advanced tests") \
-	X(restricted_port, "Test reserve a restricted ephemeral port") \
 	X(steering, "Test steering rules") \
 	X(listen_stress, "Test stress posix socket listen") \
 	X(pllutxk, "Test send 10000000 slots to upipe sink using kqueue")
@@ -182,10 +172,6 @@ T_GLOBAL_META(
 	X(utun27302538c, "test cleaning up utun kpipe while channel is in kevent (case c)") \
 	X(utun27302538d, "test cleaning up utun kpipe while channel is in kevent (case d)") \
 	X(utun27646755, "race cleaning up channel and utun socket (20 iterations)") \
-	X(utunloopn4u1, "open 2 utuns without netif and floods ipv4 udp packets in one direction") \
-	X(utunloopn4u2, "open 2 utuns without netif and floods ipv4 udp packets in two directions") \
-	X(utunloopn4t1, "open 2 utuns without netif and floods ipv4 tcp packets in one direction") \
-	X(utunloopn4t2, "open 2 utuns without netif and floods ipv4 tcp packets in two directions") \
 	X(utunloopy4u1, "open 2 utuns with netif and floods ipv4 udp packets in one direction") \
 	X(utunloopy4u2, "open 2 utuns with netif and floods ipv4 udp packets in two directions") \
 	X(utunloopy4t1, "open 2 utuns with netif and floods ipv4 tcp packets in one direction") \
@@ -241,7 +227,6 @@ T_GLOBAL_META(
 	X(kqueue_lowat_note_bytes, "test kqueue low watermark (byte watermark on knote)") \
 	X(change_len, "test kernel resilience to modified slot lengths") \
 	X(big_len, "test unrealistically large slot lengths") \
-	X(internalizemetdata, "test internalizex packet metadata verification") \
 	X(ringidtx, "test opening tx ringids") \
 	X(ringidrx, "test opening rx ringids") \
 	X(debug_verify_u, "test confirms that skywalk is storing checksums of slots received on a upipe when in SKF_VERIFY debug mode") \
@@ -251,10 +236,6 @@ T_GLOBAL_META(
 	X(utun27302538c, "test cleaning up utun kpipe while channel is in kevent (case c)") \
 	X(utun27302538d, "test cleaning up utun kpipe while channel is in kevent (case d)") \
 	X(utun27646755, "race cleaning up channel and utun socket (20 iterations)") \
-	X(utunloopn4u1, "open 2 utuns without netif and floods ipv4 udp packets in one direction") \
-	X(utunloopn4u2, "open 2 utuns without netif and floods ipv4 udp packets in two directions") \
-	X(utunloopn4t1, "open 2 utuns without netif and floods ipv4 tcp packets in one direction") \
-	X(utunloopn4t2, "open 2 utuns without netif and floods ipv4 tcp packets in two directions") \
 	X(utunloopy4u1, "open 2 utuns with netif and floods ipv4 udp packets in one direction") \
 	X(utunloopy4u2, "open 2 utuns with netif and floods ipv4 udp packets in two directions") \
 	X(utunloopy4t1, "open 2 utuns with netif and floods ipv4 tcp packets in one direction") \
@@ -264,12 +245,9 @@ T_GLOBAL_META(
 	X(ipsecloopy4t1, "open 2 ipsecs with netif and floods ipv4 tcp packets in one direction") \
 	X(ipsecloopy4t2, "open 2 ipsecs with netif and floods ipv4 tcp packets in two directions") \
 	X(bindupipekey, "test binds a channel to a non-anonymous user pipe nexus") \
-	X(bindfswkey, "test binds a channel to a non-anonymous flowswitch nexus") \
 	X(netifcompata, "Test setup and teardown netifcompat on feth0") \
 	X(netifcompatb, "Test setup and teardown netifcompat on feth0 with deferred close channel") \
 	X(netifcompatc, "Test setup and teardown netifcompat on feth0 with deferred detach and close channel") \
-	X(teardown, "Test setup complicated topology tear it down") \
-	X(teardownb, "Test setup complicated topology tear it down backwards") \
 	X(teardownr, "setup complicated topology tear it down randomly (1000 iterations)") \
 	X(teardownz, "setup complicated topology tear it down with each stage in an out of order position") \
 	X(fsw29301703a, "Test open 63 channels to a flowswitch") \
@@ -288,18 +266,26 @@ T_GLOBAL_META(
 	X(pllurxs, "receive 10000000 slots from upipe source using select") \
 	X(pllurxp, "receive 10000000 slots to upipe source using poll")
 
-/*
- * These tests have failure rate > 2%, so we turn on extra logging.
- */
-#define BATS_FAILING_TESTS \
-	X(utunloopn4u1, "open 2 utuns without netif and floods ipv4 udp packets in one direction") \
-	X(utunloopn4u2, "open 2 utuns without netif and floods ipv4 udp packets in two directions") \
-	X(utunloopn4t1, "open 2 utuns without netif and floods ipv4 tcp packets in one direction") \
-	X(utunloopn4t2, "open 2 utuns without netif and floods ipv4 tcp packets in two directions") \
+#define RDAR_145328590_FAILING_TESTS \
+	X(flow_req, "Test skywalk flow request api") \
+	X(flowlookup, "Test test flow lookup by send/receive of packets") \
+	X(flowswitch_ns_reserve, "test confirms that flowswitches can reserve L4 ports") \
+	X(flowswitch_ns_reserve2, "thorough test of netns for both BSD & flowswitch, IPv4/v6") \
+	X(fswbind2, "Test attempts to bind to port 2 of flowswitch") \
+	X(fswbind5, "Test attempts to bind to port 5 of flowswitch") \
+	X(fswbindany, "Test attempts to bind to port -1 of flowswitch") \
+	X(internalizemetdata, "test internalizex packet metadata verification") \
+	X(listener, "Test skywalk listener flow creation check") \
+	X(listener_stress, "Test stress skywalk listener flows") \
+	X(listener_reuse, "Test stress skywalk listener reuse") \
+	X(restricted_port, "Test reserve a restricted ephemeral port") \
+	X(teardown, "Test setup complicated topology tear it down") \
+	X(teardownb, "Test setup complicated topology tear it down backwards") \
 	X(utunloopy4u1, "open 2 utuns with netif and floods ipv4 udp packets in one direction") \
 	X(utunloopy4u2, "open 2 utuns with netif and floods ipv4 udp packets in two directions") \
 	X(utunloopy4t1, "open 2 utuns with netif and floods ipv4 tcp packets in one direction") \
-	X(utunloopy4t2, "open 2 utuns with netif and floods ipv4 tcp packets in two directions")
+	X(utunloopy4t2, "open 2 utuns with netif and floods ipv4 tcp packets in two directions") \
+	X(bindfswkey, "test binds a channel to a non-anonymous flowswitch nexus")
 
 #define EXPAND_TO_T_DECL_COMMON(test, desc)                                    \
 	{                                                                      \
@@ -422,17 +408,3 @@ T_DECL_REF(noop_memcleanup, noop, "run noop test to cleanup memory failure sysct
 	EXPAND_TO_T_DECL_COMMON(test, desc)
 SHUTDOWN_TESTS;
 #undef X
-
-/*
- * These tests are known to have failure rate > 2% so we turn on extra logging.
- * Uncrustify does not handle T_META_MAYFAIL being used in X macros properly.
- */
-/* BEGIN IGNORE CODESTYLE */
-#define X(test, desc, ...)                                                \
-	T_DECL(failing_##test, desc,                                      \
-	        T_META_SYSCTL_INT("kern.skywalk.verbose=16492674416640"), \
-	        T_META_MAYFAIL("rdar://126364642, bind call fails with EADDRNOTAVAIL")) \
-        EXPAND_TO_T_DECL_COMMON(test, desc)
-BATS_FAILING_TESTS;
-#undef X
-/* END IGNORE CODESTYLE */

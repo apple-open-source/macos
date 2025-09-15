@@ -90,6 +90,10 @@ ModelProcessProxy::ModelProcessProxy()
     parameters.auxiliaryProcessParameters = auxiliaryProcessParameters();
     parameters.parentPID = getCurrentProcessID();
 
+#if PLATFORM(COCOA)
+    updateModelProcessCreationParameters(parameters);
+#endif
+
     // Initialize the model process.
     sendWithAsyncReply(Messages::ModelProcess::InitializeModelProcess(WTFMove(parameters)), [initializationActivityAndGrant = initializationActivityAndGrant()] () { }, 0);
 
@@ -128,16 +132,39 @@ void ModelProcessProxy::processWillShutDown(IPC::Connection& connection)
 
 void ModelProcessProxy::createModelProcessConnection(WebProcessProxy& webProcessProxy, IPC::Connection::Handle&& connectionIdentifier, ModelProcessConnectionParameters&& parameters)
 {
+    auto createConnectionBlock = [this, &webProcessProxy](
+        IPC::Connection::Handle&& connectionIdentifier,
+        ModelProcessConnectionParameters&& parameters,
+        const std::optional<String>& attributionTaskID) {
+        sendWithAsyncReply(
+            Messages::ModelProcess::CreateModelConnectionToWebProcess {
+                webProcessProxy.coreProcessIdentifier(),
+                webProcessProxy.sessionID(),
+                WTFMove(connectionIdentifier),
+                WTFMove(parameters),
+                attributionTaskID
+            },
+            [this, weakThis = WeakPtr { *this }]() mutable {
+                if (!weakThis)
+                    return;
+                stopResponsivenessTimer();
+            }, 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+    };
+
     if (auto* store = webProcessProxy.websiteDataStore())
         addSession(*store);
 
     RELEASE_LOG(ProcessSuspension, "%p - ModelProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::ModelProcess::CreateModelConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), WTFMove(connectionIdentifier), WTFMove(parameters) }, [this, weakThis = WeakPtr { *this }]() mutable {
+#if HAVE(TASK_IDENTITY_TOKEN)
+    webProcessProxy.createMemoryAttributionIDIfNeeded([weakThis = WeakPtr { *this }, createConnectionBlock = WTFMove(createConnectionBlock), connectionIdentifier = WTFMove(connectionIdentifier), parameters = WTFMove(parameters)](const std::optional<String>& attributionTaskID) mutable {
         if (!weakThis)
             return;
-        stopResponsivenessTimer();
-    }, 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
+        createConnectionBlock(WTFMove(connectionIdentifier), WTFMove(parameters), attributionTaskID);
+    });
+#else
+    createConnectionBlock(WTFMove(connectionIdentifier), WTFMove(parameters), std::nullopt);
+#endif
 }
 
 void ModelProcessProxy::sharedPreferencesForWebProcessDidChange(WebProcessProxy& webProcessProxy, SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess, CompletionHandler<void()>&& completionHandler)
@@ -215,13 +242,18 @@ void ModelProcessProxy::webProcessConnectionCountForTesting(CompletionHandler<vo
     sendWithAsyncReply(Messages::ModelProcess::WebProcessConnectionCountForTesting(), WTFMove(completionHandler));
 }
 
+void ModelProcessProxy::modelPlayerCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::ModelProcess::ModelPlayerCountForTesting(), WTFMove(completionHandler));
+}
+
 void ModelProcessProxy::didClose(IPC::Connection&)
 {
     RELEASE_LOG_ERROR(Process, "%p - ModelProcessProxy::didClose:", this);
     modelProcessExited(ProcessTerminationReason::Crash); // May cause |this| to get deleted.
 }
 
-void ModelProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, int32_t)
+void ModelProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, const Vector<uint32_t>&)
 {
     logInvalidMessage(connection, messageName);
 
@@ -263,20 +295,23 @@ void ModelProcessProxy::updateProcessAssertion()
     bool hasAnyBackgroundWebProcesses = false;
 
     for (auto& processPool : WebProcessPool::allProcessPools()) {
-        hasAnyForegroundWebProcesses |= processPool->hasForegroundWebProcesses();
-        hasAnyBackgroundWebProcesses |= processPool->hasBackgroundWebProcesses();
+        hasAnyForegroundWebProcesses |= processPool->hasForegroundWebProcessesWithModels();
+        hasAnyBackgroundWebProcesses |= processPool->hasBackgroundWebProcessesWithModels();
     }
 
     if (hasAnyForegroundWebProcesses) {
         if (!ProcessThrottler::isValidForegroundActivity(m_activityFromWebProcesses.get()))
-            m_activityFromWebProcesses = throttler().foregroundActivity("Model for foreground view(s)"_s);
+            m_activityFromWebProcesses = protectedThrottler()->foregroundActivity("Model for foreground view(s)"_s);
         return;
     }
     if (hasAnyBackgroundWebProcesses) {
         if (!ProcessThrottler::isValidBackgroundActivity(m_activityFromWebProcesses.get()))
-            m_activityFromWebProcesses = throttler().backgroundActivity("Model for background view(s)"_s);
+            m_activityFromWebProcesses = protectedThrottler()->backgroundActivity("Model for background view(s)"_s);
         return;
     }
+
+    if (!!m_activityFromWebProcesses)
+        RELEASE_LOG(ModelElement, "Releasing all activities from model process");
 
     // Use std::exchange() instead of a simple nullptr assignment to avoid re-entering this
     // function during the destructor of the ProcessThrottler activity, before setting

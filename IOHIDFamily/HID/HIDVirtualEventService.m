@@ -6,6 +6,7 @@
  */
 
 #import <HID/HIDVirtualEventService.h>
+#import <HID/HIDVirtualEventService_Internal.h>
 #import <HID/HIDEventSystemClient_Internal.h>
 #import <IOKit/hid/IOHIDEventSystemClient.h>
 #import <HID/HIDServiceClient.h>
@@ -15,16 +16,6 @@
 #import <os/assumes.h>
 
 #import "IOHIDPrivateKeys.h"
-
-@interface HIDVirtualEventService () {
-    _Atomic int _state;
-}
-
-@property  HIDEventSystemClient *   client;
-@property  HIDServiceClient *       serviceClient;
-@property  dispatch_queue_t         queue;
-
-@end
 
 @implementation HIDVirtualEventService
 
@@ -42,7 +33,14 @@
     if (!self.client) {
         return nil;
     }
-    
+
+    // set a matching criteria that won't match any services to minimize messages on the mach port
+    // used to handle the virtual service callbacks.
+    [self.client setMatching:@{
+        @(kIOHIDPrimaryUsagePageKey) : @(UINT32_MAX),
+        @(kIOHIDPrimaryUsageKey) : @(UINT32_MAX),
+    }];
+
     return self;
 }
 

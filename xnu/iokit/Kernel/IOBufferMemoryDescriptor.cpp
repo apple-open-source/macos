@@ -73,6 +73,12 @@ enum{
 	kInternalFlagInit          = 0x00000008,
 	kInternalFlagHasPointers   = 0x00000010,
 	kInternalFlagGuardPages    = 0x00000020,
+	/**
+	 * Should the IOBMD behave as if it has no kernel mapping for the
+	 * underlying buffer? Note that this does not necessarily imply the
+	 * existence (or non-existence) of a kernel mapping.
+	 */
+	kInternalFlagAsIfUnmapped  = 0x00000040,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -190,6 +196,7 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 	bool                  mapped = false;
 	bool                  withCopy = false;
 	bool                  mappedOrShared = false;
+	bool                  noSoftLimit = false;
 
 	if (!capacity) {
 		return false;
@@ -267,8 +274,19 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 		return false;
 	}
 
-	if ((inTask != kernel_task) && !(options & kIOMemoryPageable)) {
-		return false;
+	if (inTask) {
+		if ((inTask != kernel_task) && !(options & kIOMemoryPageable)) {
+			// Cannot create non-pageable memory in user tasks
+			return false;
+		}
+	} else {
+		// Not passing a task implies the memory should not be mapped (or, at
+		// least, should behave as if it were not mapped)
+		_internalFlags |= kInternalFlagAsIfUnmapped;
+
+		// Disable the soft-limit since the mapping, if any, will not escape the
+		// IOBMD.
+		noSoftLimit = true;
 	}
 
 	bzero(&mapSpec, sizeof(mapSpec));
@@ -326,7 +344,7 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 				}
 			}
 			_buffer = (void *) IOKernelAllocateWithPhysicalRestrict(kheap,
-			    capacity, highestMask, alignment, contig);
+			    capacity, highestMask, alignment, contig, noSoftLimit);
 		} else if (_internalFlags & kInternalFlagGuardPages) {
 			vm_offset_t address = 0;
 			kern_return_t kr;
@@ -339,6 +357,10 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 			}
 			if (kheap == KHEAP_DATA_SHARED) {
 				kma_flags = (kma_flags_t) (kma_flags | KMA_DATA_SHARED);
+			}
+
+			if (noSoftLimit) {
+				kma_flags = (kma_flags_t)(kma_flags | KMA_NOSOFTLIMIT);
 			}
 
 			alignMask = (1UL << log2up((uint32_t) alignment)) - 1;
@@ -367,13 +389,20 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 #endif
 			}
 #endif /* defined(__x86_64__) */
-		} else if (alignment > 1) {
+		} else {
+			zalloc_flags_t zflags = Z_ZERO_VM_TAG_BT_BIT;
+			if (noSoftLimit) {
+				zflags = (zalloc_flags_t)(zflags | Z_NOSOFTLIMIT);
+			}
+
 			/* BEGIN IGNORE CODESTYLE */
 			__typed_allocators_ignore_push
-			_buffer = IOMallocAligned_internal(kheap, capacity, alignment,
-			    Z_ZERO_VM_TAG_BT_BIT);
-		} else {
-			_buffer = IOMalloc_internal(kheap, capacity, Z_ZERO_VM_TAG_BT_BIT);
+			if (alignment > 1) {
+				_buffer = IOMallocAligned_internal(kheap, capacity, alignment,
+					zflags);
+			} else {
+				_buffer = IOMalloc_internal(kheap, capacity, zflags);
+			}
 			__typed_allocators_ignore_pop
 			/* END IGNORE CODESTYLE */
 		}
@@ -397,9 +426,6 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 			if (!withCopy) {
 				mapTask = inTask;
 			}
-			if (NULL == inTask) {
-				inTask = kernel_task;
-			}
 		} else if (options & kIOMapCacheMask) {
 			// Prefetch each page to put entries into the pmap
 			volatile UInt8 *    startAddr = (UInt8 *)_buffer;
@@ -413,11 +439,16 @@ IOBufferMemoryDescriptor::initWithPhysicalMask(
 		}
 	}
 
-	_ranges.v64->address = (mach_vm_address_t) pgz_decode(_buffer, _capacity);
+	_ranges.v64->address = (mach_vm_address_t) _buffer;
 	_ranges.v64->length  = _capacity;
 
-	if (!super::initWithOptions(_ranges.v64, 1, 0,
-	    inTask, iomdOptions, /* System mapper */ NULL)) {
+	if (!super::initWithOptions(
+		    /* buffers */ _ranges.v64, /* count */ 1, /* offset */ 0,
+		    // Since we handle all "unmapped" behavior internally and our superclass
+		    // requires a task, default all unbound IOBMDs to the kernel task.
+		    /* task */ inTask ?: kernel_task,
+		    /* options */ iomdOptions,
+		    /* System mapper */ NULL)) {
 		return false;
 	}
 
@@ -853,6 +884,10 @@ IOBufferMemoryDescriptor::appendBytes(const void * bytes, vm_size_t withLength)
 void *
 IOBufferMemoryDescriptor::getBytesNoCopy()
 {
+	if (__improbable(_internalFlags & kInternalFlagAsIfUnmapped)) {
+		return NULL;
+	}
+
 	if (kIOMemoryTypePhysical64 == (_flags & kIOMemoryTypeMask)) {
 		return _buffer;
 	} else {
@@ -870,6 +905,10 @@ void *
 IOBufferMemoryDescriptor::getBytesNoCopy(vm_size_t start, vm_size_t withLength)
 {
 	IOVirtualAddress address;
+
+	if (__improbable(_internalFlags & kInternalFlagAsIfUnmapped)) {
+		return NULL;
+	}
 
 	if ((start + withLength) < start) {
 		return NULL;

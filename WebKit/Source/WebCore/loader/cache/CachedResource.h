@@ -2,7 +2,7 @@
     Copyright (C) 1998 Lars Knoll (knoll@mpi-hd.mpg.de)
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+    Copyright (C) 2004-2025 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -236,11 +236,12 @@ public:
     void clearLoader();
 
     FragmentedSharedBuffer* resourceBuffer() const { return m_data.get(); }
+    RefPtr<FragmentedSharedBuffer> protectedResourceBuffer() const;
 
     virtual void redirectReceived(ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&);
-    virtual void responseReceived(const ResourceResponse&);
+    virtual void responseReceived(ResourceResponse&&);
     virtual bool shouldCacheResponse(const ResourceResponse&) { return true; }
-    void setResponse(const ResourceResponse&);
+    void setResponse(ResourceResponse&&);
     WEBCORE_EXPORT const ResourceResponse& response() const;
     Box<NetworkLoadMetrics> takeNetworkLoadMetrics() { return mutableResponse().takeNetworkLoadMetrics(); }
 
@@ -319,7 +320,7 @@ public:
     const std::unique_ptr<ResourceRequest>& originalRequest() const { return m_originalRequest; }
 
 #if USE(QUICK_LOOK)
-    virtual void previewResponseReceived(const ResourceResponse&);
+    virtual void previewResponseReceived(ResourceResponse&&);
 #endif
 
     ResourceCryptographicDigest cryptographicDigest(ResourceCryptographicDigest::Algorithm) const;
@@ -403,7 +404,7 @@ private:
 
     // These handles will need to be updated to point to the m_resourceToRevalidate in case we get 304 response.
     // FIXME: This should use a smart pointer.
-    UncheckedKeyHashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
+    HashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
 
     Vector<std::pair<String, String>> m_varyingHeaderValues;
 

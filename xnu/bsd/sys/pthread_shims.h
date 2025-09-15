@@ -214,7 +214,9 @@ typedef const struct pthread_callbacks_s {
 	void (*thread_exception_return)(void);
 	void (*thread_bootstrap_return)(void);
 
-	void *__unused_was_absolutetime_to_microtime;
+	/* osfmk/kern/cpu_data.h */
+	void (*abandon_preemption_disable_measurement)(void);
+
 	void *__unused_was_thread_set_workq_pri;
 	void *__unused_was_thread_set_workq_qos;
 

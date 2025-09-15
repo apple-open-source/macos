@@ -180,6 +180,13 @@ int fat_init(struct bootblock *boot, check_context *context)
 	{
 		gNumCacheBlocks = (boot->FATsecs*boot->BytesPerSec+FAT_CHUNK_SIZE-1)/FAT_CHUNK_SIZE;
 	}
+
+	if (gNumCacheBlocks == 0) {
+		freeUseMap();
+		fsck_print(fsck_ctx, LOG_CRIT, "Calculated zero cache blocks\n");
+		return FSFATAL;
+	}
+
 	fat_cache = calloc(gNumCacheBlocks, sizeof(struct fat_cache_block));
 	if (fat_cache == NULL)
 	{

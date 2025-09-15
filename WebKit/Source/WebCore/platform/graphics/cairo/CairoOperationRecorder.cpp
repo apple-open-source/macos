@@ -39,6 +39,7 @@
 #include "Gradient.h"
 #include "GraphicsContextCairo.h"
 #include "ImageBuffer.h"
+#include "NativeImage.h"
 #include <type_traits>
 #include <wtf/ZippedRange.h>
 #include <wtf/text/TextStream.h>
@@ -61,14 +62,18 @@ struct OperationData {
 template<> struct OperationData<> { };
 
 template<typename T, typename... Args>
-auto createCommand(Args&&... arguments) -> std::enable_if_t<std::is_base_of<OperationData<std::decay_t<Args>...>, T>::value, std::unique_ptr<PaintingOperation>> {
+    requires std::derived_from<T, OperationData<std::decay_t<Args>...>>
+auto createCommand(Args&&... arguments) -> std::unique_ptr<PaintingOperation>
+{
     auto* command = new T();
     command->arguments = std::make_tuple(std::forward<Args>(arguments)...);
     return std::unique_ptr<PaintingOperation>(command);
 }
 
 template<typename T>
-auto createCommand() -> std::enable_if_t<std::is_base_of<OperationData<>, T>::value, std::unique_ptr<PaintingOperation>> {
+    requires std::derived_from<T, OperationData<>>
+auto createCommand() -> std::unique_ptr<PaintingOperation>
+{
     return makeUnique<T>();
 }
 
@@ -91,7 +96,7 @@ void OperationRecorder::didUpdateState(GraphicsContextState& state)
 
             void dump(TextStream& ts) override
             {
-                ts << indent << "StrokeThicknessChange<>\n";
+                ts << indent << "StrokeThicknessChange<>\n"_s;
             }
         };
 
@@ -109,7 +114,7 @@ void OperationRecorder::didUpdateState(GraphicsContextState& state)
 
             void dump(TextStream& ts) override
             {
-                ts << indent << "StrokeStyleChange<>\n";
+                ts << indent << "StrokeStyleChange<>\n"_s;
             }
         };
 
@@ -127,7 +132,7 @@ void OperationRecorder::didUpdateState(GraphicsContextState& state)
 
             void dump(TextStream& ts) override
             {
-                ts << indent << "CompositeOperationChange<>\n";
+                ts << indent << "CompositeOperationChange<>\n"_s;
             }
         };
 
@@ -145,7 +150,7 @@ void OperationRecorder::didUpdateState(GraphicsContextState& state)
 
             void dump(TextStream& ts) override
             {
-                ts << indent << "ShouldAntialiasChange<>\n";
+                ts << indent << "ShouldAntialiasChange<>\n"_s;
             }
         };
 
@@ -167,7 +172,7 @@ void OperationRecorder::setLineCap(LineCap lineCap)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "SetLineCap<>\n";
+            ts << indent << "SetLineCap<>\n"_s;
         }
     };
 
@@ -186,7 +191,7 @@ void OperationRecorder::setLineDash(const DashArray& dashes, float dashOffset)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "SetLineDash<>\n";
+            ts << indent << "SetLineDash<>\n"_s;
         }
     };
 
@@ -205,7 +210,7 @@ void OperationRecorder::setLineJoin(LineJoin lineJoin)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "SetLineJoin<>\n";
+            ts << indent << "SetLineJoin<>\n"_s;
         }
     };
 
@@ -224,7 +229,7 @@ void OperationRecorder::setMiterLimit(float miterLimit)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "SetMiterLimit<>\n";
+            ts << indent << "SetMiterLimit<>\n"_s;
         }
     };
 
@@ -243,7 +248,7 @@ void OperationRecorder::fillRect(const FloatRect& rect, RequiresClipToRect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRect<>\n";
+            ts << indent << "FillRect<>\n"_s;
         }
     };
 
@@ -263,7 +268,7 @@ void OperationRecorder::fillRect(const FloatRect& rect, const Color& color)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRect<>\n";
+            ts << indent << "FillRect<>\n"_s;
         }
     };
 
@@ -285,7 +290,7 @@ void OperationRecorder::fillRect(const FloatRect& rect, Gradient& gradient)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRect<>\n";
+            ts << indent << "FillRect<>\n"_s;
         }
     };
 
@@ -305,7 +310,7 @@ void OperationRecorder::fillRect(const FloatRect& rect, Gradient& gradient, cons
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRect<>\n";
+            ts << indent << "FillRect<>\n"_s;
         }
     };
 
@@ -329,7 +334,7 @@ void OperationRecorder::fillRect(const FloatRect& rect, const Color& color, Comp
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRect<>\n";
+            ts << indent << "FillRect<>\n"_s;
         }
     };
 
@@ -359,7 +364,7 @@ void OperationRecorder::fillRoundedRect(const FloatRoundedRect& roundedRect, con
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRoundedRect<>\n";
+            ts << indent << "FillRoundedRect<>\n"_s;
         }
     };
 
@@ -379,7 +384,7 @@ void OperationRecorder::fillRectWithRoundedHole(const FloatRect& rect, const Flo
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillRectWithRoundedHole<>\n";
+            ts << indent << "FillRectWithRoundedHole<>\n"_s;
         }
     };
 
@@ -399,7 +404,7 @@ void OperationRecorder::fillPath(const Path& path)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillPath<>\n";
+            ts << indent << "FillPath<>\n"_s;
         }
     };
 
@@ -424,7 +429,7 @@ void OperationRecorder::fillEllipse(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "FillEllipse<>\n";
+            ts << indent << "FillEllipse<>\n"_s;
         }
     };
 
@@ -444,7 +449,7 @@ void OperationRecorder::strokeRect(const FloatRect& rect, float lineWidth)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "StrokeRect<>\n";
+            ts << indent << "StrokeRect<>\n"_s;
         }
     };
 
@@ -464,7 +469,7 @@ void OperationRecorder::strokePath(const Path& path)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "StrokePath<>\n";
+            ts << indent << "StrokePath<>\n"_s;
         }
     };
 
@@ -489,7 +494,7 @@ void OperationRecorder::strokeEllipse(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "StrokeEllipse<>\n";
+            ts << indent << "StrokeEllipse<>\n"_s;
         }
     };
 
@@ -509,7 +514,7 @@ void OperationRecorder::clearRect(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ClearRect<>\n";
+            ts << indent << "ClearRect<>\n"_s;
         }
     };
 
@@ -529,7 +534,7 @@ void OperationRecorder::drawGlyphs(const Font& font, std::span<const GlyphBuffer
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawGlyphs<>\n";
+            ts << indent << "DrawGlyphs<>\n"_s;
         }
     };
 
@@ -556,8 +561,7 @@ void OperationRecorder::drawGlyphs(const Font& font, std::span<const GlyphBuffer
 
 void OperationRecorder::drawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
 {
-    auto positionedGlyphs = decomposedGlyphs.positionedGlyphs();
-    return drawGlyphs(font, positionedGlyphs.glyphs.span(), positionedGlyphs.advances.span(), positionedGlyphs.localAnchor, positionedGlyphs.smoothingMode);
+    return drawGlyphs(font, decomposedGlyphs.glyphs(), decomposedGlyphs.advances(), decomposedGlyphs.localAnchor(), decomposedGlyphs.fontSmoothingMode());
 }
 
 void OperationRecorder::drawImageBuffer(ImageBuffer& buffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
@@ -572,7 +576,7 @@ void OperationRecorder::drawImageBuffer(ImageBuffer& buffer, const FloatRect& de
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawImageBuffer<>\n";
+            ts << indent << "DrawImageBuffer<>\n"_s;
         }
     };
 
@@ -598,7 +602,7 @@ void OperationRecorder::drawFilteredImageBuffer(ImageBuffer* srcImage, const Flo
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawFilteredImageBuffer<>\n";
+            ts << indent << "DrawFilteredImageBuffer<>\n"_s;
         }
     };
 
@@ -630,7 +634,7 @@ void OperationRecorder::drawNativeImageInternal(NativeImage& nativeImage, const 
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawNativeImage<>\n";
+            ts << indent << "DrawNativeImage<>\n"_s;
         }
     };
 
@@ -650,7 +654,7 @@ void OperationRecorder::drawPattern(NativeImage& nativeImage, const FloatRect& d
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawPattern<>\n";
+            ts << indent << "DrawPattern<>\n"_s;
         }
     };
 
@@ -670,7 +674,7 @@ void OperationRecorder::drawRect(const FloatRect& rect, float borderThickness)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawRect<>\n";
+            ts << indent << "DrawRect<>\n"_s;
         }
     };
 
@@ -690,7 +694,7 @@ void OperationRecorder::drawLine(const FloatPoint& point1, const FloatPoint& poi
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawLine<>\n";
+            ts << indent << "DrawLine<>\n"_s;
         }
     };
 
@@ -701,9 +705,9 @@ void OperationRecorder::drawLine(const FloatPoint& point1, const FloatPoint& poi
     append(createCommand<DrawLine>(point1, point2, state.strokeStyle(), state.strokeBrush().color(), state.strokeThickness(), state.shouldAntialias()));
 }
 
-void OperationRecorder::drawLinesForText(const FloatPoint& point, float thickness, const DashArray& widths, bool printing, bool doubleUnderlines, StrokeStyle)
+void OperationRecorder::drawLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> lineSegments, bool printing, bool doubleUnderlines, StrokeStyle)
 {
-    struct DrawLinesForText final : PaintingOperation, OperationData<FloatPoint, float, DashArray, bool, bool, Color> {
+    struct DrawLinesForText final : PaintingOperation, OperationData<FloatPoint, float, Vector<FloatSegment>, bool, bool, Color> {
         virtual ~DrawLinesForText() = default;
 
         void execute(WebCore::GraphicsContextCairo& context) override
@@ -713,15 +717,16 @@ void OperationRecorder::drawLinesForText(const FloatPoint& point, float thicknes
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawLinesForText<>\n";
+            ts << indent << "DrawLinesForText<>\n"_s;
         }
     };
 
-    if (widths.isEmpty())
+    if (lineSegments.empty())
         return;
 
     auto& state = this->state();
-    append(createCommand<DrawLinesForText>(point, thickness, widths, printing, doubleUnderlines, state.strokeBrush().color()));
+    Vector<FloatSegment> segmentVector { WTFMove(lineSegments) };
+    append(createCommand<DrawLinesForText>(point, thickness, WTFMove(segmentVector), printing, doubleUnderlines, state.strokeBrush().color()));
 }
 
 void OperationRecorder::drawDotsForDocumentMarker(const FloatRect& rect, DocumentMarkerLineStyle style)
@@ -736,7 +741,7 @@ void OperationRecorder::drawDotsForDocumentMarker(const FloatRect& rect, Documen
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawDotsForDocumentMarker<>\n";
+            ts << indent << "DrawDotsForDocumentMarker<>\n"_s;
         }
     };
 
@@ -755,7 +760,7 @@ void OperationRecorder::drawEllipse(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawEllipse<>\n";
+            ts << indent << "DrawEllipse<>\n"_s;
         }
     };
 
@@ -779,7 +784,7 @@ void OperationRecorder::drawFocusRing(const Path& path, float outlineWidth, cons
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawFocusRing<>\n";
+            ts << indent << "DrawFocusRing<>\n"_s;
         }
     };
 
@@ -803,7 +808,7 @@ void OperationRecorder::drawFocusRing(const Vector<FloatRect>& rects, float outl
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "DrawFocusRing<>\n";
+            ts << indent << "DrawFocusRing<>\n"_s;
         }
     };
 
@@ -824,7 +829,7 @@ void OperationRecorder::save(GraphicsContextState::Purpose purpose)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Save<>\n";
+            ts << indent << "Save<>\n"_s;
         }
     };
 
@@ -847,7 +852,7 @@ void OperationRecorder::restore(GraphicsContextState::Purpose purpose)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Restore<>\n";
+            ts << indent << "Restore<>\n"_s;
         }
     };
 
@@ -878,7 +883,7 @@ void OperationRecorder::translate(float x, float y)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Translate<>\n";
+            ts << indent << "Translate<>\n"_s;
         }
     };
 
@@ -906,7 +911,7 @@ void OperationRecorder::rotate(float angleInRadians)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Rotate<>\n";
+            ts << indent << "Rotate<>\n"_s;
         }
     };
 
@@ -934,7 +939,7 @@ void OperationRecorder::scale(const FloatSize& size)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Scale<>\n";
+            ts << indent << "Scale<>\n"_s;
         }
     };
 
@@ -962,7 +967,7 @@ void OperationRecorder::concatCTM(const AffineTransform& transform)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ConcatCTM<>\n";
+            ts << indent << "ConcatCTM<>\n"_s;
         }
     };
 
@@ -989,7 +994,7 @@ void OperationRecorder::setCTM(const AffineTransform& transform)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "SetCTM<>\n";
+            ts << indent << "SetCTM<>\n"_s;
         }
     };
 
@@ -1021,7 +1026,7 @@ void OperationRecorder::beginTransparencyLayer(float opacity)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "BeginTransparencyLayer<>\n";
+            ts << indent << "BeginTransparencyLayer<>\n"_s;
         }
     };
 
@@ -1047,7 +1052,7 @@ void OperationRecorder::endTransparencyLayer()
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "EndTransparencyLayer<>\n";
+            ts << indent << "EndTransparencyLayer<>\n"_s;
         }
     };
 
@@ -1073,7 +1078,7 @@ void OperationRecorder::clip(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "Clip<>\n";
+            ts << indent << "Clip<>\n"_s;
         }
     };
 
@@ -1097,7 +1102,7 @@ void OperationRecorder::clipOut(const FloatRect& rect)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ClipOut<>\n";
+            ts << indent << "ClipOut<>\n"_s;
         }
     };
 
@@ -1116,7 +1121,7 @@ void OperationRecorder::clipOut(const Path& path)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ClipOut<>\n";
+            ts << indent << "ClipOut<>\n"_s;
         }
     };
 
@@ -1135,7 +1140,7 @@ void OperationRecorder::clipPath(const Path& path, WindRule clipRule)
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ClipPath<>\n";
+            ts << indent << "ClipPath<>\n"_s;
         }
     };
 
@@ -1165,7 +1170,7 @@ void OperationRecorder::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& 
 
         void dump(TextStream& ts) override
         {
-            ts << indent << "ClipToImageBuffer<>\n";
+            ts << indent << "ClipToImageBuffer<>\n"_s;
         }
     };
 

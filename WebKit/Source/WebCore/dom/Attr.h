@@ -30,7 +30,7 @@
 namespace WebCore {
 
 class Attribute;
-class CSSStyleDeclaration;
+class CSSStyleProperties;
 class MutableStyleProperties;
 
 class Attr final : public Node {
@@ -50,7 +50,7 @@ public:
 
     const QualifiedName& qualifiedName() const { return m_name; }
 
-    WEBCORE_EXPORT CSSStyleDeclaration* style();
+    WEBCORE_EXPORT CSSStyleProperties* style();
 
     void attachToElement(Element&);
     void detachFromElementWithValue(const AtomString&);
@@ -70,7 +70,7 @@ private:
 
     ExceptionOr<void> setPrefix(const AtomString&) final;
 
-    Ref<Node> cloneNodeInternal(TreeScope&, CloningOperation) final;
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) final;
 
     bool isAttributeNode() const final { return true; }
 

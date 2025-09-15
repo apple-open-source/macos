@@ -1,6 +1,6 @@
 /* dnssd-client.c
  *
- * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@
 #define _GNU_SOURCE
 #include <netinet/in.h>
 #include <fcntl.h>
-#include <bsd/stdlib.h>
 #include <net/if.h>
 #endif
 #include <sys/socket.h>
@@ -75,6 +74,7 @@
 #include "dnssd-proxy.h"
 #include "srp-proxy.h"
 #include "route.h"
+#include "srp-strict.h"
 
 #define STATE_MACHINE_IMPLEMENTATION 1
 typedef enum {
@@ -128,9 +128,9 @@ dnssd_client_finalize(dnssd_client_t *client)
 {
     thread_service_release(client->published_service);
     ioloop_wakeup_release(client->wakeup_timer);
-    free(client->state_header.name);
-    free(client->id);
-    free(client);
+    srp_strict_free(&client->state_header.name);
+    srp_strict_free(&client->id);
+    srp_strict_free(&client);
 }
 
 RELEASE_RETAIN_FUNCS(dnssd_client);
@@ -418,9 +418,9 @@ dnssd_client_should_be_client(dnssd_client_t *client)
     bool should_be_client = false;
     srp_server_t *server_state = client->server_state;
 
-    if (server_state->service_publisher != NULL &&
-        !service_publisher_could_publish(server_state->service_publisher) &&
-        service_publisher_competing_service_present(server_state->service_publisher))
+    if (server_state->unicast_service_publisher != NULL &&
+        !service_publisher_could_publish(server_state->unicast_service_publisher) &&
+        service_publisher_competing_service_present(server_state->unicast_service_publisher))
     {
         should_be_client = true;
         might_publish = true;
@@ -498,9 +498,9 @@ dnssd_client_action_probing(state_machine_header_t *state_header, state_machine_
     // If we have been waiting for a second since we started probing and haven't succeeded, tell the service publisher
     // to publish services.
     else if (event->type == state_machine_event_type_timeout) {
-        if (server_state->service_publisher != NULL) {
+        if (server_state->unicast_service_publisher != NULL) {
             INFO("server probe startup timeout expired--publishing cached data.");
-            service_publisher_re_advertise_matching(server_state->service_publisher);
+            service_publisher_re_advertise_matching(server_state->unicast_service_publisher);
         }
         return dnssd_client_state_invalid;
     }
@@ -524,7 +524,7 @@ dnssd_client_action_probing(state_machine_header_t *state_header, state_machine_
 
         // Tell the service publisher that we successfully probed a service.
         INFO("server probe succeeded--unpublishing cached data.");
-        service_publisher_unadvertise_all(server_state->service_publisher);
+        service_publisher_unadvertise_all(server_state->unicast_service_publisher);
 
         // We no longer want a wakeup.  Note that this is the only way out of the probing state, so it's not
         // possible to exit the state without canceling the timer here.
@@ -626,7 +626,7 @@ dnssd_client_cancel(dnssd_client_t *client)
 dnssd_client_t *
 dnssd_client_create(srp_server_t *server_state)
 {
-    dnssd_client_t *ret = NULL, *client = calloc(1, sizeof(*client));
+    dnssd_client_t *ret = NULL, *client = srp_strict_calloc(1, sizeof(*client));
     if (client == NULL) {
         return client;
     }
@@ -639,7 +639,7 @@ dnssd_client_create(srp_server_t *server_state)
 
     char client_id_buf[100];
     snprintf(client_id_buf, sizeof(client_id_buf), "[DC%lld]", ++dnssd_client_serial_number);
-    client->id = strdup(client_id_buf);
+    client->id = srp_strict_strdup(client_id_buf);
     if (client->id == NULL) {
         ERROR("no memory for client ID");
         goto out;

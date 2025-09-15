@@ -35,6 +35,7 @@
 #import "InjectedBundleHitTestResult.h"
 #import "InjectedBundlePageContextMenuClient.h"
 #import "LaunchServicesDatabaseManager.h"
+#import "Logging.h"
 #import "PDFPluginBase.h"
 #import "PageBanner.h"
 #import "PlatformFontInfo.h"
@@ -58,6 +59,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/BackForwardController.h>
+#import <WebCore/BoundaryPointInlines.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
@@ -87,11 +89,13 @@
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/PointerCharacteristics.h>
+#import <WebCore/Quirks.h>
 #import <WebCore/RemoteFrameView.h>
 #import <WebCore/RemoteUserInputEventData.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
 #import <WebCore/RenderStyle.h>
+#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/StyleInheritedData.h>
@@ -116,27 +120,26 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebPage::platformInitializeAccessibility()
+void WebPage::platformInitializeAccessibility(ShouldInitializeNSAccessibility shouldInitializeNSAccessibility)
 {
+    RELEASE_LOG(Process, "WebPage::platformInitializeAccessibility shouldInitializeNSAccessibility = %d", shouldInitializeNSAccessibility == ShouldInitializeNSAccessibility::Yes);
+
     // For performance reasons, we should have received the LS database before initializing NSApplication.
     ASSERT(LaunchServicesDatabaseManager::singleton().hasReceivedLaunchServicesDatabase());
 
     // Need to initialize accessibility for VoiceOver to work when the WebContent process is using NSRunLoop.
     // Currently, it is also needed to allocate and initialize an NSApplication object.
-    [NSApplication _accessibilityInitialize];
+    if (shouldInitializeNSAccessibility == ShouldInitializeNSAccessibility::Yes)
+        [NSApplication _accessibilityInitialize];
 
     // Get the pid for the starting process.
     pid_t pid = legacyPresentingApplicationPID();
     createMockAccessibilityElement(pid);
-    if (m_page->localMainFrame())
+    if (protectedCorePage()->localMainFrame())
         accessibilityTransferRemoteToken(accessibilityRemoteTokenData());
 
     // Close Mach connection to Launch Services.
-#if HAVE(LS_SERVER_CONNECTION_STATUS_RELEASE_NOTIFICATIONS_MASK)
     _LSSetApplicationLaunchServicesServerConnectionStatus(kLSServerConnectionStatusDoNotConnectToServerMask | kLSServerConnectionStatusReleaseNotificationsMask, nullptr);
-#else
-    _LSSetApplicationLaunchServicesServerConnectionStatus(kLSServerConnectionStatusDoNotConnectToServerMask, nullptr);
-#endif
 
     WebProcess::singleton().revokeLaunchServicesSandboxExtension();
 }
@@ -174,7 +177,9 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 {
     getPlatformEditorStateCommon(frame, result);
 
-    result.canEnableAutomaticSpellingCorrection = result.isContentEditable && frame.editor().canEnableAutomaticSpellingCorrection();
+    result.canEnableAutomaticSpellingCorrection = result.isContentEditable && frame.protectedEditor()->canEnableAutomaticSpellingCorrection();
+    RefPtr document = frame.document();
+    result.inputMethodUsesCorrectKeyEventOrder = frame.settings().inputMethodUsesCorrectKeyEventOrder() || (document && document->quirks().inputMethodUsesCorrectKeyEventOrder());
 
     if (!result.hasPostLayoutAndVisualData())
         return;
@@ -193,29 +198,26 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
     if (!selectionStartBoundary || !selectionEnd || !paragraphStart)
         return;
 
-    auto contextRangeForCandidateRequest = frame.editor().contextRangeForCandidateRequest();
+    auto contextRangeForCandidateRequest = frame.protectedEditor()->contextRangeForCandidateRequest();
 
     postLayoutData.candidateRequestStartPosition = characterCount({ *paragraphStart, *selectionStartBoundary });
     postLayoutData.selectedTextLength = characterCount({ *selectionStartBoundary, *selectionEnd });
     postLayoutData.paragraphContextForCandidateRequest = contextRangeForCandidateRequest ? plainText(*contextRangeForCandidateRequest) : String();
-    postLayoutData.stringForCandidateRequest = frame.editor().stringForCandidateRequest();
+    postLayoutData.stringForCandidateRequest = frame.protectedEditor()->stringForCandidateRequest();
 
     auto quads = RenderObject::absoluteTextQuads(*selectedRange);
     if (!quads.isEmpty())
-        postLayoutData.selectionBoundingRect = frame.view()->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(quads)));
+        postLayoutData.selectionBoundingRect = frame.protectedView()->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(quads)));
     else if (selection.isCaret()) {
         // Quads will be empty at the start of a paragraph.
-        postLayoutData.selectionBoundingRect = frame.view()->contentsToWindow(frame.selection().absoluteCaretBounds());
+        postLayoutData.selectionBoundingRect = frame.protectedView()->contentsToWindow(frame.selection().absoluteCaretBounds());
     }
 }
 
 void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandidate)
 {
-    RefPtr frame = m_page->focusController().focusedLocalFrame();
-    if (!frame)
-        return;
-
-    frame->editor().handleAcceptedCandidate(acceptedCandidate);
+    if (RefPtr frame = m_page->focusController().focusedLocalFrame())
+        frame->protectedEditor()->handleAcceptedCandidate(acceptedCandidate);
 }
 
 NSObject *WebPage::accessibilityObjectForMainFramePlugin()
@@ -223,7 +225,7 @@ NSObject *WebPage::accessibilityObjectForMainFramePlugin()
     if (!m_page)
         return nil;
     
-    if (auto* pluginView = mainFramePlugIn())
+    if (RefPtr pluginView = mainFramePlugIn())
         return pluginView->accessibilityObject();
 
     return nil;
@@ -257,9 +259,8 @@ static String commandNameForSelectorName(const String& selectorName)
 static LocalFrame* frameForEvent(KeyboardEvent* event)
 {
     ASSERT(event->target());
-    auto* frame = downcast<Node>(event->target())->document().frame();
-    ASSERT(frame);
-    return frame;
+    ASSERT(downcast<Node>(event->target())->document().frame());
+    return downcast<Node>(event->target())->document().frame();
 }
 
 bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>& commands, KeyboardEvent* event)
@@ -269,25 +270,30 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
         return false;
     ASSERT(frame->page() == corePage());
 
+    Ref editor = frame->editor();
     bool eventWasHandled = false;
     for (size_t i = 0; i < commands.size(); ++i) {
-        if (commands[i].commandName == "insertText:"_s) {
-            if (frame->editor().hasComposition()) {
+        auto& currentCommand = commands[i];
+        if (currentCommand.commandName == "insertText:"_s) {
+            if (editor->hasComposition()) {
                 eventWasHandled = true;
-                frame->editor().confirmComposition(commands[i].text);
+                editor->confirmComposition(currentCommand.text);
             } else {
-                if (!frame->editor().canEdit())
+                if (!editor->canEdit())
                     continue;
 
                 // An insertText: might be handled by other responders in the chain if we don't handle it.
                 // One example is space bar that results in scrolling down the page.
-                eventWasHandled |= frame->editor().insertText(commands[i].text, event);
+                eventWasHandled |= editor->insertText(currentCommand.text, event);
             }
+        } else if (currentCommand.commandName == "setMarkedText:"_s) {
+            setCompositionAsync(currentCommand.text, currentCommand.underlines, currentCommand.highlights, { },
+                EditingRange { currentCommand.selectedRange }, EditingRange { currentCommand.replacementRange });
         } else {
-            if (commands[i].commandName == "scrollPageDown:"_s || commands[i].commandName == "scrollPageUp:"_s)
+            if (currentCommand.commandName == "scrollPageDown:"_s || currentCommand.commandName == "scrollPageUp:"_s)
                 frame->eventHandler().setProcessingKeyRepeatForPotentialScroll(event && event->repeat());
 
-            Editor::Command command = frame->editor().command(commandNameForSelectorName(commands[i].commandName));
+            Editor::Command command = editor->command(commandNameForSelectorName(currentCommand.commandName));
             if (command.isSupported()) {
                 bool commandExecutedByEditor = command.execute(event);
                 eventWasHandled |= commandExecutedByEditor;
@@ -296,7 +302,7 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
                     eventWasHandled |= performedNonEditingBehavior;
                 }
             } else {
-                auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName), m_identifier);
+                auto sendResult = WebProcess::singleton().protectedParentProcessConnection()->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName), m_identifier);
                 auto [commandWasHandledByUIProcess] = sendResult.takeReplyOr(false);
                 eventWasHandled |= commandWasHandledByUIProcess;
             }
@@ -332,8 +338,9 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     // to either handle them immediately (e.g. Tab that changes focus) or let a keypress event be generated
     // (e.g. Tab that inserts a Tab character, or Enter).
     bool haveTextInsertionCommands = false;
+    Ref editor = frame->editor();
     for (auto& command : commands) {
-        if (frame->editor().command(commandNameForSelectorName(command.commandName)).isTextInsertion())
+        if (editor->command(commandNameForSelectorName(command.commandName)).isTextInsertion())
             haveTextInsertionCommands = true;
     }
     // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
@@ -399,35 +406,36 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     
     bool didPerformAction = false;
     
+    RefPtr page = m_page;
     if (!frame->eventHandler().shouldUseSmoothKeyboardScrollingForFocusedScrollableArea()) {
         if (selector == "moveUp:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Line);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Line);
         else if (selector == "moveToBeginningOfParagraph:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Page);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Page);
         else if (selector == "moveToBeginningOfDocument:"_s) {
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Document);
-            didPerformAction |= scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollUp, ScrollGranularity::Document);
+            didPerformAction |= scroll(page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveDown:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Line);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Line);
         else if (selector == "moveToEndOfParagraph:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Page);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Page);
         else if (selector == "moveToEndOfDocument:"_s) {
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Document);
-            didPerformAction |= scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollDown, ScrollGranularity::Document);
+            didPerformAction |= scroll(page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveLeft:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Line);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Line);
         else if (selector == "moveWordLeft:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Page);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollLeft, ScrollGranularity::Page);
         else if (selector == "moveRight:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Line);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Line);
         else if (selector == "moveWordRight:"_s)
-            didPerformAction = scroll(m_page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Page);
+            didPerformAction = scroll(page.get(), ScrollDirection::ScrollRight, ScrollGranularity::Page);
     }
 
     if (selector == "moveToLeftEndOfLine:"_s)
-        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->checkedBackForward()->goBack() : m_page->checkedBackForward()->goForward();
+        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? page->checkedBackForward()->goBack() : page->checkedBackForward()->goForward();
     else if (selector == "moveToRightEndOfLine:"_s)
-        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? m_page->checkedBackForward()->goForward() : m_page->checkedBackForward()->goBack();
+        didPerformAction = m_userInterfaceLayoutDirection == WebCore::UserInterfaceLayoutDirection::LTR ? page->checkedBackForward()->goForward() : page->checkedBackForward()->goBack();
 
     return didPerformAction;
 }
@@ -443,7 +451,7 @@ void WebPage::registerRemoteFrameAccessibilityTokens(pid_t pid, std::span<const 
     auto remoteElement = [elementTokenData length] ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:elementTokenData.get()]) : nil;
 
     createMockAccessibilityElement(pid);
-    [accessibilityRemoteObject() setRemoteParent:remoteElement.get()];
+    [accessibilityRemoteObject() setRemoteParent:remoteElement.get() token:elementTokenData.get()];
     [accessibilityRemoteObject() setFrameIdentifier:frameID];
 }
 
@@ -457,7 +465,7 @@ void WebPage::registerUIProcessAccessibilityTokens(std::span<const uint8_t> elem
     [remoteElement setWindowUIElement:remoteWindow.get()];
     [remoteElement setTopLevelUIElement:remoteWindow.get()];
     [accessibilityRemoteObject() setWindow:remoteWindow.get()];
-    [accessibilityRemoteObject() setRemoteParent:remoteElement.get()];
+    [accessibilityRemoteObject() setRemoteParent:remoteElement.get() token:elementTokenData.get()];
 }
 
 void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&& completionHandler)
@@ -467,7 +475,7 @@ void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&
         return completionHandler({ });
 
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = focusedPluginViewForFrame(*frame)) {
+    if (RefPtr pluginView = focusedPluginViewForFrame(*frame)) {
         String selection = pluginView->selectionString();
         if (!selection.isNull())
             return completionHandler(WTFMove(selection));
@@ -477,7 +485,7 @@ void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&
     if (frame->selection().isNone())
         return completionHandler({ });
 
-    completionHandler(frame->editor().stringSelectionForPasteboard());
+    completionHandler(frame->protectedEditor()->stringSelectionForPasteboard());
 }
 
 void WebPage::getDataSelectionForPasteboard(const String pasteboardType, CompletionHandler<void(RefPtr<SharedBuffer>&&)>&& completionHandler)
@@ -488,7 +496,7 @@ void WebPage::getDataSelectionForPasteboard(const String pasteboardType, Complet
     if (frame->selection().isNone())
         return completionHandler({ });
 
-    auto buffer = frame->editor().dataSelectionForPasteboard(pasteboardType);
+    auto buffer = frame->protectedEditor()->dataSelectionForPasteboard(pasteboardType);
     if (!buffer)
         return completionHandler({ });
     completionHandler(buffer.releaseNonNull());
@@ -515,15 +523,18 @@ void WebPage::cacheAXSize(const WebCore::IntSize& size)
     [m_mockAccessibilityElement setSize:size];
 }
 
-void WebPage::setAXIsolatedTreeRoot(WebCore::AXCoreObject* root)
+void WebPage::setIsolatedTree(Ref<WebCore::AXIsolatedTree>&& tree)
 {
-    [m_mockAccessibilityElement setIsolatedTreeRoot:root];
+    [m_mockAccessibilityElement setIsolatedTree:WTFMove(tree)];
 }
 #endif
 
 bool WebPage::platformCanHandleRequest(const WebCore::ResourceRequest& request)
 {
-    if ([NSURLConnection canHandleRequest:request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody)])
+    RetainPtr nsRequest = request.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
+    if (!nsRequest.get().URL)
+        return false;
+    if ([NSURLConnection canHandleRequest:nsRequest.get()])
         return true;
 
     // FIXME: Return true if this scheme is any one WebKit2 knows how to handle.
@@ -539,7 +550,7 @@ void WebPage::shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent& event,
     bool result = false;
 #if ENABLE(DRAG_SUPPORT)
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowChildFrameContent };
-    HitTestResult hitResult = frame->eventHandler().hitTestResultAtPoint(frame->view()->windowToContents(event.position()), hitType);
+    HitTestResult hitResult = frame->eventHandler().hitTestResultAtPoint(frame->protectedView()->windowToContents(event.position()), hitType);
     if (hitResult.isSelected())
         result = frame->eventHandler().eventMayStartDrag(platform(event));
 #endif
@@ -560,7 +571,7 @@ void WebPage::requestAcceptsFirstMouse(int eventNumber, const WebKit::WebMouseEv
         return;
 
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AllowChildFrameContent };
-    HitTestResult hitResult = frame->eventHandler().hitTestResultAtPoint(frame->view()->windowToContents(event.position()), hitType);
+    HitTestResult hitResult = frame->eventHandler().hitTestResultAtPoint(frame->protectedView()->windowToContents(event.position()), hitType);
     frame->eventHandler().setActivationEventNumber(eventNumber);
     bool result = false;
 #if ENABLE(DRAG_SUPPORT)
@@ -579,7 +590,7 @@ void WebPage::setTopOverhangImage(WebImage* image)
     if (!frameView)
         return;
 
-    RefPtr layer = frameView->setWantsLayerForTopOverHangArea(image);
+    RefPtr layer = frameView->setWantsLayerForTopOverhangImage(image);
     if (!layer)
         return;
 
@@ -618,129 +629,15 @@ void WebPage::setUseFormSemanticContext(bool useFormSemanticContext)
 void WebPage::semanticContextDidChange(bool useFormSemanticContext)
 {
     setUseFormSemanticContext(useFormSemanticContext);
-    m_page->scheduleRenderingUpdate({ });
+    protectedCorePage()->scheduleRenderingUpdate({ });
 }
 
 void WebPage::updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor)
 {    
-    if (m_headerBanner)
-        m_headerBanner->didChangeDeviceScaleFactor(scaleFactor);
-    if (m_footerBanner)
-        m_footerBanner->didChangeDeviceScaleFactor(scaleFactor);
-}
-
-void WebPage::computePagesForPrintingPDFDocument(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, Vector<IntRect>& resultPageRects)
-{
-    ASSERT(resultPageRects.isEmpty());
-    RefPtr frame = WebProcess::singleton().webFrame(frameID);
-    RefPtr coreFrame = frame ? frame->coreLocalFrame() : nullptr;
-    RetainPtr<PDFDocument> pdfDocument = coreFrame ? pdfDocumentForPrintingFrame(coreFrame.get()) : 0;
-    if ([pdfDocument allowsPrinting]) {
-        NSUInteger pageCount = [pdfDocument pageCount];
-        IntRect pageRect(0, 0, ceilf(printInfo.availablePaperWidth), ceilf(printInfo.availablePaperHeight));
-        for (NSUInteger i = 1; i <= pageCount; ++i) {
-            resultPageRects.append(pageRect);
-            pageRect.move(0, pageRect.height());
-        }
-    }
-}
-
-static inline CGFloat roundCGFloat(CGFloat f)
-{
-    if (sizeof(CGFloat) == sizeof(float))
-        return roundf(static_cast<float>(f));
-    return static_cast<CGFloat>(round(f));
-}
-
-static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRef context, CGFloat pageSetupScaleFactor, CGSize paperSize)
-{
-    CGContextSaveGState(context);
-
-    CGContextScaleCTM(context, pageSetupScaleFactor, pageSetupScaleFactor);
-
-    PDFPage *pdfPage = [pdfDocument pageAtIndex:pageIndex];
-    NSRect cropBox = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
-    if (NSIsEmptyRect(cropBox))
-        cropBox = [pdfPage boundsForBox:kPDFDisplayBoxMediaBox];
-    else
-        cropBox = NSIntersectionRect(cropBox, [pdfPage boundsForBox:kPDFDisplayBoxMediaBox]);
-
-    // Always auto-rotate PDF content regardless of the paper orientation.
-    NSInteger rotation = [pdfPage rotation];
-    if (rotation == 90 || rotation == 270)
-        std::swap(cropBox.size.width, cropBox.size.height);
-
-    bool shouldRotate = (paperSize.width < paperSize.height) != (cropBox.size.width < cropBox.size.height);
-    if (shouldRotate)
-        std::swap(cropBox.size.width, cropBox.size.height);
-
-    // Center.
-    CGFloat widthDifference = paperSize.width / pageSetupScaleFactor - cropBox.size.width;
-    CGFloat heightDifference = paperSize.height / pageSetupScaleFactor - cropBox.size.height;
-    if (widthDifference || heightDifference)
-        CGContextTranslateCTM(context, roundCGFloat(widthDifference / 2), roundCGFloat(heightDifference / 2));
-
-    if (shouldRotate) {
-        CGContextRotateCTM(context, static_cast<CGFloat>(piOverTwoDouble));
-        CGContextTranslateCTM(context, 0, -cropBox.size.width);
-    }
-
-    [NSGraphicsContext saveGraphicsState];
-    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:context flipped:NO]];
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [pdfPage drawWithBox:kPDFDisplayBoxCropBox];
-ALLOW_DEPRECATED_DECLARATIONS_END
-    [NSGraphicsContext restoreGraphicsState];
-
-    CGAffineTransform transform = CGContextGetCTM(context);
-
-    for (PDFAnnotation *annotation in [pdfPage annotations]) {
-        if (![[annotation valueForAnnotationKey:get_PDFKit_PDFAnnotationKeySubtype()] isEqualToString:get_PDFKit_PDFAnnotationSubtypeLink()])
-            continue;
-
-        NSURL *url = annotation.URL;
-        if (!url)
-            continue;
-
-        CGRect urlRect = NSRectToCGRect(annotation.bounds);
-        CGRect transformedRect = CGRectApplyAffineTransform(urlRect, transform);
-        CGPDFContextSetURLForRect(context, (CFURLRef)url, transformedRect);
-    }
-
-    CGContextRestoreGState(context);
-}
-
-void WebPage::drawPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, const WebCore::IntRect& rect)
-{
-    NSUInteger pageCount = [pdfDocument pageCount];
-    IntSize paperSize(ceilf(printInfo.availablePaperWidth), ceilf(printInfo.availablePaperHeight));
-    IntRect pageRect(IntPoint(), paperSize);
-    for (NSUInteger i = 0; i < pageCount; ++i) {
-        if (pageRect.intersects(rect)) {
-            CGContextSaveGState(context);
-
-            CGContextTranslateCTM(context, pageRect.x() - rect.x(), pageRect.y() - rect.y());
-            drawPDFPage(pdfDocument, i, context, printInfo.pageSetupScaleFactor, paperSize);
-
-            CGContextRestoreGState(context);
-        }
-        pageRect.move(0, pageRect.height());
-    }
-}
-
-void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, uint32_t first, uint32_t count)
-{
-    NSUInteger pageCount = [pdfDocument pageCount];
-    for (uint32_t page = first; page < first + count; ++page) {
-        if (page >= pageCount)
-            break;
-
-        RetainPtr<CFDictionaryRef> pageInfo = adoptCF(CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-        CGPDFContextBeginPage(context, pageInfo.get());
-        drawPDFPage(pdfDocument, page, context, printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
-        CGPDFContextEndPage(context);
-    }
+    if (RefPtr banner = m_headerBanner)
+        banner->didChangeDeviceScaleFactor(scaleFactor);
+    if (RefPtr banner = m_footerBanner)
+        banner->didChangeDeviceScaleFactor(scaleFactor);
 }
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
@@ -752,7 +649,7 @@ void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& p
 
 #if ENABLE(SERVICE_CONTROLS)
 
-void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vector<String>& phoneNumbers, const IntPoint& point)
+void WebPage::handleSelectionServiceClick(WebCore::FrameIdentifier frameID, FrameSelection& selection, const Vector<String>& phoneNumbers, const IntPoint& point)
 {
     auto range = selection.selection().firstRange();
     if (!range)
@@ -762,13 +659,21 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
     if (selectionString.isNull())
         return;
 
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    if (!webFrame)
+        return;
+
     flushPendingEditorStateUpdate();
-    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, WTFMove(selectionString), phoneNumbers, selection.selection().isContentEditable()), UserData()));
+    send(Messages::WebPageProxy::ShowContextMenuFromFrame(webFrame->info(), ContextMenuContextData(point, WTFMove(selectionString), phoneNumbers, selection.selection().isContentEditable()), UserData()));
 }
 
-void WebPage::handleImageServiceClick(const IntPoint& point, Image& image, HTMLImageElement& element)
+void WebPage::handleImageServiceClick(WebCore::FrameIdentifier frameID, const IntPoint& point, Image& image, HTMLImageElement& element)
 {
-    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData {
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    if (!webFrame)
+        return;
+
+    send(Messages::WebPageProxy::ShowContextMenuFromFrame(webFrame->info(), ContextMenuContextData {
         point,
         image,
         element.isContentEditable(),
@@ -779,9 +684,13 @@ void WebPage::handleImageServiceClick(const IntPoint& point, Image& image, HTMLI
     }, { }));
 }
 
-void WebPage::handlePDFServiceClick(const IntPoint& point, HTMLAttachmentElement& element)
+void WebPage::handlePDFServiceClick(WebCore::FrameIdentifier frameID, const IntPoint& point, HTMLAttachmentElement& element)
 {
-    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData {
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    if (!webFrame)
+        return;
+
+    send(Messages::WebPageProxy::ShowContextMenuFromFrame(webFrame->info(), ContextMenuContextData {
         point,
         element.isContentEditable(),
         element.renderBox()->absoluteContentQuad().enclosingBoundingBox(),
@@ -834,7 +743,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier f
         return;
     }
 
-    auto locationInContentCoordinates = localCurrentFrame->view()->rootViewToContents(roundedIntPoint(locationInViewCoordinates));
+    auto locationInContentCoordinates = localCurrentFrame->protectedView()->rootViewToContents(roundedIntPoint(locationInViewCoordinates));
     auto hitTestResult = localCurrentFrame->eventHandler().hitTestResultAtPoint(locationInContentCoordinates, {
         HitTestRequest::Type::ReadOnly,
         HitTestRequest::Type::Active,
@@ -853,7 +762,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier f
     WebHitTestResultData immediateActionResult(hitTestResult, { });
 
     auto subframe = EventHandler::subframeForTargetNode(hitTestResult.protectedTargetNode().get());
-    if (auto* remoteFrame = dynamicDowncast<RemoteFrame>(subframe).get()) {
+    if (RefPtr remoteFrame = dynamicDowncast<RemoteFrame>(subframe).get()) {
         if (RefPtr remoteFrameView = remoteFrame->view()) {
             immediateActionResult.remoteUserInputEventData = RemoteUserInputEventData {
                 remoteFrame->frameID(),
@@ -883,8 +792,8 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier f
     if (auto lookupResult = lookupTextAtLocation(frameID, locationInViewCoordinates)) {
         auto lookupRange = WTFMove(*lookupResult);
         immediateActionResult.lookupText = plainText(lookupRange);
-        if (auto* node = hitTestResult.innerNode()) {
-            if (auto* frame = node->document().frame())
+        if (RefPtr node = hitTestResult.innerNode()) {
+            if (RefPtr frame = node->document().frame())
                 immediateActionResult.dictionaryPopupInfo = dictionaryPopupInfoForRange(*frame, lookupRange, TextIndicatorPresentationTransition::FadeIn);
         }
     }
@@ -899,13 +808,13 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier f
         if (!actionContext)
             continue;
 
-        auto view = actionContext->range.start.document().view();
+        RefPtr view = actionContext->range.start.document().view();
         if (!view)
             continue;
 
         pageOverlayDidOverrideDataDetectors = true;
-        if (auto* detectedContext = actionContext->context.get())
-            immediateActionResult.platformData.detectedDataActionContext = { { detectedContext } };
+        if (RetainPtr detectedContext = actionContext->context.get())
+            immediateActionResult.platformData.detectedDataActionContext = { { detectedContext.get() } };
         immediateActionResult.platformData.detectedDataBoundingBox = view->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(RenderObject::absoluteTextQuads(actionContext->range))));
         immediateActionResult.platformData.detectedDataTextIndicator = TextIndicator::createWithRange(actionContext->range, indicatorOptions(actionContext->range), TextIndicatorPresentationTransition::FadeIn);
         immediateActionResult.platformData.detectedDataOriginatingPageOverlay = overlay->pageOverlayID();
@@ -924,7 +833,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier f
 
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr embedOrObject = dynamicDowncast<HTMLPlugInImageElement>(element)) {
-        if (RefPtr pluginView = static_cast<PluginView*>(embedOrObject->pluginWidget())) {
+        if (RefPtr pluginView = downcast<PluginView>(embedOrObject->pluginWidget())) {
             if (pluginView->performImmediateActionHitTestAtLocation(locationInViewCoordinates, immediateActionResult)) {
                 // FIXME (144030): Focus does not seem to get set to the PDF when invoking the menu.
                 RefPtr pluginDocument = dynamicDowncast<PluginDocument>(element->document());
@@ -952,10 +861,10 @@ std::optional<WebCore::SimpleRange> WebPage::lookupTextAtLocation(FrameIdentifie
 {
     RefPtr currentFrame = WebProcess::singleton().webFrame(frameID);
     RefPtr localCurrentFrame = dynamicDowncast<LocalFrame>(currentFrame->coreFrame());
-    if (!localCurrentFrame || !localCurrentFrame->view() || !localCurrentFrame->view()->renderView())
+    if (!localCurrentFrame || !localCurrentFrame->view() || !localCurrentFrame->protectedView()->renderView())
         return std::nullopt;
 
-    return DictionaryLookup::rangeAtHitTestResult(localCurrentFrame->eventHandler().hitTestResultAtPoint(localCurrentFrame->view()->windowToContents(roundedIntPoint(locationInViewCoordinates)), {
+    return DictionaryLookup::rangeAtHitTestResult(localCurrentFrame->eventHandler().hitTestResultAtPoint(localCurrentFrame->protectedView()->windowToContents(roundedIntPoint(locationInViewCoordinates)), {
         HitTestRequest::Type::ReadOnly,
         HitTestRequest::Type::Active,
         HitTestRequest::Type::DisallowUserAgentShadowContentExceptForImageOverlays,
@@ -965,13 +874,13 @@ std::optional<WebCore::SimpleRange> WebPage::lookupTextAtLocation(FrameIdentifie
 
 void WebPage::immediateActionDidUpdate()
 {
-    if (RefPtr localMainFrame = m_page->localMainFrame())
+    if (RefPtr localMainFrame = protectedCorePage()->localMainFrame())
         localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionUpdated);
 }
 
 void WebPage::immediateActionDidCancel()
 {
-    RefPtr localMainFrame = m_page->localMainFrame();
+    RefPtr localMainFrame = protectedCorePage()->localMainFrame();
     if (!localMainFrame)
         return;
     ImmediateActionStage lastStage = localMainFrame->eventHandler().immediateActionStage();
@@ -983,7 +892,7 @@ void WebPage::immediateActionDidCancel()
 
 void WebPage::immediateActionDidComplete()
 {
-    if (RefPtr localMainFrame = m_page->localMainFrame())
+    if (RefPtr localMainFrame = protectedCorePage()->localMainFrame())
         localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCompleted);
 }
 
@@ -991,7 +900,7 @@ void WebPage::dataDetectorsDidPresentUI(PageOverlay::PageOverlayID overlayID)
 {
     for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
-            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+            if (RefPtr webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidPresentUI();
             return;
         }
@@ -1002,7 +911,7 @@ void WebPage::dataDetectorsDidChangeUI(PageOverlay::PageOverlayID overlayID)
 {
     for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
-            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+            if (RefPtr webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidChangeUI();
             return;
         }
@@ -1019,7 +928,7 @@ void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
 
     for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {
-            if (WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
+            if (RefPtr webOverlay = WebPageOverlay::fromCoreOverlay(*overlay))
                 webOverlay->dataDetectorsDidHideUI();
             return;
         }
@@ -1033,43 +942,41 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo&, Mon
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 void WebPage::playbackTargetSelected(PlaybackTargetClientContextIdentifier contextId, MediaPlaybackTargetContextSerialized&& targetContext) const
 {
-    m_page->setPlaybackTarget(contextId, MediaPlaybackTargetSerialized::create(WTFMove(targetContext)));
+    protectedCorePage()->setPlaybackTarget(contextId, MediaPlaybackTargetSerialized::create(WTFMove(targetContext)));
 }
 
 void WebPage::playbackTargetAvailabilityDidChange(PlaybackTargetClientContextIdentifier contextId, bool changed)
 {
-    m_page->playbackTargetAvailabilityDidChange(contextId, changed);
+    protectedCorePage()->playbackTargetAvailabilityDidChange(contextId, changed);
 }
 
 void WebPage::setShouldPlayToPlaybackTarget(PlaybackTargetClientContextIdentifier contextId, bool shouldPlay)
 {
-    m_page->setShouldPlayToPlaybackTarget(contextId, shouldPlay);
+    protectedCorePage()->setShouldPlayToPlaybackTarget(contextId, shouldPlay);
 }
 
 void WebPage::playbackTargetPickerWasDismissed(PlaybackTargetClientContextIdentifier contextId)
 {
-    m_page->playbackTargetPickerWasDismissed(contextId);
+    protectedCorePage()->playbackTargetPickerWasDismissed(contextId);
 }
 #endif
 
 void WebPage::didBeginMagnificationGesture()
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn()) {
+    if (RefPtr pluginView = mainFramePlugIn())
         pluginView->didBeginMagnificationGesture();
-        return;
-    }
 #endif
 }
 
 void WebPage::didEndMagnificationGesture()
 {
 #if ENABLE(MAC_GESTURE_EVENTS)
-    if (RefPtr localMainFrame = m_page->localMainFrame())
+    if (RefPtr localMainFrame = protectedCorePage()->localMainFrame())
         localMainFrame->eventHandler().didEndMagnificationGesture();
 #endif
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn())
+    if (RefPtr pluginView = mainFramePlugIn())
         pluginView->didEndMagnificationGesture();
 #endif
 }
@@ -1104,7 +1011,7 @@ void WebPage::setAccentColor(WebCore::Color color)
 #if PLATFORM(MAC)
 void WebPage::setAppUsesCustomAccentColor(bool appUsesCustomAccentColor)
 {
-    corePage()->setAppUsesCustomAccentColor(appUsesCustomAccentColor);
+    protectedCorePage()->setAppUsesCustomAccentColor(appUsesCustomAccentColor);
 }
 #endif
 
@@ -1136,21 +1043,21 @@ void WebPage::savePDF(PDFPluginIdentifier identifier, CompletionHandler<void(con
     pdfPlugin->save(WTFMove(completionHandler));
 }
 
-void WebPage::openPDFWithPreview(PDFPluginIdentifier identifier, CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)>&& completionHandler)
+void WebPage::openPDFWithPreview(PDFPluginIdentifier identifier, CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)>&& completionHandler)
 {
-    for (auto& pluginView : m_pluginViews) {
-        if (pluginView.pdfPluginIdentifier() == identifier)
-            return pluginView.openWithPreview(WTFMove(completionHandler));
+    for (Ref pluginView : m_pluginViews) {
+        if (pluginView->pdfPluginIdentifier() == identifier)
+            return pluginView->openWithPreview(WTFMove(completionHandler));
     }
 
-    completionHandler({ }, { }, { }, { });
+    completionHandler({ }, { }, { });
 }
 
-void WebPage::createPDFHUD(PDFPluginBase& plugin, const IntRect& boundingBox)
+void WebPage::createPDFHUD(PDFPluginBase& plugin, WebCore::FrameIdentifier frameID, const IntRect& boundingBox)
 {
     auto addResult = m_pdfPlugInsWithHUD.add(plugin.identifier(), plugin);
     if (addResult.isNewEntry)
-        send(Messages::WebPageProxy::CreatePDFHUD(plugin.identifier(), boundingBox));
+        send(Messages::WebPageProxy::CreatePDFHUD(plugin.identifier(), frameID, boundingBox));
 }
 
 void WebPage::updatePDFHUDLocation(PDFPluginBase& plugin, const IntRect& boundingBox)

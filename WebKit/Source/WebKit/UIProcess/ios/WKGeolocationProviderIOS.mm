@@ -196,7 +196,7 @@ static void setEnableHighAccuracy(WKGeolocationManagerRef geolocationManager, bo
     if ([uiDelegate respondsToSelector:@selector(_webView:requestGeolocationAuthorizationForURL:frame:decisionHandler:)]) {
         RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(WTFMove(request.frameInfo), request.view->_page.get()));
         auto checker = WebKit::CompletionHandlerCallChecker::create(uiDelegate, @selector(_webView:requestGeolocationAuthorizationForURL:frame:decisionHandler:));
-        [uiDelegate _webView:request.view.get() requestGeolocationAuthorizationForURL:request.url frame:frameInfo.get() decisionHandler:makeBlockPtr([decisionHandler = WTFMove(decisionHandler), checker = WTFMove(checker)](BOOL authorized) {
+        [uiDelegate _webView:request.view.get() requestGeolocationAuthorizationForURL:request.url.createNSURL().get() frame:frameInfo.get() decisionHandler:makeBlockPtr([decisionHandler = WTFMove(decisionHandler), checker = WTFMove(checker)](BOOL authorized) {
             if (checker->completionHandlerHasBeenCalled())
                 return;
             checker->didCallCompletionHandler();
@@ -206,7 +206,7 @@ static void setEnableHighAccuracy(WKGeolocationManagerRef geolocationManager, bo
     }
 
     auto policyListener = adoptNS([[WKWebAllowDenyPolicyListener alloc] initWithCompletionHandler:WTFMove(decisionHandler)]);
-    [[WKWebGeolocationPolicyDecider sharedPolicyDecider] decidePolicyForGeolocationRequestFromOrigin:WebCore::SecurityOriginData::fromURLWithoutStrictOpaqueness(request.url) requestingURL:request.url view:request.view.get() listener:policyListener.get()];
+    [[WKWebGeolocationPolicyDecider sharedPolicyDecider] decidePolicyForGeolocationRequestFromOrigin:WebCore::SecurityOriginData::fromURLWithoutStrictOpaqueness(request.url) requestingURL:request.url.createNSURL().get() view:request.view.get() listener:policyListener.get()];
 }
 
 - (void)geolocationAuthorizationDenied

@@ -47,12 +47,12 @@
 - (WebScriptCallFrame *)_initWithGlobalObject:(WebScriptObject *)globalObj functionName:(String)functionName exceptionValue:(JSC::JSValue)exceptionValue;
 @end
 
-static NSString *toNSString(JSC::SourceProvider* sourceProvider)
+static RetainPtr<NSString> toNSString(JSC::SourceProvider* sourceProvider)
 {
     const String& sourceString = sourceProvider->source().toString();
     if (sourceString.isEmpty())
         return nil;
-    return sourceString;
+    return sourceString.createNSString();
 }
 
 static WebFrame *toWebFrame(JSC::JSGlobalObject* globalObject)
@@ -79,8 +79,8 @@ void WebScriptDebugger::sourceParsed(JSC::JSGlobalObject* lexicalGlobalObject, J
 
     m_callingDelegate = true;
 
-    NSString *nsSource = toNSString(sourceProvider);
-    NSURL *nsURL = sourceProvider->sourceOrigin().url();
+    RetainPtr nsSource = toNSString(sourceProvider);
+    RetainPtr nsURL = sourceProvider->sourceOrigin().url().createNSURL();
     int firstLine = sourceProvider->startPosition().m_line.oneBasedInt();
 
     JSC::VM& vm = lexicalGlobalObject->vm();
@@ -91,9 +91,9 @@ void WebScriptDebugger::sourceParsed(JSC::JSGlobalObject* lexicalGlobalObject, J
     if (errorLine == -1) {
         if (implementations->didParseSourceFunc) {
             if (implementations->didParseSourceExpectsBaseLineNumber)
-                CallScriptDebugDelegate(implementations->didParseSourceFunc, webView, @selector(webView:didParseSource:baseLineNumber:fromURL:sourceId:forWebFrame:), nsSource, firstLine, nsURL, sourceProvider->asID(), webFrame);
+                CallScriptDebugDelegate(implementations->didParseSourceFunc, webView, @selector(webView:didParseSource:baseLineNumber:fromURL:sourceId:forWebFrame:), nsSource.get(), firstLine, nsURL.get(), sourceProvider->asID(), webFrame);
             else
-                CallScriptDebugDelegate(implementations->didParseSourceFunc, webView, @selector(webView:didParseSource:fromURL:sourceId:forWebFrame:), nsSource, [nsURL absoluteString], sourceProvider->asID(), webFrame);
+                CallScriptDebugDelegate(implementations->didParseSourceFunc, webView, @selector(webView:didParseSource:fromURL:sourceId:forWebFrame:), nsSource.get(), [nsURL absoluteString], sourceProvider->asID(), webFrame);
         }
     } else {
         NSDictionary *info;
@@ -103,25 +103,25 @@ void WebScriptDebugger::sourceParsed(JSC::JSGlobalObject* lexicalGlobalObject, J
             };
         } else {
             info = @{
-                WebScriptErrorDescriptionKey: (NSString *)errorMsg,
+                WebScriptErrorDescriptionKey: errorMsg.createNSString().get(),
                 WebScriptErrorLineNumberKey: @(errorLine),
             };
         }
         auto error = adoptNS([[NSError alloc] initWithDomain:WebScriptErrorDomain code:WebScriptGeneralErrorCode userInfo:info]);
 
         if (implementations->failedToParseSourceFunc)
-            CallScriptDebugDelegate(implementations->failedToParseSourceFunc, webView, @selector(webView:failedToParseSource:baseLineNumber:fromURL:withError:forWebFrame:), nsSource, firstLine, nsURL, error.get(), webFrame);
+            CallScriptDebugDelegate(implementations->failedToParseSourceFunc, webView, @selector(webView:failedToParseSource:baseLineNumber:fromURL:withError:forWebFrame:), nsSource.get(), firstLine, nsURL.get(), error.get(), webFrame);
     }
 
     m_callingDelegate = false;
 }
 
-void WebScriptDebugger::handlePause(JSC::JSGlobalObject* globalObject, Debugger::ReasonForPause reason)
+void WebScriptDebugger::handlePause(JSC::JSGlobalObject* globalObject)
 {
     if (m_callingDelegate)
         return;
 
-    if (reason != Debugger::PausedForException)
+    if (reasonForPause() != Debugger::PausedForException)
         return;
 
     m_callingDelegate = true;

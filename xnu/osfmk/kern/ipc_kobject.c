@@ -154,11 +154,7 @@ typedef struct {
 	unsigned int kreply_desc_cnt;   /* Number of descs in kernel reply msg */
 } mig_hash_t;
 
-static void ipc_kobject_subst_once_no_senders(ipc_port_t, mach_msg_type_number_t);
-
 IPC_KOBJECT_DEFINE(IKOT_MEMORY_OBJECT);   /* vestigial, no real instance */
-IPC_KOBJECT_DEFINE(IKOT_PORT_SUBST_ONCE,
-    .iko_op_no_senders = ipc_kobject_subst_once_no_senders);
 
 #define MAX_MIG_ENTRIES 1031
 #define MIG_HASH(x) (x)
@@ -200,28 +196,6 @@ static struct mig_kern_subsystem *mig_e[] = {
 #endif
 	(const struct mig_kern_subsystem *)&mach_eventlink_subsystem,
 };
-
-static struct ipc_kobject_ops __security_const_late
-    ipc_kobject_ops_array[IKOT_MAX_TYPE];
-
-__startup_func
-void
-ipc_kobject_register_startup(ipc_kobject_ops_t ops)
-{
-	if (ipc_kobject_ops_array[ops->iko_op_type].iko_op_type) {
-		panic("trying to register kobject(%d) twice", ops->iko_op_type);
-	}
-	ipc_kobject_ops_array[ops->iko_op_type] = *ops;
-}
-
-static ipc_kobject_ops_t
-ipc_kobject_ops_get(ipc_kobject_type_t ikot)
-{
-	if (ikot < IKOT_NONE || ikot >= IKOT_MAX_TYPE) {
-		panic("invalid kobject type %d", ikot);
-	}
-	return &ipc_kobject_ops_array[ikot];
-}
 
 __startup_func
 static void
@@ -682,7 +656,7 @@ ipc_kobject_server(
 
 	ipc_kmsg_trace_send(request, option);
 
-	if (ip_kotype(port) == IKOT_UEXT_OBJECT) {
+	if (ip_type(port) == IKOT_UEXT_OBJECT) {
 		kr = uext_server(port, request, &reply);
 	} else {
 		kr = ipc_kobject_server_internal(port, request, &reply);
@@ -772,7 +746,7 @@ ipc_kobject_server(
 			 */
 #if DEVELOPMENT || DEBUG
 			printf("%s: refusing to send reply to kobject %d port (id:%d)\n",
-			    __func__, ip_kotype(reply_port), request_msgh_id);
+			    __func__, ip_type(reply_port), request_msgh_id);
 #endif  /* DEVELOPMENT || DEBUG */
 			ipc_kmsg_destroy(reply, IPC_KMSG_DESTROY_NOT_SIGNED);
 			reply = IKM_NULL;
@@ -782,17 +756,15 @@ ipc_kobject_server(
 	return reply;
 }
 
-static __header_always_inline void
+static inline void
 ipc_kobject_set_raw(
 	ipc_port_t          port,
-	ipc_kobject_t       kobject,
-	ipc_kobject_type_t  type)
+	ipc_kobject_type_t  type,
+	ipc_kobject_t       kobject)
 {
 	uintptr_t *store = &port->ip_kobject;
 
 #if __has_feature(ptrauth_calls)
-	type |= port->ip_immovable_receive << 14;
-	type |= port->ip_immovable_send << 15;
 	type ^= OS_PTRAUTH_DISCRIMINATOR("ipc_port.ip_kobject");
 	kobject = ptrauth_sign_unauthenticated(kobject,
 	    ptrauth_key_process_independent_data,
@@ -802,17 +774,6 @@ ipc_kobject_set_raw(
 #endif // __has_feature(ptrauth_calls)
 
 	*store = (uintptr_t)kobject;
-}
-
-static inline void
-ipc_kobject_set_internal(
-	ipc_port_t          port,
-	ipc_kobject_t       kobject,
-	ipc_kobject_type_t  type)
-{
-	assert(type != IKOT_NONE);
-	io_bits_or(ip_to_object(port), type);
-	ipc_kobject_set_raw(port, kobject, type);
 }
 
 /*
@@ -829,15 +790,13 @@ ipc_kobject_set_internal(
  */
 __header_always_inline ipc_kobject_t
 ipc_kobject_get_raw(
-	ipc_port_t                  port,
-	ipc_kobject_type_t          type)
+	ipc_port_t              port,
+	ipc_kobject_type_t      type)
 {
 	uintptr_t *store = &port->ip_kobject;
 	ipc_kobject_t kobject = (ipc_kobject_t)*store;
 
 #if __has_feature(ptrauth_calls)
-	type |= port->ip_immovable_receive << 14;
-	type |= port->ip_immovable_send << 15;
 	type ^= OS_PTRAUTH_DISCRIMINATOR("ipc_port.ip_kobject");
 	kobject = ptrauth_auth_data(kobject,
 	    ptrauth_key_process_independent_data,
@@ -856,9 +815,9 @@ ipc_kobject_require_panic(
 	ipc_kobject_t               kobject,
 	ipc_kobject_type_t          kotype)
 {
-	if (ip_kotype(port) != kotype) {
+	if (ip_type(port) != kotype) {
 		panic("port %p: invalid kobject type, got %d wanted %d",
-		    port, ip_kotype(port), kotype);
+		    port, ip_type(port), kotype);
 	}
 	panic("port %p: invalid kobject, got %p wanted %p",
 	    port, ipc_kobject_get_raw(port, kotype), kobject);
@@ -872,7 +831,7 @@ ipc_kobject_require(
 {
 	ipc_kobject_t cur;
 
-	if (__improbable(ip_kotype(port) != kotype)) {
+	if (ip_type(port) != kotype) {
 		ipc_kobject_require_panic(port, kobject, kotype);
 	}
 	cur = ipc_kobject_get_raw(port, kotype);
@@ -898,13 +857,11 @@ ipc_kobject_require(
  *		The port is a kobject of the proper type.
  */
 ipc_kobject_t
-ipc_kobject_get_locked(
-	ipc_port_t                  port,
-	ipc_kobject_type_t          type)
+ipc_kobject_get_locked(ipc_port_t port, ipc_kobject_type_t type)
 {
 	ipc_kobject_t kobject = IKO_NULL;
 
-	if (ip_active(port) && type == ip_kotype(port)) {
+	if (ip_active(port) && ip_type(port) == type) {
 		kobject = ipc_kobject_get_raw(port, type);
 	}
 
@@ -924,46 +881,32 @@ ipc_kobject_get_locked(
  *		The port is a kobject of the proper type.
  */
 ipc_kobject_t
-ipc_kobject_get_stable(
-	ipc_port_t                  port,
-	ipc_kobject_type_t          type)
+ipc_kobject_get_stable(ipc_port_t port, ipc_kobject_type_t type)
 {
-	assert(ipc_kobject_ops_get(type)->iko_op_stable);
+	assert(ipc_policy(type)->pol_kobject_stable);
 	return ipc_kobject_get_locked(port, type);
 }
 
-/*
- *	Routine:	ipc_kobject_init_port
- *	Purpose:
- *		Initialize a kobject port with the given types and options.
- *
- *		This function never fails.
- */
-static inline void
-ipc_kobject_init_port(
-	ipc_port_t port,
-	ipc_kobject_t kobject,
-	ipc_kobject_type_t type,
-	ipc_kobject_alloc_options_t options)
+ipc_object_label_t
+ipc_kobject_label_alloc(
+	ipc_object_type_t       otype,
+	ipc_label_t             label_tag,
+	ipc_port_t              alt_port)
 {
-	if (options & IPC_KOBJECT_ALLOC_MAKE_SEND) {
-		ipc_port_make_send_any_locked(port);
-	}
-	if (options & IPC_KOBJECT_ALLOC_NSREQUEST) {
-		port->ip_nsrequest = IP_KOBJECT_NSREQUEST_ARMED;
-		ip_reference(port);
-	}
-	if (options & IPC_KOBJECT_ALLOC_NO_GRANT) {
-		port->ip_no_grant = 1;
-	}
-	if (options & IPC_KOBJECT_ALLOC_IMMOVABLE_SEND) {
-		port->ip_immovable_send = 1;
-	}
-	if (options & IPC_KOBJECT_ALLOC_PINNED) {
-		port->ip_pinned = 1;
-	}
+	ipc_kobject_label_t kolabel;
 
-	ipc_kobject_set_internal(port, kobject, type);
+	kolabel = zalloc_flags(ipc_kobject_label_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	kolabel->ikol_label = label_tag;
+	kolabel->ikol_alt_port = alt_port;
+
+	return IPC_OBJECT_LABEL(otype, .iol_kobject = kolabel);
+}
+
+void
+ipc_kobject_label_free(ipc_object_label_t label)
+{
+	assert(label.iol_kobject->ikol_alt_port == IP_NULL);
+	zfree(ipc_kobject_label_zone, label.iol_kobject);
 }
 
 /*
@@ -979,143 +922,48 @@ ipc_kobject_init_port(
 ipc_port_t
 ipc_kobject_alloc_port(
 	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      type,
-	ipc_kobject_alloc_options_t     options)
+	ipc_object_label_t      label,
+	ipc_kobject_alloc_options_t options)
 {
 	ipc_port_t port;
-	port = ipc_port_alloc_special(ipc_space_kernel, IPC_PORT_ENFORCE_RIGID_REPLY_PORT_SEMANTICS);
 
-	if (port == IP_NULL) {
-		panic("ipc_kobject_alloc_port(): failed to allocate port");
+	port = ipc_port_alloc_special(ipc_space_kernel, label, IP_INIT_NONE);
+
+	if (options & IPC_KOBJECT_ALLOC_MAKE_SEND) {
+		ipc_port_make_send_any_locked(port);
 	}
 
-	ipc_kobject_init_port(port, kobject, type, options);
-	return port;
-}
+	ipc_kobject_set_raw(port, label.io_type, kobject);
 
-/*
- *	Routine:	ipc_kobject_alloc_labeled_port
- *	Purpose:
- *		Allocate a kobject port and associated mandatory access label
- *		in the kernel space of the specified type.
- *
- *		This function never fails.
- *
- *	Conditions:
- *		No locks held (memory is allocated)
- */
-
-ipc_port_t
-ipc_kobject_alloc_labeled_port(
-	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      type,
-	ipc_label_t             label,
-	ipc_kobject_alloc_options_t     options)
-{
-	ipc_port_t port;
-
-	port = ipc_kobject_alloc_port(kobject, type, options);
-
-	ipc_port_set_label(port, label);
+	ip_mq_unlock(port);
 
 	return port;
 }
 
-static void
-ipc_kobject_subst_once_no_senders(
-	ipc_port_t          port,
-	mach_port_mscount_t mscount)
-{
-	ipc_port_t ko_port;
-
-	ko_port = ipc_kobject_dealloc_port(port, mscount, IKOT_PORT_SUBST_ONCE);
-
-	if (ko_port) {
-		/*
-		 * Clean up the right if the wrapper wasn't hollowed out
-		 * by ipc_kobject_alloc_subst_once().
-		 */
-		ipc_port_release_send(ko_port);
-	}
-}
-
-/*
- *	Routine:	ipc_kobject_alloc_subst_once
- *	Purpose:
- *		Make a port that will be substituted by the kolabel
- *		rules once, preventing the next substitution (of its target)
- *		to happen if any.
- *
- *	Returns:
- *		A port with a send right, that will substitute to its "kobject".
- *
- *	Conditions:
- *		No locks held (memory is allocated).
- *
- *		`target` holds a send-right donated to this function,
- *		consumed in ipc_kobject_subst_once_no_senders().
- */
-ipc_port_t
-ipc_kobject_alloc_subst_once(
-	ipc_port_t          target)
-{
-	if (!IP_VALID(target)) {
-		return target;
-	}
-	return ipc_kobject_alloc_labeled_port(target,
-	           IKOT_PORT_SUBST_ONCE, IPC_LABEL_SUBST_ONCE,
-	           IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
-}
-
-/*
- *	Routine:	ipc_kobject_make_send_lazy_alloc_port
- *	Purpose:
- *		Make a send once for a kobject port.
- *
- *		A location owning this port is passed in port_store.
- *		If no port exists, a port is made lazily.
- *
- *		A send right is made for the port, and if this is the first one
- *		(possibly not for the first time), then the no-more-senders
- *		notification is rearmed.
- *
- *		When a notification is armed, the kobject must donate
- *		one of its references to the port. It is expected
- *		the no-more-senders notification will consume this reference.
- *
- *	Returns:
- *		TRUE if a notification was armed
- *		FALSE else
- *
- *	Conditions:
- *		Nothing is locked, memory can be allocated.
- *		The caller must be able to donate a kobject reference to the port.
- */
 bool
 ipc_kobject_make_send_lazy_alloc_port(
-	ipc_port_t              *port_store,
+	ipc_port_t             *port_store,
 	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      type,
-	ipc_kobject_alloc_options_t alloc_opts)
+	ipc_kobject_type_t      type)
 {
 	ipc_port_t port, previous;
-	kern_return_t kr;
+	bool was_armed = false;
 
-	alloc_opts |= IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST;
+	assert(ipc_policy(type)->pol_kobject_no_senders &&
+	    ipc_policy(type)->pol_kobject_stable);
+
 	port = os_atomic_load(port_store, dependency);
-
 	if (!IP_VALID(port)) {
-		port = ipc_kobject_alloc_port(kobject, type, alloc_opts);
+		port = ipc_kobject_alloc_port(kobject, type,
+		    IPC_KOBJECT_ALLOC_MAKE_SEND);
 
 		if (os_atomic_cmpxchgv(port_store,
 		    IP_NULL, port, &previous, release)) {
-			return TRUE;
+			return true;
 		}
 
 		/*
-		 * undo IPC_KOBJECT_ALLOC_MAKE_SEND,
-		 * ipc_kobject_dealloc_port will handle
-		 * IPC_KOBJECT_ALLOC_NSREQUEST.
+		 * undo IPC_KOBJECT_ALLOC_MAKE_SEND
 		 */
 		port->ip_mscount = 0;
 		port->ip_srights = 0;
@@ -1125,144 +973,30 @@ ipc_kobject_make_send_lazy_alloc_port(
 		port = previous;
 	}
 
-	kr = ipc_kobject_make_send_nsrequest(port, kobject, type);
-	assert(kr == KERN_SUCCESS || kr == KERN_ALREADY_WAITING);
+	ip_mq_lock(port);
+	ipc_port_make_send_any_locked(port);
+	was_armed = (port->ip_srights == 1);
+	ip_mq_unlock(port);
 
-	return kr == KERN_SUCCESS;
+	return was_armed;
 }
 
-/*
- *	Routine:	ipc_kobject_make_send_lazy_alloc_labeled_port
- *	Purpose:
- *		Make a send once for a kobject port.
- *
- *		A location owning this port is passed in port_store.
- *		If no port exists, a port is made lazily.
- *
- *		A send right is made for the port, and if this is the first one
- *		(possibly not for the first time), then the no-more-senders
- *		notification is rearmed.
- *
- *		When a notification is armed, the kobject must donate
- *		one of its references to the port. It is expected
- *		the no-more-senders notification will consume this reference.
- *
- *	Returns:
- *		TRUE if a notification was armed
- *		FALSE else
- *
- *	Conditions:
- *		Nothing is locked, memory can be allocated.
- *		The caller must be able to donate a kobject reference to the port.
- */
-boolean_t
-ipc_kobject_make_send_lazy_alloc_labeled_port(
-	ipc_port_t              *port_store,
-	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      type,
-	ipc_label_t             label)
+bool
+ipc_kobject_is_mscount_current_locked(ipc_port_t port, mach_port_mscount_t mscount)
 {
-	ipc_port_t port, previous;
-	kern_return_t kr;
-
-	port = os_atomic_load(port_store, dependency);
-
-	if (!IP_VALID(port)) {
-		port = ipc_kobject_alloc_labeled_port(kobject, type, label,
-		    IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
-		if (os_atomic_cmpxchgv(port_store, IP_NULL, port, &previous, release)) {
-			return TRUE;
-		}
-
-		/*
-		 * undo IPC_KOBJECT_ALLOC_MAKE_SEND,
-		 * ipc_kobject_dealloc_port will handle
-		 * IPC_KOBJECT_ALLOC_NSREQUEST.
-		 */
-		port->ip_mscount = 0;
-		port->ip_srights = 0;
-		ip_release_live(port);
-		ipc_kobject_dealloc_port(port, 0, type);
-
-		port = previous;
-		assert(ip_is_kolabeled(port));
-	}
-
-	kr = ipc_kobject_make_send_nsrequest(port, kobject, type);
-	assert(kr == KERN_SUCCESS || kr == KERN_ALREADY_WAITING);
-
-	return kr == KERN_SUCCESS;
+	return ip_active(port) && port->ip_srights == 0 && port->ip_mscount == mscount;
 }
 
-/*
- *	Routine:	ipc_kobject_nsrequest_locked
- *	Purpose:
- *		Arm the no-senders notification for the given kobject
- *		if it doesn't have one armed yet.
- *
- *	Conditions:
- *		Port is locked and active.
- *
- *	Returns:
- *		KERN_SUCCESS:           the notification was armed
- *		KERN_ALREADY_WAITING:   the notification was already armed
- *		KERN_FAILURE:           the notification would fire immediately
- */
-static inline kern_return_t
-ipc_kobject_nsrequest_locked(
-	ipc_port_t                  port,
-	mach_port_mscount_t         sync)
+bool
+ipc_kobject_is_mscount_current(ipc_port_t port, mach_port_mscount_t mscount)
 {
-	if (port->ip_nsrequest == IP_KOBJECT_NSREQUEST_ARMED) {
-		return KERN_ALREADY_WAITING;
-	}
+	bool is_last;
 
-	if (port->ip_srights == 0 && sync <= port->ip_mscount) {
-		return KERN_FAILURE;
-	}
+	ip_mq_lock(port);
+	is_last = ipc_kobject_is_mscount_current_locked(port, mscount);
+	ip_mq_unlock(port);
 
-	port->ip_nsrequest = IP_KOBJECT_NSREQUEST_ARMED;
-	ip_reference(port);
-	return KERN_SUCCESS;
-}
-
-
-/*
- *	Routine:	ipc_kobject_nsrequest
- *	Purpose:
- *		Arm the no-senders notification for the given kobject
- *		if it doesn't have one armed yet.
- *
- *	Returns:
- *		KERN_SUCCESS:           the notification was armed
- *		KERN_ALREADY_WAITING:   the notification was already armed
- *		KERN_FAILURE:           the notification would fire immediately
- *		KERN_INVALID_RIGHT:     the port is dead
- */
-kern_return_t
-ipc_kobject_nsrequest(
-	ipc_port_t              port,
-	mach_port_mscount_t     sync,
-	mach_port_mscount_t    *mscount)
-{
-	kern_return_t kr = KERN_INVALID_RIGHT;
-
-	if (IP_VALID(port)) {
-		ip_mq_lock(port);
-
-		if (mscount) {
-			*mscount = port->ip_mscount;
-		}
-		if (ip_active(port)) {
-			kr = ipc_kobject_nsrequest_locked(port, sync);
-		}
-
-		ip_mq_unlock(port);
-	} else if (mscount) {
-		*mscount = 0;
-	}
-
-	return kr;
+	return is_last;
 }
 
 kern_return_t
@@ -1275,15 +1009,15 @@ ipc_typed_port_copyin_send(
 	kern_return_t kr;
 
 	kr = ipc_object_copyin(space, name, MACH_MSG_TYPE_COPY_SEND,
-	    IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND, NULL, portp);
+	    IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND, IPC_COPYIN_KERNEL_DESTINATION, NULL, portp);
 	if (kr != KERN_SUCCESS) {
 		*portp = IP_NULL;
 		return kr;
 	}
 
-	if (kotype != IKOT_UNKNOWN &&
+	if (kotype != IOT_ANY &&
 	    IP_VALID(*portp) &&
-	    ip_kotype(*portp) != kotype) {
+	    ip_type(*portp) != kotype) {
 		ipc_port_release_send(*portp);
 		*portp = IP_NULL;
 		return KERN_INVALID_CAPABILITY;
@@ -1341,64 +1075,23 @@ ipc_typed_port_release_send(
 	ipc_port_t              port,
 	ipc_kobject_type_t      kotype)
 {
-	if (kotype != IKOT_UNKNOWN &&
-	    IP_VALID(port) &&
-	    ip_kotype(port) != kotype) {
+	if (kotype != IOT_ANY && IP_VALID(port) && ip_type(port) != kotype) {
 		ipc_kobject_require_panic(port, IKO_NULL, kotype);
 	}
 	ipc_port_release_send(port);
 }
 
-kern_return_t
-ipc_kobject_make_send_nsrequest(
-	ipc_port_t              port,
-	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      kotype)
-{
-	kern_return_t kr = KERN_INVALID_RIGHT;
-
-	if (IP_VALID(port)) {
-		ip_mq_lock(port);
-		if (ip_active(port)) {
-			ipc_kobject_require(port, kobject, kotype);
-			ipc_port_make_send_any_locked(port);
-			kr = ipc_kobject_nsrequest_locked(port, 0);
-			assert(kr != KERN_FAILURE);
-		}
-		ip_mq_unlock(port);
-	}
-
-	return kr;
-}
-
-kern_return_t
-ipc_kobject_make_send_nsrequest_locked(
-	ipc_port_t              port,
-	ipc_kobject_t           kobject,
-	ipc_kobject_type_t      kotype)
-{
-	kern_return_t kr = KERN_INVALID_RIGHT;
-
-	if (ip_active(port)) {
-		ipc_kobject_require(port, kobject, kotype);
-		ipc_port_make_send_any_locked(port);
-		kr = ipc_kobject_nsrequest_locked(port, 0);
-		assert(kr != KERN_FAILURE);
-	}
-
-	return kr;
-}
-
 static inline ipc_kobject_t
 ipc_kobject_disable_internal(
 	ipc_port_t              port,
+	ipc_kobject_label_t     kolabel,
 	ipc_kobject_type_t      type)
 {
 	ipc_kobject_t kobject = ipc_kobject_get_raw(port, type);
 
-	ipc_kobject_set_raw(port, IKO_NULL, type);
-	if (ip_is_kolabeled(port)) {
-		port->ip_kolabel->ikol_alt_port = IP_NULL;
+	ipc_kobject_set_raw(port, type, IKO_NULL);
+	if (kolabel) {
+		kolabel->ikol_alt_port = IP_NULL;
 	}
 
 	return kobject;
@@ -1429,19 +1122,19 @@ ipc_kobject_disable_internal(
  */
 __abortlike
 static void
-__ipc_kobject_dealloc_bad_type_panic(ipc_port_t port, ipc_kobject_type_t type)
+__ipc_kobject_bad_type_panic(ipc_port_t port, ipc_kobject_type_t type)
 {
-	panic("port %p of type %d, expecting %d", port, ip_kotype(port), type);
+	panic("port %p of type %d, expecting %d", port, ip_type(port), type);
 }
 
 __abortlike
 static void
 __ipc_kobject_dealloc_bad_mscount_panic(
 	ipc_port_t                  port,
-	mach_port_mscount_t         mscount,
+	uint64_t                    mscount,
 	ipc_kobject_type_t          type)
 {
-	panic("unexpected make-send count: %p[%d], %d, %d",
+	panic("unexpected make-send count: %p[%d], %d, %lld",
 	    port, type, port->ip_mscount, mscount);
 }
 
@@ -1458,30 +1151,31 @@ __ipc_kobject_dealloc_bad_srights_panic(
 ipc_kobject_t
 ipc_kobject_dealloc_port_and_unlock(
 	ipc_port_t                  port,
-	mach_port_mscount_t         mscount,
+	uint64_t                    mscount,
 	ipc_kobject_type_t          type)
 {
 	ipc_kobject_t kobject = IKO_NULL;
-	ipc_kobject_ops_t ops = ipc_kobject_ops_get(type);
+	ipc_object_policy_t pol = ipc_policy(type);
+	ipc_object_label_t label = ip_label_get(port, type);
 
-	require_ip_active(port);
+	ipc_release_assert(io_state_active(label.io_state));
 
-	if (ip_kotype(port) != type) {
-		__ipc_kobject_dealloc_bad_type_panic(port, type);
+	if (label.io_type != type) {
+		__ipc_kobject_bad_type_panic(port, type);
 	}
 
-	if (mscount && port->ip_mscount != mscount) {
+	if (mscount != IPC_KOBJECT_NO_MSCOUNT && port->ip_mscount != mscount) {
 		__ipc_kobject_dealloc_bad_mscount_panic(port, mscount, type);
 	}
-	if ((mscount || ops->iko_op_stable) && port->ip_srights != 0) {
+	if (port->ip_srights &&
+	    (mscount != IPC_KOBJECT_NO_MSCOUNT || pol->pol_kobject_stable)) {
 		__ipc_kobject_dealloc_bad_srights_panic(port, type);
 	}
 
-	if (!ops->iko_op_destroy) {
-		kobject = ipc_kobject_disable_internal(port, type);
-	}
+	kobject = ipc_kobject_disable_internal(port, label.iol_kobject, type);
 
-	ipc_port_dealloc_special_and_unlock(port, ipc_space_kernel);
+	ip_label_put(port, &label);
+	ipc_port_destroy(port);
 
 	return kobject;
 }
@@ -1513,7 +1207,7 @@ ipc_kobject_dealloc_port_and_unlock(
 ipc_kobject_t
 ipc_kobject_dealloc_port(
 	ipc_port_t                  port,
-	mach_port_mscount_t         mscount,
+	uint64_t                    mscount,
 	ipc_kobject_type_t          type)
 {
 	ip_mq_lock(port);
@@ -1536,17 +1230,16 @@ ipc_kobject_enable(
 	ipc_kobject_t           kobject,
 	ipc_kobject_type_t      type)
 {
-	assert(!ipc_kobject_ops_get(type)->iko_op_stable);
+	assert(!ipc_policy(type)->pol_kobject_stable);
 
 	ip_mq_lock(port);
 	require_ip_active(port);
 
-	if (type != ip_kotype(port)) {
-		panic("%s: unexpected kotype of port %p: want %d, got %d",
-		    __func__, port, type, ip_kotype(port));
+	if (ip_type(port) != type) {
+		__ipc_kobject_bad_type_panic(port, type);
 	}
 
-	ipc_kobject_set_raw(port, kobject, type);
+	ipc_kobject_set_raw(port, type, kobject);
 
 	ip_mq_unlock(port);
 }
@@ -1556,24 +1249,28 @@ ipc_kobject_enable(
  *	Purpose:
  *		Clear the kobject pointer for a port.
  *	Conditions:
- *		The port is locked.
+ *		port is locked.
  *		Returns the current kobject pointer.
  */
 ipc_kobject_t
-ipc_kobject_disable_locked(
-	ipc_port_t              port,
-	ipc_kobject_type_t      type)
+ipc_kobject_disable_locked(ipc_port_t port, ipc_kobject_type_t type)
 {
-	if (ip_active(port)) {
-		assert(!ipc_kobject_ops_get(type)->iko_op_stable);
+	ipc_object_label_t label;
+	ipc_kobject_t kobject;
+
+	label = ip_label_get(port);
+	if (io_state_active(label.io_state)) {
+		assert(!ipc_policy(type)->pol_kobject_stable);
 	}
 
-	if (ip_kotype(port) != type) {
-		panic("port %p of type %d, expecting %d",
-		    port, ip_kotype(port), type);
+	if (label.io_type != type) {
+		__ipc_kobject_bad_type_panic(port, type);
 	}
 
-	return ipc_kobject_disable_internal(port, type);
+	kobject = ipc_kobject_disable_internal(port, label.iol_kobject, type);
+	ip_label_put(port, &label);
+
+	return kobject;
 }
 
 /*
@@ -1585,9 +1282,7 @@ ipc_kobject_disable_locked(
  *		Returns the current kobject pointer.
  */
 ipc_kobject_t
-ipc_kobject_disable(
-	ipc_port_t              port,
-	ipc_kobject_type_t      type)
+ipc_kobject_disable(ipc_port_t port, ipc_kobject_type_t type)
 {
 	ipc_kobject_t kobject;
 
@@ -1599,53 +1294,7 @@ ipc_kobject_disable(
 }
 
 /*
- *	Routine:	ipc_kobject_upgrade_mktimer_locked
- *	Purpose:
- *		Upgrades a port to mktimer kobject status
- *
- *		This pattern is rather bad as it leads to various
- *		confusions that need to be special cased with kobject-ness
- *		of ports. No new port with dual kobject/message-queue
- *		semantics should be made ever.
- *
- *	Conditions:
- *		Port is locked
- */
-void
-ipc_kobject_upgrade_mktimer_locked(
-	ipc_port_t                  port,
-	ipc_kobject_t               kobject)
-{
-	ipc_kobject_set_internal(port, kobject, IKOT_TIMER);
-}
-
-/*
- *	Routine:	ipc_kobject_notify_no_senders
- *	Purpose:
- *		Handles a no-senders notification
- *		sent to a kobject.
- *
- *		A port reference is consumed.
- *
- *	Conditions:
- *		Nothing locked.
- */
-void
-ipc_kobject_notify_no_senders(
-	ipc_port_t              port,
-	mach_port_mscount_t     mscount)
-{
-	ipc_kobject_ops_t ops = ipc_kobject_ops_get(ip_kotype(port));
-
-	assert(ops->iko_op_no_senders);
-	ops->iko_op_no_senders(port, mscount);
-
-	/* consume the ref ipc_notify_no_senders_prepare left */
-	ip_release(port);
-}
-
-/*
- *	Routine:	ipc_kobject_notify_no_senders
+ *	Routine:	ipc_kobject_notify_send_once_and_unlock
  *	Purpose:
  *		Handles a send once notifications
  *		sent to a kobject.
@@ -1667,7 +1316,7 @@ ipc_kobject_notify_send_once_and_unlock(
 	 * This a simplified version of ipc_port_release_sonce()
 	 * since kobjects can't be special reply ports.
 	 */
-	assert(!port->ip_specialreply);
+	assert(!ip_is_special_reply_port(port));
 
 	ip_sorights_dec(port);
 	ip_mq_unlock(port);
@@ -1676,7 +1325,7 @@ ipc_kobject_notify_send_once_and_unlock(
 	 * because there's very few consumers,
 	 * the code here isn't generic as it's really not worth it.
 	 */
-	switch (ip_kotype(port)) {
+	switch (ip_type(port)) {
 	case IKOT_TASK_RESUME:
 		task_suspension_send_once(port);
 		break;
@@ -1685,78 +1334,6 @@ ipc_kobject_notify_send_once_and_unlock(
 	}
 
 	ip_release(port);
-}
-
-
-/*
- *	Routine:	ipc_kobject_destroy
- *	Purpose:
- *		Release any kernel object resources associated
- *		with the port, which is being destroyed.
- *
- *		This path to free object resources should only be
- *		needed when resources are associated with a user's port.
- *		In the normal case, when the kernel is the receiver,
- *		the code calling ipc_kobject_dealloc_port() should clean
- *		up the object resources.
- *
- *		Cleans up any kobject label that might be present.
- *	Conditions:
- *		The port is not locked, but it is dead.
- */
-void
-ipc_kobject_destroy(
-	ipc_port_t              port)
-{
-	ipc_kobject_ops_t ops = ipc_kobject_ops_get(ip_kotype(port));
-
-	if (ops->iko_op_permanent) {
-		panic("trying to destroy a permanent port %p with kobject type: %d", port, ip_kotype(port));
-	}
-	if (ops->iko_op_destroy) {
-		ops->iko_op_destroy(port);
-	}
-
-	if (ip_is_kolabeled(port)) {
-		ipc_kobject_label_t labelp = port->ip_kolabel;
-
-		assert(labelp != NULL);
-		assert(labelp->ikol_alt_port == IP_NULL);
-		assert(ip_is_kobject(port));
-		port->ip_kolabel = NULL;
-		io_bits_andnot(ip_to_object(port), IO_BITS_KOLABEL);
-		zfree(ipc_kobject_label_zone, labelp);
-	}
-}
-
-/*
- *	Routine:	ipc_kobject_label_substitute_task
- *	Purpose:
- *		Substitute a task control port for its immovable
- *		equivalent when the receiver is that task.
- *	Conditions:
- *		Space is write locked and active.
- *		Port is locked and active.
- *	Returns:
- *		- IP_NULL port if no substitution is to be done
- *		- a valid port if a substitution needs to happen
- */
-static ipc_port_t
-ipc_kobject_label_substitute_task(
-	ipc_space_t             space,
-	ipc_kobject_label_t     kolabel,
-	ipc_port_t              port)
-{
-	ipc_port_t subst = IP_NULL;
-	task_t task = ipc_kobject_get_raw(port, IKOT_TASK_CONTROL);
-
-	if (task != TASK_NULL && task == space->is_task) {
-		if ((subst = kolabel->ikol_alt_port)) {
-			return subst;
-		}
-	}
-
-	return IP_NULL;
 }
 
 /*
@@ -1782,36 +1359,6 @@ ipc_kobject_label_substitute_task_read(
 
 	if (task != TASK_NULL && task == space->is_task) {
 		if ((subst = kolabel->ikol_alt_port)) {
-			return subst;
-		}
-	}
-
-	return IP_NULL;
-}
-
-/*
- *	Routine:	ipc_kobject_label_substitute_thread
- *	Purpose:
- *		Substitute a thread control port for its immovable
- *		equivalent when it belongs to the receiver task.
- *	Conditions:
- *		Space is write locked and active.
- *		Port is locked and active.
- *	Returns:
- *		- IP_NULL port if no substitution is to be done
- *		- a valid port if a substitution needs to happen
- */
-static ipc_port_t
-ipc_kobject_label_substitute_thread(
-	ipc_space_t             space,
-	ipc_kobject_label_t     kolabel,
-	ipc_port_t              port)
-{
-	ipc_port_t subst = IP_NULL;
-	thread_t thread = ipc_kobject_get_raw(port, IKOT_THREAD_CONTROL);
-
-	if (thread != THREAD_NULL && space->is_task == get_threadtask(thread)) {
-		if ((subst = kolabel->ikol_alt_port) != IP_NULL) {
 			return subst;
 		}
 	}
@@ -1850,7 +1397,7 @@ ipc_kobject_label_substitute_thread_read(
 }
 
 /*
- *	Routine:	ipc_kobject_label_check
+ *	Routine:	ipc_kobject_label_check_or_substitute
  *	Purpose:
  *		Check to see if the space is allowed to possess
  *		a right for the given port. In order to qualify,
@@ -1870,72 +1417,36 @@ ipc_kobject_label_substitute_thread_read(
  *		As of now, substituted ports only happen for send rights.
  */
 bool
-ipc_kobject_label_check(
-	ipc_space_t                     space,
-	ipc_port_t                      port,
-	mach_msg_type_name_t            msgt_name,
-	ipc_object_copyout_flags_t     *flags,
-	ipc_port_t                     *subst_portp)
+ipc_kobject_label_check_or_substitute(
+	ipc_space_t             space,
+	ipc_port_t              port,
+	ipc_object_label_t     *label,
+	mach_msg_type_name_t    msgt_name,
+	ipc_port_t             *subst_portp)
 {
-	ipc_kobject_label_t kolabel;
-	ipc_label_t label;
+	ipc_kobject_label_t kolabel = label->iol_kobject;
+	ipc_label_t label_tag = kolabel->ikol_label;
 
 	assert(is_active(space));
 	assert(ip_active(port));
 
 	*subst_portp = IP_NULL;
 
-	/* Unlabled ports/kobjects are always allowed */
-	if (!ip_is_kolabeled(port)) {
-		return true;
-	}
-
 	/* Never OK to copyout the receive right for a labeled kobject */
 	if (msgt_name == MACH_MSG_TYPE_PORT_RECEIVE) {
-		panic("ipc_kobject_label_check: attempted receive right "
-		    "copyout for labeled kobject");
+		panic("attempted receive right copyout for labeled kobject");
 	}
 
-	kolabel = port->ip_kolabel;
-	label = kolabel->ikol_label;
-
-	if ((*flags & IPC_OBJECT_COPYOUT_FLAGS_NO_LABEL_CHECK) == 0 &&
-	    (label & IPC_LABEL_SUBST_MASK)) {
+	if ((label_tag & IPC_LABEL_SUBST_MASK)) {
 		ipc_port_t subst = IP_NULL;
 
 		if (msgt_name != MACH_MSG_TYPE_PORT_SEND) {
 			return false;
 		}
 
-		if ((label & IPC_LABEL_SUBST_MASK) == IPC_LABEL_SUBST_ONCE) {
-			/*
-			 * The next check will _not_ substitute.
-			 * hollow out our one-time wrapper,
-			 * and steal its send right.
-			 */
-			*flags |= IPC_OBJECT_COPYOUT_FLAGS_NO_LABEL_CHECK;
-			subst = ipc_kobject_disable_locked(port,
-			    IKOT_PORT_SUBST_ONCE);
-			is_write_unlock(space);
-			ipc_port_release_send_and_unlock(port);
-			if (subst == IP_NULL) {
-				panic("subst-once port %p was consumed twice", port);
-			}
-			*subst_portp = subst;
-			return true;
-		}
-
-		switch (label & IPC_LABEL_SUBST_MASK) {
-		case IPC_LABEL_SUBST_TASK:
-			subst = ipc_kobject_label_substitute_task(space,
-			    kolabel, port);
-			break;
+		switch (label_tag & IPC_LABEL_SUBST_MASK) {
 		case IPC_LABEL_SUBST_TASK_READ:
 			subst = ipc_kobject_label_substitute_task_read(space,
-			    kolabel, port);
-			break;
-		case IPC_LABEL_SUBST_THREAD:
-			subst = ipc_kobject_label_substitute_thread(space,
 			    kolabel, port);
 			break;
 		case IPC_LABEL_SUBST_THREAD_READ:
@@ -1943,7 +1454,7 @@ ipc_kobject_label_check(
 			    kolabel, port);
 			break;
 		default:
-			panic("unexpected label: %llx", label);
+			panic("unexpected label tag: %llx", label_tag);
 		}
 
 		if (subst != IP_NULL) {
@@ -1963,6 +1474,7 @@ ipc_kobject_label_check(
 			 * the no-senders notification.
 			 */
 
+			ip_label_put(port, label);
 			ipc_port_release_send_and_unlock(port);
 			/* no check: dPAC integrity */
 			port = ipc_port_make_send_any(subst);
@@ -1972,6 +1484,6 @@ ipc_kobject_label_check(
 		}
 	}
 
-	return (label & space->is_label & IPC_LABEL_SPACE_MASK) ==
-	       (label & IPC_LABEL_SPACE_MASK);
+	return (label_tag & space->is_label & IPC_LABEL_SPACE_MASK) ==
+	       (label_tag & IPC_LABEL_SPACE_MASK);
 }

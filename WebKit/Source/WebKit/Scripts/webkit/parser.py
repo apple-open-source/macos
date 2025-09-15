@@ -50,6 +50,7 @@ def parse(file):
     receiver_dispatched_to = None
     receiver_attributes = None
     shared_preferences_needs_connection = False
+    wants_send_cancel_reply = False
     destination = None
     messages = []
     conditions = []
@@ -77,6 +78,9 @@ def parse(file):
                 continue
             elif attribute == 'ExceptionForEnabledBy':
                 receiver_enabled_by_exception = True
+                continue
+            elif attribute == 'WantsSendCancelReply':
+                wants_send_cancel_reply = True
                 continue
             raise Exception("ERROR: Unknown extended attribute: '%s'" % attribute)
     if receiver_enabled_by and receiver_enabled_by_exception:
@@ -158,7 +162,7 @@ def parse(file):
                 raise Exception(f"ERROR: DeferSendingIfSuspended not supported for message {name} since it contains reply parameters")
 
             messages.append(model.Message(name, parameters, reply_parameters, attributes, combine_condition(conditions), validator, enabled_by, enabled_by_exception, enabled_by_conjunction, coalescing_key_indices))
-    return model.MessageReceiver(destination, superclass, receiver_attributes, receiver_enabled_by, receiver_enabled_by_exception, receiver_enabled_by_conjunction, receiver_dispatched_from, receiver_dispatched_to, shared_preferences_needs_connection, messages, combine_condition(master_condition), namespace)
+    return model.MessageReceiver(destination, superclass, receiver_attributes, receiver_enabled_by, receiver_enabled_by_exception, receiver_enabled_by_conjunction, receiver_dispatched_from, receiver_dispatched_to, shared_preferences_needs_connection, messages, combine_condition(master_condition), namespace, wants_send_cancel_reply)
 
 
 def parse_attributes_string(attributes_string):

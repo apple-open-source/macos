@@ -67,7 +67,7 @@ private:
     void externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void setShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier) final;
-    RetainPtr<PlatformView> platformView() const final;
+    RetainPtr<CocoaView> platformView() const final;
 
     WeakPtr<WebCore::Page> m_page;
     WeakObjCPtr<WebView> m_webView;

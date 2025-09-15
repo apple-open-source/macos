@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +30,7 @@
 #include <wtf/AbstractRefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
 
@@ -41,10 +41,9 @@ namespace WebCore {
 
 class CDMPrivateMediaSourceAVFObjC;
 
-class CDMSessionMediaSourceAVFObjC : public LegacyCDMSession, public SourceBufferPrivateAVFObjCErrorClient, public CanMakeWeakPtr<CDMSessionMediaSourceAVFObjC> {
+class CDMSessionMediaSourceAVFObjC : public LegacyCDMSession, public SourceBufferPrivateAVFObjCErrorClient, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<CDMSessionMediaSourceAVFObjC> {
     WTF_MAKE_TZONE_ALLOCATED(CDMSessionMediaSourceAVFObjC);
 public:
-    CDMSessionMediaSourceAVFObjC(CDMPrivateMediaSourceAVFObjC&, LegacyCDMSessionClient&);
     virtual ~CDMSessionMediaSourceAVFObjC();
 
     virtual void addParser(AVStreamDataParser*) = 0;
@@ -52,6 +51,9 @@ public:
 
     // LegacyCDMSession
     const String& sessionId() const override { return m_sessionId; }
+
+    void ref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
+    void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     // SourceBufferPrivateAVFObjCErrorClient
     void videoRendererDidReceiveError(WebSampleBufferVideoRendering *, NSError *, bool& shouldIgnore) override;
@@ -70,6 +72,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     void invalidateCDM() { m_cdm = nullptr; }
 
 protected:
+    CDMSessionMediaSourceAVFObjC(CDMPrivateMediaSourceAVFObjC&, LegacyCDMSessionClient&);
     String storagePath() const;
 
 #if !RELEASE_LOG_DISABLED
@@ -86,7 +89,7 @@ protected:
     bool m_stopped { false };
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 };

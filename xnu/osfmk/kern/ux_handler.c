@@ -62,6 +62,7 @@ static SECURITY_READ_ONLY_LATE(const void *)    ux_handler_kobject    = NULL;
 SECURITY_READ_ONLY_LATE(ipc_port_t)             ux_handler_port       = IP_NULL;
 
 IPC_KOBJECT_DEFINE(IKOT_UX_HANDLER,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 

@@ -81,7 +81,7 @@
 
 - (NSString *)sessionIdentifier
 {
-    return _session->sessionIdentifier();
+    return _session->sessionIdentifier().createNSString().autorelease();
 }
 
 - (void)setSessionIdentifier:(NSString *)sessionIdentifier

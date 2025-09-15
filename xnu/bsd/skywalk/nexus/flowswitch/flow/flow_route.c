@@ -73,6 +73,8 @@
 #include <netinet6/nd6.h>
 #include <net/route.h>
 
+#include <kern/uipc_domain.h>
+
 extern struct rtstat_64 rtstat;
 
 static LCK_GRP_DECLARE(flow_route_lock_group, "sk_flow_route_lock");
@@ -158,7 +160,7 @@ flow_route_buckets_alloc(size_t frb_cnt, size_t * frb_sz, size_t * tot_sz){
 	ASSERT(IS_P2ALIGNED(frb, cache_sz));
 #endif
 
-	SK_DF(SK_VERB_MEM, "frb 0x%llx frb_cnt %zu frb_sz %zu "
+	SK_DF(SK_VERB_MEM, "frb %p frb_cnt %zu frb_sz %zu "
 	    "(total %zu bytes) ALLOC", SK_KVA(frb), frb_cnt,
 	    *frb_sz, frb_tot_sz);
 
@@ -168,7 +170,7 @@ flow_route_buckets_alloc(size_t frb_cnt, size_t * frb_sz, size_t * tot_sz){
 void
 flow_route_buckets_free(struct flow_route_bucket *frb, size_t tot_sz)
 {
-	SK_DF(SK_VERB_MEM, "frb 0x%llx FREE", SK_KVA(frb));
+	SK_DF(SK_VERB_MEM, "frb %p FREE", SK_KVA(frb));
 	sk_free_type_hash(KT_SK_FRB, tot_sz, frb);
 }
 
@@ -255,7 +257,7 @@ flow_route_id_buckets_alloc(size_t frib_cnt, size_t * frib_sz, size_t * tot_sz){
 	ASSERT(IS_P2ALIGNED(frib, cache_sz));
 #endif /* !KASAN_CLASSIC */
 
-	SK_DF(SK_VERB_MEM, "frib 0x%llx frib_cnt %zu frib_sz %zu "
+	SK_DF(SK_VERB_MEM, "frib %p frib_cnt %zu frib_sz %zu "
 	    "(total %zu bytes) ALLOC", SK_KVA(frib), frib_cnt,
 	    *frib_sz, frib_tot_sz);
 
@@ -265,7 +267,7 @@ flow_route_id_buckets_alloc(size_t frib_cnt, size_t * frib_sz, size_t * tot_sz){
 void
 flow_route_id_buckets_free(struct flow_route_id_bucket *frib, size_t tot_sz)
 {
-	SK_DF(SK_VERB_MEM, "frib 0x%llx FREE", SK_KVA(frib));
+	SK_DF(SK_VERB_MEM, "frib %p FREE", SK_KVA(frib));
 	sk_free_type_hash(KT_SK_FRIB, tot_sz, frib);
 }
 
@@ -318,14 +320,14 @@ fr_alloc(boolean_t cansleep)
 	lck_mtx_init(&fr->fr_lock, &flow_route_lock_group, &flow_route_lock_attr);
 	uuid_generate_random(fr->fr_uuid);
 
-	SK_DF(SK_VERB_MEM, "allocated fr 0x%llx", SK_KVA(fr));
+	SK_DF(SK_VERB_MEM, "allocated fr %p", SK_KVA(fr));
 	return fr;
 }
 
 static void
 fr_free(struct flow_route *fr)
 {
-	SK_DF(SK_VERB_MEM, "freeing fr 0x%llx", SK_KVA(fr));
+	SK_DF(SK_VERB_MEM, "freeing fr %p", SK_KVA(fr));
 
 	VERIFY(!(fr->fr_flags & FLOWRTF_ATTACHED));
 	VERIFY(fr->fr_usecnt == 0);
@@ -502,7 +504,7 @@ flow_route_configure(struct flow_route *fr, struct ifnet *ifp, struct nx_flow_re
 			 * address of the gateway in fr_gaddr.
 			 */
 			(void) sa_copy(rt->rt_gateway, &ss, NULL);
-			_CASSERT(sizeof(fr->fr_gaddr) <= sizeof(ss));
+			static_assert(sizeof(fr->fr_gaddr) <= sizeof(ss));
 			bcopy(&ss, &fr->fr_gaddr, sizeof(fr->fr_gaddr));
 			os_atomic_or(&fr->fr_flags, FLOWRTF_GATEWAY, relaxed);
 		} else if (IS_DIRECT_HOSTROUTE(rt)) {
@@ -606,7 +608,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 			FR_LOCK(fr);
 			err = flow_route_configure(fr, ifp, req);
 			if (err != 0) {
-				SK_ERR("fr 0x%llx error re-configuring dst %s "
+				SK_ERR("fr %p error re-configuring dst %s "
 				    "on %s (err %d) [R]", SK_KVA(fr),
 				    sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 				    sizeof(dst_s)), ifp->if_xname, err);
@@ -615,7 +617,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 		}
 		if (err == 0) {
 			SK_DF(SK_VERB_FLOW_ROUTE,
-			    "fr 0x%llx found for dst %s " "on %s [R,%u]",
+			    "fr %p found for dst %s " "on %s [R,%u]",
 			    SK_KVA(fr), sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 			    sizeof(dst_s)), ifp->if_xname, fr->fr_usecnt);
 		}
@@ -640,7 +642,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 			FR_LOCK(fr);
 			err = flow_route_configure(fr, ifp, req);
 			if (err != 0) {
-				SK_ERR("fr 0x%llx error re-configuring dst %s "
+				SK_ERR("fr %p error re-configuring dst %s "
 				    "on %s (err %d) [W]", SK_KVA(fr),
 				    sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 				    sizeof(dst_s)), ifp->if_xname, err);
@@ -649,7 +651,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 		}
 		if (err == 0) {
 			SK_DF(SK_VERB_FLOW_ROUTE,
-			    "fr 0x%llx found for dst %s on %s [W,%u]",
+			    "fr %p found for dst %s on %s [W,%u]",
 			    SK_KVA(fr), sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 			    sizeof(dst_s)), ifp->if_xname, fr->fr_usecnt);
 		}
@@ -689,7 +691,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 
 	FR_LOCK(fr);
 	if ((err = flow_route_configure(fr, ifp, req)) != 0) {
-		SK_ERR("fr 0x%llx error configuring dst %s on %s (err %d)",
+		SK_ERR("fr %p error configuring dst %s on %s (err %d)",
 		    SK_KVA(fr), sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 		    sizeof(dst_s)), ifp->if_xname, err);
 		FR_UNLOCK(fr);
@@ -727,7 +729,7 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 #endif /* DEBUG */
 
 	/* for the trees */
-	_CASSERT(FLOW_ROUTE_MINREF == 2);
+	static_assert(FLOW_ROUTE_MINREF == 2);
 	flow_route_retain(fr);
 	flow_route_retain(fr);
 	ASSERT(fr->fr_usecnt == FLOW_ROUTE_MINREF);
@@ -742,12 +744,12 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 	if (!(fr->fr_flags & FLOWRTF_RESOLVED) &&
 	    (err = fr_resolve(arg, fr, NULL)) != 0) {
 		if (fr->fr_flags & FLOWRTF_GATEWAY) {
-			SK_ERR("fr 0x%llx resolve %s gw %s on %s (err %d)",
+			SK_ERR("fr %p resolve %s gw %s on %s (err %d)",
 			    SK_KVA(fr), (err == EJUSTRETURN ? "pending" :
 			    "fail"), sk_sa_ntop(SA(&fr->fr_gaddr), dst_s,
 			    sizeof(dst_s)), ifp->if_xname, err);
 		} else {
-			SK_ERR("fr 0x%llx resolve %s dst %s on %s (err %d)",
+			SK_ERR("fr %p resolve %s dst %s on %s (err %d)",
 			    SK_KVA(fr), (err == EJUSTRETURN ? "pending" :
 			    "fail"), sk_sa_ntop(SA(&fr->fr_faddr), dst_s,
 			    sizeof(dst_s)), ifp->if_xname, err);
@@ -763,14 +765,14 @@ flow_route_find(struct kern_nexus *nx, struct flow_mgr *fm,
 #if SK_LOG
 	if (fr->fr_flags & FLOWRTF_GATEWAY) {
 		SK_DF(SK_VERB_FLOW_ROUTE,
-		    "add fr 0x%llx %s -> %s via gw %s on %s", SK_KVA(fr),
+		    "add fr %p %s -> %s via gw %s on %s", SK_KVA(fr),
 		    sk_sa_ntop(SA(&fr->fr_laddr), src_s, sizeof(src_s)),
 		    sk_sa_ntop(SA(&fr->fr_faddr), dst_s, sizeof(dst_s)),
 		    sk_sa_ntop(SA(&fr->fr_gaddr), gw_s, sizeof(gw_s)),
 		    ifp->if_xname);
 	} else {
 		SK_DF(SK_VERB_FLOW_ROUTE,
-		    "add fr 0x%llx %s -> %s on %s", SK_KVA(fr),
+		    "add fr %p %s -> %s on %s", SK_KVA(fr),
 		    sk_sa_ntop(SA(&fr->fr_laddr), src_s, sizeof(src_s)),
 		    sk_sa_ntop(SA(&fr->fr_faddr), dst_s, sizeof(dst_s)),
 		    ifp->if_xname);
@@ -809,7 +811,7 @@ __flow_route_release(struct flow_route *fr, boolean_t renew)
 	VERIFY(fr->fr_usecnt > 0);
 	if (fr->fr_flags & FLOWRTF_ATTACHED) {
 		if (fr->fr_usecnt-- == (FLOW_ROUTE_MINREF + 1) && renew) {
-			fr->fr_expire = _net_uptime + flow_route_expire;
+			fr->fr_expire = net_uptime() + flow_route_expire;
 		}
 	} else {
 		/*
@@ -864,7 +866,7 @@ flow_route_bucket_purge_common(struct flow_route_bucket *frb, uint32_t *resid,
 		    (fr->fr_expire > now && !early_expire &&
 		    !(fr->fr_flags & FLOWRTF_DELETED)))) {
 			lck_spin_unlock(&fr->fr_reflock);
-			SK_DF(SK_VERB_FLOW_ROUTE, "skipping fr 0x%llx "
+			SK_DF(SK_VERB_FLOW_ROUTE, "skipping fr %p "
 			    "refcnt %u expire %llu", SK_KVA(fr),
 			    fr->fr_usecnt, fr->fr_expire);
 			continue;
@@ -883,7 +885,7 @@ flow_route_bucket_purge_common(struct flow_route_bucket *frb, uint32_t *resid,
 		}
 		FRIB_WLOCK_ASSERT_HELD(frib);
 
-		_CASSERT(FLOW_ROUTE_MINREF == 2);
+		static_assert(FLOW_ROUTE_MINREF == 2);
 		ASSERT(fr->fr_usecnt >= FLOW_ROUTE_MINREF);
 
 		RB_REMOVE(flow_route_tree, &frb->frb_head, fr);
@@ -894,7 +896,7 @@ flow_route_bucket_purge_common(struct flow_route_bucket *frb, uint32_t *resid,
 #if SK_LOG
 		if (fr->fr_flags & FLOWRTF_GATEWAY) {
 			SK_DF(SK_VERB_FLOW_ROUTE,
-			    "remove fr 0x%llx %s -> %s via gw %s [exp %lld]",
+			    "remove fr %p %s -> %s via gw %s [exp %lld]",
 			    SK_KVA(fr),
 			    sk_sa_ntop(SA(&fr->fr_laddr), ss, sizeof(ss)),
 			    sk_sa_ntop(SA(&fr->fr_faddr), ds, sizeof(ds)),
@@ -902,7 +904,7 @@ flow_route_bucket_purge_common(struct flow_route_bucket *frb, uint32_t *resid,
 			    (int64_t)(fr->fr_expire - now));
 		} else {
 			SK_DF(SK_VERB_FLOW_ROUTE,
-			    "remove fr 0x%llx %s -> %s [exp %lld]", SK_KVA(fr),
+			    "remove fr %p %s -> %s [exp %lld]", SK_KVA(fr),
 			    sk_sa_ntop(SA(&fr->fr_laddr), ss, sizeof(ss)),
 			    sk_sa_ntop(SA(&fr->fr_faddr), ds, sizeof(ds)),
 			    (int64_t)(fr->fr_expire - now));
@@ -1144,7 +1146,7 @@ flow_route_ev_callback(struct eventhandler_entry_arg ee_arg,
 			if (__improbable((sk_verbose & SK_VERB_FLOW_ROUTE) !=
 			    0) && (fr->fr_flags & FLOWRTF_HAS_LLINFO)) {
 				SK_DF(SK_VERB_FLOW_ROUTE,
-				    "%s: fr 0x%llx eth_type 0x%x "
+				    "%s: fr %p eth_type 0x%x "
 				    "eth_src %x:%x:%x:%x:%x:%x "
 				    "eth_dst %x:%x:%x:%x:%x:%x [%s])",
 				    fm->fm_name, SK_KVA(fr),
@@ -1242,8 +1244,8 @@ flow_route_select_laddr(union sockaddr_in_4_6 *src, union sockaddr_in_4_6 *dst,
 		if (__improbable(rt->rt_ifa->ifa_debug & IFD_DETACHING) != 0) {
 			err = EHOSTUNREACH;
 			SK_ERR("route to %s has src address marked detaching "
-			    "(err %d)", inet_ntop(AF_INET,
-			    &SIN(dst)->sin_addr, dst_s, sizeof(dst_s)), err);
+			    "(err %d)", sk_ntop(AF_INET, &SIN(dst)->sin_addr,
+			    dst_s, sizeof(dst_s)), err);
 			ifnet_lock_done(ifp);
 			break;
 		}
@@ -1269,7 +1271,7 @@ flow_route_select_laddr(union sockaddr_in_4_6 *src, union sockaddr_in_4_6 *dst,
 			}
 			VERIFY(src_ifp == NULL);
 			SK_ERR("src address to dst %s on %s not available "
-			    "(err %d)", inet_ntop(AF_INET6,
+			    "(err %d)", sk_ntop(AF_INET6,
 			    &SIN6(dst)->sin6_addr, dst_s, sizeof(dst_s)),
 			    ifp->if_xname, err);
 			break;
@@ -1283,9 +1285,9 @@ flow_route_select_laddr(union sockaddr_in_4_6 *src, union sockaddr_in_4_6 *dst,
 				err = ENETUNREACH;
 			}
 			SK_ERR("dst %s, src %s ifp %s != %s (err %d)",
-			    inet_ntop(AF_INET6, &SIN6(dst)->sin6_addr,
+			    sk_ntop(AF_INET6, &SIN6(dst)->sin6_addr,
 			    dst_s, sizeof(dst_s)),
-			    inet_ntop(AF_INET6, &SIN6(src)->sin6_addr,
+			    sk_ntop(AF_INET6, &SIN6(src)->sin6_addr,
 			    src_s, sizeof(src_s)),
 			    src_ifp->if_xname, ifp->if_xname, err);
 			break;
@@ -1371,13 +1373,13 @@ flow_route_cleanup(struct flow_route *fr)
 #if SK_LOG
 	if (fr->fr_flags & FLOWRTF_GATEWAY) {
 		SK_DF(SK_VERB_FLOW_ROUTE,
-		    "clean fr 0x%llx %s -> %s via gw %s", SK_KVA(fr),
+		    "clean fr %p %s -> %s via gw %s", SK_KVA(fr),
 		    sk_sa_ntop(SA(&fr->fr_laddr), ss, sizeof(ss)),
 		    sk_sa_ntop(SA(&fr->fr_faddr), ds, sizeof(ds)),
 		    sk_sa_ntop(SA(&fr->fr_gaddr), gs, sizeof(gs)));
 	} else if (fr->fr_flags & FLOWRTF_ONLINK) {
 		SK_DF(SK_VERB_FLOW_ROUTE,
-		    "clean fr 0x%llx %s -> %s", SK_KVA(fr),
+		    "clean fr %p %s -> %s", SK_KVA(fr),
 		    sk_sa_ntop(SA(&fr->fr_laddr), ss, sizeof(ss)),
 		    sk_sa_ntop(SA(&fr->fr_faddr), ds, sizeof(ds)));
 	}

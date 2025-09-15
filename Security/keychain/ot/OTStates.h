@@ -257,6 +257,10 @@ extern OctagonFlag* const OctagonFlagCheckTrustState;
 
 extern OctagonFlag* const OctagonFlagAppleAccountSignedOut;
 
+extern OctagonFlag* const OctagonFlagPasscodeStashAvailable;
+
+extern OctagonFlag* const OctagonFlagRerollIdentity;
+
 NS_ASSUME_NONNULL_END
 
 #endif // OCTAGON

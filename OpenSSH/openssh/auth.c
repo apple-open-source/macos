@@ -498,6 +498,18 @@ getpwnamallow(struct ssh *ssh, const char *user)
 
 	pw = getpwnam(user);
 
+#ifdef __APPLE_BASESYSTEM__
+	if (pw == NULL && options.apple_base_system) {
+		// TODO: look up air record
+		static struct passwd basepw;
+		basepw = *fakepw();
+		basepw.pw_uid = 501;
+		basepw.pw_name = (char*)user;
+		basepw.pw_shell = "";
+		pw = &basepw;
+		ci->user_invalid = 0;
+	}
+#endif
 #if defined(_AIX) && defined(HAVE_SETAUTHDB)
 	aix_restoreauthdb();
 #endif

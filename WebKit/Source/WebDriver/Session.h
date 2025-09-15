@@ -36,6 +36,8 @@
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/AtomString.h>
+#include <wtf/text/AtomStringHash.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(WEBDRIVER_BIDI)
@@ -47,9 +49,25 @@ namespace WebDriver {
 class CommandResult;
 class SessionHost;
 
+#if ENABLE(WEBDRIVER_BIDI)
+using EventSubscriptionID = String;
+
+struct EventSubscription {
+    EventSubscriptionID id;
+    Vector<AtomString> events;
+    Vector<String> browsingContextIDs;
+    Vector<String> userContextIDs;
+
+    bool isGlobal() const
+    {
+        return browsingContextIDs.isEmpty() && userContextIDs.isEmpty();
+    }
+};
+#endif
+
 class Session :
 #if ENABLE(WEBDRIVER_BIDI)
-public BiDiEventHandler // Inherits RefCounted
+public BidiMessageHandler // Inherits RefCounted
 #else
 public RefCounted<Session>
 #endif
@@ -157,9 +175,11 @@ public:
     void takeScreenshot(std::optional<String> elementID, std::optional<bool> scrollIntoView, Function<void(CommandResult&&)>&&);
 
 #if ENABLE(WEBDRIVER_BIDI)
-    void enableGlobalEvent(const String&);
-    void disableGlobalEvent(const String&);
-    void dispatchEvent(RefPtr<JSON::Object>&&);
+    void subscribeForEvents(const Vector<String>& events, Vector<String>&& browsingContextIDs, Vector<String>&& userContextIDs, Function<void(CommandResult&&)>&&);
+    void unsubscribeByIDs(const Vector<EventSubscriptionID>&, Function<void(CommandResult&&)>&&);
+    void unsubscribeByEventName(const Vector<String>& events, Function<void(CommandResult&&)>&&);
+    void dispatchBidiMessage(RefPtr<JSON::Object>&&);
+    void relayBidiCommand(const String&, unsigned commandId, Function<void(WebSocketMessageHandler::Message&&)>&&);
 #endif
 
 private:
@@ -243,7 +263,7 @@ private:
         Alternate = 1 << 2,
         Meta = 1 << 3,
     };
-    String virtualKeyForKey(UChar, KeyModifier&);
+    String virtualKeyForKey(char16_t, KeyModifier&);
     void performKeyboardInteractions(Vector<KeyboardInteraction>&&, Function<void(CommandResult&&)>&&);
 
     struct InputSourceState {
@@ -272,7 +292,8 @@ private:
     bool m_hasBiDiEnabled { false };
 
     // https://w3c.github.io/webdriver-bidi/#events
-    HashSet<String> m_globalEventSet;
+    HashMap<AtomString, unsigned> m_eventSubscriptionCounts;
+    HashMap<EventSubscriptionID, EventSubscription> m_eventSubscriptions;
     WeakPtr<WebSocketServer> m_bidiServer;
 
     bool eventIsEnabled(const String&, const Vector<String>&);

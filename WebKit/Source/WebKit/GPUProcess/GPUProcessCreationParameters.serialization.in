@@ -22,7 +22,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
-[RValue] struct WebKit::GPUProcessCreationParameters {
+[RValue, DebugDecodingFailure] struct WebKit::GPUProcessCreationParameters {
     WebKit::AuxiliaryProcessCreationParameters auxiliaryProcessParameters;
 
 #if ENABLE(MEDIA_STREAM)
@@ -41,11 +41,6 @@
     WebKit::SandboxExtensionHandle containerCachesDirectoryExtensionHandle;
     WebKit::SandboxExtensionHandle containerTemporaryDirectoryExtensionHandle;
     String containerCachesDirectory;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    Vector<WebKit::SandboxExtensionHandle> compilerServiceExtensionHandles;
-    Vector<WebKit::SandboxExtensionHandle> dynamicIOKitExtensionHandles;
 #endif
 
     std::optional<WebKit::SandboxExtensionHandle> mobileGestaltExtensionHandle;

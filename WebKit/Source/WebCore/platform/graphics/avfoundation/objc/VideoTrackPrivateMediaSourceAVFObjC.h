@@ -51,7 +51,6 @@ public:
 
     virtual ~VideoTrackPrivateMediaSourceAVFObjC();
 
-    void setAssetTrack(AVAssetTrack*);
     AVAssetTrack* assetTrack() const;
 
     FloatSize naturalSize() const;
@@ -61,7 +60,7 @@ private:
     
     void resetPropertiesFromTrack();
 
-    std::unique_ptr<AVTrackPrivateAVFObjCImpl> m_impl;
+    const Ref<AVTrackPrivateAVFObjCImpl> m_impl;
 };
 
 }

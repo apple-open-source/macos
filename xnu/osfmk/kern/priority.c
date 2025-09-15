@@ -623,7 +623,7 @@ boolean_t
 can_update_priority(
 	thread_t        thread)
 {
-	if (sched_tick == thread->sched_stamp) {
+	if (os_atomic_load(&sched_tick, relaxed) == thread->sched_stamp) {
 		return FALSE;
 	} else {
 		return TRUE;
@@ -643,7 +643,7 @@ update_priority(
 {
 	uint32_t ticks, delta;
 
-	ticks = sched_tick - thread->sched_stamp;
+	ticks = os_atomic_load(&sched_tick, relaxed) - thread->sched_stamp;
 	assert(ticks != 0);
 
 	thread->sched_stamp += ticks;

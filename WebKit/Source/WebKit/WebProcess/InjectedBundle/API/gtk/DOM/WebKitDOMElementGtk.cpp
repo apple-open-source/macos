@@ -21,6 +21,7 @@
 #include "WebKitDOMElement.h"
 
 #include <WebCore/CSSImportRule.h>
+#include <WebCore/CSSStyleProperties.h>
 #include <WebCore/DOMException.h>
 #include <WebCore/DOMRect.h>
 #include <WebCore/Document.h>
@@ -1022,7 +1023,8 @@ WebKitDOMCSSStyleDeclaration* webkit_dom_element_get_style(WebKitDOMElement* sel
     auto& item = *WebKit::core(self);
     if (!is<WebCore::StyledElement>(item))
         return nullptr;
-    return WebKit::kit(&downcast<WebCore::StyledElement>(item).cssomStyle());
+    auto& style = downcast<WebCore::StyledElement>(item).cssomStyle();
+    return WebKit::kit(reinterpret_cast<WebCore::CSSStyleDeclaration*>(&style));
 }
 
 gchar* webkit_dom_element_get_id(WebKitDOMElement* self)

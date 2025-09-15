@@ -108,6 +108,6 @@ typedef s64 USN;
 typedef sle64 leUSN;
 
 /* Our boolean type. */
-typedef boolean_t BOOL;
+typedef boolean_t NTFS_BOOL;
 
 #endif /* !_OSX_NTFS_TYPES_H */

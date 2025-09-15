@@ -258,6 +258,8 @@ typedef struct _posix_spawnattr {
 	uint32_t        psa_kqworkloop_soft_limit; /* kqworkloop soft limit */
 	uint32_t        psa_kqworkloop_hard_limit; /* kqworkloop hard limit */
 
+	uint32_t        psa_conclave_mem_limit; /* conclave hard memory limit (in MB) */
+
 	/*
 	 * NOTE: Extensions array pointers must stay at the end so that
 	 * everything above this point stays the same size on different bitnesses
@@ -305,7 +307,7 @@ __options_decl(posix_spawn_secflag_options, uint16_t, {
  */
 #define POSIX_SPAWN_JETSAM_MEMLIMIT_ACTIVE_FATAL        0x04  /* if set, limit is fatal when the process is active   */
 #define POSIX_SPAWN_JETSAM_MEMLIMIT_INACTIVE_FATAL      0x08  /* if set, limit is fatal when the process is inactive */
-
+#define POSIX_SPAWN_JETSAM_REALTIME_AUDIO               0x10  /* if set, avoid expensive memory telemetry while audio is playing */
 
 /*
  * Flags set based on posix_spawnattr_set_jetsam_ttr_np().
@@ -358,7 +360,8 @@ __options_decl(posix_spawn_secflag_options, uint16_t, {
 #define POSIX_SPAWN_PROC_TYPE_MASK                  0x00000F00
 
 #define POSIX_SPAWN_PROC_TYPE_APP_DEFAULT           0x00000100
-#define POSIX_SPAWN_PROC_TYPE_APP_TAL               0x00000200 /* unused */
+#define POSIX_SPAWN_PROC_TYPE_APP_NONUI             0x00000200
+#define POSIX_SPAWN_PROC_TYPE_APP_TAL               POSIX_SPAWN_PROC_TYPE_APP_NONUI /* old name */
 
 #define POSIX_SPAWN_PROC_TYPE_DAEMON_STANDARD       0x00000300
 #define POSIX_SPAWN_PROC_TYPE_DAEMON_INTERACTIVE    0x00000400

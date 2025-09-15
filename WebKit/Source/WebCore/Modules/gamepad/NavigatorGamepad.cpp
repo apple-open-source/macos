@@ -31,6 +31,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
+#include "FrameInlines.h"
 #include "Gamepad.h"
 #include "GamepadManager.h"
 #include "GamepadProvider.h"
@@ -53,12 +54,7 @@ NavigatorGamepad::NavigatorGamepad(Navigator& navigator)
 
 NavigatorGamepad::~NavigatorGamepad()
 {
-    GamepadManager::singleton().unregisterNavigator(protectedNavigator());
-}
-
-Ref<Navigator> NavigatorGamepad::protectedNavigator() const
-{
-    return m_navigator.get();
+    GamepadManager::singleton().unregisterNavigator(m_navigator.get());
 }
 
 ASCIILiteral NavigatorGamepad::supplementName()
@@ -136,7 +132,7 @@ Seconds NavigatorGamepad::gamepadsRecentlyAccessedThreshold()
 const Vector<RefPtr<Gamepad>>& NavigatorGamepad::gamepads()
 {
     if (RefPtr frame = m_navigator->frame()) {
-        if (RefPtr page = frame->protectedPage())
+        if (RefPtr page = frame->page())
             page->gamepadsRecentlyAccessed();
     }
 

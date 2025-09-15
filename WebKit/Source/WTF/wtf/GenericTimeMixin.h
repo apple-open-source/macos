@@ -88,27 +88,7 @@ public:
         return Seconds(m_value - other.m_value);
     }
 
-    friend constexpr bool operator==(GenericTimeMixin, GenericTimeMixin) = default;
-
-    constexpr bool operator<(const GenericTimeMixin& other) const
-    {
-        return m_value < other.m_value;
-    }
-
-    constexpr bool operator>(const GenericTimeMixin& other) const
-    {
-        return m_value > other.m_value;
-    }
-
-    constexpr bool operator<=(const GenericTimeMixin& other) const
-    {
-        return m_value <= other.m_value;
-    }
-
-    constexpr bool operator>=(const GenericTimeMixin& other) const
-    {
-        return m_value >= other.m_value;
-    }
+    friend constexpr auto operator<=>(GenericTimeMixin, GenericTimeMixin) = default;
 
     DerivedTime isolatedCopy() const
     {

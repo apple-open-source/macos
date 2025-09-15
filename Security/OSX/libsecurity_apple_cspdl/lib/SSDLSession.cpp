@@ -1294,6 +1294,11 @@ SSDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			db->ssCopyBlob(*reinterpret_cast<CSSM_DATA *>(outOutputParams));
 			break;
 		}
+		case CSSM_APPLECSPDL_DB_COPY_SALT:
+		{
+			db->ssCopySalt(*reinterpret_cast<CSSM_DATA *>(outOutputParams));
+			break;
+		}
 		case CSSM_APPLECSPDL_DB_INSERT_WITHOUT_ENCRYPTION:
 		{
 			doInsertWithoutEncryption (db, inInputParams, outOutputParams);

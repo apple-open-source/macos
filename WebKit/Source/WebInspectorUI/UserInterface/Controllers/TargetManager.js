@@ -263,6 +263,7 @@ WI.TargetManager = class TargetManager extends WI.Object
         this._resetMainExecutionContext();
 
         WI._pageTargetAvailablePromise.resolve();
+        WI._pageTargetAvailablePromise.settled = true;
     }
 
     _transitionPageTarget(target)

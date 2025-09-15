@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -88,13 +88,13 @@ void WebPageProxy::showEmojiPicker(const WebCore::IntRect& caretRect, Completion
     webkitWebViewBaseShowEmojiChooser(WEBKIT_WEB_VIEW_BASE(viewWidget()), caretRect, WTFMove(completionHandler));
 }
 
-void WebPageProxy::showValidationMessage(const WebCore::IntRect& anchorClientRect, const String& message)
+void WebPageProxy::showValidationMessage(const WebCore::IntRect& anchorClientRect, String&& message)
 {
     RefPtr pageClient = this->pageClient();
     if (!pageClient)
         return;
 
-    m_validationBubble = pageClient->createValidationBubble(message, { m_preferences->minimumFontSize() });
+    m_validationBubble = pageClient->createValidationBubble(WTFMove(message), { m_preferences->minimumFontSize() });
     m_validationBubble->showRelativeTo(anchorClientRect);
 }
 

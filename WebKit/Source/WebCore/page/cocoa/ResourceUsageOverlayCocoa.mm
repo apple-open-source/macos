@@ -37,6 +37,7 @@
 #import <CoreText/CoreText.h>
 #import <QuartzCore/CALayer.h>
 #import <QuartzCore/CATransaction.h>
+#import <numbers>
 #import <wtf/MainThread.h>
 #import <wtf/MathExtras.h>
 #import <wtf/MemoryFootprint.h>
@@ -47,7 +48,7 @@
 using WebCore::ResourceUsageOverlay;
 
 @interface WebResourceUsageOverlayLayer : CALayer {
-    ResourceUsageOverlay* m_overlay;
+    WeakPtr<ResourceUsageOverlay> m_overlay;
 }
 @end
 
@@ -64,7 +65,8 @@ using WebCore::ResourceUsageOverlay;
 
 - (void)drawInContext:(CGContextRef)context
 {
-    m_overlay->platformDraw(context);
+    if (RefPtr overlay = m_overlay.get())
+        overlay->platformDraw(context);
 }
 
 @end
@@ -92,7 +94,7 @@ public:
         return m_data[index];
     }
 
-    void forEach(const WTF::Function<void(T)>& apply) const
+    void forEach(NOESCAPE const WTF::Function<void(T)>& apply) const
     {
         unsigned i = m_current;
         for (unsigned visited = 0; visited < size; ++visited) {
@@ -123,7 +125,7 @@ private:
 static RetainPtr<CGColorRef> createColor(float r, float g, float b, float a)
 {
     CGFloat components[4] = { r, g, b, a };
-    return adoptCF(CGColorCreate(sRGBColorSpaceRef(), components));
+    return adoptCF(CGColorCreate(sRGBColorSpaceSingleton(), components));
 }
 
 struct HistoricMemoryCategoryInfo {
@@ -220,9 +222,9 @@ static void appendDataToHistory(const ResourceUsageData& data)
 
 void ResourceUsageOverlay::platformInitialize()
 {
-    m_layer = adoptNS([[WebResourceUsageOverlayLayer alloc] initWithResourceUsageOverlay:this]);
+    lazyInitialize(m_layer, adoptNS([[WebResourceUsageOverlayLayer alloc] initWithResourceUsageOverlay:this]));
 
-    m_containerLayer = adoptNS([[CALayer alloc] init]);
+    lazyInitialize(m_containerLayer, adoptNS([[CALayer alloc] init]));
     [m_containerLayer addSublayer:m_layer.get()];
 
     [m_containerLayer setAnchorPoint:CGPointZero];
@@ -276,7 +278,7 @@ static void showText(CGContextRef context, float x, float y, CGColorRef color, c
     auto attributes = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, std::size(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     CString cstr = text.ascii();
     auto cstrSpan = cstr.span();
-    auto string = adoptCF(CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, cstrSpan.data(), cstrSpan.size(), kCFStringEncodingASCII, false, kCFAllocatorNull));
+    auto string = adoptCF(CFStringCreateWithBytesNoCopy(kCFAllocatorDefault, byteCast<UInt8>(cstrSpan.data()), cstrSpan.size(), kCFStringEncodingASCII, false, kCFAllocatorNull));
     auto attributedString = adoptCF(CFAttributedStringCreate(kCFAllocatorDefault, string.get(), attributes.get()));
     auto line = adoptCF(CTLineCreateWithAttributedString(attributedString.get()));
     CGContextSetTextPosition(context, x, y);
@@ -372,7 +374,7 @@ static void drawMemHistory(CGContextRef context, float x1, float y1, float y2, H
     CGContextSetLineWidth(context, 1);
 
     struct ColorAndSize {
-        CGColorRef color;
+        RetainPtr<CGColorRef> color;
         size_t size;
     };
 
@@ -395,7 +397,7 @@ static void drawMemHistory(CGContextRef context, float x1, float y1, float y2, H
             CGContextBeginPath(context);
             CGContextMoveToPoint(context, x1 + i, currentY2);
             CGContextAddLineToPoint(context, x1 + i, nextY2);
-            CGContextSetStrokeColorWithColor(context, colorAndSize.color);
+            CGContextSetStrokeColorWithColor(context, colorAndSize.color.get());
             CGContextStrokePath(context);
             currentY2 = nextY2;
         }
@@ -405,7 +407,7 @@ static void drawMemHistory(CGContextRef context, float x1, float y1, float y2, H
     drawGraphLabel(context, x1, y2, "Mem"_s);
 }
 
-static const float fullCircleInRadians = piFloat * 2;
+static const float fullCircleInRadians = std::numbers::pi_v<float> * 2;
 
 static void drawSlice(CGContextRef context, FloatPoint center, float& angle, float radius, size_t sliceSize, size_t totalSize, CGColorRef color)
 {

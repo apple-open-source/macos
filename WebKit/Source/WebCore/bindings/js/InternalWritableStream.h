@@ -25,11 +25,13 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "JSDOMGuardedObject.h"
 #include <JavaScriptCore/JSObject.h>
 
 namespace WebCore {
+
+template<typename> class ExceptionOr;
+
 class InternalWritableStream final : public DOMGuarded<JSC::JSObject> {
 public:
     static ExceptionOr<Ref<InternalWritableStream>> createFromUnderlyingSink(JSDOMGlobalObject&, JSC::JSValue underlyingSink, JSC::JSValue strategy);
@@ -45,6 +47,7 @@ public:
     JSC::JSValue getWriter(JSC::JSGlobalObject&);
 
     void closeIfPossible();
+    void errorIfPossible(Exception&&);
 
 private:
     InternalWritableStream(JSDOMGlobalObject& globalObject, JSC::JSObject& jsObject)

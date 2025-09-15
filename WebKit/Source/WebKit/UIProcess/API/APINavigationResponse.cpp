@@ -28,31 +28,30 @@
 
 #include "APIFrameInfo.h"
 #include "APINavigation.h"
+#include "FrameInfoData.h"
 #include "WebFrameProxy.h"
 
 namespace API {
 
-NavigationResponse::NavigationResponse(API::FrameInfo& frame, const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, bool canShowMIMEType, const WTF::String& downloadAttribute, Navigation* navigation)
+NavigationResponse::NavigationResponse(API::FrameInfo& frame, const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response, bool canShowMIMEType, WTF::String&& downloadAttribute, Navigation* navigation)
     : m_frame(frame)
     , m_request(request)
     , m_response(response)
     , m_canShowMIMEType(canShowMIMEType)
-    , m_downloadAttribute(downloadAttribute)
+    , m_downloadAttribute(WTFMove(downloadAttribute))
     , m_navigation(navigation) { }
 
 NavigationResponse::~NavigationResponse() = default;
 
 FrameInfo* NavigationResponse::navigationInitiatingFrame()
 {
-    if (m_sourceFrame)
-        return m_sourceFrame.get();
     if (!m_navigation)
         return nullptr;
     auto& frameInfo = m_navigation->originatingFrameInfo();
     if (!frameInfo)
         return nullptr;
     RefPtr frame = WebKit::WebFrameProxy::webFrame(frameInfo->frameID);
-    m_sourceFrame = FrameInfo::create(FrameInfoData { *frameInfo }, frame ? frame->page() : nullptr);
+    m_sourceFrame = FrameInfo::create(WebKit::FrameInfoData { *frameInfo }, frame ? frame->page() : nullptr);
     return m_sourceFrame.get();
 }
 

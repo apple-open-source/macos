@@ -188,3 +188,9 @@ routine ipconfig_is_service_valid( server : mach_port_t;
 				name : if_name;
 				serviceID : service_id;
 			out	status : ipconfig_status);
+
+routine ipconfig_get_ipv4_router_info( server : mach_port_t;
+				name : if_name;
+			out	info : xmlDataOut, dealloc;
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);

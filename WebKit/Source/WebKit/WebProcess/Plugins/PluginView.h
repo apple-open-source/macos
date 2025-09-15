@@ -72,6 +72,7 @@ public:
     static RefPtr<PluginView> create(WebCore::HTMLPlugInElement&, const URL&, const String& contentType, bool shouldUseManualLoader);
 
     WebCore::LocalFrame* frame() const;
+    RefPtr<WebCore::LocalFrame> protectedFrame() const;
 
     bool isBeingDestroyed() const;
 
@@ -90,17 +91,17 @@ public:
     void layerHostingStrategyDidChange() final;
 
     WebCore::HTMLPlugInElement& pluginElement() const { return m_pluginElement; }
-    Ref<WebCore::HTMLPlugInElement> protectedPluginElement() const;
     const URL& mainResourceURL() const { return m_mainResourceURL; }
 
     void didBeginMagnificationGesture();
     void didEndMagnificationGesture();
     void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin);
+    void mainFramePageScaleFactorDidChange();
     double pageScaleFactor() const;
     void pluginScaleFactorDidChange();
 #if PLATFORM(IOS_FAMILY)
-    void pluginDidInstallPDFDocument(double initialScaleFactor);
     std::pair<URL, WebCore::FloatRect> linkURLAndBoundsAtPoint(WebCore::FloatPoint pointInRootView) const;
+    std::tuple<URL, WebCore::FloatRect, RefPtr<WebCore::TextIndicator>> linkDataAtPoint(WebCore::FloatPoint pointInRootView);
     std::optional<WebCore::FloatRect> highlightRectForTapAtPoint(WebCore::FloatPoint pointInRootView) const;
     void handleSyntheticClick(WebCore::PlatformMouseEvent&&);
     void setSelectionRange(WebCore::FloatPoint pointInRootView, WebCore::TextGranularity);
@@ -113,7 +114,7 @@ public:
 
     bool populateEditorStateIfNeeded(EditorState&) const;
 
-    void topContentInsetDidChange();
+    void obscuredContentInsetsDidChange();
 
     void webPageDestroyed();
 
@@ -127,7 +128,7 @@ public:
     RefPtr<WebCore::TextIndicator> textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
 
     Vector<WebFoundTextRange::PDFData> findTextMatches(const String& target, WebCore::FindOptions);
-    Vector<WebCore::FloatRect> rectsForTextMatch(const WebFoundTextRange::PDFData&);
+    Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const Vector<WebFoundTextRange::PDFData>&, const WebCore::IntRect& clipRect);
     RefPtr<WebCore::TextIndicator> textIndicatorForTextMatch(const WebFoundTextRange::PDFData&, WebCore::TextIndicatorPresentationTransition);
     void scrollToRevealTextMatch(const WebFoundTextRange::PDFData&);
 
@@ -156,19 +157,25 @@ public:
 
     PDFPluginIdentifier pdfPluginIdentifier() const;
 
-    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)>&&);
+    void openWithPreview(CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)>&&);
 
     void focusPluginElement();
 
-    bool shouldRespectPageScaleAdjustments() const;
+    bool pluginHandlesPageScaleFactor() const;
+
+    WebCore::FloatRect absoluteBoundingRectForSmartMagnificationAtPoint(WebCore::FloatPoint) const;
+
+    void frameViewLayoutOrVisualViewportChanged(const WebCore::IntRect& unobscuredContentRect);
+
+    bool pluginDelegatesScrollingToMainFrame() const;
 
 private:
     PluginView(WebCore::HTMLPlugInElement&, const URL&, const String& contentType, bool shouldUseManualLoader, WebPage&);
     virtual ~PluginView();
 
-    void initializePlugin();
+    bool isPluginView() const final { return true; }
 
-    Ref<PDFPluginBase> protectedPlugin() const;
+    void initializePlugin();
 
     void viewGeometryDidChange();
     void viewVisibilityDidChange();
@@ -184,7 +191,7 @@ private:
 
     void updateDocumentForPluginSizingBehavior();
 
-    CheckedPtr<WebCore::RenderEmbeddedObject> checkedRenderer() const;
+    WebCore::RenderEmbeddedObject* renderer() const;
 
     // WebCore::PluginViewBase
     WebCore::PluginLayerHostingStrategy layerHostingStrategy() const final;
@@ -223,8 +230,8 @@ private:
 
     RefPtr<WebPage> protectedWebPage() const;
 
-    Ref<WebCore::HTMLPlugInElement> m_pluginElement;
-    Ref<PDFPluginBase> m_plugin;
+    const Ref<WebCore::HTMLPlugInElement> m_pluginElement;
+    const Ref<PDFPluginBase> m_plugin;
     WeakPtr<WebPage> m_webPage;
     URL m_mainResourceURL;
     String m_mainResourceContentType;
@@ -258,5 +265,9 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::PluginView) \
+    static bool isType(const WebCore::Widget& widget) { return widget.isPluginView(); } \
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif

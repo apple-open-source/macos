@@ -25,7 +25,6 @@
 #import "keychain/ot/OTOperationDependencies.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTUpdateTrustedDeviceListOperation ()
@@ -66,8 +65,10 @@
 {
     WEAKIFY(self);
     secnotice("octagon-authkit", "Attempting to update trusted device list");
-    
-    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil 
+
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                  altDSID:self.deps.activeAccount.altDSID
                                                                                                   flowID:self.deps.flowID
                                                                                          deviceSessionID:self.deps.deviceSessionID
@@ -82,7 +83,7 @@
         if(self.error) {
             if(self.retryFlag == nil) {
                 secerror("octagon-authkit: Received an error updating the trusted device list operation, but no retry flag present.");
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+                [eventS sendMetricWithResult:NO error:self.error];
                 return;
             }
 
@@ -103,9 +104,9 @@
                           pendingFlag);
                 [self.deps.flagHandler handlePendingFlag:pendingFlag];
             }              
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+            [eventS sendMetricWithResult:NO error:self.error];
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];

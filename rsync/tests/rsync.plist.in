@@ -25,6 +25,36 @@
 				<string>BATS_TMP_DIR/.+.out</string>
 			</array>
 		</dict>
+#if TARGET_OS_OSX
+		<!--
+		   No sudo(8) on on embedded and testing on macOS alone is
+		   sufficient.
+		-->
+		<dict>
+			<key>TestName</key>
+			<string>rsync.dir_swap_race</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/dir_swap_race.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>AsRoot</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>rsync.file_swap_race</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/rsync/file_swap_race.sh</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>AsRoot</key>
+			<false/>
+		</dict>
+#endif /* TARGET_OS_OSX */
 		<dict>
 			<key>TestName</key>
 			<string>rsync.pwauth__samba</string>

@@ -29,6 +29,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RemoteCompositorIntegrationMessages.h"
+#include "RemoteDeviceProxy.h"
 #include "RemoteGPUProxy.h"
 #include "WebGPUConvertToBackingContext.h"
 #include <WebCore/ImageBuffer.h>
@@ -55,7 +56,7 @@ RemoteCompositorIntegrationProxy::~RemoteCompositorIntegrationProxy()
 #if PLATFORM(COCOA)
 Vector<MachSendRight> RemoteCompositorIntegrationProxy::recreateRenderBuffers(int width, int height, WebCore::DestinationColorSpace&& destinationColorSpace, WebCore::AlphaPremultiplication alphaMode, WebCore::WebGPU::TextureFormat textureFormat, WebCore::WebGPU::Device& device)
 {
-    RemoteDeviceProxy& proxyDevice = static_cast<RemoteDeviceProxy&>(device);
+    RemoteDeviceProxy& proxyDevice = downcast<RemoteDeviceProxy>(device);
     auto sendResult = sendSync(Messages::RemoteCompositorIntegration::RecreateRenderBuffers(width, height, WTFMove(destinationColorSpace), alphaMode, textureFormat, proxyDevice.backing()));
     if (!sendResult.succeeded())
         return { };
@@ -84,6 +85,12 @@ void RemoteCompositorIntegrationProxy::paintCompositedResultsToCanvas(WebCore::I
 void RemoteCompositorIntegrationProxy::withDisplayBufferAsNativeImage(uint32_t, Function<void(WebCore::NativeImage*)>)
 {
     RELEASE_ASSERT_NOT_REACHED();
+}
+
+void RemoteCompositorIntegrationProxy::updateContentsHeadroom(float headroom)
+{
+    auto result = send(Messages::RemoteCompositorIntegration::UpdateContentsHeadroom(headroom));
+    UNUSED_VARIABLE(result);
 }
 
 } // namespace WebKit::WebGPU

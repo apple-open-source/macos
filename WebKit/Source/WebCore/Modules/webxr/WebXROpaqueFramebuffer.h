@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2020 Igalia S.L. All rights reserved.
- * Copyright (C) 2021-2023 Apple, Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -131,7 +131,7 @@ private:
     IntRect calculateViewportShared(PlatformXR::Eye, bool, const IntRect&, const IntRect&);
 
     PlatformXR::LayerHandle m_handle;
-    Ref<WebGLFramebuffer> m_drawFramebuffer;
+    const Ref<WebGLFramebuffer> m_drawFramebuffer;
     WeakRef<WebGLRenderingContextBase> m_context;
     Attributes m_attributes;
     PlatformXR::Layout m_displayLayout = PlatformXR::Layout::Shared;

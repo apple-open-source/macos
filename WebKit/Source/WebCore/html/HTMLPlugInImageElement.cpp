@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -149,10 +149,10 @@ bool HTMLPlugInImageElement::childShouldCreateRenderer(const Node& child) const
     return HTMLPlugInElement::childShouldCreateRenderer(child);
 }
 
-void HTMLPlugInImageElement::willRecalcStyle(Style::Change change)
+void HTMLPlugInImageElement::willRecalcStyle(OptionSet<Style::Change> change)
 {
     // Make sure style recalcs scheduled by a child shadow tree don't trigger reconstruction and cause flicker.
-    if (change == Style::Change::None && styleValidity() == Style::Validity::Valid)
+    if (!change && styleValidity() == Style::Validity::Valid)
         return;
 
     // FIXME: There shoudn't be need to force render tree reconstruction here.
@@ -161,7 +161,7 @@ void HTMLPlugInImageElement::willRecalcStyle(Style::Change change)
         invalidateStyleAndRenderersForSubtree();
 }
 
-void HTMLPlugInImageElement::didRecalcStyle(Style::Change styleChange)
+void HTMLPlugInImageElement::didRecalcStyle(OptionSet<Style::Change> styleChange)
 {
     scheduleUpdateForAfterStyleResolution();
 
@@ -218,7 +218,7 @@ void HTMLPlugInImageElement::updateAfterStyleResolution()
     if (renderer() && !useFallbackContent()) {
         if (isImageType()) {
             if (!m_imageLoader)
-                m_imageLoader = makeUniqueWithoutRefCountedCheck<HTMLImageLoader>(*this);
+                lazyInitialize(m_imageLoader, makeUniqueWithoutRefCountedCheck<HTMLImageLoader>(*this));
             if (m_needsImageReload)
                 m_imageLoader->updateFromElementIgnoringPreviousError();
             else
@@ -330,7 +330,7 @@ bool HTMLPlugInImageElement::requestObject(const String& relativeURL, const Stri
         RefPtr frame = this->document().frame();
         if (!frame)
             return;
-        frame->protectedLoader()->subframeLoader().requestObject(*this, relativeURL, nameAttribute, mimeType, paramNames, paramValues);
+        frame->loader().subframeLoader().requestObject(*this, relativeURL, nameAttribute, mimeType, paramNames, paramValues);
     });
     return true;
 }

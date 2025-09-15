@@ -29,7 +29,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol WebSampleBufferVideoRendering <AVQueuedSampleBufferRendering>
 - (void)expectMinimumUpcomingSampleBufferPresentationTime:(CMTime)minimumUpcomingPresentationTime;
-- (void)resetUpcomingSampleBufferPresentationTimeExpectations;
 - (nullable CVPixelBufferRef)copyDisplayedPixelBuffer;
 - (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 - (nullable AVVideoPerformanceMetrics *)videoPerformanceMetrics;

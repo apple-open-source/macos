@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ * Copyright (c) 2025 Apple Inc.  All rights reserved.
  */
 
 #include <System/sys/proc.h>
@@ -8,7 +8,6 @@
 #include "corefile.h"
 #include "vanilla.h"
 #include "sparse.h"
-#include "convert.h"
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -17,6 +16,10 @@
 #include <libproc.h>
 
 #include <sys/kauth.h>
+#include <kern/kcdata.h>
+
+#include <os/log.h>
+#include <os/log_private.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -32,8 +35,11 @@
 #include <assert.h>
 #include <libutil.h>
 #include <spawn.h>
+#include <err.h>
 
 #include <mach/mach.h>
+
+os_log_t glog;
 
 static char *
 kern_corefile(void)
@@ -43,11 +49,13 @@ kern_corefile(void)
         size_t len = 0;
 
         if (-1 == sysctlbyname(name, NULL, &len, NULL, 0)) {
-            warnc(errno, "sysctl: %s", name);
+            os_log_error(glog, "sysctl: %{public}s: %{darwin.errno}d",
+                name, errno);
         } else if (0 != len) {
             p = malloc(len);
             if (-1 == sysctlbyname(name, p, &len, NULL, 0)) {
-                warnc(errno, "sysctl: %s", name);
+                os_log_error(glog, "sysctl: %{public}s: %{darwin.errno}d",
+                    name, errno);
                 free(p);
                 p = NULL;
             }
@@ -56,35 +64,22 @@ kern_corefile(void)
     };
 
     char *s = sysc_string("kern.corefile");
-    if (NULL == s)
+    if (NULL == s) {
         s = strdup("/cores/core.%P");
-    return s;
-}
-
-static bool
-task_port_is_corpse(mach_port_t task_port)
-{
-    kern_return_t error;
-    mach_vm_address_t kcd_addr_begin;
-    mach_vm_size_t kcd_size;
-
-    error = task_map_corpse_info_64(mach_task_self(), task_port, &kcd_addr_begin, &kcd_size);
-    if (error != KERN_SUCCESS) {
-        return false;
     }
-
-    vm_deallocate(mach_task_self(), (vm_address_t)kcd_addr_begin, (int)kcd_size);
-    return true;
+    return s;
 }
 
 static const struct proc_bsdinfo *
 get_bsdinfo(pid_t pid)
 {
-    if (0 == pid)
+    if (0 == pid) {
         return NULL;
+    }
     struct proc_bsdinfo *pbi = calloc(1, sizeof (*pbi));
-    if (0 != proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, pbi, sizeof (*pbi)))
+    if (0 != proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, pbi, sizeof (*pbi))) {
         return pbi;
+    }
     free(pbi);
     return NULL;
 }
@@ -101,16 +96,18 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
             *p++ = (char)c;
             resid--;
             return 1;
-        } else
+        } else {
             return 0;
+        }
     };
 
     char (^popchar)(void) = ^(void) {
         if (resid > 1) {
             resid--;
             return *p--;
-        } else
+        } else {
             return (char)0;
+        }
     };
 
     ptrdiff_t (^outstr)(const char *str) = ^(const char *str) {
@@ -168,12 +165,14 @@ format_gcore_name(const char *fmt, pid_t pid, uid_t uid, const char *nm)
                         outtstamp();	// ISO 8601 format
                         break;
                     default:
-                        if (isprint(c))
-                            err(EX_DATAERR, "unknown format char: %%%c", c);
-                        else if (c != 0)
-                            err(EX_DATAERR, "bad format char %%\\%03o", c);
-                        else
-                            err(EX_DATAERR, "bad format specifier");
+                        if (isprint(c)) {
+                            os_log_error(glog, "unknown format char: %%%c", c);
+                        } else if (c != 0) {
+                            os_log_error(glog, "bad format char %%\\%03o", c);
+                        } else {
+                            os_log_error(glog, "bad format specifier");
+                        }
+                        exit(EX_DATAERR);
                 }
                 break;
             case 0:
@@ -198,9 +197,9 @@ make_gcore_path(char **corefmtp, pid_t pid, uid_t uid, const char *nm)
 	char *corefmt = *corefmtp;
 	if (NULL == corefmt) {
 		const char defcore[] = "%N-%P-%T";
-		if (NULL == (corefmt = kern_corefile()))
-			corefmt = strdup(defcore);
-		else {
+        if (NULL == (corefmt = kern_corefile())) {
+            corefmt = strdup(defcore);
+        } else {
 			// use the same directory as kern.corefile
 			char *p = strrchr(corefmt, '/');
 			if (NULL != p) {
@@ -211,8 +210,9 @@ make_gcore_path(char **corefmtp, pid_t pid, uid_t uid, const char *nm)
 				free(corefmt);
 				corefmt = buf;
 			}
-			if (OPTIONS_DEBUG(opt, 3))
-				printf("corefmt '%s'\n", corefmt);
+            if (OPTIONS_DEBUG(opt, 3)) {
+                printf("corefmt '%s'\n", corefmt);
+            }
 		}
 	}
 	char *path = format_gcore_name(corefmt, pid, uid, nm);
@@ -244,71 +244,109 @@ static void
 change_credentials(gid_t uid, uid_t gid)
 {
 	if ((getgid() != gid && -1 == setgid(gid)) ||
-		(getuid() != uid && -1 == setuid(uid)))
-		errc(EX_NOPERM, errno, "insufficient privilege");
-	if (uid != getuid() || gid != getgid())
-		err(EX_OSERR, "wrong credentials");
+        (getuid() != uid && -1 == setuid(uid))) {
+        os_log_error(glog, "insufficient privilege: %{public}s",
+            strerror(errno));
+        exit(EX_NOPERM);
+    }
+    if (uid != getuid() || gid != getgid()) {
+        os_log_error(glog, "wrong credentials");
+        exit(EX_OSERR);
+    }
 }
 
 static int
 openout(const char *corefname, char **coretname, struct stat *st)
 {
-	const int tfd = open(corefname, O_WRONLY);
-	if (-1 == tfd) {
-		if (ENOENT == errno) {
-			/*
-			 * Arrange for a core file to appear "atomically": write the data
-			 * to the file + ".tmp" suffix, then fchmod and rename it into
-			 * place once the dump completes successfully.
-			 */
-			const size_t nmlen = strlen(corefname) + 4 + 1;
-			char *tnm = malloc(nmlen);
-			snprintf(tnm, nmlen, "%s.tmp", corefname);
-			const int fd = open(tnm, O_WRONLY | O_CREAT | O_TRUNC, 0600);
-			if (-1 == fd || -1 == fstat(fd, st))
-				errc(EX_CANTCREAT, errno, "%s", tnm);
-			if (!S_ISREG(st->st_mode) || 1 != st->st_nlink)
-				errx(EX_CANTCREAT, "%s: invalid attributes", tnm);
-			*coretname = tnm;
-			return fd;
-		} else
-			errc(EX_CANTCREAT, errno, "%s", corefname);
-	} else if (-1 == fstat(tfd, st)) {
-		close(tfd);
-		errx(EX_CANTCREAT, "%s: fstat", corefname);
-	} else if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode)) {
-				/*
-				 * Write dump to a device, no rename!
-				 */
-				*coretname = NULL;
-				return tfd;
-	} else {
-		close(tfd);
-		errc(EX_CANTCREAT, EEXIST, "%s", corefname);
-	}
+#if DEBUG
+    // enable corefile mmap if we're going to validate the contents
+    // of the various notes that are written out
+    const int oflags = O_RDWR;
+#else
+    const int oflags = O_WRONLY;
+#endif
+    const int tfd = open(corefname, oflags);
+    if (-1 == tfd) {
+        if (ENOENT == errno) {
+            /*
+             * Arrange for a core file to appear "atomically": write the data
+             * to the file + ".tmp" suffix, then fchmod and rename it into
+             * place once the dump completes successfully.
+             */
+            const size_t nmlen = strlen(corefname) + 4 + 1;
+            char *tnm = malloc(nmlen);
+            snprintf(tnm, nmlen, "%s.tmp", corefname);
+            const int fd = open(tnm,
+                oflags | O_CREAT | O_EXCL | O_NOFOLLOW | O_TRUNC, 0600);
+            if (-1 == fd) {
+                os_log_error(glog, "open: %{public}s: %{public}s",
+                    tnm, strerror(errno));
+                exit(EX_CANTCREAT);
+            }
+            if (-1 == fstat(fd, st)) {
+                os_log_error(glog, "fstat: %{public}s: %{darwin.errno}d",
+                    tnm, errno);
+                exit(EX_OSERR);
+            }
+            if (!S_ISREG(st->st_mode) || 1 != st->st_nlink) {
+                os_log_error(glog, "%{public}s: invalid attributes", tnm);
+                exit(EX_CANTCREAT);
+            }
+            *coretname = tnm;
+            return fd;
+        }
+        os_log_error(glog, "open: %{public}s: %{public}s",
+            corefname, strerror(errno));
+    } else if (0 == fstat(tfd, st) && S_ISCHR(st->st_mode)) {
+        struct stat ns;
+        if (0 == stat("/dev/null", &ns) && ns.st_rdev == st->st_rdev) {
+            /*
+             * Write dump to /dev/null, no rename!
+             */
+            *coretname = NULL;
+            return tfd;
+        }
+        close(tfd);
+        os_log_error(glog, "%{public}s forbidden", corefname);
+    } else {
+        close(tfd);
+        os_log_error(glog, "%{public}s already exists", corefname);
+    }
+    exit(EX_CANTCREAT);
 }
 
 static int
 closeout(int fd, int ecode, char *corefname, char *coretname, const struct stat *st)
 {
-	if (0 != ecode && !opt->preserve && S_ISREG(st->st_mode))
-		ftruncate(fd, 0); // limit large file clutter
-	if (0 == ecode && S_ISREG(st->st_mode))
-		fchmod(fd, 0400); // protect core files
-	if (-1 == close(fd)) {
-		warnc(errno, "%s: close", coretname ? coretname : corefname);
-		ecode = EX_OSERR;
-	}
-	if (NULL != coretname) {
-		if (0 == ecode && -1 == rename(coretname, corefname)) {
-			warnc(errno, "cannot rename %s to %s", coretname, corefname);
-			ecode = EX_NOPERM;
-		}
-		free(coretname);
-	}
-	if (corefname)
-		free(corefname);
-	return ecode;
+    if (0 != ecode && !opt->preserve && S_ISREG(st->st_mode)) {
+        (void) ftruncate(fd, 0);    // limit space clutter
+        (void) unlink(coretname);   // limit name clutter
+    }
+    if (0 == ecode && S_ISREG(st->st_mode)) {
+        fchmod(fd, 0400); // protect core files
+    }
+    if (-1 == close(fd)) {
+        char *filename = coretname ? coretname : corefname;
+        if (filename) {
+            os_log_error(glog, "%{public}s: close: %{public}s",
+                filename, strerror(errno));
+        } else {
+            os_log_error(glog, "close: %{public}s", strerror(errno));
+        }
+        ecode = EX_OSERR;
+    }
+    if (NULL != coretname) {
+        if (0 == ecode && -1 == rename(coretname, corefname)) {
+            os_log_error(glog, "cannot rename %{public}s to %{public}s: %{public}s",
+                coretname, corefname, strerror(errno));
+            ecode = EX_NOPERM;
+        }
+        free(coretname);
+    }
+    if (corefname) {
+        free(corefname);
+    }
+    return ecode;
 }
 
 static pid_t
@@ -316,13 +354,15 @@ run_gzip(int *outfd, int filefd)
 {
     int fdpair[2];
     if (pipe(fdpair) == -1) {
-        errc(EX_CANTCREAT, errno, "%s", "(pipe)");
+        os_log_error(glog, "gzip pipe: %{darwin.errno}d", errno);
+        exit(EX_CANTCREAT);
     }
     *outfd = fdpair[1]; // write to fdpair[1], read from fdpair[0]
 
     posix_spawn_file_actions_t fa;
     if (posix_spawn_file_actions_init(&fa)) {
-        errc(EX_OSERR, errno, "file actions");
+        os_log_error(glog, "file actions: %{darwin.errno}d", errno);
+        exit(EX_OSERR);
     }
     /*
      * Close off our end of the pipe, and set the other end as stdin.
@@ -335,7 +375,8 @@ run_gzip(int *outfd, int filefd)
 
     posix_spawnattr_t sa;
     if (posix_spawnattr_init(&sa)) {
-        errc(EX_OSERR, errno, "spawn attributes");
+        os_log_error(glog, "spawn attrs: %{darwin.errno}d", errno);
+        exit(EX_OSERR);
     }
     posix_spawnattr_setflags(&sa, POSIX_SPAWN_CLOEXEC_DEFAULT);
 
@@ -351,7 +392,8 @@ run_gzip(int *outfd, int filefd)
     const char gzippath[] = GZIPDIR "/" GZIPCMD;
     pid_t cpid = -1;
     if (posix_spawn(&cpid, gzippath, &fa, &sa, argv, environ) == -1) {
-        errc(EX_OSERR, errno, gzippath);
+        os_log_error(glog, "%{public}s: %{public}s", gzippath, strerror(errno));
+        exit(EX_OSERR);
     }
     posix_spawn_file_actions_destroy(&fa);
     posix_spawnattr_destroy(&sa);
@@ -382,8 +424,6 @@ const struct options *opt;
 static const size_t oneK = 1024;
 static const size_t oneM = oneK * oneK;
 
-#define LARGEST_CHUNKSIZE               INT32_MAX
-#define DEFAULT_COMPRESSION_CHUNKSIZE	(16 * oneM)
 #define DEFAULT_NC_THRESHOLD			(17 * oneK)
 
 static struct options options = {
@@ -394,61 +434,56 @@ static struct options options = {
 #ifdef CONFIG_DEBUG
 	.debug = 0,
 #endif
-	.extended = 0,
-    .skinny = 0,
 	.sizebound = 0,
-	.chunksize = 0,
-	.calgorithm = COMPRESSION_LZFSE,
 	.ncthresh = DEFAULT_NC_THRESHOLD,
-	.dsymforuuid = 0,
-	.notes = 0
+	.notes = 0,
+    .content = CONTENT_FULL,
+    .quiet = 0,
 };
 
-static int
-gcore_main(int argc, char *const *argv)
+int
+main(int argc, char *const *argv)
 {
-#define	ZOPT_ALG	(0)
-#define	ZOPT_CHSIZE	(ZOPT_ALG + 1)
+    if (NULL == (pgm = strrchr(*argv, '/'))) {
+        pgm = *argv;
+    } else {
+        pgm++;
+    }
 
-    static char *const zoptkeys[] = {
-        [ZOPT_ALG] = "algorithm",
-        [ZOPT_CHSIZE] = "chunksize",
-        NULL
+    glog = os_log_create("com.apple.gcore", "gcore");
+
+    const void (^usage)(void) = ^(void) {
+        fprintf(stderr,
+                "usage: %s [-v] [-s] [[-o file] | [-c pathfmt ]] [-b size]\n"
+                "%*s[-x [stack|compact|full]] "
+#if DEBUG
+#ifdef CONFIG_DEBUG
+                "[-d] "
+#endif
+                "[-q] "
+                "[-C] "
+                "[-S] "
+                "[-t size] "
+                "[-f outfd] "
+#endif
+                "pid\n", pgm, (int)strlen(pgm) + 8, " ");
     };
 
     err_set_exit_b(^(int eval) {
         if (EX_USAGE == eval) {
-            fprintf(stderr,
-                    "usage:\t%s [-s] [-v] [[-o file] | [-c pathfmt ]] [-b size] "
-#if DEBUG
-#ifdef CONFIG_DEBUG
-                    "[-d] "
-#endif
-					"[-x] [-C] [-z] [-S] "
-                    "[-Z compression-options] "
-					"[-t size] "
-                    "[-F] "
-#endif
-                    "pid\n", pgm);
-#if DEBUG
-            fprintf(stderr, "where compression-options:\n");
-            const char zvalfmt[] = "\t%s=%s\t\t%s\n";
-            fprintf(stderr, zvalfmt, zoptkeys[ZOPT_ALG], "alg",
-                    "set compression algorithm");
-            fprintf(stderr, zvalfmt, zoptkeys[ZOPT_CHSIZE], "size",
-                    "set compression chunksize, Mib");
-#endif
+            usage();
         }
     });
+    
+#define Usage(...)    errx(EX_USAGE, __VA_ARGS__)
 
     char *corefmt = NULL;
     char *corefname = NULL;
-    int fd_parameter = -1;                         // File descriptor to be used (provided externally)
-
+    int fd_arg = -1;
+    
     int c;
-    char *sopts, *value;
 
-    while ((c = getopt(argc, argv, "vdskNxgCFSZ:o:c:b:t:f:")) != -1) {
+    while ((c = getopt(argc, argv, "vdskNgqCSx:o:c:b:t:f:")) != -1) {
         switch (c) {
 
                 /*
@@ -460,32 +495,42 @@ gcore_main(int argc, char *const *argv)
             case 'o':   /* Linux (& SunOS) compat: basic name */
                 corefname = strdup(optarg);
                 break;
-                /* That option should not be necesary, because caller can pass as
-                 * file argument '/dev/fd/xx' but gcore wants to create the file and
-                 * set its permissions.
-                 */
-            case 'f':
-                fd_parameter = atoi(optarg);
-                break;
             case 'c':   /* FreeBSD compat: basic name */
                 /* (also allows pattern-based naming) */
                 corefmt = strdup(optarg);
                 break;
-
             case 'b':   /* bound the size of the core file */
                 if (NULL != optarg) {
-                    off_t bsize = atoi(optarg) * oneM;
-                    if (bsize > 0)
+                    const off_t bsize = (off_t)atoi(optarg) * oneM;
+                    if (bsize > 0) {
                         options.sizebound = bsize;
-                    else
-                        errx(EX_USAGE, "invalid bound");
-                } else
-                    errx(EX_USAGE, "no bound specified");
+                    } else {
+                        Usage("invalid bound");
+                    }
+                } else {
+                    Usage("no bound specified");
+                }
                 break;
             case 'v':   /* verbose output */
                 options.verbose++;
                 break;
-
+            case 'x':
+                if (optarg) {
+                    if (strcmp(optarg, "stack") == 0) {
+                        options.content = CONTENT_STACK;
+                    } else if (strcmp(optarg, "compact") == 0) {
+                        options.content = CONTENT_COMPACT;
+                    } else if (strcmp(optarg, "full") == 0) {
+                        // also the historic default
+                        options.content = CONTENT_FULL;
+                    } else {
+                        Usage("invalid content type");
+                    }
+                } else {
+                    Usage("no content type specified");
+                }
+                break;
+                
                 /*
                  * dev and debugging help
                  */
@@ -497,22 +542,18 @@ gcore_main(int argc, char *const *argv)
                 break;
 #endif
                 /*
-                 * Remaining options are experimental and/or
-                 * affect the content of the core file
+                 * Experimental / SPI options
                  */
-            case 'x':	/* write extended format (small) core files */
-                if(options.skinny) {
-                    errx(EX_USAGE, "illegal flag combination, cannot create a extended skinny coredump");
+            case 'f': {  /* write the core file to an fd (not std{in,out,err}) */
+                struct stat st;
+                if ((fd_arg = atoi(optarg)) < 3 ||
+                    fstat(fd_arg, &st) == -1 || !S_ISREG(st.st_mode)) {
+                    Usage("invalid fd: %s", optarg);
                 }
-                options.extended++;
-                options.chunksize = DEFAULT_COMPRESSION_CHUNKSIZE;
                 break;
-            case 'k':    /* write extended format (small) core files */
-                if(options.extended) {
-                    errx(EX_USAGE, "illegal flag combination, cannot create a skinny extended coredump");
-                }
-                options.skinny++;
-                options.allfilerefs++; /* Skinny coredumps does have references to files */
+            }
+            case 'q':
+                options.quiet++;
                 break;
             case 'C':   /* forcibly corpsify rather than suspend */
                 options.corpsify++;
@@ -524,123 +565,121 @@ gcore_main(int argc, char *const *argv)
             case 'S':   /* use streaming writes instead of pwrites */
                 options.stream++;
                 break;
-            case 'Z':   /* control per-segment compression options */
-                /*
-                 * Only LZFSE and LZ4 seem practical.
-                 * (Default to LZ4 compression when the
-                 * process is suspended, LZFSE when corpsed?)
-                 */
-                if (0 == options.extended)
-					errx(EX_USAGE, "illegal flag combination");
-                sopts = optarg;
-                while (*sopts) {
-                    size_t chsize;
-
-                    switch (getsubopt(&sopts, zoptkeys, &value)) {
-                        case ZOPT_ALG:	/* change the algorithm */
-                            if (NULL == value)
-                                errx(EX_USAGE, "missing algorithm for "
-                                     "%s suboption",
-                                     zoptkeys[ZOPT_ALG]);
-                            if (strcmp(value, "lz4") == 0)
-                                options.calgorithm = COMPRESSION_LZ4;
-                            else if (strcmp(value, "zlib") == 0)
-                                options.calgorithm = COMPRESSION_ZLIB;
-                            else if (strcmp(value, "lzma") == 0)
-                                options.calgorithm = COMPRESSION_LZMA;
-                            else if (strcmp(value, "lzfse") == 0)
-                                options.calgorithm = COMPRESSION_LZFSE;
-                            else
-                                errx(EX_USAGE, "unknown algorithm '%s'"
-                                     " for %s suboption",
-                                     value, zoptkeys[ZOPT_ALG]);
-                            break;
-                        case ZOPT_CHSIZE:     /* set the chunksize */
-                            if (NULL == value)
-                                errx(EX_USAGE, "no value specified for "
-                                     "%s suboption",
-                                     zoptkeys[ZOPT_CHSIZE]);
-                            if ((chsize = atoi(value)) < 1)
-                                errx(EX_USAGE, "chunksize %lu too small", chsize);
-                            if (chsize > (LARGEST_CHUNKSIZE / oneM))
-                                errx(EX_USAGE, "chunksize %lu too large", chsize);
-                            options.chunksize = chsize * oneM;
-                            break;
-                        default:
-                            if (suboptarg)
-                                errx(EX_USAGE, "illegal suboption '%s'",
-                                     suboptarg);
-                            else
-                                errx(EX_USAGE, "missing suboption");
+            case 't':	/* set the F_NOCACHE threshold */
+                if (NULL != optarg) {
+                    size_t tsize = atoi(optarg) * oneK;
+                    if (tsize > 0) {
+                        options.ncthresh = tsize;
+                    } else {
+                        Usage("invalid nc threshold");
                     }
+                } else {
+                    Usage("no threshold specified");
                 }
                 break;
-			case 't':	/* set the F_NOCACHE threshold */
-				if (NULL != optarg) {
-					size_t tsize = atoi(optarg) * oneK;
-					if (tsize > 0)
-						options.ncthresh = tsize;
-					else
-						errx(EX_USAGE, "invalid nc threshold");
-				} else
-					errx(EX_USAGE, "no threshold specified");
-				break;
-            case 'F':   /* maximize filerefs */
-                options.allfilerefs++;
+            case 'N':
+                options.notes = true;
                 break;
-			case 'N':
-				options.notes = true;
-				break;
             default:
-                errx(EX_USAGE, "unknown flag");
+                usage();
+                if (corefmt) {
+                    free(corefmt);
+                }
+                if (corefname) {
+                    free(corefname);
+                }
+                return EX_USAGE;
         }
     }
+
 
     opt = &options;
-	if (optind < argc-1)
-		errx(EX_USAGE, "too many arguments");
-    if (NULL != corefname && NULL != corefmt)
-        errx(EX_USAGE, "specify only one of -o and -c");
-    if ((!opt->extended && !opt->skinny) && opt->allfilerefs)
-        errx(EX_USAGE, "unknown flag");
 
+    /*
+     * All usage-related errors go to stderr directly.
+     * All verbose (-v) output goes to stdout directly via printf.
+     * The disposition of os_log*() messages depends on
+     * the "quiet" flag.
+     */
+    if (!opt->quiet) {
+        static os_log_hook_t chain = NULL;
+        chain = os_log_set_hook(OS_LOG_TYPE_DEFAULT,
+            ^(os_log_type_t type, os_log_message_t msg) {
+            if (chain) {
+                chain(type, msg);
+            }
+            char *message = os_log_copy_message_string(msg);
+            switch (type) {
+                case OS_LOG_TYPE_DEBUG:
+                case OS_LOG_TYPE_INFO:
+                case OS_LOG_TYPE_DEFAULT:
+                    printf("%s\n", message);
+                    break;
+                case OS_LOG_TYPE_ERROR:
+                case OS_LOG_TYPE_FAULT:
+                    fprintf(stderr, "%s: %s\n", pgm, message);
+                    break;
+            }
+            free(message);
+        });
+    }
+
+    if (optind < argc-1) {
+        Usage("too many arguments");
+    }
+    if (optind >= argc) {
+        Usage("no process specified");
+    }
+    if (NULL != corefname && NULL != corefmt) {
+        Usage("specify only one of -o and -c");
+    }
     if (opt->sizebound) {
         if (opt->stream) {
-            errx(EX_USAGE, "specify only one of -b and -S");
+            Usage("specify only one of -b and -S");
         }
         if (opt->gzip) {
-            errx(EX_USAGE, "specify only one of -b and -g");
+            Usage("specify only one of -b and -g");
         }
     }
-    if (opt->extended) {
-        if (opt->stream) {
-            errx(EX_USAGE, "specify only one of -x and -S");
-        }
-        if (opt->gzip) {
-            errx(EX_USAGE, "specify only one of -x and -g");
-        }
-        if (opt->notes) {
-            errx(EX_USAGE, "specify only one of -x and -N");
-        }
-    }
-    
     if (opt->notes) {
-        if (opt->stream) {
-            errx(EX_USAGE, "specify only one of -N and -S");
-        }
         if (opt->gzip) {
             /* gzip requires streaming */
-            errx(EX_USAGE, "specify only one of -N and -g");
+            Usage("specify only one of -N and -g");
+        }
+        if (opt->stream) {
+            Usage("specify only one of -N and -S");
         }
     }
-    
-    if (fd_parameter != -1 && corefname!=NULL) {
-        errx(EX_USAGE, "Cannot use a coredump out filename and a file descriptor");
+    if (opt->content != CONTENT_FULL) {
+        /*
+         * XXX This really should work.
+         * Streaming and gzipped core files were originally added as
+         * for DriverKit. Why don't other types of content work?
+         * The issue is that the streaming core files can't write out
+         * the requisite "all image infos", "addrable bits" and optional
+         * "process metadata" notes out, as they currently depend on pwrite.
+         * Which means that only CONTENT_FULL streamed core files work
+         * with lldb (since they're just like kernel-generated core files).
+         * Ideally, we should make the notes be written without requiring
+         * pwrite ... though is anyone actually actively this capability,
+         * and if they are, would CONTENT_COMPACT ones actually be useful?
+         */
+        if (opt->gzip) {
+            /* gzip requires streaming */
+            Usage("gzip requires full core content");
+        }
+        if (opt->stream) {
+            Usage("streaming requires full core content");
+        }
+    }
+    if (fd_arg != -1 && corefname != NULL) {
+        Usage("specify only one of -f and -o");
     }
     setpageshift();
 
-	if (opt->ncthresh < ((vm_offset_t)1 << pageshift_host))
-		errx(EX_USAGE, "threshold %lu less than host pagesize", opt->ncthresh);
+    if (opt->ncthresh < ((vm_offset_t)1 << pageshift_host)) {
+        Usage("threshold %lu less than host pagesize", opt->ncthresh);
+    }
 
     const pid_t apid = atoi(argv[optind]);
 	pid_t pid = apid;
@@ -669,11 +708,14 @@ gcore_main(int argc, char *const *argv)
 		}
 	}
 
-	if (pid < 1 || getpid() == pid)
-		errx(EX_DATAERR, "invalid pid: %d", pid);
-
-	if (0 == apid && MACH_PORT_NULL == corpse && MACH_PORT_NULL == task)
-		errx(EX_DATAERR, "missing or bad task/corpse from parent");
+    if (pid < 1 || getpid() == pid) {
+        os_log_error(glog, "invalid pid: %d", pid);
+        exit(EX_DATAERR);
+    }
+    if (0 == apid && MACH_PORT_NULL == corpse && MACH_PORT_NULL == task) {
+        os_log_error(glog, "missing or bad task/corpse from parent");
+        exit(EX_DATAERR);
+    }
 
 	const struct proc_bsdinfo *pbi = NULL;
 	const int rc = kill(pid, 0);
@@ -687,27 +729,29 @@ gcore_main(int argc, char *const *argv)
 		/* process or corpse that responds to signals */
 
 		/* make our data model match the data model of the target */
-		if (-1 == reexec_to_match_lp64ness(pbi->pbi_flags & PROC_FLAG_LP64))
-			errc(1, errno, "cannot match data model of %d", pid);
-
-		if (!proc_same_data_model(pbi))
-			errx(EX_OSERR, "cannot match data model of %d", pid);
-
+        if (-1 == reexec_to_match_lp64ness(pbi->pbi_flags & PROC_FLAG_LP64)) {
+            os_log_error(glog, "cannot match data model of %d %{darwin.errno}d",
+                pid, errno);
+            exit(EX_CONFIG);
+        }
+        if (!proc_same_data_model(pbi)) {
+            os_log_error(glog, "did not match data model of %d", pid);
+            exit(EX_CONFIG);
+        }
 		if (pbi->pbi_ruid != pbi->pbi_svuid ||
-			pbi->pbi_rgid != pbi->pbi_svgid)
-			errx(EX_NOPERM, "pid %d - not dumping a set-id process", pid);
-
-		if (NULL == corefname && fd_parameter == -1)
-			corefname = make_gcore_path(&corefmt, pbi->pbi_pid, pbi->pbi_uid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
-
-		if (MACH_PORT_NULL == corpse && MACH_PORT_NULL == task) {
-			ret = task_read_for_pid(mach_task_self(), pid, &task);
-			if (KERN_SUCCESS != ret) {
-				if (KERN_FAILURE == ret)
-					errx(EX_NOPERM, "insufficient privilege");
-				else
-					errx(EX_NOPERM, "task_read_for_pid: %s", mach_error_string(ret));
-			}
+            pbi->pbi_rgid != pbi->pbi_svgid) {
+            os_log_error(glog, "not dumping set-id process %d", pid);
+            exit(EX_NOPERM);
+        }
+        if (NULL == corefname && fd_arg == -1) {
+            corefname = make_gcore_path(&corefmt, pbi->pbi_pid,
+                pbi->pbi_uid, pbi->pbi_name[0] ? pbi->pbi_name : pbi->pbi_comm);
+        }
+		if (MACH_PORT_NULL == corpse && MACH_PORT_NULL == task &&
+            -1 == task_read_for_pid(mach_task_self(), pid, &task)) {
+            os_log_error(glog, "insufficient privilege: %{public}s",
+                strerror(errno));
+            exit(EX_NOPERM);
 		}
 
 		/*
@@ -721,15 +765,12 @@ gcore_main(int argc, char *const *argv)
 	} else {
 		if (MACH_PORT_NULL == corpse) {
 			if (rc == 0) {
-				errx(EX_OSERR, "cannot get process info for %d", pid);
+                os_log_error(glog, "cannot get process info for %d", pid);
+                exit(EX_OSERR);
 			}
-			switch (errno) {
-				case ESRCH:
-					errc(EX_DATAERR, errno, "no process with pid %d", pid);
-				default:
-					errc(EX_DATAERR, errno, "pid %d", pid);
-			}
-		}
+			os_log_error(glog, "pid %d: %{public}s", pid, strerror(errno));
+            exit(EX_DATAERR);
+        }
 		/* a corpse with no live process backing it */
 
 		assert(0 == apid && TASK_NULL == task);
@@ -737,31 +778,75 @@ gcore_main(int argc, char *const *argv)
 		task_flags_info_data_t tfid;
 		mach_msg_type_number_t count = TASK_FLAGS_INFO_COUNT;
 		ret = task_info(corpse, TASK_FLAGS_INFO, (task_info_t)&tfid, &count);
-		if (KERN_SUCCESS != ret)
-			err_mach(ret, NULL, "task_info");
-		if (!task_same_data_model(&tfid))
-			errx(EX_OSERR, "data model mismatch for target corpse");
-
-		if (opt->suspend || opt->corpsify)
-			errx(EX_USAGE, "cannot use -s or -C option with a corpse");
-		if (NULL != corefmt)
-			errx(EX_USAGE, "cannot use -c with a corpse");
-		if (NULL == corefname)
-			corefname = make_gcore_path(&corefmt, pid, -2, "corpse");
-
-		/*
-		 * Only have a corpse, thus no process credentials.
-		 * Switch to nobody, if no task has been given in the options.
-		 * When gcore is launched from RME it will not work if executing as nobody
-		 */
-        if (apid != 0) {
-            change_credentials(-2, -2);
+        if (KERN_SUCCESS != ret) {
+            err_mach(ret, NULL, "task_info");
         }
-	}
+        if (!task_same_data_model(&tfid)) {
+            os_log_error(glog, "data model mismatch for target corpse");
+            exit(EX_OSERR);
+        }
+        if (opt->suspend || opt->corpsify) {
+            Usage("cannot use -s or -C option with a corpse");
+        }
 
-	struct stat cst;
+        uid_t cuid = -2;
+        gid_t cgid = -2;
+        pid_t cpid = pid;
+        char cname[MAXCOMLEN + 1] = "corpse";
+
+        // Extract pid, uid, gid and name so the core
+        // file gets the right name and ownership
+
+        mach_vm_address_t blob;
+        mach_vm_size_t blob_size;
+        const kern_return_t kr = task_map_corpse_info_64(mach_task_self(),
+            corpse, &blob, &blob_size);
+        if (kr != KERN_SUCCESS) {
+            err_mach(ret, NULL, "task_map_corpse_info_64");
+        } else {
+            kcdata_iter_t iter = kcdata_iter((void *)blob, (unsigned long)blob_size);
+            KCDATA_ITER_FOREACH(iter) {
+                const void *data = kcdata_iter_payload(iter);
+                switch (kcdata_iter_type(iter)) {
+                    case TASK_CRASHINFO_PID:
+                        cpid = *(pid_t *)data;
+                        break;
+                    case TASK_CRASHINFO_UID:
+                        cuid = *(uid_t *)data;
+                        break;
+                    case TASK_CRASHINFO_GID:
+                        cgid = *(gid_t *)data;
+                        break;
+                    case TASK_CRASHINFO_PROC_NAME:  // p->p_comm in reality
+                        memcpy(cname, data, MAXCOMLEN);
+                        cname[sizeof(cname) - 1] = '\0';
+                        break;
+                    default:
+                        break;
+                }
+            }
+            if (KCDATA_ITER_FOREACH_FAILED(iter)) {
+                os_log_error(glog, "failed to iterate kcdata for corpse");
+            }
+            mach_vm_deallocate(mach_task_self(), blob, blob_size);
+        }
+
+        if (NULL == corefname && fd_arg == -1) {
+            corefname = make_gcore_path(&corefmt, cpid, cuid, cname);
+        }
+
+        /*
+         * Adopt the credentials of the target process, *before* opening the
+         * core file, and analyzing the address space.
+         *
+         * If we are unable to match the target change_credentials() will exit.
+         */
+        change_credentials(cuid, cgid);
+    }
+
+    struct stat cst;
     char *coretname = NULL;
-    const int fd = (fd_parameter != -1) ? fd_parameter : openout(corefname, &coretname, &cst);
+    const int fd = (fd_arg != -1) ? fd_arg : openout(corefname, &coretname, &cst);
     int outfd = fd;
     pid_t gpid = -1;
 
@@ -773,10 +858,21 @@ gcore_main(int argc, char *const *argv)
         gpid = run_gzip(&outfd, fd);
     }
 
-	if (opt->verbose) {
+    if (opt->verbose) {
         printf("Dumping core ");
         if (OPTIONS_DEBUG(opt, 1)) {
-            printf("(%s", opt->extended ? "extended" : (opt->skinny) ? "skinny":"vanilla");
+            char *type = "full";
+            switch (opt->content) {
+                case CONTENT_STACK:
+                    type = "stack";
+                    break;
+                case CONTENT_COMPACT:
+                    type = "compact";
+                    break;
+                case CONTENT_FULL:
+                    break;
+            }
+            printf("(%s", type);
             if (0 != opt->sizebound) {
                 hsize_str_t hstr;
                 printf(", <= %s", str_hsize(hstr, opt->sizebound));
@@ -786,7 +882,11 @@ gcore_main(int argc, char *const *argv)
             }
             printf(") ");
         }
-		printf("for pid %d to %s\n", pid, corefname);
+        if (corefname) {
+            printf("for pid %d to %s\n", pid, corefname);
+        } else {
+            printf("for pid %d\n", pid);
+        }
     }
 
     int ecode;
@@ -801,9 +901,9 @@ gcore_main(int argc, char *const *argv)
 		 * unpleasant side-effects.  Alternatively dumping from the live
 		 * process can lead to an inconsistent state in the core file.
 		 *
-		 * Instead we can ask xnu to create a 'corpse' - the process is transiently
+		 * Instead ask xnu to create a 'corpse' - the process is transiently
 		 * suspended while a COW snapshot of the address space is constructed
-		 * in the kernel and dump from that.  This vastly reduces the suspend
+		 * in the kernel - and dump from that.  This vastly reduces the suspend
 		 * time, but it is more resource hungry and thus may fail.
 		 *
 		 * The -s flag (opt->suspend) causes a task_suspend/task_resume
@@ -827,9 +927,9 @@ gcore_main(int argc, char *const *argv)
 			badcorpse_is_fatal = 0;
 		}
 
-		if (opt->suspend)
-			task_suspend(task);
-
+        if (opt->suspend) {
+            task_suspend(task);
+        }
 		if (trycorpse) {
 			/*
 			 * Create a corpse from the image before dumping it
@@ -837,15 +937,16 @@ gcore_main(int argc, char *const *argv)
 			ret = task_generate_corpse(task, &corpse);
 			switch (ret) {
 				case KERN_SUCCESS:
-					if (OPTIONS_DEBUG(opt, 1))
-						printf("Corpse generated on port %x, task %x\n",
-							   corpse, task);
+                    if (OPTIONS_DEBUG(opt, 1)) {
+                        os_log(glog, "Process snapshot generated on port %x, task %x",
+                            corpse, task);
+                    }
 					ecode = coredump(corpse, outfd, pbi);
 					mach_port_deallocate(mach_task_self(), corpse);
 					break;
 				default:
 					if (badcorpse_is_fatal || opt->verbose) {
-						warnx("failed to snapshot pid %d: %s\n",
+						os_log_error(glog, "failed to snapshot pid %d: %{public}s",
 							  pid, mach_error_string(ret));
 						if (badcorpse_is_fatal) {
 							ecode = KERN_RESOURCE_SHORTAGE == ret ? EX_TEMPFAIL : EX_OSERR;
@@ -863,8 +964,9 @@ gcore_main(int argc, char *const *argv)
 		}
 
 	out:
-		if (opt->suspend)
-			task_resume(task);
+        if (opt->suspend) {
+            task_resume(task);
+        }
 	} else {
 		/*
 		 * Handed a corpse by our parent.
@@ -878,180 +980,14 @@ gcore_main(int argc, char *const *argv)
         assert(outfd != fd);
         close(outfd);
         if (wait_for_gzip(gpid) != 0) {
-            errx(EX_OSERR, "failed to compress core dump stream");
+            os_log_error(glog, "failed to compress core dump stream");
+            exit(EX_OSERR);
         }
     }
 
 	ecode = closeout(fd, ecode, corefname, coretname, &cst);
-	if (ecode)
-		errx(ecode, "failed to dump core for pid %d", pid);
-    return 0;
-}
-
-#if defined(CONFIG_GCORE_FREF) || defined(CONFIG_GCORE_MAP) || defined(GCONFIG_GCORE_CONV)
-
-static int
-getcorefd(const char *infile)
-{
-	const int fd = open(infile, O_RDONLY | O_CLOEXEC);
-	if (-1 == fd)
-		errc(EX_DATAERR, errno, "cannot open %s", infile);
-
-	struct mach_header mh;
-	if (-1 == pread(fd, &mh, sizeof (mh), 0))
-		errc(EX_OSERR, errno, "cannot read mach header from %s", infile);
-
-	static const char cant_match_data_model[] = "cannot match the data model of %s";
-
-	if (-1 == reexec_to_match_lp64ness(MH_MAGIC_64 == mh.magic))
-		errc(1, errno, cant_match_data_model, infile);
-
-	if (NATIVE_MH_MAGIC != mh.magic)
-		errx(EX_OSERR, cant_match_data_model, infile);
-	if (MH_CORE != mh.filetype)
-		errx(EX_DATAERR, "%s is not a mach core file", infile);
-	return fd;
-}
-
-#endif
-
-#ifdef CONFIG_GCORE_FREF
-
-static int
-gcore_fref_main(int argc, char *argv[])
-{
-	err_set_exit_b(^(int eval) {
-		if (EX_USAGE == eval) {
-			fprintf(stderr, "usage:\t%s %s corefile\n", pgm, argv[1]);
-		}
-	});
-	if (2 == argc)
-		errx(EX_USAGE, "no input corefile");
-	if (argc > 3)
-		errx(EX_USAGE, "too many arguments");
-	opt = &options;
-	return gcore_fref(getcorefd(argv[2]));
-}
-
-#endif /* CONFIG_GCORE_FREF */
-
-#ifdef CONFIG_GCORE_MAP
-
-static int
-gcore_map_main(int argc, char *argv[])
-{
-	err_set_exit_b(^(int eval) {
-		if (EX_USAGE == eval) {
-			fprintf(stderr, "usage:\t%s %s corefile\n", pgm, argv[1]);
-		}
-	});
-	if (2 == argc)
-		errx(EX_USAGE, "no input corefile");
-	if (argc > 3)
-		errx(EX_USAGE, "too many arguments");
-	opt = &options;
-	return gcore_map(getcorefd(argv[2]));
-}
-
-#endif
-
-#ifdef CONFIG_GCORE_CONV
-
-static int
-gcore_conv_main(int argc, char *argv[])
-{
-	err_set_exit_b(^(int eval) {
-		if (EX_USAGE == eval)
-			fprintf(stderr,
-				"usage:\t%s %s [-v] [-L searchpath] [-z] [-s] incore outcore\n", pgm, argv[1]);
-	});
-
-	char *searchpath = NULL;
-	bool zf = false;
-
-	int c;
-	optind = 2;
-	while ((c = getopt(argc, argv, "dzvL:s")) != -1) {
-		switch (c) {
-				/*
-				 * likely documented options
-				 */
-			case 'L':
-				searchpath = strdup(optarg);
-				break;
-			case 'z':
-				zf = true;
-				break;
-			case 'v':
-				options.verbose++;
-				break;
-			case 's':
-				options.dsymforuuid++;
-				break;
-				/*
-				 * dev and debugging help
-				 */
-#ifdef CONFIG_DEBUG
-			case 'd':
-				options.debug++;
-				options.verbose++;
-				options.preserve++;
-				break;
-#endif
-			default:
-				errx(EX_USAGE, "unknown flag");
-		}
-	}
-	if (optind == argc)
-		errx(EX_USAGE, "no input corefile");
-    if (optind == argc - 1)
-        errx(EX_USAGE, "no output corefile");
-    if (optind < argc - 2)
-        errx(EX_USAGE, "too many arguments");
-
-    const char *incore = argv[optind];
-    char *corefname = strdup(argv[optind+1]);
-
-	opt = &options;
-
-	setpageshift();
-
-	if (opt->ncthresh < ((vm_offset_t)1 << pageshift_host))
-		errx(EX_USAGE, "threshold %lu less than host pagesize", opt->ncthresh);
-
-	const int infd = getcorefd(incore);
-	struct stat cst;
-	char *coretname = NULL;
-	const int fd = openout(corefname, &coretname, &cst);
-	int ecode = gcore_conv(infd, searchpath, zf, fd);
-	ecode = closeout(fd, ecode, corefname, coretname, &cst);
-	if (ecode)
-		errx(ecode, "failed to convert core file successfully");
-	return 0;
-}
-#endif
-
-int
-main(int argc, char *argv[])
-{
-	if (NULL == (pgm = strrchr(*argv, '/')))
-		pgm = *argv;
-	else
-		pgm++;
-#ifdef CONFIG_GCORE_FREF
-	if (argc > 1 && 0 == strcmp(argv[1], "fref")) {
-		return gcore_fref_main(argc, argv);
-	}
-#endif
-#ifdef CONFIG_GCORE_MAP
-	if (argc > 1 && 0 == strcmp(argv[1], "map")) {
-		return gcore_map_main(argc, argv);
-	}
-#endif
-#ifdef CONFIG_GCORE_CONV
-	if (argc > 1 && 0 == strcmp(argv[1], "conv")) {
-		return gcore_conv_main(argc, argv);
-	}
-#endif
-	return gcore_main(argc, argv);
+    if (ecode) {
+        os_log_error(glog, "failed to dump core for pid %d", pid);
+    }
+    return ecode;
 }

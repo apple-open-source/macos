@@ -36,12 +36,6 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GStreamerWebRTCProvider);
 
-void WebRTCProvider::setH264HardwareEncoderAllowed(bool)
-{
-    // TODO: Hook this into GStreamerRegistryScanner.
-    notImplemented();
-}
-
 UniqueRef<WebRTCProvider> WebRTCProvider::create()
 {
     return makeUniqueRef<GStreamerWebRTCProvider>();
@@ -116,7 +110,7 @@ void GStreamerWebRTCProvider::initializeVideoDecodingCapabilities()
 std::optional<MediaCapabilitiesDecodingInfo> GStreamerWebRTCProvider::videoDecodingCapabilitiesOverride(const VideoConfiguration& configuration)
 {
     MediaCapabilitiesDecodingInfo info;
-    info.supportedConfiguration.type = MediaDecodingType::WebRTC;
+    info.configuration.type = MediaDecodingType::WebRTC;
     ContentType contentType { configuration.contentType };
     auto containerType = contentType.containerType();
     if (equalLettersIgnoringASCIICase(containerType, "video/vp8"_s)) {

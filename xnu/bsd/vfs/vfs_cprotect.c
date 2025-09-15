@@ -123,7 +123,7 @@ cpx_alloc(size_t key_len, bool needs_ctx)
 
 	assert(cpx_size(key_len) <= PAGE_SIZE);
 	kmem_alloc(kernel_map, (vm_offset_t *)&cpx, PAGE_SIZE,
-	    KMA_DATA | KMA_NOFAIL, VM_KERN_MEMORY_FILE);
+	    KMA_KOBJECT | KMA_NOFAIL | KMA_ZERO, VM_KERN_MEMORY_FILE);
 	//mark the page as protectable, since kmem_alloc succeeded.
 	cpx->cpx_flags |= CPX_WRITE_PROTECTABLE;
 #else

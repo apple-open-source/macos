@@ -373,11 +373,6 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         }
 
         /* Block until we get more credits */
-        SMBDEBUG("id %d Wait for credits curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d iod_credits_granted %d\n",
-                 iod->iod_id, curr_credits, iod->iod_credits_max,
-                 iod->iod_message_id, iod->iod_oldest_message_id,
-                 iod->iod_credits_wait, iod->iod_credits_granted);
-
         SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_DECREMENT | DBG_FUNC_NONE, 0xabc002, iod->iod_id, iod->iod_message_id, iod->iod_oldest_message_id, 0);
 
         /* Only wait a max of 60 seconds waiting for credits */
@@ -386,6 +381,10 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
         ts.tv_nsec = 0;
         
         for (i = 1; i <= sleep_cnt; i++) {
+            SMB_LOG_CREDITS("id %d Wait for credit(s)! sleep_cnt %d curr %d max %d curr ID %lld pending ID %lld session_credits_wait %d iod_credits_granted %d\n",
+                            iod->iod_id, sleep_cnt, curr_credits, iod->iod_credits_max, iod->iod_message_id,
+                            iod->iod_oldest_message_id, iod->iod_credits_wait, iod->iod_credits_granted);
+
             /* Indicate that we are sleeping by incrementing wait counter */
             OSAddAtomic(1, &iod->iod_credits_wait);
             
@@ -488,6 +487,10 @@ smb2_rq_credit_decrement(struct smb_rq *rqp, uint32_t *rq_len)
 
         /* Dont access sr_creditreqp as its not set up yet */
     }
+
+    SMB_LOG_CREDITS("id %d Consumed %d credit(s)! curr %d max %d curr ID %lld session_credits_wait %d iod_credits_granted %d credits_requested %d\n",
+                    iod->iod_id, credit_charge, curr_credits, iod->iod_credits_max, iod->iod_message_id,
+                    iod->iod_credits_wait, iod->iod_credits_granted, rqp->sr_creditsrequested);
 
     if (curr_credits < 0) {
         SMBERROR("credit count %d < 0 \n", curr_credits);
@@ -617,6 +620,10 @@ smb2_rq_credit_increment(struct smb_rq *rqp)
         SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_NONE, 0xabc002, iod->iod_id, curr_credits, 0, 0);
     }
     
+    SMB_LOG_CREDITS("id %d Received %d new credit(s)! credits curr %d max %d curr ID %lld session_credits_wait %d iod_credits_granted %d\n",
+                    iod->iod_id, rqp->sr_rspcreditsgranted, curr_credits, iod->iod_credits_max,
+                    iod->iod_message_id, iod->iod_credits_wait, iod->iod_credits_granted);
+
 	/* Wake up any requests waiting for more credits */
     if (iod->iod_credits_wait) {
         SMB_LOG_KTRACE(SMB_DBG_RQ_CREDIT_INCREMENT | DBG_FUNC_NONE, 0xabc003, iod->iod_id, iod->iod_credits_wait, 0, 0);

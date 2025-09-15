@@ -57,6 +57,57 @@ FontPlatformData::FontPlatformData(float size, FontOrientation&& orientation, Fo
     platformDataInit();
 }
 
+static bool skiaTypefaceHasAnySupportedColorTable(const SkTypeface& typeface)
+{
+    const int tablesCount = typeface.countTables();
+    if (!tablesCount)
+        return false;
+
+    Vector<SkFontTableTag> tables(tablesCount);
+    const int tableTagsCount = typeface.getTableTags(tables.mutableSpan().data());
+    if (!tableTagsCount)
+        return false;
+
+    static constexpr SkFontTableTag cpalTag = SkSetFourByteTag('C', 'P', 'A', 'L');
+    static constexpr SkFontTableTag colrTag = SkSetFourByteTag('C', 'O', 'L', 'R');
+    static constexpr SkFontTableTag sbixTag = SkSetFourByteTag('s', 'b', 'i', 'x');
+    static constexpr SkFontTableTag cbdtTag = SkSetFourByteTag('C', 'B', 'D', 'T');
+    static constexpr SkFontTableTag cblcTag = SkSetFourByteTag('C', 'B', 'L', 'C');
+
+    bool cpalFound = false;
+    bool colrFound = false;
+    bool cbdtFound = false;
+    bool cblcFound = false;
+    for (int i = 0; i < tableTagsCount; ++i) {
+        switch (tables[i]) {
+        case sbixTag:
+            return true;
+        case cpalTag:
+            if (colrFound)
+                return true;
+            cpalFound = true;
+            break;
+        case colrTag:
+            if (cpalFound)
+                return true;
+            colrFound = true;
+            break;
+        case cbdtTag:
+            if (cblcFound)
+                return true;
+            cbdtFound = true;
+            break;
+        case cblcTag:
+            if (cbdtFound)
+                return true;
+            cblcFound = true;
+            break;
+        }
+    }
+
+    return false;
+}
+
 void FontPlatformData::platformDataInit()
 {
     m_font.setEmbolden(m_syntheticBold);
@@ -80,7 +131,9 @@ void FontPlatformData::platformDataInit()
 
     m_font.setLinearMetrics(m_font.getHinting() == SkFontHinting::kNone && m_font.isSubpixel());
 
-    m_hbFont = SkiaHarfBuzzFont::getOrCreate(*m_font.getTypeface());
+    auto& typeface = *m_font.getTypeface();
+    m_isColorBitmapFont = skiaTypefaceHasAnySupportedColorTable(typeface);
+    m_hbFont = SkiaHarfBuzzFont::getOrCreate(typeface);
 }
 
 std::optional<FontPlatformData> FontPlatformData::fromIPCData(float size, FontOrientation&& orientation, FontWidthVariant&& widthVariant, TextRenderingMode&& textRenderingMode, bool syntheticBold, bool syntheticOblique, IPCData&& ipcData)
@@ -158,7 +211,7 @@ RefPtr<SharedBuffer> FontPlatformData::openTypeTable(uint32_t table) const
         return nullptr;
 
     Vector<uint8_t> data(tableSize);
-    if (typeface->getTableData(tag, 0, tableSize, data.data()) != tableSize)
+    if (typeface->getTableData(tag, 0, tableSize, data.mutableSpan().data()) != tableSize)
         return nullptr;
 
     return SharedBuffer::create(WTFMove(data));
@@ -171,7 +224,7 @@ FontPlatformData FontPlatformData::create(const Attributes& data, const FontCust
         sk_sp<SkTypeface> typeface = custom->m_typeface;
         return { WTFMove(typeface), data.m_size, data.m_syntheticBold, data.m_syntheticOblique, data.m_orientation, data.m_widthVariant, data.m_textRenderingMode, WTFMove(features), custom };
     }
-    sk_sp<SkTypeface> typeface = FontCache::forCurrentThread().fontManager().matchFamilyStyle(data.m_familyName.c_str(), data.m_style);
+    sk_sp<SkTypeface> typeface = FontCache::forCurrentThread()->fontManager().matchFamilyStyle(data.m_familyName.c_str(), data.m_style);
     return { WTFMove(typeface), data.m_size, data.m_syntheticBold, data.m_syntheticOblique, data.m_orientation, data.m_widthVariant, data.m_textRenderingMode, WTFMove(features) };
 }
 

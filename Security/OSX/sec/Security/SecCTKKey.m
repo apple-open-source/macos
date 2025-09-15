@@ -35,8 +35,6 @@
 #include <Security/SecCFAllocator.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecFileLocations.h>
-#import <CryptoTokenKit/CryptoTokenKit_Private.h>
-#import <LocalAuthentication/LocalAuthentication_Private.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
 #include "SecECKey.h"
@@ -63,6 +61,11 @@ const CFStringRef kSecUseTokenSession = CFSTR("u_TokenSession");
 @property (nonatomic, readonly) NSDictionary *keychainAttributes;
 @property (nonatomic) NSDictionary *sessionParameters;
 @property (nonatomic, readonly) CFIndex algorithmID;
+@property (nonatomic, readonly) NSData *tokenOID;
+/// Indicates whether this key is a registered smartcard key
+@property (nonatomic) BOOL isRegisteredSmartcard;
+/// Indicates whether LAContext was provided via SecItemCopyMatching or whether we created our own
+@property (nonatomic) BOOL wasAuthenticationContextProvidedBySecCaller;
 @end
 
 bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
@@ -96,25 +99,71 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
 
 - (nullable instancetype)initWithAttributes:(NSDictionary *)attributes error:(NSError **)error {
     if (self = [super init]) {
+        _isRegisteredSmartcard = NO;
+
+        if (attributes[(id)kSecUseAuthenticationContext] == NULL && attributes[(id)kSecUseCredentialReference] != NULL) {
+            // In this case we have removed the provided auth context from the attributes
+            // and set credRef.
+            self.wasAuthenticationContextProvidedBySecCaller = YES;
+        } else if (attributes[(id)kSecUseAuthenticationContext] != NULL && attributes[(id)kSecUseCredentialReference] != NULL) {
+            // if we have both, we know we created our LAContext
+            self.wasAuthenticationContextProvidedBySecCaller = NO;
+        }
+
         // Get or connect or generate token/session/object.
         if (_tokenObject == nil) {
             TKClientTokenSession *session = attributes[(__bridge id)kSecUseTokenSession];
             if (session == nil) {
                 // Get new session.
+                NSError *localError;
                 if (isCryptoTokenKitAvailable()) {
-                    NSDictionary *params = @{};
+                    NSMutableDictionary *tempParams = [NSMutableDictionary dictionary];
+
                     if (SecCTKIsQueryForSystemKeychain((__bridge CFDictionaryRef)attributes)) {
-                        params = @{ getTKClientTokenParameterForceSystemSession(): @YES };
+                        tempParams[getTKClientTokenParameterForceSystemSession()] = @YES;
                     }
+
+                    // TODO: Replace with CTK symbol TKClientTokenParameterAuthenticationContextProvidedBySecCaller once available
+                    tempParams[@"authenticationContextProvidedBySecCaller"] = @(self.wasAuthenticationContextProvidedBySecCaller);
+
+                    NSDictionary *params = [tempParams copy];
                     TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:attributes[(id)kSecAttrTokenID]];
-                    session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:attributes[(id)kSecUseAuthenticationContext] parameters:params error:error];
+
+                    /// if the context isn't passed to us, we try to use the credref, which
+                    /// should be stored there, because we added it ourselves when we created the temporary LAContext
+                    /// This will apply to the case where LAContext is injected, we have removed it
+                    /// from the query and stored it in credRef.
+                    LAContext *laContext = nil;
+                    if (attributes[(id)kSecUseAuthenticationContext] != nil) {
+                        laContext = attributes[(id)kSecUseAuthenticationContext];
+                    } else if (attributes[(id)kSecUseCredentialReference] != nil && isLocalAuthenticationAvailable()) {
+                        laContext = [[getLAContextClass() alloc] initWithExternalizedContext:attributes[(id)kSecUseCredentialReference]];
+                    }
+                    session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:laContext parameters:params error:&localError];
                 } else {
                     if (error != nil) {
                         *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];
                     }
                 }
+
                 if (session == nil) {
-                    return nil;
+                    if (localError == nil) {
+                        if (error) {
+                            *error = [NSError errorWithDomain:getTKErrorDomain() code:TKErrorCodeTokenNotFound userInfo:nil];
+                        }
+                        return nil;
+                    }
+
+                    if ([localError.domain isEqual:getTKErrorDomain()] == NO || localError.code != getTKTokenNotFoundAndRegistered()) {
+                        if (error) {
+                            *error = localError;
+                        }
+                        return nil;
+                    }
+
+                    // Special case for error TKTokenNotFoundAndRegistered:
+                    // we failed to get session but smart card token is registered and later we can require card insertion
+                    _isRegisteredSmartcard = YES;
                 }
             }
 
@@ -122,6 +171,9 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
             if (objectID != nil) {
                 // Get actual tokenObject from the session.
                 _tokenObject = [session objectForObjectID:objectID error:error];
+                if (_isRegisteredSmartcard == YES) { // store object ID for later when _tokenObject will be recreated in ensureTokenObject
+                    _tokenOID = objectID;
+                }
             } else {
                 // Generate new key.
                 NSMutableDictionary *attrs = attributes.mutableCopy;
@@ -144,7 +196,7 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
                 _tokenObject = [session createObjectWithAttributes:attributes error:error];
             }
 
-            if (_tokenObject == nil) {
+            if (_tokenObject == nil && _isRegisteredSmartcard == NO) {
                 return nil;
             }
         }
@@ -152,7 +204,7 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
         _sessionParameters = @{};
 
         // Get resulting attributes, by merging input attributes from keychain and token object attributes. Keychain attributes have preference.
-        NSMutableDictionary *attrs = self.tokenObject.keychainAttributes.mutableCopy;
+        NSMutableDictionary *attrs = self.tokenObject ? self.tokenObject.keychainAttributes.mutableCopy : @{}.mutableCopy;
         [attrs addEntriesFromDictionary:attributes];
 
         // Convert kSecAttrAccessControl from data to CF object if needed.
@@ -194,6 +246,8 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
         _sessionParameters = source.sessionParameters;
         _keychainAttributes = source.keychainAttributes;
         _tokenObject = source.tokenObject;
+        _isRegisteredSmartcard = source.isRegisteredSmartcard;
+        _wasAuthenticationContextProvidedBySecCaller = source.wasAuthenticationContextProvidedBySecCaller;
     }
 
     return self;
@@ -203,31 +257,83 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
     return [[SecCTKKey alloc] initFromKey:self];
 }
 
-- (nullable id)performOperation:(TKTokenOperation)operation data:(nullable NSData *)data algorithms:(NSArray<NSString *> *)algorithms parameters:(NSDictionary *)parameters error:(NSError **)error {
-    // Check, whether we are not trying to perform the operation with large data.  If yes, explicitly do the check whether
-    // the operation is supported first, in order to avoid jetsam of target extension with operation type which is typically
-    // not supported by the extension at all.
-    // <rdar://problem/31762984> unable to decrypt large data with kSecKeyAlgorithmECIESEncryptionCofactorX963SHA256AESGCM
-    if (data != nil) {
-        if (data.length > 32 * 1024) {
-            id result = [self.tokenObject operation:operation data:nil algorithms:algorithms parameters:parameters error:error];
-            if (result == nil || [result isEqual:NSNull.null]) {
-                // Operation failed or si not supported with specified algorithms.
-                return result;
+- (BOOL)ensureTokenObject:(NSError **)error {
+    if (self.tokenObject == nil) {
+        if (isCryptoTokenKitAvailable() == NO) {
+            if (error) {
+                *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecUnimplemented userInfo:@{NSDebugDescriptionErrorKey: @"CryptoTokenKit is not available"}];
             }
+            return NO;
         }
+        NSMutableDictionary *tempParams = [NSMutableDictionary dictionary];
+
+        if (SecCTKIsQueryForSystemKeychain((__bridge CFDictionaryRef)self.keychainAttributes)) {
+            tempParams[getTKClientTokenParameterForceSystemSession()] = @YES;
+        }
+
+        // TODO: Replace symbol with CTK symbol
+        tempParams[@"authenticationContextProvidedBySecCaller"] = @(self.wasAuthenticationContextProvidedBySecCaller);
+        NSDictionary *params = [tempParams copy];
+
+        TKClientToken *token = [[getTKClientTokenClass() alloc] initWithTokenID:self.keychainAttributes[(id)kSecAttrTokenID]];
+        token.canRequireCardInsertion = YES;
+
+        LAContext *laContext = nil;
+        if (self.keychainAttributes[(id)kSecUseAuthenticationContext] != nil) {
+            laContext = self.keychainAttributes[(id)kSecUseAuthenticationContext];
+        } else if (self.keychainAttributes[(id)kSecUseCredentialReference] != nil && isLocalAuthenticationAvailable()) {
+            laContext = [[getLAContextClass() alloc] initWithExternalizedContext:self.keychainAttributes[(id)kSecUseCredentialReference]];
+        }
+
+        TKClientTokenSession *session = [[getTKClientTokenSessionClass() alloc] initWithToken:token LAContext:laContext parameters:params error:error];
+        _tokenObject = [session objectForObjectID:self.tokenOID error:error];
+        return _tokenObject != nil;
+    }
+    return YES;
+}
+
+- (id)ensureTokenObjectForBlock:(id(^)(NSError**))perform error:(NSError **)error {
+    if ([self ensureTokenObject:error] == NO) {
+        return nil;
+    }
+    
+    __block NSError *localError;
+    id result = perform(&localError);
+
+    // In case the token isn't found and we have a registered card let's try again
+    if ((localError != nil) &&
+        [localError.domain isEqual:getTKErrorDomain()] &&
+        // TODO: Replace -1003 with CTK symbol TKTokenNotFoundButPINEntered once available
+        (localError.code == TKErrorCodeTokenNotFound || localError.code == getTKTokenNotFoundAndRegistered() || localError.code == -1003) &&
+        self.isRegisteredSmartcard &&
+        self.tokenOID != nil &&
+        self.tokenObject != nil)
+    {
+        os_log_debug(SECKEY_LOG, "Registered smart card token not found -> retrying to get the session");
+        self.tokenObject = nil;
+        if ([self ensureTokenObject:error] == NO) {
+            return nil;
+        }
+        result = perform(&localError);
     }
 
-    return [self.tokenObject operation:operation data:data algorithms:algorithms parameters:parameters error:error];
+    if (result == nil && error != nil) {
+        *error = localError;
+    }
+   return result;
 }
 
 - (BOOL)isEqual:(id)object {
     SecCTKKey *other = object;
-    return [self.tokenObject.session.token.tokenID isEqualToString:other.tokenObject.session.token.tokenID] && [self.tokenObject.objectID isEqualToData:other.tokenObject.objectID];
+    if ([self ensureTokenObject:nil] == YES && [other ensureTokenObject:nil] == YES) {
+        return [self.tokenObject.session.token.tokenID isEqualToString:other.tokenObject.session.token.tokenID] && [self.tokenObject.objectID isEqualToData:other.tokenObject.objectID];
+    } else {
+        return NO;
+    }
 }
 
 - (CFIndex)algorithmID {
-    NSString *keyType = self.tokenObject.keychainAttributes[(id)kSecAttrKeyType];
+    NSString *keyType = self.tokenObject != nil ? self.tokenObject.keychainAttributes[(id)kSecAttrKeyType] : self.keychainAttributes[(id)kSecAttrKeyType];
     if ([keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandom] ||
         [keyType isEqualToString:(id)kSecAttrKeyTypeECSECPrimeRandomPKA] ||
         [keyType isEqualToString:(id)kSecAttrKeyTypeSecureEnclaveAttestation] ||
@@ -237,9 +343,53 @@ bool SecCTKIsQueryForSystemKeychain(CFDictionaryRef query) {
         return kSecEd25519AlgorithmID;
     } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeX25519]) {
         return kSecX25519AlgorithmID;
+    } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeKyber]) {
+        return kSecKyberAlgorithmID;
+    } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeMLKEM]) {
+        return kSecMLKEMAlgorithmID;
+    } else if ([keyType isEqualToString:(id)kSecAttrKeyTypeMLDSA]) {
+        return kSecMLDSAAlgorithmID;
     } else {
         return kSecRSAAlgorithmID;
     }
+}
+
+- (BOOL)shouldRetryOperationForRegisteredSmartcard:(NSError *)operationError {
+    if (!operationError) {
+        return NO;
+    }
+
+    // Only retry for registered smartcards
+    if (!self.isRegisteredSmartcard) {
+        return NO;
+    }
+
+    if (![operationError.domain isEqual:getTKErrorDomain()]) {
+        return NO;
+    }
+
+    // Special case: TKTokenNotFoundButPINEntered - always retry because this means that PIN UI was shown and PIN was entered
+    if (operationError.code == -1003) {
+        return YES;
+    }
+
+    // Only retry authentication failures
+    if (operationError.code != TKErrorCodeAuthenticationFailed) {
+        return NO;
+    }
+
+    // Don't retry if auth context was provided by caller AND PIN credential is set
+    if (self.wasAuthenticationContextProvidedBySecCaller && [self.tokenObject.session.LAContext isCredentialSet:LACredentialTypeSmartCardPIN]) {
+        return NO;
+    }
+
+    // Ensure we have current retry count information
+    NSNumber *triesLeft = operationError.userInfo[getTKUserSecretTriesLeftErrorKey()];
+    if (triesLeft == nil) {
+        return NO;
+    }
+
+    return [triesLeft integerValue] > 0;
 }
 
 @end
@@ -253,10 +403,6 @@ static void SecCTKKeyDestroy(SecKeyRef keyRef) {
 static CFIndex SecCTKGetAlgorithmID(SecKeyRef keyRef) {
     return [SecCTKKey fromKeyRef:keyRef].algorithmID;
 }
-
-#if 1  // TODO: When SDK contains new TKTokenOperation symbols from CryptoTokenKit, get rid of this section completely.
-#define TKTokenOperationDecapsulate ((TKTokenOperation)1003)
-#endif
 
 static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationType operation, SecKeyAlgorithm algorithm,
                                               CFArrayRef algorithms, SecKeyOperationMode mode,
@@ -280,13 +426,46 @@ static CFTypeRef SecCTKKeyCopyOperationResult(SecKeyRef keyRef, SecKeyOperationT
             return nil;
     }
 
+
+    NSError *operationError = nil;
     SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
-    key.tokenObject.session.authenticateWhenNeeded = YES;
-    NSError *err;
-    id result = [key.tokenObject operation:tokenOperation data:(__bridge NSData *)in1 algorithms:(__bridge NSArray *)algorithms parameters:(__bridge NSDictionary *)in2 error:&err];
-    if (result == nil && error != NULL) {
-        *error = (CFErrorRef)CFBridgingRetain(err);
+    if (key == nil) {
+        SecError(errSecParam, error, CFSTR("Unable to create CTK key from key reference"));
+        return NULL;
     }
+
+    id result = nil;
+    BOOL shouldRetryOperation = NO;
+
+    do {
+        operationError = nil;
+        shouldRetryOperation = NO;
+
+        result = [key ensureTokenObjectForBlock:^id(NSError *__autoreleasing *localError) {
+            key.tokenObject.session.authenticateWhenNeeded = YES;
+            if (key.tokenOID != nil) {
+                [key.tokenObject.session.token notifyOperation:tokenOperation forToken:key.keychainAttributes[(id)kSecAttrTokenID] withStatus:TKClientOperationStatusWillStart];
+            }
+            id localResult = [key.tokenObject operation:tokenOperation data:(__bridge NSData *)in1 algorithms:(__bridge NSArray *)algorithms parameters:(__bridge NSDictionary *)in2 error:localError];
+            if (key.tokenOID != nil) {
+                [key.tokenObject.session.token notifyOperation:tokenOperation forToken:key.keychainAttributes[(id)kSecAttrTokenID] withStatus:TKClientOperationStatusWillEnd];
+            }
+            return localResult;
+        } error:&operationError];
+
+        // If we have a registered key (eg. registered smartcard) we want to retry ourselves in case of a PIN failure
+        // Reason being that in CTK we skip retries for registered smartcards.
+        // In case LAContext was provided and there is a credential set, we don't retry
+        if (result == nil && [key shouldRetryOperationForRegisteredSmartcard:operationError]) {
+            shouldRetryOperation = YES;
+            os_log_debug(SECKEY_LOG, "Retrying operation for registered smart card key after error: %@", operationError);
+        }
+    } while(shouldRetryOperation);
+
+    if (result == nil && error != NULL) {
+        *error = (CFErrorRef)CFBridgingRetain(operationError);
+    }
+
     return CFBridgingRetain(result);
 }
 
@@ -302,7 +481,23 @@ static size_t SecCTKKeyBlockSize(SecKeyRef keyRef) {
 
 static OSStatus SecCTKKeyCopyPublicOctets(SecKeyRef keyRef, CFDataRef *data) {
     SecCTKKey *key = [SecCTKKey fromKeyRef:keyRef];
-    *data = CFBridgingRetain(key.tokenObject.publicKey);
+
+    // For registered smartcards, try to ensure tokenObject exists before accessing public key
+    if (key.tokenObject == nil && key.isRegisteredSmartcard) {
+        NSError *error = nil;
+        NSData *publicKeyData = [key ensureTokenObjectForBlock:^id(NSError *__autoreleasing *localError) {
+            return key.tokenObject.publicKey;
+        } error:&error];
+
+        if (publicKeyData != nil) {
+            *data = CFBridgingRetain(publicKeyData);
+            return errSecSuccess;
+        } else {
+            return errSecItemNotFound;
+        }
+    }
+
+    *data = CFBridgingRetain(key.tokenObject != nil ? key.tokenObject.publicKey : key.keychainAttributes[(id)kSecAttrApplicationLabel]);
     return errSecSuccess;
 }
 
@@ -358,15 +553,25 @@ static CFDictionaryRef SecCTKKeyCopyAttributeDictionary(SecKeyRef keyRef) {
     }
 
     // Encode ApplicationLabel as SHA1 digest of public key bytes.
-    NSData *publicKey = key.tokenObject.publicKey;
-    attrs[(id)kSecAttrApplicationLabel] = CFBridgingRelease(SecSHA1DigestCreate(kCFAllocatorDefault, publicKey.bytes, publicKey.length));
+    if (key.tokenObject != nil) {
+        NSData *publicKey = key.tokenObject.publicKey;
+        attrs[(id)kSecAttrApplicationLabel] = CFBridgingRelease(SecSHA1DigestCreate(kCFAllocatorDefault, publicKey.bytes, publicKey.length));
+    } else {
+        // in case of registered card key use the original value when tokenObject is not available
+        attrs[(id)kSecAttrApplicationLabel] = key.keychainAttributes[(id)kSecAttrApplicationLabel];
+    }
 
     // Consistently with existing RSA and EC software keys implementation, mark all keys as permanent ones.
     attrs[(id)kSecAttrIsPermanent] = @YES;
 
     // Always export token_id and object_id.
-    attrs[(id)kSecAttrTokenID] = key.tokenObject.session.token.tokenID;
-    attrs[(id)kSecAttrTokenOID] = key.tokenObject.objectID;
+    if (key.tokenObject != nil) {
+        attrs[(id)kSecAttrTokenID] = key.tokenObject.session.token.tokenID;
+        attrs[(id)kSecAttrTokenOID] = key.tokenObject.objectID;
+    } else {
+        // in case of registered card key use the original value when tokenObject is not available
+        attrs[(id)kSecAttrTokenID] = key.keychainAttributes[(id)kSecAttrTokenID];
+    }
 
     // Return immutable copy of created dictionary.
     return CFBridgingRetain(attrs.copy);

@@ -372,12 +372,29 @@ extern const CFStringRef kSecAttrKeyTypeX448
 SPI_AVAILABLE(macos(14.0), ios(17.0), tvos(17.0), watchos(10.0));
 extern const CFStringRef kSecAttrKeyTypeKyber
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
-
-// Subtypes of Kyber, to be used as values of kSecAttrKeySizeInBits when type is kSecAttrKeyTypeKyber.
+/// Subtypes of Kyber, to be used as values of kSecAttrKeySizeInBits when type is kSecAttrKeyTypeKyber.
 extern const CFStringRef kSecAttrKeySizeKyber768
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
 extern const CFStringRef kSecAttrKeySizeKyber1024
 SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0));
+
+extern const CFStringRef kSecAttrKeyTypeMLKEM
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+// Subtypes of ML-KEM, to be used as values of kSecAttrKeySizeInBits when type is kSecAttrKeyTypeMLKEM.
+extern const CFStringRef kSecAttrKeySizeMLKEM768
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+extern const CFStringRef kSecAttrKeySizeMLKEM1024
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+
+extern const CFStringRef kSecAttrKeyTypeMLDSA
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+/// Subtypes of ML-DSA, to be used as values of `kSecAttrKeySizeInBits` when type is `kSecAttrKeyTypeMLDSA`.
+/// ML-DSA as specified in FIPS 204, does not have a single integer “bit size” like RSA or ECC curves.
+/// These 65 and 87 suffixes don't actually represent the size but rather the ML-DSA parameter set which will be used.
+extern const CFStringRef kSecAttrKeySizeMLDSA65
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
+extern const CFStringRef kSecAttrKeySizeMLDSA87
+SPI_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0));
 
 // Should not be used, use kSecAttrTokenOID instead.
 extern const CFStringRef kSecAttrSecureEnclaveKeyBlob
@@ -433,6 +450,7 @@ extern const CFStringRef kSecAttrViewHintMail;
 extern const CFStringRef kSecAttrViewHintContacts;
 extern const CFStringRef kSecAttrViewHintPhotos;
 extern const CFStringRef kSecAttrViewHintGroups;
+extern const CFStringRef kSecAttrViewHintFindMy;
 
 
 extern const CFStringRef kSecUseSystemKeychainAlways
@@ -707,6 +725,7 @@ bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
 
 
 OSStatus SecItemUpdateTokenItemsForAccessGroups(CFTypeRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItemsAttributes);
+OSStatus SecItemUpdateTokenItemsForSystemKeychain(CFTypeRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItemsAttributes);
 
 #if SEC_OS_OSX
 CFTypeRef SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes);
@@ -888,7 +907,21 @@ CF_RETURNS_RETAINED;
 */
 bool SecDeleteItemsOnSignOut(CFErrorRef *error) SPI_AVAILABLE(macos(13.0), ios(16.0), tvos(16.0), watchos(9.0));
 
+/*!
+ * @function SecKeychainCopyDatabasePath
+ * @abstract Provides Keychain Database Path
+ * @param error An optional error reference.
+ * @result Returns reference to databse path. It sets error to `errSecMissingEntitlement` if caller isn't properly entitled
+*/
+CFStringRef SecKeychainCopyDatabasePath(CFErrorRef *error)
+CF_RETURNS_RETAINED;
+
 #pragma clang diagnostic pop /* ignored "-Wnullability-completeness" */
+
+#if TARGET_OS_OSX
+OSStatus _SecLookupIndirectUnlockKey(CFStringRef _Nonnull identifier, uint32_t* _Nonnull handleOut);
+OSStatus _SecAssociateIndirectUnlockKey(CFStringRef _Nonnull identifier, uint32_t handle);
+#endif
 
 __END_DECLS
 

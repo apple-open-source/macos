@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ArgList.h"
+#include <numeric>
 #include <wtf/Int128.h>
 #include <wtf/StdLibExtras.h>
 
@@ -35,7 +36,7 @@ namespace JSC {
 
 static ALWAYS_INLINE bool coerceComparatorResultToBoolean(JSGlobalObject* globalObject, JSValue comparatorResult)
 {
-    if (LIKELY(comparatorResult.isInt32()))
+    if (comparatorResult.isInt32()) [[likely]]
         return comparatorResult.asInt32() < 0;
 
     // See https://bugs.webkit.org/show_bug.cgi?id=47825 on boolean special-casing
@@ -59,7 +60,7 @@ static ALWAYS_INLINE void arrayInsertionSort(VM& vm, std::span<ElementType> span
         size_t left = 0;
         size_t right = i;
         for (; left < right;) {
-            size_t m = left + (right - left) / 2;
+            size_t m = std::midpoint(left, right);
             auto target = array[m];
             bool result = comparator(value, target);
             RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, void());
@@ -156,7 +157,7 @@ static ALWAYS_INLINE std::span<ElementType> arrayStableSort(VM& vm, std::span<El
     auto to = dst;
     auto from = src;
 
-    WTF::copyElements(to.data(), spanConstCast<const ElementType>(from).data(), numElements);
+    WTF::copyElements(to, spanConstCast<const ElementType>(from));
 
     struct PowersortStackEntry {
         SortedRun run;
@@ -231,7 +232,7 @@ static ALWAYS_INLINE std::span<ElementType> arrayStableSort(VM& vm, std::span<El
 
             mergePowersortRuns(vm, to, spanConstCast<const ElementType>(from), rangeToMerge.m_begin, rangeToMerge.m_end + 1, run1.m_begin, run1.m_end + 1, comparator);
             RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, src);
-            WTF::copyElements(from.subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin).data(), spanConstCast<const ElementType>(to).subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin).data(), run1.m_end + 1 - rangeToMerge.m_begin);
+            WTF::copyElements(from.subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin), spanConstCast<const ElementType>(to).subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin));
             run1.m_begin = rangeToMerge.m_begin;
         }
 
@@ -245,11 +246,11 @@ static ALWAYS_INLINE std::span<ElementType> arrayStableSort(VM& vm, std::span<El
 
         mergePowersortRuns(vm, to, spanConstCast<const ElementType>(from), rangeToMerge.m_begin, rangeToMerge.m_end + 1, run1.m_begin, run1.m_end + 1, comparator);
         RETURN_IF_EXCEPTION_WITH_TRAPS_DEFERRED(scope, src);
-        WTF::copyElements(from.subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin).data(), spanConstCast<const ElementType>(to).subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin).data(), run1.m_end + 1 - rangeToMerge.m_begin);
+        WTF::copyElements(from.subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin), spanConstCast<const ElementType>(to).subspan(rangeToMerge.m_begin, run1.m_end + 1 - rangeToMerge.m_begin));
         run1.m_begin = rangeToMerge.m_begin;
     }
 
-    return (from.data() == src.data()) ? src : dst;
+    return from.data() == src.data() ? src : dst;
 }
 
 } // namespace JSC

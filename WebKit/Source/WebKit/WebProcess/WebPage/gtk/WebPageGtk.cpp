@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  * Copyright (C) 2011 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformScreen.h>
-#include <WebCore/PointerCharacteristics.h>
 #include <WebCore/RenderTheme.h>
 #include <WebCore/RenderThemeAdwaita.h>
 #include <WebCore/Settings.h>
@@ -64,42 +63,6 @@ bool WebPage::platformCanHandleRequest(const ResourceRequest&)
 {
     notImplemented();
     return false;
-}
-
-bool WebPage::hoverSupportedByPrimaryPointingDevice() const
-{
-#if ENABLE(TOUCH_EVENTS)
-    return !screenIsTouchPrimaryInputDevice();
-#else
-    return true;
-#endif
-}
-
-bool WebPage::hoverSupportedByAnyAvailablePointingDevice() const
-{
-#if ENABLE(TOUCH_EVENTS)
-    return !screenHasTouchDevice();
-#else
-    return true;
-#endif
-}
-
-std::optional<PointerCharacteristics> WebPage::pointerCharacteristicsOfPrimaryPointingDevice() const
-{
-#if ENABLE(TOUCH_EVENTS)
-    if (screenIsTouchPrimaryInputDevice())
-        return PointerCharacteristics::Coarse;
-#endif
-    return PointerCharacteristics::Fine;
-}
-
-OptionSet<PointerCharacteristics> WebPage::pointerCharacteristicsOfAllAvailablePointingDevices() const
-{
-#if ENABLE(TOUCH_EVENTS)
-    if (screenHasTouchDevice())
-        return PointerCharacteristics::Coarse;
-#endif
-    return PointerCharacteristics::Fine;
 }
 
 void WebPage::collapseSelectionInFrame(FrameIdentifier frameID)

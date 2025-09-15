@@ -93,8 +93,10 @@ struct nfs_fsattr {
 	uint64_t        nfsa_space_free;        /* disk space free */
 	uint64_t        nfsa_space_total;       /* disk space total */
 	uint32_t        nfsa_supp_attr[NFS_ATTR_BITMAP_LEN]; /* attributes supported on this file system */
+	uint32_t        nfsa_supp_exclusive41_attr[NFS_ATTR_BITMAP_LEN];/* EXCLUSIVE4_1 supported attributes on this file system */
 	uint32_t        nfsa_bitmap[NFS_ATTR_BITMAP_LEN]; /* valid attributes */
 };
+
 #define NFS_FSFLAG_LINK                 0x00000001
 #define NFS_FSFLAG_SYMLINK              0x00000002
 #define NFS_FSFLAG_UNIQUE_FH            0x00000004
@@ -239,6 +241,19 @@ struct nfs_funcs {
 	int     (*nf_getlock_rpc)(nfsnode_t, struct nfs_lock_owner *, struct flock *, uint64_t, uint64_t, vfs_context_t);
 };
 
+#if CONFIG_NFS4
+
+/*
+ * Function table for calling version-specific NFSv4 functions
+ */
+struct nfs4_funcs {
+	int     (*nf4_create_clientid)(struct nfsmount *, thread_t, kauth_cred_t, int);
+	int     (*nf4_renew_rpc)(struct nfsmount *, int);
+	int     (*nf4_release_state)(nfsnode_t, struct nfs_lock_owner *, thread_t, kauth_cred_t);
+};
+
+#endif /* CONFIG_NFS4 */
+
 /*
  * The long form of the NFSv4 client ID.
  */
@@ -323,6 +338,12 @@ struct nfsmount {
 			TAILQ_ENTRY(nfsmount) cblink; /* chain of mounts registered for callbacks */
 			uint32_t cbid;  /* callback channel identifier */
 			uint32_t cbrefs; /* # callbacks using this mount */
+			const struct nfs4_funcs *nm_funcs4; /* version4-specific functions */
+			struct {
+				nfs_session session; /* session structure */
+				uint32_t clientflags; /* client capabilities */
+				uint32_t clientseqid; /* initial sequence value associated with the client ID */
+			} v41;
 		} v4;
 	} nm_un;
 	/* common state */
@@ -379,6 +400,9 @@ struct nfsmount {
 #define NM_OMFLAG_GIVEN(NMP, F) NFS_BITMAP_ISSET((NMP)->nm_mflags_mask, NFS_MFLAG_ ## F)
 #define NM_OMFLAG(NMP, F)       NFS_BITMAP_ISSET((NMP)->nm_mflags, NFS_MFLAG_ ## F)
 
+/* macro for checking the NFSv4.1 version */
+#define NM_VERS41(NMP)   (((NMP)->nm_vers == NFS_VER4) && ((NMP)->nm_minor_vers == NFSV41_MINORVERSION))
+
 /*
  * NFS mount state flags (nm_state)
  */
@@ -400,6 +424,7 @@ struct nfsmount {
 #define NFSSTA_GOTFSINFO        0x00100000  /* Got the V3 fsinfo */
 #define NFSSTA_WANTRQUOTA       0x00200000  /* Want rquota address */
 #define NFSSTA_RQUOTAINPROG     0x00400000  /* Getting rquota address */
+#define NFSSTA_SESSION          0x00800000  /* Got valid session - NFSv4.1 only */
 #define NFSSTA_DEAD             0x04000000  /* mount is dead */
 #define NFSSTA_RECOVER          0x08000000  /* mount state needs to be recovered */
 #define NFSSTA_RECOVER_EXPIRED  0x10000000  /* mount state expired */
@@ -439,6 +464,10 @@ struct nfsmount {
 #define nm_cbrefs       nm_un.v4.cbrefs
 #define nm_delegations  nm_un.v4.delegations
 #define nm_dreturnq     nm_un.v4.dreturnq
+#define nm_funcs4       nm_un.v4.nm_funcs4
+#define nm_session      nm_un.v4.v41.session
+#define nm_clientflags  nm_un.v4.v41.clientflags
+#define nm_clientseqid  nm_un.v4.v41.clientseqid
 
 #if defined(KERNEL)
 /*

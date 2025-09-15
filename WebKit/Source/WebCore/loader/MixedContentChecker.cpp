@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -135,7 +135,7 @@ static bool frameAndAncestorsCanDisplayInsecureContent(LocalFrame& frame, MixedC
 
     if (allowed) {
         document->setFoundMixedContent(SecurityContext::MixedContentType::Inactive);
-        frame.protectedLoader()->client().didDisplayInsecureContent();
+        frame.loader().client().didDisplayInsecureContent();
     }
 
     return allowed;
@@ -154,12 +154,12 @@ bool MixedContentChecker::frameAndAncestorsCanRunInsecureContent(LocalFrame& fra
         return false;
 
     bool allowed = !document->isStrictMixedContentMode() && frame.settings().allowRunningOfInsecureContent() && !frame.document()->geolocationAccessed() && !frame.document()->secureCookiesAccessed();
-    if (LIKELY(shouldLogWarning == ShouldLogWarning::Yes))
+    if (shouldLogWarning == ShouldLogWarning::Yes) [[likely]]
         logConsoleWarning(frame, allowed, "run"_s, url);
 
     if (allowed) {
         document->setFoundMixedContent(SecurityContext::MixedContentType::Active);
-        frame.protectedLoader()->client().didRunInsecureContent(securityOrigin);
+        frame.loader().client().didRunInsecureContent(securityOrigin);
     }
 
     return allowed;
@@ -258,7 +258,7 @@ void MixedContentChecker::checkFormForMixedContent(LocalFrame& frame, const URL&
     auto message = makeString("The page at "_s, frame.document()->url().stringCenterEllipsizedToLength(), " contains a form which targets an insecure URL "_s, url.stringCenterEllipsizedToLength(), ".\n"_s);
     frame.protectedDocument()->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, message);
 
-    frame.protectedLoader()->client().didDisplayInsecureContent();
+    frame.loader().client().didDisplayInsecureContent();
 }
 
 } // namespace WebCore

@@ -30,6 +30,7 @@ int main(int argc, char** argv)
     int resetoctagon = false;
     int resetProtectedData = false;
     int reset = false;
+    int performCKServerUnreadableDataRemoval = false;
     int userControllableViewsSyncStatus = false;
 
     int fetchAllBottles = false;
@@ -87,10 +88,15 @@ int main(int argc, char** argv)
     int disableWebAccess = false;
 
     int health = false;
+    int escrowCheck = false;
     int simulateReceivePush = false;
     int tlkRecoverability = false;
     int machineIDOverride = false;
     int reroll = false;
+    int icscRepairReset = false;
+    int fetchTotalTrustedPeers = false;
+    int fetchTrustedFullPeers = false;
+    int simulateReceiveTDLChangePush = false;
 
 #if TARGET_OS_WATCH
     int pairme = false;
@@ -118,6 +124,8 @@ int main(int argc, char** argv)
 
     int forceFetch = false;
     int repair = false;
+    int danglingPeerCleanup = false;
+    int updateIdMS = false;
 
     char* altDSIDArg = NULL;
     char* containerStr = NULL;
@@ -149,6 +157,8 @@ int main(int argc, char** argv)
 	{.longname = "notifyIdMS", .flag = &notifyIdMS, .flagval = true, .description = "Notify IdMS on reset", .internal_only = true},
         {.longname = "forceFetch", .flag = &forceFetch, .flagval = true, .description = "Force fetch from cuttlefish"},
         {.longname = "repair", .flag = &repair, .flagval = true, .description = "Perform repair as part of health check"},
+        {.longname = "danglingPeerCleanup", .flag = &danglingPeerCleanup, .flagval = true, .description = "Perform dangling peer cleanup as part of health check"},
+        {.longname = "updateIdMS", .flag = &updateIdMS, .flagval = true, .description = "Perform IdMS update as part of health check"},
 
         {.shortname = 'a', .longname = "machineID", .argument = &machineIDArg, .description = "machineID override"},
 
@@ -180,6 +190,7 @@ int main(int argc, char** argv)
         {.command = "resetoctagon", .flag = &resetoctagon, .flagval = true, .description = "Reset and establish new Octagon trust", .internal_only = true},
         {.command = "resetProtectedData", .flag = &resetProtectedData, .flagval = true, .description = "Reset ProtectedData", .internal_only = true},
         {.command = "reset", .flag = &reset, .flagval = true, .description = "Reset Octagon trust", .internal_only = true},
+        {.command = "performCKServerUnreadableDataRemoval", .flag = &performCKServerUnreadableDataRemoval, .flagval = true, .description = "Remove Unreadable CK Data", .internal_only = true},
 
         {.command = "user-controllable-views", .flag = &userControllableViewsSyncStatus, .flagval = true, .description = "Modify or view user-controllable views status (If one of --enable or --pause is passed, will modify status)", .internal_only = true},
 
@@ -193,9 +204,10 @@ int main(int argc, char** argv)
         {.command = "er-store", .flag = &er_store, .flagval = true, .description = "Store any pending Escrow Request prerecords"},
 
         {.command = "health", .flag = &health, .flagval = true, .description = "Check Octagon Health status"},
+        {.command = "escrowCheck", .flag = &escrowCheck, .flagval = true, .description = "Check current peer iCSC validity"},
         {.command = "simulate-receive-push", .flag = &simulateReceivePush, .flagval = true, .description = "Simulate receiving a Octagon push notification", .internal_only = true},
         {.command = "ckks-policy", .flag = &ckks_policy_flag, .flagval = true, .description = "Trigger a refetch of the CKKS policy"},
-
+        {.command = "simulate-receive-tdl-push", .flag = &simulateReceiveTDLChangePush, .flagval = true, .description = "Simulates receiving a TDL changed push", .internal_only = true},
         {.command = "taptoradar", .flag = &ttr_flag, .flagval = true, .description = "Trigger a TapToRadar", .internal_only = true},
 
         {.command = "fetchEscrowRecords", .flag = &fetch_escrow_records, .flagval = true, .description = "Fetch Escrow Records"},
@@ -244,7 +256,9 @@ int main(int argc, char** argv)
 
         {.command = "print-account-metadata", .flag = &printAccountMetadata, .flagval = true, .description = "Print Account Metadata", .internal_only = true},
         {.command = "reroll", .flag = &reroll, .flagval = true, .description = "Reroll PeerID", .internal_only = true},
-
+        {.command = "icsc-repair-reset", .flag = &icscRepairReset, .flagval = true, .description = "Reset icsc repair rate-limiting", .internal_only = true},
+        {.command = "total-trusted-peers", .flag = &fetchTotalTrustedPeers, .flagval = true, .description = "Fetch total trusted peers"},
+        {.command = "trusted-full-peers", .flag = &fetchTrustedFullPeers, .flagval = true, .description = "Fetch trusted full peers"},
         {}};
 
     struct arguments args = {
@@ -324,6 +338,12 @@ int main(int argc, char** argv)
                       appleID:appleID
                          dsid:dsid];
 
+        }
+        if (performCKServerUnreadableDataRemoval) {
+            return [ctl performCKServerUnreadableDataRemoval:arguments
+                                                     appleID:appleID
+
+                                                        dsid:dsid];
         }
         if(userControllableViewsSyncStatus) {
             if(argEnable && argPause) {
@@ -428,11 +448,23 @@ int main(int argc, char** argv)
             } else {
                 skip = NO;
             }
-            return [ctl healthCheck:arguments skipRateLimitingCheck:skip repair:repair json:json];
+            return [ctl healthCheck:arguments
+                        skipRateLimitingCheck:skip
+                             repair:repair
+                        danglingPeerCleanup:danglingPeerCleanup
+                         updateIdMS:updateIdMS
+                               json:json];
+        }
+
+        if(escrowCheck){
+            return [ctl escrowCheck:arguments json:json];
         }
 
         if(simulateReceivePush) {
             return [ctl simulateReceivePush:arguments json:json];
+        }
+        if (simulateReceiveTDLChangePush) {
+            return [ctl simulateReceiveTDLChangePush:arguments json:json];
         }
         if(tlkRecoverability) {
             return [ctl tlkRecoverability:arguments];
@@ -665,6 +697,15 @@ int main(int argc, char** argv)
         }
         if (reroll) {
             return [ctl rerollWithArguments:arguments json:json];
+        }
+        if (icscRepairReset) {
+            return [ctl icscRepairResetWithArguments:arguments json:json];
+        }
+        if (fetchTotalTrustedPeers) {
+            return [ctl fetchTotalTrustedPeersWithArguments:arguments json:json];
+        }
+        if (fetchTrustedFullPeers) {
+            return [ctl fetchTrustedFullPeersWithArguments:arguments json:json];
         }
 
         print_usage(&args);

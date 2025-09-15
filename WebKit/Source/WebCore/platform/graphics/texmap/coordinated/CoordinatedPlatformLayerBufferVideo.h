@@ -31,9 +31,11 @@
 
 namespace WebCore {
 
+using DMABufFormat = std::pair<uint32_t, uint64_t>;
+
 class CoordinatedPlatformLayerBufferVideo final : public CoordinatedPlatformLayerBuffer {
 public:
-    static std::unique_ptr<CoordinatedPlatformLayerBufferVideo> create(GstSample*, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>);
+    static std::unique_ptr<CoordinatedPlatformLayerBufferVideo> create(GstSample*, GstVideoInfo*, std::optional<DMABufFormat>, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>);
     CoordinatedPlatformLayerBufferVideo(GstBuffer*, GstVideoInfo*, std::optional<std::pair<uint32_t, uint64_t>>, std::optional<GstVideoDecoderPlatform>, bool gstGLEnabled, OptionSet<TextureMapperFlags>);
     virtual ~CoordinatedPlatformLayerBufferVideo();
 
@@ -46,7 +48,9 @@ private:
 #if USE(GBM)
     std::unique_ptr<CoordinatedPlatformLayerBuffer> createBufferFromDMABufMemory(GstBuffer*, GstVideoInfo*, std::optional<std::pair<uint32_t, uint64_t>>);
 #endif
+#if USE(GSTREAMER_GL)
     std::unique_ptr<CoordinatedPlatformLayerBuffer> createBufferFromGLMemory(GstBuffer*, GstVideoInfo*);
+#endif
 
     GstVideoFrame m_videoFrame;
     std::optional<GstVideoDecoderPlatform> m_videoDecoderPlatform;

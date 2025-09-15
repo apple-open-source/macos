@@ -504,8 +504,7 @@ const uint8_t _parakeet_anchor[] = {
     0xfb, 0x84, 0xab, 0xe1, 0xfe, 0x34, 0xeb, 0x46, 0x7e, 0x15, 0xac, 0x02, 0x28, 0xe4
 };
 
-static bool SecCertificateIsValidWithAdjustments(SecCertificateRef certificate,
-                                          CFAbsoluteTime verifyTime) {
+static bool _ShouldSkipExpirationCheck(SecCertificateRef certificate) {
     static CFArrayRef externalAppleAnchors = NULL;
     static SecCertificateRef parakeetAnchor = NULL;
     static dispatch_once_t onceToken;
@@ -514,7 +513,6 @@ static bool SecCertificateIsValidWithAdjustments(SecCertificateRef certificate,
         parakeetAnchor = SecCertificateCreateWithBytes(NULL, _parakeet_anchor, sizeof(_parakeet_anchor));
     });
 
-    /* Do not check expiration on Apple anchors */
     if (SecIsAppleTrustAnchor(certificate, kSecAppleTrustAnchorFlagsIncludeTestAnchors)) {
         return true;
     }
@@ -524,7 +522,78 @@ static bool SecCertificateIsValidWithAdjustments(SecCertificateRef certificate,
     if (CFEqualSafe(parakeetAnchor, certificate)) {
         return true;
     }
-    return SecCertificateIsValid(certificate, verifyTime);
+    return false;
+}
+
+static bool _ShouldApplyEarlyExpirationCheck(SecPVCRef pvc,
+                                             SecCertificateRef certificate,
+                                             bool earlyAnchorExpiration) {
+    // Skip if Early Expiration not enabled
+    if (!earlyAnchorExpiration || !_SecTrustEarlyAnchorExpirationEnabled()) {
+        return false;
+    }
+
+    // Skip if User/admin anchor
+    TAAnchorSource anchorSource = TAGetAnchorSource(pvc->builder, certificate);
+    if (anchorSource == TAUserAnchor) {
+        return false;
+    }
+
+    // Enforce for First Party caller
+    if (SecPathBuilderIsPlatformBinary(pvc->builder)) {
+        return true;
+    }
+
+    // Enforce for Second Party caller
+    bool isSecondParty = false;
+    CFStringRef signingIdentifier = TACopySigningIdentifier(pvc->builder);
+    if (signingIdentifier && CFStringHasPrefix(signingIdentifier, CFSTR("com.apple."))) {
+        isSecondParty = true;
+    }
+
+    CFReleaseNull(signingIdentifier);
+    return isSecondParty;
+}
+
+static bool SecCertificateIsValidWithAdjustments(SecPVCRef pvc,
+                                                 SecCertificateRef certificate,
+                                                 CFAbsoluteTime verifyTime,
+                                                 bool earlyAnchorExpiration) {
+    if (_ShouldSkipExpirationCheck(certificate)) {
+        return true;
+    }
+
+    bool valid = SecCertificateIsValid(certificate, verifyTime);
+    if (!valid) { // Already expired?
+        return valid;
+    }
+
+    if (_ShouldApplyEarlyExpirationCheck(pvc, certificate, earlyAnchorExpiration)) {
+        CFAbsoluteTime sixtyDays = 60*24*3600;
+        CFAbsoluteTime earlyVerifyTime = verifyTime;
+        // Move verify time 60 days ahead so cert expires two months before actual expiration
+        // Unless the cert has < 120 days validity, since some of those are in the unit tests
+        if (SecCertificateNotValidAfter(certificate) - SecCertificateNotValidBefore(certificate) > 2*sixtyDays) {
+            earlyVerifyTime += 60*24*3600;
+        }
+        valid = SecCertificateIsValid(certificate, earlyVerifyTime);
+        if (!valid) {
+            CFDateRef notAfter = CFDateCreate(NULL, SecCertificateNotValidAfter(certificate));
+            CFStringRef anchors = TAAnchorSourceCopyDescription(TAGetAnchorSource(pvc->builder, certificate));
+            CFStringRef policyName = SecPolicyGetName(SecPVCGetPolicy(pvc));
+            CFDataRef data = SecCertificateCopyData(certificate);
+            CFStringRef hex = CFDataCopyHexString(data);
+            CFStringRef process = TACopySigningIdentifier(pvc->builder);
+            secnotice("earlyExpiration", "WARNING: Upcoming anchor expiration: %@. Evaluated by %@ against %@ using %@.\n%@",
+                      notAfter, process, policyName, anchors, hex);
+            CFReleaseNull(notAfter);
+            CFReleaseNull(anchors);
+            CFReleaseNull(data);
+            CFReleaseNull(hex);
+            CFReleaseNull(process);
+        }
+    }
+    return valid;
 }
 
 static void SecPolicyCheckTemporalValidity(SecPVCRef pvc,
@@ -532,8 +601,9 @@ static void SecPolicyCheckTemporalValidity(SecPVCRef pvc,
 	CFIndex ix, count = SecPVCGetCertificateCount(pvc);
 	CFAbsoluteTime verifyTime = SecPVCGetVerifyTime(pvc);
 	for (ix = 0; ix < count; ++ix) {
+        bool earlyAnchorExpiration = false; // BasicCertificateProcessing will apply this if needed
 		SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
-		if (!SecCertificateIsValidWithAdjustments(cert, verifyTime)) {
+		if (!SecCertificateIsValidWithAdjustments(pvc, cert, verifyTime, earlyAnchorExpiration)) {
 			/* certificate has expired. */
 			if (!SecPVCSetResult(pvc, key, ix, kCFBooleanFalse))
 				return;
@@ -1179,10 +1249,18 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         }
     }
 
+    SecCertificateRef anchor = SecCertificatePathVCGetRoot(path);
+    CFAbsoluteTime verify_time = SecPVCGetVerifyTime(pvc);
+
     if (is_anchor_trusted) {
         /* If the anchor is trusted we don't process the last cert in the
-           chain (root). */
+           chain (root), aside from early expiration */
         n--;
+        if (!SecCertificateIsValidWithAdjustments(pvc, anchor, verify_time, true)) {
+            if (!SecPVCSetResult(pvc, kSecPolicyCheckTemporalValidity, n, kCFBooleanFalse)) {
+                return;
+            }
+        }
     } else {
         Boolean isSelfSigned = false;
         (void) SecCertificateIsSelfSigned(SecCertificatePathVCGetCertificateAtIndex(path, n - 1), &isSelfSigned);
@@ -1191,6 +1269,13 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
             if (!SecPVCSetResultForced(pvc, kSecPolicyCheckAnchorTrusted,
                                        n - 1, kCFBooleanFalse, true)) {
                 return;
+            }
+            /* Check early expiration (since AnchorTrusted error could have been excepted via SecTrustSetOptions
+             * -- SecCodeSigning.*/
+            if (!SecCertificateIsValidWithAdjustments(pvc, anchor, verify_time, true)) {
+                if (!SecPVCSetResult(pvc, kSecPolicyCheckTemporalValidity, n - 1, kCFBooleanFalse)) {
+                    return;
+                }
             }
         } else {
             /* Add a detail for the missing intermediate. */
@@ -1201,16 +1286,11 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
         }
     }
 
-    CFAbsoluteTime verify_time = SecPVCGetVerifyTime(pvc);
-    //policy_set_t user_initial_policy_set = NULL;
-    //trust_anchor_t anchor;
-
     /* Initialization */
 #if POLICY_SUBTREES
     CFMutableArrayRef permitted_subtrees = NULL;
     CFMutableArrayRef excluded_subtrees = NULL;
     /* set the initial subtrees to the trusted anchor's subtrees, if it has them */
-    SecCertificateRef anchor = SecCertificatePathVCGetRoot(path);
     CFArrayRef anchor_permitted_subtrees = SecCertificateGetPermittedSubtrees(anchor);
     if (is_anchor_trusted && anchor_permitted_subtrees) {
         permitted_subtrees = CFArrayCreateMutableCopy(NULL, 0, anchor_permitted_subtrees);
@@ -1254,8 +1334,8 @@ static void SecPolicyCheckBasicCertificateProcessing(SecPVCRef pvc,
 
         /* (a) Verify the basic certificate information. */
 
-        /* Already done by chain builder. */
-        if (!SecCertificateIsValidWithAdjustments(cert, verify_time)) {
+        /* Already done by path checks. */
+        if (!SecCertificateIsValidWithAdjustments(pvc, cert, verify_time, false)) {
             if (!SecPVCSetResult(pvc, kSecPolicyCheckTemporalValidity, n - i, kCFBooleanFalse)) {
                 goto errOut;
             }
@@ -2352,6 +2432,33 @@ static void SecPolicyCheckBasicConstraintsCA(SecPVCRef pvc, CFStringRef key) {
     }
 }
 
+static void SecPolicyCheckURI(SecPVCRef pvc, CFStringRef key) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFStringRef uri = (CFStringRef)CFDictionaryGetValue(policy->_options, key);
+    if (!isString(uri)) {
+        /* We can't return an error here and making the evaluation fail
+         won't help much either. */
+        return;
+    }
+
+    if (!SecPolicyCheckCertURI(leaf, uri)) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
+}
+
+static void SecPolicyCheckRootMarkerOid(SecPVCRef pvc, CFStringRef key)
+{
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef value = CFDictionaryGetValue(policy->_options, key);
+
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    if (!SecCertificateHasMarkerExtension(root, value)) {
+        SecPVCSetResult(pvc, key, count - 1, kCFBooleanFalse);
+    }
+}
+
 void SecPolicyServerInitialize(void) {
 	gSecPolicyLeafCallbacks = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 		&kCFTypeDictionaryKeyCallBacks, NULL);
@@ -2783,7 +2890,7 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix) {
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
     CFIndex anchor_ix = SecPVCGetCertificateCount(pvc) - 1;
 
-    if (!SecCertificateIsValidWithAdjustments(cert, verifyTime)) {
+    if (!SecCertificateIsValidWithAdjustments(pvc, cert, verifyTime, false)) {
         /* Certificate has expired. */
         if (!SecPVCSetResult(pvc, kSecPolicyCheckTemporalValidity, ix, kCFBooleanFalse)) {
             goto errOut;
@@ -3128,23 +3235,19 @@ static bool SecPVCContainsTrustSettingsKeyUsage(SecPVCRef pvc,
 
 extern OSStatus SecTaskValidateForRequirement(SecTaskRef task, CFStringRef requirement);
 
-static bool SecPVCCallerIsApplication(CFDataRef clientAuditToken, CFTypeRef appRef) {
+static bool SecPVCCallerIsApplication(SecPathBuilderRef builder, CFTypeRef appRef) {
     bool result = false;
-    audit_token_t auditToken = {};
     SecTaskRef task = NULL;
     SecRequirementRef requirement = NULL;
     CFStringRef stringRequirement = NULL;
 
-    require_quiet(appRef && clientAuditToken, out);
+    require_quiet(appRef && builder, out);
     require(CFGetTypeID(appRef) == SecTrustedApplicationGetTypeID(), out);
     require_noerr(SecTrustedApplicationCopyRequirement((SecTrustedApplicationRef)appRef, &requirement), out);
     require(requirement, out);
     require_noerr(SecRequirementsCopyString(requirement, kSecCSDefaultFlags, &stringRequirement), out);
     require(stringRequirement, out);
-
-    require(sizeof(auditToken) == CFDataGetLength(clientAuditToken), out);
-    CFDataGetBytes(clientAuditToken, CFRangeMake(0, sizeof(auditToken)), (uint8_t *)&auditToken);
-    require(task = SecTaskCreateWithAuditToken(NULL, auditToken), out);
+    require(task = SecPathBuilderCopyClientTask(builder), out);
 
     if(errSecSuccess == SecTaskValidateForRequirement(task, stringRequirement)) {
         result = true;
@@ -3221,9 +3324,7 @@ static bool SecPVCMeetsConstraint(SecPVCRef pvc, SecCertificateRef certificate, 
 
 #if TARGET_OS_OSX
     trustedApplicationData =  CFDictionaryGetValue(constraint, kSecTrustSettingsApplication);
-    CFDataRef clientAuditToken = SecPathBuilderCopyClientAuditToken(pvc->builder);
-    applicationMatch = SecPVCCallerIsApplication(clientAuditToken, trustedApplicationData);
-    CFReleaseNull(clientAuditToken);
+    applicationMatch = SecPVCCallerIsApplication(pvc->builder, trustedApplicationData);
 #else
     if(CFDictionaryContainsKey(constraint, kSecTrustSettingsApplication)) {
         secerror("kSecTrustSettingsApplication is not yet supported on this platform");

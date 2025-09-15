@@ -2466,6 +2466,15 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
         break;
     }
 
+#if APPLE_ICU_CHANGES
+    case UDAT_DATE_FIELD:
+        // rdar://151394973 This hack insures we're getting the correct Paksha information for leap months
+        if (uprv_strcmp(cal.getType(),"vikram") == 0 && cal.get(UCAL_IS_LEAP_MONTH, status) == 1) {
+            value = ((value + 15) % 30);
+        }
+        zeroPaddingNumber(currentNumberFormat,appendTo, value, count, maxIntCount);
+        break;
+#endif
     // all of the other pattern symbols can be formatted as simple numbers with
     // appropriate zero padding
     default:
@@ -4633,6 +4642,21 @@ SimpleDateFormat::applyPattern(const UnicodeString& pattern)
             }
         }
     }
+#if APPLE_ICU_CHANGES
+    // rdar://145772893 A hack
+    // for Hindu calendars days are represented as strings *except* when the date format is "d" i.e. the stand alone day
+    // in that case, it should be formatted as a short, numeric, value
+    // string representation is applied through rbnf, using d=tithi<language> for rules
+    // when we apply a new format, this rbnf is not cleared, so its rule still applies
+    // this hack makes sure rbnf rulees are cleared, but as mentioned above, only for the stand alone day "d" format
+    else if(fCalendar != nullptr && isHinduCalendar() &&  useNumericDaysInFormat()) {
+      if (fSharedNumberFormatters) {
+          freeSharedNumberFormatters(fSharedNumberFormatters);
+          fSharedNumberFormatters = nullptr;
+      }
+      fDateOverride.setToBogus();
+    }
+#endif // APPLE_ICU_CHANGES
 }
 
 //----------------------------------------------------------------------
@@ -5011,6 +5035,26 @@ void SimpleDateFormat::parsePattern() {
         }
 #endif  // APPLE_ICU_CHANGES
     }
+}
+          
+// rdar://145772893 Utility function checking if a calendar is one of Hindu calendars
+bool SimpleDateFormat::isHinduCalendar()
+{
+    return uprv_strcmp(fCalendar->getType(),"vikram") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"bangla") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"gujarati") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"kannada") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"malayalam") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"marathi") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"odia") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"tamil") == 0 ||
+        uprv_strcmp(fCalendar->getType(),"telugu") == 0
+  ;
+}
+// rdar://145772893 Utility function for checking if a pattern should use numeric values for days
+bool SimpleDateFormat::useNumericDaysInFormat()
+{
+    return (u_strcmp(fPattern.getTerminatedBuffer(), u"d") == 0);
 }
 
 U_NAMESPACE_END

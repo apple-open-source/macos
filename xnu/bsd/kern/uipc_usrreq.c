@@ -2473,7 +2473,7 @@ out:
 void
 unp_init(void)
 {
-	_CASSERT(UIPC_MAX_CMSG_FD >= (MCLBYTES / sizeof(int)));
+	static_assert(UIPC_MAX_CMSG_FD >= (MCLBYTES / sizeof(int)));
 	LIST_INIT(&unp_dhead);
 	LIST_INIT(&unp_shead);
 }

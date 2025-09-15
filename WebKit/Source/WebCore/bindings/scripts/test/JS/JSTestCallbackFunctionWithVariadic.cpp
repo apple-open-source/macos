@@ -51,7 +51,7 @@ JSTestCallbackFunctionWithVariadic::~JSTestCallbackFunctionWithVariadic()
 #endif
 }
 
-CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunctionWithVariadic::handleEvent(VariadicArguments<IDLAny>&& arguments)
+CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunctionWithVariadic::invoke(VariadicArguments<IDLAny>&& arguments)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -80,12 +80,12 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunction
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }
 
-CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunctionWithVariadic::handleEventRethrowingException(VariadicArguments<IDLAny>&& arguments)
+CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunctionWithVariadic::invokeRethrowingException(VariadicArguments<IDLAny>&& arguments)
 {
     if (!canInvokeCallback())
         return CallbackResultType::UnableToExecute;
@@ -114,7 +114,7 @@ CallbackResult<typename IDLDOMString::CallbackReturnType> JSTestCallbackFunction
 
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto returnValue = convert<IDLDOMString>(lexicalGlobalObject, jsResult);
-    if (UNLIKELY(returnValue.hasException(throwScope)))
+    if (returnValue.hasException(throwScope)) [[unlikely]]
         return CallbackResultType::ExceptionThrown;
     return { returnValue.releaseReturnValue() };
 }

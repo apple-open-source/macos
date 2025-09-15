@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,7 +41,6 @@
 #include <WebCore/Page.h>
 #include <pal/spi/cocoa/DataDetectorsCoreSPI.h>
 #include <pal/spi/mac/DataDetectorsSPI.h>
-#include <wtf/Algorithms.h>
 #include <wtf/IteratorRange.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefPtr.h>
@@ -72,7 +71,7 @@ RefPtr<UnifiedPDFPlugin> PDFDataDetectorOverlayController::protectedPlugin() con
     return m_plugin.get();
 }
 
-PageOverlay& PDFDataDetectorOverlayController::installOverlayIfNeeded()
+Ref<PageOverlay> PDFDataDetectorOverlayController::installProtectedOverlayIfNeeded()
 {
     if (m_overlay)
         return *m_overlay;
@@ -88,7 +87,7 @@ void PDFDataDetectorOverlayController::uninstallOverlay()
     if (!m_overlay)
         return;
 
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return;
 
@@ -113,12 +112,12 @@ static RetainPtr<DDHighlightRef> createPlatformDataDetectorHighlight(Vector<Floa
     BOOL drawFlipped = YES;
     float targetSurfaceBackingScaleFactor = 0;
 
-    return adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, highlightBoundsCG.data(), highlightBounds.size(), visibleContentRect, style, drawButton, writingDirection, endsWithEOL, drawFlipped, targetSurfaceBackingScaleFactor));
+    return adoptCF(PAL::softLink_DataDetectors_DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection(nullptr, highlightBoundsCG.mutableSpan().data(), highlightBounds.size(), visibleContentRect, style, drawButton, writingDirection, endsWithEOL, drawFlipped, targetSurfaceBackingScaleFactor));
 }
 
 RetainPtr<DDHighlightRef> PDFDataDetectorOverlayController::createPlatformDataDetectorHighlight(PDFDataDetectorItem& dataDetectorItem) const
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return { };
 
@@ -133,7 +132,7 @@ RetainPtr<DDHighlightRef> PDFDataDetectorOverlayController::createPlatformDataDe
 
 bool PDFDataDetectorOverlayController::handleMouseEvent(const WebMouseEvent& event, PDFDocumentLayout::PageIndex pageIndex)
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return false;
 
@@ -158,7 +157,7 @@ bool PDFDataDetectorOverlayController::handleMouseEvent(const WebMouseEvent& eve
     if (auto iterator = m_pdfDataDetectorItemsWithHighlightsMap.find(pageIndex); iterator != m_pdfDataDetectorItemsWithHighlightsMap.end()) {
         for (auto& [dataDetectorItem, coreHighlight] : iterator->value) {
             Boolean isOverButton = NO;
-            if (!PAL::softLink_DataDetectors_DDHighlightPointIsOnHighlight(coreHighlight->highlight(), mousePositionInMainFrameContentsSpace, &isOverButton))
+            if (!PAL::softLink_DataDetectors_DDHighlightPointIsOnHighlight(coreHighlight->protectedHighlight().get(), mousePositionInMainFrameContentsSpace, &isOverButton))
                 continue;
 
             mouseIsOverActiveHighlightButton = isOverButton;
@@ -176,7 +175,7 @@ bool PDFDataDetectorOverlayController::handleMouseEvent(const WebMouseEvent& eve
             previousActiveHighlight->fadeOut();
 
         if (activeHighlight) {
-            installOverlayIfNeeded().layer().addChild(activeHighlight->protectedLayer());
+            installProtectedOverlayIfNeeded()->protectedLayer()->addChild(activeHighlight->layer());
             activeHighlight->fadeIn();
         }
 
@@ -191,7 +190,7 @@ bool PDFDataDetectorOverlayController::handleMouseEvent(const WebMouseEvent& eve
 
 bool PDFDataDetectorOverlayController::handleDataDetectorAction(const IntPoint& mousePositionInWindowSpace, PDFDataDetectorItem& dataDetectorItem)
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return false;
 
@@ -207,7 +206,7 @@ bool PDFDataDetectorOverlayController::handleDataDetectorAction(const IntPoint& 
 
 void PDFDataDetectorOverlayController::updateDataDetectorHighlightsIfNeeded(PDFDocumentLayout::PageIndex pageIndex)
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return;
 
@@ -264,7 +263,7 @@ void PDFDataDetectorOverlayController::didInvalidateHighlightOverlayRects(std::o
         m_staleDataDetectorItemWithHighlight = { { }, { } };
     });
 
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return;
 
@@ -303,7 +302,7 @@ void PDFDataDetectorOverlayController::willMoveToPage(PageOverlay&, Page* page)
 
 void PDFDataDetectorOverlayController::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps)
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return;
 
@@ -312,7 +311,7 @@ void PDFDataDetectorOverlayController::scheduleRenderingUpdate(OptionSet<Renderi
 
 float PDFDataDetectorOverlayController::deviceScaleFactor() const
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return 1;
 
@@ -321,7 +320,7 @@ float PDFDataDetectorOverlayController::deviceScaleFactor() const
 
 RefPtr<GraphicsLayer> PDFDataDetectorOverlayController::createGraphicsLayer(GraphicsLayerClient& client)
 {
-    RefPtr plugin = protectedPlugin();
+    RefPtr plugin = m_plugin.get();
     if (!plugin)
         return nullptr;
 

@@ -28,6 +28,7 @@
 #if ENABLE(PDF_HUD)
 
 #import "PDFPluginIdentifier.h"
+#import <WebCore/FrameIdentifier.h>
 
 namespace WebKit {
 class WebPageProxy;
@@ -35,7 +36,7 @@ class WebPageProxy;
 
 @interface WKPDFHUDView : NSView
 
-- (instancetype)initWithFrame:(NSRect)frame pluginIdentifier:(WebKit::PDFPluginIdentifier)pluginIdentifier page:(WebKit::WebPageProxy&)page;
+- (instancetype)initWithFrame:(NSRect)frame pluginIdentifier:(WebKit::PDFPluginIdentifier)pluginIdentifier frameIdentifier:(WebCore::FrameIdentifier)frameID page:(WebKit::WebPageProxy&)page;
 - (void)setDeviceScaleFactor:(CGFloat)deviceScaleFactor;
 
 - (BOOL)handleMouseDown:(NSEvent *)event;

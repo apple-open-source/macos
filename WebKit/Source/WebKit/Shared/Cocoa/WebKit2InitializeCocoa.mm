@@ -40,7 +40,12 @@
 #endif
 
 #if ENABLE(LLVM_PROFILE_GENERATION)
+#if PLATFORM(IOS_FAMILY)
+#import <wtf/LLVMProfilingUtils.h>
+extern "C" char __llvm_profile_filename[] = "%t/WebKitPGO/WebKit_%m_pid%p%c.profraw";
+#else
 extern "C" char __llvm_profile_filename[] = "/private/tmp/WebKitPGO/WebKit_%m_pid%p%c.profraw";
+#endif
 #endif
 
 namespace WebKit {
@@ -73,7 +78,7 @@ void InitializeWebKit2()
         if ([NSThread isMainThread] || linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::InitializeWebKit2MainThreadAssertion))
             runInitializationCode();
         else
-            WorkQueue::main().dispatchSync([] { runInitializationCode(); });
+            WorkQueue::mainSingleton().dispatchSync([] { runInitializationCode(); });
     });
 }
 

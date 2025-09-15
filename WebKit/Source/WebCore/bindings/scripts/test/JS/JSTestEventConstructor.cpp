@@ -22,6 +22,7 @@
 #include "JSTestEventConstructor.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -55,7 +56,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -68,7 +69,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto bubblesConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, bubblesValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(bubblesConversionResult.hasException(throwScope)))
+    if (bubblesConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.bubbles = bubblesConversionResult.releaseReturnValue();
     JSValue cancelableValue;
@@ -79,7 +80,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto cancelableConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, cancelableValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(cancelableConversionResult.hasException(throwScope)))
+    if (cancelableConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.cancelable = cancelableConversionResult.releaseReturnValue();
     JSValue composedValue;
@@ -90,7 +91,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto composedConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, composedValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(composedConversionResult.hasException(throwScope)))
+    if (composedConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.composed = composedConversionResult.releaseReturnValue();
     JSValue attr2Value;
@@ -101,7 +102,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto attr2ConversionResult = convertOptionalWithDefault<IDLDOMString>(lexicalGlobalObject, attr2Value, [&]() -> ConversionResult<IDLDOMString> { return Converter<IDLDOMString>::ReturnType { emptyString() }; });
-    if (UNLIKELY(attr2ConversionResult.hasException(throwScope)))
+    if (attr2ConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.attr2 = attr2ConversionResult.releaseReturnValue();
 #if ENABLE(SPECIAL_EVENT)
@@ -113,7 +114,7 @@ template<> ConversionResult<IDLDictionary<TestEventConstructor::Init>> convertDi
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto attr3ConversionResult = convertOptionalWithDefault<IDLDOMString>(lexicalGlobalObject, attr3Value, [&]() -> ConversionResult<IDLDOMString> { return Converter<IDLDOMString>::ReturnType { emptyString() }; });
-    if (UNLIKELY(attr3ConversionResult.hasException(throwScope)))
+    if (attr3ConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.attr3 = attr3ConversionResult.releaseReturnValue();
 #endif
@@ -169,15 +170,15 @@ template<> EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSTestEventConstructorDOMCons
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* castedThis = jsCast<JSTestEventConstructorDOMConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto typeConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(typeConversionResult.hasException(throwScope)))
+    if (typeConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->argument(1);
     auto eventInitDictConversionResult = convert<IDLDictionary<TestEventConstructor::Init>>(*lexicalGlobalObject, argument1.value());
-    if (UNLIKELY(eventInitDictConversionResult.hasException(throwScope)))
+    if (eventInitDictConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     auto object = TestEventConstructor::create(typeConversionResult.releaseReturnValue(), eventInitDictConversionResult.releaseReturnValue());
     if constexpr (IsExceptionOr<decltype(object)>)
@@ -266,7 +267,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestEventConstructorConstructor, (JSGlobalObject* lex
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestEventConstructorPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestEventConstructor::getConstructor(vm, prototype->globalObject()));
 }
@@ -315,7 +316,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestEventConstructor_attr3, (JSGlobalObject* lexicalG
 
 JSC::GCClient::IsoSubspace* JSTestEventConstructor::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestEventConstructor, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestEventConstructor, UseCustomHeapCellType::No>(vm, "JSTestEventConstructor"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestEventConstructor.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestEventConstructor = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestEventConstructor.get(); },
@@ -340,7 +341,9 @@ extern "C" { extern void (*const __identifier("??_7TestEventConstructor@WebCore@
 #else
 extern "C" { extern void* _ZTVN7WebCore20TestEventConstructorE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestEventConstructor>, void>> static inline void verifyVTable(TestEventConstructor* ptr) {
+template<std::same_as<TestEventConstructor> T>
+static inline void verifyVTable(TestEventConstructor* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

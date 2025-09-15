@@ -62,7 +62,7 @@ public:
     void setPlayerItem(AVPlayerItem *);
     void setAudioTrack(AVAssetTrack *);
 
-    using AudioCallback = Function<void(uint64_t startFrame, uint64_t numberOfFrames)>;
+    using AudioCallback = Function<void(uint64_t startFrame, uint64_t numberOfFrames, bool needFlush)>;
     WEBCORE_EXPORT void setAudioCallback(AudioCallback&&);
     using ConfigureAudioStorageCallback = Function<std::unique_ptr<CARingBuffer>(const CAAudioStreamDescription&, size_t frameCount)>;
     WEBCORE_EXPORT void setConfigureAudioStorageCallback(ConfigureAudioStorageCallback&&);
@@ -76,7 +76,7 @@ private:
     void createMixIfNeeded();
 
     // AudioSourceProvider
-    void provideInput(AudioBus*, size_t framesToProcess) override;
+    void provideInput(AudioBus&, size_t framesToProcess) override;
     void setClient(WeakPtr<AudioSourceProviderClient>&&) override;
     bool isHandlingAVPlayer() const final { return true; }
 

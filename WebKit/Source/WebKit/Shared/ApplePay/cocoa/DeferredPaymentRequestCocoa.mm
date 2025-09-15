@@ -40,21 +40,21 @@ using namespace WebCore;
 RetainPtr<PKDeferredPaymentRequest> platformDeferredPaymentRequest(const ApplePayDeferredPaymentRequest& webDeferredPaymentRequest)
 {
     auto pkDeferredPaymentRequest = adoptNS([PAL::allocPKDeferredPaymentRequestInstance()
-        initWithPaymentDescription:webDeferredPaymentRequest.paymentDescription
+        initWithPaymentDescription:webDeferredPaymentRequest.paymentDescription.createNSString().get()
         deferredBilling:platformDeferredSummaryItem(webDeferredPaymentRequest.deferredBilling)
-        managementURL:[NSURL URLWithString:webDeferredPaymentRequest.managementURL]]);
+        managementURL:adoptNS([[NSURL alloc] initWithString:webDeferredPaymentRequest.managementURL.createNSString().get()]).get()]);
     if (auto& billingAgreement = webDeferredPaymentRequest.billingAgreement; !billingAgreement.isNull())
-        [pkDeferredPaymentRequest setBillingAgreement:billingAgreement];
+        [pkDeferredPaymentRequest setBillingAgreement:billingAgreement.createNSString().get()];
     if (auto& freeCancellationDate = webDeferredPaymentRequest.freeCancellationDate; !freeCancellationDate.isNaN()) {
         if (auto& freeCancellationDateTimeZone = webDeferredPaymentRequest.freeCancellationDateTimeZone; !freeCancellationDateTimeZone.isNull()) {
-            if (auto timeZone = [NSTimeZone timeZoneWithName:freeCancellationDateTimeZone]) {
+            if (RetainPtr timeZone = [NSTimeZone timeZoneWithName:freeCancellationDateTimeZone.createNSString().get()]) {
                 [pkDeferredPaymentRequest setFreeCancellationDate:[NSDate dateWithTimeIntervalSince1970:freeCancellationDate.secondsSinceEpoch().value()]];
-                [pkDeferredPaymentRequest setFreeCancellationDateTimeZone:timeZone];
+                [pkDeferredPaymentRequest setFreeCancellationDateTimeZone:timeZone.get()];
             }
         }
     }
     if (auto& tokenNotificationURL = webDeferredPaymentRequest.tokenNotificationURL; !tokenNotificationURL.isNull())
-        [pkDeferredPaymentRequest setTokenNotificationURL:[NSURL URLWithString:tokenNotificationURL]];
+        [pkDeferredPaymentRequest setTokenNotificationURL:adoptNS([[NSURL alloc] initWithString:tokenNotificationURL.createNSString().get()]).get()];
     return pkDeferredPaymentRequest;
 }
 

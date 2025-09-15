@@ -118,11 +118,11 @@ void RemoteCDMProxy::setLogIdentifier(uint64_t logIdentifier)
 
 std::optional<SharedPreferencesForWebProcess> RemoteCDMProxy::sharedPreferencesForWebProcess() const
 {
-    if (!m_factory)
+    RefPtr factory = m_factory.get();
+    if (!factory)
         return std::nullopt;
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG return m_factory->sharedPreferencesForWebProcess();
+    return factory->sharedPreferencesForWebProcess();
 }
 
 }

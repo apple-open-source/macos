@@ -47,13 +47,7 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
         this._exportDataMarkers = null;
         this._exportDataRecords = null;
         this._exportDataMemoryPressureEvents = null;
-        this._exportDataSampleStackTraces = null;
-        this._exportDataSampleDurations = null;
-
-        this._topDownCallingContextTree = new WI.CallingContextTree(WI.CallingContextTree.Type.TopDown);
-        this._bottomUpCallingContextTree = new WI.CallingContextTree(WI.CallingContextTree.Type.BottomUp);
-        this._topFunctionsTopDownCallingContextTree = new WI.CallingContextTree(WI.CallingContextTree.Type.TopFunctionsTopDown);
-        this._topFunctionsBottomUpCallingContextTree = new WI.CallingContextTree(WI.CallingContextTree.Type.TopFunctionsBottomUp);
+        this._exportDataSamplesForTarget = new Map;
 
         for (let type of WI.TimelineManager.availableTimelineTypes()) {
             let timeline = WI.Timeline.create(type);
@@ -76,7 +70,7 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
 
     static async import(identifier, json, displayName)
     {
-        let {startTime, endTime, discontinuities, instrumentTypes, records, markers, memoryPressureEvents, sampleStackTraces, sampleDurations} = json;
+        let {startTime, endTime, discontinuities, instrumentTypes, records, markers, memoryPressureEvents, samples} = json;
         let importedDisplayName = WI.UIString("Imported - %s").format(displayName);
         let instruments = instrumentTypes.map((type) => WI.Instrument.createForTimelineType(type));
         let recording = new WI.TimelineRecording(identifier, importedDisplayName, instruments);
@@ -87,15 +81,26 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
         recording._endTime = endTime;
         recording._discontinuities = discontinuities;
 
-        recording.initializeCallingContextTrees(sampleStackTraces, sampleDurations);
+        if (samples) {
+            for (let {target, stackTraces, durations} of samples)
+                recording.updateCallingContextTrees(WI.ImportedTarget.import(target), stackTraces, durations);
+        } else if (json.sampleStackTraces && json.sampleDurations) {
+            // COMPATIBILITY: `samples` replaced `sampleStackTraces` and `sampleDurations`.
+            recording.updateCallingContextTrees(WI.assumingMainTarget(), json.sampleStackTraces, json.sampleDurations);
+        }
 
         for (let recordJSON of records) {
             let record = await WI.TimelineRecord.fromJSON(recordJSON);
             if (record) {
                 recording.addRecord(record);
 
-                if (record instanceof WI.ScriptTimelineRecord)
-                    record.profilePayload = recording._topDownCallingContextTree.toCPUProfilePayload(record.startTime, record.endTime);
+                if (record instanceof WI.ScriptTimelineRecord) {
+                    let scriptTimeline = recording.timelineForRecordType(WI.TimelineRecord.Type.Script);
+                    let topDownCallingContextTree = scriptTimeline?.callingContextTree(record.target || WI.assumingMainTarget(), WI.CallingContextTree.Type.TopDown);
+                    console.assert(topDownCallingContextTree, scriptTimeline);
+                    if (topDownCallingContextTree)
+                        record.profilePayload = topDownCallingContextTree.toCPUProfilePayload(record.startTime, record.endTime);
+                }
             }
         }
 
@@ -137,8 +142,7 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
             records: this._exportDataRecords,
             markers: this._exportDataMarkers,
             memoryPressureEvents: this._exportDataMemoryPressureEvents,
-            sampleStackTraces: this._exportDataSampleStackTraces,
-            sampleDurations: this._exportDataSampleDurations,
+            samples: Array.from(this._exportDataSamplesForTarget.values()),
         };
     }
 
@@ -153,11 +157,6 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
     get imported() { return this._imported; }
     get startTime() { return this._startTime; }
     get endTime() { return this._endTime; }
-
-    get topDownCallingContextTree() { return this._topDownCallingContextTree; }
-    get bottomUpCallingContextTree() { return this._bottomUpCallingContextTree; }
-    get topFunctionsTopDownCallingContextTree() { return this._topFunctionsTopDownCallingContextTree; }
-    get topFunctionsBottomUpCallingContextTree() { return this._topFunctionsBottomUpCallingContextTree; }
 
     start(initiatedByBackend)
     {
@@ -246,13 +245,7 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
         this._exportDataMarkers = [];
         this._exportDataRecords = [];
         this._exportDataMemoryPressureEvents = [];
-        this._exportDataSampleStackTraces = [];
-        this._exportDataSampleDurations = [];
-
-        this._topDownCallingContextTree.reset();
-        this._bottomUpCallingContextTree.reset();
-        this._topFunctionsTopDownCallingContextTree.reset();
-        this._topFunctionsBottomUpCallingContextTree.reset();
+        this._exportDataSamplesForTarget.clear();
 
         for (var timeline of this._timelines.values())
             timeline.reset(suppressEvents);
@@ -427,17 +420,24 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
         }
     }
 
-    initializeCallingContextTrees(stackTraces, sampleDurations)
+    updateCallingContextTrees(target, stackTraces, sampleDurations)
     {
-        this._exportDataSampleStackTraces.pushAll(stackTraces);
-        this._exportDataSampleDurations.pushAll(sampleDurations);
+        let exportDataSamples = this._exportDataSamplesForTarget.getOrInitialize(target, () => {
+            return {
+                target: target.exportData(),
+                stackTraces: [],
+                durations: [],
+            };
+        });
+        exportDataSamples.stackTraces.pushAll(stackTraces);
+        exportDataSamples.durations.pushAll(sampleDurations);
 
-        for (let i = 0; i < stackTraces.length; i++) {
-            this._topDownCallingContextTree.updateTreeWithStackTrace(stackTraces[i], sampleDurations[i]);
-            this._bottomUpCallingContextTree.updateTreeWithStackTrace(stackTraces[i], sampleDurations[i]);
-            this._topFunctionsTopDownCallingContextTree.updateTreeWithStackTrace(stackTraces[i], sampleDurations[i]);
-            this._topFunctionsBottomUpCallingContextTree.updateTreeWithStackTrace(stackTraces[i], sampleDurations[i]);
-        }
+        let scriptTimeline = this._timelines.get(WI.TimelineRecord.Type.Script);
+        console.assert(scriptTimeline, this._timelines);
+        if (!scriptTimeline)
+            return;
+
+        scriptTimeline.updateCallingContextTrees(target, stackTraces, sampleDurations);
     }
 
     get exportMode()
@@ -511,6 +511,7 @@ WI.TimelineRecording.Event = {
     SourceCodeTimelineAdded: "timeline-recording-source-code-timeline-added",
     InstrumentAdded: "timeline-recording-instrument-added",
     InstrumentRemoved: "timeline-recording-instrument-removed",
+    TargetAdded: "timeline-recording-target-added",
     TimesUpdated: "timeline-recording-times-updated",
     MarkerAdded: "timeline-recording-marker-added",
 };

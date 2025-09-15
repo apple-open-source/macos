@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Inc.
+ * Copyright (C) 2006 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +22,7 @@
 #pragma once
 
 #include "FloatQuad.h"
-#include "RoundedRect.h"
+#include "LayoutRoundedRect.h"
 
 namespace WebCore {
 
@@ -55,7 +55,7 @@ public:
 
     WEBCORE_EXPORT bool intersects(const LayoutRect&) const;
     bool intersects(const FloatRect&) const;
-    bool intersects(const RoundedRect&) const;
+    bool intersects(const LayoutRoundedRect&) const;
 
     const FloatPoint& transformedPoint() const { return m_transformedPoint; }
     const FloatQuad& transformedRect() const { return m_transformedRect; }

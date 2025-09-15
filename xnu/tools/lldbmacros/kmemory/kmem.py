@@ -73,7 +73,7 @@ class KMem(object, metaclass=ABCMeta):
     heap data structures, globals, ...
     """
 
-    _HEAP_NAMES = [ "", "shared.", "data.", "" ]
+    _HEAP_NAMES = [ "", "early.", "data.", "data_shared.", "" ]
 
     @staticmethod
     def _parse_range(zone_info_v, name):
@@ -118,12 +118,6 @@ class KMem(object, metaclass=ABCMeta):
         self.meta_range = self._parse_range(zone_info, 'zi_meta_range')
         self.bits_range = self._parse_range(zone_info, 'zi_bits_range')
         self.zone_range = self._parse_range(zone_info, 'zi_map_range')
-        try:
-            self.pgz_range = self._parse_range(zone_info, 'zi_pgz_range')
-            self.pgz_bt    = target.chkFindFirstGlobalVariable('pgz_backtraces').xDereference()
-        except:
-            self.pgz_range = MemoryRange(0, 0)
-            self.pgz_bt    = None
 
         kmem_ranges = target.chkFindFirstGlobalVariable('kmem_ranges')
         count       = kmem_ranges.GetByteSize() // target.GetAddressByteSize()
@@ -184,6 +178,7 @@ class KMem(object, metaclass=ABCMeta):
             self.rwlde_caller_packing = None
 
         self.c_slot_packing = VMPointerUnpacker(target, 'c_slot_packing_params')
+        self.vm_map_entry_packing = VMPointerUnpacker(target, 'vm_map_entry_packing_params')
 
     @staticmethod
     @caching.cache_statically

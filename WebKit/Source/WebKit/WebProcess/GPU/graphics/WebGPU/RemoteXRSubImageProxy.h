@@ -85,7 +85,7 @@ private:
     }
 
     WebGPUIdentifier m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
     Ref<RemoteGPUProxy> m_parent;
 
     RefPtr<RemoteTextureProxy> m_currentTexture;

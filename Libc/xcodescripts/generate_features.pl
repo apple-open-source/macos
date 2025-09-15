@@ -21,6 +21,22 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	$ENV{"CURRENT_ARCH"} = $arch;
 
 	my $platformName = $ENV{"VARIANT_PLATFORM_NAME"};
+
+	# MOVES_LOCALTIME defaults to ON so that new embedded platforms don't
+	# need anything additional here.  macOS and simulator platforms both
+	# retain /etc/localtime.
+	my $platformMovesLocaltime = 1;
+	if ($platformName =~ /simulator/ or $platformName =~ /macos/) {
+		$platformMovesLocaltime = 0;
+	}
+
+	# Platform uses TZDIR symlink in /var/db, which is basically everything
+	# except simulators.  This is technically incorrect for macOS < 10.13.
+	my $platformTzSymlink = 1;
+	if ($platformName =~ /simulator/) {
+		$platformTzSymlink = 0;
+	}
+
 	$platformName =~ s/simulator/os/;
 
 	# Try to find a platform+arch config file. If not found, try just
@@ -85,6 +101,18 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 		$unifdefs{"UNIFDEF_LEGACY_RUNE_APIS"} = defined($features{"FEATURE_LEGACY_RUNE_APIS"});
 		$unifdefs{"UNIFDEF_LEGACY_UTMP_APIS"} = defined($features{"FEATURE_LEGACY_UTMP_APIS"});
 		$unifdefs{"UNIFDEF_POSIX_ILP32_ALLOW"} = defined($features{"FEATURE_POSIX_ILP32_ALLOW"});
+
+		if (defined($features{"FEATURE_MOVE_LOCALTIME"}) or $platformMovesLocaltime) {
+			$unifdefs{"UNIFDEF_MOVE_LOCALTIME"} = 1;
+		} else {
+			$unifdefs{"UNIFDEF_MOVE_LOCALTIME"} = 0;
+		}
+
+		if (defined($features{"FEATURE_TZDIR_SYMLINK"}) or $platformTzSymlink) {
+			$unifdefs{"UNIFDEF_TZDIR_SYMLINK"} = 1;
+		} else {
+			$unifdefs{"UNIFDEF_TZDIR_SYMLINK"} = 0;
+		}
 		
 		my $output = "";
 		for my $d (keys %unifdefs) {

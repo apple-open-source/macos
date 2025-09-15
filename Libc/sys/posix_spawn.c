@@ -73,48 +73,55 @@ posix_spawnp(pid_t * __restrict pid, const char * __restrict file,
 		char *const argv[ __restrict], char *const envp[ __restrict])
 {
 	const char *env_path;
-	char *bp;
-	char *cur;
-	char *p;
+	char path_buf[PATH_MAX];
+	char *bp, *np, *op, *p;
 	char **memp;
-	int lp;
-	int ln;
+	size_t ln, lp;
 	int cnt;
 	int err = 0;
 	int eacces = 0;
 	struct stat sb;
-	char path_buf[PATH_MAX];
-
-	if ((env_path = getenv("PATH")) == NULL)
-		env_path = _PATH_DEFPATH;
 
 	/* If it's an absolute or relative path name, it's easy. */
 	if (strchr(file, '/')) {
 		bp = (char *)file;
-		cur = NULL;
+		env_path = op = NULL;
 		goto retry;
 	}
+
+	if ((env_path = getenv("PATH")) == NULL)
+		env_path = _PATH_DEFPATH;
+
 	bp = path_buf;
 
 	/* If it's an empty path name, fail in the usual POSIX way. */
 	if (*file == '\0')
 		return (ENOENT);
 
-	if ((cur = alloca(strlen(env_path) + 1)) == NULL)
-		return ENOMEM;
-	strcpy(cur, env_path);
-	while ((p = strsep(&cur, ":")) != NULL) {
+	op = env_path;
+	ln = strlen(file);
+	while (op != NULL) {
+		np = strchrnul(op, ':');
+
 		/*
 		 * It's a SHELL path -- double, leading and trailing colons
 		 * mean the current directory.
 		 */
-		if (*p == '\0') {
+		if (np == op) {
+			/* Empty component. */
 			p = ".";
 			lp = 1;
 		} else {
-			lp = strlen(p);
+			/* Non-empty component. */
+			p = op;
+			lp = np - op;
 		}
-		ln = strlen(file);
+
+		/* Advance to the next component or terminate after this. */
+		if (*np == '\0')
+			op = NULL;
+		else
+			op = np + 1;
 
 		/*
 		 * If the path is too long complain.  This is a possible
@@ -187,7 +194,8 @@ retry:		err = posix_spawn(pid, bp, file_actions, attrp, argv, envp);
 	}
 	if (eacces)
 		err = EACCES;
-	else
+	/* Preserve errno from posix_spawn(3) if it wasn't a PATH search. */
+	else if (env_path != NULL)
 		err = ENOENT;
 done:
 	return (err);

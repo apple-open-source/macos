@@ -612,7 +612,6 @@ RunDigestPerfTest(NSString *name, NSString *itemClass, NSString *accessGroup, NS
            name, (unsigned long)us] UTF8String]);
 }
 
-
 static void
 CheckItemPerformance(void)
 {
@@ -774,6 +773,221 @@ LegacyItemCopyMatchingCertificateTypeAndEncoding(void)
 }
 #endif //TARGET_OS_OSX
 
+typedef NS_ENUM(NSInteger, SecItemOperation) {
+    SecItemAddOperation,
+    SecItemCopyMatchingOperation,
+    SecItemUpdateOperation,
+    SecItemDeleteOperation
+};
+
+/*
+ Keep the order of keychain operations same as they depend on items inserted in previous operation
+ Operates over keychain items have kSecValueData of size 1, 2, 5, 7, 10, 15, 20MB sizes
+ */
+static NSMutableArray* reportTimingForOperation(SecItemOperation opName, BOOL needData) {
+    NSArray* sizes = @[@1, @2, @5, @7, @10, @15, @20];
+    NSMutableArray *timingInfo = [[NSMutableArray alloc] init];
+    // Create fakeData for length targetSize if needed
+    NSMutableData *fakeData;
+    for (NSNumber *size in sizes) {
+        @autoreleasepool {
+            NSUInteger targetSize = [size intValue] * 1024 * 1024; // sizeMB
+            if (opName == SecItemAddOperation || (needData && opName == SecItemUpdateOperation)) {
+                fakeData = [[NSMutableData alloc] init];
+                // const char pattern[] = "FAKE_DATA_PATTERN_";
+                NSString *patternString = [NSString stringWithFormat:@"Fake_%ld_Data_Pattern", (long)opName];
+                const char* pattern = [patternString UTF8String];
+                NSUInteger patternLength = strlen(pattern);
+                while ([fakeData length] < targetSize) {
+                    [fakeData appendBytes:pattern length:patternLength];
+                }
+                // Trim to exact size if needed
+                if ([fakeData length] > targetSize) {
+                    [fakeData setLength:targetSize];
+                }
+            }
+            NSArray<NSString*> *accessGroups = @[kAccessGroup1, kAccessGroup2];
+            NSArray<NSString*> *itemClasses = @[(id)kSecClassGenericPassword, (id)kSecClassInternetPassword];
+            // Traverse through item Classes
+            for (NSString* itemClass in itemClasses) {
+                uint64_t avg_time_itemClass = 0;
+                // Traverse through access groups
+                for (NSString* agrp in accessGroups) {
+                    uint64_t avg_time_agrp = 0;
+                    // Traverse through 10 items in each agrp
+                    for(unsigned i=1; i<=10; i++) {
+                        @autoreleasepool {
+                            uint64_t itemTime = 0;
+                            switch (opName) {
+                                case SecItemAddOperation:
+                                {
+                                    if (fakeData == nil || [fakeData length] != targetSize) {
+                                        printf("kSecValueData length: %lu, however Desired length: %lu\n", (unsigned long)[fakeData length], (unsigned long)targetSize);
+                                        fflush(stdout);
+                                        abort();
+                                    }
+                                    @autoreleasepool {
+                                        NSDictionary *itemAddQuery = @{
+                                            (id)kSecClass : itemClass,
+                                            (id)kSecAttrAccount : [NSString stringWithFormat:@"accountHeavy-%d_%lu", i, (unsigned long)targetSize],
+                                            (id)kSecAttrAccessGroup : agrp,
+                                            (id)kSecUseDataProtectionKeychain: @YES,
+                                            (id)kSecValueData: fakeData,
+                                            (id)kSecAttrSynchronizable: @NO,
+                                            (id)kSecAttrDescription: [NSString stringWithFormat:@"descHeavy_%d_%lu", i, (unsigned long)targetSize],
+                                        };
+                                        uint64_t start = mach_absolute_time();
+                                        OSStatus status = SecItemAdd((__bridge CFDictionaryRef)itemAddQuery, NULL);
+                                        uint64_t stop = mach_absolute_time();
+                                        itemTime = timeDiff(start, stop);
+                                        if (status != 0) {
+                                            printf("SecItemAdd failed with: %d\n", (int)status);
+                                            fflush(stdout);
+                                            abort();
+                                        }
+                                    }
+                                    break;
+                                }
+                                case SecItemCopyMatchingOperation:
+                                {
+                                    NSMutableDictionary *findQuery = [@{
+                                        (id)kSecClass : itemClass,
+                                        (id)kSecAttrAccount : [NSString stringWithFormat:@"accountHeavy-%d_%lu", i, (unsigned long)targetSize],
+                                        (id)kSecAttrAccessGroup : agrp,
+                                        (id)kSecUseDataProtectionKeychain: @YES,
+                                        (id)kSecReturnAttributes: @YES,
+                                        (id)kSecReturnData: @YES,
+                                        
+                                    } mutableCopy];
+                                    
+                                    if (!needData) {
+                                        findQuery[(id)kSecReturnData] = nil;
+                                    }
+                                    @autoreleasepool {
+                                        uint64_t start = mach_absolute_time();
+                                        CFTypeRef result = NULL;
+                                        OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)findQuery, &result);
+                                        uint64_t stop = mach_absolute_time();
+                                        itemTime = timeDiff(start, stop);
+                                        NSDictionary *returnedItem = CFBridgingRelease(result);
+                                        if (status != 0 || (needData && ![returnedItem objectForKey:(id)kSecValueData]) || (!needData && [returnedItem objectForKey:(id)kSecValueData])) {
+                                            NSLog(@"SecItemCopyMatching failed with: %d %@\n", (int)status, returnedItem);
+                                            fflush(stdout);
+                                            abort();
+                                        }
+                                        // set to nil to make sure memory is released
+                                        returnedItem = nil;
+                                    }
+                                    break;
+                                }
+                                case SecItemUpdateOperation:
+                                {
+                                    if (needData && [fakeData length] != targetSize) {
+                                        printf("kSecValueData length: %lu, however Desired length: %lu\n", (unsigned long)[fakeData length], (unsigned long)targetSize);
+                                        fflush(stdout);
+                                        abort();
+                                    }
+                                    @autoreleasepool {
+                                        NSMutableDictionary *findQuery = [@{
+                                            (id)kSecClass : itemClass,
+                                            (id)kSecAttrAccount : [NSString stringWithFormat:@"accountHeavy-%d_%lu", i, (unsigned long)targetSize],
+                                            (id)kSecAttrAccessGroup : agrp,
+                                            (id)kSecUseDataProtectionKeychain: @YES,
+                                            (id)kSecAttrSynchronizable: @NO,
+                                        } mutableCopy];
+                                        NSMutableDictionary *updateQuery = [@{
+                                            (id)kSecAttrAccount : [NSString stringWithFormat:@"accountHeavyUpdate-%d_%lu", i, (unsigned long)targetSize],
+                                        } mutableCopy];
+                                        if (needData) {
+                                            findQuery[(id)kSecAttrAccount] = [NSString stringWithFormat:@"accountHeavyUpdate-%d_%lu", i, (unsigned long)targetSize];
+                                            updateQuery[(id)kSecAttrAccount] = [NSString stringWithFormat:@"accountHeavyUpdateUpdate-%d_%lu", i, (unsigned long)targetSize];
+                                            updateQuery[(id)kSecValueData] = fakeData;
+                                        }
+                                        uint64_t start = mach_absolute_time();
+                                        OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)findQuery, (__bridge CFDictionaryRef)updateQuery);
+                                        uint64_t stop = mach_absolute_time();
+                                        itemTime = timeDiff(start, stop);
+                                        if (status != 0) {
+                                            printf("SecItemUpdate failed with: %d\n", (int)status);
+                                            fflush(stdout);
+                                            abort();
+                                        }
+                                        // set updateQuery to nil for memory release
+                                        updateQuery = nil;
+                                    }
+                                    break;
+                                }
+                                case SecItemDeleteOperation:
+                                {
+                                    NSMutableDictionary *deleteQuery = [@{
+                                        (id)kSecClass : itemClass,
+                                        (id)kSecAttrAccount : [NSString stringWithFormat:@"accountHeavyUpdateUpdate-%d_%lu", i, (unsigned long)targetSize],
+                                        (id)kSecAttrAccessGroup : agrp,
+                                        (id)kSecUseDataProtectionKeychain: @YES,
+                                        (id)kSecAttrSynchronizable: @NO,
+                                    } mutableCopy];
+                                    uint64_t start = mach_absolute_time();
+                                    OSStatus status = SecItemDelete((__bridge CFDictionaryRef)deleteQuery);
+                                    uint64_t stop = mach_absolute_time();
+                                    itemTime = timeDiff(start, stop);
+                                    if (status != 0) {
+                                        printf("SecItemDelete failed with: %d\n", (int)status);
+                                        fflush(stdout);
+                                        abort();
+                                    }
+                                    break;
+                                }
+                                default:
+                                {
+                                    printf("%ld opName is not supported in reportTimingForOperation()", opName);
+                                    fflush(stdout);
+                                    abort();
+                                }
+                            }
+                            avg_time_agrp = avg_time_agrp + (itemTime/10);
+                        }
+                    }
+                    avg_time_itemClass = avg_time_itemClass + (avg_time_agrp/2);
+                }
+                // Time statistics per itemClass
+                // Report the timings
+                NSString *key = [NSString stringWithFormat:@"%@_%dMB->%lluus", itemClass, [size intValue], avg_time_itemClass];
+                [timingInfo addObject:key];
+            }
+            // clear the fakeData here
+            fakeData = nil;
+        }
+    }
+    return timingInfo;
+}
+
+static void
+BenchmarkLargeKeychainItemTiming(void)
+{
+    printf("[BEGIN] %s\n", __FUNCTION__);
+
+    NSArray* addTiming = reportTimingForOperation(SecItemAddOperation, NO);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemAdd\n[RESULT_VALUE] %@\n", addTiming] UTF8String]);
+    
+    NSArray* copyTimingNoData = reportTimingForOperation(SecItemCopyMatchingOperation, NO);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemCopyMatching(kSecReturnData=NO)\n[RESULT_VALUE] %@\n", copyTimingNoData] UTF8String]);
+    
+    NSArray* copyTimingNeedsData = reportTimingForOperation(SecItemCopyMatchingOperation, YES);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemCopyMatching(kSecReturnData=YES)\n[RESULT_VALUE] %@\n", copyTimingNeedsData] UTF8String]);
+    
+    NSArray* updateTimeNoData = reportTimingForOperation(SecItemUpdateOperation, NO);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemUpdate(without kSecValueData)\n[RESULT_VALUE] %@\n", updateTimeNoData] UTF8String]);
+    
+    NSArray* updateTimeData = reportTimingForOperation(SecItemUpdateOperation, YES);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemUpdate(with kSecValueData)\n[RESULT_VALUE] %@\n", updateTimeData] UTF8String]);
+    
+    NSArray* deleteTiming = reportTimingForOperation(SecItemDeleteOperation, NO);
+    puts([[NSString stringWithFormat:@"[RESULT_KEY] SecItemDelete \n[RESULT_VALUE] %@\n", deleteTiming] UTF8String]);
+    
+    printf("[PASS] %s\n", __FUNCTION__);
+}
+
+
 int
 main(int argc, const char ** argv)
 {
@@ -790,6 +1004,9 @@ main(int argc, const char ** argv)
 #if TARGET_OS_OSX
     LegacyItemCopyMatchingCertificateTypeAndEncoding();
 #endif //TARGET_OS_OSX
+#if TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_VISION
+    BenchmarkLargeKeychainItemTiming();
+#endif // TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_VISION
     printf("[SUMMARY]\n");
     printf("test completed\n");
 

@@ -35,26 +35,26 @@ namespace WebCore {
 
 class RenderObject;
 
-AccessibilityARIATable::AccessibilityARIATable(AXID axID, RenderObject& renderer)
-    : AccessibilityTable(axID, renderer)
+AccessibilityARIATable::AccessibilityARIATable(AXID axID, RenderObject& renderer, AXObjectCache& cache)
+    : AccessibilityTable(axID, renderer, cache)
 {
 }
 
-AccessibilityARIATable::AccessibilityARIATable(AXID axID, Node& node)
-    : AccessibilityTable(axID, node)
+AccessibilityARIATable::AccessibilityARIATable(AXID axID, Node& node, AXObjectCache& cache)
+    : AccessibilityTable(axID, node, cache)
 {
 }
 
 AccessibilityARIATable::~AccessibilityARIATable() = default;
 
-Ref<AccessibilityARIATable> AccessibilityARIATable::create(AXID axID, RenderObject& renderer)
+Ref<AccessibilityARIATable> AccessibilityARIATable::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityARIATable(axID, renderer));
+    return adoptRef(*new AccessibilityARIATable(axID, renderer, cache));
 }
 
-Ref<AccessibilityARIATable> AccessibilityARIATable::create(AXID axID, Node& node)
+Ref<AccessibilityARIATable> AccessibilityARIATable::create(AXID axID, Node& node, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityARIATable(axID, node));
+    return adoptRef(*new AccessibilityARIATable(axID, node, cache));
 }
 
 bool AccessibilityARIATable::isMultiSelectable() const

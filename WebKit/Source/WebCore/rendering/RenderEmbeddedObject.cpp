@@ -46,12 +46,12 @@
 #include "Page.h"
 #include "PaintInfo.h"
 #include "Path.h"
-#include "PlatformMouseEvent.h"
 #include "PluginViewBase.h"
 #include "RenderBoxInlines.h"
 #include "RenderLayoutState.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "RenderWidgetInlines.h"
 #include "Settings.h"
 #include "SystemFontDatabase.h"
 #include "Text.h"
@@ -241,6 +241,8 @@ static void drawReplacementArrow(GraphicsContext& context, const FloatRect& insi
 
 void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
+    ASSERT(!isSkippedContentRoot(*this));
+
     if (!isPluginUnavailable())
         return;
 

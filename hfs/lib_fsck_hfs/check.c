@@ -118,7 +118,8 @@ int checkfilesys(char * filesys)
         fsck_print(ctx, LOG_TYPE_INFO, "Scanning entire disk for bad blocks\n");
         error = ScanDisk(state.fsreadfd);
         if (error) {
-            return error;
+            result = error;
+            goto ExitThisRoutine;
         }
     }
     result = CheckHFS( filesys, state.fsreadfd, state.fswritefd, state.chkLev, state.repLev, ctx,
@@ -532,10 +533,15 @@ siginfo(int signo)
 #define    kProgress    "kern.progressmeter"
 
 void
-start_progress(void)
+start_progress(const char* dev_name, const char* volume_name)
 {
     int rv;
     int enable = 1;
+
+    if (ctx.check_start) {
+        ctx.check_start(ctx.messages_context, dev_name, volume_name);
+    }
+
     if (state.hotroot == 0) {
         return;
     }
@@ -549,6 +555,11 @@ void
 draw_progress(int pct)
 {
     int rv;
+
+    if (ctx.check_update) {
+        ctx.check_update(ctx.messages_context, pct);
+    }
+
     if (state.hotroot == 0) {
         return;
     }
@@ -559,10 +570,15 @@ draw_progress(int pct)
 }
 
 void
-end_progress(void)
+end_progress(int err)
 {
     int rv;
     int enable = 0;
+
+    if (ctx.check_done) {
+        ctx.check_done(ctx.messages_context, err);
+    }
+
     if (state.hotroot == 0) {
         return;
     }

@@ -62,34 +62,37 @@ WebExtensionURLSchemeHandler::WebExtensionURLSchemeHandler(WebExtensionControlle
 
 void WebExtensionURLSchemeHandler::platformStartTask(WebPageProxy& page, WebURLSchemeTask& task)
 {
-    auto *operation = [NSBlockOperation blockOperationWithBlock:makeBlockPtr([this, protectedThis = Ref { *this }, &task, protectedTask = Ref { task }, &page, protectedPage = Ref { page }]() {
-        URL frameDocumentURL = task.frameInfo().request().url();
-        URL requestURL = task.request().url();
+    auto *operation = [NSBlockOperation blockOperationWithBlock:makeBlockPtr([this, protectedThis = Ref { *this }, task = Ref { task }, page = Ref { page }]() {
+        URL frameDocumentURL = task->frameInfo().request().url();
+        URL requestURL = task->request().url();
 
-        if (task.frameInfo().request().url().isEmpty() || task.frameInfo().request().url().isAboutBlank()) {
-            frameDocumentURL = task.request().firstPartyForCookies();
+        if (task->frameInfo().request().url().isEmpty() || task->frameInfo().request().url().isAboutBlank()) {
+            frameDocumentURL = task->request().firstPartyForCookies();
 
-            if (!task.frameInfo().isMainFrame()) {
-                if (RefPtr parentFrameHandle = task.frameInfo().parentFrameHandle()) {
+            if (!task->frameInfo().isMainFrame()) {
+                if (RefPtr parentFrameHandle = task->frameInfo().parentFrameHandle()) {
                     if (RefPtr parent = WebFrameProxy::webFrame(parentFrameHandle->frameID()))
                         frameDocumentURL = parent->url();
                 }
             }
         }
 
-        if (!m_webExtensionController) {
-            task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
+        RefPtr webExtensionController = m_webExtensionController.get();
+        if (!webExtensionController) {
+            task->didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
             return;
         }
 
-        RefPtr extensionContext = m_webExtensionController->extensionContext(requestURL);
+        RefPtr extensionContext = webExtensionController->extensionContext(requestURL);
         if (!extensionContext) {
             // We need to return the same error here, as we do below for URLs that don't match web_accessible_resources.
             // Otherwise, a page tracking extension injected content and watching extension UUIDs across page loads can fingerprint
             // the user and know the same set of extensions are installed and enabled for this user and that website.
-            task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
+            task->didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
             return;
         }
+
+        Ref extension = extensionContext->extension();
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
         // Chrome does not require devtools extensions to explicitly list resources as web_accessible_resources.
@@ -98,16 +101,16 @@ void WebExtensionURLSchemeHandler::platformStartTask(WebPageProxy& page, WebURLS
         if (!protocolHostAndPortAreEqual(frameDocumentURL, requestURL))
 #endif
         {
-            if (!extensionContext->extension().isWebAccessibleResource(requestURL, frameDocumentURL)) {
-                task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
+            if (!extension->isWebAccessibleResource(requestURL, frameDocumentURL)) {
+                task->didComplete([NSError errorWithDomain:NSURLErrorDomain code:noPermissionErrorCode userInfo:nil]);
                 return;
             }
         }
 
         bool loadingExtensionMainFrame = false;
-        if (task.frameInfo().isMainFrame() && requestURL == frameDocumentURL) {
-            if (!extensionContext->isURLForThisExtension(page.configuration().requiredWebExtensionBaseURL())) {
-                task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]);
+        if (task->frameInfo().isMainFrame() && requestURL == frameDocumentURL) {
+            if (!extensionContext->isURLForThisExtension(page->configuration().requiredWebExtensionBaseURL())) {
+                task->didComplete([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorResourceUnavailable userInfo:nil]);
                 return;
             }
 
@@ -115,31 +118,31 @@ void WebExtensionURLSchemeHandler::platformStartTask(WebPageProxy& page, WebURLS
         }
 
         RefPtr<API::Error> error;
-        RefPtr resourceData = extensionContext->extension().resourceDataForPath(requestURL.path().toString(), error);
+        RefPtr resourceData = extension->resourceDataForPath(requestURL.path().toString(), error);
         if (!resourceData || error) {
             extensionContext->recordErrorIfNeeded(wrapper(error));
-            task.didComplete([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]);
+            task->didComplete([NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist userInfo:nil]);
             return;
         }
 
         if (loadingExtensionMainFrame) {
-            if (auto tab = extensionContext->getTab(page.identifier()))
+            if (auto tab = extensionContext->getTab(page->identifier()))
                 extensionContext->addExtensionTabPage(page, *tab);
         }
 
-        auto mimeType = extensionContext->extension().resourceMIMETypeForPath(requestURL.path().toString());
+        auto mimeType = extension->resourceMIMETypeForPath(requestURL.path().toString());
         resourceData = extensionContext->localizedResourceData(resourceData, mimeType);
 
-        auto *urlResponse = [[NSHTTPURLResponse alloc] initWithURL:requestURL statusCode:200 HTTPVersion:nil headerFields:@{
+        auto *urlResponse = [[NSHTTPURLResponse alloc] initWithURL:requestURL.createNSURL().get() statusCode:200 HTTPVersion:nil headerFields:@{
             @"Access-Control-Allow-Origin": @"*",
-            @"Content-Security-Policy": extensionContext->extension().contentSecurityPolicy(),
+            @"Content-Security-Policy": extension->contentSecurityPolicy().createNSString().get(),
             @"Content-Length": @(resourceData->size()).stringValue,
-            @"Content-Type": mimeType
+            @"Content-Type": mimeType.createNSString().get()
         }];
 
-        task.didReceiveResponse(urlResponse);
-        task.didReceiveData(WebCore::SharedBuffer::create(resourceData->span()));
-        task.didComplete({ });
+        task->didReceiveResponse(urlResponse);
+        task->didReceiveData(WebCore::SharedBuffer::create(resourceData->span()));
+        task->didComplete({ });
     }).get()];
 
     m_operations.set(task, operation);

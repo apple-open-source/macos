@@ -36,7 +36,7 @@ inline WeakImpl* WeakSet::allocate(JSValue jsValue, WeakHandleOwner* weakHandleO
     ASSERT(container.vm().currentThreadIsHoldingAPILock());
     WeakSet& weakSet = container.weakSet();
     WeakBlock::FreeCell* allocator = weakSet.m_allocator;
-    if (UNLIKELY(!allocator))
+    if (!allocator) [[unlikely]]
         allocator = weakSet.findAllocator(container);
     weakSet.m_allocator = allocator->next;
 

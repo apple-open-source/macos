@@ -312,20 +312,17 @@ DoesBreakScope RuleFeatureSet::recursivelyCollectFeaturesFromSelector(SelectorFe
                 canBreakScope = CanBreakScope::Yes;
         }
 
-        if (!selectorFeatures.hasSiblingSelector && selector->isSiblingSelector())
-            selectorFeatures.hasSiblingSelector = true;
-
         if (const CSSSelectorList* selectorList = selector->selectorList()) {
             auto subSelectorIsNegation = isNegation;
             if (selector->match() == CSSSelector::Match::PseudoClass && selector->pseudoClass() == CSSSelector::PseudoClass::Not)
                 subSelectorIsNegation = isNegation == IsNegation::No ? IsNegation::Yes : IsNegation::No;
 
-            for (const CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
-                auto subSelectorMatchElement = computeSubSelectorMatchElement(matchElement, *selector, *subSelector);
-                auto pseudoClassDoesBreakScope = recursivelyCollectFeaturesFromSelector(selectorFeatures, *subSelector, subSelectorMatchElement, subSelectorIsNegation, canBreakScope);
+            for (auto& subSelector : *selectorList) {
+                auto subSelectorMatchElement = computeSubSelectorMatchElement(matchElement, *selector, subSelector);
+                auto pseudoClassDoesBreakScope = recursivelyCollectFeaturesFromSelector(selectorFeatures, subSelector, subSelectorMatchElement, subSelectorIsNegation, canBreakScope);
 
                 if (selector->match() == CSSSelector::Match::PseudoClass && selector->pseudoClass() == CSSSelector::PseudoClass::Has)
-                    selectorFeatures.hasPseudoClasses.append({ subSelector, subSelectorMatchElement, isNegation, pseudoClassDoesBreakScope });
+                    selectorFeatures.hasPseudoClasses.append({ &subSelector, subSelectorMatchElement, isNegation, pseudoClassDoesBreakScope });
 
                 if (pseudoClassDoesBreakScope == DoesBreakScope::Yes)
                     doesBreakScope = DoesBreakScope::Yes;
@@ -394,9 +391,9 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData, const Vector<Ref<
     for (auto& scopeRule : scopeRules) {
         auto collectSelectorList = [&] (const auto& selectorList) {
             if (!selectorList.isEmpty()) {
-                for (const auto* subSelector = selectorList.first() ; subSelector; subSelector = CSSSelectorList::next(subSelector)) {
-                    recursivelyCollectFeaturesFromSelector(selectorFeatures, *subSelector, MatchElement::Ancestor);
-                    recursivelyCollectFeaturesFromSelector(selectorFeatures, *subSelector, MatchElement::Subject);
+                for (auto& subSelector : selectorList) {
+                    recursivelyCollectFeaturesFromSelector(selectorFeatures, subSelector, MatchElement::Ancestor);
+                    recursivelyCollectFeaturesFromSelector(selectorFeatures, subSelector, MatchElement::Subject);
                 }
             }
         };
@@ -404,10 +401,6 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData, const Vector<Ref<
         collectSelectorList(scopeRule->scopeEnd());
     }
 
-    if (selectorFeatures.hasSiblingSelector)
-        siblingRules.append({ ruleData });
-    if (ruleData.containsUncommonAttributeSelector())
-        uncommonAttributeRules.append({ ruleData });
     if (ruleData.isStartingStyle() == IsStartingStyle::Yes)
         hasStartingStyleRules = true;
 
@@ -481,13 +474,11 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData, const Vector<Ref<
 
 void RuleFeatureSet::add(const RuleFeatureSet& other)
 {
-    idsInRules.add(other.idsInRules.begin(), other.idsInRules.end());
-    idsMatchingAncestorsInRules.add(other.idsMatchingAncestorsInRules.begin(), other.idsMatchingAncestorsInRules.end());
-    attributeLowercaseLocalNamesInRules.add(other.attributeLowercaseLocalNamesInRules.begin(), other.attributeLowercaseLocalNamesInRules.end());
-    attributeLocalNamesInRules.add(other.attributeLocalNamesInRules.begin(), other.attributeLocalNamesInRules.end());
-    contentAttributeNamesInRules.add(other.contentAttributeNamesInRules.begin(), other.contentAttributeNamesInRules.end());
-    siblingRules.appendVector(other.siblingRules);
-    uncommonAttributeRules.appendVector(other.uncommonAttributeRules);
+    idsInRules.addAll(other.idsInRules);
+    idsMatchingAncestorsInRules.addAll(other.idsMatchingAncestorsInRules);
+    attributeLowercaseLocalNamesInRules.addAll(other.attributeLowercaseLocalNamesInRules);
+    attributeLocalNamesInRules.addAll(other.attributeLocalNamesInRules);
+    contentAttributeNamesInRules.addAll(other.contentAttributeNamesInRules);
 
     auto addMap = [&](auto& map, auto& otherMap) {
         for (auto& keyValuePair : otherMap) {
@@ -500,14 +491,14 @@ void RuleFeatureSet::add(const RuleFeatureSet& other)
     addMap(idRules, other.idRules);
 
     addMap(classRules, other.classRules);
-    classesAffectingHost.add(other.classesAffectingHost.begin(), other.classesAffectingHost.end());
+    classesAffectingHost.addAll(other.classesAffectingHost);
 
     addMap(attributeRules, other.attributeRules);
-    attributesAffectingHost.add(other.attributesAffectingHost.begin(), other.attributesAffectingHost.end());
+    attributesAffectingHost.addAll(other.attributesAffectingHost);
 
     addMap(pseudoClassRules, other.pseudoClassRules);
-    pseudoClassesAffectingHost.add(other.pseudoClassesAffectingHost.begin(), other.pseudoClassesAffectingHost.end());
-    pseudoClasses.add(other.pseudoClasses.begin(), other.pseudoClasses.end());
+    pseudoClassesAffectingHost.addAll(other.pseudoClassesAffectingHost);
+    pseudoClasses.addAll(other.pseudoClasses);
 
     addMap(hasPseudoClassRules, other.hasPseudoClassRules);
     scopeBreakingHasPseudoClassRules.appendVector(other.scopeBreakingHasPseudoClassRules);
@@ -534,8 +525,6 @@ void RuleFeatureSet::clear()
     attributeLowercaseLocalNamesInRules.clear();
     attributeLocalNamesInRules.clear();
     contentAttributeNamesInRules.clear();
-    siblingRules.clear();
-    uncommonAttributeRules.clear();
     idRules.clear();
     classRules.clear();
     hasPseudoClassRules.clear();
@@ -553,8 +542,6 @@ void RuleFeatureSet::clear()
 
 void RuleFeatureSet::shrinkToFit()
 {
-    siblingRules.shrinkToFit();
-    uncommonAttributeRules.shrinkToFit();
     scopeBreakingHasPseudoClassRules.shrinkToFit();
     for (auto& rules : idRules.values())
         rules->shrinkToFit();

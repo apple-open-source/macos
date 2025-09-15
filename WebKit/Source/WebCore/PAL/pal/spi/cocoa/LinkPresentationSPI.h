@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if !PLATFORM(WATCHOS) || USE(APPLE_INTERNAL_SDK)
 #import <LinkPresentation/LinkPresentation.h>
 #else

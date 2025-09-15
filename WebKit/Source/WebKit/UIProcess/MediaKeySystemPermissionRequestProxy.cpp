@@ -35,11 +35,12 @@
 namespace WebKit {
 using namespace WebCore;
 
-MediaKeySystemPermissionRequestProxy::MediaKeySystemPermissionRequestProxy(MediaKeySystemPermissionRequestManagerProxy& manager, MediaKeySystemRequestIdentifier mediaKeySystemID, FrameIdentifier mainFrameID, FrameIdentifier frameID, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem)
+MediaKeySystemPermissionRequestProxy::MediaKeySystemPermissionRequestProxy(MediaKeySystemPermissionRequestManagerProxy& manager, MediaKeySystemRequestIdentifier mediaKeySystemID, FrameIdentifier mainFrameID, FrameIdentifier frameID, Ref<WebCore::SecurityOrigin>&& userMediaSecurityOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, const String& keySystem)
     : m_manager(manager)
     , m_mediaKeySystemID(mediaKeySystemID)
     , m_mainFrameID(mainFrameID)
     , m_frameID(frameID)
+    , m_mediaKeyRequestSecurityOrigin(WTFMove(userMediaSecurityOrigin))
     , m_topLevelDocumentSecurityOrigin(WTFMove(topLevelDocumentOrigin))
     , m_keySystem(keySystem)
 {

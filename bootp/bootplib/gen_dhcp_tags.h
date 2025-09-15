@@ -143,6 +143,9 @@ enum {
     /* classless static route option (RFC 3442) */
     dhcptag_classless_static_route_e   	= 121,
 
+    /* DNR option (RFC 9463) */
+    dhcptag_encrypted_dns_server_e     	= 162,
+
     /* proxy auto discovery */
     dhcptag_proxy_auto_discovery_url_e 	= 252,
 
@@ -408,6 +411,7 @@ enum {
 #define DHCPTAG_AUTO_CONFIGURE             	"auto_configure"
 #define DHCPTAG_DOMAIN_SEARCH              	"domain_search"
 #define DHCPTAG_CLASSLESS_STATIC_ROUTE     	"classless_static_route"
+#define DHCPTAG_ENCRYPTED_DNS_SERVER       	"encrypted_dns_server"
 #define DHCPTAG_PROXY_AUTO_DISCOVERY_URL   	"proxy_auto_discovery_url"
 
 /* undefined */

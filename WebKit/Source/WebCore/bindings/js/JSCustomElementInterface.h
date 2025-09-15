@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -126,7 +126,7 @@ private:
     RefPtr<Element> tryToConstructCustomElement(Document&, CustomElementRegistry&, const AtomString&, ParserConstructElementWithEmptyStack);
 
     template<typename Function>
-    void invokeCallback(Element&, JSC::JSObject* callback, const Function& addArguments);
+    void invokeCallback(Element&, JSC::JSObject* callback, NOESCAPE const Function& addArguments);
 
     QualifiedName m_name;
     JSC::Weak<JSC::JSObject> m_constructor;
@@ -138,7 +138,7 @@ private:
     JSC::Weak<JSC::JSObject> m_formResetCallback;
     JSC::Weak<JSC::JSObject> m_formDisabledCallback;
     JSC::Weak<JSC::JSObject> m_formStateRestoreCallback;
-    Ref<DOMWrapperWorld> m_isolatedWorld;
+    const Ref<DOMWrapperWorld> m_isolatedWorld;
     Vector<RefPtr<Element>, 1> m_constructionStack;
     MemoryCompactRobinHoodHashSet<AtomString> m_observedAttributes;
     bool m_isElementInternalsDisabled : 1;

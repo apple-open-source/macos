@@ -100,7 +100,7 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 
 + (instancetype _Nullable)logger;
 
-+ (NSInteger)fuzzyDaysSinceDate:(NSDate*)date;
++ (NSInteger)fuzzyDaysSinceDate:(NSDate* _Nullable)date;
 
 // Rounds to the nearest 5 (unless 1 or 2, that rounds to 5 as well)
 + (NSInteger)fuzzyInteger:(NSInteger)num;
@@ -207,7 +207,10 @@ typedef SFAnalyticsMetricsHookActions(^SFAnalyticsMetricsHook)(NSString* eventNa
 @end
 
 @interface SFAnalytics (SFACollection)
-+ (NSData * _Nullable)encodeSFACollection:(NSData *_Nonnull)json error:(NSError **)error;
++ (NSData * _Nullable)encodeSFACollection:(NSData *)json error:(NSError *_Nullable*_Nullable)error;
++ (BOOL)validateSFACollection:(NSData *)binary error:(NSError *_Nullable* _Nullable)error;
++ (NSString *_Nullable)formatSFACollection:(NSData *)binary error:(NSError *_Nullable*_Nullable)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -235,6 +235,10 @@ bool                                gAsyncModeDisableOverride = false;
 bool                                gAsyncModeSetupDone = false;
 static circularLogBuffer_t          gAsyncAssertionActivityLog;
 
+// category policy dictionary
+static CFDictionaryRef gAssertionCategoryPolicies = NULL;
+IOPMAssertionPolicy gAssertionPolicyActive = kIOPMAssertionPolicyNone;
+
 // create assertion
 bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *id);
 
@@ -267,6 +271,11 @@ void handleAssertionTimeout(void);
 
 // assertion level change
 IOReturn handleAssertionLevel(CFTypeRef value, IOPMAssertionID assertionID, bool isLevelChangeOnTimeout);
+
+// fetch assertion category policies
+void fetchAssertionCategoryPolicies(void);
+void registerForAssertionPolicy(void);
+void evaluateAssertionCategoryPolicies(IOPMAssertionPolicy policy);
 
 // helper functions
 void insertIntoTimedList(CFMutableDictionaryRef props);
@@ -453,6 +462,12 @@ void initialSetup( )
                 });
     }
     gAsyncModeSetupDone = true;
+
+    // fetch category policies
+    dispatch_async(getPMQueue(), ^{
+        fetchAssertionCategoryPolicies();
+        registerForAssertionPolicy();
+    });
     return;
 
 error_exit:
@@ -482,11 +497,222 @@ error_exit:
     }
 }
 
+#pragma  mark - Assertion category policies
+void fetchAssertionCategoryPolicies()
+{
+    if (!gAssertionConnection) {
+        ERROR_LOG("Initial connection to powerd not setup");
+        return;
+    }
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        xpc_object_t msg = NULL;
+        msg = xpc_dictionary_create(NULL, NULL, 0);
+        if (!msg) {
+            ERROR_LOG("Failed to create xpc msg object\n");
+            return;
+        }
+        xpc_dictionary_set_bool(msg, kAssertionUpdateCategoryPolicyMsg, true);
+        xpc_connection_send_message_with_reply(gAssertionConnection, msg, getPMQueue(), ^(xpc_object_t  _Nonnull object) {
+            // received policies
+            if (xpc_get_type(object) == XPC_TYPE_DICTIONARY) {
+                xpc_object_t data = xpc_dictionary_get_value(object, kAssertionUpdateCategoryPolicyMsg);
+                if (data) {
+                    gAssertionCategoryPolicies = _CFXPCCreateCFObjectFromXPCObject(data);
+                    INFO_LOG("Received assertion category policies from powerd %@", gAssertionCategoryPolicies);
+                }
+            } else {
+                ERROR_LOG("fetchAssertionCategoryPolicies: Reply is not a dict");
+            }
+
+        });
+        if (msg) {
+            xpc_release(msg);
+        }
+    });
+}
+
+void registerForAssertionPolicy(void)
+{
+    INFO_LOG("Registering for assertion policy changes");
+    int notify_token = 0;
+    int notify_status = notify_register_dispatch("com.apple.powerd.assertionpolicy", &notify_token, getPMQueue(), ^(int token) {
+        uint64_t value;
+        notify_get_state(token, &value);
+        INFO_LOG("Update assertion policy %llu", value);
+        evaluateAssertionCategoryPolicies((IOPMAssertionPolicy)value);
+     });
+}
+
+CFStringRef convertCFNumberToCFStringRef(CFNumberRef num)
+{
+    CFLocaleRef locale = CFLocaleCopyCurrent();
+    CFNumberFormatterRef fmt = CFNumberFormatterCreate(kCFAllocatorDefault, locale, kCFNumberFormatterParseIntegersOnly);
+    CFStringRef str = CFNumberFormatterCreateStringWithNumber(kCFAllocatorDefault, fmt, num);
+
+    if (locale) {
+        CFRelease(locale);
+    }
+    if (fmt) {
+        CFRelease(fmt);
+    }
+    return str;
+}
+
+CFNumberRef getPolicyTimeout(CFNumberRef category, CFNumberRef policy)
+{
+    CFNumberRef timeout = nil;
+    CFStringRef category_str = convertCFNumberToCFStringRef(category);
+    CFStringRef policy_str = convertCFNumberToCFStringRef(policy);
+    CFDictionaryRef policy_for_category = CFDictionaryGetValue(gAssertionCategoryPolicies, category_str);
+    if (policy_for_category) {
+        INFO_LOG("Category %@ has a policy %@", category_str, policy_for_category);
+        CFNumberRef timeout = CFDictionaryGetValue(policy_for_category, policy_str);
+        if (timeout) {
+            INFO_LOG("there is a timeout for category %@ and policy %@", category_str, policy_str);
+        }
+    }
+    if (category_str) {
+        CFRelease(category_str);
+    }
+    if (policy_str) {
+        CFRelease(policy_str);
+    }
+    return timeout;
+
+}
+
+void undoCategoryPolicyTimers(void)
+{
+    for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
+        CFMutableDictionaryRef assertion = nil;
+        if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
+            continue;
+        }
+        if (!isA_CFDictionary(assertion)) {
+            ERROR_LOG("Not a dictinary for 0x%x", idx);
+            continue;
+        }
+
+        // active assertion. Does it have category
+        if (CFDictionaryContainsKey(assertion, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp)) {
+            // has the policy timeout timestamp
+            CFMutableDictionaryRef assertionDict = (CFMutableDictionaryRef)assertion;
+            INFO_LOG("Assertion has a policy category timestamp %@", assertionDict);
+            CFDictionaryRemoveValue(assertionDict, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+            if (!CFDictionaryContainsKey(assertion, kIOPMAsyncAssertionTimeoutTimestamp)) {
+                INFO_LOG("No timeout ts. Remove from timed list");
+                removeFromTimedList(ASYNC_ID_FROM_IDX(idx));
+            }
+        }
+    }
+}
+
+void evaluateAssertionCategoryPolicies(IOPMAssertionPolicy policy)
+{
+    if (!gAssertionCategoryPolicies) {
+        return;
+    }
+    if (policy == kIOPMAssertionPolicyNone) {
+        gAssertionPolicyActive = kIOPMAssertionPolicyNone;
+        undoCategoryPolicyTimers();
+    } else {
+        gAssertionPolicyActive = policy;
+    }
+
+    CFNumberRef cf_policy = CFNumberCreate(NULL, kCFNumberIntType, &policy);
+
+    // convert to str
+    CFStringRef policy_str = convertCFNumberToCFStringRef(cf_policy);
+
+
+    // for each category look for this policy
+    for (int idx = 0; idx < kMaxAsyncAssertions; idx++) {
+        CFMutableDictionaryRef assertion = nil;
+        if (!CFDictionaryGetValueIfPresent(gActiveAssertionsDict, (uintptr_t)idx, (const void **)&assertion)) {
+            continue;
+        }
+        if (!isA_CFDictionary(assertion)) {
+            ERROR_LOG("Not a dictinary for 0x%x", idx);
+            continue;
+        }
+
+        // active assertion. Does it have category
+        if (CFDictionaryContainsKey(assertion, kIOPMAssertionCategoryKey)) {
+            CFMutableDictionaryRef assertionDict = (CFMutableDictionaryRef)assertion;
+            INFO_LOG("Assertion has a category %@", assertionDict);
+            CFNumberRef category = CFDictionaryGetValue(assertion, kIOPMAssertionCategoryKey);
+
+            CFNumberRef cf_timeout = getPolicyTimeout(category, cf_policy);
+            if (cf_timeout) {
+                INFO_LOG("Category %@ has a timeout for policy %@. Timeout %@", category, cf_policy, cf_timeout);
+                int timeout = 0;
+                CFNumberGetValue(cf_timeout, kCFNumberSInt64Type, &timeout);
+                // found a timeout for the policy
+                uint64_t category_timeout_ts = (timeout * 1000) + getMonotonicTime();
+                CFNumberRef cf_category_timeout_ts = CFNumberCreate(NULL, kCFNumberSInt64Type, &category_timeout_ts);
+                if (cf_category_timeout_ts) {
+                    INFO_LOG("assertion %@ cf_category_timeout_ts %@", assertionDict, cf_category_timeout_ts);
+                    CFDictionarySetValue(assertionDict, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp, cf_category_timeout_ts);
+                    CFRelease(cf_category_timeout_ts);
+                    insertIntoTimedList(assertionDict);
+                    }
+                } else {
+                    INFO_LOG("No timeout for category %@ for policy %@", cf_policy, policy_str);
+                }
+            } else {
+                INFO_LOG("No category");
+            }
+    }
+    if (cf_policy) {
+        CFRelease(cf_policy);
+    }
+    if (policy_str) {
+        CFRelease(policy_str);
+    }
+}
+
+int getTimeoutForAssertionCategory(IOPMAssertionCategory category)
+{
+    if (!gAssertionCategoryPolicies) {
+        ERROR_LOG("No policies defined for this process");
+        return -1;
+    }
+    int timeout_secs = -1;
+    int cat = (int)category;
+    CFNumberRef cf_category = CFNumberCreate(NULL, kCFNumberIntType, &cat);
+    CFStringRef category_str = convertCFNumberToCFStringRef(cf_category);
+    INFO_LOG("Checking getTimeout for string %@", category_str);
+
+    if (CFDictionaryContainsKey(gAssertionCategoryPolicies, category_str)) {
+            CFDictionaryRef policy = CFDictionaryGetValue(gAssertionCategoryPolicies, category_str);
+            CFNumberRef timeout = CFDictionaryGetValue(policy, CFSTR("timeout"));
+            if (isA_CFNumber(timeout)) {
+                CFNumberGetValue(timeout, kCFNumberIntType, &timeout_secs);
+            }
+            INFO_LOG("Found timeout %@ for category string %@", timeout, category_str);
+    }
+    else {
+        ERROR_LOG("Category %@ not found", cf_category);
+    }
+    if (cf_category) {
+        CFRelease(cf_category);
+    }
+
+    if (category_str) {
+        CFRelease(category_str);
+    }
+    return timeout_secs;
+}
+
+#pragma  mark - Create/release assertions
 void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction logAction)
 {
     uint32_t  idx;
     uint64_t timeout_msecs = 0;
     uint64_t timeout_ts = 0;
+    uint64_t category_timeout_ms = 0;
+    uint64_t category_timeout_ts = 0;
     uint64_t  unique_id;
     CFNumberRef numRef;
 
@@ -521,6 +747,26 @@ void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction log
         CFNumberGetValue(numRef, kCFNumberSInt64Type, &timeout_secs);
         timeout_msecs = timeout_secs * 1000;
     }
+
+    // category timeout
+    if (CFDictionaryContainsKey(assertion, kIOPMAssertionCategoryKey)) {
+
+        // there is a category, check for timeout
+        CFNumberRef cf_category = (CFNumberRef)CFDictionaryGetValue(assertion, kIOPMAssertionCategoryKey);
+        IOPMAssertionCategory category = 0;
+        CFNumberGetValue(cf_category, kCFNumberIntType, &category);
+        DEBUG_LOG("Checking for timeout for category %@ %d", cf_category, category);
+        int category_timeout = getTimeoutForAssertionCategory(category);
+        if (category_timeout > 0) {
+            // there is a category timeout
+            DEBUG_LOG("Timeout from category %d", category_timeout);
+            category_timeout_ms = category_timeout * 1000;
+            category_timeout_ts = category_timeout_ms + getMonotonicTime();
+        } else {
+            DEBUG_LOG("Timeout is less than 0 %d", category_timeout);
+        }
+    }
+
     if (timeout_msecs) {
         // There is timeout.
         timeout_ts = timeout_msecs + getMonotonicTime();
@@ -529,6 +775,21 @@ void activateAsyncAssertion(IOPMAssertionID id, kIOPMAsyncAssertionLogAction log
             CFDictionarySetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp, cf_timeout_ts);
             CFRelease(cf_timeout_ts);
         }
+    }
+
+    if (category_timeout_ms) {
+        if (category_timeout_ts < timeout_ts || timeout_ts == 0) {
+            // use the category timeout if it's lesser
+            CFNumberRef cf_category_timeout_ts = CFNumberCreate(NULL, kCFNumberSInt64Type, &category_timeout_ts);
+            if (cf_category_timeout_ts) {
+                INFO_LOG("Setting category timeout timestamp to %@, monotonic time %llu", cf_category_timeout_ts, getMonotonicTime());
+                CFDictionarySetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp, cf_category_timeout_ts);
+                CFRelease(cf_category_timeout_ts);
+            }
+        }
+    }
+
+    if (timeout_msecs || category_timeout_ms) {
         insertIntoTimedList(assertion);
     }
     if (gOffloadDelay == 0) {
@@ -560,16 +821,17 @@ bool createAsyncAssertion(CFDictionaryRef AssertionProperties, IOPMAssertionID *
         DEBUG_LOG("createAsyncAssertion: async mode disabled due to SmartPowerNap");
         return false;
     }
-    if (!gAsyncMode) {
-        checkFeatureEnabled();
-        return false;
-    }
 
     assertionTypeString = CFDictionaryGetValue(AssertionProperties, kIOPMAssertionTypeKey);
 
     if (!isA_CFString(assertionTypeString) ||
             !(CFEqual(assertionTypeString, kIOPMAssertionTypePreventUserIdleSystemSleep) ||
               CFEqual(assertionTypeString, kIOPMAssertionTypeNoIdleSleep)) ) {
+        return false;
+    }
+
+    if (!gAsyncMode) {
+        checkFeatureEnabled();
         return false;
     }
 
@@ -1287,15 +1549,27 @@ void handleAssertionTimeout(void)
     uint64_t now = getMonotonicTime();
     DEBUG_LOG("handleAssertionTimeout fired %llu", now);
     uint64_t timeout_ts = 0;
+    uint64_t policy_timeout_ts = 0;
+    CFNumberRef cf_policy_timeout = nil;
     int i = 0;
     for (i = 0; i < CFArrayGetCount(gTimedAssertionsList); i++) {
         CFMutableDictionaryRef assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, i);
         CFNumberRef cf_timeout = (CFNumberRef)CFDictionaryGetValue(assertion, kIOPMAsyncAssertionTimeoutTimestamp);
-        CFNumberGetValue(cf_timeout, kCFNumberSInt64Type, &timeout_ts);
+        if (cf_timeout) {
+            CFNumberGetValue(cf_timeout, kCFNumberSInt64Type, &timeout_ts);
+        }
+        if (gAssertionPolicyActive) {
+            cf_policy_timeout = (CFNumberRef)CFDictionaryGetValue(assertion, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+            if (cf_policy_timeout) {
+                CFNumberGetValue(cf_policy_timeout, kCFNumberSInt64Type, &policy_timeout_ts);
+            }
+        }
+
+
         CFNumberRef a_id = CFDictionaryGetValue(assertion, kIOPMAsyncClientAssertionIdKey);
         uint32_t id = 0;
         CFNumberGetValue(a_id, kCFNumberSInt32Type, &id);
-        if (timeout_ts <= now) {
+        if ((cf_timeout && timeout_ts) <= now || (cf_policy_timeout && policy_timeout_ts <= now)) {
             if (CFDictionaryContainsKey(assertion, kIOPMAsyncRemoteAssertionIdKey)) {
                 CFNumberRef remoteID_cf = CFDictionaryGetValue(assertion, kIOPMAsyncRemoteAssertionIdKey);
                 uint32_t remoteID = 0;
@@ -1305,8 +1579,12 @@ void handleAssertionTimeout(void)
                     continue;
                 }
             }
-            DEBUG_LOG("Timeout: assertion id 0x%x with time %llu", id, timeout_ts);
-            logAsyncAssertionActivity(kAsyncAssertionTimeoutLog, id);
+            DEBUG_LOG("Timeout: assertion id 0x%x with time %llu, policy timeout %llu", id, timeout_ts, policy_timeout_ts);
+            if (cf_policy_timeout && policy_timeout_ts <= now) {
+                logAsyncAssertionActivity(kAsyncAssertionCategoryPolicyTimeoutLog, id);
+            } else {
+                logAsyncAssertionActivity(kAsyncAssertionTimeoutLog, id);
+            }
             /*
              Check kIOPMAssertionTimeoutActionKey
              */
@@ -1345,9 +1623,15 @@ void handleAssertionTimeout(void)
     if (CFArrayGetCount(gTimedAssertionsList) != 0) {
         CFMutableDictionaryRef earliest_assertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, 0);
         CFNumberRef nextTimeout = (CFNumberRef)CFDictionaryGetValue(earliest_assertion, kIOPMAsyncAssertionTimeoutTimestamp);
+        CFNumberRef nextPolicyTimeout = (CFNumberRef)CFDictionaryGetValue(earliest_assertion, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+        if (nextTimeout && nextPolicyTimeout) {
+            if (CFNumberCompare(nextTimeout, nextPolicyTimeout, NULL) > kCFCompareEqualTo) {
+                nextTimeout = nextPolicyTimeout;
+            }
+        }
         CFNumberGetValue(nextTimeout, kCFNumberSInt64Type, &timeout_ts);
         uint64_t delta = timeout_ts - now;
-        dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+        dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_MSEC), DISPATCH_TIME_FOREVER, 0);
         if (assertion_timer_suspended) {
             DEBUG_LOG("Resuming timer");
             dispatch_resume(gAssertionTimer);
@@ -1363,7 +1647,25 @@ static CFComparisonResult compare_assertion(const void *val1, const void *val2, 
     CFDictionaryRef props2 = (CFDictionaryRef)val2;
     CFNumberRef t1 = (CFNumberRef)CFDictionaryGetValue(props1, kIOPMAsyncAssertionTimeoutTimestamp);
     CFNumberRef t2 = (CFNumberRef)CFDictionaryGetValue(props2, kIOPMAsyncAssertionTimeoutTimestamp);
-    return CFNumberCompare(t1, t2, NULL);
+    CFComparisonResult result = kCFCompareEqualTo;
+    if (t1 && t2) {
+        result = CFNumberCompare(t1, t2, NULL);
+    } else {
+        CFNumberRef category_t1 = (CFNumberRef)CFDictionaryGetValue(props1, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+        CFNumberRef category_t2 = (CFNumberRef)CFDictionaryGetValue(props2, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+        CFNumberRef val1_t1 = nil;
+        CFNumberRef val2_t2 = nil;
+
+        // pick the timeout for val1
+        val1_t1 = t1 ? t1 : val1_t1;
+        // pick the timeout for val2
+        val2_t2 = t2 ? t2 : val2_t2;
+
+        if (val1_t1 && val2_t2) {
+            result = CFNumberCompare(val1_t1, val2_t2, NULL);
+        }
+    }
+    return result;
 }
 
 void insertIntoTimedList(CFMutableDictionaryRef props)
@@ -1395,14 +1697,20 @@ void insertIntoTimedList(CFMutableDictionaryRef props)
     uint64_t earliest_timeout = 0;
     CFMutableDictionaryRef earliestAssertion = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(gTimedAssertionsList, 0);
     CFNumberRef cf_earliest_timeout = CFDictionaryGetValue(earliestAssertion, kIOPMAsyncAssertionTimeoutTimestamp);
-    CFNumberGetValue(cf_earliest_timeout, kCFNumberSInt64Type, &earliest_timeout);
-    int  delta = earliest_timeout - now;
+    CFNumberRef cf_earliest_policy_timeout = CFDictionaryGetValue(earliestAssertion, kIOPMAsyncAssertionCategoryPolicyTimeoutTimestamp);
+    if (!cf_earliest_policy_timeout) {
+        CFNumberGetValue(cf_earliest_timeout, kCFNumberSInt64Type, &earliest_timeout);
+    } else {
+        CFNumberGetValue(cf_earliest_policy_timeout, kCFNumberSInt64Type, &earliest_timeout);
+    }
+    
+    int delta = earliest_timeout - now;
     if (delta <= 0) {
         handleAssertionTimeout();
     } else {
         if (gAssertionTimer) {
-            DEBUG_LOG("Setting assertion timeout to fire in %d secs for timeout_ts %llu", delta, earliest_timeout);
-            dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
+            DEBUG_LOG("Setting assertion timeout to fire in %d msecs for timeout_ts %llu", delta, earliest_timeout);
+            dispatch_source_set_timer(gAssertionTimer, dispatch_time(DISPATCH_TIME_NOW, delta * NSEC_PER_MSEC), DISPATCH_TIME_FOREVER, 0);
             if (assertion_timer_suspended) {
                 INFO_LOG("Resuming timer")
                 assertion_timer_suspended = false;
@@ -1549,6 +1857,10 @@ void logAsyncAssertionActivity(kIOPMAsyncAssertionLogAction action, IOPMAssertio
 
         case kAsyncAssertionTimeoutLog:
             actionStr = CFSTR(kPMAsyncAssertionActionTimeOut);
+            break;
+
+        case kAsyncAssertionCategoryPolicyTimeoutLog:
+            actionStr = CFSTR(kPMASLAssertionActionSystemTimeout);
             break;
 
         case kAsyncAssertionNameChangeLog:

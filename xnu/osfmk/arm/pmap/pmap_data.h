@@ -151,10 +151,12 @@ pai_to_pvh(unsigned int pai)
  * type needs to be checked before dereferencing the pointer to determine which
  * pointer type to dereference as.
  */
-#define PVH_TYPE_NULL 0x0UL
-#define PVH_TYPE_PVEP 0x1UL
-#define PVH_TYPE_PTEP 0x2UL
-#define PVH_TYPE_PTDP 0x3UL
+__enum_closed_decl(pvh_type_t, uint8_t, {
+	PVH_TYPE_NULL = 0b00,
+	PVH_TYPE_PVEP = 0b01,
+	PVH_TYPE_PTEP = 0b10,
+	PVH_TYPE_PTDP = 0b11,
+});
 
 #define PVH_TYPE_MASK (0x3UL)
 
@@ -262,7 +264,7 @@ pai_to_pvh(unsigned int pai)
  * been mapped into a non-coherent coprocessor address space and requires a
  * cache flush operation once all mappings have been removed.
  */
-#define PVH_FLAG_FLUSH_NEEDED (1ULL << 52)
+#define PVH_FLAG_FLUSH_NEEDED (1ULL << 54)
 
 /**
  * Marking a pv_head_table entry with any bit in this mask denotes that this page
@@ -342,7 +344,7 @@ pvh_unlock(unsigned int index)
  *         otherwise.
  */
 static inline bool
-pvh_test_type(pv_entry_t **pvh, vm_offset_t type)
+pvh_test_type(pv_entry_t **pvh, pvh_type_t type)
 {
 	return ((*(vm_offset_t *)pvh) & PVH_TYPE_MASK) == type;
 }
@@ -1943,16 +1945,34 @@ typedef struct pmap_io_range {
 	uint64_t len;
 
 	/* Strong DSB required for pages in this range. */
-	#define PMAP_IO_RANGE_STRONG_SYNC (1UL << 31)
+	#define PMAP_IO_RANGE_STRONG_SYNC (1U << 31)
 
 	/* Corresponds to memory carved out by bootloader. */
-	#define PMAP_IO_RANGE_CARVEOUT (1UL << 30)
+	#define PMAP_IO_RANGE_CARVEOUT (1U << 30)
 
 	/* Pages in this range need to be included in the hibernation image */
-	#define PMAP_IO_RANGE_NEEDS_HIBERNATING (1UL << 29)
+	#define PMAP_IO_RANGE_NEEDS_HIBERNATING (1U << 29)
 
 	/* Mark the range as 'owned' by a given subsystem */
-	#define PMAP_IO_RANGE_OWNED (1UL << 28)
+	#define PMAP_IO_RANGE_OWNED (1U << 28)
+
+	/**
+	 * Denotes a range that is *not* to be treated as an I/O range that
+	 * needs to be mapped, but only to decorate arbitrary physical
+	 * memory ranges (including of managed memory) with extra
+	 * flags. I.e. this allows tagging of "ordinary" managed memory
+	 * pages with flags like `PMAP_IO_RANGE_PROHIBIT_HIB_WRITE`, or
+	 * informing the SPTM that some (nominally) managed memory pages are
+	 * unavailable for some reason.
+	 *
+	 * Notably, `pmap_find_io_attr()`, and anything else that uses
+	 * `pmap_io_range`s for denoting to-be-mapped I/O ranges, ignores
+	 * entries with this flag.
+	 */
+	#define PMAP_IO_RANGE_NOT_IO (1U << 27)
+
+	/* Pages in this range may never be written during hibernation restore. */
+	#define PMAP_IO_RANGE_PROHIBIT_HIB_WRITE (1U << 26)
 
 	/**
 	 * Lower 16 bits treated as pp_attr_t, upper 16 bits contain additional
@@ -2019,4 +2039,8 @@ extern void pmap_cpu_data_init_internal(unsigned int);
  */
 extern void pmap_flush_noncoherent_page(pmap_paddr_t paddr);
 
+#if DEBUG || DEVELOPMENT
+extern unsigned int pmap_wcrt_on_non_dram_count_get(void);
+extern void pmap_wcrt_on_non_dram_count_increment_atomic(void);
+#endif /* DEBUG || DEVELOPMENT */
 #endif /* _ARM_PMAP_PMAP_DATA_H_ */

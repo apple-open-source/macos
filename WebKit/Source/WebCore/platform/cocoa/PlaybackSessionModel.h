@@ -43,10 +43,11 @@ class PlaybackSessionModelClient;
 
 namespace WebCore {
 
-class TimeRanges;
+class PlatformTimeRanges;
 class PlaybackSessionModelClient;
 struct MediaSelectionOption;
 struct SpatialVideoMetadata;
+struct VideoProjectionMetadata;
 
 enum class AudioSessionSoundStageSize : uint8_t;
 
@@ -78,6 +79,9 @@ public:
     virtual void togglePlayState() = 0;
     virtual void beginScrubbing() = 0;
     virtual void endScrubbing() = 0;
+#if HAVE(PIP_SKIP_PREROLL)
+    virtual void skipAd() { }
+#endif
     virtual void seekToTime(double time, double toleranceBefore = 0, double toleranceAfter = 0) = 0;
     virtual void fastSeek(double time) = 0;
     virtual void beginScanningForward() = 0;
@@ -90,6 +94,7 @@ public:
     virtual void togglePictureInPicture() = 0;
     virtual void enterInWindowFullscreen() = 0;
     virtual void exitInWindowFullscreen() = 0;
+    virtual void setPlayerIdentifierForVideoElement() = 0;
     virtual void enterFullscreen() = 0;
     virtual void exitFullscreen() = 0;
     virtual void toggleMuted() = 0;
@@ -115,13 +120,14 @@ public:
     virtual double bufferedTime() const = 0;
 
     using PlaybackState = PlaybackSessionModelPlaybackState;
+    virtual OptionSet<PlaybackState> playbackState() const = 0;
 
     virtual bool isPlaying() const = 0;
     virtual bool isStalled() const = 0;
     virtual bool isScrubbing() const = 0;
     virtual double defaultPlaybackRate() const = 0;
     virtual double playbackRate() const = 0;
-    virtual Ref<TimeRanges> seekableRanges() const = 0;
+    virtual PlatformTimeRanges seekableRanges() const = 0;
     virtual double seekableTimeRangesLastModifiedTime() const = 0;
     virtual double liveUpdateInterval() const = 0;
     virtual bool canPlayFastReverse() const = 0;
@@ -165,7 +171,7 @@ public:
     virtual void bufferedTimeChanged(double) { }
     virtual void playbackStartedTimeChanged(double /* playbackStartedTime */) { }
     virtual void rateChanged(OptionSet<PlaybackSessionModel::PlaybackState>, double /* playbackRate */, double /* defaultPlaybackRate */) { }
-    virtual void seekableRangesChanged(const TimeRanges&, double /* lastModified */, double /* liveInterval */) { }
+    virtual void seekableRangesChanged(const PlatformTimeRanges&, double /* lastModified */, double /* liveInterval */) { }
     virtual void canPlayFastReverseChanged(bool) { }
     virtual void audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& /* options */, uint64_t /* selectedIndex */) { }
     virtual void legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& /* options */, uint64_t /* selectedIndex */) { }
@@ -174,18 +180,39 @@ public:
     virtual void externalPlaybackChanged(bool /* enabled */, PlaybackSessionModel::ExternalPlaybackTargetType, const String& /* localizedDeviceName */) { }
     virtual void wirelessVideoPlaybackDisabledChanged(bool) { }
     virtual void mutedChanged(bool) { }
+#if HAVE(PIP_SKIP_PREROLL)
+    virtual void canSkipAdChanged(bool) { }
+#endif
     virtual void volumeChanged(double) { }
     virtual void isPictureInPictureSupportedChanged(bool) { }
     virtual void pictureInPictureActiveChanged(bool) { }
     virtual void isInWindowFullscreenActiveChanged(bool) { }
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     virtual void supportsLinearMediaPlayerChanged(bool) { }
-    virtual void spatialVideoMetadataChanged(const std::optional<SpatialVideoMetadata>&) { };
+    virtual void didSetVideoReceiverEndpoint() { };
 #endif
+    virtual void spatialVideoMetadataChanged(const std::optional<SpatialVideoMetadata>&) { };
+    virtual void videoProjectionMetadataChanged(const std::optional<VideoProjectionMetadata>&) { };
     virtual void ensureControlsManager() { }
     virtual void modelDestroyed() { }
 };
 
 } // namespace WebCore
+
+namespace WTF {
+
+template <>
+struct LogArgument<OptionSet<WebCore::PlaybackSessionModel::PlaybackState>> {
+    static String toString(const OptionSet<WebCore::PlaybackSessionModel::PlaybackState> state)
+    {
+        if (!state.toRaw())
+            return "Paused"_s;
+        if (state.contains(WebCore::PlaybackSessionModel::PlaybackState::Stalled))
+            return "Stalled"_s;
+        return "Playing"_s;
+    }
+};
+
+}
 
 #endif // PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))

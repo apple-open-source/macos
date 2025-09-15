@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,7 @@ class SerializedImageBuffer;
 
 struct GraphicsContextGLAttributes;
 
-enum class ImageBufferPixelFormat : uint8_t;
+struct ImageBufferFormat;
 enum class RenderingMode : uint8_t;
 enum class RenderingPurpose : uint8_t;
 
@@ -63,7 +63,7 @@ public:
 
 private:
     // Called by passing GraphicsClient into ImageBuffer functions.
-    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float resolutionScale, const DestinationColorSpace&, ImageBufferPixelFormat) const = 0;
+    virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float resolutionScale, const DestinationColorSpace&, ImageBufferFormat) const = 0;
 
     // Called by passing GraphicsClient into SerializedImageBuffer functions.
     virtual RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) = 0;

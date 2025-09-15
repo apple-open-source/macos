@@ -132,6 +132,7 @@ hu{
         crs{"szeszelva kreol francia"}
         cs{"cseh"}
         csb{"kasub"}
+        cst{"chochenyo"}
         csw{"mocsári krí"}
         cu{"egyházi szláv"}
         cv{"csuvas"}
@@ -227,6 +228,7 @@ hu{
         hak{"hakka kínai"}
         haw{"hawaii"}
         hax{"déli haida"}
+        hch{"wixárika"}
         he{"héber"}
         hi{"hindi"}
         hi_Latn{"hindi (latin)"}
@@ -256,6 +258,7 @@ hu{
         inh{"ingus"}
         io{"idó"}
         is{"izlandi"}
+        isc{"iskonawa"}
         it{"olasz"}
         iu{"inuktitut"}
         ja{"japán"}
@@ -494,6 +497,7 @@ hu{
         sh{"szerbhorvát"}
         shi{"tachelhit"}
         shn{"san"}
+        shp{"shipibo-konibo"}
         shu{"csádi arab"}
         si{"szingaléz"}
         sid{"szidamó"}
@@ -787,13 +791,15 @@ hu{
     }
     Types{
         calendar{
+            bangla{"Bengáli naptár"}
             buddhist{"Buddhista naptár"}
             chinese{"Kínai naptár"}
             coptic{"Kopt naptár"}
-            dangi{"Dangi naptár"}
+            dangi{"Koreai naptár"}
             ethiopic{"Etióp naptár"}
             ethiopic-amete-alem{"Etióp amete alem naptár"}
             gregorian{"Gergely-naptár"}
+            gujarati{"Gudzsaráti naptár"}
             hebrew{"Héber naptár"}
             indian{"Indiai nemzeti naptár"}
             islamic{"Hidzsra-naptár"}
@@ -801,8 +807,16 @@ hu{
             islamic-umalqura{"Hidzsra-naptár (Umm al-Qura)"}
             iso8601{"ISO-8601 naptár"}
             japanese{"Japán naptár"}
+            kannada{"Kannada naptár"}
+            malayalam{"Malajálam naptár"}
+            marathi{"Maráthi naptár"}
+            odia{"Orija naptár"}
             persian{"Perzsa naptár"}
             roc{"Kínai köztársasági naptár"}
+            tamil{"Tamil naptár"}
+            telugu{"Telugu naptár"}
+            vietnamese{"Vietnámi naptár"}
+            vikram{"Vikrám naptár"}
         }
         cf{
             account{"Könyvelési pénznemformátum"}

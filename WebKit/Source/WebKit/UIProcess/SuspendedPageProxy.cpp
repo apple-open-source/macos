@@ -119,9 +119,9 @@ SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&
     , m_mainFrame(WTFMove(mainFrame))
     , m_browsingContextGroup(WTFMove(browsingContextGroup))
     , m_shouldDelayClosingUntilFirstLayerFlush(shouldDelayClosingUntilFirstLayerFlush)
-    , m_suspensionTimeoutTimer(RunLoop::main(), this, &SuspendedPageProxy::suspensionTimedOut)
+    , m_suspensionTimeoutTimer(RunLoop::mainSingleton(), "SuspendedPageProxy::SuspensionTimeoutTimer"_s, this, &SuspendedPageProxy::suspensionTimedOut)
 #if USE(RUNNINGBOARD)
-    , m_suspensionActivity(m_process->throttler().backgroundActivity("Page suspension for back/forward cache"_s))
+    , m_suspensionActivity(m_process->protectedThrottler()->backgroundActivity("Page suspension for back/forward cache"_s))
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     , m_contextIDForVisibilityPropagationInWebProcess(page.contextIDForVisibilityPropagationInWebProcess())
@@ -134,14 +134,24 @@ SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&
     m_process->addSuspendedPageProxy(*this);
     m_messageReceiverRegistration.startReceivingMessages(m_process, m_webPageID, *this);
     m_suspensionTimeoutTimer.startOneShot(suspensionTimeout);
-    sendToAllProcesses(Messages::WebPage::SetIsSuspended(true));
+    sendWithAsyncReply(Messages::WebPage::SetIsSuspended(true), [weakThis = WeakPtr { *this }](std::optional<bool> didSuspend) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis || !didSuspend)
+            return;
+        protectedThis->didProcessRequestToSuspend(*didSuspend ? SuspensionState::Suspended : SuspensionState::FailedToSuspend);
+    });
 }
 
-template<typename T>
-void SuspendedPageProxy::sendToAllProcesses(T&& message)
+template<typename M>
+void SuspendedPageProxy::send(M&& message)
 {
-    // FIXME: Rename m_process to m_mainFrameProcess and make its use aware of site isolation.
-    m_process->send(std::forward<T>(message), m_webPageID);
+    m_process->send(std::forward<M>(message), m_webPageID);
+}
+
+template<typename M, typename C>
+void SuspendedPageProxy::sendWithAsyncReply(M&& message, C&& completionHandler)
+{
+    m_process->sendWithAsyncReply(std::forward<M>(message), std::forward<C>(completionHandler), m_webPageID);
 }
 
 SuspendedPageProxy::~SuspendedPageProxy()
@@ -149,7 +159,7 @@ SuspendedPageProxy::~SuspendedPageProxy()
     allSuspendedPages().remove(*this);
 
     if (m_readyToUnsuspendHandler) {
-        RunLoop::main().dispatch([readyToUnsuspendHandler = WTFMove(m_readyToUnsuspendHandler)]() mutable {
+        RunLoop::mainSingleton().dispatch([readyToUnsuspendHandler = WTFMove(m_readyToUnsuspendHandler)]() mutable {
             readyToUnsuspendHandler(nullptr);
         });
     }
@@ -167,6 +177,11 @@ void SuspendedPageProxy::didDestroyNavigation(WebCore::NavigationIdentifier navi
 {
     if (RefPtr page = m_page.get())
         page->didDestroyNavigationShared(m_process.copyRef(), navigationID);
+}
+
+Ref<WebBackForwardCache> SuspendedPageProxy::protectedBackForwardCache() const
+{
+    return backForwardCache();
 }
 
 WebBackForwardCache& SuspendedPageProxy::backForwardCache() const
@@ -199,7 +214,9 @@ void SuspendedPageProxy::unsuspend()
     ASSERT(m_suspensionState == SuspensionState::Suspended);
 
     m_suspensionState = SuspensionState::Resumed;
-    sendToAllProcesses(Messages::WebPage::SetIsSuspended(false));
+    sendWithAsyncReply(Messages::WebPage::SetIsSuspended(false), [](std::optional<bool> didSuspend) {
+        ASSERT(!didSuspend.has_value());
+    });
 }
 
 void SuspendedPageProxy::close()
@@ -211,7 +228,7 @@ void SuspendedPageProxy::close()
 
     RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::close()", this);
     m_isClosed = true;
-    sendToAllProcesses(Messages::WebPage::Close());
+    send(Messages::WebPage::Close());
 }
 
 void SuspendedPageProxy::pageDidFirstLayerFlush()
@@ -267,7 +284,7 @@ void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensio
 void SuspendedPageProxy::suspensionTimedOut()
 {
     RELEASE_LOG_ERROR(ProcessSwapping, "%p - SuspendedPageProxy::suspensionTimedOut() destroying the suspended page because it failed to suspend in time", this);
-    backForwardCache().removeEntry(*this); // Will destroy |this|.
+    protectedBackForwardCache()->removeEntry(*this); // Will destroy |this|.
 }
 
 WebPageProxy* SuspendedPageProxy::page() const
@@ -278,16 +295,6 @@ WebPageProxy* SuspendedPageProxy::page() const
 void SuspendedPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     ASSERT(decoder.messageReceiverName() == Messages::WebPageProxy::messageReceiverName());
-
-    if (decoder.messageName() == Messages::WebPageProxy::DidSuspendAfterProcessSwap::name()) {
-        didProcessRequestToSuspend(SuspensionState::Suspended);
-        return;
-    }
-
-    if (decoder.messageName() == Messages::WebPageProxy::DidFailToSuspendAfterProcessSwap::name()) {
-        didProcessRequestToSuspend(SuspensionState::FailedToSuspend);
-        return;
-    }
 
     if (decoder.messageName() == Messages::WebPageProxy::DidDestroyNavigation::name()) {
         IPC::handleMessage<Messages::WebPageProxy::DidDestroyNavigation>(connection, decoder, this, &SuspendedPageProxy::didDestroyNavigation);

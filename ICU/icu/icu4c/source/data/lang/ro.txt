@@ -132,6 +132,7 @@ ro{
         crs{"creolă franceză seselwa"}
         cs{"cehă"}
         csb{"cașubiană"}
+        cst{"chochenyo"}
         csw{"cree (Mlaștini)"}
         cu{"slavonă"}
         cv{"ciuvașă"}
@@ -218,6 +219,7 @@ ro{
         hak{"chineză hakka"}
         haw{"hawaiiană"}
         hax{"haida de sud"}
+        hch{"wixárika"}
         he{"ebraică"}
         hi{"hindi"}
         hil{"hiligaynon"}
@@ -246,6 +248,7 @@ ro{
         inh{"ingușă"}
         io{"ido"}
         is{"islandeză"}
+        isc{"iskonawa"}
         it{"italiană"}
         iu{"inuktitut"}
         ja{"japoneză"}
@@ -482,6 +485,7 @@ ro{
         sh{"sârbo-croată"}
         shi{"tachelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"arabă ciadiană"}
         si{"singhaleză"}
         sid{"sidamo"}
@@ -821,13 +825,15 @@ ro{
     }
     Types{
         calendar{
+            bangla{"calendar bangla"}
             buddhist{"calendar budist"}
             chinese{"calendar chinezesc"}
             coptic{"calendar copt"}
-            dangi{"calendar dangi"}
+            dangi{"calendar coreean"}
             ethiopic{"calendar etiopian"}
             ethiopic-amete-alem{"calendar etiopian amete alem"}
             gregorian{"calendar gregorian"}
+            gujarati{"calendar gujarati"}
             hebrew{"calendar ebraic"}
             indian{"calendar național indian"}
             islamic{"calendarul Hegirei"}
@@ -837,8 +843,16 @@ ro{
             islamic-umalqura{"calendarul Hegirei (Umm al-Qura)"}
             iso8601{"calendar ISO-8601"}
             japanese{"calendar japonez"}
+            kannada{"calendar kannada"}
+            malayalam{"calendar malayalam"}
+            marathi{"calendar marathi"}
+            odia{"calendar odia"}
             persian{"calendar persan"}
             roc{"calendarul Republicii Chineze"}
+            tamil{"calendar tamil"}
+            telugu{"calendar telugu"}
+            vietnamese{"calendar vietnamez"}
+            vikram{"calendar vikram"}
         }
         cf{
             account{"Format monedă contabilitate"}

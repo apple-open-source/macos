@@ -191,6 +191,11 @@ kern_return_t CSM_PREFIX(reconstitute_code_signature)(
 	vm_address_t *unneeded_addr,
 	vm_size_t *unneeded_size);
 
+kern_return_t CSM_PREFIX(setup_nested_address_space)(
+	pmap_t pmap,
+	const vm_address_t region_addr,
+	const vm_size_t region_size);
+
 kern_return_t CSM_PREFIX(associate_code_signature)(
 	pmap_t pmap,
 	void *sig_obj,

@@ -101,7 +101,7 @@
 
 __BEGIN_DECLS
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 /*
  *	A zone is a collection of fixed size blocks for which there
@@ -271,13 +271,11 @@ struct zone {
 	    no_callout         :1,
 	    z_destructible     :1,  /* zone can be zdestroy()ed  */
 
-	    _reserved          :6,
+	    _reserved          :8,
 
 	/*
 	 * Debugging features
 	 */
-	    z_pgz_tracked      :1,  /* this zone is tracked by pgzalloc */
-	    z_pgz_use_guards   :1,  /* this zone uses guards with PGZ */
 	    z_kasan_fakestacks :1,
 	    z_kasan_quarantine :1,  /* whether to use the kasan quarantine */
 	    z_tags_sizeclass   :6,  /* idx into zone_tags_sizeclasses to associate
@@ -421,11 +419,10 @@ typedef struct zone_security_flags {
 	    z_kheap_id         :3,  /* zone_kheap_id_t when part of a kalloc heap */
 	    z_kalloc_type      :1,  /* zones that does types based seggregation */
 	    z_lifo             :1,  /* depot and recirculation layer are LIFO */
-	    z_pgz_use_guards   :1,  /* this zone uses guards with PGZ */
 	    z_submap_from_end  :1,  /* allocate from the left or the right ? */
 	    z_noencrypt        :1,  /* do not encrypt pages when hibernating */
 	    z_tag              :1,  /* zone supports TBI tagging */
-	    z_unused           :15;
+	    z_unused           :16;
 	/*
 	 * Signature equivalance zone
 	 */
@@ -521,6 +518,11 @@ __enum_decl(kt_var_heap_id_t, uint32_t, {
 	 * have been redirected to KHEAP_DATA_BUFFERS
 	 */
 	KT_VAR_DATA_HEAP,
+	/*
+	 * Fake "data" heap used to link views of data-only allocation that
+	 * have been redirected to KHEAP_DATA_SHARED
+	 */
+	KT_VAR_DATA_SHARED_HEAP,
 	/*
 	 * Heaps for pointer arrays
 	 */
@@ -1074,8 +1076,6 @@ zone_unlock(zone_t zone)
 #endif /* KASAN_FAKESTACK */
 }
 
-#define MAX_ZONE_NAME   32      /* max length of a zone name we can take from the boot-args */
-
 int track_this_zone(const char *zonename, const char *logname);
 extern bool panic_include_kalloc_types;
 extern zone_t kalloc_type_src_zone;
@@ -1085,7 +1085,7 @@ extern zone_t kalloc_type_dst_zone;
 extern vm_size_t zone_element_info(void *addr, vm_tag_t * ptag);
 #endif /* DEBUG || DEVELOPMENT */
 
-#pragma GCC visibility pop
+__exported_pop
 
 __END_DECLS
 

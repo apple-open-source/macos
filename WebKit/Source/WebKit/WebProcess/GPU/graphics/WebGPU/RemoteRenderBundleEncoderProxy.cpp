@@ -31,6 +31,7 @@
 #include "RemoteRenderBundleEncoderMessages.h"
 #include "RemoteRenderBundleProxy.h"
 #include "WebGPUConvertToBackingContext.h"
+#include <WebCore/WebGPUBindGroup.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit::WebGPU {
@@ -52,7 +53,7 @@ RemoteRenderBundleEncoderProxy::~RemoteRenderBundleEncoderProxy()
 
 void RemoteRenderBundleEncoderProxy::setPipeline(const WebCore::WebGPU::RenderPipeline& renderPipeline)
 {
-    auto convertedRenderPipeline = protectedConvertToBackingContext()->convertToBacking(renderPipeline);
+    auto convertedRenderPipeline = m_convertToBackingContext->convertToBacking(renderPipeline);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetPipeline(convertedRenderPipeline));
     UNUSED_VARIABLE(sendResult);
@@ -60,7 +61,7 @@ void RemoteRenderBundleEncoderProxy::setPipeline(const WebCore::WebGPU::RenderPi
 
 void RemoteRenderBundleEncoderProxy::setIndexBuffer(const WebCore::WebGPU::Buffer& buffer, WebCore::WebGPU::IndexFormat indexFormat, std::optional<WebCore::WebGPU::Size64> offset, std::optional<WebCore::WebGPU::Size64> size)
 {
-    auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(buffer);
+    auto convertedBuffer = m_convertToBackingContext->convertToBacking(buffer);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetIndexBuffer(convertedBuffer, indexFormat, offset, size));
     UNUSED_VARIABLE(sendResult);
@@ -73,7 +74,7 @@ void RemoteRenderBundleEncoderProxy::setVertexBuffer(WebCore::WebGPU::Index32 sl
         UNUSED_VARIABLE(sendResult);
         return;
     }
-    auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(*buffer);
+    auto convertedBuffer = m_convertToBackingContext->convertToBacking(*buffer);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetVertexBuffer(slot, convertedBuffer, offset, size));
     UNUSED_VARIABLE(sendResult);
@@ -98,7 +99,7 @@ void RemoteRenderBundleEncoderProxy::drawIndexed(WebCore::WebGPU::Size32 indexCo
 
 void RemoteRenderBundleEncoderProxy::drawIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
 {
-    auto convertedIndirectBuffer = protectedConvertToBackingContext()->convertToBacking(indirectBuffer);
+    auto convertedIndirectBuffer = m_convertToBackingContext->convertToBacking(indirectBuffer);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::DrawIndirect(convertedIndirectBuffer, indirectOffset));
     UNUSED_VARIABLE(sendResult);
@@ -106,27 +107,31 @@ void RemoteRenderBundleEncoderProxy::drawIndirect(const WebCore::WebGPU::Buffer&
 
 void RemoteRenderBundleEncoderProxy::drawIndexedIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
 {
-    auto convertedIndirectBuffer = protectedConvertToBackingContext()->convertToBacking(indirectBuffer);
+    auto convertedIndirectBuffer = m_convertToBackingContext->convertToBacking(indirectBuffer);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::DrawIndexedIndirect(convertedIndirectBuffer, indirectOffset));
     UNUSED_VARIABLE(sendResult);
 }
 
-void RemoteRenderBundleEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, const WebCore::WebGPU::BindGroup& bindGroup,
+void RemoteRenderBundleEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, const WebCore::WebGPU::BindGroup* bindGroup,
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets)
 {
-    auto convertedBindGroup = protectedConvertToBackingContext()->convertToBacking(bindGroup);
+    std::optional<WebGPUIdentifier> convertedBindGroup;
+    if (bindGroup)
+        convertedBindGroup = m_convertToBackingContext->convertToBacking(*bindGroup);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetBindGroup(index, convertedBindGroup, dynamicOffsets));
     UNUSED_VARIABLE(sendResult);
 }
 
-void RemoteRenderBundleEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, const WebCore::WebGPU::BindGroup& bindGroup,
+void RemoteRenderBundleEncoderProxy::setBindGroup(WebCore::WebGPU::Index32 index, const WebCore::WebGPU::BindGroup* bindGroup,
     std::span<const uint32_t> dynamicOffsetsArrayBuffer,
     WebCore::WebGPU::Size64 dynamicOffsetsDataStart,
     WebCore::WebGPU::Size32 dynamicOffsetsDataLength)
 {
-    auto convertedBindGroup = protectedConvertToBackingContext()->convertToBacking(bindGroup);
+    std::optional<WebGPUIdentifier> convertedBindGroup;
+    if (bindGroup)
+        convertedBindGroup = m_convertToBackingContext->convertToBacking(*bindGroup);
 
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetBindGroup(index, convertedBindGroup, Vector<WebCore::WebGPU::BufferDynamicOffset>(dynamicOffsetsArrayBuffer.subspan(dynamicOffsetsDataStart, dynamicOffsetsDataLength))));
     UNUSED_VARIABLE(sendResult);
@@ -169,11 +174,6 @@ void RemoteRenderBundleEncoderProxy::setLabelInternal(const String& label)
 {
     auto sendResult = send(Messages::RemoteRenderBundleEncoder::SetLabel(label));
     UNUSED_VARIABLE(sendResult);
-}
-
-Ref<ConvertToBackingContext> RemoteRenderBundleEncoderProxy::protectedConvertToBackingContext() const
-{
-    return m_convertToBackingContext;
 }
 
 } // namespace WebKit::WebGPU

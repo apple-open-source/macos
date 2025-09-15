@@ -46,6 +46,7 @@
 #include <net/net_osdep.h>
 #include <net/droptap.h>
 #include <net/pktsched/pktsched.h>
+#include <net/pktsched/pktsched_ops.h>
 #include <net/pktsched/pktsched_fq_codel.h>
 #include <net/pktsched/pktsched_netem.h>
 
@@ -70,6 +71,95 @@ SYSCTL_NODE(_net, OID_AUTO, pktsched, CTLFLAG_RW | CTLFLAG_LOCKED, 0, "pktsched"
 SYSCTL_UINT(_net_pktsched, OID_AUTO, verbose, CTLFLAG_RW | CTLFLAG_LOCKED,
     &pktsched_verbose, 0, "Packet scheduler verbosity level");
 
+static void
+pktsched_teardown_noop(__unused struct ifclassq *ifq)
+{
+	return;
+}
+
+static int
+pktsched_request_noop(struct ifclassq *ifq, cqrq_t rq, void *arg)
+{
+#pragma unused(ifq, rq, arg)
+	return ENXIO;
+}
+
+static int
+pktsched_getqstats_noop(struct ifclassq *ifq,
+    uint8_t gid, u_int32_t qid,
+    struct if_ifclassq_stats *ifqs)
+{
+#pragma unused(ifq, gid, qid, ifqs)
+	return ENXIO;
+}
+
+static int
+pktsched_enqueue_noop(struct ifclassq *ifq,
+    classq_pkt_t *h, classq_pkt_t *t, uint32_t cnt,
+    uint32_t bytes, boolean_t *pdrop)
+{
+	pktsched_pkt_t pkt;
+	pktsched_pkt_encap_chain(&pkt, h, t, cnt, bytes);
+	if (__improbable(droptap_verbose > 0)) {
+		pktsched_drop_pkt(&pkt, ifq->ifcq_ifp, DROP_REASON_AQM_BK_SYS_THROTTLED,
+		    __func__, __LINE__, 0);
+	} else {
+		pktsched_free_pkt(&pkt);
+	}
+
+	*pdrop = true;
+	return ENXIO;
+}
+
+static int
+pktsched_dequeue_noop(struct ifclassq *ifq,
+    u_int32_t maxpktcnt, u_int32_t maxbytecnt,
+    classq_pkt_t *first_packet, classq_pkt_t *last_packet,
+    u_int32_t *retpktcnt, u_int32_t *retbytecnt,
+    uint8_t grp_idx)
+{
+#pragma unused(ifq, maxpktcnt, maxbytecnt, first_packet, last_packet, retpktcnt, retbytecnt, grp_idx)
+	return ENXIO;
+}
+
+static int
+pktsched_dequeue_sc_noop(struct ifclassq *ifq,
+    mbuf_svc_class_t svc, u_int32_t maxpktcnt,
+    u_int32_t maxbytecnt, classq_pkt_t *first_packet,
+    classq_pkt_t *last_packet, u_int32_t *retpktcnt,
+    u_int32_t *retbytecnt, uint8_t grp_idx)
+{
+#pragma unused(ifq, svc, maxpktcnt, maxbytecnt, first_packet, last_packet, retpktcnt, retbytecnt, grp_idx)
+	return ENXIO;
+}
+
+static int
+pktsched_setup_noop(struct ifclassq *ifq, u_int32_t flags,
+    classq_pkt_type_t ptype)
+{
+#pragma unused(ifq, flags, ptype)
+	return ENXIO;
+}
+
+static boolean_t
+pktsched_allow_dequeue_noop(struct ifclassq *ifq)
+{
+#pragma unused(ifq)
+	return false;
+}
+
+struct pktsched_ops pktsched_noops = {
+	.ps_id             = PKTSCHEDT_NONE,
+	.ps_setup          = pktsched_setup_noop,
+	.ps_teardown       = pktsched_teardown_noop,
+	.ps_enq            = pktsched_enqueue_noop,
+	.ps_deq            = pktsched_dequeue_noop,
+	.ps_deq_sc         = pktsched_dequeue_sc_noop,
+	.ps_req            = pktsched_request_noop,
+	.ps_stats          = pktsched_getqstats_noop,
+	.ps_allow_dequeue  = pktsched_allow_dequeue_noop,
+};
+
 void
 pktsched_init(void)
 {
@@ -78,6 +168,7 @@ pktsched_init(void)
 		panic("%s: no CPU clock available!", __func__);
 		/* NOTREACHED */
 	}
+	pktsched_ops_register(&pktsched_noops);
 	pktsched_fq_init();
 }
 
@@ -113,11 +204,12 @@ pktsched_nsecs_to_abstime(u_int64_t nsecs)
 }
 
 int
-pktsched_setup(struct ifclassq *ifq, u_int32_t scheduler, u_int32_t sflags,
+pktsched_setup(struct ifclassq *ifq, u_int8_t scheduler, u_int32_t sflags,
     classq_pkt_type_t ptype)
 {
 	int error = 0;
 	u_int32_t rflags;
+	pktsched_ops_t *ops;
 
 	IFCQ_LOCK_ASSERT_HELD(ifq);
 
@@ -135,6 +227,17 @@ pktsched_setup(struct ifclassq *ifq, u_int32_t scheduler, u_int32_t sflags,
 	rflags = (ifq->ifcq_flags & IFCQF_ENABLED);
 
 	if (ifq->ifcq_type != PKTSCHEDT_NONE) {
+		/* Don't support changing qdisc for fq_codel that has multiple groups */
+		if (ifq->ifcq_type == PKTSCHEDT_FQ_CODEL) {
+			fq_if_t *fqs = (fq_if_t *)ifq->ifcq_disc;
+			uint8_t grp_idx;
+			for (grp_idx = 1; grp_idx < FQ_IF_MAX_GROUPS; grp_idx++) {
+				if (fqs->fqs_classq_groups[grp_idx] != NULL) {
+					return ENOTSUP;
+				}
+			}
+		}
+
 		pktsched_teardown(ifq);
 
 		/* Teardown should have succeeded */
@@ -142,9 +245,15 @@ pktsched_setup(struct ifclassq *ifq, u_int32_t scheduler, u_int32_t sflags,
 		VERIFY(ifq->ifcq_disc == NULL);
 	}
 
-	error = fq_if_setup_ifclassq(ifq, sflags, ptype);
+	ops = pktsched_ops_find(scheduler);
+	ASSERT(ops != NULL);
+	ifq->ifcq_ops = ops;
+	error = ops->ps_setup(ifq, sflags, ptype);
 	if (error == 0) {
 		ifq->ifcq_flags |= rflags;
+	}
+	if (ops->ps_ops_flags & PKTSCHED_OPS_LOCKLESS) {
+		ifq->ifcq_flags |= IFCQF_LOCKLESS;
 	}
 
 	return error;
@@ -154,30 +263,21 @@ void
 pktsched_teardown(struct ifclassq *ifq)
 {
 	IFCQ_LOCK_ASSERT_HELD(ifq);
-	if_qflush(ifq->ifcq_ifp, ifq, true);
+	ifq->ifcq_ops->ps_req(ifq, CLASSQRQ_PURGE, 0);
 	VERIFY(IFCQ_IS_EMPTY(ifq));
 	ifq->ifcq_flags &= ~IFCQF_ENABLED;
-	if (ifq->ifcq_type == PKTSCHEDT_FQ_CODEL) {
-		/* Could be PKTSCHEDT_NONE */
-		fq_if_teardown_ifclassq(ifq);
-	}
+	ifq->ifcq_ops->ps_teardown(ifq);
 	return;
 }
 
+// TODO: change function signature to be more generic
 int
 pktsched_getqstats(struct ifclassq *ifq, u_int32_t gid, u_int32_t qid,
     struct if_ifclassq_stats *ifqs)
 {
-	int error = 0;
-
 	IFCQ_LOCK_ASSERT_HELD(ifq);
 
-	if (ifq->ifcq_type == PKTSCHEDT_FQ_CODEL) {
-		/* Could be PKTSCHEDT_NONE */
-		error = fq_if_getqstats_ifclassq(ifq, (uint8_t)gid, qid, ifqs);
-	}
-
-	return error;
+	return ifq->ifcq_ops->ps_stats(ifq, (uint8_t)gid, qid, ifqs);
 }
 
 void
@@ -414,6 +514,7 @@ pktsched_drop_pkt(pktsched_pkt_t *pkt, struct ifnet *ifp, drop_reason_t reason, 
 		}
 		droptap_output_packet(SK_PKT2PH(kpkt), reason, funcname, linenum,
 		    flags, ifp, kpkt->pkt_qum.qum_pid, NULL, -1, NULL, 0, 0);
+		pktsched_free_pkt(pkt);
 		break;
 	}
 #endif /* SKYWALK */
@@ -423,8 +524,6 @@ pktsched_drop_pkt(pktsched_pkt_t *pkt, struct ifnet *ifp, drop_reason_t reason, 
 		/* NOTREACHED */
 		__builtin_unreachable();
 	}
-
-	pktsched_free_pkt(pkt);
 }
 
 mbuf_svc_class_t
@@ -556,16 +655,13 @@ pktsched_alloc_fcentry(pktsched_pkt_t *pkt, struct ifnet *ifp, int how)
 			break;
 		}
 
-		_CASSERT(sizeof(m->m_pkthdr.pkt_flowid) ==
-		    sizeof(fce->fce_flowid));
+		static_assert(sizeof(m->m_pkthdr.pkt_flowid) == sizeof(fce->fce_flowid));
 
 		fce->fce_flowsrc_type = m->m_pkthdr.pkt_flowsrc;
 		fce->fce_flowid = m->m_pkthdr.pkt_flowid;
 #if SKYWALK
-		_CASSERT(sizeof(m->m_pkthdr.pkt_mpriv_srcid) ==
-		    sizeof(fce->fce_flowsrc_token));
-		_CASSERT(sizeof(m->m_pkthdr.pkt_mpriv_fidx) ==
-		    sizeof(fce->fce_flowsrc_fidx));
+		static_assert(sizeof(m->m_pkthdr.pkt_mpriv_srcid) == sizeof(fce->fce_flowsrc_token));
+		static_assert(sizeof(m->m_pkthdr.pkt_mpriv_fidx) == sizeof(fce->fce_flowsrc_fidx));
 
 		if (fce->fce_flowsrc_type == FLOWSRC_CHANNEL) {
 			fce->fce_flowsrc_fidx = m->m_pkthdr.pkt_mpriv_fidx;
@@ -585,12 +681,9 @@ pktsched_alloc_fcentry(pktsched_pkt_t *pkt, struct ifnet *ifp, int how)
 			break;
 		}
 
-		_CASSERT(sizeof(fce->fce_flowid) ==
-		    sizeof(kp->pkt_flow_token));
-		_CASSERT(sizeof(fce->fce_flowsrc_fidx) ==
-		    sizeof(kp->pkt_flowsrc_fidx));
-		_CASSERT(sizeof(fce->fce_flowsrc_token) ==
-		    sizeof(kp->pkt_flowsrc_token));
+		static_assert(sizeof(fce->fce_flowid) == sizeof(kp->pkt_flow_token));
+		static_assert(sizeof(fce->fce_flowsrc_fidx) == sizeof(kp->pkt_flowsrc_fidx));
+		static_assert(sizeof(fce->fce_flowsrc_token) == sizeof(kp->pkt_flowsrc_token));
 
 		ASSERT(kp->pkt_pflags & PKT_F_FLOW_ADV);
 		fce->fce_flowsrc_type = kp->pkt_flowsrc_type;
@@ -609,43 +702,6 @@ pktsched_alloc_fcentry(pktsched_pkt_t *pkt, struct ifnet *ifp, int how)
 	}
 
 	return fce;
-}
-
-uint32_t *
-pktsched_get_pkt_sfb_vars(pktsched_pkt_t *pkt, uint32_t **sfb_flags)
-{
-	uint32_t *hashp = NULL;
-
-	switch (pkt->pktsched_ptype) {
-	case QP_MBUF: {
-		struct pkthdr *pkth = &(pkt->pktsched_pkt_mbuf->m_pkthdr);
-
-		_CASSERT(sizeof(pkth->pkt_mpriv_hash) == sizeof(uint32_t));
-		_CASSERT(sizeof(pkth->pkt_mpriv_flags) == sizeof(uint32_t));
-		*sfb_flags = &pkth->pkt_mpriv_flags;
-		hashp = &pkth->pkt_mpriv_hash;
-		break;
-	}
-
-#if SKYWALK
-	case QP_PACKET: {
-		struct __kern_packet *kp = pkt->pktsched_pkt_kpkt;
-
-		_CASSERT(sizeof(kp->pkt_classq_hash) == sizeof(uint32_t));
-		_CASSERT(sizeof(kp->pkt_classq_flags) == sizeof(uint32_t));
-		*sfb_flags = &kp->pkt_classq_flags;
-		hashp = &kp->pkt_classq_hash;
-		break;
-	}
-#endif /* SKYWALK */
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
-
-	return hashp;
 }
 
 static int

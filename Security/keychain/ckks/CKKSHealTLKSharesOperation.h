@@ -50,6 +50,8 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSSet<CKKSTLKShareRecord*>* _Nullable)createMissingKeyShares:(CKKSCurrentKeySet*)keyset
                                                     trustStates:(NSArray<CKKSPeerProviderState*>*)trustStates
                                                databaseProvider:(id<CKKSDatabaseProviderProtocol> _Nullable)databaseProvider
+                                                        altDSID:(NSString*)altDSID
+                                                     sendMetric:(BOOL)sendMetric
                                                           error:(NSError* __autoreleasing*)errore;
 @end
 

@@ -38,7 +38,7 @@
 #include "SystemSettings.h"
 #endif
 
-#if defined(__ANDROID__) || defined(ANDROID)
+#if OS(ANDROID)
 #include <skia/ports/SkFontMgr_android.h>
 #elif PLATFORM(WIN)
 #include <dwrite.h>
@@ -56,7 +56,7 @@ void FontCache::platformInit()
 SkFontMgr& FontCache::fontManager() const
 {
     if (!m_fontManager) {
-#if defined(__ANDROID__) || defined(ANDROID)
+#if OS(ANDROID)
         m_fontManager = SkFontMgr_New_Android(nullptr);
 #elif OS(WINDOWS)
         auto result = createDWriteFactory();
@@ -125,7 +125,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription&
 
     // FIXME: handle synthetic properties.
     auto features = computeFeatures(description, { });
-    auto typeface = fontManager().matchFamilyStyleCharacter(nullptr, skiaFontStyle(description), bcp47.data(), bcp47.size(), baseCharacter);
+    auto typeface = fontManager().matchFamilyStyleCharacter(nullptr, skiaFontStyle(description), bcp47.mutableSpan().data(), bcp47.size(), baseCharacter);
     FontPlatformData alternateFontData(WTFMove(typeface), description.computedSize(), false /* syntheticBold */, false /* syntheticOblique */, description.orientation(), description.widthVariant(), description.textRenderingMode(), WTFMove(features));
     return fontForPlatformData(alternateFontData);
 }
@@ -378,9 +378,9 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     return platformDataUniquePtr;
 }
 
-std::optional<ASCIILiteral> FontCache::platformAlternateFamilyName(const String&)
+ASCIILiteral FontCache::platformAlternateFamilyName(const String&)
 {
-    return std::nullopt;
+    return { };
 }
 
 void FontCache::platformInvalidate()

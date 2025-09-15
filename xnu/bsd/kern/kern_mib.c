@@ -66,8 +66,10 @@
  *	@(#)kern_sysctl.c	8.4 (Berkeley) 4/14/94
  */
 
+#include <sys/errno.h>
 #include <sys/param.h>
 #include <sys/kernel.h>
+#include <sys/syslimits.h>
 #include <sys/systm.h>
 #include <sys/sysctl.h>
 #include <sys/proc_internal.h>
@@ -112,6 +114,7 @@ extern vm_map_t bsd_pageable_map;
 #include <sys/kdebug.h>
 
 #include <IOKit/IOPlatformExpert.h>
+#include <IOKit/IOBSD.h>
 #include <pexpert/pexpert.h>
 
 #include <machine/config.h>
@@ -164,6 +167,9 @@ static int      osenvironment_initialized = 0;
 
 static uint32_t ephemeral_storage = 0;
 static uint32_t use_recovery_securityd = 0;
+
+static char *mempath = NULL;
+static size_t mempath_size = 0;
 
 static struct {
 	uint32_t ephemeral_storage:1;
@@ -575,7 +581,7 @@ sysctl_hw_generic(__unused struct sysctl_oid *oidp, void *arg1,
 #endif
 	case HW_USERMEM:
 	{
-		int usermem = (int)(mem_size - vm_page_wire_count * page_size);
+		int usermem = (int)(max_mem - vm_page_wire_count * page_size);
 
 		return SYSCTL_RETURN(req, usermem);
 	}
@@ -877,6 +883,55 @@ sysctl_serialdebugmode
 }
 
 /*
+ * This sysctl is a string that contains the jetsam properties path used by launchd to apply.
+ * jetsam properties to service. This sysctl is set once by launchd at boot and after userspace reboots,
+ * before it spawns any services.
+ */
+#define kReadOnlyMempathEntitlement "com.apple.private.kernel.mempath-read-only"
+static int
+sysctl_mempath
+(__unused struct sysctl_oid *oidp, __unused void *arg1, __unused int arg2, struct sysctl_req *req)
+{
+	int error = EINVAL;
+	if (req->newptr != 0) {
+		/* initproc is the only process that can write to this sysctl */
+		if (proc_getpid(req->p) != 1) {
+			return EPERM;
+		}
+		if (req->newlen > PATH_MAX) {
+			return EOVERFLOW;
+		}
+		size_t mempath_new_size = req->newlen + 1;
+		char *mempath_new = kalloc_data(mempath_new_size, Z_WAITOK);
+		if (!mempath_new) {
+			return ENOMEM;
+		}
+		mempath_new[mempath_new_size - 1] = '\0';
+		error = SYSCTL_IN(req, mempath_new, mempath_new_size - 1);
+		if (0 != error) {
+			kfree_data(mempath_new, mempath_new_size);
+			return error;
+		}
+		/* copy in was successful; swap out old/new buffers */
+		if (NULL != mempath) {
+			kfree_data(mempath, mempath_size);
+		}
+		mempath = mempath_new;
+		mempath_size = mempath_new_size;
+	} else {
+		/* A read entitlement is required to read this sysctl */
+		if (!IOCurrentTaskHasEntitlement(kReadOnlyMempathEntitlement)) {
+			return EPERM;
+		}
+		error = EIO;
+		if (mempath && mempath_size) {
+			error = SYSCTL_OUT(req, mempath, mempath_size);
+		}
+	}
+	return error;
+}
+
+/*
  * hw.* MIB variables.
  */
 SYSCTL_PROC(_hw, HW_NCPU, ncpu, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, 0, HW_NCPU, sysctl_hw_generic, "I", "");
@@ -937,6 +992,7 @@ SYSCTL_PROC(_hw, OID_AUTO, ephemeral_storage, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG
 SYSCTL_PROC(_hw, OID_AUTO, use_recovery_securityd, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, 0, 0, sysctl_use_recovery_securityd, "I", "");
 SYSCTL_PROC(_hw, OID_AUTO, use_kernelmanagerd, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED, 0, 0, sysctl_use_kernelmanagerd, "I", "");
 SYSCTL_PROC(_hw, OID_AUTO, serialdebugmode, CTLTYPE_INT | CTLFLAG_RD | CTLFLAG_LOCKED, 0, 0, sysctl_serialdebugmode, "I", "");
+SYSCTL_PROC(_hw, OID_AUTO, mempath, CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, sysctl_mempath, "A", "");
 
 /*
  * hw.perflevelN.* variables.

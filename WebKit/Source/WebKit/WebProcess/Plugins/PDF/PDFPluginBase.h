@@ -60,9 +60,7 @@ OBJC_CLASS NSString;
 OBJC_CLASS PDFAnnotation;
 OBJC_CLASS PDFDocument;
 OBJC_CLASS PDFSelection;
-#if PLATFORM(MAC)
 OBJC_CLASS WKAccessibilityPDFDocumentObject;
-#endif
 
 namespace WebCore {
 class Color;
@@ -85,6 +83,7 @@ class PDFIncrementalLoader;
 class PDFPluginAnnotation;
 class PluginView;
 class WebFrame;
+class WebPage;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebWheelEvent;
@@ -138,6 +137,7 @@ public:
     virtual WebCore::PluginLayerHostingStrategy layerHostingStrategy() const = 0;
     virtual PlatformLayer* platformLayer() const { return nullptr; }
     virtual WebCore::GraphicsLayer* graphicsLayer() const { return nullptr; }
+    RefPtr<WebCore::GraphicsLayer> protectedGraphicsLayer() const;
 
     virtual void setView(PluginView&);
 
@@ -151,6 +151,7 @@ public:
 
     virtual double scaleFactor() const = 0;
     virtual void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin) = 0;
+    virtual void mainFramePageScaleFactorDidChange() { }
 
     virtual double minScaleFactor() const { return 0.25; }
     virtual double maxScaleFactor() const { return 5; }
@@ -170,7 +171,7 @@ public:
 
     void updateControlTints(WebCore::GraphicsContext&);
 
-    virtual RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const = 0;
+    RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
 
     virtual bool wantsWheelEvents() const = 0;
     virtual bool handleMouseEvent(const WebMouseEvent&) = 0;
@@ -188,7 +189,7 @@ public:
     virtual bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const = 0;
     virtual WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const = 0;
 
-    virtual unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
+    unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount);
     virtual bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
     virtual Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const WebCore::IntRect&) const { return { }; }
     virtual bool drawsFindOverlay() const = 0;
@@ -196,7 +197,7 @@ public:
     virtual WebCore::DictionaryPopupInfo dictionaryPopupInfoForSelection(PDFSelection *, WebCore::TextIndicatorPresentationTransition) = 0;
 
     virtual Vector<WebFoundTextRange::PDFData> findTextMatches(const String& target, WebCore::FindOptions) = 0;
-    virtual Vector<WebCore::FloatRect> rectsForTextMatch(const WebFoundTextRange::PDFData&) = 0;
+    virtual Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const Vector<WebFoundTextRange::PDFData>&, const WebCore::IntRect&) = 0;
     virtual RefPtr<WebCore::TextIndicator> textIndicatorForTextMatch(const WebFoundTextRange::PDFData&, WebCore::TextIndicatorPresentationTransition) { return { }; }
     virtual void scrollToRevealTextMatch(const WebFoundTextRange::PDFData&) { }
 
@@ -263,7 +264,7 @@ public:
     void save(CompletionHandler<void(const String&, const URL&, std::span<const uint8_t>)>&&);
 #endif
 
-    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)>&&);
+    void openWithPreview(CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)>&&);
 
     void notifyCursorChanged(WebCore::PlatformCursorType);
 
@@ -284,7 +285,7 @@ public:
     virtual void setActiveAnnotation(SetActiveAnnotationParams&&) = 0;
     void didMutatePDFDocument() { m_pdfDocumentWasMutated = true; }
 
-    virtual CGRect pluginBoundsForAnnotation(RetainPtr<PDFAnnotation>&) const = 0;
+    virtual CGRect pluginBoundsForAnnotation(PDFAnnotation*) const = 0;
     virtual void focusNextAnnotation() = 0;
     virtual void focusPreviousAnnotation() = 0;
 
@@ -323,6 +324,7 @@ public:
     virtual void setSelectionRange(WebCore::FloatPoint /* pointInRootView */, WebCore::TextGranularity) { }
     virtual void clearSelection() { }
     virtual std::pair<URL, WebCore::FloatRect> linkURLAndBoundsAtPoint(WebCore::FloatPoint /* pointInRootView */) const { return { }; }
+    virtual std::tuple<URL, WebCore::FloatRect, RefPtr<WebCore::TextIndicator>> linkDataAtPoint(WebCore::FloatPoint /* pointInRootView */) { return { }; }
     virtual std::optional<WebCore::FloatRect> highlightRectForTapAtPoint(WebCore::FloatPoint /* pointInRootView */) const { return std::nullopt; }
     virtual void handleSyntheticClick(WebCore::PlatformMouseEvent&&) { }
     virtual SelectionWasFlipped moveSelectionEndpoint(WebCore::FloatPoint /* pointInRootView */, SelectionEndpoint);
@@ -333,9 +335,13 @@ public:
 
     bool populateEditorStateIfNeeded(EditorState&) const;
 
-    virtual bool shouldRespectPageScaleAdjustments() const { return true; }
-
     virtual bool shouldSizeToFitContent() const { return false; }
+
+    virtual WebCore::FloatRect absoluteBoundingRectForSmartMagnificationAtPoint(WebCore::FloatPoint) const { return { }; }
+
+    virtual void frameViewLayoutOrVisualViewportChanged(const WebCore::IntRect&) { }
+
+    virtual bool delegatesScrollingToMainFrame() const { return false; }
 
 protected:
     virtual double contentScaleFactor() const = 0;
@@ -358,13 +364,14 @@ private:
     bool getByteRanges(CFMutableArrayRef, std::span<const CFRange>) const;
 
 #if !LOG_DISABLED
-    uint64_t streamedBytesForDebugLogging() const;
-    void incrementalLoaderLogWithBytes(const String&, uint64_t streamedBytes);
+    std::optional<uint64_t> streamedBytesForDebugLogging() const;
+    void incrementalLoaderLogWithBytes(const String&, std::optional<uint64_t>&& streamedBytes);
 #endif
 
 protected:
     explicit PDFPluginBase(WebCore::HTMLPlugInElement&);
 
+    WebPage* webPage() const;
     WebCore::Page* page() const;
 
     virtual void teardown();
@@ -378,7 +385,7 @@ protected:
     virtual unsigned firstPageHeight() const = 0;
 
     NSData *originalData() const;
-    virtual NSData *liveData() const = 0;
+    NSData *liveData() const;
 
     void addArchiveResource();
 
@@ -390,6 +397,9 @@ protected:
     WebCore::IntRect scrollCornerRect() const final;
     WebCore::ScrollableArea* enclosingScrollableArea() const final;
     bool scrollAnimatorEnabled() const final { return true; }
+#if ENABLE(FORM_CONTROL_REFRESH)
+    bool formControlRefreshEnabled() const final;
+#endif
     bool isScrollableOrRubberbandable() final { return true; }
     bool hasScrollableOrRubberbandableAncestor() final { return true; }
     WebCore::IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
@@ -460,6 +470,9 @@ protected:
 
     static WebCore::Color pluginBackgroundColor();
 
+    RefPtr<PluginView> protectedView() const;
+    RefPtr<WebFrame> protectedFrame() const;
+
     SingleThreadWeakPtr<PluginView> m_view;
     WeakPtr<WebFrame> m_frame;
     WeakPtr<WebCore::HTMLPlugInElement, WebCore::WeakPtrImplWithEventTargetData> m_element;
@@ -473,9 +486,8 @@ protected:
     RangeSet<WTF::Range<uint64_t>> m_validRanges WTF_GUARDED_BY_LOCK(m_streamedDataLock);
 
     RetainPtr<PDFDocument> m_pdfDocument;
-#if PLATFORM(MAC)
-    RetainPtr<WKAccessibilityPDFDocumentObject> m_accessibilityDocumentObject;
-#endif
+
+    const RetainPtr<WKAccessibilityPDFDocumentObject> m_accessibilityDocumentObject;
 
     String m_suggestedFilename;
 
@@ -510,7 +522,7 @@ protected:
 
 #if ENABLE(PDF_HUD)
     CompletionHandler<void(const String&, const URL&, std::span<const uint8_t>)> m_pendingSaveCompletionHandler;
-    CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)> m_pendingOpenCompletionHandler;
+    CompletionHandler<void(const String&, std::optional<FrameInfoData>&&, std::span<const uint8_t>)> m_pendingOpenCompletionHandler;
 #endif
 };
 

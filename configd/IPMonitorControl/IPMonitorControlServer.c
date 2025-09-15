@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,6 +53,7 @@
 #endif /* TEST_IPMONITOR_CONTROL */
 
 STATIC dispatch_queue_t 	S_IPMonitorControlServerQueue;
+STATIC xpc_connection_t		S_IPMonitorControlServerConnection;
 
 STATIC dispatch_queue_t
 IPMonitorControlServerGetQueue(void)
@@ -1351,6 +1352,8 @@ IPMonitorControlServerStart(dispatch_queue_t queue, dispatch_block_t handler)
 	dispatch_release(q);
 	return (FALSE);
     }
+    /* avoid showing up as a leak */
+    S_IPMonitorControlServerConnection = connection;
     IPMonitorControlServerAddStateHandler();
     return (TRUE);
 }

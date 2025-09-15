@@ -110,6 +110,7 @@ typedef enum {
 	SC_10_6_IOS_3_0,
 	SC_10_7_IOS_4_0,
 	SC_15_0_IOS_18_0,
+	SC_16_0_IOS_19_0,
 	COMMENT_PRIVATE,
 	GROUP_PRIVATE,
 	SC_10_5_PRIVATE,
@@ -136,6 +137,7 @@ typedef enum {
 	SC_13_0_IOS_16_0_PRIVATE,
 	SC_14_0_IOS_17_0_PRIVATE,
 	SC_15_0_IOS_18_0_PRIVATE,
+	SC_16_0_IOS_19_0_PRIVATE,
 	SC_IOS_2_0_PRIVATE,
 	SC_IOS_7_0_PRIVATE,
 	SC_IOS_8_0_PRIVATE,
@@ -201,6 +203,7 @@ typedef enum {
 #define ALLOWED			"Allowed"
 #define ALLOWLIST		"AllowList"
 #define ALLOWNETCREATION	"AllowNetCreation"
+#define ALPN			"ALPN"
 #define ALTERNATE		"Alternate"
 #define ALWAYS			"Always"
 #define ANYREGEX		"AnyRegex"
@@ -210,6 +213,7 @@ typedef enum {
 #define ARP			"ARP"
 #define AUDIOVIDEOCALLS		"AudioVideoCalls"
 #define AUTH			"Auth"
+#define AUTHENTICATION	        "Authentication"
 #define AUTHENTICATIONMETHOD	"AuthenticationMethod"
 #define AUTOCONFIG		"AutoConfig"
 #define AUTODISCOVERY		"AutoDiscovery"
@@ -285,6 +289,7 @@ typedef enum {
 #define DISCOVERY		"Discovery"
 #define DISPLAYTERMINALWINDOW	"DisplayTerminalWindow"
 #define DNS			"DNS"
+#define DOH			"DoH"
 #define DOMAIN 			"Domain"
 #define DOMAINS			"Domains"
 #define DURINGSLEEP "DuringSleep"
@@ -297,6 +302,7 @@ typedef enum {
 #define ENABLED			"Enabled"
 #define ENABLELOWDATAMODE	"EnableLowDataMode"
 #define ENCODING		"Encoding"
+#define ENCRYPTED		"Encrypted"
 #define ENCRYPTION		"Encryption"
 #define ERRORCORRECTION		"ErrorCorrection"
 #define ETHERNET		"Ethernet"
@@ -740,6 +746,19 @@ static schemaDefinition names[] = {
     { SC_10_11_IOS_9_0_PRIVATE, NETPROP DNS, CONFIRMED SERVICEID, NULL, CFSTRING },
     { SC_10_9_IOS_7_0_PRIVATE, NETPROP DNS, SERVICE IDENTIFIER, NULL, CFNUMBER },
     { SC_10_9_IOS_7_0_PRIVATE, NETPROP DNS, SUPPLEMENTAL MATCH DOMAINS NO SEARCH, NULL, CFNUMBER_BOOL},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS, ENCRYPTED SERVERS, NULL, CFARRAY_CFDICTIONARY},
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { COMMENT_PRIVATE,
+	"--- "
+	KEY_PREFIX NETPROP DNS ENCRYPTED SERVER
+	" [CFDictionary] keys ---", NULL, NULL, NULL },
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, AUTHENTICATION DOMAIN NAME, NULL, CFSTRING},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, SERVICE PRIORITY, NULL, CFNUMBER},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, ADDRESSES, NULL, CFARRAY_CFSTRING},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, ALPN, NULL, CFARRAY_CFSTRING},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, PORT, NULL, CFNUMBER},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, DOH PATH, NULL, CFSTRING},
+    { SC_16_0_IOS_19_0_PRIVATE, NETPROP DNS ENCRYPTED SERVER, SERVICE PARAMETERS, NULL, CFDATA},
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP_PRIVATE, NETPROP CAPTIVEPORTAL, KEY_PREFIX NETENT CAPTIVEPORTAL " Entity Keys", NULL, NULL },
@@ -1569,6 +1588,10 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_15_0_IOS_18_0_PRIVATE:
 		printf("  API_AVAILABLE(macos(15.0)) SPI_AVAILABLE(ios(18.0), tvos(18.0), watchos(11.0), bridgeos(9.0));\n");
 		break;
+	    case SC_16_0_IOS_19_0:
+	    case SC_16_0_IOS_19_0_PRIVATE:
+		printf("  API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));\n");
+		break;
 	    case SC_IOS_2_0_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(10.6), ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
@@ -1778,6 +1801,7 @@ dump_names(int type)
 			    case SC_13_0_IOS_16_0_PRIVATE:
 			    case SC_14_0_IOS_17_0_PRIVATE:
 			    case SC_15_0_IOS_18_0_PRIVATE:
+			    case SC_16_0_IOS_19_0_PRIVATE:
 			    case SC_IOS_2_0_PRIVATE:
 			    case SC_IOS_7_0_PRIVATE:
 			    case SC_IOS_8_0_PRIVATE:
@@ -1826,6 +1850,7 @@ dump_names(int type)
 			    case SC_13_0_IOS_16_0_PRIVATE:
 			    case SC_14_0_IOS_17_0_PRIVATE:
 			    case SC_15_0_IOS_18_0_PRIVATE:
+			    case SC_16_0_IOS_19_0_PRIVATE:
 			    case SC_IOS_2_0_PRIVATE:
 			    case SC_IOS_7_0_PRIVATE:
 			    case SC_IOS_8_0_PRIVATE:
@@ -1864,6 +1889,7 @@ dump_names(int type)
 			    case SC_13_0_IOS_16_0_PRIVATE:
 			    case SC_14_0_IOS_17_0_PRIVATE:
 			    case SC_15_0_IOS_18_0_PRIVATE:
+			    case SC_16_0_IOS_19_0_PRIVATE:
 			    case SC_IOS_2_0_PRIVATE:
 			    case SC_IOS_7_0_PRIVATE:
 			    case SC_IOS_8_0_PRIVATE:
@@ -1901,6 +1927,7 @@ dump_names(int type)
 			    case SC_13_0_IOS_16_0_PRIVATE:
 			    case SC_14_0_IOS_17_0_PRIVATE:
 			    case SC_15_0_IOS_18_0_PRIVATE:
+			    case SC_16_0_IOS_19_0_PRIVATE:
 			    case SC_IOS_2_0_PRIVATE:
 			    case SC_IOS_7_0_PRIVATE:
 			    case SC_IOS_8_0_PRIVATE:

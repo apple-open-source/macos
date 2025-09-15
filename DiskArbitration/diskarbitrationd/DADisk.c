@@ -1582,3 +1582,9 @@ DADiskRef DADiskGetContainerDisk( DADiskRef disk )
     return NULL;
     
 }
+
+Boolean DADiskIsExternalVolume( DADiskRef disk )
+{
+    /* Only external physical volumes have this property set to kCFBooleanFalse - disk images do not set this field by default */
+    return ( DADiskGetDescription( disk , kDADiskDescriptionDeviceInternalKey ) == kCFBooleanFalse );
+}

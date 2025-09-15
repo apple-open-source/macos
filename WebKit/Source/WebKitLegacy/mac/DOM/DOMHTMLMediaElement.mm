@@ -44,7 +44,7 @@
 #import <wtf/GetPtr.h>
 #import <wtf/URL.h>
 
-#define IMPL static_cast<WebCore::HTMLMediaElement*>(reinterpret_cast<WebCore::Node*>(_internal))
+#define IMPL RefPtr { static_cast<WebCore::HTMLMediaElement*>(reinterpret_cast<WebCore::Node*>(_internal)) }
 
 @implementation DOMHTMLMediaElement
 
@@ -57,7 +57,7 @@
 - (NSString *)src
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string().createNSString().autorelease();
 }
 
 - (void)setSrc:(NSString *)newSrc
@@ -69,19 +69,19 @@
 - (NSString *)currentSrc
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->currentSrc().string();
+    return IMPL->currentSrc().string().createNSString().autorelease();
 }
 
 - (NSString *)crossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->crossOrigin();
+    return IMPL->crossOrigin().createNSString().autorelease();
 }
 
 - (void)setCrossOrigin:(NSString *)newCrossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setCrossOrigin(newCrossOrigin);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::crossoriginAttr, newCrossOrigin);
 }
 
 - (unsigned short)networkState
@@ -93,7 +93,7 @@
 - (NSString *)preload
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->preload();
+    return IMPL->preload().createNSString().autorelease();
 }
 
 - (void)setPreload:(NSString *)newPreload
@@ -291,7 +291,7 @@
 - (NSString *)mediaGroup
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::mediagroupAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::mediagroupAttr).createNSString().autorelease();
 }
 
 - (void)setMediaGroup:(NSString *)newMediaGroup
@@ -309,7 +309,7 @@
 - (NSString *)canPlayType:(NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->canPlayType(type);
+    return IMPL->canPlayType(type).createNSString().autorelease();
 }
 
 - (NSTimeInterval)getStartDate

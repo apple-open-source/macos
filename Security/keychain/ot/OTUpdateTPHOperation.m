@@ -18,13 +18,18 @@
 #import "keychain/ot/OTUpdateTPHOperation.h"
 #import "keychain/ot/ErrorUtils.h"
 
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
 @interface OTUpdateTPHOperation ()
 @property OTOperationDependencies* deps;
 @property BOOL forceRefetch;
 
 @property (nullable) OctagonState* peerUnknownState;
 @property (nullable) OctagonState* determineCDPState;
-
+@property (nonatomic) OTDeviceInformation* deviceInfo;
 @property NSOperation* finishedOp;
 
 @property (nullable) OctagonFlag* retryFlag;
@@ -35,6 +40,7 @@
 @synthesize intendedState = _intendedState;
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                          deviceInfo:(OTDeviceInformation*)deviceInfo
                        intendedState:(OctagonState*)intendedState
                     peerUnknownState:(OctagonState*)peerUnknownState
                    determineCDPState:(OctagonState*)determineCDPState
@@ -44,6 +50,8 @@
 {
     if((self = [super init])) {
         _deps = dependencies;
+
+        _deviceInfo = deviceInfo;
 
         _intendedState = intendedState;
         _nextState = errorState;
@@ -55,6 +63,62 @@
         _retryFlag = retryFlag;
     }
     return self;
+}
+
+- (void)sendMetric:(NSError*)error
+{
+    AAFAnalyticsEventSecurity* trustLossEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                         altDSID:self.deps.activeAccount.altDSID
+                                                                                                          flowID:self.deps.flowID
+                                                                                                 deviceSessionID:self.deps.deviceSessionID
+                                                                                                       eventName:kSecurityRTCEventNameOctagonTrustLost
+                                                                                                 testsAreEnabled:self.deps.permittedToSendMetrics
+                                                                                                  canSendMetrics:YES
+                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    [trustLossEvent sendMetricWithResult:YES error:error];
+}
+
+- (void)sendResetRecipientMetric
+{
+    NSError* error = [NSError errorWithDomain:kSecurityRTCErrorDomain code:OctagonTrustDepartureReasonErrorCodeResetRecipient description:@"Peer fell out of trust due to an Octagon Reset"];
+    [self sendMetric:error];
+}
+
+
+- (void)sendPeerDistrustWhileStillTDLAllowedMetric
+{
+    NSError* error = [NSError errorWithDomain:kSecurityRTCErrorDomain code:OctagonTrustDepartureReasonErrorCodePeerDistrust description:@"Peer fell out of trust due to another peer distrusting ego but we're still in the TDL allowed list"];
+    [self sendMetric:error];
+}
+
+- (BOOL)isOurMachineIDAllowed
+{
+    __block BOOL stillAllowed = NO;
+
+    [self.deps.authKitAdapter fetchCurrentDeviceListByAltDSID:self.deps.activeAccount.altDSID
+                                                       flowID:self.deps.flowID
+                                              deviceSessionID:self.deps.deviceSessionID
+                                                        reply:^(NSSet<NSString *> * _Nullable machineIDs,
+                                                                NSSet<NSString *> * _Nullable userInitiatedRemovals,
+                                                                NSSet<NSString *> * _Nullable evictedRemovals,
+                                                                NSSet<NSString *> * _Nullable unknownReasonRemovals,
+                                                                NSString * _Nullable version, NSString * _Nullable trustedDeviceHash,
+                                                                NSString * _Nullable deletedDeviceHash,
+                                                                NSNumber * _Nullable trustedDevicesUpdateTimestamp,
+                                                                NSError * _Nullable error) {
+        if (error) {
+            secerror("octagon: failed to fetch current trusted device list");
+            return;
+        }
+        if ([machineIDs containsObject:self.deviceInfo.machineID]) {
+            secnotice("octagon", "Our machineID is still allowed");
+            stillAllowed = YES;
+        } else {
+            secnotice("octagon", "Our machineID is NOT allowed");
+        }
+    }];
+
+    return stillAllowed;
 }
 
 - (void)groupStart
@@ -156,6 +220,7 @@
                 if (self.determineCDPState) {
                     self.nextState = self.determineCDPState;
                 } else if (everAppliedToOctagon && self.peerUnknownState) {
+                    [self sendResetRecipientMetric];
                     self.nextState = self.peerUnknownState;
                 } else {
                     self.nextState = OctagonStateBecomeUntrusted;
@@ -202,6 +267,16 @@
 
         if (peerState.peerStatus & TPPeerStatusExcluded) {
             secnotice("octagon", "Self peer (%@) is excluded; moving to untrusted", peerState.peerID);
+
+            NSError* accountError = nil;
+            OTAccountMetadataClassC* accountState = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
+            if (accountError || accountState == nil) {
+                secerror("octagon: failed to get account metadata: %@", accountError);
+            } else if (accountState.trustState == OTAccountMetadataClassC_TrustState_TRUSTED) {
+                if ([self isOurMachineIDAllowed]) {
+                    [self sendPeerDistrustWhileStillTDLAllowedMetric];
+                }
+            }
             self.nextState = OctagonStateBecomeUntrusted;
         } else if(peerState.peerStatus & TPPeerStatusUnknown) {
             if (peerState.identityIsPreapproved) {
@@ -214,6 +289,7 @@
                 } else if (everAppliedToOctagon && self.peerUnknownState) {
                     // if we ever attempted to join, then move to peer unknown state
                     secnotice("octagon", "Self peer (%@) is unknown and has attempted a join; moving to '%@''", peerState.peerID, self.peerUnknownState);
+                    [self sendResetRecipientMetric];
                     self.nextState = self.peerUnknownState;
                 } else {
                     secnotice("octagon", "Self peer (%@) is unknown and never attempted a join; moving to '%@''", peerState.peerID, OctagonStateBecomeUntrusted);

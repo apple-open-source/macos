@@ -50,8 +50,6 @@
 #include <kern/ipc_tt.h>
 #include <kern/thread.h>
 #include <kern/clock.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 #include <kern/host.h>
 #include <kern/waitq.h>
 #include <kern/zalloc.h>
@@ -221,7 +219,8 @@ semaphore_free(
 	port = semaphore->port;
 	if (IP_VALID(port)) {
 		assert(!port->ip_srights);
-		ipc_kobject_dealloc_port(port, 0, IKOT_SEMAPHORE);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    IKOT_SEMAPHORE);
 	}
 
 	/*
@@ -1207,6 +1206,8 @@ convert_port_to_semaphore(ipc_port_t port)
 	if (IP_VALID(port)) {
 		semaphore = ipc_kobject_get_stable(port, IKOT_SEMAPHORE);
 		if (semaphore != SEMAPHORE_NULL) {
+			zone_id_require(ZONE_ID_SEMAPHORE,
+			    sizeof(struct semaphore), semaphore);
 			semaphore_reference(semaphore);
 		}
 	}
@@ -1233,12 +1234,14 @@ convert_semaphore_to_port(semaphore_t semaphore)
 		return IP_NULL;
 	}
 
+	zone_id_require(ZONE_ID_SEMAPHORE, sizeof(struct semaphore), semaphore);
+
 	/*
 	 * make a send right and donate our reference for
 	 * semaphore_no_senders if this is the first send right
 	 */
 	if (!ipc_kobject_make_send_lazy_alloc_port(&semaphore->port,
-	    semaphore, IKOT_SEMAPHORE, IPC_KOBJECT_ALLOC_NONE)) {
+	    semaphore, IKOT_SEMAPHORE)) {
 		semaphore_dereference(semaphore);
 	}
 	return semaphore->port;
@@ -1270,5 +1273,6 @@ semaphore_no_senders(ipc_port_t port, __unused mach_port_mscount_t mscount)
 }
 
 IPC_KOBJECT_DEFINE(IKOT_SEMAPHORE,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = semaphore_no_senders);

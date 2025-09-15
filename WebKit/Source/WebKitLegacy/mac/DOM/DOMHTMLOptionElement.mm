@@ -63,13 +63,13 @@
 - (NSString *)label
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->label();
+    return IMPL->label().createNSString().autorelease();
 }
 
 - (void)setLabel:(NSString *)newLabel
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setLabel(newLabel);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::labelAttr, newLabel);
 }
 
 - (BOOL)defaultSelected
@@ -99,19 +99,19 @@
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->value();
+    return IMPL->value().createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setValue(newValue);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::valueAttr, newValue);
 }
 
 - (NSString *)text
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->text();
+    return IMPL->text().createNSString().autorelease();
 }
 
 - (int)index

@@ -116,6 +116,7 @@ static void TestDefaultNumberingSystem(void); // rdar://116185298, rdar://135129
 static void TestMinGroupingDigits(void); // TEMPORARY!!!
 static void TestUrduPercentSign(void); // rdar://129319878
 static void TestIndianSecondaryGrouping(void); // rdar://144593924
+static void TestSwissSeparators(void); // rdar://147403870
 #endif  // APPLE_ICU_CHANGES
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -189,6 +190,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestMinGroupingDigits); // TEMPORARY!!!
     TESTCASE(TestUrduPercentSign); // rdar://129319878
     TESTCASE(TestIndianSecondaryGrouping); // rdar://144593924
+    TESTCASE(TestSwissSeparators); // rdar://147403870
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -5337,8 +5339,8 @@ static void TestCurrencySymbol(void) {
         // rdar://107636645
         u"en_AT", u"€ 1.234,56",
         u"zh-Hant_US@currency=USD", u"$1,234.56",
-        // rdar://107676538, fixed in rdar://108767828
-        u"fr_CH@currency=CHF", u"CHF 1 234,56",
+        // rdar://107676538, fixed in rdar://108767828, modified by rdar://147403870
+        u"fr_CH@currency=CHF", u"CHF 1’234.56",
         // rdar://107711452
         u"en_ID@currency=IDR", u"Rp 1.235", // IDR has digits="0"
         // rdar://102824421
@@ -5627,6 +5629,30 @@ static void TestIndianSecondaryGrouping(void) {
             assertUEquals(errorMessage, expectedCurrencyResult, currResult);
         }
         unum_close(currF);
+    }
+}
+
+// rdar://147403870
+static void TestSwissSeparators(void) {
+    const UChar* testCases[] = {
+        u"de_CH", u"12’345.67",
+        u"it_CH", u"12’345.67",
+        u"fr_CH", u"12’345.67",
+    };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 2) {
+        char* locale = austrdup(testCases[i]);
+        const UChar* expectedResult = testCases[i + 1];
+        
+        UErrorCode err = U_ZERO_ERROR;
+        UNumberFormat* nf = unum_open(UNUM_DECIMAL, NULL, 0, locale, NULL, &err);
+        
+        UChar result[100];
+        unum_formatDouble(nf, 12345.67, result, 100, NULL, &err);
+        if (assertSuccess(locale, &err)) {
+            assertUEquals(locale, expectedResult, result);
+        }
+        unum_close(nf);
     }
 }
 

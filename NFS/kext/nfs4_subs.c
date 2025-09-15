@@ -27,6 +27,7 @@
  */
 
 #include "nfs_client.h"
+#include "nfs_kdebug.h"
 
 /*
  * miscellaneous support functions for NFSv4
@@ -206,17 +207,20 @@ nfs4_init_clientid(struct nfsmount *nmp)
 	return 0;
 }
 
+static uint32_t *
+nfs4_fs_attr_bitmap(int minor)
+{
+	return (minor == NFSV41_MINORVERSION) ? nfs41_fs_attr_bitmap : nfs40_fs_attr_bitmap;
+}
+
 /*
  * NFSv4 SETCLIENTID
  */
 int
-nfs4_setclientid(struct nfsmount *nmp, int recover)
+nfs4_setclientid(struct nfsmount *nmp, thread_t thd, kauth_cred_t cred, int flags)
 {
 	uint64_t verifier, xid;
 	int error = 0, status, numops;
-	uint32_t bitmap[NFS_ATTR_BITMAP_LEN];
-	thread_t thd;
-	kauth_cred_t cred;
 	struct nfsm_chain nmreq, nmrep;
 	struct sockaddr_storage ss;
 	void *sinaddr = NULL;
@@ -225,29 +229,15 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 	int ualen = 0;
 	in_port_t port = 0;
 
-	thd = current_thread();
-	cred = IS_VALID_CRED(nmp->nm_mcred) ? nmp->nm_mcred : vfs_context_ucred(vfs_context_kernel());
-	kauth_cred_ref(cred);
-
 	nfsm_chain_null(&nmreq);
 	nfsm_chain_null(&nmrep);
 
-	if (!nmp->nm_longid) {
-		error = nfs4_init_clientid(nmp);
-		if (!nmp->nm_longid) {
-			if (!error) {
-				error = ENOMEM;
-			}
-			nfsmout_if(error);
-		}
-	}
-
 	// SETCLIENTID
 	numops = 1;
-	nfsm_chain_build_alloc_init(error, &nmreq, 14 * NFSX_UNSIGNED + nmp->nm_longid->nci_idlen);
+	nfsm_chain_build_alloc_init(error, &nmreq, (14 * NFSX_UNSIGNED) + nmp->nm_longid->nci_idlen);
 	nfsm_chain_add_compound_header(error, &nmreq, "setclid", nmp->nm_minor_vers, numops);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_SETCLIENTID);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SETCLIENTID);
 	/* nfs_client_id4  client; */
 	nfsm_chain_add_64(error, &nmreq, nmp->nm_mounttime);
 	nfsm_chain_add_32(error, &nmreq, nmp->nm_longid->nci_idlen);
@@ -307,7 +297,7 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
-	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, recover ? R_RECOVER : R_SETUP, &nmrep, &xid, &status);
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, flags, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	if (!error && (numops != 1) && status) {
@@ -328,19 +318,59 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 	nfsm_chain_build_alloc_init(error, &nmreq, 15 * NFSX_UNSIGNED);
 	nfsm_chain_add_compound_header(error, &nmreq, "setclid_conf", nmp->nm_minor_vers, numops);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_SETCLIENTID_CONFIRM);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SETCLIENTID_CONFIRM);
 	nfsm_chain_add_64(error, &nmreq, nmp->nm_clientid);
 	nfsm_chain_add_64(error, &nmreq, verifier);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
-	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, recover ? R_RECOVER : R_SETUP, &nmrep, &xid, &status);
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, flags, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_SETCLIENTID_CONFIRM);
 	if (error) {
 		printf("nfs4_setclientid: confirm error %d\n", error);
 	}
+
+nfsmout:
+	nfsm_chain_cleanup(&nmreq);
+	nfsm_chain_cleanup(&nmrep);
+
+	if (error) {
+		printf("nfs4_setclientid failed with %d\n", error);
+	}
+
+	return error;
+}
+
+int
+nfs4_create_clientid(struct nfsmount *nmp, int flags)
+{
+	uint64_t xid;
+	int error = 0, status, numops;
+	uint32_t bitmap[NFS_ATTR_BITMAP_LEN];
+	thread_t thd = current_thread();
+	kauth_cred_t cred;
+	struct nfsm_chain nmreq, nmrep;
+
+	cred = IS_VALID_CRED(nmp->nm_mcred) ? nmp->nm_mcred : vfs_context_ucred(vfs_context_kernel());
+	kauth_cred_ref(cred);
+
+	nfsm_chain_null(&nmreq);
+	nfsm_chain_null(&nmrep);
+
+	if (!nmp->nm_longid) {
+		error = nfs4_init_clientid(nmp);
+		if (!nmp->nm_longid) {
+			if (!error) {
+				error = ENOMEM;
+			}
+			nfsmout_if(error);
+		}
+	}
+
+	error = nmp->nm_funcs4->nf4_create_clientid(nmp, thd, cred, flags);
+
 	lck_mtx_lock(&nmp->nm_lock);
 	if (!error) {
 		nmp->nm_state |= NFSSTA_CLIENTID;
@@ -350,29 +380,38 @@ nfs4_setclientid(struct nfsmount *nmp, int recover)
 	nfsmout_if(error || !nmp->nm_dnp);
 
 	/* take the opportunity to refresh fs attributes too */
-	// PUTFH, GETATTR(FS)
-	numops = 2;
-	nfsm_chain_build_alloc_init(error, &nmreq, 23 * NFSX_UNSIGNED);
+	// SEQUENCE?, PUTFH, GETATTR(FS)
+	numops = NFS4_SEQ_OP(nmp, 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (23 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "setclid_attr", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, nmp->nm_vers, nmp->nm_dnp->n_fhp, nmp->nm_dnp->n_fhsize);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 	NFS_CLEAR_ATTRIBUTES(bitmap);
-	NFS4_PER_FS_ATTRIBUTES(bitmap);
+	NFS4_PER_FS_ATTRIBUTES(bitmap, nmp->nm_minor_vers);
 	nfsm_chain_add_bitmap(error, &nmreq, bitmap, NFS_ATTR_BITMAP_LEN);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
 	nfsmout_if(error);
-	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, R_SETUP, &nmrep, &xid, &status);
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, thd, cred, NULL, flags, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	lck_mtx_lock(&nmp->nm_lock);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 	if (!error) {
-		error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, NULL, NULL, NULL, NULL);
+		error = nfs4_parsefattr(&nmrep, &nmp->nm_fsattr, nmp->nm_minor_vers, NULL, NULL, NULL, NULL);
 	}
 	lck_mtx_unlock(&nmp->nm_lock);
 	if (error) { /* ignore any error from the getattr */
@@ -383,7 +422,7 @@ nfsmout:
 	nfsm_chain_cleanup(&nmrep);
 	kauth_cred_unref(&cred);
 	if (error) {
-		printf("nfs4_setclientid failed, %d\n", error);
+		printf("nfs4_create_clientid failed with %d\n", error);
 	}
 	return error;
 }
@@ -407,7 +446,7 @@ nfs4_remove_clientid(struct nfsmount *nmp)
  * renew/check lease state on server
  */
 int
-nfs4_renew(struct nfsmount *nmp, int rpcflag)
+nfs4_renew_rpc(struct nfsmount *nmp, int rpcflag)
 {
 	int error = 0, status, numops;
 	u_int64_t xid;
@@ -425,7 +464,7 @@ nfs4_renew(struct nfsmount *nmp, int rpcflag)
 	nfsm_chain_build_alloc_init(error, &nmreq, 8 * NFSX_UNSIGNED);
 	nfsm_chain_add_compound_header(error, &nmreq, "renew", nmp->nm_minor_vers, numops);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_RENEW);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_RENEW);
 	nfsm_chain_add_64(error, &nmreq, nmp->nm_clientid);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
@@ -482,19 +521,27 @@ nfs4_renew_timer(void *param0, __unused void *param1)
 {
 	struct nfsmount *nmp = param0;
 	u_int64_t clientid;
-	int error = 0, interval;
+	int error = 0, interval, do_rele = 0;
 	int do_renew = !NMFLAG(nmp, SKIP_RENEW) || nfs4_has_open_files(nmp);
 
 	lck_mtx_lock(&nmp->nm_lock);
+	if (nmp->nm_state & NFSSTA_MOUNT_DRAIN) {
+		/* Avoid scheduling a callout during mount drain */
+		lck_mtx_unlock(&nmp->nm_lock);
+		return;
+	}
+
 	clientid = nmp->nm_clientid;
 	if ((nmp->nm_state & NFSSTA_RECOVER) || !(nmp->nm_sockflags & NMSOCK_READY)) {
 		lck_mtx_unlock(&nmp->nm_lock);
 		goto out;
 	}
+	do_rele = 1;
+	nmp->nm_ref++;
 	lck_mtx_unlock(&nmp->nm_lock);
 
 	if (do_renew) {
-		error = nfs4_renew(nmp, R_RECOVER);
+		error = nmp->nm_funcs4->nf4_renew_rpc(nmp, R_RECOVER);
 	}
 out:
 	if (error == ETIMEDOUT) {
@@ -513,10 +560,13 @@ out:
 	if ((interval < 1) || (nmp->nm_state & NFSSTA_RECOVER)) {
 		interval = 1;
 	}
-	if (nmp->nm_renew_timer) {
+	if (nmp->nm_renew_timer && !(nmp->nm_state & NFSSTA_MOUNT_DRAIN)) {
 		nfs_interval_timer_start(nmp->nm_renew_timer, interval * 1000);
 	}
 	lck_mtx_unlock(&nmp->nm_lock);
+	if (do_rele) {
+		nfs_mount_rele(nmp);
+	}
 }
 
 /*
@@ -620,20 +670,24 @@ nfs4_secinfo_rpc(struct nfsmount *nmp, struct nfsreq_secinfo_args *siap, kauth_c
 	nfs_node_unlock(np);
 
 gotargs:
-	// PUT(ROOT)FH + SECINFO
-	numops = 2;
-	nfsm_chain_build_alloc_init(error, &nmreq,
-	    4 * NFSX_UNSIGNED + NFSX_FH(nfsvers) + nfsm_rndup(namelen));
+	// SEQUENCE?, PUT(ROOT)FH, SECINFO
+	numops = NFS4_SEQ_OP(nmp, 2);
+	nfsm_chain_build_alloc_init(error, &nmreq, (4 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp) + NFSX_FH(nfsvers) + nfsm_rndup(namelen));
 	nfsm_chain_add_compound_header(error, &nmreq, "secinfo", nmp->nm_minor_vers, numops);
-	numops--;
-	if (fhp) {
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
-		nfsm_chain_add_fh(error, &nmreq, nfsvers, fhp, fhsize);
-	} else {
-		nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTROOTFH);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
 	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_SECINFO);
+	if (fhp) {
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
+		nfsm_chain_add_fh(error, &nmreq, nfsvers, fhp, fhsize);
+	} else {
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTROOTFH);
+	}
+	numops--;
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SECINFO);
 	nfsm_chain_add_name(error, &nmreq, name, namelen, nmp);
 	nfsm_chain_build_done(error, &nmreq);
 	nfsm_assert(error, (numops == 0), EPROTO);
@@ -642,6 +696,10 @@ gotargs:
 	    current_thread(), cred, NULL, 0, &nmrep, &xid, &status);
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, fhp ? NFS_OP_PUTFH : NFS_OP_PUTROOTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_SECINFO);
 	nfsmout_if(error);
@@ -768,17 +826,24 @@ nfs4_get_fs_locations(
 	nfsm_chain_null(&nmrep);
 
 	NFSREQ_SECINFO_SET(&si, NULL, fhp, fhsize, name, 0);
-	numops = 3;
-	nfsm_chain_build_alloc_init(error, &nmreq, 18 * NFSX_UNSIGNED);
+
+	// SEQUENCE?, PUTFH, LOOKUP, GETATTR
+	numops = NFS4_SEQ_OP(nmp, 3);
+	nfsm_chain_build_alloc_init(error, &nmreq, (18 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
 	nfsm_chain_add_compound_header(error, &nmreq, "fs_locations", nmp->nm_minor_vers, numops);
+	if (NM_VERS41((nmp))) {
+		numops--;
+		nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+		nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	}
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_PUTFH);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_PUTFH);
 	nfsm_chain_add_fh(error, &nmreq, NFS_VER4, fhp, fhsize);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_LOOKUP);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_LOOKUP);
 	nfsm_chain_add_name(error, &nmreq, name, strlen(name), nmp);
 	numops--;
-	nfsm_chain_add_v4_op(error, &nmreq, NFS_OP_GETATTR);
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_GETATTR);
 	NFS_CLEAR_ATTRIBUTES(bitmap);
 	NFS_BITMAP_SET(bitmap, NFS_FATTR_FS_LOCATIONS);
 	nfsm_chain_add_bitmap(error, &nmreq, bitmap, NFS_ATTR_BITMAP_LEN);
@@ -792,11 +857,15 @@ nfs4_get_fs_locations(
 	}
 	nfsm_chain_skip_tag(error, &nmrep);
 	nfsm_chain_get_32(error, &nmrep, numops);
+	if (NM_VERS41((nmp))) {
+		nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+		nfsm_chain_adv_sequence(error, &nmrep);
+	}
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_PUTFH);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_LOOKUP);
 	nfsm_chain_op_check(error, &nmrep, NFS_OP_GETATTR);
 	nfsmout_if(error);
-	error = nfs4_parsefattr(&nmrep, NULL, NULL, NULL, NULL, nfslsp);
+	error = nfs4_parsefattr(&nmrep, NULL, nmp->nm_minor_vers, NULL, NULL, NULL, nfslsp);
 nfsmout:
 	NFS_ZFREE(get_zone(NFS_REQUEST_ZONE), req);
 	nfsm_chain_cleanup(&nmrep);
@@ -892,9 +961,10 @@ nfs4_default_attrs_for_referral_trigger(
  * Set NFS bitmap according to what's set in vnode_attr (and supported by the server).
  */
 void
-nfs_vattr_set_bitmap(struct nfsmount *nmp, uint32_t *bitmap, struct vnode_attr *vap)
+nfs_vattr_set_bitmap(struct nfsmount *nmp, uint32_t *bitmap, struct vnode_attr *vap, int exclusive4_1)
 {
 	int i;
+	uint32_t *supp_attrs;
 
 	NFS_CLEAR_ATTRIBUTES(bitmap);
 	if (VATTR_IS_ACTIVE(vap, va_data_size)) {
@@ -936,8 +1006,13 @@ nfs_vattr_set_bitmap(struct nfsmount *nmp, uint32_t *bitmap, struct vnode_attr *
 		NFS_BITMAP_SET(bitmap, NFS_FATTR_TIME_CREATE);
 	}
 	/* and limit to what is supported by server */
+	if (exclusive4_1 && NFS_BITMAP_ISSET(nmp->nm_fsattr.nfsa_supp_attr, NFS_FATTR_SUPPATTR_EXCLCREAT)) {
+		supp_attrs = nmp->nm_fsattr.nfsa_supp_exclusive41_attr;
+	} else {
+		supp_attrs = nmp->nm_fsattr.nfsa_supp_attr;
+	}
 	for (i = 0; i < NFS_ATTR_BITMAP_LEN; i++) {
-		bitmap[i] &= nmp->nm_fsattr.nfsa_supp_attr[i];
+		bitmap[i] &= supp_attrs[i];
 	}
 }
 
@@ -1813,6 +1888,7 @@ int
 nfs4_parsefattr(
 	struct nfsm_chain *nmc,
 	struct nfs_fsattr *nfsap,
+	int minor,
 	struct nfs_vattr *nvap,
 	fhandle_t *fhp,
 	struct dqblk *dqbp,
@@ -1820,7 +1896,9 @@ nfs4_parsefattr(
 {
 	int error = 0, error2, rderror = 0, attrbytes = 0;
 	uint32_t val = 0, i;
-	uint32_t bitmap[NFS_ATTR_BITMAP_LEN], len;
+	uint32_t bitmap[NFS_ATTR_BITMAP_LEN];
+	uint32_t tbitmap[NFS41_TH_SIZE];
+	uint32_t len, len2, len3, len4, len5;
 	size_t slen;
 	char sbuf[64], *s;
 	struct nfs_fsattr nfsa_dummy;
@@ -1858,7 +1936,7 @@ nfs4_parsefattr(
 	/* add bits to object/fs attr bitmaps */
 	for (i = 0; i < NFS_ATTR_BITMAP_LEN; i++) {
 		nvap->nva_bitmap[i] |= bitmap[i] & nfs_object_attr_bitmap[i];
-		nfsap->nfsa_bitmap[i] |= bitmap[i] & nfs_fs_attr_bitmap[i];
+		nfsap->nfsa_bitmap[i] |= bitmap[i] & (nfs4_fs_attr_bitmap(minor)[i]);
 	}
 
 	nfsm_chain_get_32(error, nmc, attrbytes);
@@ -2502,6 +2580,146 @@ nfs4_parsefattr(
 #endif
 		attrbytes -= 2 * NFSX_UNSIGNED;
 	}
+
+	/*
+	 * NFSv4.1 supported attributes
+	 */
+	if (minor == NFSV41_MINORVERSION) {
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_DIR_NOTIF_DELAY)) {
+			nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* nfstime4 */
+			attrbytes -= 3 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_DIRENT_NOTIF_DELAY)) {
+			nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* nfstime4 */
+			attrbytes -= 3 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_DACL)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* na41_flag */
+			nfsm_chain_get_32(error, nmc, len); /* na41_aces size */
+			for (uint32_t j = 0; !error && j < len; j++) { /* na41_aces */
+				nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* type, flag and access_mask */
+				nfsm_chain_get_32(error, nmc, len2); /* who size */
+				nfsm_chain_adv(error, nmc, nfsm_rndup(len2)); /* who */
+				attrbytes -= (4 * NFSX_UNSIGNED) + nfsm_rndup(len2);
+			}
+			attrbytes -= 2 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_SACL)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* na41_flag */
+			nfsm_chain_get_32(error, nmc, len); /* na41_aces size */
+			for (uint32_t j = 0; !error && j < len; j++) { /* na41_aces */
+				nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* type, flag and access_mask */
+				nfsm_chain_get_32(error, nmc, len2); /* who size */
+				nfsm_chain_adv(error, nmc, nfsm_rndup(len2)); /* who */
+				attrbytes -= (4 * NFSX_UNSIGNED) + nfsm_rndup(len2);
+			}
+			attrbytes -= 2 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_CHANGE_POLICY)) {
+			nfsm_chain_adv(error, nmc, 4 * NFSX_UNSIGNED); /* cp_major and cp_minor */
+			attrbytes -= 4 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_FS_STATUS)) {
+			nfsm_chain_adv(error, nmc, 2 * NFSX_UNSIGNED); /* fss_absent and fss_type */
+			nfsm_chain_get_32(error, nmc, len);     /* fss_source size */
+			nfsm_chain_adv(error, nmc, nfsm_rndup(len)); /* fss_source */
+			nfsm_chain_get_32(error, nmc, len2);    /* fss_current size */
+			nfsm_chain_adv(error, nmc, nfsm_rndup(len2)); /* fss_current */
+			nfsm_chain_adv(error, nmc, 4 * NFSX_UNSIGNED); /* fss_age and fss_version */
+			attrbytes -= (8 * NFSX_UNSIGNED) + nfsm_rndup(len) + nfsm_rndup(len2);
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_FS_LAYOUT_TYPE)) {
+			nfsm_chain_get_32(error, nmc, len);     /* layouttype4 array size */
+			nfsm_chain_adv(error, nmc, len * NFSX_UNSIGNED); /* layouttype4 */
+			attrbytes -= (len + 1) * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_LAYOUT_HINT)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* loh_type */
+			nfsm_chain_get_32(error, nmc, len);      /* loh_body size */
+			nfsm_chain_adv(error, nmc, nfsm_rndup(len)); /* loh_body */
+			attrbytes -= (2 * NFSX_UNSIGNED) + nfsm_rndup(len);
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_LAYOUT_TYPE)) {
+			nfsm_chain_get_32(error, nmc, len);      /* layouttype4 array size */
+			nfsm_chain_adv(error, nmc, len * NFSX_UNSIGNED); /* layouttype4 */
+			attrbytes -= (len + 1) * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_LAYOUT_BLKSIZE)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* uint32_t */
+			attrbytes -= NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_LAYOUT_ALIGNMENT)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* uint32_t */
+			attrbytes -= NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_FS_LOCATIONS_INFO)) {
+			nfsm_chain_adv(error, nmc, 2 * NFSX_UNSIGNED); /* fli_flags and fli_valid_for */
+			nfsm_chain_get_32(error, nmc, len);       /* fli_fs_root size */
+			nfsm_chain_adv(error, nmc, nfsm_rndup(len)); /* fli_fs_root */
+			nfsm_chain_get_32(error, nmc, len2);      /* fli_items size */
+			for (uint32_t j = 0; !error && j < len2; j++) { /* fli_items */
+				nfsm_chain_get_32(error, nmc, len3); /* fli_entries size */
+				for (uint32_t k = 0; !error && k < len3; k++) { /* fli_entries */
+					nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* fls_currency */
+					nfsm_chain_get_32(error, nmc, len4); /* fls_info size */
+					nfsm_chain_adv(error, nmc, nfsm_rndup(len4)); /* fls_info */
+					nfsm_chain_get_32(error, nmc, len5); /* fls_server size */
+					nfsm_chain_adv(error, nmc, nfsm_rndup(len5)); /* fls_server */
+					attrbytes -= (3 * NFSX_UNSIGNED) + nfsm_rndup(len4) + nfsm_rndup(len5);
+				}
+				nfsm_chain_get_32(error, nmc, len4); /* fli_rootpath size */
+				nfsm_chain_adv(error, nmc, len4); /* fli_rootpath */
+				attrbytes -= (2 * NFSX_UNSIGNED) + nfsm_rndup(len4);
+			}
+			attrbytes -= (4 * NFSX_UNSIGNED) + nfsm_rndup(len);
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_MDSTHRESHOLD)) {
+			nfsm_chain_get_32(error, nmc, len);        /* mth_hints size */
+			len2 = NFS41_TH_SIZE;
+			for (uint32_t j = 0; !error && j > len; j++) { /* mth_hints */
+				nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* thi_layout_type */
+				nfsm_chain_get_bitmap(error, nmc, tbitmap, len2); /* thi_hintset */
+				nfsm_chain_get_32(error, nmc, len3); /* thi_hintlist size */
+				nfsm_chain_adv(error, nmc, nfsm_rndup(len3)); /* thi_hintlist */
+				attrbytes -= ((len2 + 2) * NFSX_UNSIGNED) + nfsm_rndup(len3);
+			}
+			attrbytes -= NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RETENTION_GET)) {
+			nfsm_chain_adv(error, nmc, 5 * NFSX_UNSIGNED); /* rg_duration and rg_begin_time */
+			attrbytes -= 5 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RETENTION_SET)) {
+			nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* rs_enable and rs_duration */
+			attrbytes -= 3 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RETENTEVT_GET)) {
+			nfsm_chain_adv(error, nmc, 5 * NFSX_UNSIGNED); /* rg_duration and rg_begin_time */
+			attrbytes -= 5 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RETENTEVT_SET)) {
+			nfsm_chain_adv(error, nmc, 3 * NFSX_UNSIGNED); /* rs_enable and rs_duration */
+			attrbytes -= 3 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_RETENTION_HOLD)) {
+			nfsm_chain_adv(error, nmc, 2 * NFSX_UNSIGNED); /* uint64_t */
+			attrbytes -= 2 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_MODE_SET_MASKED)) {
+			nfsm_chain_adv(error, nmc, 2 * NFSX_UNSIGNED); /* mode_masked4 */
+			attrbytes -= 2 * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_SUPPATTR_EXCLCREAT)) {
+			len = NFS_ATTR_BITMAP_LEN;
+			nfsm_chain_get_bitmap(error, nmc, nfsap->nfsa_supp_exclusive41_attr, len); /* bitmap4 */
+			attrbytes -= (len + 1) * NFSX_UNSIGNED;
+		}
+		if (NFS_BITMAP_ISSET(bitmap, NFS_FATTR_FS_CHARSET_CAP)) {
+			nfsm_chain_adv(error, nmc, NFSX_UNSIGNED); /* fs_charset_cap4 */
+			attrbytes -= NFSX_UNSIGNED;
+		}
+	}
+
 	/* advance over any leftover attrbytes */
 	nfsm_assert(error, (attrbytes >= 0), EBADRPC);
 	nfsm_chain_adv(error, nmc, nfsm_rndup(attrbytes));
@@ -2531,7 +2749,7 @@ nfsmout:
  * Add an NFSv4 "sattr" structure to an mbuf chain
  */
 int
-nfsm_chain_add_fattr4_f(struct nfsm_chain *nmc, struct vnode_attr *vap, struct nfsmount *nmp)
+nfsm_chain_add_fattr4_f(struct nfsm_chain *nmc, struct vnode_attr *vap, struct nfsmount *nmp, int exclusive4_1)
 {
 	int error = 0, attrbytes, i, isgroup;
 	size_t slen, len;
@@ -2545,7 +2763,7 @@ nfsm_chain_add_fattr4_f(struct nfsm_chain *nmc, struct vnode_attr *vap, struct n
 	slen = sizeof(sbuf);
 
 	/* First calculate the bitmap... */
-	nfs_vattr_set_bitmap(nmp, bitmap, vap);
+	nfs_vattr_set_bitmap(nmp, bitmap, vap, exclusive4_1);
 
 	/*
 	 * Now pack it all together:
@@ -2709,6 +2927,20 @@ nfsmout:
 }
 #endif /* CONFIG_NFS4 */
 
+static int
+nfs_recover_expired(struct nfsmount *nmp, int error)
+{
+	if ((error == NFSERR_ADMIN_REVOKED) ||
+	    (error == NFSERR_EXPIRED) ||
+	    (error == NFSERR_STALE_CLIENTID) ||
+	    (NM_VERS41(nmp) && (error == NFSERR_BADSESSION)) ||
+	    (NM_VERS41(nmp) && (error == NFSERR_DEADSESSION)) ||
+	    (NM_VERS41(nmp) && (error == NFSERR_SEQSTATUSERR))) {
+		return 1;
+	}
+	return 0;
+}
+
 /*
  * Got the given error and need to start recovery (if not already started).
  * Note: nmp must be locked!
@@ -2719,9 +2951,7 @@ nfs_need_recover(struct nfsmount *nmp, int error)
 	int wake = !(nmp->nm_state & NFSSTA_RECOVER);
 
 	nmp->nm_state |= NFSSTA_RECOVER;
-	if ((error == NFSERR_ADMIN_REVOKED) ||
-	    (error == NFSERR_EXPIRED) ||
-	    (error == NFSERR_STALE_CLIENTID)) {
+	if (nfs_recover_expired(nmp, error)) {
 		nmp->nm_state |= NFSSTA_RECOVER_EXPIRED;
 	}
 	if (wake) {
@@ -2816,6 +3046,7 @@ nfs_recover(struct nfsmount *nmp)
 	thread_t thd = current_thread();
 #if CONFIG_NFS4
 	nfsnode_t np, nextnp;
+	kauth_cred_t cred;
 #endif
 	struct timeval now;
 
@@ -2872,13 +3103,13 @@ restart:
 #if CONFIG_NFS4
 	if ((nmp->nm_vers >= NFS_VER4) && (nmp->nm_state & NFSSTA_RECOVER_EXPIRED)) {
 		lck_mtx_unlock(&nmp->nm_lock);
-		error = nfs4_renew(nmp, R_RECOVER);
-		printf("nfs recovery sent renew to verify clientid status, got %d\n", error);
+		error = nmp->nm_funcs4->nf4_renew_rpc(nmp, R_RECOVER);
+		printf("nfs recovery tried to renew clientid status, got %d\n", error);
 
-		if ((error == NFSERR_ADMIN_REVOKED) || (error == NFSERR_EXPIRED) || (error == NFSERR_STALE_CLIENTID)) {
+		if (nfs_recover_expired(nmp, error)) {
 			nfs4_remove_clientid(nmp);
-			error = nfs4_setclientid(nmp, 1);
-			printf("nfs recovery sent setclientid to establish new identity, got %d\n", error);
+			error = nfs4_create_clientid(nmp, R_RECOVER);
+			printf("nfs recovery established new identity, got %d\n", error);
 			if (error) {
 				return;
 			}
@@ -3116,6 +3347,14 @@ recheckdeleg:
 			lck_mtx_unlock(&nmp->nm_deleg_lock);
 			lck_mtx_lock(&nmp->nm_lock);
 		}
+		if (NM_VERS41(nmp)) {
+			cred = IS_VALID_CRED(nmp->nm_mcred) ? nmp->nm_mcred : vfs_context_ucred(vfs_context_kernel());
+			kauth_cred_ref(cred);
+			lck_mtx_unlock(&nmp->nm_lock);
+			nfs41_reclaim_complete_rpc(nmp, thd, cred, 1);
+			lck_mtx_lock(&nmp->nm_lock);
+			kauth_cred_unref(&cred);
+		}
 #endif
 		nmp->nm_state &= ~(NFSSTA_RECOVER | NFSSTA_RECOVER_EXPIRED);
 		wakeup(&nmp->nm_state);
@@ -3127,3 +3366,487 @@ recheckdeleg:
 		    vfs_statfs(nmp->nm_mountp)->f_mntfromname, nmp->nm_stategenid, error);
 	}
 }
+
+#if CONFIG_NFS4
+
+/* NFSv4.1 */
+
+/*
+ * Update values for the NFSv4.1 Sequence Operation.
+ * Assume session is locked.
+ */
+int
+nfs41_sequence_update(struct nfsreq *req, uint32_t slot, uint32_t highest_slot)
+{
+	int error = 0;
+	char *data = mbuf_data(req->r_mrest);
+	uint32_t taglen, minor, numops = 0, mainop, seqid = 0;
+	struct nfsmount *nmp = req->r_nmp;
+	nfs_session *sp = &nmp->nm_session;
+
+	NFS_KDBG_ENTRY(NFSDBG_V41_OP_SEQUENCE_UPDATE, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1), slot, highest_slot);
+
+	/* Check for invalid inputs */
+	if (!sp || !data || (req->r_flags & R_NOSEQUENCE)) {
+		error = EINVAL;
+		goto out;
+	}
+
+	if (slot == NFS4_SEQ_SLOT_INIT || slot > sp->ns_foreslots) {
+		error = NFSERR_BADSLOT;
+		goto out;
+	}
+
+	if (highest_slot == NFS4_SEQ_SLOT_INIT || highest_slot > sp->ns_foreslots) {
+		error = NFSERR_BADHIGHSLOT;
+		goto out;
+	}
+
+	/* Handle COMPOUND tag */
+	taglen = fxdr_unsigned(uint32_t, *((uint32_t *)data));
+	data += (sizeof(uint32_t) /* taglen */ + taglen /* tag */);
+	if (taglen > NFS4_TAG_LENGTH) {
+		/* sanity check */
+		error = EBADRPC;
+		goto out;
+	}
+
+	/* Handle COMPOUND minor version */
+	minor = fxdr_unsigned(uint32_t, *((uint32_t *)data));
+	data += sizeof(uint32_t); /* minor version */
+	if (minor != 1) {
+		/* sanity check */
+		error = NFSERR_MINOR_VERS_MISMATCH;
+		goto out;
+	}
+
+	/* Handle COMPOUND operation count */
+	numops = fxdr_unsigned(uint32_t, *((uint32_t *)data));
+	data += sizeof(uint32_t); /* numops */
+	if (!numops || (numops > sp->ns_maxops)) {
+		error = NFSERR_TOOMANYOPS;
+		goto out;
+	}
+
+	/* Handle COMPOUND main operation */
+	mainop = fxdr_unsigned(uint32_t, *((uint32_t *)data));
+	data += sizeof(uint32_t); /* mainop */
+	if (mainop != NFS_OP_SEQUENCE) {
+		error = NFSERR_OPNOTINSESS;
+		goto out;
+	}
+
+	/* Update session */
+	memcpy(data, sp->ns_sessionid, NFS4_SESSIONID_SIZE);
+	data += NFS4_SESSIONID_SIZE; /* session */
+
+	/* Update sequence */
+	seqid = ++sp->ns_slotseq[slot]; /* increase sequence */
+	*((uint32_t *)data) = txdr_unsigned(seqid); /* update sequence */
+	data += sizeof(uint32_t); /* seqid */
+
+	/* Update slot */
+	req->r_rslot = slot;
+	*((uint32_t *)data) = txdr_unsigned(slot); /* update slotid */
+	data += sizeof(uint32_t); /* soltid */
+
+	/* Update high slot */
+	*((uint32_t *)data) = txdr_unsigned(highest_slot); /* update highest_slotid */
+
+out:
+	if (error) {
+		printf("nfs41_sequence_update failed with %d. [ns_slots 0x%llx, seqid 0x%x, slot %d, highest_slot %d, numops %d]\n", error, sp ? sp->ns_slots : 0, seqid, slot, highest_slot, numops);
+	}
+
+	SESSION_DBG(sp, "was called with seqid 0x%x, slot %d, hightest_slot %d, numops %d, return %d", seqid, slot, highest_slot, numops, error);
+	NFS_KDBG_EXIT(NFSDBG_V41_OP_SEQUENCE_UPDATE, seqid, slot, numops, error);
+	return error;
+}
+
+/*
+ * Generate the XDR for the NFSv4.1 SEQUENCE operation
+ */
+int
+nfs41_sequence_set(struct nfsreq *req)
+{
+	uint64_t bitval;
+	uint32_t slot = NFS4_SEQ_SLOT_INIT, highest_slot = 0, i;
+	int error = 0, serror, slpflag, attempts = 0, locked = 0;
+	struct timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
+	struct nfsmount *nmp = req ? req->r_nmp : NULL;
+	nfs_session *sp = nmp ? &nmp->nm_session : NULL;
+#define NFS41_ACQUIRE_SLOT_ATTEMPTS 10
+
+	NFS_KDBG_ENTRY(NFSDBG_V41_OP_SEQUENCE_SET, nmp ? nmp->nm_clientid : 0, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1));
+
+	/* Check for invalid inputs */
+	if (!req || !nmp || !sp) {
+		error = EINVAL;
+		goto out;
+	}
+	slpflag = (NMFLAG(nmp, INTR) && req->r_thread) ? PCATCH : 0;
+
+	lck_mtx_lock(&sp->ns_lock);
+	locked = 1;
+
+	/* Verify that session is valid */
+	if (!(nmp->nm_state & NFSSTA_SESSION)) {
+		error = NFSERR_BADSESSION;
+		goto out;
+	}
+
+	/* Find free slot */
+get_slot:
+	for (i = 0, bitval = 1; i < sp->ns_foreslots; i++, bitval <<= 1) {
+		if ((bitval & sp->ns_slots)) {
+			highest_slot = i; /* update highest_slot */
+		} else if (slot == NFS4_SEQ_SLOT_INIT) {
+			slot = i;   /* use slot */
+			sp->ns_slots |= bitval; /* mark slot as inuse */
+		}
+	}
+
+	if (slot == NFS4_SEQ_SLOT_INIT) {
+		/* wait for available slot */
+		if (attempts >= NFS41_ACQUIRE_SLOT_ATTEMPTS) {
+			printf("nfs41_sequence_set: ERROR! No free slots!\n");
+			error = NFSERR_BADSLOT;
+			goto out;
+		}
+		if ((error = nfs_sigintr(nmp, NULL, req->r_thread, 0))) {
+			goto out;
+		}
+		sp->ns_lflags |= NFS41_SESSION_LWANT;
+		serror = msleep(&sp->ns_lflags, &sp->ns_lock, slpflag, "nfsv41_setsequence", &ts);
+		slpflag = 0;
+		if (serror) {
+			attempts++;
+		}
+		goto get_slot;
+	}
+
+	/* Update the SEQUENCE request parameters  */
+	error = nfs41_sequence_update(req, slot, highest_slot);
+	if (error) {
+		goto out;
+	}
+
+out:
+	if (locked) {
+		lck_mtx_unlock(&sp->ns_lock);
+	}
+	if (error) {
+		printf("nfs41_sequence_set failed with %d. [ns_slots 0x%llx, slot %d, highest_slot %d]\n", error, sp ? sp->ns_slots : 0, slot, highest_slot);
+	}
+
+	SESSION_DBG(sp, "was called with slot %d, highest_slot %d, return %d", slot, highest_slot, error);
+	NFS_KDBG_EXIT(NFSDBG_V41_OP_SEQUENCE_SET, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1), slot, error);
+	return error;
+}
+
+/*
+ * Parse the SEQUENCE operation response
+ * Reduce the seqid by one for the relevant slot if the request was not sent or failed to send
+ * due to a network-related issue.
+ */
+int
+nfs41_sequence_get(struct nfsm_chain *nmc, nfs_session *sp, uint32_t sslot, int sent, int senterr)
+{
+	int wanted = 0, error = 0;
+	uint64_t bitval;
+	uint32_t val, seqid = 0, status_flags;
+	uint32_t slot = NFS4_SEQ_SLOT_INIT, high_slot = NFS4_SEQ_SLOT_INIT;
+	nfs_session_id sessionid = {};
+
+	NFS_KDBG_ENTRY(NFSDBG_V41_OP_SEQUENCE_GET, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1), sslot, error);
+
+	/* Check for invalid inputs */
+	if (!sp) {
+		printf("nfs41_sequence_get: Got null session\n");
+		error = EINVAL;
+		goto out;
+	}
+
+	/* Check for invalid inputs */
+	if (sslot == NFS4_SEQ_SLOT_INIT) {
+		printf("nfs41_sequence_get: Got invalid slot\n");
+		error = EINVAL;
+		goto out;
+	}
+
+	lck_mtx_lock(&sp->ns_lock);
+
+	if (senterr) {
+		slot = sslot;
+		if (!sent || nfs_connect_error_class(senterr) == 1 || nfs_connect_error_class(senterr) == 2) {
+			/* Decrease the sequence ID for network-related errors or if the request was not sent */
+			--sp->ns_slotseq[slot];
+		}
+		printf("nfs41_sequence_get: Release slot %d following a previous senterr %d, sent %d\n", slot, senterr, sent);
+		error = senterr;
+		goto nfsmout;
+	}
+
+	nfsm_chain_op_check(error, nmc, NFS_OP_SEQUENCE);
+	nfsm_chain_get_session(error, nmc, sessionid); /* session id */
+	nfsmout_if(error);
+
+	if (memcmp(sessionid, sp->ns_sessionid, sizeof(sessionid))) {
+		error = NFSERR_BADSESSION;
+		lck_mtx_unlock(&sp->ns_lock);
+		/* Dont free slot if that's not the expected session */
+		goto out;
+	}
+
+	nfsm_chain_get_32(error, nmc, seqid);  /* seqid */
+	nfsm_chain_get_32(error, nmc, slot);   /* slot id */
+
+	if (slot != sslot) {
+		printf("nfs41_sequence_get: Got unexpected slot %d while req used %d\n", slot, sslot);
+	}
+
+	if (slot >= sp->ns_foreslots) {
+		error = NFSERR_BADSLOT;
+		goto nfsmout;
+	}
+
+	nfsm_chain_get_32(error, nmc, high_slot); /* high slot id */
+	nfsmout_if(error);
+	if (sp->ns_foreslots != high_slot + 1) {
+		sp->ns_foreslots = MIN(high_slot + 1, NFS41_SLOTS);
+	}
+	nfsm_chain_get_32(error, nmc, val); /* target high slot id */
+	nfsm_chain_get_32(error, nmc, status_flags); /* status flags */
+	nfsmout_if(error);
+
+	if (status_flags) {
+		if ((status_flags & NFS_SEQ4_STATUS_CB_PATH_DOWN) && !(sp->ns_flags & NFS_CREATE_SESSION4_FLAG_CONN_BACK_CHAN)) {
+			// Expected behaviour when back channel is disabled
+		} else {
+			if (status_flags & (NFS_SEQ4_STATUS_CB_PATH_DOWN | NFS_SEQ4_STATUS_EXPIRED_ALL_STATE_REVOKED |
+			    NFS_SEQ4_STATUS_EXPIRED_SOME_STATE_REVOKED | NFS_SEQ4_STATUS_ADMIN_STATE_REVOKED |
+			    NFS_SEQ4_STATUS_RECALLABLE_STATE_REVOKED | NFS_SEQ4_STATUS_RESTART_RECLAIM_NEEDED |
+			    NFS_SEQ4_STATUS_CB_PATH_DOWN_SESSION | NFS_SEQ4_STATUS_BACKCHANNEL_FAULT)) {
+				error = NFSERR_SEQSTATUSERR;
+			}
+			printf("nfs41_sequence_get: Got unexpected status_flags 0x%x for slot %d seq 0x%x, error %d\n", status_flags, slot, seqid, error);
+			nfsmout_if(error);
+		}
+	}
+
+	if (seqid != sp->ns_slotseq[slot]) {
+		error = NFSERR_SEQMISORDERED;
+		goto nfsmout;
+	}
+
+nfsmout:
+	if (slot == NFS4_SEQ_SLOT_INIT) {
+		slot = sslot;
+	}
+	bitval = 1ULL << slot;
+	if (!(sp->ns_slots & bitval)) {
+		printf("nfs41_sequence_get: WARNING! freeing free slot! slot %d, seqid 0x%x\n", slot, seqid);
+	}
+	sp->ns_slots &= ~bitval; /* free slot */
+	wanted = (sp->ns_lflags & NFS41_SESSION_LWANT);
+	lck_mtx_unlock(&sp->ns_lock);
+
+	if (wanted) {
+		wakeup(&sp->ns_lflags);
+	}
+
+out:
+	if (error) {
+		printf("nfs41_sequence_get failed with %d. [ns_slots 0x%llx, slot %d, seqid 0x%x]\n", error, sp ? sp->ns_slots : 0, slot, seqid);
+	}
+
+	SESSION_DBG(sp, "was called with seqid 0x%x, slot %d, senterr %d, return %d", seqid, slot, senterr, error);
+	NFS_KDBG_EXIT(NFSDBG_V41_OP_SEQUENCE_GET, seqid, slot, sp ? sp->ns_slots : 0, error);
+	return error;
+}
+
+int
+nfs41_sequence_parse(struct nfsreq *req, struct nfsm_chain *nmrepp, int error)
+{
+	int numops;
+	struct nfsm_chain nmrep = *nmrepp;
+	struct nfsmount *nmp = req->r_nmp;
+
+	if (nfs_mount_gone(nmp)) {
+		return ENXIO;
+	}
+	if (!(req->r_flags & R_SEQ)) {
+		return 0;
+	}
+
+	nfsm_chain_skip_tag(error, &nmrep);
+	nfsm_chain_get_32(error, &nmrep, numops);
+	error = nfs41_sequence_get(&nmrep, &nmp->nm_session, req->r_rslot, req->r_flags & R_SENT, error);
+
+	lck_mtx_lock(&req->r_mtx);
+	req->r_flags &= ~R_SEQ;
+	lck_mtx_unlock(&req->r_mtx);
+
+	return error;
+}
+
+/*
+ * Handle state-related operations errors
+ */
+int
+nfs41_request_error_should_restart(struct nfsreq *req, int error)
+{
+	struct nfsmount *nmp = req->r_nmp;
+	int skip = req->r_flags & (R_SETUP | R_RECOVER);
+
+	if (nmp && NM_VERS41(nmp) && !skip && nfs_mount_state_error_should_restart(error)) {
+		if (nfs_mount_state_error_should_restart_and_recover(error)) {
+			/* Wait for recovery to complete */
+			printf("nfs41_request_error_should_restart: called with error %d, initiating recovery", error);
+			lck_mtx_lock(&nmp->nm_lock);
+			nfs_need_recover(nmp, error);
+			lck_mtx_unlock(&nmp->nm_lock);
+			if (!nfs_mount_state_wait_for_recovery(nmp)) {
+				req->r_nmrep.nmc_mhead = NULL;
+				req->r_xid = 0; // get a new XID
+				req->r_flags |= R_RESTART;
+				return 1;
+			}
+		} else {
+			/* Just retry, No need to recover */
+			printf("nfs41_request_error_should_restart: called with error %d, retrying...", error);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * To avoid losing a session due to inactivity, the client MUST renew the
+ * session inactivity timer.
+ * As with lease renewal, when the server receives a SEQUENCE operation, it
+ * resets the session inactivity timer,
+ */
+int
+nfs41_sequence_rpc(struct nfsmount *nmp, int rpcflag)
+{
+	int error = 0, status, numops;
+	u_int64_t xid;
+	struct nfsm_chain nmreq, nmrep;
+	kauth_cred_t cred;
+
+	NFS_KDBG_ENTRY(NFSDBG_V41_OP_RPC_SEQUENCE, nmp->nm_mountp, nmp, rpcflag);
+
+	cred = IS_VALID_CRED(nmp->nm_mcred) ? nmp->nm_mcred : vfs_context_ucred(vfs_context_kernel());
+	kauth_cred_ref(cred);
+
+	nfsm_chain_null(&nmreq);
+	nfsm_chain_null(&nmrep);
+
+	// SEQUENCE
+	numops = 1;
+	nfsm_chain_build_alloc_init(error, &nmreq, (8 * NFSX_UNSIGNED) + NFS4_SEQ_SIZEHINT(nmp));
+	nfsm_chain_add_compound_header(error, &nmreq, "sequence", nmp->nm_minor_vers, numops);
+	numops--;
+	nfsm_chain_add_v4_op(error, &nmreq, nmp->nm_minor_vers, NFS_OP_SEQUENCE);
+	nfsm_chain_add_sequence(error, &nmreq, nmp, NFSSEQ_ARGS_NOCACHE);
+	nfsm_chain_build_done(error, &nmreq);
+	nfsm_assert(error, (numops == 0), EPROTO);
+	nfsmout_if(error);
+
+	error = nfs_request2(NULL, nmp->nm_mountp, &nmreq, NFSPROC4_COMPOUND, current_thread(), cred, NULL, rpcflag, &nmrep, &xid, &status);
+
+	nfsm_chain_skip_tag(error, &nmrep);
+	nfsm_chain_get_32(error, &nmrep, numops);
+	nfsm_chain_op_check(error, &nmrep, NFS_OP_SEQUENCE);
+	nfsm_chain_adv_sequence(error, &nmrep);
+nfsmout:
+	nfsm_chain_cleanup(&nmreq);
+	nfsm_chain_cleanup(&nmrep);
+	kauth_cred_unref(&cred);
+
+	NFS_KDBG_EXIT(NFSDBG_V41_OP_RPC_SEQUENCE, nmp->nm_mountp, nmp, rpcflag, error);
+	return error;
+}
+
+/*
+ * CB_SEQUENCE operation handler
+ *
+ */
+int
+nfs41_sequence_cb_get(nfs_session *sp, uint32_t seqid, uint32_t slotid, uint32_t high_slot, uint32_t max_slot, mbuf_t *mreply)
+{
+	int error = 0;
+	nfsseq_cbslot *cbslot = NULL;
+
+	NFS_KDBG_ENTRY(NFSDBG_V41_OP_SEQUENCE_CB_SES, SESSION_GET_64(sp, 0), SESSION_GET_64(sp, 1), seqid, slotid);
+
+	lck_mtx_lock(&sp->ns_lock);
+
+	if (slotid > max_slot) {
+		printf("nfs41_sequence_cb_get: got bad slot: slot %d, max_slot %d\n", slotid, max_slot);
+		error = NFSERR_BADSLOT;
+		goto out;
+	}
+	if (high_slot > max_slot) {
+		printf("nfs41_sequence_cb_get: got bad high slot: slot %d, max_slot %d\n", high_slot, max_slot);
+		error = NFSERR_BADHIGHSLOT;
+		goto out;
+	}
+
+	cbslot = &sp->ns_cbslots[slotid];
+	if (seqid == cbslot->ncbs_seqid) {
+		/*
+		 * If seqid and the cached sequence ID are the same, this is a retry,
+		 * and the client returns the CB_COMPOUND request's cached reply
+		 */
+		if (cbslot->ncbs_inprog) {
+			error = NFSERR_DELAY;
+			goto out;
+		}
+
+		if (cbslot->ncbs_reply) {
+			if (mbuf_copym(cbslot->ncbs_reply, 0, MBUF_COPYALL, MBUF_WAITOK, mreply)) {
+				error = ENOMEM;
+				goto out;
+			}
+			printf("nfs41_sequence_cb_get: using cached reply for session: slotid %d, seqid 0x%x\n", slotid, seqid);
+			cbslot->ncbs_inprog = 1;
+			error = NFSERR_REPLYFROMCACHE;
+			goto out;
+		} else {
+			/* Cache reply does not exists, retry */
+			cbslot->ncbs_inprog = 1;
+		}
+	} else if (seqid == (cbslot->ncbs_seqid + 1)) {
+		/*
+		 * If seqid is one greater (accounting for wraparound) than the cached sequence ID,
+		 * then this is a new request, and the slot's sequence ID is incremented.
+		 */
+		if (cbslot->ncbs_reply != NULL) {
+			/* Release memory acked reply */
+			mbuf_free(cbslot->ncbs_reply);
+			cbslot->ncbs_reply = NULL;
+		}
+		cbslot->ncbs_inprog = 1;
+		cbslot->ncbs_seqid++;
+	} else {
+		/*
+		 * If the difference between seqid and the client's cached sequence ID at the slot
+		 * ID is two (2) or more, or if seqid is less than the cached sequence ID (accounting
+		 * for wraparound of the unsigned sequence ID value), then the client MUST return
+		 * NFS4ERR_SEQ_MISORDERED.
+		 */
+		error = NFSERR_SEQMISORDERED;
+		printf("nfs41_sequence_cb_get: got misordered seqid: seqid 0x%x, ncbs_seqid 0x%x\n", seqid, cbslot->ncbs_seqid);
+	}
+
+out:
+	lck_mtx_unlock(&sp->ns_lock);
+
+	SESSION_DBG(sp, "was called with seqid 0x%x, slotid %d, return %d", seqid, slotid, error);
+	NFS_KDBG_EXIT(NFSDBG_V41_OP_SEQUENCE_CB_SES, seqid, cbslot ? cbslot->ncbs_inprog : 0, cbslot ? cbslot->ncbs_reply : NULL, error);
+	return error;
+}
+
+#endif /* CONFIG_NFS4 */

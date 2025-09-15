@@ -2061,7 +2061,7 @@ in6_finalize_cksum(struct mbuf *m, uint32_t hoff, int32_t optlen,
 	uint16_t csum, ulpoff, plen;
 	uint8_t nxt;
 
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 	VERIFY(m->m_flags & M_PKTHDR);
 
 	sw_csum = (csum_flags & m->m_pkthdr.csum_flags);
@@ -2498,6 +2498,7 @@ ip6_ctloutput(struct socket *so, struct sockopt *sopt)
 			case IPV6_RECVTCLASS:
 			case IPV6_V6ONLY:
 			case IPV6_AUTOFLOWLABEL:
+			case IPV6_RECV_LINK_ADDR_TYPE:
 				if (optlen != sizeof(int)) {
 					error = EINVAL;
 					break;
@@ -2546,6 +2547,7 @@ ip6_ctloutput(struct socket *so, struct sockopt *sopt)
 } while (0)
 
 #define OPTBIT(bit) (in6p->inp_flags & (bit) ? 1 : 0)
+#define OPTBIT2(bit) (in6p->inp_flags2 & (bit) ? 1 : 0)
 
 				case IPV6_RECVPKTINFO:
 					/* cannot mix with RFC2292 */
@@ -2659,6 +2661,10 @@ ip6_ctloutput(struct socket *so, struct sockopt *sopt)
 
 				case IPV6_AUTOFLOWLABEL:
 					OPTSET(IN6P_AUTOFLOWLABEL);
+					break;
+
+				case IPV6_RECV_LINK_ADDR_TYPE:
+					OPTSET2(INP2_RECV_LINK_ADDR_TYPE);
 					break;
 				}
 				break;
@@ -2933,6 +2939,7 @@ ip6_ctloutput(struct socket *so, struct sockopt *sopt)
 			case IPV6_PORTRANGE:
 			case IPV6_RECVTCLASS:
 			case IPV6_AUTOFLOWLABEL:
+			case IPV6_RECV_LINK_ADDR_TYPE:
 				switch (optname) {
 				case IPV6_RECVHOPOPTS:
 					optval = OPTBIT(IN6P_HOPOPTS);
@@ -2989,7 +2996,12 @@ ip6_ctloutput(struct socket *so, struct sockopt *sopt)
 				case IPV6_AUTOFLOWLABEL:
 					optval = OPTBIT(IN6P_AUTOFLOWLABEL);
 					break;
+
+				case IPV6_RECV_LINK_ADDR_TYPE:
+					optval = OPTBIT2(INP2_RECV_LINK_ADDR_TYPE);
+					break;
 				}
+
 				if (error) {
 					break;
 				}
@@ -3869,7 +3881,7 @@ ip6_setpktopt(int optname, uint8_t *buf __sized_by(len), int len, struct ip6_pkt
 			return EINVAL;
 		}
 
-		opt->ip6po_hlim = *hlimp;
+		opt->ip6po_hlim = (int16_t)(*hlimp);
 		break;
 	}
 
@@ -3884,7 +3896,7 @@ ip6_setpktopt(int optname, uint8_t *buf __sized_by(len), int len, struct ip6_pkt
 			return EINVAL;
 		}
 
-		opt->ip6po_tclass = tclass;
+		opt->ip6po_tclass = (int16_t)tclass;
 		break;
 	}
 
@@ -4111,7 +4123,7 @@ ip6_setpktopt(int optname, uint8_t *buf __sized_by(len), int len, struct ip6_pkt
 		    minmtupolicy != IP6PO_MINMTU_ALL) {
 			return EINVAL;
 		}
-		opt->ip6po_minmtu = minmtupolicy;
+		opt->ip6po_minmtu = (int8_t)minmtupolicy;
 		break;
 
 	case IPV6_DONTFRAG:
@@ -4140,7 +4152,7 @@ ip6_setpktopt(int optname, uint8_t *buf __sized_by(len), int len, struct ip6_pkt
 		    preftemp != IP6PO_TEMPADDR_PREFER) {
 			return EINVAL;
 		}
-		opt->ip6po_prefer_tempaddr = preftemp;
+		opt->ip6po_prefer_tempaddr = (int8_t)preftemp;
 		break;
 
 	default:

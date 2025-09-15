@@ -95,7 +95,7 @@ LEXT(vfptrash_data)
 
 #if __arm64__
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 #if CONFIG_SPTM
         .section __DATA_SPTM, __const
         .align 14
@@ -120,7 +120,7 @@ LEXT(ropagetable_begin)
 #endif
 #else
 LEXT(ropagetable_begin)
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 LEXT(ropagetable_end)
 

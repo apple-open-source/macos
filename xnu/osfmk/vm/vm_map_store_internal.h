@@ -51,6 +51,14 @@ struct vm_map_store {
 RB_HEAD(rb_head, vm_map_store);
 #endif
 
+#define VM_ENTRY_PACKED_PTR_BITS         48
+#define VM_ENTRY_PACKED_PTR_SHIFT        0
+#define VM_ENTRY_PACKED_PTR_BASE         ((uintptr_t)0)
+
+#define VM_PREV_PACK(prev) (uintptr_t) (VM_PACK_POINTER((uintptr_t)(prev), VM_ENTRY_PACKED_PTR))
+#define VM_PREV_UNPACK(p) ((vm_map_entry_t) VM_UNPACK_POINTER((vm_offset_t)p, VM_ENTRY_PACKED_PTR))
+static_assert(VM_KERNEL_POINTER_SIGNIFICANT_BITS <= VM_ENTRY_PACKED_PTR_BITS);
+
 /*
  *	Type:		vm_map_entry_t [internal use only]
  *
@@ -69,7 +77,8 @@ RB_HEAD(rb_head, vm_map_store);
  *		and needs to be kept in sync.
  */
 struct vm_map_links {
-	struct vm_map_entry     *prev;          /* previous entry */
+	uintptr_t prev : VM_ENTRY_PACKED_PTR_BITS;
+	uint8_t vme_zero_wire_count_waiters :1;
 	struct vm_map_entry     *next;          /* next entry */
 	vm_map_offset_t         start;          /* start address */
 	vm_map_offset_t         end;            /* end address */

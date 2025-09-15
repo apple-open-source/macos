@@ -30,9 +30,7 @@
 
 #if ENABLE(MALLOC_HEAP_BREAKDOWN)
 #include <mutex>
-#if OS(DARWIN)
 #include <malloc/malloc.h>
-#endif
 #endif
 
 namespace WTF {
@@ -57,9 +55,7 @@ public:
     WTF_EXPORT_PRIVATE void free(void*);
 
 private:
-#if OS(DARWIN)
     malloc_zone_t* m_zone;
-#endif
 };
 
 #define DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER_AND_EXPORT(Type, Export) \

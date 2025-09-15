@@ -33,6 +33,7 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
 #include "LocalDOMWindow.h"
+#include "OwnerPermissionsPolicyData.h"
 #include "Quirks.h"
 #include "SecurityOrigin.h"
 #include <wtf/TZoneMalloc.h>
@@ -237,7 +238,7 @@ static ASCIILiteral defaultAllowlistValue(PermissionsPolicy::Feature feature)
     return "'none'"_s;
 }
 
-static void forEachFeature(const Function<void(PermissionsPolicy::Feature)>& apply)
+static void forEachFeature(NOESCAPE const Function<void(PermissionsPolicy::Feature)>& apply)
 {
     for (uint8_t index = 0, end = static_cast<uint8_t>(PermissionsPolicy::Feature::Invalid); index < end; ++index)
         apply(static_cast<PermissionsPolicy::Feature>(index));
@@ -278,23 +279,24 @@ static std::pair<StringView, StringView> splitOnAsciiWhiteSpace(StringView input
 // https://w3c.github.io/webappsec-permissions-policy/#declared-origin
 static Ref<SecurityOrigin> declaredOrigin(const HTMLIFrameElement& iframe)
 {
-    if (iframe.document().isSandboxed(SandboxFlag::Origin) || (iframe.sandboxFlags().contains(SandboxFlag::Origin)))
+    Ref document = iframe.document();
+    if (document->isSandboxed(SandboxFlag::Origin) || (iframe.sandboxFlags().contains(SandboxFlag::Origin)))
         return SecurityOrigin::createOpaque();
 
     if (iframe.hasAttributeWithoutSynchronization(srcdocAttr))
-        return iframe.document().securityOrigin();
+        return document->securityOrigin();
 
     if (iframe.hasAttributeWithoutSynchronization(srcAttr)) {
-        auto url = iframe.document().completeURL(iframe.getAttribute(srcAttr));
+        auto url = document->completeURL(iframe.getAttribute(srcAttr));
         if (url.isValid()) {
             if (url.protocolIsInHTTPFamily())
                 return SecurityOrigin::create(url);
-            if (auto contentDocument = iframe.contentDocument())
+            if (RefPtr contentDocument = iframe.contentDocument())
                 return contentDocument->securityOrigin();
         }
     }
 
-    return iframe.document().securityOrigin();
+    return document->securityOrigin();
 }
 
 // https://w3c.github.io/webappsec-permissions-policy/#algo-is-feature-enabled
@@ -303,7 +305,7 @@ static bool computeFeatureEnabled(PermissionsPolicy::Feature feature, const Docu
     bool enabled = checkPermissionsPolicy(document.permissionsPolicy(), feature, origin, document.securityOrigin().data());
     // FIXME: Spec suggests generating violation report for Reporting API but we only add log now.
     if (!enabled && shouldReportViolation == PermissionsPolicy::ShouldReportViolation::Yes) {
-        if (RefPtr window = document.domWindow())
+        if (RefPtr window = document.window())
             window->printErrorMessage(makeString("Permission policy '"_s, toFeatureNameForLogging(feature), "' check failed for document with origin '"_s, origin.toString(), "'."_s));
     }
 
@@ -363,9 +365,9 @@ static PermissionsPolicy::PolicyDirective parsePolicyDirective(StringView value,
 PermissionsPolicy::PolicyDirective PermissionsPolicy::processPermissionsPolicyAttribute(const HTMLIFrameElement& iframe)
 {
     auto allowAttributeValue = iframe.attributeWithoutSynchronization(allowAttr);
-    auto policyDirective = parsePolicyDirective(allowAttributeValue, iframe.document().securityOrigin().data(), declaredOrigin(iframe)->data());
+    auto policyDirective = parsePolicyDirective(allowAttributeValue, iframe.protectedDocument()->securityOrigin().data(), declaredOrigin(iframe)->data());
 
-    if (iframe.hasAttribute(allowfullscreenAttr) || iframe.hasAttribute(webkitallowfullscreenAttr))
+    if (iframe.hasAttributeWithoutSynchronization(allowfullscreenAttr) || iframe.hasAttributeWithoutSynchronization(webkitallowfullscreenAttr))
         policyDirective.add(Feature::Fullscreen, Allowlist::AllowAllOrigins { });
 
     return policyDirective;

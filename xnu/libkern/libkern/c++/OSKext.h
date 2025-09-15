@@ -395,13 +395,14 @@ public:
 	static OSPtr<OSDictionary> copyKexts(void);
 	static OSReturn       removeKextBootstrap(void);
 	static void           willShutdown(void);// called by IOPMrootDomain on shutdown
-	static void           willUserspaceReboot(void);
+	static void           setWillUserspaceReboot(void);
 	static void           resetAfterUserspaceReboot(void);
 	static  void reportOSMetaClassInstances(
 		const char     * kextIdentifier,
 		OSKextLogSpec    msgLogSpec);
 	static void OSKextLogDriverKitInfoLoad(OSKext *kext);
 	static bool iokitDaemonAvailable(void);
+	static bool driverkitEnabled(void);
 #endif /* XNU_KERNEL_PRIVATE */
 
 private:
@@ -606,7 +607,6 @@ private:
 /* Sync with user space.
  */
 	static OSReturn pingIOKitDaemon(void);
-	static bool driverkitEnabled(void);
 
 /* Getting info about loaded kexts (kextstat).
  */
@@ -945,6 +945,7 @@ public:
 	}
 };
 
+extern "C" int OSKextIsInUserspaceReboot(void);
 extern "C" void OSKextResetAfterUserspaceReboot(void);
 
 #endif /* !_LIBKERN_OSKEXT_H */

@@ -46,8 +46,15 @@ eventType = [
     "gamecontroller",
     "humidity",
     "collection",
-    "brightness"
+    "brightness",
+    "genericgesture",
+    "dynamicbutton",
+    "forcestage",
+    "touchsensitivebutton",
+    "heartrate"
 ]
+
+ 
 
 policyType = [
     "none",

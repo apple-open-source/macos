@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,14 +59,7 @@ static std::optional<Vector<std::pair<String, String>>> readCachesList(const Str
     if (!FileSystem::fileExists(cachesListFilePath))
         return result;
 
-    auto cachesListHandle = FileSystem::openFile(cachesListFilePath, FileSystem::FileOpenMode::ReadWrite);
-    if (!FileSystem::isHandleValid(cachesListHandle))
-        return std::nullopt;
-    auto closeFileOnExit = makeScopeExit([&cachesListHandle]() mutable {
-        FileSystem::closeFile(cachesListHandle);
-    });
-
-    auto cachesList = FileSystem::readEntireFile(cachesListHandle);
+    auto cachesList = FileSystem::readEntireFile(cachesListFilePath);
     if (!cachesList)
         return std::nullopt;
 
@@ -145,7 +138,7 @@ static bool writeSizeFile(const String& sizeDirectoryPath, uint64_t size)
 
     auto sizeFilePath = FileSystem::pathByAppendingComponent(sizeDirectoryPath, sizeFileName);
     auto value = String::number(size).utf8();
-    return FileSystem::overwriteEntireFile(sizeFilePath, value.span()) != -1;
+    return !!FileSystem::overwriteEntireFile(sizeFilePath, byteCast<uint8_t>(value.span()));
 }
 
 static String saltFilePath(const String& saltDirectory)
@@ -193,7 +186,7 @@ HashSet<WebCore::ClientOrigin> CacheStorageManager::originsOfCacheStorageData(co
 {
     HashSet<WebCore::ClientOrigin> result;
     for (auto& originName : FileSystem::listDirectory(rootDirectory)) {
-        auto originFile = FileSystem::pathByAppendingComponents(rootDirectory, { originName, originFileName });
+        auto originFile = FileSystem::pathByAppendingComponents(rootDirectory, std::initializer_list<StringView>({ originName, originFileName }));
         if (auto origin = WebCore::StorageUtilities::readOriginFromFile(originFile))
             result.add(*origin);
     }
@@ -273,13 +266,12 @@ void CacheStorageManager::reset()
         request.second(false);
     }
 
-    Ref registry = m_registry.get();
     for (Ref cache : m_caches)
-        registry->unregisterCache(cache->identifier());
+        m_registry->unregisterCache(cache->identifier());
     m_caches.clear();
 
     for (auto& identifier : m_removedCaches.keys())
-        registry->unregisterCache(identifier);
+        m_registry->unregisterCache(identifier);
     m_removedCaches.clear();
 
     m_cacheRefConnections.clear();
@@ -299,10 +291,9 @@ bool CacheStorageManager::initializeCaches()
         return false;
 
     m_isInitialized = true;
-    Ref registry = m_registry;
     for (auto& [name, uniqueName] : *cachesList) {
         Ref cache = CacheStorageCache::create(*this, name, uniqueName, m_path, m_queue.copyRef());
-        registry->registerCache(cache->identifier(), cache.get());
+        m_registry->registerCache(cache->identifier(), cache.get());
         m_caches.append(WTFMove(cache));
     }
 
@@ -318,7 +309,7 @@ void CacheStorageManager::openCache(const String& name, WebCore::DOMCacheEngine:
         return cache->name() == name;
     });
     if (index != notFound)
-        return m_caches[index]->open(WTFMove(callback));
+        return Ref { m_caches[index] }->open(WTFMove(callback));
 
     Ref cache = CacheStorageCache::create(*this, name, createVersion4UUIDString(), m_path, m_queue.copyRef());
     m_caches.append(cache);
@@ -329,7 +320,7 @@ void CacheStorageManager::openCache(const String& name, WebCore::DOMCacheEngine:
     }
 
     makeDirty();
-    protectedRegistry()->registerCache(cache->identifier(), cache);
+    m_registry->registerCache(cache->identifier(), cache);
     cache->open(WTFMove(callback));
 }
 
@@ -346,7 +337,7 @@ void CacheStorageManager::removeCache(WebCore::DOMCacheIdentifier cacheIdentifie
 
     makeDirty();
     m_removedCaches.set(cacheIdentifier, WTFMove(m_caches[index]));
-    m_caches.remove(index);
+    m_caches.removeAt(index);
     return callback(true);
 }
 
@@ -367,16 +358,17 @@ void CacheStorageManager::allCaches(uint64_t updateCounter, WebCore::DOMCacheEng
 
 void CacheStorageManager::initializeCacheSize(CacheStorageCache& cache)
 {
-    cache.getSize([this, weakThis = WeakPtr { *this }, cacheIdentifier = cache.identifier()](auto size) mutable {
-        if (!weakThis)
+    cache.getSize([weakThis = WeakPtr { *this }, cacheIdentifier = cache.identifier()](auto size) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
-        if (!m_pendingSize.second.remove(cacheIdentifier))
+        if (!protectedThis->m_pendingSize.second.remove(cacheIdentifier))
             return;
 
-        m_pendingSize.first += size;
-        if (m_pendingSize.second.isEmpty())
-            finishInitializingSize();
+        protectedThis->m_pendingSize.first += size;
+        if (protectedThis->m_pendingSize.second.isEmpty())
+            protectedThis->finishInitializingSize();
     });
 }
 
@@ -458,7 +450,7 @@ void CacheStorageManager::dereference(IPC::Connection::UniqueID connection, WebC
     if (index == notFound)
         return;
 
-    refConnections.remove(index);
+    refConnections.removeAt(index);
     if (!refConnections.isEmpty())
         return;
 
@@ -500,7 +492,7 @@ void CacheStorageManager::removeUnusedCache(WebCore::DOMCacheIdentifier cacheIde
 {
     if (RefPtr cache = m_removedCaches.take(cacheIdentifier)) {
         cache->removeAllRecords();
-        protectedRegistry()->unregisterCache(cacheIdentifier);
+        m_registry->unregisterCache(cacheIdentifier);
         return;
     }
 
@@ -549,11 +541,6 @@ String CacheStorageManager::representationString()
     }
     builder.append("]}\n"_s);
     return builder.toString();
-}
-
-Ref<CacheStorageRegistry> CacheStorageManager::protectedRegistry()
-{
-    return m_registry.get();
 }
 
 } // namespace WebKit

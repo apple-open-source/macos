@@ -412,13 +412,25 @@ dns_rdata_aaaa_to_wire_(dns_towire_state_t *NONNULL txn, const char *NONNULL ip_
 #endif
 
 uint16_t
+dns_key_tag_compute(ssize_t rdlen, uint8_t *rdata)
+{
+    // Compute the key tag
+    uint32_t key_tag = 0;
+    for (int i = 0; i < rdlen; i++) {
+        key_tag += (i & 1) ? rdata[i] : (uint16_t)(rdata[i] << 8);
+    }
+    key_tag += (key_tag >> 16) & 0xFFFF;
+    uint16_t ret = (uint16_t)(key_tag & 0xFFFF);
+    INFO("rdlen = %zd  tag = %x", rdlen, ret);
+    return ret;
+}
+
+uint16_t
 dns_rdata_key_to_wire_(dns_towire_state_t *NONNULL txn, unsigned key_type, unsigned name_type,
                        uint8_t signatory, srp_key_t *key, int line)
 {
     size_t key_len = srp_pubkey_length(key), copied_len;
     uint8_t *rdata = txn->p;
-    uint32_t key_tag;
-    int i;
     ssize_t rdlen;
 
     if (!txn->error) {
@@ -447,13 +459,7 @@ dns_rdata_key_to_wire_(dns_towire_state_t *NONNULL txn, unsigned key_type, unsig
     }
     rdlen = txn->p - rdata;
 
-    // Compute the key tag
-    key_tag = 0;
-    for (i = 0; i < rdlen; i++) {
-        key_tag += (i & 1) ? rdata[i] : (uint16_t)(rdata[i] << 8);
-    }
-    key_tag += (key_tag >> 16) & 0xFFFF;
-    return (uint16_t)(key_tag & 0xFFFF);
+    return dns_key_tag_compute(rdlen, rdata);
 }
 
 void

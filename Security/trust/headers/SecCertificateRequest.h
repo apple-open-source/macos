@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2022 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -188,11 +188,15 @@ extern const CFStringRef kSecACMEServerURL
      or a CFArrayRef of CFStringRefs, each containing a single URI.
  @param kSecSubjectAltNameNTPrincipalName CFStringRef
      The value for this key is a CFStringRef containing the NTPrincipalName.
+ @param kSecSubjectAltNameIPAddress CFArrayRef or CFStringRef
+ The value for this key is either a CFStringRef containing a single IP address,
+ or a CFArrayRef of CFStringRefs, each containing a single IP address.
 */
 extern const CFStringRef kSecSubjectAltNameDNSName;
 extern const CFStringRef kSecSubjectAltNameEmailAddress;
 extern const CFStringRef kSecSubjectAltNameURI;
 extern const CFStringRef kSecSubjectAltNameNTPrincipalName;
+extern const CFStringRef kSecSubjectAltNameIPAddress;
 
 /* Extended Key Usage OIDs */
 extern const CFStringRef kSecEKUServerAuth;

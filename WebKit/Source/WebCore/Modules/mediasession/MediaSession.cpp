@@ -155,7 +155,7 @@ MediaSession::MediaSession(Navigator& navigator)
     , m_coordinator(MediaSessionCoordinator::create(navigator.scriptExecutionContext()))
 #endif
 {
-    m_logger = &Document::sharedLogger();
+    m_logger = Document::sharedLogger();
     m_logIdentifier = nextLogIdentifier();
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -313,6 +313,12 @@ void MediaSession::callActionHandler(const MediaSessionActionDetails& actionDeta
     promise.resolve();
 }
 
+bool MediaSession::hasActionHandler(const MediaSessionAction action) const
+{
+    Locker lock { m_actionHandlersLock };
+    return m_actionHandlers.contains(action);
+}
+
 bool MediaSession::callActionHandler(const MediaSessionActionDetails& actionDetails, TriggerGestureIndicator triggerGestureIndicator)
 {
     RefPtr<MediaSessionActionHandler> handler;
@@ -325,7 +331,7 @@ bool MediaSession::callActionHandler(const MediaSessionActionDetails& actionDeta
         std::optional<UserGestureIndicator> maybeGestureIndicator;
         if (triggerGestureIndicator == TriggerGestureIndicator::Yes)
             maybeGestureIndicator.emplace(IsProcessingUserGesture::Yes, document());
-        handler->handleEvent(actionDetails);
+        handler->invoke(actionDetails);
         return true;
     }
     auto element = activeMediaElement();
@@ -409,7 +415,7 @@ void MediaSession::removeObserver(MediaSessionObserver& observer)
     m_observers.remove(observer);
 }
 
-void MediaSession::forEachObserver(const Function<void(MediaSessionObserver&)>& apply)
+void MediaSession::forEachObserver(NOESCAPE const Function<void(MediaSessionObserver&)>& apply)
 {
     ASSERT(isMainThread());
     Ref protectedThis { *this };

@@ -39,7 +39,6 @@ getiopolicy_np(int iotype, int scope)
 	iop_param.iop_iotype = iotype;
 	error = __iopolicysys(IOPOL_CMD_GET, &iop_param);
 	if (error != 0) {
-		errno = error;
 		policy = -1;
 		goto exit;
 	}

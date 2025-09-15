@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -133,6 +133,9 @@ struct UnlinkedSimpleJumpTable {
     }
 
     int32_t defaultOffset() const { return m_defaultOffset; }
+
+    // Returns true if this is a list-style jump table (key-offset pairs), used for sparse switches.
+    bool isList() const { return m_min == INT32_MAX; }
 };
 
 class UnlinkedCodeBlock : public JSCell {
@@ -245,8 +248,10 @@ public:
 
     UnlinkedFunctionExecutable* functionDecl(int index) { return m_functionDecls[index].get(); }
     size_t numberOfFunctionDecls() { return m_functionDecls.size(); }
+    std::span<const WriteBarrier<UnlinkedFunctionExecutable>> functionDecls() const { return m_functionDecls.span(); }
     UnlinkedFunctionExecutable* functionExpr(int index) { return m_functionExprs[index].get(); }
     size_t numberOfFunctionExprs() { return m_functionExprs.size(); }
+    std::span<const WriteBarrier<UnlinkedFunctionExecutable>> functionExprs() const { return m_functionExprs.span(); }
 
     // Exception handling support
     size_t numberOfExceptionHandlers() const { return m_rareData ? m_rareData->m_exceptionHandlers.size() : 0; }
@@ -440,7 +445,7 @@ private:
     PackedRefPtr<StringImpl> m_sourceMappingURLDirective;
 
     FixedVector<JSInstructionStream::Offset> m_jumpTargets;
-    Ref<UnlinkedMetadataTable> m_metadata;
+    const Ref<UnlinkedMetadataTable> m_metadata;
     std::unique_ptr<JSInstructionStream> m_instructions;
     std::unique_ptr<BytecodeLivenessAnalysis> m_liveness;
 

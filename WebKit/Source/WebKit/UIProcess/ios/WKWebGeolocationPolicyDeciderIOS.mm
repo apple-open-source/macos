@@ -77,11 +77,11 @@ static NSString *appDisplayName()
     return displayName;
 }
 
-static NSString *getToken(const WebCore::SecurityOriginData& securityOrigin, NSURL *requestingURL)
+static RetainPtr<NSString> getToken(const WebCore::SecurityOriginData& securityOrigin, NSURL *requestingURL)
 {
     if ([requestingURL isFileURL])
         return [requestingURL path];
-    return securityOrigin.host();
+    return securityOrigin.host().createNSString();
 }
 
 struct PermissionRequest {
@@ -170,25 +170,25 @@ struct PermissionRequest {
         }
 
         NSString *applicationName = appDisplayName();
-        NSString *message;
+        RetainPtr<NSString> message;
 
     IGNORE_WARNINGS_BEGIN("format-nonliteral")
-        NSString *title = [NSString stringWithFormat:WEB_UI_STRING("“%@” would like to use your current location.", "Prompt for a webpage to request location access. The parameter is the domain for the webpage."), _activeChallenge->token.get()];
+        RetainPtr title = adoptNS([[NSString alloc] initWithFormat:WEB_UI_STRING("“%@” would like to use your current location.", "Prompt for a webpage to request location access. The parameter is the domain for the webpage.").createNSString().get(), _activeChallenge->token.get()]);
         if (appHasPreciseLocationPermission())
-            message = [NSString stringWithFormat:WEB_UI_STRING("This website will use your precise location because “%@” currently has access to your precise location.", "Message informing the user that the website will have precise location data"), applicationName];
+            message = adoptNS([[NSString alloc] initWithFormat:WEB_UI_STRING("This website will use your precise location because “%@” currently has access to your precise location.", "Message informing the user that the website will have precise location data").createNSString().get(), applicationName]);
         else
-            message = [NSString stringWithFormat:WEB_UI_STRING("This website will use your approximate location because “%@” currently has access to your approximate location.", "Message informing the user that the website will have approximate location data"), applicationName];
+            message = adoptNS([[NSString alloc] initWithFormat:WEB_UI_STRING("This website will use your approximate location because “%@” currently has access to your approximate location.", "Message informing the user that the website will have approximate location data").createNSString().get(), applicationName]);
     IGNORE_WARNINGS_END
 
-        NSString *allowActionTitle = WEB_UI_STRING("Allow", "Action authorizing a webpage to access the user’s location.");
-        NSString *denyActionTitle = WEB_UI_STRING_KEY("Don’t Allow", "Don’t Allow (website location dialog)", "Action denying a webpage access to the user’s location.");
+        RetainPtr allowActionTitle = WEB_UI_STRING("Allow", "Action authorizing a webpage to access the user’s location.").createNSString();
+        RetainPtr denyActionTitle = WEB_UI_STRING_KEY("Don’t Allow", "Don’t Allow (website location dialog)", "Action denying a webpage access to the user’s location.").createNSString();
 
-        auto alert = WebKit::createUIAlertController(title, message);
-        UIAlertAction *denyAction = [UIAlertAction actionWithTitle:denyActionTitle style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
+        RetainPtr alert = WebKit::createUIAlertController(title.get(), message.get());
+        UIAlertAction *denyAction = [UIAlertAction actionWithTitle:denyActionTitle.get() style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
             if (auto strongSelf = weakSelf.get())
                 [strongSelf _finishActiveChallenge:NO];
         }];
-        UIAlertAction *allowAction = [UIAlertAction actionWithTitle:allowActionTitle style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
+        UIAlertAction *allowAction = [UIAlertAction actionWithTitle:allowActionTitle.get() style:UIAlertActionStyleDefault handler:[weakSelf = WeakObjCPtr<WKWebGeolocationPolicyDecider>(self)](UIAlertAction *) mutable {
             if (auto strongSelf = weakSelf.get())
                 [strongSelf _finishActiveChallenge:YES];
         }];

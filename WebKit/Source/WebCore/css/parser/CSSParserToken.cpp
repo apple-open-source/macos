@@ -33,6 +33,7 @@
 #include "CSSMarkup.h"
 #include "CSSPropertyParser.h"
 #include <wtf/HexNumber.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -578,7 +579,7 @@ bool CSSParserToken::operator==(const CSSParserToken& other) const
     case HashToken:
         if (m_hashTokenType != other.m_hashTokenType)
             return false;
-        FALLTHROUGH;
+        [[fallthrough]];
     case IdentToken:
     case FunctionToken:
     case StringToken:
@@ -591,7 +592,7 @@ bool CSSParserToken::operator==(const CSSParserToken& other) const
                 return false;
             return m_numericSign == other.m_numericSign && m_numericValue == other.m_numericValue && m_numericValueType == other.m_numericValueType;
         }
-        FALLTHROUGH;
+        [[fallthrough]];
     case NumberToken:
     case PercentageToken:
         return originalText() == other.originalText();

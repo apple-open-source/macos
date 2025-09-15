@@ -300,7 +300,7 @@ Lset_new_tail:
 
 Ltrylock_enqueue_exit:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _pfz_trylock_and_enqueue
 
 /* Non-preemptible helper routine to FIFO dequeue:
  * void *pfz_trylock_and_dequeue(OSFifoQueueHead *__list, size_t __offset, uint32_t *lock_addr);
@@ -350,7 +350,7 @@ Lreturn_head:
 
 Ltrylock_dequeue_exit:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _pfz_trylock_and_dequeue
 
 
 	/* Preemptible functions */
@@ -410,7 +410,7 @@ Lenqueue_take_delayed_preemption_upon_success:
 
 Lenqueue_success:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _pfz_enqueue
 
 /*
  * void *pfz_dequeue(OSFifoQueueHead *__list, size_t __offset);
@@ -466,7 +466,7 @@ Ldequeue_clear_monitor:
 Ldequeue_success:
 	mov		x0, x9		// Move x9 (where result was stored earlier) to x0
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _pfz_dequeue
 
 
 /* void preempt_self(void)
@@ -493,7 +493,7 @@ _preempt_self:
 	ldp		x0, x1, [sp], #16
 
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _preempt_self
 
 /*
  *	void backoff(uint32_t *lock_addr);
@@ -525,4 +525,4 @@ Lend_backoff:
 	clrex
 
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _backoff

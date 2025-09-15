@@ -67,6 +67,8 @@
 
 #include <IOKit/IOBSD.h>
 
+#include <string.h>
+
 #define ESP_HDR_SIZE 4
 #define PORT_ISAKMP 500
 #define PORT_ISAKMP_NATT 4500   /* rfc3948 */
@@ -104,12 +106,12 @@ SYSCTL_INT(_net_link_generic_system_port_used, OID_AUTO, use_test_wakeuuid,
     CTLFLAG_RW | CTLFLAG_LOCKED,
     &use_test_wakeuuid, 0, "");
 
-int sysctl_new_test_wakeuuid SYSCTL_HANDLER_ARGS;
+static int sysctl_new_test_wakeuuid SYSCTL_HANDLER_ARGS;
 SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO, new_test_wakeuuid,
     CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0,
     sysctl_new_test_wakeuuid, "S,uuid_t", "");
 
-int sysctl_clear_test_wakeuuid SYSCTL_HANDLER_ARGS;
+static int sysctl_clear_test_wakeuuid SYSCTL_HANDLER_ARGS;
 SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO, clear_test_wakeuuid,
     CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0,
     sysctl_clear_test_wakeuuid, "S,uuid_t", "");
@@ -117,6 +119,50 @@ SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO, clear_test_wakeuuid,
 SYSCTL_OPAQUE(_net_link_generic_system_port_used, OID_AUTO, test_wakeuuid,
     CTLFLAG_RD | CTLFLAG_LOCKED,
     test_wakeuuid, sizeof(uuid_t), "S,uuid_t", "");
+
+/*
+ * use_fake_lpw is used for testing only
+ */
+#define FAKE_LPW_OFF            0 /* fake LPW off */
+#define FAKE_LPW_ON_ONCE        1 /* use fake LPW once */
+#define FAKE_LPW_ALWAYS_ON      2 /* permanent fake LPW mode */
+#define FAKE_LPW_FLIP_ON        3 /* LPW on, then switch to off */
+#define FAKE_LPW_FLIP_OFF       4 /* LPW off, then switch to on */
+
+static int use_fake_lpw = 0;
+static int sysctl_use_fake_lpw SYSCTL_HANDLER_ARGS;
+SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO, use_fake_lpw,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &use_fake_lpw, 0, &sysctl_use_fake_lpw, "I", "");
+
+bool fake_lpw_mode_is_set = false;
+
+SYSCTL_NODE(_net_link_generic_system_port_used, OID_AUTO, mark_wake_packet,
+    CTLFLAG_RW | CTLFLAG_LOCKED, 0, "if port used");
+
+static int sysctl_mark_wake_packet_port SYSCTL_HANDLER_ARGS;
+static int sysctl_mark_wake_packet_if SYSCTL_HANDLER_ARGS;
+
+static int mark_wake_packet_local_port = 0;
+SYSCTL_PROC(_net_link_generic_system_port_used_mark_wake_packet, OID_AUTO, local_port,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &mark_wake_packet_local_port, 0, &sysctl_mark_wake_packet_port, "I", "");
+
+static int mark_wake_packet_remote_port = 0;
+SYSCTL_PROC(_net_link_generic_system_port_used_mark_wake_packet, OID_AUTO, remote_port,
+    CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED,
+    &mark_wake_packet_remote_port, 0, &sysctl_mark_wake_packet_port, "I", "");
+
+static int mark_wake_packet_ipproto = 0;
+SYSCTL_INT(_net_link_generic_system_port_used_mark_wake_packet, OID_AUTO, ipproto,
+    CTLFLAG_RW | CTLFLAG_LOCKED,
+    &mark_wake_packet_ipproto, 0, "");
+
+static char mark_wake_packet_if[IFNAMSIZ];
+SYSCTL_PROC(_net_link_generic_system_port_used_mark_wake_packet, OID_AUTO, if,
+    CTLTYPE_STRING | CTLFLAG_RW | CTLFLAG_LOCKED,
+    0, 0, sysctl_mark_wake_packet_if, "A", "");
+
 #endif /* (DEVELOPMENT || DEBUG) */
 
 static int sysctl_get_ports_used SYSCTL_HANDLER_ARGS;
@@ -153,9 +199,12 @@ static uint32_t        last_wake_phy_if_family;
 static uint32_t        last_wake_phy_if_subfamily;
 static uint32_t        last_wake_phy_if_functional_type;
 static bool            last_wake_phy_if_delay_wake_pkt = false;
+static bool            last_wake_phy_if_lpw = false;
 
 static bool has_notified_wake_pkt = false;
 static bool has_notified_unattributed_wake = false;
+
+static bool is_lpw_mode = false;
 
 static LCK_GRP_DECLARE(net_port_entry_head_lock_group, "net port entry lock");
 static LCK_MTX_DECLARE(net_port_entry_head_lock, &net_port_entry_head_lock_group);
@@ -174,19 +223,6 @@ static SLIST_HEAD(net_port_entry_list, net_port_entry) net_port_entry_list =
 
 struct timeval wakeuiid_last_check;
 
-
-#if (DEBUG | DEVELOPMENT)
-static int64_t npi_search_list_total = 0;
-SYSCTL_QUAD(_net_link_generic_system_port_used, OID_AUTO, npi_search_list_total,
-    CTLFLAG_RD | CTLFLAG_LOCKED,
-    &npi_search_list_total, "");
-
-static int64_t npi_search_list_max = 0;
-SYSCTL_QUAD(_net_link_generic_system_port_used, OID_AUTO, npi_search_list_max,
-    CTLFLAG_RD | CTLFLAG_LOCKED,
-    &npi_search_list_max, "");
-#endif /* (DEBUG | DEVELOPMENT) */
-
 /*
  * Hashing of the net_port_entry list is based on the local port
  *
@@ -202,8 +238,8 @@ SYSCTL_QUAD(_net_link_generic_system_port_used, OID_AUTO, npi_search_list_max,
 static TAILQ_HEAD(net_port_entry_hash_table, net_port_entry) * __indexable net_port_entry_hash_table = NULL;
 
 /*
- * For some types of physical interface we need to delay the notiication of wake packet event
- * until a user land interface controller confirms the wake was caused by its packet
+ * For some types of physical interface we need to delay the notification of wake packet events
+ * until a user land interface controller confirms the AP wake was caused by its packet
  */
 struct net_port_info_wake_pkt_event {
 	uint32_t                npi_wp_code;
@@ -233,8 +269,15 @@ SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO, wake_pkt_event_delay_i
     CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_ANYBODY, 0, 0,
     sysctl_wake_pkt_event_delay_if_families, "I", "");
 
-
+/* last_wake_pkt_event is informational */
 static struct net_port_info_wake_pkt_event last_wake_pkt_event;
+
+/*
+ * delay_wake_pkt_event hold the current wake packet event that is delayed waiting for
+ * confirmation from a userspace agent
+ * It can be overwritten as a wake packet makes its way up the stack
+ */
+static struct net_port_info_wake_pkt_event delay_wake_pkt_event;
 
 int sysctl_last_attributed_wake_event SYSCTL_HANDLER_ARGS;
 static SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO,
@@ -246,6 +289,34 @@ static SYSCTL_PROC(_net_link_generic_system_port_used, OID_AUTO,
     last_unattributed_wake_event, CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_LOCKED,
     0, 0, sysctl_last_unattributed_wake_event, "S,net_port_info_una_wake_event", "");
 
+os_log_t wake_packet_log_handle = NULL;
+
+static bool is_wake_pkt_event_delay(uint32_t ifrtype);
+
+static bool
+_if_need_delayed_wake_pkt_event_inner(struct ifnet *ifp)
+{
+	if ((ifp->if_xflags & IFXF_DELAYWAKEPKTEVENT) != 0 ||
+	    is_wake_pkt_event_delay(ifp->if_family)) {
+		return true;
+	}
+	return false;
+}
+
+static bool
+if_need_delayed_wake_pkt_event(struct ifnet *ifp)
+{
+	if (ifp != NULL) {
+		if (_if_need_delayed_wake_pkt_event_inner(ifp) == true) {
+			return true;
+		}
+		if (ifp->if_delegated.ifp != NULL) {
+			return _if_need_delayed_wake_pkt_event_inner(ifp->if_delegated.ifp);
+		}
+	}
+	return false;
+}
+
 /*
  * Initialize IPv4 source address hash table.
  */
@@ -256,9 +327,96 @@ if_ports_used_init(void)
 		return;
 	}
 
+	wake_packet_log_handle = os_log_create("com.apple.xnu.net.wake_packet", "");
+
 	net_port_entry_hash_table = zalloc_permanent(
 		NPE_HASH_BUCKET_COUNT * sizeof(*net_port_entry_hash_table),
 		ZALIGN_PTR);
+}
+
+bool
+if_is_lpw_enabled(struct ifnet *ifp)
+{
+	bool old_is_lpw_mode = is_lpw_mode;
+
+	if (ifp == NULL) {
+		return false;
+	}
+
+	if ((ifp->if_xflags & IFXF_LOW_POWER_WAKE) == 0 && last_wake_phy_if_lpw == false) {
+		return false;
+	}
+
+#if (DEBUG || DEVELOPMENT)
+	if (use_fake_lpw != FAKE_LPW_OFF) {
+		if (strlcmp(mark_wake_packet_if, IF_XNAME(ifp), IFNAMSIZ) == 0) {
+			fake_lpw_mode_is_set = true;
+
+			switch (use_fake_lpw) {
+			case FAKE_LPW_ON_ONCE:
+				is_lpw_mode = true;
+				use_fake_lpw = FAKE_LPW_OFF;
+				break;
+			case FAKE_LPW_ALWAYS_ON:
+				is_lpw_mode = true;
+				break;
+			case FAKE_LPW_FLIP_ON:
+				is_lpw_mode = true;
+				use_fake_lpw = FAKE_LPW_FLIP_OFF;
+				break;
+			case FAKE_LPW_FLIP_OFF:
+				is_lpw_mode = false;
+				use_fake_lpw = FAKE_LPW_FLIP_ON;
+				break;
+			}
+
+			if (if_ports_used_verbose && is_lpw_mode != old_is_lpw_mode) {
+				os_log(wake_packet_log_handle, "if_is_lpw_enabled %s set LPW to %d",
+				    IF_XNAME(ifp), is_lpw_mode == true ? 1 : 0);
+			}
+
+			return is_lpw_mode;
+		}
+		/* In fake mode, ignore packets from other interfaces */
+		return false;
+	}
+#endif /* (DEBUG || DEVELOPMENT) */
+
+	if (IOPMIsLPWMode()) {
+		is_lpw_mode = true;
+	} else {
+		is_lpw_mode = false;
+	}
+	if (if_ports_used_verbose && is_lpw_mode != old_is_lpw_mode) {
+		os_log(wake_packet_log_handle, "if_is_lpw_enabled %s set LPW to %d",
+		    IF_XNAME(ifp), is_lpw_mode == true ? 1 : 0);
+	}
+
+	return is_lpw_mode;
+}
+
+void
+if_exit_lpw(struct ifnet *ifp, const char *lpw_exit_reason)
+{
+	if (if_is_lpw_enabled(ifp) == false) {
+		return;
+	}
+	is_lpw_mode = false;
+
+	if_ports_used_stats.ifpu_lpw_to_full_wake++;
+	os_log_error(wake_packet_log_handle, "if_exit_lpw: LPW to Full Wake requested on %s reason %s",
+	    IF_XNAME(ifp), lpw_exit_reason);
+
+#if (DEVELOPMENT || DEBUG)
+	if (fake_lpw_mode_is_set == true) {
+		/* Let's not mess up with the IO power management subsystem */
+		if (IOPMIsLPWMode() == false) {
+			return;
+		}
+	}
+#endif /* (DEVELOPMENT || DEBUG) */
+
+	IOPMNetworkStackFullWake(kIOPMNetworkStackFullWakeFlag, "Network.ConnectionNotIdle");
 }
 
 static void
@@ -329,9 +487,9 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 
 	if (wakeuuid_is_set) {
 		if (uuid_parse(wakeuuid_str, wakeuuid) != 0) {
-			os_log(OS_LOG_DEFAULT,
-			    "%s: IOPMCopySleepWakeUUIDKey got bad value %s\n",
-			    __func__, wakeuuid_str);
+			os_log(wake_packet_log_handle,
+			    "if_ports_used_update_wakeuuid: IOPMCopySleepWakeUUIDKey got bad value %s\n",
+			    wakeuuid_str);
 			wakeuuid_is_set = false;
 		}
 	}
@@ -339,10 +497,10 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 	if (!wakeuuid_is_set) {
 		if (ifp != NULL) {
 			if (if_ports_used_verbose > 0) {
-				os_log_info(OS_LOG_DEFAULT,
-				    "%s: SleepWakeUUID not set, "
+				os_log_info(wake_packet_log_handle,
+				    "if_ports_used_update_wakeuuid: SleepWakeUUID not set, "
 				    "don't update the port list for %s\n",
-				    __func__, ifp != NULL ? if_name(ifp) : "");
+				    ifp != NULL ? if_name(ifp) : "");
 			}
 			if_ports_used_stats.ifpu_wakeuuid_not_set_count += 1;
 			microtime(&wakeuuid_not_set_last_time);
@@ -367,6 +525,7 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 		has_notified_unattributed_wake = false;
 
 		memset(&last_wake_pkt_event, 0, sizeof(last_wake_pkt_event));
+		memset(&delay_wake_pkt_event, 0, sizeof(delay_wake_pkt_event));
 
 		last_wake_phy_if_set = false;
 		memset(&last_wake_phy_if_name, 0, sizeof(last_wake_phy_if_name));
@@ -374,6 +533,12 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 		last_wake_phy_if_subfamily = IFRTYPE_SUBFAMILY_ANY;
 		last_wake_phy_if_functional_type = IFRTYPE_FUNCTIONAL_UNKNOWN;
 		last_wake_phy_if_delay_wake_pkt = false;
+		last_wake_phy_if_lpw = false;
+
+		is_lpw_mode = false;
+#if (DEVELOPMENT || DEBUG)
+		fake_lpw_mode_is_set = false;
+#endif /* (DEVELOPMENT || DEBUG) */
 	}
 	/*
 	 * Record the time last checked
@@ -385,8 +550,8 @@ if_ports_used_update_wakeuuid(struct ifnet *ifp)
 		uuid_string_t uuid_str;
 
 		uuid_unparse(current_wakeuuid, uuid_str);
-		os_log(OS_LOG_DEFAULT, "%s: current wakeuuid %s",
-		    __func__, uuid_str);
+		os_log(wake_packet_log_handle, "if_ports_used_update_wakeuuid: current wakeuuid %s for %s",
+		    uuid_str, ifp != NULL ? if_name(ifp) : "");
 	}
 }
 
@@ -447,7 +612,7 @@ net_port_info_add_entry(const struct net_port_info *npi)
 	if (__improbable(is_wakeuuid_set() == false)) {
 		if_ports_used_stats.ifpu_npi_not_added_no_wakeuuid++;
 		if (if_ports_used_verbose > 0) {
-			os_log(OS_LOG_DEFAULT, "%s: wakeuuid not set not adding "
+			os_log(wake_packet_log_handle, "%s: wakeuuid not set not adding "
 			    "port: %u flags: 0x%xif: %u pid: %u epid %u",
 			    __func__,
 			    ntohs(npi->npi_local_port),
@@ -461,7 +626,7 @@ net_port_info_add_entry(const struct net_port_info *npi)
 
 	npe = zalloc_flags(net_port_entry_zone, Z_WAITOK | Z_ZERO);
 	if (__improbable(npe == NULL)) {
-		os_log(OS_LOG_DEFAULT, "%s: zalloc() failed for "
+		os_log(wake_packet_log_handle, "%s: zalloc() failed for "
 		    "port: %u flags: 0x%x if: %u pid: %u epid %u",
 		    __func__,
 		    ntohs(npi->npi_local_port),
@@ -473,6 +638,18 @@ net_port_info_add_entry(const struct net_port_info *npi)
 	}
 
 	memcpy(&npe->npe_npi, npi, sizeof(npe->npe_npi));
+
+	if (IF_INDEX_IN_RANGE(npe->npe_npi.npi_if_index)) {
+		struct ifnet *ifp = ifindex2ifnet[npe->npe_npi.npi_if_index];
+		if (ifp != NULL) {
+			if (IFNET_IS_COMPANION_LINK(ifp)) {
+				npe->npe_npi.npi_flags |= NPIF_COMPLINK;
+			}
+			if (if_need_delayed_wake_pkt_event(ifp)) {
+				npe->npe_npi.npi_flags |= NPIF_DELAYWAKEPKTEVENT;
+			}
+		}
+	}
 
 	lck_mtx_lock(&net_port_entry_head_lock);
 
@@ -488,7 +665,7 @@ net_port_info_add_entry(const struct net_port_info *npi)
 		if_ports_used_stats.ifpu_npe_total++;
 
 		if (if_ports_used_verbose > 1) {
-			os_log(OS_LOG_DEFAULT, "%s: num %u for "
+			os_log(wake_packet_log_handle, "%s: num %u for "
 			    "port: %u flags: 0x%x if: %u pid: %u epid %u",
 			    __func__,
 			    num,
@@ -501,7 +678,7 @@ net_port_info_add_entry(const struct net_port_info *npi)
 	} else {
 		if_ports_used_stats.ifpu_npe_dup++;
 		if (if_ports_used_verbose > 2) {
-			os_log(OS_LOG_DEFAULT, "%s: already added "
+			os_log(wake_packet_log_handle, "%s: already added "
 			    "port: %u flags: 0x%x if: %u pid: %u epid %u",
 			    __func__,
 			    ntohs(npi->npi_local_port),
@@ -521,7 +698,7 @@ net_port_info_add_entry(const struct net_port_info *npi)
 }
 
 #if (DEVELOPMENT || DEBUG)
-int
+static int
 sysctl_new_test_wakeuuid SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
@@ -544,7 +721,7 @@ sysctl_new_test_wakeuuid SYSCTL_HANDLER_ARGS
 	return error;
 }
 
-int
+static int
 sysctl_clear_test_wakeuuid SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
@@ -747,7 +924,7 @@ if_ports_used_add_inpcb(const uint32_t ifindex, const struct inpcb *inp)
 
 	/* This is unlikely to happen but better be safe than sorry */
 	if (ifindex > UINT16_MAX) {
-		os_log(OS_LOG_DEFAULT, "%s: ifindex %u too big", __func__, ifindex);
+		os_log(wake_packet_log_handle, "%s: ifindex %u too big", __func__, ifindex);
 		return false;
 	}
 
@@ -755,12 +932,6 @@ if_ports_used_add_inpcb(const uint32_t ifindex, const struct inpcb *inp)
 		npi.npi_if_index = (uint16_t)ifindex;
 	} else if (inp->inp_last_outifp != NULL) {
 		npi.npi_if_index = (uint16_t)inp->inp_last_outifp->if_index;
-	}
-	if (IF_INDEX_IN_RANGE(npi.npi_if_index)) {
-		struct ifnet *ifp = ifindex2ifnet[npi.npi_if_index];
-		if (ifp != NULL && IFNET_IS_COMPANION_LINK(ifp)) {
-			npi.npi_flags |= NPIF_COMPLINK;
-		}
 	}
 
 	npi.npi_flags |= NPIF_SOCKET;
@@ -770,6 +941,10 @@ if_ports_used_add_inpcb(const uint32_t ifindex, const struct inpcb *inp)
 
 	if (so->so_options & SO_NOWAKEFROMSLEEP) {
 		npi.npi_flags |= NPIF_NOWAKE;
+	}
+
+	if (inp->inp_flags2 & INP2_CONNECTION_IDLE) {
+		npi.npi_flags |= NPIF_CONNECTION_IDLE;
 	}
 
 	if (SOCK_PROTO(so) == IPPROTO_TCP) {
@@ -782,7 +957,7 @@ if_ports_used_add_inpcb(const uint32_t ifindex, const struct inpcb *inp)
 	} else if (SOCK_PROTO(so) == IPPROTO_UDP) {
 		npi.npi_flags |= NPIF_UDP;
 	} else {
-		os_log(OS_LOG_DEFAULT, "%s: unexpected protocol %u for inp %p", __func__,
+		os_log(wake_packet_log_handle, "%s: unexpected protocol %u for inp %p", __func__,
 		    SOCK_PROTO(inp->inp_socket), inp);
 		return false;
 	}
@@ -856,16 +1031,10 @@ if_ports_used_add_flow_entry(const struct flow_entry *fe, const uint32_t ifindex
 
 	/* This is unlikely to happen but better be safe than sorry */
 	if (ifindex > UINT16_MAX) {
-		os_log(OS_LOG_DEFAULT, "%s: ifindex %u too big", __func__, ifindex);
+		os_log(wake_packet_log_handle, "%s: ifindex %u too big", __func__, ifindex);
 		return false;
 	}
 	npi.npi_if_index = (uint16_t)ifindex;
-	if (IF_INDEX_IN_RANGE(ifindex)) {
-		struct ifnet *ifp = ifindex2ifnet[ifindex];
-		if (ifp != NULL && IFNET_IS_COMPANION_LINK(ifp)) {
-			npi.npi_flags |= NPIF_COMPLINK;
-		}
-	}
 
 	npi.npi_flags |= NPIF_CHANNEL;
 
@@ -874,6 +1043,9 @@ if_ports_used_add_flow_entry(const struct flow_entry *fe, const uint32_t ifindex
 
 	if (ns_flags & NETNS_NOWAKEFROMSLEEP) {
 		npi.npi_flags |= NPIF_NOWAKE;
+	}
+	if (ns_flags & NETNS_CONNECTION_IDLE) {
+		npi.npi_flags |= NPIF_CONNECTION_IDLE;
 	}
 	if ((ns_flags & NETNS_OWNER_MASK) == NETNS_LISTENER) {
 		npi.npi_flags |= NPIF_LISTEN;
@@ -886,7 +1058,7 @@ if_ports_used_add_flow_entry(const struct flow_entry *fe, const uint32_t ifindex
 	} else if (nfi->nfi_protocol == IPPROTO_UDP) {
 		npi.npi_flags |= NPIF_UDP;
 	} else {
-		os_log(OS_LOG_DEFAULT, "%s: unexpected protocol %u for nfi %p",
+		os_log(wake_packet_log_handle, "%s: unexpected protocol %u for nfi %p",
 		    __func__, nfi->nfi_protocol, nfi);
 		return false;
 	}
@@ -952,6 +1124,11 @@ net_port_info_log_npi(const char *s, const struct net_port_info *npi)
 	char lbuf[MAX_IPv6_STR_LEN] = {};
 	char fbuf[MAX_IPv6_STR_LEN] = {};
 
+	if (npi == NULL) {
+		os_log(wake_packet_log_handle, "%s", s);
+		return;
+	}
+
 	if (npi->npi_flags & NPIF_IPV4) {
 		inet_ntop(PF_INET, &npi->npi_local_addr_in.s_addr,
 		    lbuf, sizeof(lbuf));
@@ -963,7 +1140,7 @@ net_port_info_log_npi(const char *s, const struct net_port_info *npi)
 		inet_ntop(PF_INET6, &npi->npi_foreign_addr_in6,
 		    fbuf, sizeof(fbuf));
 	}
-	os_log(OS_LOG_DEFAULT, "%s net_port_info if_index %u arch %s family %s proto %s local %s:%u foreign %s:%u pid: %u epid %u",
+	os_log(wake_packet_log_handle, "%s net_port_info if_index %u arch %s family %s proto %s local %s:%u foreign %s:%u pid: %u epid %u",
 	    s != NULL ? s : "",
 	    npi->npi_if_index,
 	    (npi->npi_flags & NPIF_SOCKET) ? "so" : (npi->npi_flags & NPIF_CHANNEL) ? "ch" : "unknown",
@@ -987,7 +1164,7 @@ net_port_info_match_npi(struct net_port_entry *npe, const struct net_port_info *
     struct net_port_entry **best_match)
 {
 	if (__improbable(net_wake_pkt_debug > 1)) {
-		net_port_info_log_npi("  ", &npe->npe_npi);
+		net_port_info_log_npi("net_port_info_match_npi", &npe->npe_npi);
 	}
 
 	/*
@@ -1104,9 +1281,7 @@ net_port_info_find_match(struct net_port_info *in_npi)
 
 	if (best_match != NULL) {
 		best_match->npe_npi.npi_flags |= NPIF_WAKEPKT;
-		if (best_match->npe_npi.npi_flags & NPIF_NOWAKE) {
-			in_npi->npi_flags |= NPIF_NOWAKE;
-		}
+		in_npi->npi_flags = best_match->npe_npi.npi_flags;
 		in_npi->npi_owner_pid = best_match->npe_npi.npi_owner_pid;
 		in_npi->npi_effective_pid = best_match->npe_npi.npi_effective_pid;
 		strbufcpy(in_npi->npi_owner_pname, best_match->npe_npi.npi_owner_pname);
@@ -1145,7 +1320,7 @@ net_port_info_log_una_wake_event(const char *s, struct net_port_info_una_wake_ev
 		inet_ntop(PF_INET6, &ev->una_wake_pkt_foreign_addr_._in_a_6.s6_addr,
 		    fbuf, sizeof(fbuf));
 	}
-	os_log(OS_LOG_DEFAULT, "%s if %s (%u) phy_if %s proto %s local %s:%u foreign %s:%u len: %u datalen: %u cflags: 0x%x proto: %u",
+	os_log(wake_packet_log_handle, "%s if %s (%u) phy_if %s proto %s local %s:%u foreign %s:%u len: %u datalen: %u cflags: 0x%x proto: %u lpw: %d",
 	    s != NULL ? s : "",
 	    ev->una_wake_pkt_ifname, ev->una_wake_pkt_if_index, ev->una_wake_pkt_phy_ifname,
 	    ev->una_wake_pkt_flags & NPIF_TCP ? "tcp" : ev->una_wake_pkt_flags & NPIF_UDP ? "udp" :
@@ -1153,7 +1328,8 @@ net_port_info_log_una_wake_event(const char *s, struct net_port_info_una_wake_ev
 	    lbuf, ntohs(ev->una_wake_pkt_local_port),
 	    fbuf, ntohs(ev->una_wake_pkt_foreign_port),
 	    ev->una_wake_pkt_total_len, ev->una_wake_pkt_data_len,
-	    ev->una_wake_pkt_control_flags, ev->una_wake_pkt_proto);
+	    ev->una_wake_pkt_control_flags, ev->una_wake_pkt_proto,
+	    ev->una_wake_pkt_flags & NPIF_LPW ? 1 : 0);
 }
 
 static void
@@ -1173,7 +1349,7 @@ net_port_info_log_wake_event(const char *s, struct net_port_info_wake_event *ev)
 		inet_ntop(PF_INET6, &ev->wake_pkt_foreign_addr_._in_a_6.s6_addr,
 		    fbuf, sizeof(fbuf));
 	}
-	os_log(OS_LOG_DEFAULT, "%s if %s (%u) phy_if %s proto %s local %s:%u foreign %s:%u len: %u datalen: %u cflags: 0x%x proc %s eproc %s",
+	os_log(wake_packet_log_handle, "%s if %s (%u) phy_if %s proto %s local %s:%u foreign %s:%u len: %u datalen: %u cflags: 0x%x proc %s eproc %s idle %d lpw %d",
 	    s != NULL ? s : "",
 	    ev->wake_pkt_ifname, ev->wake_pkt_if_index, ev->wake_pkt_phy_ifname,
 	    ev->wake_pkt_flags & NPIF_TCP ? "tcp" : ev->wake_pkt_flags ? "udp" :
@@ -1181,7 +1357,9 @@ net_port_info_log_wake_event(const char *s, struct net_port_info_wake_event *ev)
 	    lbuf, ntohs(ev->wake_pkt_port),
 	    fbuf, ntohs(ev->wake_pkt_foreign_port),
 	    ev->wake_pkt_total_len, ev->wake_pkt_data_len, ev->wake_pkt_control_flags,
-	    ev->wake_pkt_owner_pname, ev->wake_pkt_effective_pname);
+	    ev->wake_pkt_owner_pname, ev->wake_pkt_effective_pname,
+	    ev->wake_pkt_flags & NPIF_CONNECTION_IDLE ? 1 : 0,
+	    ev->wake_pkt_flags & NPIF_LPW ? 1 : 0);
 }
 
 #endif /* (DEBUG || DEVELOPMENT) */
@@ -1212,26 +1390,58 @@ is_wake_pkt_event_delay(uint32_t ifrtype)
 	return false;
 }
 
-static void
+static int
 if_set_wake_physical_interface(struct ifnet *ifp)
 {
-	if (last_wake_phy_if_set == true || ifp == NULL) {
-		return;
+	/*
+	 * A physical interface is either Ethernet, cellular or companion link over BT
+	 * otherwise assumes it is some kind of tunnel
+	 */
+	if (ifp->if_family != IFNET_FAMILY_ETHERNET && ifp->if_family != IFNET_FAMILY_CELLULAR &&
+	    IFNET_IS_COMPANION_LINK_BLUETOOTH(ifp) == false) {
+		return 0;
 	}
+
+	/*
+	 * Only handle a wake from a physical interface per wake cycle
+	 */
+	if (last_wake_phy_if_set == true) {
+		if_ports_used_stats.ifpu_wake_pkt_event_error += 1;
+		os_log(wake_packet_log_handle,
+		    "if_set_wake_physical_interface ignored on %s because already set on %s",
+		    IF_XNAME(ifp), last_wake_phy_if_name);
+		return EJUSTRETURN;
+	}
+
 	last_wake_phy_if_set = true;
 	strlcpy(last_wake_phy_if_name, IF_XNAME(ifp), sizeof(last_wake_phy_if_name));
 	last_wake_phy_if_family = ifp->if_family;
 	last_wake_phy_if_subfamily = ifp->if_subfamily;
 	last_wake_phy_if_functional_type = if_functional_type(ifp, true);
-	if ((ifp->if_xflags & IFXF_DELAYWAKEPKTEVENT) != 0 || is_wake_pkt_event_delay(last_wake_phy_if_family)) {
+
+	if (if_need_delayed_wake_pkt_event(ifp)) {
+		if_ports_used_stats.ifpu_delay_phy_wake_pkt += 1;
 		last_wake_phy_if_delay_wake_pkt = true;
+		os_log(wake_packet_log_handle, "if_set_wake_physical_interface %s last_wake_phy_if_delay_wake_pkt set",
+		    IF_XNAME(ifp));
 	}
+	if ((ifp->if_flags & IFXF_LOW_POWER_WAKE) != 0) {
+		last_wake_phy_if_lpw = true;
+	}
+
+	return 0;
 }
 
 static void
 deliver_unattributed_wake_packet_event(struct net_port_info_una_wake_event *event_data)
 {
 	struct kev_msg ev_msg = {};
+
+	if_ports_used_stats.ifpu_unattributed_wake_event += 1;
+
+	last_wake_pkt_event.npi_wp_code = KEV_POWER_UNATTRIBUTED_WAKE;
+	memcpy(&last_wake_pkt_event.npi_ev_wake_pkt_unattributed, event_data,
+	    sizeof(struct net_port_info_una_wake_event));
 
 	ev_msg.vendor_code = KEV_VENDOR_APPLE;
 	ev_msg.kev_class = KEV_NETWORK_CLASS;
@@ -1246,7 +1456,7 @@ deliver_unattributed_wake_packet_event(struct net_port_info_una_wake_event *even
 		uuid_string_t wake_uuid_str;
 
 		uuid_unparse(event_data->una_wake_uuid, wake_uuid_str);
-		os_log_error(OS_LOG_DEFAULT,
+		os_log_error(wake_packet_log_handle,
 		    "%s: kev_post_msg() failed with error %d for wake uuid %s",
 		    __func__, result, wake_uuid_str);
 
@@ -1262,6 +1472,14 @@ deliver_attributed_wake_packet_event(struct net_port_info_wake_event *event_data
 {
 	struct kev_msg ev_msg = {};
 
+	has_notified_wake_pkt = true;
+
+	if_ports_used_stats.ifpu_wake_pkt_event += 1;
+
+	last_wake_pkt_event.npi_wp_code = KEV_POWER_WAKE_PACKET;
+	memcpy(&last_wake_pkt_event.npi_ev_wake_pkt_attributed, event_data,
+	    sizeof(struct net_port_info_wake_event));
+
 	ev_msg.vendor_code = KEV_VENDOR_APPLE;
 	ev_msg.kev_class = KEV_NETWORK_CLASS;
 	ev_msg.kev_subclass = KEV_POWER_SUBCLASS;
@@ -1275,7 +1493,7 @@ deliver_attributed_wake_packet_event(struct net_port_info_wake_event *event_data
 		uuid_string_t wake_uuid_str;
 
 		uuid_unparse(event_data->wake_uuid, wake_uuid_str);
-		os_log_error(OS_LOG_DEFAULT,
+		os_log_error(wake_packet_log_handle,
 		    "%s: kev_post_msg() failed with error %d for wake uuid %s",
 		    __func__, result, wake_uuid_str);
 
@@ -1286,31 +1504,81 @@ deliver_attributed_wake_packet_event(struct net_port_info_wake_event *event_data
 #endif /* (DEBUG || DEVELOPMENT) */
 }
 
-static void
-if_notify_unattributed_wake_mbuf(struct ifnet *ifp, struct mbuf *m,
-    struct net_port_info *npi, uint32_t pkt_total_len, uint32_t pkt_data_len,
-    uint16_t pkt_control_flags, uint16_t proto)
+static bool
+is_unattributed_wake_already_notified(struct net_port_info *npi)
 {
-	LCK_MTX_ASSERT(&net_port_entry_head_lock, LCK_MTX_ASSERT_NOTOWNED);
+	bool retval = false;
 
-	lck_mtx_lock(&net_port_entry_head_lock);
-	if (has_notified_unattributed_wake) {
-		lck_mtx_unlock(&net_port_entry_head_lock);
+	if (has_notified_unattributed_wake == true || has_notified_wake_pkt == true) {
 		if_ports_used_stats.ifpu_dup_unattributed_wake_event += 1;
 
 		if (__improbable(net_wake_pkt_debug > 0)) {
 			net_port_info_log_npi("already notified unattributed wake packet", npi);
 		}
-		return;
+		retval = true;
 	}
-	has_notified_unattributed_wake = true;
+
+	return retval;
+}
+
+static void
+check_for_existing_delayed_wake_event()
+{
+	/*
+	 * Count the delayed events that are ignored as the most recent delayed
+	 * wake event wins as the packet makes up its way up the stack
+	 */
+	if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_WAKE_PACKET) {
+		if_ports_used_stats.ifpu_ignored_delayed_attributed_events += 1;
+	} else if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_UNATTRIBUTED_WAKE) {
+		if_ports_used_stats.ifpu_ignored_delayed_unattributed_events += 1;
+	}
+}
+
+static void
+if_notify_unattributed_wake_common(struct ifnet *ifp, struct net_port_info *npi,
+    struct net_port_info_una_wake_event *event_data)
+{
+	LCK_MTX_ASSERT(&net_port_entry_head_lock, LCK_MTX_ASSERT_NOTOWNED);
+	lck_mtx_lock(&net_port_entry_head_lock);
+
+	if (is_unattributed_wake_already_notified(npi) == true) {
+		goto done;
+	}
+
+	/*
+	 * Check if this is a wake packet that we cannot process inline
+	 */
+	if (if_need_delayed_wake_pkt_event(ifp)) {
+		check_for_existing_delayed_wake_event();
+
+		delay_wake_pkt_event.npi_wp_code = KEV_POWER_UNATTRIBUTED_WAKE;
+		memcpy(&delay_wake_pkt_event.npi_ev_wake_pkt_unattributed, event_data,
+		    sizeof(struct net_port_info_una_wake_event));
+
+#if (DEBUG || DEVELOPMENT)
+		if (if_ports_used_verbose > 0) {
+			net_port_info_log_una_wake_event("delay unattributed wake packet event", event_data);
+		}
+#endif /* (DEBUG || DEVELOPMENT) */
+
+		goto done;
+	}
+	deliver_unattributed_wake_packet_event(event_data);
+
+done:
 	lck_mtx_unlock(&net_port_entry_head_lock);
+}
 
-	if_ports_used_stats.ifpu_unattributed_wake_event += 1;
-
+static void
+if_notify_unattributed_wake_mbuf(struct ifnet *ifp, struct mbuf *m,
+    struct net_port_info *npi, uint32_t pkt_total_len, uint32_t pkt_data_len,
+    uint16_t pkt_control_flags, uint16_t proto)
+{
 	struct net_port_info_una_wake_event event_data = {};
+
 	uuid_copy(event_data.una_wake_uuid, current_wakeuuid);
-	event_data.una_wake_pkt_if_index = ifp != NULL ? ifp->if_index : 0;
+	event_data.una_wake_pkt_if_index = ifp->if_index;
 	event_data.una_wake_pkt_flags = npi->npi_flags;
 
 	event_data.una_wake_pkt_local_port = npi->npi_local_port;
@@ -1323,20 +1591,16 @@ if_notify_unattributed_wake_mbuf(struct ifnet *ifp, struct mbuf *m,
 	event_data.una_wake_pkt_control_flags = pkt_control_flags;
 	event_data.una_wake_pkt_proto = proto;
 
-	if (ifp != NULL) {
-		strlcpy(event_data.una_wake_pkt_ifname, IF_XNAME(ifp),
-		    sizeof(event_data.una_wake_pkt_ifname));
-		event_data.una_wake_pkt_if_info.npi_if_family = ifp->if_family;
-		event_data.una_wake_pkt_if_info.npi_if_subfamily = ifp->if_subfamily;
-		event_data.una_wake_pkt_if_info.npi_if_functional_type = if_functional_type(ifp, true);
+	strlcpy(event_data.una_wake_pkt_ifname, IF_XNAME(ifp),
+	    sizeof(event_data.una_wake_pkt_ifname));
+	event_data.una_wake_pkt_if_info.npi_if_family = ifp->if_family;
+	event_data.una_wake_pkt_if_info.npi_if_subfamily = ifp->if_subfamily;
+	event_data.una_wake_pkt_if_info.npi_if_functional_type = if_functional_type(ifp, true);
 
-		strbufcpy(event_data.una_wake_pkt_phy_ifname, last_wake_phy_if_name);
-		event_data.una_wake_pkt_phy_if_info.npi_if_family = last_wake_phy_if_family;
-		event_data.una_wake_pkt_phy_if_info.npi_if_subfamily = last_wake_phy_if_subfamily;
-		event_data.una_wake_pkt_phy_if_info.npi_if_functional_type = last_wake_phy_if_functional_type;
-	} else {
-		if_ports_used_stats.ifpu_unattributed_null_recvif += 1;
-	}
+	strbufcpy(event_data.una_wake_pkt_phy_ifname, last_wake_phy_if_name);
+	event_data.una_wake_pkt_phy_if_info.npi_if_family = last_wake_phy_if_family;
+	event_data.una_wake_pkt_phy_if_info.npi_if_subfamily = last_wake_phy_if_subfamily;
+	event_data.una_wake_pkt_phy_if_info.npi_if_functional_type = last_wake_phy_if_functional_type;
 
 	event_data.una_wake_ptk_len = m->m_pkthdr.len > NPI_MAX_UNA_WAKE_PKT_LEN ?
 	    NPI_MAX_UNA_WAKE_PKT_LEN : (u_int16_t)m->m_pkthdr.len;
@@ -1347,7 +1611,7 @@ if_notify_unattributed_wake_mbuf(struct ifnet *ifp, struct mbuf *m,
 		uuid_string_t wake_uuid_str;
 
 		uuid_unparse(event_data.una_wake_uuid, wake_uuid_str);
-		os_log_error(OS_LOG_DEFAULT,
+		os_log_error(wake_packet_log_handle,
 		    "%s: mbuf_copydata() failed with error %d for wake uuid %s",
 		    __func__, error, wake_uuid_str);
 
@@ -1355,19 +1619,21 @@ if_notify_unattributed_wake_mbuf(struct ifnet *ifp, struct mbuf *m,
 		return;
 	}
 
-	last_wake_pkt_event.npi_wp_code = KEV_POWER_UNATTRIBUTED_WAKE;
-	memcpy(&last_wake_pkt_event.npi_ev_wake_pkt_unattributed, &event_data, sizeof(last_wake_pkt_event.npi_ev_wake_pkt_unattributed));
+	if_notify_unattributed_wake_common(ifp, npi, &event_data);
+}
 
-	if (last_wake_phy_if_delay_wake_pkt) {
-#if (DEBUG || DEVELOPMENT)
-		if (if_ports_used_verbose > 0) {
-			net_port_info_log_una_wake_event("delay unattributed wake packet event", &event_data);
+static bool
+is_attributed_wake_already_notified(struct net_port_info *npi)
+{
+	if (has_notified_wake_pkt == true) {
+		if_ports_used_stats.ifpu_dup_wake_pkt_event += 1;
+		if (__improbable(net_wake_pkt_debug > 0)) {
+			net_port_info_log_npi("already notified attributed wake packet", npi);
 		}
-#endif /* (DEBUG || DEVELOPMENT) */
-		return;
+		return true;
 	}
 
-	deliver_unattributed_wake_packet_event(&event_data);
+	return false;
 }
 
 static void
@@ -1412,38 +1678,50 @@ if_notify_wake_packet(struct ifnet *ifp, struct net_port_info *npi,
 
 	lck_mtx_lock(&net_port_entry_head_lock);
 
-	if (has_notified_wake_pkt) {
-		lck_mtx_unlock(&net_port_entry_head_lock);
-		if_ports_used_stats.ifpu_dup_wake_pkt_event += 1;
-
-		if (__improbable(net_wake_pkt_debug > 0)) {
-			net_port_info_log_npi("already notified wake packet", npi);
-		}
-		return;
-	}
-	has_notified_wake_pkt = true;
-
-	last_wake_pkt_event.npi_wp_code = KEV_POWER_WAKE_PACKET;
-	memcpy(&last_wake_pkt_event.npi_ev_wake_pkt_attributed, &event_data, sizeof(last_wake_pkt_event.npi_ev_wake_pkt_attributed));
-
-	lck_mtx_unlock(&net_port_entry_head_lock);
-
-	if (npi->npi_flags & NPIF_NOWAKE) {
-		if_ports_used_stats.ifpu_spurious_wake_event += 1;
-	} else {
-		if_ports_used_stats.ifpu_wake_pkt_event += 1;
+	/*
+	 * Always immediately notify attributed wake for idle connections in LPW
+	 * even if an attributed wake has already been notified or
+	 * the interface requires delayed wake attribution
+	 */
+	if (if_is_lpw_enabled(ifp) &&
+	    (npi->npi_flags & NPIF_CONNECTION_IDLE) != 0) {
+		goto deliver;
 	}
 
-	if (last_wake_phy_if_delay_wake_pkt) {
+	if (is_attributed_wake_already_notified(npi) == true) {
+		goto done;
+	}
+
+	/*
+	 * Check if this is a wake packet that we cannot process inline
+	 * We do not delay attributed idle connections in LPW because it is more
+	 * important to get accurate count about attributed idle connections in LPW
+	 * than an accurate count of attributed wake.
+	 */
+	if (if_need_delayed_wake_pkt_event(ifp)) {
+		check_for_existing_delayed_wake_event();
+
+		delay_wake_pkt_event.npi_wp_code = KEV_POWER_WAKE_PACKET;
+		memcpy(&delay_wake_pkt_event.npi_ev_wake_pkt_attributed, &event_data,
+		    sizeof(struct net_port_info_wake_event));
+
 #if (DEBUG || DEVELOPMENT)
 		if (if_ports_used_verbose > 0) {
 			net_port_info_log_wake_event("delay attributed wake packet event", &event_data);
 		}
 #endif /* (DEBUG || DEVELOPMENT) */
-		return;
+
+		goto done;
+	}
+
+deliver:
+	if (npi->npi_flags & NPIF_NOWAKE) {
+		if_ports_used_stats.ifpu_spurious_wake_event += 1;
 	}
 
 	deliver_attributed_wake_packet_event(&event_data);
+done:
+	lck_mtx_unlock(&net_port_entry_head_lock);
 }
 
 static bool
@@ -1465,7 +1743,7 @@ is_encapsulated_esp(struct mbuf *m, size_t data_offset)
 
 		errno_t error = mbuf_copydata(m, data_offset, ESP_HDR_SIZE, &payload);
 		if (error != 0) {
-			os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(ESP_HDR_SIZE) error %d",
+			os_log(wake_packet_log_handle, "%s: mbuf_copydata(ESP_HDR_SIZE) error %d",
 			    __func__, error);
 		} else if (payload[0] == 0 && payload[1] == 0 &&
 		    payload[2] == 0 && payload[3] == 0) {
@@ -1473,6 +1751,48 @@ is_encapsulated_esp(struct mbuf *m, size_t data_offset)
 		}
 	}
 	return true;
+}
+
+static void
+log_hexdump(os_log_t log_handle, void *__sized_by(len) data, size_t len)
+{
+	size_t i, j, k;
+	unsigned char *ptr = (unsigned char *)data;
+#define MAX_DUMP_BUF 32
+	unsigned char buf[3 * MAX_DUMP_BUF + 1];
+
+	for (i = 0; i < len; i += MAX_DUMP_BUF) {
+		for (j = i, k = 0; j < i + MAX_DUMP_BUF && j < len; j++) {
+			unsigned char msnbl = ptr[j] >> 4;
+			unsigned char lsnbl = ptr[j] & 0x0f;
+
+			buf[k++] = msnbl < 10 ? msnbl + '0' : msnbl + 'a' - 10;
+			buf[k++] = lsnbl < 10 ? lsnbl + '0' : lsnbl + 'a' - 10;
+
+			if ((j % 2) == 1) {
+				buf[k++] = ' ';
+			}
+			if ((j % MAX_DUMP_BUF) == MAX_DUMP_BUF - 1) {
+				buf[k++] = ' ';
+			}
+		}
+		buf[k] = 0;
+		os_log(log_handle, "%3lu: %s", i, buf);
+	}
+}
+
+__attribute__((noinline))
+static void
+log_wake_mbuf(struct ifnet *ifp, struct mbuf *m)
+{
+	char buffer[64];
+	size_t buflen = MIN(mbuf_pkthdr_len(m), sizeof(buffer));
+
+	os_log(wake_packet_log_handle, "wake packet from %s len %d",
+	    ifp->if_xname, m_pktlen(m));
+	if (mbuf_copydata(m, 0, buflen, buffer) == 0) {
+		log_hexdump(wake_packet_log_handle, buffer, buflen);
+	}
 }
 
 void
@@ -1486,10 +1806,28 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 	uint16_t pkt_control_flags = 0;
 	uint16_t pkt_proto = 0;
 
+	if (ifp == NULL) {
+		os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: receive interface is NULL");
+		if_ports_used_stats.ifpu_unattributed_null_recvif += 1;
+		return;
+	}
+
 	if ((m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) == 0) {
 		if_ports_used_stats.ifpu_match_wake_pkt_no_flag += 1;
-		os_log_error(OS_LOG_DEFAULT, "%s: called PKTF_WAKE_PKT not set from %s",
-		    __func__, ifp != NULL ? IF_XNAME(ifp) : "");
+		os_log_error(wake_packet_log_handle, "if_ports_used_match_mbuf: called PKTF_WAKE_PKT not set from %s",
+		    IF_XNAME(ifp));
+		return;
+	}
+
+	if (__improbable(net_wake_pkt_debug > 0)) {
+		log_wake_mbuf(ifp, m);
+	}
+
+	/*
+	 * Only accept one wake from a physical interface per wake cycle
+	 */
+	if (if_set_wake_physical_interface(ifp) == EJUSTRETURN) {
+		m->m_pkthdr.pkt_flags &= ~PKTF_WAKE_PKT;
 		return;
 	}
 
@@ -1498,12 +1836,9 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 	pkt_total_len = m->m_pkthdr.len;
 	pkt_data_len = pkt_total_len;
 
-	if (ifp != NULL) {
-		npi.npi_if_index = ifp->if_index;
-		if (IFNET_IS_COMPANION_LINK(ifp)) {
-			npi.npi_flags |= NPIF_COMPLINK;
-		}
-		if_set_wake_physical_interface(ifp);
+	npi.npi_if_index = ifp->if_index;
+	if (IFNET_IS_COMPANION_LINK(ifp)) {
+		npi.npi_flags |= NPIF_COMPLINK;
 	}
 
 	if (proto_family == PF_INET) {
@@ -1513,8 +1848,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 		error = mbuf_copydata(m, 0, sizeof(struct ip), &iphdr);
 		if (error != 0) {
-			os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(ip) error %d",
-			    __func__, error);
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(ip) error %d",
+			    error);
 			goto failed;
 		}
 		npi.npi_flags |= NPIF_IPV4;
@@ -1550,8 +1885,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 			struct tcphdr th = {};
 			error = mbuf_copydata(m, iphdr.ip_hl << 2, sizeof(struct tcphdr), &th);
 			if (error != 0) {
-				os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(tcphdr) error %d",
-				    __func__, error);
+				os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(tcphdr) error %d",
+				    error);
 				goto failed;
 			}
 			npi.npi_local_port = th.th_dport;
@@ -1578,8 +1913,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 			error = mbuf_copydata(m, udp_offset, sizeof(struct udphdr), &uh);
 			if (error != 0) {
-				os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(udphdr) error %d",
-				    __func__, error);
+				os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(udphdr) error %d",
+				    error);
 				goto failed;
 			}
 			npi.npi_local_port = uh.uh_dport;
@@ -1618,8 +1953,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 		}
 		default:
 			if_ports_used_stats.ifpu_bad_proto_wake_pkt += 1;
-			os_log(OS_LOG_DEFAULT, "%s: unexpected IPv4 protocol %u from %s",
-			    __func__, iphdr.ip_p, IF_XNAME(ifp));
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: unexpected IPv4 protocol %u from %s",
+			    iphdr.ip_p, IF_XNAME(ifp));
 			goto failed;
 		}
 	} else if (proto_family == PF_INET6) {
@@ -1629,8 +1964,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 		error = mbuf_copydata(m, 0, sizeof(struct ip6_hdr), &ip6_hdr);
 		if (error != 0) {
-			os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(ip6_hdr) error %d",
-			    __func__, error);
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(ip6_hdr) error %d",
+			    error);
 			goto failed;
 		}
 		npi.npi_flags |= NPIF_IPV6;
@@ -1656,8 +1991,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 			error = mbuf_copydata(m, sizeof(struct ip6_hdr), sizeof(struct ip6_frag), &ip6_frag);
 			if (error != 0) {
-				os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(ip6_frag) error %d",
-				    __func__, error);
+				os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(ip6_frag) error %d",
+				    error);
 				goto failed;
 			}
 
@@ -1688,8 +2023,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 			error = mbuf_copydata(m, l3_len, sizeof(struct tcphdr), &th);
 			if (error != 0) {
-				os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(tcphdr) error %d",
-				    __func__, error);
+				os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(tcphdr) error %d",
+				    error);
 				if_ports_used_stats.ifpu_incomplete_tcp_hdr_pkt += 1;
 				goto failed;
 			}
@@ -1721,8 +2056,8 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 
 			error = mbuf_copydata(m, l3_len, sizeof(struct udphdr), &uh);
 			if (error != 0) {
-				os_log(OS_LOG_DEFAULT, "%s: mbuf_copydata(udphdr) error %d",
-				    __func__, error);
+				os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: mbuf_copydata(udphdr) error %d",
+				    error);
 				if_ports_used_stats.ifpu_incomplete_udp_hdr_pkt += 1;
 				goto failed;
 			}
@@ -1763,21 +2098,35 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 		default:
 			if_ports_used_stats.ifpu_bad_proto_wake_pkt += 1;
 
-			os_log(OS_LOG_DEFAULT, "%s: unexpected IPv6 protocol %u from %s",
-			    __func__, ip6_hdr.ip6_nxt, IF_XNAME(ifp));
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: unexpected IPv6 protocol %u from %s",
+			    ip6_hdr.ip6_nxt, IF_XNAME(ifp));
 			goto failed;
 		}
 	} else {
 		if_ports_used_stats.ifpu_bad_family_wake_pkt += 1;
-		os_log(OS_LOG_DEFAULT, "%s: unexpected protocol family %d from %s",
-		    __func__, proto_family, IF_XNAME(ifp));
-		goto failed;
-	}
-	if (ifp == NULL) {
+		os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: unexpected protocol family %d from %s",
+		    proto_family, IF_XNAME(ifp));
 		goto failed;
 	}
 
 	found = net_port_info_find_match(&npi);
+
+failed:
+	if (__improbable(if_is_lpw_enabled(ifp))) {
+		npi.npi_flags |= NPIF_LPW;
+
+		if (found && (npi.npi_flags & NPIF_CONNECTION_IDLE)) {
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: idle connection in LPW on %s",
+			    IF_XNAME(ifp));
+
+			if_ports_used_stats.ifpu_lpw_connection_idle_wake++;
+		} else {
+			os_log(wake_packet_log_handle, "if_ports_used_match_mbuf: not idle connection in LPW on %s",
+			    IF_XNAME(ifp));
+
+			if_ports_used_stats.ifpu_lpw_not_idle_wake++;
+		}
+	}
 	if (found) {
 		if_notify_wake_packet(ifp, &npi,
 		    pkt_total_len, pkt_data_len, pkt_control_flags);
@@ -1785,10 +2134,6 @@ if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family, stru
 		if_notify_unattributed_wake_mbuf(ifp, m, &npi,
 		    pkt_total_len, pkt_data_len, pkt_control_flags, pkt_proto);
 	}
-	return;
-failed:
-	if_notify_unattributed_wake_mbuf(ifp, m, &npi,
-	    pkt_total_len, pkt_data_len, pkt_control_flags, pkt_proto);
 }
 
 #if SKYWALK
@@ -1798,32 +2143,10 @@ if_notify_unattributed_wake_pkt(struct ifnet *ifp, struct __kern_packet *pkt,
     struct net_port_info *npi, uint32_t pkt_total_len, uint32_t pkt_data_len,
     uint16_t pkt_control_flags, uint16_t proto)
 {
-	LCK_MTX_ASSERT(&net_port_entry_head_lock, LCK_MTX_ASSERT_NOTOWNED);
-
-	lck_mtx_lock(&net_port_entry_head_lock);
-	if (has_notified_unattributed_wake) {
-		lck_mtx_unlock(&net_port_entry_head_lock);
-		if_ports_used_stats.ifpu_dup_unattributed_wake_event += 1;
-
-		if (__improbable(net_wake_pkt_debug > 0)) {
-			net_port_info_log_npi("already notified unattributed wake packet", npi);
-		}
-		return;
-	}
-	has_notified_unattributed_wake = true;
-	lck_mtx_unlock(&net_port_entry_head_lock);
-
-	if_ports_used_stats.ifpu_unattributed_wake_event += 1;
-
-	if (ifp == NULL) {
-		os_log(OS_LOG_DEFAULT, "%s: receive interface is NULL",
-		    __func__);
-		if_ports_used_stats.ifpu_unattributed_null_recvif += 1;
-	}
-
 	struct net_port_info_una_wake_event event_data = {};
+
 	uuid_copy(event_data.una_wake_uuid, current_wakeuuid);
-	event_data.una_wake_pkt_if_index = ifp != NULL ? ifp->if_index : 0;
+	event_data.una_wake_pkt_if_index = ifp->if_index;
 	event_data.una_wake_pkt_flags = npi->npi_flags;
 
 	uint16_t offset = kern_packet_get_network_header_offset(SK_PKT2PH(pkt));
@@ -1838,29 +2161,31 @@ if_notify_unattributed_wake_pkt(struct ifnet *ifp, struct __kern_packet *pkt,
 	event_data.una_wake_pkt_foreign_port = npi->npi_foreign_port;
 	event_data.una_wake_pkt_local_addr_ = npi->npi_local_addr_;
 	event_data.una_wake_pkt_foreign_addr_ = npi->npi_foreign_addr_;
-	if (ifp != NULL) {
-		strlcpy(event_data.una_wake_pkt_ifname, IF_XNAME(ifp),
-		    sizeof(event_data.una_wake_pkt_ifname));
-	}
+	strlcpy(event_data.una_wake_pkt_ifname, IF_XNAME(ifp),
+	    sizeof(event_data.una_wake_pkt_ifname));
 
 	event_data.una_wake_pkt_total_len = pkt_total_len;
 	event_data.una_wake_pkt_data_len = pkt_data_len;
 	event_data.una_wake_pkt_control_flags = pkt_control_flags;
 	event_data.una_wake_pkt_proto = proto;
 
-	last_wake_pkt_event.npi_wp_code = KEV_POWER_UNATTRIBUTED_WAKE;
-	memcpy(&last_wake_pkt_event.npi_ev_wake_pkt_unattributed, &event_data, sizeof(last_wake_pkt_event.npi_ev_wake_pkt_unattributed));
+	if_notify_unattributed_wake_common(ifp, npi, &event_data);
+}
 
-	if (last_wake_phy_if_delay_wake_pkt) {
-#if (DEBUG || DEVELOPMENT)
-		if (if_ports_used_verbose > 0) {
-			net_port_info_log_una_wake_event("delay unattributed wake packet event", &event_data);
-		}
-#endif /* (DEBUG || DEVELOPMENT) */
-		return;
+__attribute__((noinline))
+static void
+log_wake_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
+{
+	uint32_t len;
+
+	if (pkt->pkt_pflags & PKT_F_MBUF_DATA) {
+		len = m_pktlen(pkt->pkt_mbuf);
+	} else {
+		len = __packet_get_real_data_length(pkt);
 	}
 
-	deliver_unattributed_wake_packet_event(&event_data);
+	os_log(wake_packet_log_handle, "wake packet from %s len %d",
+	    ifp->if_xname, len);
 }
 
 void
@@ -1873,10 +2198,29 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 	uint16_t pkt_control_flags = 0;
 	uint16_t pkt_proto = 0;
 
+	if (ifp == NULL) {
+		os_log(wake_packet_log_handle, "if_ports_used_match_pkt: receive interface is NULL");
+		if_ports_used_stats.ifpu_unattributed_null_recvif += 1;
+		return;
+	}
+
 	if ((pkt->pkt_pflags & PKT_F_WAKE_PKT) == 0) {
 		if_ports_used_stats.ifpu_match_wake_pkt_no_flag += 1;
-		os_log_error(OS_LOG_DEFAULT, "%s: called PKT_F_WAKE_PKT not set from %s",
+		os_log_error(wake_packet_log_handle, "%s: called PKT_F_WAKE_PKT not set from %s",
 		    __func__, IF_XNAME(ifp));
+		return;
+	}
+
+
+	if (__improbable(net_wake_pkt_debug > 0)) {
+		log_wake_pkt(ifp, pkt);
+	}
+
+	/*
+	 * Only accept one wake from a physical interface per wake cycle
+	 */
+	if (if_set_wake_physical_interface(ifp) == EJUSTRETURN) {
+		pkt->pkt_pflags &= ~PKT_F_WAKE_PKT;
 		return;
 	}
 
@@ -1886,13 +2230,11 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 	    pkt->pkt_flow_tcp_hlen + pkt->pkt_flow_ulen;
 	pkt_data_len = pkt->pkt_flow_ulen;
 
-	if (ifp != NULL) {
-		npi.npi_if_index = ifp->if_index;
-		if (IFNET_IS_COMPANION_LINK(ifp)) {
-			npi.npi_flags |= NPIF_COMPLINK;
-		}
-		if_set_wake_physical_interface(ifp);
+	npi.npi_if_index = ifp->if_index;
+	if (IFNET_IS_COMPANION_LINK(ifp)) {
+		npi.npi_flags |= NPIF_COMPLINK;
 	}
+
 
 	switch (pkt->pkt_flow_ip_ver) {
 	case IPVERSION:
@@ -1914,7 +2256,7 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 	default:
 		if_ports_used_stats.ifpu_bad_family_wake_pkt += 1;
 
-		os_log(OS_LOG_DEFAULT, "%s: unexpected protocol family %u from %s",
+		os_log(wake_packet_log_handle, "%s: unexpected protocol family %u from %s",
 		    __func__, pkt->pkt_flow_ip_ver, IF_XNAME(ifp));
 		goto failed;
 	}
@@ -1924,7 +2266,7 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 	 * Check if this is a fragment that is not the first fragment
 	 */
 	if (pkt->pkt_flow_ip_is_frag && !pkt->pkt_flow_ip_is_first_frag) {
-		os_log(OS_LOG_DEFAULT, "%s: unexpected wake fragment from %s",
+		os_log(wake_packet_log_handle, "%s: unexpected wake fragment from %s",
 		    __func__, IF_XNAME(ifp));
 		npi.npi_flags |= NPIF_FRAG;
 		if_ports_used_stats.ifpu_frag_wake_pkt += 1;
@@ -1944,7 +2286,7 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 		}
 		struct tcphdr * __single tcp = __unsafe_forge_single(struct tcphdr *, pkt->pkt_flow_tcp_hdr);
 		if (tcp == NULL) {
-			os_log(OS_LOG_DEFAULT, "%s: pkt with unassigned TCP header from %s",
+			os_log(wake_packet_log_handle, "%s: pkt with unassigned TCP header from %s",
 			    __func__, IF_XNAME(ifp));
 			if_ports_used_stats.ifpu_incomplete_tcp_hdr_pkt += 1;
 			goto failed;
@@ -1967,7 +2309,7 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 		}
 		struct udphdr * __single uh = __unsafe_forge_single(struct udphdr *, pkt->pkt_flow_udp_hdr);
 		if (uh == NULL) {
-			os_log(OS_LOG_DEFAULT, "%s: pkt with unassigned UDP header from %s",
+			os_log(wake_packet_log_handle, "%s: pkt with unassigned UDP header from %s",
 			    __func__, IF_XNAME(ifp));
 			if_ports_used_stats.ifpu_incomplete_udp_hdr_pkt += 1;
 			goto failed;
@@ -2003,16 +2345,30 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 	default:
 		if_ports_used_stats.ifpu_bad_proto_wake_pkt += 1;
 
-		os_log(OS_LOG_DEFAULT, "%s: unexpected IP protocol %u from %s",
+		os_log(wake_packet_log_handle, "%s: unexpected IP protocol %u from %s",
 		    __func__, pkt->pkt_flow_ip_proto, IF_XNAME(ifp));
 		goto failed;
 	}
 
-	if (ifp == NULL) {
-		goto failed;
+	found = net_port_info_find_match(&npi);
+
+failed:
+	if (__improbable(if_is_lpw_enabled(ifp))) {
+		npi.npi_flags |= NPIF_LPW;
+
+		if (found && (npi.npi_flags & NPIF_CONNECTION_IDLE)) {
+			os_log(wake_packet_log_handle, "if_ports_used_match_pkt: idle connection in LPW on %s",
+			    IF_XNAME(ifp));
+
+			if_ports_used_stats.ifpu_lpw_connection_idle_wake++;
+		} else {
+			os_log(wake_packet_log_handle, "if_ports_used_match_pkt: not idle connection in LPW on %s",
+			    IF_XNAME(ifp));
+
+			if_ports_used_stats.ifpu_lpw_not_idle_wake++;
+		}
 	}
 
-	found = net_port_info_find_match(&npi);
 	if (found) {
 		if_notify_wake_packet(ifp, &npi,
 		    pkt_total_len, pkt_data_len, pkt_control_flags);
@@ -2020,10 +2376,6 @@ if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt)
 		if_notify_unattributed_wake_pkt(ifp, pkt, &npi,
 		    pkt_total_len, pkt_data_len, pkt_control_flags, pkt_proto);
 	}
-	return;
-failed:
-	if_notify_unattributed_wake_pkt(ifp, pkt, &npi,
-	    pkt_total_len, pkt_data_len, pkt_control_flags, pkt_proto);
 }
 #endif /* SKYWALK */
 
@@ -2097,20 +2449,60 @@ sysctl_wake_pkt_event_notify SYSCTL_HANDLER_ARGS
 		return EPERM;
 	}
 
-	os_log(OS_LOG_DEFAULT, "sysctl_wake_pkt_event_notify proc %s:%u val %u last_wake_phy_if_delay_wake_pkt %d last_wake_phy_if_family %u",
+	os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_notify proc %s:%u val %u last_wake_phy_if_delay_wake_pkt %d last_wake_phy_if_family %u delay_wake_pkt_event %d",
 	    proc_best_name(current_proc()), proc_selfpid(),
-	    if_family, last_wake_phy_if_delay_wake_pkt, last_wake_phy_if_family);
-
-	if (last_wake_phy_if_delay_wake_pkt && val == last_wake_phy_if_family) {
-		last_wake_phy_if_delay_wake_pkt = false;
-		if (last_wake_pkt_event.npi_wp_code == KEV_POWER_WAKE_PACKET) {
-			deliver_attributed_wake_packet_event(&last_wake_pkt_event.npi_ev_wake_pkt_attributed);
-		} else {
-			deliver_unattributed_wake_packet_event(&last_wake_pkt_event.npi_ev_wake_pkt_unattributed);
+	    if_family, last_wake_phy_if_delay_wake_pkt, last_wake_phy_if_family,
+	    delay_wake_pkt_event.npi_wp_code);
+#if (DEBUG || DEVELOPMENT)
+	if (if_ports_used_verbose > 0) {
+		if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_WAKE_PACKET) {
+			net_port_info_log_wake_event("sysctl_wake_pkt_event_notify", &delay_wake_pkt_event.npi_ev_wake_pkt_attributed);
+		} else if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_UNATTRIBUTED_WAKE) {
+			net_port_info_log_una_wake_event("sysctl_wake_pkt_event_notify", &delay_wake_pkt_event.npi_ev_wake_pkt_unattributed);
 		}
 	}
+#endif /* (DEBUG || DEVELOPMENT) */
+
+	lck_mtx_lock(&net_port_entry_head_lock);
+
+	if (last_wake_phy_if_delay_wake_pkt == true && val == last_wake_phy_if_family) {
+		last_wake_phy_if_delay_wake_pkt = false;
+
+		if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_WAKE_PACKET) {
+			if (is_attributed_wake_already_notified(NULL) == false) {
+				deliver_attributed_wake_packet_event(&delay_wake_pkt_event.npi_ev_wake_pkt_attributed);
+			} else {
+				os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_notify attributed_wake_already_notified");
+			}
+		} else if (delay_wake_pkt_event.npi_wp_code == KEV_POWER_UNATTRIBUTED_WAKE) {
+			if (is_unattributed_wake_already_notified(NULL)) {
+				deliver_unattributed_wake_packet_event(&delay_wake_pkt_event.npi_ev_wake_pkt_unattributed);
+			} else {
+				os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_notify unattributed_wake_already_notified");
+			}
+		} else {
+			if_ports_used_stats.ifpu_wake_pkt_event_notify_in_vain += 1;
+			os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_notify bad npi_wp_code");
+		}
+	} else {
+		if_ports_used_stats.ifpu_wake_pkt_event_notify_in_vain += 1;
+		os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_notify in vain");
+	}
+	lck_mtx_unlock(&net_port_entry_head_lock);
 
 	return 0;
+}
+
+static void
+if_set_delay_wake_flags(ifnet_t ifp, bool delay)
+{
+	if (delay) {
+		if_set_xflags(ifp, IFXF_DELAYWAKEPKTEVENT);
+		if_clear_xflags(ifp, IFXF_INBAND_WAKE_PKT_TAGGING);
+	} else {
+		if_clear_xflags(ifp, IFXF_DELAYWAKEPKTEVENT);
+		if_set_xflags(ifp, IFXF_INBAND_WAKE_PKT_TAGGING);
+	}
 }
 
 int
@@ -2120,27 +2512,266 @@ sysctl_wake_pkt_event_delay_if_families SYSCTL_HANDLER_ARGS
 	long long val = npi_wake_packet_event_delay_if_families;
 	int error;
 	int changed = 0;
-	uint32_t if_families = 0;
+	uint32_t old_value = npi_wake_packet_event_delay_if_families;
 
 	error = sysctl_io_number(req, val, sizeof(val), &val, &changed);
 	if (error != 0 || req->newptr == 0 || changed == 0) {
 		return error;
 	}
-	if (val < 0 || val > UINT32_MAX) {
-		return EINVAL;
-	}
-	if_families = (uint32_t)val;
-
 	if (!IOCurrentTaskHasEntitlement(WAKE_PKT_EVENT_CONTROL_ENTITLEMENT)) {
 		return EPERM;
 	}
-
-	os_log(OS_LOG_DEFAULT, "sysctl_wake_pkt_event_delay_if_families proc %s:%u npi_wake_packet_event_delay_if_families 0x%x -> 0x%x",
-	    proc_best_name(current_proc()), proc_selfpid(),
-	    npi_wake_packet_event_delay_if_families, if_families);
+	if (val < 0 || val > UINT32_MAX) {
+		return EINVAL;
+	}
 
 	/* The value is the bitmap of the functional types to delay */
-	npi_wake_packet_event_delay_if_families = if_families;
+	old_value = npi_wake_packet_event_delay_if_families;
+	npi_wake_packet_event_delay_if_families = (uint32_t)val;
+
+	/* Need to reevalute the capability of doing in-band wake packet tagging */
+	if (npi_wake_packet_event_delay_if_families != 0) {
+		uint32_t count, i;
+		ifnet_t *__counted_by(count) ifp_list;
+
+		error = ifnet_list_get_all(IFNET_FAMILY_ANY, &ifp_list, &count);
+		if (error != 0) {
+			os_log_error(wake_packet_log_handle,
+			    "%s: ifnet_list_get_all() failed %d",
+			    __func__, error);
+			npi_wake_packet_event_delay_if_families = old_value;
+			return error;
+		}
+		for (i = 0; i < count; i++) {
+			ifnet_t ifp = ifp_list[i];
+			bool delay = is_wake_pkt_event_delay(ifp->if_family);
+			const uint32_t flags = IFXF_INBAND_WAKE_PKT_TAGGING | IFXF_DELAYWAKEPKTEVENT;
+
+			if ((delay && (ifp->if_xflags & flags) != IFXF_DELAYWAKEPKTEVENT) ||
+			    (!delay && (ifp->if_xflags & flags) != IFXF_INBAND_WAKE_PKT_TAGGING)) {
+				if_set_delay_wake_flags(ifp, delay);
+
+				if (if_ports_used_verbose || ifp->if_family == IFNET_FAMILY_CELLULAR) {
+					os_log(wake_packet_log_handle, "interface %s reset INBAND_WAKE_PKT_TAGGING %d DELAYWAKEPKTEVENT %d",
+					    ifp->if_xname,
+					    ifp->if_xflags & IFXF_INBAND_WAKE_PKT_TAGGING ? 1 : 0,
+					    ifp->if_xflags & IFXF_DELAYWAKEPKTEVENT ? 1 : 0);
+				}
+			}
+		}
+		ifnet_list_free_counted_by(ifp_list, count);
+	}
+
+	os_log(wake_packet_log_handle, "sysctl_wake_pkt_event_delay_if_families proc %s:%u npi_wake_packet_event_delay_if_families 0x%x -> 0x%x",
+	    proc_best_name(current_proc()), proc_selfpid(),
+	    old_value, npi_wake_packet_event_delay_if_families);
+
 
 	return 0;
 }
+
+void
+init_inband_wake_pkt_tagging_for_family(struct ifnet *ifp)
+{
+	bool delay = is_wake_pkt_event_delay(ifp->if_family);
+
+	if_set_delay_wake_flags(ifp, delay);
+
+	if (if_ports_used_verbose || ifp->if_family == IFNET_FAMILY_CELLULAR) {
+		os_log(wake_packet_log_handle, "interface %s initialized INBAND_WAKE_PKT_TAGGING %d DELAYWAKEPKTEVENT %d",
+		    ifp->if_xname,
+		    ifp->if_xflags & IFXF_INBAND_WAKE_PKT_TAGGING ? 1 : 0,
+		    ifp->if_xflags & IFXF_DELAYWAKEPKTEVENT ? 1 : 0);
+	}
+}
+
+#if (DEBUG | DEVELOPMENT)
+
+static int
+sysctl_use_fake_lpw SYSCTL_HANDLER_ARGS
+{
+#pragma unused(arg1, arg2)
+	int error = 0;
+	int old_value = use_fake_lpw;
+	int new_value = *(int *)oidp->oid_arg1;
+
+	error = sysctl_handle_int(oidp, &new_value, 0, req);
+	if (error == 0) {
+		*(int *)oidp->oid_arg1 = new_value;
+
+		if (new_value != old_value) {
+			os_log(wake_packet_log_handle, "use_fake_lpw %d", new_value);
+		}
+	}
+	return error;
+}
+
+static int
+sysctl_mark_wake_packet_port SYSCTL_HANDLER_ARGS
+{
+#pragma unused(arg1, arg2)
+	int error = 0;
+	int new_value = *(int *)oidp->oid_arg1;
+
+	error = sysctl_handle_int(oidp, &new_value, 0, req);
+	if (error == 0) {
+		if (new_value < 0 || new_value >= UINT16_MAX) {
+			error = EINVAL;
+			goto done;
+		}
+		*(int *)oidp->oid_arg1 = new_value;
+	}
+done:
+	return error;
+}
+
+static int
+sysctl_mark_wake_packet_if SYSCTL_HANDLER_ARGS
+{
+#pragma unused(arg1, arg2)
+	int error = 0;
+	char new_value[IFNAMSIZ] = { 0 };
+	int changed = 0;
+
+	strbufcpy(new_value, IFNAMSIZ, mark_wake_packet_if, IFNAMSIZ);
+	error = sysctl_io_string(req, new_value, IFNAMSIZ, 0, &changed);
+	if (error == 0) {
+		strbufcpy(mark_wake_packet_if, IFNAMSIZ, new_value, IFNAMSIZ);
+	}
+
+	return error;
+}
+
+bool
+check_wake_mbuf(ifnet_t ifp, protocol_family_t protocol_family, mbuf_ref_t m)
+{
+	uint8_t ipproto = 0;
+	size_t offset = 0;
+
+	/* The protocol and interface must both be specified */
+	if (mark_wake_packet_ipproto == 0 || mark_wake_packet_if[0] == 0) {
+		return false;
+	}
+	/* The interface must match */
+	if (strlcmp(mark_wake_packet_if, IF_XNAME(ifp), IFNAMSIZ) != 0) {
+		return false;
+	}
+	/* The protocol must match */
+	if (protocol_family == PF_INET6) {
+		struct ip6_hdr ip6;
+
+		if ((size_t)(m)->m_pkthdr.len < sizeof(struct ip6_hdr)) {
+			os_log(wake_packet_log_handle, "check_wake_mbuf: IP6 too short");
+			return false;
+		}
+		mbuf_copydata(m, 0, sizeof(struct ip6_hdr), &ip6);
+
+		if ((ipproto = ip6.ip6_nxt) != mark_wake_packet_ipproto) {
+			return false;
+		}
+		offset = sizeof(struct ip6_hdr);
+	} else if (protocol_family == PF_INET) {
+		struct ip ip;
+
+		if ((size_t)(m)->m_pkthdr.len < sizeof(struct ip)) {
+			os_log(wake_packet_log_handle, "check_wake_mbuf: IP too short");
+			return false;
+		}
+		mbuf_copydata(m, 0, sizeof(struct ip), &ip);
+
+		if ((ipproto = ip.ip_p) != mark_wake_packet_ipproto) {
+			return false;
+		}
+		offset = sizeof(struct ip);
+	}
+
+	/* Check the ports for TCP and UDP */
+	if (ipproto == IPPROTO_TCP) {
+		struct tcphdr th;
+
+		if ((size_t)(m)->m_pkthdr.len < offset + sizeof(struct tcphdr)) {
+			os_log(wake_packet_log_handle, "check_wake_mbuf: TCP too short");
+			return false;
+		}
+		mbuf_copydata(m, offset, sizeof(struct tcphdr), &th);
+
+		if (mark_wake_packet_local_port != 0 &&
+		    ntohs(th.th_dport) != mark_wake_packet_local_port) {
+			return false;
+		}
+		if (mark_wake_packet_remote_port != 0 &&
+		    ntohs(th.th_sport) != mark_wake_packet_remote_port) {
+			return false;
+		}
+		return true;
+	} else if (ipproto == IPPROTO_UDP) {
+		struct udphdr uh;
+
+		if ((size_t)(m)->m_pkthdr.len < offset + sizeof(struct udphdr)) {
+			os_log(wake_packet_log_handle, "check_wake_mbufL UDP too short");
+			return false;
+		}
+		mbuf_copydata(m, offset, sizeof(struct udphdr), &uh);
+
+		if (mark_wake_packet_local_port != 0 &&
+		    ntohs(uh.uh_dport) != mark_wake_packet_local_port) {
+			return false;
+		}
+		if (mark_wake_packet_remote_port != 0 &&
+		    ntohs(uh.uh_sport) != mark_wake_packet_remote_port) {
+			return false;
+		}
+		return true;
+	}
+
+	return ipproto == mark_wake_packet_ipproto;
+}
+
+bool
+check_wake_pkt(ifnet_t ifp __unused, struct __kern_packet *pkt)
+{
+	/* The protocol and interface must both be specified */
+	if (mark_wake_packet_ipproto == 0 || mark_wake_packet_if[0] == 0) {
+		return false;
+	}
+	/* The interface must match */
+	if (strlcmp(mark_wake_packet_if, IF_XNAME(ifp), IFNAMSIZ) != 0) {
+		return false;
+	}
+	/* Cannot deal with fragments */
+	if (pkt->pkt_flow_ip_is_frag && !pkt->pkt_flow_ip_is_first_frag) {
+		return false;
+	}
+	/* Check the ports for TCP and UDP */
+	if (pkt->pkt_flow_ip_proto == IPPROTO_TCP) {
+		struct tcphdr * __single th = __unsafe_forge_single(struct tcphdr *, pkt->pkt_flow_tcp_hdr);
+		if (th == NULL) {
+			return false;
+		}
+		if (mark_wake_packet_local_port != 0 &&
+		    ntohs(th->th_dport) != mark_wake_packet_local_port) {
+			return false;
+		}
+		if (mark_wake_packet_remote_port != 0 &&
+		    ntohs(th->th_sport) != mark_wake_packet_remote_port) {
+			return false;
+		}
+		return true;
+	} else if (pkt->pkt_flow_ip_proto == IPPROTO_UDP) {
+		struct udphdr * __single uh = __unsafe_forge_single(struct udphdr *, pkt->pkt_flow_udp_hdr);
+		if (uh == NULL) {
+			return false;
+		}
+		if (mark_wake_packet_local_port != 0 &&
+		    ntohs(uh->uh_dport) != mark_wake_packet_local_port) {
+			return false;
+		}
+		if (mark_wake_packet_remote_port != 0 &&
+		    ntohs(uh->uh_sport) != mark_wake_packet_remote_port) {
+			return false;
+		}
+	}
+	return pkt->pkt_flow_ip_proto == mark_wake_packet_ipproto;
+}
+
+#endif /* (DEBUG | DEVELOPMENT) */

@@ -197,7 +197,7 @@ private:
 
     WeakPtr<Page> m_page;
 
-    std::variant<std::monostate, ProofreadingState, CompositionState> m_state;
+    Variant<std::monostate, ProofreadingState, CompositionState> m_state;
 };
 
 } // namespace WebKit

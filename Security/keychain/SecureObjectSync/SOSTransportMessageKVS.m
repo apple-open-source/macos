@@ -234,7 +234,7 @@ static bool sendToPeer(SOSMessage* transport, CFStringRef circleName, CFStringRe
         }
     });
 
-    return true;
+    return result;
 }
 
 @end

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "MessageReceiver.h"
+#include "SharedPreferencesForWebProcess.h"
 #include "WebPageProxyIdentifier.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/TZoneMalloc.h>
@@ -55,15 +56,15 @@ public:
     void ref() const final;
     void deref() const final;
 
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
+
 private:
     RefPtr<WebPageProxy> mostReasonableWebPageProxy(const WebCore::SecurityOriginData&, WebCore::PermissionQuerySource) const;
 
     // IPC Message handlers.
     void query(const WebCore::ClientOrigin&, const WebCore::PermissionDescriptor&, std::optional<WebPageProxyIdentifier>, WebCore::PermissionQuerySource, CompletionHandler<void(std::optional<WebCore::PermissionState>)>&&);
 
-    Ref<WebProcessProxy> protectedProcess() const;
-
-    CheckedRef<WebProcessProxy> m_process;
+    const CheckedRef<WebProcessProxy> m_process;
 };
 
 } // namespace WebKit

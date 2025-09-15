@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: BSD-2-Clause
 .\"
-.\" Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+.\" Copyright (c) 2018-2025 Gavin D. Howard and contributors.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions are met:
@@ -25,7 +25,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.TH "BC" "1" "January 2024" "Gavin D. Howard" "General Commands Manual"
+.TH "BC" "1" "August 2024" "Gavin D. Howard" "General Commands Manual"
 .nh
 .ad l
 .SH NAME
@@ -1731,7 +1731,7 @@ Functions\f[R] subsection below).
 .RE
 .TP
 \f[B]frand(p)\f[R]
-Generates a pseudo\-random integer between \f[B]0\f[R] (inclusive) and
+Generates a pseudo\-random number between \f[B]0\f[R] (inclusive) and
 \f[B]1\f[R] (exclusive) with the number of decimal digits after the
 decimal point equal to the truncated absolute value of \f[B]p\f[R].
 If \f[B]p\f[R] is not \f[B]0\f[R], then calling this function will
@@ -1740,7 +1740,7 @@ If \f[B]p\f[R] is \f[B]0\f[R], then \f[B]0\f[R] is returned, and
 \f[B]seed\f[R] is \f[I]not\f[R] changed.
 .TP
 \f[B]ifrand(i, p)\f[R]
-Generates a pseudo\-random integer that is between \f[B]0\f[R]
+Generates a pseudo\-random number that is between \f[B]0\f[R]
 (inclusive) and the truncated absolute value of \f[B]i\f[R] (exclusive)
 with the number of decimal digits after the decimal point equal to the
 truncated absolute value of \f[B]p\f[R].
@@ -2107,17 +2107,6 @@ Returns the modulus of the truncated absolute value of \f[B]x\f[R] by
 .PP
 If you want to a use signed two\[cq]s complement argument, use
 \f[B]s2u(x)\f[R] to convert.
-.RE
-.TP
-\f[B]bunrev(t)\f[R]
-Assumes \f[B]t\f[R] is a bitwise\-reversed number with an extra set bit
-one place more significant than the real most significant bit (which was
-the least significant bit in the original number).
-This number is reversed and returned without the extra set bit.
-.RS
-.PP
-This function is used to implement other bitwise functions; it is not
-meant to be used by users, but it can be.
 .RE
 .TP
 \f[B]plz(x)\f[R]

@@ -2,7 +2,7 @@
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (c) 2000 Daniel Molkentin (molkentin@kde.org)
  *  Copyright (c) 2000 Stefan Schimanski (schimmi@kde.org)
- *  Copyright (C) 2003-2023 Apple Inc.
+ *  Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  *  Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  *  This library is free software; you can redistribute it and/or
@@ -52,6 +52,7 @@
 #include "ShareData.h"
 #include "ShareDataReader.h"
 #include "SharedBuffer.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/Language.h>
 #include <wtf/RunLoop.h>
 #include <wtf/StdLibExtras.h>
@@ -72,7 +73,7 @@ Navigator::~Navigator() = default;
 
 String Navigator::appVersion() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return String();
     if (frame->settings().webAPIStatisticsEnabled())
@@ -210,7 +211,7 @@ void Navigator::showShareData(ExceptionOr<ShareDataWithParsedURL&> readData, Ref
     m_hasPendingShare = true;
 
     if (frame->page()->isControlledByAutomation()) {
-        RunLoop::main().dispatch([promise = WTFMove(promise), weakThis = WeakPtr { *this }] {
+        RunLoop::mainSingleton().dispatch([promise = WTFMove(promise), weakThis = WeakPtr { *this }] {
             if (weakThis)
                 weakThis->m_hasPendingShare = false;
             promise->resolve();
@@ -220,7 +221,7 @@ void Navigator::showShareData(ExceptionOr<ShareDataWithParsedURL&> readData, Ref
     
     auto shareData = readData.returnValue();
     
-    frame->page()->chrome().showShareSheet(shareData, [promise = WTFMove(promise), weakThis = WeakPtr { *this }] (bool completed) {
+    frame->page()->chrome().showShareSheet(WTFMove(shareData), [promise = WTFMove(promise), weakThis = WeakPtr { *this }] (bool completed) {
         if (weakThis)
             weakThis->m_hasPendingShare = false;
         if (completed) {
@@ -299,7 +300,7 @@ void Navigator::initializePluginAndMimeTypeArrays()
 
 DOMPluginArray& Navigator::plugins()
 {
-    if (auto* frame = this->frame(); frame && frame->settings().webAPIStatisticsEnabled())
+    if (RefPtr frame = this->frame(); frame && frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->protectedDocument(), NavigatorAPIsAccessed::Plugins);
 
     initializePluginAndMimeTypeArrays();
@@ -308,7 +309,7 @@ DOMPluginArray& Navigator::plugins()
 
 DOMMimeTypeArray& Navigator::mimeTypes()
 {
-    if (auto* frame = this->frame(); frame && frame->settings().webAPIStatisticsEnabled())
+    if (RefPtr frame = this->frame(); frame && frame->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->protectedDocument(), NavigatorAPIsAccessed::MimeTypes);
 
     initializePluginAndMimeTypeArrays();
@@ -324,7 +325,7 @@ bool Navigator::pdfViewerEnabled()
 
 bool Navigator::cookieEnabled() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     if (!frame)
         return false;
 
@@ -349,7 +350,7 @@ bool Navigator::cookieEnabled() const
 
 bool Navigator::standalone() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && frame->settings().standalone();
 }
 
@@ -359,15 +360,15 @@ GPU* Navigator::gpu()
 {
 #if HAVE(WEBGPU_IMPLEMENTATION)
     if (!m_gpuForWebGPU) {
-        auto* frame = this->frame();
+        RefPtr frame = this->frame();
         if (!frame)
             return nullptr;
         if (!frame->settings().webGPUEnabled())
             return nullptr;
-        auto* page = frame->page();
+        RefPtr page = frame->page();
         if (!page)
             return nullptr;
-        auto gpu = page->chrome().createGPUForWebGPU();
+        RefPtr gpu = page->chrome().createGPUForWebGPU();
         if (!gpu)
             return nullptr;
 
@@ -380,7 +381,7 @@ GPU* Navigator::gpu()
 
 Page* Navigator::page()
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame ? frame->page() : nullptr;
 }
 
@@ -426,36 +427,13 @@ void Navigator::setAppBadge(std::optional<unsigned long long> badge, Ref<Deferre
         return;
     }
 
-    page->badgeClient().setAppBadge(page.get(), SecurityOriginData::fromFrame(frame.get()), badge);
+    page->badgeClient().setAppBadge(frame.get(), SecurityOriginData::fromFrame(frame.get()), badge);
     promise->resolve();
 }
 
 void Navigator::clearAppBadge(Ref<DeferredPromise>&& promise)
 {
     setAppBadge(0, WTFMove(promise));
-}
-
-void Navigator::setClientBadge(std::optional<unsigned long long> badge, Ref<DeferredPromise>&& promise)
-{
-    RefPtr frame = this->frame();
-    if (!frame) {
-        promise->reject();
-        return;
-    }
-
-    RefPtr page = frame->page();
-    if (!page) {
-        promise->reject();
-        return;
-    }
-
-    page->badgeClient().setClientBadge(*page, SecurityOriginData::fromFrame(frame.get()), badge);
-    promise->resolve();
-}
-
-void Navigator::clearClientBadge(Ref<DeferredPromise>&& promise)
-{
-    setClientBadge(0, WTFMove(promise));
 }
 
 int Navigator::maxTouchPoints() const

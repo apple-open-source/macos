@@ -23,7 +23,7 @@ namespace nativegl
 {
 
 SupportRequirement::SupportRequirement()
-    : version(std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()),
+    : version(std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max()),
       versionExtensions(),
       requiredExtensions()
 {}
@@ -41,38 +41,35 @@ InternalFormat::InternalFormat(const InternalFormat &other) = default;
 InternalFormat::~InternalFormat() {}
 
 // supported = version || vertexExt
-static inline SupportRequirement VersionOrExts(GLuint major,
-                                               GLuint minor,
+static inline SupportRequirement VersionOrExts(uint8_t major,
+                                               uint8_t minor,
                                                const std::string &versionExt)
 {
     SupportRequirement requirement;
-    requirement.version.major = major;
-    requirement.version.minor = minor;
+    requirement.version = gl::Version(major, minor);
     angle::SplitStringAlongWhitespace(versionExt, &requirement.versionExtensions);
     return requirement;
 }
 
 // supported = requiredExt && (version || requiredWithoutVersionExt)
 static inline SupportRequirement ExtAndVersionOrExt(const std::string &requiredExt,
-                                                    GLuint major,
-                                                    GLuint minor,
+                                                    uint8_t major,
+                                                    uint8_t minor,
                                                     const std::string &requiredWithoutVersionExt)
 {
     SupportRequirement requirement;
     requirement.requiredExtensions.resize(1);
     angle::SplitStringAlongWhitespace(requiredExt, &requirement.requiredExtensions[0]);
-    requirement.version.major = major;
-    requirement.version.minor = minor;
+    requirement.version = gl::Version(major, minor);
     angle::SplitStringAlongWhitespace(requiredWithoutVersionExt, &requirement.versionExtensions);
     return requirement;
 }
 
 // supported = version
-static inline SupportRequirement VersionOnly(GLuint major, GLuint minor)
+static inline SupportRequirement VersionOnly(uint8_t major, uint8_t minor)
 {
     SupportRequirement requirement;
-    requirement.version.major = major;
-    requirement.version.minor = minor;
+    requirement.version = gl::Version(major, minor);
     return requirement;
 }
 
@@ -80,8 +77,7 @@ static inline SupportRequirement VersionOnly(GLuint major, GLuint minor)
 static inline SupportRequirement ExtsOnly(const std::vector<std::string> &exts)
 {
     SupportRequirement requirement;
-    requirement.version.major = 0;
-    requirement.version.minor = 0;
+    requirement.version = gl::Version();
     requirement.requiredExtensions.resize(exts.size());
     for (size_t i = 0; i < exts.size(); i++)
     {
@@ -106,8 +102,7 @@ static inline SupportRequirement ExtsOnly(const std::string &ext1, const std::st
 static inline SupportRequirement AlwaysSupported()
 {
     SupportRequirement requirement;
-    requirement.version.major = 0;
-    requirement.version.minor = 0;
+    requirement.version = gl::Version();
     return requirement;
 }
 
@@ -115,8 +110,8 @@ static inline SupportRequirement AlwaysSupported()
 static inline SupportRequirement NeverSupported()
 {
     SupportRequirement requirement;
-    requirement.version.major = std::numeric_limits<GLuint>::max();
-    requirement.version.minor = std::numeric_limits<GLuint>::max();
+    requirement.version =
+        gl::Version(std::numeric_limits<uint8_t>::max(), std::numeric_limits<uint8_t>::max());
     return requirement;
 }
 
@@ -526,10 +521,11 @@ static GLenum GetNativeInternalFormat(const FunctionsGL *functions,
             result = GL_RGB8;
         }
 
-        if (internalFormat.sizedInternalFormat == GL_BGRA8_EXT)
+        if (internalFormat.sizedInternalFormat == GL_BGRA_EXT ||
+            internalFormat.sizedInternalFormat == GL_BGRA8_EXT)
         {
-            // GLES accepts GL_BGRA as an internal format but desktop GL only accepts it as a type.
-            // Update the internal format to GL_RGBA.
+            // GLES accepts GL_BGRA as an internal format but desktop GL only accepts it as a
+            // format. Update the internal format to GL_RGBA8.
             result = GL_RGBA8;
         }
 
@@ -614,6 +610,71 @@ static GLenum GetNativeInternalFormat(const FunctionsGL *functions,
             {
                 result = internalFormat.sizedInternalFormat;
             }
+        }
+        else if (internalFormat.sizedInternalFormat == GL_BGRA_EXT)
+        {
+            // GL_BGRA_EXT and GL_BGRA8_EXT are both allowed as sized internal formats now, but not
+            // all drivers support that behavior.  Map to the previously sized for internal format.
+            // http://anglebug.com/42267264
+            result = GL_BGRA8_EXT;
+        }
+    }
+
+    return result;
+}
+
+static GLenum GetTexImageNativeInternalFormat(const FunctionsGL *functions,
+                                              const angle::FeaturesGL &features,
+                                              const gl::InternalFormat &internalFormat)
+{
+    GLenum result = internalFormat.internalFormat;
+
+    if (functions->standard == STANDARD_GL_DESKTOP)
+    {
+        result = GetNativeInternalFormat(functions, features, internalFormat);
+    }
+    else if (functions->isAtLeastGLES(gl::Version(3, 0)))
+    {
+        if (internalFormat.sizedInternalFormat == GL_BGRA_EXT ||
+            internalFormat.sizedInternalFormat == GL_BGRA8_EXT)
+        {
+            // GL_BGRA_EXT and GL_BGRA8_EXT are both allowed as sized internal formats now, but
+            // not all drivers support that behavior.  For *TexImage*, map to the previously
+            // *unsized* internal format. http://anglebug.com/42267264
+            result = GL_BGRA_EXT;
+        }
+        else
+        {
+            result = GetNativeInternalFormat(functions, features, internalFormat);
+        }
+    }
+
+    return result;
+}
+
+static GLenum GetTexStorageNativeInternalFormat(const FunctionsGL *functions,
+                                                const angle::FeaturesGL &features,
+                                                const gl::InternalFormat &internalFormat)
+{
+    GLenum result = internalFormat.internalFormat;
+
+    if (functions->standard == STANDARD_GL_DESKTOP)
+    {
+        result = GetNativeInternalFormat(functions, features, internalFormat);
+    }
+    else if (functions->isAtLeastGLES(gl::Version(3, 0)))
+    {
+        if (internalFormat.sizedInternalFormat == GL_BGRA_EXT ||
+            internalFormat.sizedInternalFormat == GL_BGRA8_EXT)
+        {
+            // GL_BGRA_EXT and GL_BGRA8_EXT are both allowed as sized internal formats now, but not
+            // all drivers support that behavior.  For *TexStorage*, map to the previously *sized*
+            // internal format. http://anglebug.com/42267264
+            result = GL_BGRA8_EXT;
+        }
+        else
+        {
+            result = GetNativeInternalFormat(functions, features, internalFormat);
         }
     }
 
@@ -797,7 +858,7 @@ TexImageFormat GetTexImageFormat(const FunctionsGL *functions,
                                  GLenum type)
 {
     TexImageFormat result;
-    result.internalFormat = GetNativeInternalFormat(
+    result.internalFormat = GetTexImageNativeInternalFormat(
         functions, features, gl::GetInternalFormatInfo(internalFormat, type));
     result.format = GetNativeFormat(functions, features, format, type);
     result.type   = GetNativeType(functions, features, format, type);
@@ -839,7 +900,7 @@ CopyTexImageImageFormat GetCopyTexImageImageFormat(const FunctionsGL *functions,
                                                    GLenum framebufferType)
 {
     CopyTexImageImageFormat result;
-    result.internalFormat = GetNativeInternalFormat(
+    result.internalFormat = GetTexImageNativeInternalFormat(
         functions, features, gl::GetInternalFormatInfo(internalFormat, framebufferType));
     return result;
 }
@@ -858,7 +919,8 @@ TexStorageFormat GetTexStorageFormat(const FunctionsGL *functions,
     }
     else
     {
-        result.internalFormat = GetNativeInternalFormat(functions, features, sizedFormatInfo);
+        result.internalFormat =
+            GetTexStorageNativeInternalFormat(functions, features, sizedFormatInfo);
     }
 
     return result;

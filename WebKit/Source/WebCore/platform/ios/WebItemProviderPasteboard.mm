@@ -37,12 +37,14 @@
 #import <UIKit/UIColor.h>
 #import <UIKit/UIImage.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
-#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/ios/UIKitSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/FileSystem.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
+
+#import <pal/ios/UIKitSoftLink.h>
 
 typedef void(^ItemProviderDataLoadCompletionHandler)(NSData *, NSError *);
 typedef void(^ItemProviderFileLoadCompletionHandler)(NSURL *, BOOL, NSError *);
@@ -156,15 +158,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 @end
 
 @interface WebItemProviderWritableObjectRegistrar : NSObject <WebItemProviderRegistrar>
-- (instancetype)initWithObject:(id <NSItemProviderWriting>)representingObject;
-@property (nonatomic, readonly) id <NSItemProviderWriting> representingObject;
+- (instancetype)initWithObject:(id<NSItemProviderWriting>)representingObject;
+@property (nonatomic, readonly) id<NSItemProviderWriting> representingObject;
 @end
 
 @implementation WebItemProviderWritableObjectRegistrar {
-    RetainPtr<id <NSItemProviderWriting>> _representingObject;
+    RetainPtr<id<NSItemProviderWriting>> _representingObject;
 }
 
-- (instancetype)initWithObject:(id <NSItemProviderWriting>)representingObject
+- (instancetype)initWithObject:(id<NSItemProviderWriting>)representingObject
 {
     if (!(self = [super init]))
         return nil;
@@ -173,12 +175,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return self;
 }
 
-- (id <NSItemProviderWriting>)representingObject
+- (id<NSItemProviderWriting>)representingObject
 {
     return _representingObject.get();
 }
 
-- (id <NSItemProviderWriting>)representingObjectForClient
+- (id<NSItemProviderWriting>)representingObjectForClient
 {
     return self.representingObject;
 }
@@ -269,7 +271,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_representations addObject:representation.get()];
 }
 
-- (void)addRepresentingObject:(id <NSItemProviderWriting>)object
+- (void)addRepresentingObject:(id<NSItemProviderWriting>)object
 {
     ASSERT([object conformsToProtocol:@protocol(NSItemProviderWriting)]);
     auto representation = adoptNS([[WebItemProviderWritableObjectRegistrar alloc] initWithObject:object]);
@@ -287,7 +289,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return [_representations count];
 }
 
-- (id <WebItemProviderRegistrar>)itemAtIndex:(NSUInteger)index
+- (id<WebItemProviderRegistrar>)itemAtIndex:(NSUInteger)index
 {
     if (index >= self.numberOfItems)
         return nil;
@@ -295,7 +297,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return [_representations objectAtIndex:index];
 }
 
-- (void)enumerateItems:(void (^)(id <WebItemProviderRegistrar>, NSUInteger))block
+- (void)enumerateItems:(void (^)(id<WebItemProviderRegistrar>, NSUInteger))block
 {
     for (NSUInteger index = 0; index < self.numberOfItems; ++index)
         block([self itemAtIndex:index], index);
@@ -324,7 +326,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
         return nil;
 
     auto itemProvider = adoptNS([NSItemProvider new]);
-    for (id <WebItemProviderRegistrar> representation in _representations.get())
+    for (id<WebItemProviderRegistrar> representation in _representations.get())
         [representation registerItemProvider:itemProvider.get()];
     [itemProvider setSuggestedName:self.suggestedName];
 #if !PLATFORM(MACCATALYST)
@@ -339,7 +341,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
 {
     __block NSMutableString *description = [NSMutableString string];
     [description appendFormat:@"<%@: %p", [self class], self];
-    [self enumerateItems:^(id <WebItemProviderRegistrar> item, NSUInteger index) {
+    [self enumerateItems:^(id<WebItemProviderRegistrar> item, NSUInteger index) {
         if (index)
             [description appendString:@", "];
         [description appendString:[item description]];
@@ -606,16 +608,16 @@ static Class classForTypeIdentifier(NSString *typeIdentifier, NSString *&outType
 
     // First, try to load a platform NSItemProviderReading-conformant object as-is.
     for (Class<NSItemProviderReading> loadableClass in allLoadableClasses()) {
-        if ([[loadableClass readableTypeIdentifiersForItemProvider] containsObject:(NSString *)typeIdentifier])
+        if ([[loadableClass readableTypeIdentifiersForItemProvider] containsObject:typeIdentifier])
             return loadableClass;
     }
 
     // If we were unable to load any object, check if the given type identifier is still something
     // WebKit knows how to handle.
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    if ([typeIdentifier isEqualToString:(NSString *)kUTTypeHTML]) {
+    if ([typeIdentifier isEqualToString:bridge_cast(kUTTypeHTML)]) {
         // Load kUTTypeHTML as a plain text HTML string.
-        outTypeIdentifierToLoad = (NSString *)kUTTypePlainText;
+        outTypeIdentifierToLoad = bridge_cast(kUTTypePlainText);
         return [NSString class];
     }
 ALLOW_DEPRECATED_DECLARATIONS_END
@@ -644,7 +646,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (!preloadedData)
             return;
 
-        if (id <NSItemProviderReading> readObject = [readableClass objectWithItemProviderData:preloadedData typeIdentifier:(NSString *)typeIdentifierToLoad error:nil])
+        if (id<NSItemProviderReading> readObject = [readableClass objectWithItemProviderData:preloadedData typeIdentifier:typeIdentifierToLoad error:nil])
             [values addObject:readObject];
     }];
 

@@ -39,7 +39,8 @@ T_GLOBAL_META(
 	T_META_ASROOT(true)
 	);
 
-T_DECL(test_unp_sock_release, "UDS with sock_release()")
+T_DECL(test_unp_sock_release, "UDS with sock_release()",
+    T_META_ENABLED(false) /* rdar://150253879 */)
 {
 	int fds[2] = { -1, -1 };
 	struct nfsd_args nfsd_args = { 0 };

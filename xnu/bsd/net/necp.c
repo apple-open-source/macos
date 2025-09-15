@@ -283,12 +283,6 @@ typedef enum {
 // Cap the policy size at the max result + conditions size, with room for extra TLVs
 #define NECP_MAX_POLICY_SIZE                                            (1024 + NECP_MAX_POLICY_RESULT_SIZE + NECP_MAX_CONDITIONS_ARRAY_SIZE)
 
-struct necp_service_registration {
-	LIST_ENTRY(necp_service_registration)   session_chain;
-	LIST_ENTRY(necp_service_registration)   kernel_chain;
-	u_int32_t                                                               service_id;
-};
-
 struct necp_domain_filter {
 	LIST_ENTRY(necp_domain_filter) owner_chain;
 	LIST_ENTRY(necp_domain_filter) chain;
@@ -335,7 +329,6 @@ struct necp_session {
 	bool                                            dirty;
 	LIST_HEAD(_policies, necp_session_policy) policies;
 
-	LIST_HEAD(_services, necp_service_registration) services;
 	struct necp_domain_filter_list domain_filters;
 	struct necp_domain_trie_list domain_tries;
 
@@ -480,8 +473,6 @@ static inline struct necp_kernel_socket_policy * necp_socket_find_policy_match_w
     u_int32_t * __counted_by(route_rule_id_array_count)return_route_rule_id_array,
     size_t *return_route_rule_id_array_count,
     size_t route_rule_id_array_count,
-    necp_kernel_policy_result *return_service_action,
-    necp_kernel_policy_service *return_service,
     u_int32_t * __counted_by(netagent_array_count)return_netagent_array,
     size_t netagent_array_count,
     u_int32_t * __counted_by(netagent_use_flags_array_count)return_netagent_use_flags_array,
@@ -522,17 +513,29 @@ static bool necp_uuid_app_id_mappings_dirty;
 #define NECP_UUID_APP_ID_HASH_SIZE 64
 static u_long necp_uuid_app_id_hash_mask;
 static u_long necp_uuid_app_id_hash_num_buckets;
-static LIST_HEAD(necp_uuid_id_mapping_head, necp_uuid_id_mapping) * __counted_by(necp_uuid_app_id_hash_num_buckets) necp_uuid_app_id_hashtbl, necp_uuid_service_id_list; // App map is real hash table, service map is just mapping
+static LIST_HEAD(necp_uuid_id_mapping_head, necp_uuid_id_mapping) * __counted_by(necp_uuid_app_id_hash_num_buckets) necp_uuid_app_id_hashtbl, necp_agent_uuid_id_list; // App map is real hash table, agent map is just mapping
 #define APPUUIDHASH(uuid) (&necp_uuid_app_id_hashtbl[uuid[0] & necp_uuid_app_id_hash_mask]) // Assume first byte of UUIDs are evenly distributed
 static u_int32_t necp_create_uuid_app_id_mapping(uuid_t uuid, bool *allocated_mapping, bool uuid_policy_table);
 static bool necp_remove_uuid_app_id_mapping(uuid_t uuid, bool *removed_mapping, bool uuid_policy_table);
-static struct necp_uuid_id_mapping *necp_uuid_lookup_uuid_with_app_id_locked(u_int32_t local_id);
+static struct necp_uuid_id_mapping *necp_uuid_lookup_uuid_with_app_id_locked(u_int32_t agent_id);
 
-static struct necp_uuid_id_mapping *necp_uuid_lookup_service_id_locked(uuid_t uuid);
-static struct necp_uuid_id_mapping *necp_uuid_lookup_uuid_with_service_id_locked(u_int32_t local_id);
-static u_int32_t necp_create_uuid_service_id_mapping(uuid_t uuid);
-static bool necp_remove_uuid_service_id_mapping(uuid_t uuid);
-static bool necp_remove_uuid_service_id_mapping_with_service_id(u_int32_t service_id);
+static bool necp_agent_id_is_uuid(u_int32_t agent_id);
+static struct necp_uuid_id_mapping *necp_uuid_lookup_agent_id_with_uuid_locked(uuid_t uuid);
+static struct necp_uuid_id_mapping *necp_uuid_lookup_uuid_with_agent_id_locked(u_int32_t agent_id);
+static u_int32_t necp_create_agent_uuid_id_mapping(uuid_t uuid);
+static bool necp_remove_agent_uuid_id_mapping(uuid_t uuid);
+static bool necp_remove_agent_uuid_id_mapping_with_agent_id(u_int32_t agent_id);
+
+struct necp_agent_type_id_mapping {
+	LIST_ENTRY(necp_agent_type_id_mapping) chain;
+	struct necp_policy_condition_agent_type agent_type;
+	u_int32_t       id;
+	os_refcnt_t     refcount;
+};
+static LIST_HEAD(necp_agent_type_id_mapping_list, necp_agent_type_id_mapping) necp_agent_type_id_list;
+static u_int32_t necp_create_agent_type_to_id_mapping(struct necp_policy_condition_agent_type *agent_type);
+static bool necp_remove_agent_type_to_id_mapping(u_int32_t agent_type_id);
+static struct necp_agent_type_id_mapping *necp_lookup_agent_type_with_id_locked(u_int32_t agent_id);
 
 struct necp_string_id_mapping {
 	LIST_ENTRY(necp_string_id_mapping) chain;
@@ -559,8 +562,6 @@ static Boolean necp_match_domain_with_trie(struct necp_domain_trie_list *list, u
 static struct necp_kernel_socket_policy *necp_kernel_socket_policy_find(necp_kernel_policy_id policy_id);
 static struct necp_kernel_ip_output_policy *necp_kernel_ip_output_policy_find(necp_kernel_policy_id policy_id);
 
-static LIST_HEAD(_necp_kernel_service_list, necp_service_registration) necp_registered_service_list;
-
 static char * __null_terminated necp_create_trimmed_domain(char * __sized_by(length)string, size_t length);
 static inline int necp_count_dots(char * __sized_by(length)string, size_t length);
 
@@ -585,6 +586,7 @@ struct necp_route_rule {
 	u_int8_t        constrained_action;
 	u_int8_t        companion_action;
 	u_int8_t        vpn_action;
+	u_int8_t        ultra_constrained_action;
 	u_int           exception_if_indices[MAX_ROUTE_RULE_INTERFACES];
 	u_int8_t        exception_if_actions[MAX_ROUTE_RULE_INTERFACES];
 	os_refcnt_t     refcount;
@@ -594,7 +596,7 @@ static u_int32_t necp_create_route_rule(struct necp_route_rule_list *list, u_int
 static bool necp_remove_route_rule(struct necp_route_rule_list *list, u_int32_t route_rule_id);
 static bool necp_route_is_interface_type_allowed(struct rtentry *route, struct ifnet *ifp, proc_t proc, struct inpcb *inp);
 static bool necp_route_is_allowed(struct rtentry *route, ifnet_t interface, u_int32_t * __counted_by(netagent_array_count)netagent_array, size_t netagent_array_count,
-    u_int32_t route_rule_id, u_int32_t *interface_type_denied);
+    u_int32_t route_rule_id, u_int32_t *interface_type_denied, bool *ultra_constrained_denied);
 static uint32_t necp_route_get_netagent(struct rtentry *route, u_int32_t * __counted_by(netagent_array_count)netagent_array, size_t netagent_array_count, u_int32_t route_rule_id, bool *remove);
 static bool necp_route_rule_matches_agents(u_int32_t route_rule_id);
 static uint32_t necp_route_get_flow_divert(struct rtentry *route, u_int32_t * __counted_by(netagent_array_count)netagent_array, size_t netagent_array_count, u_int32_t route_rule_id, u_int32_t *flow_divert_aggregate_unit);
@@ -855,7 +857,8 @@ const char* resultString[NECP_POLICY_RESULT_MAX + 1] = {
 	"NETAGENT_SCOPED",
 	"SCOPED_DIRECT",
 	"ALLOW_UNENTITLED",
-	"REMOVE_NETAGENT"
+	"REMOVE_NETAGENT",
+	"REMOVE_NETAGENT_TYPE"
 };
 
 
@@ -1413,80 +1416,6 @@ necp_session_lock_to_process(struct necp_session *session, struct necp_session_a
 }
 
 static int
-necp_session_register_service(struct necp_session *session, struct necp_session_action_args *uap, int *retval)
-{
-	int error = 0;
-	struct necp_service_registration *new_service = NULL;
-
-	if (uap->in_buffer_length < sizeof(uuid_t) || uap->in_buffer == 0) {
-		NECPLOG(LOG_ERR, "necp_session_register_service invalid input (%zu)", (size_t)uap->in_buffer_length);
-		error = EINVAL;
-		goto done;
-	}
-
-	uuid_t service_uuid;
-	error = copyin(uap->in_buffer, service_uuid, sizeof(service_uuid));
-	if (error != 0) {
-		NECPLOG(LOG_ERR, "necp_session_register_service uuid copyin error (%d)", error);
-		goto done;
-	}
-
-	new_service = kalloc_type(struct necp_service_registration,
-	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-
-	lck_rw_lock_exclusive(&necp_kernel_policy_lock);
-	new_service->service_id = necp_create_uuid_service_id_mapping(service_uuid);
-	LIST_INSERT_HEAD(&session->services, new_service, session_chain);
-	LIST_INSERT_HEAD(&necp_registered_service_list, new_service, kernel_chain);
-	lck_rw_done(&necp_kernel_policy_lock);
-
-done:
-	*retval = error;
-	return error;
-}
-
-static int
-necp_session_unregister_service(struct necp_session *session, struct necp_session_action_args *uap, int *retval)
-{
-	int error = 0;
-	struct necp_service_registration * __single service = NULL;
-	struct necp_service_registration *temp_service = NULL;
-	struct necp_uuid_id_mapping *mapping = NULL;
-
-	if (uap->in_buffer_length < sizeof(uuid_t) || uap->in_buffer == 0) {
-		NECPLOG(LOG_ERR, "necp_session_unregister_service invalid input (%zu)", (size_t)uap->in_buffer_length);
-		error = EINVAL;
-		goto done;
-	}
-
-	uuid_t service_uuid;
-	error = copyin(uap->in_buffer, service_uuid, sizeof(service_uuid));
-	if (error != 0) {
-		NECPLOG(LOG_ERR, "necp_session_unregister_service uuid copyin error (%d)", error);
-		goto done;
-	}
-
-	// Remove all matching services for this session
-	lck_rw_lock_exclusive(&necp_kernel_policy_lock);
-	mapping = necp_uuid_lookup_service_id_locked(service_uuid);
-	if (mapping != NULL) {
-		LIST_FOREACH_SAFE(service, &session->services, session_chain, temp_service) {
-			if (service->service_id == mapping->id) {
-				LIST_REMOVE(service, session_chain);
-				LIST_REMOVE(service, kernel_chain);
-				kfree_type(struct necp_service_registration, service);
-			}
-		}
-		necp_remove_uuid_service_id_mapping(service_uuid);
-	}
-	lck_rw_done(&necp_kernel_policy_lock);
-
-done:
-	*retval = error;
-	return error;
-}
-
-static int
 necp_session_dump_all(struct necp_session *session, struct necp_session_action_args *uap, int *retval)
 {
 #pragma unused(session)
@@ -1856,11 +1785,11 @@ necp_session_action(struct proc *p, struct necp_session_action_args *uap, int *r
 		break;
 	}
 	case NECP_SESSION_ACTION_REGISTER_SERVICE: {
-		return_value = necp_session_register_service(session, uap, retval);
+		return_value = 0; // Ignore
 		break;
 	}
 	case NECP_SESSION_ACTION_UNREGISTER_SERVICE: {
-		return_value = necp_session_unregister_service(session, uap, retval);
+		return_value = 0; // Ignore
 		break;
 	}
 	case NECP_SESSION_ACTION_POLICY_DUMP_ALL: {
@@ -2118,9 +2047,7 @@ necp_init(void)
 
 	LIST_INIT(&necp_account_id_list);
 
-	LIST_INIT(&necp_uuid_service_id_list);
-
-	LIST_INIT(&necp_registered_service_list);
+	LIST_INIT(&necp_agent_uuid_id_list);
 
 	LIST_INIT(&necp_route_rules);
 	LIST_INIT(&necp_aggregate_route_rules);
@@ -2463,7 +2390,6 @@ necp_create_session(void)
 	new_session->session_priority = NECP_SESSION_PRIORITY_UNKNOWN;
 	new_session->dirty = FALSE;
 	LIST_INIT(&new_session->policies);
-	LIST_INIT(&new_session->services);
 	LIST_INIT(&new_session->domain_filters);
 	LIST_INIT(&new_session->domain_tries);
 	lck_mtx_init(&new_session->lock, &necp_kernel_policy_mtx_grp, &necp_kernel_policy_mtx_attr);
@@ -2507,15 +2433,6 @@ static void
 necp_delete_session(struct necp_session *session)
 {
 	if (session != NULL) {
-		struct necp_service_registration * __single service = NULL;
-		struct necp_service_registration *temp_service = NULL;
-		LIST_FOREACH_SAFE(service, &session->services, session_chain, temp_service) {
-			LIST_REMOVE(service, session_chain);
-			lck_rw_lock_exclusive(&necp_kernel_policy_lock);
-			LIST_REMOVE(service, kernel_chain);
-			lck_rw_done(&necp_kernel_policy_lock);
-			kfree_type(struct necp_service_registration, service);
-		}
 		struct necp_domain_filter * __single filter = NULL;
 		struct necp_domain_filter *temp_filter = NULL;
 		LIST_FOREACH_SAFE(filter, &session->domain_filters, owner_chain, temp_filter) {
@@ -2642,6 +2559,12 @@ necp_policy_result_is_valid(u_int8_t * __sized_by(length)buffer, u_int32_t lengt
 		}
 		break;
 	}
+	case NECP_POLICY_RESULT_REMOVE_NETAGENT_TYPE: {
+		if (parameter_length >= sizeof(struct necp_policy_condition_agent_type)) {
+			validated = TRUE;
+		}
+		break;
+	}
 	default: {
 		validated = FALSE;
 		break;
@@ -2733,7 +2656,8 @@ necp_policy_condition_is_valid(u_int8_t * __sized_by(length)buffer, u_int32_t le
 	    policy_result_type == NECP_POLICY_RESULT_NETAGENT_SCOPED ||
 	    policy_result_type == NECP_POLICY_RESULT_SCOPED_DIRECT ||
 	    policy_result_type == NECP_POLICY_RESULT_ALLOW_UNENTITLED ||
-	    policy_result_type == NECP_POLICY_RESULT_REMOVE_NETAGENT) ? TRUE : FALSE;
+	    policy_result_type == NECP_POLICY_RESULT_REMOVE_NETAGENT ||
+	    policy_result_type == NECP_POLICY_RESULT_REMOVE_NETAGENT_TYPE) ? TRUE : FALSE;
 	u_int32_t condition_length = necp_policy_condition_get_value_length_from_buffer(buffer, length);
 	u_int8_t *condition_value = necp_policy_condition_get_value_pointer_from_buffer(buffer, length);
 	u_int8_t type = necp_policy_condition_get_type_from_buffer(buffer, length);
@@ -4090,7 +4014,7 @@ necp_policy_unapply(struct necp_session_policy *policy)
 		uuid_clear(policy->applied_real_app_uuid);
 	}
 	if (!uuid_is_null(policy->applied_result_uuid)) {
-		necp_remove_uuid_service_id_mapping(policy->applied_result_uuid);
+		necp_remove_agent_uuid_id_mapping(policy->applied_result_uuid);
 		uuid_clear(policy->applied_result_uuid);
 	}
 
@@ -4106,6 +4030,12 @@ necp_policy_unapply(struct necp_session_policy *policy)
 	if (policy->applied_route_rules_id != 0) {
 		necp_remove_route_rule(&necp_route_rules, policy->applied_route_rules_id);
 		policy->applied_route_rules_id = 0;
+	}
+
+	// Release agent type mapping
+	if (policy->applied_agent_type_id != 0) {
+		necp_remove_agent_type_to_id_mapping(policy->applied_agent_type_id);
+		policy->applied_agent_type_id = 0;
 	}
 
 	// Remove socket policies
@@ -4144,7 +4074,7 @@ struct necp_policy_result_service {
 } __attribute__((__packed__));
 
 static bool
-necp_policy_apply(struct necp_session *session, struct necp_session_policy *policy)
+necp_policy_apply(struct necp_session *session, struct necp_session_policy *policy, bool *should_update_immediately)
 {
 	bool socket_only_conditions = FALSE;
 	bool socket_ip_conditions = FALSE;
@@ -4694,6 +4624,11 @@ necp_policy_apply(struct necp_session *session, struct necp_session_policy *poli
 		if (necp_policy_result_get_parameter_length_from_buffer(policy->result, policy->result_size) > 0) {
 			if (necp_policy_get_result_parameter(policy, (u_int8_t *)&drop_flags, sizeof(drop_flags))) {
 				ultimate_result_parameter.drop_flags = drop_flags;
+				if (ultimate_result_parameter.drop_flags & NECP_KERNEL_POLICY_DROP_FLAG_DEFUNCT_ALL_FLOWS) {
+					if (should_update_immediately != NULL) {
+						*should_update_immediately = TRUE;
+					}
+				}
 			}
 		}
 		if (socket_only_conditions) {         // socket_ip_conditions can be TRUE or FALSE
@@ -4770,9 +4705,20 @@ necp_policy_apply(struct necp_session *session, struct necp_session_policy *poli
 	case NECP_POLICY_RESULT_REMOVE_NETAGENT: {
 		uuid_t netagent_uuid;
 		if (necp_policy_get_result_parameter(policy, (u_int8_t *)&netagent_uuid, sizeof(netagent_uuid))) {
-			ultimate_result_parameter.netagent_id = necp_create_uuid_service_id_mapping(netagent_uuid);
+			ultimate_result_parameter.netagent_id = necp_create_agent_uuid_id_mapping(netagent_uuid);
 			if (ultimate_result_parameter.netagent_id != 0) {
 				uuid_copy(policy->applied_result_uuid, netagent_uuid);
+				socket_layer_non_id_conditions = TRUE;
+			}
+		}
+		break;
+	}
+	case NECP_POLICY_RESULT_REMOVE_NETAGENT_TYPE: {
+		struct necp_policy_condition_agent_type netagent_type = {};
+		if (necp_policy_get_result_parameter(policy, (u_int8_t *)&netagent_type, sizeof(netagent_type))) {
+			ultimate_result_parameter.netagent_id = necp_create_agent_type_to_id_mapping(&netagent_type);
+			if (ultimate_result_parameter.netagent_id != 0) {
+				policy->applied_agent_type_id = ultimate_result_parameter.netagent_id;
 				socket_layer_non_id_conditions = TRUE;
 			}
 		}
@@ -4901,6 +4847,7 @@ necp_policy_apply_all(struct necp_session *session)
 	struct necp_session_policy *temp_policy = NULL;
 	struct kev_necp_policies_changed_data kev_data;
 	kev_data.changed_count = 0;
+	bool should_update_immediately = FALSE;
 
 	lck_rw_lock_exclusive(&necp_kernel_policy_lock);
 
@@ -4914,11 +4861,11 @@ necp_policy_apply_all(struct necp_session *session)
 				// Delete the policy
 				necp_policy_delete(session, policy);
 			} else if (!policy->applied) {
-				necp_policy_apply(session, policy);
+				necp_policy_apply(session, policy, &should_update_immediately);
 			} else if (policy->pending_update) {
 				// Must have been applied, but needs an update. Remove and re-add.
 				necp_policy_unapply(policy);
-				necp_policy_apply(session, policy);
+				necp_policy_apply(session, policy, &should_update_immediately);
 			}
 		}
 
@@ -4932,7 +4879,12 @@ necp_policy_apply_all(struct necp_session *session)
 
 	lck_rw_done(&necp_kernel_policy_lock);
 
-	necp_update_all_clients();
+	if (!should_update_immediately) {
+		necp_update_all_clients();
+	} else {
+		necp_update_all_clients_immediately_if_needed(true);
+	}
+
 	necp_post_change_event(&kev_data);
 
 	if (necp_debug) {
@@ -5270,12 +5222,13 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 			switch (route_rule->default_action) {
 			case NECP_ROUTE_RULE_DENY_INTERFACE:
 			case NECP_ROUTE_RULE_DENY_INTERFACE_WITH_TYPE:
-				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (Only %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
+				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (Only %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
 				    (route_rule->cellular_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Cell " : "",
 				    (route_rule->wifi_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "WiFi " : "",
 				    (route_rule->wired_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Wired " : "",
 				    (route_rule->expensive_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Exp " : "",
 				    (route_rule->constrained_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Constrained " : "",
+				    (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Ultra-Constrained " : "",
 				    (route_rule->companion_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "Companion " : "",
 				    (route_rule->vpn_action == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? "VPN " : "",
 				    (route_rule->exception_if_actions[0] == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? interface_names[0] : "",
@@ -5299,12 +5252,13 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 				    (route_rule->exception_if_actions[9] == NECP_ROUTE_RULE_ALLOW_INTERFACE) ? interface_names[9] : "");
 				break;
 			case NECP_ROUTE_RULE_ALLOW_INTERFACE:
-				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
+				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->cellular_action) ? "!Cell " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->wifi_action) ? "!WiFi " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->wired_action) ? "!Wired " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->expensive_action) ? "!Exp " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->constrained_action) ? "!Constrained " : "",
+				    IS_NECP_ROUTE_RULE_DENY(route_rule->ultra_constrained_action) ? "!Ultra-Constrained " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->companion_action) ? "!Companion " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->vpn_action) ? "!VPN " : "",
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->exception_if_actions[0]) ? "!" : "",
@@ -5329,12 +5283,13 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 				    IS_NECP_ROUTE_RULE_DENY(route_rule->exception_if_actions[9]) ? interface_names[9] : "");
 				break;
 			case NECP_ROUTE_RULE_QOS_MARKING:
-				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (QoSMarking %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
+				snprintf(result_string, MAX_RESULT_STRING_LEN, "RouteRules (QoSMarking %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
 				    (route_rule->cellular_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Cell " : "",
 				    (route_rule->wifi_action == NECP_ROUTE_RULE_QOS_MARKING) ? "WiFi " : "",
 				    (route_rule->wired_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Wired " : "",
 				    (route_rule->expensive_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Exp " : "",
 				    (route_rule->constrained_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Constrained " : "",
+				    (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Ultra-Constrained " : "",
 				    (route_rule->companion_action == NECP_ROUTE_RULE_QOS_MARKING) ? "Companion " : "",
 				    (route_rule->vpn_action == NECP_ROUTE_RULE_QOS_MARKING) ? "VPN " : "",
 				    (route_rule->exception_if_actions[0] == NECP_ROUTE_RULE_QOS_MARKING) ? interface_names[0] : "",
@@ -5366,7 +5321,7 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 	}
 	case NECP_KERNEL_POLICY_RESULT_USE_NETAGENT: {
 		bool found_mapping = FALSE;
-		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(result_parameter.netagent_id);
+		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(result_parameter.netagent_id);
 		if (mapping != NULL) {
 			uuid_unparse(mapping->uuid, uuid_string);
 			found_mapping = TRUE;
@@ -5376,7 +5331,7 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 	}
 	case NECP_KERNEL_POLICY_RESULT_NETAGENT_SCOPED: {
 		bool found_mapping = FALSE;
-		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(result_parameter.netagent_id);
+		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(result_parameter.netagent_id);
 		if (mapping != NULL) {
 			uuid_unparse(mapping->uuid, uuid_string);
 			found_mapping = TRUE;
@@ -5386,12 +5341,21 @@ necp_get_result_description(char * __sized_by(MAX_RESULT_STRING_LEN) result_stri
 	}
 	case NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT: {
 		bool found_mapping = FALSE;
-		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(result_parameter.netagent_id);
+		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(result_parameter.netagent_id);
 		if (mapping != NULL) {
 			uuid_unparse(mapping->uuid, uuid_string);
 			found_mapping = TRUE;
 		}
 		snprintf(result_string, MAX_RESULT_STRING_LEN, "RemoveNetAgent (%s)", found_mapping ? uuid_string : "Unknown");
+		break;
+	}
+	case NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT_TYPE: {
+		bool found_mapping = FALSE;
+		struct necp_agent_type_id_mapping *mapping = necp_lookup_agent_type_with_id_locked(result_parameter.netagent_id);
+		if (mapping != NULL) {
+			found_mapping = TRUE;
+		}
+		snprintf(result_string, MAX_RESULT_STRING_LEN, "RemoveNetAgentType (%s/%s)", found_mapping ? mapping->agent_type.agent_domain : "Unknown", found_mapping ? mapping->agent_type.agent_type : "Unknown");
 		break;
 	}
 	default: {
@@ -5450,7 +5414,8 @@ necp_kernel_socket_policy_results_overlap(struct necp_kernel_socket_policy *uppe
 	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_USE_NETAGENT ||
 	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_NETAGENT_SCOPED ||
 	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_ALLOW_UNENTITLED ||
-	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT) {
+	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT ||
+	    upper_policy->result == NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT_TYPE) {
 		// Filters and route rules never cancel out lower policies
 		return FALSE;
 	} else if (upper_policy->result == NECP_KERNEL_POLICY_RESULT_SKIP) {
@@ -6231,7 +6196,7 @@ necp_lookup_route_rule_locked(struct necp_route_rule_list *list, u_int32_t route
 }
 
 static struct necp_route_rule *
-necp_lookup_route_rule_by_contents_locked(struct necp_route_rule_list *list, u_int8_t default_action, u_int8_t cellular_action, u_int8_t wifi_action, u_int8_t wired_action, u_int8_t expensive_action, u_int8_t constrained_action, u_int8_t companion_action, u_int8_t vpn_action, u_int32_t * __indexable if_indices, u_int8_t * __indexable if_actions, uuid_t netagent_uuid, uuid_t match_netagent_uuid, u_int32_t control_unit, u_int32_t effective_type)
+necp_lookup_route_rule_by_contents_locked(struct necp_route_rule_list *list, u_int8_t default_action, u_int8_t cellular_action, u_int8_t wifi_action, u_int8_t wired_action, u_int8_t expensive_action, u_int8_t constrained_action, u_int8_t companion_action, u_int8_t vpn_action, u_int8_t ultra_constrained_action, u_int32_t * __indexable if_indices, u_int8_t * __indexable if_actions, uuid_t netagent_uuid, uuid_t match_netagent_uuid, u_int32_t control_unit, u_int32_t effective_type)
 {
 	struct necp_route_rule *searchentry = NULL;
 	struct necp_route_rule *foundentry = NULL;
@@ -6245,6 +6210,7 @@ necp_lookup_route_rule_by_contents_locked(struct necp_route_rule_list *list, u_i
 		    searchentry->constrained_action == constrained_action &&
 		    searchentry->companion_action == companion_action &&
 		    searchentry->vpn_action == vpn_action &&
+		    searchentry->ultra_constrained_action == ultra_constrained_action &&
 		    searchentry->control_unit == control_unit &&
 		    searchentry->effective_type == effective_type) {
 			bool match_failed = FALSE;
@@ -6288,7 +6254,7 @@ necp_lookup_route_rule_by_contents_locked(struct necp_route_rule_list *list, u_i
 			}
 
 			if (has_agent_a) {
-				struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(searchentry->netagent_id);
+				struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(searchentry->netagent_id);
 				if (mapping == NULL) {
 					// Bad mapping, doesn't match
 					continue;
@@ -6306,7 +6272,7 @@ necp_lookup_route_rule_by_contents_locked(struct necp_route_rule_list *list, u_i
 			}
 
 			if (has_match_agent_a) {
-				struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(searchentry->match_netagent_id);
+				struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(searchentry->match_netagent_id);
 				if (mapping == NULL) {
 					// Bad mapping, doesn't match
 					continue;
@@ -6341,6 +6307,7 @@ necp_create_route_rule(struct necp_route_rule_list *list, u_int8_t * __sized_by(
 	u_int8_t constrained_action = NECP_ROUTE_RULE_NONE;
 	u_int8_t companion_action = NECP_ROUTE_RULE_NONE;
 	u_int8_t vpn_action = NECP_ROUTE_RULE_NONE;
+	u_int8_t ultra_constrained_action = NECP_ROUTE_RULE_NONE;
 	u_int32_t if_indices[MAX_ROUTE_RULE_INTERFACES];
 	size_t num_valid_indices = 0;
 	memset(&if_indices, 0, sizeof(if_indices));
@@ -6443,7 +6410,9 @@ necp_create_route_rule(struct necp_route_rule_list *list, u_int8_t * __sized_by(
 			if (rule_flags & NECP_ROUTE_RULE_FLAG_EXPENSIVE) {
 				expensive_action = rule_action;
 			}
-			if (rule_flags & NECP_ROUTE_RULE_FLAG_CONSTRAINED) {
+			if ((rule_flags & NECP_ROUTE_RULE_FLAG_ULTRA_CONSTRAINED) == NECP_ROUTE_RULE_FLAG_ULTRA_CONSTRAINED) {
+				ultra_constrained_action = rule_action;
+			} else if (rule_flags & NECP_ROUTE_RULE_FLAG_CONSTRAINED) {
 				constrained_action = rule_action;
 			}
 			if (rule_flags & NECP_ROUTE_RULE_FLAG_COMPANION) {
@@ -6491,7 +6460,7 @@ necp_create_route_rule(struct necp_route_rule_list *list, u_int8_t * __sized_by(
 		}
 	}
 
-	existing_rule = necp_lookup_route_rule_by_contents_locked(list, default_action, cellular_action, wifi_action, wired_action, expensive_action, constrained_action, companion_action, vpn_action, if_indices, if_actions, netagent_uuid, match_netagent_uuid, control_unit, effective_type);
+	existing_rule = necp_lookup_route_rule_by_contents_locked(list, default_action, cellular_action, wifi_action, wired_action, expensive_action, constrained_action, companion_action, vpn_action, ultra_constrained_action, if_indices, if_actions, netagent_uuid, match_netagent_uuid, control_unit, effective_type);
 	if (existing_rule != NULL) {
 		route_rule_id = existing_rule->id;
 		os_ref_retain_locked(&existing_rule->refcount);
@@ -6501,10 +6470,10 @@ necp_create_route_rule(struct necp_route_rule_list *list, u_int8_t * __sized_by(
 		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 		route_rule_id = new_rule->id = necp_get_new_route_rule_id(false);
 		if (!uuid_is_null(netagent_uuid)) {
-			new_rule->netagent_id = necp_create_uuid_service_id_mapping(netagent_uuid);
+			new_rule->netagent_id = necp_create_agent_uuid_id_mapping(netagent_uuid);
 		}
 		if (!uuid_is_null(match_netagent_uuid)) {
-			new_rule->match_netagent_id = necp_create_uuid_service_id_mapping(match_netagent_uuid);
+			new_rule->match_netagent_id = necp_create_agent_uuid_id_mapping(match_netagent_uuid);
 		}
 		new_rule->effective_type = effective_type;
 		new_rule->control_unit = control_unit;
@@ -6513,9 +6482,10 @@ necp_create_route_rule(struct necp_route_rule_list *list, u_int8_t * __sized_by(
 		new_rule->wifi_action = wifi_action;
 		new_rule->wired_action = wired_action;
 		new_rule->expensive_action = expensive_action;
-		new_rule->constrained_action =  constrained_action;
-		new_rule->companion_action =  companion_action;
-		new_rule->vpn_action =  vpn_action;
+		new_rule->constrained_action = constrained_action;
+		new_rule->companion_action = companion_action;
+		new_rule->vpn_action = vpn_action;
+		new_rule->ultra_constrained_action = ultra_constrained_action;
 		memcpy(&new_rule->exception_if_indices, &if_indices, sizeof(if_indices));
 		memcpy(&new_rule->exception_if_actions, &if_actions, sizeof(if_actions));
 		os_ref_init(&new_rule->refcount, &necp_refgrp);
@@ -6560,8 +6530,8 @@ necp_remove_route_rule(struct necp_route_rule_list *list, u_int32_t route_rule_i
 	if (existing_rule != NULL) {
 		if (os_ref_release_locked(&existing_rule->refcount) == 0) {
 			necp_remove_aggregate_route_rule_for_id(existing_rule->id);
-			necp_remove_uuid_service_id_mapping_with_service_id(existing_rule->netagent_id);
-			necp_remove_uuid_service_id_mapping_with_service_id(existing_rule->match_netagent_id);
+			necp_remove_agent_uuid_id_mapping_with_agent_id(existing_rule->netagent_id);
+			necp_remove_agent_uuid_id_mapping_with_agent_id(existing_rule->match_netagent_id);
 			LIST_REMOVE(existing_rule, chain);
 			kfree_type(struct necp_route_rule, existing_rule);
 		}
@@ -6619,55 +6589,33 @@ necp_create_aggregate_route_rule(u_int32_t * __counted_by(MAX_AGGREGATE_ROUTE_RU
 	return aggregate_route_rule_id;
 }
 
-#define NECP_NULL_SERVICE_ID 1
-#define NECP_FIRST_VALID_SERVICE_ID  2
-#define NECP_FIRST_VALID_APP_ID  UINT16_MAX
 static u_int32_t
-necp_get_new_uuid_id(bool service)
+necp_get_new_app_uuid_id(void)
 {
-	static u_int32_t necp_last_service_uuid_id = 0;
 	static u_int32_t necp_last_app_uuid_id = 0;
 
 	u_int32_t newid = 0;
 
 	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
 
-	if (service) {
-		bool wrapped = FALSE;
-		do {
-			necp_last_service_uuid_id++;
-			if (necp_last_service_uuid_id < NECP_FIRST_VALID_SERVICE_ID ||
-			    necp_last_service_uuid_id >= NECP_FIRST_VALID_APP_ID) {
-				if (wrapped) {
-					// Already wrapped, give up
-					NECPLOG0(LOG_ERR, "Failed to find a free service UUID.\n");
-					return NECP_NULL_SERVICE_ID;
-				}
-				necp_last_service_uuid_id = NECP_FIRST_VALID_SERVICE_ID;
-				wrapped = TRUE;
+	bool wrapped = FALSE;
+	do {
+		necp_last_app_uuid_id++;
+		if (necp_last_app_uuid_id < 1) {
+			if (wrapped) {
+				// Already wrapped, give up
+				NECPLOG0(LOG_ERR, "Failed to find a free app UUID ID.\n");
+				return 0;
 			}
-			newid = necp_last_service_uuid_id;
-		} while (necp_uuid_lookup_uuid_with_service_id_locked(newid) != NULL); // If already used, keep trying
-	} else {
-		bool wrapped = FALSE;
-		do {
-			necp_last_app_uuid_id++;
-			if (necp_last_app_uuid_id < NECP_FIRST_VALID_APP_ID) {
-				if (wrapped) {
-					// Already wrapped, give up
-					NECPLOG0(LOG_ERR, "Failed to find a free app UUID.\n");
-					return NECP_NULL_SERVICE_ID;
-				}
-				necp_last_app_uuid_id = NECP_FIRST_VALID_APP_ID;
-				wrapped = TRUE;
-			}
-			newid = necp_last_app_uuid_id;
-		} while (necp_uuid_lookup_uuid_with_app_id_locked(newid) != NULL); // If already used, keep trying
-	}
+			necp_last_app_uuid_id = 1;
+			wrapped = TRUE;
+		}
+		newid = necp_last_app_uuid_id;
+	} while (necp_uuid_lookup_uuid_with_app_id_locked(newid) != NULL); // If already used, keep trying
 
-	if (newid == NECP_NULL_SERVICE_ID) {
-		NECPLOG0(LOG_ERR, "Allocate uuid ID failed.\n");
-		return NECP_NULL_SERVICE_ID;
+	if (newid == 0) {
+		NECPLOG0(LOG_ERR, "Allocate app UUID ID failed.\n");
+		return 0;
 	}
 
 	return newid;
@@ -6732,7 +6680,7 @@ necp_create_uuid_app_id_mapping(uuid_t uuid, bool *allocated_mapping, bool uuid_
 		new_mapping = kalloc_type(struct necp_uuid_id_mapping,
 		    Z_WAITOK | Z_NOFAIL);
 		uuid_copy(new_mapping->uuid, uuid);
-		new_mapping->id = necp_get_new_uuid_id(false);
+		new_mapping->id = necp_get_new_app_uuid_id();
 		os_ref_init(&new_mapping->refcount, &necp_refgrp);
 		if (uuid_policy_table) {
 			new_mapping->table_usecount = 1;
@@ -6781,27 +6729,88 @@ necp_remove_uuid_app_id_mapping(uuid_t uuid, bool *removed_mapping, bool uuid_po
 	return FALSE;
 }
 
+#define NECP_NULL_AGENT_ID 1
+#define NECP_FIRST_VALID_AGENT_UUID_ID  2
+#define NECP_FIRST_VALID_AGENT_TYPE_ID  UINT16_MAX
+
+static bool
+necp_agent_id_is_uuid(u_int32_t agent_id)
+{
+	return agent_id < NECP_FIRST_VALID_AGENT_TYPE_ID;
+}
+
+static u_int32_t
+necp_get_new_agent_id(bool uuid)
+{
+	static u_int32_t necp_last_agent_id = 0;
+	static u_int32_t necp_last_agent_type_id = 0;
+
+	u_int32_t newid = 0;
+
+	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
+
+	if (uuid) {
+		bool wrapped = FALSE;
+		do {
+			necp_last_agent_id++;
+			if (necp_last_agent_id < NECP_FIRST_VALID_AGENT_UUID_ID ||
+			    necp_last_agent_id >= NECP_FIRST_VALID_AGENT_TYPE_ID) {
+				if (wrapped) {
+					// Already wrapped, give up
+					NECPLOG0(LOG_ERR, "Failed to find a free agent UUID ID.\n");
+					return NECP_NULL_AGENT_ID;
+				}
+				necp_last_agent_id = NECP_FIRST_VALID_AGENT_UUID_ID;
+				wrapped = TRUE;
+			}
+			newid = necp_last_agent_id;
+		} while (necp_uuid_lookup_uuid_with_agent_id_locked(newid) != NULL); // If already used, keep trying
+	} else {
+		bool wrapped = FALSE;
+		do {
+			necp_last_agent_type_id++;
+			if (necp_last_agent_type_id < NECP_FIRST_VALID_AGENT_TYPE_ID) {
+				if (wrapped) {
+					// Already wrapped, give up
+					NECPLOG0(LOG_ERR, "Failed to find a free agent type ID.\n");
+					return NECP_NULL_AGENT_ID;
+				}
+				necp_last_agent_type_id = NECP_FIRST_VALID_AGENT_TYPE_ID;
+				wrapped = TRUE;
+			}
+			newid = necp_last_agent_type_id;
+		} while (necp_lookup_agent_type_with_id_locked(newid) != NULL); // If already used, keep trying
+	}
+
+	if (newid == NECP_NULL_AGENT_ID) {
+		NECPLOG0(LOG_ERR, "Allocate agent ID failed.\n");
+		return NECP_NULL_AGENT_ID;
+	}
+
+	return newid;
+}
+
 static struct necp_uuid_id_mapping *
-necp_uuid_get_null_service_id_mapping(void)
+necp_uuid_get_null_agent_id_mapping(void)
 {
 	static struct necp_uuid_id_mapping null_mapping;
 	uuid_clear(null_mapping.uuid);
-	null_mapping.id = NECP_NULL_SERVICE_ID;
+	null_mapping.id = NECP_NULL_AGENT_ID;
 
 	return &null_mapping;
 }
 
 static struct necp_uuid_id_mapping *
-necp_uuid_lookup_service_id_locked(uuid_t uuid)
+necp_uuid_lookup_agent_id_with_uuid_locked(uuid_t uuid)
 {
 	struct necp_uuid_id_mapping *searchentry = NULL;
 	struct necp_uuid_id_mapping *foundentry = NULL;
 
 	if (uuid_is_null(uuid)) {
-		return necp_uuid_get_null_service_id_mapping();
+		return necp_uuid_get_null_agent_id_mapping();
 	}
 
-	LIST_FOREACH(searchentry, &necp_uuid_service_id_list, chain) {
+	LIST_FOREACH(searchentry, &necp_agent_uuid_id_list, chain) {
 		if (uuid_compare(searchentry->uuid, uuid) == 0) {
 			foundentry = searchentry;
 			break;
@@ -6812,17 +6821,17 @@ necp_uuid_lookup_service_id_locked(uuid_t uuid)
 }
 
 static struct necp_uuid_id_mapping *
-necp_uuid_lookup_uuid_with_service_id_locked(u_int32_t local_id)
+necp_uuid_lookup_uuid_with_agent_id_locked(u_int32_t agent_id)
 {
 	struct necp_uuid_id_mapping *searchentry = NULL;
 	struct necp_uuid_id_mapping *foundentry = NULL;
 
-	if (local_id == NECP_NULL_SERVICE_ID) {
-		return necp_uuid_get_null_service_id_mapping();
+	if (agent_id == NECP_NULL_AGENT_ID) {
+		return necp_uuid_get_null_agent_id_mapping();
 	}
 
-	LIST_FOREACH(searchentry, &necp_uuid_service_id_list, chain) {
-		if (searchentry->id == local_id) {
+	LIST_FOREACH(searchentry, &necp_agent_uuid_id_list, chain) {
+		if (searchentry->id == agent_id) {
 			foundentry = searchentry;
 			break;
 		}
@@ -6832,39 +6841,39 @@ necp_uuid_lookup_uuid_with_service_id_locked(u_int32_t local_id)
 }
 
 static u_int32_t
-necp_create_uuid_service_id_mapping(uuid_t uuid)
+necp_create_agent_uuid_id_mapping(uuid_t uuid)
 {
-	u_int32_t local_id = 0;
+	u_int32_t agent_id = 0;
 	struct necp_uuid_id_mapping *existing_mapping = NULL;
 
 	if (uuid_is_null(uuid)) {
-		return NECP_NULL_SERVICE_ID;
+		return NECP_NULL_AGENT_ID;
 	}
 
 	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
 
-	existing_mapping = necp_uuid_lookup_service_id_locked(uuid);
+	existing_mapping = necp_uuid_lookup_agent_id_with_uuid_locked(uuid);
 	if (existing_mapping != NULL) {
-		local_id = existing_mapping->id;
+		agent_id = existing_mapping->id;
 		os_ref_retain_locked(&existing_mapping->refcount);
 	} else {
 		struct necp_uuid_id_mapping *new_mapping = NULL;
 		new_mapping = kalloc_type(struct necp_uuid_id_mapping,
 		    Z_WAITOK | Z_NOFAIL);
 		uuid_copy(new_mapping->uuid, uuid);
-		new_mapping->id = necp_get_new_uuid_id(true);
+		new_mapping->id = necp_get_new_agent_id(true);
 		os_ref_init(&new_mapping->refcount, &necp_refgrp);
 
-		LIST_INSERT_HEAD(&necp_uuid_service_id_list, new_mapping, chain);
+		LIST_INSERT_HEAD(&necp_agent_uuid_id_list, new_mapping, chain);
 
-		local_id = new_mapping->id;
+		agent_id = new_mapping->id;
 	}
 
-	return local_id;
+	return agent_id;
 }
 
 static bool
-necp_remove_uuid_service_id_mapping(uuid_t uuid)
+necp_remove_agent_uuid_id_mapping(uuid_t uuid)
 {
 	struct necp_uuid_id_mapping * __single existing_mapping = NULL;
 
@@ -6874,7 +6883,7 @@ necp_remove_uuid_service_id_mapping(uuid_t uuid)
 
 	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
 
-	existing_mapping = necp_uuid_lookup_service_id_locked(uuid);
+	existing_mapping = necp_uuid_lookup_agent_id_with_uuid_locked(uuid);
 	if (existing_mapping != NULL) {
 		if (os_ref_release_locked(&existing_mapping->refcount) == 0) {
 			LIST_REMOVE(existing_mapping, chain);
@@ -6887,17 +6896,17 @@ necp_remove_uuid_service_id_mapping(uuid_t uuid)
 }
 
 static bool
-necp_remove_uuid_service_id_mapping_with_service_id(u_int32_t service_id)
+necp_remove_agent_uuid_id_mapping_with_agent_id(u_int32_t agent_id)
 {
 	struct necp_uuid_id_mapping * __single existing_mapping = NULL;
 
-	if (service_id == 0) {
+	if (agent_id == 0) {
 		return TRUE;
 	}
 
 	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
 
-	existing_mapping = necp_uuid_lookup_uuid_with_service_id_locked(service_id);
+	existing_mapping = necp_uuid_lookup_uuid_with_agent_id_locked(agent_id);
 	if (existing_mapping != NULL) {
 		if (os_ref_release_locked(&existing_mapping->refcount) == 0) {
 			LIST_REMOVE(existing_mapping, chain);
@@ -6907,6 +6916,84 @@ necp_remove_uuid_service_id_mapping_with_service_id(u_int32_t service_id)
 	}
 
 	return FALSE;
+}
+
+static struct necp_agent_type_id_mapping *
+necp_lookup_agent_type_to_id_locked(struct necp_policy_condition_agent_type *agent_type)
+{
+	struct necp_agent_type_id_mapping *searchentry = NULL;
+	struct necp_agent_type_id_mapping *foundentry = NULL;
+
+	LIST_FOREACH(searchentry, &necp_agent_type_id_list, chain) {
+		if (strlcmp(searchentry->agent_type.agent_domain, __unsafe_null_terminated_from_indexable(agent_type->agent_domain), NETAGENT_DOMAINSIZE) == 0 &&
+		    strlcmp(searchentry->agent_type.agent_type, __unsafe_null_terminated_from_indexable(agent_type->agent_type), NETAGENT_TYPESIZE) == 0) {
+			foundentry = searchentry;
+			break;
+		}
+	}
+
+	return foundentry;
+}
+
+static struct necp_agent_type_id_mapping *
+necp_lookup_agent_type_with_id_locked(u_int32_t agent_id)
+{
+	struct necp_agent_type_id_mapping *searchentry = NULL;
+	struct necp_agent_type_id_mapping *foundentry = NULL;
+
+	LIST_FOREACH(searchentry, &necp_agent_type_id_list, chain) {
+		if (searchentry->id == agent_id) {
+			foundentry = searchentry;
+			break;
+		}
+	}
+
+	return foundentry;
+}
+
+static u_int32_t
+necp_create_agent_type_to_id_mapping(struct necp_policy_condition_agent_type *agent_type)
+{
+	u_int32_t agent_type_id = 0;
+	struct necp_agent_type_id_mapping *existing_mapping = NULL;
+
+	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
+
+	existing_mapping = necp_lookup_agent_type_to_id_locked(agent_type);
+	if (existing_mapping != NULL) {
+		agent_type_id = existing_mapping->id;
+		os_ref_retain_locked(&existing_mapping->refcount);
+	} else {
+		struct necp_agent_type_id_mapping * __single new_mapping = NULL;
+		new_mapping = kalloc_type(struct necp_agent_type_id_mapping,
+		    Z_WAITOK | Z_ZERO | Z_NOFAIL);
+		strlcpy(new_mapping->agent_type.agent_domain, __unsafe_null_terminated_from_indexable(agent_type->agent_domain), NETAGENT_DOMAINSIZE);
+		strlcpy(new_mapping->agent_type.agent_type, __unsafe_null_terminated_from_indexable(agent_type->agent_type), NETAGENT_TYPESIZE);
+		new_mapping->id = necp_get_new_agent_id(false);
+		os_ref_init(&new_mapping->refcount, &necp_refgrp);
+		LIST_INSERT_HEAD(&necp_agent_type_id_list, new_mapping, chain);
+		agent_type_id = new_mapping->id;
+	}
+	return agent_type_id;
+}
+
+static bool
+necp_remove_agent_type_to_id_mapping(u_int32_t agent_type_id)
+{
+	struct necp_agent_type_id_mapping * __single existing_mapping = NULL;
+
+	LCK_RW_ASSERT(&necp_kernel_policy_lock, LCK_RW_ASSERT_EXCLUSIVE);
+
+	existing_mapping = necp_lookup_agent_type_with_id_locked(agent_type_id);
+	if (existing_mapping != NULL) {
+		if (os_ref_release_locked(&existing_mapping->refcount) == 0) {
+			LIST_REMOVE(existing_mapping, chain);
+			kfree_type(struct necp_agent_type_id_mapping, existing_mapping);
+		}
+		return true;
+	}
+
+	return false;
 }
 
 static bool
@@ -7891,9 +7978,8 @@ necp_application_find_policy_match_internal(proc_t proc,
 	struct necp_kernel_socket_policy *matched_policy = NULL;
 	struct necp_socket_info info = {};
 	necp_kernel_policy_filter filter_control_unit = 0;
-	necp_kernel_policy_result service_action = 0;
-	necp_kernel_policy_service service = { 0, 0 };
 
+	u_int64_t extended_client_flags = 0;
 	u_int16_t protocol = 0;
 	u_int32_t bound_interface_index = required_interface_index;
 	u_int32_t traffic_class = 0;
@@ -8198,6 +8284,19 @@ necp_application_find_policy_match_internal(proc_t proc,
 					}
 					break;
 				}
+				case NECP_CLIENT_PARAMETER_PREFER_AGENT: {
+					if (num_required_agent_types >= NECP_MAX_REQUIRED_AGENTS) {
+						break;
+					}
+					if (length >= sizeof(uuid_t)) {
+						if (netagent_get_agent_domain_and_type(value,
+						    required_agent_types[num_required_agent_types].netagent_domain,
+						    required_agent_types[num_required_agent_types].netagent_type)) {
+							num_required_agent_types++;
+						}
+					}
+					break;
+				}
 				case NECP_CLIENT_PARAMETER_SCHEME_PORT: {
 					if (length >= sizeof(scheme_port)) {
 						memcpy(&scheme_port, value, sizeof(scheme_port));
@@ -8214,6 +8313,12 @@ necp_application_find_policy_match_internal(proc_t proc,
 						    validatable->signable.sign_type == NECP_CLIENT_SIGN_TYPE_SYSTEM_SERVICE_RESOLVER_ANSWER) {
 							has_system_signed_result = true;
 						}
+					}
+					break;
+				}
+				case NECP_CLIENT_PARAMETER_EXTENDED_FLAGS: {
+					if (length >= sizeof(extended_client_flags)) {
+						memcpy(&extended_client_flags, value, sizeof(extended_client_flags));
 					}
 					break;
 				}
@@ -8318,8 +8423,6 @@ necp_application_find_policy_match_internal(proc_t proc,
 	    route_rule_id_array,
 	    &route_rule_id_array_count,
 	    MAX_AGGREGATE_ROUTE_RULES,
-	    &service_action,
-	    &service,
 	    netagent_ids,
 	    NECP_MAX_NETAGENTS,
 	    netagent_use_flags,
@@ -8407,42 +8510,29 @@ necp_application_find_policy_match_internal(proc_t proc,
 		returned_result->flow_divert_aggregate_unit = flow_divert_aggregate_unit;
 	}
 
-	returned_result->service_action = service_action;
-
-	// Fetch service registration
-	if (service.identifier != 0) {
-		struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(service.identifier);
-		if (mapping != NULL) {
-			struct necp_service_registration *service_registration = NULL;
-			uuid_copy(returned_result->service_uuid, mapping->uuid);
-			returned_result->service_data = service.data;
-			if (service.identifier == NECP_NULL_SERVICE_ID) {
-				// NULL service is always 'registered'
-				returned_result->service_flags |= NECP_SERVICE_FLAGS_REGISTERED;
-			} else {
-				LIST_FOREACH(service_registration, &necp_registered_service_list, kernel_chain) {
-					if (service.identifier == service_registration->service_id) {
-						returned_result->service_flags |= NECP_SERVICE_FLAGS_REGISTERED;
-						break;
-					}
-				}
-			}
-		}
-	}
-
 	// Handle netagents
 	size_t netagent_i = 0;
+	size_t removed_netagent_type_i = 0;
 	for (netagent_cursor = 0; netagent_cursor < NECP_MAX_NETAGENTS; netagent_cursor++) {
-		struct necp_uuid_id_mapping *mapping = NULL;
 		u_int32_t netagent_id = netagent_ids[netagent_cursor];
 		if (netagent_id == 0) {
 			continue;
 		}
-		mapping = necp_uuid_lookup_uuid_with_service_id_locked(netagent_id);
-		if (mapping != NULL) {
-			uuid_copy(returned_result->netagents[netagent_i], mapping->uuid);
-			returned_result->netagent_use_flags[netagent_i] = netagent_use_flags[netagent_cursor];
-			netagent_i++;
+
+		if (necp_agent_id_is_uuid(netagent_id)) {
+			struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(netagent_id);
+			if (mapping != NULL) {
+				uuid_copy(returned_result->netagents[netagent_i], mapping->uuid);
+				returned_result->netagent_use_flags[netagent_i] = netagent_use_flags[netagent_cursor];
+				netagent_i++;
+			}
+		} else {
+			struct necp_agent_type_id_mapping *mapping = necp_lookup_agent_type_with_id_locked(netagent_id);
+			if (mapping != NULL && removed_netagent_type_i < NECP_MAX_REMOVE_NETAGENT_TYPES &&
+			    netagent_use_flags[netagent_cursor] & NECP_AGENT_USE_FLAG_REMOVE) {
+				memcpy(&returned_result->remove_netagent_types[removed_netagent_type_i], &mapping->agent_type, sizeof(mapping->agent_type));
+				removed_netagent_type_i++;
+			}
 		}
 
 		// If the flags say to remove, clear the local copy
@@ -8816,7 +8906,8 @@ necp_application_find_policy_match_internal(proc_t proc,
 		}
 
 		u_int32_t interface_type_denied = IFRTYPE_FUNCTIONAL_UNKNOWN;
-		bool route_is_allowed = necp_route_is_allowed(rt, NULL, netagent_ids, NECP_MAX_NETAGENTS, route_rule_id_array[route_rule_index], &interface_type_denied);
+		bool ultra_constrained_denied = false;
+		bool route_is_allowed = necp_route_is_allowed(rt, NULL, netagent_ids, NECP_MAX_NETAGENTS, route_rule_id_array[route_rule_index], &interface_type_denied, &ultra_constrained_denied);
 		if (!route_is_allowed) {
 			// If the route is blocked, treat the lookup as a drop
 			returned_result->routing_result = NECP_KERNEL_POLICY_RESULT_DROP;
@@ -8831,7 +8922,13 @@ necp_application_find_policy_match_internal(proc_t proc,
 					}
 				}
 				necp_send_application_interface_denied_event(pid, application_uuid, interface_type_denied);
+			} else if (ultra_constrained_denied) {
+				if (reason != NULL) {
+					*reason = NECP_CLIENT_RESULT_REASON_ULTRA_CONSTRAINED_NOT_ALLOWED;
+				}
+				necp_send_network_denied_event(pid, application_uuid, NETPOLICY_NETWORKTYPE_ULTRA_CONSTRAINED);
 			}
+
 			// If the route gets denied, stop matching rules
 			break;
 		}
@@ -8853,7 +8950,7 @@ necp_application_find_policy_match_internal(proc_t proc,
 		bool remove = false;
 		u_int32_t netagent_id = necp_route_get_netagent(rt, netagent_ids, NECP_MAX_NETAGENTS, route_rule_id_array[route_rule_index], &remove);
 		if (netagent_id != 0) {
-			struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_service_id_locked(netagent_id);
+			struct necp_uuid_id_mapping *mapping = necp_uuid_lookup_uuid_with_agent_id_locked(netagent_id);
 			if (mapping != NULL) {
 				bool agent_already_present = false;
 				for (netagent_cursor = 0; netagent_cursor < NECP_MAX_NETAGENTS; netagent_cursor++) {
@@ -8924,7 +9021,7 @@ necp_application_find_policy_match_internal(proc_t proc,
 		    IFNET_IS_CONSTRAINED(rt->rt_ifp));
 		const bool ultra_constrained_not_allowed = (!(client_flags & NECP_CLIENT_PARAMETER_FLAG_ALLOW_ULTRA_CONSTRAINED) &&
 		    IFNET_IS_ULTRA_CONSTRAINED(rt->rt_ifp) && (task == NULL ||
-		    !IOTaskHasEntitlement(task, ULTRA_CONSTRAINED_ENTITLEMENT)));
+		    (!if_ultra_constrained_default_allowed && !IOTaskHasEntitlement(task, ULTRA_CONSTRAINED_ENTITLEMENT))));
 
 		const bool interface_type_blocked = !necp_route_is_interface_type_allowed(rt, NULL, proc, NULL);
 		if (!is_listener && !is_browser) {
@@ -8943,6 +9040,12 @@ necp_application_find_policy_match_internal(proc_t proc,
 				returned_result->routing_result = NECP_KERNEL_POLICY_RESULT_DROP;
 				memset(&returned_result->routing_result_parameter, 0, sizeof(returned_result->routing_result_parameter));
 			}
+		}
+
+		if ((extended_client_flags & NECP_CLIENT_PARAMETER_EXTENDED_FLAG_AOP2_OFFLOAD) &&
+		    ((rt->rt_ifp->if_xflags & IFXF_RX_FLOW_STEERING) == 0)) {
+			returned_result->routing_result = NECP_KERNEL_POLICY_RESULT_DROP;
+			memset(&returned_result->routing_result_parameter, 0, sizeof(returned_result->routing_result_parameter));
 		}
 	}
 
@@ -9240,7 +9343,7 @@ necp_socket_check_policy(struct necp_kernel_socket_policy *kernel_policy,
 			}
 			task_t __single task = proc_task(proc);
 			if (task == NULL ||
-			    !IOTaskHasEntitlement(task, kernel_policy->cond_custom_entitlement)) {
+			    !IOTaskHasEntitlementAsBooleanOrObject(task, kernel_policy->cond_custom_entitlement)) {
 				// Process is missing custom entitlement
 				return FALSE;
 			}
@@ -10014,8 +10117,6 @@ necp_socket_find_policy_match_with_info_locked(struct necp_kernel_socket_policy 
     u_int32_t * __counted_by(route_rule_id_array_count)return_route_rule_id_array,
     size_t *return_route_rule_id_array_count,
     size_t route_rule_id_array_count,
-    necp_kernel_policy_result *return_service_action,
-    necp_kernel_policy_service *return_service,
     u_int32_t * __counted_by(netagent_array_count)return_netagent_array,
     size_t netagent_array_count,
     u_int32_t * __counted_by(netagent_use_flags_array_count)return_netagent_use_flags_array,
@@ -10071,15 +10172,6 @@ necp_socket_find_policy_match_with_info_locked(struct necp_kernel_socket_policy 
 
 	if (return_route_rule_id_array_count != NULL) {
 		*return_route_rule_id_array_count = 0;
-	}
-
-	if (return_service_action != NULL) {
-		*return_service_action = 0;
-	}
-
-	if (return_service != NULL) {
-		return_service->identifier = 0;
-		return_service->data = 0;
 	}
 
 	// Do not subject layer-2 filter to NECP policies, return a PASS policy
@@ -10278,6 +10370,27 @@ necp_socket_find_policy_match_with_info_locked(struct necp_kernel_socket_policy 
 						    policy_search_array[i]->result_parameter.netagent_id);
 					}
 					continue;
+				} else if (policy_search_array[i]->result == NECP_KERNEL_POLICY_RESULT_REMOVE_NETAGENT_TYPE) {
+					bool agent_already_present = false;
+					for (size_t netagent_i = 0; netagent_i < netagent_cursor; netagent_i++) {
+						if (netagent_ids[netagent_i] == policy_search_array[i]->result_parameter.netagent_id) {
+							// Already present. Mark the "REMOVE" flag if flags are supported, or just clear the entry
+							agent_already_present = true;
+							netagent_use_flags[netagent_i] = NECP_AGENT_USE_FLAG_REMOVE;
+						}
+					}
+					if (!agent_already_present && netagent_cursor < netagent_array_count_adjusted) {
+						// If not present, and flags are supported, add an entry with the "REMOVE" flag
+						netagent_ids[netagent_cursor] = policy_search_array[i]->result_parameter.netagent_id;
+						netagent_use_flags[netagent_cursor] = NECP_AGENT_USE_FLAG_REMOVE;
+						netagent_cursor++;
+					}
+					if (necp_debug > 1 || NECP_DATA_TRACE_POLICY_ON(debug)) {
+						NECPLOG(LOG_DEBUG, "DATA-TRACE: Socket Policy <so %llx>: (Application %d Real Application %d BoundInterface %d Proto %d) Remove NetagentType %d",
+						    (uint64_t)VM_KERNEL_ADDRPERM(so), info->application_id, info->real_application_id, info->bound_interface_index, info->protocol,
+						    policy_search_array[i]->result_parameter.netagent_id);
+					}
+					continue;
 				} else if (policy_search_array[i]->result == NECP_KERNEL_POLICY_RESULT_SOCKET_DIVERT) {
 					u_int32_t control_unit = policy_search_array[i]->result_parameter.flow_divert_control_unit;
 					if (control_unit & FLOW_DIVERT_IS_TRANSPARENT) {
@@ -10471,7 +10584,7 @@ necp_socket_verify_netagents(u_int32_t * __counted_by(NECP_MAX_NETAGENTS)netagen
 		if (netagent_id == 0) {
 			continue;
 		}
-		mapping = necp_uuid_lookup_uuid_with_service_id_locked(netagent_id);
+		mapping = necp_uuid_lookup_uuid_with_agent_id_locked(netagent_id);
 		if (mapping != NULL) {
 			u_int32_t agent_flags = 0;
 			agent_flags = netagent_get_flags(mapping->uuid);
@@ -10501,8 +10614,6 @@ necp_socket_find_policy_match(struct inpcb *inp, struct sockaddr *override_local
 	necp_kernel_policy_filter filter_control_unit = 0;
 	struct necp_kernel_socket_policy *matched_policy = NULL;
 	necp_kernel_policy_id matched_policy_id = NECP_KERNEL_POLICY_ID_NONE;
-	necp_kernel_policy_result service_action = 0;
-	necp_kernel_policy_service service = { 0, 0 };
 	u_int32_t drop_dest_policy_result = NECP_KERNEL_POLICY_RESULT_NONE;
 	necp_drop_all_bypass_check_result_t drop_all_bypass = NECP_DROP_ALL_BYPASS_CHECK_RESULT_NONE;
 	proc_t __single socket_proc = NULL;
@@ -10638,8 +10749,6 @@ necp_socket_find_policy_match(struct inpcb *inp, struct sockaddr *override_local
 	    route_rule_id_array,
 	    &route_rule_id_array_count,
 	    MAX_AGGREGATE_ROUTE_RULES,
-	    &service_action,
-	    &service,
 	    netagent_ids,
 	    NECP_MAX_NETAGENTS,
 	    NULL,
@@ -11908,13 +12017,15 @@ necp_update_qos_marking(struct ifnet *ifp, u_int32_t * __counted_by(netagent_arr
 	    (route_rule->wired_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_WIRED(ifp)) ||
 	    (route_rule->expensive_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_EXPENSIVE(ifp)) ||
 	    (route_rule->constrained_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_CONSTRAINED(ifp)) ||
+	    (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_ULTRA_CONSTRAINED(ifp)) ||
 	    (route_rule->companion_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_COMPANION_LINK(ifp)) ||
 	    (route_rule->vpn_action == NECP_ROUTE_RULE_QOS_MARKING && IFNET_IS_VPN(ifp))) {
 		qos_marking = TRUE;
 		if (necp_debug > 2) {
-			NECPLOG(LOG_DEBUG, "QoS Marking: C:%d WF:%d W:%d E:%d Cn:%d Cmpn:%d VPN:%d for Rule %d Allowed %d",
+			NECPLOG(LOG_DEBUG, "QoS Marking: C:%d WF:%d W:%d E:%d Cn:%d Cmpn:%d VPN:%d UlCn:%d for Rule %d Allowed %d",
 			    route_rule->cellular_action, route_rule->wifi_action, route_rule->wired_action,
-			    route_rule->expensive_action, route_rule->constrained_action, route_rule->companion_action, route_rule->vpn_action, route_rule_id, qos_marking);
+			    route_rule->expensive_action, route_rule->constrained_action, route_rule->companion_action, route_rule->vpn_action,
+			    route_rule->ultra_constrained_action, route_rule_id, qos_marking);
 		}
 		goto done;
 	}
@@ -12026,7 +12137,7 @@ necp_route_is_lqm_abort(struct ifnet *ifp, struct ifnet *delegated_ifp)
 
 static bool
 necp_route_is_allowed_inner(struct rtentry *route, struct ifnet *ifp, u_int32_t * __counted_by(netagent_array_count)netagent_array, size_t netagent_array_count,
-    u_int32_t route_rule_id, u_int32_t *interface_type_denied)
+    u_int32_t route_rule_id, u_int32_t *interface_type_denied, bool *ultra_constrained_denied)
 {
 	bool default_is_allowed = TRUE;
 	u_int8_t type_aggregate_action = NECP_ROUTE_RULE_NONE;
@@ -12255,6 +12366,25 @@ necp_route_is_allowed_inner(struct rtentry *route, struct ifnet *ifp, u_int32_t 
 		}
 	}
 
+	if (IFNET_IS_ULTRA_CONSTRAINED(ifp)) {
+		if (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_DENY_LQM_ABORT) {
+			if (necp_route_is_lqm_abort(ifp, delegated_ifp)) {
+				// Mark aggregate action as deny
+				type_aggregate_action = NECP_ROUTE_RULE_DENY_INTERFACE;
+			}
+		} else if (IS_NECP_ROUTE_RULE_ALLOW_OR_DENY(route_rule->ultra_constrained_action)) {
+			if (ultra_constrained_denied != NULL && IS_NECP_ROUTE_RULE_DENY(route_rule->ultra_constrained_action)) {
+				*ultra_constrained_denied = true;
+			}
+			if (type_aggregate_action == NECP_ROUTE_RULE_NONE ||
+			    (type_aggregate_action == NECP_ROUTE_RULE_ALLOW_INTERFACE &&
+			    IS_NECP_ROUTE_RULE_DENY(route_rule->ultra_constrained_action))) {
+				// Deny wins if there is a conflict
+				type_aggregate_action = route_rule->ultra_constrained_action;
+			}
+		}
+	}
+
 	if (type_aggregate_action != NECP_ROUTE_RULE_NONE) {
 		if (necp_debug > 1) {
 			NECPLOG(LOG_DEBUG, "Route Allowed: C:%d WF:%d W:%d E:%d Cmpn:%d VPN:%d for Rule %d Allowed %d", route_rule->cellular_action, route_rule->wifi_action, route_rule->wired_action, route_rule->expensive_action, route_rule->companion_action, route_rule->vpn_action, route_rule_id, (IS_NECP_ROUTE_RULE_DENY(type_aggregate_action) ? FALSE : TRUE));
@@ -12344,7 +12474,7 @@ necp_route_is_interface_type_allowed(struct rtentry *route, struct ifnet *ifp, p
 
 static bool
 necp_route_is_allowed(struct rtentry *route, struct ifnet *interface, u_int32_t * __counted_by(netagent_array_count)netagent_array, size_t netagent_array_count,
-    u_int32_t route_rule_id, u_int32_t *interface_type_denied)
+    u_int32_t route_rule_id, u_int32_t *interface_type_denied, bool *ultra_constrained_denied)
 {
 	if ((route == NULL && interface == NULL && netagent_array == NULL) || route_rule_id == 0) {
 		if (necp_debug > 1) {
@@ -12362,13 +12492,13 @@ necp_route_is_allowed(struct rtentry *route, struct ifnet *interface, u_int32_t 
 				if (sub_route_rule_id == 0) {
 					break;
 				}
-				if (!necp_route_is_allowed_inner(route, interface, netagent_array, netagent_array_count, sub_route_rule_id, interface_type_denied)) {
+				if (!necp_route_is_allowed_inner(route, interface, netagent_array, netagent_array_count, sub_route_rule_id, interface_type_denied, ultra_constrained_denied)) {
 					return FALSE;
 				}
 			}
 		}
 	} else {
-		return necp_route_is_allowed_inner(route, interface, netagent_array, netagent_array_count, route_rule_id, interface_type_denied);
+		return necp_route_is_allowed_inner(route, interface, netagent_array, netagent_array_count, route_rule_id, interface_type_denied, ultra_constrained_denied);
 	}
 
 	return TRUE;
@@ -12506,6 +12636,16 @@ necp_route_get_netagent(struct rtentry *route, u_int32_t * __counted_by(netagent
 		return 0;
 	}
 
+	if ((ifp->if_xflags & IFXF_ULTRA_CONSTRAINED) &&
+	    route_rule->ultra_constrained_action != NECP_ROUTE_RULE_NONE) {
+		if (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_USE_NETAGENT ||
+		    route_rule->ultra_constrained_action == NECP_ROUTE_RULE_REMOVE_NETAGENT) {
+			*remove = (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_REMOVE_NETAGENT);
+			return route_rule->netagent_id;
+		}
+		return 0;
+	}
+
 	if (ifp->if_xflags & IFXF_IS_VPN &&
 	    route_rule->vpn_action != NECP_ROUTE_RULE_NONE) {
 		if (route_rule->vpn_action == NECP_ROUTE_RULE_USE_NETAGENT ||
@@ -12627,6 +12767,14 @@ necp_route_get_flow_divert_inner(struct rtentry *route, u_int32_t * __counted_by
 		return 0;
 	}
 
+	if ((ifp->if_xflags & IFXF_ULTRA_CONSTRAINED) &&
+	    route_rule->ultra_constrained_action != NECP_ROUTE_RULE_NONE) {
+		if (route_rule->ultra_constrained_action == NECP_ROUTE_RULE_DIVERT_SOCKET) {
+			return route_rule->control_unit;
+		}
+		return 0;
+	}
+
 	if (ifp->if_xflags & IFXF_IS_VPN &&
 	    route_rule->vpn_action != NECP_ROUTE_RULE_NONE) {
 		if (route_rule->vpn_action == NECP_ROUTE_RULE_DIVERT_SOCKET) {
@@ -12692,7 +12840,7 @@ necp_packet_is_allowed_over_interface(struct mbuf *packet, struct ifnet *interfa
 	if (route_rule_id != 0 &&
 	    interface != NULL) {
 		lck_rw_lock_shared(&necp_kernel_policy_lock);
-		is_allowed = necp_route_is_allowed(NULL, interface, NULL, 0, necp_get_route_rule_id_from_packet(packet), NULL);
+		is_allowed = necp_route_is_allowed(NULL, interface, NULL, 0, necp_get_route_rule_id_from_packet(packet), NULL, NULL);
 		lck_rw_done(&necp_kernel_policy_lock);
 	}
 	return is_allowed;
@@ -12708,7 +12856,7 @@ necp_netagents_allow_traffic(u_int32_t * __counted_by(netagent_id_count)netagent
 		if (netagent_id == 0) {
 			continue;
 		}
-		mapping = necp_uuid_lookup_uuid_with_service_id_locked(netagent_id);
+		mapping = necp_uuid_lookup_uuid_with_agent_id_locked(netagent_id);
 		if (mapping != NULL) {
 			u_int32_t agent_flags = 0;
 			agent_flags = netagent_get_flags(mapping->uuid);
@@ -12744,8 +12892,6 @@ necp_socket_is_allowed_to_send_recv_internal(struct inpcb *inp, struct sockaddr 
 	bool allowed_to_receive = TRUE;
 	struct necp_socket_info info = {};
 	u_int32_t flowhash = 0;
-	necp_kernel_policy_result service_action = 0;
-	necp_kernel_policy_service service = { 0, 0 };
 	u_int32_t route_rule_id = 0;
 	struct rtentry *route = NULL;
 	u_int32_t interface_type_denied = IFRTYPE_FUNCTIONAL_UNKNOWN;
@@ -12808,7 +12954,7 @@ necp_socket_is_allowed_to_send_recv_internal(struct inpcb *inp, struct sockaddr 
 		} else {
 			if (inp->inp_policyresult.results.route_rule_id != 0) {
 				lck_rw_lock_shared(&necp_kernel_policy_lock);
-				if (!necp_route_is_allowed(route, input_interface, NULL, 0, inp->inp_policyresult.results.route_rule_id, &interface_type_denied)) {
+				if (!necp_route_is_allowed(route, input_interface, NULL, 0, inp->inp_policyresult.results.route_rule_id, &interface_type_denied, NULL)) {
 					route_allowed = FALSE;
 				}
 				lck_rw_done(&necp_kernel_policy_lock);
@@ -12875,7 +13021,7 @@ necp_socket_is_allowed_to_send_recv_internal(struct inpcb *inp, struct sockaddr 
 		    inp->inp_policyresult.results.result_parameter.tunnel_interface_index != verifyifindex) ||
 		    !necp_route_is_interface_type_allowed(route, input_interface, NULL, inp) ||
 		    (inp->inp_policyresult.results.route_rule_id != 0 &&
-		    !necp_route_is_allowed(route, input_interface, NULL, 0, inp->inp_policyresult.results.route_rule_id, &interface_type_denied))) {
+		    !necp_route_is_allowed(route, input_interface, NULL, 0, inp->inp_policyresult.results.route_rule_id, &interface_type_denied, NULL))) {
 			allowed_to_receive = FALSE;
 			NECP_DATA_TRACE_LOG_SOCKET_DP(debug, so, "SOCKET - DATA PATH", "RESULT - CACHED <DROP>", return_policy_id ? *return_policy_id : 0, return_skip_policy_id ? *return_skip_policy_id : 0);
 		} else {
@@ -12916,8 +13062,6 @@ necp_socket_is_allowed_to_send_recv_internal(struct inpcb *inp, struct sockaddr 
 	    route_rule_id_array,
 	    &route_rule_id_array_count,
 	    MAX_AGGREGATE_ROUTE_RULES,
-	    &service_action,
-	    &service,
 	    netagent_ids,
 	    NECP_MAX_NETAGENTS,
 	    NULL,
@@ -13022,7 +13166,7 @@ skip_agent_check:
 		    matched_policy->result_parameter.tunnel_interface_index != verifyifindex) ||
 		    !necp_route_is_interface_type_allowed(route, input_interface, NULL, inp) ||
 		    (route_rule_id != 0 &&
-		    !necp_route_is_allowed(route, input_interface, netagent_ids, NECP_MAX_NETAGENTS, route_rule_id, &interface_type_denied)) ||
+		    !necp_route_is_allowed(route, input_interface, netagent_ids, NECP_MAX_NETAGENTS, route_rule_id, &interface_type_denied, NULL)) ||
 		    !necp_netagents_allow_traffic(netagent_ids, NECP_MAX_NETAGENTS)) {
 			allowed_to_receive = FALSE;
 		} else {

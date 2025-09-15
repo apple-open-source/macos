@@ -164,6 +164,10 @@ int	__archive_mkstemp(wchar_t *template);
 int	__archive_mkstemp(char *template);
 #endif
 
+#ifdef __APPLE__
+void    __archive_get_tempdir(struct archive_string *temppath);
+#endif
+
 int	__archive_clean(struct archive *);
 
 void __archive_reset_read_data(struct archive *);

@@ -19,6 +19,7 @@ import UIKit
   public var dismissFullScreenOnExitingDocking: Swift.Bool { get set }
   public var environmentPickerButtonViewController: UIKit.UIViewController? { get }
 }
+
 public enum ContentType : Swift.Equatable, Swift.CaseIterable, Swift.Codable, Swift.Sendable {
  case immersive
  case spatial

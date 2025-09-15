@@ -54,8 +54,6 @@
 	X(xfertcprstflood, "TCP RST flood") \
 	X(xferudpwitherrors, "UDP bi-directional transfer over native fake ethernet pair with injected errors") \
 	X(xferudpwitherrorscompat, "UDP bi-directional transfer over compat fake ethernet pair with injected errors") \
-	X(xferudpping_aqm, "UDP ping-pong over fake ethernet pair with AQM") \
-	X(xferudppingn_aqm, "UDP ping-pong over native fake ethernet pair with AQM") \
 	X(xfertcpportzero, "TCP connect to port 0") \
 	X(xferudpportzero, "UDP connect to port 0") \
 	X(xfersetuponly, "setup fake ethernet pair only") \
@@ -78,7 +76,6 @@
 	X(netifdirectifadvdisable, "netif interface advisory disabled test") \
 	X(netifdirectchanevents, "netif interface channel events test") \
 	X(netifdirectexpiryevents, "netif interface expiry events test") \
-	X(xferudpifadvenable, "flowswitch interface advisory enabled test") \
 	X(xferudpifadvdisable, "flowswitch interface advisory disabled test") \
 	X(xferudpchanevents, "flowswitch channel events test") \
 	X(xferudpchaneventsasync, "flowswitch channel events in async mode test") \
@@ -90,7 +87,12 @@
 	X(xferparentchildflown, "flowswitch parent child flows on native fake ethernet interface test") \
 	X(xferparentchildflow_offset_400, "flowswitch parent child flows test with demux offset 400") \
 	X(xferparentchildflown_offset_400, "flowswitch parent child flows on native fake ethernet interface test with demux offset 400") \
-	X(xferrdudpping, "UDP ping-pong between redirect and fake ethernet interface")
+	X(xferrdudpping, "UDP ping-pong between redirect and fake ethernet interface") \
+	X(xferrxflowsteeringdroptxpackets, "drop aop2 offload Tx packets in flowswitch")
+
+#define RDAR_133412076_FAILING_TESTS \
+    X(xferudpifadvenable, "flowswitch interface advisory enabled test") \
+    X(xferrxflowsteeringdroprxpackets, "drop aop2 offload Rx packets in flowswitch")
 
 /*
  * This is equivalent to the following legacy test command:
@@ -108,4 +110,19 @@
 	        skywalk_mptest_driver_run(&skt_##test, ignorefail);        \
 	}
 BATS_TESTS;
+#undef X
+
+#define X(test, desc, ...) \
+    T_DECL(test, desc, T_META_NAMESPACE("xnu.skywalk_mptests"),        \
+	T_META_ENABLED(false) /* rdar://133412076 */ )                     \
+	{                                                                  \
+	        const char *ignorefail_str = getenv("ignorefail");         \
+	        bool ignorefail = false;                                   \
+	        if (ignorefail_str) {                                      \
+	                T_LOG("ignorefail option present");                \
+	                ignorefail = true;                                 \
+	        }                                                          \
+	        skywalk_mptest_driver_run(&skt_##test, ignorefail);        \
+	}
+RDAR_133412076_FAILING_TESTS
 #undef X

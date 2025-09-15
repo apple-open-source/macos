@@ -60,7 +60,6 @@ class DestinationColorSpace;
 class FloatPoint;
 class FloatRect;
 class FloatSize;
-class PlatformCALayerClient;
 class Widget;
 
 using PlatformDisplayID = uint32_t;
@@ -82,7 +81,7 @@ double screenDPI(PlatformDisplayID); // dpi of the display device, corrected for
 FloatRect screenRect(Widget*);
 FloatRect screenAvailableRect(Widget*);
 
-WEBCORE_EXPORT ContentsFormat screenContentsFormat(Widget* = nullptr, PlatformCALayerClient* = nullptr);
+WEBCORE_EXPORT OptionSet<ContentsFormat> screenContentsFormats(Widget* = nullptr);
 WEBCORE_EXPORT bool screenSupportsExtendedColor(Widget* = nullptr);
 
 enum class DynamicRangeMode : uint8_t {
@@ -100,6 +99,7 @@ constexpr DynamicRangeMode preferredDynamicRangeMode(Widget* = nullptr) { return
 
 #if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
 WEBCORE_EXPORT bool screenSupportsHighDynamicRange(Widget* = nullptr);
+WEBCORE_EXPORT bool screenSupportsHighDynamicRange(PlatformDisplayID);
 #else
 constexpr bool screenSupportsHighDynamicRange(Widget* = nullptr) { return false; }
 #endif
@@ -112,7 +112,16 @@ WEBCORE_EXPORT void setScreenProperties(const ScreenProperties&);
 const ScreenProperties& getScreenProperties();
 WEBCORE_EXPORT const ScreenData* screenData(PlatformDisplayID screendisplayID);
 WEBCORE_EXPORT PlatformDisplayID primaryScreenDisplayID();
-    
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+WEBCORE_EXPORT void setScreenContentsFormatsForTesting(OptionSet<ContentsFormat>);
+OptionSet<ContentsFormat> screenContentsFormatsForTesting();
+
+WEBCORE_EXPORT float currentEDRHeadroomForDisplay(PlatformDisplayID);
+WEBCORE_EXPORT float maxEDRHeadroomForDisplay(PlatformDisplayID);
+WEBCORE_EXPORT bool suppressEDRForDisplay(PlatformDisplayID);
+#endif
+
 #if PLATFORM(MAC)
 
 WEBCORE_EXPORT PlatformDisplayID displayID(NSScreen *);
@@ -156,12 +165,10 @@ WEBCORE_EXPORT float screenScaleFactor(UIScreen * = nullptr);
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(GTK)
 WEBCORE_EXPORT bool screenHasTouchDevice();
-WEBCORE_EXPORT bool screenIsTouchPrimaryInputDevice();
 #else
 constexpr bool screenHasTouchDevice() { return true; }
-constexpr bool screenIsTouchPrimaryInputDevice() { return true; }
 #endif
 #endif
 

@@ -38,5 +38,10 @@ messages -> WebProcessPool {
     [EnabledBy=GamepadsEnabled] StopGamepadEffects(unsigned gamepadIndex, String gamepadID) -> ()
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+    [EnabledBy=ModelElementEnabled && ModelProcessEnabled] StartedPlayingModels()
+    [EnabledBy=ModelElementEnabled && ModelProcessEnabled] StoppedPlayingModels()
+#endif
+
     ReportWebContentCPUTime(Seconds cpuTime, uint64_t activityState)
 }

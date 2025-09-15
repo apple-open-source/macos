@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,26 +29,27 @@
 #include "FEImage.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
+#include "NativeImage.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FEImageSoftwareApplier);
 
-bool FEImageSoftwareApplier::apply(const Filter& filter, const FilterImageVector&, FilterImage& result) const
+bool FEImageSoftwareApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>>, FilterImage& result) const
 {
     RefPtr resultImage = result.imageBuffer();
     if (!resultImage)
         return false;
 
-    auto& sourceImage = m_effect.sourceImage();
+    auto& sourceImage = m_effect->sourceImage();
     auto primitiveSubregion = result.primitiveSubregion();
     auto& context = resultImage->context();
 
     if (auto nativeImage = sourceImage.nativeImageIfExists()) {
         auto imageRect = primitiveSubregion;
-        auto srcRect = m_effect.sourceImageRect();
-        m_effect.preserveAspectRatio().transformRect(imageRect, srcRect);
+        auto srcRect = m_effect->sourceImageRect();
+        m_effect->preserveAspectRatio().transformRect(imageRect, srcRect);
         imageRect.scale(filter.filterScale());
         imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
         context.drawNativeImage(*nativeImage, imageRect, srcRect);
@@ -57,7 +58,7 @@ bool FEImageSoftwareApplier::apply(const Filter& filter, const FilterImageVector
 
     if (auto imageBuffer = sourceImage.imageBufferIfExists()) {
         auto imageRect = primitiveSubregion;
-        imageRect.moveBy(m_effect.sourceImageRect().location());
+        imageRect.moveBy(m_effect->sourceImageRect().location());
         imageRect.scale(filter.filterScale());
         imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
         context.drawImageBuffer(*imageBuffer, imageRect.location());

@@ -36,6 +36,9 @@
     RetainPtr<UIColor> _selectionHandleColor;
     RetainPtr<UIColor> _selectionHighlightColor;
     RetainPtr<UITextInputPasswordRules> _passwordRules;
+#if HAVE(UI_CONVERSATION_CONTEXT)
+    RetainPtr<UIConversationContext> _conversationContext;
+#endif
 }
 
 - (instancetype)init
@@ -97,6 +100,20 @@
 {
     return _selectionHighlightColor.get();
 }
+
+#if HAVE(UI_CONVERSATION_CONTEXT)
+
+- (UIConversationContext *)conversationContext
+{
+    return _conversationContext.get();
+}
+
+- (void)setConversationContext:(UIConversationContext *)context
+{
+    _conversationContext = context;
+}
+
+#endif // HAVE(UI_CONVERSATION_CONTEXT)
 
 - (void)setSelectionColorsToMatchTintColor:(UIColor *)tintColor
 {

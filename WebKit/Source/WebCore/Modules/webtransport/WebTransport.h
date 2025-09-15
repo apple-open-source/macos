@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
-#include "ExceptionOr.h"
 #include "WebTransportOptions.h"
 #include "WebTransportReliabilityMode.h"
 #include "WebTransportSessionClient.h"
@@ -63,6 +62,8 @@ struct WebTransportBidirectionalStreamConstructionParameters;
 struct WebTransportCloseInfo;
 struct WebTransportSendStreamOptions;
 struct WebTransportHash;
+
+template<typename> class ExceptionOr;
 
 class WebTransport : public WebTransportSessionClient, public ActiveDOMObject {
 public:
@@ -105,8 +106,8 @@ private:
 
     ListHashSet<Ref<WritableStream>> m_sendStreams;
     ListHashSet<Ref<ReadableStream>> m_receiveStreams;
-    Ref<ReadableStream> m_incomingBidirectionalStreams;
-    Ref<ReadableStream> m_incomingUnidirectionalStreams;
+    const Ref<ReadableStream> m_incomingBidirectionalStreams;
+    const Ref<ReadableStream> m_incomingUnidirectionalStreams;
 
     // https://www.w3.org/TR/webtransport/#dom-webtransport-state-slot
     enum class State : uint8_t {
@@ -124,11 +125,11 @@ private:
     WebTransportCongestionControl m_congestionControl;
     PromiseAndWrapper m_closed;
     PromiseAndWrapper m_draining;
-    Ref<WebTransportDatagramDuplexStream> m_datagrams;
+    const Ref<WebTransportDatagramDuplexStream> m_datagrams;
     RefPtr<WebTransportSession> m_session;
-    Ref<DatagramSource> m_datagramSource;
-    Ref<WebTransportReceiveStreamSource> m_receiveStreamSource;
-    Ref<WebTransportBidirectionalStreamSource> m_bidirectionalStreamSource;
+    const Ref<DatagramSource> m_datagramSource;
+    const Ref<WebTransportReceiveStreamSource> m_receiveStreamSource;
+    const Ref<WebTransportBidirectionalStreamSource> m_bidirectionalStreamSource;
     HashMap<WebTransportStreamIdentifier, Ref<WebTransportReceiveStreamSource>> m_readStreamSources;
 };
 

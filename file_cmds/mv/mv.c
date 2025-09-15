@@ -32,29 +32,14 @@
  * SUCH DAMAGE.
  */
 
-#if 0
-#ifndef lint
-static char const copyright[] =
-"@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
-#endif /* not lint */
-
-#ifndef lint
-static char sccsid[] = "@(#)mv.c	8.2 (Berkeley) 4/2/94";
-#endif /* not lint */
-#endif
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
+#include <sys/param.h>
 #ifndef __APPLE__
-#include <sys/types.h>
 #include <sys/acl.h>
 #endif
-#include <sys/param.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/mount.h>
 
 #include <err.h>
 #include <errno.h>
@@ -68,26 +53,25 @@ __FBSDID("$FreeBSD$");
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include <locale.h>
 
 /* Exit code for a failed exec. */
 #define EXEC_FAILED 127
 
 #ifdef __APPLE__
-#include <copyfile.h>
 #include <sys/mount.h>
-#endif
 
-#ifdef __APPLE__ 
+#include <copyfile.h>
 #include <get_compat.h>
+#include <locale.h>
+
+#include "pathnames.h"
 
 #define	st_atim	st_atimespec
 #define	st_mtim	st_mtimespec
-#else   
-#define COMPAT_MODE(a,b) (1) 
-#endif /* __APPLE__ */ 
 
-#include "pathnames.h"
+#undef vfork
+#define vfork() fork()
+#endif /* __APPLE__ */
 
 static int	fflg, hflg, iflg, nflg, vflg;
 
@@ -96,22 +80,20 @@ static int	do_move(const char *, const char *);
 static int	fastcopy(const char *, const char *, struct stat *);
 static void	usage(void);
 #ifndef __APPLE__
-static void	preserve_fd_acls(int source_fd, int dest_fd, const char *source_path,
-		    const char *dest_path);
+static void	preserve_fd_acls(int, int, const char *, const char *);
 #endif
 
 int
 main(int argc, char *argv[])
 {
-	size_t baselen, len;
-	int rval;
-	char *p, *endp;
-	struct stat sb;
+	char path[PATH_MAX];
 #ifdef __APPLE__
 	struct stat fsb, tsb;
 #endif /* __APPLE__ */
-	int ch;
-	char path[PATH_MAX];
+	struct stat sb;
+	char *p, *endp;
+	size_t baselen, len;
+	int ch, rval;
 
 	while ((ch = getopt(argc, argv, "fhinv")) != -1)
 		switch (ch) {
@@ -151,7 +133,6 @@ main(int argc, char *argv[])
 			errx(1, "%s is not a directory", argv[argc - 1]);
 		exit(do_move(argv[0], argv[1]));
 	}
-	
 #ifdef __APPLE__
 	if (argc == 2 && !lstat(argv[0], &fsb) && !lstat(argv[1], &tsb) &&
 		fsb.st_ino == tsb.st_ino && fsb.st_dev == tsb.st_dev &&
@@ -167,7 +148,7 @@ main(int argc, char *argv[])
 		 * permit the renaming of symlinks to case-variants.
 		 */
 		char *q;
-		
+
 		for (p = argv[0] + strlen(argv[0]); p != argv[0]; ) {
 			p--;
 			if (*p != '/')
@@ -234,27 +215,31 @@ main(int argc, char *argv[])
 			rval = 1;
 		} else {
 			memmove(endp, p, (size_t)len + 1);
+#ifdef __APPLE__
 			if (COMPAT_MODE("bin/mv", "unix2003")) {
-				/* 
-				 * For Unix 2003 compatibility, check if old and new are 
-				 * same file, and produce an error * (like on Sun) that 
+				/*
+				 * For Unix 2003 compatibility, check if old and new are
+				 * same file, and produce an error * (like on Sun) that
 				 * conformance test 66 in mv.ex expects.
 				 */
 				if (!stat(*argv, &fsb) && !stat(path, &tsb) &&
-					fsb.st_ino == tsb.st_ino && 
-					fsb.st_dev == tsb.st_dev &&
-					fsb.st_gen == tsb.st_gen) {
-					(void)fprintf(stderr, "mv: %s and %s are identical\n", 
-								*argv, path);
+				    fsb.st_ino == tsb.st_ino &&
+				    fsb.st_dev == tsb.st_dev &&
+				    fsb.st_gen == tsb.st_gen) {
+					(void)fprintf(stderr, "mv: %s and %s are identical\n",
+					    *argv, path);
 					rval = 2; /* Like the Sun */
 				} else {
 					if (do_move(*argv, path))
 						rval = 1;
 				}
 			} else {
-				if (do_move(*argv, path))
-					rval = 1;
+#endif /* __APPLE__ */
+			if (do_move(*argv, path))
+				rval = 1;
+#ifdef __APPLE__
 			}
+#endif /* __APPLE__ */
 		}
 	}
 	exit(rval);
@@ -263,10 +248,13 @@ main(int argc, char *argv[])
 static int
 do_move(const char *from, const char *to)
 {
+	char path[PATH_MAX], modep[15];
+	struct statfs sfs;
 	struct stat sb;
 	int ask, ch, first;
-	char modep[15];
+#ifdef __APPLE__
 	char resp[] = {'\0', '\0'};
+#endif /* __APPLE__ */
 
 	/*
 	 * Check access.  If interactive and file exists, ask user if it
@@ -274,9 +262,8 @@ do_move(const char *from, const char *to)
 	 * make sure the user wants to clobber it.
 	 */
 	if (!fflg && !access(to, F_OK)) {
-
-		/* prompt only if source exist */
-	        if (lstat(from, &sb) == -1) {
+		/* prompt only if source exists */
+		if (lstat(from, &sb) == -1) {
 			warn("%s", from);
 			return (1);
 		}
@@ -299,17 +286,21 @@ do_move(const char *from, const char *to)
 			ask = 1;
 		}
 		if (ask) {
+#ifdef __APPLE__
 			/* Load user specified locale */
 			setlocale(LC_MESSAGES, "");
-
+#endif /* __APPLE__ */
 			first = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
-
+#ifdef __APPLE__
 			/* only care about the first character */
 			resp[0] = first;
 
 			if (rpmatch(resp) != 1) {
+#else
+			if (first != 'y' && first != 'Y') {
+#endif /* __APPLE__ */
 				(void)fprintf(stderr, "not overwritten\n");
 				return (0);
 			}
@@ -326,10 +317,21 @@ do_move(const char *from, const char *to)
 		return (0);
 	}
 
+#ifdef __APPLE__
+	/*
+	 * This is not the case on Darwin, so if we get EXDEV we have to
+	 * check the destination and set EISDIR or ENOTDIR if appropriate.
+	 */
 	if (errno == EXDEV) {
-		struct statfs sfs;
-		char path[PATH_MAX];
-
+		struct stat tsb;
+		int serrno = errno;
+		if (lstat(to, &tsb) == 0 &&
+		    S_ISDIR(sb.st_mode) != S_ISDIR(tsb.st_mode))
+			serrno = S_ISDIR(tsb.st_mode) ? EISDIR : ENOTDIR;
+		errno = serrno;
+	}
+#endif
+	if (errno == EXDEV) {
 		/*
 		 * If the source is a symbolic link and is on another
 		 * filesystem, it can be recreated at the destination.
@@ -372,24 +374,25 @@ static int
 fastcopy(const char *from, const char *to, struct stat *sbp)
 {
 	struct timespec ts[2];
-	static u_int blen = MAXPHYS;
-	static char *bp = NULL;
-	mode_t oldmode;
 #ifdef __APPLE__
-	/* See rdar://problem/10819384 - implicit conversion precision loss */
+	struct statfs sfs;
+#endif /* __APPLE__ */
+	struct stat tsb;
+	static char *bp = NULL;
+	static size_t blen = MAXPHYS;
 	ssize_t nread;
 	int from_fd, to_fd;
-#else
-	int nread, from_fd, to_fd;
-	struct stat tsb;
-#endif
+#ifdef __APPLE__
+	int ret;
+#endif /* __APPLE__ */
+	mode_t oldmode;
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0) {
 		warn("fastcopy: open() failed (from): %s", from);
 		return (1);
 	}
-	if (bp == NULL && (bp = malloc((size_t)blen)) == NULL) {
-		warnx("malloc(%u) failed", blen);
+	if (bp == NULL && (bp = malloc(blen)) == NULL) {
+		warnx("malloc(%zu) failed", blen);
 		(void)close(from_fd);
 		return (1);
 	}
@@ -422,7 +425,7 @@ fastcopy(const char *from, const char *to, struct stat *sbp)
                }
        }
 #endif /* __APPLE__ */
-	while ((nread = read(from_fd, bp, (size_t)blen)) > 0)
+	while ((nread = read(from_fd, bp, blen)) > 0)
 		if (write(to_fd, bp, (size_t)nread) != nread) {
 			warn("fastcopy: write() failed: %s", to);
 			goto err;
@@ -448,12 +451,27 @@ err:		if (unlink(to))
 		warn("%s: set owner/group (was: %lu/%lu)", to,
 		    (u_long)sbp->st_uid, (u_long)sbp->st_gid);
 		if (oldmode & (S_ISUID | S_ISGID)) {
-			warnx(
-"%s: owner/group changed; clearing suid/sgid (mode was 0%03o)",
+			warnx("%s: owner/group changed; "
+			    "clearing suid/sgid (mode was 0%03o)",
 			    to, oldmode);
 			sbp->st_mode &= ~(S_ISUID | S_ISGID);
 		}
 	}
+#ifdef __APPLE__
+	/*
+	 * If the destination is on a different filesystem than the
+	 * source, avoid copying suppressed permissions.
+	 */
+	if (sbp->st_mode & (S_IXUSR|S_IXGRP|S_IXOTH|S_ISUID|S_ISGID) &&
+	    fstat(to_fd, &tsb) == 0 &&
+	    tsb.st_dev != sbp->st_dev) {
+		ret = fstatfs(from_fd, &sfs);
+		if (ret != 0 || sfs.f_flags & MNT_NOEXEC)
+			sbp->st_mode &= ~(S_IXUSR|S_IXGRP|S_IXOTH);
+		if (ret != 0 || sfs.f_flags & MNT_NOSUID)
+			sbp->st_mode &= ~(S_ISUID|S_ISGID);
+	}
+#endif /* __APPLE__ */
 	if (fchmod(to_fd, sbp->st_mode))
 		warn("%s: set mode (was: 0%03o)", to, oldmode);
 #ifndef __APPLE__
@@ -465,6 +483,12 @@ err:		if (unlink(to))
 	preserve_fd_acls(from_fd, to_fd, from, to);
 #endif
 	(void)close(from_fd);
+
+	ts[0] = sbp->st_atim;
+	ts[1] = sbp->st_mtim;
+	if (futimens(to_fd, ts))
+		warn("%s: set times", to);
+
 	/*
 	 * XXX
 	 * NFS doesn't support chflags; ignore errors unless there's reason
@@ -490,11 +514,6 @@ err:		if (unlink(to))
 	} else
 		warn("%s: cannot stat", to);
 #endif
-
-	ts[0] = sbp->st_atim;
-	ts[1] = sbp->st_mtim;
-	if (futimens(to_fd, ts))
-		warn("%s: set times", to);
 
 	if (close(to_fd)) {
 		warn("%s", to);
@@ -535,7 +554,7 @@ copy(const char *from, const char *to)
 	}
 
 	/* Copy source to destination. */
-	if (!(pid = fork())) {
+	if (!(pid = vfork())) {
 		execl(_PATH_CP, "mv", vflg ? "-PRpv" : "-PRp", "--", from, to,
 		    (char *)NULL);
 		_exit(EXEC_FAILED);
@@ -562,7 +581,7 @@ copy(const char *from, const char *to)
 	}
 
 	/* Delete the source. */
-	if (!(pid = fork())) {
+	if (!(pid = vfork())) {
 		execl(_PATH_RM, "mv", "-rf", "--", from, (char *)NULL);
 		_exit(EXEC_FAILED);
 	}
@@ -646,9 +665,8 @@ preserve_fd_acls(int source_fd, int dest_fd, const char *source_path,
 static void
 usage(void)
 {
-
 	(void)fprintf(stderr, "%s\n%s\n",
-		      "usage: mv [-f | -i | -n] [-hv] source target",
-		      "       mv [-f | -i | -n] [-v] source ... directory");
+	    "usage: mv [-f | -i | -n] [-hv] source target",
+	    "       mv [-f | -i | -n] [-v] source ... directory");
 	exit(EX_USAGE);
 }

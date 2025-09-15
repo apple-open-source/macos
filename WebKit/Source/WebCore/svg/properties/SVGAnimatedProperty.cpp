@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,16 +30,26 @@
 
 namespace WebCore {
 
+SVGAnimatedProperty::SVGAnimatedProperty(SVGElement* contextElement)
+    : m_contextElement(contextElement)
+{
+}
+
+SVGElement* SVGAnimatedProperty::contextElement() const
+{
+    return m_contextElement.get();
+}
+
 SVGPropertyOwner* SVGAnimatedProperty::owner() const
 {
-    return m_contextElement;
+    return m_contextElement.get();
 }
 
 void SVGAnimatedProperty::commitPropertyChange(SVGProperty*)
 {
     if (!m_contextElement)
         return;
-    RefPtr protectedContextElement = m_contextElement;
+    RefPtr protectedContextElement = m_contextElement.get();
     protectedContextElement->commitPropertyChange(*this);
 }
 

@@ -16,12 +16,16 @@
 
 #include <spawn.h>
 #include "tls-darwin.h"
+#include <os/log.h>
 
 #if __has_include(<Security/SecureTransportPriv.h>)
 #include <Security/SecureTransportPriv.h>
 #else
 extern OSStatus SSLSetDHEEnabled(SSLContextRef, Boolean);
 #endif
+#include <Security/SecItemPriv.h>
+
+#define KEYCHAIN_ACCESS_GROUP CFSTR("com.apple.ipp")
 
 /*
  * Constants, very secure stuff...
@@ -71,6 +75,8 @@ static SecKeychainRef	http_cdsa_open_system_keychain(void);
 static OSStatus		http_cdsa_read(SSLConnectionRef connection, void *data, size_t *dataLength);
 static int		http_cdsa_set_credentials(http_t *http);
 static OSStatus		http_cdsa_write(SSLConnectionRef connection, const void *data, size_t *dataLength);
+static int              commonNamesAreEqual(const char *name1, const char *name2);
+static void             logSecError(const char *function, OSStatus err);
 
 
 /*
@@ -523,6 +529,22 @@ _httpCreateCredentials(
   return (peerCerts);
 }
 
+static int commonNamesAreEqual(const char *name1, const char *name2)
+{
+  size_t name1Len = strlen(name1);
+  size_t name2Len = strlen(name2);
+  int equalNames = 0;
+  
+  // Ignore trailing '.' as its inclusion in certificates is uneven.
+  if (name1Len > 0 && name1[name1Len-1] == '.') name1Len--;
+  if (name2Len > 0 && name2[name2Len-1] == '.') name2Len--;
+  
+  if (name1Len == name2Len) {
+    equalNames = !strncasecmp(name1, name2, name1Len);
+  }
+  
+  return equalNames;
+}
 
 /*
  * 'httpCredentialsAreValidForName()' - Return whether the credentials are valid for the given name.
@@ -554,12 +576,13 @@ httpCredentialsAreValidForName(
    /*
     * Can't get common name, cannot be valid...
     */
-
+    fprintf(stderr, "DEBUG: %s certificate missing common name\n", __func__);
     valid = 0;
   }
   else if (CFStringGetCString(cfcert_name, cert_name, sizeof(cert_name), kCFStringEncodingUTF8) &&
-           _cups_strcasecmp(common_name, cert_name))
+           !commonNamesAreEqual(common_name, cert_name))
   {
+
    /*
     * Not an exact match for the common name, check for wildcard certs...
     */
@@ -574,6 +597,8 @@ httpCredentialsAreValidForName(
       */
 
       /* TODO: Check subject alternate names */
+
+      fprintf(stderr, "DEBUG: %s Common name (%s) mismatch with certificate name (%s)\n", __func__, common_name, cert_name);
       valid = 0;
     }
   }
@@ -583,6 +608,8 @@ httpCredentialsAreValidForName(
 
   CFRelease(secCert);
 
+  fprintf(stderr, "DEBUG: %s: valid: %s\n", __func__, valid ? "Yes" : "No");
+ 
   return (valid);
 }
 
@@ -626,7 +653,7 @@ httpCredentialsGetTrust(
   */
 
   httpLoadCredentials(NULL, &tcreds, common_name);
-
+  
   if (tcreds)
   {
     char	credentials_str[1024],	/* String for incoming credentials */
@@ -635,8 +662,13 @@ httpCredentialsGetTrust(
     httpCredentialsString(credentials, credentials_str, sizeof(credentials_str));
     httpCredentialsString(tcreds, tcreds_str, sizeof(tcreds_str));
 
+    fprintf(stderr, "DEBUG: %s: Comparing %s with %s\n", __func__, credentials_str, tcreds_str);
+   
     if (strcmp(credentials_str, tcreds_str))
     {
+     
+     fprintf(stderr, "DEBUG: %s: Credentials do not match\n", __func__);
+
      /*
       * Credentials don't match, let's look at the expiration date of the new
       * credentials and allow if the new ones have a later expiration...
@@ -681,6 +713,11 @@ httpCredentialsGetTrust(
 	trust = HTTP_TRUST_RENEWED;
 
         httpSaveCredentials(NULL, credentials, common_name);
+      }
+      else
+      {
+       _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("The printers credentials have changed."), 1);
+       trust = HTTP_TRUST_CHANGED;
       }
     }
 
@@ -749,6 +786,8 @@ httpCredentialsGetTrust(
 
   CFRelease(secCert);
 
+  fprintf(stderr, "DEBUG: %s: trust=%d %s\n", __func__, trust, cupsLastErrorString());
+ 
   return (trust);
 }
 
@@ -912,6 +951,24 @@ _httpFreeCredentials(
   CFRelease(credentials);
 }
 
+// Given a c-string, create a lower case CFString.
+static CFStringRef cfStringCreateLowerWithCString(const char *str)
+{
+  CFStringRef cfStr = NULL;
+  CFMutableStringRef cfMutStr = NULL;
+  
+  cfStr = CFStringCreateWithCString(kCFAllocatorDefault, str, kCFStringEncodingUTF8);
+  if (!cfStr) goto cleanup;
+  
+  cfMutStr = CFStringCreateMutableCopy(NULL, 0, cfStr);
+  if (!cfMutStr) goto cleanup;
+  CFStringLowercase(cfMutStr, NULL);
+ 
+cleanup:
+  if (cfStr) CFRelease(cfStr);
+  
+  return (CFStringRef) cfMutStr;
+}
 
 /*
  * 'httpLoadCredentials()' - Load X.509 credentials from a keychain file.
@@ -926,104 +983,79 @@ httpLoadCredentials(
     const char   *common_name)		/* I  - Common name for credentials */
 {
   OSStatus		err;		/* Error info */
-#if TARGET_OS_OSX
-  char			filename[1024];	/* Filename for keychain */
-  SecKeychainRef	keychain = NULL,/* Keychain reference */
-			syschain = NULL;/* System keychain */
-  CFArrayRef		list;		/* Keychain list */
-#endif /* TARGET_OS_OSX */
   SecCertificateRef	cert = NULL;	/* Certificate */
-  CFDataRef		data;		/* Certificate data */
-  SecPolicyRef		policy = NULL;	/* Policy ref */
-  CFStringRef		cfcommon_name = NULL;
-					/* Server name */
+  CFDataRef		data = NULL;		/* Certificate data */
+  CFStringRef		cfCommonName = NULL; /* Server name */
+  CFStringRef           cfCommonNameUnqualified = NULL;
   CFMutableDictionaryRef query = NULL;	/* Query qualifiers */
+  SecPolicyRef          policy = NULL;
+  
+  fprintf(stderr, "DEBUG: %s: path=%s, common_name=%s\n", __func__, path, common_name);
 
-
-  DEBUG_printf(("httpLoadCredentials(path=\"%s\", credentials=%p, common_name=\"%s\")", path, (void *)credentials, common_name));
-
+  if (path) {
+    fprintf(stderr, "DEBUG: %s: ignoring path %s\n", __func__, path);
+  }
+ 
   if (!credentials)
     return (-1);
 
   *credentials = NULL;
 
-#if TARGET_OS_OSX
-  keychain = http_cdsa_open_keychain(path, filename, sizeof(filename));
+  cfCommonName = cfStringCreateLowerWithCString(common_name);
+  if (!cfCommonName) goto cleanup;
 
-  if (!keychain)
-    goto cleanup;
+  policy = SecPolicyCreateSSL(1, cfCommonName );
+  if (!policy) goto cleanup;
 
-  syschain = http_cdsa_open_system_keychain();
-
-#else
-  if (path)
-    return (-1);
-#endif /* TARGET_OS_OSX */
-
-  cfcommon_name = CFStringCreateWithCString(kCFAllocatorDefault, common_name, kCFStringEncodingUTF8);
-
-  policy = SecPolicyCreateSSL(1, cfcommon_name);
-
-  if (cfcommon_name)
-    CFRelease(cfcommon_name);
-
-  if (!policy)
-    goto cleanup;
-
-  if (!(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
-    goto cleanup;
+  query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+  if (!query) goto cleanup;
 
   CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
   CFDictionaryAddValue(query, kSecMatchPolicy, policy);
   CFDictionaryAddValue(query, kSecReturnRef, kCFBooleanTrue);
   CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitOne);
-
-#if TARGET_OS_OSX
-  if (syschain)
-  {
-    const void *values[2] = { syschain, keychain };
-
-    list = CFArrayCreate(kCFAllocatorDefault, (const void **)values, 2, &kCFTypeArrayCallBacks);
-  }
-  else
-    list = CFArrayCreate(kCFAllocatorDefault, (const void **)&keychain, 1, &kCFTypeArrayCallBacks);
-  CFDictionaryAddValue(query, kSecMatchSearchList, list);
-  CFRelease(list);
-#endif /* TARGET_OS_OSX */
+  CFDictionaryAddValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+  CFDictionarySetValue(query, kSecAttrAccessGroup, KEYCHAIN_ACCESS_GROUP);
 
   err = SecItemCopyMatching(query, (CFTypeRef *)&cert);
-
-  if (err)
+ 
+  if (err) {
+    fprintf(stderr, "DEBUG: %s: SecItemCopyMatching returned err=%d\n", __func__, err);
     goto cleanup;
-
+  }
+   
   if (CFGetTypeID(cert) != SecCertificateGetTypeID())
     goto cleanup;
 
-  if ((data = SecCertificateCopyData(cert)) != NULL)
-  {
-    DEBUG_printf(("1httpLoadCredentials: Adding %d byte certificate blob.", (int)CFDataGetLength(data)));
+  fprintf(stderr, "DEBUG: %s: SecItemCopyMatching succeeded\n", __func__);
 
-    *credentials = cupsArrayNew(NULL, NULL);
-    httpAddCredential(*credentials, CFDataGetBytePtr(data), (size_t)CFDataGetLength(data));
-    CFRelease(data);
-  }
+  data = SecCertificateCopyData(cert);
+  if (!data) goto cleanup;
+ 
+  DEBUG_printf(("1httpLoadCredentials: Adding %d byte certificate blob.", (int)CFDataGetLength(data)));
+  *credentials = cupsArrayNew(NULL, NULL);
+  httpAddCredential(*credentials, CFDataGetBytePtr(data), (size_t)CFDataGetLength(data));
 
-  cleanup :
+cleanup :
 
-#if TARGET_OS_OSX
-  if (keychain)
-    CFRelease(keychain);
-
-  if (syschain)
-    CFRelease(syschain);
-#endif /* TARGET_OS_OSX */
-  if (cert)
-    CFRelease(cert);
-  if (policy)
+ if (cfCommonName)
+   CFRelease(cfCommonName);
+ 
+ if (policy)
     CFRelease(policy);
-  if (query)
-    CFRelease(query);
+ 
+ if (cfCommonNameUnqualified)
+    CFRelease(cfCommonNameUnqualified);
 
+ if (query)
+   CFRelease(query);
+ 
+ if (cert)
+    CFRelease(cert);
+
+  if (data)
+   CFRelease(data);
+ 
   DEBUG_printf(("1httpLoadCredentials: Returning %d.", *credentials ? 0 : -1));
 
   return (*credentials ? 0 : -1);
@@ -1036,87 +1068,122 @@ httpLoadCredentials(
  * @since CUPS 2.0/OS 10.10@
  */
 
-int					/* O - -1 on error, 0 on success */
+int          /* O - -1 on error, 0 on success */
 httpSaveCredentials(
-    const char   *path,			/* I - Keychain path or @code NULL@ for default */
-    cups_array_t *credentials,		/* I - Credentials */
-    const char   *common_name)		/* I - Common name for credentials */
+    const char   *path,      /* I - Keychain path or @code NULL@ for default */
+    cups_array_t *credentials,    /* I - Credentials */
+    const char   *common_name)    /* I - Common name for credentials */
 {
-  int			ret = -1;	/* Return value */
-  OSStatus		err;		/* Error info */
-#if TARGET_OS_OSX
-  char			filename[1024];	/* Filename for keychain */
-  SecKeychainRef	keychain = NULL;/* Keychain reference */
-  CFArrayRef		list;		/* Keychain list */
-#endif /* TARGET_OS_OSX */
-  SecCertificateRef	cert = NULL;	/* Certificate */
-  CFMutableDictionaryRef attrs = NULL;	/* Attributes for add */
+  int      ret = -1;  /* Return value */
+  OSStatus    err;    /* Error info */
+  SecCertificateRef  cert = NULL;  /* Certificate */
+  CFMutableDictionaryRef attrs = NULL;  /* Attributes for add */
+  CFStringRef cfCommonName = NULL;
 
+ fprintf(stderr, "DEBUG: %s: path=%s, common_name=%s\n", __func__, path, common_name);
 
-  DEBUG_printf(("httpSaveCredentials(path=\"%s\", credentials=%p, common_name=\"%s\")", path, (void *)credentials, common_name));
-  if (!credentials)
-    goto cleanup;
+  if (path) {
+    fprintf(stderr, "DEBUG: %s ignoring path %s\n", __func__, path);
+  }
+ 
+  if (!credentials) goto cleanup;
 
   if (!httpCredentialsAreValidForName(credentials, common_name))
   {
-    DEBUG_puts("1httpSaveCredentials: Common name does not match.");
-    return (-1);
-  }
-
-  if ((cert = http_cdsa_create_credential((http_credential_t *)cupsArrayFirst(credentials))) == NULL)
-  {
-    DEBUG_puts("1httpSaveCredentials: Unable to create certificate.");
+    fprintf(stderr, "DEBUG: %s: Common name, %s, does not match credentials\n", __func__, common_name);
     goto cleanup;
   }
-
-#if TARGET_OS_OSX
-  keychain = http_cdsa_open_keychain(path, filename, sizeof(filename));
-
-  if (!keychain)
-    goto cleanup;
-
-#else
-  if (path)
-    return (-1);
-#endif /* TARGET_OS_OSX */
-
-  if ((attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == NULL)
-  {
-    DEBUG_puts("1httpSaveCredentials: Unable to create dictionary.");
+  
+  cert = http_cdsa_create_credential((http_credential_t *)cupsArrayFirst(credentials));
+  if (!cert) {
+    fprintf(stderr, "DEBUG: %s: Unable to create certificate.\n", __func__);
     goto cleanup;
   }
-
+ 
+  cfCommonName = cfStringCreateLowerWithCString(common_name);
+  if (!cfCommonName) goto cleanup;
+ 
+  attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+  if (!attrs) goto cleanup;
+ 
   CFDictionaryAddValue(attrs, kSecClass, kSecClassCertificate);
   CFDictionaryAddValue(attrs, kSecValueRef, cert);
-
-#if TARGET_OS_OSX
-  if ((list = CFArrayCreate(kCFAllocatorDefault, (const void **)&keychain, 1, &kCFTypeArrayCallBacks)) == NULL)
-  {
-    DEBUG_puts("1httpSaveCredentials: Unable to create list of keychains.");
-    goto cleanup;
-  }
-  CFDictionaryAddValue(attrs, kSecMatchSearchList, list);
-  CFRelease(list);
-#endif /* TARGET_OS_OSX */
+  CFDictionaryAddValue(attrs, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+  CFDictionarySetValue(attrs, kSecAttrAccessGroup, KEYCHAIN_ACCESS_GROUP);
 
   /* Note: SecItemAdd consumes "attrs"... */
   err = SecItemAdd(attrs, NULL);
-  DEBUG_printf(("1httpSaveCredentials: SecItemAdd returned %d.", (int)err));
+ 
+  if (err) {
+    logSecError(__func__, err);
+  } else {
+    ret = 0;
+  }
+ 
+cleanup :
 
-  cleanup :
-
-#if TARGET_OS_OSX
-  if (keychain)
-    CFRelease(keychain);
-#endif /* TARGET_OS_OSX */
   if (cert)
     CFRelease(cert);
 
-  DEBUG_printf(("1httpSaveCredentials: Returning %d.", ret));
+  if (cfCommonName)
+    CFRelease(cfCommonName);
+ 
+  fprintf(stderr, "DEBUG: %s: Result %d\n", __func__, ret);
 
   return (ret);
 }
 
+int
+httpDeleteCredentials(const char *commonName)
+{
+ CFStringRef cfCommonName = NULL;
+ SecPolicyRef  policy = NULL;
+ CFMutableDictionaryRef query = NULL;
+ OSStatus err = ENOMEM;
+ 
+ cfCommonName = cfStringCreateLowerWithCString(commonName);
+ if (!cfCommonName) goto cleanup;
+ 
+ policy = SecPolicyCreateSSL(1, cfCommonName );
+ if (!policy) goto cleanup;
+ 
+ query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+ if (!query) goto cleanup;
+ 
+ CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+ CFDictionaryAddValue(query, kSecMatchPolicy, policy);
+ CFDictionaryAddValue(query, kSecUseSystemKeychainAlways, kCFBooleanTrue);
+ CFDictionarySetValue(query, kSecAttrAccessGroup, KEYCHAIN_ACCESS_GROUP);
+ 
+ err = SecItemDelete(query);
+ 
+cleanup:
+ if (cfCommonName) CFRelease(cfCommonName);
+ if (policy) CFRelease(policy);
+ if (query) CFRelease(query);
+ 
+ if (err) {
+  logSecError(__func__, err);
+ }
+
+ return (int) err;
+}
+
+static void logSecError(const char *function, OSStatus err)
+{
+ char errBuffer[256];
+ errBuffer[0] = '\0';
+ 
+ if (err) {
+   CFStringRef errStr = SecCopyErrorMessageString(err, NULL);
+   if (errStr) {
+     CFStringGetCString(errStr, errBuffer, sizeof(errBuffer), kCFStringEncodingUTF8);
+     CFRelease(errStr);
+   }
+  
+   fprintf(stderr, "DEBUG: %s: err = %d (%s)\n", function, (int)err, errBuffer);
+ }
+}
 
 /*
  * '_httpTLSInitialize()' - Initialize the TLS stack.

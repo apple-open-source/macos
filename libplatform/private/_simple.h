@@ -26,6 +26,7 @@
 
 #include <sys/cdefs.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 #include <Availability.h>
 
@@ -126,6 +127,30 @@ void _simple_putline(_SIMPLE_STRING __b, int __fd);
  * Free the opaque structure, and the associated string.
  */
 void _simple_sfree(_SIMPLE_STRING __b);
+
+/*
+ * The format string is interpreted with arguments from the va_list, and the
+ * results are written to `str`, up to `size` bytes. Returns the number of
+ * bytes written on success, not counting the trailing '\0', which is always
+ * added except when an invalid size is passed. If `size` wasn't large enough
+ * to fit the full result, this function returns how many characters would have
+ * been written if size were unlimited, not including the trailing '\0'. If an
+ * invalid size (0 or >= INT_MAX) is passed, this function returns a negative
+ * value, without writing to str.
+ */
+int _simple_vsnprintf(char *str, size_t size, const char *fmt, va_list ap) __printflike(3, 0);
+
+/*
+ * The format string is interpreted with arguments from the variable argument
+ * list, and the results are written to `str`, up to `size` bytes. Returns the
+ * number of bytes written on success, not counting the trailing '\0', which is
+ * always added except when an invalid size is passed. If `size` wasn't large
+ * enough to fit the full result, this function returns how many characters
+ * would have been written if size were unlimited, not including the trailing
+ * '\0'. If an invalid size (0 or >= INT_MAX) is passed, this function returns
+ * a negative value, without writing to str.
+ */
+int _simple_snprintf(char *str, size_t size, const char *fmt, ...) __printflike(3, 4);
 
 /*
  * Simplified ASL log interface; does not use malloc.  Unfortunately, this

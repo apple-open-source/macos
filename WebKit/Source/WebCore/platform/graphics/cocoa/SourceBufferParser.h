@@ -31,10 +31,9 @@
 #include "SourceBufferPrivateClient.h"
 #include <JavaScriptCore/Forward.h>
 #include <pal/spi/cocoa/MediaToolboxSPI.h>
-#include <variant>
 #include <wtf/Expected.h>
 #include <wtf/RefCounted.h>
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 
 namespace WTF {
 class Logger;
@@ -45,13 +44,14 @@ namespace WebCore {
 class ContentType;
 class MediaSampleAVFObjC;
 class SharedBuffer;
+struct MediaSourceConfiguration;
 struct TrackInfo;
 
-class WEBCORE_EXPORT SourceBufferParser : public ThreadSafeRefCounted<SourceBufferParser, WTF::DestructionThread::Main> {
+class WEBCORE_EXPORT SourceBufferParser : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SourceBufferParser, WTF::DestructionThread::Main> {
 public:
     static MediaPlayerEnums::SupportsType isContentTypeSupported(const ContentType&);
 
-    static RefPtr<SourceBufferParser> create(const ContentType&);
+    static RefPtr<SourceBufferParser> create(const ContentType&, const MediaSourceConfiguration&);
     virtual ~SourceBufferParser() = default;
 
     enum class Type : uint8_t {
@@ -64,30 +64,12 @@ public:
         Discontinuity,
     };
 
-    class Segment {
-    public:
-        Segment(Ref<SharedBuffer>&&);
-        Segment(Segment&&) = default;
-        Ref<SharedBuffer> takeSharedBuffer();
-        Ref<SharedBuffer> getData(size_t offset, size_t length) const;
-
-        size_t size() const;
-
-        enum class ReadError { EndOfFile, FatalError };
-        using ReadResult = Expected<size_t, ReadError>;
-
-        ReadResult read(std::span<uint8_t> destination, size_t position = 0) const;
-
-    private:
-        Ref<SharedBuffer> m_segment;
-    };
-
     using CallOnClientThreadCallback = Function<void(Function<void()>&&)>;
     void setCallOnClientThreadCallback(CallOnClientThreadCallback&&);
 
     // appendData will be called on the SourceBufferPrivateAVFObjC data parser queue.
     // Other methods will be called on the main thread, but only once appendData has returned.
-    virtual Expected<void, PlatformMediaError> appendData(Segment&&, AppendFlags = AppendFlags::None) = 0;
+    virtual Expected<void, PlatformMediaError> appendData(Ref<const SharedBuffer>&&, AppendFlags = AppendFlags::None) = 0;
     virtual void flushPendingMediaData() = 0;
     virtual void resetParserState() = 0;
     virtual void invalidate() = 0;

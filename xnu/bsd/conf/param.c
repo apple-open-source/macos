@@ -110,9 +110,7 @@ int     maxfiles = 3 * OPEN_MAX;
 int     maxfiles = OPEN_MAX + 2048;
 #endif
 
-unsigned int    ncallout = 16 + 2 * NPROC;
 unsigned int nmbclusters = NMBCLUSTERS;
-int     nport = NPROC / 2;
 
 /*
  *  async IO (aio) configurable limits

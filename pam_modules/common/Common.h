@@ -11,7 +11,7 @@ int od_record_attribute_create_cfstring(ODRecordRef record, CFStringRef attrib, 
 int od_record_attribute_create_cfarray(ODRecordRef record, CFStringRef attrib,  CFArrayRef *out);
 int od_record_attribute_create_cstring(ODRecordRef record, CFStringRef attrib,  char **out);
 
-int od_record_check_pwpolicy(ODRecordRef);
+int od_record_check_pwpolicy(ODRecordRef, CFErrorRef *);
 int od_record_check_authauthority(ODRecordRef);
 int od_record_check_homedir(ODRecordRef);
 int od_record_check_shell(ODRecordRef);

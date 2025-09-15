@@ -27,6 +27,7 @@
 
 #if ENABLE(SPEECH_SYNTHESIS)
 
+#include "EventTargetInterfaces.h"
 #include "PlatformSpeechSynthesisUtterance.h"
 #include "PlatformSpeechSynthesizer.h"
 #include "SpeechSynthesisClient.h"
@@ -112,6 +113,7 @@ private:
     void eventListenersDidChange() final;
     
     PlatformSpeechSynthesizer& ensurePlatformSpeechSynthesizer();
+    Ref<PlatformSpeechSynthesizer> ensureProtectedPlatformSpeechSynthesizer();
     
     RefPtr<PlatformSpeechSynthesizer> m_platformSpeechSynthesizer;
     std::optional<Vector<Ref<SpeechSynthesisVoice>>> m_voiceList;

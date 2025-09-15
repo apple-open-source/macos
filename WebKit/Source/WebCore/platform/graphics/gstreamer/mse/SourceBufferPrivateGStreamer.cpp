@@ -165,6 +165,13 @@ void SourceBufferPrivateGStreamer::flush(TrackID trackId)
         return;
     }
 
+    if (track->type() == TrackPrivateBaseGStreamer::Text) {
+        if (player)
+            GST_DEBUG_OBJECT(player->pipeline(), "Track is a text stream, so we only need to clear the queue. trackId = '%" PRIu64 "'", track->id());
+        track->clearQueue();
+        return;
+    }
+
     if (!player)
         return;
     GST_DEBUG_OBJECT(player->pipeline(), "Source element has emitted tracks, let it handle the flush, which may cause a pipeline flush as well. trackId = '%" PRIu64 "'", track->id());
@@ -207,7 +214,7 @@ void SourceBufferPrivateGStreamer::notifyClientWhenReadyForMoreSamples(TrackID t
     ASSERT(m_tracks.contains(trackId));
     auto track = m_tracks[trackId];
     track->notifyWhenReadyForMoreSamples([weakPtr = WeakPtr { *this }, this, trackId]() mutable {
-        RunLoop::main().dispatch([weakPtr = WTFMove(weakPtr), this, trackId]() {
+        RunLoop::mainSingleton().dispatch([weakPtr = WTFMove(weakPtr), this, trackId]() {
             if (!weakPtr)
                 return;
             if (!m_hasBeenRemovedFromMediaSource)
@@ -283,26 +290,24 @@ WTFLogChannel& SourceBufferPrivateGStreamer::logChannel() const
 }
 #endif
 
-std::optional<TrackID> SourceBufferPrivateGStreamer::tryRegisterTrackId(TrackID preferredId)
+RegisteredTrack SourceBufferPrivateGStreamer::registerTrack(TrackID preferredId, StreamType streamType)
 {
     ASSERT(isMainThread());
 
     RefPtr mediaSource = m_mediaSource.get();
-    if (!mediaSource)
-        return std::nullopt;
+    ASSERT(mediaSource);
 
-    return downcast<MediaSourcePrivateGStreamer>(mediaSource)->registerTrackId(preferredId);
+    return downcast<MediaSourcePrivateGStreamer>(mediaSource)->registerTrack(preferredId, streamType);
 }
 
-bool SourceBufferPrivateGStreamer::tryUnregisterTrackId(TrackID trackId)
+void SourceBufferPrivateGStreamer::unregisterTrack(TrackID trackId)
 {
     ASSERT(isMainThread());
 
     RefPtr mediaSource = m_mediaSource.get();
-    if (!mediaSource)
-        return false;
+    ASSERT(mediaSource);
 
-    return downcast<MediaSourcePrivateGStreamer>(mediaSource)->unregisterTrackId(trackId);
+    downcast<MediaSourcePrivateGStreamer>(mediaSource)->unregisterTrack(trackId);
 }
 
 size_t SourceBufferPrivateGStreamer::platformMaximumBufferSize() const

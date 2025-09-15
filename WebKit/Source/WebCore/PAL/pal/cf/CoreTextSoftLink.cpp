@@ -27,12 +27,6 @@
 #include <pal/spi/cf/CoreTextSPI.h>
 #include <wtf/SoftLinking.h>
 
-SOFT_LINK_FRAMEWORK_FOR_SOURCE_WITH_EXPORT(PAL, CoreText, PAL_EXPORT)
-
-// FIXME: Move this to strong linking as soon as people have a chance to update to an SDK that includes it.
-SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(PAL, CoreText, CTFontCopyColorGlyphCoverage, CFBitVectorRef, (CTFontRef font), (font))
-SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE_WITH_EXPORT(PAL, CoreText, CTFontManagerCreateMemorySafeFontDescriptorFromData, CTFontDescriptorRef, (CFDataRef data), (data), PAL_EXPORT)
-
 SOFT_LINK_PRIVATE_FRAMEWORK_FOR_SOURCE(PAL, OTSVG)
 
 SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, OTSVG, OTSVGTableCreateFromData, OTSVGTableRef, (CFDataRef svgTable, unsigned unitsPerEm, CGFloat fontSize), (svgTable, unitsPerEm, fontSize))

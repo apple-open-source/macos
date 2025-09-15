@@ -1130,6 +1130,7 @@ add_service_specific_resolvers(CFMutableArrayRef resolvers, CFDictionaryRef serv
 static void
 add_default_resolver(CFMutableArrayRef	resolvers,
 		     CFDictionaryRef	defaultResolver,
+		     CFStringRef 	defaultResolverService,
 		     Boolean		*orderAdded,
 		     CFArrayRef		*searchDomains)
 {
@@ -1166,7 +1167,10 @@ add_default_resolver(CFMutableArrayRef	resolvers,
 
 	// add the default resolver
 
-	add_resolver_signature(myDefault, "Default", NULL, 0);
+	add_resolver_signature(myDefault,
+			       "Default",
+			       defaultResolverService,
+			       0);
 	add_resolver(resolvers, myDefault);
 	CFRelease(myDefault);
 	return;
@@ -1554,6 +1558,7 @@ needsMergeWithDefaultConfiguration(CFDictionaryRef dns)
 __private_extern__
 Boolean
 dns_configuration_set(CFDictionaryRef   defaultResolver,
+		      CFStringRef 	defaultResolverService,
 		      CFDictionaryRef   services,
 		      CFArrayRef	serviceOrder,
 		      CFArrayRef	multicastResolvers,
@@ -1596,7 +1601,11 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		}
 	}
 
-	add_default_resolver(resolvers, defaultResolver, &myOrderAdded, &mySearchDomains);
+	add_default_resolver(resolvers,
+			     defaultResolver,
+			     defaultResolverService,
+			     &myOrderAdded,
+			     &mySearchDomains);
 
 	// collect (and add) any "multicast" resolver configurations
 
@@ -2095,6 +2104,7 @@ main(int argc, char * const argv[])
 	// update DNS configuration
 	dns_configuration_init(CFBundleGetMainBundle());
 	(void)dns_configuration_set(primaryDNS,
+				    primary,
 				    service_state_dict,
 				    service_order,
 				    multicast_resolvers,

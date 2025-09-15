@@ -42,7 +42,7 @@
 - (NSString *)color
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::colorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::colorAttr).createNSString().autorelease();
 }
 
 - (void)setColor:(NSString *)newColor
@@ -54,7 +54,7 @@
 - (NSString *)face
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::faceAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::faceAttr).createNSString().autorelease();
 }
 
 - (void)setFace:(NSString *)newFace
@@ -66,7 +66,7 @@
 - (NSString *)size
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::sizeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::sizeAttr).createNSString().autorelease();
 }
 
 - (void)setSize:(NSString *)newSize

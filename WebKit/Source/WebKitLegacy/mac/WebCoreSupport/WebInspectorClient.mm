@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -377,7 +377,7 @@ void WebInspectorFrontendClient::logDiagnosticEvent(const String& eventName, con
 
 void WebInspectorFrontendClient::updateWindowTitle() const
 {
-    NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Web Inspector — %@", "Web Inspector window title"), (NSString *)m_inspectedURL];
+    NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Web Inspector — %@", "Web Inspector window title"), m_inspectedURL.createNSString().get()];
     [[m_frontendWindowController.get() window] setTitle:title];
 }
 
@@ -406,7 +406,7 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
 
     NSURL *platformURL = m_suggestedToActualURLMap.get(suggestedURL).get();
     if (!platformURL) {
-        platformURL = [NSURL URLWithString:suggestedURL];
+        platformURL = [NSURL URLWithString:suggestedURL.createNSString().get()];
         // The user must confirm new filenames before we can save to them.
         forceSaveAs = true;
     }
@@ -432,7 +432,7 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
             RetainPtr dataContent = toNSData(decodedData->span());
             [dataContent writeToURL:actualURL atomically:YES];
         } else
-            [contentCopy writeToURL:actualURL atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+            [contentCopy.createNSString() writeToURL:actualURL atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     };
 
     if (!forceSaveAs) {
@@ -557,12 +557,8 @@ void WebInspectorFrontendClient::save(Vector<InspectorFrontendClient::SaveData>&
     CGFloat approximatelyHalfScreenSize = ([window screen].frame.size.width / 2) - 4;
     CGFloat minimumFullScreenWidth = std::max<CGFloat>(636, approximatelyHalfScreenSize);
     [window setMinFullScreenContentSize:NSMakeSize(minimumFullScreenWidth, minimumWindowHeight)];
-    [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling)];
+    [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorFullScreenAllowsTiling | NSWindowCollectionBehaviorAuxiliary)];
 
-#if HAVE(STAGE_MANAGER_NS_WINDOW_COLLECTION_BEHAVIORS)
-    [window setCollectionBehavior:([window collectionBehavior] | NSWindowCollectionBehaviorAuxiliary)];
-#endif
-    
     [window setTitlebarAppearsTransparent:YES];
 
     [self setWindow:window.get()];

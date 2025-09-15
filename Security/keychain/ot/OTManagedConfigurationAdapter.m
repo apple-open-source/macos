@@ -28,10 +28,9 @@
 #define ICLOUDMANAGEDENVIRONMENT "com.apple.icloud.managed"
 #else
 #import <ManagedConfiguration/ManagedConfiguration.h>
-#import <SoftLinking/SoftLinking.h>
+#import <SoftLinking/WeakLinking.h>
 
-SOFT_LINK_FRAMEWORK(PrivateFrameworks, ManagedConfiguration)
-SOFT_LINK_CLASS(ManagedConfiguration, MCProfileConnection)
+WEAK_IMPORT_OBJC_CLASS(MCProfileConnection);
 #endif
 
 @implementation OTManagedConfigurationActualAdapter
@@ -41,8 +40,7 @@ SOFT_LINK_CLASS(ManagedConfiguration, MCProfileConnection)
 #if TARGET_OS_OSX
     return !CFPreferencesGetAppBooleanValue(CFSTR(KEYCHAINSYNCDISABLE), CFSTR(ICLOUDMANAGEDENVIRONMENT), NULL);
 #else
-    Class mpc = getMCProfileConnectionClass();
-    MCProfileConnection *sharedConnection = [mpc sharedConnection];
+    MCProfileConnection *sharedConnection = [MCProfileConnection sharedConnection];
     return [sharedConnection isCloudKeychainSyncAllowed];
 #endif
 }

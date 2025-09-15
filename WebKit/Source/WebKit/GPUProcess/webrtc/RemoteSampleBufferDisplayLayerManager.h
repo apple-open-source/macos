@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@ namespace WebKit {
 class GPUConnectionToWebProcess;
 class RemoteSampleBufferDisplayLayer;
 
-class RemoteSampleBufferDisplayLayerManager final : public IPC::WorkQueueMessageReceiver {
+class RemoteSampleBufferDisplayLayerManager final : public IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any> {
     WTF_MAKE_TZONE_ALLOCATED(RemoteSampleBufferDisplayLayerManager);
 public:
     static Ref<RemoteSampleBufferDisplayLayerManager> create(GPUConnectionToWebProcess& connection, SharedPreferencesForWebProcess& sharedPreferencesForWebProcess)
@@ -63,13 +63,13 @@ public:
     }
     ~RemoteSampleBufferDisplayLayerManager();
 
-    void ref() const final { IPC::WorkQueueMessageReceiver::ref(); }
-    void deref() const final { IPC::WorkQueueMessageReceiver::deref(); }
+    void ref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any>::ref(); }
+    void deref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any>::deref(); }
 
     void close();
 
     bool allowsExitUnderMemoryPressure() const;
-    void updateSampleBufferDisplayLayerBoundsAndPosition(SampleBufferDisplayLayerIdentifier, WebCore::FloatRect, std::optional<MachSendRight>&&);
+    void updateSampleBufferDisplayLayerBoundsAndPosition(SampleBufferDisplayLayerIdentifier, WebCore::FloatRect, std::optional<MachSendRightAnnotated>&&);
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
     void updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess);
 
@@ -82,16 +82,14 @@ private:
 
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
 
-    using LayerCreationCallback = CompletionHandler<void(std::optional<LayerHostingContextID>)>&&;
+    using LayerCreationCallback = CompletionHandler<void(WebCore::HostingContext)>&&;
     void createLayer(SampleBufferDisplayLayerIdentifier, bool hideRootLayer, WebCore::IntSize, bool shouldMaintainAspectRatio, bool canShowWhileLocked, LayerCreationCallback);
     void releaseLayer(SampleBufferDisplayLayerIdentifier);
 
-    Ref<WorkQueue> protectedQueue() const { return m_queue; }
-
     ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_connectionToWebProcess;
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
-    Ref<WorkQueue> m_queue;
+    const Ref<WorkQueue> m_queue;
     mutable Lock m_layersLock;
     HashMap<SampleBufferDisplayLayerIdentifier, Ref<RemoteSampleBufferDisplayLayer>> m_layers WTF_GUARDED_BY_LOCK(m_layersLock);
 };

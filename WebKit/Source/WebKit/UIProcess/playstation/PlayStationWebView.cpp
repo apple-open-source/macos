@@ -118,23 +118,7 @@ void PlayStationWebView::setViewNeedsDisplay(const WebCore::Region& region)
 void PlayStationWebView::willEnterFullScreen(CompletionHandler<void(bool)>&& completionHandler)
 {
     m_isFullScreen = true;
-    m_page->fullScreenManager()->willEnterFullScreen(WTFMove(completionHandler));
-}
-
-void PlayStationWebView::didEnterFullScreen()
-{
-    m_page->fullScreenManager()->didEnterFullScreen();
-}
-
-void PlayStationWebView::willExitFullScreen()
-{
-    m_page->fullScreenManager()->willExitFullScreen();
-}
-
-void PlayStationWebView::didExitFullScreen()
-{
-    m_page->fullScreenManager()->didExitFullScreen();
-    m_isFullScreen = false;
+    completionHandler(true);
 }
 
 void PlayStationWebView::requestExitFullScreen()
@@ -163,22 +147,29 @@ void PlayStationWebView::enterFullScreen(CompletionHandler<void(bool)>&& complet
         completionHandler(false);
 }
 
-void PlayStationWebView::exitFullScreen()
+void PlayStationWebView::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
     if (m_client && isFullScreen())
         m_client->exitFullScreen(*this);
+    completionHandler();
 }
 
-void PlayStationWebView::beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame)
+void PlayStationWebView::beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (m_client)
-        m_client->beganEnterFullScreen(*this, initialFrame, finalFrame);
+        m_client->beganEnterFullScreen(*this, initialFrame, finalFrame, WTFMove(completionHandler));
+    else
+        completionHandler(false);
 }
 
-void PlayStationWebView::beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame)
+void PlayStationWebView::beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&& completionHandler)
 {
-    if (m_client)
-        m_client->beganExitFullScreen(*this, initialFrame, finalFrame);
+    if (!m_client)
+        return completionHandler();
+    m_client->beganExitFullScreen(*this, initialFrame, finalFrame, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] mutable {
+        m_isFullScreen = false;
+        completionHandler();
+    });
 }
 #endif
 

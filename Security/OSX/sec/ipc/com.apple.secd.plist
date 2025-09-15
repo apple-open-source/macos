@@ -70,6 +70,19 @@
 				<key>RequiresClassC</key>
 				<false/>
 			</dict>
+			<key>com.apple.securityd.kcsharing.resync</key>
+			<dict>
+				<key>RequiresClassA</key>
+				<true/>
+				<key>RequireInexpensiveNetworkConnectivity</key>
+				<true/>
+				<key>GracePeriod</key>
+				<integer>172800</integer>
+				<key>Interval</key>
+				<integer>604800</integer>
+				<key>Priority</key>
+				<string>Maintenance</string>
+			</dict>
 		</dict>
 	</dict>
 </dict>

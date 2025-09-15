@@ -43,7 +43,7 @@
 - (NSString *)text
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->text();
+    return IMPL->text().createNSString().autorelease();
 }
 
 - (void)setText:(NSString *)newText
@@ -55,7 +55,7 @@
 - (NSString *)htmlFor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::forAttr);
+    return IMPL->attributeWithoutSynchronization(WebCore::HTMLNames::forAttr).createNSString().autorelease();
 }
 
 - (void)setHtmlFor:(NSString *)newHtmlFor
@@ -67,7 +67,7 @@
 - (NSString *)event
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::eventAttr);
+    return IMPL->attributeWithoutSynchronization(WebCore::HTMLNames::eventAttr).createNSString().autorelease();
 }
 
 - (void)setEvent:(NSString *)newEvent
@@ -79,7 +79,7 @@
 - (NSString *)charset
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::charsetAttr);
+    return IMPL->attributeWithoutSynchronization(WebCore::HTMLNames::charsetAttr).createNSString().autorelease();
 }
 
 - (void)setCharset:(NSString *)newCharset
@@ -115,7 +115,7 @@
 - (NSString *)src
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string().createNSString().autorelease();
 }
 
 - (void)setSrc:(NSString *)newSrc
@@ -127,7 +127,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr);
+    return IMPL->attributeWithoutSynchronization(WebCore::HTMLNames::typeAttr).createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType
@@ -139,19 +139,19 @@
 - (NSString *)crossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->crossOrigin();
+    return IMPL->crossOrigin().createNSString().autorelease();
 }
 
 - (void)setCrossOrigin:(NSString *)newCrossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setCrossOrigin(newCrossOrigin);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::crossoriginAttr, newCrossOrigin);
 }
 
 - (NSString *)nonce
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::nonceAttr);
+    return IMPL->attributeWithoutSynchronization(WebCore::HTMLNames::nonceAttr).createNSString().autorelease();
 }
 
 - (void)setNonce:(NSString *)newNonce

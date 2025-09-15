@@ -32,7 +32,14 @@
 #include <mach/mach.h>
 #include <mach/exception.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <mach/thread_status.h>
+
+/**
+ * Set verbose_exc_helper = true to log exception information with T_LOG().
+ * The default is true.
+ */
+extern bool verbose_exc_helper;
 
 /**
  * Callback invoked by run_exception_handler() when a Mach exception is
@@ -42,13 +49,15 @@
  * @param thread    the task causing the exception
  * @param type      exception type received from the kernel
  * @param codes     exception codes received from the kernel
+ * @param pc        the (ptrauth-stripped) program counter of the exception
  *
  * @return      how much the exception handler should advance the program
  *              counter, in bytes (in order to move past the code causing the
- *              exception)
+ *              exception); OR the special value EXC_HELPER_HALT to
+ *              let the process crash instead of continuing.
  */
 typedef size_t (*exc_handler_callback_t)(mach_port_t task, mach_port_t thread,
-    exception_type_t type, mach_exception_data_t codes);
+    exception_type_t type, mach_exception_data_t codes, uint64_t pc);
 
 typedef size_t (*exc_handler_protected_callback_t)(task_id_token_t token, uint64_t thread_d,
     exception_type_t type, mach_exception_data_t codes);
@@ -60,8 +69,11 @@ typedef size_t (*exc_handler_state_protected_callback_t)(task_id_token_t token, 
 typedef kern_return_t (*exc_handler_backtrace_callback_t)(kcdata_object_t kcdata_object,
     exception_type_t type, mach_exception_data_t codes);
 
+#define EXC_HELPER_HALT ((size_t)INTPTR_MAX)
+
 /**
- * Allocates a Mach port and configures it to receive exception messages.
+ * Allocates a Mach port and configures it to receive exception messages,
+ * and installs it as the exception handler for the current thread.
  *
  * @param exception_mask exception types that this Mach port should receive
  *
@@ -72,6 +84,16 @@ create_exception_port(exception_mask_t exception_mask);
 
 mach_port_t
 create_exception_port_behavior64(exception_mask_t exception_mask, exception_behavior_t behavior);
+
+/**
+ * Installs an exception port created with create_exception_port()
+ * as the exception handler for the current thread.
+ */
+void
+set_thread_exception_port(mach_port_t exc_port, exception_mask_t exception_mask);
+
+void
+set_thread_exception_port_behavior64(mach_port_t exc_port, exception_mask_t exception_mask, exception_behavior_t behavior);
 
 /**
  * Handles one exception received on the provided Mach port, by running the

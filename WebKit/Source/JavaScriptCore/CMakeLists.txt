@@ -22,7 +22,7 @@ set(JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES
     "${JAVASCRIPTCORE_DIR}/dfg"
     "${JAVASCRIPTCORE_DIR}/disassembler"
     "${JAVASCRIPTCORE_DIR}/disassembler/ARM64"
-    "${JAVASCRIPTCORE_DIR}/disassembler/zydis/Zydis"
+    "${JAVASCRIPTCORE_DIR}/disassembler/zydis"
     "${JAVASCRIPTCORE_DIR}/domjit"
     "${JAVASCRIPTCORE_DIR}/ftl"
     "${JAVASCRIPTCORE_DIR}/fuzzilli"
@@ -339,11 +339,13 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayPrototype.js
+    ${JAVASCRIPTCORE_DIR}/builtins/AsyncDisposableStackPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncFunctionPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncGeneratorPrototype.js
+    ${JAVASCRIPTCORE_DIR}/builtins/AsyncIteratorPrototype.js
+    ${JAVASCRIPTCORE_DIR}/builtins/DisposableStackPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/FunctionPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/GeneratorPrototype.js
-    ${JAVASCRIPTCORE_DIR}/builtins/GlobalObject.js
     ${JAVASCRIPTCORE_DIR}/builtins/GlobalOperations.js
     ${JAVASCRIPTCORE_DIR}/builtins/InternalPromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/IteratorHelpers.js
@@ -354,7 +356,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/MapIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ModuleLoader.js
-    ${JAVASCRIPTCORE_DIR}/builtins/NumberConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/ObjectConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseOperations.js
@@ -571,6 +572,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/CPU.h
     assembler/CPUInlines.h
     assembler/CodeLocation.h
+    assembler/DisallowMacroScratchRegisterUsage.h
     assembler/FastJITPermissions.h
     assembler/JITOperationList.h
     assembler/JITOperationValidation.h
@@ -748,10 +750,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/IsoHeapCellType.h
     heap/IsoInlinedHeapCellType.h
     heap/IsoInlinedHeapCellTypeInlines.h
-    heap/IsoMemoryAllocatorBase.h
     heap/IsoSubspace.h
     heap/IsoSubspaceInlines.h
-    heap/IsoSubspacePerVM.h
     heap/LocalAllocator.h
     heap/LocalAllocatorInlines.h
     heap/MachineStackMarker.h
@@ -934,6 +934,9 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ArrayStorage.h
     runtime/ArrayStorageInlines.h
     runtime/AssertInvariants.h
+    runtime/AsyncDisposableStackConstructor.h
+    runtime/AsyncDisposableStackPrototype.h
+    runtime/AsyncDisposableStackPrototypeInlines.h
     runtime/AsyncIteratorPrototype.h
     runtime/AuxiliaryBarrier.h
     runtime/AuxiliaryBarrierInlines.h
@@ -992,6 +995,9 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/DirectEvalExecutable.h
     runtime/DisallowScope.h
     runtime/DisallowVMEntry.h
+    runtime/DisposableStackConstructor.h
+    runtime/DisposableStackPrototype.h
+    runtime/DisposableStackPrototypeInlines.h
     runtime/DumpContext.h
     runtime/ECMAMode.h
     runtime/EnsureStillAliveHere.h
@@ -1020,7 +1026,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/FunctionRareData.h
     runtime/FuzzerAgent.h
     runtime/Gate.h
-    runtime/GenericArguments.h
+    runtime/GenericArgumentsImpl.h
     runtime/GenericOffset.h
     runtime/GenericTypedArrayView.h
     runtime/GenericTypedArrayViewInlines.h
@@ -1054,6 +1060,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSArrayBufferView.h
     runtime/JSArrayBufferViewInlines.h
     runtime/JSArrayIterator.h
+    runtime/JSAsyncDisposableStack.h
+    runtime/JSAsyncDisposableStackInlines.h
     runtime/JSAsyncFromSyncIterator.h
     runtime/JSBigInt.h
     runtime/JSBoundFunction.h
@@ -1074,6 +1082,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSDateMath.h
     runtime/JSDestructibleObject.h
     runtime/JSDestructibleObjectHeapCellType.h
+    runtime/JSDisposableStack.h
+    runtime/JSDisposableStackInlines.h
     runtime/JSExportMacros.h
     runtime/JSFunction.h
     runtime/JSFunctionInlines.h
@@ -1270,6 +1280,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     tools/Integrity.h
     tools/IntegrityInlines.h
+    tools/LLVMProfiling.h
+    tools/SourceProfiler.h
     tools/VMInspector.h
     tools/VMInspectorInlines.h
 
@@ -1301,6 +1313,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmName.h
     wasm/WasmNameSection.h
     wasm/WasmOSREntryData.h
+    wasm/WasmOpcodeOrigin.h
     wasm/WasmSIMDOpcodes.h
     wasm/WasmSections.h
     wasm/WasmTypeDefinition.h
@@ -1313,6 +1326,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/js/JSWebAssembly.h
     wasm/js/JSWebAssemblyMemory.h
     wasm/js/JSWebAssemblyModule.h
+    wasm/js/WebAssemblyGCStructure.h
     wasm/js/WebAssemblyModuleRecord.h
 
 
@@ -1398,7 +1412,6 @@ set(JavaScriptCore_INSPECTOR_PROTOCOL_SCRIPTS
 
 set(JavaScriptCore_INSPECTOR_DOMAINS
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Animation.json
-    ${JAVASCRIPTCORE_DIR}/inspector/protocol/ApplicationCache.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Audit.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Browser.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/CPUProfiler.json
@@ -1408,7 +1421,6 @@ set(JavaScriptCore_INSPECTOR_DOMAINS
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/DOM.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/DOMDebugger.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/DOMStorage.json
-    ${JAVASCRIPTCORE_DIR}/inspector/protocol/Database.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Debugger.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/GenericTypes.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Heap.json
@@ -1466,6 +1478,7 @@ WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 if (NOT WIN32)
     WEBKIT_ADD_TARGET_CXX_FLAGS(JavaScriptCore
         -Wunsafe-buffer-usage
+        -Wunsafe-buffer-usage-in-libc-call
         -fsafe-buffer-usage-suggestions
     )
 endif ()

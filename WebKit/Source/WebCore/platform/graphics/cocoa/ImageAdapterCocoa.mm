@@ -106,7 +106,7 @@ NSAdaptiveImageGlyph *ImageAdapter::multiRepresentationHEIC()
 
     Vector<uint8_t> data = buffer->copyData();
 
-    RetainPtr nsData = toNSData(data.span());
+    RetainPtr nsData = WTF::toNSData(data.span());
     m_multiRepHEIC = adoptNS([[PlatformNSAdaptiveImageGlyph alloc] initWithImageContent:nsData.get()]);
 
     return m_multiRepHEIC.get();

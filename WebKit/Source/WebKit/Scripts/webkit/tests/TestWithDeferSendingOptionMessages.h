@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit NoOptions(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class NoIndices {
@@ -76,22 +77,22 @@ public:
     static constexpr bool deferSendingIfSuspended = true;
 
     explicit NoIndices(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    // Not valid to call this after arguments() is called.
     void encodeCoalescingKey(IPC::Encoder&) const
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class OneIndex {
@@ -105,23 +106,23 @@ public:
     static constexpr bool deferSendingIfSuspended = true;
 
     explicit OneIndex(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    // Not valid to call this after arguments() is called.
     void encodeCoalescingKey(IPC::Encoder& encoder) const
     {
-        encoder << std::get<0>(m_arguments);
+        encoder << m_url;
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class MultipleIndices {
@@ -135,23 +136,34 @@ public:
     static constexpr bool deferSendingIfSuspended = true;
 
     MultipleIndices(const String& url, const int& foo, const int& bar, const int& baz)
-        : m_arguments(url, foo, bar, baz)
+        : m_url(url)
+        , m_foo(foo)
+        , m_bar(bar)
+        , m_baz(baz)
     {
     }
 
-    // Not valid to call this after arguments() is called.
     void encodeCoalescingKey(IPC::Encoder& encoder) const
     {
-        encoder << std::get<2>(m_arguments) << std::get<0>(m_arguments) << std::get<1>(m_arguments);
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_bar;
+        encoder << m_url;
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_foo;
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_foo;
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_bar;
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_baz;
     }
 
 private:
-    std::tuple<const String&, const int&, const int&, const int&> m_arguments;
+    const String& m_url;
+    SUPPRESS_FORWARD_DECL_MEMBER const int& m_foo;
+    SUPPRESS_FORWARD_DECL_MEMBER const int& m_bar;
+    SUPPRESS_FORWARD_DECL_MEMBER const int& m_baz;
 };
 
 } // namespace TestWithDeferSendingOption

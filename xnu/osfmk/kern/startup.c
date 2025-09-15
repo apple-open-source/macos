@@ -89,6 +89,7 @@
 #if CONFIG_SCHED_SFI
 #include <kern/sfi.h>
 #endif
+#include <kern/smr.h>
 #include <kern/startup.h>
 #include <kern/task.h>
 #include <kern/thread.h>
@@ -190,10 +191,6 @@ extern void dtrace_early_init(void);
 extern void sdt_early_init(void);
 #endif
 
-#ifdef CONFIG_BTI_TELEMETRY
-#include <arm64/bti_telemetry.h>
-#endif /* CONFIG_BTI_TELEMETRY */
-
 // libkern/OSKextLib.cpp
 extern void OSKextRemoveKextBootstrap(void);
 
@@ -280,7 +277,8 @@ kernel_startup_bootstrap(void)
 
 	qsort(startup_entries, n, sizeof(struct startup_entry), startup_entry_cmp);
 
-#if !CONFIG_SPTM
+#if !CONFIG_SPTM && !defined(__BUILDING_XNU_LIBRARY__)
+	/* static_if relies on TEXT editing and not supported in user-mode build*/
 	static_if_init(PE_boot_args());
 #endif
 
@@ -347,11 +345,13 @@ kernel_startup_tunable_dt_source_init(const struct startup_tunable_dt_source_spe
 
 	/* boot-arg overrides. */
 
-	if (PE_parse_boot_argn(spec->boot_arg_name, spec->var_addr, spec->var_len)) {
-		if (spec->var_is_bool) {
-			*(bool *)spec->var_addr = *(uint8_t *)spec->var_addr;
+	if (spec->boot_arg_name != NULL) {
+		if (PE_parse_boot_argn(spec->boot_arg_name, spec->var_addr, spec->var_len)) {
+			if (spec->var_is_bool) {
+				*(bool *)spec->var_addr = *(uint8_t *)spec->var_addr;
+			}
+			*spec->source_addr = STARTUP_SOURCE_BOOTPARAM;
 		}
-		*spec->source_addr = STARTUP_SOURCE_BOOTPARAM;
 	}
 }
 
@@ -395,9 +395,11 @@ kernel_startup_tunable_dt_init(const struct startup_tunable_dt_spec *spec)
 
 	/* boot-arg overrides. */
 
-	if (PE_parse_boot_argn(spec->boot_arg_name, spec->var_addr, spec->var_len)) {
-		if (spec->var_is_bool) {
-			*(bool *)spec->var_addr = *(uint8_t *)spec->var_addr;
+	if (spec->boot_arg_name != NULL) {
+		if (PE_parse_boot_argn(spec->boot_arg_name, spec->var_addr, spec->var_len)) {
+			if (spec->var_is_bool) {
+				*(bool *)spec->var_addr = *(uint8_t *)spec->var_addr;
+			}
 		}
 	}
 }
@@ -477,6 +479,25 @@ kernel_startup_initialize_upto(startup_subsystem_id_t upto)
 	startup_phase = upto;
 }
 
+#ifdef __BUILDING_XNU_LIB_UNITTEST__
+/* unit-test initialization needs to pick specific phases */
+void
+kernel_startup_initialize_only(startup_subsystem_id_t sysid)
+{
+	assert(startup_phase < sysid);
+	struct startup_entry *cur = startup_entry_cur;
+	while (cur < startup_entries_end && cur->subsystem <= sysid) {
+		if (cur->subsystem == sysid) {
+			startup_phase = cur->subsystem - 1;
+			kernel_startup_log(cur->subsystem);
+			cur->func(cur->arg);
+		}
+		startup_entry_cur = ++cur;
+	}
+	startup_phase = sysid;
+}
+#endif
+
 void
 kernel_bootstrap(void)
 {
@@ -487,6 +508,10 @@ kernel_bootstrap(void)
 	code_signing_config_t cs_config;
 
 	printf("%s\n", version); /* log kernel version */
+
+#if HAS_UPSI_FAILURE_INJECTION
+	check_for_failure_injection(XNU_STAGE_BOOTSTRAP_START);
+#endif
 
 	scale_setup();
 
@@ -513,11 +538,6 @@ kernel_bootstrap(void)
 	kernel_bootstrap_log("UBSan minimal runtime init");
 	ubsan_minimal_init();
 #endif
-
-#ifdef CONFIG_BTI_TELEMETRY
-	kernel_bootstrap_log("BTI exception telemetry runtime init");
-	bti_telemetry_init();
-#endif /* CONFIG_BTI_TELEMETRY */
 
 #if KASAN
 	kernel_bootstrap_log("kasan_late_init");
@@ -669,8 +689,8 @@ kernel_bootstrap_thread(void)
 {
 	processor_t processor = current_processor();
 
-#if (DEVELOPMENT || DEBUG)
-	platform_stall_panic_or_spin(PLATFORM_STALL_XNU_LOCATION_KERNEL_BOOTSTRAP);
+#if HAS_UPSI_FAILURE_INJECTION
+	check_for_failure_injection(XNU_STAGE_SCHEDULER_START);
 #endif
 
 	kernel_bootstrap_thread_log("idle_thread_create");
@@ -1064,14 +1084,14 @@ scale_setup(void)
 	pe_serverperfmode = PE_get_default("kern.serverperfmode",
 	    &pe_serverperfmode, sizeof(pe_serverperfmode));
 	if (pe_serverperfmode) {
-		serverperfmode = pe_serverperfmode;
+		serverperfmode = (pe_serverperfmode != 0);
 	}
 #if defined(__LP64__)
 	typeof(task_max) task_max_base = task_max;
 
 
 	/* Raise limits for servers with >= 16G */
-	if ((serverperfmode != 0) && ((uint64_t)max_mem_actual >= (uint64_t)(16 * 1024 * 1024 * 1024ULL))) {
+	if (serverperfmode && ((uint64_t)max_mem_actual >= (uint64_t)(16 * 1024 * 1024 * 1024ULL))) {
 		scale = (int)((uint64_t)sane_size / (uint64_t)(8 * 1024 * 1024 * 1024ULL));
 		/* limit to 128 G */
 		if (scale > 16) {

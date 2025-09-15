@@ -92,13 +92,15 @@ ips_from_waitq(waitq_t wq)
 	return __container_of(wq.wqs_set, struct ipc_pset, ips_wqset);
 }
 
-#define ips_active(pset)            io_active(ips_to_object(pset))
+#define ips_active(pset)            io_state_active(ips_to_object(pset)->io_state)
 #define ips_mq_lock_held(pset)      io_lock_held(ips_to_object(pset))
 #define ips_mq_lock(pset)           ipc_pset_lock(pset)
 #define ips_mq_lock_held_kdp(pset)  io_lock_held_kdp(ips_to_object(pset))
 #define ips_mq_unlock(pset)         io_unlock(ips_to_object(pset))
 #define ips_reference(pset)         io_reference(ips_to_object(pset))
 #define ips_release(pset)           io_release(ips_to_object(pset))
+#define ips_alloc()                 zalloc_id(ZONE_ID_IPC_PORT_SET, Z_WAITOK_ZERO_NOFAIL)
+#define ips_free(pset)              zfree_id(ZONE_ID_IPC_PORT_SET, pset)
 #define ips_validate(pset) \
 	zone_id_require(ZONE_ID_IPC_PORT_SET, sizeof(struct ipc_pset), pset)
 
@@ -126,8 +128,8 @@ extern void ipc_pset_destroy(
 	ipc_space_t     space,
 	ipc_pset_t      pset);
 
-/* Finalize the destruction of a pset before it gets freed */
-extern void ipc_pset_finalize(
+/* Finalize the destruction of a pset and free it */
+extern void ipc_pset_free(
 	ipc_pset_t      pset);
 
 #if MACH_KERNEL_PRIVATE

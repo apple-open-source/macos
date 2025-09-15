@@ -66,7 +66,7 @@ get_jet_id(void)
 	return jet_id;
 }
 
-T_DECL(coalition_suppress_read_entitled, "COALITION_POLICY_SUPPRESS should not be readable without entitlement")
+T_DECL(coalition_suppress_read_unentitled, "COALITION_POLICY_SUPPRESS should not be readable without entitlement")
 {
 	uint64_t jet_id = get_jet_id();
 
@@ -75,7 +75,7 @@ T_DECL(coalition_suppress_read_entitled, "COALITION_POLICY_SUPPRESS should not b
 	T_LOG("suppress: %d", suppress);
 }
 
-T_DECL(coalition_suppress_set, "COALITION_POLICY_SUPPRESS should not be settable without entitlement")
+T_DECL(coalition_suppress_set_unentitled, "COALITION_POLICY_SUPPRESS should not be settable without entitlement")
 {
 	uint64_t jet_id = get_jet_id();
 

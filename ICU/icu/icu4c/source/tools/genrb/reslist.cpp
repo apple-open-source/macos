@@ -508,6 +508,11 @@ SRBRoot::mapKey(int32_t oldpos) const {
     }
     int32_t i, start, limit;
 
+#if APPLE_ICU_CHANGES // rdar://155639864
+    // Xcode's static analyzer thinks it's possible to get here
+    // with a null pointer, so let's check for that.
+    assert(fUsePoolBundle != nullptr);
+#endif
     /* do a binary search for the old, pre-compactKeys() key offset */
     start = fUsePoolBundle->fKeysCount;
     limit = start + fKeysCount;
@@ -853,9 +858,16 @@ void SRBRoot::write(const char *outputDir, const char *outputPkg,
     UNewDataMemory *mem        = nullptr;
     uint32_t        byteOffset = 0;
     uint32_t        top, size;
-    char            dataName[1024];
+    const int32_t   DATA_NAME_SIZE = 2048;
+    char            dataName[DATA_NAME_SIZE];
     int32_t         indexes[URES_INDEX_TOP];
 
+#if APPLE_ICU_CHANGES // rdar://155639864
+    // Coverity thinks it's possible to get here
+    // with a null pointer and then call into compactKeys
+    // which dereferences it, so let's check for that.
+    assert(fUsePoolBundle != nullptr);
+#endif
     compactKeys(errorCode);
     /*
      * Add padding bytes to fKeys so that fKeysTop is 4-aligned.
@@ -897,13 +909,13 @@ void SRBRoot::write(const char *outputDir, const char *outputPkg,
             }
         }
         fRoot->preflightStrings(this, stringSet, errorCode);
+        if (fStringsForm == STRINGS_UTF16_V2 && f16BitStringsLength > 0) {
+            compactStringsV2(stringSet, errorCode);
+        }
+        uhash_close(stringSet);
     } else {
         stringSet = nullptr;
     }
-    if (fStringsForm == STRINGS_UTF16_V2 && f16BitStringsLength > 0) {
-        compactStringsV2(stringSet, errorCode);
-    }
-    uhash_close(stringSet);
     if (U_FAILURE(errorCode)) {
         return;
     }
@@ -984,13 +996,23 @@ void SRBRoot::write(const char *outputDir, const char *outputPkg,
 
     if(outputPkg)
     {
-        uprv_strcpy(dataName, outputPkg);
-        uprv_strcat(dataName, "_");
-        uprv_strcat(dataName, fLocale);
+        if (uprv_strlen(outputPkg) + 1 + uprv_strlen(fLocale) < DATA_NAME_SIZE) {
+            uprv_strcpy(dataName, outputPkg);
+            uprv_strcat(dataName, "_");
+            uprv_strcat(dataName, fLocale);
+        } else {
+            errorCode = U_BUFFER_OVERFLOW_ERROR;
+            return;
+        }
     }
     else
     {
-        uprv_strcpy(dataName, fLocale);
+        if (uprv_strlen(fLocale) < DATA_NAME_SIZE) {
+            uprv_strcpy(dataName, fLocale);
+        } else {
+            errorCode = U_BUFFER_OVERFLOW_ERROR;
+            return;
+        }
     }
 
     uprv_memcpy(dataInfo.formatVersion, gFormatVersions + formatVersion, sizeof(UVersionInfo));
@@ -1690,6 +1712,11 @@ SRBRoot::compactStringsV2(UHashtable *stringSet, UErrorCode &errorCode) {
                    static_cast<int>(numUnitsNotSaved), static_cast<int>(numUnitsNotSaved) * 2);
         }
     } else {
+#if APPLE_ICU_CHANGES // rdar://155639864
+        // Xcode's static analyzer thinks it's possible to get here
+        // with a null pointer, so let's check for that.
+        assert(fUsePoolBundle != nullptr);
+#endif
         assert(fPoolStringIndexLimit <= fUsePoolBundle->fStringIndexLimit);
         /* Write the non-suffix strings. */
         int32_t i;

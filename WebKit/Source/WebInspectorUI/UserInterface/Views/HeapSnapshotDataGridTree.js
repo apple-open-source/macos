@@ -218,7 +218,7 @@ WI.HeapSnapshotInstancesDataGridTree = class HeapSnapshotInstancesDataGridTree e
         // Populate the first level with the different classes.
         let skipInternalOnlyObjects = !WI.settings.engineeringShowInternalObjectsInHeapSnapshot.value;
 
-        for (let [className, {size, retainedSize, count, internalCount, deadCount, objectCount}] of this.heapSnapshot.categories) {
+        for (let [className, {size, retainedSize, count, internalCount, deadCount, objectCount, elementCount}] of this.heapSnapshot.categories) {
             console.assert(count > 0);
 
             // Possibly skip internal only classes.
@@ -233,8 +233,9 @@ WI.HeapSnapshotInstancesDataGridTree = class HeapSnapshotInstancesDataGridTree e
             // If over half of the objects with this class name are Object sub-types, treat this as an Object category.
             // This can happen if the page has a JavaScript Class with the same name as a native class.
             let isObjectSubcategory = (objectCount / count) > 0.5;
+            let isElementSubcategory = (elementCount / count) > 0.5;
 
-            this.appendChild(new WI.HeapSnapshotClassDataGridNode({className, size, retainedSize, isObjectSubcategory, count: liveCount}, this));
+            this.appendChild(new WI.HeapSnapshotClassDataGridNode({className, size, retainedSize, isObjectSubcategory, isElementSubcategory, count: liveCount}, this));
         }
 
         this.didPopulate();
@@ -254,7 +255,7 @@ WI.HeapSnapshotInstancesDataGridTree = class HeapSnapshotInstancesDataGridTree e
     }
 };
 
-WI.HeapSnapshotObjectGraphDataGridTree = class HeapSnapshotInstancesDataGridTree extends WI.HeapSnapshotDataGridTree
+WI.HeapSnapshotObjectGraphDataGridTree = class HeapSnapshotObjectGraphDataGridTree extends WI.HeapSnapshotDataGridTree
 {
     get alwaysShowRetainedSize()
     {
@@ -275,16 +276,18 @@ WI.HeapSnapshotObjectGraphDataGridTree = class HeapSnapshotInstancesDataGridTree
                 this.appendChild(new WI.HeapSnapshotInstanceDataGridNode(instance, this));
         });
 
-        this.heapSnapshot.instancesWithClassName("Window", (instances) => {
-            for (let instance of instances) {
-                // FIXME: Why is the window.Window Function classified as a Window?
-                // In any case, ignore objects not dominated by the root, as they
-                // are probably not what we want.
-                if (instance.dominatorNodeIdentifier === 0)
-                    this.appendChild(new WI.HeapSnapshotInstanceDataGridNode(instance, this));
-            }
+        for (let rootClassName of ["Window", "DedicatedWorkerGlobalScope"]) {
+            this.heapSnapshot.instancesWithClassName(rootClassName, (instances) => {
+                for (let instance of instances) {
+                    // FIXME: Why is the window.Window Function classified as a Window?
+                    // In any case, ignore objects not dominated by the root, as they
+                    // are probably not what we want.
+                    if (instance.dominatorNodeIdentifier === 0)
+                        this.appendChild(new WI.HeapSnapshotInstanceDataGridNode(instance, this));
+                }
 
-            this.didPopulate();
-        });
+                this.didPopulate();
+            });
+        }
     }
 };

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -197,9 +197,11 @@
 		D3B3EC212C35474900CC4ED6 /* newfs_fskit.c in Sources */ = {isa = PBXBuildFile; fileRef = D3B3EC1F2C35474900CC4ED6 /* newfs_fskit.c */; };
 		D3B3EC222C36824800CC4ED6 /* libdisk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D07DD49153CA9A0002B57CB /* libdisk.a */; };
 		D3B3EC232C36825000CC4ED6 /* libdisk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D07DD49153CA9A0002B57CB /* libdisk.a */; };
+		DB0CE5462DAE03BE008AB0DF /* fsck_fskit.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = DB0CE5452DADE19C008AB0DF /* fsck_fskit.8 */; };
 		DB255C1E2B1FE2CF00F37A3C /* fskit_support.m in Sources */ = {isa = PBXBuildFile; fileRef = DB255C1B2B1FD58E00F37A3C /* fskit_support.m */; };
 		DB255C202B1FE30200F37A3C /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB255C1F2B1FE30200F37A3C /* FSKit.framework */; platformFilters = (ios, macos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
 		DB55FAB42B2E66B9007FD123 /* LiveFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB55FAB32B2E66B9007FD123 /* LiveFS.framework */; platformFilters = (ios, macos, xros, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		DB7D31142DB022AC00A2F4F0 /* newfs_fskit.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = DB7D31132DB0202500A2F4F0 /* newfs_fskit.8 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -708,22 +710,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D30F20C12C32B75200CF4ECF /* CopyFiles */ = {
+		D30F20C12C32B75200CF4ECF /* Copy man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
+				DB0CE5462DAE03BE008AB0DF /* fsck_fskit.8 in Copy man8 */,
 			);
+			name = "Copy man8";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D3B3EC1B2C3546EC00CC4ED6 /* CopyFiles */ = {
+		D3B3EC1B2C3546EC00CC4ED6 /* Copy man8 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			dstPath = /usr/share/man/man8;
 			dstSubfolderSpec = 0;
 			files = (
+				DB7D31142DB022AC00A2F4F0 /* newfs_fskit.8 in Copy man8 */,
 			);
+			name = "Copy man8";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -851,10 +857,12 @@
 		D3B3EC1E2C3546EC00CC4ED6 /* newfs_fskit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newfs_fskit; sourceTree = BUILT_PRODUCTS_DIR; };
 		D3B3EC1F2C35474900CC4ED6 /* newfs_fskit.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = newfs_fskit.c; sourceTree = "<group>"; };
 		D3B3EC202C35474900CC4ED6 /* newfs_fskit.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = newfs_fskit.entitlements; sourceTree = "<group>"; };
+		DB0CE5452DADE19C008AB0DF /* fsck_fskit.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = fsck_fskit.8; sourceTree = "<group>"; };
 		DB255C1A2B1FD58E00F37A3C /* fskit_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = fskit_support.h; path = disklib/fskit_support.h; sourceTree = "<group>"; };
 		DB255C1B2B1FD58E00F37A3C /* fskit_support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = fskit_support.m; path = disklib/fskit_support.m; sourceTree = "<group>"; };
 		DB255C1F2B1FE30200F37A3C /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.Internal.sdk/System/Library/PrivateFrameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
 		DB55FAB32B2E66B9007FD123 /* LiveFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LiveFS.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.Internal.sdk/System/Library/PrivateFrameworks/LiveFS.framework; sourceTree = DEVELOPER_DIR; };
+		DB7D31132DB0202500A2F4F0 /* newfs_fskit.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = newfs_fskit.8; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1402,6 +1410,7 @@
 		D30F20C42C32B75200CF4ECF /* fsck_fskit */ = {
 			isa = PBXGroup;
 			children = (
+				DB0CE5452DADE19C008AB0DF /* fsck_fskit.8 */,
 				D3B3EC072C33EFFB00CC4ED6 /* fsck_fskit.entitlements */,
 				D30F20C52C32B75200CF4ECF /* fsck_fskit.c */,
 			);
@@ -1411,6 +1420,7 @@
 		D3B3EC0D2C3546DC00CC4ED6 /* newfs_fskit */ = {
 			isa = PBXGroup;
 			children = (
+				DB7D31132DB0202500A2F4F0 /* newfs_fskit.8 */,
 				D3B3EC1F2C35474900CC4ED6 /* newfs_fskit.c */,
 				D3B3EC202C35474900CC4ED6 /* newfs_fskit.entitlements */,
 			);
@@ -1801,7 +1811,7 @@
 			buildPhases = (
 				D30F20BF2C32B75200CF4ECF /* Sources */,
 				D30F20C02C32B75200CF4ECF /* Frameworks */,
-				D30F20C12C32B75200CF4ECF /* CopyFiles */,
+				D30F20C12C32B75200CF4ECF /* Copy man8 */,
 			);
 			buildRules = (
 			);
@@ -1819,7 +1829,7 @@
 			buildPhases = (
 				D3B3EC152C3546EC00CC4ED6 /* Sources */,
 				D3B3EC182C3546EC00CC4ED6 /* Frameworks */,
-				D3B3EC1B2C3546EC00CC4ED6 /* CopyFiles */,
+				D3B3EC1B2C3546EC00CC4ED6 /* Copy man8 */,
 			);
 			buildRules = (
 			);

@@ -27,6 +27,7 @@
  */
 
 #include <net/if_var.h>
+#include <net/if_var_private.h>
 #include <net/dlil_var_private.h>
 #include <net/dlil.h>
 #include <net/dlil_sysctl.h>
@@ -736,6 +737,31 @@ dlil_input_cksum_dbg(struct ifnet *ifp, struct mbuf *m, char *frame_header,
 	}
 }
 
+#if (DEVELOPMENT || DEBUG)
+static void
+dlil_input_process_wake_packet(ifnet_t ifp, protocol_family_t protocol_family, mbuf_ref_t m)
+{
+	/*
+	 * For testing we do not care about broadcast and multicast packets as
+	 * they are not as controllable as unicast traffic
+	 */
+	if (check_wake_mbuf(ifp, protocol_family, m) == false) {
+		return;
+	}
+	if (__improbable(ifp->if_xflags & IFXF_MARK_WAKE_PKT)) {
+		if ((protocol_family == PF_INET || protocol_family == PF_INET6) &&
+		    (m->m_flags & (M_BCAST | M_MCAST)) == 0) {
+			/*
+			 * This is a one-shot command
+			 */
+			ifp->if_xflags &= ~IFXF_MARK_WAKE_PKT;
+
+			m->m_pkthdr.pkt_flags |= PKTF_WAKE_PKT;
+		}
+	}
+}
+#endif /* (DEVELOPMENT || DEBUG) */
+
 static void
 dlil_input_packet_list_common(struct ifnet *ifp_param, mbuf_ref_t m,
     u_int32_t cnt, ifnet_model_t mode, boolean_t ext)
@@ -839,31 +865,9 @@ dlil_input_packet_list_common(struct ifnet *ifp_param, mbuf_ref_t m,
 		}
 
 #if (DEVELOPMENT || DEBUG)
-		/*
-		 * For testing we do not care about broadcast and multicast packets as
-		 * they are not as controllable as unicast traffic
-		 */
-		if (__improbable(ifp->if_xflags & IFXF_MARK_WAKE_PKT)) {
-			if ((protocol_family == PF_INET || protocol_family == PF_INET6) &&
-			    (m->m_flags & (M_BCAST | M_MCAST)) == 0) {
-				/*
-				 * This is a one-shot command
-				 */
-				ifp->if_xflags &= ~IFXF_MARK_WAKE_PKT;
-				m->m_pkthdr.pkt_flags |= PKTF_WAKE_PKT;
-			}
-		}
+		/* For testing only */
+		dlil_input_process_wake_packet(ifp, protocol_family, m);
 #endif /* (DEVELOPMENT || DEBUG) */
-		if (__improbable(net_wake_pkt_debug > 0 && (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT))) {
-			char buffer[64];
-			size_t buflen = MIN(mbuf_pkthdr_len(m), sizeof(buffer));
-
-			os_log(OS_LOG_DEFAULT, "wake packet from %s len %d",
-			    ifp->if_xname, m_pktlen(m));
-			if (mbuf_copydata(m, 0, buflen, buffer) == 0) {
-				log_hexdump(buffer, buflen);
-			}
-		}
 
 		pktap_input(ifp, protocol_family, m, frame_header);
 
@@ -1047,7 +1051,7 @@ skip_clat:
 		}
 		if (ifproto == NULL) {
 			/* no protocol for this packet, discard */
-			m_drop(m, DROPTAP_FLAG_DIR_IN, DROP_REASON_DLIL_NO_PROTO, NULL, 0);
+			m_drop_extended(m, ifp, frame_header, DROPTAP_FLAG_DIR_IN, DROP_REASON_DLIL_NO_PROTO, NULL, 0);
 			goto next;
 		}
 		if (ifproto != last_ifproto) {
@@ -1125,6 +1129,12 @@ dlil_input_thread_func(void *v, wait_result_t w)
 	thread_name = tsnprintf(thread_name_storage, sizeof(thread_name_storage),
 	    "dlil_input_%s", ifp->if_xname);
 	thread_set_thread_name(inp->dlth_thread, thread_name);
+
+#if CONFIG_THREAD_GROUPS
+	if (IFNET_REQUIRES_CELL_GROUP(ifp)) {
+		thread_group_join_cellular();
+	}
+#endif /* CONFIG_THREAD_GROUPS */
 
 	lck_mtx_lock(&inp->dlth_lock);
 	VERIFY(!(inp->dlth_flags & (DLIL_INPUT_EMBRYONIC | DLIL_INPUT_RUNNING)));
@@ -1668,7 +1678,7 @@ skip:
 		 * hold an IO refcnt on the interface to prevent it from
 		 * being detached (will be release below.)
 		 */
-		if (poll_req != 0 && ifnet_is_attached(ifp, 1)) {
+		if (poll_req != 0 && ifnet_get_ioref(ifp)) {
 			struct ifnet_model_params p = {
 				.model = mode, .reserved = { 0 }
 			};

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc.  All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,11 +70,11 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 #define AVSpeechUtteranceMaximumSpeechRate getAVSpeechUtteranceMaximumSpeechRate()
 
 @interface WebSpeechSynthesisWrapper : NSObject<AVSpeechSynthesizerDelegate> {
-    WebCore::PlatformSpeechSynthesizer* m_synthesizerObject;
+    WeakPtr<WebCore::PlatformSpeechSynthesizer> m_synthesizerObject;
     // Hold a Ref to the utterance so that it won't disappear until the synth is done with it.
     RefPtr<WebCore::PlatformSpeechSynthesisUtterance> m_utterance;
 
-    RetainPtr<AVSpeechSynthesizer> m_synthesizer;
+    const RetainPtr<AVSpeechSynthesizer> m_synthesizer;
 }
 
 - (WebSpeechSynthesisWrapper *)initWithSpeechSynthesizer:(WebCore::PlatformSpeechSynthesizer*)synthesizer;
@@ -102,7 +102,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
 
 - (void)availableVoicesDidChange
 {
-    m_synthesizerObject->voicesDidChange();
+    Ref { *m_synthesizerObject }->voicesDidChange();
 }
 
 #endif
@@ -127,30 +127,30 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     if (!m_synthesizer) {
-        m_synthesizer = adoptNS([PAL::allocAVSpeechSynthesizerInstance() init]);
+        lazyInitialize(m_synthesizer, adoptNS([PAL::allocAVSpeechSynthesizerInstance() init]));
         [m_synthesizer setDelegate:self];
     }
     
     // Choose the best voice, by first looking at the utterance voice, then the utterance language,
     // then choose the default language.
-    WebCore::PlatformSpeechSynthesisVoice* utteranceVoice = utterance->voice();
-    NSString *voiceLanguage = nil;
+    RefPtr utteranceVoice = utterance->voice();
+    RetainPtr<NSString> voiceLanguage;
     if (!utteranceVoice || utteranceVoice->voiceURI().isEmpty()) {
         if (utterance->lang().isEmpty())
             voiceLanguage = [PAL::getAVSpeechSynthesisVoiceClass() currentLanguageCode];
         else
-            voiceLanguage = utterance->lang();
+            voiceLanguage = utterance->lang().createNSString();
     } else
-        voiceLanguage = utterance->voice()->lang();
+        voiceLanguage = utterance->voice()->lang().createNSString();
 
     AVSpeechSynthesisVoice *avVoice = nil;
     if (utteranceVoice)
-        avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithIdentifier:utteranceVoice->voiceURI()];
+        avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithIdentifier:utteranceVoice->voiceURI().createNSString().get()];
 
     if (!avVoice)
-        avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithLanguage:voiceLanguage];
+        avVoice = [PAL::getAVSpeechSynthesisVoiceClass() voiceWithLanguage:voiceLanguage.get()];
 
-    AVSpeechUtterance *avUtterance = [PAL::getAVSpeechUtteranceClass() speechUtteranceWithString:utterance->text()];
+    AVSpeechUtterance *avUtterance = [PAL::getAVSpeechUtteranceClass() speechUtteranceWithString:utterance->text().createNSString().get()];
 
     [avUtterance setRate:[self mapSpeechRateToPlatformRate:utterance->rate()]];
     [avUtterance setVolume:utterance->volume()];
@@ -162,7 +162,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     // macOS won't send a did start speaking callback for empty strings.
 #if !HAVE(UNIFIED_SPEECHSYNTHESIS_FIX_FOR_81465164)
     if (!m_utterance->text().length())
-        m_synthesizerObject->client().didStartSpeaking(*m_utterance);
+        m_synthesizerObject->client().didStartSpeaking(Ref { *m_utterance });
 #endif
 
     [m_synthesizer speakUtterance:avUtterance];
@@ -212,7 +212,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
-    m_synthesizerObject->client().didStartSpeaking(*m_utterance);
+    m_synthesizerObject->client().didStartSpeaking(Ref { *m_utterance });
 }
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didFinishSpeechUtterance:(AVSpeechUtterance *)utterance
@@ -234,7 +234,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
-    m_synthesizerObject->client().didPauseSpeaking(*m_utterance);
+    m_synthesizerObject->client().didPauseSpeaking(Ref { *m_utterance });
 }
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didContinueSpeechUtterance:(AVSpeechUtterance *)utterance
@@ -243,7 +243,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
     if (!m_utterance || m_utterance->wrapper() != utterance)
         return;
 
-    m_synthesizerObject->client().didResumeSpeaking(*m_utterance);
+    m_synthesizerObject->client().didResumeSpeaking(Ref { *m_utterance });
 }
 
 - (void)speechSynthesizer:(AVSpeechSynthesizer *)synthesizer didCancelSpeechUtterance:(AVSpeechUtterance *)utterance
@@ -266,7 +266,7 @@ static float getAVSpeechUtteranceMaximumSpeechRate()
         return;
 
     // AVSpeechSynthesizer only supports word boundaries.
-    m_synthesizerObject->client().boundaryEventOccurred(*m_utterance, WebCore::SpeechBoundary::SpeechWordBoundary, characterRange.location, characterRange.length);
+    m_synthesizerObject->client().boundaryEventOccurred(Ref { *m_utterance }, WebCore::SpeechBoundary::SpeechWordBoundary, characterRange.location, characterRange.length);
 }
 
 @end
@@ -293,17 +293,10 @@ void PlatformSpeechSynthesizer::initializeVoiceList()
         return;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    NSArray<AVSpeechSynthesisVoice *> *voices = nil;
     // SpeechSynthesis replaces on-device compact with higher quality compact voices. These
     // are not available to WebKit so we're losing these default voices for WebSpeech.
-    // FIXME: Remove respondsToSelector check when is available on all SDKs.
-    if ([PAL::getAVSpeechSynthesisVoiceClass() respondsToSelector:@selector(speechVoicesIncludingSuperCompact)])
-        voices = [PAL::getAVSpeechSynthesisVoiceClass() speechVoicesIncludingSuperCompact];
-    else
-        voices = [PAL::getAVSpeechSynthesisVoiceClass() speechVoices];
-
     // Only show built-in voices when requesting through WebKit to reduce fingerprinting surface area.
-    for (AVSpeechSynthesisVoice *voice in voices) {
+    for (AVSpeechSynthesisVoice *voice in [PAL::getAVSpeechSynthesisVoiceClass() speechVoicesIncludingSuperCompact]) {
         if (voice.isSystemVoice)
             m_voiceList.append(PlatformSpeechSynthesisVoice::create(voice.identifier, voice.name, voice.language, true, true));
     }

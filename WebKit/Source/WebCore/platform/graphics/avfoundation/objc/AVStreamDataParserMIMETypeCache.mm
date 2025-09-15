@@ -92,7 +92,7 @@ bool AVStreamDataParserMIMETypeCache::canDecodeExtendedType(const ContentType& t
     ASSERT(isAvailable());
 
     if ([PAL::getAVStreamDataParserClass() respondsToSelector:@selector(canParseExtendedMIMEType:)])
-        return [PAL::getAVStreamDataParserClass() canParseExtendedMIMEType:type.raw()];
+        return [PAL::getAVStreamDataParserClass() canParseExtendedMIMEType:type.raw().createNSString().get()];
 
     // FIXME(rdar://50502771) AVStreamDataParser does not have an -canParseExtendedMIMEType: method on this system,
     //  so just replace the container type with a valid one from AVAssetMIMETypeCache and ask that cache if it

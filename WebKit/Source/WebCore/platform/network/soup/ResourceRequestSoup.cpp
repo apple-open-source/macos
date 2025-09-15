@@ -105,7 +105,7 @@ void ResourceRequest::updateSoupMessageBody(SoupMessage* soupMessage, BlobRegist
 #if USE(SOUP2)
             soup_message_body_append(soupMessage->request_body, SOUP_MEMORY_TEMPORARY, vector->data(), vector->size());
 #else
-            GRefPtr<GBytes> bytes = adoptGRef(g_bytes_new_static(vector->data(), vector->size()));
+            GRefPtr<GBytes> bytes = adoptGRef(g_bytes_new_static(vector->span().data(), vector->size()));
             soup_message_set_request_body_from_bytes(soupMessage, nullptr, bytes.get());
 #endif
             return;
@@ -238,7 +238,7 @@ void ResourceRequest::updateFromDelegatePreservingOldProperties(const ResourceRe
         setInspectorInitiatorNodeIdentifier(*oldInspectorInitiatorNodeIdentifier);
 }
 
-ResourceRequest ResourceRequest::fromResourceRequestData(ResourceRequestData requestData)
+ResourceRequest ResourceRequest::fromResourceRequestData(ResourceRequestData&& requestData)
 {
     if (std::holds_alternative<ResourceRequestBase::RequestData>(requestData))
         return ResourceRequest(WTFMove(std::get<ResourceRequestBase::RequestData>(requestData)));

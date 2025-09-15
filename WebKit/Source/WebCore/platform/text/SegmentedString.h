@@ -223,14 +223,14 @@ inline SegmentedString::SegmentedString(const String& string)
 ALWAYS_INLINE void SegmentedString::updateAdvanceFunctionPointersIfNecessary()
 {
     ASSERT(m_currentSubstring.length() >= 1);
-    if (UNLIKELY(m_currentSubstring.length() == 1))
+    if (m_currentSubstring.length() == 1) [[unlikely]]
         updateAdvanceFunctionPointersForSingleCharacterSubstring();
 }
 
 
 ALWAYS_INLINE void SegmentedString::advanceWithoutUpdatingLineNumber()
 {
-    if (LIKELY(m_fastPathFlags & Use8BitAdvance)) {
+    if (m_fastPathFlags & Use8BitAdvance) [[likely]] {
         skip(m_currentSubstring.s.currentCharacter8, 1);
         m_currentCharacter = m_currentSubstring.s.currentCharacter8[0];
         updateAdvanceFunctionPointersIfNecessary();
@@ -254,13 +254,13 @@ inline void SegmentedString::processPossibleNewline()
 
 inline void SegmentedString::advance()
 {
-    if (LIKELY(m_fastPathFlags & Use8BitAdvance)) {
+    if (m_fastPathFlags & Use8BitAdvance) [[likely]] {
         ASSERT(m_currentSubstring.length() > 1);
         bool lastCharacterWasNewline = m_currentCharacter == '\n';
         skip(m_currentSubstring.s.currentCharacter8, 1);
         m_currentCharacter = m_currentSubstring.s.currentCharacter8[0];
         bool haveOneCharacterLeft = m_currentSubstring.s.currentCharacter8.size() == 1;
-        if (LIKELY(!(lastCharacterWasNewline | haveOneCharacterLeft)))
+        if (!(lastCharacterWasNewline | haveOneCharacterLeft)) [[likely]]
             return;
         if (lastCharacterWasNewline & !!(m_fastPathFlags & Use8BitAdvanceAndUpdateLineNumbers))
             startNewLine();

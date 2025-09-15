@@ -59,6 +59,8 @@
 	<true/>
 	<key>com.apple.private.cloudkit.spi</key>
 	<true/>
+	<key>com.apple.private.cloudkit.participant-pii</key>
+	<true/>
 	<key>com.apple.private.appleaccount.app-hidden-from-icloud-settings</key>
 	<true/>
 	<key>com.apple.private.tcc.allow</key>
@@ -146,7 +148,15 @@
 	<true/>
 	<key>com.apple.private.keychain.kcsharing.invitation.manager</key>
 	<true/>
+	<key>com.apple.private.cloudcoreinternal.allow-custom-bundle-ids</key>
+	<true/>
+	<key>com.apple.keystore.enable_cache_flow</key>
+	<true/>
+	<key>com.apple.private.LocalAuthentication.PasscodeStashSecret</key>
+	<true/>
 	<key>com.apple.private.amfi.version-restriction</key>
 	<integer>1</integer>
+	<key>com.apple.private.securityd.get-derived-entropy</key>
+	<true/>
 </dict>
 </plist>

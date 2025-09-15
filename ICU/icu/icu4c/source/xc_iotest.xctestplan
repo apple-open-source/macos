@@ -21,7 +21,7 @@
     "environmentVariableEntries" : [
       {
         "key" : "ICU_DATA",
-        "value" : "$(CONFIGURATION_BUILD_DIR)\/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)\/testdata.dat"
+        "value" : "$(BUILT_PRODUCTS_DIR)\/icudt76l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
       }
     ],
     "targetForVariableExpansion" : {

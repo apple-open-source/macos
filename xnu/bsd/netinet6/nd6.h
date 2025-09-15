@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -56,7 +56,13 @@
 
 #ifndef _NETINET6_ND6_H_
 #define _NETINET6_ND6_H_
+
 #include <sys/appleapiopts.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#ifndef BSD_KERNEL_PRIVATE
+#include <netinet6/in6_var.h>
+#endif
 #include <net/net_kev.h>
 
 /* see net/route.h, or net/if_inarp.h */
@@ -73,6 +79,7 @@
 #include <sys/eventhandler.h>
 #include <netinet6/nd6_var.h>
 #include <sys/sdt.h>
+#include <net/if_var.h>
 
 struct  llinfo_nd6 {
 	/*
@@ -385,6 +392,29 @@ struct  in6_ndifreq_64 {
 };
 #endif /* BSD_KERNEL_PRIVATE */
 
+struct  in6_route_info {
+	struct in6_addr prefix;
+	u_int8_t prefixlen;
+	u_short defrtrs; /* number of default routers */
+	/* struct in6_defrouter defrtr[] */
+} __attribute__((aligned(8)));
+
+#if defined(BSD_KERNEL_PRIVATE)
+struct  in6_route_info_32 {
+	struct in6_addr prefix;
+	u_int8_t prefixlen;
+	u_short defrtrs; /* number of default routers */
+	/* struct in6_defrouter defrtr[] */
+};
+
+struct  in6_route_info_64 {
+	struct in6_addr prefix;
+	u_int8_t prefixlen;
+	u_short defrtrs; /* number of default routers */
+	/* struct in6_defrouter defrtr[] */
+} __attribute__((aligned(8)));
+#endif /* BSD_KERNEL_PRIVATE */
+
 /* Prefix status */
 #define NDPRF_ONLINK            0x1
 #define NDPRF_DETACHED          0x2
@@ -398,7 +428,7 @@ struct  in6_ndifreq_64 {
 #define NDPRF_CLAT46            0x40000
 
 #define CLAT46_COLLISION_COUNT_OFFSET   128
-#endif
+#endif /* BSD_KERNEL_PRIVATE */
 
 /* protocol constants */
 #define MAX_RTR_SOLICITATION_DELAY      1       /* 1sec */
@@ -440,6 +470,7 @@ struct  in6_ndifreq_64 {
 #define MAX_REACHABLE_TIME              3600000 /* msec */
 #define REACHABLE_TIME                  30000   /* msec */
 #define RETRANS_TIMER                   1000    /* msec */
+#define MAX_RA_RETRANS_TIMER            10000   /* msec */
 #define MIN_RANDOM_FACTOR               512     /* 1024 * 0.5 */
 #define MAX_RANDOM_FACTOR               1536    /* 1024 * 1.5 */
 #define DEF_TEMP_VALID_LIFETIME         604800  /* 1 week */
@@ -741,6 +772,7 @@ extern int nd6_optimistic_dad;
 #define nd6log(type, ...)       do { if (nd6_debug >= 1) os_log_##type(OS_LOG_DEFAULT, ##__VA_ARGS__); } while (0)
 #define nd6log2(type, ...)      do { if (nd6_debug >= 2) os_log_##type(OS_LOG_DEFAULT, ##__VA_ARGS__); } while (0)
 #define nd6log3(type, ...)      do { if (nd6_debug >= 3) os_log_##type(OS_LOG_DEFAULT, ##__VA_ARGS__); } while (0)
+#define nd6log4(type, ...)      do { if (nd6_debug >= 4) os_log_##type(OS_LOG_DEFAULT, ##__VA_ARGS__); } while (0)
 
 #define ND6_OPTIMISTIC_DAD_LINKLOCAL    (1 << 0)
 #define ND6_OPTIMISTIC_DAD_AUTOCONF     (1 << 1)

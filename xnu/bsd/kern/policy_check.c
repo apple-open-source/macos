@@ -121,7 +121,7 @@ common_hook(void)
 	return rv;
 }
 
-#if (MAC_POLICY_OPS_VERSION != 87)
+#if (MAC_POLICY_OPS_VERSION != 91)
 # error "struct mac_policy_ops doesn't match definition in mac_policy.h"
 #endif
 /*
@@ -134,10 +134,10 @@ const static struct mac_policy_ops policy_ops = {
 	CHECK_SET_HOOK(audit_check_postselect)
 	CHECK_SET_HOOK(audit_check_preselect)
 
-	.mpo_reserved01 = (mpo_reserved_hook_t *)common_hook,
-	.mpo_reserved02 = (mpo_reserved_hook_t *)common_hook,
-	.mpo_reserved03 = (mpo_reserved_hook_t *)common_hook,
-	.mpo_reserved04 = (mpo_reserved_hook_t *)common_hook,
+	CHECK_SET_HOOK(graft_check_graft)
+	CHECK_SET_HOOK(graft_check_ungraft)
+	CHECK_SET_HOOK(graft_notify_graft)
+	CHECK_SET_HOOK(graft_notify_ungraft)
 
 	CHECK_SET_HOOK(cred_check_label_update_execve)
 	CHECK_SET_HOOK(cred_check_label_update)
@@ -221,8 +221,8 @@ const static struct mac_policy_ops policy_ops = {
 	CHECK_SET_HOOK(vnode_notify_unlink)
 
 	CHECK_SET_HOOK(vnode_check_swap)
-	.mpo_reserved33 = (mpo_reserved_hook_t *)common_hook,
-	.mpo_reserved34 = (mpo_reserved_hook_t *)common_hook,
+	CHECK_SET_HOOK(vnode_check_dataprotect_set)
+	CHECK_SET_HOOK(mount_check_remount_with_flags)
 	CHECK_SET_HOOK(mount_notify_mount)
 	CHECK_SET_HOOK(vnode_check_copyfile)
 
@@ -319,7 +319,7 @@ const static struct mac_policy_ops policy_ops = {
 	CHECK_SET_HOOK(proc_check_sched)
 	CHECK_SET_HOOK(proc_check_setaudit)
 	CHECK_SET_HOOK(proc_check_setauid)
-	.mpo_reserved64 = (mpo_reserved_hook_t *)common_hook,
+	CHECK_SET_HOOK(proc_check_iopolicysys)
 	CHECK_SET_HOOK(proc_check_signal)
 	CHECK_SET_HOOK(proc_check_wait)
 	CHECK_SET_HOOK(proc_check_dump_core)

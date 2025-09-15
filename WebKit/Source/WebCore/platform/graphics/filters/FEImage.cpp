@@ -3,7 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -74,13 +74,13 @@ std::unique_ptr<FilterEffectApplier> FEImage::createSoftwareApplier() const
 
 TextStream& FEImage::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
 {
-    ts << indent << "[feImage";
+    ts << indent << "[feImage"_s;
     FilterEffect::externalRepresentation(ts, representation);
 
-    ts << " image-size=\"" << m_sourceImageRect.width() << "x" << m_sourceImageRect.height() << "\"";
+    ts << " image-size=\""_s << m_sourceImageRect.width() << 'x' << m_sourceImageRect.height() << '"';
     // FIXME: should this dump also object returned by FEImage::image() ?
 
-    ts << "]\n";
+    ts << "]\n"_s;
     return ts;
 }
 

@@ -147,9 +147,6 @@ struct ipc_kmsg {
 	ipc_port_t                 XNU_PTRAUTH_SIGNED_PTR("kmsg.ikm_voucher_port") ikm_voucher_port;   /* voucher port carried */
 	struct ipc_importance_elem *ikm_importance;  /* inherited from */
 	queue_chain_t              ikm_inheritance;  /* inherited from link */
-#if MACH_FLIPC
-	struct mach_node           *ikm_node;        /* originating node - needed for ack */
-#endif
 	uint16_t                   ikm_aux_size;     /* size reserved for auxiliary data */
 	ipc_kmsg_keep_alive_t      ikm_keep_alive;   /* only used for IKM_TYPE_ALL_INLINED */
 	uint8_t                    __ikm_padding;
@@ -410,11 +407,6 @@ extern void ipc_kmsg_clear_voucher_port(
 /* checks signature and returns descriptor count */
 extern mach_msg_size_t ipc_kmsg_validate_signature(
 	ipc_kmsg_t              kmsg) __result_use_check;
-
-#define moved_provisional_reply_port(port_type, port) \
-	(port_type == MACH_MSG_TYPE_MOVE_RECEIVE && IP_VALID(port) && ip_is_provisional_reply_port(port)) \
-
-extern void send_prp_telemetry(int msgh_id);
 
 #if (KDEBUG_LEVEL >= KDEBUG_LEVEL_STANDARD)
 extern void ipc_kmsg_trace_send(

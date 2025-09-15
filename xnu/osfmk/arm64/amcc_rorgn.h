@@ -35,61 +35,16 @@
 
 __BEGIN_DECLS
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 
 extern vm_offset_t ctrr_begin, ctrr_end;
-
-#if CONFIG_CSR_FROM_DT
-extern bool csr_unsafe_kernel_text;
-#endif /* CONFIG_CSR_FROM_DT */
-
-#if DEVELOPMENT || DEBUG || CONFIG_DTRACE || CONFIG_CSR_FROM_DT
-extern bool rorgn_disable;
-#else
-#define rorgn_disable false
-#endif /* DEVELOPMENT || DEBUG */
 
 void rorgn_stash_range(void);
 void rorgn_lockdown(void);
 bool rorgn_contains(vm_offset_t addr, vm_size_t size, bool defval);
 void rorgn_validate_core(void);
 
-#if KERNEL_CTRR_VERSION >= 3
-#define CTXR_XN_DISALLOW_ALL \
-	/* Execute Masks for EL2&0 */ \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL2_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL0TGE1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL2_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL0TGE1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_MMUOFF_shift) | \
-	/* Execute Masks for EL1&0 when Stage2 Translation is disabled */ \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL0TGE0_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL0TGE0_shift)
-
-#define CTXR_XN_KERNEL \
-	/* Execute Masks for EL2&0 */ \
-    (CTXR3_XN_disallow_outside << CTXR3_x_CTL_EL2_XN_EL2_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL0TGE1_shift) | \
-    (CTXR3_XN_disallow_outside << CTXR3_x_CTL_EL2_XN_GL2_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL0TGE1_shift) | \
-    (CTXR3_XN_disallow_outside << CTXR3_x_CTL_EL2_XN_MMUOFF_shift) | \
-	/* Execute Masks for EL1&0 when Stage2 Translation is disabled */ \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_EL0TGE0_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL1_shift) | \
-    (CTXR3_XN_disallow_inside << CTXR3_x_CTL_EL2_XN_GL0TGE0_shift)
-#endif /* KERNEL_CTRR_VERSION >= 3 */
-
-#else
-
-#if CONFIG_CSR_FROM_DT
-#define csr_unsafe_kernel_text false
-#endif /* CONFIG_CSR_FROM_DT */
-
-#define rorgn_disable false
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 __END_DECLS
 

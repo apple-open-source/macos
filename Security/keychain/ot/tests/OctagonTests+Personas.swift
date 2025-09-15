@@ -14,10 +14,18 @@ class OctagonPersonaTests: OctagonTestsBase {
         super.tearDown()
     }
 
-    func testFetchContextsFromPrimaryPersona() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
+    func isHomePod() -> Bool {
+        return self.cuttlefishContext.deviceAdapter.isHomePod()
+    }
+
+    func skipOnHomePod() throws {
+        if self.isHomePod() {
             throw XCTSkip("HomePod does not support non-primary personas")
         }
+    }
+
+    func testFetchContextsFromPrimaryPersona() throws {
+        try skipOnHomePod()
         OctagonSetSupportsPersonaMultiuser(true)
 
         let primaryAltDSID = try XCTUnwrap(self.mockAuthKit.primaryAccount()?.altDSID)
@@ -74,9 +82,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testFetchContextsFromSecondaryPersona() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         let primaryAltDSID = try XCTUnwrap(self.mockAuthKit.primaryAltDSID())
 
         let secondAltDSID = "second_altdsid"
@@ -121,9 +127,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testSignInFromNondefaultAltDSID() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         let secondAccountAltDSID = UUID().uuidString
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
 
@@ -229,9 +233,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testSignInFromNondefaultPersona() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         let secondAccountAltDSID = UUID().uuidString
         let secondAccountPersona = UUID().uuidString
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: secondAccountPersona, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
@@ -297,9 +299,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testMultiUserCFU() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         OctagonSetSupportsPersonaMultiuser(true)
         let secondAccountAltDSID = UUID().uuidString
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
@@ -350,9 +350,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testRestartSecdStateMachinesInflatePerAccount() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         OctagonSetSupportsPersonaMultiuser(true)
         let secondAccountAltDSID = UUID().uuidString
 
@@ -448,9 +446,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testResetInNondefaultAltDSID() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         let secondAccountAltDSID = UUID().uuidString
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
         self.mockAuthKit.add(account)
@@ -573,9 +569,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testSignInFromNondefaultAltDSIDSignOutPrimary() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         OctagonSetSupportsPersonaMultiuser(true)
         let secondAccountAltDSID = UUID().uuidString
         let account = CloudKitAccount(altDSID: secondAccountAltDSID, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
@@ -760,9 +754,7 @@ class OctagonPersonaTests: OctagonTestsBase {
     }
 
     func testNondefaultPersonaSignInOutCycle() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         let secondAccount = CloudKitAccount(altDSID: UUID().uuidString, appleAccountID: UUID().uuidString, persona: UUID().uuidString, hsa2: true, demo: false, accountStatus: .available, isPrimary: false, isDataSeparated: true)
 
         self.mockAuthKit.add(secondAccount)
@@ -811,7 +803,7 @@ class OctagonPersonaTests: OctagonTestsBase {
 
             self.assertEnters(context: secondaryAccountContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
 
-            XCTAssertEqual((secondaryAccountContext.accountStateTracker as? CKKSAccountStateTracker)?.container.options.accountOverrideInfo?.altDSID, secondAccount.altDSID, "CKContainer should be configured with correct altDSID")
+            XCTAssertEqual((secondaryAccountContext.accountStateTracker as? CKKSAccountStateTracker)?.container.options.accountOverrideInfo?.accountID, secondAccount.appleAccountID, "CKContainer should be configured with correct accountID")
 
             // now sign out the secondary account
             let signoutExpectation = self.expectation(description: "second account signed out occurs")
@@ -863,14 +855,12 @@ class OctagonPersonaTests: OctagonTestsBase {
 
             self.assertEnters(context: secondaryAccountContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
 
-            XCTAssertEqual((secondaryAccountContext.accountStateTracker as? CKKSAccountStateTracker)?.container.options.accountOverrideInfo?.altDSID, secondAccountAgain.altDSID, "CKContainer should be configured with correct altDSID")
+            XCTAssertEqual((secondaryAccountContext.accountStateTracker as? CKKSAccountStateTracker)?.container.options.accountOverrideInfo?.accountID, secondAccountAgain.appleAccountID, "CKContainer should be configured with correct accountID")
         }
     }
 
     func testMultipleNonDataSeparatedAccounts() throws {
-        if TestsObjectiveC.isPlatformHomepod() {
-            throw XCTSkip("HomePod does not support non-primary personas")
-        }
+        try skipOnHomePod()
         OctagonSetSupportsPersonaMultiuser(true)
 
         let secondAccountAltDSID = UUID().uuidString
@@ -911,6 +901,15 @@ class OctagonPersonaTests: OctagonTestsBase {
     func testAccountStoreRetryDueToXPCInvalidationError() throws {
         let actualAdapter = OTAccountsActualAdapter()
         TestsObjectiveC.setACAccountStoreWithInvalidationError(actualAdapter)
+
+        XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter!, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
+
+        XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 6, "should have been invoked 6 times")
+    }
+
+    func testAccountStoreRetryDueToConnectionFailureError() throws {
+        let actualAdapter = OTAccountsActualAdapter()
+        TestsObjectiveC.setACAccountStoreWithConnectionFailedError(actualAdapter)
 
         XCTAssertThrowsError(try actualAdapter.findAccount(forCurrentThread: self.mockPersonaAdapter!, optionalAltDSID: nil, cloudkitContainerName: OTCKContainerName, octagonContextID: OTDefaultContext), "expect an error to be thrown")
 

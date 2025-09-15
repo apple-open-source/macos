@@ -24,12 +24,13 @@
 [
     DispatchedFrom=WebContent,
     DispatchedTo=UI,
+    SharedPreferencesNeedsConnection,
     EnabledBy=DeviceOrientationEventEnabled
 ]
 messages -> WebDeviceOrientationUpdateProviderProxy {
-    StartUpdatingDeviceOrientation();
+    StartUpdatingDeviceOrientation(WebCore::SecurityOriginData origin);
     StopUpdatingDeviceOrientation();
-    StartUpdatingDeviceMotion();
+    StartUpdatingDeviceMotion(WebCore::SecurityOriginData origin);
     StopUpdatingDeviceMotion();
 }
 #endif

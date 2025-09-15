@@ -460,9 +460,9 @@
 
     [self setFixupNumber:CKKSFixupResaveDeviceStateEntries ckks:self.defaultCKKS viewState:self.keychainView];
 
-    CKRecord* ckr = [self createFakeTombstoneRecord:self.keychainZoneID
-                                         recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"
-                                            account:@"account-delete-me"];
+    CKRecord* ckr = [self createFakeKeychainTombstoneRecord:self.keychainZoneID
+                                                 recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"
+                                                    account:@"account-delete-me"];
     [self.keychainZone addToZone:ckr];
 
     [self.defaultCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{

@@ -28,4 +28,4 @@
 #import <wtf/RetainPtr.h>
 
 RetainPtr<NSError> createNSError(WKErrorCode, NSError* underlyingError = nil);
-NSString *localizedDescriptionForErrorCode(WKErrorCode);
+RetainPtr<NSString> localizedDescriptionForErrorCode(WKErrorCode);

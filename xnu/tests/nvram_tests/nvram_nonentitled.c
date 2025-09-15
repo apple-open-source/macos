@@ -337,4 +337,18 @@ T_DECL(TestNVRAMOblit, "Test NVRAM Obliterate")
 
 	ReleaseOptionsRef(optionsRef);
 }
+
+// Clear all test variables
+T_DECL(TestZ, "Clear test variables")
+{
+	char * varToTest = "clear-test-vars";
+
+	optionsRef = CreateOptionsRef();
+
+	TestVarOp(OP_SET, varToTest, DefaultSetVal, KERN_SUCCESS, optionsRef);
+	TestVarOp(OP_GET, "testNeverDel", NULL, KERN_FAILURE, optionsRef);
+
+	ReleaseOptionsRef(optionsRef);
+}
+
 #endif /* !(__x86_64__) */

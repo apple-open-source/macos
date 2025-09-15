@@ -906,6 +906,25 @@ _dispatch_kq_unote_set_kevent(dispatch_unote_t _du, dispatch_kevent_t dk,
 }
 
 DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_free_unote_chain(dispatch_unote_class_t du)
+{
+	uint16_t count = 0;
+	while (du) {
+		dispatch_unote_class_t next = du->du_freelist_next;
+		free(du);
+		count++;
+		du = next;
+	}
+	if (count) {
+		_dispatch_debug("freed %d deferred unotes", count);
+	}
+	if (unlikely(count > DISPATCH_DEFERRED_ITEMS_EVENT_COUNT)) {
+		DISPATCH_INTERNAL_CRASH(count, "Too many defer-free unotes");
+	}
+}
+
+DISPATCH_ALWAYS_INLINE
 static inline int
 _dispatch_kq_deferred_find_slot(dispatch_deferred_items_t ddi,
 		int16_t filter, uint64_t ident, dispatch_kevent_udata_t udata)
@@ -931,8 +950,15 @@ _dispatch_kq_deferred_reuse_slot(dispatch_wlh_t wlh,
 	if (unlikely(slot == ddi->ddi_maxevents)) {
 		int nevents = ddi->ddi_nevents;
 		ddi->ddi_nevents = 1;
+		// _dispatch_kq_update_all doesn't poll for events, and only drains
+		// errors which don't can't defer events. Assert that nothing gets
+		// pushed to the ddi unote freelist across that call.
+		dispatch_unote_class_t unotes_to_free = ddi->ddi_unote_freelist;
+		ddi->ddi_unote_freelist = NULL;
 		_dispatch_kq_update_all(wlh, ddi->ddi_eventlist, nevents);
 		dispatch_assert(ddi->ddi_nevents == 1);
+		dispatch_assert(ddi->ddi_unote_freelist == NULL);
+		_dispatch_free_unote_chain(unotes_to_free);
 		slot = 0;
 	} else if (slot == ddi->ddi_nevents) {
 		ddi->ddi_nevents++;
@@ -1319,6 +1345,59 @@ _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags)
 		DISPATCH_INTERNAL_CRASH(0, "Unregistration failed");
 	}
 	return false;
+}
+
+/*
+ * rdar://61528779: knotes are uniquely identified by their filter/ident/udata
+ * tuple. As a performance optimization for kqworkloop based queues, we don't
+ * always immediately delete a knote when we unregister the unote for it,
+ * instead stashing the delete in our ddi and continuing. If the EV_DELETE is
+ * deferred, but the unote is still freed, then we can't guarantee uniqueness
+ * of the filter/ident/udata tuple (the udata is a pointer to the unote, which
+ * malloc can reuse, and most idents are reusable). To fix this problem, when
+ * we go to dispose of a unote, we check if we hold the EV_DELETE event for it
+ * in our ddi, and if so stash it in a freelist to free to malloc after the
+ * EV_DELETE is delivered. We free this whole list whenever we return to
+ * userspace after delivering our deferred events.
+ * TODO: In rdar://147852703, we should remove _dispatch_unote_dispose
+ * entirely, and just have _dispatch_unote_unregister handle freeing the unote,
+ * since that's where we know whether the EV_DELETE was deferred or not.
+ * Currently we're open to races where other threads free the unote while we
+ * hold the EV_DELETE in our ddi.
+ */
+void
+_dispatch_unote_dispose_defer(dispatch_unote_t _du)
+{
+	dispatch_unote_class_t du = _du._du;
+	dispatch_deferred_items_t ddi = _dispatch_deferred_items_get();
+	// By this point, we've removed the wlh from the du_state, so we can't
+	// short circuit if it doesn't belong to our wlh. However, we shouldn't
+	// have deferred the EV_DELETE for any knotes off of our wlh, so the ddi
+	// search should fail if this unote belongs to someone else.
+	if (ddi) {
+		int slot = _dispatch_kq_deferred_find_slot(ddi, du->du_filter,
+				du->du_ident, (dispatch_kevent_udata_t)du);
+		if (slot < ddi->ddi_nevents) {
+			// Disposing a unote while we have an event for it in the deferred
+			// items. We need to delay this free until after we've passed this
+			// event into the kernel.
+			if (unlikely(!(ddi->ddi_eventlist[slot].flags & EV_DELETE))) {
+				DISPATCH_INTERNAL_CRASH(ddi->ddi_eventlist[slot].flags,
+						"Disposing a direct unote while deferring an event");
+			}
+			du->du_freelist_next = ddi->ddi_unote_freelist;
+			ddi->ddi_unote_freelist = du;
+			_dispatch_du_debug("deferred free", du);
+			return;
+		}
+	}
+	free(du);
+}
+
+void
+_dispatch_free_deferred_unotes(dispatch_unote_class_t du)
+{
+	_dispatch_free_unote_chain(du);
 }
 #endif // DISPATCH_HAVE_DIRECT_KNOTES
 
@@ -1950,7 +2029,15 @@ again:
 #endif // DISPATCH_USE_KEVENT_WORKLOOP
 	n = ddi->ddi_nevents;
 	ddi->ddi_nevents = 0;
+	// It's possible for _dispatch_kq_drain to generate more deferred-free
+	// unotes when it merges the events that it polls from the kernel. That
+	// could trip the assert in _dispatch_free_unote_chain that the freelist
+	// was shorter than some max number. To avoid this, stack the freelist
+	// before pumping for events, and free the whole thing after.
+	dispatch_unote_class_t unotes_to_free = ddi->ddi_unote_freelist;
+	ddi->ddi_unote_freelist = NULL;
 	_dispatch_kq_drain(wlh, ddi->ddi_eventlist, n, flags);
+	_dispatch_free_unote_chain(unotes_to_free);
 
 #if DISPATCH_USE_KEVENT_WORKLOOP
 	dispatch_workloop_t dwl = _dispatch_wlh_to_workloop(wlh);
@@ -2000,16 +2087,6 @@ _dispatch_event_loop_merge(dispatch_kevent_t events, int nevents)
 		}
 #endif // DISPATCH_USE_KEVENT_WORKLOOP
 	}
-}
-
-void
-_dispatch_event_update_all_deferred(dispatch_deferred_items_t ddi)
-{
-	dispatch_wlh_t wlh = ddi->ddi_wlh;
-	int nevents = ddi->ddi_nevents;
-	ddi->ddi_nevents = 0;
-	_dispatch_kq_update_all(wlh, ddi->ddi_eventlist, nevents);
-	dispatch_assert(ddi->ddi_nevents == 0);
 }
 
 void
@@ -2527,6 +2604,9 @@ const dispatch_source_type_s _dispatch_source_type_vfs = {
 #endif
 #if HAVE_DECL_VQ_PURGEABLE_SPACE_CHANGE
 			|VQ_PURGEABLE_SPACE_CHANGE
+#endif
+#if HAVE_DECL_VQ_IDLE_PURGE_NOTIFY
+			|VQ_IDLE_PURGE_NOTIFY
 #endif
 			,
 	.dst_action     = DISPATCH_UNOTE_ACTION_SOURCE_OR_FFLAGS,

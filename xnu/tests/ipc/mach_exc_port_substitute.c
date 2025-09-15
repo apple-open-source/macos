@@ -105,12 +105,13 @@ catch_mach_exception_raise(
 	} else {
 		T_ASSERT_EQ(task, child_read, "out-of-process delivers read port");
 
-		uint64_t type, addr;
-		kern_return_t kr = mach_port_kobject(mach_task_self(), task, &type, &addr);
+		uint64_t addr;
+		ipc_info_object_type_t otype;
+		kern_return_t kr = mach_port_kobject(mach_task_self(), task,
+		    &otype, &addr);
 		T_ASSERT_EQ(kr, KERN_SUCCESS, "mach_port_kobject");
-
-#define IKOT_TASK_READ 45 /* ipc_kobject.h */
-		T_ASSERT_EQ(type, IKOT_TASK_READ, "task type must be IKOT_TASK_READ");
+		T_ASSERT_EQ(otype, IPC_OTYPE_TASK_READ,
+		    "task type must be IPC_OTYPE_TASK_READ");
 	}
 
 	T_END;
@@ -218,7 +219,7 @@ T_DECL(mach_exc_port_substitute_oop, "test out of process exception with read po
 	} else {
 		char *buf[3];
 		close(fds[1]);
-		int ret = read(fds[0], buf, sizeof(buf));
+		read(fds[0], buf, sizeof(buf));
 
 		T_LOG("Child woke up from read, about to trip on bkpt");
 		__builtin_debugtrap(); /* Generate EXC_BREAKPOINT for all platforms */

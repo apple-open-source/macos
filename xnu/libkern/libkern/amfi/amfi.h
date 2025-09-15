@@ -32,9 +32,12 @@
 #include <os/base.h>
 #include <sys/cdefs.h>
 #include <kern/cs_blobs.h>
+#include <CoreEntitlements/V2/API.h>
+#include <CoreEntitlements/V2/Kernel.h>
 
 #define KERN_AMFI_INTERFACE_VERSION 7
 #define KERN_AMFI_SUPPORTS_DATA_ALLOC 2
+#define KERN_AMFI_SUPPORTS_CORE_ENTITLEMENTS_V2 1
 
 #pragma mark Forward Declarations
 struct proc;
@@ -270,6 +273,12 @@ __BEGIN_DECLS
 extern const amfi_t * amfi;
 
 /*!
+ * @const amfi
+ * The AMFI interface that was registered.
+ */
+extern const CEKernelAPI_t *libCoreEntitlements;
+
+/*!
  * @function amfi_interface_register
  * Registers the AMFI kext interface for use within the kernel proper.
  *
@@ -283,6 +292,21 @@ extern const amfi_t * amfi;
 OS_EXPORT OS_NONNULL1
 void
 amfi_interface_register(const amfi_t *mfi);
+
+/*!
+ * @function amfi_core_entitlements_register
+ * Registers the CoreEntitlements_V2 implementation for use within the kernel.
+ *
+ * @param implementation
+ * The implementation to register.
+ *
+ * @discussion
+ * This routine may only be called once and must be called before late-const has
+ * been applied to kernel memory.
+ */
+OS_EXPORT OS_NONNULL1
+void
+amfi_core_entitlements_register(const CEKernelAPI_t *implementation);
 
 __END_DECLS
 

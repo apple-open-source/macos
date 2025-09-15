@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2014-2022 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/CString.h>
 
@@ -53,9 +54,7 @@ ResourceRequest::ResourceRequest(NSURLRequest *nsRequest)
 #if ENABLE(APP_PRIVACY_REPORT)
     setIsAppInitiated(nsRequest.attribution == NSURLRequestAttributionDeveloper);
 #endif
-#if HAVE(PRIVACY_PROXY_FAIL_CLOSED_FOR_UNREACHABLE_HOSTS)
     setPrivacyProxyFailClosedForUnreachableNonMainHosts(nsRequest._privacyProxyFailClosedForUnreachableNonMainHosts);
-#endif
 #if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
     setUseAdvancedPrivacyProtections(nsRequest._useEnhancedPrivacyMode);
 #endif
@@ -87,11 +86,11 @@ ResourceRequestData ResourceRequest::getRequestDataToSerialize() const
     return m_requestData;
 }
 
-ResourceRequest ResourceRequest::fromResourceRequestData(ResourceRequestData requestData, const String& cachePartition, bool hiddenFromInspector)
+ResourceRequest ResourceRequest::fromResourceRequestData(ResourceRequestData&& requestData, String&& cachePartition, bool hiddenFromInspector)
 {
     if (std::holds_alternative<RequestData>(requestData))
-        return ResourceRequest(WTFMove(std::get<RequestData>(requestData)), cachePartition, hiddenFromInspector);
-    return ResourceRequest(WTFMove(std::get<ResourceRequestPlatformData>(requestData)), cachePartition, hiddenFromInspector);
+        return ResourceRequest(WTFMove(std::get<RequestData>(requestData)), WTFMove(cachePartition), hiddenFromInspector);
+    return ResourceRequest(WTFMove(std::get<ResourceRequestPlatformData>(requestData)), WTFMove(cachePartition), hiddenFromInspector);
 }
 
 NSURLRequest *ResourceRequest::nsURLRequest(HTTPBodyUpdatePolicy bodyPolicy) const
@@ -107,7 +106,7 @@ ResourceRequestPlatformData ResourceRequest::getResourceRequestPlatformData() co
     
     auto requestToSerialize = retainPtr(this->nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
 
-    if (Class requestClass = [requestToSerialize class]; UNLIKELY(requestClass != [NSURLRequest class] && requestClass != [NSMutableURLRequest class])) {
+    if (Class requestClass = [requestToSerialize class]; requestClass != [NSURLRequest class] && requestClass != [NSMutableURLRequest class]) [[unlikely]] {
         WebCore::ResourceRequest request(requestToSerialize.get());
         request.replacePlatformRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
         requestToSerialize = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));
@@ -184,8 +183,8 @@ void ResourceRequest::doUpdateResourceRequest()
 
     m_requestData.m_isTopSite = static_cast<NSNumber*>([m_nsRequest _propertyForKey:@"_kCFHTTPCookiePolicyPropertyIsTopLevelNavigation"]).boolValue;
 
-    if (NSString* method = [m_nsRequest HTTPMethod])
-        m_requestData.m_httpMethod = method;
+    if (RetainPtr method = [m_nsRequest HTTPMethod])
+        m_requestData.m_httpMethod = method.get();
     m_requestData.m_allowCookies = [m_nsRequest HTTPShouldHandleCookies];
 
     if (resourcePrioritiesEnabled())
@@ -197,7 +196,7 @@ void ResourceRequest::doUpdateResourceRequest()
     }];
 
     m_requestData.m_responseContentDispositionEncodingFallbackArray.clear();
-    NSArray *encodingFallbacks = [m_nsRequest contentDispositionEncodingFallbackArray];
+    RetainPtr<NSArray> encodingFallbacks = [m_nsRequest contentDispositionEncodingFallbackArray];
     m_requestData.m_responseContentDispositionEncodingFallbackArray.reserveCapacity([encodingFallbacks count]);
     for (NSNumber *encodingFallback in [m_nsRequest contentDispositionEncodingFallbackArray]) {
         CFStringEncoding encoding = CFStringConvertNSStringEncodingToEncoding([encodingFallback unsignedLongValue]);
@@ -206,9 +205,9 @@ void ResourceRequest::doUpdateResourceRequest()
     }
 
     if (m_nsRequest) {
-        NSString* cachePartition = [NSURLProtocol propertyForKey:(NSString *)_kCFURLCachePartitionKey inRequest:m_nsRequest.get()];
+        RetainPtr<NSString> cachePartition = [NSURLProtocol propertyForKey:bridge_cast(_kCFURLCachePartitionKey) inRequest:m_nsRequest.get()];
         if (cachePartition)
-            m_cachePartition = cachePartition;
+            m_cachePartition = cachePartition.get();
     }
 }
 
@@ -234,8 +233,7 @@ static NSURL *siteForCookies(ResourceRequest::SameSiteDisposition disposition, N
     case ResourceRequest::SameSiteDisposition::SameSite:
         return url;
     case ResourceRequest::SameSiteDisposition::CrossSite:
-        static NSURL *emptyURL = [[NSURL alloc] initWithString:@""];
-        return emptyURL;
+        return URL::emptyNSURL();
     }
 }
 
@@ -256,9 +254,7 @@ static void configureRequestWithData(NSMutableURLRequest *request, const Resourc
     UNUSED_PARAM(data);
 #endif
 
-#if HAVE(PRIVACY_PROXY_FAIL_CLOSED_FOR_UNREACHABLE_HOSTS)
     request._privacyProxyFailClosedForUnreachableNonMainHosts = data.m_privacyProxyFailClosedForUnreachableNonMainHosts;
-#endif
 
 #if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
     request._useEnhancedPrivacyMode = data.m_useAdvancedPrivacyProtections;
@@ -275,9 +271,9 @@ void ResourceRequest::doUpdatePlatformRequest()
     auto nsRequest = adoptNS<NSMutableURLRequest *>([m_nsRequest mutableCopy]);
 
     if (nsRequest)
-        [nsRequest setURL:url()];
+        [nsRequest setURL:url().createNSURL().get()];
     else
-        nsRequest = adoptNS([[NSMutableURLRequest alloc] initWithURL:url()]);
+        nsRequest = adoptNS([[NSMutableURLRequest alloc] initWithURL:url().createNSURL().get()]);
 
     configureRequestWithData(nsRequest.get(), m_requestData);
 
@@ -295,14 +291,14 @@ void ResourceRequest::doUpdatePlatformRequest()
     [nsRequest setCachePolicy:toPlatformRequestCachePolicy(cachePolicy())];
     _CFURLRequestSetProtocolProperty([nsRequest _CFURLRequest], kCFURLRequestAllowAllPOSTCaching, kCFBooleanTrue);
 
-    double timeoutInterval = ResourceRequestBase::timeoutInterval();
-    if (timeoutInterval)
-        [nsRequest setTimeoutInterval:timeoutInterval];
-    // Otherwise, respect NSURLRequest default timeout.
+    if (double newTimeoutInterval = timeoutInterval())
+        [nsRequest setTimeoutInterval:newTimeoutInterval];
+    else
+        [nsRequest setTimeoutInterval:defaultTimeoutInterval()];
 
-    [nsRequest setMainDocumentURL:firstPartyForCookies()];
+    [nsRequest setMainDocumentURL:firstPartyForCookies().createNSURL().get()];
     if (!httpMethod().isEmpty())
-        [nsRequest setHTTPMethod:httpMethod()];
+        [nsRequest setHTTPMethod:httpMethod().createNSString().get()];
     [nsRequest setHTTPShouldHandleCookies:allowCookies()];
 
     [nsRequest _setProperty:siteForCookies(m_requestData.m_sameSiteDisposition, [nsRequest URL]) forKey:@"_kCFHTTPCookiePolicyPropertySiteForCookies"];
@@ -312,8 +308,8 @@ void ResourceRequest::doUpdatePlatformRequest()
     for (NSString *oldHeaderName in [nsRequest allHTTPHeaderFields])
         [nsRequest setValue:nil forHTTPHeaderField:oldHeaderName];
     for (const auto& header : httpHeaderFields()) {
-        auto encodedValue = httpHeaderValueUsingSuitableEncoding(header);
-        [nsRequest setValue:(__bridge NSString *)encodedValue.get() forHTTPHeaderField:header.key];
+        RetainPtr encodedValue = httpHeaderValueUsingSuitableEncoding(header);
+        [nsRequest setValue:bridge_cast(encodedValue.get()) forHTTPHeaderField:header.key.createNSString().get()];
     }
 
     [nsRequest setContentDispositionEncodingFallbackArray:createNSArray(m_requestData.m_responseContentDispositionEncodingFallbackArray, [] (auto& name) -> NSNumber * {
@@ -325,8 +321,8 @@ void ResourceRequest::doUpdatePlatformRequest()
 
     String partition = cachePartition();
     if (!partition.isNull() && !partition.isEmpty()) {
-        NSString *partitionValue = [NSString stringWithUTF8String:partition.utf8().data()];
-        [NSURLProtocol setProperty:partitionValue forKey:(NSString *)_kCFURLCachePartitionKey inRequest:nsRequest.get()];
+        RetainPtr partitionValue = adoptNS([[NSString alloc] initWithUTF8String:partition.utf8().data()]);
+        [NSURLProtocol setProperty:partitionValue.get() forKey:bridge_cast(_kCFURLCachePartitionKey) inRequest:nsRequest.get()];
     }
 
 #if PLATFORM(MAC)
@@ -346,16 +342,16 @@ void ResourceRequest::doUpdatePlatformRequest()
 void ResourceRequest::doUpdatePlatformHTTPBody()
 {
     if (isNull()) {
-        ASSERT(!m_nsRequest);
+        m_nsRequest = nil;
         return;
     }
 
     auto nsRequest = adoptNS<NSMutableURLRequest *>([m_nsRequest mutableCopy]);
 
     if (nsRequest)
-        [nsRequest setURL:url()];
+        [nsRequest setURL:url().createNSURL().get()];
     else
-        nsRequest = adoptNS([[NSMutableURLRequest alloc] initWithURL:url()]);
+        nsRequest = adoptNS([[NSMutableURLRequest alloc] initWithURL:url().createNSURL().get()]);
 
     configureRequestWithData(nsRequest.get(), m_requestData);
 
@@ -363,14 +359,14 @@ void ResourceRequest::doUpdatePlatformHTTPBody()
     if (formData && !formData->isEmpty())
         WebCore::setHTTPBody(nsRequest.get(), WTFMove(formData));
 
-    if (NSInputStream *bodyStream = [nsRequest HTTPBodyStream]) {
+    if (RetainPtr bodyStream = [nsRequest HTTPBodyStream]) {
         // For streams, provide a Content-Length to avoid using chunked encoding, and to get accurate total length in callbacks.
-        NSString *lengthString = [bodyStream propertyForKey:(__bridge NSString *)formDataStreamLengthPropertyName()];
+        RetainPtr<NSString> lengthString = [bodyStream propertyForKey:(__bridge NSString *)formDataStreamLengthPropertyName()];
         if (lengthString) {
-            [nsRequest setValue:lengthString forHTTPHeaderField:@"Content-Length"];
+            [nsRequest setValue:lengthString.get() forHTTPHeaderField:@"Content-Length"];
             // Since resource request is already marked updated, we need to keep it up to date too.
             ASSERT(m_resourceRequestUpdated);
-            m_requestData.m_httpHeaderFields.set(HTTPHeaderName::ContentLength, lengthString);
+            m_requestData.m_httpHeaderFields.set(HTTPHeaderName::ContentLength, lengthString.get());
         }
     }
 

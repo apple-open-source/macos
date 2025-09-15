@@ -54,7 +54,7 @@ class VisibleSelection;
 
 class AccessibilityRenderObject : public AccessibilityNodeObject {
 public:
-    static Ref<AccessibilityRenderObject> create(AXID, RenderObject&);
+    static Ref<AccessibilityRenderObject> create(AXID, RenderObject&, AXObjectCache&);
     virtual ~AccessibilityRenderObject();
     
     FloatRect frameRect() const final;
@@ -138,8 +138,8 @@ public:
     String secureFieldValue() const final;
     void labelText(Vector<AccessibilityText>&) const override;
 protected:
-    explicit AccessibilityRenderObject(AXID, RenderObject&);
-    explicit AccessibilityRenderObject(AXID, Node&);
+    explicit AccessibilityRenderObject(AXID, RenderObject&, AXObjectCache&);
+    explicit AccessibilityRenderObject(AXID, Node&, AXObjectCache&);
     void detachRemoteParts(AccessibilityDetachmentType) final;
     ScrollableArea* getScrollableAreaIfScrollable() const final;
     void scrollTo(const IntPoint&) const final;
@@ -172,8 +172,8 @@ private:
 
     bool isSVGImage() const;
     void detachRemoteSVGRoot();
-    enum CreationChoice { Create, Retrieve };
-    AccessibilitySVGRoot* remoteSVGRootElement(CreationChoice createIfNecessary) const;
+    enum class CreateIfNecessary : bool { No, Yes };
+    AccessibilitySVGRoot* remoteSVGRootElement(CreateIfNecessary) const;
     AccessibilityObject* remoteSVGElementHitTest(const IntPoint&) const;
     void offsetBoundingBoxForRemoteSVGElement(LayoutRect&) const;
     bool supportsPath() const final;
@@ -186,8 +186,7 @@ private:
     void addImageMapChildren();
     void addAttachmentChildren();
     void addRemoteSVGChildren();
-    void addListItemMarker();
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
     void updateAttachmentViewParents();
 #endif
     String expandedTextValue() const override;

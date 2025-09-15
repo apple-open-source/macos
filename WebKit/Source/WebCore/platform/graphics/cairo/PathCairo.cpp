@@ -33,25 +33,16 @@
 #include "FloatRect.h"
 #include "GraphicsContextCairo.h"
 #include "PathStream.h"
+#include <mutex>
+#include <numbers>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-Ref<PathCairo> PathCairo::create()
+Ref<PathCairo> PathCairo::create(std::span<const PathSegment> segments)
 {
-    return adoptRef(*new PathCairo);
-}
-
-Ref<PathCairo> PathCairo::create(const PathSegment& segment)
-{
-    auto pathCairo = PathCairo::create();
-    pathCairo->addSegment(segment);
-    return pathCairo;
-}
-
-Ref<PathCairo> PathCairo::create(const PathStream& stream)
-{
-    auto pathCairo = PathCairo::create();
-    for (auto& segment : stream.segments())
+    Ref pathCairo = adoptRef(*new PathCairo);
+    for (auto& segment : segments)
         pathCairo->addSegment(segment);
     return pathCairo;
 }
@@ -59,6 +50,16 @@ Ref<PathCairo> PathCairo::create(const PathStream& stream)
 Ref<PathCairo> PathCairo::create(RefPtr<cairo_t>&& platformPath, RefPtr<PathStream>&& elementsStream)
 {
     return adoptRef(*new PathCairo(WTFMove(platformPath), WTFMove(elementsStream)));
+}
+
+PlatformPathPtr PathCairo::emptyPlatformPath()
+{
+    static LazyNeverDestroyed<cairo_t*> emptyPath;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        emptyPath.construct(cairo_create(cairo_image_surface_create(CAIRO_FORMAT_A8, 1, 1)));
+    });
+    return emptyPath.get();
 }
 
 PathCairo::PathCairo()
@@ -158,10 +159,6 @@ static inline float areaOfTriangleFormedByPoints(const FloatPoint& p1, const Flo
 
 void PathCairo::add(PathArcTo arcTo)
 {
-    // FIXME: Why do we return if the path is empty? Can't a path start with an arc?
-    if (isEmpty())
-        return;
-
     double x0, y0;
     cairo_get_current_point(platformPath(), &x0, &y0);
     FloatPoint p0(x0, y0);
@@ -221,7 +218,7 @@ void PathCairo::add(PathArcTo arcTo)
     orth_p1p0 = FloatPoint(-orth_p1p0.x(), -orth_p1p0.y());
     float sa = acos(orth_p1p0.x() / orth_p1p0_length);
     if (orth_p1p0.y() < 0.f)
-        sa = 2 * piDouble - sa;
+        sa = 2 * std::numbers::pi - sa;
 
     // clockwise logic
     auto direction = RotationDirection::Clockwise;
@@ -232,10 +229,10 @@ void PathCairo::add(PathArcTo arcTo)
     float orth_p1p2_length = sqrtf(orth_p1p2.x() * orth_p1p2.x() + orth_p1p2.y() * orth_p1p2.y());
     float ea = acos(orth_p1p2.x() / orth_p1p2_length);
     if (orth_p1p2.y() < 0)
-        ea = 2 * piDouble - ea;
-    if ((sa > ea) && ((sa - ea) < piDouble))
+        ea = 2 * std::numbers::pi - ea;
+    if ((sa > ea) && ((sa - ea) < std::numbers::pi))
         direction = RotationDirection::Counterclockwise;
-    if ((sa < ea) && ((ea - sa) > piDouble))
+    if ((sa < ea) && ((ea - sa) > std::numbers::pi))
         direction = RotationDirection::Counterclockwise;
 
     cairo_line_to(platformPath(), t_p1p0.x(), t_p1p0.y());
@@ -254,7 +251,7 @@ void PathCairo::add(PathArc arc)
     const float endAngle = arc.endAngle;
     const RotationDirection direction = arc.direction;
     float sweep = endAngle - startAngle;
-    const float twoPI = 2 * piFloat;
+    constexpr float twoPI = 2 * std::numbers::pi_v<float>;
     if ((sweep <= -twoPI || sweep >= twoPI)
         && ((direction == RotationDirection::Counterclockwise && (endAngle < startAngle)) || (direction == RotationDirection::Clockwise && (startAngle < endAngle)))) {
         if (direction == RotationDirection::Clockwise)
@@ -305,7 +302,7 @@ void PathCairo::add(PathEllipseInRect ellipseInRect)
     float xRadius = .5 * ellipseInRect.rect.width();
     cairo_translate(cr, ellipseInRect.rect.x() + xRadius, ellipseInRect.rect.y() + yRadius);
     cairo_scale(cr, xRadius, yRadius);
-    cairo_arc(cr, 0., 0., 1., 0., 2 * piDouble);
+    cairo_arc(cr, 0., 0., 1., 0., 2 * std::numbers::pi);
     cairo_restore(cr);
 
     m_elementsStream = nullptr;
@@ -320,7 +317,14 @@ void PathCairo::add(PathRect rect)
 
 void PathCairo::add(PathRoundedRect roundedRect)
 {
-    addBeziersForRoundedRect(roundedRect.roundedRect);
+    for (auto& segment : PathImpl::beziersForRoundedRect(roundedRect.roundedRect))
+        addSegment(segment);
+}
+
+void PathCairo::add(PathContinuousRoundedRect continuousRoundedRect)
+{
+    // Continuous rounded rects are unavailable. Paint a normal rounded rect instead.
+    add(PathRoundedRect { FloatRoundedRect { continuousRoundedRect.rect, FloatRoundedRect::Radii { continuousRoundedRect.cornerWidth, continuousRoundedRect.cornerHeight } }, PathRoundedRect::Strategy::PreferNative });
 }
 
 void PathCairo::add(PathCloseSubpath)
@@ -332,9 +336,6 @@ void PathCairo::add(PathCloseSubpath)
 
 void PathCairo::addPath(const PathCairo& path, const AffineTransform& transform)
 {
-    if (path.isEmpty())
-        return;
-
     cairo_matrix_t matrix = toCairoMatrix(transform);
     if (cairo_matrix_invert(&matrix) != CAIRO_STATUS_SUCCESS)
         return;
@@ -391,11 +392,6 @@ bool PathCairo::applyElements(const PathElementApplier& applier) const
     return true;
 }
 
-bool PathCairo::isEmpty() const
-{
-    return !cairo_has_current_point(platformPath());
-}
-
 FloatPoint PathCairo::currentPoint() const
 {
     // FIXME: Is this the correct way?
@@ -419,7 +415,7 @@ bool PathCairo::transform(const AffineTransform& transform)
 
 bool PathCairo::contains(const FloatPoint &point, WindRule rule) const
 {
-    if (isEmpty() || !std::isfinite(point.x()) || !std::isfinite(point.y()))
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
         return false;
 
     cairo_fill_rule_t cur = cairo_get_fill_rule(platformPath());
@@ -429,12 +425,9 @@ bool PathCairo::contains(const FloatPoint &point, WindRule rule) const
     return contains;
 }
 
-bool PathCairo::strokeContains(const FloatPoint& point, const Function<void(GraphicsContext&)>& strokeStyleApplier) const
+bool PathCairo::strokeContains(const FloatPoint& point, NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const
 {
     ASSERT(strokeStyleApplier);
-
-    if (isEmpty())
-        return false;
 
     {
         GraphicsContextCairo graphicsContext(platformPath());
@@ -462,11 +455,8 @@ FloatRect PathCairo::boundingRect() const
     return FloatRect(x0, y0, x1 - x0, y1 - y0);
 }
 
-FloatRect PathCairo::strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const
+FloatRect PathCairo::strokeBoundingRect(NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const
 {
-    if (isEmpty())
-        return { };
-
     cairo_t* cr = platformPath();
 
     if (strokeStyleApplier) {

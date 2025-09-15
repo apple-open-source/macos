@@ -39,6 +39,7 @@
 #include "IOHIDEventServiceKeys.h"
 #include "IOHIDFamilyPrivate.h"
 #include "IOHIDEventData.h"
+#include <IOKit/IOKitKeysPrivate.h>
 #include <math.h>
 
 enum {
@@ -278,6 +279,7 @@ OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 #define _accel                          _reserved->accel
 #define _gyro                           _reserved->gyro
 #define _compass                        _reserved->compass
+#define _heartrate                      _reserved->heartrate
 #define _temperature                    _reserved->temperature
 #define _sensorProperty                 _reserved->sensorProperty
 #define _orientation                    _reserved->orientation
@@ -351,6 +353,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_proximity.elements);
     OSSafeReleaseNULL(_phase.phaseElements);
     OSSafeReleaseNULL(_phase.longPress);
+    OSSafeReleaseNULL(_heartrate.elements);
     
 
     if (_commandGate) {
@@ -406,14 +409,7 @@ bool IOHIDEventDriver::handleStart(IOService *provider)
                                                            this,
                                                            &IOHIDEventDriver::handleInterruptReport), NULL), exit,
                    HIDServiceLogError("failed to open %s:0x%llx", _interface->getName(), _interface->getRegistryEntryID()));
-    
-    obj = _interface->copyProperty("BootProtocol");
-    
-    if (OSDynamicCast(OSNumber, obj)) {
-        setProperty("BootProtocol", ((OSNumber *)obj)->unsigned32BitValue());
-    }
-    OSSafeReleaseNULL(obj);
-    
+
     _authenticatedDevice = false;
     
     obj = copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage, gIOServicePlane);
@@ -637,7 +633,8 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
                 parseTemperatureElement (element) ||
                 parseDeviceOrientationElement (element) ||
                 parsePhaseElement(element) ||
-                parseSensorPropertyElement (element)
+                parseSensorPropertyElement (element) ||
+                parseHeartRateElement (element)
                 ) {
             result = true;
             continue;
@@ -737,9 +734,10 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
     setSensorProperties();
     setDeviceOrientationProperties();
     setSurfaceDimensions();
+    setHeartRateProperties();
 
     HIDServiceLogDebug("keyboard: %d digitizer: %d gameController: %d multiAxis: %d proximity: %d relative: %d scroll: %d led: %d unicode: %d %d"
-                       "compass: %d orientation %d %d vendor (child): %d vendor (primary): %d biometric: %d gyro: %d temperature: %d accel: %d",
+                       "compass: %d orientation %d %d vendor (child): %d vendor (primary): %d biometric: %d gyro: %d temperature: %d accel: %d heartrate:%d",
                        _keyboard.elements ? _keyboard.elements->getCount() : 0,
                        _digitizer.transducers ? _digitizer.transducers->getCount() : 0,
                        _gameController.elements ? _gameController.elements->getCount() : 0,
@@ -758,7 +756,8 @@ bool IOHIDEventDriver::parseElements ( OSArray* elementArray, UInt32 bootProtoco
                        _biometric.elements ? _biometric.elements->getCount() : 0,
                        _gyro.elements ? _gyro.elements->getCount() : 0,
                        _temperature.elements ? _temperature.elements->getCount() : 0,
-                       _accel.elements ? _accel.elements->getCount() : 0);
+                       _accel.elements ? _accel.elements->getCount() : 0,
+                       _heartrate.elements ? _heartrate.elements->getCount() : 0);
 
 exit:
 
@@ -1339,6 +1338,7 @@ void IOHIDEventDriver::setAccelProperties()
     properties->setObject(kIOHIDElementKey, _accel.elements);
     
     setProperty("Accel", properties);
+    setProperty("SupportsAccelEvents", kOSBooleanTrue);
     
 exit:
     OSSafeReleaseNULL(properties);
@@ -1357,6 +1357,7 @@ void IOHIDEventDriver::setGyroProperties()
     properties->setObject(kIOHIDElementKey, _gyro.elements);
     
     setProperty("Gyro", properties);
+    setProperty("SupportsGyroEvents", kOSBooleanTrue);
     
 exit:
     OSSafeReleaseNULL(properties);
@@ -1467,6 +1468,24 @@ exit:
     OSSafeReleaseNULL(properties);
     OSSafeReleaseNULL(elements);
 
+}
+
+//====================================================================================================
+// IOHIDEventDriver::seHeartRateProperties
+//====================================================================================================
+void IOHIDEventDriver::setHeartRateProperties()
+{
+    OSDictionary *properties = OSDictionary::withCapacity(1);
+    
+    require(properties, exit);
+    require(_heartrate.elements, exit);
+    
+    properties->setObject(kIOHIDElementKey, _heartrate.elements);
+    
+    setProperty("HeartRate", properties);
+    
+exit:
+    OSSafeReleaseNULL(properties);
 }
 
 
@@ -2508,6 +2527,13 @@ bool IOHIDEventDriver::parseAccelElement(IOHIDElement * element)
                     break;
             }
             break;
+        case kHIDPage_AppleVendorSensor:
+            switch (usage) {
+                case kHIDUsage_AppleVendorSensor_TimeSyncTimestamp:
+                    store = true;
+                    break;
+            }
+            break;
         case kHIDPage_AppleVendorMotion:
             if (parent &&
                 (parent->getUsage() == kHIDUsage_Snsr_Motion_Accelerometer ||
@@ -2526,7 +2552,7 @@ bool IOHIDEventDriver::parseAccelElement(IOHIDElement * element)
     require(store, exit);
     
     if (!_accel.elements) {
-        _accel.elements = OSArray::withCapacity(6);
+        _accel.elements = OSArray::withCapacity(7);
         require(_accel.elements, exit);
     }
     
@@ -2558,6 +2584,13 @@ bool IOHIDEventDriver::parseGyroElement(IOHIDElement * element)
                     break;
             }
             break;
+        case kHIDPage_AppleVendorSensor:
+            switch (usage) {
+                case kHIDUsage_AppleVendorSensor_TimeSyncTimestamp:
+                    store = true;
+                    break;
+            }
+            break;
         case kHIDPage_AppleVendorMotion:
             if (parent &&
                 (parent->getUsage() == kHIDUsage_Snsr_Motion_Gyrometer ||
@@ -2576,7 +2609,7 @@ bool IOHIDEventDriver::parseGyroElement(IOHIDElement * element)
     require(store, exit);
     
     if (!_gyro.elements) {
-        _gyro.elements = OSArray::withCapacity(6);
+        _gyro.elements = OSArray::withCapacity(7);
         require(_gyro.elements, exit);
     }
     
@@ -2887,6 +2920,52 @@ exit:
     return store;
 }
 
+
+//====================================================================================================
+// IOHIDEventDriver::parseHeartRateElement
+//====================================================================================================
+bool IOHIDEventDriver::parseHeartRateElement(IOHIDElement * element)
+{
+    UInt32 usagePage    = element->getUsagePage();
+    UInt32 usage        = element->getUsage();
+    bool   store        = false;
+
+    require(usage <= kHIDUsage_MaxUsage, exit);
+    switch (usagePage) {
+        case kHIDPage_Sensor:
+            switch (usage) {
+                case kHIDUsage_Snsr_Data_Biometric_HeartRate:
+                    store = true;
+                    break;
+            }
+            break;
+        case kHIDPage_AppleVendorSensor:
+            switch (usage) {
+                case kHIDUsage_AppleVendorSensor_MeasurementConfidence:
+                    calibrateJustifiedPreferredStateElement(element, 0);
+                case kHIDUsage_AppleVendorSensor_Property_Location_Watch:
+                case kHIDUsage_AppleVendorSensor_Property_Location_LeftHeadphone:
+                case kHIDUsage_AppleVendorSensor_Property_Location_RightHeadphone:
+                case kHIDUsage_AppleVendorSensor_MeasurementGeneration:
+                    store = true;
+                    break;
+            }
+            break;
+    }
+    
+    require(store, exit);
+    
+    if (!_heartrate.elements) {
+        _heartrate.elements = OSArray::withCapacity(6);
+        require(_heartrate.elements, exit);
+    }
+    
+    _heartrate.elements->setObject(element);
+    
+exit:
+    return store;
+}
+
 //====================================================================================================
 // IOHIDEventDriver::checkGameControllerElement
 //====================================================================================================
@@ -3073,6 +3152,7 @@ void IOHIDEventDriver::handleInterruptReport (
     handleTemperatureReport (timeStamp, reportID);
     handleDeviceOrientationReport (timeStamp, reportID);
     handleProximityReport(timeStamp, reportID);
+    handleHeartRateReport(timeStamp, reportID);
 
     handleVendorMessageReport(timeStamp, report, reportID, kIOHandlePrimaryVendorMessageReport);
 
@@ -5031,6 +5111,95 @@ exit:
     return result;
 }
 
+void IOHIDEventDriver::handleHeartRateReport(AbsoluteTime timeStamp, UInt32 reportID)
+{
+    IOHIDDouble confidence = 1.0;
+    UInt32 heartrate = 0;
+    UInt32 index;
+    UInt32 count;
+    UInt32 generation = 0;
+
+    IOHIDHeartRateSensorLocation location = kIOHIDHeartRateSensorLocationUnknown;
+    
+    bool valid = false;
+    require_quiet(_heartrate.elements, exit);
+    
+    for (index = 0, count = _heartrate.elements->getCount(); index < count; index++) {
+        
+        IOHIDElement *  element;
+        AbsoluteTime    elementTimeStamp;
+        UInt32          usagePage;
+        UInt32          usage;
+        UInt32          value;
+       
+        element = OSDynamicCast(IOHIDElement, _heartrate.elements->getObject(index));
+        
+        if (element->getReportID() != reportID) {
+            continue;
+        }
+
+        valid = true;
+        
+        elementTimeStamp = element->getTimeStamp();
+        usagePage   = element->getUsagePage();
+        usage       = element->getUsage();
+        value       = element->getValue();
+        
+        switch (usagePage) {
+            case kHIDPage_Sensor:
+                switch (usage) {
+                    case kHIDUsage_Snsr_Data_Biometric_HeartRate:
+                        heartrate = value;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case kHIDPage_AppleVendorSensor:
+                switch (usage) {
+                    case kHIDUsage_AppleVendorSensor_MeasurementConfidence:
+                        confidence = CAST_FIXED_TO_DOUBLE(element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated));
+                        break;
+                    case kHIDUsage_AppleVendorSensor_Property_Location_LeftHeadphone:
+                        if (value) {
+                            location = kIOHIDHeartRateSensorLocationLeftHeadphone;
+                        }
+                        break;
+                    case kHIDUsage_AppleVendorSensor_Property_Location_RightHeadphone:
+                        if (value) {
+                            location = kIOHIDHeartRateSensorLocationRightHeadphone;
+                        }
+                        break;
+                    case kHIDUsage_AppleVendorSensor_Property_Location_Watch:
+                        if (value) {
+                            location = kIOHIDHeartRateSensorLocationWatch;
+                        }
+                        break;
+                    case kHIDUsage_AppleVendorSensor_MeasurementGeneration:
+                        generation = value;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (valid) {
+        IOHIDEvent * event = IOHIDEvent::heartRateEvent(timeStamp, heartrate, 0);
+        if (event) {
+            event->setIntegerValue(kIOHIDEventFieldHeartRateLocation, location);
+            event->setIntegerValue(kIOHIDEventFieldHeartRateGenerationCount, generation);
+            event->setDoubleValue(kIOHIDEventFieldHeartRateConfidence, confidence, 0);
+            dispatchEvent(event);
+            event->release();
+        }
+    }
+exit:
+    return;
+}
 
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  0);
 OSMetaClassDefineReservedUnused(IOHIDEventDriver,  1);

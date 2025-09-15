@@ -26,93 +26,175 @@
 import Foundation
 internal import WebKit_Internal
 
-extension WebPage_v0 {
+extension WebPage {
+    /// A configuration type that specifies the preferences and behaviors of a webpage.
     @MainActor
-    @_spi(Private)
-    public struct Configuration: Sendable {
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
+    public struct Configuration {
+        /// Creates a new configuration value.
         public init() {
         }
 
+        /// The object you use to get and set the site’s cookies and to track the cached data objects.
+        ///
+        /// To create a private web-browsing session, create a non-persistent data store using the `nonPersistent()`
+        /// method and assign it to this property. For more information, see `WKWebsiteDataStore`.
         public var websiteDataStore: WKWebsiteDataStore = .default()
 
+        /// The object that coordinates interactions between your app’s native code and the webpage’s
+        /// scripts and other content.
         public var userContentController: WKUserContentController = WKUserContentController()
 
+        /// The web extension controller to associate with the webpage.
         public var webExtensionController: WKWebExtensionController? = nil
 
-        public var defaultNavigationPreferences: WebPage_v0.NavigationPreferences = WebPage_v0.NavigationPreferences()
+        /// The default preferences to use when loading and rendering content.
+        ///
+        /// Use this property to specify the JavaScript settings and content mode for new navigations.
+        /// When the webpage navigates to a new resource, it passes the default preferences to its
+        /// navigation decider, which can modify the preferences if desired.
+        public var defaultNavigationPreferences: WebPage.NavigationPreferences = WebPage.NavigationPreferences()
 
-        public var urlSchemeHandlers: [URLScheme_v0 : any URLSchemeHandler_v0] = [:]
+        /// Allows registering an object to load resources associated with a specified URL scheme.
+        public var urlSchemeHandlers: [URLScheme: any URLSchemeHandler] = [:]
 
-        public var deviceSensorAuthorization: WebPage_v0.DeviceSensorAuthorization = WebPage_v0.DeviceSensorAuthorization(decision: .prompt)
+        /// Allows specifying how web resources may access device sensors.
+        ///
+        /// The default implementation returns `WKPermissionDecision.prompt` for all requests.
+        public var deviceSensorAuthorization: WebPage.DeviceSensorAuthorization = WebPage.DeviceSensorAuthorization(decision: .prompt)
 
+        /// The app name that appears in the user agent string.
         public var applicationNameForUserAgent: String? = nil
 
+        /// Indicates whether the web view limits navigation to pages within the app’s domain.
+        ///
+        /// The default value of this property is `false`.
         public var limitsNavigationsToAppBoundDomains: Bool = false
 
+        /// Indicates whether the web view should automatically upgrade supported HTTP requests to HTTPS.
+        ///
+        /// The default value of this property is `true`.
         public var upgradeKnownHostsToHTTPS: Bool = true
 
+        /// Indicates whether the web view suppresses content rendering until the content is fully loaded into memory.
+        ///
+        /// The default value of this property is `false`.
         public var suppressesIncrementalRendering: Bool = false
 
+        /// Indicates whether the webpage allows media playback over AirPlay.
+        ///
+        /// The default value of this property is `true`.
+        public var allowsAirPlayForMediaPlayback: Bool = true
+
+        /// Indicates whether the webpage loads all of its subresources in addition to the main resource.
+        ///
+        /// The default value of this property is `true`.
+        public var loadsSubresources: Bool = true
+
+        /// Indicates whether inline predictions are allowed.
+        ///
+        /// The default value is `false`. If false, inline predictions are disabled regardless of the system setting.
+        /// If true, they are enabled based on the system setting.
         public var allowsInlinePredictions: Bool = false
 
+        /// Indicates whether insertion of adaptive image glyphs is allowed.
+        ///
+        /// The default value is `false`. If `false`, adaptive image glyphs are inserted as regular images.
+        /// If `true`, they are inserted with the full adaptive sizing behavior.
         public var supportsAdaptiveImageGlyph: Bool = false
 
-#if os(iOS)
+        private var backingShowsSystemScreenTimeBlockingView = true
+
+        /// Indicates whether the webpage should use the system Screen Time blocking view.
+        ///
+        /// The default value is `true`. If `true`, the system Screen Time blocking view is shown when blocked by Screen Time.
+        /// If `false`, a blurred view of the web content is shown instead.
+        @available(visionOS, unavailable)
+        public var showsSystemScreenTimeBlockingView: Bool {
+            get { backingShowsSystemScreenTimeBlockingView }
+            set { backingShowsSystemScreenTimeBlockingView = newValue }
+        }
+
+        #if os(iOS)
+        /// The types of data detectors to apply to the webpage's content.
+        ///
+        /// Data detectors add interactivity to web content by creating links for specially formatted text.
+        /// For example, the `.link` type causes the apple.com portion of the text “Visit apple.com” to
+        /// become a link to the Apple website.
+        ///
+        /// The default value of this property is an empty OptionSet.
         public var dataDetectorTypes: WKDataDetectorTypes = []
 
+        /// Determines whether a webpage allows scaling of the webpage.
+        ///
+        /// When set to `true`, this property overrides the user-scalable HTML property in a webpage, and lets
+        /// the webpage scale its view's content regardless of the author’s intent.
+        ///
+        /// The default value of this property is `false`.
         public var ignoresViewportScaleLimits: Bool = false
-#endif
+
+        /// Indicates whether HTML5 videos play inline or use the native full-screen controller.
+        public var mediaPlaybackBehavior: MediaPlaybackBehavior = .automatic
+        #endif
+
+        #if os(macOS)
+        /// The directionality of user interface elements.
+        ///
+        /// The default value of this property is `.content`.
+        public var userInterfaceDirectionPolicy: WKUserInterfaceDirectionPolicy = .content
+        #endif
     }
 }
 
-extension WebPage_v0 {
-    @_spi(Private)
+extension WebPage {
+    /// A type that describes the authorization permissions policy for the device's sensors a web resource may access.
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
     public struct DeviceSensorAuthorization {
+        /// The kind of sensor permission a web resource may request to access.
         public enum Permission: Hashable, Sendable {
+            /// The orientation and motion of the device.
             case deviceOrientationAndMotion
+
+            /// A media capture device, like a microphone or camera.
             case mediaCapture(WKMediaCaptureType)
         }
 
-        let decisionHandler: (Permission, WebPage_v0.FrameInfo, WKSecurityOrigin) async -> WKPermissionDecision
+        let decisionHandler: (Permission, WebPage.FrameInfo, WKSecurityOrigin) async -> WKPermissionDecision
 
-        public init(decisionHandler: @escaping (Permission, WebPage_v0.FrameInfo, WKSecurityOrigin) async -> WKPermissionDecision) {
+        /// Creates a new `DeviceSensorAuthorization` using the specified policy.
+        ///
+        /// - Parameter decisionHandler: A closure which decides the permission decision for an authorization request,
+        /// which may be based on the kind of permission, the webpage frame information, or the security origin.
+        public init(decisionHandler: @escaping (Permission, WebPage.FrameInfo, WKSecurityOrigin) async -> WKPermissionDecision) {
             self.decisionHandler = decisionHandler
         }
 
+        /// A convenience initializer to create a DeviceSensorAuthorization that always uses the same permission decision.
         public init(decision: WKPermissionDecision) {
             self.init { _, _, _ in decision }
         }
     }
 }
 
-// MARK: Adapters
+extension WebPage.Configuration {
+    /// The behavior used when playing HTML video within a page.
+    @available(WK_IOS_TBA, WK_XROS_TBA, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
+    @available(macOS, unavailable)
+    public enum MediaPlaybackBehavior: Sendable {
+        /// Use the default system value, which is `alwaysFullscreen` for iPhone and `allowsInlinePlayback` for iPad.
+        case automatic
 
-extension WKWebViewConfiguration {
-    convenience init(_ wrapped: WebPage_v0.Configuration) {
-        self.init()
+        /// Allows videos to play inline. When adding a video element to an HTML document on iPhone, you must also include the `playsinline` attribute.
+        case allowsInlinePlayback
 
-        self.websiteDataStore = wrapped.websiteDataStore
-        self.userContentController = wrapped.userContentController
-        self.webExtensionController = wrapped.webExtensionController
-
-        self.defaultWebpagePreferences = WKWebpagePreferences(wrapped.defaultNavigationPreferences)
-
-        self.applicationNameForUserAgent = wrapped.applicationNameForUserAgent
-        self.limitsNavigationsToAppBoundDomains = wrapped.limitsNavigationsToAppBoundDomains
-        self.upgradeKnownHostsToHTTPS = wrapped.upgradeKnownHostsToHTTPS
-        self.suppressesIncrementalRendering = wrapped.suppressesIncrementalRendering
-        self.allowsInlinePredictions = wrapped.allowsInlinePredictions
-        self.supportsAdaptiveImageGlyph = wrapped.supportsAdaptiveImageGlyph
-
-#if os(iOS)
-        self.dataDetectorTypes = wrapped.dataDetectorTypes
-        self.ignoresViewportScaleLimits = wrapped.ignoresViewportScaleLimits
-#endif
-
-        for (scheme, handler) in wrapped.urlSchemeHandlers {
-            let handlerAdapter = WKURLSchemeHandlerAdapter(handler)
-            self.setURLSchemeHandler(handlerAdapter, forURLScheme: scheme.rawValue)
-        }
+        /// Use the native fullscreen controller.
+        case alwaysFullscreen
     }
 }
 

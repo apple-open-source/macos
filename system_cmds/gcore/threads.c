@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 Apple Inc.  All rights reserved.
+ * Copyright (c) 2024 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -38,6 +38,20 @@ static threadflavor_t thread_flavor[] = {
 #error architecture not supported
 #endif
 };
+
+uint64_t
+get_thread_identifier(mach_port_t thread)
+{
+    thread_identifier_info_data_t tident;
+    mach_msg_type_number_t tident_count = THREAD_IDENTIFIER_INFO_COUNT;
+    const kern_return_t kr = thread_info(thread, THREAD_IDENTIFIER_INFO,
+        (thread_info_t)&tident, &tident_count);
+    if (kr != KERN_SUCCESS) {
+        err_mach(kr, NULL, "getting thread identifier");
+        return UINT64_MAX;
+    }
+    return tident.thread_id;    // system-wide unique ID
+}
 
 static const int nthread_flavors = sizeof (thread_flavor) / sizeof (thread_flavor[0]);
 

@@ -90,10 +90,6 @@ public:
         Bitmap
     };
 
-#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    enum class IncludeDisplayList : bool { No, Yes };
-#endif
-
     virtual bool isRemoteLayerWithRemoteRenderingBackingStore() const { return false; }
     virtual bool isRemoteLayerWithInProcessRenderingBackingStore() const { return false; }
 
@@ -110,7 +106,7 @@ public:
         bool isOpaque { false };
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-        IncludeDisplayList includeDisplayList { IncludeDisplayList::No };
+        WebCore::IncludeDynamicContentScalingDisplayList includeDisplayList { WebCore::IncludeDynamicContentScalingDisplayList::No };
 #endif
 
         friend bool operator==(const Parameters&, const Parameters&) = default;
@@ -120,6 +116,10 @@ public:
 
     void setNeedsDisplay(const WebCore::IntRect);
     void setNeedsDisplay();
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool setNeedsDisplayIfEDRHeadroomExceeds(float);
+#endif
 
     void setDelegatedContents(const PlatformCALayerRemoteDelegatedContents&);
 
@@ -171,11 +171,11 @@ public:
 
     MonotonicTime lastDisplayTime() const { return m_lastDisplayTime; }
 
-    virtual void clearBackingStore() = 0;
+    virtual void clearBackingStore();
 
     virtual std::optional<ImageBufferBackendHandle> frontBufferHandle() const = 0;
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    virtual std::optional<ImageBufferBackendHandle> displayListHandle() const  { return std::nullopt; }
+    virtual std::optional<WebCore::DynamicContentScalingDisplayList> displayListHandle() const  { return std::nullopt; }
 #endif
     virtual std::optional<RemoteImageBufferSetIdentifier> bufferSetIdentifier() const { return std::nullopt; }
 
@@ -212,6 +212,11 @@ protected:
     WebCore::RepaintRectList m_paintingRects;
 
     MonotonicTime m_lastDisplayTime;
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    float m_maxPaintedEDRHeadroom { 1 };
+    float m_maxRequestedEDRHeadroom { 1 };
+#endif
 };
 
 // The subset of RemoteLayerBackingStore that gets serialized into the UI
@@ -222,21 +227,25 @@ class RemoteLayerBackingStoreProperties {
 public:
     RemoteLayerBackingStoreProperties() = default;
     RemoteLayerBackingStoreProperties(RemoteLayerBackingStoreProperties&&) = default;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    RemoteLayerBackingStoreProperties(ImageBufferBackendHandle&&, WebCore::RenderingResourceIdentifier, bool opaque, bool hasExtendedDynamicRangeContent);
+#else
+    RemoteLayerBackingStoreProperties(ImageBufferBackendHandle&&, WebCore::RenderingResourceIdentifier, bool opaque);
+#endif
 
-    void applyBackingStoreToLayer(CALayer *, LayerContentsType, std::optional<WebCore::RenderingResourceIdentifier>, bool replayDynamicContentScalingDisplayListsIntoBackingStore, UIView * hostingView);
-
-    void updateCachedBuffers(RemoteLayerTreeNode&, LayerContentsType);
+    void applyBackingStoreToLayer(CALayer *, LayerContentsType, bool replayDynamicContentScalingDisplayListsIntoBackingStore, UIView * hostingView);
+    void updateCachedBuffers(RemoteLayerTreeNode&, LayerContentsType, UIView *);
 
     const std::optional<ImageBufferBackendHandle>& bufferHandle() const { return m_bufferHandle; };
 
-    bool isOpaque() const { return m_isOpaque; }
-
-    static RetainPtr<id> layerContentsBufferFromBackendHandle(ImageBufferBackendHandle&&, LayerContentsType);
+    static RetainPtr<id> layerContentsBufferFromBackendHandle(ImageBufferBackendHandle&&, LayerContentsType, bool isDelegatedDisplay);
 
     void dump(WTF::TextStream&) const;
 
     std::optional<RemoteImageBufferSetIdentifier> bufferSetIdentifier() { return m_bufferSet; }
     void setBackendHandle(BufferSetBackendHandle&);
+
+    std::optional<WebCore::RenderingResourceIdentifier> contentsRenderingResourceIdentifier() const { return m_contentsRenderingResourceIdentifier; };
 
 private:
     friend struct IPC::ArgumentCoder<RemoteLayerBackingStoreProperties, void>;
@@ -253,11 +262,15 @@ private:
     std::optional<WebCore::IntRect> m_paintedRect;
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    std::optional<ImageBufferBackendHandle> m_displayListBufferHandle;
+    std::optional<WebCore::DynamicContentScalingDisplayList> m_displayListBufferHandle;
 #endif
 
-    bool m_isOpaque;
+    bool m_isOpaque { false };
     RemoteLayerBackingStore::Type m_type;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool m_hasExtendedDynamicRange { false };
+    float m_maxRequestedEDRHeadroom { 1 };
+#endif
 };
 
 WTF::TextStream& operator<<(WTF::TextStream&, BackingStoreNeedsDisplayReason);

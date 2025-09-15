@@ -171,7 +171,7 @@ srp_log_timestamp(char *buf, size_t bufsize)
         localtime_r(&tv.tv_sec, &tm);
         strftime(timebuf, sizeof(timebuf), "%F %T", &tm);
         strftime(zonebuf, sizeof(zonebuf), "%z", &tm);
-        snprintf(buf, bufsize, "%s.%06d%s", timebuf, tv.tv_usec, zonebuf);
+        snprintf(buf, bufsize, "%s.%06ld%s", timebuf, (long)tv.tv_usec, zonebuf);
     }
 }
 #endif

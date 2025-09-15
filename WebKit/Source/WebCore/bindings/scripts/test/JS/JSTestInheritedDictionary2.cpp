@@ -40,7 +40,7 @@ template<> ConversionResult<IDLDictionary<TestInheritedDictionary2>> convertDict
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -54,7 +54,7 @@ template<> ConversionResult<IDLDictionary<TestInheritedDictionary2>> convertDict
     }
     if (!boolMemberValue.isUndefined()) {
         auto boolMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, boolMemberValue);
-        if (UNLIKELY(boolMemberConversionResult.hasException(throwScope)))
+        if (boolMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.boolMember = boolMemberConversionResult.releaseReturnValue();
     }
@@ -67,7 +67,7 @@ template<> ConversionResult<IDLDictionary<TestInheritedDictionary2>> convertDict
     }
     if (!callbackMemberValue.isUndefined()) {
         auto callbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, callbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(callbackMemberConversionResult.hasException(throwScope)))
+        if (callbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.callbackMember = callbackMemberConversionResult.releaseReturnValue();
     }
@@ -80,7 +80,7 @@ template<> ConversionResult<IDLDictionary<TestInheritedDictionary2>> convertDict
     }
     if (!stringMemberValue.isUndefined()) {
         auto stringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, stringMemberValue);
-        if (UNLIKELY(stringMemberConversionResult.hasException(throwScope)))
+        if (stringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.stringMember = stringMemberConversionResult.releaseReturnValue();
     }

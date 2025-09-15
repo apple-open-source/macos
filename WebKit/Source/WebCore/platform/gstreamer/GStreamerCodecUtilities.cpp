@@ -508,7 +508,7 @@ static std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> av1CapsFromCodecString(cons
     return { inputCaps, outputCaps };
 }
 
-std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> GStreamerCodecUtilities::capsFromCodecString(const String& codecString, std::optional<IntSize> size, std::optional<double> frameRate)
+std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> GStreamerCodecUtilities::capsFromCodecString(const String& codecString, const IntSize& size, std::optional<double> frameRate)
 {
     ensureDebugCategoryInitialized();
 
@@ -525,8 +525,8 @@ std::pair<GRefPtr<GstCaps>, GRefPtr<GstCaps>> GStreamerCodecUtilities::capsFromC
             gst_structure_remove_field(structure, "framerate");
         }
 
-        if (size)
-            gst_caps_set_simple(caps.get(), "width", G_TYPE_INT, size->width(), "height", G_TYPE_INT, size->height(), nullptr);
+        if (!size.isEmpty())
+            gst_caps_set_simple(caps.get(), "width", G_TYPE_INT, size.width(), "height", G_TYPE_INT, size.height(), nullptr);
         else if (!gst_caps_is_any(caps.get()) && !gst_caps_is_empty(caps.get())) {
             auto structure = gst_caps_get_structure(caps.get(), 0);
             gst_structure_remove_fields(structure, "width", "height", nullptr);

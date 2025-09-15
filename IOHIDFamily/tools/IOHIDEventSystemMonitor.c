@@ -375,7 +375,7 @@ static CFTypeRef VirtualCopyProperty(void * target __unused, void * refcon __unu
     printf("%s\n", __PRETTY_FUNCTION__);
     
     if (CFEqual(key, CFSTR(kIOHIDTransportKey))) {
-        CFStringRef value = CFSTR("Virtual");
+        CFStringRef value = CFSTR(kIOHIDTransportVirtualValue);
         CFRetain(value);
         return value;
     }

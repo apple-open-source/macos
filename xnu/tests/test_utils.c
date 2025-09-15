@@ -29,6 +29,32 @@ is_development_kernel(void)
 	return is_development;
 }
 
+
+bool
+process_is_translated()
+{
+	static dispatch_once_t is_translated_once;
+	static bool is_translated;
+
+	dispatch_once(&is_translated_once, ^{
+		int out_value = 0;
+		size_t inout_size = sizeof(out_value);
+		if (sysctlbyname("sysctl.proc_translated", &out_value, &inout_size, NULL, 0) != 0) {
+		        /*
+		         * ENOENT means the sysctl is not present and therefore
+		         * this process is not translated. Any other error is bad.
+		         */
+		        T_QUIET; T_ASSERT_POSIX_ERROR(errno, ENOENT, "sysctlbyname(sysctl.proc_translated)");
+		        is_translated = false;
+		} else {
+		        T_QUIET; T_ASSERT_GE(inout_size, sizeof(out_value), "sysctlbyname(sysctl.proc_translated)");
+		        is_translated = (bool)out_value;
+		}
+	});
+	return is_translated;
+}
+
+
 pid_t
 launch_background_helper(
 	const char* variant,

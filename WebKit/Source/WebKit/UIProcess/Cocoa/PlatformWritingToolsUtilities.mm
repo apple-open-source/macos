@@ -28,29 +28,26 @@
 #import "config.h"
 #import "PlatformWritingToolsUtilities.h"
 
-#import <SoftLinking/WeakLinking.h>
 #import <WebCore/WritingToolsTypes.h>
-
-WEAK_IMPORT_OBJC_CLASS(WTContext);
 
 namespace WebKit {
 
 #pragma mark - Conversions from web types to platform types.
 
-PlatformWritingToolsBehavior convertToPlatformWritingToolsBehavior(WebCore::WritingTools::Behavior behavior)
+CocoaWritingToolsBehavior convertToCocoaWritingToolsBehavior(WebCore::WritingTools::Behavior behavior)
 {
     switch (behavior) {
     case WebCore::WritingTools::Behavior::None:
-        return PlatformWritingToolsBehaviorNone;
+        return CocoaWritingToolsBehaviorNone;
 
     case WebCore::WritingTools::Behavior::Default:
-        return PlatformWritingToolsBehaviorDefault;
+        return CocoaWritingToolsBehaviorDefault;
 
     case WebCore::WritingTools::Behavior::Limited:
-        return PlatformWritingToolsBehaviorLimited;
+        return CocoaWritingToolsBehaviorLimited;
 
     case WebCore::WritingTools::Behavior::Complete:
-        return PlatformWritingToolsBehaviorComplete;
+        return CocoaWritingToolsBehaviorComplete;
     }
 }
 
@@ -80,19 +77,19 @@ RetainPtr<WTContext> convertToPlatformContext(const WebCore::WritingTools::Conte
 
 #pragma mark - Conversions from platform types to web types.
 
-WebCore::WritingTools::Behavior convertToWebWritingToolsBehavior(PlatformWritingToolsBehavior behavior)
+WebCore::WritingTools::Behavior convertToWebWritingToolsBehavior(CocoaWritingToolsBehavior behavior)
 {
     switch (behavior) {
-    case PlatformWritingToolsBehaviorNone:
+    case CocoaWritingToolsBehaviorNone:
         return WebCore::WritingTools::Behavior::None;
 
-    case PlatformWritingToolsBehaviorDefault:
+    case CocoaWritingToolsBehaviorDefault:
         return WebCore::WritingTools::Behavior::Default;
 
-    case PlatformWritingToolsBehaviorLimited:
+    case CocoaWritingToolsBehaviorLimited:
         return WebCore::WritingTools::Behavior::Limited;
 
-    case PlatformWritingToolsBehaviorComplete:
+    case CocoaWritingToolsBehaviorComplete:
         return WebCore::WritingTools::Behavior::Complete;
     }
 }

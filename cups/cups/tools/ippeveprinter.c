@@ -4911,7 +4911,7 @@ load_ppd_attributes(
 
     if ((i = sscanf(ppd_attr->value, "%dx%d", &xres, &yres)) == 1)
       yres = xres;
-    else if (i < 0)
+    else if (i <= 0)
       xres = yres = 300;
   }
   else

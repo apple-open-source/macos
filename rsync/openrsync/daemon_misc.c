@@ -863,9 +863,6 @@ daemon_do_execcmds_pre(struct sess *sess, const char *module, const char *cmd)
 		narg = args = penv;
 
 		for (size_t i = 0; penvsz != 0; i++) {
-			if (i > 512)
-				__builtin_trap();
-
 			/*
 			 * This should always be NUL-terminated, so we shouldn't
 			 * have anything remaining if we hit endp == NULL.
@@ -931,6 +928,18 @@ daemon_do_execcmds_post(struct sess *sess, const char *module, const char *cmd)
 		daemon_client_error(sess, "%s: failed to fork for post-xfer");
 		return 0;
 	}
+
+#ifdef __APPLE__
+	/*
+	 * If we have a post-xfer command set, we don't really have a choice but
+	 * to fork and monitor the child that does the transfer.  We'll have to
+	 * disable syslog_trace in the child to avoid post-fork logging, but
+	 * we're more likely to have log files to trace daemon problems if this
+	 * becomes an issue.
+	 */
+	if (pid == 0 && syslog_trace)
+		syslog_trace = false;
+#endif
 
 	/* Child returns */
 	if (pid == 0)

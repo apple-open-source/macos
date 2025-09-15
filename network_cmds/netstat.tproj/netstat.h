@@ -66,6 +66,8 @@
 
 #include <TargetConditionals.h>
 
+#include "network_cmds_lib.h"
+
 extern int	Aflag;	/* show addresses of protocol control block */
 extern int	aflag;	/* show all sockets (including servers) */
 extern int	bflag;	/* show i/f total bytes in/out */

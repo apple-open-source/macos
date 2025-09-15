@@ -222,7 +222,7 @@ private:
     };
     void adjustObservedState(Event);
 
-    CheckedRef<Document> m_document;
+    const CheckedRef<Document> m_document;
     Timer m_contentObservationTimer;
     WeakHashSet<const DOMTimer> m_DOMTimerList;
     WeakHashSet<const Element, WeakPtrImplWithEventTargetData> m_elementsWithTransition;

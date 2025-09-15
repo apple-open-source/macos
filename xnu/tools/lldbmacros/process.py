@@ -119,9 +119,12 @@ def GetProcInfo(proc):
             str : A string describing various information for process.
     """
     out_string = ""
+    task = GetTaskFromProc(proc)
+    if task is None:
+        task = 0
     out_string += ("Process {p: <#020x}\n\tname {0: <32s}\n\tpid:{1: <6d} " +
                    "task:{task: <#020x} p_stat:{p.p_stat: <6d} parent pid: {p.p_ppid: <6d}\n"
-                   ).format(GetProcName(proc), GetProcPID(proc), task=GetTaskFromProc(proc), p=proc)
+                   ).format(GetProcName(proc), GetProcPID(proc), task=task, p=proc)
     #print the Creds
     ucred = proc.p_proc_ro.p_ucred.__smr_ptr
     if ucred:
@@ -1943,6 +1946,7 @@ def GetLedgerEntryWithTemplate(ledger_template, ledgerp, i):
     """
     lf_refill_scheduled = 0x0400
     lf_tracking_max = 0x4000
+    lf_is_counter = 0x80000
 
     entry = {}
 
@@ -1951,10 +1955,17 @@ def GetLedgerEntryWithTemplate(ledger_template, ledgerp, i):
     et_size = et.et_size
     if et_size == sizeof("struct ledger_entry_small"):
         les = ledgerp.l_entries[et.et_offset]
-        entry["credit"] = unsigned(les.les_credit)
+        flags = int(les.les_flags)
         entry["debit"] = 0
-        entry["flags"] = int(les.les_flags)
+        entry["flags"] = flags
         entry["limit"] = ledger_limit_infinity
+        if (flags & lf_is_counter) and (hasattr(ledger_template, "lt_counters")):
+            credit = 0
+            for v in memory.IterateZPerCPU(cast(les.les_credit, "scalable_counter_t")):
+                credit += v
+            entry["credit"] = credit
+        else:
+            entry["credit"] = unsigned(les.les_credit)
     elif et_size == sizeof("struct ledger_entry"):
         le = cast(addressof(ledgerp.l_entries[et.et_offset]), "struct ledger_entry *")
         entry["credit"] = unsigned(le.le_credit)

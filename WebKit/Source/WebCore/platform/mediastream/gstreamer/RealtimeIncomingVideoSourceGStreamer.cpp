@@ -24,6 +24,7 @@
 
 #include "GStreamerCommon.h"
 #include "GStreamerWebRTCUtils.h"
+#include "GUniquePtrGStreamer.h"
 #include "VideoFrameGStreamer.h"
 #include <wtf/text/MakeString.h>
 
@@ -100,8 +101,14 @@ void RealtimeIncomingVideoSourceGStreamer::dispatchSample(GRefPtr<GstSample>&& s
     }
 
     ensureSizeAndFramerate(GRefPtr<GstCaps>(caps));
+    auto [rotation, isMirrored] = webkitGstBufferGetVideoRotation(buffer);
 
-    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), intrinsicSize(), fromGstClockTime(GST_BUFFER_PTS(buffer))), { });
+    VideoFrameGStreamer::CreateOptions options(intrinsicSize());
+    options.presentationTime = fromGstClockTime(GST_BUFFER_PTS(buffer));
+    options.rotation = rotation;
+    options.isMirrored = isMirrored;
+    options.contentHint = VideoFrameContentHint::WebRTC;
+    videoFrameAvailable(VideoFrameGStreamer::create(WTFMove(sample), options), { });
 }
 
 const GstStructure* RealtimeIncomingVideoSourceGStreamer::stats()
@@ -109,7 +116,7 @@ const GstStructure* RealtimeIncomingVideoSourceGStreamer::stats()
     m_stats.reset(gst_structure_new_empty("incoming-video-stats"));
 
     forEachVideoFrameObserver([&](auto& observer) {
-        auto stats = observer.queryAdditionalStats();
+        GUniquePtr<GstStructure> stats(observer.queryAdditionalStats());
         if (!stats)
             return;
 

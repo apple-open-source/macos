@@ -34,6 +34,7 @@
 #include "PlatformSpeechSynthesisVoice.h"
 #include "WebKitAudioSinkGStreamer.h"
 #include "WebKitFliteSourceGStreamer.h"
+#include <wtf/MediaTime.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
@@ -100,13 +101,13 @@ GstSpeechSynthesisWrapper::GstSpeechSynthesisWrapper(const PlatformSpeechSynthes
         }
     }
 
-    m_volumeElement = makeGStreamerElement("volume", nullptr);
-    m_pitchElement = makeGStreamerElement("pitch", nullptr);
+    m_volumeElement = makeGStreamerElement("volume"_s);
+    m_pitchElement = makeGStreamerElement("pitch"_s);
     if (!m_pitchElement)
         WTFLogAlways("The pitch GStreamer plugin is unavailable. The pitch property of Speech Synthesis is ignored.");
 
-    GRefPtr<GstElement> audioConvert = makeGStreamerElement("audioconvert", nullptr);
-    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample", nullptr);
+    GRefPtr<GstElement> audioConvert = makeGStreamerElement("audioconvert"_s);
+    GRefPtr<GstElement> audioResample = makeGStreamerElement("audioresample"_s);
     if (m_pitchElement)
         gst_bin_add_many(GST_BIN_CAST(m_pipeline.get()), m_src.get(), m_volumeElement.get(), audioConvert.get(), audioResample.get(), m_pitchElement.get(), audioSink.get(), nullptr);
     else

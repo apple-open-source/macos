@@ -82,7 +82,7 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
     do {
         ssize_t ret;
         do {
-            ret = write((int)conn, ptr, len);
+            ret = write((int)(intptr_t)conn, ptr, len);
         } while ((ret < 0) && (errno == EAGAIN || errno == EINTR));
         if (ret > 0) {
             len -= ret;
@@ -105,13 +105,13 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
     do {
         ssize_t ret;
         do {
-            ret = read((int)conn, ptr, len);
+            ret = read((int)(intptr_t)conn, ptr, len);
         } while ((ret < 0) && (errno == EINPROGRESS || errno == EAGAIN || errno == EINTR));
         if (ret > 0) {
             len -= ret;
             ptr += ret;
         } else {
-            printf("read error(%d): ret=%zd, errno=%d\n", (int)conn, ret, errno);
+            printf("read error(%" PRIdPTR "): ret=%zd, errno=%d\n", (intptr_t)conn, ret, errno);
             return -errno;
         }
     } while (len > 0);

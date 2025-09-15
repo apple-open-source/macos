@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <mach/boolean.h>
 #include <mach/kern_return.h>
 #include <mach/mach_types.h>

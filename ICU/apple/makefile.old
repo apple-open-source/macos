@@ -853,7 +853,7 @@ ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
   
   ICU_TBD_PATH = $(OBJROOT_CURRENT)/usr/lib/lib$(LIB_NAME).tbd
   TAPI_COMMON_OPTS := -dynamiclib \
-  	-xc++ -std=c++11 \
+  	-xc++ -std=c++17 \
   	$(TARGET_TRIPLES) \
   	-fvisibility=hidden \
   	-isysroot $(SDKROOT) \
@@ -1070,7 +1070,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1079,7 +1079,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1088,7 +1088,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1097,7 +1097,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m64 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	else
@@ -1107,7 +1107,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1116,7 +1116,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1125,7 +1125,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 
@@ -1134,7 +1134,7 @@ else ifeq "$(LINUX)" "YES"
 			CC="$(CC)" \
 			CXX="$(CXX)" \
 			CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden" \
-			CXXFLAGS="-std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+			CXXFLAGS="-std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DICU_DATA_DIR_PREFIX_ENV_VAR=\"\\\"$(DATA_DIR_PREFIX_ENV_VAR)\\\"\" -m32 -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 			TZDATA="$(TZDATA)" \
 			DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	endif
@@ -1146,7 +1146,7 @@ else
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" $(FORCEENDIAN)\
 		TZDATA="$(TZDATA)" \
@@ -1156,7 +1156,7 @@ else
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1166,7 +1166,7 @@ else
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1176,7 +1176,7 @@ else
 		CC="$(CC)" \
 		CXX="$(CXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -Wformat-nonliteral -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(APPLE_STACK_INIT_OPTS) $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1187,7 +1187,7 @@ else
 		CC="$(HOSTCC)" \
 		CXX="$(HOSTCXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
@@ -1196,7 +1196,7 @@ else
 		CC="$(HOSTCC)" \
 		CXX="$(HOSTCXX)" \
 		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(CFLAGS_SANITIZER)" \
-		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(CXXFLAGS_SANITIZER)" \
+		CXXFLAGS="--std=c++17 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR_BUILDHOST)\\\"\" -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(HOSTISYSROOT) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(CXXFLAGS_SANITIZER)" \
 		TOOLSEXTRAFLAGS="$(TOOLSEXTRAFLAGS)" \
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
@@ -1334,7 +1334,7 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 				if test "$@" = "icu"; then \
 					ln -fs  $(INSTALLED_DYLIB) $(DYLIB); \
 					echo '# build' $(INFOTOOL) 'linked against' $(LIB_NAME) ; \
-					$($(ENV_$@)) $(CXX) --std=c++11 $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
+					$($(ENV_$@)) $(CXX) --std=c++17 $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
 						$(LDFLAGS) -dead_strip -o ./$(INFOTOOL) $(INFOTOOL_OBJS) -L./ -l$(LIB_NAME) ; \
 					echo '# build' $(TOOLS_DYLIB) 'linked against' $(LIB_NAME) ; \
 					$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
@@ -1342,18 +1342,19 @@ icu debug profile : $(OBJROOT_CURRENT)/Makefile
 						$(CXXFLAGS) $(LDFLAGS) -single_module \
 						-install_name $(locallibdir)$(TOOLS_DYLIB) -o ./$(TOOLS_DYLIB) $(TOOLS_DYLIB_OBJS) -L./ -l$(LIB_NAME) ; \
 					echo '# build' $(ICUZDUMPTOOL) 'linked against' $(TOOLSLIB_NAME) $(LIB_NAME) ; \
-					$($(ENV_$@)) $(LINK.cc) $(RC_ARCHS:%=-arch %) -g -Os $(ISYSROOT) $(THUMB_FLAG) --std=c++11 \
+					$($(ENV_$@)) $(LINK.cc) $(RC_ARCHS:%=-arch %) -g -Os $(ISYSROOT) $(THUMB_FLAG) --std=c++17 \
 						-dead_strip -o ./$(ICUZDUMPTOOL) $(ICUZDUMPTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME) -l$(LIB_NAME); \
 				fi; \
-			fi; \
-			if test -f ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE); then \
-				ln -fs ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE); \
-			fi; \
-			if test -f ./$(DATA_BUILD_SUBDIR)/$(L_DATA_FILE); then \
-				ln -fs ./$(DATA_BUILD_SUBDIR)/$(L_DATA_FILE); \
-			else \
-				DYLD_LIBRARY_PATH=$(ICUPKGTOOLIBS) \
-				$(ICUPKGTOOL) -tl ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
+                if test -f ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE); then \
+                    ln -fs ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE); \
+                fi; \
+                if test -f ./$(DATA_BUILD_SUBDIR)/$(L_DATA_FILE); then \
+                    ln -fs ./$(DATA_BUILD_SUBDIR)/$(L_DATA_FILE); \
+                else \
+                    echo DYLD_LIBRARY_PATH=$(ICUPKGTOOLIBS) $(ICUPKGTOOL) -tl ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
+                    DYLD_LIBRARY_PATH=$(ICUPKGTOOLIBS) \
+                    $(ICUPKGTOOL) -tl ./$(DATA_BUILD_SUBDIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
+                fi; \
 			fi; \
 			printf $(TZDATA_FORMAT_STRING) > $(TZDATA_FORMAT_FILE); \
 		fi; \
@@ -1385,23 +1386,23 @@ icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			-install_name $(locallibdir)$(TOOLS_DYLIB_FORTOOLS) -o ./$(TOOLS_DYLIB_FORTOOLS) $(TOOLS_DYLIB_OBJS_FORTOOLS) -L./ -l$(LIB_NAME) || exit 1 ; \
 		echo '# build' $(ZICTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
-		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
+		$($(ENV_BUILDHOST)) $(CXX) --std=c++17 -g -Os -isysroot $(HOSTSDKPATH) \
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			$(LDFLAGS) -dead_strip -o ./$(ZICTOOL) $(ZICTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(RESTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) $(LIB_NAME) ; \
-		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
+		$($(ENV_BUILDHOST)) $(CXX) --std=c++17 -g -Os -isysroot $(HOSTSDKPATH) \
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			$(LDFLAGS) -dead_strip -o ./$(RESTOOL) $(RESTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) -l$(LIB_NAME) || exit 1 ; \
 		echo '# build' $(PKGTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
-		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
+		$($(ENV_BUILDHOST)) $(CXX) --std=c++17 -g -Os -isysroot $(HOSTSDKPATH) \
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			$(LDFLAGS) -dead_strip -o ./$(PKGTOOL) $(PKGTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(TZ2ICUTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
-		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
+		$($(ENV_BUILDHOST)) $(CXX) --std=c++17 -g -Os -isysroot $(HOSTSDKPATH) \
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			$(LDFLAGS) -dead_strip -o ./$(TZ2ICUTOOL) $(TZ2ICUTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 		echo '# build' $(GENBRKTOOL) 'linked against' $(TOOLSLIB_NAME_FORTOOLS) ; \
-		$($(ENV_BUILDHOST)) $(CXX) --std=c++11 -g -Os -isysroot $(HOSTSDKPATH) \
+		$($(ENV_BUILDHOST)) $(CXX) --std=c++17 -g -Os -isysroot $(HOSTSDKPATH) \
 			-mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) $(RC_ARCHS:%=-arch %) \
 			$(LDFLAGS) -dead_strip -o ./$(GENBRKTOOL) $(GENBRKTOOL_OBJS) -L./ -l$(TOOLSLIB_NAME_FORTOOLS) || exit 1 ; \
 	);

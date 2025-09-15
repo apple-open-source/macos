@@ -77,7 +77,7 @@ private:
 
 class TextIteratorCopyableText {
 public:
-    StringView text() const { return m_singleCharacter ? StringView(WTF::span(m_singleCharacter)) : StringView(m_string).substring(m_offset, m_length); }
+    StringView text() const LIFETIME_BOUND { return m_singleCharacter ? StringView(WTF::span(m_singleCharacter)) : StringView(m_string).substring(m_offset, m_length); }
     void appendToStringBuilder(StringBuilder&) const;
 
     void reset();
@@ -107,7 +107,7 @@ public:
     bool atEnd() const { return !m_positionNode; }
     WEBCORE_EXPORT void advance();
 
-    StringView text() const { ASSERT(!atEnd()); return m_text; }
+    StringView text() const LIFETIME_BOUND { ASSERT(!atEnd()); return m_text; }
     WEBCORE_EXPORT SimpleRange range() const;
     WEBCORE_EXPORT Node* node() const;
     RefPtr<Node> protectedCurrentNode() const;
@@ -197,7 +197,7 @@ public:
     bool atEnd() const { return !m_positionNode; }
     WEBCORE_EXPORT void advance();
 
-    StringView text() const { ASSERT(!atEnd()); return m_text; }
+    StringView text() const LIFETIME_BOUND { ASSERT(!atEnd()); return m_text; }
     WEBCORE_EXPORT SimpleRange range() const;
     Node* node() const { ASSERT(!atEnd()); return m_node.get(); }
     RefPtr<Node> protectedNode() const { return m_node.get(); }
@@ -253,7 +253,7 @@ public:
     bool atEnd() const { return m_underlyingIterator.atEnd(); }
     WEBCORE_EXPORT void advance(int numCharacters);
     
-    StringView text() const { return m_underlyingIterator.text().substring(m_runOffset); }
+    StringView text() const LIFETIME_BOUND { return m_underlyingIterator.text().substring(m_runOffset); }
     WEBCORE_EXPORT SimpleRange range() const;
 
     bool atBreak() const { return m_atBreak; }
@@ -274,6 +274,7 @@ public:
     bool atEnd() const { return m_underlyingIterator.atEnd(); }
     void advance(int numCharacters);
 
+    StringView text() const LIFETIME_BOUND { return m_underlyingIterator.text().left(m_underlyingIterator.text().length() - m_runOffset); }
     SimpleRange range() const;
 
 private:
@@ -293,7 +294,7 @@ public:
     bool atEnd() const { return !m_didLookAhead && m_underlyingIterator.atEnd(); }
     void advance();
 
-    StringView text() const;
+    StringView text() const LIFETIME_BOUND;
 
 private:
     TextIterator m_underlyingIterator;
@@ -310,7 +311,12 @@ private:
 
 constexpr TextIteratorBehaviors findIteratorOptions(FindOptions options = { })
 {
-    TextIteratorBehaviors iteratorOptions { TextIteratorBehavior::EntersTextControls, TextIteratorBehavior::ClipsToFrameAncestors, TextIteratorBehavior::EntersImageOverlays };
+    TextIteratorBehaviors iteratorOptions {
+        TextIteratorBehavior::EntersTextControls,
+        TextIteratorBehavior::ClipsToFrameAncestors,
+        TextIteratorBehavior::EntersImageOverlays,
+        TextIteratorBehavior::EntersSkippedContentRelevantToUser
+    };
     if (!options.contains(FindOption::DoNotTraverseFlatTree))
         iteratorOptions.add(TextIteratorBehavior::TraversesFlatTree);
     return iteratorOptions;

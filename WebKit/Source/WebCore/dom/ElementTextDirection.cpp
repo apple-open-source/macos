@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -231,7 +231,7 @@ std::optional<TextDirection> computeAutoDirectionality(const Element& element)
         // Specs: The directionality of the auto-directionality form-associated
         // element is calculated from its value() text.
         // Specs: If element's value is not the empty string, then return 'ltr'.
-        if (auto value = textFormControl->value(); !value.isEmpty())
+        if (auto value = textFormControl->value(); !value->isEmpty())
             return computeTextDirectionFromText(value).value_or(TextDirection::LTR);
         return std::nullopt;
     }

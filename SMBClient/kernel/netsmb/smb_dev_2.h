@@ -103,6 +103,7 @@ struct smb2ioc_get_dfs_referral {
 	SMB_IOC_POINTER(void *, rcv_output);
     /* return values */
 	uint32_t	ioc_ret_ntstatus;
+	uint32_t	ioc_ret_ntstatus_error;
 	uint32_t    ioc_ret_output_len;
 };
 

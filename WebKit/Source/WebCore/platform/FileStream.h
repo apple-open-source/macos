@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc.  All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <wtf/FileHandle.h>
 #include <wtf/FileSystem.h>
 #include <wtf/TZoneMalloc.h>
 
@@ -59,9 +60,9 @@ public:
     int read(std::span<uint8_t> buffer);
 
 private:
-    FileSystem::PlatformFileHandle m_handle;
-    long long m_bytesProcessed;
-    long long m_totalBytesToRead;
+    FileSystem::FileHandle m_handle;
+    long long m_bytesProcessed { 0 };
+    long long m_totalBytesToRead { 0 };
 };
 
 } // namespace WebCore

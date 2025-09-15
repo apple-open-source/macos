@@ -297,7 +297,7 @@ protected:
 		{
 #ifdef ANTLR_CXX_SUPPORTS_UNCAUGHT_EXCEPTION
 			// Only give trace if there's no uncaught exception..
-			if(!ANTLR_USE_NAMESPACE(std)uncaught_exception())
+			if(ANTLR_USE_NAMESPACE(std)uncaught_exceptions() == 0)
 #endif
 				parser->traceOut(text);
 		}

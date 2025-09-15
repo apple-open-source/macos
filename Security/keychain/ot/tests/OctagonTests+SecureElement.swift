@@ -19,10 +19,10 @@ class OctagonSecureElementTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let sePeerID = "peerID".data(using: .utf8)!
+        let sePeerID = Data("peerID".utf8)
         let sei = OTSecureElementPeerIdentity()!
         sei.peerIdentifier = sePeerID
-        sei.peerData = "data".data(using: .utf8)!
+        sei.peerData = Data("data".utf8)
 
         XCTAssertThrowsError(try cliqueBridge.setLocalSecureElementIdentity(sei)) { error in
             let nserror = error as NSError
@@ -54,10 +54,10 @@ class OctagonSecureElementTests: OctagonTestsBase {
             XCTAssertNil(seIdentities.localPeerIdentity, "Should have no local peer SE identity before setting it")
         }
 
-        let sePeerID = "peerID".data(using: .utf8)!
+        let sePeerID = Data("peerID".utf8)
         let sei = OTSecureElementPeerIdentity()!
         sei.peerIdentifier = sePeerID
-        sei.peerData = "data".data(using: .utf8)!
+        sei.peerData = Data("data".utf8)
 
         // Add a SecureElement identity
         let setExpectation = self.expectation(description: "update() occurs adding the ID")
@@ -151,10 +151,10 @@ class OctagonSecureElementTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let sePeerID = "peerID".data(using: .utf8)!
+        let sePeerID = Data("peerID".utf8)
         let sei = OTSecureElementPeerIdentity()!
         sei.peerIdentifier = sePeerID
-        sei.peerData = "data".data(using: .utf8)!
+        sei.peerData = Data("data".utf8)
 
         XCTAssertNoThrow(try cliqueBridge.setLocalSecureElementIdentity(sei), "Should be able to successfully set the secure element identity")
 
@@ -191,10 +191,10 @@ class OctagonSecureElementTests: OctagonTestsBase {
         let clique = self.cliqueFor(context: self.cuttlefishContext)
         let cliqueBridge = OctagonTrustCliqueBridge(clique: clique)
 
-        let sePeerID = "peerID".data(using: .utf8)!
+        let sePeerID = Data("peerID".utf8)
         let sei = OTSecureElementPeerIdentity()!
         sei.peerIdentifier = sePeerID
-        sei.peerData = "data".data(using: .utf8)!
+        sei.peerData = Data("data".utf8)
 
         XCTAssertNoThrow(try cliqueBridge.setLocalSecureElementIdentity(sei), "Should be able to successfully set the secure element identity")
 

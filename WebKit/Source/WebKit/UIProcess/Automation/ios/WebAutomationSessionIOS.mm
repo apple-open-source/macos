@@ -69,13 +69,13 @@ void WebAutomationSession::sendSynthesizedEventsToPage(WebPageProxy& page, NSArr
 #pragma mark Commands for Platform: 'iOS'
 
 #if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
-void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& page, KeyboardInteraction interaction, std::variant<VirtualKey, CharKey>&& key)
+void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& page, KeyboardInteraction interaction, Variant<VirtualKey, CharKey>&& key)
 {
     // The modifiers changed by the virtual key when it is pressed or released.
     WebEventFlags changedModifiers = 0;
 
-    NSString *characters;
-    NSString *unmodifiedCharacters;
+    RetainPtr<NSString> characters;
+    RetainPtr<NSString> unmodifiedCharacters;
 
     // FIXME: consider using UIKit SPI to normalize 'characters', i.e., changing * to Shift-8,
     // and passing that in to charactersIgnoringModifiers. This is probably not worth the trouble
@@ -87,9 +87,9 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
             // unichars and WebCore maps these to "windows" key codes. Synthesize a single unichar such that the correct
             // key code is inferred.
             if (auto charCode = charCodeForVirtualKey(virtualKey))
-                characters = [NSString stringWithCharacters:&charCode.value() length:1];
+                characters = adoptNS([[NSString alloc] initWithCharacters:&charCode.value() length:1]);
             if (auto charCodeIgnoringModifiers = charCodeIgnoringModifiersForVirtualKey(virtualKey))
-                unmodifiedCharacters = [NSString stringWithCharacters:&charCodeIgnoringModifiers.value() length:1];
+                unmodifiedCharacters = adoptNS([[NSString alloc] initWithCharacters:&charCodeIgnoringModifiers.value() length:1]);
 
             switch (virtualKey) {
             case VirtualKey::Shift:
@@ -117,12 +117,12 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
             }
         },
         [&] (CharKey charKey) {
-            characters = charKey;
-            unmodifiedCharacters = charKey;
+            characters = charKey.createNSString();
+            unmodifiedCharacters = characters;
         }
     );
 
-    BOOL isTabKey = characters.length == 1 && [characters characterAtIndex:0] == NSTabCharacter;
+    BOOL isTabKey = characters.get().length == 1 && [characters characterAtIndex:0] == NSTabCharacter;
 
     // This is used as WebEvent.keyboardFlags, which are only used if we need to
     // send this event back to UIKit to be interpreted by the keyboard / input manager.
@@ -138,19 +138,19 @@ void WebAutomationSession::platformSimulateKeyboardInteraction(WebPageProxy& pag
     case KeyboardInteraction::KeyPress: {
         m_currentModifiers |= changedModifiers;
 
-        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyDown timeStamp:CFAbsoluteTimeGetCurrent() characters:characters charactersIgnoringModifiers:unmodifiedCharacters modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
+        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyDown timeStamp:CFAbsoluteTimeGetCurrent() characters:characters.get() charactersIgnoringModifiers:unmodifiedCharacters.get() modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
         break;
     }
     case KeyboardInteraction::KeyRelease: {
         m_currentModifiers &= ~changedModifiers;
 
-        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyUp timeStamp:CFAbsoluteTimeGetCurrent() characters:characters charactersIgnoringModifiers:unmodifiedCharacters modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
+        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyUp timeStamp:CFAbsoluteTimeGetCurrent() characters:characters.get() charactersIgnoringModifiers:unmodifiedCharacters.get() modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
         break;
     }
     case KeyboardInteraction::InsertByKey: {
         // Modifiers only change with KeyPress or KeyRelease, this code path is for single characters.
-        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyDown timeStamp:CFAbsoluteTimeGetCurrent() characters:characters charactersIgnoringModifiers:unmodifiedCharacters modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
-        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyUp timeStamp:CFAbsoluteTimeGetCurrent() characters:characters charactersIgnoringModifiers:unmodifiedCharacters modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
+        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyDown timeStamp:CFAbsoluteTimeGetCurrent() characters:characters.get() charactersIgnoringModifiers:unmodifiedCharacters.get() modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
+        [eventsToBeSent addObject:adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyUp timeStamp:CFAbsoluteTimeGetCurrent() characters:characters.get() charactersIgnoringModifiers:unmodifiedCharacters.get() modifiers:m_currentModifiers isRepeating:NO withFlags:inputFlags withInputManagerHint:nil keyCode:keyCode isTabKey:isTabKey]).get()];
         break;
     }
     }
@@ -167,10 +167,10 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
     // This command is more similar to the 'insertText:' editing command, except
     // that this emits keyup/keydown/keypress events for roughly each character.
     // This API should move more towards that direction in the future.
-    NSString *text = keySequence;
+    RetainPtr text = keySequence.createNSString();
     BOOL isTabKey = [text isEqualToString:@"\t"];
 
-    [text enumerateSubstringsInRange:NSMakeRange(0, text.length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
+    [text enumerateSubstringsInRange:NSMakeRange(0, text.get().length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString *substring, NSRange substringRange, NSRange enclosingRange, BOOL *stop) {
         auto keyDownEvent = adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyDown timeStamp:CFAbsoluteTimeGetCurrent() characters:substring charactersIgnoringModifiers:substring modifiers:m_currentModifiers isRepeating:NO withFlags:0 withInputManagerHint:nil keyCode:0 isTabKey:isTabKey]);
         [eventsToBeSent addObject:keyDownEvent.get()];
         auto keyUpEvent = adoptNS([[::WebEvent alloc] initWithKeyEventType:WebEventKeyUp timeStamp:CFAbsoluteTimeGetCurrent() characters:substring charactersIgnoringModifiers:substring modifiers:m_currentModifiers isRepeating:NO withFlags:0 withInputManagerHint:nil keyCode:0 isTabKey:isTabKey]);
@@ -187,13 +187,13 @@ static TextStream& operator<<(TextStream& ts, TouchInteraction interaction)
 {
     switch (interaction) {
     case TouchInteraction::TouchDown:
-        ts << "TouchDown";
+        ts << "TouchDown"_s;
         break;
     case TouchInteraction::MoveTo:
-        ts << "MoveTo";
+        ts << "MoveTo"_s;
         break;
     case TouchInteraction::LiftUp:
-        ts << "LiftUp";
+        ts << "LiftUp"_s;
         break;
     }
     return ts;

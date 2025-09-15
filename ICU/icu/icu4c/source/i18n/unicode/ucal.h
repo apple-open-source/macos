@@ -467,6 +467,17 @@ enum UCalendarDateFields {
    */
   UCAL_ORDINAL_MONTH,
 
+#if APPLE_ICU_CHANGES // rdar://138880732
+  /**
+   * Whether or not the current day is a repeated day (0 or 1).
+   * That is, the day of month is the name number as the previous day,
+   * such as is the case for "adhika tithi" in Hindu lunar calendars.
+   */
+  UCAL_IS_REPEATED_DAY,
+#ifndef U_FORCE_HIDE_DEPRECATED_API
+    UCAL_FIELD_COUNT = UCAL_IS_REPEATED_DAY + 1,
+#endif  // U_FORCE_HIDE_DEPRECATED_API
+#else //APPLE_ICU_CHANGES
     /* Do not conditionalize the following with #ifndef U_HIDE_DEPRECATED_API,
      * it is needed for layout of Calendar, DateFormat, and other objects */
 #ifndef U_FORCE_HIDE_DEPRECATED_API
@@ -477,6 +488,7 @@ enum UCalendarDateFields {
     UCAL_FIELD_COUNT = UCAL_ORDINAL_MONTH + 1,
 
 #endif  // U_FORCE_HIDE_DEPRECATED_API
+#endif // APPLE_ICU_CHANGES
 
  /**
    * Field number indicating the

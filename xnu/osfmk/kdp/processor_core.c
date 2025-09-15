@@ -53,14 +53,6 @@ typedef struct {
 } __attribute__((packed)) legacy_bin_spec;
 #define LEGACY_BIN_SPEC_VERSION 1
 
-__enum_closed_decl(kern_coredump_type_t, uint8_t, {
-	XNU_COREDUMP,
-	USERSPACE_COREDUMP,
-	COPROCESSOR_COREDUMP,
-	SECURE_COREDUMP,
-	NUM_COREDUMP_TYPES,
-});
-
 static uint32_t bin_spec_map[NUM_COREDUMP_TYPES] = {
 	[XNU_COREDUMP] = MAIN_BIN_SPEC_TYPE_KERNEL,
 	[USERSPACE_COREDUMP] = MAIN_BIN_SPEC_TYPE_USER,
@@ -104,6 +96,7 @@ typedef struct {
 	uint64_t core_cur_foffset;                   /* Current offset in this core's overall file */
 	uint64_t core_header_size;                   /* Size of this core's header */
 	uint64_t core_total_bytes;                   /* Total amount of data to be included in this core (excluding zero fill) */
+	const char *core_name;                       /* Name of corefile being produced */
 } processor_core_context;
 
 /*
@@ -471,7 +464,8 @@ coredump_save_summary(uint64_t core_segment_count, uint64_t core_byte_count,
 	 * Reset the zstream and other output context before writing any data out. We do this here
 	 * to update the total file length on the outvars before we start writing out.
 	 */
-	ret = kdp_reset_output_vars(core_context->core_outvars, core_context->core_file_length, true, &should_skip);
+	ret = kdp_reset_output_vars(core_context->core_outvars, core_context->core_file_length, true, &should_skip,
+	    core_context->core_name, core_context->core_type);
 	if (ret != KERN_SUCCESS) {
 		kern_coredump_log(context, "%s() : failed to reset the out vars : kdp_reset_output_vars(%p, %llu, true, %p) returned error 0x%x\n",
 		    __func__, core_context->core_outvars, core_context->core_file_length, &should_skip, ret);
@@ -831,7 +825,7 @@ coredump_save_sw_vers(uint64_t address, uuid_t uuid, uint32_t log2_pagesize, voi
 }
 
 static kern_return_t
-kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_core, uint64_t core_begin_offset, uint64_t *core_file_length, boolean_t *header_update_failed, kern_coredump_type_t type, uint64_t details_flags)
+kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_core, uint64_t core_begin_offset, uint64_t *core_file_length, boolean_t *abort_on_failure, kern_coredump_type_t type, uint64_t details_flags)
 {
 #if CONFIG_CPU_COUNTERS
 	uint64_t start_cycles;
@@ -840,7 +834,6 @@ kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_cor
 	kern_return_t ret;
 	processor_core_context context = { };
 	*core_file_length = 0;
-	*header_update_failed = FALSE;
 
 #if CONFIG_CPU_COUNTERS
 	start_cycles = mt_cur_cpu_cycles();
@@ -855,6 +848,7 @@ kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_cor
 	context.core_cpu_type = current_core->kcc_cpu_type;
 	context.core_cpu_subtype = current_core->kcc_cpu_subtype;
 	context.core_type = type;
+	context.core_name = current_core->kcc_corename;
 
 	kern_coredump_log(&context, "\nBeginning coredump of %s\n", current_core->kcc_corename);
 
@@ -880,7 +874,7 @@ kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_cor
 
 	/* Populate the context with metadata about the corefile (cmd info, sizes etc) */
 	ret = current_core->kcc_cb.kcc_coredump_get_summary(context.core_refcon, coredump_save_summary, &context);
-	if (ret != KERN_SUCCESS) {
+	if (ret != KERN_SUCCESS && ret != KERN_NODE_DOWN) {
 		kern_coredump_log(&context, "(%s) : get_summary failed with %d\n", __func__, ret);
 		return ret;
 	}
@@ -1034,7 +1028,7 @@ kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_cor
 		/* If we're writing to disk (we have a begin offset), we need to update the header */
 		ret = kern_dump_record_file(context.core_outvars, current_core->kcc_corename, core_begin_offset, &context.core_file_length_compressed, details_flags);
 		if (ret != KERN_SUCCESS) {
-			*header_update_failed = TRUE;
+			*abort_on_failure = TRUE;
 			kern_coredump_log(&context, "\n(kern_coredump_routine) : kern_dump_record_file failed with %d\n", ret);
 			return ret;
 		}
@@ -1051,11 +1045,10 @@ kern_coredump_routine(void *core_outvars, struct kern_coredump_core *current_cor
  * Collect coprocessor and userspace coredumps
  */
 static kern_return_t
-kern_do_auxiliary_coredump(void * core_outvars, struct kern_coredump_core * list, uint64_t * last_file_offset, uint64_t details_flags)
+kern_do_auxiliary_coredump(void * core_outvars, struct kern_coredump_core * list, uint64_t * last_file_offset, uint64_t details_flags, boolean_t *abort_on_failure)
 {
 	struct kern_coredump_core *current_core = list;
 	uint64_t prev_core_length = 0;
-	boolean_t header_update_failed = FALSE;
 	kern_coredump_type_t type = current_core == kern_userspace_coredump_core_list ? USERSPACE_COREDUMP : COPROCESSOR_COREDUMP;
 	kern_return_t ret = KERN_SUCCESS;
 	kern_return_t cur_ret = KERN_SUCCESS;
@@ -1074,11 +1067,10 @@ kern_do_auxiliary_coredump(void * core_outvars, struct kern_coredump_core * list
 			return KERN_FAILURE;
 		}
 
-		cur_ret = kern_coredump_routine(core_outvars, current_core, *last_file_offset, &prev_core_length, &header_update_failed, type, details_flags);
+		cur_ret = kern_coredump_routine(core_outvars, current_core, *last_file_offset, &prev_core_length, abort_on_failure, type, details_flags);
 		if (cur_ret != KERN_SUCCESS) {
-			// As long as we didn't fail while updating the header for the raw file, we should be able to try
-			// to capture other corefiles.
-			if (header_update_failed) {
+			// Fail early without trying remaing corefiles when requested.
+			if (*abort_on_failure) {
 				// The header may be in an inconsistent state, so bail now
 				return KERN_FAILURE;
 			} else {
@@ -1099,21 +1091,21 @@ kern_do_auxiliary_coredump(void * core_outvars, struct kern_coredump_core * list
 }
 
 kern_return_t
-kern_do_coredump(void *core_outvars, boolean_t kernel_only, uint64_t first_file_offset, uint64_t *last_file_offset, uint64_t details_flags)
+kern_do_coredump(void *core_outvars, kern_coredump_flags_t flags, uint64_t first_file_offset, uint64_t *last_file_offset, uint64_t details_flags)
 {
 	uint64_t prev_core_length = 0;
 	kern_return_t cur_ret = KERN_SUCCESS, ret = KERN_SUCCESS;
-	boolean_t header_update_failed = FALSE;
+	boolean_t abort_dump = flags & KCF_ABORT_ON_FAILURE;
 
 	assert(last_file_offset != NULL);
 
 	*last_file_offset = first_file_offset;
-	cur_ret = kern_coredump_routine(core_outvars, kernel_helper, *last_file_offset, &prev_core_length, &header_update_failed, XNU_COREDUMP, details_flags);
+	cur_ret = kern_coredump_routine(core_outvars, kernel_helper, *last_file_offset, &prev_core_length, &abort_dump, XNU_COREDUMP, details_flags);
 
 	if (cur_ret != KERN_SUCCESS) {
 		// As long as we didn't fail while updating the header for the raw file, we should be able to try
 		// to capture other corefiles.
-		if (header_update_failed) {
+		if (abort_dump) {
 			// The header may be in an inconsistent state, so bail now
 			return KERN_FAILURE;
 		} else {
@@ -1124,7 +1116,7 @@ kern_do_coredump(void *core_outvars, boolean_t kernel_only, uint64_t first_file_
 
 	*last_file_offset = roundup(((*last_file_offset) + prev_core_length), KERN_COREDUMP_BEGIN_FILEBYTES_ALIGN);
 
-	if (kernel_only) {
+	if (flags & KCF_KERNEL_ONLY) {
 		return ret;
 	}
 
@@ -1138,9 +1130,9 @@ kern_do_coredump(void *core_outvars, boolean_t kernel_only, uint64_t first_file_
 		}
 
 		/* Dump the secure core to disk. */
-		cur_ret = kern_coredump_routine(core_outvars, sk_helper, *last_file_offset, &prev_core_length, &header_update_failed, SECURE_COREDUMP, details_flags);
+		cur_ret = kern_coredump_routine(core_outvars, sk_helper, *last_file_offset, &prev_core_length, &abort_dump, SECURE_COREDUMP, details_flags);
 		if (cur_ret != KERN_SUCCESS) {
-			if (header_update_failed) {
+			if (abort_dump) {
 				return KERN_FAILURE;
 			} else {
 				prev_core_length = 0;
@@ -1152,13 +1144,13 @@ kern_do_coredump(void *core_outvars, boolean_t kernel_only, uint64_t first_file_
 	}
 
 	// Collect coprocessor coredumps first, in case userspace coredumps fail
-	ret = kern_do_auxiliary_coredump(core_outvars, kern_coredump_core_list, last_file_offset, details_flags);
+	ret = kern_do_auxiliary_coredump(core_outvars, kern_coredump_core_list, last_file_offset, details_flags, &abort_dump);
 	if (ret != KERN_SUCCESS) {
 		kern_coredump_log(NULL, "Failed to dump coprocessor cores\n");
 		return ret;
 	}
 
-	ret = kern_do_auxiliary_coredump(core_outvars, kern_userspace_coredump_core_list, last_file_offset, details_flags);
+	ret = kern_do_auxiliary_coredump(core_outvars, kern_userspace_coredump_core_list, last_file_offset, details_flags, &abort_dump);
 	if (ret != KERN_SUCCESS) {
 		kern_coredump_log(NULL, "Failed to dump userspace process cores\n");
 		return ret;

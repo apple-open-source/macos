@@ -226,9 +226,10 @@ __test_exit_reason_delegate_terminate()
 		ret = proc_terminate_delegate(instigator, token, &sentsignal);
 		T_EXPECT_EQ_INT(ret, ESRCH, "expect no such process return: %d", ret);
 		// Terminating PID 1 should fail with EPERM
-		audit_token_for_pid(1, &token);
-		ret = proc_terminate_delegate(instigator, token, &sentsignal);
-		T_EXPECT_EQ_INT(ret, EPERM, "expected eperm return: %d", ret);
+		if (audit_token_for_pid(1, &token)) {
+			ret = proc_terminate_delegate(instigator, token, &sentsignal);
+			T_EXPECT_EQ_INT(ret, EPERM, "expected eperm return: %d", ret);
+		}
 	} else {
 		pause();
 		// This exit should not hit, but we exit abnormally in case something went wrong
@@ -356,7 +357,69 @@ __test_exit_reason_signal_with_audittoken_fail_bad_signal(int signal)
 	}
 }
 
-T_DECL(proc_signal_delegate_success, "proc_signal_delegate should work", T_META_TAG_VM_PREFERRED)
+// Required signal handler for sigwait to work properly
+static void
+null_signal_handler(int sig)
+{
+}
+
+static void
+__test_signal_zombie(void)
+{
+	pid_t child;
+	sigset_t set;
+	sigset_t oldset;
+	int sig = 0, ret = 0;
+	audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+
+	// Set signal handler
+	signal(SIGCHLD, &null_signal_handler);
+
+	// Mask SIGCHLD so it becomes pending
+	// when the child dies.
+	sigemptyset(&set);
+	sigaddset(&set, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &set, &oldset);
+
+	// Immediately exit child
+	if ((child = fork()) == 0) {
+		sleep(1);
+		exit(0);
+	}
+
+	// Calculate target audit token
+	T_EXPECT_TRUE(audit_token_for_pid(child, &token), "audit token determined");
+
+	// Wait for kernel to notify us of a dead child. Which means it's now in a
+	// zombie state.
+	sigwait(&set, &sig);
+
+	// Restore process mask
+	sigprocmask(SIG_SETMASK, &oldset, NULL);
+
+	// First test that kill succeeds for POSIX compliance
+	T_EXPECT_EQ_INT(kill(child, 0), 0, "kill() suceeds on a zombie");
+
+	// Then test that the proc_info path has a sensible error code
+	ret = proc_signal_with_audittoken(&token, SIGHUP);
+	T_EXPECT_EQ_INT(ret, ESRCH, "expect invalid sig num return: %d", ret);
+
+	// Cleanup zombie child
+	wait_with_timeout_expected(child, 0);
+}
+
+
+T_DECL(signal_zombie, "signaling a zombie should work", T_META_TAG_VM_PREFERRED)
+{
+	dispatch_test(^{
+		__test_signal_zombie();
+		T_END;
+	});
+}
+
+T_DECL(proc_signal_delegate_success, "proc_signal_delegate should work",
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://146369624 */)
 {
 	dispatch_test(^{
 		__test_exit_reason_delegate_signal(SIGABRT);
@@ -454,7 +517,7 @@ __test_exit_reason_pthread_kill_self(int signal)
 	} else {
 		pthread_t t;
 		struct pthread_kill_helper_args args = {&t, signal};
-		pthread_create(&t, NULL, pthread_kill_helper, (void *)&args);
+		pthread_create(&t, NULL, (void*(*)(void*))pthread_kill_helper, (void *)&args);
 		pthread_join(t, NULL);
 	}
 }

@@ -526,6 +526,8 @@ ksyn_wqlock(ksyn_wait_queue_t kwq)
 static void
 ksyn_wqunlock(ksyn_wait_queue_t kwq)
 {
+	/* remove timeout override when rdar://96649414 is addressed */
+	pthread_kern->abandon_preemption_disable_measurement();
 	lck_spin_unlock(&kwq->kw_lock);
 }
 

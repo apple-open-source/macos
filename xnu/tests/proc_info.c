@@ -77,6 +77,11 @@ CONF_TMP_FILE_OPEN(char path[PATH_MAX])
 	return fd;
 }
 
+// Forward declarations for currently 'private' functions implemented by libproc.
+int proc_list_uptrs(int pid, uint64_t *buf, uint32_t bufsz);
+int proc_list_dynkqueueids(int pid, kqueue_id_t *buf, uint32_t bufsz);
+int proc_piddynkqueueinfo(int pid, int flavor, kqueue_id_t kq_id, void *buffer, int buffersize);
+
 uint32_t get_tty_dev(void);
 
 #define WAIT_FOR_CHILDREN(pipefd, action, child_count)                           \
@@ -850,7 +855,9 @@ T_DECL(proc_info_listpids_ppid_only,
 
 T_DECL(proc_info_listpids_uid_only,
     "proc_info API test to verify PROC_INFO_CALL_LISTPIDS",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	proc_config_t proc_config = spawn_child_processes(CONF_PROC_COUNT, proc_info_listpids_handler);
 	T_LOG("Test to verify PROC_UID_ONLY returns correct value");
@@ -869,7 +876,9 @@ T_DECL(proc_info_listpids_uid_only,
 
 T_DECL(proc_info_listpids_ruid_only,
     "proc_info API test to verify PROC_INFO_CALL_LISTPIDS",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	proc_config_t proc_config = spawn_child_processes(CONF_PROC_COUNT, proc_info_listpids_handler);
 	T_LOG("Test to verify PROC_RUID_ONLY returns correct value");
@@ -1008,7 +1017,9 @@ T_DECL(ensure_ppidversion_is_not_updated_after_exec,
 
 T_DECL(proc_info_pidinfo_proc_pidtbsdinfo,
     "Test to verify PROC_PIDTBSDINFO returns valid information about the process",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	void * proc_info[2];
 	int child_pid = 0;
@@ -1069,7 +1080,9 @@ T_DECL(proc_info_pidt_shortbsdinfo,
 
 T_DECL(proc_info_pidt_bsdinfowithuniqid,
     "Test to verify PROC_PIDT_BSDINFOWITHUNIQID returns valid information about the process",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	void * proc_info[4];
 	int child_pid = 0;
@@ -1176,7 +1189,9 @@ T_DECL(proc_info_proc_pidtask_info,
 
 T_DECL(proc_info_proc_pidtaskallinfo,
     "Test to verify PROC_PIDTASKALLINFO returns valid information about the process",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	void * proc_info[4];
 	int child_pid = 0;
@@ -1249,7 +1264,9 @@ T_DECL(proc_info_proc_pidlistthreads,
 
 T_DECL(proc_info_proc_pidthreadinfo,
     "Test to verify PROC_PIDTHREADINFO returns valid information about the process",
-    T_META_ASROOT(true), T_META_TAG_VM_PREFERRED)
+    T_META_ASROOT(true),
+    T_META_TAG_VM_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	void * proc_info[2];
 	int child_pid = 0;

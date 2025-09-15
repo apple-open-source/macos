@@ -31,6 +31,8 @@
 #import <WebKit/WKWebViewPrivateForTestingMac.h>
 #endif
 
+#import <WebKit/_WKRectEdge.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 typedef enum {
@@ -52,6 +54,7 @@ struct WKAppPrivacyReportTestingData {
 
 @property (nonatomic, readonly) NSString *_caLayerTreeAsText;
 
+- (NSDictionary<NSString *, id> *)_propertiesOfLayerWithID:(unsigned long long)layerID;
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID isVertical:(bool)isVertical;
 
 - (void)_addEventAttributionWithSourceID:(uint8_t)sourceID destinationURL:(NSURL *)destination sourceDescription:(NSString *)sourceDescription purchaser:(NSString *)purchaser reportEndpoint:(NSURL *)reportEndpoint optionalNonce:(nullable NSString *)nonce applicationBundleID:(NSString *)bundleID ephemeral:(BOOL)ephemeral WK_API_AVAILABLE(macos(13.0), ios(16.0));
@@ -147,9 +150,30 @@ struct WKAppPrivacyReportTestingData {
 
 - (void)_terminateIdleServiceWorkersForTesting;
 
-- (void)_getNotifyStateForTesting:(NSString *)notificationName completionHandler:(void(^)(NSNumber * _Nullable))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+- (void)_getNotifyStateForTesting:(NSString *)notificationName completionHandler:(void(^)(NSNumber * _Nullable))completionHandler WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
 
 @property (nonatomic, readonly) BOOL _hasAccessibilityActivityForTesting;
+
+- (void)_setMediaVolumeForTesting:(float)volume;
+
+- (void)_textFragmentRangesWithCompletionHandlerForTesting:(void(^)(NSArray<NSValue *> *fragmentRanges))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
+@property (nonatomic, readonly) _WKRectEdge _fixedContainerEdges;
+#if TARGET_OS_IPHONE
+@property (nonatomic, readonly) UIColor *_sampledLeftFixedPositionContentColor;
+@property (nonatomic, readonly) UIColor *_sampledBottomFixedPositionContentColor;
+@property (nonatomic, readonly) UIColor *_sampledRightFixedPositionContentColor;
+#else
+@property (nonatomic, readonly) NSColor *_sampledLeftFixedPositionContentColor;
+@property (nonatomic, readonly) NSColor *_sampledBottomFixedPositionContentColor;
+@property (nonatomic, readonly) NSColor *_sampledRightFixedPositionContentColor;
+#endif
+- (void)_cancelFixedColorExtensionFadeAnimationsForTesting;
+
+- (unsigned)_forwardedLogsCountForTesting;
+
+- (void)_modelProcessModelPlayerCountForTesting:(void(^)(NSUInteger))completionHandler;
+
 @end
 
 typedef NS_ENUM(NSInteger, _WKMediaSessionReadyState) {

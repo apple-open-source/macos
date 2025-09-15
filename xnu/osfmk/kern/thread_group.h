@@ -64,6 +64,7 @@ struct thread_group;
 #define THREAD_GROUP_VM              3       // kernel VM threads
 #define THREAD_GROUP_IO_STORAGE      4       // kernel io storage threads
 #define THREAD_GROUP_PERF_CONTROLLER 5       // kernel CLPC threads
+#define THREAD_GROUP_CELLULAR        6       // kernel Cellular threads
 
 #define THREAD_GROUP_INVALID    UINT64_MAX
 

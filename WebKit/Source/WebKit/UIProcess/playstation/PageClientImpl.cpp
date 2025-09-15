@@ -207,7 +207,7 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
 }
 
 #if ENABLE(TOUCH_EVENTS)
-void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
+void PageClientImpl::doneWithTouchEvent(const WebTouchEvent& event, bool wasEventHandled)
 {
     notImplemented();
 }
@@ -261,24 +261,24 @@ bool PageClientImpl::isFullScreen()
     return m_view.isFullScreen();
 }
 
-void PageClientImpl::enterFullScreen(CompletionHandler<void(bool)>&& completionHandler)
+void PageClientImpl::enterFullScreen(WebCore::FloatSize, CompletionHandler<void(bool)>&& completionHandler)
 {
     m_view.enterFullScreen(WTFMove(completionHandler));
 }
 
-void PageClientImpl::exitFullScreen()
+void PageClientImpl::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
-    m_view.exitFullScreen();
+    m_view.exitFullScreen(WTFMove(completionHandler));
 }
 
-void PageClientImpl::beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame)
+void PageClientImpl::beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_view.beganEnterFullScreen(initialFrame, finalFrame);
+    m_view.beganEnterFullScreen(initialFrame, finalFrame, WTFMove(completionHandler));
 }
 
-void PageClientImpl::beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame)
+void PageClientImpl::beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&& completionHandler)
 {
-    m_view.beganExitFullScreen(initialFrame, finalFrame);
+    m_view.beganExitFullScreen(initialFrame, finalFrame, WTFMove(completionHandler));
 }
 #endif
 

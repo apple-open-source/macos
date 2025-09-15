@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -118,7 +119,7 @@ void BlobResourceSynchronousLoader::didReceiveResponseAsync(ResourceHandle* hand
 
     // Read all the data.
     m_data.resize(static_cast<size_t>(response.expectedContentLength()));
-    static_cast<BlobResourceHandle*>(handle)->readSync(m_data.mutableSpan());
+    downcast<BlobResourceHandle>(*handle).readSync(m_data.mutableSpan());
     completionHandler();
 }
 
@@ -245,13 +246,15 @@ void BlobResourceHandle::getSizeForNext()
     case BlobDataItem::Type::Data:
         didGetSize(item.length());
         break;
-    case BlobDataItem::Type::File:
+    case BlobDataItem::Type::File: {
         // Files know their sizes, but asking the stream to verify that the file wasn't modified.
+        RefPtr file = item.file();
         if (m_async)
-            m_asyncStream->getSize(item.file()->path(), item.file()->expectedModificationTime());
+            m_asyncStream->getSize(file->path(), file->expectedModificationTime());
         else
-            didGetSize(m_stream->getSize(item.file()->path(), item.file()->expectedModificationTime()));
+            didGetSize(m_stream->getSize(file->path(), file->expectedModificationTime()));
         break;
+    }
     default:
         ASSERT_NOT_REACHED();
     }
@@ -378,7 +381,7 @@ int BlobResourceHandle::readDataSync(const BlobDataItem& item, std::span<uint8_t
 
     long long remaining = item.length() - m_currentItemReadSize;
     long long bytesToRead = std::min(std::min<long long>(remaining, buffer.size()), m_totalRemainingSize);
-    memcpySpan(buffer, item.data()->span().subspan(item.offset() + m_currentItemReadSize).first(bytesToRead));
+    memcpySpan(buffer, item.protectedData()->span().subspan(item.offset() + m_currentItemReadSize).first(bytesToRead));
     m_totalRemainingSize -= bytesToRead;
 
     m_currentItemReadSize += bytesToRead;
@@ -400,7 +403,7 @@ int BlobResourceHandle::readFileSync(const BlobDataItem& item, std::span<uint8_t
         long long bytesToRead = m_itemLengthList[m_readItemCount] - m_currentItemReadSize;
         if (bytesToRead > m_totalRemainingSize)
             bytesToRead = m_totalRemainingSize;
-        bool success = m_stream->openForRead(item.file()->path(), item.offset() + m_currentItemReadSize, bytesToRead);
+        bool success = m_stream->openForRead(item.protectedFile()->path(), item.offset() + m_currentItemReadSize, bytesToRead);
         m_currentItemReadSize = 0;
         if (!success) {
             m_errorCode = Error::NotReadableError;
@@ -460,7 +463,7 @@ void BlobResourceHandle::readDataAsync(const BlobDataItem& item)
     if (bytesToRead > m_totalRemainingSize)
         bytesToRead = m_totalRemainingSize;
 
-    auto data = item.data()->span().subspan(item.offset() + m_currentItemReadSize, bytesToRead);
+    auto data = item.protectedData()->span().subspan(item.offset() + m_currentItemReadSize, bytesToRead);
     m_currentItemReadSize = 0;
 
     consumeData(data);
@@ -478,7 +481,7 @@ void BlobResourceHandle::readFileAsync(const BlobDataItem& item)
     long long bytesToRead = m_itemLengthList[m_readItemCount] - m_currentItemReadSize;
     if (bytesToRead > m_totalRemainingSize)
         bytesToRead = static_cast<int>(m_totalRemainingSize);
-    m_asyncStream->openForRead(item.file()->path(), item.offset() + m_currentItemReadSize, bytesToRead);
+    m_asyncStream->openForRead(item.protectedFile()->path(), item.offset() + m_currentItemReadSize, bytesToRead);
     m_fileOpened = true;
     m_currentItemReadSize = 0;
 }
@@ -568,7 +571,7 @@ void BlobResourceHandle::notifyResponseOnSuccess()
 {
     ASSERT(isMainThread());
 
-    ResourceResponse response(firstRequest().url(), extractMIMETypeFromMediaType(m_blobData->contentType()), m_totalRemainingSize, String());
+    ResourceResponse response(URL { firstRequest().url() }, extractMIMETypeFromMediaType(m_blobData->contentType()), m_totalRemainingSize, String());
     response.setHTTPStatusCode(m_isRangeRequest ? httpPartialContent : httpOK);
     response.setHTTPStatusText(m_isRangeRequest ? httpPartialContentText : httpOKText);
 

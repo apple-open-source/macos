@@ -6040,15 +6040,6 @@ pl{
                 other{"{0} mili/h"}
             }
         }
-        temperature{
-            celsius{
-                dnam{"st. C"}
-                few{"{0} st. C"}
-                many{"{0} st. C"}
-                one{"{0} st. C"}
-                other{"{0} st. C"}
-            }
-        }
         volume{
             acre-foot{
                 dnam{"akrostopy"}

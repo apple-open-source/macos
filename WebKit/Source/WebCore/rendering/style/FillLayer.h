@@ -74,8 +74,6 @@ public:
     RefPtr<StyleImage> protectedImage() const { return m_image; }
     const Length& xPosition() const { return m_xPosition; }
     const Length& yPosition() const { return m_yPosition; }
-    Edge backgroundXOrigin() const { return static_cast<Edge>(m_backgroundXOrigin); }
-    Edge backgroundYOrigin() const { return static_cast<Edge>(m_backgroundYOrigin); }
     FillAttachment attachment() const { return static_cast<FillAttachment>(m_attachment); }
     FillBox clip() const { return static_cast<FillBox>(m_clip); }
     FillBox origin() const { return static_cast<FillBox>(m_origin); }
@@ -102,8 +100,6 @@ public:
     bool isImageSet() const { return m_imageSet; }
     bool isXPositionSet() const { return m_xPosSet; }
     bool isYPositionSet() const { return m_yPosSet; }
-    bool isBackgroundXOriginSet() const { return m_backgroundXOriginSet; }
-    bool isBackgroundYOriginSet() const { return m_backgroundYOriginSet; }
     bool isAttachmentSet() const { return m_attachmentSet; }
     bool isClipSet() const { return m_clipSet; }
     bool isOriginSet() const { return m_originSet; }
@@ -118,8 +114,6 @@ public:
     void setImage(RefPtr<StyleImage>&& image) { m_image = WTFMove(image); m_imageSet = true; }
     void setXPosition(Length length) { m_xPosition = WTFMove(length); m_xPosSet = true; }
     void setYPosition(Length length) { m_yPosition = WTFMove(length); m_yPosSet = true; }
-    void setBackgroundXOrigin(Edge o) { m_backgroundXOrigin = static_cast<unsigned>(o); m_backgroundXOriginSet = true; }
-    void setBackgroundYOrigin(Edge o) { m_backgroundYOrigin = static_cast<unsigned>(o); m_backgroundYOriginSet = true; }
     void setAttachment(FillAttachment attachment) { m_attachment = static_cast<unsigned>(attachment); m_attachmentSet = true; }
     void setClip(FillBox b) { m_clip = static_cast<unsigned>(b); m_clipSet = true; }
     void setOrigin(FillBox b) { m_origin = static_cast<unsigned>(b); m_originSet = true; }
@@ -133,8 +127,8 @@ public:
 
     void clearImage() { m_image = nullptr; m_imageSet = false; }
 
-    void clearXPosition() { m_xPosSet = false; m_backgroundXOriginSet = false; }
-    void clearYPosition() { m_yPosSet = false; m_backgroundYOriginSet = false; }
+    void clearXPosition() { m_xPosSet = false; }
+    void clearYPosition() { m_yPosSet = false; }
 
     void clearAttachment() { m_attachmentSet = false; }
     void clearClip() { m_clipSet = false; }
@@ -158,6 +152,7 @@ public:
     bool hasOpaqueImage(const RenderElement&) const;
     bool hasRepeatXY() const;
     bool clipOccludesNextLayers(bool firstLayer) const;
+    bool hasHDRContent() const;
 
     FillLayerType type() const { return static_cast<FillLayerType>(m_type); }
 
@@ -212,10 +207,6 @@ private:
     unsigned m_repeatSet : 1;
     unsigned m_xPosSet : 1;
     unsigned m_yPosSet : 1;
-    unsigned m_backgroundXOriginSet : 1;
-    unsigned m_backgroundYOriginSet : 1;
-    unsigned m_backgroundXOrigin : 2; // Edge
-    unsigned m_backgroundYOrigin : 2; // Edge
     unsigned m_compositeSet : 1;
     unsigned m_blendModeSet : 1;
     unsigned m_maskModeSet : 1;

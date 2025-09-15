@@ -4,10 +4,10 @@
 //
 #if false // module issue, see rdar://131315137
 #if !os(bridgeOS)
-import XCTest
 import Dispatch
 import Foundation
 import Security
+import XCTest
 
 class SecTrustExceptionStresser {
 
@@ -50,9 +50,9 @@ class SecTrustExceptionStresser {
     let queue_limit = 10
     let seconds_to_live = 5.0
 
-    var trust: SecTrust? = nil
-    var policy: SecPolicy? = nil
-    var cert: SecCertificate? = nil
+    var trust: SecTrust?
+    var policy: SecPolicy?
+    var cert: SecCertificate?
     var cur_reads = 0
     var cur_evals = 0
     var cur_writes = 0
@@ -76,13 +76,13 @@ class SecTrustExceptionStresser {
 
     func run() -> Bool {
         setup()
-        while (self.timeout_reached == 0) {
-            if (self.cur_reads < self.queue_limit) {
+        while self.timeout_reached == 0 {
+            if self.cur_reads < self.queue_limit {
                 self.cur_reads += 1
                 read_queue.async {
-                    var exceptions: CFData? = nil
+                    var exceptions: CFData?
                     exceptions = SecTrustCopyExceptions(self.trust!)
-                    if (exceptions != nil) {
+                    if exceptions != nil {
                         print("c", terminator: "")
                     } else {
                         print("!", terminator: "")
@@ -90,12 +90,12 @@ class SecTrustExceptionStresser {
                     self.cur_reads -= 1
                 }
             }
-            if (self.cur_evals < self.queue_limit) {
+            if self.cur_evals < self.queue_limit {
                 self.cur_evals += 1
                 eval_queue.async {
-                    var result:OSStatus
+                    var result: OSStatus
                     result = SecTrustSetAnchorCertificatesOnly(self.trust!, false)
-                    if (result != errSecSuccess) {
+                    if result != errSecSuccess {
                         print("eval: \(result)")
                     }
                     let chain = SecTrustCopyCertificateChain(self.trust!)
@@ -104,10 +104,10 @@ class SecTrustExceptionStresser {
                     self.cur_evals -= 1
                 }
             }
-            if (self.cur_writes < self.queue_limit) {
+            if self.cur_writes < self.queue_limit {
                 self.cur_writes += 1
                 write_queue.async {
-                    var exceptions: CFData? = nil
+                    var exceptions: CFData?
                     var ok: Bool? = false
                     guard self.trust != nil else {
                         print("write: no trust reference")
@@ -120,9 +120,9 @@ class SecTrustExceptionStresser {
                         self.cur_writes -= 1
                         return
                     }
-                    if (self.exception_set < 1) {
+                    if self.exception_set < 1 {
                         ok = SecTrustSetExceptions(self.trust!, exceptions)
-                        if (ok == true) {
+                        if ok == true {
                             print("s", terminator: "")
                             self.exception_set = 1
                         } else {

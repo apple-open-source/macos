@@ -46,9 +46,14 @@ public:
     static constexpr bool isIPCEncoder = true;
 
     StreamConnectionEncoder(MessageName messageName, std::span<uint8_t> stream)
-        : m_buffer(stream)
+        : m_originalSize(stream.size())
     {
-        *this << messageName;
+        // Instead of using *this << messageName, manually encode the messageName since we
+        // know the stream buffer is bigger than needed as per API contract.
+        auto bytes = asBytes(singleElementSpan(messageName));
+        ASSERT(stream.size() > bytes.size()); // By API contract.
+        memcpySpan(stream, bytes);
+        m_buffer = stream.subspan(bytes.size());
     }
 
     ~StreamConnectionEncoder() = default;
@@ -57,15 +62,14 @@ public:
     bool encodeSpan(std::span<T, Extent> span)
     {
         auto bytes = asBytes(span);
-        auto bufferPointer = reinterpret_cast<uintptr_t>(m_buffer.data()) + m_encodedSize;
-        auto newBufferPointer = roundUpToMultipleOf<alignof(T)>(bufferPointer);
-        if (newBufferPointer < bufferPointer)
+        size_t alignAdvance = distanceToMultipleOf<alignof(T)>(reinterpret_cast<uintptr_t>(m_buffer.data()));
+        auto requiredSize = alignAdvance + bytes.size();
+        if (m_buffer.size() < requiredSize) {
+            m_buffer = { };
             return false;
-        auto alignedSize = m_encodedSize + (newBufferPointer - bufferPointer);
-        if (!reserve(alignedSize, bytes.size()))
-            return false;
-        memcpySpan(m_buffer.subspan(alignedSize), bytes);
-        m_encodedSize = alignedSize + bytes.size();
+        }
+        memcpySpan(m_buffer.subspan(alignAdvance), bytes);
+        m_buffer = m_buffer.subspan(requiredSize);
         return true;
     }
 
@@ -83,21 +87,12 @@ public:
         return *this;
     }
 
-    size_t size() const { ASSERT(isValid()); return m_encodedSize; }
+    size_t size() const { ASSERT(isValid()); return m_originalSize - m_buffer.size(); }
     bool isValid() const { return !!m_buffer.data(); }
     operator bool() const { return isValid(); }
 private:
-    bool reserve(size_t alignedSize, size_t additionalSize)
-    {
-        size_t size = alignedSize + additionalSize;
-        if (size < alignedSize || size > m_buffer.size()) {
-            m_buffer = { };
-            return false;
-        }
-        return true;
-    }
     std::span<uint8_t> m_buffer;
-    size_t m_encodedSize { 0 };
+    const size_t m_originalSize;
 };
 
 } // namespace IPC

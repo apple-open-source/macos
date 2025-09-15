@@ -56,7 +56,11 @@ tables, ... Available hooks are:
 
 ### Rank usage
 
-- Rank 1: `TUNABLE`, `TUNABLE_WRITEABLE`
+- Rank 1:
+  - All uses of `TUNABLE`, `TUNABLE_WRITEABLE`
+  - CSR configuration from DeviceTree or boot-args
+  - CTRR configuration from DeviceTree
+  - SMR initialization
 - Middle: globals that require complex initialization (e.g. SFI classes).
 
 
@@ -285,7 +289,7 @@ interrupts or preemption enabled may begin enforcement.
 ### Rank usage
 
 - Rank 1: Initialize some BSD globals
-- Middle: Initialize some early BSD subsystems
+- Middle: Initialize some early BSD subsystems and tightbeam runtime
 
 
 `STARTUP_SUB_EXCLAVES`
@@ -298,7 +302,6 @@ Early exclaves initialization.
 ### Rank usage
 
 - Rank 1: Determine run-time support for exclaves
-- Middle: Initialize tightbeam runtime
 
 
 `STARTUP_SUB_LOCKDOWN`

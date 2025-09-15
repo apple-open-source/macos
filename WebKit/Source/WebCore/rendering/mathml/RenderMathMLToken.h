@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2014 Frédéric Wang (fred.wang@free.fr). All rights reserved.
  * Copyright (C) 2016 Igalia S.L.
- * Copyright (C) 2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLBlock.h"
+#include "RenderObjectInlines.h"
 
 namespace WebCore {
 
@@ -52,7 +53,7 @@ protected:
     void paint(PaintInfo&, const LayoutPoint&) override;
     void paintChildren(PaintInfo& forSelf, const LayoutPoint&, PaintInfo& forChild, bool usePrintRect) override;
     std::optional<LayoutUnit> firstLineBaseline() const override;
-    void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
+    void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
     void computePreferredLogicalWidths() override;
 
 private:
@@ -64,7 +65,7 @@ private:
     void setMathVariantGlyphDirty()
     {
         m_mathVariantGlyphDirty = true;
-        setNeedsLayoutAndPrefWidthsRecalc();
+        setNeedsLayoutAndPreferredWidthsUpdate();
     }
     std::optional<char32_t> m_mathVariantCodePoint { std::nullopt };
     bool m_mathVariantIsMirrored { false };

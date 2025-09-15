@@ -64,7 +64,7 @@ Ref<QuerySet> Device::createQuerySet(const WGPUQuerySetDescriptor& descriptor)
 #endif
     } case WGPUQueryType_Occlusion: {
         auto buffer = safeCreateBuffer(sizeof(uint64_t) * count, MTLStorageModePrivate);
-        buffer.label = fromAPI(label);
+        buffer.label = fromAPI(label).createNSString().get();
         return QuerySet::create(buffer, count, type, *this);
     }
     case WGPUQueryType_Force32:
@@ -116,15 +116,17 @@ void QuerySet::destroy()
     // https://gpuweb.github.io/gpuweb/#dom-gpuqueryset-destroy
     m_visibilityBuffer = nil;
     m_timestampBuffer = nil;
-    for (Ref commandEncoder : m_commandEncoders)
-        commandEncoder->makeSubmitInvalid();
+    for (auto commandEncoder : m_commandEncoders) {
+        if (RefPtr ptr = m_device->commandEncoderFromIdentifier(commandEncoder))
+            ptr->makeSubmitInvalid();
+    }
 
     m_commandEncoders.clear();
 }
 
 void QuerySet::setLabel(String&& label)
 {
-    m_visibilityBuffer.label = label;
+    m_visibilityBuffer.label = label.createNSString().get();
     // MTLCounterSampleBuffer's label property is read-only.
 }
 

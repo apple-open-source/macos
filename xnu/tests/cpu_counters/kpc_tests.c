@@ -301,7 +301,9 @@ check_tally(unsigned int ncpus, unsigned int nctrs, struct tally *tallies)
 T_DECL(kpc_cpu_direct_configurable,
     "test that configurable counters return monotonically increasing values",
     XNU_T_META_SOC_SPECIFIC,
-    T_META_BOOTARGS_SET("enable_skstb=1"), T_META_TAG_VM_NOT_ELIGIBLE)
+    T_META_BOOTARGS_SET("enable_skstb=1"),
+    T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://134505531 */)
 {
 	skip_if_unsupported();
 
@@ -418,7 +420,9 @@ struct cpu {
 T_DECL(kpc_pmi_configurable,
     "test that PMIs don't interfere with sampling counters in kperf",
     XNU_T_META_SOC_SPECIFIC,
-    T_META_BOOTARGS_SET("enable_skstb=1"), T_META_TAG_VM_NOT_ELIGIBLE)
+    T_META_BOOTARGS_SET("enable_skstb=1"),
+    T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://134505531 */)
 {
 	skip_if_unsupported();
 

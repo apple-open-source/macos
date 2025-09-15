@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2025 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -274,6 +274,8 @@ bc_num_nonZeroLen(const BcNum* restrict n)
 	return i + 1;
 }
 
+#if BC_ENABLE_EXTRA_MATH
+
 /**
  * Returns the power of 10 that a number with an absolute value less than 1
  * needs to be multiplied by in order to be greater than 1 or less than -1.
@@ -300,6 +302,8 @@ bc_num_negPow10(const BcNum* restrict n)
 	// limb.
 	return places + (BC_NUM_RDX_VAL(n) - (idx + 1)) * BC_BASE_DIGS;
 }
+
+#endif // BC_ENABLE_EXTRA_MATH
 
 /**
  * Performs a one-limb add with a carry.
@@ -1089,6 +1093,7 @@ bc_num_as(BcNum* a, BcNum* b, BcNum* restrict c, size_t sub)
 
 	max_len = max_int + max_rdx;
 
+	// Figure out the max length and also if we need to reverse the operation.
 	if (do_sub)
 	{
 		// Check whether b has to be subtracted from a or a from b.

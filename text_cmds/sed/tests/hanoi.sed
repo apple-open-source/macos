@@ -1,9 +1,4 @@
 # Towers of Hanoi in sed.
-#
-#	@(#)hanoi.sed	8.1 (Berkeley) 6/6/93
-# $FreeBSD$
-#
-#
 # Ex:
 # Run "sed -f hanoi.sed", and enter:
 #

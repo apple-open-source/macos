@@ -182,8 +182,10 @@ struct netagent_session_assign_nexus_message {
 #define NETAGENT_NEXUS_ENDPOINT_TYPE_SRV        5
 
 #define NETAGENT_NEXUS_FLAG_SUPPORTS_USER_PACKET_POOL   0x1
-#define NETAGENT_NEXUS_FLAG_ASSERT_UNSUPPORTED                  0x2 // No calls to assert the agent are required
+#define NETAGENT_NEXUS_FLAG_ASSERT_UNSUPPORTED          0x2 // No calls to assert the agent are required
 #define NETAGENT_NEXUS_FLAG_SHOULD_USE_EVENT_RING       0x4 // indicates that nexus agent should use event rings
+#define NETAGENT_NEXUS_FLAG_COMPLETE_RESOLVE_ON_CONNECT 0x8 // Indicates resolver should mark itself as complete once it has a connected child
+#define NETAGENT_NEXUS_FLAG_CANCEL_REMOVED_ENDPOINTS    0x10 // Indicates resolver should cancel connection attempts to endpoints removed from resolved endpoints list
 
 struct netagent_nexus {
 	u_int32_t       frame_type;

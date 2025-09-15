@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+
+from __future__ import absolute_import
+from __future__ import print_function
+import sys, getopt, collections, subprocess, argparse, math
+from operator import itemgetter
+import json
+
+verbose = False
+
+connections = {}
+
+# colors
+
+class color:
+   PURPLE = '\033[95m'
+   CYAN = '\033[96m'
+   DARKCYAN = '\033[36m'
+   BLUE = '\033[94m'
+   GREEN = '\033[92m'
+   YELLOW = '\033[93m'
+   RED = '\033[91m'
+   BOLD = '\033[1m'
+   UNDERLINE = '\033[4m'
+   END = '\033[0m'
+
+def print_red_bold (s):
+    print(color.BOLD + color.RED + s + color.END)
+
+def print_bold (s):
+    print(color.BOLD + s + color.END)
+
+def to_bold (s):
+    return color.BOLD + s + color.END
+
+def  log (data):
+    global verbose
+    if  verbose:
+        sys.stderr.write(data+"\n")
+
+def getProcessInfo (connectionAddMessage):
+    process = ""
+    uuid = ""
+    fields = connectionAddMessage.split(" ")
+    for field in fields:
+        if 'uuid' in field:
+            uuid = field.split(':')[1]
+        if 'process' in field:
+            process = field.split(':')[1]
+    return process,uuid
+    
+def getServiceInfo (serviceAddMessage):
+    usagePage = 0
+    usage = 0
+    id = 0
+    fields = serviceAddMessage.split(" ")
+    for field in fields:
+        if 'primaryUsagePage' in field:
+            usagePage = int(field.split(':')[1],0)
+        if 'primaryUsage' in field:
+            usage = int(field.split(':')[1],0)
+        if 'id' in field:
+            id = int(field.split(':')[1],0)
+    return usagePage,usage,id
+
+def printEntry (entry):
+    msg = entry['eventMessage']
+    for connection in connections.keys():
+        msg = msg.replace(connection, connections[connection])
+    print ('%s  %s  %s' % (entry['timestamp'],entry['messageType'],msg))
+
+
+def parseSensor (PrimaryPage, PrimaryUsage):
+    global connections
+    services = []
+    for message in sys.stdin:
+        try:
+            entry = json.loads(message)
+            if 'eventMessage' not in entry.keys():
+                continue
+        except:
+            log ("unable to [process]: %s" % message)
+            continue
+
+        if 'not entitled to match protected' in entry['eventMessage']:
+            continue
+
+        if 'Released connection' in entry['eventMessage']:
+            continue
+
+        if 'crashed' in entry['eventMessage']:
+            print_red_bold ('%s %s %s' % (entry['timestamp'],entry['subsystem'],entry['eventMessage']))
+            continue
+        
+        if 'Connection added' in entry['eventMessage']:
+            proc,uuid = getProcessInfo(entry['eventMessage'])
+            if proc != '' and uuid != '' :
+                connections[uuid] = proc
+            continue
+        
+        if 'Service added' in entry['eventMessage']:
+            page,usage,id = getServiceInfo(entry['eventMessage'])
+            if usage == PrimaryUsage and page == PrimaryPage:
+                printEntry(entry)
+                services.append(id)
+                continue
+
+        for service in services:
+            if ('%d' % service) in entry['eventMessage'].lower():
+                printEntry(entry)
+                continue
+            if ('%x' % service) in entry['eventMessage'].lower():
+                printEntry(entry)
+                continue
+
+
+def parseHearRateSensor ():
+    parseSensor (0x20, 0x16)
+
+def parseDM6Sensor ():
+    parseSensor (65292, 17)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Parse log content from system_logs.logarchive", usage="""log show --style ndjson --predicate 'subsystem contains "iohid" or subsystem contains "backboardd"' x.logarchive | ./hidlogparse --heartrate" """)
+    parser.add_argument("--heartrate", action="store_true", help="parse heart rate sensor logs")
+    parser.add_argument("--dm6", action="store_true", help="parse dm6 sensor logs")
+    parser.add_argument("--verbose", action="store_true", help="verbose logs")
+
+    args = parser.parse_args()
+    
+    if args.heartrate:
+        parseHearRateSensor()
+
+    if args.dm6:
+        parseDM6Sensor()
+
+    if args.verbose:
+        verbose = True
+

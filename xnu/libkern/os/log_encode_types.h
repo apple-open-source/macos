@@ -87,6 +87,7 @@ union os_log_fmt_types_u {
 	ptrdiff_t   pd;
 	long        l;
 	long long   ll;
+	double      f;
 };
 
 typedef struct os_log_fmt_hdr_s {

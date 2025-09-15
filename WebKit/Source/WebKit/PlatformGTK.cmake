@@ -69,13 +69,13 @@ if (USE_GBM)
 endif ()
 
 list(APPEND WebKit_SERIALIZATION_IN_FILES
+    Shared/glib/AvailableInputDevices.serialization.in
     Shared/glib/DMABufRendererBufferFormat.serialization.in
     Shared/glib/InputMethodState.serialization.in
     Shared/glib/RendererBufferTransportMode.serialization.in
+    Shared/glib/SelectionData.serialization.in
     Shared/glib/SystemSettings.serialization.in
     Shared/glib/UserMessage.serialization.in
-
-    Shared/gtk/ArgumentCodersGtk.serialization.in
 
     Shared/soup/WebCoreArgumentCodersSoup.serialization.in
 )
@@ -327,23 +327,30 @@ list(APPEND WebKit_INTERFACE_INCLUDE_DIRECTORIES
     ${WebKitGTK_FRAMEWORK_HEADERS_DIR}/webkitgtk-web-process-extension
 )
 
-set(WebKitCommonIncludeDirectories ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
-set(WebKitCommonSystemIncludeDirectories ${WebKit_SYSTEM_INCLUDE_DIRECTORIES})
-
 list(APPEND WebProcess_SOURCES
     WebProcess/EntryPoint/unix/WebProcessMain.cpp
 )
+
+list(APPEND WebProcess_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
 
 list(APPEND NetworkProcess_SOURCES
     NetworkProcess/EntryPoint/unix/NetworkProcessMain.cpp
 )
 
+list(APPEND NetworkProcess_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+
 list(APPEND GPUProcess_SOURCES
     GPUProcess/EntryPoint/unix/GPUProcessMain.cpp
 )
 
+list(APPEND GPUProcess_INCLUDE_DIRECTORIES ${WebKit_PRIVATE_INCLUDE_DIRECTORIES})
+
 if (GTK_UNIX_PRINT_FOUND)
     list(APPEND WebKit_LIBRARIES GTK::UnixPrint)
+endif ()
+
+if (USE_OPENXR)
+   list(APPEND WebKit_LIBRARIES OpenXR::openxr_loader)
 endif ()
 
 if (USE_CAIRO)
@@ -595,6 +602,7 @@ GI_INTROSPECT(WebKit${WEBKITGTK_API_INFIX} ${WEBKITGTK_API_VERSION} webkit${WEBK
 GI_DOCGEN(WebKit${WEBKITGTK_API_INFIX} gtk/gtk${GTK_API_VERSION}-webkitgtk.toml.in
     CONTENT_TEMPLATES
         gtk/gtk${GTK_API_VERSION}-urlmap.js
+        glib/contributing.md
         glib/environment-variables.md
         glib/profiling.md
         glib/remote-inspector.md

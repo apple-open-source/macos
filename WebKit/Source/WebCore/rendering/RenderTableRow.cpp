@@ -34,6 +34,7 @@
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderLayoutState.h"
+#include "RenderObjectInlines.h"
 #include "RenderTableCell.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
@@ -65,6 +66,11 @@ RenderTableRow::RenderTableRow(Document& document, RenderStyle&& style)
 
 RenderTableRow::~RenderTableRow() = default;
 
+ASCIILiteral RenderTableRow::renderName() const
+{
+    return (isAnonymous() || isPseudoElement()) ? "RenderTableRow (anonymous)"_s : "RenderTableRow"_s;
+}
+
 void RenderTableRow::willBeRemovedFromTree()
 {
     RenderBox::willBeRemovedFromTree();
@@ -91,9 +97,9 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
         section()->rowLogicalHeightChanged(rowIndex());
 
     // If border was changed, notify table.
-    if (RenderTable* table = this->table()) {
-        if (oldStyle && !oldStyle->borderIsEquivalentForPainting(style()))
-            table->invalidateCollapsedBorders();
+    if (CheckedPtr table = this->table()) {
+        if (oldStyle)
+            table->invalidateCollapsedBordersAfterStyleChangeIfNeeded(*oldStyle, style());
 
         if (oldStyle && diff == StyleDifference::Layout && needsLayout() && table->collapseBorders() && borderWidthChanged(oldStyle, &style())) {
             // If the border width changes on a row, we need to make sure the cells in the row know to lay out again.
@@ -101,7 +107,7 @@ void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* old
             // itself.
             auto propagageNeedsLayoutOnBorderSizeChange = [&] (auto& row) {
                 for (auto* cell = row.firstCell(); cell; cell = cell->nextCell())
-                    cell->setNeedsLayoutAndPrefWidthsRecalc();
+                    cell->setNeedsLayoutAndPreferredWidthsUpdate();
             };
             propagageNeedsLayoutOnBorderSizeChange(*this);
             if (auto* previousRow = this->previousRow())
@@ -253,26 +259,9 @@ void RenderTableRow::imageChanged(WrappedImagePtr, const IntRect*)
     repaint();
 }
 
-RenderPtr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& document, const RenderStyle& style)
-{
-    auto row = createRenderer<RenderTableRow>(document, RenderStyle::createAnonymousStyleWithDisplay(style, DisplayType::TableRow));
-    row->initializeStyle();
-    return row;
-}
-
-RenderPtr<RenderTableRow> RenderTableRow::createAnonymousWithParentRenderer(const RenderTableSection& parent)
-{
-    return RenderTableRow::createTableRowWithStyle(parent.document(), parent.style());
-}
-
 bool RenderTableRow::requiresLayer() const
 {
     return hasNonVisibleOverflow() || hasTransformRelatedProperty() || hasHiddenBackface() || hasClipPath() || createsGroup() || isStickilyPositioned() || requiresRenderingConsolidationForViewTransition();
-}
-
-RenderPtr<RenderBox> RenderTableRow::createAnonymousBoxWithSameTypeAs(const RenderBox& renderer) const
-{
-    return RenderTableRow::createTableRowWithStyle(renderer.document(), renderer.style());
 }
 
 } // namespace WebCore

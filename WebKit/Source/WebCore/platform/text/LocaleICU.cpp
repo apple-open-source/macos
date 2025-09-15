@@ -74,7 +74,7 @@ LocaleICU::~LocaleICU()
 Locale::WritingDirection LocaleICU::defaultWritingDirection() const
 {
 #if USE(HARFBUZZ)
-    UScriptCode icuScript = localeToScriptCodeForFontSelection(m_locale.span());
+    UScriptCode icuScript = localeToScriptCode(m_locale.span());
     hb_script_t script = hb_icu_script_to_script(icuScript);
 
     switch (hb_script_get_horizontal_direction(script)) {

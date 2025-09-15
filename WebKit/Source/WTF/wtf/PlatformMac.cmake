@@ -44,7 +44,9 @@ list(APPEND WTF_SOURCES
     mac/FileSystemMac.mm
 
     posix/CPUTimePOSIX.cpp
+    posix/FileHandlePOSIX.cpp
     posix/FileSystemPOSIX.cpp
+    posix/MappedFileDataPOSIX.cpp
     posix/OSAllocatorPOSIX.cpp
     posix/ThreadingPOSIX.cpp
 
@@ -78,6 +80,7 @@ list(APPEND WTF_PUBLIC_HEADERS
 
     darwin/OSLogPrintStream.h
     darwin/WeakLinking.h
+    darwin/XPCExtras.h
 
     spi/cf/CFBundleSPI.h
     spi/cf/CFStringSPI.h
@@ -91,7 +94,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     spi/cocoa/SecuritySPI.h
     spi/cocoa/objcSPI.h
 
-    spi/darwin/AbortWithReasonSPI.h
+    spi/darwin/ReasonSPI.h
     spi/darwin/CodeSignSPI.h
     spi/darwin/DataVaultSPI.h
     spi/darwin/OSVariantSPI.h

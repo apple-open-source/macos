@@ -58,6 +58,8 @@ struct dns_name_pointer {
     int length;
 };
 
+typedef struct srpk_back_pointer srpk_back_pointer_t;
+
 typedef struct dns_towire_state dns_towire_state_t;
 struct dns_towire_state {
     dns_wire_t *NULLABLE message;
@@ -65,6 +67,7 @@ struct dns_towire_state {
     uint8_t *NONNULL lim;
     uint8_t *NULLABLE p_rdlength;
     uint8_t *NULLABLE p_opt;
+    srpk_back_pointer_t *NULLABLE back_pointers;
     int line, outer_line;
     bool truncated : 1;
     unsigned int error : 31;
@@ -128,7 +131,7 @@ struct dns_rdata_sig {
     dns_label_t *NONNULL signer;
     unsigned start;
     unsigned len;
-    uint8_t *NONNULL signature;
+    uint8_t *NULLABLE signature;
 };
 
 typedef struct dns_rdata_key dns_rdata_key_t;
@@ -137,7 +140,7 @@ struct dns_rdata_key {
     uint8_t protocol;
     uint8_t algorithm;
     unsigned len;
-    uint8_t *NONNULL key;
+    uint8_t *NULLABLE key;
 };
 
 typedef struct dns_rdata_soa dns_rdata_soa_t;
@@ -189,6 +192,7 @@ struct dns_message {
     dns_rr_t *NULLABLE authority;
     dns_rr_t *NULLABLE additional;
     dns_edns0_t *NULLABLE edns0;
+    uint16_t *NULLABLE offsets;
 };
 
 // Masks for bitfield data
@@ -416,6 +420,8 @@ void dns_rdata_a_to_wire_(dns_towire_state_t *NONNULL txn, const char *NONNULL i
 void dns_rdata_aaaa_to_wire_(dns_towire_state_t *NONNULL txn, const char *NONNULL ip_address, int line);
 #define dns_rdata_aaaa_to_wire(txn, ip_address) dns_rdata_aaaa_to_wire_(txn, ip_address, __LINE__)
 
+uint16_t dns_key_tag_compute(ssize_t rdlen, uint8_t *NONNULL rdata);
+
 uint16_t dns_rdata_key_to_wire_(dns_towire_state_t *NONNULL txn,
                                 unsigned key_type,
                                 unsigned name_type,
@@ -454,6 +460,9 @@ int dns_send_to_server(dns_transaction_t *NONNULL txn,
                        dns_response_callback_t NONNULL callback);
 
 // fromwire.c:
+#define dns_label_create(ret, data, len) dns_label_create_(ret, data, len, __FILE__, __LINE__)
+bool dns_label_create_(dns_label_t *NULLABLE *NONNULL ret, const char *NONNULL data, uint8_t len,
+                       const char *NONNULL file, int line);
 #define dns_label_parse(buf, mlen, offp) dns_label_parse_(buf, mlen, offp, __FILE__, __LINE__)
 dns_label_t *NULLABLE dns_label_parse_(const uint8_t *NONNULL buf, unsigned mlen, unsigned *NONNULL offp,
                                        const char *NONNULL file, int line);
@@ -476,7 +485,7 @@ bool dns_rr_parse_(dns_rr_t *NONNULL rrset, const uint8_t *NONNULL buf, unsigned
                    bool rrdata_permitted, bool dump_to_stderr, const char *NONNULL file, int line);
 void dns_name_free(dns_label_t *NONNULL name);
 void dns_rrdata_free(dns_rr_t *NONNULL rr);
-void dns_message_free(dns_message_t *NONNULL message);
+void dns_message_free(dns_message_t *NULLABLE message);
 #define dns_wire_parse(ret, message, len, dump_to_stderr) \
     dns_wire_parse_(ret, message, len, dump_to_stderr, __FILE__, __LINE__)
 bool dns_wire_parse_(dns_message_t *NONNULL *NULLABLE ret, dns_wire_t *NONNULL message, unsigned len,

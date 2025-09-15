@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,7 +70,14 @@ public:
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
     WEBCORE_EXPORT void setVideoPresentationModel(VideoPresentationModel*);
 
+#if HAVE(PIP_SKIP_PREROLL)
+    WEBCORE_EXPORT void setPlaybackStateEnabled(bool);
+    bool isPlaybackStateEnabled() const { return m_playbackStateEnabled; }
+#endif
+
     // PlaybackSessionModelClient
+    WEBCORE_EXPORT void durationChanged(double) final;
+    WEBCORE_EXPORT void currentTimeChanged(double /* currentTime */, double /* anchorTime */) final;
     WEBCORE_EXPORT void rateChanged(OptionSet<PlaybackSessionModel::PlaybackState>, double playbackRate, double defaultPlaybackRate) override;
     WEBCORE_EXPORT void externalPlaybackChanged(bool  enabled, PlaybackSessionModel::ExternalPlaybackTargetType, const String& localizedDeviceName) override;
     WEBCORE_EXPORT void ensureControlsManager() override;
@@ -108,9 +115,11 @@ public:
     std::optional<MediaPlayerIdentifier> playerIdentifier() const { return m_playerIdentifier; }
 
     WEBCORE_EXPORT void documentVisibilityChanged(bool) final;
-
     void swapFullscreenModesWith(VideoPresentationInterfaceMac&) { }
-
+#if HAVE(PIP_SKIP_PREROLL)
+    WEBCORE_EXPORT void canSkipAdChanged(bool) override;
+    void skipAd();
+#endif
 #if !RELEASE_LOG_DISABLED
     uint64_t logIdentifier() const;
     const Logger* loggerPtr() const;
@@ -128,13 +137,17 @@ private:
     void decrementCheckedPtrCount() const final { CanMakeCheckedPtr::decrementCheckedPtrCount(); }
     void setDocumentBecameVisibleCallback(Function<void()>&& callback) { m_documentBecameVisibleCallback = WTFMove(callback); }
 
-    Ref<PlaybackSessionInterfaceMac> m_playbackSessionInterface;
+    const Ref<PlaybackSessionInterfaceMac> m_playbackSessionInterface;
     std::optional<MediaPlayerIdentifier> m_playerIdentifier;
     ThreadSafeWeakPtr<VideoPresentationModel> m_videoPresentationModel;
     HTMLMediaElementEnums::VideoFullscreenMode m_mode { HTMLMediaElementEnums::VideoFullscreenModeNone };
     RetainPtr<WebVideoPresentationInterfaceMacObjC> m_webVideoPresentationInterfaceObjC;
     bool m_documentIsVisible { true };
     Function<void()> m_documentBecameVisibleCallback;
+
+#if HAVE(PIP_SKIP_PREROLL)
+    bool m_playbackStateEnabled { false };
+#endif
 };
 
 } // namespace WebCore

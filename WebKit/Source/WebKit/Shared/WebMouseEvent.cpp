@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WebMouseEvent.h"
 
+#include "WebEventConversion.h"
+#include <WebCore/MouseEventTypes.h>
 #include <WebCore/NavigationAction.h>
 
 namespace WebKit {
@@ -75,27 +77,8 @@ bool WebMouseEvent::isMouseEventType(WebEventType type)
 WebMouseEventButton mouseButton(const WebCore::NavigationAction& navigationAction)
 {
     auto& mouseEventData = navigationAction.mouseEventData();
-    if (mouseEventData && mouseEventData->buttonDown && mouseEventData->isTrusted) {
-        switch (mouseEventData->button) {
-        case MouseButton::None:
-            return WebMouseEventButton::None;
-
-        case MouseButton::Left:
-            return WebMouseEventButton::Left;
-
-        case MouseButton::Middle:
-            return WebMouseEventButton::Middle;
-
-        case MouseButton::Right:
-            return WebMouseEventButton::Right;
-
-        case MouseButton::Other:
-        case MouseButton::PointerHasNotChanged: {
-            ASSERT_NOT_REACHED();
-            return WebMouseEventButton::Left;
-        }
-        }
-    }
+    if (mouseEventData && mouseEventData->buttonDown && mouseEventData->isTrusted)
+        return kit(mouseEventData->button);
     return WebMouseEventButton::None;
 }
 

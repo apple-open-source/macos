@@ -85,6 +85,7 @@
 #include <mach/vm_param.h>
 
 #include <net/dlil.h>
+#include <net/droptap.h>
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/net_api_stats.h>
@@ -490,17 +491,17 @@ pfinit(void)
 	TAILQ_INIT(&pf_pabuf);
 	TAILQ_INIT(&state_list);
 
-	_CASSERT((SC_BE & SCIDX_MASK) == SCIDX_BE);
-	_CASSERT((SC_BK_SYS & SCIDX_MASK) == SCIDX_BK_SYS);
-	_CASSERT((SC_BK & SCIDX_MASK) == SCIDX_BK);
-	_CASSERT((SC_RD & SCIDX_MASK) == SCIDX_RD);
-	_CASSERT((SC_OAM & SCIDX_MASK) == SCIDX_OAM);
-	_CASSERT((SC_AV & SCIDX_MASK) == SCIDX_AV);
-	_CASSERT((SC_RV & SCIDX_MASK) == SCIDX_RV);
-	_CASSERT((SC_VI & SCIDX_MASK) == SCIDX_VI);
-	_CASSERT((SC_SIG & SCIDX_MASK) == SCIDX_SIG);
-	_CASSERT((SC_VO & SCIDX_MASK) == SCIDX_VO);
-	_CASSERT((SC_CTL & SCIDX_MASK) == SCIDX_CTL);
+	static_assert((SC_BE & SCIDX_MASK) == SCIDX_BE);
+	static_assert((SC_BK_SYS & SCIDX_MASK) == SCIDX_BK_SYS);
+	static_assert((SC_BK & SCIDX_MASK) == SCIDX_BK);
+	static_assert((SC_RD & SCIDX_MASK) == SCIDX_RD);
+	static_assert((SC_OAM & SCIDX_MASK) == SCIDX_OAM);
+	static_assert((SC_AV & SCIDX_MASK) == SCIDX_AV);
+	static_assert((SC_RV & SCIDX_MASK) == SCIDX_RV);
+	static_assert((SC_VI & SCIDX_MASK) == SCIDX_VI);
+	static_assert((SC_SIG & SCIDX_MASK) == SCIDX_SIG);
+	static_assert((SC_VO & SCIDX_MASK) == SCIDX_VO);
+	static_assert((SC_CTL & SCIDX_MASK) == SCIDX_CTL);
 
 	/* default rule should never be garbage collected */
 	pf_default_rule.entries.tqe_prev = &pf_default_rule.entries.tqe_next;
@@ -828,7 +829,7 @@ tagname2tag(struct pf_tags *head, char const *tagname)
 	/*
 	 * check if it is a reserved tag.
 	 */
-	_CASSERT(RESERVED_TAG_ID_MIN > DYNAMIC_TAG_ID_MAX);
+	static_assert(RESERVED_TAG_ID_MIN > DYNAMIC_TAG_ID_MAX);
 	for (int i = 0; i < NUM_RESERVED_TAGS; i++) {
 		if (strlcmp(pf_reserved_tag_table[i].tag_name, tagname, PF_TAG_NAME_SIZE) == 0) {
 			new_tagid = pf_reserved_tag_table[i].tag_id;
@@ -4737,7 +4738,8 @@ pf_inet_hook(struct ifnet *ifp, struct mbuf **mp, int input,
 #endif
 	if (pf_test_mbuf(input ? PF_IN : PF_OUT, ifp, mp, NULL, fwa) != PF_PASS) {
 		if (*mp != NULL) {
-			m_freem(*mp);
+			m_drop(*mp, input ? DROPTAP_FLAG_DIR_IN : DROPTAP_FLAG_DIR_OUT,
+			    DROP_REASON_PF_NO_ROUTE, NULL, 0);
 			*mp = NULL;
 			error = EHOSTUNREACH;
 		} else {
@@ -4787,7 +4789,8 @@ pf_inet6_hook(struct ifnet *ifp, struct mbuf **mp, int input,
 
 	if (pf_test6_mbuf(input ? PF_IN : PF_OUT, ifp, mp, NULL, fwa) != PF_PASS) {
 		if (*mp != NULL) {
-			m_freem(*mp);
+			m_drop(*mp, input ? DROPTAP_FLAG_DIR_IN : DROPTAP_FLAG_DIR_OUT,
+			    DROP_REASON_PF_NO_ROUTE, NULL, 0);
 			*mp = NULL;
 			error = EHOSTUNREACH;
 		} else {
@@ -4888,7 +4891,7 @@ static __attribute__((unused)) void
 pfioctl_cassert(void)
 {
 	/*
-	 * This is equivalent to _CASSERT() and the compiler wouldn't
+	 * This is equivalent to static_assert() and the compiler wouldn't
 	 * generate any instructions, thus for compile time only.
 	 */
 	switch ((u_long)0) {

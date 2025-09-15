@@ -85,11 +85,11 @@ void WebPaymentCoordinatorProxy::platformCanMakePaymentsWithActiveCard(const Str
         return completionHandler(false);
 #endif
 
-    PKCanMakePaymentsWithMerchantIdentifierDomainAndSourceApplication(merchantIdentifier, domainName, checkedClient()->paymentCoordinatorSourceApplicationSecondaryIdentifier(*this), makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL canMakePayments, NSError *error) mutable {
+    PKCanMakePaymentsWithMerchantIdentifierDomainAndSourceApplication(merchantIdentifier.createNSString().get(), domainName.createNSString().get(), checkedClient()->paymentCoordinatorSourceApplicationSecondaryIdentifier(*this).createNSString().get(), makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL canMakePayments, NSError *error) mutable {
         if (error)
             LOG_ERROR("PKCanMakePaymentsWithMerchantIdentifierAndDomain error %@", error);
 
-        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), canMakePayments] {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), canMakePayments] {
             completionHandler(canMakePayments);
         });
     }).get());
@@ -103,8 +103,8 @@ void WebPaymentCoordinatorProxy::platformOpenPaymentSetup(const String& merchant
 #endif
 
     auto passLibrary = adoptNS([PAL::allocPKPassLibraryInstance() init]);
-    [passLibrary openPaymentSetupForMerchantIdentifier:merchantIdentifier domain:domainName completion:makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL result) mutable {
-        RunLoop::protectedMain()->dispatch([completionHandler = WTFMove(completionHandler), result] {
+    [passLibrary openPaymentSetupForMerchantIdentifier:merchantIdentifier.createNSString().get() domain:domainName.createNSString().get() completion:makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL result) mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), result] {
             completionHandler(result);
         });
     }).get()];
@@ -125,7 +125,7 @@ static RetainPtr<NSSet> toPKContactFields(const WebCore::ApplePaySessionPaymentR
     if (contactFields.phoneticName)
         result.append(PKContactFieldPhoneticName);
 
-    return adoptNS([[NSSet alloc] initWithObjects:result.data() count:result.size()]);
+    return adoptNS([[NSSet alloc] initWithObjects:result.span().data() count:result.size()]);
 }
 
 PKMerchantCapability toPKMerchantCapabilities(const WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
@@ -188,11 +188,11 @@ static RetainPtr<PKDateComponentsRange> toPKDateComponentsRange(const WebCore::A
 
 #endif // HAVE(PASSKIT_SHIPPING_METHOD_DATE_COMPONENTS_RANGE)
 
-PKShippingMethod *toPKShippingMethod(const WebCore::ApplePayShippingMethod& shippingMethod)
+RetainPtr<PKShippingMethod> toPKShippingMethod(const WebCore::ApplePayShippingMethod& shippingMethod)
 {
-    PKShippingMethod *result = [PAL::getPKShippingMethodClass() summaryItemWithLabel:shippingMethod.label amount:WebCore::toDecimalNumber(shippingMethod.amount)];
-    [result setIdentifier:shippingMethod.identifier];
-    [result setDetail:shippingMethod.detail];
+    RetainPtr<PKShippingMethod> result = [PAL::getPKShippingMethodClass() summaryItemWithLabel:shippingMethod.label.createNSString().get() amount:WebCore::toDecimalNumber(shippingMethod.amount)];
+    [result setIdentifier:shippingMethod.identifier.createNSString().get()];
+    [result setDetail:shippingMethod.detail.createNSString().get()];
 #if HAVE(PASSKIT_SHIPPING_METHOD_DATE_COMPONENTS_RANGE)
     if (auto& dateComponentsRange = shippingMethod.dateComponentsRange)
         [result setDateComponentsRange:toPKDateComponentsRange(*dateComponentsRange).get()];
@@ -202,16 +202,16 @@ PKShippingMethod *toPKShippingMethod(const WebCore::ApplePayShippingMethod& ship
 
 #if HAVE(PASSKIT_DEFAULT_SHIPPING_METHOD)
 
-PKShippingMethods *toPKShippingMethods(const Vector<WebCore::ApplePayShippingMethod>& webShippingMethods)
+RetainPtr<PKShippingMethods> toPKShippingMethods(const Vector<WebCore::ApplePayShippingMethod>& webShippingMethods)
 {
     RetainPtr<PKShippingMethod> defaultMethod;
     auto methods = createNSArray(webShippingMethods, [&defaultMethod] (const auto& webShippingMethod) {
-        auto pkShippingMethod = toPKShippingMethod(webShippingMethod);
+        RetainPtr pkShippingMethod = toPKShippingMethod(webShippingMethod);
         if (webShippingMethod.selected)
             defaultMethod = pkShippingMethod;
         return pkShippingMethod;
     });
-    return adoptNS([PAL::allocPKShippingMethodsInstance() initWithMethods:methods.get() defaultMethod:defaultMethod.get()]).autorelease();
+    return adoptNS([PAL::allocPKShippingMethodsInstance() initWithMethods:methods.get() defaultMethod:defaultMethod.get()]);
 }
 
 #endif // HAVE(PASSKIT_DEFAULT_SHIPPING_METHOD)
@@ -281,7 +281,7 @@ static RetainPtr<NSSet> toNSSet(const Vector<String>& strings)
 
     auto mutableSet = adoptNS([[NSMutableSet alloc] initWithCapacity:strings.size()]);
     for (auto& string : strings)
-        [mutableSet addObject:string];
+        [mutableSet addObject:string.createNSString().get()];
 
     return WTFMove(mutableSet);
 }
@@ -300,14 +300,14 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
 {
     auto result = adoptNS([PAL::allocPKPaymentRequestInstance() init]);
 
-    [result setOriginatingURL:originatingURL];
+    [result setOriginatingURL:originatingURL.createNSURL().get()];
 
     [result setThumbnailURLs:createNSArray(linkIconURLs).get()];
 
     [result setAPIType:toAPIType(paymentRequest.requester())];
 
-    [result setCountryCode:paymentRequest.countryCode()];
-    [result setCurrencyCode:paymentRequest.currencyCode()];
+    [result setCountryCode:paymentRequest.countryCode().createNSString().get()];
+    [result setCurrencyCode:paymentRequest.currencyCode().createNSString().get()];
     [result setBillingContact:paymentRequest.billingContact().pkContact().get()];
     [result setShippingContact:paymentRequest.shippingContact().pkContact().get()];
     [result setRequiredBillingContactFields:toPKContactFields(paymentRequest.requiredBillingContactFields()).get()];
@@ -319,7 +319,7 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
     [result setShippingType:toPKShippingType(paymentRequest.shippingType())];
 
 #if HAVE(PASSKIT_DEFAULT_SHIPPING_METHOD)
-    [result setAvailableShippingMethods:toPKShippingMethods(paymentRequest.shippingMethods())];
+    [result setAvailableShippingMethods:toPKShippingMethods(paymentRequest.shippingMethods()).get()];
 #else
     [result setShippingMethods:createNSArray(paymentRequest.shippingMethods(), [] (auto& method) {
         return toPKShippingMethod(method);
@@ -333,7 +333,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!paymentRequest.applicationData().isNull()) {
-        auto applicationData = adoptNS([[NSData alloc] initWithBase64EncodedString:paymentRequest.applicationData() options:0]);
+        auto applicationData = adoptNS([[NSData alloc] initWithBase64EncodedString:paymentRequest.applicationData().createNSString().get() options:0]);
         [result setApplicationData:applicationData.get()];
     }
 
@@ -342,21 +342,21 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     CheckedPtr client = m_client.get();
     auto& boundInterfaceIdentifier = client->paymentCoordinatorBoundInterfaceIdentifier(*this);
     if (!boundInterfaceIdentifier.isEmpty())
-        [result setBoundInterfaceIdentifier:boundInterfaceIdentifier];
+        [result setBoundInterfaceIdentifier:boundInterfaceIdentifier.createNSString().get()];
 
     // FIXME: Instead of using respondsToSelector, this should use a proper #if version check.
     auto& bundleIdentifier = client->paymentCoordinatorSourceApplicationBundleIdentifier(*this);
     if (!bundleIdentifier.isEmpty() && [result respondsToSelector:@selector(setSourceApplicationBundleIdentifier:)])
-        [result setSourceApplicationBundleIdentifier:bundleIdentifier];
+        [result setSourceApplicationBundleIdentifier:bundleIdentifier.createNSString().get()];
 
     auto& secondaryIdentifier = client->paymentCoordinatorSourceApplicationSecondaryIdentifier(*this);
     if (!secondaryIdentifier.isEmpty() && [result respondsToSelector:@selector(setSourceApplicationSecondaryIdentifier:)])
-        [result setSourceApplicationSecondaryIdentifier:secondaryIdentifier];
+        [result setSourceApplicationSecondaryIdentifier:secondaryIdentifier.createNSString().get()];
 
 #if PLATFORM(IOS_FAMILY)
     auto& serviceType = client->paymentCoordinatorCTDataConnectionServiceType(*this);
     if (!serviceType.isEmpty() && [result respondsToSelector:@selector(setCTDataConnectionServiceType:)])
-        [result setCTDataConnectionServiceType:serviceType];
+        [result setCTDataConnectionServiceType:serviceType.createNSString().get()];
 #endif
 
 #if HAVE(PASSKIT_INSTALLMENTS)
@@ -371,7 +371,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [result setSupportsCouponCode:*supportsCouponCode];
 
     if (auto& couponCode = paymentRequest.couponCode(); !couponCode.isNull())
-        [result setCouponCode:couponCode];
+        [result setCouponCode:couponCode.createNSString().get()];
 #endif
 
 #if HAVE(PASSKIT_SHIPPING_CONTACT_EDITING_MODE)
@@ -416,7 +416,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 void WebPaymentCoordinatorProxy::platformSetPaymentRequestUserAgent(PKPaymentRequest *paymentRequest, const String& userAgent)
 {
 #if HAVE(PKPAYMENTREQUEST_USERAGENT)
-    [paymentRequest setUserAgent:userAgent];
+    [paymentRequest setUserAgent:userAgent.createNSString().get()];
 #else
     UNUSED_PARAM(paymentRequest);
     UNUSED_PARAM(userAgent);
@@ -467,7 +467,7 @@ void WebPaymentCoordinatorProxy::getSetupFeatures(const PaymentSetupConfiguratio
 #endif
 
     auto completion = makeBlockPtr([reply = WTFMove(reply)](NSArray<PKPaymentSetupFeature *> *features) mutable {
-        RunLoop::protectedMain()->dispatch([reply = WTFMove(reply), features = retainPtr(features)]() mutable {
+        RunLoop::mainSingleton().dispatch([reply = WTFMove(reply), features = retainPtr(features)]() mutable {
             reply(PaymentSetupFeatures { WTFMove(features) });
         });
     });
@@ -503,7 +503,7 @@ void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupCo
     [request setPaymentSetupFeatures:features.platformFeatures()];
 
     auto completion = makeBlockPtr([reply = WTFMove(reply)](BOOL success) mutable {
-        RunLoop::protectedMain()->dispatch([reply = WTFMove(reply), success]() mutable {
+        RunLoop::mainSingleton().dispatch([reply = WTFMove(reply), success]() mutable {
             reply(success);
         });
     });
@@ -540,7 +540,7 @@ void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupCo
     }
 
     auto completion = makeBlockPtr([reply = WTFMove(reply)]() mutable {
-        RunLoop::main().dispatch([reply = WTFMove(reply)]() mutable {
+        RunLoop::mainSingleton().dispatch([reply = WTFMove(reply)]() mutable {
             reply(true);
         });
     });

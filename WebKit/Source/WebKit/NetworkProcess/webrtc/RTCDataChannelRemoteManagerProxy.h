@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@ namespace WebKit {
 
 class NetworkConnectionToWebProcess;
 
-class RTCDataChannelRemoteManagerProxy final : public IPC::WorkQueueMessageReceiver {
+class RTCDataChannelRemoteManagerProxy final : public IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any> {
 public:
     static Ref<RTCDataChannelRemoteManagerProxy> create() { return adoptRef(*new RTCDataChannelRemoteManagerProxy); }
 
@@ -45,8 +45,6 @@ public:
 
 private:
     RTCDataChannelRemoteManagerProxy();
-
-    Ref<WorkQueue> protectedQueue();
 
     // IPC::WorkQueueMessageReceiver overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -59,9 +57,9 @@ private:
     void changeReadyState(WebCore::RTCDataChannelIdentifier, WebCore::RTCDataChannelState);
     void receiveData(WebCore::RTCDataChannelIdentifier, bool isRaw, std::span<const uint8_t>);
     void detectError(WebCore::RTCDataChannelIdentifier, WebCore::RTCErrorDetailType, const String&);
-    void bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier, size_t amount);
+    void bufferedAmountIsDecreasing(WebCore::RTCDataChannelIdentifier, uint64_t amount);
 
-    Ref<WorkQueue> m_queue;
+    const Ref<WorkQueue> m_queue;
     HashMap<WebCore::ProcessIdentifier, IPC::Connection::UniqueID> m_webProcessConnections;
 };
 

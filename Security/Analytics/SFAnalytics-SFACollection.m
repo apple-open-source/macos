@@ -5,6 +5,7 @@
 
 #import <Foundation/Foundation.h>
 
+#import "SFAnalytics.h"
 #import "SFAnalytics+Internal.h"
 #import "SFAnalyticsCollection.h"
 
@@ -450,5 +451,41 @@ static SECSFAConfigVersion currentVersion = SECSFAConfigVersion_version2;
     return [data compressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE
                                         error:error];
 }
+
++ (BOOL)validateSFACollection:(NSData *)binary
+                        error:(NSError *_Nullable*_Nullable)error
+{
+    NSData *decompressed = [binary decompressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE error:error];
+    if (decompressed == nil) {
+        return NO;
+    }
+
+    SECSFARules *rules = [[SECSFARules alloc] initWithData:decompressed];
+    if (rules == nil) {
+        if (error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:errSecParam userInfo:nil];
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
++ (NSString *_Nullable)formatSFACollection:(NSData *)binary
+                                     error:(NSError *_Nullable*_Nullable)error
+{
+    NSData *decompressed = [binary decompressedDataUsingAlgorithm:NSDataCompressionAlgorithmLZFSE error:error];
+    if (decompressed == nil) {
+        return nil;
+    }
+    
+    SECSFARules *rules = [[SECSFARules alloc] initWithData:decompressed];
+    if (rules == nil) {
+        return nil;
+    }
+    
+    return rules.formattedText;
+}
+
 
 @end

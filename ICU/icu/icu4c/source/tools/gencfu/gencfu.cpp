@@ -203,6 +203,7 @@ int  main(int argc, char **argv) {
     return (int)status;
 
 #else
+#ifndef APPLE_ICU_CHANGES // rdar://155639864
     /* Initialize ICU */
     u_init(&status);
     if (U_FAILURE(status)) {
@@ -211,6 +212,7 @@ int  main(int argc, char **argv) {
         exit(1);
     }
     status = U_ZERO_ERROR;
+#endif
 
     //  Read in the confusables source file
 

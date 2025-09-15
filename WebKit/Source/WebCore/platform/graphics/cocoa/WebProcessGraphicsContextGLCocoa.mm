@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -131,6 +131,8 @@ private:
 // GraphicsContextGL type that is used when WebGL is run in-process in WebContent process.
 class WebProcessGraphicsContextGLCocoa final : public GraphicsContextGLCocoa
 {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebProcessGraphicsContextGLCocoa);
 public:
     ~WebProcessGraphicsContextGLCocoa();
 
@@ -139,7 +141,7 @@ public:
     void prepareForDisplay() final;
 private:
     WebProcessGraphicsContextGLCocoa(GraphicsContextGLAttributes&&);
-    Ref<DisplayBufferDisplayDelegate> m_layerContentsDisplayDelegate;
+    const Ref<DisplayBufferDisplayDelegate> m_layerContentsDisplayDelegate;
 
     friend RefPtr<GraphicsContextGL> WebCore::createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes&);
     friend class GraphicsContextGLOpenGL;

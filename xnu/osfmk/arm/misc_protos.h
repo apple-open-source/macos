@@ -52,10 +52,7 @@ extern void arm_vm_prot_init(boot_args *args);
 extern void arm_vm_prot_finalize(boot_args *args);
 
 #if __arm64__
-extern void arm_set_kernel_tbi(void);
-
 void __attribute__((__noreturn__)) _was_in_userspace(void);
-
 #endif /* __arm64__ */
 
 extern kern_return_t DebuggerXCallEnter(boolean_t, bool);

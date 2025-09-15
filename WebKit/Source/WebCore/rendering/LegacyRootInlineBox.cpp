@@ -21,7 +21,6 @@
 #include "LegacyRootInlineBox.h"
 
 #include "BidiResolver.h"
-#include "CSSLineBoxContainValue.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
@@ -37,6 +36,7 @@
 #include "RenderInline.h"
 #include "RenderLayoutState.h"
 #include "RenderView.h"
+#include "StyleLineBoxContain.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -63,16 +63,6 @@ LegacyRootInlineBox::LegacyRootInlineBox(RenderBlockFlow& block)
 
 LegacyRootInlineBox::~LegacyRootInlineBox()
 {
-}
-
-LayoutUnit LegacyRootInlineBox::baselinePosition(FontBaseline baselineType) const
-{
-    return renderer().baselinePosition(baselineType, isFirstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
-}
-
-LayoutUnit LegacyRootInlineBox::lineHeight() const
-{
-    return renderer().lineHeight(isFirstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
 }
 
 void LegacyRootInlineBox::adjustPosition(float dx, float dy)
@@ -164,19 +154,6 @@ RenderBlockFlow& LegacyRootInlineBox::blockFlow() const
 
 void LegacyRootInlineBox::removeLineBoxFromRenderObject()
 {
-    // Null if we are destroying LegacyLineLayout.
-    if (auto* legacyLineLayout = blockFlow().svgTextLayout())
-        legacyLineLayout->lineBoxes().removeLineBox(this);
-}
-
-void LegacyRootInlineBox::extractLineBoxFromRenderObject()
-{
-    blockFlow().svgTextLayout()->lineBoxes().extractLineBox(this);
-}
-
-void LegacyRootInlineBox::attachLineBoxToRenderObject()
-{
-    blockFlow().svgTextLayout()->lineBoxes().attachLineBox(this);
 }
 
 LayoutUnit LegacyRootInlineBox::lineBoxWidth() const

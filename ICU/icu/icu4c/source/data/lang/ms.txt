@@ -128,6 +128,7 @@ ms{
         crr{"Carolina Algonquian"}
         crs{"Perancis Seselwa Creole"}
         cs{"Czech"}
+        cst{"Chochenyo"}
         csw{"Swampy Cree"}
         cu{"Slavik Gereja"}
         cv{"Chuvash"}
@@ -208,6 +209,7 @@ ms{
         hak{"Cina Hakka"}
         haw{"Hawaii"}
         hax{"Haida Selatan"}
+        hch{"Wixárika"}
         he{"Ibrani"}
         hi{"Hindi"}
         hil{"Hiligaynon"}
@@ -233,6 +235,7 @@ ms{
         inh{"Ingush"}
         io{"Ido"}
         is{"Iceland"}
+        isc{"Iskonawa"}
         it{"Itali"}
         iu{"Inuktitut"}
         ja{"Jepun"}
@@ -441,6 +444,7 @@ ms{
         sh{"SerboCroatia"}
         shi{"Tachelhit"}
         shn{"Shan"}
+        shp{"Shipibo-Konibo"}
         shu{"Arab Chadian"}
         si{"Sinhala"}
         sjd{"Kildin Sámi"}
@@ -738,13 +742,15 @@ ms{
     }
     Types{
         calendar{
+            bangla{"Kalendar Bangla"}
             buddhist{"Kalendar Buddha"}
             chinese{"Kalendar Cina"}
             coptic{"Kalendar Qibti"}
-            dangi{"Kalendar Dangi"}
+            dangi{"Kalendar Korea"}
             ethiopic{"Kalendar Ethiopia"}
             ethiopic-amete-alem{"Kalendar Amete Alem Ethiopia"}
             gregorian{"Kalendar Gregory"}
+            gujarati{"Kalendar Gujarat"}
             hebrew{"Kalendar Ibrani"}
             indian{"Kalendar Kebangsaan India"}
             islamic{"Kalendar Hijrah"}
@@ -754,8 +760,16 @@ ms{
             islamic-umalqura{"Kalendar Hijrah (Umm al-Qura)"}
             iso8601{"Kalendar ISO-8601"}
             japanese{"Kalendar Jepun"}
+            kannada{"Kalendar Kannada"}
+            malayalam{"Kalendar Malayalam"}
+            marathi{"Kalendar Marathi"}
+            odia{"Kalendar Odia"}
             persian{"Kalendar Parsi"}
             roc{"Kalendar Minguo"}
+            tamil{"Kalendar Tamil"}
+            telugu{"Kalendar Telugu"}
+            vietnamese{"Kalendar Vietnam"}
+            vikram{"Kalendar Vikram"}
         }
         cf{
             account{"Format Mata Wang Perakaunan"}

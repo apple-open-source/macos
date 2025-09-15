@@ -194,6 +194,30 @@ private:
     
     ExpansionData *         _reserved;
 
+    /*! @function   calculatePowerButtonNmiSupport
+     *  @abstract   Calculates whether the driver will support NMI via the power button.
+     *  @discussion Called during `start`. Initializes the `powerButtonNmi` instance variable.
+     */
+    void calculatePowerButtonNmiSupport();
+
+    /*! @function   calculateLegacyShimSupport
+     *  @abstract   Calculates whether the driver will support legacy shims (macOS only).
+     *  @discussion Called during `start`. Initializes the `pointingShim` and `keyboardShim`
+     *              instance variables.
+     */
+    void calculateLegacyShimSupport();
+
+    /*! @function    publishProperties
+     *  @abstract    Copy a set of properties from the provider and apply them to this service.
+     *  @discussion  Called during `start` before service registration.
+     */
+    void publishProperties();
+
+    /*! @function   getBootProtocol
+     *  @abstract   Get the numeric value of the boot protocol property.
+     */
+    UInt32 getBootProtocol();
+
 #ifdef POINTING_SHIM_SUPPORT
     IOHIDPointing *         newPointingShim (
                                 UInt32          buttonCount         = 1,

@@ -280,7 +280,7 @@ lck_mtx_free(lck_mtx_t *lck, lck_grp_t *grp)
 	zfree(KT_LCK_MTX, lck);
 }
 
-void
+__mockable void
 lck_mtx_init(lck_mtx_t *lck, lck_grp_t *grp, lck_attr_t *attr)
 {
 	if (attr == LCK_ATTR_NULL) {
@@ -298,7 +298,7 @@ lck_mtx_init(lck_mtx_t *lck, lck_grp_t *grp, lck_attr_t *attr)
 	lck_grp_reference(grp, &grp->lck_grp_mtxcnt);
 }
 
-void
+__mockable void
 lck_mtx_destroy(lck_mtx_t *lck, lck_grp_t *grp)
 {
 	if (lck->lck_mtx_tsid && lck->lck_mtx_type == LCK_TYPE_MUTEX) {
@@ -695,6 +695,8 @@ lck_mtx_lock_adaptive_spin(lck_mtx_t *lock, lck_mtx_state_t state)
 	KERNEL_DEBUG(MACHDBG_CODE(DBG_MACH_LOCKS, LCK_MTX_LCK_SPIN_CODE) | DBG_FUNC_START,
 	    trace_lck, LCK_MTX_OWNER_FOR_TRACE(lock), lock->lck_mtx_tsid, 0, 0);
 
+	deadline = ml_get_timebase() + os_atomic_load(&MutexSpin, relaxed) * processor_avail_count;
+
 	/*
 	 *	Take a spot in the adaptive spin queue,
 	 *	and then spin until we're at the head of it.
@@ -726,7 +728,7 @@ lck_mtx_lock_adaptive_spin(lck_mtx_t *lock, lck_mtx_state_t state)
 		os_atomic_store(&node->lmm_as_next, mcs, release);
 
 		while (!hw_spin_wait_until(&mcs->lmm_as_prev, prev,
-		    prev == 0 || (os_atomic_load(astp, relaxed) & AST_URGENT))) {
+		    prev == 0 || (os_atomic_load(astp, relaxed) & AST_URGENT) || (ml_get_timebase() > deadline))) {
 			hw_spin_should_keep_spinning(lock, pol, to, &ss);
 		}
 
@@ -1047,7 +1049,7 @@ lck_mtx_lock_fastpath(lck_mtx_t *lock, lck_mtx_mode_t mode)
 	}
 }
 
-void
+__mockable void
 lck_mtx_lock(lck_mtx_t *lock)
 {
 	lck_mtx_lock_fastpath(lock, LCK_MTX_MODE_SLEEPABLE);
@@ -1267,7 +1269,7 @@ lck_mtx_unlock_slow(lck_mtx_t *lock, thread_t thread, uint32_t data)
 	lck_mtx_unlock_contended(lock, thread, data);
 }
 
-void
+__mockable void
 lck_mtx_unlock(lck_mtx_t *lock)
 {
 	thread_t thread = current_thread();

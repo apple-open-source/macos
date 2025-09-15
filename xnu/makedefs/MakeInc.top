@@ -163,13 +163,13 @@ DEVICEMAP_PRODUCT_SOC_MAPPINGS := $(shell $(EMBEDDED_DEVICE_MAP) -db $(EDM_DBPAT
 # use embedded_device_map
 endif
 
-# Map a product like "n75" to "arm;t8002"
+# Map a product like "n75" to "arm;t8002", or potentially multiple "soc;platform" strings, if the product has multiple platforms.
 # $(1) is a product name in lower case
-function_lookup_product = $(call function_substitute_word_with_replacement,	\
+function_lookup_product = $(call function_parse_product_configs,$(call function_substitute_word_with_replacement,	\
 				 $(1),						\
 				 $(DEVICEMAP_PRODUCT_SOC_MAPPINGS),		\
 				 unknown_arch_for_$(1);unknown_platform_for_$(1) \
-			   )
+			   ))
 
 ifneq ($(PLATFORM),MacOSX)
 ifneq ($(EMBEDDED_DEVICE_MAP),)
@@ -206,7 +206,7 @@ TARGET_CONFIGS_ALIASES := $(foreach my_devicemap_config,$(foreach my_product_con
 else ifeq (xnu_headers_driverkit,$(RC_ProjectName))
 # generate TARGET_CONFIGS for all kernel configs for B&I
 TARGET_CONFIGS = DEVELOPMENT arm64 DEFAULT DEVELOPMENT X86_64 DEFAULT
-else ifneq ($(filter %_release_embedded,$(MAKECMDGOALS)),)
+else ifneq ($(filter %_release_embedded,$(MAKECMDGOALS))$(filter %_release_embedded_nohdrs,$(MAKECMDGOALS)),)
 # generate TARGET_CONFIGS for RELEASE kernel configs and products in the device map
 TARGET_CONFIGS := $(foreach my_devicemap_config,$(foreach my_arch_config,$(ARCH_CONFIGS_EMBEDDED),$(foreach my_product_config,$(DEVICEMAP_PRODUCTS_$(my_arch_config)),$(call function_lookup_product,$(my_product_config)))),$(foreach my_kernel_config,RELEASE,$(my_kernel_config) $(subst ;, ,$(my_devicemap_config))))
 TARGET_CONFIGS += $(EXTRA_TARGET_CONFIGS_RELEASE)
@@ -221,7 +221,7 @@ else ifneq ($(filter %_embedded,$(MAKECMDGOALS)),)
 TARGET_CONFIGS := $(foreach my_devicemap_config,$(foreach my_arch_config,$(ARCH_CONFIGS_EMBEDDED),$(foreach my_product_config,$(DEVICEMAP_PRODUCTS_$(my_arch_config)),$(call function_lookup_product,$(my_product_config)))),$(foreach my_kernel_config,$(KERNEL_CONFIGS_EMBEDDED),$(my_kernel_config) $(subst ;, ,$(my_devicemap_config))))
 TARGET_CONFIGS += $(foreach my_kernel_config,$(KERNEL_CONFIGS_EMBEDDED),$(EXTRA_TARGET_CONFIGS_$(my_kernel_config)))
 TARGET_CONFIGS_ALIASES := $(foreach my_devicemap_config,$(foreach my_arch_config,$(ARCH_CONFIGS_EMBEDDED),$(foreach my_product_config,$(DEVICEMAP_PRODUCTS_$(my_arch_config)),$(call function_lookup_product_alias,$(my_product_config)))),$(foreach my_kernel_config,$(KERNEL_CONFIGS_EMBEDDED),$(my_kernel_config) $(subst ;, ,$(my_devicemap_config))))
-else ifneq ($(filter %_release_desktop,$(MAKECMDGOALS)),)
+else ifneq ($(filter %_release_desktop,$(MAKECMDGOALS))$(filter %_release_desktop_nohdrs,$(MAKECMDGOALS)),)
 # generate TARGET_CONFIGS for B&I release builds
 TARGET_CONFIGS := $(foreach my_kern_config, RELEASE, $(foreach my_arch_config, $(ARCH_CONFIGS_DESKTOP), $(foreach my_machine_config, $(MACHINE_CONFIGS), $(my_kern_config) $(my_arch_config) $(my_machine_config))))
 TARGET_CONFIGS += $(foreach my_devicemap_config,$(foreach my_arch_config,$(ARCH_CONFIGS_EMBEDDED),$(foreach my_product_config,$(DEVICEMAP_PRODUCTS_OSX_$(my_arch_config)),$(call function_lookup_product,$(my_product_config)))),$(foreach my_kernel_config,RELEASE,$(my_kernel_config) $(subst ;, ,$(my_devicemap_config))))
@@ -627,7 +627,7 @@ final_touch_config_timestamps: config_install_bootstrap install_config_primary i
 # Aggregate install targets, which install everything appropriate for the current build alias/make target
 #
 
-.PHONY: install
+.PHONY: install install_nohdrs
 
 ifneq ($(filter $(RC_ProjectName),xnu_debug),)
 install: install_kernels
@@ -648,17 +648,21 @@ export INSTALLHDRS_SKIP_HOST=YES
 export EXPORTHDRS_SKIP_EXCLAVES=YES
 else
 
-install: installhdrs install_textfiles install_config install_kernels install_aliases
+install_nohdrs: install_textfiles install_config install_kernels install_aliases
+install: installhdrs install_nohdrs
 endif
 
-.PHONY: install_embedded install_release_embedded install_development_embedded
-.PHONY: install_desktop install_release_desktop install_development_desktop
+.PHONY: install_embedded install_release_embedded install_development_embedded install_release_embedded_nohdrs
+.PHONY: install_desktop install_release_desktop install_development_desktop install_release_desktop_nohdrs
 
 # By default, all kernel files, headers, text files, and pseudo-kexts are installed
 install_embedded install_release_embedded install_desktop install_release_desktop: install
 
 # These special configs only install the kernel files
 install_development_embedded install_development_desktop: install_kernels install_aliases
+
+# These install release kernels, text files, and pseudo-kexts, but no headers
+install_release_embedded_nohdrs install_release_desktop_nohdrs: install_nohdrs
 
 .PHONY: install_kernels final_touch_kernel_timestamps install_aliases
 

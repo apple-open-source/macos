@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <wtf/ListHashSet.h>
 #include <wtf/WeakPtr.h>
 
@@ -269,7 +270,7 @@ public:
             return true;
 
         auto onlyContainsNullReferences = begin() == end();
-        if (UNLIKELY(onlyContainsNullReferences))
+        if (onlyContainsNullReferences) [[unlikely]]
             const_cast<WeakListHashSet&>(*this).clear();
         return onlyContainsNullReferences;
     }
@@ -277,7 +278,7 @@ public:
     bool hasNullReferences() const
     {
         unsigned count = 0;
-        auto result = WTF::anyOf(m_set, [&] (auto& iterator) {
+        auto result = std::ranges::any_of(m_set, [&](auto& iterator) {
             ++count;
             return !iterator.get();
         });

@@ -157,7 +157,7 @@ private:
     void canMakePayments(CompletionHandler<void(bool)>&&);
     void canMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, CompletionHandler<void(bool)>&&);
     void openPaymentSetup(const String& merchantIdentifier, const String& domainName, CompletionHandler<void(bool)>&&);
-    void showPaymentUI(WebCore::PageIdentifier destinationID, WebPageProxyIdentifier, const String& originatingURLString, const Vector<String>& linkIconURLStrings, const WebCore::ApplePaySessionPaymentRequest&, CompletionHandler<void(bool)>&&);
+    void showPaymentUI(WebCore::PageIdentifier destinationID, WebPageProxyIdentifier, const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest&, CompletionHandler<void(bool)>&&);
     void completeMerchantValidation(const WebCore::PaymentMerchantSession&);
     void completeShippingMethodSelection(std::optional<WebCore::ApplePayShippingMethodUpdate>&&);
     void completeShippingContactSelection(std::optional<WebCore::ApplePayShippingContactUpdate>&&);

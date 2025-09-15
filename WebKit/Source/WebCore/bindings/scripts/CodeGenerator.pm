@@ -1072,11 +1072,30 @@ sub LinkOverloadedOperations
     }
 }
 
+sub OperationName
+{
+    my ($generator, $operation) = @_;
+
+    my $operationName = $operation->name;
+    $operationName =~ s/\-(.)/uc($1)/ge;
+    $operationName =~ s/\-//g;
+    $operationName = $generator->WK_lcfirst($operationName);
+
+    if ($operation->extendedAttributes->{"ImplementedAs"}) {
+        $operationName = $operation->extendedAttributes->{"ImplementedAs"};
+    }
+
+    return $operationName;
+}
+
 sub AttributeNameForGetterAndSetter
 {
     my ($generator, $attribute) = @_;
 
     my $attributeName = $attribute->name;
+    $attributeName =~ s/\-(.)/uc($1)/ge;
+    $attributeName =~ s/\-//g;
+
     if ($attribute->extendedAttributes->{"ImplementedAs"}) {
         $attributeName = $attribute->extendedAttributes->{"ImplementedAs"};
     }
@@ -1091,12 +1110,16 @@ sub AttributeNameForGetterAndSetter
 
 sub ContentAttributeName
 {
-    my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
+    my ($generator, $implIncludes, $interfaceName, $attribute, $getterOrSetter) = @_;
 
-    my $contentAttributeName = $attribute->extendedAttributes->{"Reflect"};
+    my $reflect = $attribute->extendedAttributes->{Reflect};
+    my $reflectSetter = $attribute->extendedAttributes->{ReflectSetter};
+    die "Do not use both [Reflect] and [ReflectSetter] on the same attribute" if $reflect && $reflectSetter;
+
+    my $contentAttributeName = ($getterOrSetter eq "setter" ? $reflect || $reflectSetter : $reflect);
     return undef if !$contentAttributeName;
 
-    $contentAttributeName = lc $generator->AttributeNameForGetterAndSetter($attribute) if $contentAttributeName eq "VALUE_IS_MISSING";
+    $contentAttributeName = lc $attribute->name if $contentAttributeName eq "VALUE_IS_MISSING";
 
     my $namespace = $generator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
 
@@ -1108,7 +1131,7 @@ sub GetterExpression
 {
     my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
 
-    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute);
+    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute, "getter");
 
     if (!$contentAttributeName) {
         return ($generator->WK_lcfirst($generator->AttributeNameForGetterAndSetter($attribute)));
@@ -1123,12 +1146,14 @@ sub GetterExpression
     } elsif ($attributeType->name eq "boolean") {
         $implIncludes->{"ElementInlines.h"} = 1;
         $functionName = "hasAttributeWithoutSynchronization";
+    } elsif ($attributeType->name eq "double") {
+        $functionName = "numericAttribute";
     } elsif ($attributeType->name eq "long") {
-        $functionName = "getIntegralAttribute";
+        $functionName = "integralAttribute";
     } elsif ($attributeType->name eq "unsigned long") {
-        $functionName = "getUnsignedIntegralAttribute";
+        $functionName = "unsignedIntegralAttribute";
     } elsif ($attributeType->name eq "Element") {
-        $functionName = "getElementAttribute";
+        $functionName = "getElementAttributeForBindings";
     } elsif ($attributeType->name eq "FrozenArray" && scalar @{$attributeType->subtypes} == 1 && @{$attributeType->subtypes}[0]->name eq "Element") {
         $functionName = "getElementsArrayAttribute";
     } else {
@@ -1154,7 +1179,7 @@ sub SetterExpression
 {
     my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
 
-    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute);
+    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute, "setter");
 
     if (!$contentAttributeName) {
         return ("set" . $generator->WK_ucfirst($generator->AttributeNameForGetterAndSetter($attribute)));
@@ -1165,6 +1190,8 @@ sub SetterExpression
     my $functionName;
     if ($attributeType->name eq "boolean") {
         $functionName = "setBooleanAttribute";
+    } elsif ($attributeType->name eq "double") {
+        $functionName = "setNumericAttribute";
     } elsif ($attributeType->name eq "long") {
         $functionName = "setIntegralAttribute";
     } elsif ($attributeType->name eq "unsigned long") {

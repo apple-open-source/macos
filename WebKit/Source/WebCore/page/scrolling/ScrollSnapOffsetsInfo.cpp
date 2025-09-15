@@ -36,6 +36,7 @@
 #include "RenderView.h"
 #include "ScrollableArea.h"
 #include "StyleScrollSnapPoints.h"
+#include <ranges>
 
 namespace WebCore {
 
@@ -248,25 +249,18 @@ static std::pair<LayoutType, std::optional<unsigned>> closestSnapOffsetWithInfoA
     return velocity < 0 ? *previous : *next;
 }
 
-enum class InsetOrOutset {
-    Inset,
-    Outset
-};
-
-static LayoutRect computeScrollSnapPortOrAreaRect(const LayoutRect& rect, const LengthBox& insetOrOutsetBox, InsetOrOutset insetOrOutset)
+static LayoutRect computeScrollSnapPortRect(const Style::ScrollPaddingBox& padding, const LayoutRect& rect)
 {
-    // We are using minimumValueForLength here for insetOrOutset box, because if this value is defined by scroll-padding then the
-    // Length of any side may be "auto." In that case, we want to use 0, because that is how WebKit currently interprets an "auto"
-    // value for scroll-padding. See: https://drafts.csswg.org/css-scroll-snap-1/#propdef-scroll-padding
-    LayoutBoxExtent extents(
-        minimumValueForLength(insetOrOutsetBox.top(), rect.height()), minimumValueForLength(insetOrOutsetBox.right(), rect.width()),
-        minimumValueForLength(insetOrOutsetBox.bottom(), rect.height()), minimumValueForLength(insetOrOutsetBox.left(), rect.width()));
-    auto snapPortOrArea(rect);
-    if (insetOrOutset == InsetOrOutset::Inset)
-        snapPortOrArea.contract(extents);
-    else
-        snapPortOrArea.expand(extents);
-    return snapPortOrArea;
+    auto result = rect;
+    result.contract(Style::extentForRect(padding, rect));
+    return result;
+}
+
+static LayoutRect computeScrollSnapAreaRect(const Style::ScrollMarginBox& margin, const LayoutRect& rect)
+{
+    auto result = rect;
+    result.expand(Style::extentForRect(margin, rect));
+    return result;
 }
 
 static LayoutUnit computeScrollSnapAlignOffset(LayoutUnit minLocation, LayoutUnit maxLocation, ScrollSnapAxisAlignType alignment, bool axisIsFlipped)
@@ -293,7 +287,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         return;
     }
 
-    auto addOrUpdateStopForSnapOffset = [](UncheckedKeyHashMap<LayoutUnit, SnapOffset<LayoutUnit>>& offsets, LayoutUnit newOffset, ScrollSnapStop stop, bool hasSnapAreaLargerThanViewport, ElementIdentifier snapTargetID, bool isFocused, size_t snapAreaIndices)
+    auto addOrUpdateStopForSnapOffset = [](HashMap<LayoutUnit, SnapOffset<LayoutUnit>>& offsets, LayoutUnit newOffset, ScrollSnapStop stop, bool hasSnapAreaLargerThanViewport, ElementIdentifier snapTargetID, bool isFocused, size_t snapAreaIndices)
     {
         if (!offsets.isValidKey(newOffset))
             return;
@@ -310,8 +304,8 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         offset.iterator->value.snapAreaIndices.append(snapAreaIndices);
     };
 
-    UncheckedKeyHashMap<LayoutUnit, SnapOffset<LayoutUnit>> verticalSnapOffsetsMap;
-    UncheckedKeyHashMap<LayoutUnit, SnapOffset<LayoutUnit>> horizontalSnapOffsetsMap;
+    HashMap<LayoutUnit, SnapOffset<LayoutUnit>> verticalSnapOffsetsMap;
+    HashMap<LayoutUnit, SnapOffset<LayoutUnit>> horizontalSnapOffsetsMap;
     Vector<LayoutRect> snapAreas;
     Vector<ElementIdentifier> snapAreasIDs;
 
@@ -334,7 +328,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
     }
 
     // The bounds of the scrolling container's snap port, where the top left of the scrolling container's border box is the origin.
-    auto scrollSnapPort = computeScrollSnapPortOrAreaRect(viewportRectInBorderBoxCoordinates, scrollingElementStyle.scrollPadding(), InsetOrOutset::Inset);
+    auto scrollSnapPort = computeScrollSnapPortRect(scrollingElementStyle.scrollPaddingBox(), viewportRectInBorderBoxCoordinates);
     LOG_WITH_STREAM(ScrollSnap, stream << "Computing scroll snap offsets for " << scrollableArea << " in snap port " << scrollSnapPort);
     for (auto& child : boxesWithScrollSnapPositions) {
         if (child.enclosingScrollableContainer() != &scrollingElementBox || !child.element())
@@ -350,7 +344,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
         if (!scrollableArea.isScrollView())
             scrollSnapArea.moveBy(scrollPosition);
 
-        scrollSnapArea = computeScrollSnapPortOrAreaRect(scrollSnapArea, child.style().scrollMargin(), InsetOrOutset::Outset);
+        scrollSnapArea = computeScrollSnapAreaRect(child.style().scrollMarginBox(), scrollSnapArea);
         LOG_WITH_STREAM(ScrollSnap, stream << "    Considering scroll snap target area " << scrollSnapArea << " scroll snap id: " << child.element()->identifier() << " element: " << *child.element());
         auto alignment = child.style().scrollSnapAlign();
         auto stop = child.style().scrollSnapStop();
@@ -406,13 +400,13 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
 
     Vector<SnapOffset<LayoutUnit>> horizontalSnapOffsets = copyToVector(horizontalSnapOffsetsMap.values());
     if (!horizontalSnapOffsets.isEmpty()) {
-        std::sort(horizontalSnapOffsets.begin(), horizontalSnapOffsets.end(), compareSnapOffsets);
+        std::ranges::sort(horizontalSnapOffsets, compareSnapOffsets);
         LOG_WITH_STREAM(ScrollSnap, stream << " => Computed horizontal scroll snap offsets: " << horizontalSnapOffsets);
     }
 
     Vector<SnapOffset<LayoutUnit>> verticalSnapOffsets = copyToVector(verticalSnapOffsetsMap.values());
     if (!verticalSnapOffsets.isEmpty()) {
-        std::sort(verticalSnapOffsets.begin(), verticalSnapOffsets.end(), compareSnapOffsets);
+        std::ranges::sort(verticalSnapOffsets, compareSnapOffsets);
         LOG_WITH_STREAM(ScrollSnap, stream << " => Computed vertical scroll snap offsets: " << verticalSnapOffsets);
     }
 

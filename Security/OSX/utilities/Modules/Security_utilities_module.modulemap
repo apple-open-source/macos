@@ -78,13 +78,9 @@ module security_utilities [system] {
   module debugging_internal {
     header "security_utilities/debugging_internal.h"
     export *
-
-    // utilities_dtrace.h is conceptually part of debugging_internal.h, but is
-    // a generated header. utilities_dtrace.h isn't standalone, so it needs to
-    // be excluded so that the compiler doesn't try to compile it by itself.
-    // Importing debugging_internal will import utilities_dtrace.h's API via
-    // the include from debugging_internal.h and the export here though. Things
-    // will just get weird if any other header includes utilities_dtrace.h.
+    // Before rdar://152992689 changes:
+    // utilities_dtrace.h was conceptually part of debugging_internal.h, but was
+    // a generated header.
     exclude header "security_utilities/utilities_dtrace.h"
   }
 

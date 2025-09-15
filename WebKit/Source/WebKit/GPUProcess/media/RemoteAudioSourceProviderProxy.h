@@ -47,7 +47,7 @@ public:
     static Ref<RemoteAudioSourceProviderProxy> create(WebCore::MediaPlayerIdentifier, Ref<IPC::Connection>&&, WebCore::AudioSourceProviderAVFObjC&);
     ~RemoteAudioSourceProviderProxy();
 
-    void newAudioSamples(uint64_t startFrame, uint64_t endFrame);
+    void newAudioSamples(uint64_t startFrame, uint64_t endFrame, bool);
 
 private:
     RemoteAudioSourceProviderProxy(WebCore::MediaPlayerIdentifier, Ref<IPC::Connection>&&);
@@ -56,10 +56,8 @@ private:
     // AudioSourceProviderClient
     void setFormat(size_t numberOfChannels, float sampleRate) final { }
 
-    Ref<IPC::Connection> protectedConnection() const { return m_connection; }
-
     WebCore::MediaPlayerIdentifier m_identifier;
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
 };
 
 } // namespace WebKit

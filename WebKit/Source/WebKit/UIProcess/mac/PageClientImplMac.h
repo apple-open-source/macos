@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include <WebCore/DOMPasteAccess.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
+#include <wtf/WeakObjCPtr.h>
 
 @class WKEditorUndoTarget;
 @class WKView;
@@ -78,12 +79,12 @@ private:
     WebCore::IntSize viewSize() override;
     bool isViewWindowActive() override;
     bool isViewFocused() override;
-    bool isViewVisible() override;
+    bool isActiveViewVisible() override;
+    bool isMainViewVisible() override;
     bool canTakeForegroundAssertions() override { return true; };
     bool isViewVisibleOrOccluded() override;
     bool isViewInWindow() override;
     bool isVisuallyIdle() override;
-    LayerHostingMode viewLayerHostingMode() override;
     WebCore::DestinationColorSpace colorSpace() override;
     void setRemoteLayerTreeRootNode(RemoteLayerTreeNode*) override;
     CALayer *acceleratedCompositingRootLayer() const override;
@@ -107,20 +108,27 @@ private:
     bool canUndoRedo(UndoOrRedo) override;
     void executeUndoRedo(UndoOrRedo) override;
     bool executeSavedCommandBySelector(const String& selector) override;
-    void startDrag(const WebCore::DragItem&, WebCore::ShareableBitmap::Handle&& image) override;
+    void startDrag(const WebCore::DragItem&, WebCore::ShareableBitmap::Handle&& image, const std::optional<WebCore::ElementIdentifier>&) override;
     void setPromisedDataForImage(const String& pasteboardName, Ref<WebCore::FragmentedSharedBuffer>&& imageBuffer, const String& filename, const String& extension, const String& title,
         const String& url, const String& visibleURL, RefPtr<WebCore::FragmentedSharedBuffer>&& archiveBuffer, const String& originIdentifier) override;
     void updateSecureInputState() override;
     void resetSecureInputState() override;
     void notifyInputContextAboutDiscardedComposition() override;
     void selectionDidChange() override;
-    void showBrowsingWarning(const BrowsingWarning&, CompletionHandler<void(std::variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&) override;
+    void showBrowsingWarning(const BrowsingWarning&, CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&) override;
     void clearBrowsingWarning() override;
     void clearBrowsingWarningIfForMainFrameNavigation() override;
     bool hasBrowsingWarning() const override;
-    
-    bool showShareSheet(const WebCore::ShareDataWithParsedURL&, WTF::CompletionHandler<void(bool)>&&) override;
-        
+
+    void didChangeLocalInspectorAttachment() final;
+
+    bool showShareSheet(WebCore::ShareDataWithParsedURL&&, WTF::CompletionHandler<void(bool)>&&) override;
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    void showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData&, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&) override;
+    void dismissDigitalCredentialsPicker(WTF::CompletionHandler<void(bool)>&&) override;
+#endif
+
     WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) override;
     WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) override;
     WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) override;
@@ -148,7 +156,7 @@ private:
 
     RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) override;
 #if ENABLE(CONTEXT_MENUS)
-    Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, ContextMenuContextData&&, const UserData&) override;
+    Ref<WebContextMenuProxy> createContextMenuProxy(WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&) override;
     void didShowContextMenu() override;
     void didDismissContextMenu() override;
 #endif
@@ -159,11 +167,9 @@ private:
 
     RefPtr<WebDateTimePicker> createDateTimePicker(WebPageProxy&) override;
 
-    Ref<WebCore::ValidationBubble> createValidationBubble(const String& message, const WebCore::ValidationBubble::Settings&) final;
+    Ref<WebCore::ValidationBubble> createValidationBubble(String&& message, const WebCore::ValidationBubble::Settings&) final;
 
-    void setTextIndicator(Ref<WebCore::TextIndicator>, WebCore::TextIndicatorLifetime) override;
-    void clearTextIndicator(WebCore::TextIndicatorDismissalAnimation) override;
-    void setTextIndicatorAnimationProgress(float) override;
+    CALayer *textIndicatorInstallationLayer() override;
 
     void enterAcceleratedCompositingMode(const LayerTreeContext&) override;
     void exitAcceleratedCompositingMode() override;
@@ -198,30 +204,27 @@ private:
 
     void setEditableElementIsFocused(bool) override;
 
-    void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
-    void layerTreeCommitComplete() override;
-
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
 
     void registerInsertionUndoGrouping() override;
 
-    void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&) override;
+    void createPDFHUD(PDFPluginIdentifier, WebCore::FrameIdentifier, const WebCore::IntRect&) override;
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&) override;
     void removePDFHUD(PDFPluginIdentifier) override;
     void removeAllPDFHUDs() override;
 
 #if ENABLE(FULLSCREEN_API)
-    WebFullScreenManagerProxyClient& fullScreenManagerProxyClient() override;
+    WebFullScreenManagerProxyClient& fullScreenManagerProxyClient() final;
 #endif
 
 #if ENABLE(FULLSCREEN_API)
     // WebFullScreenManagerProxyClient
     void closeFullScreenManager() override;
     bool isFullScreen() override;
-    void enterFullScreen(CompletionHandler<void(bool)>&&) override;
-    void exitFullScreen() override;
-    void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
-    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
+    void enterFullScreen(WebCore::FloatSize, CompletionHandler<void(bool)>&&) override;
+    void exitFullScreen(CompletionHandler<void()>&&) override;
+    void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void(bool)>&&) override;
+    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&&) override;
 #endif
 
     void navigationGestureDidBegin() override;
@@ -274,11 +277,11 @@ private:
     void didPerformDragOperation(bool handled) final;
 #endif
 
-    NSView *inspectorAttachmentView() override;
+    RetainPtr<NSView> inspectorAttachmentView() override;
     _WKRemoteObjectRegistry *remoteObjectRegistry() override;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    WebCore::WebMediaSessionManager& mediaSessionManager() override;
+    WebCore::WebMediaSessionManager& mediaSessionManager() final;
 #endif
 
     void refView() override;
@@ -288,7 +291,7 @@ private:
     void didRestoreScrollPosition() override;
     bool windowIsFrontWindowUnderMouse(const NativeWebMouseEvent&) override;
 
-    std::optional<float> computeAutomaticTopContentInset() override;
+    std::optional<float> computeAutomaticTopObscuredInset() override;
 
     void takeFocus(WebCore::FocusDirection) override;
 
@@ -323,7 +326,11 @@ private:
     void didCleanupFullscreen() final { }
 #endif
 
-    NSView *m_view;
+    CheckedPtr<WebViewImpl> checkedImpl() const { return m_impl.get(); }
+
+    bool isViewVisible(NSView *, NSWindow *);
+
+    WeakObjCPtr<NSView> m_view;
     WeakPtr<WebViewImpl> m_impl;
 #if USE(AUTOCORRECTION_PANEL)
     CorrectionPanel m_correctionPanel;

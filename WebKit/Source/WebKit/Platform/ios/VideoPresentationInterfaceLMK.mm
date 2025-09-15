@@ -28,8 +28,6 @@
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
 
-#import "LinearMediaKitExtras.h"
-#import "LinearMediaKitSPI.h"
 #import "PlaybackSessionInterfaceLMK.h"
 #import "WKSLinearMediaPlayer.h"
 #import "WKSLinearMediaTypes.h"
@@ -104,15 +102,15 @@ void VideoPresentationInterfaceLMK::setupFullscreen(const WebCore::FloatRect& in
 {
     linearMediaPlayer().contentDimensions = videoDimensions;
     if (!linearMediaPlayer().enteredFromInline && playerViewController()) {
-        playableViewController().wks_automaticallyDockOnFullScreenPresentation = NO;
-        playableViewController().wks_dismissFullScreenOnExitingDocking = NO;
+        playableViewController().automaticallyDockOnFullScreenPresentation = NO;
+        playableViewController().dismissFullScreenOnExitingDocking = NO;
     }
     VideoPresentationInterfaceIOS::setupFullscreen(initialRect, videoDimensions, parentView, mode, allowsPictureInPicturePlayback, standby, blocksReturnToFullscreenFromPictureInPicture);
 }
 
 void VideoPresentationInterfaceLMK::finalizeSetup()
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }] {
         if (RefPtr model = protectedThis->videoPresentationModel())
             model->didSetupFullscreen();
     });
@@ -121,7 +119,6 @@ void VideoPresentationInterfaceLMK::finalizeSetup()
 void VideoPresentationInterfaceLMK::setupPlayerViewController()
 {
     linearMediaPlayer().captionLayer = captionsLayer();
-    linearMediaPlayer().contentType = WKSLinearMediaContentTypePlanar;
 
     ensurePlayableViewController();
 }
@@ -156,9 +153,105 @@ void VideoPresentationInterfaceLMK::dismissFullscreen(bool animated, Function<vo
     }).get()];
 }
 
+void VideoPresentationInterfaceLMK::enterExternalPlayback(CompletionHandler<void(bool, UIViewController *)>&& enterHandler, CompletionHandler<void(bool)>&& exitHandler)
+{
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    if (linearMediaPlayer().presentationState != WKSLinearMediaPresentationStateInline || linearMediaPlayer().isImmersiveVideo) {
+        enterHandler(false, nil);
+        exitHandler(false);
+        return;
+    }
+
+    setupPlayerViewController();
+    m_exitExternalPlaybackHandler = WTFMove(exitHandler);
+    playbackSessionInterface().startObservingNowPlayingMetadata();
+
+    // Puts the player into `enteringExternal` state.
+    [linearMediaPlayer() enterExternalPlaybackWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, handler = WTFMove(enterHandler)] (BOOL success, NSError *error) mutable {
+        if (auto* playbackSessionModel = this->playbackSessionModel()) {
+            playbackSessionModel->setSpatialTrackingLabel(m_spatialTrackingLabel);
+            playbackSessionModel->setSoundStageSize(WebCore::AudioSessionSoundStageSize::Large);
+        }
+
+        handler(success, [m_playerViewController viewController]);
+    }).get()];
+
+    // The playerIdentifier must be set before the videoReceiverEndpoint is set. Once this interface receives notice
+    // that `didSetPlayerIdentifier`, the player transitions to `external` state.
+    playbackSessionInterface().playbackSessionModel()->setPlayerIdentifierForVideoElement();
+}
+
+void VideoPresentationInterfaceLMK::exitExternalPlayback()
+{
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    ASSERT(m_exitExternalPlaybackHandler);
+    auto exitHandler = std::exchange(m_exitExternalPlaybackHandler, nullptr);
+
+    WKSLinearMediaPresentationState presentationState = linearMediaPlayer().presentationState;
+    if (presentationState != WKSLinearMediaPresentationStateEnteringExternal && presentationState != WKSLinearMediaPresentationStateExternal) {
+        if (exitHandler)
+            exitHandler(false);
+
+        return;
+    }
+
+    playbackSessionInterface().stopObservingNowPlayingMetadata();
+    [linearMediaPlayer() exitExternalPlaybackWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, handler = WTFMove(exitHandler)] (BOOL success, NSError *error) mutable {
+        if (auto* playbackSessionModel = this->playbackSessionModel()) {
+            playbackSessionModel->setSpatialTrackingLabel(nullString());
+            playbackSessionModel->setSoundStageSize(WebCore::AudioSessionSoundStageSize::Automatic);
+        }
+        invalidatePlayerViewController();
+
+        if (RefPtr model = this->videoPresentationModel())
+            model->didExitExternalPlayback();
+
+        if (handler)
+            handler(success);
+    }).get()];
+}
+
+bool VideoPresentationInterfaceLMK::cleanupExternalPlayback()
+{
+    WKSLinearMediaPresentationState presentationState = linearMediaPlayer().presentationState;
+    if (presentationState != WKSLinearMediaPresentationStateEnteringExternal && presentationState != WKSLinearMediaPresentationStateExternal)
+        return false;
+
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    exitExternalPlayback();
+    return true;
+}
+
+void VideoPresentationInterfaceLMK::didSetPlayerIdentifier()
+{
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    WKSLinearMediaPresentationState presentationState = linearMediaPlayer().presentationState;
+    if (presentationState == WKSLinearMediaPresentationStateEnteringExternal)
+        [linearMediaPlayer() completeEnterExternalPlayback];
+    else if (presentationState == WKSLinearMediaPresentationStateExternal) {
+        ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, "playerIdentifier changed while in externalPlayback");
+        exitExternalPlayback();
+    }
+}
+
+void VideoPresentationInterfaceLMK::didSetVideoReceiverEndpoint()
+{
+    if (linearMediaPlayer().presentationState != WKSLinearMediaPresentationStateExternal)
+        return;
+
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    if (RefPtr model = this->videoPresentationModel())
+        model->didEnterExternalPlayback();
+}
+
 UIViewController *VideoPresentationInterfaceLMK::playerViewController() const
 {
-    return m_playerViewController.get();
+    return [m_playerViewController viewController];
 }
 
 void VideoPresentationInterfaceLMK::setContentDimensions(const WebCore::FloatSize& contentDimensions)
@@ -179,13 +272,16 @@ CALayer *VideoPresentationInterfaceLMK::captionsLayer()
     m_captionsLayer = adoptNS([[WKLinearMediaKitCaptionsLayer alloc] initWithParent:*this]);
     [m_captionsLayer setName:@"Captions Layer"];
 
-#if HAVE(SPATIAL_TRACKING_LABEL)
     m_spatialTrackingLayer = adoptNS([[CALayer alloc] init]);
     [m_spatialTrackingLayer setSeparatedState:kCALayerSeparatedStateTracked];
-    m_spatialTrackingLabel = makeString("VideoPresentationInterfaceLMK Label: "_s, createVersion4UUIDString());
-    [m_spatialTrackingLayer setValue:(NSString *)m_spatialTrackingLabel forKeyPath:@"separatedOptions.STSLabel"];
-    [m_captionsLayer addSublayer:m_spatialTrackingLayer.get()];
+    m_spatialTrackingLabel = makeString(createVersion4UUIDString());
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    if (prefersSpatialAudioExperience())
+        [m_spatialTrackingLayer setValue:m_spatialTrackingLabel.createNSString().get() forKeyPath:@"separatedOptions.AudioTether"];
+    else
 #endif
+        [m_spatialTrackingLayer setValue:m_spatialTrackingLabel.createNSString().get() forKeyPath:@"separatedOptions.STSLabel"];
+    [m_captionsLayer addSublayer:m_spatialTrackingLayer.get()];
 
     return m_captionsLayer.get();
 }
@@ -196,7 +292,7 @@ void VideoPresentationInterfaceLMK::captionsLayerBoundsChanged(const WebCore::Fl
     [m_spatialTrackingLayer setPosition:bounds.center()];
 #endif
     if (RefPtr model = videoPresentationModel())
-        model->setVideoFullscreenFrame(enclosingIntRect(bounds));
+        model->setTextTrackRepresentationBounds(enclosingIntRect(bounds));
 }
 
 void VideoPresentationInterfaceLMK::setupCaptionsLayer(CALayer *, const WebCore::FloatSize& initialSize)
@@ -209,7 +305,7 @@ void VideoPresentationInterfaceLMK::setupCaptionsLayer(CALayer *, const WebCore:
     [CATransaction commit];
 }
 
-LMPlayableViewController *VideoPresentationInterfaceLMK::playableViewController()
+WKSPlayableViewControllerHost *VideoPresentationInterfaceLMK::playableViewController()
 {
     ensurePlayableViewController();
     return m_playerViewController.get();
@@ -222,7 +318,7 @@ void VideoPresentationInterfaceLMK::ensurePlayableViewController()
 
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
     m_playerViewController = [linearMediaPlayer() makeViewController];
-    [m_playerViewController view].alpha = 0;
+    [m_playerViewController viewController].view.alpha = 0;
 }
 
 void VideoPresentationInterfaceLMK::swapFullscreenModesWith(VideoPresentationInterfaceIOS& otherInterfaceIOS)

@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 	char *const kextargs[] = { "/sbin/kextload",
 			"/System/Library/Extensions/ntfs.kext", NULL };
 	struct vfsconf vfc;
-	BOOL case_sensitive;
+	NTFS_BOOL case_sensitive;
 
 	/* Default to mounting read-only. */
 	flags = MNT_RDONLY;

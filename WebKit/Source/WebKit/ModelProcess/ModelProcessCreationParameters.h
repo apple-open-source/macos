@@ -36,6 +36,8 @@ struct ModelProcessCreationParameters {
     AuxiliaryProcessCreationParameters auxiliaryProcessParameters;
     ProcessID parentPID;
     String applicationVisibleName;
+    bool restrictiveRenderingMode { false };
+    std::optional<int> debugEntityMemoryLimit;
 };
 
 } // namespace WebKit

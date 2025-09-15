@@ -169,6 +169,14 @@
  */
 #define kRecoveryBootModeObliteration "obliteration"
 
+/* Launches the Device Recovery Assistant app in the recoveryOS
+   Set by: iBoot, launchd, and panicmedic
+   Cleared by: InstallDVDSpringboard
+
+   Used to boot to device recovery
+ */
+#define kRecoveryBootModeDeviceRecovery "device-recovery"
+
 /* Ignition failure flow
    Set by: libignition
    Cleared by: Boot Recovery Assistant

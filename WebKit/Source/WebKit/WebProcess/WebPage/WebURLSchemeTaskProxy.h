@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,7 +55,7 @@ public:
     void stopLoading();
 
     void didPerformRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&&);
-    void didReceiveResponse(const WebCore::ResourceResponse&);
+    void didReceiveResponse(WebCore::ResourceResponse&&);
     void didReceiveData(const WebCore::SharedBuffer&);
     void didComplete(const WebCore::ResourceError&);
 
@@ -63,7 +63,7 @@ public:
 
 private:
     WebURLSchemeTaskProxy(WebURLSchemeHandlerProxy&, WebCore::ResourceLoader&, WebFrame&);
-    bool hasLoader();
+    WebCore::ResourceLoader* coreLoader();
 
     void queueTask(Function<void()>&& task) { m_queuedTasks.append(WTFMove(task)); }
     void processNextPendingTask();

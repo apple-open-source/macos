@@ -81,7 +81,7 @@ Specify permissions that should be assigned to directories. The value must be sp
 .It snapshot
 Do a read only mount using the specific snapshot of the share.  A new session is created to allow multiple snapshots of the same share to be mounted.  Value must be in GMT format e.g. @GMT-YYYY.MM.DD-HH.MM.SS
 .It nopassprompt
-Do not ask for a password.  At run time, mount_smbfs reads the ~/Library/Preferences/nsmb.conf file for additional configuration parameters and a password.  If no password is found, mount_smbfs prompts for it.
+Don't prompt for a password.
 .It forcenewsession
 Force a new session to be created to the server.
 .El

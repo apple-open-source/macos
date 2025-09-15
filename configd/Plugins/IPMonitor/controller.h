@@ -30,6 +30,18 @@
 
 @interface AgentController : NWNetworkAgentRegistration
 
+// A reduced set of SVCB Service Parameters that are
+// supported for DNR
+typedef enum
+{
+	dnr_svcb_key_alpn = 1,
+	dnr_svcb_key_port = 3,
+	dnr_svcb_key_doh_path = 7,
+} dnr_svc_params_key;
+
+typedef bool (^_dnr_access_svc_param_value_block_t)(const void *value, size_t value_size);
+typedef bool (^_dnr_access_svc_param_alpn_t)(const char *alpn);
+
 @property (readwrite) dispatch_queue_t	controllerQueue;
 
 - (void)processProxyChanges;

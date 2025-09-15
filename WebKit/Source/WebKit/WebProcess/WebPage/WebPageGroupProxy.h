@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ class WebUserContentController;
 
 class WebPageGroupProxy : public RefCounted<WebPageGroupProxy> {
 public:
-    static Ref<WebPageGroupProxy> create(const WebPageGroupData&);
+    static Ref<WebPageGroupProxy> create(WebPageGroupData&&);
     virtual ~WebPageGroupProxy();
 
     const String& identifier() const { return m_data.identifier; }
@@ -49,7 +49,7 @@ public:
     WebCore::PageGroup* corePageGroup() const;
 
 private:
-    WebPageGroupProxy(const WebPageGroupData&);
+    WebPageGroupProxy(WebPageGroupData&&);
 
     WebPageGroupData m_data;
     WeakPtr<WebCore::PageGroup> m_pageGroup;

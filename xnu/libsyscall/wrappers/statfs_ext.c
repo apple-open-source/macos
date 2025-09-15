@@ -141,14 +141,18 @@ __statfs_ext_impl(const char *path, int fd, struct statfs *buf, int flags)
 		return -1;
 	}
 
-	/* Simply wrap statfs() or fstatfs() if no option is provided */
-	if (flags == 0) {
-		return __statfs_ext_default(path, fd, buf);
-	}
-
 	/* Retrieve filesystem statistics with extended options */
 	if (flags & STATFS_EXT_NOBLOCK) {
 		ret = __statfs_ext_noblock(path, fd, buf);
+	}
+
+	/*
+	 * Fall back to statfs()/fstatfs() if:
+	 * 1. No options are provided.
+	 * 2. __statfs_ext_noblock() returns EINVAL.
+	 */
+	if ((flags == 0) || (ret == -1 && errno == EINVAL)) {
+		ret = __statfs_ext_default(path, fd, buf);
 	}
 
 	return ret;

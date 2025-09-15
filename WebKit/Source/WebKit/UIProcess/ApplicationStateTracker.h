@@ -68,6 +68,8 @@ private:
 
     void setViewController(UIViewController *);
 
+    void setIsInBackground(bool);
+
     void applicationDidEnterBackground();
     void applicationDidFinishSnapshottingAfterEnteringBackground();
     void applicationWillEnterForeground();

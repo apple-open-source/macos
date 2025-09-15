@@ -203,7 +203,8 @@ doRemoteSigning(const CodeDirectory *cd,
 
 	// Call remote block with message digest, and transfer the ownership to objc ARC object.
 	secinfo("remotesigner", "Passing out external digest: %d, %@", digestAlgorithm, signatureDigest);
-	NSData *externalSignature = (__bridge_transfer NSData *)signHandler((__bridge CFDataRef)signatureDigest, digestAlgorithm);
+	CFRef<SecKeyAlgorithm> signatureAlgorithm = [signingAlgoOID secKeyAlgorithm];
+	NSData *externalSignature = (__bridge_transfer NSData *)signHandler((__bridge CFDataRef)signatureDigest, digestAlgorithm, signatureAlgorithm);
 	if (!externalSignature) {
 		secerror("External block did not provide a signature, failing.");
 		return errSecCSRemoteSignerFailed;

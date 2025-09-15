@@ -55,7 +55,8 @@ pac_exception_handler(
 	__unused mach_port_t task,
 	__unused mach_port_t thread,
 	exception_type_t type,
-	mach_exception_data_t codes)
+	mach_exception_data_t codes,
+	__unused uint64_t exception_pc)
 {
 	T_ASSERT_EQ(type, EXC_BAD_ACCESS, "Caught an EXC_BAD_ACCESS exception");
 	T_ASSERT_EQ(codes[0], (uint64_t)EXC_ARM_PAC_FAIL, "The subcode is EXC_ARM_PAC_FAIL");

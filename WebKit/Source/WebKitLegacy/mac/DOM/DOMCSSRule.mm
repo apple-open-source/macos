@@ -62,7 +62,7 @@
 - (NSString *)cssText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->cssText();
+    return IMPL->cssText().createNSString().autorelease();
 }
 
 - (void)setCssText:(NSString *)newCssText

@@ -49,39 +49,39 @@ RefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
         if (filenames[0].isEmpty() || filenames[0][0U] != '/')
             return nullptr;
 
-        NSImage *image = [[NSWorkspace sharedWorkspace] iconForFile:filenames[0]];
+        RetainPtr image = [[NSWorkspace sharedWorkspace] iconForFile:filenames[0].createNSString().get()];
         if (!image)
             return nullptr;
 
-        return adoptRef(new Icon(image));
+        return adoptRef(new Icon(image.get()));
     }
-    NSImage *image = [NSImage imageNamed:NSImageNameMultipleDocuments];
+    RetainPtr image = [NSImage imageNamed:NSImageNameMultipleDocuments];
     if (!image)
         return nullptr;
 
-    return adoptRef(new Icon(image));
+    return adoptRef(new Icon(image.get()));
 }
 
 RefPtr<Icon> Icon::createIconForFileExtension(const String& fileExtension)
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSImage *image = [[NSWorkspace sharedWorkspace] iconForFileType:[@"." stringByAppendingString:fileExtension]];
+    RetainPtr image = [[NSWorkspace sharedWorkspace] iconForFileType:[@"." stringByAppendingString:fileExtension.createNSString().get()]];
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (!image)
         return nullptr;
 
-    return adoptRef(new Icon(image));
+    return adoptRef(new Icon(image.get()));
 }
 
-RefPtr<Icon> Icon::createIconForUTI(const String& UTI)
+RefPtr<Icon> Icon::createIconForUTI(const String& uti)
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSImage *image = [[NSWorkspace sharedWorkspace] iconForFileType:UTI];
+    RetainPtr image = [[NSWorkspace sharedWorkspace] iconForFileType:uti.createNSString().get()];
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (!image)
         return nullptr;
 
-    return adoptRef(new Icon(image));
+    return adoptRef(new Icon(image.get()));
 }
 
 }

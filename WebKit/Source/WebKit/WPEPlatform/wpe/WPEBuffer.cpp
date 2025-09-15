@@ -27,6 +27,7 @@
 #include "WPEBuffer.h"
 
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GWeakPtr.h>
 #include <wtf/glib/WTFGType.h>
 
 /**
@@ -34,7 +35,7 @@
  *
  */
 struct _WPEBufferPrivate {
-    GRefPtr<WPEView> view;
+    GWeakPtr<WPEDisplay> display;
     int width;
     int height;
 
@@ -58,7 +59,7 @@ G_DEFINE_QUARK(wpe-buffer-error-quark, wpe_buffer_error)
 enum {
     PROP_0,
 
-    PROP_VIEW,
+    PROP_DISPLAY,
     PROP_WIDTH,
     PROP_HEIGHT,
 
@@ -72,8 +73,8 @@ static void wpeBufferSetProperty(GObject* object, guint propId, const GValue* va
     auto* buffer = WPE_BUFFER(object);
 
     switch (propId) {
-    case PROP_VIEW:
-        buffer->priv->view = WPE_VIEW(g_value_get_object(value));
+    case PROP_DISPLAY:
+        buffer->priv->display.reset(WPE_DISPLAY(g_value_get_object(value)));
         break;
     case PROP_WIDTH:
         buffer->priv->width = g_value_get_int(value);
@@ -91,8 +92,8 @@ static void wpeBufferGetProperty(GObject* object, guint propId, GValue* value, G
     auto* buffer = WPE_BUFFER(object);
 
     switch (propId) {
-    case PROP_VIEW:
-        g_value_set_object(value, wpe_buffer_get_view(buffer));
+    case PROP_DISPLAY:
+        g_value_set_object(value, wpe_buffer_get_display(buffer));
         break;
     case PROP_WIDTH:
         g_value_set_int(value, wpe_buffer_get_width(buffer));
@@ -120,15 +121,15 @@ static void wpe_buffer_class_init(WPEBufferClass* bufferClass)
     objectClass->dispose = wpeBufferDispose;
 
     /**
-     * WPEBuffer:view:
+     * WPEBuffer:display:
      *
-     * The #WPEView of the buffer.
+     * The #WPEDisplay of the buffer.
      */
-    sObjProperties[PROP_VIEW] =
+    sObjProperties[PROP_DISPLAY] =
         g_param_spec_object(
-            "view",
+            "display",
             nullptr, nullptr,
-            WPE_TYPE_VIEW,
+            WPE_TYPE_DISPLAY,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
     /**
@@ -159,18 +160,18 @@ static void wpe_buffer_class_init(WPEBufferClass* bufferClass)
 }
 
 /**
- * wpe_buffer_get_view:
+ * wpe_buffer_get_display:
  * @buffer: a #WPEBuffer
  *
- * Get the #WPEView of @buffer
+ * Get the #WPEDisplay of @buffer
  *
- * Returns: (transfer none): a #WPEView
+ * Returns: (transfer none) (nullable): a #WPEDisplay or %NULL
  */
-WPEView* wpe_buffer_get_view(WPEBuffer* buffer)
+WPEDisplay* wpe_buffer_get_display(WPEBuffer* buffer)
 {
     g_return_val_if_fail(WPE_IS_BUFFER(buffer), nullptr);
 
-    return buffer->priv->view.get();
+    return buffer->priv->display.get();
 }
 
 /**
@@ -268,7 +269,9 @@ gpointer wpe_buffer_import_to_egl_image(WPEBuffer* buffer, GError** error)
  * @buffer: a #WPEBuffer
  * @error: return location for error or %NULL to ignore
  *
- * Import @buffer into a pixels buffer.
+ * Import @buffer into a pixels buffer. The returned data is owned by the @buffer and it's
+ * not a copy, so if you are not going to use it immediately or need to modify the data, you
+ * should make a copy.
  *
  * Returns: (transfer none): a #GBytes with the pixels data, or %NULL in case of error
  */

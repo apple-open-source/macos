@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2012 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -92,7 +92,7 @@ void TrackListBase::remove(TrackBase& track, bool scheduleEvent)
 
     Ref<TrackBase> trackRef = *m_inbandTracks[index];
 
-    m_inbandTracks.remove(index);
+    m_inbandTracks.removeAt(index);
 
     if (scheduleEvent)
         scheduleRemoveTrackEvent(WTFMove(trackRef));
@@ -174,9 +174,9 @@ void TrackListBase::scheduleChangeEvent()
     // selected, the user agent must queue a task to fire a simple event named
     // change at the VideoTrackList object.
     m_isChangeEventScheduled = true;
-    queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
-        m_isChangeEventScheduled = false;
-        dispatchEvent(Event::create(eventNames().changeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [](auto& trackList) {
+        trackList.m_isChangeEventScheduled = false;
+        trackList.dispatchEvent(Event::create(eventNames().changeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     });
 }
 

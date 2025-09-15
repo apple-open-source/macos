@@ -21,32 +21,23 @@ WindowSurfaceWgpuWin32::WindowSurfaceWgpuWin32(const egl::SurfaceState &surfaceS
 {}
 
 angle::Result WindowSurfaceWgpuWin32::createWgpuSurface(const egl::Display *display,
-                                                        wgpu::Surface *outSurface)
+                                                        webgpu::SurfaceHandle *outSurface)
 {
     DisplayWgpu *displayWgpu = webgpu::GetImpl(display);
-    auto &surfaceCache       = displayWgpu->getSurfaceCache();
+    const DawnProcTable *wgpu       = displayWgpu->getProcs();
+    webgpu::InstanceHandle instance = displayWgpu->getInstance();
 
-    EGLNativeWindowType window = getNativeWindow();
-    auto cachedSurfaceIter     = surfaceCache.find(window);
-    if (cachedSurfaceIter != surfaceCache.end())
-    {
-        *outSurface = cachedSurfaceIter->second;
-        return angle::Result::Continue;
-    }
+    WGPUSurfaceSourceWindowsHWND hwndDesc = WGPU_SURFACE_SOURCE_WINDOWS_HWND_INIT;
+    hwndDesc.hinstance                    = GetModuleHandle(nullptr);
+    hwndDesc.hwnd                         = getNativeWindow();
 
-    wgpu::Instance instance = displayWgpu->getInstance();
+    WGPUSurfaceDescriptor surfaceDesc = WGPU_SURFACE_DESCRIPTOR_INIT;
+    surfaceDesc.nextInChain           = &hwndDesc.chain;
 
-    wgpu::SurfaceDescriptorFromWindowsHWND hwndDesc;
-    hwndDesc.hinstance = GetModuleHandle(nullptr);
-    hwndDesc.hwnd      = window;
-
-    wgpu::SurfaceDescriptor surfaceDesc;
-    surfaceDesc.nextInChain = &hwndDesc;
-
-    wgpu::Surface surface = instance.CreateSurface(&surfaceDesc);
+    webgpu::SurfaceHandle surface = webgpu::SurfaceHandle::Acquire(
+        wgpu, wgpu->instanceCreateSurface(instance.get(), &surfaceDesc));
     *outSurface           = surface;
 
-    surfaceCache.insert_or_assign(window, surface);
     return angle::Result::Continue;
 }
 

@@ -273,6 +273,39 @@
     return _oldPeerID != nil;
 }
 @synthesize oldPeerID = _oldPeerID;
+@synthesize lastEscrowRepairTriggered = _lastEscrowRepairTriggered;
+- (void)setLastEscrowRepairTriggered:(uint64_t)v
+{
+    _has.lastEscrowRepairTriggered = (uint)YES;
+    _lastEscrowRepairTriggered = v;
+}
+- (void)setHasLastEscrowRepairTriggered:(BOOL)f
+{
+    _has.lastEscrowRepairTriggered = (uint)f;
+}
+- (BOOL)hasLastEscrowRepairTriggered
+{
+    return _has.lastEscrowRepairTriggered != 0;
+}
+@synthesize lastEscrowRepairAttempted = _lastEscrowRepairAttempted;
+- (void)setLastEscrowRepairAttempted:(uint64_t)v
+{
+    _has.lastEscrowRepairAttempted = (uint)YES;
+    _lastEscrowRepairAttempted = v;
+}
+- (void)setHasLastEscrowRepairAttempted:(BOOL)f
+{
+    _has.lastEscrowRepairAttempted = (uint)f;
+}
+- (BOOL)hasLastEscrowRepairAttempted
+{
+    return _has.lastEscrowRepairAttempted != 0;
+}
+- (BOOL)hasMachineID
+{
+    return _machineID != nil;
+}
+@synthesize machineID = _machineID;
 
 - (NSString *)description
 {
@@ -353,6 +386,18 @@
     if (self->_oldPeerID)
     {
         [dict setObject:self->_oldPeerID forKey:@"oldPeerID"];
+    }
+    if (self->_has.lastEscrowRepairTriggered)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedLongLong:self->_lastEscrowRepairTriggered] forKey:@"lastEscrowRepairTriggered"];
+    }
+    if (self->_has.lastEscrowRepairAttempted)
+    {
+        [dict setObject:[NSNumber numberWithUnsignedLongLong:self->_lastEscrowRepairAttempted] forKey:@"lastEscrowRepairAttempted"];
+    }
+    if (self->_machineID)
+    {
+        [dict setObject:self->_machineID forKey:@"machineID"];
     }
     return dict;
 }
@@ -482,6 +527,24 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 NSString *new_oldPeerID = PBReaderReadString(reader);
                 self->_oldPeerID = new_oldPeerID;
+            }
+            break;
+            case 24 /* lastEscrowRepairTriggered */:
+            {
+                self->_has.lastEscrowRepairTriggered = (uint)YES;
+                self->_lastEscrowRepairTriggered = PBReaderReadUint64(reader);
+            }
+            break;
+            case 25 /* lastEscrowRepairAttempted */:
+            {
+                self->_has.lastEscrowRepairAttempted = (uint)YES;
+                self->_lastEscrowRepairAttempted = PBReaderReadUint64(reader);
+            }
+            break;
+            case 26 /* machineID */:
+            {
+                NSString *new_machineID = PBReaderReadString(reader);
+                self->_machineID = new_machineID;
             }
             break;
             default:
@@ -625,6 +688,27 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteStringField(writer, self->_oldPeerID, 23);
         }
     }
+    /* lastEscrowRepairTriggered */
+    {
+        if (self->_has.lastEscrowRepairTriggered)
+        {
+            PBDataWriterWriteUint64Field(writer, self->_lastEscrowRepairTriggered, 24);
+        }
+    }
+    /* lastEscrowRepairAttempted */
+    {
+        if (self->_has.lastEscrowRepairAttempted)
+        {
+            PBDataWriterWriteUint64Field(writer, self->_lastEscrowRepairAttempted, 25);
+        }
+    }
+    /* machineID */
+    {
+        if (self->_machineID)
+        {
+            PBDataWriterWriteStringField(writer, self->_machineID, 26);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -716,6 +800,20 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         other.oldPeerID = _oldPeerID;
     }
+    if (self->_has.lastEscrowRepairTriggered)
+    {
+        other->_lastEscrowRepairTriggered = _lastEscrowRepairTriggered;
+        other->_has.lastEscrowRepairTriggered = YES;
+    }
+    if (self->_has.lastEscrowRepairAttempted)
+    {
+        other->_lastEscrowRepairAttempted = _lastEscrowRepairAttempted;
+        other->_has.lastEscrowRepairAttempted = YES;
+    }
+    if (_machineID)
+    {
+        other.machineID = _machineID;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -783,6 +881,17 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_has.sendingMetricsPermitted = YES;
     }
     copy->_oldPeerID = [_oldPeerID copyWithZone:zone];
+    if (self->_has.lastEscrowRepairTriggered)
+    {
+        copy->_lastEscrowRepairTriggered = _lastEscrowRepairTriggered;
+        copy->_has.lastEscrowRepairTriggered = YES;
+    }
+    if (self->_has.lastEscrowRepairAttempted)
+    {
+        copy->_lastEscrowRepairAttempted = _lastEscrowRepairAttempted;
+        copy->_has.lastEscrowRepairAttempted = YES;
+    }
+    copy->_machineID = [_machineID copyWithZone:zone];
     return copy;
 }
 
@@ -826,6 +935,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.sendingMetricsPermitted && other->_has.sendingMetricsPermitted && self->_sendingMetricsPermitted == other->_sendingMetricsPermitted) || (!self->_has.sendingMetricsPermitted && !other->_has.sendingMetricsPermitted))
     &&
     ((!self->_oldPeerID && !other->_oldPeerID) || [self->_oldPeerID isEqual:other->_oldPeerID])
+    &&
+    ((self->_has.lastEscrowRepairTriggered && other->_has.lastEscrowRepairTriggered && self->_lastEscrowRepairTriggered == other->_lastEscrowRepairTriggered) || (!self->_has.lastEscrowRepairTriggered && !other->_has.lastEscrowRepairTriggered))
+    &&
+    ((self->_has.lastEscrowRepairAttempted && other->_has.lastEscrowRepairAttempted && self->_lastEscrowRepairAttempted == other->_lastEscrowRepairAttempted) || (!self->_has.lastEscrowRepairAttempted && !other->_has.lastEscrowRepairAttempted))
+    &&
+    ((!self->_machineID && !other->_machineID) || [self->_machineID isEqual:other->_machineID])
     ;
 }
 
@@ -868,6 +983,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.sendingMetricsPermitted ? PBHashInt((NSUInteger)self->_sendingMetricsPermitted) : 0)
     ^
     [self->_oldPeerID hash]
+    ^
+    (self->_has.lastEscrowRepairTriggered ? PBHashInt((NSUInteger)self->_lastEscrowRepairTriggered) : 0)
+    ^
+    (self->_has.lastEscrowRepairAttempted ? PBHashInt((NSUInteger)self->_lastEscrowRepairAttempted) : 0)
+    ^
+    [self->_machineID hash]
     ;
 }
 
@@ -954,6 +1075,20 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     if (other->_oldPeerID)
     {
         [self setOldPeerID:other->_oldPeerID];
+    }
+    if (other->_has.lastEscrowRepairTriggered)
+    {
+        self->_lastEscrowRepairTriggered = other->_lastEscrowRepairTriggered;
+        self->_has.lastEscrowRepairTriggered = YES;
+    }
+    if (other->_has.lastEscrowRepairAttempted)
+    {
+        self->_lastEscrowRepairAttempted = other->_lastEscrowRepairAttempted;
+        self->_has.lastEscrowRepairAttempted = YES;
+    }
+    if (other->_machineID)
+    {
+        [self setMachineID:other->_machineID];
     }
 }
 

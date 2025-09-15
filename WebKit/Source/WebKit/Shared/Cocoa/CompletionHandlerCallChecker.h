@@ -42,7 +42,7 @@ public:
 private:
     CompletionHandlerCallChecker(Class delegateClass, SEL delegateMethodSelector);
 
-    Class classImplementingDelegateMethod() const;
+    RetainPtr<Class> classImplementingDelegateMethod() const;
 
     Class m_delegateClass;
     SEL m_delegateMethodSelector;

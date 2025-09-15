@@ -49,6 +49,7 @@
 #define OS_CHANNEL_HAS_NUM_BUFFERS_ATTR 1 /* CHANNEL_ATTR_NUM_BUFFERS */
 #define OS_CHANNEL_HAS_LARGE_PACKET 1     /* CHANNEL_ATTR_LARGE_BUF_SIZE and */
                                           /* os_channel_large_packet_alloc() */
+#define OS_CHANNEL_HAS_BUFFER_STATS 1     /* os_channel_get_buffer_stats() */
 
 /* Flow advisory table index */
 typedef uint32_t flowadv_idx_t;
@@ -59,8 +60,8 @@ typedef uint32_t flowadv_idx_t;
  */
 typedef enum {
 	CHANNEL_DIR_TX_RX,      /* default: TX and RX ring(s) */
-	CHANNEL_DIR_TX,         /* (monitor) only TX ring(s) */
-	CHANNEL_DIR_RX          /* (monitor) only RX ring(s) */
+	CHANNEL_DIR_TX,         /* only TX ring(s) */
+	CHANNEL_DIR_RX          /* only RX ring(s) */
 } ring_dir_t;
 
 /*
@@ -109,15 +110,6 @@ typedef struct __slot_desc              *channel_slot_t;
 typedef struct channel_attr             *channel_attr_t;
 
 /*
- * Channel monitor types.
- */
-typedef enum {
-	CHANNEL_MONITOR_OFF,            /* default */
-	CHANNEL_MONITOR_NO_COPY,        /* zero-copy (delayed) mode */
-	CHANNEL_MONITOR_COPY            /* copy (immediate) mode */
-} channel_monitor_type_t;
-
-/*
  * Channel threshold unit types.
  */
 typedef enum {
@@ -141,7 +133,7 @@ typedef enum {
 	CHANNEL_ATTR_SLOT_META_SIZE,    /* (g) metadata per slot (bytes) */
 	CHANNEL_ATTR_EXCLUSIVE,         /* (g/s) bool: exclusive open */
 	CHANNEL_ATTR_NO_AUTO_SYNC,      /* (g/s) bool: will do explicit sync */
-	CHANNEL_ATTR_MONITOR,           /* (g/s) see channel_monitor_type_t */
+	CHANNEL_ATTR_UNUSED_1,          /* unused */
 	CHANNEL_ATTR_TX_LOWAT_UNIT,     /* (g/s) see channel_threshold_unit_t */
 	CHANNEL_ATTR_TX_LOWAT_VALUE,    /* (g/s) transmit low-watermark */
 	CHANNEL_ATTR_RX_LOWAT_UNIT,     /* (g/s) see channel_threshold_unit_t */
@@ -450,6 +442,11 @@ extern int os_channel_flow_admissible(const channel_ring_t ring,
 extern int os_channel_flow_adv_get_ce_count(const channel_ring_t chrd,
     uuid_t flow_id, const flowadv_idx_t flow_index, uint32_t *ce_cnt,
     uint32_t *pkt_cnt);
+
+#define AQM_CONGESTION_FEEDBACK 1
+extern int os_channel_flow_adv_get_feedback(const channel_ring_t chrd,
+    uuid_t flow_id, const flowadv_idx_t flow_index, uint32_t *congestion_cnt,
+    uint32_t *ce_cnt, uint32_t *pkt_cnt);
 /*
  * Allocate a packet from the channel's packet pool.
  * Returns 0 on success with the packet handle in packet arg.
@@ -543,6 +540,10 @@ os_channel_buflet_alloc(const channel_t chd, buflet_t *bft);
 
 extern int
 os_channel_buflet_free(const channel_t chd, buflet_t ubft);
+
+extern int
+os_channel_get_upp_buffer_stats(const channel_t chd, uint64_t *buffer_total,
+    uint64_t *buffer_inuse);
 __END_DECLS
 #endif  /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #else /* KERNEL */
@@ -679,8 +680,8 @@ __private_extern__ errno_t kern_channel_slot_detach_packet_byidx(
 	const kern_channel_ring_t kring, const uint32_t sidx, kern_packet_t ph);
 __private_extern__ void kern_channel_flowadv_clear(struct flowadv_fcentry *);
 __private_extern__ void kern_channel_flowadv_set(struct flowadv_fcentry *);
-__private_extern__ void kern_channel_flowadv_report_ce_event(
-	struct flowadv_fcentry *, uint32_t, uint32_t);
+__private_extern__ void kern_channel_flowadv_report_congestion_event(
+	struct flowadv_fcentry *, uint32_t, uint32_t, uint32_t);
 __private_extern__ void kern_channel_memstatus(struct proc *, uint32_t,
     struct kern_channel *);
 __private_extern__ void kern_channel_defunct(struct proc *,

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2023 Google Inc. All rights reserved.
- * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -132,7 +132,7 @@ float ScrollableArea::adjustVerticalPageScrollStepForFixedContent(float step)
 
 bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granularity, unsigned stepCount)
 {
-    auto* scrollbar = scrollbarForDirection(direction);
+    RefPtr scrollbar = scrollbarForDirection(direction);
     if (!scrollbar)
         return false;
 
@@ -266,6 +266,7 @@ void ScrollableArea::scrollPositionChanged(const ScrollPosition& position)
         scrollbarsController().notifyContentAreaScrolled(scrollPosition() - oldPosition);
         invalidateScrollAnchoringElement();
         updateScrollAnchoringElement();
+        updateAnchorPositionedAfterScroll();
     }
 }
 
@@ -397,12 +398,12 @@ void ScrollableArea::didAddScrollbar(Scrollbar* scrollbar, ScrollbarOrientation 
     setScrollbarOverlayStyle(scrollbarOverlayStyle());
 }
 
-void ScrollableArea::willRemoveScrollbar(Scrollbar* scrollbar, ScrollbarOrientation orientation)
+void ScrollableArea::willRemoveScrollbar(Scrollbar& scrollbar, ScrollbarOrientation orientation)
 {
     if (orientation == ScrollbarOrientation::Vertical)
-        scrollbarsController().willRemoveVerticalScrollbar(scrollbar);
+        scrollbarsController().willRemoveVerticalScrollbar(&scrollbar);
     else
-        scrollbarsController().willRemoveHorizontalScrollbar(scrollbar);
+        scrollbarsController().willRemoveHorizontalScrollbar(&scrollbar);
 }
 
 void ScrollableArea::contentsResized()
@@ -459,7 +460,7 @@ void ScrollableArea::invalidateScrollbars()
 bool ScrollableArea::useDarkAppearanceForScrollbars() const
 {
     // If dark appearance is used or the overlay style is light (because of a dark page background), set the dark appearance.
-    return useDarkAppearance() || scrollbarOverlayStyle() == WebCore::ScrollbarOverlayStyleLight;
+    return useDarkAppearance() || scrollbarOverlayStyle() == WebCore::ScrollbarOverlayStyle::Light;
 }
 
 void ScrollableArea::invalidateScrollbar(Scrollbar& scrollbar, const IntRect& rect)

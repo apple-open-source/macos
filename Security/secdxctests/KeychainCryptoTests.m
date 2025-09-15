@@ -349,7 +349,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 - (void)trashMetadataClassAKey
 {
     __block CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         CFStringRef sql = CFSTR("UPDATE metadatakeys SET data = ? WHERE keyclass = '6'");
         NSData* garbage = [@"super bad key" dataUsingEncoding:NSUTF8StringEncoding];
         SecDbPrepare(dbt, sql, &cferror, ^(sqlite3_stmt *stmt) {
@@ -370,7 +370,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 {
     CFErrorRef cferror = NULL;
 
-    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         CFErrorRef errref = NULL;
         SecDbExec(dbt, CFSTR("DELETE FROM metadatakeys WHERE keyclass = '6'"), &errref);
         XCTAssertEqual(errref, NULL, "Should be no error deleting class A metadatakey");
@@ -386,7 +386,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 {
     CFErrorRef cferror = NULL;
     __block NSData* wrappedKey;
-    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         __block CFErrorRef errref = NULL;
 
         NSString* sql = [NSString stringWithFormat:@"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = %d", keyclass];
@@ -416,7 +416,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)testKeychainCorruptionCopyMatching
 {
-    SecKeychainDelayAsyncBlocks(true);
+    SecServerKeychainDelayAsyncBlocks(true);
 
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
@@ -451,14 +451,14 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:[@"super bad key" dataUsingEncoding:NSUTF8StringEncoding]];
 
     /* CopyMatching will delete corrupt items pre-emptively, but asynchronously, so we must wait */
-    SecKeychainDbWaitForAsyncBlocks();
+    SecServerKeychainDbWaitForAsyncBlocks();
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
 }
 
 - (void)testKeychainDeletionCopyMatching
 {
-    SecKeychainDelayAsyncBlocks(true);
+    SecServerKeychainDelayAsyncBlocks(true);
 
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
@@ -493,7 +493,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false value:nil];
 
     /* CopyMatching will delete corrupt items pre-emptively, but asynchronously, so we must wait */
-    SecKeychainDbWaitForAsyncBlocks();
+    SecServerKeychainDbWaitForAsyncBlocks();
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
     XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
 }
@@ -959,7 +959,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     // now let's jury-rig this metadata key to look like an old one with no actualKeyclass information
     __block CFErrorRef error = NULL;
     __block bool ok = true;
-    ok &= kc_with_dbt(true, &error, ^bool(SecDbConnectionRef dbt) {
+    ok &= kc_with_dbt(true, NULL , &error, ^bool(SecDbConnectionRef dbt) {
         NSString* sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = %d WHERE keyclass = %d", 0, key_class_ak];
         ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
             ok &= SecDbStep(dbt, stmt, &error, NULL);

@@ -49,10 +49,9 @@ NS_ASSUME_NONNULL_BEGIN
                                       altDSID:(NSString * _Nullable)altDSID
                                     eventName:(NSString *)eventName
                                      category:(NSNumber *)category;
-- (id)getEvent;
 - (void)addMetrics:(NSDictionary*)metrics;
 - (void)populateUnderlyingErrorsStartingWithRootError:(NSError* _Nullable)error;
-- (BOOL)permittedToSendMetrics;
+- (void)sendMetricWithResult:(BOOL)success error:(NSError* _Nullable)error;
 
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
 + (NSString* _Nullable)fetchDeviceSessionIDFromAuthKit:(NSString*)altDSID;

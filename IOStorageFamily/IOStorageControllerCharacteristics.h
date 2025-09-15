@@ -1343,5 +1343,102 @@ Example:
 */
 #define kIOPropertyAESXEXKey	"AES-XEX"
 
+/*!
+@defined kIOPropertyHashTypeKey
+@discussion This key is associated with the HW Hash
+used for this storage controller. Valid values currently include
+"SHA3-256", "SHA3-384" and "SHA3-512".
+
+Requirement: Optional for all storage controllers.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Hash Type</key>
+		<array>
+		    <string>SHA3-256</string>
+			<string>SHA3-384</string>
+			<string>SHA3-512</string>
+		</array>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyHashTypeKey	"Hash Type"
+
+/*!
+@defined kIOPropertySHA3256Key
+@discussion This key defines the value of SHA3-256 for the key
+kIOPropertyHashTypeKey. If the HW Hash used is
+SHA3-256, this key should be used.
+
+Requirement: Optional for all storage controllers.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Hash Type</key>
+		<string>SHA3-256</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySHA3256Key	"SHA3-256"
+
+/*!
+@defined kIOPropertySHA3384Key
+@discussion This key defines the value of SHA3-384 for the key
+kIOPropertyHashTypeKey. If the HW Hash used is
+SHA3-384, this key should be used.
+
+Requirement: Optional for all storage controllers.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Hash Type</key>
+		<string>SHA3-384</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySHA3384Key	"SHA3-384"
+
+/*!
+@defined kIOPropertySHA3512Key
+@discussion This key defines the value of SHA3-512 for the key
+kIOPropertyHashTypeKey. If the HW Hash used is
+SHA3-512, this key should be used.
+
+Requirement: Optional for all storage controllers.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Hash Type</key>
+		<string>SHA3-512</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySHA3512Key	"SHA3-512"
+
+
 
 #endif	/* _IOKIT_IO_STORAGE_CONTROLLER_CHARACTERISTICS_H_ */

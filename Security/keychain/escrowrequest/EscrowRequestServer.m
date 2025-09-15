@@ -1,3 +1,4 @@
+#import <os/feature_private.h>
 
 #import "utilities/debugging.h"
 
@@ -131,6 +132,11 @@ NSString* ESRPendingSince = @"ERSPending";
    serializedPrerecord:(nonnull NSData *)prerecord
                  reply:(nonnull void (^)(NSError * _Nullable))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(nil);
+        return;
+    }
+
     NSError* error = nil;
     SecEscrowPendingRecord* record = [SecEscrowPendingRecord loadFromKeychain:uuid error:&error];
 
@@ -160,6 +166,11 @@ NSString* ESRPendingSince = @"ERSPending";
 - (void)fetchPrerecord:(nonnull NSString *)prerecordUUID
                  reply:(nonnull void (^)(NSData * _Nullable, NSError * _Nullable))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(nil, nil);
+        return;
+    }
+
     NSError* error = nil;
     SecEscrowPendingRecord* record = [SecEscrowPendingRecord loadFromKeychain:prerecordUUID error:&error];
 
@@ -188,6 +199,11 @@ NSString* ESRPendingSince = @"ERSPending";
 
 - (void)fetchRequestWaitingOnPasscode:(nonnull void (^)(NSString * _Nullable, NSError * _Nullable))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(nil, nil);
+        return;
+    }
+
     NSError* error = nil;
 
     NSArray<SecEscrowPendingRecord*>* records = [SecEscrowPendingRecord loadAllFromKeychain:&error];
@@ -229,6 +245,11 @@ NSString* ESRPendingSince = @"ERSPending";
                     options:(NSDictionary *)options
                       reply:(nonnull void (^)(NSError * _Nullable))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(nil);
+        return;
+    }
+
     secnotice("escrowrequest", "Triggering an escrow update request due to '%@'", reason);
 
     [self.controller triggerEscrowUpdateRPC:reason
@@ -238,6 +259,11 @@ NSString* ESRPendingSince = @"ERSPending";
 
 - (void)fetchRequestStatuses:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable requestUUID, NSError* _Nullable error))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(@{}, nil);
+        return;
+    }
+
     NSError* error = nil;
     NSArray<SecEscrowPendingRecord*>* records = [SecEscrowPendingRecord loadAllFromKeychain:&error];
 
@@ -274,6 +300,11 @@ NSString* ESRPendingSince = @"ERSPending";
 
 - (void)resetAllRequests:(void (^)(NSError* _Nullable error))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(nil);
+        return;
+    }
+
     secnotice("escrowrequest", "deleting all requests");
 
     NSError* error = nil;
@@ -305,6 +336,11 @@ NSString* ESRPendingSince = @"ERSPending";
 
 - (void)storePrerecordsInEscrow:(void (^)(uint64_t count, NSError* _Nullable error))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(0, nil);
+        return;
+    }
+
     secnotice("escrowrequest", "attempting to store a prerecord in escrow");
 
     [self.controller storePrerecordsInEscrowRPC:reply];
@@ -313,6 +349,11 @@ NSString* ESRPendingSince = @"ERSPending";
 - (void)escrowCompletedWithinLastSeconds:(NSTimeInterval)timeInterval
                                    reply:(void (^)(BOOL escrowCompletedWithin, NSError* _Nullable error))reply
 {
+    if (os_feature_enabled(Security, DisablePrerecord)) {
+        reply(NO, nil);
+        return;
+    }
+
     NSError* error = nil;
     NSArray<SecEscrowPendingRecord*>* records = [SecEscrowPendingRecord loadAllFromKeychain:&error];
 

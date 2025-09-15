@@ -29,11 +29,11 @@
     EnabledBy=UseGPUProcessForMediaEnabled
 ]
 messages -> RemoteMediaPlayerProxy {
-    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerPreload preload, bool preservesPitch, enum:uint8_t WebCore::MediaPlayerPitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, enum:uint8_t WebCore::DynamicRangeMode mode)
+    PrepareForPlayback(bool privateMode, enum:uint8_t WebCore::MediaPlayerPreload preload, bool preservesPitch, enum:uint8_t WebCore::MediaPlayerPitchCorrectionAlgorithm pitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, enum:uint8_t WebCore::DynamicRangeMode mode, WebCore::PlatformDynamicRangeLimit platformDynamicRangeLimit)
 
-    Load(URL url, std::optional<WebKit::SandboxExtensionHandle> sandboxExtension, WebCore::ContentType contentType, String keySystem, bool requiresRemotePlayback) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
+    Load(URL url, std::optional<WebKit::SandboxExtensionHandle> sandboxExtension, struct WebCore::MediaPlayerLoadOptions options) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
 #if ENABLE(MEDIA_SOURCE)
-    [EnabledBy=MediaSourceEnabled || ManagedMediaSourceEnabled] LoadMediaSource(URL url, WebCore::ContentType contentType, WebKit::RemoteMediaSourceIdentifier mediaSourceIdentifier) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
+    [EnabledBy=MediaSourceEnabled || ManagedMediaSourceEnabled] LoadMediaSource(URL url, struct WebCore::MediaPlayerLoadOptions options, WebKit::RemoteMediaSourceIdentifier mediaSourceIdentifier) -> (struct WebKit::RemoteMediaPlayerConfiguration playerConfiguration)
 #endif
     CancelLoad()
 
@@ -42,6 +42,7 @@ messages -> RemoteMediaPlayerProxy {
     Play()
     Pause()
 
+    SetVolumeLocked(bool volumeLocked)
     SetVolume(double volume)
     SetMuted(bool muted)
 
@@ -71,7 +72,7 @@ messages -> RemoteMediaPlayerProxy {
     SetPresentationSize(WebCore::IntSize size)
 
 #if PLATFORM(COCOA)
-    SetVideoLayerSizeFenced(WebCore::FloatSize size, MachSendRight machSendRight)
+    SetVideoLayerSizeFenced(WebCore::FloatSize size, struct MachSendRightAnnotated sendRightAnnotated)
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -116,10 +117,12 @@ messages -> RemoteMediaPlayerProxy {
     SetVideoPlaybackMetricsUpdateInterval(double interval)
 
     SetPreferredDynamicRangeMode(enum:uint8_t WebCore::DynamicRangeMode mode)
+    SetPlatformDynamicRangeLimit(WebCore::PlatformDynamicRangeLimit platformDynamicRangeLimit)
 
 #if PLATFORM(IOS_FAMILY)
     ErrorLog() -> (String errorLog) Synchronous
     AccessLog() -> (String accessLog) Synchronous
+    SetSceneIdentifier(String sceneIdentifier)
 #endif
 
 #if ENABLE(WEB_AUDIO)
@@ -131,7 +134,7 @@ messages -> RemoteMediaPlayerProxy {
     NativeImageForCurrentTime() -> (std::optional<MachSendRight> sendRight, WebCore::DestinationColorSpace colorSpace) Synchronous
     ColorSpace() -> (WebCore::DestinationColorSpace colorSpace) Synchronous
 #endif
-    VideoFrameForCurrentTimeIfChanged() -> (std::optional<WebKit::RemoteVideoFrameProxyProperties> videoFrame, bool changed) Synchronous
+    VideoFrameForCurrentTimeIfChanged() -> (struct std::optional<WebKit::RemoteVideoFrameProxyProperties> videoFrame, bool changed) Synchronous
 
     PlayAtHostTime(MonotonicTime time)
     PauseAtHostTime(MonotonicTime time)
@@ -143,7 +146,7 @@ messages -> RemoteMediaPlayerProxy {
 
     SetShouldDisableHDR(bool shouldDisable)
 
-    RequestHostingContextID() -> (uint32_t contextID)
+    RequestHostingContext() -> (struct WebCore::HostingContext layerHostingContext)
 
     SetShouldCheckHardwareSupport(bool value)
 
@@ -152,8 +155,15 @@ messages -> RemoteMediaPlayerProxy {
     SetSpatialTrackingLabel(String spatialTrackingLabel);
 #endif
 
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    SetPrefersSpatialAudioExperience(bool value)
+#endif
+
     AudioOutputDeviceChanged(String deviceId)
     IsInFullscreenOrPictureInPictureChanged(bool value)
+    SetSoundStageSize(enum:uint8_t WebCore::MediaPlayerSoundStageSize value)
+
+    SetHasMessageClientForTesting(bool value)
 }
 
 #endif

@@ -22,6 +22,7 @@
 #include "JSTestStringifierReadWriteAttribute.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -163,7 +164,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestStringifierReadWriteAttributeConstructor, (JSGlob
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierReadWriteAttributePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestStringifierReadWriteAttribute::getConstructor(vm, prototype->globalObject()));
 }
@@ -188,7 +189,7 @@ static inline bool setJSTestStringifierReadWriteAttribute_identifierSetter(JSGlo
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLDOMString>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setIdentifier(nativeValueConversionResult.releaseReturnValue());
@@ -218,7 +219,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierReadWriteAttributePrototypeFunction_to
 
 JSC::GCClient::IsoSubspace* JSTestStringifierReadWriteAttribute::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestStringifierReadWriteAttribute, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestStringifierReadWriteAttribute, UseCustomHeapCellType::No>(vm, "JSTestStringifierReadWriteAttribute"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierReadWriteAttribute.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierReadWriteAttribute = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestStringifierReadWriteAttribute.get(); },
@@ -258,7 +259,9 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierReadWriteAttri
 #else
 extern "C" { extern void* _ZTVN7WebCore33TestStringifierReadWriteAttributeE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestStringifierReadWriteAttribute>, void>> static inline void verifyVTable(TestStringifierReadWriteAttribute* ptr) {
+template<std::same_as<TestStringifierReadWriteAttribute> T>
+static inline void verifyVTable(TestStringifierReadWriteAttribute* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

@@ -31,6 +31,7 @@
 #import "WebFrameProxy.h"
 #import "WebPageProxy.h"
 #import "_WKFrameHandleInternal.h"
+#import <WebCore/CertificateInfo.h>
 #import <WebCore/WebCoreObjCExtras.h>
 
 @implementation WKFrameInfo
@@ -71,7 +72,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (WKWebView *)webView
 {
-    auto page = _frameInfo->page();
+    RefPtr page = _frameInfo->page();
     return page ? page->cocoaView().autorelease() : nil;
 }
 
@@ -103,7 +104,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSUUID *)_documentIdentifier
 {
-    return _frameInfo->documentID()->object();
+    return _frameInfo->documentID()->object().createNSUUID().autorelease();
 }
 
 - (pid_t)_processIdentifier
@@ -128,7 +129,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)_title
 {
-    return _frameInfo->title();
+    return _frameInfo->title().createNSString().autorelease();
 }
 
 - (BOOL)_isScrollable
@@ -149,6 +150,11 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (CGSize)_visibleContentSizeExcludingScrollbars
 {
     return (CGSize)_frameInfo->frameInfoData().frameMetrics.visibleContentSizeExcludingScrollbars;
+}
+
+- (SecTrustRef)_serverTrust
+{
+    return _frameInfo->frameInfoData().certificateInfo.trust().get();
 }
 
 @end

@@ -1,5 +1,5 @@
 // Copyright 2014 The Chromium Authors. All rights reserved.
-// Copyright (C) 2016 Apple Inc. All rights reserved.
+// Copyright (C) 2016-2025 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@
 #include "MediaQueryEvaluator.h"
 #include "MediaQueryParser.h"
 #include "MediaQueryParserContext.h"
+#include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "SizesCalcParser.h"
 #include "StyleLengthResolution.h"
@@ -105,8 +106,8 @@ std::optional<float> SizesAttributeParser::calculateLengthInPixels(CSSParserToke
 bool SizesAttributeParser::mediaConditionMatches(const MQ::MediaQuery& mediaCondition)
 {
     // A Media Condition cannot have a media type other than screen.
-    auto document = protectedDocument();
-    auto* renderer = document->renderView();
+    Ref document = m_document.get();
+    CheckedPtr renderer = document->renderView();
     if (!renderer)
         return false;
     auto& style = renderer->style();
@@ -117,22 +118,22 @@ bool SizesAttributeParser::parse(CSSParserTokenRange range, const CSSParserConte
 {
     // Split on a comma token and parse the result tokens as (media-condition, length) pairs
     while (!range.atEnd()) {
-        const CSSParserToken* mediaConditionStart = &range.peek();
+        auto mediaConditionStart = range;
         // The length is the last component value before the comma which isn't whitespace or a comment
-        const CSSParserToken* lengthTokenStart = &range.peek();
-        const CSSParserToken* lengthTokenEnd = &range.peek();
+        auto lengthTokenStart = range;
+        auto lengthTokenEnd = range;
         while (!range.atEnd() && range.peek().type() != CommaToken) {
-            lengthTokenStart = &range.peek();
+            lengthTokenStart = range;
             range.consumeComponentValue();
-            lengthTokenEnd = &range.peek();
+            lengthTokenEnd = range;
             range.consumeWhitespace();
         }
         range.consume();
 
-        auto length = calculateLengthInPixels(range.makeSubRange(lengthTokenStart, lengthTokenEnd));
+        auto length = calculateLengthInPixels(lengthTokenStart.rangeUntil(lengthTokenEnd));
         if (!length)
             continue;
-        auto mediaCondition = MQ::MediaQueryParser::parseCondition(range.makeSubRange(mediaConditionStart, lengthTokenStart), MediaQueryParserContext(context));
+        auto mediaCondition = MQ::MediaQueryParser::parseCondition(mediaConditionStart.rangeUntil(lengthTokenStart), context);
         if (!mediaCondition)
             continue;
         bool matches = mediaConditionMatches(*mediaCondition);

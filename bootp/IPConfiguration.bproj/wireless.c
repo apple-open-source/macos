@@ -56,6 +56,7 @@ struct WiFiInfo {
 	struct ether_addr	bssid;
 	CFStringRef		bssid_string;
 	bool			allow_sharing_device_type;
+	WiFiConnectionID		connection_id;
 };
 
 /**
@@ -84,12 +85,14 @@ __WiFiInfoCopyDebugDesc(CFTypeRef cf)
 {
 	CFAllocatorRef		allocator = CFGetAllocator(cf);
 	WiFiAuthType		auth_type;
+	WiFiConnectionID		connection_id;
 	WiFiInfoRef		info_p = (WiFiInfoRef)cf;
 	CFStringRef		networkID;
 	CFMutableStringRef	str;
 
 	str = CFStringCreateMutable(allocator, 0);
 	auth_type = WiFiInfoGetAuthType(info_p);
+	connection_id = WiFiInfoGetConnectionID(info_p);
 	STRING_APPEND(str,
 		      "<WiFiInfo %p [%p]> { SSID \"%@\""
 		      " BSSID %@ Security %s",
@@ -103,6 +106,7 @@ __WiFiInfoCopyDebugDesc(CFTypeRef cf)
 	}
 	STRING_APPEND(str, " AllowSharingDeviceType=%s",
 		      WiFiInfoAllowSharingDeviceType(info_p) ? "1" : "0");
+	STRING_APPEND(str, " ConnectionID=%u", connection_id);
 	STRING_APPEND_STR(str, " }");
 	return (str);
 }
@@ -156,6 +160,7 @@ __WiFiInfoAllocate(CFAllocatorRef allocator)
 #endif /* NO_WIRELESS */
 
 #ifdef NO_WIRELESS
+
 PRIVATE_EXTERN const char *
 WiFiAuthTypeGetString(WiFiAuthType auth_type)
 {
@@ -172,8 +177,7 @@ WiFiInfoCopy(CFStringRef ifname)
 
 #include <IO80211/Apple80211API.h>
 #include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
-
-#define _CASSERT(x)	_Static_assert(x, "compile-time assertion failed")
+#include <Kernel/IOKit/apple80211/apple80211_ioctl_internal.h>
 
 _CASSERT(kWiFiAuthTypeUnknown == APPLE80211_AUTHTYPE_UNKNOWN);
 _CASSERT(kWiFiAuthTypeNone == APPLE80211_AUTHTYPE_NONE);
@@ -318,12 +322,10 @@ copy_networkID(Apple80211Ref wref)
 }
 
 
-#define HAVE_DHCP_ALLOW_IOCTL	1
 
 STATIC bool
 get_allow_sharing_device_type(Apple80211Ref wref)
 {
-#if HAVE_DHCP_ALLOW_IOCTL
 	Apple80211Err		error;
 	bool			ret = false;
 	uint32_t		status;
@@ -344,22 +346,35 @@ get_allow_sharing_device_type(Apple80211Ref wref)
 		       ret ? "true" : "false");
 	}
 	return (ret);
-#else /* HAVE_DHCP_ALLOW_IOCTL */
-#pragma unused (wref)
-	return (false);
-#endif /* HAVE_DHCP_ALLOW_IOCTL */
+}
+
+STATIC WiFiConnectionID
+get_connection_id(Apple80211Ref wref)
+{
+	apple80211_connection_id_t	cid;
+	Apple80211Err			error;
+
+	cid.connectionId = 0;
+	error = Apple80211Get(wref,
+			      APPLE80211_IOC_CONNECTION_ID,
+			      0,
+			      &cid,
+			      sizeof(cid));
+	if (error != kA11NoErr) {
+		my_log(LOG_NOTICE,
+		       "Apple80211Get(APPLE80211_IOC_CONNECTION_ID)"
+		       "failed, 0x%x", error);
+	}
+	return (cid.connectionId);
 }
 
 #include <CommonCrypto/CommonHMAC.h>
 #include <sys/sysctl.h>
 
-PRIVATE_EXTERN WiFiInfoRef
-WiFiInfoCopy(CFStringRef ifname)
+STATIC Apple80211Ref
+my_Apple80211OpenInterface(CFStringRef ifname)
 {
-	struct ether_addr 	bssid;
 	Apple80211Err		error;
-	WiFiInfoRef		info_p = NULL;
-	CFMutableDataRef	ssid;
 	Apple80211Ref		wref = NULL;
 
 	error = Apple80211Open(&wref);
@@ -369,6 +384,27 @@ WiFiInfoCopy(CFStringRef ifname)
 	}
 	error = Apple80211BindToInterface(wref, ifname);
 	if (error != kA11NoErr) {
+		my_log(LOG_NOTICE,
+		       "Apple80211BindToInterface(%@) failed, 0x%x",
+		       ifname, error);
+		Apple80211Close(wref);
+		wref = NULL;
+		goto done;
+	}
+ done:
+	return (wref);
+}
+
+PRIVATE_EXTERN WiFiInfoRef
+WiFiInfoCopy(CFStringRef ifname)
+{
+	struct ether_addr 	bssid;
+	WiFiInfoRef		info_p = NULL;
+	CFMutableDataRef	ssid;
+	Apple80211Ref		wref;
+
+	wref = my_Apple80211OpenInterface(ifname);
+	if (wref == NULL) {
 		goto done;
 	}
 	ssid = CFDataCreateMutable(NULL, 0);
@@ -383,6 +419,7 @@ WiFiInfoCopy(CFStringRef ifname)
 		info_p->networkID = copy_networkID(wref);
 		info_p->allow_sharing_device_type
 			= get_allow_sharing_device_type(wref);
+		info_p->connection_id = get_connection_id(wref);
 	}
 	CFRelease(ssid);
 
@@ -435,6 +472,13 @@ WiFiInfoGetNetworkID(WiFiInfoRef w)
 {
 	return (w->networkID);
 }
+
+PRIVATE_EXTERN WiFiConnectionID
+WiFiInfoGetConnectionID(WiFiInfoRef w)
+{
+	return (w->connection_id);
+}
+
 
 PRIVATE_EXTERN const char *
 WiFiInfoComparisonResultGetString(WiFiInfoComparisonResult result)
@@ -511,6 +555,37 @@ bool
 WiFiInfoAllowSharingDeviceType(WiFiInfoRef info)
 {
 	return (info->allow_sharing_device_type);
+}
+
+bool
+WiFiAcknowledgeConnectionID(CFStringRef ifname,
+			    WiFiConnectionID ack_cid)
+{
+	apple80211_protocol_cleanup_complete_t	cid;
+	Apple80211Err				error;
+	bool					success = false;
+	Apple80211Ref				wref = NULL;
+
+	wref = my_Apple80211OpenInterface(ifname);
+	if (wref == NULL) {
+		goto done;
+	}
+	cid.connectionId = ack_cid;
+	error = Apple80211Set(wref, APPLE80211_IOC_PROTOCOL_CLEANUP_COMPLETE,
+			      0, &cid, sizeof(cid));
+	if (error != kA11NoErr) {
+		my_log(LOG_NOTICE,
+		       "%@: APPLE80211_IOC_PROTOCOL_CLEANUP_COMPLETE failed"
+		       ", %d", ifname, error);
+	}
+	else {
+		success = true;
+	}
+ done:
+	if (wref != NULL) {
+		Apple80211Close(wref);
+	}
+	return (success);
 }
 
 #if TEST_WIRELESS
@@ -637,13 +712,17 @@ unit_test(void)
 int
 main(int argc, char * argv[])
 {
+	bool			ack = false;
 	int			ch;
 	CFStringRef		ifname = NULL;
 	const char *		progname = argv[0];
 	bool			run_unit_test = false;
 
-	while ((ch = getopt(argc, argv, "hi:t")) != EOF) {
+	while ((ch = getopt(argc, argv, "Ahi:t")) != EOF) {
 		switch (ch) {
+		case 'A':
+			ack = true;
+			break;
 		case 'h':
 			usage(progname);
 			break;
@@ -667,18 +746,30 @@ main(int argc, char * argv[])
 
 		info_p = WiFiInfoCopy(ifname);
 		if (info_p != NULL) {
-			WiFiAuthType	auth_type;
+			WiFiAuthType		auth_type;
+			WiFiConnectionID	cid;
 
 			auth_type = WiFiInfoGetAuthType(info_p);
+			cid = WiFiInfoGetConnectionID(info_p);
 			SCPrint(TRUE, stdout,
 				CFSTR("%@: SSID %@ BSSID %@ Security %s"
-				      " NetworkID %@\n"),
+				      " NetworkID %@ ConnectionID %u\n"),
 				ifname, WiFiInfoGetSSID(info_p),
 				WiFiInfoGetBSSIDString(info_p),
 				WiFiAuthTypeGetString(auth_type),
-				WiFiInfoGetNetworkID(info_p));
+				WiFiInfoGetNetworkID(info_p),
+				cid);
 			SCPrint(TRUE, stdout,
 				CFSTR("%@: %@\n"), ifname, info_p);
+			if (ack) {
+				if (WiFiAcknowledgeConnectionID(ifname, cid)) {
+					printf("Ack %u success\n", cid);
+				}
+				else {
+					fprintf(stderr,
+						"Ack %u failure\n", cid);
+				}
+			}
 		}
 		else {
 			printf("not associated\n");

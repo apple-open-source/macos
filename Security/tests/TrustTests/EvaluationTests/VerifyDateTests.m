@@ -24,6 +24,7 @@
 
 #include <AssertMacros.h>
 #import <XCTest/XCTest.h>
+#include "featureflags/featureflags.h"
 #include "OSX/utilities/SecCFWrappers.h"
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicy.h>
@@ -79,10 +80,10 @@ static SecTrustRef trust = nil;
 
 - (void)testFarFutureWithinValidity {
     CFDateRef date = NULL;
-    /* December 20, 9999 (far-future date within validity period, should succeed) */
-    isnt(date = CFDateCreate(NULL, 252423000000), NULL, "failed to create date");
-    ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 20 Dec 9999");
-    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust on 20 Dec 9999 and expect success");
+    /* October 1, 9999 (far-future date within validity period, should succeed) */
+    isnt(date = CFDateCreate(NULL, 252416070000), NULL, "failed to create date");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 1 Oct 9999");
+    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "evaluate trust on 1 Oct 9999 and expect success");
     CFReleaseNull(date);
 }
 
@@ -132,6 +133,40 @@ static SecTrustRef trust = nil;
     CFReleaseNull(basic);
     CFReleaseSafe((__bridge CFTypeRef)leaf);
     CFReleaseSafe((__bridge CFTypeRef)ca);
+}
+
+
+- (void)testEarlyAnchorExpiration {
+    XCTSkipIf(!_SecTrustEarlyAnchorExpirationEnabled());
+    CFDateRef date = NULL;
+    /* December 20, 9999 (far-future date within validity period, but < 60 days before expiry) */
+    isnt(date = CFDateCreate(NULL, 252423000000), NULL, "failed to create date");
+    ok_status(SecTrustSetVerifyDate(trust, date), "set trust date to 20 Dec 9999");
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "evaluate trust on 20 Dec 9999 and expect failure because early anchor expiration");
+    CFReleaseNull(date);
+}
+
+- (void)testNoEarlyAnchorExpirationForUserAnchors {
+    XCTSkipIf(!_SecTrustEarlyAnchorExpirationEnabled());
+
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, longleaf, sizeof(longleaf));
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, longroot, sizeof(longroot));
+    SecTrustRef aTrust = NULL;
+    CFDateRef date = NULL;
+
+    id persistentRef = [self addTrustSettingsForCert:root];
+    SecTrustCreateWithCertificates(leaf, NULL, &aTrust);
+    /* December 20, 9999 (far-future date within validity period, but < 60 days before expiry) */
+    isnt(date = CFDateCreate(NULL, 252423000000), NULL, "failed to create date");
+    ok_status(SecTrustSetVerifyDate(aTrust, date), "set trust date to 20 Dec 9999");
+    XCTAssert(SecTrustEvaluateWithError(aTrust, NULL), "evaluate trust on 20 Dec 9999 and no failure because user anchored");
+
+    [self removeTrustSettingsForCert:root persistentRef:persistentRef];
+
+    CFReleaseNull(date);
+    CFReleaseNull(leaf);
+    CFReleaseNull(root);
+    CFReleaseNull(aTrust);
 }
 
 @end

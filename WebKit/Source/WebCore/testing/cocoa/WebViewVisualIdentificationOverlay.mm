@@ -31,6 +31,7 @@
 #import "Color.h"
 #import "WebCoreCALayerExtras.h"
 #import <CoreText/CoreText.h>
+#import <wtf/MathExtras.h>
 #import <wtf/WeakObjCPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -45,7 +46,7 @@ static void *boundsObservationContext = &boundsObservationContext;
 const void* const webViewVisualIdentificationOverlayKey = &webViewVisualIdentificationOverlayKey;
 
 @implementation WebViewVisualIdentificationOverlay {
-    RetainPtr<PlatformView> _view;
+    RetainPtr<CocoaView> _view;
 
     RetainPtr<CALayer> _layer;
     RetainPtr<NSString> _kind;
@@ -59,7 +60,7 @@ const void* const webViewVisualIdentificationOverlayKey = &webViewVisualIdentifi
     return *shouldIdentifyWebViews;
 }
 
-+ (void)installForWebViewIfNeeded:(PlatformView *)view kind:(NSString *)kind deprecated:(BOOL)isDeprecated
++ (void)installForWebViewIfNeeded:(CocoaView *)view kind:(NSString *)kind deprecated:(BOOL)isDeprecated
 {
     if (![self shouldIdentifyWebViews])
         return;
@@ -67,7 +68,7 @@ const void* const webViewVisualIdentificationOverlayKey = &webViewVisualIdentifi
     objc_setAssociatedObject(self, webViewVisualIdentificationOverlayKey, overlay.get(), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-- (instancetype)initWithWebView:(PlatformView *)webView kind:(NSString *)kind deprecated:(BOOL)isDeprecated
+- (instancetype)initWithWebView:(CocoaView *)webView kind:(NSString *)kind deprecated:(BOOL)isDeprecated
 {
     self = [super init];
     if (!self)
@@ -169,7 +170,7 @@ static void drawPattern(void *overlayPtr, CGContextRef ctx)
 
     CGSize textSize = [_kind sizeWithAttributes:@{ (id)kCTFontAttributeName : (id)createIdentificationFont().get() }];
     CGSize patternSize = CGSizeMake(textSize.width + horizontalMargin, (textSize.height + verticalMargin) * 2);
-    auto pattern = adoptCF(CGPatternCreate(self, layer.bounds, CGAffineTransformMakeRotation(M_PI_4), patternSize.width, patternSize.height, kCGPatternTilingNoDistortion, true, &callbacks));
+    auto pattern = adoptCF(CGPatternCreate(self, layer.bounds, CGAffineTransformMakeRotation(piOverFourDouble), patternSize.width, patternSize.height, kCGPatternTilingNoDistortion, true, &callbacks));
     CGFloat alpha = 0.5;
     CGContextSetFillPattern(ctx, pattern.get(), &alpha);
 

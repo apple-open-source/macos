@@ -1059,16 +1059,6 @@ public:
 
 @implementation WebPreferences (WebPrivate)
 
-- (BOOL)isDNSPrefetchingEnabled
-{
-    return [self _boolValueForKey:WebKitDNSPrefetchingEnabledPreferenceKey];
-}
-
-- (void)setDNSPrefetchingEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitDNSPrefetchingEnabledPreferenceKey];
-}
-
 - (BOOL)developerExtrasEnabled
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -1628,7 +1618,7 @@ public:
 + (void)_setInitialDefaultTextEncodingToSystemEncoding
 {
     [[NSUserDefaults standardUserDefaults] registerDefaults:
-        @{ WebKitDefaultTextEncodingNamePreferenceKey: PAL::defaultTextEncodingNameForSystemLanguage() }];
+        @{ WebKitDefaultTextEncodingNamePreferenceKey: PAL::defaultTextEncodingNameForSystemLanguage().createNSString().get() }];
 }
 
 static RetainPtr<NSString>& classIBCreatorID()
@@ -1820,16 +1810,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setSpatialNavigationEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitSpatialNavigationEnabledPreferenceKey];
-}
-
-- (BOOL)hyperlinkAuditingEnabled
-{
-    return [self _boolValueForKey:WebKitHyperlinkAuditingEnabledPreferenceKey];
-}
-
-- (void)setHyperlinkAuditingEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitHyperlinkAuditingEnabledPreferenceKey];
 }
 
 - (BOOL)usePreHTML5ParserQuirks
@@ -2562,16 +2542,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     return [self _boolValueForKey:WebKitDirectoryUploadEnabledPreferenceKey];
 }
 
-- (BOOL)CSSOMViewScrollingAPIEnabled
-{
-    return [self _boolValueForKey:WebKitCSSOMViewScrollingAPIEnabledPreferenceKey];
-}
-
-- (void)setCSSOMViewScrollingAPIEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitCSSOMViewScrollingAPIEnabledPreferenceKey];
-}
-
 - (BOOL)mediaUserGestureInheritsFromDocument
 {
     return [self _boolValueForKey:WebKitMediaUserGestureInheritsFromDocument];
@@ -2835,6 +2805,16 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitContactPickerAPIEnabledPreferenceKey];
 }
 
+- (BOOL)digitalCredentialsEnabled
+{
+    return [self _boolValueForKey:WebKitDigitalCredentialsEnabledPreferenceKey];
+}
+
+- (void)setDigitalCredentialsEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitDigitalCredentialsEnabledPreferenceKey];
+}
+
 - (BOOL)visualViewportAPIEnabled
 {
     return [self _boolValueForKey:WebKitVisualViewportAPIEnabledPreferenceKey];
@@ -2843,16 +2823,6 @@ static RetainPtr<NSString>& classIBCreatorID()
 - (void)setVisualViewportAPIEnabled:(BOOL)flag
 {
     [self _setBoolValue:flag forKey:WebKitVisualViewportAPIEnabledPreferenceKey];
-}
-
-- (BOOL)CSSOMViewSmoothScrollingEnabled
-{
-    return [self _boolValueForKey:WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey];
-}
-
-- (void)setCSSOMViewSmoothScrollingEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey];
 }
 
 - (BOOL)webAnimationsCompositeOperationsEnabled
@@ -2972,12 +2942,48 @@ static RetainPtr<NSString>& classIBCreatorID()
 // The preferences in this category are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
 
+- (BOOL)CSSOMViewScrollingAPIEnabled
+{
+    return YES;
+}
+
+- (void)setCSSOMViewScrollingAPIEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)hyperlinkAuditingEnabled
+{
+    return YES;
+}
+
+- (void)setHyperlinkAuditingEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)CSSOMViewSmoothScrollingEnabled
+{
+    return YES;
+}
+
+- (void)setCSSOMViewSmoothScrollingEnabled:(BOOL)flag
+{
+}
+
 - (BOOL)mediaStreamEnabled
 {
     return YES;
 }
 
 - (void)setMediaStreamEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)isDNSPrefetchingEnabled
+{
+    return NO;
+}
+
+- (void)setDNSPrefetchingEnabled:(BOOL)flag
 {
 }
 

@@ -106,6 +106,7 @@
 #include <sys/lockf.h>
 #include <sys/xattr.h>
 #include <sys/kdebug.h>
+#include <vfs/vfs_disk_conditioner.h>
 
 #include <kern/assert.h>
 #include <kern/zalloc.h>
@@ -1369,17 +1370,11 @@ vfs_context_can_break_leases(vfs_context_t ctx)
 bool
 vfs_context_allow_fs_blksize_nocache_write(vfs_context_t ctx)
 {
-	uthread_t uth;
 	thread_t t;
 	proc_t p;
 
 	if ((ctx == NULL) || (t = VFS_CONTEXT_GET_THREAD(ctx)) == NULL) {
 		return false;
-	}
-
-	uth = get_bsdthread_info(t);
-	if (uth && (uth->uu_flag & UT_FS_BLKSIZE_NOCACHE_WRITES)) {
-		return true;
 	}
 
 	p = (proc_t)get_bsdthreadtask_info(t);
@@ -1411,6 +1406,30 @@ vfs_context_skip_mtime_update(vfs_context_t ctx)
 	}
 
 	if (p && (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_SKIP_MTIME_UPDATE)) {
+		return true;
+	}
+
+	return false;
+}
+
+boolean_t
+vfs_context_allow_entitled_reserve_access(vfs_context_t ctx)
+{
+	thread_t t;
+	uthread_t uth;
+	proc_t p;
+
+	if ((ctx == NULL) || (t = VFS_CONTEXT_GET_THREAD(ctx)) == NULL) {
+		return false;
+	}
+
+	uth = get_bsdthread_info(t);
+	if (uth && (os_atomic_load(&uth->uu_flag, relaxed) & UT_FS_ENTITLED_RESERVE_ACCESS)) {
+		return true;
+	}
+
+	p = (proc_t)get_bsdthreadtask_info(t);
+	if (p && (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS)) {
 		return true;
 	}
 
@@ -1855,10 +1874,9 @@ boolean_t
 vnode_isonssd(vnode_t vp)
 {
 	if (vp) {
-		if (vp->v_mount) {
-			if (vp->v_mount->mnt_kern_flag & MNTK_SSD) {
-				return TRUE;
-			}
+		mount_t mp = vp->v_mount;
+		if (mp && disk_conditioner_mount_is_ssd(mp)) {
+			return TRUE;
 		}
 	}
 	return FALSE;
@@ -6207,16 +6225,22 @@ struct vnop_verify_args {
 	void **a_verify_ctxp;
 	int a_flags;
 	vfs_context_t a_context;
+	vnode_verifY_kind_t *a_verifykind;
 };
 #endif
 
 errno_t
 VNOP_VERIFY(struct vnode *vp, off_t foffset, uint8_t *buf, size_t bufsize,
     size_t *verify_block_size, void **verify_ctxp, vnode_verify_flags_t flags,
-    vfs_context_t ctx)
+    vfs_context_t ctx, vnode_verify_kind_t *verify_kind)
 {
 	int _err;
 	struct vnop_verify_args a;
+
+	assert(!(flags & VNODE_VERIFY_CONTEXT_ALLOC) || ((foffset >= 0) && bufsize));
+	assert(!(flags & (VNODE_VERIFY_CONTEXT_FREE | VNODE_VERIFY_WITH_CONTEXT)) || verify_ctxp);
+	assert(!(flags & (VNODE_VERIFY_PRECOMPUTED | VNODE_VERIFY_WITH_CONTEXT)) ||
+	    ((foffset >= 0) && buf && bufsize));
 
 	if (ctx == NULL) {
 		ctx = vfs_context_kernel();
@@ -6230,6 +6254,10 @@ VNOP_VERIFY(struct vnode *vp, off_t foffset, uint8_t *buf, size_t bufsize,
 	a.a_flags = flags;
 	a.a_verify_ctxp = verify_ctxp;
 	a.a_context = ctx;
+	if (verify_kind != NULL) {
+		*verify_kind = VK_HASH_NONE;
+	}
+	a.a_verifykind = verify_kind;
 
 	_err = (*vp->v_op[vnop_verify_desc.vdesc_offset])(&a);
 	DTRACE_FSINFO(verify, vnode_t, vp);

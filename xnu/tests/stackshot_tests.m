@@ -18,6 +18,7 @@
 #include <dispatch/private.h>
 #include <stdalign.h>
 #include <TargetConditionals.h>
+#import <Foundation/NSTask.h>
 
 #import <zlib.h>
 #import <IOKit/IOKitLib.h>
@@ -2313,10 +2314,11 @@ T_DECL(throttled_sp,
 }
 
 
+char *const clpc_path = "/usr/local/bin/clpc";
 char *const clpcctrl_path = "/usr/local/bin/clpcctrl";
 
 static void
-run_clpcctrl(char *const argv[]) {
+run_clpc(char *const argv[]) {
 	posix_spawnattr_t sattr;
 	pid_t pid;
 	int wstatus;
@@ -2335,17 +2337,73 @@ run_clpcctrl(char *const argv[]) {
 }
 
 static void
-restore_clpcctrl() {
-	run_clpcctrl((char *const []) { clpcctrl_path, "-d", NULL });
+restore_clpc() {
+	/* 
+	 * For some reason, the new CLPC utility always returns with a nonzero
+	 * exit status when re-enabling dynamic control. So, we use the old
+	 * one here.
+	 */
+	run_clpc((char *const []) { clpcctrl_path, "-d", NULL });
 }
 
-#define CLUSTER_TYPE_SMP 0
-#define CLUSTER_TYPE_E 1
-#define CLUSTER_TYPE_P 2
+struct cpu_cluster {
+	int type;
+	uint64_t mask;
+};
+
+static NSArray*
+get_cpu_clusters() {
+	NSTask *task = [[NSTask alloc] init];
+	[task setLaunchPath:[NSString stringWithUTF8String:clpc_path]];
+	[task setArguments:@[@"topologies", @"-f", @"json"]];
+
+	NSPipe *pipe = [NSPipe pipe];
+	[task setStandardOutput:pipe];
+	[task setStandardError:nil];
+
+	[task launch];
+	[task waitUntilExit];
+
+	NSData *data = [[pipe fileHandleForReading] readDataToEndOfFile];
+	NSString *data_string = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
+	/*
+	 * The CLPC util outputs the CPU and ANE topology as JSON objects _not_
+	 * separated by a comma, so we have to fix it up...
+	 */
+	data_string = [data_string stringByReplacingOccurrencesOfString:@"\n}\n" withString:@"\n},\n"];
+	data_string = [NSString stringWithFormat:@"[%@]", data_string];
+	data = [data_string dataUsingEncoding:NSUTF8StringEncoding];
+
+	T_QUIET; T_ASSERT_EQ(task.terminationStatus, 0, "clpc exit status");
+
+	NSError *jsonError = nil;
+	NSArray *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+
+	if (jsonError) {
+		T_FAIL("clpc topologies failed. output: %s\nerror: %s",
+			[data_string cStringUsingEncoding:NSUTF8StringEncoding],
+			[[jsonError localizedDescription] cStringUsingEncoding:NSUTF8StringEncoding]);
+		T_END;
+	}
+
+	NSMutableArray* out = [[NSMutableArray alloc] init];
+	struct cpu_cluster cluster;
+
+	for (NSDictionary *cluster_json in json[0][@"CPU Topology"][@"Clusters"]) {
+		cluster = (struct cpu_cluster) {
+			.type = [cluster_json[@"Type"] intValue] + 1,
+			.mask = [cluster_json[@"CoreMask"] unsignedLongLongValue]
+		};
+		[out addObject:[NSValue valueWithBytes:&cluster objCType:@encode(struct cpu_cluster)]];
+	}
+
+	return out;
+}
 
 void test_stackshot_cpu_info(void *ssbuf, size_t sslen, int exp_cpus, NSArray *exp_cluster_types) {
 	kcdata_iter_t iter = kcdata_iter(ssbuf, sslen);
-	bool seen = false;
+	bool seen_cpu = false, seen_buffer = false;
 	int singlethread_override = 0;
 	size_t singlethread_override_sz = sizeof(singlethread_override);
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(
@@ -2357,36 +2415,62 @@ void test_stackshot_cpu_info(void *ssbuf, size_t sslen, int exp_cpus, NSArray *e
 	}
 
 	KCDATA_ITER_FOREACH(iter) {
-		if ((kcdata_iter_type(iter) != KCDATA_TYPE_ARRAY) || (kcdata_iter_array_elem_type(iter) != STACKSHOT_KCTYPE_LATENCY_INFO_CPU)) {
+		if (kcdata_iter_type(iter) != KCDATA_TYPE_ARRAY) {
 			continue;
 		}
 
-		seen = true;
+		int n_elems = kcdata_iter_array_elem_count(iter);
 
-		/* Check ncpus */
-		int ncpus = kcdata_iter_array_elem_count(iter);
-		if (exp_cpus != -1) {
-			T_QUIET; T_ASSERT_EQ(exp_cpus, ncpus, "Expected number of CPUs matches number of CPUs used for stackshot");
-		}
+		switch (kcdata_iter_array_elem_type(iter)) {
+			case STACKSHOT_KCTYPE_LATENCY_INFO_CPU:
+				seen_cpu = true;
 
-		if (exp_cluster_types == nil) {
-			continue;
-		}
+				/* Check ncpus */
+				if (exp_cpus != -1) {
+					T_QUIET; T_ASSERT_EQ(exp_cpus, n_elems, "Expected number of CPUs matches number of CPUs used for stackshot");
+				}
 
-		/* Check cluster types */
-		struct stackshot_latency_cpu *latencies = (struct stackshot_latency_cpu *) kcdata_iter_payload(iter);
-		for (int i = 0; i < ncpus; i++) {
-			NSNumber *cluster_type = [NSNumber numberWithInt:latencies[i].cluster_type];
-			T_QUIET; T_ASSERT_TRUE([exp_cluster_types containsObject:cluster_type], "Type of CPU cluster in expected CPU cluster types");
+				if (exp_cluster_types == nil) {
+					continue;
+				}
+
+				/* Check cluster types */
+				struct stackshot_latency_cpu *latencies = (struct stackshot_latency_cpu *) kcdata_iter_payload(iter);
+				for (int i = 0; i < n_elems; i++) {
+					NSNumber *cluster_type = [NSNumber numberWithInt:latencies[i].cluster_type];
+					T_QUIET; T_ASSERT_TRUE([exp_cluster_types containsObject:cluster_type], "Type of CPU cluster in expected CPU cluster types");
+				}
+				break;
+			case STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER:
+				seen_buffer = true;
+
+				if (exp_cluster_types == nil) {
+					continue;
+				}
+
+				/* Check that we have a buffer for each cluster */
+				struct stackshot_latency_buffer *buffers = (struct stackshot_latency_buffer *) kcdata_iter_payload(iter);
+				for (int i = 0; i < n_elems; i++) {
+					if (buffers[i].size == 0) {
+						continue;
+					}
+					NSNumber *cluster_type = [NSNumber numberWithInt:buffers[i].cluster_type];
+					T_QUIET; T_ASSERT_TRUE([exp_cluster_types containsObject:cluster_type], "Type of CPU cluster for buffer in expected cluster types");
+				}
+				break;
+			default:
+				/* Not either of these, continue; */
+				break;
 		}
 	}
 
-	T_QUIET; T_ASSERT_TRUE(seen || !is_development_kernel(), "Seen CPU latency info or is release kernel");
+	T_QUIET; T_ASSERT_TRUE(seen_cpu || !is_development_kernel(), "Seen CPU latency info or is release kernel");
+	T_QUIET; T_ASSERT_TRUE(seen_buffer || !is_development_kernel(), "Seen buffer info or is release kernel");
 }
 
-void test_stackshot_with_clpcctrl(char *const name, char *const argv[], int exp_cpus, NSArray *exp_cluster_types) {
-	T_LOG("Stackshot CLPC scenario %s", name);
-	run_clpcctrl(argv);
+static void
+test_stackshot_with_clpcctrl(const char *name, char *const argv[], int exp_cpus, NSArray *exp_cluster_types) {
+	run_clpc(argv);
 	struct scenario scenario = {
 		.name = name,
 		.flags = (STACKSHOT_KCDATA_FORMAT | STACKSHOT_SAVE_LOADINFO |
@@ -2397,6 +2481,8 @@ void test_stackshot_with_clpcctrl(char *const name, char *const argv[], int exp_
 		test_stackshot_cpu_info(ssbuf, sslen, exp_cpus, exp_cluster_types);
 	});
 }
+
+#define N_CLUSTER_TYPES 2
 
 T_DECL(core_masks,
 	"test that stackshot works under various core masks on ARM systems",
@@ -2430,18 +2516,6 @@ T_DECL(core_masks,
 		return;
 	}
 
-
-	T_ATEND(restore_clpcctrl);
-
-	/* Test with 1 and 2 CPUs for basic functionality */
-	test_stackshot_with_clpcctrl(
-		"core_masks_1cpu", (char *const[]) {clpcctrl_path, "-c", "1", NULL},
-		1, nil);
-
-	test_stackshot_with_clpcctrl(
-		"core_masks_2cpus", (char *const[]) {clpcctrl_path, "-c", "2", NULL},
-		2, nil);
-
 	/* Check nperflevels to see if we're on an AMP system */
 	int nperflevels = 1;
 	size_t nperflevels_sz = sizeof(int);
@@ -2449,28 +2523,49 @@ T_DECL(core_masks,
 	    sysctlbyname("hw.nperflevels", &nperflevels, &nperflevels_sz, NULL, 0),
 	    "get hw.nperflevels");
 	if (nperflevels == 1) {
-		T_LOG("On SMP system, skipping stackshot core_masks AMP tests");
-		return;
+		T_SKIP("On SMP system, skipping stackshot core_masks tests");
 	}
 
-	T_QUIET; T_ASSERT_EQ(nperflevels, 2, "nperflevels is 1 or 2");
-	T_LOG("On AMP system, performing stackshot core_masks AMP tests");
+	T_ATEND(restore_clpc);
 
-	/* Perform AMP tests with different cluster types active */
+	uint64_t cluster_masks[N_CLUSTER_TYPES] = {0};
+	NSArray* clusters = get_cpu_clusters();
+	for (NSValue *data in clusters) {
+		struct cpu_cluster cluster;
+		[data getValue:&cluster];
+
+		T_QUIET; T_ASSERT_LT(cluster.type - 1, N_CLUSTER_TYPES, "valid cluster type");
+		cluster_masks[cluster.type - 1] |= cluster.mask;
+	}
+
+	NSMutableArray* cluster_types = [[NSMutableArray alloc] init];
+	char const* scenario_names[] = {
+		"core_masks_amp_ecpus",
+		"core_masks_amp_pcpus",
+	};
+	for (int type = 0; type < N_CLUSTER_TYPES; type++) {
+		if (!cluster_masks[type]) {
+			continue;
+		}
+
+		NSNumber *cluster_type_num = [NSNumber numberWithInt:(type + 1)];
+		[cluster_types addObject:cluster_type_num];
+
+		char mask_str[19];
+		sprintf(mask_str, "0x%llx", cluster_masks[type]);
+
+		test_stackshot_with_clpcctrl(
+			scenario_names[type],
+			(char *const[]) {clpc_path, "control", "-C", mask_str, NULL},
+			-1, @[cluster_type_num]);
+	}
+
+	T_ASSERT_GE((int) [cluster_types count], 2, "at least two cluster types");
+
 	test_stackshot_with_clpcctrl(
 		"core_masks_amp_allcpus",
-		(char *const[]) {clpcctrl_path, "-C", "all", NULL},
-		-1, @[@CLUSTER_TYPE_E, @CLUSTER_TYPE_P]);
-
-	test_stackshot_with_clpcctrl(
-		"core_masks_amp_ecpus",
-		(char *const[]) {clpcctrl_path, "-C", "e", NULL},
-		-1, @[@CLUSTER_TYPE_E]);
-
-	test_stackshot_with_clpcctrl(
-		"core_masks_amp_pcpus",
-		(char *const[]) {clpcctrl_path, "-C", "p", NULL},
-		-1, @[@CLUSTER_TYPE_P]);
+		(char *const[]) {clpc_path, "control", "-C", "all", NULL},
+		-1, cluster_types);
 }
 
 #pragma mark performance tests
@@ -3280,6 +3375,9 @@ parse_stackshot(uint64_t stackshot_parsing_flags, void *ssbuf, size_t sslen, NSD
 						T_QUIET; T_EXPECT_NOTNULL(sharedCaches[sharedcache_id], "sharedCacheID %d should exist", [sharedcache_id intValue]);
 					}
 				} else {
+					if ((sharedregion_flags == kTaskSharedRegionOther) && (task_flags & kTaskSharedRegionInfoUnavailable)) {
+						T_LOG("kTaskSharedRegionOther does not have shared region info available.");
+					}
 					T_QUIET; T_EXPECT_NULL(sharedregion_info, "non-kTaskSharedRegionOther should have no shared_cache_dyld_load_info struct");
 					T_QUIET; T_EXPECT_NULL(sharedcache_id, "non-kTaskSharedRegionOther should have no sharedCacheID");
 				}

@@ -44,11 +44,17 @@
 namespace WebKit {
 
 #if HAVE(AUDIO_COMPONENT_SERVER_REGISTRATIONS)
+static RetainPtr<CFDataRef> safeAudioComponentFetchServerRegistrations()
+{
+    SUPPRESS_UNRETAINED_LOCAL CFDataRef registrations { nullptr };
+    if (PAL::AudioComponentFetchServerRegistrations(&registrations) != noErr || !registrations)
+        return nullptr;
+    return adoptCF(registrations);
+}
+
 RefPtr<WebCore::SharedBuffer> AuxiliaryProcessProxy::fetchAudioComponentServerRegistrations()
 {
     using namespace PAL;
-
-    CFDataRef registrations { nullptr };
 
     if (!PAL::isAudioToolboxCoreFrameworkAvailable() || !PAL::canLoad_AudioToolboxCore_AudioComponentFetchServerRegistrations())
         return nullptr;
@@ -56,10 +62,11 @@ RefPtr<WebCore::SharedBuffer> AuxiliaryProcessProxy::fetchAudioComponentServerRe
     WebCore::registerOpusDecoderIfNeeded();
     WebCore::registerVorbisDecoderIfNeeded();
 
-    if (noErr != AudioComponentFetchServerRegistrations(&registrations) || !registrations)
+    auto registrations = safeAudioComponentFetchServerRegistrations();
+    if (!registrations)
         return nullptr;
 
-    return WebCore::SharedBuffer::create(adoptCF(registrations).get());
+    return WebCore::SharedBuffer::create(registrations.get());
 }
 #endif
 
@@ -106,7 +113,7 @@ void AuxiliaryProcessProxy::platformStartConnectionTerminationWatchdog()
     };
 #endif
 
-    RunLoop::protectedMain()->dispatchAfter(30_s, WTFMove(terminationHandler));
+    RunLoop::mainSingleton().dispatchAfter(30_s, WTFMove(terminationHandler));
 #endif // USE(RUNNINGBOARD)
 }
 

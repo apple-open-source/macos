@@ -118,8 +118,27 @@ class ClearTestES3 : public ClearTestBase
             glDepthMask(GL_FALSE);
         }
         glDepthFunc(GL_LESS);
-        drawQuad(depthTestProgram, essl1_shaders::PositionAttrib(), depthValue * 2 - 1 - 0.01f);
-        drawQuad(depthTestProgramFail, essl1_shaders::PositionAttrib(), depthValue * 2 - 1 + 0.01f);
+
+        GLfloat normalizedDepth = depthValue * 2 - 1;
+
+        // A depth value clamped to 0.0 will be normalized to -1.0. In this case, clear the color
+        // buffer to blue and then attempt to draw red only. Otherwise, attempt to draw blue and
+        // red.
+        if (normalizedDepth < -0.999999f)
+        {
+            glClearColor(0.0, 0.0, 1.0, 1.0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            GLfloat redNormalizedDepth = normalizedDepth + 0.01f;
+            drawQuad(depthTestProgramFail, essl1_shaders::PositionAttrib(), redNormalizedDepth);
+        }
+        else
+        {
+            GLfloat blueNormalizedDepth = normalizedDepth - 0.01f;
+            GLfloat redNormalizedDepth  = normalizedDepth + 0.01f;
+            drawQuad(depthTestProgram, essl1_shaders::PositionAttrib(), blueNormalizedDepth);
+            drawQuad(depthTestProgramFail, essl1_shaders::PositionAttrib(), redNormalizedDepth);
+        }
+
         if (!hasDepthTest)
         {
             glDisable(GL_DEPTH_TEST);
@@ -1564,6 +1583,26 @@ TEST_P(ClearTest, RGBA8Framebuffer)
     glClear(GL_COLOR_BUFFER_BIT);
 
     EXPECT_PIXEL_NEAR(0, 0, 128, 128, 128, 128, 1.0);
+}
+
+// Test clearing a BGRA8 Framebuffer
+TEST_P(ClearTest, BGRA8Framebuffer)
+{
+    ANGLE_SKIP_TEST_IF(getEGLWindow()->isFeatureEnabled(Feature::BgraTexImageFormatsBroken));
+
+    glBindFramebuffer(GL_FRAMEBUFFER, mFBOs[0]);
+
+    GLTexture texture;
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, getWindowWidth(), getWindowHeight(), 0, GL_BGRA_EXT,
+                 GL_UNSIGNED_BYTE, nullptr);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+    glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    EXPECT_PIXEL_NEAR(0, 0, 0, 255, 0, 255, 1.0);
 }
 
 // Test uploading a texture and then clearing a RGBA8 Framebuffer
@@ -4196,6 +4235,60 @@ TEST_P(ClearTestES3, RepeatedDepthClear)
     ASSERT_GL_NO_ERROR();
 }
 
+// Tests that calls to glClearBufferfi clamp the depth value.
+TEST_P(ClearTestES3, ClampDepthClearBufferfi)
+{
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, -0.01f, 0x55);
+    verifyDepth(0.00f, 1);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 0.00f, 0x55);
+    verifyDepth(0.00f, 1);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 0.01f, 0x55);
+    verifyDepth(0.01f, 1);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 0.99f, 0x55);
+    verifyDepth(0.99f, 1);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.00f, 0x55);
+    verifyDepth(1.00f, 1);
+
+    glClearBufferfi(GL_DEPTH_STENCIL, 0, 1.01f, 0x55);
+    verifyDepth(1.0f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
+// Tests that calls to glClearBufferfv clamp the depth value.
+TEST_P(ClearTestES3, ClampDepthClearBufferfv)
+{
+    float depthClearValue = -0.01f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(0.00f, 1);
+
+    depthClearValue = 0.00f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(0.00f, 1);
+
+    depthClearValue = 0.01f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(0.01f, 1);
+
+    depthClearValue = 0.99f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(0.99f, 1);
+
+    depthClearValue = 1.00f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(1.00f, 1);
+
+    depthClearValue = 1.01f;
+    glClearBufferfv(GL_DEPTH, 0, &depthClearValue);
+    verifyDepth(1.0f, 1);
+
+    ASSERT_GL_NO_ERROR();
+}
+
 // Test that reclearing stencil to the same value works.
 TEST_P(ClearTestES3, RepeatedStencilClear)
 {
@@ -6522,7 +6615,9 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTestRGB_ES3);
 ANGLE_INSTANTIATE_TEST(ClearTestRGB_ES3, ES3_D3D11(), ES3_VULKAN(), ES3_METAL());
 
 ANGLE_INSTANTIATE_TEST_ES3(ClearTextureEXTTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTextureEXTTestES31Renderable);
 ANGLE_INSTANTIATE_TEST_ES31(ClearTextureEXTTestES31Renderable);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ClearTextureEXTTestES31Unrenderable);
 ANGLE_INSTANTIATE_TEST_ES31(ClearTextureEXTTestES31Unrenderable);
 
 }  // anonymous namespace

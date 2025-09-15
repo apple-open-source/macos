@@ -32,6 +32,7 @@
 #import "NfcConnection.h"
 #import <WebCore/FidoConstants.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/Vector.h>
@@ -108,7 +109,7 @@ uint8_t tagID2[] = { 0x02 };
 
 - (instancetype)initWithType:(NFTagType)type
 {
-    return [self initWithType:type tagID:adoptNS([[NSData alloc] initWithBytesNoCopy:tagID1 length:sizeof(tagID1) freeWhenDone:NO]).get()];
+    return [self initWithType:type tagID:toNSDataNoCopy(std::span { tagID1 }, FreeWhenDone::No).get()];
 }
 
 - (instancetype)initWithType:(NFTagType)type tagID:(NSData *)tagID
@@ -133,7 +134,12 @@ using Mock = WebCore::MockWebAuthenticationConfiguration;
 namespace {
 
 static id<NFReaderSessionDelegate> globalNFReaderSessionDelegate;
-static MockNfcService* globalNfcService;
+
+static WeakPtr<MockNfcService>& weakGlobalNfcService()
+{
+    static NeverDestroyed<WeakPtr<MockNfcService>> service;
+    return service.get();
+}
 
 static void NFReaderSessionSetDelegate(id, SEL, id<NFReaderSessionDelegate> delegate)
 {
@@ -152,6 +158,7 @@ static BOOL NFReaderSessionConnectTag(id, SEL, NFTag *)
 
 static BOOL NFReaderSessionStopPolling(id, SEL)
 {
+    RefPtr globalNfcService = weakGlobalNfcService().get();
     if (!globalNfcService)
         return NO;
     globalNfcService->receiveStopPolling();
@@ -160,6 +167,7 @@ static BOOL NFReaderSessionStopPolling(id, SEL)
 
 static BOOL NFReaderSessionStartPollingWithError(id, SEL, NSError **)
 {
+    RefPtr globalNfcService = weakGlobalNfcService().get();
     if (!globalNfcService)
         return NO;
     globalNfcService->receiveStartPolling();
@@ -168,9 +176,8 @@ static BOOL NFReaderSessionStartPollingWithError(id, SEL, NSError **)
 
 static NSData* NFReaderSessionTransceive(id, SEL, NSData *)
 {
-    if (!globalNfcService)
-        return nil;
-    return globalNfcService->transceive();
+    RefPtr globalNfcService = weakGlobalNfcService().get();
+    return globalNfcService ? globalNfcService->transceive() : nil;
 }
 
 } // namespace
@@ -193,8 +200,8 @@ NSData* MockNfcService::transceive()
     if (m_configuration.nfc->payloadBase64.isEmpty())
         return nil;
 
-    auto result = adoptNS([[NSData alloc] initWithBase64EncodedString:m_configuration.nfc->payloadBase64[0] options:NSDataBase64DecodingIgnoreUnknownCharacters]);
-    m_configuration.nfc->payloadBase64.remove(0);
+    auto result = adoptNS([[NSData alloc] initWithBase64EncodedString:m_configuration.nfc->payloadBase64[0].createNSString().get() options:NSDataBase64DecodingIgnoreUnknownCharacters]);
+    m_configuration.nfc->payloadBase64.removeAt(0);
     return result.autorelease();
 }
 
@@ -206,7 +213,7 @@ void MockNfcService::receiveStopPolling()
 
 void MockNfcService::receiveStartPolling()
 {
-    RunLoop::main().dispatch([weakThis = WeakPtr { *this }] {
+    RunLoop::mainSingleton().dispatch([weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
         weakThis->detectTags();
@@ -217,7 +224,7 @@ void MockNfcService::platformStartDiscovery()
 {
 #if HAVE(NEAR_FIELD)
     if (!!m_configuration.nfc) {
-        globalNfcService = this;
+        weakGlobalNfcService() = *this;
 
         Method methodToSwizzle1 = class_getInstanceMethod(getNFReaderSessionClass(), @selector(setDelegate:));
         method_setImplementation(methodToSwizzle1, (IMP)NFReaderSessionSetDelegate);
@@ -261,7 +268,7 @@ void MockNfcService::detectTags() const
             [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A]).get()];
 
         if (configuration.nfc->multiplePhysicalTags)
-            [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A tagID:adoptNS([[NSData alloc] initWithBytesNoCopy:tagID2 length:sizeof(tagID2) freeWhenDone:NO]).get()]).get()];
+            [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A tagID:toNSDataNoCopy(std::span { tagID2 }, FreeWhenDone::No).get()]).get()];
 
         auto readerSession = adoptNS([allocNFReaderSessionInstance() initWithUIType:NFReaderSessionUINone]);
         [globalNFReaderSessionDelegate readerSession:readerSession.get() didDetectTags:tags.get()];

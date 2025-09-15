@@ -45,9 +45,6 @@
 #include <kern/thread.h>
 #include <kern/ipc_kobject.h>
 
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
-
 #include <vm/memory_object_internal.h>
 #include <vm/vm_kern.h>
 #include <vm/vm_fault_internal.h>
@@ -66,6 +63,15 @@
 #include <ptrauth.h>
 #include <arm/misc_protos.h>
 #endif /* defined(HAS_APPLE_PAC) */
+
+
+/* For speculation macros */
+#if __arm64__
+#include <arm64/speculation.h>
+#endif /* #if __arm64__ */
+
+extern int proc_selfpid(void);
+extern char *proc_name_address(struct proc *p);
 
 extern int panic_on_dyld_issue;
 
@@ -133,6 +139,84 @@ const struct memory_object_pager_ops dyld_pager_ops = {
 	.memory_object_backing_object = dyld_pager_backing_object,
 	.memory_object_pager_name = "dyld"
 };
+
+/* funciton that calculates delta pointer that remains within the same page by using nospec ISA */
+static inline bool
+_delta_ptr_within_page_nospec(uint64_t ** __nonnull ptr, uint64_t deltaByteCount, bool *crossing_page, uintptr_t userVA)
+{
+	uintptr_t old_page = (uintptr_t)*ptr >> PAGE_SHIFT;
+	uintptr_t new_page = ((uintptr_t)*ptr + deltaByteCount) >> PAGE_SHIFT;
+	uint64_t  nospec_delta = deltaByteCount;
+	uintptr_t page_offset = (uintptr_t)*ptr & PAGE_MASK;
+#if __arm64__
+	bool      nospec_delta_valid = false;
+	SPECULATION_GUARD_ZEROING_XXX(
+		/* out */ nospec_delta, /* out_valid */ nospec_delta_valid,
+		/* value */ nospec_delta,
+		/* cmp1 */ old_page, /* cmp2 */ new_page,
+		/* cc */ "EQ");
+#elif __i386__ || __x86_64__
+	if (old_page == new_page) {
+		nospec_delta = deltaByteCount;
+	} else {
+		nospec_delta = 0;
+	}
+	// MAYBE: lfence here
+#endif /* __arm64__ */
+	*ptr = (uint64_t*)((uintptr_t)*ptr + nospec_delta);
+	*crossing_page = nospec_delta != deltaByteCount;
+	if (*crossing_page) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_DELTA_TOO_LARGE), (uintptr_t)userVA);
+		printf("%s(): fixup chain delta crossing to the next page [{%p} + {%lld}]\n", __func__, (void*)(userVA + page_offset), deltaByteCount);
+		if (panic_on_dyld_issue) {
+			panic("%s(): delta offset > page size %lld", __func__, deltaByteCount);
+		}
+	}
+
+	if (nospec_delta != 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static inline bool
+_delta_ptr_within_page32_nospec(uint32_t ** __nonnull ptr, uint32_t deltaByteCount, bool *crossing_page, uintptr_t userVA)
+{
+	uintptr_t old_page = (uintptr_t)*ptr >> PAGE_SHIFT;
+	uintptr_t new_page = ((uintptr_t)*ptr + deltaByteCount) >> PAGE_SHIFT;
+	uintptr_t page_offset = (uintptr_t)*ptr & PAGE_MASK;
+	uint64_t  nospec_delta = deltaByteCount;
+#if __arm64__
+	bool      nospec_delta_valid = false;
+	SPECULATION_GUARD_ZEROING_XXX(
+		/* out */ nospec_delta, /* out_valid */ nospec_delta_valid,
+		/* value */ nospec_delta,
+		/* cmp1 */ old_page, /* cmp2 */ new_page,
+		/* cc */ "EQ");
+#elif __i386__ || __x86_64__
+	if (old_page == new_page) {
+		nospec_delta = deltaByteCount;
+	} else {
+		nospec_delta = 0;
+	}
+	// MAYBE: lfence here
+#endif /* __arm64__ */
+	*ptr = (uint32_t*)((uintptr_t)*ptr + nospec_delta);
+	*crossing_page = nospec_delta != deltaByteCount;
+	if (*crossing_page) {
+		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_DELTA_TOO_LARGE), (uintptr_t)userVA);
+		printf("%s(): fixup chain delta crossing to the next page [{%p} + {%d}]\n", __func__, (void*)(userVA + page_offset), deltaByteCount);
+		if (panic_on_dyld_issue) {
+			panic("%s(): delta offset > page size %d", __func__, deltaByteCount);
+		}
+	}
+	if (nospec_delta != 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 /*
  * The "dyld_pager" structure. We create one of these for each use of
@@ -277,7 +361,6 @@ static kern_return_t
 fixupPage64(
 	uint64_t                              userVA,
 	vm_offset_t                           contents,
-	vm_offset_t                           end_contents,
 	void                                  *link_info,
 	struct dyld_chained_starts_in_segment *segInfo,
 	uint32_t                              pageIndex,
@@ -286,7 +369,9 @@ fixupPage64(
 	struct mwl_info_hdr                   *hdr = (struct mwl_info_hdr *)link_info;
 	uint64_t                              *bindsArray  = (uint64_t *)((uintptr_t)hdr + hdr->mwli_binds_offset);
 	uint16_t                              firstStartOffset = segInfo->page_start[pageIndex];
-
+	vm_offset_t                           end_contents = contents + PAGE_SIZE;
+	//  For DYLD_CHAINED_PTR_64 (arm64 and x86_64) and DYLD_CHAINED_PTR_32 (arm64_32) the stride is always 4
+	uint64_t                              step_multiplier = 4; // 4-byte stride
 	/*
 	 * Done if no fixups on the page
 	 */
@@ -300,6 +385,7 @@ fixupPage64(
 	uint64_t *chain  = (uint64_t *)(contents + firstStartOffset);
 	uint64_t targetAdjust = (offsetBased ? hdr->mwli_image_address : hdr->mwli_slide);
 	uint64_t delta = 0;
+	bool     valid_chain = false;
 	do {
 		if ((uintptr_t)chain < contents || (uintptr_t)chain + sizeof(*chain) > end_contents) {
 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_CHAIN_OUT_OF_RANGE), (uintptr_t)userVA);
@@ -314,7 +400,9 @@ fixupPage64(
 		}
 		uint64_t value  = *chain;
 		bool     isBind = (value & 0x8000000000000000ULL);
+		/* delta that can be used speculatively */
 		delta = (value >> 51) & 0xFFF;
+		delta *= step_multiplier;
 		if (isBind) {
 			uint32_t bindOrdinal = value & 0x00FFFFFF;
 			if (bindOrdinal >= hdr->mwli_binds_count) {
@@ -335,16 +423,13 @@ fixupPage64(
 			uint64_t high8  = (value >> 36) & 0xFF;
 			*chain = target + targetAdjust + (high8 << 56);
 		}
-		if (delta * 4 >= PAGE_SIZE) {
-			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_DELTA_TOO_LARGE), (uintptr_t)userVA);
-			printf("%s(): delta offset > page size %lld\n", __func__, delta * 4);
-			if (panic_on_dyld_issue) {
-				panic("%s(): delta offset > page size %lld", __func__, delta * 4);
-			}
+		/* shifts chain to a delta, chain cannot be used to access outside of page speculatively after this point */
+		bool crossing_page = false;
+		valid_chain = _delta_ptr_within_page_nospec(&chain, delta, &crossing_page, (uintptr_t)userVA);
+		if (crossing_page) {
 			return KERN_FAILURE;
 		}
-		chain = (uint64_t *)((uintptr_t)chain + (delta * 4)); // 4-byte stride
-	} while (delta != 0);
+	} while (valid_chain);
 	return KERN_SUCCESS;
 }
 
@@ -353,18 +438,19 @@ fixupPage64(
  * Apply fixups within a page used by a 32 bit process.
  */
 static kern_return_t
-fixupChain32(
+fixupPageChain32(
 	uint64_t                              userVA,
 	uint32_t                              *chain,
 	vm_offset_t                           contents,
-	vm_offset_t                           end_contents,
 	void                                  *link_info,
 	struct dyld_chained_starts_in_segment *segInfo,
 	uint32_t                              *bindsArray)
 {
 	struct mwl_info_hdr                   *hdr = (struct mwl_info_hdr *)link_info;
 	uint32_t                              delta = 0;
-
+	bool                                  chain_valid = false;
+	vm_offset_t                           end_contents = contents + PAGE_SIZE;
+	uint32_t                              step_multiplier = 4; // always 4-bytes stride
 	do {
 		if ((uintptr_t)chain < contents || (uintptr_t)chain + sizeof(*chain) > end_contents) {
 			ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_CHAIN_OUT_OF_RANGE), (uintptr_t)userVA);
@@ -377,7 +463,9 @@ fixupChain32(
 			return KERN_FAILURE;
 		}
 		uint32_t value = *chain;
+		/* delta that can be used speculatively */
 		delta = (value >> 26) & 0x1F;
+		delta *= step_multiplier;
 		if (value & 0x80000000) {
 			// is bind
 			uint32_t bindOrdinal = value & 0x000FFFFF;
@@ -404,8 +492,13 @@ fixupChain32(
 				*chain = target + (uint32_t)hdr->mwli_slide;
 			}
 		}
-		chain += delta;
-	} while (delta != 0);
+		bool crossing_page = false;
+		chain_valid = _delta_ptr_within_page32_nospec(&chain, delta, &crossing_page, (uintptr_t)userVA);
+
+		if (crossing_page) {
+			return KERN_FAILURE;
+		}
+	} while (chain_valid);
 	return KERN_SUCCESS;
 }
 
@@ -417,7 +510,6 @@ static kern_return_t
 fixupPage32(
 	uint64_t                              userVA,
 	vm_offset_t                           contents,
-	vm_offset_t                           end_contents,
 	void                                  *link_info,
 	uint32_t                              link_info_size,
 	struct dyld_chained_starts_in_segment *segInfo,
@@ -426,7 +518,6 @@ fixupPage32(
 	struct mwl_info_hdr                   *hdr = (struct mwl_info_hdr  *)link_info;
 	uint32_t                              *bindsArray = (uint32_t *)((uintptr_t)hdr + hdr->mwli_binds_offset);
 	uint16_t                              startOffset = segInfo->page_start[pageIndex];
-
 	/*
 	 * done if no fixups
 	 */
@@ -453,12 +544,12 @@ fixupPage32(
 			chainEnd    = (segInfo->page_start[overflowIndex] & DYLD_CHAINED_PTR_START_LAST);
 			startOffset = (segInfo->page_start[overflowIndex] & ~DYLD_CHAINED_PTR_START_LAST);
 			uint32_t *chain = (uint32_t *)(contents + startOffset);
-			fixupChain32(userVA, chain, contents, end_contents, link_info, segInfo, bindsArray);
+			fixupPageChain32(userVA, chain, contents, link_info, segInfo, bindsArray);
 			++overflowIndex;
 		}
 	} else {
 		uint32_t *chain = (uint32_t *)(contents + startOffset);
-		fixupChain32(userVA, chain, contents, end_contents, link_info, segInfo, bindsArray);
+		fixupPageChain32(userVA, chain, contents, link_info, segInfo, bindsArray);
 	}
 	return KERN_SUCCESS;
 }
@@ -516,7 +607,6 @@ static kern_return_t
 fixupPageAuth64(
 	uint64_t                              userVA,
 	vm_offset_t                           contents,
-	vm_offset_t                           end_contents,
 	dyld_pager_t                          pager,
 	struct dyld_chained_starts_in_segment *segInfo,
 	uint32_t                              pageIndex,
@@ -526,6 +616,9 @@ fixupPageAuth64(
 	uint32_t             link_info_size = pager->dyld_link_info_size;
 	struct mwl_info_hdr  *hdr = (struct mwl_info_hdr *)link_info;
 	uint64_t             *bindsArray = (uint64_t*)((uintptr_t)link_info + hdr->mwli_binds_offset);
+	vm_offset_t          end_contents = contents + PAGE_SIZE;
+	bool                 valid_chain = false;
+	uint64_t             step_multiplier = 8; // always 8-bytes stride for arm64e pages
 
 	/*
 	 * range check against link_info, note +1 to include data we'll dereference
@@ -565,7 +658,9 @@ fixupPageAuth64(
 			return KERN_FAILURE;
 		}
 		uint64_t value = *chain;
+		/* delta that can be used speculatively */
 		delta = (value >> 51) & 0x7FF;
+		delta *= step_multiplier;
 		bool isAuth = (value & 0x8000000000000000ULL);
 		bool isBind = (value & 0x4000000000000000ULL);
 		if (isAuth) {
@@ -620,8 +715,13 @@ fixupPageAuth64(
 				*chain = target + targetAdjust + high8;
 			}
 		}
-		chain += delta;
-	} while (delta != 0);
+		bool crossing_page = false;;
+		valid_chain = _delta_ptr_within_page_nospec(&chain, delta, &crossing_page, (uintptr_t)userVA);
+
+		if (crossing_page) {
+			return KERN_FAILURE;
+		}
+	} while (valid_chain);
 	return KERN_SUCCESS;
 }
 
@@ -632,7 +732,6 @@ static kern_return_t
 fixupCachePageAuth64(
 	uint64_t                              userVA,
 	vm_offset_t                           contents,
-	vm_offset_t                           end_contents,
 	dyld_pager_t                          pager,
 	struct dyld_chained_starts_in_segment *segInfo,
 	uint32_t                              pageIndex)
@@ -640,6 +739,9 @@ fixupCachePageAuth64(
 	void                 *link_info = pager->dyld_link_info;
 	uint32_t             link_info_size = pager->dyld_link_info_size;
 	struct mwl_info_hdr  *hdr = (struct mwl_info_hdr *)link_info;
+	vm_offset_t          end_contents = contents + PAGE_SIZE;
+	bool                 valid_chain = false;
+	uint64_t             step_multiplier = 8; // always 8-bytes stride for arm64e
 
 	/*
 	 * range check against link_info, note +1 to include data we'll dereference
@@ -678,7 +780,9 @@ fixupCachePageAuth64(
 			return KERN_FAILURE;
 		}
 		uint64_t value = *chain;
+		/* delta that can be used speculatively */
 		delta = (value >> 52) & 0x7FF;
+		delta *= step_multiplier;
 		bool isAuth = (value & 0x8000000000000000ULL);
 		if (isAuth) {
 			bool        addrDiv = ((value & (1ULL << 50)) != 0);
@@ -698,8 +802,12 @@ fixupCachePageAuth64(
 			uint64_t high8  = (value << 22) & 0xFF00000000000000ULL;
 			*chain = target + high8;
 		}
-		chain += delta;
-	} while (delta != 0);
+		bool crossing_page = false;
+		valid_chain = _delta_ptr_within_page_nospec(&chain, delta, &crossing_page, (uintptr_t)userVA);
+		if (crossing_page) {
+			return KERN_FAILURE;
+		}
+	} while (valid_chain);
 	return KERN_SUCCESS;
 }
 #endif /* defined(HAS_APPLE_PAC) */
@@ -711,7 +819,6 @@ fixupCachePageAuth64(
 static kern_return_t
 fixup_page(
 	vm_offset_t         contents,
-	vm_offset_t         end_contents,
 	uint64_t            userVA,
 	dyld_pager_t        pager)
 {
@@ -814,24 +921,24 @@ fixup_page(
 	switch (hdr->mwli_pointer_format) {
 #if defined(HAS_APPLE_PAC)
 	case DYLD_CHAINED_PTR_ARM64E:
-		fixupPageAuth64(userVA, contents, end_contents, pager, segInfo, pageIndex, false);
+		fixupPageAuth64(userVA, contents, pager, segInfo, pageIndex, false);
 		break;
 	case DYLD_CHAINED_PTR_ARM64E_USERLAND:
 	case DYLD_CHAINED_PTR_ARM64E_USERLAND24:
-		fixupPageAuth64(userVA, contents, end_contents, pager, segInfo, pageIndex, true);
+		fixupPageAuth64(userVA, contents, pager, segInfo, pageIndex, true);
 		break;
 	case DYLD_CHAINED_PTR_ARM64E_SHARED_CACHE:
-		fixupCachePageAuth64(userVA, contents, end_contents, pager, segInfo, pageIndex);
+		fixupCachePageAuth64(userVA, contents, pager, segInfo, pageIndex);
 		break;
 #endif /* defined(HAS_APPLE_PAC) */
 	case DYLD_CHAINED_PTR_64:
-		fixupPage64(userVA, contents, end_contents, link_info, segInfo, pageIndex, false);
+		fixupPage64(userVA, contents, link_info, segInfo, pageIndex, false);
 		break;
 	case DYLD_CHAINED_PTR_64_OFFSET:
-		fixupPage64(userVA, contents, end_contents, link_info, segInfo, pageIndex, true);
+		fixupPage64(userVA, contents, link_info, segInfo, pageIndex, true);
 		break;
 	case DYLD_CHAINED_PTR_32:
-		fixupPage32(userVA, contents, end_contents, link_info, link_info_size, segInfo, pageIndex);
+		fixupPage32(userVA, contents, link_info, link_info_size, segInfo, pageIndex);
 		break;
 	default:
 		ktriage_record(thread_tid(current_thread()), KDBG_TRIAGE_EVENTID(KDBG_TRIAGE_SUBSYS_DYLD_PAGER, KDBG_TRIAGE_RESERVED, KDBG_TRIAGE_DYLD_PAGER_BAD_POINTER_FMT), (uintptr_t)userVA);
@@ -1075,7 +1182,7 @@ retry_src_fault:
 				panic("%s(): Range not found for offset 0x%llx", __func__, (long long)cur_offset);
 			}
 			retval = KERN_FAILURE;
-		} else if (fixup_page(dst_vaddr, dst_vaddr + PAGE_SIZE, userVA, pager) != KERN_SUCCESS) {
+		} else if (fixup_page(dst_vaddr, userVA, pager) != KERN_SUCCESS) {
 			/* KDBG / printf was done under fixup_page() */
 			retval = KERN_FAILURE;
 		}
@@ -1094,7 +1201,7 @@ retry_src_fault:
 		/*
 		 * Cleanup the result of vm_fault_page() of the source page.
 		 */
-		vm_page_wakeup_done(src_top_object, src_page);
+		vm_page_wakeup_done(src_page_object, src_page);
 		src_page = VM_PAGE_NULL;
 		vm_object_paging_end(src_page_object);
 		vm_object_unlock(src_page_object);
@@ -1398,7 +1505,7 @@ dyld_pager_create(
 	 * The vm_map call takes both named entry ports and raw memory
 	 * objects in the same parameter.  We need to make sure that
 	 * vm_map does not see this object as a named entry port.  So,
-	 * we reserve the first word in the object for a fake ip_kotype
+	 * we reserve the first word in the object for a fake object type
 	 * setting - that will tell vm_map to use it as a memory object.
 	 */
 	pager->dyld_header.mo_ikot = IKOT_MEMORY_OBJECT;
@@ -1508,22 +1615,107 @@ vm_map_with_linking(
 	memory_object_control_t file_control)
 {
 	vm_map_t                map = task->map;
-	vm_object_t             object = VM_OBJECT_NULL;
+	vm_object_t             file_object = VM_OBJECT_NULL;
 	memory_object_t         pager = MEMORY_OBJECT_NULL;
 	uint32_t                r;
 	vm_map_address_t        map_addr;
 	kern_return_t           kr = KERN_SUCCESS;
+	vm_map_entry_t          map_entry;
+	vm_object_t             backing_object = VM_OBJECT_NULL;
+	vm_object_t             shadow_object;
+	int                     num_extra_shadows;
 
-	object = memory_object_control_to_vm_object(file_control);
-	if (object == VM_OBJECT_NULL || object->internal) {
-		printf("%s no object for file_control\n", __func__);
-		object = VM_OBJECT_NULL;
-		kr = KERN_INVALID_ADDRESS;
+	if (region_cnt == 0) {
+		kr = KERN_INVALID_ARGUMENT;
+		goto done;
+	}
+	file_object = memory_object_control_to_vm_object(file_control);
+	if (file_object == VM_OBJECT_NULL || file_object->internal) {
+		printf("%d[%s] %s: invalid object for provided file\n",
+		    proc_selfpid(), proc_name_address(current_proc()), __func__);
+		file_object = VM_OBJECT_NULL;
+		kr = KERN_INVALID_ARGUMENT;
 		goto done;
 	}
 
-	/* create a pager */
-	pager = dyld_pager_setup(task, object, regions, region_cnt, *link_info, link_info_size);
+	/*
+	 * Check that the mapping is backed by the same file.
+	 */
+	map_addr = regions[0].mwlr_address;
+	vm_map_lock_read(map);
+	if (!vm_map_lookup_entry(map,
+	    map_addr,
+	    &map_entry) ||
+	    map_entry->is_sub_map ||
+	    VME_OBJECT(map_entry) == VM_OBJECT_NULL) {
+		vm_map_unlock_read(map);
+		kr = KERN_INVALID_ADDRESS;
+		goto done;
+	}
+	/* go down the shadow chain looking for the file object and its copy object */
+	num_extra_shadows = 0;
+	shadow_object = VME_OBJECT(map_entry);
+	vm_object_lock(shadow_object);
+	while (shadow_object->shadow != VM_OBJECT_NULL) {
+		vm_object_t next_object = shadow_object->shadow;
+		if (shadow_object->shadow == file_object &&
+		    shadow_object->vo_shadow_offset == 0) {
+			/*
+			 * Found our file object as shadow_object's shadow.
+			 * shadow_object should be its copy object (we'll check below
+			 * when we have its lock).
+			 * shadow_object will be the backing object for our dyld pager,
+			 * so let's take a reference to keep it alive until we create
+			 * our dyld pager.
+			 */
+			backing_object = shadow_object;
+			vm_object_reference_locked(backing_object);
+		}
+		if (backing_object == VM_OBJECT_NULL) {
+			num_extra_shadows++;
+		}
+		vm_object_lock(next_object);
+		vm_object_unlock(shadow_object);
+		shadow_object = next_object;
+	}
+	if (shadow_object != file_object) {
+		/* the shadow chain does not end at the file provided by the caller */
+		printf("%d[%s] %s: mapping at 0x%llx is not backed by the expected file",
+		    proc_selfpid(), proc_name_address(current_proc()), __func__,
+		    (uint64_t)map_addr);
+		// ktriage_record(...);
+		vm_object_unlock(shadow_object);
+		shadow_object = VM_OBJECT_NULL;
+		vm_map_unlock_read(map);
+		kr = KERN_INVALID_ARGUMENT;
+		goto done;
+	}
+	vm_object_unlock(shadow_object);
+	shadow_object = VM_OBJECT_NULL;
+	vm_map_unlock_read(map);
+	if (backing_object == VM_OBJECT_NULL ||
+	    backing_object != file_object->vo_copy) {
+		printf("%d[%s] %s: mapping at 0x%llx not a proper copy-on-write mapping\n",
+		    proc_selfpid(), proc_name_address(current_proc()), __func__,
+		    (uint64_t)map_addr);
+		kr = KERN_INVALID_ARGUMENT;
+		goto done;
+	}
+	if (num_extra_shadows) {
+		/*
+		 * We found some extra shadow objects in the shadow chain for this mapping.
+		 * We're about to replace that mapping with a "dyld" pager backed by the
+		 * latest snapshot (copy) of the provided file, so any pages that had
+		 * previously been copied and modified in these extra shadow objects
+		 * will no longer be visible in this mapping.
+		 */
+		printf("%d[%s] %s: (warn) skipped %d shadow object(s) at 0x%llx\n",
+		    proc_selfpid(), proc_name_address(current_proc()), __func__,
+		    num_extra_shadows, (uint64_t)map_addr);
+	}
+
+	/* create a pager, backed by the latest snapshot (copy object) of the file */
+	pager = dyld_pager_setup(task, backing_object, regions, region_cnt, *link_info, link_info_size);
 	if (pager == MEMORY_OBJECT_NULL) {
 		kr = KERN_RESOURCE_SHORTAGE;
 		goto done;
@@ -1566,11 +1758,19 @@ vm_map_with_linking(
 	kr = KERN_SUCCESS;
 
 done:
-
+	if (backing_object != VM_OBJECT_NULL) {
+		/*
+		 * Release our extra reference on the backing object.
+		 * The pager (if created) took an extra reference on it.
+		 */
+		vm_object_deallocate(backing_object);
+		backing_object = VM_OBJECT_NULL;
+	}
 	if (pager != MEMORY_OBJECT_NULL) {
 		/*
 		 * Release the pager reference obtained by dyld_pager_setup().
-		 * The mapping, if it succeeded, is now holding a reference on the memory object.
+		 * The mappings, if succesful, are each holding a reference on the
+		 * pager's VM object, which keeps the pager (aka memory object) alive.
 		 */
 		memory_object_deallocate(pager);
 		pager = MEMORY_OBJECT_NULL;

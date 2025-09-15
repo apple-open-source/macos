@@ -150,6 +150,13 @@ enum cpu_event {
 	CPU_DOWN,
 	CLUSTER_EXIT_REQUESTED,
 	CPU_EXITED,
+	PLATFORM_QUIESCE,
+	PLATFORM_ACTIVE,
+	PLATFORM_HALT_RESTART,
+	PLATFORM_PANIC,
+	PLATFORM_PANIC_SYNC,
+	PLATFORM_PRE_SLEEP,
+	PLATFORM_POST_RESUME,
 };
 
 typedef bool (*cpu_callback_t)(void *param, enum cpu_event event, unsigned int cpu_or_cluster);
@@ -178,6 +185,10 @@ void cpu_event_unregister_callback(cpu_callback_t fn);
  */
 void ml_broadcast_cpu_event(enum cpu_event event, unsigned int cpu_or_cluster);
 #endif
+
+void cpu_event_debug_log(enum cpu_event event, unsigned int cpu_or_cluster);
+
+void dump_cpu_event_log(int (*printf_func)(const char * fmt, ...));
 
 /*!
  * @function      ml_io_read()
@@ -326,6 +337,7 @@ int ml_io_reset_timeouts_phys(vm_offset_t iopaddr_base, unsigned int size);
 #if XNU_KERNEL_PRIVATE
 
 #if ML_IO_TIMEOUTS_ENABLED
+
 #if !defined(__x86_64__)
 /* x86 does not have the MACHINE_TIMEOUTs types, and the variables are
  * declared elsewhere. */
@@ -337,6 +349,16 @@ extern machine_timeout_t trace_phy_write_delay_to;
 #endif /* !defined(__x86_64__) */
 extern void override_io_timeouts(uintptr_t vaddr, uint64_t paddr,
     uint64_t *read_timeout, uint64_t *write_timeout);
+
+typedef struct {
+	uint64_t mmio_start_mt;
+	uint64_t mmio_paddr;
+	uintptr_t mmio_vaddr;
+} mmio_track_t;
+PERCPU_DECL(mmio_track_t, mmio_tracker);
+
+extern boolean_t ml_io_check_for_mmio_overrides(uint64_t mt);
+
 #endif /* ML_IO_TIMEOUTS_ENABLED */
 
 void ml_get_cluster_type_name(cluster_type_t cluster_type, char *name,
@@ -382,6 +404,18 @@ void ml_map_cpus_to_clusters(uint8_t *table);
  */
 void ml_task_post_signature_processing_hook(task_t task);
 #endif /* MACH_KERNEL_PRIVATE */
+
+#if XNU_KERNEL_PRIVATE
+/**
+ * Returns whether kernel text should be writable.
+ *
+ * @note This is always true on x86_64.
+ *
+ * @note On ARM, this can be set through LocalPolicy, or internally through the
+ *       -unsafe_kernel_text boot arg.
+ */
+bool ml_unsafe_kernel_text(void);
+#endif /* XNU_KERNEL_PRIVATE */
 
 __END_DECLS
 

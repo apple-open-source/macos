@@ -62,4 +62,3 @@ DNSServiceErrorCodeToString(DNSServiceErrorType error_code)
 	}
 #undef CASE_TO_STR
 }
-

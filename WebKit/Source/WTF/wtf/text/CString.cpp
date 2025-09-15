@@ -49,6 +49,14 @@ Ref<CStringBuffer> CStringBuffer::createUninitialized(size_t length)
     return buffer;
 }
 
+CString::CString(ASCIILiteral string)
+{
+    if (!string)
+        return;
+
+    init(string.span());
+}
+
 CString::CString(const char* string)
 {
     if (!string)
@@ -107,7 +115,7 @@ void CString::copyBufferIfNeeded()
     RefPtr<CStringBuffer> buffer = WTFMove(m_buffer);
     size_t length = buffer->length();
     m_buffer = CStringBuffer::createUninitialized(length);
-    memcpySpan(m_buffer->mutableSpanIncludingNullTerminator(), buffer->unsafeSpanIncludingNullTerminator());
+    memcpySpan(m_buffer->mutableSpanIncludingNullTerminator(), buffer->spanIncludingNullTerminator());
 }
 
 bool CString::isSafeToSendToAnotherThread() const
@@ -120,7 +128,7 @@ void CString::grow(size_t newLength)
     ASSERT(newLength > length());
 
     auto newBuffer = CStringBuffer::createUninitialized(newLength);
-    memcpySpan(newBuffer->mutableSpanIncludingNullTerminator(), m_buffer->unsafeSpanIncludingNullTerminator());
+    memcpySpan(newBuffer->mutableSpanIncludingNullTerminator(), m_buffer->spanIncludingNullTerminator());
     m_buffer = WTFMove(newBuffer);
 }
 
@@ -130,7 +138,7 @@ bool operator==(const CString& a, const CString& b)
         return false;
     if (a.length() != b.length())
         return false;
-    return equal(a.span().data(), b.span());
+    return equal(byteCast<LChar>(a.span()).data(), byteCast<LChar>(b.span()));
 }
 
 unsigned CString::hash() const
@@ -149,9 +157,7 @@ bool operator<(const CString& a, const CString& b)
         return !b.isNull();
     if (b.isNull())
         return false;
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    return strcmp(a.data(), b.data()) < 0;
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+    return is_lt(compareSpans(a.span(), b.span()));
 }
 
 bool CStringHash::equal(const CString& a, const CString& b)

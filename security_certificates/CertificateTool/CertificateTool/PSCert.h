@@ -7,6 +7,13 @@
 
 #import <Foundation/Foundation.h>
 
+extern const NSString* kSecAnchorTypeUndefined;
+extern const NSString* kSecAnchorTypeSystem;
+extern const NSString* kSecAnchorTypePlatform;
+extern const NSString* kSecAnchorTypeCustom;
+extern const NSString* kSecAnchorTypeSystemTEST;
+extern const NSString* kSecAnchorTypePlatformTEST;
+
 @interface PSCert : NSObject
 {
 @private
@@ -20,7 +27,7 @@
     NSString*           _file_path;
     NSString*           _auth_key_id;
     NSString*           _subj_key_id;
-    NSString*           _anchor_type;
+    const NSString*     _anchor_type;
 }
 
 @property (readonly) NSData* cert_data;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -67,27 +67,8 @@
 /*
  * Common.
  */
-#if (DEBUG || DEVELOPMENT)
-#define PKT_SUBTYPE_ASSERT(_ph, _type, _subtype) do {                   \
-	if (__improbable(SK_PTR_TYPE(_ph) != (uint64_t)(_type) ||       \
-	    SK_PTR_SUBTYPE(_ph) != (uint64_t)(_subtype))) {             \
-	        pkt_subtype_assert_fail(_ph, _type, _subtype);          \
-	/* NOTREACHED */                                        \
-	        __builtin_unreachable();                                \
-	}                                                               \
-} while (0)
-
-#define PKT_TYPE_ASSERT(_ph, _type) do {                                \
-	if (__improbable(SK_PTR_TYPE(_ph) != (uint64_t)(_type))) {      \
-	        pkt_type_assert_fail(_ph, _type);                       \
-	/* NOTREACHED */                                        \
-	        __builtin_unreachable();                                \
-	}                                                               \
-} while (0)
-#else /* !DEBUG && !DEVELOPMENT */
-#define PKT_SUBTYPE_ASSERT(_ph, _type, _subtype)        ((void)0)
 #define PKT_TYPE_ASSERT(_ph, _type)                     ((void)0)
-#endif /* !DEBUG && !DEVELOPMENT */
+#define PKT_SUBTYPE_ASSERT(_ph, _type, _subtype)        ((void)0)
 
 #define QUM_GET_NEXT_BUFLET(_qum, _pbuf, _buf) do {                     \
 	ASSERT((_pbuf) == NULL || (_pbuf) == (_qum)->qum_buf);          \
@@ -417,7 +398,7 @@ __packet_opt_get_token(const struct __packet_opt *po,
 	ttype = (uint8_t)po->__po_token_type;
 
 	ASSERT(tlen <= PKT_OPT_MAX_TOKEN_SIZE);
-	_CASSERT((__builtin_offsetof(struct __packet_opt, __po_token) % 8) == 0);
+	static_assert((__builtin_offsetof(struct __packet_opt, __po_token) % 8) == 0);
 	bcopy(po->__po_token, token, tlen);
 	/*
 	 * -fbounds-safety: Updating *len should be fine because at this point
@@ -459,7 +440,7 @@ __packet_opt_set_token(struct __packet_opt *po,
     const void *__sized_by(PKT_OPT_MAX_TOKEN_SIZE)token,
     const uint16_t len, const uint8_t type, volatile uint64_t *pflags)
 {
-	_CASSERT((__builtin_offsetof(struct __packet_opt, __po_token) % 8) == 0);
+	static_assert((__builtin_offsetof(struct __packet_opt, __po_token) % 8) == 0);
 	if (len != 0) {
 		if (token == NULL || len > PKT_OPT_MAX_TOKEN_SIZE ||
 		    type == 0) {
@@ -476,9 +457,9 @@ __packet_opt_set_token(struct __packet_opt *po,
 		po->__po_token_type = type;
 		*pflags |= PKT_F_OPT_TOKEN;
 	} else {
-		_CASSERT(sizeof(po->__po_token_data[0]) == 8);
-		_CASSERT(sizeof(po->__po_token_data[1]) == 8);
-		_CASSERT(sizeof(po->__po_token) == 16);
+		static_assert(sizeof(po->__po_token_data[0]) == 8);
+		static_assert(sizeof(po->__po_token_data[1]) == 8);
+		static_assert(sizeof(po->__po_token) == 16);
 		po->__po_token_data[0] = 0;
 		po->__po_token_data[1] = 0;
 		po->__po_token_len = 0;
@@ -582,8 +563,7 @@ __packet_set_packetid(const uint64_t ph, const packet_id_t *pktid)
 
 __attribute__((always_inline))
 static inline errno_t
-__packet_get_vlan_tag(const uint64_t ph, uint16_t *vlan_tag,
-    boolean_t *tag_in_pkt)
+__packet_get_vlan_tag(const uint64_t ph, uint16_t *vlan_tag)
 {
 #ifdef KERNEL
 	struct __packet_opt *po = PKT_ADDR(ph)->pkt_com_opt;
@@ -592,7 +572,7 @@ __packet_get_vlan_tag(const uint64_t ph, uint16_t *vlan_tag,
 #endif /* !KERNEL */
 	uint64_t pflags;
 
-	PKT_SUBTYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET, NEXUS_META_SUBTYPE_RAW);
+	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 	pflags = PKT_ADDR(ph)->pkt_pflags;
 	if ((pflags & PKT_F_OPT_VLTAG) == 0) {
 		return ENOENT;
@@ -600,16 +580,12 @@ __packet_get_vlan_tag(const uint64_t ph, uint16_t *vlan_tag,
 	if (vlan_tag != NULL) {
 		*vlan_tag = po->__po_vlan_tag;
 	}
-	if (tag_in_pkt != NULL) {
-		*tag_in_pkt = ((pflags & PKT_F_OPT_VLTAG_IN_PKT) != 0);
-	}
 	return 0;
 }
 
 __attribute__((always_inline))
 static inline errno_t
-__packet_set_vlan_tag(const uint64_t ph, const uint16_t vlan_tag,
-    const boolean_t tag_in_pkt)
+__packet_set_vlan_tag(const uint64_t ph, const uint16_t vlan_tag)
 {
 #ifdef KERNEL
 	struct __packet_opt *po = PKT_ADDR(ph)->pkt_com_opt;
@@ -617,13 +593,10 @@ __packet_set_vlan_tag(const uint64_t ph, const uint16_t vlan_tag,
 	struct __packet_opt *po = &PKT_ADDR(ph)->pkt_com_opt;
 #endif /* !KERNEL */
 
-	PKT_SUBTYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET, NEXUS_META_SUBTYPE_RAW);
+	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 	PKT_ADDR(ph)->pkt_pflags |= PKT_F_OPT_VLTAG;
 	po->__po_vlan_tag = vlan_tag;
 
-	if (tag_in_pkt) {
-		PKT_ADDR(ph)->pkt_pflags |= PKT_F_OPT_VLTAG_IN_PKT;
-	}
 	return 0;
 }
 
@@ -689,7 +662,6 @@ __packet_set_app_metadata(const uint64_t ph,
 	return 0;
 }
 
-#ifdef KERNEL
 __attribute__((always_inline))
 static inline void
 __packet_set_wake_flag(const uint64_t ph)
@@ -697,13 +669,36 @@ __packet_set_wake_flag(const uint64_t ph)
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 	PKT_ADDR(ph)->pkt_pflags |= PKT_F_WAKE_PKT;
 }
-#endif
 
 __attribute__((always_inline))
 static inline boolean_t
 __packet_get_wake_flag(const uint64_t ph)
 {
 	return (PKT_ADDR(ph)->pkt_pflags & PKT_F_WAKE_PKT) != 0;
+}
+
+#ifdef KERNEL
+__attribute__((always_inline))
+static inline void
+__packet_set_ulpn_flag(const uint64_t ph)
+{
+	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
+	PKT_ADDR(ph)->pkt_pflags |= PKT_F_ULPN;
+}
+#endif
+
+__attribute__((always_inline))
+static inline boolean_t
+__packet_get_ulpn_flag(const uint64_t ph)
+{
+	return (PKT_ADDR(ph)->pkt_pflags & PKT_F_ULPN) != 0;
+}
+
+__attribute__((always_inline))
+static inline boolean_t
+__packet_get_lpw_flag(const uint64_t ph)
+{
+	return (PKT_ADDR(ph)->pkt_pflags & __PKT_F_LPW) != 0;
 }
 
 __attribute__((always_inline))
@@ -773,7 +768,7 @@ __packet_set_service_class(const uint64_t ph, const uint32_t sc)
 {
 	int err = 0;
 
-	_CASSERT(sizeof(QUM_ADDR(ph)->qum_svc_class == sizeof(uint32_t)));
+	static_assert(sizeof(QUM_ADDR(ph)->qum_svc_class == sizeof(uint32_t)));
 
 	switch (sc) {
 	case PKT_SC_BE:
@@ -804,7 +799,7 @@ __packet_get_service_class(const uint64_t ph)
 {
 	uint32_t sc;
 
-	_CASSERT(sizeof(QUM_ADDR(ph)->qum_svc_class == sizeof(uint32_t)));
+	static_assert(sizeof(QUM_ADDR(ph)->qum_svc_class == sizeof(uint32_t)));
 
 	switch (QUM_ADDR(ph)->qum_svc_class) {
 	case PKT_SC_BE:         /* most likely best effort */
@@ -833,7 +828,7 @@ __attribute__((always_inline))
 static inline errno_t
 __packet_set_comp_gencnt(const uint64_t ph, const uint32_t gencnt)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_comp_gencnt == sizeof(uint32_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_comp_gencnt == sizeof(uint32_t)));
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 
 	PKT_ADDR(ph)->pkt_comp_gencnt = gencnt;
@@ -845,7 +840,7 @@ __attribute__((always_inline))
 static inline errno_t
 __packet_get_comp_gencnt(const uint64_t ph, uint32_t *pgencnt)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_comp_gencnt == sizeof(uint32_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_comp_gencnt == sizeof(uint32_t)));
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 
 	if (pgencnt == NULL) {
@@ -1032,7 +1027,7 @@ __attribute__((always_inline))
 static inline uint8_t
 __packet_get_aggregation_type(const uint64_t ph)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_aggr_type == sizeof(uint8_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_aggr_type == sizeof(uint8_t)));
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 
 	return PKT_ADDR(ph)->pkt_aggr_type;
@@ -1073,35 +1068,21 @@ __packet_get_buflet_count(const uint64_t ph)
 {
 	uint16_t bcnt = 0;
 
-	switch (SK_PTR_TYPE(ph)) {
-	case NEXUS_META_TYPE_PACKET:
-		bcnt = PKT_ADDR(ph)->pkt_bufs_cnt;
+	bcnt = PKT_ADDR(ph)->pkt_bufs_cnt;
 #ifdef KERNEL
-		VERIFY(bcnt != 0 ||
-		    PP_HAS_BUFFER_ON_DEMAND(PKT_ADDR(ph)->pkt_qum.qum_pp));
+	VERIFY(bcnt != 0 ||
+	    PP_HAS_BUFFER_ON_DEMAND(PKT_ADDR(ph)->pkt_qum.qum_pp));
 #else /* !KERNEL */
-		/*
-		 * Handle the case where the metadata region gets
-		 * redirected to anonymous zero-filled pages at
-		 * defunct time.  There's always 1 buflet in the
-		 * packet metadata, so pretend that's the count.
-		 */
-		if (__improbable(bcnt == 0)) {
-			bcnt = 1;
-		}
-#endif /* !KERNEL */
-		break;
-	case NEXUS_META_TYPE_QUANTUM:
+	/*
+	 * Handle the case where the metadata region gets
+	 * redirected to anonymous zero-filled pages at
+	 * defunct time.  There's always 1 buflet in the
+	 * packet metadata, so pretend that's the count.
+	 */
+	if (__improbable(bcnt == 0)) {
 		bcnt = 1;
-		break;
-	default:
-#ifdef KERNEL
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-#endif /* KERNEL */
-		break;
 	}
+#endif /* !KERNEL */
 	return bcnt;
 }
 
@@ -1187,38 +1168,23 @@ __packet_get_next_buflet(const uint64_t ph, const void *bprev0)
 	void *bcur = NULL;
 #endif /* !KERNEL */
 
-	switch (SK_PTR_TYPE(ph)) {
-	case NEXUS_META_TYPE_PACKET: {
-		uint32_t bcnt = PKT_ADDR(ph)->pkt_bufs_cnt;
+	uint32_t bcnt = PKT_ADDR(ph)->pkt_bufs_cnt;
 #ifdef KERNEL
-		ASSERT(bcnt != 0 ||
-		    PP_HAS_BUFFER_ON_DEMAND(PKT_ADDR(ph)->pkt_qum.qum_pp));
+	ASSERT(bcnt != 0 ||
+	    PP_HAS_BUFFER_ON_DEMAND(PKT_ADDR(ph)->pkt_qum.qum_pp));
 #else /* !KERNEL */
-		/*
-		 * Handle the case where the metadata region gets
-		 * redirected to anonymous zero-filled pages at
-		 * defunct time.  There's always 1 buflet in the
-		 * packet metadata, so pretend that's the count.
-		 */
-		if (__improbable(bcnt == 0)) {
-			bcnt = 1;
-			bprev = NULL;
-		}
+	/*
+	 * Handle the case where the metadata region gets
+	 * redirected to anonymous zero-filled pages at
+	 * defunct time.  There's always 1 buflet in the
+	 * packet metadata, so pretend that's the count.
+	 */
+	if (__improbable(bcnt == 0)) {
+		bcnt = 1;
+		bprev = NULL;
+	}
 #endif /* !KERNEL */
-		PKT_GET_NEXT_BUFLET(PKT_ADDR(ph), bcnt, BLT_ADDR(bprev), bcur);
-		break;
-	}
-	case NEXUS_META_TYPE_QUANTUM:
-		QUM_GET_NEXT_BUFLET(QUM_ADDR(ph), BLT_ADDR(bprev), bcur);
-		break;
-	default:
-#ifdef KERNEL
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-#endif /* KERNEL */
-		break;
-	}
+	PKT_GET_NEXT_BUFLET(PKT_ADDR(ph), bcnt, BLT_ADDR(bprev), bcur);
 	return bcur;
 }
 
@@ -1226,7 +1192,7 @@ __attribute__((always_inline))
 static inline uint8_t
 __packet_get_segment_count(const uint64_t ph)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_seg_cnt == sizeof(uint8_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_seg_cnt == sizeof(uint8_t)));
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 
 	return PKT_ADDR(ph)->pkt_seg_cnt;
@@ -1236,7 +1202,7 @@ __attribute__((always_inline))
 static inline void
 __packet_set_segment_count(const uint64_t ph, uint8_t segcount)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_seg_cnt == sizeof(uint8_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_seg_cnt == sizeof(uint8_t)));
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 
 	PKT_ADDR(ph)->pkt_seg_cnt = segcount;
@@ -1263,7 +1229,7 @@ __attribute__((always_inline))
 static inline void
 __packet_get_tso_flags(const uint64_t ph, packet_tso_flags_t *flags)
 {
-	_CASSERT(sizeof(PKT_ADDR(ph)->pkt_proto_seg_sz == sizeof(uint16_t)));
+	static_assert(sizeof(PKT_ADDR(ph)->pkt_proto_seg_sz == sizeof(uint16_t)));
 
 	PKT_TYPE_ASSERT(ph, NEXUS_META_TYPE_PACKET);
 	*flags = PKT_ADDR(ph)->pkt_csum_flags & (PACKET_CSUM_TSO_FLAGS);
@@ -1295,7 +1261,7 @@ __buflet_set_data_limit(const void *buf, const uint32_t dlim)
 
 	/* full bounds checking will be performed during finalize */
 	if (__probable((uint32_t)dlim <= BLT_ADDR(buf)->buf_objlim)) {
-		_CASSERT(sizeof(BLT_ADDR(buf)->buf_dlim) == sizeof(uint32_t));
+		static_assert(sizeof(BLT_ADDR(buf)->buf_dlim) == sizeof(uint32_t));
 		/* deconst */
 		*(uint32_t *)(uintptr_t)&BLT_ADDR(buf)->buf_dlim = dlim;
 		return 0;
@@ -1392,79 +1358,49 @@ __packet_finalize(const uint64_t ph)
 		goto done;
 	}
 
-	switch (SK_PTR_TYPE(ph)) {
-	case NEXUS_META_TYPE_PACKET:
-		if (__improbable(bdoff0 > UINT8_MAX)) {
-			err = ERANGE;
+	if (__improbable(bdoff0 > UINT8_MAX)) {
+		err = ERANGE;
+		goto done;
+	}
+	/* internalize headroom value from offset */
+	PKT_ADDR(ph)->pkt_headroom = (uint8_t)bdoff0;
+	/* validate header offsets in packet */
+#ifndef KERNEL
+	/* Overwrite L2 len for raw packets from user space */
+	PKT_ADDR(ph)->pkt_l2_len = 0;
+#else /* !KERNEL */
+	/* ensure that L3 >= L2 && L3 < bdlim */
+	if (__improbable((PKT_ADDR(ph)->pkt_headroom +
+	    PKT_ADDR(ph)->pkt_l2_len) >= bdlim0)) {
+		err = ERANGE;
+		goto done;
+	}
+#endif /* KERNEL */
+
+	if (__improbable(PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_DATA)) {
+#ifdef KERNEL
+		struct __packet_opt *po = PKT_ADDR(ph)->pkt_com_opt;
+#else /* !KERNEL */
+		struct __packet_opt *po = &PKT_ADDR(ph)->pkt_com_opt;
+#endif /* !KERNEL */
+		if ((PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_EXPIRE_TS) &&
+		    po->__po_expire_ts == 0) {
+			err = EINVAL;
 			goto done;
 		}
-		/* internalize headroom value from offset */
-		PKT_ADDR(ph)->pkt_headroom = (uint8_t)bdoff0;
-		/* validate header offsets in packet */
-		switch (SK_PTR_SUBTYPE(ph)) {
-		case NEXUS_META_SUBTYPE_RAW:
-#ifndef KERNEL
-			/* Overwrite L2 len for raw packets from user space */
-			PKT_ADDR(ph)->pkt_l2_len = 0;
-#else /* !KERNEL */
-			/* ensure that L3 >= L2 && L3 < bdlim */
-			if (__improbable((PKT_ADDR(ph)->pkt_headroom +
-			    PKT_ADDR(ph)->pkt_l2_len) >= bdlim0)) {
-				err = ERANGE;
-				goto done;
-			}
-#endif /* KERNEL */
-			break;
-		case NEXUS_META_SUBTYPE_PAYLOAD:
-			/*
-			 * For payload packet there is no concept of headroom
-			 * and L3 offset should always be 0
-			 */
-			if (__improbable((PKT_ADDR(ph)->pkt_headroom != 0) ||
-			    (PKT_ADDR(ph)->pkt_l2_len != 0))) {
-				err = ERANGE;
-				goto done;
-			}
-			break;
-		default:
-#ifdef KERNEL
-			VERIFY(0);
-			/* NOTREACHED */
-			__builtin_unreachable();
-#endif /* KERNEL */
-			break;
+		if ((PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_TOKEN) &&
+		    po->__po_token_len == 0) {
+			err =  EINVAL;
+			goto done;
 		}
-
-		if (__improbable(PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_DATA)) {
-#ifdef KERNEL
-			struct __packet_opt *po = PKT_ADDR(ph)->pkt_com_opt;
-#else /* !KERNEL */
-			struct __packet_opt *po = &PKT_ADDR(ph)->pkt_com_opt;
-#endif /* !KERNEL */
-			if ((PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_EXPIRE_TS) &&
-			    po->__po_expire_ts == 0) {
-				err = EINVAL;
-				goto done;
-			}
-			if ((PKT_ADDR(ph)->pkt_pflags & PKT_F_OPT_TOKEN) &&
-			    po->__po_token_len == 0) {
-				err =  EINVAL;
-				goto done;
-			}
-			ASSERT(err == 0);
-		}
-
-		/*
-		 * NOTE: we don't need the validation for total packet length
-		 * as checking if each buflet is in range and that
-		 * (pkt_headroom == bdoff0), should cover this check.
-		 */
-		break;
-
-	default:
-		/* nothing to do currently for quantum */
-		break;
+		ASSERT(err == 0);
 	}
+
+	/*
+	 * NOTE: we don't need the validation for total packet length
+	 * as checking if each buflet is in range and that
+	 * (pkt_headroom == bdoff0), should cover this check.
+	 */
 
 done:
 	if (__probable(err == 0)) {
@@ -1558,38 +1494,16 @@ __packet_finalize_with_mbuf(struct __kern_packet *pkt)
 	}
 
 	/* validate header offsets in packet */
-	switch (METADATA_SUBTYPE(pkt)) {
-	case NEXUS_META_SUBTYPE_RAW:
-		if (__improbable((pkt->pkt_headroom != bdoff) ||
-		    (pkt->pkt_headroom >= bdlim))) {
-			err = ERANGE;
-			goto done;
-		}
-		if (__improbable((pkt->pkt_headroom +
-		    pkt->pkt_l2_len) >= bdlim)) {
-			err = ERANGE;
-			goto done;
-		}
-		break;
-
-	case NEXUS_META_SUBTYPE_PAYLOAD:
-		/*
-		 * For payload packet there is no concept of headroom.
-		 */
-		if (__improbable((pkt->pkt_headroom != 0) || (bdoff != 0) ||
-		    (pkt->pkt_l2_len != 0))) {
-			err = ERANGE;
-			goto done;
-		}
-		break;
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-		break;
+	if (__improbable((pkt->pkt_headroom != bdoff) ||
+	    (pkt->pkt_headroom >= bdlim))) {
+		err = ERANGE;
+		goto done;
 	}
-
+	if (__improbable((pkt->pkt_headroom +
+	    pkt->pkt_l2_len) >= bdlim)) {
+		err = ERANGE;
+		goto done;
+	}
 
 	if (__improbable(pkt->pkt_pflags & PKT_F_OPT_DATA)) {
 		struct __packet_opt *po = pkt->pkt_com_opt;
@@ -1768,7 +1682,7 @@ __packet_get_tx_nx_port_id(const uint64_t ph, uint32_t *nx_port_id)
 	nexus_port_t nx_port;
 	uint16_t vpna_gencnt;
 
-	_CASSERT(sizeof(nx_port) == sizeof(uint16_t));
+	static_assert(sizeof(nx_port) == sizeof(uint16_t));
 
 	err = __packet_get_tx_nx_port(ph, &nx_port, &vpna_gencnt);
 	if (err == 0) {
@@ -1873,7 +1787,7 @@ __buflet_set_data_address(const void *buf, const void *addr)
 	/* full bounds checking will be performed during finalize */
 	if (__probable((uintptr_t)addr >=
 	    (uintptr_t)BLT_ADDR(buf)->buf_objaddr)) {
-		_CASSERT(sizeof(BLT_ADDR(buf)->buf_addr) ==
+		static_assert(sizeof(BLT_ADDR(buf)->buf_addr) ==
 		    sizeof(mach_vm_address_t));
 		/* deconst */
 		*(mach_vm_address_t *)(uintptr_t)&BLT_ADDR(buf)->buf_addr =
@@ -1961,7 +1875,7 @@ __attribute__((always_inline))
 static inline struct sksegment *
 __buflet_get_object_segment(const void *buf, kern_obj_idx_seg_t *idx)
 {
-	_CASSERT(sizeof(obj_idx_t) == sizeof(kern_obj_idx_seg_t));
+	static_assert(sizeof(obj_idx_t) == sizeof(kern_obj_idx_seg_t));
 
 	if (idx != NULL) {
 		*idx = BLT_ADDR(buf)->buf_ctl->bc_idx;
@@ -2007,13 +1921,7 @@ __attribute__((always_inline))
 static inline packet_trace_id_t
 __packet_get_trace_id(const uint64_t ph)
 {
-	switch (SK_PTR_TYPE(ph)) {
-	case NEXUS_META_TYPE_PACKET:
-		return PKT_ADDR(ph)->pkt_trace_id;
-		break;
-	default:
-		return 0;
-	}
+	return PKT_ADDR(ph)->pkt_trace_id;
 }
 
 __attribute__((always_inline))

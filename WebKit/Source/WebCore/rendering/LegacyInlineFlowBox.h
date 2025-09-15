@@ -22,7 +22,6 @@
 
 #include "LegacyInlineBox.h"
 #include "RenderOverflow.h"
-#include "ShadowData.h"
 
 namespace WebCore {
 
@@ -34,7 +33,7 @@ class Font;
 
 struct GlyphOverflow;
 
-typedef UncheckedKeyHashMap<const LegacyInlineTextBox*, std::pair<Vector<SingleThreadWeakPtr<const Font>>, GlyphOverflow>> GlyphOverflowAndFallbackFontsMap;
+typedef HashMap<const LegacyInlineTextBox*, std::pair<Vector<SingleThreadWeakPtr<const Font>>, GlyphOverflow>> GlyphOverflowAndFallbackFontsMap;
 
 class LegacyInlineFlowBox : public LegacyInlineBox {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(LegacyInlineFlowBox);
@@ -78,12 +77,8 @@ public:
 
     void addToLine(LegacyInlineBox* child);
     void deleteLine() final;
-    void extractLine() final;
-    void attachLine() final;
     void adjustPosition(float dx, float dy) override;
 
-    virtual void extractLineBoxFromRenderObject();
-    virtual void attachLineBoxToRenderObject();
     virtual void removeLineBoxFromRenderObject();
 
     void computeOverflow(LayoutUnit lineTop, LayoutUnit lineBottom, GlyphOverflowAndFallbackFontsMap&);
@@ -173,7 +168,7 @@ private:
 #endif
 
 protected:
-    RefPtr<RenderOverflow> m_overflow;
+    std::unique_ptr<RenderOverflow> m_overflow;
 
     LegacyInlineBox* m_firstChild { nullptr };
     LegacyInlineBox* m_lastChild { nullptr };

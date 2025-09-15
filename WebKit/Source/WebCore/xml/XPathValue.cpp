@@ -117,7 +117,7 @@ String Value::toString() const
     case Type::NodeSet:
         if (m_data->nodeSet.isEmpty())
             return emptyString();
-        return stringValue(m_data->nodeSet.firstNode());
+        return stringValue(RefPtr { m_data->nodeSet.firstNode() }.get());
     case Type::String:
         return m_data->string;
     case Type::Number:

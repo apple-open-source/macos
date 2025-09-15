@@ -60,8 +60,16 @@ NSString * const _WKMenuItemIdentifierShareMenu = @"WKMenuItemIdentifierShareMen
 NSString * const _WKMenuItemIdentifierSpeechMenu = @"WKMenuItemIdentifierSpeechMenu";
 
 NSString * const _WKMenuItemIdentifierTranslate = @"WKMenuItemIdentifierTranslate";
-NSString * const _WKMenuItemIdentifierWritingTools = @"__NSTextViewContextSubmenuIdentifierWritingTools"; // AppKit creates this menu item.
 NSString * const _WKMenuItemIdentifierCopySubject = @"WKMenuItemIdentifierCopySubject";
+
+#if ENABLE(TOP_LEVEL_WRITING_TOOLS_CONTEXT_MENU_ITEMS)
+NSString * const _WKMenuItemIdentifierWritingTools = @"WKMenuItemIdentifierWritingTools";
+#else
+NSString * const _WKMenuItemIdentifierWritingTools = @"__NSTextViewContextSubmenuIdentifierWritingTools"; // AppKit creates this menu item.
+#endif
+NSString * const _WKMenuItemIdentifierProofread = @"WKMenuItemIdentifierProofread";
+NSString * const _WKMenuItemIdentifierRewrite = @"WKMenuItemIdentifierRewrite";
+NSString * const _WKMenuItemIdentifierSummarize = @"WKMenuItemIdentifierSummarize";
 
 NSString * const _WKMenuItemIdentifierSpellingMenu = @"WKMenuItemIdentifierSpellingMenu";
 NSString * const _WKMenuItemIdentifierShowSpellingPanel = @"WKMenuItemIdentifierShowSpellingPanel";

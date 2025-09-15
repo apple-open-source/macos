@@ -283,3 +283,9 @@ processor_to_datastring(const char *prefix, processor_t target_processor)
 
 	return (const char *)&printBuf[0];
 }
+
+void
+abandon_preemption_disable_measurement(void)
+{
+	/* stub for libpthread */
+}

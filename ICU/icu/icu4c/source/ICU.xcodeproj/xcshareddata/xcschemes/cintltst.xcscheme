@@ -53,12 +53,17 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "ICU_DATA"
-            value = "$(CONFIGURATION_BUILD_DIR)/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)/testdata.dat"
+            value = "$(BUILT_PRODUCTS_DIR)/icudt76l.dat:$(BUILT_PRODUCTS_DIR)/testdata.dat"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "LANG"
             value = "en_US.UTF-8"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "ICU_BUILT_PRODUCTS_DIR"
+            value = "$(BUILT_PRODUCTS_DIR)"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

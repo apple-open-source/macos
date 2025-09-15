@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies).
  * Copyright (C) 2012 Company 100, Inc.
  * Copyright (C) 2014-2019 Igalia S.L.
@@ -74,7 +74,7 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
 #endif
     : m_webPage(webPage)
     , m_sceneState(CoordinatedSceneState::create())
-    , m_layerFlushTimer(RunLoop::main(), this, &LayerTreeHost::layerFlushTimerFired)
+    , m_layerFlushTimer(RunLoop::mainSingleton(), "LayerTreeHost::LayerFlushTimer"_s, this, &LayerTreeHost::layerFlushTimerFired)
 #if !HAVE(DISPLAY_LINK)
     , m_displayID(displayID)
 #endif
@@ -87,7 +87,7 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
     {
         auto& rootLayer = m_sceneState->rootLayer();
 #if ENABLE(DAMAGE_TRACKING)
-        rootLayer.setDamagePropagation(webPage.corePage()->settings().propagateDamagingInformation());
+        rootLayer.setDamagePropagationEnabled(webPage.corePage()->settings().propagateDamagingInformation());
 #endif
         Locker locker { rootLayer.lock() };
         rootLayer.setAnchorPoint(FloatPoint3D(0, 0, 0));
@@ -106,14 +106,16 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
     m_compositor = ThreadedCompositor::create(*this, *this, displayID);
 #endif
 #if ENABLE(DAMAGE_TRACKING)
-    auto damagePropagation = ([](const Settings& settings) {
-        if (!settings.propagateDamagingInformation())
-            return Damage::Propagation::None;
+    std::optional<OptionSet<ThreadedCompositor::DamagePropagationFlags>> damagePropagationFlags;
+    const auto& settings = webPage.corePage()->settings();
+    if (settings.propagateDamagingInformation()) {
+        damagePropagationFlags = OptionSet<ThreadedCompositor::DamagePropagationFlags> { };
         if (settings.unifyDamagedRegions())
-            return Damage::Propagation::Unified;
-        return Damage::Propagation::Region;
-    })(webPage.corePage()->settings());
-    m_compositor->setDamagePropagation(damagePropagation);
+            damagePropagationFlags->add(ThreadedCompositor::DamagePropagationFlags::Unified);
+        if (settings.useDamagingInformationForCompositing())
+            damagePropagationFlags->add(ThreadedCompositor::DamagePropagationFlags::UseForCompositing);
+    }
+    m_compositor->setDamagePropagationFlags(damagePropagationFlags);
 #endif
     m_layerTreeContext.contextID = m_compositor->surfaceID();
 }
@@ -173,8 +175,11 @@ void LayerTreeHost::cancelPendingLayerFlush()
 
 void LayerTreeHost::flushLayers()
 {
+    RELEASE_ASSERT(!m_isFlushingLayers);
     if (m_layerTreeStateIsFrozen)
         return;
+
+    SetForScope<bool> reentrancyProtector(m_isFlushingLayers, true);
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     TraceScope traceScope(FlushPendingLayerChangesStart, FlushPendingLayerChangesEnd);
@@ -183,6 +188,10 @@ void LayerTreeHost::flushLayers()
     Ref page { m_webPage };
     page->updateRendering();
     page->flushPendingEditorStateUpdate();
+
+#if PLATFORM(WPE) || PLATFORM(GTK)
+    page->flushPendingThemeColorChange();
+#endif
 
     if (m_overlayCompositingLayer)
         m_overlayCompositingLayer->flushCompositingState(visibleContentsRect());
@@ -197,6 +206,7 @@ void LayerTreeHost::flushLayers()
     page->finalizeRenderingUpdate(flags);
 
     if (m_pendingResize) {
+        m_compositor->setSize(page->size(), page->deviceScaleFactor());
         auto& rootLayer = m_sceneState->rootLayer();
         Locker locker { rootLayer.lock() };
         rootLayer.setSize(page->size());
@@ -210,7 +220,7 @@ void LayerTreeHost::flushLayers()
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    if (auto* drawingArea = m_webPage.drawingArea())
+    if (RefPtr drawingArea = m_webPage.drawingArea())
         drawingArea->dispatchPendingCallbacksAfterEnsuringDrawing();
 #endif
 
@@ -228,6 +238,11 @@ void LayerTreeHost::flushLayers()
     m_imageBackingStores.removeIf([](auto& it) {
         return it.value->hasOneRef();
     });
+
+    if (m_waitUntilPaintingComplete) {
+        m_sceneState->waitUntilPaintingComplete();
+        m_waitUntilPaintingComplete = false;
+    }
 }
 
 void LayerTreeHost::layerFlushTimerFired()
@@ -301,10 +316,29 @@ void LayerTreeHost::forceRepaint()
     if (!m_isWaitingForRenderer)
         flushLayers();
 #else
+    if (m_isWaitingForRenderer) {
+        if (m_forceRepaintAsync.callback)
+            m_pendingForceRepaint = true;
+        return;
+    }
+
+    m_pendingForceRepaint = false;
     m_webPage.corePage()->forceRepaintAllFrames();
     m_forceFrameSync = true;
+
+    // Make sure `m_sceneState->waitUntilPaintingComplete()` is invoked at the
+    // end of the currently running layer flush, or after the next one if there
+    // is none ongoing at present.
+    m_waitUntilPaintingComplete = true;
+
+    // If forceRepaint() is invoked via JS through e.g. a rAF() callback, a call
+    // to `page->updateRendering()` _during_ a layer flush is responsible for that.
+    // If m_isFlushingLayers is true, that layer flush is still ongoing, so we do
+    // not need to cancel pending ones and immediately flush again (re-entrancy!).
+    if (m_isFlushingLayers)
+        return;
+    cancelPendingLayerFlush();
     flushLayers();
-    m_sceneState->waitUntilPaintingComplete();
 #endif
 }
 
@@ -319,10 +353,13 @@ void LayerTreeHost::forceRepaintAsync(CompletionHandler<void()>&& callback)
     m_forceRepaintAsync.callback = WTFMove(callback);
     m_forceRepaintAsync.needsFreshFlush = m_scheduledWhileWaitingForRenderer;
 #else
-    forceRepaint();
     ASSERT(!m_forceRepaintAsync.callback);
     m_forceRepaintAsync.callback = WTFMove(callback);
-    m_forceRepaintAsync.compositionRequestID = m_compositionRequestID;
+    forceRepaint();
+    if (m_pendingForceRepaint)
+        m_forceRepaintAsync.compositionRequestID = std::nullopt;
+    else
+        m_forceRepaintAsync.compositionRequestID = m_compositionRequestID;
 #endif
 }
 
@@ -334,13 +371,15 @@ void LayerTreeHost::ensureDrawing()
 }
 #endif
 
-void LayerTreeHost::sizeDidChange(const IntSize& size)
+void LayerTreeHost::sizeDidChange()
 {
     m_pendingResize = true;
     if (m_isWaitingForRenderer)
         scheduleLayerFlush();
-    else
+    else {
+        cancelPendingLayerFlush();
         flushLayers();
+    }
 }
 
 void LayerTreeHost::pauseRendering()
@@ -376,7 +415,7 @@ void LayerTreeHost::backgroundColorDidChange()
 void LayerTreeHost::attachLayer(CoordinatedPlatformLayer& layer)
 {
 #if ENABLE(DAMAGE_TRACKING)
-    layer.setDamagePropagation(webPage().corePage()->settings().propagateDamagingInformation());
+    layer.setDamagePropagationEnabled(webPage().corePage()->settings().propagateDamagingInformation());
 #endif
     m_sceneState->addLayer(layer);
 }
@@ -467,14 +506,18 @@ void LayerTreeHost::handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled)
 
 void LayerTreeHost::willRenderFrame()
 {
-    if (auto* drawingArea = m_webPage.drawingArea())
+    if (RefPtr drawingArea = m_webPage.drawingArea())
         drawingArea->willStartRenderingUpdateDisplay();
 }
 
 void LayerTreeHost::didRenderFrame()
 {
-    if (auto* drawingArea = m_webPage.drawingArea())
+    if (RefPtr drawingArea = m_webPage.drawingArea())
         drawingArea->didCompleteRenderingUpdateDisplay();
+    if (auto fps = m_compositor->fps()) {
+        if (RefPtr document = m_webPage.corePage()->localTopDocument())
+            document->addConsoleMessage(MessageSource::Rendering, MessageLevel::Info, makeString("FPS: "_s, *fps));
+    }
 }
 
 #if HAVE(DISPLAY_LINK)
@@ -482,15 +525,26 @@ void LayerTreeHost::didComposite(uint32_t compositionResponseID)
 {
     WTFBeginSignpost(this, DidComposite, "compositionRequestID %i, compositionResponseID %i", m_compositionRequestID, compositionResponseID);
 
-    if (m_forceRepaintAsync.callback && compositionResponseID >= m_forceRepaintAsync.compositionRequestID) {
+    if (m_forceRepaintAsync.callback && m_forceRepaintAsync.compositionRequestID && compositionResponseID >= *m_forceRepaintAsync.compositionRequestID) {
         m_forceRepaintAsync.callback();
-        m_forceRepaintAsync.compositionRequestID = 0;
+        m_forceRepaintAsync.compositionRequestID = std::nullopt;
     }
 
     if (!m_isWaitingForRenderer || m_compositionRequestID == compositionResponseID) {
         m_isWaitingForRenderer = false;
         bool scheduledWhileWaitingForRenderer = std::exchange(m_scheduledWhileWaitingForRenderer, false);
-        if (!m_isSuspended && !m_layerTreeStateIsFrozen && (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive())) {
+        if (m_pendingForceRepaint) {
+            if (m_layerTreeStateIsFrozen) {
+                if (m_forceRepaintAsync.callback) {
+                    m_forceRepaintAsync.callback();
+                    m_forceRepaintAsync.compositionRequestID = std::nullopt;
+                }
+            } else {
+                forceRepaint();
+                if (m_forceRepaintAsync.callback)
+                    m_forceRepaintAsync.compositionRequestID = m_compositionRequestID;
+            }
+        } else if (!m_isSuspended && !m_layerTreeStateIsFrozen && (scheduledWhileWaitingForRenderer || m_layerFlushTimer.isActive())) {
             cancelPendingLayerFlush();
             flushLayers();
         }
@@ -628,6 +682,30 @@ void LayerTreeHost::commitTransientZoom(double scale, FloatPoint origin)
 void LayerTreeHost::preferredBufferFormatsDidChange()
 {
     m_compositor->preferredBufferFormatsDidChange();
+}
+#endif
+
+#if ENABLE(DAMAGE_TRACKING)
+void LayerTreeHost::notifyFrameDamageForTesting(Region&& damageRegion)
+{
+    Locker locker { m_frameDamageHistoryForTestingLock };
+    m_frameDamageHistoryForTesting.append(WTFMove(damageRegion));
+}
+
+void LayerTreeHost::resetDamageHistoryForTesting()
+{
+    {
+        Locker locker { m_frameDamageHistoryForTestingLock };
+        m_frameDamageHistoryForTesting.clear();
+    }
+    m_compositor->enableFrameDamageNotificationForTesting();
+}
+
+void LayerTreeHost::foreachRegionInDamageHistoryForTesting(Function<void(const Region&)>&& callback)
+{
+    Locker locker { m_frameDamageHistoryForTestingLock };
+    for (const auto& region : m_frameDamageHistoryForTesting)
+        callback(region);
 }
 #endif
 

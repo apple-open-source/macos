@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <mach/message.h>
 
 #if PLATFORM(MAC) || USE(APPLE_INTERNAL_SDK)

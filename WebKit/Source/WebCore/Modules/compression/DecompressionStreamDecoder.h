@@ -26,7 +26,6 @@
 
 #include "BufferSource.h"
 #include "CompressionStream.h"
-#include "ExceptionOr.h"
 #include "Formats.h"
 #include "SharedBuffer.h"
 #include "ZStream.h"
@@ -39,17 +38,11 @@
 
 namespace WebCore {
 
+template<typename> class ExceptionOr;
+
 class DecompressionStreamDecoder : public RefCounted<DecompressionStreamDecoder> {
 public:
-    static ExceptionOr<Ref<DecompressionStreamDecoder>> create(unsigned char formatChar)
-    {
-        auto format = static_cast<Formats::CompressionFormat>(formatChar);
-#if !PLATFORM(COCOA)
-        if (format == Formats::CompressionFormat::Brotli)
-            return Exception { ExceptionCode::NotSupportedError, "Unsupported algorithm"_s };
-#endif
-        return adoptRef(*new DecompressionStreamDecoder(format));
-    }
+    static ExceptionOr<Ref<DecompressionStreamDecoder>> create(unsigned char formatChar);
 
     ExceptionOr<RefPtr<Uint8Array>> decode(const BufferSource&&);
     ExceptionOr<RefPtr<Uint8Array>> flush();

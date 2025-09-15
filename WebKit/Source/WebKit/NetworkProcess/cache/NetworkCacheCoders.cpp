@@ -87,7 +87,6 @@ std::optional<WebKit::NetworkCache::Key> Coder<WebKit::NetworkCache::Key>::decod
     return { WTFMove(key) };
 }
 
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
 void Coder<WebKit::NetworkCache::SubresourceInfo>::encodeForPersistence(WTF::Persistence::Encoder& encoder, const WebKit::NetworkCache::SubresourceInfo& instance)
 {
     encoder << instance.key();
@@ -158,6 +157,5 @@ std::optional<WebKit::NetworkCache::SubresourceInfo> Coder<WebKit::NetworkCache:
 
     return WebKit::NetworkCache::SubresourceInfo(WTFMove(*key), *lastSeen, *firstSeen, *isSameSite, *isAppInitiated, WTFMove(*firstPartyForCookies), WTFMove(*requestHeaders), *priority);
 }
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
 
 }

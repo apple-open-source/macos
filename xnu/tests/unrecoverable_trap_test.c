@@ -177,7 +177,8 @@ T_DECL(uncatchable_fatal_trap_debugged,
     "Ensure an maybe-unrecoverable trap label is catchable under a debugger",
     T_META_REQUIRES_SYSCTL_EQ("security.mac.amfi.developer_mode_status", 1),
     /* It's not straightforward to ptrace on platforms other than macOS, so don't bother */
-    T_META_ENABLED(TARGET_CPU_ARM64 && TARGET_OS_OSX)
+    // T_META_ENABLED(TARGET_CPU_ARM64 && TARGET_OS_OSX)
+    T_META_ENABLED(false) /* rdar://153223014 */
     )
 {
 	/* Given a child process that sets up some mechanisms to catch an exception/signal */

@@ -34,6 +34,7 @@
 #import "Color.h"
 #import "ColorCocoa.h"
 #import "ColorSerialization.h"
+#import "ContainerNodeInlines.h"
 #import "DataTransfer.h"
 #import "DocumentFragment.h"
 #import "Editing.h"
@@ -174,7 +175,7 @@ RefPtr<SharedBuffer> Editor::imageInWebArchiveFormat(Element& imageElement)
 
 RefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboardType)
 {
-    // FIXME: The interface to this function is awkward. We'd probably be better off with three separate functions. As of this writing, this is only used in WebKit2 to implement the method -[WKView writeSelectionToPasteboard:types:], which is only used to support OS X services.
+    // FIXME: The interface to this function is awkward. We'd probably be better off with three separate functions. As of this writing, this is only used in WebKit2 to implement the method -[WKView writeSelectionToPasteboard:types:], which is only used to support macOS services.
 
     // FIXME: Does this function really need to use adjustedSelectionRange()? Because writeSelectionToPasteboard() just uses selectedRange(). This is the only function in WebKit that uses adjustedSelectionRange.
     if (!canCopy())
@@ -230,10 +231,10 @@ String Editor::plainTextFromPasteboard(const PasteboardPlainText& text)
     // FIXME: It's not clear this is 100% correct since we know -[NSURL URLWithString:] does not handle
     // all the same cases we handle well in the URL code for creating an NSURL.
     if (text.isURL)
-        string = WTF::userVisibleString([NSURL URLWithString:string]);
+        string = WTF::userVisibleString([NSURL URLWithString:string.createNSString().get()]);
 
     // FIXME: WTF should offer a non-Mac-specific way to convert string to precomposed form so we can do it for all platforms.
-    return [(NSString *)string precomposedStringWithCanonicalMapping];
+    return [string.createNSString() precomposedStringWithCanonicalMapping];
 }
 
 void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElement, const URL& url, const String& title)
@@ -254,7 +255,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
 
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;
-    pasteboardImage.url.userVisibleForm = WTF::userVisibleString(pasteboardImage.url.url);
+    pasteboardImage.url.userVisibleForm = WTF::userVisibleString(pasteboardImage.url.url.createNSURL().get());
     if (auto* buffer = cachedImage->resourceBuffer())
         pasteboardImage.resourceData = buffer->makeContiguous();
     pasteboardImage.resourceMIMEType = cachedImage->response().mimeType();

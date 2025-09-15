@@ -4944,12 +4944,12 @@ workq_setup_and_run(proc_t p, struct uthread *uth, int setup_flags)
 	}
 
 	if (uth->uu_workq_thport == MACH_PORT_NULL) {
-		/* convert_thread_to_port_pinned() consumes a reference */
+		/* convert_thread_to_port_immovable() consumes a reference */
 		thread_reference(th);
-		/* Convert to immovable/pinned thread port, but port is not pinned yet */
-		ipc_port_t port = convert_thread_to_port_pinned(th);
-		/* Atomically, pin and copy out the port */
-		uth->uu_workq_thport = ipc_port_copyout_send_pinned(port, get_task_ipcspace(proc_task(p)));
+		/* Convert to immovable thread port, then pin the entry */
+		uth->uu_workq_thport = ipc_port_copyout_send_pinned(
+			convert_thread_to_port_immovable(th),
+			get_task_ipcspace(proc_task(p)));
 	}
 
 	/* Thread has been set up to run, arm its next workqueue quantum or disarm

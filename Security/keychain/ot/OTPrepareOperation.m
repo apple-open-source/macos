@@ -34,11 +34,9 @@
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
-#import "keychain/ot/proto/generated_source/OTAccountMetadataClassCAccountSettings.h"
 
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTPrepareOperation ()
@@ -76,10 +74,13 @@
 - (void)groupStart
 {
     secnotice("octagon", "preparing an identity");
-    
-    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+
+    AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                  altDSID:self.deps.activeAccount.altDSID
-                                                                                                  flowID:self.deps.flowID 
+                                                                                                  flowID:self.deps.flowID
                                                                                          deviceSessionID:self.deps.deviceSessionID
                                                                                                eventName:kSecurityRTCEventNamePrepareIdentityInTPH
                                                                                          testsAreEnabled:SecCKKSTestsEnabled()
@@ -95,7 +96,7 @@
                                          code:OctagonErrorNoAppleAccount
                                   description:@"No altDSID configured"];
         [self runBeforeGroupFinished:self.finishedOp];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+        [eventS sendMetricWithResult:NO error:self.error];
         return;
     }
 
@@ -144,6 +145,8 @@
         existingSecureElementIdentity = [metadata parsedSecureElementIdentity];
         metadata.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED;
 
+        metadata.machineID = self.deviceInfo.machineID;
+
         return metadata;
     } error:&persistError];
 
@@ -185,7 +188,7 @@
             secerror("octagon: Error preparing identity: %@", error);
             self.error = error;
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+            [eventS sendMetricWithResult:NO error:self.error];
         } else {
             secnotice("octagon", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
             self.peerID = peerID;
@@ -208,7 +211,7 @@
                 secnotice("octagon", "Couldn't persist metadata: %@", localError);
                 self.error = localError;
                 [self runBeforeGroupFinished:self.finishedOp];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+                [eventS sendMetricWithResult:NO error:self.error];
                 return;
             }
 
@@ -217,7 +220,7 @@
 
             self.nextState = self.intendedState;
             [self runBeforeGroupFinished:self.finishedOp];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
     }];
 }

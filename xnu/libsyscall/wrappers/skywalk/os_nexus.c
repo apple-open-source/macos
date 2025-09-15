@@ -233,6 +233,33 @@ add_traffic_rule_inet(const nexus_controller_t ncd,
 	return 0;
 }
 
+static int
+add_traffic_rule_eth(const nexus_controller_t ncd,
+    const char *ifname, const struct ifnet_traffic_descriptor_eth *td,
+    const struct ifnet_traffic_rule_action_steer *ra, const uint32_t flags,
+    uuid_t *rule_uuid)
+{
+	struct nxctl_add_traffic_rule_eth_iocargs args;
+	int err;
+
+	bzero(&args, sizeof(args));
+	if (ifname != NULL) {
+		(void) strlcpy(args.atre_ifname, ifname, IFNAMSIZ);
+	}
+	bcopy(td, &args.atre_td, sizeof(args.atre_td));
+	bcopy(ra, &args.atre_ra, sizeof(args.atre_ra));
+
+	if ((flags & NXCTL_ADD_TRAFFIC_RULE_FLAG_PERSIST) != 0) {
+		args.atre_flags |= NXIOC_ADD_TRAFFIC_RULE_FLAG_PERSIST;
+	}
+	err = ioctl(ncd->ncd_fd, NXIOC_ADD_TRAFFIC_RULE_ETH, &args);
+	if (err < 0) {
+		return errno;
+	}
+	bcopy(&args.atre_uuid, rule_uuid, sizeof(args.atre_uuid));
+	return 0;
+}
+
 int
 os_nexus_controller_add_traffic_rule(const nexus_controller_t ncd,
     const char *ifname, const struct ifnet_traffic_descriptor_common *td,
@@ -258,6 +285,16 @@ os_nexus_controller_add_traffic_rule(const nexus_controller_t ncd,
 		           (const struct ifnet_traffic_rule_action_steer *)ra,
 		           flags, rule_uuid);
 	}
+	case IFNET_TRAFFIC_DESCRIPTOR_TYPE_ETH: {
+		if (td->itd_len !=
+		    sizeof(struct ifnet_traffic_descriptor_eth)) {
+			return EINVAL;
+		}
+		return add_traffic_rule_eth(ncd, ifname,
+		           (const struct ifnet_traffic_descriptor_eth *)td,
+		           (const struct ifnet_traffic_rule_action_steer *)ra,
+		           flags, rule_uuid);
+	}
 	default:
 		return ENOTSUP;
 	}
@@ -280,27 +317,51 @@ os_nexus_controller_remove_traffic_rule(const nexus_controller_t ncd,
 	return 0;
 }
 
+static boolean_t
+rule_iterate(struct nxctl_traffic_rule_generic_iocinfo *ginfo,
+    struct ifnet_traffic_descriptor_common *td,
+    struct ifnet_traffic_rule_action *ra,
+    nexus_traffic_rule_iterator_t itr, void *itr_arg)
+{
+	struct nexus_traffic_rule_info itr_info;
+
+	bzero(&itr_info, sizeof(itr_info));
+	itr_info.nri_rule_uuid = &ginfo->trg_uuid;
+	itr_info.nri_owner = ginfo->trg_procname;
+	itr_info.nri_ifname = ginfo->trg_ifname;
+	itr_info.nri_td = td;
+	itr_info.nri_ra = ra;
+
+	if (!itr(itr_arg, &itr_info)) {
+		return false;
+	}
+	return true;
+}
+
 static void
 inet_rule_iterate(void *buf, uint32_t count,
     nexus_traffic_rule_iterator_t itr, void *itr_arg)
 {
 	struct nxctl_traffic_rule_inet_iocinfo *info = buf;
-	struct nxctl_traffic_rule_generic_iocinfo *ginfo;
-	struct nexus_traffic_rule_info itr_info;
-	uint32_t c;
 
-	for (c = 0; c < count; c++) {
-		bzero(&itr_info, sizeof(itr_info));
-		ginfo = &info->tri_common;
-		itr_info.nri_rule_uuid = &ginfo->trg_uuid;
-		itr_info.nri_owner = ginfo->trg_procname;
-		itr_info.nri_ifname = ginfo->trg_ifname;
-		itr_info.nri_td =
-		    (struct ifnet_traffic_descriptor_common *)&info->tri_td;
-		itr_info.nri_ra =
-		    (struct ifnet_traffic_rule_action *)&info->tri_ra;
+	for (uint32_t c = 0; c < count; c++) {
+		if (!rule_iterate(&info->tri_common, &info->tri_td.inet_common,
+		    &info->tri_ra.ras_common, itr, itr_arg)) {
+			break;
+		}
+		info++;
+	}
+}
 
-		if (!itr(itr_arg, &itr_info)) {
+static void
+eth_rule_iterate(void *buf, uint32_t count,
+    nexus_traffic_rule_iterator_t itr, void *itr_arg)
+{
+	struct nxctl_traffic_rule_eth_iocinfo *info = buf;
+
+	for (uint32_t c = 0; c < count; c++) {
+		if (!rule_iterate(&info->tre_common, &info->tre_td.eth_common,
+		    &info->tre_ra.ras_common, itr, itr_arg)) {
 			break;
 		}
 		info++;
@@ -319,6 +380,9 @@ static struct traffic_rule_type traffic_rule_types[] = {
 	{IFNET_TRAFFIC_DESCRIPTOR_TYPE_INET,
 	 sizeof(struct nxctl_traffic_rule_inet_iocinfo),
 	 NTRDEFAULTCOUNT, inet_rule_iterate},
+	{IFNET_TRAFFIC_DESCRIPTOR_TYPE_ETH,
+	 sizeof(struct nxctl_traffic_rule_eth_iocinfo),
+	 NTRDEFAULTCOUNT, eth_rule_iterate},
 };
 #define NTRTYPES (sizeof(traffic_rule_types)/sizeof(struct traffic_rule_type))
 
@@ -475,4 +539,16 @@ __os_nexus_get_llink_info(const nexus_controller_t ncd, const uuid_t nx_uuid,
 
 	return __nexus_set_opt(ncd->ncd_fd, NXOPT_NEXUS_CONFIG,
 	           &ncr, sizeof(ncr));
+}
+
+int
+os_nexus_flow_set_connection_idle(const uuid_t nx_uuid, const uuid_t flow_uuid,
+    bool enable)
+{
+	struct nx_flow_req nfr = {0};
+	memcpy(nfr.nfr_flow_uuid, flow_uuid, sizeof(uuid_t));
+	nfr.nfr_flags = enable ? NXFLOWREQF_CONNECTION_IDLE :
+	    NXFLOWREQF_CONNECTION_REUSED;
+
+	return __os_nexus_config_flow(nx_uuid, &nfr);
 }

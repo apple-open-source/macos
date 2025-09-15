@@ -119,3 +119,6 @@
 
         ;; <rdar://problem/32544921>
         (mobile-preferences-read "com.apple.hangtracer"))
+
+(define (sandbox-version-2)
+    (state-flag "local:tested_version_2.0"))

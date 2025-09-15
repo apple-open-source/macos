@@ -28,10 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)sed.1	8.2 (Berkeley) 12/30/93
-.\" $FreeBSD$
-.\"
-.Dd June 10, 2020
+.Dd December 17, 2024
 .Dt SED 1
 .Os
 .Sh NAME
@@ -383,7 +380,7 @@ If the label is not specified, branch to the end of the script.
 .Pp
 .It [2addr]c\e
 .It text
-Delete the pattern space.
+Delete the pattern space and start the next cycle.
 With 0 or 1 address or at the end of a 2-address range,
 .Em text
 is written to the standard output.
@@ -621,7 +618,7 @@ Using a different separator can be handy when working with paths:
 echo "/home/example" | sed 's#/home/example#/usr/local/example#'
 .Ed
 .Pp
-Replace all occurances of
+Replace all occurrences of
 .Ql foo
 with
 .Ql bar
@@ -637,6 +634,15 @@ sed -i '' -e 's/foo/bar/g' test.txt
 .Xr grep 1 ,
 .Xr regex 3 ,
 .Xr re_format 7
+.Rs
+.\" 4.4BSD USD:15
+.%A Lee E. McMahon
+.%I AT&T Bell Laboratories
+.%T SED \(em A Non-interactive Text Editor
+.%R Computing Science Technical Report
+.%N 77
+.%D January 1979
+.Re
 .Sh STANDARDS
 The
 .Nm

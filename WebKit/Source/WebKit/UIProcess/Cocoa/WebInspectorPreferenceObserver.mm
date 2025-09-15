@@ -51,10 +51,10 @@
     if (!(self = [super init]))
         return nil;
 
-    auto sandboxBrokerBundleIdentifier = WebKit::bundleIdentifierForSandboxBroker();
-    m_userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:bridge_cast(sandboxBrokerBundleIdentifier)]);
+    RetainPtr sandboxBrokerBundleIdentifier = WebKit::bundleIdentifierForSandboxBroker();
+    m_userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:bridge_cast(sandboxBrokerBundleIdentifier.get())]);
     if (!m_userDefaults) {
-        WTFLogAlways("Could not init user defaults instance for domain %s.", sandboxBrokerBundleIdentifier);
+        WTFLogAlways("Could not init user defaults instance for domain %s.", sandboxBrokerBundleIdentifier.get());
         return self;
     }
     [m_userDefaults.get() addObserver:self forKeyPath:@"ShowDevelopMenu" options:NSKeyValueObservingOptionNew context:nil];
@@ -65,7 +65,7 @@
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSKeyValueChangeKey, id> *)change context:(void *)context
 {
-    RunLoop::main().dispatch([] {
+    RunLoop::mainSingleton().dispatch([] {
         for (auto& pool : WebKit::WebProcessPool::allProcessPools()) {
             for (size_t i = 0; i < pool->processes().size(); ++i) {
                 Ref process = pool->processes()[i];

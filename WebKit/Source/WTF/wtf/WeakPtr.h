@@ -28,6 +28,7 @@
 
 #include <wtf/CanMakeWeakPtr.h>
 #include <wtf/CompactRefPtrTuple.h>
+#include <wtf/GetPtr.h>
 #include <wtf/Packed.h>
 #include <wtf/WeakPtrFactory.h>
 #include <wtf/WeakRef.h>
@@ -310,11 +311,6 @@ template<typename T, typename U, typename WeakPtrImpl, typename PtrTraits> inlin
 template<typename T, typename U, typename WeakPtrImpl, typename PtrTraits> inline bool operator==(const WeakPtr<T, WeakPtrImpl, PtrTraits>& a, U* b)
 {
     return a.get() == b;
-}
-
-template<typename T, typename U, typename WeakPtrImpl, typename PtrTraits> inline bool operator==(T* a, const WeakPtr<U, WeakPtrImpl, PtrTraits>& b)
-{
-    return a == b.get();
 }
 
 template<class T, typename = std::enable_if_t<!IsSmartPtr<T>::value>>

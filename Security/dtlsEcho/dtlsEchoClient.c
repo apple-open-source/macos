@@ -187,7 +187,7 @@ OSStatus SocketRead(
                     void 				*data,
                     size_t 				*dataLength)
 {
-    int fd = (int)connection;
+    int fd = (int)(intptr_t)connection;
     ssize_t len;
     uint8_t *d=readBuffer;
 
@@ -234,7 +234,7 @@ OSStatus SocketWrite(
                      const void         *data,
                      size_t 			*dataLength)	/* IN/OUT */
 {
-    int fd = (int)connection;
+    int fd = (int)(intptr_t)connection;
     ssize_t len;
     OSStatus err = errSecSuccess;
     const uint8_t *d=data;

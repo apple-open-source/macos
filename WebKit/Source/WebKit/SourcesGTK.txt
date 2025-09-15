@@ -216,6 +216,7 @@ UIProcess/API/gtk/WebKitWebViewGtk4.cpp @no-unify
 UIProcess/API/soup/HTTPCookieStoreSoup.cpp
 
 UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
+UIProcess/Automation/glib/BidiBrowserAgentGlib.cpp @no-unify
 UIProcess/Automation/gtk/WebAutomationSessionGtk.cpp @no-unify
 
 UIProcess/CoordinatedGraphics/DrawingAreaProxyCoordinatedGraphics.cpp
@@ -250,6 +251,7 @@ UIProcess/glib/DRMDevice.cpp @no-unify
 UIProcess/glib/DisplayLinkGLib.cpp
 UIProcess/glib/DisplayVBlankMonitor.cpp
 UIProcess/glib/DisplayVBlankMonitorDRM.cpp
+UIProcess/glib/DisplayVBlankMonitorThreaded.cpp
 UIProcess/glib/DisplayVBlankMonitorTimer.cpp
 UIProcess/glib/FenceMonitor.cpp
 UIProcess/glib/ScreenManager.cpp
@@ -291,6 +293,10 @@ UIProcess/gtk/WebTextChecker.cpp
 UIProcess/gtk/WebTextCheckerClient.cpp
 
 UIProcess/soup/WebProcessPoolSoup.cpp
+
+UIProcess/XR/openxr/OpenXRExtensions.cpp
+UIProcess/XR/openxr/PlatformXROpenXR.cpp
+UIProcess/XR/openxr/PlatformXRSystemOpenXR.cpp
 
 WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp
 
@@ -337,6 +343,8 @@ WebProcess/WebPage/glib/WebPageGLib.cpp
 
 WebProcess/WebPage/gtk/WebPageGtk.cpp
 WebProcess/WebPage/gtk/WebPrintOperationGtk.cpp
+
+WebProcess/WebPage/soup/WebCookieCacheSoup.cpp
 
 WebProcess/glib/SystemSettingsManager.cpp
 WebProcess/glib/WebProcessGLib.cpp

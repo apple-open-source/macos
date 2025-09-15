@@ -23,20 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
+#if PLATFORM(MAC)
+
 #import <AppKit/AppKit.h>
 
 #if USE(APPLE_INTERNAL_SDK)
 
 #define CGCOLORTAGGEDPOINTER_H_
 
+#import <AppKit/NSApplication_Private.h>
 #import <AppKit/NSInspectorBar.h>
 #import <AppKit/NSMenu_Private.h>
 #import <AppKit/NSPreviewRepresentingActivityItem_Private.h>
 #import <AppKit/NSTextInputClient_Private.h>
 #import <AppKit/NSWindow_Private.h>
-
-#if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
 #import <AppKit/NSScrollViewSeparatorTrackingAdapter_Private.h>
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+#import <AppKit/NSScrollPocket_Private.h>
 #endif
 
 #else
@@ -50,14 +58,19 @@
 @property (readonly) NSString *localizedDisplayName;
 @end
 
-#if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
 @protocol NSScrollViewSeparatorTrackingAdapter
 @property (readonly) NSRect scrollViewFrame;
 @property (readonly) BOOL hasScrolledContentsUnderTitlebar;
 @end
-#endif
+
+@class NSTextPlaceholder;
 
 @protocol NSTextInputClient_Async
+@optional
+
+- (void)insertTextPlaceholderWithSize:(CGSize)size completionHandler:(void (^)(NSTextPlaceholder *))completionHandler;
+
+- (void)removeTextPlaceholder:(NSTextPlaceholder *)placeholder willInsertText:(BOOL)willInsertText completionHandler:(void (^)(void))completionHandler;
 @end
 
 typedef NS_OPTIONS(NSUInteger, NSWindowShadowOptions) {
@@ -71,10 +84,8 @@ typedef NS_OPTIONS(NSUInteger, NSWindowShadowOptions) {
 @property (readonly) NSWindowShadowOptions shadowOptions;
 @property CGFloat titlebarAlphaValue;
 
-#if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
 - (BOOL)registerScrollViewSeparatorTrackingAdapter:(NSObject<NSScrollViewSeparatorTrackingAdapter> *)adapter;
 - (void)unregisterScrollViewSeparatorTrackingAdapter:(NSObject<NSScrollViewSeparatorTrackingAdapter> *)adapter;
-#endif
 
 @end
 
@@ -110,3 +121,18 @@ typedef void (^NSWindowSnapshotReadinessHandler) (void);
 - (NSWindowSnapshotReadinessHandler)_holdResizeSnapshotWithReason:(NSString *)reason;
 @end
 #endif
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
+@interface NSScrollPocket (Staging_151173930)
+- (void)addElementContainer:(NSView *)elementContainer;
+- (void)removeElementContainer:(NSView *)elementContainer;
+@end
+
+@interface NSScrollPocket (Staging_149248735)
+@property (nonatomic) BOOL prefersSolidColorHardPocket;
+@end
+
+#endif
+
+#endif // PLATFORM(MAC)

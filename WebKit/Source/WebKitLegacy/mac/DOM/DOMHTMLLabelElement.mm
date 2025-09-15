@@ -52,7 +52,7 @@
 - (NSString *)htmlFor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::forAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::forAttr).createNSString().autorelease();
 }
 
 - (void)setHtmlFor:(NSString *)newHtmlFor
@@ -70,7 +70,7 @@
 - (NSString *)accessKey
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr).createNSString().autorelease();
 }
 
 - (void)setAccessKey:(NSString *)newAccessKey

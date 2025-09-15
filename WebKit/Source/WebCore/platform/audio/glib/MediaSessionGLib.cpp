@@ -321,7 +321,7 @@ GVariant* MediaSessionGLib::getMetadataAsGVariant(std::optional<NowPlayingInfo> 
     return g_variant_builder_end(&builder);
 }
 
-GVariant* MediaSessionGLib::getPlaybackStatusAsGVariant(std::optional<const PlatformMediaSession*> session)
+GVariant* MediaSessionGLib::getPlaybackStatusAsGVariant(std::optional<const PlatformMediaSessionInterface*> session)
 {
     auto state = [this, session = WTFMove(session)]() -> PlatformMediaSession::State {
         if (session)
@@ -361,7 +361,7 @@ void MediaSessionGLib::emitPropertiesChanged(GRefPtr<GVariant>&& parameters)
         g_warning("Failed to emit MPRIS properties changed: %s", error->message);
 }
 
-void MediaSessionGLib::playbackStatusChanged(PlatformMediaSession& platformSession)
+void MediaSessionGLib::playbackStatusChanged(PlatformMediaSessionInterface& platformSession)
 {
     if (!m_connection)
         return;

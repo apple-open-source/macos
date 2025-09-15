@@ -93,15 +93,20 @@ void RemoteComputePassEncoder::end()
     protectedBacking()->end();
 }
 
-void RemoteComputePassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, WebGPUIdentifier bindGroup,
+void RemoteComputePassEncoder::setBindGroup(WebCore::WebGPU::Index32 index, std::optional<WebGPUIdentifier> bindGroup,
     std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& offsets)
 {
-    auto convertedBindGroup = protectedObjectHeap()->convertBindGroupFromBacking(bindGroup);
+    if (!bindGroup) {
+        protectedBacking()->setBindGroup(index, nullptr, WTFMove(offsets));
+        return;
+    }
+
+    RefPtr convertedBindGroup = protectedObjectHeap()->convertBindGroupFromBacking(*bindGroup).get();
     ASSERT(convertedBindGroup);
     if (!convertedBindGroup)
         return;
 
-    protectedBacking()->setBindGroup(index, *convertedBindGroup, WTFMove(offsets));
+    protectedBacking()->setBindGroup(index, convertedBindGroup.get(), WTFMove(offsets));
 }
 
 void RemoteComputePassEncoder::pushDebugGroup(String&& groupLabel)

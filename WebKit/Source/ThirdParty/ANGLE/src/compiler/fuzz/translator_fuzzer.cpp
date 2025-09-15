@@ -83,7 +83,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
 
-    if (spec != SH_GLES2_SPEC && type != SH_WEBGL_SPEC && spec != SH_GLES3_SPEC &&
+    if (spec != SH_GLES2_SPEC && spec != SH_WEBGL_SPEC && spec != SH_GLES3_SPEC &&
         spec != SH_WEBGL2_SPEC)
     {
         return 0;
@@ -115,8 +115,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
     if (!IsOutputSPIRV(shaderOutput))
     {
-        hasUnsupportedOptions = hasUnsupportedOptions || options.useSpecializationConstant ||
-                                options.addVulkanXfbEmulationSupportCode ||
+        hasUnsupportedOptions = hasUnsupportedOptions || options.addVulkanXfbEmulationSupportCode ||
                                 options.roundOutputAfterDithering ||
                                 options.addAdvancedBlendEquationsEmulation;
     }
@@ -126,6 +125,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
                                 options.expandSelectHLSLIntegerPowExpressions ||
                                 options.allowTranslateUniformBlockToStructuredBuffer ||
                                 options.rewriteIntegerUnaryMinusOperator;
+    }
+    if (!IsOutputMSL(shaderOutput))
+    {
+        hasUnsupportedOptions = hasUnsupportedOptions || options.ensureLoopForwardProgress;
     }
 
     // If there are any options not supported with this output, don't attempt to run the translator.
@@ -138,6 +141,16 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     options.pls.fragmentSyncType = static_cast<ShFragmentSynchronizationType>(
         static_cast<uint32_t>(options.pls.fragmentSyncType) %
         static_cast<uint32_t>(ShFragmentSynchronizationType::InvalidEnum));
+
+    // Force enable options that are required by the output generators.
+    if (IsOutputSPIRV(shaderOutput))
+    {
+        options.removeInactiveVariables = true;
+    }
+    if (IsOutputMSL(shaderOutput))
+    {
+        options.removeInactiveVariables = true;
+    }
 
     std::vector<uint32_t> validOutputs;
 #ifndef ANGLE_TRANSLATOR_FUZZER_METAL_ONLY

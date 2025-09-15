@@ -163,7 +163,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestJSBuiltinConstructorConstructor, (JSGlobalObject*
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestJSBuiltinConstructorPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestJSBuiltinConstructor::getConstructor(vm, prototype->globalObject()));
 }
@@ -219,7 +219,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestJSBuiltinConstructorPrototypeFunction_testCustomF
 
 JSC::GCClient::IsoSubspace* JSTestJSBuiltinConstructor::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestJSBuiltinConstructor, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestJSBuiltinConstructor, UseCustomHeapCellType::No>(vm, "JSTestJSBuiltinConstructor"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestJSBuiltinConstructor.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestJSBuiltinConstructor = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestJSBuiltinConstructor.get(); },

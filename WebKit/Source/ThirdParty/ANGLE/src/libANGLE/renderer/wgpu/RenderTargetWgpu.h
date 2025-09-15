@@ -10,10 +10,11 @@
 #ifndef LIBANGLE_RENDERER_WGPU_RENDERTARGETWGPU_H_
 #define LIBANGLE_RENDERER_WGPU_RENDERTARGETWGPU_H_
 
-#include <dawn/webgpu_cpp.h>
 #include <stdint.h>
+#include <webgpu/webgpu.h>
 
 #include "libANGLE/FramebufferAttachment.h"
+#include "libANGLE/angletypes.h"
 #include "libANGLE/renderer/wgpu/wgpu_helpers.h"
 #include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
@@ -29,27 +30,29 @@ class RenderTargetWgpu final : public FramebufferAttachmentRenderTarget
     RenderTargetWgpu(RenderTargetWgpu &&other);
 
     void set(webgpu::ImageHelper *image,
-             const wgpu::TextureView &texture,
+             const webgpu::TextureViewHandle &texture,
              const webgpu::LevelIndex level,
              uint32_t layer,
-             const wgpu::TextureFormat &format);
+             WGPUTextureFormat format);
     void reset();
 
     angle::Result flushImageStagedUpdates(ContextWgpu *contextWgpu,
                                           webgpu::ClearValuesArray *deferredClears,
                                           uint32_t deferredClearIndex);
 
-    wgpu::TextureView getTextureView() { return mTextureView; }
+    webgpu::TextureViewHandle getTextureView() { return mTextureView; }
     webgpu::ImageHelper *getImage() { return mImage; }
     webgpu::LevelIndex getLevelIndex() const { return mLevelIndex; }
+    uint32_t getLayer() const { return mLayerIndex; }
+    gl::LevelIndex getGlLevel() const { return mImage->toGlLevel(mLevelIndex); }
 
   private:
     webgpu::ImageHelper *mImage = nullptr;
     // TODO(liza): move TextureView into ImageHelper.
-    wgpu::TextureView mTextureView;
+    webgpu::TextureViewHandle mTextureView;
     webgpu::LevelIndex mLevelIndex{0};
     uint32_t mLayerIndex               = 0;
-    const wgpu::TextureFormat *mFormat = nullptr;
+    const WGPUTextureFormat *mFormat   = nullptr;
 };
 }  // namespace rx
 

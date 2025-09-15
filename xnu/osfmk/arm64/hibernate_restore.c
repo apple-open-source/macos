@@ -130,6 +130,11 @@ pal_hib_decompress_page(void *src, void *dst, void *scratch, unsigned int compre
 		uint32_t reserved3:14;
 	} result = { .status = ~0u };
 	__asm__ volatile ("wkdmd %0, %1" : "=r"(result): "r"(dst), "0"(wkdmSrc));
+
+#if defined APPLEH16 || defined APPLEACC8
+	__builtin_arm_dmb(DMB_ISH);
+#endif /* defined APPLEH16 || defined APPLEACC8 */
+
 	HIB_ASSERT(result.status == 0);
 }
 

@@ -17,10 +17,6 @@
 #define OTPAIRINGMESSAGE_FUNCTION extern __attribute__((visibility("hidden")))
 #endif
 
-/**
- * Claimed for a field, but never used
- * reserved 3;
- */
 __attribute__((visibility("hidden")))
 @interface OTPairingMessage : PBCodable <NSCopying>
 {

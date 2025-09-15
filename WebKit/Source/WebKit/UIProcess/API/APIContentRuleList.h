@@ -27,6 +27,7 @@
 
 #include "APIObject.h"
 #include "NetworkCacheData.h"
+#include <WebCore/ContentExtensionParser.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -50,7 +51,7 @@ public:
     const WebKit::WebCompiledContentRuleList& compiledRuleList() const { return m_compiledRuleList.get(); }
     
     static bool supportsRegularExpression(const WTF::String&);
-    static std::error_code parseRuleList(const WTF::String&);
+    static std::error_code parseRuleList(const WTF::String&, WebCore::ContentExtensions::CSSSelectorsAllowed);
 
 private:
     Ref<WebKit::WebCompiledContentRuleList> m_compiledRuleList;
@@ -59,3 +60,5 @@ private:
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(ContentRuleList);

@@ -27,7 +27,7 @@
 #include "MediaCapabilities.h"
 
 #include "ContentType.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "EventLoop.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSMediaCapabilitiesDecodingInfo.h"

@@ -192,6 +192,7 @@ typedef enum {
     kNetworkAccessType              = 17, /* Prevent demand sleep on AC, prevent idle sleep on batt */
     kInteractivePushServiceType     = 18,
     kReservePwrPreventIdleType      = 19, /* Prevents idle sleep in reserve power mode */
+    kSoftwareUpdateType             = 20,
 
 
     // Make sure this is the last enum element, as it tells us the total
@@ -562,9 +563,11 @@ void asyncAssertionLogging(xpc_connection_t peer, xpc_object_t msg);
 void asyncAssertionInitialConnection(xpc_connection_t peer, xpc_object_t msg);
 void asyncAssertionFeatureSupport(xpc_connection_t peer, xpc_object_t msg);
 
-void startSystemAssertionTimer(void);
+void startSystemAssertionTimer(uint64_t timeoutSecs);
 void cancelSystemAssertionTimer(void);
 void updateSystemAssertionTimeout(xpc_object_t peer, xpc_object_t msg);
+void sendUpdateAssertionPolicy(IOPMAssertionPolicy policy);
+void fetchAssertionCategories(xpc_object_t remote, xpc_object_t msg);
 
 
 __private_extern__ void logASLAssertionTypeSummary( kerAssertionType type);

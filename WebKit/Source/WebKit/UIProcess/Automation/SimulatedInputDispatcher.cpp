@@ -34,7 +34,6 @@
 #include "WebAutomationSessionMacros.h"
 #include "WebPageProxy.h"
 #include <WebCore/PointerEventTypeNames.h>
-#include <variant>
 
 #if ENABLE(WEBDRIVER_KEYBOARD_GRAPHEME_CLUSTERS)
 #include <wtf/text/TextBreakIterator.h>
@@ -51,7 +50,7 @@ SimulatedInputSourceState SimulatedInputSourceState::emptyStateForSourceType(Sim
         break;
     case SimulatedInputSourceType::Wheel:
         result.scrollDelta = WebCore::IntSize();
-        FALLTHROUGH;
+        [[fallthrough]];
     case SimulatedInputSourceType::Mouse:
     case SimulatedInputSourceType::Touch:
     case SimulatedInputSourceType::Pen:
@@ -103,7 +102,7 @@ SimulatedInputKeyFrame SimulatedInputKeyFrame::keyFrameToResetInputSources(const
 SimulatedInputDispatcher::SimulatedInputDispatcher(WebPageProxy& page, SimulatedInputDispatcher::Client& client)
     : m_page(page)
     , m_client(client)
-    , m_keyFrameTransitionDurationTimer(RunLoop::current(), this, &SimulatedInputDispatcher::keyFrameTransitionDurationTimerFired)
+    , m_keyFrameTransitionDurationTimer(RunLoop::currentSingleton(), "SimulatedInputDispatcher::KeyFrameTransitionDurationTimer"_s, this, &SimulatedInputDispatcher::keyFrameTransitionDurationTimerFired)
 {
 }
 
@@ -257,7 +256,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
 
     LOG(Automation, "SimulatedInputDispatcher[%p]: transition started between input source states: [%d.%d] --> %d.%d", this, m_keyframeIndex - 1, m_inputSourceStateIndex, m_keyframeIndex, m_inputSourceStateIndex);
 
-    AutomationCompletionHandler eventDispatchFinished = [this, &inputSource, &newState, completionHandler = WTFMove(completionHandler)](std::optional<AutomationCommandError> error) mutable {
+    AutomationCompletionHandler eventDispatchFinished = [this, protectedThis = Ref { *this }, inputSource = Ref { inputSource }, &newState, completionHandler = WTFMove(completionHandler)](std::optional<AutomationCommandError> error) mutable {
         if (error) {
             completionHandler(error);
             return;
@@ -269,7 +268,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
         UNUSED_PARAM(this);
 #endif
 
-        inputSource.state = newState;
+        inputSource->state = newState;
         completionHandler(std::nullopt);
     };
 
@@ -283,7 +282,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
 #if !ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
         RELEASE_ASSERT_NOT_REACHED();
 #else
-        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Pointer), b.nodeHandle, [this, &a, &b, inputSource = inputSource.type, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
+        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Pointer), b.nodeHandle, [this, protectedThis = Ref { *this }, &a, &b, inputSource = inputSource.type, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
             if (error) {
                 eventDispatchFinished(error);
                 return;
@@ -322,7 +321,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
 #if !ENABLE(WEBDRIVER_TOUCH_INTERACTIONS)
         RELEASE_ASSERT_NOT_REACHED();
 #else
-        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Viewport), b.nodeHandle, [this, &a, &b, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
+        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Viewport), b.nodeHandle, [this, protectedThis = Ref { *this }, &a, &b, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
             if (error) {
                 eventDispatchFinished(error);
                 return;
@@ -441,7 +440,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
 #if !ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
         RELEASE_ASSERT_NOT_REACHED();
 #else
-        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Viewport), b.nodeHandle, [this, &a, &b, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
+        resolveLocation(valueOrDefault(a.location), b.location, b.origin.value_or(MouseMoveOrigin::Viewport), b.nodeHandle, [this, protectedThis = Ref { *this }, &a, &b, eventDispatchFinished = WTFMove(eventDispatchFinished)](std::optional<WebCore::IntPoint> location, std::optional<AutomationCommandError> error) mutable {
             if (error) {
                 eventDispatchFinished(error);
                 return;
@@ -454,13 +453,16 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
 
             b.location = location;
 
-            if (!a.scrollDelta->isZero())
-                b.scrollDelta->contract(a.scrollDelta->width(), a.scrollDelta->height());
+            auto aScrollDelta = a.scrollDelta.value_or(WebCore::IntSize());
+            auto bScrollDelta = b.scrollDelta.value_or(WebCore::IntSize());
+            auto usedScrollDelta = bScrollDelta;
+            if (!aScrollDelta.isZero())
+                usedScrollDelta.contract(aScrollDelta.width(), aScrollDelta.height());
 
-            if (!b.scrollDelta->isZero()) {
-                LOG(Automation, "SimulatedInputDispatcher[%p]: simulating Wheel from (%d, %d) to (%d, %d) for transition to %d.%d", this, a.scrollDelta->width(), a.scrollDelta->height(), b.scrollDelta->width(), b.scrollDelta->height(), m_keyframeIndex, m_inputSourceStateIndex);
+            if (!usedScrollDelta.isZero()) {
+                LOG(Automation, "SimulatedInputDispatcher[%p]: simulating Wheel from (%d, %d) to (%d, %d) for transition to %d.%d", this, aScrollDelta.width(), aScrollDelta.height(), bScrollDelta.width(), bScrollDelta.height(), m_keyframeIndex, m_inputSourceStateIndex);
                 // FIXME: This does not interpolate mouse scrolls per the "perform a scroll" algorithm (§15.4.4 Wheel actions).
-                m_client.simulateWheelInteraction(protectedPage(), b.location.value(), b.scrollDelta.value(), WTFMove(eventDispatchFinished));
+                m_client.simulateWheelInteraction(protectedPage(), b.location.value(), usedScrollDelta, WTFMove(eventDispatchFinished));
             } else
                 eventDispatchFinished(std::nullopt);
         });

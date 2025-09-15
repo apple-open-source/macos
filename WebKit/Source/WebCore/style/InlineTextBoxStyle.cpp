@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "RenderBoxModelObjectInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderInline.h"
 
 namespace WebCore {
@@ -60,7 +61,7 @@ static float minLogicalTopForTextDecorationLineUnder(const InlineIterator::LineB
         if (run->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
-        if (!run->style().textDecorationsInEffect().contains(TextDecorationLine::Underline))
+        if (!run->style().textDecorationLineInEffect().contains(TextDecorationLine::Underline))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decoratingBoxRendererForUnderline|'s hierarchy.
 
         if (auto* renderInline = dynamicDowncast<RenderInline>(decoratingBoxRendererForUnderline); renderInline && !isAncestorAndWithinBlock(*renderInline, &run->renderer()))
@@ -79,7 +80,7 @@ static float maxLogicalBottomForTextDecorationLineUnder(const InlineIterator::Li
         if (run->renderer().isOutOfFlowPositioned())
             continue; // Positioned placeholders don't affect calculations.
 
-        if (!run->style().textDecorationsInEffect().contains(TextDecorationLine::Underline))
+        if (!run->style().textDecorationLineInEffect().contains(TextDecorationLine::Underline))
             continue; // If the text decoration isn't in effect on the child, then it must be outside of |decoratingBoxRendererForUnderline|'s hierarchy.
 
         if (auto* renderInline = dynamicDowncast<RenderInline>(decoratingBoxRendererForUnderline); renderInline && !isAncestorAndWithinBlock(*renderInline, &run->renderer()))
@@ -184,13 +185,13 @@ WavyStrokeParameters wavyStrokeParameters(float fontSize)
     return result;
 }
 
-static GlyphOverflow computedVisualOverflowForDecorations(const RenderStyle& lineStyle, std::optional<float> underlineOffset)
+static GlyphOverflow computedInkOverflowForDecorations(const RenderStyle& lineStyle, std::optional<float> underlineOffset)
 {
     // Compensate for the integral ceiling in GraphicsContext::computeLineBoundsAndAntialiasingModeForText()
     if (underlineOffset)
         *underlineOffset += *underlineOffset >= 0 ? 1 : -1;
 
-    auto decoration = lineStyle.textDecorationsInEffect();
+    auto decoration = lineStyle.textDecorationLineInEffect();
     if (decoration.isEmpty())
         return GlyphOverflow();
 
@@ -268,7 +269,7 @@ bool isAlignedForUnder(const RenderStyle& decoratingBoxStyle)
     return underlinePosition.isEmpty() && decoratingBoxStyle.textUnderlineOffset().isAuto();
 }
 
-GlyphOverflow visualOverflowForDecorations(const InlineIterator::LineBoxIterator& lineBox, const RenderText& renderer, float textBoxLogicalTop, float textBoxLogicalBottom)
+GlyphOverflow inkOverflowForDecorations(const InlineIterator::LineBoxIterator& lineBox, const RenderText& renderer, float textBoxLogicalTop, float textBoxLogicalBottom)
 {
     auto& style = lineBox->isFirst() ? renderer.firstLineStyle() : renderer.style();
     auto textUnderlinePositionUnder = std::optional<TextUnderlinePositionUnder> { };
@@ -278,26 +279,26 @@ GlyphOverflow visualOverflowForDecorations(const InlineIterator::LineBoxIterator
         textUnderlinePositionUnder = TextUnderlinePositionUnder { textBoxLogicalBottom - textBoxLogicalTop, textRunOffset };
     }
 
-    auto underlineOffset = style.textDecorationsInEffect().contains(TextDecorationLine::Underline)
+    auto underlineOffset = style.textDecorationLineInEffect().contains(TextDecorationLine::Underline)
         ? std::make_optional(computedUnderlineOffset({ style, textUnderlinePositionUnder }))
         : std::nullopt;
-    return computedVisualOverflowForDecorations(style, underlineOffset);
+    return computedInkOverflowForDecorations(style, underlineOffset);
 }
 
-GlyphOverflow visualOverflowForDecorations(const RenderStyle& style, TextUnderlinePositionUnder textUnderlinePositionUnder)
+GlyphOverflow inkOverflowForDecorations(const RenderStyle& style, TextUnderlinePositionUnder textUnderlinePositionUnder)
 {
-    auto underlineOffset = style.textDecorationsInEffect().contains(TextDecorationLine::Underline)
+    auto underlineOffset = style.textDecorationLineInEffect().contains(TextDecorationLine::Underline)
         ? std::make_optional(computedUnderlineOffset({ style, textUnderlinePositionUnder }))
         : std::nullopt;
-    return computedVisualOverflowForDecorations(style, underlineOffset);
+    return computedInkOverflowForDecorations(style, underlineOffset);
 }
 
-GlyphOverflow visualOverflowForDecorations(const RenderStyle& style)
+GlyphOverflow inkOverflowForDecorations(const RenderStyle& style)
 {
-    auto underlineOffset = style.textDecorationsInEffect().contains(TextDecorationLine::Underline)
+    auto underlineOffset = style.textDecorationLineInEffect().contains(TextDecorationLine::Underline)
         ? std::make_optional(computedUnderlineOffset({ style, { } }))
         : std::nullopt;
-    return computedVisualOverflowForDecorations(style, underlineOffset);
+    return computedInkOverflowForDecorations(style, underlineOffset);
 }
 
 static inline float inlineBoxContentBoxHeight(const InlineIterator::InlineBox& inlineBox)

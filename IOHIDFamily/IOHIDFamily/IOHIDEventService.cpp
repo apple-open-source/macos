@@ -30,6 +30,7 @@
 #include <IOKit/usb/IOUSBHostFamily.h>
 #include <IOKit/hid/IOHIDEventServiceTypes.h>
 #include <IOKit/IOCommand.h>
+#include <IOKit/IOKitKeysPrivate.h>
 
 #include "IOHIDKeys.h"
 #include "IOHIDSystem.h"
@@ -213,11 +214,7 @@ bool IOHIDEventService::init ( OSDictionary * properties )
 //====================================================================================================
 bool IOHIDEventService::start ( IOService * provider )
 {
-    UInt32      bootProtocol  = 0;
     OSObject    *obj          = NULL;
-    OSNumber    *number       = NULL;
-    OSString    *string       = NULL;
-    OSBoolean   *boolean      = NULL;
     IOHIDDevice *device       = NULL;
 
     HIDServiceLogInfo("start");
@@ -256,81 +253,27 @@ bool IOHIDEventService::start ( IOService * provider )
 
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
-
-    obj = copyProperty("BootProtocol");
-    number = OSDynamicCast(OSNumber, obj);
-    if (number)
-        bootProtocol = number->unsigned32BitValue();
-    OSSafeReleaseNULL(obj);
     
-    obj = copyProperty(kIOHIDPhysicalDeviceUniqueIDKey);
-    string = OSDynamicCast(OSString, obj);
-    if (string)
-        setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
-    OSSafeReleaseNULL(obj);
-    
-    obj = provider->copyProperty(kIOHIDBuiltInKey);
-    boolean = OSDynamicCast(OSBoolean, obj);
-    if (boolean)
-        setProperty(kIOHIDBuiltInKey, boolean);
-    OSSafeReleaseNULL(obj);
+    publishProperties();
 
-    obj = provider->copyProperty(kIOHIDProtectedAccessKey);
-    boolean = OSDynamicCast(OSBoolean, obj);
-    if (boolean)
-        setProperty(kIOHIDProtectedAccessKey, boolean);
-    OSSafeReleaseNULL(obj);
-
-    obj = provider->copyProperty(kIOHIDPointerAccelerationSupportKey);
-    boolean = OSDynamicCast(OSBoolean, obj);
-    if (boolean) {
-        setProperty(kIOHIDPointerAccelerationSupportKey, boolean);
+    // bluetooth does not set the kIOHIDSupportsIOFastPathKey on the user device
+    // for trackable accessories, which is required for the fast path drivers to
+    // match. As a workaround, set it manually when the property they are using
+    // (kIOHIDSpatialBluetoothAccessoryKey) is present.
+    //
+    // This can be removed once <rdar://144577914> has been addressed.
+    obj = _provider->copyProperty(kIOHIDSpatialBluetoothAccessoryKey);
+    if (obj && OSDynamicCast(OSBoolean, obj)) {
+        bool ok = setProperty(kIOHIDSupportsIOFastPathKey, obj);
+        assert(ok);
     }
     OSSafeReleaseNULL(obj);
 
-    obj = provider->copyProperty(kIOHIDScrollAccelerationSupportKey);
-    boolean = OSDynamicCast(OSBoolean, obj);
-    if (boolean) {
-        setProperty(kIOHIDScrollAccelerationSupportKey, boolean);
-    }
-    OSSafeReleaseNULL(obj);
+    calculatePowerButtonNmiSupport();
 
-    _powerButtonNmi = false;
+    calculateLegacyShimSupport();
 
-   
-    int legacy_shim;
-    
-    // Figure out whether the power button should trigger an NMI (i.e. a panic)
-    UInt32 debugFlags = 0;
-    if (PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags))) {
-        if ((debugFlags & DB_NMI) && (debugFlags & DB_NMI_BTN_ENA)) {
-            _powerButtonNmi = true;
-        }
-    }
-    
-    if (!PE_parse_boot_argn("hid-legacy-shim", &legacy_shim, sizeof (legacy_shim))) {
-        legacy_shim = 0;
-    }
-    
-    if (legacy_shim) {
-        
-        _keyboardShim  = kLegacyShimEnabled;
-#ifdef POINTING_SHIM_SUPPORT
-        _pointingShim  = kLegacyShimEnabled;
-#endif
-    } else {
- 
-        boolean_t singleUser = isSingleUser();
-        
-#ifdef POINTING_SHIM_SUPPORT
-        _pointingShim = kLegacyShimDisabled;
-#endif
-        _keyboardShim = singleUser ? kLegacyShimEnabledForSingleUserMode : kLegacyShimDisabled;
-        
-    }
-    
-    
-    parseSupportedElements (getReportElements(), bootProtocol);
+    parseSupportedElements(getReportElements(), getBootProtocol());
     
     if (supportsHeadset(getReportElements())) {
         setProperty(kIOHIDDeviceTypeHintKey, kIOHIDDeviceTypeHeadsetKey);
@@ -585,7 +528,7 @@ exit:
 }
 
 
-static const OSSymbol * propagateProps[] = {kIOHIDPropagatePropertyKeys};
+static const char * propagateProps[] = {kIOHIDPropagatePropertyKeys};
 
 //====================================================================================================
 // IOHIDEventService::setSystemProperties
@@ -636,11 +579,13 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
     }
 
     if (_provider && !isInactive()) {
-        for (const OSSymbol * prop : propagateProps) {
-            OSObject *val = properties->getObject(prop);
+        for (const char * prop : propagateProps) {
+            const OSSymbol *sym = OSSymbol::withCString(prop);
+            OSObject *val = properties->getObject(sym);
             if (val) {
                 _provider->setProperty(prop, val);
             }
+            OSSafeReleaseNULL(sym);
         }
     }
     
@@ -2637,8 +2582,10 @@ void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeSt
         return;
     IOHIDEvent * event = NULL;
     UInt32 debugMask = 0;
-
     OSBoundedArrayRef<Key> keys(&(_keyboard.pressedKeys[0]), (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])));
+    
+    require_action(!(options & kIOHIDEventOptionSynthetic), dispatch, HIDServiceLogInfo("Ignoring synthetic event for keychord"));
+
     require_quiet(usagePage != kHIDPage_KeyboardOrKeypad || usage != kHIDUsage_KeyboardPower, dispatch);
 
     for ( Key &key : keys ) {
@@ -2824,6 +2771,94 @@ OSMetaClassDefineReservedUnused(IOHIDEventService, 29);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 30);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 31);
 
+//====================================================================================================
+// IOHIDEventService::calculatePowerButtonNmiSupport
+//====================================================================================================
+void IOHIDEventService::calculatePowerButtonNmiSupport()
+{
+    _powerButtonNmi = false;
+
+    // Figure out whether the power button should trigger an NMI (i.e. a panic)
+    UInt32 debugFlags = 0;
+    if (PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags))) {
+        if ((debugFlags & DB_NMI) && (debugFlags & DB_NMI_BTN_ENA)) {
+            _powerButtonNmi = true;
+        }
+    }
+}
+
+
+//====================================================================================================
+// IOHIDEventService::calculateLegacyShimSupport
+//====================================================================================================
+void IOHIDEventService::calculateLegacyShimSupport()
+{
+    int legacy_shim;
+    if (!PE_parse_boot_argn("hid-legacy-shim", &legacy_shim, sizeof (legacy_shim))) {
+        legacy_shim = 0;
+    }
+
+    if (legacy_shim) {
+        _keyboardShim  = kLegacyShimEnabled;
+#ifdef POINTING_SHIM_SUPPORT
+        _pointingShim  = kLegacyShimEnabled;
+#endif
+    }
+    else {
+        boolean_t singleUser = isSingleUser();
+        _keyboardShim = singleUser ? kLegacyShimEnabledForSingleUserMode : kLegacyShimDisabled;
+#ifdef POINTING_SHIM_SUPPORT
+        _pointingShim = kLegacyShimDisabled;
+#endif
+    }
+}
+
+//====================================================================================================
+// IOHIDEventService::publishProperties
+//====================================================================================================
+void IOHIDEventService::publishProperties()
+{
+    const struct {
+        char const * key;
+        OSMetaClass const * const type;
+    } properties[] = {
+        { .key = "BootProtocol",                        .type = OSTypeID(OSNumber)  },
+        { .key = kIOHIDPhysicalDeviceUniqueIDKey,       .type = OSTypeID(OSString)  },
+        { .key = kIOHIDBuiltInKey,                      .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDProtectedAccessKey,              .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDPointerAccelerationSupportKey,   .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDScrollAccelerationSupportKey,    .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDSupportsIOFastPathKey,           .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDSpatialBluetoothAccessoryKey,    .type = OSTypeID(OSBoolean) },
+        { .key = kIOUniformTypeIdentifiersKey,          .type = OSTypeID(OSObject)  },
+    };
+    const size_t count = sizeof(properties) / sizeof(properties[0]);
+
+    for (size_t i = 0; i < count; ++i) {
+        OSObject * object = _provider->copyProperty(properties[i].key);
+        if (safeMetaCast(object, properties[i].type)) {
+            setProperty(properties[i].key, object);
+        }
+        OSSafeReleaseNULL(object);
+    }
+}
+
+//====================================================================================================
+// IOHIDEventService::getBootProtocol
+//====================================================================================================
+UInt32 IOHIDEventService::getBootProtocol()
+{
+    UInt32 bootProtocol = 0;
+
+    OSObject * obj = copyProperty("BootProtocol");
+    OSNumber * number = OSDynamicCast(OSNumber, obj);
+    if (number) {
+        bootProtocol = number->unsigned32BitValue();
+    }
+    OSSafeReleaseNULL(obj);
+
+    return bootProtocol;
+}
 
 #pragma clang diagnostic ignored "-Wunused-parameter"
 

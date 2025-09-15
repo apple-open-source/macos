@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(SCREEN_CAPTURE_KIT)
 
 #import <ScreenCaptureKit/ScreenCaptureKit.h>

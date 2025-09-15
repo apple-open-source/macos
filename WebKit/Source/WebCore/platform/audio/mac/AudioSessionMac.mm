@@ -278,14 +278,18 @@ void AudioSessionMac::setCategory(CategoryType category, Mode mode, RouteSharing
 
     m_playingToBluetooth = playingToBluetooth;
     m_setupArbitrationOngoing = true;
-    m_routingArbitrationClient->beginRoutingArbitrationWithCategory(m_category, [this] (RoutingArbitrationError error, DefaultRouteChanged defaultRouteChanged) {
-        m_setupArbitrationOngoing = false;
+    m_routingArbitrationClient->beginRoutingArbitrationWithCategory(m_category, [weakThis = ThreadSafeWeakPtr { *this }] (RoutingArbitrationError error, DefaultRouteChanged defaultRouteChanged) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        protectedThis->m_setupArbitrationOngoing = false;
         if (error != RoutingArbitrationError::None) {
-            RELEASE_LOG_ERROR(Media, "AudioSessionMac::setCategory() - beginArbitrationWithCategory:%s failed with error %s", convertEnumerationToString(m_category).ascii().data(), convertEnumerationToString(error).ascii().data());
+            RELEASE_LOG_ERROR(Media, "AudioSessionMac::setCategory() - beginArbitrationWithCategory:%s failed with error %s", convertEnumerationToString(protectedThis->m_category).ascii().data(), convertEnumerationToString(error).ascii().data());
             return;
         }
 
-        m_inRoutingArbitration = true;
+        protectedThis->m_inRoutingArbitration = true;
 
         // FIXME: Do we need to reset sample rate and buffer size for the new default device?
         if (defaultRouteChanged == DefaultRouteChanged::Yes)

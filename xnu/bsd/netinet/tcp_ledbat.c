@@ -184,6 +184,8 @@ tcp_ledbat_cwnd_init(struct tcpcb *tp)
 {
 	tp->snd_cwnd = tp->t_maxseg * bg_ss_fltsz;
 	tp->bg_ssthresh = tp->snd_ssthresh;
+
+	tcp_update_pacer_state(tp);
 }
 
 /* Function to handle an in-sequence ack which is fast-path processing
@@ -369,6 +371,8 @@ ledbat_pp_ack_rcvd(struct tcpcb *tp, uint32_t bytes_acked)
 		/* Congestion avoidance */
 		ledbat_pp_congestion_avd(tp, bytes_acked, base_rtt, curr_rtt, tcp_globals_now(globals));
 	}
+
+	tcp_update_pacer_state(tp);
 }
 
 /* Function to process an ack.
@@ -428,6 +432,8 @@ tcp_ledbat_ack_rcvd(struct tcpcb *tp, struct tcphdr *th)
 	if (incr > 0) {
 		update_cwnd(tp, incr, true);
 	}
+
+	tcp_update_pacer_state(tp);
 }
 
 void
@@ -486,6 +492,8 @@ tcp_ledbat_post_fr(struct tcpcb *tp, struct tcphdr *th)
 	}
 	tp->t_bytes_acked = 0;
 	tp->t_ccstate->ledbat_md_bytes_acked = 0;
+
+	tcp_update_pacer_state(tp);
 }
 
 /*
@@ -517,6 +525,8 @@ tcp_ledbat_after_timeout(struct tcpcb *tp)
 		tcp_ledbat_clear_state(tp);
 		tcp_ledbat_pre_fr(tp);
 		tp->snd_cwnd = tp->t_maxseg;
+
+		tcp_update_pacer_state(tp);
 	}
 }
 
@@ -537,15 +547,7 @@ tcp_ledbat_after_timeout(struct tcpcb *tp)
 static int
 tcp_ledbat_delay_ack(struct tcpcb *tp, struct tcphdr *th)
 {
-	if (tcp_ack_strategy == TCP_ACK_STRATEGY_MODERN) {
-		return tcp_cc_delay_ack(tp, th);
-	} else {
-		if ((tp->t_flags & TF_RXWIN0SENT) == 0 &&
-		    (th->th_flags & TH_PUSH) == 0 && (tp->t_unacksegs == 1)) {
-			return 1;
-		}
-		return 0;
-	}
+	return tcp_cc_delay_ack(tp, th);
 }
 
 /* Change a connection to use ledbat. First, lower bg_ssthresh value

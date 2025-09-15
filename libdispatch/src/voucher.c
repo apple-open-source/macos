@@ -979,6 +979,21 @@ voucher_copy_with_persona_mach_voucher(mach_voucher_t persona_mach_voucher)
 #endif // VOUCHER_USE_PERSONA
 }
 
+int
+voucher_copy_with_persona_mach_voucher_and_error(
+		mach_voucher_t persona_mach_voucher, voucher_t *out_voucher)
+{
+	voucher_t v = voucher_copy_with_persona_mach_voucher(persona_mach_voucher);
+
+	if (v == VOUCHER_INVALID) {
+		*out_voucher = NULL;
+		return EPERM;
+	} else {
+		*out_voucher = v;
+		return 0;
+	}
+}
+
 kern_return_t
 mach_voucher_persona_self(mach_voucher_t *persona_mach_voucher)
 {
@@ -1424,8 +1439,14 @@ voucher_activity_get_logging_preferences(size_t *length)
 		*length = 0;
 		return NULL;
 	}
+	mach_port_t sendp = _firehose_task_buffer->fb_header.fbh_logd_port;
+	return firehose_buffer_get_logging_prefs(sendp, length);
+}
 
-	return firehose_buffer_get_logging_prefs(_firehose_task_buffer, length);
+void *
+voucher_activity_get_logging_preferences_with_port(mach_port_t sendp, size_t *length)
+{
+	return firehose_buffer_get_logging_prefs(sendp, length);
 }
 
 bool
@@ -2006,6 +2027,15 @@ voucher_copy_with_persona_mach_voucher(mach_voucher_t persona_mach_voucher)
 {
 	(void)persona_mach_voucher;
 	return NULL;
+}
+
+int
+voucher_copy_with_persona_mach_voucher_and_error(
+		mach_voucher_t persona_mach_voucher, voucher_t *out_voucher)
+{
+	(void)persona_mach_voucher;
+	*out_voucher = NULL;
+	return ENOTSUP;
 }
 
 kern_return_t

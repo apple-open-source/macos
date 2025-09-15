@@ -37,8 +37,8 @@ class AccessibilityTableRow;
 
 class AccessibilityTableCell : public AccessibilityRenderObject {
 public:
-    static Ref<AccessibilityTableCell> create(AXID, RenderObject&);
-    static Ref<AccessibilityTableCell> create(AXID, Node&);
+    static Ref<AccessibilityTableCell> create(AXID, RenderObject&, AXObjectCache&);
+    static Ref<AccessibilityTableCell> create(AXID, Node&, AXObjectCache&);
     virtual ~AccessibilityTableCell();
     bool isTableCell() const final { return true; }
 
@@ -46,8 +46,6 @@ public:
     bool isTableHeaderCell() const;
     bool isColumnHeader() const final;
     bool isRowHeader() const final;
-
-    std::optional<AXID> rowGroupAncestorID() const final;
 
     virtual AccessibilityTable* parentTable() const;
 
@@ -58,8 +56,8 @@ public:
 
     AccessibilityChildrenVector rowHeaders() final;
 
-    int axColumnIndex() const final;
-    int axRowIndex() const final;
+    std::optional<unsigned> axColumnIndex() const final;
+    std::optional<unsigned> axRowIndex() const final;
     unsigned colSpan() const;
     unsigned rowSpan() const;
     void incrementEffectiveRowSpan() { ++m_effectiveRowSpan; }
@@ -75,8 +73,8 @@ public:
 #endif
 
 protected:
-    explicit AccessibilityTableCell(AXID, RenderObject&);
-    explicit AccessibilityTableCell(AXID, Node&);
+    explicit AccessibilityTableCell(AXID, RenderObject&, AXObjectCache&);
+    explicit AccessibilityTableCell(AXID, Node&, AXObjectCache&);
 
     AccessibilityTableRow* parentRow() const;
     AccessibilityRole determineAccessibilityRole() final;

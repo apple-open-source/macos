@@ -4,6 +4,10 @@
 #include <darwintest.h>
 #include <TargetConditionals.h>
 
+#include <mach/mach_host.h>
+
+#include "net_test_lib.h"
+
 volatile static int lock_a;
 volatile static int lock_b;
 
@@ -61,4 +65,6 @@ T_DECL(mcast_group_race_82820812, "Race between multicast group join operations.
 		T_ASSERT_POSIX_ZERO(pthread_join(th, NULL), "pthread_join");
 		T_ASSERT_POSIX_SUCCESS(close(fd), "close");
 	}
+
+	force_zone_gc();
 }

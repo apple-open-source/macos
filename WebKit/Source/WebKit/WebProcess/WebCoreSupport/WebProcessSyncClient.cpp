@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,9 @@
 #include "MessageSenderInlines.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
+#include <WebCore/DocumentSyncData.h>
 #include <WebCore/Page.h>
+#include <WebCore/Settings.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -49,7 +51,7 @@ Ref<WebPage> WebProcessSyncClient::protectedPage() const
 
 bool WebProcessSyncClient::siteIsolationEnabled()
 {
-    RefPtr<WebCore::Page> corePage = protectedPage()->protectedCorePage();
+    RefPtr corePage = protectedPage()->corePage();
     return corePage ? corePage->settings().siteIsolationEnabled() : false;
 }
 

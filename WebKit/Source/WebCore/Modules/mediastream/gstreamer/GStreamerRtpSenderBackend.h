@@ -44,9 +44,9 @@ class GStreamerPeerConnectionBackend;
 class GStreamerRtpSenderBackend final : public RTCRtpSenderBackend {
     WTF_MAKE_TZONE_ALLOCATED(GStreamerRtpSenderBackend);
 public:
-    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend&, GRefPtr<GstWebRTCRTPSender>&&);
-    using Source = std::variant<std::nullptr_t, Ref<RealtimeOutgoingAudioSourceGStreamer>, Ref<RealtimeOutgoingVideoSourceGStreamer>>;
-    GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend&, GRefPtr<GstWebRTCRTPSender>&&, Source&&, GUniquePtr<GstStructure>&& initData);
+    GStreamerRtpSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&&, GRefPtr<GstWebRTCRTPSender>&&);
+    using Source = Variant<std::nullptr_t, Ref<RealtimeOutgoingAudioSourceGStreamer>, Ref<RealtimeOutgoingVideoSourceGStreamer>>;
+    GStreamerRtpSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&&, GRefPtr<GstWebRTCRTPSender>&&, Source&&, GUniquePtr<GstStructure>&& initData);
 
     void setRTCSender(GRefPtr<GstWebRTCRTPSender>&& rtcSender) { m_rtcSender = WTFMove(rtcSender); }
     GstWebRTCRTPSender* rtcSender() { return m_rtcSender.get(); }
@@ -57,6 +57,13 @@ public:
             [] (Ref<RealtimeOutgoingAudioSourceGStreamer>& source) { return source.ptr(); },
             [] (const auto&) -> RealtimeOutgoingAudioSourceGStreamer* { return nullptr; }
         );
+    }
+
+    ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> audioSourceWeak()
+    {
+        return WTF::switchOn(m_source,
+            [](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return source.get(); },
+            [](const auto&) -> ThreadSafeWeakPtr<RealtimeOutgoingAudioSourceGStreamer> { return nullptr; });
     }
 
     RealtimeOutgoingVideoSourceGStreamer* videoSource()
@@ -75,7 +82,6 @@ public:
         );
     }
 
-    void clearSource();
     void setSource(Source&&);
     void takeSource(GStreamerRtpSenderBackend&);
 
@@ -85,6 +91,7 @@ public:
     void dispatchBitrateRequest(uint32_t bitrate);
 
 private:
+    void clearSource();
     bool replaceTrack(RTCRtpSender&, MediaStreamTrack*) final;
     RTCRtpSendParameters getParameters() const final;
     void setParameters(const RTCRtpSendParameters&, DOMPromiseDeferred<void>&&) final;

@@ -29,7 +29,7 @@
 #import "AffineTransform.h"
 #import "CVUtilities.h"
 #import "Logging.h"
-#import "VideoFrame.h"
+#import "VideoFrameCV.h"
 
 #import "CoreVideoSoftLink.h"
 #import "VideoToolboxSoftLink.h"
@@ -73,6 +73,11 @@ ImageRotationSessionVT::ImageRotationSessionVT(const RotationProperties& rotatio
     : m_shouldUseIOSurface(shouldUseIOSurface == ShouldUseIOSurface::Yes)
 {
     initialize(rotation, size, isCGImageCompatible);
+}
+
+ImageRotationSessionVT::ImageRotationSessionVT(ShouldUseIOSurface shouldUseIOSurface)
+    : m_shouldUseIOSurface(shouldUseIOSurface == ShouldUseIOSurface::Yes)
+{
 }
 
 void ImageRotationSessionVT::initialize(const RotationProperties& rotation, FloatSize size, IsCGImageCompatible isCGImageCompatible)
@@ -144,6 +149,20 @@ RetainPtr<CVPixelBufferRef> ImageRotationSessionVT::rotate(VideoFrame& videoFram
         initialize(rotation, size, cgImageCompatible);
 
     return rotate(pixelBuffer);
+}
+
+RefPtr<VideoFrame> ImageRotationSessionVT::applyRotation(VideoFrame& videoFrame, IsCGImageCompatible cgImageCompatible)
+{
+    RotationProperties rotation {
+        .flipY = videoFrame.isMirrored(),
+        .angle = static_cast<uint16_t>(videoFrame.rotation())
+    };
+
+    auto pixelBuffer = rotate(videoFrame, rotation, cgImageCompatible);
+    if (!pixelBuffer)
+        return nullptr;
+
+    return VideoFrameCV::create(videoFrame.presentationTime(), false, VideoFrameRotation::None, WTFMove(pixelBuffer), videoFrame.colorSpace());
 }
 
 }

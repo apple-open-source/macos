@@ -343,7 +343,7 @@ uint32_t updateUserActivityLevels(void)
         gUserActive.sessionActivityLevels |= levels;
         if (gUserActive.postedLevels == 0) {
             DEBUG_LOG("UserActivity level : inactive. Starting System Assertion Timer");
-            startSystemAssertionTimer();
+            startSystemAssertionTimer(0);
         } else {
             DEBUG_LOG("UserActivity level : active. Cancelling System Assertion Timer");
             cancelSystemAssertionTimer();
@@ -861,6 +861,7 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
         // assertions created prior to display sleep
         gUserActive.assertionActivityValid = 0;
         userActiveHandleRootDomainActivity(false);
+        sendUpdateAssertionPolicy(kIOPMAssertionPolicyDisplayOff);
     } else {
         // display is on. Update UserActiveRootDomain
         if (!isA_NotificationDisplayWake()){
@@ -869,6 +870,7 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
         } else {
             DEBUG_LOG("Display is on: Is a notification wake");
         }
+        sendUpdateAssertionPolicy(kIOPMAssertionPolicyNone);
     }
     INFO_LOG("Display state: %s NotificationWake : %d\n", (displayIsOff ? "Off" : "On"), isA_NotificationDisplayWake());
 

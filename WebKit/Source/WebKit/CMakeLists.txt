@@ -34,7 +34,6 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/webtransport"
     "${WEBKIT_DIR}/Platform"
     "${WEBKIT_DIR}/Platform/IPC"
-    "${WEBKIT_DIR}/PluginProcess"
     "${WEBKIT_DIR}/Shared"
     "${WEBKIT_DIR}/Shared/API"
     "${WEBKIT_DIR}/Shared/API/c"
@@ -141,6 +140,7 @@ set(WebKit_BINDINGS_IN_FILES
     WebProcess/Extensions/Interfaces/WebExtensionAPIAlarms
     WebProcess/Extensions/Interfaces/WebExtensionAPICommands
     WebProcess/Extensions/Interfaces/WebExtensionAPICookies
+    WebProcess/Extensions/Interfaces/WebExtensionAPIDOM
     WebProcess/Extensions/Interfaces/WebExtensionAPIDeclarativeNetRequest
     WebProcess/Extensions/Interfaces/WebExtensionAPIDevTools
     WebProcess/Extensions/Interfaces/WebExtensionAPIDevToolsExtensionPanel
@@ -281,7 +281,6 @@ set(WebKit_MESSAGES_IN_FILES
 
     Shared/Notifications/NotificationManagerMessageHandler
 
-    UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy
     UIProcess/DrawingAreaProxy
 
     UIProcess/Extensions/WebExtensionContext
@@ -292,6 +291,7 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/SpeechRecognitionRemoteRealtimeMediaSourceManager
     UIProcess/SpeechRecognitionServer
     UIProcess/VisitedLinkStore
+    UIProcess/WebFrameProxy
     UIProcess/WebFullScreenManagerProxy
     UIProcess/WebGeolocationManagerProxy
     UIProcess/WebLockRegistryProxy
@@ -324,6 +324,8 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/Automation/WebAutomationSessionProxy
 
     WebProcess/Databases/IndexedDB/WebIDBConnectionToServer
+
+    WebProcess/DigitalCredentials/DigitalCredentialsCoordinator
 
     WebProcess/Extensions/WebExtensionContextProxy
     WebProcess/Extensions/WebExtensionControllerProxy
@@ -397,6 +399,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/WebPage/DrawingArea
     WebProcess/WebPage/EventDispatcher
     WebProcess/WebPage/VisitedLinkTableController
+    WebProcess/WebPage/WebFrame
     WebProcess/WebPage/WebPage
     WebProcess/WebPage/WebPageTesting
 
@@ -460,7 +463,6 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/ContextMenuContextData.serialization.in
     Shared/CoordinateSystem.serialization.in
     Shared/DebuggableInfoData.serialization.in
-    Shared/DisplayListArgumentCoders.serialization.in
     Shared/DocumentEditingContext.serialization.in
     Shared/DragControllerAction.serialization.in
     Shared/DrawingAreaInfo.serialization.in
@@ -477,6 +479,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/ImageOptions.serialization.in
     Shared/InspectorExtensionTypes.serialization.in
     Shared/JavaScriptCore.serialization.in
+    Shared/JavaScriptEvaluationResult.serialization.in
     Shared/LayerTreeContext.serialization.in
     Shared/LoadParameters.serialization.in
     Shared/MediaPlaybackState.serialization.in
@@ -494,13 +497,14 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/ProvisionalFrameCreationParameters.serialization.in
     Shared/RTCNetwork.serialization.in
     Shared/RTCPacketOptions.serialization.in
+    Shared/RemoteWebTouchEvent.serialization.in
     Shared/RemoteWorkerInitializationData.serialization.in
     Shared/RemoteWorkerType.serialization.in
     Shared/ResourceLoadInfo.serialization.in
     Shared/ResourceLoadStatisticsParameters.serialization.in
     Shared/SameDocumentNavigationType.serialization.in
     Shared/SandboxExtension.serialization.in
-    Shared/ScriptTelemetry.serialization.in
+    Shared/ScriptTrackingPrivacyFilter.serialization.in
     Shared/ScrollingAccelerationCurve.serialization.in
     Shared/SessionState.serialization.in
     Shared/SyntheticEditingCommandType.serialization.in
@@ -552,7 +556,6 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/API/APINumber.serialization.in
     Shared/API/APIObject.serialization.in
     Shared/API/APIPageHandle.serialization.in
-    Shared/API/APISerializedScriptValue.serialization.in
     Shared/API/APIString.serialization.in
     Shared/API/APIURL.serialization.in
     Shared/API/APIURLRequest.serialization.in
@@ -565,6 +568,7 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     Shared/Extensions/WebExtensionActionClickBehavior.serialization.in
     Shared/Extensions/WebExtensionAlarmParameters.serialization.in
+    Shared/Extensions/WebExtensionBookmarksParameters.serialization.in
     Shared/Extensions/WebExtensionCommandParameters.serialization.in
     Shared/Extensions/WebExtensionContentWorldType.serialization.in
     Shared/Extensions/WebExtensionContext.serialization.in
@@ -584,6 +588,8 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/Extensions/WebExtensionWindow.serialization.in
 
     Shared/Gamepad/GamepadData.serialization.in
+
+    Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in
 
     Shared/WebGPU/WebGPUBindGroupDescriptor.serialization.in
     Shared/WebGPU/WebGPUBindGroupEntry.serialization.in
@@ -724,7 +730,6 @@ endif ()
 set(WebProcess_LIBRARIES WebKit)
 set(NetworkProcess_LIBRARIES WebKit)
 set(GPUProcess_LIBRARIES WebKit)
-set(PluginProcess_LIBRARIES WebKit)
 
 # For platforms that want to use system-provided OpenGL (ES) / EGL headers,
 # these include directories, libraries or definitions need to be
@@ -790,11 +795,6 @@ if (ENABLE_GPU_PROCESS)
     list(APPEND WebKit_INTERFACE_DEPENDENCIES GPUProcess)
 endif ()
 
-if (ENABLE_PLUGIN_PROCESS)
-    WEBKIT_EXECUTABLE_DECLARE(PluginProcess)
-    list(APPEND WebKit_INTERFACE_DEPENDENCIES PluginProcess)
-endif ()
-
 set(WebKit_GENERATED_SERIALIZERS_SUFFIX cpp)
 
 WEBKIT_FRAMEWORK_DECLARE(WebKit)
@@ -803,6 +803,7 @@ WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 if (PORT STREQUAL GTK OR PORT STREQUAL WPE)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit
         -Wunsafe-buffer-usage
+        -Wunsafe-buffer-usage-in-libc-call
         -fsafe-buffer-usage-suggestions
     )
 endif ()
@@ -928,7 +929,7 @@ add_custom_command(
     VERBATIM
 )
 
-set(WebKit_AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS
+set(WebKit_JSON_RPC_PROTOCOL_GENERATOR_SCRIPTS
     ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py
     ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/codegen/cpp_generator.py
     ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/codegen/cpp_generator_templates.py
@@ -950,20 +951,49 @@ set(WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS
 add_custom_command(
     OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.cpp ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.cpp ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.cpp
     MAIN_DEPENDENCY ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS}
-    DEPENDS ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS}
+    DEPENDS ${WebKit_JSON_RPC_PROTOCOL_GENERATOR_SCRIPTS}
     COMMAND ${PYTHON_EXECUTABLE} ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py --outputDir "${WebKit_DERIVED_SOURCES_DIR}" --framework WebKit ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS} --backend ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_INPUTS}
+    VERBATIM)
+
+set(WebKit_WEBDRIVER_BIDI_PROTOCOL_GENERATOR_INPUTS
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiBrowser.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiBrowsingContext.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiLog.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiScript.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiSession.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiStorage.json
+)
+
+add_custom_command(
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/CombinedWebDriverBidiDomains.json
+    MAIN_DEPENDENCY ${JavaScriptCore_SCRIPTS_DIR}/generate-combined-inspector-json.py
+    DEPENDS ${WebKit_WEBDRIVER_BIDI_PROTOCOL_GENERATOR_INPUTS}
+    COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_SCRIPTS_DIR}/generate-combined-inspector-json.py ${WebKit_WEBDRIVER_BIDI_PROTOCOL_GENERATOR_INPUTS} "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" > ${WebKit_DERIVED_SOURCES_DIR}/CombinedWebDriverBidiDomains.json
+    VERBATIM)
+
+add_custom_command(
+    OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiBackendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiBackendDispatchers.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiProtocolObjects.h ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiProtocolObjects.cpp ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiFrontendDispatchers.h ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiFrontendDispatchers.cpp
+    MAIN_DEPENDENCY ${WebKit_DERIVED_SOURCES_DIR}/CombinedWebDriverBidiDomains.json
+    DEPENDS ${WebKit_JSON_RPC_PROTOCOL_GENERATOR_SCRIPTS}
+    COMMAND ${PYTHON_EXECUTABLE} ${PROTOCOL_GENERATOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py --outputDir "${WebKit_DERIVED_SOURCES_DIR}" --framework WebDriverBidi ${WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS} --backend ${WebKit_DERIVED_SOURCES_DIR}/CombinedWebDriverBidiDomains.json
     VERBATIM)
 
 list(APPEND WebKit_HEADERS
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.h
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.h
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiBackendDispatchers.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiFrontendDispatchers.h
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiProtocolObjects.h
 )
 
 list(APPEND WebKit_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationBackendDispatchers.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationFrontendDispatchers.cpp
     ${WebKit_DERIVED_SOURCES_DIR}/AutomationProtocolObjects.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiBackendDispatchers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiFrontendDispatchers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/WebDriverBidiProtocolObjects.cpp
 )
 
 add_custom_command(
@@ -1050,21 +1080,12 @@ if (ENABLE_GPU_PROCESS)
     ADD_WEBKIT_PREFIX_HEADER(GPUProcess)
 endif ()
 
-if (ENABLE_PLUGIN_PROCESS)
-    list(APPEND PluginProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
-    WEBKIT_EXECUTABLE(PluginProcess)
-    ADD_WEBKIT_PREFIX_HEADER(PluginProcess)
-endif ()
-
 if (COMPILER_IS_GCC_OR_CLANG)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit -Wno-unused-parameter)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebProcess -Wno-unused-parameter)
     WEBKIT_ADD_TARGET_CXX_FLAGS(NetworkProcess -Wno-unused-parameter)
     if (ENABLE_GPU_PROCESS)
         WEBKIT_ADD_TARGET_CXX_FLAGS(GPUProcess -Wno-unused-parameter)
-    endif ()
-    if (ENABLE_PLUGIN_PROCESS)
-        WEBKIT_ADD_TARGET_CXX_FLAGS(PluginProcess -Wno-unused-parameter)
     endif ()
 endif ()
 

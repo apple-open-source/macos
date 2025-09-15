@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #include "BackForwardController.h"
 #include "CSSRuleList.h"
-#include "CSSStyleDeclaration.h"
+#include "CSSStyleProperties.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -65,7 +65,7 @@ ExceptionOr<RefPtr<SecurityOrigin>> DOMWindow::createTargetOriginForPostMessage(
 {
     RefPtr<SecurityOrigin> targetSecurityOrigin;
     if (targetOrigin == "/"_s)
-        targetSecurityOrigin = &sourceDocument.securityOrigin();
+        targetSecurityOrigin = sourceDocument.securityOrigin();
     else if (targetOrigin != "*"_s) {
         targetSecurityOrigin = SecurityOrigin::createFromString(targetOrigin);
         // It doesn't make sense target a postMessage at an opaque origin
@@ -95,7 +95,7 @@ bool DOMWindow::closed() const
 
 void DOMWindow::close(Document& document)
 {
-    if (!document.canNavigate(protectedFrame().get()))
+    if (document.canNavigate(protectedFrame().get()) != CanNavigateState::Able)
         return;
     close();
 }
@@ -119,7 +119,7 @@ void DOMWindow::close()
     }
 
     RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
-    if (localFrame && !localFrame->protectedLoader()->shouldClose())
+    if (localFrame && !localFrame->loader().shouldClose())
         return;
 
     ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
@@ -130,7 +130,7 @@ void DOMWindow::close()
 
 PageConsoleClient* DOMWindow::console() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && frame->page() ? &frame->page()->console() : nullptr;
 }
 
@@ -897,7 +897,7 @@ ExceptionOr<String> DOMWindow::btoa(const String& stringToEncode)
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return Base64Utilities::btoa(stringToEncode);
+    return WindowOrWorkerGlobalScope::btoa(stringToEncode);
 }
 
 ExceptionOr<String> DOMWindow::atob(const String& stringToEncode)
@@ -905,7 +905,7 @@ ExceptionOr<String> DOMWindow::atob(const String& stringToEncode)
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
     if (!localThis)
         return Exception { ExceptionCode::SecurityError };
-    return Base64Utilities::atob(stringToEncode);
+    return WindowOrWorkerGlobalScope::atob(stringToEncode);
 }
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)

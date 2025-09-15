@@ -57,10 +57,10 @@ NetworkCORSPreflightChecker::NetworkCORSPreflightChecker(NetworkProcess& network
 
 NetworkCORSPreflightChecker::~NetworkCORSPreflightChecker()
 {
-    if (m_task) {
-        ASSERT(m_task->client() == this);
-        m_task->clearClient();
-        m_task->cancel();
+    if (RefPtr task = m_task) {
+        ASSERT(task->client() == this);
+        task->clearClient();
+        task->cancel();
     }
     if (m_completionCallback)
         m_completionCallback(ResourceError { ResourceError::Type::Cancellation });
@@ -82,9 +82,10 @@ void NetworkCORSPreflightChecker::startPreflight()
     loadParameters.webPageProxyID = m_parameters.webPageProxyID;
     loadParameters.allowPrivacyProxy = m_parameters.allowPrivacyProxy;
 
-    if (auto* networkSession = m_networkProcess->networkSession(m_parameters.sessionID)) {
-        m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
-        m_task->resume();
+    if (CheckedPtr networkSession = m_networkProcess->networkSession(m_parameters.sessionID)) {
+        Ref task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
+        m_task = task.copyRef();
+        task->resume();
     } else
         ASSERT_NOT_REACHED();
 }
@@ -117,7 +118,7 @@ void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationCha
         return;
     }
 
-    m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(m_parameters.sessionID, m_parameters.webPageProxyID, &m_parameters.topOrigin->data(), challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
+    m_networkProcess->protectedAuthenticationManager()->didReceiveAuthenticationChallenge(m_parameters.sessionID, m_parameters.webPageProxyID, &m_parameters.topOrigin->data(), challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
 }
 
 void NetworkCORSPreflightChecker::didReceiveResponse(WebCore::ResourceResponse&& response, NegotiatedLegacyTLS, PrivateRelayed, ResponseCompletionHandler&& completionHandler)

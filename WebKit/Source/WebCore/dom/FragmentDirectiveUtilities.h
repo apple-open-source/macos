@@ -30,6 +30,7 @@
 
 namespace WebCore {
 
+class ContainerNode;
 class Node;
 
 struct ParsedTextDirective {
@@ -41,7 +42,7 @@ struct ParsedTextDirective {
 
 namespace FragmentDirectiveUtilities {
 
-const Node& nearestBlockAncestor(const Node&);
+ContainerNode& nearestBlockAncestor(Node&);
 
 }
 

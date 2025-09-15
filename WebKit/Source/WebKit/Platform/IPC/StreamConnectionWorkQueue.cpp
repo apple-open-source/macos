@@ -88,7 +88,7 @@ void StreamConnectionWorkQueue::removeStreamConnection(StreamServerConnection& c
     wakeUp();
 }
 
-void StreamConnectionWorkQueue::stopAndWaitForCompletion(WTF::Function<void()>&& cleanupFunction)
+void StreamConnectionWorkQueue::stopAndWaitForCompletion(NOESCAPE WTF::Function<void()>&& cleanupFunction)
 {
     RefPtr<Thread> processingThread;
     {
@@ -99,7 +99,7 @@ void StreamConnectionWorkQueue::stopAndWaitForCompletion(WTF::Function<void()>&&
     }
     if (!processingThread)
         return;
-    ASSERT(Thread::current().uid() != processingThread->uid());
+    ASSERT(Thread::currentSingleton().uid() != processingThread->uid());
     wakeUp();
     processingThread->waitForCompletion();
     {
@@ -115,7 +115,7 @@ void StreamConnectionWorkQueue::wakeUp()
 
 void StreamConnectionWorkQueue::startProcessingThread()
 {
-    auto task = [this]() mutable {
+    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE auto task = [this]() mutable {
         for (;;) {
             processStreams();
             if (m_shouldQuit) {
@@ -163,7 +163,7 @@ void StreamConnectionWorkQueue::processStreams()
 bool StreamConnectionWorkQueue::isCurrent() const
 {
     Locker locker { m_lock };
-    return m_processingThread ? m_processingThread->uid() == Thread::current().uid() : false;
+    return m_processingThread ? m_processingThread->uid() == Thread::currentSingleton().uid() : false;
 }
 
 }

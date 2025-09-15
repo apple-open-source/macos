@@ -100,7 +100,7 @@ template <typename WeakMapBucket>
 template<typename Appender>
 void WeakMapImpl<WeakMapBucket>::takeSnapshotInternal(unsigned limit, Appender appender)
 {
-    DisallowGC disallowGC;
+    AssertNoGC assertNoGC;
     unsigned fetched = 0;
     forEach([&](JSCell* key, JSValue value) {
         appender(key, value);

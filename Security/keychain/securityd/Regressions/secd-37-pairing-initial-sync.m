@@ -116,8 +116,8 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     uint64_t pcs = 0;
     uint64_t bluetooth = 0;
 
-    CFArrayRef items = _SecServerCopyInitialSyncCredentials(SecServerInitialSyncCredentialFlagTLK | SecServerInitialSyncCredentialFlagPCS, &tlks, &pcs, &bluetooth, &error);
-    ok(items, "_SecServerCopyInitialSyncCredentials: %@", error);
+    CFArrayRef items = SecServerCopyInitialSyncCredentials(SecServerInitialSyncCredentialFlagTLK | SecServerInitialSyncCredentialFlagPCS, &tlks, &pcs, &bluetooth, &error);
+    ok(items, "SecServerCopyInitialSyncCredentials: %@", error);
     CFReleaseNull(error);
 
     ok_status((res = SecItemCopyMatching((__bridge CFDictionaryRef)pcsinetattrs, &stuff)),
@@ -134,10 +134,10 @@ int secd_37_pairing_initial_sync(int argc, char *const *argv)
     CFReleaseNull(stuff);
 
 
-    ok(_SecItemDeleteAll(&error), "SecItemServerDeleteAll: %@", error);
+    ok(SecServerItemDeleteAll(&error), "SecServerItemDeleteAll: %@", error);
     CFReleaseNull(error);
 
-    ok(_SecServerImportInitialSyncCredentials(items, &error), "_SecServerImportInitialSyncCredentials: %@", error);
+    ok(SecServerImportInitialSyncCredentials(items, &error), "SecServerImportInitialSyncCredentials: %@", error);
     CFReleaseNull(error);
     CFReleaseNull(items);
 

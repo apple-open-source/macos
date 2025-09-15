@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Samuel Weinig <sam@webkit.org>
+ * Copyright (C) 2024-2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,6 @@ struct ContrastColor {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
     Color color;
-    bool max { false };
 
     bool operator==(const ContrastColor&) const = default;
 };
@@ -54,8 +53,8 @@ Color toStyleColor(const CSS::ContrastColor&, ColorResolutionState&);
 WebCore::Color resolveColor(const ContrastColor&, const WebCore::Color& currentColor);
 bool containsCurrentColor(const ContrastColor&);
 
-void serializationForCSS(StringBuilder&, const ContrastColor&);
-String serializationForCSS(const ContrastColor&);
+void serializationForCSSTokenization(StringBuilder&, const CSS::SerializationContext&, const ContrastColor&);
+String serializationForCSSTokenization(const CSS::SerializationContext&, const ContrastColor&);
 
 WTF::TextStream& operator<<(WTF::TextStream&, const ContrastColor&);
 

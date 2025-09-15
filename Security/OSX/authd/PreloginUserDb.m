@@ -35,6 +35,8 @@ SOFT_LINK_CLASS(DiskManagement, DMAPFS)
 SOFT_LINK_FUNCTION(APFS, APFSVolumeGetUnlockRecord, soft_APFSVolumeGetUnlockRecord, errno_t, (const char *disk, uuid_t wrecUUID, CFDataRef *data), (disk, wrecUUID, data))
 SOFT_LINK_FUNCTION(DiskArbitration, DADiskMount, soft_DADiskMount, void, ( DADiskRef disk, CFURLRef __nullable path, DADiskMountOptions options, DADiskMountCallback __nullable callback, void * __nullable context), (disk, path, options, callback, context ))
 SOFT_LINK_FUNCTION(DiskArbitration, DADiskUnmount, soft_DADiskUnmount, void, ( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback __nullable callback, void * __nullable context), (disk, options, callback, context ))
+SOFT_LINK_FUNCTION(DiskArbitration, DADiskCreateFromBSDName, soft_DADiskCreateFromBSDName, DADiskRef __nullable, (CFAllocatorRef __nullable allocator, DASessionRef session, const char *node), (allocator, session, node))
+SOFT_LINK_FUNCTION(DiskArbitration, DADiskGetBSDName, soft_DADiskGetBSDName, char * __nullable, ( DADiskRef disk), (disk))
 SOFT_LINK_FUNCTION(DiskArbitration, DADissenterGetStatusString, soft_DADissenterGetStatusString, CFStringRef __nullable, ( DADissenterRef dissenter ), ( dissenter ))
 SOFT_LINK_FUNCTION(DiskManagement, DMUnlocalizedTechnicalErrorString, soft_DMUnlocalizedTechnicalErrorString, NSString *, ( DMDiskErrorType inError ), ( inError ))
 SOFT_LINK_FUNCTION(DiskArbitration, DASessionCreate, soft_DASessionCreate, DASessionRef __nullable, ( CFAllocatorRef __nullable allocator ), ( allocator ))
@@ -51,6 +53,7 @@ static NSString *const kSCUacItemName  = @"userAccountControl";
 
 static NSString *const kLongNameItemName = @"RealName";
 static NSString *const kUidItemName = @"UID";
+static NSString *const kHomeDirItemName = @"HomeDir";
 static NSString *const kVekFile = @"%@/%@/var/db/secureaccesstoken.plist";
 static NSString *const kUsersFile = @"%@/%@/var/db/AllUsersInfo.plist";
 
@@ -99,6 +102,8 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     NSMutableDictionary<NSString *, NSDictionary *> *_managedPrefs; // NSString *prefDomain indexed by volume UUID (NSString *)
 	NSMutableDictionary<NSString *, NSMutableArray *> *_dbDataDict; // NSDictionary indexed by volume UUID (NSString *)
     NSMutableDictionary<NSString *, NSString *> *_dbVolumeGroupMap;
+    NSMutableDictionary *_volumesToProcess; // Volumes which failed to be processed during initial run <NSString * deviceNode, DADiskRef disk>
+
 	dispatch_queue_t _queue;
     NSArray *_systemVolumePreboots;
 }
@@ -163,6 +168,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         _userPrefs = [NSMutableDictionary new];
         _globalPrefs = [NSMutableDictionary new];
         _managedPrefs = [NSMutableDictionary new];
+        _volumesToProcess = [NSMutableDictionary new];
 	}
 	return self;
 }
@@ -196,13 +202,40 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return YES;
 }
 
+// when volume was busy during processing, its identification was added to _volumesToProcess
+// until this map is empty, we need to try to rescan these volumes to see if they
+// became available meanwhile. map is cleared before we begin because if volume fails again,
+// it will be added to the map again in processVolumeData
+- (void)processBusyVolumes
+{
+    NSMutableDictionary *localVolumes;
+
+    @synchronized (_volumesToProcess) {
+        localVolumes = _volumesToProcess.copy;
+        [_volumesToProcess removeAllObjects];
+    }
+    if (localVolumes.count == 0) {
+        return;
+    }
+    os_log_info(AUTHD_LOG, "Checking busy volumes if they are available: %{public}@", localVolumes);
+
+    OSStatus (^volumeWorker)(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) = ^OSStatus(NSUUID *volumeUuid, NSString *mountPoint, NSString *prebootNode) {
+        [self processVolumeData:volumeUuid mountPoint:mountPoint preboot:prebootNode];
+        return noErr;
+    };
+    [self processPrebootVolumes:localVolumes.allValues worker:volumeWorker canMount:YES];
+}
+
 - (NSArray<NSDictionary *> *)users
 {
+    [self processBusyVolumes];
     return [self users:nil];
 }
 
 - (NSArray<NSDictionary *> *)users:(NSString *)requestedUuid
 {
+    [self processBusyVolumes];
+
     if (!_dbDataDict.allValues) {
         return nil;
     }
@@ -431,37 +464,46 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return result;
 }
 
-- (NSString *)getMountedVolume:(id)prebootVolume canMount:(BOOL)canMount weMountedPreboot:(BOOL *)weMountedPreboot
+- (NSString *)getMountedVolume:(id)prebootVolume canMount:(BOOL)canMount weMountedPreboot:(BOOL *)weMountedPreboot mountResult:(DAReturn *)mountResult
 {
-    DAReturn mountResult = kDAReturnUnsupported;
+    DAReturn mountOperationResult = kDAReturnUnsupported;
     NSString *retval;
-    BOOL mounted = NO;
+    BOOL volumeWasMountedByUs = NO;
     
     for (UInt8 try = 0; try < 2; ++try) {
         retval = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:NULL];
-        if (!retval) {
-            if (!canMount) {
+        if (!retval) { // volume is not mounted
+            if (!canMount) { // we are not allowed to try to mount it
                 os_log_error(AUTHD_LOG, "Volume not mounted %{public}@, skipping", prebootVolume);
                 return nil;
             }
-            mountResult = [self mountPrebootVolume:prebootVolume];
-            if (mountResult == kDAReturnBusy) {  
-                os_log_info(AUTHD_LOG, "Volume %{public}@, busy, retrying mount", prebootVolume);
+            
+            mountOperationResult = [self mountPrebootVolume:prebootVolume];
+            if (mountResult) {
+                *mountResult = mountOperationResult;
+            }
+            
+            if (mountOperationResult == kDAReturnBusy || mountOperationResult == kDAReturnExclusiveAccess) {
+                os_log_info(AUTHD_LOG, "Volume %{public}@ busy, retrying mount", prebootVolume);
                 continue;
             }
+            
+            // do not retry for the other errors and return the error instead
         }
         break;
     }
-    mounted = (mountResult == kDAReturnSuccess);
+    
+    volumeWasMountedByUs = (mountOperationResult == kDAReturnSuccess);
     DMDiskErrorType mountPointError = kDiskErrorNoError;
-    if (mounted) {
+    if (volumeWasMountedByUs) {
+        // we just mounted the volume, get the mountpoint for it
         retval = [_diskMgr mountPointForDisk:(__bridge DADiskRef _Nonnull)(prebootVolume) error:&mountPointError];
         if (!retval) {
-            os_log_error(AUTHD_LOG, "Unable to mount %{public}@: %{public}@", prebootVolume, weMountedPreboot ? soft_DMUnlocalizedTechnicalErrorString(mountPointError) : @"not mounted by authd");
+            os_log_error(AUTHD_LOG, "Unable to mount %{public}@: %{public}@", prebootVolume, volumeWasMountedByUs ? soft_DMUnlocalizedTechnicalErrorString(mountPointError) : @"unable to get mountpoint after mount");
         }
     }
     if (weMountedPreboot) {
-        *weMountedPreboot = mounted;
+        *weMountedPreboot = volumeWasMountedByUs;
     }
     return retval;
 }
@@ -471,25 +513,55 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     // process each preboot volume
     for (id prebootVolume in prebootVolumes) {
         BOOL weMountedPreboot = NO;
-        NSString *mountPoint = [self getMountedVolume:prebootVolume canMount:canMount weMountedPreboot:&weMountedPreboot];
+        DAReturn mountResult = kDAReturnError;
+        NSString *mountPoint = [self getMountedVolume:prebootVolume canMount:canMount weMountedPreboot:&weMountedPreboot mountResult:&mountResult];
         if (!mountPoint) {
+            if (canMount) {
+                if (mountResult == kDAReturnBusy || mountResult == kDAReturnExclusiveAccess) {
+                    // consider this failure as recoverable and schedule for later rescan
+                    os_log_info(AUTHD_LOG, "Volume %{public}@ not available yet, scheduling for the later scan", prebootVolume);
+                    @synchronized (_volumesToProcess) {
+                        const char *bsdName = soft_DADiskGetBSDName((__bridge DADiskRef)prebootVolume);
+                        if (bsdName) {
+                            NSString *devicePath = [NSString stringWithFormat:@"/dev/%s", bsdName];
+                            _volumesToProcess[devicePath] = prebootVolume;
+                        } else {
+                            os_log_info(AUTHD_LOG, "Volume %{public}@ not available but failed to get disk name. NOT scheduling for the later scan", prebootVolume);
+                        }
+                    }
+                } else {
+                    // unrecoverable failure, do not check this volume again
+                    os_log_info(AUTHD_LOG, "Volume %{public}@ mount failed with error %d, skipping", prebootVolume, mountResult);
+                }
+            } else {
+                // volume is not mounted and we were asked not to mount it
+                os_log_info(AUTHD_LOG, "Volume %{public}@ not available, skipping", prebootVolume);
+            }
             continue;
         }
-        os_log_info(AUTHD_LOG, "Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
-
+        
         // process the preboot volume
-        NSDirectoryEnumerator *dirEnumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:mountPoint isDirectory:YES] includingPropertiesForKeys:nil options:NSDirectoryEnumerationSkipsSubdirectoryDescendants errorHandler:nil];
-        for (NSURL *url in dirEnumerator) {
+        os_log_info(AUTHD_LOG, "Preboot %{public}@ mounted at %{public}@", prebootVolume, mountPoint);
+        NSError *err;
+        NSArray *dirContents = [NSFileManager.defaultManager contentsOfDirectoryAtPath:mountPoint error:&err];
+        if (err) {
+            os_log_error(AUTHD_LOG, "Error while getting content of %{public}@: %{public}@", mountPoint, err);
+            continue;
+        } else {
+            os_log_info(AUTHD_LOG, "Going to process %lu items", (unsigned long)dirContents.count);
+        }
+        for (NSString *path in dirContents) {
+            NSString *fullPath = [mountPoint stringByAppendingPathComponent:path];
             BOOL isDir = NO;
-            [[NSFileManager defaultManager] fileExistsAtPath:url.path isDirectory:&isDir];
+            [[NSFileManager defaultManager] fileExistsAtPath:fullPath isDirectory:&isDir];
             if (!isDir) {
-                os_log_info(AUTHD_LOG, "Skipping file %{public}@ (not a directory)", url.path);
+                os_log_info(AUTHD_LOG, "Skipping file %{public}@ (not a directory)", fullPath);
                 continue;
             }
 
-            NSUUID *volumeUUID = [[NSUUID alloc] initWithUUIDString:url.lastPathComponent]; // the dir has the name as UUID
+            NSUUID *volumeUUID = [[NSUUID alloc] initWithUUIDString:path.lastPathComponent]; // the dir has the name as UUID
             if (!volumeUUID) {
-                os_log_info(AUTHD_LOG, "Ignoring folder %{public}@ (not UUID)", url);
+                os_log_info(AUTHD_LOG, "Ignoring folder %{public}@ (not UUID)", fullPath);
                 continue;
             }
 
@@ -630,9 +702,8 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 - (NSArray *)relevantPrebootVolumes
 {
     NSMutableArray *result = [NSMutableArray new];
-
+    
     DMAPFS *dmAPFS = [[getDMAPFSClass() alloc] initWithManager:_diskMgr];
-
     
     for (id tmp in [self disksWithPrebootCandidates:dmAPFS]) {
         DADiskRef diskRef = (__bridge DADiskRef)(tmp);
@@ -730,7 +801,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     return vek;
 }
 
-- (NSData *)loadKEKforUuid:(NSString *)userUuid deviceNode:(NSString *)deviceNode
+- (NSData *)loadKEKforUuid:(NSString *)userUuid deviceNode:(NSString *)deviceNode sourcePrebootNode:(NSString *)sourcePrebootNode
 {
     NSUUID *nsUuid = [[NSUUID alloc] initWithUUIDString:userUuid];
     uuid_t uuid;
@@ -739,6 +810,19 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
     errno_t err = soft_APFSVolumeGetUnlockRecord(deviceNode.UTF8String, uuid, &dataCF);
     if(err != 0) {
         os_log_error(AUTHD_LOG, "Failed to find SecureToken on device node %{public}@ and UUID %{public}@ (%d)", deviceNode, userUuid, err);
+        if (err == EBUSY) {
+            @synchronized (_volumesToProcess) {
+                if (sourcePrebootNode && ![_volumesToProcess objectForKey:sourcePrebootNode]) {
+                    id disk = CFBridgingRelease(soft_DADiskCreateFromBSDName(kCFAllocatorDefault, (__bridge DASessionRef _Nullable)_daSession, sourcePrebootNode.UTF8String));
+                    if (disk) {
+                        os_log_info(AUTHD_LOG, "Scheduling preboot %{public}@ for busy volume %{public}@ for later scan", sourcePrebootNode, deviceNode);
+                        _volumesToProcess[sourcePrebootNode] = disk;
+                    } else {
+                        os_log_error(AUTHD_LOG, "Failed to find the disk for the preboot node %{public}@", sourcePrebootNode);
+                    }
+                }
+            }
+        }
         return nil;
     }
     os_log_info(AUTHD_LOG, "Loaded SecureToken from device node %{public}@", deviceNode);
@@ -832,7 +916,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
             os_log_error(AUTHD_LOG, "Failed to find GUID for user %{public}@", userName);
             continue;
         }
-        NSData *kek = [self loadKEKforUuid:userGuid deviceNode:deviceNode];
+        NSData *kek = [self loadKEKforUuid:userGuid deviceNode:deviceNode sourcePrebootNode:preboot];
         if (!kek) {
             os_log_error(AUTHD_LOG, "Failed to find SecureToken for user %{public}@", userName);
             continue;
@@ -881,7 +965,13 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
         if ([userData.allKeys containsObject:kLongNameItemName]) {
             dict[@PLUDB_LUSERNAME] = userData[kLongNameItemName];
         }
-        
+        if ([userData.allKeys containsObject:kUidItemName]) {
+            dict[@PLUDB_UID] = userData[kUidItemName];
+        }
+        if ([userData.allKeys containsObject:kHomeDirItemName]) {
+            dict[@PLUDB_HDIR] = userData[kHomeDirItemName];
+        }
+
         NSMutableArray *array = _dbDataDict[volumeUuid.UUIDString];
         if (array == nil) {
             array = [NSMutableArray new];

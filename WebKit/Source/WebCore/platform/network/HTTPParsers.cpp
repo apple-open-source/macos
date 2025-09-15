@@ -3,7 +3,7 @@
  * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * Copyright (C) 2011 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,7 +55,7 @@ namespace WebCore {
 // True if characters which satisfy the predicate are present, incrementing
 // "pos" to the next character which does not satisfy the predicate.
 // Note: might return pos == str.length().
-static inline bool skipWhile(const String& str, unsigned& pos, const Function<bool(const UChar)>& predicate)
+static inline bool skipWhile(const String& str, unsigned& pos, NOESCAPE const Function<bool(const UChar)>& predicate)
 {
     const unsigned start = pos;
     const unsigned len = str.length();
@@ -323,7 +323,8 @@ static String trimInputSample(std::span<const CharType> input)
 
 std::optional<WallTime> parseHTTPDate(const String& value)
 {
-    double dateInMillisecondsSinceEpoch = parseDate(value.utf8().span());
+    // FIXME: parseDate() requires Latin1, but we're passing it UTF-8.
+    double dateInMillisecondsSinceEpoch = parseDate(byteCast<LChar>(value.utf8().span()));
     if (!std::isfinite(dateInMillisecondsSinceEpoch))
         return std::nullopt;
     // This assumes system_clock epoch equals Unix epoch which is true for all implementations but unspecified.
@@ -357,7 +358,7 @@ StringView filenameFromHTTPContentDisposition(StringView value)
         return value;
     }
 
-    return String();
+    return { };
 }
 
 String extractMIMETypeFromMediaType(const String& mediaType)

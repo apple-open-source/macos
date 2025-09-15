@@ -30,9 +30,7 @@
 
 namespace WebKit::NetworkCache {
 class Key;
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
 class SubresourceInfo;
-#endif
 }
 
 namespace WTF::Persistence {
@@ -44,9 +42,7 @@ template<> struct Coder<class> { \
 }
 
 DECLARE_CODER(WebKit::NetworkCache::Key);
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
 DECLARE_CODER(WebKit::NetworkCache::SubresourceInfo);
-#endif
 
 #undef DECLARE_CODER
 

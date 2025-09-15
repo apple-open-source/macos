@@ -28,6 +28,11 @@
 #include <wtf/Forward.h>
 
 namespace WebCore {
+
+namespace CSS {
+struct SerializationContext;
+}
+
 namespace CSSCalc {
 
 struct Child;
@@ -36,6 +41,9 @@ struct Tree;
 struct SerializationOptions {
     // `range` represents the allowed numeric range for the calculated result.
     CSS::Range range;
+
+    // `serializationContext` is the context used for CSS serialization state.
+    const CSS::SerializationContext& serializationContext;
 };
 
 // https://drafts.csswg.org/css-values-4/#serialize-a-math-function

@@ -1,6 +1,6 @@
 /* dso.c
  *
- * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,9 @@
 #include "srp-log.h"
 extern uint16_t srp_random16(void);
 #define mDNSRandom(x) srp_random16()
+#if !defined(mDNSPlatformMemAllocateClear)
 #define mDNSPlatformMemAllocateClear(length) mdns_calloc(1, length)
+#endif
 #else // STANDALONE
 
 // This is only a temporary fix to let the code in this file print unredacted logs.
@@ -134,6 +136,7 @@ void dso_state_cancel(dso_state_t *dso)
         dso->next = dso_connections_needing_cleanup;
         dso_connections_needing_cleanup = dso;
     }
+
 }
 
 void dso_cleanup(bool call_callbacks)
@@ -286,6 +289,7 @@ dso_state_t *dso_state_create(bool is_server, int max_outstanding_queries, const
 
     dso->keepalive_interval = 3600 * MSEC_PER_SEC;
     dso->inactivity_timeout = 15 * MSEC_PER_SEC;
+
 
     dso->next = dso_connections;
     dso_connections = dso;
@@ -993,6 +997,7 @@ void dns_message_received(dso_state_t *dso, const uint8_t *message, size_t messa
         dso_message_received(dso, message, message_length, context);
     }
 }
+
 
 const char *dso_event_type_to_string(const dso_event_type_t dso_event_type)
 {

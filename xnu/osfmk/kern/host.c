@@ -69,6 +69,7 @@
 #include <mach/kern_return.h>
 #include <mach/machine.h>
 #include <mach/port.h>
+#include <ipc/ipc_policy.h>
 #include <mach/processor_info.h>
 #include <mach/vm_param.h>
 #include <mach/processor.h>
@@ -92,7 +93,6 @@
 #include <kern/misc_protos.h>
 #include <kern/sched.h>
 #include <kern/processor.h>
-#include <kern/mach_node.h>     // mach_node_port_changed()
 
 #include <vm/vm_map_xnu.h>
 #include <vm/vm_purgeable_xnu.h>
@@ -131,6 +131,9 @@ SCALABLE_COUNTER_DEFINE(vm_statistics_swapins);                /* # of pages swa
 SCALABLE_COUNTER_DEFINE(vm_statistics_swapouts);               /* # of pages swapped out (via compression segments) */
 SCALABLE_COUNTER_DEFINE(vm_statistics_total_uncompressed_pages_in_compressor); /* # of pages (uncompressed) held within the compressor. */
 SCALABLE_COUNTER_DEFINE(vm_page_grab_count);
+SCALABLE_COUNTER_DEFINE(vm_page_grab_count_kern);
+SCALABLE_COUNTER_DEFINE(vm_page_grab_count_iopl);
+SCALABLE_COUNTER_DEFINE(vm_page_grab_count_upl);
 
 host_data_t realhost;
 
@@ -383,6 +386,16 @@ host_info(host_t host, host_flavor_t flavor, host_info_t info, mach_msg_type_num
 		}
 		user_arch_info->cpu_type    = preferred_cpu_type;
 		user_arch_info->cpu_subtype = preferred_cpu_subtype;
+#elif APPLEVIRTUALPLATFORM
+		extern uint32_t force_arm64_32;
+		if (force_arm64_32) {
+			user_arch_info->cpu_type    = CPU_TYPE_ARM64_32;
+			user_arch_info->cpu_subtype = CPU_SUBTYPE_ARM64_32_V8;
+		} else {
+			int master_id               = master_processor->cpu_id;
+			user_arch_info->cpu_type    = slot_type(master_id);
+			user_arch_info->cpu_subtype = slot_subtype(master_id);
+		}
 #else
 		int master_id               = master_processor->cpu_id;
 		user_arch_info->cpu_type    = slot_type(master_id);
@@ -580,10 +593,12 @@ static LCK_MTX_DECLARE(host_statistics_lck, &host_statistics_lck_grp);
 #define HOST_EXPIRED_TASK_INFO_REV0     8
 #define HOST_EXPIRED_TASK_INFO_REV1     9
 #define HOST_VM_COMPRESSOR_Q_LEN_REV0   10
-#define NUM_HOST_INFO_DATA_TYPES        11
+#define HOST_VM_INFO64_REV2             11
+#define NUM_HOST_INFO_DATA_TYPES        12
 
 static vm_statistics64_data_t host_vm_info64_rev0 = {};
 static vm_statistics64_data_t host_vm_info64_rev1 = {};
+static vm_statistics64_data_t host_vm_info64_rev2 = {};
 static vm_extmod_statistics_data_t host_extmod_info64 = {};
 static host_load_info_data_t host_load_info = {};
 static vm_statistics_data_t host_vm_info_rev0 = {};
@@ -614,6 +629,7 @@ static struct host_stats_cache g_host_stats_cache[NUM_HOST_INFO_DATA_TYPES] = {
 	[HOST_EXPIRED_TASK_INFO_REV0] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_expired_task_info, .count = TASK_POWER_INFO_COUNT },
 	[HOST_EXPIRED_TASK_INFO_REV1] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_expired_task_info2, .count = TASK_POWER_INFO_V2_COUNT},
 	[HOST_VM_COMPRESSOR_Q_LEN_REV0] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_vm_compressor_q_lens, .count = VM_COMPRESSOR_Q_LENS_COUNT},
+	[HOST_VM_INFO64_REV2] = { .last_access = 0, .current_requests = 0, .max_requests = 0, .data = (uintptr_t)&host_vm_info64_rev2, .count = HOST_VM_INFO64_REV2_COUNT },
 };
 
 
@@ -662,6 +678,9 @@ get_host_info_data_index(bool is_stat64, host_flavor_t flavor, mach_msg_type_num
 		if (*count < HOST_VM_INFO64_REV0_COUNT) {
 			*ret = KERN_FAILURE;
 			return -1;
+		}
+		if (*count >= HOST_VM_INFO64_REV2_COUNT) {
+			return HOST_VM_INFO64_REV2;
 		}
 		if (*count >= HOST_VM_INFO64_REV1_COUNT) {
 			return HOST_VM_INFO64_REV1;
@@ -853,6 +872,10 @@ vm_stats(void *info, unsigned int *count)
 		stat->internal_page_count = (vm_page_pageable_internal_count + local_q_internal_count);
 		stat->total_uncompressed_pages_in_compressor = c_segment_pages_compressed;
 		*count = HOST_VM_INFO64_REV1_COUNT;
+	}
+	if (original_count >= HOST_VM_INFO64_REV2_COUNT) {
+		stat->swapped_count = os_atomic_load(&vm_page_swapped_count, relaxed);
+		*count = HOST_VM_INFO64_REV2_COUNT;
 	}
 
 	return KERN_SUCCESS;
@@ -1233,8 +1256,6 @@ is_valid_host_special_port(int id)
 	       ((id <= HOST_LAST_SPECIAL_KERNEL_PORT) || (id > HOST_MAX_SPECIAL_KERNEL_PORT));
 }
 
-extern void * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
-
 /*
  *      Kernel interface for setting a special port.
  */
@@ -1247,22 +1268,14 @@ kernel_set_special_port(host_priv_t host_priv, int id, ipc_port_t port)
 		panic("attempted to set invalid special port %d", id);
 	}
 
-#if !MACH_FLIPC
 	if (id == HOST_NODE_PORT) {
 		return KERN_NOT_SUPPORTED;
 	}
-#endif
 
 	host_lock(host_priv);
 	old_port = host_priv->special[id];
 	host_priv->special[id] = port;
 	host_unlock(host_priv);
-
-#if MACH_FLIPC
-	if (id == HOST_NODE_PORT) {
-		mach_node_port_changed();
-	}
-#endif
 
 	if (IP_VALID(old_port)) {
 		ipc_port_release_send(old_port);
@@ -1312,8 +1325,8 @@ host_set_special_port_from_user(host_priv_t host_priv, int id, ipc_port_t port)
 	 * rdar://70585367
 	 * disallow immovable send so other process can't retrieve it through host_get_special_port()
 	 */
-	if (IP_VALID(port) && port->ip_immovable_send) {
-		return KERN_INVALID_RIGHT;
+	if (!ipc_can_stash_naked_send(port)) {
+		return KERN_DENIED;
 	}
 
 	return host_set_special_port(host_priv, id, port);
@@ -1326,7 +1339,7 @@ host_set_special_port(host_priv_t host_priv, int id, ipc_port_t port)
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	if (current_task() != kernel_task && get_bsdtask_info(current_task()) != initproc) {
+	if (current_task() != kernel_task && !task_is_initproc(current_task())) {
 		bool allowed = (id == HOST_TELEMETRY_PORT &&
 		    IOTaskHasEntitlement(current_task(), "com.apple.private.xpc.launchd.event-monitor"));
 #if CONFIG_CSR

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2003-2024 Apple Inc.  All rights reserved.
- * Copyright (C) 2005 Nokia.  All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2005 Nokia. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -188,7 +188,8 @@ public:
     WEBCORE_EXPORT void unite(const FloatRect&);
     void uniteEvenIfEmpty(const FloatRect&);
     void uniteIfNonZero(const FloatRect&);
-    WEBCORE_EXPORT void extend(const FloatPoint&);
+    WEBCORE_EXPORT void extend(FloatPoint);
+    void extend(FloatPoint minPoint, FloatPoint maxPoint);
 
     // Note, this doesn't match what IntRect::contains(IntPoint&) does; the int version
     // is really checking for containment of 1x1 rect, but that doesn't make sense with floats.
@@ -253,18 +254,6 @@ public:
     WEBCORE_EXPORT Ref<JSON::Object> toJSONObject() const;
 
     friend bool operator==(const FloatRect&, const FloatRect&) = default;
-
-    struct MarkableTraits {
-        constexpr static bool isEmptyValue(const FloatRect& rect)
-        {
-            return rect.isNaN();
-        }
-
-        constexpr static FloatRect emptyValue()
-        {
-            return FloatRect::nanRect();
-        }
-    };
 
 private:
     FloatPoint m_location;
@@ -364,7 +353,7 @@ constexpr FloatRect FloatRect::nanRect()
 
 constexpr bool FloatRect::isNaN() const
 {
-    return isNaNConstExpr(x());
+    return isNaNConstExpr(x()) || isNaNConstExpr(y());
 }
 
 inline void FloatRect::inflate(float deltaX, float deltaY, float deltaMaxX, float deltaMaxY)
@@ -397,6 +386,19 @@ struct LogArgument<WebCore::FloatRect> {
     static String toString(const WebCore::FloatRect& rect)
     {
         return rect.toJSONString();
+    }
+};
+
+template<>
+struct MarkableTraits<WebCore::FloatRect> {
+    constexpr static bool isEmptyValue(const WebCore::FloatRect& rect)
+    {
+        return rect.isNaN();
+    }
+
+    constexpr static WebCore::FloatRect emptyValue()
+    {
+        return WebCore::FloatRect::nanRect();
     }
 };
 

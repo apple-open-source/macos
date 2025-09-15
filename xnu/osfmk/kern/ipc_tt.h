@@ -65,7 +65,7 @@
 #include <kern/kern_types.h>
 #include <kern/ipc_kobject.h>
 #include <kern/task_ref.h>
-#include <ipc/ipc_space.h>
+#include <kern/thread.h>
 #include <ipc/ipc_port.h>
 #include <ipc/ipc_right.h>
 #include <ipc/ipc_entry.h>
@@ -93,18 +93,14 @@ extern void ipc_task_reset(
 extern void ipc_task_terminate(
 	task_t          task);
 
-/* Setup task control port according to it's control port options */
-extern void ipc_task_set_immovable_pinned(
+/* Setup task control port according to its control port options */
+extern void ipc_task_copyout_control_port(
 	task_t          task);
 
-/* Setup thread control port according to it's owning task's port options */
-extern void ipc_main_thread_set_immovable_pinned(
-	thread_t          thread);
-
-__options_decl(ipc_thread_init_options_t, uint32_t, {
-	IPC_THREAD_INIT_NONE       = 0x00,
-	IPC_THREAD_INIT_MAINTHREAD = 0x01,
-});
+/* Setup thread control port according to its control port options */
+extern  void
+ipc_thread_set_immovable_pinned(
+	thread_t        thread);
 
 __options_decl(port_intrans_options_t, uint32_t, {
 	PORT_INTRANS_OPTIONS_NONE              = 0x0000,
@@ -119,8 +115,7 @@ __options_decl(port_intrans_options_t, uint32_t, {
 extern void ipc_thread_init(
 	task_t          task,
 	thread_t        thread,
-	thread_ro_t     tro,
-	ipc_thread_init_options_t options);
+	thread_ro_t     tro);
 
 /* Disable IPC access to a thread */
 extern void ipc_thread_disable(
@@ -181,10 +176,6 @@ extern task_read_t convert_port_to_task_read_mig(
 
 /* Convert from a port to a task */
 extern task_t convert_port_to_task(
-	ipc_port_t      port);
-
-/* Convert from a port to a pinned task */
-extern task_t convert_port_to_task_pinned(
 	ipc_port_t      port);
 
 /* Convert from a port to a task */
@@ -273,15 +264,15 @@ extern thread_read_t convert_port_to_thread_read(
 	ipc_port_t              port);
 
 extern thread_t port_name_to_thread(
-	mach_port_name_t            port_name,
-	port_intrans_options_t    options);
+	mach_port_name_t        port_name,
+	port_intrans_options_t  options);
 
 /* Deallocate a space ref produced by convert_port_to_space */
 extern void space_deallocate(
 	ipc_space_t             space);
 
 extern void space_read_deallocate(
-	ipc_space_read_t             space);
+	ipc_space_read_t        space);
 
 extern void space_inspect_deallocate(
 	ipc_space_inspect_t     space);
@@ -290,50 +281,40 @@ extern kern_return_t thread_get_kernel_special_reply_port(void);
 
 extern void thread_dealloc_kernel_special_reply_port(thread_t thread);
 
-extern kern_return_t
-set_exception_ports_validation(
+extern kern_return_t set_exception_ports_validation(
 	task_t                  task,
 	exception_mask_t        exception_mask,
 	ipc_port_t              new_port,
 	exception_behavior_t    new_behavior,
 	thread_state_flavor_t   new_flavor,
-	bool hardened_exception
-	);
+	bool                    hardened_exception);
 
-extern kern_return_t
-thread_set_exception_ports_internal(
-	thread_t  thread,
+extern kern_return_t thread_set_exception_ports_internal(
+	thread_t                thread,
 	exception_mask_t        exception_mask,
 	ipc_port_t              new_port,
 	exception_behavior_t    new_behavior,
 	thread_state_flavor_t   new_flavor,
-	boolean_t                               hardened);
+	boolean_t               hardened);
 
 #if MACH_KERNEL_PRIVATE
 extern void ipc_thread_port_unpin(
-	ipc_port_t port);
+	ipc_port_t              port);
 
-extern ipc_port_t
-convert_task_suspension_token_to_port_external(
-	task_suspension_token_t         task);
+extern ipc_port_t convert_task_suspension_token_to_port_external(
+	task_suspension_token_t task);
 
-extern ipc_port_t
-convert_task_suspension_token_to_port_mig(
-	task_suspension_token_t         task);
+extern ipc_port_t convert_task_suspension_token_to_port_mig(
+	task_suspension_token_t task);
 
-extern task_suspension_token_t
-convert_port_to_task_suspension_token_external(
-	ipc_port_t                      port);
+extern task_suspension_token_t convert_port_to_task_suspension_token_external(
+	ipc_port_t              port);
 
-extern task_suspension_token_t
-convert_port_to_task_suspension_token_mig(
-	ipc_port_t                      port);
+extern task_suspension_token_t convert_port_to_task_suspension_token_mig(
+	ipc_port_t              port);
 
-extern task_suspension_token_t
-convert_port_to_task_suspension_token_kernel(
-	ipc_port_t                      port);
-
+extern task_suspension_token_t convert_port_to_task_suspension_token_kernel(
+	ipc_port_t              port);
 
 #endif
-
 #endif  /* _KERN_IPC_TT_H_ */

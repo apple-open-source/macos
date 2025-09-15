@@ -35,6 +35,7 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cf/VectorCF.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 #import <wtf/text/Base64.h>
@@ -86,19 +87,19 @@ static std::optional<Vector<uint8_t>> createAndStoreMasterKey()
     RELEASE_ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessCredentials));
 
     Vector<uint8_t> masterKeyData(masterKeySizeInBytes);
-    auto rc = CCRandomGenerateBytes(masterKeyData.data(), masterKeyData.size());
+    auto rc = CCRandomGenerateBytes(masterKeyData.mutableSpan().data(), masterKeyData.size());
     RELEASE_ASSERT(rc == kCCSuccess);
 
 #if PLATFORM(IOS_FAMILY)
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSString *applicationName = [mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"];
     if (!applicationName)
-        applicationName = [mainBundle objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];
+        applicationName = [mainBundle objectForInfoDictionaryKey:bridge_cast(kCFBundleNameKey)];
     if (!applicationName)
         applicationName = [mainBundle bundleIdentifier];
-    NSString *localizedItemName = webCryptoMasterKeyKeychainLabel(applicationName);
+    RetainPtr localizedItemName = webCryptoMasterKeyKeychainLabel(applicationName).createNSString();
 #else
-    NSString *localizedItemName = webCryptoMasterKeyKeychainLabel([[NSRunningApplication currentApplication] localizedName]);
+    RetainPtr localizedItemName = webCryptoMasterKeyKeychainLabel([[NSRunningApplication currentApplication] localizedName]).createNSString();
 #endif
 
     OSStatus status;
@@ -106,7 +107,7 @@ static std::optional<Vector<uint8_t>> createAndStoreMasterKey()
 #if USE(KEYCHAIN_ACCESS_CONTROL_LISTS)
     SecAccessRef accessRef;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    status = SecAccessCreate((__bridge CFStringRef)localizedItemName, nullptr, &accessRef);
+    status = SecAccessCreate(bridge_cast(localizedItemName.get()), nullptr, &accessRef);
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (status) {
         WTFLogAlways("Cannot create a security access object for storing WebCrypto master key, error %d", (int)status);
@@ -130,7 +131,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     RetainPtr<SecTrustedApplicationRef> trustedApp = adoptCF(trustedAppRef);
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    status = SecACLSetContents(acl, (__bridge CFArrayRef)@[ (__bridge id)trustedApp.get() ], (__bridge CFStringRef)localizedItemName, kSecKeychainPromptRequirePassphase);
+    status = SecACLSetContents(acl, (__bridge CFArrayRef)@[ (__bridge id)trustedApp.get() ], bridge_cast(localizedItemName.get()), kSecKeychainPromptRequirePassphase);
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (status) {
         WTFLogAlways("Cannot set ACL for WebCrypto master key, error %d", (int)status);
@@ -147,8 +148,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if USE(KEYCHAIN_ACCESS_CONTROL_LISTS)
         (id)kSecAttrAccess : (__bridge id)access.get(),
 #endif
-        (id)kSecAttrComment : webCryptoMasterKeyKeychainComment(),
-        (id)kSecAttrLabel : localizedItemName,
+        (id)kSecAttrComment : webCryptoMasterKeyKeychainComment().createNSString().get(),
+        (id)kSecAttrLabel : localizedItemName.get(),
         (id)kSecAttrAccount : masterKeyAccountNameForCurrentApplication(),
         (id)kSecValueData : toNSData(base64EncodedMasterKeyData).autorelease(),
     };
@@ -221,13 +222,13 @@ bool wrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, const Vector<uint
     if (masterKey.isEmpty())
         return false;
     Vector<uint8_t> kek(kekSizeInBytes);
-    auto rc = CCRandomGenerateBytes(kek.data(), kek.size());
+    auto rc = CCRandomGenerateBytes(kek.mutableSpan().data(), kek.size());
     RELEASE_ASSERT(rc == kCCSuccess);
 
     Vector<uint8_t> wrappedKEK(CCSymmetricWrappedSize(kCCWRAPAES, kek.size()));
 
     size_t wrappedKEKSize = wrappedKEK.size();
-    CCCryptorStatus status = CCSymmetricKeyWrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, masterKey.data(), masterKey.size(), kek.data(), kek.size(), wrappedKEK.data(), &wrappedKEKSize);
+    CCCryptorStatus status = CCSymmetricKeyWrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, masterKey.span().data(), masterKey.size(), kek.span().data(), kek.size(), wrappedKEK.mutableSpan().data(), &wrappedKEKSize);
     if (status != kCCSuccess)
         return false;
 
@@ -238,11 +239,11 @@ bool wrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, const Vector<uint
     uint8_t tag[expectedTagLengthAES] = { 0 };
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    status = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES128, kek.data(), kek.size(),
+    status = CCCryptorGCM(kCCEncrypt, kCCAlgorithmAES128, kek.span().data(), kek.size(),
         nullptr, 0, // iv
         nullptr, 0, // auth data
-        key.data(), key.size(),
-        encryptedKey.data(),
+        key.span().data(), key.size(),
+        encryptedKey.mutableSpan().data(),
         tag, &tagLength);
 ALLOW_DEPRECATED_DECLARATIONS_END
 
@@ -277,7 +278,7 @@ static std::optional<std::array<uint8_t, size>> createArrayFromData(NSData * dat
 
 std::optional<struct WrappedCryptoKey> readSerializedCryptoKey(const Vector<uint8_t>& wrappedKey)
 {
-    NSDictionary* dictionary = [NSPropertyListSerialization propertyListWithData:[NSData dataWithBytesNoCopy:(void*)wrappedKey.data() length:wrappedKey.size() freeWhenDone:NO] options:0 format:nullptr error:nullptr];
+    NSDictionary* dictionary = [NSPropertyListSerialization propertyListWithData:toNSDataNoCopy(wrappedKey.span(), FreeWhenDone::No).get() options:0 format:nullptr error:nullptr];
     if (!dictionary)
         return std::nullopt;
 
@@ -319,7 +320,7 @@ std::optional<Vector<uint8_t>> unwrapCryptoKey(const Vector<uint8_t>& masterKey,
 
     Vector<uint8_t> kek(CCSymmetricUnwrappedSize(kCCWRAPAES, wrappedKEK.size()));
     size_t kekSize = kek.size();
-    CCCryptorStatus status = CCSymmetricKeyUnwrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, masterKey.data(), masterKey.size(), wrappedKEK.data(), wrappedKEK.size(), kek.data(), &kekSize);
+    CCCryptorStatus status = CCSymmetricKeyUnwrap(kCCWRAPAES, CCrfc3394_iv, CCrfc3394_ivLen, masterKey.span().data(), masterKey.span().size(), wrappedKEK.data(), wrappedKEK.size(), kek.mutableSpan().data(), &kekSize);
     if (status != kCCSuccess)
         return std::nullopt;
     kek.shrink(kekSize);
@@ -329,11 +330,11 @@ std::optional<Vector<uint8_t>> unwrapCryptoKey(const Vector<uint8_t>& masterKey,
 
     Vector<uint8_t> key(encryptedKey.size());
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    status = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128, kek.data(), kek.size(),
+    status = CCCryptorGCM(kCCDecrypt, kCCAlgorithmAES128, kek.span().data(), kek.size(),
         nullptr, 0, // iv
         nullptr, 0, // auth data
         encryptedKey.data(), encryptedKey.size(),
-        key.data(),
+        key.mutableSpan().data(),
         actualTag.data(), &tagLength);
 ALLOW_DEPRECATED_DECLARATIONS_END
 

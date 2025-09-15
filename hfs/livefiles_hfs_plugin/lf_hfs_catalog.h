@@ -268,6 +268,7 @@ int     cat_preflight(struct hfsmount *hfsmp, uint32_t ops, cat_cookie_t *cookie
 void    cat_postflight(struct hfsmount *hfsmp, cat_cookie_t *cookie);
 int     cat_rename ( struct hfsmount * hfsmp, struct cat_desc * from_cdp, struct cat_desc * todir_cdp,
                         struct cat_desc * to_cdp, struct cat_desc * out_cdp );
+int     validate_dir_move(struct hfsmount * hfsmp, struct cat_desc * from_cdp, struct cat_desc * todir_cdp, struct cat_desc * to_cdp);
 int     cat_delete(struct hfsmount *hfsmp, struct cat_desc *descp, struct cat_attr *attrp);
 int     cat_update(struct hfsmount *hfsmp, struct cat_desc *descp, struct cat_attr *attrp,
                     const struct cat_fork *dataforkp, const struct cat_fork *rsrcforkp);

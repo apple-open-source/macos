@@ -42,7 +42,7 @@ enum {
 };
 
 CFErrorRef SecCreateCFErrorWithXPCObject(xpc_object_t xpc_error);
-xpc_object_t SecCreateXPCObjectWithCFError(CFErrorRef error);
+XPC_MALLOC XPC_RETURNS_RETAINED XPC_WARN_RESULT xpc_object_t SecCreateXPCObjectWithCFError(CFErrorRef error);
 
 __END_DECLS
 

@@ -1,5 +1,3 @@
-#!special-case-list-v1
-# rdar://139815990
 # x86_64 specific denylist
 
 [address]

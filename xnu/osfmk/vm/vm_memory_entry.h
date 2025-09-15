@@ -50,6 +50,18 @@ extern kern_return_t mach_memory_entry_range_op(
 #endif /* XNU_PLATFORM_MacOSX */
 
 /*
+ *	Routine:	vm_convert_port_to_named_entry
+ *	Purpose:
+ *		Convert from a port specifying a named entry
+ *              backed by a copy map to the named entry itself.
+ *              Returns NULL if the port does not refer to a named entry.
+ *	Conditions:
+ *		Nothing locked.
+ */
+extern vm_named_entry_t vm_convert_port_to_named_entry(
+	ipc_port_t      port);
+
+/*
  *	Routine:	vm_convert_port_to_copy_object
  *	Purpose:
  *		Convert from a port specifying a named entry

@@ -162,5 +162,8 @@ int fsckAddMessages(fsck_ctx_t, fsck_message_t *msgs);
 int fsckPrint(fsck_ctx_t, int msgNum, va_list ap);
 enum fsck_msgtype fsckMsgClass(fsck_ctx_t, int msgNum);
 void fsckMsgsDestroy(fsck_ctx_t);
+void fsckStart(fsck_ctx_t ctx, const char *deviceName, const char *volumeName);
+void fsckUpdate(fsck_ctx_t ctx, int percentageComplete);
+void fsckDone(fsck_ctx_t ctx, int error);
 
 #endif /* _FSCK_MESSAGES_H */

@@ -3,7 +3,7 @@
 /*
 ***************************************************************************
 * Copyright (C) 1999-2016, International Business Machines Corporation
-* and others. All Rights Reserved.
+* and others. All rights reserved.
 ***************************************************************************
 *   Date        Name        Description
 *   10/20/99    alan        Creation.

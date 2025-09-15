@@ -82,6 +82,14 @@ size_t DYLDCacheRep::pageSize(const SigningContext &)
 	return segmentedPageSize;
 }
 
+size_t DYLDCacheRep::pageSize(const SigningContext &, const Architecture* arch)
+{
+	if (arch->cpuType() == CPU_TYPE_ARM64 || arch->cpuType() == CPU_TYPE_ARM64_32) {
+		return newSegmentedPageSize;
+	} else {
+		return segmentedPageSize;
+	}
+}
 
 //
 // Signing limit is the start of the (trailing) signature

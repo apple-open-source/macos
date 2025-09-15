@@ -269,9 +269,6 @@ static void tests(void)
 
     CFReleaseNull(acl);
 
-// Remove this when libaks_acl_cf_keys.h starts providing this symbol.
-#define kAKSKeyOpKEMDecapsulate ((CFTypeRef)CFSTR("okd"))
-
     // kSecAccessControlPrivateKeyUsage
     acl = SecAccessControlCreateWithFlags(kCFAllocatorDefault, protection, kSecAccessControlPrivateKeyUsage | kSecAccessControlDevicePasscode, NULL);
     ok(acl, "kSecAccessControlPrivateKeyUsage ACL create with constraint");

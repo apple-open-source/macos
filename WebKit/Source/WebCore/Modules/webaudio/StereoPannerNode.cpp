@@ -68,18 +68,14 @@ StereoPannerNode::~StereoPannerNode()
 
 void StereoPannerNode::process(size_t framesToProcess)
 {
-    AudioBus* destination = output(0)->bus();
-    
+    AudioBus& destination = output(0)->bus();
+
     if (!isInitialized() || !input(0)->isConnected()) {
-        destination->zero();
+        destination.zero();
         return;
     }
     
-    AudioBus* source = input(0)->bus();
-    if (!source) {
-        destination->zero();
-        return;
-    }
+    AudioBus& source = input(0)->bus();
 
     if (m_pan->hasSampleAccurateValues() && m_pan->automationRate() == AutomationRate::ARate) {
         auto panValues = m_sampleAccurateValues.span().first(framesToProcess);

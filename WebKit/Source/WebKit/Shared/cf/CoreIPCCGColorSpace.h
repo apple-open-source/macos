@@ -33,7 +33,7 @@
 #import <WebCore/ColorSpaceCG.h>
 #import <wtf/RetainPtr.h>
 
-using CGColorSpaceSerialization = std::variant<WebCore::ColorSpace, RetainPtr<CFStringRef>, RetainPtr<CFTypeRef>>;
+using CGColorSpaceSerialization = Variant<WebCore::ColorSpace, RetainPtr<CFStringRef>, RetainPtr<CFTypeRef>>;
 
 namespace WebKit {
 class CoreIPCCGColorSpace {
@@ -69,7 +69,7 @@ public:
                 return adoptCF(CGColorSpaceCreateWithPropertyList(propertyList.get()));
             }
         );
-        if (UNLIKELY(!colorSpace))
+        if (!colorSpace) [[unlikely]]
             return nullptr;
         return colorSpace;
     }

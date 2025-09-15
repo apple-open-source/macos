@@ -266,7 +266,7 @@ out:
 
 extern int command_scep(int argc, char * const *argv)
 {
-    int             result = 1, verbose = 0;
+    int             result = 1;
     char            ch;
     int key_usage = 1, key_bitsize = 1024;
     bool validate_cert = true;
@@ -278,13 +278,10 @@ extern int command_scep(int argc, char * const *argv)
     CFArrayRef cert_array = NULL;
     CFDataRef caps_data = NULL;
 
-    while ((ch = getopt(argc, argv, "vu:b:c:n:s:h:xo:")) != -1)
+    while ((ch = getopt(argc, argv, "u:b:c:n:s:h:xo:")) != -1)
     {
         switch (ch)
         {
-        case 'v':
-            verbose++;
-            break;
         case 'u':
             key_usage = atoi(optarg);
             break;

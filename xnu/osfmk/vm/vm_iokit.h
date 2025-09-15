@@ -47,6 +47,10 @@ extern kern_return_t memory_object_iopl_request(
 	vm_tag_t                tag);
 
 extern uint32_t         vm_tag_get_kext(vm_tag_t tag, char * name, vm_size_t namelen);
+#if DEBUG || DEVELOPMENT
+extern uint64_t         vm_task_evict_shared_cache(task_t task);
+extern uint64_t         vm_task_pageins(task_t task);
+#endif /* DEBUG || DEVELOPMENT */
 
 
 extern void iopl_valid_data(
@@ -132,8 +136,9 @@ extern kern_return_t memory_entry_purgeable_control_internal(
 
 extern kern_return_t mach_memory_entry_get_page_counts(
 	ipc_port_t      entry_port,
-	unsigned int    *resident_page_count,
-	unsigned int    *dirty_page_count);
+	uint64_t        *resident_page_count,
+	uint64_t        *dirty_page_count,
+	uint64_t        *swapped_page_count);
 
 extern kern_return_t mach_memory_entry_phys_page_offset(
 	ipc_port_t              entry_port,
@@ -160,6 +165,12 @@ extern kern_return_t vm_map_enter_mem_object_prefault(
 	upl_page_list_ptr_t     page_list,
 	unsigned int            page_list_count);
 
+extern void vm_report_disallowed_sharing_data_buffers(void);
+
+extern bool vm_map_should_allow_entering_alias(
+	vm_map_t originating_map,
+	vm_map_t destination_map,
+	ipc_port_t ne_port);
 
 __END_DECLS
 

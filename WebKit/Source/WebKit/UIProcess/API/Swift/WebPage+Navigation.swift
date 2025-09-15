@@ -25,79 +25,45 @@
 
 import Foundation
 
-extension WebPage_v0 {
-    public struct NavigationID: Sendable, Hashable, Equatable {
-        let rawValue: ObjectIdentifier
+extension WebPage {
+    /// A particular state that occurs during the progression of a navigation.
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
+    public enum NavigationEvent: Hashable, Sendable {
+        /// This event occurs when the page receives provisional approval to process a navigation request,
+        /// but before it receives a response to that request.
+        case startedProvisionalNavigation
 
-        init(_ cocoaNavigation: WKNavigation) {
-            self.rawValue = ObjectIdentifier(cocoaNavigation)
-        }
+        /// This event occurs when the page received a server redirect for a request.
+        case receivedServerRedirect
+
+        /// This event occurs when the page has started to receive content for the main frame.
+        ///
+        /// This happens immediately before the page starts to update the main frame.
+        case committed
+
+        /// This event occurs once the navigation is complete.
+        case finished
     }
 
-    @_spi(Private)
-    public struct NavigationEvent: Sendable {
-        public enum Kind: Sendable {
-            case startedProvisionalNavigation
+    /// A specific error that caused a navigation to fail.
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
+    @available(watchOS, unavailable)
+    @available(tvOS, unavailable)
+    public enum NavigationError: Error {
+        /// An error occurred during the early navigation process.
+        case failedProvisionalNavigation(any Error)
 
-            case receivedServerRedirect
+        /// The navigation could not begin because the page has been closed.
+        case pageClosed
 
-            case committed
+        /// The process for the web content of this page was terminated for any reason.
+        case webContentProcessTerminated
 
-            case finished
-
-            case failedProvisionalNavigation(underlyingError: any Error)
-
-            case failed(underlyingError: any Error)
-        }
-
-        @_spi(Testing)
-        public init(kind: Kind, navigationID: NavigationID) {
-            self.kind = kind
-            self.navigationID = navigationID
-        }
-
-        public let kind: Kind
-
-        public let navigationID: NavigationID
-    }
-
-    @_spi(Private)
-    public struct Navigations: AsyncSequence, Sendable {
-        public typealias AsyncIterator = Iterator
-        
-        public typealias Element = NavigationEvent
-
-        public typealias Failure = Never
-
-        init(source: AsyncStream<Element>) {
-            self.source = source
-        }
-
-        private let source: AsyncStream<Element>
-        
-        public func makeAsyncIterator() -> AsyncIterator {
-            Iterator(source: source.makeAsyncIterator())
-        }
+        /// The URL to navigate to is invalid.
+        case invalidURL
     }
 }
 
-extension WebPage_v0.Navigations {
-    @_spi(Private)
-    public struct Iterator: AsyncIteratorProtocol {
-        public typealias Element = WebPage_v0.NavigationEvent
-
-        public typealias Failure = Never
-
-        init(source: AsyncStream<Element>.AsyncIterator) {
-            self.source = source
-        }
-
-        private var source: AsyncStream<Element>.AsyncIterator
-        
-        public mutating func next() async -> Element? {
-            await source.next()
-        }
-    }
-}
-
-#endif
+#endif // ENABLE_SWIFTUI && compiler(>=6.0)

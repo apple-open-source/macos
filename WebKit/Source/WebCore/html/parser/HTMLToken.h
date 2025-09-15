@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2013 Google, Inc. All Rights Reserved.
- * Copyright (C) 2015-2021 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2013 Google, Inc. All rights reserved.
+ * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -437,7 +437,7 @@ inline const HTMLToken::Attribute* findAttribute(const HTMLToken::AttributeList&
 {
     for (auto& attribute : attributes) {
         // FIXME: The one caller that uses this probably wants to ignore letter case.
-        if (attribute.name.size() == name.size() && equal(attribute.name.data(), name))
+        if (attribute.name.size() == name.size() && equal(attribute.name.span().data(), name))
             return &attribute;
     }
     return nullptr;

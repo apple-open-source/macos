@@ -2422,6 +2422,9 @@ typedef struct {
     int backspace;	// what the Backspace key produces
     int enter;		// what the Enter key produces
     int interrupt;	// interrupt character
+#ifdef __APPLE__
+    int suspend;	// suspend character
+#endif
     int nl_does_cr;	// TRUE when a NL is expanded to CR-NL on output
 } ttyinfo_T;
 

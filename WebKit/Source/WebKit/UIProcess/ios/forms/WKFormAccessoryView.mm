@@ -61,6 +61,11 @@ inline static UIImage *downArrow()
     return [UIImage systemImageNamed:@"chevron.down"];
 }
 
+inline static UIImage *checkmark()
+{
+    return [UIImage systemImageNamed:@"checkmark"];
+}
+
 inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonItem *> *items)
 {
     auto bar = adoptNS([[UIToolbar alloc] init]);
@@ -90,6 +95,24 @@ inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonIte
     RetainPtr<UIView> _rightContainerView;
     BOOL _usesUniversalControlBar;
 }
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKFormAccessoryViewAdditions.mm>)
+#import <WebKitAdditions/WKFormAccessoryViewAdditions.mm>
+#else
+- (CGFloat)_toolbarMargin
+{
+    return 0;
+}
+
+- (BOOL)_useCheckmarkForDone
+{
+    return NO;
+}
+
+- (void)_adjustFlexibleSpaceItem:(UIBarButtonItem *)item
+{
+}
+#endif
 
 - (instancetype)_initForUniversalControlBar:(UITextInputAssistantItem *)inputAssistant
 {
@@ -152,20 +175,33 @@ inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonIte
     [_previousItem setEnabled:NO];
     [items addObject:_previousItem.get()];
 
-    _nextPreviousSpacer = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFixedSpace target:nil action:nil]);
-    [_nextPreviousSpacer setWidth:WebKit::fixedSpaceBetweenButtonItems];
-    [items addObject:_nextPreviousSpacer.get()];
+    CGFloat toolbarMargin = self._toolbarMargin;
+
+    if (!toolbarMargin) {
+        _nextPreviousSpacer = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFixedSpace target:nil action:nil]);
+        [_nextPreviousSpacer setWidth:WebKit::fixedSpaceBetweenButtonItems];
+        [items addObject:_nextPreviousSpacer.get()];
+    }
 
     _nextItem = adoptNS([[UIBarButtonItem alloc] initWithImage:WebKit::downArrow() style:UIBarButtonItemStylePlain target:self action:@selector(_nextTapped)]);
     [_nextItem setEnabled:NO];
     [items addObject:_nextItem.get()];
 
     _flexibleSpaceItem = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil]);
+
     _autoFillButtonItemSpacer = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFixedSpace target:nil action:nil]);
     [_autoFillButtonItemSpacer setWidth:WebKit::fixedSpaceBetweenButtonItems];
 
+    if (self._useCheckmarkForDone) {
+        [self _adjustFlexibleSpaceItem:_flexibleSpaceItem.get()];
+        [self _adjustFlexibleSpaceItem:_autoFillButtonItemSpacer.get()];
+    }
+
     // iPad doesn't show the "Done" button since the keyboard has its own dismiss key.
-    _doneButton = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(_done)]);
+    if (self._useCheckmarkForDone)
+        _doneButton = adoptNS([[UIBarButtonItem alloc] initWithImage:WebKit::checkmark() style:UIBarButtonItemStylePlain target:self action:@selector(_done)]);
+    else
+        _doneButton = adoptNS([[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(_done)]);
     [items addObject:_flexibleSpaceItem.get()];
     [items addObject:_doneButton.get()];
 
@@ -174,6 +210,21 @@ inline static RetainPtr<UIToolbar> createToolbarWithItems(NSArray<UIBarButtonIte
 
     _rightToolbar = WebKit::createToolbarWithItems(@[ ]);
     [_rightContainerView addSubview:_rightToolbar.get()];
+
+    if (toolbarMargin) {
+        auto applyMarginToToolbar = [toolbarMargin](UIToolbar *toolbar) {
+            toolbar.translatesAutoresizingMaskIntoConstraints = NO;
+            [NSLayoutConstraint activateConstraints:@[
+                [toolbar.leadingAnchor constraintEqualToAnchor:toolbar.superview.leadingAnchor],
+                [toolbar.trailingAnchor constraintEqualToAnchor:toolbar.superview.trailingAnchor],
+                [toolbar.topAnchor constraintEqualToAnchor:toolbar.superview.topAnchor constant:toolbarMargin],
+                [toolbar.bottomAnchor constraintEqualToAnchor:toolbar.superview.bottomAnchor constant:-toolbarMargin],
+            ]];
+        };
+
+        applyMarginToToolbar(_leftToolbar.get());
+        applyMarginToToolbar(_rightToolbar.get());
+    }
 
     [self _updateFrame];
 
@@ -215,7 +266,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 - (void)_updateFrame
 {
     auto frame = self.frame;
-    frame.size.height = [_leftToolbar sizeThatFits:frame.size].height;
+    CGFloat toolbarMargin = self._toolbarMargin;
+    frame.size.height = [_leftToolbar sizeThatFits:frame.size].height + toolbarMargin*2;
     self.frame = frame;
 }
 
@@ -370,10 +422,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     auto leftToolbarItems = [_leftToolbar items];
     BOOL toolbarContainsPreviousItem = [leftToolbarItems containsObject:_previousItem.get()];
-    BOOL toolbarContainsNextPreviousSpacer = [leftToolbarItems containsObject:_nextPreviousSpacer.get()];
+    BOOL nextPreviousSpacerExists = !!_nextPreviousSpacer;
+    BOOL toolbarContainsNextPreviousSpacer = nextPreviousSpacerExists && [leftToolbarItems containsObject:_nextPreviousSpacer.get()];
     BOOL toolbarContainsNextItem = [leftToolbarItems containsObject:_nextItem.get()];
 
-    if (visible && toolbarContainsPreviousItem && toolbarContainsNextPreviousSpacer && toolbarContainsNextItem)
+    if (visible && toolbarContainsPreviousItem && (toolbarContainsNextPreviousSpacer || !nextPreviousSpacerExists) && toolbarContainsNextItem)
         return;
 
     if (!visible && !toolbarContainsPreviousItem && !toolbarContainsNextPreviousSpacer && !toolbarContainsNextItem)
@@ -383,7 +436,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (visible) {
         if (!toolbarContainsNextItem)
             [newLeftToolbarItems insertObject:_nextItem.get() atIndex:0];
-        if (!toolbarContainsNextPreviousSpacer)
+        if (!toolbarContainsNextPreviousSpacer && nextPreviousSpacerExists)
             [newLeftToolbarItems insertObject:_nextPreviousSpacer.get() atIndex:0];
         if (!toolbarContainsPreviousItem)
             [newLeftToolbarItems insertObject:_previousItem.get() atIndex:0];

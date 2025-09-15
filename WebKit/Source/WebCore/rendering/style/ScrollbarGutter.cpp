@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,11 +33,11 @@ namespace WebCore {
 TextStream& operator<<(TextStream& ts, ScrollbarGutter scrollbarGutter)
 {
     if (scrollbarGutter.isAuto)
-        ts << "auto";
+        ts << "auto"_s;
     else if (scrollbarGutter.bothEdges)
-        ts << "stable both-edges";
+        ts << "stable both-edges"_s;
     else
-        ts << "stable";
+        ts << "stable"_s;
     return ts;
 }
 

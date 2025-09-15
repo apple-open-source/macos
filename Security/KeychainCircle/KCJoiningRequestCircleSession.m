@@ -33,7 +33,6 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "MetricsOverrideForTests.h"
@@ -163,7 +162,7 @@ typedef enum {
         if (!self.joiningConfiguration.epoch) {
             localError = [NSError errorWithDomain:KCErrorDomain code: kMissingAcceptorEpoch description:@"expected acceptor epoch"];
             secerror("joining: expected acceptor epoch! returning nil. error: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -210,7 +209,7 @@ typedef enum {
             if (error) {
                 *error = localError;
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             return nil;
         }
 
@@ -222,7 +221,7 @@ typedef enum {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptPeerInfo description:@"failed to encrypt peer info"];
                 }
                 secerror("joining: failed to create encrypted peer info: %@", localError);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -239,7 +238,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptInitialMessage description:@"failed to encrypt initial message"];
             }
             secerror("joining: failed to encrypt initial message: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -255,12 +254,12 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreatePeerInfoResponse description:@"failed to create peerinfo response"];
             }
             secerror("joining: initial message creation failed: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return messageOut;
     }
@@ -273,7 +272,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreatePeerInfoResponse description:@"failed to encrypt peer info"];
             }
             secerror("joining: failed to create encrypted peer info: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -290,19 +289,19 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreatePeerInfoResponse description:@"failed to initial peerinfo message"];
             }
             secerror("joining: initial message creation failed: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return messageOut;
     }
 
     secerror("joining: device does not support SOS nor piggybacking version 2");
     localError = [NSError errorWithDomain:KCErrorDomain code:kSOSNotSupportedAndPiggyV2NotSupported description:@"device does not support SOS nor piggybacking version 2"];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+    [eventS sendMetricWithResult:NO error:localError];
     if (error) {
         *error = localError;
     }
@@ -355,7 +354,7 @@ typedef enum {
     NSError* localError = nil;
     if ([message type] != kCircleBlob) {
         localError = [NSError errorWithDomain:KCErrorDomain code:kReceivedUnexpectedMessageTypeRequireCircleBlob description:@"Expected CircleBlob!"];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -380,7 +379,7 @@ typedef enum {
                                                                                                 testsAreEnabled:MetricsOverrideTestsAreEnabled()
                                                                                                  canSendMetrics:YES
                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+            [event sendMetricWithResult:YES error:nil];
         } else {
             pairingMessage = [[OTPairingMessage alloc] initWithData:decryptedPayload];
             if (pairingMessage.hasVersion == NO || pairingMessage.version < kPiggyV3) {
@@ -388,7 +387,7 @@ typedef enum {
                 if (error) {
                     *error = [NSError errorWithDomain:KCErrorDomain code:kUnexpectedVersion description:@"Unexpected piggybacking version"];
                 }
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 return nil;
             } else  {
                 AAFAnalyticsEventSecurity *channelSecuredEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -399,14 +398,14 @@ typedef enum {
                                                                                                                   testsAreEnabled:MetricsOverrideTestsAreEnabled()
                                                                                                                    canSendMetrics:YES
                                                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:channelSecuredEvent success:YES error:nil];
+                [channelSecuredEvent sendMetricWithResult:YES error:nil];
             }
         }
 
         if (!pairingMessage.hasVoucher) {
             secerror("octagon: expected voucher! returning from piggybacking.");
             localError = [NSError errorWithDomain:KCErrorDomain code:kMissingVoucher description:@"Missing voucher from acceptor"];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -431,7 +430,7 @@ typedef enum {
 
         if (joinError) {
             secerror("joining: failed to join octagon: %@", joinError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:joinError];
+            [eventS sendMetricWithResult:NO error:joinError];
             if (error) {
                 *error = localError;
             }
@@ -447,7 +446,7 @@ typedef enum {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToDecryptCircleBlob description:@"Failed to decrypt and verify message"];
                 }
                 secnotice("joining", "decryptAndVerify failed: %@", localError);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -458,7 +457,7 @@ typedef enum {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToProcessCircleJoinData description:@"Failed to process circle join data"];
                 }
                 secerror("joining: processCircleJoinData failed %@", localError);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -473,7 +472,7 @@ typedef enum {
             final = [NSData data];
         }
         self->_state = kRequestCircleDone;
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
 
         return final;
     }
@@ -485,7 +484,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailureToDecryptCircleBlob description:@"Failed to decrypt and verify circleBlob"];
             }
             secerror("joining: failed to decrypt and verify circle blob message failed %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -497,7 +496,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailureToProcessCircleBlob description:@"Failed to process circleBlob"];
             }
             secerror("joining: failed to process SOS circle: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -513,7 +512,7 @@ typedef enum {
         secnotice("joining", "SOS not enabled for this platform");
     }
     self->_state = kRequestCircleDone;
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
 
     return [NSData data]; // Success, an empty message.
 }

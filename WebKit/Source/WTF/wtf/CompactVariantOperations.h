@@ -29,9 +29,9 @@
 #include <concepts>
 #include <functional>
 #include <type_traits>
-#include <variant>
 #include <wtf/GetPtr.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/Variant.h>
 #include <wtf/VariantExtras.h>
 
 namespace WTF {
@@ -69,7 +69,7 @@ template<typename T> concept  CompactVariantAlternative =
 //              types of data, the encoded data.
 // This struct provides operations on the packed storage in a CompactVariant.
 template<CompactVariantAlternative... Ts> struct CompactVariantOperations {
-    using StdVariant = std::variant<Ts...>;
+    using StdVariant = Variant<Ts...>;
     using Index = uint8_t;
     using Storage = uint64_t;
     static constexpr Storage movedFromDataValue = std::numeric_limits<Storage>::max();

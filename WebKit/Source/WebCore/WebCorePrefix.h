@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2007, 2013 Apple Inc.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2013 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -75,6 +75,7 @@
 #include <new>
 #include <string>
 #include <typeinfo>
+#include <wtf/Variant.h>
 #endif
 
 #if defined(__APPLE__)
@@ -165,6 +166,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/WTFString.h>
 #endif
@@ -181,3 +183,4 @@
 #undef try
 #undef catch
 #endif
+

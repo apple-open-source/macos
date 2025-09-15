@@ -296,8 +296,8 @@ netns_change_addr_in6(netns_token *token, struct in6_addr addr)
 /* Flags for change_flags */
 
 /*
- * Set when the reservation backs a socket with the SO_NOWAKEFROMSLEEP option
- * set
+ * Set when the reservation backs a flow that should not have its port
+ * offloaded for network wake
  */
 #define NETNS_NOWAKEFROMSLEEP   0x20
 
@@ -315,7 +315,12 @@ netns_change_addr_in6(netns_token *token, struct in6_addr addr)
  */
 #define NETNS_REUSEPORT         0x100
 
+/*
+ * Set when the connection is marked as idle
+ */
+#define NETNS_CONNECTION_IDLE   0x200
+
 #define NETNS_CONFIGURATION_FLAGS (NETNS_NOWAKEFROMSLEEP | NETNS_RECVANYIF | \
-	                        NETNS_EXTBGIDLE | NETNS_REUSEPORT)
+	                        NETNS_EXTBGIDLE | NETNS_REUSEPORT | NETNS_CONNECTION_IDLE)
 
 #endif /* !_SKYWALK_NAMESPACE_NETNS_H_ */

@@ -39,12 +39,12 @@ WebCore::ResourceError WebResourceLoadScheduler::pluginWillHandleLoadError(const
 
 WebCore::ResourceError WebResourceLoadScheduler::pluginWillHandleLoadErrorFromResponse(const WebCore::ResourceResponse& response)
 {
-    return [[[NSError alloc] _initWithPluginErrorCode:WebKitErrorPlugInWillHandleLoad contentURL:response.url() pluginPageURL:nil pluginName:nil MIMEType:response.mimeType()] autorelease];
+    return [[[NSError alloc] _initWithPluginErrorCode:WebKitErrorPlugInWillHandleLoad contentURL:response.url().createNSURL().get() pluginPageURL:nil pluginName:nil MIMEType:response.mimeType().createNSString().get()] autorelease];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::cancelledError(const WebCore::ResourceRequest& request) const
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled URL:request.url()];
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled URL:request.url().createNSURL().get()];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::blockedError(const WebCore::ResourceRequest& request) const
@@ -54,7 +54,7 @@ WebCore::ResourceError WebResourceLoadScheduler::blockedError(const WebCore::Res
 
 WebCore::ResourceError WebResourceLoadScheduler::blockedErrorFromRequest(const WebCore::ResourceRequest& request)
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotUseRestrictedPort URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotUseRestrictedPort URL:request.url().createNSURL().get()];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::blockedByContentBlockerError(const WebCore::ResourceRequest& request) const
@@ -64,29 +64,29 @@ WebCore::ResourceError WebResourceLoadScheduler::blockedByContentBlockerError(co
 
 WebCore::ResourceError WebResourceLoadScheduler::cannotShowURLError(const WebCore::ResourceRequest& request) const
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotShowURL URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorCannotShowURL URL:request.url().createNSURL().get()];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::interruptedForPolicyChangeError(const WebCore::ResourceRequest& request) const
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadInterruptedByPolicyChange URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadInterruptedByPolicyChange URL:request.url().createNSURL().get()];
 }
 
 #if ENABLE(CONTENT_FILTERING)
 WebCore::ResourceError WebResourceLoadScheduler::blockedByContentFilterError(const WebCore::ResourceRequest& request) const
 {
-    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadBlockedByContentFilter URL:request.url()];
+    return [NSError _webKitErrorWithDomain:WebKitErrorDomain code:WebKitErrorFrameLoadBlockedByContentFilter URL:request.url().createNSURL().get()];
 }
 #endif
 
 WebCore::ResourceError WebResourceLoadScheduler::cannotShowMIMETypeError(const WebCore::ResourceResponse& response) const
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:WebKitErrorCannotShowMIMEType URL:response.url()];
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:WebKitErrorCannotShowMIMEType URL:response.url().createNSURL().get()];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::fileDoesNotExistError(const WebCore::ResourceResponse& response) const
 {
-    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist URL:response.url()];
+    return [NSError _webKitErrorWithDomain:NSURLErrorDomain code:NSURLErrorFileDoesNotExist URL:response.url().createNSURL().get()];
 }
 
 WebCore::ResourceError WebResourceLoadScheduler::httpsUpgradeRedirectLoopError(const WebCore::ResourceRequest&) const

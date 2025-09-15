@@ -319,10 +319,10 @@ kptimer_expire(processor_t processor, int cpuid, uint64_t now)
 	case KPERF_SAMPLING_ON:
 		break;
 	case KPERF_SAMPLING_SHUTDOWN:
+	// Treat off the same as shutdown: this CPU just missed the shutdown request.
+	case KPERF_SAMPLING_OFF:
 		kptimer_stop_cpu(processor);
 		return;
-	case KPERF_SAMPLING_OFF:
-		panic("kperf: timer fired at %llu, but sampling is disabled", now);
 	default:
 		panic("kperf: unknown sampling state 0x%x", status);
 	}

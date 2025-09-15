@@ -619,7 +619,7 @@ static void* dataBufFromFile(const char* relative_path, long* dataBufSizeP) {
     // However, XCTest's working directory is in /private/tmp,
     // so we can't use a relative path, and have to construct
     // an absolute path. rdar://137994165
-    char * build_dir = getenv("ICU_CONFIGURATION_BUILD_DIR");
+    char * build_dir = getenv("ICU_BUILT_PRODUCTS_DIR");
     char path[512];
     if (build_dir != NULL) {
         strcpy(path, build_dir);

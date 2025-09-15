@@ -346,11 +346,15 @@ cupsdAuthorize(cupsd_client_t *con)	/* I - Client connection */
 			       &authinfo))
     {
       if (authinfo->count == 1 && authinfo->items[0].value &&
-          authinfo->items[0].valueLength >= 2)
+          authinfo->items[0].valueLength >= 2 &&
+          authinfo->items[0].valueLength < sizeof(username))
       {
-        strlcpy(username, authinfo->items[0].value, sizeof(username));
-
+        size_t bytesToCopy = authinfo->items[0].valueLength;
+        memcpy(username, authinfo->items[0].value, bytesToCopy);
+        username[bytesToCopy] = '\0';
         cupsdLogClient(con, CUPSD_LOG_DEBUG, "Authorized as \"%s\" using AuthRef.", username);
+      } else {
+        cupsdLogClient(con, CUPSD_LOG_DEBUG, "No valid kAuthorizationEnvironmentUsername.");
       }
 
       AuthorizationFreeItemSet(authinfo);

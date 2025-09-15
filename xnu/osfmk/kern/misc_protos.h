@@ -162,6 +162,7 @@ extern int copyoutmsg(
 	user_addr_t     user_addr,
 	mach_msg_size_t nbytes);
 
+
 #if (DEBUG || DEVELOPMENT)
 extern int verify_write(const void *source, void *dst, size_t size);
 #endif

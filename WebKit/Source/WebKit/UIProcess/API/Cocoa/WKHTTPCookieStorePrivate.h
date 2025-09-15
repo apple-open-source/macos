@@ -29,4 +29,9 @@
 - (void)_getCookiesForURL:(NSURL *)url completionHandler:(void (^)(NSArray<NSHTTPCookie *> *))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)_setCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)policy completionHandler:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_flushCookiesToDiskWithCompletionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
+
+#if !TARGET_OS_IPHONE
+// FIXME: Promote this to API (rdar://147591774).
+- (void)_setCookies:(NSArray<NSHTTPCookie *> *)cookies completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA));
+#endif
 @end

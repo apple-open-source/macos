@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,8 @@
 #include <wtf/MonotonicTime.h>
 
 #if PLATFORM(COCOA)
+#include <wtf/WeakObjCPtr.h>
+
 OBJC_CLASS NSURLAuthenticationChallenge;
 OBJC_CLASS NSURLConnection;
 
@@ -94,7 +96,7 @@ public:
 
     // We need to keep a reference to the original challenge to be able to cancel it.
     // It is almost identical to m_currentWebChallenge.nsURLAuthenticationChallenge(), but has a different sender.
-    NSURLAuthenticationChallenge *m_currentMacChallenge { nil };
+    WeakObjCPtr<NSURLAuthenticationChallenge> m_currentMacChallenge;
 #endif
     Box<NetworkLoadMetrics> m_networkLoadMetrics;
     MonotonicTime m_startTime;

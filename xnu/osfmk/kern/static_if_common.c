@@ -45,6 +45,9 @@ __SECTION_START_SYM(STATIC_IF_SEGMENT, STATIC_IFINIT_SECTION);
 extern static_if_initializer __static_if_initializer_entries_end[]
 __SECTION_END_SYM(STATIC_IF_SEGMENT, STATIC_IFINIT_SECTION);
 
+/* libhwtrace knows about this contract */
+SECURITY_READ_ONLY_LATE(static_if_key_t) static_if_modified_keys;
+SECURITY_READ_ONLY_LATE(uint32_t) static_if_abi = STATIC_IF_ABI_CURRENT;
 
 #endif /* STATIC_IF_TEST */
 #pragma mark boot-arg parsing
@@ -284,10 +287,20 @@ __static_if_key_delta(static_if_key_t key, int delta)
 
 	bool was_enabled = (key->sik_enable_count >= 0);
 
+	/*
+	 * Remember modified keys.
+	 */
+	if (!key->sik_modified) {
+		key->sik_modified_next = static_if_modified_keys;
+		static_if_modified_keys = key;
+		key->sik_modified = true;
+	}
+
 	key->sik_enable_count += delta;
+
 	if (was_enabled != (key->sik_enable_count >= 0)) {
 		static_if_entry_t sie = key->sik_entries_head;
-		bool init_enabled = key->sik_init_value >= 0;
+		bool init_enabled = key->sik_init_value;
 
 		while (sie) {
 			ml_static_if_entry_patch(sie,

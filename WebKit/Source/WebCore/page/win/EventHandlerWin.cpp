@@ -28,6 +28,7 @@
 #include "EventHandler.h"
 
 #include "HandleUserInputEventResult.h"
+#include "LocalFrame.h"
 #include "MouseEventWithHitTestResults.h"
 
 namespace WebCore {

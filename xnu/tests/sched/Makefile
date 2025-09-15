@@ -12,6 +12,7 @@ sched/all_cores_running: $(SCHED_UTILS)
 SCHED_TARGETS += sched/all_cores_running
 
 
+sched/cluster_bound_threads: OTHER_CFLAGS += -Wno-int-to-void-pointer-cast
 sched/cluster_bound_threads: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS)
 sched/cluster_bound_threads: $(SCHED_UTILS)
 SCHED_TARGETS += sched/cluster_bound_threads
@@ -53,13 +54,23 @@ sched/thread_group_flags_workload_config.h: sched/thread_group_flags_workload_co
 	xxd -i $< > $@
 SCHED_TARGETS += sched/thread_group_flags
 
+sched/setitimer: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS) -framework perfdata
+sched/setitimer: $(SCHED_UTILS)
+SCHED_TARGETS += sched/setitimer
+
 sched/yield_aggressor: OTHER_CFLAGS += -Wno-atomic-implicit-seq-cst
 sched/yield_aggressor: OTHER_LDFLAGS += -framework perfdata $(SCHED_UTILS_FLAGS)
 sched/yield_aggressor: $(SCHED_UTILS)
 SCHED_TARGETS += sched/yield_aggressor
 
 sched/zero_to_n_tests: OTHER_LDFLAGS += -framework perfdata $(SCHED_UTILS_FLAGS)
+sched/zero_to_n_tests: $(SCHED_UTILS)
 SCHED_TARGETS += sched/zero_to_n_tests
+
+sched/rttimer: CODE_SIGN_ENTITLEMENTS = sched/rttimer.entitlements
+sched/rttimer: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS)
+sched/rttimer: $(SCHED_UTILS)
+SCHED_TARGETS += sched/rttimer
 
 # Convenience command for building all of the test targets under sched/
 .PHONY: sched/all

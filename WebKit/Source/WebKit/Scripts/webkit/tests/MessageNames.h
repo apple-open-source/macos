@@ -25,6 +25,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <wtf/EnumTraits.h>
 #include <wtf/text/ASCIILiteral.h>
 
@@ -42,22 +43,23 @@ enum class ReceiverName : uint8_t {
     , TestWithLegacyReceiver = 9
     , TestWithMultiLineExtendedAttributes = 10
     , TestWithSemaphore = 11
-    , TestWithStream = 12
-    , TestWithStreamBatched = 13
-    , TestWithStreamBuffer = 14
-    , TestWithStreamServerConnectionHandle = 15
-    , TestWithSuperclass = 16
-    , TestWithSuperclassAndWantsAsyncDispatch = 17
-    , TestWithSuperclassAndWantsDispatch = 18
-    , TestWithValidator = 19
-    , TestWithWantsAsyncDispatch = 20
-    , TestWithWantsDispatch = 21
-    , TestWithWantsDispatchNoSyncMessages = 22
-    , TestWithoutAttributes = 23
-    , TestWithoutUsingIPCConnection = 24
-    , IPC = 25
-    , AsyncReply = 26
-    , Invalid = 27
+    , TestWithSpanOfConst = 12
+    , TestWithStream = 13
+    , TestWithStreamBatched = 14
+    , TestWithStreamBuffer = 15
+    , TestWithStreamServerConnectionHandle = 16
+    , TestWithSuperclass = 17
+    , TestWithSuperclassAndWantsAsyncDispatch = 18
+    , TestWithSuperclassAndWantsDispatch = 19
+    , TestWithValidator = 20
+    , TestWithWantsAsyncDispatch = 21
+    , TestWithWantsDispatch = 22
+    , TestWithWantsDispatchNoSyncMessages = 23
+    , TestWithoutAttributes = 24
+    , TestWithoutUsingIPCConnection = 25
+    , IPC = 26
+    , AsyncReply = 27
+    , Invalid = 28
 };
 
 enum class MessageName : uint16_t {
@@ -118,6 +120,8 @@ enum class MessageName : uint16_t {
     TestWithMultiLineExtendedAttributes_AlwaysEnabled,
     TestWithSemaphore_ReceiveSemaphore,
     TestWithSemaphore_SendSemaphore,
+    TestWithSpanOfConst_TestSpanOfConstFloat,
+    TestWithSpanOfConst_TestSpanOfConstFloatSegments,
     TestWithStreamBatched_SendString,
     TestWithStreamBuffer_SendStreamBuffer,
     TestWithStreamServerConnectionHandle_SendStreamServerConnection,
@@ -139,6 +143,7 @@ enum class MessageName : uint16_t {
     TestWithValidator_AlwaysEnabled,
     TestWithValidator_EnabledIfPassValidation,
     TestWithValidator_EnabledIfSomeFeatureEnabledAndPassValidation,
+    TestWithValidator_MessageWithReply,
     TestWithWantsAsyncDispatch_TestMessage,
     TestWithWantsDispatchNoSyncMessages_TestMessage,
     TestWithWantsDispatch_TestMessage,
@@ -209,6 +214,7 @@ enum class MessageName : uint16_t {
     TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply,
     TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply,
 #endif
+    TestWithValidator_MessageWithReplyReply,
     TestWithoutAttributes_CreatePluginReply,
     TestWithoutAttributes_GetPluginsReply,
 #if PLATFORM(MAC)

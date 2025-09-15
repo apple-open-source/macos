@@ -61,6 +61,7 @@ namespace JSC { namespace DFG {
     macro(JSPropertyNameEnumerator_cachedPropertyNames) \
     macro(RegExpObject_lastIndex) \
     macro(NamedProperties) \
+    macro(IndexedProperties) \
     macro(IndexedInt32Properties) \
     macro(IndexedDoubleProperties) \
     macro(IndexedContiguousProperties) \
@@ -225,22 +226,16 @@ public:
         ASSERT(kind() == Stack && !payload().isTop());
         return Operand::fromBits(payload().value());
     }
-    
+
     AbstractHeap supertype() const
     {
         ASSERT(kind() != InvalidAbstractHeap);
         switch (kind()) {
         case World:
             return AbstractHeap();
-        case Heap:
-        case SideState:
-            return World;
         default:
-            if (payload().isTop()) {
-                if (kind() == Stack)
-                    return World;
-                return Heap;
-            }
+            if (payload().isTop())
+                return superKind(kind());
             return AbstractHeap(kind());
         }
     }
@@ -298,7 +293,69 @@ public:
     {
         return kind() == InvalidAbstractHeap && payloadImpl().isTop();
     }
-    
+
+    static AbstractHeapKind superKind(AbstractHeapKind kind)
+    {
+        switch (kind) {
+        case InvalidAbstractHeap:
+        case World:
+            return InvalidAbstractHeap;
+
+        case Heap:
+        case Stack:
+        case SideState:
+            return World;
+
+        case IndexedInt32Properties:
+        case IndexedDoubleProperties:
+        case IndexedContiguousProperties:
+        case IndexedArrayStorageProperties:
+        case DirectArgumentsProperties:
+        case ScopeProperties:
+        case TypedArrayProperties:
+            return IndexedProperties;
+
+        case IndexedProperties:
+            return Heap;
+
+        case NamedProperties:
+            return Heap;
+
+        case Butterfly_publicLength:
+        case Butterfly_vectorLength:
+        case GetterSetter_getter:
+        case GetterSetter_setter:
+        case JSCell_cellState:
+        case JSCell_indexingType:
+        case JSCell_structureID:
+        case JSCell_typeInfoFlags:
+        case JSObject_butterfly:
+        case JSPropertyNameEnumerator_cachedPropertyNames:
+        case RegExpObject_lastIndex:
+        case HeapObjectCount:
+        case RegExpState:
+        case MathDotRandomState:
+        case JSDateFields:
+        case JSGlobalProxy_target:
+        case JSMapFields:
+        case JSSetFields:
+        case JSMapIteratorFields:
+        case JSSetIteratorFields:
+        case JSWeakMapFields:
+        case JSWeakSetFields:
+        case JSInternalFields:
+        case InternalState:
+        case CatchLocals:
+        case Absolute:
+        case DOMState:
+        case Watchpoint_fire:
+        case MiscFields:
+            return Heap;
+        }
+
+        return InvalidAbstractHeap;
+    }
+
     void dump(PrintStream& out) const;
     
 private:

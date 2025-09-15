@@ -122,6 +122,8 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaCharacteristicAudible, N
 #define AVMediaCharacteristicAudible PAL::get_AVFoundation_AVMediaCharacteristicAudible()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeClosedCaption, NSString *)
 #define AVMediaTypeClosedCaption PAL::get_AVFoundation_AVMediaTypeClosedCaption()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeText, NSString *)
+#define AVMediaTypeText PAL::get_AVFoundation_AVMediaTypeText()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeVideo, NSString *)
 #define AVMediaTypeVideo PAL::get_AVFoundation_AVMediaTypeVideo()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeMuxed, NSString *)
@@ -438,8 +440,14 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVSampleBufferDisplayL
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, AVFoundation, AVSampleBufferAttachContentKey, BOOL, (CMSampleBufferRef sbuf, AVContentKey *contentKey, NSError **outError), (sbuf, contentKey, outError))
 #define AVSampleBufferAttachContentKey PAL::softLink_AVFoundation_AVSampleBufferAttachContentKey
 
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVContentKeyRequestShouldRandomizeDeviceIdentifierKey, NSString *)
+#define AVContentKeyRequestShouldRandomizeDeviceIdentifierKey PAL::get_AVFoundation_AVContentKeyRequestShouldRandomizeDeviceIdentifierKey()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVContentKeyRequestRandomDeviceIdentifierSeedKey, NSString *)
+#define AVContentKeyRequestRandomDeviceIdentifierSeedKey PAL::get_AVFoundation_AVContentKeyRequestRandomDeviceIdentifierSeedKey()
+
 SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferAudioRenderer, PAL::getAVSampleBufferAudioRendererClass())
 SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferDisplayLayer, PAL::getAVSampleBufferDisplayLayerClass())
 SPECIALIZE_OBJC_TYPE_TRAITS(AVSampleBufferVideoRenderer, PAL::getAVSampleBufferVideoRendererClass())
+SPECIALIZE_OBJC_TYPE_TRAITS(AVOutputContext, PAL::getAVOutputContextClass())
 
 #endif // USE(AVFOUNDATION)

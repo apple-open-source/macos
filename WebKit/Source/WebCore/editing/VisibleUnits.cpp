@@ -27,6 +27,7 @@
 #include "config.h"
 #include "VisibleUnits.h"
 
+#include "BoundaryPointInlines.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "Editing.h"
@@ -39,6 +40,7 @@
 #include "InlineIteratorLogicalOrderTraversal.h"
 #include "InlineRunAndOffset.h"
 #include "NodeTraversal.h"
+#include "PositionInlines.h"
 #include "Range.h"
 #include "RenderBlockFlow.h"
 #include "RenderStyleInlines.h"
@@ -961,7 +963,7 @@ static Element* rootEditableOrDocumentElement(Node& node, EditableType editableT
 VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, LayoutUnit lineDirectionPoint, EditableType editableType)
 {
     Position p = visiblePosition.deepEquivalent();
-    auto node = p.protectedDeprecatedNode();
+    RefPtr node = p.deprecatedNode();
 
     if (!node)
         return VisiblePosition();
@@ -1018,7 +1020,7 @@ VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, Lay
 VisiblePosition nextLinePosition(const VisiblePosition& visiblePosition, LayoutUnit lineDirectionPoint, EditableType editableType)
 {
     Position p = visiblePosition.deepEquivalent();
-    auto node = p.protectedDeprecatedNode();
+    RefPtr node = p.deprecatedNode();
     if (!node)
         return VisiblePosition();
     
@@ -1242,7 +1244,7 @@ RefPtr<Node> findEndOfParagraph(Node* startNode, Node* highestRoot, Node* stayIn
 VisiblePosition startOfParagraph(const VisiblePosition& c, EditingBoundaryCrossingRule boundaryCrossingRule)
 {
     auto p = c.deepEquivalent();
-    auto startNode = p.protectedDeprecatedNode();
+    RefPtr startNode = p.deprecatedNode();
 
     if (!startNode)
         return VisiblePosition();
@@ -1275,7 +1277,7 @@ VisiblePosition endOfParagraph(const VisiblePosition& c, EditingBoundaryCrossing
         return VisiblePosition();
 
     auto p = c.deepEquivalent();
-    auto startNode = p.protectedDeprecatedNode();
+    RefPtr startNode = p.deprecatedNode();
 
     if (isRenderedAsNonInlineTableImageOrHR(startNode.get()))
         return positionAfterNode(startNode.get());

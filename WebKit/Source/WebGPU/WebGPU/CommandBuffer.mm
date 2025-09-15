@@ -33,7 +33,7 @@ namespace WebGPU {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(CommandBuffer);
 
-CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer, Device& device, id<MTLSharedEvent> sharedEvent, uint64_t sharedEventSignalValue, Vector<Function<bool(CommandBuffer&)>>&& onCommitHandlers, CommandEncoder& commandEncoder)
+CommandBuffer::CommandBuffer(id<MTLCommandBuffer> commandBuffer, Device& device, id<MTLSharedEvent> sharedEvent, uint64_t sharedEventSignalValue, Vector<Function<bool(CommandBuffer&, CommandEncoder&)>>&& onCommitHandlers, CommandEncoder& commandEncoder)
     : m_commandBuffer(commandBuffer)
     , m_device(device)
     , m_sharedEvent(sharedEvent)
@@ -65,7 +65,7 @@ CommandBuffer::~CommandBuffer()
 
 void CommandBuffer::setLabel(String&& label)
 {
-    m_commandBuffer.label = label;
+    m_commandBuffer.label = label.createNSString().get();
 }
 
 void CommandBuffer::makeInvalid(NSString* lastError)
@@ -86,8 +86,11 @@ void CommandBuffer::makeInvalid(NSString* lastError)
 bool CommandBuffer::preCommitHandler()
 {
     bool result = true;
-    for (auto& function : m_preCommitHandlers)
-        result = function(*this) && result;
+    if (RefPtr commandEncoder = m_commandEncoder) {
+        auto& commandEncoderRef = *commandEncoder;
+        for (auto& function : m_preCommitHandlers)
+            result = function(*this, commandEncoderRef) && result;
+    }
 
     m_preCommitHandlers.clear();
     return result;

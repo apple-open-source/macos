@@ -277,8 +277,13 @@ _os_workgroup_interval_data_complexity(os_workgroup_interval_data_t data)
 	uint64_t complexity = 0;
 
 	if (_os_workgroup_client_interval_data_is_valid(data)) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		if (data->wgid_flags & OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_HIGH) {
+#pragma clang diagnostic pop
 			complexity = 1;
+		} else {
+			complexity = data->complexity;
 		}
 	}
 	return complexity;
@@ -609,6 +614,16 @@ static const struct os_workgroup_workload_id_table_entry_s
 		.wl_type = OS_WORKGROUP_INTERVAL_TYPE_AUDIO_CLIENT,
 		.wl_id_flags = WORK_INTERVAL_WORKLOAD_ID_RT_ALLOWED,
 	},
+	{
+		.wl_id = "com.apple.backboardd.displaythread",
+		.wl_type = OS_WORKGROUP_INTERVAL_TYPE_CA_RENDER_SERVER,
+		.wl_id_flags = WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED,
+	},
+	{
+		.wl_id = "com.apple.backboardd.hid",
+		.wl_type =OS_WORKGROUP_INTERVAL_TYPE_HID_DELIVERY,
+		.wl_id_flags = WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED,
+	},
 };
 #endif // !TARGET_OS_SIMULATOR
 
@@ -906,13 +921,41 @@ os_workgroup_interval_data_set_flags(os_workgroup_interval_data_t data,
 		os_workgroup_interval_data_flags_t flags)
 {
 	int ret = 0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	if (_os_workgroup_client_interval_data_is_valid(data) &&
 			(flags & ~OS_WORKGROUP_INTERVAL_DATA_FLAGS_MASK) == 0) {
+#pragma clang diagnostic pop
 		data->wgid_flags = flags;
 	} else {
 		ret = EINVAL;
 	}
 	return ret;
+}
+
+int
+os_workgroup_interval_data_set_complexity(os_workgroup_interval_data_t data,
+		os_workgroup_interval_data_complexity_t flag, uint64_t complexity)
+{
+	int ret = 0;
+	if (_os_workgroup_client_interval_data_is_valid(data)) {
+		switch (flag) {
+			case OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_MANUAL:
+				data->complexity = complexity;
+				break;
+			case OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_DEFAULT:
+				data->complexity = 0;
+				break;
+			case OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_HIGH:
+				data->complexity = 1;
+				break;
+			default:
+				ret = EINVAL;
+				break;
+		}
+		return ret;
+	}
+	return EINVAL;
 }
 
 int

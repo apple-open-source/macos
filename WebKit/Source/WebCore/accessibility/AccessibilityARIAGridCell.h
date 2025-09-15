@@ -34,13 +34,13 @@ namespace WebCore {
     
 class AccessibilityARIAGridCell final : public AccessibilityTableCell {
 public:
-    static Ref<AccessibilityARIAGridCell> create(AXID, RenderObject&);
-    static Ref<AccessibilityARIAGridCell> create(AXID, Node&);
+    static Ref<AccessibilityARIAGridCell> create(AXID, RenderObject&, AXObjectCache&);
+    static Ref<AccessibilityARIAGridCell> create(AXID, Node&, AXObjectCache&);
     virtual ~AccessibilityARIAGridCell();
 
 private:
-    explicit AccessibilityARIAGridCell(AXID, RenderObject&);
-    explicit AccessibilityARIAGridCell(AXID, Node&);
+    explicit AccessibilityARIAGridCell(AXID, RenderObject&, AXObjectCache&);
+    explicit AccessibilityARIAGridCell(AXID, Node&, AXObjectCache&);
     bool isAccessibilityARIAGridCellInstance() const final { return true; }
 
     AccessibilityTable* parentTable() const final;

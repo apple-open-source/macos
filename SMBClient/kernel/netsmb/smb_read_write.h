@@ -29,7 +29,7 @@
 
 void smb_rw_init(void);
 void smb_rw_cleanup(void);
-void smb_rw_proxy(void *arg);
+int smb_rw_proxy(void *arg);
 
 /* smb_rw_arg commands */
 typedef enum _SMB_RW_CMD_FLAGS

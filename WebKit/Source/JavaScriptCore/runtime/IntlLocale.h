@@ -61,6 +61,7 @@ public:
     const String& language();
     const String& script();
     const String& region();
+    const String& variants();
 
     const String& calendar();
     const String& caseFirst();
@@ -94,6 +95,7 @@ private:
     String m_language;
     String m_script;
     String m_region;
+    String m_variants;
     std::optional<String> m_calendar;
     std::optional<String> m_caseFirst;
     std::optional<String> m_collation;

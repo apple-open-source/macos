@@ -67,13 +67,12 @@ ALWAYS_INLINE static JSWeakMap* getWeakMap(JSGlobalObject* globalObject, JSValue
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (UNLIKELY(!value.isObject())) {
+    if (!value.isObject()) [[unlikely]] {
         throwTypeError(globalObject, scope, "Called WeakMap function on non-object"_s);
         return nullptr;
     }
 
-    auto* map = jsDynamicCast<JSWeakMap*>(asObject(value));
-    if (LIKELY(map))
+    if (auto* map = jsDynamicCast<JSWeakMap*>(asObject(value))) [[likely]]
         return map;
 
     throwTypeError(globalObject, scope, "Called WeakMap function on a non-WeakMap object"_s);
@@ -86,7 +85,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapDelete, (JSGlobalObject* globalObject, 
     if (!map)
         return JSValue::encode(jsUndefined());
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!key.isCell()))
+    if (!key.isCell()) [[unlikely]]
         return JSValue::encode(jsBoolean(false));
     return JSValue::encode(jsBoolean(map->remove(key.asCell())));
 }
@@ -97,7 +96,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapGet, (JSGlobalObject* globalObject, Cal
     if (!map)
         return JSValue::encode(jsUndefined());
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!key.isCell()))
+    if (!key.isCell()) [[unlikely]]
         return JSValue::encode(jsUndefined());
     return JSValue::encode(map->get(key.asCell()));
 }
@@ -108,7 +107,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapHas, (JSGlobalObject* globalObject, Cal
     if (!map)
         return JSValue::encode(jsUndefined());
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!key.isCell()))
+    if (!key.isCell()) [[unlikely]]
         return JSValue::encode(jsBoolean(false));
     return JSValue::encode(jsBoolean(map->has(key.asCell())));
 }
@@ -123,7 +122,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapSet, (JSGlobalObject* globalObject, Cal
     if (!map)
         return JSValue::encode(jsUndefined());
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!canBeHeldWeakly(key)))
+    if (!canBeHeldWeakly(key)) [[unlikely]]
         return throwVMTypeError(globalObject, scope, WeakMapInvalidKeyError);
     map->set(vm, key.asCell(), callFrame->argument(1));
     return JSValue::encode(callFrame->thisValue());
@@ -140,7 +139,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapGetOrInsert, (JSGlobalObject* globalObj
         return JSValue::encode(jsUndefined());
 
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!canBeHeldWeakly(key)))
+    if (!canBeHeldWeakly(key)) [[unlikely]]
         return throwVMTypeError(globalObject, scope, WeakMapInvalidKeyError);
 
     JSCell* keyCell = key.asCell();
@@ -150,7 +149,7 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapGetOrInsert, (JSGlobalObject* globalObj
     JSValue value;
 
     {
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
 
         auto [index, exists] = map->findBucketIndex(keyCell, hash);
         if (exists)
@@ -175,46 +174,45 @@ JSC_DEFINE_HOST_FUNCTION(protoFuncWeakMapGetOrInsertComputed, (JSGlobalObject* g
         return JSValue::encode(jsUndefined());
 
     JSValue key = callFrame->argument(0);
-    if (UNLIKELY(!canBeHeldWeakly(key)))
+    if (!canBeHeldWeakly(key)) [[unlikely]]
         return throwVMTypeError(globalObject, scope, WeakMapInvalidKeyError);
 
     JSValue valueCallback = callFrame->argument(1);
-    if (!valueCallback.isCallable())
+    auto callData = JSC::getCallData(valueCallback);
+    if (callData.type == CallData::Type::None) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "WeakMap.prototype.getOrInsertComputed requires the callback argument to be callable."_s);
 
     JSCell* keyCell = key.asCell();
 
     auto hash = jsWeakMapHash(keyCell);
-
-    JSValue value;
-
     {
-        DisallowGC disallowGC;
-
+        AssertNoGC assertNoGC;
         auto [index, exists] = map->findBucketIndex(keyCell, hash);
         if (exists)
-            value = map->getBucket(keyCell, hash, index);
-        else {
-            auto callData = JSC::getCallData(valueCallback);
-            ASSERT(callData.type != CallData::Type::None);
+            return JSValue::encode(map->getBucket(keyCell, hash, index));
+    }
 
-            if (LIKELY(callData.type == CallData::Type::JS)) {
-                CachedCall cachedCall(globalObject, jsCast<JSFunction*>(valueCallback), 2);
-                RETURN_IF_EXCEPTION(scope, { });
+    JSValue value;
+    if (callData.type == CallData::Type::JS) [[likely]] {
+        CachedCall cachedCall(globalObject, jsCast<JSFunction*>(valueCallback), 1);
+        RETURN_IF_EXCEPTION(scope, { });
 
-                value = cachedCall.callWithArguments(globalObject, jsUndefined(), key);
-                RETURN_IF_EXCEPTION(scope, { });
-            } else {
-                MarkedArgumentBuffer args;
-                args.append(key);
-                ASSERT(!args.hasOverflowed());
+        value = cachedCall.callWithArguments(globalObject, jsUndefined(), key);
+        RETURN_IF_EXCEPTION(scope, { });
+    } else {
+        MarkedArgumentBuffer args;
+        args.append(key);
+        ASSERT(!args.hasOverflowed());
 
-                value = call(globalObject, valueCallback, callData, jsUndefined(), args);
-                RETURN_IF_EXCEPTION(scope, { });
-            }
+        value = call(globalObject, valueCallback, callData, jsUndefined(), args);
+        RETURN_IF_EXCEPTION(scope, { });
+    }
 
-            map->addBucket(vm, keyCell, value, hash, index);
-        }
+    // FIXME: rdar://145147128 can we optimize this more to detect a rehash like Map does?
+    {
+        // Call to valueCallback can modify our state, so we need to check if we re-hashed
+        AssertNoGC assertNoGC;
+        map->add(vm, keyCell, value, hash);
     }
 
     return JSValue::encode(value);

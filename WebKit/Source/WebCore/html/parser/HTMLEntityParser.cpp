@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
- * Copyright (C) 2010-2014 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2010-2014 Google, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

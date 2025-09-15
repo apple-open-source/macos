@@ -424,7 +424,7 @@ class KDCPU(object):
     Represents all events from a single CPU.
     """
 
-    def __init__(self, cpuid, verbose, starting_timestamp=None, humanize=False):
+    def __init__(self, cpuid, verbose, humanize=None, starting_timestamp=None, tid=None, triage=False):
         self.cpuid = cpuid
         self.iter_store = None
         self.verbose = verbose
@@ -432,9 +432,11 @@ class KDCPU(object):
         self.disabled = False
         self.last_timestamp = 0
         self.err = lldb.SBError() # avoid making it all the time, it's slow
-        self.kd_bufs = kern.globals.kd_buffer_trace.kd_bufs.GetSBValue()
+        self.buffer = kern.globals.kd_buffer_triage if triage else kern.globals.kd_buffer_trace
+        self.kd_bufs = self.buffer.kd_bufs.GetSBValue()
+        self.tid = tid
 
-        kdstorep = kern.globals.kd_buffer_trace.kdb_info[cpuid].kd_list_head
+        kdstorep = self.buffer.kdb_info[cpuid].kd_list_head
         self.load_kdstore(kdstorep.GetSBValue())
 
         skipped_storage_count = 0
@@ -486,22 +488,24 @@ class KDCPU(object):
         self.iter_stamp_max = store.xGetScalarByName('kds_timestamp')
 
     # Event iterator implementation returns KDEvent64 instance
-
     def __iter__(self):
         return self
 
     def __next__(self):
         offs = self.iter_offs
-        while offs >= self.iter_offs_max:
-            # This CPU is out of events.
-            if self.iter_store is None or self.disabled:
-                raise StopIteration
+        while True:
+            while offs >= self.iter_offs_max:
+                # This CPU is out of events.
+                if self.iter_store is None or self.disabled:
+                    raise StopIteration
 
-            self.load_kdstore(self.iter_store.GetChildMemberWithName('kds_next'))
-            offs = self.iter_offs
+                self.load_kdstore(self.iter_store.GetChildMemberWithName('kds_next'))
+                offs = self.iter_offs
 
-        self.iter_offs = offs + KDE_SIZE
-        kdevent = KDEvent64(self.iter_buf, offs)
+            self.iter_offs = offs + KDE_SIZE
+            kdevent = KDEvent64(self.iter_buf, offs)
+            if self.tid is None or unsigned(kdevent.arg5) == self.tid:
+                break
 
         if self.verbose and self.last_timestamp == 0:
             print('first event from CPU {} is at time {}'.format(
@@ -544,24 +548,24 @@ def GetKdebugCPUName(cpu_id):
     return '{}(unknown)'.format(cpu_id)
 
 
-def IterateKdebugEvents(verbose=False, humanize=False, last=None,
-        include_coprocessors=True):
+def IterateKdebugEvents(verbose=False, humanize=False, last=None, tid=None,
+        include_coprocessors=True, triage=False):
     """
     Yield events from the in-memory kdebug trace buffers.
     """
     ctrl = kern.globals.kd_control_trace
 
-    if (ctrl.kdc_flags & xnudefines.KDBG_BUFINIT) == 0:
+    if not triage and (ctrl.kdc_flags & xnudefines.KDBG_BUFINIT) == 0:
         return
 
     barrier_min = ctrl.kdc_oldest_time
 
-    if (ctrl.kdc_live_flags & xnudefines.KDBG_WRAPPED) != 0:
+    if not triage and (ctrl.kdc_live_flags & xnudefines.KDBG_WRAPPED) != 0:
         # TODO Yield a wrap event with the barrier_min timestamp.
         pass
 
     cpu_count = kern.globals.machine_info.logical_cpu_max
-    if include_coprocessors:
+    if include_coprocessors and not triage:
         cpu_count = ctrl.kdebug_cpus
 
     start_timestamp = None
@@ -575,8 +579,7 @@ def IterateKdebugEvents(verbose=False, humanize=False, last=None,
                     start_timestamp, now, duration))
 
     # Merge sort all events from all CPUs.
-    cpus = [KDCPU(cpuid, verbose,
-               starting_timestamp=start_timestamp, humanize=humanize)
+    cpus = [KDCPU(cpuid, verbose, starting_timestamp=start_timestamp, humanize=humanize, tid=tid, triage=triage)
             for cpuid in range(cpu_count)]
     return heapq.merge(*cpus, key=operator.attrgetter('timestamp'))
 
@@ -587,7 +590,6 @@ def GetKdebugEvent(event, symbolicate=False, O=None):
     """
     Return a string representing a kdebug trace event.
     """
-
     def fmt_arg(a):
         return '0x{:016x}'.format(a)
     def sym_arg(a):
@@ -602,6 +604,37 @@ def GetKdebugEvent(event, symbolicate=False, O=None):
     return O.format(
             '{:12d} 0x{:08x} {:18s} {:18s} {:18s} {:18s} {:5d} {:8d}',
             ts, debugid, fn(arg1), fn(arg2), fn(arg3), fn(arg4), cpuid, arg5)
+
+
+def KtriageDecode(event):
+    subsystem = event.arg4 >> 24
+    strings = kern.globals.ktriage_subsystems_strings[subsystem]
+    code = (event.arg4 >> 2) & 0x3fff
+    if code > strings.num_strings:
+        return ''
+    try:
+        return str(strings.strings[code]).strip()
+    except IndexError:
+        return ''
+
+
+@header('{:>12s} {:>18s} {:>18s} {:>5s} {:>8s} {:<8s}'.format(
+        'timestamp', 'debugid', 'arg1', 'cpuid', 'tid', 'message'))
+def GetKtriageEvent(event, O=None):
+    """
+    Return a string representing a kdebug trace event.
+    """
+    timestamp = event.timestamp
+    cpuid = event.cpuid
+    def fmt_arg(a):
+        return '0x{:016x}'.format(unsigned(a))
+    args = list(map(
+            fmt_arg,
+            [event.arg1, event.arg2, event.arg3, event.arg4]))
+    return O.format(
+            '{:12d} {:18s} {:18s} {:5d} {:8d} {:s}',
+            unsigned(timestamp), args[3], args[0], unsigned(cpuid),
+            unsigned(event.arg5), KtriageDecode(event))
 
 
 @lldb_command('showkdebugtrace', 'L:S', fancy=True)
@@ -630,6 +663,32 @@ def ShowKdebugTrace(cmd_args=None, cmd_options={}, O=None):
                 config['verbosity'] > vHUMAN, humanize=True, last=last):
             print(GetKdebugEvent(
                     event, symbolicate='-S' in cmd_options, O=O))
+
+
+@lldb_command('showktriage', 'L:', fancy=True)
+def ShowKtriage(cmd_args=None, cmd_options={}, O=None):
+    """
+    List the events present in the ktriage buffers.
+
+    (lldb) showktriage [-L <last-seconds>] [<thread-id>]
+
+        -L <last-seconds>: only show events from the last <last-seconds> seconds
+    """
+    tid = None if len(cmd_args) == 0 else cmd_args[0]
+    if tid:
+        tid = unsigned(tid)
+    last = cmd_options.get('-L', None)
+    if last:
+        try:
+            last = float(last)
+        except ValueError:
+            raise ArgumentError(
+                    'error: -L argument must be a number, not {}'.format(last))
+    with O.table(GetKtriageEvent.header):
+        for event in IterateKdebugEvents(
+                config['verbosity'] > vHUMAN, humanize=True, last=last, tid=tid,
+                triage=True):
+            print(GetKtriageEvent(event, O=O))
 
 
 def binary_plist(o):

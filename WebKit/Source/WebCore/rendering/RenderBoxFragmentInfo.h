@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,19 +47,15 @@ public:
 
     bool isShifted() const { return m_isShifted; }
 
-    void createOverflow(const LayoutRect& layoutOverflow, const LayoutRect& visualOverflow) { m_overflow = adoptRef(new RenderOverflow(layoutOverflow, visualOverflow)); }
+    void createOverflow(const LayoutRect& layoutOverflow, const LayoutRect& visualOverflow) { m_overflow = makeUnique<RenderOverflow>(layoutOverflow, visualOverflow); }
     RenderOverflow* overflow() const { return m_overflow.get(); }
-    void clearOverflow()
-    {
-        if (m_overflow)
-            m_overflow = nullptr;
-    }
+    void clearOverflow() { m_overflow = { }; }
 
 private:
     LayoutUnit m_logicalLeft;
     LayoutUnit m_logicalWidth;
     bool m_isShifted;
-    RefPtr<RenderOverflow> m_overflow;
+    std::unique_ptr<RenderOverflow> m_overflow;
 };
 
 } // namespace WebCore

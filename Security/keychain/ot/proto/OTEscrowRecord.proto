@@ -39,10 +39,7 @@ message EscrowRecord {
     }
     optional Metadata escrow_information_metadata = 3;
     optional string label = 4;
-    // optional reserved string reserved5 = 5;
-    // optional reserved string reserved6 = 6;
-    // optional reserved string reserved7 = 7;
-    // optional reserved string reserved8 = 8;
+    reserved 5 to 8;
 
     optional uint64 silent_attempt_allowed = 9;
 

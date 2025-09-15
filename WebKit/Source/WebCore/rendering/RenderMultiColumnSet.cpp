@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2012-2023 Apple Inc.  All rights reserved.
- * Copyright (C) 2015 Google Inc.  All rights reserved.
+ * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include "RenderLayer.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
+#include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -74,11 +75,11 @@ RenderMultiColumnSet* RenderMultiColumnSet::previousSiblingMultiColumnSet() cons
 
 RenderObject* RenderMultiColumnSet::firstRendererInFragmentedFlow() const
 {
-    if (RenderBox* sibling = RenderMultiColumnFlow::previousColumnSetOrSpannerSiblingOf(this)) {
+    if (auto* sibling = RenderMultiColumnFlow::previousColumnSetOrSpannerSiblingOf(this)) {
         // Adjacent sets should not occur. Currently we would have no way of figuring out what each
         // of them contains then.
         ASSERT(!sibling->isRenderMultiColumnSet());
-        if (RenderMultiColumnSpannerPlaceholder* placeholder = multiColumnFlow()->findColumnSpannerPlaceholder(sibling))
+        if (RenderMultiColumnSpannerPlaceholder* placeholder = multiColumnFlow()->findColumnSpannerPlaceholder(*sibling))
             return placeholder->nextInPreOrderAfterChildren();
         ASSERT_NOT_REACHED();
     }
@@ -87,11 +88,11 @@ RenderObject* RenderMultiColumnSet::firstRendererInFragmentedFlow() const
 
 RenderObject* RenderMultiColumnSet::lastRendererInFragmentedFlow() const
 {
-    if (RenderBox* sibling = RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf(this)) {
+    if (auto* sibling = RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf(this)) {
         // Adjacent sets should not occur. Currently we would have no way of figuring out what each
         // of them contains then.
         ASSERT(!sibling->isRenderMultiColumnSet());
-        if (RenderMultiColumnSpannerPlaceholder* placeholder = multiColumnFlow()->findColumnSpannerPlaceholder(sibling))
+        if (RenderMultiColumnSpannerPlaceholder* placeholder = multiColumnFlow()->findColumnSpannerPlaceholder(*sibling))
             return placeholder->previousInPreOrder();
         ASSERT_NOT_REACHED();
     }
@@ -334,10 +335,10 @@ bool RenderMultiColumnSet::requiresBalancing() const
     if (!multiColumnFlow()->progressionIsInline())
         return false;
 
-    if (RenderBox* next = RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf(this)) {
+    if (auto* next = RenderMultiColumnFlow::nextColumnSetOrSpannerSiblingOf(this)) {
         if (!next->isRenderMultiColumnSet() && !next->isLegend()) {
             // If we're followed by a spanner, we need to balance.
-            ASSERT(multiColumnFlow()->findColumnSpannerPlaceholder(next));
+            ASSERT(multiColumnFlow()->findColumnSpannerPlaceholder(*next));
             return true;
         }
     }
@@ -431,8 +432,8 @@ LayoutUnit RenderMultiColumnSet::calculateMaxColumnHeight() const
     const RenderStyle& multicolStyle = multicolBlock->style();
     LayoutUnit availableHeight = multiColumnFlow()->columnHeightAvailable();
     LayoutUnit maxColumnHeight = availableHeight ? availableHeight : RenderFragmentedFlow::maxLogicalHeight();
-    if (!multicolStyle.logicalMaxHeight().isUndefined())
-        maxColumnHeight = std::min(maxColumnHeight, multicolBlock->computeContentLogicalHeight(RenderBox::SizeType::MaxSize, multicolStyle.logicalMaxHeight(), std::nullopt).value_or(maxColumnHeight));
+    if (!multicolStyle.logicalMaxHeight().isNone())
+        maxColumnHeight = std::min(maxColumnHeight, multicolBlock->computeContentLogicalHeight(multicolStyle.logicalMaxHeight(), std::nullopt).value_or(maxColumnHeight));
     return heightAdjustedForSetOffset(maxColumnHeight);
 }
 
@@ -440,10 +441,11 @@ LayoutUnit RenderMultiColumnSet::columnGap() const
 {
     // FIXME: Eventually we will cache the column gap when the widths of columns start varying, but for now we just
     // go to the parent block to get the gap.
-    RenderBlockFlow& parentBlock = downcast<RenderBlockFlow>(*parent());
-    if (parentBlock.style().columnGap().isNormal())
+    auto& parentBlock = downcast<RenderBlockFlow>(*parent());
+    auto& parentBlockGap = parentBlock.style().columnGap();
+    if (parentBlockGap.isNormal())
         return LayoutUnit(parentBlock.style().fontDescription().computedSize()); // "1em" is recommended as the normal gap setting. Matches <p> margins.
-    return valueForLength(parentBlock.style().columnGap().length(), parentBlock.contentBoxLogicalWidth());
+    return Style::evaluate(parentBlockGap, parentBlock.contentBoxLogicalWidth());
 }
 
 unsigned RenderMultiColumnSet::columnCount() const
@@ -772,6 +774,18 @@ Vector<LayoutRect> RenderMultiColumnSet::fragmentRectsForFlowContentRect(const L
     }
 
     return perColumnRects;
+}
+
+bool RenderMultiColumnSet::contentRectSpansFragments(const LayoutRect& rect) const
+{
+    auto fragmentedFlowRect = rect;
+    fragmentedFlow()->flipForWritingMode(fragmentedFlowRect);
+
+    auto logicalTop = isHorizontalWritingMode() ? fragmentedFlowRect.y() : fragmentedFlowRect.x();
+    auto logicalBottom = isHorizontalWritingMode() ? fragmentedFlowRect.maxY() : fragmentedFlowRect.maxX();
+
+    auto startAndEndColumns = firstAndLastColumnsFromOffsets(logicalTop, logicalBottom);
+    return startAndEndColumns.first != startAndEndColumns.second;
 }
 
 LayoutUnit RenderMultiColumnSet::initialBlockOffsetForPainting() const

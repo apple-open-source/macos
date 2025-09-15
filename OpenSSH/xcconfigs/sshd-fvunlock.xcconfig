@@ -1,0 +1,3 @@
+//  Copyright © 2025 Apple Inc. All rights reserved.
+
+USER_HEADER_SEARCH_PATHS = $(SRCROOT)/sshd-fvunlock/aks_fv

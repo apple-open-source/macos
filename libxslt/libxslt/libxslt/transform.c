@@ -2784,7 +2784,7 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
                 goto skip_children;
             }
 
-            if (info->func != NULL) {
+            if (!(xsltGetSourceNodeFlags(cur) & XSLT_SOURCE_NODE_HAS_ID) && info->func != NULL) {
 		oldCurInst = ctxt->inst;
 		ctxt->inst = cur;
                 ctxt->insert = insert;

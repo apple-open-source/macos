@@ -1519,6 +1519,16 @@ ucol_openBinary(const uint8_t *bin, int32_t length,
                 const UCollator *base, 
                 UErrorCode *status);
 
+#if APPLE_ICU_CHANGES // rdar://155499333
+/** C API for CollationData::isCompressibleLeadByte().
+ * Returns true for primary-weight lead bytes that are compressible, false otherwise.
+ * @param b the byte to check
+ * @param status for catching errors
+ */
+U_CAPI UBool U_EXPORT2
+ucol_isCompressibleLeadByte(uint8_t b, UErrorCode* status);
+#endif
+
 #if U_SHOW_CPLUSPLUS_API || U_SHOW_CPLUSPLUS_HEADER_API
 
 #include <functional>

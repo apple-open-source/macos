@@ -785,11 +785,11 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
         if (selector.pseudoClass() == CSSSelector::PseudoClass::Not) {
             const CSSSelectorList* selectorList = selector.selectorList();
 
-            for (const CSSSelector* subselector = selectorList->first(); subselector; subselector = CSSSelectorList::next(subselector)) {
+            for (auto& subselector : *selectorList) {
                 LocalContext subcontext(context);
                 subcontext.inFunctionalPseudoClass = true;
                 subcontext.pseudoElementEffective = false;
-                subcontext.selector = subselector;
+                subcontext.selector = &subselector;
                 subcontext.firstSelectorOfTheFragment = selectorList->first();
                 PseudoIdSet ignoreDynamicPseudo;
 
@@ -939,17 +939,15 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
                 return hasMatchedAnything;
             }
         case CSSSelector::PseudoClass::Has: {
-            for (auto* hasSelector = selector.selectorList()->first(); hasSelector; hasSelector = CSSSelectorList::next(hasSelector)) {
-                if (matchHasPseudoClass(checkingContext, element, *hasSelector))
+            for (auto& hasSelector : *selector.selectorList()) {
+                if (matchHasPseudoClass(checkingContext, element, hasSelector))
                     return true;
             }
             return false;
         }
         case CSSSelector::PseudoClass::PlaceholderShown:
-            if (auto* formControl = dynamicDowncast<HTMLTextFormControlElement>(element)) {
-                addStyleRelation(checkingContext, element, Style::Relation::Unique);
+            if (auto* formControl = dynamicDowncast<HTMLTextFormControlElement>(element))
                 return formControl->isPlaceholderVisible();
-            }
             return false;
         case CSSSelector::PseudoClass::NthChild: {
             if (auto* parentElement = dynamicDowncast<Element>(element.parentNode())) {
@@ -1214,8 +1212,9 @@ bool SelectorChecker::checkOne(CheckingContext& checkingContext, LocalContext& c
             LocalContext subcontext(context);
 
             const CSSSelector* const & selector = context.selector;
-            for (subcontext.selector = selector->selectorList()->first(); subcontext.selector; subcontext.selector = CSSSelectorList::next(subcontext.selector)) {
-                subcontext.firstSelectorOfTheFragment = subcontext.selector;
+            for (auto& subselector : *selector->selectorList()) {
+                subcontext.selector = &subselector;
+                subcontext.firstSelectorOfTheFragment = &subselector;
                 subcontext.inFunctionalPseudoClass = true;
                 subcontext.pseudoElementEffective = false;
                 PseudoIdSet ignoredDynamicPseudo;
@@ -1323,13 +1322,13 @@ bool SelectorChecker::matchSelectorList(CheckingContext& checkingContext, const 
 {
     bool hasMatchedAnything = false;
 
-    for (const CSSSelector* subselector = selectorList.first(); subselector; subselector = CSSSelectorList::next(subselector)) {
+    for (auto& subselector : selectorList) {
         LocalContext subcontext(context);
         subcontext.element = &element;
-        subcontext.selector = subselector;
+        subcontext.selector = &subselector;
         subcontext.inFunctionalPseudoClass = true;
         subcontext.pseudoElementEffective = false;
-        subcontext.firstSelectorOfTheFragment = subselector;
+        subcontext.firstSelectorOfTheFragment = &subselector;
         PseudoIdSet ignoreDynamicPseudo;
         if (matchRecursively(checkingContext, subcontext, ignoreDynamicPseudo).match == Match::SelectorMatches) {
             ASSERT(!ignoreDynamicPseudo);
@@ -1534,7 +1533,6 @@ bool SelectorChecker::matchHasPseudoClass(CheckingContext& checkingContext, cons
         case Style::Relation::FirstChild:
         case Style::Relation::LastChild:
         case Style::Relation::NthChildIndex:
-        case Style::Relation::Unique:
             return;
         case Style::Relation::AffectedByHasWithPositionalPseudoClass:
             ASSERT_NOT_REACHED();

@@ -55,11 +55,6 @@ webkit_platform_headers: "CoreIPCPKSecureElementPass.h"
     signedFields: Array<String>?
 }
 
-webkit_platform_headers: "CoreIPCPKPaymentSetupFeature.h"
-[WebKitPlatform] class WebKit::CoreIPCPKPaymentSetupFeature {
-    Vector<uint8_t> ipcData()
-}
-
 [WebKitSecureCodingClass=PAL::getPKPaymentClass(), SupportWKKeyedCoder, WebKitPlatform] webkit_secure_coding PKPayment {
     token: PKPaymentToken
     shippingContact: PKContact
@@ -109,6 +104,26 @@ additional_forward_declaration: OBJC_CLASS PKSecureElementPass
     billingAddress: CNContact
     installmentBindToken: String
     usePeerPaymentBalance: Number
+}
+
+additional_forward_declaration: OBJC_CLASS NSSet
+[WebKitSecureCodingClass=PAL::getPKPaymentSetupFeatureClass(), SupportWKKeyedCoder, WebKitPlatform] webkit_secure_coding PKPaymentSetupFeature {
+    identifiers: Set
+    localizedDisplayName: String
+    type: Number
+    state: Number
+    supportedOptions: Number
+    supportedDevices: Number
+    productIdentifier: String
+    partnerIdentifier: String
+    featureIdentifier: Number
+    lastUpdated: Date
+    expiry: Date
+    productType: Number
+    productState: Number
+    notificationTitle: String
+    notificationMessage: String
+    discoveryCardIdentifier: String
 }
 
 #endif // USE(PASSKIT)

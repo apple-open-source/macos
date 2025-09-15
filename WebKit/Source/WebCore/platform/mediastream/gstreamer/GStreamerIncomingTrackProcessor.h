@@ -22,6 +22,7 @@
 
 #include "GStreamerMediaEndpoint.h"
 #include "GStreamerWebRTCCommon.h"
+#include "GUniquePtrGStreamer.h"
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 

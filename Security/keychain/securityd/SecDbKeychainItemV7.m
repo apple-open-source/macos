@@ -39,10 +39,6 @@
 #import <Security/SecItemPriv.h>
 #import <Foundation/NSKeyedArchiver_Private.h>
 
-#if USE_KEYSTORE && __has_include(<Kernel/IOKit/crypto/AppleKeyStoreDefs.h>)
-#import <Kernel/IOKit/crypto/AppleKeyStoreDefs.h>
-#endif
-
 #import "SecDbKeychainMetadataKeyStore.h"
 #if __has_include(<UserManagement/UserManagement.h>)
 #import <UserManagement/UserManagement.h>
@@ -286,11 +282,13 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 - (SFAuthenticatedCiphertext*)ciphertext
 {
     NSError* error = nil;
-    SFAuthenticatedCiphertext* ciphertext =  [NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:_serializedHolder.ciphertext error:&error];
+    SFAuthenticatedCiphertext* ciphertext;
+    @autoreleasepool {
+        ciphertext = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:_serializedHolder.ciphertext error:&error];
+    }
     if (!ciphertext) {
         secerror("SecDbKeychainItemV7: error deserializing ciphertext from secret data: %@", error);
     }
-
     return ciphertext;
 }
 
@@ -464,7 +462,10 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         SFAESKey* key = [self unwrapFromAKS:_encryptedSecretData.wrappedKey accessControl:accessControl acmContext:acmContext callerAccessGroups:callerAccessGroups delete:NO keyDiversify:keyDiversify error:error];
         if (key) {
             NSError* localError = nil;
-            NSData* secretDataWithPadding = [[self.class decryptionOperation] decrypt:_encryptedSecretData.ciphertext withKey:key error:&localError];
+            NSData* secretDataWithPadding;
+            @autoreleasepool {
+                secretDataWithPadding = [[self.class decryptionOperation] decrypt:_encryptedSecretData.ciphertext withKey:key error:&localError];
+            }
             if (!secretDataWithPadding) {
                 secerror("SecDbKeychainItemV7: error decrypting item secret data contents: %@", localError);
                 if (error) {
@@ -474,21 +475,24 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
                 }
                 return nil;
             }
-            int8_t paddingLength = *((int8_t*)secretDataWithPadding.bytes + secretDataWithPadding.length - 1);
-            NSData* secretDataWithoutPadding = [secretDataWithPadding subdataWithRange:NSMakeRange(0, secretDataWithPadding.length - paddingLength)];
-
-            NSMutableDictionary* decryptedAttributes = dictionaryFromDERData(secretDataWithoutPadding).mutableCopy;
-            NSString* tamperCheck = decryptedAttributes[SecDBTamperCheck];
-            if ([tamperCheck isEqualToString:_encryptedSecretData.tamperCheck]) {
-                [decryptedAttributes removeObjectForKey:SecDBTamperCheck];
-                _secretAttributes = decryptedAttributes;
-            }
-            else {
-                secerror("SecDbKeychainItemV7: tamper check failed for secret data decryption, expected %@ found %@", tamperCheck, _encryptedMetadata.tamperCheck);
+            
+            @autoreleasepool {
+                int8_t paddingLength = *((int8_t*)secretDataWithPadding.bytes + secretDataWithPadding.length - 1);
+                NSData* secretDataWithoutPadding = [secretDataWithPadding subdataWithRange:NSMakeRange(0, secretDataWithPadding.length - paddingLength)];
+                
+                NSMutableDictionary* decryptedAttributes = dictionaryFromDERData(secretDataWithoutPadding).mutableCopy;
+                NSString* tamperCheck = decryptedAttributes[SecDBTamperCheck];
+                if ([tamperCheck isEqualToString:_encryptedSecretData.tamperCheck]) {
+                    [decryptedAttributes removeObjectForKey:SecDBTamperCheck];
+                    _secretAttributes = decryptedAttributes;
+                }
+                else {
+                    secerror("SecDbKeychainItemV7: tamper check failed for secret data decryption, expected %@ found %@", tamperCheck, _encryptedMetadata.tamperCheck);
+                }
             }
         }
     }
-
+    
     return _secretAttributes;
 }
 
@@ -722,12 +726,12 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     }
     /* if no constraints this uses ks_crypt */
     else {
-        NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
+        NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN];
         bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey personaId:persona_uuid personaIdLength:persona_uuid_length error:error];
         return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
     }
 #else
-    NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
+    NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN];
     bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey personaId:NULL personaIdLength:0 error:error];
     return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
 #endif

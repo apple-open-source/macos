@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -119,7 +119,7 @@ void ProcessLauncher::launchProcess()
             g_error("Unable to spawn a new child process");
 
         // We've finished launching the process, message back to the main run loop.
-        RunLoop::main().dispatch([protectedThis = Ref { *this }, this, serverSocket = WTFMove(webkitSocketPair.server)] mutable {
+        RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, serverSocket = WTFMove(webkitSocketPair.server)] mutable {
             didFinishLaunchingProcess(m_processID, IPC::Connection::Identifier { WTFMove(serverSocket) });
         });
 
@@ -254,7 +254,7 @@ void ProcessLauncher::launchProcess()
     // We need to get the pid of the actual WebKit auxiliary process, not the bwrap or flatpak-spawn
     // intermediate process. And do it without blocking, because process launching is slow.
     g_socket_set_blocking(pidSocket.get(), FALSE);
-    m_socketMonitor.start(pidSocket.get(), G_IO_IN, RunLoop::main(), [protectedThis = Ref { *this }, this, pidSocket, serverSocket = WTFMove(webkitSocketPair.server)](GIOCondition condition) mutable -> gboolean {
+    m_socketMonitor.start(pidSocket.get(), G_IO_IN, RunLoop::mainSingleton(), [protectedThis = Ref { *this }, this, pidSocket, serverSocket = WTFMove(webkitSocketPair.server)](GIOCondition condition) mutable -> gboolean {
         if (!(condition & G_IO_IN))
             g_error("Failed to read pid from child process");
 
@@ -274,7 +274,7 @@ void ProcessLauncher::launchProcess()
     m_processID = g_ascii_strtoll(processIdStr, nullptr, 0);
     RELEASE_ASSERT(m_processID);
 
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this, serverSocket = WTFMove(webkitSocketPair.server)] {
+    RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, this, serverSocket = WTFMove(webkitSocketPair.server)] mutable {
         didFinishLaunchingProcess(m_processID, IPC::Connection::Identifier { WTFMove(serverSocket) });
     });
 #endif

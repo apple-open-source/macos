@@ -4837,6 +4837,7 @@ krb5_init_context (krb5_context *context);
  *
  * Possible flags are:
  * - KRB5_CONTEXT_FLAG_NO_CONFIG - don't read the any configuration files
+ * - KRB5_CONTEXT_FLAG_FORK_SAFE - use fork safe methods for the configuration
  *
  * @return Returns 0 to indicate success.  Otherwise an errno code is
  * returned.  Failure means either that something bad happened during

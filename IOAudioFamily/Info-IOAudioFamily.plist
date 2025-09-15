@@ -40,8 +40,6 @@
 		<string>9.0.0</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0</string>
-		<key>com.apple.vecLib.kext</key>
-		<string>1.0</string>
 	</dict>
 	<key>VBRSupported</key>
 	<string>YES</string>

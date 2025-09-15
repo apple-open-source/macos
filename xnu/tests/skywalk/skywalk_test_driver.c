@@ -190,7 +190,6 @@ skywalk_test_driver_run(struct skywalk_test *skt, int argc, char **argv,
 	exception_behavior_t behaviors[2];
 	thread_state_flavor_t flavors[2];
 	int pid, child_status;
-	int testid;
 	size_t len;
 	int error;
 	int itercount = -1;
@@ -297,7 +296,7 @@ skywalk_test_driver_run(struct skywalk_test *skt, int argc, char **argv,
 			}
 
 			if (error == -1 && errno != ESRCH) {
-				SKT_LOG(stderr, "pid_shutdown_sockets: %s", strerror(errno));
+				SKT_LOG("pid_shutdown_sockets: %s", strerror(errno));
 				test_exit(1);
 			}
 

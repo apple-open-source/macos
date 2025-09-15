@@ -63,7 +63,7 @@ messages -> GPUConnectionToWebProcess WantsDispatchMessage {
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    UpdateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier identifier, WebCore::FloatRect bounds, std::optional<MachSendRight> fence);
+    UpdateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier identifier, WebCore::FloatRect bounds, std::optional<MachSendRightAnnotated> fence);
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)

@@ -10,10 +10,18 @@
 #import "OSX/sec/ipc/server_security_helpers.h"
 
 @interface OTAccountsActualAdapter ()
-@property (strong, nonatomic, nullable) ACAccountStore* store;
+@property (strong, atomic, nullable) ACAccountStore* store;
 @end
 
 @implementation OTAccountsActualAdapter
+
+- (instancetype)init
+{
+    if (self = [super init]) {
+        _store = [ACAccountStore defaultStore];
+    }
+    return self;
+}
 
 //test only
 - (void)setAccountStore:(ACAccountStore*)store
@@ -25,9 +33,8 @@ static int NUM_RETRIES = 5;
 
 - (BOOL)isErrorRetryable:(NSError*)error {
     BOOL isRetryable = NO;
-    if (error &&
-        [error.domain isEqualToString: NSCocoaErrorDomain] &&
-        (error.code == NSXPCConnectionInterrupted || error.code == NSXPCConnectionInvalid)) {
+    if (error && (([error.domain isEqualToString: NSCocoaErrorDomain] && (error.code == NSXPCConnectionInterrupted || error.code == NSXPCConnectionInvalid)) ||
+        ([error.domain isEqualToString:ACErrorDomain] && error.code == ACErrorDaemonConnectionFailed))) {
         isRetryable = YES;
     }
     return isRetryable;
@@ -86,9 +93,6 @@ static int NUM_RETRIES = 5;
     NSString* currentThreadPersonaUniqueString = [personaAdapter currentThreadPersonaUniqueString];
 
     secinfo("octagon-account", "persona identifier: %@", currentThreadPersonaUniqueString);
-    if (!self.store) {
-        self.store = [ACAccountStore defaultStore];
-    }
     
     NSArray<ACAccount*>* accounts = [self fetchAccountsRetryingWithError:error];
     if (!accounts) {

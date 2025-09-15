@@ -32,8 +32,7 @@ public:
     StylePropertyShorthand() = default;
 
     template<std::size_t numProperties> StylePropertyShorthand(CSSPropertyID id, std::span<const CSSPropertyID, numProperties> properties)
-        : m_properties(properties.data())
-        , m_length(properties.size())
+        : m_properties(properties)
         , m_shorthandID(id)
     {
         static_assert(numProperties != std::dynamic_extent);
@@ -42,14 +41,13 @@ public:
     const CSSPropertyID* begin() const { return std::to_address(properties().begin()); }
     const CSSPropertyID* end() const { return std::to_address(properties().end()); }
 
-    size_t length() const { return m_length; }
+    size_t length() const { return m_properties.size(); }
     CSSPropertyID id() const { return m_shorthandID; }
 
-    std::span<const CSSPropertyID> properties() const { return unsafeMakeSpan(m_properties, m_length); }
+    std::span<const CSSPropertyID> properties() const { return m_properties; }
 
 private:
-    const CSSPropertyID* m_properties { nullptr };
-    unsigned m_length { 0 };
+    std::span<const CSSPropertyID> m_properties;
     CSSPropertyID m_shorthandID { CSSPropertyInvalid };
 };
 

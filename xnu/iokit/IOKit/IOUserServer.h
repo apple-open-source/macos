@@ -104,6 +104,7 @@ typedef uint64_t IOTrapMessageBuffer[256];
 #include <libkern/c++/OSKext.h>
 #include <libkern/c++/OSBoundedArray.h>
 #include <libkern/c++/OSBoundedArrayRef.h>
+#include <kern/ipc_kobject.h>
 #include <sys/reason.h>
 class IOUserServer;
 class OSUserMetaClass;
@@ -125,8 +126,10 @@ struct OSObjectUserVars {
 	bool               willTerminate;
 	bool               didTerminate;
 	bool               serverDied;
+	bool               instantiated;
 	bool               started;
 	bool               stopped;
+	bool               needStop;
 	bool               userServerPM;
 	bool               willPower;
 	bool               powerState;
@@ -134,6 +137,9 @@ struct OSObjectUserVars {
 	bool               deferredRegisterService;
 	uint32_t           powerOverride;
 	IOLock           * uvarsLock;
+	OSDictionary     * originalProperties;
+	OSArray          * pmAssertions;
+	OSArray          * pmAssertionsSynced;
 };
 
 extern IOLock *        gIOUserServerLock;
@@ -178,6 +184,10 @@ public:
 	kern_allocation_name_t fAllocationName;
 	task_t                 fOwningTask;
 	os_reason_t            fTaskCrashReason;
+	bool                               fPageout;
+	bool                           fSuspended;
+	bool                               fAOTAllow;
+	bool                               fSystemOffPhase2Allow;
 
 public:
 
@@ -213,12 +223,15 @@ public:
 	IOReturn               serviceClose(IOService * provider, IOService * client);
 	IOReturn               serviceJoinPMTree(IOService * service);
 	IOReturn               serviceSetPowerState(IOService * controllingDriver, IOService * service, IOPMPowerFlags flags, IOPMPowerStateIndex powerState);
+	IOReturn               serviceCreatePMAssertion(IOService * service, uint32_t assertionBits, uint64_t * assertionID, bool synced);
+	IOReturn               serviceReleasePMAssertion(IOService * service, uint64_t assertionID);
 	IOReturn               serviceNewUserClient(IOService * service, task_t owningTask, void * securityID,
 	    uint32_t type, OSDictionary * properties, IOUserClient ** handler);
 	IOReturn               serviceNewUserClient(IOService * service, task_t owningTask, void * securityID,
 	    uint32_t type, OSDictionary * properties, OSSharedPtr<IOUserClient>& handler);
 	IOReturn               exit(const char * reason);
 	IOReturn               kill(const char * reason);
+	void                   serverAck(void);
 
 	bool                   serviceMatchesCheckInToken(IOUserServerCheckInToken *token);
 	bool                   checkEntitlements(IOService * provider, IOService * dext);
@@ -231,8 +244,9 @@ public:
 	void                   setDriverKitUUID(OSKext *kext);
 	void                   setDriverKitStatistics(OSKext *kext);
 	IOReturn               setCheckInToken(IOUserServerCheckInToken *token);
-	void                   systemPower(bool powerOff, bool hibernate);
-	void                               systemHalt(int howto);
+	void                   systemPower(uint8_t systemState, bool hibernate);
+	void                   systemSuspend(void);
+	void                   systemHalt(int howto);
 	static void            powerSourceChanged(bool acAttached);
 	bool                   checkPMReady();
 
@@ -249,8 +263,8 @@ public:
 	OSObjectUserVars     * varsForObject(OSObject * obj);
 	LIBKERN_RETURNS_NOT_RETAINED IODispatchQueue      * queueForObject(OSObject * obj, uint64_t msgid);
 
-	static ipc_port_t      copySendRightForObject(OSObject * object, natural_t /* ipc_kobject_type_t */ type);
-	static OSObject      * copyObjectForSendRight(ipc_port_t port, natural_t /* ipc_kobject_type_t */ type);
+	static ipc_port_t      copySendRightForObject(OSObject * object, ipc_kobject_type_t type);
+	static OSObject      * copyObjectForSendRight(ipc_port_t port, ipc_kobject_type_t type);
 
 	IOReturn               copyOutObjects(IORPCMessageMach * mach, IORPCMessage * message,
 	    size_t size, bool consume);
@@ -270,6 +284,7 @@ public:
 	static void            beginLeakingObjects();
 	bool                   isPlatformDriver();
 	int                    getCSValidationCategory();
+	void                               pageout();
 };
 
 typedef void (*IOUserServerCheckInCancellationHandler)(class IOUserServerCheckInToken*, void*);
@@ -340,7 +355,6 @@ private:
 
 private:
 	IOUserServerCheckInToken::State          fState;
-	size_t                                   fPendingCount;
 	const OSSymbol                         * fServerName;
 	const OSSymbol                         * fExecutableName;
 	OSNumber                               * fServerTag;

@@ -85,10 +85,10 @@ private:
     explicit WebUserContentController(UserContentControllerIdentifier);
 
     // WebCore::UserContentProvider
-    void forEachUserScript(Function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>&&) const final;
-    void forEachUserStyleSheet(Function<void(const WebCore::UserStyleSheet&)>&&) const final;
+    void forEachUserScript(NOESCAPE const Function<void(WebCore::DOMWrapperWorld&, const WebCore::UserScript&)>&) const final;
+    void forEachUserStyleSheet(NOESCAPE const Function<void(const WebCore::UserStyleSheet&)>&) const final;
 #if ENABLE(USER_MESSAGE_HANDLERS)
-    void forEachUserMessageHandler(Function<void(const WebCore::UserMessageHandlerDescriptor&)>&&) const final;
+    void forEachUserMessageHandler(NOESCAPE const Function<void(const WebCore::UserMessageHandlerDescriptor&)>&) const final;
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)
     WebCore::ContentExtensions::ContentExtensionsBackend& userContentExtensionBackend() override { return m_contentExtensionBackend; }

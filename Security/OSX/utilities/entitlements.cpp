@@ -21,9 +21,13 @@
 * @APPLE_LICENSE_HEADER_END@
 */
 
-#include "entitlements.h"
-#include <utilities/debugging.h>
-#include <security_utilities/cfutilities.h>
+#import "entitlements.h"
+#import <utilities/debugging.h>
+#import <sys/syslog.h>
+#import <security_utilities/cfutilities.h>
+
+#define CORE_ENTITLEMENTS_I_KNOW_WHAT_IM_DOING
+#import <CoreEntitlements/CoreEntitlementsPriv.h>
 
 /// Moves the entitlement value from the original entitlement into the target entitlement.
 static void transferEntitlement(CFMutableDictionaryRef entitlements, CFStringRef originalEntitlement, CFStringRef targetEntitlement)
@@ -123,4 +127,90 @@ bool updateOSInstallerSetupdEntitlements(CFMutableDictionaryRef entitlements)
     CFDictionaryReplaceValue(entitlements, CFSTR("com.apple.private.tcc.allow"), copy);
 
     return true;
+}
+
+// MARK: CoreEntitlements wrappers
+
+static __printflike(2, 3) void ce_log(const CERuntime_t rt, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsyslog(LOG_DEBUG, fmt, args);
+    va_end(args);
+}
+
+static __printflike(2, 3) __attribute__((noreturn)) void ce_abort(const CERuntime_t rt, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vsyslog(LOG_CRIT, fmt, args);
+    va_end(args);
+    abort();
+}
+
+static const struct CERuntime _CERuntimeImpl = {
+    .version = 1,
+    .abort = ce_abort,
+    .log = ce_log,
+    .alloc = NULL,
+    .free = NULL,
+};
+
+CERuntime_t CESecRuntime = &_CERuntimeImpl;
+
+/// Custom implementation of CEAcquireManagedContext
+static CEError_t SecCEAcquireContext(CEValidationResult validation, CEQueryContext_t* ctx) {
+    struct CEQueryContext rawCtx = {{0}};
+    CE_CHECK(CEAcquireUnmanagedContext(CESecRuntime, validation, &rawCtx));
+
+    *ctx = (CEQueryContext_t)malloc(sizeof(rawCtx));
+
+    if (*ctx == NULL) {
+        CE_THROW(kCEAllocationFailed);
+    }
+
+    **ctx = rawCtx;
+    return kCENoError;
+}
+
+CEError_t SecCEContextFromCFData(CFDataRef data, CEQueryContext_t* ctx) {
+    CEValidationResult validation = {};
+    const uint8_t* start = CFDataGetBytePtr(data);
+    CE_CHECK(CEValidate(CESecRuntime, &validation, start, start + CFDataGetLength(data)));
+    return SecCEAcquireContext(validation, ctx);
+}
+
+CEError_t SecCEContextFromCFDataWithOptions(CEValidationOptions* options, CFDataRef data, CEQueryContext_t* ctx) {
+    CEValidationResult validation = {};
+    const uint8_t* start = CFDataGetBytePtr(data);
+    CE_CHECK(CEValidateWithOptions(CESecRuntime, options, &validation, start, start + CFDataGetLength(data)));
+    return SecCEAcquireContext(validation, ctx);
+}
+
+CEError_t SecCEReleaseContext(CEQueryContext_t* ctx) {
+    if (ctx == NULL) {
+        CE_THROW(kCEAPIMisuse);
+    }
+    if (*ctx == NULL) {
+        // A NULL context is ok though
+        return kCENoError;
+    }
+    CEQueryContext_t unwrappedCtx = *ctx;
+
+    if (unwrappedCtx->managed) {
+        secerror("Trying to release a CE managed context");
+        CE_THROW(kCEAPIMisuse);
+    }
+
+#if CE_ACCELERATION_SUPPORTED
+    if (CEContextIsAccelerated(unwrappedCtx)) {
+        // Security doesn't use CE acceleration. Accelerated contexts require freeing an index, so just
+        // assert that the context is not accelerated.
+        secerror("CE context should not be accelerated");
+        CE_THROW(kCEAPIMisuse);
+    }
+#endif
+
+    free(unwrappedCtx);
+    *ctx = NULL;
+
+    return kCENoError;
 }

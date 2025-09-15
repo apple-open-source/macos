@@ -96,6 +96,8 @@ static  void TestCanonicalization21749StackUseAfterScope(void);
 
  static void TestDisplayKeywordValues(void);
 
+ static void TestCalendarNamesExist(void);
+
  static void TestGetBaseName(void);
 
 static void TestTrailingNull(void);

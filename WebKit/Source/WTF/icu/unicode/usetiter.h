@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 * Copyright (c) 2002-2014, International Business Machines
-* Corporation and others.  All Rights Reserved.
+* Corporation and others.  All rights reserved.
 **********************************************************************
 */
 #ifndef USETITER_H

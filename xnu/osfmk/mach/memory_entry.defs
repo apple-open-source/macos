@@ -58,3 +58,21 @@ routine mach_memory_entry_ownership(
 #endif
 		ledger_tag	: int;
 		ledger_flags	: int);
+
+/// Query the residency of the physical memory backing a given memory entry.
+///
+/// This operation is only supported on "named" memory entries created with
+/// `MAP_MEM_NAMED_CREATE`. It is unsupported on "mappings" created with
+/// `MAP_MEM_COPY` or `MAM_MEM_SHARED`
+///
+/// - Parameters
+///   - mem_entry: The memory entry to query
+///   - resident_cnt: If non-null, the number of resident pages written out
+///   - dirty_cnt: If non-null, the number of resident, modified pages written out
+///   - swapped_cnt: If non-null, the number of evicted pages written out
+routine mach_memory_entry_get_page_counts(
+		mem_entry	: mem_entry_name_port_t;
+	out	resident_cnt	: uint64_t;
+	out	dirty_cnt	: uint64_t;
+	out	swapped_cnt	: uint64_t);
+

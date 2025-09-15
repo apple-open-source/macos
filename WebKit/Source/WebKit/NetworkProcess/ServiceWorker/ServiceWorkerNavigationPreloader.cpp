@@ -59,58 +59,57 @@ void ServiceWorkerNavigationPreloader::start()
         return;
     m_isStarted = true;
 
-    if (!m_session) {
+    CheckedPtr session = m_session.get();
+    if (!session) {
         didFailLoading(ResourceError { errorDomainWebKitInternal, 0, { }, "No session for preload"_s });
         return;
     }
 
-    if (m_session->cache()) {
+    if (RefPtr cache = session->cache()) {
         NetworkCache::GlobalFrameID globalID { *m_parameters.webPageProxyID, *m_parameters.webPageID, *m_parameters.webFrameID };
-        m_session->cache()->retrieve(m_parameters.request, globalID, m_parameters.isNavigatingToAppBoundDomain, m_parameters.allowPrivacyProxy, m_parameters.advancedPrivacyProtections, [this, weakThis = WeakPtr { *this }](auto&& entry, auto&&) mutable {
+        cache->retrieve(m_parameters.request, globalID, m_parameters.isNavigatingToAppBoundDomain, m_parameters.allowPrivacyProxy, m_parameters.advancedPrivacyProtections, [weakThis = WeakPtr { *this }](auto&& entry, auto&&) mutable {
             CheckedPtr checkedThis = weakThis.get();
-            if (!checkedThis || m_isCancelled)
+            if (!checkedThis || checkedThis->m_isCancelled)
                 return;
 
             if (entry && !entry->needsValidation()) {
-                loadWithCacheEntry(*entry);
+                checkedThis->loadWithCacheEntry(*entry);
                 return;
             }
 
-            m_parameters.request.setCachePolicy(ResourceRequestCachePolicy::RefreshAnyCacheData);
+            checkedThis->m_parameters.request.setCachePolicy(ResourceRequestCachePolicy::RefreshAnyCacheData);
             if (entry) {
-                m_cacheEntry = WTFMove(entry);
+                checkedThis->m_cacheEntry = WTFMove(entry);
 
-                auto eTag = m_cacheEntry->response().httpHeaderField(HTTPHeaderName::ETag);
+                auto eTag = checkedThis->m_cacheEntry->response().httpHeaderField(HTTPHeaderName::ETag);
                 if (!eTag.isEmpty())
-                    m_parameters.request.setHTTPHeaderField(HTTPHeaderName::IfNoneMatch, eTag);
+                    checkedThis->m_parameters.request.setHTTPHeaderField(HTTPHeaderName::IfNoneMatch, eTag);
 
-                auto lastModified = m_cacheEntry->response().httpHeaderField(HTTPHeaderName::LastModified);
+                auto lastModified = checkedThis->m_cacheEntry->response().httpHeaderField(HTTPHeaderName::LastModified);
                 if (!lastModified.isEmpty())
-                    m_parameters.request.setHTTPHeaderField(HTTPHeaderName::IfModifiedSince, lastModified);
+                    checkedThis->m_parameters.request.setHTTPHeaderField(HTTPHeaderName::IfModifiedSince, lastModified);
             }
 
-            if (!m_session) {
-                didFailLoading(ResourceError { ResourceError::Type::Cancellation });
+            if (!checkedThis->m_session) {
+                checkedThis->didFailLoading(ResourceError { ResourceError::Type::Cancellation });
                 return;
             }
-            loadFromNetwork();
+            checkedThis->loadFromNetwork();
         });
         return;
     }
     loadFromNetwork();
 }
 
-ServiceWorkerNavigationPreloader::~ServiceWorkerNavigationPreloader()
-{
-}
+ServiceWorkerNavigationPreloader::~ServiceWorkerNavigationPreloader() = default;
 
 void ServiceWorkerNavigationPreloader::cancel()
 {
     m_isCancelled = true;
     if (m_responseCompletionHandler)
         m_responseCompletionHandler(PolicyAction::Ignore);
-    if (m_networkLoad)
-        m_networkLoad->cancel();
+    if (RefPtr networkLoad = m_networkLoad)
+        networkLoad->cancel();
 }
 
 void ServiceWorkerNavigationPreloader::loadWithCacheEntry(NetworkCache::Entry& entry)
@@ -119,10 +118,8 @@ void ServiceWorkerNavigationPreloader::loadWithCacheEntry(NetworkCache::Entry& e
         if (!weakThis || weakThis->m_isCancelled)
             return;
 
-        size_t size  = 0;
         if (body) {
-            size = body->size();
-            weakThis->didReceiveBuffer(body.releaseNonNull(), size);
+            weakThis->didReceiveBuffer(body.releaseNonNull());
             if (!weakThis)
                 return;
         }
@@ -130,7 +127,7 @@ void ServiceWorkerNavigationPreloader::loadWithCacheEntry(NetworkCache::Entry& e
         NetworkLoadMetrics networkLoadMetrics;
         networkLoadMetrics.markComplete();
         networkLoadMetrics.responseBodyBytesReceived = 0;
-        networkLoadMetrics.responseBodyDecodedSize = size;
+        networkLoadMetrics.responseBodyDecodedSize = 0;
         if (weakThis->shouldCaptureExtraNetworkLoadMetrics()) {
             auto additionalMetrics = WebCore::AdditionalNetworkLoadMetricsForWebInspector::create();
             additionalMetrics->requestHeaderBytesSent = 0;
@@ -151,8 +148,9 @@ void ServiceWorkerNavigationPreloader::loadFromNetwork()
     if (m_state.enabled)
         m_parameters.request.addHTTPHeaderField(HTTPHeaderName::ServiceWorkerNavigationPreload, m_state.headerValue);
 
-    m_networkLoad = NetworkLoad::create(*this, WTFMove(m_parameters), *m_session);
-    m_networkLoad->start();
+    Ref networkLoad = NetworkLoad::create(*this, WTFMove(m_parameters), CheckedRef { *m_session });
+    m_networkLoad = networkLoad.copyRef();
+    networkLoad->start();
 }
 
 void ServiceWorkerNavigationPreloader::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&&, ResourceResponse&& response, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
@@ -188,10 +186,10 @@ void ServiceWorkerNavigationPreloader::didReceiveResponse(ResourceResponse&& res
         callback();
 }
 
-void ServiceWorkerNavigationPreloader::didReceiveBuffer(const FragmentedSharedBuffer& buffer, uint64_t reportedEncodedDataLength)
+void ServiceWorkerNavigationPreloader::didReceiveBuffer(const FragmentedSharedBuffer& buffer)
 {
     if (m_bodyCallback)
-        m_bodyCallback(RefPtr { &buffer }, reportedEncodedDataLength);
+        m_bodyCallback(RefPtr { &buffer });
 }
 
 void ServiceWorkerNavigationPreloader::didFinishLoading(const NetworkLoadMetrics& networkLoadMetrics)
@@ -223,7 +221,7 @@ void ServiceWorkerNavigationPreloader::didComplete()
         responseCallback();
 
     if (bodyCallback)
-        bodyCallback({ }, 0);
+        bodyCallback({ });
 }
 
 void ServiceWorkerNavigationPreloader::waitForResponse(ResponseCallback&& callback)
@@ -244,7 +242,7 @@ void ServiceWorkerNavigationPreloader::waitForResponse(ResponseCallback&& callba
 void ServiceWorkerNavigationPreloader::waitForBody(BodyCallback&& callback)
 {
     if (!m_error.isNull() || !m_responseCompletionHandler) {
-        callback({ }, 0);
+        callback({ });
         return;
     }
 

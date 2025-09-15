@@ -4,7 +4,16 @@
       "id" : "D892CEF2-231D-4C64-A376-AEDAB5826889",
       "name" : "Test Scheme Action",
       "options" : {
-
+        "environmentVariableEntries" : [
+          {
+            "key" : "ICU_DATA",
+            "value" : "$(BUILT_PRODUCTS_DIR)\/icudt76l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
+          },
+          {
+            "key" : "ICU_BUILT_PRODUCTS_DIR",
+            "value" : "$(BUILT_PRODUCTS_DIR)"
+          }
+        ]
       }
     }
   ],
@@ -36,7 +45,7 @@
     "environmentVariableEntries" : [
       {
         "key" : "ICU_DATA",
-        "value" : "$(CONFIGURATION_BUILD_DIR)\/icudt76l.dat:$(CONFIGURATION_BUILD_DIR)\/testdata.dat"
+        "value" : "$(BUILT_PRODUCTS_DIR)\/icudt76l.dat:$(BUILT_PRODUCTS_DIR)\/testdata.dat"
       }
     ],
     "targetForVariableExpansion" : {
@@ -48,10 +57,6 @@
   "testTargets" : [
     {
       "parallelizable" : true,
-      "skippedTests" : [
-        "xc_intltest\/test_format",
-        "xc_intltest\/test_utility"
-      ],
       "target" : {
         "containerPath" : "container:ICU.xcodeproj",
         "identifier" : "DE587D572CBDB8A800946D2E",

@@ -22,6 +22,7 @@
 #include "JSTestDomainSecurity.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "CustomElementReactionQueue.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
@@ -185,7 +186,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestDomainSecurityConstructor, (JSGlobalObject* lexic
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestDomainSecurityPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestDomainSecurity::getConstructor(vm, prototype->globalObject()));
 }
@@ -218,11 +219,11 @@ static inline JSC::EncodedJSValue jsTestDomainSecurityPrototypeFunction_exciting
     if (!shouldAllowAccess)
         return JSValue::encode(jsUndefined());
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto nextChildConversionResult = convert<IDLInterface<Node>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "nextChild"_s, "TestDomainSecurity"_s, "excitingFunction"_s, "Node"_s); });
-    if (UNLIKELY(nextChildConversionResult.hasException(throwScope)))
+    if (nextChildConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.excitingFunction(*nextChildConversionResult.releaseReturnValue()); })));
 }
@@ -239,11 +240,11 @@ static inline JSC::EncodedJSValue jsTestDomainSecurityPrototypeFunction_postMess
     UNUSED_PARAM(throwScope);
     UNUSED_PARAM(callFrame);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
-    if (UNLIKELY(callFrame->argumentCount() < 1))
+    if (callFrame->argumentCount() < 1) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto messageConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(messageConversionResult.hasException(throwScope)))
+    if (messageConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.postMessage(messageConversionResult.releaseReturnValue()); })));
 }
@@ -263,7 +264,7 @@ static inline JSC::EncodedJSValue jsTestDomainSecurityPrototypeFunction_overload
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto paramConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(paramConversionResult.hasException(throwScope)))
+    if (paramConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.overloadedMethod(paramConversionResult.releaseReturnValue()); })));
 }
@@ -277,11 +278,11 @@ static inline JSC::EncodedJSValue jsTestDomainSecurityPrototypeFunction_overload
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = castedThis->wrapped();
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto param1ConversionResult = convert<IDLInterface<Node>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "param1"_s, "TestDomainSecurity"_s, "overloadedMethod"_s, "Node"_s); });
-    if (UNLIKELY(param1ConversionResult.hasException(throwScope)))
+    if (param1ConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
     auto param2ConversionResult = convert<IDLInterface<Node>>(*lexicalGlobalObject, argument1.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 1, "param2"_s, "TestDomainSecurity"_s, "overloadedMethod"_s, "Node"_s); });
-    if (UNLIKELY(param2ConversionResult.hasException(throwScope)))
+    if (param2ConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLUndefined>(*lexicalGlobalObject, throwScope, [&]() -> decltype(auto) { return impl.overloadedMethod(*param1ConversionResult.releaseReturnValue(), *param2ConversionResult.releaseReturnValue()); })));
 }
@@ -313,7 +314,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestDomainSecurityPrototypeFunction_overloadedMethod,
 
 JSC::GCClient::IsoSubspace* JSTestDomainSecurity::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestDomainSecurity, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestDomainSecurity, UseCustomHeapCellType::No>(vm, "JSTestDomainSecurity"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestDomainSecurity.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestDomainSecurity = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestDomainSecurity.get(); },
@@ -353,7 +354,9 @@ extern "C" { extern void (*const __identifier("??_7TestDomainSecurity@WebCore@@6
 #else
 extern "C" { extern void* _ZTVN7WebCore18TestDomainSecurityE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestDomainSecurity>, void>> static inline void verifyVTable(TestDomainSecurity* ptr) {
+template<std::same_as<TestDomainSecurity> T>
+static inline void verifyVTable(TestDomainSecurity* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

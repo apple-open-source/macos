@@ -34,7 +34,7 @@
 
 static bool withDataSourceAndEngine(CFErrorRef *error, void (^action)(SOSDataSourceRef ds, SOSEngineRef engine)) {
     bool ok = false;
-    SOSDataSourceFactoryRef dsf = SecItemDataSourceFactoryGetDefault();
+    SOSDataSourceFactoryRef dsf = SecItemServerDataSourceFactoryGetDefault();
     SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, error);
     if (ds) {
         SOSEngineRef engine = SOSDataSourceGetSharedEngine(ds, error);

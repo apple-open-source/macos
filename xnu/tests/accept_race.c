@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <darwintest.h>
 
+#include "net_test_lib.h"
+
 #define BASE_PORT 2020
 
 static int port = BASE_PORT;
@@ -84,4 +86,6 @@ T_DECL(accept_race,
 		sleep(1);
 	}
 	client();
+
+	force_zone_gc();
 }

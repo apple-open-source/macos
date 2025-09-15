@@ -43,12 +43,14 @@ struct progress_notify_stage_data {
 	uint64_t last_notify_timestamp;
 };
 
-static void
-progress_notify_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+progress_notify_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	struct progress_notify_stage_data *data = (struct progress_notify_stage_data*) stage->kos_data;
 
 	data->last_notify_timestamp = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -98,7 +100,7 @@ progress_notify_stage_initialize(struct kdp_output_stage *stage)
 
 	stage->kos_data_size = sizeof(struct progress_notify_stage_data);
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		printf("progress_notify_stage_initialize failed to allocate memory. Error 0x%x\n", ret);
 		return ret;

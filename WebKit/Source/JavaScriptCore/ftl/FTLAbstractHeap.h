@@ -141,7 +141,7 @@ public:
 private:
     const AbstractHeap& returnInitialized(AbstractHeap& field, ptrdiff_t index)
     {
-        if (UNLIKELY(!field.isInitialized()))
+        if (!field.isInitialized()) [[unlikely]]
             initialize(field, index);
         return field;
     }

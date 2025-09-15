@@ -35,6 +35,7 @@
 #include "WebProcess.h"
 #include <WebCore/CVUtilities.h>
 #include <WebCore/NativeImage.h>
+#include <WebCore/RealtimeAudioThread.h>
 #include <WebCore/VideoFrameCV.h>
 #include <WebCore/WebAudioBufferList.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -132,6 +133,17 @@ void RemoteCaptureSampleManager::removeSource(WebCore::RealtimeMediaSourceIdenti
     });
 }
 
+void RemoteCaptureSampleManager::audioSourceWillBeStopped(WebCore::RealtimeMediaSourceIdentifier identifier)
+{
+    ASSERT(WTF::isMainRunLoop());
+    m_queue->dispatch([this, protectedThis = Ref { *this }, identifier] {
+        auto iterator = m_audioSources.find(identifier);
+        if (iterator == m_audioSources.end())
+            return;
+        iterator->value->willBeStopped();
+    });
+}
+
 void RemoteCaptureSampleManager::didUpdateSourceConnection(IPC::Connection& connection)
 {
     ASSERT(WTF::isMainRunLoop());
@@ -144,7 +156,7 @@ void RemoteCaptureSampleManager::setVideoFrameObjectHeapProxy(RefPtr<RemoteVideo
     m_videoFrameObjectHeapProxy = WTFMove(proxy);
 }
 
-void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier identifier, ConsumerSharedCARingBuffer::Handle&& handle, const WebCore::CAAudioStreamDescription& description, IPC::Semaphore&& semaphore, const MediaTime& mediaTime, size_t frameChunkSize)
+void RemoteCaptureSampleManager::audioStorageChanged(WebCore::RealtimeMediaSourceIdentifier identifier, ConsumerSharedCARingBuffer::Handle&& handle, const WebCore::CAAudioStreamDescription& description, IPC::Semaphore&& semaphore, const MediaTime& mediaTime, uint64_t frameChunkSize)
 {
     ASSERT(!WTF::isMainRunLoop());
 
@@ -229,7 +241,8 @@ void RemoteCaptureSampleManager::RemoteAudio::startThread()
             m_source->remoteAudioSamplesAvailable(currentTime, *m_buffer, *m_description, m_frameChunkSize);
         } while (!m_shouldStopThread);
     };
-    m_thread = Thread::create("RemoteCaptureSampleManager::RemoteAudio thread"_s, WTFMove(threadLoop), ThreadType::Audio, Thread::QOS::UserInteractive);
+
+    m_thread = WebCore::createMaybeRealtimeAudioThread("RemoteCaptureSampleManager::RemoteAudio thread"_s, WTFMove(threadLoop), Seconds { m_frameChunkSize / m_description->sampleRate() });
 }
 
 void RemoteCaptureSampleManager::RemoteAudio::setStorage(ConsumerSharedCARingBuffer::Handle&& handle, const WebCore::CAAudioStreamDescription& description, IPC::Semaphore&& semaphore, const MediaTime& mediaTime, size_t frameChunkSize)
@@ -244,6 +257,7 @@ void RemoteCaptureSampleManager::RemoteAudio::setStorage(ConsumerSharedCARingBuf
     m_startTime = mediaTime;
     m_frameChunkSize = frameChunkSize;
     m_buffer = makeUnique<WebAudioBufferList>(description, m_frameChunkSize);
+    m_source->setDescription(description);
     startThread();
 }
 

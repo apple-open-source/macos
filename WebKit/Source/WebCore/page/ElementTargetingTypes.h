@@ -47,7 +47,7 @@ struct TargetedElementAdjustment {
 };
 
 struct TargetedElementRequest {
-    std::variant<FloatPoint, String, TargetedElementSelectors> data;
+    Variant<FloatPoint, String, TargetedElementSelectors> data;
     bool canIncludeNearbyElements { true };
     bool shouldIgnorePointerEventsNone { true };
 };

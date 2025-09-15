@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "SVGPropertyTraits.h"
 #include <wtf/TZoneMalloc.h>
 
@@ -32,6 +31,7 @@ namespace WebCore {
 
 class AffineTransform;
 class FloatRect;
+template<typename> class ExceptionOr;
 
 class SVGPreserveAspectRatioValue {
     WTF_MAKE_TZONE_ALLOCATED(SVGPreserveAspectRatioValue);

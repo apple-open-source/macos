@@ -32,6 +32,7 @@
 #include "RegistrableDomain.h"
 #include "SQLiteFileSystem.h"
 #include <wtf/DateMath.h>
+#include <wtf/FileHandle.h>
 #include <wtf/FileSystem.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -237,8 +238,6 @@ void CookieJarDB::flagDatabaseCorruption()
         return;
 
     auto handle = FileSystem::openFile(getCorruptionMarkerPath(), FileSystem::FileOpenMode::Truncate);
-    if (FileSystem::isHandleValid(handle))
-        FileSystem::closeFile(handle);
 }
 
 bool CookieJarDB::checkDatabaseCorruptionAndRemoveIfNeeded()

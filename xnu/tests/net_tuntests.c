@@ -89,9 +89,7 @@ static int g_OPT_GET_CHANNEL_UUID = -1;
 static int g_OPT_IFNAME = -1;
 static char *g_CONTROL_NAME = NULL;
 
-static int create_tunsock_old(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[]);
-static int create_tunsock_new(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[]);
-static int (*create_tunsock)(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[]);
+static int create_tunsock(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[]);
 
 static void
 setup_ipsec_test(void)
@@ -103,7 +101,6 @@ setup_ipsec_test(void)
 	g_OPT_GET_CHANNEL_UUID = IPSEC_OPT_GET_CHANNEL_UUID;
 	g_OPT_IFNAME = IPSEC_OPT_IFNAME;
 	g_CONTROL_NAME = IPSEC_CONTROL_NAME;
-	create_tunsock = create_tunsock_new;
 	g_is_ipsec_test = true;
 }
 
@@ -117,7 +114,6 @@ setup_utun_test(void)
 	g_OPT_GET_CHANNEL_UUID = UTUN_OPT_GET_CHANNEL_UUID;
 	g_OPT_IFNAME = UTUN_OPT_IFNAME;
 	g_CONTROL_NAME = UTUN_CONTROL_NAME;
-	create_tunsock = create_tunsock_old;
 	g_is_utun_test = true;
 }
 
@@ -398,159 +394,10 @@ create_sa(const char ifname[IFXNAMSIZ], uint8_t type, uint32_t spi, struct in_ad
 	T_QUIET; T_EXPECT_EQ(slen, (ssize_t)sizeof(addcmd), NULL);
 }
 
-/* This version of the test expects channels to be enabled after connect.
- * Once the utun driver is converted, switch to create_tunsock_new
- */
-static int
-create_tunsock_old(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[])
-{
-	int tunsock;
-	struct ctl_info kernctl_info;
-	struct sockaddr_ctl kernctl_addr;
-	uuid_t scratchuuid[channel_count];
-	if (!uuid) {
-		uuid = scratchuuid;
-	}
-	socklen_t uuidlen;
-
-startover:
-
-	T_QUIET; T_EXPECT_POSIX_SUCCESS(tunsock = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL), NULL);
-
-	memset(&kernctl_info, 0, sizeof(kernctl_info));
-	strlcpy(kernctl_info.ctl_name, g_CONTROL_NAME, sizeof(kernctl_info.ctl_name));
-	T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(ioctl(tunsock, CTLIOCGINFO, &kernctl_info), NULL);
-
-	memset(&kernctl_addr, 0, sizeof(kernctl_addr));
-	kernctl_addr.sc_len = sizeof(kernctl_addr);
-	kernctl_addr.sc_family = AF_SYSTEM;
-	kernctl_addr.ss_sysaddr = AF_SYS_CONTROL;
-	kernctl_addr.sc_id = kernctl_info.ctl_id;
-	kernctl_addr.sc_unit = 0;
-
-	T_LOG("%s: enable_netif = %d, enable_flowswitch = %d, channel_count = %d",
-	    __func__, enable_netif, enable_flowswitch, channel_count);
-
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_NETIF,
-	    &enable_netif, sizeof(enable_netif)), EINVAL, NULL);
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_FLOWSWITCH,
-	    &enable_flowswitch, sizeof(enable_flowswitch)), EINVAL, NULL);
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_CHANNEL,
-	    &channel_count, sizeof(channel_count)), EINVAL, NULL);
-	for (int i = 0; i < channel_count; i++) {
-		uuid_clear(uuid[i]);
-	}
-	uuidlen = sizeof(uuid_t) * (unsigned int)channel_count;
-	T_QUIET; T_EXPECT_POSIX_FAILURE(getsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_GET_CHANNEL_UUID,
-	    uuid, &uuidlen), EINVAL, NULL);
-	T_QUIET; T_EXPECT_EQ_ULONG((unsigned long)uuidlen, sizeof(uuid_t) * (unsigned long)channel_count, NULL);
-	for (int i = 0; i < channel_count; i++) {
-		T_QUIET; T_EXPECT_TRUE(uuid_is_null(uuid[i]), NULL);
-	}
-
-	T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(bind(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr)), NULL);
-
-	T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_NETIF,
-	    &enable_netif, sizeof(enable_netif)), NULL);
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_FLOWSWITCH,
-	    &enable_flowswitch, sizeof(enable_flowswitch)), EINVAL, NULL);
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_CHANNEL,
-	    &channel_count, sizeof(channel_count)), EINVAL, NULL);
-	for (int i = 0; i < channel_count; i++) {
-		uuid_clear(uuid[i]);
-	}
-	uuidlen = sizeof(uuid_t) * (unsigned int)channel_count;
-	T_QUIET; T_EXPECT_POSIX_FAILURE(getsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_GET_CHANNEL_UUID,
-	    uuid, &uuidlen), ENXIO, NULL);
-	T_QUIET; T_EXPECT_EQ_ULONG((unsigned long)uuidlen, sizeof(uuid_t) * (unsigned long)channel_count, NULL);
-	for (int i = 0; i < channel_count; i++) {
-		T_QUIET; T_EXPECT_TRUE(uuid_is_null(uuid[i]), NULL);
-	}
-
-	int error = connect(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr));
-	if (error == -1 && errno == EBUSY) {
-		/* XXX remove this retry nonsense when this is fixed:
-		 * <rdar://problem/37340313> creating an interface without specifying specific interface name should not return EBUSY
-		 */
-		close(tunsock);
-		T_LOG("connect got EBUSY, sleeping 1 second before retry");
-		sleep(1);
-		goto startover;
-	}
-	T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(error, "connect()");
-
-	T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_NETIF,
-	    &enable_netif, sizeof(enable_netif)), EINVAL, NULL);
-
-	if (is_netagent_enabled()) {
-		if (enable_netif) {
-			T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_FLOWSWITCH,
-			    &enable_flowswitch, sizeof(enable_flowswitch)), NULL);
-		} else {
-			T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_FLOWSWITCH,
-			    &enable_flowswitch, sizeof(enable_flowswitch)), ENOENT, NULL);
-		}
-	} else {
-		T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_FLOWSWITCH,
-		    &enable_flowswitch, sizeof(enable_flowswitch)), ENOTSUP, NULL);
-	}
-
-	if (channel_count) {
-		if (g_is_ipsec_test && !enable_netif) {
-			/* ipsec doesn't support channels without a netif */
-			T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_CHANNEL,
-			    &channel_count, sizeof(channel_count)), EOPNOTSUPP, NULL);
-			for (int i = 0; i < channel_count; i++) {
-				uuid_clear(uuid[i]);
-			}
-			uuidlen = sizeof(uuid_t) * (unsigned int)channel_count;
-			T_QUIET; T_EXPECT_POSIX_FAILURE(getsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_GET_CHANNEL_UUID,
-			    uuid, &uuidlen), ENXIO, NULL);
-			T_QUIET; T_EXPECT_EQ_ULONG((unsigned long)uuidlen, sizeof(uuid_t) * (unsigned long)channel_count, NULL);
-			for (int i = 0; i < channel_count; i++) {
-				T_QUIET; T_EXPECT_TRUE(uuid_is_null(uuid[i]), NULL);
-			}
-		} else {
-			T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_CHANNEL,
-			    &channel_count, sizeof(channel_count)), NULL);
-			for (int i = 0; i < channel_count; i++) {
-				uuid_clear(uuid[i]);
-			}
-			uuidlen = sizeof(uuid_t) * (unsigned int)channel_count;
-			T_QUIET; T_WITH_ERRNO; T_EXPECT_POSIX_ZERO(getsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_GET_CHANNEL_UUID,
-			    uuid, &uuidlen), NULL);
-			T_QUIET; T_EXPECT_EQ_ULONG((unsigned long)uuidlen, sizeof(uuid_t) * (unsigned long)channel_count, NULL);
-			for (int i = 0; i < channel_count; i++) {
-				T_QUIET; T_EXPECT_FALSE(uuid_is_null(uuid[i]), NULL);
-			}
-		}
-	} else {
-		T_QUIET; T_EXPECT_POSIX_FAILURE(setsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_ENABLE_CHANNEL,
-		    &channel_count, sizeof(channel_count)), ENXIO, NULL);
-		for (int i = 0; i < channel_count; i++) {
-			uuid_clear(uuid[i]);
-		}
-		uuidlen = sizeof(uuid_t) * (unsigned int)channel_count;
-		T_QUIET; T_EXPECT_POSIX_FAILURE(getsockopt(tunsock, SYSPROTO_CONTROL, g_OPT_GET_CHANNEL_UUID,
-		    uuid, &uuidlen), ENXIO, NULL);
-		T_QUIET; T_EXPECT_EQ_ULONG((unsigned long)uuidlen, sizeof(uuid_t) * (unsigned long)channel_count, NULL);
-		for (int i = 0; i < channel_count; i++) {
-			T_QUIET; T_EXPECT_TRUE(uuid_is_null(uuid[i]), NULL);
-		}
-	}
-
-	check_enables(tunsock, enable_netif, enable_flowswitch, channel_count, uuid);
-
-	//T_LOG("Returning tunsock %d", tunsock);
-
-	return tunsock;
-}
-
 /* This version of the test expects channels to be enabled before connect
- * Once the utun driver is converted, rename this to just create_tunsock
  */
 static int
-create_tunsock_new(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[])
+create_tunsock(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[])
 {
 	int tunsock;
 	struct ctl_info kernctl_info;
@@ -694,8 +541,6 @@ startover:
 
 	return tunsock;
 }
-
-static int (*create_tunsock)(int enable_netif, int enable_flowswitch, int channel_count, uuid_t uuid[]) = create_tunsock_new;
 
 #if 0
 static void

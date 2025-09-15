@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (C) 1999-2009, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 **********************************************************************
  *
  *

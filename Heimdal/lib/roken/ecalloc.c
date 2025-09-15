@@ -42,6 +42,17 @@
  * Like calloc but never fails.
  */
 
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL
+ecalloc_typed (size_t number, size_t size, malloc_type_id_t type_id)
+{
+    void *tmp = malloc_type_calloc (number, size, type_id);
+
+    if (tmp == NULL && number * size != 0)
+	errx (1, "calloc %lu failed", (unsigned long)number * size);
+    return tmp;
+}
+#else //defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL
 ecalloc (size_t number, size_t size)
 {
@@ -51,3 +62,4 @@ ecalloc (size_t number, size_t size)
 	errx (1, "calloc %lu failed", (unsigned long)number * size);
     return tmp;
 }
+#endif //defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED

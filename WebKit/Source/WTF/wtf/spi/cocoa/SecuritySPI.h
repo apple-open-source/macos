@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if USE(APPLE_INTERNAL_SDK)
 
 #include <Security/SecAccessControlPriv.h>
@@ -58,7 +60,7 @@ enum {
     kSecSignatureHashAlgorithmMD4 = 2,
     kSecSignatureHashAlgorithmMD5 = 3,
     kSecSignatureHashAlgorithmSHA1 = 4,
-    kSecSignatureHashAlgorithmSHA224 = 5,
+    DeprecatedKSecSignatureHashAlgorithmSHA224 = 5,
     kSecSignatureHashAlgorithmSHA256 = 6,
     kSecSignatureHashAlgorithmSHA384 = 7,
     kSecSignatureHashAlgorithmSHA512 = 8
@@ -67,7 +69,7 @@ enum {
 WTF_EXTERN_C_BEGIN
 
 #if !__has_include(<Security/CSCommon.h>)
-typedef struct __SecCode const *SecStaticCodeRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecCode const *SecStaticCodeRef;
 
 typedef uint32_t SecCSFlags;
 enum {
@@ -83,7 +85,7 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef, SecCSFlags, CFDictionar
 #endif
 
 #if PLATFORM(MAC)
-OSStatus SecTrustedApplicationCreateFromPath(const char* path, SecTrustedApplicationRef*);
+OSStatus SecTrustedApplicationCreateFromPath(const char* path, SecTrustedApplicationRef * CF_RETURNS_RETAINED);
 #endif
 
 SecSignatureHashAlgorithm SecCertificateGetSignatureHashAlgorithm(SecCertificateRef);
@@ -95,8 +97,8 @@ WTF_EXTERN_C_END
 
 #endif // USE(APPLE_INTERNAL_SDK)
 
-typedef struct __SecTask *SecTaskRef;
-typedef struct __SecTrust *SecTrustRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecTask *SecTaskRef;
+typedef struct CF_BRIDGED_TYPE(id) __SecTrust *SecTrustRef;
 
 WTF_EXTERN_C_BEGIN
 

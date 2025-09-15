@@ -70,6 +70,7 @@ class TZoneHeapManager {
         unsigned usedBucketBitmap;
         Vector<unsigned> bucketUseCounts;
 #endif
+        TZoneBucket nonCompactBucket;
         TZoneBucket buckets[1];
     };
 

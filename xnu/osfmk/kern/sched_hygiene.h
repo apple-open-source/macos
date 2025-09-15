@@ -76,6 +76,9 @@ extern machine_timeout_t stackshot_interrupt_masked_timeout;
 extern bool sched_hygiene_nonspec_tb;
 
 #define ml_get_sched_hygiene_timebase() (sched_hygiene_nonspec_tb ? ml_get_timebase() : ml_get_speculative_timebase())
+#define ml_use_sched_hygiene_nonspec_timebase() (sched_hygiene_nonspec_tb)
+#define ML_TIMEOUT_TIMEBASE_FLAGS (ml_use_sched_hygiene_nonspec_timebase() ? TF_NONSPEC_TIMEBASE : 0)
+#define ML_TIMEOUT_PMC_FLAGS (static_if(sched_debug_pmc) ? TF_SAMPLE_PMC : 0)
 
 extern bool kprintf_spam_mt_pred(struct machine_timeout_spec const *spec);
 

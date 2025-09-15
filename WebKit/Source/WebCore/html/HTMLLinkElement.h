@@ -57,6 +57,11 @@ public:
     URL href() const;
     WEBCORE_EXPORT const AtomString& rel() const;
 
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    URL environmentMap() const;
+    bool isSpatialBackdrop() const { return m_relAttribute.isSpatialBackdrop; }
+#endif
+
     AtomString target() const final;
 
     const AtomString& type() const;
@@ -73,9 +78,7 @@ public:
 
     WEBCORE_EXPORT bool mediaAttributeMatches() const;
 
-    WEBCORE_EXPORT void setCrossOrigin(const AtomString&);
     WEBCORE_EXPORT String crossOrigin() const;
-    WEBCORE_EXPORT void setAs(const AtomString&);
     WEBCORE_EXPORT String as() const;
 
     void dispatchPendingEvent(LinkEventSender*, const AtomString& eventType);
@@ -90,11 +93,9 @@ public:
 
     void allowPrefetchLoadAndErrorForTesting() { m_allowPrefetchLoadAndErrorForTesting = true; }
 
-    void setReferrerPolicyForBindings(const AtomString&);
     String referrerPolicyForBindings() const;
     ReferrerPolicy referrerPolicy() const;
 
-    void setFetchPriorityForBindings(const AtomString&);
     String fetchPriorityForBindings() const;
     RequestPriority fetchPriority() const;
 
@@ -162,9 +163,12 @@ private:
     String m_media;
     String m_integrityMetadataForPendingSheetRequest;
     URL m_url;
-    std::unique_ptr<DOMTokenList> m_sizes;
-    std::unique_ptr<DOMTokenList> m_relList;
-    std::unique_ptr<DOMTokenList> m_blockingList;
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    URL m_environmentMapURL;
+#endif
+    const std::unique_ptr<DOMTokenList> m_sizes;
+    const std::unique_ptr<DOMTokenList> m_relList;
+    const std::unique_ptr<DOMTokenList> m_blockingList;
     std::unique_ptr<ExpectIdTargetObserver> m_expectIdTargetObserver;
     DisabledState m_disabledState;
     LinkRelAttribute m_relAttribute;

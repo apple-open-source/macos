@@ -22,6 +22,7 @@
 #include "JSExposedToWorkerAndWindow.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -56,7 +57,7 @@ template<> ConversionResult<IDLDictionary<ExposedToWorkerAndWindow::Dict>> conve
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -70,7 +71,7 @@ template<> ConversionResult<IDLDictionary<ExposedToWorkerAndWindow::Dict>> conve
     }
     if (!objValue.isUndefined()) {
         auto objConversionResult = convert<IDLInterface<TestObj>>(lexicalGlobalObject, objValue);
-        if (UNLIKELY(objConversionResult.hasException(throwScope)))
+        if (objConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.obj = objConversionResult.releaseReturnValue();
     }
@@ -223,7 +224,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsExposedToWorkerAndWindowConstructor, (JSGlobalObject*
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSExposedToWorkerAndWindowPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSExposedToWorkerAndWindow::getConstructor(vm, prototype->globalObject()));
 }
@@ -245,7 +246,7 @@ JSC_DEFINE_HOST_FUNCTION(jsExposedToWorkerAndWindowPrototypeFunction_doSomething
 
 JSC::GCClient::IsoSubspace* JSExposedToWorkerAndWindow::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSExposedToWorkerAndWindow, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSExposedToWorkerAndWindow, UseCustomHeapCellType::No>(vm, "JSExposedToWorkerAndWindow"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForExposedToWorkerAndWindow.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForExposedToWorkerAndWindow = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForExposedToWorkerAndWindow.get(); },
@@ -285,7 +286,9 @@ extern "C" { extern void (*const __identifier("??_7ExposedToWorkerAndWindow@WebC
 #else
 extern "C" { extern void* _ZTVN7WebCore24ExposedToWorkerAndWindowE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, ExposedToWorkerAndWindow>, void>> static inline void verifyVTable(ExposedToWorkerAndWindow* ptr) {
+template<std::same_as<ExposedToWorkerAndWindow> T>
+static inline void verifyVTable(ExposedToWorkerAndWindow* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

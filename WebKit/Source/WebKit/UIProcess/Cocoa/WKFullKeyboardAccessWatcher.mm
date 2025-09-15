@@ -29,6 +29,7 @@
 #if ENABLE(FULL_KEYBOARD_ACCESS)
 
 #import "WebProcessPool.h"
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "AccessibilitySupportSPI.h"
@@ -86,27 +87,27 @@ static inline BOOL platformIsFullKeyboardAccessEnabled()
 
     [self retrieveKeyboardUIModeFromPreferences:nil];
 
-    NSNotificationCenter *notificationCenter = nil;
-    NSString *notitificationName = nil;
+    RetainPtr<NSNotificationCenter> notificationCenter;
+    RetainPtr<NSString> notitificationName;
     
 #if PLATFORM(MAC)
     notificationCenter = [NSDistributedNotificationCenter defaultCenter];
     notitificationName = KeyboardUIModeDidChangeNotification;
 #elif PLATFORM(IOS_FAMILY)
     notificationCenter = [NSNotificationCenter defaultCenter];
-    notitificationName = (NSString *)kAXSFullKeyboardAccessEnabledNotification;
+    notitificationName = bridge_cast(kAXSFullKeyboardAccessEnabledNotification);
 #endif
     
     if (notitificationName)
-        [notificationCenter addObserver:self selector:@selector(retrieveKeyboardUIModeFromPreferences:) name:notitificationName object:nil];
+        [notificationCenter addObserver:self selector:@selector(retrieveKeyboardUIModeFromPreferences:) name:notitificationName.get() object:nil];
 
     return self;
 }
 
 + (BOOL)fullKeyboardAccessEnabled
 {
-    static WKFullKeyboardAccessWatcher *watcher = [[WKFullKeyboardAccessWatcher alloc] init];
-    return watcher->fullKeyboardAccessEnabled;
+    static NeverDestroyed<RetainPtr<WKFullKeyboardAccessWatcher>> watcher = adoptNS([[WKFullKeyboardAccessWatcher alloc] init]);
+    return watcher.get()->fullKeyboardAccessEnabled;
 }
 
 @end

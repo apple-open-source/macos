@@ -28,9 +28,9 @@
 
 #include "DisplayCapturePromptType.h"
 #include <wtf/CompletionHandler.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/RunLoop.h>
-#include <wtf/WeakPtr.h>
 
 OBJC_CLASS NSError;
 OBJC_CLASS SCContentFilter;
@@ -94,13 +94,12 @@ private:
     CleanupFunction m_cleanupFunction;
 };
 
-class ScreenCaptureKitSharingSessionManager : public CanMakeWeakPtr<ScreenCaptureKitSharingSessionManager> {
+class ScreenCaptureKitSharingSessionManager : public RefCountedAndCanMakeWeakPtr<ScreenCaptureKitSharingSessionManager> {
 public:
     WEBCORE_EXPORT static ScreenCaptureKitSharingSessionManager& singleton();
     WEBCORE_EXPORT static bool isAvailable();
     WEBCORE_EXPORT static bool useSCContentSharingPicker();
 
-    ScreenCaptureKitSharingSessionManager();
     ~ScreenCaptureKitSharingSessionManager();
 
     void sharingSessionDidChangeContent(SCContentSharingSession*);
@@ -121,6 +120,8 @@ public:
     void cleanupSharingSession(SCContentSharingSession*);
 
 private:
+    ScreenCaptureKitSharingSessionManager();
+
     void cleanupAllSessions();
     void completeDeviceSelection(SCContentFilter*, SCContentSharingSession* = nullptr);
 

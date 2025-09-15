@@ -41,6 +41,9 @@ typedef struct lib_fsck_ctx_t {
     fsck_exfat_print_msg_num_func_t print_msg_num;
     fsck_ctx_t messages_context;
     fsck_exfat_print_debug_func_t print_debug;
+    fsck_hfs_check_start_func_t check_start;
+    fsck_hfs_check_update_func_t check_update;
+    fsck_hfs_check_done_func_t check_done;
 } lib_fsck_ctx_t;
 
 typedef struct fsck_state {
@@ -101,9 +104,9 @@ void fsck_debug_print(lib_fsck_ctx_t c, int type, const char *fmt, ...);
 /*
  * Routines from check.c
  */
-void    start_progress(void);
-void    draw_progress(int);
-void    end_progress(void);
+void    start_progress(const char* dev_name, const char* volume_name);
+void    draw_progress(int pct);
+void    end_progress(int err);
 void    DumpData(const void *ptr, size_t sz, char *label);
 int     CheckHFS(const char *rdevnode, int fsReadRef, int fsWriteRef,
                  int checkLevel, int repairLevel,

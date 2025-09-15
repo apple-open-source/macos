@@ -32,7 +32,7 @@ namespace WebCore {
 
 String systemMarketingVersionForUserAgentString()
 {
-    // Use underscores instead of dots because when we first added the Mac OS X version to the user agent string
+    // Use underscores instead of dots because when we first added the macOS version to the user agent string
     // we were concerned about old DHTML libraries interpreting "4." as Netscape 4. That's no longer a concern for us
     // but we're sticking with the underscores for compatibility with the format used by older versions of Safari.
     return [systemMarketingVersion() stringByReplacingOccurrencesOfString:@"." withString:@"_"];

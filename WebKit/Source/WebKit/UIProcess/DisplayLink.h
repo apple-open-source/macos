@@ -48,6 +48,17 @@
 struct wpe_playstation_display;
 #endif
 
+namespace WTF {
+#if PLATFORM(MAC)
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+template<> struct DefaultRefDerefTraits<__CVDisplayLink> {
+    static CVDisplayLinkRef refIfNotNull(CVDisplayLinkRef displayLink) { return CVDisplayLinkRetain(displayLink); }
+    static void derefIfNotNull(CVDisplayLinkRef displayLink) { CVDisplayLinkRelease(displayLink); }
+};
+ALLOW_DEPRECATED_DECLARATIONS_END
+#endif // PLATFORM(MAC)
+}
+
 namespace WebKit {
 
 class DisplayLink {
@@ -109,11 +120,11 @@ private:
 
     struct ClientInfo {
         unsigned fullSpeedUpdatesClientCount { 0 };
-        Vector<ObserverInfo> observers;
+        Vector<ObserverInfo, 1> observers;
     };
 
 #if PLATFORM(MAC)
-    CVDisplayLinkRef m_displayLink { nullptr };
+    RefPtr<__CVDisplayLink> m_displayLink;
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::unique_ptr<DisplayVBlankMonitor> m_vblankMonitor;

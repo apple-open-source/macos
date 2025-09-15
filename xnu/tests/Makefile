@@ -43,10 +43,14 @@ include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
 OTHER_CFLAGS  = -Wall
 OTHER_CFLAGS += -Wno-deprecated-declarations
+OTHER_CFLAGS += -Werror=excess-initializers
 OTHER_CFLAGS += -Wno-c2x-extensions
+OTHER_CFLAGS += -Werror=excess-initializers
 OTHER_CFLAGS += --std=gnu17 -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 OTHER_CFLAGS += -UT_NAMESPACE_PREFIX -DT_NAMESPACE_PREFIX=xnu -DT_LEAKS_DISABLE=1
 OTHER_CFLAGS += -F $(SDKROOT)/System/Library/PrivateFrameworks
+
+ipc/%: OTHER_CFLAGS += -Wno-format-pedantic $(WERROR)
 
 
 CODESIGN:=$(shell xcrun -sdk "$(TARGETSDK)" -find codesign)
@@ -97,6 +101,9 @@ INCLUDED_TEST_SOURCE_DIRS += sched
 include sched/Makefile
 
 # Miscellaneous Tests
+
+mach_eventlink: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS)
+mach_eventlink: $(SCHED_UTILS)
 
 signal_exit_reason: CODE_SIGN_ENTITLEMENTS = signal_exit_reason.entitlements
 
@@ -155,9 +162,44 @@ corpse_backtrace: OTHER_CFLAGS += $(OBJROOT)/excserver_backtrace.c
 corpse_backtrace: OTHER_CFLAGS += -I $(OBJROOT)
 corpse_backtrace: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 
+# Tests that use exc_guard_helper.h should add all of the build options used by exc_guard_helper_test:
+# - additional C files exc_guard_helper.c and exc_helpers.c and test_utils.c
+# - additional library darwintest_utils
+# - excserver MIG-generated file
+# - entitlement to allow thread_set_exception_ports()
+exc_guard_helper_test: exc_guard_helper.c exc_helpers.c test_utils.c excserver
+exc_guard_helper_test: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+exc_guard_helper_test: OTHER_LDFLAGS += -ldarwintest_utils
+exc_guard_helper_test: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+
+EXCLUDED_SOURCES += exc_guard_helper.c
+
+exc_guard_helper_test_unexpected: exc_guard_helper.c exc_helpers.c test_utils.c excserver
+exc_guard_helper_test_unexpected: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+exc_guard_helper_test_unexpected: OTHER_LDFLAGS += -ldarwintest_utils
+exc_guard_helper_test_unexpected: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+
+# Tests that use try_read_write.h should add all of the build options used by try_read_write_test:
+# - additional C files try_read_write.c and exc_helpers.c
+# - excserver MIG-generated file
+# - entitlement to allow thread_set_exception_ports()
+try_read_write_test: try_read_write.c exc_helpers.c excserver
+try_read_write_test: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+try_read_write_test: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+
+EXCLUDED_SOURCES += try_read_write.c
+
+try_read_write_test_unexpected: try_read_write.c exc_helpers.c excserver
+try_read_write_test_unexpected: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+try_read_write_test_unexpected: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+
 vm/corpse_owned_vmobjects: excserver_protect_state
 vm/corpse_owned_vmobjects: OTHER_CFLAGS += $(OBJROOT)/excserver_protect_state.c -I $(OBJROOT)
 vm/corpse_owned_vmobjects: CODE_SIGN_ENTITLEMENTS += vm/corpse_owned_vmobjects.entitlements
+
+vm_test_mach_map: try_read_write.c exc_helpers.c excserver
+vm_test_mach_map: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+vm_test_mach_map: CODE_SIGN_ENTITLEMENTS = ./vm_test_mach_map.plist
 
 OTHER_TEST_TARGETS += vm/vm_parameter_validation
 
@@ -303,6 +345,34 @@ ipc/sys_perf_notify_test: excserver_protect_state
 ipc/sys_perf_notify_test: OTHER_CFLAGS += $(OBJROOT)/excserver_protect_state.c -I $(OBJROOT)
 ipc/sys_perf_notify_test: CODE_SIGN_ENTITLEMENTS=entitlements/sys_perf_notify_test.entitlements
 
+ipc/port_type_policy: CODE_SIGN_ENTITLEMENTS = entitlements/port_type_policy.entitlements
+ipc/port_type_policy: OTHER_CFLAGS += -I $(OBJROOT)
+ipc/port_type_policy: ipc/port_type_policy.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(OTHER_CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$(filter-out $(CUSTOM_TARGETS), $^) -o $(SYMROOT)/$@
+	$(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
+
+EXCLUDED_SOURCES += posix_sem_namespace_helper.c
+CUSTOM_TARGETS   += posix_sem_namespace_helper_team0 posix_sem_namespace_helper_team1
+posix_sem_namespace_helper_team0: posix_sem_namespace_helper.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) --force --sign - --timestamp=none --team-identifier "PSXSEMT0" $(SYMROOT)/$@
+posix_sem_namespace_helper_team1: posix_sem_namespace_helper.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
+	$^ -o $(SYMROOT)/$@
+	$(CODESIGN) --force --sign - --timestamp=none --team-identifier "PSXSEMT1" $(SYMROOT)/$@
+
+install-posix_sem_namespace_helper_team0: posix_sem_namespace_helper_team0
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/posix_sem_namespace_helper_team0 $(INSTALLDIR)/
+install-posix_sem_namespace_helper_team1: posix_sem_namespace_helper_team1
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/posix_sem_namespace_helper_team1 $(INSTALLDIR)/
+
+posix_sem: posix_sem_namespace_helper_team0 posix_sem_namespace_helper_team1
+posix_sem: OTHER_LDFLAGS += -ldarwintest_utils
+
 
 posix_spawnattr_set_crash_behavior_np: posix_spawnattr_set_crash_behavior_np_child
 posix_spawnattr_set_crash_behavior_np: CODE_SIGN_ENTITLEMENTS = posix_spawnattr_set_crash_behavior_np_entitlements.plist
@@ -371,6 +441,8 @@ install-kqworkloop_limits_client: kqworkloop_limits_client
 
 ipc/task_name_for_pid: CODE_SIGN_ENTITLEMENTS = ipc/task_name_for_pid_entitlement.plist
 
+ipc/mach_msg_transport: CODE_SIGN_ENTITLEMENTS = entitlements/create_conn_port_with_port_array.entitlements
+
 fd_table_limits: rnserver
 fd_table_limits: OTHER_CFLAGS += $(OBJROOT)/rnServer.c -I $(OBJROOT)
 fd_table_limits: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
@@ -406,7 +478,7 @@ imm_pinned_control_port_crasher: imm_pinned_control_port_crasher.c cs_helpers.c
 	$^ -o $(SYMROOT)/$@
 	$(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
 
-imm_pinned_control_port_crasher_3P_hardened: CODE_SIGN_ENTITLEMENTS = entitlements/hardened-binary-entitlements-1.plist
+imm_pinned_control_port_crasher_3P_hardened: CODE_SIGN_ENTITLEMENTS = entitlements/enhanced-security-binary-entitlements-1.plist
 imm_pinned_control_port_crasher_3P_hardened: imm_pinned_control_port_crasher.c cs_helpers.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$^ -o $(SYMROOT)/$@
@@ -429,12 +501,14 @@ reply_port_defense: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
 reply_port_defense: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 reply_port_defense: reply_port_defense_client reply_port_defense_client_3P_hardened
 
+reply_port_defense_client: CODE_SIGN_ENTITLEMENTS=exception_tests.entitlements
+reply_port_defense_client: OTHER_LDFLAGS += -ldarwintest_utils -lpthread
 reply_port_defense_client: reply_port_defense_client.c cs_helpers.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$^ -o $(SYMROOT)/$@
-	$(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@
+	$(CODESIGN) --force --sign - --entitlements $(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@
 
-reply_port_defense_client_3P_hardened: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-binary-entitlements-1.plist
+reply_port_defense_client_3P_hardened: CODE_SIGN_ENTITLEMENTS=entitlements/enhanced-security-binary-entitlements-1.plist
 reply_port_defense_client_3P_hardened: reply_port_defense_client.c cs_helpers.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) -I$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders \
 	$^ -o $(SYMROOT)/$@
@@ -460,7 +534,7 @@ OTHER_TEST_TARGETS += net_no_bounds_safety
 
 host_statistics_rate_limiting: cs_helpers.c host_statistics_rate_limiting.c
 
-EXCLUDED_SOURCES += drop_priv.c xnu_quick_test_helpers.c memorystatus_assertion_helpers.c bpflib.c in_cksum.c test_utils.c inet_transfer.c net_test_lib.c cs_helpers.c
+EXCLUDED_SOURCES += drop_priv.c xnu_quick_test_helpers.c memorystatus_assertion_helpers.c bpflib.c in_cksum.c test_utils.c inet_transfer.c net_test_lib.c cs_helpers.c vsock_helpers.c
 
 ifneq ($(IOS_TEST_COMPAT),YES)
 EXCLUDED_SOURCES += jumbo_va_spaces_28530648.c perf_compressor.c vm/ios13extended_footprint.c vm/entitlement_internal_bands.c
@@ -792,6 +866,11 @@ INCLUDED_TEST_SOURCE_DIRS += ipc rm workq
 
 include vm/Makefile
 
+vm/vm_stress: OTHER_CXXFLAGS += -std=c++20
+vm/vm_stress: OTHER_LDFLAGS += -ldarwintest_utils
+vm/vm_stress: INVALID_ARCHS = x86_64h
+
+
 big_map_test: CODE_SIGN_ENTITLEMENTS = ./big_map_test_entitlement.plist
 
 task_info_28439149: CODE_SIGN_ENTITLEMENTS = ./task_for_pid_entitlement.plist
@@ -802,6 +881,7 @@ ipc/ipc_thread_ports_race: CODE_SIGN_ENTITLEMENTS = ./task_for_pid_entitlement.p
 ipc/ipc_thread_ports_race: OTHER_LDFLAGS += -ldarwintest_utils
 
 rm/pthread_setugid: OTHER_LDFLAGS += -ldarwintest_utils
+rm/coalition_info_resource_usage: OTHER_LDFLAGS += -ldarwintest_utils
 
 proc_info: recount/recount_test_utils.c
 proc_info: CODE_SIGN_ENTITLEMENTS = ./task_for_pid_entitlement.plist
@@ -813,12 +893,12 @@ proc_info_44873309: CODE_SIGN_ENTITLEMENTS = ./proc_info_44873309.entitlements
 
 disk_mount_conditioner: disk_mount_conditioner*
 disk_mount_conditioner: CODE_SIGN_ENTITLEMENTS=./disk_mount_conditioner-entitlements.plist
-disk_mount_conditioner: OTHER_LDFLAGS += -ldarwintest_utils
+disk_mount_conditioner: OTHER_LDFLAGS += -ldarwintest_utils -framework Foundation
 
 disk_mount_conditioner: OTHER_TEST_TARGETS += disk_mount_conditioner_unentitled
 disk_mount_conditioner_unentitled: OTHER_CFLAGS += -DTEST_UNENTITLED
-disk_mount_conditioner_unentitled: OTHER_LDFLAGS += -ldarwintest_utils
-disk_mount_conditioner_unentitled: disk_mount_conditioner.c
+disk_mount_conditioner_unentitled: OTHER_LDFLAGS += -ldarwintest_utils -framework Foundation
+disk_mount_conditioner_unentitled: disk_mount_conditioner.m
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
 
 work_interval_test: CODE_SIGN_ENTITLEMENTS = work_interval_test.entitlements
@@ -830,8 +910,11 @@ work_interval_data_test: OTHER_LDFLAGS += -lpthread
 
 game_mode: CODE_SIGN_ENTITLEMENTS = game_mode.entitlements
 carplay_mode: CODE_SIGN_ENTITLEMENTS = carplay_mode.entitlements
+runaway_mitigation: CODE_SIGN_ENTITLEMENTS = runaway_mitigation.entitlements
 
 coalition_policy: CODE_SIGN_ENTITLEMENTS = coalition_policy.entitlements
+coalition_policy: OTHER_LDFLAGS += $(SCHED_UTILS_FLAGS)
+coalition_policy: $(SCHED_UTILS)
 
 settimeofday_29193041: OTHER_CFLAGS += drop_priv.c
 
@@ -858,6 +941,12 @@ endif
 
 unp_sock_release: CODE_SIGN_ENTITLEMENTS = unp_sock_release-entitlements.plist
 
+accept_race: in_cksum.c net_test_lib.c
+accept_race: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+flow_div_doubleconnect_55917185: in_cksum.c net_test_lib.c
+flow_div_doubleconnect_55917185: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
 bpf_write: bpflib.c in_cksum.c net_test_lib.c
 bpf_write: OTHER_LDFLAGS += -ldarwintest_utils
 
@@ -872,8 +961,21 @@ udp_bind_connect: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
 tcp_bind_connect: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 tcp_send_implied_connect: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+tcp_cache_test: CODE_SIGN_ENTITLEMENTS = tcp_cache_entitlements.plist
+
+socket_bind_35243417: in_cksum.c net_test_lib.c
 socket_bind_35243417: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+socket_bind_35685803: in_cksum.c net_test_lib.c
 socket_bind_35685803: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+tcp_input_outputopts_uaf_56155583: in_cksum.c net_test_lib.c
+tcp_input_outputopts_uaf_56155583: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+unp_connect_thread_uaf: in_cksum.c net_test_lib.c
+unp_connect_thread_uaf: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
 icmp_fragmetned_payload: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 tcp_invalid_address: OTHER_CFLAGS += -Wno-int-conversion
 tcp_invalid_address: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
@@ -892,6 +994,9 @@ net_bond: inet_transfer.c bpflib.c in_cksum.c net_test_lib.c
 net_bond: OTHER_LDFLAGS += -ldarwintest_utils
 net_bond: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
+mcast_ssm: in_cksum.c net_test_lib.c
+mcast_ssm: OTHER_LDFLAGS += -ldarwintest_utils
+
 if_generation_id: net_test_lib.c in_cksum.c
 if_generation_id: OTHER_LDFLAGS += -ldarwintest_utils
 
@@ -906,15 +1011,38 @@ bpf_timestamp: bpflib.c
 bpf_timestamp: OTHER_LDFLAGS += -ldarwintest_utils
 bpf_timestamp: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
+ipv6_bind_race: in_cksum.c net_test_lib.c
 ipv6_bind_race: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
+mcast_group_race_82820812: in_cksum.c net_test_lib.c
+mcast_group_race_82820812: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
 so_bindtodevice: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+recv_link_addr_type: net_test_lib.c in_cksum.c
+recv_link_addr_type: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
+ip_pktinfo: net_test_lib.c in_cksum.c
+ip_pktinfo: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
 v4mappedv6_dontfrag: net_test_lib.c in_cksum.c
 v4mappedv6_dontfrag: OTHER_LDFLAGS += -ldarwintest_utils
 v4mappedv6_dontfrag: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
 
+net_siocdifaddr: net_test_lib.c in_cksum.c
+net_siocdifaddr: OTHER_LDFLAGS += -ldarwintest_utils
+
+vsock: vsock_helpers.c
+vsock_entitled: vsock_helpers.c
+vsock_entitled: CODE_SIGN_ENTITLEMENTS = vsock_entitlements.plist
+
+sendmsg_test: CODE_SIGN_ENTITLEMENTS = network_entitlements.plist
+
 network_elevated_logging: CODE_SIGN_ENTITLEMENTS = entitlements/network_elevated_logging.entitlements
+
+ipc/platform_restrictions_entitlements: CODE_SIGN_ENTITLEMENTS = entitlements/platform-restrictions.plist
+
+ipc/tpro_entitlements: CODE_SIGN_ENTITLEMENTS = entitlements/tpro.plist
 
 CUSTOM_TARGETS += posix_spawn_archpref_helper
 
@@ -1057,13 +1185,13 @@ arm_matrix: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT) -Wno-language-e
 arm_matrix: CODE_SIGN_ENTITLEMENTS = arm_matrix.entitlements
 
 
-x18_entitled: OTHER_CFLAGS += -Wno-language-extension-token
+x18_entitled: OTHER_CFLAGS += -ffixed-x18 -Wno-language-extension-token
 x18_entitled: CODE_SIGN_ENTITLEMENTS = x18-entitlements.plist
-x18_unentitled: OTHER_CFLAGS += -Wno-language-extension-token
+x18_unentitled: OTHER_CFLAGS += -ffixed-x18 -Wno-language-extension-token
 ifneq ($(PLATFORM),MacOSX)
 EXCLUDED_SOURCES += x18_legacy.c
 else
-x18_legacy: OTHER_CFLAGS += -Wno-language-extension-token -Wl,-platform_version -Wl,macos -Wl,10.12 -Wl,10.12
+x18_legacy: OTHER_CFLAGS += -ffixed-x18 -Wno-language-extension-token -Wl,-platform_version -Wl,macos -Wl,10.12 -Wl,10.12
 endif
 
 ifeq ($(findstring arm64,$(ARCH_CONFIGS)),)
@@ -1093,9 +1221,47 @@ endif
 
 endif
 
-pmap_bench: INVALID_ARCHS = $(filter-out arm%,$(ARCH_CONFIGS))
+bingrade: bingrade_helper_arm32 bingrade_helper_arm64 bingrade_helper_arm_fat
+bingrade: INVALID_ARCHS = x86_64 x86_64h
+# libdarwintest.a doesn't have an arm64 slice on watchOS
+ifeq ($(PLATFORM),WatchOS)
+bingrade: INVALID_ARCHS += arm64
+endif
 
+EXCLUDED_SOURCES += bingrade_helper.c
+CUSTOM_TARGETS += bingrade_helper_arm32
+bingrade_helper_arm32: CFLAGS = -arch arm64_32 -static -nostdlib
+bingrade_helper_arm32: bingrade_helper.c
+	$(CC) $(CFLAGS) $< -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- $(SYMROOT)/$@
+
+install-bingrade_helper_arm32: bingrade_helper_arm32
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+CUSTOM_TARGETS += bingrade_helper_arm64
+bingrade_helper_arm64: CFLAGS = -arch arm64 -static -nostdlib
+bingrade_helper_arm64: bingrade_helper.c
+	$(CC) $(CFLAGS) $< -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- $(SYMROOT)/$@
+
+install-bingrade_helper_arm64: bingrade_helper_arm64
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+CUSTOM_TARGETS += bingrade_helper_arm_fat
+bingrade_helper_arm_fat: CFLAGS = -arch arm64 -arch arm64_32 -arch arm64e -static -nostdlib
+bingrade_helper_arm_fat: bingrade_helper.c
+	$(CC) $(CFLAGS) $< -o $(SYMROOT)/$@
+	$(CODESIGN) -f -s- $(SYMROOT)/$@
+
+install-bingrade_helper_arm_fat: bingrade_helper_arm_fat
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/$< $(INSTALLDIR)/
+
+pmap_bench: INVALID_ARCHS = $(filter-out arm%,$(ARCH_CONFIGS))
 pmap_stress: INVALID_ARCHS = $(filter-out arm%,$(ARCH_CONFIGS))
+pmap_fault_on_commpage: INVALID_ARCHS = $(filter-out arm%,$(ARCH_CONFIGS))
 
 hw_breakpoint_step_arm64: CODE_SIGN_ENTITLEMENTS = hw_breakpoint_step_arm64_entitlements.plist
 hw_breakpoint_step_arm64: INVALID_ARCHS = $(filter-out arm64%,$(ARCH_CONFIGS))
@@ -1118,7 +1284,7 @@ ptrauth_failure: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT) -Wno-langu
 ptrauth_failure: CODESIGN = $(CODESIGN_HARDENED_RUNTIME)
 ptrauth_failure: CODE_SIGN_ENTITLEMENTS = entitlements/set_state_and_exception_port.entitlement
 
-decompression_failure: excserver exc_helpers.c
+decompression_failure: excserver exc_helpers.c try_read_write.c
 decompression_failure: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
 decompression_failure: CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
 
@@ -1249,8 +1415,6 @@ EXCLUDED_SOURCES += vm/kern_max_task_pmem.c
 endif
 
 EXCLUDED_SOURCES += benchmark/helpers.c
-
-perf_vmfault: OTHER_CFLAGS += benchmark/helpers.c
 
 vm/fault_throughput: OTHER_CFLAGS += benchmark/helpers.c
 
@@ -1412,7 +1576,7 @@ test_static_binary_csflags: OTHER_LDFLAGS += -ldarwintest_utils
 libmalloc_apple_array: CODE_SIGN_ENTITLEMENTS = entitlements/libmalloc_apple_array.entitlements
 libmalloc_apple_array: OTHER_CFLAGS += -DENTITLED=1 drop_priv.c test_utils.c
 libmalloc_apple_array: OTHER_LDFLAGS += -ldarwintest_utils
-libmalloc_apple_array: libmalloc_apple_array.c print_apple_array print_apple_array_HR1 print_apple_array_HR2 print_apple_array_hardened_proc print_apple_array_hardened_heap
+libmalloc_apple_array: libmalloc_apple_array.c print_apple_array print_apple_array_HR1 print_apple_array_HR2 print_apple_array_hardened_proc print_apple_array_hardened_proc_security print_apple_array_hardened_heap print_apple_array_hardened_heap_security
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $< -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
@@ -1428,13 +1592,13 @@ print_apple_array: print_apple_array.c
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@;
 
 CUSTOM_TARGETS += print_apple_array_HR1
-print_apple_array_HR1: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-binary-entitlements-1.plist
+print_apple_array_HR1: CODE_SIGN_ENTITLEMENTS=entitlements/enhanced-security-binary-entitlements-1.plist
 print_apple_array_HR1: print_apple_array.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
 
 CUSTOM_TARGETS += print_apple_array_HR2
-print_apple_array_HR2: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-binary-entitlements-2.plist
+print_apple_array_HR2: CODE_SIGN_ENTITLEMENTS=entitlements/enhanced-security-binary-entitlements-2.plist
 print_apple_array_HR2: print_apple_array.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
@@ -1445,10 +1609,22 @@ print_apple_array_hardened_proc: print_apple_array.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
 
+CUSTOM_TARGETS += print_apple_array_hardened_proc_security
+print_apple_array_hardened_proc_security: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-proc-security.entitlements
+print_apple_array_hardened_proc_security: print_apple_array.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
+
 
 CUSTOM_TARGETS += print_apple_array_hardened_heap
 print_apple_array_hardened_heap: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-heap.entitlements
 print_apple_array_hardened_heap: print_apple_array.c
+	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
+
+CUSTOM_TARGETS += print_apple_array_hardened_heap_security
+print_apple_array_hardened_heap_security: CODE_SIGN_ENTITLEMENTS=entitlements/hardened-heap-security.entitlements
+print_apple_array_hardened_heap_security: print_apple_array.c
 	$(CC) $(DT_CFLAGS) -I $(OBJROOT) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --entitlements $(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS) --timestamp=none $(SYMROOT)/$@;
 
@@ -1468,10 +1644,18 @@ install-print_apple_array_hardened_proc: print_apple_array_hardened_proc
 	mkdir -p $(INSTALLDIR)/tools
 	cp $(SYMROOT)/print_apple_array_hardened_proc $(INSTALLDIR)/tools/
 
+install-print_apple_array_hardened_proc_security: print_apple_array_hardened_proc_security
+	mkdir -p $(INSTALLDIR)/tools
+	cp $(SYMROOT)/print_apple_array_hardened_proc_security $(INSTALLDIR)/tools/
+
 install-print_apple_array_hardened_heap: print_apple_array_hardened_heap
 	mkdir -p $(INSTALLDIR)/tools
 	cp $(SYMROOT)/print_apple_array_hardened_heap $(INSTALLDIR)/tools/
 
+
+install-print_apple_array_hardened_heap_security: print_apple_array_hardened_heap_security
+	mkdir -p $(INSTALLDIR)/tools
+	cp $(SYMROOT)/print_apple_array_hardened_heap_security $(INSTALLDIR)/tools/
 
 persona: CODE_SIGN_ENTITLEMENTS = persona.entitlements
 persona_adoption: CODE_SIGN_ENTITLEMENTS = persona_adoption.entitlements
@@ -1506,11 +1690,36 @@ iopolicy: CODE_SIGN_ENTITLEMENTS = iopolicy.entitlements
 
 INCLUDED_TEST_SOURCE_DIRS += vfs
 vfs/freeable_vnodes: OTHER_LDFLAGS += -ldarwintest_utils
+vfs/sandbox_fstat: OTHER_LDFLAGS += -lsandbox
+vfs/named_fork_path: OTHER_LDFLAGS += -lsandbox
+vfs/sandbox_type_error: OTHER_LDFLAGS += -lsandbox
+vfs/sandbox_appledouble_write: OTHER_LDFLAGS += -lsandbox
 
-vm/vm_reclaim: OTHER_CFLAGS += -Wno-language-extension-token -Wno-c++98-compat memorystatus_assertion_helpers.c
-vm/vm_reclaim: OTHER_LDFLAGS += -ldarwintest_utils
+# tests/vm/configurator_*.c use the VM configurator
 
-vm/vm_reclaim: INVALID_ARCHS = armv7k arm64_32
+VM_CONFIGURATOR_SRCS = $(wildcard vm/configurator_*.c)
+VM_CONFIGURATOR_TARGETS = $(VM_CONFIGURATOR_SRCS:%.c=%)
+
+$(VM_CONFIGURATOR_TARGETS): vm/configurator/vm_configurator.c
+$(VM_CONFIGURATOR_TARGETS): vm/configurator/vm_configurator.h vm/configurator/vm_configurator_tests.h
+$(VM_CONFIGURATOR_TARGETS): OTHER_CFLAGS += -Wall -Wextra -g
+
+# exception handling helpers
+$(VM_CONFIGURATOR_TARGETS): exc_guard_helper.c try_read_write.c exc_helpers.c test_utils.c excserver
+$(VM_CONFIGURATOR_TARGETS): OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+$(VM_CONFIGURATOR_TARGETS): OTHER_LDFLAGS += -ldarwintest_utils
+$(VM_CONFIGURATOR_TARGETS): CODE_SIGN_ENTITLEMENTS = entitlements/set_exception_port.entitlement
+
+# Convenience target to build all tests that use vm_configurator.c
+.PHONY: all-vm-configurator-tests
+all-vm-configurator-tests: $(VM_CONFIGURATOR_TARGETS)
+
+# Convenience target to list all test executables that use vm_configurator.c
+.PHONY: list-all-vm-configurator-executables
+list-all-vm-configurator-executables:
+	@ echo $(addprefix $(SYMROOT)/,$(VM_CONFIGURATOR_TARGETS))
+
+vm/corpse_footprint: OTHER_LDFLAGS += -ldarwintest_utils
 
 EXCLUDED_SOURCES += constrained_ctypes_tests.c
 CUSTOM_TARGETS += constrained_ctypes_tests_enabled constrained_ctypes_tests_enacted constrained_ctypes_tests_disabled
@@ -1549,10 +1758,6 @@ install-constrained_ctypes_tests_disabled: constrained_ctypes_tests_disabled
 task_suspend_stats: OTHER_LDFLAGS += -ldarwintest_utils
 task_suspend_stats: CODE_SIGN_ENTITLEMENTS = task_for_pid_entitlement.plist
 
-# os_atomic use throws this warning
-setitimer: OTHER_CFLAGS += -Wno-c++98-compat -framework perfdata
-setitimer: OTHER_LDFLAGS += -framework perfdata
-
 exec_set_proc_name: OTHER_LDFLAGS += -ldarwintest_utils
 
 
@@ -1564,8 +1769,37 @@ vfs/longpaths: vfs/longpaths.c
 vfs/longpaths: OTHER_LDFLAGS += -ldarwintest_utils
 vfs/longpaths: CODE_SIGN_ENTITLEMENTS = vfs/longpaths.entitlements
 
+vfs/devfd_access: vfs/devfd_access.c
+vfs/devfd_access: CODE_SIGN_ENTITLEMENTS = vfs/devfd_access.entitlements
+
+vfs/openbyid_stress: vfs/openbyid_stress.c
+vfs/openbyid_stress: CODE_SIGN_ENTITLEMENTS = vfs/openbyid_stress.entitlements
+
+OTHER_TEST_TARGETS += trial_experiment_factors_entitled
+trial_experiment_factors_entitled: OTHER_CFLAGS += -DENTITLED=1
+trial_experiment_factors_entitled: CODE_SIGN_ENTITLEMENTS=kern-trial.entitlements
+trial_experiment_factors_entitled: trial_experiment_factors.c
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODE_SIGN_ENTITLEMENTS) $(SYMROOT)/$@;
+
 memorystatus_experiment_factors: CODESIGN_ENTITLEMENTS=./memorystatus/memorystatus_experiment_factors.entitlements
 memorystatus_experiment_factors: memorystatus/memorystatus_experiment_factors.c
 	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
 	$(ENV) CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none --entitlements $(CODESIGN_ENTITLEMENTS) $(SYMROOT)/$@;
 
+ifeq ($(PLATFORM),MacOSX)
+CUSTOM_TARGETS += nox86exec_helper
+
+nox86exec_helper: INVALID_ARCHS = arm64e arm64
+nox86exec_helper: nox86exec_helper.c
+	$(CC) $(DT_CFLAGS) $(OTHER_CFLAGS) $(CFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) $(LDFLAGS) $^ -o $(SYMROOT)/$@
+	env CODESIGN_ALLOCATE=$(CODESIGN_ALLOCATE) $(CODESIGN) --force --sign - --timestamp=none $(SYMROOT)/$@;
+
+install-posix_spawn_alt_rosetta_helper: nox86exec_helper
+	mkdir -p $(INSTALLDIR)
+	cp $(SYMROOT)/nox86exec_helper $(INSTALLDIR)/
+endif
+
+vm/memorystatus_rearm: excserver
+vm/memorystatus_rearm: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+vm/memorystatus_rearm: CODE_SIGN_ENTITLEMENTS = vm/memorystatus_rearm.entitlements

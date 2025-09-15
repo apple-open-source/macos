@@ -28,6 +28,7 @@
 #if ENABLE(ASYNC_SCROLLING)
 #include "AsyncScrollingCoordinator.h"
 
+#include "ContainerNodeInlines.h"
 #include "DebugPageOverlays.h"
 #include "DeprecatedGlobalSettings.h"
 #include "Document.h"
@@ -56,6 +57,7 @@
 #include "WheelEventTestMonitor.h"
 #include "pal/HysteresisActivity.h"
 #include <wtf/ProcessID.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
@@ -116,7 +118,7 @@ RefPtr<ScrollingStateNode> AsyncScrollingCoordinator::stateNodeForNodeID(std::op
         return nullptr;
     }, [&] (const KeyValuePair<FrameIdentifier, UniqueRef<ScrollingStateTree>>& pair) {
         return pair.value->stateNodeForID(nodeID);
-    }, [&] (const UncheckedKeyHashMap<FrameIdentifier, UniqueRef<ScrollingStateTree>>& map) -> RefPtr<ScrollingStateNode> {
+    }, [&] (const HashMap<FrameIdentifier, UniqueRef<ScrollingStateTree>>& map) -> RefPtr<ScrollingStateNode> {
         for (auto& tree : map.values()) {
             if (RefPtr scrollingNode = tree->stateNodeForID(nodeID))
                 return scrollingNode;
@@ -164,7 +166,7 @@ ScrollingStateTree* AsyncScrollingCoordinator::stateTreeForNodeID(std::optional<
         if (RefPtr scrollingNode = pair.value->stateNodeForID(nodeID))
             return pair.value.ptr();
         return nullptr;
-    }, [&] (const UncheckedKeyHashMap<FrameIdentifier, UniqueRef<ScrollingStateTree>>& map) -> ScrollingStateTree* {
+    }, [&] (const HashMap<FrameIdentifier, UniqueRef<ScrollingStateTree>>& map) -> ScrollingStateTree* {
         for (auto& tree : map.values()) {
             if (RefPtr scrollingNode = tree->stateNodeForID(nodeID))
                 return tree.ptr();
@@ -409,6 +411,8 @@ bool AsyncScrollingCoordinator::requestScrollToPosition(ScrollableArea& scrollab
     if (!stateNode)
         return false;
 
+    tracePoint(ProgrammaticScroll, scrollPosition.y(), frameView->frame().isMainFrame());
+
     if (options.originalScrollDelta)
         stateNode->setRequestedScrollData({ ScrollRequestType::DeltaUpdate, *options.originalScrollDelta, options.type, options.clamping, options.animated });
     else
@@ -582,7 +586,7 @@ LocalFrameView* AsyncScrollingCoordinator::frameViewForScrollingNode(LocalFrame&
 
     // Walk the frame tree to find the matching LocalFrameView. This is not ideal, but avoids back pointers to LocalFrameViews
     // from ScrollingTreeStateNodes.
-    for (RefPtr<Frame> frame = &rootFrame; frame; frame = frame->tree().traverseNext()) {
+    for (RefPtr<Frame> frame = rootFrame; frame; frame = frame->tree().traverseNext()) {
         auto* localFrame = dynamicDowncast<LocalFrame>(frame.get());
         if (!localFrame)
             continue;
@@ -791,16 +795,18 @@ void AsyncScrollingCoordinator::reconcileScrollingState(LocalFrameView& frameVie
 
     ASSERT(frameView.scrollPosition() == roundedIntPoint(scrollPosition));
     LayoutPoint scrollPositionForFixed = frameView.scrollPositionForFixedPosition();
-    float topContentInset = frameView.topContentInset();
+    auto obscuredContentInsets = frameView.obscuredContentInsets();
 
     FloatPoint positionForInsetClipLayer;
-    if (insetClipLayer)
-        positionForInsetClipLayer = FloatPoint(insetClipLayer->position().x(), LocalFrameView::yPositionForInsetClipLayer(scrollPosition, topContentInset));
+    if (insetClipLayer) {
+        positionForInsetClipLayer = LocalFrameView::positionForInsetClipLayer(scrollPosition, obscuredContentInsets);
+        positionForInsetClipLayer.move(frameView.insetForLeftScrollbarSpace(), 0);
+    }
     FloatPoint positionForContentsLayer = frameView.positionForRootContentLayer();
     
-    FloatPoint positionForHeaderLayer = FloatPoint(scrollPositionForFixed.x(), LocalFrameView::yPositionForHeaderLayer(scrollPosition, topContentInset));
+    FloatPoint positionForHeaderLayer = FloatPoint(scrollPositionForFixed.x(), LocalFrameView::yPositionForHeaderLayer(scrollPosition, obscuredContentInsets.top()));
     FloatPoint positionForFooterLayer = FloatPoint(scrollPositionForFixed.x(),
-        LocalFrameView::yPositionForFooterLayer(scrollPosition, topContentInset, frameView.totalContentsSize().height(), frameView.footerHeight()));
+        LocalFrameView::yPositionForFooterLayer(scrollPosition, obscuredContentInsets.top(), frameView.totalContentsSize().height(), frameView.footerHeight()));
 
     if (scrollType == ScrollType::Programmatic || scrollingLayerPositionAction == ScrollingLayerPositionAction::Set) {
         reconcileScrollPosition(frameView, ScrollingLayerPositionAction::Set);
@@ -986,6 +992,9 @@ void AsyncScrollingCoordinator::setNodeLayers(ScrollingNodeID nodeID, const Node
             frameScrollingNode->setRootContentsLayer(nodeLayers.rootContentsLayer);
         }
     }
+
+    if (RefPtr stickyNode = dynamicDowncast<ScrollingStateStickyNode>(*node))
+        stickyNode->setViewportAnchorLayer(nodeLayers.viewportAnchorLayer);
 }
 
 void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeID, const LocalFrameView& frameView)
@@ -1001,7 +1010,7 @@ void AsyncScrollingCoordinator::setFrameScrollingNodeState(ScrollingNodeID nodeI
     frameScrollingNode->setFrameScaleFactor(frameView.frame().frameScaleFactor());
     frameScrollingNode->setHeaderHeight(frameView.headerHeight());
     frameScrollingNode->setFooterHeight(frameView.footerHeight());
-    frameScrollingNode->setTopContentInset(frameView.topContentInset());
+    frameScrollingNode->setObscuredContentInsets(frameView.obscuredContentInsets());
     frameScrollingNode->setLayoutViewport(frameView.layoutViewportRect());
     frameScrollingNode->setAsyncFrameOrOverflowScrollingEnabled(settings.asyncFrameScrollingEnabled() || settings.asyncOverflowScrollingEnabled());
     frameScrollingNode->setScrollingPerformanceTestingEnabled(settings.scrollingPerformanceTestingEnabled());
@@ -1080,12 +1089,12 @@ void AsyncScrollingCoordinator::setViewportConstraintedNodeConstraints(Scrolling
     switch (constraints.constraintType()) {
     case ViewportConstraints::FixedPositionConstraint: {
         if (RefPtr fixedNode = dynamicDowncast<ScrollingStateFixedNode>(node))
-            fixedNode->updateConstraints((const FixedPositionViewportConstraints&)constraints);
+            fixedNode->updateConstraints(downcast<FixedPositionViewportConstraints>(constraints));
         break;
     }
     case ViewportConstraints::StickyPositionConstraint: {
         if (RefPtr stickyNode = dynamicDowncast<ScrollingStateStickyNode>(node))
-            stickyNode->updateConstraints((const StickyPositionViewportConstraints&)constraints);
+            stickyNode->updateConstraints(downcast<StickyPositionViewportConstraints>(constraints));
         break;
     }
     }
@@ -1210,12 +1219,12 @@ std::optional<ScrollingNodeID> AsyncScrollingCoordinator::scrollableContainerNod
 String AsyncScrollingCoordinator::scrollingStateTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const
 {
     StringBuilder stateTree;
-    m_scrollingStateTrees.forEach([&] (auto& key, auto& tree) {
+    m_scrollingStateTrees.forEach([&](auto& key, auto& tree) {
         if (tree->rootStateNode()) {
             if (m_eventTrackingRegionsDirty)
                 tree->rootStateNode()->setEventTrackingRegions(absoluteEventTrackingRegions());
             if (m_scrollingStateTrees.size() > 1)
-                stateTree.append(makeString("Tree-for-root-frameID: "_s, key.toString()));
+                stateTree.append(makeString("Tree-for-root-frameID: "_s, key.toUInt64()));
             stateTree.append(tree->scrollingStateTreeAsText(behavior));
         }
     });

@@ -36,14 +36,17 @@
 #include <mach/error.h>
 #include <mach/kern_return.h>
 #include <mach/mach.h>
+#include <mach/mach_time.h>
+#include <mach/mach_traps.h>
 #include <mach/mach_vm.h>
 #include <mach/vm_reclaim_private.h>
 #undef _mach_vm_user_
 #include <mach/mach_vm_internal.h>
 #include <mach/vm_map.h>
+#include <mach/vm_page_size.h>
 #include <os/atomic_private.h>
 #include <os/overflow.h>
-#include <mach/vm_page_size.h>
+#include <sys/param.h>
 #include <TargetConditionals.h>
 
 
@@ -60,32 +63,6 @@
 	} while(false)
 
 _Static_assert(VM_RECLAIM_MAX_CAPACITY <= UINT32_MAX, "Max capacity must fit in mach_vm_reclaim_count_t");
-
-static uint64_t kAccountingThreshold;
-
-static bool
-update_accounting(mach_vm_reclaim_ring_t ring_buffer, int64_t size)
-{
-	ring_buffer->va_in_buffer += size;
-	if ((ring_buffer->va_in_buffer > ring_buffer->last_accounting_given_to_kernel &&
-	    ring_buffer->va_in_buffer - ring_buffer->last_accounting_given_to_kernel > kAccountingThreshold) ||
-	    (ring_buffer->last_accounting_given_to_kernel > ring_buffer->va_in_buffer &&
-	    ring_buffer->last_accounting_given_to_kernel - ring_buffer->va_in_buffer > kAccountingThreshold)) {
-		/*
-		 * The caller should call mach_vm_reclaim_update_kernel_accounting.
-		 * We store the value that they will give to the kernel here while we hold the lock.
-		 * Technically it's out of sync with what the kernel has seen, but
-		 * that will be rectified once the caller makes the mach_vm_reclaim_update_kernel_accounting call.
-		 * If we forced this value to be in sync with the kernel's value
-		 * all callers would start calling mach_vm_reclaim_update_kernel_accounting until one of them
-		 * finishes & we'd have to take the ringbuffer lock again in
-		 * mach_vm_reclaim_update_kernel_accounting.
-		 */
-		ring_buffer->last_accounting_given_to_kernel = ring_buffer->va_in_buffer;
-		return true;
-	}
-	return false;
-}
 
 static inline struct mach_vm_reclaim_entry_s
 construct_entry(
@@ -128,9 +105,10 @@ mach_vm_reclaim_ring_allocate(
 	mach_vm_reclaim_count_t initial_capacity,
 	mach_vm_reclaim_count_t max_capacity)
 {
-	kAccountingThreshold = vm_page_size;
 	kern_return_t kr;
 	mach_vm_address_t vm_addr = 0;
+	uint64_t sampling_period_abs;
+
 	if (ring_out == NULL || max_capacity < initial_capacity ||
 	    initial_capacity == 0 || max_capacity == 0) {
 		return VM_RECLAIM_INVALID_ARGUMENT;
@@ -141,16 +119,17 @@ mach_vm_reclaim_ring_allocate(
 
 	*ring_out = NULL;
 	kr = mach_vm_deferred_reclamation_buffer_allocate(mach_task_self(),
-	    &vm_addr, initial_capacity, max_capacity);
+	    &vm_addr, &sampling_period_abs, initial_capacity, max_capacity);
 	if (kr == ERR_SUCCESS) {
-		mach_vm_reclaim_ring_t ringbuffer =
+		mach_vm_reclaim_ring_t ring =
 		    (mach_vm_reclaim_ring_t)vm_addr;
-
-		ringbuffer->va_in_buffer = 0;
-		ringbuffer->last_accounting_given_to_kernel = 0;
-		ringbuffer->len = initial_capacity;
-		ringbuffer->max_len = max_capacity;
-		*ring_out = ringbuffer;
+		ring->last_sample_abs = mach_absolute_time();
+		ring->reclaimable_bytes = 0;
+		ring->reclaimable_bytes_min = 0;
+		ring->len = initial_capacity;
+		ring->max_len = max_capacity;
+		ring->sampling_period_abs = sampling_period_abs;
+		*ring_out = ring;
 	}
 	return kr;
 }
@@ -160,19 +139,26 @@ mach_vm_reclaim_ring_resize(
 	mach_vm_reclaim_ring_t ring,
 	mach_vm_reclaim_count_t capacity)
 {
-	kern_return_t kr;
+	mach_error_t err;
+	mach_vm_size_t bytes_reclaimed = 0;
+
 	if (ring == NULL) {
 		return VM_RECLAIM_INVALID_RING;
 	}
 	if (capacity == 0 || capacity > ring->max_len) {
 		return VM_RECLAIM_INVALID_CAPACITY;
 	}
-	kr = mach_vm_deferred_reclamation_buffer_resize(mach_task_self(),
-	    capacity);
-	if (kr == KERN_SUCCESS) {
+
+	err = mach_vm_deferred_reclamation_buffer_resize(mach_task_self(),
+	    capacity, &bytes_reclaimed);
+	if (err == ERR_SUCCESS) {
 		ring->len = capacity;
+		/* Reset the accounting now that we've flushed the buffer */
+		ring->last_sample_abs = mach_absolute_time();
 	}
-	return kr;
+	size_t reclaimable_bytes = os_atomic_sub(&ring->reclaimable_bytes, bytes_reclaimed, relaxed);
+	os_atomic_min(&ring->reclaimable_bytes_min, reclaimable_bytes, relaxed);
+	return err;
 }
 
 mach_vm_reclaim_count_t
@@ -195,7 +181,6 @@ mach_vm_reclaim_try_enter(
 	bool *should_update_kernel_accounting)
 {
 	mach_vm_reclaim_id_t tail = 0, head = 0, original_tail = 0, busy = 0;
-	mach_vm_reclaim_indices_t indices = &ring->indices;
 	mach_vm_reclaim_entry_t entries = ring->entries;
 	uint64_t buffer_len = (uint64_t)ring->len;
 	*should_update_kernel_accounting = false;
@@ -218,8 +203,8 @@ mach_vm_reclaim_try_enter(
 	*id = VM_RECLAIM_ID_NULL;
 
 	if (requested_id == VM_RECLAIM_ID_NULL) {
-		tail = os_atomic_load_wide(&indices->tail, relaxed);
-		head = os_atomic_load_wide(&indices->head, relaxed);
+		tail = os_atomic_load_wide(&ring->tail, relaxed);
+		head = os_atomic_load_wide(&ring->head, relaxed);
 
 		if (tail % buffer_len == head % buffer_len && tail > head) {
 			/* Buffer is full */
@@ -233,10 +218,10 @@ mach_vm_reclaim_try_enter(
 		struct mach_vm_reclaim_entry_s entry = construct_entry(region_start, size32, action);
 		entries[tail % buffer_len] = entry;
 		os_atomic_thread_fence(seq_cst); // tail increment can not be seen before the entry is cleared in the buffer
-		os_atomic_inc(&indices->tail, relaxed);
+		os_atomic_inc(&ring->tail, relaxed);
 		*id = tail;
 	} else {
-		head = os_atomic_load_wide(&indices->head, relaxed);
+		head = os_atomic_load_wide(&ring->head, relaxed);
 		if (requested_id < head) {
 			/*
 			 * This is just a fast path for the case where the buffer has wrapped.
@@ -246,16 +231,16 @@ mach_vm_reclaim_try_enter(
 			return VM_RECLAIM_SUCCESS;
 		}
 		/* Attempt to move tail to idx */
-		original_tail = os_atomic_load_wide(&indices->tail, relaxed);
+		original_tail = os_atomic_load_wide(&ring->tail, relaxed);
 		_assert("mach_vm_reclaim_mark_free_with_id",
 		    requested_id < original_tail, original_tail);
 
-		os_atomic_store_wide(&indices->tail, requested_id, relaxed);
+		os_atomic_store_wide(&ring->tail, requested_id, relaxed);
 		os_atomic_thread_fence(seq_cst); // Our write to tail must happen before our read of busy
-		busy = os_atomic_load_wide(&indices->busy, relaxed);
+		busy = os_atomic_load_wide(&ring->busy, relaxed);
 		if (requested_id < busy) {
 			/* Kernel is acting on this entry. Undo. */
-			os_atomic_store_wide(&indices->tail, original_tail, relaxed);
+			os_atomic_store_wide(&ring->tail, original_tail, relaxed);
 			return VM_RECLAIM_SUCCESS;
 		}
 
@@ -269,16 +254,23 @@ mach_vm_reclaim_try_enter(
 		/* Tail increment can not be seen before the entry is set in the buffer */
 		os_atomic_thread_fence(seq_cst);
 		/* Reset tail. */
-		os_atomic_store_wide(&indices->tail, original_tail, relaxed);
+		os_atomic_store_wide(&ring->tail, original_tail, relaxed);
 		*id = requested_id;
 	}
-	*should_update_kernel_accounting = update_accounting(ring, region_size);
+
+	size_t reclaimable_bytes = os_atomic_add(&ring->reclaimable_bytes, region_size, relaxed);
+	os_atomic_min(&ring->reclaimable_bytes_min, reclaimable_bytes, relaxed);
+
+	uint64_t now = mach_absolute_time();
+	if (now - ring->last_sample_abs >= ring->sampling_period_abs) {
+		*should_update_kernel_accounting = true;
+	}
 	return VM_RECLAIM_SUCCESS;
 }
 
 mach_vm_reclaim_error_t
 mach_vm_reclaim_try_cancel(
-	mach_vm_reclaim_ring_t ring_buffer,
+	mach_vm_reclaim_ring_t ring,
 	mach_vm_reclaim_id_t id,
 	mach_vm_address_t region_start,
 	mach_vm_size_t region_size,
@@ -286,12 +278,11 @@ mach_vm_reclaim_try_cancel(
 	mach_vm_reclaim_state_t *state,
 	bool *should_update_kernel_accounting)
 {
-	mach_vm_reclaim_indices_t indices = &ring_buffer->indices;
-	mach_vm_reclaim_entry_t entries = ring_buffer->entries;
-	uint64_t buffer_len = (uint64_t)ring_buffer->len;
+	mach_vm_reclaim_entry_t entries = ring->entries;
+	uint64_t buffer_len = (uint64_t)ring->len;
 	uint64_t head = 0, busy = 0, original_tail = 0;
 
-	if (ring_buffer == NULL) {
+	if (ring == NULL) {
 		return VM_RECLAIM_INVALID_RING;
 	}
 	if (id == VM_RECLAIM_ID_NULL) {
@@ -310,7 +301,7 @@ mach_vm_reclaim_try_cancel(
 		return VM_RECLAIM_INVALID_REGION_SIZE;
 	}
 
-	head = os_atomic_load_wide(&indices->head, relaxed);
+	head = os_atomic_load_wide(&ring->head, relaxed);
 	if (id < head) {
 		/*
 		 * This is just a fast path for the case where the buffer has wrapped.
@@ -333,19 +324,19 @@ mach_vm_reclaim_try_cancel(
 	}
 
 	/* Attempt to move tail to idx */
-	original_tail = os_atomic_load_wide(&indices->tail, relaxed);
+	original_tail = os_atomic_load_wide(&ring->tail, relaxed);
 	_assert("mach_vm_reclaim_mark_used", id < original_tail, original_tail);
 
-	os_atomic_store_wide(&indices->tail, id, relaxed);
+	os_atomic_store_wide(&ring->tail, id, relaxed);
 	/* Our write to tail must happen before our read of busy */
 	os_atomic_thread_fence(seq_cst);
-	busy = os_atomic_load_wide(&indices->busy, relaxed);
+	busy = os_atomic_load_wide(&ring->busy, relaxed);
 	if (id < busy) {
 		/*
 		 * This entry is in the process of being reclaimed. It is
 		 * never safe to re-use while in this state.
 		 */
-		os_atomic_store_wide(&indices->tail, original_tail, relaxed);
+		os_atomic_store_wide(&ring->tail, original_tail, relaxed);
 		*state = VM_RECLAIM_BUSY;
 		return VM_RECLAIM_SUCCESS;
 	}
@@ -359,9 +350,15 @@ mach_vm_reclaim_try_cancel(
 	/* tail increment can not be seen before the entry is cleared in the buffer */
 	os_atomic_thread_fence(seq_cst);
 	/* Reset tail. */
-	os_atomic_store_wide(&indices->tail, original_tail, relaxed);
+	os_atomic_store_wide(&ring->tail, original_tail, relaxed);
 
-	*should_update_kernel_accounting = update_accounting(ring_buffer, -(int64_t)region_size);
+	size_t reclaimable_bytes = os_atomic_sub(&ring->reclaimable_bytes, region_size, relaxed);
+	os_atomic_min(&ring->reclaimable_bytes_min, reclaimable_bytes, relaxed);
+
+	uint64_t now = mach_absolute_time();
+	if (now - ring->last_sample_abs >= ring->sampling_period_abs) {
+		*should_update_kernel_accounting = true;
+	}
 	*state = VM_RECLAIM_UNRECLAIMED;
 	return VM_RECLAIM_SUCCESS;
 }
@@ -379,9 +376,8 @@ mach_vm_reclaim_query_state(
 	if (id == VM_RECLAIM_ID_NULL) {
 		return VM_RECLAIM_INVALID_ID;
 	}
-	mach_vm_reclaim_indices_t indices = &ring->indices;
 
-	mach_vm_reclaim_id_t head = os_atomic_load_wide(&indices->head, relaxed);
+	mach_vm_reclaim_id_t head = os_atomic_load_wide(&ring->head, relaxed);
 	if (id < head) {
 		switch (action) {
 		case VM_RECLAIM_FREE:
@@ -396,7 +392,7 @@ mach_vm_reclaim_query_state(
 		return VM_RECLAIM_SUCCESS;
 	}
 
-	mach_vm_reclaim_id_t busy = os_atomic_load_wide(&indices->busy, relaxed);
+	mach_vm_reclaim_id_t busy = os_atomic_load_wide(&ring->busy, relaxed);
 	if (id < busy) {
 		*state = VM_RECLAIM_BUSY;
 	} else {
@@ -408,8 +404,21 @@ mach_vm_reclaim_query_state(
 mach_vm_reclaim_error_t
 mach_vm_reclaim_update_kernel_accounting(const mach_vm_reclaim_ring_t ring)
 {
-	return mach_vm_deferred_reclamation_buffer_update_reclaimable_bytes(current_task(),
-	           ring->va_in_buffer);
+	mach_error_t err;
+	uint64_t bytes_reclaimed = 0;
+	uint64_t now, last_sample;
+
+	os_atomic_rmw_loop(&ring->last_sample_abs, last_sample, now, relaxed, {
+		now = mach_absolute_time();
+		if (now - last_sample < ring->sampling_period_abs) {
+		        os_atomic_rmw_loop_give_up(return VM_RECLAIM_SUCCESS; );
+		}
+	});
+	err = mach_vm_reclaim_update_kernel_accounting_trap(current_task(),
+	    &bytes_reclaimed);
+	size_t reclaimable_bytes = os_atomic_sub(&ring->reclaimable_bytes, bytes_reclaimed, relaxed);
+	os_atomic_min(&ring->reclaimable_bytes_min, reclaimable_bytes, relaxed);
+	return err;
 }
 
 bool
@@ -434,17 +443,218 @@ mach_vm_reclaim_ring_capacity(mach_vm_reclaim_ring_t ring, mach_vm_reclaim_count
 
 mach_vm_reclaim_error_t
 mach_vm_reclaim_ring_flush(
-	mach_vm_reclaim_ring_t ring_buffer,
+	mach_vm_reclaim_ring_t ring,
 	mach_vm_reclaim_count_t num_entries_to_reclaim)
 {
-	if (ring_buffer == NULL) {
+	mach_vm_size_t bytes_reclaimed;
+	mach_error_t err;
+	if (ring == NULL) {
 		return VM_RECLAIM_INVALID_RING;
 	}
 	if (num_entries_to_reclaim == 0) {
 		return VM_RECLAIM_INVALID_ARGUMENT;
 	}
 
-	return mach_vm_deferred_reclamation_buffer_flush(mach_task_self(), num_entries_to_reclaim);
+	err = mach_vm_deferred_reclamation_buffer_flush(mach_task_self(),
+	    num_entries_to_reclaim, &bytes_reclaimed);
+	if (err == ERR_SUCCESS) {
+		size_t reclaimable_bytes = os_atomic_sub(&ring->reclaimable_bytes, bytes_reclaimed, relaxed);
+		os_atomic_min(&ring->reclaimable_bytes_min, reclaimable_bytes, release);
+	}
+	return err;
+}
+
+mach_vm_reclaim_error_t
+mach_vm_reclaim_get_rings_for_task(
+	task_read_t task,
+	mach_vm_reclaim_ring_ref_t refs_out,
+	mach_vm_reclaim_count_t *count_inout)
+{
+	/*
+	 * Technically, we could support multiple rings per task. But for now, we
+	 * only have one - so this is kind of a weird-looking shim that fakes that
+	 * behavior at the libsyscall layer to make things easier in case anything
+	 * changes.
+	 */
+
+	kern_return_t kr;
+	mach_vm_address_t addr;
+	mach_vm_size_t size;
+
+	if (count_inout == NULL) {
+		return VM_RECLAIM_INVALID_ARGUMENT;
+	}
+
+	kr = mach_vm_deferred_reclamation_buffer_query(task, &addr, &size);
+
+	if (kr != KERN_SUCCESS) {
+		switch (kr) {
+		case KERN_NOT_SUPPORTED:
+			return VM_RECLAIM_NOT_SUPPORTED;
+		case KERN_INVALID_ARGUMENT:
+		case KERN_INVALID_TASK:
+		case KERN_INVALID_ADDRESS:
+			return VM_RECLAIM_INVALID_ARGUMENT;
+		default:
+			return kr;
+		}
+	}
+
+	/* Size query. If addr == NULL, it doesn't have a ring */
+	if (refs_out == NULL) {
+		*count_inout = addr ? 1 : 0;
+		return KERN_SUCCESS;
+	}
+
+	if (addr) {
+		if (*count_inout >= 1) {
+			refs_out->addr = addr;
+			refs_out->size = size;
+		}
+		*count_inout = 1;
+	} else {
+		*count_inout = 0;
+	}
+
+	return KERN_SUCCESS;
+}
+
+static mach_vm_reclaim_error_t
+verify_ring_allocation_size(mach_vm_address_t addr, mach_vm_size_t size)
+{
+	if (size < offsetof(struct mach_vm_reclaim_ring_s, entries)) {
+		return VM_RECLAIM_INVALID_RING;
+	}
+
+	mach_vm_reclaim_ring_t ring = (mach_vm_reclaim_ring_t) addr;
+	mach_vm_size_t supposed_size =
+	    offsetof(struct mach_vm_reclaim_ring_s, entries) +
+	    (ring->max_len * sizeof(struct mach_vm_reclaim_entry_s));
+
+	/* store allocation size in ring->_unused so that we can free it later */
+	ring->_unused = size;
+
+	return (supposed_size <= size) ? VM_RECLAIM_SUCCESS : VM_RECLAIM_INVALID_RING;
+}
+
+mach_vm_reclaim_error_t
+mach_vm_reclaim_ring_copy(
+	task_read_t task,
+	mach_vm_reclaim_ring_ref_t ref,
+	mach_vm_reclaim_ring_copy_t *ring_out)
+{
+	mach_vm_address_t address;
+	vm_prot_t curprot = VM_PROT_DEFAULT;
+	vm_prot_t maxprot = VM_PROT_DEFAULT;
+	kern_return_t kr = mach_vm_remap(
+		mach_task_self(),
+		&address,
+		ref->size,
+		0,
+		VM_FLAGS_ANYWHERE,
+		task,
+		ref->addr,
+		TRUE,
+		&curprot,
+		&maxprot,
+		VM_INHERIT_DEFAULT);
+
+	switch (kr) {
+	case KERN_INVALID_TASK:
+	case KERN_INVALID_ADDRESS:
+	case KERN_INVALID_ARGUMENT:
+		return VM_RECLAIM_INVALID_ARGUMENT;
+	case KERN_SUCCESS:
+		break;
+	default:
+		return kr;
+	}
+
+	kr = verify_ring_allocation_size(address, ref->size);
+	if (kr != VM_RECLAIM_SUCCESS) {
+		return kr;
+	}
+
+	*ring_out = address;
+	return VM_RECLAIM_SUCCESS;
+}
+
+mach_vm_reclaim_error_t
+mach_vm_reclaim_copied_ring_free(
+	mach_vm_reclaim_ring_copy_t *cring)
+{
+	kern_return_t kr;
+	mach_vm_reclaim_ring_t ring = (mach_vm_reclaim_ring_t) *cring;
+
+	kr = mach_vm_deallocate(
+		mach_task_self(),
+		(mach_vm_address_t) *cring,
+		ring->_unused);
+
+	if (kr == KERN_SUCCESS) {
+		*cring = NULL;
+	}
+
+	return kr;
+}
+
+mach_vm_reclaim_error_t
+mach_vm_reclaim_copied_ring_query(
+	mach_vm_reclaim_ring_copy_t *ring_copy,
+	mach_vm_reclaim_region_t regions_out,
+	mach_vm_reclaim_count_t *count_inout)
+{
+	mach_vm_reclaim_id_t head, tail, idx, entry_idx;
+	mach_vm_reclaim_entry_t entry;
+	mach_vm_reclaim_count_t count;
+	mach_vm_reclaim_ring_t ring = (mach_vm_reclaim_ring_t) *ring_copy;
+
+	if (ring == NULL) {
+		return VM_RECLAIM_INVALID_RING;
+	}
+
+	if (count_inout == NULL) {
+		return VM_RECLAIM_INVALID_ARGUMENT;
+	}
+
+	head = os_atomic_load_wide(&ring->head, relaxed);
+	tail = os_atomic_load_wide(&ring->tail, relaxed);
+
+	if (tail < head) {
+		*count_inout = 0;
+		return VM_RECLAIM_SUCCESS;
+	}
+
+	count = (mach_vm_reclaim_count_t) (tail - head);
+
+	/* Query size */
+	if (regions_out == NULL) {
+		*count_inout = count;
+		return VM_RECLAIM_SUCCESS;
+	}
+
+	count = (count < *count_inout) ? count : *count_inout;
+
+	for (idx = 0; idx < count; idx++) {
+		entry_idx = (head + idx) % ring->len;
+		if (entry_idx > ring->max_len) {
+			/*
+			 * Make sure we don't accidentally read outside of the mapped region
+			 * due to a malformed ring
+			 */
+			*count_inout = (mach_vm_reclaim_count_t) idx;
+			return VM_RECLAIM_INVALID_CAPACITY;
+		}
+		entry = &ring->entries[entry_idx];
+		regions_out->vmrr_addr = entry->address;
+		regions_out->vmrr_size = entry->size;
+		regions_out->vmrr_behavior = entry->behavior;
+		regions_out++;
+	}
+
+	*count_inout = count;
+
+	return VM_RECLAIM_SUCCESS;
 }
 
 #endif /* defined(__LP64__) */

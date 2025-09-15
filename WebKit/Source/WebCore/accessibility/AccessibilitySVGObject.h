@@ -33,12 +33,11 @@ namespace WebCore {
 
 class AccessibilitySVGObject : public AccessibilityRenderObject {
 public:
-    static Ref<AccessibilitySVGObject> create(AXID, RenderObject&, AXObjectCache*);
+    static Ref<AccessibilitySVGObject> create(AXID, RenderObject&, AXObjectCache&);
     virtual ~AccessibilitySVGObject();
 
 protected:
-    explicit AccessibilitySVGObject(AXID, RenderObject&, AXObjectCache*);
-    AXObjectCache* axObjectCache() const final { return m_axObjectCache.get(); }
+    explicit AccessibilitySVGObject(AXID, RenderObject&, AXObjectCache&);
     AccessibilityRole determineAriaRoleAttribute() const final;
 
 private:
@@ -55,8 +54,6 @@ private:
     bool hasTitleOrDescriptionChild() const;
     template <typename ChildrenType>
     Element* childElementWithMatchingLanguage(ChildrenType&) const;
-
-    WeakPtr<AXObjectCache> m_axObjectCache;
 };
 
 } // namespace WebCore

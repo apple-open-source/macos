@@ -27,6 +27,7 @@
 #include "MemoryCursor.h"
 
 #include "IDBResourceIdentifier.h"
+#include "MemoryBackingStoreTransaction.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -45,6 +46,11 @@ MemoryCursor::MemoryCursor(const IDBCursorInfo& info, MemoryBackingStoreTransact
 MemoryCursor::~MemoryCursor()
 {
     ASSERT(!isMainThread());
+}
+
+MemoryBackingStoreTransaction* MemoryCursor::transaction() const
+{
+    return m_transaction.get();
 }
 
 } // namespace IDBServer

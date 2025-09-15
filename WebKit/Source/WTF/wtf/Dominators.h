@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <ranges>
 #include <wtf/BitSet.h>
 #include <wtf/CommaPrinter.h>
 #include <wtf/FastBitVector.h>
@@ -50,7 +51,7 @@ public:
         : m_graph(graph)
         , m_data(graph.template newMap<BlockData>())
     {
-        if (LIKELY(m_graph.numNodes() <= maxNodesForIterativeDominance)) {
+        if (m_graph.numNodes() <= maxNodesForIterativeDominance) [[likely]] {
             IterativeDominance iterativeDominance(m_graph);
             iterativeDominance.compute();
 
@@ -373,7 +374,7 @@ private:
             m_postorderNumbers.fill(0, m_graph.numNodes());
             for (unsigned i = 0; i < m_reversePostorderedNodes.size(); i ++)
                 m_postorderNumbers[m_reversePostorderedNodes[i]] = i;
-            std::reverse(m_reversePostorderedNodes.begin(), m_reversePostorderedNodes.end());
+            std::ranges::reverse(m_reversePostorderedNodes);
         }
 
         uint16_t intersect(uint16_t a, uint16_t b)
@@ -661,7 +662,7 @@ private:
             // Allocate storage for the dense dominance matrix. 
             m_results.grow(numBlocks);
             for (unsigned i = numBlocks; i--;)
-                m_results[i].resize(numBlocks);
+                m_results[i].grow(numBlocks);
             m_scratch.resize(numBlocks);
 
             // We know that the entry block is only dominated by itself.

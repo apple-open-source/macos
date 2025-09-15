@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,7 +74,7 @@ class EditorClient;
 class Frame;
 class FrameLoader;
 class HistoryItemClient;
-class InspectorClient;
+class InspectorBackendClient;
 class LocalFrameLoaderClient;
 class ModelPlayerProvider;
 class PaymentCoordinatorClient;
@@ -108,7 +108,7 @@ public:
         CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&, FrameLoader&)> clientCreator;
         SandboxFlags effectiveSandboxFlags;
     };
-    using MainFrameCreationParameters = std::variant<LocalMainFrameCreationParameters, CompletionHandler<UniqueRef<RemoteFrameClient>(RemoteFrame&)>>;
+    using MainFrameCreationParameters = Variant<LocalMainFrameCreationParameters, CompletionHandler<UniqueRef<RemoteFrameClient>(RemoteFrame&)>>;
 
     WEBCORE_EXPORT PageConfiguration(
         std::optional<PageIdentifier>,
@@ -127,7 +127,7 @@ public:
         UniqueRef<SpeechRecognitionProvider>&&,
         Ref<BroadcastChannelRegistry>&&,
         UniqueRef<StorageProvider>&&,
-        UniqueRef<ModelPlayerProvider>&&,
+        Ref<ModelPlayerProvider>&&,
         Ref<BadgeClient>&&,
         Ref<HistoryItemClient>&&,
 #if ENABLE(CONTEXT_MENUS)
@@ -139,6 +139,9 @@ public:
         UniqueRef<ChromeClient>&&,
         UniqueRef<CryptoClient>&&,
         UniqueRef<ProcessSyncClient>&&
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+        , Ref<CredentialRequestCoordinatorClient>&&
+#endif
     );
     WEBCORE_EXPORT ~PageConfiguration();
     PageConfiguration(PageConfiguration&&);
@@ -153,14 +156,13 @@ public:
     UniqueRef<EditorClient> editorClient;
     Ref<SocketProvider> socketProvider;
     std::unique_ptr<DragClient> dragClient;
-    std::unique_ptr<InspectorClient> inspectorClient;
+    std::unique_ptr<InspectorBackendClient> inspectorBackendClient;
 #if ENABLE(APPLE_PAY)
     Ref<PaymentCoordinatorClient> paymentCoordinatorClient;
 #endif
 
 #if ENABLE(WEB_AUTHN)
     std::unique_ptr<AuthenticatorCoordinatorClient> authenticatorCoordinatorClient;
-    std::unique_ptr<CredentialRequestCoordinatorClient> credentialRequestCoordinatorClient;
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -214,7 +216,7 @@ public:
 
     UniqueRef<StorageProvider> storageProvider;
 
-    UniqueRef<ModelPlayerProvider> modelPlayerProvider;
+    Ref<ModelPlayerProvider> modelPlayerProvider;
 #if ENABLE(ATTACHMENT_ELEMENT)
     std::unique_ptr<AttachmentElementClient> attachmentElementClient;
 #endif
@@ -237,6 +239,10 @@ public:
 
 #if PLATFORM(COCOA)
     String presentingApplicationBundleIdentifier;
+#endif
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    Ref<CredentialRequestCoordinatorClient> credentialRequestCoordinatorClient;
 #endif
 };
 

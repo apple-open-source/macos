@@ -201,7 +201,7 @@ typedef struct thread_watchlist {
 
 #endif /* CONFIG_TASKWATCH */
 
-extern int memorystatus_update_priority_for_appnap(proc_t p, boolean_t is_appnap);
+extern int memorystatus_update_priority_for_appnap(proc_t p);
 
 /* Importance Inheritance related helper functions */
 
@@ -830,7 +830,8 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 
 	thread_qos_t role_clamp = THREAD_QOS_UNSPECIFIED;
 
-	if (requested.trp_apptype == TASK_APPTYPE_APP_DEFAULT) {
+	if (requested.trp_apptype == TASK_APPTYPE_APP_DEFAULT ||
+	    requested.trp_apptype == TASK_APPTYPE_APP_NONUI) {
 		switch (next.tep_role) {
 		case TASK_FOREGROUND_APPLICATION:
 			/* Foreground apps get urgent scheduler priority */
@@ -851,6 +852,11 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 		case TASK_NONUI_APPLICATION:
 			/* i.e. 'off-screen' */
 			next.tep_qos_ceiling = THREAD_QOS_LEGACY;
+			break;
+
+		case TASK_USER_INIT_APPLICATION:
+			/* i.e. 'off-screen', but doing user-initiated work */
+			next.tep_qos_ceiling = THREAD_QOS_USER_INITIATED;
 			break;
 
 		case TASK_CONTROL_APPLICATION:
@@ -896,13 +902,15 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	bool wants_darwinbg        = false;
 	bool wants_all_sockets_bg  = false; /* Do I want my existing sockets to be bg */
 	bool wants_watchersbg      = false; /* Do I want my pidbound threads to be bg */
-	bool adaptive_bg_only      = false; /* This task is BG only because it's adaptive unboosted */
+	bool bg_clamps_turnstiles  = false; /* This task does not want turnstile-boost-above-task */
 
-	/* Adaptive daemons are DARWIN_BG unless boosted, and don't get network throttled. */
+	/*
+	 * Adaptive daemons are DARWIN_BG unless boosted, and don't get network throttled.
+	 * Their threads can be turnstile-boosted out of BG.
+	 */
 	if (requested.trp_apptype == TASK_APPTYPE_DAEMON_ADAPTIVE &&
 	    requested.trp_boosted == 0) {
 		wants_darwinbg = true;
-		adaptive_bg_only = true;
 	}
 
 	/*
@@ -914,16 +922,17 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	if (requested.trp_int_darwinbg || requested.trp_ext_darwinbg ||
 	    next.tep_role == TASK_DARWINBG_APPLICATION) {
 		wants_watchersbg = wants_all_sockets_bg = wants_darwinbg = true;
-		adaptive_bg_only = false;
+		bg_clamps_turnstiles = true;
 	}
 
 	if (next.tep_coalition_bg) {
 		wants_watchersbg = wants_all_sockets_bg = wants_darwinbg = true;
-		adaptive_bg_only = false;
+		bg_clamps_turnstiles = true;
 	}
 
 	/* Application launching in special Transparent App Lifecycle throttle mode */
-	if (requested.trp_apptype == TASK_APPTYPE_APP_DEFAULT &&
+	if ((requested.trp_apptype == TASK_APPTYPE_APP_DEFAULT ||
+	    requested.trp_apptype == TASK_APPTYPE_APP_NONUI) &&
 	    requested.trp_role == TASK_THROTTLE_APPLICATION) {
 		next.tep_tal_engaged = 1;
 	}
@@ -931,13 +940,22 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	/* Background daemons are always DARWIN_BG, no exceptions, and don't get network throttled. */
 	if (requested.trp_apptype == TASK_APPTYPE_DAEMON_BACKGROUND) {
 		wants_darwinbg = true;
-		adaptive_bg_only = false;
+		bg_clamps_turnstiles = true;
 	}
 
 	if (next.tep_qos_clamp == THREAD_QOS_BACKGROUND ||
 	    next.tep_qos_clamp == THREAD_QOS_MAINTENANCE) {
 		wants_darwinbg = true;
-		adaptive_bg_only = false;
+		bg_clamps_turnstiles = true;
+	}
+
+	/*
+	 * Runaway-mitigated processes are darwinbg unless their threads
+	 * are turnstile-boosted.
+	 */
+	if (requested.trp_runaway_mitigation) {
+		wants_darwinbg = true;
+		next.tep_runaway_mitigation = 1;
 	}
 
 	/* Calculate side effects of DARWIN_BG */
@@ -957,7 +975,9 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 		next.tep_watchers_bg = 1;
 	}
 
-	next.tep_adaptive_bg = adaptive_bg_only;
+	if (wants_darwinbg && bg_clamps_turnstiles == false) {
+		next.tep_promote_above_task = 1;
+	}
 
 	/* Calculate low CPU priority */
 
@@ -1010,14 +1030,8 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	}
 
 	/* Calculate suppression-active flag */
-	boolean_t appnap_transition = false;
-
 	if (requested.trp_sup_active && requested.trp_boosted == 0) {
 		next.tep_sup_active = 1;
-	}
-
-	if (task->effective_policy.tep_sup_active != next.tep_sup_active) {
-		appnap_transition = true;
 	}
 
 	/* Calculate timer QOS */
@@ -1078,13 +1092,14 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 
 	/* Calculate 'live donor' status for live importance */
 	switch (requested.trp_apptype) {
-	case TASK_APPTYPE_APP_TAL:
+	case TASK_APPTYPE_APP_NONUI:
 	case TASK_APPTYPE_APP_DEFAULT:
 		if (requested.trp_ext_darwinbg == 1 ||
 		    next.tep_coalition_bg ||
 		    (next.tep_sup_active == 1 &&
 		    (task_policy_suppression_flags & TASK_POLICY_SUPPRESSION_NONDONOR)) ||
-		    next.tep_role == TASK_DARWINBG_APPLICATION) {
+		    next.tep_role == TASK_DARWINBG_APPLICATION ||
+		    next.tep_runaway_mitigation) {
 			next.tep_live_donor = 0;
 		} else {
 			next.tep_live_donor = 1;
@@ -1120,6 +1135,8 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 		next.tep_tal_engaged    = 0;
 		next.tep_role           = TASK_UNSPECIFIED;
 		next.tep_suppressed_cpu = 0;
+		next.tep_runaway_mitigation = 0;
+		next.tep_promote_above_task = 0;
 	}
 
 	/*
@@ -1165,6 +1182,17 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 		pend_token->tpt_update_live_donor = 1;
 	}
 
+	if (prev.tep_sup_active != next.tep_sup_active) {
+		pend_token->tpt_update_appnap = 1;
+	}
+
+	/* runaway mitigation mode generates its own dedicated tracepoint */
+	if (prev.tep_runaway_mitigation != next.tep_runaway_mitigation) {
+		KDBG_RELEASE(IMPORTANCE_CODE(IMP_RUNAWAY_MITIGATION, 0) |
+		    (next.tep_runaway_mitigation ? DBG_FUNC_START : DBG_FUNC_END),
+		    task_pid(task), next.tep_terminated);
+	}
+
 	/*
 	 * Step 5:
 	 *  Update other subsystems as necessary if something has changed
@@ -1188,7 +1216,7 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	    prev.tep_lowpri_cpu != next.tep_lowpri_cpu ||
 	    prev.tep_new_sockets_bg != next.tep_new_sockets_bg ||
 	    prev.tep_terminated != next.tep_terminated ||
-	    prev.tep_adaptive_bg != next.tep_adaptive_bg) {
+	    prev.tep_promote_above_task != next.tep_promote_above_task) {
 		update_threads = true;
 	}
 
@@ -1198,6 +1226,7 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 	 */
 	if (prev.tep_latency_qos != next.tep_latency_qos ||
 	    prev.tep_role != next.tep_role ||
+	    prev.tep_runaway_mitigation != next.tep_runaway_mitigation ||
 	    prev.tep_sfi_managed != next.tep_sfi_managed) {
 		update_sfi = true;
 	}
@@ -1294,20 +1323,6 @@ task_policy_update_internal_locked(task_t task, bool in_create, task_pend_token_
 
 			// Slightly risky, as we still hold the task lock...
 			thread_policy_update_complete_unlocked(thread, &thread_pend_token);
-		}
-	}
-
-	/*
-	 * Use the app-nap transitions to influence the
-	 * transition of the process within the jetsam band
-	 * [and optionally its live-donor status]
-	 * On macOS only.
-	 */
-	if (appnap_transition) {
-		if (task->effective_policy.tep_sup_active == 1) {
-			memorystatus_update_priority_for_appnap(((proc_t) get_bsdtask_info(task)), TRUE);
-		} else {
-			memorystatus_update_priority_for_appnap(((proc_t) get_bsdtask_info(task)), FALSE);
 		}
 	}
 
@@ -1480,6 +1495,16 @@ task_policy_update_complete_unlocked(task_t task, task_pend_token_t pend_token)
 		task_coalition_thread_group_carplay_mode_update(task);
 	}
 #endif /* CONFIG_THREAD_GROUPS */
+
+	/*
+	 * Use the app-nap transitions to influence the
+	 * transition of the process within the jetsam band
+	 * [and optionally its live-donor status]
+	 * On macOS only.
+	 */
+	if (pend_token->tpt_update_appnap) {
+		memorystatus_update_priority_for_appnap((proc_t) get_bsdtask_info(task));
+	}
 }
 
 /*
@@ -1663,6 +1688,11 @@ proc_set_task_policy_locked(task_t      task,
 		requested.trp_over_through_qos = value2;
 		break;
 
+	case TASK_POLICY_RUNAWAY_MITIGATION:
+		assert(category == TASK_POLICY_ATTRIBUTE);
+		requested.trp_runaway_mitigation = value;
+		break;
+
 	default:
 		panic("unknown task policy: %d %d %d %d", category, flavor, value, value2);
 		break;
@@ -1727,6 +1757,10 @@ proc_get_task_policy(task_t     task,
 	case TASK_POLICY_SFI_MANAGED:
 		assert(category == TASK_POLICY_ATTRIBUTE);
 		value = requested.trp_sfi_managed;
+		break;
+	case TASK_POLICY_RUNAWAY_MITIGATION:
+		assert(category == TASK_POLICY_ATTRIBUTE);
+		value = requested.trp_runaway_mitigation;
 		break;
 	default:
 		panic("unknown policy_flavor %d", flavor);
@@ -1860,6 +1894,12 @@ proc_get_effective_task_policy(task_t   task,
 		 */
 		value = task->effective_policy.tep_terminated;
 		break;
+	case TASK_POLICY_RUNAWAY_MITIGATION:
+		/*
+		 * This shows whether or not a process has been tagged for runaway mitigation.
+		 */
+		value = task->effective_policy.tep_runaway_mitigation;
+		break;
 	default:
 		panic("unknown policy_flavor %d", flavor);
 		break;
@@ -1959,6 +1999,9 @@ proc_darwin_role_to_task_role(int darwin_role, task_role_t* task_role)
 	case PRIO_DARWIN_ROLE_DARWIN_BG:
 		role = TASK_DARWINBG_APPLICATION;
 		break;
+	case PRIO_DARWIN_ROLE_USER_INIT:
+		role = TASK_USER_INIT_APPLICATION;
+		break;
 	default:
 		return EINVAL;
 	}
@@ -1984,6 +2027,8 @@ proc_task_role_to_darwin_role(task_role_t task_role)
 		return PRIO_DARWIN_ROLE_TAL_LAUNCH;
 	case TASK_DARWINBG_APPLICATION:
 		return PRIO_DARWIN_ROLE_DARWIN_BG;
+	case TASK_USER_INIT_APPLICATION:
+		return PRIO_DARWIN_ROLE_USER_INIT;
 	case TASK_UNSPECIFIED:
 	default:
 		return PRIO_DARWIN_ROLE_DEFAULT;
@@ -2027,6 +2072,7 @@ proc_set_task_spawnpolicy(task_t task, thread_t thread, int apptype, int qos_cla
 
 	switch (apptype) {
 	case TASK_APPTYPE_APP_DEFAULT:
+	case TASK_APPTYPE_APP_NONUI:
 		/* Apps become donors via the 'live-donor' flag instead of the static donor flag */
 		task_importance_mark_donor(task, FALSE);
 		task_importance_mark_live_donor(task, TRUE);
@@ -2159,8 +2205,6 @@ proc_inherit_task_role(task_t new_task,
 	proc_set_task_policy(new_task, TASK_POLICY_ATTRIBUTE, TASK_POLICY_ROLE, role);
 }
 
-extern void * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
-
 /*
  * Compute the default main thread qos for a task
  */
@@ -2172,7 +2216,6 @@ task_compute_main_thread_qos(task_t task)
 	thread_qos_t qos_clamp = task->requested_policy.trp_qos_clamp;
 
 	switch (task->requested_policy.trp_apptype) {
-	case TASK_APPTYPE_APP_TAL:
 	case TASK_APPTYPE_APP_DEFAULT:
 		primordial_qos = THREAD_QOS_USER_INTERACTIVE;
 		break;
@@ -2181,6 +2224,7 @@ task_compute_main_thread_qos(task_t task)
 	case TASK_APPTYPE_DAEMON_STANDARD:
 	case TASK_APPTYPE_DAEMON_ADAPTIVE:
 	case TASK_APPTYPE_DRIVER:
+	case TASK_APPTYPE_APP_NONUI:
 		primordial_qos = THREAD_QOS_LEGACY;
 		break;
 
@@ -2189,7 +2233,7 @@ task_compute_main_thread_qos(task_t task)
 		break;
 	}
 
-	if (get_bsdtask_info(task) == initproc) {
+	if (task_is_initproc(task)) {
 		/* PID 1 gets a special case */
 		primordial_qos = MAX(primordial_qos, THREAD_QOS_USER_INITIATED);
 	}
@@ -2203,20 +2247,6 @@ task_compute_main_thread_qos(task_t task)
 	}
 
 	return primordial_qos;
-}
-
-
-/* for process_policy to check before attempting to set */
-boolean_t
-proc_task_is_tal(task_t task)
-{
-	return (task->requested_policy.trp_apptype == TASK_APPTYPE_APP_TAL) ? TRUE : FALSE;
-}
-
-int
-task_get_apptype(task_t task)
-{
-	return task->requested_policy.trp_apptype;
 }
 
 boolean_t
@@ -2242,12 +2272,12 @@ task_is_driver(task_t task)
 	return task->requested_policy.trp_apptype == TASK_APPTYPE_DRIVER;
 }
 
-boolean_t
+bool
 task_is_app(task_t task)
 {
 	switch (task->requested_policy.trp_apptype) {
 	case TASK_APPTYPE_APP_DEFAULT:
-	case TASK_APPTYPE_APP_TAL:
+	case TASK_APPTYPE_APP_NONUI:
 		return TRUE;
 	default:
 		return FALSE;
@@ -2284,8 +2314,7 @@ proc_get_darwinbgstate(task_t task, uint32_t * flagsp)
 	}
 #endif /* !defined(XNU_TARGET_OS_OSX) */
 
-	if (task->requested_policy.trp_apptype == TASK_APPTYPE_APP_DEFAULT ||
-	    task->requested_policy.trp_apptype == TASK_APPTYPE_APP_TAL) {
+	if (task_is_app(task)) {
 		*flagsp |= PROC_FLAG_APPLICATION;
 	}
 
@@ -2376,6 +2405,7 @@ trequested_1(task_t task)
 static uintptr_t
 teffective_0(task_t task)
 {
+	static_assert(sizeof(struct task_effective_policy) == sizeof(uint64_t), "size invariant violated");
 	uintptr_t* raw = (uintptr_t*)&task->effective_policy;
 
 	return raw[0];

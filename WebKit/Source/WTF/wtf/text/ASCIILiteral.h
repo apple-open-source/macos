@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2018 Yusuke Suzuki <utatane.tea@gmail.com>
- * Copyright (C) 2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,14 +63,12 @@ public:
         : ASCIILiteral()
     { }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     template<size_t length>
     consteval ASCIILiteral(const char (&literal)[length])
         : m_charactersWithNullTerminator(unsafeMakeSpan(literal, length))
     {
-        RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(literal[length - 1] == '\0');
+        RELEASE_ASSERT_UNDER_CONSTEXPR_CONTEXT(m_charactersWithNullTerminator[length - 1] == '\0');
     }
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     unsigned hash() const;
     constexpr bool isNull() const { return m_charactersWithNullTerminator.empty(); }
@@ -79,7 +77,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     constexpr size_t length() const { return !m_charactersWithNullTerminator.empty() ? m_charactersWithNullTerminator.size() - 1 : 0; }
     constexpr std::span<const char> span() const { return m_charactersWithNullTerminator.first(length()); }
     std::span<const LChar> span8() const { return byteCast<LChar>(m_charactersWithNullTerminator.first(length())); }
-    std::span<const char> unsafeSpanIncludingNullTerminator() const { return m_charactersWithNullTerminator; }
+    std::span<const char> spanIncludingNullTerminator() const { return m_charactersWithNullTerminator; }
     size_t isEmpty() const { return m_charactersWithNullTerminator.size() <= 1; }
 
     constexpr char operator[](size_t index) const { return m_charactersWithNullTerminator[index]; }
@@ -112,9 +110,12 @@ private:
 
 inline bool operator==(ASCIILiteral a, ASCIILiteral b)
 {
-    if (!a || !b)
-        return a.characters() == b.characters();
-    return equalSpans(a.span(), b.span());
+    return equalSpans(a.spanIncludingNullTerminator(), b.spanIncludingNullTerminator());
+}
+
+inline auto operator<=>(ASCIILiteral a, ASCIILiteral b)
+{
+    return compareSpans(a.spanIncludingNullTerminator(), b.spanIncludingNullTerminator());
 }
 
 inline unsigned ASCIILiteral::hash() const

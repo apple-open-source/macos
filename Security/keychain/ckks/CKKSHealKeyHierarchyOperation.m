@@ -36,7 +36,6 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #if OCTAGON
@@ -259,7 +258,7 @@
                                                      code:CKKSSplitKeyHierarchy
                                               description:[NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]];
                     self.nextState = CKKSStateError;
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:self.error];
+                    [healBrokenRecordsEventS sendMetricWithResult:NO error:self.error];
                     return CKKSDatabaseTransactionCommit;
                 }
             }
@@ -268,7 +267,7 @@
                 // We don't have any TLKs lying around, but we're supposed to heal the key hierarchy. This isn't any good; let's wait for TLK creation.
                 ckkserror("ckksheal", viewState.zoneID, "No possible TLK found. Waiting for creation.");
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTLKCreation;
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:nil];
+                [healBrokenRecordsEventS sendMetricWithResult:NO error:nil];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -278,7 +277,7 @@
                 self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
                 
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:self.error];
+                [healBrokenRecordsEventS sendMetricWithResult:NO error:self.error];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -296,7 +295,7 @@
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateTLKMissing;
                 }
                 
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                 return CKKSDatabaseTransactionCommit;
             }
 
@@ -341,12 +340,12 @@
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForUnlock;
 
                     [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldIsLocked:@(YES)}];
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                    [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", viewState.zoneID, "couldn't create new classA key: %@", error);
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                    [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 }
 
@@ -362,14 +361,14 @@
                     ckksnotice("ckksheal", viewState.zoneID, "Couldn't create a new class C key, but keybag appears to be locked. Entering waitforunlock.");
                     
                     [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldIsLocked:@(YES)}];
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                    [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForUnlock;
                     return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", viewState.zoneID, "couldn't create new class C key: %@", error);
                     viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateError;
                     
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                    [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                     return CKKSDatabaseTransactionCommit;
                 }
 
@@ -406,16 +405,18 @@
             NSSet<CKKSTLKShareRecord*>* tlkShares = [CKKSHealTLKSharesOperation createMissingKeyShares:keyset
                                                                                            trustStates:currentTrustStates
                                                                                       databaseProvider:nil
+                                                                                               altDSID:self.deps.activeAccount.altDSID
+                                                                                            sendMetric:self.deps.sendMetric
                                                                                                  error:&error];
             [healBrokenRecordsEventS addMetrics:@{kSecurityRTCFieldNewTLKShares:@(tlkShares.count)}];
 
             if(error) {
                 ckkserror("ckksshare", viewState.zoneID, "Unable to create TLK shares for new tlk: %@", error);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:NO error:error];
+                [healBrokenRecordsEventS sendMetricWithResult:NO error:error];
                 return CKKSDatabaseTransactionRollback;
             }
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:healBrokenRecordsEventS success:YES error:nil];
+            [healBrokenRecordsEventS sendMetricWithResult:YES error:nil];
 
             for(CKKSTLKShareRecord* share in tlkShares) {
                 CKRecord* record = [share CKRecordWithZoneID:viewState.zoneID];
@@ -442,8 +443,8 @@
                                                                                   withBlock:^{
                     // If this is the last batch of uploads, send healKeyHierarchy events.
                     if ((recordsToSave.count - startIndx) <= BATCH_SIZE) {
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:uploadHealedTLKSharesEventS success:uploadSucceeded error:nil];
-                        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:didSucceed error:nil];
+                        [uploadHealedTLKSharesEventS sendMetricWithResult:uploadSucceeded error:nil];
+                        [eventS sendMetricWithResult:didSucceed error:nil];
                     }
                 }];
                 [self dependOnBeforeGroupFinished:cloudKitModifyOperationFinished];

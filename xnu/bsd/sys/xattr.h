@@ -48,7 +48,8 @@
 #define XATTR_SHOWCOMPRESSION 0x0020
 
 /* Options for pathname based xattr calls */
-#define XATTR_NOFOLLOW_ANY  0x0040  /* Don't follow any symbolic links in the path */
+#define XATTR_NOFOLLOW_ANY     0x0040  /* Don't follow any symbolic links in the path */
+#define XATTR_RESOLVE_BENEATH  0x0080  /* path must reside in the hierarchy beneath the starting directory */
 
 #define XATTR_MAXNAMELEN   127
 

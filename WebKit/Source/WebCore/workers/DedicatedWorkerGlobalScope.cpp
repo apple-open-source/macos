@@ -35,6 +35,7 @@
 #include "ContentSecurityPolicyResponseHeaders.h"
 #include "DedicatedWorkerThread.h"
 #include "EventNames.h"
+#include "EventTargetInterfaces.h"
 #include "JSRTCRtpScriptTransformer.h"
 #include "LocalDOMWindow.h"
 #include "MessageEvent.h"

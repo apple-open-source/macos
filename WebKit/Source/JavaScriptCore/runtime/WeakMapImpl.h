@@ -213,12 +213,12 @@ public:
     }
 
     // WeakMap operations must not cause GC. We model operations in DFG based on this guarantee.
-    // This guarantee is ensured by DisallowGC.
+    // This guarantee is ensured by AssertNoGC.
 
     template <typename T = WeakMapBucketType>
     ALWAYS_INLINE typename std::enable_if<std::is_same<T, WeakMapBucket<WeakMapBucketDataKeyValue>>::value, JSValue>::type get(JSCell* key)
     {
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
         if (WeakMapBucketType* bucket = findBucket(key))
             return bucket->value();
         return jsUndefined();
@@ -252,7 +252,7 @@ public:
 
     ALWAYS_INLINE bool has(JSCell* key)
     {
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
         return !!findBucket(key);
     }
 
@@ -262,7 +262,7 @@ public:
 
     ALWAYS_INLINE bool remove(JSCell* key)
     {
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
         WeakMapBucketType* bucket = findBucket(key);
         if (!bucket)
             return false;

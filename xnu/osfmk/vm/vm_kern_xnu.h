@@ -33,7 +33,7 @@
 #include <vm/vm_kern.h>
 
 __BEGIN_DECLS
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 #ifdef XNU_KERNEL_PRIVATE
 
 
@@ -337,7 +337,7 @@ __options_decl(kmem_claims_flags_t, uint32_t, {
  * Security config that creates the additional splits in non data part of
  * kernel_map
  */
-#if KASAN || (__arm64__ && !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR))
+#if KASAN || (__arm64__ && !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR) && !defined(KERNEL_INTEGRITY_PV_CTRR))
 #   define ZSECURITY_CONFIG_KERNEL_PTR_SPLIT        OFF
 #else
 #   define ZSECURITY_CONFIG_KERNEL_PTR_SPLIT        ON
@@ -626,6 +626,7 @@ __options_decl(kms_flags_t, uint32_t, {
 	/* How to look for addresses */
 	KMS_LAST_FREE       = KMEM_LAST_FREE,
 	KMS_DATA            = KMEM_DATA,
+	KMS_DATA_SHARED     = KMEM_DATA_SHARED,
 
 	/* Entry properties */
 	KMS_PERMANENT       = KMEM_PERMANENT,
@@ -694,7 +695,10 @@ __options_decl(kmr_flags_t, uint32_t, {
 #define KMEM_REALLOC_FLAGS_VALID(flags) \
 	(((flags) & (KMR_KOBJECT | KMEM_GUARD_LAST | KMEM_KASAN_GUARD | KMR_DATA)) == KMR_DATA \
 	|| ((flags) & (KMR_KOBJECT | KMEM_GUARD_LAST | KMEM_KASAN_GUARD | KMR_DATA_SHARED)) == KMR_DATA_SHARED \
-	|| ((flags) & KMR_FREEOLD))
+	|| ((flags) & KMR_FREEOLD) \
+	&& (((flags) & (KMR_DATA | KMR_DATA_SHARED)) != (KMR_DATA | KMR_DATA_SHARED)) \
+	&& (((flags) & (KMA_PAGEABLE | KMA_DATA)) != (KMA_PAGEABLE | KMA_DATA)))
+
 
 /*!
  * @function kmem_realloc_guard()
@@ -1755,6 +1759,14 @@ extern kern_return_t    vm_kern_allocation_info(
  */
 extern void             vm_init_before_launchd(void);
 
+#if DEVELOPMENT || DEBUG
+
+extern kern_return_t    vm_tag_reset_peak(vm_tag_t tag);
+
+extern void             vm_tag_reset_all_peaks(void);
+
+#endif /* DEVELOPMENT || DEBUG */
+
 #if VM_TAG_SIZECLASSES
 
 /*!
@@ -1774,7 +1786,7 @@ extern kern_return_t device_pager_populate_object( memory_object_t device,
     memory_object_offset_t offset, ppnum_t page_num, vm_size_t size);
 
 #endif /* XNU_KERNEL_PRIVATE */
-#pragma GCC visibility pop
+__exported_pop
 __END_DECLS
 
 #endif  /* _VM_VM_KERN_XNU_H_ */

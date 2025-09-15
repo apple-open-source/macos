@@ -951,7 +951,12 @@ xmlParseCatalogFile(const char *filename) {
     inputStream->buf = buf;
     xmlBufResetInput(buf->buffer, inputStream);
 
-    inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
+
     if (ctxt->directory == NULL)
         directory = xmlParserGetDirectory(filename);
     if ((ctxt->directory == NULL) && (directory != NULL))

@@ -26,7 +26,6 @@
 #pragma once
 
 #include <WebCore/ShareableBitmap.h>
-#include <variant>
 #include <wtf/MachSendRight.h>
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
@@ -35,7 +34,7 @@
 
 namespace WebKit {
 
-using ImageBufferBackendHandle = std::variant<
+using ImageBufferBackendHandle = Variant<
     WebCore::ShareableBitmap::Handle
 #if PLATFORM(COCOA) // FIXME: This is really about IOSurface.
     , MachSendRight

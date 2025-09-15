@@ -90,6 +90,7 @@ protected:
     bool WARN_UNUSED_RETURN parseImmByteArray16(v128_t&);
     PartialResult WARN_UNUSED_RETURN parseImmLaneIdx(uint8_t laneCount, uint8_t&);
     bool WARN_UNUSED_RETURN parseVarUInt32(uint32_t&);
+    bool WARN_UNUSED_RETURN peekVarUInt32(uint32_t&);
     bool WARN_UNUSED_RETURN parseVarUInt64(uint64_t&);
 
     bool WARN_UNUSED_RETURN parseVarInt32(int32_t&);
@@ -111,13 +112,13 @@ protected:
         return UnexpectedResult(makeString("WebAssembly.Module doesn't parse at byte "_s, m_offset, ": "_s, makeString(args)...));
     }
 #define WASM_PARSER_FAIL_IF(condition, ...) do { \
-    if (UNLIKELY(condition))                     \
+    if (condition) [[unlikely]]                     \
         return fail(__VA_ARGS__);                \
     } while (0)
 
 #define WASM_FAIL_IF_HELPER_FAILS(helper) do {                      \
         auto helperResult = helper;                                 \
-        if (UNLIKELY(!helperResult))                                \
+        if (!helperResult) [[unlikely]]                             \
             return makeUnexpected(WTFMove(helperResult.error()));   \
     } while (0)
 
@@ -188,7 +189,8 @@ ALWAYS_INLINE bool ParserBase::consumeUTF8String(Name& result, size_t stringLeng
         return false;
 
     result.grow(stringLength);
-    memcpy(result.data(), string.data(), stringLength);
+    // FIXME: Adopt memcpySpan().
+    memcpy(result.mutableSpan().data(), string.data(), stringLength);
     m_offset += stringLength;
     return true;
 }
@@ -196,6 +198,12 @@ ALWAYS_INLINE bool ParserBase::consumeUTF8String(Name& result, size_t stringLeng
 ALWAYS_INLINE bool ParserBase::parseVarUInt32(uint32_t& result)
 {
     return WTF::LEBDecoder::decodeUInt32(m_source, m_offset, result);
+}
+
+ALWAYS_INLINE bool ParserBase::peekVarUInt32(uint32_t& result)
+{
+    SetForScope savedOffset(m_offset, m_offset);
+    return parseVarUInt32(result);
 }
 
 ALWAYS_INLINE bool ParserBase::parseVarUInt64(uint64_t& result)

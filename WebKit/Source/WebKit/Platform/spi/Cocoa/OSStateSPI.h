@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if USE(OS_STATE)
 
 #if USE(APPLE_INTERNAL_SDK)

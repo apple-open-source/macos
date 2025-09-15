@@ -192,7 +192,7 @@ inline static RetainPtr<NSParagraphStyle> reconstructStyle(const ParagraphStyle&
 {
     for (const auto& item : style.textLists) {
         lists.ensure(item.thisID, [&] {
-            RetainPtr list = adoptNS([[PlatformNSTextList alloc] initWithMarkerFormat:item.markerFormat options:0]);
+            RetainPtr list = adoptNS([[PlatformNSTextList alloc] initWithMarkerFormat:item.markerFormat.createNSString().get() options:0]);
             [list setStartingItemNumber:item.startingItemNumber];
             return list;
         });
@@ -296,19 +296,19 @@ static RetainPtr<NSAdaptiveImageGlyph> toWebMultiRepresentationHEICAttachment(co
             return attachment;
     }
 
-    NSString *identifier = attachmentData.identifier;
-    NSString *description = attachmentData.description;
-    if (!description.length)
+    RetainPtr identifier = attachmentData.identifier.createNSString();
+    RetainPtr description = attachmentData.description.createNSString();
+    if (!description.get().length)
         description = @"Apple Emoji";
 
 #if HAVE(NS_EMOJI_IMAGE_STRIKE_PROVENANCE)
     RetainPtr<NSMutableDictionary<NSString *, NSString *>> provenanceInfo = [NSMutableDictionary dictionaryWithCapacity:2];
 
-    NSString *credit = attachmentData.credit;
-    NSString *digitalSourceType = attachmentData.digitalSourceType;
-    if (identifier.length && digitalSourceType.length) {
-        [provenanceInfo setObject:credit forKey:(__bridge NSString *)kCGImagePropertyIPTCCredit];
-        [provenanceInfo setObject:digitalSourceType forKey:(__bridge NSString *)kCGImagePropertyIPTCExtDigitalSourceType];
+    RetainPtr credit = attachmentData.credit.createNSString();
+    RetainPtr digitalSourceType = attachmentData.digitalSourceType.createNSString();
+    if (identifier.get().length && digitalSourceType.get().length) {
+        [provenanceInfo setObject:credit.get() forKey:bridge_cast(kCGImagePropertyIPTCCredit)];
+        [provenanceInfo setObject:digitalSourceType.get() forKey:bridge_cast(kCGImagePropertyIPTCExtDigitalSourceType)];
     }
 #endif
 
@@ -328,7 +328,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (![images count])
         return nil;
 
-    RetainPtr asset = adoptNS([[CTEmojiImageAsset alloc] initWithContentIdentifier:identifier shortDescription:description strikeImages:images]);
+    RetainPtr asset = adoptNS([[CTEmojiImageAsset alloc] initWithContentIdentifier:identifier.get() shortDescription:description.get() strikeImages:images]);
     if (![asset imageData])
         return nil;
 
@@ -342,16 +342,16 @@ static RetainPtr<id> toNSObject(const AttributedString::AttributeValue& value, I
     return WTF::switchOn(value.value, [] (double value) -> RetainPtr<id> {
         return adoptNS([[NSNumber alloc] initWithDouble:value]);
     }, [] (const String& value) -> RetainPtr<id> {
-        return (NSString *)value;
+        return value.createNSString();
     }, [&] (const ParagraphStyle& value) -> RetainPtr<id> {
         return reconstructStyle(value, tables, tableBlocks, lists);
     }, [] (const RetainPtr<NSPresentationIntent>& value) -> RetainPtr<id> {
         return value;
     }, [] (const URL& value) -> RetainPtr<id> {
-        return (NSURL *)value;
+        return value.createNSURL();
     }, [] (const Vector<String>& value) -> RetainPtr<id> {
         return createNSArray(value, [] (const String& string) {
-            return (NSString *)string;
+            return string.createNSString();
         });
     }, [] (const Vector<double>& value) -> RetainPtr<id> {
         return createNSArray(value, [] (double number) {
@@ -367,11 +367,11 @@ static RetainPtr<id> toNSObject(const AttributedString::AttributeValue& value, I
 
         RetainPtr fileWrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:data.get()]);
         if (!value.preferredFilename.isNull())
-            [fileWrapper setPreferredFilename:filenameByFixingIllegalCharacters((NSString *)value.preferredFilename)];
+            [fileWrapper setPreferredFilename:filenameByFixingIllegalCharacters(value.preferredFilename.createNSString().get())];
 
         auto textAttachment = adoptNS([[PlatformNSTextAttachment alloc] initWithFileWrapper:fileWrapper.get()]);
         if (!value.accessibilityLabel.isNull())
-            ((NSTextAttachment*)textAttachment.get()).accessibilityLabel = (NSString *)value.accessibilityLabel;
+            ((NSTextAttachment*)textAttachment.get()).accessibilityLabel = value.accessibilityLabel.createNSString().get();
 
         return textAttachment;
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
@@ -396,7 +396,7 @@ static RetainPtr<NSDictionary> toNSDictionary(const HashMap<String, AttributedSt
     auto result = adoptNS([[NSMutableDictionary alloc] initWithCapacity:map.size()]);
     for (auto& pair : map) {
         if (auto nsObject = toNSObject(pair.value, tables, tableBlocks, lists))
-            [result setObject:nsObject.get() forKey:(NSString *)pair.key];
+            [result setObject:nsObject.get() forKey:pair.key.createNSString().get()];
     }
     return result;
 }
@@ -425,7 +425,7 @@ RetainPtr<NSAttributedString> AttributedString::nsAttributedString() const
     IdentifierToTableMap tables;
     IdentifierToTableBlockMap tableBlocks;
     IdentifierToListMap lists;
-    auto result = adoptNS([[NSMutableAttributedString alloc] initWithString:(NSString *)string]);
+    RetainPtr result = adoptNS([[NSMutableAttributedString alloc] initWithString:string.createNSString().get()]);
     for (auto& pair : attributes) {
         auto& map = pair.second;
         auto& range = pair.first;
@@ -443,8 +443,8 @@ static std::optional<AttributedString::AttributeValue> extractArray(NSArray *arr
         Vector<String> result;
         result.reserveInitialCapacity(arrayLength);
         for (id element in array) {
-            if ([element isKindOfClass:NSString.class])
-                result.append((NSString *)element);
+            if (auto *string = dynamic_objc_cast<NSString>(element))
+                result.append(string);
             else
                 RELEASE_LOG_ERROR(Editing, "NSAttributedString extraction failed with array containing <%@>", NSStringFromClass([element class]));
         }
@@ -751,7 +751,8 @@ static HashMap<String, AttributedString::AttributeValue> extractDictionary(NSDic
 {
     HashMap<String, AttributedString::AttributeValue> result;
     [dictionary enumerateKeysAndObjectsUsingBlock:[&](id key, id value, BOOL *) {
-        if (![key isKindOfClass:NSString.class]) {
+        RetainPtr keyString = dynamic_objc_cast<NSString>(key);
+        if (!keyString) {
             ASSERT_NOT_REACHED();
             return;
         }
@@ -760,7 +761,7 @@ static HashMap<String, AttributedString::AttributeValue> extractDictionary(NSDic
             ASSERT_NOT_REACHED();
             return;
         }
-        result.set((NSString *)key, WTFMove(*extractedValue));
+        result.set(keyString.get(), WTFMove(*extractedValue));
     }];
     return result;
 }

@@ -22,6 +22,7 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelper-Bridging-Header.h"
 #import "keychain/trust/TrustedPeersTests/TPModelInMemoryDb.h"
 #import "keychain/securityd/SecItemDataSource.h"
+#import "keychain/OctagonTrust/OTEscrowCheckCallResult.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
 #import "tests/secdmockaks/mockaks.h"

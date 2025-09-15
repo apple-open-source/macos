@@ -94,14 +94,19 @@ static NSString* tablePath = nil;
     XCTAssertNil(error, "encountered error opening database: %@", error);
     XCTAssertNoThrow([sqlTable close], @"closing database threw an exception");
 
-    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(S_IRUSR), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
+    NSDictionary* originalAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:tablePath error:&error];
+    XCTAssertNil(error, @"encountered error getting database file attributes: %@", error);
 
+    [[NSFileManager defaultManager] setAttributes:@{NSFilePosixPermissions : @(S_IRUSR), NSFileImmutable : @(YES)} ofItemAtPath:tablePath error:&error];
     XCTAssertNil(error, @"encountered error setting database file attributes: %@", error);
     XCTAssertNoThrow([sqlTable openWithError:&error]);
-    XCTAssertNil(error, @"encounterd error when opening file without permissions: %@", error);
+    XCTAssertNil(error, @"encountered error when opening file without permissions: %@", error);
 
     XCTAssertFalse([sqlTable executeSQL:@"insert or replace into test (test_column) VALUES (1)"],
                    @"writing to read-only database succeeded");
+
+    [[NSFileManager defaultManager] setAttributes:originalAttributes ofItemAtPath:tablePath error:&error];
+    XCTAssertNil(error, @"encountered error setting database file attributes back to original attributes: %@", error);
 }
 
 - (void)testDontCrashFromInternalErrors

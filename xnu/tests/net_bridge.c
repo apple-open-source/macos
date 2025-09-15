@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1993,10 +1993,8 @@ static void
 mac_nat_test_arp_in(switch_port_list_t port_list)
 {
 	u_int           i;
-	struct in_addr  ip_src;
 	switch_port_t   port;
 
-	ip_src = get_external_ipv4_address();
 	for (i = 0, port = port_list->list; i < port_list->count; i++, port++) {
 		if (port->mac_nat) {
 			continue;
@@ -2256,7 +2254,6 @@ validate_mac_nat_nd6_out(switch_port_t port, const ether_header_t * eh_p,
 static void
 mac_nat_test_nd6_out(switch_port_list_t port_list)
 {
-	ether_addr_t *  ext_mac;
 	switch_port_t   ext_port;
 	u_int           i;
 	union ifbrip    ip_dst;
@@ -2266,7 +2263,6 @@ mac_nat_test_nd6_out(switch_port_list_t port_list)
 	ext_port = port_list->list;
 	T_QUIET;
 	T_ASSERT_TRUE(ext_port->mac_nat, NULL);
-	ext_mac = &ext_port->member_mac;
 	for (i = 0, port = port_list->list; i < port_list->count; i++, port++) {
 		if (port->mac_nat) {
 			continue;
@@ -2814,10 +2810,8 @@ fake_set_lro(bool enable)
 {
 	int     error;
 	int     lro;
-	size_t  len;
 
 	lro = (enable) ? 1 : 0;
-	len = sizeof(fake_bsd_mode);
 	error = sysctlbyname("net.link.fake.lro", NULL, 0,
 	    &lro, sizeof(lro));
 	T_ASSERT_EQ(error, 0, "sysctl net.link.fake.lro %d", lro);

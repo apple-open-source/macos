@@ -285,7 +285,7 @@ CopyCatalogName(const CatalogName *srcName, CatalogName *dstName, Boolean isHFSP
 	}
 	
 	if (isHFSPlus) {
-		length = sizeof(UniChar) * (srcName->ustr.length + 1);
+		length = sizeof(UniChar) * (MIN(srcName->ustr.length, kHFSPlusMaxFileNameChars) + 1);
 	}
 
 	if ( length > 1 )

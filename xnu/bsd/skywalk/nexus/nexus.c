@@ -31,6 +31,8 @@
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <sys/sdt.h>
 
+#include <kern/uipc_domain.h>
+
 static uint32_t disable_nxctl_check = 0;
 #if (DEVELOPMENT || DEBUG)
 SYSCTL_UINT(_kern_skywalk, OID_AUTO, disable_nxctl_check,
@@ -210,7 +212,7 @@ nxctl_create(struct proc *p, struct fileproc *fp, const uuid_t nxctl_uuid,
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nxctl 0x%llx UUID %s", SK_KVA(nxctl),
+	SK_D("nxctl %p UUID %s", SK_KVA(nxctl),
 	    sk_uuid_unparse(nxctl->nxctl_uuid, uuidstr));
 #endif /* SK_LOG */
 
@@ -235,9 +237,9 @@ nxctl_close(struct nxctl *nxctl)
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nxctl 0x%llx UUID %s flags 0x%b", SK_KVA(nxctl),
+	SK_D("nxctl %p UUID %s flags 0x%x", SK_KVA(nxctl),
 	    sk_uuid_unparse(nxctl->nxctl_uuid, uuidstr),
-	    nxctl->nxctl_flags, NEXUSCTLF_BITS);
+	    nxctl->nxctl_flags);
 #endif /* SK_LOG */
 
 	if (!(nxctl->nxctl_flags & NEXUSCTLF_NOFDREF)) {
@@ -809,10 +811,10 @@ nxctl_nexus_bind(struct nxctl *nxctl, struct sockopt *sopt)
 	ASSERT(nbr.nb_port != NEXUS_PORT_ANY);
 	(void) sooptcopyout(sopt, &nbr, sizeof(nbr));
 
-	SK_D("nexus 0x%llx nxb 0x%llx port %u flags 0x%b pid %d "
-	    "(uniqueid %llu) exec_uuid %s key 0x%llx key_len %u",
+	SK_D("nexus %p nxb %p port %u flags 0x%x pid %d "
+	    "(uniqueid %llu) exec_uuid %s key %p key_len %u",
 	    SK_KVA(nx), SK_KVA(nxb), nbr.nb_port, nxb->nxb_flags,
-	    NXBF_BITS, nxb->nxb_pid, nxb->nxb_uniqueid,
+	    nxb->nxb_pid, nxb->nxb_uniqueid,
 	    sk_uuid_unparse(nxb->nxb_exec_uuid, exec_uuidstr),
 	    (nxb->nxb_key != NULL) ? SK_KVA(nxb->nxb_key) : 0,
 	    nxb->nxb_key_len);
@@ -959,7 +961,7 @@ nxb_alloc(zalloc_flags_t how)
 	struct nxbind *nxb = zalloc_flags(nxbind_zone, how | Z_ZERO);
 
 	if (nxb) {
-		SK_DF(SK_VERB_MEM, "nxb 0x%llx ALLOC", SK_KVA(nxb));
+		SK_DF(SK_VERB_MEM, "nxb %p ALLOC", SK_KVA(nxb));
 	}
 	return nxb;
 }
@@ -967,7 +969,7 @@ nxb_alloc(zalloc_flags_t how)
 void
 nxb_free(struct nxbind *nxb)
 {
-	SK_DF(SK_VERB_MEM, "nxb 0x%llx key 0x%llx FREE", SK_KVA(nxb),
+	SK_DF(SK_VERB_MEM, "nxb %p key %p FREE", SK_KVA(nxb),
 	    (nxb->nxb_key != NULL) ? SK_KVA(nxb->nxb_key) : 0);
 
 	if (nxb->nxb_key != NULL) {
@@ -1190,7 +1192,7 @@ nxctl_free(struct nxctl *nxctl)
 	ASSERT(!(nxctl->nxctl_flags & NEXUSCTLF_ATTACHED));
 	kauth_cred_unref(&nxctl->nxctl_cred);
 	lck_mtx_destroy(&nxctl->nxctl_lock, &nexus_lock_group);
-	SK_D("nxctl 0x%llx FREE", SK_KVA(nxctl));
+	SK_D("nxctl %p FREE", SK_KVA(nxctl));
 	if (!(nxctl->nxctl_flags & NEXUSCTLF_KERNEL)) {
 		zfree(nxctl_zone, nxctl);
 	}
@@ -1268,9 +1270,7 @@ nxprov_advise_connect(struct kern_nexus *nx, struct kern_channel *ch,
 	SK_LOCK_ASSERT_HELD();
 	LCK_MTX_ASSERT(&ch->ch_lock, LCK_MTX_ASSERT_OWNED);
 
-	/* monitor channels aren't externally visible/usable, so ignore */
-	if ((ch->ch_info->cinfo_ch_mode & CHMODE_MONITOR) ||
-	    (ch->ch_flags & CHANF_EXT_SKIP) ||
+	if ((ch->ch_flags & CHANF_EXT_SKIP) ||
 	    (nxprov->nxprov_ext.nxpi_pre_connect == NULL ||
 	    nxprov->nxprov_ext.nxpi_connected == NULL)) {
 		return 0;
@@ -1284,9 +1284,8 @@ nxprov_advise_connect(struct kern_nexus *nx, struct kern_channel *ch,
 	err = nxprov->nxprov_ext.nxpi_pre_connect(nxprov, p, nx,
 	    ch->ch_info->cinfo_nx_port, ch, &ch->ch_ctx);
 	if (err != 0) {
-		SK_D("ch 0x%llx flags %b nx 0x%llx pre_connect "
-		    "error %d", SK_KVA(ch), ch->ch_flags,
-		    CHANF_BITS, SK_KVA(nx), err);
+		SK_D("ch %p flags %x nx %p pre_connect "
+		    "error %d", SK_KVA(ch), ch->ch_flags, SK_KVA(nx), err);
 		ch->ch_ctx = NULL;
 		goto done;
 	}
@@ -1309,13 +1308,13 @@ nxprov_advise_connect(struct kern_nexus *nx, struct kern_channel *ch,
 
 	err = nxprov->nxprov_ext.nxpi_connected(nxprov, nx, ch);
 	if (err != 0) {
-		SK_D("ch 0x%llx flags %b nx 0x%llx connected error %d",
-		    SK_KVA(ch), ch->ch_flags, CHANF_BITS, SK_KVA(nx), err);
+		SK_D("ch %p flags %x nx %p connected error %d",
+		    SK_KVA(ch), ch->ch_flags, SK_KVA(nx), err);
 		goto done;
 	}
 	os_atomic_or(&ch->ch_flags, CHANF_EXT_CONNECTED, relaxed);
-	SK_D("ch 0x%llx flags %b nx 0x%llx connected",
-	    SK_KVA(ch), ch->ch_flags, CHANF_BITS, SK_KVA(nx));
+	SK_D("ch %p flags %x nx %p connected",
+	    SK_KVA(ch), ch->ch_flags, SK_KVA(nx));
 
 
 done:
@@ -1368,8 +1367,8 @@ nxprov_advise_disconnect(struct kern_nexus *nx, struct kern_channel *ch)
 		nxprov->nxprov_ext.nxpi_disconnected(nxprov, nx, ch);
 		os_atomic_andnot(&ch->ch_flags, CHANF_EXT_PRECONNECT, relaxed);
 
-		SK_D("ch 0x%llx flags %b nx 0x%llx disconnected",
-		    SK_KVA(ch), ch->ch_flags, CHANF_BITS, SK_KVA(nx));
+		SK_D("ch %p flags %x nx %p disconnected",
+		    SK_KVA(ch), ch->ch_flags, SK_KVA(nx));
 
 		/* We're done with this channel */
 		ch->ch_ctx = NULL;
@@ -1397,9 +1396,8 @@ nxprov_create_common(struct nxctl *nxctl,
 	uint32_t pp_region_config_flags;
 	int i;
 
-	_CASSERT(sizeof(*init) == sizeof(nxprov->nxprov_ext));
-	_CASSERT(sizeof(*init) >=
-	    sizeof(struct kern_nexus_netif_provider_init));
+	static_assert(sizeof(*init) == sizeof(nxprov->nxprov_ext));
+	static_assert(sizeof(*init) >= sizeof(struct kern_nexus_netif_provider_init));
 
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(nxctl != NULL && reg != NULL && nxdom_prov != NULL);
@@ -1487,7 +1485,7 @@ nxprov_create_common(struct nxctl *nxctl,
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nxprov 0x%llx UUID %s", SK_KVA(nxprov),
+	SK_D("nxprov %p UUID %s", SK_KVA(nxprov),
 	    sk_uuid_unparse(nxprov->nxprov_uuid, uuidstr));
 #endif /* SK_LOG */
 
@@ -1525,7 +1523,6 @@ nxprov_create(struct proc *p, struct nxctl *nxctl, struct nxprov_reg *reg,
 		break;
 
 	case NEXUS_TYPE_KERNEL_PIPE:    /* only for kernel */
-	case NEXUS_TYPE_MONITOR:        /* invalid */
 	default:
 		*err = EINVAL;
 		goto done;
@@ -1592,7 +1589,6 @@ nxprov_create_kern(struct nxctl *nxctl,
 		break;
 
 	case NEXUS_TYPE_USER_PIPE:      /* only for userland */
-	case NEXUS_TYPE_MONITOR:        /* invalid */
 	default:
 		*err = EINVAL;
 		goto done;
@@ -1651,9 +1647,9 @@ nxprov_close(struct kern_nexus_provider *nxprov, boolean_t locked)
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nxprov 0x%llx UUID %s flags 0x%b", SK_KVA(nxprov),
+	SK_D("nxprov %p UUID %s flags 0x%x", SK_KVA(nxprov),
 	    sk_uuid_unparse(nxprov->nxprov_uuid, uuidstr),
-	    nxprov->nxprov_flags, NXPROVF_BITS);
+	    nxprov->nxprov_flags);
 #endif /* SK_LOG */
 
 	if (nxprov->nxprov_flags & NXPROVF_CLOSED) {
@@ -1698,9 +1694,9 @@ nxprov_detach(struct kern_nexus_provider *nxprov, boolean_t locked)
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nxprov 0x%llx UUID %s flags 0x%b", SK_KVA(nxprov),
+	SK_D("nxprov %p UUID %s flags 0x%x", SK_KVA(nxprov),
 	    sk_uuid_unparse(nxprov->nxprov_uuid, uuidstr),
-	    nxprov->nxprov_flags, NXPROVF_BITS);
+	    nxprov->nxprov_flags);
 #endif /* SK_LOG */
 
 	ASSERT(nxprov->nxprov_flags & NXPROVF_ATTACHED);
@@ -1760,7 +1756,7 @@ nxprov_free(struct kern_nexus_provider *nxprov)
 	nxprov_params_free(nxprov->nxprov_params);
 	nxprov->nxprov_params = NULL;
 	ASSERT(!(nxprov->nxprov_flags & NXPROVF_ATTACHED));
-	SK_DF(SK_VERB_MEM, "nxprov 0x%llx FREE", SK_KVA(nxprov));
+	SK_DF(SK_VERB_MEM, "nxprov %p FREE", SK_KVA(nxprov));
 	zfree(nxprov_zone, nxprov);
 }
 
@@ -1817,7 +1813,7 @@ nxprov_params_alloc(zalloc_flags_t how)
 void
 nxprov_params_free(struct nxprov_params *nxp)
 {
-	SK_DF(SK_VERB_MEM, "nxp 0x%llx FREE", SK_KVA(nxp));
+	SK_DF(SK_VERB_MEM, "nxp %p FREE", SK_KVA(nxp));
 	zfree(nxprov_params_zone, nxp);
 }
 
@@ -1969,7 +1965,7 @@ nx_create(struct nxctl *nxctl, const uuid_t nxprov_uuid,
 	nx_retain_locked(nx);   /* one for the caller */
 
 #if SK_LOG
-	SK_D("nexus 0x%llx (%s:%s) UUID %s", SK_KVA(nx),
+	SK_D("nexus %p (%s:%s) UUID %s", SK_KVA(nx),
 	    nxdom_prov->nxdom_prov_dom->nxdom_name,
 	    nxdom_prov->nxdom_prov_name, sk_uuid_unparse(nx->nx_uuid, uuidstr));
 #endif /* SK_LOG */
@@ -2073,10 +2069,9 @@ nx_close(struct kern_nexus *nx, boolean_t locked)
 	} else {
 #if SK_LOG
 		uuid_string_t uuidstr;
-		SK_D("nexus 0x%llx (%s:%s) UUID %s flags 0x%b", SK_KVA(nx),
+		SK_D("nexus %p (%s:%s) UUID %s flags 0x%x", SK_KVA(nx),
 		    NX_DOM(nx)->nxdom_name, NX_DOM_PROV(nx)->nxdom_prov_name,
-		    sk_uuid_unparse(nx->nx_uuid, uuidstr), nx->nx_flags,
-		    NXF_BITS);
+		    sk_uuid_unparse(nx->nx_uuid, uuidstr), nx->nx_flags);
 #endif /* SK_LOG */
 
 		if (STAILQ_EMPTY(&nx->nx_ch_head)) {
@@ -2118,8 +2113,8 @@ nx_detach(struct kern_nexus *nx)
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("nexus 0x%llx UUID %s flags 0x%b", SK_KVA(nx),
-	    sk_uuid_unparse(nx->nx_uuid, uuidstr), nx->nx_flags, NXF_BITS);
+	SK_D("nexus %p UUID %s flags 0x%x", SK_KVA(nx),
+	    sk_uuid_unparse(nx->nx_uuid, uuidstr), nx->nx_flags);
 #endif /* SK_LOG */
 
 	/* Caller must hold extra refs, on top of the two in reg/global lists */
@@ -2167,10 +2162,10 @@ nx_advisory_alloc(struct kern_nexus *nx, const char *name,
 	/* -fbounds-safety: why do we need maddr? */
 	void *__sized_by(msize) maddr = NULL;
 
-	_CASSERT(sizeof(struct __kern_nexus_adv_metadata) == sizeof(uint64_t));
-	_CASSERT((sizeof(struct sk_nexusadv) +
+	static_assert(sizeof(struct __kern_nexus_adv_metadata) == sizeof(uint64_t));
+	static_assert((sizeof(struct sk_nexusadv) +
 	    sizeof(struct __kern_nexus_adv_metadata)) <= NX_NEXUSADV_MAX_SZ);
-	_CASSERT((sizeof(struct netif_nexus_advisory) +
+	static_assert((sizeof(struct netif_nexus_advisory) +
 	    sizeof(struct __kern_nexus_adv_metadata)) <= NX_NEXUSADV_MAX_SZ);
 	ASSERT(nx->nx_adv.nxv_reg == NULL);
 	ASSERT(nx->nx_adv.nxv_adv == NULL);
@@ -2252,7 +2247,7 @@ nx_free(struct kern_nexus *nx)
 	ASSERT(STAILQ_EMPTY(&nx->nx_ch_if_adv_head));
 	lck_rw_destroy(&nx->nx_ch_if_adv_lock, &nexus_lock_group);
 
-	SK_DF(SK_VERB_MEM, "nexus 0x%llx FREE", SK_KVA(nx));
+	SK_DF(SK_VERB_MEM, "nexus %p FREE", SK_KVA(nx));
 	zfree(nx_zone, nx);
 }
 
@@ -2333,11 +2328,11 @@ nx_init_rings(struct kern_nexus *nx, struct kern_channel *ch)
 			if ((err = nxprov->nxprov_ext.nxpi_ring_init(
 				    nxprov, nx, ch, kring, (kring->ckr_tx == NR_TX),
 				    &kring->ckr_ctx)) != 0) {
-				SK_D("ch 0x%llx flags %b nx 0x%llx kr \"%s\" "
-				    "(0x%llx) krflags %b ring_init error %d",
-				    SK_KVA(ch), ch->ch_flags, CHANF_BITS,
-				    SK_KVA(nx), kring->ckr_name, SK_KVA(kring),
-				    kring->ckr_flags, CKRF_BITS, err);
+				SK_D("ch %p flags %x nx %p kr \"%s\" "
+				    "(%p) krflags %x ring_init error %d",
+				    SK_KVA(ch), ch->ch_flags, SK_KVA(nx),
+				    kring->ckr_name, SK_KVA(kring),
+				    kring->ckr_flags, err);
 				kring->ckr_ctx = NULL;
 				undo = TRUE;
 				break;
@@ -2460,9 +2455,9 @@ nx_init_slots(struct kern_nexus *nx, struct __kern_channel_ring *kring)
 		ASSERT(&slot[i] <= kring->ckr_ksds_last);
 		if ((err = nxprov->nxprov_ext.nxpi_slot_init(nxprov, nx, kring,
 		    &slot[i], i, &slot_ctx_prop, &slot_ctx_arg)) != 0) {
-			SK_D("nx 0x%llx kr \"%s\" (0x%llx) krflags %b slot %u "
+			SK_D("nx %p kr \"%s\" (%p) krflags %x slot %u "
 			    "slot_init error %d", SK_KVA(nx), kring->ckr_name,
-			    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, i, err);
+			    SK_KVA(kring), kring->ckr_flags, i, err);
 			break;
 		}
 		/* we don't want this to be used by client, so verify here */
@@ -2580,7 +2575,7 @@ nx_port_find(struct kern_nexus *nx, nexus_port_t first,
 		}
 	}
 
-	SK_DF(SK_VERB_NXPORT, "nx 0x%llx nx_port %d (err %d)", SK_KVA(nx),
+	SK_DF(SK_VERB_NXPORT, "nx %p nx_port %d (err %d)", SK_KVA(nx),
 	    (int)*nx_port, err);
 
 	return err;
@@ -2592,19 +2587,18 @@ nx_port_grow(struct kern_nexus *nx, nexus_port_size_t grow)
 	ASSERT(NXDOM_MAX(NX_DOM(nx), ports) <= NEXUS_PORT_MAX);
 	nexus_port_t dom_port_max = (nexus_port_size_t)NXDOM_MAX(NX_DOM(nx), ports);
 	struct nx_port_info *ports;
-	size_t limit;
-	nexus_port_size_t i, num_ports, old_num_ports;
+	nexus_port_size_t limit, i, num_ports, old_num_ports;
 	bitmap_t *bmap;
 
 	ASSERT(grow > 0 && (grow % NX_PORT_CHUNK) == 0);
 	ASSERT((nx->nx_num_ports % NX_PORT_CHUNK) == 0);
-	_CASSERT((sizeof(*bmap) * 8) == NX_PORT_CHUNK);
+	static_assert((sizeof(*bmap) * 8) == NX_PORT_CHUNK);
 	ASSERT(powerof2(dom_port_max));
 	ASSERT(dom_port_max % NX_PORT_CHUNK == 0);
 
 	old_num_ports = nx->nx_num_ports;
 	num_ports = nx->nx_num_ports + grow;
-	limit = P2ROUNDUP(dom_port_max, NX_PORT_CHUNK);
+	limit = (nexus_port_size_t)P2ROUNDUP(dom_port_max, NX_PORT_CHUNK);
 	if (num_ports > limit) {
 		SK_ERR("can't grow, total %u grow %u (new %u > dom_max %u)",
 		    nx->nx_num_ports, grow, num_ports, limit);
@@ -2644,7 +2638,7 @@ nx_port_grow(struct kern_nexus *nx, nexus_port_size_t grow)
 	nx->nx_ports = ports;
 	nx->nx_num_ports = num_ports;
 
-	SK_DF(SK_VERB_NXPORT, "!!! nx 0x%llx ports %u/%u, %u ports added",
+	SK_DF(SK_VERB_NXPORT, "!!! nx %p ports %u/%u, %u ports added",
 	    SK_KVA(nx), nx->nx_active_ports, nx->nx_num_ports, grow);
 
 	return 0;
@@ -2750,7 +2744,7 @@ done:
 		(*na)->na_nx_port = nx_port;
 	}
 
-	SK_DF(SK_VERB_NXPORT, "nx 0x%llx nx_port %d, ports %u/%u (err %d)",
+	SK_DF(SK_VERB_NXPORT, "nx %p nx_port %d, ports %u/%u (err %d)",
 	    SK_KVA(nx), (int)nx_port, nx->nx_active_ports, nx->nx_num_ports,
 	    err);
 
@@ -2793,7 +2787,7 @@ nx_port_free(struct kern_nexus *nx, nexus_port_t nx_port)
 
 	//XXX wshen0123@apple.com --- try to shrink bitmap & nx_ports ???
 
-	SK_DF(SK_VERB_NXPORT, "--- nx 0x%llx nx_port %d, ports %u/%u",
+	SK_DF(SK_VERB_NXPORT, "--- nx %p nx_port %d, ports %u/%u",
 	    SK_KVA(nx), (int)nx_port, nx->nx_active_ports, nx->nx_num_ports);
 }
 
@@ -2845,7 +2839,7 @@ nx_port_bind_info(struct kern_nexus *nx, nexus_port_t nx_port,
 done:
 
 	SK_DF(err ? SK_VERB_ERROR : SK_VERB_NXPORT,
-	    "+++ nx 0x%llx nx_port %d, ports %u/%u (err %d)", SK_KVA(nx),
+	    "+++ nx %p nx_port %d, ports %u/%u (err %d)", SK_KVA(nx),
 	    (int)nx_port, nx->nx_active_ports, nx->nx_num_ports, err);
 
 	return err;
@@ -2921,7 +2915,7 @@ nx_port_unbind(struct kern_nexus *nx, nexus_port_t nx_port)
 
 done:
 	SK_DF(err ? SK_VERB_ERROR : SK_VERB_NXPORT,
-	    "--- nx 0x%llx nx_port %d, ports %u/%u (err %d)", SK_KVA(nx),
+	    "--- nx %p nx_port %d, ports %u/%u (err %d)", SK_KVA(nx),
 	    (int)nx_port, nx->nx_active_ports, nx->nx_num_ports, err);
 
 	return err;
@@ -3213,6 +3207,7 @@ populate_ring_entries(struct __kern_channel_ring *__counted_by(last)kring,
     nexus_channel_ring_entry *__counted_by(entry_count)entries,
     uint32_t NX_FB_ARG entry_count)
 {
+	uint64_t now = net_uptime();
 	ring_id_t i;
 	nexus_channel_ring_entry_t scan;
 	struct __kern_channel_ring *ring;
@@ -3229,6 +3224,8 @@ populate_ring_entries(struct __kern_channel_ring *__counted_by(last)kring,
 			    sizeof(scan->ncre_user_stats));
 		} else {
 			scan->ncre_stats = ring->ckr_stats;
+			scan->ncre_stats.crs_seconds_since_last_update = now -
+			    scan->ncre_stats.crs_last_update_net_uptime;
 			scan->ncre_user_stats = ring->ckr_usr_stats;
 		}
 		scan->ncre_error_stats = ring->ckr_err_stats;
@@ -3242,9 +3239,6 @@ nexus_channel_get_flags(uint32_t ch_mode, uint32_t ch_flags)
 {
 	uint32_t flags = 0;
 
-	flags |= (ch_mode & CHMODE_MONITOR_TX) ? SCHF_MONITOR_TX : 0;
-	flags |= (ch_mode & CHMODE_MONITOR_RX) ? SCHF_MONITOR_RX : 0;
-	flags |= (ch_mode & CHMODE_MONITOR_NO_COPY) ? SCHF_MONITOR_NO_COPY : 0;
 	flags |= (ch_mode & CHMODE_USER_PACKET_POOL) ? SCHF_USER_PACKET_POOL : 0;
 	flags |= (ch_mode & CHMODE_DEFUNCT_OK) ? SCHF_DEFUNCT_OK : 0;
 	flags |= (ch_mode & CHMODE_FILTER) ? SCHF_FILTER : 0;

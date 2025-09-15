@@ -32,6 +32,39 @@
 #include <darwintest.h>
 #include <TargetConditionals.h>
 
+T_DECL(ctype_digittoint, "Check digittoint sanity")
+{
+	const char *loc;
+	int d, n;
+
+	loc = setlocale(LC_ALL, "C.UTF-8");
+	T_ASSERT_EQ_STR(loc, "C.UTF-8", NULL);
+	for (int i = 0; i <= 0xff; i++) {
+		n = digittoint(i);
+		switch (i) {
+		case '0' ... '9':
+			T_ASSERT_EQ(isdigit(i), true, "isdigit(%c)", i);
+			T_ASSERT_EQ(isxdigit(i), true, "isxdigit(%c)", i);
+			T_ASSERT_EQ(n, i - '0', "Expected %d for %c, got %d",
+			    i - '0', i, n);
+			break;
+		case 'A' ... 'F':
+			T_ASSERT_EQ(isxdigit(i), true, "isxdigit(%c)", i);
+			T_ASSERT_EQ(n, (i - 'A') + 10, "Expected %d for %c, got %d",
+			    (i - 'A') + 10, i, n);
+			break;
+		case 'a' ... 'f':
+			T_ASSERT_EQ(isxdigit(i), true, "isxdigit(%c)", i);
+			T_ASSERT_EQ(n, (i - 'a') + 10, "Expected %d for %c, got %d",
+			    (i - 'a') + 10, i, n);
+			break;
+		default:
+			T_ASSERT_EQ(n, 0, NULL);
+			break;
+		}
+	}
+}
+
 /* Requiring root for this one because we want leak checking. */
 T_DECL(ctype_loadall, "Check loading of all installed locales' LC_CTYPE",
 		T_META_ASROOT(true))

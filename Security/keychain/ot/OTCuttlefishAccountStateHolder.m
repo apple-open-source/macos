@@ -243,6 +243,22 @@
     } error:error];
 }
 
+- (BOOL)persistLastEscrowRepairTriggered:(NSDate*)date error:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        metadata.lastEscrowRepairTriggered = date ? (uint64_t)([date timeIntervalSince1970] * 1000) : 0ull;
+        return metadata;
+    } error:error];
+}
+
+- (BOOL)persistLastEscrowRepairAttempted:(NSDate*)date error:(NSError**)error
+{
+    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
+        metadata.lastEscrowRepairAttempted = date ? (uint64_t)([date timeIntervalSince1970] * 1000) : 0ull;
+        return metadata;
+    } error:error];
+}
+
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error
 {

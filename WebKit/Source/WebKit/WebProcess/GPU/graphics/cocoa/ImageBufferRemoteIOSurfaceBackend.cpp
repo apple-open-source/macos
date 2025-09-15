@@ -118,7 +118,7 @@ void ImageBufferRemoteIOSurfaceBackend::getPixelBuffer(const IntRect&, PixelBuff
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void ImageBufferRemoteIOSurfaceBackend::putPixelBuffer(const PixelBuffer&, const IntRect&, const IntPoint&, AlphaPremultiplication)
+void ImageBufferRemoteIOSurfaceBackend::putPixelBuffer(const PixelBufferSourceView&, const IntRect&, const IntPoint&, AlphaPremultiplication)
 {
     RELEASE_ASSERT_NOT_REACHED();
 }

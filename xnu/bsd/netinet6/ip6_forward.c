@@ -405,7 +405,7 @@ ip6_forward(struct mbuf *m, struct route_in6 *ip6forward_rt,
 				m_freem(mcopy);
 #endif
 			}
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_CANNOT_FORWARD, NULL, 0);
 			return NULL;
 		}
 	}
@@ -608,7 +608,7 @@ skip_ipsec:
 			RT_REMREF_LOCKED(rt);
 			RT_UNLOCK(rt);
 		}
-		m_freem(m);
+		m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_TOO_BIG, NULL, 0);
 		return NULL;
 	}
 
@@ -643,7 +643,7 @@ skip_ipsec:
 			RT_UNLOCK(rt);
 			icmp6_error(mcopy, ICMP6_DST_UNREACH,
 			    ICMP6_DST_UNREACH_ADDR, 0);
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_POSSIBLE_LOOP, NULL, 0);
 			return NULL;
 		}
 		type = ND_REDIRECT;

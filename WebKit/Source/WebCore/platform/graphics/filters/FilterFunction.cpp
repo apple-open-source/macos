@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,12 @@ FilterFunction::FilterFunction(Type filterType, std::optional<RenderingResourceI
     : RenderingResource(renderingResourceIdentifier)
     , m_filterType(filterType)
 {
+}
+
+FilterFunction::~FilterFunction()
+{
+    for (auto& observer : m_observers)
+        observer.willDestroyFilter(renderingResourceIdentifier());
 }
 
 AtomString FilterFunction::filterName(Type filterType)

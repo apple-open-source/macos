@@ -94,7 +94,7 @@ public:
         if (!m_size)
             return 0;
         ASSERT(m_buffer.size() > 0);
-        return &m_buffer.first()->data()[m_readOffset];
+        return &m_buffer.first()->at(m_readOffset);
     }
 
     size_t firstBlockSize() const

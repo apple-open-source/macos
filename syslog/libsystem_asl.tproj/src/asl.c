@@ -816,7 +816,7 @@ asl_vlog(asl_object_t client, asl_object_t msg, int level, const char *format, v
 		os_log_type_t type = shim_asl_to_log_type[level];
 
 		va_copy(ap_copy, ap);
-		os_log_with_args(OS_LOG_DEFAULT, type, format, ap_copy, addr);
+        os_log_with_args_4syslog(OS_LOG_DEFAULT, type, format, ap_copy, addr);
 		va_end(ap_copy);
 
 		if (eval & EVAL_TEXT_FILE)
@@ -883,7 +883,7 @@ asl_log(asl_object_t client, asl_object_t msg, int level, const char *format, ..
 		os_log_type_t type = shim_asl_to_log_type[level];
 
 		va_start(ap, format);
-		os_log_with_args(OS_LOG_DEFAULT, type, format, ap, addr);
+        os_log_with_args_4syslog(OS_LOG_DEFAULT, type, format, ap, addr);
 		va_end(ap);
 
 		if (eval & EVAL_TEXT_FILE)
@@ -928,7 +928,7 @@ asl_log_message(int level, const char *format, ...)
 		os_log_type_t type = shim_asl_to_log_type[level];
 
 		va_start(ap, format);
-		os_log_with_args(OS_LOG_DEFAULT, type, format, ap, addr);
+        os_log_with_args_4syslog(OS_LOG_DEFAULT, type, format, ap, addr);
 		va_end(ap);
 
 		if (eval & EVAL_TEXT_FILE)
@@ -1577,7 +1577,7 @@ os_log_with_args_wrapper(void *addr, int level, const char *format, ...)
 	os_log_type_t type = shim_asl_to_log_type[level];
 
 	va_start(ap, format);
-	os_log_with_args(OS_LOG_DEFAULT, type, format, ap, addr);
+    os_log_with_args_4syslog(OS_LOG_DEFAULT, type, format, ap, addr);
 	va_end(ap);
 }
 
@@ -1605,7 +1605,7 @@ asl_client_internal_send(asl_object_t obj, asl_object_t msg, void *addr)
 
 		/*
 		 * If the return address and the format string are from different
-		 * binaries, os_log_with_args will not record the return address.
+		 * binaries, os_log_with_args_4syslog will not record the return address.
 		 * Work around this by passing a dynamic format string.
 		 */
 		char dynamic_format[] = "%s";

@@ -414,7 +414,11 @@ process_socket_common(si)
 	 * Process a VSOCK domain socket
 	 */
 	case AF_VSOCK:
-		(void) snpf(Lf->type, sizeof(Lf->type), "vsock");
+        if (si->psi.soi_protocol == VSOCK_PROTO_PRIVATE) {
+            (void) snpf(Lf->type, sizeof(Lf->type), "vsockp");
+        } else {
+            (void) snpf(Lf->type, sizeof(Lf->type), "vsock");
+        }
 
 	/*
 	 * Guard against missing vsock socket information.

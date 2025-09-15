@@ -25,6 +25,7 @@
 #include "JSTestLegacyNoInterfaceObject.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
@@ -185,7 +186,7 @@ static inline bool setJSTestLegacyNoInterfaceObject_readWriteStringAttributeSett
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLDOMString>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setReadWriteStringAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -242,7 +243,7 @@ static inline bool setJSTestLegacyNoInterfaceObject_nodeAttributeSetter(JSGlobal
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     SUPPRESS_UNCOUNTED_LOCAL auto& impl = thisObject.wrapped();
     auto nativeValueConversionResult = convert<IDLInterface<Node>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestLegacyNoInterfaceObject"_s, "nodeAttribute"_s, "Node"_s); });
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return impl.setNodeAttribute(*nativeValueConversionResult.releaseReturnValue());
@@ -273,7 +274,7 @@ static inline bool setJSTestLegacyNoInterfaceObjectConstructor_staticStringAttri
     UNUSED_PARAM(vm);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto nativeValueConversionResult = convert<IDLDOMString>(lexicalGlobalObject, value);
-    if (UNLIKELY(nativeValueConversionResult.hasException(throwScope)))
+    if (nativeValueConversionResult.hasException(throwScope)) [[unlikely]]
         return false;
     invokeFunctorPropagatingExceptionIfNecessary(lexicalGlobalObject, throwScope, [&] {
         return TestLegacyNoInterfaceObject::setStaticStringAttribute(nativeValueConversionResult.releaseReturnValue());
@@ -331,7 +332,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestLegacyNoInterfaceObjectConstructorFunction_static
 
 JSC::GCClient::IsoSubspace* JSTestLegacyNoInterfaceObject::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestLegacyNoInterfaceObject, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestLegacyNoInterfaceObject, UseCustomHeapCellType::No>(vm, "JSTestLegacyNoInterfaceObject"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestLegacyNoInterfaceObject.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestLegacyNoInterfaceObject = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestLegacyNoInterfaceObject.get(); },
@@ -371,7 +372,9 @@ extern "C" { extern void (*const __identifier("??_7TestLegacyNoInterfaceObject@W
 #else
 extern "C" { extern void* _ZTVN7WebCore27TestLegacyNoInterfaceObjectE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestLegacyNoInterfaceObject>, void>> static inline void verifyVTable(TestLegacyNoInterfaceObject* ptr) {
+template<std::same_as<TestLegacyNoInterfaceObject> T>
+static inline void verifyVTable(TestLegacyNoInterfaceObject* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

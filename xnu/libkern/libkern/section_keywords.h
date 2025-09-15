@@ -44,6 +44,7 @@
 #define SECURITY_SECTION_NAME           "__const"
 #define SECURITY_SEGMENT_SECTION_NAME   "__DATA,__const"
 
+#ifndef __BUILDING_XNU_LIBRARY__
 #define __security_const_early const
 #define __security_const_late __attribute__((section(SECURITY_SEGMENT_SECTION_NAME)))
 #define __security_read_write
@@ -53,6 +54,17 @@
 #define MARK_AS_HIBERNATE_DATA __attribute__((section("__HIB, __data")))
 #define MARK_AS_HIBERNATE_DATA_CONST_LATE __attribute__((section("__HIB, __const")))
 #endif /* HIBERNATION */
+
+#else /* __BUILDING_XNU_LIBRARY__ */
+/* Special segments are not used when building for user-mode */
+#define __security_const_early
+#define __security_const_late
+#define __security_read_write
+#define MARK_AS_HIBERNATE_TEXT
+#define MARK_AS_HIBERNATE_DATA
+#define MARK_AS_HIBERNATE_DATA_CONST_LATE
+#endif /* __BUILDING_XNU_LIBRARY__ */
+
 #endif /* __arm64__ || __x86_64__ */
 
 #ifndef __security_const_early

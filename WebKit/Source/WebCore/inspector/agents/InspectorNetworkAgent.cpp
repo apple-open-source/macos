@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -58,10 +58,10 @@
 #include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
-#include "NetworkResourcesData.h"
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
+#include "RenderObjectInlines.h"
 #include "ResourceError.h"
 #include "ResourceLoader.h"
 #include "ResourceRequest.h"
@@ -189,18 +189,18 @@ Ref<Inspector::Protocol::Network::WebSocketFrame> buildWebSocketMessage(const We
 
 } // namespace
 
-InspectorNetworkAgent::InspectorNetworkAgent(WebAgentContext& context)
+InspectorNetworkAgent::InspectorNetworkAgent(WebAgentContext& context, const NetworkResourcesData::Settings& networkResourcesDataSettings)
     : InspectorAgentBase("Network"_s, context)
-    , m_frontendDispatcher(makeUnique<Inspector::NetworkFrontendDispatcher>(context.frontendRouter))
+    , m_frontendDispatcher(makeUniqueRef<Inspector::NetworkFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(Inspector::NetworkBackendDispatcher::create(context.backendDispatcher, this))
     , m_injectedScriptManager(context.injectedScriptManager)
-    , m_resourcesData(makeUnique<NetworkResourcesData>())
+    , m_resourcesData(makeUniqueRef<NetworkResourcesData>(networkResourcesDataSettings))
 {
 }
 
 InspectorNetworkAgent::~InspectorNetworkAgent() = default;
 
-void InspectorNetworkAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
+void InspectorNetworkAgent::didCreateFrontendAndBackend()
 {
 }
 
@@ -1012,7 +1012,7 @@ void InspectorNetworkAgent::loadResource(const Inspector::Protocol::Network::Fra
     }
 
     URL url = context->completeURL(urlString);
-    ResourceRequest request(url);
+    ResourceRequest request(WTFMove(url));
     request.setHTTPMethod("GET"_s);
     request.setHiddenFromInspector(true);
 
@@ -1326,7 +1326,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptRequest
         data = SharedBuffer::create(content.utf8().span());
 
     // Mimic data URL load behavior - report didReceiveResponse & didFinishLoading.
-    ResourceResponse response(pendingRequest->m_loader->url(), mimeType, data->size(), String());
+    ResourceResponse response(URL { pendingRequest->m_loader->url() }, String { mimeType }, data->size(), String());
     response.setSource(ResourceResponse::Source::InspectorOverride);
     response.setHTTPStatusCode(status);
     response.setHTTPStatusText(String { statusText });
@@ -1338,7 +1338,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorNetworkAgent::interceptRequest
     }
     response.setHTTPHeaderFields(WTFMove(explicitHeaders));
     response.setHTTPHeaderField(HTTPHeaderName::ContentType, response.mimeType());
-    loader->didReceiveResponse(response, [loader, buffer = data.releaseNonNull()]() {
+    loader->didReceiveResponse(WTFMove(response), [loader, buffer = data.releaseNonNull()]() {
         if (loader->reachedTerminalState())
             return;
 

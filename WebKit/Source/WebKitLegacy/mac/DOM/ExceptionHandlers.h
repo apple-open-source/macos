@@ -27,10 +27,10 @@
 
 #include <WebCore/ExceptionOr.h>
 
-NO_RETURN void raiseTypeErrorException();
-NO_RETURN void raiseNotSupportedErrorException();
+[[noreturn]] void raiseTypeErrorException();
+[[noreturn]] void raiseNotSupportedErrorException();
 
-NO_RETURN void raiseDOMErrorException(WebCore::Exception&&);
+[[noreturn]] void raiseDOMErrorException(WebCore::Exception&&);
 template<typename T> T raiseOnDOMError(WebCore::ExceptionOr<T>&&);
 void raiseOnDOMError(WebCore::ExceptionOr<void>&&);
 

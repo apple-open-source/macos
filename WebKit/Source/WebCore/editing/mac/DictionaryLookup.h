@@ -27,6 +27,7 @@
 
 #if PLATFORM(COCOA)
 
+#include "CocoaView.h"
 #include "DictionaryPopupInfo.h"
 #include <wtf/Function.h>
 
@@ -40,10 +41,8 @@
 
 #if PLATFORM(MAC)
 using WKRevealController = id <NSImmediateActionAnimationController>;
-using CocoaView = NSView;
 #else
 using WKRevealController = id;
-using CocoaView = UIView;
 #endif
 
 namespace WebCore {
@@ -61,11 +60,11 @@ public:
 
     // FIXME: Should move/unify dictionaryPopupInfoForRange here too.
 
-    WEBCORE_EXPORT static void showPopup(const DictionaryPopupInfo&, CocoaView *, const Function<void(TextIndicator&)>& textIndicatorInstallationCallback, const Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback = nullptr, Function<void()>&& clearTextIndicator = nullptr);
+    WEBCORE_EXPORT static void showPopup(const DictionaryPopupInfo&, CocoaView *, NOESCAPE const Function<void(TextIndicator&)>& textIndicatorInstallationCallback, NOESCAPE const Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback = nullptr, Function<void()>&& clearTextIndicator = nullptr);
     WEBCORE_EXPORT static void hidePopup();
     
 #if PLATFORM(MAC)
-    WEBCORE_EXPORT static WKRevealController animationControllerForPopup(const DictionaryPopupInfo&, NSView *, const Function<void(TextIndicator&)>& textIndicatorInstallationCallback, const Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback = nullptr, Function<void()>&& clearTextIndicator = nullptr);
+    WEBCORE_EXPORT static WKRevealController animationControllerForPopup(const DictionaryPopupInfo&, NSView *, NOESCAPE const Function<void(TextIndicator&)>& textIndicatorInstallationCallback, NOESCAPE const Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback = nullptr, Function<void()>&& clearTextIndicator = nullptr);
 #endif
 };
 

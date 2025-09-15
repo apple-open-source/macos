@@ -469,13 +469,15 @@ exit:
 
     /* Check dirty bit if we have one, FAT12 doesn't */
     if (self.systemInfo.type != FAT12) {
-        /* Get FAT entry for cluster #1 and check if we had a clean shut down */
+        /* Check if we had a clean shut down */
         [self.fatManager getDirtyBitValue:^(NSError * _Nullable error, dirtyBitValue value) {
             if (error) {
                 os_log_error(OS_LOG_DEFAULT, "%s: Failed to read dirty bit value, error: %@",
                              __FUNCTION__, error);
                 nsError = error;
             } else {
+                self.systemInfo.dirtyBitValue = value;
+                self.systemInfo.dirtyBitValueOnDisk = value;
                 if (value == dirtyBitDirty) {
                     /* We can mount a dirty read-only device */
                     os_log_error(OS_LOG_DEFAULT, "%s: Device is dirty, %s",
@@ -665,7 +667,8 @@ exit:
         err = [Utilities metaWriteToDevice:self.resource
                                       from:self.systemInfo.fsInfoSector.mutableBytes
                                 startingAt:self.systemInfo.fsInfoSectorNumber * self.systemInfo.bytesPerSector
-                                    length:self.systemInfo.bytesPerSector];
+                                    length:self.systemInfo.bytesPerSector
+                            forceSyncWrite:false];
         if (err) {
             os_log_error(OS_LOG_DEFAULT, "%s: Failed to update FSInfo sector, error %@", __func__, err);
         }
@@ -690,6 +693,7 @@ exit:
     }
 
     [self.fatManager setDirtyBitValue:dirtyBitDirty
+                     forceWriteToDisk:false
                          replyHandler:^(NSError * _Nullable fatError) {
         if (fatError) {
             /* Log the error, keep going */
@@ -787,7 +791,8 @@ exit:
     err = [Utilities metaWriteToDevice:[self resource]
                                   from:(void*)readBuffer.bytes
                             startingAt:0
-                                length:bytesPerSector];
+                                length:bytesPerSector
+                        forceSyncWrite:false];
     return err;
 }
 @end

@@ -118,6 +118,7 @@ int smbfs_create_open(struct smb_share *share, vnode_t dvp, struct componentname
 void smbfs_check_for_ubc_invalidate(vnode_t vp, const char *reason);
 
 static int smbfs_active_cookies_cnt(struct vnode *dvp);
+static int smbfs_pathcheck(struct smb_share *share, struct componentname *cnp);
 
 /*
  * Copied from NFS Client (nfs_kdebug_blah functions) for Ariadne support
@@ -266,7 +267,7 @@ void
 smb_ktrace_io_start(mount_t mp, void *io_id, off_t offset, size_t blocksize, uint32_t flags, int64_t resid)
 {
     int code = 0;
-    size_t blocknu = offset / blocksize;
+    size_t blocknu = blocksize ? offset / blocksize : -1;
     vm_offset_t id_perm, mp_perm;
 
     /* Is ktracing logging enabled? */
@@ -923,7 +924,30 @@ smbfs_lease_break_wait( struct smbnode *np, struct smb_share *share) {
 }
 
 /*
- * smbfs_close - The internal open routine, the vnode should be locked
+ * helper function for smbfs_close() that waits for active strategy jobs
+ * the vnode should be locked before this is called
+ */
+void
+smbfs_wait_for_async_io(struct smbnode *np)
+{
+    struct timespec ts = { .tv_sec = 1 };
+
+    lck_mtx_lock(&np->n_strategy_mtx);
+    while(np->n_strategy_count) {
+        /*
+         * Closing while async IO is still processing
+         * Wait for IO to finish before closing the fid
+         */
+        ts.tv_sec = 1;
+        ts.tv_nsec = 0;
+        np->n_strategy_flags |= N_WAITING_FOR_IO;
+        msleep(&np->n_strategy_count, &np->n_strategy_mtx, 0, "wait for async IO", &ts);
+    }
+    lck_mtx_unlock(&np->n_strategy_mtx);
+}
+
+/*
+ * smbfs_close - The internal close routine, the vnode should be locked
  * before this is called. We only handle VREG in this routine.
  *
  * The calling routine must hold a reference on the share
@@ -1136,6 +1160,10 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
          * Is this the last close of entire file?
          */
         if (np->f_sharedFID_refcnt == 0) {
+            /*
+             * Wait for active IO before reducing refcnt to 0
+             */
+            smbfs_wait_for_async_io(np);
             /* Last close of entire file, see if we can defer it */
             np->f_lockFID_refcnt -= 1;
             last_close = 1;
@@ -1177,6 +1205,10 @@ smbfs_close(struct smb_share *share, vnode_t vp, int openMode,
         if (np->f_sharedFID_refcnt == 1) {
             /* Is this last close of entire file? */
             if (np->f_lockFID_refcnt == 0) {
+                /*
+                 * Wait for active IO before reducing refcnt to 0
+                 */
+                smbfs_wait_for_async_io(np);
                 np->f_sharedFID_refcnt -= 1;
                 /* Last close of entire file, see if we can defer it */
                 last_close = 1;
@@ -3337,6 +3369,12 @@ smbfs_vnop_compound_open(struct vnop_compound_open_args *ap)
 
 	share = smb_get_share_with_reference(VTOSMBFS(dvp));
 
+    error = smbfs_pathcheck(share, cnp);
+    if (error) {
+        SMBERROR("warning: bad filename %s\n", cnp->cn_nameptr);
+        goto done;
+    }
+
 	/*
      * They didn't pass us a vnode, see if we have one in our hash
      *
@@ -4370,6 +4408,7 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	lck_rw_destroy(&np->n_name_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_parent_rwlock, smbfs_rwlock_group);
     lck_mtx_destroy(&np->n_flag_alloc_lock, smbfs_mutex_group);
+    lck_mtx_destroy(&np->n_strategy_mtx, smbfs_mutex_group);
 
     SMB_FREE_TYPE(struct smbnode, np);
 
@@ -6525,6 +6564,23 @@ smbfs_vnop_blockmap(struct vnop_blockmap_args *ap)
     return (0);
 }
 
+void
+smbfs_strategy_count_dec(struct smbnode* np)
+{
+    int need_wakeup = 0;
+    lck_mtx_lock(&np->n_strategy_mtx);
+    np->n_strategy_count--;
+    if ((np->n_strategy_flags & N_WAITING_FOR_IO) &&
+        (np->n_strategy_count == 0)) {
+        np->n_strategy_flags &= ~N_WAITING_FOR_IO;
+        need_wakeup = 1;
+    }
+    lck_mtx_unlock(&np->n_strategy_mtx);
+    if (need_wakeup) {
+        wakeup(&np->n_strategy_count);
+    }
+}
+
 int
 smbfs_do_strategy(struct buf *bp)
 {
@@ -6540,7 +6596,7 @@ smbfs_do_strategy(struct buf *bp)
     struct smbfattr *fap = NULL;
     uint32_t allow_compression = 1, need_unmap = 0;
     vm_prot_t prot = PROT_READ;
-    
+
     SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_START, 0, 0, 0, 0, 0);
 
 	if (np->f_openState & kNeedRevoke) {
@@ -6828,6 +6884,8 @@ exit:
         SMB_FREE_TYPE(struct smbfattr, fap);
     }
 
+    smbfs_strategy_count_dec(np);
+
     SMB_LOG_KTRACE(SMB_DBG_DO_STRATEGY | DBG_FUNC_END, error, 0, 0, 0, 0);
     return (error);
 }
@@ -6892,7 +6950,14 @@ smbfs_vnop_strategy(struct vnop_strategy_args *ap)
      */
     rw_pb_ptr->flags |= SMB_RW_IN_USE;
 
-    smb_rw_proxy(rw_pb_ptr);
+    lck_mtx_lock(&VTOSMB(vp)->n_strategy_mtx);
+    VTOSMB(vp)->n_strategy_count++;
+    lck_mtx_unlock(&VTOSMB(vp)->n_strategy_mtx);
+
+    error = smb_rw_proxy(rw_pb_ptr);
+    if (error) {
+        smbfs_strategy_count_dec(VTOSMB(vp));
+    }
 
 exit:
     SMB_LOG_KTRACE(SMB_DBG_STRATEGY | DBG_FUNC_END, error, 0, 0, 0, 0);
@@ -11061,9 +11126,11 @@ exit:
  * The calling routine must hold a reference on the share
  */
 static int
-smbfs_pathcheck(struct smb_share *share, const char *name, size_t nmlen, 
-				uint32_t nameiop)
+smbfs_pathcheck(struct smb_share *share, struct componentname *cnp)
 {
+    const char *name = cnp->cn_nameptr;
+    size_t nmlen = cnp->cn_namelen;
+    uint32_t nameiop = cnp->cn_nameiop;
 	const char *cp, *endp;
 	int error;
 
@@ -11305,9 +11372,9 @@ smbfs_vnop_lookup(struct vnop_lookup_args *ap)
 	 * validate syntax of name.  ENAMETOOLONG makes it clear the name
 	 * is the problem
 	 */
-	error = smbfs_pathcheck(share, cnp->cn_nameptr, cnp->cn_namelen, nameiop);
+	error = smbfs_pathcheck(share, cnp);
 	if (error) {
-		SMBWARNING("warning: bad filename %s\n", name);
+        SMBERROR("warning: bad filename %s\n", name);
 		goto done;
 	}
 	dnp = VTOSMB(dvp);
@@ -11926,6 +11993,8 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
     u_int16_t newFinderFlags;
 	int old_dosattr = 0;
     uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
+    struct timespec ts = {0};
+    size_t size = uio_offset(ap->a_uio) + uio_resid(ap->a_uio);
 
 	DBG_ASSERT(!vnode_isnamedstream(vp));
 	
@@ -11994,13 +12063,12 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	if (stype & kFinderInfo) {
 		uint8_t finfo[FINDERINFOSIZE];
 		time_t attrtimeo;
-		struct timespec ts;
 		size_t sizep;
 		int len = (int)uio_resid(ap->a_uio);
 
 		/* Can't be larger that 32 bytes */
-		if (len > FINDERINFOSIZE) {
-			error = EINVAL;
+		if (len != FINDERINFOSIZE) {
+			error = ERANGE;
 			goto exit;
 		}
         
@@ -12223,7 +12291,14 @@ smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
                                        fid, NULL, &np->n_mtime, NULL, ap->a_context);
         }
     }
-    
+    lck_mtx_lock(&np->rfrkMetaLock);
+    if (size > np->rfrk_size) {
+        np->rfrk_size = size;
+        np->rfrk_alloc_size = size;
+        nanouptime(&ts);
+        np->rfrk_cache_timer = ts.tv_sec;
+    }
+    lck_mtx_unlock(&np->rfrkMetaLock);
 out:
 	if (fid != 0) {
 		(void)smbfs_smb_close(share, fid, ap->a_context);
@@ -12598,6 +12673,7 @@ smbfs_vnop_getxattr(struct vnop_getxattr_args *ap)
     uint32_t allow_compression = 0; /* Dont allow compression for xattrs */
     uint32_t max_io_size = 0;
     user_ssize_t len = 0;
+    off_t offset = uio? uio_offset(uio): 0;
 
 	DBG_ASSERT(!vnode_isnamedstream(vp));
 	
@@ -12922,9 +12998,10 @@ multiple_transactions:
 		       0xabc005, error, stype, 0, 0);
 
 out:
-	if (uio && sizep && (*sizep > rq_resid))
-			error = ERANGE;
-		
+    if (uio && sizep && (*sizep - offset > rq_resid)) {
+        error = ERANGE;
+    }
+
 	/* Even an error can leave the file open. */
     if (fid != 0) {
 		(void)smbfs_smb_close(share, fid, ap->a_context);

@@ -87,5 +87,6 @@ TRACE_CODE(xzone_walk_unlock, DBG_UMALLOC_INTERNAL, 0xa00);
 TRACE_CODE(xzone_thread_detach, DBG_UMALLOC_INTERNAL, 0xb00);
 TRACE_CODE(xzone_thread_cache_malloc, DBG_UMALLOC_INTERNAL, 0xc00);
 TRACE_CODE(xzone_thread_cache_free, DBG_UMALLOC_INTERNAL, 0xd00);
+TRACE_CODE(xzone_list_upgrade, DBG_UMALLOC_INTERNAL, 0xe00);
 
 #endif // __TRACE_H

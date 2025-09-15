@@ -35,8 +35,8 @@ osfmk/arm64/lz4_decode_arm64.s  standard
 osfmk/arm64/lz4_encode_arm64.s  standard
 osfmk/arm64/amcc_rorgn_ppl.c optional nos_arm_asm config_pmap_ppl
 osfmk/arm64/amcc_rorgn_ppl_amcc.c optional nos_arm_asm config_pmap_ppl
-osfmk/arm64/amcc_rorgn_ppl_ctrr3.c optional nos_arm_asm config_pmap_ppl
 osfmk/arm64/amcc_rorgn_common.c optional nos_arm_asm
+osfmk/arm64/amcc_rorgn_pv_ctrr.c optional nos_arm_asm
 osfmk/arm64/bcopy.s standard
 osfmk/arm64/bzero.s standard
 osfmk/arm/caches.c		standard
@@ -116,7 +116,5 @@ osfmk/arm64/machine_remote_time.c optional config_mach_bridge_recv_time
 osfmk/arm64/sme.c		standard
 osfmk/arm64/static_if.c	standard
 osfmk/arm64/corecrypto/sha256_compress_arm64.s	standard
-
-osfmk/arm64/bti_telemetry.c optional config_bti_telemetry
 
 osfmk/arm/counter.c	standard

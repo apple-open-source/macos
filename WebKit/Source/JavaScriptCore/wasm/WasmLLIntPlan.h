@@ -70,7 +70,7 @@ public:
         return m_state < State::Compiled;
     }
 
-    void work(CompilationEffort) final;
+    void work() final;
 
     bool didReceiveFunctionData(FunctionCodeIndex, const FunctionData&) final;
 
@@ -84,7 +84,7 @@ private:
     bool prepareImpl() final;
     void didCompleteCompilation() WTF_REQUIRES_LOCK(m_lock) final;
 
-    void addTailCallEdge(uint32_t, uint32_t);
+    void addTailCallEdge(uint32_t, uint32_t) WTF_REQUIRES_LOCK(m_lock);
     void computeTransitiveTailCalls() const;
 
     bool ensureEntrypoint(LLIntCallee&, FunctionCodeIndex functionIndex);

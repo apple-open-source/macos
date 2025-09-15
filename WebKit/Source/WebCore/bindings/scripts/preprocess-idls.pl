@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
-# Copyright (C) 2011 Google Inc.  All rights reserved.
-# Copyright (C) 2020-2022 Apple Inc.  All rights reserved.
+# Copyright (C) 2011 Google Inc. All rights reserved.
+# Copyright (C) 2020-2022 Apple Inc. All rights reserved.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,8 @@
 
 #include "libinfo_common.h"
 
+#include <os/log.h>
+#include <os/overflow.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -281,6 +283,18 @@ kvbuf_init(char *buffer, uint32_t length)
 	return kvbuf_init_zone(malloc_default_zone(), buffer, length);
 }
 
+
+// Unfortunately, the kvbuf API does not provide a way to return an error code when a kvbuf fails to grow its
+// internal buffer. The convention so far has been that if growing the internal buffer fails, e.g., if
+// malloc_zone_calloc() or malloc_zone_realloc() fails, then the current internal buffer, if any, is freed and all
+// of the kvbuf's member variables are zeroed out.
+static void
+kvbuf_clear(kvbuf_t * const kv)
+{
+	free(kv->databuf);
+	memset(kv, 0, sizeof(*kv));
+}
+
 static void
 kvbuf_grow(kvbuf_t *kv, uint32_t delta)
 {
@@ -291,12 +305,26 @@ kvbuf_grow(kvbuf_t *kv, uint32_t delta)
 	if (kv == NULL) return;
 	if (delta == 0) return;
 
-	if (kv->databuf == NULL) delta += sizeof(uint32_t);
-
-	newlen = kv->datalen + delta;
+	const uint32_t extra = (kv->databuf == NULL) ? sizeof(uint32_t) : 0;
+	const bool overflow = os_add3_overflow(kv->datalen, delta, extra, &newlen);
+	if (overflow)
+	{
+		os_log_fault(OS_LOG_DEFAULT,
+			"kvbuf_grow: overflow when adding kv->datalen (%u), delta (%u), and extra (%u)", kv->datalen, delta, extra);
+		kvbuf_clear(kv);
+		return;
+	}
 	if (newlen <= kv->_size) return;
 
-	kv->_size = ((newlen + KVBUF_CHUNK - 1) / KVBUF_CHUNK) * KVBUF_CHUNK;
+	const uint32_t rounded_len = ((newlen + KVBUF_CHUNK - 1) / KVBUF_CHUNK) * KVBUF_CHUNK;
+	if (rounded_len < newlen)
+	{
+		os_log_fault(OS_LOG_DEFAULT,
+			"kvbuf_grow: overflow when rounding %u to nearest chunk size (%u)", newlen, KVBUF_CHUNK);
+		kvbuf_clear(kv);
+		return;
+	}
+	kv->_size = rounded_len;
 
 	zone = malloc_zone_from_ptr(kv);
 	if (kv->databuf == NULL)
@@ -372,9 +400,17 @@ kvbuf_add_key(kvbuf_t *kv, const char *key)
 	kl = strlen(key) + 1;
 
 	/* Grow to hold key len, key, and value list count. */
-	delta = (2 * sizeof(uint32_t)) + kl;
-	kvbuf_grow(kv, delta);
-
+	const size_t extra = 2 * sizeof(uint32_t);
+	const bool overflow = os_add_overflow(extra, kl, &delta);
+	if (!overflow)
+	{
+		kvbuf_grow(kv, delta);
+	}
+	else
+	{
+		os_log_fault(OS_LOG_DEFAULT, "kvbuf_add_key: overflow when adding extra (%zu) and kl (%u)", extra, kl);
+		kvbuf_clear(kv);
+	}
 	if (kv->databuf == NULL) return;
 
 	/* increment and rewrite the key count for the current dictionary */
@@ -421,9 +457,17 @@ kvbuf_add_val_len(kvbuf_t *kv, const char *val, uint32_t len)
 	if (len == 0) return;
 
 	/* Grow to hold val len and value. */
-	delta = sizeof(uint32_t) + len;
-	kvbuf_grow(kv, delta);
-
+	const bool overflow = os_add_overflow(sizeof(uint32_t), len, &delta);
+	if (!overflow)
+	{
+		kvbuf_grow(kv, delta);
+	}
+	else
+	{
+		os_log_fault(OS_LOG_DEFAULT,
+			"kvbuf_add_val_len: overflow when adding sizeof(uint32_t) (%zu) and len (%u)", sizeof(uint32_t), len);
+		kvbuf_clear(kv);
+	}
 	if (kv->databuf == NULL) return;
 
 	/* increment and rewrite the value count for the value_list dictionary */
@@ -542,10 +586,22 @@ kvbuf_append_kvbuf(kvbuf_t *kv, const kvbuf_t *kv2)
 	memcpy(kv->databuf, &temp, sizeof(uint32_t));
 
 	/* grow the current buffer so we can append the new buffer */
-	temp = kv2->datalen - sizeof(uint32_t);
-
-	kvbuf_grow(kv, temp);
-
+	const bool overflow = os_sub_overflow(kv2->datalen, sizeof(uint32_t), &temp);
+	if (!overflow)
+	{
+		kvbuf_grow(kv, temp);
+	}
+	else
+	{
+		os_log_fault(OS_LOG_DEFAULT,
+			"kvbuf_append_kvbuf: overflow when subtracting sizeof(uint32_t) (%zu) from kv2->datalen (%u)",
+			sizeof(uint32_t), kv2->datalen);
+		kvbuf_clear(kv);
+	}
+	if (kv->databuf == NULL)
+	{
+		return;
+	}
 	memcpy(kv->databuf + kv->datalen, kv2->databuf + sizeof(uint32_t), temp);
 	kv->datalen += temp;
 }

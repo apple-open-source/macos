@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,8 +50,7 @@ public:
     void ref() const final { m_process->ref(); }
     void deref() const final { m_process->deref(); }
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() { return m_process->sharedPreferencesForWebProcess(); }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() { return m_process->sharedPreferencesForWebProcess(); }
 
     void processDidExit();
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -64,9 +63,7 @@ private:
     void snapshot(WebCore::ClientOrigin&&, CompletionHandler<void(WebCore::WebLockManagerSnapshot&&)>&&);
     void clientIsGoingAway(WebCore::ClientOrigin&&, WebCore::ScriptExecutionContextIdentifier);
 
-    Ref<WebProcessProxy> protectedProcess() const { return m_process.get(); }
-
-    CheckedRef<WebProcessProxy> m_process;
+    const CheckedRef<WebProcessProxy> m_process;
     bool m_hasEverRequestedLocks { false };
 };
 

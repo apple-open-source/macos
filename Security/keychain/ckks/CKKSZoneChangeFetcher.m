@@ -87,7 +87,6 @@ CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete = (CKKSFetchBecau
 
 @property NSMapTable<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
 
-@property CKKSFetchAllRecordZoneChangesOperation* currentFetch;
 @property CKKSResultOperation* currentProcessResult;
 
 @property NSMutableSet<CKKSFetchBecause*>* currentFetchReasons;
@@ -136,19 +135,21 @@ CKKSFetchBecause* const CKKSFetchBecauseOctagonPairingComplete = (CKKSFetchBecau
         _altDSID = altDSID;
         _sendMetric = sendMetric;
 
-        // If we're testing, for the initial delay, use 0.1 second. Otherwise, 2s.
-        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 100 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
+        // If we're testing, for the starting backoff, use 0.1 second. Otherwise, 2s.
+        dispatch_time_t startingBackoff = (SecCKKSReduceRateLimiting() ? 100 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
 
         // If we're testing, for the maximum delay, use 6 second. Otherwise, 2m.
         dispatch_time_t maximumDelay = (SecCKKSReduceRateLimiting() ? 6 * NSEC_PER_SEC : 120 * NSEC_PER_SEC);
 
         WEAKIFY(self);
         _fetchScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"zone-change-fetch-scheduler"
-                                                           initialDelay:initialDelay
+                                                           initialDelay:0*NSEC_PER_SEC
+                                                        startingBackoff:startingBackoff
                                                      exponentialBackoff:2
                                                            maximumDelay:maximumDelay
                                                        keepProcessAlive:false
                                               dependencyDescriptionCode:CKKSResultDescriptionPendingZoneChangeFetchScheduling
+                                                               qosClass:QOS_CLASS_UNSPECIFIED
                                                                   block:^{
                                                                       STRONGIFY(self);
                                                                       [self maybeCreateNewFetch];

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -17,15 +18,13 @@ struct callback_event {
 };
 
 #define NUM_REGISTRATIONS ((size_t) 20)
-static struct callback_event events[NUM_REGISTRATIONS * 5];
+static struct callback_event events[10000];
 static size_t recorded_events = 0;
 
 static void
 record_callback(size_t registration_idx, const char *type)
 {
-	if (recorded_events == (sizeof(events) / sizeof(events[0]))) {
-		return; // events array is full
-	}
+	assert(recorded_events < (sizeof(events) / sizeof(events[0])));
 	struct callback_event *evt = &events[recorded_events++];
 	evt->registration_idx = registration_idx;
 	evt->type = type;
@@ -151,5 +150,49 @@ T_DECL(atfork, "pthread_atfork")
 
 		T_ASSERT_EQ(pid, waitpid(pid, &status, 0), "child waitpid");
 		T_ASSERT_POSIX_ZERO(WEXITSTATUS(status), "child exit status");
+	}
+}
+
+T_DECL(atfork_enomem, "pthread_atfork ENOMEM", T_META_CHECK_LEAKS(false))
+{
+	size_t registration_count = 0;
+	while (true) {
+		int rc = pthread_atfork(callbacks[1][0], callbacks[1][1],
+				callbacks[1][2]);
+		if (rc == ENOMEM) {
+			break;
+		}
+		T_ASSERT_POSIX_ZERO(rc, "pthread_atfork()");
+		registration_count++;
+	}
+
+	T_LOG("registered %zu callbacks for atfork", registration_count);
+
+	int rc = pthread_atfork(callbacks[0][0], callbacks[0][1],
+			callbacks[0][2]);
+	T_ASSERT_EQ(rc, ENOMEM, "another registration should also fail");
+
+	pid_t pid = fork();
+	T_ASSERT_GE(pid, 0, "fork() -> %d", pid);
+
+	T_ASSERT_EQ(recorded_events, 2 * registration_count,
+			"expected event count for %s", pid ? "parent" : "child");
+	for (size_t i = 0; i < recorded_events; i++) {
+		if (i < registration_count) {
+			T_QUIET; T_EXPECT_EQ((uintptr_t)events[i].type,
+					(uintptr_t)ATFORK_PREPARE, "prepare event");
+		} else {
+			T_QUIET; T_EXPECT_EQ((uintptr_t)events[i].type,
+					pid ? (uintptr_t)ATFORK_PARENT : (uintptr_t)ATFORK_CHILD,
+					"after event");
+		}
+		T_QUIET; T_EXPECT_EQ(events[i].registration_idx, 1,
+				"registration index");
+	}
+
+	if (pid) {
+		int status;
+		T_ASSERT_EQ(pid, waitpid(pid, &status, 0), "child waitpid");
+		T_ASSERT_EQ(WEXITSTATUS(status), 0, "child exit status");
 	}
 }

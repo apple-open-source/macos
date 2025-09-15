@@ -53,6 +53,7 @@
 #include <securityd_client/ssblob.h>
 #include <Security/SecBasePriv.h>
 #include "TokenLogin.h"
+#include "featureflags/featureflags.h"
 
 extern "C" {
 #include <ctkloginhelper.h>
@@ -1620,6 +1621,12 @@ void StorageManager::login(UInt32 nameLength, const void *name,
         theKeychain->setSettings(INT_MAX, false);
         loginUnlocked = true;
         mSavedList.revert(true);
+
+        if (_SecProtectLoginKeychainWithDP()) {
+            // This will rekey to an indirect passphrase. But we can only do this after we have the salt.
+            secnotice("dp_login", "unlocking to rekey");
+            theKeychain->unlock(CssmData((void*)password, passwordLength));
+        }
     }
 
     //***************************************************************
@@ -2481,4 +2488,101 @@ StorageManager::keychainOwnerPermissionsValidForDomain(const char* path, SecPref
 
 	// user owns file and can read/write it
 	return true;
+}
+
+OSStatus
+StorageManager::pushForLaterUnlock(CFDataRef passphrase, uint32_t* handle)
+{
+    StLock<Mutex>_(mMutex);
+
+    if (passphrase == NULL || handle == NULL) {
+        return errSecParam;
+    }
+
+    secnotice("dp_login", "StorageManager::pushForLaterUnlock %p %li", CFDataGetBytePtr(passphrase), (long)CFDataGetLength(passphrase));
+
+    *handle = 0;
+
+    try {
+        SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
+        *handle = ss.pushForLaterUnlock(CssmData(passphrase));
+        return noErr;
+    } catch(UnixError ue) {
+        secnotice("dp_login", "caught UnixError: %d %s", ue.unixError(), ue.what());
+        return ue.unixError();
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secnotice("dp_login", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        return cssme.error;
+    } catch (MacOSError mose) {
+        secnotice("dp_login", "MacOSError: %d", (int)mose.osStatus());
+        return mose.osStatus();
+    } catch(...) {
+        secnotice("dp_login", "Unknown error");
+        return errSecInternal;
+    }
+}
+
+OSStatus
+StorageManager::releaseIndirectUnlockHandle(uint32_t handle)
+{
+    StLock<Mutex>_(mMutex);
+
+    if (handle == 0) {
+        return errSecParam;
+    }
+
+    secnotice("dp_login", "StorageManager::releaseIndirectUnlockHandle %u", handle);
+
+    try {
+        SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
+        ss.releaseHandle(handle);
+        return noErr;
+    } catch(UnixError ue) {
+        secnotice("dp_login", "caught UnixError: %d %s", ue.unixError(), ue.what());
+        return ue.unixError();
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secnotice("dp_login", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        return cssme.error;
+    } catch (MacOSError mose) {
+        secnotice("dp_login", "MacOSError: %d", (int)mose.osStatus());
+        return mose.osStatus();
+    } catch(...) {
+        secnotice("dp_login", "Unknown error");
+        return errSecInternal;
+    }
+}
+
+OSStatus
+StorageManager::getDerivedEntropy(uint32_t handle, CFDataRef* entropy)
+{
+    StLock<Mutex>_(mMutex);
+
+    if (handle == 0) {
+        return errSecParam;
+    }
+
+    secnotice("dp_login", "StorageManager::getDerivedEntropy %u", handle);
+
+    try {
+        SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
+        CssmDataContainer data;
+        ss.getDerivedEntropy(handle, data);
+        *entropy = CFDataCreate(NULL, data.Data, data.Length);
+        return noErr;
+    } catch(UnixError ue) {
+        secnotice("dp_login", "caught UnixError: %d %s", ue.unixError(), ue.what());
+        return ue.unixError();
+    } catch (CssmError cssme) {
+        const char* errStr = cssmErrorString(cssme.error);
+        secnotice("dp_login", "caught CssmError: %d %s", (int) cssme.error, errStr);
+        return cssme.error;
+    } catch (MacOSError mose) {
+        secnotice("dp_login", "MacOSError: %d", (int)mose.osStatus());
+        return mose.osStatus();
+    } catch(...) {
+        secnotice("dp_login", "Unknown error");
+        return errSecInternal;
+    }
 }

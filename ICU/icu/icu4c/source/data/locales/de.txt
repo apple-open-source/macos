@@ -404,10 +404,10 @@ de{
             }
             intervalFormats{
                 H{
-                    H{"HH–HH 'Uhr'"}
+                    H{"HH–HH"}
                 }
                 Hv{
-                    H{"HH–HH 'Uhr' v"}
+                    H{"HH–HH v"}
                 }
                 M{
                     M{"M.–M."}
@@ -695,13 +695,13 @@ de{
             }
             intervalFormats{
                 Bh{
-                    B{"h 'Uhr' B – h 'Uhr' B"}
-                    h{"h–h 'Uhr' B"}
+                    B{"h B – h B"}
+                    h{"h–h B"}
                 }
                 Bhm{
-                    B{"h:mm 'Uhr' B – h:mm 'Uhr' B"}
-                    h{"h:mm – h:mm 'Uhr' B"}
-                    m{"h:mm – h:mm 'Uhr' B"}
+                    B{"h:mm B – h:mm B"}
+                    h{"h:mm – h:mm 'B"}
+                    m{"h:mm – h:mm 'B"}
                 }
                 Gy{
                     G{"y G – y G"}
@@ -742,18 +742,18 @@ de{
                     y{"dd.MM.y – dd.MM.y GGGGG"}
                 }
                 H{
-                    H{"HH–HH 'Uhr'"}
+                    H{"HH–HH"}
                 }
                 Hm{
-                    H{"HH:mm–HH:mm 'Uhr'"}
-                    m{"HH:mm–HH:mm 'Uhr'"}
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
                 }
                 Hmv{
-                    H{"HH:mm–HH:mm 'Uhr' v"}
-                    m{"HH:mm–HH:mm 'Uhr' v"}
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
                 }
                 Hv{
-                    H{"HH–HH 'Uhr' v"}
+                    H{"HH–HH v"}
                 }
                 M{
                     M{"M.–M."}

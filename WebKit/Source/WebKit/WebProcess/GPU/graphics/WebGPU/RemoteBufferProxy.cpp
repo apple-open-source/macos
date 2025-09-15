@@ -66,13 +66,13 @@ static bool offsetOrSizeExceedsBounds(size_t dataSize, WebCore::WebGPU::Size64 o
     return offset >= dataSize || (requestedSize.has_value() && requestedSize.value() + offset > dataSize);
 }
 
-void RemoteBufferProxy::getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> size, Function<void(std::span<uint8_t>)>&& callback)
+void RemoteBufferProxy::getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> size, NOESCAPE const Function<void(std::span<uint8_t>)>& callback)
 {
     // FIXME: Implement error handling.
     auto sendResult = sendSync(Messages::RemoteBuffer::GetMappedRange(offset, size));
     auto [data] = sendResult.takeReplyOr(std::nullopt);
 
-    if (!data || !data->data() || offsetOrSizeExceedsBounds(data->size(), offset, size)) {
+    if (!data || !data->span().data() || offsetOrSizeExceedsBounds(data->size(), offset, size)) {
         callback({ });
         return;
     }
@@ -90,14 +90,20 @@ void RemoteBufferProxy::copyFrom(std::span<const uint8_t> span, size_t offset)
     if (!m_mapModeFlags.contains(WebCore::WebGPU::MapMode::Write))
         return;
 
-    auto sharedMemory = WebCore::SharedMemory::copySpan(span);
-    std::optional<WebCore::SharedMemoryHandle> handle;
-    if (sharedMemory)
-        handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
-    auto sendResult = sendWithAsyncReply(Messages::RemoteBuffer::Copy(WTFMove(handle), offset), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
-        RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
-    });
-    UNUSED_VARIABLE(sendResult);
+    size_t actualCopySize = span.size() - offset;
+    if (actualCopySize > maxCrossProcessResourceCopySize) {
+        auto sharedMemory = WebCore::SharedMemory::copySpan(span);
+        std::optional<WebCore::SharedMemoryHandle> handle;
+        if (sharedMemory)
+            handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
+        auto sendResult = sendWithAsyncReply(Messages::RemoteBuffer::Copy(WTFMove(handle), offset), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
+            RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+        });
+        UNUSED_VARIABLE(sendResult);
+    } else {
+        auto sendResult = send(Messages::RemoteBuffer::CopyWithCopy(span, offset));
+        UNUSED_VARIABLE(sendResult);
+    }
 }
 
 void RemoteBufferProxy::unmap()

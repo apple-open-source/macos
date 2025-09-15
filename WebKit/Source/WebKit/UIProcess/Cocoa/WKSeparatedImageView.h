@@ -29,13 +29,23 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface WKSeparatedImageView : UIView
+@protocol WKObservingLayerDelegate
+- (void)layerSeparatedDidChange:(CALayer *)layer;
+- (void)layerWasCleared:(CALayer *)layer;
+@end
+
+@interface WKSeparatedImageView : UIView <WKObservingLayerDelegate>
 
 - (instancetype)init NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
 
 - (void)setSurface:(nullable IOSurfaceRef)surface;
+- (void)layoutCustomSubtree;
 
+@end
+
+@interface WKObservingLayer : CALayer
+@property (nonatomic, weak) id<WKObservingLayerDelegate> layerDelegate;
 @end
 
 NS_ASSUME_NONNULL_END

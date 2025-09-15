@@ -262,6 +262,7 @@ XMLPUBVAR xmlStrdupFunc xmlMemStrdup LIBXML_API_DEPRECATED_MEMORY_ALLOCATION_FUN
 #define xmlMalloc(size) malloc(size)
 #define xmlMallocAtomic(size) malloc(size)
 #define xmlRealloc(ptr, size) realloc((ptr), (size))
+#define xmlFree(ptr) free(ptr)
 #define xmlMemStrdup(str) strdup(str)
 #endif
 

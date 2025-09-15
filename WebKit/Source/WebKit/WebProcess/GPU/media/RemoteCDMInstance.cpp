@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,7 +74,7 @@ void RemoteCDMInstance::initializeWithConfiguration(const WebCore::CDMKeySystemC
 {
     RefPtr factory = m_factory.get();
     if (!factory) {
-        callback(Failed);
+        callback(CDMInstanceSuccessValue::Failed);
         return;
     }
 
@@ -85,7 +85,7 @@ void RemoteCDMInstance::setServerCertificate(Ref<WebCore::SharedBuffer>&& certif
 {
     RefPtr factory = m_factory.get();
     if (!factory) {
-        callback(Failed);
+        callback(CDMInstanceSuccessValue::Failed);
         return;
     }
 
@@ -106,8 +106,8 @@ RefPtr<WebCore::CDMInstanceSession> RemoteCDMInstance::createSession()
 
     uint64_t logIdentifier { 0 };
 #if !RELEASE_LOG_DISABLED
-    if (m_client)
-        logIdentifier = reinterpret_cast<uint64_t>(m_client->logIdentifier());
+    if (RefPtr client = m_client.get())
+        logIdentifier = reinterpret_cast<uint64_t>(client->logIdentifier());
 #endif
 
     auto sendResult = factory->gpuProcessConnection().connection().sendSync(Messages::RemoteCDMInstanceProxy::CreateSession(logIdentifier), m_identifier);

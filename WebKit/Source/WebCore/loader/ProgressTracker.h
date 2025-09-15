@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,7 +76,7 @@ private:
     Ref<Page> protectedPage() const;
 
     WeakRef<Page> m_page;
-    UniqueRef<ProgressTrackerClient> m_client;
+    const UniqueRef<ProgressTrackerClient> m_client;
     WeakPtr<LocalFrame> m_originatingProgressFrame;
     HashMap<ResourceLoaderIdentifier, std::unique_ptr<ProgressItem>> m_progressItems;
     Timer m_progressHeartbeatTimer;

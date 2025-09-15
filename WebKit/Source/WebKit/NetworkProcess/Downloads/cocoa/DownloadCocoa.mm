@@ -42,24 +42,24 @@ namespace WebKit {
 void Download::resume(std::span<const uint8_t> resumeData, const String& path, SandboxExtension::Handle&& sandboxExtensionHandle, std::span<const uint8_t> activityAccessToken)
 {
     m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
-    if (m_sandboxExtension)
-        m_sandboxExtension->consume();
+    if (RefPtr extension = m_sandboxExtension)
+        extension->consume();
 
-    auto* networkSession = m_downloadManager->client().networkSession(m_sessionID);
+    CheckedPtr networkSession = m_downloadManager->protectedClient()->networkSession(m_sessionID);
     if (!networkSession) {
         WTFLogAlways("Could not find network session with given session ID");
         return;
     }
-    auto& cocoaSession = static_cast<NetworkSessionCocoa&>(*networkSession);
+    CheckedRef cocoaSession = downcast<NetworkSessionCocoa>(*networkSession);
     RetainPtr nsData = toNSData(resumeData);
 
-    NSMutableDictionary *dictionary = [NSPropertyListSerialization propertyListWithData:nsData.get() options:NSPropertyListMutableContainersAndLeaves format:0 error:nullptr];
-    [dictionary setObject:static_cast<NSString*>(path) forKey:@"NSURLSessionResumeInfoLocalPath"];
-    NSData *updatedData = [NSPropertyListSerialization dataWithPropertyList:dictionary format:NSPropertyListXMLFormat_v1_0 options:0 error:nullptr];
+    RetainPtr dictionary = [NSPropertyListSerialization propertyListWithData:nsData.get() options:NSPropertyListMutableContainersAndLeaves format:0 error:nullptr];
+    [dictionary setObject:path.createNSString().get() forKey:@"NSURLSessionResumeInfoLocalPath"];
+    RetainPtr updatedData = [NSPropertyListSerialization dataWithPropertyList:dictionary.get() format:NSPropertyListXMLFormat_v1_0 options:0 error:nullptr];
 
     // FIXME: Use nsData instead of updatedData once we've migrated from _WKDownload to WKDownload
     // because there's no reason to set the local path we got from the data back into the data.
-    m_downloadTask = [cocoaSession.sessionWrapperForDownloadResume().session downloadTaskWithResumeData:updatedData];
+    m_downloadTask = [cocoaSession->sessionWrapperForDownloadResume().session downloadTaskWithResumeData:updatedData.get()];
     if (!m_downloadTask) {
         RELEASE_LOG_ERROR(Network, "Could not create download task from resume data");
         return;
@@ -69,9 +69,9 @@ void Download::resume(std::span<const uint8_t> resumeData, const String& path, S
         RELEASE_LOG_ERROR(Network, "Could not resume download, since task identifier is 0");
         return;
     }
-    ASSERT(!cocoaSession.sessionWrapperForDownloadResume().downloadMap.contains(taskIdentifier));
-    cocoaSession.sessionWrapperForDownloadResume().downloadMap.add(taskIdentifier, m_downloadID);
-    m_downloadTask.get()._pathToDownloadTaskFile = path;
+    ASSERT(!cocoaSession->sessionWrapperForDownloadResume().downloadMap.contains(taskIdentifier));
+    cocoaSession->sessionWrapperForDownloadResume().downloadMap.add(taskIdentifier, m_downloadID);
+    m_downloadTask.get()._pathToDownloadTaskFile = path.createNSString().get();
 
     [m_downloadTask resume];
 
@@ -121,16 +121,18 @@ void Download::platformCancelNetworkLoad(CompletionHandler<void(std::span<const 
 void Download::platformDestroyDownload()
 {
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    m_bookmarkURL = nil;
-    [m_progress cancel];
-#else
+    if (enableModernDownloadProgress()) {
+        m_bookmarkURL = nil;
+        [m_progress cancel];
+        return;
+    }
+#endif
     if (m_progress)
 #if HAVE(NSPROGRESS_PUBLISHING_SPI)
         [m_progress _unpublish];
 #else
         [m_progress unpublish];
 #endif // HAVE(NSPROGRESS_PUBLISHING_SPI)
-#endif // HAVE(MODERN_DOWNLOADPROGRESS)
 }
 
 #if HAVE(MODERN_DOWNLOADPROGRESS)
@@ -154,7 +156,7 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
         RELEASE_LOG(Network, "Unable to create bookmark URL, error = %@", error);
 
     if (enableModernDownloadProgress()) {
-        RetainPtr<NSURL> publishURL = (NSURL *)url;
+        RetainPtr publishURL = url.createNSURL();
         if (!publishURL) {
             RELEASE_LOG_ERROR(Network, "Download::publishProgress: Invalid publish URL");
             return;
@@ -169,7 +171,7 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
         if (!isUsingPlaceholder)
             startUpdatingProgress();
     } else {
-        m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url sandboxExtension:nullptr]);
+        m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:url.createNSURL().get() sandboxExtension:nullptr]);
 #if HAVE(NSPROGRESS_PUBLISHING_SPI)
         [m_progress _publish];
 #else
@@ -188,7 +190,7 @@ void Download::setPlaceholderURL(NSURL *placeholderURL, NSData *bookmarkData)
     BOOL usingSecurityScopedURL = [placeholderURL startAccessingSecurityScopedResource];
 
     SandboxExtension::Handle sandboxExtensionHandle;
-    if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(StringView::fromLatin1(placeholderURL.fileSystemRepresentation), SandboxExtension::Type::ReadOnly))
+    if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(String::fromUTF8(placeholderURL.fileSystemRepresentation), SandboxExtension::Type::ReadOnly))
         sandboxExtensionHandle = WTFMove(*handle);
 
     if (usingSecurityScopedURL)
@@ -213,7 +215,7 @@ void Download::setFinalURL(NSURL *finalURL, NSData *bookmarkData)
     BOOL usingSecurityScopedURL = [finalURL startAccessingSecurityScopedResource];
 
     SandboxExtension::Handle sandboxExtensionHandle;
-    if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(StringView::fromLatin1(finalURL.fileSystemRepresentation), SandboxExtension::Type::ReadOnly))
+    if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(String::fromUTF8(finalURL.fileSystemRepresentation), SandboxExtension::Type::ReadOnly))
         sandboxExtensionHandle = WTFMove(*handle);
 
     if (usingSecurityScopedURL)
@@ -302,7 +304,7 @@ void Download::publishProgress(const URL& url, SandboxExtension::Handle&& sandbo
     if (!sandboxExtension)
         return;
 
-    m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url sandboxExtension:sandboxExtension]);
+    m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:url.createNSURL().get() sandboxExtension:sandboxExtension]);
 #if HAVE(NSPROGRESS_PUBLISHING_SPI)
     [m_progress _publish];
 #else

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,10 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
+namespace WebCore {
+enum class UseLosslessCompression : bool;
+}
+
 namespace WebKit {
 
 class GraphicsLayerCARemote;
@@ -70,12 +74,12 @@ public:
     WebCore::LayerPool& layerPool() { return m_layerPool; }
 
     float deviceScaleFactor() const;
-
-    LayerHostingMode layerHostingMode() const;
     
     std::optional<WebCore::DestinationColorSpace> displayColorSpace() const;
 
     std::optional<DrawingAreaIdentifier> drawingAreaIdentifier() const;
+
+    WebCore::UseLosslessCompression useIOSurfaceLosslessCompression() const;
 
     void buildTransaction(RemoteLayerTreeTransaction&, WebCore::PlatformCALayer& rootLayer, WebCore::FrameIdentifier);
 
@@ -87,7 +91,7 @@ public:
 
     void willStartAnimationOnLayer(PlatformCALayerRemote&);
 
-    RemoteLayerBackingStoreCollection& backingStoreCollection() { return *m_backingStoreCollection; }
+    RemoteLayerBackingStoreCollection& backingStoreCollection() { return m_backingStoreCollection; }
     
     void setNextRenderingUpdateRequiresSynchronousImageDecoding() { m_nextRenderingUpdateRequiresSynchronousImageDecoding = true; }
     bool nextRenderingUpdateRequiresSynchronousImageDecoding() const { return m_nextRenderingUpdateRequiresSynchronousImageDecoding; }
@@ -95,6 +99,7 @@ public:
     void adoptLayersFromContext(RemoteLayerTreeContext&);
 
     RemoteRenderingBackendProxy& ensureRemoteRenderingBackendProxy();
+    Ref<RemoteRenderingBackendProxy> ensureProtectedRemoteRenderingBackendProxy();
 
     bool useDynamicContentScalingDisplayListsForDOMRendering() const { return m_useDynamicContentScalingDisplayListsForDOMRendering; }
     void setUseDynamicContentScalingDisplayListsForDOMRendering(bool useDynamicContentScalingDisplayLists) { m_useDynamicContentScalingDisplayListsForDOMRendering = useDynamicContentScalingDisplayLists; }
@@ -122,12 +127,12 @@ private:
     HashMap<WebCore::PlatformLayerIdentifier, WeakPtr<PlatformCALayerRemote>> m_livePlatformLayers;
     HashMap<WebCore::PlatformLayerIdentifier, WeakPtr<PlatformCALayerRemote>> m_layersWithAnimations;
 #if HAVE(AVKIT)
-    HashMap<WebCore::PlatformLayerIdentifier, PlaybackSessionContextIdentifier> m_videoLayers;
+    HashMap<WebCore::PlatformLayerIdentifier, WebCore::MediaPlayerClientIdentifier> m_videoLayers;
 #endif
 
     HashSet<WeakRef<GraphicsLayerCARemote>> m_liveGraphicsLayers;
 
-    UniqueRef<RemoteLayerBackingStoreCollection> m_backingStoreCollection;
+    const UniqueRef<RemoteLayerBackingStoreCollection> m_backingStoreCollection;
 
     WebCore::LayerPool m_layerPool;
 

@@ -73,7 +73,11 @@ lowglo lowGlo __attribute__ ((aligned(PAGE_MAX_SIZE))) = {
 	.lgPmapMemPagesize = (uint64_t)sizeof(struct vm_page),
 	.lgPmapMemFromArrayMask = VM_PAGE_PACKED_FROM_ARRAY,
 	.lgPmapMemPackedShift = VM_PAGE_PACKED_PTR_SHIFT,
+#ifndef __BUILDING_XNU_LIB_UNITTEST__
 	.lgPmapMemPackedBaseAddr = VM_PAGE_PACKED_PTR_BASE,
+#else
+	.lgPmapMemPackedBaseAddr = 0, /* not a compile-time constant when building for unit-test */
+#endif
 	.lgPmapMemStartAddr = -1,
 	.lgPmapMemEndAddr = -1,
 	.lgPmapMemFirstppnum = -1,

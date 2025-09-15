@@ -183,7 +183,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionMatchPattern, WebExtensionMa
     Ref pattern = *_webExtensionMatchPattern;
     if (pattern->scheme().isNull())
         return nil;
-    return pattern->scheme();
+    return pattern->scheme().createNSString().autorelease();
 }
 
 - (NSString *)host
@@ -191,7 +191,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionMatchPattern, WebExtensionMa
     Ref pattern = *_webExtensionMatchPattern;
     if (pattern->host().isNull())
         return nil;
-    return pattern->host();
+    return pattern->host().createNSString().autorelease();
 }
 
 - (NSString *)path
@@ -199,12 +199,12 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionMatchPattern, WebExtensionMa
     Ref pattern = *_webExtensionMatchPattern;
     if (pattern->path().isNull())
         return nil;
-    return pattern->path();
+    return pattern->path().createNSString().autorelease();
 }
 
 - (NSString *)string
 {
-    return self._protectedWebExtensionMatchPattern->string();
+    return self._protectedWebExtensionMatchPattern->string().createNSString().autorelease();
 }
 
 - (BOOL)matchesAllURLs

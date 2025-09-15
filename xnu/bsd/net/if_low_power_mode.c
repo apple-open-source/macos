@@ -87,7 +87,7 @@ if_low_power_evhdlr_callback(__unused struct eventhandler_entry_arg arg,
 {
 	struct kev_dl_low_power_mode kev;
 
-	if (!IF_FULLY_ATTACHED(ifp)) {
+	if (!ifnet_is_fully_attached(ifp)) {
 		return;
 	}
 

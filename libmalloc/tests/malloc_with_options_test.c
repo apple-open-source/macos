@@ -6,7 +6,7 @@
 //
 #include <stdlib.h>
 #include <darwintest.h>
-#include "malloc_private.h"
+#include <malloc_private.h>
 #include <time.h>
 
 #include "../src/platform.h"
@@ -55,9 +55,9 @@ run_options_test(int iterations)
 		bool aligned = opt_rand & 0x1;
 
 		bool zeroed = opt_rand & 0x2;
-		malloc_options_np_t options = 0;
+		malloc_zone_malloc_options_t options = MALLOC_ZONE_MALLOC_OPTION_NONE;
 		if (zeroed) {
-			options |= MALLOC_NP_OPTION_CLEAR;
+			options |= MALLOC_ZONE_MALLOC_OPTION_CLEAR;
 		}
 
 
@@ -79,8 +79,16 @@ run_options_test(int iterations)
 
 
 		free(pointers[index]);
-		pointers[index] = malloc_zone_malloc_with_options_np(NULL, align, size,
+		if (opt_rand % 2) {
+			pointers[index] = malloc_zone_malloc_with_options(NULL, align, size,
 				options);
+		} else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+			pointers[index] = malloc_zone_malloc_with_options_np(NULL, align,
+				size, options);
+#pragma GCC diagnostic pop
+		}
 		T_QUIET; T_ASSERT_NOTNULL(pointers[index], "Allocation failed\n");
 
 		if (zeroed) {
@@ -93,7 +101,7 @@ run_options_test(int iterations)
 		}
 
 		// Scribble the memory to make sure that malloc is properly clearing
-		// when MALLOC_NP_OPTION_CLEAR is set
+		// when MALLOC_ZONE_MALLOC_OPTION_CLEAR is set
 		scribble_memory(pointers[index], size);
 	}
 
@@ -188,8 +196,8 @@ T_DECL(malloc_options_traced, "malloc with options, but tracing is enabled",
 
 	T_ASSERT_POSIX_ZERO(ktrace_start(s, dispatch_get_main_queue()), NULL);
 
-	void *ptr = malloc_zone_malloc_with_options_np(NULL, expected_alignment,
-			expected_size, MALLOC_NP_OPTION_CLEAR);
+	void *ptr = malloc_zone_malloc_with_options(NULL, expected_alignment,
+			expected_size, MALLOC_ZONE_MALLOC_OPTION_CLEAR);
 	T_ASSERT_NOTNULL(ptr, "allocate");
 	T_ASSERT_TRUE(check_zeroed_memory(ptr, expected_size), "zeroed");
 	T_ASSERT_TRUE(check_ptr_is_aligned(ptr, expected_alignment), "aligned");

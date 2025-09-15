@@ -390,7 +390,7 @@ WI.RecordingContentView = class RecordingContentView extends WI.ContentView
             if (lastSnapshotIndex < 0) {
                 snapshot.content = this._initialContent;
                 snapshot.states = actions[0].states;
-                snapshot.attributes = Object.shallowCopy(initialState.attributes);
+                snapshot.attributes = {...initialState.attributes};
             } else {
                 let lastSnapshot = this._snapshots[lastSnapshotIndex];
                 snapshot.content = lastSnapshot.content;

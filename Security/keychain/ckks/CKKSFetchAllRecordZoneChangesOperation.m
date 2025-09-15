@@ -43,7 +43,6 @@
 #include "keychain/securityd/SecItemServer.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @implementation CKKSCloudKitFetchRequest
@@ -83,6 +82,9 @@
 // A zoneID is in this set if we're attempting to resync them
 @property NSMutableSet<CKRecordZoneID*>* resyncingZones;
 
+// A zoneID is in this set if we're reverse syncing them
+@property NSMutableSet<CKRecordZoneID*>* reverseSyncingZones;
+
 @property CKKSResultOperation* fetchCompletedOperation;
 @end
 
@@ -121,6 +123,7 @@
         _changeTokens = [[NSMutableDictionary alloc] init];
 
         _resyncingZones = [NSMutableSet set];
+        _reverseSyncingZones = [NSMutableSet set];
 
         _totalModifications = 0;
         _totalDeletions = 0;
@@ -165,6 +168,13 @@
 
             if(clientPreference.resync || self.forceResync) {
                 [self.resyncingZones addObject:clientZoneID];
+                [self.reverseSyncingZones addObject:clientZoneID];
+                options.fetchNewestChangesFirst = YES;
+            }
+
+            if (clientPreference.fetchNewestChangesFirst) {
+                [self.reverseSyncingZones addObject:clientZoneID];
+                options.fetchNewestChangesFirst = YES;
             }
 
             self.allClientOptions[clientZoneID] = options;
@@ -189,6 +199,25 @@
     }
 
     [self performFetch];
+}
+
+- (NSDictionary*)ckksFetchBecauseMap {
+    return @{
+        CKKSFetchBecauseAPNS: kSecurityRTCFieldCKKSFetchBecauseAPNS,
+        CKKSFetchBecauseAPIFetchRequest: kSecurityRTCFieldCKKSFetchBecauseAPIFetchRequest,
+        CKKSFetchBecauseSEAPIFetchRequest: kSecurityRTCFieldCKKSFetchBecauseSEAPIFetchRequest,
+        CKKSFetchBecauseKeySetFetchRequest: kSecurityRTCFieldCKKSFetchBecauseKeySetFetchRequest,
+        CKKSFetchBecauseCurrentItemFetchRequest: kSecurityRTCFieldCKKSFetchBecauseCurrentItemFetchRequest,
+        CKKSFetchBecauseInitialStart: kSecurityRTCFieldCKKSFetchBecauseInitialStart,
+        CKKSFetchBecausePreviousFetchFailed: kSecurityRTCFieldCKKSFetchBecausePreviousFetchFailed,
+        CKKSFetchBecauseKeyHierarchy: kSecurityRTCFieldCKKSFetchBecauseKeyHierarchy,
+        CKKSFetchBecauseTesting: kSecurityRTCFieldCKKSFetchBecauseTesting,
+        CKKSFetchBecauseResync: kSecurityRTCFieldCKKSFetchBecauseResync,
+        CKKSFetchBecauseMoreComing: kSecurityRTCFieldCKKSFetchBecauseMoreComing,
+        CKKSFetchBecauseResolvingConflict: kSecurityRTCFieldCKKSFetchBecauseResolvingConflict,
+        CKKSFetchBecausePeriodicRefetch: kSecurityRTCFieldCKKSFetchBecausePeriodicRefetch,
+        CKKSFetchBecauseOctagonPairingComplete: kSecurityRTCFieldCKKSFetchBecauseOctagonPairingComplete,
+    };
 }
 
 - (void)performFetch
@@ -249,8 +278,11 @@
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
     ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);
 
-//    @TODO: convert this to a bitfield somehow
-//    event[kSecurityRTCFieldFetchReasons] = self.fetchReasons;
+    for (CKKSFetchBecause* reason in self.fetchReasons) {
+        if ([self.ckksFetchBecauseMap objectForKey:reason]) {
+            [eventS addMetrics:@{self.ckksFetchBecauseMap[reason]:@(YES)}];
+        }
+    }
 
     if([self.fetchReasons containsObject:CKKSFetchBecauseAPIFetchRequest] ||
        [self.fetchReasons containsObject:CKKSFetchBecauseInitialStart] ||
@@ -264,6 +296,7 @@
         
     }
 
+    // @TODO: change this to recordWasChangedBlock
     self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
         STRONGIFY(self);
         ckksinfo_global("ckksfetch", "CloudKit notification: record changed(%@): %@", [record recordType], record);
@@ -291,6 +324,7 @@
         self.changeTokens[recordZoneID] = serverChangeToken;
     };
 
+    // Called when we finish fetching all the records for a particular zone.
     self.fetchRecordZoneChangesOperation.recordZoneFetchCompletionBlock = ^(CKRecordZoneID *recordZoneID, CKServerChangeToken *serverChangeToken, NSData *clientChangeTokenData, BOOL moreComing, NSError * recordZoneError) {
         STRONGIFY(self);
 
@@ -299,6 +333,12 @@
         self.allClientOptions[recordZoneID].previousServerChangeToken = serverChangeToken;
 
         self.moreComing |= moreComing;
+        // In the case that we're doing a reverse fetch, and this zone is finished fetching, but another zone isn't finished,
+        // we will kick off a new fetch immediately using the configuration in self.allClientOptions. However, we need to
+        // prevent ourselves from accidentally fetching a zone in reverse, so update allClientOptions here.
+        if (!moreComing && self.allClientOptions[recordZoneID].fetchNewestChangesFirst) {
+            self.allClientOptions[recordZoneID].fetchNewestChangesFirst = NO;
+        }
 
         [eventS addMetrics:@{kSecurityRTCFieldFullFetch:@(self.moreComing)}];
 
@@ -336,7 +376,7 @@
         if(self.moreComing && (operationError == nil || [CKKSReachabilityTracker isNetworkFailureError:operationError])) {
             ckksnotice_global("ckksfetch", "Must issue another fetch (with potential error %@)", operationError);
             self.moreComing = false;
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:operationError];
+            [eventS sendMetricWithResult:NO error:operationError];
 
             [self performFetch];
             return;
@@ -420,9 +460,13 @@
         // Drop strong pointer to clients
         self.clientMap = @{};
 
-        [eventS addMetrics:@{kSecurityRTCFieldNumKeychainItems:@(self.fetchedItems),
-                             kSecurityRTCFieldTotalCKRecords:@(self.totalDeletions + self.totalModifications)}];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:self.error];
+        [eventS addMetrics:@{kSecurityRTCFieldNumModificationsFetched: @(self.totalModifications),
+                             kSecurityRTCFieldNumDeletionsFetched: @(self.totalDeletions),
+                             kSecurityRTCFieldTotalCKRecords:@(self.totalDeletions + self.totalModifications),
+                             kSecurityRTCFieldNumZonesReverseSyncing: @(self.reverseSyncingZones.count),
+                           }
+        ];
+        [eventS sendMetricWithResult:YES error:self.error];
     };
 
     [self dependOnBeforeGroupFinished:self.fetchCompletedOperation];
@@ -461,6 +505,7 @@
     }];
 
     BOOL resync = [self.resyncingZones containsObject:recordZoneID];
+    BOOL reverseSync = [self.reverseSyncingZones containsObject:recordZoneID];
 
     // Tell the client about these changes!
     [client changesFetched:zoneModifications
@@ -468,7 +513,8 @@
                     zoneID:recordZoneID
             newChangeToken:self.changeTokens[recordZoneID]
                 moreComing:moreComing
-                    resync:resync];
+                    resync:resync
+   fetchNewestChangesFirst:reverseSync];
 
     if(resync && !moreComing) {
         ckksnotice("ckksfetch", recordZoneID, "No more changes for zone; turning off resync bit");

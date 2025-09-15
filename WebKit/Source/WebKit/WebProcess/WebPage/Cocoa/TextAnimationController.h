@@ -82,8 +82,8 @@ public:
 
     void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool visible, CompletionHandler<void()>&& = [] { });
 
-    std::optional<WebCore::TextIndicatorData> createTextIndicatorForRange(const WebCore::SimpleRange&);
-    void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
+    RefPtr<WebCore::TextIndicator> createTextIndicatorForRange(const WebCore::SimpleRange&);
+    void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(RefPtr<WebCore::TextIndicator>&&)>&&);
 
 private:
     std::optional<WebCore::SimpleRange> contextRangeForTextAnimationID(const WTF::UUID&) const;
@@ -102,7 +102,7 @@ private:
     Vector<TextAnimationRange> m_textAnimationRanges;
     std::optional<WTF::UUID> m_activeAnimation;
     std::optional<CompletionHandler<void(WebCore::TextAnimationRunMode)>> m_finalReplaceHandler;
-    std::optional<WebCore::TextIndicatorData> m_placeholderTextIndicatorData;
+    RefPtr<WebCore::TextIndicator> m_placeholderTextIndicator;
 
 };
 

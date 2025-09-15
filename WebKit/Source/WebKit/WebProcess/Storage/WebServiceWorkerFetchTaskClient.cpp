@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,7 +69,7 @@ void WebServiceWorkerFetchTaskClient::didReceiveRedirection(const WebCore::Resou
     cleanup();
 }
 
-void WebServiceWorkerFetchTaskClient::didReceiveResponse(const ResourceResponse& response)
+void WebServiceWorkerFetchTaskClient::didReceiveResponse(ResourceResponse&& response)
 {
     Locker lock(m_connectionLock);
 
@@ -81,7 +81,7 @@ void WebServiceWorkerFetchTaskClient::didReceiveResponse(const ResourceResponse&
     if (m_needsContinueDidReceiveResponseMessage)
         m_waitingForContinueDidReceiveResponseMessage = true;
 
-    connection->send(Messages::ServiceWorkerFetchTask::DidReceiveResponse { response, m_needsContinueDidReceiveResponseMessage }, m_fetchIdentifier);
+    connection->send(Messages::ServiceWorkerFetchTask::DidReceiveResponse { WTFMove(response), m_needsContinueDidReceiveResponseMessage }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didReceiveData(const SharedBuffer& buffer)
@@ -104,9 +104,9 @@ void WebServiceWorkerFetchTaskClient::didReceiveDataInternal(const SharedBuffer&
     }
 
     if (m_isDownload)
-        connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
+        connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer) }, m_fetchIdentifier);
     else
-        connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
+        connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer) }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didReceiveFormDataAndFinish(Ref<FormData>&& formData)
@@ -171,9 +171,9 @@ void WebServiceWorkerFetchTaskClient::didReceiveBlobChunk(const SharedBuffer& bu
         return;
 
     if (m_isDownload)
-        connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
+        connection->send(Messages::ServiceWorkerDownloadTask::DidReceiveData { IPC::SharedBufferReference(buffer) }, m_fetchIdentifier);
     else
-        connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer), buffer.size() }, m_fetchIdentifier);
+        connection->send(Messages::ServiceWorkerFetchTask::DidReceiveData { IPC::SharedBufferReference(buffer) }, m_fetchIdentifier);
 }
 
 void WebServiceWorkerFetchTaskClient::didFinishBlobLoading()

@@ -62,7 +62,7 @@ skt_debug_verify_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	channelfd = os_channel_get_fd(channel);

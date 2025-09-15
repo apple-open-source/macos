@@ -161,7 +161,7 @@ private:
             if (!pool) {
                 // We've run to the end; allocate a new pool.
                 pool = BumpPointerPool::create(previousPool->m_remainingCapacity, size);
-                if (UNLIKELY(!pool))
+                if (!pool) [[unlikely]]
                     return nullptr;
                 previousPool->m_next = pool;
                 pool->m_previous = previousPool;

@@ -23,9 +23,9 @@
 
 #import <Foundation/Foundation.h>
 
-#include <ipc/securityd_client.h>
-#include <ipc/server_security_helpers.h>
-#include <ipc/server_endpoint.h>
+#include "ipc/securityd_client.h"
+#include "ipc/server_security_helpers.h"
+#include "ipc/server_endpoint.h"
 #include <os/transaction_private.h>
 
 #if (defined(TARGET_DARWINOS) && TARGET_DARWINOS) || (defined(SECURITYD_SYSTEM) && SECURITYD_SYSTEM)
@@ -45,6 +45,9 @@
 #define XPCSanitizeError
 #endif // OCTAGON
 
+#if TARGET_OS_OSX
+#include <Security/SecKeychainPriv.h>
+#endif // TARGET_OS_OSX
 #include <Security/SecEntitlements.h>
 #include <Security/SecItemPriv.h>
 #include <Security/SecItemFetchOutOfBandPriv.h>
@@ -141,7 +144,7 @@
     } else {
         client = self->_client;
     }
-    if (!_SecItemAdd((__bridge CFDictionaryRef) callbackQuery, &client, &cfresult, &cferror)) {
+    if (!SecServerItemAdd((__bridge CFDictionaryRef) callbackQuery, &client, &cfresult, &cferror)) {
         complete(NULL, NULL, (__bridge NSError *)cferror);
         callbackTransaction.transaction = nil;
     } else {
@@ -198,7 +201,7 @@
         return;
     }
 
-    if (!accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (!SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("SecItemSetCurrentItemAcrossAllDevices: client is missing access-group %@: %@"), accessGroup, _client.task);
         complete((__bridge NSError*)cferror);
         CFReleaseNull(cferror);
@@ -263,7 +266,7 @@
         return;
     }
 
-    if (!accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (!SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("SecItemUnsetCurrentItemsAcrossAllDevices: client is missing access-group %@: %@"), accessGroup, _client.task);
         complete((__bridge NSError*)cferror);
         CFReleaseNull(cferror);
@@ -323,7 +326,7 @@
         return;
     }
 
-    if (!accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (!SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("SecItemFetchCurrentItemAcrossAllDevices: client is missing access-group %@: %@"), accessGroup, _client.task);
         complete(NULL, NULL, (__bridge NSError*)cferror);
         CFReleaseNull(cferror);
@@ -405,7 +408,7 @@
     }
 
     NSString* accessGroup = currentItemQueries.count > 0 ? currentItemQueries[0].accessGroup : nil;
-    if (accessGroup && !accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (accessGroup && !SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchCurrentItemOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
         complete(NULL, (__bridge NSError*)cferror);
         CFReleaseNull(cferror);
@@ -468,7 +471,7 @@
     }
 
     NSString* accessGroup = pcsIdentityQueries.count > 0 ? pcsIdentityQueries[0].accessGroup : nil;
-    if (accessGroup && !accessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (accessGroup && !SecServerAccessGroupsAllows(self->_client.accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("secItemFetchPCSIdentityByKeyOutOfBand: client is missing access-group %@: %@"), accessGroup, _client.task);
         complete(NULL, (__bridge NSError*)cferror);
         CFReleaseNull(cferror);
@@ -537,7 +540,7 @@
         CFReleaseNull(result);
         CFReleaseNull(cferror);
 
-        _SecItemCopyMatching((__bridge CFDictionaryRef) @{
+        SecServerItemCopyMatching((__bridge CFDictionaryRef) @{
                                                           (__bridge NSString*) kSecClass: (__bridge NSString*) (*class)->name,
                                                           (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
                                                           (id)kSecMatchLimit : (id)kSecMatchLimitOne,
@@ -591,7 +594,7 @@
         return;
     }
 
-    if (!accessGroupsAllows(accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
+    if (!SecServerAccessGroupsAllows(accessGroups, (__bridge CFStringRef)accessGroup, &_client)) {
         SecError(errSecMissingEntitlement, &cferror, CFSTR("Client is missing access-group %@: %@"), accessGroup, _client.task);
         complete(NULL, (__bridge NSError*) cferror);
         CFReleaseNull(cferror);
@@ -638,7 +641,7 @@
         return;
     }
 
-    bool ok = kc_with_dbt(false, &cferror, ^(SecDbConnectionRef dbt) {
+    bool ok = kc_with_dbt(false, NULL , &cferror, ^(SecDbConnectionRef dbt) {
         return (bool)s3dl_copy_digest(dbt, q, &result, accessGroups, &cferror);
     });
 
@@ -678,7 +681,7 @@
     }
 
 #if KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER
-    bool status = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
+    bool status = kc_with_dbt(true, NULL , &cferror, ^(SecDbConnectionRef dbt) {
         return SecServerDeleteAllForUser(dbt, (__bridge CFDataRef)uuid, false, &cferror);
     });
 #else
@@ -712,7 +715,7 @@
     __block CFErrorRef cferror = NULL;
     secnotice("item", "Performing keychain database checkpoint");
 
-    bool status = kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+    bool status = kc_with_dbt(true, NULL , &cferror, ^bool(SecDbConnectionRef dbt) {
         return SecDbCheckpoint(dbt, &cferror);
     });
 
@@ -744,7 +747,7 @@
     __block CFErrorRef error = NULL;
     secnotice("secKeychainForceUpgradeIfNeeded", "Performing keychain database upgrade if needed");
 
-    bool status = kc_with_dbt(false, &error, ^bool(SecDbConnectionRef dbt) {
+    bool status = kc_with_dbt(false, NULL , &error, ^bool(SecDbConnectionRef dbt) {
         // no-op will do the needful
         return true;
     });
@@ -756,5 +759,136 @@
     }
     completion(status ? errSecSuccess : errSecInternal);
 }
+
+- (void)secKeychainCopyDatabasePath: (void(^)(NSError *error, NSString* path))completion {
+    if (![self clientHasBooleanEntitlement:(__bridge NSString*)kSecEntitlementPrivateKeychainDatabasePath]) {
+        secerror("Missing Entitlement for SecKeychainCopyDatabasePath()");
+        completion([NSError errorWithDomain:NSOSStatusErrorDomain code:errSecMissingEntitlement userInfo:@{ NSLocalizedDescriptionKey: @"To use this API, please adopt `com.apple.private.keychain.databasepath` entitlement"}], nil);
+        return;
+    }
+    CFStringRef result = NULL;
+    result = SecServerKeychainCopyPath();
+    NSString *path = (NSString*)CFBridgingRelease(result);
+    secinfo("secKeychainCopyDatabasePath", "Keychain DB path %@", path);
+    completion(nil, path);
+}
+
+#if TARGET_OS_OSX
+- (void)secLookupIndirectUnlockKey:(NSString*)identifier
+                        completion:(void (^)(OSStatus,uint32_t))completion
+{
+    secnotice("dp_login", "secLookupIndirectUnlockKey %@", identifier);
+
+    NSString* agrp = @"com.apple.security.indirect-unlock-key";
+    NSArray<NSString*>* agrps = @[agrp];
+
+    SecurityClient client = {
+        .task = NULL,
+        .accessGroups = (__bridge CFArrayRef)agrps,
+    #if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        .allowSystemKeychain = false,
+    #endif
+    #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        .allowSyncBubbleKeychain = false,
+    #endif
+        .isNetworkExtension = false,
+    };
+
+    NSDictionary *query = @{
+        (__bridge NSString *)kSecClass : (id)kSecClassGenericPassword,
+        (__bridge NSString *)kSecAttrAccessGroup : agrp,
+        (__bridge NSString *)kSecAttrService : @"legacy login keychain",
+        (__bridge NSString *)kSecAttrAccount : identifier,
+        (__bridge NSString *)kSecAttrSynchronizable : @NO,
+        (__bridge NSString *)kSecUseDataProtectionKeychain : @YES,
+        (__bridge NSString *)kSecReturnData : @YES,
+    };
+
+    CFTypeRef data = NULL;
+    CFErrorRef error = NULL;
+    bool ok = SecServerItemCopyMatching((__bridge CFDictionaryRef)query, &client, &data, &error);
+    OSStatus status = SecErrorGetOSStatus(error);
+    CFReleaseNull(error);
+    if (status != noErr) {
+        completion(status, 0);
+        CFReleaseNull(data);
+        return;
+    }
+    if (CFGetTypeID(data) != CFDataGetTypeID() || !ok) {
+        completion(errSecInternal, 0);
+        CFReleaseNull(data);
+        return;
+    }
+
+    uint32_t kh = 0;
+    status = SecKeychainPushForLaterUnlock((CFDataRef)data, &kh);
+
+    CFReleaseNull(data);
+
+    completion(status, kh);
+}
+
+- (void)secAssociateIndirectUnlockKey:(NSString*)identifier
+                               handle:(uint32_t)handle
+                           completion:(void (^)(OSStatus))completion
+{
+    secnotice("dp_login", "secAssociateIndirectUnlockKey %@ %u", identifier, handle);
+
+    NSString* agrp = @"com.apple.security.indirect-unlock-key";
+    NSArray<NSString*>* agrps = @[agrp];
+
+    SecurityClient client = {
+        .task = NULL,
+        .accessGroups = (__bridge CFArrayRef)agrps,
+    #if KEYCHAIN_SUPPORTS_SYSTEM_KEYCHAIN
+        .allowSystemKeychain = false,
+    #endif
+    #if KEYCHAIN_SUPPORTS_EDU_MODE_MULTIUSER
+        .allowSyncBubbleKeychain = false,
+    #endif
+        .isNetworkExtension = false,
+    };
+
+    CFDataRef entropy = NULL;
+    OSStatus status = SecKeychainGetDerivedEntropy(handle, &entropy);
+    NSData* data = (__bridge_transfer NSData*)entropy;
+    if (status != noErr) {
+        secnotice("dp_login", "SecKeychainGetDerivedEntropy failed %d", status);
+        completion(status);
+        return;
+    }
+
+    NSDictionary* base = @{
+        (__bridge NSString *)kSecClass : (id)kSecClassGenericPassword,
+        (__bridge NSString *)kSecAttrAccessGroup : agrp,
+        (__bridge NSString *)kSecAttrService : @"legacy login keychain",
+        (__bridge NSString *)kSecAttrAccount : identifier,
+        (__bridge NSString *)kSecAttrSynchronizable : @NO,
+        (__bridge NSString *)kSecUseDataProtectionKeychain : @YES,
+    };
+    NSDictionary* valueData = @{
+        (__bridge NSString *)kSecValueData : data,
+    };
+    NSMutableDictionary* query = [base mutableCopy];
+    [query addEntriesFromDictionary:valueData];
+
+    CFErrorRef error = NULL;
+    bool ok = SecServerItemAdd((__bridge CFDictionaryRef)query, &client, NULL, &error);
+    status = SecErrorGetOSStatus(error);
+    CFReleaseNull(error);
+    if (status == errSecDuplicateItem) {
+        secnotice("dp_login", "secAssociateIndirectUnlockKey item exists, updating");
+        ok = SecServerItemUpdate((__bridge CFDictionaryRef)base, (__bridge CFDictionaryRef)valueData, &client, &error);
+        status = SecErrorGetOSStatus(error);
+        CFReleaseNull(error);
+    }
+    if (!ok && status == noErr) {
+        secnotice("dp_login", "secAssociateIndirectUnlockKey internal error");
+        status = errSecInternal;
+    }
+    completion(status);
+}
+
+#endif // TARGET_OS_OSX
 
 @end

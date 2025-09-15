@@ -78,6 +78,7 @@
 #include <sys/syslog.h>
 #include <sys/mcache.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 
 #include <net/if.h>
 #include <net/route.h>

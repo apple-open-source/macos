@@ -41,9 +41,14 @@
 #include "battery/powerDeliveryShared.h"
 #include "battery/battery_data_log.h"
 
+#if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX_AS
+#include "AppleGasGaugeUpdate.h"
+# include "AppleBatteryAuth.h"
+#endif // TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX_AS
+
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 #include "battery/charger.h"
-#endif
+#endif // TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 
 typedef struct CommandStruct_s {
     uint32_t cmd;
@@ -204,6 +209,9 @@ static const OSSymbol *_OpStatusSym                = OSSymbol::withCStringNoCopy
 static const OSSymbol *_PermanentFailureSym        = OSSymbol::withCStringNoCopy(kIOPMPSPermanentFailureKey);
 static const OSSymbol *_FirmwareSerialNumberSym    = OSSymbol::withCStringNoCopy(kIOPMPSFirmwareSerialNumberKey);
 static const OSSymbol *_rawExternalConnectedSym    = OSSymbol::withCStringNoCopy(kIOPMPSRawExternalConnectedKey);
+#if APPLE_FEATURE_SKIPPER
+static const OSSymbol *_SkipperNEIgnoreCriticalSym= OSSymbol::withCStringNoCopy(kIOPMPSSkipperNEIgnoreCriticalKey);
+#endif // APPLE_FEATURE_SKIPPER
 
 
 #define kBootPathKey             "BootPathUpdated"
@@ -273,8 +281,8 @@ static void populateAdapterParams0Dict (const PwrPortTelemetryLogParams0_t &para
  * @param outDict -> Output dictionary 
  *
  * */
-static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buffer, int32_t bufSize,  OSDictionary *outDict) {
-    
+static void populateWiredPortEvtBufferDict(int bufIdx, const uint8_t *buffer, int32_t bufSize,  OSDictionary *outDict, const OSSymbol *sym)
+{
     // The event log circular buffer is unrolled to start from the oldest
     // (pointed by bufIdx) to the newest events in the registry to avoid
     // logging the buffer index as an additional parameter in the power log 
@@ -285,7 +293,7 @@ static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buff
         const OSData *valObj = OSData::withBytes(buffer, bufSize); 
         
         if (valObj) {
-            outDict->setObject (_kAsbPortControllerEvtBufferSym, valObj); 
+            outDict->setObject(sym, valObj);
             OSSafeReleaseNULL(valObj);
         }
         // All done, just go!
@@ -298,11 +306,9 @@ static void populatePortControllerEvtBufferDict (int bufIdx, const uint8_t *buff
         
         valObj->appendBytes (&buffer [bufIdx], bufSize - bufIdx); 
         valObj->appendBytes (&buffer [0], bufIdx);
-        
-        outDict->setObject (_kAsbPortControllerEvtBufferSym, valObj); 
+        outDict->setObject(sym, valObj);
         OSSafeReleaseNULL(valObj);
     }
-
 }
 
 /*
@@ -646,7 +652,7 @@ void AppleSmartBattery::updateDictionaryInIOReg(const OSSymbol *sym, smcToRegist
         prevDict = dict;
     }
 
-    setProperty(sym, prevDict);
+    setPSProperty(sym, prevDict);
     OSSafeReleaseNULL(prevDict);
 }
 
@@ -999,13 +1005,13 @@ void AppleSmartBattery::incompleteReadTimeOut(void)
 #if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 void AppleSmartBattery::externalConnectedTimeout(void)
 {
-    uint8_t connected;
+    uint8_t connected = 0;
     int ret = _smcReadKey('CHCE', sizeof(connected), &connected);
     if (ret) {
         return;
     }
 
-    uint8_t charge_capable;
+    uint8_t charge_capable = 0;
     ret = _smcReadKey('CHCC', sizeof(charge_capable), &charge_capable);
     if (ret) {
         return;
@@ -1112,7 +1118,7 @@ void AppleSmartBattery::handlePollingFinishedGated(bool visitedEntirePath, uint1
 
         OSNumber *num = OSNumber::withNumber(secs, 32);
         if (num) {
-            setProperty(_kUpdateTime, num);
+            setPSProperty(_kUpdateTime, num);
             num->release();
         }
 #if TARGET_OS_OSX_X86

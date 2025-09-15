@@ -6,6 +6,7 @@ from xnu import *
 import sys
 import shlex
 import math
+import re
 from utils import *
 import xnudefines
 from process import *
@@ -131,6 +132,7 @@ def Memstats(cmd_args=None, cmd_options={}):
     memstats["vm_page_filecache_min"] = int(kern.globals.vm_pageout_state.vm_page_filecache_min)
     memstats["vm_page_pageable_int_count"] = int(kern.globals.vm_page_pageable_internal_count)
     memstats["vm_page_throttled_count"] = int(kern.globals.vm_page_throttled_count)
+    memstats["vm_page_speculative_count"] = int(kern.globals.vm_page_speculative_count)
     if hasattr(kern.globals, 'compressor_object'):
         memstats["compressor_count"] = int(kern.globals.compressor_object.resident_page_count)
         memstats["compressed_count"] = int(kern.globals.c_segment_pages_compressed)
@@ -140,9 +142,9 @@ def Memstats(cmd_args=None, cmd_options={}):
             memstats["compression_ratio"] = 0
     memstats["memorystatus_level"] = int(kern.globals.memorystatus_level)
     memstats["memorystatus_available_pages"] = int(kern.globals.memorystatus_available_pages)
-    memstats["memorystatus_available_pages_critical"] = int(kern.globals.memstat_critical_threshold)
-    memstats["memorystatus_available_pages_idle"] = int(kern.globals.memstat_idle_threshold)
-    memstats["memorystatus_available_pages_soft"] = int(kern.globals.memstat_soft_threshold)
+    memstats["memorystatus_available_pages_critical"] = int(getattr(kern.globals, 'memstat_critical_threshold', 0))
+    memstats["memorystatus_available_pages_idle"] = int(getattr(kern.globals, 'memstat_idle_threshold', 0))
+    memstats["memorystatus_available_pages_soft"] = int(getattr(kern.globals, 'memstat_soft_threshold', 0))
     if kern.globals.memstat_policy_config & kPolicyClearTheDecks:
         memstats["memorystatus_clear_the_decks_offset"] = int(kern.globals.memstat_ctd_offset)
     else:
@@ -184,71 +186,6 @@ def TestMemstats(kernel_target, config, lldb_obj, isConnected ):
         return False
 
 # EndMacro: memstats
-
-# Macro: showpgz
-
-@lldb_command('showpgz', "A", fancy=True)
-def PGZSummary(cmd_args=None, cmd_options={}, O=None):
-    """ Routine to show all live PGZ allocations
-        Usage: showpgz [-A]
-
-        -A     show freed entries too
-    """
-    bt = uses = slots = 0
-    try:
-        slots  = unsigned(kern.GetGlobalVariable('pgz_slots'))
-        uses   = unsigned(kern.GetGlobalVariable('pgz_uses'))
-        pgzbt  = unsigned(kern.GetGlobalVariable('pgz_backtraces'))
-        guards = unsigned(kern.GetGlobalVariable('zone_guard_pages'))
-    except:
-        pass
-    if uses == 0:
-        print("PGZ disabled")
-        return
-
-    if pgzbt == 0:
-        print("PGZ not initialized yet")
-
-    zi = kern.GetGlobalVariable('zone_info')
-    page_size = unsigned(kern.globals.page_size)
-    pgz_min = unsigned(zi.zi_pgz_range.min_address) + page_size
-    pgz_max = unsigned(zi.zi_pgz_range.max_address)
-
-    target = LazyTarget.GetTarget()
-    whatis = kmemory.WhatisProvider.get_shared()
-
-    for i, addr in enumerate(range(pgz_min, pgz_max, 2 * page_size)):
-        mo = whatis.find_provider(addr).lookup(addr)
-
-        if not mo.real_addr:
-            continue
-
-        live = mo.status == 'allocated'
-
-        if not live and "-A" not in cmd_options:
-            continue
-
-        with O.table("Element {:4d}: {:<#20x} ({:<s})".format(i, mo.elem_addr, mo.zone.name)):
-            print("PGZ Allocation backtrace:")
-            for pc in mo.meta.pgz_alloc_bt_frames:
-                print(" " + GetSourceInformationForAddress(pc))
-
-            if not live:
-                print("PGZ Free backtrace:")
-                for pc in mo.meta.pgz_free_bt_frames:
-                    print(" " + GetSourceInformationForAddress(pc))
-
-    avail = kern.GetGlobalVariable("pgz_slot_avail")
-    quarantine = kern.GetGlobalVariable("pgz_quarantine")
-
-    print("{:<20s}: {:<d}".format("slots", slots))
-    print("{:<20s}: {:<d}".format("slots_used", slots - avail - quarantine))
-    print("{:<20s}: {:<d}".format("slots_avail", avail))
-    print("{:<20s}: {:<d}".format("quarantine", quarantine))
-    print("{:<20s}: {:<d}".format("sampling", kern.GetGlobalVariable("pgz_sample_rate")))
-    print("{:<20s}: {:<d}".format("guard pages", guards))
-
-# EndMacro: showpgz
 
 @lldb_command('whatis')
 def WhatIsHelper(cmd_args=None):
@@ -1428,6 +1365,7 @@ class VmStats(object):
         self.compressed = 0
         self.compressed_peak = 0
         self.compressed_lifetime = 0
+        self.compressed_total = 0
 
     @property
     def error(self):
@@ -1446,12 +1384,14 @@ class VmStats(object):
             error += '*'
         if self.compressed_lifetime < 0:
             error += '*'
+        if self.compressed_total < 0:
+            error += '*'
         if self.new_resident_count +self.reusable != self.resident_count:
             error += '*'
         return error
 
     def __str__(self):
-        entry_format = "{s.vmmap.hdr.nentries: >6d} {s.wired_count: >10d} {s.vsize: >10d} {s.resident_count: >10d} {s.new_resident_count: >10d} {s.resident_max: >10d} {s.internal: >10d} {s.external: >10d} {s.reusable: >10d} {s.footprint: >10d} {s.footprint_peak: >10d} {s.compressed: >10d} {s.compressed_peak: >10d} {s.compressed_lifetime: >10d} {s.pid: >10d} {s.proc_name: <32s} {s.error}"
+        entry_format = "{s.vmmap.hdr.nentries: >6d} {s.wired_count: >10d} {s.vsize: >10d} {s.resident_count: >10d} {s.new_resident_count: >10d} {s.resident_max: >10d} {s.internal: >10d} {s.external: >10d} {s.reusable: >10d} {s.footprint: >10d} {s.footprint_peak: >10d} {s.compressed: >10d} {s.compressed_peak: >10d} {s.compressed_lifetime: >10d} {s.compressed_total: >10d} {s.pid: >10d} {s.proc_name: <32s} {s.error}"
         return entry_format.format(s=self)
     
     def __repr__(self):
@@ -1470,17 +1410,21 @@ class VmStats(object):
         self.compressed += other.compressed
         self.compressed_peak += other.compressed_peak
         self.compressed_lifetime += other.compressed_lifetime
+        self.compressed_total += other.compressed_total
         return self
 
+
+COMPRESSED_LEDGER_REGEX = "^.*_(nofootprint|footprint|nonvolatile)_compress(ed)?$"
+compressed_ledger_re = re.compile(COMPRESSED_LEDGER_REGEX)
 
 @lldb_command('showallvmstats', 'S:A')
 def ShowAllVMStats(cmd_args=None, cmd_options={}):
     """ Print a summary of vm statistics in a table format
         usage: showallvmstats
 
-            A sorting option may be provided of <wired_count, resident_count, resident_max, internal, external, reusable, footprint, footprint_peak, compressed, compressed_peak, compressed_lifetime, new_resident_count, proc_name, pid, vsize>
-            e.g. to sort by compressed memory use:
-                showallvmstats -S compressed
+            A sorting option may be provided of <wired_count, resident_count, resident_max, internal, external, reusable, footprint, footprint_peak, compressed, compressed_peak, compressed_lifetime, compressed_total, new_resident_count, proc_name, pid, vsize>
+            e.g. to sort by total compressed memory use:
+                showallvmstats -S compressed_total
             Default behavior is to sort in descending order.  To use ascending order, you may provide -A.
             e.g. to sort by pid in ascending order:
                 showallvmstats -S pid -A
@@ -1488,7 +1432,7 @@ def ShowAllVMStats(cmd_args=None, cmd_options={}):
 
     valid_sorting_options = ['wired_count', 'resident_count', 'resident_max', 'internal', \
                              'external', 'reusable', 'compressed', 'compressed_peak', \
-                             'compressed_lifetime', 'new_resident_count', \
+                             'compressed_lifetime', 'compressed_total', 'new_resident_count', \
                              'proc_name', 'pid', 'vsize', 'footprint']
 
     if ('-S' in cmd_options) and (cmd_options['-S'] not in valid_sorting_options):
@@ -1502,17 +1446,23 @@ def ShowAllVMStats(cmd_args=None, cmd_options={}):
 
     page_size = kern.globals.page_size
 
-    hdr_format = "{:>6s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:<20s} {:1s}"
-    print(hdr_format.format('#ents', 'wired', 'vsize', 'rsize', 'NEW RSIZE', 'max rsize', 'internal', 'external', 'reusable', 'footprint', 'footprint', 'compressed', 'compressed', 'compressed', 'pid', 'command', ''))
-    print(hdr_format.format('', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(peak)', '(current)', '(peak)', '(lifetime)', '', '', ''))
-    total_format = "{0: >6} {s.wired_count: >10d} {1: >10} {s.resident_count: >10d} {s.new_resident_count: >10d} {s.resident_max: >10d} {s.internal: >10d} {s.external: >10d} {s.reusable: >10d} {s.footprint: >10d} {s.footprint_peak: >10d} {s.compressed: >10d} {s.compressed_peak: >10d} {s.compressed_lifetime: >10d} {1: >10} {1: <32}"
+    hdr_format = "{:>6s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:<20s} {:1s}"
+    print(hdr_format.format('#ents', 'wired', 'vsize', 'rsize', 'NEW RSIZE', 'max rsize', 'internal', 'external', 'reusable', 'footprint', 'footprint', 'compressed', 'compressed', 'compressed', 'compressed', 'pid', 'command', ''))
+    print(hdr_format.format('', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(pages)', '(peak)', '(internal)', '(peak)', '(lifetime)', '(total)', '', '', ''))
+    total_format = "{0: >6} {s.wired_count: >10d} {1: >10} {s.resident_count: >10d} {s.new_resident_count: >10d} {s.resident_max: >10d} {s.internal: >10d} {s.external: >10d} {s.reusable: >10d} {s.footprint: >10d} {s.footprint_peak: >10d} {s.compressed: >10d} {s.compressed_peak: >10d} {s.compressed_lifetime: >10d} {s.compressed_total: >10d} {1: >10} {1: <32}"
 
     ledger_template = kern.globals.task_ledger_template
     entry_indices = {}
-    entry_keys = ['wired_mem', 'phys_mem', 'internal', 'external', 'reusable', 'internal_compressed', 'phys_footprint']
+    entry_keys = ['wired_mem', 'phys_mem', 'internal', 'external', 'reusable', 'internal_compressed', 'phys_footprint', 'alternate_accounting_compressed']
+    compressed_entry_indices = {}
     for key in entry_keys:
         entry_indices[key] = GetLedgerEntryIndex(ledger_template, key)
         assert(entry_indices[key] != -1)
+    for i in range(ledger_template.lt_cnt):
+        entry = ledger_template.lt_entries[i]
+        name = str(entry.et_key)
+        if compressed_ledger_re.match(name):
+            compressed_entry_indices[name] = i
 
     vmstats_totals = VmStats()
     vmstats_tasks = []
@@ -1544,6 +1494,13 @@ def ShowAllVMStats(cmd_args=None, cmd_options={}):
         vmstats.compressed = internal_compressed_entry['balance'] // page_size
         vmstats.compressed_peak = internal_compressed_entry['lifetime_max'] // page_size
         vmstats.compressed_lifetime = internal_compressed_entry['credit'] // page_size
+
+        alternate_accounting_entry = GetLedgerEntryWithTemplate(ledger_template, task_ledgerp, entry_indices['alternate_accounting_compressed'])
+        vmstats.compressed_total = (internal_compressed_entry['balance'] - alternate_accounting_entry['balance']) // page_size
+        for key in compressed_entry_indices:
+            entry = GetLedgerEntryWithTemplate(ledger_template, task_ledgerp, compressed_entry_indices[key])
+            vmstats.compressed_total += entry['balance'] // page_size
+
         vmstats.new_resident_count = vmstats.internal + vmstats.external
         vmstats.proc = proc
         vmstats.proc_name = GetProcName(proc)
@@ -1638,11 +1595,11 @@ def ShowVmTagBtLog(cmd_args=None):
     """Routine to print vmtag backtracing corresponding to boot-arg "vmtaglog"
        usage: showvmtagbtlog
     """
-
+    kmem = kmemory.KMem.get_shared()
     page_size = kern.globals.page_size
     map = kern.globals.kernel_map
     first_entry = map.hdr.links.next
-    last_entry = map.hdr.links.prev
+    last_entry = kmem.vm_map_entry_packing.unpack(unsigned(map.hdr.links.prev))
     entry = first_entry
     btrefs = []
     while entry != last_entry:
@@ -1683,9 +1640,10 @@ def ShowMapRanges(cmd_args=None):
     map_val = kern.GetValueFromAddress(cmd_args[0], 'vm_map_t')
     print(GetVMMapSummary.header)
     print(GetVMMapSummary(map_val))
-    print(GetVMRangeSummary.header)
-    for idx in range(2):
-        print(GetVMRangeSummary(map_val.user_range[idx], idx))
+    if map_val.uses_user_ranges:
+        print(GetVMRangeSummary.header)
+        print(GetVMRangeSummary(map_val.default_range))
+        print(GetVMRangeSummary(map_val.data_range, 'data'))
     return None
 
 def GetResidentPageCount(vmmap):
@@ -1731,15 +1689,10 @@ def GetVMEntrySummary(vme):
 
 @lldb_type_summary(['vm_map_range'])
 @header("{0: <20s} {1: <20s} {2: <20s} {3: <20s}".format("range", "min_address", "max_address", "size"))
-def GetVMRangeSummary(vmrange, idx=0):
+def GetVMRangeSummary(vmrange, range_name='default'):
     """ Display vm range specific information. """
-    range_id = [
-        "default",
-        "heap"
-    ]
     out_string = ""
     format_string = "{0: <20s} {1: <#020x} {2: <#020x} {3: <#20x}"
-    range_name = range_id[idx]
     min_address = vmrange.min_address
     max_address = vmrange.max_address
     range_size = max_address - min_address
@@ -3457,7 +3410,9 @@ def showmaphdrvme(maphdr, pmap, start_vaddr, end_vaddr, show_pager_info, show_al
     print("{:<18s} {:>18s}:{:<18s} {:>10s} {:<8s} {:<16s} {:<18s} {:<18s}".format("entry","start","end","#pgs","tag.kmod","prot&flags","object","offset"))
     last_end = unsigned(maphdr.links.start)
     skipped_entries = 0
-    for vme in IterateQueue(vme_list_head, vme_ptr_type, "links", reverse_order):
+    # vme_prev is packed, but vme_next is not. Only pass a function to unpack if we iterate backwards.
+    vme_unpacking_fn = None if not reverse_order else kmemory.KMem.get_shared().vm_map_entry_packing.unpack
+    for vme in IterateQueue(vme_list_head, vme_ptr_type, "links", reverse_order, unpack_ptr_fn=vme_unpacking_fn):
         links = vme.links
         vme_start = links.start
         vme_end = links.end
@@ -3488,7 +3443,7 @@ def showmaphdrvme(maphdr, pmap, start_vaddr, end_vaddr, show_pager_info, show_al
 
             if object_val == kern.globals.bufferhdr_map:
                 object_str = "BUFFERHDR_MAP"
-            elif object_val == kern.globals.mb_map:
+            elif hasattr(kern.globals, 'mb_map') and object_val == kern.globals.mb_map:
                 object_str = "MB_MAP"
             elif object_val == kern.globals.bsd_pageable_map:
                 object_str = "BSD_PAGEABLE_MAP"
@@ -3498,8 +3453,6 @@ def showmaphdrvme(maphdr, pmap, start_vaddr, end_vaddr, show_pager_info, show_al
                 object_str = "IPC_KERNEL_COPY_MAP"
             elif hasattr(kern.globals, 'io_submap') and object_val == kern.globals.io_submap:
                 object_str = "IO_SUBMAP"
-            elif hasattr(kern.globals, 'pgz_submap') and object_val == kern.globals.pgz_submap:
-                object_str = "ZALLOC:PGZ"
             elif hasattr(kern.globals, 'compressor_map') and object_val == kern.globals.compressor_map:
                 object_str = "COMPRESSOR_MAP"
             elif hasattr(kern.globals, 'g_kext_map') and object_val == kern.globals.g_kext_map:
@@ -4998,10 +4951,9 @@ def vm_page_lookup_in_compressor(slot_ptr):
         C_SEG_SLOT_ARRAY_SIZE = 64
         C_SEG_SLOT_ARRAY_MASK = C_SEG_SLOT_ARRAY_SIZE - 1
         cs = GetObjectAtIndexFromArray(c_seg.c_slots[c_indx // C_SEG_SLOT_ARRAY_SIZE], c_indx & C_SEG_SLOT_ARRAY_MASK)
-    print(cs)
     kmem = kmemory.KMem.get_shared()
     c_slot_unpacked_ptr = kmem.c_slot_packing.unpack(unsigned(cs.c_packed_ptr))
-    print("c_slot {: <#018x} c_offset {:#x} c_size {:#x} c_packed_ptr {:#x} (unpacked: {: <#018x})".format(cs, cs.c_offset, cs.c_size, cs.c_packed_ptr, unsigned(c_slot_unpacked_ptr)))
+    print(cs, "c_offset {:#x} c_size {:#x} c_packed_ptr {:#x} (unpacked: {: <#018x})".format(cs.c_offset, cs.c_size, cs.c_packed_ptr, unsigned(c_slot_unpacked_ptr)))
     if unsigned(slot_ptr) != unsigned(c_slot_unpacked_ptr):
         print("*** ERROR: compressor slot {: <#018x} points back to {: <#018x} instead of itself".format(slot_ptr, c_slot_unpacked_ptr))
     if c_no_data == 0:
@@ -5114,13 +5066,17 @@ def VMScanAllPages(cmd_args=None):
     print("secluded_inuse_count = {:d}\n".format(secluded_inuse_count))
 
 
-@lldb_command('show_all_vm_named_entries')
-def ShowAllVMNamedEntries(cmd_args=None):
+@lldb_command('show_all_vm_named_entries', 'B')
+def ShowAllVMNamedEntries(cmd_args=None, cmd_options={}):
     """ Routine to print a summary listing of all the VM named entries
+        usage: show_all_vm_named_entries [-B]
+        options:
+            -B: show a backtrace collect at the time of each named-entry's creation
     """
+    show_bt = '-B' in cmd_options
 
     kmem = kmemory.KMem.get_shared()
-    ikot_named_entry = GetEnumValue('ipc_kotype_t', 'IKOT_NAMED_ENTRY')
+    ikot_named_entry = GetEnumValue('ipc_object_type_t', 'IKOT_NAMED_ENTRY')
 
     port_ty = gettype('struct ipc_port')
     ent_ty  = gettype('struct vm_named_entry')
@@ -5129,25 +5085,28 @@ def ShowAllVMNamedEntries(cmd_args=None):
         port
         for port
         in kmemory.Zone("ipc ports").iter_allocated(port_ty)
-        if port.xGetScalarByPath(".ip_object.io_bits") & 0x3ff == ikot_named_entry
+        if port.xGetScalarByPath(".ip_object.io_type") == ikot_named_entry
     )
 
     for idx, port in enumerate(named_entries):
         ko  = kmem.make_address(port.xGetScalarByName('ip_kobject'))
         ent = port.xCreateValueFromAddress(None, ko, ent_ty)
-        showmemoryentry(value(ent.AddressOf()), idx=idx + 1, port=value(port.AddressOf()))
+        showmemoryentry(value(ent.AddressOf()), idx=idx + 1, port=value(port.AddressOf()), show_bt=show_bt)
 
-@lldb_command('show_vm_named_entry')
-def ShowVMNamedEntry(cmd_args=None):
+@lldb_command('show_vm_named_entry', 'B')
+def ShowVMNamedEntry(cmd_args=None, cmd_options={}):
     """ Routine to print a VM named entry
+        usage: show_vm_named_entry [-B] <named-entry-addr>
+        options:
+            -B: show a backtrace collect at the time of the named-entry's creation
     """
     if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError()
-
+    show_bt = '-B' in cmd_options
     named_entry = kern.GetValueFromAddress(cmd_args[0], 'vm_named_entry_t')
-    showmemoryentry(named_entry)
+    showmemoryentry(named_entry, show_bt=show_bt)
 
-def showmemoryentry(entry, idx=0, port=None):
+def showmemoryentry(entry, idx=0, port=None, show_bt=False):
     """  Routine to print out a summary a VM memory entry
         params: 
             entry - core.value : a object of type 'struct vm_named_entry *'
@@ -5193,6 +5152,10 @@ def showmemoryentry(entry, idx=0, port=None):
     else:
         print("***** UNKNOWN TYPE *****")
     print()
+    if show_bt:
+        btl = kmemory.BTLibrary.get_shared()
+        btref = btl.get_stack(entry.named_entry_bt)
+        btref.describe()
 
 @lldb_command("showmaprb")
 def ShowMapRB(cmd_args=None):

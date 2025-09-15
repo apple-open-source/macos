@@ -34,11 +34,13 @@
 #import "WebViewPrivate.h"
 #import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/BreakLines.h>
+#import <WebCore/Path.h>
 #import <WebCore/PathUtilities.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/Settings.h>
 #import <WebCore/WebBackgroundTaskController.h>
 #import <WebCore/WebCoreThreadSystemInterface.h>
+#import <wtf/ObjCRuntimeExtras.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 
 using namespace WebCore;
@@ -86,7 +88,7 @@ float WebKitGetMinimumZoomFontSize(void)
     return DEFAULT_VALUE_FOR_MinimumZoomFontSize;
 }
 
-int WebKitGetLastLineBreakInBuffer(UChar *characters, int position, int length)
+int WebKitGetLastLineBreakInBuffer(char16_t *characters, int position, int length)
 {
     unsigned lastBreakPos = position;
     unsigned breakPos = 0;
@@ -135,13 +137,11 @@ CGPathRef WebKitCreatePathWithShrinkWrappedRects(NSArray* cgRects, CGFloat radiu
     Vector<FloatRect> rects;
     rects.reserveInitialCapacity([cgRects count]);
 
-    const char* cgRectEncodedString = @encode(CGRect);
-
     for (NSValue *rectValue in cgRects) {
         CGRect cgRect;
         [rectValue getValue:&cgRect];
 
-        if (strcmp(cgRectEncodedString, rectValue.objCType))
+        if (!nsValueHasObjCType<CGRect>(rectValue))
             return nullptr;
         rects.append(cgRect);
     }

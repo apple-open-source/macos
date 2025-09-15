@@ -38,7 +38,7 @@ TransactionBase::Outcome TransactionBase::finalOutcome() const
 	case canceled:
 		return mOutcome;
 	case conditional:
-		return std::uncaught_exception() ? canceled : successful;
+		return std::uncaught_exceptions() > 0 ? canceled : successful;
 	default:
 		assert(false);
 		return canceled;

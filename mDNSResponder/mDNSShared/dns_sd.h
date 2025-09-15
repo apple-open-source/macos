@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -753,6 +753,19 @@ enum
 enum
 {
     kDNSServiceErr_NoError                   = 0,
+
+    /* IMPORTANT: Values in the negative errno range are reserved and should not
+     * be used when defining new DNSService error codes. These values are used
+     * internally to map system errno codes directly to DNS Service error codes
+     * for improved error handling.
+     *
+     * Clients can check if an error code is greater than
+     * kDNSServiceErr_Unknown. If so, they can negate it to get an
+     * errno-compatible error code that can be used with any function that reads
+     * errno, providing improved error handling and more detailed error
+     * descriptions.
+     */
+
     kDNSServiceErr_Unknown                   = -65537,  /* 0xFFFE FFFF */
     kDNSServiceErr_NoSuchName                = -65538,
     kDNSServiceErr_NoMemory                  = -65539,
@@ -787,7 +800,7 @@ enum
     kDNSServiceErr_DefunctConnection         = -65569,  /* Connection to daemon returned a SO_ISDEFUNCT error result */
     kDNSServiceErr_PolicyDenied              = -65570,
     kDNSServiceErr_NotPermitted              = -65571,
-    kDNSServiceErr_StaleData                 = -65572
+    kDNSServiceErr_StaleData                 = -65572,
 
                                                /* mDNS Error codes are in the range
                                                 * FFFE FF00 (-65792) to FFFE FFFF (-65537) */

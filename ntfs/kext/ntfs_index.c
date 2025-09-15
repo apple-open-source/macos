@@ -351,7 +351,7 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	INDEX_ENTRY *ie, **entries;
 	unsigned nr_entries, max_entries;
 	errno_t err;
-	BOOL is_view;
+	NTFS_BOOL is_view;
 
 	ntfs_debug("Entering.");
 	if (!ictx->is_locked)
@@ -822,7 +822,7 @@ static errno_t ntfs_index_lookup_in_node(ntfs_index_context *ictx,
 	INDEX_ENTRY *ie, **entries;
 	unsigned min_left, max_right, cur_entry;
 	int rc;
-	BOOL is_view;
+	NTFS_BOOL is_view;
 
 	ntfs_debug("Entering.");
 	idx_ni = ictx->idx_ni;
@@ -1452,7 +1452,7 @@ static errno_t ntfs_insert_index_allocation_attribute(ntfs_inode *ni,
 	unsigned mp_ofs, mp_size, al_entry_used, al_entry_len;
 	unsigned new_al_size, new_al_alloc;
 	errno_t err;
-	BOOL al_entry_added;
+	NTFS_BOOL al_entry_added;
 
 	ntfs_debug("Entering for mft_no 0x%llx, name_len 0x%x.",
 			(unsigned long long)ni->mft_no, idx_ni->name_len);
@@ -1780,7 +1780,7 @@ undo_al:
 		}
 	} else {
 		errno_t err2;
-		BOOL al_needed;
+		NTFS_BOOL al_needed;
 
 		err2 = ntfs_extent_mft_record_free(ni, ctx->ni, m);
 		if (err2) {
@@ -1963,7 +1963,7 @@ static errno_t ntfs_index_block_alloc(ntfs_index_context *ictx, VCN *dst_vcn,
 	errno_t err, err2;
 	lck_rw_type_t lock;
 	le16 usn;
-	BOOL have_resized;
+	NTFS_BOOL have_resized;
 	u8 bit;
 
 	ntfs_debug("Entering for inode 0x%llx.",
@@ -2321,7 +2321,7 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 	struct {
 		unsigned is_large_index:1;
 	} old;
-	BOOL need_ubc_setsize = FALSE;
+	NTFS_BOOL need_ubc_setsize = FALSE;
 
 	ntfs_debug("Entering.");
 	if (!ictx->is_locked)
@@ -3581,7 +3581,7 @@ static errno_t ntfs_index_ctx_lock_two(ntfs_index_context *a,
  *	    - The index context @ictx must be locked.
  */
 errno_t ntfs_index_entry_add_or_node_split(ntfs_index_context *ictx,
-		const BOOL split_only, u32 entry_size, const void *key,
+		const NTFS_BOOL split_only, u32 entry_size, const void *key,
 		const u32 key_len, const void *data, const u32 data_len)
 {
 	VCN vcn = 0;
@@ -3589,7 +3589,7 @@ errno_t ntfs_index_entry_add_or_node_split(ntfs_index_context *ictx,
 	ntfs_inode *bmp_ni, *idx_ni = ictx->idx_ni;
 	u32 data_ofs = 0;
 	errno_t err, err2;
-	const BOOL is_view = (idx_ni->name != I30);
+	const NTFS_BOOL is_view = (idx_ni->name != I30);
 
 	ntfs_debug("Entering.");
 	if (!ictx->is_locked)
@@ -3651,7 +3651,7 @@ errno_t ntfs_index_entry_add_or_node_split(ntfs_index_context *ictx,
 		ntfs_index_context *insert_ictx;
 		unsigned median_entry_nr, insert_entry_nr, entry_nr;
 		u32 insert_entry_size;
-		BOOL insert_to_add;
+		NTFS_BOOL insert_to_add;
 
 		/*
 		 * The entry to be inserted into this node @cur_ictx is
@@ -5257,7 +5257,7 @@ int ntfs_index_entry_delete(ntfs_index_context *ictx)
 	unsigned old_parent_entry_nr, old_parent_ie_size, move_ie_size;
 	errno_t err;
 	u32 new_ilen;
-	BOOL is_root = ictx->is_root;
+	NTFS_BOOL is_root = ictx->is_root;
 
 	ntfs_debug("Entering.");
 	if (!ictx->is_locked)

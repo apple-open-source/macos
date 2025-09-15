@@ -74,6 +74,13 @@
 #define    NTRANSIT     0x00004    /* being reclaimed */
 #define    NWTRANSIT    0x00008    /* awaiting reclaim */
 
+/*
+ * Bits for smbnode.n_strategy_info.flags
+ * protected by smbnode.n_strategy_info.mtx
+ */
+#define N_WAITING_FOR_IO         0x0001 /* Close is waiting for IO to finish */
+
+
 #define UNKNOWNUID ((uid_t)99)
 #define UNKNOWNGID ((gid_t)99)
 
@@ -304,6 +311,12 @@ struct smbnode {
 
     struct smb_vnode_attr *n_hifi_attrs;        /* Cached hifi attributes from server */
     struct smb2_lease   n_lease;                /* lease for both dirs/files */
+
+    struct {
+        lck_mtx_t           mtx;
+        uint16_t            count; /* how many strategy jobs are queued/being processed */
+        uint16_t            flags;
+    } n_strategy_info;
 };
 
 /* Directory items */
@@ -374,6 +387,11 @@ struct smbnode {
 #define f_openDenyListLock open_type.file.openDenyListLock
 #define f_clusterCloseError open_type.file.clusterCloseError
 #define f_hasBRLs open_type.file.hasBRLs
+
+/* Strategy information items */
+#define n_strategy_mtx n_strategy_info.mtx
+#define n_strategy_count n_strategy_info.count
+#define n_strategy_flags n_strategy_info.flags
 
 /* Attribute cache timeouts in seconds */
 #define	SMB_MINATTRTIMO 2

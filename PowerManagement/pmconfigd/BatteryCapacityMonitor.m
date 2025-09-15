@@ -36,4 +36,5 @@
 #include "MGWrapper.h"
 #import <Foundation/Foundation.h>
 #import "AppleSmartBatteryKeys.h"
+#include "BatteryCapacityMonitor.h"
 

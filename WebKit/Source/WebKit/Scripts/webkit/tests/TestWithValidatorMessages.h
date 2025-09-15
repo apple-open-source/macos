@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit AlwaysEnabled(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class EnabledIfPassValidation {
@@ -76,17 +77,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit EnabledIfPassValidation(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class EnabledIfSomeFeatureEnabledAndPassValidation {
@@ -100,17 +102,48 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit EnabledIfSomeFeatureEnabledAndPassValidation(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
+};
+
+class MessageWithReply {
+public:
+    using Arguments = std::tuple<String>;
+
+    static IPC::MessageName name() { return IPC::MessageName::TestWithValidator_MessageWithReply; }
+    static constexpr bool isSync = false;
+    static constexpr bool canDispatchOutOfOrder = false;
+    static constexpr bool replyCanDispatchOutOfOrder = false;
+    static constexpr bool deferSendingIfSuspended = false;
+
+    static IPC::MessageName asyncMessageReplyName() { return IPC::MessageName::TestWithValidator_MessageWithReplyReply; }
+    static constexpr auto callbackThread = WTF::CompletionHandlerCallThread::ConstructionThread;
+    using ReplyArguments = std::tuple<String, double>;
+    using Reply = CompletionHandler<void(String&&, double)>;
+    using Promise = WTF::NativePromise<std::tuple<String, double>, IPC::Error>;
+    explicit MessageWithReply(const String& url)
+        : m_url(url)
+    {
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
+        encoder << m_url;
+    }
+
+private:
+    const String& m_url;
 };
 
 } // namespace TestWithValidator

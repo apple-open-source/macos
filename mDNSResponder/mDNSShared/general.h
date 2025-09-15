@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -983,6 +983,24 @@
 	#define mdns_clang_static_analyzer_zero_mem(PTR, LEN)	memset((PTR), 0, (LEN))
 #else
 	#define mdns_clang_static_analyzer_zero_mem(PTR, LEN)
+#endif
+
+/*!
+ *	@brief
+ *		During static analysis, evaluates to `[[clang::suppress]]`.
+ *
+ *	@discussion
+ *		As described in <https://clang.llvm.org/docs/AttributeReference.html#suppress>, the clang::suppress
+ *		attribute "suppresses unwanted warnings coming from static analysis tools such as the Clang Static
+ *		Analyzer." See <https://clang.llvm.org/docs/analyzer/user-docs/FAQ.html#suppressing-specific-warnings>
+ *		for more information.
+ *
+ *		This macro is meant as a last resort when an analyzer warning isn't easy to resolve.
+ */
+#if MDNS_CLANG_ANALYZER()
+	#define MDNS_CLANG_STATIC_ANALYZER_SUPPRESS	[[clang::suppress]]
+#else
+	#define MDNS_CLANG_STATIC_ANALYZER_SUPPRESS
 #endif
 
 /*!

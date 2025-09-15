@@ -41,6 +41,7 @@ urlmap_file = "gtk@GTK_API_VERSION@-urlmap.js"
 
 [extra]
 content_files = [
+    "contributing.md",
     "environment-variables.md",
     "profiling.md",
     "remote-inspector.md",

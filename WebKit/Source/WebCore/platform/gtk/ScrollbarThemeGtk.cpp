@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Igalia S.L.
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -117,7 +117,7 @@ static GtkStateFlags scrollbarPartStateFlags(Scrollbar& scrollbar, ScrollbarPart
             stateFlags |= GTK_STATE_FLAG_INSENSITIVE;
             break;
         }
-        FALLTHROUGH;
+        [[fallthrough]];
     default:
         if (scrollbar.hoveredPart() == part)
             stateFlags |= GTK_STATE_FLAG_PRELIGHT;

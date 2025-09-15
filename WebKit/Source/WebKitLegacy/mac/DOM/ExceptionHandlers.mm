@@ -36,7 +36,7 @@ NSString * const DOMRangeException = @"DOMRangeException";
 NSString * const DOMEventException = @"DOMEventException";
 NSString * const DOMXPathException = @"DOMXPathException";
 
-static NO_RETURN void raiseDOMErrorException(WebCore::ExceptionCode ec)
+[[noreturn]] static void raiseDOMErrorException(WebCore::ExceptionCode ec)
 {
     ASSERT(static_cast<bool>(ec));
 

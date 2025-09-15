@@ -111,7 +111,7 @@ private:
 
         // The frontend can be closed and destroy the owning frontend client before or in the
         // process of dispatching the task, so keep a protector reference here.
-        RunLoop::current().dispatch([this, protectedThis = Ref { *this }] {
+        RunLoop::currentSingleton().dispatch([this, protectedThis = Ref { *this }] {
             m_hasScheduledTask = false;
             dispatchOneMessage();
         });
@@ -188,7 +188,7 @@ void InspectorFrontendClientLocal::windowObjectCleared()
         m_frontendHost->disconnectClient();
     
     m_frontendHost = InspectorFrontendHost::create(this, frontendPage());
-    m_frontendHost->addSelfToGlobalObjectInWorld(debuggerWorld());
+    m_frontendHost->addSelfToGlobalObjectInWorld(debuggerWorldSingleton());
 }
 
 void InspectorFrontendClientLocal::frontendLoaded()

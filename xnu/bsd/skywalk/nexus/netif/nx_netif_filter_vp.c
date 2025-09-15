@@ -199,7 +199,7 @@ netif_filter_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 		os_atomic_andnot(&na->na_flags, NAF_ACTIVE, relaxed);
 	}
 
-	SK_DF(SK_VERB_FILTER, "na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_FILTER, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 	return 0;
 }
@@ -509,7 +509,7 @@ netif_filter_na_dtor(struct nexus_adapter *na)
 		nifna->nifna_netif = NULL;
 	}
 	NETIF_WUNLOCK(nif);
-	SK_DF(SK_VERB_FILTER, "na \"%s\" (0x%llx)", na->na_name, SK_KVA(na));
+	SK_DF(SK_VERB_FILTER, "na \"%s\" (%p)", na->na_name, SK_KVA(na));
 }
 
 int

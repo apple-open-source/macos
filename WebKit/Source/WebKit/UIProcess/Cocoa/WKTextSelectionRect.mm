@@ -80,36 +80,38 @@
 
 @implementation WKTextSelectionRect {
     WebCore::SelectionGeometry _selectionGeometry;
-    CGFloat _scaleFactor;
+    __weak id<WKTextSelectionRectDelegate> _delegate;
 }
 
 - (instancetype)initWithCGRect:(CGRect)rect
 {
     WebCore::SelectionGeometry selectionGeometry;
     selectionGeometry.setRect(WebCore::enclosingIntRect(rect));
-    return [self initWithSelectionGeometry:WTFMove(selectionGeometry) scaleFactor:1];
+    return [self initWithSelectionGeometry:WTFMove(selectionGeometry) delegate:nil];
 }
 
-- (instancetype)initWithSelectionGeometry:(const WebCore::SelectionGeometry&)selectionGeometry scaleFactor:(CGFloat)scaleFactor
+- (instancetype)initWithSelectionGeometry:(const WebCore::SelectionGeometry&)selectionGeometry delegate:(id<WKTextSelectionRectDelegate>)delegate
 {
     if (!(self = [super init]))
         return nil;
 
     _selectionGeometry = selectionGeometry;
-    _scaleFactor = scaleFactor;
+    _delegate = delegate;
     return self;
 }
 
 #if PLATFORM(IOS_FAMILY)
+
 - (UIBezierPath *)_path
 {
     if (_selectionGeometry.behavior() == WebCore::SelectionRenderingBehavior::CoalesceBoundingRects)
         return nil;
 
+    CGFloat scaleFactor = _delegate ? [_delegate scaleFactorForSelectionRect:self] : 1.f;
     auto selectionBounds = _selectionGeometry.rect();
     auto quad = _selectionGeometry.quad();
-    quad.scale(_scaleFactor);
-    quad.move(-selectionBounds.x() * _scaleFactor, -selectionBounds.y() * _scaleFactor);
+    quad.scale(scaleFactor);
+    quad.move(-selectionBounds.x() * scaleFactor, -selectionBounds.y() * scaleFactor);
 
     auto result = [UIBezierPath bezierPath];
     [result moveToPoint:quad.p1()];
@@ -133,19 +135,25 @@
 {
     return nil;
 }
-#endif
+
+#endif // PLATFORM(IOS_FAMILY)
 
 #if HAVE(UI_TEXT_SELECTION_RECT_CUSTOM_HANDLE_INFO)
+
+- (WebCore::FloatQuad)_convertQuadToSelectionContainer:(const WebCore::FloatQuad&)quad
+{
+    if (!_delegate)
+        return quad;
+
+    return [_delegate selectionRect:self convertQuadToSelectionContainer:quad];
+}
 
 - (WKTextSelectionRectCustomHandleInfo *)_customHandleInfo
 {
     if (_selectionGeometry.behavior() == WebCore::SelectionRenderingBehavior::CoalesceBoundingRects)
         return nil;
 
-    auto scaledQuad = _selectionGeometry.quad();
-#if !HAVE(REDESIGNED_TEXT_CURSOR)
-    scaledQuad.scale(_scaleFactor);
-#endif
+    auto scaledQuad = [self _convertQuadToSelectionContainer:_selectionGeometry.quad()];
     return adoptNS([[WKTextSelectionRectCustomHandleInfo alloc] initWithFloatQuad:scaledQuad isHorizontal:_selectionGeometry.isHorizontal()]).autorelease();
 }
 #endif // HAVE(UI_TEXT_SELECTION_RECT_CUSTOM_HANDLE_INFO)

@@ -32,6 +32,7 @@
 #include "GStreamerCommon.h"
 #include "TrackPrivateBase.h"
 #include <gst/tag/tag.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringCommon.h>
 #include <wtf/text/StringToIntegerConversion.h>
@@ -90,7 +91,7 @@ TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivat
 TrackPrivateBaseGStreamer::TrackPrivateBaseGStreamer(TrackType type, TrackPrivateBase* owner, unsigned index, GstStream* stream)
     : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
     , m_index(index)
-    , m_gstStreamId(AtomString::fromLatin1(gst_stream_get_stream_id(stream)))
+    , m_gstStreamId(AtomString(unsafeSpan8(gst_stream_get_stream_id(stream))))
     , m_id(parseStreamId(m_gstStreamId).value_or(index))
     , m_stream(stream)
     , m_type(type)
@@ -115,7 +116,7 @@ void TrackPrivateBaseGStreamer::setPad(GRefPtr<GstPad>&& pad)
 
     m_pad = WTFMove(pad);
     m_bestUpstreamPad = findBestUpstreamPad(m_pad);
-    m_gstStreamId = AtomString::fromLatin1(gst_pad_get_stream_id(m_pad.get()));
+    m_gstStreamId = AtomString(unsafeSpan8(gst_pad_get_stream_id(m_pad.get())));
 
     if (m_shouldUsePadStreamId)
         m_id = parseStreamId(m_gstStreamId).value_or(m_index);
@@ -212,7 +213,7 @@ void TrackPrivateBaseGStreamer::tagsChanged()
     if (!tags)
         tags = adoptGRef(gst_tag_list_new_empty());
 
-    GST_DEBUG("Inspecting track at index %d with tags: %" GST_PTR_FORMAT, m_index, tags.get());
+    GST_DEBUG("Inspecting track %" PRIu64 " with tags: %" GST_PTR_FORMAT, m_id, tags.get());
     {
         Locker locker { m_tagMutex };
         m_tags.swap(tags);
@@ -227,8 +228,8 @@ bool TrackPrivateBaseGStreamer::getLanguageCode(GstTagList* tags, AtomString& va
 {
     String language;
     if (getTag(tags, GST_TAG_LANGUAGE_CODE, language)) {
-        AtomString convertedLanguage = AtomString::fromLatin1(gst_tag_get_language_code_iso_639_1(language.utf8().data()));
-        GST_DEBUG("Converted track %d's language code to %s.", m_index, convertedLanguage.string().utf8().data());
+        AtomString convertedLanguage = AtomString(unsafeSpan8(gst_tag_get_language_code_iso_639_1(language.utf8().data())));
+        GST_DEBUG("Converted track %" PRIu64 "'s language code to %s.", m_id, convertedLanguage.string().utf8().data());
         if (convertedLanguage != value) {
             value = WTFMove(convertedLanguage);
             return true;
@@ -242,7 +243,7 @@ bool TrackPrivateBaseGStreamer::getTag(GstTagList* tags, const gchar* tagName, S
 {
     GUniqueOutPtr<gchar> tagValue;
     if (gst_tag_list_get_string(tags, tagName, &tagValue.outPtr())) {
-        GST_DEBUG("Track %d got %s %s.", m_index, tagName, tagValue.get());
+        GST_DEBUG("Track %" PRIu64 " got %s %s.", m_id, tagName, tagValue.get());
         value = StringType { String::fromLatin1(tagValue.get()) };
         return true;
     }
@@ -287,15 +288,15 @@ void TrackPrivateBaseGStreamer::notifyTrackOfStreamChanged()
     if (!m_pad)
         return;
 
-    auto gstStreamId = AtomString::fromLatin1(gst_pad_get_stream_id(m_pad.get()));
+    auto gstStreamId = AtomString(unsafeSpan8(gst_pad_get_stream_id(m_pad.get())));
     auto streamId = parseStreamId(gstStreamId);
     if (!streamId)
         return;
 
     ASSERT(isMainThread()); // because this code writes to AtomString members.
-    GST_INFO("Track %d got stream start for stream %" PRIu64 ". GStreamer stream-id: %s", m_index, streamId.value(), gstStreamId.string().utf8().data());
     m_gstStreamId = gstStreamId;
     m_id = streamId.value();
+    GST_INFO("Track %" PRIu64 " got stream start. GStreamer stream-id: %s", m_id, m_gstStreamId.string().utf8().data());
 }
 
 void TrackPrivateBaseGStreamer::streamChanged()

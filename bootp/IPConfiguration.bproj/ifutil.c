@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,11 +61,135 @@
 #include "cfutil.h"
 #include <SystemConfiguration/SCPrivate.h>
 
-PRIVATE_EXTERN int
-inet_dgram_socket()
+STATIC ifutil_close_required_callback_t	S_close_required_callback;
+
+PRIVATE_EXTERN void
+ifutil_set_close_required_callback(ifutil_close_required_callback_t callback)
 {
-    return (socket(AF_INET, SOCK_DGRAM, 0));
+    S_close_required_callback = callback;
 }
+
+STATIC void
+ifutil_close_required(void)
+{
+    if (S_close_required_callback != NULL) {
+	(*S_close_required_callback)();
+    }
+}
+
+STATIC int S_inet_socket = -1;
+
+STATIC int
+inet_dgram_socket_open(void)
+{
+    if (S_inet_socket < 0) {
+	S_inet_socket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (S_inet_socket < 0) {
+	    my_log(LOG_ERR,
+		   "socket(AF_INET, SOCK_DGRAM, 0) failed, %s",
+		   strerror(errno));
+	}
+	else {
+	    my_log(LOG_DEBUG,
+		   "inet socket opened %d",
+		   S_inet_socket);
+	    ifutil_close_required();
+	}
+    }
+    return (S_inet_socket);
+}
+
+STATIC void
+inet_dgram_socket_close(void)
+{
+    if (S_inet_socket >= 0) {
+	close(S_inet_socket);
+	my_log(LOG_DEBUG, "inet socket closed %d",
+	       S_inet_socket);
+	S_inet_socket = -1;
+    }
+}
+
+STATIC int S_inet6_socket = -1;
+
+STATIC int
+inet6_dgram_socket_open(void)
+{
+    if (S_inet6_socket < 0) {
+	S_inet6_socket = socket(AF_INET6, SOCK_DGRAM, 0);
+	if (S_inet6_socket < 0) {
+	    my_log(LOG_ERR,
+		   "socket(AF_INET6, SOCK_DGRAM, 0) failed, %s",
+		   strerror(errno));
+	}
+	else {
+	    my_log(LOG_DEBUG,
+		   "inet6 socket opened %d",
+		   S_inet6_socket);
+	    ifutil_close_required();
+	}
+    }
+    return (S_inet6_socket);
+}
+
+STATIC void
+inet6_dgram_socket_close(void)
+{
+    if (S_inet6_socket >= 0) {
+	close(S_inet6_socket);
+	my_log(LOG_DEBUG, "inet6 socket closed %d",
+	       S_inet6_socket);
+	S_inet6_socket = -1;
+    }
+}
+
+PRIVATE_EXTERN void
+ifutil_close(void)
+{
+    inet_dgram_socket_close();
+    inet6_dgram_socket_close();
+}
+
+STATIC void
+log_if_ioctl_result(int result, const char * name, const char * ioctl_name)
+{
+    if (result < 0) {
+	int	log_level;
+
+	switch (errno) {
+	case EEXIST:
+	case ENXIO:
+	case EPWROFF:
+	    /* don't persist these */
+	    log_level = LOG_INFO;
+	    break;
+	default:
+	    log_level = LOG_NOTICE;
+	    break;
+	}
+	my_log(log_level,
+	       "ioctl(%s, %s) failed status, %s",
+	       name, ioctl_name, strerror(errno));
+    }
+    else {
+	my_log(LOG_INFO, "%s: %s success", name, ioctl_name);
+    }
+}
+
+#define ISSUE_IF_IOCTL(s, result, ifr, name, ioc)		\
+    do {							\
+        strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name)); 	\
+        result = ioctl(s, ioc, (caddr_t)&ifr);			\
+        log_if_ioctl_result(result, name, # ioc);		\
+    } while (0)
+
+#define ISSUE_IFRA_IOCTL(s, result, ifra, name, ioc)		\
+    do {							\
+        strlcpy(ifra.ifra_name, name, sizeof(ifra.ifra_name)); 	\
+        result = ioctl(s, ioc, (caddr_t)&ifra);			\
+        log_if_ioctl_result(result, name, # ioc);		\
+    } while (0)
+
 
 STATIC int
 interface_set_flags(int s, const char * name, 
@@ -77,8 +201,7 @@ interface_set_flags(int s, const char * name,
     int 		ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCGIFFLAGS);
     if (ret < 0) {
 	return (ret);
     }
@@ -92,7 +215,7 @@ interface_set_flags(int s, const char * name,
     }
     else {
 	/* issue the ioctl */
-	ret = ioctl(s, SIOCSIFFLAGS, &ifr);
+	ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCSIFFLAGS);
 	my_log(LOG_INFO,
 	       "interface_set_flags(%s, set 0x%x, clear 0x%x) 0x%x => 0x%x",
 	       name, flags_to_set, flags_to_clear, flags_before, flags_after);
@@ -104,92 +227,163 @@ STATIC int
 siocsifmtu(int s, const char * name, int mtu)
 {
     struct ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ifr.ifr_mtu = mtu;
-    return (ioctl(s, SIOCSIFMTU, (caddr_t)&ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCSIFMTU);
+    return ret;
 }
 
 STATIC int
-siocgifeflags(int sockfd, const char * name, uint64_t * ret_eflags)
+siocgifeflags(int s, const char * name, uint64_t * ret_eflags)
 {
     struct ifreq	ifr;
     int			ret;
 
     memset(&ifr, 0, sizeof(ifr));
-    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    ret = ioctl(sockfd, SIOCGIFEFLAGS, (caddr_t)&ifr);
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCGIFEFLAGS);
     if (ret == 0) {
 	*ret_eflags = ifr.ifr_eflags;
     }
     else {
-	switch (errno) {
-	case ENXIO:
-	case EPWROFF:
-	case EINVAL:
-	    break;
-	default:
-	    my_log(LOG_NOTICE,
-		   "%s: SIOCGIFEFLAGS failed status, %s",
-		   name, strerror(errno));
-	    break;
-	}
 	*ret_eflags = 0;
     }
     return (ret);
 }
 
-PRIVATE_EXTERN int
-interface_get_eflags(int sockfd, const char * name, uint64_t * ret_eflags)
+PRIVATE_EXTERN void
+interface_get_eflags(const char * name, uint64_t * ret_eflags)
 {
-    int		ret = 0;
+    int		s;
 
-    if (siocgifeflags(sockfd, name, ret_eflags) != 0) {
-	ret = errno;
+    *ret_eflags = 0;
+    s = inet_dgram_socket_open();
+    if (s >= 0) {
+	(void)siocgifeflags(s, name, ret_eflags);
     }
-    return (ret);
+    return;
 }
 
 STATIC int
 siocprotoattach(int s, const char * name)
 {
     struct ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCPROTOATTACH, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCPROTOATTACH);
+    return (ret);
 }
 
-PRIVATE_EXTERN int
+PRIVATE_EXTERN void
 interface_set_mtu(const char * ifname, int mtu)
 {
-    int ret = 0;
-    int s = inet_dgram_socket();
+    int s = inet_dgram_socket_open();
 
-    if (s < 0) {
-	ret = errno;
+    if (s >= 0) {
+	siocsifmtu(s, ifname, mtu);
     }
-    else {
-	if (siocsifmtu(s, ifname, mtu) < 0) {
-	    ret = errno;
-	    my_log(LOG_ERR, "siocsifmtu(%s, %d) failed, %s (%d)",
-		   ifname, mtu, strerror(ret), ret);
-	}
-	close(s);
+}
+
+STATIC int
+siocarpipll(int s, const char * name, int val)
+{
+    struct ifreq	ifr;
+    int			ret;
+
+    bzero(&ifr, sizeof(ifr));
+    ifr.ifr_intval = val;
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCARPIPLL);
+    return (ret);
+}
+
+PRIVATE_EXTERN void
+interface_set_arp_linklocal(const char * name, boolean_t enable)
+{
+    int	s;
+
+    s = inet_dgram_socket_open();
+    if (s >= 0) {
+	siocarpipll(s, name, enable ? 1 : 0);
+    }
+}
+
+#ifdef IFRTYPE_L4S_DEFAULT
+
+STATIC int
+siocgifl4s(int s, const char * name, L4SMode * l4s_mode)
+{
+    struct ifreq	ifr;
+    int			ret;
+
+    bzero(&ifr, sizeof(ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCGIFL4S);
+    if (ret == 0) {
+	*l4s_mode = ifr.ifr_l4s_mode;
     }
     return (ret);
+}
 
+STATIC int
+siocsifl4s(int s, const char * name, L4SMode l4s_mode)
+{
+    struct ifreq	ifr;
+    int			ret;
+
+    bzero(&ifr, sizeof(ifr));
+    ifr.ifr_l4s_mode = l4s_mode;
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCSIFL4S);
+    return (ret);
+}
+#endif /* IFRTYPE_L4S_DEFAULT */
+
+PRIVATE_EXTERN boolean_t
+interface_set_l4s_mode(const char * name, L4SMode l4s_mode)
+{
+    boolean_t	success = FALSE;
+#ifdef IFRTYPE_L4S_DEFAULT
+    _CASSERT(IFRTYPE_L4S_DEFAULT == kL4SModeDefault);
+    _CASSERT(IFRTYPE_L4S_ENABLE == kL4SModeEnable);
+    _CASSERT(IFRTYPE_L4S_DISABLE == kL4SModeDisable);
+    int	s;
+
+    s = inet_dgram_socket_open();
+    if (s >= 0) {
+	if (siocsifl4s(s, name, l4s_mode) == 0) {
+	    success = TRUE;
+	}
+    }
+#endif /* IFRTYPE_L4S_DEFAULT */
+    return (success);
+}
+
+PRIVATE_EXTERN boolean_t
+interface_get_l4s_mode(const char * name, L4SMode * l4s_mode)
+{
+    boolean_t	success = FALSE;
+#ifdef IFRTYPE_L4S_DEFAULT
+    _CASSERT(IFRTYPE_L4S_DEFAULT == kL4SModeDefault);
+    _CASSERT(IFRTYPE_L4S_ENABLE == kL4SModeEnable);
+    _CASSERT(IFRTYPE_L4S_DISABLE == kL4SModeDisable);
+    int	s;
+
+    s = inet_dgram_socket_open();
+    if (s >= 0) {
+	success = siocgifl4s(s, name, l4s_mode) == 0;
+    }
+#endif /* IFRTYPE_L4S_DEFAULT */
+    return (success);
 }
 
 PRIVATE_EXTERN int
 interface_up_down(const char * ifname, boolean_t up)
 {
     int 	ret = 0;
-    int 	s = inet_dgram_socket();
+    int 	s = inet_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
+	ret = s;
     }
     else {
 	my_log(LOG_INFO,
@@ -198,7 +392,6 @@ interface_up_down(const char * ifname, boolean_t up)
 	ret = interface_set_flags(s, ifname,
 				  up ? IFF_UP : 0,
 				  !up ? IFF_UP : 0);
-	close(s);
     }
     return (ret);
 }
@@ -207,10 +400,10 @@ PRIVATE_EXTERN int
 interface_set_noarp(const char * ifname, boolean_t noarp)
 {
     int 	ret = 0;
-    int 	s = inet_dgram_socket();
+    int 	s = inet_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
+	ret = s;
     }
     else {
 	my_log(LOG_INFO, "%s(%s, %s NOARP)",
@@ -219,7 +412,6 @@ interface_set_noarp(const char * ifname, boolean_t noarp)
 	ret = interface_set_flags(s, ifname,
 				  noarp ? IFF_NOARP : 0,
 				  !noarp ? IFF_NOARP : 0);
-	close(s);
     }
     return (ret);
 }
@@ -229,26 +421,21 @@ PRIVATE_EXTERN int
 inet_attach_interface(const char * ifname, boolean_t set_iff_up)
 {
     int ret = 0;
-    int s = inet_dgram_socket();
+    int s = inet_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
+	ret = s;
 	goto done;
     }
 
-    if (siocprotoattach(s, ifname) < 0) {
-	ret = errno;
-	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_NOTICE, "siocprotoattach(%s) failed, %s (%d)",
-		   ifname, strerror(errno), errno);
+    ret = siocprotoattach(s, ifname);
+    if (ret == 0) {
+	my_log(LOG_INFO,
+	       "inet_attach_interface(%s)", ifname);
+	if (set_iff_up) {
+	    (void)interface_set_flags(s, ifname, IFF_UP, 0);
 	}
     }
-    my_log(LOG_INFO,
-	   "inet_attach_interface(%s)", ifname);
-    if (set_iff_up) {
-	(void)interface_set_flags(s, ifname, IFF_UP, 0);
-    }
-    close(s);
 
  done:
     return (ret);
@@ -258,69 +445,43 @@ STATIC int
 siocprotodetach(int s, const char * name)
 {
     struct ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCPROTODETACH, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCPROTODETACH);
+    return (ret);
 }
 
-PRIVATE_EXTERN int
+PRIVATE_EXTERN void
 inet_detach_interface(const char * ifname)
 {
-    int ret = 0;
-    int s = inet_dgram_socket();
+    int s = inet_dgram_socket_open();
 
-    if (s < 0) {
-	ret = errno;
-	goto done;
+    if (s >= 0) {
+	siocprotodetach(s, ifname);
     }
-    if (siocprotodetach(s, ifname) < 0) {
-	ret = errno;
-	if (ret != ENXIO) {
-	    my_log(LOG_ERR, "siocprotodetach(%s) failed, %s (%d)", 
-		   ifname, strerror(errno), errno);
-	}
-    }
-    close(s);
-
- done:
-    return (ret);
 }
 
 STATIC int
 siocautoaddr(int s, const char * name, int value)
 {
     struct ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ifr.ifr_data = (caddr_t)(intptr_t)value;
-    return (ioctl(s, SIOCAUTOADDR, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCAUTOADDR);
+    return (ret);
 }
 
-PRIVATE_EXTERN int
+PRIVATE_EXTERN void
 inet_set_autoaddr(const char * ifname, int val)
 {
-    int 		s = inet_dgram_socket();
-    int			ret = 0;
+    int 		s = inet_dgram_socket_open();
 
-    if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet_set_autoaddr(%s, %d): socket() failed, %s (%d)",
-	       ifname, val, strerror(errno), errno);
+    if (s >= 0) {
+	(void)siocautoaddr(s, ifname, val);
     }
-    else {
-	if (siocautoaddr(s, ifname, val) < 0) {
-	    ret = errno;
-	    if (ret != ENXIO) {
-		my_log(LOG_ERR, "inet_set_autoaddr(%s, %d) failed, %s (%d)", 
-		       ifname, val, strerror(errno), errno);
-	    }
-	}
-	close(s);
-    }
-    return (ret);
 }
 
 STATIC void
@@ -333,26 +494,38 @@ set_sockaddr_in(struct sockaddr_in * sin_p, struct in_addr addr)
 }
 
 PRIVATE_EXTERN int
-inet_difaddr(int s, const char * name, const struct in_addr addr)
+inet_difaddr(const char * name, const struct in_addr addr)
 {
     struct ifreq	ifr;
+    int			ret;
+    int 		s = inet_dgram_socket_open();
 
+    if (s < 0) {
+	return (s);
+    }
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     /* ALIGN: ifr.ifr_addr is aligned (in union), cast okay. */
     set_sockaddr_in((struct sockaddr_in *)(void *)&ifr.ifr_addr, addr);
-    return (ioctl(s, SIOCDIFADDR, &ifr));
+
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCDIFADDR);
+    return (ret);
 }
 
 PRIVATE_EXTERN int
-inet_aifaddr(int s, const char * name, struct in_addr addr,
+inet_aifaddr(const char * name, struct in_addr addr,
 	     const struct in_addr * mask,
 	     const struct in_addr * broadaddr)
 {
     struct in_aliasreq	ifra;
+    int			ret;
+    int 		s;
 
+    s = inet_dgram_socket_open();
+    if (s < 0) {
+	ret = s;
+	goto done;
+    }
     bzero(&ifra, sizeof(ifra));
-    strncpy(ifra.ifra_name, name, sizeof(ifra.ifra_name));
     set_sockaddr_in(&ifra.ifra_addr, addr);
     if (mask != NULL) {
 	set_sockaddr_in(&ifra.ifra_mask, *mask);
@@ -360,7 +533,9 @@ inet_aifaddr(int s, const char * name, struct in_addr addr,
     if (broadaddr != NULL) {
 	set_sockaddr_in(&ifra.ifra_broadaddr, *broadaddr);
     }
-    return (ioctl(s, SIOCAIFADDR, &ifra));
+    ISSUE_IFRA_IOCTL(s, ret, ifra, name, SIOCAIFADDR);
+ done:
+    return (ret);
 }
 
 STATIC int
@@ -368,6 +543,7 @@ siocgifprotolist(int s, const char * ifname,
 		 u_int32_t * ret_list, u_int32_t * ret_list_count)
 {
     struct if_protolistreq	ifpl;
+    int				ret;
 
     bzero(&ifpl, sizeof(ifpl));
     strlcpy(ifpl.ifpl_name, ifname, sizeof(ifpl.ifpl_name));
@@ -375,51 +551,38 @@ siocgifprotolist(int s, const char * ifname,
 	ifpl.ifpl_count = *ret_list_count;
 	ifpl.ifpl_list = ret_list;
     }
-    if (ioctl(s, SIOCGIFPROTOLIST, &ifpl) < 0) {
-	return (-1);
+    ret = ioctl(s, SIOCGIFPROTOLIST, &ifpl);
+    log_if_ioctl_result(ret, ifname, "SIOCGIFPROTOLIST");
+    if (ret == 0) {
+	*ret_list_count = ifpl.ifpl_count;
     }
-    *ret_list_count = ifpl.ifpl_count;
-    return (0);
+    return (ret);
 }
 
 STATIC u_int32_t *
 protolist_copy(const char * ifname, u_int32_t * ret_count)
 {
-    u_int32_t *	protolist;
-    u_int32_t	protolist_count;
+    u_int32_t *	protolist = NULL;
+    u_int32_t	protolist_count = 0;
     int		s;
 
-    protolist = NULL;
-    protolist_count = 0;
-    s = inet_dgram_socket();
+    s = inet_dgram_socket_open();
     if (s < 0) {
-	my_log(LOG_ERR,
-	       "protolist_copy: socket failed, %s (%d)",
-	       strerror(errno), errno);
 	goto failed;
     }
     if (siocgifprotolist(s, ifname, protolist, &protolist_count) != 0) {
 	protolist_count = 0;
-	my_log(LOG_ERR,
-	       "SIOCGIFPROTOLIST failed: %s (%d)",
-	       strerror(errno), errno);
 	goto failed;
     }
     if (protolist_count != 0) {
 	protolist = (u_int32_t *)malloc(protolist_count * sizeof(*protolist));
 	if (siocgifprotolist(s, ifname, protolist, &protolist_count) != 0) {
 	    protolist_count = 0;
-	    my_log(LOG_ERR,
-		   "SIOCGIFPROTOLIST failed#2: %s (%d)",
-		   strerror(errno), errno);
 	    goto failed;
 	}
     }
 
  failed:
-    if (s >= 0) {
-	close(s);
-    }
     if (protolist_count == 0 && protolist != NULL) {
 	free(protolist);
 	protolist = NULL;
@@ -499,64 +662,62 @@ count_prefix_bits(void * val, int size)
 STATIC void
 set_sockaddr_in6(struct sockaddr_in6 * sin6_p, const struct in6_addr * addr);
 
-PRIVATE_EXTERN int
-inet6_dgram_socket()
-{
-    return (socket(AF_INET6, SOCK_DGRAM, 0));
-}
-
 STATIC int
 siocprotoattach_in6(int s, const char * name)
 {
     struct in6_aliasreq		ifra;
+    int				ret;
 
     bzero(&ifra, sizeof(ifra));
-    strncpy(ifra.ifra_name, name, sizeof(ifra.ifra_name));
-    return (ioctl(s, SIOCPROTOATTACH_IN6, &ifra));
+    ISSUE_IFRA_IOCTL(s, ret, ifra, name, SIOCPROTOATTACH_IN6);
+    return (ret);
 }
 
 STATIC int
 siocprotodetach_in6(int s, const char * name)
 {
     struct in6_ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCPROTODETACH_IN6, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCPROTODETACH_IN6);
+    return (ret);
 }
 
 STATIC int
 siocclat46_start(int s, const char * name)
 {
-    struct in6_ifreq	ifr6;
+    struct in6_ifreq	ifr;
+    int			ret;
 
-    bzero(&ifr6, sizeof(ifr6));
-    strlcpy(ifr6.ifr_name, name, sizeof(ifr6.ifr_name));
-    return (ioctl(s, SIOCCLAT46_START, &ifr6));
+    bzero(&ifr, sizeof(ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCCLAT46_START);
+    return (ret);
 }
 
 STATIC int
 siocclat46_stop(int s, const char * name)
 {
-    struct in6_ifreq	ifr6;
+    struct in6_ifreq	ifr;
+    int			ret;
 
-    bzero(&ifr6, sizeof(ifr6));
-    strlcpy(ifr6.ifr_name, name, sizeof(ifr6.ifr_name));
-    return (ioctl(s, SIOCCLAT46_STOP, &ifr6));
+    bzero(&ifr, sizeof(ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCCLAT46_STOP);
+    return (ret);
 }
 
 STATIC int
 siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
 {
-    struct in6_aliasreq		ifra_in6;
+    struct in6_aliasreq		ifra;
+    int				ret;
 
-    bzero(&ifra_in6, sizeof(ifra_in6));
-    strncpy(ifra_in6.ifra_name, name, sizeof(ifra_in6.ifra_name));
+    bzero(&ifra, sizeof(ifra));
     if (v6_ll != NULL) {
 	char 		ntopbuf[INET6_ADDRSTRLEN];
 
 	/* our address */
-	set_sockaddr_in6(&ifra_in6.ifra_addr, v6_ll);
+	set_sockaddr_in6(&ifra.ifra_addr, v6_ll);
 
 	inet_ntop(AF_INET6, v6_ll, ntopbuf, sizeof(ntopbuf));
 	my_log(LOG_INFO, "ioctl(%s, SIOCLL_START %s)", name, ntopbuf);
@@ -564,45 +725,47 @@ siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
     else {
 	my_log(LOG_INFO, "ioctl(%s, SIOCLL_START)", name);
     }
-    return (ioctl(s, SIOCLL_START, &ifra_in6));
+    ISSUE_IFRA_IOCTL(s, ret, ifra, name, SIOCLL_START);
+    return (ret);
 }
 
 STATIC int
 ll_start(int s, const char * name, const struct in6_addr * v6_ll,
 	 boolean_t use_cga, uint8_t collision_count)
 {
-    int 		error = 0;
+    int		ret = 0;
 
     if (v6_ll != NULL || use_cga == FALSE || !CGAIsEnabled()) {
 	/* don't use CGA */
-	error = siocll_start(s, name, v6_ll);
+	ret = siocll_start(s, name, v6_ll);
     }
     else {
 	struct in6_cgareq	req;
 
 	/* use CGA */
 	bzero(&req, sizeof(req));
-	strncpy(req.cgar_name, name, sizeof(req.cgar_name));
+	strlcpy(req.cgar_name, name, sizeof(req.cgar_name));
 	CGAPrepareSetForInterfaceLinkLocal(name, &req.cgar_cgaprep);
 	req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
 	req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
 	req.cgar_collision_count = collision_count;
 	my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART) collision_count=%d",
 	       name, collision_count);
-	error = ioctl(s, SIOCLL_CGASTART, &req);
+	ret = ioctl(s, SIOCLL_CGASTART, &req);
+	log_if_ioctl_result(ret, name, "SIOCLL_CGASTART");
     }
-    return (error);
+    return (ret);
 }
 
 STATIC int
 siocll_stop(int s, const char * name)
 {
     struct in6_ifreq		ifr;
+    int				ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    my_log(LOG_INFO, "ioctl(%s, SIOCLL_STOP)", name);
-    return (ioctl(s, SIOCLL_STOP, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCLL_STOP);
+    return (ret);
 }
 
 STATIC void
@@ -618,16 +781,16 @@ STATIC int
 siocgifaflag_in6(int s, const char * ifname, const struct in6_addr * in6_addr,
 		 int * ret_flags)
 {
-    struct in6_ifreq	ifr6;
+    struct in6_ifreq	ifr;
+    int			ret;
 
-    bzero((char *)&ifr6, sizeof(ifr6));
-    strncpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
-    set_sockaddr_in6(&ifr6.ifr_addr, in6_addr);
-    if (ioctl(s, SIOCGIFAFLAG_IN6, &ifr6) < 0) {
-	return (-1);
+    bzero((char *)&ifr, sizeof(ifr));
+    set_sockaddr_in6(&ifr.ifr_addr, in6_addr);
+    ISSUE_IF_IOCTL(s, ret, ifr, ifname, SIOCGIFAFLAG_IN6);
+    if (ret == 0) {
+	*ret_flags = ifr.ifr_ifru.ifru_flags6;
     }
-    *ret_flags = ifr6.ifr_ifru.ifru_flags6;
-    return (0);
+    return (ret);
 }
 
 STATIC int
@@ -636,60 +799,54 @@ siocgifalifetime_in6(int s, const char * ifname,
 		     u_int32_t * ret_valid_lifetime,
 		     u_int32_t * ret_preferred_lifetime)
 {
-    struct in6_ifreq	ifr6;
+    struct in6_ifreq	ifr;
+    int			ret;
 
-    bzero((char *)&ifr6, sizeof(ifr6));
-    strncpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
-    set_sockaddr_in6(&ifr6.ifr_addr, in6_addr);
-    if (ioctl(s, SIOCGIFALIFETIME_IN6, &ifr6) < 0) {
-	return (-1);
+    bzero((char *)&ifr, sizeof(ifr));
+    set_sockaddr_in6(&ifr.ifr_addr, in6_addr);
+    ISSUE_IF_IOCTL(s, ret, ifr, ifname, SIOCGIFALIFETIME_IN6);
+    if (ret == 0) {
+	*ret_valid_lifetime = ifr.ifr_ifru.ifru_lifetime.ia6t_vltime;
+	*ret_preferred_lifetime = ifr.ifr_ifru.ifru_lifetime.ia6t_pltime;
     }
-    *ret_valid_lifetime = ifr6.ifr_ifru.ifru_lifetime.ia6t_vltime;
-    *ret_preferred_lifetime = ifr6.ifr_ifru.ifru_lifetime.ia6t_pltime;
-    return (0);
+    return (ret);
 }
 
 STATIC int
 siocsifcgaprep_in6(int s, const char * ifname)
 {
     struct in6_cgareq	req;
+    int			ret;
 
     bzero(&req, sizeof(req));
-    strncpy(req.cgar_name, ifname, sizeof(req.cgar_name));
+    strlcpy(req.cgar_name, ifname, sizeof(req.cgar_name));
     CGAPrepareSetForInterface(ifname, &req.cgar_cgaprep);
     req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
     req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-    return (ioctl(s, SIOCSIFCGAPREP_IN6, &req));
+    ret = ioctl(s, SIOCSIFCGAPREP_IN6, &req);
+    log_if_ioctl_result(ret, ifname, "SIOCSIFCGAPREP_IN6");
+    return (ret);
 }
 
 PRIVATE_EXTERN int
 inet6_attach_interface(const char * ifname, boolean_t set_iff_up)
 {
     int	ret = 0;
-    int s = inet6_dgram_socket();
+    int s = inet6_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR,
-	       "inet6_attach_interface(%s): socket() failed, %s (%d)",
-	       ifname, strerror(ret), ret);
-	goto done;
+	ret = s;
     }
-    if (siocprotoattach_in6(s, ifname) < 0) {
-	ret = errno;
-	if (ret != EEXIST && ret != ENXIO) {
-	    my_log(LOG_NOTICE, "siocprotoattach_in6(%s) failed, %s (%d)",
-		   ifname, strerror(errno), errno);
+    else {
+	ret = siocprotoattach_in6(s, ifname);
+	if (ret == 0) {
+	    my_log(LOG_INFO,
+		   "inet6_attach_interface(%s)", ifname);
+	    if (set_iff_up) {
+		(void)interface_set_flags(s, ifname, IFF_UP, 0);
+	    }
 	}
     }
-    my_log(LOG_INFO,
-	   "inet6_attach_interface(%s)", ifname);
-    if (set_iff_up) {
-	(void)interface_set_flags(s, ifname, IFF_UP, 0);
-    }
-    close(s);
-
- done:
     return (ret);
 }
 
@@ -697,13 +854,10 @@ PRIVATE_EXTERN int
 inet6_detach_interface(const char * ifname)
 {
     int ret = 0;
-    int s = inet6_dgram_socket();
+    int s = inet6_dgram_socket_open();
 
     if (s < 0) {
 	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet6_detach_interface(%s): socket() failed, %s (%d)",
-	       ifname, strerror(ret), ret);
 	goto done;
     }
     if (siocprotodetach_in6(s, ifname) < 0) {
@@ -713,7 +867,6 @@ inet6_detach_interface(const char * ifname)
 		   ifname, strerror(errno), errno);
 	}
     }
-    close(s);
     my_log(LOG_INFO,
 	   "inet6_detach_interface(%s)", ifname);
 
@@ -733,12 +886,13 @@ nd_flags_set_with_socket(int s, const char * if_name,
 {
     uint32_t		new_flags;
     struct in6_ndireq 	nd;
+    int			ret;
 
     bzero(&nd, sizeof(nd));
     strncpy(nd.ifname, if_name, sizeof(nd.ifname));
-    if (ioctl(s, SIOCGIFINFO_IN6, &nd)) {
-	my_log_fl(LOG_ERR, "SIOCGIFINFO_IN6(%s) failed, %s",
-		  if_name, strerror(errno));
+    ret = ioctl(s, SIOCGIFINFO_IN6, &nd);
+    log_if_ioctl_result(ret, if_name, "SIOCGIFINFO_IN6");
+    if (ret < 0) {
 	return (FALSE);
     }
     new_flags = nd.ndi.flags;
@@ -750,9 +904,9 @@ nd_flags_set_with_socket(int s, const char * if_name,
     }
     if (new_flags != nd.ndi.flags) {
 	nd.ndi.flags = new_flags;
-	if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd)) {
-	    my_log_fl(LOG_ERR, "SIOCSIFINFO_FLAGS(%s) failed, %s",
-		      if_name, strerror(errno));
+	ret = ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd);
+	log_if_ioctl_result(ret, if_name, "SIOCGIFINFO_FLAGS");
+	if (ret < 0) {
 	    return (FALSE);
 	}
     }
@@ -769,14 +923,11 @@ inet6_linklocal_start(const char * ifname,
 {
     uint32_t	clear_flags;
     int 	ret = 0;
-    int 	s = inet6_dgram_socket();
+    int 	s = inet6_dgram_socket_open();
     uint32_t	set_flags;
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet6_linklocal_start(%s): socket() failed, %s (%d)",
-	       ifname, strerror(ret), ret);
+	ret = s;
 	goto done;
     }
 
@@ -811,7 +962,6 @@ inet6_linklocal_start(const char * ifname,
 		   ifname, strerror(errno), errno);
 	}
     }
-    close(s);
  done:
     return (ret);
 }
@@ -820,25 +970,14 @@ PRIVATE_EXTERN int
 inet6_linklocal_stop(const char * ifname)
 {
     int ret = 0;
-    int s = inet6_dgram_socket();
+    int s = inet6_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet6_linklocal_stop(%s): socket() failed, %s (%d)",
-	       ifname, strerror(ret), ret);
-	goto done;
+	ret = s;
     }
-    if (siocll_stop(s, ifname) < 0) {
-	ret = errno;
-	if (errno != ENXIO) {
-	    my_log(LOG_ERR, "siocll_stop(%s) failed, %s (%d)",
-		   ifname, strerror(errno), errno);
-	}
+    else {
+	ret = siocll_stop(s, ifname);
     }
-    close(s);
-
- done:
     return (ret);
 }
 
@@ -846,63 +985,48 @@ STATIC int
 siocautoconf_start(int s, const char * if_name)
 {
     struct in6_ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCAUTOCONF_START, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, if_name, SIOCAUTOCONF_START);
+    return (ret);
 }
 
 STATIC int
 siocautoconf_stop(int s, const char * if_name)
 {
     struct in6_ifreq	ifr;
+    int			ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCAUTOCONF_STOP, &ifr));
+    ISSUE_IF_IOCTL(s, ret, ifr, if_name, SIOCAUTOCONF_STOP);
+    return (ret);
 }
 
 PRIVATE_EXTERN int
 inet6_rtadv_enable(const char * if_name, boolean_t use_cga)
 {
     int			ret = 0;
-    int			s = inet6_dgram_socket();
+    int			s = inet6_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet6_rtadv_enable(%s): socket() failed, %s (%d)",
-	       if_name, strerror(ret), ret);
-	goto done;
+	ret = s;
     }
-    /* set the per-interface modifier */
-    if (use_cga && CGAIsEnabled()
-	&& siocsifcgaprep_in6(s, if_name) < 0) {
-	int	saved_errno;
-
-	saved_errno = errno;
-	if (saved_errno != ENXIO) {
-	    my_log(LOG_ERR, "siocsifcgaprep_in6(%s) failed, %s (%d)",
-		   if_name, strerror(saved_errno), saved_errno);
+    else {
+	/* set the per-interface modifier */
+	if (use_cga && CGAIsEnabled()) {
+	    ret = siocsifcgaprep_in6(s, if_name);
+	    if (ret < 0) {
+		goto done;
+	    }
 	}
-	ret = saved_errno;
-	goto done;
+	/* enable processing Router Advertisements */
+	ret = siocautoconf_start(s, if_name);
     }
-
-    /* enable processing Router Advertisements */
-    if (siocautoconf_start(s, if_name) < 0) {
-	ret = errno;
-	if (errno != ENXIO) {
-	    my_log(LOG_ERR, "siocautoconf_start(%s) failed, %s (%d)",
-		   if_name, strerror(errno), errno);
-	}
+    if (ret == 0) {
+	my_log(LOG_INFO, "rtadv_enable(%s)", if_name);
     }
-    my_log(LOG_INFO,
-	   "rtadv_enable(%s)", if_name);
  done:
-    if (s >= 0) {
-	close(s);
-    }
     return (ret);
 }
 
@@ -910,26 +1034,18 @@ PRIVATE_EXTERN int
 inet6_rtadv_disable(const char * if_name)
 {
     int			ret = 0;
-    int			s = inet6_dgram_socket();
+    int			s = inet6_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, 
-	       "inet6_rtadv_disable(%s): socket() failed, %s (%d)",
-	       if_name, strerror(ret), ret);
-	goto done;
+	ret = s;
     }
-    if (siocautoconf_stop(s, if_name) < 0) {
-	ret = errno;
-	if (errno != ENXIO) {
-	    my_log(LOG_ERR, "siocautoconf_stop(%s) failed, %s (%d)",
-		   if_name, strerror(errno), errno);
-	}
+    else {
+	ret = siocautoconf_stop(s, if_name);
     }
-    close(s);
-    my_log(LOG_INFO,
-	   "rtadv_disable(%s)", if_name);
- done:
+    if (ret == 0) {
+	my_log(LOG_INFO,
+	       "rtadv_disable(%s)", if_name);
+    }
     return (ret);
 }
 
@@ -938,19 +1054,17 @@ inet6_has_nat64_prefixlist(const char * if_name)
 {
     struct if_nat64req	ifr;
     int			ret;
-    int			s = inet6_dgram_socket();
+    int			s = inet6_dgram_socket_open();
 
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR,
-	       "%s(%s): socket() failed, %s (%d)",
-	       __func__, if_name, strerror(ret), ret);
-	return FALSE;
+	ret = s;
+	goto done;
     }
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
+    strlcpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
     ret = ioctl(s, SIOCGIFNAT64PREFIX, &ifr);
-    close(s);
+    log_if_ioctl_result(ret, if_name, "SIOCGIFNAT64PREFIX");
+ done:
     return ((ret == 0) && (ifr.ifnat64_prefixes[0].prefix_len > 0));
 }
 
@@ -963,14 +1077,12 @@ inet6_set_nat64_prefixlist(const char * if_name,
     int			i;
     struct if_nat64req	ifr;
     int			ret = 0;
-    int			s = inet6_dgram_socket();
+    int			s = inet6_dgram_socket_open();
     struct ipv6_prefix *scan;
 
     if (s < 0) {
-	my_log(LOG_ERR,
-	       "%s(%s): socket() failed, %s (%d)",
-	       __func__, if_name, strerror(errno), errno);
-	return FALSE;
+	ret = s;
+	goto done;
     }
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifnat64_name, if_name, sizeof(ifr.ifnat64_name));
@@ -981,32 +1093,32 @@ inet6_set_nat64_prefixlist(const char * if_name,
 	scan->ipv6_prefix = prefix_list[i];
 	scan->prefix_len = prefix_length_list[i] / 8;
     }
-    if (ioctl(s, SIOCSIFNAT64PREFIX, &ifr) != 0) {
-	ret = errno;
-	my_log(LOG_ERR,
-	       "%s: SIOCSIFNAT64PREFIX(%d) failed, %s (%d)",
-	       if_name, count, strerror(errno), errno);
-    }
-    else {
-	my_log(LOG_DEBUG,
-	       "%s: SIOCSIFNAT64PREFIX(%d) success", if_name, count);
-    }
-    close(s);
+    ret = ioctl(s, SIOCSIFNAT64PREFIX, &ifr);
+    log_if_ioctl_result(ret, if_name, "SIOCSIFNAT64PREFIX");
+ done:
     return (ret == 0);
 }
 
 
 PRIVATE_EXTERN int
-inet6_difaddr(int s, const char * name, const struct in6_addr * addr)
+inet6_difaddr(const char * name, const struct in6_addr * addr)
 {
     struct in6_ifreq	ifr;
+    int			ret;
+    int			s;
 
-    bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    if (addr != NULL) {
-	set_sockaddr_in6(&ifr.ifr_ifru.ifru_addr, addr);
+    s = inet6_dgram_socket_open();
+    if (s < 0) {
+	ret = s;
     }
-    return (ioctl(s, SIOCDIFADDR_IN6, &ifr));
+    else {
+	bzero(&ifr, sizeof(ifr));
+	if (addr != NULL) {
+	    set_sockaddr_in6(&ifr.ifr_ifru.ifru_addr, addr);
+	}
+	ISSUE_IF_IOCTL(s, ret, ifr, name, SIOCDIFADDR_IN6);
+    }
+    return (ret);
 }
 
 /*
@@ -1156,73 +1268,80 @@ inet6_router_and_prefix_count(int if_index, int * ret_prefix_count)
 }
 
 PRIVATE_EXTERN int
-inet6_aifaddr(int s, const char * name, const struct in6_addr * addr,
+inet6_aifaddr(const char * name, const struct in6_addr * addr,
 	      const struct in6_addr * dstaddr, int prefix_length, 
 	      int flags,
 	      u_int32_t valid_lifetime,
 	      u_int32_t preferred_lifetime)
 {
-    struct in6_aliasreq	ifra_in6;
+    struct in6_aliasreq	ifra;
+    int			ret;
+    int			s;
 
-    bzero(&ifra_in6, sizeof(ifra_in6));
-    strncpy(ifra_in6.ifra_name, name, sizeof(ifra_in6.ifra_name));
-    ifra_in6.ifra_lifetime.ia6t_vltime = valid_lifetime;
-    ifra_in6.ifra_lifetime.ia6t_pltime = preferred_lifetime;
-    ifra_in6.ifra_flags = flags;
+    s = inet6_dgram_socket_open();
+    if (s < 0) {
+	ret = s;
+	goto done;
+    }
+    bzero(&ifra, sizeof(ifra));
+    strncpy(ifra.ifra_name, name, sizeof(ifra.ifra_name));
+    ifra.ifra_lifetime.ia6t_vltime = valid_lifetime;
+    ifra.ifra_lifetime.ia6t_pltime = preferred_lifetime;
+    ifra.ifra_flags = flags;
     if (addr != NULL) {
-	set_sockaddr_in6(&ifra_in6.ifra_addr, addr);
+	set_sockaddr_in6(&ifra.ifra_addr, addr);
     }
     if (dstaddr != NULL) {
-	set_sockaddr_in6(&ifra_in6.ifra_dstaddr, dstaddr);
+	set_sockaddr_in6(&ifra.ifra_dstaddr, dstaddr);
     }
     if (prefix_length != 0) {
 	struct in6_addr		prefixmask;
 
 	in6_len2mask(&prefixmask, prefix_length);
-	set_sockaddr_in6(&ifra_in6.ifra_prefixmask, &prefixmask);
+	set_sockaddr_in6(&ifra.ifra_prefixmask, &prefixmask);
     }
-    return (ioctl(s, SIOCAIFADDR_IN6, &ifra_in6));
-}
+    ISSUE_IFRA_IOCTL(s, ret, ifra, name, SIOCAIFADDR_IN6);
 
-STATIC int
-inet6_if_ioctl(const char * ifname, unsigned long request)
-{
-    struct in6_ifreq	ifr;
-    int 		ret = 0;
-    int			s;
-
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	ret = errno;
-	goto done;
-    }
-    bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-
-    if (ioctl(s, request, &ifr) < 0) {
-	ret = errno;
-    }
  done:
-    if (s >=0) {
-	close(s);
-    }
     return (ret);
 }
 
 PRIVATE_EXTERN int
 inet6_flush_prefixes(const char * ifname)
 {
-    my_log(LOG_INFO,
-	   "inet6_flush_prefixes(%s)", ifname);
-    return (inet6_if_ioctl(ifname, SIOCSPFXFLUSH_IN6));
+    struct in6_ifreq	ifr;
+    int 		ret = 0;
+    int			s;
+
+    my_log(LOG_INFO, "%s(%s)", __func__, ifname);
+    s = inet6_dgram_socket_open();
+    if (s < 0) {
+	ret = s;
+    }
+    else {
+	bzero(&ifr, sizeof(ifr));
+	ISSUE_IF_IOCTL(s, ret, ifr, ifname, SIOCSPFXFLUSH_IN6);
+    }
+    return (ret);
 }
 
 PRIVATE_EXTERN int
 inet6_flush_routes(const char * ifname)
 {
-    my_log(LOG_INFO,
-	   "inet6_flush_routes(%s)", ifname);
-    return (inet6_if_ioctl(ifname, SIOCSRTRFLUSH_IN6));
+    struct in6_ifreq	ifr;
+    int 		ret = 0;
+    int			s;
+
+    my_log(LOG_INFO, "%s(%s)", __func__, ifname);
+    s = inet6_dgram_socket_open();
+    if (s < 0) {
+	ret = s;
+    }
+    else {
+	bzero(&ifr, sizeof(ifr));
+	ISSUE_IF_IOCTL(s, ret, ifr, ifname, SIOCSRTRFLUSH_IN6);
+    }
+    return (ret);
 }
 
 STATIC boolean_t
@@ -1261,26 +1380,14 @@ inet6_ifstat(const char * if_name, struct in6_ifstat * stat)
     int 		s;
 
     bzero(&ifr, sizeof(ifr));
-    s = inet6_dgram_socket();
+    s = inet6_dgram_socket_open();
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, "socket(%s) failed, %s", if_name, strerror(errno));
-	goto done;
+	ret = s;
     }
-    strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
-    if (ioctl(s, SIOCGIFSTAT_IN6, (char *)&ifr) < 0) {
-	ret = errno;
-	my_log(LOG_ERR, "SIOCGIFSTAT_IN6(%s) failed, %s",
-	       if_name, strerror(errno));
-	goto done;
+    else {
+	ISSUE_IF_IOCTL(s, ret, ifr, if_name, SIOCGIFSTAT_IN6);
     }
-    ret = 0;
-
- done:
     *stat = ifr.ifr_ifru.ifru_stat;
-    if (s >= 0) {
-	close(s);
-    }
     return (ret);
 }
 
@@ -1290,31 +1397,16 @@ inet6_clat46_start_stop(const char * if_name, boolean_t start)
     int		ret = 0;
     int		s;
 
-    s = inet6_dgram_socket();
+    s = inet6_dgram_socket_open();
     if (s < 0) {
-	ret = errno;
-	my_log(LOG_ERR, "socket(%s) failed, %s", if_name, strerror(errno));
-	goto done;
+	ret = s;
     }
-    if (start) {
-	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_START)", if_name);
-	if (siocclat46_start(s, if_name) < 0) {
-	    my_log(LOG_NOTICE, "ioctl(%s, SIOCCLAT46_START), failed, %s (%d)",
-		   if_name, strerror(errno), errno);
-	    ret = errno;
-	}
+    else if (start) {
+	ret = siocclat46_start(s, if_name);
     }
     else {
-	my_log(LOG_INFO, "ioctl(%s, SIOCCLAT46_STOP)", if_name);
-	if (siocclat46_stop(s, if_name) < 0) {
-	    my_log(LOG_NOTICE, "ioctl(%s, SIOCCLAT46_STOP), failed, %s (%d)",
-		   if_name, strerror(errno), errno);
-	    ret = errno;
-	}
+	ret = siocclat46_stop(s, if_name);
     }
-    close(s);
-
- done:
     return (ret);
 }
 
@@ -1546,7 +1638,7 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 	    }
 	    if (got_address) {
 		if (s < 0) {
-		    s = inet6_dgram_socket();
+		    s = inet6_dgram_socket_open();
 		}
 		if (s >= 0) {
 		    siocgifaflag_in6(s, ifname, 
@@ -1576,9 +1668,6 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     }
 
  done:
-    if (s >= 0) {
-	close(s);
-    }
     if (buf != NULL) {
 	free(buf);
     }
@@ -1796,30 +1885,13 @@ set_verbose_sysctls(bool verbose)
 #include <stdlib.h>
 #include "util.h"
 
+boolean_t G_is_netboot;
 PRIVATE_EXTERN Boolean G_IPConfiguration_verbose = 1;
-
-STATIC bool S_cga_enabled;
-
-PRIVATE_EXTERN bool 
-CGAIsEnabled(void)
-{
-    return (S_cga_enabled);
-}
-
-PRIVATE_EXTERN void
-CGAPrepareSetForInterface(const char * name, struct in6_cga_prepare * cga_prep)
-{
-    if (S_cga_enabled == FALSE) {
-	return;
-    }
-    cga_prep->cga_security_level = 0;
-    arc4random_buf(cga_prep->cga_modifier.octets, sizeof(cga_prep->cga_modifier.octets));
-    return;
-}
 
 #endif /* TEST_INET6_ADDRLIST || TEST_IPV6_LL */
 
 #if TEST_INET6_ADDRLIST
+
 int
 main(int argc, char * argv[])
 {
@@ -1867,13 +1939,14 @@ main(int argc, char * argv[])
     else {
 	usage();
     }
-
     if (is_start) {
-	S_cga_enabled = (argc > 3);
-	if (inet6_linklocal_start(argv[2], TRUE) != 0) {
+	boolean_t cga_enabled = (argc > 3);
+
+	if (inet6_linklocal_start(argv[2], NULL, TRUE, cga_enabled,
+				  TRUE, 0) != 0) {
 	    exit(1);
 	}
-	if (inet6_rtadv_enable(argv[2]) != 0) {
+	if (inet6_rtadv_enable(argv[2], cga_enabled) != 0) {
 	    exit(1);
 	}
     }
@@ -2073,3 +2146,66 @@ main(int argc, char * argv[])
 }
 
 #endif /* TEST_VERBOSE_SYSCTLS */
+
+#if TEST_L4S
+boolean_t G_is_netboot;
+
+STATIC void usage(void ) __dead2;
+
+STATIC void
+usage(void)
+{
+    fprintf(stderr,
+	    "usage: l4s-mode <ifname> [ default | enable | disable ]\n");
+    exit(1);
+}
+
+
+int
+main(int argc, char * argv[])
+{
+    const char *	ifname;
+    L4SMode		l4s_mode;
+    const char *	which = NULL;
+
+    if (argc < 2) {
+	usage();
+    }
+    if (argc > 3) {
+	usage();
+    }
+    ifname = argv[1];
+    if (argc > 2) {
+	which = argv[2];
+	if (strcasecmp(which, "default") == 0) {
+	    l4s_mode = kL4SModeDefault;
+	}
+	else if (strcasecmp(which, "enable") == 0) {
+	    l4s_mode = kL4SModeEnable;
+	}
+	else if (strcasecmp(which, "disable") == 0) {
+	    l4s_mode = kL4SModeDisable;
+	}
+	else {
+	    usage();
+	}
+	if (!interface_set_l4s_mode(ifname, l4s_mode)) {
+	    fprintf(stderr, "failed to set L4s mode\n");
+	    exit(1);
+	}
+	printf("L4S mode set\n");
+    }
+    else {
+	if (!interface_get_l4s_mode(ifname, &l4s_mode)) {
+	    fprintf(stderr, "failed to get L4s mode\n");
+	    exit(1);
+	}
+	else {
+	    printf("%s L4S mode is %s (%d)\n", ifname,
+		   L4SModeGetString(l4s_mode), l4s_mode);
+	}
+    }
+    return (0);
+}
+
+#endif /* TEST_L4S */

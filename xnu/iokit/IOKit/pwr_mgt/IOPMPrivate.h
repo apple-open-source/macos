@@ -25,10 +25,20 @@
  * 
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#ifndef _IOKIT_IOPMPRIVATE_H
-#define _IOKIT_IOPMPRIVATE_H
+#pragma once
+
 
 #include <IOKit/pwr_mgt/IOPM.h>
+
+// Supported power states.
+enum IOPMRootDomainPowerState {
+	OFF_STATE           = 0,
+	RESTART_STATE       = 1,
+	SLEEP_STATE         = 2,
+	AOT_STATE           = 3,
+	ON_STATE            = 4,
+	NUM_POWER_STATES
+};
 
 /* @constant kIOPMEventTypeIntermediateFlag
  * @abstract This bit indicates the event is an intermediate event
@@ -1062,5 +1072,3 @@ enum {
   kIOPMPerformanceWarning   = 100
 };
 
-
-#endif /* _IOKIT_IOPMPRIVATE_H */

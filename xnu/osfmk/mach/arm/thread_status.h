@@ -345,11 +345,6 @@ typedef _STRUCT_ARM_LEGACY_DEBUG_STATE arm_debug_state_t;
 #define HAS_ADD_SAVED_STATE_PC          1
 #endif
 
-#if CONFIG_BTI_TELEMETRY
-/* BTI Telemetry needs CPSR to recover from BTI exceptions */
-#define HAS_SET_SAVED_STATE_CPSR        1
-#endif /* CONFIG_HAS_BTI_TELEMETRY */
-
 
 static inline boolean_t
 is_thread_state32(const arm_unified_thread_state_t *its)

@@ -56,8 +56,8 @@ struct lz4_stage_data {
 	bool reset_failed;
 };
 
-static void
-lz4_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+lz4_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	struct lz4_stage_data *data;
 	compression_status_t status;
@@ -81,6 +81,8 @@ lz4_stage_reset(struct kdp_output_stage *stage)
 
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -110,6 +112,7 @@ lz4_stage_stream(struct lz4_stage_data *data, struct kdp_output_stage *next_stag
 		status = compression_ki_ptr->compression_stream_process(&data->stream,
 		    finalize ? COMPRESSION_STREAM_FINALIZE : 0);
 		if (COMPRESSION_STATUS_ERROR == status) {
+			kern_coredump_log(NULL, "(%s) compression_stream_process failed\n", __func__);
 			return KERN_FAILURE;
 		}
 
@@ -120,6 +123,7 @@ lz4_stage_stream(struct lz4_stage_data *data, struct kdp_output_stage *next_stag
 		ret = next_stage->kos_funcs.kosf_outproc(next_stage, KDP_DATA, corename,
 		    produced, data->dst_buf);
 		if (KERN_SUCCESS != ret) {
+			kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, ret);
 			return ret;
 		}
 		*written += produced;
@@ -130,7 +134,11 @@ lz4_stage_stream(struct lz4_stage_data *data, struct kdp_output_stage *next_stag
 	} while (data->stream.src_size || (finalize && COMPRESSION_STATUS_END != status));
 
 	if (finalize) {
-		return next_stage->kos_funcs.kosf_outproc(next_stage, KDP_DATA, corename, 0, NULL);
+		ret = next_stage->kos_funcs.kosf_outproc(next_stage, KDP_DATA, corename, 0, NULL);
+		if (KERN_SUCCESS != ret) {
+			kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, ret);
+		}
+		return ret;
 	}
 
 	return KERN_SUCCESS;
@@ -164,33 +172,47 @@ lz4_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
 	}
 
 	if (stage->kos_bypass || KDP_DATA != request) {
-		return next_stage->kos_funcs.kosf_outproc(next_stage, request, corename, length,
-		           panic_data);
+		ret = next_stage->kos_funcs.kosf_outproc(next_stage, request, corename, length,
+		    panic_data);
+		if (KERN_SUCCESS != ret) {
+			kern_coredump_log(NULL, "(%s) next stage output failed with error 0x%x\n", __func__, ret);
+		}
+		return ret;
 	}
 
 	if (panic_data) {
 		// Write panic data to the stream.
-		return lz4_stage_stream(data, next_stage, corename, panic_data, (size_t)length,
-		           &stage->kos_bytes_written);
-	} else {
-		if (length) {
-			// Pad the stream with zeroes.
-			pad_length = (size_t)length;
-			do {
-				zero_size = MIN(pad_length, ZERO_BUF_SIZE);
-				ret = lz4_stage_stream(data, next_stage, corename, data->zero_buf,
-				    zero_size, &stage->kos_bytes_written);
-				if (KERN_SUCCESS != ret) {
-					return ret;
-				}
-				pad_length -= zero_size;
-			} while (pad_length);
-			return KERN_SUCCESS;
-		} else {
-			// Finalize the stream.
-			return lz4_stage_stream(data, next_stage, corename, NULL, 0, &stage->kos_bytes_written);
+		ret = lz4_stage_stream(data, next_stage, corename, panic_data, (size_t)length,
+		    &stage->kos_bytes_written);
+		if (KERN_SUCCESS != ret) {
+			kern_coredump_log(NULL, "(%s) lz4_stage_stream failed with error 0x%x\n", __func__, ret);
 		}
+		return ret;
 	}
+
+	if (length) {
+		// Pad the stream with zeroes.
+		pad_length = (size_t)length;
+		do {
+			zero_size = MIN(pad_length, ZERO_BUF_SIZE);
+			ret = lz4_stage_stream(data, next_stage, corename, data->zero_buf,
+			    zero_size, &stage->kos_bytes_written);
+			if (KERN_SUCCESS != ret) {
+				kern_coredump_log(NULL, "(%s) lz4_stage_stream failed with error 0x%x\n", __func__, ret);
+				return ret;
+			}
+			pad_length -= zero_size;
+		} while (pad_length);
+		return KERN_SUCCESS;
+	}
+
+	// Finalize the stream.
+	ret = lz4_stage_stream(data, next_stage, corename, NULL, 0, &stage->kos_bytes_written);
+	if (KERN_SUCCESS != ret) {
+		kern_coredump_log(NULL, "(%s) lz4_stage_stream failed with error 0x%x\n", __func__, ret);
+	}
+
+	return ret;
 }
 
 static void

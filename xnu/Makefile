@@ -210,6 +210,7 @@ TOP_TARGETS = \
 	install install_desktop install_embedded \
 	install_release_embedded install_development_embedded \
 	install_release_desktop install_development_desktop \
+	install_release_embedded_nohdrs install_release_desktop_nohdrs \
 	install_kernels \
 	cscope tags TAGS \
 	help
@@ -335,6 +336,12 @@ xnu_tests:
 xnu_tests_driverkit:
 	$(MAKE) -C $(SRCROOT)/tests/driverkit $(if $(filter -j,$(MAKEFLAGS)),,$(MAKEJOBS)) \
 		SRCROOT=$(SRCROOT)/tests/driverkit
+
+xnu_unittests:
+	$(MAKE) -C $(SRCROOT)/tests/unit	$(if $(filter -j,$(MAKEFLAGS)),,$(MAKEJOBS)) \
+		SRCROOT=$(SRCROOT)/tests/unit
+	$(MAKE) -C $(SRCROOT)/tests	$(if $(filter -j,$(MAKEFLAGS)),,$(MAKEJOBS)) sched/install_userspace_unit_tests \
+		SRCROOT=$(SRCROOT)/tests
 
 
 include $(MakeInc_cmd)

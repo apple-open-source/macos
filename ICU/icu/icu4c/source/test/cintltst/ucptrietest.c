@@ -718,8 +718,13 @@ trieTestGolden(const char *testName,
     const char *testdatapath = loadSourceTestData(&status);
     char goldendatapath[512];
     // note: snprintf always writes a NUL terminator.
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    snprintf(goldendatapath, sizeof(goldendatapath), "%s%scodepointtrie%s%s.toml",
+             testdatapath, U_FILE_SEP_STRING, U_FILE_SEP_STRING, testName);
+#else
     snprintf(goldendatapath, sizeof(goldendatapath), "%scodepointtrie%s%s.toml",
         testdatapath, U_FILE_SEP_STRING, testName);
+#endif // APPLE_XCODE_BUILD
 
     // Write the data into a tmpfile (memstream is not portable)
     FILE* stream = tmpfile();

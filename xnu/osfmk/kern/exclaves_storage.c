@@ -591,7 +591,7 @@ exclaves_storage_upcall_rootex(const uint32_t fstag,
 	xnuupcallsv2_storageupcallsprivate_rootex__result_s result = {};
 
 	if ((error = verify_string_length((const char *)&exclaveid[0], 32))) {
-		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, error);
+		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, consolidate_storage_error(error));
 		return completion(result);
 	}
 	error = vfs_exclave_fs_root_ex(fstag, (const char *)&exclaveid[0], &rootid);
@@ -599,7 +599,7 @@ exclaves_storage_upcall_rootex(const uint32_t fstag,
 		exclaves_debug_printf(show_errors,
 		    "[storage_upcalls_server] vfs_exclave_fs_rootex failed with %d\n",
 		    error);
-		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, error);
+		xnuupcallsv2_storageupcallsprivate_rootex__result_init_failure(&result, consolidate_storage_error(error));
 	} else {
 		exclaves_debug_printf(show_storage_upcalls,
 		    "[storage_upcalls_server] vfs_exclave_fs_rootex return "

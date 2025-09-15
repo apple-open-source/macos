@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2017-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -30,17 +30,16 @@
 #include <machine/endian.h>
 #include <net/necp.h>
 
-uint32_t copy_pkt_tx_time = 1;
 #if (DEVELOPMENT || DEBUG)
+
+/* per-packet logging is wasteful in release */
+#define COPY_LOG 1
+
 SYSCTL_NODE(_kern_skywalk, OID_AUTO, packet,
     CTLFLAG_RW | CTLFLAG_LOCKED, 0, "Skywalk packet");
 int pkt_trailers = 0; /* for testing trailing bytes */
 SYSCTL_INT(_kern_skywalk_packet, OID_AUTO, trailers,
     CTLFLAG_RW | CTLFLAG_LOCKED, &pkt_trailers, 0, "");
-
-SYSCTL_UINT(_kern_skywalk_packet, OID_AUTO, copy_pkt_tx_time,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &copy_pkt_tx_time, 0,
-    "copy tx time from pkt to mbuf");
 #endif /* !DEVELOPMENT && !DEBUG */
 
 
@@ -101,7 +100,7 @@ pkt_copy_from_pkt(const enum txrx t, kern_packet_t dph, const uint16_t doff,
 	uint8_t *sbaddr, *dbaddr;
 	boolean_t do_sum = copysum && !PACKET_HAS_FULL_CHECKSUM_FLAGS(spkt);
 
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 
 	/* get buffer address from packet */
 	MD_BUFLET_ADDR_ABS(spkt, sbaddr);
@@ -137,16 +136,17 @@ pkt_copy_from_pkt(const enum txrx t, kern_packet_t dph, const uint16_t doff,
 			dpkt->pkt_csum_flags |= spkt->pkt_csum_flags & PACKET_CSUM_RX_FLAGS;
 		}
 
+#if COPY_LOG
 		SK_DF(SK_VERB_COPY | SK_VERB_RX,
 		    "%s(%d) RX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
+		    sk_proc_name(current_proc()), sk_proc_pid(current_proc()),
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY | SK_VERB_RX,
-		    "   pkt  0x%llx doff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   pkt  %p doff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(dpkt), doff, dpkt->pkt_csum_flags,
 		    (uint32_t)dpkt->pkt_csum_rx_start_off,
 		    (uint32_t)dpkt->pkt_csum_rx_value);
+#endif
 		break;
 
 	case NR_TX:
@@ -184,11 +184,13 @@ pkt_copy_from_pkt(const enum txrx t, kern_packet_t dph, const uint16_t doff,
 		dpkt->pkt_csum_tx_start_off = 0;
 		dpkt->pkt_csum_tx_stuff_off = 0;
 
+#if COPY_LOG
 		SK_DF(SK_VERB_COPY | SK_VERB_TX,
 		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u, flags %u",
-		    sk_proc_name_address(current_proc()),
+		    sk_proc_name(current_proc()),
 		    sk_proc_pid(current_proc()), len,
 		    (copysum ? (len - start) : 0), csum, start, dpkt->pkt_csum_flags);
+#endif
 		break;
 
 	default:
@@ -198,10 +200,12 @@ pkt_copy_from_pkt(const enum txrx t, kern_packet_t dph, const uint16_t doff,
 	}
 	METADATA_ADJUST_LEN(dpkt, len, doff);
 
+#if COPY_LOG
 	SK_DF(SK_VERB_COPY | SK_VERB_DUMP, "%s(%d) %s %s",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
+	    sk_proc_name(current_proc()), sk_proc_pid(current_proc()),
 	    (t == NR_RX) ? "RX" : "TX",
-	    sk_dump("buf", dbaddr, len, 128, NULL, 0));
+	    sk_dump("buf", dbaddr, len, 128));
+#endif
 }
 
 /*
@@ -255,7 +259,7 @@ _pkt_copyaddr_sum(kern_packet_t sph, uint16_t soff, uint8_t *__sized_by(len)dbad
 	while (len != 0) {
 		PKT_GET_NEXT_BUFLET(spkt, sbcnt, sbufp, sbuf);
 		if (__improbable(sbuf == NULL)) {
-			panic("%s: bad packet, 0x%llx [off %d, len %d]",
+			panic("%s: bad packet, %p [off %d, len %d]",
 			    __func__, SK_KVA(spkt), off0, len0);
 			/* NOTREACHED */
 			__builtin_unreachable();
@@ -316,19 +320,13 @@ _pkt_copyaddr_sum(kern_packet_t sph, uint16_t soff, uint8_t *__sized_by(len)dbad
 		}
 
 		dbaddr += clen;
-
 		/*
-		 * -fbounds-safety: the following 3 lines were moved up from
-		 * after the if-block. None of these are modified in the
-		 * if-block, so moving these up here shouldn't change the
-		 * behavior. Also, updating len before updating sbaddr led to
-		 * faster throughput than doing: dbaddr += clen; sbaddr += clen;
+		 * Updating len before updating sbaddr led to faster throughput
+		 * than doing: dbaddr += clen; sbaddr += clen;
 		 * len -= clen + odd;
 		 */
-		sblen -= clen + odd;
-		len -= clen + odd;
-		ASSERT(sblen == 0 || len == 0);
-
+		len -= clen;
+		sblen -= clen;
 		sbaddr += clen;
 
 		if (__probable(do_csum)) {
@@ -338,7 +336,16 @@ _pkt_copyaddr_sum(kern_packet_t sph, uint16_t soff, uint8_t *__sized_by(len)dbad
 #else /* BYTE_ORDER != LITTLE_ENDIAN */
 				partial += (uint8_t)*sbaddr << 8;
 #endif /* BYTE_ORDER != LITTLE_ENDIAN */
-				*dbaddr++ = *sbaddr++;
+				ASSERT(odd == 1);
+				/*
+				 * -fbounds-safety: Not written as `*dbaddr++ = *sbaddr++`
+				 * to avoid compiler bug (rdar://98749526). This
+				 * bug is only fixed when using `bound-checks-new-checks`.
+				 */
+				*dbaddr = *sbaddr++;
+				dbaddr++;
+				len -= 1;
+				sblen -= 1;
 				started_on_odd = !started_on_odd;
 			}
 
@@ -352,6 +359,7 @@ _pkt_copyaddr_sum(kern_packet_t sph, uint16_t soff, uint8_t *__sized_by(len)dbad
 			 */
 			sum = (sum >> 16) + (sum & 0xffff);
 		}
+		ASSERT(sblen == 0 || len == 0);
 	}
 
 	if (odd_start) {
@@ -753,11 +761,13 @@ pkt_copy_multi_buflet_from_pkt(const enum txrx t, kern_packet_t dph,
 		dpkt->pkt_csum_tx_start_off = 0;
 		dpkt->pkt_csum_tx_stuff_off = 0;
 
+#if COPY_LOG
 		SK_DF(SK_VERB_COPY | SK_VERB_TX,
 		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u, flags %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start, dpkt->pkt_csum_flags);
+		    sk_proc_name(current_proc()), sk_proc_pid(current_proc()),
+		    len, (copysum ? (len - start) : 0), csum, start,
+		    dpkt->pkt_csum_flags);
+#endif
 		break;
 
 	default:
@@ -811,9 +821,10 @@ pkt_copy_from_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 	struct m_tag *ts_tag = NULL;
 	uint32_t partial;
 	uint16_t csum = 0;
+	uint16_t vlan = 0;
 	uint8_t *baddr;
 
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 
 	/* get buffer address from packet */
 	MD_BUFLET_ADDR_ABS(pkt, baddr);
@@ -846,21 +857,26 @@ pkt_copy_from_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		} else {
 			m_copydata(m, moff, len, baddr);
 		}
+
+		if (mbuf_get_vlan_tag(m, &vlan) == 0) {
+			__packet_set_vlan_tag(ph, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_RX, current_proc(),
+		    "RX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "%s(%d) RX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   mbuf 0x%llx csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   mbuf %p csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(m), m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_rx_start,
 		    (uint32_t)m->m_pkthdr.csum_rx_val);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   pkt  0x%llx poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   pkt  %p poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_rx_start_off,
 		    (uint32_t)pkt->pkt_csum_rx_value);
+#endif
 		break;
 
 	case NR_TX:
@@ -941,6 +957,9 @@ pkt_copy_from_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		if ((m->m_pkthdr.pkt_flags & PKTF_START_SEQ) != 0) {
 			pkt->pkt_flow_tcp_seq = htonl(m->m_pkthdr.tx_start_seq);
 		}
+		if ((m->m_pkthdr.pkt_ext_flags & PKTF_EXT_LPW) != 0) {
+			pkt->pkt_pflags |= __PKT_F_LPW;
+		}
 		if ((m->m_pkthdr.pkt_ext_flags & PKTF_EXT_L4S) != 0) {
 			pkt->pkt_pflags |= PKT_F_L4S;
 		}
@@ -976,16 +995,20 @@ pkt_copy_from_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 			__packet_set_tx_timestamp(ph, *(uint64_t *)(ts_tag->m_tag_data));
 		}
 
+		if (mbuf_get_vlan_tag(m, &vlan) == 0) {
+			__packet_set_vlan_tag(ph, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_TX, current_proc(),
+		    "TX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "   mbuf 0x%llx csumf/txstart/txstuff 0x%x/%u/%u",
+		    "   mbuf %p csumf/txstart/txstuff 0x%x/%u/%u",
 		    SK_KVA(m), m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_tx_start,
 		    (uint32_t)m->m_pkthdr.csum_tx_stuff);
+#endif
 		break;
 
 	default:
@@ -1001,10 +1024,10 @@ pkt_copy_from_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		__packet_set_link_multicast(ph);
 	}
 
-	SK_DF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, "%s(%d) %s %s",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
-	    (t == NR_RX) ? "RX" : "TX",
-	    sk_dump("buf", baddr, len, 128, NULL, 0));
+#if COPY_LOG
+	SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, current_proc(), "%s %s",
+	    (t == NR_RX) ? "RX" : "TX", sk_dump("buf", baddr, len, 128));
+#endif
 }
 
 /*
@@ -1198,9 +1221,10 @@ pkt_copy_multi_buflet_from_mbuf(const enum txrx t, kern_packet_t ph,
 	struct m_tag *ts_tag = NULL;
 	uint32_t partial;
 	uint16_t csum = 0;
+	uint16_t vlan = 0;
 	uint8_t *baddr;
 
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 
 	/* get buffer address from packet */
 	MD_BUFLET_ADDR_ABS(pkt, baddr);
@@ -1234,21 +1258,26 @@ pkt_copy_multi_buflet_from_mbuf(const enum txrx t, kern_packet_t ph,
 		} else {
 			(void) m_copypkt_sum(m, moff, ph, poff, len, FALSE);
 		}
+
+		if (mbuf_get_vlan_tag(m, &vlan) == 0) {
+			__packet_set_vlan_tag(ph, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_RX, current_proc(),
+		    "RX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "%s(%d) RX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   mbuf 0x%llx csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   mbuf %p csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(m), m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_rx_start,
 		    (uint32_t)m->m_pkthdr.csum_rx_val);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   pkt  0x%llx poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   pkt  %p poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_rx_start_off,
 		    (uint32_t)pkt->pkt_csum_rx_value);
+#endif
 		break;
 
 	case NR_TX:
@@ -1330,6 +1359,9 @@ pkt_copy_multi_buflet_from_mbuf(const enum txrx t, kern_packet_t ph,
 		if ((m->m_pkthdr.pkt_flags & PKTF_START_SEQ) != 0) {
 			pkt->pkt_flow_tcp_seq = htonl(m->m_pkthdr.tx_start_seq);
 		}
+		if ((m->m_pkthdr.pkt_ext_flags & PKTF_EXT_LPW) != 0) {
+			pkt->pkt_pflags |= __PKT_F_LPW;
+		}
 		if ((m->m_pkthdr.pkt_ext_flags & PKTF_EXT_L4S) != 0) {
 			pkt->pkt_pflags |= PKT_F_L4S;
 		}
@@ -1365,16 +1397,20 @@ pkt_copy_multi_buflet_from_mbuf(const enum txrx t, kern_packet_t ph,
 			__packet_set_tx_timestamp(ph, *(uint64_t *)(ts_tag->m_tag_data));
 		}
 
+		if (mbuf_get_vlan_tag(m, &vlan) == 0) {
+			__packet_set_vlan_tag(ph, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_TX, current_proc(),
+		    "TX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "   mbuf 0x%llx csumf/txstart/txstuff 0x%x/%u/%u",
+		    "   mbuf %p csumf/txstart/txstuff 0x%x/%u/%u",
 		    SK_KVA(m), m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_tx_start,
 		    (uint32_t)m->m_pkthdr.csum_tx_stuff);
+#endif
 		break;
 
 	default:
@@ -1389,10 +1425,10 @@ pkt_copy_multi_buflet_from_mbuf(const enum txrx t, kern_packet_t ph,
 		__packet_set_link_multicast(ph);
 	}
 
-	SK_DF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, "%s(%d) %s %s",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
-	    (t == NR_RX) ? "RX" : "TX",
-	    sk_dump("buf", baddr, len, 128, NULL, 0));
+#if COPY_LOG
+	SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, current_proc(), "%s %s",
+	    (t == NR_RX) ? "RX" : "TX", sk_dump("buf", baddr, len, 128));
+#endif
 }
 
 static inline uint32_t
@@ -1449,12 +1485,13 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 	uint32_t partial = 0;
 	uint32_t remaining_len = len, copied_len = 0;
 	uint16_t csum = 0;
+	uint16_t vlan = 0;
 	uint8_t *baddr;
 	uint8_t *dp;
 	boolean_t do_sum = copysum && !PACKET_HAS_FULL_CHECKSUM_FLAGS(pkt);
 
 	ASSERT(len >= start);
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 
 	/* get buffer address from packet */
 	MD_BUFLET_ADDR_ABS(pkt, baddr);
@@ -1514,7 +1551,7 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		} else {
 			m->m_pkthdr.csum_rx_start = pkt->pkt_csum_rx_start_off;
 			m->m_pkthdr.csum_rx_val = pkt->pkt_csum_rx_value;
-			_CASSERT(CSUM_RX_FULL_FLAGS == PACKET_CSUM_RX_FULL_FLAGS);
+			static_assert(CSUM_RX_FULL_FLAGS == PACKET_CSUM_RX_FULL_FLAGS);
 			m->m_pkthdr.csum_flags |= pkt->pkt_csum_flags & PACKET_CSUM_RX_FULL_FLAGS;
 			if (__improbable((pkt->pkt_csum_flags & PACKET_CSUM_PARTIAL) != 0)) {
 				m->m_pkthdr.csum_flags |= CSUM_PARTIAL;
@@ -1527,21 +1564,25 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 
 		m->m_pkthdr.rx_seg_cnt = pkt->pkt_seg_cnt;
 
+		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
+			mbuf_set_vlan_tag(m, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_RX, current_proc(),
+		    "RX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "%s(%d) RX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   mbuf 0x%llx moff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   mbuf %p moff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(m), moff, m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_rx_start,
 		    (uint32_t)m->m_pkthdr.csum_rx_val);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   pkt  0x%llx poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   pkt  %p poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_rx_start_off,
 		    (uint32_t)pkt->pkt_csum_rx_value);
+#endif
 		break;
 
 	case NR_TX:
@@ -1605,11 +1646,13 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		if ((pkt->pkt_pflags & PKT_F_START_SEQ) != 0) {
 			m->m_pkthdr.tx_start_seq = ntohl(pkt->pkt_flow_tcp_seq);
 		}
+		if ((pkt->pkt_pflags & __PKT_F_LPW) != 0) {
+			m->m_pkthdr.pkt_ext_flags |= PKTF_EXT_LPW;
+		}
 		if ((pkt->pkt_pflags & PKT_F_L4S) != 0) {
 			m->m_pkthdr.pkt_ext_flags |= PKTF_EXT_L4S;
 		}
-		if (__improbable(copy_pkt_tx_time != 0 &&
-		    (pkt->pkt_pflags & PKT_F_OPT_TX_TIMESTAMP) != 0)) {
+		if ((pkt->pkt_pflags & PKT_F_OPT_TX_TIMESTAMP) != 0) {
 			struct m_tag *tag = NULL;
 			tag = m_tag_create(KERNEL_MODULE_TAG_ID, KERNEL_TAG_TYPE_AQM,
 			    sizeof(uint64_t), M_WAITOK, m);
@@ -1621,16 +1664,20 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 		m->m_pkthdr.necp_mtag.necp_policy_id = pkt->pkt_policy_id;
 		m->m_pkthdr.necp_mtag.necp_skip_policy_id = pkt->pkt_skip_policy_id;
 
+		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
+			mbuf_set_vlan_tag(m, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_TX, current_proc(),
+		    "TX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "   pkt  0x%llx poff %u csumf/txstart/txstuff 0x%x/%u/%u",
+		    "   pkt  %p poff %u csumf/txstart/txstuff 0x%x/%u/%u",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_tx_start_off,
 		    (uint32_t)pkt->pkt_csum_tx_stuff_off);
+#endif
 		break;
 
 	default:
@@ -1644,10 +1691,11 @@ pkt_copy_to_mbuf(const enum txrx t, kern_packet_t ph, const uint16_t poff,
 	} else if (pkt->pkt_link_flags & PKT_LINKF_MCAST) {
 		m->m_flags |= M_MCAST;
 	}
-	SK_DF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, "%s(%d) %s %s",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
+#if COPY_LOG
+	SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, current_proc(), "%s %s",
 	    (t == NR_RX) ? "RX" : "TX",
-	    sk_dump("buf", (uint8_t *)dp, m->m_len, 128, NULL, 0));
+	    sk_dump("buf", (uint8_t *)dp, m->m_len, 128));
+#endif
 }
 
 /*
@@ -1669,12 +1717,13 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 	uint32_t partial = 0;
 	uint32_t remaining_len = len, copied_len = 0;
 	uint16_t csum = 0;
+	uint16_t vlan = 0;
 	uint8_t *baddr;
 	uint8_t *dp;
 	boolean_t do_sum = copysum && !PACKET_HAS_FULL_CHECKSUM_FLAGS(pkt);
 
 	ASSERT(len >= start);
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 
 	/* get buffer address from packet */
 	MD_BUFLET_ADDR_ABS(pkt, baddr);
@@ -1730,7 +1779,7 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 		} else {
 			m->m_pkthdr.csum_rx_start = pkt->pkt_csum_rx_start_off;
 			m->m_pkthdr.csum_rx_val = pkt->pkt_csum_rx_value;
-			_CASSERT(CSUM_RX_FULL_FLAGS == PACKET_CSUM_RX_FULL_FLAGS);
+			static_assert(CSUM_RX_FULL_FLAGS == PACKET_CSUM_RX_FULL_FLAGS);
 			m->m_pkthdr.csum_flags |= pkt->pkt_csum_flags & PACKET_CSUM_RX_FULL_FLAGS;
 			if (__improbable((pkt->pkt_csum_flags & PACKET_CSUM_PARTIAL) != 0)) {
 				m->m_pkthdr.csum_flags |= CSUM_PARTIAL;
@@ -1746,21 +1795,25 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 
 		m->m_pkthdr.rx_seg_cnt = pkt->pkt_seg_cnt;
 
+		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
+			mbuf_set_vlan_tag(m, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_RX, current_proc(),
+		    "RX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "%s(%d) RX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   mbuf 0x%llx moff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   mbuf %p moff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(m), moff, m->m_pkthdr.csum_flags,
 		    (uint32_t)m->m_pkthdr.csum_rx_start,
 		    (uint32_t)m->m_pkthdr.csum_rx_val);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_RX,
-		    "   pkt  0x%llx poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
+		    "   pkt  %p poff %u csumf/rxstart/rxval 0x%x/%u/0x%04x",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_rx_start_off,
 		    (uint32_t)pkt->pkt_csum_rx_value);
+#endif
 		break;
 	case NR_TX:
 		ASSERT(len <= M16KCLBYTES);
@@ -1822,11 +1875,13 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 		if ((pkt->pkt_pflags & PKT_F_START_SEQ) != 0) {
 			m->m_pkthdr.tx_start_seq = ntohl(pkt->pkt_flow_tcp_seq);
 		}
+		if ((pkt->pkt_pflags & __PKT_F_LPW) != 0) {
+			m->m_pkthdr.pkt_ext_flags |= PKTF_EXT_LPW;
+		}
 		if ((pkt->pkt_pflags & PKT_F_L4S) != 0) {
 			m->m_pkthdr.pkt_ext_flags |= PKTF_EXT_L4S;
 		}
-		if (__improbable(copy_pkt_tx_time != 0 &&
-		    (pkt->pkt_pflags & PKT_F_OPT_TX_TIMESTAMP) != 0)) {
+		if ((pkt->pkt_pflags & PKT_F_OPT_TX_TIMESTAMP) != 0) {
 			struct m_tag *tag = NULL;
 			tag = m_tag_create(KERNEL_MODULE_TAG_ID, KERNEL_TAG_TYPE_AQM,
 			    sizeof(uint64_t), M_WAITOK, m);
@@ -1836,16 +1891,20 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 			}
 		}
 
+		if (__packet_get_vlan_tag(ph, &vlan) == 0) {
+			mbuf_set_vlan_tag(m, vlan);
+		}
+
+#if COPY_LOG
+		SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_TX, current_proc(),
+		    "TX len %u, copy+sum %u (csum 0x%04x), start %u",
+		    len, (copysum ? (len - start) : 0), csum, start);
 		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "%s(%d) TX len %u, copy+sum %u (csum 0x%04x), start %u",
-		    sk_proc_name_address(current_proc()),
-		    sk_proc_pid(current_proc()), len,
-		    (copysum ? (len - start) : 0), csum, start);
-		SK_DF(SK_VERB_COPY_MBUF | SK_VERB_TX,
-		    "   pkt  0x%llx poff %u csumf/txstart/txstuff 0x%x/%u/%u",
+		    "   pkt  %p poff %u csumf/txstart/txstuff 0x%x/%u/%u",
 		    SK_KVA(pkt), poff, pkt->pkt_csum_flags,
 		    (uint32_t)pkt->pkt_csum_tx_start_off,
 		    (uint32_t)pkt->pkt_csum_tx_stuff_off);
+#endif
 		break;
 
 	default:
@@ -1859,10 +1918,11 @@ pkt_copy_multi_buflet_to_mbuf(const enum txrx t, kern_packet_t ph,
 	} else if (pkt->pkt_link_flags & PKT_LINKF_MCAST) {
 		m->m_flags |= M_MCAST;
 	}
-	SK_DF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, "%s(%d) %s %s",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
+#if COPY_LOG
+	SK_PDF(SK_VERB_COPY_MBUF | SK_VERB_DUMP, current_proc(), "%s %s",
 	    (t == NR_RX) ? "RX" : "TX",
-	    sk_dump("buf", (uint8_t *)dp, m->m_len, 128, NULL, 0));
+	    sk_dump("buf", (uint8_t *)dp, m->m_len, 128));
+#endif
 }
 
 /*

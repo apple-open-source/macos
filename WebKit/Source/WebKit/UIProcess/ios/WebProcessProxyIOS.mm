@@ -75,16 +75,6 @@ void WebProcessProxy::platformInitialize()
     throttler().setAllowsActivities(!m_processPool->processesShouldSuspend());
 }
 
-void WebProcessProxy::platformDestroy()
-{
-#if HAVE(MOUSE_DEVICE_OBSERVATION)
-    [[WKMouseDeviceObserver sharedInstance] stop];
-#endif
-#if HAVE(STYLUS_DEVICE_OBSERVATION)
-    [[WKStylusDeviceObserver sharedInstance] stop];
-#endif
-}
-
 bool WebProcessProxy::fullKeyboardAccessEnabled()
 {
 #if ENABLE(FULL_KEYBOARD_ACCESS)

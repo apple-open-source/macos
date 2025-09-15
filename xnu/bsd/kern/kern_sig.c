@@ -145,8 +145,8 @@ extern void doexception(int exc, mach_exception_code_t code,
     mach_exception_subcode_t sub);
 
 static void stop(proc_t, proc_t);
-int cansignal_nomac(proc_t, kauth_cred_t, proc_t, int);
-int cansignal(proc_t, kauth_cred_t, proc_t, int);
+bool cansignal_nomac(proc_t, kauth_cred_t, proc_t, int);
+bool cansignal(proc_t, kauth_cred_t, proc_t, int);
 int killpg1(proc_t, int, int, int, int);
 kern_return_t do_bsdexception(int, int, int);
 void __posix_sem_syscall_return(kern_return_t);
@@ -297,39 +297,45 @@ signal_setast(thread_t sig_actthread)
 	act_set_astbsd(sig_actthread);
 }
 
-int
+bool
 cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
 {
 	/* you can signal yourself */
 	if (src == dst) {
-		return 1;
+		return true;
 	}
 
-	/* you can't send the init proc SIGKILL, even if root */
-	if (signum == SIGKILL && dst == initproc) {
-		return 0;
+	/*
+	 * You can't signal the initproc, even if root.
+	 * Note that this still permits the kernel itself to signal initproc directly,
+	 * e.g SIGCHLD when reparenting or SIGTERM at shutdown, because those are
+	 * not considered to originate from a user process, so the cansignal()
+	 * check isn't performed.
+	 */
+	if (dst == initproc) {
+		return false;
 	}
 
 	/* otherwise, root can always signal */
 	if (kauth_cred_issuser(uc_src)) {
-		return 1;
+		return true;
 	}
 
 	/* processes in the same session can send SIGCONT to each other */
 	if (signum == SIGCONT && proc_sessionid(src) == proc_sessionid(dst)) {
-		return 1;
+		return true;
 	}
 
 #if XNU_TARGET_OS_IOS
 	// Allow debugging of third party drivers on iOS
 	if (proc_is_third_party_debuggable_driver(dst)) {
-		return 1;
+		return true;
 	}
 #endif /* XNU_TARGET_OS_IOS */
 
 	/* the source process must be authorized to signal the target */
 	{
-		int allowed = 0;
+		bool allowed = false;
 		kauth_cred_t uc_dst = NOCRED, uc_ref = NOCRED;
 
 		uc_dst = uc_ref = kauth_cred_proc_ref(dst);
@@ -342,7 +348,7 @@ cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
 		    kauth_cred_getruid(uc_src) == kauth_cred_getsvuid(uc_dst) ||
 		    kauth_cred_getuid(uc_src) == kauth_cred_getruid(uc_dst) ||
 		    kauth_cred_getuid(uc_src) == kauth_cred_getsvuid(uc_dst)) {
-			allowed = 1;
+			allowed = true;
 		}
 
 		if (uc_ref != NOCRED) {
@@ -359,13 +365,13 @@ cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
  * `dst`?  The ucred is referenced by the caller so internal fileds can be used
  * safely.
  */
-int
+bool
 cansignal(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum)
 {
 #if CONFIG_MACF
-	struct proc_ident dst_ident = proc_ident(dst);
+	struct proc_ident dst_ident = proc_ident_with_policy(dst, IDENT_VALIDATION_PROC_MAY_EXEC | IDENT_VALIDATION_PROC_MAY_EXIT);
 	if (mac_proc_check_signal(src, NULL, &dst_ident, signum)) {
-		return 0;
+		return false;
 	}
 #endif
 
@@ -399,8 +405,7 @@ static int
 signal_is_restricted(proc_t p, int signum)
 {
 	if (sigmask(signum) & sigrestrictmask()) {
-		if (sigrestrict_arg == 0 &&
-		    task_get_apptype(proc_task(p)) == TASK_APPTYPE_APP_DEFAULT) {
+		if (sigrestrict_arg == 0 && task_is_app(proc_task(p))) {
 			return ENOTSUP;
 		} else {
 			return EINVAL;
@@ -1125,8 +1130,9 @@ __pthread_kill(__unused proc_t p, struct __pthread_kill_args *uap,
 	 * workq threads must have kills enabled through either
 	 * BSDTHREAD_CTL_WORKQ_ALLOW_KILL or BSDTHREAD_CTL_WORKQ_ALLOW_SIGMASK
 	 */
-	if ((thread_get_tag(target_act) & THREAD_TAG_WORKQUEUE) &&
-	    !(uth->uu_workq_pthread_kill_allowed || p->p_workq_allow_sigmask)) {
+	if (((thread_get_tag(target_act) & THREAD_TAG_WORKQUEUE) &&
+	    !(uth->uu_workq_pthread_kill_allowed || p->p_workq_allow_sigmask)) ||
+	    (thread_get_tag(target_act) & THREAD_TAG_AIO_WORKQUEUE)) {
 		error = ENOTSUP;
 		goto out;
 	}
@@ -1386,7 +1392,7 @@ kill(proc_t cp, struct kill_args *uap, __unused int32_t *retval)
 	if (uap->pid > 0) {
 		/* kill single process */
 		if ((p = proc_find(uap->pid)) == NULL) {
-			if ((p = pzfind(uap->pid)) != NULL) {
+			if (pzfind(uap->pid)) {
 				/*
 				 * POSIX 1003.1-2001 requires returning success when killing a
 				 * zombie; see Rationale for kill(2).
@@ -1862,7 +1868,8 @@ set_thread_extra_flags(task_t task, struct uthread *uth, os_reason_t reason)
 			reason->osr_flags |= OS_REASON_FLAG_SHAREDREGION_FAULT;
 
 #if __has_feature(ptrauth_calls)
-			if (!vm_shared_region_reslide_restrict || task_is_hardened_binary(current_task())) {
+			if (!vm_shared_region_reslide_restrict ||
+			    (task_get_platform_restrictions_version(current_task()) >= 1)) {
 				reslide_shared_region = TRUE;
 			}
 #endif /* __has_feature(ptrauth_calls) */
@@ -1944,7 +1951,8 @@ again:
 		if (((uth->uu_flag & UT_NO_SIGMASK) == 0) &&
 		    (((uth->uu_sigmask & mask) == 0) || (uth->uu_sigwait & mask))) {
 			thread_t th = get_machthread(uth);
-			if (skip_wqthreads && (thread_get_tag(th) & THREAD_TAG_WORKQUEUE)) {
+			if ((skip_wqthreads && (thread_get_tag(th) & THREAD_TAG_WORKQUEUE)) ||
+			    (thread_get_tag(th) & THREAD_TAG_AIO_WORKQUEUE)) {
 				/* Workqueue threads may be parked in the kernel unable to
 				 * deliver signals for an extended period of time, so skip them
 				 * in favor of pthreads in a first pass. (rdar://50054475). */
@@ -3057,7 +3065,6 @@ postsig_locked(int signum)
 	int mask, returnmask;
 	struct uthread * ut;
 	os_reason_t ut_exit_reason = OS_REASON_NULL;
-	int coredump_flags = 0;
 
 #if DIAGNOSTIC
 	if (signum == 0) {
@@ -3097,29 +3104,70 @@ postsig_locked(int signum)
 			p->p_sigacts.ps_sig = signum;
 			proc_signalend(p, 1);
 			proc_unlock(p);
-			if (task_is_driver(proc_task(p))) {
-				coredump_flags |= COREDUMP_FULLFSYNC;
-			}
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
+			/*
+			 * For now, driver dumps are only performed by xnu.
+			 * Regular processes can be configured to use xnu
+			 * (synchronously generating very large core files),
+			 * or xnu can generate a specially tagged corpse which
+			 * (depending on other configuration) will cause
+			 * ReportCrash to dump a core file asynchronously.
+			 *
+			 * The userland dumping path must operate
+			 * asynchronously to avoid deadlocks, yet may have
+			 * unexpected failures => indicate dump *initiation*
+			 * via WCOREFLAG (or CLD_DUMPED).
+			 */
+			do {
+				if (task_is_driver(proc_task(p))) {
 #if CONFIG_COREDUMP
-			if (coredump(p, 0, coredump_flags) == 0) {
-				signum |= WCOREFLAG;
-			}
-#endif
+					if (coredump(p, 0, COREDUMP_FULLFSYNC) == 0) {
+						signum |= WCOREFLAG;
+					}
+#endif /* CONFIG_COREDUMP */
+					break;
+				}
+#if CONFIG_UCOREDUMP
+				if (do_ucoredump) {
+					/*
+					 * A compatibility nod to existing
+					 * coredump behavior: only set
+					 * WCOREFLAG here if the user has
+					 * implicitly asked for a core
+					 * file and it passes security
+					 * checks. (A core file might still
+					 * be dumped because of other policy.)
+					 */
+					if (proc_limitgetcur(p, RLIMIT_CORE) != 0 &&
+					    is_coredump_eligible(p) == 0) {
+						signum |= WCOREFLAG;
+					}
+					break;
+				}
+#endif /* CONFIG_UCOREDUMP */
+#if CONFIG_COREDUMP
+				if (coredump(p, 0, 0) == 0) {
+					signum |= WCOREFLAG;
+				}
+#endif /* CONFIG_COREDUMP */
+			} while (0);
+#endif /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
 		} else {
 			proc_signalend(p, 1);
 			proc_unlock(p);
 		}
 
 #if CONFIG_DTRACE
-		bzero((caddr_t)&(ut->t_dtrace_siginfo), sizeof(ut->t_dtrace_siginfo));
+		bzero(&(ut->t_dtrace_siginfo), sizeof(ut->t_dtrace_siginfo));
 
-		ut->t_dtrace_siginfo.si_signo = signum;
+		const int signo = signum & ~WCOREFLAG;
+		ut->t_dtrace_siginfo.si_signo = signo;
 		ut->t_dtrace_siginfo.si_pid = p->si_pid;
 		ut->t_dtrace_siginfo.si_uid = p->si_uid;
 		ut->t_dtrace_siginfo.si_status = WEXITSTATUS(p->si_status);
 
 		/* Fire DTrace proc:::fault probe when signal is generated by hardware. */
-		switch (signum) {
+		switch (signo) {
 		case SIGILL: case SIGBUS: case SIGSEGV: case SIGFPE: case SIGTRAP:
 			DTRACE_PROC2(fault, int, (int)(ut->uu_code), siginfo_t *, &(ut->t_dtrace_siginfo));
 			break;
@@ -3128,7 +3176,7 @@ postsig_locked(int signum)
 		}
 
 
-		DTRACE_PROC3(signal__handle, int, signum, siginfo_t *, &(ut->t_dtrace_siginfo),
+		DTRACE_PROC3(signal__handle, int, signo, siginfo_t *, &(ut->t_dtrace_siginfo),
 		    void (*)(void), SIG_DFL);
 #endif
 

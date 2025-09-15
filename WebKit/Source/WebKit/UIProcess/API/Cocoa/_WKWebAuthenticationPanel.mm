@@ -147,9 +147,14 @@ NSString * const _WKLocalAuthenticatorCredentialLastUsedDateKey = @"_WKLocalAuth
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(_WKWebAuthenticationPanel.class, self))
         return;
 
-    _panel->~WebAuthenticationPanel();
+    self._protectedPanel->~WebAuthenticationPanel();
 
     [super dealloc];
+}
+
+- (Ref<API::WebAuthenticationPanel>)_protectedPanel
+{
+    return *_panel;
 }
 
 - (id <_WKWebAuthenticationPanelDelegate>)delegate
@@ -164,13 +169,13 @@ NSString * const _WKLocalAuthenticatorCredentialLastUsedDateKey = @"_WKLocalAuth
 {
     Ref client = WebKit::WebAuthenticationPanelClient::create(self, delegate);
     _client = client.ptr();
-    _panel->setClient(WTFMove(client));
+    self._protectedPanel->setClient(WTFMove(client));
 }
 
 
 - (NSString *)relyingPartyID
 {
-    return _panel->rpId();
+    return _panel->rpId().createNSString().autorelease();
 }
 
 static _WKWebAuthenticationTransport wkWebAuthenticationTransport(WebCore::AuthenticatorTransport transport)
@@ -199,7 +204,7 @@ static _WKWebAuthenticationTransport wkWebAuthenticationTransport(WebCore::Authe
         return _transports.get();
 
     auto& transports = _panel->transports();
-    _transports = [[NSMutableSet alloc] initWithCapacity:transports.size()];
+    _transports = adoptNS([[NSMutableSet alloc] initWithCapacity:transports.size()]);
     for (auto& transport : transports)
         [_transports addObject:adoptNS([[NSNumber alloc] initWithInt:wkWebAuthenticationTransport(transport)]).get()];
     return _transports.get();
@@ -240,7 +245,7 @@ static fido::AuthenticatorSupportedOptions::UserVerificationAvailability coreUse
 
 - (NSString *)userName
 {
-    return _panel->userName();
+    return _panel->userName().createNSString().autorelease();
 }
 
 #else // ENABLE(WEB_AUTHN)
@@ -306,7 +311,7 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
         if (!credentialID)
             credentialID = attributes[bridge_cast(kSecAttrApplicationLabel)];
         auto credential = adoptNS([[NSMutableDictionary alloc] initWithObjectsAndKeys:
-            username, _WKLocalAuthenticatorCredentialNameKey,
+            username.createNSString().get(), _WKLocalAuthenticatorCredentialNameKey,
             credentialID, _WKLocalAuthenticatorCredentialIDKey,
             attributes[bridge_cast(kSecAttrLabel)], _WKLocalAuthenticatorCredentialRelyingPartyIDKey,
             attributes[bridge_cast(kSecAttrModificationDate)], _WKLocalAuthenticatorCredentialLastModificationDateKey,
@@ -324,7 +329,7 @@ static RetainPtr<NSArray> getAllLocalAuthenticatorCredentialsImpl(NSString *acce
 
         it = responseMap.find(cbor::CBORValue(fido::kDisplayNameMapKey));
         if (it != responseMap.end() && it->second.isString())
-            [credential setObject:it->second.getString() forKey:_WKLocalAuthenticatorCredentialDisplayNameKey];
+            [credential setObject:it->second.getString().createNSString().get() forKey:_WKLocalAuthenticatorCredentialDisplayNameKey];
 
         [result addObject:credential.get()];
     }
@@ -628,16 +633,16 @@ static void createNSErrorFromWKErrorIfNecessary(NSError **error, WKErrorCode err
     }
     auto keyTag = cbor::CBORWriter::write(cbor::CBORValue(it->second.getMap()));
 
-    NSDictionary *options = @{
+    RetainPtr options = @{
         // Key type values are string values of numbers, stored as kCFNumberSInt64Type in attributes, but must be passed as string here
-        (id)kSecAttrKeyType: (id)[NSString stringWithFormat:@"%i", (int)keyType],
+        (id)kSecAttrKeyType: (id)adoptNS([[NSString alloc] initWithFormat:@"%i", (int)keyType]).get(),
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrKeySizeInBits: @(keySize),
     };
     CFErrorRef errorRef = nullptr;
     auto key = adoptCF(SecKeyCreateWithData(
         bridge_cast(privateKey.get()),
-        bridge_cast(options),
+        bridge_cast(options.get()),
         &errorRef
     ));
     if (errorRef) {
@@ -646,22 +651,21 @@ static void createNSErrorFromWKErrorIfNecessary(NSError **error, WKErrorCode err
     }
 
     auto publicKey = adoptCF(SecKeyCopyPublicKey(key.get()));
-    auto publicKeyDataRep = adoptCF(SecKeyCopyExternalRepresentation(publicKey.get(), &errorRef));
+    RetainPtr nsPublicKeyData = bridge_cast(adoptCF(SecKeyCopyExternalRepresentation(publicKey.get(), &errorRef)));
     if (errorRef) {
         createNSErrorFromWKErrorIfNecessary(error, WKErrorMalformedCredential);
         return nullptr;
     }
 
-    NSData *nsPublicKeyData = (NSData *)publicKeyDataRep.get();
     auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_1);
-    digest->addBytes(span(nsPublicKeyData));
+    digest->addBytes(span(nsPublicKeyData.get()));
     auto credentialId = digest->computeHash();
     RetainPtr nsCredentialId = toNSData(credentialId.span());
 
     BOOL useAlternateKeychainAttribute = WebKit::shouldUseAlternateKeychainAttribute();
     auto query = adoptNS([[NSMutableDictionary alloc] initWithObjectsAndKeys:
         (id)kSecClassKey, (id)kSecClass,
-        (id)rp, (id)kSecAttrLabel,
+        (id)rp.createNSString().get(), (id)kSecAttrLabel,
         @YES, (id)kSecUseDataProtectionKeychain,
         nil
     ]);
@@ -691,7 +695,7 @@ static void createNSErrorFromWKErrorIfNecessary(NSError **error, WKErrorCode err
     auto addQuery = adoptNS([[NSMutableDictionary alloc] initWithObjectsAndKeys:
         (id)key.get(), (id)kSecValueRef,
         (id)kSecAttrKeyClassPrivate, (id)kSecAttrKeyClass,
-        (id)rp, (id)kSecAttrLabel,
+        (id)rp.createNSString().get(), (id)kSecAttrLabel,
         secAttrApplicationTag.get(), (id)kSecAttrApplicationTag,
         @YES, (id)kSecUseDataProtectionKeychain,
         (id)kSecAttrAccessibleAfterFirstUnlock, (id)kSecAttrAccessible,
@@ -781,7 +785,7 @@ static void createNSErrorFromWKErrorIfNecessary(NSError **error, WKErrorCode err
     credentialMap[cbor::CBORValue(WebCore::privateKeyKey)] = cbor::CBORValue(WebCore::toBufferSource(bridge_id_cast(privateKeyRep.get())));
     credentialMap[cbor::CBORValue(WebCore::keyTypeKey)] = cbor::CBORValue(keyType);
     credentialMap[cbor::CBORValue(WebCore::keySizeKey)] = cbor::CBORValue(keySize);
-    credentialMap[cbor::CBORValue(WebCore::relyingPartyKey)] = cbor::CBORValue(String(attributes.get()[bridge_id_cast(kSecAttrLabel)]));
+    credentialMap[cbor::CBORValue(WebCore::relyingPartyKey)] = cbor::CBORValue(String(dynamic_objc_cast<NSString>(attributes.get()[bridge_id_cast(kSecAttrLabel)])));
     auto decodedResponse = cbor::CBORReader::read(makeVector(attributes.get()[bridge_id_cast(kSecAttrApplicationTag)]));
     if (!decodedResponse || !decodedResponse->isMap()) {
         createNSErrorFromWKErrorIfNecessary(error, WKErrorMalformedCredential);
@@ -798,7 +802,7 @@ static void createNSErrorFromWKErrorIfNecessary(NSError **error, WKErrorCode err
 - (void)cancel
 {
 #if ENABLE(WEB_AUTHN)
-    _panel->cancel();
+    self._protectedPanel->cancel();
 #endif
 }
 
@@ -1029,28 +1033,28 @@ static RetainPtr<_WKAuthenticatorAttestationResponse> wkAuthenticatorAttestation
 #if ENABLE(WEB_AUTHN)
     auto clientDataJSON = produceClientDataJson(_WKWebAuthenticationTypeCreate, challenge, origin);
     auto hash = produceClientDataJsonHash(clientDataJSON.get());
-    auto callback = [handler = makeBlockPtr(handler), clientDataJSON = WTFMove(clientDataJSON)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
+    auto callback = [handler = makeBlockPtr(handler), clientDataJSON = WTFMove(clientDataJSON)] (Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
         WTF::switchOn(result, [&](const Ref<WebCore::AuthenticatorResponse>& response) {
             handler(wkAuthenticatorAttestationResponse(response->data(), clientDataJSON.get(), response->attachment()).get(), nil);
         }, [&](const WebCore::ExceptionData& exception) {
-            handler(nil, [NSError errorWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
+            handler(nil, adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message.createNSString().get() }]).get());
         });
     };
-    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
+    self._protectedPanel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
 - (void)makeCredentialWithMediationRequirement:(_WKWebAuthenticationMediationRequirement)mediation clientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialCreationOptions *)options completionHandler:(void (^)(_WKAuthenticatorAttestationResponse *, NSError *))handler
 {
 #if ENABLE(WEB_AUTHN)
-    auto callback = [handler = makeBlockPtr(handler)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
+    auto callback = [handler = makeBlockPtr(handler)] (Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
         WTF::switchOn(result, [&](const Ref<WebCore::AuthenticatorResponse>& response) {
             handler(wkAuthenticatorAttestationResponse(response->data(), nullptr, response->attachment()).get(), nil);
         }, [&](const WebCore::ExceptionData& exception) {
-            handler(nil, [NSError errorWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
+            handler(nil, adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message.createNSString().get() }]).get());
         });
     };
-    _panel->handleRequest({ makeVector(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
+    self._protectedPanel->handleRequest({ makeVector(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -1097,28 +1101,28 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
 #if ENABLE(WEB_AUTHN)
     auto clientDataJSON = produceClientDataJson(_WKWebAuthenticationTypeGet, challenge, origin);
     auto hash = produceClientDataJsonHash(clientDataJSON.get());
-    auto callback = [handler = makeBlockPtr(handler), clientDataJSON = WTFMove(clientDataJSON)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
+    auto callback = [handler = makeBlockPtr(handler), clientDataJSON = WTFMove(clientDataJSON)] (Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
         WTF::switchOn(result, [&](const Ref<WebCore::AuthenticatorResponse>& response) {
             handler(wkAuthenticatorAssertionResponse(response->data(), clientDataJSON.get(), response->attachment()).get(), nil);
         }, [&](const WebCore::ExceptionData& exception) {
-            handler(nil, [NSError errorWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
+            handler(nil, adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message.createNSString().get() }]).get());
         });
     };
-    _panel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
+    self._protectedPanel->handleRequest({ WTFMove(hash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, std::nullopt, std::nullopt }, WTFMove(callback));
 #endif
 }
 
 - (void)getAssertionWithMediationRequirement:(_WKWebAuthenticationMediationRequirement)mediation clientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialRequestOptions *)options completionHandler:(void (^)(_WKAuthenticatorAssertionResponse *, NSError *))handler
 {
 #if ENABLE(WEB_AUTHN)
-    auto callback = [handler = makeBlockPtr(handler)] (std::variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
+    auto callback = [handler = makeBlockPtr(handler)] (Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>&& result) mutable {
         WTF::switchOn(result, [&](const Ref<WebCore::AuthenticatorResponse>& response) {
             handler(wkAuthenticatorAssertionResponse(response->data(), nullptr, response->attachment()).get(), nil);
         }, [&](const WebCore::ExceptionData& exception) {
-            handler(nil, [NSError errorWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message }]);
+            handler(nil, adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:static_cast<NSInteger>(exception.code) userInfo:@{ NSLocalizedDescriptionKey: exception.message.createNSString().get() }]).get());
         });
     };
-    _panel->handleRequest({ makeVector(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
+    self._protectedPanel->handleRequest({ makeVector(clientDataHash), [_WKWebAuthenticationPanel convertToCoreRequestOptionsWithOptions:options], nullptr, WebKit::WebAuthenticationPanelResult::Unavailable, nullptr, std::nullopt, { }, String(), nullptr, toWebCore(mediation), std::nullopt }, WTFMove(callback));
 #endif
 }
 
@@ -1208,6 +1212,19 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
     return encodedCommand.autorelease();
 }
 
++ (NSData *) encodeMakeCredentialCommandWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialCreationOptions *)options userVerificationAvailability:(_WKWebAuthenticationUserVerificationAvailability)userVerificationAvailability authenticatorSupportedCredentialParameters:(NSArray<_WKPublicKeyCredentialParameters *> *)credentialParameters
+{
+    RetainPtr<NSData> encodedCommand;
+
+#if ENABLE(WEB_AUTHN)
+    auto encodedVector = fido::encodeMakeCredentialRequestAsCBOR(makeVector(clientDataHash), [_WKWebAuthenticationPanel convertToCoreCreationOptionsWithOptions:options], coreUserVerificationAvailability(userVerificationAvailability), fido::AuthenticatorSupportedOptions::ResidentKeyAvailability::kSupported, { }, std::nullopt, publicKeyCredentialParameters(credentialParameters));
+    encodedCommand = toNSData(encodedVector);
+#endif
+
+    return encodedCommand.autorelease();
+}
+
+
 + (NSData *)encodeGetAssertionCommandWithClientDataHash:(NSData *)clientDataHash options:(_WKPublicKeyCredentialRequestOptions *)options userVerificationAvailability:(_WKWebAuthenticationUserVerificationAvailability)userVerificationAvailability
 {
     return [self encodeGetAssertionCommandWithClientDataHash:clientDataHash options:options userVerificationAvailability:userVerificationAvailability authenticatorSupportedExtensions:nil];
@@ -1235,7 +1252,7 @@ static RetainPtr<_WKAuthenticatorAssertionResponse> wkAuthenticatorAssertionResp
     WebCore::MockWebAuthenticationConfiguration mockConfiguration;
     mockConfiguration.local = WTFMove(localConfiguration);
 
-    _panel->setMockConfiguration(WTFMove(mockConfiguration));
+    self._protectedPanel->setMockConfiguration(WTFMove(mockConfiguration));
 #endif
 }
 

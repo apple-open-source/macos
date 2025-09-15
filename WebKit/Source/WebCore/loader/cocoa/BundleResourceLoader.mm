@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,21 +51,21 @@ void loadResourceFromBundle(ResourceLoader& loader, const String& subdirectory)
     ASSERT(RunLoop::isMain());
 
     loadQueue().dispatch([protectedLoader = Ref { loader }, url = loader.request().url().isolatedCopy(), subdirectory = subdirectory.isolatedCopy()]() mutable {
-        auto *relativePath = [subdirectory stringByAppendingString: url.path().toString()];
+        auto *relativePath = [subdirectory.createNSString() stringByAppendingString: url.path().createNSString().get()];
         auto *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebCore"];
         auto *path = [bundle pathForResource:relativePath ofType:nil];
         auto *data = [NSData dataWithContentsOfFile:path];
 
         if (!data) {
-            RunLoop::main().dispatch([protectedLoader = WTFMove(protectedLoader), url = WTFMove(url).isolatedCopy()] {
+            RunLoop::mainSingleton().dispatch([protectedLoader = WTFMove(protectedLoader), url = WTFMove(url).isolatedCopy()] {
                 protectedLoader->didFail(ResourceError { errorDomainWebKitInternal, 0, url, "URL is invalid"_s });
             });
             return;
         }
 
-        RunLoop::main().dispatch([protectedLoader = WTFMove(protectedLoader), url = WTFMove(url).isolatedCopy(), buffer = SharedBuffer::create(data)]() mutable {
+        RunLoop::mainSingleton().dispatch([protectedLoader = WTFMove(protectedLoader), url = WTFMove(url).isolatedCopy(), buffer = SharedBuffer::create(data)]() mutable {
             auto mimeType = MIMETypeRegistry::mimeTypeForPath(url.path());
-            ResourceResponse response { url, mimeType, static_cast<long long>(buffer->size()), MIMETypeRegistry::isTextMIMEType(mimeType) ? "UTF-8"_s : String() };
+            ResourceResponse response { WTFMove(url), WTFMove(mimeType), static_cast<long long>(buffer->size()), MIMETypeRegistry::isTextMIMEType(mimeType) ? "UTF-8"_s : String() };
             response.setHTTPStatusCode(200);
             response.setHTTPStatusText("OK"_s);
             response.setSource(ResourceResponse::Source::Network);
@@ -73,7 +73,7 @@ void loadResourceFromBundle(ResourceLoader& loader, const String& subdirectory)
             // Allow images to load.
             response.addHTTPHeaderField(HTTPHeaderName::AccessControlAllowOrigin, "*"_s);
 
-            protectedLoader->deliverResponseAndData(response, WTFMove(buffer));
+            protectedLoader->deliverResponseAndData(WTFMove(response), WTFMove(buffer));
         });
     });
 }

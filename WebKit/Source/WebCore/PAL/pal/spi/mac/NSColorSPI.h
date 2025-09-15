@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <AppKit/NSColor.h>
 
 #if PLATFORM(MAC) && USE(APPLE_INTERNAL_SDK)
@@ -58,9 +62,11 @@ typedef NS_ENUM(NSInteger, NSUserAccentColor) {
     NSUserAccentColorPink,
 
     NSUserAccentColorNoColor = -1,
+    NSUserAccentColorMulticolor = -2,
 };
 
 extern "C" NSUserAccentColor NSColorGetUserAccentColor(void);
+extern "C" void NSColorSetUserAccentColor(NSUserAccentColor key, BOOL sendNotification);
 
 #endif
 

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,8 +99,8 @@ public:
     virtual void sizeToContentAutoSizeMaximumSizeDidChange() { }
     virtual void windowKindDidChange() { }
 
-    virtual void adjustTransientZoom(double, WebCore::FloatPoint) { }
-    virtual void commitTransientZoom(double, WebCore::FloatPoint) { }
+    virtual void adjustTransientZoom(double, WebCore::FloatPoint /* originInLayerForPageScale */, WebCore::FloatPoint /* originInVisibleRect */) { }
+    virtual void commitTransientZoom(double, WebCore::FloatPoint /* originInLayerForPageScale */) { }
 
     virtual void viewIsBecomingVisible() { }
     virtual void viewIsBecomingInvisible() { }
@@ -154,15 +154,8 @@ public:
 protected:
     DrawingAreaProxy(DrawingAreaType, WebPageProxy&, WebProcessProxy&);
 
-    RefPtr<WebPageProxy> protectedWebPageProxy() const;
-    Ref<WebProcessProxy> protectedWebProcessProxy() const;
-
-    DrawingAreaType m_type;
-    WeakPtr<WebPageProxy> m_webPageProxy;
-    Ref<WebProcessProxy> m_webProcessProxy;
-
-    WebCore::IntSize m_size;
-    WebCore::IntSize m_scrollOffset;
+    RefPtr<WebPageProxy> protectedPage() const;
+    WebProcessProxy& webProcessProxy() const { return m_webProcessProxy; }
 
 private:
     virtual void sizeDidChange() = 0;
@@ -172,15 +165,23 @@ private:
     virtual void enterAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, const LayerTreeContext&) { }
     virtual void updateAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, const LayerTreeContext&) { }
     virtual void didFirstLayerFlush(uint64_t /* backingStoreStateID */, const LayerTreeContext&) { }
-#if PLATFORM(MAC)
-    RunLoop::Timer m_viewExposedRectChangedTimer;
-    std::optional<WebCore::FloatRect> m_lastSentViewExposedRect;
-#endif // PLATFORM(MAC)
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     virtual void update(uint64_t /* backingStoreStateID */, UpdateInfo&&) { }
     virtual void exitAcceleratedCompositingMode(uint64_t /* backingStoreStateID */, UpdateInfo&&) { }
 #endif
+
+    DrawingAreaType m_type;
+    WeakPtr<WebPageProxy> m_webPageProxy;
+    const Ref<WebProcessProxy> m_webProcessProxy;
+
+    WebCore::IntSize m_size;
+    WebCore::IntSize m_scrollOffset;
+
+#if PLATFORM(MAC)
+    RunLoop::Timer m_viewExposedRectChangedTimer;
+    std::optional<WebCore::FloatRect> m_lastSentViewExposedRect;
+#endif // PLATFORM(MAC)
 };
 
 } // namespace WebKit

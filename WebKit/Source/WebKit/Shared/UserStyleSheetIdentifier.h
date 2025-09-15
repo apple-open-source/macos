@@ -29,7 +29,7 @@
 
 namespace WebKit {
 
-enum class UserStyleSheetIdentifierType { };
+struct UserStyleSheetIdentifierType;
 using UserStyleSheetIdentifier = ObjectIdentifier<UserStyleSheetIdentifierType>;
 
 } // namespace WebKit

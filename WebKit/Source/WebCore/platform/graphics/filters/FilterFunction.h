@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,7 +79,7 @@ public:
     };
 
     FilterFunction(Type, std::optional<RenderingResourceIdentifier> = std::nullopt);
-    virtual ~FilterFunction() = default;
+    ~FilterFunction();
 
     Type filterType() const { return m_filterType; }
 

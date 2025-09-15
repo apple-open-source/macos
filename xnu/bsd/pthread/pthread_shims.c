@@ -38,6 +38,7 @@
 #include <kern/zalloc.h>
 #include <kern/policy_internal.h>
 #include <kern/sync_sema.h>
+#include <kern/cpu_data.h>
 
 #include <machine/machine_routines.h>
 #include <mach/task.h>
@@ -369,9 +370,12 @@ bsdthread_terminate(struct proc *p, struct bsdthread_terminate_args *uap, int32_
 	struct _bsdthread_terminate *bts = &uth->uu_save.uus_bsdthread_terminate;
 	mach_port_name_t sem = (mach_port_name_t)uap->sema_or_ulock;
 	mach_port_name_t thp = uap->port;
+	uint16_t tag = thread_get_tag(th);
 
-	if (thread_get_tag(th) & THREAD_TAG_WORKQUEUE) {
+	if (tag & THREAD_TAG_WORKQUEUE) {
 		workq_thread_terminate(p, get_bsdthread_info(th));
+	} else if (tag & THREAD_TAG_AIO_WORKQUEUE) {
+		return ENOTSUP;
 	}
 
 	/*
@@ -562,6 +566,8 @@ static const struct pthread_callbacks_s pthread_callbacks = {
 	.thread_bootstrap_return = pthread_bootstrap_return,
 	.unix_syscall_return = unix_syscall_return,
 
+	.abandon_preemption_disable_measurement = abandon_preemption_disable_measurement,
+
 	.get_bsdthread_info = get_bsdthread_info,
 	.thread_policy_set_internal = thread_policy_set_internal,
 	.thread_policy_get = thread_policy_get,
@@ -573,12 +579,12 @@ static const struct pthread_callbacks_s pthread_callbacks = {
 	.current_map = _current_map,
 
 	.thread_create_immovable = thread_create_immovable,
-	.thread_terminate_pinned = thread_terminate_pinned,
+	.thread_terminate_pinned = thread_terminate_immovable,
 	.thread_resume = thread_resume,
 
 	.kevent_workq_internal = kevent_workq_internal,
 
-	.convert_thread_to_port_pinned = convert_thread_to_port_pinned,
+	.convert_thread_to_port_pinned = convert_thread_to_port_immovable,
 
 	.proc_get_stack_addr_hint = proc_get_stack_addr_hint,
 	.proc_set_stack_addr_hint = proc_set_stack_addr_hint,

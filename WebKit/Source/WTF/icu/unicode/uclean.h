@@ -3,7 +3,7 @@
 /*
 ******************************************************************************
 * Copyright (C) 2001-2014, International Business Machines
-*                Corporation and others. All Rights Reserved.
+*                Corporation and others. All rights reserved.
 ******************************************************************************
 *   file name:  uclean.h
 *   encoding:   UTF-8

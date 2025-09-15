@@ -57,7 +57,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionMessagePort, WebExtensionMes
 - (NSString *)applicationIdentifier
 {
     if (auto& applicationIdentifier = _webExtensionMessagePort->applicationIdentifier(); !applicationIdentifier.isNull())
-        return applicationIdentifier;
+        return applicationIdentifier.createNSString().autorelease();
     return nil;
 }
 

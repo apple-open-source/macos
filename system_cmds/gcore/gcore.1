@@ -1,4 +1,4 @@
-.Dd February 10, 2016
+.Dd November 21, 2024
 .Dt GCORE 1
 .Os Darwin
 .Sh NAME
@@ -6,9 +6,10 @@
 .Nd get core images of running processes
 .Sh SYNOPSIS
 .Nm
-.Op Fl s
 .Op Fl v
+.Op Fl s
 .Op Fl b Ar size
+.Op Fl x Ar content
 .Op Fl o Ar path | Fl c Ar pathformat
 .Ar pid
 .Sh DESCRIPTION
@@ -30,6 +31,34 @@ Report progress on the dump as it proceeds.
 Limit the size of the core file to
 .Ar size
 MiBytes.
+.It Fl x Ar content
+Select the content type of process pages written to the core file.
+The currently supported content types are:
+.Bl -tag -width compact
+.It Cm stack
+Only include pages containing stack regions.
+.It Cm compact
+Only include pages that were modified during execution.
+.It Cm full
+All accessible pages in the process.
+.Pp
+.El
+The
+.Ar full
+content option is the default, and may lead to the creation of
+very large core files.
+The
+.Ar stack
+content type can be useful to examine low-level thread stacks.
+The resulting core file is small, but the
+amount of debugging information that is available is
+correspondingly limited.
+The
+.Ar compact
+content setting produces core files that are usually smaller than the
+.Ar full
+option.
+.El
 .El
 .Pp
 The following options control the name of the core file:
@@ -66,7 +95,7 @@ Output a percent character.
 .El
 .Pp
 The default file name used by
-.Nm gcore
+.Nm
 is
 .Ar %N-%P-%T .
 By default, the core file will be written to a directory whose
@@ -79,7 +108,7 @@ This can be printed or modified using
 The directory where the core file is to be written must be
 accessible to the owner of the target process.
 .Pp
-.Nm gcore
+.Nm
 will not overwrite an existing file,
 nor will it create missing directories in the path.
 .Sh FILES
@@ -91,16 +120,38 @@ default pathname for the corefile.
 .Ex -std
 .Sh SEE ALSO
 .Xr lldb 1 ,
+.Xr otool 1 ,
 .Xr core 5 ,
 .Xr Mach-O 5 ,
 .Xr sudo 8 ,
 .Xr sysctl 8
-.Sh BUGS
-With the
-.Fl b
-flag,
-.Nm gcore
-writes out as much data as it can up to the specified limit,
-even if that results in an incomplete core image.
-Such a partial core dump may confuse subsequent
-programs that attempt to parse the contents of such files.
+.Sh CAVEATS
+By default,
+.Nm
+uses a copy-on-write address space snapshot to dump a process, minimizing
+the time that the process is unable to respond to external events.
+However, these snapshots are a limited resource, and if it cannot
+be taken,
+.Nm
+will revert to the historical behavior of
+.Nm
+i.e. it will capture the state of the process without suspending its
+execution, which may result in an inconsistent
+state being saved to the resulting core file.
+Use the
+.Fl s
+flag if this is a concern.
+.Pp
+For both
+.Ar stack
+and
+.Ar compact
+content options it is important to realize that the resulting core file
+is reduced in size because it implicitly refers to the contents of the
+application together with its library and framework dependencies that were
+present on the system at the specific point in time that the dump was taken.
+As a result, such core files are most useful when debugging
+applications on the same system that they were captured on.
+Attempting to use those core files for debugging on a different
+platform, or after any of the components have been updated, may
+make productive debugging far more difficult.

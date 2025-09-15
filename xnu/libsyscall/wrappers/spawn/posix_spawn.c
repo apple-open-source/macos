@@ -185,6 +185,9 @@ __posix_spawnattr_init(struct _posix_spawnattr *psattrp)
 	psattrp->psa_kqworkloop_soft_limit = 0;
 	psattrp->psa_kqworkloop_hard_limit = 0;
 
+	/* Default is no conclave memory limit */
+	psattrp->psa_conclave_mem_limit = 0;
+
 	psattrp->psa_crash_behavior = 0;
 	psattrp->psa_crash_behavior_deadline = 0;
 	psattrp->psa_launch_type = 0;
@@ -1936,9 +1939,19 @@ posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *file_actions,
 	return 0;
 }
 
+/*
+ * Deprecated alias of posix_spawn_file_actions_addchdir
+ */
+int
+posix_spawn_file_actions_addchdir_np(
+	posix_spawn_file_actions_t * __restrict file_actions,
+	const char * __restrict path)
+{
+	return posix_spawn_file_actions_addchdir(file_actions, path);
+}
 
 /*
- * posix_spawn_file_actions_addchdir_np
+ * posix_spawn_file_actions_addchdir
  *
  * Description:	Add a chdir action to the object referenced by 'file_actions'
  *		that will cause the current working directory to attempt to be changed
@@ -1956,7 +1969,7 @@ posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *file_actions,
  *		EINVAL	The value specified by file_actions is invalid.
  */
 int
-posix_spawn_file_actions_addchdir_np(
+posix_spawn_file_actions_addchdir(
 	posix_spawn_file_actions_t * __restrict file_actions,
 	const char * __restrict path)
 {
@@ -1991,9 +2004,18 @@ posix_spawn_file_actions_addchdir_np(
 	return 0;
 }
 
+/*
+ * Deprecated alias for posix_spawn_file_actions_addfchdir
+ */
+int
+posix_spawn_file_actions_addfchdir_np(posix_spawn_file_actions_t *file_actions,
+    int filedes)
+{
+	return posix_spawn_file_actions_addfchdir(file_actions, filedes);
+}
 
 /*
- * posix_spawn_file_actions_fchdir_np
+ * posix_spawn_file_actions_addfchdir
  *
  * Description:	Add a fchdir action to the object referenced by 'file_actions'
  *		that will cause the current working directory to attempt to be changed
@@ -2012,7 +2034,7 @@ posix_spawn_file_actions_addchdir_np(
  *		EINVAL	The value specified by file_actions is invalid.
  */
 int
-posix_spawn_file_actions_addfchdir_np(posix_spawn_file_actions_t *file_actions,
+posix_spawn_file_actions_addfchdir(posix_spawn_file_actions_t *file_actions,
     int filedes)
 {
 	_posix_spawn_file_actions_t *psactsp;
@@ -2849,6 +2871,23 @@ posix_spawnattr_set_kqworklooplimit_ext(posix_spawnattr_t * __restrict attr,
 
 	psattr->psa_kqworkloop_soft_limit = kqworkloop_soft_limit;
 	psattr->psa_kqworkloop_hard_limit = kqworkloop_hard_limit;
+
+	return 0;
+}
+
+int
+posix_spawnattr_set_conclavememlimit_ext(posix_spawnattr_t * __restrict attr,
+    uint32_t conclave_limit)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL) {
+		return EINVAL;
+	}
+
+	psattr = *(_posix_spawnattr_t *)attr;
+
+	psattr->psa_conclave_mem_limit = conclave_limit;
 
 	return 0;
 }

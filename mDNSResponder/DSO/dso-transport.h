@@ -131,11 +131,6 @@ struct dso_connect_state {
 
     mDNSBool connecting;
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-    // A boolean value to indicate whether the dso session should use the preconfigured TLS server certificates to
-    // perform the trust evaluation.
-    mDNSBool trusts_alternative_server_certificates;
-#endif
 
     mDNSIPPort config_port, connect_port;
     dso_transport_t *transport;

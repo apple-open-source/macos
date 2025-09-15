@@ -148,6 +148,7 @@ lt{
         crs{"Seišelių kreolų ir prancūzų"}
         cs{"čekų"}
         csb{"kašubų"}
+        cst{"čočenių"}
         csw{"pelkynų kri"}
         cu{"bažnytinė slavų"}
         cv{"čiuvašų"}
@@ -248,6 +249,7 @@ lt{
         hak{"kinų kalbos hakų tarmė"}
         haw{"havajiečių"}
         hax{"Pietų Haidos"}
+        hch{"wixárika"}
         he{"hebrajų"}
         hi{"hindi"}
         hif{"Fidžio hindi"}
@@ -277,6 +279,7 @@ lt{
         inh{"ingušų"}
         io{"ido"}
         is{"islandų"}
+        isc{"iskonavų"}
         it{"italų"}
         iu{"inukitut"}
         izh{"ingrų"}
@@ -543,6 +546,7 @@ lt{
         sh{"serbų-kroatų"}
         shi{"tachelhitų"}
         shn{"šan"}
+        shp{"šipibo-konibo"}
         shu{"chadian arabų"}
         si{"sinhalų"}
         sid{"sidamų"}
@@ -871,13 +875,15 @@ lt{
     }
     Types{
         calendar{
+            bangla{"bengalų kalendorius"}
             buddhist{"budistų kalendorius"}
             chinese{"kinų kalendorius"}
             coptic{"koptų kalendorius"}
-            dangi{"dangi kalendorius"}
-            ethiopic{"Etiopijos kalendorius"}
-            ethiopic-amete-alem{"Etiopijos „Amete Alem“ kalendorius"}
-            gregorian{"Grigaliaus kalendorius"}
+            dangi{"korėjiečių kalendorius"}
+            ethiopic{"etiopijos kalendorius"}
+            ethiopic-amete-alem{"etiopijos „Amete Alem“ kalendorius"}
+            gregorian{"grigaliaus kalendorius"}
+            gujarati{"gudžaratų kalendorius"}
             hebrew{"hebrajų kalendorius"}
             indian{"nacionalinis indų kalendorius"}
             islamic{"islamo kalendorius"}
@@ -887,8 +893,16 @@ lt{
             islamic-umalqura{"Islamo kalendorius (Umm al-Qura)"}
             iso8601{"ISO 8601 kalendorius"}
             japanese{"japonų kalendorius"}
+            kannada{"kanadų kalendorius"}
+            malayalam{"malajalių kalendorius"}
+            marathi{"marathų kalendorius"}
+            odia{"odijų kalendorius"}
             persian{"persų kalendorius"}
             roc{"Kinijos Respublikos kalendorius"}
+            tamil{"tamilų kalendorius"}
+            telugu{"telugų kalendorius"}
+            vietnamese{"vietnamiečių kalendorius"}
+            vikram{"vikram samvat kalendorius"}
         }
         cf{
             account{"apskaitos valiutos formatas"}

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2002-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -820,7 +820,7 @@ mDNSexport mDNSs32	mDNSPlatformContinuousTimeSeconds( void )
 	// behave correctly. We use GetTickCount64() rather than GetTickCount() because
 	// GetTickCount() would wrap after 47 days, and two's complement comparisons
 	// wouldn't work because we're dividing by 1000.
-	return ( mDNSs32 ) (GetTickCount64( NULL ) / 1000ULL);
+	return ( mDNSs32 ) (GetTickCount64() / 1000ULL);
 }
 
 //===========================================================================================================================
@@ -3368,7 +3368,7 @@ UDPSocketNotification( SOCKET sock, LPWSANETWORKEVENTS event, void *context )
 	iid = udpSock->ifd ? udpSock->ifd->interfaceInfo.InterfaceID : NULL;
 	end = ( (mDNSu8 *) &udpSock->packet ) + num;
 
-	mDNSCoreReceive( udpSock->m, &udpSock->packet, end, &srcAddr, srcPort, &dstAddr, dstPort, iid );
+	mDNSCoreReceive( udpSock->m, &udpSock->packet, end, &srcAddr, srcPort, &dstAddr, dstPort, iid, 0 );
 
 exit:
 

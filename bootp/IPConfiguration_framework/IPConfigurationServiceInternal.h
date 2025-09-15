@@ -63,6 +63,8 @@
     CFSTR("ServiceID")		/* string (UUID) */
 #define _kIPConfigurationServiceOptionAPNName	\
     CFSTR("APNName")		/* string */
+#define _kIPConfigurationServiceOptionEnableL4S	\
+    CFSTR("EnableL4S")		/* boolean */
 
 #define _kIPConfigurationServiceOptionIPv6Entity	\
     CFSTR("IPv6Entity")	/* dictionary */

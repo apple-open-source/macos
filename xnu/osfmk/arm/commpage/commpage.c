@@ -59,6 +59,7 @@
 #include <machine/atomic.h>
 #include <machine/machine_remote_time.h>
 #include <machine/machine_routines.h>
+#include <sys/code_signing.h>
 
 #include <sys/kdebug.h>
 #include <sys/random.h>
@@ -229,6 +230,8 @@ commpage_populate(void)
 #if __arm64__
 	*((uint8_t*)(_COMM_PAGE_APT_MSG_POLICY + _COMM_PAGE_RW_OFFSET)) = apt_msg_policy();
 #endif
+
+	commpage_set_erm_active(extended_research_mode_state());
 }
 
 #define COMMPAGE_TEXT_SEGMENT "__TEXT_EXEC"
@@ -386,6 +389,8 @@ _get_commpage_text_priv_address(void)
 }
 
 #if defined(__arm64__)
+
+
 /**
  * Initializes all commpage entries and sysctls for EL0 visible features in ID_AA64ISAR0_EL1
  */
@@ -553,6 +558,7 @@ commpage_init_arm_optional_features_isar2(void)
 	}
 }
 
+
 /**
  * Initializes all commpage entries and sysctls for EL0 visible features in ID_AA64MMFR0_EL1
  */
@@ -657,6 +663,9 @@ commpage_init_arm_optional_features_pfr1(uint64_t *commpage_bits)
 static void
 commpage_init_arm_optional_features_pfr2(__unused uint64_t *commpage_bits)
 {
+	uint64_t pfr2 __unused = __builtin_arm_rsr64("ID_AA64PFR2_EL1");
+
+
 }
 
 /**
@@ -1049,4 +1058,21 @@ commpage_update_apt_active(bool active)
 {
 	uint8_t *slot = (uint8_t *)(void *)(_COMM_PAGE_APT_ACTIVE + _COMM_PAGE_RW_OFFSET);
 	os_atomic_store(slot, active ? 1 : 0, relaxed);
+}
+
+/*
+ * set the Extended Research Mode active indicator
+ */
+void
+commpage_set_erm_active(bool active)
+{
+	if (startup_phase < STARTUP_SUB_LOCKDOWN) {
+		uint8_t *slot = (uint8_t *)(void *)(_COMM_PAGE_SECURITY_RESEARCH_DEVICE_ERM_ACTIVE + _COMM_PAGE_RW_OFFSET);
+		os_atomic_store(slot, active ? 1 : 0, relaxed);
+	}
+#if DEVELOPMENT || DEBUG
+	else {
+		kprintf("ERROR can't set ERM bit at startup_phase 0x%x. Action is ignored\n", startup_phase);
+	}
+#endif
 }

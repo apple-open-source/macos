@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2020 Apple Inc.
+ * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -42,7 +42,7 @@ public:
 
 private:
 #if USE(APPKIT)
-    RetainPtr<NSGraphicsContext> m_savedNSGraphicsContext;
+    const RetainPtr<NSGraphicsContext> m_savedNSGraphicsContext;
 #endif
     bool m_didSetGraphicsContext { false };
 };

@@ -127,7 +127,7 @@ srp_tls_server_init(const char *cacert_file, const char *srvcert_file, const cha
     }
 
     if (server_key_file != NULL) {
-        status = mbedtls_pk_parse_keyfile(&srvkey, server_key_file, NULL);
+        status = mbedtls_pk_parse_keyfile(&srvkey, server_key_file, NULL, srp_mbedtls_random, NULL);
         if (status != 0) {
             ERROR("Unable to parse server cert file: %x", -status);
             return false;

@@ -45,14 +45,14 @@ public:
     typedef std::pair<iterator, iterator> iterator_range;
     typedef MapType::value_type value_type;
 
-    iterator begin() { return m_samples.begin(); }
-    const_iterator begin() const { return m_samples.begin(); }
-    iterator end() { return m_samples.end(); }
-    const_iterator end() const { return m_samples.end(); }
-    reverse_iterator rbegin() { return m_samples.rbegin(); }
-    const_reverse_iterator rbegin() const { return m_samples.rbegin(); }
-    reverse_iterator rend() { return m_samples.rend(); }
-    const_reverse_iterator rend() const { return m_samples.rend(); }
+    iterator begin() LIFETIME_BOUND { return m_samples.begin(); }
+    const_iterator begin() const LIFETIME_BOUND { return m_samples.begin(); }
+    iterator end() LIFETIME_BOUND { return m_samples.end(); }
+    const_iterator end() const LIFETIME_BOUND { return m_samples.end(); }
+    reverse_iterator rbegin() LIFETIME_BOUND { return m_samples.rbegin(); }
+    const_reverse_iterator rbegin() const LIFETIME_BOUND { return m_samples.rbegin(); }
+    reverse_iterator rend() LIFETIME_BOUND { return m_samples.rend(); }
+    const_reverse_iterator rend() const LIFETIME_BOUND { return m_samples.rend(); }
 
     size_t size() const { return m_samples.size(); }
 

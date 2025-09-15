@@ -95,6 +95,59 @@ ipc_entry_table_count_max(void)
 }
 
 /*
+ *	Routine:	ipc_entry_name_mask
+ *	Purpose:
+ *		Ensure a mach port name has the default ipc entry
+ *		generation bits set. This can be used to ensure that
+ *		a name passed in by user space matches names generated
+ *		by the kernel.
+ *	Conditions:
+ *		None.
+ *	Returns:
+ *		'name' input with default generation bits masked or added
+ *		as appropriate.
+ */
+mach_port_name_t
+ipc_entry_name_mask(mach_port_name_t name)
+{
+	return name | MACH_PORT_MAKE(0, IE_BITS_ROLL_MASK);
+}
+
+/*
+ * Restart a generation counter with the specified bits for the rollover point.
+ * There are 4 different rollover points:
+ * bits    rollover period
+ * 0 0     64
+ * 0 1     32
+ * 1 0     22
+ * 1 1     16
+ */
+static ipc_entry_bits_t
+ipc_entry_make_gen(ipc_entry_bits_t ie_bits, ipc_space_t space)
+{
+	ipc_entry_bits_t roll_bits;
+
+	roll_bits = random_bool_gen_bits(&space->is_prng,
+	    space->is_entropy, IS_ENTROPY_CNT, IE_BITS_ROLL_BITS);
+
+	roll_bits <<= __builtin_ctz(IE_BITS_ROLL_MASK);
+	return (ie_bits & IE_BITS_GEN_MASK) | roll_bits;
+}
+
+static ipc_entry_bits_t
+ipc_entry_next_gen(ipc_entry_bits_t oldgen, ipc_space_t space)
+{
+	ipc_entry_bits_t roll = oldgen & IE_BITS_ROLL_MASK;
+	ipc_entry_bits_t delta = IE_BITS_GEN_ONE + (roll << IE_BITS_ROLL_BITS);
+	ipc_entry_bits_t newgen;
+
+	if (os_add_overflow(oldgen, delta, &newgen)) {
+		newgen = ipc_entry_make_gen(0, space);
+	}
+	return newgen;
+}
+
+/*
  *	Routine:	ipc_entry_lookup
  *	Purpose:
  *		Searches for an entry, given its name.
@@ -228,11 +281,7 @@ ipc_entry_claim(
 	 *	Initialize the new entry: increment gencount and reset
 	 *	rollover point if it rolled over, and clear ie_request.
 	 */
-	gen = ipc_entry_new_gen(entry->ie_bits);
-	if (__improbable(ipc_entry_gen_rolled(entry->ie_bits, gen))) {
-		ipc_entry_bits_t roll = ipc_space_get_rollpoint(space);
-		gen = ipc_entry_new_rollpoint(roll);
-	}
+	gen = ipc_entry_next_gen(entry->ie_bits, space);
 	entry->ie_bits = gen;
 	entry->ie_request = IE_REQ_NONE;
 	entry->ie_object = object;
@@ -243,7 +292,7 @@ ipc_entry_claim(
 	 *	the table isn't allowed to grow big enough.
 	 *	(See comment in ipc/ipc_table.h.)
 	 */
-	new_name = MACH_PORT_MAKE(first_free, gen);
+	new_name = MACH_PORT_MAKE(first_free, IE_BITS_GEN(gen));
 	assert(MACH_PORT_VALID(new_name));
 	*namep = new_name;
 	*entryp = entry;
@@ -418,7 +467,7 @@ ipc_entry_alloc_name(
 				    prev_entry);
 			}
 
-			entry->ie_bits = gen;
+			entry->ie_bits = ipc_entry_make_gen(gen, space);
 			entry->ie_request = IE_REQ_NONE;
 			*entryp = entry;
 
@@ -792,30 +841,4 @@ no_space:
 	ipc_space_set_at_max_limit(space);
 	is_write_unlock(space);
 	return KERN_NO_SPACE;
-}
-
-
-/*
- *	Routine:	ipc_entry_name_mask
- *	Purpose:
- *		Ensure a mach port name has the default ipc entry
- *		generation bits set. This can be used to ensure that
- *		a name passed in by user space matches names generated
- *		by the kernel.
- *	Conditions:
- *		None.
- *	Returns:
- *		'name' input with default generation bits masked or added
- *		as appropriate.
- */
-mach_port_name_t
-ipc_entry_name_mask(mach_port_name_t name)
-{
-#ifndef NO_PORT_GEN
-	static mach_port_name_t null_name = MACH_PORT_MAKE(0, IE_BITS_GEN_MASK + IE_BITS_GEN_ONE);
-	return name | null_name;
-#else
-	static mach_port_name_t null_name = MACH_PORT_MAKE(0, ~(IE_BITS_GEN_MASK + IE_BITS_GEN_ONE));
-	return name & ~null_name;
-#endif
 }

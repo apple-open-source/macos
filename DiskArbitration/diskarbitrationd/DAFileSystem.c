@@ -294,6 +294,7 @@ static void __DAFileSystemProbeCallbackStage1( int status, CFDataRef output, voi
                           ___UID_ROOT,
                           ___GID_WHEEL,
                           context->devicefd,
+                          TRUE,
                           __DAFileSystemProbeCallbackStage2,
                           context,
                           CFSTR( "-k" ),
@@ -362,6 +363,7 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
                               ___UID_ROOT,
                               ___GID_WHEEL,
                               fd,
+                              TRUE,
                               __DAFileSystemProbeCallbackStage3,
                               context,
                               CFSTR( "-q" ),
@@ -376,6 +378,7 @@ static void __DAFileSystemProbeCallbackStage2( int status, CFDataRef output, voi
                           ___UID_ROOT,
                           ___GID_WHEEL,
                           -1,
+                          TRUE,
                           __DAFileSystemProbeCallbackStage3,
                           context,
                           CFSTR( "-q" ),
@@ -745,6 +748,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                           userUID,
                           userGID,
                          -1,
+                          FALSE,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-t" ),
@@ -763,6 +767,7 @@ void DAFileSystemMountWithArguments( DAFileSystemRef      filesystem,
                           userUID,
                           userGID,
                          -1,
+                          FALSE,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-t" ),
@@ -913,6 +918,7 @@ void DAFileSystemProbe( DAFileSystemRef           filesystem,
                       ___UID_ROOT,
                       ___GID_WHEEL,
                       context->devicefd,
+                      TRUE,
                       __DAFileSystemProbeCallbackStage1,
                       context,
                       CFSTR( "-p" ),
@@ -1016,6 +1022,8 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
     CFDictionaryRef         personalities = NULL;
     int                     status        = 0;
     CFStringRef             fdPathStr     = NULL;
+    Boolean                 trackProgress = FALSE;
+    CFStringRef             fsKind        = NULL;
 #ifdef DA_FSKIT
     CFStringRef             deviceName    = NULL;
     CFStringRef             bundleID      = NULL;
@@ -1063,17 +1071,42 @@ void DAFileSystemRepair( DAFileSystemRef      filesystem,
         fdPathStr = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/dev/fd/%d" ), fd );
         if ( fdPathStr == NULL )  { status = ENOMEM; goto DAFileSystemRepairErr; }
     }
-
-    DACommandExecute( command,
-                      kDACommandExecuteOptionDefault,
-                      ___UID_ROOT,
-                      ___GID_WHEEL,
-                     fd,
-                      __DAFileSystemCallback,
-                      context,
-                      CFSTR( "-y" ),
-                     (fd != -1)?  fdPathStr: devicePath,
-                      NULL );
+    
+    /* Pass -X to fsck utilities for apfs and hfs to track progress */
+    fsKind = DAFileSystemGetKind( filesystem );
+    if ( fsKind )
+    {
+        trackProgress = CFEqual( fsKind , CFSTR( "hfs" ) ) || CFEqual( fsKind , CFSTR( "apfs" ) );
+    }
+    if ( trackProgress )
+    {
+        DACommandExecute( command,
+                          kDACommandExecuteOptionDefault,
+                          ___UID_ROOT,
+                          ___GID_WHEEL,
+                         fd,
+                          TRUE,
+                          __DAFileSystemCallback,
+                          context,
+                          CFSTR( "-y" ),
+                          CFSTR( "-X" ),
+                         (fd != -1)?  fdPathStr: devicePath,
+                          NULL );
+    }
+    else
+    {
+        DACommandExecute( command,
+                          kDACommandExecuteOptionDefault,
+                          ___UID_ROOT,
+                          ___GID_WHEEL,
+                         fd,
+                          TRUE,
+                          __DAFileSystemCallback,
+                          context,
+                          CFSTR( "-y" ),
+                         (fd != -1)?  fdPathStr: devicePath,
+                          NULL );
+    }
 
 DAFileSystemRepairErr:
 
@@ -1132,6 +1165,7 @@ void DAFileSystemRepairQuotas( DAFileSystemRef      filesystem,
                       ___UID_ROOT,
                       ___GID_WHEEL,
                      -1,
+                      FALSE,
                       __DAFileSystemCallback,
                       context,
                       CFSTR( "-g" ),
@@ -1225,6 +1259,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                           ___UID_ROOT,
                           ___GID_WHEEL,
                          -1,
+                          FALSE,
                           __DAFileSystemCallback,
                           context,
                           CFSTR( "-f" ),
@@ -1238,6 +1273,7 @@ void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                           ___UID_ROOT,
                           ___GID_WHEEL,
                          -1,
+                          FALSE,
                           __DAFileSystemCallback,
                           context,
                           mountpointPath,

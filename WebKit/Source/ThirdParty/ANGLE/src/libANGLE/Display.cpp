@@ -581,12 +581,6 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
                 impl = rx::CreateVulkanFuchsiaDisplay(state);
             }
             break;
-#    elif defined(ANGLE_PLATFORM_GGP)
-            if (rx::IsVulkanGGPDisplayAvailable())
-            {
-                impl = rx::CreateVulkanGGPDisplay(state);
-            }
-            break;
 #    elif defined(ANGLE_PLATFORM_APPLE)
             if (rx::IsVulkanMacDisplayAvailable())
             {
@@ -1092,7 +1086,7 @@ Error Display::initialize()
     if (mConfigSet.size() == 0)
     {
         mImplementation->terminate();
-        return EglNotInitialized() << "No configs were generated.";
+        return egl::Error(EGL_NOT_INITIALIZED, "No configs were generated.");
     }
 
     // OpenGL ES1 is implemented in the frontend, explicitly add ES1 support to all configs
@@ -1512,7 +1506,10 @@ Error Display::createImage(const gl::Context *context,
     egl::ImageSibling *sibling = nullptr;
     if (IsTextureTarget(target))
     {
-        sibling = context->getTexture({egl_gl::EGLClientBufferToGLObjectHandle(buffer)});
+        gl::Texture *texture =
+            context->getTexture({egl_gl::EGLClientBufferToGLObjectHandle(buffer)});
+        texture->onBindAsEglImageSource();
+        sibling = texture;
     }
     else if (IsRenderbufferTarget(target))
     {
@@ -1800,7 +1797,7 @@ Error Display::restoreLostDevice()
             {
                 // If reset notifications have been requested, application must delete all contexts
                 // first
-                return EglContextLost();
+                return egl::Error(EGL_CONTEXT_LOST);
             }
         }
     }
@@ -2056,7 +2053,7 @@ Error Display::CreateNativeClientBuffer(const egl::AttributeMap &attribMap,
         width, height, kLayerCount, androidHardwareBufferFormat, usage);
 
     return (*eglClientBuffer == nullptr)
-               ? egl::EglBadParameter() << "native client buffer allocation failed."
+               ? egl::Error(EGL_BAD_PARAMETER, "native client buffer allocation failed.")
                : NoError();
 }
 
@@ -2292,7 +2289,7 @@ Error Display::validateImageClientBuffer(const gl::Context *context,
     return mImplementation->validateImageClientBuffer(context, target, clientBuffer, attribs);
 }
 
-Error Display::valdiatePixmap(const Config *config,
+Error Display::validatePixmap(const Config *config,
                               EGLNativePixmapType pixmap,
                               const AttributeMap &attributes) const
 {
@@ -2471,7 +2468,7 @@ Error Display::programCacheQuery(EGLint index,
         mMemoryProgramCache.getAt(static_cast<size_t>(index), &programHash, &programBinary);
     if (!result)
     {
-        return EglBadAccess() << "Program binary not accessible.";
+        return egl::Error(EGL_BAD_ACCESS, "Program binary not accessible.");
     }
 
     ASSERT(keysize && binarysize);
@@ -2489,7 +2486,7 @@ Error Display::programCacheQuery(EGLint index,
         // could change between the validation size check and the retrieval.
         if (programBinary.size() > static_cast<size_t>(*binarysize))
         {
-            return EglBadAccess() << "Program binary too large or changed during access.";
+            return egl::Error(EGL_BAD_ACCESS, "Program binary too large or changed during access.");
         }
 
         memcpy(binary, programBinary.data(), programBinary.size());
@@ -2514,7 +2511,7 @@ Error Display::programCachePopulate(const void *key,
     if (!mMemoryProgramCache.putBinary(programHash, reinterpret_cast<const uint8_t *>(binary),
                                        static_cast<size_t>(binarysize)))
     {
-        return EglBadAccess() << "Failed to copy program binary into the cache.";
+        return egl::Error(EGL_BAD_ACCESS, "Failed to copy program binary into the cache.");
     }
 
     return NoError();

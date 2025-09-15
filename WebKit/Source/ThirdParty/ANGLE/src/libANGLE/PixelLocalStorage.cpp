@@ -82,63 +82,110 @@ class ScopedDisableScissor : angle::NonCopyable
 
   private:
     Context *const mContext;
-    const GLint mScissorTestEnabled;
+    const bool mScissorTestEnabled;
+};
+
+class ScopedDisableRasterizerDiscard : angle::NonCopyable
+{
+  public:
+    ScopedDisableRasterizerDiscard(Context *context)
+        : mContext(context),
+          mRasterizerDiscardEnabled(mContext->getState().isRasterizerDiscardEnabled())
+    {
+        if (mRasterizerDiscardEnabled)
+        {
+            ContextPrivateDisable(mContext->getMutablePrivateState(),
+                                  mContext->getMutablePrivateStateCache(), GL_RASTERIZER_DISCARD);
+        }
+    }
+
+    ~ScopedDisableRasterizerDiscard()
+    {
+        if (mRasterizerDiscardEnabled)
+        {
+            ContextPrivateEnable(mContext->getMutablePrivateState(),
+                                 mContext->getMutablePrivateStateCache(), GL_RASTERIZER_DISCARD);
+        }
+    }
+
+  private:
+    Context *const mContext;
+    const bool mRasterizerDiscardEnabled;
 };
 
 class ScopedEnableColorMask : angle::NonCopyable
 {
   public:
-    ScopedEnableColorMask(Context *context, int numDrawBuffers)
-        : mContext(context), mNumDrawBuffers(numDrawBuffers)
+    ScopedEnableColorMask(Context *context, int firstDrawBuffer, int numDrawBuffers)
+        : mContext(context), mFirstDrawBuffer(firstDrawBuffer), mNumDrawBuffers(numDrawBuffers)
     {
         const State &state = mContext->getState();
+        mSavedColorMasks   = state.getBlendStateExt().getColorMaskBits();
         if (!mContext->getExtensions().drawBuffersIndexedAny())
         {
-            std::array<bool, 4> &mask = mSavedColorMasks[0];
-            state.getBlendStateExt().getColorMaskIndexed(0, &mask[0], &mask[1], &mask[2], &mask[3]);
-            ContextPrivateColorMask(mContext->getMutablePrivateState(),
-                                    mContext->getMutablePrivateStateCache(), GL_TRUE, GL_TRUE,
-                                    GL_TRUE, GL_TRUE);
+            const uint8_t colorMask =
+                BlendStateExt::ColorMaskStorage::GetValueIndexed(0, mSavedColorMasks);
+            if (colorMask != BlendStateExt::kColorMaskRGBA)
+            {
+                ContextPrivateColorMask(mContext->getMutablePrivateState(),
+                                        mContext->getMutablePrivateStateCache(), GL_TRUE, GL_TRUE,
+                                        GL_TRUE, GL_TRUE);
+            }
         }
         else
         {
-            for (int i = 0; i < mNumDrawBuffers; ++i)
+            const int endDrawBuffer = mFirstDrawBuffer + mNumDrawBuffers;
+            for (int i = mFirstDrawBuffer; i < endDrawBuffer; ++i)
             {
-                std::array<bool, 4> &mask = mSavedColorMasks[i];
-                state.getBlendStateExt().getColorMaskIndexed(i, &mask[0], &mask[1], &mask[2],
-                                                             &mask[3]);
-                ContextPrivateColorMaski(mContext->getMutablePrivateState(),
-                                         mContext->getMutablePrivateStateCache(), i, GL_TRUE,
-                                         GL_TRUE, GL_TRUE, GL_TRUE);
+                const uint8_t colorMask =
+                    BlendStateExt::ColorMaskStorage::GetValueIndexed(i, mSavedColorMasks);
+                if (colorMask != BlendStateExt::kColorMaskRGBA)
+                {
+                    ContextPrivateColorMaski(mContext->getMutablePrivateState(),
+                                             mContext->getMutablePrivateStateCache(), i, GL_TRUE,
+                                             GL_TRUE, GL_TRUE, GL_TRUE);
+                }
             }
         }
     }
 
     ~ScopedEnableColorMask()
     {
+        bool r, g, b, a;
         if (!mContext->getExtensions().drawBuffersIndexedAny())
         {
-            const std::array<bool, 4> &mask = mSavedColorMasks[0];
-            ContextPrivateColorMask(mContext->getMutablePrivateState(),
-                                    mContext->getMutablePrivateStateCache(), mask[0], mask[1],
-                                    mask[2], mask[3]);
+            const uint8_t colorMask =
+                BlendStateExt::ColorMaskStorage::GetValueIndexed(0, mSavedColorMasks);
+            if (colorMask != BlendStateExt::kColorMaskRGBA)
+            {
+                BlendStateExt::UnpackColorMask(colorMask, &r, &g, &b, &a);
+                ContextPrivateColorMask(mContext->getMutablePrivateState(),
+                                        mContext->getMutablePrivateStateCache(), r, g, b, a);
+            }
         }
         else
         {
-            for (int i = 0; i < mNumDrawBuffers; ++i)
+            const int endDrawBuffer = mFirstDrawBuffer + mNumDrawBuffers;
+            for (int i = mFirstDrawBuffer; i < endDrawBuffer; ++i)
             {
-                const std::array<bool, 4> &mask = mSavedColorMasks[i];
-                ContextPrivateColorMaski(mContext->getMutablePrivateState(),
-                                         mContext->getMutablePrivateStateCache(), i, mask[0],
-                                         mask[1], mask[2], mask[3]);
+                const uint8_t colorMask =
+                    BlendStateExt::ColorMaskStorage::GetValueIndexed(i, mSavedColorMasks);
+                if (colorMask != BlendStateExt::kColorMaskRGBA)
+                {
+                    BlendStateExt::UnpackColorMask(colorMask, &r, &g, &b, &a);
+                    ContextPrivateColorMaski(mContext->getMutablePrivateState(),
+                                             mContext->getMutablePrivateStateCache(), i, r, g, b,
+                                             a);
+                }
             }
         }
     }
 
   private:
     Context *const mContext;
+    const int mFirstDrawBuffer;
     const int mNumDrawBuffers;
-    DrawBuffersArray<std::array<bool, 4>> mSavedColorMasks;
+    BlendStateExt::ColorMaskStorage::Type mSavedColorMasks;
 };
 }  // namespace
 
@@ -317,13 +364,13 @@ void PixelLocalStoragePlane::attachToDrawFramebuffer(Context *context, GLenum co
     ASSERT(!isDeinitialized());
     // Call ensureBackingTextureIfMemoryless() first!
     ASSERT(mTextureID.value != 0 && context->getTexture(mTextureID) != nullptr);
-    if (mTextureImageIndex.usesTex3D())  // GL_TEXTURE_3D or GL_TEXTURE_2D_ARRAY.
+    if (mTextureImageIndex.usesTex3D())  // GL_TEXTURE_2D_ARRAY or GL_TEXTURE_CUBE_MAP_ARRAY
     {
         context->framebufferTextureLayer(GL_DRAW_FRAMEBUFFER, colorAttachment, mTextureID,
                                          mTextureImageIndex.getLevelIndex(),
                                          mTextureImageIndex.getLayerIndex());
     }
-    else
+    else  // GL_TEXTURE_2D or GL_TEXTURE_CUBE_MAP
     {
         context->framebufferTexture2D(GL_DRAW_FRAMEBUFFER, colorAttachment,
                                       mTextureImageIndex.getTarget(), mTextureID,
@@ -534,25 +581,6 @@ void PixelLocalStorage::begin(Context *context, GLsizei n, const GLenum loadops[
         plane.markActive(true);
     }
 
-    // Disable blend and enable the full color mask on the draw buffers reserved for PLS.
-    const Caps &caps           = context->getCaps();
-    GLint firstPLSDrawBuffer   = FirstOverriddenDrawBuffer(caps, n);
-    PrivateState *privateState = context->getMutablePrivateState();
-    if (firstPLSDrawBuffer == 0)
-    {
-        privateState->setBlend(false);
-        privateState->setColorMask(true, true, true, true);
-    }
-    else
-    {
-        ASSERT(context->getExtensions().drawBuffersIndexedAny());
-        for (GLint i = firstPLSDrawBuffer; i < caps.maxDrawBuffers; ++i)
-        {
-            privateState->setBlendIndexed(false, i);
-            privateState->setColorMaskIndexed(true, true, true, true, i);
-        }
-    }
-
     onBegin(context, n, loadops, plsExtents);
 }
 
@@ -664,7 +692,7 @@ class PixelLocalStorageImageLoadStore : public PixelLocalStorage
             // to a PLS plane and attaching it to the draw framebuffer. Enabling this workaround on
             // any other platform would yield incorrect results.
             // This flag is set to true iff the framebuffer has an attachment 0 and it is enabled.
-            mHadColorAttachment0 = framebuffer->getDrawBufferMask().test(0);
+            mHadColorAttachment0 = framebuffer->getColorAttachment(0) != nullptr;
             if (!mHadColorAttachment0)
             {
                 // Indexed color masks are always available on Metal.
@@ -729,6 +757,7 @@ class PixelLocalStorageImageLoadStore : public PixelLocalStorage
             context->bindFramebuffer(GL_DRAW_FRAMEBUFFER, mScratchFramebufferForClearing);
         }
         ScopedDisableScissor scopedDisableScissor(context);
+        ScopedDisableRasterizerDiscard scopedDisableRasterizerDiscard(context);
 
         // Bind and clear the PLS planes.
         size_t maxClearedAttachments = 0;
@@ -748,7 +777,7 @@ class PixelLocalStorageImageLoadStore : public PixelLocalStorage
                 }
             }
             // Clear in batches in order to be more efficient with GL state.
-            ScopedEnableColorMask scopedEnableColorMask(context,
+            ScopedEnableColorMask scopedEnableColorMask(context, 0,
                                                         static_cast<int>(pendingClears.size()));
             ClearBufferCommands clearBufferCommands(context);
             for (size_t drawBufferIdx = 0; drawBufferIdx < pendingClears.size(); ++drawBufferIdx)
@@ -914,6 +943,7 @@ class PixelLocalStorageFramebufferFetch : public PixelLocalStorage
         if (needsClear)
         {
             ScopedDisableScissor scopedDisableScissor(context);
+            ScopedDisableRasterizerDiscard scopedDisableRasterizerDiscard(context);
             ClearBufferCommands clearBufferCommands(context);
             for (GLsizei i = 0; i < n; ++i)
             {
@@ -921,6 +951,7 @@ class PixelLocalStorageFramebufferFetch : public PixelLocalStorage
                 if (loadop != GL_LOAD_OP_LOAD_ANGLE)
                 {
                     GLuint drawBufferIdx = GetDrawBufferIdx(caps, i);
+                    ScopedEnableColorMask scopedEnableColorMask(context, drawBufferIdx, 1);
                     getPlane(i).issueClearCommand(&clearBufferCommands, drawBufferIdx, loadop);
                 }
             }

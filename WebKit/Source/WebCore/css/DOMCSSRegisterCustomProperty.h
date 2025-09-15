@@ -26,13 +26,13 @@
 #pragma once
 
 #include "DOMCSSCustomPropertyDescriptor.h"
-#include "ExceptionOr.h"
 #include "Supplementable.h"
 
 namespace WebCore {
 
 class Document;
 class DOMCSSNamespace;
+template<typename> class ExceptionOr;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(DOMCSSRegisterCustomProperty);
 class DOMCSSRegisterCustomProperty final : public Supplement<DOMCSSNamespace> {

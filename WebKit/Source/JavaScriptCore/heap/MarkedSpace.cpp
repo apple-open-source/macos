@@ -41,7 +41,7 @@ static Vector<size_t> sizeClasses()
 {
     Vector<size_t> result;
 
-    if (UNLIKELY(Options::dumpSizeClasses())) {
+    if (Options::dumpSizeClasses()) [[unlikely]] {
         dataLog("Block size: ", MarkedBlock::blockSize, "\n");
         dataLog("Header size: ", sizeof(MarkedBlock::Header), "\n");
     }
@@ -433,7 +433,7 @@ void MarkedSpace::beginMarking()
                 return IterationStatus::Continue;
             });
 
-        if (UNLIKELY(nextVersion(m_markingVersion) == initialVersion)) {
+        if (nextVersion(m_markingVersion) == initialVersion) [[unlikely]] {
             forEachBlock(
                 [&] (MarkedBlock::Handle* handle) {
                     handle->block().resetMarks();
@@ -463,7 +463,7 @@ void MarkedSpace::beginMarking()
 
 void MarkedSpace::endMarking()
 {
-    if (UNLIKELY(nextVersion(m_newlyAllocatedVersion) == initialVersion)) {
+    if (nextVersion(m_newlyAllocatedVersion) == initialVersion) [[unlikely]] {
         forEachBlock(
             [&] (MarkedBlock::Handle* handle) {
                 handle->block().resetAllocated();

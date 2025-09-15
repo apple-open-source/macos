@@ -859,6 +859,14 @@ machine_switch_perfcontrol_state_update(__unused perfcontrol_event event,
 }
 
 void
+machine_perfcontrol_running_timer_expire(__unused uint64_t now,
+    __unused uint32_t flags,
+    __unused int cpu_id,
+    __unused uint64_t *timeout_ticks)
+{
+}
+
+void
 active_rt_threads(boolean_t active)
 {
 	if (!pmInitDone

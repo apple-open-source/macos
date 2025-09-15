@@ -41,6 +41,7 @@
 #include <kern/queue.h>
 #include <kern/sched.h>
 #include <kern/sched_prim.h>
+#include <kern/sched_rt.h>
 #include <kern/task.h>
 #include <kern/thread.h>
 #include <kern/thread_group.h>
@@ -49,6 +50,10 @@
 #include <sys/kdebug.h>
 
 #if __AMP__ && !CONFIG_SCHED_EDGE
+
+#if CONFIG_SCHED_SMT
+#error "The AMP scheduler does not support CONFIG_SCHED_SMT."
+#endif /* CONFIG_SCHED_SMT */
 
 static thread_t
 sched_amp_steal_thread(processor_set_t pset);
@@ -97,7 +102,7 @@ static sched_mode_t
 sched_amp_initial_thread_sched_mode(task_t parent_task);
 
 static processor_t
-sched_amp_choose_processor(processor_set_t pset, processor_t processor, thread_t thread);
+sched_amp_choose_processor(processor_set_t pset, processor_t processor, thread_t thread, sched_options_t *options);
 
 static bool
 sched_amp_thread_avoid_processor(processor_t processor, thread_t thread, __unused ast_t reason);
@@ -148,13 +153,13 @@ const struct sched_dispatch_table sched_amp_dispatch = {
 	.avoid_processor_enabled                        = TRUE,
 	.thread_avoid_processor                         = sched_amp_thread_avoid_processor,
 	.processor_balance                              = sched_amp_balance,
-
-	.rt_runq                                        = sched_rtlocal_runq,
-	.rt_init                                        = sched_rtlocal_init,
-	.rt_queue_shutdown                              = sched_rtlocal_queue_shutdown,
-	.rt_runq_scan                                   = sched_rtlocal_runq_scan,
-	.rt_runq_count_sum                              = sched_rtlocal_runq_count_sum,
-	.rt_steal_thread                                = sched_rtlocal_steal_thread,
+	.rt_choose_processor                            = sched_rt_choose_processor,
+	.rt_steal_thread                                = NULL,
+	.rt_init_pset                                   = sched_rt_init_pset,
+	.rt_init_completed                              = sched_rt_init_completed,
+	.rt_queue_shutdown                              = sched_rt_queue_shutdown,
+	.rt_runq_scan                                   = sched_rt_runq_scan,
+	.rt_runq_count_sum                              = sched_rt_runq_count_sum,
 
 	.qos_max_parallelism                            = sched_amp_qos_max_parallelism,
 	.check_spill                                    = sched_amp_check_spill,
@@ -565,7 +570,7 @@ sched_amp_thread_update_scan(sched_update_scan_context_t scan_context)
 			}
 
 			thread = processor->idle_thread;
-			if (thread != THREAD_NULL && thread->sched_stamp != sched_tick) {
+			if (thread != THREAD_NULL && thread->sched_stamp != os_atomic_load(&sched_tick, relaxed)) {
 				if (thread_update_add_thread(thread) == FALSE) {
 					restart_needed = TRUE;
 					break;
@@ -651,7 +656,7 @@ sched_amp_thread_avoid_processor(processor_t processor, thread_t thread, __unuse
 }
 
 static processor_t
-sched_amp_choose_processor(processor_set_t pset, processor_t processor, thread_t thread)
+sched_amp_choose_processor(processor_set_t pset, processor_t processor, thread_t thread, __unused sched_options_t *options)
 {
 	/* Bound threads don't call this function */
 	assert(thread->bound_processor == PROCESSOR_NULL);
@@ -683,7 +688,7 @@ sched_amp_choose_processor(processor_set_t pset, processor_t processor, thread_t
 #if CONFIG_SCHED_SMT
 	return choose_processor_smt(nset, processor, thread);
 #else /* CONFIG_SCHED_SMT */
-	return choose_processor(nset, processor, thread);
+	return choose_processor(nset, processor, thread, options);
 #endif /* CONFIG_SCHED_SMT */
 }
 

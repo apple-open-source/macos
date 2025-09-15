@@ -2,6 +2,8 @@
 #include <fcntl.h>
 #include <util.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <darwintest.h>
 
 T_DECL(dev_zero,
@@ -26,4 +28,24 @@ T_DECL(dev_zero,
 	}
 
 	close(dev);
+}
+
+T_DECL(dev_zero_permissions,
+    "ensure /dev/zero's permissions can't be updated",
+    T_META_ASROOT(true))
+{
+	struct stat sb = {0};
+	const char *dev = "/dev/zero";
+	int ret = 0;
+
+	ret = stat(dev, &sb);
+	T_ASSERT_POSIX_SUCCESS(ret, "stat /dev/zero");
+	T_ASSERT_TRUE(sb.st_mode & S_IWOTH, "/dev/zero world writable");
+
+	ret = chmod(dev, 0664);
+	T_ASSERT_POSIX_FAILURE(ret, EPERM, "chmod /dev/zero should fail w/ EPERM");
+
+	ret = stat(dev, &sb);
+	T_ASSERT_POSIX_SUCCESS(ret, "stat /dev/zero");
+	T_ASSERT_TRUE(sb.st_mode & S_IWOTH, "/dev/zero still world writable");
 }

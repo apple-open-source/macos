@@ -49,7 +49,6 @@ namespace WebCore {
 class AlternativeTextUIController;
 class HistoryItem;
 class RunLoopObserver;
-class TextIndicatorWindow;
 class ValidationBubble;
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
 class PlaybackSessionInterfaceMac;
@@ -96,6 +95,7 @@ class WebMediaPlaybackTargetPicker;
 extern BOOL applicationIsTerminating;
 extern int pluginDatabaseClientCount;
 
+class TextIndicatorWindow;
 class WebViewGroup;
 class WebViewRenderingUpdateScheduler;
 
@@ -168,7 +168,7 @@ class WebSelectionServiceController;
     BOOL _needsDeferredTextTouchBarUpdate;
 #endif // HAVE(TOUCH_BAR)
 
-    std::unique_ptr<WebCore::TextIndicatorWindow> textIndicatorWindow;
+    std::unique_ptr<TextIndicatorWindow> textIndicatorWindow;
     BOOL hasInitializedLookupObserver;
     RetainPtr<WebWindowVisibilityObserver> windowVisibilityObserver;
     BOOL windowOcclusionDetectionEnabled;

@@ -79,3 +79,18 @@ T_DECL(prng, "prng test")
 
 	free(buf);
 }
+
+T_DECL(prng_write_random, "Test writing to /dev/random")
+{
+	uint8_t entropy[128] = {0};
+
+	int rndfd = open("/dev/random", O_WRONLY, S_IWUSR);
+	T_ASSERT_POSIX_SUCCESS(rndfd, "Open /dev/random");
+
+	T_ASSERT_EQ_INT((int)write(rndfd, entropy, 128), 128, "write 128 bytes to /dev/random");
+	T_ASSERT_EQ_INT((int)write(rndfd, entropy, 65), 65, "write 65 bytes to /dev/random");
+	T_ASSERT_EQ_INT((int)write(rndfd, entropy, 64), 64, "write 64 bytes to /dev/random");
+	T_ASSERT_EQ_INT((int)write(rndfd, entropy, 1), 1, "write 1 byte to /dev/random");
+
+	close(rndfd);
+}

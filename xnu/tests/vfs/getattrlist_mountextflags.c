@@ -28,12 +28,14 @@
 
 /* compile: xcrun -sdk macosx.internal clang -ldarwintest -o getattrlist_mountextflags getattrlist_mountextflags.c -g -Weverything */
 
-#include <darwintest.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <TargetConditionals.h>
+
+#include <darwintest.h>
+#include <darwintest/utils.h>
 
 #if !TARGET_OS_OSX
 #define FSTYPE_LIFS  "lifs"
@@ -41,7 +43,6 @@
 
 #define FSTYPE_MSDOS "msdos"
 #define FSTYPE_APFS  "apfs"
-#define TEMPLATE     "/private/var/tmp/getattrlist_mountextflags_test.XXXXXXXX"
 
 /* rdar://137970358: Disable the test for now until the root cause was determined */
 #if 0
@@ -50,7 +51,7 @@
 #define RUN_TEST     0
 #endif
 
-static char template[] = TEMPLATE;
+static char template[MAXPATHLEN];
 static char *testdir = NULL;
 static char *output_buffer = NULL;
 static char image_path[PATH_MAX];
@@ -225,6 +226,7 @@ T_DECL(getattrlist_mountextflags,
 	output_buffer = malloc(PATH_MAX);
 
 	/* Create test directory */
+	snprintf(template, sizeof(template), "%s/getattrlist_mountextflags-XXXXXX", dt_tmpdir());
 	T_ASSERT_POSIX_NOTNULL((testdir = mkdtemp(template)), "Creating test root dir");
 
 	/* Create image path */

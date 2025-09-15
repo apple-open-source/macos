@@ -25,7 +25,7 @@
 
 #import "DOMCSSStyleRule.h"
 
-#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/CSSStyleProperties.h>
 #import <WebCore/CSSStyleRule.h>
 #import "DOMCSSRuleInternal.h"
 #import "DOMCSSStyleDeclarationInternal.h"
@@ -45,7 +45,7 @@
 - (NSString *)selectorText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->selectorText();
+    return IMPL->selectorText().createNSString().autorelease();
 }
 
 - (void)setSelectorText:(NSString *)newSelectorText

@@ -16,6 +16,7 @@ es_419{
         gu{"gujarati"}
         guc{"wayú"}
         ht{"haitiano"}
+        isc{"iskonawa"}
         kbd{"cabardiano"}
         krc{"karachái-bálkaro"}
         ks{"cachemiro"}
@@ -55,8 +56,8 @@ es_419{
     }
     Types{
         calendar{
-            islamic-rgsa{"calendario islámico (Arabia Saudita)"}
-            islamic-tbla{"calendario islámico tabular"}
+            malayalam{"calendario malabar"}
+            telugu{"calendario télugu"}
         }
         colAlternate{
             non-ignorable{"ordenar símbolos"}

@@ -56,7 +56,7 @@ public:
 
     void prepare();
 
-    void compileFunctions(CompilationEffort);
+    void compileFunctions();
 
     Ref<ModuleInformation>&& takeModuleInformation()
     {
@@ -122,7 +122,7 @@ protected:
     template<typename T>
     bool tryReserveCapacity(Vector<T>& vector, size_t size, ASCIILiteral what)
     {
-        if (UNLIKELY(!vector.tryReserveCapacity(size))) {
+        if (!vector.tryReserveCapacity(size)) [[unlikely]] {
             Locker locker { m_lock };
             fail(WTF::makeString("Failed allocating enough space for "_s, size, what));
             return false;

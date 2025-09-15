@@ -50,6 +50,8 @@ let unknownCutoffHours = 48
 // If a machineID doesn't appear on the TDL and hasn't been modified in the last 10+ days, then TPH shouldn't send the metric
 let vanishedCutoffHours = 240
 
+let machineIDRollPrefix = 26
+
 extension Container {
     // CoreData suggests not using heavyweight migrations, so we have two locations to store the machine ID list.
     // Perform our own migration from the no-longer-used field.
@@ -105,8 +107,82 @@ extension Container {
         }
     }
 
+    func detectMIDRoll(egoPeerMID: String,
+                       listOfAllowedMIDs: Set<String>,
+                       listOfUserInitiatedRemovals: Set<String>?,
+                       listOfEvictedMIDs: Set<String>?,
+                       listOfUnknownReasonRemovals: Set<String>?) -> Bool {
+
+        var egoMIDIsOnDisallowedList: Bool = false
+
+        let egoMIDIsOnAllowedList = listOfAllowedMIDs.contains(egoPeerMID)
+
+        if let userInitiated = listOfUserInitiatedRemovals {
+            egoMIDIsOnDisallowedList = userInitiated.contains(egoPeerMID)
+        }
+        if let evicted = listOfEvictedMIDs {
+            egoMIDIsOnDisallowedList = egoMIDIsOnDisallowedList || evicted.contains(egoPeerMID)
+        }
+        if let unknown = listOfUnknownReasonRemovals {
+            egoMIDIsOnDisallowedList = egoMIDIsOnDisallowedList || unknown.contains(egoPeerMID)
+        }
+
+        let egoMIDHasVanished = (egoMIDIsOnDisallowedList == false && egoMIDIsOnAllowedList == false)
+
+        if egoMIDIsOnDisallowedList && egoMIDIsOnAllowedList {
+            logger.info("Detected ego MID on both allowed section and evicted/unknown removal section of the deleted list, bailing from MID roll evaluation")
+            return false
+        }
+
+        var egoPeerMIDPrefix: Substring?
+        if egoPeerMID.count >= machineIDRollPrefix {
+            let egoPeerMIDIndex = egoPeerMID.index(egoPeerMID.startIndex, offsetBy: machineIDRollPrefix)
+            egoPeerMIDPrefix = egoPeerMID[..<egoPeerMIDIndex]
+        }
+
+        guard let prefix = egoPeerMIDPrefix else {
+            logger.info("Empty prefix, returning")
+            return false
+        }
+
+        if egoMIDIsOnDisallowedList == true || egoMIDHasVanished == true { // if the old MID is disallowed or fell off the entire TDL, check if the allowed has a rolled version
+            let matches = listOfAllowedMIDs.filter { $0 != egoPeerMID && $0.hasPrefix(prefix) }
+            return !matches.isEmpty
+        } else if egoMIDIsOnAllowedList { // otherwise, ego MID is still trusted.. let's see if IdMS trust maintenance occurred
+            let matches = listOfAllowedMIDs.filter { $0.hasPrefix(prefix) }
+            if matches.count > 1 {
+                logger.info("Possible IdMS trust maintenance")
+            }
+        }
+
+        return false
+    }
+
+    func detectMIDRollAndSendMetric(egoPeerMID: String,
+                                    listOfAllowedMIDs: Set<String>,
+                                    listOfUserInitiatedMIDs: Set<String>?,
+                                    listOfEvictedMIDs: Set<String>?,
+                                    listOfUnknownReasonRemovals: Set<String>?,
+                                    altDSID: String?,
+                                    flowID: String?,
+                                    deviceSessionID: String?,
+                                    testsAreEnabled: Bool) {
+        if self.detectMIDRoll(egoPeerMID: egoPeerMID, listOfAllowedMIDs: listOfAllowedMIDs, listOfUserInitiatedRemovals: listOfUserInitiatedMIDs, listOfEvictedMIDs: listOfEvictedMIDs, listOfUnknownReasonRemovals: listOfUnknownReasonRemovals) {
+            logger.info("MID rolled! incoming trust loss")
+            let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.tdlMidRoll.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to MID roll"])
+            self.egoMachineIDRolled = true
+            self.sendMetric(altDSID: altDSID,
+                            flowID: flowID,
+                            deviceSessionID: deviceSessionID,
+                            eventName: kSecurityRTCEventNameOctagonTrustLost,
+                            metrics: [:],
+                            result: true,
+                            error: error)
+        }
+    }
+
     // return whether or not there are list differences
-    func handleEvicted(machine: MachineMO, listDifferences: inout Bool) {
+    func handleEvictedAndReturnShouldSendMetric(machine: MachineMO, listDifferences: inout Bool) -> Bool {
         if machine.modifiedInPast(hours: evictedCutoffHours) {
             logger.info("Evicted machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving evicted: \(String(describing: machine.machineID), privacy: .public)")
         } else {
@@ -114,11 +190,13 @@ extension Container {
             machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
             machine.modified = Date()
             listDifferences = true
+            return true
         }
+        return false
     }
 
     // return whether or not there are list differences
-    func handleUnknownReasons(machine: MachineMO, listDifferences: inout Bool) {
+    func handleUnknownReasonsAndReturnShouldSendMetric(machine: MachineMO, listDifferences: inout Bool) -> Bool {
         if machine.modifiedInPast(hours: unknownReasonCutoffHours) {
             logger.info("Unknown reason machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown reason: \(String(describing: machine.machineID), privacy: .public)")
         } else {
@@ -126,7 +204,9 @@ extension Container {
             machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
             machine.modified = Date()
             listDifferences = true
+            return true
         }
+        return false
     }
 
     func checkForDuplicateEntriesAndSendMetric(_ allowedMachineIDs: Set<String>,
@@ -166,7 +246,7 @@ extension Container {
                                                    canSendMetrics: true,
                                                    category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
 
-            SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.duplicateMachineID)
+            eventS.sendMetric(withResult: false, error: ContainerError.duplicateMachineID)
 
             return true
         }
@@ -174,39 +254,124 @@ extension Container {
         return false
     }
 
+    func sendMetric(altDSID: String?,
+                    flowID: String?,
+                    deviceSessionID: String?,
+                    eventName: String,
+                    metrics: [String: Any] = [:],
+                    result: Bool,
+                    error: NSError?) {
+
+        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: metrics,
+                                               altDSID: altDSID,
+                                               flowID: flowID,
+                                               deviceSessionID: deviceSessionID,
+                                               eventName: eventName,
+                                               testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
+                                               canSendMetrics: true,
+                                               category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
+
+        eventS.sendMetric(withResult: result, error: error)
+        self.sentMetric = true
+    }
+
     func sendVanishedMetric(altDSID: String?,
                             flowID: String?,
                             deviceSessionID: String?) {
 
-        let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: [kSecurityRTCFieldEgoMachineIDVanishedFromTDL: self.egoMachineIDVanished],
-                                               altDSID: altDSID,
-                                               flowID: flowID,
-                                               deviceSessionID: deviceSessionID,
-                                               eventName: kSecurityRTCEventNameMIDVanishedFromTDL,
-                                               testsAreEnabled: false,
-                                               canSendMetrics: true,
-                                               category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
-
-        SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.machineIDVanishedFromTDL)
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameMIDVanishedFromTDL,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDVanished],
+                        result: false,
+                        error: ContainerError.machineIDVanishedFromTDL as NSError)
     }
 
-    func computeHash(machineIDs: Set<String>) -> String? {
-        var machineIDSConcatenated: String = ""
+    func sendEvictedMetric(altDSID: String?,
+                           flowID: String?,
+                           deviceSessionID: String?) {
 
-        let sorted = machineIDs.sorted()
-        for machineId in sorted {
-            machineIDSConcatenated += machineId
-        }
+        logger.info("MID evicted! incoming trust loss")
 
-        if let data = machineIDSConcatenated.data(using: .utf8) {
-            let digest = SHA256.hash(data: data)
-            let hashString = digest
-                .compactMap { String(format: "%02x", $0) }
-                .joined()
-            return hashString
-        }
+        let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.tdlEvicted.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to MID eviction"])
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameOctagonTrustLost,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDEvicted],
+                        result: true,
+                        error: error)
+    }
 
-        return nil
+    func sendUserInitiatedMetric(altDSID: String?,
+                                 flowID: String?,
+                                 deviceSessionID: String?) {
+
+        logger.info("user initiated KO! incoming trust loss")
+
+        let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.tdlUserInitiated.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to user initiated removal"])
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameOctagonTrustLost,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUserInitiated],
+                        result: true,
+                        error: error)
+    }
+
+    func sendUnknownReasonMetric(altDSID: String?,
+                                 flowID: String?,
+                                 deviceSessionID: String?) {
+
+        logger.info("MID unknown reason! incoming trust loss")
+
+        let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.tdlUnknown.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to unknown removal reason"])
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameOctagonTrustLost,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUnknownReason],
+                        result: true,
+                        error: error)
+    }
+
+    func sendUnknownMetric(altDSID: String?,
+                           flowID: String?,
+                           deviceSessionID: String?) {
+
+        logger.info("MID unknown! incoming trust loss")
+
+        let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.unknown.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to unknown machine ID"])
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameOctagonTrustLost,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDUnknown],
+                        result: true,
+                        error: error)
+    }
+
+    func sendGhostedMetric(altDSID: String?,
+                           flowID: String?,
+                           deviceSessionID: String?) {
+
+        logger.info("MID ghosted! incoming trust loss")
+
+        let error = NSError(domain: kSecurityRTCErrorDomain, code: OctagonTrustDepartureReasonError.tdlGhost.rawValue, userInfo: [NSLocalizedDescriptionKey: "Trust loss due to ghosting"])
+        self.sendMetric(altDSID: altDSID,
+                        flowID: flowID,
+                        deviceSessionID: deviceSessionID,
+                        eventName: kSecurityRTCEventNameOctagonTrustLost,
+                        metrics: [kSecurityRTCFieldIsCurrentDevice : self.egoMachineIDGhosted],
+                        result: true,
+                        error: error)
+    }
+
+    func computeHash(machineIDs: Set<String>) -> String {
+        let machineIDSConcatenated = machineIDs.sorted().joined()
+        let digest = SHA256.hash(data: Data(machineIDSConcatenated.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     func markTrustedDeviceListFetchFailed(reply: @escaping (Error?) -> Void) {
@@ -247,12 +412,12 @@ extension Container {
                               reply: @escaping (Bool, Error?) -> Void) {
         let sem = self.grabSemaphore()
         let reply: (Bool, Error?) -> Void = {
-            logger.info("setAllowedMachineIDs complete: \(traceError($1), privacy: .public)")
+            logger.notice("setAllowedMachineIDs complete: \(traceError($1), privacy: .public)")
             sem.release()
             reply($0, $1)
         }
 
-        logger.info("Setting allowed machine IDs: \(allowedMachineIDs, privacy: .public), version \(String(describing: version), privacy: .public)")
+        logger.notice("Setting allowed machine IDs: \(allowedMachineIDs, privacy: .public), version \(String(describing: version), privacy: .public)")
 
         // Note: we currently ignore any machineIDs that are set in the model, but never appeared on the
         // Trusted Devices list. We should give them a grace period (1wk?) then kick them out.
@@ -268,10 +433,10 @@ extension Container {
                     do {
                         egoPeer = try self.model.peer(withID: egoPeerID)
                         if egoPeer == nil {
-                            logger.warning("Couldn't find ego peer in model")
+                            logger.error("Couldn't find ego peer in model")
                         }
                     } catch {
-                        logger.warning("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
+                        logger.error("Error getting ego peer from model: \(String(describing: error), privacy: .public)")
                         egoPeer = nil
                     }
                     if let egoPeer {
@@ -281,7 +446,7 @@ extension Container {
                             let status = try self.model.statusOfPeer(withID: egoPeerID)
                             egoIsTrusted = (status != .excluded && status != .unknown && status != .ignored)
                         } catch {
-                            logger.warning("error calling statusOfPeer: \(error, privacy: .public)")
+                            logger.error("error calling statusOfPeer: \(error, privacy: .public)")
                         }
                     }
                 }
@@ -299,12 +464,12 @@ extension Container {
                 var hashOfDeleted: String? = ""
                 if !deletedList.isEmpty {
                     hashOfDeleted = self.computeHash(machineIDs: deletedList)
-                    logger.info("sha256 of deleted list: \(String(describing: hashOfDeleted), privacy: .public)")
+                    logger.notice("sha256 of deleted list: \(String(describing: hashOfDeleted), privacy: .public)")
                 }
                 var hashOfAllowed: String? = ""
                 if !allowedMachineIDs.isEmpty {
                     hashOfAllowed = self.computeHash(machineIDs: allowedMachineIDs)
-                    logger.info("sha256 of allowed list: \(String(describing: hashOfAllowed), privacy: .public)")
+                    logger.notice("sha256 of allowed list: \(String(describing: hashOfAllowed), privacy: .public)")
                 }
 
                 self.testHashMismatchDetected = false
@@ -314,10 +479,10 @@ extension Container {
                                                            flowID: flowID,
                                                            deviceSessionID: deviceSessionID,
                                                            eventName: kSecurityRTCEventNameAllowedMIDHashMismatch,
-                                                           testsAreEnabled: false,
+                                                           testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
                                                            canSendMetrics: true,
                                                            category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.allowedMIDHashMismatch)
+                    eventS.sendMetric(withResult: false, error: ContainerError.allowedMIDHashMismatch)
                     self.testHashMismatchDetected = true
                 }
                 if deletedDeviceHash != hashOfDeleted {
@@ -326,18 +491,31 @@ extension Container {
                                                            flowID: flowID,
                                                            deviceSessionID: deviceSessionID,
                                                            eventName: kSecurityRTCEventNameDeletedMIDHashMismatch,
-                                                           testsAreEnabled: false,
+                                                           testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
                                                            canSendMetrics: true,
                                                            category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: ContainerError.deletedMIDHashMismatch)
+                    eventS.sendMetric(withResult: false, error: ContainerError.deletedMIDHashMismatch)
                     self.testHashMismatchDetected = true
                 }
 
-                let detectedDuplicate = self.checkForDuplicateEntriesAndSendMetric(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, flowID: flowID, deviceSessionID: deviceSessionID, altDSID: altDSID, testsAreEnabled: false)
+                let detectedDuplicate = self.checkForDuplicateEntriesAndSendMetric(allowedMachineIDs, userInitiatedRemovals: userInitiatedRemovals, evictedRemovals: evictedRemovals, unknownReasonRemovals: unknownReasonRemovals, flowID: flowID, deviceSessionID: deviceSessionID, altDSID: altDSID, testsAreEnabled: soft_MetricsOverrideTestsAreEnabled())
+
+                if egoIsTrusted {
+                    if let egoMachineID = egoMachineID {
+                        self.detectMIDRollAndSendMetric(egoPeerMID: egoMachineID, listOfAllowedMIDs: allowedMachineIDs, listOfUserInitiatedMIDs: userInitiatedRemovals, listOfEvictedMIDs: evictedRemovals, listOfUnknownReasonRemovals: unknownReasonRemovals, altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID, testsAreEnabled: soft_MetricsOverrideTestsAreEnabled())
+                    }
+                }
 
                 self.midVanishedFromTDL = false
                 self.egoMachineIDVanished = false
+                var shouldSendEvictedMetric = false
+                var shouldSendUserInitiatedMetric = false
+                var shouldSendUnknownRemovalMetric = false
+                var shouldSendUnknownMetric = false
+                var shouldSendGhostMetric = false
+
                 var differences = false
+
                 self.containerMO.honorIDMSListChanges = honorIDMSListChanges ? "YES" : "NO"
 
                 var knownMachines = self.containerMO.machines as? Set<MachineMO> ?? Set()
@@ -345,12 +523,12 @@ extension Container {
 
                 knownMachines.forEach { machine in
                     guard let mid = machine.machineID else {
-                        logger.info("Machine has no ID: \(String(describing: machine), privacy: .public)")
+                        logger.notice("Machine has no ID: \(String(describing: machine), privacy: .public)")
                         return
                     }
                     if allowedMachineIDs.contains(mid) {
                         if machine.status == TPMachineIDStatus.allowed.rawValue {
-                            logger.info("Machine ID still trusted: \(String(describing: machine.machineID), privacy: .public)")
+                            logger.notice("Machine ID still trusted: \(String(describing: machine.machineID), privacy: .public)")
                         } else {
                             logger.notice("Machine ID newly retrusted: \(String(describing: machine.machineID), privacy: .public)")
                             differences = true
@@ -369,6 +547,11 @@ extension Container {
                                 machine.modified = Date()
                                 differences = true
                             }
+
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDUserInitiated = true
+                            }
+                            shouldSendUserInitiatedMetric = true
                             return
                         }
                     }
@@ -377,7 +560,12 @@ extension Container {
                         if evicted.contains(mid) {
                             logger.notice("Evicted removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); tagging as evicted: \(String(describing: machine.machineID), privacy: .public)")
                             if machine.status == TPMachineIDStatus.evicted.rawValue {
-                                self.handleEvicted(machine: machine, listDifferences: &differences)
+                                shouldSendEvictedMetric = shouldSendEvictedMetric || self.handleEvictedAndReturnShouldSendMetric(machine: machine, listDifferences: &differences)
+                                if shouldSendEvictedMetric {
+                                    if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                        self.egoMachineIDEvicted = true
+                                    }
+                                }
                             } else {
                                 machine.status = Int64(TPMachineIDStatus.evicted.rawValue)
                                 machine.modified = Date()
@@ -391,7 +579,12 @@ extension Container {
                         if unknownReasons.contains(mid) {
                             logger.notice("Unknown reason removal! machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); tagging as unknown reason: \(String(describing: machine.machineID), privacy: .public)")
                             if machine.status == TPMachineIDStatus.unknownReason.rawValue {
-                                self.handleUnknownReasons(machine: machine, listDifferences: &differences)
+                                shouldSendUnknownRemovalMetric = shouldSendUnknownRemovalMetric || self.handleUnknownReasonsAndReturnShouldSendMetric(machine: machine, listDifferences: &differences)
+                                if shouldSendUnknownRemovalMetric {
+                                    if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                        self.egoMachineIDUnknownReason = true
+                                    }
+                                }
                             } else {
                                 machine.status = Int64(TPMachineIDStatus.unknownReason.rawValue)
                                 machine.modified = Date()
@@ -419,15 +612,25 @@ extension Container {
                     }
 
                     if machine.status == TPMachineIDStatus.evicted.rawValue {
-                        self.handleEvicted(machine: machine, listDifferences: &differences)
+                        shouldSendEvictedMetric = shouldSendEvictedMetric || self.handleEvictedAndReturnShouldSendMetric(machine: machine, listDifferences: &differences)
+                        if shouldSendEvictedMetric {
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDEvicted = true
+                            }
+                        }
                     } else if machine.status == TPMachineIDStatus.unknownReason.rawValue {
-                        self.handleUnknownReasons(machine: machine, listDifferences: &differences)
+                        shouldSendUnknownRemovalMetric = shouldSendUnknownRemovalMetric || self.handleUnknownReasonsAndReturnShouldSendMetric(machine: machine, listDifferences: &differences)
+                        if shouldSendUnknownRemovalMetric {
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDUnknownReason = true
+                            }
+                        }
                     } else if machine.status == TPMachineIDStatus.ghostedFromTDL.rawValue {
                         if machine.modifiedInPast(hours: ghostedCutoffHours) {
                             if machine.seenOnFullList {
-                                logger.info("Seen on full list machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
+                                logger.notice("Seen on full list machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
                             } else {
-                                logger.info("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
+                                logger.notice("Allowed-but-unseen machine ID isn't on full list, last modified \(String(describing: machine.modifiedDate()), privacy: .public), ignoring: \(String(describing: machine.machineID), privacy: .public)")
                             }
                         } else {
                             if machine.seenOnFullList {
@@ -438,23 +641,32 @@ extension Container {
                             machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
                             machine.modified = Date()
                             differences = true
+
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDGhosted = true
+                            }
+                            shouldSendGhostMetric = true
                         }
                     } else if machine.status == TPMachineIDStatus.allowed.rawValue {
                         // IDMS sometimes has list consistency issues. So, if we see a device 'disappear' from the list, it may or may not
                         // actually have disappered.  Devices that were allowed get a 48 hour grace period.
-                        logger.info("MachineID was allowed but no longer on the TDL, last modified \(String(describing: machine.modifiedDate()), privacy: .public), tagging as ghosted fromt TDL: \(String(describing: machine.machineID), privacy: .public)")
+                        logger.notice("MachineID was allowed but no longer on the TDL, last modified \(String(describing: machine.modifiedDate()), privacy: .public), tagging as ghosted fromt TDL: \(String(describing: machine.machineID), privacy: .public)")
 
                         machine.status = Int64(TPMachineIDStatus.ghostedFromTDL.rawValue)
                         machine.modified = Date()
                         differences = true
                     } else if machine.status == TPMachineIDStatus.unknown.rawValue {
                         if machine.modifiedInPast(hours: unknownCutoffHours) {
-                            logger.info("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown: \(String(describing: machine.machineID), privacy: .public)")
+                            logger.notice("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); leaving unknown: \(String(describing: machine.machineID), privacy: .public)")
                         } else {
                             logger.notice("Unknown machine ID last modified \(String(describing: machine.modifiedDate()), privacy: .public); distrusting: \(String(describing: machine.machineID), privacy: .public)")
                             machine.status = Int64(TPMachineIDStatus.disallowed.rawValue)
                             machine.modified = Date()
                             differences = true
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDUnknown = true
+                            }
+                            shouldSendUnknownMetric = true
                         }
                     }
                 }
@@ -500,6 +712,10 @@ extension Container {
 
                             self.containerMO.addToMachines(machine)
                             knownMachines.insert(machine)
+                            if egoIsTrusted, let egoMachineID, let machineID = machine.machineID, egoMachineID == machineID {
+                                self.egoMachineIDUserInitiated = true
+                            }
+                            shouldSendUserInitiatedMetric = true
                         }
                     }
                 }
@@ -588,18 +804,38 @@ extension Container {
                     self.sendVanishedMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
                 }
 
+                if shouldSendEvictedMetric {
+                    self.sendEvictedMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
+                if shouldSendUserInitiatedMetric {
+                    self.sendUserInitiatedMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
+                if shouldSendUnknownRemovalMetric {
+                    self.sendUnknownReasonMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
+                if shouldSendUnknownMetric {
+                    self.sendUnknownMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
+                if shouldSendGhostMetric {
+                    self.sendGhostedMetric(altDSID: altDSID, flowID: flowID, deviceSessionID: deviceSessionID)
+                }
+
                 let eventS = AAFAnalyticsEventSecurity(keychainCircleMetrics: nil,
                                                        altDSID: altDSID,
                                                        flowID: flowID,
                                                        deviceSessionID: deviceSessionID,
                                                        eventName: kSecurityRTCEventNameTDLProcessingSuccess,
-                                                       testsAreEnabled: false,
+                                                       testsAreEnabled: soft_MetricsOverrideTestsAreEnabled(),
                                                        canSendMetrics: true,
                                                        category: kSecurityRTCEventCategoryAccountDataAccessRecovery)
                 if self.midVanishedFromTDL == false && detectedDuplicate == false && self.testHashMismatchDetected == false {
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: true, error: nil)
+                    eventS.sendMetric(withResult: true, error: nil)
                 } else {
-                    SecurityAnalyticsReporterRTC.sendMetric(withEvent: eventS, success: false, error: nil)
+                    eventS.sendMetric(withResult: false, error: nil)
                 }
 
                 Container.onqueueRemoveDuplicateMachineIDs(containerMO: self.containerMO, moc: self.moc)

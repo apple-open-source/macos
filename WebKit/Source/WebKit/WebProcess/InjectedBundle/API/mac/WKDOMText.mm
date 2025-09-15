@@ -33,7 +33,7 @@
 
 - (NSString *)data
 {
-    return downcast<WebCore::Text>(*_impl).data();
+    return downcast<WebCore::Text>(*_impl).data().createNSString().autorelease();
 }
 
 - (void)setData:(NSString *)data

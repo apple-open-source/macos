@@ -31,11 +31,29 @@
 
 #if KERNEL_PRIVATE
 
-#if !CONFIG_KCOV && __has_feature(coverage_sanitizer)
+#if __has_feature(coverage_sanitizer) && !(CONFIG_KCOV || defined(__BUILDING_XNU_LIBRARY__))
 # error "Coverage sanitizer enabled in compiler, but kernel is not configured for KCOV"
 #endif
 
 #if CONFIG_KCOV
+
+#include <mach/mach_types.h>
+
+/* Comparison type values */
+enum {
+	KCOV_CMP_CONST = 1,
+	KCOV_CMP_SIZE1 = 0,
+	KCOV_CMP_SIZE2 = 2,
+	KCOV_CMP_SIZE4 = 4,
+	KCOV_CMP_SIZE8 = 6,
+
+	KCOV_CMP_FUNC_MEMCMP = 32,
+	KCOV_CMP_FUNC_STRCMP = 34,
+	KCOV_CMP_FUNC_STRNCMP = 36,
+	KCOV_CMP_FUNC_STRBUFCMP = 38,
+};
+
+#define KCOV_CMP_IS_FUNC(type) (type >= KCOV_CMP_FUNC_MEMCMP)
 
 /* Forward declaration for types used in interfaces below. */
 typedef struct kcov_cpu_data kcov_cpu_data_t;
@@ -56,10 +74,13 @@ void kcov_start_cpu(int cpuid);
 void kcov_panic_disable(void);
 
 /* per-thread */
-struct kcov_thread_data *kcov_get_thread_data(thread_t);
+struct kcov_thread_data *kcov_get_thread_data(thread_t thread);
 
 void kcov_enable(void);
 void kcov_disable(void);
+
+/* Comparison function tracing */
+void kcov_trace_cmp_func(void *caller_pc, uint32_t type, const void *s1, size_t s1len, const void *s2, size_t s2len, bool always_log);
 
 /*
  * SanitizerCoverage ABI
@@ -69,6 +90,15 @@ void __sanitizer_cov_trace_pc_guard(uint32_t *guard);
 void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop);
 void __sanitizer_cov_trace_pc_indirect(void *callee);
 void __sanitizer_cov_trace_pc(void);
+void __sanitizer_cov_trace_cmp1(uint8_t arg1, uint8_t arg2);
+void __sanitizer_cov_trace_cmp2(uint16_t arg1, uint16_t arg2);
+void __sanitizer_cov_trace_cmp4(uint32_t arg1, uint32_t arg2);
+void __sanitizer_cov_trace_cmp8(uint64_t arg1, uint64_t arg2);
+void __sanitizer_cov_trace_const_cmp1(uint8_t arg1, uint8_t arg2);
+void __sanitizer_cov_trace_const_cmp2(uint16_t arg1, uint16_t arg2);
+void __sanitizer_cov_trace_const_cmp4(uint32_t arg1, uint32_t arg2);
+void __sanitizer_cov_trace_const_cmp8(uint64_t arg1, uint64_t arg2);
+void __sanitizer_cov_trace_switch(uint64_t val, uint64_t *cases);
 
 __END_DECLS
 

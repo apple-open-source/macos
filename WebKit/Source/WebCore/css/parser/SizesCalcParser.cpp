@@ -62,25 +62,29 @@ static bool operatorPriority(UChar cc, bool& highPriority)
 
 bool SizesCalcParser::handleOperator(Vector<CSSParserToken>& stack, const CSSParserToken& token)
 {
-    // If the token is an operator, o1, then:
-    // while there is an operator token, o2, at the top of the stack, and
-    // either o1 is left-associative and its precedence is equal to that of o2,
-    // or o1 has precedence less than that of o2,
-    // pop o2 off the stack, onto the output queue;
-    // push o1 onto the stack.
-    bool stackOperatorPriority;
+    // If the token is not an operator, then return. Else determine the
+    // precedence of the new operator (op1).
     bool incomingOperatorPriority;
-
     if (!operatorPriority(token.delimiter(), incomingOperatorPriority))
         return false;
-    if (!stack.isEmpty() && stack.last().type() == DelimiterToken) {
+    while (!stack.isEmpty()) {
+        // While there is an operator (op2) at the top of the stack,
+        // determine its precedence, and...
+        if (stack.last().type() != DelimiterToken)
+            break;
+        bool stackOperatorPriority;
         if (!operatorPriority(stack.last().delimiter(), stackOperatorPriority))
             return false;
-        if (!incomingOperatorPriority || stackOperatorPriority) {
-            appendOperator(stack.last());
-            stack.removeLast();
-        }
+        // ...if op1 is left-associative (all currently supported
+        // operators are) and its precedence is equal to that of op2, or
+        // op1 has precedence less than that of op2, ...
+        if (incomingOperatorPriority && !stackOperatorPriority)
+            break;
+        // ...pop op2 off the stack and add it to the output queue.
+        appendOperator(stack.last());
+        stack.removeLast();
     }
+    // Push op1 onto the stack.
     stack.append(token);
     return true;
 }
@@ -136,7 +140,7 @@ bool SizesCalcParser::calcToReversePolishNotation(CSSParserTokenRange range)
             if (!equalLettersIgnoringASCIICase(token.value(), "calc"_s))
                 return false;
             // "calc(" is the same as "("
-            FALLTHROUGH;
+            [[fallthrough]];
         case LeftParenthesisToken:
             // If the token is a left parenthesis, then push it onto the stack.
             stack.append(token);

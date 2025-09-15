@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,8 +40,11 @@ public:
 
     WEBCORE_EXPORT AuthenticationChallenge(NSURLAuthenticationChallenge *);
 
+#ifdef __OBJC__
     id sender() const { return m_sender.get(); }
     NSURLAuthenticationChallenge *nsURLAuthenticationChallenge() const { return m_nsChallenge.get(); }
+    RetainPtr<NSURLAuthenticationChallenge> protectedNSURLAuthenticationChallenge() const { return m_nsChallenge; }
+#endif
 
     WEBCORE_EXPORT void setAuthenticationClient(AuthenticationClient*); // Changes sender to one that invokes client methods.
     WEBCORE_EXPORT AuthenticationClient* authenticationClient() const;

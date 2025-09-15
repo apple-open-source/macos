@@ -18,19 +18,23 @@ INFOPLIST_FILE = OSX/lib/Info-Security.plist
 
 INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/Frameworks
 
-ASAN_EXTRA_LDFLAGS_YES = -Wl,-no_warn_inits
-ASAN_EXTRA_LDFLAGS_NO =
-ASAN_EXTRA_LDFLAGS_ = $(ASAN_EXTRA_LDFLAGS_NO)
-TSAN_EXTRA_LDFLAGS_YES = -Wl,-no_warn_inits
-TSAN_EXTRA_LDFLAGS_NO =
-TSAN_EXTRA_LDFLAGS_ = $(TSAN_EXTRA_LDFLAGS_NO)
+// -no_warn_inits no longer overrides -no_inits.
+// If ENABLE_ADDRESS_SANITIZER=YES or ENABLE_THREAD_SANITIZER=YES (one or both was enabled for/by xcodebuild),
+// _or_ we're building the Fuzzing config which has ASAN enabled,
+// then we don't want -no_inits
+NO_INITS_FOR_ASAN_YES = y
+NO_INITS_FOR_TSAN_YES = y
+NO_INITS_FOR_ANY = $(NO_INITS_FOR_ASAN_$(ENABLE_ADDRESS_SANITIZER))$(NO_INITS_FOR_TSAN_$(ENABLE_THREAD_SANITIZER))
+NO_INITS_FOR_ANY[config=Fuzzing][sdk=*] = y
 
-// order here matters, so later more specific options override earlier.
-NOINIT_LDFLAGS = -Wl,-no_inits $(ASAN_EXTRA_LDFLAGS_$(ENABLE_ADDRESS_SANITIZER)) $(TSAN_EXTRA_LDFLAGS_$(ENABLE_THREAD_SANITIZER))
+// If none of ENABLE_ADDRESS_SANITIZER=YES or ENABLE_THREAD_SANITIZER=YES or Fuzzing config, then pass -no_inits
+NO_INITS_ = -Wl,-no_inits
+// Otherwise pass -no_warn_inits
+NO_INITS_y = -Wl,-no_warn_inits
+NO_INITS_yy = -Wl,-no_warn_inits
 
-OTHER_LDFLAGS = -framework AppleKeyStore -lCrashReporterClient -Wl,-upward_framework,Foundation $(NOINIT_LDFLAGS)
-// Need no_warn_inits since fuzzing enables ASAN
-OTHER_LDFLAGS[config=Fuzzing][sdk=*] = $(OTHER_LDFLAGS) -Wl,-no_warn_inits -fsanitize=address,fuzzer-no-link -g -O0 -fno-sanitize-coverage=pc-table
+OTHER_LDFLAGS = -framework AppleKeyStore -lCrashReporterClient -Wl,-upward_framework,Foundation $(NO_INITS_$(NO_INITS_FOR_ANY))
+OTHER_LDFLAGS[config=Fuzzing][sdk=*] = $(OTHER_LDFLAGS) -fsanitize=address,fuzzer-no-link -Wl,-not_for_dyld_shared_cache -g -O0 -fno-sanitize-coverage=pc-table
 
 SECTORDER_FLAGS = -order_file_statistics
 APPLY_RULES_IN_COPY_FILES = NO

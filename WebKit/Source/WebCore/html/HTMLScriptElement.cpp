@@ -30,6 +30,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "JSRequestPriority.h"
+#include "NodeInlines.h"
 #include "NodeName.h"
 #include "RequestPriority.h"
 #include "Settings.h"
@@ -86,8 +87,9 @@ void HTMLScriptElement::attributeChanged(const QualifiedName& name, const AtomSt
     else if (name == asyncAttr)
         handleAsyncAttribute();
     else if (name == blockingAttr) {
-        blocking().associatedAttributeValueChanged();
-        if (!blocking().contains("render"_s))
+        Ref blocking = this->blocking();
+        blocking->associatedAttributeValueChanged();
+        if (!blocking->contains("render"_s))
             unblockRendering();
     } else
         HTMLElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
@@ -112,11 +114,11 @@ void HTMLScriptElement::setText(String&& value)
 DOMTokenList& HTMLScriptElement::blocking()
 {
     if (!m_blockingList) {
-        m_blockingList = makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::blockingAttr, [](Document&, StringView token) {
+        lazyInitialize(m_blockingList, makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::blockingAttr, [](Document&, StringView token) {
             if (equalLettersIgnoringASCIICase(token, "render"_s))
                 return true;
             return false;
-        });
+        }));
     }
     return *m_blockingList;
 }
@@ -132,7 +134,7 @@ void HTMLScriptElement::potentiallyBlockRendering()
 {
     bool explicitRenderBlocking = m_blockingList && m_blockingList->contains("render"_s);
     if (explicitRenderBlocking || isImplicitlyPotentiallyRenderBlocking()) {
-        document().blockRenderingOn(*this, explicitRenderBlocking ? Document::ImplicitRenderBlocking::No : Document::ImplicitRenderBlocking::Yes);
+        protectedDocument()->blockRenderingOn(*this, explicitRenderBlocking ? Document::ImplicitRenderBlocking::No : Document::ImplicitRenderBlocking::Yes);
         m_isRenderBlocking = true;
     }
 }
@@ -140,20 +142,20 @@ void HTMLScriptElement::potentiallyBlockRendering()
 void HTMLScriptElement::unblockRendering()
 {
     if (m_isRenderBlocking) {
-        document().unblockRenderingOn(*this);
+        protectedDocument()->unblockRenderingOn(*this);
         m_isRenderBlocking = false;
     }
 }
 
 // https://html.spec.whatwg.org/multipage/scripting.html#dom-script-text
-ExceptionOr<void> HTMLScriptElement::setText(std::variant<RefPtr<TrustedScript>, String>&& value)
+ExceptionOr<void> HTMLScriptElement::setText(Variant<RefPtr<TrustedScript>, String>&& value)
 {
-    return setTextContent(trustedTypeCompliantString(*scriptExecutionContext(), WTFMove(value), "HTMLScriptElement text"_s));
+    return setTextContent(trustedTypeCompliantString(*protectedScriptExecutionContext(), WTFMove(value), "HTMLScriptElement text"_s));
 }
 
-ExceptionOr<void> HTMLScriptElement::setTextContent(std::optional<std::variant<RefPtr<TrustedScript>, String>>&& value)
+ExceptionOr<void> HTMLScriptElement::setTextContent(std::optional<Variant<RefPtr<TrustedScript>, String>>&& value)
 {
-    return setTextContent(trustedTypeCompliantString(*scriptExecutionContext(), value ? WTFMove(*value) : emptyString(), "HTMLScriptElement textContent"_s));
+    return setTextContent(trustedTypeCompliantString(*protectedScriptExecutionContext(), value ? WTFMove(*value) : emptyString(), "HTMLScriptElement textContent"_s));
 }
 
 ExceptionOr<void> HTMLScriptElement::setTextContent(ExceptionOr<String> value)
@@ -168,9 +170,9 @@ ExceptionOr<void> HTMLScriptElement::setTextContent(ExceptionOr<String> value)
     return { };
 }
 
-ExceptionOr<void> HTMLScriptElement::setInnerText(std::variant<RefPtr<TrustedScript>, String>&& value)
+ExceptionOr<void> HTMLScriptElement::setInnerText(Variant<RefPtr<TrustedScript>, String>&& value)
 {
-    auto stringValueHolder = trustedTypeCompliantString(*scriptExecutionContext(), WTFMove(value), "HTMLScriptElement innerText"_s);
+    auto stringValueHolder = trustedTypeCompliantString(*protectedScriptExecutionContext(), WTFMove(value), "HTMLScriptElement innerText"_s);
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
 
@@ -192,11 +194,6 @@ bool HTMLScriptElement::async() const
     return hasAttributeWithoutSynchronization(asyncAttr) || forceAsync();
 }
 
-void HTMLScriptElement::setCrossOrigin(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(crossoriginAttr, value);
-}
-
 String HTMLScriptElement::crossOrigin() const
 {
     return parseCORSSettingsAttribute(attributeWithoutSynchronization(crossoriginAttr));
@@ -207,9 +204,9 @@ String HTMLScriptElement::src() const
     return getURLAttributeForBindings(WebCore::HTMLNames::srcAttr).string();
 }
 
-ExceptionOr<void> HTMLScriptElement::setSrc(std::variant<RefPtr<TrustedScriptURL>, String>&& value)
+ExceptionOr<void> HTMLScriptElement::setSrc(Variant<RefPtr<TrustedScriptURL>, String>&& value)
 {
-    auto stringValueHolder = trustedTypeCompliantString(*scriptExecutionContext(), WTFMove(value), "HTMLScriptElement src"_s);
+    auto stringValueHolder = trustedTypeCompliantString(*protectedScriptExecutionContext(), WTFMove(value), "HTMLScriptElement src"_s);
     if (stringValueHolder.hasException())
         return stringValueHolder.releaseException();
 
@@ -221,7 +218,7 @@ void HTMLScriptElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) cons
 {
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, document().completeURL(sourceAttributeValue()));
+    addSubresourceURL(urls, protectedDocument()->completeURL(sourceAttributeValue()));
 }
 
 String HTMLScriptElement::sourceAttributeValue() const
@@ -287,14 +284,9 @@ bool HTMLScriptElement::isScriptPreventedByAttributes() const
     return false;
 }
 
-Ref<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren(TreeScope& treeScope)
+Ref<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*)
 {
-    return adoptRef(*new HTMLScriptElement(tagQName(), treeScope.documentScope(), false, alreadyStarted()));
-}
-
-void HTMLScriptElement::setReferrerPolicyForBindings(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(referrerpolicyAttr, value);
+    return adoptRef(*new HTMLScriptElement(tagQName(), document, false, alreadyStarted()));
 }
 
 String HTMLScriptElement::referrerPolicyForBindings() const
@@ -305,11 +297,6 @@ String HTMLScriptElement::referrerPolicyForBindings() const
 ReferrerPolicy HTMLScriptElement::referrerPolicy() const
 {
     return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-}
-
-void HTMLScriptElement::setFetchPriorityForBindings(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(fetchpriorityAttr, value);
 }
 
 String HTMLScriptElement::fetchPriorityForBindings() const

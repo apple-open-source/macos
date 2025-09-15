@@ -53,6 +53,8 @@
 		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B51229F544500070CBF /* Tuner.xib in Resources */ = {isa = PBXBuildFile; fileRef = 72527B50229F544500070CBF /* Tuner.xib */; };
+		9000BF9E2DC281FD00740BB7 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 9000BF9D2DC281FD00740BB7 /* AppIcon.icon */; };
+		9000BF9F2DC281FD00740BB7 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 9000BF9D2DC281FD00740BB7 /* AppIcon.icon */; };
 		900541B62AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */ = {isa = PBXBuildFile; fileRef = 900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */; };
 		900541B72AFABC5800BD48B4 /* MBCMetalMaterials.h in Headers */ = {isa = PBXBuildFile; fileRef = 900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */; };
 		900541B82AFABC5800BD48B4 /* MBCMetalMaterials.mm in Sources */ = {isa = PBXBuildFile; fileRef = 900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
@@ -456,6 +458,7 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		72527B4D229F534100070CBF /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
 		72527B50229F544500070CBF /* Tuner.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = Tuner.xib; sourceTree = "<group>"; };
+		9000BF9D2DC281FD00740BB7 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = "folder.iconstudio-icon"; path = AppIcon.icon; sourceTree = "<group>"; };
 		900541B42AFABC5800BD48B4 /* MBCMetalMaterials.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = MBCMetalMaterials.h; path = Sources/MBCMetalMaterials.h; sourceTree = "<group>"; };
 		900541B52AFABC5800BD48B4 /* MBCMetalMaterials.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMetalMaterials.mm; path = Sources/MBCMetalMaterials.mm; sourceTree = "<group>"; };
 		90205E582B731D040027843B /* irradiance.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = irradiance.png; path = Resources/irradiance.png; sourceTree = "<group>"; };
@@ -619,8 +622,6 @@
 		CA51FF201768EBCE00C0EFD7 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
-		D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterFoundation.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterFoundation.framework; sourceTree = "<group>"; };
-		D7AA0A7719E7692300A65121 /* GameCenterUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameCenterUI.framework; path = ../../../System/Library/PrivateFrameworks/GameCenterUI.framework; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
 		F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCEngine.mm; path = Sources/MBCEngine.mm; sourceTree = "<group>"; };
 		F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewDraw.h; path = Sources/MBCBoardViewDraw.h; sourceTree = "<group>"; };
@@ -787,6 +788,7 @@
 			children = (
 				9043C6032B925CF8004D106E /* MTL */,
 				906D2359244F6F800061834A /* Images.xcassets */,
+				9000BF9D2DC281FD00740BB7 /* AppIcon.icon */,
 				90205E582B731D040027843B /* irradiance.png */,
 				226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */,
 				95DEC3D81488581300E1305A /* Chess.entitlements */,
@@ -833,8 +835,6 @@
 				A5CF31A6270D062800815825 /* UserNotifications.framework */,
 				D73E3F271B5FE9EF002BCF37 /* SystemConfiguration.framework */,
 				D74735DD1AC9A07D00AB3466 /* CoreFoundation.framework */,
-				D7AA0A7719E7692300A65121 /* GameCenterUI.framework */,
-				D7AA0A7519E7691400A65121 /* GameCenterFoundation.framework */,
 				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
 				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
 			);
@@ -1462,6 +1462,7 @@
 				90EB855A2B9524FF002D9B53 /* bishopR_AO.jpg in Resources */,
 				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
 				950BD1480A1E582B00395116 /* Styles in Resources */,
+				9000BF9F2DC281FD00740BB7 /* AppIcon.icon in Resources */,
 				9043C6432B92A881004D106E /* PieceSelection.png in Resources */,
 				9043C6292B926321004D106E /* BlackPieceWood.jpg in Resources */,
 				90EB85702B9524FF002D9B53 /* knightN.jpg in Resources */,
@@ -1536,6 +1537,7 @@
 				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
 				95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */,
 				9043C62D2B92634F004D106E /* BlackPieceMetal.jpg in Resources */,
+				9000BF9E2DC281FD00740BB7 /* AppIcon.icon in Resources */,
 				90EB85672B9524FF002D9B53 /* pawnN.jpg in Resources */,
 				95D8521013E710190045366C /* Board.xib in Resources */,
 				95D8521913E710B80045366C /* About.xib in Resources */,

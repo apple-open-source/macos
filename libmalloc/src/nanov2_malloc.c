@@ -46,11 +46,13 @@ MALLOC_NOEXPORT extern size_t nanov2_pointer_size(nanozonev2_t *nanozone, void *
 MALLOC_NOEXPORT extern size_t nanov2_pressure_relief(nanozonev2_t *nanozone, size_t goal);
 
 #if OS_VARIANT_RESOLVED
-MALLOC_ALWAYS_INLINE MALLOC_INLINE size_t
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static size_t
 nanov2_pointer_size_inline(nanozonev2_t *nanozone, void *ptr, boolean_t allow_inner,
 		nanov2_size_class_t *size_class_out, nanov2_block_meta_t **block_metap_out);
 
-MALLOC_ALWAYS_INLINE MALLOC_INLINE void *
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static void *
 nanov2_allocate_from_block_inline(nanozonev2_t *nanozone,
 		nanov2_block_meta_t *block_metap, nanov2_size_class_t size_class,
 		nanov2_block_meta_t **madvise_block_metapp_out, bool *corruption);
@@ -62,7 +64,8 @@ nanov2_allocate_outlined(nanozonev2_t *nanozone,
 		nanov2_block_meta_t *madvise_block_metap, void *corrupt_slot,
 		bool clear, bool typed, malloc_type_id_t type_id);
 
-MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_block_meta_t *
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static nanov2_block_meta_t *
 nanov2_free_to_block_inline(nanozonev2_t *nanozone, void *ptr,
 		nanov2_size_class_t size_class, nanov2_block_meta_t *block_metap);
 
@@ -1068,7 +1071,7 @@ nanov2_size(nanozonev2_t *nanozone, const void *ptr)
 }
 
 MALLOC_ALWAYS_INLINE MALLOC_INLINE
-void
+static void
 nanov2_bzero(void *ptr, size_t size)
 {
 	// TODO: inline bzero from libplatform
@@ -2659,7 +2662,8 @@ nanov2_allocate_from_block(nanozonev2_t *nanozone,
 // either assign it as the active allocation block for the calling context or
 // clear the in-use bit.
 //
-MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_block_meta_t *
+MALLOC_ALWAYS_INLINE MALLOC_INLINE
+static nanov2_block_meta_t *
 nanov2_find_block_in_arena(nanozonev2_t *nanozone,
 		nanov2_arena_t *arena, nanov2_size_class_t size_class,
 		nanov2_block_meta_t *start_block)

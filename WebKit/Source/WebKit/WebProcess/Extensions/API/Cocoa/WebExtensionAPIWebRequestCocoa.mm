@@ -183,16 +183,16 @@ static NSString *toWebAPI(const WebCore::FormData& formData, const String& conte
                 auto dataString = String::fromUTF8(data->span());
 
                 for (auto& pair : URLParser::parseURLEncodedForm(dataString)) {
-                    auto *key = static_cast<NSString *>(pair.key);
-                    auto *value = static_cast<NSString *>(pair.value);
+                    RetainPtr key = pair.key.createNSString();
+                    RetainPtr value = pair.value.createNSString();
 
-                    NSMutableArray *array = formDataDictionary[key];
+                    NSMutableArray *array = formDataDictionary[key.get()];
                     if (!array) {
                         array = [NSMutableArray array];
-                        formDataDictionary[key] = array;
+                        formDataDictionary[key.get()] = array;
                     }
 
-                    [array addObject:value ?: @""];
+                    [array addObject:value.get() ?: @""];
                 }
             } else {
                 auto typedArray = JSObjectMakeTypedArray(context, kJSTypedArrayTypeUint8Array, data->size(), nullptr);
@@ -268,16 +268,16 @@ static NSMutableDictionary *webRequestDetailsForResourceLoad(const ResourceLoadI
     NSMutableDictionary *result = [@{
         frameIdKey: resourceLoad.parentFrameID ? @(toWebAPI(toWebExtensionFrameIdentifier(resourceLoad.frameID))) : @(toWebAPI(WebExtensionFrameConstants::MainFrameIdentifier)),
         parentFrameIdKey: resourceLoad.parentFrameID ? @(toWebAPI(toWebExtensionFrameIdentifier(resourceLoad.parentFrameID))) : @(toWebAPI(WebExtensionFrameConstants::NoneIdentifier)),
-        requestIdKey: [NSString stringWithFormat:@"%llu", resourceLoad.resourceLoadID.toUInt64()],
+        requestIdKey: adoptNS([[NSString alloc] initWithFormat:@"%llu", resourceLoad.resourceLoadID.toUInt64()]).get(),
         timeStampKey: @(floor(resourceLoad.eventTimestamp.approximateWallTime().secondsSinceEpoch().milliseconds())),
-        urlKey: resourceLoad.originalURL.string(),
+        urlKey: resourceLoad.originalURL.string().createNSString().get(),
         tabIdKey: @(toWebAPI(tabIdentifier)),
         typeKey: toWebAPI(resourceLoad.type),
-        methodKey: resourceLoad.originalHTTPMethod,
+        methodKey: resourceLoad.originalHTTPMethod.createNSString().get(),
     } mutableCopy];
 
     if (resourceLoad.documentID)
-        result[documentIdKey] = resourceLoad.documentID.value().toString();
+        result[documentIdKey] = resourceLoad.documentID.value().toString().createNSString().get();
 
     return result;
 }
@@ -287,8 +287,8 @@ static NSArray *convertHeaderFieldsToWebExtensionFormat(const WebCore::HTTPHeade
     auto *convertedHeaderFields = [NSMutableArray arrayWithCapacity:headerMap.size()];
     for (auto& header : headerMap) {
         [convertedHeaderFields addObject:@{
-            nameKey: header.key,
-            valueKey: header.value
+            nameKey: header.key.createNSString().get(),
+            valueKey: header.value.createNSString().get()
         }];
     }
 
@@ -302,7 +302,7 @@ static NSMutableDictionary *headersReceivedDetails(const ResourceLoadInfo& resou
     auto *details = webRequestDetailsForResourceLoad(resourceLoad, tabID);
 
     [details addEntriesFromDictionary:@{
-        statusLineKey: response.httpStatusText(),
+        statusLineKey: response.httpStatusText().createNSString().get(),
         statusCodeKey: @(response.httpStatusCode()),
         fromCacheKey: @(resourceLoad.loadedFromCache),
         // FIXME: <rdar://problem/57132290> Add ip.
@@ -376,7 +376,7 @@ void WebExtensionContextProxy::resourceLoadDidPerformHTTPRedirection(WebExtensio
         handleListeners(namespaceObject.webRequest().onHeadersReceived());
     });
 
-    details[redirectURLKey] = newRequest.url().string();
+    details[redirectURLKey] = newRequest.url().string().createNSString().get();
 
     enumerateNamespaceObjects([&](auto& namespaceObject) {
         handleListeners(namespaceObject.webRequest().onBeforeRedirect());

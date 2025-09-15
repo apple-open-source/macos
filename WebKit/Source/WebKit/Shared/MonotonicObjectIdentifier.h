@@ -26,6 +26,7 @@
 #pragma once
 
 #include <wtf/ArgumentCoder.h>
+#include <wtf/CheckedArithmetic.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
 #include <wtf/text/TextStream.h>
@@ -46,27 +47,7 @@ public:
 
     bool isHashTableDeletedValue() const { return m_identifier == hashTableDeletedValue(); }
 
-    friend bool operator==(MonotonicObjectIdentifier, MonotonicObjectIdentifier) = default;
-
-    bool operator>(const MonotonicObjectIdentifier& other) const
-    {
-        return m_identifier > other.m_identifier;
-    }
-
-    bool operator>=(const MonotonicObjectIdentifier& other) const
-    {
-        return m_identifier >= other.m_identifier;
-    }
-
-    bool operator<(const MonotonicObjectIdentifier& other) const
-    {
-        return m_identifier < other.m_identifier;
-    }
-
-    bool operator<=(const MonotonicObjectIdentifier& other) const
-    {
-        return m_identifier <= other.m_identifier;
-    }
+    friend auto operator<=>(MonotonicObjectIdentifier, MonotonicObjectIdentifier) = default;
 
     MonotonicObjectIdentifier& increment()
     {

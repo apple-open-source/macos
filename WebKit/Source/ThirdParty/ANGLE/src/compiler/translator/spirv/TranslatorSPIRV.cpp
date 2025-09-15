@@ -23,7 +23,6 @@
 #include "compiler/translator/tree_ops/MonomorphizeUnsupportedFunctions.h"
 #include "compiler/translator/tree_ops/RecordConstantPrecision.h"
 #include "compiler/translator/tree_ops/RemoveAtomicCounterBuiltins.h"
-#include "compiler/translator/tree_ops/RemoveInactiveInterfaceVariables.h"
 #include "compiler/translator/tree_ops/RewriteArrayOfArrayOfOpaqueUniforms.h"
 #include "compiler/translator/tree_ops/RewriteAtomicCounters.h"
 #include "compiler/translator/tree_ops/RewriteDfdy.h"
@@ -39,6 +38,7 @@
 #include "compiler/translator/tree_ops/spirv/ReswizzleYUVOps.h"
 #include "compiler/translator/tree_ops/spirv/RewriteInterpolateAtOffset.h"
 #include "compiler/translator/tree_ops/spirv/RewriteR32fImages.h"
+#include "compiler/translator/tree_ops/spirv/RewriteSamplerExternalTexelFetch.h"
 #include "compiler/translator/tree_util/BuiltIn.h"
 #include "compiler/translator/tree_util/DriverUniform.h"
 #include "compiler/translator/tree_util/FindFunction.h"
@@ -531,7 +531,6 @@ TIntermSequence *GetMainSequence(TIntermBlock *root)
                                                   const ShCompileOptions &compileOptions,
                                                   TIntermBlock *root,
                                                   TSymbolTable *symbolTable,
-                                                  SpecConst *specConst,
                                                   const DriverUniform *driverUniforms)
 {
     // In GL the viewport transformation is slightly different - see the GL 2.0 spec section "2.12.1
@@ -562,11 +561,7 @@ TIntermSequence *GetMainSequence(TIntermBlock *root)
     TIntermSymbol *positionSymbol = new TIntermSymbol(positionVar);
 
     // swapXY ? position.yx : position.xy
-    TIntermTyped *swapXY = specConst->getSwapXY();
-    if (swapXY == nullptr)
-    {
-        swapXY = driverUniforms->getSwapXY();
-    }
+    TIntermTyped *swapXY = driverUniforms->getSwapXY();
 
     TIntermTyped *xy        = new TIntermSwizzle(positionSymbol, {0, 1});
     TIntermTyped *swappedXY = new TIntermSwizzle(positionSymbol->deepCopy(), {1, 0});
@@ -628,17 +623,12 @@ TIntermSequence *GetMainSequence(TIntermBlock *root)
                                              TIntermBlock *root,
                                              TIntermSequence *insertSequence,
                                              TSymbolTable *symbolTable,
-                                             SpecConst *specConst,
                                              const DriverUniform *driverUniforms)
 {
     TIntermTyped *flipXY = driverUniforms->getFlipXY(symbolTable, DriverUniformFlip::Fragment);
     TIntermTyped *pivot  = driverUniforms->getHalfRenderArea();
 
-    TIntermTyped *swapXY = specConst->getSwapXY();
-    if (swapXY == nullptr)
-    {
-        swapXY = driverUniforms->getSwapXY();
-    }
+    TIntermTyped *swapXY = driverUniforms->getSwapXY();
 
     const TVariable *fragCoord = static_cast<const TVariable *>(
         symbolTable->findBuiltIn(ImmutableString("gl_FragCoord"), compiler->getShaderVersion()));
@@ -789,17 +779,6 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
         {
             ++atomicCounterCount;
         }
-    }
-
-    // Remove declarations of inactive shader interface variables so SPIR-V transformer doesn't need
-    // to replace them.  Note that currently, CollectVariables marks every field of an active
-    // uniform that's of struct type as active, i.e. no extracted sampler is inactive, so this can
-    // be done before extracting samplers from structs.
-    if (!RemoveInactiveInterfaceVariables(this, root, &getSymbolTable(), getAttributes(),
-                                          getInputVaryings(), getOutputVariables(), getUniforms(),
-                                          getInterfaceBlocks(), true))
-    {
-        return false;
     }
 
     // If there are any function calls that take array-of-array of opaque uniform parameters, or
@@ -965,7 +944,30 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
 
         // Add support code for pre-rotation and depth correction in the vertex processing stages.
         if (!AddVertexTransformationSupport(this, compileOptions, root, &getSymbolTable(),
-                                            specConst, driverUniforms))
+                                            driverUniforms))
+        {
+            return false;
+        }
+    }
+
+    if (IsExtensionEnabled(getExtensionBehavior(), TExtension::EXT_YUV_target))
+    {
+        if (!EmulateYUVBuiltIns(this, root, &getSymbolTable()))
+        {
+            return false;
+        }
+
+        if (!ReswizzleYUVTextureAccess(this, root, &getSymbolTable()))
+        {
+            return false;
+        }
+    }
+
+    if (IsExtensionEnabled(getExtensionBehavior(), TExtension::EXT_YUV_target) ||
+        IsExtensionEnabled(getExtensionBehavior(), TExtension::OES_EGL_image_external) ||
+        IsExtensionEnabled(getExtensionBehavior(), TExtension::OES_EGL_image_external_essl3))
+    {
+        if (!RewriteSamplerExternalTexelFetch(this, root, &getSymbolTable()))
         {
             return false;
         }
@@ -1045,11 +1047,8 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
                 TIntermTyped *flipNegXY =
                     driverUniforms->getNegFlipXY(&getSymbolTable(), DriverUniformFlip::Fragment);
                 TIntermConstantUnion *pivot = CreateFloatNode(0.5f, EbpMedium);
-                TIntermTyped *swapXY        = specConst->getSwapXY();
-                if (swapXY == nullptr)
-                {
-                    swapXY = driverUniforms->getSwapXY();
-                }
+                TIntermTyped *swapXY        = driverUniforms->getSwapXY();
+
                 if (!RotateAndFlipBuiltinVariable(
                         this, root, GetMainSequence(root), swapXY, flipNegXY, &getSymbolTable(),
                         BuiltInVariable::gl_PointCoord(), kFlippedPointCoordName, pivot))
@@ -1063,11 +1062,7 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
                 TIntermTyped *flipXY =
                     driverUniforms->getFlipXY(&getSymbolTable(), DriverUniformFlip::Fragment);
                 TIntermConstantUnion *pivot = CreateFloatNode(0.5f, EbpMedium);
-                TIntermTyped *swapXY        = specConst->getSwapXY();
-                if (swapXY == nullptr)
-                {
-                    swapXY = driverUniforms->getSwapXY();
-                }
+                TIntermTyped *swapXY        = driverUniforms->getSwapXY();
 
                 const TVariable *samplePositionBuiltin =
                     static_cast<const TVariable *>(getSymbolTable().findBuiltIn(
@@ -1083,7 +1078,7 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
             if (usesFragCoord)
             {
                 if (!InsertFragCoordCorrection(this, compileOptions, root, GetMainSequence(root),
-                                               &getSymbolTable(), specConst, driverUniforms))
+                                               &getSymbolTable(), driverUniforms))
                 {
                     return false;
                 }
@@ -1123,14 +1118,13 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
             // emulation.  Declare their SPIR-V ids.
             assignInputAttachmentIds(inputAttachmentMap);
 
-            if (!RewriteDfdy(this, root, &getSymbolTable(), getShaderVersion(), specConst,
-                             driverUniforms))
+            if (!RewriteDfdy(this, root, &getSymbolTable(), getShaderVersion(), driverUniforms))
             {
                 return false;
             }
 
             if (!RewriteInterpolateAtOffset(this, root, &getSymbolTable(), getShaderVersion(),
-                                            specConst, driverUniforms))
+                                            driverUniforms))
             {
                 return false;
             }
@@ -1162,12 +1156,8 @@ bool TranslatorSPIRV::translateImpl(TIntermBlock *root,
 
             if (IsExtensionEnabled(getExtensionBehavior(), TExtension::EXT_YUV_target))
             {
-                if (!EmulateYUVBuiltIns(this, root, &getSymbolTable()))
-                {
-                    return false;
-                }
-
-                if (!ReswizzleYUVOps(this, root, &getSymbolTable(), yuvOutput))
+                if (yuvOutput != nullptr &&
+                    !AdjustYUVOutput(this, root, &getSymbolTable(), *yuvOutput))
                 {
                     return false;
                 }
@@ -1275,7 +1265,7 @@ bool TranslatorSPIRV::translate(TIntermBlock *root,
     mUniqueToSpirvIdMap.clear();
     mFirstUnusedSpirvId = 0;
 
-    SpecConst specConst(&getSymbolTable(), compileOptions, getShaderType());
+    SpecConst specConst(&getSymbolTable(), getShaderType());
 
     DriverUniform driverUniforms(DriverUniformMode::InterfaceBlock);
     DriverUniformExtended driverUniformsExt(DriverUniformMode::InterfaceBlock);
@@ -1369,7 +1359,16 @@ void TranslatorSPIRV::assignSpirvIds(TIntermBlock *root)
         std::vector<ShaderVariable> *fields = nullptr;
         if (type.isInterfaceBlock())
         {
-            if (IsVaryingIn(qualifier))
+            if (qualifier == EvqPerVertexIn)
+            {
+                assignSpirvId(uniqueId, vk::spirv::kIdInputPerVertexBlock);
+            }
+            else if (qualifier == EvqPerVertexOut)
+            {
+                assignSpirvId(uniqueId, vk::spirv::kIdOutputPerVertexBlock);
+                assignSpirvId(symbol->uniqueId(), vk::spirv::kIdOutputPerVertexVar);
+            }
+            else if (IsVaryingIn(qualifier))
             {
                 ShaderVariable *varying =
                     FindIOBlockShaderVariable(&mInputVaryings, type.getInterfaceBlock()->name());

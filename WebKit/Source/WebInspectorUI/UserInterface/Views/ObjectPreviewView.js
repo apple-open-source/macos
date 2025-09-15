@@ -25,7 +25,7 @@
 
 WI.ObjectPreviewView = class ObjectPreviewView extends WI.Object
 {
-    constructor(object, preview, mode)
+    constructor(object, preview, {objectPreviewViewMode} = {})
     {
         console.assert(!object || object instanceof WI.RemoteObject);
         console.assert(preview instanceof WI.ObjectPreview);
@@ -34,7 +34,7 @@ WI.ObjectPreviewView = class ObjectPreviewView extends WI.Object
 
         this._object = object || null;
         this._preview = preview;
-        this._mode = mode || WI.ObjectPreviewView.Mode.Full;
+        this._mode = objectPreviewViewMode || WI.ObjectPreviewView.Mode.Full;
 
         this._element = document.createElement("span");
         this._element.className = "object-preview";

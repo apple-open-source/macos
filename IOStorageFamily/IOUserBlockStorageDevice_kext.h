@@ -75,6 +75,7 @@ public:
 				    bool *ioChanged ) APPLE_KEXT_OVERRIDE;
     IOPerfControlClient *getPerfControlClient();
 private:
+	IOService *findIOMMUAncestorService(IOService *provider);
 	IORequest *removeOutstandingRequestAndMarkSlotFree(uint32_t index);
 	IORequest *removeOutstandingRequestAndMarkSlotAborted(uint32_t index);
 	bool addOutstandingRequestAndMarkSlotOccupied(IORequest * request);

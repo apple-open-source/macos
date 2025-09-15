@@ -79,14 +79,26 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              CFArrayRef      watch,
                                              bool block );
 __private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk,
-                               CFURLRef            path,
-                               DADiskMountOptions  options,
-                               DADiskMountCallback callback,
-                               void *              context,
-                               CFStringRef         arguments[],
-                               bool                block );
-__private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context, bool block );
-__private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context, bool block );
+                                                        CFURLRef            path,
+                                                        DADiskMountOptions  options,
+                                                        DADiskMountCallback callback,
+                                                        void *              context,
+                                                        CFStringRef         arguments[],
+                                                        bool                block,
+                                                        audit_token_t       token );
+__private_extern__ void DADiskRenameCommon( DADiskRef            disk,
+                                            CFStringRef          name,
+                                            DADiskRenameOptions  options,
+                                            DADiskRenameCallback callback,
+                                            void *               context,
+                                            bool                 block,
+                                            audit_token_t        token );
+__private_extern__ void DADiskUnmountCommon( DADiskRef             disk,
+                                             DADiskUnmountOptions  options,
+                                             DADiskUnmountCallback callback,
+                                             void *                context,
+                                             bool                  block,
+                                             audit_token_t         token );
 __private_extern__ void DADiskClaimCommon ( DADiskRef                  disk,
                         DADiskClaimOptions         options,
                         DADiskClaimReleaseCallback release,
@@ -94,7 +106,12 @@ __private_extern__ void DADiskClaimCommon ( DADiskRef                  disk,
                         DADiskClaimCallback        callback,
                         void *                     callbackContext,
                                            bool                       block );
-__private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block );
+__private_extern__ void DADiskEjectCommon( DADiskRef           disk,
+                                           DADiskEjectOptions  options,
+                                           DADiskEjectCallback callback,
+                                           void *              context,
+                                           bool                block,
+                                           audit_token_t       token );
 
 #ifdef DA_FSKIT
 __private_extern__ void DADiskSetFSKitAdditionsCommon( DADiskRef                             disk,
@@ -2752,7 +2769,8 @@ void DADiskMountWithArgumentsAndBlock( DADiskRef           disk,
                                         DADiskMountCallbackBlock callback,
                                         CFStringRef         arguments[] )
 {
-    DADiskMountWithArgumentsCommon ( disk, path, options,(void *) Block_copy ( callback ), NULL, arguments , true);
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskMountWithArgumentsCommon ( disk, path, options,(void *) Block_copy ( callback ), NULL, arguments , true , invalidToken );
 }
 
  void DADiskRenameWithBlock( DADiskRef                       disk,
@@ -2760,21 +2778,24 @@ void DADiskMountWithArgumentsAndBlock( DADiskRef           disk,
                                 DADiskRenameOptions             options,
                                 DADiskRenameCallbackBlock __nullable callback )
 {
-    DADiskRenameCommon ( disk, name, options, (void *) Block_copy ( callback ), NULL, true);
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskRenameCommon ( disk, name, options, (void *) Block_copy ( callback ), NULL, true, invalidToken );
 }
 
 void DADiskUnmountWithBlock( DADiskRef                        disk,
                                 DADiskUnmountOptions             options,
                                 DADiskUnmountCallbackBlock __nullable callback )
 {
-    DADiskUnmountCommon ( disk, options, (void *) Block_copy ( callback ), NULL , true);
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskUnmountCommon ( disk, options, (void *) Block_copy ( callback ), NULL , true, invalidToken );
 }
 
 void DADiskEjectWithBlock( DADiskRef                      disk,
                                 DADiskEjectOptions             options,
                                 DADiskEjectCallbackBlock __nullable callback )
 {
-     DADiskEjectCommon (disk, options, (void *) Block_copy ( callback ), NULL, true );
+     audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+     DADiskEjectCommon (disk, options, (void *) Block_copy ( callback ), NULL, true, invalidToken );
 }
 
 void DADiskClaimWithBlock( DADiskRef                             disk,
@@ -2783,6 +2804,82 @@ void DADiskClaimWithBlock( DADiskRef                             disk,
                             DADiskClaimCallbackBlock __nullable        callback )
 {
     DADiskClaimCommon( disk, options, (void *) Block_copy ( release ), NULL, (void *) Block_copy ( callback ), NULL, true );
+}
+
+extern void DADiskMountWithBlockAndAuditToken( DADiskRef __nonnull                   disk,
+                                                 CFURLRef __nullable                 path,
+                                                 DADiskMountOptions                  options,
+                                                 DADiskMountCallbackBlock __nullable callback,
+                                                 audit_token_t                       token )
+{
+    DADiskMountWithArgumentsAndBlockAndAuditToken( disk, path, options, callback, NULL, token );
+}
+
+void DADiskMountWithArgumentsAndBlockAndAuditToken( DADiskRef                disk,
+                                                    CFURLRef                 path,
+                                                    DADiskMountOptions       options,
+                                                    DADiskMountCallbackBlock callback,
+                                                    CFStringRef              arguments[],
+                                                    audit_token_t            token )
+{
+    if ( getuid() == 0 )
+    {
+        DADiskMountWithArgumentsCommon ( disk, path, options,(void *) Block_copy ( callback ), NULL, arguments, true, token );
+    }
+    else
+    {
+        audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+        DADiskMountWithArgumentsCommon ( disk, path, options,(void *) Block_copy ( callback ), NULL, arguments, true, invalidToken );
+    }
+}
+
+void DADiskUnmountWithBlockAndAuditToken( DADiskRef                        disk,
+                                          DADiskUnmountOptions             options,
+                                          DADiskUnmountCallbackBlock __nullable callback,
+                                          audit_token_t                    token )
+{
+    if ( getuid() == 0 )
+    {
+        DADiskUnmountCommon ( disk, options, (void *) Block_copy ( callback ), NULL, true, token );
+    }
+    else
+    {
+        audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+        DADiskUnmountCommon ( disk, options, (void *) Block_copy ( callback ), NULL, true, invalidToken );
+    }
+}
+
+void DADiskRenameWithBlockAndAuditToken( DADiskRef                            disk,
+                                         CFStringRef                          name,
+                                         DADiskRenameOptions                  options,
+                                         DADiskRenameCallbackBlock __nullable callback,
+                                         audit_token_t                        token )
+{
+    if ( getuid() == 0 )
+    {
+        DADiskRenameCommon ( disk, name, options, (void *) Block_copy ( callback ), NULL, true, token );
+    }
+    else
+    {
+        audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+        DADiskRenameCommon ( disk, name, options, (void *) Block_copy ( callback ), NULL, true, invalidToken );
+    }
+}
+
+void DADiskEjectWithBlockAndAuditToken( DADiskRef                      disk,
+                                        DADiskEjectOptions             options,
+                                        DADiskEjectCallbackBlock __nullable callback,
+                                        audit_token_t token )
+{
+    if ( getuid() == 0 )
+    {
+        DADiskEjectCommon (disk, options, (void *) Block_copy ( callback ), NULL, true, token );
+    }
+    else
+    {
+        audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+        DADiskEjectCommon (disk, options, (void *) Block_copy ( callback ), NULL, true, invalidToken );
+    }
 }
 
 #ifdef DA_FSKIT

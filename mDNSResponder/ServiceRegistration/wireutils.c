@@ -31,8 +31,8 @@
 #include "srp.h"
 #include "dns-msg.h"
 
-#include "mDNSEmbeddedAPI.h"
 #include "DNSCommon.h"
+#include "srp-strict.h"
 
 #undef LogMsg
 #define LogMsg(...)
@@ -56,7 +56,7 @@ void dns_name_free(dns_label_t *name)
         return;
     }
     next = name->next;
-    free(name);
+    srp_strict_free(&name);
     if (next != NULL) {
         return dns_name_free(next);
     }
@@ -69,7 +69,7 @@ dns_name_copy(dns_name_t *original)
     dns_name_t *next;
 
     for (next = original; next; next = next->next) {
-        *cur = calloc(1, 1 + next->len + (sizeof (dns_name_t)) - DNS_MAX_LABEL_SIZE);
+        *cur = srp_strict_calloc(1, 1 + next->len + (sizeof (dns_name_t)) - DNS_MAX_LABEL_SIZE);
         if (*cur == NULL) {
             if (ret != NULL) {
                 dns_name_free(ret);
@@ -408,7 +408,7 @@ dns_pres_name_parse(const char *pname)
             }
             len = (size_t)(t - buf);
         }
-        next = calloc(1, len + 1 + (sizeof *next) - DNS_MAX_LABEL_SIZE);
+        next = srp_strict_calloc(1, len + 1 + (sizeof *next) - DNS_MAX_LABEL_SIZE);
         if (next == NULL) {
             goto fail;
         }

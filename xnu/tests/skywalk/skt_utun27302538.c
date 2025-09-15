@@ -80,7 +80,7 @@ thread1(void *unused)
 static void
 skt_utun27302538_common(void)
 {
-	tunsock = sktu_create_interface(SKTU_IFT_UTUN, SKTU_IFF_ENABLE_NETIF);
+	tunsock = sktu_create_interface(SKTU_IFT_UTUN, SKTU_IFF_ENABLE_NETIF | SKTU_IFF_ENABLE_CHANNEL);
 	assert(tunsock);
 
 	usleep(100000);

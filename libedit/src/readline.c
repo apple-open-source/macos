@@ -943,7 +943,8 @@ loop:
 		for (; str[j]; j++) {
 			if (str[j] == '\\' &&
 			    str[j + 1] == history_expansion_char) {
-				(void)strcpy(&str[j], &str[j + 1]);
+				len = strlen(&str[j + 1]) + 1;
+				memmove(&str[j], &str[j + 1], len);
 				continue;
 			}
 			if (!loop_again) {

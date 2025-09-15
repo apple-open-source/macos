@@ -30,12 +30,14 @@ class GStreamerQuirkRealtek final : public GStreamerQuirk {
 public:
     GStreamerQuirkRealtek();
     const ASCIILiteral identifier() const final { return "Realtek"_s; }
+    bool isPlatformSupported() const final;
 
     GstElement* createWebAudioSink() final;
     void configureElement(GstElement*, const OptionSet<ElementRuntimeCharacteristics>&) final;
     std::optional<bool> isHardwareAccelerated(GstElementFactory*) final;
     Vector<String> disallowedWebAudioDecoders() const final { return m_disallowedWebAudioDecoders; }
     bool shouldParseIncomingLibWebRTCBitStream() const final { return false; }
+    bool needsCustomInstantRateChange() const final { return true; }
 
 private:
     Vector<String> m_disallowedWebAudioDecoders;

@@ -59,12 +59,14 @@ static inline IPC::Connection& networkProcessConnection()
     return WebProcess::singleton().ensureNetworkProcessConnection().connection();
 }
 
-void WebMessagePortChannelProvider::createNewMessagePortChannel(const MessagePortIdentifier& port1, const MessagePortIdentifier& port2)
+void WebMessagePortChannelProvider::createNewMessagePortChannel(const MessagePortIdentifier& port1, const MessagePortIdentifier& port2, bool siteIsolationEnabled)
 {
-    ASSERT(!m_inProcessPortMessages.contains(port1));
-    ASSERT(!m_inProcessPortMessages.contains(port2));
-    m_inProcessPortMessages.add(port1, Vector<MessageWithMessagePorts> { });
-    m_inProcessPortMessages.add(port2, Vector<MessageWithMessagePorts> { });
+    if (!siteIsolationEnabled) {
+        ASSERT(!m_inProcessPortMessages.contains(port1));
+        ASSERT(!m_inProcessPortMessages.contains(port2));
+        m_inProcessPortMessages.add(port1, Vector<MessageWithMessagePorts> { });
+        m_inProcessPortMessages.add(port2, Vector<MessageWithMessagePorts> { });
+    }
 
     networkProcessConnection().send(Messages::NetworkConnectionToWebProcess::CreateNewMessagePortChannel { port1, port2 }, 0);
 }

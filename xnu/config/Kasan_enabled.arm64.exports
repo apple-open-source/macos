@@ -87,6 +87,14 @@ ___asan_strlcat
 ___asan_strncat
 ___asan_strlen
 ___asan_strnlen
+___asan_strcmp
+___asan_strncmp
+___asan_strlcmp
+___asan_strbufcmp
+___asan_strcasecmp
+___asan_strncasecmp
+___asan_strlcasecmp
+___asan_strbufcasecmp
 ___ubsan_handle_add_overflow
 ___ubsan_handle_add_overflow_abort
 ___ubsan_handle_builtin_unreachable

@@ -102,6 +102,9 @@ static const int32_t kGregorianCalendarLimits[UCAL_FIELD_COUNT][4] = {
     {/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1}, // MILLISECONDS_IN_DAY
     {/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1}, // IS_LEAP_MONTH
     {        0,        0,       11,       11}, // ORDINAL_MONTH
+#if APPLE_ICU_CHANGES // rdar://138880732
+    {/*N/A*/-1,/*N/A*/-1,/*N/A*/-1,/*N/A*/-1}, // IS_REPEATED_DAY
+#endif // APPLE_ICU_CHANGES
 };
 
 /*

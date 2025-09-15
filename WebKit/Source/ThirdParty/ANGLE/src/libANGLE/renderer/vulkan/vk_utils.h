@@ -1347,6 +1347,18 @@ constexpr bool IsDynamicDescriptor(VkDescriptorType descriptorType)
     }
 }
 
+constexpr bool IsUniformBuffer(const VkDescriptorType descriptorType)
+{
+    return descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+           descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+}
+
+constexpr bool IsStorageBuffer(const VkDescriptorType descriptorType)
+{
+    return descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ||
+           descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+}
+
 void ApplyPipelineCreationFeedback(ErrorContext *context,
                                    const VkPipelineCreationFeedback &feedback);
 
@@ -1373,13 +1385,11 @@ void InitImagePipeSurfaceFUCHSIAFunctions(VkInstance instance);
 void InitExternalMemoryHardwareBufferANDROIDFunctions(VkDevice device);
 #    endif
 
-#    if defined(ANGLE_PLATFORM_GGP)
-// VK_GGP_stream_descriptor_surface
-void InitGGPStreamDescriptorSurfaceFunctions(VkInstance instance);
-#    endif  // defined(ANGLE_PLATFORM_GGP)
-
 // VK_KHR_external_semaphore_fd
 void InitExternalSemaphoreFdFunctions(VkDevice device);
+
+// VK_EXT_device_fault
+void InitDeviceFaultFunctions(VkDevice device);
 
 // VK_EXT_host_query_reset
 void InitHostQueryResetFunctions(VkDevice device);
@@ -1483,6 +1493,8 @@ vk::LevelIndex GetLevelIndex(gl::LevelIndex levelGL, gl::LevelIndex baseLevel);
 
 VkImageTiling GetTilingMode(gl::TilingMode tilingMode);
 
+VkFormat GetAstcDecodeMode(const GLenum astcDecodePrecision);
+
 VkImageCompressionFixedRateFlagsEXT ConvertEGLFixedRateToVkFixedRate(
     const EGLenum eglCompressionRate,
     const angle::FormatID actualFormatID);
@@ -1553,6 +1565,7 @@ enum class RenderPassClosureReason
     DepthStencilUseInFeedbackLoop,
     DepthStencilWriteAfterFeedbackLoop,
     PipelineBindWhileXfbActive,
+    XfbWriteThenTextureBuffer,
 
     // Use of resource after render pass
     BufferWriteThenMap,
@@ -1560,7 +1573,7 @@ enum class RenderPassClosureReason
     BufferUseThenOutOfRPWrite,
     ImageUseThenOutOfRPRead,
     ImageUseThenOutOfRPWrite,
-    XfbWriteThenComputeRead,
+    XfbWriteThenUniformBufferRead,
     XfbWriteThenIndirectDispatchBuffer,
     ImageAttachmentThenComputeRead,
     GraphicsTextureImageAccessThenComputeAccess,
@@ -1583,6 +1596,7 @@ enum class RenderPassClosureReason
     SyncObjectClientWait,
     SyncObjectServerWait,
     SyncObjectGetStatus,
+    ForeignImageRelease,
 
     // Closures that ANGLE could have avoided, but doesn't for simplicity or optimization of more
     // common cases.

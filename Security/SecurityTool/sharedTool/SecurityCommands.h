@@ -137,25 +137,35 @@ SECURITY_COMMAND("delete-generic-password", keychain_delete_generic_password,
                  "If no keychains are specified the default search list is used.",
                  "Delete one or more generic password items.")
 
-SECURITY_COMMAND_IOS("keychain-export", keychain_export,
-                 "[ -k <keybag> [-p password ] ] <plist>\n"
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE
+SECURITY_COMMAND("keychain-export", keychain_export,
+                 "[ -k <keybag> [-p password ] ] [-f] <plist>\n"
                  "    <keybag>   keybag file name (optional, can be created with keystorectl)\n"
                  "               if unspecified, use default backup behavior\n"
                  "    <password> backup password (optional)\n"
+                 "    -f         force using the fileDescriptor SPI\n"
                  "    <plist>    backup plist file\n",
                  "Export keychain to a plist file.")
 
-SECURITY_COMMAND_IOS("keychain-import", keychain_import,
+SECURITY_COMMAND("keychain-import", keychain_import,
                  "-k <keybag> [-p <password> ] <plist>\n"
                  "    <keybag>   keybag file name. (Can be created with keystorectl)\n"
                  "    <password> backup password (optional)\n"
                  "    <plist>    backup plist file\n",
                  "Import keychain from a plist file.")
 
-SECURITY_COMMAND_IOS("keychain-backup-get-uuid", keychain_backup_get_uuid,
+SECURITY_COMMAND("keychain-backup-get-uuid", keychain_backup_get_uuid,
                  "<plist>\n"
                  "    <plist>    backup plist file\n",
                  "Get the keybag UUID from a keychain backup plist file.")
+
+SECURITY_COMMAND("keychain-backup-generate-keybag", keychain_backup_generate_keybag,
+                 "[-a] -p <password> <keybag>\n"
+                 "    -a         generate asymmetric backup keybag (default symmetric)\n"
+                 "    <password> keybag password\n"
+                 "    <keybag>   keybag file name",
+                 "Generate a keybag for backup purposes.")
+#endif // !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE
 
 SECURITY_COMMAND_IOS("pkcs12", pkcs12_util,
                  "[options] -p <password> file\n"
@@ -358,3 +368,13 @@ SECURITY_COMMAND("tickle", tickle,
 SECURITY_COMMAND("test-application-identifier", test_application_identifier,
                  "",
                  "Test application-identifier behavior.")
+
+SECURITY_COMMAND_MAC("lookup-indirect-unlock-key", lookup_indirect_unlock_key,
+                 "identifier\n"
+                 "   identifier    What to look up",
+                 "Lookup an indirect key by identifier, returning a temporary reference id.")
+
+SECURITY_COMMAND_MAC("release-indirect-unlock-key-handle", release_indirect_unlock_key_handle,
+                 "handle\n"
+                 "   handle    The temporary reference ID to tell the daaemon to release",
+                 "Release the handle for an indirect key, by bemporary reference id.")

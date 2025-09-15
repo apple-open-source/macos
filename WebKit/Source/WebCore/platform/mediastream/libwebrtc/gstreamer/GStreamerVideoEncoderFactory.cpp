@@ -23,6 +23,7 @@
 #if ENABLE(VIDEO) && ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)
 #include "GStreamerVideoEncoderFactory.h"
 
+#include "FloatSize.h"
 #include "GStreamerVideoCommon.h"
 #include "GStreamerVideoFrameLibWebRTC.h"
 #include "LibWebRTCWebKitMacros.h"
@@ -33,6 +34,7 @@
 #include "webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_encoder.h"
 #include "webrtc/modules/video_coding/codecs/vp9/include/vp9.h"
 #include "webrtc/modules/video_coding/include/video_codec_interface.h"
+#include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include "webrtc/modules/video_coding/utility/simulcast_utility.h"
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
@@ -86,15 +88,15 @@ protected:
     RefPtr<GstMappedOwnedBuffer> m_mappedBuffer;
 };
 
-class GStreamerVideoEncoder : public webrtc::VideoEncoder {
-    WTF_MAKE_TZONE_ALLOCATED_INLINE(GStreamerVideoEncoder);
+class LibWebRTCGStreamerVideoEncoder : public webrtc::VideoEncoder {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(LibWebRTCGStreamerVideoEncoder);
 public:
-    GStreamerVideoEncoder(const webrtc::SdpVideoFormat&)
-        : GStreamerVideoEncoder()
+    LibWebRTCGStreamerVideoEncoder(const webrtc::SdpVideoFormat&)
+        : LibWebRTCGStreamerVideoEncoder()
     {
     }
 
-    GStreamerVideoEncoder()
+    LibWebRTCGStreamerVideoEncoder()
         : m_firstFramePts(GST_CLOCK_TIME_NONE)
         , m_restrictionCaps(adoptGRef(gst_caps_new_empty_simple("video/x-raw")))
     {
@@ -118,11 +120,11 @@ public:
         return m_pipeline.get();
     }
 
-    GstElement* makeElement(const gchar* factoryName)
+    GstElement* makeElement(ASCIILiteral factoryName)
     {
         static Atomic<uint32_t> elementId;
-        auto name = makeString(span(Name()), "-enc-"_s, unsafeSpan(factoryName), "-"_s, elementId.exchangeAdd(1));
-        auto* elem = makeGStreamerElement(factoryName, name.utf8().data());
+        auto name = makeString(Name(), "-enc-"_s, factoryName, "-"_s, elementId.exchangeAdd(1));
+        auto* elem = makeGStreamerElement(factoryName, name);
         return elem;
     }
 
@@ -317,7 +319,7 @@ public:
     }
 
     virtual webrtc::VideoCodecType CodecType() = 0;
-    virtual const gchar* Name() = 0;
+    virtual ASCIILiteral Name() = 0;
     virtual webrtc::SdpVideoFormat sdpVideoFormat() = 0;
     virtual int KeyframeInterval(const webrtc::VideoCodec* codecSettings) = 0;
 
@@ -343,9 +345,9 @@ private:
     GRefPtr<GstElement> m_sink;
 };
 
-class GStreamerH264Encoder : public GStreamerVideoEncoder {
+class LibWebRTCGStreamerVideoEncoderH264 : public LibWebRTCGStreamerVideoEncoder {
 public:
-    GStreamerH264Encoder() { }
+    LibWebRTCGStreamerVideoEncoderH264() { }
 
     int KeyframeInterval(const webrtc::VideoCodec* codecSettings) final
     {
@@ -358,7 +360,7 @@ public:
     }
 
     const gchar* Caps() final { return "video/x-h264"; }
-    const gchar* Name() final { return "h264"; }
+    ASCIILiteral Name() final { return "h264"_s; }
     webrtc::SdpVideoFormat sdpVideoFormat() final { return webrtc::SdpVideoFormat::H264(); }
     webrtc::VideoCodecType CodecType() final { return webrtc::kVideoCodecH264; }
 };
@@ -388,7 +390,7 @@ std::unique_ptr<webrtc::VideoEncoder> GStreamerVideoEncoderFactory::Create(const
         return webrtc::CreateH264Encoder(environment, webrtc::H264EncoderSettings::Parse(format));
 #else
         GST_INFO("Using H264 GStreamer encoder.");
-        return makeUnique<GStreamerH264Encoder>();
+        return makeUnique<LibWebRTCGStreamerVideoEncoderH264>();
 #endif
     }
 
@@ -422,7 +424,7 @@ std::vector<webrtc::SdpVideoFormat> GStreamerVideoEncoderFactory::GetSupportedFo
     auto formats = supportedH264Formats();
     supportedCodecs.insert(supportedCodecs.end(), formats.begin(), formats.end());
 #else
-    GStreamerH264Encoder().AddCodecIfSupported(supportedCodecs);
+    LibWebRTCGStreamerVideoEncoderH264().AddCodecIfSupported(supportedCodecs);
 #endif
 
     return supportedCodecs;

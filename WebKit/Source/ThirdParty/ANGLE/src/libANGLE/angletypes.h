@@ -538,8 +538,10 @@ struct PixelPackState : PixelStoreStateBase
     bool reverseRowOrder = false;
 };
 
-// Used in VertexArray.
-using VertexArrayBufferBindingMask = angle::BitSet<MAX_VERTEX_ATTRIB_BINDINGS>;
+// Used in VertexArray. For ease of tracking, we add vertex array element buffer to the end of
+// vertex array buffer bindings.
+constexpr uint32_t kElementArrayBufferIndex = MAX_VERTEX_ATTRIB_BINDINGS;
+using VertexArrayBufferBindingMask          = angle::BitSet<kElementArrayBufferIndex + 1>;
 
 // Used in Program and VertexArray.
 using AttributesMask = angle::BitSet<MAX_VERTEX_ATTRIBS>;
@@ -700,6 +702,8 @@ class BlendStateExt final
     void setEnabledIndexed(const size_t index, const bool enabled);
 
     ///////// Color Write Mask /////////
+
+    constexpr static uint8_t kColorMaskRGBA = 0xf;
 
     static constexpr size_t PackColorMask(const bool red,
                                           const bool green,
@@ -1274,6 +1278,7 @@ enum class NativeWindowSystem
     X11,
     Wayland,
     Gbm,
+    NullCompute,
     Other,
 };
 
@@ -1551,6 +1556,14 @@ class FoveationState
     static constexpr size_t kMaxFocalPoints =
         IMPLEMENTATION_MAX_NUM_LAYERS * IMPLEMENTATION_MAX_FOCAL_POINTS;
     std::array<FocalPoint, kMaxFocalPoints> mFocalPoints;
+};
+
+enum class BufferStorage : bool
+{
+    // The buffer storage is mutable
+    Mutable,
+    // The buffer storage is immutable
+    Immutable,
 };
 
 }  // namespace gl

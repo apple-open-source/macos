@@ -40,7 +40,7 @@
 #include <sys/time.h>
 #include <sys/vnode.h>
 #include <sys/sysctl.h>
-
+#include <sys/reboot.h>
 #include <sys/kauth.h>
 
 #include <sys/smb_apple.h>
@@ -58,6 +58,8 @@
 #include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
 #include <netsmb/smb_converter.h>
+
+#include <IOKit/IOPlatformExpert.h>
 
 /* 
  * Time & date conversion routines taken from msdosfs. Although leap
@@ -511,7 +513,7 @@ smb_get_share_with_reference(struct smbmount *smp)
 
 	lck_rw_lock_shared(&smp->sm_rw_sharelock);
 	share = smp->sm_share;
-	KASSERT(share, "smp->sm_share == NULL");
+	SMB_ASSERT(share, "smp->sm_share == NULL");
 	smb_share_ref(share);
 	lck_rw_unlock_shared(&smp->sm_rw_sharelock);
 	return share;
@@ -541,4 +543,10 @@ smbfs_is_dir(struct smbnode *np)
     }
 
     return(is_dir);
+}
+
+boolean_t
+smbfs_inshutdown(void)
+{
+    return (get_system_inshutdown() || IOPMRootDomainGetWillShutdown());
 }

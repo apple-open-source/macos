@@ -37,6 +37,8 @@
 #include <security/audit/audit.h>
 #include <skywalk/os_skywalk_private.h>
 
+#include <kern/uipc_domain.h>
+
 static int chop_select(struct fileproc *, int, void *, vfs_context_t);
 static int chop_close(struct fileglob *, vfs_context_t);
 static int chop_kqfilter(struct fileproc *, struct knote *, struct kevent_qos_s *);
@@ -144,7 +146,7 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 
 	if (__improbable(uap->init == USER_ADDR_NULL ||
 	    uap->init_len < sizeof(init))) {
-		SK_DSC(p, "EINVAL: init 0x%llx, init_len %u", SK_KVA(uap->init),
+		SK_PERR(p, "EINVAL: init %p, init_len %u", SK_KVA(uap->init),
 		    uap->init_len);
 		err = EINVAL;
 		goto done;
@@ -152,49 +154,31 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 
 	err = copyin(uap->init, (caddr_t)&init, sizeof(init));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyin err %u: init 0x%llx", err, SK_KVA(uap->init));
+		SK_PERR(p, "copyin err %u: init %p", err, SK_KVA(uap->init));
 		goto done;
 	}
 
 	if (__improbable(init.ci_version != CHANNEL_INIT_CURRENT_VERSION)) {
-		SK_DSC(p, "ENOTSUP: init.ci_version %u != %u", init.ci_version,
+		SK_PERR(p, "ENOTSUP: init.ci_version %u != %u", init.ci_version,
 		    CHANNEL_INIT_CURRENT_VERSION);
 		err = ENOTSUP;
 		goto done;
 	} else if (__improbable(uuid_is_null(init.ci_nx_uuid))) {
-		SK_DSC(p, "EINVAL: uuid_is_null");
+		SK_PERR(p, "EINVAL: uuid_is_null");
 		err = EINVAL;
 		goto done;
 	} else if (__improbable((init.ci_key_len != 0 &&
 	    init.ci_key == USER_ADDR_NULL) ||
 	    (init.ci_key_len == 0 && init.ci_key != USER_ADDR_NULL))) {
-		SK_DSC(p, "EINVAL: ci_key_len %i, ci_key 0x%llx",
+		SK_PERR(p, "EINVAL: ci_key_len %i, ci_key %p",
 		    init.ci_key_len, SK_KVA(init.ci_key));
 		err = EINVAL;
 		goto done;
 	}
 
-	if ((init.ci_ch_mode & CHMODE_MONITOR) != 0) {
-		if (__improbable((init.ci_ch_mode & CHMODE_USER_PACKET_POOL) != 0)) {
-			SK_DSC(p, "EINVAL: PACKET_POOL not supported for MONITOR mode");
-			err = EINVAL;
-			goto done;
-		}
-		if (__improbable((init.ci_ch_mode & CHMODE_EVENT_RING) != 0)) {
-			SK_DSC(p, "EINVAL: EVENT ring not supported for MONITOR mode");
-			err = EINVAL;
-			goto done;
-		}
-		if (__improbable((init.ci_ch_mode & CHMODE_LOW_LATENCY) != 0)) {
-			SK_DSC(p, "EINVAL: low latency not supported for MONITOR mode");
-			err = EINVAL;
-			goto done;
-		}
-	}
-
 	if ((init.ci_ch_mode & CHMODE_EVENT_RING) != 0) {
 		if ((init.ci_ch_mode & CHMODE_USER_PACKET_POOL) == 0) {
-			SK_DSC(p, "EINVAL: PACKET_POOL is required for EVENT ring");
+			SK_PERR(p, "EINVAL: PACKET_POOL is required for EVENT ring");
 			err = EINVAL;
 			goto done;
 		}
@@ -212,28 +196,28 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 	err = falloc_guarded(p, &fp, &fd, vfs_context_current(), &guard,
 	    GUARD_CLOSE | GUARD_DUP | GUARD_SOCKET_IPC | GUARD_FILEPORT | GUARD_WRITE);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "falloc_guarded: %u", err);
+		SK_PERR(p, "falloc_guarded: %u", err);
 		goto done;
 	}
 
 	keylen = init.ci_key_len;
 	if (keylen != 0) {
 		if (__improbable(keylen > NEXUS_MAX_KEY_LEN)) {
-			SK_DSC(p, "EINVAL: ci_key_len %u", keylen);
+			SK_PERR(p, "EINVAL: ci_key_len %u", keylen);
 			err = EINVAL;
 			goto done;
 		}
 
 		key = sk_alloc_data(keylen, Z_WAITOK, skmem_tag_ch_key);
 		if (__improbable(key == NULL)) {
-			SK_DSC(p, "ENOMEM: ci_key_len %u", keylen);
+			SK_PERR(p, "ENOMEM: ci_key_len %u", keylen);
 			err = ENOMEM;
 			goto done;
 		}
 
 		err = copyin(init.ci_key, (caddr_t)key, keylen);
 		if (__improbable(err != 0)) {
-			SK_DSC(p, "copyin err %u: ci_key 0x%llx, ci_key_len %u",
+			SK_PERR(p, "copyin err %u: ci_key %p, ci_key_len %u",
 			    err, SK_KVA(init.ci_key), keylen);
 			goto done;
 		}
@@ -247,7 +231,7 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 		/* in case not processed */
 		key = USER_ADDR_TO_PTR(init);
 		ASSERT(err != 0);
-		SK_DSC(p, "ch_open nx_port %d err %u",
+		SK_PERR(p, "ch_open nx_port %d err %u",
 		    (int)init.ci_nx_port, err);
 		goto done;
 	}
@@ -259,7 +243,7 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 	init.ci_key = USER_ADDR_NULL;
 	err = copyout(&init, uap->init, sizeof(init));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyout err %u: init 0x%llx", err,
+		SK_PERR(p, "copyout err %u: init %p", err,
 		    SK_KVA(uap->init));
 		goto done;
 	}
@@ -276,9 +260,8 @@ __channel_open(struct proc *p, struct __channel_open_args *uap, int *retval)
 
 	*retval = fd;
 
-	SK_D("%s(%d) nx_port %d fd %d guard 0x%llx",
-	    sk_proc_name_address(p), sk_proc_pid(p), (int)init.ci_nx_port,
-	    fd, guard);
+	SK_D("%s(%d) nx_port %d fd %d %s", sk_proc_name(p),
+	    sk_proc_pid(p), (int)init.ci_nx_port, fd, ch->ch_na->na_name);
 
 done:
 	if (key != NULL) {
@@ -312,14 +295,14 @@ __channel_get_info(struct proc *p, struct __channel_get_info_args *uap,
 
 	err = fp_get_ftype(p, uap->c, DTYPE_CHANNEL, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype err %u", err);
+		SK_PERR(p, "fp_get_ftype err %u", err);
 		return err;
 	}
 	ch = (struct kern_channel *__single)fp_get_data(fp);
 
 	if (__improbable(uap->cinfo == USER_ADDR_NULL ||
 	    uap->cinfolen < sizeof(struct ch_info))) {
-		SK_DSC(p, "EINVAL: cinfo 0x%llx, cinfolen %u",
+		SK_PERR(p, "EINVAL: cinfo %p, cinfolen %u",
 		    SK_KVA(uap->cinfo), uap->cinfolen);
 		err = EINVAL;
 		goto done;
@@ -329,7 +312,7 @@ __channel_get_info(struct proc *p, struct __channel_get_info_args *uap,
 	err = copyout(ch->ch_info, uap->cinfo, sizeof(struct ch_info));
 	lck_mtx_unlock(&ch->ch_lock);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyout err %u: cinfo 0x%llx", err,
+		SK_PERR(p, "copyout err %u: cinfo %p", err,
 		    SK_KVA(uap->cinfo));
 		goto done;
 	}
@@ -349,8 +332,8 @@ channel_sync_log1(uint64_t verb, const char *sync, struct proc *p,
     const struct __kern_channel_ring *kring, ring_id_t i)
 {
 	verb |= SK_VERB_SYNC;
-	SK_DF(verb, "%s(%d) pre: %s ring %u na \"%s\" (0x%llx) ch 0x%llx "
-	    "th 0x%llx h %u kh %u", sk_proc_name_address(p), sk_proc_pid(p),
+	SK_DF(verb, "%s(%d) pre: %s ring %u na \"%s\" (%p) ch %p "
+	    "th %p h %u kh %u", sk_proc_name(p), sk_proc_pid(p),
 	    sync, i, na->na_name, SK_KVA(na), SK_KVA(ch),
 	    SK_KVA(current_thread()), kring->ckr_ring->ring_head,
 	    kring->ckr_khead);
@@ -364,7 +347,7 @@ channel_sync_log2(uint64_t verb, const char *sync, struct proc *p,
 {
 	verb |= SK_VERB_SYNC;
 	SK_DF(verb, "%s(%d) post: %s ring %u na \"%s\" h %u kh %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), sync, i, na->na_name,
+	    sk_proc_name(p), sk_proc_pid(p), sync, i, na->na_name,
 	    kring->ckr_ring->ring_head, kring->ckr_khead);
 }
 #endif /* SK_LOG */
@@ -391,7 +374,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 
 	err = fp_get_ftype(p, uap->c, DTYPE_CHANNEL, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype err %u", err);
+		SK_PERR(p, "fp_get_ftype err %u", err);
 		return err;
 	}
 	ch = (struct kern_channel *__single)fp_get_data(fp);
@@ -403,7 +386,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 	flags = uap->flags;
 	if (__improbable(mode != CHANNEL_SYNC_TX && mode != CHANNEL_SYNC_RX &&
 	    mode != CHANNEL_SYNC_UPP)) {
-		SK_DSC(p, "EINVAL: mode %u", mode);
+		SK_PERR(p, "EINVAL: mode %u", mode);
 		err = EINVAL;
 		goto done;
 	}
@@ -411,14 +394,14 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 	if (__improbable((ch->ch_flags & CHANF_USER_PACKET_POOL) == 0 &&
 	    (flags & (CHANNEL_SYNCF_ALLOC | CHANNEL_SYNCF_FREE |
 	    CHANNEL_SYNCF_ALLOC_BUF)) != 0)) {
-		SK_DSC(p, "EINVAL: !CHANF_USER_PACKET_POOL with "
+		SK_PERR(p, "EINVAL: !CHANF_USER_PACKET_POOL with "
 		    "SYNCF_ALLOC/FREE");
 		err = EINVAL;
 		goto done;
 	}
 
 	if (__improbable(ch->ch_flags & CHANF_DEFUNCT)) {
-		SK_DSC(p, "channel is defunct");
+		SK_PERR(p, "channel is defunct");
 		err = ENXIO;
 		goto done;
 	}
@@ -433,7 +416,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 	ASSERT(NA_IS_ACTIVE(na));
 
 	if (__improbable(na_reject_channel(ch, na))) {
-		SK_DSC(p, "channel is non-permissive");
+		SK_PERR(p, "channel is non-permissive");
 		err = ENXIO;
 		goto done;
 	}
@@ -442,7 +425,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 	protect = sk_sync_protect();
 
 	/* update our work timestamp */
-	na->na_work_ts = _net_uptime;
+	na->na_work_ts = net_uptime();
 
 	/* and make this channel eligible for draining again */
 	if (na->na_flags & NAF_DRAINING) {
@@ -486,7 +469,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 				kr_log_bad_ring(kring);
 				error = EFAULT;
 				if (!err) {
-					SK_DSC(p, "EFAULT: "
+					SK_PERR(p, "EFAULT: "
 					    "kr_txsync_prologue()");
 					err = EFAULT;
 				}
@@ -496,7 +479,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 			} else {
 				error = EIO;
 				if (!err) {
-					SK_DSC(p, "EIO: TX "
+					SK_PERR(p, "EIO: TX "
 					    "kring->ckr_na_sync()");
 					err = EIO;
 				}
@@ -519,7 +502,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 				kr_log_bad_ring(kring);
 				error = EFAULT;
 				if (!err) {
-					SK_DSC(p, "EFAULT: "
+					SK_PERR(p, "EFAULT: "
 					    "kr_rxsync_prologue()");
 					err = EFAULT;
 				}
@@ -529,7 +512,7 @@ __channel_sync(struct proc *p, struct __channel_sync_args *uap, int *retval)
 			} else {
 				error = EIO;
 				if (!err) {
-					SK_DSC(p, "EIO: " "RX "
+					SK_PERR(p, "EIO: " "RX "
 					    "kring->ckr_na_sync()");
 					err = EIO;
 				}
@@ -597,7 +580,7 @@ packet_pool_sync:
 			    kring->ckr_num_slots)) {
 				kr_log_bad_ring(kring);
 				if (!err) {
-					SK_DSC(p,
+					SK_PERR(p,
 					    "EFAULT: kr_alloc_sync_prologue()");
 					err = EFAULT;
 				}
@@ -606,7 +589,7 @@ packet_pool_sync:
 				kr_alloc_sync_finalize(kring, p);
 			} else {
 				if (!err) {
-					SK_DSC(p,
+					SK_PERR(p,
 					    "EIO: ALLOC: ring->ckr_na_sync()");
 					err = EIO;
 				}
@@ -644,7 +627,7 @@ packet_pool_sync:
 			    kring->ckr_num_slots)) {
 				kr_log_bad_ring(kring);
 				if (!err) {
-					SK_DSC(p,
+					SK_PERR(p,
 					    "EFAULT: kr_free_sync_prologue()");
 					err = EFAULT;
 				}
@@ -653,7 +636,7 @@ packet_pool_sync:
 				kr_free_sync_finalize(kring, p);
 			} else {
 				if (!err) {
-					SK_DSC(p,
+					SK_PERR(p,
 					    "EIO: FREE: ring->ckr_na_sync()");
 					err = EIO;
 				}
@@ -698,13 +681,13 @@ __channel_get_opt(struct proc *p, struct __channel_get_opt_args *uap,
 
 	err = fp_get_ftype(p, uap->c, DTYPE_CHANNEL, ENODEV, &fp);
 	if (err != 0) {
-		SK_DSC(p, "fp_get_ftype err %u", err);
+		SK_PERR(p, "fp_get_ftype err %u", err);
 		return err;
 	}
 	ch = (struct kern_channel *__single)fp_get_data(fp);
 
 	if (uap->aoptlen == USER_ADDR_NULL) {
-		SK_DSC(p, "EINVAL: uap->aoptlen == USER_ADDR_NULL");
+		SK_PERR(p, "EINVAL: uap->aoptlen == USER_ADDR_NULL");
 		err = EINVAL;
 		goto done;
 	}
@@ -712,7 +695,7 @@ __channel_get_opt(struct proc *p, struct __channel_get_opt_args *uap,
 	if (uap->aoptval != USER_ADDR_NULL) {
 		err = copyin(uap->aoptlen, &optlen, sizeof(optlen));
 		if (err != 0) {
-			SK_DSC(p, "copyin err %u: aoptlen 0x%llx", err,
+			SK_PERR(p, "copyin err %u: aoptlen %p", err,
 			    SK_KVA(uap->aoptlen));
 			goto done;
 		}
@@ -735,7 +718,7 @@ __channel_get_opt(struct proc *p, struct __channel_get_opt_args *uap,
 		err = copyout(&optlen, uap->aoptlen, sizeof(optlen));
 #if SK_LOG
 		if (err != 0) {
-			SK_DSC(p, "copyout err %u: aoptlen 0x%llx", err,
+			SK_PERR(p, "copyout err %u: aoptlen %p", err,
 			    SK_KVA(uap->aoptlen));
 		}
 #endif
@@ -761,7 +744,7 @@ __channel_set_opt(struct proc *p, struct __channel_set_opt_args *uap,
 
 	err = fp_get_ftype(p, uap->c, DTYPE_CHANNEL, ENODEV, &fp);
 	if (err != 0) {
-		SK_DSC(p, "fp_get_ftype err %u", err);
+		SK_PERR(p, "fp_get_ftype err %u", err);
 		return err;
 	}
 	ch = (struct kern_channel *__single)fp_get_data(fp);
@@ -775,11 +758,11 @@ __channel_set_opt(struct proc *p, struct __channel_set_opt_args *uap,
 
 	lck_mtx_lock(&ch->ch_lock);
 	if (__improbable(ch->ch_flags & (CHANF_CLOSING | CHANF_DEFUNCT))) {
-		SK_DSC(p, "channel is closing/defunct");
+		SK_PERR(p, "channel is closing/defunct");
 		err = ENXIO;
 	} else if (__improbable(ch->ch_na == NULL ||
 	    !NA_IS_ACTIVE(ch->ch_na) || na_reject_channel(ch, ch->ch_na))) {
-		SK_DSC(p, "channel is non-permissive");
+		SK_PERR(p, "channel is non-permissive");
 		err = ENXIO;
 	} else {
 		err = ch_set_opt(ch, &sopt);
@@ -790,7 +773,7 @@ __channel_set_opt(struct proc *p, struct __channel_set_opt_args *uap,
 
 #if SK_LOG
 	if (err != 0) {
-		SK_DSC(p, "ch_set_opt() err %u", err);
+		SK_PERR(p, "ch_set_opt() err %u", err);
 	}
 #endif
 

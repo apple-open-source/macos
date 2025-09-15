@@ -29,11 +29,16 @@
 #include "WPEBufferDMABufFormats.h"
 #include "WPEDisplay.h"
 #include "WPEViewPrivate.h"
-#include <wtf/HashSet.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GWeakPtr.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/WTFString.h>
+
+#if USE(ATK)
+#include "WPEApplicationAccessibleAtk.h"
+#include "WPEToplevelAccessibleAtk.h"
+#endif
 
 #if USE(LIBDRM)
 #include <drm_fourcc.h>
@@ -45,7 +50,8 @@
  */
 struct _WPEToplevelPrivate {
     GWeakPtr<WPEDisplay> display;
-    HashSet<WPEView*> views;
+    unsigned maxViews;
+    ListHashSet<WPEView*> views;
 
     int width;
     int height;
@@ -55,19 +61,61 @@ struct _WPEToplevelPrivate {
 #if USE(LIBDRM)
     GRefPtr<WPEBufferDMABufFormats> overridenDMABufFormats;
 #endif
+#if USE(ATK)
+    GRefPtr<AtkObject> accessible;
+#endif
 };
 
 WEBKIT_DEFINE_TYPE(WPEToplevel, wpe_toplevel, G_TYPE_OBJECT)
+
+static GList* s_toplevelList;
 
 enum {
     PROP_0,
 
     PROP_DISPLAY,
+    PROP_MAX_VIEWS,
 
     N_PROPERTIES
 };
 
 static std::array<GParamSpec*, N_PROPERTIES> sObjProperties;
+
+static void wpeToplevelConstructed(GObject* object)
+{
+    G_OBJECT_CLASS(wpe_toplevel_parent_class)->constructed(object);
+
+    s_toplevelList = g_list_prepend(s_toplevelList, object);
+
+    auto* toplevel = WPE_TOPLEVEL(object);
+    auto* priv = toplevel->priv;
+    auto* settings = wpe_display_get_settings(priv->display.get());
+    GVariant* toplevelSize = wpe_settings_get_value(settings, WPE_SETTING_TOPLEVEL_DEFAULT_SIZE, nullptr);
+    g_variant_get(toplevelSize, "(uu)", &priv->width, &priv->height);
+
+#if USE(ATK)
+    auto* atkRoot = atk_get_root();
+    if (WPE_IS_APPLICATION_ACCESSIBLE_ATK(atkRoot))
+        wpeApplicationAccessibleAtkToplevelCreated(WPE_APPLICATION_ACCESSIBLE_ATK(atkRoot), toplevel);
+#endif
+}
+
+static void wpeToplevelDispose(GObject* object)
+{
+    s_toplevelList = g_list_remove(s_toplevelList, object);
+
+#if USE(ATK)
+    auto* toplevel = WPE_TOPLEVEL(object);
+    if (toplevel->priv->accessible) {
+        auto* atkRoot = atk_get_root();
+        if (WPE_IS_APPLICATION_ACCESSIBLE_ATK(atkRoot))
+            wpeApplicationAccessibleAtkToplevelDestroyed(WPE_APPLICATION_ACCESSIBLE_ATK(atkRoot), toplevel);
+        toplevel->priv->accessible = nullptr;
+    }
+#endif
+
+    G_OBJECT_CLASS(wpe_toplevel_parent_class)->dispose(object);
+}
 
 static void wpeToplevelSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
 {
@@ -76,6 +124,9 @@ static void wpeToplevelSetProperty(GObject* object, guint propId, const GValue* 
     switch (propId) {
     case PROP_DISPLAY:
         toplevel->priv->display.reset(WPE_DISPLAY(g_value_get_object(value)));
+        break;
+    case PROP_MAX_VIEWS:
+        toplevel->priv->maxViews = g_value_get_uint(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -90,6 +141,9 @@ static void wpeToplevelGetProperty(GObject* object, guint propId, GValue* value,
     case PROP_DISPLAY:
         g_value_set_object(value, wpe_toplevel_get_display(toplevel));
         break;
+    case PROP_MAX_VIEWS:
+        g_value_set_uint(value, wpe_toplevel_get_max_views(toplevel));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
     }
@@ -98,6 +152,8 @@ static void wpeToplevelGetProperty(GObject* object, guint propId, GValue* value,
 static void wpe_toplevel_class_init(WPEToplevelClass* toplevelClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(toplevelClass);
+    objectClass->constructed = wpeToplevelConstructed;
+    objectClass->dispose = wpeToplevelDispose;
     objectClass->set_property = wpeToplevelSetProperty;
     objectClass->get_property = wpeToplevelGetProperty;
 
@@ -113,6 +169,19 @@ static void wpe_toplevel_class_init(WPEToplevelClass* toplevelClass)
             WPE_TYPE_DISPLAY,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
+    /**
+     * WPEToplevel:max-views:
+     *
+     * The maximum number of #WPEView that can be added to the #WPEToplevel.
+     * A value of 0 means no limit.
+     */
+    sObjProperties[PROP_MAX_VIEWS] =
+        g_param_spec_uint(
+            "max-views",
+            nullptr, nullptr,
+            0, G_MAXUINT, 1,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
     g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties.data());
 }
 
@@ -124,6 +193,50 @@ void wpeToplevelAddView(WPEToplevel* toplevel, WPEView* view)
 void wpeToplevelRemoveView(WPEToplevel* toplevel, WPEView* view)
 {
     toplevel->priv->views.remove(view);
+}
+
+GRefPtr<WPEView> wpeToplevelGetView(WPEToplevel* toplevel, size_t index)
+{
+    if (index >= toplevel->priv->views.size())
+        return nullptr;
+
+    size_t viewIndex = 0;
+    for (auto& view : toplevel->priv->views) {
+        if (viewIndex == index)
+            return view;
+        ++viewIndex;
+    }
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+#if USE(ATK)
+AtkObject* wpeToplevelGetOrCreateAccessibleAtk(WPEToplevel* toplevel)
+{
+    if (!toplevel->priv->accessible)
+        toplevel->priv->accessible = adoptGRef(wpeToplevelAccessibleAtkNew(toplevel));
+    return toplevel->priv->accessible.get();
+}
+
+AtkObject* wpeToplevelGetAccessibleAtk(WPEToplevel* toplevel)
+{
+    return toplevel->priv->accessible.get();
+}
+#endif
+
+/**
+ * wpe_toplevel_list:
+ *
+ * Get a list of all #WPEToplevel
+ *
+ * Returns: (transfer container) (element-type WPEToplevel): a #Glist of WPEToplevel
+ */
+GList* wpe_toplevel_list()
+{
+    GList* toplevels = nullptr;
+    for (auto* iter = s_toplevelList; iter; iter = g_list_next(iter))
+        toplevels = g_list_prepend(toplevels, iter->data);
+    return toplevels;
 }
 
 /**
@@ -169,8 +282,7 @@ guint wpe_toplevel_get_max_views(WPEToplevel* toplevel)
 {
     g_return_val_if_fail(WPE_IS_TOPLEVEL(toplevel), 0);
 
-    auto* toplevelClass = WPE_TOPLEVEL_GET_CLASS(toplevel);
-    return toplevelClass->get_max_views ? toplevelClass->get_max_views(toplevel) : 1;
+    return toplevel->priv->maxViews;
 }
 
 /**
@@ -525,8 +637,10 @@ WPEBufferDMABufFormats* wpe_toplevel_get_preferred_dma_buf_formats(WPEToplevel* 
 #endif
 
     auto* toplevelClass = WPE_TOPLEVEL_GET_CLASS(toplevel);
-    if (toplevelClass->get_preferred_dma_buf_formats)
-        return toplevelClass->get_preferred_dma_buf_formats(toplevel);
+    if (toplevelClass->get_preferred_dma_buf_formats) {
+        if (auto* formats = toplevelClass->get_preferred_dma_buf_formats(toplevel))
+            return formats;
+    }
 
     return priv->display ? wpe_display_get_preferred_dma_buf_formats(priv->display.get()) : nullptr;
 }

@@ -3,7 +3,7 @@
 /*
  *******************************************************************************
  * Copyright (C) 2009-2010, Google, International Business Machines Corporation and *
- * others. All Rights Reserved.                                                *
+ * others. All rights reserved.                                                *
  *******************************************************************************
  */ 
 

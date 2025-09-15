@@ -28,7 +28,7 @@ webkit_platform_headers: "ArgumentCodersCocoa.h" "CoreIPCNSCFObject.h"
     [Validator='WebKit::CoreIPCNSCFObject::valueIsAllowed(decoder, *value)'] UniqueRef<WebKit::ObjectValue> value();
 }
 
-using WebKit::ObjectValue = std::variant<
+using WebKit::ObjectValue = Variant<
     std::nullptr_t,
     WebKit::CoreIPCArray,
     WebKit::CoreIPCCFType,

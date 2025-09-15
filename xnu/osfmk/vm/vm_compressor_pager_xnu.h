@@ -33,6 +33,7 @@
 
 #include <mach/mach_types.h>
 #include <kern/kern_types.h>
+#include <vm/vm_compressor_xnu.h>
 #include <vm/vm_external.h>
 
 __options_decl(vm_compressor_options_t, uint32_t, {

@@ -27,7 +27,6 @@
 
 #include "CryptoKey.h"
 #include "CryptoKeyPair.h"
-#include "ExceptionOr.h"
 
 #if OS(DARWIN) && !PLATFORM(GTK)
 #include "CommonCryptoUtilities.h"
@@ -66,6 +65,7 @@ using PlatformECKeyContainer = WebCore::EvpPKeyPtr;
 namespace WebCore {
 
 struct JsonWebKey;
+template<typename> class ExceptionOr;
 
 class CryptoKeyEC final : public CryptoKey {
 public:

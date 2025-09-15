@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>TestName</key>
+			<string>Libc.fortify_source</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/Tests/Libc/fortify_source</string>
+			</array>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+</dict>
+</plist>

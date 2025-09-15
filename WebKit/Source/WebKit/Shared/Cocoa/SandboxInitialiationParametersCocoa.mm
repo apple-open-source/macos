@@ -56,7 +56,7 @@ void SandboxInitializationParameters::addConfDirectoryParameter(ASCIILiteral nam
 
 void SandboxInitializationParameters::addPathParameter(ASCIILiteral name, NSString *path)
 {
-    appendPathInternal(name, [path length] ? [(NSString *)path fileSystemRepresentation] : "");
+    appendPathInternal(name, [path length] ? [path fileSystemRepresentation] : "");
 }
 
 void SandboxInitializationParameters::addPathParameter(ASCIILiteral name, const char* path)

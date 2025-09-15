@@ -29,7 +29,7 @@ struct WebKit::SharedPreferencesForWebProcess {
 <%- if @pref.condition -%>
 #if <%= @pref.condition %>
 <%- end -%>
-    bool <%= @pref.nameLower %>;
+    [BitField] bool <%= @pref.nameLower %>;
 <%- if @pref.condition -%>
 #endif
 <%- end -%>

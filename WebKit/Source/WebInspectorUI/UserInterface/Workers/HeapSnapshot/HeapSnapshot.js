@@ -41,6 +41,7 @@ const gcDebuggingNodeFieldCount = 7;
 // node flags
 const internalFlagsMask = (1 << 0);
 const objectTypeMask = (1 << 1);
+const elementTypeMask = (1 << 2);
 
 // edges
 // [<0:fromId>, <1:toId>, <2:typeTableIndex>, <3:edgeDataIndexOrEdgeNameIndex>]
@@ -64,6 +65,7 @@ const rootNodeIdentifier = 0;
 // Version Differences:
 //   - In Version 1, node[3] now named <flags> was the value 0 or 1 indicating not-internal or internal.
 //   - In Version 2, this became a bitmask so multiple flags could be included without modifying the size.
+//   - In Version 3, the "element" flag was added to indicate if the value was a DOM node.
 //
 // Terminology:
 //   - `nodeIndex` is an index into the `nodes` list.
@@ -84,22 +86,25 @@ const rootNodeIdentifier = 0;
 //   - nodeOrdinalToPostOrderIndex - `nodeOrdinal` to a `postOrderIndex`.
 //   - postOrderIndexToNodeOrdinal - `postOrderIndex` to a `nodeOrdinal`.
 
-let nextSnapshotIdentifier = 1;
+let lastSnapshotIdentifierForTarget = new Map;
 
 HeapSnapshot = class HeapSnapshot
 {
-    constructor(objectId, snapshotDataString, title = null, imported = false)
+    constructor(targetId, objectId, snapshotDataString, title = null)
     {
-        this._identifier = nextSnapshotIdentifier++;
+        let nextSnapshotIdentifier = (lastSnapshotIdentifierForTarget.get(targetId) ?? 0) + 1;
+        lastSnapshotIdentifierForTarget.set(targetId, nextSnapshotIdentifier);
+
+        this._identifier = nextSnapshotIdentifier;
+        this._targetId = targetId;
         this._objectId = objectId;
         this._title = title;
-        this._imported = imported;
 
         let json = JSON.parse(snapshotDataString);
         snapshotDataString = null;
 
         let {version, type, nodes, nodeClassNames, edges, edgeTypes, edgeNames, roots, labels} = json;
-        console.assert(version === 1 || version === 2, "Expect JavaScriptCore Heap Snapshot version 1 or 2");
+        console.assert(version === 1 || version === 2 || version === 3, version);
         console.assert(!type || (type === "Inspector" || type === "GCDebugging"), "Expect an Inspector / GCDebugging Heap Snapshot");
 
         this._nodeFieldCount = type === "GCDebugging" ? gcDebuggingNodeFieldCount : nodeFieldCount;
@@ -110,8 +115,8 @@ HeapSnapshot = class HeapSnapshot
         this._edges = edges;
         this._edgeCount = edges.length / edgeFieldCount;
 
-        this._roots = roots;
-        this._labels = labels;
+        this._roots = roots || [];
+        this._labels = labels || [];
 
         this._edgeTypesTable = edgeTypes;
         this._edgeNamesTable = edgeNames;
@@ -187,7 +192,7 @@ HeapSnapshot = class HeapSnapshot
 
             let category = categories[className];
             if (!category)
-                category = categories[className] = {className, size: 0, retainedSize: 0, count: 0, internalCount: 0, deadCount: 0, objectCount: 0};
+                category = categories[className] = {className, size: 0, retainedSize: 0, count: 0, internalCount: 0, deadCount: 0, objectCount: 0, elementCount: 0};
 
             category.size += size;
             category.retainedSize += retainedSize;
@@ -196,6 +201,8 @@ HeapSnapshot = class HeapSnapshot
                 category.internalCount += 1;
             if (flags & objectTypeMask)
                 category.objectCount += 1;
+            if (flags & elementTypeMask)
+                category.elementCount += 1;
             if (dead)
                 category.deadCount += 1;
             else
@@ -374,8 +381,8 @@ HeapSnapshot = class HeapSnapshot
 
     updateDeadNodesAndGatherCollectionData(snapshots)
     {
-        console.assert(!this._imported, "Should never use an imported snapshot to modify snapshots");
-        console.assert(snapshots.every((x) => !x._imported), "Should never modify nodes of imported snapshots");
+        console.assert(this._targetId, "Should never use an imported snapshot to modify snapshots");
+        console.assert(snapshots.every((x) => x._targetId), "Should never modify nodes of imported snapshots");
 
         let previousSnapshotIndex = snapshots.indexOf(this) - 1;
         let previousSnapshot = snapshots[previousSnapshotIndex];
@@ -407,6 +414,8 @@ HeapSnapshot = class HeapSnapshot
         for (let snapshot of snapshots) {
             if (snapshot === this)
                 break;
+            if (snapshot._targetId !== this._targetId)
+                continue;
             if (snapshot._markDeadNodes(collectedNodesList))
                 affectedSnapshots.push(snapshot._identifier);
         }
@@ -424,6 +433,8 @@ HeapSnapshot = class HeapSnapshot
 
     // Public
 
+    get imported() { return !this._targetId; }
+
     serialize()
     {
         return {
@@ -433,7 +444,6 @@ HeapSnapshot = class HeapSnapshot
             totalObjectCount: this._nodeCount - 1, // <root>.
             liveSize: this._liveSize,
             categories: this._categories,
-            imported: this._imported,
         };
     }
 
@@ -458,6 +468,7 @@ HeapSnapshot = class HeapSnapshot
             retainedSize: this._nodeOrdinalToRetainedSizes[nodeOrdinal],
             internal: nodeFlags & internalFlagsMask ? true : false,
             isObjectType: nodeFlags & objectTypeMask ? true : false,
+            isElementType: nodeFlags & elementTypeMask ? true : false,
             gcRoot: this._nodeOrdinalIsGCRoot[nodeOrdinal] ? true : false,
             dead: this._nodeOrdinalIsDead[nodeOrdinal] ? true : false,
             dominatorNodeIdentifier,
@@ -745,6 +756,7 @@ HeapSnapshot = class HeapSnapshot
         let className = this._nodeClassNamesTable[this._nodes[nodeIndex + nodeClassNameOffset]];
         return className === "Window"
             || className === "JSWindowProxy"
+            || className === "DedicatedWorkerGlobalScope"
             || className === "GlobalObject";
     }
 

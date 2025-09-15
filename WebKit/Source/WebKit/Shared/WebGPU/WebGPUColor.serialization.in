@@ -30,4 +30,4 @@ header: "WebGPUColor.h"
     double a
 }
 
-using WebKit::WebGPU::Color = std::variant<Vector<double>, WebKit::WebGPU::ColorDict>
+using WebKit::WebGPU::Color = Variant<Vector<double>, WebKit::WebGPU::ColorDict>

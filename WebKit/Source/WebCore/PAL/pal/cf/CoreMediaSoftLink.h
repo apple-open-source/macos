@@ -70,7 +70,7 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetSampleTimingInfo,
 #define CMSampleBufferGetSampleTimingInfo softLink_CoreMedia_CMSampleBufferGetSampleTimingInfo
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferDataIsReady, Boolean, (CMSampleBufferRef sbuf), (sbuf))
 #define CMSampleBufferDataIsReady softLink_CoreMedia_CMSampleBufferDataIsReady
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateReady, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t* sampleSizeArray, CMSampleBufferRef* sampleBufferOut), (allocator, dataBuffer, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sampleBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateReady, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t* sampleSizeArray, CF_RETURNS_RETAINED CMSampleBufferRef* sampleBufferOut), (allocator, dataBuffer, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sampleBufferOut))
 #define CMSampleBufferCreateReady softLink_CoreMedia_CMSampleBufferCreateReady
 
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimeAdd, CMTime, (CMTime time1, CMTime time2), (time1, time2))
@@ -186,27 +186,31 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTextVerticalLayout_LeftToRight,
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTextVerticalLayout_RightToLeft, CFStringRef)
 #define kCMTextVerticalLayout_RightToLeft get_CoreMedia_kCMTextVerticalLayout_RightToLeft()
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateContiguous, OSStatus, (CFAllocatorRef structureAllocator, CMBlockBufferRef sourceBuffer, CFAllocatorRef blockAllocator, const CMBlockBufferCustomBlockSource* customBlockSource, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags, CMBlockBufferRef* blockBufferOut), (structureAllocator, sourceBuffer, blockAllocator, customBlockSource, offsetToData, dataLength, flags, blockBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateContiguous, OSStatus, (CFAllocatorRef structureAllocator, CMBlockBufferRef sourceBuffer, CFAllocatorRef blockAllocator, const CMBlockBufferCustomBlockSource* customBlockSource, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags, CF_RETURNS_RETAINED CMBlockBufferRef* blockBufferOut), (structureAllocator, sourceBuffer, blockAllocator, customBlockSource, offsetToData, dataLength, flags, blockBufferOut))
 #define CMBlockBufferCreateContiguous softLink_CoreMedia_CMBlockBufferCreateContiguous
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferAppendBufferReference, OSStatus, (CMBlockBufferRef theBuffer, CMBlockBufferRef targetBBuf, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags), (theBuffer, targetBBuf, offsetToData, dataLength, flags))
 #define CMBlockBufferAppendBufferReference softLink_CoreMedia_CMBlockBufferAppendBufferReference
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateEmpty, OSStatus, (CFAllocatorRef structureAllocator, uint32_t subBlockCapacity, CMBlockBufferFlags flags, CMBlockBufferRef* blockBufferOut), (structureAllocator, subBlockCapacity, flags, blockBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateEmpty, OSStatus, (CFAllocatorRef structureAllocator, uint32_t subBlockCapacity, CMBlockBufferFlags flags, CF_RETURNS_RETAINED CMBlockBufferRef* blockBufferOut), (structureAllocator, subBlockCapacity, flags, blockBufferOut))
 #define CMBlockBufferCreateEmpty softLink_CoreMedia_CMBlockBufferCreateEmpty
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMFormatDescriptionGetMediaSubType, FourCharCode, (CMFormatDescriptionRef desc), (desc))
 #define CMFormatDescriptionGetMediaSubType softLink_CoreMedia_CMFormatDescriptionGetMediaSubType
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMFormatDescriptionGetMediaType, CMMediaType, (CMFormatDescriptionRef desc), (desc))
 #define CMFormatDescriptionGetMediaType softLink_CoreMedia_CMFormatDescriptionGetMediaType
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreate, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t* sampleSizeArray, CMSampleBufferRef* sBufOut), (allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sBufOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreate, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t* sampleSizeArray, CF_RETURNS_RETAINED CMSampleBufferRef* sBufOut), (allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sBufOut))
 #define CMSampleBufferCreate softLink_CoreMedia_CMSampleBufferCreate
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateCopy, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef sbuf, CMSampleBufferRef* sbufCopyOut), (allocator, sbuf, sbufCopyOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateCopy, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef sbuf, CF_RETURNS_RETAINED CMSampleBufferRef* sbufCopyOut), (allocator, sbuf, sbufCopyOut))
 #define CMSampleBufferCreateCopy softLink_CoreMedia_CMSampleBufferCreateCopy
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateCopyWithNewTiming, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef originalSBuf, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CMSampleBufferRef* sBufCopyOut), (allocator, originalSBuf, numSampleTimingEntries, sampleTimingArray, sBufCopyOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateCopyWithNewTiming, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef originalSBuf, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo* sampleTimingArray, CF_RETURNS_RETAINED CMSampleBufferRef* sBufCopyOut), (allocator, originalSBuf, numSampleTimingEntries, sampleTimingArray, sBufCopyOut))
 #define CMSampleBufferCreateCopyWithNewTiming softLink_CoreMedia_CMSampleBufferCreateCopyWithNewTiming
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateReadyWithImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, CMVideoFormatDescriptionRef formatDescription, const CMSampleTimingInfo* sampleTiming, CMSampleBufferRef* sBufOut), (allocator, imageBuffer, formatDescription, sampleTiming, sBufOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateReadyWithImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, CMVideoFormatDescriptionRef formatDescription, const CMSampleTimingInfo* sampleTiming, CF_RETURNS_RETAINED CMSampleBufferRef* sBufOut), (allocator, imageBuffer, formatDescription, sampleTiming, sBufOut))
 #define CMSampleBufferCreateReadyWithImageBuffer softLink_CoreMedia_CMSampleBufferCreateReadyWithImageBuffer
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateForImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMVideoFormatDescriptionRef formatDescription, const CMSampleTimingInfo* sampleTiming, CMSampleBufferRef* sampleBufferOut), (allocator, imageBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, sampleTiming, sampleBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateForImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMVideoFormatDescriptionRef formatDescription, const CMSampleTimingInfo* sampleTiming, CF_RETURNS_RETAINED CMSampleBufferRef* sampleBufferOut), (allocator, imageBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, sampleTiming, sampleBufferOut))
 #define CMSampleBufferCreateForImageBuffer softLink_CoreMedia_CMSampleBufferCreateForImageBuffer
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroup, OSStatus,  (CFAllocatorRef allocator, CMTaggedBufferGroupRef taggedBufferGroup, CF_RETURNS_RETAINED CMTaggedBufferGroupFormatDescriptionRef *formatDescriptionOut), (allocator, taggedBufferGroup, formatDescriptionOut))
+#define CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroup softLink_CoreMedia_CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroup
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCreateForTaggedBufferGroup, OSStatus, (CFAllocatorRef allocator, CMTaggedBufferGroupRef taggedBufferGroup, CMTime sbufPTS, CMTime sbufDuration, CMTaggedBufferGroupFormatDescriptionRef formatDescription, CF_RETURNS_RETAINED CMSampleBufferRef *sBufOut), (allocator, taggedBufferGroup, sbufPTS, sbufDuration, formatDescription, sBufOut))
+#define CMSampleBufferCreateForTaggedBufferGroup softLink_CoreMedia_CMSampleBufferCreateForTaggedBufferGroup
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetDecodeTimeStamp, CMTime, (CMSampleBufferRef sbuf), (sbuf))
 #define CMSampleBufferGetDecodeTimeStamp softLink_CoreMedia_CMSampleBufferGetDecodeTimeStamp
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetDuration, CMTime, (CMSampleBufferRef sbuf), (sbuf))
@@ -259,21 +263,23 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimeCopyAsDictionary, CFDictiona
 #define CMTimeCopyAsDictionary softLink_CoreMedia_CMTimeCopyAsDictionary
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimeMakeFromDictionary, CMTime, (CFDictionaryRef dictionaryRepresentation), (dictionaryRepresentation))
 #define CMTimeMakeFromDictionary softLink_CoreMedia_CMTimeMakeFromDictionary
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCreate, OSStatus, (CFAllocatorRef allocator, CMVideoCodecType codecType, int32_t width, int32_t height, CFDictionaryRef extensions, CMVideoFormatDescriptionRef* formatDescriptionOut), (allocator, codecType, width, height, extensions, formatDescriptionOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCreate, OSStatus, (CFAllocatorRef allocator, CMVideoCodecType codecType, int32_t width, int32_t height, CFDictionaryRef extensions, CF_RETURNS_RETAINED CMVideoFormatDescriptionRef* formatDescriptionOut), (allocator, codecType, width, height, extensions, formatDescriptionOut))
 #define CMVideoFormatDescriptionCreate softLink_CoreMedia_CMVideoFormatDescriptionCreate
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCreateForImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, CMVideoFormatDescriptionRef* outDesc), (allocator, imageBuffer, outDesc))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCreateForImageBuffer, OSStatus, (CFAllocatorRef allocator, CVImageBufferRef imageBuffer, CF_RETURNS_RETAINED CMVideoFormatDescriptionRef* outDesc), (allocator, imageBuffer, outDesc))
 #define CMVideoFormatDescriptionCreateForImageBuffer softLink_CoreMedia_CMVideoFormatDescriptionCreateForImageBuffer
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionGetDimensions, CMVideoDimensions, (CMVideoFormatDescriptionRef videoDesc), (videoDesc))
 #define CMVideoFormatDescriptionGetDimensions softLink_CoreMedia_CMVideoFormatDescriptionGetDimensions
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionGetPresentationDimensions, CGSize, (CMVideoFormatDescriptionRef videoDesc, Boolean usePixelAspectRatio, Boolean useCleanAperture), (videoDesc, usePixelAspectRatio, useCleanAperture))
 #define CMVideoFormatDescriptionGetPresentationDimensions softLink_CoreMedia_CMVideoFormatDescriptionGetPresentationDimensions
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueCreate, OSStatus, (CFAllocatorRef allocator, CMItemCount capacity, const CMBufferCallbacks* callbacks, CMBufferQueueRef* queueOut), (allocator, capacity, callbacks, queueOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCopyTagCollectionArray, OSStatus, (CMVideoFormatDescriptionRef formatDescription, CM_RETURNS_RETAINED_PARAMETER CFArrayRef *tagCollectionsOut), (formatDescription, tagCollectionsOut))
+#define CMVideoFormatDescriptionCopyTagCollectionArray softLink_CoreMedia_CMVideoFormatDescriptionCopyTagCollectionArray
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueCreate, OSStatus, (CFAllocatorRef allocator, CMItemCount capacity, const CMBufferCallbacks* callbacks, CF_RETURNS_RETAINED CMBufferQueueRef* queueOut), (allocator, capacity, callbacks, queueOut))
 #define CMBufferQueueCreate softLink_CoreMedia_CMBufferQueueCreate
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueReset, OSStatus, (CMBufferQueueRef queue), (queue))
 #define CMBufferQueueReset softLink_CoreMedia_CMBufferQueueReset
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueGetHead, CMBufferRef, (CMBufferQueueRef queue), (queue))
 #define CMBufferQueueGetHead softLink_CoreMedia_CMBufferQueueGetHead
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueDequeueAndRetain, CMBufferRef, (CMBufferQueueRef queue), (queue))
+SOFT_LINK_FUNCTION_FOR_HEADER_WITH_CF_RETURNS_RETAINED(PAL, CoreMedia, CMBufferQueueDequeueAndRetain, CMBufferRef, (CMBufferQueueRef queue), (queue))
 #define CMBufferQueueDequeueAndRetain softLink_CoreMedia_CMBufferQueueDequeueAndRetain
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueEnqueue, OSStatus, (CMBufferQueueRef queue, CMBufferRef buffer), (queue, buffer))
 #define CMBufferQueueEnqueue softLink_CoreMedia_CMBufferQueueEnqueue
@@ -287,6 +293,8 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueGetCallbacksForUnsort
 #define CMBufferQueueGetCallbacksForUnsortedSampleBuffers softLink_CoreMedia_CMBufferQueueGetCallbacksForUnsortedSampleBuffers
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueGetEndPresentationTimeStamp, CMTime, (CMBufferQueueRef queue), (queue))
 #define CMBufferQueueGetEndPresentationTimeStamp softLink_CoreMedia_CMBufferQueueGetEndPresentationTimeStamp
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueGetMaxPresentationTimeStamp, CMTime, (CMBufferQueueRef queue), (queue))
+#define CMBufferQueueGetMaxPresentationTimeStamp softLink_CoreMedia_CMBufferQueueGetMaxPresentationTimeStamp
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueInstallTrigger, OSStatus, (CMBufferQueueRef queue, CMBufferQueueTriggerCallback callback, void* refcon, CMBufferQueueTriggerCondition condition, CMTime time, CMBufferQueueTriggerToken* triggerTokenOut), (queue, callback, refcon, condition, time, triggerTokenOut))
 #define CMBufferQueueInstallTrigger softLink_CoreMedia_CMBufferQueueInstallTrigger
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueRemoveTrigger, OSStatus, (CMBufferQueueRef queue, CMBufferQueueTriggerToken triggerToken), (queue, triggerToken))
@@ -302,6 +310,8 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBufferQueueCallForEachBuffer, OS
 
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMSampleAttachmentKey_DoNotDisplay, CFStringRef)
 #define kCMSampleAttachmentKey_DoNotDisplay get_CoreMedia_kCMSampleAttachmentKey_DoNotDisplay()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMSampleAttachmentKey_HDR10PlusPerFrameData, CFStringRef)
+#define kCMSampleAttachmentKey_HDR10PlusPerFrameData get_CoreMedia_kCMSampleAttachmentKey_HDR10PlusPerFrameData()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMSampleAttachmentKey_NotSync, CFStringRef)
 #define kCMSampleAttachmentKey_NotSync get_CoreMedia_kCMSampleAttachmentKey_NotSync()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMSampleBufferAttachmentKey_DisplayEmptyMediaImmediately, CFStringRef)
@@ -338,7 +348,7 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTimebaseNotification_EffectiveR
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTimebaseNotification_TimeJumped, CFStringRef)
 #define kCMTimebaseNotification_TimeJumped get_CoreMedia_kCMTimebaseNotification_TimeJumped()
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioFormatDescriptionCreate, OSStatus, (CFAllocatorRef allocator, const AudioStreamBasicDescription* asbd, size_t layoutSize, const AudioChannelLayout* layout, size_t magicCookieSize, const void* magicCookie, CFDictionaryRef extensions, CMAudioFormatDescriptionRef* outDesc), (allocator, asbd, layoutSize, layout, magicCookieSize, magicCookie, extensions, outDesc))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioFormatDescriptionCreate, OSStatus, (CFAllocatorRef allocator, const AudioStreamBasicDescription* asbd, size_t layoutSize, const AudioChannelLayout* layout, size_t magicCookieSize, const void* magicCookie, CFDictionaryRef extensions, CF_RETURNS_RETAINED CMAudioFormatDescriptionRef* outDesc), (allocator, asbd, layoutSize, layout, magicCookieSize, magicCookie, extensions, outDesc))
 #define CMAudioFormatDescriptionCreate softLink_CoreMedia_CMAudioFormatDescriptionCreate
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioFormatDescriptionGetMagicCookie, const void*, (CMAudioFormatDescriptionRef desc, size_t* sizeOut), (desc, sizeOut))
 #define CMAudioFormatDescriptionGetMagicCookie softLink_CoreMedia_CMAudioFormatDescriptionGetMagicCookie
@@ -347,9 +357,9 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioFormatDescriptionGetStreamB
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioFormatDescriptionGetRichestDecodableFormat, const AudioFormatListItem*, (CMAudioFormatDescriptionRef desc), (desc))
 #define CMAudioFormatDescriptionGetRichestDecodableFormat softLink_CoreMedia_CMAudioFormatDescriptionGetRichestDecodableFormat
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateWithMemoryBlock, OSStatus, (CFAllocatorRef structureAllocator, void* memoryBlock, size_t blockLength, CFAllocatorRef blockAllocator, const CMBlockBufferCustomBlockSource* customBlockSource, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags, CMBlockBufferRef* blockBufferOut), (structureAllocator, memoryBlock, blockLength, blockAllocator, customBlockSource, offsetToData, dataLength, flags, blockBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferCreateWithMemoryBlock, OSStatus, (CFAllocatorRef structureAllocator, void* memoryBlock, size_t blockLength, CFAllocatorRef blockAllocator, const CMBlockBufferCustomBlockSource* customBlockSource, size_t offsetToData, size_t dataLength, CMBlockBufferFlags flags, CF_RETURNS_RETAINED CMBlockBufferRef* blockBufferOut), (structureAllocator, memoryBlock, blockLength, blockAllocator, customBlockSource, offsetToData, dataLength, flags, blockBufferOut))
 #define CMBlockBufferCreateWithMemoryBlock softLink_CoreMedia_CMBlockBufferCreateWithMemoryBlock
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer, OSStatus, (CMSampleBufferRef sbuf, size_t* bufferListSizeNeededOut, AudioBufferList* bufferListOut, size_t bufferListSize, CFAllocatorRef bbufStructAllocator, CFAllocatorRef bbufMemoryAllocator, uint32_t flags, CMBlockBufferRef* blockBufferOut), (sbuf, bufferListSizeNeededOut, bufferListOut, bufferListSize, bbufStructAllocator, bbufMemoryAllocator, flags, blockBufferOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer, OSStatus, (CMSampleBufferRef sbuf, size_t* bufferListSizeNeededOut, AudioBufferList* bufferListOut, size_t bufferListSize, CFAllocatorRef bbufStructAllocator, CFAllocatorRef bbufMemoryAllocator, uint32_t flags, CF_RETURNS_RETAINED CMBlockBufferRef* blockBufferOut), (sbuf, bufferListSizeNeededOut, bufferListOut, bufferListSize, bbufStructAllocator, bbufMemoryAllocator, flags, blockBufferOut))
 #define CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer softLink_CoreMedia_CMSampleBufferGetAudioBufferListWithRetainedBlockBuffer
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetNumSamples, CMItemCount, (CMSampleBufferRef sbuf), (sbuf))
 #define CMSampleBufferGetNumSamples softLink_CoreMedia_CMSampleBufferGetNumSamples
@@ -358,12 +368,12 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferAssureBlockMemory, OS
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMBlockBufferGetDataPointer, OSStatus, (CMBlockBufferRef theBuffer, size_t offset, size_t* lengthAtOffsetOut, size_t* totalLengthOut, char** dataPointerOut), (theBuffer, offset, lengthAtOffsetOut, totalLengthOut, dataPointerOut))
 #define CMBlockBufferGetDataPointer softLink_CoreMedia_CMBlockBufferGetDataPointer
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCopySampleBufferForRange, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef sbuf, CFRange sampleRange, CMSampleBufferRef* sBufOut), (allocator, sbuf, sampleRange, sBufOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferCopySampleBufferForRange, OSStatus, (CFAllocatorRef allocator, CMSampleBufferRef sbuf, CFRange sampleRange, CF_RETURNS_RETAINED CMSampleBufferRef* sBufOut), (allocator, sbuf, sampleRange, sBufOut))
 #define CMSampleBufferCopySampleBufferForRange softLink_CoreMedia_CMSampleBufferCopySampleBufferForRange
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetSampleSizeArray, OSStatus, (CMSampleBufferRef sbuf, CMItemCount sizeArrayEntries, size_t* sizeArrayOut, CMItemCount* sizeArrayEntriesNeededOut), (sbuf, sizeArrayEntries, sizeArrayOut, sizeArrayEntriesNeededOut))
 #define CMSampleBufferGetSampleSizeArray softLink_CoreMedia_CMSampleBufferGetSampleSizeArray
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioSampleBufferCreateWithPacketDescriptions, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMTime sbufPTS, const AudioStreamPacketDescription* packetDescriptions, CMSampleBufferRef* sBufOut), (allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, sbufPTS, packetDescriptions, sBufOut))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioSampleBufferCreateWithPacketDescriptions, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void* makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMTime sbufPTS, const AudioStreamPacketDescription* packetDescriptions, CF_RETURNS_RETAINED CMSampleBufferRef* sBufOut), (allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, sbufPTS, packetDescriptions, sBufOut))
 #define CMAudioSampleBufferCreateWithPacketDescriptions softLink_CoreMedia_CMAudioSampleBufferCreateWithPacketDescriptions
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMAudioSampleBufferCreateReadyWithPacketDescriptions, OSStatus, (CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMTime presentationTimeStamp, const AudioStreamPacketDescription* packetDescriptions, CMSampleBufferRef* sampleBufferOut), (allocator, dataBuffer, formatDescription, numSamples, presentationTimeStamp, packetDescriptions, sampleBufferOut))
 #define CMAudioSampleBufferCreateReadyWithPacketDescriptions softLink_CoreMedia_CMAudioSampleBufferCreateReadyWithPacketDescriptions
@@ -395,21 +405,90 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, FigThreadRegisterAbortAction, OSSt
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, FigThreadUnregisterAbortAction, void, (FigThreadAbortActionToken token), (token))
 #define FigThreadUnregisterAbortAction softLink_CoreMedia_FigThreadUnregisterAbortAction
 
-SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_ProtectedContentOriginalFormat, CFStringRef)
-#define kCMFormatDescriptionExtension_ProtectedContentOriginalFormat get_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionTransferFunction_sRGB, CFStringRef)
 #define kCMFormatDescriptionTransferFunction_sRGB get_CoreMedia_kCMFormatDescriptionTransferFunction_sRGB()
 
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_CameraCalibrationDataLensCollection, CFStringRef)
+#define kCMFormatDescriptionExtension_CameraCalibrationDataLensCollection get_CoreMedia_kCMFormatDescriptionExtension_CameraCalibrationDataLensCollection()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HasLeftStereoEyeView, CFStringRef)
+#define kCMFormatDescriptionExtension_HasLeftStereoEyeView get_CoreMedia_kCMFormatDescriptionExtension_HasLeftStereoEyeView()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HasRightStereoEyeView, CFStringRef)
+#define kCMFormatDescriptionExtension_HasRightStereoEyeView get_CoreMedia_kCMFormatDescriptionExtension_HasRightStereoEyeView()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HeroEye, CFStringRef)
+#define kCMFormatDescriptionExtension_HeroEye get_CoreMedia_kCMFormatDescriptionExtension_HeroEye()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionHeroEye_Left, CFStringRef)
+#define kCMFormatDescriptionHeroEye_Left get_CoreMedia_kCMFormatDescriptionHeroEye_Left()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionHeroEye_Right, CFStringRef)
+#define kCMFormatDescriptionHeroEye_Right get_CoreMedia_kCMFormatDescriptionHeroEye_Right()
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HorizontalDisparityAdjustment, CFStringRef)
+#define kCMFormatDescriptionProjectionKind_Equirectangular get_CoreMedia_kCMFormatDescriptionProjectionKind_Equirectangular()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HorizontalFieldOfView, CFStringRef)
 #define kCMFormatDescriptionExtension_HorizontalFieldOfView get_CoreMedia_kCMFormatDescriptionExtension_HorizontalFieldOfView()
-SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_StereoCameraBaseline, CFStringRef)
-#define kCMFormatDescriptionExtension_StereoCameraBaseline get_CoreMedia_kCMFormatDescriptionExtension_StereoCameraBaseline()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_HorizontalDisparityAdjustment, CFStringRef)
 #define kCMFormatDescriptionExtension_HorizontalDisparityAdjustment get_CoreMedia_kCMFormatDescriptionExtension_HorizontalDisparityAdjustment()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_StereoCameraBaseline, CFStringRef)
+#define kCMFormatDescriptionExtension_StereoCameraBaseline get_CoreMedia_kCMFormatDescriptionExtension_StereoCameraBaseline()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_ViewPackingKind, CFStringRef)
+#define kCMFormatDescriptionExtension_ViewPackingKind get_CoreMedia_kCMFormatDescriptionExtension_ViewPackingKind()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_ProtectedContentOriginalFormat, CFStringRef)
+#define kCMFormatDescriptionExtension_ProtectedContentOriginalFormat get_CoreMedia_kCMFormatDescriptionExtension_ProtectedContentOriginalFormat()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_ProjectionKind, CFStringRef)
 #define kCMFormatDescriptionExtension_ProjectionKind get_CoreMedia_kCMFormatDescriptionExtension_ProjectionKind()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionExtension_StereoCameraBaseline, CFStringRef)
+#define kCMFormatDescriptionExtension_HorizontalDisparityAdjustment get_CoreMedia_kCMFormatDescriptionExtension_HorizontalDisparityAdjustment()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionProjectionKind_AppleImmersiveVideo, CFStringRef)
+#define kCMFormatDescriptionProjectionKind_AppleImmersiveVideo get_CoreMedia_kCMFormatDescriptionProjectionKind_AppleImmersiveVideo()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionProjectionKind_Equirectangular, CFStringRef)
+#define kCMFormatDescriptionProjectionKind_Equirectangular get_CoreMedia_kCMFormatDescriptionProjectionKind_Equirectangular()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionProjectionKind_HalfEquirectangular, CFStringRef)
+#define kCMFormatDescriptionProjectionKind_HalfEquirectangular get_CoreMedia_kCMFormatDescriptionProjectionKind_HalfEquirectangular()
+SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionProjectionKind_ParametricImmersive, CFStringRef)
+#define kCMFormatDescriptionProjectionKind_ParametricImmersive get_CoreMedia_kCMFormatDescriptionProjectionKind_ParametricImmersive()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, CoreMedia, kCMFormatDescriptionProjectionKind_Rectilinear, CFStringRef)
 #define kCMFormatDescriptionProjectionKind_Rectilinear get_CoreMedia_kCMFormatDescriptionProjectionKind_Rectilinear()
+
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMVideoFormatDescriptionCreateFromH264ParameterSets, OSStatus, (CFAllocatorRef allocator, size_t parameterSetCount, const uint8_t* const* parameterSetPointers, const size_t* parameterSetSizes, int NALUnitHeaderLength, CF_RETURNS_RETAINED CMFormatDescriptionRef* formatDescriptionOut), (allocator, parameterSetCount, parameterSetPointers, parameterSetSizes, NALUnitHeaderLength, formatDescriptionOut))
+#define CMVideoFormatDescriptionCreateFromH264ParameterSets softLink_CoreMedia_CMVideoFormatDescriptionCreateFromH264ParameterSets
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTagInvalid, CMTag)
+#define kCMTagInvalid get_CoreMedia_kCMTagInvalid()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTagMediaTypeVideo, CMTag)
+#define kCMTagMediaTypeVideo get_CoreMedia_kCMTagMediaTypeVideo()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTagStereoLeftEye, CMTag)
+#define kCMTagStereoLeftEye get_CoreMedia_kCMTagStereoLeftEye()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, CoreMedia, kCMTagStereoRightEye, CMTag)
+#define kCMTagStereoRightEye get_CoreMedia_kCMTagStereoRightEye()
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagEqualToTag, Boolean, (CMTag tag1, CMTag tag2), (tag1, tag2))
+#define CMTagEqualToTag softLink_CoreMedia_CMTagEqualToTag
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagMakeWithSInt64Value, CMTag, (CMTagCategory category, int64_t value), (category, value))
+#define CMTagMakeWithSInt64Value softLink_CoreMedia_CMTagMakeWithSInt64Value
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagMakeWithFlagsValue, CMTag, (CMTagCategory category, uint64_t flagsForTag), (category, flagsForTag))
+#define CMTagMakeWithFlagsValue softLink_CoreMedia_CMTagMakeWithFlagsValue
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagGetFlagsValue, uint64_t, (CMTag tag), (tag))
+#define CMTagGetFlagsValue softLink_CoreMedia_CMTagGetFlagsValue
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagGetSInt64Value, int64_t, (CMTag tag), (tag))
+#define CMTagGetSInt64Value softLink_CoreMedia_CMTagGetSInt64Value
+
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSampleBufferGetTaggedBufferGroup, CMTaggedBufferGroupRef, (CMSampleBufferRef sbuf), (sbuf))
+#define CMSampleBufferGetTaggedBufferGroup softLink_CoreMedia_CMSampleBufferGetTaggedBufferGroup
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagCollectionCreate, OSStatus, (CFAllocatorRef allocator, const CMTag* tags, CMItemCount tagCount, CM_RETURNS_RETAINED_PARAMETER CMTagCollectionRef *newCollectionOut), (allocator, tags, tagCount, newCollectionOut))
+#define CMTagCollectionCreate softLink_CoreMedia_CMTagCollectionCreate
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagCollectionGetTagsWithCategory, OSStatus, (CMTagCollectionRef tagCollection, CMTagCategory category, CMTag *tagBuffer, CMItemCount tagBufferCount, CMItemCount *numberOfTagsCopied), (tagCollection, category, tagBuffer, tagBufferCount, numberOfTagsCopied))
+#define CMTagCollectionGetTagsWithCategory softLink_CoreMedia_CMTagCollectionGetTagsWithCategory
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroupWithExtensions, OSStatus, (CFAllocatorRef allocator, CMTaggedBufferGroupRef taggedBufferGroup, CFDictionaryRef extensions, CM_RETURNS_RETAINED_PARAMETER CMTaggedBufferGroupFormatDescriptionRef *formatDescriptionOut), (allocator, taggedBufferGroup, extensions, formatDescriptionOut))
+#define CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroupWithExtensions softLink_CoreMedia_CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroupWithExtensions
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupGetTagCollectionAtIndex, CMTagCollectionRef, (CMTaggedBufferGroupRef group, CFIndex index), (group, index))
+#define CMTaggedBufferGroupGetTagCollectionAtIndex softLink_CoreMedia_CMTaggedBufferGroupGetTagCollectionAtIndex
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTagCollectionContainsTag, Boolean, (CMTagCollectionRef tagCollection, CMTag tag), (tagCollection, tag))
+#define CMTagCollectionContainsTag softLink_CoreMedia_CMTagCollectionContainsTag
+
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupCreate, OSStatus, (CFAllocatorRef allocator, CFArrayRef tagCollections, CFArrayRef buffers, CM_RETURNS_RETAINED_PARAMETER CMTaggedBufferGroupRef *groupOut), (allocator, tagCollections, buffers, groupOut))
+#define CMTaggedBufferGroupCreate softLink_CoreMedia_CMTaggedBufferGroupCreate
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupGetCount, CMItemCount, (CMTaggedBufferGroupRef group), (group))
+#define CMTaggedBufferGroupGetCount softLink_CoreMedia_CMTaggedBufferGroupGetCount
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTaggedBufferGroupGetCVPixelBufferAtIndex, CVPixelBufferRef, (CMTaggedBufferGroupRef group, CFIndex index), (group, index))
+#define CMTaggedBufferGroupGetCVPixelBufferAtIndex softLink_CoreMedia_CMTaggedBufferGroupGetCVPixelBufferAtIndex
 
 namespace PAL {
 

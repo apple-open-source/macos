@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All Rights Reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +55,7 @@ public:
     RefPtr<EventTarget> protectedCurrentTarget() const { return m_currentTarget; }
     bool isCurrentTargetInShadowTree() const { return m_currentTargetIsInShadowTree; }
     EventTarget* target() const { return m_target.get(); }
+    RefPtr<EventTarget> protectedTarget() const { return m_target; }
     int closedShadowDepth() const { return m_closedShadowDepth; }
 
     void handleLocalEvents(Event&, EventInvokePhase) const;
@@ -65,6 +66,7 @@ public:
     bool isWindowContext() const { return m_type == Type::Window; }
 
     Node* relatedTarget() const { return m_relatedTarget.get(); }
+    RefPtr<Node> protectedRelatedTarget() const { return m_relatedTarget; }
     void setRelatedTarget(RefPtr<Node>&&);
 
 #if ENABLE(TOUCH_EVENTS)

@@ -66,8 +66,7 @@ public:
     int monthDay() const { return m_monthDay; }
 
     friend bool operator==(const OperatingDate&, const OperatingDate&) = default;
-    bool operator<(const OperatingDate& other) const;
-    bool operator<=(const OperatingDate& other) const;
+    friend auto operator<=>(const OperatingDate& a, const OperatingDate& b) { return a.secondsSinceEpoch() <=> b.secondsSinceEpoch(); }
     
     OperatingDate(int year, int month, int monthDay)
         : m_year(year)
@@ -118,7 +117,7 @@ public:
     void cancelPendingStatisticsProcessingRequest();
     void mergeStatistics(Vector<ResourceLoadStatistics>&&);
     void runIncrementalVacuumCommand();
-    void dumpResourceLoadStatistics(CompletionHandler<void(String&&)>&&);
+    void dumpResourceLoadStatistics(CompletionHandler<void(const String&)>&&);
     bool isNewResourceLoadStatisticsDatabaseFile() const { return m_isNewResourceLoadStatisticsDatabaseFile; }
     void setIsNewResourceLoadStatisticsDatabaseFile(bool isNewResourceLoadStatisticsDatabaseFile) { m_isNewResourceLoadStatisticsDatabaseFile = isNewResourceLoadStatisticsDatabaseFile; }
 
@@ -351,7 +350,7 @@ private:
     void destroyStatements() final;
 
     CheckedRef<WebResourceLoadStatisticsStore> m_store;
-    Ref<SuspendableWorkQueue> m_workQueue;
+    const Ref<SuspendableWorkQueue> m_workQueue;
 #if HAVE(CORE_PREDICTION)
     ResourceLoadStatisticsClassifierCocoa m_resourceLoadStatisticsClassifier;
 #else

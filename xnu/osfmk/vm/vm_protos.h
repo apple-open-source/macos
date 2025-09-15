@@ -33,6 +33,7 @@
 
 #include <mach/mach_types.h>
 #include <kern/kern_types.h>
+#include <ipc/ipc_types.h>
 #include <vm/vm_options.h>
 
 #ifdef __cplusplus
@@ -64,7 +65,7 @@ extern mach_port_name_t ipc_port_copyout_send_pinned(
 extern kern_return_t mach_port_deallocate_kernel(
 	ipc_space_t             space,
 	mach_port_name_t        name,
-	natural_t               kotype);
+	ipc_object_type_t       otype);
 #endif /* _IPC_IPC_PORT_H_ */
 
 #ifndef _KERN_IPC_TT_H_
@@ -126,9 +127,7 @@ extern boolean_t coredumpok(vm_map_t map, mach_vm_offset_t va);
  * VM routines that used to be published to
  * user space, and are now restricted to the kernel.
  *
- * They should eventually go away entirely -
- * to be replaced with standard vm_map() and
- * vm_deallocate() calls.
+ * No longer supported and always returns an error.
  */
 extern kern_return_t vm_region_object_create
 (

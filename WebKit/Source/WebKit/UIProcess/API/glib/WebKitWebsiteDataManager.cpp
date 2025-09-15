@@ -1092,9 +1092,9 @@ static String webkitWebsiteDataManagerGetFaviconDatabasePath(WebKitWebsiteDataMa
         return { };
 
     if (!manager->priv->baseCacheDirectory.isNull())
-        return FileSystem::pathByAppendingComponents(FileSystem::stringFromFileSystemRepresentation(manager->priv->baseCacheDirectory.data()), { "icondatabase"_s, "WebpageIcons.db"_s });
+        return FileSystem::pathByAppendingComponents(FileSystem::stringFromFileSystemRepresentation(manager->priv->baseCacheDirectory.data()), std::initializer_list<StringView>({ "icondatabase"_s, "WebpageIcons.db"_s }));
 
-    return FileSystem::pathByAppendingComponents(WebsiteDataStore::defaultBaseCacheDirectory(), { "icondatabase"_s, "WebpageIcons.db"_s });
+    return FileSystem::pathByAppendingComponents(WebsiteDataStore::defaultBaseCacheDirectory(), std::initializer_list<StringView>({ "icondatabase"_s, "WebpageIcons.db"_s }));
 }
 
 /**

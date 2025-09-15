@@ -72,7 +72,7 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionCommand, WebExtensionCommand
 - (NSString *)debugDescription
 {
     return [NSString stringWithFormat:@"<%@: %p; identifier = %@; shortcut = %@>", NSStringFromClass(self.class), self,
-        self.identifier, self.activationKey.length ? (NSString *)self._protectedWebExtensionCommand->shortcutString() : @"(none)"];
+        self.identifier, self.activationKey.length ? self._protectedWebExtensionCommand->shortcutString().createNSString().get() : @"(none)"];
 }
 
 - (WKWebExtensionContext *)webExtensionContext
@@ -84,18 +84,18 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionCommand, WebExtensionCommand
 
 - (NSString *)identifier
 {
-    return _webExtensionCommand->identifier();
+    return _webExtensionCommand->identifier().createNSString().autorelease();
 }
 
 - (NSString *)title
 {
-    return _webExtensionCommand->description();
+    return _webExtensionCommand->description().createNSString().autorelease();
 }
 
 - (NSString *)activationKey
 {
     if (auto& activationKey = self._protectedWebExtensionCommand->activationKey(); !activationKey.isEmpty())
-        return activationKey;
+        return activationKey.createNSString().autorelease();
     return nil;
 }
 
@@ -132,12 +132,12 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionCommand, WebExtensionCommand
 
 - (NSString *)_shortcut
 {
-    return self._protectedWebExtensionCommand->shortcutString();
+    return self._protectedWebExtensionCommand->shortcutString().createNSString().autorelease();
 }
 
 - (NSString *)_userVisibleShortcut
 {
-    return self._protectedWebExtensionCommand->userVisibleShortcut();
+    return self._protectedWebExtensionCommand->userVisibleShortcut().createNSString().autorelease();
 }
 
 - (BOOL)_isActionCommand

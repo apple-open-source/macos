@@ -34,6 +34,7 @@
 #include "DatabaseManager.h"
 #include "DatabaseManagerClient.h"
 #include "DatabaseThread.h"
+#include "ExceptionOr.h"
 #include "Logging.h"
 #include "OriginLock.h"
 #include "SecurityOrigin.h"

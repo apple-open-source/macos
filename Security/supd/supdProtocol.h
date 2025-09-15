@@ -23,11 +23,22 @@
 
 #import <Foundation/Foundation.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @protocol supdProtocol
-- (void)getSysdiagnoseDumpWithReply:(void (^)(NSString*))reply;
-- (void)createLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *, NSError*))reply;
-- (void)createChunkedLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *, NSError*))reply;
+- (void)getSysdiagnoseDumpWithReply:(void (^)(NSString*_Nullable))reply;
+- (void)createLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *_Nullable, NSError*_Nullable))reply;
+- (void)createChunkedLoggingJSON:(bool)pretty topic:(NSString *)topicName reply:(void (^)(NSData *_Nullable, NSError*_Nullable))reply;
 - (void)forceUploadWithReply:(void (^)(BOOL, NSError*))reply;
-- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*))reply;
-- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *, NSError *))reply;
+- (void)setUploadDateWith:(NSDate *)date reply:(void (^)(BOOL, NSError*_Nullable))reply;
+- (void)clientStatus:(void (^)(NSDictionary<NSString *, id> *_Nullable, NSError*_Nullable))reply;
+
+- (void)getSFACollectionForCollection:(NSString *)client
+                                reply:(void (^)(NSData *_Nullable, NSError *_Nullable))reply;
+- (void)setSFACollection:(NSData *_Nullable)collection
+                forTopic:(NSString *)topic
+                   reply:(void (^)(NSError *_Nullable))reply;
+
 @end
+
+NS_ASSUME_NONNULL_END

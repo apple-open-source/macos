@@ -752,6 +752,31 @@ bool SecPolicyCheckCertNotCA(SecCertificateRef cert, CFTypeRef pvcValue) {
     return true;
 }
 
+bool SecPolicyCheckCertURI(SecCertificateRef cert, CFTypeRef pvcValue) {
+    CFStringRef uri = pvcValue;
+    bool match = false;
+    if (!isString(uri)) {
+        /* We can't return an error here and making the evaluation fail
+         won't help much either. */
+        return false;
+    }
+
+    CFArrayRef addrs = SecCertificateCopyURIs(cert);
+    if (addrs) {
+        CFIndex ix, count = CFArrayGetCount(addrs);
+        for (ix = 0; ix < count; ++ix) {
+            CFStringRef addr = (CFStringRef)CFArrayGetValueAtIndex(addrs, ix);
+            if (!CFStringCompare(uri, addr, kCFCompareCaseInsensitive)) {
+                match = true;
+                break;
+            }
+        }
+        CFRelease(addrs);
+    }
+
+    return match;
+}
+
 /*
  * MARK: SecLeafPVC functions
  */

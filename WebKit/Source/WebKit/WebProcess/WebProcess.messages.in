@@ -40,7 +40,9 @@ messages -> WebProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
     RegisterURLSchemeAsBypassingContentSecurityPolicy(String scheme)
     SetDomainRelaxationForbiddenForURLScheme(String scheme)
     RegisterURLSchemeAsLocal(String scheme)
+#if ENABLE(ALL_LEGACY_REGISTERED_SPECIAL_URL_SCHEMES)
     RegisterURLSchemeAsNoAccess(String scheme)
+#endif
     RegisterURLSchemeAsDisplayIsolated(String scheme)
     RegisterURLSchemeAsCORSEnabled(String scheme)
     RegisterURLSchemeAsCachePartitioned(String scheme)
@@ -171,6 +173,7 @@ messages -> WebProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     SendMessageToWebProcessExtension(struct WebKit::UserMessage userMessage)
+    SetAvailableInputDevices(OptionSet<WebKit::AvailableInputDevices> availableInputDevices)
 #endif
 
     SeedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain firstPartyDomain, WebCore::RegistrableDomain thirdPartyDomain, bool shouldScheduleNotification) -> ()
@@ -180,7 +183,7 @@ messages -> WebProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
     SendResourceLoadStatisticsDataImmediately() -> ()
 
     UpdateDomainsWithStorageAccessQuirks(HashSet<WebCore::RegistrableDomain> domainsWithStorageAccessQuirks);
-    UpdateScriptTelemetryFilter(struct WebKit::ScriptTelemetryRules rules)
+    UpdateScriptTrackingPrivacyFilter(struct WebKit::ScriptTrackingPrivacyRules rules)
 
     GrantAccessToAssetServices(Vector<WebKit::SandboxExtensionHandle> assetServicesHandles)
     RevokeAccessToAssetServices()
@@ -241,5 +244,10 @@ messages -> WebProcess : AuxiliaryProcess WantsAsyncDispatchMessage {
 
 #if PLATFORM(COCOA)
     RegisterAdditionalFonts(struct WebKit::AdditionalFonts fonts)
+    RegisterFontMap(HashMap<String, URL> fonts, HashMap<String, Vector<String>> fontFamilyMap, Vector<WebKit::SandboxExtensionHandle> sandboxExtensions)
+#endif
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    InitializeAccessibility(Vector<WebKit::SandboxExtensionHandle> handles);
 #endif
 }

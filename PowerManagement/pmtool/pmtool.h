@@ -9,6 +9,7 @@
 #ifndef pmtool_h
 #define pmtool_h
 
+#include <TargetConditionals.h>
 #include <AppleFeatures/AppleFeatures.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFXPCBridge.h>
@@ -61,6 +62,7 @@
 #define kAssertSystemIsActive                           "systemisactive"
 #define kAssertPreventUserIdleSystemSleep               "preventuseridlesystemsleep"
 #define kAssertPreventUserIdleDisplaySleep              "preventuseridledisplaysleep"
+#define kAssertSoftwareUpdateTask                       "softwareupdate"
 
 struct DTAssertionOption {
     CFStringRef         assertionType;
@@ -68,6 +70,14 @@ struct DTAssertionOption {
     const char          *desc;
 };
 typedef struct DTAssertionOption DTAssertionOption;
+
+#if WATCH_POWER_RANGER
+typedef NS_ENUM(NSInteger, PMExtendedBatteryAction) {
+    PMExtendedBatteryActionGetCurrenInfo = 0,   /// Show Current Info
+    PMExtendedBatteryActionSetState,            /// Set State
+    PMExtendedBatteryActionSetFeatureAvailable  /// Set Support
+};
+#endif // WATCH_POWER_RANGER
 
 #define POWERD_XPC_ID "com.apple.iokit.powerdxpc"
 
@@ -125,6 +135,11 @@ static void sendAgingDataFromCFPrefs(void);
 static void isVactSupported(void);
 static void setPermFaultStatus(int64_t pfStatus);
 #endif
+#if WATCH_POWER_RANGER
+static void handleExtendedBattery(PMExtendedBatteryAction action,
+                                  PMExtendedBatteryState state,
+                                  PMExtendedBatteryFeatureAvailable support);
+#endif // WATCH_POWER_RANGER
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 static void setCoreSmartPowerNap(int enable);
 static void getCoreSmartPowerNap(void);
@@ -275,6 +290,9 @@ enum {
 #define kActionGetAgingDataFromPrefs                    "getagingdatafromprefs"
 #define kActionGetVactSupported                         "isvactsupported"
 
+#if WATCH_POWER_RANGER
+#define kActionExtendedBattery                          "extendedBattery"
+#endif // WATCH_POWER_RANGER
 
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 #define kActionSetCoreSmartPowerNap                     "coresmartpowernap"

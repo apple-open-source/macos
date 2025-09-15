@@ -36,6 +36,8 @@
 #include <WebCore/ExceptionData.h>
 #include <WebCore/NotificationDirection.h>
 #include <WebCore/PushSubscriptionData.h>
+#include <WebCore/ServiceWorkerIdentifier.h>
+#include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/text/WTFString.h>
@@ -81,6 +83,8 @@ public:
     void getAppBadgeForTesting(CompletionHandler<void(std::optional<uint64_t>)>&&);
     void setAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t> badge) final;
 
+    void setServiceWorkerIsBeingInspected(const URL&, bool isInspected);
+
 private:
     NetworkNotificationManager(const String& webPushMachServiceName, WebPushD::WebPushDaemonConnectionConfiguration&&, NetworkProcess&);
 
@@ -93,7 +97,7 @@ private:
     RefPtr<WebPushD::Connection> protectedConnection() const;
 
     RefPtr<WebPushD::Connection> m_connection;
-    Ref<NetworkProcess> m_networkProcess;
+    const Ref<NetworkProcess> m_networkProcess;
 };
 
 } // namespace WebKit

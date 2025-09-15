@@ -97,7 +97,7 @@ _dispatch_unote_create_without_handle(dispatch_source_type_t dst,
 
 DISPATCH_NOINLINE
 void
-_dispatch_unote_dispose(dispatch_unote_t du)
+_dispatch_unote_dispose(dispatch_unote_t du, bool may_defer)
 {
 	void *ptr = du._du;
 #if HAVE_MACH
@@ -117,6 +117,13 @@ _dispatch_unote_dispose(dispatch_unote_t du)
 	} else if (!du._du->du_is_direct) {
 		ptr = _dispatch_unote_get_linkage(du);
 	}
+#if DISPATCH_HAVE_DIRECT_KNOTES
+	else if (may_defer && du._du->du_is_direct) {
+		// We may have deferred unregistration of this unote, so need to defer
+		// the free as well
+		return _dispatch_unote_dispose_defer(du);
+	}
+#endif
 	free(ptr);
 }
 

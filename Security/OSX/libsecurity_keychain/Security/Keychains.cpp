@@ -636,18 +636,6 @@ KeychainImpl::setSettings(uint32 inIdleTimeOut, bool inLockOnSleep)
 {
 	StLock<Mutex>_(mMutex);
 	
-	// The .Mac syncing code only makes sense for the AppleFile CSP/DL,
-	// but other DLs such as the OCSP and LDAP DLs do not expose a way to
-	// change settings or the password. To make a minimal change that only affects
-	// the smartcard case, we only look for that CSP/DL
-	
-	bool isSmartcard = 	(mDb->dl()->guid() == gGuidAppleSdCSPDL);
-	
-	// get the old keychain blob so that we can tell .Mac to resync it
-	CssmAutoData oldBlob(mDb ->allocator());
-	if (!isSmartcard)
-		mDb->copyBlob(oldBlob.get());
-	
 	mDb->setSettings(inIdleTimeOut, inLockOnSleep);
 }
 
@@ -658,8 +646,6 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 	StLock<Mutex>_(mMutex);
 
     secnotice("KCspi", "Attempting to change passphrase for %s", mDb->name());
-
-	bool isSmartcard = 	(mDb->dl()->guid() == gGuidAppleSdCSPDL);
 
 	TrackingAllocator allocator(Allocator::standard());
 	AutoCredentials cred = AutoCredentials(allocator);
@@ -682,11 +668,6 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 		cred += newList;
 	}
 
-	// get the old keychain blob so that we can tell .Mac to resync it
-	CssmAutoData oldBlob(mDb->allocator());
-	if (!isSmartcard)
-		mDb->copyBlob(oldBlob.get());
-	
 	mDb->changePassphrase(&cred);
 }
 
@@ -1325,6 +1306,15 @@ KeychainImpl::copyBlob(CssmData &data)
 	StLock<Mutex>_(mMutex);
 	
 	mDb->copyBlob(data);
+}
+
+void
+KeychainImpl::copySalt(CssmData &data)
+{
+    StLock<Mutex>_(mMutex);
+
+    secnotice("salt", "KeychainImpl::copySalt");
+    mDb->copySalt(data);
 }
 
 void

@@ -98,6 +98,7 @@ pt_PT{
         rhg{"rohingya"}
         se{"sami do norte"}
         sga{"irlandês antigo"}
+        shp{"shipibo-konibo"}
         shu{"árabe do Chade"}
         sjd{"sami de Quildim"}
         sje{"sami de Pite"}
@@ -158,20 +159,30 @@ pt_PT{
     }
     Types{
         calendar{
+            bangla{"Calendário bengalês"}
             buddhist{"Calendário budista"}
             chinese{"Calendário chinês"}
             coptic{"Calendário copta"}
-            dangi{"Calendário dangi"}
+            dangi{"Calendário coreano"}
             ethiopic{"Calendário etíope"}
             ethiopic-amete-alem{"Calendário etíope Amete Alem"}
             gregorian{"Calendário gregoriano"}
+            gujarati{"Calendário guzerate"}
             hebrew{"Calendário hebraico"}
             indian{"Calendário nacional indiano"}
             islamic{"calendário hegírico"}
             islamic-civil{"calendário hegírico (civil)"}
             islamic-umalqura{"calendário hegírico (Umm al-Qura)"}
             japanese{"Calendário japonês"}
+            kannada{"Calendário canarim"}
+            malayalam{"Calendário malaiala"}
+            marathi{"Calendário marata"}
+            odia{"Calendário odia"}
             persian{"Calendário persa"}
+            tamil{"Calendário tâmil"}
+            telugu{"Calendário telugu"}
+            vietnamese{"Calendário vietnamita"}
+            vikram{"Calendário vikram"}
         }
         cf{
             account{"Formato monetário contabilístico"}

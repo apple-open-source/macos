@@ -25,6 +25,9 @@ static void TestUList21871_B(void);
 #if APPLE_ICU_CHANGES // rdar://122117160
 static void Test_en_GB_ListFormat(void);
 #endif  // APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES // rdar://143908339
+static void TestUListOpenPatterns(void);
+#endif  // APPLE_ICU_CHANGES
 
 void addUListFmtTest(TestNode** root);
 
@@ -39,6 +42,9 @@ void addUListFmtTest(TestNode** root)
     TESTCASE(TestUList21871_B);
 #if APPLE_ICU_CHANGES // rdar://122117160
     TESTCASE(Test_en_GB_ListFormat);
+#endif  // APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES // rdar://143908339
+    TESTCASE(TestUListOpenPatterns);
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -424,6 +430,106 @@ static void Test_en_GB_ListFormat() {
         ulistfmt_close(fmt);
         ulistfmt_closeResult(fl);
     }
+}
+#endif  // APPLE_ICU_CHANGES
+
+#if APPLE_ICU_CHANGES // rdar://143908339
+static void TestUListOpenPatterns(void) {
+    UErrorCode ec = U_ZERO_ERROR;
+    UListFormatter* fmt = ulistfmt_openWithPatterns("en", u"{0} TWOBIND {1}", -1, u"{0} STARTBIND {1}", -1,
+        u"{0} MIDBIND {1}", -1, u"{0} ENDBIND {1}", -1, &ec);
+    UFormattedList* fl = ulistfmt_openResult(&ec);
+    assertSuccess("Opening", &ec);
+
+    {
+        const char* message = "openPatterns test of two items";
+        const UChar* expectedString = u"A TWOBIND B";
+        const UChar* inputs[] = {
+            u"A",
+            u"B",
+        };
+        ulistfmt_formatStringsToResult(fmt, inputs, NULL, UPRV_LENGTHOF(inputs), fl, &ec);
+        assertSuccess("Formatting", &ec);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_LIST_SPAN, 0,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD,  1, 10},
+            {UFIELD_CATEGORY_LIST_SPAN, 1, 10, 11},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 10, 11},
+        };
+        checkMixedFormattedValue(
+            message,
+            ulistfmt_resultAsValue(fl, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    {
+        const char* message = "openPatterns test of three items";
+        const UChar* expectedString = u"A STARTBIND B ENDBIND C";
+        const UChar* inputs[] = {
+            u"A",
+            u"B",
+            u"C",
+        };
+        ulistfmt_formatStringsToResult(fmt, inputs, NULL, UPRV_LENGTHOF(inputs), fl, &ec);
+        assertSuccess("Formatting", &ec);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_LIST_SPAN, 0,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD,  1, 12},
+            {UFIELD_CATEGORY_LIST_SPAN, 1, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 13, 22},
+            {UFIELD_CATEGORY_LIST_SPAN, 2, 22, 23},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 22, 23},
+        };
+        checkMixedFormattedValue(
+            message,
+            ulistfmt_resultAsValue(fl, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    {
+        const char* message = "openPatterns test of four items";
+        const UChar* expectedString = u"A STARTBIND B MIDBIND C ENDBIND D";
+        const UChar* inputs[] = {
+            u"A",
+            u"B",
+            u"C",
+            u"D",
+        };
+        ulistfmt_formatStringsToResult(fmt, inputs, NULL, UPRV_LENGTHOF(inputs), fl, &ec);
+        assertSuccess("Formatting", &ec);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_LIST_SPAN, 0,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD,  0,  1},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD,  1, 12},
+            {UFIELD_CATEGORY_LIST_SPAN, 1, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 12, 13},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 13, 22},
+            {UFIELD_CATEGORY_LIST_SPAN, 2, 22, 23},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 22, 23},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_LITERAL_FIELD, 23, 32},
+            {UFIELD_CATEGORY_LIST_SPAN, 3, 32, 33},
+            {UFIELD_CATEGORY_LIST, ULISTFMT_ELEMENT_FIELD, 32, 33},
+        };
+        checkMixedFormattedValue(
+            message,
+            ulistfmt_resultAsValue(fl, &ec),
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    ulistfmt_close(fmt);
+    ulistfmt_closeResult(fl);
 }
 #endif  // APPLE_ICU_CHANGES
 

@@ -163,10 +163,10 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         this._needsRefresh = false;
 
-        let fetchedMatchedStylesPromise = new WI.WrappedPromise;
-        let fetchedInlineStylesPromise = new WI.WrappedPromise;
-        let fetchedComputedStylesPromise = new WI.WrappedPromise;
-        let fetchedFontDataPromise = new WI.WrappedPromise;
+        let fetchedMatchedStylesPromise = Promise.withResolvers();
+        let fetchedInlineStylesPromise = Promise.withResolvers();
+        let fetchedComputedStylesPromise = Promise.withResolvers();
+        let fetchedFontDataPromise = Promise.withResolvers();
 
         // Ensure we resolve these promises even in the case of an error.
         function wrap(func, promise) {
@@ -362,7 +362,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     {
         selector = selector || this._node.appropriateSelectorFor(true);
 
-        let result = new WI.WrappedPromise;
+        let result = Promise.withResolvers();
         let target = WI.assumingMainTarget();
 
         function completed()
@@ -450,8 +450,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     changeRuleSelector(rule, selector)
     {
         selector = selector || "";
-        let result = new WI.WrappedPromise;
-
+        let result = Promise.withResolvers();
         let target = WI.assumingMainTarget();
 
         function ruleSelectorChanged(error, rulePayload)
@@ -923,10 +922,28 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
                             property.overridingProperty = effectiveProperty;
                             continue;
                         }
-                    } else if (effectiveProperty.important || !property.important || effectiveProperty.ownerStyle.node !== property.ownerStyle.node) {
-                        property.overridden = true;
-                        property.overridingProperty = effectiveProperty;
-                        continue;
+                    } else {
+                        let propertyIsStartingStyle = property.ownerStyle.isStartingStyle;
+                        let effectivePropertyIsStartingStyle = effectiveProperty.ownerStyle.isStartingStyle;
+
+                        if (effectivePropertyIsStartingStyle && !propertyIsStartingStyle && !property.anonymous) {
+                            effectiveProperty.overridden = true;
+                            effectiveProperty.overridingProperty = property;
+                            propertyNameToEffectiveProperty[canonicalName] = property;
+                            continue;
+                        }
+
+                        if (propertyIsStartingStyle && !effectivePropertyIsStartingStyle) {
+                            property.overridden = true;
+                            property.overridingProperty = effectiveProperty;
+                            continue;
+                        }
+
+                        if (effectiveProperty.important || !property.important || effectiveProperty.ownerStyle.node !== property.ownerStyle.node) {
+                            property.overridden = true;
+                            property.overridingProperty = effectiveProperty;
+                            continue;
+                        }
                     }
 
                     if (!property.anonymous) {

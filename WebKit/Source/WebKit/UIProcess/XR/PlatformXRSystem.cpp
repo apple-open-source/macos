@@ -59,11 +59,9 @@ PlatformXRSystem::~PlatformXRSystem()
     page->protectedLegacyMainFrameProcess()->removeMessageReceiver(Messages::PlatformXRSystem::messageReceiverName(), page->webPageIDInMainFrameProcess());
 }
 
-std::optional<SharedPreferencesForWebProcess> PlatformXRSystem::sharedPreferencesForWebProcess() const
+std::optional<SharedPreferencesForWebProcess> PlatformXRSystem::sharedPreferencesForWebProcess(IPC::Connection& connection) const
 {
-    if (!m_page)
-        return std::nullopt;
-    return m_page->legacyMainFrameProcess().sharedPreferencesForWebProcess();
+    return WebProcessProxy::fromConnection(connection)->sharedPreferencesForWebProcess();
 }
 
 void PlatformXRSystem::invalidate()
@@ -94,7 +92,7 @@ void PlatformXRSystem::ensureImmersiveSessionActivity()
     if (m_immersiveSessionActivity && m_immersiveSessionActivity->isValid())
         return;
 
-    m_immersiveSessionActivity = page->protectedLegacyMainFrameProcess()->throttler().foregroundActivity("XR immersive session"_s);
+    m_immersiveSessionActivity = page->protectedLegacyMainFrameProcess()->protectedThrottler()->foregroundActivity("XR immersive session"_s);
 }
 
 void PlatformXRSystem::enumerateImmersiveXRDevices(CompletionHandler<void(Vector<XRDeviceInfo>&&)>&& completionHandler)
@@ -112,7 +110,7 @@ void PlatformXRSystem::enumerateImmersiveXRDevices(CompletionHandler<void(Vector
     }
 
     xrCoordinator->getPrimaryDeviceInfo(*page, [completionHandler = WTFMove(completionHandler)](std::optional<XRDeviceInfo> deviceInfo) mutable {
-        RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), deviceInfo = WTFMove(deviceInfo)]() mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(completionHandler), deviceInfo = WTFMove(deviceInfo)]() mutable {
             if (!deviceInfo) {
                 completionHandler({ });
                 return;
@@ -155,7 +153,7 @@ void PlatformXRSystem::requestPermissionOnSessionFeatures(IPC::Connection& conne
     }
 
     if (PlatformXR::isImmersive(mode)) {
-        MESSAGE_CHECK_COMPLETION(m_immersiveSessionState == ImmersiveSessionState::Idle, connection, completionHandler({ }));
+        MESSAGE_CHECK_COMPLETION(m_immersiveSessionState == ImmersiveSessionState::Idle || m_immersiveSessionState == ImmersiveSessionState::SessionEndingFromWebContent, connection, completionHandler({ }));
         setImmersiveSessionState(ImmersiveSessionState::RequestingPermissions, [](bool) mutable { });
         m_immersiveSessionGrantedFeatures = std::nullopt;
     }
@@ -318,11 +316,8 @@ void PlatformXRSystem::setImmersiveSessionState(ImmersiveSessionState state, Com
     case ImmersiveSessionState::SessionEndingFromSystem:
         break;
     }
-
-    completion(true);
-#else
-    completion(true);
 #endif
+    completion(true);
 }
 
 void PlatformXRSystem::invalidateImmersiveSessionState(ImmersiveSessionState nextSessionState)
@@ -341,14 +336,14 @@ bool PlatformXRSystem::webXREnabled() const
     return page && page->protectedPreferences()->webXREnabled();
 }
 
-#if !USE(APPLE_INTERNAL_SDK)
+#if !USE(APPLE_INTERNAL_SDK) && !USE(OPENXR)
 
 PlatformXRCoordinator* PlatformXRSystem::xrCoordinator()
 {
     return nullptr;
 }
 
-#endif // !USE(APPLE_INTERNAL_SDK)
+#endif // !USE(APPLE_INTERNAL_SDK) && !USE(OPENXR)
 
 } // namespace WebKit
 

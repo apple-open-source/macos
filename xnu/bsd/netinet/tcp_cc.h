@@ -139,6 +139,7 @@ struct tcp_cc_debug_state {
 	X(TCP_CC_TLP_IN_FASTRECOVERY)           \
 	X(TCP_CC_DSACK_BAD_REXMT)               \
 	X(TCP_CC_FIRST_REXMT)                   \
+	X(TCP_CC_FLOW_CONGESTION_NOTIFIED)      \
 	X(MAX_TCP_CC_EVENTS)
 
 enum tcp_cc_event {
@@ -275,7 +276,6 @@ extern void tcp_bad_rexmt_fix_sndbuf(struct tcpcb *tp);
 extern void tcp_cc_cwnd_init_or_reset(struct tcpcb *tp);
 extern int tcp_cc_delay_ack(struct tcpcb *tp, struct tcphdr *th);
 extern void tcp_cc_allocate_state(struct tcpcb *tp);
-extern void tcp_cc_after_idle_stretchack(struct tcpcb *tp);
 extern uint32_t tcp_cc_is_cwnd_nonvalidated(struct tcpcb *tp);
 extern void tcp_cc_adjust_nonvalidated_cwnd(struct tcpcb *tp);
 extern u_int32_t tcp_get_max_pipeack(struct tcpcb *tp);
@@ -284,11 +284,7 @@ extern void tcp_clear_pipeack_state(struct tcpcb *tp);
 static inline uint32_t
 tcp_initial_cwnd(struct tcpcb *tp)
 {
-	if (tcp_cubic_minor_fixes) {
-		return TCP_CC_CWND_INIT_PKTS * tp->t_maxseg;
-	} else {
-		return TCP_CC_CWND_INIT_BYTES;
-	}
+	return TCP_CC_CWND_INIT_PKTS * tp->t_maxseg;
 }
 
 #endif /* KERNEL_PRIVATE */

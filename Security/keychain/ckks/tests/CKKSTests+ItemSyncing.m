@@ -1313,7 +1313,7 @@
 
     NSString* account = @"account-delete-me";
 
-    CKRecord* ckr = [self createFakeTombstoneRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" account:account];
+    CKRecord* ckr = [self createFakeKeychainTombstoneRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" account:account];
     [self.keychainZone addToZone:ckr];
 
     // This device should delete the tombstone entry
@@ -1347,6 +1347,39 @@
         XCTAssertNil(error, "should be no error fetching uuids");
         XCTAssertEqual(uuids.count, 0u, "There should be zero IQEs");
     }];
+}
+
+- (void)testCloudKitTombstoneNotReceivedInFirstFetch {
+    [self createAndSaveFakeKeyHierarchy: self.keychainZoneID]; // Make life easy for this test.
+
+    NSString* account = @"account-delete-me";
+
+    CKRecord* tomb = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85" withAccount:account];
+    CKRecord* ckr = [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D98" withAccount:account];
+    [self.keychainZone addCloudKitTombstoneToZone:tomb];
+    [self.keychainZone addToZone:ckr];
+    
+    [self startCKKSSubsystem];
+    [self.defaultCKKS waitForFetchAndIncomingQueueProcessing];
+
+    XCTAssertEqual(self.defaultCKKS.lastIncomingQueueOperation.deletedRecordCount, 0, "Should not have received any delete incoming queue entries");
+
+    // The tombstone shouldn't exist since the device should not have even received it
+    NSDictionary *tombquery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+        (id)kSecAttrAccount : account,
+        (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecAttrTombstone : @YES,
+    };
+
+    CFTypeRef cftype = NULL;
+    XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef)tombquery, &cftype), "item should not exist now");
+    XCTAssertNil((__bridge id)cftype, "Should have found no tombstones");
+
+    // No delete should have occurred since we shouldn't have received the tombstoned CK record
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 #if TARGET_OS_IOS
@@ -1748,7 +1781,7 @@
     };
 
     __block CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
         bool ok = kc_transaction_type(dbt, kSecDbExclusiveRemoteSOSTransactionType, &cferror, ^bool {
             OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)tombquery, (__bridge CFDictionaryRef)update);
             XCTAssertEqual(status, errSecSuccess, "Should have been able to update a tombstone");
@@ -1785,7 +1818,7 @@
     };
 
     __block CFErrorRef cferror = NULL;
-    kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
+    kc_with_dbt(true, NULL , &cferror, ^bool (SecDbConnectionRef dbt) {
         bool ok = kc_transaction_type(dbt, kSecDbExclusiveRemoteSOSTransactionType, &cferror, ^bool {
             OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)update);
             XCTAssertEqual(status, errSecSuccess, "Should have been able to update the item");

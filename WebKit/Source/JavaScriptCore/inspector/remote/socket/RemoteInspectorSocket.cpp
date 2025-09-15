@@ -69,7 +69,7 @@ void RemoteInspector::didClose(RemoteInspectorSocketEndpoint&, ConnectionID)
 
     m_clientConnection = std::nullopt;
 
-    RunLoop::current().dispatch([this] {
+    RunLoop::currentSingleton().dispatch([this] {
         Locker locker { m_mutex };
         stopInternal(StopSource::API);
     });
@@ -80,7 +80,7 @@ void RemoteInspector::sendWebInspectorEvent(const String& event)
     if (!m_clientConnection)
         return;
 
-    send(m_clientConnection.value(), event.utf8().span());
+    send(m_clientConnection.value(), byteCast<uint8_t>(event.utf8().span()));
 }
 
 void RemoteInspector::start()
@@ -111,7 +111,7 @@ void RemoteInspector::stopInternal(StopSource)
 
     updateHasActiveDebugSession();
 
-    m_pausedAutomaticInspectionCandidates.clear();
+    m_automaticInspectionCandidates.clear();
 }
 
 TargetListing RemoteInspector::listingForInspectionTarget(const RemoteInspectionTarget& target) const
@@ -180,7 +180,7 @@ void RemoteInspector::pushListingsSoon()
 
     m_pushScheduled = true;
 
-    RunLoop::current().dispatch([this] {
+    RunLoop::currentSingleton().dispatch([this] {
         Locker locker { m_mutex };
         if (m_pushScheduled)
             pushListingsNow();

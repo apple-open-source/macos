@@ -249,8 +249,13 @@ typedef struct {
 	int	unused_connection_timeout;
 
 	char   *sshd_session_path;
+	char   *sshd_auth_path;
 
 	int	refuse_connection;
+
+#ifdef __APPLE_BASESYSTEM__
+	int 	apple_base_system;
+#endif
 }       ServerOptions;
 
 /* Information about the incoming connection as used by Match */

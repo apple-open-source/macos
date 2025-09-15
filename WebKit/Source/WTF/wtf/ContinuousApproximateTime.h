@@ -43,6 +43,8 @@ public:
     // This is the epoch. So, x.secondsSinceEpoch() should be the same as x - ContinuousApproximateTime().
     constexpr ContinuousApproximateTime() = default;
 
+    WTF_EXPORT_PRIVATE static ContinuousApproximateTime fromWallTime(WallTime);
+
 #if OS(DARWIN)
     WTF_EXPORT_PRIVATE static ContinuousApproximateTime fromMachContinuousApproximateTime(uint64_t);
     WTF_EXPORT_PRIVATE uint64_t toMachContinuousApproximateTime() const;
@@ -55,8 +57,6 @@ public:
 
     WTF_EXPORT_PRIVATE void dump(PrintStream&) const;
 
-    struct MarkableTraits;
-
 private:
     friend class GenericTimeMixin<ContinuousApproximateTime>;
     constexpr ContinuousApproximateTime(double rawValue)
@@ -66,7 +66,8 @@ private:
 };
 static_assert(sizeof(ContinuousApproximateTime) == sizeof(double));
 
-struct ContinuousApproximateTime::MarkableTraits {
+template<>
+struct MarkableTraits<ContinuousApproximateTime> {
     static bool isEmptyValue(ContinuousApproximateTime time)
     {
         return time.isNaN();

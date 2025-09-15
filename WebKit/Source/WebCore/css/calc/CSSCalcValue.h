@@ -43,6 +43,7 @@ enum class Category : uint8_t;
 }
 
 namespace CSS {
+struct PropertyParserState;
 struct Range;
 }
 
@@ -64,7 +65,7 @@ enum class CSSUnitType : uint8_t;
 
 class CSSCalcValue final : public CSSValue {
 public:
-    static RefPtr<CSSCalcValue> parse(CSSParserTokenRange&, const CSSParserContext&, Calculation::Category, CSS::Range, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
+    static RefPtr<CSSCalcValue> parse(CSSParserTokenRange&, CSS::PropertyParserState&, Calculation::Category, CSS::Range, CSSCalcSymbolsAllowed, CSSPropertyParserOptions);
 
     static Ref<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
     static Ref<CSSCalcValue> create(Calculation::Category, CSS::Range, CSSCalc::Tree&&);
@@ -74,6 +75,8 @@ public:
     // Creates a copy of the CSSCalc::Tree with non-canonical dimensions and any symbols present in the provided symbol table resolved.
     Ref<CSSCalcValue> copySimplified(const CSSToLengthConversionData&) const;
     Ref<CSSCalcValue> copySimplified(const CSSToLengthConversionData&, const CSSCalcSymbolTable&) const;
+    Ref<CSSCalcValue> copySimplified(NoConversionDataRequiredToken) const;
+    Ref<CSSCalcValue> copySimplified(NoConversionDataRequiredToken, const CSSCalcSymbolTable&) const;
 
     Calculation::Category category() const { return m_category; }
     CSS::Range range() const { return m_range; }
@@ -81,7 +84,7 @@ public:
     CSSUnitType primitiveType() const;
 
     // Returns whether the CSSCalc::Tree requires `CSSToLengthConversionData` to fully resolve.
-    bool requiresConversionData() const;
+    bool requiresConversionData() const { return m_tree.requiresConversionData; };
 
     double doubleValue(const CSSToLengthConversionData&) const;
     double doubleValue(const CSSToLengthConversionData&, const CSSCalcSymbolTable&) const;
@@ -99,7 +102,7 @@ public:
 
     void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
 
-    String customCSSText() const;
+    String customCSSText(const CSS::SerializationContext&) const;
     bool equals(const CSSCalcValue&) const;
 
     void dump(TextStream&) const;

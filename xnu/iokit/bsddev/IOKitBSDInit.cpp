@@ -1569,6 +1569,10 @@ IOTaskHasStringEntitlement(task_t task, const char *entitlement, const char *val
 	}
 	proc_t proc = (proc_t)get_bsdtask_info(task);
 
+	if (proc == NULL) {
+		return false;
+	}
+
 	kern_return_t ret = amfi->OSEntitlements.queryEntitlementStringWithProc(
 		proc,
 		entitlement,
@@ -1600,6 +1604,10 @@ IOTaskHasEntitlement(task_t task, const char *entitlement)
 	}
 	proc_t proc = (proc_t)get_bsdtask_info(task);
 
+	if (proc == NULL) {
+		return false;
+	}
+
 	kern_return_t ret = amfi->OSEntitlements.queryEntitlementBooleanWithProc(
 		proc,
 		entitlement);
@@ -1609,6 +1617,49 @@ IOTaskHasEntitlement(task_t task, const char *entitlement)
 	}
 
 	return false;
+}
+
+extern "C" boolean_t
+IOTaskGetIntegerEntitlement(task_t task, const char *entitlement, uint64_t *value)
+{
+	void *entitlement_object = NULL;
+
+	if (task == NULL) {
+		task = current_task();
+	}
+
+	/* Validate input arguments */
+	if (task == kernel_task || entitlement == NULL || value == NULL) {
+		return false;
+	}
+	proc_t proc = (proc_t)get_bsdtask_info(task);
+
+	if (proc == NULL) {
+		return false;
+	}
+
+	kern_return_t ret = amfi->OSEntitlements.copyEntitlementAsOSObjectWithProc(
+		proc,
+		entitlement,
+		&entitlement_object);
+
+	if (ret != KERN_SUCCESS) {
+		return false;
+	}
+	assert(entitlement_object != NULL);
+
+	OSObject *os_object = (OSObject*)entitlement_object;
+	OSNumber *os_number = OSDynamicCast(OSNumber, os_object);
+
+	boolean_t has_entitlement = os_number != NULL;
+	if (has_entitlement) {
+		*value = os_number->unsigned64BitValue();
+	}
+
+	/* Free the OSObject which was given to us */
+	OSSafeReleaseNULL(os_object);
+
+	return has_entitlement;
 }
 
 extern "C" OS_ALWAYS_INLINE char*
@@ -1633,6 +1684,10 @@ IOTaskGetEntitlement(task_t task, const char *entitlement)
 	}
 	proc_t proc = (proc_t)get_bsdtask_info(task);
 
+	if (proc == NULL) {
+		return NULL;
+	}
+
 	kern_return_t ret = amfi->OSEntitlements.copyEntitlementAsOSObjectWithProc(
 		proc,
 		entitlement,
@@ -1653,6 +1708,51 @@ IOTaskGetEntitlement(task_t task, const char *entitlement)
 	OSSafeReleaseNULL(os_object);
 
 	return return_value;
+}
+
+extern "C" boolean_t
+IOTaskHasEntitlementAsBooleanOrObject(task_t task, const char *entitlement)
+{
+	if (task == NULL) {
+		task = current_task();
+	}
+
+	/* Validate input arguments */
+	if (task == kernel_task || entitlement == NULL) {
+		return false;
+	}
+	proc_t proc = (proc_t)get_bsdtask_info(task);
+
+	if (proc == NULL) {
+		return false;
+	}
+
+	kern_return_t ret = amfi->OSEntitlements.queryEntitlementBooleanWithProc(
+		proc,
+		entitlement);
+	if (ret == KERN_SUCCESS) {
+		return true;
+	}
+
+	/* Check for the presence of an object */
+	void *entitlement_object = NULL;
+	ret = amfi->OSEntitlements.copyEntitlementAsOSObjectWithProc(
+		proc,
+		entitlement,
+		&entitlement_object);
+	if (ret != KERN_SUCCESS) {
+		return false;
+	}
+	assert(entitlement_object != NULL);
+
+	OSObject *os_object = (OSObject*)entitlement_object;
+
+	bool not_false_entitlement = (os_object != kOSBooleanFalse);
+
+	/* Free the OSObject which was given to us */
+	OSSafeReleaseNULL(os_object);
+
+	return not_false_entitlement;
 }
 
 extern "C" boolean_t

@@ -74,7 +74,7 @@ extern int command_digest(int argc, char * const *argv)
     for (i = 2; i < (unsigned int)argc; ++i)
     {
         printf("%s(%s)= ", argv[1], argv[i]);
-        if ((fd = inspect_file_and_size(argv[i], NULL)) == -1)
+        if ((fd = inspect_file(argv[i], NULL)) == -1)
         {
             printf("error reading file\n");
             continue;

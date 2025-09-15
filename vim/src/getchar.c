@@ -3479,6 +3479,20 @@ vgetorpeek(int advance)
 		    line_breakcheck();
 		else
 		    ui_breakcheck();		// check for CTRL-C
+#ifdef __APPLE__
+		if (got_susp)
+		{
+		    // flush all input
+		    c = inchar(typebuf.tb_buf, typebuf.tb_buflen - 1, 0L);
+		    flush_buffers(FLUSH_INPUT);	// flush all typeahead
+		    if (terminal_is_active())
+			c = K_CANCEL;
+		    else
+			c = ESC;
+		    break;
+		}
+		else
+#endif
 		if (got_int)
 		{
 		    // flush all input
@@ -4033,6 +4047,12 @@ inchar(
 	    }
 	    return retesc;
 	}
+#ifdef __APPLE__
+	if (got_susp)
+	{
+	    return 0;
+	}
+#endif
 
 	/*
 	 * Always flush the output characters when getting input characters

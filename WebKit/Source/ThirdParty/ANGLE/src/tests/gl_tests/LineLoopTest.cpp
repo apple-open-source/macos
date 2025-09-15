@@ -409,6 +409,53 @@ TEST_P(LineLoopTest, DrawTriangleElementsBetweenArrays)
     checkPixels();
 }
 
+// Tests drawing elements with line loop arrays and drawing elements with line strip arrays and
+// confirms the draws are the same.
+TEST_P(LineLoopTest, SimpleDrawArrays)
+{
+    // http://anglebug.com/42265165: Disable D3D11 SDK Layers warnings checks.
+    ignoreD3D11SDKLayersWarnings();
+
+    static const GLfloat positions[] = {-0.5f, -0.5f, -0.5f, 0.5f,  0.5f,  0.5f,
+                                        0.5f,  -0.5f, -0.5f, -0.5f, -0.1f, 0.1f,
+                                        -0.1f, -0.1f, 0.1f,  -0.1f, 0.1f,  0.1f};
+
+    std::vector<GLColor> expectedPixels(getWindowWidth() * getWindowHeight());
+    std::vector<GLColor> renderedPixels(getWindowWidth() * getWindowHeight());
+
+    GLBuffer arrayBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
+
+    glClear(GL_COLOR_BUFFER_BIT);
+    glUseProgram(mProgram);
+    glEnableVertexAttribArray(mPositionLocation);
+    glVertexAttribPointer(mPositionLocation, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    glUniform4f(mColorLocation, 0.0f, 0.0f, 1.0f, 1.0f);
+    glDrawArrays(GL_LINE_STRIP, 0, 5);
+    glReadPixels(0, 0, getWindowWidth(), getWindowHeight(), GL_RGBA, GL_UNSIGNED_BYTE,
+                 expectedPixels.data());
+
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glUniform4f(mColorLocation, 0.0f, 0.0f, 1.0f, 1.0f);
+    glDrawArrays(GL_LINE_LOOP, 0, 4);
+    glReadPixels(0, 0, getWindowWidth(), getWindowHeight(), GL_RGBA, GL_UNSIGNED_BYTE,
+                 renderedPixels.data());
+
+    for (int y = 0; y < getWindowHeight(); ++y)
+    {
+        for (int x = 0; x < getWindowWidth(); ++x)
+        {
+            int idx = y * getWindowWidth() + x;
+            EXPECT_EQ(expectedPixels[idx], renderedPixels[idx])
+                << "Expected pixel at " << x << ", " << y << " to be " << expectedPixels[idx]
+                << std::endl;
+        }
+    }
+}
+
 class LineLoopTestES3 : public LineLoopTest
 {};
 
@@ -669,6 +716,25 @@ void main()
                 << std::endl;
         }
     }
+}
+
+// Tests that drawing an element buffer with primitive restart indices only
+// does not crash.
+TEST_P(LineLoopPrimitiveRestartTest, PrimitiveRestartRestartOnlyIndicesNoCrash)
+{
+    constexpr char kVS[] = "void main() { gl_Position = vec4(0); }";
+    constexpr char kFS[] = "void main() { gl_FragColor = vec4(0, 1, 0, 1); }";
+    ANGLE_GL_PROGRAM(program, kVS, kFS);
+    glUseProgram(program);
+    ASSERT_GL_NO_ERROR();
+    std::vector<GLshort> indices(0x1000, static_cast<GLshort>(0xFFFFF));
+    GLBuffer indexBuffer;
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(indices[0]), &indices[0],
+                 GL_STATIC_DRAW);
+    glEnable(GL_PRIMITIVE_RESTART_FIXED_INDEX);
+    glDrawElements(GL_LINE_LOOP, 0x800, GL_UNSIGNED_SHORT, 0);
+    ASSERT_GL_NO_ERROR();
 }
 
 class LineLoopPrimitiveRestartXfbTest : public ANGLETest<>
@@ -1288,7 +1354,8 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LineLoopPrimitiveRestartTest);
 ANGLE_INSTANTIATE_TEST_ES3_AND(
     LineLoopPrimitiveRestartTest,
     ES3_METAL().enable(Feature::ForceBufferGPUStorage),
-    ES3_METAL().disable(Feature::HasExplicitMemBarrier).disable(Feature::HasCheapRenderPass));
+    ES3_METAL().disable(Feature::HasExplicitMemBarrier).disable(Feature::HasCheapRenderPass),
+    ES3_WEBGPU());
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(LineLoopIndirectTest);
 ANGLE_INSTANTIATE_TEST_ES31(LineLoopIndirectTest);

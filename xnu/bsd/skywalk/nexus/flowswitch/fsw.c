@@ -61,6 +61,9 @@
 #include <net/if.h>
 #include <net/pktsched/pktsched_netem.h>
 #include <sys/eventhandler.h>
+#include <IOKit/IOBSD.h>
+
+#include <kern/uipc_domain.h>
 
 #if (DEVELOPMENT || DEBUG)
 SYSCTL_UINT(_kern_skywalk_flowswitch, OID_AUTO, chain_enqueue,
@@ -156,7 +159,7 @@ out:
 	if ((*vpna) != NULL) {
 		(*vpna)->vpna_up.na_private = ch;
 		SK_DF(err ? SK_VERB_ERROR : SK_VERB_FSW,
-		    "vpna \"%s\" (0x%llx) refs %u to fsw \"%s\" "
+		    "vpna \"%s\" (%p) refs %u to fsw \"%s\" "
 		    "nx_port %d (err %d)", (*vpna)->vpna_up.na_name,
 		    SK_KVA(&(*vpna)->vpna_up), (*vpna)->vpna_up.na_refcount,
 		    cr_name, (int)(*vpna)->vpna_nx_port, err);
@@ -377,7 +380,7 @@ fsw_setup_ifp(struct nx_flowswitch *fsw, struct nexus_adapter *hwna)
 	 * single threaded write to destination rings.
 	 */
 	if ((ifp->if_eflags & IFEF_TXSTART) == 0) {
-		SK_ERR("non TXSTART interface not supported ifp(0x%llx)",
+		SK_ERR("non TXSTART interface not supported ifp(%p)",
 		    SK_KVA(ifp));
 		return ENOTSUP;
 	}
@@ -475,7 +478,7 @@ fsw_setup_ifp(struct nx_flowswitch *fsw, struct nexus_adapter *hwna)
 	    __unsafe_null_terminated_from_indexable(fsw->fsw_reap_name));
 
 	error = fsw_netagent_register(fsw, ifp);
-	SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
+	SK_DF(error ? SK_VERB_ERROR : SK_VERB_DEFAULT,
 	    "fsw_netagent_register %s (family %u) (err %d)",
 	    if_name(ifp), ifp->if_family, error);
 
@@ -535,8 +538,8 @@ fsw_teardown_ifp(struct nx_flowswitch *fsw, struct nexus_adapter *hwna)
 
 	skoid_destroy(&fsw->fsw_skoid);
 
-	SK_DF(SK_VERB_FSW, "%sdetached from %s (family %u)",
-	    ((fsw->fsw_agent_session != NULL) ? "netagent" : ""),
+	SK_D("%sdetached from %s (family %u)",
+	    ((fsw->fsw_agent_session != NULL) ? "netagent " : ""),
 	    if_name(ifp), ifp->if_family);
 
 	if (hwna != NULL) {
@@ -602,7 +605,7 @@ fsw_host_setup(struct nx_flowswitch *fsw)
 	 * single threaded write to destination rings.
 	 */
 	if (SKYWALK_NATIVE(ifp) && (hwna->na_num_rx_rings > 1)) {
-		SK_ERR("ifp(0x%llx): multiple rx rings(%d) not supported",
+		SK_ERR("ifp(%p): multiple rx rings(%d) not supported",
 		    SK_KVA(ifp), hwna->na_num_rx_rings);
 		return ENOTSUP;
 	}
@@ -654,14 +657,14 @@ fsw_ctl_attach_log(const struct nx_spec_req *nsr,
 		nustr = __unsafe_forge_null_terminated(const char *,
 		    sk_uuid_unparse(nsr->nsr_uuid, uuidstr));
 	} else if (nsr->nsr_flags & NXSPECREQ_IFP) {
-		nustr = tsnprintf((char *)uuidstr, sizeof(uuidstr), "0x%llx",
+		nustr = tsnprintf((char *)uuidstr, sizeof(uuidstr), "%p",
 		    SK_KVA(nsr->nsr_ifp));
 	} else {
 		nustr = __unsafe_null_terminated_from_indexable(nsr->nsr_name);
 	}
 
 	SK_DF(err ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "nexus 0x%llx (%s) name/uuid \"%s\" if_uuid %s flags 0x%x err %d",
+	    "nexus %p (%s) name/uuid \"%s\" if_uuid %s flags 0x%x err %d",
 	    SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name, nustr,
 	    sk_uuid_unparse(nsr->nsr_if_uuid, ifuuidstr), nsr->nsr_flags, err);
 }
@@ -977,13 +980,13 @@ done:
 	if (nsr != NULL) {
 		uuid_string_t ifuuidstr;
 		SK_DF(err ? SK_VERB_ERROR : SK_VERB_FSW,
-		    "nexus 0x%llx (%s) if_uuid %s flags 0x%x err %d",
+		    "nexus %p (%s) if_uuid %s flags 0x%x err %d",
 		    SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
 		    sk_uuid_unparse(nsr->nsr_if_uuid, ifuuidstr),
 		    nsr->nsr_flags, err);
 	} else {
 		SK_DF(err ? SK_VERB_ERROR : SK_VERB_FSW,
-		    "nexus 0x%llx (%s) ANY err %d", SK_KVA(nx),
+		    "nexus %p (%s) ANY err %d", SK_KVA(nx),
 		    NX_DOM_PROV(nx)->nxdom_prov_name, err);
 	}
 #endif /* SK_LOG */
@@ -1022,6 +1025,7 @@ fsw_ctl(struct kern_nexus *nx, nxcfg_cmd_t nc_cmd, struct proc *p,
 	struct nx_flowswitch *fsw = NX_FSW_PRIVATE(nx);
 	struct nx_spec_req *__single nsr = data;
 	struct nx_flow_req *__single req = data;
+	const task_t __single task = proc_task(p);
 	boolean_t need_check;
 	int error = 0;
 
@@ -1066,6 +1070,13 @@ fsw_ctl(struct kern_nexus *nx, nxcfg_cmd_t nc_cmd, struct proc *p,
 			    PRIV_NET_PRIVILEGED_SOCKET_DELEGATE, 0);
 			kauth_cred_unref(&cred);
 			if (error != 0) {
+				goto done;
+			}
+		}
+
+		if (req->nfr_flags & NXFLOWREQF_AOP_OFFLOAD) {
+			if (!IOTaskHasEntitlement(task, "com.apple.private.network.aop2_offload")) {
+				error = EPERM;
 				goto done;
 			}
 		}
@@ -1271,8 +1282,8 @@ out:
 		char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
 		SK_DF(SK_VERB_FLOW, "Update flow entry \"%s\" for protocol "
 		    "event %d with value %d and tcp sequence number %d",
-		    fe_as_string(fe, dbgbuf, sizeof(dbgbuf)),
-		    protoctl_event_code, p_val->val, p_val->tcp_seq_number);
+		    fe2str(fe, dbgbuf, sizeof(dbgbuf)), protoctl_event_code,
+		    p_val->val, p_val->tcp_seq_number);
 #endif /* SK_LOG */
 		if ((error = netagent_update_flow_protoctl_event(
 			    fsw->fsw_agent_session, fe_uuid, protoctl_event_code,
@@ -1449,7 +1460,7 @@ fsw_port_ctor(struct nx_flowswitch *fsw, struct nexus_vp_adapter *vpna,
 
 done:
 	SK_DF(err ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "fsw 0x%llx nx_port %d vpna_pid %d vpna_pid_bound %u mit_ival %llu "
+	    "fsw %p nx_port %d vpna_pid %d vpna_pid_bound %u mit_ival %llu "
 	    "(err %d)", SK_KVA(fsw), (int)vpna->vpna_nx_port, vpna->vpna_pid,
 	    vpna->vpna_pid_bound, vpna->vpna_up.na_ch_mit_ival, err);
 
@@ -1480,7 +1491,7 @@ fsw_port_dtor(struct nx_flowswitch *fsw, const struct nexus_vp_adapter *vpna)
 	    vpna->vpna_pid, nx_port, FALSE);
 
 	SK_DF(SK_VERB_FSW,
-	    "fsw 0x%llx nx_port %d pid %d pid_bound %u defunct %u "
+	    "fsw %p nx_port %d pid %d pid_bound %u defunct %u "
 	    "purged %u", SK_KVA(fsw), (int)nx_port,
 	    vpna->vpna_pid, vpna->vpna_pid_bound, vpna->vpna_defunct,
 	    purge_cnt);
@@ -1546,14 +1557,14 @@ fsw_port_alloc__(struct nx_flowswitch *fsw, struct nxbind *nxb,
 #if SK_LOG
 	if (*vpna != NULL) {
 		SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-		    "+++ vpna \"%s\" (0x%llx) <-> fsw 0x%llx "
+		    "+++ vpna \"%s\" (%p) <-> fsw %p "
 		    "%sport %d refonly %u (err %d)",
 		    (*vpna)->vpna_up.na_name, SK_KVA(*vpna), SK_KVA(fsw),
 		    nx_fsw_dom_port_is_reserved(nx, nx_port) ?
 		    "[reserved] " : "", (int)nx_port, refonly, error);
 	} else {
 		SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-		    "+++ fsw 0x%llx nx_port %d refonly %u "
+		    "+++ fsw %p nx_port %d refonly %u "
 		    "(err %d)", SK_KVA(fsw), (int)nx_port, refonly, error);
 	}
 #endif /* SK_LOG */
@@ -1624,7 +1635,7 @@ fsw_port_free(struct nx_flowswitch *fsw, struct nexus_vp_adapter *vpna,
 		return;
 	}
 
-	SK_DF(SK_VERB_FSW, "--- vpna \"%s\" (0x%llx) -!- fsw 0x%llx "
+	SK_DF(SK_VERB_FSW, "--- vpna \"%s\" (%p) -!- fsw %p "
 	    "nx_port %d defunct %u", vpna->vpna_up.na_name, SK_KVA(vpna),
 	    SK_KVA(fsw), (int)nx_port, vpna->vpna_defunct);
 
@@ -1647,8 +1658,8 @@ fsw_port_na_activate(struct nx_flowswitch *fsw,
 	SK_LOCK_ASSERT_HELD();
 
 	/* The following code relies on the static value asserted below */
-	_CASSERT(FSW_VP_DEV == 0);
-	_CASSERT(FSW_VP_HOST == 1);
+	static_assert(FSW_VP_DEV == 0);
+	static_assert(FSW_VP_HOST == 1);
 
 	ASSERT(NA_IS_ACTIVE(&vpna->vpna_up));
 	ASSERT(vpna->vpna_nx_port != NEXUS_PORT_ANY);
@@ -1680,7 +1691,7 @@ fsw_port_na_activate(struct nx_flowswitch *fsw,
 
 done:
 	SK_DF(SK_VERB_FSW,
-	    "fsw 0x%llx %s nx_port %d vpna_pid %d vpna_pid_bound %u fo_cnt %u",
+	    "fsw %p %s nx_port %d vpna_pid %d vpna_pid_bound %u fo_cnt %u",
 	    SK_KVA(fsw), na_activate_mode2str(mode), (int)vpna->vpna_nx_port,
 	    vpna->vpna_pid, vpna->vpna_pid_bound, fo_cnt);
 
@@ -2354,8 +2365,8 @@ fsw_read_boot_args(void)
 void
 fsw_init(void)
 {
-	_CASSERT(NX_FSW_CHUNK_FREE == (uint64_t)-1);
-	_CASSERT(PKT_MAX_PROTO_HEADER_SIZE <= NX_FSW_MINBUFSIZE);
+	static_assert(NX_FSW_CHUNK_FREE == (uint64_t) -1);
+	static_assert(PKT_MAX_PROTO_HEADER_SIZE <= NX_FSW_MINBUFSIZE);
 
 	if (!__nx_fsw_inited) {
 		fsw_read_boot_args();
@@ -2415,7 +2426,7 @@ fsw_alloc(zalloc_flags_t how)
 	fsw->fsw_host_ch = NULL;
 	fsw->fsw_closed_na_stats = nsfw;
 
-	SK_DF(SK_VERB_MEM, "fsw 0x%llx ALLOC", SK_KVA(fsw));
+	SK_DF(SK_VERB_MEM, "fsw %p ALLOC", SK_KVA(fsw));
 
 	return fsw;
 }
@@ -2490,6 +2501,7 @@ fsw_detach(struct nx_flowswitch *fsw, struct nexus_adapter *hwna,
 		nx_prov->nxprov_params->nxp_ifindex = 0;
 		/* free any flow entries in the deferred list */
 		fsw_linger_purge(fsw);
+		fsw_rxstrc_purge(fsw);
 	}
 	/*
 	 * If we are destroying the instance, release lock to let all
@@ -2525,6 +2537,6 @@ fsw_free(struct nx_flowswitch *fsw)
 	fsw->fsw_closed_na_stats = NULL;
 	FSW_RWDESTROY(fsw);
 
-	SK_DF(SK_VERB_MEM, "fsw 0x%llx FREE", SK_KVA(fsw));
+	SK_DF(SK_VERB_MEM, "fsw %p FREE", SK_KVA(fsw));
 	zfree(nx_fsw_zone, fsw);
 }

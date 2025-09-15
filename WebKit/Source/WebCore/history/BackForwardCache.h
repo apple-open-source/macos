@@ -63,7 +63,7 @@ public:
 
     void removeAllItemsForPage(Page&);
 
-    WEBCORE_EXPORT void clearEntriesForOrigins(const UncheckedKeyHashSet<RefPtr<SecurityOrigin>>&);
+    WEBCORE_EXPORT void clearEntriesForOrigins(const HashSet<RefPtr<SecurityOrigin>>&);
 
     unsigned pageCount() const { return m_items.size(); }
     WEBCORE_EXPORT unsigned frameCount() const;
@@ -88,7 +88,7 @@ private:
     void prune(PruningReason);
     void dump() const;
 
-    HashMap<BackForwardItemIdentifier, std::variant<PruningReason, UniqueRef<CachedPage>>> m_cachedPageMap;
+    HashMap<BackForwardItemIdentifier, Variant<PruningReason, UniqueRef<CachedPage>>> m_cachedPageMap;
     ListHashSet<BackForwardItemIdentifier> m_items;
     unsigned m_maxSize {0};
 

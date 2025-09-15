@@ -855,17 +855,6 @@ isLocalTLD(NSString *host)
         return;
     }
 
-    __block bool allows_local_networking = true;
-    [exampleATS enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
-        NSString *key = (NSString *)_key;
-        if ([key isEqualToString:@"NSAllowsLocalNetworking"]) {
-            NSNumber *value = (NSNumber *)_obj;
-            if (value) {
-                allows_local_networking = [value boolValue];
-            }
-        }
-    }];
-
     [exampleATS enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
         NSString *key = (NSString *)_key;
         if ([key isEqualToString:@"NSExceptionDomains"]) {
@@ -891,7 +880,6 @@ isLocalTLD(NSString *host)
         } \
     }
                 BOOLEAN_FOR_KEY(@"NSExceptionAllowsInsecureHTTPLoads", allows_http, false);
-                BOOLEAN_FOR_KEY(@"NSIncludesSubdomains", includes_subdomains, false);
                 BOOLEAN_FOR_KEY(@"NSExceptionRequiresForwardSecrecy", requires_pfs, false);
                 STRING_FOR_KEY(@"NSExceptionMinimumTLSVersion", minimum_tls, @"TLSv1.2");
 #undef STRING_FOR_KEY

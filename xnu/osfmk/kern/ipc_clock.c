@@ -43,10 +43,9 @@
 #include <kern/ipc_kobject.h>
 #include <kern/clock.h>
 #include <kern/misc_protos.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 
 IPC_KOBJECT_DEFINE(IKOT_CLOCK,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 

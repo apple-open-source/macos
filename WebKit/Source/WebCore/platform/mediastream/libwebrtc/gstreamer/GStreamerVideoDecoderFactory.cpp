@@ -31,6 +31,7 @@
 #include "webrtc/modules/video_coding/codecs/vp8/include/vp8.h"
 #include "webrtc/modules/video_coding/codecs/vp8/libvpx_vp8_decoder.h"
 #include "webrtc/modules/video_coding/include/video_codec_interface.h"
+#include "webrtc/modules/video_coding/include/video_error_codes.h"
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/video.h>
@@ -38,7 +39,9 @@
 #include <wtf/Lock.h>
 #include <wtf/StdMap.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 
 GST_DEBUG_CATEGORY(webkit_webrtcdec_debug);
@@ -71,11 +74,11 @@ public:
         return m_pipeline.get();
     }
 
-    GstElement* makeElement(const gchar* factoryName)
+    GstElement* makeElement(ASCIILiteral factoryName)
     {
-        GUniquePtr<char> name(g_strdup_printf("%s_dec_%s_%p", Name(), factoryName, this));
-
-        return makeGStreamerElement(factoryName, name.get());
+        static Atomic<uint32_t> elementId;
+        auto name = makeString(ASCIILiteral::fromLiteralUnsafe(Name()), "-dec-"_s, factoryName, "-"_s, elementId.exchangeAdd(1));
+        return makeGStreamerElement(factoryName, name);
     }
 
     void handleError(GError* error)
@@ -88,16 +91,16 @@ public:
 
     bool Configure(const webrtc::VideoDecoder::Settings& codecSettings) override
     {
-        m_src = makeElement("appsrc");
+        m_src = makeElement("appsrc"_s);
         g_object_set(m_src, "is-live", TRUE, "do-timestamp", TRUE, "max-buffers", 2, "max-bytes", 0, nullptr);
 
         GRefPtr<GstCaps> caps = nullptr;
         auto capsfilter = CreateFilter();
-        auto decoder = makeElement("decodebin");
+        auto decoder = makeElement("decodebin"_s);
 
         updateCapsFromImageSize(codecSettings.max_render_resolution().Width(), codecSettings.max_render_resolution().Height());
 
-        m_pipeline = makeElement("pipeline");
+        m_pipeline = makeElement("pipeline"_s);
         connectSimpleBusMessageCallback(m_pipeline.get());
 
         auto sinkpad = adoptGRef(gst_element_get_static_pad(capsfilter, "sink"));
@@ -143,7 +146,7 @@ public:
         }
         g_object_set(decoder, "caps", caps.get(), nullptr);
 
-        m_sink = makeElement("appsink");
+        m_sink = makeElement("appsink"_s);
         gst_app_sink_set_emit_signals(GST_APP_SINK(m_sink), true);
         // This is a decoder, everything should happen as fast as possible and not be synced on the clock.
         g_object_set(m_sink, "sync", false, nullptr);
@@ -176,7 +179,7 @@ public:
 
     virtual GstElement* CreateFilter()
     {
-        return makeElement("identity");
+        return makeElement("identity"_s);
     }
 
     int32_t Release() final
@@ -212,7 +215,7 @@ public:
         if (inputImage._encodedWidth && inputImage._encodedHeight)
             updateCapsFromImageSize(inputImage._encodedWidth, inputImage._encodedHeight);
 
-        if (UNLIKELY(!m_caps)) {
+        if (!m_caps) [[unlikely]] {
             GST_ERROR("Encoded image caps not set");
             ASSERT_NOT_REACHED();
             return WEBRTC_VIDEO_CODEC_UNINITIALIZED;

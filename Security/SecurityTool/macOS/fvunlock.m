@@ -13,9 +13,6 @@
 #import <os/log.h>
 #import <sys/stat.h>
 
-SOFT_LINK_FRAMEWORK(Frameworks, LocalAuthentication)
-SOFT_LINK_CLASS(LocalAuthentication, LAContext)
-
 NSUUID *currentRecoveryVolumeUUID(void);
 static Boolean verifyUser(void);
 
@@ -59,7 +56,7 @@ static Boolean verifyUser(void)
     // first check if policy was already satisfied
     __block Boolean verified = NO;
     dispatch_semaphore_t ds = dispatch_semaphore_create(0);
-    LAContext *ctx = [[getLAContextClass() alloc] init];
+    LAContext *ctx = [[LAContext alloc] init];
     [ctx evaluatePolicy:LAPolicyUserAuthenticationWithPasscodeRecovery options:@{ @(LAOptionNotInteractive) : @YES } reply:^(NSDictionary *result, NSError *error) {
         if (result) {
             verified = YES;
@@ -111,7 +108,7 @@ static Boolean verifyUser(void)
         found = YES;
         NSString *userGuid = record[@PLUDB_GUID];
         if (userGuid) {
-            ctx = [[getLAContextClass() alloc] init];
+            ctx = [[LAContext alloc] init];
             NSDictionary *cred = @{
                 @kLACredentialKeyUserGuid : userGuid,
                 @kLACredentialKeyPassword : password,

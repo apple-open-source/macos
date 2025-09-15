@@ -87,6 +87,7 @@
 #include <sys/pgo.h>
 #include <console/serial_protos.h>
 #include <IOKit/IOBSD.h>
+#include <libkern/crc.h>
 
 #if !(MACH_KDP && CONFIG_KDP_INTERACTIVE_DEBUGGING)
 #include <kdp/kdp_udp.h>
@@ -151,7 +152,6 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 extern int IODTGetLoaderInfo( const char *key, void **infoAddr, int *infosize );
 extern void IODTFreeLoaderInfo( const char *key, void *infoAddr, int infoSize );
 extern unsigned int debug_boot_arg;
-extern int serial_init(void);
 
 unsigned int    halt_in_debugger = 0;
 unsigned int    current_debugger = 0;
@@ -325,7 +325,7 @@ boolean_t extended_debug_log_enabled = FALSE;
 #define KDBG_TRACE_PANIC_FILENAME "/var/log/panic.trace"
 #endif
 
-static inline void debug_fatal_panic_begin(void);
+static inline boolean_t debug_fatal_panic_begin(void);
 
 /* Debugger state */
 atomic_int     debugger_cpu = DEBUGGER_NO_CPU;
@@ -373,10 +373,6 @@ int kext_assertions_enable =
     TRUE;
 #else
     FALSE;
-#endif
-
-#if (DEVELOPMENT || DEBUG)
-uint64_t xnu_platform_stall_value = PLATFORM_STALL_XNU_DISABLE;
 #endif
 
 /*
@@ -537,7 +533,7 @@ debug_log_init(void)
 	 * up.
 	 */
 	kr = kmem_alloc(kernel_map, &panic_stackshot_buf, PANIC_STACKSHOT_BUFSIZE,
-	    KMA_DATA | KMA_ZERO, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED | KMA_ZERO, VM_KERN_MEMORY_DIAG);
 	assert(kr == KERN_SUCCESS);
 	if (kr == KERN_SUCCESS) {
 		panic_stackshot_buf_len = PANIC_STACKSHOT_BUFSIZE;
@@ -586,7 +582,7 @@ phys_carveout_init(void)
 
 			kmem_alloc_contig(kernel_map, carveouts[i].va,
 			    temp_carveout_size, PAGE_MASK, 0, 0,
-			    KMA_NOFAIL | KMA_PERMANENT | KMA_NOPAGEWAIT | KMA_DATA |
+			    KMA_NOFAIL | KMA_PERMANENT | KMA_NOPAGEWAIT | KMA_DATA_SHARED |
 			    KMA_NOSOFTLIMIT,
 			    VM_KERN_MEMORY_DIAG);
 
@@ -609,7 +605,7 @@ debug_can_coredump_phys_carveout(void)
 	return phys_carveout_core;
 }
 
-static void
+static boolean_t
 DebuggerLock(void)
 {
 	int my_cpu = cpu_number();
@@ -617,14 +613,14 @@ DebuggerLock(void)
 	assert(ml_get_interrupts_enabled() == FALSE);
 
 	if (atomic_load(&debugger_cpu) == my_cpu) {
-		return;
+		return true;
 	}
 
-	while (!atomic_compare_exchange_strong(&debugger_cpu, &debugger_exp_cpu, my_cpu)) {
-		debugger_exp_cpu = DEBUGGER_NO_CPU;
+	if (!atomic_compare_exchange_strong(&debugger_cpu, &debugger_exp_cpu, my_cpu)) {
+		return false;
 	}
 
-	return;
+	return true;
 }
 
 static void
@@ -824,6 +820,7 @@ check_and_handle_nested_panic(uint64_t panic_options_mask, unsigned long panic_c
 		// if we panic *after* the log is finalized then we will only see it in the serial log
 		//
 		paniclog_append_noflush("Nested panic detected - entry count: %d panic_caller: 0x%016lx\n", CPUDEBUGGERCOUNT, panic_caller);
+		print_curr_backtrace();
 		paniclog_flush();
 
 		// print the *new* panic string to the console, we might not get it by other means...
@@ -833,6 +830,7 @@ check_and_handle_nested_panic(uint64_t panic_options_mask, unsigned long panic_c
 			printf("Nested panic string:\n");
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 			_doprnt(db_panic_str, db_panic_args, PE_kputc, 0);
 #pragma clang diagnostic pop
 			printf("\n<end nested panic string>\n");
@@ -1213,7 +1211,7 @@ panic_with_thread_context(unsigned int reason, void *ctx, uint64_t debugger_opti
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-void
+__mockable void
 panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsigned int reason, void *ctx,
     uint64_t panic_options_mask, void *panic_data_ptr, unsigned long panic_caller, const char *panic_initiator)
 {
@@ -1237,18 +1235,15 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 	/* track depth of debugger/panic entry */
 	CPUDEBUGGERCOUNT++;
 
+	__unused uint32_t panic_initiator_crc = panic_initiator ? crc32(0, panic_initiator, strnlen(panic_initiator, MAX_PANIC_INITIATOR_SIZE)) : 0;
+
 	/* emit a tracepoint as early as possible in case of hang */
 	SOCD_TRACE_XNU(PANIC,
 	    ((CPUDEBUGGERCOUNT <= 2) ? SOCD_TRACE_MODE_STICKY_TRACEPOINT : SOCD_TRACE_MODE_NONE),
 	    PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)),
-	    VALUE(panic_options_mask),
+	    PACK_2X32(VALUE(panic_initiator_crc), VALUE(panic_options_mask & 0xFFFFFFFF)),
 	    ADDR(panic_format_str),
 	    ADDR(panic_caller));
-
-	/* enable serial on the first panic if the always-on panic print flag is set */
-	if ((debug_boot_arg & DB_PRT) && (CPUDEBUGGERCOUNT == 1)) {
-		serial_init();
-	}
 
 	/* do max nested panic/debugger check, this will report nesting to the console and spin forever if we exceed a limit */
 	check_and_handle_nested_panic(panic_options_mask, panic_caller, panic_format_str, panic_args);
@@ -1280,7 +1275,15 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 	ml_set_interrupts_enabled(FALSE);
 	disable_preemption();
 
-	debug_fatal_panic_begin();
+	if (!debug_fatal_panic_begin()) {
+		/*
+		 * This CPU lost the race to be the first to panic. Re-enable
+		 * interrupts and dead loop here awaiting the debugger xcall from
+		 * the CPU that first panicked.
+		 */
+		ml_set_interrupts_enabled(TRUE);
+		panic_stop();
+	}
 
 #if defined (__x86_64__)
 	pmSafeMode(x86_lcpu(), PM_SAFE_FL_SAFE);
@@ -1317,7 +1320,8 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 	__builtin_unreachable();
 }
 
-void
+/* We rely on this symbol being visible in the debugger for triage automation */
+void __attribute__((noinline, optnone))
 panic_spin_forever(void)
 {
 	for (;;) {
@@ -1362,6 +1366,7 @@ panic_debugger_log(const char *string, ...)
 	va_start(panic_debugger_log_args, string);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	_doprnt(string, &panic_debugger_log_args, consdebug_putc, 16);
 #pragma clang diagnostic pop
 	va_end(panic_debugger_log_args);
@@ -1452,6 +1457,7 @@ debugger_collect_diagnostics(unsigned int exception, unsigned int code, unsigned
 		if (debugger_panic_str) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 			_doprnt(debugger_panic_str, debugger_panic_args, consdebug_putc, 0);
 #pragma clang diagnostic pop
 		}
@@ -1625,6 +1631,7 @@ debugger_collect_diagnostics(unsigned int exception, unsigned int code, unsigned
 			panic_debugger_log("panic(cpu %u caller 0x%lx): ", (unsigned) cpu_number(), debugger_panic_caller);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 			_doprnt(debugger_panic_str, debugger_panic_args, consdebug_putc, 0);
 #pragma clang diagnostic pop
 			panic_debugger_log("\n");
@@ -1663,9 +1670,18 @@ handle_debugger_trap(unsigned int exception, unsigned int code, unsigned int sub
 	kern_return_t ret = KERN_SUCCESS;
 	debugger_op db_prev_op = debugger_current_op;
 
+	if (!DebuggerLock()) {
+		/*
+		 * We lost the race to be the first to panic.
+		 * Return here so that we will enter the panic stop
+		 * infinite loop and take the debugger IPI from the
+		 * first CPU that got the debugger lock.
+		 */
+		return;
+	}
+
 	DEBUGGER_TRAP_TIMESTAMP(0);
 
-	DebuggerLock();
 	ret = DebuggerHaltOtherCores(CPUDEBUGGERSYNC, (CPUDEBUGGEROP == DBOP_STACKSHOT));
 
 	DEBUGGER_TRAP_TIMESTAMP(1);
@@ -1744,7 +1760,15 @@ handle_debugger_trap(unsigned int exception, unsigned int code, unsigned int sub
 #endif
 	} else {
 		/* note: this is the panic path...  */
-		debug_fatal_panic_begin();
+		if (!debug_fatal_panic_begin()) {
+			/*
+			 * This CPU lost the race to be the first to panic. Re-enable
+			 * interrupts and dead loop here awaiting the debugger xcall from
+			 * the CPU that first panicked.
+			 */
+			ml_set_interrupts_enabled(TRUE);
+			panic_stop();
+		}
 #if defined(__arm64__) && (DEBUG || DEVELOPMENT)
 		if (!PE_arm_debug_and_trace_initialized()) {
 			paniclog_append_noflush("kernel panicked before debug and trace infrastructure initialized!\n"
@@ -1814,6 +1838,7 @@ log(__unused int level, char *fmt, ...)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, listp2, caller);
 #pragma clang diagnostic pop
 	va_end(listp2);
@@ -2351,23 +2376,47 @@ sysctl_debug_free_preoslog(void)
 #endif // RELEASE
 }
 
+#if HAS_UPSI_FAILURE_INJECTION
+uint64_t xnu_upsi_injection_stage  = 0;
+uint64_t xnu_upsi_injection_action = 0;
 
-#if (DEVELOPMENT || DEBUG)
+__attribute__((optnone)) static void
+SPINNING_FOREVER(void)
+{
+	// Decided to disable optimizations on this function instead of using a
+	// volatile bool for the deadloop.
+	// This simplifies the process of using the deadloop as an LLDB attach point
+	bool loop = true;
+
+	while (loop) {
+	}
+	return;
+}
 
 void
-platform_stall_panic_or_spin(uint32_t req)
+check_for_failure_injection(failure_injection_stage_t current_stage)
 {
-	if (xnu_platform_stall_value & req) {
-		if (xnu_platform_stall_value & PLATFORM_STALL_XNU_ACTION_PANIC) {
-			panic("Platform stall: User requested panic");
-		} else {
-			paniclog_append_noflush("\nUser requested platform stall. Stall Code: 0x%x", req);
-			panic_spin_forever();
-		}
+	// Can't call this function with the default initialization for xnu_upsi_injection_stage
+	assert(current_stage != 0);
+
+	// Check condition to inject a panic/stall/hang
+	if (current_stage != xnu_upsi_injection_stage) {
+		return;
+	}
+
+	// Do the requested action
+	switch (xnu_upsi_injection_action) {
+	case INJECTION_ACTION_PANIC:
+		panic("Test panic at stage 0x%llx", current_stage);
+	case INJECTION_ACTION_WATCHDOG_TIMEOUT:
+	case INJECTION_ACTION_DEADLOOP:
+		SPINNING_FOREVER();
+		break;
+	default:
+		break;
 	}
 }
-#endif
-
+#endif // HAS_UPSI_FAILURE_INJECTION
 
 #define AWL_HV_ENTRY_FLAG (0x1)
 
@@ -2438,9 +2487,15 @@ set_awl_scratch_exists_flag_and_subscribe_for_pm(void)
 STARTUP(EARLY_BOOT, STARTUP_RANK_MIDDLE, set_awl_scratch_exists_flag_and_subscribe_for_pm);
 
 /**
- * Signal that the system is going down for a panic
+ * Signal that the system is going down for a panic. Returns true if it is safe to
+ * proceed with the panic flow, false if we should re-enable interrupts and spin
+ * to allow another CPU to proceed with its panic flow.
+ *
+ * This function is idempotent when called from the same CPU; in the normal
+ * panic case it is invoked twice, since it needs to be invoked in the case
+ * where we enter the panic flow outside of panic() from DebuggerWithContext().
  */
-static inline void
+static inline boolean_t
 debug_fatal_panic_begin(void)
 {
 #if CONFIG_SPTM
@@ -2457,5 +2512,15 @@ debug_fatal_panic_begin(void)
 	panic_lockdown_record_debug_data();
 #endif /* DEVELOPMENT || DEBUG */
 	sptm_xnu_panic_begin();
+
+	pmap_sptm_percpu_data_t *sptm_pcpu = PERCPU_GET(pmap_sptm_percpu);
+	uint16_t sptm_cpu_id = sptm_pcpu->sptm_cpu_id;
+	uint64_t sptm_panicking_cpu_id;
+
+	if (sptm_get_panicking_cpu_id(&sptm_panicking_cpu_id) == LIBSPTM_SUCCESS &&
+	    sptm_panicking_cpu_id != sptm_cpu_id) {
+		return false;
+	}
 #endif /* CONFIG_SPTM */
+	return true;
 }

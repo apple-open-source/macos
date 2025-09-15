@@ -55,6 +55,9 @@ class EGLDisplayTest : public ANGLETest<>
     }
 };
 
+class EGLDisplayTestES3 : public EGLDisplayTest
+{};
+
 // Tests that an eglInitialize can be re-initialized.  The spec says:
 //
 // > Initializing an already-initialized display is allowed, but the only effect of such a call is
@@ -173,6 +176,42 @@ TEST_P(EGLDisplayTest, ContextLeakAfterTerminate)
     EXPECT_EQ(eglGetError(), EGL_NOT_INITIALIZED);
 }
 
+// Tests eglGetPlatformDisplayEXT() when EGL_EXT_platform_base is enabled.
+TEST_P(EGLDisplayTest, GetPlatformDisplayEXT)
+{
+    // eglGetPlatformDisplayEXT() requires EGL_EXT_platform_base.
+    ANGLE_SKIP_TEST_IF(!IsEGLClientExtensionEnabled("EGL_EXT_platform_base"));
+
+#if !defined(EGL_EGLEXT_PROTOTYPES) || !EGL_EGLEXT_PROTOTYPES
+    ASSERT_TRUE(eglGetPlatformDisplayEXT != nullptr);
+#endif
+
+    EGLint dispattrs[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, GetParam().getRenderer(), EGL_NONE};
+    EGLDisplay display = eglGetPlatformDisplayEXT(
+        EGL_PLATFORM_ANGLE_ANGLE, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), dispattrs);
+
+    ASSERT_NE(EGL_NO_DISPLAY, display);
+    ASSERT_EGL_SUCCESS();
+}
+
+// Tests current Context leaking when call eglTerminate() while it is current.
+TEST_P(EGLDisplayTestES3, GetPlatformDisplayAndroidValidation)
+{
+    ANGLE_SKIP_TEST_IF(!IsAndroid());
+
+    // Get an EGLDisplay on GBM platform, expect EGL_BAD_PARAMETER
+    EGLDisplay display1 = eglGetPlatformDisplay(
+        EGL_PLATFORM_GBM_KHR, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), nullptr);
+    ASSERT_EQ(EGL_NO_DISPLAY, display1);
+    ASSERT_EGL_ERROR(EGL_BAD_PARAMETER);
+
+    // Get an EGLDisplay on Android platform, expect EGL_SUCCESS
+    EGLDisplay display2 = eglGetPlatformDisplay(
+        EGL_PLATFORM_ANDROID_KHR, reinterpret_cast<void *>(EGL_DEFAULT_DISPLAY), nullptr);
+    ASSERT_NE(EGL_NO_DISPLAY, display2);
+    ASSERT_EGL_SUCCESS();
+}
+
 ANGLE_INSTANTIATE_TEST(EGLDisplayTest,
                        WithNoFixture(ES2_D3D9()),
                        WithNoFixture(ES2_D3D11()),
@@ -183,3 +222,6 @@ ANGLE_INSTANTIATE_TEST(EGLDisplayTest,
                        WithNoFixture(ES3_METAL()),
                        WithNoFixture(ES3_OPENGL()),
                        WithNoFixture(ES3_VULKAN()));
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(EGLDisplayTestES3);
+ANGLE_INSTANTIATE_TEST(EGLDisplayTestES3, WithNoFixture(ES3_EGL()));

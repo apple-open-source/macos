@@ -138,7 +138,9 @@ static NEVER_INLINE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void dieByJumpingInto
     // even on the former ensures that execution will never continue past the
     // branch out of this function even if it is called improperly.
 #if OS(DARWIN) && CPU(X86_64)
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     memset(reinterpret_cast<char*>(targetInstr), 0xF4, 1);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     sys_icache_invalidate(buffer, size);
 #elif OS(DARWIN) && CPU(ARM64)
     memset(reinterpret_cast<char*>(targetInstr), 0, 4);
@@ -196,7 +198,7 @@ static NEVER_INLINE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void dieByJumpingInto
 // once we know we're going to crash and thus can afford the
 // overhead.
 #define RELEASE_ASSERT_ZERO_CHECK(zeroCount, dstBuff, srcBuff, buffSize, nextIndex) do { \
-        if (UNLIKELY(zeroCount > maxZeroByteRunLength)) { \
+        if (zeroCount > maxZeroByteRunLength) [[unlikely]] { \
             size_t firstZeroIndex = nextIndex - zeroCount; \
             auto dstBuffZeroes = reinterpret_cast<const char*>(dstBuff) + firstZeroIndex; \
             auto srcBuffZeroes = reinterpret_cast<const char*>(srcBuff) + firstZeroIndex; \
@@ -221,7 +223,7 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
 
 #if ENABLE(JIT_SCAN_ASSEMBLER_BUFFER_FOR_ZEROES)
         auto checkForZeroes = [dst, src, n] () {
-            if (UNLIKELY(Options::zeroExecutableMemoryOnFree()))
+            if (Options::zeroExecutableMemoryOnFree()) [[unlikely]]
                 return;
             // On x86-64, the maximum immediate size is 8B, no opcodes/prefixes have 0x00
             // On other architectures this could be smaller
@@ -262,7 +264,7 @@ static ALWAYS_INLINE void* performJITMemcpy(void *dst, const void *src, size_t n
         };
 #endif
 
-        if (UNLIKELY(Options::dumpJITMemoryPath()))
+        if (Options::dumpJITMemoryPath()) [[unlikely]]
             dumpJITMemory(dst, src, n);
 
 #if ENABLE(MPROTECT_RX_TO_RWX)
@@ -376,7 +378,9 @@ private:
 
 static inline void* performJITMemcpy(void *dst, const void *src, size_t n)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     return memcpy(dst, src, n);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 inline bool isJITPC(void*) { return false; }

@@ -15,16 +15,6 @@
 
 @implementation OTBottleContents
 
-- (BOOL)hasReserved1
-{
-    return _reserved1 != nil;
-}
-@synthesize reserved1 = _reserved1;
-- (BOOL)hasReserved2
-{
-    return _reserved2 != nil;
-}
-@synthesize reserved2 = _reserved2;
 - (BOOL)hasPeerSigningPrivKey
 {
     return _peerSigningPrivKey != nil;
@@ -44,14 +34,6 @@
 - (NSDictionary *)dictionaryRepresentation
 {
     NSMutableDictionary *dict = [NSMutableDictionary dictionary];
-    if (self->_reserved1)
-    {
-        [dict setObject:self->_reserved1 forKey:@"reserved1"];
-    }
-    if (self->_reserved2)
-    {
-        [dict setObject:self->_reserved2 forKey:@"reserved2"];
-    }
     if (self->_peerSigningPrivKey)
     {
         [dict setObject:[_peerSigningPrivKey dictionaryRepresentation] forKey:@"peerSigningPrivKey"];
@@ -79,18 +61,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 
         switch (tag) {
 
-            case 1 /* reserved1 */:
-            {
-                NSData *new_reserved1 = PBReaderReadData(reader);
-                self->_reserved1 = new_reserved1;
-            }
-            break;
-            case 2 /* reserved2 */:
-            {
-                NSData *new_reserved2 = PBReaderReadData(reader);
-                self->_reserved2 = new_reserved2;
-            }
-            break;
             case 3 /* peerSigningPrivKey */:
             {
                 OTPrivateKey *new_peerSigningPrivKey = [[OTPrivateKey alloc] init];
@@ -142,20 +112,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 }
 - (void)writeTo:(PBDataWriter *)writer
 {
-    /* reserved1 */
-    {
-        if (self->_reserved1)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved1, 1);
-        }
-    }
-    /* reserved2 */
-    {
-        if (self->_reserved2)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved2, 2);
-        }
-    }
     /* peerSigningPrivKey */
     {
         if (self->_peerSigningPrivKey != nil)
@@ -174,14 +130,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 
 - (void)copyTo:(OTBottleContents *)other
 {
-    if (_reserved1)
-    {
-        other.reserved1 = _reserved1;
-    }
-    if (_reserved2)
-    {
-        other.reserved2 = _reserved2;
-    }
     if (_peerSigningPrivKey)
     {
         other.peerSigningPrivKey = _peerSigningPrivKey;
@@ -195,8 +143,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 - (id)copyWithZone:(NSZone *)zone
 {
     OTBottleContents *copy = [[[self class] allocWithZone:zone] init];
-    copy->_reserved1 = [_reserved1 copyWithZone:zone];
-    copy->_reserved2 = [_reserved2 copyWithZone:zone];
     copy->_peerSigningPrivKey = [_peerSigningPrivKey copyWithZone:zone];
     copy->_peerEncryptionPrivKey = [_peerEncryptionPrivKey copyWithZone:zone];
     return copy;
@@ -206,10 +152,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 {
     OTBottleContents *other = (OTBottleContents *)object;
     return [other isMemberOfClass:[self class]]
-    &&
-    ((!self->_reserved1 && !other->_reserved1) || [self->_reserved1 isEqual:other->_reserved1])
-    &&
-    ((!self->_reserved2 && !other->_reserved2) || [self->_reserved2 isEqual:other->_reserved2])
     &&
     ((!self->_peerSigningPrivKey && !other->_peerSigningPrivKey) || [self->_peerSigningPrivKey isEqual:other->_peerSigningPrivKey])
     &&
@@ -221,10 +163,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 {
     return 0
     ^
-    [self->_reserved1 hash]
-    ^
-    [self->_reserved2 hash]
-    ^
     [self->_peerSigningPrivKey hash]
     ^
     [self->_peerEncryptionPrivKey hash]
@@ -233,14 +171,6 @@ BOOL OTBottleContentsReadFrom(__unsafe_unretained OTBottleContents *self, __unsa
 
 - (void)mergeFrom:(OTBottleContents *)other
 {
-    if (other->_reserved1)
-    {
-        [self setReserved1:other->_reserved1];
-    }
-    if (other->_reserved2)
-    {
-        [self setReserved2:other->_reserved2];
-    }
     if (self->_peerSigningPrivKey && other->_peerSigningPrivKey)
     {
         [self->_peerSigningPrivKey mergeFrom:other->_peerSigningPrivKey];

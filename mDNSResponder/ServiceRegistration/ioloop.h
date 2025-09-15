@@ -1,6 +1,6 @@
 /* ioloop.h
  *
- * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -229,6 +229,7 @@ struct comm {
     uint8_t message_length_bytes[2];
 
 
+
 #ifdef IOLOOP_MACOS
     bool read_pending: 1; // Only ever one.
     bool server: 1;       // Indicates that this connection was created by a listener
@@ -310,6 +311,8 @@ void ioloop_comm_context_set(comm_t *NONNULL connection,
 void ioloop_comm_connect_callback_set(comm_t *NONNULL comm, connect_callback_t NULLABLE callback);
 void ioloop_comm_disconnect_callback_set(comm_t *NONNULL comm, disconnect_callback_t NULLABLE callback);
 void ioloop_comm_cancel(comm_t *NONNULL comm);
+
+
 #define ioloop_listener_retain(comm) ioloop_listener_retain_(comm, __FILE__, __LINE__)
 void ioloop_listener_retain_(comm_t *NONNULL listener, const char *NONNULL file, int line);
 #define ioloop_listener_release(wakeup) ioloop_listener_release_(wakeup, __FILE__, __LINE__)

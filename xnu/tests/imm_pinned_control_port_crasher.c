@@ -94,9 +94,11 @@ pinned_test_pthread_dealloc(void)
 static void
 pinned_test_task_self_dealloc(void)
 {
-	printf("[Crasher]: Deallocate mach_task_self twice\n");
+	printf("[Crasher]: Deallocate mach_task_self thrice\n");
 	mach_port_t task_self = mach_task_self();
 	kern_return_t kr = mach_port_deallocate(task_self, task_self);
+	assert(kr == 0);
+	kr = mach_port_deallocate(task_self, task_self);
 	assert(kr == 0);
 	kr = mach_port_deallocate(task_self, task_self);
 
@@ -107,7 +109,7 @@ static void
 pinned_test_task_self_mod_ref(void)
 {
 	printf("[Crasher]: Mod refs mach_task_self() to 0\n");
-	kern_return_t kr = mach_port_mod_refs(mach_task_self(), mach_task_self(), MACH_PORT_RIGHT_SEND, -2);
+	kern_return_t kr = mach_port_mod_refs(mach_task_self(), mach_task_self(), MACH_PORT_RIGHT_SEND, -3);
 
 	printf("[Crasher pinned_test_task_self_mod_ref] mach_port_mod_refs returned %s \n.", mach_error_string(kr));
 }
@@ -355,17 +357,9 @@ cfi_test_msg_to_timer_port(void)
 	} msg;
 
 	kern_return_t kr;
-	natural_t kotype;
-	mach_vm_address_t addr;
 
-#define IKOT_TIMER 8
 	timer = mk_timer_create();
 	assert(timer != MACH_PORT_NULL);
-
-	/* Make sure it's a kobject port */
-	kr = mach_port_kobject(mach_task_self(), timer, &kotype, &addr);
-	assert(kr == KERN_SUCCESS);
-	assert(kotype == IKOT_TIMER);
 
 	msg.header.msgh_local_port = MACH_PORT_NULL;
 	msg.header.msgh_remote_port = timer;

@@ -683,6 +683,7 @@ __os_log_internal
 _adler32
 _atoi
 _amfi_interface_register
+_amfi_core_entitlements_register
 _bcmp
 _bcopy
 _bcopy_phys

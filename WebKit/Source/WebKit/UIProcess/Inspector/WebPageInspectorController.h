@@ -87,13 +87,14 @@ public:
 
 private:
     Ref<WebPageProxy> protectedInspectedPage();
+    CheckedPtr<Inspector::InspectorTargetAgent> checkedTargetAgent() { return m_targetAgent; }
     WebPageAgentContext webPageAgentContext();
     void createLazyAgents();
 
     void addTarget(std::unique_ptr<InspectorTargetProxy>&&);
 
-    Ref<Inspector::FrontendRouter> m_frontendRouter;
-    Ref<Inspector::BackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::FrontendRouter> m_frontendRouter;
+    const Ref<Inspector::BackendDispatcher> m_backendDispatcher;
     Inspector::AgentRegistry m_agents;
 
     WeakRef<WebPageProxy> m_inspectedPage;

@@ -30,7 +30,6 @@ CFTypeRef               sender; \
 CFMutableArrayRef       children; \
 IOHIDEventRef           parent; \
 CFIndex                 attributeDataLength; \
-CFIndex                 eventCount; \
 IOHIDEventData          *eventData;
 
 typedef struct  {

@@ -67,6 +67,11 @@ WebCredential* AuthenticationChallengeProxy::proposedCredential() const
     return m_webCredential.get();
 }
 
+RefPtr<WebCredential> AuthenticationChallengeProxy::protectedProposedCredential() const
+{
+    return proposedCredential();
+}
+
 WebProtectionSpace* AuthenticationChallengeProxy::protectionSpace() const
 {
     if (!m_webProtectionSpace)
@@ -75,9 +80,9 @@ WebProtectionSpace* AuthenticationChallengeProxy::protectionSpace() const
     return m_webProtectionSpace.get();
 }
 
-Ref<AuthenticationDecisionListener> AuthenticationChallengeProxy::protectedListener() const
+RefPtr<WebProtectionSpace> AuthenticationChallengeProxy::protectedProtectionSpace() const
 {
-    return m_listener;
+    return protectionSpace();
 }
 
 } // namespace WebKit

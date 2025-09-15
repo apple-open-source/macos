@@ -234,5 +234,7 @@ inline int EOWNERDEAD = 105;
 #pragma D binding "1.0" EOWNERDEAD
 inline int EQFULL = 106;
 #pragma D binding "1.0" EQFULL
-inline int ELAST = 106;
+inline int ENOTCAPABLE = 107;
+#pragma D binding "1.0" ENOTCAPABLE
+inline int ELAST = 107;
 #pragma D binding "1.0" ELAST

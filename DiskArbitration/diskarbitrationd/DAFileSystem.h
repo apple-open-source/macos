@@ -143,6 +143,7 @@ extern void DAFileSystemUnmountWithArguments( DAFileSystemRef      filesystem,
                                              
 #if TARGET_OS_OSX || TARGET_OS_IOS
 extern int __DAMountUserFSVolume( void * parameter );
+extern Boolean __DAMountShouldUseFSKit( CFStringRef fsType , Boolean *isFSModule );
 extern void __DAMountUserFSVolumeCallback( int status, void * parameter );
 extern int DAUserFSOpen( char *path, int flags );
 extern CFStringRef DSFSKitGetBundleNameWithoutSuffix( CFStringRef filesystemName );

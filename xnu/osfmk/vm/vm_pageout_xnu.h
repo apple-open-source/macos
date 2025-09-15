@@ -58,6 +58,9 @@ extern upl_t upl_associated_upl(upl_t upl);
 extern void upl_set_associated_upl(upl_t upl, upl_t associated_upl);
 extern void upl_set_map_exclusive(upl_t upl);
 extern void upl_clear_map_exclusive(upl_t upl);
+extern void upl_set_fs_verify_info(upl_t upl, uint32_t size_per_page);
+extern bool upl_has_fs_verify_info(upl_t upl);
+extern uint8_t * upl_fs_verify_buf(upl_t upl, uint32_t *size);
 
 
 #include <vm/vm_kern_xnu.h>
@@ -166,8 +169,7 @@ struct _vector_upl {
 	uint32_t                num_upls;
 	uint32_t                invalid_upls;
 	uint32_t                max_upls;
-	vm_map_t                submap;
-	vm_offset_t             submap_dst_addr;
+	vm_offset_t             dst_addr;
 	vm_object_offset_t      offset;
 	upl_page_info_array_t   pagelist;
 	struct {
@@ -198,6 +200,10 @@ struct upl_io_completion {
 	int      io_error;
 };
 
+struct upl_fs_verify_info {
+	uint8_t *verify_data_ptr; /* verification data (hashes) for the data pages in the UPL */
+	uint32_t verify_data_len; /* the digest size per page (can vary depending on the type of hash) */
+};
 
 struct upl {
 	decl_lck_mtx_data(, Lock);      /* Synchronization */
@@ -216,7 +222,10 @@ struct upl {
 	vm_offset_t     kaddr;      /* secondary mapping in kernel */
 	vm_object_t     map_object;
 	vector_upl_t    vector_upl;
-	upl_t           associated_upl;
+	union {
+		upl_t   associated_upl;
+		struct  upl_fs_verify_info *verify_info; /* verification data for the data pages in the UPL */
+	} u_fs_un;
 	struct upl_io_completion *upl_iodone;
 	ppnum_t         highest_page;
 #if CONFIG_IOSCHED
@@ -265,7 +274,8 @@ struct upl {
 #define UPL_DECMP_REQ           0x80000
 #define UPL_DECMP_REAL_IO       0x100000
 #define UPL_MAP_EXCLUSIVE_WAIT  0x200000
-#define UPL_HAS_WIRED           0x400000
+#define UPL_HAS_FS_VERIFY_INFO  0x400000
+#define UPL_HAS_WIRED           0x800000
 
 /* flags for upl_create flags parameter */
 #define UPL_CREATE_EXTERNAL     0
@@ -275,8 +285,8 @@ struct upl {
 #define UPL_CREATE_EXPEDITE_SUP 0x8
 
 extern void vector_upl_deallocate(upl_t);
-extern void vector_upl_set_submap(upl_t, vm_map_t, vm_offset_t);
-extern void vector_upl_get_submap(upl_t, vm_map_t*, vm_offset_t*);
+extern void vector_upl_set_addr(upl_t, vm_offset_t);
+extern void vector_upl_get_addr(upl_t, vm_offset_t*);
 extern void vector_upl_get_iostate(upl_t, upl_t, upl_offset_t*, upl_size_t*);
 extern void vector_upl_get_iostate_byindex(upl_t, uint32_t, upl_offset_t*, upl_size_t*);
 extern upl_t vector_upl_subupl_byindex(upl_t, uint32_t);
@@ -463,7 +473,7 @@ struct pgo_iothread_state {
 	struct vm_pageout_queue *q;
 	// cheads unused by external thread
 	void                    *current_early_swapout_chead;
-	void                    *current_regular_swapout_chead;
+	void                    *current_regular_swapout_cheads[COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT];
 	void                    *current_late_swapout_chead;
 	char                    *scratch_buf;
 	int                     id;

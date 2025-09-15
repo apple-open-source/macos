@@ -43,7 +43,7 @@
 #import "WebExtensionUtilities.h"
 #import "WebFrame.h"
 #import "WebProcess.h"
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 
 namespace WebKit {
 
@@ -56,9 +56,9 @@ static NSString * const oldShortcutKey = @"oldShortcut";
 static inline NSDictionary *toAPI(const WebExtensionCommandParameters& command)
 {
     return @{
-        nameKey: (NSString *)command.identifier,
-        descriptionKey: (NSString *)command.description,
-        shortcutKey: (NSString *)command.shortcut
+        nameKey: command.identifier.createNSString().get(),
+        descriptionKey: command.description.createNSString().get(),
+        shortcutKey: command.shortcut.createNSString().get()
     };
 }
 
@@ -107,19 +107,20 @@ void WebExtensionContextProxy::dispatchCommandsCommandEvent(const String& identi
 
     auto *tab = tabParameters ? toWebAPI(tabParameters.value()) : nil;
 
+    RetainPtr nsIdentifier = identifier.createNSString();
     enumerateFramesAndNamespaceObjects([&](auto& frame, auto& namespaceObject) {
-        RefPtr coreFrame = frame.protectedCoreLocalFrame();
+        RefPtr coreFrame = frame.coreLocalFrame();
         WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, coreFrame ? coreFrame->document() : nullptr);
-        namespaceObject.commands().onCommand().invokeListenersWithArgument((NSString *)identifier, tab);
+        namespaceObject.commands().onCommand().invokeListenersWithArgument(nsIdentifier.get(), tab);
     });
 }
 
 void WebExtensionContextProxy::dispatchCommandsChangedEvent(const String& identifier, const String& oldShortcut, const String& newShortcut)
 {
     auto *changeInfo = @{
-        nameKey: (NSString *)identifier,
-        oldShortcutKey: (NSString *)oldShortcut,
-        newShortcutKey: (NSString *)newShortcut
+        nameKey: identifier.createNSString().get(),
+        oldShortcutKey: oldShortcut.createNSString().get(),
+        newShortcutKey: newShortcut.createNSString().get()
     };
 
     enumerateNamespaceObjects([&](auto& namespaceObject) {

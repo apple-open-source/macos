@@ -100,7 +100,7 @@ static int nx_fsw_dom_bind_port(struct kern_nexus *, nexus_port_t *,
 static int nx_fsw_dom_unbind_port(struct kern_nexus *, nexus_port_t);
 static int nx_fsw_dom_connect(struct kern_nexus_domain_provider *,
     struct kern_nexus *, struct kern_channel *, struct chreq *,
-    struct kern_channel *, struct nxbind *, struct proc *);
+    struct nxbind *, struct proc *);
 static void nx_fsw_dom_disconnect(struct kern_nexus_domain_provider *,
     struct kern_nexus *, struct kern_channel *);
 static void nx_fsw_dom_defunct(struct kern_nexus_domain_provider *,
@@ -290,10 +290,9 @@ nx_fsw_prov_params_adjust(const struct kern_nexus_domain_provider *nxdom_prov,
     const struct nxprov_params *nxp, struct nxprov_adjusted_params *adj)
 {
 #pragma unused(nxdom_prov, nxp)
-	_CASSERT(NX_FSW_AFRINGSIZE <= NX_FSW_RXRINGSIZE);
-	_CASSERT(NX_FSW_AFRINGSIZE <= NX_FSW_TXRINGSIZE);
+	static_assert(NX_FSW_AFRINGSIZE <= NX_FSW_RXRINGSIZE);
+	static_assert(NX_FSW_AFRINGSIZE <= NX_FSW_TXRINGSIZE);
 
-	*(adj->adj_md_subtype) = NEXUS_META_SUBTYPE_PAYLOAD;
 	*(adj->adj_stats_size) = sizeof(struct __nx_stats_fsw);
 	VERIFY(sk_max_flows > 0 && sk_max_flows <= NX_FLOWADV_MAX);
 	*(adj->adj_flowadv_max) = sk_max_flows;
@@ -419,7 +418,7 @@ nx_fsw_prov_mem_new(struct kern_nexus_domain_provider *nxdom_prov,
 	struct skmem_region_params srp[SKMEM_REGIONS];
 
 	SK_DF(SK_VERB_FSW,
-	    "nx 0x%llx (\"%s\":\"%s\") na \"%s\" (0x%llx)", SK_KVA(nx),
+	    "nx %p (\"%s\":\"%s\") na \"%s\" (%p)", SK_KVA(nx),
 	    NX_DOM(nx)->nxdom_name, nxdom_prov->nxdom_prov_name, na->na_name,
 	    SK_KVA(na));
 
@@ -554,7 +553,7 @@ nx_fsw_prov_config(struct kern_nexus_domain_provider *nxdom_prov,
 
 done:
 	SK_DF(err ? SK_VERB_ERROR: SK_VERB_FSW,
-	    "nexus 0x%llx (%s) cmd %d (err %d)", SK_KVA(nx),
+	    "nexus %p (%s) cmd %d (err %d)", SK_KVA(nx),
 	    NX_DOM_PROV(nx)->nxdom_prov_name, ncr->nc_cmd, err);
 	return err;
 }
@@ -575,7 +574,7 @@ nx_fsw_prov_nx_ctor(struct kern_nexus *nx)
 
 	ASSERT(nx->nx_arg == NULL);
 
-	SK_D("nexus 0x%llx (%s)", SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name);
+	SK_D("nexus %p (%s)", SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name);
 
 	fsw = fsw_alloc(Z_WAITOK);
 	nx->nx_arg = fsw;
@@ -589,7 +588,7 @@ nx_fsw_prov_nx_ctor(struct kern_nexus *nx)
 
 	FSW_WUNLOCK(fsw);
 
-	SK_D("create new fsw 0x%llx for nexus 0x%llx",
+	SK_D("create new fsw %p for nexus %p",
 	    SK_KVA(NX_FSW_PRIVATE(nx)), SK_KVA(nx));
 
 	return 0;
@@ -603,7 +602,7 @@ nx_fsw_prov_nx_dtor(struct kern_nexus *nx)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_D("nexus 0x%llx (%s) fsw 0x%llx", SK_KVA(nx),
+	SK_D("nexus %p (%s) fsw %p", SK_KVA(nx),
 	    NX_DOM_PROV(nx)->nxdom_prov_name, SK_KVA(fsw));
 
 	err = fsw_ctl_detach(nx, current_proc(), NULL);
@@ -611,7 +610,7 @@ nx_fsw_prov_nx_dtor(struct kern_nexus *nx)
 	ASSERT(fsw->fsw_dev_ch == NULL);
 	ASSERT(fsw->fsw_host_ch == NULL);
 
-	SK_DF(SK_VERB_FSW, "marking fsw 0x%llx as free", SK_KVA(fsw));
+	SK_DF(SK_VERB_FSW, "marking fsw %p as free", SK_KVA(fsw));
 	fsw_free(fsw);
 	nx->nx_arg = NULL;
 }
@@ -678,7 +677,7 @@ nx_fsw_dom_find_port(struct kern_nexus *nx, boolean_t rsvd,
 	FSW_WUNLOCK(fsw);
 
 	SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "nx 0x%llx \"%s\" %snx_port %d [%u,%u] (err %d)", SK_KVA(nx),
+	    "nx %p \"%s\" %snx_port %d [%u,%u] (err %d)", SK_KVA(nx),
 	    nx->nx_prov->nxprov_params->nxp_name, (rsvd ? "[reserved] " : ""),
 	    (int)port, first, (last - 1), error);
 
@@ -733,7 +732,7 @@ nx_fsw_dom_bind_port(struct kern_nexus *nx, nexus_port_t *nx_port,
 	FSW_WUNLOCK(fsw);
 
 	SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "nx 0x%llx \"%s\" nx_port %d [%u,%u] (err %d)", SK_KVA(nx),
+	    "nx %p \"%s\" nx_port %d [%u,%u] (err %d)", SK_KVA(nx),
 	    nx->nx_prov->nxprov_params->nxp_name, (int)port,
 	    first, (last - 1), error);
 
@@ -756,7 +755,7 @@ nx_fsw_dom_unbind_port(struct kern_nexus *nx, nexus_port_t nx_port)
 	FSW_WUNLOCK(fsw);
 
 	SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "nx 0x%llx \"%s\" nx_port %d (err %d)", SK_KVA(nx),
+	    "nx %p \"%s\" nx_port %d (err %d)", SK_KVA(nx),
 	    nx->nx_prov->nxprov_params->nxp_name, (int)nx_port, error);
 
 	return error;
@@ -765,7 +764,7 @@ nx_fsw_dom_unbind_port(struct kern_nexus *nx, nexus_port_t nx_port)
 static int
 nx_fsw_dom_connect(struct kern_nexus_domain_provider *nxdom_prov,
     struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
-    struct kern_channel *ch0, struct nxbind *nxb, struct proc *p)
+    struct nxbind *nxb, struct proc *p)
 {
 #pragma unused(nxdom_prov)
 	nexus_port_t port = chr->cr_port;
@@ -784,12 +783,12 @@ nx_fsw_dom_connect(struct kern_nexus_domain_provider *nxdom_prov,
 		goto done;
 	}
 
-	chr->cr_real_endpoint = chr->cr_endpoint = CH_ENDPOINT_FLOW_SWITCH;
+	chr->cr_endpoint = CH_ENDPOINT_FLOW_SWITCH;
 	ASSERT(port != NEXUS_PORT_ANY);
 	(void) snprintf(chr->cr_name, sizeof(chr->cr_name),
 	    "%s_%llu:%u", NX_FSW_NAME, nx->nx_id, port);
 	chr->cr_ring_set = RING_SET_DEFAULT;
-	err = na_connect(nx, ch, chr, ch0, nxb, p);
+	err = na_connect(nx, ch, chr, nxb, p);
 
 done:
 	return err;
@@ -802,9 +801,10 @@ nx_fsw_dom_disconnect(struct kern_nexus_domain_provider *nxdom_prov,
 #pragma unused(nxdom_prov)
 	SK_LOCK_ASSERT_HELD();
 
-	SK_D("channel 0x%llx -!- nexus 0x%llx (%s:\"%s\":%u:%d)", SK_KVA(ch),
-	    SK_KVA(nx), nxdom_prov->nxdom_prov_name, ch->ch_na->na_name,
-	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id);
+	SK_DF(SK_VERB_FSW, "channel %p -!- nexus %p (%s:\"%s\":%u:%d)",
+	    SK_KVA(ch), SK_KVA(nx), nxdom_prov->nxdom_prov_name,
+	    ch->ch_na->na_name, ch->ch_info->cinfo_nx_port,
+	    (int)ch->ch_info->cinfo_ch_ring_id);
 
 	if (ch->ch_flags & CHANF_KERNEL) {
 		na_disconnect_spec(nx, ch);
@@ -862,7 +862,7 @@ nx_fsw_dom_defunct_finalize(struct kern_nexus_domain_provider *nxdom_prov,
 		na_defunct(nx, ch, ch->ch_na, locked);
 	}
 
-	SK_D("%s(%d): ch 0x%llx -/- nx 0x%llx (%s:\"%s\":%u:%d) err %d",
+	SK_D("%s(%d): ch %p -/- nx %p (%s:\"%s\":%u:%d) err %d",
 	    ch->ch_name, ch->ch_pid, SK_KVA(ch), SK_KVA(nx),
 	    nxdom_prov->nxdom_prov_name, ch->ch_na->na_name,
 	    ch->ch_info->cinfo_nx_port,
@@ -885,13 +885,13 @@ nx_fsw_na_find_log(const struct chreq *chr, boolean_t create)
 {
 	uuid_string_t uuidstr;
 
-	SK_D("name \"%s\" spec_uuid \"%s\" nx_port %d mode 0x%b pipe_id %u "
-	    "ring_id %d ring_set %u ep_type %u:%u create %u%s",
+	SK_D("name \"%s\" spec_uuid \"%s\" nx_port %d mode 0x%x pipe_id %u "
+	    "ring_id %d ring_set %u ep_type %u create %u%s",
 	    chr->cr_name, sk_uuid_unparse(chr->cr_spec_uuid, uuidstr),
-	    (int)chr->cr_port, chr->cr_mode, CHMODE_BITS, chr->cr_pipe_id,
-	    (int)chr->cr_ring_id, chr->cr_ring_set, chr->cr_real_endpoint,
-	    chr->cr_endpoint, create, (strlcmp(chr->cr_name,
-	    NX_FSW_NAME, sizeof(NX_FSW_NAME)) != 0) ? " (skipped)" : "");
+	    (int)chr->cr_port, chr->cr_mode, chr->cr_pipe_id,
+	    (int)chr->cr_ring_id, chr->cr_ring_set, chr->cr_endpoint, create,
+	    (strlcmp(chr->cr_name, NX_FSW_NAME, sizeof(NX_FSW_NAME)) != 0) ?
+	    " (skipped)" : "");
 }
 #endif /* SK_LOG */
 
@@ -948,7 +948,7 @@ nx_fsw_na_find(struct kern_nexus *nx, struct kern_channel *ch,
 		/* use reference held by nx_fsw_attach_vp above */
 		*na = &vpna->vpna_up;
 		SK_DF(SK_VERB_FSW,
-		    "vpna \"%s\" (0x%llx) refs %u to fsw \"%s\" nx_port %d",
+		    "vpna \"%s\" (%p) refs %u to fsw \"%s\" nx_port %d",
 		    (*na)->na_name, SK_KVA(*na), (*na)->na_refcount,
 		    cr_name, (int)vpna->vpna_nx_port);
 	}

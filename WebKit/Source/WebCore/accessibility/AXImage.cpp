@@ -37,14 +37,14 @@
 
 namespace WebCore {
 
-AXImage::AXImage(AXID axID, RenderImage& renderer)
-    : AccessibilityRenderObject(axID, renderer)
+AXImage::AXImage(AXID axID, RenderImage& renderer, AXObjectCache& cache)
+    : AccessibilityRenderObject(axID, renderer, cache)
 {
 }
 
-Ref<AXImage> AXImage::create(AXID axID, RenderImage& renderer)
+Ref<AXImage> AXImage::create(AXID axID, RenderImage& renderer, AXObjectCache& cache)
 {
-    return adoptRef(*new AXImage(axID, renderer));
+    return adoptRef(*new AXImage(axID, renderer, cache));
 }
 
 AccessibilityRole AXImage::determineAccessibilityRole()

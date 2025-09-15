@@ -67,7 +67,7 @@ public:
 
     // Returns true if the root layer changed.
     bool updateLayerTree(const IPC::Connection&, const RemoteLayerTreeTransaction&, float indicatorScaleFactor  = 1);
-    void asyncSetLayerContents(WebCore::PlatformLayerIdentifier, ImageBufferBackendHandle&&, const WebCore::RenderingResourceIdentifier&);
+    void asyncSetLayerContents(WebCore::PlatformLayerIdentifier, RemoteLayerBackingStoreProperties&&);
 
     void setIsDebugLayerTreeHost(bool flag) { m_isDebugLayerTreeHost = flag; }
     bool isDebugLayerTreeHost() const { return m_isDebugLayerTreeHost; }
@@ -108,6 +108,8 @@ public:
     void remotePageProcessDidTerminate(WebCore::ProcessIdentifier);
 
 private:
+    Ref<RemoteLayerTreeDrawingAreaProxy> protectedDrawingArea() const;
+
     void createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties&);
     RefPtr<RemoteLayerTreeNode> makeNode(const RemoteLayerTreeTransaction::LayerCreationProperties&);
 

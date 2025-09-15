@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +77,7 @@ private:
 #if USE(LIBWEBRTC)
     void setSocketFactoryConnection();
 
-    void signalReadPacket(WebCore::LibWebRTCSocketIdentifier, std::span<const uint8_t>, const RTCNetwork::IPAddress&, uint16_t port, int64_t, RTC::Network::EcnMarking);
+    void signalReadPacket(WebCore::LibWebRTCSocketIdentifier, std::span<const uint8_t>, const RTCNetwork::IPAddress&, uint16_t port, int64_t, WebRTCNetwork::EcnMarking);
     void signalSentPacket(WebCore::LibWebRTCSocketIdentifier, int64_t, int64_t);
     void signalAddressReady(WebCore::LibWebRTCSocketIdentifier, const RTCNetwork::SocketAddress&);
     void signalConnect(WebCore::LibWebRTCSocketIdentifier);
@@ -93,7 +93,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 #endif
 
-    CheckedRef<WebProcess> m_webProcess;
+    const CheckedRef<WebProcess> m_webProcess;
 
 #if USE(LIBWEBRTC)
     LibWebRTCSocketFactory m_socketFactory;

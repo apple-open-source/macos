@@ -9,6 +9,7 @@
 #define LIBANGLE_CLBITFIELD_H_
 
 #include <angle_cl.h>
+#include <ostream>
 
 namespace cl
 {
@@ -35,7 +36,7 @@ class BitField
     bool intersects(cl_bitfield bits) const { return (mBits & bits) != 0u; }
     bool intersects(const BitField &other) const { return (mBits & other.mBits) != 0u; }
     bool excludes(cl_bitfield bits) const { return !intersects(bits); }
-    bool excludes(const BitField &other) const { return !intersects(mBits); }
+    bool excludes(const BitField &other) const { return !intersects(other); }
 
     bool hasOtherBitsThan(cl_bitfield bits) const { return (mBits & ~bits) != 0u; }
     bool hasOtherBitsThan(const BitField &other) const { return (mBits & ~other.mBits) != 0u; }

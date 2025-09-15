@@ -60,26 +60,26 @@ void DisplayCaptureSessionManager::alertForGetDisplayMedia(WebPageProxy& page, c
         return;
     }
 
-    NSString *visibleOrigin = applicationVisibleNameFromOrigin(origin);
+    RetainPtr visibleOrigin = applicationVisibleNameFromOrigin(origin);
     if (!visibleOrigin)
         visibleOrigin = applicationVisibleName();
 
-    NSString *alertTitle = [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe one of your windows or screens?", "Message for window and screen sharing prompt"), visibleOrigin];
-    auto *allowWindowButtonString = WEB_UI_NSSTRING(@"Allow to Share Window", "Allow window button title in window and screen sharing prompt");
-    auto *allowScreenButtonString = WEB_UI_NSSTRING(@"Allow to Share Screen", "Allow screen button title in window and screen sharing prompt");
-    auto *doNotAllowButtonString = WEB_UI_NSSTRING_KEY(@"Don’t Allow", @"Don’t Allow (window and screen sharing)", "Disallow button title in window and screen sharing prompt");
+    RetainPtr alertTitle = adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe one of your windows or screens?", "Message for window and screen sharing prompt"), visibleOrigin.get()]);
+    RetainPtr<NSString> allowWindowButtonString = WEB_UI_NSSTRING(@"Allow to Share Window", "Allow window button title in window and screen sharing prompt");
+    RetainPtr<NSString> allowScreenButtonString = WEB_UI_NSSTRING(@"Allow to Share Screen", "Allow screen button title in window and screen sharing prompt");
+    RetainPtr<NSString> doNotAllowButtonString = WEB_UI_NSSTRING_KEY(@"Don’t Allow", @"Don’t Allow (window and screen sharing)", "Disallow button title in window and screen sharing prompt");
 
-    auto alert = adoptNS([[NSAlert alloc] init]);
-    [alert setMessageText:alertTitle];
+    RetainPtr alert = adoptNS([[NSAlert alloc] init]);
+    [alert setMessageText:alertTitle.get()];
 
-    auto *button = [alert addButtonWithTitle:allowWindowButtonString];
-    button.keyEquivalent = @"";
+    RetainPtr button = [alert addButtonWithTitle:allowWindowButtonString.get()];
+    button.get().keyEquivalent = @"";
 
-    button = [alert addButtonWithTitle:allowScreenButtonString];
-    button.keyEquivalent = @"";
+    button = [alert addButtonWithTitle:allowScreenButtonString.get()];
+    button.get().keyEquivalent = @"";
 
-    button = [alert addButtonWithTitle:doNotAllowButtonString];
-    button.keyEquivalent = @"\E";
+    button = [alert addButtonWithTitle:doNotAllowButtonString.get()];
+    button.get().keyEquivalent = @"\E";
 
     [alert beginSheetModalForWindow:[webView window] completionHandler:[completionBlock = makeBlockPtr(WTFMove(completionHandler))](NSModalResponse returnCode) {
         DisplayCaptureSessionManager::CaptureSessionType result = DisplayCaptureSessionManager::CaptureSessionType::None;
@@ -209,12 +209,12 @@ void DisplayCaptureSessionManager::promptForGetDisplayMedia(UserMediaPermissionR
     }
 
     if (WebCore::ScreenCaptureKitSharingSessionManager::isAvailable()) {
-        if (!page.preferences().useGPUProcessForDisplayCapture()) {
+        if (!page.protectedPreferences()->useGPUProcessForDisplayCapture()) {
             WebCore::ScreenCaptureKitSharingSessionManager::singleton().promptForGetDisplayMedia(toScreenCaptureKitPromptType(promptType), WTFMove(completionHandler));
             return;
         }
 
-        Ref gpuProcess = page.configuration().processPool().ensureGPUProcess();
+        Ref gpuProcess = page.configuration().protectedProcessPool()->ensureGPUProcess();
         gpuProcess->updateSandboxAccess(false, false, true);
         gpuProcess->promptForGetDisplayMedia(toScreenCaptureKitPromptType(promptType), WTFMove(completionHandler));
         return;
@@ -252,12 +252,12 @@ void DisplayCaptureSessionManager::cancelGetDisplayMediaPrompt(WebPageProxy& pag
     if (!isAvailable() || !WebCore::ScreenCaptureKitSharingSessionManager::isAvailable())
         return;
 
-    if (!page.preferences().useGPUProcessForDisplayCapture()) {
+    if (!page.protectedPreferences()->useGPUProcessForDisplayCapture()) {
         WebCore::ScreenCaptureKitSharingSessionManager::singleton().cancelGetDisplayMediaPrompt();
         return;
     }
 
-    auto gpuProcess = page.configuration().processPool().gpuProcess();
+    RefPtr gpuProcess = page.configuration().processPool().gpuProcess();
     if (!gpuProcess)
         return;
 

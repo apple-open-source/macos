@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2015, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -262,7 +262,8 @@ nwi_state_get_last_ifstate(nwi_state_t state, int af, nwi_ifindex_t** last)
 
 __private_extern__
 void
-nwi_ifstate_set_signature(nwi_ifstate_t ifstate, uint8_t * signature)
+nwi_ifstate_set_signature(nwi_ifstate_t ifstate,
+			  uint8_t signature[NWI_SIGNATURE_LENGTH])
 {
 	memcpy(ifstate->signature, signature, sizeof(ifstate->signature));
 	ifstate->flags |= NWI_IFSTATE_FLAGS_HAS_SIGNATURE;

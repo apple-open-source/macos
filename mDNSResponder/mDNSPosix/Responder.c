@@ -429,7 +429,7 @@ static mStatus RegisterOneService(const char *  richTextName,
     domainname domain;
 
     status = mStatus_NoError;
-    thisServ = (PosixService *) calloc(sizeof(*thisServ), 1);
+    thisServ = (PosixService *) calloc(1, sizeof(*thisServ));
     if (thisServ == NULL) {
         status = mStatus_NoMemoryErr;
     }

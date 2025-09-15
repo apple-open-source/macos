@@ -199,7 +199,7 @@ In order to choose a cluster & processor for a runnable thread, the edge schedul
 
 **Edge Scheduler Edge Matrix**
 
-The Edge scheduler maintains a thread migration graph where each node represents a cluster and each directional edge represents the likelihood of migrating threads across that edge. Each graph edge encodes the following attributes:
+The Edge scheduler maintains a thread migration graph for each QoS level, where each node in the graph represents a cluster and each directed edge represents the likelihood of migrating threads (of the QoS) across that edge. Each graph edge encodes the following attributes:
 
 ```
 typedef union sched_clutch_edge {
@@ -215,7 +215,7 @@ typedef union sched_clutch_edge {
 ```
 The `sce_migration_allowed` & `sce_steal_allowed` flags indicate if threads are allowed to be migrated & stolen across the edge. The `sce_migration_weight` is a measure of the scheduling latency delta that should exist between the source and destination nodes (i.e. clusters) for the thread to be migrated. The per-cluster scheduling latency metric is described in the next section. 
 
-The performance controller can dynamically update the weights and properties of the edge matrix dynamically to change the width of the system for performance and efficiency reasons. 
+The performance controller can update the weights and properties of the edge matrix dynamically to change the width of the system for performance and efficiency reasons.
 
 **Edge Scheduler Cluster Scheduling Latency Metric**
 
@@ -282,5 +282,6 @@ This policy distributes the threads so that they spread across all available clu
 This policy distributes threads so that the threads first fill up all the capacity on the preferred cluster and its homogeneous peers before spilling to different core type. The current implementation defines capacity based on the number of CPUs in the cluster; so a cluster's shared resource is considered full if there are "n" runnable + running shared resource threads on the cluster with n cpus. This policy is different from the default scheduling policy of the edge scheduler since this always tries to fill up the native clusters to capacity even when non-native clusters might be idle.
 
 #### Long Running Workload AMP Round Robining
+The Edge scheduler implements a policy called "stir-the-pot" to round-robin long-running workload threads across clusters of various types, with the goal of ensuring those threads make roughly equal progress over time. This is essential for the performance of statically partitioned, multi-threaded workloads with NCPUs threads, as otherwise the threads on slower cores would become stragglers and the workload would lose out on a maximum amount of parallelism.
+The scheduler implements stir-the-pot at the cadence of the quantum expiration and works by swapping a thread expiring its quantum with a thread on the opposite core type which has already expired quantum there. The swap itself occurs by having the slower core send its thread to the P-core involved in the swap, preempting the P-core thread which then spills down onto the newly available slow core based on the normal Edge migration policy. In order to reduce the chance of picking the same CPUs over and over unfairly for stir-the-pot, the swap selection scheme rotates the offset at which it begins the search for a candidate CPU of the opposite type, leading to a fair distribution on average.
 
-The Edge scheduler implements a policy to round robining long running workload threads across clusters of various types to ensure that all threads of the workload make equal progress aka "stir-the-pot". This is essential for performance of workloads that statically partition work among ncpu threads. The scheduler invokes this mechanism when a thread expires a quantum on a non-preferred cluster (most likely due to migration/spilling from the preferred cluster). The scheduler recognizes this (via `AST_QUANTUM` and `AST_REBALANCE` being set) and enqueues it on a cluster native to the preferred cluster. On the next scheduling event for that cluster, the CPU will pickup this thread and spill/migrate the thread previously running onto the non-preferred cluster. In order to make sure all clusters native to the preferred cluster are euqally subject to this round-robining, the scheduler maintains a `scbg_amp_rebalance_last_chosen` value per sched_clutch_bucket_group (which represents all threads of a workload at the same QoS level).

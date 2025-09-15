@@ -59,7 +59,7 @@ typedef enum {
 __private_extern__ errno_t ntfs_cluster_alloc(ntfs_volume *vol,
 		const VCN start_vcn, const s64 count, const LCN start_lcn,
 		const NTFS_CLUSTER_ALLOCATION_ZONES zone,
-		const BOOL is_extension, ntfs_runlist *runlist);
+		const NTFS_BOOL is_extension, ntfs_runlist *runlist);
 
 __private_extern__ errno_t ntfs_cluster_free_from_rl(ntfs_volume *vol,
 		ntfs_rl_element *rl, const VCN start_vcn, s64 count,

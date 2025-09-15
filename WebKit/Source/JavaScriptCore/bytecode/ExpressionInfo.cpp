@@ -27,6 +27,7 @@
 #include "ExpressionInfo.h"
 
 #include "VM.h"
+#include <numeric>
 #include <wtf/DataLog.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/UniqueRef.h>
@@ -929,7 +930,7 @@ auto ExpressionInfo::findChapterEncodedInfoJustBelow(InstPC instPC) const -> Enc
     unsigned low = 0;
     unsigned high = m_numberOfChapters;
     while (low < high) {
-        unsigned mid = (low + high) / 2;
+        unsigned mid = std::midpoint(low, high);
         if (chapters[mid].startInstPC <= instPC)
             low = mid + 1;
         else

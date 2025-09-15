@@ -33,6 +33,9 @@ namespace WebCore {
 
 std::optional<TextDirection> baseTextDirection(StringView content)
 {
+    if (content.is8Bit())
+        return TextDirection::LTR;
+
     auto characters = content.span16();
     switch (ubidi_getBaseDirection(characters.data(), characters.size())) {
     case UBIDI_RTL:

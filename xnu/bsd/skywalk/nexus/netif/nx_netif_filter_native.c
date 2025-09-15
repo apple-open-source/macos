@@ -269,7 +269,7 @@ nx_netif_native_tx_dequeue(struct nexus_netif_adapter *nifna,
 		 * TODO:
 		 * The number of packets to move should be dependent on
 		 * the available ring space of the next filter. The limits
-		 * should be adjusted at ifclassq_dequeue_common().
+		 * should be adjusted at ifclassq_dequeue().
 		 */
 		nx_netif_filter_tx_pkt_enqueue(nifna, head->cp_kpkt);
 	}

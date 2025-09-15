@@ -126,6 +126,18 @@ private:
     IOReturn addReportToPoolGated(IOMemoryDescriptor *report);
 
 	bool serializeDebugState(void *ref, OSSerialize *serializer);
+
+	/*! @function	publishProperties
+	 *  @abstract	Copy a set of properties from the provider and apply them to this service.
+	 *  @discussion	Called during `start` before service registration.
+	 */
+	void publishProperties();
+
+	/*! @function	setRequiredDextEntitlements
+	 *  @abstract	Set the entitlements needed for dexts to match against this interface.
+	 *  @discussion Called during `start` after applying properties from provider.
+	 */
+	void setRequiredDextEntitlements();
     
 protected:
 	

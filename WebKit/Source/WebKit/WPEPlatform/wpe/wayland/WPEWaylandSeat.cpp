@@ -294,7 +294,7 @@ const struct wl_keyboard_listener WaylandSeat::s_keyboardListener = {
         wpe_keymap_xkb_update(WPE_KEYMAP_XKB(seat.m_keymap.get()), format, fd, size);
     },
     // enter
-    [](void* data, struct wl_keyboard*, uint32_t /*serial*/, struct wl_surface* surface, struct wl_array*)
+    [](void* data, struct wl_keyboard*, uint32_t serial, struct wl_surface* surface, struct wl_array*)
     {
         if (!surface)
             return;
@@ -309,6 +309,7 @@ const struct wl_keyboard_listener WaylandSeat::s_keyboardListener = {
         auto& seat = *static_cast<WaylandSeat*>(data);
         seat.m_keyboard.toplevel.reset(toplevelWayland);
         seat.m_keyboard.repeat.key = 0;
+        seat.m_keyboard.serial = serial;
 
         if (GRefPtr<WPEView> view = wpeToplevelWaylandGetVisibleFocusedView(toplevelWayland))
             wpe_view_focus_in(view.get());
@@ -329,6 +330,7 @@ const struct wl_keyboard_listener WaylandSeat::s_keyboardListener = {
         seat.m_keyboard.toplevel = nullptr;
         seat.m_keyboard.repeat.key = 0;
         seat.m_keyboard.repeat.deadline = { };
+        seat.m_keyboard.serial = 0;
 
         if (view)
             wpe_view_focus_out(view.get());
@@ -523,6 +525,9 @@ const struct wl_seat_listener WaylandSeat::s_listener = {
             wl_touch_release(seat.m_touch.object);
             seat.m_touch = { };
         }
+
+        if (seat.m_capabilitiesChangedCallback)
+            seat.m_capabilitiesChangedCallback(seat.availableInputDevices());
     },
     // name
     [](void*, struct wl_seat*, const char*) { }
@@ -742,6 +747,18 @@ bool WaylandSeat::keyRepeat(Seconds& delay, Seconds& interval)
     // rate is the number of characters per second.
     interval = Seconds(1. / m_keyboard.repeat.rate.value());
     return true;
+}
+
+WPEAvailableInputDevices WaylandSeat::availableInputDevices() const
+{
+    WPEAvailableInputDevices source = WPE_AVAILABLE_INPUT_DEVICE_NONE;
+    if (m_pointer.object)
+        source = WPE_AVAILABLE_INPUT_DEVICE_MOUSE;
+    if (m_keyboard.object)
+        source = static_cast<WPEAvailableInputDevices>(source | WPE_AVAILABLE_INPUT_DEVICE_KEYBOARD);
+    if (m_touch.object)
+        source = static_cast<WPEAvailableInputDevices>(source | WPE_AVAILABLE_INPUT_DEVICE_TOUCHSCREEN);
+    return source;
 }
 
 } // namespace WPE

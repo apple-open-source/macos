@@ -23,46 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WKBrowsingContextController.h>
+// FIXME: Remove this header once rdar://148557426 is completed.
 
 #import <WebKit/WKBase.h>
-
-typedef NS_ENUM(NSUInteger, WKBrowsingContextPaginationMode) {
-    WKPaginationModeUnpaginated,
-    WKPaginationModeLeftToRight,
-    WKPaginationModeRightToLeft,
-    WKPaginationModeTopToBottom,
-    WKPaginationModeBottomToTop,
-};
-
-@class WKBrowsingContextHandle;
-@class _WKRemoteObjectRegistry;
-
-@interface WKBrowsingContextController (Private)
-
-@property (readonly) WKPageRef _pageRef;
-
-@property (readonly) BOOL hasOnlySecureContent;
-
-@property WKBrowsingContextPaginationMode paginationMode;
-
-// Whether the column-break-{before,after} properties are respected instead of the
-// page-break-{before,after} properties.
-@property BOOL paginationBehavesLikeColumns;
-
-// Set to 0 to have the page length equal the view length.
-@property CGFloat pageLength;
-@property CGFloat gapBetweenPages;
-
-// Whether or not to enable a line grid by default on the paginated content.
-@property BOOL paginationLineGridEnabled;
-
-@property (readonly) NSUInteger pageCount;
-
-@property (nonatomic, readonly) WKBrowsingContextHandle *handle;
-
-@property (nonatomic, readonly) _WKRemoteObjectRegistry *_remoteObjectRegistry;
-
-@property (nonatomic, readonly) pid_t processIdentifier;
-
-@end
+#import <WebKit/WKBrowsingContextController.h>

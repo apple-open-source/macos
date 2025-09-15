@@ -112,7 +112,7 @@ Ref<SceneKitModelLoader> loadSceneKitModel(Model& modelSource, SceneKitModelLoad
 
     auto loader = SceneKitModelLoaderFailure::create([NSError errorWithDomain:@"SceneKitModelLoader" code:-1 userInfo:@{
         NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Unsupported MIME type: %s.", modelSource.mimeType().utf8().data()],
-        NSURLErrorFailingURLErrorKey: (NSURL *)modelSource.url()
+        NSURLErrorFailingURLErrorKey: modelSource.url().createNSURL().get()
     }]);
 
     dispatch_async(dispatch_get_main_queue(), [weakClient = WeakPtr { client }, loader] {

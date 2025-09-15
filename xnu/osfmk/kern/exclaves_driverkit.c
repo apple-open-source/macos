@@ -37,6 +37,7 @@
 
 #include <Exclaves/Exclaves.h>
 #include <IOKit/IOTypes.h>
+#include <IOKit/IOReturn.h>
 #include <mach/exclaves.h>
 #include <kern/startup.h>
 #include <stdint.h>
@@ -521,7 +522,7 @@ exclaves_driverkit_upcall_legacy_notification_signal(const uint64_t id,
 	    "[notification_upcalls] notification_signal "
 	    "id %llx mask %x\n", id, mask);
 	exclaves_resource_t *notification_resource =
-	    exclaves_notification_lookup_by_id(EXCLAVES_DOMAIN_KERNEL, id);
+	    exclaves_notification_lookup_by_id(id);
 
 	xnuupcalls_xnuupcalls_notification_signal__result_s result = {};
 
@@ -1061,7 +1062,7 @@ exclaves_driverkit_upcall_notification_signal(const uint64_t id,
 	    "[notification_upcalls] notification_signal "
 	    "id %llx mask %x\n", id, mask);
 	exclaves_resource_t *notification_resource =
-	    exclaves_notification_lookup_by_id(EXCLAVES_DOMAIN_KERNEL, id);
+	    exclaves_notification_lookup_by_id(id);
 
 	xnuupcallsv2_notificationupcallsprivate_notificationsignal__result_s result = {};
 
@@ -1084,6 +1085,93 @@ exclaves_driverkit_upcall_notification_signal(const uint64_t id,
 	return completion(result);
 }
 
+tb_error_t
+exclaves_driverkit_upcall_lpw_createpowerassertion(
+	tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_s))
+{
+	exclaves_debug_printf(show_iokit_upcalls, "[lpw_upcalls] createPowerAssertion\n");
+
+	struct IOExclaveLPWUpcallArgs args;
+	args.type = kIOExclaveLPWUpcallTypeCreateAssertion;
+	args.data.createassertion.id_out = 0;
+
+	xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_s result = {};
+	IOReturn ret = IOExclaveLPWUpcallHandler(&args);
+	uint64_t assertionID = args.data.createassertion.id_out;
+	if (ret == kIOReturnSuccess && assertionID != 0) {
+		xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_init_success(
+			&result, assertionID);
+	} else if (ret == kIOReturnBusy) {
+		xnuupcallsv2_lpwerror_s err;
+		xnuupcallsv2_lpwerror_assertiondenied__init(&err);
+		xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_init_failure(
+			&result, err);
+	} else {
+		xnuupcallsv2_lpwerror_s err;
+		xnuupcallsv2_lpwerror_internalerror__init(&err);
+		xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_init_failure(
+			&result, err);
+	}
+
+	return completion(result);
+}
+
+tb_error_t
+exclaves_driverkit_upcall_lpw_releasepowerassertion(const uint64_t assertionID,
+    tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_s))
+{
+	exclaves_debug_printf(show_iokit_upcalls,
+	    "[lpw_upcalls] releasePowerAssertion id %llx\n", assertionID);
+
+	struct IOExclaveLPWUpcallArgs args;
+	args.type = kIOExclaveLPWUpcallTypeReleaseAssertion;
+	args.data.releaseassertion.id = assertionID;
+
+	xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_s result = {};
+	if (IOExclaveLPWUpcallHandler(&args) == kIOReturnSuccess) {
+		xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_init_success(
+			&result);
+	} else {
+		xnuupcallsv2_lpwerror_s err;
+		xnuupcallsv2_lpwerror_internalerror__init(&err);
+		xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_init_failure(
+			&result, err);
+	}
+
+	return completion(result);
+}
+
+tb_error_t
+exclaves_driverkit_upcall_lpw_requestrunmode(const uint64_t runmode_mask,
+    tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_s))
+{
+	exclaves_debug_printf(show_iokit_upcalls,
+	    "[lpw_upcalls] requestRunMode mask %llx\n", runmode_mask);
+
+	struct IOExclaveLPWUpcallArgs args;
+	args.type = kIOExclaveLPWUpcallTypeRequestRunMode;
+	args.data.requestrunmode.runmode_mask = runmode_mask;
+
+	xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_s result = {};
+	IOReturn ret = IOExclaveLPWUpcallHandler(&args);
+	if (ret == kIOReturnSuccess) {
+		xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_init_success(
+			&result);
+	} else if (ret == kIOReturnBusy || ret == kIOReturnUnsupported) {
+		xnuupcallsv2_lpwerror_s err;
+		xnuupcallsv2_lpwerror_runmoderequestdenied__init(&err);
+		xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_init_failure(
+			&result, err);
+	} else {
+		xnuupcallsv2_lpwerror_s err;
+		xnuupcallsv2_lpwerror_internalerror__init(&err);
+		xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_init_failure(
+			&result, err);
+	}
+
+	return completion(result);
+}
+
 /* -------------------------------------------------------------------------- */
 #pragma mark Tests
 
@@ -1092,9 +1180,7 @@ exclaves_driverkit_upcall_notification_signal(const uint64_t id,
 #define EXCLAVES_HELLO_DRIVER_INTERRUPTS_INDEX 0
 #define EXCLAVES_HELLO_DRIVER_INTERRUPTS_CHECK_RET(test) if (test) { break; }
 
-#define EXCLAVES_ID_HELLO_INTERRUPTS_EP              \
-    (exclaves_service_lookup(EXCLAVES_DOMAIN_KERNEL, \
-    "com.apple.service.HelloDriverInterrupts"))
+#define EXCLAVES_HELLO_INTERRUPTS "com.apple.service.HelloDriverInterrupts"
 
 typedef enum hello_driverkit_interrupts_test_type {
 	TEST_IRQ_REGISTER,
@@ -1133,63 +1219,45 @@ static const char *hello_driverkit_interrupts_test_string[] = {
 static int
 hello_driverkit_interrupts(hello_driverkit_interrupts_test_type_t test_type)
 {
+	int err = 0;
+	__block uint8_t res = 0;
+	hellodriverinterrupts_hellodriverinterrupts_s client;
+
 	exclaves_debug_printf(show_test_output, "****** START: %s ******\n",
 	    hello_driverkit_interrupts_test_string[test_type]);
 
-	int err = 0;
 	assert(test_type < HELLO_DRIVER_INTERRUPTS_NUM_TESTS);
 
-	tb_endpoint_t ep = tb_endpoint_create_with_value(
-		TB_TRANSPORT_TYPE_XNU, EXCLAVES_ID_HELLO_INTERRUPTS_EP, 0);
-
-	tb_client_connection_t client =
-	    tb_client_connection_create_with_endpoint(ep);
-
-	tb_client_connection_activate(client);
-
-	tb_message_t message = NULL;
-	tb_transport_message_buffer_t tpt_buf = NULL;
-
-	message = kalloc_type(struct tb_message_s, Z_WAITOK | Z_ZERO | Z_NOFAIL);
-	tpt_buf = kalloc_type(struct tb_transport_message_buffer_s,
-	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
-
-	// Encode TB buffer with test_type
-	tb_error_t tb_err = TB_ERROR_SUCCESS;
-	tb_err = tb_client_connection_message_construct(client, message,
-	    tpt_buf, sizeof(uint8_t), 0);
-	if (tb_err != TB_ERROR_SUCCESS) {
+	exclaves_id_t id = exclaves_service_lookup(EXCLAVES_DOMAIN_KERNEL,
+	    EXCLAVES_HELLO_INTERRUPTS);
+	if (id == EXCLAVES_INVALID_ID) {
+		exclaves_debug_printf(show_test_output, "%s: Found %s service failed\n",
+		    __func__, EXCLAVES_HELLO_INTERRUPTS);
 		err = 1;
 		goto out;
 	}
-	exclaves_debug_printf(show_test_output, "%s: Tightbeam constructing message: %u\n", __func__,
-	    (uint8_t) test_type);
-	tb_message_encode_u8(message, (uint8_t) test_type);
 
-	tb_message_complete(message);
-	exclaves_debug_printf(show_test_output, "%s: Tightbeam message completed\n", __func__);
+	tb_endpoint_t ep = tb_endpoint_create_with_value(
+		TB_TRANSPORT_TYPE_XNU, id, TB_ENDPOINT_OPTIONS_NONE);
 
-	tb_message_t response = NULL;
-
-	// Perform downcall
-	tb_err = tb_connection_send_query(client, message, &response,
-	    TB_CONNECTION_WAIT_FOR_REPLY);
+	tb_error_t tb_err =
+	    hellodriverinterrupts_hellodriverinterrupts__init(&client, ep);
 	if (tb_err != TB_ERROR_SUCCESS) {
+		exclaves_debug_printf(show_test_output, "%s: Failed to initialize hellodriverinterrupts service\n",
+		    __func__);
 		err = 2;
 		goto out;
 	}
-	exclaves_debug_printf(show_test_output, "%s: Tightbeam message send success, reply: ", __func__);
 
-	// Decode downcall reply
-	uint8_t reply = 0;
-	tb_message_decode_u8(response, &reply);
-	exclaves_debug_printf(show_test_output, "%u\n", reply);
-
-	if (reply != 0) {
+	tb_err = hellodriverinterrupts_hellodriverinterrupts_hellointerrupt(&client, (uint8_t)test_type, ^(uint8_t result) {
+		res = result;
+	});
+	if (tb_err != TB_ERROR_SUCCESS || res != 0) {
+		exclaves_debug_printf(show_test_output, "%s: Sending TB message hellointerrupt (type %d), failed with result %d\n",
+		    __func__, (uint8_t)test_type, res);
 		err = 3;
 		goto out;
 	}
-	tb_client_connection_message_destruct(client, message);
 
 out:
 	if (err == 0) {
@@ -1199,9 +1267,6 @@ out:
 		exclaves_debug_printf(show_test_output, "****** FAILURE: %s (%d) ******\n",
 		    hello_driverkit_interrupts_test_string[test_type], err);
 	}
-
-	kfree_type(struct tb_message_s, message);
-	kfree_type(struct tb_transport_message_buffer_s, tpt_buf);
 
 	return err;
 }

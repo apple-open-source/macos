@@ -263,7 +263,7 @@ Ref<WebBackForwardListFrameItem> WebBackForwardListItem::protectedMainFrameItem(
 #if !LOG_DISABLED
 String WebBackForwardListItem::loggingString()
 {
-    return makeString("Back/forward item ID "_s, identifier().toString(), ", original URL "_s, originalURL(), ", current URL "_s, url(), m_backForwardCacheEntry ? "(has a back/forward cache entry)"_s : ""_s);
+    return m_mainFrameItem->loggingString();
 }
 #endif // !LOG_DISABLED
 

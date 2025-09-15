@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <span>
 #include <wtf/StdLibExtras.h>

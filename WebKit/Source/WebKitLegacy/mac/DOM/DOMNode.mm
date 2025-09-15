@@ -86,13 +86,13 @@ DOMNode *kit(Node* value)
 - (NSString *)nodeName
 {
     JSMainThreadNullState state;
-    return unwrap(*self).nodeName();
+    return unwrap(*self).nodeName().createNSString().autorelease();
 }
 
 - (NSString *)nodeValue
 {
     JSMainThreadNullState state;
-    return unwrap(*self).nodeValue();
+    return unwrap(*self).nodeValue().createNSString().autorelease();
 }
 
 - (void)setNodeValue:(NSString *)newNodeValue
@@ -152,13 +152,13 @@ DOMNode *kit(Node* value)
 - (NSString *)namespaceURI
 {
     JSMainThreadNullState state;
-    return unwrap(*self).namespaceURI();
+    return unwrap(*self).namespaceURI().createNSString().autorelease();
 }
 
 - (NSString *)prefix
 {
     JSMainThreadNullState state;
-    return unwrap(*self).prefix();
+    return unwrap(*self).prefix().createNSString().autorelease();
 }
 
 - (void)setPrefix:(NSString *)newPrefix
@@ -170,7 +170,7 @@ DOMNode *kit(Node* value)
 - (NSString *)localName
 {
     JSMainThreadNullState state;
-    return unwrap(*self).localName();
+    return unwrap(*self).localName().createNSString().autorelease();
 }
 
 - (DOMNamedNodeMap *)attributes
@@ -182,13 +182,13 @@ DOMNode *kit(Node* value)
 - (NSString *)baseURI
 {
     JSMainThreadNullState state;
-    return unwrap(*self).baseURI().string();
+    return unwrap(*self).baseURI().string().createNSString().autorelease();
 }
 
 - (NSString *)textContent
 {
     JSMainThreadNullState state;
-    return unwrap(*self).textContent();
+    return unwrap(*self).textContent().createNSString().autorelease();
 }
 
 - (void)setTextContent:(NSString *)newTextContent
@@ -297,13 +297,13 @@ DOMNode *kit(Node* value)
 - (NSString *)lookupPrefix:(NSString *)inNamespaceURI
 {
     JSMainThreadNullState state;
-    return unwrap(*self).lookupPrefix(inNamespaceURI);
+    return unwrap(*self).lookupPrefix(inNamespaceURI).createNSString().autorelease();
 }
 
 - (NSString *)lookupNamespaceURI:(NSString *)inPrefix
 {
     JSMainThreadNullState state;
-    return unwrap(*self).lookupNamespaceURI(inPrefix);
+    return unwrap(*self).lookupNamespaceURI(inPrefix).createNSString().autorelease();
 }
 
 - (BOOL)isDefaultNamespace:(NSString *)inNamespaceURI

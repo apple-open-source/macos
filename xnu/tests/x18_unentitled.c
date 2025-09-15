@@ -26,10 +26,12 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include "context_helpers.h"
 #include <darwintest.h>
-#include <pthread.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.arm"),
@@ -45,12 +47,23 @@ T_DECL(x18_unentitled,
 #ifndef __arm64__
 	T_SKIP("Running on non-arm64 target, skipping...");
 #else
+	bool did_csw = false;
 	uint64_t x18_val;
+
 	for (uint64_t i = 0xFEEDB0B000000000ULL; i < 0xFEEDB0B000000000ULL + 10000; ++i) {
 		asm volatile ("mov x18, %0" : : "r"(i));
-		sched_yield();
+		int32_t const nr_csw = get_csw_count();
+		int const rc = usleep(10);
+		int32_t const nr_csw_after = get_csw_count();
+
+		// There isn't any guarantee usleep() will actually context switch so this is a best effort way
+		// to see if we've switched at least once in all these iterations.
+		did_csw = did_csw || (nr_csw_after > nr_csw);
+		T_QUIET; T_ASSERT_EQ(0, rc, "usleep");
 		asm volatile ("mov %0, x18" : "=r"(x18_val));
 		T_QUIET; T_ASSERT_EQ(x18_val, 0ULL, "check that x18 is cleared after yield");
 	}
+
+	T_QUIET; T_ASSERT_TRUE(did_csw, "did not context switch, but should have.");
 #endif
 }

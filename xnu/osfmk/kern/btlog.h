@@ -39,7 +39,7 @@
 
 __BEGIN_DECLS __ASSUME_PTR_ABI_SINGLE_BEGIN
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 /*
  * The btlog subsystem allows for fast unobtrusive backtraces
@@ -315,7 +315,7 @@ extern void btlog_copy_backtraces_for_elements(
 	leak_site_proc          proc);
 
 #endif /* DEBUG || DEVELOPMENT */
-#pragma GCC visibility pop
+__exported_pop
 
 __ASSUME_PTR_ABI_SINGLE_END __END_DECLS
 

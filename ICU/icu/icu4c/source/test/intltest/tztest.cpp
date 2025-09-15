@@ -1490,7 +1490,7 @@ TimeZoneTest::TestDisplayName()
     logln("PST->" + name);
     if (name.compare("Pacific Standard Time") != 0)
         dataerrln("Fail: Expected \"Pacific Standard Time\" but got " + name);
-    
+
     //*****************************************************************
     // THE FOLLOWING LINES MUST BE UPDATED IF THE LOCALE DATA CHANGES
     // THE FOLLOWING LINES MUST BE UPDATED IF THE LOCALE DATA CHANGES
@@ -1506,31 +1506,31 @@ TimeZoneTest::TestDisplayName()
         {true,  TimeZone::SHORT, "PDT"},
         {false, TimeZone::LONG,  "Pacific Standard Time"},
         {true,  TimeZone::LONG,  "Pacific Daylight Time"},
-        
+
         {false, TimeZone::SHORT_GENERIC, "PT"},
         {true,  TimeZone::SHORT_GENERIC, "PT"},
         {false, TimeZone::LONG_GENERIC,  "Pacific Time"},
         {true,  TimeZone::LONG_GENERIC,  "Pacific Time"},
-        
+
         {false, TimeZone::SHORT_GMT, "-0800"},
         {true,  TimeZone::SHORT_GMT, "-0700"},
         {false, TimeZone::LONG_GMT,  "GMT-08:00"},
         {true,  TimeZone::LONG_GMT,  "GMT-07:00"},
-        
+
         {false, TimeZone::SHORT_COMMONLY_USED, "PST"},
         {true,  TimeZone::SHORT_COMMONLY_USED, "PDT"},
         {false, TimeZone::GENERIC_LOCATION,  "Los Angeles Time"},
         {true,  TimeZone::GENERIC_LOCATION,  "Los Angeles Time"},
-        
+
         {false, TimeZone::LONG, ""}
     };
-    
+
     for (i=0; kData[i].expect[0] != '\0'; i++)
     {
         name.remove();
         name = zone->getDisplayName(kData[i].useDst,
-                                    kData[i].style,
-                                    Locale::getEnglish(), name);
+                                   kData[i].style,
+                                   Locale::getEnglish(), name);
         if (name.compare(kData[i].expect) != 0)
             dataerrln("Fail: Expected " + UnicodeString(kData[i].expect) + "; got " + name);
         logln("PST [with options]->" + name);
@@ -1539,20 +1539,20 @@ TimeZoneTest::TestDisplayName()
     {
         name.remove();
         name = zone->getDisplayName(kData[i].useDst,
-                                    kData[i].style, name);
+                                   kData[i].style, name);
         if (name.compare(kData[i].expect) != 0)
             dataerrln("Fail: Expected " + UnicodeString(kData[i].expect) + "; got " + name);
         logln("PST [with options]->" + name);
     }
-    
-    
+
+
     // Make sure that we don't display the DST name by constructing a fake
     // PST zone that has DST all year long.
     SimpleTimeZone *zone2 = new SimpleTimeZone(0, "PST");
-    
+
     zone2->setStartRule(UCAL_JANUARY, 1, 0, 0, status);
     zone2->setEndRule(UCAL_DECEMBER, 31, 0, 0, status);
-    
+
     UnicodeString inDaylight;
     if (zone2->inDaylightTime(static_cast<UDate>(0), status)) {
         inDaylight = UnicodeString("true");
@@ -1569,7 +1569,7 @@ TimeZoneTest::TestDisplayName()
     logln("Modified PST->" + name);
     if (name.compare("Pacific Standard Time") != 0)
         dataerrln("Fail: Expected \"Pacific Standard Time\"");
-    
+
     // Make sure we get the default display format for Locales
     // with no display name data.
     Locale mt_MT("mt_MT");
@@ -1581,39 +1581,39 @@ TimeZoneTest::TestDisplayName()
     // THE FOLLOWING LINE MUST BE UPDATED IF THE LOCALE DATA CHANGES
     //*****************************************************************
     logln("PST(mt_MT)->" + name);
-    
+
     // *** REVISIT SRL how in the world do I check this? looks java specific.
     // Now be smart -- check to see if zh resource is even present.
     // If not, we expect the en fallback behavior.
     ResourceBundle enRB(nullptr,
-                        Locale::getEnglish(), status);
+                            Locale::getEnglish(), status);
     if(U_FAILURE(status))
         dataerrln("Couldn't get ResourceBundle for en - %s", u_errorName(status));
-    
+
     ResourceBundle mtRB(nullptr,
-                        mt_MT, status);
+                         mt_MT, status);
     //if(U_FAILURE(status))
     //    errln("Couldn't get ResourceBundle for mt_MT");
-    
+
     UBool noZH = U_FAILURE(status);
-    
+
     if (noZH) {
         logln("Warning: Not testing the mt_MT behavior because resource is absent");
         if (name != "Pacific Standard Time")
             dataerrln("Fail: Expected Pacific Standard Time");
     }
-    
-    
+
+
     if      (name.compare("GMT-08:00") &&
              name.compare("GMT-8:00") &&
              name.compare("GMT-0800") &&
              name.compare("GMT-800")) {
-        dataerrln(UnicodeString("Fail: Expected GMT-08:00 or something similar for PST in mt_MT but got ") + name );
+      dataerrln(UnicodeString("Fail: Expected GMT-08:00 or something similar for PST in mt_MT but got ") + name );
         dataerrln("************************************************************");
         dataerrln("THE ABOVE FAILURE MAY JUST MEAN THE LOCALE DATA HAS CHANGED");
         dataerrln("************************************************************");
     }
-    
+
     // Now try a non-existent zone
     delete zone2;
     zone2 = new SimpleTimeZone(90*60*1000, "xyzzy");
@@ -1636,17 +1636,17 @@ TimeZoneTest::TestDisplayName()
     // clean up
     delete zone;
     delete zone2;
-    
+
 #if APPLE_ICU_CHANGES
     // rdar://112195924
     Locale locale  = Locale::createFromName("ro");
     zone = TimeZone::createTimeZone("GMT");
-    
+
     name = zone->getDisplayName(locale,
                                 name);
     if (name.compare("Ora de Greenwich") != 0)
         dataerrln("Fail: Expected \"Ora de Greenwich\" for \"ro\" locale but got " + name);
-    
+
     delete zone;
 #endif // APPLE_ICU_CHANGES
 }
@@ -2431,7 +2431,7 @@ static struct   {
       {"America/Whitehorse",  "en", FALSE, TimeZone::LONG,  "Yukon Standard Time"},
       {"America/Whitehorse",  "fr", FALSE, TimeZone::SHORT, "YST"},
       {"America/Whitehorse",  "fr", FALSE, TimeZone::LONG,  "heure normale de Yukon"},
-     
+
      // rdar://95729967
      {"Australia/Sydney",     "kk", FALSE, TimeZone::LONG,  "Аустралия стандартты шығыс уақыты"},
      {"Australia/Sydney",     "kk", TRUE,  TimeZone::LONG,  "Аустралия жазғы шығыс уақыты"},
@@ -2504,13 +2504,7 @@ void TimeZoneTest::TestGetRegion()
         {"America/Indiana/Indianapolis",    "US"},  // CLDR alias
         {"Mexico/General",                  "MX"},  // Link America/Mexico_City, Olson backward
         {"Etc/UTC",                         "001"},
-#if APPLE_ICU_CHANGES
-// rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
-// We backed out the OSICU time zone data as part of integrating ICU 76, so we have to back out the test too
-        {"EST5EDT",                         "001"},
-#else
         {"EST5EDT",                         "US"},
-#endif // APPLE_ICU_CHANGES
         {"PST",                             "US"},  // Link America/Los_Angeles
         {"Europe/Helsinki",                 "FI"},
         {"Europe/Mariehamn",                "AX"},  // Link Europe/Helsinki, but in zone.tab
@@ -2716,13 +2710,7 @@ void TimeZoneTest::TestGetIanaID() {
         {u"Europe/Zaporozhye",  u"Europe/Kyiv"},
         {u"Etc/GMT-1",          u"Etc/GMT-1"},
         {u"Etc/GMT+20",         UNKNOWN},
-#if APPLE_ICU_CHANGES
-// rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
-// We backed out the OSICU time zone data as part of integrating ICU 76, so we have to back out the test too
-        {u"PST8PDT",            u"PST8PDT"},
-#else
         {u"PST8PDT",            u"America/Los_Angeles"},
-#endif // APPLE_ICU_CHANGES
         {u"GMT-08:00",          UNKNOWN},
         {nullptr,               nullptr}
     };

@@ -148,7 +148,7 @@ SECURITY_READ_ONLY_EARLY(vm_packing_params_t) kn_kq_packing_params =
     VM_PACKING_PARAMS(KNOTE_KQ_PACKED);
 
 extern mach_port_name_t ipc_entry_name_mask(mach_port_name_t name); /* osfmk/ipc/ipc_entry.h */
-extern int cansignal(struct proc *, kauth_cred_t, struct proc *, int); /* bsd/kern/kern_sig.c */
+extern bool cansignal(struct proc *, kauth_cred_t, struct proc *, int); /* bsd/kern/kern_sig.c */
 
 #define KEV_EVTID(code) BSDDBG_CODE(DBG_BSD_KEVENT, (code))
 
@@ -310,15 +310,16 @@ extern const struct filterops fsevent_filtops;
 extern const struct filterops vnode_filtops;
 extern const struct filterops tty_filtops;
 
-const static struct filterops file_filtops;
-const static struct filterops kqread_filtops;
-const static struct filterops proc_filtops;
-const static struct filterops timer_filtops;
-const static struct filterops user_filtops;
-const static struct filterops workloop_filtops;
+__security_const_early static struct filterops file_filtops;
+__security_const_early static struct filterops kqread_filtops;
+__security_const_early static struct filterops proc_filtops;
+__security_const_early static struct filterops timer_filtops;
+__security_const_early static struct filterops user_filtops;
+__security_const_early static struct filterops workloop_filtops;
 #if CONFIG_EXCLAVES
 extern const struct filterops exclaves_notification_filtops;
 #endif /* CONFIG_EXCLAVES */
+extern const struct filterops aio_filtops;
 
 /*
  *
@@ -340,7 +341,7 @@ static const struct filterops * const sysfilt_ops[EVFILTID_MAX] = {
 	/* Public Filters */
 	[~EVFILT_READ]                  = &file_filtops,
 	[~EVFILT_WRITE]                 = &file_filtops,
-	[~EVFILT_AIO]                   = &bad_filtops,
+	[~EVFILT_AIO]                   = &aio_filtops,
 	[~EVFILT_VNODE]                 = &file_filtops,
 	[~EVFILT_PROC]                  = &proc_filtops,
 	[~EVFILT_SIGNAL]                = &sig_filtops,

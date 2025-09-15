@@ -119,6 +119,16 @@ struct sockaddr_inifscope {
 #define IP_NO_IFT_PDP           IP_NO_IFT_CELLULAR /* deprecated */
 #define IP_OUT_IF               9696 /* for internal use only */
 
+#define IP_RECV_LINK_ADDR_TYPE  9697 /* bool: receive the type of the link level address */
+
+/*
+ * Values for IP_RECV_LINK_ADDR_TYPE in ancillary message
+ */
+#define IP_RECV_LINK_ADDR_UNICAST   0
+#define IP_RECV_LINK_ADDR_BROADCAST 1
+#define IP_RECV_LINK_ADDR_MULTICAST 2
+
+
 #ifdef BSD_KERNEL_PRIVATE
 #define CTL_IPPROTO_NAMES { \
     { "ip", CTLTYPE_NODE }, \

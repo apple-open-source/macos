@@ -1588,7 +1588,7 @@
       'angle_restricted_trace_gold_isolated_scripts',
     ],
 
-    'isolated_scripts_group_s22': [
+    'isolated_scripts_group_s24': [
       'angle_restricted_trace_gold_isolated_scripts',
     ],
 
@@ -1651,11 +1651,6 @@
       'angle_deqp_gles2_webgpu_with_retry_gtests',
       'angle_deqp_gles3_gl_with_retry_gtests',
       'angle_deqp_gles3_metal_gtests',
-      'angle_end2end_with_retry_gtests',
-      'angle_unit_gtests',
-    ],
-
-    'mac_nvidia_gtests': [
       'angle_end2end_with_retry_gtests',
       'angle_unit_gtests',
     ],

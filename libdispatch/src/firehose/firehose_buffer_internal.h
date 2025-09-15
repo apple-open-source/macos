@@ -50,7 +50,8 @@ typedef uint8_t firehose_chunk_ref_t;
 static const unsigned long firehose_stream_uses_io_bank =
 	(1UL << firehose_stream_persist) |
 	(1UL << firehose_stream_special) |
-	(1UL << firehose_stream_signpost);
+	(1UL << firehose_stream_signpost) |
+	(1UL << firehose_stream_metric);
 
 typedef union {
 #define FIREHOSE_BANK_SHIFT(bank)			(16 * (bank))
@@ -241,7 +242,7 @@ firehose_buffer_tracepoint_reserve_slow(firehose_buffer_t fb,
 		firehose_tracepoint_query_t ask, uint8_t **privptr);
 
 void *
-firehose_buffer_get_logging_prefs(firehose_buffer_t fb, size_t *size);
+firehose_buffer_get_logging_prefs(mach_port_t sendp, size_t *size);
 
 bool
 firehose_buffer_should_send_strings(firehose_buffer_t fb);

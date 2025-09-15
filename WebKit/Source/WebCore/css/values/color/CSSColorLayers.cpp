@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +28,8 @@
 #include "CSSColorLayers.h"
 
 #include "CSSColorLayersResolver.h"
-#include "CSSColorLayersSerialization.h"
 #include "CSSPlatformColorResolutionState.h"
+#include "CSSPrimitiveValueMappings.h"
 #include "ColorSerialization.h"
 
 namespace WebCore {
@@ -63,9 +64,18 @@ bool containsColorSchemeDependentColor(const ColorLayers& value)
     });
 }
 
-void Serialize<ColorLayers>::operator()(StringBuilder& builder, const ColorLayers& value)
+void Serialize<ColorLayers>::operator()(StringBuilder& builder, const SerializationContext& context, const ColorLayers& value)
 {
-    serializationForCSSColorLayers(builder, value);
+    builder.append("color-layers("_s);
+
+    if (value.blendMode != BlendMode::Normal)
+        builder.append(nameLiteralForSerialization(toCSSValueID(value.blendMode)), ", "_s);
+
+    builder.append(interleave(value.colors, [&](auto& builder, auto& color) {
+        serializationForCSS(builder, context, color);
+    }, ", "_s));
+
+    builder.append(')');
 }
 
 void ComputedStyleDependenciesCollector<ColorLayers>::operator()(ComputedStyleDependencies& dependencies, const ColorLayers& value)
@@ -73,7 +83,7 @@ void ComputedStyleDependenciesCollector<ColorLayers>::operator()(ComputedStyleDe
     collectComputedStyleDependenciesOnRangeLike(dependencies, value.colors);
 }
 
-IterationStatus CSSValueChildrenVisitor<ColorLayers>::operator()(const Function<IterationStatus(CSSValue&)>& func, const ColorLayers& value)
+IterationStatus CSSValueChildrenVisitor<ColorLayers>::operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>& func, const ColorLayers& value)
 {
     return visitCSSValueChildrenOnRangeLike(func, value.colors);
 }

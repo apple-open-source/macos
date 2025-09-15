@@ -32,6 +32,7 @@
 #include "ModelProcessModelPlayerManagerProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
+#include "WebProcessPoolMessages.h"
 #include <WebCore/ModelPlayer.h>
 #include <WebCore/ModelPlayerClient.h>
 #include <WebCore/ModelPlayerIdentifier.h>
@@ -52,11 +53,11 @@ ModelProcessModelPlayerManager::~ModelProcessModelPlayerManager() = default;
 
 ModelProcessConnection& ModelProcessModelPlayerManager::modelProcessConnection()
 {
-    auto modelProcessConnection = m_modelProcessConnection.get();
+    RefPtr modelProcessConnection = m_modelProcessConnection.get();
     if (!modelProcessConnection) {
-        modelProcessConnection = &WebProcess::singleton().ensureModelProcessConnection();
+        modelProcessConnection = WebProcess::singleton().ensureModelProcessConnection();
         m_modelProcessConnection = modelProcessConnection;
-        modelProcessConnection = &WebProcess::singleton().ensureModelProcessConnection();
+        modelProcessConnection = WebProcess::singleton().ensureModelProcessConnection();
         modelProcessConnection->addClient(*this);
     }
 
@@ -69,7 +70,13 @@ Ref<ModelProcessModelPlayer> ModelProcessModelPlayerManager::createModelProcessM
     modelProcessConnection().connection().send(Messages::ModelProcessModelPlayerManagerProxy::CreateModelPlayer(identifier), 0);
 
     auto player = ModelProcessModelPlayer::create(identifier, page, client);
+    if (page.shouldDisableModelLoadDelaysForTesting())
+        player->disableUnloadDelayForTesting();
+
+    auto previousPlayerCount = m_players.size();
     m_players.add(identifier, player);
+    if (!previousPlayerCount && m_players.size())
+        WebProcess::singleton().send(Messages::WebProcessPool::StartedPlayingModels(), 0);
 
     return player;
 }
@@ -77,7 +84,10 @@ Ref<ModelProcessModelPlayer> ModelProcessModelPlayerManager::createModelProcessM
 void ModelProcessModelPlayerManager::deleteModelProcessModelPlayer(WebCore::ModelPlayer& modelPlayer)
 {
     WebCore::ModelPlayerIdentifier identifier = modelPlayer.identifier();
+    auto previousPlayerCount = m_players.size();
     m_players.take(identifier);
+    if (previousPlayerCount && !m_players.size())
+        WebProcess::singleton().send(Messages::WebProcessPool::StoppedPlayingModels(), 0);
     modelProcessConnection().connection().send(Messages::ModelProcessModelPlayerManagerProxy::DeleteModelPlayer(identifier), 0);
 }
 
@@ -85,6 +95,26 @@ void ModelProcessModelPlayerManager::didReceivePlayerMessage(IPC::Connection& co
 {
     if (const auto& player = m_players.get(WebCore::ModelPlayerIdentifier(decoder.destinationID())))
         player->didReceiveMessage(connection, decoder);
+}
+
+void ModelProcessModelPlayerManager::didUnloadModelProcessModelPlayer(WebCore::ModelPlayerIdentifier modelPlayerIdentifier)
+{
+    auto previousPlayerCount = m_players.size();
+    if (const auto& player = m_players.take(modelPlayerIdentifier))
+        player->didUnload();
+    if (previousPlayerCount && !m_players.size())
+        WebProcess::singleton().send(Messages::WebProcessPool::StoppedPlayingModels(), 0);
+}
+
+void ModelProcessModelPlayerManager::modelProcessConnectionDidClose(ModelProcessConnection&)
+{
+    m_modelProcessConnection = nullptr;
+
+    auto playersToNotify = m_players;
+    for (auto& entry : playersToNotify) {
+        if (RefPtr player = entry.value.get())
+            player->didUnload();
+    }
 }
 
 }

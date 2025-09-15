@@ -22,6 +22,7 @@
 #include "JSTestStringifierReadOnlyAttribute.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -162,7 +163,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestStringifierReadOnlyAttributeConstructor, (JSGloba
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierReadOnlyAttributePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestStringifierReadOnlyAttribute::getConstructor(vm, prototype->globalObject()));
 }
@@ -197,7 +198,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierReadOnlyAttributePrototypeFunction_toS
 
 JSC::GCClient::IsoSubspace* JSTestStringifierReadOnlyAttribute::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestStringifierReadOnlyAttribute, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestStringifierReadOnlyAttribute, UseCustomHeapCellType::No>(vm, "JSTestStringifierReadOnlyAttribute"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierReadOnlyAttribute.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierReadOnlyAttribute = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestStringifierReadOnlyAttribute.get(); },
@@ -237,7 +238,9 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierReadOnlyAttrib
 #else
 extern "C" { extern void* _ZTVN7WebCore32TestStringifierReadOnlyAttributeE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestStringifierReadOnlyAttribute>, void>> static inline void verifyVTable(TestStringifierReadOnlyAttribute* ptr) {
+template<std::same_as<TestStringifierReadOnlyAttribute> T>
+static inline void verifyVTable(TestStringifierReadOnlyAttribute* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

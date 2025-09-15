@@ -3,7 +3,7 @@
 /*
 **********************************************************************
 *   Copyright (C) 2000-2004, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 **********************************************************************
  *  ucnv_cb.h:
  *  External APIs for the ICU's codeset conversion library

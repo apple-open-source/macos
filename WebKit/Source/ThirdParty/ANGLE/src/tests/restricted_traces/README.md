@@ -122,6 +122,37 @@ After [building](../../../doc/DevSetupAndroid.md#building-angle-for-android) and
 [installing](../../../doc/DevSetupAndroid.md#install-the-angle-apk) the APK with the above arg,
 we're ready to start capturing.
 
+If capturing a new trace using OpenCL, also add the following to your Debug setup:
+```
+angle_enable_cl = true
+```
+
+<details>
+  <summary>Example of full OpenCL GN arg Debug setup for Capture</summary>
+  <br>
+
+    # Target information
+    is_clang = true
+    target_cpu = "arm64"
+    target_os = "android"
+
+    # Enable CL + backends
+    angle_enable_cl = true
+    angle_enable_vulkan = true
+
+    # Debug mode flags
+    is_debug = true
+    symbol_level = 2
+    strip_debug_info = false
+    android_full_debug = true
+    ignore_elf32_limitations = true
+
+    # Other flag settings
+    is_official_build = false
+    is_component_build = false
+    angle_extract_native_libs = true
+</details>
+
 ## Determine the target app
 
 We first need to identify which application we want to trace.  That can generally be done by
@@ -163,6 +194,8 @@ export LABEL=angry_birds_2
 
 ## Opt the application into ANGLE
 
+Note: If running an executable, not an application/APK, these settings don't apply.
+
 Next, opt the application into using your ANGLE with capture enabled by default:
 ```
 adb shell settings put global angle_debug_package org.chromium.angle
@@ -195,6 +228,14 @@ require more. Use your discretion here:
 adb shell setprop debug.angle.capture.trigger 10
 ```
 
+For OpenCL capture, a trigger most likely won't be wanted. So, set the frame_start and frame_end values accordingly. Each ```clEnqueueNDRangeKernel``` is considered the end of a frame.
+```
+adb shell setprop debug.angle.capture.frame_start 1
+adb shell setprop debug.angle.capture.frame_end 100.
+```
+
+But if you do want to capture OpenCL and the end frame isn't clear, use the end_capture feature. See [End the capture early](./README.md#end-the-capture-early) for more information.
+
 ## Create output location
 
 We need to write out the trace file in a location accessible by the app. We use the app's data
@@ -219,6 +260,8 @@ ANGLE   : INFO: Limiting draw buffer count to 4 while FrameCapture enabled
 ```
 ## Trigger the capture
 
+Note: If you have set the start and end frame, this step does not apply.
+
 When you have reached the content in your application that you want to record, set the trigger
 value to zero:
 ```
@@ -238,6 +281,70 @@ capture. The app should continue rendering after that:
 ```
 ANGLE   : INFO: Finished recording graphics API capture
 ```
+
+## Optionally trigger additional captures
+
+It is possible to capture an arbitrary number of traces.
+
+After each trace completes, set the trigger value to the desired number of frames to capture
+for the next trace, optionally create and specify a different out_dir for the new trace data,
+and then start the new trace by again resetting the trigger value to zero.
+
+Example workflow for multiple captures:
+
+```
+adb shell mkdir -p /data/data/$PACKAGE_NAME/angle_capture_1
+adb shell mkdir -p /data/data/$PACKAGE_NAME/angle_capture_2
+adb shell mkdir -p /data/data/$PACKAGE_NAME/angle_capture_3
+
+# Set initial output dir and frame count
+adb shell setprop debug.angle.capture.out_dir /data/data/$PACKAGE_NAME/angle_capture_1
+adb shell setprop debug.angle.capture.trigger 100
+
+# Trigger capture
+adb shell setprop debug.angle.capture.trigger 0
+
+# Set the next output dir and frame count
+adb shell setprop debug.angle.capture.out_dir /data/data/$PACKAGE_NAME/angle_capture_2
+adb shell setprop debug.angle.capture.trigger 30
+
+# Trigger capture
+adb shell setprop debug.angle.capture.trigger 0
+
+# Set the next output dir and frame count
+adb shell setprop debug.angle.capture.out_dir /data/data/$PACKAGE_NAME/angle_capture_3
+adb shell setprop debug.angle.capture.trigger 60
+
+# Trigger capture
+adb shell setprop debug.angle.capture.trigger 0
+
+# Pull the traces
+adb pull /data/data/$PACKAGE_NAME/angle_capture_1
+adb pull /data/data/$PACKAGE_NAME/angle_capture_2
+adb pull /data/data/$PACKAGE_NAME/angle_capture_3
+```
+
+Note that multiple captures are incompatible with applications using persistent coherent memory.
+If more than one capture is attempted in this situation the tracer will exit immediately.
+The initial capture will remain valid.
+
+## End the capture early
+
+If the application doesn't have a clear known ending frame, use ```debug.angle.capture.end_capture```.
+
+Set frame_start. frame_end is irrelevant for ending the capture early.
+```
+adb shell setprop debug.angle.capture.frame_start 1
+```
+Set end_capture to any number greater than 0. The value doesn't matter, as long as it's greater than 0.
+```
+adb shell setprop debug.angle.capture.end_capture 1
+```
+Run the application. At the moment you want the capture to be done, set end_capture to 0
+```
+adb shell setprop debug.angle.capture.end_capture 0
+```
+This will capture everything up to the time you triggered the end of the capture.
 
 ## Pull the trace files
 

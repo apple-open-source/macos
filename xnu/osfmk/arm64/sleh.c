@@ -93,10 +93,6 @@
 
 
 
-#ifdef CONFIG_BTI_TELEMETRY
-#include <arm64/bti_telemetry.h>
-#endif /* CONFIG_BTI_TELEMETRY */
-
 #ifndef __arm64__
 #error Should only be compiling for arm64.
 #endif
@@ -281,6 +277,26 @@ extern unsigned int gFastIPI;
 
 static arm_saved_state64_t *original_faulting_state = NULL;
 
+/*
+ * A self-restrict mode describes which (if any, or several) special permissive
+ * modes are active at the time of a fault. This, in part, determines how the
+ * fault will be handled.
+ */
+__options_closed_decl(self_restrict_mode_t, unsigned int, {
+	/* None of the special modes are active. */
+	SELF_RESTRICT_NONE  = 0U,
+
+	/*
+	 * Any of the other more specific modes, this should be active if any other
+	 * mode is active.
+	 */
+	SELF_RESTRICT_ANY   = (1U << 0),
+
+	/* Reserved */
+
+	/* Reserved */
+});
+
 
 TUNABLE(bool, fp_exceptions_enabled, "-fp_exceptions", false);
 
@@ -455,6 +471,7 @@ is_table_walk_error(fault_status_t status)
 
 
 
+
 static inline int
 is_servicible_fault(fault_status_t status, uint64_t esr)
 {
@@ -532,6 +549,7 @@ arm64_platform_error(arm_saved_state_t *state, uint64_t esr, vm_offset_t far, pl
 	}
 }
 
+
 void
 panic_with_thread_kernel_state(const char *msg, arm_saved_state_t *ss)
 {
@@ -555,6 +573,7 @@ panic_with_thread_kernel_state(const char *msg, arm_saved_state_t *ss)
 		    PACK_2X32(VALUE(state->esr), VALUE(state->cpsr)),
 		    VALUE(state->far));
 	}
+
 
 
 	panic_plain("%s at pc 0x%016llx, lr 0x%016llx (saved state: %p%s)\n"
@@ -1021,12 +1040,6 @@ sleh_synchronous(arm_context_t *context, uint64_t esr, vm_offset_t far, __unused
 			break;
 		}
 #endif /* CONFIG_XNUPOST */
-#ifdef CONFIG_BTI_TELEMETRY
-		if (bti_telemetry_handle_exception(state)) {
-			/* Telemetry has accepted and corrected the exception, continue */
-			break;
-		}
-#endif /* CONFIG_BTI_TELEMETRY */
 		handle_bti_fail(state, esr);
 		__builtin_unreachable();
 
@@ -1356,10 +1369,15 @@ brk_out:
 	if (msg == NULL) {
 		kernel_panic_reason_t pr = PERCPU_GET(panic_reason);
 
-		msg = tsnprintf(pr->buf, sizeof(pr->buf),
-		    "Break 0x%04X instruction exception from kernel. "
-		    "Panic (by design)",
-		    comment);
+		if (comment == CLANG_ARM_TRAP_BOUND_CHK) {
+			msg = tsnprintf(pr->buf, sizeof(pr->buf),
+			    "Bounds safety trap");
+		} else {
+			msg = tsnprintf(pr->buf, sizeof(pr->buf),
+			    "Break 0x%04X instruction exception from kernel. "
+			    "Panic (by design)",
+			    comment);
+		}
 	}
 
 	panic_with_thread_kernel_state(msg, state);
@@ -1597,11 +1615,12 @@ user_fault_matches_pac_error_code(vm_offset_t fault_addr, uint64_t pc, bool data
  * potentially-compromised process try to handle the exception, it will be killed
  * by the kernel and a crash report will be generated.
  */
-static bool
+static self_restrict_mode_t
 user_fault_in_self_restrict_mode(thread_t thread __unused)
 {
+	self_restrict_mode_t out = SELF_RESTRICT_NONE;
 
-	return false;
+	return out;
 }
 
 static void
@@ -1820,9 +1839,8 @@ handle_sw_step_debug(arm_saved_state_t *state)
 }
 
 #if MACH_ASSERT
-TUNABLE_WRITEABLE(int, panic_on_jit_guard, "panic_on_jit_guard", 0);
+TUNABLE_WRITEABLE(self_restrict_mode_t, panic_on_jit_guard, "panic_on_jit_guard", SELF_RESTRICT_NONE);
 #endif /* MACH_ASSERT */
-
 
 static void
 handle_user_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_addr,
@@ -1965,7 +1983,8 @@ handle_user_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_addr
 	}
 #endif /* __has_feature(ptrauth_calls) */
 
-	if (user_fault_in_self_restrict_mode(thread) &&
+	const self_restrict_mode_t self_restrict_mode = user_fault_in_self_restrict_mode(thread);
+	if ((self_restrict_mode != SELF_RESTRICT_NONE) &&
 	    task_is_jit_exception_fatal(get_threadtask(thread))) {
 		int flags = PX_KTRIAGE;
 		exception_info_t info = {
@@ -1976,11 +1995,29 @@ handle_user_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_addr
 		};
 
 #if MACH_ASSERT
+		/*
+		 * Case: panic_on_jit_guard=1. Catch an early process creation TPRO issue causing
+		 * rdar://129742083. Only panic during early process creation (1 thread, few syscalls
+		 * issued) to avoid spurious panics.
+		 */
+		const self_restrict_mode_t self_restrict_panic_mask = panic_on_jit_guard & self_restrict_mode;
+		bool should_panic = ((self_restrict_panic_mask == SELF_RESTRICT_ANY) &&
+		    (current_task()->thread_count == 1) &&
+		    (thread->syscalls_unix < 24));
+
+		/*
+		 * Modes other than ANY will force panic, skipping checks that were done in the ANY case,
+		 * but allowing us to filter on a more specific scenario (e.g. TPRO, JIT, etc).  This is
+		 * meant to catch a TPRO issue causing rdar://145703251. Restrict to KERN_PROTECTION_FAILURE
+		 * only to avoid failures from the more frequent case of KERN_INVALID_ADDRESS that aren't
+		 * of interest for that radar.
+		 */
+		should_panic |= (codes[0] == KERN_PROTECTION_FAILURE)
+		    && ((self_restrict_panic_mask & ~SELF_RESTRICT_ANY) != 0);
+
 		printf("\nGUARD_REASON_JIT exc %d codes=<0x%llx,0x%llx> syscalls %d task %p thread %p va 0x%lx code 0x%x type 0x%x esr 0x%llx\n",
 		    exc, codes[0], codes[1], thread->syscalls_unix, current_task(), thread, fault_addr, fault_code, fault_type, esr);
-		if (panic_on_jit_guard &&
-		    current_task()->thread_count == 1 &&
-		    thread->syscalls_unix < 24) {
+		if (should_panic) {
 			panic("GUARD_REASON_JIT exc %d codes=<0x%llx,0x%llx> syscalls %d task %p thread %p va 0x%lx code 0x%x type 0x%x esr 0x%llx state %p j %d t %d s user 0x%llx (0x%llx) jb 0x%llx (0x%llx)",
 			    exc, codes[0], codes[1], thread->syscalls_unix, current_task(), thread, fault_addr, fault_code, fault_type, esr, state,
 			    0, 0, 0ull, 0ull,
@@ -2098,6 +2135,7 @@ handle_kernel_abort(arm_saved_state_t *state, uint64_t esr, vm_offset_t fault_ad
 #ifndef CONFIG_XNUPOST
 	(void)expected_fault_handler;
 #endif /* CONFIG_XNUPOST */
+
 
 #if CONFIG_DTRACE
 	if (is_vm_fault(fault_code) && thread->t_dtrace_inprobe) { /* Executing under dtrace_probe? */
@@ -2604,9 +2642,9 @@ sleh_fiq(arm_saved_state_t *state)
 #endif /* defined(HAS_IPI) */
 #if MONOTONIC_FIQ
 	if (type == DBG_INTR_TYPE_PMI) {
-		INTERRUPT_MASKED_DEBUG_START(mt_fiq, DBG_INTR_TYPE_PMI);
+		ml_interrupt_masked_debug_start(mt_fiq, DBG_INTR_TYPE_PMI);
 		mt_fiq(getCpuDatap(), pmcr0, upmsr);
-		INTERRUPT_MASKED_DEBUG_END();
+		ml_interrupt_masked_debug_end();
 	} else
 #endif /* MONOTONIC_FIQ */
 	{
@@ -2624,9 +2662,9 @@ sleh_fiq(arm_saved_state_t *state)
 		 * We can easily thread it through, but not bothering for the
 		 * moment (AArch32 doesn't either).
 		 */
-		INTERRUPT_MASKED_DEBUG_START(rtclock_intr, DBG_INTR_TYPE_TIMER);
+		ml_interrupt_masked_debug_start(rtclock_intr, DBG_INTR_TYPE_TIMER);
 		rtclock_intr(TRUE);
-		INTERRUPT_MASKED_DEBUG_END();
+		ml_interrupt_masked_debug_end();
 	}
 
 #if APPLEVIRTUALPLATFORM
@@ -2760,7 +2798,7 @@ sleh_invalid_stack(arm_context_t *context, uint64_t esr __unused, vm_offset_t fa
 		panic_with_thread_kernel_state("Invalid kernel stack pointer (probable overflow).", &context->ss);
 	}
 
-	panic_with_thread_kernel_state("Invalid kernel stack pointer (probable corruption).", &context->ss);
+	panic_with_thread_kernel_state("Invalid kernel stack pointer (probable corruption or early boot).", &context->ss);
 }
 
 
@@ -2857,6 +2895,7 @@ sleh_panic_lockdown_should_initiate_el1_sp0_sync(uint64_t esr, uint64_t elr,
 		}
 
 
+
 		/*
 		 * Heuristic: if FAR != XPAC(FAR), the pointer was likely corrupted
 		 * due to PAC.
@@ -2886,12 +2925,8 @@ sleh_panic_lockdown_should_initiate_el1_sp0_sync(uint64_t esr, uint64_t elr,
 	}
 
 	case ESR_EC_BTI_FAIL: {
-		/* Kernel BTI exceptions are recoverable only in telemetry mode */
-#ifdef CONFIG_BTI_TELEMETRY
-		return false;
-#else
+		/* Kernel BTI exceptions are always fatal */
 		return true;
-#endif /* CONFIG_BTI_TELEMETRY */
 	}
 
 	default: {

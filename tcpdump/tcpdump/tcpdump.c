@@ -5033,6 +5033,20 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					  prsep);
 				prsep = ", ";
 			}
+#ifdef PCAPNG_EPB_PMDF_ULPN_PKT
+			if ((pmdflags & PCAPNG_EPB_PMDF_ULPN_PKT)) {
+				ND_PRINT("%s" "ulpn",
+					  prsep);
+				prsep = ", ";
+			}
+#endif /* PCAPNG_EPB_PMDF_ULPN_PKT */
+#ifdef PCAPNG_EPB_PMDF_LPW
+			if ((pmdflags & PCAPNG_EPB_PMDF_LPW)) {
+				ND_PRINT("%s" "lpw",
+					  prsep);
+				prsep = ", ";
+			}
+#endif /* PCAPNG_EPB_PMDF_LPW */
 		}
 
 		/*

@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2011 Daniel Bates (dbates@intudata.com). All Rights Reserved.
- * Copyright (c) 2012 Google, inc.  All Rights Reserved.
+ * Copyright (C) 2011 Daniel Bates (dbates@intudata.com). All rights reserved.
+ * Copyright (c) 2012 Google, inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions

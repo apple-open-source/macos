@@ -86,7 +86,6 @@ static int SocketConnect(const char *hostName, int port)
     int					sock;
     int                 err;
     struct hostent      *ent;
-    char **h_addr_list = NULL;
 
     if (hostName[0] >= '0' && hostName[0] <= '9') {
         host.s_addr = inet_addr(hostName);
@@ -96,14 +95,16 @@ static int SocketConnect(const char *hostName, int port)
             printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
             return -2;
         }
-        h_addr_list = malloc(sizeof(char *));
-        memcpy(h_addr_list, ent->h_addr_list, sizeof(char *));
-        memcpy(&host, h_addr_list[0], sizeof(struct in_addr));
+        memcpy(&host, ent->h_addr_list[0], sizeof(struct in_addr));
     }
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1)
+    {
+        perror("socket failed");
+        return -1;
+    }
     addr.sin_addr.s_addr = host.s_addr;
-    free(h_addr_list);
     addr.sin_port = htons((u_short)port);
 
     addr.sin_family = AF_INET;
@@ -129,7 +130,7 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
         ssize_t ret;
         do {
             hexdump(ptr, len);
-            ret = write((int)conn, ptr, len);
+            ret = write((int)(intptr_t)conn, ptr, len);
             if (ret < 0)
                 perror("send");
         } while ((ret < 0) && (errno == EAGAIN || errno == EINTR));
@@ -151,7 +152,7 @@ OSStatus SocketRead(
                     void 				*data,
                     size_t 				*dataLength)
 {
-    int fd = (int)connection;
+    int fd = (int)(intptr_t)connection;
     ssize_t len;
     
     len = read(fd, data, *dataLength);

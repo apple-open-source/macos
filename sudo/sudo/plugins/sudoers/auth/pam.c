@@ -258,6 +258,16 @@ sudo_pam_init2(struct passwd *pw, sudo_auth *auth, bool quiet)
 	}
     }
 
+#ifdef __APPLE__
+	if (ISSET(sudo_mode, MODE_ASKPASS)) {
+		rc = pam_set_data(pamh, "askpass-enabled", "yes", NULL);
+		if (rc != PAM_SUCCESS) {
+			errstr = sudo_pam_strerror(pamh, rc);
+			sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+					  "pam_set_data(pamh, 'askpass-enabled', %s): %s", user_host, errstr);
+		}
+	}
+#endif // __APPLE__
     /*
      * If PAM session and setcred support is disabled we don't
      * need to keep a sudo process around to close the session.

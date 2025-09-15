@@ -83,6 +83,9 @@
 
 #include <mach/thread_act.h>
 
+#include <kern/uipc_domain.h>
+
+#include <net/droptap.h>
 #include <net/if.h>
 #include <net/if_types.h>
 #include <net/bpf.h>
@@ -2157,8 +2160,8 @@ pf_calc_state_key_flowhash(struct pf_state_key *sk)
 
 	VERIFY(sk->flowsrc == FLOWSRC_PF);
 	bzero(&fk, sizeof(fk));
-	_CASSERT(sizeof(sk->lan.addr) == sizeof(fk.ffk_laddr));
-	_CASSERT(sizeof(sk->ext_lan.addr) == sizeof(fk.ffk_laddr));
+	static_assert(sizeof(sk->lan.addr) == sizeof(fk.ffk_laddr));
+	static_assert(sizeof(sk->ext_lan.addr) == sizeof(fk.ffk_laddr));
 	bcopy(&sk->lan.addr, &fk.ffk_laddr, sizeof(fk.ffk_laddr));
 	bcopy(&sk->ext_lan.addr, &fk.ffk_raddr, sizeof(fk.ffk_raddr));
 	fk.ffk_af = sk->af_lan;
@@ -4853,7 +4856,7 @@ pf_nat64_ipv6(pbuf_t *pbuf, int off, struct pf_pdesc *pd)
 	}
 
 	if ((m = pbuf_to_mbuf(pbuf, TRUE)) != NULL) {
-		ip_input(m);
+		ip_proto_input(AF_INET, m);
 	}
 
 	return PF_NAT64;
@@ -9227,6 +9230,8 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 	int                      error = 0;
 	uint32_t                 sw_csum;
 	int                      interface_mtu = 0;
+	drop_reason_t drop_reason = DROP_REASON_PF_UNSPECIFIED;
+
 	bzero(&iproute, sizeof(iproute));
 
 	if (pbufp == NULL || !pbuf_is_valid(*pbufp) || r == NULL ||
@@ -9265,6 +9270,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 	if (m0->m_len < (int)sizeof(struct ip)) {
 		DPFPRINTF(PF_DEBUG_URGENT,
 		    ("pf_route: packet length < sizeof (struct ip)\n"));
+		drop_reason = DROP_REASON_PF_UNDERSIZED;
 		goto bad;
 	}
 
@@ -9279,6 +9285,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		rtalloc(ro);
 		if (ro->ro_rt == NULL) {
 			ipstat.ips_noroute++;
+			drop_reason = DROP_REASON_PF_NO_ROUTE;
 			goto bad;
 		}
 
@@ -9294,6 +9301,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		if (TAILQ_EMPTY(&r->rpool.list)) {
 			DPFPRINTF(PF_DEBUG_URGENT,
 			    ("pf_route: TAILQ_EMPTY(&r->rpool.list)\n"));
+			drop_reason = DROP_REASON_PF_NO_ROUTE;
 			goto bad;
 		}
 		if (s == NULL) {
@@ -9313,11 +9321,13 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		}
 	}
 	if (ifp == NULL) {
+		drop_reason = DROP_REASON_PF_NULL_IFP;
 		goto bad;
 	}
 
 	if (oifp != ifp) {
 		if (pf_test_mbuf(PF_OUT, ifp, &m0, NULL, NULL) != PF_PASS) {
+			drop_reason = DROP_REASON_PF_DROP;
 			goto bad;
 		} else if (m0 == NULL) {
 			goto done;
@@ -9325,6 +9335,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		if (m0->m_len < (int)sizeof(struct ip)) {
 			DPFPRINTF(PF_DEBUG_URGENT,
 			    ("pf_route: packet length < sizeof (struct ip)\n"));
+			drop_reason = DROP_REASON_PF_UNDERSIZED;
 			goto bad;
 		}
 		ip = mtod(m0, struct ip *);
@@ -9368,6 +9379,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 			    interface_mtu);
 			goto done;
 		} else {
+			drop_reason = DROP_REASON_PF_NO_TSO;
 			goto bad;
 		}
 	}
@@ -9383,6 +9395,7 @@ pf_route(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 
 	if (error) {
 		m0 = NULL;
+		drop_reason = DROP_REASON_PF_CANNOT_FRAGMENT;
 		goto bad;
 	}
 
@@ -9407,7 +9420,8 @@ done:
 
 bad:
 	if (m0) {
-		m_freem(m0);
+		m_drop(m0, DROPTAP_FLAG_DIR_IN, drop_reason, NULL, 0);
+		m0 = NULL;
 	}
 	goto done;
 }
@@ -9428,6 +9442,7 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 	struct pf_src_node      *__single sn = NULL;
 	int                      error = 0;
 	struct pf_mtag          *__single pf_mtag;
+	drop_reason_t drop_reason = DROP_REASON_PF_UNSPECIFIED;
 
 	if (pbufp == NULL || !pbuf_is_valid(*pbufp) || r == NULL ||
 	    (dir != PF_IN && dir != PF_OUT) || oifp == NULL) {
@@ -9463,6 +9478,7 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 	if (m0->m_len < (int)sizeof(struct ip6_hdr)) {
 		DPFPRINTF(PF_DEBUG_URGENT,
 		    ("pf_route6: m0->m_len < sizeof (struct ip6_hdr)\n"));
+		drop_reason = DROP_REASON_PF_UNDERSIZED;
 		goto bad;
 	}
 	ip6 = mtod(m0, struct ip6_hdr *);
@@ -9488,6 +9504,7 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 	if (TAILQ_EMPTY(&r->rpool.list)) {
 		DPFPRINTF(PF_DEBUG_URGENT,
 		    ("pf_route6: TAILQ_EMPTY(&r->rpool.list)\n"));
+		drop_reason = DROP_REASON_PF_NO_ROUTE;
 		goto bad;
 	}
 	if (s == NULL) {
@@ -9506,11 +9523,13 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		ifp = s->rt_kif ? s->rt_kif->pfik_ifp : NULL;
 	}
 	if (ifp == NULL) {
+		drop_reason = DROP_REASON_PF_NULL_IFP;
 		goto bad;
 	}
 
 	if (oifp != ifp) {
 		if (pf_test6_mbuf(PF_OUT, ifp, &m0, NULL, NULL) != PF_PASS) {
+			drop_reason = DROP_REASON_PF_DROP;
 			goto bad;
 		} else if (m0 == NULL) {
 			goto done;
@@ -9518,6 +9537,7 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		if (m0->m_len < (int)sizeof(struct ip6_hdr)) {
 			DPFPRINTF(PF_DEBUG_URGENT, ("pf_route6: m0->m_len "
 			    "< sizeof (struct ip6_hdr)\n"));
+			drop_reason = DROP_REASON_PF_UNDERSIZED;
 			goto bad;
 		}
 		pf_mtag = pf_get_mtag(m0);
@@ -9555,6 +9575,7 @@ pf_route6(pbuf_t **pbufp, struct pf_rule *r, int dir, struct ifnet *oifp,
 		if (r->rt != PF_DUPTO) {
 			icmp6_error(m0, ICMP6_PACKET_TOO_BIG, 0, ifp->if_mtu);
 		} else {
+			drop_reason = DROP_REASON_PF_NO_TSO;
 			goto bad;
 		}
 	}
@@ -9564,7 +9585,7 @@ done:
 
 bad:
 	if (m0) {
-		m_freem(m0);
+		m_drop(m0, DROPTAP_FLAG_DIR_IN, drop_reason, NULL, 0);
 		m0 = NULL;
 	}
 	goto done;
@@ -10922,8 +10943,7 @@ pool_init(struct pool *pp, size_t size, unsigned int align, unsigned int ioff,
 {
 #pragma unused(align, ioff, flags, palloc)
 	bzero(pp, sizeof(*pp));
-	pp->pool_zone = zone_create(wchan, size,
-	    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM);
+	pp->pool_zone = zone_create(wchan, size, ZC_ZFREE_CLEARMEM);
 	pp->pool_hiwat = pp->pool_limit = (unsigned int)-1;
 	pp->pool_name = wchan;
 }

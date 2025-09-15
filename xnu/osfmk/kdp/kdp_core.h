@@ -38,6 +38,7 @@
 
 #include <kern/thread.h>
 #include <kdp/kdp_protocol.h>
+#include <kdp/processor_core.h>
 #include <string.h>
 #include <IOKit/IOBSD.h>
 
@@ -150,7 +151,7 @@ kern_return_t kdp_core_output(void *kdp_core_out_vars, uint64_t length, void * d
  * Note that the 'encrypt_core' parameter instructs the output vars to encrypt the coredump data (if possible)
  * The 'out_should_skip_coredump' parameter will be set to true if the calling code should skip this coredump (for reasons).
  */
-kern_return_t kdp_reset_output_vars(void *kdp_core_out_vars, uint64_t totalbytes, bool encrypt_core, bool *out_should_skip_coredump);
+kern_return_t kdp_reset_output_vars(void *kdp_core_out_vars, uint64_t totalbytes, bool encrypt_core, bool *out_should_skip_coredump, const char *corename, kern_coredump_type_t coretype);
 
 kern_return_t kern_dump_record_file(void *kdp_core_out_vars, const char *filename, uint64_t file_offset, uint64_t *out_file_length, uint64_t details_flags);
 

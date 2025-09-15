@@ -164,7 +164,7 @@ void PopUpSOAuthorizationSession::completeInternal(const WebCore::ResourceRespon
     }
 
     m_newPageCallback(m_secretWebView->_page.get());
-    [m_secretWebView loadData:data MIMEType:@"text/html" characterEncodingName:@"UTF-8" baseURL:response.url()];
+    [m_secretWebView loadData:data MIMEType:@"text/html" characterEncodingName:@"UTF-8" baseURL:response.url().createNSURL().get()];
 }
 
 void PopUpSOAuthorizationSession::close(WKWebView *webView)
@@ -194,7 +194,7 @@ void PopUpSOAuthorizationSession::initSecretWebView()
     [m_secretWebView setUIDelegate:m_secretDelegate.get()];
     [m_secretWebView setNavigationDelegate:m_secretDelegate.get()];
 
-    RELEASE_ASSERT(!m_secretWebView->_page->preferences().isExtensibleSSOEnabled());
+    RELEASE_ASSERT(!m_secretWebView->_page->protectedPreferences()->isExtensibleSSOEnabled());
     WTFLogAlways("SecretWebView is created.");
 }
 

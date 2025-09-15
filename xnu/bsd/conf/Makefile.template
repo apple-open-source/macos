@@ -180,6 +180,7 @@ tty_compat.o_CWARNFLAGS_ADD += -Wno-cast-align
 tty_dev.o_CWARNFLAGS_ADD += -Wno-cast-align
 ubc_subr.o_CWARNFLAGS_ADD += -Wno-cast-align
 uipc_mbuf.o_CWARNFLAGS_ADD += -Wno-cast-align
+uipc_mbuf_mcache.o_CWARNFLAGS_ADD += -Wno-cast-align
 uipc_usrreq.o_CWARNFLAGS_ADD += -Wno-cast-align
 vfs_attrlist.o_CWARNFLAGS_ADD += -Wno-cast-align
 vfs_fsevents.o_CWARNFLAGS_ADD += -Wno-cast-align
@@ -247,6 +248,7 @@ systrace.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 sysv_msg.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 sysv_sem.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 uipc_mbuf.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
+uipc_mbuf_mcache.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 vfs_quota.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 vsock_domain.o_CWARNFLAGS_ADD += -Wno-implicit-int-conversion
 # -Wno-shorten-64-to-32
@@ -306,6 +308,7 @@ sysv_msg.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 sysv_sem.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 sysv_shm.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 uipc_mbuf.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
+uipc_mbuf_mcache.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 unix_signal.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 ux_exception.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
 vfs_cluster.o_CWARNFLAGS_ADD += -Wno-shorten-64-to-32
@@ -326,6 +329,7 @@ radix.o_CWARNFLAGS_ADD += -Wno-sign-compare
 route6.o_CWARNFLAGS_ADD += -Wno-sign-compare
 scope6.o_CWARNFLAGS_ADD += -Wno-sign-compare
 uipc_mbuf.o_CWARNFLAGS_ADD += -Wno-sign-compare
+uipc_mbuf_mcache.o_CWARNFLAGS_ADD += -Wno-sign-compare
 # -Wno-sign-conversion
 audit.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 audit_arg.o_CWARNFLAGS_ADD += -Wno-sign-conversion
@@ -494,6 +498,7 @@ tcp_cc.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 tcp_cubic.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 ubc_subr.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 uipc_mbuf.o_CWARNFLAGS_ADD += -Wno-sign-conversion
+uipc_mbuf_mcache.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 unix_signal.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 unix_startup.o_CWARNFLAGS_ADD += -Wno-sign-conversion
 ux_exception.o_CWARNFLAGS_ADD += -Wno-sign-conversion
@@ -600,6 +605,10 @@ $(COMPONENT).filelist: $(OBJS)
 	$(_v)for obj in ${OBJS}; do	\
 		 $(ECHO) $(TARGET)/$(CURRENT_KERNEL_CONFIG)/$${obj}; \
 	done > $(COMPONENT).filelist
+
+ifeq ($(XNU_LibAllFiles),1)
+LIBOBJS := $(OBJS)
+endif
 
 $(COMPONENT).libfilelist: $(LIBOBJS)
 	@$(LOG_LDFILELIST) "lib$(COMPONENT)"

@@ -241,6 +241,7 @@ int     mac_mount_check_snapshot_mount(vfs_context_t ctx, struct vnode *rvp,
 int     mac_mount_check_snapshot_revert(vfs_context_t ctx, struct mount *mp,
     const char *name) __result_use_check;
 int     mac_mount_check_remount(vfs_context_t ctx, struct mount *mp, int flags) __result_use_check;
+int     mac_mount_check_remount_with_flags(vfs_context_t ctx, struct mount *mp, int *flagsp) __result_use_check;
 int     mac_mount_check_setattr(vfs_context_t ctx, struct mount *mp,
     struct vfs_attr *vfa) __result_use_check;
 int     mac_mount_check_stat(vfs_context_t ctx, struct mount *mp) __result_use_check;
@@ -317,6 +318,7 @@ int     mac_proc_check_get_task(kauth_cred_t cred, proc_ident_t pident, mach_tas
 int     mac_proc_check_expose_task(kauth_cred_t cred, proc_ident_t pident, mach_task_flavor_t flavor) __result_use_check;
 int     mac_proc_check_get_movable_control_port(void) __result_use_check;
 int     mac_proc_check_inherit_ipc_ports(struct proc *p, struct vnode *cur_vp, off_t cur_offset, struct vnode *img_vp, off_t img_offset, struct vnode *scriptvp) __result_use_check;
+int     mac_proc_check_iopolicysys(struct proc *p, kauth_cred_t cred, int cmd, int type, int scope, int policy) __result_use_check;
 int     mac_proc_check_getaudit(proc_t proc) __result_use_check;
 int     mac_proc_check_getauid(proc_t proc) __result_use_check;
 int     mac_proc_check_dyld_process_info_notify_register(void) __result_use_check;
@@ -593,6 +595,11 @@ int     mac_skywalk_flow_check_listen(proc_t p, void *flow, const struct sockadd
 void    mac_vnode_notify_reclaim(vnode_t vp);
 void    mac_vnode_notify_unlink(vfs_context_t ctx, struct vnode *dvp,
     struct vnode *vp, struct componentname *cnp);
+int     mac_vnode_check_dataprotect_set(vfs_context_t ctx, struct vnode *vp, uint32_t *dataprotect_class) __result_use_check;
+int     mac_graft_check_graft(vfs_context_t ctx, struct vnode *graft_dir_vp) __result_use_check;
+int     mac_graft_check_ungraft(vfs_context_t ctx, struct vnode *graft_dir_vp) __result_use_check;
+void    mac_graft_notify_graft(vfs_context_t ctx, struct vnode *graft_dir_vp);
+void    mac_graft_notify_ungraft(vfs_context_t ctx, struct vnode *graft_dir_vp);
 
 void psem_label_associate(struct fileproc *fp, struct vnode *vp, struct vfs_context *ctx);
 void pshm_label_associate(struct fileproc *fp, struct vnode *vp, struct vfs_context *ctx);

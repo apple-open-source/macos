@@ -106,7 +106,7 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
 
         this.updateParentStatus();
 
-        if (this.resource && this.resource.sourceMaps.length)
+        if (this.resource.sourceMaps.length)
             this.shouldRefreshChildren = true;
     }
 
@@ -168,11 +168,9 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
         for (let resource of this._frame.resourceCollection)
             this.addChildForRepresentedObject(resource);
 
-        var sourceMaps = this.resource && this.resource.sourceMaps;
-        for (var i = 0; i < sourceMaps.length; ++i) {
-            var sourceMap = sourceMaps[i];
-            for (var j = 0; j < sourceMap.resources.length; ++j)
-                this.addChildForRepresentedObject(sourceMap.resources[j]);
+        for (let sourceMap of this.resource.sourceMaps) {
+            for (let sourceMapResource of sourceMap.resources)
+                this.addChildForRepresentedObject(sourceMapResource);
         }
 
         for (let extraScript of this._frame.extraScriptCollection) {

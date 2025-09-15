@@ -43,6 +43,7 @@
 static void mach_memory_entry_no_senders(ipc_port_t, mach_port_mscount_t);
 
 IPC_KOBJECT_DEFINE(IKOT_NAMED_ENTRY,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = mach_memory_entry_no_senders);
 
@@ -240,28 +241,6 @@ mach_make_memory_entry_mem_only(
 	return KERN_SUCCESS;
 }
 
-#if CONFIG_PROB_GZALLOC
-static inline vm_map_offset_ut
-vm_memory_entry_pgz_decode_offset(
-	vm_map_t                        target_map,
-	vm_map_offset_ut                offset_u,
-	memory_object_size_ut          *size_u __unused)
-{
-	if (target_map == NULL || target_map->pmap == kernel_pmap) {
-		vm_map_offset_t pgz_offset;
-
-		/*
-		 * It's ok to unsafe unwrap because PGZ does not ship to
-		 * customers.
-		 */
-		pgz_offset = pgz_decode(VM_SANITIZE_UNSAFE_UNWRAP(offset_u),
-		    VM_SANITIZE_UNSAFE_UNWRAP(*size_u));
-		return vm_sanitize_wrap_addr(pgz_offset);
-	}
-	return offset_u;
-}
-#endif /* CONFIG_PROB_GZALLOC */
-
 static __attribute__((always_inline, warn_unused_result))
 kern_return_t
 mach_make_memory_entry_generic_sanitize(
@@ -325,14 +304,6 @@ mach_make_memory_entry_named_create(
 		return mach_make_memory_entry_cleanup(KERN_SUCCESS, target_map,
 		           size_u, offset_u, permission, user_entry, object_handle);
 	}
-
-#if CONFIG_PROB_GZALLOC
-	/*
-	 * If offset is PGZ protected we need PGZ to fix it up to the right
-	 * value prior to validation and use.
-	 */
-	offset_u = vm_memory_entry_pgz_decode_offset(target_map, offset_u, size_u);
-#endif /* CONFIG_PROB_GZALLOC */
 
 	/*
 	 * Sanitize addr and size. Permimssions have been sanitized prior to
@@ -530,14 +501,6 @@ mach_make_memory_entry_copy(
 		           size_u, offset_u, permission, user_entry, object_handle);
 	}
 
-#if CONFIG_PROB_GZALLOC
-	/*
-	 * If offset is PGZ protected we need PGZ to fix it up to the right
-	 * value prior to validation and use.
-	 */
-	offset_u = vm_memory_entry_pgz_decode_offset(target_map, offset_u, size_u);
-#endif /* CONFIG_PROB_GZALLOC */
-
 	/*
 	 * Sanitize addr and size. Permimssions have been sanitized prior to
 	 * dispatch
@@ -643,18 +606,14 @@ mach_make_memory_entry_share(
 	vm_map_size_t           map_size;
 	vm_map_offset_t         map_start, map_end, offset;
 
-	if (VM_SANITIZE_UNSAFE_IS_ZERO(*size_u)) {
-		return mach_make_memory_entry_cleanup(KERN_INVALID_ARGUMENT, target_map,
-		           size_u, offset_u, permission, user_entry, object_handle);
-	}
+	vmlp_api_start(MACH_MAKE_MEMORY_ENTRY_SHARE);
 
-#if CONFIG_PROB_GZALLOC
-	/*
-	 * If offset is PGZ protected we need PGZ to fix it up to the right
-	 * value prior to validation and use.
-	 */
-	offset_u = vm_memory_entry_pgz_decode_offset(target_map, offset_u, size_u);
-#endif /* CONFIG_PROB_GZALLOC */
+	if (VM_SANITIZE_UNSAFE_IS_ZERO(*size_u)) {
+		kr = mach_make_memory_entry_cleanup(KERN_INVALID_ARGUMENT, target_map,
+		    size_u, offset_u, permission, user_entry, object_handle);
+		vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+		return kr;
+	}
 
 	/*
 	 * Sanitize addr and size. Permimssions have been sanitized prior to
@@ -668,8 +627,10 @@ mach_make_memory_entry_share(
 	    &map_size,
 	    &offset);
 	if (__improbable(kr != KERN_SUCCESS)) {
-		return mach_make_memory_entry_cleanup(kr, target_map,
-		           size_u, offset_u, permission, user_entry, object_handle);
+		kr = mach_make_memory_entry_cleanup(kr, target_map,
+		    size_u, offset_u, permission, user_entry, object_handle);
+		vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+		return kr;
 	}
 
 	assert(map_size != 0);
@@ -678,12 +639,16 @@ mach_make_memory_entry_share(
 	    &mask_protections, &use_data_addr, &use_4K_compat);
 
 	if (target_map == VM_MAP_NULL) {
-		return mach_make_memory_entry_cleanup(KERN_INVALID_TASK, target_map,
-		           size_u, offset_u, permission, user_entry, object_handle);
+		kr = mach_make_memory_entry_cleanup(KERN_INVALID_TASK, target_map,
+		    size_u, offset_u, permission, user_entry, object_handle);
+		vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+		return kr;
 	}
 
 	vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
-	vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+	vmk_flags.vmkf_range_id = kmem_needs_data_share_range() ?
+	    KMEM_RANGE_ID_DATA_SHARED : KMEM_RANGE_ID_DATA;
+
 	parent_copy_entry = VM_MAP_ENTRY_NULL;
 	if (!(permission & MAP_MEM_VM_SHARE)) {
 		vm_map_t tmp_map, real_map;
@@ -782,8 +747,10 @@ mach_make_memory_entry_share(
 	    VM_INHERIT_SHARE,
 	    vmk_flags);
 	if (kr != KERN_SUCCESS) {
-		return mach_make_memory_entry_cleanup(kr, target_map,
-		           size_u, offset_u, permission, user_entry, object_handle);
+		kr = mach_make_memory_entry_cleanup(kr, target_map,
+		    size_u, offset_u, permission, user_entry, object_handle);
+		vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+		return kr;
 	}
 	assert(copy != VM_MAP_COPY_NULL);
 
@@ -796,9 +763,11 @@ mach_make_memory_entry_share(
 		if (protections == VM_PROT_NONE) {
 			/* no access at all: fail */
 			vm_map_copy_discard(copy);
-			return mach_make_memory_entry_cleanup(KERN_PROTECTION_FAILURE,
-			           target_map, size_u, offset_u, permission, user_entry,
-			           object_handle);
+			kr = mach_make_memory_entry_cleanup(KERN_PROTECTION_FAILURE,
+			    target_map, size_u, offset_u, permission, user_entry,
+			    object_handle);
+			vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+			return kr;
 		}
 	} else {
 		/*
@@ -810,9 +779,11 @@ mach_make_memory_entry_share(
 		/* XXX FBDP TODO: no longer needed? */
 		if ((cur_prot & protections) != protections) {
 			vm_map_copy_discard(copy);
-			return mach_make_memory_entry_cleanup(KERN_PROTECTION_FAILURE,
-			           target_map, size_u, offset_u, permission, user_entry,
-			           object_handle);
+			kr = mach_make_memory_entry_cleanup(KERN_PROTECTION_FAILURE,
+			    target_map, size_u, offset_u, permission, user_entry,
+			    object_handle);
+			vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+			return kr;
 		}
 	}
 
@@ -844,11 +815,25 @@ mach_make_memory_entry_share(
 			DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> "
 			    "entry %p kr 0x%x\n", target_map, offset, VM_SANITIZE_UNSAFE_UNWRAP(*size_u),
 			    permission, user_entry, KERN_SUCCESS);
+			vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, KERN_SUCCESS);
 			return KERN_SUCCESS;
 		}
 
 		/* no match: we need to create a new entry */
 		object = VME_OBJECT(copy_entry);
+
+		if (object == VM_OBJECT_NULL) {
+			/* object can be null when protection == max_protection == VM_PROT_NONE
+			 * return a failure because the code that follows and other APIs that consume
+			 * a named-entry expect to have non-null object */
+			vm_map_copy_discard(copy);
+			kr = mach_make_memory_entry_cleanup(KERN_PROTECTION_FAILURE,
+			    target_map, size_u, offset_u, permission, user_entry,
+			    object_handle);
+			vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, kr);
+			return kr;
+		}
+
 		vm_object_lock(object);
 		wimg_mode = object->wimg_bits;
 		if (!(object->nophyscache)) {
@@ -888,7 +873,8 @@ mach_make_memory_entry_share(
 			if (VM_OBJECT_OWNER(VME_OBJECT(copy_entry)) == TASK_NULL) {
 				object = VME_OBJECT(copy_entry);
 				if (object && !object->internal) {
-					/* external objects can be "owned" */
+					/* external objects can be "owned",
+					 * is_fully_owned remains TRUE as far as this entry is concerned */
 					continue;
 				}
 				/* this memory is not "owned" */
@@ -897,17 +883,18 @@ mach_make_memory_entry_share(
 			}
 		}
 	} else {
+		assert3p(object, !=, VM_OBJECT_NULL); /* Sanity, this was set above */
 		user_entry->is_object = TRUE;
+		assert3p(object, ==, vm_named_entry_to_vm_object(user_entry)); /* Sanity, this was set above */
 		user_entry->internal = object->internal;
 		user_entry->offset = VME_OFFSET(vm_map_copy_first_entry(copy));
 		user_entry->access = GET_MAP_MEM(permission);
 		/* is all memory in this named entry "owned"? */
 		user_entry->is_fully_owned = FALSE;
-		object = vm_named_entry_to_vm_object(user_entry);
 		if (VM_OBJECT_OWNER(object) != TASK_NULL) {
 			/* object is owned */
 			user_entry->is_fully_owned = TRUE;
-		} else if (object && !object->internal) {
+		} else if (!object->internal) {
 			/* external objects can become "owned" */
 			user_entry->is_fully_owned = TRUE;
 		}
@@ -918,6 +905,8 @@ mach_make_memory_entry_share(
 	DEBUG4K_MEMENTRY("map %p offset 0x%llx size 0x%llx prot 0x%x -> entry "
 	    "%p kr 0x%x\n", target_map, offset, VM_SANITIZE_UNSAFE_UNWRAP(*size_u),
 	    permission, user_entry, KERN_SUCCESS);
+
+	vmlp_api_end(MACH_MAKE_MEMORY_ENTRY_SHARE, KERN_SUCCESS);
 	return KERN_SUCCESS;
 }
 
@@ -980,7 +969,7 @@ mach_make_memory_entry_from_parent_entry_sanitize(
 	 * Additional checks to make sure explicitly computed aligned start and end
 	 * still make sense.
 	 */
-	if (__improbable(*map_end < *map_start) || (*map_end > parent_entry->size)) {
+	if (__improbable(*map_end <= *map_start) || (*map_end > parent_entry->size)) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -1246,9 +1235,8 @@ mach_memory_entry_allocate(ipc_port_t *user_handle_p)
 	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	named_entry_lock_init(user_entry);
 
-	*user_handle_p = ipc_kobject_alloc_port((ipc_kobject_t)user_entry,
-	    IKOT_NAMED_ENTRY,
-	    IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
+	*user_handle_p = ipc_kobject_alloc_port(user_entry, IKOT_NAMED_ENTRY,
+	    IPC_KOBJECT_ALLOC_MAKE_SEND);
 
 #if VM_NAMED_ENTRY_DEBUG
 	/* backtrace at allocation time, for debugging only */
@@ -1594,23 +1582,19 @@ mach_memory_entry_ownership(
 		}
 #endif /* DEVELOPMENT || DEBUG */
 		if (!transfer_ok) {
-#define TRANSFER_ENTITLEMENT_MAX_LENGTH 1024 /* XXX ? */
-			const char *our_id, *their_id;
+			char *our_id, *their_id;
 			our_id = IOTaskGetEntitlement(current_task(), "com.apple.developer.memory.transfer-send");
 			their_id = IOTaskGetEntitlement(owner, "com.apple.developer.memory.transfer-accept");
 			if (our_id && their_id &&
-			    !strncmp(our_id, their_id, TRANSFER_ENTITLEMENT_MAX_LENGTH)) {
+			    !strcmp(our_id, their_id)) {     /* These are guaranteed to be null-terminated */
 				/* allow transfer between tasks that have matching entitlements */
-				if (strnlen(our_id, TRANSFER_ENTITLEMENT_MAX_LENGTH) < TRANSFER_ENTITLEMENT_MAX_LENGTH &&
-				    strnlen(their_id, TRANSFER_ENTITLEMENT_MAX_LENGTH) < TRANSFER_ENTITLEMENT_MAX_LENGTH) {
-					transfer_ok = true;
-				} else {
-					/* complain about entitlement(s) being too long... */
-					assertf((strlen(our_id) <= TRANSFER_ENTITLEMENT_MAX_LENGTH &&
-					    strlen(their_id) <= TRANSFER_ENTITLEMENT_MAX_LENGTH),
-					    "our_id:%lu their_id:%lu",
-					    strlen(our_id), strlen(their_id));
-				}
+				transfer_ok = true;
+			}
+			if (our_id) {
+				kfree_data_addr(our_id);
+			}
+			if (their_id) {
+				kfree_data_addr(their_id);
 			}
 		}
 		if (!transfer_ok) {
@@ -1735,7 +1719,7 @@ mach_memory_entry_ownership_from_user(
 	}
 
 	if (IP_VALID(owner_port)) {
-		if (ip_kotype(owner_port) == IKOT_TASK_ID_TOKEN) {
+		if (ip_type(owner_port) == IKOT_TASK_ID_TOKEN) {
 			task_id_token_t token = convert_port_to_task_id_token(owner_port);
 			(void)task_identity_token_get_task_grp(token, &owner, TASK_GRP_MIG);
 			task_id_token_release(token);
@@ -1770,8 +1754,9 @@ mach_memory_entry_ownership_from_user(
 kern_return_t
 mach_memory_entry_get_page_counts(
 	ipc_port_t      entry_port,
-	unsigned int    *resident_page_count,
-	unsigned int    *dirty_page_count)
+	uint64_t        *resident_page_count,
+	uint64_t        *dirty_page_count,
+	uint64_t        *swapped_page_count)
 {
 	kern_return_t           kr;
 	vm_named_entry_t        mem_entry;
@@ -1808,7 +1793,7 @@ mach_memory_entry_get_page_counts(
 
 	named_entry_unlock(mem_entry);
 
-	kr = vm_object_get_page_counts(object, offset, size, resident_page_count, dirty_page_count);
+	kr = vm_object_get_page_counts(object, offset, size, resident_page_count, dirty_page_count, swapped_page_count);
 
 	vm_object_unlock(object);
 
@@ -1999,7 +1984,7 @@ void
 mach_memory_entry_port_release(
 	ipc_port_t      port)
 {
-	assert(ip_kotype(port) == IKOT_NAMED_ENTRY);
+	assert(ip_type(port) == IKOT_NAMED_ENTRY);
 	ipc_port_release_send(port);
 }
 
@@ -2010,6 +1995,35 @@ mach_memory_entry_from_port(ipc_port_t port)
 		return ipc_kobject_get_stable(port, IKOT_NAMED_ENTRY);
 	}
 	return NULL;
+}
+
+void
+mach_memory_entry_describe(
+	vm_named_entry_t named_entry,
+	kobject_description_t desc)
+{
+	vm_object_t vm_object;
+	if (named_entry->is_object) {
+		vm_object = vm_named_entry_to_vm_object(named_entry);
+		vm_object_size_t size = vm_object->internal ?
+		    vm_object->vo_un1.vou_size : 0;
+		snprintf(desc, KOBJECT_DESCRIPTION_LENGTH,
+		    "VM-OBJECT(0x%x, %lluKiB)",
+		    VM_OBJECT_ID(vm_object),
+		    BtoKiB(size));
+	} else if (named_entry->is_copy) {
+		vm_map_copy_t copy_map = named_entry->backing.copy;
+		snprintf(desc, KOBJECT_DESCRIPTION_LENGTH,
+		    "VM-MAP-COPY(0x%lx, %lluKiB)",
+		    VM_KERNEL_ADDRHASH(copy_map),
+		    BtoKiB(copy_map->size));
+	} else if (named_entry->is_sub_map) {
+		vm_map_t submap = named_entry->backing.map;
+		snprintf(desc, KOBJECT_DESCRIPTION_LENGTH,
+		    "VM-SUB-MAP(0x%lx, %lluKiB)",
+		    VM_KERNEL_ADDRHASH(submap),
+		    BtoKiB(submap->size));
+	}
 }
 
 /*
@@ -2180,7 +2194,9 @@ memory_entry_check_for_adjustment(
 	vm_map_copy_t copy_map = VM_MAP_COPY_NULL, target_copy_map = VM_MAP_COPY_NULL;
 
 	assert(port);
-	assertf(ip_kotype(port) == IKOT_NAMED_ENTRY, "Port Type expected: %d...received:%d\n", IKOT_NAMED_ENTRY, ip_kotype(port));
+	assertf(ip_type(port) == IKOT_NAMED_ENTRY,
+	    "Port Type expected: %d...received:%d\n",
+	    IKOT_NAMED_ENTRY, ip_type(port));
 
 	vm_named_entry_t        named_entry;
 
@@ -2211,21 +2227,34 @@ memory_entry_check_for_adjustment(
 	return kr;
 }
 
+vm_named_entry_t
+vm_convert_port_to_named_entry(
+	ipc_port_t      port)
+{
+	/* Invalid / wrong port type? */
+	if (!IP_VALID(port) || ip_type(port) != IKOT_NAMED_ENTRY) {
+		return NULL;
+	}
+
+	vm_named_entry_t named_entry = mach_memory_entry_from_port(port);
+
+	/* This is a no-op, it's here for reader clarity */
+	if (!named_entry) {
+		return NULL;
+	}
+
+	return named_entry;
+}
+
 vm_object_t
 vm_convert_port_to_copy_object(
 	ipc_port_t      port)
 {
-	/* Invalid / wrong port type? */
-	if (!IP_VALID(port) || ip_kotype(port) != IKOT_NAMED_ENTRY) {
-		return NULL;
-	}
-
+	vm_named_entry_t named_entry = vm_convert_port_to_named_entry(port);
 	/* We expect the named entry to point to an object. */
-	vm_named_entry_t named_entry = mach_memory_entry_from_port(port);
 	if (!named_entry || !named_entry->is_object) {
 		return NULL;
 	}
-
 	/* Pull out the copy map object... */
 	return vm_named_entry_to_vm_object(named_entry);
 }

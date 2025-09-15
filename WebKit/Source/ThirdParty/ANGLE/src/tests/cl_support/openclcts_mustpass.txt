@@ -66,6 +66,9 @@ api.get_image2d_info
 api.queue_hint
 api.queue_properties
 api.sub_group_dispatch
+api.consistency_device_enqueue
+api.get_buffer_info
+api.clone_kernel
 compiler.load_program_source
 compiler.load_multistring_source
 compiler.load_null_terminated_partial_multi_line_source
@@ -127,6 +130,7 @@ buffers.mem_copy_host_flags
 buffers.mem_alloc_ref_flags
 buffers.buffer_read_long
 buffers.buffer_write_char
+buffers.buffer_fill_char
 profiling.copy_array_to_image
 multiples.context_four_contexts_same_device
 cl_copy_images.1D

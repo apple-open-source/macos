@@ -60,7 +60,7 @@
 - (NSString *)charset
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::charsetAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::charsetAttr).createNSString().autorelease();
 }
 
 - (void)setCharset:(NSString *)newCharset
@@ -72,7 +72,7 @@
 - (NSString *)href
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::hrefAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::hrefAttr).string().createNSString().autorelease();
 }
 
 - (void)setHref:(NSString *)newHref
@@ -84,7 +84,7 @@
 - (NSString *)hreflang
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::hreflangAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::hreflangAttr).createNSString().autorelease();
 }
 
 - (void)setHreflang:(NSString *)newHreflang
@@ -96,7 +96,7 @@
 - (NSString *)media
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::mediaAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::mediaAttr).createNSString().autorelease();
 }
 
 - (void)setMedia:(NSString *)newMedia
@@ -108,7 +108,7 @@
 - (NSString *)rel
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::relAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::relAttr).createNSString().autorelease();
 }
 
 - (void)setRel:(NSString *)newRel
@@ -120,7 +120,7 @@
 - (NSString *)rev
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::revAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::revAttr).createNSString().autorelease();
 }
 
 - (void)setRev:(NSString *)newRev
@@ -132,7 +132,7 @@
 - (NSString *)target
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::targetAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::targetAttr).createNSString().autorelease();
 }
 
 - (void)setTarget:(NSString *)newTarget
@@ -144,7 +144,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr).createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType
@@ -156,7 +156,7 @@
 - (NSString *)as
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::asAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::asAttr).createNSString().autorelease();
 }
 
 - (void)setAs:(NSString *)newAs
@@ -168,13 +168,13 @@
 - (NSString *)crossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->crossOrigin();
+    return IMPL->crossOrigin().createNSString().autorelease();
 }
 
 - (void)setCrossOrigin:(NSString *)newCrossOrigin
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setCrossOrigin(newCrossOrigin);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::crossoriginAttr, newCrossOrigin);
 }
 
 - (DOMStyleSheet *)sheet

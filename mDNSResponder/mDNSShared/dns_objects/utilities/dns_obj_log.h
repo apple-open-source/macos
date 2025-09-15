@@ -57,25 +57,13 @@
 
 
 // Log specifier for domain name labels in bytes.
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
-	#define PUB_NAME_LABELS				PUB_DM_NAME
-	#define PRI_NAME_LABELS				PRI_DM_NAME
-	#define NAME_LABELS_PARAM(labels)	((labels != NULL) ? (int)domain_name_labels_length(labels) : 0), (labels)
-#else
 	#define PUB_NAME_LABELS				PUB_DM_NAME
 	#define PRI_NAME_LABELS				PUB_NAME_LABELS
 	#define NAME_LABELS_PARAM(labels)	(labels)
-#endif
 
 // Log specifier for domain name object.
-#if MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
-	#define PUB_DNS_DM_NAME				PUB_DM_NAME
-	#define PRI_DNS_DM_NAME				PRI_DM_NAME
-	#define DNS_DM_NAME_PARAM(NAME)		(((NAME) != NULL) ? (int)dns_obj_domain_name_get_length(NAME) : 0), (((NAME) != NULL) ? dns_obj_domain_name_get_labels(NAME) : NULL)
-#else
 	#define PUB_DNS_DM_NAME				PUB_DM_NAME
 	#define PRI_DNS_DM_NAME				PUB_DNS_DM_NAME
 	#define DNS_DM_NAME_PARAM(NAME)		(((NAME) != NULL) ? dns_obj_domain_name_get_labels(NAME) : NULL)
-#endif
 
 #endif // DNS_OBJ_LOG_H

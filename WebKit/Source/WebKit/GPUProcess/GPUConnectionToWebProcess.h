@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -120,9 +120,6 @@ class RemoteMediaPlayerManagerProxy;
 class RemoteMediaResourceManager;
 class RemoteVideoFrameObjectHeap;
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-class RemoteMediaRecorderPrivateWriterManager;
-#endif
 
 #if ENABLE(WEBGL)
 class RemoteGraphicsContextGL;
@@ -158,10 +155,8 @@ public:
     USING_CAN_MAKE_WEAKPTR(WebCore::NowPlayingManagerClient);
 
     IPC::Connection& connection() { return m_connection.get(); }
-    Ref<IPC::Connection> protectedConnection() { return m_connection; }
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
     GPUProcess& gpuProcess() { return m_gpuProcess.get(); }
-    Ref<GPUProcess> protectedGPUProcess() const;
     WebCore::ProcessIdentifier webProcessIdentifier() const { return m_webProcessIdentifier; }
     Ref<RemoteSharedResourceCache> sharedResourceCache();
 
@@ -169,15 +164,12 @@ public:
     RemoteMediaResourceManager& remoteMediaResourceManager();
     Ref<RemoteMediaResourceManager> protectedRemoteMediaResourceManager();
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-    RemoteMediaRecorderPrivateWriterManager& remoteMediaRecorderPrivateWriterManager();
-        Ref<RemoteMediaRecorderPrivateWriterManager> protectedRemoteMediaRecorderPrivateWriterManager();
-#endif
 
     PAL::SessionID sessionID() const { return m_sessionID; }
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled; }
     bool isLockdownSafeFontParserEnabled() const { return sharedPreferencesForWebProcess() ? sharedPreferencesForWebProcess()->lockdownFontParserEnabled : false; }
+    bool isForceLockdownSafeFontParserEnabled() const { return sharedPreferencesForWebProcess() ? sharedPreferencesForWebProcess()->forceLockdownFontParserEnabled : false; }
 
     Logger& logger();
 
@@ -295,7 +287,6 @@ private:
     Ref<RemoteAudioDestinationManager> protectedRemoteAudioDestinationManager();
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    Ref<RemoteSampleBufferDisplayLayerManager> protectedSampleBufferDisplayLayerManager() const;
     UserMediaCaptureManagerProxy& userMediaCaptureManagerProxy();
     Ref<UserMediaCaptureManagerProxy> protectedUserMediaCaptureManagerProxy();
     RemoteAudioMediaStreamTrackRendererInternalUnitManager& audioMediaStreamTrackRendererInternalUnitManager();
@@ -320,7 +311,7 @@ private:
     void enableMockMediaSource();
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    void updateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier, WebCore::FloatRect, std::optional<MachSendRight>&&);
+    void updateSampleBufferDisplayLayerBoundsAndPosition(WebKit::SampleBufferDisplayLayerIdentifier, WebCore::FloatRect, std::optional<WTF::MachSendRightAnnotated>&&);
 #endif
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
@@ -353,7 +344,7 @@ private:
 
     // IPC::Connection::Client
     void didClose(IPC::Connection&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) final;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final;
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
@@ -372,29 +363,26 @@ private:
 
     RefPtr<Logger> m_logger;
 
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     IPC::MessageReceiverMap m_messageReceiverMap;
-    Ref<GPUProcess> m_gpuProcess;
+    const Ref<GPUProcess> m_gpuProcess;
     const WebCore::ProcessIdentifier m_webProcessIdentifier;
     const WebCore::ProcessIdentity m_webProcessIdentity;
 #if ENABLE(WEB_AUDIO)
-    std::unique_ptr<RemoteAudioDestinationManager> m_remoteAudioDestinationManager;
+    const std::unique_ptr<RemoteAudioDestinationManager> m_remoteAudioDestinationManager;
 #endif
     RefPtr<RemoteSharedResourceCache> m_sharedResourceCache;
 #if ENABLE(VIDEO)
     RefPtr<RemoteMediaResourceManager> m_remoteMediaResourceManager WTF_GUARDED_BY_CAPABILITY(mainThread);
     Ref<RemoteMediaPlayerManagerProxy> m_remoteMediaPlayerManagerProxy;
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-    const std::unique_ptr<RemoteMediaRecorderPrivateWriterManager> m_remoteMediaRecorderPrivateWriterManager;
-#endif
     PAL::SessionID m_sessionID;
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     RefPtr<UserMediaCaptureManagerProxy> m_userMediaCaptureManagerProxy;
-    std::unique_ptr<RemoteAudioMediaStreamTrackRendererInternalUnitManager> m_audioMediaStreamTrackRendererInternalUnitManager;
+    const std::unique_ptr<RemoteAudioMediaStreamTrackRendererInternalUnitManager> m_audioMediaStreamTrackRendererInternalUnitManager;
     bool m_isLastToCaptureAudio { false };
 
-    Ref<RemoteSampleBufferDisplayLayerManager> m_sampleBufferDisplayLayerManager;
+    const Ref<RemoteSampleBufferDisplayLayerManager> m_sampleBufferDisplayLayerManager;
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -430,7 +418,7 @@ private:
     RefPtr<RemoteAudioSessionProxy> m_audioSessionProxy;
 #endif
 #if PLATFORM(IOS_FAMILY)
-    std::unique_ptr<RemoteMediaSessionHelperProxy> m_mediaSessionHelperProxy;
+    const std::unique_ptr<RemoteMediaSessionHelperProxy> m_mediaSessionHelperProxy;
 #endif
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<RemoteLegacyCDMFactoryProxy> m_legacyCdmFactoryProxy;
@@ -439,7 +427,7 @@ private:
     const std::unique_ptr<RemoteImageDecoderAVFProxy> m_imageDecoderAVFProxy;
 #endif
 
-    std::unique_ptr<RemoteMediaEngineConfigurationFactoryProxy> m_mediaEngineConfigurationFactoryProxy;
+    const std::unique_ptr<RemoteMediaEngineConfigurationFactoryProxy> m_mediaEngineConfigurationFactoryProxy;
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     HashMap<std::pair<WebPageProxyIdentifier, WebCore::PageIdentifier>, std::unique_ptr<LayerHostingContext>> m_visibilityPropagationContexts;

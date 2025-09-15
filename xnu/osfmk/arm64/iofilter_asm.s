@@ -52,5 +52,5 @@ LEXT(io_filter_vtop)
     tst     x9, #0x1                  // Check PAR_EL1.F to see if translation was successful.
     csel    x0, x10, xzr, eq          // If translation was successful return PA, else 0.
 
-    ARM64_STACK_EPILOG
+    ARM64_STACK_EPILOG EXT(io_filter_vtop)
 #endif /* HAS_GUARDED_IO_FILTER && !CONFIG_SPTM */

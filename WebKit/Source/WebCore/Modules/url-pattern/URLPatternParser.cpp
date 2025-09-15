@@ -28,6 +28,7 @@
 
 #include "URLPatternCanonical.h"
 #include "URLPatternTokenizer.h"
+#include <ranges>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -314,7 +315,7 @@ static String escapeRegexStringForCharacters(std::span<const CharacterType> char
     result.reserveCapacity(characters.size());
 
     for (auto character : characters) {
-        if (std::find(regexEscapeCharacters.begin(), regexEscapeCharacters.end(), character) != regexEscapeCharacters.end())
+        if (std::ranges::find(regexEscapeCharacters, character) != regexEscapeCharacters.end())
             result.append('\\');
 
         result.append(character);
@@ -512,7 +513,7 @@ static String escapePatternStringForCharacters(std::span<const CharacterType> ch
     result.reserveCapacity(characters.size());
 
     for (auto character : characters) {
-        if (std::find(escapeCharacters.begin(), escapeCharacters.end(), character) != escapeCharacters.end())
+        if (std::ranges::find(escapeCharacters, character) != escapeCharacters.end())
             result.append('\\');
 
         result.append(character);

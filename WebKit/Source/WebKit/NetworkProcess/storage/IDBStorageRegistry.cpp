@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -100,6 +100,8 @@ WebCore::IDBServer::UniqueIDBDatabaseConnection* IDBStorageRegistry::connection(
 
 WebCore::IDBServer::UniqueIDBDatabaseTransaction* IDBStorageRegistry::transaction(WebCore::IDBResourceIdentifier identifier)
 {
+    if (identifier.isEmpty())
+        return nullptr;
     return m_transactions.get(identifier).get();
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -94,13 +94,13 @@ bool ResourceErrorBase::compare(const ResourceError& a, const ResourceError& b)
     return ResourceError::platformCompare(a, b);
 }
 
-ResourceError createInternalError(const URL& url, ASCIILiteral filename, uint32_t line, ASCIILiteral functionName)
+ResourceError internalError(const URL& url, std::source_location location)
 {
     // Always print internal errors to stderr so we have some chance to figure out what went wrong
     // when an internal error occurs unexpectedly. Release logging is insufficient because internal
     // errors occur unexpectedly and we don't want to require manual logging configuration in order
     // to record them.
-    WTFReportError(filename.characters(), line, functionName.characters(), "WebKit encountered an internal error. This is a WebKit bug.");
+    WTFReportError(location.file_name(), location.line(), location.function_name(), "WebKit encountered an internal error. This is a WebKit bug.");
 
     return ResourceError("WebKitErrorDomain"_s, 300, url, WEB_UI_STRING("WebKit encountered an internal error", "WebKitErrorInternal description"));
 }

@@ -53,9 +53,9 @@ MemoryIndex::MemoryIndex(const IDBIndexInfo& info, MemoryObjectStore& objectStor
 
 MemoryIndex::~MemoryIndex() = default;
 
-WeakPtr<MemoryObjectStore> MemoryIndex::objectStore()
+MemoryObjectStore* MemoryIndex::objectStore()
 {
-    return m_objectStore;
+    return m_objectStore.get();
 }
 
 RefPtr<MemoryObjectStore> MemoryIndex::protectedObjectStore()
@@ -75,10 +75,16 @@ void MemoryIndex::cursorDidBecomeDirty(MemoryIndexCursor& cursor)
 
 void MemoryIndex::objectStoreCleared()
 {
-    auto transaction = m_objectStore->writeTransaction();
-    ASSERT(transaction);
+    if (m_records) {
+        for (auto& key : m_records->allKeys()) {
+            if (m_transactionModifiedRecords.contains(key))
+                continue;
+            if (auto valueKeys = m_records->valueKeys(key))
+                m_transactionModifiedRecords.add(key, WTFMove(*valueKeys));
+        }
 
-    transaction->indexCleared(*this, WTFMove(m_records));
+        m_records = nullptr;
+    }
 
     notifyCursorsOfAllRecordsChanged();
 }
@@ -99,22 +105,6 @@ void MemoryIndex::notifyCursorsOfAllRecordsChanged()
     }
 
     ASSERT(!m_cleanCursors.computeSize());
-}
-
-void MemoryIndex::clearIndexValueStore()
-{
-    ASSERT(m_objectStore->writeTransaction());
-    ASSERT(m_objectStore->writeTransaction()->isAborting());
-
-    m_records = nullptr;
-}
-
-void MemoryIndex::replaceIndexValueStore(std::unique_ptr<IndexValueStore>&& valueStore)
-{
-    ASSERT(m_objectStore->writeTransaction());
-    ASSERT(m_objectStore->writeTransaction()->isAborting());
-
-    m_records = WTFMove(valueStore);
 }
 
 IDBGetResult MemoryIndex::getResultForKeyRange(IndexedDB::IndexRecordType type, const IDBKeyRangeData& range) const
@@ -138,7 +128,8 @@ IDBGetResult MemoryIndex::getResultForKeyRange(IndexedDB::IndexRecordType type, 
     if (!keyValue)
         return { };
 
-    return type == IndexedDB::IndexRecordType::Key ? IDBGetResult(*keyValue) : IDBGetResult(*keyValue, m_objectStore->valueForKeyRange(*keyValue), m_objectStore->info().keyPath());
+    RefPtr objectStore = m_objectStore.get();
+    return type == IndexedDB::IndexRecordType::Key ? IDBGetResult(*keyValue) : IDBGetResult(*keyValue, objectStore->valueForKeyRange(*keyValue), objectStore->info().keyPath());
 }
 
 uint64_t MemoryIndex::countForKeyRange(const IDBKeyRangeData& inRange)
@@ -168,7 +159,8 @@ void MemoryIndex::getAllRecords(const IDBKeyRangeData& keyRangeData, std::option
 {
     LOG(IndexedDB, "MemoryIndex::getAllRecords");
 
-    result = { type, m_objectStore->info().keyPath() };
+    RefPtr objectStore = m_objectStore.get();
+    result = { type, objectStore->info().keyPath() };
 
     if (!m_records)
         return;
@@ -193,13 +185,12 @@ void MemoryIndex::getAllRecords(const IDBKeyRangeData& keyRangeData, std::option
         for (auto& keyValue : allValues) {
             result.addKey(IDBKeyData(keyValue));
             if (type == IndexedDB::GetAllType::Values)
-                result.addValue(m_objectStore->valueForKeyRange(keyValue));
+                result.addValue(objectStore->valueForKeyRange(keyValue));
         }
 
         currentCount += allValues.size();
     }
 }
-
 
 IDBError MemoryIndex::putIndexKey(const IDBKeyData& valueKey, const IndexKey& indexKey)
 {
@@ -212,7 +203,7 @@ IDBError MemoryIndex::putIndexKey(const IDBKeyData& valueKey, const IndexKey& in
 
     if (!m_info.multiEntry()) {
         IDBKeyData key = indexKey.asOneKey();
-        IDBError result = m_records->addRecord(key, valueKey);
+        auto result = addIndexRecord(key, valueKey);
         notifyCursorsOfValueChange(key, valueKey);
         return result;
     }
@@ -227,7 +218,7 @@ IDBError MemoryIndex::putIndexKey(const IDBKeyData& valueKey, const IndexKey& in
     }
 
     for (auto& key : keys) {
-        auto error = m_records->addRecord(key, valueKey);
+        auto error = addIndexRecord(key, valueKey);
         ASSERT_UNUSED(error, error.isNull());
         notifyCursorsOfValueChange(key, valueKey);
     }
@@ -243,14 +234,14 @@ void MemoryIndex::removeRecord(const IDBKeyData& valueKey, const IndexKey& index
 
     if (!m_info.multiEntry()) {
         IDBKeyData key = indexKey.asOneKey();
-        m_records->removeRecord(key, valueKey);
+        removeIndexRecord(key, valueKey);
         notifyCursorsOfValueChange(key, valueKey);
         return;
     }
 
     Vector<IDBKeyData> keys = indexKey.multiEntry();
     for (auto& key : keys) {
-        m_records->removeRecord(key, valueKey);
+        removeIndexRecord(key, valueKey);
         notifyCursorsOfValueChange(key, valueKey);
     }
 }
@@ -261,6 +252,16 @@ void MemoryIndex::removeEntriesWithValueKey(const IDBKeyData& valueKey)
 
     if (!m_records)
         return;
+
+    RELEASE_ASSERT(m_writeTransaction);
+    if (!m_writeTransaction->isAborting()) {
+        for (auto& indexKey : m_records->findKeysWithValueKey(valueKey)) {
+            if (m_transactionModifiedRecords.contains(indexKey))
+                continue;
+            if (auto valueKeys = m_records->valueKeys(indexKey))
+                m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
+        }
+    }
 
     m_records->removeEntriesWithValueKey(*this, valueKey);
 }
@@ -284,21 +285,76 @@ MemoryIndexCursor* MemoryIndex::maybeOpenCursor(const IDBCursorInfo& info, Memor
     return result.iterator->value.get();
 }
 
-void MemoryIndex::transactionFinished(MemoryBackingStoreTransaction& transaction)
+IDBError MemoryIndex::addIndexRecord(const IDBKeyData& indexKey, const IDBKeyData& valueKey)
 {
-    auto cleanCursors = std::exchange(m_cleanCursors, { });
-    for (WeakPtr cursor : cleanCursors) {
-        if (RefPtr protectedCusor = cursor.get()) {
-            if (protectedCusor->transaction() != &transaction)
-                m_cleanCursors.add(*protectedCusor);
-        }
+    RELEASE_ASSERT(m_writeTransaction);
+
+    if (!m_records)
+        m_records = makeUnique<IndexValueStore>(m_info.unique());
+
+    if (!m_writeTransaction->isAborting() && !m_transactionModifiedRecords.contains(indexKey)) {
+        if (!m_records->contains(indexKey))
+            m_transactionModifiedRecords.add(indexKey, Vector<IDBKeyData> { });
+        else if (auto valueKeys = m_records->valueKeys(indexKey))
+            m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
     }
 
-    auto cursors = std::exchange(m_cursors, { });
-    for (auto [identifier, cursor] : cursors) {
-        if (cursor->transaction() != &transaction)
-            m_cursors.add(identifier, cursor);
+    return m_records->addRecord(indexKey, valueKey);
+}
+
+void MemoryIndex::removeIndexRecord(const IDBKeyData& indexKey, const IDBKeyData& valueKey)
+{
+    if (!m_records)
+        return;
+
+    RELEASE_ASSERT(m_writeTransaction);
+    if (!m_writeTransaction->isAborting() && !m_transactionModifiedRecords.contains(indexKey)) {
+        if (auto valueKeys = m_records->valueKeys(indexKey))
+            m_transactionModifiedRecords.add(indexKey, WTFMove(*valueKeys));
     }
+
+    return m_records->removeRecord(indexKey, valueKey);
+}
+
+void MemoryIndex::removeIndexRecord(const IDBKeyData& indexKey)
+{
+    if (m_records)
+        m_records->removeRecord(indexKey);
+}
+
+void MemoryIndex::writeTransactionStarted(MemoryBackingStoreTransaction& transaction)
+{
+    ASSERT(!m_writeTransaction);
+
+    m_writeTransaction = transaction;
+}
+
+void MemoryIndex::writeTransactionFinished(MemoryBackingStoreTransaction& transaction)
+{
+    ASSERT_UNUSED(transaction, m_writeTransaction == &transaction);
+
+    m_writeTransaction = nullptr;
+    m_transactionModifiedRecords.clear();
+}
+
+void MemoryIndex::transactionAborted(MemoryBackingStoreTransaction& transaction)
+{
+    if (m_writeTransaction != &transaction)
+        return;
+
+    auto transactionModifiedRecords = std::exchange(m_transactionModifiedRecords, { });
+    for (auto& [key, valueKeys] : transactionModifiedRecords) {
+        removeIndexRecord(key);
+        for (auto valueKey : valueKeys)
+            addIndexRecord(key, valueKey);
+    }
+}
+
+void MemoryIndex::transactionFinished(MemoryBackingStoreTransaction& transaction)
+{
+    m_cursors.removeIf([&](auto& pair) {
+        return pair.value->transaction() == &transaction;
+    });
 }
 
 } // namespace IDBServer

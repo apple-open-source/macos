@@ -129,7 +129,10 @@ void Connection::platformInitialize(Identifier&& identifier)
 void Connection::platformInvalidate()
 {
 #if USE(GLIB)
-    m_socket = nullptr;
+    GUniqueOutPtr<GError> error;
+    g_socket_close(m_socket.get(), &error.outPtr());
+    if (error)
+        g_warning("Failed to close WebKit IPC socket: %s", error->message);
 #else
     if (m_socketDescriptor.value() != -1)
         closeWithRetry(m_socketDescriptor.release());
@@ -158,10 +161,9 @@ bool Connection::processMessage()
     if (m_readBuffer.size() < sizeof(MessageInfo))
         return false;
 
-    uint8_t* messageData = m_readBuffer.data();
+    auto messageData = m_readBuffer.mutableSpan();
     MessageInfo messageInfo;
-    memcpy(static_cast<void*>(&messageInfo), messageData, sizeof(messageInfo));
-    messageData += sizeof(messageInfo);
+    memcpySpan(asMutableByteSpan(messageInfo), consumeSpan(messageData, sizeof(messageInfo)));
 
     if (messageInfo.attachmentCount() > attachmentMaxAmount || (!messageInfo.isBodyOutOfLine() && messageInfo.bodySize() > messageMaxSize)) {
         ASSERT_NOT_REACHED();
@@ -177,9 +179,7 @@ bool Connection::processMessage()
     Vector<AttachmentInfo> attachmentInfo(attachmentCount);
 
     if (attachmentCount) {
-        memcpy(static_cast<void*>(attachmentInfo.data()), messageData, sizeof(AttachmentInfo) * attachmentCount);
-        messageData += sizeof(AttachmentInfo) * attachmentCount;
-
+        memcpySpan(asMutableByteSpan(attachmentInfo.mutableSpan()), consumeSpan(messageData, sizeof(AttachmentInfo) * attachmentCount));
         for (size_t i = 0; i < attachmentCount; ++i) {
             if (!attachmentInfo[i].isNull())
                 attachmentFileDescriptorCount++;
@@ -222,11 +222,11 @@ bool Connection::processMessage()
 
     ASSERT(attachments.size() == (messageInfo.isBodyOutOfLine() ? messageInfo.attachmentCount() - 1 : messageInfo.attachmentCount()));
 
-    uint8_t* messageBody = messageData;
+    auto messageBody = messageData;
     if (messageInfo.isBodyOutOfLine())
-        messageBody = oolMessageBody->mutableSpan().data();
+        messageBody = oolMessageBody->mutableSpan();
 
-    auto decoder = Decoder::create({ messageBody, messageInfo.bodySize() }, WTFMove(attachments));
+    auto decoder = Decoder::create(messageBody.first(messageInfo.bodySize()), WTFMove(attachments));
     ASSERT(decoder);
     if (!decoder)
         return false;
@@ -234,14 +234,14 @@ bool Connection::processMessage()
     processIncomingMessage(makeUniqueRefFromNonNullUniquePtr(WTFMove(decoder)));
 
     if (m_readBuffer.size() > messageLength) {
-        memmove(m_readBuffer.data(), m_readBuffer.data() + messageLength, m_readBuffer.size() - messageLength);
+        memmoveSpan(m_readBuffer.mutableSpan(), m_readBuffer.subspan(messageLength));
         m_readBuffer.shrink(m_readBuffer.size() - messageLength);
     } else
         m_readBuffer.shrink(0);
 
     if (attachmentFileDescriptorCount) {
         if (m_fileDescriptors.size() > attachmentFileDescriptorCount) {
-            memmove(m_fileDescriptors.data(), m_fileDescriptors.data() + attachmentFileDescriptorCount, (m_fileDescriptors.size() - attachmentFileDescriptorCount) * sizeof(int));
+            memmoveSpan(m_fileDescriptors.mutableSpan(), m_fileDescriptors.subspan(attachmentFileDescriptorCount));
             m_fileDescriptors.shrink(m_fileDescriptors.size() - attachmentFileDescriptorCount);
         } else
             m_fileDescriptors.shrink(0);
@@ -266,7 +266,7 @@ static ssize_t readBytesFromSocket(int socketDescriptor, Vector<uint8_t>& buffer
 
     size_t previousBufferSize = buffer.size();
     buffer.grow(buffer.capacity());
-    iov[0].iov_base = buffer.data() + previousBufferSize;
+    iov[0].iov_base = buffer.mutableSpan().data() + previousBufferSize;
     iov[0].iov_len = buffer.size() - previousBufferSize;
 
     message.msg_iov = iov;
@@ -299,7 +299,7 @@ static ssize_t readBytesFromSocket(int socketDescriptor, Vector<uint8_t>& buffer
                 size_t previousFileDescriptorsSize = fileDescriptors.size();
                 size_t fileDescriptorsCount = (controlMessage->cmsg_len - CMSG_LEN(0)) / sizeof(int);
                 fileDescriptors.grow(fileDescriptors.size() + fileDescriptorsCount);
-                memcpy(fileDescriptors.data() + previousFileDescriptorsSize, CMSG_DATA(controlMessage), sizeof(int) * fileDescriptorsCount);
+                memcpy(fileDescriptors.mutableSpan().subspan(previousFileDescriptorsSize).data(), CMSG_DATA(controlMessage), sizeof(int) * fileDescriptorsCount);
 
                 for (size_t i = 0; i < fileDescriptorsCount; ++i) {
                     if (!setCloseOnExec(fileDescriptors[previousFileDescriptorsSize + i])) {
@@ -497,7 +497,7 @@ bool Connection::sendOutputMessage(UnixMessage& outputMessage)
                 attachmentInfo[i].setNull();
         }
 
-        iov[iovLength].iov_base = attachmentInfo.data();
+        iov[iovLength].iov_base = attachmentInfo.mutableSpan().data();
         iov[iovLength].iov_len = sizeof(AttachmentInfo) * attachments.size();
         ++iovLength;
     }

@@ -58,9 +58,4 @@ void FormState::willDetachPage()
     RELEASE_ASSERT(refCount());
 }
 
-Ref<Document> FormState::protectedSourceDocument() const
-{
-    return m_sourceDocument;
-}
-
 }

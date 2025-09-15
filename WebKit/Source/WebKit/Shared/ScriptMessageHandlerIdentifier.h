@@ -27,7 +27,7 @@
 
 namespace WebKit {
 
-enum class ScriptMessageHandlerIdentifierType { };
+struct ScriptMessageHandlerIdentifierType;
 using ScriptMessageHandlerIdentifier = ObjectIdentifier<ScriptMessageHandlerIdentifierType>;
 
 } // namespace WebKit

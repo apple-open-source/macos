@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-file-style: "bsd"; c-basic-offset: 4; fill-column: 108; indent-tabs-mode: nil; -*-
  *
- * Copyright (c) 2004-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -281,7 +281,6 @@ mDNSexport void mDNSPlatformWriteDebugMsg(const char *msg)
 }
 #endif
 
-#if !MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
 mDNSexport void mDNSPlatformWriteLogMsg(const char *ident, const char *buffer, mDNSLogLevel_t loglevel)
 {
 
@@ -317,7 +316,6 @@ mDNSexport void mDNSPlatformWriteLogMsg(const char *ident, const char *buffer, m
         }
     }
 }
-#endif // !MDNSRESPONDER_SUPPORTS(APPLE, OS_LOG)
 
 mDNSexport mDNSBool mDNSPosixTCPSocketSetup(int *fd, mDNSAddr_Type addrType, mDNSIPPort *port, mDNSIPPort *outTcpPort)
 {
@@ -327,7 +325,7 @@ mDNSexport mDNSBool mDNSPosixTCPSocketSetup(int *fd, mDNSAddr_Type addrType, mDN
     mDNSu32 lowWater = 15384;
 
     sock = socket(sa_family, SOCK_STREAM, IPPROTO_TCP);
-    if (sock < 3)
+    if (sock < 0)
     {
         if (errno != EAFNOSUPPORT)
         {

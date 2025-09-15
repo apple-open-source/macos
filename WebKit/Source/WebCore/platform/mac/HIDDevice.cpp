@@ -75,7 +75,7 @@ HIDDevice::HIDDevice(IOHIDDeviceRef device)
 
 Vector<HIDElement> HIDDevice::uniqueInputElementsInDeviceTreeOrder() const
 {
-    UncheckedKeyHashSet<IOHIDElementCookie> encounteredCookies;
+    HashSet<IOHIDElementCookie> encounteredCookies;
     Deque<IOHIDElementRef> elementQueue;
 
     RetainPtr<CFArrayRef> elements = adoptCF(IOHIDDeviceCopyMatchingElements(m_rawDevice.get(), NULL, kIOHIDOptionsTypeNone));

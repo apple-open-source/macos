@@ -1,6 +1,7 @@
 import FeatureFlags
 import Foundation
 
+#if OCTAGON
 class OctagonTestsMidRoll: OctagonTestsBase {
     struct Key: FeatureFlagsKey {
         let domain: StaticString
@@ -31,3 +32,4 @@ class OctagonTestsMidRoll: OctagonTestsBase {
         XCTAssertFalse(IsRollOctagonIdentityEnabled(), "feaature flag should be disabled")
     }
 }
+#endif // OCTAGON

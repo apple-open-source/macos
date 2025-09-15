@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2010 Google, Inc. All rights reserved.
  * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,7 @@ public:
     // Must be called to take the parser-blocking script before calling the parser again.
     RefPtr<ScriptElement> takeScriptToProcess(TextPosition& scriptStartPosition);
     const ScriptElement* scriptToProcess() const { return m_scriptToProcess.get(); }
+    RefPtr<const ScriptElement> protectedScriptToProcess() const;
 
     std::unique_ptr<CustomElementConstructionData> takeCustomElementConstructionData() { return WTFMove(m_customElementToConstruct); }
     void didCreateCustomOrFallbackElement(Ref<Element>&&, CustomElementConstructionData&);

@@ -111,11 +111,18 @@ void WebsiteDataStoreConfiguration::initializePaths()
     setMediaKeysStorageDirectory(WebsiteDataStore::defaultMediaKeysStorageDirectory(m_baseDataDirectory));
     setResourceLoadStatisticsDirectory(WebsiteDataStore::defaultResourceLoadStatisticsDirectory(m_baseDataDirectory));
     setDeviceIdHashSaltsStorageDirectory(WebsiteDataStore::defaultDeviceIdHashSaltsStorageDirectory(m_baseDataDirectory));
+#if ENABLE(ENCRYPTED_MEDIA)
+    setMediaKeysHashSaltsStorageDirectory(WebsiteDataStore::defaultMediaKeysHashSaltsStorageDirectory(m_baseDataDirectory));
+#endif
     setJavaScriptConfigurationDirectory(WebsiteDataStore::defaultJavaScriptConfigurationDirectory(m_baseDataDirectory));
     setGeneralStorageDirectory(WebsiteDataStore::defaultGeneralStorageDirectory(m_baseDataDirectory));
 #if PLATFORM(COCOA)
     setCookieStorageFile(WebsiteDataStore::defaultCookieStorageFile(m_baseDataDirectory));
     setSearchFieldHistoryDirectory(WebsiteDataStore::defaultSearchFieldHistoryDirectory(m_baseDataDirectory));
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    setResourceMonitorThrottlerDirectory(WebsiteDataStore::defaultResourceMonitorThrottlerDirectory(m_baseDataDirectory));
 #endif
 }
 
@@ -169,6 +176,9 @@ Ref<WebsiteDataStoreConfiguration> WebsiteDataStoreConfiguration::copy() const
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     copy->m_isDeclarativeWebPushEnabled = this->m_isDeclarativeWebPushEnabled;
 #endif
+#if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
+    copy->m_webContentRestrictionsConfigurationFile = this->m_webContentRestrictionsConfigurationFile;
+#endif
 
     return copy;
 }
@@ -187,6 +197,9 @@ WebsiteDataStoreConfiguration::Directories WebsiteDataStoreConfiguration::Direct
         crossThreadCopy(cacheStorageDirectory),
         crossThreadCopy(cookieStorageFile),
         crossThreadCopy(deviceIdHashSaltsStorageDirectory),
+#if ENABLE(ENCRYPTED_MEDIA)
+        crossThreadCopy(mediaKeysHashSaltsStorageDirectory),
+#endif
         crossThreadCopy(generalStorageDirectory),
         crossThreadCopy(hstsStorageDirectory),
         crossThreadCopy(indexedDBDatabaseDirectory),
@@ -202,6 +215,9 @@ WebsiteDataStoreConfiguration::Directories WebsiteDataStoreConfiguration::Direct
 #if ENABLE(ARKIT_INLINE_PREVIEW)
         crossThreadCopy(modelElementCacheDirectory),
 #endif
+#if ENABLE(CONTENT_EXTENSIONS)
+        crossThreadCopy(resourceMonitorThrottlerDirectory),
+#endif
     };
 }
 
@@ -214,6 +230,9 @@ WebsiteDataStoreConfiguration::Directories WebsiteDataStoreConfiguration::Direct
         crossThreadCopy(WTFMove(cacheStorageDirectory)),
         crossThreadCopy(WTFMove(cookieStorageFile)),
         crossThreadCopy(WTFMove(deviceIdHashSaltsStorageDirectory)),
+#if ENABLE(ENCRYPTED_MEDIA)
+        crossThreadCopy(WTFMove(mediaKeysHashSaltsStorageDirectory)),
+#endif
         crossThreadCopy(WTFMove(generalStorageDirectory)),
         crossThreadCopy(WTFMove(hstsStorageDirectory)),
         crossThreadCopy(WTFMove(indexedDBDatabaseDirectory)),
@@ -228,6 +247,9 @@ WebsiteDataStoreConfiguration::Directories WebsiteDataStoreConfiguration::Direct
         crossThreadCopy(WTFMove(webSQLDatabaseDirectory)),
 #if ENABLE(ARKIT_INLINE_PREVIEW)
         crossThreadCopy(WTFMove(modelElementCacheDirectory)),
+#endif
+#if ENABLE(CONTENT_EXTENSIONS)
+        crossThreadCopy(WTFMove(resourceMonitorThrottlerDirectory)),
 #endif
     };
 }

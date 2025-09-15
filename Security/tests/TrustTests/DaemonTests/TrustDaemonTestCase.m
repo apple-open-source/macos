@@ -24,6 +24,7 @@
 
 #import <XCTest/XCTest.h>
 #include <sys/stat.h>
+#include <os/transaction_private.h>
 #include <Security/SecCertificatePriv.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/debugging.h>
@@ -67,8 +68,11 @@ static int testNumber = 0;
 
 @implementation TrustDaemonTestCase
 
+static os_transaction_t transaction = nil;
+
 /* Build in trustd functionality to the tests */
 + (void) setUp {
+    transaction = os_transaction_create("com.apple.TrustTests.noExitWhenClean");
     NSURL *tmpDirURL = setUpTmpDir();
     trustd_init((__bridge CFURLRef) tmpDirURL);
 

@@ -26,9 +26,7 @@
 #import "WKApplicationStateTrackingView.h"
 #import "WKBase.h"
 #import "WKBrowsingContextController.h"
-#import "WKProcessGroup.h"
 #import <WebCore/InspectorOverlay.h>
-#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
 
@@ -59,10 +57,6 @@ enum class ViewStabilityFlag : uint8_t;
     WeakObjCPtr<WKWebView> _webView;
 }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-@property (nonatomic, readonly) WKBrowsingContextController *browsingContextController;
-ALLOW_DEPRECATED_DECLARATIONS_END
-
 @property (nonatomic, readonly) WebKit::WebPageProxy* page;
 @property (nonatomic, readonly) BOOL isFocusingElement;
 @property (nonatomic, getter=isShowingInspectorIndication) BOOL showingInspectorIndication;
@@ -75,7 +69,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 @property (nonatomic, readonly) const String& spatialTrackingLabel;
 #endif
 
-- (instancetype)initWithFrame:(CGRect)frame processPool:(NakedRef<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
+- (instancetype)initWithFrame:(CGRect)frame processPool:(std::reference_wrapper<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect
     unobscuredRect:(CGRect)unobscuredRect

@@ -283,6 +283,10 @@ doStringPrepTest(const char* binFileName, const char* txtFileName, int32_t optio
     char *filename = NULL;
     UStringPrepProfile* profile = NULL;
 
+#ifdef APPLE_XCODE_BUILD // rdar://145099448
+    srcdatapath = getenv("ICU_BUILT_PRODUCTS_DIR");
+    relativepath = U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
+#else
 #ifdef U_TOPSRCDIR
     srcdatapath = U_TOPSRCDIR;
     relativepath = U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
@@ -290,7 +294,8 @@ doStringPrepTest(const char* binFileName, const char* txtFileName, int32_t optio
     srcdatapath = ctest_dataOutDir();
     relativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
 #endif
-
+#endif // APPLE_XCODE_BUILD
+    
     profile = usprep_open(testdatapath, binFileName, errorCode);
 
     if(*errorCode == U_FILE_ACCESS_ERROR) {

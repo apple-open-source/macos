@@ -66,6 +66,7 @@ static void
 UNDReply_no_senders(ipc_port_t port, mach_port_mscount_t mscount);
 
 IPC_KOBJECT_DEFINE(IKOT_UND_REPLY,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = UNDReply_no_senders);
 
@@ -187,7 +188,7 @@ KUNCGetNotificationID(void)
 
 	reply = kalloc_type(struct UNDReply, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	reply->self_port = ipc_kobject_alloc_port((ipc_kobject_t)reply,
-	    IKOT_UND_REPLY, IPC_KOBJECT_ALLOC_NSREQUEST);
+	    IKOT_UND_REPLY, IPC_KOBJECT_ALLOC_NONE);
 	lck_mtx_init(&reply->lock, &UNDLckGrp, LCK_ATTR_NULL);
 	reply->userLandNotificationKey = -1;
 	reply->inprogress = FALSE;

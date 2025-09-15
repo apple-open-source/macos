@@ -3,6 +3,7 @@
 #import <Foundation/Foundation.h>
 #import <Security/SecItemPriv.h>
 #import <SecurityFoundation/SecurityFoundation.h>
+#import <CloudServices/CloudServices.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/securityd/SOSCloudCircleServer.h"
 #import "keychain/SecureObjectSync/SOSAccountPriv.h"
@@ -12,8 +13,6 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/Affordance_OTConstants.h"
-#import <SoftLinking/SoftLinking.h>
-
 
 static const uint8_t signingKey_384[] = {
     0x04, 0xe4, 0x1b, 0x3e, 0x88, 0x81, 0x9f, 0x3b, 0x80, 0xd0, 0x28, 0x1c,
@@ -306,29 +305,29 @@ static const uint8_t signingKey_384[] = {
 
 + (NSNumber* _Nullable)lastRowID
 {
-    return (__bridge NSNumber*) lastRowIDHandledForTests();
+    return (__bridge NSNumber*) SecServerLastRowIDHandledForTests();
 }
 
 + (void)setError:(int)errorCode
 {
     NSString* descriptionString = [NSString stringWithFormat:@"Fake error %d for testing", errorCode];
     CFErrorRef error = (__bridge CFErrorRef)[NSError errorWithDomain:(id)kSecErrorDomain code:errorCode userInfo:@{NSLocalizedDescriptionKey : descriptionString}];
-    setExpectedErrorForTests(error);
+    SecServerSetExpectedErrorForTests(error);
 }
 
 + (void)clearError
 {
-    clearTestError();
+    SecServerClearTestError();
 }
 
 + (void)clearLastRowID
 {
-    clearLastRowIDHandledForTests();
+    SecServerClearLastRowIDHandledForTests();
 }
 
 + (void)clearErrorInsertionDictionary
 {
-    clearRowIDAndErrorDictionary();
+    SecServerClearRowIDAndErrorDictionary();
 }
 
 + (void)setErrorAtRowID:(int)errorCode
@@ -341,7 +340,7 @@ static const uint8_t signingKey_384[] = {
     CFNumberRef rowID = CFBridgingRetain([[NSNumber alloc]initWithInt:150]);
     CFDictionaryAddValue(rowIDToErrorDictionary, rowID, error);
     
-    setRowIDToErrorDictionary(rowIDToErrorDictionary);
+    SecServerSetRowIDToErrorDictionary(rowIDToErrorDictionary);
 
     CFReleaseNull(rowID);
 }
@@ -374,6 +373,22 @@ static int invocationCount = 0;
     [adapter setAccountStore:mockStore];
 }
 
++ (NSArray*)testAA_AppleAccountsWithConnectionFailureError:(NSError* __autoreleasing *)error
+{
+    invocationCount++;
+    if (error) {
+        *error = [NSError errorWithDomain:ACErrorDomain code:ACErrorDaemonConnectionFailed description:@"test accountsd failed connection error"];
+    }
+    return nil;
+}
+
++ (void)setACAccountStoreWithConnectionFailedError:(id<OTAccountsAdapter>)adapter
+{
+    id mockStore = OCMClassMock([ACAccountStore class]);
+    OCMStub([mockStore aa_appleAccountsWithError:[OCMArg anyObjectRef]]).andCall(self, @selector(testAA_AppleAccountsWithConnectionFailureError:));
+    [adapter setAccountStore:mockStore];
+}
+
 + (NSArray*)testAA_AppleAccountsWithRandomError:(NSError* __autoreleasing *)error
 {
     invocationCount++;
@@ -388,11 +403,6 @@ static int invocationCount = 0;
     id mockStore = OCMClassMock([ACAccountStore class]);
     OCMStub([mockStore aa_appleAccountsWithError:[OCMArg anyObjectRef]]).andCall(self, @selector(testAA_AppleAccountsWithRandomError:));
     [adapter setAccountStore:mockStore];
-}
-
-+ (BOOL)isPlatformHomepod
-{
-    return (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAudioAccessory);
 }
 
 
@@ -506,6 +516,11 @@ static int invocationCount = 0;
 + (NSNumber * _Nullable)totalTrustedPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error
 {
     return [OTClique totalTrustedPeers:ctx error:error];
+}
+
++ (NSNumber * _Nullable)trustedFullPeers:(OTConfigurationContext*)ctx error:(NSError * __autoreleasing *)error
+{
+    return [OTClique trustedFullPeers:ctx error:error];
 }
 
 + (BOOL)areRecoveryKeysDistrusted:(OTConfigurationContext*)ctx error:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)))

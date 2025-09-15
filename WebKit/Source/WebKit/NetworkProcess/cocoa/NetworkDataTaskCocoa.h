@@ -117,6 +117,7 @@ private:
 
     bool m_isForMainResourceNavigationForAnyFrame { false };
     RefPtr<WebCore::SecurityOrigin> m_sourceOrigin;
+    uint64_t m_requiredCookiesVersion { 0 };
 };
 
 WebCore::Credential serverTrustCredential(const WebCore::AuthenticationChallenge&);

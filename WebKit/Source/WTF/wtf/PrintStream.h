@@ -67,7 +67,7 @@ public:
     WTF_EXPORT_PRIVATE virtual void flush();
     
     template<typename Func>
-    void atomically(const Func& func)
+    void atomically(NOESCAPE const Func& func)
     {
         func(begin());
         end();

@@ -52,6 +52,9 @@ NS_ASSUME_NONNULL_BEGIN
                  activeAccount:(TPSpecificUser* _Nullable)activeAccount
                  containerName:(NSString*)containerName
                      contextID:(NSString*)contextID
+                        flowID:(NSString* _Nullable)flowID
+               deviceSessionID:(NSString* _Nullable)deviceSessionID
+                canSendMetrics:(BOOL)canSendMetrics
                          reply:(void (^)(OTAccountSettings* _Nullable settings, NSError* _Nullable error))reply;
 
 @end

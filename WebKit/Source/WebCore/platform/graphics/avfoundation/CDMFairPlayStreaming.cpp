@@ -42,7 +42,7 @@
 #include "NotImplemented.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <JavaScriptCore/DataView.h>
-#include <wtf/Algorithms.h>
+#include <algorithm>
 #include <wtf/JSONValues.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/NeverDestroyed.h>
@@ -297,12 +297,12 @@ CDMFactoryFairPlayStreaming& CDMFactoryFairPlayStreaming::singleton()
 CDMFactoryFairPlayStreaming::CDMFactoryFairPlayStreaming() = default;
 CDMFactoryFairPlayStreaming::~CDMFactoryFairPlayStreaming() = default;
 
-std::unique_ptr<CDMPrivate> CDMFactoryFairPlayStreaming::createCDM(const String& keySystem, const CDMPrivateClient& client)
+std::unique_ptr<CDMPrivate> CDMFactoryFairPlayStreaming::createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient& client)
 {
     if (!supportsKeySystem(keySystem))
         return nullptr;
 
-    return makeUnique<CDMPrivateFairPlayStreaming>(client);
+    return makeUnique<CDMPrivateFairPlayStreaming>(mediaKeysHashSalt, client);
 }
 
 bool CDMFactoryFairPlayStreaming::supportsKeySystem(const String& keySystem)
@@ -312,9 +312,10 @@ bool CDMFactoryFairPlayStreaming::supportsKeySystem(const String& keySystem)
     return keySystem == "com.apple.fps"_s || keySystem.startsWith("com.apple.fps."_s);
 }
 
-CDMPrivateFairPlayStreaming::CDMPrivateFairPlayStreaming(const CDMPrivateClient& client)
+CDMPrivateFairPlayStreaming::CDMPrivateFairPlayStreaming(const String& mediaKeysHashSalt, const CDMPrivateClient& client)
+    : m_mediaKeysHashSalt { mediaKeysHashSalt }
 #if !RELEASE_LOG_DISABLED
-    : m_logger(client.logger())
+    , m_logger { client.logger() }
 #endif
 {
 }
@@ -328,7 +329,7 @@ Vector<AtomString> CDMPrivateFairPlayStreaming::supportedInitDataTypes() const
 
 bool CDMPrivateFairPlayStreaming::supportsConfiguration(const CDMKeySystemConfiguration& configuration) const
 {
-    if (!WTF::anyOf(configuration.initDataTypes, [] (auto& initDataType) { return validInitDataTypes().contains(initDataType); })) {
+    if (!std::ranges::any_of(configuration.initDataTypes, [](auto& initDataType) { return validInitDataTypes().contains(initDataType); })) {
         INFO_LOG(LOGIDENTIFIER, " false, no initDataType supported");
         return false;
     }
@@ -353,17 +354,13 @@ bool CDMPrivateFairPlayStreaming::supportsConfiguration(const CDMKeySystemConfig
     }
 
     if (!configuration.audioCapabilities.isEmpty()
-        && !WTF::anyOf(configuration.audioCapabilities, [](auto& capability) {
-            return CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability(capability);
-        })) {
+        && !std::ranges::any_of(configuration.audioCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
         INFO_LOG(LOGIDENTIFIER, "false, no audio configuration supported");
         return false;
     }
 
     if (!configuration.videoCapabilities.isEmpty()
-        && !WTF::anyOf(configuration.videoCapabilities, [](auto& capability) {
-            return CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability(capability);
-        })) {
+        && !std::ranges::any_of(configuration.videoCapabilities, CDMInstanceFairPlayStreamingAVFObjC::supportsMediaCapability)) {
             INFO_LOG(LOGIDENTIFIER, "false, no video configuration supported");
         return false;
     }
@@ -385,7 +382,7 @@ bool CDMPrivateFairPlayStreaming::supportsConfigurationWithRestrictions(const CD
     if (restrictions.persistentStateDenied && configuration.persistentState == CDMRequirement::Required)
         return false;
 
-    if (WTF::allOf(configuration.sessionTypes, [restrictions](auto& sessionType) {
+    if (std::ranges::all_of(configuration.sessionTypes, [restrictions](auto& sessionType) {
         return restrictions.deniedSessionTypes.contains(sessionType);
     }))
         return false;
@@ -459,7 +456,7 @@ bool CDMPrivateFairPlayStreaming::supportsInitData(const AtomString& initDataTyp
         return false;
 
     if (initDataType == sinfName()) {
-        return WTF::anyOf(extractSchemeAndKeyIdFromSinf(initData), [](auto& result) {
+        return std::ranges::any_of(extractSchemeAndKeyIdFromSinf(initData), [](auto& result) {
             return validFairPlayStreamingSchemes().contains(result.first);
         });
     }
@@ -470,7 +467,7 @@ bool CDMPrivateFairPlayStreaming::supportsInitData(const AtomString& initDataTyp
         if (!psshBoxes)
             return false;
 
-        return WTF::anyOf(psshBoxes.value(), [](auto& psshBox) {
+        return std::ranges::any_of(psshBoxes.value(), [](auto& psshBox) {
             return is<ISOFairPlayStreamingPsshBox>(*psshBox);
         });
     }

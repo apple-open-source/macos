@@ -27,6 +27,7 @@
 
 #import "WKObject.h"
 #import "WebProcessPool.h"
+#import <wtf/AlignedStorage.h>
 
 #if TARGET_OS_IPHONE
 @class WKGeolocationProviderIOS;
@@ -35,14 +36,16 @@
 namespace WebKit {
 
 template<> struct WrapperTraits<WebProcessPool> {
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     using WrapperClass = WKProcessPool;
+    ALLOW_DEPRECATED_DECLARATIONS_END
 };
 
 }
 
 @interface WKProcessPool () <WKObject> {
 @package
-    API::ObjectStorage<WebKit::WebProcessPool> _processPool;
+    AlignedStorage<WebKit::WebProcessPool> _processPool;
 }
 
 #if TARGET_OS_IPHONE

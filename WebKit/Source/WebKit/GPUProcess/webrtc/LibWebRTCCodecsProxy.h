@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,14 +65,14 @@ class RemoteVideoFrameObjectHeap;
 struct SharedVideoFrame;
 class SharedVideoFrameReader;
 
-class LibWebRTCCodecsProxy final : public IPC::WorkQueueMessageReceiver {
+class LibWebRTCCodecsProxy final : public IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any> {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCCodecsProxy);
 public:
     static Ref<LibWebRTCCodecsProxy> create(GPUConnectionToWebProcess&, SharedPreferencesForWebProcess&);
     ~LibWebRTCCodecsProxy();
 
-    void ref() const final { IPC::WorkQueueMessageReceiver::ref(); }
-    void deref() const final { IPC::WorkQueueMessageReceiver::deref(); }
+    void ref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any>::ref(); }
+    void deref() const final { IPC::WorkQueueMessageReceiver<WTF::DestructionThread::Any>::deref(); }
 
     void stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFromConnection);
     bool allowsExitUnderMemoryPressure() const;
@@ -84,9 +84,6 @@ private:
     auto createDecoderCallback(VideoDecoderIdentifier, bool useRemoteFrames, bool enableAdditionalLogging);
     std::unique_ptr<WebCore::WebRTCVideoDecoder> createLocalDecoder(VideoDecoderIdentifier, WebCore::VideoCodecType, bool useRemoteFrames, bool enableAdditionalLogging);
     WorkQueue& workQueue() const { return m_queue; }
-    Ref<WorkQueue> protectedWorkQueue() const { return m_queue; }
-
-    Ref<IPC::Connection> protectedConnection() const { return m_connection; }
 
     // IPC::WorkQueueMessageReceiver overrides.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -116,7 +113,7 @@ private:
         std::unique_ptr<WebCore::FrameRateMonitor> frameRateMonitor;
         Deque<CompletionHandler<void(bool)>> decodingCallbacks;
     };
-    void doDecoderTask(VideoDecoderIdentifier, Function<void(Decoder&)>&&);
+    void doDecoderTask(VideoDecoderIdentifier, NOESCAPE Function<void(Decoder&)>&&);
 
     struct Encoder {
         webrtc::LocalEncoder webrtcEncoder { nullptr };
@@ -128,9 +125,9 @@ private:
     };
     Encoder* findEncoder(VideoEncoderIdentifier) WTF_REQUIRES_CAPABILITY(workQueue());
 
-    Ref<IPC::Connection> m_connection;
-    Ref<WorkQueue> m_queue;
-    Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
+    const Ref<IPC::Connection> m_connection;
+    const Ref<WorkQueue> m_queue;
+    const Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
     WebCore::ProcessIdentity m_resourceOwner;
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
     HashMap<VideoDecoderIdentifier, Decoder> m_decoders WTF_GUARDED_BY_CAPABILITY(workQueue());

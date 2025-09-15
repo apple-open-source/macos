@@ -397,7 +397,7 @@ FloatSize InspectorOverlayLabel::expectedSize(const Vector<Content>& contents, A
             if (text.isEmpty())
                 continue;
 
-            currentLineWidth += font.width(TextRun(text));
+            currentLineWidth += font.width(text);
             if (currentLineWidth > longestLineWidth)
                 longestLineWidth = currentLineWidth;
         }

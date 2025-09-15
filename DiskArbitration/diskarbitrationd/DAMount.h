@@ -47,7 +47,8 @@ enum
     kDAMountPreferenceDefer,
     kDAMountPreferenceTrust,
     kDAMountPreferenceDisableAutoMount,
-    kDAMountPreferenceEnableUserFSMount
+    kDAMountPreferenceEnableUserFSMount,
+    kDAMountPreferenceAlwaysRepair
 };
 
 typedef UInt32 DAMountPreference;

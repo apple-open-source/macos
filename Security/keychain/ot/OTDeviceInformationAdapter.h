@@ -38,6 +38,10 @@ NS_ASSUME_NONNULL_BEGIN
 /* Returns whether the current device is an AppleTV */
 - (BOOL)isAppleTV;
 
+
+/* Longer timeout expected */
+- (BOOL)longerTimeout;
+
 @end
 
 @interface OTDeviceInformationActualAdapter : NSObject <OTDeviceInformationAdapter>

@@ -27,6 +27,7 @@
 #import "_WKRemoteObjectInterfaceInternal.h"
 
 #import <objc/runtime.h>
+#import <ranges>
 #import <wtf/HashMap.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/ObjCRuntimeExtras.h>
@@ -78,8 +79,8 @@ static void initializeMethod(MethodInfo& methodInfo, Protocol *protocol, SEL sel
         methodInfo.replyInvocation = [NSInvocation invocationWithMethodSignature:methodSignature];
     else {
         const char* types = methodArgumentTypeEncodingForSelector(protocol, selector);
-        NSMethodSignature *signature = [NSMethodSignature signatureWithObjCTypes:types];
-        methodInfo.invocation = [NSInvocation invocationWithMethodSignature:signature];
+        RetainPtr signature = [NSMethodSignature signatureWithObjCTypes:types];
+        methodInfo.invocation = [NSInvocation invocationWithMethodSignature:signature.get()];
     }
 
     auto& allowedClasses = forReplyBlock ? methodInfo.allowedReplyClasses : methodInfo.allowedArgumentClasses;
@@ -103,19 +104,19 @@ static void initializeMethod(MethodInfo& methodInfo, Protocol *protocol, SEL sel
             if (foundBlock)
                 [NSException raise:NSInvalidArgumentException format:@"Only one reply block is allowed per method (%s / %s)", protocol_getName(protocol), sel_getName(selector)];
             foundBlock = true;
-            NSMethodSignature *blockSignature = [methodSignature _signatureForBlockAtArgumentIndex:i];
-            ASSERT(blockSignature._typeString);
+            RetainPtr blockSignature = [methodSignature _signatureForBlockAtArgumentIndex:i];
+            ASSERT(blockSignature.get()._typeString);
 
-            initializeMethod(methodInfo, protocol, selector, blockSignature, true);
+            initializeMethod(methodInfo, protocol, selector, blockSignature.get(), true);
         }
 
-        Class objectClass = [methodSignature _classForObjectAtArgumentIndex:i];
+        RetainPtr objectClass = [methodSignature _classForObjectAtArgumentIndex:i];
         if (!objectClass) {
             allowedClasses.append({ });
             continue;
         }
 
-        allowedClasses.append({ (__bridge CFTypeRef)objectClass });
+        allowedClasses.append({ (__bridge CFTypeRef)objectClass.get() });
     }
 }
 
@@ -133,19 +134,19 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
         if (!methodTypeEncoding)
             [NSException raise:NSInvalidArgumentException format:@"Could not find method type encoding for method \"%s\"", sel_getName(selector)];
 
-        NSMethodSignature *methodSignature = [NSMethodSignature signatureWithObjCTypes:methodTypeEncoding];
+        RetainPtr methodSignature = [NSMethodSignature signatureWithObjCTypes:methodTypeEncoding];
 
-        initializeMethod(methodInfo, protocol, selector, methodSignature, false);
+        initializeMethod(methodInfo, protocol, selector, methodSignature.get(), false);
     }
 }
 
 static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *protocol)
 {
     auto conformingProtocols = protocol_copyProtocolListSpan(protocol);
-    for (auto* conformingProtocol : conformingProtocols.span()) {
-        if (conformingProtocol == @protocol(NSObject))
+    for (RetainPtr conformingProtocol : conformingProtocols.span()) {
+        if (conformingProtocol.get() == @protocol(NSObject))
             continue;
-        initializeMethods(interface, conformingProtocol);
+        initializeMethods(interface, conformingProtocol.get());
     }
 
     initializeMethods(interface, protocol, true);
@@ -187,7 +188,7 @@ static void initializeMethods(_WKRemoteObjectInterface *interface, Protocol *pro
             auto result = adoptNS([[NSMutableString alloc] initWithString:@"{"]);
 
             auto orderedArgumentClasses = copyToVector(allowedArgumentClasses);
-            std::sort(orderedArgumentClasses.begin(), orderedArgumentClasses.end(), [](CFTypeRef a, CFTypeRef b) {
+            std::ranges::sort(orderedArgumentClasses, [](CFTypeRef a, CFTypeRef b) {
                 return CString(class_getName((__bridge Class)a)) < CString(class_getName((__bridge Class)b));
             });
 

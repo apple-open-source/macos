@@ -34,7 +34,7 @@
  * contains the ppl_handler_table, as well as a few PPL-only entry/exit helper
  * functions.
  *
- * See doc/ppl.md for more information about how these PPL entry points work.
+ * See doc/arm/PPL.md for more information about how these PPL entry points work.
  */
 #include <kern/ledger.h>
 
@@ -59,7 +59,7 @@ static uint64_t pmap_ppl_pages_returned_to_kernel_count_total = 0;
  * generates the code for the _ppl() variant which is what is used to jump into
  * the PPL.
  *
- * See doc/ppl.md for more information about how these PPL entry points work.
+ * See doc/arm/PPL.md for more information about how these PPL entry points work.
  */
 
 #if XNU_MONITOR

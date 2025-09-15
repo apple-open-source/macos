@@ -1318,8 +1318,8 @@ netem_create(const char *name, struct ifnet *ifp, void *output_handle,
 {
 	struct netem *ne;
 
-	_CASSERT(IF_NETEM_MODEL_NULL == NETEM_MODEL_NULL);
-	_CASSERT(IF_NETEM_MODEL_NLC == NETEM_MODEL_NLC);
+	static_assert(IF_NETEM_MODEL_NULL == NETEM_MODEL_NULL);
+	static_assert(IF_NETEM_MODEL_NLC == NETEM_MODEL_NLC);
 
 	ne = kalloc_type(struct netem, Z_WAITOK | Z_ZERO);
 

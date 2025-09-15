@@ -42,6 +42,11 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(Texture);
 
 bool Texture::isCompressedFormat(WGPUTextureFormat format)
 {
+    return Texture::compressedFormatType(format).has_value();
+}
+
+std::optional<Texture::CompressFormat> Texture::compressedFormatType(WGPUTextureFormat format)
+{
     // https://gpuweb.github.io/gpuweb/#packed-formats
     switch (format) {
     case WGPUTextureFormat_BC1RGBAUnorm:
@@ -58,6 +63,7 @@ bool Texture::isCompressedFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_BC6HRGBFloat:
     case WGPUTextureFormat_BC7RGBAUnorm:
     case WGPUTextureFormat_BC7RGBAUnormSrgb:
+        return Texture::CompressFormat::BC;
     case WGPUTextureFormat_ETC2RGB8Unorm:
     case WGPUTextureFormat_ETC2RGB8UnormSrgb:
     case WGPUTextureFormat_ETC2RGB8A1Unorm:
@@ -68,6 +74,7 @@ bool Texture::isCompressedFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_EACR11Snorm:
     case WGPUTextureFormat_EACRG11Unorm:
     case WGPUTextureFormat_EACRG11Snorm:
+        return Texture::CompressFormat::ETC;
     case WGPUTextureFormat_ASTC4x4Unorm:
     case WGPUTextureFormat_ASTC4x4UnormSrgb:
     case WGPUTextureFormat_ASTC5x4Unorm:
@@ -96,7 +103,7 @@ bool Texture::isCompressedFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_ASTC12x10UnormSrgb:
     case WGPUTextureFormat_ASTC12x12Unorm:
     case WGPUTextureFormat_ASTC12x12UnormSrgb:
-        return true;
+        return Texture::CompressFormat::ASTC;
     case WGPUTextureFormat_R8Unorm:
     case WGPUTextureFormat_R8Snorm:
     case WGPUTextureFormat_R8Uint:
@@ -140,12 +147,12 @@ bool Texture::isCompressedFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_Depth24PlusStencil8:
     case WGPUTextureFormat_Depth32Float:
     case WGPUTextureFormat_Depth32FloatStencil8:
-        return false;
+        return std::nullopt;
     case WGPUTextureFormat_Undefined:
-        return false;
+        return std::nullopt;
     case WGPUTextureFormat_Force32:
         ASSERT_NOT_REACHED();
-        return false;
+        return std::nullopt;
     }
 }
 
@@ -1540,8 +1547,7 @@ static uint32_t maximumMiplevelCount(WGPUTextureDimension dimension, WGPUExtent3
         return 0;
     }
 
-    auto isPowerOf2 = !(m & (m - 1));
-    if (isPowerOf2)
+    if (isPowerOfTwo(m))
         return WTF::fastLog2(m) + 1;
     return WTF::fastLog2(m);
 }
@@ -1858,8 +1864,22 @@ NSString *Device::errorValidatingTextureCreation(const WGPUTextureDescriptor& de
         if (descriptor.sampleCount != 1)
             return @"createTexture: descriptor.sampleCount != 1";
 
-        if (Texture::isCompressedFormat(descriptor.format) || Texture::isDepthOrStencilFormat(descriptor.format))
-            return @"createTexture: descriptor.format is compressed or a depth stencil format";
+        if (auto compressedFormatType = Texture::compressedFormatType(descriptor.format)) {
+            switch (*compressedFormatType) {
+            case Texture::CompressFormat::BC:
+                if (!hasFeature(WGPUFeatureName_TextureCompressionBCSliced3D))
+                    return @"createTexture: descriptor.format is a compressed format but BC sliced 3D extension is not enabled";
+                break;
+            case Texture::CompressFormat::ASTC:
+                if (!hasFeature(WGPUFeatureName_TextureCompressionASTCSliced3D))
+                    return @"createTexture: descriptor.format is a compressed format but ASTC sliced 3D extension is not enabled";
+                break;
+            case Texture::CompressFormat::ETC:
+                return @"createTexture: descriptor.format is a ETC compressed format which is not supported for 3D textures";
+            }
+        }
+        if (Texture::isDepthOrStencilFormat(descriptor.format))
+            return @"createTexture: descriptor.format is a depth stencil format, this is not allowed for 3D textures";
         break;
     case WGPUTextureDimension_Force32:
         ASSERT_NOT_REACHED();
@@ -2092,7 +2112,7 @@ MTLPixelFormat Texture::pixelFormat(WGPUTextureFormat textureFormat)
         return MTLPixelFormatASTC_12x12_LDR;
     case WGPUTextureFormat_ASTC12x12UnormSrgb:
         return MTLPixelFormatASTC_12x12_sRGB;
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+#if !PLATFORM(WATCHOS)
     case WGPUTextureFormat_BC1RGBAUnorm:
         return MTLPixelFormatBC1_RGBA;
     case WGPUTextureFormat_BC1RGBAUnormSrgb:
@@ -2642,7 +2662,7 @@ Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
     }
 
     setOwnerWithIdentity(texture);
-    texture.label = fromAPI(descriptor.label);
+    texture.label = fromAPI(descriptor.label).createNSString().get();
 
     return Texture::create(texture, descriptor, WTFMove(viewFormats), *this);
 }
@@ -2973,7 +2993,7 @@ Ref<TextureView> Texture::createView(const WGPUTextureViewDescriptor& inputDescr
     if (!texture)
         return TextureView::createInvalid(*this, device.get());
 
-    texture.label = fromAPI(descriptor->label);
+    texture.label = fromAPI(descriptor->label).createNSString().get();
     if (!texture.label.length)
         texture.label = m_texture.label;
 
@@ -3000,8 +3020,10 @@ void Texture::makeCanvasBacking()
 bool Texture::waitForCommandBufferCompletion()
 {
     bool result = true;
-    for (Ref commandEncoder : m_commandEncoders)
-        result = commandEncoder->waitForCommandBufferCompletion() && result;
+    for (auto commandEncoder : m_commandEncoders) {
+        if (RefPtr ptr = m_device->commandEncoderFromIdentifier(commandEncoder))
+            result = ptr->waitForCommandBufferCompletion() && result;
+    }
 
     return result;
 }
@@ -3228,8 +3250,10 @@ void Texture::destroy()
         }
     }
     if (!m_canvasBacking) {
-        for (Ref commandEncoder : m_commandEncoders)
-            commandEncoder->makeSubmitInvalid();
+        for (auto commandEncoder : m_commandEncoders) {
+            if (RefPtr ptr = m_device->commandEncoderFromIdentifier(commandEncoder))
+                ptr->makeSubmitInvalid();
+        }
     }
     m_commandEncoders.clear();
 
@@ -3238,7 +3262,7 @@ void Texture::destroy()
 
 void Texture::setLabel(String&& label)
 {
-    m_texture.label = label;
+    m_texture.label = label.createNSString().get();
 }
 
 WGPUExtent3D Texture::logicalMiplevelSpecificTextureExtent(uint32_t mipLevel)

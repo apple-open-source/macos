@@ -76,9 +76,6 @@ typedef enum {
 #if CONFIG_NEXUS_KERNEL_PIPE
 	NA_KERNEL_PIPE,         /* struct nexus_kpipe_adapter */
 #endif /* CONFIG_NEXUS_KERNEL_PIPE */
-#if CONFIG_NEXUS_MONITOR
-	NA_MONITOR,             /* struct nexus_monitor_adapter */
-#endif /* CONFIG_NEXUS_MONITOR */
 #if CONFIG_NEXUS_NETIF
 	NA_NETIF_DEV,           /* struct nexus_netif_adapter (dev) */
 	NA_NETIF_HOST,          /* struct nexus_netif_adapter (host) */
@@ -113,7 +110,7 @@ struct nexus_pkt_stats {
 /*
  * The "struct nexus_adapter" contains all base fields needed to support
  * Nexus adapter operations.  There are different types of Nexus adapters
- * (upipe, kpipe, fsw, monitor, vp, ...) so a nexus_adapter is
+ * (upipe, kpipe, fsw, vp, ...) so a nexus_adapter is
  * always the first field in the derived type.
  */
 struct nexus_adapter {
@@ -297,7 +294,7 @@ struct nexus_adapter {
 	    uint32_t flags);
 	int (*na_rxsync)(struct __kern_channel_ring *kring, struct proc *,
 	    uint32_t flags);
-#define NA_SYNCF_MONITOR                0x1
+#define NA_SYNCF_UNUSED_1               0x1
 #define NA_SYNCF_FORCE_READ             0x2
 #define NA_SYNCF_FORCE_RECLAIM          0x4
 #define NA_SYNCF_NETIF                  0x8     /* netif normal sync */
@@ -316,7 +313,7 @@ struct nexus_adapter {
 	 */
 	int (*na_notify)(struct __kern_channel_ring *kring, struct proc *,
 	    uint32_t flags);
-#define NA_NOTEF_MONITOR        0x1
+#define NA_NOTEF_UNUSED_1       0x1
 #define NA_NOTEF_IN_KEVENT      0x2
 #define NA_NOTEF_CAN_SLEEP      0x4     /* OK to block in kr_enter() */
 #define NA_NOTEF_NETIF          0x8     /* same as NA_SYNCF_NETIF */
@@ -643,14 +640,13 @@ extern int na_interp_ringid(struct nexus_adapter *, ring_id_t, ring_set_t,
     uint32_t[NR_TXRX], uint32_t[NR_TXRX]);
 extern struct kern_pbufpool *na_kr_get_pp(struct nexus_adapter *, enum txrx);
 
-extern int na_find(struct kern_channel *, struct kern_nexus *,
-    struct chreq *, struct kern_channel *, struct nxbind *,
-    struct proc *, struct nexus_adapter **, boolean_t);
+extern int na_find(struct kern_channel *, struct kern_nexus *, struct chreq *,
+    struct nxbind *, struct proc *, struct nexus_adapter **, boolean_t);
 extern void na_retain_locked(struct nexus_adapter *na);
 extern int na_release_locked(struct nexus_adapter *na);
 
 extern int na_connect(struct kern_nexus *, struct kern_channel *,
-    struct chreq *, struct kern_channel *, struct nxbind *, struct proc *);
+    struct chreq *, struct nxbind *, struct proc *);
 extern void na_disconnect(struct kern_nexus *, struct kern_channel *);
 extern void na_defunct(struct kern_nexus *, struct kern_channel *,
     struct nexus_adapter *, boolean_t);
@@ -671,14 +667,19 @@ extern bool na_flowadv_set(const struct kern_channel *,
     const flowadv_idx_t, const flowadv_token_t);
 extern bool na_flowadv_clear(const struct kern_channel *,
     const flowadv_idx_t, const flowadv_token_t);
-extern int na_flowadv_report_ce_event(const struct kern_channel *ch,
+extern int na_flowadv_report_congestion_event(const struct kern_channel *ch,
     const flowadv_idx_t fe_idx, const flowadv_token_t flow_token,
-    uint32_t ce_cnt, uint32_t total_pkt_cnt);
+    uint32_t congestion_cnt, uint32_t ce_cnt, uint32_t total_pkt_cnt);
 extern void na_flowadv_event(struct __kern_channel_ring *);
 extern void na_post_event(struct __kern_channel_ring *, boolean_t, boolean_t,
     boolean_t, uint32_t);
 
 extern void na_drain(struct nexus_adapter *, boolean_t);
+
+#if SK_LOG
+#define NA_DBGBUF_SIZE   256
+extern char * na2str(const struct nexus_adapter *na, char *__counted_by(dsz)dst, size_t dsz);
+#endif /* SK_LOG */
 
 __END_DECLS
 #endif /* BSD_KERNEL_PRIVATE */

@@ -42,11 +42,11 @@ namespace WebKit {
 #if HAVE(LSDATABASECONTEXT)
 static void handleLaunchServiceDatabaseMessage(xpc_object_t message)
 {
-    auto xpcEndPoint = xpc_dictionary_get_value(message, LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointNameKey);
-    if (!xpcEndPoint || xpc_get_type(xpcEndPoint) != XPC_TYPE_ENDPOINT)
+    RetainPtr xpcEndPoint = xpc_dictionary_get_value(message, LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointNameKey);
+    if (!xpcEndPoint || xpc_get_type(xpcEndPoint.get()) != XPC_TYPE_ENDPOINT)
         return;
 
-    LaunchServicesDatabaseManager::singleton().setEndpoint(xpcEndPoint);
+    LaunchServicesDatabaseManager::singleton().setEndpoint(xpcEndPoint.get());
 }
 #endif
 
@@ -92,14 +92,14 @@ void handleXPCEndpointMessage(xpc_object_t message, const String& messageName)
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     if (messageName == VideoReceiverEndpointMessage::messageName()) {
-        RunLoop::main().dispatch([message = OSObjectPtr(message)] {
+        RunLoop::mainSingleton().dispatch([message = OSObjectPtr(message)] {
             handleVideoReceiverEndpointMessage(message.get());
         });
         return;
     }
 
     if (messageName == VideoReceiverSwapEndpointsMessage::messageName()) {
-        RunLoop::main().dispatch([message = OSObjectPtr(message)] {
+        RunLoop::mainSingleton().dispatch([message = OSObjectPtr(message)] {
             handleVideoReceiverSwapEndpointsMessage(message.get());
         });
         return;

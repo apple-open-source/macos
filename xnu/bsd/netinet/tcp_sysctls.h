@@ -34,7 +34,9 @@
 extern int tcp_cubic_tcp_friendliness;
 extern int tcp_cubic_fast_convergence;
 extern int tcp_cubic_use_minrtt;
+/* TODO - remove once uTCP stops using it */
 extern int tcp_cubic_minor_fixes;
+/* TODO - remove once uTCP stops using it */
 extern int tcp_cubic_rfc_compliant;
 
 extern int tcp_rack;

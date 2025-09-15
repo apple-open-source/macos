@@ -71,7 +71,11 @@
 #define OS_WEAK __attribute__((__weak__))
 #define OS_WEAK_IMPORT __attribute__((__weak_import__))
 #define OS_NOINLINE __attribute__((__noinline__))
+#ifndef __BUILDING_XNU_LIBRARY__
 #define OS_ALWAYS_INLINE __attribute__((__always_inline__))
+#else /* __BUILDING_XNU_LIBRARY__ */
+#define OS_ALWAYS_INLINE
+#endif /* __BUILDING_XNU_LIBRARY__ */
 #define OS_TRANSPARENT_UNION __attribute__((__transparent_union__))
 #define OS_ALIGNED(n) __attribute__((__aligned__((n))))
 #define OS_FORMAT_PRINTF(x, y) __attribute__((__format__(printf,x,y)))
@@ -379,5 +383,22 @@ typedef void (^os_block_t)(void);
 #define OS_HEADER_INDEXABLE __header_indexable
 #define OS_COUNTED_BY(N) __counted_by(N)
 #define OS_SIZED_BY(N) __sized_by(N)
+
+#if XNU_KERNEL_PRIVATE
+#if __BUILDING_XNU_LIBRARY__
+// These are used to mark functions which should normally be static but
+// should be callable from the tester
+#define __static_testable
+// inline makes the functions not visible
+#define __inline_testable
+// This marks a function which could be overriden by a mock in a unit-tester
+#define __mockable __attribute__((noinline))
+#else // __BUILDING_XNU_LIBRARY__
+#define __static_testable static
+#define __inline_testable inline
+#define __mockable
+#endif // __BUILDING_XNU_LIBRARY__
+
+#endif // XNU_KERNEL_PRIVATE
 
 #endif // __OS_BASE__

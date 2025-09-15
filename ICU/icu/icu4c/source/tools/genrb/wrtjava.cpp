@@ -623,8 +623,10 @@ bundle_write_java(struct SRBRoot *bundle, const char *outputDir,const char* outp
                   const char* packageName, const char* bundleName,
                   UErrorCode *status) {
 
-    char fileName[256] = {'\0'};
-    char className[256]={'\0'};
+    const int32_t MAX_CLASS_NAME_SIZE = 255;
+    const int32_t MAX_FILE_NAME_SIZE = 2047;
+    char fileName[MAX_FILE_NAME_SIZE + 1] = {'\0'};
+    char className[MAX_CLASS_NAME_SIZE + 1]={'\0'};
     /*char constructor[1000] = { 0 };*/
     /*UBool j1 =false;*/
     /*outDir = outputDir;*/
@@ -634,22 +636,40 @@ bundle_write_java(struct SRBRoot *bundle, const char *outputDir,const char* outp
     bName = (bundleName==nullptr) ? "LocaleElements" : bundleName;
     pName = (packageName==nullptr)? "com.ibm.icu.impl.data" : packageName;
 
-    uprv_strcpy(className, bName);
+    uprv_strncpy(className, bName, MAX_CLASS_NAME_SIZE);
+    className[MAX_CLASS_NAME_SIZE] = '\0';
     srBundle = bundle;
     if(uprv_strcmp(srBundle->fLocale,"root")!=0){
-        uprv_strcat(className,"_");
-        uprv_strcat(className,srBundle->fLocale);
+        if (uprv_strlen(className) + 2 + uprv_strlen(srBundle->fLocale) > MAX_CLASS_NAME_SIZE) {
+            *status = U_BUFFER_OVERFLOW_ERROR;
+            return;
+        } else {
+            uprv_strcat(className,"_");
+            uprv_strcat(className,srBundle->fLocale);
+        }
     }
     if(outputDir){
-        uprv_strcpy(fileName, outputDir);
-        if(outputDir[uprv_strlen(outputDir)-1] !=U_FILE_SEP_CHAR){
-            uprv_strcat(fileName,U_FILE_SEP_STRING);
+        uprv_strncpy(fileName, outputDir, MAX_FILE_NAME_SIZE);
+        fileName[MAX_FILE_NAME_SIZE] = '\0';
+        int32_t size = uprv_strlen(fileName);
+        if (uprv_strlen(fileName) + uprv_strlen(U_FILE_SEP_STRING) + uprv_strlen(className) + uprv_strlen(".java") > MAX_FILE_NAME_SIZE) {
+            *status = U_BUFFER_OVERFLOW_ERROR;
+            return;
+        } else {
+            if(outputDir[uprv_strlen(outputDir)-1] !=U_FILE_SEP_CHAR){
+                uprv_strcat(fileName,U_FILE_SEP_STRING);
+            }
+            uprv_strcat(fileName,className);
+            uprv_strcat(fileName,".java");
         }
-        uprv_strcat(fileName,className);
-        uprv_strcat(fileName,".java");
     }else{
-        uprv_strcat(fileName,className);
-        uprv_strcat(fileName,".java");
+        if (uprv_strlen(className) + uprv_strlen(".java") > MAX_FILE_NAME_SIZE) {
+            *status = U_BUFFER_OVERFLOW_ERROR;
+            return;
+        } else {
+            uprv_strcat(fileName,className);
+            uprv_strcat(fileName,".java");
+        }
     }
 
     if (writtenFilename) {

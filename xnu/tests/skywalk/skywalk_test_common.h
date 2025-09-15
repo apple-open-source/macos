@@ -246,7 +246,7 @@ sktc_feth1_in_addr(void)
 static inline struct in_addr
 sktc_rd0_in_addr(void)
 {
-	_CASSERT(RD0_INADDR == FETH0_INADDR);
+	static_assert(RD0_INADDR == FETH0_INADDR);
 	return sktc_make_in_addr(RD0_INADDR);
 }
 
@@ -277,16 +277,10 @@ extern bool sktc_get_flowswitch_nexus(const char *ifname, uuid_t fsw);
 extern int sktc_ifnet_feth0_set_dequeue_stall(boolean_t enable);
 extern int sktc_ifnet_feth1_set_dequeue_stall(boolean_t enable);
 
-typedef enum : uint8_t {
-	SKTC_CLASSQ_DEF_C,
-	SKTC_CLASSQ_DEF_L4S,
-	SKTC_CLASSQ_LL_C,
-	SKTC_CLASSQ_LL_L4S,
-} sktc_classq_type_t;
-extern int sktc_set_classq_update_interval(uint64_t ns, sktc_classq_type_t type);
-extern int sktc_reset_classq_update_interval(sktc_classq_type_t type);
-extern int sktc_set_classq_target_qdelay(uint64_t ns, sktc_classq_type_t type);
-extern int sktc_reset_classq_target_qdelay(sktc_classq_type_t type);
+extern int sktc_set_classq_update_interval(uint64_t ns);
+extern int sktc_reset_classq_update_interval();
+extern int sktc_set_classq_target_qdelay(uint64_t ns);
+extern int sktc_reset_classq_target_qdelay();
 extern int sktc_set_classq_update_intervals(uint64_t ns);
 extern int sktc_reset_classq_update_intervals(void);
 extern int sktc_set_classq_target_qdelays(uint64_t ns);

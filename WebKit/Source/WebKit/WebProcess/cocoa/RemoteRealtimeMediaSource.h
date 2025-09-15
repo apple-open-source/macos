@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,6 +56,7 @@ public:
     void captureStopped(bool didFail);
     void sourceMutedChanged(bool value, bool interrupted);
 
+    using RealtimeMediaSource::configurationChanged;
     void configurationChanged(String&& persistentID, WebCore::RealtimeMediaSourceSettings&&, WebCore::RealtimeMediaSourceCapabilities&&);
 
 #if ENABLE(GPU_PROCESS)
@@ -82,10 +83,10 @@ protected:
 private:
     // RealtimeMediaSource
     void startProducingData() final { m_proxy.startProducingData(*pageIdentifier()); }
-    void stopProducingData() final { m_proxy.stopProducingData(); }
     void endProducingData() final { m_proxy.endProducingData(); }
     bool isCaptureSource() const final { return true; }
     void applyConstraints(const WebCore::MediaConstraints&, ApplyConstraintsHandler&&) final;
+    void stopProducingData() final;
     void didEnd() final;
     void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&& callback) final { m_proxy.whenReady(WTFMove(callback)); }
     WebCore::CaptureDevice::DeviceType deviceType() const final { return m_proxy.deviceType(); }
@@ -98,7 +99,7 @@ private:
 #endif
 
     RemoteRealtimeMediaSourceProxy m_proxy;
-    CheckedRef<UserMediaCaptureManager> m_manager;
+    const CheckedRef<UserMediaCaptureManager> m_manager;
     std::optional<WebCore::MediaConstraints> m_constraints;
     WebCore::RealtimeMediaSourceCapabilities m_capabilities;
     std::optional<WebCore::PhotoCapabilities> m_photoCapabilities;

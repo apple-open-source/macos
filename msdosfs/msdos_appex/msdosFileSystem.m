@@ -378,6 +378,10 @@ int wipeFSCallback(newfs_client_ctx_t ctx, WipeFSProperties wipeFSProps)
                                                    containerID:containerID];
     }
 out:
+    if (volUuid) {
+        free(volUuid);
+    }
+
     if (error) {
         return replyHandler(nil, error);
     }

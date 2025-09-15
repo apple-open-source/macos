@@ -1082,6 +1082,8 @@ extern kern_return_t pmap_enter_check(
 #define DW_VM_PAGE_QUEUES_REMOVE        0x2000
 #define DW_enqueue_cleaned              0x4000
 #define DW_vm_phantom_cache_update      0x8000
+#define DW_vm_page_iopl_wire            0x20000
+#define DW_vm_page_iopl_wire_write      0x40000
 
 struct vm_page_delayed_work {
 	vm_page_t       dw_m;
@@ -1095,7 +1097,7 @@ struct vm_page_delayed_work_ctx {
 	thread_t                    delayed_owner;
 };
 
-void vm_page_do_delayed_work(vm_object_t object, vm_tag_t tag, struct vm_page_delayed_work *dwp, int dw_count);
+kern_return_t vm_page_do_delayed_work(vm_object_t object, vm_tag_t tag, struct vm_page_delayed_work *dwp, int dw_count);
 
 #define DELAYED_WORK_LIMIT(max) ((vm_max_delayed_work_limit >= max ? max : vm_max_delayed_work_limit))
 

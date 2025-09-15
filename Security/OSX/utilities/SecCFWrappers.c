@@ -241,7 +241,6 @@ CFStringRef CFDictionaryCopySuperCompactDescription(CFDictionaryRef dictionary) 
     CFStringRef result = NULL;
     if (dictionary) {
         CFMutableStringRef compactDescription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("{"));
-        __block CFStringRef separator = CFSTR("");
         
         CFDictionaryForEach(dictionary, ^(const void *key, const void *value) {
             CFMutableStringRef valueDescription = NULL;
@@ -268,7 +267,6 @@ CFStringRef CFDictionaryCopySuperCompactDescription(CFDictionaryRef dictionary) 
             
             UniChar firstCharOfKey = CFStringGetCharacterAtIndex(key, 0);
             CFStringAppendFormat(compactDescription, NULL, CFSTR("%c:%@ "), firstCharOfKey, valueDescription);
-            separator = CFSTR(", ");
             CFReleaseNull(valueDescription);
         });
         

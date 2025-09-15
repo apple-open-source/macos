@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #include <CoreMedia/CoreMedia.h>
 
 NS_ASSUME_NONNULL_BEGIN

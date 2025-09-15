@@ -5928,6 +5928,7 @@ void RegexTest::TestForHang() {
         // we don't actually expect a match
         errln("unexpected match");
     }
+    delete matcher;
 }
 #endif // APPLE_ICU_CHANGES
 

@@ -38,7 +38,7 @@ namespace WTF {
 OSLogPrintStream::OSLogPrintStream(os_log_t log, os_log_type_t logType)
     : m_log(log)
     , m_logType(logType)
-    , m_string("initial string... lol")
+    , m_string("initial string... lol"_s)
 {
 }
 
@@ -60,7 +60,7 @@ void OSLogPrintStream::vprintf(const char* format, va_list argList)
     va_copy(backup, argList);
 ALLOW_NONLITERAL_FORMAT_BEGIN
     size_t bytesWritten = vsnprintf(m_string.mutableSpanIncludingNullTerminator().subspan(offset).data(), freeBytes, format, argList);
-    if (UNLIKELY(bytesWritten >= freeBytes)) {
+    if (bytesWritten >= freeBytes) [[unlikely]] {
         size_t newLength = std::max(bytesWritten + m_string.length(), m_string.length() * 2);
         m_string.grow(newLength);
         freeBytes = newLength - offset;

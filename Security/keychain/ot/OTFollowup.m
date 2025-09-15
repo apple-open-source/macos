@@ -56,6 +56,8 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
             return @"confirm existing secret";
         case OTFollowupContextTypeSecureTerms:
             return @"secure terms";
+        case OTFollowupContextTypeOfflinePasscodeChange:
+            return @"offline passcode change";
     }
 }
 
@@ -95,6 +97,9 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
         }
         case OTFollowupContextTypeSecureTerms: {
             return [CDPFollowUpContext contextForSecureTerms];
+        }
+        case OTFollowupContextTypeOfflinePasscodeChange: {
+            return [CDPFollowUpContext contextForOfflinePasscodeChange];
         }
         default: {
             return nil;
@@ -154,6 +159,17 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
     return result;
 }
 
+- (BOOL)clearAllRepairFollowUps:(TPSpecificUser*)activeAccount
+                          error:(NSError **)error
+{
+    BOOL success = YES;
+
+    success &= [self clearFollowUp:OTFollowupContextTypeConfirmExistingSecret activeAccount:activeAccount error:error];
+    success &= [self clearFollowUp:OTFollowupContextTypeOfflinePasscodeChange activeAccount:activeAccount error:error];
+    success &= [self clearFollowUp:OTFollowupContextTypeSecureTerms           activeAccount:activeAccount error:error];
+
+    return success;
+}
 
 - (NSDictionary *_Nullable)sysdiagnoseStatus
 {

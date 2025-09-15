@@ -41,6 +41,7 @@ class HTMLFormElement;
 class HTMLImageLoader;
 class HTMLMapElement;
 class Image;
+class SecurityOrigin;
 
 struct ImageCandidate;
 
@@ -89,24 +90,10 @@ public:
     bool matchesUsemap(const AtomString&) const;
     RefPtr<HTMLMapElement> associatedMapElement() const;
 
-    WEBCORE_EXPORT const AtomString& alt() const;
-
-    WEBCORE_EXPORT void setHeight(unsigned);
-
-    URL src() const;
-    void setSrc(const AtomString&);
-
-    WEBCORE_EXPORT void setCrossOrigin(const AtomString&);
     WEBCORE_EXPORT String crossOrigin() const;
-
-    WEBCORE_EXPORT void setWidth(unsigned);
-
     WEBCORE_EXPORT int x() const;
     WEBCORE_EXPORT int y() const;
-
     WEBCORE_EXPORT bool complete() const;
-
-    void setDecoding(AtomString&&);
     String decoding() const;
 
     DecodingMode decodingMode() const;
@@ -149,12 +136,10 @@ public:
     void loadDeferredImage();
 
     AtomString srcsetForBindings() const;
-    void setSrcsetForBindings(const AtomString&);
 
     bool usesSrcsetOrPicture() const;
 
     const AtomString& loadingForBindings() const;
-    void setLoadingForBindings(const AtomString&);
 
     bool isLazyLoadable() const;
     static bool hasLazyLoadableAttributeValue(StringView);
@@ -166,7 +151,6 @@ public:
 
     void evaluateDynamicMediaQueryDependencies();
 
-    void setReferrerPolicyForBindings(const AtomString&);
     String referrerPolicyForBindings() const;
     ReferrerPolicy referrerPolicy() const;
 
@@ -177,7 +161,6 @@ public:
     WEBCORE_EXPORT void setAllowsAnimation(std::optional<bool>);
 #endif
 
-    void setFetchPriorityForBindings(const AtomString&);
     String fetchPriorityForBindings() const;
     RequestPriority fetchPriority() const;
 
@@ -202,7 +185,7 @@ private:
     void invalidateAttributeMapping();
     void collectExtraStyleForPresentationalHints(MutableStyleProperties&) override;
 
-    Ref<Element> cloneElementWithoutAttributesAndChildren(TreeScope&) final;
+    Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*) final;
 
     // ActiveDOMObject.
     bool virtualHasPendingActivity() const final;
@@ -217,7 +200,7 @@ private:
     bool isURLAttribute(const Attribute&) const override;
     bool attributeContainsURL(const Attribute&) const override;
     String completeURLsInAttributeValue(const URL& base, const Attribute&, ResolveURLs = ResolveURLs::Yes) const override;
-    Attribute replaceURLsInAttributeValue(const Attribute&, const UncheckedKeyHashMap<String, String>&) const override;
+    Attribute replaceURLsInAttributeValue(const Attribute&, const CSS::SerializationContext&) const override;
 
     bool isDraggableIgnoringAttributes() const final { return true; }
 
@@ -261,7 +244,7 @@ private:
     IntersectionObserverData& ensureIntersectionObserverData() final;
     IntersectionObserverData* intersectionObserverDataIfExists() final;
 
-    std::unique_ptr<HTMLImageLoader> m_imageLoader;
+    const std::unique_ptr<HTMLImageLoader> m_imageLoader;
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
 
     AtomString m_bestFitImageURL;

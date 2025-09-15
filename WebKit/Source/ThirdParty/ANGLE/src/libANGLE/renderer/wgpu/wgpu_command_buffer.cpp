@@ -13,10 +13,10 @@ namespace webgpu
 namespace
 {
 template <typename T>
-const T *GetReferencedObject(std::unordered_set<T> &referenceList, const T &item)
+T::ObjectType GetReferencedObject(std::unordered_set<T> &referenceList, const T &item)
 {
     auto iter = referenceList.insert(item).first;
-    return &(*iter);
+    return (*iter).get();
 }
 
 // Get the packed command ID from the current command data
@@ -66,14 +66,25 @@ void CommandBuffer::drawIndexed(uint32_t indexCount,
     drawIndexedCommand->firstInstance      = firstInstance;
 }
 
-void CommandBuffer::setBindGroup(uint32_t groupIndex, wgpu::BindGroup bindGroup)
+void CommandBuffer::setBindGroup(uint32_t groupIndex, BindGroupHandle bindGroup)
 {
     SetBindGroupCommand *setBindGroupCommand = initCommand<CommandID::SetBindGroup>();
     setBindGroupCommand->groupIndex          = groupIndex;
     setBindGroupCommand->bindGroup = GetReferencedObject(mReferencedBindGroups, bindGroup);
 }
 
-void CommandBuffer::setPipeline(wgpu::RenderPipeline pipeline)
+void CommandBuffer::setBlendConstant(float r, float g, float b, float a)
+{
+    SetBlendConstantCommand *setBlendConstantCommand = initCommand<CommandID::SetBlendConstant>();
+    setBlendConstantCommand->r                       = r;
+    setBlendConstantCommand->g                       = g;
+    setBlendConstantCommand->b                       = b;
+    setBlendConstantCommand->a                       = a;
+
+    mHasSetBlendConstantCommand = true;
+}
+
+void CommandBuffer::setPipeline(RenderPipelineHandle pipeline)
 {
     SetPipelineCommand *setPiplelineCommand = initCommand<CommandID::SetPipeline>();
     setPiplelineCommand->pipeline = GetReferencedObject(mReferencedRenderPipelines, pipeline);
@@ -108,8 +119,8 @@ void CommandBuffer::setViewport(float x,
     mHasSetViewportCommand = true;
 }
 
-void CommandBuffer::setIndexBuffer(wgpu::Buffer buffer,
-                                   wgpu::IndexFormat format,
+void CommandBuffer::setIndexBuffer(BufferHandle buffer,
+                                   WGPUIndexFormat format,
                                    uint64_t offset,
                                    uint64_t size)
 {
@@ -120,11 +131,16 @@ void CommandBuffer::setIndexBuffer(wgpu::Buffer buffer,
     setIndexBufferCommand->size                  = size;
 }
 
-void CommandBuffer::setVertexBuffer(uint32_t slot, wgpu::Buffer buffer)
+void CommandBuffer::setVertexBuffer(uint32_t slot,
+                                    BufferHandle buffer,
+                                    uint64_t offset,
+                                    uint64_t size)
 {
     SetVertexBufferCommand *setVertexBufferCommand = initCommand<CommandID::SetVertexBuffer>();
     setVertexBufferCommand->slot                   = slot;
     setVertexBufferCommand->buffer = GetReferencedObject(mReferencedBuffers, buffer);
+    setVertexBufferCommand->offset                 = offset;
+    setVertexBufferCommand->size                   = size;
 }
 
 void CommandBuffer::clear()
@@ -133,6 +149,7 @@ void CommandBuffer::clear()
 
     mHasSetScissorCommand  = false;
     mHasSetViewportCommand = false;
+    mHasSetBlendConstantCommand = false;
 
     if (!mCommandBlocks.empty())
     {
@@ -148,7 +165,7 @@ void CommandBuffer::clear()
     mReferencedBuffers.clear();
 }
 
-void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
+void CommandBuffer::recordCommands(const DawnProcTable *wgpu, RenderPassEncoderHandle encoder)
 {
     ASSERT(hasCommands());
     ASSERT(!mCommandBlocks.empty());
@@ -173,8 +190,9 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const DrawCommand &drawCommand =
                         GetCommandAndIterate<CommandID::Draw>(&currentCommand);
-                    encoder.Draw(drawCommand.vertexCount, drawCommand.instanceCount,
-                                 drawCommand.firstVertex, drawCommand.firstInstance);
+                    wgpu->renderPassEncoderDraw(encoder.get(), drawCommand.vertexCount,
+                                                drawCommand.instanceCount, drawCommand.firstVertex,
+                                                drawCommand.firstInstance);
                     break;
                 }
 
@@ -182,10 +200,10 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const DrawIndexedCommand &drawIndexedCommand =
                         GetCommandAndIterate<CommandID::DrawIndexed>(&currentCommand);
-                    encoder.DrawIndexed(
-                        drawIndexedCommand.indexCount, drawIndexedCommand.instanceCount,
-                        drawIndexedCommand.firstIndex, drawIndexedCommand.baseVertex,
-                        drawIndexedCommand.firstInstance);
+                    wgpu->renderPassEncoderDrawIndexed(
+                        encoder.get(), drawIndexedCommand.indexCount,
+                        drawIndexedCommand.instanceCount, drawIndexedCommand.firstIndex,
+                        drawIndexedCommand.baseVertex, drawIndexedCommand.firstInstance);
                     break;
                 }
 
@@ -193,8 +211,19 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetBindGroupCommand &setBindGroupCommand =
                         GetCommandAndIterate<CommandID::SetBindGroup>(&currentCommand);
-                    encoder.SetBindGroup(setBindGroupCommand.groupIndex,
-                                         *setBindGroupCommand.bindGroup);
+                    wgpu->renderPassEncoderSetBindGroup(encoder.get(),
+                                                        setBindGroupCommand.groupIndex,
+                                                        setBindGroupCommand.bindGroup, 0, nullptr);
+                    break;
+                }
+
+                case CommandID::SetBlendConstant:
+                {
+                    const SetBlendConstantCommand &setBlendConstantCommand =
+                        GetCommandAndIterate<CommandID::SetBlendConstant>(&currentCommand);
+                    WGPUColor color{setBlendConstantCommand.r, setBlendConstantCommand.g,
+                                    setBlendConstantCommand.b, setBlendConstantCommand.a};
+                    wgpu->renderPassEncoderSetBlendConstant(encoder.get(), &color);
                     break;
                 }
 
@@ -202,8 +231,8 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetIndexBufferCommand &setIndexBufferCommand =
                         GetCommandAndIterate<CommandID::SetIndexBuffer>(&currentCommand);
-                    encoder.SetIndexBuffer(
-                        *setIndexBufferCommand.buffer, setIndexBufferCommand.format,
+                    wgpu->renderPassEncoderSetIndexBuffer(
+                        encoder.get(), setIndexBufferCommand.buffer, setIndexBufferCommand.format,
                         setIndexBufferCommand.offset, setIndexBufferCommand.size);
                     break;
                 }
@@ -212,7 +241,7 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetPipelineCommand &setPiplelineCommand =
                         GetCommandAndIterate<CommandID::SetPipeline>(&currentCommand);
-                    encoder.SetPipeline(*setPiplelineCommand.pipeline);
+                    wgpu->renderPassEncoderSetPipeline(encoder.get(), setPiplelineCommand.pipeline);
                     break;
                 }
 
@@ -220,9 +249,9 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetScissorRectCommand &setScissorRectCommand =
                         GetCommandAndIterate<CommandID::SetScissorRect>(&currentCommand);
-                    encoder.SetScissorRect(setScissorRectCommand.x, setScissorRectCommand.y,
-                                           setScissorRectCommand.width,
-                                           setScissorRectCommand.height);
+                    wgpu->renderPassEncoderSetScissorRect(
+                        encoder.get(), setScissorRectCommand.x, setScissorRectCommand.y,
+                        setScissorRectCommand.width, setScissorRectCommand.height);
                     break;
                 }
 
@@ -230,9 +259,10 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetViewportCommand &setViewportCommand =
                         GetCommandAndIterate<CommandID::SetViewport>(&currentCommand);
-                    encoder.SetViewport(setViewportCommand.x, setViewportCommand.y,
-                                        setViewportCommand.width, setViewportCommand.height,
-                                        setViewportCommand.minDepth, setViewportCommand.maxDepth);
+                    wgpu->renderPassEncoderSetViewport(
+                        encoder.get(), setViewportCommand.x, setViewportCommand.y,
+                        setViewportCommand.width, setViewportCommand.height,
+                        setViewportCommand.minDepth, setViewportCommand.maxDepth);
                     break;
                 }
 
@@ -240,8 +270,9 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
                 {
                     const SetVertexBufferCommand &setVertexBufferCommand =
                         GetCommandAndIterate<CommandID::SetVertexBuffer>(&currentCommand);
-                    encoder.SetVertexBuffer(setVertexBufferCommand.slot,
-                                            *setVertexBufferCommand.buffer);
+                    wgpu->renderPassEncoderSetVertexBuffer(
+                        encoder.get(), setVertexBufferCommand.slot, setVertexBufferCommand.buffer,
+                        setVertexBufferCommand.offset, setVertexBufferCommand.size);
                     break;
                 }
 
@@ -255,6 +286,14 @@ void CommandBuffer::recordCommands(wgpu::RenderPassEncoder encoder)
 
 void CommandBuffer::nextCommandBlock()
 {
+    if (!mCommandBlocks.empty())
+    {
+        ASSERT(mCurrentCommandBlock < mCommandBlocks.size());
+
+        // Finish the current command block before moving to a new one
+        mCommandBlocks[mCurrentCommandBlock]->finalize();
+    }
+
     if (mCurrentCommandBlock + 1 < mCommandBlocks.size())
     {
         // There is already a command block allocated. Make sure it's been cleared and use it.

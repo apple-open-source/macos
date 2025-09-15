@@ -143,6 +143,9 @@ Display	    *x11_display = NULL;
 #endif
 
 static int ignore_sigtstp = FALSE;
+#ifdef __APPLE__
+static int jobc_disabled = FALSE;
+#endif
 
 static int get_x11_title(int);
 
@@ -993,6 +996,11 @@ sig_tstp SIGDEFARG(sigarg)
     static void
 catch_sigint SIGDEFARG(sigarg)
 {
+#ifdef __APPLE__
+    if (Unix2003_compat && !mch_input_isatty()) {
+	_exit(1);
+    }
+#endif
     // this is not required on all systems, but it doesn't hurt anybody
     mch_signal(SIGINT, catch_sigint);
     got_int = TRUE;
@@ -1401,6 +1409,10 @@ restore_clipboard(void)
     void
 mch_suspend(void)
 {
+#ifdef __APPLE__
+    if (exmode_active == EXMODE_NORMAL && jobc_disabled)
+	return;
+#endif
     if (ignore_sigtstp)
 	return;
 
@@ -1459,6 +1471,14 @@ mch_init(void)
     // tty job control and thus we should ignore that signal. If invoked as a
     // restricted editor (e.g., as "rvim") SIGTSTP is always ignored.
     ignore_sigtstp = restricted || SIG_IGN == mch_signal(SIGTSTP, SIG_ERR);
+#endif
+#ifdef __APPLE__
+    // SIGTSTP may tell us if the launcher didn't support job control, but it
+    // does not tell us if the launcher had *disabled* job control.  Generally,
+    // we can tell based on whether we're in our parent's process group or not.
+    // With job control enabled, we'll either see a `pgid` of our `pid`, or
+    // we'll see a `pgid` of one of our siblings if we're in a pipeline.
+    jobc_disabled = getpgid(0) == getppid();
 #endif
     set_signals();
 
@@ -3890,6 +3910,9 @@ get_stty(void)
 	return;
 
     intr_char = info.interrupt;
+#ifdef __APPLE__
+    susp_char = info.suspend;
+#endif
     buf[0] = info.backspace;
     buf[1] = NUL;
     add_termcode((char_u *)"kb", buf, FALSE);
@@ -3918,6 +3941,9 @@ get_tty_info(int fd, ttyinfo_T *info)
     {
 	info->backspace = keys.c_cc[VERASE];
 	info->interrupt = keys.c_cc[VINTR];
+#ifdef __APPLE__
+	info->suspend = keys.c_cc[VSUSP];
+#endif
 	if (keys.c_iflag & ICRNL)
 	    info->enter = NL;
 	else
@@ -6677,6 +6703,13 @@ select_eintr:
 	    // here, because we do want to check even after a timeout if
 	    // characters are available.  Needed for reading output of an
 	    // external command after the process has finished.
+#ifdef __APPLE__
+	    if (got_int) {
+		if (interrupted != NULL)
+		    *interrupted = TRUE;
+		return 0;
+	    }
+#endif
 	    goto select_eintr;
 	}
 # endif

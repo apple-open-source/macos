@@ -42,6 +42,25 @@ public:
  */
 	static IOPerfControlClient *copyClient(IOService *driver, uint64_t maxWorkCapacity);
 
+	__enum_decl(IOPCDeviceType, uint8_t, {
+		IOPCDeviceTypeUnknown  = 0x0,
+		IOPCDeviceTypeGPU      = 0x1,
+		IOPCDeviceTypeANE      = 0x2,
+		IOPCDeviceTypeMSR      = 0x3,
+		IOPCDeviceTypeStorage  = 0x4,
+		IOPCDeviceTypeMax      = 0x5,
+	});
+/*!
+ * @function copyClientForDeviceType
+ * @abstract Return a retained reference to a client object, to be released by the driver. It may be
+ * shared with other drivers in the system.
+ * @param driver The device driver that will be using this interface.
+ * @param maxWorkCapacity The maximum number of concurrent work items supported by the device driver.
+ * @param deviceType The type of device that this driver controls. Unknown is fine to use for devices not listed.
+ * @returns An instance of IOPerfControlClient.
+ */
+	static IOPerfControlClient *copyClientForDeviceType(IOService *driver, uint64_t maxWorkCapacity, IOPCDeviceType deviceType);
+
 /*!
  * @function registerDevice
  * @abstract Inform the system that work will be dispatched to a device in the future.
@@ -239,6 +258,19 @@ public:
  */
 	void workUpdateWithContext(IOService *device, OSObject *context, WorkUpdateArgs *args = nullptr);
 
+/*!
+ * @function querySubmitterRole
+ * @abstract Reports the current role configured on the submitting task by app lifecycle management policy
+ * for this type of device.  May be queried before submit to inform which policies should apply to this work.
+ * @param device The device that will submit the work. Some platforms require device to be a
+ * specific subclass of IOService.
+ * @note Must use the copyClientForDeviceType init to convey the type of device to query the role of.
+ * GPU role enums are found in sys/resource_private.h and are configured via PRIO_DARWIN_GPU.
+ */
+	IOReturn querySubmitterRole(IOService *device, task_t submitting_task, uint32_t* role_out);
+
+#define PERFCONTROL_SUPPORTS_SUBMITTER_ROLE 1
+
 /*
  * Callers should always use the CURRENT version so that the kernel can detect both older
  * and newer structure layouts. New callbacks should always be added at the end of the
@@ -275,7 +307,7 @@ public:
 			uint64_t target_thread_group_id;
 			void *target_thread_group_data;
 
-			PerfDeviceID device_type;
+			PerfDeviceID device_type; /* device-type determined by CLPC */
 			uint32_t instance_id;
 			bool resource_accounting;
 		};
@@ -349,6 +381,9 @@ public:
 	}
 
 private:
+
+	void setDeviceType(IOPCDeviceType deviceType);
+
 	struct WorkTableEntry {
 		struct thread_group *thread_group;
 		coalition_t coal;
@@ -369,6 +404,7 @@ private:
 	inline uint64_t tokenToGlobalUniqueToken(uint64_t token);
 	void accountResources(coalition_t coal, PerfControllerInterface::PerfDeviceID device_type, PerfControllerInterface::ResourceAccounting *resources);
 
+	IOPCDeviceType deviceType; /* device-type provided by client via copyClientForDeviceType */
 	uint8_t driverIndex;
 	IOPerfControlClientShared *shared;
 	WorkTableEntry *workTable;

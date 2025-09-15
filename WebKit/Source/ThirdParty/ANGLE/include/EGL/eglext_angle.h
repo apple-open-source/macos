@@ -96,6 +96,8 @@
 #ifndef EGL_ANGLE_platform_angle_webgpu
 #define EGL_ANGLE_platform_angle_webgpu 1
 #define EGL_PLATFORM_ANGLE_TYPE_WEBGPU_ANGLE 0x34DD
+#define EGL_PLATFORM_ANGLE_DAWN_PROC_TABLE_ANGLE 0x3468
+#define EGL_PLATFORM_ANGLE_WEBGPU_DEVICE_ANGLE 0x34F6
 #endif /* EGL_ANGLE_platform_angle_webgpu */
 
 #ifndef EGL_ANGLE_platform_angle_vulkan
@@ -346,20 +348,6 @@ EGLAPI EGLBoolean EGLAPIENTRY eglQueryDisplayAttribANGLE(EGLDisplay dpy, EGLint 
 #define EGL_CGL_PIXEL_FORMAT_ANGLE 0x3486
 #endif
 
-#ifndef EGL_ANGLE_ggp_stream_descriptor
-#define EGL_ANGLE_ggp_stream_descriptor 1
-#define EGL_GGP_STREAM_DESCRIPTOR_ANGLE 0x348B
-#endif /* EGL_ANGLE_ggp_stream_descriptor */
-
-#ifndef EGL_ANGLE_swap_with_frame_token
-#define EGL_ANGLE_swap_with_frame_token 1
-typedef khronos_uint64_t EGLFrameTokenANGLE;
-typedef EGLBoolean (EGLAPIENTRYP PFNEGLSWAPBUFFERSWITHFRAMETOKENANGLEPROC)(EGLDisplay dpy, EGLSurface surface, EGLFrameTokenANGLE frametoken);
-#ifdef EGL_EGLEXT_PROTOTYPES
-EGLAPI EGLBoolean EGLAPIENTRY eglSwapBuffersWithFrameTokenANGLE(EGLDisplay dpy, EGLSurface surface, EGLFrameTokenANGLE frametoken);
-#endif
-#endif /* EGL_ANGLE_swap_with_frame_token */
-
 #ifndef EGL_ANGLE_prepare_swap_buffers
 #define EGL_ANGLE_prepare_swap_buffers 1
 typedef EGLBoolean (EGLAPIENTRYP PFNEGLPREPARESWAPBUFFERSANGLEPROC)(EGLDisplay dpy, EGLSurface surface);
@@ -461,6 +449,19 @@ EGLAPI void EGLAPIENTRY eglSetValidationEnabledANGLE(EGLBoolean validationState)
 #define EGL_ANGLE_memory_usage_report 1
 #define EGL_CONTEXT_MEMORY_USAGE_ANGLE 0x3462
 #endif /* EGL_ANGLE_memory_usage_report */
+
+#ifndef EGL_ANGLE_device_webgpu
+#define EGL_ANGLE_device_webgpu 1
+#define EGL_WEBGPU_DEVICE_ANGLE 0x34F3
+#define EGL_WEBGPU_ADAPTER_ANGLE 0x34F4
+#endif /* EGL_ANGLE_device_webgpu */
+
+#ifndef ANGLE_webgpu_texture_client_buffer
+#define ANGLE_webgpu_texture_client_buffer 1
+#define EGL_WEBGPU_TEXTURE_ANGLE 0x34F5
+#define EGL_TEXTURE_TYPE_ANGLE 0x345C
+#define EGL_TEXTURE_INTERNAL_FORMAT_ANGLE 0x345D
+#endif /* ANGLE_webgpu_texture_client_buffer */
 
 // clang-format on
 

@@ -1,7 +1,7 @@
 /*
     Copyright (C) 1999 Lars Knoll (knoll@kde.org)
     Copyright (C) 2006, 2008, 2015 Apple Inc. All rights reserved.
-    Copyright (c) 2012, Google Inc. All rights reserved.
+    Copyright (c) 2012 Google Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,8 +21,8 @@
 
 #pragma once
 
+#include "BoxExtents.h"
 #include "Length.h"
-#include "RectEdges.h"
 #include "WritingMode.h"
 
 namespace WebCore {
@@ -62,10 +62,6 @@ public:
         return top().isZero() && right().isZero() && bottom().isZero() && left().isZero();
     }
 };
-
-using LayoutBoxExtent = RectEdges<LayoutUnit>;
-using FloatBoxExtent = RectEdges<float>;
-using IntBoxExtent = RectEdges<int>;
 
 using IntOutsets = IntBoxExtent;
 using LayoutOptionalOutsets = RectEdges<std::optional<LayoutUnit>>;

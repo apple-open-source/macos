@@ -1471,7 +1471,7 @@ esp_auth(
 	size_t siz;
 	int error;
 
-	_CASSERT(ESP_AUTH_MAXSUMSIZE == AH_MAXSUMSIZE);
+	static_assert(ESP_AUTH_MAXSUMSIZE == AH_MAXSUMSIZE);
 
 	/* sanity checks */
 	if (m0->m_pkthdr.len < skip) {

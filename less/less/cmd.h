@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -75,7 +75,12 @@
 #define A_B_MOUSE              67
 /* Note "X116" refers to extended (1006) X11 mouse reporting. */
 #define A_X116MOUSE_IN         68
+#define A_PSHELL               69
 #define A_CLR_SEARCH           70
+#define A_OSC8_F_SEARCH        71
+#define A_OSC8_B_SEARCH        72
+#define A_OSC8_OPEN            73
+#define A_OSC8_JUMP            74
 
 /* These values must not conflict with any A_* or EC_* value. */
 #define A_INVALID              100
@@ -142,4 +147,5 @@
 #define SK_F1                  14
 #define SK_BACKTAB             15
 #define SK_CTL_BACKSPACE       16
+#define SK_BACKSPACE           17
 #define SK_CONTROL_K           40

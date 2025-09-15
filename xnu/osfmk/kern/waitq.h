@@ -55,7 +55,7 @@
 
 __BEGIN_DECLS __ASSUME_PTR_ABI_SINGLE_BEGIN
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 /*!
  * @enum waitq_wakeup_flags_t
@@ -1118,7 +1118,7 @@ extern void select_waitq_wakeup_and_deinit(
 
 #endif /* XNU_KERNEL_PRIVATE */
 
-#pragma GCC visibility pop
+__exported_pop
 
 __ASSUME_PTR_ABI_SINGLE_END __END_DECLS
 

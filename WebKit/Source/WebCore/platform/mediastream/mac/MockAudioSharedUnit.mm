@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,7 @@
 #import <AVFoundation/AVAudioBuffer.h>
 #import <AudioToolbox/AudioConverter.h>
 #import <CoreAudio/CoreAudioTypes.h>
+#import <numbers>
 #import <wtf/IndexedRange.h>
 #import <wtf/RunLoop.h>
 #import <wtf/StdLibExtras.h>
@@ -62,7 +63,7 @@ static inline size_t alignTo16Bytes(size_t size)
     return (size + 15) & ~15;
 }
 
-static constexpr double Tau = 2 * M_PI;
+static constexpr double Tau = 2 * std::numbers::pi;
 static constexpr double BipBopDuration = 0.07;
 static constexpr double BipBopVolume = 0.5;
 static constexpr double BipFrequency = 1500;
@@ -147,7 +148,7 @@ private:
 
     Vector<float> m_bipBopBuffer;
     bool m_hasAudioUnit { false };
-    Ref<MockAudioSharedInternalUnitState> m_internalState;
+    const Ref<MockAudioSharedInternalUnitState> m_internalState;
     bool m_enableEchoCancellation { true };
     bool m_isOutputMuted { false };
     bool m_voiceActivityDetectionEnabled { false };
@@ -156,7 +157,7 @@ private:
     MonotonicTime m_lastRenderTime { MonotonicTime::nan() };
     MonotonicTime m_delayUntil;
 
-    Ref<WorkQueue> m_workQueue;
+    const Ref<WorkQueue> m_workQueue;
     unsigned m_channelCount { 2 };
     
     AURenderCallbackStruct m_microphoneCallback;
@@ -202,8 +203,8 @@ static AudioStreamBasicDescription createAudioFormat(Float64 sampleRate, UInt32 
 MockAudioSharedInternalUnit::MockAudioSharedInternalUnit(bool enableEchoCancellation)
     : m_internalState(MockAudioSharedInternalUnitState::create())
     , m_enableEchoCancellation(enableEchoCancellation)
-    , m_timer(RunLoop::current(), [this] { this->start(); })
-    , m_voiceDetectionTimer(RunLoop::current(), [this] { this->voiceDetected(); })
+    , m_timer(RunLoop::currentSingleton(), "MockAudioSharedInternalUnit::Timer"_s, [this] { this->start(); })
+    , m_voiceDetectionTimer(RunLoop::currentSingleton(), "MockAudioSharedInternalUnit::VoiceDetectionTimer"_s, [this] { this->voiceDetected(); })
     , m_workQueue(WorkQueue::create("MockAudioSharedInternalUnit Capture Queue"_s, WorkQueue::QOS::UserInteractive))
 {
     m_streamFormat = m_outputStreamFormat = createAudioFormat(44100, 2);
@@ -284,7 +285,7 @@ void MockAudioSharedInternalUnit::reconfigure()
     auto rate = sampleRate();
     ASSERT(rate);
 
-    m_maximiumFrameCount = WTF::roundUpToPowerOfTwo(renderInterval().seconds() * rate * 2);
+    m_maximiumFrameCount = roundUpToPowerOfTwo<size_t>(renderInterval().seconds() * rate * 2);
     ASSERT(m_maximiumFrameCount);
 
     m_audioBufferList = makeUnique<WebAudioBufferList>(m_streamFormat, m_maximiumFrameCount);
@@ -294,8 +295,7 @@ void MockAudioSharedInternalUnit::reconfigure()
     m_formatDescription = adoptCF(formatDescription);
 
     size_t sampleCount = 2 * rate;
-    m_bipBopBuffer.resize(sampleCount);
-    m_bipBopBuffer.fill(0);
+    m_bipBopBuffer.fill(0, sampleCount);
 
     size_t bipBopSampleCount = ceil(BipBopDuration * rate);
     size_t bipStart = 0;

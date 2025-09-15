@@ -356,6 +356,8 @@ struct smb_gss {
 	uint32_t      gss_smb_error;                /* Last error returned by smb SetUpAndX */
 };
 
+#define SMB_NETWORK_IF_INFO_INITIALIZED         0x0001
+
 struct session_network_interface_info {
     lck_mtx_t interface_table_lck;
     uint32_t pause_trials; 
@@ -371,6 +373,7 @@ struct session_network_interface_info {
     uint32_t client_if_ignorelist_len;
     size_t client_if_ignorelist_allocsize; /* client_if_ignorelist alloc size, required when deallocating client_if_ignorelist */
     uint32_t prefer_wired;
+    uint32_t flags;
 
     /*
      * Table of all possible connections represent the state of every

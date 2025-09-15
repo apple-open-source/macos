@@ -28,6 +28,7 @@
 #else
 #define notify_post(...)
 #endif
+#include <errno.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +47,12 @@ int
 settimeofday(const struct timeval *tp, const struct timezone *tzp)
 {
 	int ret = __settimeofday(tp, tzp);
-	if (ret == 0) notify_post(kNotifyClockSet);
+	int serror = 0;
+	if (ret == 0) {
+		notify_post(kNotifyClockSet);
+	} else {
+		serror = errno;
+	}
 
 	if (tp) {
 		char *msg = NULL;
@@ -55,5 +61,6 @@ settimeofday(const struct timeval *tp, const struct timezone *tzp)
 		free(msg);
 	}
 
+	errno = serror;
 	return ret;
 }

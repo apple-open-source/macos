@@ -32,7 +32,7 @@
 #include <os/refcnt.h>
 #include <ipc/ipc_types.h>
 #include <ipc/ipc_importance.h>
-#include <ipc/ipc_port.h>
+#include <ipc/ipc_policy.h>
 #include <ipc/ipc_voucher.h>
 #include <kern/ipc_kobject.h>
 #include <kern/ipc_tt.h>
@@ -2294,8 +2294,7 @@ ipc_importance_check_circularity(
 
 		/* port (== base) is in limbo */
 
-		require_ip_active(port);
-		assert(ip_in_limbo(port));
+		ipc_release_assert(ip_in_limbo(port));
 		assert(!took_base_ref);
 
 		base = dest;
@@ -2304,7 +2303,7 @@ ipc_importance_check_circularity(
 
 			/* base is in transit or in limbo */
 
-			require_ip_active(base);
+			ipc_release_assert(ip_is_moving(base));
 			assert(base->ip_receiver_name == MACH_PORT_NULL);
 			next = ip_get_destination(base);
 			ip_mq_unlock(base);
@@ -2329,23 +2328,15 @@ ipc_importance_check_circularity(
 	ipc_port_multiple_unlock();
 
 not_circular:
-	/* port is in limbo */
-	require_ip_active(port);
-	assert(ip_in_limbo(port));
-
 	/* Port is being enqueued in a kmsg, remove the watchport boost in order to push on destination port */
 	watchport_elem = ipc_port_clear_watchport_elem_internal(port);
 
 	/* Check if the port is being enqueued as a part of sync bootstrap checkin */
-	if (dest->ip_specialreply && dest->ip_sync_bootstrap_checkin) {
+	if (ip_is_special_reply_port(dest) && dest->ip_sync_bootstrap_checkin) {
 		port->ip_sync_bootstrap_checkin = 1;
 	}
 
-	ip_reference(dest);
-
-	/* port transitions to IN-TRANSIT state */
-	assert(port->ip_receiver_name == MACH_PORT_NULL);
-	port->ip_destination = dest;
+	ipc_port_mark_in_transit(port, dest);
 
 	/* must have been in limbo or still bound to a task */
 	assert(port->ip_tempowner != 0);
@@ -2394,8 +2385,7 @@ not_circular:
 
 		/* port is in transit */
 
-		require_ip_active(dest);
-		assert(ip_in_transit(dest));
+		ipc_release_assert(ip_in_transit(dest));
 		assert(dest->ip_tempowner == 0);
 
 		next = ip_get_destination(dest);
@@ -2560,7 +2550,7 @@ ipc_importance_send(
 		mach_voucher_attr_value_handle_array_size_t val_count;
 		ipc_voucher_t voucher;
 
-		assert(ip_kotype(voucher_port) == IKOT_VOUCHER);
+		assert(ip_type(voucher_port) == IKOT_VOUCHER);
 		voucher = (ipc_voucher_t)ipc_kobject_get_raw(voucher_port,
 		    IKOT_VOUCHER);
 

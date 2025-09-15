@@ -40,6 +40,7 @@
 
 #include <os/feature_private.h>
 
+static NSString* SFCollectionConfig = @"SFCollectionConfig";
 
 static os_log_t
 getOSLog(void) {
@@ -50,8 +51,6 @@ getOSLog(void) {
     });
     return sfaLog;
 }
-
-static NSString* SFCollectionConfig = @"SFCollectionConfig";
 
 @interface SFAnalyticsMatchingRule ()
 @property (readwrite) SECSFAEventRule *rule;

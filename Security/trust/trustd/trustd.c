@@ -32,6 +32,7 @@
 #include <xpc/xpc.h>
 #include <CoreFoundation/CFStream.h>
 #include <os/assumes.h>
+#include <os/transaction_private.h>
 
 #include <Security/SecuritydXPC.h>
 #include <Security/SecTrustStore.h>
@@ -1041,6 +1042,8 @@ static void listen_for_sigterm(dispatch_queue_t queue)
 
 int main(int argc, char *argv[])
 {
+    /* Hold ourselves active during launch initialization */
+    os_transaction_t transaction = os_transaction_create("com.apple.trustd.initialization");
     DisableLocalization();
 
     char *wait4debugger = getenv("WAIT4DEBUGGER");
@@ -1063,8 +1066,13 @@ int main(int argc, char *argv[])
 
     /* migrate files and initialize static content */
     trustd_init_server();
-    /* We're ready now. Go. */
+
+    /* Start listening */
     listen_for_sigterm(SecTrustServerGetWorkloop());
     trustd_xpc_init(serviceName);
-    dispatch_main();
+
+    /* Sevice is active so let's go */
+    os_release(transaction);
+    CFRunLoopRun();
+
 }

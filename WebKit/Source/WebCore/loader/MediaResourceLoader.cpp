@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,9 +36,11 @@
 #include "DocumentInlines.h"
 #include "Element.h"
 #include "FrameDestructionObserverInlines.h"
+#include "HTTPHeaderNames.h"
 #include "InspectorInstrumentation.h"
 #include "LocalFrameLoaderClient.h"
 #include "OriginAccessPatterns.h"
+#include "Quirks.h"
 #include "SecurityOrigin.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -88,14 +90,15 @@ void MediaResourceLoader::sendH2Ping(const URL& url, CompletionHandler<void(Expe
     if (!m_document || !m_document->frame())
         return completionHandler(makeUnexpected(internalError(url)));
 
-    m_document->protectedFrame()->protectedLoader()->client().sendH2Ping(url, WTFMove(completionHandler));
+    m_document->protectedFrame()->loader().client().sendH2Ping(url, WTFMove(completionHandler));
 }
 
 RefPtr<PlatformMediaResource> MediaResourceLoader::requestResource(ResourceRequest&& request, LoadOptions options)
 {
     assertIsMainThread();
 
-    if (!m_document)
+    RefPtr document = this->document();
+    if (!document)
         return nullptr;
 
     DataBufferingPolicy bufferingPolicy = options & LoadOption::BufferData ? DataBufferingPolicy::BufferData : DataBufferingPolicy::DoNotBufferData;
@@ -111,6 +114,9 @@ RefPtr<PlatformMediaResource> MediaResourceLoader::requestResource(ResourceReque
     if (!m_crossOriginMode.isNull())
         request.makeUnconditional();
 #endif
+
+    if (document->quirks().shouldRewriteMediaRangeRequestForURL(request.url()))
+        request.removeHTTPHeaderField(HTTPHeaderName::Range);
 
     ContentSecurityPolicyImposition contentSecurityPolicyImposition = m_element && m_element->isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
     ResourceLoaderOptions loaderOptions {
@@ -128,7 +134,7 @@ RefPtr<PlatformMediaResource> MediaResourceLoader::requestResource(ResourceReque
         cachingPolicy };
     loaderOptions.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
     loaderOptions.destination = m_destination;
-    auto cachedRequest = createPotentialAccessControlRequest(WTFMove(request), WTFMove(loaderOptions), *m_document, m_crossOriginMode);
+    auto cachedRequest = createPotentialAccessControlRequest(WTFMove(request), WTFMove(loaderOptions), *document, m_crossOriginMode);
     if (RefPtr element = m_element.get())
         cachedRequest.setInitiator(*element);
 
@@ -235,11 +241,6 @@ MediaResource::MediaResource(MediaResourceLoader& loader, CachedResourceHandle<C
     protectedResource()->addClient(*this);
 }
 
-Ref<MediaResourceLoader> MediaResource::protectedLoader() const
-{
-    return m_loader;
-}
-
 CachedResourceHandle<CachedRawResource> MediaResource::protectedResource() const
 {
     return m_resource;
@@ -251,7 +252,7 @@ MediaResource::~MediaResource()
 
     if (m_resource)
         protectedResource()->removeClient(*this);
-    protectedLoader()->removeResource(*this);
+    m_loader->removeResource(*this);
 }
 
 void MediaResource::shutdown()
@@ -264,7 +265,7 @@ void MediaResource::shutdown()
         resource->removeClient(*this);
 }
 
-void MediaResource::responseReceived(CachedResource& resource, const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
+void MediaResource::responseReceived(const CachedResource& resource, const ResourceResponse& response, CompletionHandler<void()>&& completionHandler)
 {
     assertIsMainThread();
 
@@ -304,7 +305,7 @@ void MediaResource::responseReceived(CachedResource& resource, const ResourceRes
         });
     }
 
-    protectedLoader()->addResponseForTesting(response);
+    m_loader->addResponseForTesting(response);
 }
 
 bool MediaResource::shouldCacheResponse(CachedResource& resource, const ResourceResponse& response)

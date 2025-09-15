@@ -40,6 +40,7 @@ T_GLOBAL_META(
 	T_META_OWNER("jarrad"),
 	// Ensure we don't conflict with libmalloc's reclaim buffer
 	T_META_ENVVAR("MallocDeferredReclaim=0"),
+	T_META_ENVVAR("MallocAllowInternalSecurity=1"),
 	T_META_RUN_CONCURRENTLY(false),
 	T_META_CHECK_LEAKS(false)
 	);
@@ -61,9 +62,9 @@ T_DECL(vm_reclaim_init, "Set up and tear down a reclaim buffer",
 {
 	mach_vm_reclaim_ring_t ringbuffer = ringbuffer_init();
 	T_ASSERT_NOTNULL(ringbuffer, "ringbuffer is allocated");
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.head, relaxed), 0ull, "head is zeroed");
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.busy, relaxed), 0ull, "busy is zeroed");
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.tail, relaxed), 0ull, "tail is zeroed");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->head, relaxed), 0ull, "head is zeroed");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->busy, relaxed), 0ull, "busy is zeroed");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->tail, relaxed), 0ull, "tail is zeroed");
 	size_t expected_len = (vm_page_size - offsetof(struct mach_vm_reclaim_ring_s, entries)) /
 	    sizeof(struct mach_vm_reclaim_entry_s);
 	T_ASSERT_EQ((size_t)ringbuffer->len, expected_len, "length is set correctly");
@@ -555,91 +556,7 @@ T_DECL(vm_reclaim_update_reclaimable_bytes_threshold, "Kernel reclaims when num_
 	T_QUIET; T_ASSERT_LT(get_ledger_entry_for_pid(getpid(), phys_footprint_index, num_ledger_entries),
 	    (int64_t) ((kNumEntries) * kAllocationSize), "Entries were reclaimed as we crossed threshold");
 }
-#else /* !TARGET_OS_IPHONE */
-T_DECL(vm_reclaim_trim_minimum,
-    "update_accounting trims buffer according to sampling minimum",
-    T_META_VM_RECLAIM_ENABLED, T_META_TAG_VM_PREFERRED)
-{
-	kern_return_t kr;
-	int ret;
-	bool success, update_accounting;
-	mach_vm_reclaim_ring_t ringbuffer;
-	uint64_t sampling_period_ns;
-	size_t sampling_period_size = sizeof(sampling_period_ns);
-	uint32_t sizes[3] = {MiB(128), MiB(128), MiB(128)};
-	mach_vm_address_t addrs[3] = {0};
-	uint64_t ids[3] = {0};
-
-	ret = sysctlbyname("vm.reclaim.sampling_period_ns", &sampling_period_ns, &sampling_period_size, NULL, 0);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "sysctlbyname(\"vm.reclaim.sampling_period_ns\")");
-	struct timespec ts = {
-		.tv_sec = 2 * sampling_period_ns / NSEC_PER_SEC,
-		.tv_nsec = 2 * sampling_period_ns % NSEC_PER_SEC,
-	};
-
-	ringbuffer = ringbuffer_init();
-
-	// This should result in a sample taken (min 0)
-	kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-
-	for (int i = 0; i < 3; i++) {
-		T_LOG("Placing entries[%d] into buffer", i);
-		ids[i] = allocate_and_defer_deallocate(sizes[i], ringbuffer, 0xAB, &addrs[i]);
-	}
-
-	for (int i = 0; i < 3; i++) {
-		// The minimum for the first sample should be 0
-		success = try_cancel(ringbuffer, ids[i], addrs[i], sizes[i], VM_RECLAIM_DEALLOCATE);
-		T_ASSERT_TRUE(success, "Entry %d should not be reclaimed", i);
-		kr = mach_vm_reclaim_try_enter(ringbuffer, addrs[i], sizes[i], VM_RECLAIM_DEALLOCATE, &ids[i], &update_accounting);
-		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_try_enter()");
-		if (update_accounting) {
-			kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-			T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-		}
-	}
-
-	T_LOG("Sleeping for 2 sampling periods (%llu ns)", 2 * sampling_period_ns);
-	ret = nanosleep(&ts, NULL);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "nanosleep()");
-
-	// This should result in a sample taken (still min 0)
-	kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-
-	for (int i = 0; i < 3; i++) {
-		success = try_cancel(ringbuffer, ids[i], addrs[i], sizes[i], VM_RECLAIM_DEALLOCATE);
-		T_EXPECT_TRUE(success, "Entry %d should not be reclaimed", i);
-		kr = mach_vm_reclaim_try_enter(ringbuffer, addrs[i], sizes[i], VM_RECLAIM_DEALLOCATE, &ids[i], &update_accounting);
-		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_try_enter()");
-		if (update_accounting) {
-			kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-			T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-		}
-	}
-	T_LOG("Sleeping for 2 sampling periods (%llu ns)", 2 * sampling_period_ns);
-	ret = nanosleep(&ts, NULL);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "nanosleep()");
-
-	// This should result in a sample taken (still min 0)
-	kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-
-	T_LOG("Sleeping for 2 sampling periods (%llu ns)", 2 * sampling_period_ns);
-	ret = nanosleep(&ts, NULL);
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "nanosleep()");
-
-	// This should result in a sample taken (min sum(sizeof(entries[i])))
-	kr = mach_vm_reclaim_update_kernel_accounting(ringbuffer);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_update_kernel_accounting()");
-
-	for (int i = 0; i < 3; i++) {
-		success = try_cancel(ringbuffer, ids[i], addrs[i], sizes[i], VM_RECLAIM_DEALLOCATE);
-		T_EXPECT_FALSE(success, "Entry %d should not be reclaimed", i);
-	}
-}
-#endif /* TARGET_OS_IPHONE */
+#endif /* TARGET_OS_IPHONE && !TARGET_OS_VISION */
 
 T_HELPER_DECL(deallocate_buffer,
     "deallocate the buffer from underneath the kernel")
@@ -902,7 +819,6 @@ T_DECL(resize_buffer,
 	kr = mach_vm_reclaim_ring_allocate(&ringbuffer, initial_len, max_len);
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_ring_allocate()");
 
-	// Should be able to fit 1022 entries in a one-page buffer (two entries for indices)
 	T_LOG("Filling buffer with entries");
 	mach_vm_reclaim_count_t old_capacity;
 	kr = mach_vm_reclaim_ring_capacity(ringbuffer, &old_capacity);
@@ -914,7 +830,7 @@ T_DECL(resize_buffer,
 	}
 	id_tmp = allocate_and_defer_deallocate(vm_page_size, ringbuffer, 'X', &addr_tmp);
 	T_ASSERT_EQ(id_tmp, VM_RECLAIM_ID_NULL, "Unable to over-fill buffer");
-	uint64_t initial_tail = os_atomic_load(&ringbuffer->indices.tail, relaxed);
+	uint64_t initial_tail = os_atomic_load(&ringbuffer->tail, relaxed);
 	T_ASSERT_EQ(initial_tail, (uint64_t)old_capacity, "tail == capacity after fill");
 
 	T_LOG("Resizing buffer to 4x");
@@ -922,9 +838,9 @@ T_DECL(resize_buffer,
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_ring_resize()");
 
 	// All entries should be reclaimed after resize
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.head, relaxed), initial_tail, "head is incremented");
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.busy, relaxed), initial_tail, "busy is incremented");
-	T_EXPECT_EQ(os_atomic_load(&ringbuffer->indices.tail, relaxed), initial_tail, "tail is preserved");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->head, relaxed), initial_tail, "head is incremented");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->busy, relaxed), initial_tail, "busy is incremented");
+	T_EXPECT_EQ(os_atomic_load(&ringbuffer->tail, relaxed), initial_tail, "tail is preserved");
 
 	mach_vm_reclaim_count_t new_capacity;
 	kr = mach_vm_reclaim_ring_capacity(ringbuffer, &new_capacity);
@@ -954,4 +870,163 @@ T_DECL(resize_buffer,
 		bool usable = try_cancel(ringbuffer, ids[i], addrs[i], vm_page_size, VM_RECLAIM_DEALLOCATE);
 		T_QUIET; T_EXPECT_TRUE(usable, "Entry is available for re-use");
 	}
+}
+
+T_DECL(resize_after_drain,
+    "resize a buffer after draining it",
+    T_META_VM_RECLAIM_ENABLED,
+    T_META_TAG_VM_PREFERRED)
+{
+	int ret;
+	mach_vm_reclaim_error_t err;
+	mach_vm_reclaim_ring_t ring;
+	uint64_t sampling_period_ns;
+	size_t sampling_period_size = sizeof(sampling_period_ns);
+
+	ret = sysctlbyname("vm.reclaim.sampling_period_ns", &sampling_period_ns, &sampling_period_size, NULL, 0);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "sysctl(vm.reclaim.sampling_period_ns)");
+
+	T_LOG("Initializing ring");
+	mach_vm_reclaim_count_t initial_len = mach_vm_reclaim_round_capacity(512);
+	mach_vm_reclaim_count_t max_len = 4 * initial_len;
+	err = mach_vm_reclaim_ring_allocate(&ring, initial_len, max_len);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(err, "mach_vm_reclaim_ring_allocate()");
+
+	// Fill the buffer with some memory
+	T_LOG("Allocating and deferring memory");
+	for (mach_vm_reclaim_count_t i = 0; i < 128; i++) {
+		mach_vm_address_t addr;
+		mach_vm_reclaim_id_t id = allocate_and_defer_deallocate(vm_page_size, ring, 'A', &addr);
+		T_QUIET; T_ASSERT_NE(id, VM_RECLAIM_ID_NULL, "Able to defer deallocation");
+	}
+
+	T_LOG("Draining ring");
+	pid_t pid = getpid();
+	ret = sysctlbyname("vm.reclaim.drain_pid", NULL, NULL, &pid, sizeof(pid));
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "sysctl(vm.reclaim.drain_pid)");
+
+	err = mach_vm_reclaim_ring_resize(ring, 2 * initial_len);
+	T_ASSERT_MACH_SUCCESS(err, "mach_vm_reclaim_ring_resize()");
+
+	T_LOG("Sleeping for 1 sampling period...");
+	struct timespec ts = {
+		.tv_sec = sampling_period_ns / NSEC_PER_SEC,
+		.tv_nsec = sampling_period_ns % NSEC_PER_SEC,
+	};
+	ret = nanosleep(&ts, NULL);
+	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "nanosleep()");
+
+	err = mach_vm_reclaim_update_kernel_accounting(ring);
+	T_ASSERT_MACH_SUCCESS(err, "mach_vm_reclaim_update_kernel_accounting()");
+}
+
+#define QUERY_BUFFER_RING_COUNT 25
+
+static void
+kill_child()
+{
+	kill(child_pid, SIGKILL);
+}
+
+
+kern_return_t
+mach_vm_deferred_reclamation_buffer_remap(task_t source_task,
+    task_t dest_task,
+    mach_vm_address_t addr,
+    mach_vm_address_t *addr_u,
+    mach_vm_size_t *size_u);
+
+T_DECL(copy_and_query_buffer,
+    "verify that a reclaim ring may be queried correctly",
+    T_META_VM_RECLAIM_ENABLED,
+    T_META_TAG_VM_PREFERRED,
+    T_META_ASROOT(true))
+{
+	kern_return_t kr;
+	mach_vm_reclaim_error_t rr;
+	mach_vm_reclaim_ring_t self_ring;
+	mach_vm_reclaim_id_t ids[QUERY_BUFFER_RING_COUNT];
+	mach_vm_address_t addrs[QUERY_BUFFER_RING_COUNT];
+	mach_vm_size_t sizes[QUERY_BUFFER_RING_COUNT];
+	mach_vm_reclaim_action_t actions[QUERY_BUFFER_RING_COUNT];
+	struct mach_vm_reclaim_region_s query_buffer[QUERY_BUFFER_RING_COUNT];
+	mach_vm_reclaim_count_t query_count;
+	task_t child_task;
+	mach_vm_reclaim_count_t n_rings;
+	struct mach_vm_reclaim_ring_ref_s ring_ref;
+	mach_vm_reclaim_count_t capacity = mach_vm_reclaim_round_capacity(512);
+	mach_vm_reclaim_ring_copy_t copied_ring;
+
+	T_SETUPBEGIN;
+
+	T_LOG("Initializing buffer");
+	kr = mach_vm_reclaim_ring_allocate(&self_ring, capacity, capacity);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_ring_allocate()");
+
+	T_LOG("Adding entries to buffer");
+	for (mach_vm_reclaim_count_t i = 0; i < QUERY_BUFFER_RING_COUNT; i++) {
+		actions[i] = (rand() % 2 == 0) ? VM_RECLAIM_FREE : VM_RECLAIM_DEALLOCATE;
+		sizes[i] = ((rand() % 3) + 1) * vm_page_size;
+		addrs[i] = 0;
+		ids[i] = allocate_and_defer_free(sizes[i], self_ring, 'A', actions[i], &addrs[i]);
+		T_QUIET; T_ASSERT_NE(ids[i], VM_RECLAIM_ID_NULL, "Able to defer allocation");
+	}
+
+	child_pid = fork();
+	if (child_pid == 0) {
+		while (true) {
+			sleep(1);
+		}
+	}
+	T_ATEND(kill_child);
+
+	kr = task_for_pid(mach_task_self(), child_pid, &child_task);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "task_for_pid");
+
+	T_SETUPEND;
+
+	T_LOG("Copying buffer");
+	rr = mach_vm_reclaim_get_rings_for_task(child_task, NULL, &n_rings);
+	T_ASSERT_MACH_SUCCESS(rr, "Query ring count");
+	T_ASSERT_EQ(n_rings, 1, "Task has one ring");
+	rr = mach_vm_reclaim_get_rings_for_task(child_task, &ring_ref, &n_rings);
+	T_ASSERT_MACH_SUCCESS(rr, "Get ring reference");
+	T_ASSERT_NE(ring_ref.addr, 0ULL, "Ring ref ring is not null");
+
+	kr = mach_vm_reclaim_ring_copy(child_task, &ring_ref, &copied_ring);
+	T_ASSERT_MACH_SUCCESS(kr, "mach_vm_reclaim_ring_copy()");
+	T_ASSERT_NOTNULL(copied_ring, "copied ring is not null");
+
+	T_LOG("Querying buffer");
+
+	rr = mach_vm_reclaim_copied_ring_query(&copied_ring, NULL, &query_count);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(rr, "query reclaim ring size");
+	T_ASSERT_EQ(query_count, QUERY_BUFFER_RING_COUNT, "correct reclaim ring query size");
+
+	rr = mach_vm_reclaim_copied_ring_query(&copied_ring, query_buffer, &query_count);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(rr, "query reclaim ring");
+	T_ASSERT_EQ(query_count, QUERY_BUFFER_RING_COUNT, "query count is correct");
+
+	bool all_match = true;
+	for (mach_vm_reclaim_count_t i = 0; i < QUERY_BUFFER_RING_COUNT; i++) {
+		mach_vm_reclaim_region_t qentry = &query_buffer[i];
+		if ((qentry->vmrr_addr != addrs[i]) ||
+		    (qentry->vmrr_size != sizes[i]) ||
+		    (qentry->vmrr_behavior != actions[i])) {
+			all_match = false;
+		}
+		T_QUIET; T_EXPECT_EQ(qentry->vmrr_addr, addrs[i], "query->vmrr_addr is correct");
+		T_QUIET; T_EXPECT_EQ(qentry->vmrr_size, sizes[i], "query->vmrr_size is correct");
+		T_QUIET; T_EXPECT_EQ(qentry->vmrr_behavior, actions[i], "query->vmrr_behavior is correct");
+	}
+	T_ASSERT_TRUE(all_match, "query entries are correct");
+
+	query_count = 5;
+	rr = mach_vm_reclaim_copied_ring_query(&copied_ring, query_buffer, &query_count);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(rr, "query reclaim ring with small buffer");
+	T_ASSERT_EQ(query_count, 5, "query reclaim ring with small buffer returns correct size");
+
+	T_LOG("Freeing buffer");
+	rr = mach_vm_reclaim_copied_ring_free(&copied_ring);
+	T_ASSERT_MACH_SUCCESS(rr, "free reclaim ring");
 }

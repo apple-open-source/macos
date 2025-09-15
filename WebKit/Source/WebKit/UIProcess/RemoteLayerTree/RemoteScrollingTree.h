@@ -71,6 +71,8 @@ public:
     void scrollingTreeNodeDidBeginScrollSnapping(WebCore::ScrollingNodeID) override;
     void scrollingTreeNodeDidEndScrollSnapping(WebCore::ScrollingNodeID) override;
 
+    void stickyScrollingTreeNodeBeganSticking(WebCore::ScrollingNodeID) final;
+
     void currentSnapPointIndicesDidChange(WebCore::ScrollingNodeID, std::optional<unsigned> horizontal, std::optional<unsigned> vertical) override;
     void reportExposedUnfilledArea(MonotonicTime, unsigned unfilledArea) override;
     void reportSynchronousScrollingReasonsChanged(MonotonicTime, OptionSet<WebCore::SynchronousScrollingReason>) override;
@@ -85,7 +87,7 @@ protected:
     void receivedWheelEventWithPhases(WebCore::PlatformWheelEventPhase phase, WebCore::PlatformWheelEventPhase momentumPhase) override;
     void deferWheelEventTestCompletionForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason) override;
     void removeWheelEventTestCompletionDeferralForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason) override;
-    void propagateSynchronousScrollingReasons(const UncheckedKeyHashSet<WebCore::ScrollingNodeID>&) WTF_REQUIRES_LOCK(m_treeLock) override;
+    void propagateSynchronousScrollingReasons(const HashSet<WebCore::ScrollingNodeID>&) WTF_REQUIRES_LOCK(m_treeLock) override;
 
     // This gets nulled out via invalidate(), since the scrolling thread can hold a ref to the ScrollingTree after the RemoteScrollingCoordinatorProxy has gone away.
     WeakPtr<RemoteScrollingCoordinatorProxy> m_scrollingCoordinatorProxy;
@@ -106,7 +108,7 @@ public:
     }
 
 private:
-    Ref<RemoteScrollingTree> m_scrollingTree;
+    const Ref<RemoteScrollingTree> m_scrollingTree;
 };
 
 } // namespace WebKit

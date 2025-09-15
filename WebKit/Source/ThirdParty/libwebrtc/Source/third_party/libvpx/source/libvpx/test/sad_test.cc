@@ -1888,11 +1888,38 @@ INSTANTIATE_TEST_SUITE_P(AVX2, SADSkipx4Test,
 #endif  // HAVE_AVX2
 
 #if HAVE_AVX512
+const SadMxNParam avx512_tests[] = {
+  SadMxNParam(64, 64, &vpx_sad64x64_avx512),
+  SadMxNParam(64, 32, &vpx_sad64x32_avx512),
+};
+INSTANTIATE_TEST_SUITE_P(AVX512, SADTest, ::testing::ValuesIn(avx512_tests));
+
+const SadSkipMxNParam skip_avx512_tests[] = {
+  SadSkipMxNParam(64, 64, &vpx_sad_skip_64x64_avx512),
+  SadSkipMxNParam(64, 32, &vpx_sad_skip_64x32_avx512),
+};
+INSTANTIATE_TEST_SUITE_P(AVX512, SADSkipTest,
+                         ::testing::ValuesIn(skip_avx512_tests));
+
+const SadMxNAvgParam avg_avx512_tests[] = {
+  SadMxNAvgParam(64, 64, &vpx_sad64x64_avg_avx512),
+  SadMxNAvgParam(64, 32, &vpx_sad64x32_avg_avx512),
+};
+INSTANTIATE_TEST_SUITE_P(AVX512, SADavgTest,
+                         ::testing::ValuesIn(avg_avx512_tests));
+
 const SadMxNx4Param x4d_avx512_tests[] = {
   SadMxNx4Param(64, 64, &vpx_sad64x64x4d_avx512),
 };
 INSTANTIATE_TEST_SUITE_P(AVX512, SADx4Test,
                          ::testing::ValuesIn(x4d_avx512_tests));
+
+const SadSkipMxNx4Param skip_x4d_avx512_tests[] = {
+  SadSkipMxNx4Param(64, 64, &vpx_sad_skip_64x64x4d_avx512),
+  SadSkipMxNx4Param(64, 32, &vpx_sad_skip_64x32x4d_avx512),
+};
+INSTANTIATE_TEST_SUITE_P(AVX512, SADSkipx4Test,
+                         ::testing::ValuesIn(skip_x4d_avx512_tests));
 #endif  // HAVE_AVX512
 
 //------------------------------------------------------------------------------

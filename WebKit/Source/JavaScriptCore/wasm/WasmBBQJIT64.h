@@ -67,18 +67,22 @@ auto BBQJIT::emitCheckAndPrepareAndMaterializePointerApply(Value pointer, uint32
         }
         pointerLocation = Location::fromGPR(scratches.gpr(0));
         emitMoveConst(pointer, pointerLocation);
-    } else
+    } else {
         pointerLocation = loadIfNecessary(pointer);
+        m_jit.jitAssertIsInt32(pointerLocation.asGPR());
+    }
     ASSERT(pointerLocation.isGPR());
 
     switch (m_mode) {
     case MemoryMode::BoundsChecking: {
         // We're not using signal handling only when the memory is not shared.
         // Regardless of signaling, we must check that no memory access exceeds the current memory size.
-        m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
-        if (boundary)
-            m_jit.addPtr(TrustedImmPtr(boundary), wasmScratchGPR);
-        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchPtr(RelationalCondition::AboveOrEqual, wasmScratchGPR, wasmBoundsCheckingSizeRegister));
+        GPRReg pointerGPR = pointerLocation.asGPR();
+        if (boundary) {
+            m_jit.addPtr(TrustedImmPtr(boundary), pointerLocation.asGPR(), wasmScratchGPR);
+            pointerGPR = wasmScratchGPR;
+        }
+        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchPtr(RelationalCondition::AboveOrEqual, pointerGPR, wasmBoundsCheckingSizeRegister));
         break;
     }
 
@@ -95,30 +99,23 @@ auto BBQJIT::emitCheckAndPrepareAndMaterializePointerApply(Value pointer, uint32
         // any access equal to or greater than 4GiB will trap, no need to add the redzone.
         if (uoffset >= Memory::fastMappedRedzoneBytes()) {
             uint64_t maximum = m_info.memory.maximum() ? m_info.memory.maximum().bytes() : std::numeric_limits<uint32_t>::max();
-            m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
-            if (boundary)
-                m_jit.addPtr(TrustedImmPtr(boundary), wasmScratchGPR);
-            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchPtr(RelationalCondition::AboveOrEqual, wasmScratchGPR, TrustedImmPtr(static_cast<int64_t>(maximum))));
+            GPRReg pointerGPR = pointerLocation.asGPR();
+            if (boundary) {
+                m_jit.addPtr(TrustedImmPtr(boundary), pointerLocation.asGPR(), wasmScratchGPR);
+                pointerGPR = wasmScratchGPR;
+            }
+            throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchPtr(RelationalCondition::AboveOrEqual, pointerGPR, TrustedImmPtr(static_cast<int64_t>(maximum))));
         }
         break;
     }
     }
 
-#if CPU(ARM64)
     if (!(static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, uoffset, Width::Width128)))
-        return functor(CCallHelpers::BaseIndex(wasmBaseMemoryPointer, pointerLocation.asGPR(), CCallHelpers::TimesOne, static_cast<int32_t>(uoffset), CCallHelpers::Extend::ZExt32));
+        return functor(CCallHelpers::BaseIndex(wasmBaseMemoryPointer, pointerLocation.asGPR(), CCallHelpers::TimesOne, static_cast<int32_t>(uoffset)));
 
-    m_jit.addZeroExtend64(wasmBaseMemoryPointer, pointerLocation.asGPR(), wasmScratchGPR);
-#else
-    m_jit.zeroExtend32ToWord(pointerLocation.asGPR(), wasmScratchGPR);
-    m_jit.addPtr(wasmBaseMemoryPointer, wasmScratchGPR);
-#endif
-
-    if (static_cast<uint64_t>(uoffset) > static_cast<uint64_t>(std::numeric_limits<int32_t>::max()) || !B3::Air::Arg::isValidAddrForm(B3::Air::Move, uoffset, Width::Width128)) {
-        m_jit.addPtr(TrustedImmPtr(static_cast<int64_t>(uoffset)), wasmScratchGPR);
-        return functor(Address(wasmScratchGPR));
-    }
-    return functor(Address(wasmScratchGPR, static_cast<int32_t>(uoffset)));
+    m_jit.addPtr(wasmBaseMemoryPointer, pointerLocation.asGPR(), wasmScratchGPR);
+    m_jit.addPtr(TrustedImmPtr(static_cast<int64_t>(uoffset)), wasmScratchGPR);
+    return functor(Address(wasmScratchGPR));
 }
 
 #if CPU(X86_64)
@@ -284,7 +281,7 @@ void BBQJIT::emitModOrDiv(Value& lhs, Location lhsLocation, Value& rhs, Location
             }
 
             // Fall through to general case.
-        } else if (isPowerOfTwo(divisor)) {
+        } else if (isPowerOfTwo<size_t>(divisor)) {
             if constexpr (IsMod) {
                 if constexpr (isSigned) {
                     // This constructs an extra operand with log2(divisor) bits equal to the sign bit of the dividend. If the dividend
@@ -580,9 +577,9 @@ void BBQJIT::emitCCall(Func function, const Vector<Value, N>& arguments, Value& 
 
     RegisterBinding currentBinding;
     if (resultLocation.isGPR())
-        currentBinding = m_gprBindings[resultLocation.asGPR()];
+        currentBinding = gprBindings()[resultLocation.asGPR()];
     else if (resultLocation.isFPR())
-        currentBinding = m_fprBindings[resultLocation.asFPR()];
+        currentBinding = fprBindings()[resultLocation.asFPR()];
     RELEASE_ASSERT(!currentBinding.isScratch());
 
     bind(result, resultLocation);

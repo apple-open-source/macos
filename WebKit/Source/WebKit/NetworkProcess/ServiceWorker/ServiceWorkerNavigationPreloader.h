@@ -45,7 +45,7 @@ class DownloadManager;
 class NetworkLoad;
 class NetworkSession;
 
-class ServiceWorkerNavigationPreloader final : public NetworkLoadClient, public CanMakeWeakPtr<ServiceWorkerNavigationPreloader>, public CanMakeCheckedPtr<ServiceWorkerNavigationPreloader> {
+class ServiceWorkerNavigationPreloader final : public NetworkLoadClient, public CanMakeWeakPtr<ServiceWorkerNavigationPreloader> {
     WTF_MAKE_TZONE_ALLOCATED(ServiceWorkerNavigationPreloader);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ServiceWorkerNavigationPreloader);
 public:
@@ -56,7 +56,7 @@ public:
 
     using ResponseCallback = Function<void()>;
     void waitForResponse(ResponseCallback&&);
-    using BodyCallback = Function<void(RefPtr<const WebCore::FragmentedSharedBuffer>&&, uint64_t reportedEncodedDataLength)>;
+    using BodyCallback = Function<void(RefPtr<const WebCore::FragmentedSharedBuffer>&&)>;
     void waitForBody(BodyCallback&&);
 
     const WebCore::ResourceError& error() const { return m_error; }
@@ -76,7 +76,7 @@ private:
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) final;
     void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, ResponseCompletionHandler&&) final;
-    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&, uint64_t reportedEncodedDataLength) final;
+    void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
     bool shouldCaptureExtraNetworkLoadMetrics() const final { return m_shouldCaptureExtraNetworkLoadMetrics; }

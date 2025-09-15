@@ -28,13 +28,14 @@
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
 
+#import "Logging.h"
 #import "RemoteAudioSourceProvider.h"
 #import "RemoteMediaPlayerProxyMessages.h"
 #import "VideoLayerRemote.h"
 #import <WebCore/ColorSpaceCG.h>
 #import <WebCore/VideoLayerManager.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <wtf/MachSendRight.h>
+#import <wtf/MachSendRightAnnotated.h>
 
 #import <WebCore/CoreVideoSoftLink.h>
 
@@ -50,7 +51,7 @@ PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 
 void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RemoteVideoFrameProxy::Properties&& properties)
 {
-    auto videoFrame = RemoteVideoFrameProxy::create(protectedConnection(), videoFrameObjectHeapProxy(), WTFMove(properties));
+    auto videoFrame = RemoteVideoFrameProxy::create(protectedConnection(), protectedVideoFrameObjectHeapProxy(), WTFMove(properties));
     if (!m_isGatheringVideoFrameMetadata)
         return;
     m_videoFrameMetadata = WTFMove(videoFrameMetadata);
@@ -66,7 +67,7 @@ RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
     if (!videoFrame)
         return nullptr;
 
-    return WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy().getNativeImage(*videoFrame);
+    return WebProcess::singleton().ensureProtectedGPUProcessConnection()->protectedVideoFrameObjectHeapProxy()->getNativeImage(*videoFrame);
 }
 
 WebCore::DestinationColorSpace MediaPlayerPrivateRemote::colorSpace()
@@ -74,23 +75,25 @@ WebCore::DestinationColorSpace MediaPlayerPrivateRemote::colorSpace()
     if (readyState() < MediaPlayer::ReadyState::HaveCurrentData)
         return DestinationColorSpace::SRGB();
 
-    auto sendResult = connection().sendSync(Messages::RemoteMediaPlayerProxy::ColorSpace(), m_id);
+    auto sendResult = protectedConnection()->sendSync(Messages::RemoteMediaPlayerProxy::ColorSpace(), m_id);
     auto [colorSpace] = sendResult.takeReplyOr(DestinationColorSpace::SRGB());
     return colorSpace;
 }
 
-void MediaPlayerPrivateRemote::layerHostingContextIdChanged(std::optional<WebKit::LayerHostingContextID>&& inlineLayerHostingContextId, const FloatSize& presentationSize)
+void MediaPlayerPrivateRemote::layerHostingContextChanged(WebCore::HostingContext&& inlineLayerHostingContext, const FloatSize& presentationSize)
 {
+    RELEASE_LOG_FORWARDABLE(Media, MEDIAPLAYERPRIVATEREMOTE_LAYERHOSTINGCONTEXTCHANGED);
+
     RefPtr player = m_player.get();
     if (!player)
         return;
 
-    if (!inlineLayerHostingContextId) {
+    if (!inlineLayerHostingContext.contextID) {
         m_videoLayer = nullptr;
         m_videoLayerManager->didDestroyVideoLayer();
         return;
     }
-    setLayerHostingContextID(inlineLayerHostingContextId.value());
+    setLayerHostingContext(WTFMove(inlineLayerHostingContext));
     player->videoLayerSizeDidChange(presentationSize);
 }
 
@@ -101,9 +104,9 @@ WebCore::FloatSize MediaPlayerPrivateRemote::videoLayerSize() const
     return { };
 }
 
-void MediaPlayerPrivateRemote::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRight&& machSendRight)
+void MediaPlayerPrivateRemote::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRightAnnotated&& sendRightAnnotated)
 {
-    connection().send(Messages::RemoteMediaPlayerProxy::SetVideoLayerSizeFenced(size, WTFMove(machSendRight)), m_id);
+    protectedConnection()->send(Messages::RemoteMediaPlayerProxy::SetVideoLayerSizeFenced(size, WTFMove(sendRightAnnotated)), m_id);
 }
 
 } // namespace WebKit

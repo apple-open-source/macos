@@ -161,6 +161,10 @@
         }
 
         secnotice("octagon", "Successfully vouched with a reroll: %@, %@", voucher, voucherSig);
+
+        [self.deps.escrowChecker checkEscrowCheck:YES reply:^(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error) {
+            }];
+
         self.nextState = self.intendedState;
         [self runBeforeGroupFinished:self.finishOp];
     }];

@@ -90,8 +90,8 @@ aea_read_callback(void *context, void *buffer, size_t length, off_t offset)
 	return length;
 }
 
-static void
-aea_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+aea_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	int aea_ret = 0;
 	struct aea_stage_data *stage_data = (struct aea_stage_data *) stage->kos_data;
@@ -108,6 +108,8 @@ aea_stage_reset(struct kdp_output_stage *stage)
 
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t
@@ -239,7 +241,7 @@ aea_stage_initialize(struct kdp_output_stage *stage, const void *recipient_publi
 	}
 	stage->kos_data_size = sizeof(struct aea_stage_data) + state_size;
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		printf("Failed to allocate memory (%zu bytes) for the AEA stage. Error 0x%x\n", stage->kos_data_size, ret);
 		return ret;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #import "AVStreamDataParserMIMETypeCache.h"
 #import "AudioTrackPrivateMediaSourceAVFObjC.h"
 #import "FourCC.h"
-#import "InbandTextTrackPrivateAVFObjC.h"
 #import "MediaDescription.h"
 #import "MediaSample.h"
 #import "MediaSampleAVFObjC.h"
@@ -41,6 +40,7 @@
 #import "NotImplemented.h"
 #import "SharedBuffer.h"
 #import "SourceBufferPrivate.h"
+#import "TextTrackPrivateMediaSourceAVFObjC.h"
 #import "TimeRanges.h"
 #import "VideoTrackPrivateMediaSourceAVFObjC.h"
 #import <AVFoundation/AVAssetTrack.h>
@@ -49,6 +49,7 @@
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/WeakObjCPtr.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/text/MakeString.h>
 
@@ -65,10 +66,10 @@
 #endif
 
 @interface WebAVStreamDataParserListener : NSObject<AVStreamDataParserOutputHandling> {
-    WebCore::SourceBufferParserAVFObjC* _parent;
-    AVStreamDataParser* _parser;
+    ThreadSafeWeakPtr<WebCore::SourceBufferParserAVFObjC> _parent;
+    WeakObjCPtr<AVStreamDataParser> _parser;
 }
-@property (assign) WebCore::SourceBufferParserAVFObjC* parent;
+@property (assign) ThreadSafeWeakPtr<WebCore::SourceBufferParserAVFObjC> parent;
 - (id)initWithParser:(AVStreamDataParser*)parser parent:(WebCore::SourceBufferParserAVFObjC*)parent;
 @end
 
@@ -102,43 +103,43 @@
 
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didParseStreamDataAsAsset:(AVAsset *)asset
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->didParseStreamDataAsAsset(asset);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->didParseStreamDataAsAsset(asset);
 }
 
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didParseStreamDataAsAsset:(AVAsset *)asset withDiscontinuity:(BOOL)discontinuity
 {
     UNUSED_PARAM(discontinuity);
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->didParseStreamDataAsAsset(asset);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->didParseStreamDataAsAsset(asset);
 }
 
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didFailToParseStreamDataWithError:(NSError *)error
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->didFailToParseStreamDataWithError(error);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->didFailToParseStreamDataWithError(error);
 }
 
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didProvideMediaData:(CMSampleBufferRef)sample forTrackID:(CMPersistentTrackID)trackID mediaType:(NSString *)nsMediaType flags:(AVStreamDataParserOutputMediaDataFlags)flags
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->didProvideMediaDataForTrackID(trackID, sample, nsMediaType, flags);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->didProvideMediaDataForTrackID(trackID, sample, nsMediaType, flags);
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)streamDataParserWillProvideContentKeyRequestInitializationData:(AVStreamDataParser *)streamDataParser forTrackID:(CMPersistentTrackID)trackID
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->willProvideContentKeyRequestInitializationDataForTrackID(trackID);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->willProvideContentKeyRequestInitializationDataForTrackID(trackID);
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didProvideContentKeyRequestInitializationData:(NSData *)initData forTrackID:(CMPersistentTrackID)trackID
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
-    _parent->didProvideContentKeyRequestInitializationDataForTrackID(initData, trackID);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
+    _parent.get()->didProvideContentKeyRequestInitializationDataForTrackID(initData, trackID);
 }
 
 @end
@@ -150,9 +151,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 @implementation WebAVStreamDataParserWithKeySpecifierListener
 - (void)streamDataParser:(AVStreamDataParser *)streamDataParser didProvideContentKeySpecifier:(AVContentKeySpecifier *)keySpecifier forTrackID:(CMPersistentTrackID)trackID
 {
-    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser);
+    ASSERT_UNUSED(streamDataParser, streamDataParser == _parser.get());
     if ([keySpecifier respondsToSelector:@selector(initializationData)])
-        _parent->didProvideContentKeyRequestSpecifierForTrackID(keySpecifier.initializationData, trackID);
+        _parent.get()->didProvideContentKeyRequestSpecifierForTrackID(keySpecifier.initializationData, trackID);
 }
 @end
 #endif
@@ -174,10 +175,11 @@ public:
 private:
     MediaDescriptionAVFObjC(AVAssetTrack* track)
         : MediaDescription(extractCodecName(track))
-        , m_isVideo([track hasMediaCharacteristic:AVMediaCharacteristicVisual])
-        , m_isAudio([track hasMediaCharacteristic:AVMediaCharacteristicAudible])
-        , m_isText([track hasMediaCharacteristic:AVMediaCharacteristicLegible])
     {
+        NSString* mediaType = [track mediaType];
+        m_isVideo = [mediaType isEqualToString:AVMediaTypeVideo];
+        m_isAudio = [mediaType isEqualToString:AVMediaTypeAudio];
+        m_isText = [mediaType isEqualToString:AVMediaTypeText] || [mediaType isEqualToString:AVMediaTypeClosedCaption] || [mediaType isEqualToString:AVMediaTypeSubtitle];
     }
 
     String extractCodecName(AVAssetTrack* track)
@@ -192,9 +194,9 @@ private:
             CFNumberGetValue(originalFormat, kCFNumberSInt32Type, &originalCodec.value);
         return String::fromLatin1(originalCodec.string().data());
     }
-    bool m_isVideo;
-    bool m_isAudio;
-    bool m_isText;
+    bool m_isVideo { false };
+    bool m_isAudio { false };
+    bool m_isText { false };
 };
 
 #pragma mark -
@@ -209,15 +211,16 @@ MediaPlayerEnums::SupportsType SourceBufferParserAVFObjC::isContentTypeSupported
     String extendedType = type.raw();
     String outputCodecs = type.parameter(ContentType::codecsParameter());
     if (!outputCodecs.isEmpty() && [PAL::getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)]) {
-        outputCodecs = [PAL::getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs];
+        outputCodecs = [PAL::getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs.createNSString().get()];
         extendedType = makeString(type.containerType(), "; codecs=\""_s, outputCodecs, "\""_s);
     }
 
     return AVStreamDataParserMIMETypeCache::singleton().canDecodeType(extendedType);
 }
 
-SourceBufferParserAVFObjC::SourceBufferParserAVFObjC()
+SourceBufferParserAVFObjC::SourceBufferParserAVFObjC(const MediaSourceConfiguration& configuration)
     : m_parser(adoptNS([PAL::allocAVStreamDataParserInstance() init]))
+    , m_configuration(configuration)
 {
 #if USE(MODERN_AVCONTENTKEYSESSION)
     if (MediaSessionManagerCocoa::shouldUseModernAVContentKeySession())
@@ -238,11 +241,10 @@ SourceBufferParserAVFObjC::~SourceBufferParserAVFObjC()
     [m_delegate invalidate];
 }
 
-Expected<void, PlatformMediaError> SourceBufferParserAVFObjC::appendData(Segment&& segment, AppendFlags flags)
+Expected<void, PlatformMediaError> SourceBufferParserAVFObjC::appendData(Ref<const SharedBuffer>&& segment, AppendFlags flags)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    auto sharedBuffer = segment.takeSharedBuffer();
-    auto nsData = sharedBuffer->makeContiguous()->createNSData();
+    RetainPtr nsData = segment->createNSData();
     if (m_parserStateWasReset || flags == AppendFlags::Discontinuity)
         [m_parser appendStreamData:nsData.get() withFlags:AVStreamDataParserStreamDataDiscontinuity];
     else
@@ -277,7 +279,7 @@ void SourceBufferParserAVFObjC::invalidate()
 #if !RELEASE_LOG_DISABLED
 void SourceBufferParserAVFObjC::setLogger(const Logger& newLogger, uint64_t newLogIdentifier)
 {
-    m_logger = &newLogger;
+    m_logger = newLogger;
     m_logIdentifier = newLogIdentifier;
     ALWAYS_LOG(LOGIDENTIFIER);
 }
@@ -285,8 +287,10 @@ void SourceBufferParserAVFObjC::setLogger(const Logger& newLogger, uint64_t newL
 
 void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
 {
-    INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, asset);
-    m_callOnClientThreadCallback([this, protectedThis = Ref { *this }, asset = retainPtr(asset)] {
+    auto identifier = LOGIDENTIFIER;
+    INFO_LOG_IF_POSSIBLE(identifier, asset);
+
+    m_callOnClientThreadCallback([this, protectedThis = Ref { *this }, asset = retainPtr(asset), identifier] {
         if (!m_didParseInitializationDataCallback)
             return;
 
@@ -299,24 +303,30 @@ void SourceBufferParserAVFObjC::didParseStreamDataAsAsset(AVAsset* asset)
             segment.duration = PAL::toMediaTime([asset duration]);
 
         for (AVAssetTrack* track in [asset tracks]) {
-            if ([track hasMediaCharacteristic:AVMediaCharacteristicLegible]) {
-                // FIXME(125161): Handle in-band text tracks.
-                continue;
-            }
-
-            if ([track hasMediaCharacteristic:AVMediaCharacteristicVisual]) {
+            NSString* mediaType = [track mediaType];
+            if ([mediaType isEqualToString:AVMediaTypeVideo]) {
                 SourceBufferPrivateClient::InitializationSegment::VideoTrackInformation info;
                 info.track = VideoTrackPrivateMediaSourceAVFObjC::create(track);
                 info.description = MediaDescriptionAVFObjC::create(track);
                 segment.videoTracks.append(WTFMove(info));
-            } else if ([track hasMediaCharacteristic:AVMediaCharacteristicAudible]) {
+            } else if ([mediaType isEqualToString:AVMediaTypeAudio]) {
                 SourceBufferPrivateClient::InitializationSegment::AudioTrackInformation info;
                 info.track = AudioTrackPrivateMediaSourceAVFObjC::create(track);
                 info.description = MediaDescriptionAVFObjC::create(track);
                 segment.audioTracks.append(WTFMove(info));
+            } else if ([mediaType isEqualToString:AVMediaTypeText] && m_configuration.textTracksEnabled) {
+                SourceBufferPrivateClient::InitializationSegment::TextTrackInformation info;
+                Ref description = MediaDescriptionAVFObjC::create(track);
+                info.description = description.copyRef();
+                if (description->codec().toString() != "wvtt"_s) {
+                    ALWAYS_LOG_IF_POSSIBLE(identifier, "Ignoring text track of type ", description->codec());
+                    break;
+                }
+                info.track = TextTrackPrivateMediaSourceAVFObjC::create(track, InbandTextTrackPrivate::CueFormat::WebVTT);
+                segment.textTracks.append(WTFMove(info));
+            } else {
+                ALWAYS_LOG_IF_POSSIBLE(identifier, "Ignoring track of type ", String(mediaType));
             }
-
-            // FIXME(125161)    : Add TextTrack support
         }
 
         m_didParseInitializationDataCallback(WTFMove(segment));

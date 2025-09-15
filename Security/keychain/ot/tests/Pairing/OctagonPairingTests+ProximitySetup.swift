@@ -459,6 +459,90 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
     }
 
+     func testJoinWithCKKSLoggedOutState() throws {
+        self.startCKAccountStatusMock()
+
+        /*Setup acceptor first*/
+        self.getAcceptorInCircle()
+
+        self.silentFetchesAllowed = false
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
+            self.silentFetchesAllowed = true
+        }
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let rpcEpochCallbacks = self.expectation(description: "rpcEpoch callback occurs")
+        self.cuttlefishContextForAcceptor.rpcEpoch { epoch, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertEqual(epoch, 1, "epoch should be 1")
+            rpcEpochCallbacks.fulfill()
+        }
+        self.wait(for: [rpcEpochCallbacks], timeout: 10)
+
+        let signInCallback = self.expectation(description: "trigger sign in")
+        self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
+            XCTAssertNil(error, "error should be nil")
+            signInCallback.fulfill()
+        }
+        self.wait(for: [signInCallback], timeout: 10)
+
+        // Now acceptor's credentials expire and we put CKKS in a grey state
+         let fakeAccount = FakeCKAccountInfo()
+         fakeAccount.accountStatus = .available
+         fakeAccount.hasValidCredentials = false
+         fakeAccount.accountPartition = .production
+         let ckacctinfo = unsafeBitCast(fakeAccount, to: CKAccountInfo.self)
+
+         self.cuttlefishContextForAcceptor.cloudkitAccountStateChange(nil, to: ckacctinfo)
+
+        /* now initiator's turn*/
+        /* calling prepare identity*/
+        let rpcInitiatorPrepareCallback = self.expectation(description: "rpcPrepare callback occurs")
+
+        var p = String()
+        var pI = Data()
+        var pIS = Data()
+        var sI = Data()
+        var sIS = Data()
+
+        self.cuttlefishContext.rpcPrepareIdentityAsApplicant(with: self.initiatorPairingConfig, epoch: 1) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+            XCTAssertNil(error, "Should be no error calling 'prepare'")
+            XCTAssertNotNil(peerID, "Prepare should have returned a peerID")
+            XCTAssertNotNil(permanentInfo, "Prepare should have returned a permanentInfo")
+            XCTAssertNotNil(permanentInfoSig, "Prepare should have returned a permanentInfoSig")
+            XCTAssertNotNil(stableInfo, "Prepare should have returned a stableInfo")
+            XCTAssertNotNil(stableInfoSig, "Prepare should have returned a stableInfoSig")
+
+            p = peerID!
+            pI = permanentInfo!
+            pIS = permanentInfoSig!
+            sI = stableInfo!
+            sIS = stableInfoSig!
+
+            rpcInitiatorPrepareCallback.fulfill()
+        }
+
+        self.wait(for: [rpcInitiatorPrepareCallback], timeout: 10)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateInitiatorAwaitingVoucher, within: 10 * NSEC_PER_SEC)
+
+        let rpcVoucherCallback = self.expectation(description: "rpcVoucher callback occurs")
+        self.cuttlefishContextForAcceptor.rpcVoucher(withConfiguration: p, permanentInfo: pI, permanentInfoSig: pIS, stableInfo: sI, stableInfoSig: sIS) { voucher, voucherSig, error in
+            XCTAssertNil(voucher, "Prepare should not have returned a voucher")
+            XCTAssertNil(voucherSig, "Prepare should not have returned a voucherSig")
+            XCTAssertNotNil(error, "error should not be nil")
+            XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
+            XCTAssertEqual((error! as NSError).code, 87, "error codes should be equal")
+            rpcVoucherCallback.fulfill()
+        }
+
+        self.wait(for: [rpcVoucherCallback], timeout: 10)
+        self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+    }
+
     func testNextJoiningMessageInterface() throws {
         self.startCKAccountStatusMock()
 
@@ -617,7 +701,7 @@ extension OctagonPairingTests {
 
         // TEST1: Full peer joining in LimitedPeer max capability context == failure
         let prevPeer = TPPeerPermanentInfo(peerID: peerID, data: permanentInfo, sig: permanentInfoSig, keyFactory: TPECPublicKeyFactory())!
-        let keys = try EscrowKeys(secret: "toomany".data(using: .utf8)!, bottleSalt: "123456789")
+        let keys = try EscrowKeys(secret: Data("toomany".utf8), bottleSalt: "123456789")
         let newPeer = try TPPeerPermanentInfo(machineID: prevPeer.machineID,
                                               modelID: fullPeerModelId,
                                               epoch: 1,
@@ -964,6 +1048,7 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -973,6 +1058,10 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joinedPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)
@@ -1047,6 +1136,7 @@ extension OctagonPairingTests {
         }
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -1057,6 +1147,10 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joinedPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)
@@ -1095,6 +1189,18 @@ extension OctagonPairingTests {
         self.sendPairingExpectingCompletion(channel: initiator, packet: nil, reason: "error on first message")
 
         XCTAssertNil(initiator1Context.pairingUUID, "pairingUUID should be nil")
+
+        let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 0, "should not have sponsored any peers")
+            acceptorDumpCallback.fulfill()
+        }
+        self.wait(for: [acceptorDumpCallback], timeout: 10)
     }
 
     func testProximitySetupOctagonAndSOSWithOctagonAcceptorMessage1Failure() throws {
@@ -1825,7 +1931,7 @@ extension OctagonPairingTests {
         var otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingPrepareFetchWithXPCError()
         initiator.setControlObject(otControl)
 
-        var callback = self.expectation(description: "callback occurs")
+        let callback = self.expectation(description: "callback occurs")
         initiator.exchangePacket(acceptorEpochPacket) { complete, response, error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).domain, "NSCocoaErrorDomain", "domains should be equal")
@@ -1843,16 +1949,16 @@ extension OctagonPairingTests {
         otControl = OctagonTrustCliqueBridge.makeMockOTControlObjectWithFailingPrepareFetchWithOctagonErrorICloudAccountStateUnknown()
         initiator.setControlObject(otControl)
 
-        callback = self.expectation(description: "callback occurs")
+        let callback2 = self.expectation(description: "callback occurs")
         initiator.exchangePacket(acceptorEpochPacket) { complete, response, error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).domain, OctagonErrorDomain, "domains should be equal")
             XCTAssertEqual((error! as NSError).code, OctagonError.iCloudAccountStateUnknown.rawValue, "error codes should be equal")
             XCTAssertTrue(complete, "Expected pairing session to halt early")
             XCTAssertNil(response, "packet should be nil")
-            callback.fulfill()
+            callback2.fulfill()
         }
-        self.wait(for: [callback], timeout: 10)
+        self.wait(for: [callback2], timeout: 10)
 
         XCTAssertEqual(TestsObjectiveC.getInvocationCount(), 3, "fetchPrepare should have been invoked 3 times")
     }

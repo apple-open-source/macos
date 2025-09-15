@@ -741,7 +741,8 @@ kern_dump_save_segment_data(__unused void *refcon, core_save_segment_data_cb cal
 }
 
 kern_return_t
-kdp_reset_output_vars(void *kdp_core_out_state, uint64_t totalbytes, bool encrypt_core, bool *out_should_skip_coredump)
+kdp_reset_output_vars(void *kdp_core_out_state, uint64_t totalbytes, bool encrypt_core, bool *out_should_skip_coredump,
+    const char *corename, kern_coredump_type_t coretype)
 {
 	struct kdp_core_out_state *outstate = (struct kdp_core_out_state *)kdp_core_out_state;
 	struct kdp_output_stage *current_stage = NULL;
@@ -754,7 +755,17 @@ kdp_reset_output_vars(void *kdp_core_out_state, uint64_t totalbytes, bool encryp
 
 	/* Reset the output stages */
 	STAILQ_FOREACH(current_stage, &outstate->kcos_out_stage, kos_next) {
-		current_stage->kos_funcs.kosf_reset(current_stage);
+		kern_return_t res = current_stage->kos_funcs.kosf_reset(current_stage, corename, coretype);
+
+		/* Skip coredump if requested by an output stage. */
+		if (res == KERN_NODE_DOWN) {
+			*out_should_skip_coredump = true;
+			return KERN_SUCCESS;
+		}
+
+		if (res != KERN_SUCCESS) {
+			return res;
+		}
 	}
 
 	*out_should_skip_coredump = false;
@@ -1009,6 +1020,9 @@ chain_output_stages(enum kern_dump_type kd_variant, struct kdp_core_out_state *o
 }
 
 #if defined(__arm64__)
+
+static const char *panic_buf_filename = "panic_region";
+
 static kern_return_t
 dump_panic_buffer(struct kdp_core_out_state *outstate, char *panic_buf, size_t panic_len,
     uint64_t *foffset, uint64_t details_flags)
@@ -1018,7 +1032,8 @@ dump_panic_buffer(struct kdp_core_out_state *outstate, char *panic_buf, size_t p
 
 	kern_coredump_log(NULL, "\nBeginning dump of panic region of size 0x%zx\n", panic_len);
 
-	ret = kdp_reset_output_vars(outstate, panic_len, true, &should_skip);
+	ret = kdp_reset_output_vars(outstate, panic_len, true, &should_skip,
+	    panic_buf_filename, RAW_COREDUMP);
 	if (KERN_SUCCESS != ret) {
 		return ret;
 	}
@@ -1042,7 +1057,7 @@ dump_panic_buffer(struct kdp_core_out_state *outstate, char *panic_buf, size_t p
 		return ret;
 	}
 
-	ret = kern_dump_record_file(outstate, "panic_region", *foffset, &compressed_panic_region_len,
+	ret = kern_dump_record_file(outstate, panic_buf_filename, *foffset, &compressed_panic_region_len,
 	    details_flags);
 	if (KERN_SUCCESS != ret) {
 		kern_coredump_log(NULL, "Failed to record panic region in corefile header, kern_dump_record_file returned 0x%x\n", ret);
@@ -1169,10 +1184,11 @@ do_kern_dump(enum kern_dump_type kd_variant)
 #if defined(__x86_64__)
 	if (((kd_variant == KERN_DUMP_STACKSHOT_DISK) || (kd_variant == KERN_DUMP_DISK)) && ((panic_stackshot_buf != 0) && (panic_stackshot_len != 0))) {
 		bool should_skip = false;
+		static const char *stackshot_filename = "panic_stackshot.kcdata";
 
 		kern_coredump_log(NULL, "\nBeginning dump of kernel stackshot\n");
 
-		ret = kdp_reset_output_vars(&outstate, panic_stackshot_len, true, &should_skip);
+		ret = kdp_reset_output_vars(&outstate, panic_stackshot_len, true, &should_skip, stackshot_filename, RAW_COREDUMP);
 
 		if (ret != KERN_SUCCESS) {
 			kern_coredump_log(NULL, "Failed to reset outstate for stackshot with len 0x%zx, returned 0x%x\n", panic_stackshot_len, ret);
@@ -1186,7 +1202,7 @@ do_kern_dump(enum kern_dump_type kd_variant)
 			} else if ((ret = kdp_core_output(&outstate, 0, NULL)) != KERN_SUCCESS) {
 				kern_coredump_log(NULL, "Failed to flush stackshot data : kdp_core_output(%p, 0, NULL) returned 0x%x\n", &outstate, ret);
 				dump_succeeded = FALSE;
-			} else if ((ret = kern_dump_record_file(&outstate, "panic_stackshot.kcdata", foffset, &compressed_stackshot_len, details_flags)) != KERN_SUCCESS) {
+			} else if ((ret = kern_dump_record_file(&outstate, stackshot_filename, foffset, &compressed_stackshot_len, details_flags)) != KERN_SUCCESS) {
 				kern_coredump_log(NULL, "Failed to record panic stackshot in corefile header, kern_dump_record_file returned 0x%x\n", ret);
 				dump_succeeded = FALSE;
 			} else {
@@ -1208,12 +1224,19 @@ do_kern_dump(enum kern_dump_type kd_variant)
 		 * Dump co-processors as well, foffset will be overwritten with the
 		 * offset of the next location in the file to be written to.
 		 */
-		if (kern_do_coredump(&outstate, FALSE, foffset, &foffset, details_flags) != 0) {
+		if (kern_do_coredump(&outstate, KCF_NONE, foffset, &foffset, details_flags) != 0) {
 			dump_succeeded = FALSE;
 		}
+#if defined (__arm64__)
+	} else if (kd_variant == KERN_DUMP_HW_SHMEM_DBG) {
+		kern_coredump_log(NULL, "Writing all cores through shared memory debugger\n");
+		if (kern_do_coredump(&outstate, KCF_ABORT_ON_FAILURE, foffset, &foffset, details_flags) != 0) {
+			dump_succeeded = FALSE;
+		}
+#endif /* __arm64__ */
 	} else if (kd_variant != KERN_DUMP_STACKSHOT_DISK) {
 		/* Only the kernel */
-		if (kern_do_coredump(&outstate, TRUE, foffset, &foffset, details_flags) != 0) {
+		if (kern_do_coredump(&outstate, KCF_KERNEL_ONLY, foffset, &foffset, details_flags) != 0) {
 			dump_succeeded = FALSE;
 		}
 	}
@@ -1783,7 +1806,7 @@ kdp_core_init(void)
 
 	kmem_alloc(kernel_map, (vm_offset_t*)&kdp_core_header,
 	    kdp_core_header_size,
-	    KMA_NOFAIL | KMA_ZERO | KMA_PERMANENT | KMA_KOBJECT | KMA_DATA,
+	    KMA_NOFAIL | KMA_ZERO | KMA_PERMANENT | KMA_KOBJECT | KMA_DATA_SHARED,
 	    VM_KERN_MEMORY_DIAG);
 
 	kdp_core_header->signature = MACH_CORE_FILEHEADER_V2_SIGNATURE;

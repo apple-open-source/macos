@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -31,29 +31,6 @@
 
 static int kern_packet_clone_internal(const kern_packet_t, kern_packet_t *,
     uint32_t, kern_packet_copy_mode_t);
-
-#if (DEBUG || DEVELOPMENT)
-__attribute__((noreturn))
-void
-pkt_subtype_assert_fail(const kern_packet_t ph, uint64_t type, uint64_t subtype)
-{
-	panic("invalid packet handle 0x%llx (type %llu != %llu || "
-	    "subtype %llu != %llu)", ph, SK_PTR_TYPE(ph), type,
-	    SK_PTR_SUBTYPE(ph), subtype);
-	/* NOTREACHED */
-	__builtin_unreachable();
-}
-
-__attribute__((noreturn))
-void
-pkt_type_assert_fail(const kern_packet_t ph, uint64_t type)
-{
-	panic("invalid packet handle 0x%llx (type %llu != %llu)",
-	    ph, SK_PTR_TYPE(ph), type);
-	/* NOTREACHED */
-	__builtin_unreachable();
-}
-#endif /* DEBUG || DEVELOPMENT */
 
 errno_t
 kern_packet_set_headroom(const kern_packet_t ph, const uint8_t headroom)
@@ -308,47 +285,31 @@ kern_packet_clear_flow_uuid(const kern_packet_t ph)
 void
 kern_packet_get_euuid(const kern_packet_t ph, uuid_t euuid)
 {
-	if (__probable(SK_PTR_TYPE(ph) == NEXUS_META_TYPE_PACKET)) {
-		uuid_copy(euuid, PKT_ADDR(ph)->pkt_policy_euuid);
-	} else {
-		uuid_clear(euuid);
-	}
+	uuid_copy(euuid, PKT_ADDR(ph)->pkt_policy_euuid);
 }
 
 void
 kern_packet_set_policy_id(const kern_packet_t ph, uint32_t policy_id)
 {
-	if (__probable(SK_PTR_TYPE(ph) == NEXUS_META_TYPE_PACKET)) {
-		PKT_ADDR(ph)->pkt_policy_id = policy_id;
-	}
+	PKT_ADDR(ph)->pkt_policy_id = policy_id;
 }
 
 uint32_t
 kern_packet_get_policy_id(const kern_packet_t ph)
 {
-	if (__probable(SK_PTR_TYPE(ph) == NEXUS_META_TYPE_PACKET)) {
-		return PKT_ADDR(ph)->pkt_policy_id;
-	} else {
-		return 0;
-	}
+	return PKT_ADDR(ph)->pkt_policy_id;
 }
 
 void
 kern_packet_set_skip_policy_id(const kern_packet_t ph, uint32_t skip_policy_id)
 {
-	if (__probable(SK_PTR_TYPE(ph) == NEXUS_META_TYPE_PACKET)) {
-		PKT_ADDR(ph)->pkt_skip_policy_id = skip_policy_id;
-	}
+	PKT_ADDR(ph)->pkt_skip_policy_id = skip_policy_id;
 }
 
 uint32_t
 kern_packet_get_skip_policy_id(const kern_packet_t ph)
 {
-	if (__probable(SK_PTR_TYPE(ph) == NEXUS_META_TYPE_PACKET)) {
-		return PKT_ADDR(ph)->pkt_skip_policy_id;
-	} else {
-		return 0;
-	}
+	return PKT_ADDR(ph)->pkt_skip_policy_id;
 }
 
 uint32_t
@@ -513,17 +474,15 @@ kern_packet_get_packetid(const kern_packet_t ph, packet_id_t *pktid)
 }
 
 errno_t
-kern_packet_set_vlan_tag(const kern_packet_t ph, const uint16_t tag,
-    const boolean_t tag_in_pkt)
+kern_packet_set_vlan_tag(const kern_packet_t ph, const uint16_t tag)
 {
-	return __packet_set_vlan_tag(ph, tag, tag_in_pkt);
+	return __packet_set_vlan_tag(ph, tag);
 }
 
 errno_t
-kern_packet_get_vlan_tag(const kern_packet_t ph, uint16_t *tag,
-    boolean_t *tag_in_pkt)
+kern_packet_get_vlan_tag(const kern_packet_t ph, uint16_t *tag)
 {
-	return __packet_get_vlan_tag(ph, tag, tag_in_pkt);
+	return __packet_get_vlan_tag(ph, tag);
 }
 
 uint16_t
@@ -555,6 +514,24 @@ boolean_t
 kern_packet_get_wake_flag(const kern_packet_t ph)
 {
 	return __packet_get_wake_flag(ph);
+}
+
+void
+kern_packet_set_ulpn_flag(const kern_packet_t ph)
+{
+	return __packet_set_ulpn_flag(ph);
+}
+
+boolean_t
+kern_packet_get_ulpn_flag(const kern_packet_t ph)
+{
+	return __packet_get_ulpn_flag(ph);
+}
+
+boolean_t
+kern_packet_get_lpw_flag(const kern_packet_t ph)
+{
+	return __packet_get_lpw_flag(ph);
 }
 
 uint32_t
@@ -589,7 +566,6 @@ kern_packet_clone_internal(const kern_packet_t ph1, kern_packet_t *ph2,
 	int err;
 
 	/* TODO: Add quantum support */
-	VERIFY(SK_PTR_TYPE(ph1) == NEXUS_META_TYPE_PACKET);
 
 	/* Source needs to be finalized (not dropped) and with 1 buflet */
 	if ((p1->pkt_qum.qum_qflags & QUM_F_DROPPED) != 0 ||
@@ -705,7 +681,7 @@ kern_packet_clone_internal(const kern_packet_t ph1, kern_packet_t *ph2,
 		/* Copy AQM metadata */
 		p2->pkt_flowsrc_type = p1->pkt_flowsrc_type;
 		p2->pkt_flowsrc_fidx = p1->pkt_flowsrc_fidx;
-		_CASSERT((offsetof(struct __flow, flow_src_id) % 8) == 0);
+		static_assert((offsetof(struct __flow, flow_src_id) % 8) == 0);
 		_UUID_COPY(p2->pkt_flowsrc_id, p1->pkt_flowsrc_id);
 		_UUID_COPY(p2->pkt_policy_euuid, p1->pkt_policy_euuid);
 		p2->pkt_policy_id = p1->pkt_policy_id;

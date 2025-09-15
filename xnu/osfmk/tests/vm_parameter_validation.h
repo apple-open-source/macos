@@ -231,6 +231,74 @@ is_fake_error(int err)
 	       err == PANIC || err == GUARD || err == OUT_PARAM_BAD;
 }
 
+// Parameters passed between userspace and kernel
+// for sysctl test vm_parameter_validation_kern
+typedef struct {
+	// Set this to sizeof(vm_parameter_validation_kern_args_t)
+	uint64_t sizeof_args;
+
+	// Buffer for kernel test output. Allocated by userspace.
+	uint64_t output_buffer_address;
+	uint64_t output_buffer_size;
+
+	// File descriptor for kernel tests that map files. Allocated by userspace.
+	uint64_t file_descriptor;
+
+	// Set if the kernel test output should be a golden file.
+	// Read from GENERATE_GOLDEN_IMAGE.
+	uint64_t generate_golden;
+} vm_parameter_validation_kern_args_t;
+
+// Result values from sysctl test vm_parameter_validation_kern
+#define KERN_TEST_SUCCESS  0
+#define KERN_TEST_BAD_ARGS 1  // sizeof(args) didn't match args->sizeof_args
+#define KERN_TEST_FAILED   2  // failed without running any tests; error text in output buffer
+
+#if KERNEL
+
+// "Global" data for test vm_parameter_validation_kern
+// stored in the kernel thread test context.
+typedef struct {
+	thread_test_context_t ttc;
+
+	// Buffer for kernel test output. Allocated by userspace.
+	user_addr_t output_buffer_start;
+	user_addr_t output_buffer_cur;
+	user_addr_t output_buffer_end;
+
+	// File descriptor for kernel tests that map files. Allocated by userspace.
+	int file_descriptor;
+
+	// Set if the kernel test output should be a golden file.
+	bool generate_golden;
+
+	// Cached lists of offsets. Populated by CACHE_OFFSETS().
+	struct offset_list_t *addr_trial_offsets;
+	struct offset_list_t *size_trial_offsets;
+	struct offset_list_t *start_size_trial_offsets;
+	struct offset_list_t *ssoo_absolute_offsets;
+	struct offset_list_t *ssoo_absolute_and_relative_offsets;
+} vm_parameter_validation_kern_thread_context_t;
+
+DECLARE_TEST_IDENTITY(test_identity_vm_parameter_validation_kern);
+
+// Get the test's global storage from thread-local data.
+// Panics if not running on a development kernel.
+// Panics if not running on the vm_parameter_validation_kern test's thread.
+static vm_parameter_validation_kern_thread_context_t *
+get_globals(void)
+{
+	thread_test_context_t *ttc = thread_get_test_context();
+	if (ttc == NULL ||
+	    ttc->ttc_identity != test_identity_vm_parameter_validation_kern) {
+		panic("no thread context or wrong thread context in test vm_parameter_validation_kern");
+	}
+
+	return __container_of(ttc, vm_parameter_validation_kern_thread_context_t, ttc);
+}
+
+#endif  /* KERNEL */
+
 // Return the count of a (non-decayed!) array.
 #define countof(array) (sizeof(array) / sizeof((array)[0]))
 
@@ -400,28 +468,6 @@ adjust_page_size()
 	return test_page_size;
 }
 
-#if KERNEL
-// Knobs controlled from userspace (and passed in MSB of the file_descriptor)
-extern bool kernel_generate_golden;
-#else
-// Knobs controlled by environment variables
-extern bool dump;
-extern bool generate_golden;
-extern bool dump_golden;
-extern int out_param_bad_count;
-extern bool should_test_results;
-static void
-read_env()
-{
-	dump = (getenv("DUMP_RESULTS") != NULL);
-	dump_golden = (getenv("DUMP_GOLDEN_IMAGE") != NULL);
-	// Shouldn't do both
-	generate_golden = (getenv("GENERATE_GOLDEN_IMAGE") != NULL) && !dump_golden;
-	// Only test when no other golden image flag is set
-	should_test_results = (getenv("SKIP_TESTS") == NULL) && !dump_golden && !generate_golden;
-}
-#endif
-
 
 /////////////////////////////////////////////////////
 // String functions that work in both kernel and userspace.
@@ -587,13 +633,9 @@ typedef struct {
 	unsigned capacity;
 	unsigned count;
 	unsigned tested_count;
+	bool kernel_buffer_full;  /* incomplete, parsed from a truncated buffer */
 	result_t list[];
 } results_t;
-
-extern results_t *golden_list[];
-extern results_t *kern_list[];
-static uint32_t num_tests = 0; // num of tests in golden list
-static uint32_t num_kern_tests = 0; // num of tests in kernel results list
 
 static __attribute__((overloadable))
 results_t *
@@ -617,6 +659,7 @@ alloc_results(const char *testname, char *testconfig,
 	results->capacity = capacity;
 	results->count = 0;
 	results->tested_count = 0;
+	results->kernel_buffer_full = false;
 	return results;
 }
 
@@ -661,9 +704,13 @@ static void __unused
 dealloc_results(results_t *results)
 {
 	for (unsigned int i = 0; i < results->count; i++) {
-		kfree_str(results->list[i].name);
+		if (results->list[i].name) {
+			kfree_str(results->list[i].name);
+		}
 	}
-	kfree_str(results->testconfig);
+	if (results->testconfig) {
+		kfree_str(results->testconfig);
+	}
 #if KERNEL
 	kfree_type(results_t, result_t, results->capacity, results);
 #else
@@ -693,6 +740,8 @@ append_result(results_t *results, int ret, const char *name)
 #define TRIALSFORMULA_DELIMITER   "TRIALSFORMULA "
 #define TRIALSARGUMENTS_DELIMITER "TRIALSARGUMENTS"
 #define KERN_TESTRESULT_DELIMITER "  RESULT "
+#define KERN_FAILURE_DELIMITER    "FAIL: "
+#define KERN_RESULT_DELIMITER     "\n"
 
 // print results, unformatted
 // This output is read by populate_kernel_results()
@@ -727,6 +776,7 @@ dump_golden_results(results_t *results)
 		goldenprintf(TESTRESULT_DELIMITER "%d: %d\n", i, results->list[i].ret);
 #if !KERNEL
 		if (results->list[i].ret == OUT_PARAM_BAD) {
+			extern int out_param_bad_count;
 			out_param_bad_count += 1;
 			T_FAIL("Out parameter violation in test %s - %s\n", results->testname, results->list[i].name);
 		}
@@ -736,163 +786,6 @@ dump_golden_results(results_t *results)
 	return results;
 }
 
-#if !KERNEL
-// Comparator function for sorting result_t list by name
-static int
-compare_names(const void *a, const void *b)
-{
-	assert(((const result_t *)a)->name);
-	assert(((const result_t *)b)->name);
-	return strcmp(((const result_t *)a)->name, ((const result_t *)b)->name);
-}
-
-static unsigned
-binary_search(result_t *list, unsigned count, const result_t *trial)
-{
-	assert(count > 0);
-	const char *name = trial->name;
-	unsigned left = 0, right = count - 1;
-	while (left <= right) {
-		unsigned mid = left + (right - left) / 2;
-		int cmp = strcmp(list[mid].name, name);
-		if (cmp == 0) {
-			return mid;
-		} else if (cmp < 0) {
-			left = mid + 1;
-		} else {
-			right = mid - 1;
-		}
-	}
-	return UINT_MAX; // Not found
-}
-
-static inline bool
-trial_name_equals(const result_t *a, const result_t *b)
-{
-	// NB: strlen match need to handle cases where a shorter 'bname' would match a longer 'aname'.
-	if (strlen(a->name) == strlen(b->name) && compare_names(a, b) == 0) {
-		return true;
-	}
-	return false;
-}
-
-static const result_t *
-get_golden_result(results_t *golden_results, const result_t *trial, unsigned trial_idx)
-{
-	if (golden_results->trialsformula == eUNKNOWN_TRIALS) {
-		// golden results don't contain trials names
-		T_LOG("%s: update test's alloc_results to have a valid trialsformula_t\n", golden_results->testname);
-		return NULL;
-	}
-
-	if (trial_idx < golden_results->count &&
-	    golden_results->list[trial_idx].name &&
-	    trial_name_equals(&golden_results->list[trial_idx], trial)) {
-		// "fast search" path taken when golden file is in sync to test.
-		return &golden_results->list[trial_idx];
-	}
-
-	// "slow search" path taken when tests idxs are not aligned. Sort the array
-	// by name and do binary search.
-	qsort(golden_results->list, golden_results->count, sizeof(result_t), compare_names);
-	unsigned g_idx = binary_search(golden_results->list, golden_results->count, trial);
-	if (g_idx < golden_results->count) {
-		return &golden_results->list[g_idx];
-	}
-
-	return NULL;
-}
-
-static void
-test_results(results_t *golden_results, results_t *results)
-{
-	bool passed = TRUE;
-	unsigned result_count = results->count;
-	unsigned acceptable_count = 0;
-	const unsigned acceptable_max = 16;  // log up to this many ACCEPTABLE results
-	const result_t *golden_result = NULL;
-	if (golden_results->count != results->count) {
-		T_LOG("%s: number of iterations mismatch (%u vs %u)",
-		    results->testname, golden_results->count, results->count);
-	}
-	for (unsigned i = 0; i < result_count; i++) {
-		golden_result = get_golden_result(golden_results, &results->list[i], i);
-		if (golden_result) {
-			if (results->list[i].ret == ACCEPTABLE) {
-				// trial has declared itself to be correct
-				// no matter what the golden result is
-				acceptable_count++;
-				if (acceptable_count <= acceptable_max) {
-					T_LOG("%s RESULT ACCEPTABLE (expected %d), %s\n",
-					    results->testname,
-					    golden_result->ret, results->list[i].name);
-				}
-			} else if (results->list[i].ret != golden_result->ret) {
-				T_FAIL("%s RESULT %d (expected %d), %s\n",
-				    results->testname, results->list[i].ret,
-				    golden_result->ret, results->list[i].name);
-				passed = FALSE;
-			}
-		} else {
-			// new trial not present in golden results
-			T_FAIL("%s NEW RESULT %d, %s - (regenerate golden files to fix this)\n",
-			    results->testname, results->list[i].ret, results->list[i].name);
-			passed = FALSE;
-		}
-	}
-
-	if (acceptable_count > acceptable_max) {
-		T_LOG("%s %u more RESULT ACCEPTABLE trials not logged\n",
-		    results->testname, acceptable_count - acceptable_max);
-	}
-	if (passed) {
-		T_PASS("%s passed\n", results->testname);
-	}
-}
-#endif
-
-#if !KERNEL
-static results_t *
-test_name_to_golden_results(const char* testname);
-#endif
-
-static results_t *
-process_results(results_t *results)
-{
-#if KERNEL
-	if (kernel_generate_golden) {
-		return dump_golden_results(results);
-	} else {
-		return __dump_results(results);
-	}
-#else
-	results_t *golden_results = NULL;
-
-	if (dump && !generate_golden) {
-		__dump_results(results);
-	}
-
-	if (generate_golden) {
-		dump_golden_results(results);
-	}
-
-	if (should_test_results) {
-		golden_results = test_name_to_golden_results(results->testname);
-
-		if (golden_results) {
-			test_results(golden_results, results);
-		} else {
-			T_FAIL("New test %s found, update golden list to allow return code testing", results->testname);
-			// Dump results if not done previously
-			if (!dump) {
-				__dump_results(results);
-			}
-		}
-	}
-
-	return results;
-#endif
-}
 
 static inline mach_vm_address_t
 truncate_vm_map_addr_with_flags(MAP_T map, mach_vm_address_t addr, int flags)
@@ -939,7 +832,7 @@ typedef struct {
 	addr_t offset;
 } absolute_or_relative_offset_t;
 
-typedef struct {
+typedef struct offset_list_t {
 	unsigned count;
 	unsigned capacity;
 	absolute_or_relative_offset_t list[];
@@ -967,6 +860,31 @@ append_offset(offset_list_t *offsets, bool is_absolute, addr_t offset)
 	offsets->list[offsets->count].offset = offset;
 	offsets->count++;
 }
+
+#if KERNEL
+
+/* kernel globals are shared across processes, store cached offsets in thread-local storage */
+#define CACHE_OFFSETS(name, ctor) \
+	offset_list_t *name = get_globals()->name;              \
+	do {                                                    \
+	        if (name == NULL) {                             \
+	                name = ctor();                          \
+	                get_globals()->name = name;             \
+	        }                                               \
+	} while (0)
+
+#else   /* not KERNEL */
+
+/* userspace test is single-threaded, store cached offsets in a static variable */
+#define CACHE_OFFSETS(name, ctor)               \
+	static offset_list_t *name;             \
+	do {                                    \
+	        if (name == NULL) {             \
+	                name = ctor();          \
+	        }                               \
+	} while (0)
+
+#endif  /* not KERNEL */
 
 
 /////////////////////////////////////////////////////
@@ -2120,10 +2038,9 @@ slide_trial(addr_trial_t trial, mach_vm_address_t slide)
 static const offset_list_t *
 get_addr_trial_offsets(void)
 {
-	static offset_list_t *offsets;
 	addr_t test_page_size = adjust_page_size();
-	if (!offsets) {
-		offsets = allocate_offsets(20);
+	CACHE_OFFSETS(addr_trial_offsets, ^{
+		offset_list_t *offsets = allocate_offsets(20);
 		append_offset(offsets, true, 0);
 		append_offset(offsets, true, 1);
 		append_offset(offsets, true, 2);
@@ -2145,8 +2062,9 @@ get_addr_trial_offsets(void)
 		append_offset(offsets, false, 2);
 		append_offset(offsets, false, test_page_size - 2);
 		append_offset(offsets, false, test_page_size - 1);
-	}
-	return offsets;
+		return offsets;
+	});
+	return addr_trial_offsets;
 }
 
 TRIALS_IMPL(addr)
@@ -2212,10 +2130,9 @@ typedef struct {
 static const offset_list_t *
 get_size_trial_offsets(void)
 {
-	static offset_list_t *offsets;
 	addr_t test_page_size = adjust_page_size();
-	if (!offsets) {
-		offsets = allocate_offsets(15);
+	CACHE_OFFSETS(size_trial_offsets, ^{
+		offset_list_t *offsets = allocate_offsets(15);
 		append_offset(offsets, true, 0);
 		append_offset(offsets, true, 1);
 		append_offset(offsets, true, 2);
@@ -2231,8 +2148,9 @@ get_size_trial_offsets(void)
 		append_offset(offsets, true, -(mach_vm_address_t)test_page_size + 2);
 		append_offset(offsets, true, -(mach_vm_address_t)2);
 		append_offset(offsets, true, -(mach_vm_address_t)1);
-	}
-	return offsets;
+		return offsets;
+	});
+	return size_trial_offsets;
 }
 
 TRIALS_IMPL(size)
@@ -2303,19 +2221,19 @@ get_start_size_trial_start_offsets(void)
 static const offset_list_t *
 get_start_size_trial_size_offsets(void)
 {
-	static offset_list_t *offsets;
-	if (!offsets) {
+	CACHE_OFFSETS(start_size_trial_offsets, ^{
 		// use each size offset twice: once absolute and once relative
 		const offset_list_t *old_offsets = get_size_trial_offsets();
-		offsets = allocate_offsets(2 * old_offsets->count);
+		offset_list_t *offsets = allocate_offsets(2 * old_offsets->count);
 		for (unsigned i = 0; i < old_offsets->count; i++) {
-			append_offset(offsets, true, old_offsets->list[i].offset);
+		        append_offset(offsets, true, old_offsets->list[i].offset);
 		}
 		for (unsigned i = 0; i < old_offsets->count; i++) {
-			append_offset(offsets, false, old_offsets->list[i].offset);
+		        append_offset(offsets, false, old_offsets->list[i].offset);
 		}
-	}
-	return offsets;
+		return offsets;
+	});
+	return start_size_trial_offsets;
 }
 
 TRIALS_IMPL(start_size)
@@ -2448,10 +2366,9 @@ slide_trial(start_size_offset_object_trial_t trial, mach_vm_address_t slide)
 static offset_list_t *
 get_ssoo_absolute_offsets()
 {
-	static offset_list_t *offsets;
 	addr_t test_page_size = adjust_page_size();
-	if (!offsets) {
-		offsets = allocate_offsets(20);
+	CACHE_OFFSETS(ssoo_absolute_offsets, ^{
+		offset_list_t *offsets = allocate_offsets(20);
 		append_offset(offsets, true, 0);
 		append_offset(offsets, true, 1);
 		append_offset(offsets, true, 2);
@@ -2467,21 +2384,21 @@ get_ssoo_absolute_offsets()
 		append_offset(offsets, true, -(mach_vm_address_t)test_page_size + 2);
 		append_offset(offsets, true, -(mach_vm_address_t)2);
 		append_offset(offsets, true, -(mach_vm_address_t)1);
-	}
-	return offsets;
+		return offsets;
+	});
+	return ssoo_absolute_offsets;
 }
 
 static offset_list_t *
 get_ssoo_absolute_and_relative_offsets()
 {
-	static offset_list_t *offsets;
 	addr_t test_page_size = adjust_page_size();
-	if (!offsets) {
+	CACHE_OFFSETS(ssoo_absolute_and_relative_offsets, ^{
 		const offset_list_t *old_offsets = get_ssoo_absolute_offsets();
-		offsets = allocate_offsets(old_offsets->count + 5);
+		offset_list_t *offsets = allocate_offsets(old_offsets->count + 5);
 		// absolute offsets
 		for (unsigned i = 0; i < old_offsets->count; i++) {
-			append_offset(offsets, true, old_offsets->list[i].offset);
+		        append_offset(offsets, true, old_offsets->list[i].offset);
 		}
 		// relative offsets
 		append_offset(offsets, false, 0);
@@ -2489,8 +2406,9 @@ get_ssoo_absolute_and_relative_offsets()
 		append_offset(offsets, false, 2);
 		append_offset(offsets, false, test_page_size - 2);
 		append_offset(offsets, false, test_page_size - 1);
-	}
-	return offsets;
+		return offsets;
+	});
+	return ssoo_absolute_and_relative_offsets;
 }
 
 start_size_offset_object_trials_t *

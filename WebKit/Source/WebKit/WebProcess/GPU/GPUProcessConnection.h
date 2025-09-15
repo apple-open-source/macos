@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,7 +82,6 @@ public:
     void deref() const final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     IPC::Connection& connection() { return m_connection.get(); }
-    Ref<IPC::Connection> protectedConnection() { return m_connection; }
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
 
     void didBecomeUnresponsive();
@@ -99,10 +98,12 @@ public:
     RemoteVideoFrameObjectHeapProxy& videoFrameObjectHeapProxy();
     Ref<RemoteVideoFrameObjectHeapProxy> protectedVideoFrameObjectHeapProxy();
     RemoteMediaPlayerManager& mediaPlayerManager();
+    Ref<RemoteMediaPlayerManager> protectedMediaPlayerManager();
 #endif
 
 #if PLATFORM(COCOA) && ENABLE(WEB_AUDIO)
     RemoteAudioSourceProviderManager& audioSourceProviderManager();
+    Ref<RemoteAudioSourceProviderManager> protectedAudioSourceProviderManager();
 #endif
 
     void updateMediaConfiguration(bool forceUpdate);
@@ -145,7 +146,7 @@ private:
     void didClose(IPC::Connection&) override;
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
 
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
@@ -160,7 +161,7 @@ private:
 #endif
 
     // The connection from the web process to the GPU process.
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     IPC::MessageReceiverMap m_messageReceiverMap;
     GPUProcessConnectionIdentifier m_identifier { GPUProcessConnectionIdentifier::generate() };
     bool m_hasInitialized { false };
@@ -169,7 +170,7 @@ private:
     std::optional<audit_token_t> m_auditToken;
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    std::unique_ptr<SampleBufferDisplayLayerManager> m_sampleBufferDisplayLayerManager;
+    const std::unique_ptr<SampleBufferDisplayLayerManager> m_sampleBufferDisplayLayerManager;
 #endif
 #if ENABLE(VIDEO)
     RefPtr<RemoteVideoFrameObjectHeapProxy> m_videoFrameObjectHeapProxy;

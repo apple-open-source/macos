@@ -973,7 +973,7 @@ create_netif_provider_and_instance(if_headless_ref headlessif,
 		prov_init.nxpi_sync_tx = headless_nx_sync_tx;
 	}
 
-	_CASSERT(IFF_MAX_RX_RINGS == 1);
+	static_assert(IFF_MAX_RX_RINGS == 1);
 
 	snprintf((char *)provider_name, sizeof(provider_name),
 	    "com.apple.netif.%s", headlessif->iff_name);

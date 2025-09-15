@@ -368,6 +368,9 @@ private:
 
 	IOPMActions             PMActions;
 
+	uint64_t                                PMDriverClass;
+#define fPMDriverClass              pwrMgt->PMDriverClass
+
 // Serialize IOServicePM state for debug output.
 	IOReturn gatedSerialize( OSSerialize * s ) const;
 	virtual bool serialize( OSSerialize * s ) const APPLE_KEXT_OVERRIDE;
@@ -598,6 +601,16 @@ enum {
 	kIOPMDriverCallMethodMaxCapabilityForDomainState     = 6,
 	kIOPMDriverCallMethodInitialPowerStateForDomainState = 7
 };
+
+
+enum {
+	kIOPMDriverClassStorage   = 0x00000010,
+	kIOPMDriverClassNetwork   = 0x00000020,
+	kIOPMDriverClassDriverKit = 0x00000040,
+	kIOPMDriverClassDone      = (1ULL << 63),
+};
+
+extern uint64_t gLPWFlags;
 
 //******************************************************************************
 // PM Statistics & Diagnostics

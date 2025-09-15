@@ -42,13 +42,7 @@ namespace WebCore {
 Ref<AudioEncoder::CreatePromise> AudioEncoder::create(const String& codecName, const Config& config, DescriptionCallback&& descriptionCallback, OutputCallback&& outputCallback)
 {
 #if USE(GSTREAMER)
-    CreatePromise::Producer producer;
-    Ref promise = producer.promise();
-    CreateCallback callback = [producer = WTFMove(producer)] (auto&& result) mutable {
-        producer.settle(WTFMove(result));
-    };
-    GStreamerAudioEncoder::create(codecName, config, WTFMove(callback), WTFMove(descriptionCallback), WTFMove(outputCallback));
-    return promise;
+    return GStreamerAudioEncoder::create(codecName, config, WTFMove(descriptionCallback), WTFMove(outputCallback));
 #elif USE(AVFOUNDATION)
     return AudioEncoderCocoa::create(codecName, config, WTFMove(descriptionCallback), WTFMove(outputCallback));
 #else

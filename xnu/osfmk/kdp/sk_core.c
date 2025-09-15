@@ -522,6 +522,7 @@ sk_dump_init(void *refcon, void *context)
 
 	/* validate debug signpost and discover UUID. */
 	struct secure_core_context *scc = (struct secure_core_context *)refcon;
+	bzero(scc, sizeof(struct secure_core_context));
 	scc->scc_uuid = sc_find_uuid_cdbg();
 
 	if (scc->scc_uuid == NULL) {

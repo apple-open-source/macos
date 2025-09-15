@@ -88,24 +88,24 @@ AudioSourceProviderAVFObjC::~AudioSourceProviderAVFObjC()
     setClient(nullptr);
 }
 
-void AudioSourceProviderAVFObjC::provideInput(AudioBus* bus, size_t framesToProcess)
+void AudioSourceProviderAVFObjC::provideInput(AudioBus& bus, size_t framesToProcess)
 {
     // Protect access to m_ringBuffer by using tryLock(). If we failed
     // to aquire, a re-configure is underway, and m_ringBuffer is unsafe to access.
     // Emit silence.
     if (!m_tapStorage) {
-        bus->zero();
+        bus.zero();
         return;
     }
 
     if (!m_tapStorage->lock.tryLock()) {
-        bus->zero();
+        bus.zero();
         return;
     }
     Locker locker { AdoptLock, m_tapStorage->lock };
 
     if (!m_ringBuffer) {
-        bus->zero();
+        bus.zero();
         return;
     }
 
@@ -120,24 +120,24 @@ void AudioSourceProviderAVFObjC::provideInput(AudioBus* bus, size_t framesToProc
         // We have not started rendering yet. If there aren't enough frames in the buffer, then output
         // silence until there is.
         if (endFrame <= m_readCount + m_writeAheadCount + framesToProcess) {
-            bus->zero();
+            bus.zero();
             return;
         }
     } else {
         // We've started rendering. Don't output silence unless we really have to.
         size_t framesAvailable = static_cast<size_t>(endFrame - m_readCount);
         if (framesAvailable < framesToProcess) {
-            bus->zero();
+            bus.zero();
             if (!framesAvailable)
                 return;
             framesToProcess = framesAvailable;
         }
     }
 
-    ASSERT(bus->numberOfChannels() == m_ringBuffer->channelCount());
+    ASSERT(bus.numberOfChannels() == m_ringBuffer->channelCount());
 
     for (auto [i, buffer] : indexedRange(span(*m_list))) {
-        AudioChannel* channel = bus->channel(i);
+        AudioChannel* channel = bus.channel(i);
         buffer.mNumberChannels = 1;
         buffer.mData = channel->mutableData();
         buffer.mDataByteSize = channel->length() * sizeof(float);
@@ -392,10 +392,12 @@ void AudioSourceProviderAVFObjC::process(MTAudioProcessingTapRef tap, CMItemCoun
 
     auto [startFrame, endFrame] = m_ringBuffer->getStoreTimeBounds();
 
+    bool needsFlush = false;
+
     // Check to see if the underlying media has seeked, which would require us to "flush"
     // our outstanding buffers.
     if (rangeStart != m_endTimeAtLastProcess)
-        m_seekTo = endFrame;
+        needsFlush = true;
 
     m_startTimeAtLastProcess = rangeStart;
     m_endTimeAtLastProcess = rangeStart + rangeDuration;
@@ -403,6 +405,9 @@ void AudioSourceProviderAVFObjC::process(MTAudioProcessingTapRef tap, CMItemCoun
     // StartOfStream indicates a discontinuity, such as when an AVPlayerItem is re-added
     // to an AVPlayer, so "flush" outstanding buffers.
     if (flagsOut && *flagsOut & kMTAudioProcessingTapFlag_StartOfStream)
+        needsFlush = true;
+
+    if (needsFlush)
         m_seekTo = endFrame;
 
     m_ringBuffer->store(bufferListInOut, itemCount, endFrame);
@@ -414,7 +419,7 @@ void AudioSourceProviderAVFObjC::process(MTAudioProcessingTapRef tap, CMItemCoun
     *numberFramesOut = 0;
 
     if (m_audioCallback)
-        m_audioCallback(endFrame, itemCount);
+        m_audioCallback(endFrame, itemCount, needsFlush);
 }
 
 void AudioSourceProviderAVFObjC::setAudioCallback(AudioCallback&& callback)

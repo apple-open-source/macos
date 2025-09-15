@@ -8,8 +8,7 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <TargetConditionals.h>
-#include "excserver.h"
-#include "exc_helpers.h"
+#include "try_read_write.h"
 
 extern int pid_hibernate(int pid);
 
@@ -114,52 +113,22 @@ create_corrupted_regions(void)
 }
 
 static bool
-try_write(volatile uint32_t *word __unused)
-{
-#ifdef __arm64__
-	uint64_t val = 1;
-	__asm__ volatile (
-             "str		%w0, %1\n"
-             "mov		%0, 0\n"
-             : "+r"(val) : "m"(*word));
-	// The exception handler skips over the instruction that zeroes val when a
-	// decompression failure is detected.
-	return val == 0;
-#else
-	return false;
-#endif
-}
-
-static bool
 read_blocks(void)
 {
 	for (uint32_t i = 0; i < block_count; i++) {
 		for (size_t buffer_offset = 0; buffer_offset < block_length;
 		    buffer_offset += vm_pagesize) {
 			// Access pages until the fault is detected.
-			if (!try_write((volatile uint32_t *)(blocks[i] + buffer_offset))) {
+			kern_return_t exception_kr;
+			if (!try_write_byte(blocks[i] + buffer_offset, 1, &exception_kr)) {
+				T_ASSERT_EQ(exception_kr, KERN_MEMORY_FAILURE,
+				    "exception code should be KERN_MEMORY_FAILURE");
 				T_LOG("test_thread breaking");
 				return true;
 			}
 		}
 	}
 	return false;
-}
-
-static size_t
-kern_memory_failure_handler(
-	__unused mach_port_t task,
-	__unused mach_port_t thread,
-	exception_type_t exception,
-	mach_exception_data_t code)
-{
-	T_EXPECT_EQ(exception, EXC_BAD_ACCESS,
-	    "Verified bad address exception");
-	T_EXPECT_EQ((int)code[0], KERN_MEMORY_FAILURE, "caught KERN_MEMORY_FAILURE");
-	T_PASS("received KERN_MEMORY_FAILURE from test thread");
-	// Skip the next instruction as well so that the faulting code can detect
-	// the exception.
-	return 8;
 }
 
 T_DECL(decompression_failure,
@@ -192,11 +161,8 @@ T_DECL(decompression_failure,
 	T_ASSERT_EQ_ULONG(size, sizeof(value), NULL);
 	page_size = (vm_address_t)value;
 
-	mach_port_t exc_port = create_exception_port(EXC_MASK_BAD_ACCESS);
 	create_corrupted_regions();
 	T_SETUPEND;
-
-	run_exception_handler(exc_port, kern_memory_failure_handler);
 
 	if (!read_blocks()) {
 		T_SKIP("no faults");

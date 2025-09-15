@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,22 +49,12 @@ DrawingAreaProxy::DrawingAreaProxy(DrawingAreaType type, WebPageProxy& webPagePr
     , m_webProcessProxy(webProcessProxy)
     , m_size(webPageProxy.viewSize())
 #if PLATFORM(MAC)
-    , m_viewExposedRectChangedTimer(RunLoop::main(), this, &DrawingAreaProxy::viewExposedRectChangedTimerFired)
+    , m_viewExposedRectChangedTimer(RunLoop::mainSingleton(), "DrawingAreaProxy::ViewExposedRectChangedTimer"_s, this, &DrawingAreaProxy::viewExposedRectChangedTimerFired)
 #endif
 {
 }
 
 DrawingAreaProxy::~DrawingAreaProxy() = default;
-
-RefPtr<WebPageProxy> DrawingAreaProxy::protectedWebPageProxy() const
-{
-    return m_webPageProxy.get();
-}
-
-Ref<WebProcessProxy> DrawingAreaProxy::protectedWebProcessProxy() const
-{
-    return m_webProcessProxy.get();
-}
 
 void DrawingAreaProxy::startReceivingMessages(WebProcessProxy& process)
 {
@@ -91,12 +81,12 @@ IPC::Connection* DrawingAreaProxy::messageSenderConnection() const
 
 bool DrawingAreaProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, OptionSet<IPC::SendOption> sendOptions)
 {
-    return protectedWebProcessProxy()->sendMessage(WTFMove(encoder), sendOptions);
+    return m_webProcessProxy->sendMessage(WTFMove(encoder), sendOptions);
 }
 
 bool DrawingAreaProxy::sendMessageWithAsyncReply(UniqueRef<IPC::Encoder>&& encoder, AsyncReplyHandler handler, OptionSet<IPC::SendOption> sendOptions)
 {
-    return protectedWebProcessProxy()->sendMessage(WTFMove(encoder), sendOptions, WTFMove(handler));
+    return m_webProcessProxy->sendMessage(WTFMove(encoder), sendOptions, WTFMove(handler));
 }
 
 uint64_t DrawingAreaProxy::messageSenderDestinationID() const
@@ -125,6 +115,11 @@ WebPageProxy* DrawingAreaProxy::page() const
     return m_webPageProxy.get();
 }
 
+RefPtr<WebPageProxy> DrawingAreaProxy::protectedPage() const
+{
+    return page();
+}
+
 #if PLATFORM(COCOA)
 MachSendRight DrawingAreaProxy::createFence()
 {
@@ -135,7 +130,7 @@ MachSendRight DrawingAreaProxy::createFence()
 #if PLATFORM(MAC)
 void DrawingAreaProxy::didChangeViewExposedRect()
 {
-    if (!protectedWebPageProxy()->hasRunningProcess())
+    if (!protectedPage()->hasRunningProcess())
         return;
 
     if (!m_viewExposedRectChangedTimer.isActive())

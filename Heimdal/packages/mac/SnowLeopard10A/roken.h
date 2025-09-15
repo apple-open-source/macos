@@ -235,11 +235,20 @@ roken_getaddrinfo_hostspec2(const char *, int, int, struct addrinfo **);
 
 
 #define emalloc rk_emalloc
-ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL emalloc (size_t);
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL emalloc_typed (size_t, malloc_type_id_t);
+#endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL emalloc (size_t) _MALLOC_TYPED(emalloc_typed, 1);
 #define ecalloc rk_ecalloc
-ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL ecalloc(size_t, size_t);
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL ecalloc_typed(size_t, size_t, malloc_type_id_t);
+#endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL ecalloc(size_t, size_t) _MALLOC_TYPED(ecalloc_typed, 2);
 #define erealloc rk_erealloc
-ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL erealloc (void *, size_t);
+#if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL erealloc_typed (void *, size_t, malloc_type_id_t);
+#endif // defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
+ROKEN_LIB_FUNCTION void * ROKEN_LIB_CALL erealloc (void *, size_t) _MALLOC_TYPED(erealloc_typed, 2);
 #define estrdup rk_estrdup
 ROKEN_LIB_FUNCTION char * ROKEN_LIB_CALL estrdup (const char *);
 

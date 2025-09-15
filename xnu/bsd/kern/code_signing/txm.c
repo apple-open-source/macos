@@ -621,23 +621,14 @@ get_code_signing_info(void)
 		txm_restricted_mode_state = txm_ro_data->restrictedModeState;
 	}
 
+#if kTXMKernelAPIVersion >= 11
+	research_mode_enabled = txm_ro_data->buildType.research;
+	extended_research_mode_enabled = txm_ro_data->buildType.extendedResearch;
+#endif
+
 	/* Setup the number of boot trust caches */
 	num_static_trust_caches = os_atomic_load(&txm_metrics->trustCaches.numStatic, relaxed);
 	num_engineering_trust_caches = os_atomic_load(&txm_metrics->trustCaches.numEngineering, relaxed);
-}
-
-static void
-set_shared_region_base_address(void)
-{
-	txm_call_t txm_call = {
-		.selector = kTXMKernelSelectorSetSharedRegionBaseAddress,
-		.failure_fatal = true,
-		.num_input_args = 2,
-	};
-
-	txm_kernel_call(&txm_call,
-	    SHARED_REGION_BASE,
-	    SHARED_REGION_SIZE);
 }
 
 void
@@ -661,12 +652,6 @@ code_signing_init(void)
 	/* Setup all the other locks we need */
 	lck_mtx_init(&compilation_service_lock, &txm_lck_grp, 0);
 	lck_mtx_init(&unregister_sync_lock, &txm_lck_grp, 0);
-
-	/*
-	 * We need to let TXM know what the shared region base address is going
-	 * to be for this boot.
-	 */
-	set_shared_region_base_address();
 
 	/* Require signed code when monitor is enabled */
 	if (code_signing_enabled == true) {
@@ -1229,6 +1214,26 @@ txm_unregister_address_space(
 }
 
 kern_return_t
+txm_setup_nested_address_space(
+	pmap_t pmap,
+	const vm_address_t region_addr,
+	const vm_size_t region_size)
+{
+	txm_call_t txm_call = {
+		.selector = kTXMKernelSelectorSetupNestedAddressSpace,
+		.num_input_args = 3
+	};
+	TXMAddressSpace_t *txm_addr_space = pmap_txm_addr_space(pmap);
+	kern_return_t ret = KERN_DENIED;
+
+	pmap_txm_acquire_exclusive_lock(pmap);
+	ret = txm_kernel_call(&txm_call, txm_addr_space, region_addr, region_size);
+	pmap_txm_release_exclusive_lock(pmap);
+
+	return ret;
+}
+
+kern_return_t
 txm_associate_code_signature(
 	pmap_t pmap,
 	void *sig_obj,
@@ -1260,7 +1265,7 @@ txm_associate_code_signature(
 	 */
 	vm_address_t adjusted_region_addr = region_addr;
 	if (txm_addr_space->addrSpaceID.type == kTXMAddressSpaceIDTypeSharedRegion) {
-		adjusted_region_addr += SHARED_REGION_BASE;
+		adjusted_region_addr += txm_addr_space->baseAddr;
 	}
 
 	/*

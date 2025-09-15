@@ -40,11 +40,14 @@
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <pal/spi/cocoa/AuthKitSPI.h>
 #import <wtf/Function.h>
+#import <wtf/ThreadAssertions.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <pal/cocoa/AppSSOSoftLink.h>
 
 #define AUTHORIZATIONCOORDINATOR_RELEASE_LOG(fmt, ...) RELEASE_LOG(AppSSO, "%p - SOAuthorizationCoordinator::" fmt, this, ##__VA_ARGS__)
+#define AUTHORIZATIONCOORDINATOR_RELEASE_LOG_STATIC(fmt, ...) RELEASE_LOG(AppSSO, "SOAuthorizationCoordinator::" fmt, ##__VA_ARGS__)
 #define AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(AppSSO, "%p - SOAuthorizationCoordinator::" fmt, this, ##__VA_ARGS__)
+#define AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR_STATIC(fmt, ...) RELEASE_LOG_ERROR(AppSSO, "SOAuthorizationCoordinator::" fmt, ##__VA_ARGS__)
 
 namespace WebKit {
 
@@ -62,42 +65,50 @@ SOAuthorizationCoordinator::SOAuthorizationCoordinator()
     [NSURLSession _disableAppSSO];
 }
 
-bool SOAuthorizationCoordinator::canAuthorize(const URL& url) const
+void SOAuthorizationCoordinator::canAuthorize(const URL& url, CompletionHandler<void(bool)>&& completionHandler)
 {
-    return m_hasAppSSO && [PAL::getSOAuthorizationClass() canPerformAuthorizationWithURL:url responseCode:0];
+    if (!m_hasAppSSO) {
+        completionHandler(false);
+        return;
+    }
+    if ([PAL::getSOAuthorizationClass() respondsToSelector:@selector(canPerformAuthorizationWithURL:responseCode:callerBundleIdentifier:useInternalExtensions:completion:)]) {
+        [PAL::getSOAuthorizationClass() canPerformAuthorizationWithURL:url.createNSURL().get() responseCode:0 callerBundleIdentifier:nil useInternalExtensions:YES completion:makeBlockPtr([completionHandler = WTFMove(completionHandler)] (BOOL result) mutable {
+            ensureOnMainRunLoop([completionHandler = WTFMove(completionHandler), result] () mutable {
+                completionHandler(result);
+            });
+        }).get()];
+        return;
+    }
+    completionHandler([PAL::getSOAuthorizationClass() canPerformAuthorizationWithURL:url.createNSURL().get() responseCode:0]);
 }
 
 void SOAuthorizationCoordinator::tryAuthorize(Ref<API::NavigationAction>&& navigationAction, WebPageProxy& page, Function<void(bool)>&& completionHandler)
 {
     AUTHORIZATIONCOORDINATOR_RELEASE_LOG("tryAuthorize");
-    if (!canAuthorize(navigationAction->request().url())) {
-        AUTHORIZATIONCOORDINATOR_RELEASE_LOG("tryAuthorize: The requested URL is not registered for AppSSO handling. No further action needed.");
-        completionHandler(false);
-        return;
-    }
+    canAuthorize(navigationAction->request().url(), [completionHandler = WTFMove(completionHandler), navigationAction = WTFMove(navigationAction), page = Ref { page }, delegate = m_soAuthorizationDelegate] (bool result) mutable {
+        if (!result) {
+            AUTHORIZATIONCOORDINATOR_RELEASE_LOG_STATIC("tryAuthorize: The requested URL is not registered for AppSSO handling. No further action needed.");
+            completionHandler(false);
+            return;
+        }
 
-    // SubFrameSOAuthorizationSession should only be allowed for Apple first parties.
-    RefPtr targetFrame = navigationAction->targetFrame();
-    bool subframeNavigation = targetFrame && !targetFrame->isMainFrame();
-    if (subframeNavigation && (!page.mainFrame() || ![AKAuthorizationController isURLFromAppleOwnedDomain:page.mainFrame()->url()])) {
-        AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR("tryAuthorize: Attempting to perform subframe navigation for non-Apple authorization URL.");
-        completionHandler(false);
-        return;
-    }
+        // SubFrameSOAuthorizationSession should only be allowed for Apple first parties.
+        RefPtr targetFrame = navigationAction->targetFrame();
+        bool subframeNavigation = targetFrame && !targetFrame->isMainFrame();
+        if (subframeNavigation && (!page->mainFrame() || ![AKAuthorizationController isURLFromAppleOwnedDomain:page->mainFrame()->url().createNSURL().get()])) {
+            AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR_STATIC("tryAuthorize: Attempting to perform subframe navigation for non-Apple authorization URL.");
+            completionHandler(false);
+            return;
+        }
 
-    auto session = subframeNavigation ? SubFrameSOAuthorizationSession::create(m_soAuthorizationDelegate, WTFMove(navigationAction), page, WTFMove(completionHandler), targetFrame->handle()->frameID()) : RedirectSOAuthorizationSession::create(m_soAuthorizationDelegate, WTFMove(navigationAction), page, WTFMove(completionHandler));
-    [m_soAuthorizationDelegate setSession:WTFMove(session)];
+        auto session = subframeNavigation ? SubFrameSOAuthorizationSession::create(delegate, WTFMove(navigationAction), page.get(), WTFMove(completionHandler), targetFrame->handle()->frameID()) : RedirectSOAuthorizationSession::create(delegate, WTFMove(navigationAction), page.get(), WTFMove(completionHandler));
+        [delegate setSession:WTFMove(session)];
+    });
 }
 
 void SOAuthorizationCoordinator::tryAuthorize(Ref<API::PageConfiguration>&& configuration, Ref<API::NavigationAction>&& navigationAction, WebPageProxy& page, NewPageCallback&& newPageCallback, UIClientCallback&& uiClientCallback)
 {
     AUTHORIZATIONCOORDINATOR_RELEASE_LOG("tryAuthorize (2)");
-    if (!canAuthorize(navigationAction->request().url())) {
-        AUTHORIZATIONCOORDINATOR_RELEASE_LOG("tryAuthorize (2): The requested URL is not registered for AppSSO handling. No further action needed.");
-        uiClientCallback(WTFMove(navigationAction), WTFMove(newPageCallback));
-        return;
-    }
-
     bool subframeNavigation = navigationAction->sourceFrame() && !navigationAction->sourceFrame()->isMainFrame();
     if (subframeNavigation) {
         AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR("tryAuthorize (2): Attempting to perform subframe navigation.");
@@ -111,8 +122,16 @@ void SOAuthorizationCoordinator::tryAuthorize(Ref<API::PageConfiguration>&& conf
         return;
     }
 
-    auto session = PopUpSOAuthorizationSession::create(WTFMove(configuration), m_soAuthorizationDelegate, page, WTFMove(navigationAction), WTFMove(newPageCallback), WTFMove(uiClientCallback));
-    [m_soAuthorizationDelegate setSession:WTFMove(session)];
+    canAuthorize(navigationAction->request().url(), [uiClientCallback = WTFMove(uiClientCallback), navigationAction = WTFMove(navigationAction), configuration = WTFMove(configuration), page = Ref { page }, delegate = m_soAuthorizationDelegate, newPageCallback = WTFMove(newPageCallback)] (bool result) mutable {
+        if (!result) {
+            AUTHORIZATIONCOORDINATOR_RELEASE_LOG_ERROR_STATIC("tryAuthorize (2): Attempting to perform subframe navigation.");
+            uiClientCallback(WTFMove(navigationAction), WTFMove(newPageCallback));
+            return;
+        }
+
+        auto session = PopUpSOAuthorizationSession::create(WTFMove(configuration), delegate, page.get(), WTFMove(navigationAction), WTFMove(newPageCallback), WTFMove(uiClientCallback));
+        [delegate setSession:WTFMove(session)];
+    });
 }
 
 } // namespace WebKit

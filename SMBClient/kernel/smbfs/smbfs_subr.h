@@ -377,4 +377,6 @@ int smb1fs_smb_ntcreatex(struct smb_share *share, struct smbnode *dnp_or_np,
                          vfs_context_t context);
 int smbfs_is_dir(struct smbnode *np);
 
+boolean_t smbfs_inshutdown(void);
+
 #endif /* !_FS_SMBFS_SMBFS_SUBR_H_ */

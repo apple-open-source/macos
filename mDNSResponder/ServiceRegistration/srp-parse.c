@@ -1,6 +1,6 @@
 /* srp-parse.c
  *
- * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include <sys/time.h>
 #include <dns_sd.h>
 #include <inttypes.h>
+#include <net/if.h>
 
 #include "srp.h"
 #include "dns-msg.h"
@@ -41,6 +42,8 @@
 #include "srp-mdns-proxy.h"
 #include "dnssd-proxy.h"
 #include "srp-replication.h"
+#include "srp-strict.h"
+#include "srp-codec.h"
 
 
 static dns_name_t *service_update_zone; // The zone to update when we receive an update for default.service.arpa.
@@ -57,26 +60,26 @@ srp_parse_client_updates_free_(client_update_t *messages, const char *file, int 
 
         for (service_instance_t *sip = message->instances; sip; ) {
             service_instance_t *next = sip->next;
-            free(sip);
+            srp_strict_free(&sip);
             sip = next;
         }
         for (service_t *sp = message->services; sp; ) {
             service_t *next = sp->next;
-            free(sp);
+            srp_strict_free(&sp);
             sp = next;
         }
         for (delete_t *dp = message->removes; dp != NULL; ) {
             delete_t *next = dp->next;
-            free(dp);
+            srp_strict_free(&dp);
             dp = next;
         }
         if (message->host != NULL) {
             host_addr_t *host_addr, *next;
             for (host_addr = message->host->addrs; host_addr; host_addr = next) {
                 next = host_addr->next;
-                free(host_addr);
+                srp_strict_free(&host_addr);
             }
-            free(message->host);
+            srp_strict_free(&message->host);
         }
         if (message->parsed_message != NULL) {
             dns_message_free(message->parsed_message);
@@ -94,7 +97,7 @@ srp_parse_client_updates_free_(client_update_t *messages, const char *file, int 
             ioloop_comm_release(message->connection);
             message->connection = NULL;
         }
-        free(message);
+        srp_strict_free(&message);
         message = next_message;
     }
 }
@@ -102,7 +105,7 @@ srp_parse_client_updates_free_(client_update_t *messages, const char *file, int 
 static bool
 add_host_addr(host_addr_t **dest, dns_rr_t *rr)
 {
-    host_addr_t *addr = calloc(1, sizeof *addr);
+    host_addr_t *addr = srp_strict_calloc(1, sizeof *addr);
     if (addr == NULL) {
         ERROR("add_host_addr: no memory for record");
         return false;
@@ -179,7 +182,7 @@ make_delete(delete_t **delete_list, delete_t **delete_out, dns_rr_t *rr, dns_nam
         }
         dpp = &dp->next;
     }
-    dp = calloc(1, sizeof *dp);
+    dp = srp_strict_calloc(1, sizeof *dp);
     if (!dp) {
         ERROR("no memory.");
         return dns_rcode_servfail;
@@ -203,7 +206,7 @@ make_delete(delete_t **delete_list, delete_t **delete_out, dns_rr_t *rr, dns_nam
     }
 out:
     if (status != dns_rcode_noerror) {
-        free(dp);
+        srp_strict_free(&dp);
     }
     return status;
 }
@@ -262,7 +265,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
     delete_t *deletes = NULL, *dp, **dpp = NULL, **rpp = NULL, *removes = NULL;
     service_instance_t *service_instances = NULL, *sip, **sipp = &service_instances;
     service_t *services = NULL, *sp, **spp = &services;
-    dns_rr_t *signature;
+    dns_rr_t *signature = NULL;
     struct timeval now;
     dns_name_t *update_zone = NULL, *replacement_zone = NULL;
     dns_name_t *uzp;
@@ -277,7 +280,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
     dns_message_t *message;
 
 
-    client_update_t *ret = calloc(1, sizeof(*ret));
+    client_update_t *ret = srp_strict_calloc(1, sizeof(*ret));
     if (ret == NULL) {
         ERROR("no memory for client update");
         return NULL;
@@ -375,7 +378,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
                     // We can't have more keys than there are authority records left, plus
                     // one for the key we already have, so allocate a buffer that large.
                     max_keys = message->nscount - i + 1;
-                    keys = calloc(max_keys, sizeof *keys);
+                    keys = srp_strict_calloc(max_keys, sizeof *keys);
                     if (keys == NULL) {
                         ERROR("no memory");
                         goto out;
@@ -394,7 +397,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
         else if (rr->type == dns_rrtype_a || rr->type == dns_rrtype_aaaa) {
             // Allocate the hostname record
             if (!host_description) {
-                host_description = calloc(1, sizeof *host_description);
+                host_description = srp_strict_calloc(1, sizeof *host_description);
                 if (!host_description) {
                     ERROR("no memory");
                     goto out;
@@ -444,7 +447,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
                 }
             }
             if (!sip) {
-                sip = calloc(1, sizeof *sip);
+                sip = srp_strict_calloc(1, sizeof *sip);
                 if (sip == NULL) {
                     ERROR("no memory");
                     goto out;
@@ -517,7 +520,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
                     goto out;
                 }
             } else {
-                sp = calloc(1, sizeof *sp);
+                sp = srp_strict_calloc(1, sizeof *sp);
                 if (sp == NULL) {
                     ERROR("no memory");
                     goto out;
@@ -568,7 +571,7 @@ srp_evaluate(const char *remote_name, dns_message_t **in_parsed_message, message
         if (key != NULL) {
             dp = srp_find_delete(deletes, key);
             if (dp != NULL) {
-                host_description = calloc(1, sizeof *host_description);
+                host_description = srp_strict_calloc(1, sizeof *host_description);
                 if (host_description == NULL) {
                     ERROR("no memory");
                     goto out;
@@ -841,16 +844,13 @@ badsig:
     ret->drop = true;
 
 out:
-    if (keys != NULL) {
-        free(keys);
-        keys = NULL;
-    }
+    srp_strict_free(&keys);
 
     // No matter how we get out of this, we free the delete structures that weren't dangling removes,
     // because they are not used to do the update.
     for (dp = deletes; dp; ) {
         delete_t *next = dp->next;
-        free(dp);
+        srp_strict_free(&dp);
         dp = next;
     }
 
@@ -860,6 +860,7 @@ out:
     ret->services = services;
     ret->removes = removes;
     ret->update_zone = replacement_zone == NULL ? update_zone : replacement_zone;
+    ret->signature = signature;
     return ret;
 }
 
@@ -882,12 +883,47 @@ srp_dns_evaluate(comm_t *connection, srp_server_t *server_state, message_t *mess
         goto out;
     }
 
+    // No other message types are handled here.
     if (dns_opcode_get(&message->wire) != dns_opcode_update) {
         // dns_forward(connection)
         send_fail_response(connection, message, dns_rcode_refused);
         ERROR("received a message that was not a DNS update: %d", dns_opcode_get(&message->wire));
         goto out;
     }
+
+#if SRP_FEATURE_COMPRESSION
+    // If it's compressed, decompress it.
+    if ((((uint8_t *)&message->wire)[2] & SRPK_COMPRESSION_DISPATCH_MASK) == SRPK_COMPRESSION_DISPATCH_CODE) {
+#ifdef SRP_TEST_SERVER
+        if (server_state->compression_disabled)  {
+            // If it's marked compressed but we don't support compression, return a failure response
+            send_fail_response(connection, message, dns_rcode_notimp);
+            INFO("received a message marked compressed but compression is disabled");
+            goto out;
+        }
+#endif // SRP_TEST_SERVER
+        message_t *decompressed = srpk_message_decompress(message, server_state->thread_prefixes);
+        if (decompressed != NULL) {
+#if !UDP_LISTENER_USES_CONNECTION_GROUPS
+            decompressed->src = message->src;
+            decompressed->local = message->local;
+#endif
+            decompressed->ifindex = message->ifindex;
+            decompressed->received_time = message->received_time;
+            decompressed->lease = message->lease;
+            decompressed->key_lease = message->key_lease;
+            message = NULL; // The caller holds the only reference to message.
+            message = decompressed;
+            decompressed = NULL;
+        } else {
+            // If it's marked compressed but didn't decompress, tell the client we couldn't parse it.
+            send_fail_response(connection, message, dns_rcode_formerr);
+            INFO("received a message marked compressed that we could not decompress");
+            srpk_hex_dump("", 0, (uint8_t *)&message->wire, message->length);
+            goto out;
+        }
+    }
+#endif // SRP_FEATURE_COMPRESSION
 
     // We need the wire message to validate the signature...
     update = srp_evaluate(NULL, p_parsed_message, message, 0);

@@ -136,8 +136,8 @@ OSObject::taggedTryRetain(const void *tag) const
 #else /* DEBUG */
 				// @@@ gvdl: eventually need to make this panic optional
 				// based on a boot argument i.e. debug= boot flag
-				panic("OSObject::refcount: "
-				    "About to wrap the reference count, reference leak?");
+				panic("OSObject(%p)::refcount: "
+				    "About to wrap the reference count, reference leak?", this);
 #endif /* !DEBUG */
 			}
 		}
@@ -152,7 +152,7 @@ void
 OSObject::taggedRetain(const void *tag) const
 {
 	if (!taggedTryRetain(tag)) {
-		panic("OSObject::refcount: Attempting to retain a freed object");
+		panic("OSObject(%p)::refcount: Attempting to retain a freed object", this);
 	}
 }
 
@@ -195,8 +195,8 @@ OSObject::taggedRelease(const void *tag, const int when) const
 #else /* DEBUG */
 				// @@@ gvdl: eventually need to make this panic optional
 				// based on a boot argument i.e. debug= boot flag
-				panic("OSObject::refcount: %s",
-				    "About to unreference a pegged object, reference leak?");
+				panic("OSObject(%p)::refcount: %s",
+				    "About to unreference a pegged object, reference leak?", this);
 #endif /* !DEBUG */
 			}
 		}
@@ -220,8 +220,8 @@ OSObject::taggedRelease(const void *tag, const int when) const
 // xxx - any code in the kernel could trip this,
 // xxx - and it applies as noted to all collections, not just the registry
 	if ((UInt16) actualCount < (actualCount >> 16)) {
-		panic("A kext releasing a(n) %s has corrupted the registry.",
-		    getClassName(this));
+		panic("A kext releasing a(n) %s %p has corrupted the registry.",
+		    getClassName(this), this);
 	}
 
 	// Check for a 'free' condition and that if we are first through

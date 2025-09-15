@@ -21,7 +21,6 @@
 
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 #import "keychain/ckks/CKKS.h"
 
@@ -99,6 +98,22 @@
     return isDemo;
 }
 
+- (NSString* _Nullable)passwordResetTokenByAltDSID:(NSString*)altDSID error:(NSError**)error
+{
+    NSString* token = nil;
+
+    AKAccountManager* akManager = [AKAccountManager sharedInstance];
+    ACAccount* akAccount = [akManager authKitAccountWithAltDSID:altDSID error:error];
+    if (akAccount) {
+        ACAccountCredential* credential = [[ACAccountStore defaultStore] credentialForAccount:akAccount error:error];
+        if (credential) {
+            token = [credential credentialItemForKey:ACPasswordResetTokenBackupKey];
+        }
+    }
+
+    return token;
+}
+
 - (NSString* _Nullable)machineID:(NSString* _Nullable)altDSID
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
@@ -123,7 +138,7 @@
             *error = localError;
         }
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return nil;
     }
 
@@ -137,7 +152,7 @@
             *error = localError;
         }
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return nil;
     }
 
@@ -153,13 +168,13 @@
             *error = localError;
         }
 
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         return nil;
     }
 
     secnotice("authkit", "fetched current machine ID as: %@", machineID);
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+    [eventS sendMetricWithResult:YES error:nil];
     return machineID;
 }
 
@@ -221,7 +236,7 @@
                                                                                                  canSendMetrics:YES
                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error: error];
+            [event sendMetricWithResult:NO error: error];
 
             secnotice("authkit", "received no device list(%@): %@", altDSID, error);
             complete(nil, nil, nil, nil, nil, nil, nil, nil, error);

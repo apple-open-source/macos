@@ -30,10 +30,12 @@ class GStreamerQuirkWesteros final : public GStreamerQuirk {
 public:
     GStreamerQuirkWesteros();
     const ASCIILiteral identifier() const final { return "Westeros"_s; }
+    bool isPlatformSupported() const final;
 
     void configureElement(GstElement*, const OptionSet<ElementRuntimeCharacteristics>&) final;
     std::optional<bool> isHardwareAccelerated(GstElementFactory*) final;
     unsigned getAdditionalPlaybinFlags() const final { return getGstPlayFlag("text") | getGstPlayFlag("native-video"); }
+    bool needsCustomInstantRateChange() const final { return true; }
 
 private:
     GRefPtr<GstCaps> m_sinkCaps;

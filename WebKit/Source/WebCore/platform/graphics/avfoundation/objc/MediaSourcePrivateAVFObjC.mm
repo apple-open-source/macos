@@ -37,8 +37,9 @@
 #import "SourceBufferParserAVFObjC.h"
 #import "SourceBufferPrivateAVFObjC.h"
 #import "VideoMediaSampleRenderer.h"
+#import <algorithm>
 #import <objc/runtime.h>
-#import <wtf/Algorithms.h>
+#import <ranges>
 #import <wtf/NativePromise.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/text/AtomString.h>
@@ -79,7 +80,7 @@ void MediaSourcePrivateAVFObjC::setPlayer(MediaPlayerPrivateInterface* player)
     m_player = downcast<MediaPlayerPrivateMediaSourceAVFObjC>(player);
 }
 
-MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const ContentType& contentType, RefPtr<SourceBufferPrivate>& outPrivate)
+MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const ContentType& contentType, const MediaSourceConfiguration& configuration, RefPtr<SourceBufferPrivate>& outPrivate)
 {
     DEBUG_LOG(LOGIDENTIFIER, contentType);
 
@@ -89,7 +90,7 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateAVFObjC::addSourceBuffer(const C
     if (MediaPlayerPrivateMediaSourceAVFObjC::supportsTypeAndCodecs(parameters) == MediaPlayer::SupportsType::IsNotSupported)
         return AddStatus::NotSupported;
 
-    auto parser = SourceBufferParser::create(contentType);
+    auto parser = SourceBufferParser::create(contentType, configuration);
     if (!parser)
         return AddStatus::NotSupported;
 #if !RELEASE_LOG_DISABLED
@@ -174,7 +175,7 @@ void MediaSourcePrivateAVFObjC::keyAdded()
 
 bool MediaSourcePrivateAVFObjC::hasSelectedVideo() const
 {
-    return std::any_of(m_activeSourceBuffers.begin(), m_activeSourceBuffers.end(), [] (auto* sourceBuffer) {
+    return std::ranges::any_of(m_activeSourceBuffers, [](auto* sourceBuffer) {
         return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->hasSelectedVideo();
     });
 }
@@ -234,6 +235,20 @@ void MediaSourcePrivateAVFObjC::flushActiveSourceBuffersIfNeeded()
         downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->flushIfNeeded();
 }
 
+#if PLATFORM(IOS_FAMILY)
+void MediaSourcePrivateAVFObjC::applicationWillResignActive()
+{
+    for (auto* sourceBuffer : m_activeSourceBuffers)
+        downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->applicationWillResignActive();
+}
+
+void MediaSourcePrivateAVFObjC::applicationDidBecomeActive()
+{
+    for (auto* sourceBuffer : m_activeSourceBuffers)
+        downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->applicationDidBecomeActive();
+}
+#endif
+
 #if ENABLE(ENCRYPTED_MEDIA)
 void MediaSourcePrivateAVFObjC::cdmInstanceAttached(CDMInstance& instance)
 {
@@ -241,7 +256,7 @@ void MediaSourcePrivateAVFObjC::cdmInstanceAttached(CDMInstance& instance)
         return;
 
     ASSERT(!m_cdmInstance);
-    m_cdmInstance = &instance;
+    m_cdmInstance = instance;
     for (auto& sourceBuffer : m_sourceBuffers)
         sourceBuffer->setCDMInstance(&instance);
 }
@@ -264,7 +279,7 @@ void MediaSourcePrivateAVFObjC::attemptToDecryptWithInstance(CDMInstance& instan
 
 bool MediaSourcePrivateAVFObjC::waitingForKey() const
 {
-    return anyOf(m_sourceBuffers, [] (auto& sourceBuffer) {
+    return std::ranges::any_of(m_sourceBuffers, [](auto& sourceBuffer) {
         return sourceBuffer->waitingForKey();
     });
 }
@@ -302,7 +317,7 @@ void MediaSourcePrivateAVFObjC::failedToCreateRenderer(RendererType type)
 
 bool MediaSourcePrivateAVFObjC::needsVideoLayer() const
 {
-    return anyOf(m_sourceBuffers, [] (auto& sourceBuffer) {
+    return std::ranges::any_of(m_sourceBuffers, [](auto& sourceBuffer) {
         return downcast<SourceBufferPrivateAVFObjC>(sourceBuffer)->needsVideoLayer();
     });
 }

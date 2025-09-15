@@ -60,6 +60,7 @@ INC_INSTHDRS=(
 	_inttypes.h
 	_langinfo.h
 	_locale.h
+	_locale_posix2008.h
 	_mb_cur_max.h
 	_monetary.h
 	_printf.h
@@ -270,6 +271,7 @@ INC_INSTHDRS=(
 	_ctype.h
 	_inttypes.h
 	_locale.h
+	_locale_posix2008.h
 	_mb_cur_max.h
 	_printf.h
 	_static_assert.h

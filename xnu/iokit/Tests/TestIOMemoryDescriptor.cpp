@@ -1156,6 +1156,19 @@ IOMemoryDescriptorTest(int newValue)
 							panic("prepare() fail 0x%x", kr);
 							break;
 						}
+
+						IOByteCount resident, dirty, swapped;
+						kr = md->getPageCounts(&resident, &dirty, &swapped);
+						if (kIOReturnSuccess != kr) {
+							panic("unable to getExtendedPageCounts");
+							break;
+						}
+						IOLog("Page Counts: %llu resident, %llu dirty, %llu swapped\n",
+						    resident, dirty, swapped);
+						if (swapped != 0) {
+							panic("Swapped page count is not 0 for prepared descriptor %llu", swapped);
+						}
+
 						for (idx = 0; idx < size; idx += sizeof(uint32_t)) {
 							offidx = (typeof(offidx))(idx + mapoffset + srcoffset);
 							if ((srcsize <= ptoa(5)) && (srcsize > ptoa(2)) && !(page_mask & srcoffset)) {

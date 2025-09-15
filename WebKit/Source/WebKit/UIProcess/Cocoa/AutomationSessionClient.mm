@@ -53,6 +53,8 @@ AutomationSessionClient::AutomationSessionClient(id <_WKAutomationSessionDelegat
     m_delegateMethods.dismissCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:dismissCurrentJavaScriptDialogForWebView:)];
     m_delegateMethods.acceptCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:acceptCurrentJavaScriptDialogForWebView:)];
     m_delegateMethods.messageOfCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:messageOfCurrentJavaScriptDialogForWebView:)];
+    m_delegateMethods.defaultTextOfCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:defaultTextOfCurrentJavaScriptDialogForWebView:)];
+    m_delegateMethods.userInputOfCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:userInputOfCurrentJavaScriptDialogForWebView:)];
     m_delegateMethods.setUserInputForCurrentJavaScriptPromptForWebView = [delegate respondsToSelector:@selector(_automationSession:setUserInput:forCurrentJavaScriptDialogForWebView:)];
     m_delegateMethods.typeOfCurrentJavaScriptDialogForWebView = [delegate respondsToSelector:@selector(_automationSession:typeOfCurrentJavaScriptDialogForWebView:)];
     m_delegateMethods.currentPresentationForWebView = [delegate respondsToSelector:@selector(_automationSession:currentPresentationForWebView:)];
@@ -144,7 +146,7 @@ void AutomationSessionClient::loadWebExtensionWithOptions(WebKit::WebAutomationS
         return;
     }
 
-    [m_delegate.get() _automationSession:wrapper(session) loadWebExtensionWithOptions:toAPI(options) resource:(NSString *)resource completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSString *extensionId) mutable {
+    [m_delegate.get() _automationSession:wrapper(session) loadWebExtensionWithOptions:toAPI(options) resource:resource.createNSString().get() completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](NSString *extensionId) mutable {
         completionHandler(extensionId);
     }).get()];
 }
@@ -156,7 +158,7 @@ void AutomationSessionClient::unloadWebExtension(WebKit::WebAutomationSession& s
         return;
     }
 
-    [m_delegate.get() _automationSession:wrapper(session) unloadWebExtensionWithIdentifier:identifier completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL success) mutable {
+    [m_delegate.get() _automationSession:wrapper(session) unloadWebExtensionWithIdentifier:identifier.createNSString().get() completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](BOOL success) mutable {
         completionHandler(success);
     }).get()];
 }
@@ -182,18 +184,34 @@ void AutomationSessionClient::acceptCurrentJavaScriptDialogOnPage(WebAutomationS
         [m_delegate.get() _automationSession:wrapper(session) acceptCurrentJavaScriptDialogForWebView:webView.get()];
 }
 
-String AutomationSessionClient::messageOfCurrentJavaScriptDialogOnPage(WebAutomationSession& session, WebPageProxy& page)
+std::optional<String> AutomationSessionClient::messageOfCurrentJavaScriptDialogOnPage(WebAutomationSession& session, WebPageProxy& page)
 {
     if (auto webView = page.cocoaView(); webView && m_delegateMethods.messageOfCurrentJavaScriptDialogForWebView)
         return [m_delegate.get() _automationSession:wrapper(session) messageOfCurrentJavaScriptDialogForWebView:webView.get()];
 
-    return String();
+    return std::nullopt;
+}
+
+std::optional<String> AutomationSessionClient::defaultTextOfCurrentJavaScriptDialogOnPage(WebAutomationSession& session, WebPageProxy& page)
+{
+    if (auto webView = page.cocoaView(); webView && m_delegateMethods.defaultTextOfCurrentJavaScriptDialogForWebView)
+        return [m_delegate.get() _automationSession:wrapper(session) defaultTextOfCurrentJavaScriptDialogForWebView:webView.get()];
+
+    return std::nullopt;
+}
+
+std::optional<String> AutomationSessionClient::userInputOfCurrentJavaScriptDialogOnPage(WebAutomationSession& session, WebPageProxy& page)
+{
+    if (auto webView = page.cocoaView(); webView && m_delegateMethods.userInputOfCurrentJavaScriptDialogForWebView)
+        return [m_delegate.get() _automationSession:wrapper(session) userInputOfCurrentJavaScriptDialogForWebView:webView.get()];
+
+    return std::nullopt;
 }
 
 void AutomationSessionClient::setUserInputForCurrentJavaScriptPromptOnPage(WebAutomationSession& session, WebPageProxy& page, const String& value)
 {
     if (auto webView = page.cocoaView(); webView && m_delegateMethods.setUserInputForCurrentJavaScriptPromptForWebView)
-        [m_delegate.get() _automationSession:wrapper(session) setUserInput:value forCurrentJavaScriptDialogForWebView:webView.get()];
+        [m_delegate.get() _automationSession:wrapper(session) setUserInput:value.createNSString().get() forCurrentJavaScriptDialogForWebView:webView.get()];
 }
 
 static std::optional<API::AutomationSessionClient::JavaScriptDialogType> toImpl(_WKAutomationSessionJavaScriptDialogType type)

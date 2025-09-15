@@ -34,46 +34,32 @@
 #include <inttypes.h>
 
 /* Inspects a file's existence and size.  Returns a file handle or -1 on failure */
-int inspect_file_and_size(const char* name, off_t *out_off_end) {
-    
-    int fd, result;
+
+int inspect_file(const char* name, off_t *out_off_end) {
+    int fd = -1;
     off_t off_end;
-    
+
     do {
         fd = open(name, O_RDONLY, 0);
     } while (fd == -1 && errno == EINTR);
-    
-    if (fd == -1)
-    {
+
+    if (fd == -1) {
         fprintf(stderr, "open %s: %s", name, strerror(errno));
-        result = -1;
-        goto loser;
+        return -1;
     }
-    
+
     off_end = lseek(fd, 0, SEEK_END);
-    if (off_end == -1)
-    {
+    if (off_end == -1) {
         fprintf(stderr, "lseek %s, SEEK_END: %s", name, strerror(errno));
-        result = -1;
-        goto loser;
+        return -1;
     }
-    
-    if (off_end > (unsigned)SIZE_MAX) {
-        fprintf(stderr, "file %s too large %llu bytes", name, off_end);
-        result = -1;
-        goto loser;
-    }
-    
+
     if (out_off_end) {
         *out_off_end = off_end;
     }
-    
-    return fd;
-    
-loser:
-    return result;
-}
 
+    return fd;
+}
 
 /* Read a line from stdin into buffer as a null terminated string.  If buffer is
  non NULL use at most buffer_size bytes and return a pointer to buffer.  Otherwise
@@ -120,68 +106,6 @@ readline(char *buffer, int buffer_size)
 	buffer[ix] = '\0';
     
 	return buffer;
-}
-
-/* Read the file name into buffer.  On return buffer contains a newly
- malloced buffer or length buffer_size. Return 0 on success and -1 on failure.  */
-int
-read_file(const char *name, uint8_t **outData, size_t *outLength)
-{
-	int fd, result;
-	char *buffer = NULL;
-	off_t off_end;
-	ssize_t bytes_read;
-	size_t length;
-    
-	if( (fd = inspect_file_and_size(name, &off_end)) == -1 ){
-        result = -1;
-        goto loser;
-    }
-    
-	length = (size_t)off_end;
-	buffer = malloc(length);
-    if (buffer == NULL) {
-        result = -1;
-        goto loser;
-    }
-    
-	do {
-		bytes_read = pread(fd, buffer, length, 0);
-	} while (bytes_read == -1 && errno == EINTR);
-    
-	if (bytes_read == -1)
-	{
-		fprintf(stderr, "pread %s: %s", name, strerror(errno));
-		result = -1;
-		goto loser;
-	}
-	if (bytes_read != (ssize_t)length)
-	{
-		fprintf(stderr, "read %s: only read %zu of %zu bytes", name, bytes_read, length);
-		result = -1;
-		goto loser;
-	}
-    
-	do {
-		result = close(fd);
-	} while (result == -1 && errno == EINTR);
-    
-	if (result == -1)
-	{
-		fprintf(stderr, "close %s: %s", name, strerror(errno));
-		goto loser;
-	}
-    
-	*outData = (uint8_t *)buffer;
-	*outLength = length;
-    
-	return result;
-    
-loser:
-	if (buffer)
-		free(buffer);
-    
-	return result;
 }
 
 CFDataRef copyFileContents(const char *path) {

@@ -138,19 +138,26 @@ The values for the
 are constructed by a bitwise-inclusive OR of flags from the following list,
 defined in
 .In fcntl.h :
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_SYMLINK_NOFOLLOW
 If
 .Fa path
 names a symbolic link, the status of the symbolic link is returned.
 .El
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_SYMLINK_NOFOLLOW_ANY
 If
 .Fa path
 names a symbolic link, the status of the symbolic link is returned.
 If a symbolic link is encountered during pathname resolution, an error
 is returned.
+.El
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
+.It Dv AT_RESOLVE_BENEATH
+If
+.Fa path
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .El
 .Pp
 If
@@ -570,6 +577,10 @@ argument is not an absolute path and
 is neither
 .Dv AT_FDCWD
 nor a file descriptor associated with a directory.
+.It Bq Er ENOTCAPABLE
+if AT_RESOLVE_BENEATH is passed and
+.Fa path
+does not reside in the directory hierarchy beneath the starting directory.
 .El
 .Sh CAVEATS
 The file generation number,

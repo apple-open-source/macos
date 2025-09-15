@@ -470,7 +470,7 @@ change_password_loop(krb5_context	context,
 	pid = audit_token_to_pid(auditToken);
     }
 #endif
-    if (delegate_bundle) {
+    if (delegate_bundle && (context->flags & KRB5_CONTEXT_FLAG_FORK_SAFE) == 0) {
 	//ONLY set the delegate identifier when it doesn't match the current process.
 	CFBundleRef appBundle = CFBundleGetMainBundle();
 	if (appBundle) {

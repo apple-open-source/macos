@@ -29,6 +29,13 @@
 #ifndef _KERN_BLOCK_HINT_H_
 #define _KERN_BLOCK_HINT_H_
 
+#include <sys/cdefs.h>
+#ifdef XNU_KERNEL_PRIVATE
+#include <kern/waitq.h>
+#endif
+
+__BEGIN_DECLS
+
 typedef enum thread_snapshot_wait_flags {
 	kThreadWaitNone                 = 0x00,
 	kThreadWaitKernelMutex          = 0x01,
@@ -99,5 +106,7 @@ extern void kdp_esync_find_owner(struct waitq *waitq, event64_t event, thread_wa
 #endif /* CONFIG_EXCLAVES */
 
 #endif /* XNU_KERNEL_PRIVATE */
+
+__END_DECLS
 
 #endif /* !_KERN_BLOCK_HINT_H_ */

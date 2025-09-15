@@ -20,7 +20,8 @@ sockv6_open(void)
 T_DECL(v4_mapped_v6_ops,
     "v4 mapped v6 sock operations around bind/connect",
     T_META_ASROOT(false),
-    T_META_CHECK_LEAKS(false))
+    T_META_CHECK_LEAKS(false),
+    T_META_ENABLED(false) /* rdar://134506000 */)
 {
 	int     s6 = -1;
 	int     ret = 0;

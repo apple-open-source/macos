@@ -69,7 +69,7 @@ void ModelProcessModelPlayerManagerProxy::createModelPlayer(WebCore::ModelPlayer
     ASSERT(m_modelConnectionToWebProcess);
     ASSERT(!m_proxies.contains(identifier));
 
-    auto proxy = ModelProcessModelPlayerProxy::create(*this, identifier, m_modelConnectionToWebProcess->protectedConnection());
+    auto proxy = ModelProcessModelPlayerProxy::create(*this, identifier, m_modelConnectionToWebProcess->protectedConnection(), m_modelConnectionToWebProcess->attributionTaskID(), m_modelConnectionToWebProcess->debugEntityMemoryLimit());
     m_proxies.add(identifier, WTFMove(proxy));
 }
 
@@ -82,6 +82,19 @@ void ModelProcessModelPlayerManagerProxy::deleteModelPlayer(WebCore::ModelPlayer
 
     if (m_modelConnectionToWebProcess)
         m_modelConnectionToWebProcess->modelProcess().tryExitIfUnusedAndUnderMemoryPressure();
+}
+
+void ModelProcessModelPlayerManagerProxy::unloadModelPlayer(WebCore::ModelPlayerIdentifier identifier)
+{
+    ASSERT(RunLoop::isMain());
+
+    deleteModelPlayer(identifier);
+    m_modelConnectionToWebProcess->didUnloadModelPlayer(identifier);
+}
+
+bool ModelProcessModelPlayerManagerProxy::hasModelPlayers() const
+{
+    return m_proxies.size();
 }
 
 void ModelProcessModelPlayerManagerProxy::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)

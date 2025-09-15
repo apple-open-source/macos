@@ -411,15 +411,17 @@ fdesc_attr(int fd, struct vnode_attr *vap, vfs_context_t a_context)
 		return error;
 	}
 	switch (FILEGLOB_DTYPE(fp->fp_glob)) {
-	case DTYPE_VNODE:
-		if ((error = vnode_getwithref((struct vnode *)fp_get_data(fp))) != 0) {
+	case DTYPE_VNODE: {
+		vnode_t vp = (vnode_t)fp_get_data(fp);
+
+		if ((error = vnode_getwithref(vp)) != 0) {
 			break;
 		}
-		if ((error = vnode_authorize((struct vnode *)fp_get_data(fp),
+		if ((error = vnode_authorize(vp,
 		    NULL,
 		    KAUTH_VNODE_READ_ATTRIBUTES | KAUTH_VNODE_READ_SECURITY,
 		    a_context)) == 0) {
-			error = vnode_getattr((struct vnode *)fp_get_data(fp), vap, a_context);
+			error = vnode_getattr(vp, vap, a_context);
 		}
 		if (error == 0 && vap->va_type == VDIR) {
 			/*
@@ -430,9 +432,9 @@ fdesc_attr(int fd, struct vnode_attr *vap, vfs_context_t a_context)
 			 */
 			vap->va_mode &= ~((VEXEC) | (VEXEC >> 3) | (VEXEC >> 6));
 		}
-		(void)vnode_put((struct vnode *)fp_get_data(fp));
+		(void)vnode_put(vp);
 		break;
-
+	}
 	case DTYPE_SOCKET:
 	case DTYPE_PIPE:
 #if SOCKETS
@@ -469,6 +471,22 @@ fdesc_attr(int fd, struct vnode_attr *vap, vfs_context_t a_context)
 
 	default:
 		error = EBADF;
+	}
+
+	/* Update 'va_mode' to take into account the bits on the fd. */
+	if (error == 0 && VATTR_IS_SUPPORTED(vap, va_mode)) {
+		int flags;
+
+		flags = fp->fp_glob->fg_flag;
+		if (!(flags & FREAD)) {
+			vap->va_mode &= ~(S_IRUSR | S_IRGRP | S_IROTH);
+		}
+		if (!(flags & FWRITE)) {
+			vap->va_mode &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
+		}
+		if (!(flags & O_EXEC)) {
+			vap->va_mode &= ~(S_IXUSR | S_IXGRP | S_IXOTH);
+		}
 	}
 
 	fp_drop(p, fd, fp, 0);

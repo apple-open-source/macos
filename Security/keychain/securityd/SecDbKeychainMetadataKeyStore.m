@@ -215,7 +215,7 @@ static void initializeSharedMetadataStoreQueue(void) {
     NSError *localError = nil;
     dispatch_assert_queue(_queue);
 
-    NSMutableData* wrappedKey = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
+    NSMutableData* wrappedKey = [NSMutableData dataWithLength:AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN];
     keyclass_t outKeyclass = keyclass;
 
     if (![SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:keyclass plaintext:key.keyData outKeyclass:&outKeyclass ciphertext:wrappedKey personaId:NULL personaIdLength:0 error:&localError]) {
@@ -351,7 +351,7 @@ static void initializeSharedMetadataStoreQueue(void) {
         }
 
         // Key not in cache. Open a transaction to find or optionally (re)create key. Transactions can be nested, so this is fine.
-        ok &= kc_with_dbt_non_item_tables(true, &cfError, ^bool(SecDbConnectionRef dbt) {
+        ok &= kc_with_dbt_non_item_tables(true, NULL, &cfError, ^bool(SecDbConnectionRef dbt) {
             key = [self fetchKeyForClass:keyclass
                                   fromDb:dbt
                                   keybag:keybag

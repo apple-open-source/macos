@@ -1150,6 +1150,11 @@ smb2_mc_update_nic_list_from_notifier(struct session_network_interface_info *ses
 void
 smb2_mc_destroy(struct session_network_interface_info* session_table)
 {
+    /* Make sure this session_network_interface_info is properly initialized */
+    if (!(session_table->flags & SMB_NETWORK_IF_INFO_INITIALIZED)) {
+        return;
+    }
+
     lck_mtx_lock(&session_table->interface_table_lck);
 
     smb2_mc_release_connection_list(session_table);
@@ -1220,6 +1225,9 @@ smb2_mc_init(struct session_network_interface_info* session_table,
     TAILQ_INIT(&session_table->successful_con_list);
 
     lck_mtx_init(&session_table->interface_table_lck, session_st_lck_group, session_st_lck_attr);
+
+    /* Mark this session_network_interface_info as initialized */
+    session_table->flags |= SMB_NETWORK_IF_INFO_INITIALIZED;
 }
 
 /*

@@ -320,6 +320,9 @@ struct nx_flowswitch {
 	uint32_t                fsw_rps_nthreads;
 	struct fsw_rps_thread   *__counted_by(fsw_rps_nthreads)fsw_rps_threads;
 #endif /* !DEVELOPMENT && !DEBUG */
+	decl_lck_mtx_data(, fsw_rxstrc_lock);
+	struct flow_entry_rxstrc_head fsw_rxstrc_head;
+	uint32_t                fsw_rxstrc_cnt;
 };
 
 #define NX_FSW_PRIVATE(_nx) ((struct nx_flowswitch *)(_nx)->nx_arg)

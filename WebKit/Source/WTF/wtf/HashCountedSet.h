@@ -64,10 +64,10 @@ public:
     bool isEmpty() const;
     
     // Iterators iterate over pairs of values and counts.
-    iterator begin();
-    iterator end();
-    const_iterator begin() const;
-    const_iterator end() const;
+    iterator begin() LIFETIME_BOUND;
+    iterator end() LIFETIME_BOUND;
+    const_iterator begin() const LIFETIME_BOUND;
+    const_iterator end() const LIFETIME_BOUND;
 
     iterator random() { return m_impl.random(); }
     const_iterator random() const { return m_impl.random(); }

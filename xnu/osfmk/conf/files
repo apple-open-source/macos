@@ -31,7 +31,6 @@ OPTIONS/hibernation		optional hibernation
 OPTIONS/crypto			optional crypto
 OPTIONS/kdebug			optional kdebug
 OPTIONS/mach_assert		optional mach_assert
-OPTIONS/mach_flipc		optional mach_flipc
 OPTIONS/mach_kdp		optional mach_kdp
 OPTIONS/config_serial_kdp	optional config_serial_kdp
 OPTIONS/mach_ldebug		optional mach_ldebug
@@ -104,7 +103,6 @@ osfmk/ipc/ipc_right.c			standard
 osfmk/ipc/ipc_space.c			standard
 osfmk/ipc/ipc_service_port.c		standard
 osfmk/ipc/ipc_voucher.c			standard
-osfmk/ipc/flipc.c			optional mach_flipc
 osfmk/ipc/mach_debug.c		standard
 osfmk/ipc/mach_kernelrpc.c		standard
 osfmk/ipc/mach_msg.c			standard
@@ -129,6 +127,7 @@ osfmk/kern/ecc_logging.c			optional config_ecc_logging
 osfmk/kern/energy_perf.c		standard
 osfmk/kern/exception.c		standard
 osfmk/kern/exclaves.c		standard
+osfmk/kern/exclaves_aoe.c               standard
 osfmk/kern/exclaves_boot.c		standard
 osfmk/kern/exclaves_conclave.c	standard
 osfmk/kern/exclaves_driverkit.c		standard
@@ -164,7 +163,6 @@ osfmk/kern/lock_ptr.c			standard
 osfmk/kern/lock_rw.c			standard
 osfmk/kern/lock_ticket.c		standard
 osfmk/kern/locks.c			standard
-osfmk/kern/mach_node.c			standard
 osfmk/kern/machine.c			standard
 osfmk/kern/mk_sp.c			standard
 osfmk/kern/mk_timer.c		standard
@@ -181,9 +179,11 @@ osfmk/kern/sched_average.c		standard
 osfmk/kern/sched_amp.c		standard
 osfmk/kern/sched_amp_common.c	standard
 #endif
-osfmk/kern/sched_dualq.c	standard
 osfmk/kern/sched_clutch.c	optional config_clutch
+osfmk/kern/sched_common.c	standard
+osfmk/kern/sched_dualq.c	standard
 osfmk/kern/sched_prim.c		standard
+osfmk/kern/sched_rt.c       standard
 osfmk/kern/sfi.c			standard
 osfmk/kern/smr.c		standard
 osfmk/kern/stack.c			standard
@@ -207,6 +207,7 @@ osfmk/kern/thread_group.c	standard
 osfmk/kern/thread_policy.c	standard
 osfmk/kern/thread_test_context.c	optional development
 osfmk/kern/thread_test_context.c	optional debug
+osfmk/kern/timeout.c		standard
 osfmk/kern/timer.c			standard
 osfmk/kern/timer_call.c		standard
 osfmk/kern/turnstile.c  	standard

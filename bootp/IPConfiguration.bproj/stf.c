@@ -317,15 +317,10 @@ stf_remove_all_addresses(ServiceRef service_p)
     int				i;
     interface_t *		if_p = service_interface(service_p);
     inet6_addrlist_t	 	list;
-    int				s;
 
     inet6_addrlist_copy(&list, if_link_index(if_p));
     if (list.count == 0) {
 	return;
-    }
-    s = inet6_dgram_socket();
-    if (s < 0) {
-	goto done;
     }
     for (i = 0; i < list.count; i++) {
 	char 	ntopbuf[INET6_ADDRSTRLEN];
@@ -335,10 +330,8 @@ stf_remove_all_addresses(ServiceRef service_p)
 	       inet_ntop(AF_INET6, &list.list[i].addr,
 			 ntopbuf, sizeof(ntopbuf)),
 	       list.list[i].prefix_length);
-	inet6_difaddr(s, if_name(if_p), &list.list[i].addr);
+	inet6_difaddr(if_name(if_p), &list.list[i].addr);
     }
-    close(s);
- done:
     inet6_addrlist_free(&list);
     return;
 }

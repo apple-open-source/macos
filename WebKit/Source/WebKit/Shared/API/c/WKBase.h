@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -147,6 +147,7 @@ typedef const struct OpaqueWKSpeechRecognitionPermissionCallback* WKSpeechRecogn
 typedef const struct OpaqueWKMediaKeySystemPermissionRequest* WKMediaKeySystemPermissionRequestRef;
 typedef const struct OpaqueWKMediaKeySystemPermissionCallback* WKMediaKeySystemPermissionCallbackRef;
 typedef const struct OpaqueWKQueryPermissionResultCallback* WKQueryPermissionResultCallbackRef;
+typedef const struct OpaqueWKCompletionListener* WKCompletionListenerRef;
 
 /* WebKit2 Bundle types */
 

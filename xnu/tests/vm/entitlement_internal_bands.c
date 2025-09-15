@@ -31,7 +31,7 @@ T_DECL(can_not_use_internal_bands_without_entitlement, "Can not move process int
 #if ENTITLED
 		T_QUIET; T_ASSERT_EQ(set_band, band, "Able to use entitled band");
 #else
-		T_QUIET; T_ASSERT_EQ(set_band, JETSAM_PRIORITY_IDLE, "Fell through to idle band");
+		T_QUIET; T_ASSERT_EQ(set_band, JETSAM_PRIORITY_BACKGROUND, "Fell through to background band");
 #endif
 	}
 }

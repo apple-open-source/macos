@@ -904,6 +904,63 @@ IOReturn IOPMSetEnergyModePreference(CFStringRef energyMode, CFStringRef pwr_src
     return kIOReturnSuccess;
 }
 
+IOReturn IOPMSetGamingEnergyModePreference(CFStringRef energyMode)
+{
+    xpc_connection_t    connection = NULL;
+    xpc_object_t        msg = NULL;
+    char                str[32];
+
+    // Check valid mode was provided
+    if (!CFEqual(energyMode, CFSTR(kIOPMEnergyModeAutomatic)) &&
+        !CFEqual(energyMode, CFSTR(kIOPMEnergyModeLow)) &&
+        !CFEqual(energyMode, CFSTR(kIOPMEnergyModeHigh))) {
+        return kIOReturnBadArgument;
+    }
+
+    // Check mode is supported if LPM or HPM is requested
+    if (CFEqual(energyMode, CFSTR(kIOPMEnergyModeLow))) {
+        bool supportsLPM = IOPMFeatureIsAvailable(CFSTR(kIOPMLowPowerModeKey), CFSTR(kIOPMBatteryPowerKey));
+        if (!supportsLPM) {
+            return kIOReturnUnsupportedMode;
+        }
+    }
+    else if (CFEqual(energyMode, CFSTR(kIOPMEnergyModeHigh))) {
+        bool supportsHPM = IOPMFeatureIsAvailable(CFSTR(kIOPMHighPowerModeKey), CFSTR(kIOPMBatteryPowerKey));
+        if (!supportsHPM) {
+            return kIOReturnUnsupportedMode;
+        }
+    }
+
+    connection = xpc_connection_create_mach_service(POWERD_XPC_ID,
+                                                    dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 0);
+    if (!connection) {
+        return kIOReturnError;
+    }
+
+    xpc_connection_set_target_queue(connection,
+                            dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+
+    xpc_connection_set_event_handler(connection,
+                                     ^(xpc_object_t e __unused) { });
+    msg = xpc_dictionary_create(NULL, NULL, 0);
+
+    if (!msg) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create dictionary to send message\n");
+        xpc_release(connection);
+        return kIOReturnError;
+    }
+    CFStringGetCString(energyMode, str, sizeof(str), kCFStringEncodingUTF8);
+    xpc_dictionary_set_string(msg, kGamingEnergyModeKey, str);
+
+    xpc_connection_resume(connection);
+    xpc_connection_send_message(connection, msg);
+    xpc_release(msg);
+    xpc_release(connection);
+
+    return kIOReturnSuccess;
+
+}
+
 /*!
  * @function          IOPMWriteToPrefs
  * @abstract          Writes the specified key/value pair to appropriate PM Prefs based on the key

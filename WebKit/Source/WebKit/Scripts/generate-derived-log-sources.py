@@ -7,13 +7,16 @@ import sys
 log_declarations_module = importlib.import_module("generate-log-declarations")
 
 
-def generate_messages_file(log_messages, log_messages_receiver_input_file):
+def generate_messages_file(log_messages, log_messages_receiver_input_file, streaming_ipc):
     print("Log messages receiver input file:", log_messages_receiver_input_file)
 
     with open(log_messages_receiver_input_file, 'w') as file:
         file.write("#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)\n")
         file.write("[ExceptionForEnabledBy]\n")
-        file.write("messages -> LogStream NotRefCounted Stream {\n")
+        file.write("messages -> LogStream ")
+        if streaming_ipc:
+            file.write("Stream ")
+        file.write("{\n")
         file.write("    LogOnBehalfOfWebContent(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<const uint8_t> logString, uint8_t logType)\n")
         for log_message in log_messages:
             message_name = log_message[0]
@@ -36,11 +39,16 @@ def generate_log_client_declarations_file(log_messages, log_client_declarations_
             function_name = log_message[0]
             parameters = log_message[2]
             arguments_string = log_declarations_module.get_arguments_string(parameters, log_declarations_module.PARAMETER_LIST_INCLUDE_TYPE | log_declarations_module.PARAMETER_LIST_INCLUDE_NAME | log_declarations_module.PARAMETER_LIST_MODIFY_CSTRING)
-            file.write("    virtual void " + function_name + "(" + arguments_string + ")\n")
+            file.write("    void " + function_name + "(" + arguments_string + ")\n")
             file.write("    {\n")
+            file.write("#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)\n")
             file.write("        Locker locker { m_logStreamLock };\n")
             parameters_string = log_declarations_module.get_arguments_string(parameters, log_declarations_module.PARAMETER_LIST_INCLUDE_NAME)
             file.write("        m_logStreamConnection->send(Messages::LogStream::" + function_name + "(" + parameters_string + "), m_logStreamIdentifier);\n")
+            file.write("#else\n")
+            file.write("        if (RefPtr connection = m_logConnection.get())\n")
+            file.write("            connection->send(Messages::LogStream::" + function_name + "(" + parameters_string + "), m_logStreamIdentifier);\n")
+            file.write("#endif\n")
             file.write("    }\n")
         file.close()
 
@@ -90,13 +98,16 @@ def generate_message_receiver_implementations_file(log_messages, log_messages_re
             file.write(")\n")
             file.write("{\n")
 
+            if category == "Testing":
+                file.write("    globalLogCountForTesting++;\n")
+
             if category == "Default":
                 file.write("    auto osLogPointer = OS_LOG_DEFAULT;\n")
             else:
-                file.write("    auto osLog = adoptOSObject(os_log_create(\"com.apple.WebKit.WebContent\", \"" + category + "\"));\n")
+                file.write("    auto osLog = adoptOSObject(os_log_create(\"com.apple.WebKit\", \"" + category + "\"));\n")
                 file.write("    auto osLogPointer = osLog.get();\n")
 
-            file.write("    os_log_with_type(osLogPointer, " + os_log_type + ", \"[PID=%d]: \"" + format_string)
+            file.write("    os_log_with_type(osLogPointer, " + os_log_type + ", \"WebContent[%d]: \"" + format_string)
             file.write(", static_cast<uint32_t>(m_pid)")
             arguments_string = log_declarations_module.get_arguments_string(parameters, log_declarations_module.PARAMETER_LIST_INCLUDE_NAME | log_declarations_module.PARAMETER_LIST_MODIFY_CSTRING)
             if arguments_string:
@@ -118,16 +129,19 @@ def main(argv):
     message_receiver_implementations_file = sys.argv[5]
     webkit_log_client_declarations_file = sys.argv[6]
     webcore_log_client_declarations_file = sys.argv[7]
+    defines = sys.argv[8]
 
     print("WebKit Log messages input file:", webkit_log_messages_input_file)
     print("WebCore Log messages input file:", webcore_log_messages_input_file)
+
+    streaming_ipc = defines.find("ENABLE_STREAMING_IPC_IN_LOG_FORWARDING") != -1
 
     webkit_log_messages = log_declarations_module.get_log_messages(webkit_log_messages_input_file)
     webcore_log_messages = log_declarations_module.get_log_messages(webcore_log_messages_input_file)
 
     log_messages = webkit_log_messages + webcore_log_messages
 
-    generate_messages_file(log_messages, log_messages_receiver_input_file)
+    generate_messages_file(log_messages, log_messages_receiver_input_file, streaming_ipc)
 
     generate_message_receiver_declarations_file(log_messages, message_receiver_declarations_file)
     generate_message_receiver_implementations_file(log_messages, message_receiver_implementations_file)

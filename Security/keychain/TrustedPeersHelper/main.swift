@@ -88,6 +88,8 @@ let sandboxIdentifier = "com.apple.TrustedPeersHelper"
 
 logger.info("Starting up")
 
+signal(SIGPIPE, SIG_IGN)
+
 ValueTransformer.setValueTransformer(SetValueTransformer(), forName: SetValueTransformer.name)
 
 let delegate = ServiceDelegate()

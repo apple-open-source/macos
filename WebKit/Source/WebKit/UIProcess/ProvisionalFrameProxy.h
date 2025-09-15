@@ -52,7 +52,7 @@ public:
 private:
     WeakRef<WebFrameProxy> m_frame;
     RefPtr<FrameProcess> m_frameProcess;
-    Ref<VisitedLinkStore> m_visitedLinkStore;
+    const Ref<VisitedLinkStore> m_visitedLinkStore;
 };
 
 } // namespace WebKit

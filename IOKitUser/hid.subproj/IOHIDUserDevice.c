@@ -67,7 +67,7 @@ static void                 __IOHIDUserDeviceIntRelease( CFTypeRef object );
 static void                 __IOHIDUserDeviceRegister(void);
 static void                 __IOHIDUserDeviceQueueCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
 static void                 __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result);
-static Boolean              __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device);
+static void                 __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device);
 static IOReturn             __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef device, IOOptionBits options);
 static void                 __IOHIDUserDeviceDestroyDevice(IOHIDUserDeviceRef device);
 static CFStringRef          __IOHIDUserDeviceCopyDebugDescription(CFTypeRef object);
@@ -564,10 +564,8 @@ error:
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // __IOHIDUserDeviceSetupAsyncSupport
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
+void __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
 {
-    Boolean result = false;
-
     // we've already been scheduled
     os_assert(!device->runLoop && !device->dispatchQueue, "Device already scheduled");
 
@@ -582,7 +580,7 @@ Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
     #endif
 
         ret = IOConnectMapMemory(device->connect, 0, mach_task_self(), &address, &size, kIOMapAnywhere);
-        require_noerr_action(ret, exit, result=false; IOHIDUDLogError("IOConnectMapMemory:0x%x", ret));
+        os_assert(ret == kIOReturnSuccess, "IOConnectMapMemory:0x%x", ret);
 
         device->queue.data =(IODataQueueMemory * )address;
         device->queue.size = (uint64_t)size;
@@ -590,28 +588,22 @@ Boolean __IOHIDUserDeviceSetupAsyncSupport(IOHIDUserDeviceRef device)
 
     if ( !device->queue.port ) {
         mach_port_t port = IODataQueueAllocateNotificationPort();
+        os_assert(port != MACH_PORT_NULL, "IODataQueueAllocateNotificationPort");
 
         if ( port != MACH_PORT_NULL ) {
             CFMachPortContext context = {0, device, NULL, NULL, NULL};
 
             device->queue.port = CFMachPortCreateWithPort(CFGetAllocator(device), port, __IOHIDUserDeviceQueueCallback, &context, FALSE);
+            os_assert(device->queue.port, "CFMachPortCreateWithPort");
         }
     }
-    require_action(device->queue.port, exit, result=false);
 
     if ( !device->async.port ) {
         device->async.port = IONotificationPortCreate(kIOMainPortDefault);
+        os_assert(device->async.port, "IONotificationPortCreate");
     }
 
-    require_action(device->async.port, exit, result=false);
-
-    result = true;
-
-exit:
-
-    HIDDEBUGTRACE(kHID_UserDev_AsyncSupport, device, result, 0, 0);
-
-    return result;
+    HIDDEBUGTRACE(kHID_UserDev_AsyncSupport, device, 0, 0, 0);
 }
 
 //------------------------------------------------------------------------------
@@ -619,7 +611,7 @@ exit:
 //------------------------------------------------------------------------------
 void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
-    os_assert(__IOHIDUserDeviceSetupAsyncSupport(device));
+    __IOHIDUserDeviceSetupAsyncSupport(device);
 
     device->runLoop = runLoop;
     device->runLoopMode = runLoopMode;
@@ -697,7 +689,7 @@ void IOHIDUserDeviceSetDispatchQueue(IOHIDUserDeviceRef device,
 {
     HIDDEBUGTRACE(kHID_UserDev_ScheduleDispatch, device, 0, 0, 0);
 
-    os_assert(__IOHIDUserDeviceSetupAsyncSupport(device));
+    __IOHIDUserDeviceSetupAsyncSupport(device);
 
     char label[256] = {0};
     

@@ -257,7 +257,7 @@
 
 162	AUE_NULL	ALL	{ int nosys(void); }   { old getdomainname }
 163	AUE_NULL	ALL	{ int nosys(void); }   { old setdomainname }
-164	AUE_NULL	ALL	{ int nosys(void); }
+164	AUE_FUNMOUNT	ALL	{ int funmount(int fd, int flags); }
 165	AUE_QUOTACTL	ALL	{ int quotactl(const char *path, int cmd, int uid, caddr_t arg); }
 166	AUE_NULL	ALL	{ int nosys(void); }   { old exportfs }
 167	AUE_MOUNT	ALL	{ int mount(char *type, char *path, int flags, caddr_t data); }

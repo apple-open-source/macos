@@ -25,6 +25,9 @@
 #include "filestrm.h"
 #include "unicode/udata.h"
 #include "unewdata.h"
+#if APPLE_ICU_CHANGES // rdar://155639864
+#include <limits.h>
+#endif
 
 struct UNewDataMemory {
     FileStream *file;
@@ -39,7 +42,11 @@ udata_create(const char *dir, const char *type, const char *name,
              UErrorCode *pErrorCode) {
     UNewDataMemory *pData;
     uint16_t headerSize, commentLength;
+#if APPLE_ICU_CHANGES // rdar://155639864
+    char filename[PATH_MAX];
+#else
     char filename[512];
+#endif
     uint8_t bytes[16];
     int32_t length;
 
@@ -80,10 +87,16 @@ udata_create(const char *dir, const char *type, const char *name,
 	}
     length += static_cast<int32_t>(strlen(name));		/* Add the filename length */
 
+#if APPLE_ICU_CHANGES // rdar://155442677
+    if(type != nullptr  && *type !=0) { /* Add type length if given */
+        length += 1; /* for the '.' between name and type */
+        length += static_cast<int32_t>(strlen(type));
+    }
+#else
     if(type != nullptr  && *type !=0) { /* Add directory length if  given */
         length += static_cast<int32_t>(strlen(type));
     }
-
+#endif
 
      /* LDH buffer Length error check */
     if(length  > ((int32_t)sizeof(filename) - 1))

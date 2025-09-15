@@ -59,7 +59,7 @@ audit_session_mksend(struct auditinfo_addr *aia_p, ipc_port_t *sessionport)
 {
 	audit_session_aiaref(aia_p);
 	if (!ipc_kobject_make_send_lazy_alloc_port(sessionport,
-	    aia_p, IKOT_AU_SESSIONPORT, IPC_KOBJECT_ALLOC_NONE)) {
+	    aia_p, IKOT_AU_SESSIONPORT)) {
 		audit_session_aiaunref(aia_p);
 	}
 
@@ -129,11 +129,13 @@ audit_session_portdestroy(ipc_port_t *sessionport)
 
 	*sessionport = IP_NULL;
 	if (IP_VALID(port)) {
-		ipc_kobject_dealloc_port(port, 0, IKOT_AU_SESSIONPORT);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    IKOT_AU_SESSIONPORT);
 	}
 }
 
 IPC_KOBJECT_DEFINE(IKOT_AU_SESSIONPORT,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = audit_session_no_senders);
 

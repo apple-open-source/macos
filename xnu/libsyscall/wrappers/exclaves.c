@@ -282,3 +282,27 @@ exclaves_notification_create(__unused mach_port_t port, const char *name,
 	}
 	return kr;
 }
+
+kern_return_t
+exclaves_aoe_setup(__unused mach_port_t port, uint8_t *num_message,
+    uint8_t *num_worker)
+{
+	/* Hack for now. */
+	const uint32_t opf = EXCLAVES_CTL_OP_AND_FLAGS(AOE_SETUP, 0);
+	return EXCLAVES_CTL_TRAP(port, opf, 0, (uintptr_t)num_message, 0, 0, 0,
+	           (uintptr_t)num_worker);
+}
+
+kern_return_t
+exclaves_aoe_work_loop(__unused mach_port_t port)
+{
+	const uint32_t opf = EXCLAVES_CTL_OP_AND_FLAGS(AOE_WORK_LOOP, 0);
+	return EXCLAVES_CTL_TRAP(port, opf, 0, 0, 0, 0, 0, 0);
+}
+
+kern_return_t
+exclaves_aoe_message_loop(__unused mach_port_t port)
+{
+	const uint32_t opf = EXCLAVES_CTL_OP_AND_FLAGS(AOE_MESSAGE_LOOP, 0);
+	return EXCLAVES_CTL_TRAP(port, opf, 0, 0, 0, 0, 0, 0);
+}

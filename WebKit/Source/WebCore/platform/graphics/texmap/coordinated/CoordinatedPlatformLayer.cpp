@@ -37,6 +37,7 @@
 #include "CoordinatedTileBuffer.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayerCoordinated.h"
+#include "NativeImage.h"
 #include "TextureMapperLayer.h"
 #include <wtf/MainThread.h>
 
@@ -47,6 +48,7 @@
 
 #if USE(SKIA)
 #include "SkiaPaintingEngine.h"
+#include "SkiaRecordingResult.h"
 #endif
 
 namespace WebCore {
@@ -100,7 +102,7 @@ TextureMapperLayer& CoordinatedPlatformLayer::ensureTarget()
     if (!m_target) {
         m_target = makeUnique<TextureMapperLayer>();
 #if ENABLE(DAMAGE_TRACKING)
-        m_target->setDamagePropagation(m_damagePropagation);
+        m_target->setDamagePropagationEnabled(m_damagePropagationEnabled);
 #endif
     }
     return *m_target;
@@ -548,25 +550,23 @@ void CoordinatedPlatformLayer::setContentsTilePhase(const FloatSize& contentsTil
     notifyCompositionRequired();
 }
 
-void CoordinatedPlatformLayer::setDirtyRegion(Vector<IntRect, 1>&& dirtyRegion)
+void CoordinatedPlatformLayer::setDirtyRegion(Damage&& damage)
 {
     ASSERT(m_lock.isHeld());
-    if (m_dirtyRegion == dirtyRegion)
-        return;
-
-    m_dirtyRegion = WTFMove(dirtyRegion);
-    notifyCompositionRequired();
-}
+    auto dirtyRegion = damage.rects();
+    if (m_dirtyRegion != dirtyRegion) {
+        m_dirtyRegion = WTFMove(dirtyRegion);
+        notifyCompositionRequired();
+    }
 
 #if ENABLE(DAMAGE_TRACKING)
-void CoordinatedPlatformLayer::setDamage(Damage&& damage)
-{
-    ASSERT(m_lock.isHeld());
-    if (m_damage != damage)
+    if (!m_damage)
         m_damage = WTFMove(damage);
+    else
+        m_damage->add(damage);
     m_pendingChanges.add(Change::Damage);
-}
 #endif
+}
 
 void CoordinatedPlatformLayer::setFilters(const FilterOperations& filters)
 {
@@ -710,8 +710,7 @@ void CoordinatedPlatformLayer::updateBackingStore()
     if (!m_backingStoreProxy)
         return;
 
-    bool scaleChanged = m_backingStoreProxy->setContentsScale(m_contentsScale);
-    if (!scaleChanged && m_dirtyRegion.isEmpty() && !m_pendingTilesCreation && !m_needsTilesUpdate)
+    if (m_dirtyRegion.isEmpty() && !m_pendingTilesCreation && !m_needsTilesUpdate)
         return;
 
     IntRect contentsRect(IntPoint::zero(), IntSize(m_size));
@@ -741,6 +740,9 @@ void CoordinatedPlatformLayer::updateContents(bool affectedByTransformAnimation)
             m_backingStoreProxy = CoordinatedBackingStoreProxy::create(m_contentsScale);
             m_needsTilesUpdate = true;
             m_pendingChanges.add(Change::BackingStore);
+        } else {
+            if (m_backingStoreProxy->setContentsScale(m_contentsScale))
+                m_needsTilesUpdate = true;
         }
 
         if (affectedByTransformAnimation) {
@@ -813,9 +815,28 @@ Ref<CoordinatedTileBuffer> CoordinatedPlatformLayer::paint(const IntRect& dirtyR
     m_client->paintingEngine().paint(*m_owner, buffer.get(), dirtyRect, enclosingIntRect(scaledDirtyRect), IntRect { { }, dirtyRect.size() }, m_contentsScale);
     return buffer;
 #elif USE(SKIA)
-    return m_client->paintingEngine().paintLayer(*m_owner, dirtyRect, m_contentsOpaque, m_contentsScale);
+    auto& paintingEngine = m_client->paintingEngine();
+    ASSERT(!paintingEngine.useThreadedRendering());
+    return paintingEngine.paint(*m_owner, dirtyRect, m_contentsOpaque, m_contentsScale);
 #endif
 }
+
+#if USE(SKIA)
+Ref<SkiaRecordingResult> CoordinatedPlatformLayer::record(const IntRect& recordRect)
+{
+    auto& paintingEngine = m_client->paintingEngine();
+    ASSERT(paintingEngine.useThreadedRendering());
+    return paintingEngine.record(*m_owner, recordRect, m_contentsOpaque, m_contentsScale);
+}
+
+Ref<CoordinatedTileBuffer> CoordinatedPlatformLayer::replay(const RefPtr<SkiaRecordingResult>& recording, const IntRect& dirtyRect)
+{
+    ASSERT(recording);
+    auto& paintingEngine = m_client->paintingEngine();
+    ASSERT(paintingEngine.useThreadedRendering());
+    return paintingEngine.replay(recording, dirtyRect);
+}
+#endif
 
 void CoordinatedPlatformLayer::waitUntilPaintingComplete()
 {
@@ -907,8 +928,10 @@ void CoordinatedPlatformLayer::flushCompositingState(TextureMapper& textureMappe
         layer.setSolidColor(m_contentsColor);
 
 #if ENABLE(DAMAGE_TRACKING)
-    if (m_pendingChanges.contains(Change::Damage))
-        layer.setDamage(m_damage);
+    if (m_pendingChanges.contains(Change::Damage)) {
+        ASSERT(m_damage.has_value());
+        layer.setDamage(*std::exchange(m_damage, std::nullopt));
+    }
 #endif
 
     if (m_pendingChanges.contains(Change::Filters))
@@ -945,9 +968,9 @@ void CoordinatedPlatformLayer::flushCompositingState(TextureMapper& textureMappe
     }
 
     if (m_backingStoreProxy) {
-        auto update = m_backingStoreProxy->takePendingUpdate();
-        m_backingStore->resize(layer.size(), update.scale());
+        m_backingStore->resize(layer.size(), m_contentsScale);
 
+        auto update = m_backingStoreProxy->takePendingUpdate();
         for (auto tileID : update.tilesToCreate())
             m_backingStore->createTile(tileID);
         for (auto tileID : update.tilesToRemove())

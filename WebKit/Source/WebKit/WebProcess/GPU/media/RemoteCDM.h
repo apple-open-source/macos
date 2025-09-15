@@ -37,11 +37,11 @@ namespace WebKit {
 
 class RemoteCDM final : public WebCore::CDMPrivate {
 public:
-    static std::unique_ptr<RemoteCDM> create(WeakPtr<RemoteCDMFactory>&&, RemoteCDMIdentifier&&, RemoteCDMConfiguration&&);
+    static std::unique_ptr<RemoteCDM> create(WeakPtr<RemoteCDMFactory>&&, RemoteCDMIdentifier&&, RemoteCDMConfiguration&&, const String& mediaKeysHashSalt);
     virtual ~RemoteCDM() = default;
 
 private:
-    RemoteCDM(WeakPtr<RemoteCDMFactory>&&, RemoteCDMIdentifier&&, RemoteCDMConfiguration&&);
+    RemoteCDM(WeakPtr<RemoteCDMFactory>&&, RemoteCDMIdentifier&&, RemoteCDMConfiguration&&, const String& mediaKeysHashSalt);
 
 #if !RELEASE_LOG_DISABLED
     void setLogIdentifier(uint64_t) final;
@@ -69,6 +69,7 @@ private:
     WeakPtr<RemoteCDMFactory> m_factory;
     RemoteCDMIdentifier m_identifier;
     RemoteCDMConfiguration m_configuration;
+    String m_mediaKeysHashSalt;
 };
 
 }

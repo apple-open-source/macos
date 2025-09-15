@@ -60,6 +60,14 @@ IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_r
 
 const uint64_t GP_SIGNAL_WAIT_TIME_S = 1;
 
+static NSString *SetPropsPassthrough[] = {
+    @kIOHIDMaxReportBufferCountKey,
+    @kIOHIDReportBufferEntrySizeKey,
+    @kIOHIDDeviceForceInterfaceRematchKey,
+    @kIOHIDTimeSyncEnabledKey,
+};
+
+
 @implementation IOHIDDeviceClass
 
 /**
@@ -443,6 +451,9 @@ exit:
                                     0);
     NSString * devicePairString = [NSString stringWithFormat:@"%@", devicePairs];
     hidAnalyticsEvent[@"DeviceUsagePairs"] = devicePairString;
+    if (devicePairs) {
+        CFRelease(devicePairs);
+    }
 
     hidAnalyticsEvent[@"AppTCCAuthorized"] = _tccGranted ? @YES : @NO;
 
@@ -710,8 +721,15 @@ static IOReturn _setProperty(void *iunknown,
         } else {
             [_queue start];
         }
-    } else if ([key isEqualToString:@kIOHIDMaxReportBufferCountKey] || [key isEqualToString:@kIOHIDReportBufferEntrySizeKey] || [key isEqualToString:@kIOHIDDeviceForceInterfaceRematchKey]) {
-        ret = IOConnectSetCFProperty(_connect, (__bridge CFStringRef)key, (__bridge CFTypeRef)property);
+    } else {
+        size_t count = sizeof(SetPropsPassthrough)/sizeof(SetPropsPassthrough[0]);
+        for (size_t i = 0; i < count; i++) {
+            NSString *cmpStr = SetPropsPassthrough[i];
+            if ([key isEqualToString:cmpStr]) {
+                ret = IOConnectSetCFProperty(_connect, (__bridge CFStringRef)key, (__bridge CFTypeRef)property);
+                break;
+            }
+        }
     }
     
 exit:

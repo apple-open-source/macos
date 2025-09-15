@@ -622,119 +622,109 @@ smb2_smb_add_create_contexts(struct smb_share *share, struct smb2_create_rq *cre
 			/* Lock the lease */
             smbnode_lease_lock(dur_hndl_leasep->leasep, smb2_smb_add_create_contexts);
 
-			if (SMBV_SMB3_OR_LATER(sessionp) &&
-                (dur_hndl_leasep->dur_handlep != NULL) &&
-				(dur_hndl_leasep->dur_handlep->flags & (SMB2_PERSISTENT_HANDLE_REQUEST | SMB2_PERSISTENT_HANDLE_RECONNECT))) {
-				/*
-				 * SMB 3.x with persistent handles do not need a lease.
-				 */
-				//SMBERROR("Persistent handles do not need to add lease \n");
-			}
-			else {
-				/*
-				 * Creating a Durable Handle and Reconnecting a Durable Handle
-				 * both require a lease context
-				 *
-				 * Or just a plain directory lease request
-				 */
-				
-				/* Lease State */
-				if (createp->flags & SMB2_CREATE_DUR_HANDLE_RECONNECT) {
-					/* Reconnect, have to request exact same lease */
-					lease_state = dur_hndl_leasep->leasep->lease_state;
-				}
-				else {
-					/* New lease */
-					lease_state = dur_hndl_leasep->leasep->req_lease_state;
-				}
-				
-				if (next_context_ptr != NULL) {
-					/* Set prev context next ptr */
-					*next_context_ptr = htolel(prev_content_size);
-				}
-				
-				/*
-				 * To be safer, use a Lease V2 only if Durable Handle V2
-				 * is supported
-				 *
-				 * Also allow the check for Durable Handle V2
-				 *
-				 * Dir Leases are always V2
-				 */
-				if ((sessionp->session_misc_flags & SMBV_HAS_DUR_HNDL_V2) ||
-					((dur_hndl_leasep->dur_handlep != NULL) && (dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK)) ||
-					(createp->flags & SMB2_CREATE_DIR_LEASE)) {
-					/*
-					 * SMB 3.x has a new lease format
-					 */
-					context_len += 80;
-					//prev_content_size = 80; /* Unused since last context */
-					
-					next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
-					*next_context_ptr = htolel(0);  /* Assume we are last context */
-					mb_put_uint16le(mbp, 16);       /* Name Offset */
-					mb_put_uint16le(mbp, 4);        /* Name Length */
-					mb_put_uint16le(mbp, 0);        /* Reserved */
-					mb_put_uint16le(mbp, 24);       /* Data Offset */
-					mb_put_uint32le(mbp, 52);       /* Data Length */
-					/* Name is a string constant and thus its not byte swapped uint32 */
-					mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE_V2);
-					mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
-					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
-					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
-					mb_put_uint32le(mbp, lease_state);  /* Lease State */
-					
-					if ((dur_hndl_leasep->leasep->par_lease_key_hi != 0) &&
-						(dur_hndl_leasep->leasep->par_lease_key_low != 0)) {
-						/* Parent Lease Key passed in */
-						mb_put_uint32le(mbp, SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET);
-						mb_put_uint64le(mbp, 0);        /* Lease Duration */
-						/* Add the ParentLeaseKey */
-						mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_hi);
-						mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_low);
-					}
-					else {
-						/* ParentLeaseKey not being used */
-						mb_put_uint32le(mbp, 0);	/* Flags */
-						mb_put_uint64le(mbp, 0);    /* Lease Duration */
-						mb_put_uint64le(mbp, 0);	/* ParentLeaseKey Upper */
-						mb_put_uint64le(mbp, 0);	/* ParentLeaseKey Lower */
-					}
-					
-                    /* [MS-SMB2] 3.2.4.3.8 Epoch should be set to 0 */
-					mb_put_uint16le(mbp, 0);        /* Epoch */
-					mb_put_uint16le(mbp, 0);        /* Reserved */
-					
-					/* 4 bytes of pad to end on 8 byte boundary */
-					mb_put_uint32le(mbp, 0);
-					
-					/* Remember that we requested Lease V2 */
-                    dur_hndl_leasep->leasep->flags |= SMB2_LEASE_V2;
-				}
-				else {
-					/*
-					 * SMB 2.x lease format
-					 */
-					context_len += 56;
-					//prev_content_size = 56; /* Unused since last context */
-					
-					next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
-					*next_context_ptr = htolel(0);  /* Assume we are last context */
-					mb_put_uint16le(mbp, 16);       /* Name Offset */
-					mb_put_uint16le(mbp, 4);        /* Name Length */
-					mb_put_uint16le(mbp, 0);        /* Reserved */
-					mb_put_uint16le(mbp, 24);       /* Data Offset */
-					mb_put_uint32le(mbp, 32);       /* Data Length */
-					/* Name is a string constant and thus its not byte swapped uint32 */
-					mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE);
-					mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
-					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
-					mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
-					mb_put_uint32le(mbp, lease_state);  /* Lease State */
-					mb_put_uint32le(mbp, 0);        /* Lease Flags */
-					mb_put_uint64le(mbp, 0);        /* Lease Duration */
-				}
-			}
+            /*
+             * Creating a Durable Handle and Reconnecting a Durable Handle
+             * both require a lease context
+             *
+             * Or just a plain directory lease request
+             */
+            
+            /* Lease State */
+            if (createp->flags & SMB2_CREATE_DUR_HANDLE_RECONNECT) {
+                /* Reconnect, have to request exact same lease */
+                lease_state = dur_hndl_leasep->leasep->lease_state;
+            }
+            else {
+                /* New lease */
+                lease_state = dur_hndl_leasep->leasep->req_lease_state;
+            }
+            
+            if (next_context_ptr != NULL) {
+                /* Set prev context next ptr */
+                *next_context_ptr = htolel(prev_content_size);
+            }
+            
+            /*
+             * To be safer, use a Lease V2 only if Durable Handle V2
+             * is supported
+             *
+             * Also allow the check for Durable Handle V2
+             *
+             * Dir Leases are always V2
+             */
+            if ((sessionp->session_misc_flags & SMBV_HAS_DUR_HNDL_V2) ||
+                ((dur_hndl_leasep->dur_handlep != NULL) && (dur_hndl_leasep->dur_handlep->flags & SMB2_DURABLE_HANDLE_V2_CHECK)) ||
+                (createp->flags & SMB2_CREATE_DIR_LEASE)) {
+                /*
+                 * SMB 3.x has a new lease format
+                 */
+                context_len += 80;
+                //prev_content_size = 80; /* Unused since last context */
+                
+                next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
+                *next_context_ptr = htolel(0);  /* Assume we are last context */
+                mb_put_uint16le(mbp, 16);       /* Name Offset */
+                mb_put_uint16le(mbp, 4);        /* Name Length */
+                mb_put_uint16le(mbp, 0);        /* Reserved */
+                mb_put_uint16le(mbp, 24);       /* Data Offset */
+                mb_put_uint32le(mbp, 52);       /* Data Length */
+                /* Name is a string constant and thus its not byte swapped uint32 */
+                mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE_V2);
+                mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
+                mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
+                mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
+                mb_put_uint32le(mbp, lease_state);  /* Lease State */
+                
+                if ((dur_hndl_leasep->leasep->par_lease_key_hi != 0) &&
+                    (dur_hndl_leasep->leasep->par_lease_key_low != 0)) {
+                    /* Parent Lease Key passed in */
+                    mb_put_uint32le(mbp, SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET);
+                    mb_put_uint64le(mbp, 0);        /* Lease Duration */
+                    /* Add the ParentLeaseKey */
+                    mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_hi);
+                    mb_put_uint64le(mbp, dur_hndl_leasep->leasep->par_lease_key_low);
+                }
+                else {
+                    /* ParentLeaseKey not being used */
+                    mb_put_uint32le(mbp, 0);	/* Flags */
+                    mb_put_uint64le(mbp, 0);    /* Lease Duration */
+                    mb_put_uint64le(mbp, 0);	/* ParentLeaseKey Upper */
+                    mb_put_uint64le(mbp, 0);	/* ParentLeaseKey Lower */
+                }
+                
+                /* [MS-SMB2] 3.2.4.3.8 Epoch should be set to 0 */
+                mb_put_uint16le(mbp, 0);        /* Epoch */
+                mb_put_uint16le(mbp, 0);        /* Reserved */
+                
+                /* 4 bytes of pad to end on 8 byte boundary */
+                mb_put_uint32le(mbp, 0);
+                
+                /* Remember that we requested Lease V2 */
+                dur_hndl_leasep->leasep->flags |= SMB2_LEASE_V2;
+            }
+            else {
+                /*
+                 * SMB 2.x lease format
+                 */
+                context_len += 56;
+                //prev_content_size = 56; /* Unused since last context */
+                
+                next_context_ptr = mb_reserve(mbp, sizeof(uint32_t));   /* Next */
+                *next_context_ptr = htolel(0);  /* Assume we are last context */
+                mb_put_uint16le(mbp, 16);       /* Name Offset */
+                mb_put_uint16le(mbp, 4);        /* Name Length */
+                mb_put_uint16le(mbp, 0);        /* Reserved */
+                mb_put_uint16le(mbp, 24);       /* Data Offset */
+                mb_put_uint32le(mbp, 32);       /* Data Length */
+                /* Name is a string constant and thus its not byte swapped uint32 */
+                mb_put_uint32be(mbp, SMB2_CREATE_REQUEST_LEASE);
+                mb_put_uint32le(mbp, 0);        /* Pad to 8 byte boundary */
+                mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_hi);  /* Lease Key High */
+                mb_put_uint64le(mbp, dur_hndl_leasep->leasep->lease_key_low); /* Lease Key Low */
+                mb_put_uint32le(mbp, lease_state);  /* Lease State */
+                mb_put_uint32le(mbp, 0);        /* Lease Flags */
+                mb_put_uint64le(mbp, 0);        /* Lease Duration */
+            }
 			
 			/* Unlock the lease */
             smbnode_lease_unlock(dur_hndl_leasep->leasep);

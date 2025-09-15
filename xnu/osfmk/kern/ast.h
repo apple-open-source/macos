@@ -132,6 +132,7 @@ __options_decl(ast_t, uint32_t, {
 	AST_PROC_RESOURCE         = 0x400000, /* port space and/or file descriptor table has reached its limits */
 	AST_DEBUG_ASSERT          = 0x800000, /* check debug assertion */
 	AST_TELEMETRY_MACF        = 0x1000000, /* telemetry sample requested by MAC framework */
+	AST_SYNTHESIZE_MACH       = 0x2000000,
 });
 
 #define AST_NONE                0x00
@@ -145,7 +146,7 @@ __options_decl(ast_t, uint32_t, {
 
 /* Per-thread ASTs follow the thread at context-switch time. */
 #define AST_PER_THREAD  (AST_APC | AST_BSD | AST_MACF | AST_RESET_PCS | \
-	AST_ARCADE | AST_LEDGER | AST_MACH_EXCEPTION | AST_TELEMETRY_ALL | AST_KEVENT | AST_PROC_RESOURCE | AST_DEBUG_ASSERT)
+	AST_ARCADE | AST_LEDGER | AST_MACH_EXCEPTION | AST_SYNTHESIZE_MACH | AST_TELEMETRY_ALL | AST_KEVENT | AST_PROC_RESOURCE | AST_DEBUG_ASSERT)
 
 /* Handle AST_URGENT detected while in the kernel */
 extern void ast_taken_kernel(void);

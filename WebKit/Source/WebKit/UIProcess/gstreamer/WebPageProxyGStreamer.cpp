@@ -31,6 +31,7 @@
 #include "MessageSenderInlines.h"
 #include "WebPageMessages.h"
 #include "WebPageProxyInternals.h"
+#include "WebProcessProxy.h"
 
 namespace WebKit {
 

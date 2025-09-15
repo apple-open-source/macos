@@ -24,9 +24,10 @@
  */
 
 #include <TargetConditionals.h>
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE
 
 #include <fcntl.h>
+#include <AppleKeyStore/libaks.h>
 
 #include "SecurityCommands.h"
 
@@ -64,7 +65,7 @@ out:
 }
 
 static int
-do_keychain_export(const char *backupPath, const char *keybagPath, const char *passwordString)
+do_keychain_export(const char *backupPath, const char *keybagPath, const char *passwordString, const bool useFd)
 {
     CFDataRef backup=NULL;
     CFDataRef keybag=NULL;
@@ -72,10 +73,13 @@ do_keychain_export(const char *backupPath, const char *keybagPath, const char *p
     bool ok=false;
 
     if (keybagPath) {
-        if(passwordString) {
-            require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
-        }
         require(keybag=copyFileContents(keybagPath), out);
+    }
+    if(passwordString) {
+        require(password = CFDataCreate(NULL, (UInt8 *)passwordString, strlen(passwordString)), out);
+    }
+
+    if (keybagPath && !useFd) {
         require(backup=_SecKeychainCopyBackup(keybag, password), out);
         ok=writeFileContents(backupPath, backup);
     } else {
@@ -86,9 +90,9 @@ do_keychain_export(const char *backupPath, const char *keybagPath, const char *p
             goto out;
         }
         CFErrorRef error = NULL;
-        ok = _SecKeychainWriteBackupToFileDescriptor(NULL, NULL, fd, &error);
+        ok = _SecKeychainWriteBackupToFileDescriptor(keybag, password, fd, &error);
         if (!ok) {
-            sec_error("error: %ld", (long)CFErrorGetCode(error));
+            sec_error("_SecKeychainWriteBackupToFileDescriptor error: %ld", (long)CFErrorGetCode(error));
         }
     }
 
@@ -105,17 +109,13 @@ int
 keychain_import(int argc, char * const *argv)
 {
     int ch;
-    int verbose=0;
     const char *keybag=NULL;
     const char *password=NULL;
 
-    while ((ch = getopt(argc, argv, "vk:p:")) != -1)
+    while ((ch = getopt(argc, argv, "k:p:")) != -1)
     {
         switch (ch)
         {
-            case 'v':
-                verbose++;
-                break;
             case 'k':
                 keybag=optarg;
                 break;
@@ -147,22 +147,22 @@ int
 keychain_export(int argc, char * const *argv)
 {
     int ch;
-    int verbose=0;
     const char *keybag=NULL;
     const char *password=NULL;
+    bool useFd = false;
 
-    while ((ch = getopt(argc, argv, "vk:p:")) != -1)
+    while ((ch = getopt(argc, argv, "k:p:f")) != -1)
     {
         switch (ch)
         {
-            case 'v':
-                verbose++;
-                break;
             case 'k':
                 keybag=optarg;
                 break;
             case 'p':
                 password=optarg;
+                break;
+            case 'f':
+                useFd=true;
                 break;
             default:
                 return SHOW_USAGE_MESSAGE;
@@ -182,7 +182,7 @@ keychain_export(int argc, char * const *argv)
         return SHOW_USAGE_MESSAGE;
     }
 
-    return do_keychain_export(argv[0], keybag, password);
+    return do_keychain_export(argv[0], keybag, password, useFd);
 }
 
 int
@@ -215,4 +215,91 @@ keychain_backup_get_uuid(int argc, char * const *argv)
     return 0;
 }
 
-#endif /* TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR */
+int
+keychain_backup_generate_keybag(int argc, char * const *argv)
+{
+    int ch;
+    const char *keybag=NULL;
+    const char *password=NULL;
+    bool asym = false;
+
+    while ((ch = getopt(argc, argv, "ap:")) != -1)
+    {
+        switch (ch)
+        {
+            case 'a':
+                asym=true;
+                break;
+            case 'p':
+                password=optarg;
+                break;
+            default:
+                return SHOW_USAGE_MESSAGE;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (password == NULL) {
+        sec_error("password is required\n");
+        return SHOW_USAGE_MESSAGE;
+    }
+
+    if (argc != 1) {
+        sec_error("keybag path is required\n");
+        return SHOW_USAGE_MESSAGE;
+    }
+
+    keybag = argv[0];
+
+    keybag_handle_t handle;
+    kern_return_t result;
+    char uuidstr[37];
+    uuid_t uuid;
+    void *data = NULL;
+    int length;
+
+    result = aks_create_bag(password, (int)strlen(password), asym ? kAppleKeyStoreAsymmetricBackupBag : kAppleKeyStoreBackupBag, &handle);
+    if (result) {
+        sec_error("aks_create_bag: %08x", result);
+        return -1;
+    }
+
+    result = aks_save_bag(handle, &data, &length);
+    if (result) {
+        sec_error("aks_save_bag: %08x", result);
+        return -1;
+    }
+
+    result = aks_get_bag_uuid(handle, uuid);
+    if (result) {
+        sec_error("aks_get_bag_uuid: %08x", result);
+        return -1;
+    }
+
+    uuid_unparse_lower(uuid, uuidstr);
+
+    CFDataRef bytes = CFDataCreate(NULL, (UInt8 *)data, length);
+    if (!bytes) {
+        sec_error("CFData create");
+        return -1;
+    }
+
+    result = aks_unload_bag(handle);
+    if (result) {
+        sec_error("aks_unload_bag: %08x", result);
+        CFReleaseSafe(bytes);
+        return -1;
+    }
+
+    printf("UUID: %s\n", uuidstr);
+
+    bool ok = writeFileContents(keybag, bytes);
+
+    CFReleaseSafe(bytes);
+
+    return ok?0:1;
+}
+
+#endif /* !TARGET_OS_SIMULATOR && !TARGET_OS_BRIDGE */

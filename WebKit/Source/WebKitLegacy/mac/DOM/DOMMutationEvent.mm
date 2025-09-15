@@ -49,19 +49,19 @@
 - (NSString *)prevValue
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->prevValue();
+    return IMPL->prevValue().createNSString().autorelease();
 }
 
 - (NSString *)newValue
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->newValue();
+    return IMPL->newValue().createNSString().autorelease();
 }
 
 - (NSString *)attrName
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->attrName();
+    return IMPL->attrName().createNSString().autorelease();
 }
 
 - (unsigned short)attrChange

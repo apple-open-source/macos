@@ -135,10 +135,19 @@ NS_ASSUME_NONNULL_BEGIN
                       zoneID:(CKRecordZoneID*)zoneID
                        error:(NSError* _Nullable __autoreleasing* _Nullable)error;
 
+// Convenience function: get all objects of this type for this contextID
++ (NSArray*)allWithContextID:(NSString*)contextID
+                       error:(NSError* _Nullable __autoreleasing* _Nullable)error;
+
 // Convenience function: delete all records of this type with this zoneID
 + (bool)deleteAllWithContextID:(NSString*)contextID
                         zoneID:(CKRecordZoneID*)zoneID
                          error:(NSError* _Nullable __autoreleasing* _Nullable)error;
+
+// Convenience function: delete all records of this type. Use with caution!
++ (bool)deleteAllWithContextID:(NSString*)contextID
+                         error:(NSError* _Nullable __autoreleasing* _Nullable)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

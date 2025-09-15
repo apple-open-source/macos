@@ -33,9 +33,11 @@
 #include <kern/clock.h>
 #include <kern/machine.h>
 #include <kern/iotrace.h>
+#include <kern/timeout.h>
 #include <mach/machine.h>
 #include <mach/machine/vm_param.h>
 #include <mach_kdp.h>
+#include <machine/machine_routines.h>
 #include <kdp/kdp_udp.h>
 #if !MACH_KDP
 #include <kdp/kdp_callout.h>
@@ -372,20 +374,26 @@ ml_phys_read_data(pmap_paddr_t paddr, int size)
 	}
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	bool istate, timeread = false;
-	uint64_t sabs, eabs;
+	bool istate, use_timeout = false;
+	kern_timeout_t timeout;
 
 	uint32_t report_phy_read_delay = os_atomic_load(&report_phy_read_delay_to, relaxed);
 	uint32_t const trace_phy_read_delay = os_atomic_load(&trace_phy_read_delay_to, relaxed);
 
 	if (__improbable(report_phy_read_delay != 0)) {
 		istate = ml_set_interrupts_enabled_with_debug(false, false);
-		sabs = ml_get_timebase();
-		timeread = true;
+
+		kern_timeout_start(&timeout, TF_NONSPEC_TIMEBASE | TF_SAMPLE_PMC);
+		use_timeout = true;
+
+		mmio_track_t *mmiot = PERCPU_GET(mmio_tracker);
+		mmiot->mmio_start_mt = kern_timeout_start_time(&timeout);
+		mmiot->mmio_paddr = paddr;
+		mmiot->mmio_vaddr = 0;
 	}
 #ifdef ML_IO_SIMULATE_STRETCHED_ENABLED
-	if (__improbable(timeread && simulate_stretched_io)) {
-		sabs -= simulate_stretched_io;
+	if (__improbable(use_timeout && simulate_stretched_io)) {
+		kern_timeout_stretch(&timeout, simulate_stretched_io);
 	}
 #endif /* ML_IO_SIMULATE_STRETCHED_ENABLED */
 #endif /* ML_IO_TIMEOUTS_ENABLED */
@@ -437,13 +445,14 @@ ml_phys_read_data(pmap_paddr_t paddr, int size)
 	}
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	if (__improbable(timeread)) {
-		eabs = ml_get_timebase();
+	if (__improbable(use_timeout)) {
+		kern_timeout_end(&timeout, TF_NONSPEC_TIMEBASE);
+		uint64_t duration = kern_timeout_gross_duration(&timeout);
 
-		iotrace(IOTRACE_PHYS_READ, 0, addr, size, result, sabs, eabs - sabs);
+		iotrace(IOTRACE_PHYS_READ, 0, addr, size, result, kern_timeout_start_time(&timeout), duration);
 
-		if (__improbable((eabs - sabs) > report_phy_read_delay)) {
-			DTRACE_PHYSLAT4(physread, uint64_t, (eabs - sabs),
+		if (__improbable(duration > report_phy_read_delay)) {
+			DTRACE_PHYSLAT4(physread, uint64_t, duration,
 			    uint64_t, addr, uint32_t, size, uint64_t, result);
 
 			uint64_t override = 0;
@@ -464,22 +473,23 @@ ml_phys_read_data(pmap_paddr_t paddr, int size)
 			}
 		}
 
-		if (__improbable((eabs - sabs) > report_phy_read_delay)) {
+		if (__improbable(duration > report_phy_read_delay)) {
 			if (phy_read_panic && (machine_timeout_suspended() == FALSE)) {
+				char str[128];
 				const uint64_t hi = (uint64_t)(result >> 64);
 				const uint64_t lo = (uint64_t)(result);
-				uint64_t nsec = 0;
-				absolutetime_to_nanoseconds(eabs - sabs, &nsec);
-				panic("Read from physical addr 0x%llx took %llu ns, "
-				    "result: 0x%016llx%016llx (start: %llu, end: %llu), ceiling: %llu",
-				    (unsigned long long)addr, nsec, hi, lo, sabs, eabs,
-				    (uint64_t)report_phy_read_delay);
+
+				snprintf(str, sizeof(str),
+				    "Read from physical addr 0x%llx (result: 0x%016llx%016llx) timed out:",
+				    (unsigned long long)addr, hi, lo);
+				kern_timeout_try_panic(KERN_TIMEOUT_MMIO, paddr, &timeout, str,
+				    report_phy_read_delay);
 			}
 		}
 
-		if (__improbable(trace_phy_read_delay > 0 && (eabs - sabs) > trace_phy_read_delay)) {
+		if (__improbable(trace_phy_read_delay > 0 && duration > trace_phy_read_delay)) {
 			KDBG(MACHDBG_CODE(DBG_MACH_IO, DBC_MACH_IO_PHYS_READ),
-			    (eabs - sabs), sabs, addr, result);
+			    duration, kern_timeout_start_time(&timeout), addr, result);
 		}
 
 		ml_set_interrupts_enabled_with_debug(istate, false);
@@ -597,20 +607,26 @@ ml_phys_write_data(pmap_paddr_t paddr, uint128_t data, int size)
 	}
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	bool istate, timewrite = false;
-	uint64_t sabs, eabs;
+	bool istate, use_timeout = false;
+	kern_timeout_t timeout;
 
 	uint32_t report_phy_write_delay = os_atomic_load(&report_phy_write_delay_to, relaxed);
 	uint32_t const trace_phy_write_delay = os_atomic_load(&trace_phy_write_delay_to, relaxed);
 
 	if (__improbable(report_phy_write_delay != 0)) {
 		istate = ml_set_interrupts_enabled_with_debug(false, false);
-		sabs = ml_get_timebase();
-		timewrite = true;
+
+		kern_timeout_start(&timeout, TF_NONSPEC_TIMEBASE | TF_SAMPLE_PMC);
+		use_timeout = true;
+
+		mmio_track_t *mmiot = PERCPU_GET(mmio_tracker);
+		mmiot->mmio_start_mt = kern_timeout_start_time(&timeout);
+		mmiot->mmio_paddr = paddr;
+		mmiot->mmio_vaddr = 0;
 	}
 #ifdef ML_IO_SIMULATE_STRETCHED_ENABLED
-	if (__improbable(timewrite && simulate_stretched_io)) {
-		sabs -= simulate_stretched_io;
+	if (__improbable(use_timeout && simulate_stretched_io)) {
+		kern_timeout_stretch(&timeout, simulate_stretched_io);
 	}
 #endif /* ML_IO_SIMULATE_STRETCHED_ENABLED */
 #endif /* ML_IO_TIMEOUTS_ENABLED */
@@ -657,17 +673,19 @@ ml_phys_write_data(pmap_paddr_t paddr, uint128_t data, int size)
 	}
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	if (__improbable(timewrite)) {
-		eabs = ml_get_timebase();
+	if (__improbable(use_timeout)) {
+		kern_timeout_end(&timeout, TF_NONSPEC_TIMEBASE);
+		uint64_t duration = kern_timeout_gross_duration(&timeout);
 
-		iotrace(IOTRACE_PHYS_WRITE, 0, paddr, size, data, sabs, eabs - sabs);
+		iotrace(IOTRACE_PHYS_WRITE, 0, paddr, size, data, kern_timeout_start_time(&timeout), duration);
 
-		if (__improbable((eabs - sabs) > report_phy_write_delay)) {
-			DTRACE_PHYSLAT4(physwrite, uint64_t, (eabs - sabs),
+		if (__improbable(duration > report_phy_write_delay)) {
+			DTRACE_PHYSLAT4(physwrite, uint64_t, duration,
 			    uint64_t, paddr, uint32_t, size, uint64_t, data);
 
 			uint64_t override = 0;
 			override_io_timeouts(0, paddr, NULL, &override);
+
 			if (override != 0) {
 #if SCHED_HYGIENE_DEBUG
 				/*
@@ -683,22 +701,23 @@ ml_phys_write_data(pmap_paddr_t paddr, uint128_t data, int size)
 			}
 		}
 
-		if (__improbable((eabs - sabs) > report_phy_write_delay)) {
+		if (__improbable(duration > report_phy_write_delay)) {
 			if (phy_write_panic && (machine_timeout_suspended() == FALSE)) {
+				char str[128];
 				const uint64_t hi = (uint64_t)(data >> 64);
 				const uint64_t lo = (uint64_t)(data);
-				uint64_t nsec = 0;
-				absolutetime_to_nanoseconds(eabs - sabs, &nsec);
-				panic("Write from physical addr 0x%llx took %llu ns, "
-				    "data: 0x%016llx%016llx (start: %llu, end: %llu), ceiling: %llu",
-				    (unsigned long long)paddr, nsec, hi, lo, sabs, eabs,
-				    (uint64_t)report_phy_write_delay);
+
+				snprintf(str, sizeof(str),
+				    "Write to physical addr 0x%llx (data: 0x%016llx%016llx) timed out:",
+				    (unsigned long long)paddr, hi, lo);
+				kern_timeout_try_panic(KERN_TIMEOUT_MMIO, paddr, &timeout, str,
+				    report_phy_write_delay);
 			}
 		}
 
-		if (__improbable(trace_phy_write_delay > 0 && (eabs - sabs) > trace_phy_write_delay)) {
+		if (__improbable(trace_phy_write_delay > 0 && duration > trace_phy_write_delay)) {
 			KDBG(MACHDBG_CODE(DBG_MACH_IO, DBC_MACH_IO_PHYS_WRITE),
-			    (eabs - sabs), sabs, paddr, data);
+			    duration, kern_timeout_start_time(&timeout), paddr, data);
 		}
 
 		ml_set_interrupts_enabled_with_debug(istate, false);

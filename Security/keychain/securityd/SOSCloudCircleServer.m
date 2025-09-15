@@ -240,7 +240,7 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
     SOSAccount* account = NULL;
 
     SOSDataSourceFactoryRef factory = accountDataSourceOverride ? accountDataSourceOverride()
-                                                                : SecItemDataSourceFactoryGetDefault();
+                                                                : SecItemServerDataSourceFactoryGetDefault();
 
     require_quiet(factory, done);
 
@@ -1619,7 +1619,7 @@ CFArrayRef SOSCCCopyViewUnawarePeerInfo_Server(CFErrorRef* error)
 CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error)
 {
     CFArrayRef result = NULL;
-    SOSDataSourceFactoryRef dsf = SecItemDataSourceFactoryGetDefault();
+    SOSDataSourceFactoryRef dsf = SecItemServerDataSourceFactoryGetDefault();
     SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, error);
     if (ds) {
         SOSEngineRef engine = SOSDataSourceGetSharedEngine(ds, error);
@@ -1660,7 +1660,6 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     
     __block dispatch_semaphore_t inSyncSema = NULL;
     __block bool result = false;
-    __block bool synced = false;
     __block CFStringRef inSyncCallID = NULL;
     __block time_t start;
     __block CFBooleanRef shouldUseInitialSyncV0BoolRef = kCFBooleanFalse;
@@ -1689,7 +1688,6 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
             inSyncSema = dispatch_semaphore_create(0);
             
             inSyncCallID = SOSAccountCallWhenInSync(txn.account, ^bool(SOSAccount* mightBeSynced) {
-                synced = true;
                 
                 if(inSyncSema){
                     dispatch_semaphore_signal(inSyncSema);
@@ -1697,9 +1695,6 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
                 }
                 return true;
             });
-        }
-        else{
-            synced = true;
         }
         return true;
     });
@@ -2318,7 +2313,7 @@ bool SOSCCSetCompatibilityMode_Server(bool compatibilityMode, CFErrorRef *error)
                 secnotice("sos-compatibility-mode", "Alerting SOS of account sign in");
                  txn.account.accountIsChanging = false;
                
-                txn.account.factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemDataSourceFactoryGetDefault();
+                txn.account.factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemServerDataSourceFactoryGetDefault();
                 [txn.account SOSMonitorModeEnableSOS];
                 [txn.account ensureFactoryCircles];
                 
@@ -2422,7 +2417,7 @@ bool SOSCCFetchCompatibilityMode_Server(CFErrorRef *error)
                 txn.account.sosCompatibilityMode = true;
                 txn.account.accountIsChanging = false;
                 
-                txn.account.factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemDataSourceFactoryGetDefault();
+                txn.account.factory = accountDataSourceOverride ? accountDataSourceOverride() : SecItemServerDataSourceFactoryGetDefault();
                 [txn.account SOSMonitorModeEnableSOS];
                 [txn.account ensureFactoryCircles];
                 

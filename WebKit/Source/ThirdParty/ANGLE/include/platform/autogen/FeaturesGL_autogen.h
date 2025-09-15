@@ -176,6 +176,12 @@ struct FeaturesGL : FeatureSetBase
         &members,
     };
 
+    FeatureInfo forceMaxCombinedShaderOutputResources = {
+        "forceMaxCombinedShaderOutputResources",
+        FeatureCategory::OpenGLFeatures,
+        &members,
+    };
+
     FeatureInfo dontUseLoopsToInitializeVariables = {
         "dontUseLoopsToInitializeVariables",
         FeatureCategory::OpenGLWorkarounds,
@@ -646,6 +652,12 @@ struct FeaturesGL : FeatureSetBase
 
     FeatureInfo disableBlendEquationAdvanced = {
         "disableBlendEquationAdvanced",
+        FeatureCategory::OpenGLWorkarounds,
+        &members,
+    };
+
+    FeatureInfo resetSampleCoverageOnFBOChange = {
+        "resetSampleCoverageOnFBOChange",
         FeatureCategory::OpenGLWorkarounds,
         &members,
     };

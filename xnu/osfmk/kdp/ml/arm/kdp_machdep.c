@@ -240,6 +240,7 @@ kdp_panic(const char * fmt, ...)
 {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 	char kdp_fmt[256];
 	va_list args;
 

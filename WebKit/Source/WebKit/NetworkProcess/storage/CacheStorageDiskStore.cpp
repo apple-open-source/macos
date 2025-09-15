@@ -65,7 +65,7 @@ static SHA1::Digest computeSHA1(std::span<const uint8_t> span, FileSystem::Salt 
 
 static String recordFilePathWithDirectory(const String& directory, const NetworkCache::Key& key)
 {
-    return FileSystem::pathByAppendingComponents(directory, { key.partitionHashAsString(), key.type(), key.hashAsString() });
+    return FileSystem::pathByAppendingComponents(directory, std::initializer_list<StringView>({ key.partitionHashAsString(), key.type(), key.hashAsString() }));
 }
 
 struct RecordMetaData {
@@ -359,7 +359,7 @@ void CacheStorageDiskStore::readAllRecordInfosInternal(ReadAllRecordInfosCallbac
                     continue;
 
                 auto recordFile = FileSystem::pathByAppendingComponent(cacheDirectory, recordName);
-                auto fileData = FileSystem::MappedFileData::create(recordFile, FileSystem::MappedFileMode::Private);
+                auto fileData = FileSystem::mapFile(recordFile, FileSystem::MappedFileMode::Private);
                 if (!fileData)
                     continue;
 
@@ -384,8 +384,8 @@ void CacheStorageDiskStore::readRecordsInternal(const Vector<CacheStorageRecordI
         Vector<std::optional<CacheStorageRecord>> records;
         for (auto& recordInfo : recordInfos) {
             auto recordFile = recordFilePathWithDirectory(directory, recordInfo.key());
-            auto fileData = valueOrDefault(FileSystem::MappedFileData::create(recordFile, FileSystem::MappedFileMode::Private));
-            auto blobData = !fileData.size() ? FileSystem::MappedFileData { } : valueOrDefault(FileSystem::MappedFileData::create(recordBlobFilePath(recordFile), FileSystem::MappedFileMode::Private));
+            auto fileData = valueOrDefault(FileSystem::mapFile(recordFile, FileSystem::MappedFileMode::Private));
+            auto blobData = !fileData.size() ? FileSystem::MappedFileData { } : valueOrDefault(FileSystem::mapFile(recordBlobFilePath(recordFile), FileSystem::MappedFileMode::Private));
             auto record = readRecordFromFileData(fileData.span(), WTFMove(blobData));
             if (!record) {
                 RELEASE_LOG(CacheStorage, "%p - CacheStorageDiskStore::readRecordsInternal fails to decode record from file", this);
@@ -531,12 +531,12 @@ void CacheStorageDiskStore::writeRecords(Vector<CacheStorageRecord>&& records, W
             auto recordBlobData = recordBlobDatas[index];
             FileSystem::makeAllDirectories(FileSystem::parentPath(recordFile));
             if (!recordBlobData.isEmpty())  {
-                if (FileSystem::overwriteEntireFile(recordBlobFilePath(recordFile), recordBlobData) == -1) {
+                if (!FileSystem::overwriteEntireFile(recordBlobFilePath(recordFile), recordBlobData)) {
                     result = false;
                     continue;
                 }
             }
-            if (FileSystem::overwriteEntireFile(recordFile, recordData) == -1)
+            if (!FileSystem::overwriteEntireFile(recordFile, recordData))
                 result = false;
         }
 

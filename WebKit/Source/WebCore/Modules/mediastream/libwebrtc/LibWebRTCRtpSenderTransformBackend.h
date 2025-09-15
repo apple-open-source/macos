@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc.
+ * Copyright (C) 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,18 +49,18 @@ class LibWebRTCSenderTransformer;
 class LibWebRTCRtpSenderTransformBackend final : public LibWebRTCRtpTransformBackend {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCRtpSenderTransformBackend);
 public:
-    static Ref<LibWebRTCRtpSenderTransformBackend> create(rtc::scoped_refptr<webrtc::RtpSenderInterface> sender) { return adoptRef(*new LibWebRTCRtpSenderTransformBackend(WTFMove(sender))); }
+    static Ref<LibWebRTCRtpSenderTransformBackend> create(webrtc::scoped_refptr<webrtc::RtpSenderInterface> sender) { return adoptRef(*new LibWebRTCRtpSenderTransformBackend(WTFMove(sender))); }
     ~LibWebRTCRtpSenderTransformBackend();
 
 private:
-    explicit LibWebRTCRtpSenderTransformBackend(rtc::scoped_refptr<webrtc::RtpSenderInterface>);
+    explicit LibWebRTCRtpSenderTransformBackend(webrtc::scoped_refptr<webrtc::RtpSenderInterface>);
 
     // RTCRtpTransformBackend
     void setTransformableFrameCallback(Callback&&) final;
-    void requestKeyFrame() final;
+    bool requestKeyFrame(const String&) final;
 
     bool m_isRegistered { false };
-    rtc::scoped_refptr<webrtc::RtpSenderInterface> m_rtcSender;
+    webrtc::scoped_refptr<webrtc::RtpSenderInterface> m_rtcSender;
 };
 
 } // namespace WebCore

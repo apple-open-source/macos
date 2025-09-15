@@ -236,8 +236,8 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     for (const auto& pair : _websitePolicies->activeContentRuleListActionPatterns()) {
         NSMutableSet<NSString *> *set = [NSMutableSet set];
         for (const auto& pattern : pair.value)
-            [set addObject:pattern];
-        [dictionary setObject:set forKey:pair.key];
+            [set addObject:pattern.createNSString().get()];
+        [dictionary setObject:set forKey:pair.key.createNSString().get()];
     }
     return dictionary;
 }
@@ -353,7 +353,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (_WKWebsiteDeviceOrientationAndMotionAccessPolicy)_deviceOrientationAndMotionAccessPolicy
 {
 #if ENABLE(DEVICE_ORIENTATION)
-    return toWKWebsiteDeviceOrientationAndMotionAccessPolicy(_websitePolicies->deviceOrientationAndMotionAccessState());
+    if (auto state = _websitePolicies->deviceOrientationAndMotionAccessState())
+        return toWKWebsiteDeviceOrientationAndMotionAccessPolicy(*state);
+    return _WKWebsiteDeviceOrientationAndMotionAccessPolicyAsk;
 #else
     return _WKWebsiteDeviceOrientationAndMotionAccessPolicyDeny;
 #endif
@@ -429,7 +431,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSString *)_customUserAgent
 {
-    return _websitePolicies->customUserAgent();
+    return _websitePolicies->customUserAgent().createNSString().autorelease();
 }
 
 - (void)_setCustomUserAgentAsSiteSpecificQuirks:(NSString *)customUserAgent
@@ -439,7 +441,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSString *)_customUserAgentAsSiteSpecificQuirks
 {
-    return _websitePolicies->customUserAgentAsSiteSpecificQuirks();
+    return _websitePolicies->customUserAgentAsSiteSpecificQuirks().createNSString().autorelease();
 }
 
 - (void)_setCustomNavigatorPlatform:(NSString *)customNavigatorPlatform
@@ -449,7 +451,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSString *)_customNavigatorPlatform
 {
-    return _websitePolicies->customNavigatorPlatform();
+    return _websitePolicies->customNavigatorPlatform().createNSString().autorelease();
 }
 
 - (BOOL)_allowSiteSpecificQuirksToOverrideCompatibilityMode
@@ -464,7 +466,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSString *)_applicationNameForUserAgentWithModernCompatibility
 {
-    return _websitePolicies->applicationNameForDesktopUserAgent();
+    return _websitePolicies->applicationNameForDesktopUserAgent().createNSString().autorelease();
 }
 
 - (void)_setApplicationNameForUserAgentWithModernCompatibility:(NSString *)applicationName
@@ -733,7 +735,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
         for (auto& selectors : selectorsForElement) {
             RetainPtr nsSelectors = adoptNS([[NSMutableSet alloc] initWithCapacity:selectors.size()]);
             for (auto& selector : selectors)
-                [nsSelectors addObject:selector];
+                [nsSelectors addObject:selector.createNSString().get()];
             [nsSelectorsForElement addObject:nsSelectors.get()];
         }
         [result addObject:nsSelectorsForElement.get()];
@@ -759,7 +761,7 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
         }
 
         for (auto& selector : elementSelectors.first())
-            [selectors addObject:selector];
+            [selectors addObject:selector.createNSString().get()];
     }
     return selectors.autorelease();
 }

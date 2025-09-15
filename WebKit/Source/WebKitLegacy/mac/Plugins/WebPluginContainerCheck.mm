@@ -40,7 +40,7 @@
 #import <WebCore/Document.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderTypes.h>
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/OriginAccessPatterns.h>
 #import <WebCore/SecurityOrigin.h>
 #import <wtf/Assertions.h>

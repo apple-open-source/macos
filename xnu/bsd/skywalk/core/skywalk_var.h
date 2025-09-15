@@ -111,8 +111,6 @@
 #define SK_ATOMIC_TEST_AND_SET(p)       (!os_atomic_cmpxchg((p), 0, 1, acq_rel))
 #define SK_ATOMIC_CLEAR(p)              os_atomic_store((p), 0, release)
 
-extern uint32_t sk_debug;
-
 /*
  * feature bits defined in os_skywalk_private.h
  */
@@ -351,7 +349,6 @@ typedef enum netif_mit_cfg {
 } netif_mit_cfg_t;
 extern uint32_t sk_netif_tx_mit;
 extern uint32_t sk_netif_rx_mit;
-extern uint32_t sk_rx_sync_packets;
 extern uint32_t sk_channel_buflet_alloc;
 extern uint32_t sk_min_pool_size;
 extern uint32_t sk_netif_queue_stat_enable;
@@ -504,15 +501,21 @@ extern boolean_t skywalk_check_platform_binary(proc_t);
 extern boolean_t skywalk_netif_direct_allowed(const char *);
 extern boolean_t skywalk_netif_direct_enabled(void);
 extern void sk_gen_guard_id(boolean_t, const uuid_t, guardid_t *);
-extern char *__counted_by(sizeof(uuid_string_t)) sk_uuid_unparse(const uuid_t, uuid_string_t);
+extern char *__counted_by(sizeof(uuid_string_t)) sk_uuid_unparse(const uuid_t,
+    uuid_string_t);
 #if SK_LOG
-extern const char *__counted_by(lim) sk_dump(const char *label,
-    const void *__sized_by(len) obj, int len, int dumplen,
-    char *__counted_by(lim) dst, int lim);
+#define SK_DUMP_BUF_SIZE        2048
+extern const char *__counted_by(SK_DUMP_BUF_SIZE) sk_dump(const char *label,
+    const void *__sized_by(len) obj, int len, int dumplen);
 extern const char *sk_proc_name_address(struct proc *);
+extern const char *sk_proc_name(struct proc *);
 extern int sk_proc_pid(struct proc *);
-extern const char *sk_sa_ntop(struct sockaddr *, char *__counted_by(addr_strlen),
-    size_t addr_strlen);
+
+/* skywalk ntop function that follows privacy (IP redaction) setting */
+extern const char * sk_ntop(int af, const void *addr,
+    char *__counted_by(addr_strlen)addr_str, size_t addr_strlen);
+extern const char *sk_sa_ntop(struct sockaddr *sa,
+    char *__counted_by(addr_strlen)addr_str, size_t addr_strlen);
 extern const char *sk_memstatus2str(uint32_t);
 #endif /* SK_LOG */
 

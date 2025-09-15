@@ -67,6 +67,10 @@ AcceleratedBackingStoreDMABuf::AcceleratedBackingStoreDMABuf(WebPageProxy& webPa
 
 AcceleratedBackingStoreDMABuf::~AcceleratedBackingStoreDMABuf()
 {
+    if (m_surfaceID) {
+        if (RefPtr legacyMainFrameProcess = m_legacyMainFrameProcess.get())
+            legacyMainFrameProcess->removeMessageReceiver(Messages::AcceleratedBackingStoreDMABuf::messageReceiverName(), m_surfaceID);
+    }
     g_signal_handlers_disconnect_by_data(m_wpeView.get(), this);
 }
 
@@ -79,7 +83,7 @@ void AcceleratedBackingStoreDMABuf::updateSurfaceID(uint64_t surfaceID)
         if (m_pendingBuffer) {
             frameDone();
             m_pendingBuffer = nullptr;
-            m_pendingDamageRegion = { };
+            m_pendingDamageRects = { };
         }
         m_buffers.clear();
         m_bufferIDs.clear();
@@ -100,7 +104,7 @@ void AcceleratedBackingStoreDMABuf::didCreateBuffer(uint64_t id, const WebCore::
     fileDescriptors.reserveInitialCapacity(fds.size());
     for (auto& fd : fds)
         fileDescriptors.append(fd.release());
-    GRefPtr<WPEBuffer> buffer = adoptGRef(WPE_BUFFER(wpe_buffer_dma_buf_new(m_wpeView.get(), size.width(), size.height(), format, fds.size(), fileDescriptors.data(), offsets.data(), strides.data(), modifier)));
+    GRefPtr<WPEBuffer> buffer = adoptGRef(WPE_BUFFER(wpe_buffer_dma_buf_new(wpe_view_get_display(m_wpeView.get()), size.width(), size.height(), format, fds.size(), fileDescriptors.mutableSpan().data(), offsets.mutableSpan().data(), strides.mutableSpan().data(), modifier)));
     g_object_set_data(G_OBJECT(buffer.get()), "wk-buffer-format-usage", GUINT_TO_POINTER(usage));
     m_bufferIDs.add(buffer.get(), id);
     m_buffers.add(id, WTFMove(buffer));
@@ -119,7 +123,7 @@ void AcceleratedBackingStoreDMABuf::didCreateBufferSHM(uint64_t id, WebCore::Sha
         delete static_cast<WebCore::ShareableBitmap*>(userData);
     }, bitmap.leakRef()));
 
-    GRefPtr<WPEBuffer> buffer = adoptGRef(WPE_BUFFER(wpe_buffer_shm_new(m_wpeView.get(), size.width(), size.height(), WPE_PIXEL_FORMAT_ARGB8888, bytes.get(), stride)));
+    GRefPtr<WPEBuffer> buffer = adoptGRef(WPE_BUFFER(wpe_buffer_shm_new(wpe_view_get_display(m_wpeView.get()), size.width(), size.height(), WPE_PIXEL_FORMAT_ARGB8888, bytes.get(), stride)));
     m_bufferIDs.add(buffer.get(), id);
     m_buffers.add(id, WTFMove(buffer));
 }
@@ -130,7 +134,7 @@ void AcceleratedBackingStoreDMABuf::didDestroyBuffer(uint64_t id)
         m_bufferIDs.remove(buffer.get());
 }
 
-void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, WebCore::Region&& damageRegion, WTF::UnixFileDescriptor&& renderingFenceFD)
+void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, Rects&& damageRects, WTF::UnixFileDescriptor&& renderingFenceFD)
 {
     ASSERT(!m_pendingBuffer);
     auto* buffer = m_buffers.get(bufferID);
@@ -140,7 +144,7 @@ void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, WebCore::Region&& d
     }
 
     m_pendingBuffer = buffer;
-    m_pendingDamageRegion = WTFMove(damageRegion);
+    m_pendingDamageRects = WTFMove(damageRects);
     if (wpe_display_use_explicit_sync(wpe_view_get_display(m_wpeView.get()))) {
         if (WPE_IS_BUFFER_DMA_BUF(m_pendingBuffer.get()))
             wpe_buffer_dma_buf_set_rendering_fence(WPE_BUFFER_DMA_BUF(m_pendingBuffer.get()), renderingFenceFD.release());
@@ -155,17 +159,16 @@ void AcceleratedBackingStoreDMABuf::renderPendingBuffer()
     // to pass directly a pointer below instead of using copies.
     static_assert(sizeof(WebCore::IntRect) == sizeof(WPERectangle));
 
-    auto damageRects = m_pendingDamageRegion.rects();
-    ASSERT(damageRects.size() <= std::numeric_limits<guint>::max());
-    const auto* rects = !damageRects.isEmpty() ? reinterpret_cast<const WPERectangle*>(damageRects.data()) : nullptr;
+    ASSERT(m_pendingDamageRects.size() <= std::numeric_limits<guint>::max());
+    const auto* rects = !m_pendingDamageRects.isEmpty() ? reinterpret_cast<const WPERectangle*>(m_pendingDamageRects.span().data()) : nullptr;
 
     GUniqueOutPtr<GError> error;
-    if (!wpe_view_render_buffer(m_wpeView.get(), m_pendingBuffer.get(), rects, damageRects.size(), &error.outPtr())) {
+    if (!wpe_view_render_buffer(m_wpeView.get(), m_pendingBuffer.get(), rects, m_pendingDamageRects.size(), &error.outPtr())) {
         g_warning("Failed to render frame: %s", error->message);
         frameDone();
         m_pendingBuffer = nullptr;
     }
-    m_pendingDamageRegion = { };
+    m_pendingDamageRects = { };
 }
 
 void AcceleratedBackingStoreDMABuf::frameDone()

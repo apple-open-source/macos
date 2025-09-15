@@ -44,7 +44,7 @@ ImageGStreamer::ImageGStreamer(GRefPtr<GstSample>&& sample)
     ASSERT(GST_VIDEO_INFO_IS_RGB(&videoInfo));
 
     GstBuffer* buffer = gst_sample_get_buffer(m_sample.get());
-    if (UNLIKELY(!GST_IS_BUFFER(buffer)))
+    if (!GST_IS_BUFFER(buffer)) [[unlikely]]
         return;
 
     m_frameMapped = gst_video_frame_map(&m_videoFrame, &videoInfo, buffer, GST_MAP_READ);

@@ -54,12 +54,12 @@
  */
 #include <sys/systm.h>
 #include <skywalk/os_skywalk_private.h>
-#include <skywalk/nexus/monitor/nx_monitor.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <skywalk/nexus/netif/nx_netif.h>
 #include <skywalk/nexus/upipe/nx_user_pipe.h>
 #include <skywalk/nexus/kpipe/nx_kernel_pipe.h>
 #include <kern/thread.h>
+#include <kern/uipc_domain.h>
 
 static int na_krings_use(struct kern_channel *);
 static void na_krings_unuse(struct kern_channel *);
@@ -181,13 +181,12 @@ na_init(void)
 	 * the expected limit and that it's properly aligned.  This
 	 * check may be adjusted in future as needed.
 	 */
-	_CASSERT(sizeof(struct nexus_mdata) <= 32 &&
-	    IS_P2ALIGNED(sizeof(struct nexus_mdata), 8));
-	_CASSERT(sizeof(struct nexus_mdata) <= sizeof(struct __user_quantum));
+	static_assert(sizeof(struct nexus_mdata) <= 32 && IS_P2ALIGNED(sizeof(struct nexus_mdata), 8));
+	static_assert(sizeof(struct nexus_mdata) <= sizeof(struct __user_quantum));
 
 	/* see comments on nexus_meta_type_t */
-	_CASSERT(NEXUS_META_TYPE_MAX == 3);
-	_CASSERT(NEXUS_META_SUBTYPE_MAX == 3);
+	static_assert(NEXUS_META_TYPE_MAX == 3);
+	static_assert(NEXUS_META_SUBTYPE_MAX == 3);
 
 	ASSERT(!__na_inited);
 
@@ -333,7 +332,7 @@ na_krings_use(struct kern_channel *ch)
 	enum txrx t;
 	uint32_t i;
 
-	SK_DF(SK_VERB_NA | SK_VERB_RING, "na \"%s\" (0x%llx) grabbing tx [%u,%u) rx [%u,%u)",
+	SK_DF(SK_VERB_NA | SK_VERB_RING, "na \"%s\" (%p) grabbing tx [%u,%u) rx [%u,%u)",
 	    na->na_name, SK_KVA(na), ch->ch_first[NR_TX], ch->ch_last[NR_TX],
 	    ch->ch_first[NR_RX], ch->ch_last[NR_RX]);
 
@@ -348,9 +347,9 @@ na_krings_use(struct kern_channel *ch)
 			if ((kring->ckr_flags & CKRF_EXCLUSIVE) ||
 			    (kring->ckr_users && excl)) {
 				SK_DF(SK_VERB_NA | SK_VERB_RING,
-				    "kr \"%s\" (0x%llx) krflags 0x%b is busy",
+				    "kr \"%s\" (%p) krflags 0x%x is busy",
 				    kring->ckr_name, SK_KVA(kring),
-				    kring->ckr_flags, CKRF_BITS);
+				    kring->ckr_flags);
 				return EBUSY;
 			}
 		}
@@ -386,7 +385,7 @@ na_krings_unuse(struct kern_channel *ch)
 	uint32_t i;
 
 	SK_DF(SK_VERB_NA | SK_VERB_RING,
-	    "na \"%s\" (0x%llx) releasing tx [%u, %u) rx [%u, %u)",
+	    "na \"%s\" (%p) releasing tx [%u, %u) rx [%u, %u)",
 	    na->na_name, SK_KVA(na), ch->ch_first[NR_TX], ch->ch_last[NR_TX],
 	    ch->ch_first[NR_RX], ch->ch_last[NR_RX]);
 
@@ -459,18 +458,11 @@ na_bind_channel(struct nexus_adapter *na, struct kern_channel *ch,
 	if (ch_mode & CHMODE_EXCLUSIVE) {
 		os_atomic_or(&ch->ch_flags, CHANF_EXCLUSIVE, relaxed);
 	}
-	/*
-	 * Disallow automatic sync for monitor mode, since TX
-	 * direction is disabled.
-	 */
-	if (ch_mode & CHMODE_MONITOR) {
-		os_atomic_or(&ch->ch_flags, CHANF_RXONLY, relaxed);
-	}
 
 	if (!!(na->na_flags & NAF_USER_PKT_POOL) ^
 	    !!(ch_mode & CHMODE_USER_PACKET_POOL)) {
-		SK_ERR("incompatible channel mode (0x%b), na_flags (0x%b)",
-		    ch_mode, CHMODE_BITS, na->na_flags, NAF_BITS);
+		SK_ERR("incompatible channel mode (0x%x), na_flags (0x%x)",
+		    ch_mode, na->na_flags);
 		err = EINVAL;
 		goto err;
 	}
@@ -557,6 +549,7 @@ na_bind_channel(struct nexus_adapter *na, struct kern_channel *ch,
 			goto err_free_schema;
 		}
 		ch->ch_pp = rx_pp;
+		ch->ch_schema->csm_upp_buf_total = rx_pp->pp_kmd_region->skr_c_obj_cnt;
 	}
 
 	if (!NA_IS_ACTIVE(na)) {
@@ -565,28 +558,28 @@ na_bind_channel(struct nexus_adapter *na, struct kern_channel *ch,
 			goto err_release_pp;
 		}
 
-		SK_D("activated \"%s\" adapter 0x%llx", na->na_name,
+		SK_DF(SK_VERB_NA, "activated \"%s\" adapter %p", na->na_name,
 		    SK_KVA(na));
-		SK_D("  na_md_type:    %u", na->na_md_type);
-		SK_D("  na_md_subtype: %u", na->na_md_subtype);
+		SK_DF(SK_VERB_NA, "  na_md_type:    %u", na->na_md_type);
+		SK_DF(SK_VERB_NA, "  na_md_subtype: %u", na->na_md_subtype);
 	}
 
-	SK_D("ch 0x%llx", SK_KVA(ch));
-	SK_D("  ch_flags:     0x%b", ch->ch_flags, CHANF_BITS);
+	SK_DF(SK_VERB_NA, "ch %p", SK_KVA(ch));
+	SK_DF(SK_VERB_NA, "  ch_flags:     0x%x", ch->ch_flags);
 	if (ch->ch_schema != NULL) {
-		SK_D("  ch_schema:    0x%llx", SK_KVA(ch->ch_schema));
+		SK_DF(SK_VERB_NA, "  ch_schema:    %p", SK_KVA(ch->ch_schema));
 	}
-	SK_D("  ch_na:        0x%llx (chcnt %u)", SK_KVA(ch->ch_na),
+	SK_DF(SK_VERB_NA, "  ch_na:        %p (chcnt %u)", SK_KVA(ch->ch_na),
 	    ch->ch_na->na_channels);
-	SK_D("  ch_tx_rings:  [%u,%u)", ch->ch_first[NR_TX],
+	SK_DF(SK_VERB_NA, "  ch_tx_rings:  [%u,%u)", ch->ch_first[NR_TX],
 	    ch->ch_last[NR_TX]);
-	SK_D("  ch_rx_rings:  [%u,%u)", ch->ch_first[NR_RX],
+	SK_DF(SK_VERB_NA, "  ch_rx_rings:  [%u,%u)", ch->ch_first[NR_RX],
 	    ch->ch_last[NR_RX]);
-	SK_D("  ch_alloc_rings:  [%u,%u)", ch->ch_first[NR_A],
+	SK_DF(SK_VERB_NA, "  ch_alloc_rings:  [%u,%u)", ch->ch_first[NR_A],
 	    ch->ch_last[NR_A]);
-	SK_D("  ch_free_rings:  [%u,%u)", ch->ch_first[NR_F],
+	SK_DF(SK_VERB_NA, "  ch_free_rings:  [%u,%u)", ch->ch_first[NR_F],
 	    ch->ch_last[NR_F]);
-	SK_D("  ch_ev_rings:  [%u,%u)", ch->ch_first[NR_EV],
+	SK_DF(SK_VERB_NA, "  ch_ev_rings:  [%u,%u)", ch->ch_first[NR_EV],
 	    ch->ch_last[NR_EV]);
 
 	return 0;
@@ -642,7 +635,7 @@ na_unbind_channel(struct kern_channel *ch)
 	na_krings_unuse(ch);
 
 	if (na->na_channels == 0) {     /* last instance */
-		SK_D("%s(%d): deleting last channel instance for %s",
+		SK_DF(SK_VERB_NA, "%s(%d): deleting last channel instance for %s",
 		    ch->ch_name, ch->ch_pid, na->na_name);
 
 		/*
@@ -675,7 +668,7 @@ na_unbind_channel(struct kern_channel *ch)
 	na_unset_ringid(ch);
 
 	/* reap the caches now (purge if adapter is idle) */
-	skmem_arena_reap(na->na_arena, (na->na_channels == 0));
+	skmem_arena_reap(na->na_arena, true);
 
 	/* delete the csm */
 	if (ch->ch_schema != NULL) {
@@ -703,14 +696,6 @@ na_teardown(struct nexus_adapter *na, struct kern_channel *ch,
 {
 	SK_LOCK_ASSERT_HELD();
 	LCK_MTX_ASSERT(&ch->ch_lock, LCK_MTX_ASSERT_OWNED);
-
-#if CONFIG_NEXUS_MONITOR
-	/*
-	 * Walk through all the rings and tell any monitor
-	 * that the port is going to exit Skywalk mode
-	 */
-	nx_mon_stop(na);
-#endif /* CONFIG_NEXUS_MONITOR */
 
 	/*
 	 * Deactive the adapter.
@@ -775,14 +760,10 @@ na_schema_alloc(struct kern_channel *ch)
 #undef ASSERT_COUNT_TYPES_MATCH
 
 	/* see comments for struct __user_channel_schema */
-	_CASSERT(offsetof(struct __user_channel_schema, csm_ver) == 0);
-	_CASSERT(offsetof(struct __user_channel_schema, csm_flags) ==
-	    sizeof(csm->csm_ver));
-	_CASSERT(offsetof(struct __user_channel_schema, csm_kern_name) ==
-	    sizeof(csm->csm_ver) + sizeof(csm->csm_flags));
-	_CASSERT(offsetof(struct __user_channel_schema, csm_kern_uuid) ==
-	    sizeof(csm->csm_ver) + sizeof(csm->csm_flags) +
-	    sizeof(csm->csm_kern_name));
+	static_assert(offsetof(struct __user_channel_schema, csm_ver) == 0);
+	static_assert(offsetof(struct __user_channel_schema, csm_flags) == sizeof(csm->csm_ver));
+	static_assert(offsetof(struct __user_channel_schema, csm_kern_name) == sizeof(csm->csm_ver) + sizeof(csm->csm_flags));
+	static_assert(offsetof(struct __user_channel_schema, csm_kern_uuid) == sizeof(csm->csm_ver) + sizeof(csm->csm_flags) + sizeof(csm->csm_kern_name));
 
 	SK_LOCK_ASSERT_HELD();
 
@@ -841,7 +822,7 @@ na_schema_alloc(struct kern_channel *ch)
 	*(uint32_t *)(uintptr_t)&csm->csm_ver = CSM_CURRENT_VERSION;
 
 	/* kernel version and executable UUID */
-	_CASSERT(sizeof(csm->csm_kern_name) == _SYS_NAMELEN);
+	static_assert(sizeof(csm->csm_kern_name) == _SYS_NAMELEN);
 
 	(void) strlcpy(csm->csm_kern_name, version, sizeof(csm->csm_kern_name));
 
@@ -1119,7 +1100,7 @@ na_attach_common(struct nexus_adapter *na, struct kern_nexus *nx,
 	na->na_nx = nx;
 	na->na_nxdom_prov = nxdom_prov;
 
-	SK_D("na 0x%llx nx 0x%llx nxtype %u ar 0x%llx",
+	SK_DF(SK_VERB_NA, "na %p nx %p nxtype %u ar %p",
 	    SK_KVA(na), SK_KVA(nx), nxdom_prov->nxdom_prov_dom->nxdom_type,
 	    SK_KVA(na->na_arena));
 }
@@ -1131,11 +1112,10 @@ na_post_event(struct __kern_channel_ring *kring, boolean_t nodelay,
 	struct nexus_adapter *na = KRNA(kring);
 	enum txrx t = kring->ckr_tx;
 
-	SK_DF(SK_VERB_EVENTS,
-	    "%s(%d) na \"%s\" (0x%llx) kr 0x%llx kev %u sel %u hint 0x%b",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
+	SK_PDF(SK_VERB_EVENTS, current_proc(),
+	    "na \"%s\" (%p) kr %p kev %u sel %u hint 0x%x",
 	    na->na_name, SK_KVA(na), SK_KVA(kring), within_kevent, selwake,
-	    hint, CHAN_FILT_HINT_BITS);
+	    hint);
 
 	csi_selwakeup_one(kring, nodelay, within_kevent, selwake, hint);
 	/*
@@ -1155,13 +1135,13 @@ na_notify(struct __kern_channel_ring *kring, struct proc *p, uint32_t flags)
 #pragma unused(p)
 	SK_DF(SK_VERB_NOTIFY | ((kring->ckr_tx == NR_TX) ?
 	    SK_VERB_TX : SK_VERB_RX),
-	    "%s(%d) [%s] na \"%s\" (0x%llx) kr \"%s\" (0x%llx) krflags 0x%b "
+	    "%s(%d) [%s] na \"%s\" (%p) kr \"%s\" (%p) krflags 0x%x "
 	    "flags 0x%x, kh %u kt %u | h %u t %u",
-	    sk_proc_name_address(p), sk_proc_pid(p),
+	    sk_proc_name(p), sk_proc_pid(p),
 	    (kring->ckr_tx == NR_TX) ? "W" : "R", KRNA(kring)->na_name,
 	    SK_KVA(KRNA(kring)), kring->ckr_name, SK_KVA(kring),
-	    kring->ckr_flags, CKRF_BITS, flags, kring->ckr_khead,
-	    kring->ckr_ktail, kring->ckr_rhead, kring->ckr_rtail);
+	    kring->ckr_flags, flags, kring->ckr_khead, kring->ckr_ktail,
+	    kring->ckr_rhead, kring->ckr_rtail);
 
 	na_post_event(kring, (flags & NA_NOTEF_PUSH),
 	    (flags & NA_NOTEF_IN_KEVENT), TRUE, 0);
@@ -1197,14 +1177,14 @@ na_update_config(struct nexus_adapter *na)
 	    na_get_nslots(na, NR_RX) == rxd) {
 		return 0; /* nothing changed */
 	}
-	SK_D("stored config %s: txring %u x %u, rxring %u x %u",
+	SK_DF(SK_VERB_NA, "stored config %s: txring %u x %u, rxring %u x %u",
 	    na->na_name, na_get_nrings(na, NR_TX), na_get_nslots(na, NR_TX),
 	    na_get_nrings(na, NR_RX), na_get_nslots(na, NR_RX));
-	SK_D("new config %s: txring %u x %u, rxring %u x %u",
+	SK_DF(SK_VERB_NA, "new config %s: txring %u x %u, rxring %u x %u",
 	    na->na_name, txr, txd, rxr, rxd);
 
 	if (na->na_channels == 0) {
-		SK_D("configuration changed (but fine)");
+		SK_DF(SK_VERB_NA, "configuration changed (but fine)");
 		na_set_nrings(na, NR_TX, txr);
 		na_set_nslots(na, NR_TX, txd);
 		na_set_nrings(na, NR_RX, rxr);
@@ -1224,35 +1204,29 @@ na_kr_setup_netif_svc_map(struct nexus_adapter *na)
 	ASSERT(na->na_type == NA_NETIF_DEV);
 	num_tx_rings = na_get_nrings(na, NR_TX);
 
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_BK_SYS) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_BK));
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_BE) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_RD));
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_BE) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_OAM));
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_AV) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_RV));
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_AV) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_VI));
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_VO) ==
-	    NAKR_WMM_SC2RINGID(KPKT_SC_CTL));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_BK_SYS) == NAKR_WMM_SC2RINGID(KPKT_SC_BK));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_BE) == NAKR_WMM_SC2RINGID(KPKT_SC_RD));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_BE) == NAKR_WMM_SC2RINGID(KPKT_SC_OAM));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_AV) == NAKR_WMM_SC2RINGID(KPKT_SC_RV));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_AV) == NAKR_WMM_SC2RINGID(KPKT_SC_VI));
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_VO) == NAKR_WMM_SC2RINGID(KPKT_SC_CTL));
 
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_BK) < NA_NUM_WMM_CLASSES);
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_BE) < NA_NUM_WMM_CLASSES);
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_VI) < NA_NUM_WMM_CLASSES);
-	_CASSERT(NAKR_WMM_SC2RINGID(KPKT_SC_VO) < NA_NUM_WMM_CLASSES);
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_BK) < NA_NUM_WMM_CLASSES);
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_BE) < NA_NUM_WMM_CLASSES);
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_VI) < NA_NUM_WMM_CLASSES);
+	static_assert(NAKR_WMM_SC2RINGID(KPKT_SC_VO) < NA_NUM_WMM_CLASSES);
 
-	_CASSERT(MBUF_SCIDX(KPKT_SC_BK_SYS) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_BK) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_BE) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_RD) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_OAM) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_AV) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_RV) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_VI) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_SIG) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_VO) < KPKT_SC_MAX_CLASSES);
-	_CASSERT(MBUF_SCIDX(KPKT_SC_CTL) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_BK_SYS) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_BK) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_BE) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_RD) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_OAM) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_AV) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_RV) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_VI) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_SIG) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_VO) < KPKT_SC_MAX_CLASSES);
+	static_assert(MBUF_SCIDX(KPKT_SC_CTL) < KPKT_SC_MAX_CLASSES);
 
 	/*
 	 * we support the following 2 configurations:
@@ -1607,14 +1581,6 @@ na_kr_create(struct nexus_adapter *na, boolean_t alloc_ctx)
 					kring->ckr_finalize = NULL;
 					break;
 #endif /* CONFIG_NEXUS_USER_PIPE */
-#if CONFIG_NEXUS_MONITOR
-				case NA_MONITOR:
-					ASSERT(!(na->na_flags &
-					    NAF_USER_PKT_POOL));
-					kring->ckr_prologue = kr_txprologue;
-					kring->ckr_finalize = NULL;
-					break;
-#endif /* CONFIG_NEXUS_MONITOR */
 				default:
 					if (na->na_flags & NAF_USER_PKT_POOL) {
 						kring->ckr_prologue =
@@ -1645,15 +1611,6 @@ na_kr_create(struct nexus_adapter *na, boolean_t alloc_ctx)
 					kring->ckr_finalize = kr_rxfinalize;
 					break;
 #endif /* CONFIG_NEXUS_USER_PIPE */
-#if CONFIG_NEXUS_MONITOR
-				case NA_MONITOR:
-					ASSERT(!(na->na_flags &
-					    NAF_USER_PKT_POOL));
-					kring->ckr_prologue =
-					    kr_rxprologue_nodetach;
-					kring->ckr_finalize = kr_rxfinalize;
-					break;
-#endif /* CONFIG_NEXUS_MONITOR */
 				default:
 					if (na->na_flags & NAF_USER_PKT_POOL) {
 						kring->ckr_prologue =
@@ -1691,9 +1648,9 @@ na_kr_create(struct nexus_adapter *na, boolean_t alloc_ctx)
 			    "%s %s%u%s", na->na_name, sk_ring2str(t), i,
 			    ((kring->ckr_flags & CKRF_HOST) ? "^" : ""));
 			SK_DF(SK_VERB_NA | SK_VERB_RING,
-			    "kr \"%s\" (0x%llx) krflags 0x%b rh %u rt %u",
+			    "kr \"%s\" (%p) krflags 0x%x rh %u rt %u",
 			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-			    CKRF_BITS, kring->ckr_rhead, kring->ckr_rtail);
+			    kring->ckr_rhead, kring->ckr_rtail);
 			kring->ckr_state = KR_READY;
 			q_lck_grp = na_kr_q_lck_grp(t);
 			s_lck_grp = na_kr_s_lck_grp(t);
@@ -1893,7 +1850,7 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 
 			if (ring != NULL) {
 				SK_DF(SK_VERB_NA | SK_VERB_RING,
-				    "kr 0x%llx (\"%s\") is already "
+				    "kr %p (\"%s\") is already "
 				    "initialized", SK_KVA(kring),
 				    kring->ckr_name);
 				continue; /* already created by somebody else */
@@ -1903,7 +1860,7 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 			    (ring = skmem_cache_alloc(arn->arn_ring_cache,
 			    SKMEM_NOSLEEP)) == NULL) {
 				SK_ERR("Cannot allocate %s_ring for kr "
-				    "0x%llx (\"%s\")", sk_ring2str(t),
+				    "%p (\"%s\")", sk_ring2str(t),
 				    SK_KVA(kring), kring->ckr_name);
 				goto cleanup;
 			}
@@ -1935,8 +1892,7 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 			    (roff[SKMEM_REGION_BUF_LARGE] - ring_off);
 			*(mach_vm_offset_t *)(uintptr_t)&ring->ring_md_base =
 			    (roff[SKMEM_REGION_UMD] - ring_off);
-			_CASSERT(sizeof(uint16_t) ==
-			    sizeof(ring->ring_bft_size));
+			static_assert(sizeof(uint16_t) == sizeof(ring->ring_bft_size));
 			if (roff[SKMEM_REGION_UBFT] != 0) {
 				ASSERT(ar->ar_regions[SKMEM_REGION_UBFT] !=
 				    NULL);
@@ -1971,12 +1927,9 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 			*(slot_idx_t *)(uintptr_t)&ring->ring_tail =
 			    kring->ckr_rtail;
 
-			_CASSERT(sizeof(uint32_t) ==
-			    sizeof(ring->ring_def_buf_size));
-			_CASSERT(sizeof(uint32_t) ==
-			    sizeof(ring->ring_large_buf_size));
-			_CASSERT(sizeof(uint16_t) ==
-			    sizeof(ring->ring_md_size));
+			static_assert(sizeof(uint32_t) == sizeof(ring->ring_def_buf_size));
+			static_assert(sizeof(uint32_t) == sizeof(ring->ring_large_buf_size));
+			static_assert(sizeof(uint16_t) == sizeof(ring->ring_md_size));
 			*(uint32_t *)(uintptr_t)&ring->ring_def_buf_size =
 			    ar->ar_regions[SKMEM_REGION_BUF_DEF]->skr_c_obj_size;
 			if (ar->ar_regions[SKMEM_REGION_BUF_LARGE] != NULL) {
@@ -1999,15 +1952,15 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 			}
 
 			/* ring info */
-			_CASSERT(sizeof(uint16_t) == sizeof(ring->ring_id));
-			_CASSERT(sizeof(uint16_t) == sizeof(ring->ring_kind));
+			static_assert(sizeof(uint16_t) == sizeof(ring->ring_id));
+			static_assert(sizeof(uint16_t) == sizeof(ring->ring_kind));
 			*(uint16_t *)(uintptr_t)&ring->ring_id =
 			    (uint16_t)kring->ckr_ring_id;
 			*(uint16_t *)(uintptr_t)&ring->ring_kind =
 			    (uint16_t)kring->ckr_tx;
 
 			SK_DF(SK_VERB_NA | SK_VERB_RING,
-			    "%s_ring at 0x%llx kr 0x%llx (\"%s\")",
+			    "%s_ring at %p kr %p (\"%s\")",
 			    sk_ring2str(t), SK_KVA(ring), SK_KVA(kring),
 			    kring->ckr_name);
 			SK_DF(SK_VERB_NA | SK_VERB_RING,
@@ -2025,19 +1978,19 @@ na_kr_setup(struct nexus_adapter *na, struct kern_channel *ch)
 			    "  sd_base:    0x%llx",
 			    (uint64_t)ring->ring_sd_base);
 			SK_DF(SK_VERB_NA | SK_VERB_RING,
-			    "  h, t:    %u, %u, %u", ring->ring_head,
+			    "  h, t:    %u, %u", ring->ring_head,
 			    ring->ring_tail);
 			SK_DF(SK_VERB_NA | SK_VERB_RING,
-			    "  md_size:    %d",
+			    "  md_size:    %llu",
 			    (uint64_t)ring->ring_md_size);
 
 			/* make sure they're in synch */
-			_CASSERT(NR_RX == CR_KIND_RX);
-			_CASSERT(NR_TX == CR_KIND_TX);
-			_CASSERT(NR_A == CR_KIND_ALLOC);
-			_CASSERT(NR_F == CR_KIND_FREE);
-			_CASSERT(NR_EV == CR_KIND_EVENT);
-			_CASSERT(NR_LBA == CR_KIND_LARGE_BUF_ALLOC);
+			static_assert(NR_RX == CR_KIND_RX);
+			static_assert(NR_TX == CR_KIND_TX);
+			static_assert(NR_A == CR_KIND_ALLOC);
+			static_assert(NR_F == CR_KIND_FREE);
+			static_assert(NR_EV == CR_KIND_EVENT);
+			static_assert(NR_LBA == CR_KIND_LARGE_BUF_ALLOC);
 
 skip_user_ring_setup:
 			/*
@@ -2056,7 +2009,7 @@ skip_user_ring_setup:
 			    SKMEM_NOSLEEP);
 			if (ksds == NULL) {
 				SK_ERR("Cannot allocate %s_ksds for kr "
-				    "0x%llx (\"%s\")", sk_ring2str(t),
+				    "%p (\"%s\")", sk_ring2str(t),
 				    SK_KVA(kring), kring->ckr_name);
 				goto cleanup;
 			}
@@ -2080,7 +2033,7 @@ skip_user_ring_setup:
 			    !(na->na_flags & NAF_USER_PKT_POOL) &&
 			    na_kr_populate_slots(kring) != 0) {
 				SK_ERR("Cannot allocate buffers for kr "
-				    "0x%llx (\"%s\")", SK_KVA(kring),
+				    "%p (\"%s\")", SK_KVA(kring),
 				    kring->ckr_name);
 				goto cleanup;
 			}
@@ -2289,7 +2242,6 @@ na_kr_populate_slots(struct __kern_channel_ring *kring)
 		__builtin_unreachable();
 
 	case NEXUS_TYPE_USER_PIPE:
-	case NEXUS_TYPE_MONITOR:
 		break;
 
 	default:
@@ -2305,7 +2257,7 @@ na_kr_populate_slots(struct __kern_channel_ring *kring)
 		    SKMEM_NOSLEEP));
 		if (kqum == NULL) {
 			err = ENOMEM;
-			SK_ERR("ar 0x%llx (\"%s\") no more buffers "
+			SK_ERR("ar %p (\"%s\") no more buffers "
 			    "after %u of %u, err %d", SK_KVA(na->na_arena),
 			    na->na_arena->ar_name, i, nslots, err);
 			goto cleanup;
@@ -2323,13 +2275,13 @@ na_kr_populate_slots(struct __kern_channel_ring *kring)
 			    kqum, current_proc());
 		}
 
-		SK_DF(SK_VERB_MEM, " C ksd [%-3d, 0x%llx] kqum [%-3u, 0x%llx] "
-		    " kbuf[%-3u, 0x%llx]", i, SK_KVA(ksd), METADATA_IDX(kqum),
+		SK_DF(SK_VERB_MEM, " C ksd [%-3d, %p] kqum [%-3u, %p] "
+		    " kbuf[%-3u, %p]", i, SK_KVA(ksd), METADATA_IDX(kqum),
 		    SK_KVA(kqum), kqum->qum_buf[0].buf_idx,
 		    SK_KVA(&kqum->qum_buf[0]));
 		if (!(kqum->qum_qflags & QUM_F_KERNEL_ONLY)) {
-			SK_DF(SK_VERB_MEM, " C usd [%-3d, 0x%llx] "
-			    "uqum [%-3u, 0x%llx]  ubuf[%-3u, 0x%llx]",
+			SK_DF(SK_VERB_MEM, " C usd [%-3d, %p] "
+			    "uqum [%-3u, %p]  ubuf[%-3u, %p]",
 			    (int)(usd ? usd->sd_md_idx : OBJ_IDX_NONE),
 			    SK_KVA(usd), METADATA_IDX(kqum),
 			    SK_KVA(kqum->qum_user),
@@ -2340,7 +2292,7 @@ na_kr_populate_slots(struct __kern_channel_ring *kring)
 		sidx = SLOT_NEXT(sidx, kring->ckr_lim);
 	}
 
-	SK_DF(SK_VERB_NA | SK_VERB_RING, "ar 0x%llx (\"%s\") populated %u slots from idx %u",
+	SK_DF(SK_VERB_NA | SK_VERB_RING, "ar %p (\"%s\") populated %u slots from idx %u",
 	    SK_KVA(na->na_arena), na->na_arena->ar_name, nslots, start_idx);
 
 cleanup:
@@ -2408,7 +2360,7 @@ na_kr_depopulate_slots(struct __kern_channel_ring *kring,
 		 */
 		if (upp && (kqum->qum_qflags & QUM_F_INTERNALIZED)) {
 			if ((qum = pp_find_upp(pp, midx)) != NULL) {
-				panic("internalized packet 0x%llx in htbl",
+				panic("internalized packet %p in htbl",
 				    SK_KVA(qum));
 				/* NOTREACHED */
 				__builtin_unreachable();
@@ -2450,13 +2402,13 @@ na_kr_depopulate_slots(struct __kern_channel_ring *kring,
 		/* detach packet from slot */
 		kqum->qum_ksd = NULL;
 
-		SK_DF(SK_VERB_MEM, " D ksd [%-3d, 0x%llx] kqum [%-3u, 0x%llx] "
-		    " kbuf[%-3u, 0x%llx]", i, SK_KVA(ksd),
+		SK_DF(SK_VERB_MEM, " D ksd [%-3d, %p] kqum [%-3u, %p] "
+		    " kbuf[%-3u, %p]", i, SK_KVA(ksd),
 		    METADATA_IDX(kqum), SK_KVA(kqum), kqum->qum_buf[0].buf_idx,
 		    SK_KVA(&kqum->qum_buf[0]));
 		if (!(kqum->qum_qflags & QUM_F_KERNEL_ONLY)) {
-			SK_DF(SK_VERB_MEM, " D usd [%-3u, 0x%llx] "
-			    "uqum [%-3u, 0x%llx]  ubuf[%-3u, 0x%llx]",
+			SK_DF(SK_VERB_MEM, " D usd [%-3u, %p] "
+			    "uqum [%-3u, %p]  ubuf[%-3u, %p]",
 			    (int)(usd ? usd->sd_md_idx : OBJ_IDX_NONE),
 			    SK_KVA(usd), METADATA_IDX(kqum),
 			    SK_KVA(kqum->qum_user),
@@ -2469,7 +2421,7 @@ na_kr_depopulate_slots(struct __kern_channel_ring *kring,
 		}
 	}
 
-	SK_DF(SK_VERB_NA | SK_VERB_RING, "ar 0x%llx (\"%s\") depopulated %u of %u slots",
+	SK_DF(SK_VERB_NA | SK_VERB_RING, "ar %p (\"%s\") depopulated %u of %u slots",
 	    SK_KVA(KRNA(kring)->na_arena), KRNA(kring)->na_arena->ar_name,
 	    j, n);
 }
@@ -2557,7 +2509,7 @@ na_kr_drop(struct nexus_adapter *na, boolean_t drop)
 			}
 
 			if (error != 0) {
-				SK_ERR("na \"%s\" (0x%llx) kr \"%s\" (0x%llx) "
+				SK_ERR("na \"%s\" (%p) kr \"%s\" (%p) "
 				    "kr_enter failed %d",
 				    na->na_name, SK_KVA(na),
 				    kring->ckr_name, SK_KVA(kring),
@@ -2565,10 +2517,9 @@ na_kr_drop(struct nexus_adapter *na, boolean_t drop)
 			} else {
 				kr_exit(kring);
 			}
-			SK_D("na \"%s\" (0x%llx) kr \"%s\" (0x%llx) "
-			    "krflags 0x%b", na->na_name, SK_KVA(na),
-			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-			    CKRF_BITS);
+			SK_DF(SK_VERB_NA, "na \"%s\" (%p) kr \"%s\" (%p) "
+			    "krflags 0x%x", na->na_name, SK_KVA(na),
+			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags);
 		}
 	}
 }
@@ -2654,7 +2605,7 @@ na_unlock_all_rings(struct nexus_adapter *na)
 
 int
 na_connect(struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
-    struct kern_channel *ch0, struct nxbind *nxb, struct proc *p)
+    struct nxbind *nxb, struct proc *p)
 {
 	struct nexus_adapter *__single na = NULL;
 	mach_vm_size_t memsize = 0;
@@ -2667,7 +2618,7 @@ na_connect(struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
 	SK_LOCK_ASSERT_HELD();
 
 	/* find the nexus adapter and return the reference */
-	err = na_find(ch, nx, chr, ch0, nxb, p, &na, TRUE /* create */);
+	err = na_find(ch, nx, chr, nxb, p, &na, TRUE /* create */);
 	if (err != 0) {
 		ASSERT(na == NULL);
 		goto done;
@@ -2705,7 +2656,8 @@ na_connect(struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
 
 	if (!(skmem_arena_nexus(na->na_arena)->arn_mode &
 	    AR_NEXUS_MODE_EXTERNAL_PPOOL)) {
-		os_atomic_or(__DECONST(uint32_t *, &ch->ch_schema->csm_flags), CSM_PRIV_MEM, relaxed);
+		os_atomic_or(__DECONST(uint32_t *, &ch->ch_schema->csm_flags),
+		    CSM_PRIV_MEM, relaxed);
 	}
 
 	err = skmem_arena_mmap(na->na_arena, p, &ch->ch_mmap);
@@ -2717,11 +2669,10 @@ na_connect(struct kern_nexus *nx, struct kern_channel *ch, struct chreq *chr,
 	chr->cr_memsize = memsize;
 	chr->cr_memoffset = ch->ch_schema_offset;
 
-	SK_D("%s(%d) ch 0x%llx <-> nx 0x%llx (%s:\"%s\":%d:%d) na 0x%llx "
-	    "naflags %b", sk_proc_name_address(p), sk_proc_pid(p),
-	    SK_KVA(ch), SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
-	    na->na_name, (int)chr->cr_port, (int)chr->cr_ring_id, SK_KVA(na),
-	    na->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_NA, "%s(%d) ch %p <-> nx %p (%s:\"%s\":%d:%d) na %p naflags 0x%x",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(ch), SK_KVA(nx),
+	    NX_DOM_PROV(nx)->nxdom_prov_name, na->na_name, (int)chr->cr_port,
+	    (int)chr->cr_ring_id, SK_KVA(na), na->na_flags);
 
 done:
 	if (err != 0) {
@@ -2753,11 +2704,11 @@ na_disconnect(struct kern_nexus *nx, struct kern_channel *ch)
 
 	SK_LOCK_ASSERT_HELD();
 
-	SK_D("ch 0x%llx -!- nx 0x%llx (%s:\"%s\":%u:%d) na 0x%llx naflags %b",
+	SK_DF(SK_VERB_NA, "ch %p -!- nx %p (%s:\"%s\":%u:%d) na %p naflags 0x%x",
 	    SK_KVA(ch), SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
 	    ch->ch_na->na_name, ch->ch_info->cinfo_nx_port,
 	    (int)ch->ch_info->cinfo_ch_ring_id, SK_KVA(ch->ch_na),
-	    ch->ch_na->na_flags, NAF_BITS);
+	    ch->ch_na->na_flags);
 
 	/* destroy mapping and release references */
 	na_unbind_channel(ch);
@@ -2803,12 +2754,11 @@ na_defunct(struct kern_nexus *nx, struct kern_channel *ch,
 		}
 	}
 
-	SK_D("%s(%d): ch 0x%llx -/- nx 0x%llx (%s:\"%s\":%u:%d) "
-	    "na 0x%llx naflags %b", ch->ch_name, ch->ch_pid,
-	    SK_KVA(ch), SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
-	    na->na_name, ch->ch_info->cinfo_nx_port,
-	    (int)ch->ch_info->cinfo_ch_ring_id, SK_KVA(na),
-	    na->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_NA, "%s(%d): ch %p -/- nx %p (%s:\"%s\":%u:%d) na %p naflags 0x%x",
+	    ch->ch_name, ch->ch_pid, SK_KVA(ch), SK_KVA(nx),
+	    NX_DOM_PROV(nx)->nxdom_prov_name, na->na_name,
+	    ch->ch_info->cinfo_nx_port, (int)ch->ch_info->cinfo_ch_ring_id,
+	    SK_KVA(na), na->na_flags);
 
 	if (!locked) {
 		lck_mtx_unlock(&ch->ch_lock);
@@ -2835,7 +2785,7 @@ na_connect_spec(struct kern_nexus *nx, struct kern_channel *ch,
 
 	SK_LOCK_ASSERT_HELD();
 
-	error = na_find(ch, nx, chr, NULL, NULL, kernproc, &na, TRUE);
+	error = na_find(ch, nx, chr, NULL, kernproc, &na, TRUE);
 	if (error != 0) {
 		goto done;
 	}
@@ -2885,11 +2835,10 @@ na_connect_spec(struct kern_nexus *nx, struct kern_channel *ch,
 	skmem_arena_get_stats(na->na_arena, &memsize, NULL);
 	chr->cr_memsize = memsize;
 
-	SK_D("%s(%d) ch 0x%llx <-> nx 0x%llx (%s:\"%s\":%d:%d) na 0x%llx "
-	    "naflags %b", sk_proc_name_address(p), sk_proc_pid(p),
-	    SK_KVA(ch), SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
-	    na->na_name, (int)chr->cr_port, (int)chr->cr_ring_id, SK_KVA(na),
-	    na->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_NA, "%s(%d) ch %p <-> nx %p (%s:\"%s\":%d:%d) na %p naflags 0x%x",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(ch), SK_KVA(nx),
+	    NX_DOM_PROV(nx)->nxdom_prov_name, na->na_name, (int)chr->cr_port,
+	    (int)chr->cr_ring_id, SK_KVA(na), na->na_flags);
 
 done:
 	if (error != 0) {
@@ -2925,11 +2874,11 @@ na_disconnect_spec(struct kern_nexus *nx, struct kern_channel *ch)
 	ASSERT(na != NULL);
 	ASSERT(na->na_flags & NAF_SPEC_INIT);   /* has been bound */
 
-	SK_D("ch 0x%llx -!- nx 0x%llx (%s:\"%s\":%u:%d) na 0x%llx naflags %b",
+	SK_DF(SK_VERB_NA, "ch %p -!- nx %p (%s:\"%s\":%u:%d) na %p naflags 0x%x",
 	    SK_KVA(ch), SK_KVA(nx), NX_DOM_PROV(nx)->nxdom_prov_name,
-	    na->na_name, ch->ch_info->cinfo_nx_port,
-	    (int)ch->ch_info->cinfo_ch_ring_id, SK_KVA(na),
-	    na->na_flags, NAF_BITS);
+	    ch->ch_na->na_name, ch->ch_info->cinfo_nx_port,
+	    (int)ch->ch_info->cinfo_ch_ring_id, SK_KVA(ch->ch_na),
+	    ch->ch_na->na_flags);
 
 	/* take a reference for this routine */
 	na_retain_locked(na);
@@ -3000,12 +2949,12 @@ na_stop_spec(struct kern_nexus *nx, struct kern_channel *ch)
  */
 int
 na_find(struct kern_channel *ch, struct kern_nexus *nx, struct chreq *chr,
-    struct kern_channel *ch0, struct nxbind *nxb, struct proc *p,
-    struct nexus_adapter **na, boolean_t create)
+    struct nxbind *nxb, struct proc *p, struct nexus_adapter **na,
+    boolean_t create)
 {
 	int error = 0;
 
-	_CASSERT(sizeof(chr->cr_name) == sizeof((*na)->na_name));
+	static_assert(sizeof(chr->cr_name) == sizeof((*na)->na_name));
 
 	*na = NULL;     /* default return value */
 
@@ -3023,13 +2972,6 @@ na_find(struct kern_channel *ch, struct kern_nexus *nx, struct chreq *chr,
 	 *  !0    !NULL		impossible
 	 */
 
-#if CONFIG_NEXUS_MONITOR
-	/* try to see if this is a monitor port */
-	error = nx_monitor_na_find(nx, ch, chr, ch0, nxb, p, na, create);
-	if (error != 0 || *na != NULL) {
-		return error;
-	}
-#endif /* CONFIG_NEXUS_MONITOR */
 #if CONFIG_NEXUS_USER_PIPE
 	/* try to see if this is a pipe port */
 	error = nx_upipe_na_find(nx, ch, chr, nxb, p, na, create);
@@ -3070,7 +3012,7 @@ na_retain_locked(struct nexus_adapter *na)
 	if (na != NULL) {
 #if SK_LOG
 		uint32_t oref = os_atomic_inc_orig(&na->na_refcount, relaxed);
-		SK_DF(SK_VERB_REFCNT, "na \"%s\" (0x%llx) refcnt %u chcnt %u",
+		SK_DF(SK_VERB_REFCNT, "na \"%s\" (%p) refcnt %u chcnt %u",
 		    na->na_name, SK_KVA(na), oref + 1, na->na_channels);
 #else /* !SK_LOG */
 		os_atomic_inc(&na->na_refcount, relaxed);
@@ -3089,7 +3031,7 @@ na_release_locked(struct nexus_adapter *na)
 	ASSERT(na->na_refcount > 0);
 	oref = os_atomic_dec_orig(&na->na_refcount, relaxed);
 	if (oref > 1) {
-		SK_DF(SK_VERB_REFCNT, "na \"%s\" (0x%llx) refcnt %u chcnt %u",
+		SK_DF(SK_VERB_REFCNT, "na \"%s\" (%p) refcnt %u chcnt %u",
 		    na->na_name, SK_KVA(na), oref - 1, na->na_channels);
 		return 0;
 	}
@@ -3111,7 +3053,7 @@ na_release_locked(struct nexus_adapter *na)
 		na->na_arena = NULL;
 	}
 
-	SK_DF(SK_VERB_MEM, "na \"%s\" (0x%llx) being freed",
+	SK_DF(SK_VERB_MEM, "na \"%s\" (%p) being freed",
 	    na->na_name, SK_KVA(na));
 
 	NA_FREE(na);
@@ -3135,7 +3077,7 @@ static void
 na_pseudo_free(struct nexus_adapter *na)
 {
 	ASSERT(na->na_refcount == 0);
-	SK_DF(SK_VERB_MEM, "na 0x%llx FREE", SK_KVA(na));
+	SK_DF(SK_VERB_MEM, "na %p FREE", SK_KVA(na));
 	bzero(na, sizeof(*na));
 	zfree(na_pseudo_zone, na);
 }
@@ -3146,9 +3088,9 @@ na_pseudo_txsync(struct __kern_channel_ring *kring, struct proc *p,
 {
 #pragma unused(kring, p, flags)
 	SK_DF(SK_VERB_SYNC | SK_VERB_TX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u flags 0%x",
-	    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, kring->ckr_ring_id,
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u flags 0%x",
+	    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
+	    SK_KVA(kring), kring->ckr_flags, kring->ckr_ring_id,
 	    flags);
 
 	return 0;
@@ -3160,10 +3102,9 @@ na_pseudo_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 {
 #pragma unused(kring, p, flags)
 	SK_DF(SK_VERB_SYNC | SK_VERB_RX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u flags 0%x",
-	    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, kring->ckr_ring_id,
-	    flags);
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u flags 0%x",
+	    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
+	    SK_KVA(kring), kring->ckr_flags, kring->ckr_ring_id, flags);
 
 	ASSERT(kring->ckr_rhead <= kring->ckr_lim);
 
@@ -3173,7 +3114,7 @@ na_pseudo_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 static int
 na_pseudo_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 {
-	SK_D("na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_NA, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 
 	switch (mode) {
@@ -3278,20 +3219,20 @@ na_pseudo_create(struct kern_nexus *nx, struct chreq *chr,
 
 #if SK_LOG
 	uuid_string_t uuidstr;
-	SK_D("na_name: \"%s\"", na->na_name);
-	SK_D("  UUID:        %s", sk_uuid_unparse(na->na_uuid, uuidstr));
-	SK_D("  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_NA, "na_name: \"%s\"", na->na_name);
+	SK_DF(SK_VERB_NA, "  UUID:        %s", sk_uuid_unparse(na->na_uuid, uuidstr));
+	SK_DF(SK_VERB_NA, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(na->na_nx), NX_DOM(na->na_nx)->nxdom_name,
 	    NX_DOM_PROV(na->na_nx)->nxdom_prov_name);
-	SK_D("  flags:       %b", na->na_flags, NAF_BITS);
-	SK_D("  flowadv_max: %u", na->na_flowadv_max);
-	SK_D("  rings:       tx %u rx %u",
+	SK_DF(SK_VERB_NA, "  flags:       0x%x", na->na_flags);
+	SK_DF(SK_VERB_NA, "  flowadv_max: %u", na->na_flowadv_max);
+	SK_DF(SK_VERB_NA, "  rings:       tx %u rx %u",
 	    na_get_nrings(na, NR_TX), na_get_nrings(na, NR_RX));
-	SK_D("  slots:       tx %u rx %u",
+	SK_DF(SK_VERB_NA, "  slots:       tx %u rx %u",
 	    na_get_nslots(na, NR_TX), na_get_nslots(na, NR_RX));
 #if CONFIG_NEXUS_USER_PIPE
-	SK_D("  next_pipe:   %u", na->na_next_pipe);
-	SK_D("  max_pipes:   %u", na->na_max_pipes);
+	SK_DF(SK_VERB_NA, "  next_pipe:   %u", na->na_next_pipe);
+	SK_DF(SK_VERB_NA, "  max_pipes:   %u", na->na_max_pipes);
 #endif /* CONFIG_NEXUS_USER_PIPE */
 #endif /* SK_LOG */
 
@@ -3386,7 +3327,7 @@ na_flowadv_set(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
 	if (arn->arn_flowadv_obj != NULL) {
 		struct __flowadv_entry *fae = &arn->arn_flowadv_obj[fe_idx];
 
-		_CASSERT(sizeof(fae->fae_token) == sizeof(flow_token));
+		static_assert(sizeof(fae->fae_token) == sizeof(flow_token));
 		/*
 		 * We cannot guarantee that the flow is still around by now,
 		 * so check if that's the case and let the caller know.
@@ -3401,11 +3342,11 @@ na_flowadv_set(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
 	}
 	if (suspend) {
 		SK_DF(SK_VERB_FLOW_ADVISORY, "%s(%d) %s flow token 0x%x fidx %u "
-		    "SUSPEND", sk_proc_name_address(current_proc()),
+		    "SUSPEND", sk_proc_name(current_proc()),
 		    sk_proc_pid(current_proc()), fae_uuid_str, flow_token, fe_idx);
 	} else {
-		SK_ERR("%s(%d) flow token 0x%llu fidx %u no longer around",
-		    sk_proc_name_address(current_proc()),
+		SK_ERR("%s(%d) flow token 0x%x fidx %u no longer around",
+		    sk_proc_name(current_proc()),
 		    sk_proc_pid(current_proc()), flow_token, fe_idx);
 	}
 
@@ -3435,7 +3376,7 @@ na_flowadv_clear(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
 	if (arn->arn_flowadv_obj != NULL) {
 		struct __flowadv_entry *__single fae = &arn->arn_flowadv_obj[fe_idx];
 
-		_CASSERT(sizeof(fae->fae_token) == sizeof(flow_token));
+		static_assert(sizeof(fae->fae_token) == sizeof(flow_token));
 		/*
 		 * We cannot guarantee that the flow is still around by now,
 		 * so check if that's the case and let the caller know.
@@ -3450,8 +3391,8 @@ na_flowadv_clear(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
 	}
 	if (resume) {
 		SK_DF(SK_VERB_FLOW_ADVISORY, "%s(%d) %s flow token 0x%x "
-		    "fidx %u RESUME", ch->ch_name, ch->ch_pid, fae_uuid_str, flow_token,
-		    fe_idx);
+		    "fidx %u RESUME", ch->ch_name, ch->ch_pid, fae_uuid_str,
+		    flow_token, fe_idx);
 	} else {
 		SK_ERR("%s(%d): flow token 0x%x fidx %u no longer around",
 		    ch->ch_name, ch->ch_pid, flow_token, fe_idx);
@@ -3463,8 +3404,9 @@ na_flowadv_clear(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
 }
 
 int
-na_flowadv_report_ce_event(const struct kern_channel *ch, const flowadv_idx_t fe_idx,
-    const flowadv_token_t flow_token, uint32_t ce_cnt, uint32_t total_pkt_cnt)
+na_flowadv_report_congestion_event(const struct kern_channel *ch,
+    const flowadv_idx_t fe_idx, const flowadv_token_t flow_token,
+    uint32_t congestion_cnt, __unused uint32_t l4s_ce_cnt, uint32_t total_pkt_cnt)
 {
 	struct nexus_adapter *na = ch->ch_na;
 	struct skmem_arena *ar = na->na_arena;
@@ -3483,14 +3425,14 @@ na_flowadv_report_ce_event(const struct kern_channel *ch, const flowadv_idx_t fe
 	if (arn->arn_flowadv_obj != NULL) {
 		struct __flowadv_entry *__single fae = &arn->arn_flowadv_obj[fe_idx];
 
-		_CASSERT(sizeof(fae->fae_token) == sizeof(flow_token));
+		static_assert(sizeof(fae->fae_token) == sizeof(flow_token));
 		/*
 		 * We cannot guarantee that the flow is still around by now,
 		 * so check if that's the case and let the caller know.
 		 */
 		if ((added = (fae->fae_token == flow_token))) {
 			ASSERT(fae->fae_flags & FLOWADVF_VALID);
-			fae->fae_ce_cnt += ce_cnt;
+			fae->fae_congestion_cnt += congestion_cnt;
 			fae->fae_pkt_cnt += total_pkt_cnt;
 			uuid_unparse(fae->fae_id, fae_uuid_str);
 		}
@@ -3516,8 +3458,8 @@ na_flowadv_event(struct __kern_channel_ring *kring)
 {
 	ASSERT(kring->ckr_tx == NR_TX);
 
-	SK_DF(SK_VERB_EVENTS, "%s(%d) na \"%s\" (0x%llx) kr 0x%llx",
-	    sk_proc_name_address(current_proc()), sk_proc_pid(current_proc()),
+	SK_DF(SK_VERB_EVENTS, "%s(%d) na \"%s\" (%p) kr %p",
+	    sk_proc_name(current_proc()), sk_proc_pid(current_proc()),
 	    KRNA(kring)->na_name, SK_KVA(KRNA(kring)), SK_KVA(kring));
 
 	na_post_event(kring, TRUE, FALSE, FALSE, CHAN_FILT_HINT_FLOW_ADV_UPD);
@@ -3548,7 +3490,7 @@ na_packet_pool_free_sync(struct __kern_channel_ring *kring, struct proc *p,
 	/* nothing to free */
 	if (__improbable(n == 0)) {
 		SK_DF(SK_VERB_MEM | SK_VERB_SYNC, "%s(%d) kr \"%s\" %s",
-		    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
+		    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
 		    "nothing to free");
 		goto done;
 	}
@@ -3562,7 +3504,7 @@ na_packet_pool_free_sync(struct __kern_channel_ring *kring, struct proc *p,
 		usd = KR_USD(kring, j);
 
 		if (__improbable(!SD_VALID_METADATA(usd))) {
-			SK_ERR("bad slot %d 0x%llx", j, SK_KVA(ksd));
+			SK_ERR("bad slot %d %p", j, SK_KVA(ksd));
 			ret = EINVAL;
 			break;
 		}
@@ -3691,7 +3633,7 @@ na_packet_pool_alloc_sync_common(struct __kern_channel_ring *kring, struct proc 
 	ASSERT(!KR_KERNEL_ONLY(kring));
 	ASSERT(!PP_KERNEL_ONLY(pp));
 
-	now = _net_uptime;
+	now = net_uptime();
 	if ((flags & NA_SYNCF_UPP_PURGE) != 0) {
 		if (now - kring->ckr_sync_time >= na_upp_reap_interval) {
 			kring->ckr_alloc_ws = na_upp_reap_min_pkts;
@@ -3742,7 +3684,7 @@ na_packet_pool_alloc_sync_common(struct __kern_channel_ring *kring, struct proc 
 	err = alloc_packets(pp, kring->ckr_scratch,
 	    PP_HAS_BUFFER_ON_DEMAND(pp) && large, &ph_cnt);
 	if (__improbable(ph_cnt == 0)) {
-		SK_ERR("kr 0x%llx failed to alloc %u packet s(%d)",
+		SK_ERR("kr %p failed to alloc %u packet s(%d)",
 		    SK_KVA(kring), ph_needed, err);
 		kring->ckr_err_stats.cres_pkt_alloc_failures += ph_needed;
 	} else {
@@ -3826,7 +3768,7 @@ na_packet_pool_free_buf_sync(struct __kern_channel_ring *kring, struct proc *p,
 	/* nothing to free */
 	if (__improbable(n == 0)) {
 		SK_DF(SK_VERB_MEM | SK_VERB_SYNC, "%s(%d) kr \"%s\" %s",
-		    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
+		    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
 		    "nothing to free");
 		goto done;
 	}
@@ -3839,7 +3781,7 @@ na_packet_pool_free_buf_sync(struct __kern_channel_ring *kring, struct proc *p,
 		usd = KR_USD(kring, j);
 
 		if (__improbable(!SD_VALID_METADATA(usd))) {
-			SK_ERR("bad slot %d 0x%llx", j, SK_KVA(ksd));
+			SK_ERR("bad slot %d %p", j, SK_KVA(ksd));
 			ret = EINVAL;
 			break;
 		}
@@ -3885,7 +3827,7 @@ na_packet_pool_alloc_buf_sync(struct __kern_channel_ring *kring, struct proc *p,
 	ASSERT(!KR_KERNEL_ONLY(kring));
 	ASSERT(!PP_KERNEL_ONLY(pp));
 
-	now = _net_uptime;
+	now = net_uptime();
 	if ((flags & NA_SYNCF_UPP_PURGE) != 0) {
 		if (now - kring->ckr_sync_time >= na_upp_reap_interval) {
 			kring->ckr_alloc_ws = na_upp_reap_min_pkts;
@@ -3937,7 +3879,7 @@ na_packet_pool_alloc_buf_sync(struct __kern_channel_ring *kring, struct proc *p,
 	    SKMEM_NOSLEEP, false);
 
 	if (bh_cnt == 0) {
-		SK_ERR("kr 0x%llx failed to alloc %u buflets(%d)",
+		SK_ERR("kr %p failed to alloc %u buflets(%d)",
 		    SK_KVA(kring), bh_needed, err);
 		kring->ckr_err_stats.cres_pkt_alloc_failures += bh_needed;
 	}
@@ -3990,11 +3932,22 @@ na_drain(struct nexus_adapter *na, boolean_t purge)
 	/* will be cleared on next channel sync */
 	if (!(os_atomic_or_orig(&na->na_flags, NAF_DRAINING, relaxed) &
 	    NAF_DRAINING) && NA_IS_ACTIVE(na)) {
-		SK_DF(SK_VERB_NA, "%s: %s na 0x%llx flags %b",
+		SK_DF(SK_VERB_NA, "%s: %s na %p flags 0x%x",
 		    na->na_name, (purge ? "purging" : "pruning"),
-		    SK_KVA(na), na->na_flags, NAF_BITS);
+		    SK_KVA(na), na->na_flags);
 
 		/* reap (purge/prune) caches in the arena */
 		skmem_arena_reap(na->na_arena, purge);
 	}
+}
+
+SK_NO_INLINE_ATTRIBUTE
+char *
+na2str(const struct nexus_adapter *na, char *__counted_by(dsz)dst,
+    size_t dsz)
+{
+	(void) sk_snprintf(dst, dsz, "%p %s flags 0x%b",
+	    SK_KVA(na), na->na_name, na->na_flags, NAF_BITS);
+
+	return dst;
 }

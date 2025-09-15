@@ -46,9 +46,14 @@ version three,
 .Pc ,
 and in addition for the client,
 version four,
-.Tn NFSv4
+.Tn NFSv4.0
 .Po
-.Tn RFC 3530
+.Tn RFC 7530
+.Pc ,
+and
+.Tn NFSv4.1
+.Po
+.Tn RFC 8881
 .Pc .
 .Tn NFSv2
 and
@@ -85,6 +90,11 @@ protocol are unavailable.
 The NFS client code has been relocated from Kernel to a Kernel Extension (KEXT).
 This transition offers improved modularity and flexibility within the system architecture. However, users need not worry about any changes or disruptions in their experience.
 The NFS client KEXT is loaded by default, making it seamless for users. As a result, the functionality provided by the NFS client remains intact, and users will not notice any difference in how they interact with network file systems.
+.Ss The NFS Version 4.1 Protocol
+The NFS version 4 minor version 1 (NFSv4.1) protocol is the second minor version of the NFS version 4 (NFSv4) protocol.
+As a minor version, NFSv4.1 is consistent with the overall goals for NFSv4, but extends the protocol so as to better meet those goals, based on experiences with NFSv4.0. In addition, NFSv4.1 has adopted some additional goals, which motivate some of the major extensions in NFSv4.1.
+.Pp
+In order to achieve those goals, the NFSv4.1 protocol introduced new features such the Sessions Model, Identification of the implementation of the NFS client and server, RECLAIM_COMPLETE operation to better structure the lock reclamation process, Attributes can be set atomically during exclusive file create via the OPEN operation, Open files can be preserved if removed and the hard link count goes to zero. Parallel NFS (pNFS) is not supported.
 .Ss MacOS Extended Attribute Considerations
 .Tn MacOS
 makes heavy use of extended attributes, resource forks, and possibly ACLs.
@@ -479,19 +489,23 @@ root@foobar.com maps to id 0
 .%D June 1995
 .%O http://www.rfc-editor.org/info/rfc1813
 .Re
-.It [RFC3530]
+.It [RFC7530]
 .Rs
-.%A S. Shepler
-.%A B. Callaghan
-.%A D. Robinson
-.%A R. Thurlow
-.%A C. Beame
-.%A M. Eisler
+.%A T. Haynes
 .%A D. Noveck
-.%D April 2003
+.%D March 2015
 .%B Network File System (NFS) version 4 Protocol
-.%R RFC3530
-.%O http://www.rfc-editor.org/info/rfc3530
+.%R RFC7530
+.%O http://www.rfc-editor.org/info/rfc7530
+.Re
+.It [RFC8881]
+.Rs
+.%A D. Noveck
+.%A C. Lever
+.%D August 2020
+.%B Network File System (NFS) Version 4 Minor Version 1 Protocol
+.%R RFC8881
+.%O http://www.rfc-editor.org/info/rfc8881
 .Re
 .It [XNFS]
 .Rs

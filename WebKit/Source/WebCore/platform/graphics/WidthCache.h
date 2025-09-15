@@ -75,7 +75,6 @@ private:
         bool isHashTableEmptyValue() const { return !m_hashAndLength; }
 
         friend bool operator==(const SmallStringKey&, const SmallStringKey&) = default;
-        friend bool operator!=(const SmallStringKey&, const SmallStringKey&) = default;
 
     private:
         static constexpr unsigned s_capacity = 16;
@@ -121,7 +120,7 @@ public:
         unsigned length = text.length();
 
         // Do not allow length = 0. This allows SmallStringKey empty-value-is-zero.
-        if (UNLIKELY(!length))
+        if (!length) [[unlikely]]
             return nullptr;
 
         if (length > SmallStringKey::capacity())
@@ -222,8 +221,8 @@ private:
         return false;
     }
 
-    using Map = UncheckedKeyHashMap<SmallStringKey, float, SmallStringKeyHash, SmallStringKeyHashTraits, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
-    using SingleCharMap = UncheckedKeyHashMap<uint32_t, float, DefaultHash<uint32_t>, HashTraits<uint32_t>, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
+    using Map = HashMap<SmallStringKey, float, SmallStringKeyHash, SmallStringKeyHashTraits, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
+    using SingleCharMap = HashMap<uint32_t, float, DefaultHash<uint32_t>, HashTraits<uint32_t>, WTF::FloatWithZeroEmptyKeyHashTraits<float>>;
 
     static constexpr int s_minInterval = -3; // A cache hit pays for about 3 cache misses.
     static constexpr int s_maxInterval = 20; // Sampling at this interval has almost no overhead.

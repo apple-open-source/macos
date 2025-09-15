@@ -137,7 +137,8 @@
 	return [Utilities metaWriteToDevice:self.dir.volume.resource
                                    from:(void *)self.data.bytes
                              startingAt:self.offsetInVolume
-                                 length:self.size];
+                                 length:self.size
+                         forceSyncWrite:false];
 }
 
 -(NSError *)writeToDiskFromOffset:(uint64_t)offsetInDirBlock

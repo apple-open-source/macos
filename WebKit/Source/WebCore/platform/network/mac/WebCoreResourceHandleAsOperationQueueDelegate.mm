@@ -43,6 +43,7 @@
 #import <pal/spi/cocoa/NSURLConnectionSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 using namespace WebCore;
 
@@ -340,7 +341,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
                 metrics->responseEnd = WallTime::fromRawSeconds(adoptNS([[NSDate alloc] initWithTimeIntervalSinceReferenceDate:responseEndTime]).get().timeIntervalSince1970).approximateMonotonicTime();
             else
                 metrics->responseEnd = metrics->responseStart;
-            metrics->protocol = (NSString *)[timingData objectForKey:@"_kCFNTimingDataNetworkProtocolName"];
+            metrics->protocol = checked_objc_cast<NSString>([timingData objectForKey:@"_kCFNTimingDataNetworkProtocolName"]);
             metrics->responseBodyBytesReceived = [[timingData objectForKey:@"_kCFNTimingDataResponseBodyBytesReceived"] unsignedLongLongValue];
             metrics->responseBodyDecodedSize = [[timingData objectForKey:@"_kCFNTimingDataResponseBodyBytesDecoded"] unsignedLongLongValue];
             metrics->markComplete();

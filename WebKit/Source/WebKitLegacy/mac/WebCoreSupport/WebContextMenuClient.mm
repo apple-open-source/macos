@@ -46,6 +46,7 @@
 #import <WebCore/DestinationColorSpace.h>
 #import <WebCore/Document.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/ImageAdapter.h>
 #import <WebCore/ImageBuffer.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/LocalFrameView.h>
@@ -89,7 +90,7 @@ WebContextMenuClient::~WebContextMenuClient()
 
 void WebContextMenuClient::downloadURL(const URL& url)
 {
-    [m_webView _downloadURL:url];
+    [m_webView _downloadURL:url.createNSURL().get()];
 }
 
 void WebContextMenuClient::searchWithGoogle(const LocalFrame*)
@@ -112,7 +113,7 @@ bool WebContextMenuClient::isSpeaking() const
 
 void WebContextMenuClient::speak(const String& string)
 {
-    [NSApp speakString:(NSString *)string];
+    [NSApp speakString:string.createNSString().get()];
 }
 
 void WebContextMenuClient::stopSpeaking()

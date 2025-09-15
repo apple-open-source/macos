@@ -38,7 +38,7 @@ messages -> RemoteRenderPassEncoder Stream {
     void DrawIndexed(WebCore::WebGPU::Size32 indexCount, std::optional<WebCore::WebGPU::Size32> instanceCount, std::optional<WebCore::WebGPU::Size32> firstIndex, std::optional<WebCore::WebGPU::SignedOffset32> baseVertex, std::optional<WebCore::WebGPU::Size32> firstInstance)
     void DrawIndirect(WebKit::WebGPUIdentifier indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
     void DrawIndexedIndirect(WebKit::WebGPUIdentifier indirectBuffer, WebCore::WebGPU::Size64 indirectOffset)
-    void SetBindGroup(WebCore::WebGPU::Index32 index, WebKit::WebGPUIdentifier identifier, std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>> dynamicOffsets)
+    void SetBindGroup(WebCore::WebGPU::Index32 index, std::optional<WebKit::WebGPUIdentifier> identifier, std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>> dynamicOffsets)
     void PushDebugGroup(String groupLabel)
     void PopDebugGroup()
     void InsertDebugMarker(String markerLabel)

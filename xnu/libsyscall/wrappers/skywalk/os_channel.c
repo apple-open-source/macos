@@ -283,13 +283,11 @@ os_channel_init_ring(struct channel_ring_desc *chrd,
 		SK_ABORT("Channel schema not valid");
 		/* NOTREACHED */
 		__builtin_unreachable();
-	} else if (!(md_type == NEXUS_META_TYPE_QUANTUM ||
-	    md_type == NEXUS_META_TYPE_PACKET)) {
+	} else if (md_type != NEXUS_META_TYPE_PACKET) {
 		SK_ABORT_WITH_CAUSE("Metadata type unknown", md_type);
 		/* NOTREACHED */
 		__builtin_unreachable();
-	} else if (!(md_subtype == NEXUS_META_SUBTYPE_PAYLOAD ||
-	    md_subtype == NEXUS_META_SUBTYPE_RAW)) {
+	} else if (md_subtype != NEXUS_META_SUBTYPE_RAW) {
 		SK_ABORT_WITH_CAUSE("Metadata subtype unknown", md_subtype);
 		/* NOTREACHED */
 		__builtin_unreachable();
@@ -326,88 +324,74 @@ _initialize_metadata_address(const channel_ring_t chrd,
 	int i;
 	struct __user_buflet *ubft0;
 	const struct __user_channel_ring *ring = chrd->chrd_ring;
+	struct __user_buflet *ubft, *pbft;
+	struct __user_packet *p = (struct __user_packet *)q;
+	uint16_t bcnt = p->pkt_bufs_cnt;
+	uint16_t bmax = p->pkt_bufs_max;
 
-	switch (chrd->chrd_md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		struct __user_buflet *ubft, *pbft;
-		struct __user_packet *p = (struct __user_packet *)q;
-		uint16_t bcnt = p->pkt_bufs_cnt;
-		uint16_t bmax = p->pkt_bufs_max;
-
-		_CASSERT(sizeof(p->pkt_qum_buf.buf_addr) ==
-		    sizeof(mach_vm_address_t));
-		/*
-		 * In the event of a defunct, we'd be accessing zero-filled
-		 * memory and end up with 0 for bcnt or bmax.
-		 */
-		if (__improbable((bcnt == 0) || (bmax == 0))) {
-			if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
-				SK_ABORT("bad bufcnt");
-				/* NOTREACHED */
-				__builtin_unreachable();
-			}
-			return 0;
-		}
-		_PKT_BUFCNT_VERIFY(chrd, bcnt, bmax);
-		_CH_PKT_GET_FIRST_BUFLET(p, ubft, chrd, ring);
-		if (__improbable(ubft == NULL)) {
-			SK_ABORT("bad packet: no buflet");
+	_Static_assert(sizeof(p->pkt_qum_buf.buf_addr) ==
+	    sizeof(mach_vm_address_t), "invalid buffer size");
+	/*
+	 * In the event of a defunct, we'd be accessing zero-filled
+	 * memory and end up with 0 for bcnt or bmax.
+	 */
+	if (__improbable((bcnt == 0) || (bmax == 0))) {
+		if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
+			SK_ABORT("bad bufcnt");
 			/* NOTREACHED */
 			__builtin_unreachable();
 		}
-		/*
-		 * special handling for empty packet buflet.
-		 */
-		if (__improbable(p->pkt_qum_buf.buf_idx == OBJ_IDX_NONE)) {
-			*__DECONST(mach_vm_address_t *,
-			    &p->pkt_qum_buf.buf_addr) = 0;
-			*__DECONST(mach_vm_address_t *,
-			    &p->pkt_qum_buf.buf_nbft_addr) =
-			    (mach_vm_address_t)ubft;
-		}
-		ubft0 = ubft;
-		for (i = 0; (i < bcnt) && (ubft != NULL); i++) {
-			pbft = ubft;
-			if (__probable(pbft->buf_idx != OBJ_IDX_NONE)) {
-				*(mach_vm_address_t *)(uintptr_t)
-				&(pbft->buf_addr) = _CHANNEL_RING_BUF(chrd,
-				    ring, pbft);
-			} else {
-				*(mach_vm_address_t *)(uintptr_t)
-				&(pbft->buf_addr) = NULL;
-			}
-			if (pbft->buf_nbft_idx != OBJ_IDX_NONE) {
-				ubft = _CHANNEL_RING_BFT(chrd, ring,
-				    pbft->buf_nbft_idx);
-			} else {
-				ubft = NULL;
-			}
-			*__DECONST(mach_vm_address_t *, &pbft->buf_nbft_addr) =
-			    (mach_vm_address_t)ubft;
-		}
-		if (__improbable(pbft->buf_nbft_idx != OBJ_IDX_NONE)) {
-			if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
-				SK_ABORT("non terminating buflet chain");
-				/* NOTREACHED */
-				__builtin_unreachable();
-			}
-			return 0;
-		}
-		if (__improbable(i != bcnt)) {
-			SK_ABORT_WITH_CAUSE("invalid buflet count", bcnt);
-			/* NOTREACHED */
-			__builtin_unreachable();
-		}
-		break;
+		return 0;
 	}
-	default:
-		ubft0 = &q->qum_buf[0];
-		_CASSERT(sizeof(q->qum_buf[0].buf_addr) ==
-		    sizeof(mach_vm_address_t));
-		/* immutable: compute pointers from the index */
-		*(mach_vm_address_t *)(uintptr_t)&ubft0->buf_addr =
-		    _CHANNEL_RING_BUF(chrd, ring, ubft0);
-		break;
+	_PKT_BUFCNT_VERIFY(chrd, bcnt, bmax);
+	_CH_PKT_GET_FIRST_BUFLET(p, ubft, chrd, ring);
+	if (__improbable(ubft == NULL)) {
+		SK_ABORT("bad packet: no buflet");
+		/* NOTREACHED */
+		__builtin_unreachable();
+	}
+	/*
+	 * special handling for empty packet buflet.
+	 */
+	if (__improbable(p->pkt_qum_buf.buf_idx == OBJ_IDX_NONE)) {
+		*__DECONST(mach_vm_address_t *,
+		    &p->pkt_qum_buf.buf_addr) = 0;
+		*__DECONST(mach_vm_address_t *,
+		    &p->pkt_qum_buf.buf_nbft_addr) =
+		    (mach_vm_address_t)ubft;
+	}
+	ubft0 = ubft;
+	for (i = 0; (i < bcnt) && (ubft != NULL); i++) {
+		pbft = ubft;
+		if (__probable(pbft->buf_idx != OBJ_IDX_NONE)) {
+			*(mach_vm_address_t *)(uintptr_t)
+			&(pbft->buf_addr) = _CHANNEL_RING_BUF(chrd,
+			    ring, pbft);
+		} else {
+			*(mach_vm_address_t *)(uintptr_t)
+			&(pbft->buf_addr) = NULL;
+		}
+		if (pbft->buf_nbft_idx != OBJ_IDX_NONE) {
+			ubft = _CHANNEL_RING_BFT(chrd, ring,
+			    pbft->buf_nbft_idx);
+		} else {
+			ubft = NULL;
+		}
+		*__DECONST(mach_vm_address_t *, &pbft->buf_nbft_addr) =
+		    (mach_vm_address_t)ubft;
+	}
+	if (__improbable(pbft->buf_nbft_idx != OBJ_IDX_NONE)) {
+		if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
+			SK_ABORT("non terminating buflet chain");
+			/* NOTREACHED */
+			__builtin_unreachable();
+		}
+		return 0;
+	}
+	if (__improbable(i != bcnt)) {
+		SK_ABORT_WITH_CAUSE("invalid buflet count", bcnt);
+		/* NOTREACHED */
+		__builtin_unreachable();
 	}
 
 	/* return address and offset of the first buffer */
@@ -505,18 +489,6 @@ os_channel_create_extended(const uuid_t uuid, const nexus_port_t port,
 				goto done;
 			}
 			init.ci_ch_mode |= CHMODE_EVENT_RING;
-		}
-		if (cha->cha_monitor != 0) {
-			if (dir == CHANNEL_DIR_TX_RX) {
-				init.ci_ch_mode |= CHMODE_MONITOR;
-			} else if (dir == CHANNEL_DIR_TX) {
-				init.ci_ch_mode |= CHMODE_MONITOR_TX;
-			} else if (dir == CHANNEL_DIR_RX) {
-				init.ci_ch_mode |= CHMODE_MONITOR_RX;
-			}
-			if (cha->cha_monitor == CHANNEL_MONITOR_NO_COPY) {
-				init.ci_ch_mode |= CHMODE_MONITOR_NO_COPY;
-			}
 		}
 		if (cha->cha_filter != 0) {
 			init.ci_ch_mode |= CHMODE_FILTER;
@@ -1114,19 +1086,10 @@ os_channel_set_slot_properties(const channel_ring_t chrd,
 		 */
 		q = _SLOT_METADATA(chrd, ring, idx);
 		q->qum_len = prop->sp_len;
-		switch (chrd->chrd_md_type) {
-		case NEXUS_META_TYPE_PACKET: {
-			struct __user_packet *p = (struct __user_packet *)q;
-			/* No multi-buflet support for slot based interface */
-			p->pkt_qum_buf.buf_dlen = prop->sp_len;
-			p->pkt_qum_buf.buf_doff = 0;
-			break;
-		}
-		default:
-			q->qum_buf[0].buf_dlen = prop->sp_len;
-			q->qum_buf[0].buf_doff = 0;
-			break;
-		}
+		struct __user_packet *p = (struct __user_packet *)q;
+		/* No multi-buflet support for slot based interface */
+		p->pkt_qum_buf.buf_dlen = prop->sp_len;
+		p->pkt_qum_buf.buf_doff = 0;
 	} else if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
 		/* slot is out of bounds */
 		SK_ABORT_WITH_CAUSE("Index out of bounds in ssp", idx);
@@ -1290,8 +1253,17 @@ os_channel_flow_admissible(const channel_ring_t chrd, uuid_t flow_id,
 }
 
 int
-os_channel_flow_adv_get_ce_count(const channel_ring_t chrd, uuid_t flow_id,
-    const flowadv_idx_t flow_index, uint32_t *ce_cnt, uint32_t *pkt_cnt)
+os_channel_flow_adv_get_ce_count(__unused const channel_ring_t chrd,
+    __unused uuid_t flow_id, __unused const flowadv_idx_t flow_index,
+    __unused uint32_t *ce_cnt, __unused uint32_t *pkt_cnt)
+{
+	return 0;
+}
+
+int
+os_channel_flow_adv_get_feedback(const channel_ring_t chrd, uuid_t flow_id,
+    const flowadv_idx_t flow_index, uint32_t *congestion_cnt,
+    __unused uint32_t *ce_cnt, uint32_t *pkt_cnt)
 {
 	const struct __user_channel_ring *ring = chrd->chrd_ring;
 	const struct channel *chd = chrd->chrd_channel;
@@ -1321,7 +1293,7 @@ os_channel_flow_adv_get_ce_count(const channel_ring_t chrd, uuid_t flow_id,
 		return ENOENT;
 	}
 
-	*ce_cnt = fe->fae_ce_cnt;
+	*congestion_cnt = fe->fae_congestion_cnt;
 	*pkt_cnt = fe->fae_pkt_cnt;
 	return 0;
 }
@@ -1395,17 +1367,6 @@ os_channel_attr_set(const channel_attr_t cha, const channel_attr_type_t type,
 		if (value == 0) {
 			err = ENOTSUP;
 		}
-		break;
-
-	case CHANNEL_ATTR_MONITOR:
-		switch (value) {
-		case CHANNEL_MONITOR_OFF:
-		case CHANNEL_MONITOR_NO_COPY:
-		case CHANNEL_MONITOR_COPY:
-			cha->cha_monitor = (uint32_t)value;
-			goto done;
-		}
-		err = EINVAL;
 		break;
 
 	case CHANNEL_ATTR_TX_LOWAT_UNIT:
@@ -1538,10 +1499,6 @@ os_channel_attr_get(const channel_attr_t cha, const channel_attr_type_t type,
 		*value = 1;
 		break;
 
-	case CHANNEL_ATTR_MONITOR:
-		*value = cha->cha_monitor;
-		break;
-
 	case CHANNEL_ATTR_TX_LOWAT_UNIT:
 		*value = cha->cha_tx_lowat.cet_unit;
 		break;
@@ -1660,15 +1617,6 @@ os_channel_info2attr(struct channel *chd, channel_attr_t cha)
 	void *cha_key = cha->cha_key;
 	uint32_t caps;
 
-	_CASSERT((uint32_t)NEXUS_META_TYPE_INVALID == (uint32_t)CHANNEL_NEXUS_META_TYPE_INVALID);
-	_CASSERT((uint32_t)NEXUS_META_TYPE_QUANTUM == (uint32_t)CHANNEL_NEXUS_META_TYPE_QUANTUM);
-	_CASSERT((uint32_t)NEXUS_META_TYPE_PACKET == (uint32_t)CHANNEL_NEXUS_META_TYPE_PACKET);
-	_CASSERT((uint32_t)NEXUS_META_SUBTYPE_INVALID ==
-	    (uint32_t)CHANNEL_NEXUS_META_SUBTYPE_INVALID);
-	_CASSERT((uint32_t)NEXUS_META_SUBTYPE_PAYLOAD ==
-	    (uint32_t)CHANNEL_NEXUS_META_SUBTYPE_PAYLOAD);
-	_CASSERT((uint32_t)NEXUS_META_SUBTYPE_RAW == (uint32_t)CHANNEL_NEXUS_META_SUBTYPE_RAW);
-
 	bzero(cha, sizeof(*cha));
 	cha->cha_tx_rings = CHD_PARAMS(chd)->nxp_tx_rings;
 	cha->cha_rx_rings = CHD_PARAMS(chd)->nxp_rx_rings;
@@ -1684,13 +1632,6 @@ os_channel_info2attr(struct channel *chd, channel_attr_t cha)
 	cha->cha_nexus_defunct_ok = !!(cinfo->cinfo_ch_mode &
 	    CHMODE_DEFUNCT_OK);
 	cha->cha_nexusadv_size = CHD_PARAMS(chd)->nxp_nexusadv_size;
-	if (cinfo->cinfo_ch_mode & CHMODE_MONITOR) {
-		cha->cha_monitor =
-		    (cinfo->cinfo_ch_mode & CHMODE_MONITOR_NO_COPY) ?
-		    CHANNEL_MONITOR_NO_COPY : CHANNEL_MONITOR_COPY;
-	} else {
-		cha->cha_monitor = CHANNEL_MONITOR_OFF;
-	}
 	cha->cha_key_len = cha_key_len;
 	cha->cha_key = cha_key;
 	cha->cha_tx_lowat = cinfo->cinfo_tx_lowat;
@@ -2021,25 +1962,23 @@ os_channel_purge_packet_alloc_ring_common(const channel_t chd, bool large)
 		 * defunct, we'd be accessing zero-filled memory; this is fine
 		 * since we ignore all changes made to region at that time.
 		 */
-		if (chrd->chrd_md_type == NEXUS_META_TYPE_PACKET) {
-			struct __user_packet *p = (struct __user_packet *)q;
-			uint16_t bcnt = p->pkt_bufs_cnt;
-			uint16_t bmax = p->pkt_bufs_max;
+		struct __user_packet *p = (struct __user_packet *)q;
+		uint16_t bcnt = p->pkt_bufs_cnt;
+		uint16_t bmax = p->pkt_bufs_max;
 
-			if (__improbable((bcnt == 0) || (bmax == 0))) {
-				if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
-					SK_ABORT("pkt pool purge, bad bufcnt");
-					/* NOTREACHED */
-					__builtin_unreachable();
-				} else {
-					return ENXIO;
-				}
+		if (__improbable((bcnt == 0) || (bmax == 0))) {
+			if (!_CHANNEL_RING_IS_DEFUNCT(chrd)) {
+				SK_ABORT("pkt pool purge, bad bufcnt");
+				/* NOTREACHED */
+				__builtin_unreachable();
+			} else {
+				return ENXIO;
 			}
-			/*
-			 * alloc ring will not have multi-buflet packets.
-			 */
-			_PKT_BUFCNT_VERIFY(chrd, bcnt, 1);
 		}
+		/*
+		 * alloc ring will not have multi-buflet packets.
+		 */
+		_PKT_BUFCNT_VERIFY(chrd, bcnt, 1);
 		*(mach_vm_address_t *) (uintptr_t)&q->qum_buf[0].buf_addr =
 		    _CHANNEL_RING_BUF(chrd, ring, &q->qum_buf[0]);
 		idx = _CHANNEL_RING_NEXT(ring, idx);
@@ -2417,4 +2356,14 @@ os_channel_buflet_free(const channel_t chd, buflet_t ubft)
 	ring->ring_head = _CHANNEL_RING_NEXT(ring, idx);
 
 	return __improbable(_CHANNEL_RING_IS_DEFUNCT(chrd)) ? ENXIO : 0;
+}
+
+int
+os_channel_get_upp_buffer_stats(const channel_t chd, uint64_t *buffer_total,
+    uint64_t *buffer_inuse)
+{
+	struct __user_channel_schema *csm = CHD_SCHEMA(chd);
+	*buffer_total = csm->csm_upp_buf_total;
+	*buffer_inuse = csm->csm_upp_buf_inuse;
+	return 0;
 }

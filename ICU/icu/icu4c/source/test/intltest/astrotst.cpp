@@ -37,6 +37,7 @@ void AstroTest::runIndexedTest( int32_t index, UBool exec, const char* &name, ch
       CASE(3,TestCoverage);
       CASE(4,TestBasics);
       CASE(5,TestMoonAge);
+      CASE(6,TestHinduCalculations);
     default: name = ""; break;
     }
 }
@@ -139,11 +140,50 @@ void AstroTest::TestCoordinates() {
   CalendarAstronomer astro;
   astro.eclipticToEquatorial(result, 139.686111 * CalendarAstronomer::PI / 180.0, 4.875278* CalendarAstronomer::PI / 180.0);
   logln(UnicodeString("result is ") + result.toString() + UnicodeString(";  ") /* + result.toHmsString()*/);
+    
   close(status);
   ASSERT_OK(status);
 }
 
+void AstroTest::TestHinduCalculations() {
+  // rdar://145903949 Adding unit tests for Hindu calculations
+  UErrorCode status = U_ZERO_ERROR;
+  init(status);
+  ASSERT_OK(status);
 
+  CalendarAstronomer astro;
+
+  testCalculation("hinduSunrise", astro.hinduSunrise(739339, 0.0, 23), 739339.253363);
+  testCalculation("hinduSolarLongitude", astro.hinduSolarLongitude(739253.0), 257.110);
+  testCalculation("hinduSolarLongitudeAtOrAfter", astro.hinduSolarLongitudeAtOrAfter(330.0, 739253.0), 739324.862);
+  testCalculation("hinduLunarDayAtOrAfter", astro.hinduLunarDayAtOrAfter(1.0, 739324), 739339.681);
+  testCalculation("hinduLunarPhase", astro.hinduLunarPhase(739339), 351.006);
+  testCalculation("hinduNewMoonBefore", astro.hinduNewMoonBefore(739339), 739310.263);
+  
+  testCalculation("hinduVikramOffset true", astro.hinduVikramOffset(739614), -1);
+  testCalculation("hinduVikramOffset false", astro.hinduVikramOffset(739339), 0);
+    
+  testCalculation("getHinduMonthStart first", astro.getHinduMonthStart(1956, 0), 2414741);
+  testCalculation("getHinduMonthStart last", astro.getHinduMonthStart(2156, 11), 2488124);
+  testCalculation("getHinduMonthStart out of range", astro.getHinduMonthStart(1000, 10), -1);
+    
+  close(status);
+  ASSERT_OK(status);
+}
+
+bool AstroTest::testCalculation(const char* method, double actual, double expected) {
+    if (fabs(actual - expected) > 0.001) {
+        errln("FAIL: %s expected: %f got: %f", method, expected, actual);
+    }
+    return fabs(actual - expected) < 0.001;
+}
+
+bool AstroTest::testCalculation(const char* method, int32_t i1, int32_t i2) {
+    if (i1 != i2) {
+        errln("FAIL: %s expected: %d got: %d", method, i2, i1);
+    }
+    return i1 == i2;
+}
 
 void AstroTest::TestCoverage() {
   UErrorCode status = U_ZERO_ERROR;

@@ -34,11 +34,13 @@
 #include <kdp/kdp_core.h>
 #include <kdp/processor_core.h>
 
-static void
-net_stage_reset(struct kdp_output_stage *stage)
+static kern_return_t
+net_stage_reset(struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
 	stage->kos_bypass = false;
 	stage->kos_bytes_written = 0;
+
+	return KERN_SUCCESS;
 }
 
 static kern_return_t

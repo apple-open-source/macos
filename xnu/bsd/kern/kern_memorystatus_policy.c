@@ -80,12 +80,15 @@ extern uint64_t memstat_reaper_min_age_secs;
 extern uint64_t memstat_oldest_reapable_proc_will_be_reapable_at_ts_matu;
 extern bool     memstat_reaper_is_currently_sweeping;
 
+extern vm_pressure_level_t memorystatus_vm_pressure_level;
+
 static void
-memorystatus_health_check(memorystatus_system_health_t *status)
+memstat_evaluate_health_conditions(memorystatus_system_health_t status)
 {
 	memset(status, 0, sizeof(memorystatus_system_health_t));
-	status->msh_compressor_exhausted = vm_compressor_low_on_space() ||
+	status->msh_compressor_low_on_space = vm_compressor_low_on_space() ||
 	    os_atomic_load(&memorystatus_compressor_space_shortage, relaxed);
+	status->msh_compressor_exhausted = vm_compressor_out_of_space();
 	status->msh_swap_low_on_space = vm_swap_low_on_space();
 	status->msh_swap_exhausted = vm_swap_out_of_space();
 #if CONFIG_JETSAM
@@ -108,33 +111,203 @@ memorystatus_health_check(memorystatus_system_health_t *status)
 	status->msh_pageout_starved = os_atomic_load(&memorystatus_pageout_starved, relaxed);
 	status->msh_swappable_compressor_segments_over_limit = memorystatus_swap_over_trigger(100);
 	status->msh_swapin_queue_over_limit = memorystatus_swapin_over_trigger();
+#else /* !CONFIG_JETSAM */
+	vm_pressure_level_t pressure_level = memorystatus_vm_pressure_level;
+	status->msh_vm_pressure_critical = (pressure_level == kVMPressureCritical);
+	status->msh_vm_pressure_warning = (pressure_level >= kVMPressureWarning);
 #endif /* CONFIG_JETSAM */
 	status->msh_zone_map_is_exhausted = os_atomic_load(&memorystatus_zone_map_is_exhausted, relaxed);
 }
 
-bool
-memorystatus_is_system_healthy(const memorystatus_system_health_t *status)
+static bool
+memstat_is_system_healthy(const memorystatus_system_health_t status)
 {
 #if CONFIG_JETSAM
 	return !(status->msh_available_pages_below_critical ||
 	       status->msh_compressor_is_thrashing ||
 	       status->msh_compressor_exhausted ||
+	       status->msh_compressor_low_on_space ||
 	       status->msh_filecache_is_thrashing ||
 	       status->msh_zone_map_is_exhausted ||
 	       status->msh_pageout_starved);
 #else /* CONFIG_JETSAM */
 	return !(status->msh_zone_map_is_exhausted ||
 	       status->msh_compressor_exhausted ||
-	       status->msh_swap_exhausted);
+	       status->msh_compressor_low_on_space ||
+	       status->msh_swap_exhausted ||
+	       status->msh_swap_low_on_space ||
+	       status->msh_vm_pressure_critical ||
+	       status->msh_vm_pressure_warning);
 #endif /* CONFIG_JETSAM */
 }
 
+static void
+memstat_log_system_health(const memorystatus_system_health_t status)
+{
+	static struct memorystatus_system_health_s prev_status = {0};
+
+	bool healthy = memstat_is_system_healthy(status);
+
+	/*
+	 * Avoid spamming logs by only logging when the system status has changed.
+	 */
+	if (prev_status.msh_zone_map_is_exhausted == status->msh_zone_map_is_exhausted &&
+	    prev_status.msh_compressor_exhausted == status->msh_compressor_exhausted &&
+	    prev_status.msh_swap_low_on_space == status->msh_swap_low_on_space &&
+	    prev_status.msh_swap_exhausted == status->msh_swap_exhausted
+#if CONFIG_JETSAM
+	    &&
+	    prev_status.msh_available_pages_below_idle == status->msh_available_pages_below_idle &&
+	    prev_status.msh_available_pages_below_soft == status->msh_available_pages_below_soft &&
+	    prev_status.msh_available_pages_below_critical == status->msh_available_pages_below_critical &&
+	    prev_status.msh_available_pages_below_reaper == status->msh_available_pages_below_reaper &&
+	    prev_status.msh_compressor_needs_to_swap == status->msh_compressor_needs_to_swap &&
+	    prev_status.msh_compressor_is_thrashing == status->msh_compressor_is_thrashing &&
+	    prev_status.msh_filecache_is_thrashing == status->msh_filecache_is_thrashing &&
+	    prev_status.msh_phantom_cache_pressure == status->msh_phantom_cache_pressure &&
+	    prev_status.msh_swapin_queue_over_limit == status->msh_swapin_queue_over_limit &&
+	    prev_status.msh_pageout_starved == status->msh_pageout_starved
+#endif /* CONFIG_JETSAM */
+	    ) {
+		/* No change */
+		return;
+	}
+
+#if CONFIG_JETSAM
+	if (healthy) {
+		if (status->msh_available_pages_below_soft) {
+			memorystatus_log(
+				"memorystatus: System will begin enforcing "
+				"soft memory limits. "
+				"memorystatus_available_pages: %llu compressor_size: %u\n",
+				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+		} else if (status->msh_available_pages_below_idle) {
+			memorystatus_log(
+				"memorystatus: System will begin enacting "
+				"idle-exits. "
+				"memorystatus_available_pages: %llu compressor_size: %u\n",
+				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+		} else if (status->msh_available_pages_below_reaper) {
+			memorystatus_log(
+				"memorystatus: System will begin reaping "
+				"long-idle processes. "
+				"memorystatus_available_pages: %llu compressor_size: %u\n",
+				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+		} else {
+			memorystatus_log(
+				"memorystatus: System is healthy. "
+				"memorystatus_available_pages: %llu compressor_size:%u\n",
+				(uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+		}
+	} else {
+		/* Unhealthy */
+		memorystatus_log("memorystatus: System is unhealthy! memorystatus_available_pages: %llu compressor_size:%u\n",
+		    (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+		memorystatus_log(
+			"memorystatus: {"
+			"\"available_pages_below_critical\": %d, "
+			"\"available_pages_below_idle\": %d, "
+			"\"available_pages_below_soft\": %d, "
+			"\"available_pages_below_reaper\": %d, "
+			"\"compressor_needs_to_swap\": %d, "
+			"\"compressor_exhausted\": %d, "
+			"\"compressor_is_thrashing\": %d, "
+			"\"filecache_is_thrashing\": %d, "
+			"\"zone_map_is_exhausted\": %d, "
+			"\"phantom_cache_pressure\": %d, "
+			"\"swappable_compressor_segments_over_limit\": %d, "
+			"\"swapin_queue_over_limit\": %d, "
+			"\"swap_low\": %d, "
+			"\"swap_exhausted\": %d"
+			"}\n",
+			status->msh_available_pages_below_critical,
+			status->msh_available_pages_below_idle,
+			status->msh_available_pages_below_soft,
+			status->msh_available_pages_below_reaper,
+			status->msh_compressor_needs_to_swap,
+			status->msh_compressor_exhausted,
+			status->msh_compressor_is_thrashing,
+			status->msh_filecache_is_thrashing,
+			status->msh_zone_map_is_exhausted,
+			status->msh_phantom_cache_pressure,
+			status->msh_swappable_compressor_segments_over_limit,
+			status->msh_swapin_queue_over_limit,
+			status->msh_swap_low_on_space,
+			status->msh_swap_exhausted);
+	}
+#else /* CONFIG_JETSAM */
+	memorystatus_log("memorystatus: System is %s. memorystatus_available_pages: %llu compressor_size:%u\n",
+	    healthy ? "healthy" : "unhealthy",
+	    (uint64_t)MEMORYSTATUS_LOG_AVAILABLE_PAGES, vm_compressor_pool_size());
+	if (!healthy) {
+		memorystatus_log(
+			"memorystatus: {"
+			"\"compressor_exhausted\": %d, "
+			"\"zone_map_is_exhausted\": %d, "
+			"\"swap_low\": %d, "
+			"\"swap_exhausted\": %d"
+			"}\n",
+			status->msh_compressor_exhausted,
+			status->msh_zone_map_is_exhausted,
+			status->msh_swap_low_on_space,
+			status->msh_swap_exhausted);
+	}
+#endif /* CONFIG_JETSAM */
+	prev_status = *status;
+}
+
+bool
+memstat_check_system_health(memorystatus_system_health_t status)
+{
+	memstat_evaluate_health_conditions(status);
+	memstat_log_system_health(status);
+	return memstat_is_system_healthy(status);
+}
 
 #pragma mark Memorystatus Thread Actions
 
 /*
  * This section picks the appropriate memorystatus_action & deploys it.
  */
+
+uint64_t memstat_last_cache_purge_ts;
+/* Purge caches under critical pressure up to every 1 min */
+TUNABLE(uint64_t, memstat_cache_purge_backoff_ns,
+    "memorystatus_cache_purge_backoff_ns", 1 * 60 * NSEC_PER_SEC);
+
+static uint32_t
+memorystatus_pick_kill_cause(const memorystatus_system_health_t status)
+{
+	assert(!memstat_is_system_healthy(status));
+#if CONFIG_JETSAM
+	if (status->msh_compressor_is_thrashing) {
+		return kMemorystatusKilledVMCompressorThrashing;
+	} else if (status->msh_compressor_exhausted) {
+		return kMemorystatusKilledVMCompressorSpaceShortage;
+	} else if (status->msh_swap_low_on_space) {
+		return kMemorystatusKilledLowSwap;
+	} else if (status->msh_filecache_is_thrashing) {
+		return kMemorystatusKilledFCThrashing;
+	} else if (status->msh_zone_map_is_exhausted) {
+		return kMemorystatusKilledZoneMapExhaustion;
+	} else if (status->msh_pageout_starved) {
+		return kMemorystatusKilledVMPageoutStarvation;
+	} else {
+		assert(status->msh_available_pages_below_critical);
+		return kMemorystatusKilledVMPageShortage;
+	}
+#else /* CONFIG_JETSAM */
+	if (status->msh_zone_map_is_exhausted) {
+		return kMemorystatusKilledZoneMapExhaustion;
+	} else if (status->msh_compressor_exhausted) {
+		return kMemorystatusKilledVMCompressorSpaceShortage;
+	} else if (status->msh_swap_exhausted) {
+		return kMemorystatusKilledLowSwap;
+	} else {
+		return kMemorystatusKilled;
+	}
+#endif /* CONFIG_JETSAM */
+}
 
 /*
  * Inspects the state of various resources in the system to see if
@@ -153,10 +326,8 @@ memorystatus_pick_action(jetsam_state_t state,
     bool swappable_apps_remaining,
     int *jld_idle_kills)
 {
-	memorystatus_system_health_t status;
-	memorystatus_health_check(&status);
-	memorystatus_log_system_health(&status);
-	bool is_system_healthy = memorystatus_is_system_healthy(&status);
+	struct memorystatus_system_health_s status;
+	bool is_system_healthy = memstat_check_system_health(&status);
 
 #if CONFIG_JETSAM
 	if (status.msh_available_pages_below_soft || !is_system_healthy) {
@@ -195,7 +366,7 @@ memorystatus_pick_action(jetsam_state_t state,
 			}
 		}
 
-		if (status.msh_compressor_exhausted) {
+		if (status.msh_compressor_exhausted || status.msh_compressor_low_on_space) {
 			*kill_cause = kMemorystatusKilledVMCompressorSpaceShortage;
 			return MEMORYSTATUS_KILL_TOP_PROCESS;
 		}
@@ -255,6 +426,7 @@ memorystatus_pick_action(jetsam_state_t state,
 	(void) jld_idle_kills;
 	(void) suspended_swappable_apps_remaining;
 	(void) swappable_apps_remaining;
+	(void) highwater_remaining;
 
 	/*
 	 * Without CONFIG_JETSAM, we only kill if the system is unhealthy.
@@ -265,29 +437,75 @@ memorystatus_pick_action(jetsam_state_t state,
 		*kill_cause = 0;
 		return MEMORYSTATUS_KILL_NONE;
 	}
-	if (highwater_remaining) {
-		*kill_cause = kMemorystatusKilledHiwat;
-		return MEMORYSTATUS_KILL_HIWATER;
-	}
 	*kill_cause = memorystatus_pick_kill_cause(&status);
 	if (status.msh_zone_map_is_exhausted) {
 		return MEMORYSTATUS_KILL_TOP_PROCESS;
-	} else if (status.msh_compressor_exhausted || status.msh_swap_exhausted) {
+	}
+	if (status.msh_compressor_exhausted || status.msh_swap_exhausted) {
 		if (kill_on_no_paging_space) {
 			return MEMORYSTATUS_KILL_TOP_PROCESS;
-		} else if (memstat_get_idle_proccnt() > 0) {
+		}
+	}
+	if (status.msh_compressor_low_on_space || status.msh_swap_low_on_space) {
+		if (memstat_get_idle_proccnt() > 0) {
+			/* Kill all idle processes before invoking the no paging space action */
 			return MEMORYSTATUS_KILL_IDLE;
+		}
+		/*
+		 * Throttle how often the no-paging-space action is performed.
+		 */
+		uint64_t now = mach_absolute_time();
+		uint64_t delta_since_last_no_space_ns;
+		uint64_t last_action_ts = os_atomic_load(&last_no_space_action_ts, relaxed);
+		assert3u(now, >=, last_action_ts);
+		absolutetime_to_nanoseconds(now - last_action_ts, &delta_since_last_no_space_ns);
+		if (delta_since_last_no_space_ns > no_paging_space_action_throttle_delay_ns) {
+			return MEMORYSTATUS_NO_PAGING_SPACE;
 		} else {
-			/*
-			 * The no paging space action will be performed synchronously by the the
-			 * thread performing the compression/swap.
-			 */
 			return MEMORYSTATUS_KILL_NONE;
 		}
-	} else {
-		panic("System is unhealthy but compressor, swap, and zone map are not exhausted");
+	}
+	if (status.msh_vm_pressure_critical) {
+		/*
+		 * The system is under critical memory pressure. First terminate any low-risk
+		 * idle processes. When they are exhausted, purge system memory caches.
+		 */
+		if (memstat_pressure_config & MEMSTAT_WARNING_KILL_LONG_IDLE &&
+		    memstat_get_long_idle_proccnt() > 0) {
+			*kill_cause = kMemorystatusKilledLongIdleExit;
+			return MEMORYSTATUS_KILL_LONG_IDLE;
+		}
+		if (memstat_pressure_config & MEMSTAT_CRITICAL_KILL_IDLE &&
+		    memstat_get_idle_proccnt() > 0) {
+			*kill_cause = kMemorystatusKilledIdleExit;
+			return MEMORYSTATUS_KILL_IDLE;
+		}
+		if (memstat_pressure_config & MEMSTAT_CRITICAL_PURGE_CACHES) {
+			uint64_t now = mach_absolute_time();
+			uint64_t delta_ns;
+			uint64_t last_purge_ts = os_atomic_load(&memstat_last_cache_purge_ts, relaxed);
+			assert3u(now, >=, last_purge_ts);
+			absolutetime_to_nanoseconds(now - last_purge_ts, &delta_ns);
+			if (delta_ns > memstat_cache_purge_backoff_ns) {
+				memstat_last_cache_purge_ts = now;
+				return MEMORYSTATUS_PURGE_CACHES;
+			}
+		}
+		return MEMORYSTATUS_KILL_NONE;
+	} else if (status.msh_vm_pressure_warning) {
+		/*
+		 * The system is under pressure and is likely to start swapping soon. Reap
+		 * any long-idle daemons.
+		 */
+		if (memstat_pressure_config & MEMSTAT_WARNING_KILL_LONG_IDLE &&
+		    memstat_get_long_idle_proccnt() > 0) {
+			*kill_cause = kMemorystatusKilledLongIdleExit;
+			return MEMORYSTATUS_KILL_LONG_IDLE;
+		}
+		return MEMORYSTATUS_KILL_NONE;
 	}
 #endif /* CONFIG_JETSAM */
+	panic("System is unhealthy but no action has been chosen");
 }
 
 #pragma mark Aggressive Jetsam

@@ -23,9 +23,10 @@ main(void)
 
 static NSData *keybag = NULL;
 static NSString *keybaguuid = NULL;
+#define PASSWORD "foo"
 
 static void
-BagMe(void)
+BagMe(keybag_type_t bag_type)
 {
     keybag_handle_t handle;
     kern_return_t result;
@@ -34,7 +35,7 @@ BagMe(void)
     void *data = NULL;
     int length;
 
-    result = aks_create_bag("foo", 3, kAppleKeyStoreAsymmetricBackupBag, &handle);
+    result = aks_create_bag(PASSWORD, strlen(PASSWORD), bag_type, &handle);
     if (result)
         errx(1, "aks_create_bag: %08x", result);
 
@@ -52,25 +53,24 @@ BagMe(void)
     keybag = [NSData dataWithBytes:data length:length];
 }
 
-int main (int argc, const char * argv[])
-{
+static int doit(bool require_password_for_backup) {
     @autoreleasepool {
-        NSData *password = NULL;
         CFErrorRef error = NULL;
         NSString *uuid = NULL;
+        NSData *password = [NSData dataWithBytes:PASSWORD length:strlen(PASSWORD)];
 
-        BagMe();
-        password = [NSData dataWithBytes:"foo" length:3];
-
-        NSData *backup = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)keybag, (__bridge CFDataRef)password));
+        NSData *backup = CFBridgingRelease(_SecKeychainCopyBackup((__bridge CFDataRef)keybag, require_password_for_backup ? (__bridge CFDataRef)password : NULL));
         if (backup == NULL) {
             errx(1, "backup failed");
         }
 
         char path[] = "/tmp/secbackuptestXXXXXXX";
         int fd = mkstemp(path);
+        if (fd < 0) {
+            errx(1, "mkstmp failed");
+        }
 
-        bool status = _SecKeychainWriteBackupToFileDescriptor((__bridge CFDataRef)keybag, (__bridge CFDataRef)password, fd, &error);
+        bool status = _SecKeychainWriteBackupToFileDescriptor((__bridge CFDataRef)keybag, require_password_for_backup ? (__bridge CFDataRef)password : NULL, fd, &error);
         if (!status) {
             NSLog(@"backup failed: %@", error);
             errx(1, "failed backup 2");
@@ -88,7 +88,9 @@ int main (int argc, const char * argv[])
         }
 
         struct stat sb;
-        fstat(fd, &sb);
+        if (fstat(fd, &sb) == -1) {
+            err(1, "fstat");
+        }
 
         if (sb.st_size != (off_t)[backup length])
             warn("backup different ");
@@ -117,6 +119,17 @@ int main (int argc, const char * argv[])
 
         return 0;
     }
+}
+
+int main (int argc, const char * argv[])
+{
+    BagMe(kAppleKeyStoreAsymmetricBackupBag);
+    int retValAsym = doit(false);
+
+    BagMe(kAppleKeyStoreBackupBag);
+    int retValSym = doit(true);
+
+    return retValAsym ? retValAsym : retValSym;
 }
 
 #endif /* TARGET_OS_SIMULATOR */

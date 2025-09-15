@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,6 +84,16 @@ public:
     void scale(float scale)
     {
         this->scale(scale, scale);
+    }
+
+    constexpr IntPoint scaled(float scale) const
+    {
+        return { static_cast<int>(std::lround(m_x * scale)), static_cast<int>(std::lround(m_y * scale)) };
+    }
+
+    constexpr IntPoint scaled(float scaleX, float scaleY) const
+    {
+        return { static_cast<int>(std::lround(m_x * scaleX)), static_cast<int>(std::lround(m_y * scaleY)) };
     }
     
     constexpr IntPoint expandedTo(const IntPoint& other) const

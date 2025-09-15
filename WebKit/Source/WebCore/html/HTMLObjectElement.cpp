@@ -38,6 +38,7 @@
 #include "LocalFrame.h"
 #include "MIMETypeRegistry.h"
 #include "NodeList.h"
+#include "NodeInlines.h"
 #include "NodeName.h"
 #include "Page.h"
 #include "RenderEmbeddedObject.h"

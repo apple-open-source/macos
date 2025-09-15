@@ -32,6 +32,7 @@
 
 #include <Security/SecTrust.h>
 #include <Security/SecBasePriv.h> /* For errSecWaitForCallback. */
+#include <Security/SecTask.h>
 #include "trust/trustd/SecCertificateServer.h"
 #include "trust/trustd/SecCertificateSource.h"
 #include <mach/port.h>
@@ -150,6 +151,10 @@ dispatch_queue_t SecPathBuilderGetQueue(SecPathBuilderRef builder);
    which caller must release, or NULL if there is no external client. */
 CFDataRef SecPathBuilderCopyClientAuditToken(SecPathBuilderRef builder);
 CFDataRef SecTrustServerCopySelfAuditToken(void);
+
+/* More audit token helpers */
+SecTaskRef SecPathBuilderCopyClientTask(SecPathBuilderRef builder);
+bool SecPathBuilderIsPlatformBinary(SecPathBuilderRef builder);
 
 /* Get the NSURLRequest attribution */
 uint64_t SecPathBuilderGetAttribution(SecPathBuilderRef builder);

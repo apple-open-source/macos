@@ -343,6 +343,8 @@ __BEGIN_DECLS
 #define SEC_TRUST_ERROR_EmailProtectionEKU          SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_SinglePurposeChainEKU       SecStringWithDefaultValue("Extended key usage does not match certificate usage", "Trust", 0, "Extended key usage does not match certificate usage", "Error for extended key usage mismatch")
 #define SEC_TRUST_ERROR_MarkRepresentation          SecStringWithDefaultValue("SVG data does not match logotype extension", "Trust", 0, "SVG data does not match logotype extension", "Error for SVG logotype mismatch")
+#define SEC_TRUST_ERROR_URI                         SecStringWithDefaultValue("URI does not match name(s) in certificate", "Trust", 0, "URI address does not match name(s) in certificate", "Error for URI mismatch")
+#define SEC_TRUST_ERROR_RootMarkerOid               SecStringWithDefaultValue("Missing issuer-specific extension OID", "Trust", 0, "Missing issuer-specific extension OID", "Error for intermediate marker OID")
 #define SEC_TRUST_ERROR_QWAC                        SecStringWithDefaultValue("Certificate is not a qualified web certificate", "Trust", 0, "Certificate is not a qualified web certificate", "Error for non-QWAC certs")
 
 __END_DECLS

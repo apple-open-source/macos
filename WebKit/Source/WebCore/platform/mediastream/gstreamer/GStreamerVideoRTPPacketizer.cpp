@@ -26,6 +26,7 @@
 #include "GStreamerCommon.h"
 #include "GStreamerRegistryScanner.h"
 #include "HEVCUtilities.h"
+#include "IntSize.h"
 #include "VP9Utilities.h"
 #include "VideoEncoderPrivateGStreamer.h"
 #include <gst/rtp/rtp.h>
@@ -64,12 +65,12 @@ RefPtr<GStreamerVideoRTPPacketizer> GStreamerVideoRTPPacketizer::create(RefPtr<U
 
     auto codec = emptyString();
     if (encoding == "vp8"_s) {
-        if (gstObjectHasProperty(payloader.get(), "picture-id-mode"))
+        if (gstObjectHasProperty(payloader.get(), "picture-id-mode"_s))
             gst_util_set_object_arg(G_OBJECT(payloader.get()), "picture-id-mode", "15-bit");
 
         codec = "vp8"_s;
     } else if (encoding == "vp9"_s) {
-        if (gstObjectHasProperty(payloader.get(), "picture-id-mode"))
+        if (gstObjectHasProperty(payloader.get(), "picture-id-mode"_s))
             gst_util_set_object_arg(G_OBJECT(payloader.get()), "picture-id-mode", "15-bit");
 
         VPCodecConfigurationRecord record;
@@ -122,7 +123,7 @@ RefPtr<GStreamerVideoRTPPacketizer> GStreamerVideoRTPPacketizer::create(RefPtr<U
         payloadType = gstStructureGet<int>(encodingParameters.get(), "payload"_s);
 
     GRefPtr<GstElement> encoder = gst_element_factory_make("webkitvideoencoder", nullptr);
-    if (!videoEncoderSetCodec(WEBKIT_VIDEO_ENCODER(encoder.get()), WTFMove(codec))) {
+    if (!videoEncoderSetCodec(WEBKIT_VIDEO_ENCODER(encoder.get()), WTFMove(codec), { })) {
         GST_ERROR("Unable to set encoder format");
         return nullptr;
     }
@@ -146,10 +147,10 @@ GStreamerVideoRTPPacketizer::GStreamerVideoRTPPacketizer(GRefPtr<GstElement>&& e
 
     GST_DEBUG_OBJECT(m_bin.get(), "RTP encoding parameters: %" GST_PTR_FORMAT, m_encodingParameters.get());
 
-    m_videoRate = makeGStreamerElement("videorate", nullptr);
+    m_videoRate = makeGStreamerElement("videorate"_s);
     // https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/97#note_56575
     g_object_set(m_videoRate.get(), "skip-to-first", TRUE, "drop-only", TRUE, "average-period", UINT64_C(1), nullptr);
-    m_frameRateCapsFilter = makeGStreamerElement("capsfilter", nullptr);
+    m_frameRateCapsFilter = makeGStreamerElement("capsfilter"_s);
     gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_videoRate.get(), m_frameRateCapsFilter.get(), nullptr);
 
     auto lastIdentifier = findLastExtensionId(rtpCaps.get());
@@ -212,7 +213,7 @@ void GStreamerVideoRTPPacketizer::configure(const GstStructure* encodingParamete
 
 void GStreamerVideoRTPPacketizer::updateStats()
 {
-    if (UNLIKELY(!m_encoder))
+    if (!m_encoder) [[unlikely]]
         return;
 
     auto framesSent = gstStructureGet<uint64_t>(m_stats.get(), "frames-sent"_s).value_or(0);

@@ -74,15 +74,15 @@ MessageReceiveQueue* MessageReceiveQueueMap::get(const Decoder& message) const
     {
         auto it = m_anyIDQueues.find(receiverName);
         if (it != m_anyIDQueues.end())
-            return std::visit(queueExtractor, it->value);
+            return WTF::visit(queueExtractor, it->value);
     }
     {
         auto it = m_queues.find(std::make_pair(receiverName, message.destinationID()));
         if (it != m_queues.end())
-            return std::visit(queueExtractor, it->value);
+            return WTF::visit(queueExtractor, it->value);
     }
     if (m_anyReceiverQueue)
-        return std::visit(queueExtractor, *m_anyReceiverQueue);
+        return WTF::visit(queueExtractor, *m_anyReceiverQueue);
     return nullptr;
 }
 

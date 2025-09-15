@@ -103,24 +103,31 @@ Values for
 are constructed by a bitwise-inclusive OR of flags from the following
 list, defined in
 .In fcntl.h :
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_EACCESS
 The checks for accessibility are performed using the effective user and group
 IDs instead of the real user and group ID as required in a call to
 .Fn access .
 .El
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_SYMLINK_NOFOLLOW
 If
 .Fa path
 names a symbolic link, the status of the symbolic link is returned.
 .El
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_SYMLINK_NOFOLLOW_ANY
 If
 .Fa path
 names a symbolic link, the status of the symbolic link is returned and if the
 path has any other symbolic links, an error is returned.
+.El
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
+.It Dv AT_RESOLVE_BENEATH
+If
+.Fa path
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .El
 .Pp
 Even if a process has appropriate privileges and indicates success for
@@ -200,6 +207,10 @@ argument is not an absolute path and
 is neither
 .Dv AT_FDCWD
 nor a file descriptor associated with a directory.
+.It Bq Er ENOTCAPABLE
+AT_RESOLVE_BENEATH was passed and
+.Fa path
+does not reside in the directory hierarchy beneath the starting directory.
 .El
 .Sh SEE ALSO
 .Xr chmod 2 ,

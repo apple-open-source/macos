@@ -55,6 +55,7 @@ typedef enum  {
     kIOPMAssertionCategory_LocationServices_DeepSubmersion = 110,
     kIOPMAssertionCategory_LocationServices_SubmersionSurfaceCalibration = 111,
     kIOPMAssertionCategory_LocationServices_NILR = 112, // NILR: Network Initiated Location Request
+    kIOPMAssertionCategory_LocationServices_RegionMonitoring = 113,
 
     // Slots 150 through 199 are reserved for networking services
     kIOPMAssertionCategory_NetworkingServices_NSURLSessionTask = 150,
@@ -86,7 +87,24 @@ typedef enum  {
     kIOPMAssertionCategory_AudioHAL_LiquidDetection = 305,
     kIOPMAssertionCategory_AudioHAL_MediaStreaming = 306,
     kIOPMAssertionCategory_AudioHAL_MediaRecording = 307,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_MutedTalkerDetection = 308,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_VoiceControl = 309,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_SoundAnalysis = 310,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_MeterClient_HP = 311,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_MeterClient_LP = 312,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_Perception = 313,
+    kIOPMAssertionCategory_AudioHAL_OnDemand_SharedDSP = 314,
+    kIOPMAssertionCategory_AudioHAL_Unknown = 315,
+    kIOPMAssertionCategory_AudioHAL_Default = 316
 } IOPMAssertionCategory;
+
+typedef enum {
+    kIOPMAssertionPolicyNone = 0,
+    kIOPMAssertionPolicyActiveUse,
+    kIOPMAssertionPolicyInactive,
+    kIOPMAssertionPolicyDisplayOff,
+} IOPMAssertionPolicy;
+
 
 
 #endif

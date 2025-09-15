@@ -35,6 +35,7 @@
 #import <WebCore/CSSPropertyNames.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
+#import <WebCore/Document.h>
 #import <WebCore/Event.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/HTMLElement.h>
@@ -43,6 +44,7 @@
 #import <WebCore/HTMLTextAreaElement.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/Page.h>
+#import <wtf/Ref.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -74,16 +76,16 @@ Ref<PDFPluginTextAnnotation> PDFPluginTextAnnotation::create(PDFAnnotation *anno
 
 PDFPluginTextAnnotation::~PDFPluginTextAnnotation()
 {
-    element()->removeEventListener(eventNames().keydownEvent, *eventListener(), false);
+    protectedElement()->removeEventListener(eventNames().keydownEvent, *eventListener(), false);
 }
 
 Ref<Element> PDFPluginTextAnnotation::createAnnotationElement()
 {
-    Document& document = parent()->document();
+    Ref document = parent()->document();
     RetainPtr textAnnotation = annotation();
     bool isMultiline = [textAnnotation isMultiline];
 
-    Ref element = downcast<HTMLTextFormControlElement>(document.createElement(isMultiline ? textareaTag : inputTag, false));
+    Ref element = downcast<HTMLTextFormControlElement>(document->createElement(isMultiline ? textareaTag : inputTag, false));
     element->addEventListener(eventNames().keydownEvent, *eventListener(), false);
 
     if (!textAnnotation)
@@ -109,18 +111,18 @@ void PDFPluginTextAnnotation::updateGeometry()
 
 void PDFPluginTextAnnotation::commit()
 {
-    annotation().widgetStringValue = value();
+    annotation().widgetStringValue = value().createNSString().get();
     PDFPluginAnnotation::commit();
 }
 
 String PDFPluginTextAnnotation::value() const
 {
-    return downcast<HTMLTextFormControlElement>(element())->value();
+    return downcast<HTMLTextFormControlElement>(protectedElement())->value();
 }
 
 void PDFPluginTextAnnotation::setValue(const String& value)
 {
-    downcast<HTMLTextFormControlElement>(element())->setValue(value);
+    downcast<HTMLTextFormControlElement>(protectedElement())->setValue(value);
 }
 
 bool PDFPluginTextAnnotation::handleEvent(Event& event)

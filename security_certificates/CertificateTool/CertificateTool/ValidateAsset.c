@@ -171,7 +171,6 @@ int ValidateAsset(const char* asset_dir_path, unsigned long current_version)
     const char* files[] =
 	{
 		"AssertVersion.plist",
-		"Blocked.plist",
 		"EVRoots.plist",
 		"certsIndex.data",
 		"certsTable.data",

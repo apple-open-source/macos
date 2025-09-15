@@ -550,13 +550,17 @@ def GetIOPMWorkQueueSummary(wq):
     ioservicepm_header = "{:<20s}{:<4s}{:<4s}{:<4s}{:<4s}\n"
     iopmrequest_indent = "    "
     iopmrequest_header = iopmrequest_indent + "{:<20s}{:<6s}{:<20s}{:<20s}{:<12s}{:<12s}{:<20s}{:<20s}{:<20s}\n"
+    head = kern.StripKernelPAC(addressof(wq.fWorkQueue))
+    head = kern.GetValueFromAddress(head, 'queue_head_t *')
 
-    for next in IterateQueue(wq.fWorkQueue, 'IOServicePM *', 'WorkChain'):
+    for next in IterateQueue(head, 'IOServicePM *', 'WorkChain'):
         out_str += ioservicepm_header.format("IOService", "ps", "ms", "wr", "name")
         out_str += "0x{:<16x}  {:<2d}  {:<2d}  {:<2d}  {:<s}\n".format(
             next.Owner, next.CurrentPowerState, next.MachineState, next.WaitReason, next.Name)
         out_str += iopmrequest_header.format("IOPMRequest", "type", "next_req", "root_req", "work_wait", "free_wait", "arg0", "arg1", "arg2")
-        for request in IterateQueue(next.RequestHead, 'IOPMRequest *', 'fCommandChain'):
+        next_head = kern.StripKernelPAC(addressof(next.RequestHead))
+        next_head = kern.GetValueFromAddress(next_head, 'queue_head_t *')
+        for request in IterateQueue(next_head, 'IOPMRequest *', 'fCommandChain'):
             out_str += iopmrequest_indent
             out_str += "0x{:<16x}  0x{:<2x}  0x{:<16x}  0x{:<16x}".format(
                 request, request.fRequestType, request.fRequestNext, request.fRequestRoot)

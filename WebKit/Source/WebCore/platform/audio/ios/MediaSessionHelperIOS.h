@@ -42,29 +42,36 @@ namespace WebCore {
 
 class MediaPlaybackTarget;
 
+enum class SuspendedUnderLock : bool { No, Yes };
+enum class HasAvailableTargets : bool { No, Yes };
+enum class PlayingToAutomotiveHeadUnit : bool { No, Yes };
+enum class ShouldPause : bool { No, Yes };
+enum class SupportsAirPlayVideo : bool { No, Yes };
+enum class SupportsSpatialAudioPlayback : bool { No, Yes };
+
 class MediaSessionHelperClient : public CanMakeWeakPtr<MediaSessionHelperClient> {
 public:
     virtual ~MediaSessionHelperClient() = default;
 
-    enum class SuspendedUnderLock : bool { No, Yes };
-    virtual void applicationWillEnterForeground(SuspendedUnderLock) = 0;
-    virtual void applicationDidEnterBackground(SuspendedUnderLock) = 0;
-    virtual void applicationWillBecomeInactive() = 0;
-    virtual void applicationDidBecomeActive() = 0;
+    using SuspendedUnderLock = WebCore::SuspendedUnderLock;
+    virtual void uiApplicationWillEnterForeground(SuspendedUnderLock) = 0;
+    virtual void uiApplicationDidEnterBackground(SuspendedUnderLock) = 0;
+    virtual void uiApplicationWillBecomeInactive() = 0;
+    virtual void uiApplicationDidBecomeActive() = 0;
 
-    enum class HasAvailableTargets : bool { No, Yes };
+    using HasAvailableTargets = WebCore::HasAvailableTargets;
     virtual void externalOutputDeviceAvailableDidChange(HasAvailableTargets) = 0;
 
-    enum class PlayingToAutomotiveHeadUnit : bool { No, Yes };
+    using PlayingToAutomotiveHeadUnit = WebCore::PlayingToAutomotiveHeadUnit;
     virtual void isPlayingToAutomotiveHeadUnitDidChange(PlayingToAutomotiveHeadUnit) = 0;
 
-    enum class ShouldPause : bool { No, Yes };
+    using ShouldPause = WebCore::ShouldPause;
     virtual void activeAudioRouteDidChange(ShouldPause) = 0;
 
-    enum class SupportsAirPlayVideo : bool { No, Yes };
+    using SupportsAirPlayVideo = WebCore::SupportsAirPlayVideo;
     virtual void activeVideoRouteDidChange(SupportsAirPlayVideo, Ref<MediaPlaybackTarget>&&) = 0;
 
-    enum class SupportsSpatialAudioPlayback : bool { No, Yes };
+    using SupportsSpatialAudioPlayback = WebCore::SupportsSpatialAudioPlayback;
     virtual void activeAudioRouteSupportsSpatialPlaybackDidChange(SupportsSpatialAudioPlayback) = 0;
 };
 

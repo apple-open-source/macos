@@ -533,8 +533,8 @@ mptcp_getconninfo(struct mptses *mpte, sae_connid_t *cid, uint32_t *flags,
 
 					inp = sotoinpcb(mpts->mpts_socket);
 
-					mptcp_ci.mptcpci_init_rxbytes = inp->inp_stat->rxbytes;
-					mptcp_ci.mptcpci_init_txbytes = inp->inp_stat->txbytes;
+					mptcp_ci.mptcpci_init_rxbytes = inp->inp_mstat.ms_total.ts_rxbytes;
+					mptcp_ci.mptcpci_init_txbytes = inp->inp_mstat.ms_total.ts_txbytes;
 					initial_info_set = 1;
 				}
 
@@ -702,24 +702,26 @@ mptcp_getconninfo(struct mptses *mpte, sae_connid_t *cid, uint32_t *flags,
 
 				/* Roll the itf-stats into the tcp_info */
 				tcp_ci.tcpci_tcp_info.tcpi_txbytes +=
-				    mptsinp->inp_stat->txbytes;
+				    mptsinp->inp_mstat.ms_total.ts_txbytes;
 				tcp_ci.tcpci_tcp_info.tcpi_rxbytes +=
-				    mptsinp->inp_stat->rxbytes;
+				    mptsinp->inp_mstat.ms_total.ts_rxbytes;
 
 				tcp_ci.tcpci_tcp_info.tcpi_wifi_txbytes +=
-				    mptsinp->inp_wstat->txbytes;
+				    mptsinp->inp_mstat.ms_wifi_infra.ts_txbytes +
+				    mptsinp->inp_mstat.ms_wifi_non_infra.ts_txbytes;
 				tcp_ci.tcpci_tcp_info.tcpi_wifi_rxbytes +=
-				    mptsinp->inp_wstat->rxbytes;
+				    mptsinp->inp_mstat.ms_wifi_infra.ts_rxbytes +
+				    mptsinp->inp_mstat.ms_wifi_non_infra.ts_rxbytes;
 
 				tcp_ci.tcpci_tcp_info.tcpi_wired_txbytes +=
-				    mptsinp->inp_Wstat->txbytes;
+				    mptsinp->inp_mstat.ms_wired.ts_txbytes;
 				tcp_ci.tcpci_tcp_info.tcpi_wired_rxbytes +=
-				    mptsinp->inp_Wstat->rxbytes;
+				    mptsinp->inp_mstat.ms_wired.ts_rxbytes;
 
 				tcp_ci.tcpci_tcp_info.tcpi_cell_txbytes +=
-				    mptsinp->inp_cstat->txbytes;
+				    mptsinp->inp_mstat.ms_cellular.ts_txbytes;
 				tcp_ci.tcpci_tcp_info.tcpi_cell_rxbytes +=
-				    mptsinp->inp_cstat->rxbytes;
+				    mptsinp->inp_mstat.ms_cellular.ts_rxbytes;
 			}
 		}
 
@@ -1176,7 +1178,7 @@ mptcp_uiotombuf(struct uio *uio, int how, user_ssize_t space, struct mbuf **top)
 	while (len > 0) {
 		uint32_t m_needed = 1;
 
-		if (njcl > 0 && len > MBIGCLBYTES) {
+		if (len > MBIGCLBYTES) {
 			mb = m_getpackets_internal(&m_needed, 1,
 			    how, 1, M16KCLBYTES);
 		} else if (len > MCLBYTES) {
@@ -1946,14 +1948,16 @@ mptcp_fill_info_bytestats(struct tcp_info *ti, struct mptses *mpte)
 			continue;
 		}
 
-		ti->tcpi_txbytes += inp->inp_stat->txbytes;
-		ti->tcpi_rxbytes += inp->inp_stat->rxbytes;
-		ti->tcpi_cell_txbytes += inp->inp_cstat->txbytes;
-		ti->tcpi_cell_rxbytes += inp->inp_cstat->rxbytes;
-		ti->tcpi_wifi_txbytes += inp->inp_wstat->txbytes;
-		ti->tcpi_wifi_rxbytes += inp->inp_wstat->rxbytes;
-		ti->tcpi_wired_txbytes += inp->inp_Wstat->txbytes;
-		ti->tcpi_wired_rxbytes += inp->inp_Wstat->rxbytes;
+		ti->tcpi_txbytes += inp->inp_mstat.ms_total.ts_txbytes;
+		ti->tcpi_rxbytes += inp->inp_mstat.ms_total.ts_rxbytes;
+		ti->tcpi_cell_txbytes += inp->inp_mstat.ms_cellular.ts_txbytes;
+		ti->tcpi_cell_rxbytes += inp->inp_mstat.ms_cellular.ts_rxbytes;
+		ti->tcpi_wifi_txbytes += inp->inp_mstat.ms_wifi_infra.ts_txbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_txbytes;
+		ti->tcpi_wifi_rxbytes += inp->inp_mstat.ms_wifi_infra.ts_rxbytes +
+		    inp->inp_mstat.ms_wifi_non_infra.ts_rxbytes;
+		ti->tcpi_wired_txbytes += inp->inp_mstat.ms_wired.ts_txbytes;
+		ti->tcpi_wired_rxbytes += inp->inp_mstat.ms_wired.ts_rxbytes;
 	}
 
 	for (i = 0; i < MPTCP_ITFSTATS_SIZE; i++) {

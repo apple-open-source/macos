@@ -98,6 +98,11 @@ private:
     void dispatchPendingCallbacksAfterEnsuringDrawing() override;
 #endif
 
+#if ENABLE(DAMAGE_TRACKING)
+    void resetDamageHistoryForTesting() override;
+    void foreachRegionInDamageHistoryForTesting(Function<void(const WebCore::Region&)>&&) const override;
+#endif
+
 #if PLATFORM(GTK)
     void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
     void commitTransientZoom(double scale, WebCore::FloatPoint origin, CompletionHandler<void()>&&) override;

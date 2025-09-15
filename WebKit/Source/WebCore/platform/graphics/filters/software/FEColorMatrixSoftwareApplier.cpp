@@ -3,7 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -42,10 +42,10 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(FEColorMatrixSoftwareApplier);
 FEColorMatrixSoftwareApplier::FEColorMatrixSoftwareApplier(const FEColorMatrix& effect)
     : Base(effect)
 {
-    if (m_effect.type() == ColorMatrixType::FECOLORMATRIX_TYPE_SATURATE)
-        FEColorMatrix::calculateSaturateComponents(m_components, m_effect.values()[0]);
-    else if (m_effect.type() == ColorMatrixType::FECOLORMATRIX_TYPE_HUEROTATE)
-        FEColorMatrix::calculateHueRotateComponents(m_components, m_effect.values()[0]);
+    if (m_effect->type() == ColorMatrixType::FECOLORMATRIX_TYPE_SATURATE)
+        FEColorMatrix::calculateSaturateComponents(m_components, m_effect->values()[0]);
+    else if (m_effect->type() == ColorMatrixType::FECOLORMATRIX_TYPE_HUEROTATE)
+        FEColorMatrix::calculateHueRotateComponents(m_components, m_effect->values()[0]);
 }
 
 inline void FEColorMatrixSoftwareApplier::matrix(float& red, float& green, float& blue, float& alpha) const
@@ -55,7 +55,7 @@ inline void FEColorMatrixSoftwareApplier::matrix(float& red, float& green, float
     float b = blue;
     float a = alpha;
 
-    const auto& values = m_effect.values();
+    const auto& values = m_effect->values();
 
     red   = values[ 0] * r + values[ 1] * g + values[ 2] * b + values[ 3] * a + values[ 4] * 255;
     green = values[ 5] * r + values[ 6] * g + values[ 7] * b + values[ 8] * a + values[ 9] * 255;
@@ -102,12 +102,12 @@ void FEColorMatrixSoftwareApplier::applyPlatformAccelerated(PixelBuffer& pixelBu
     dest.rowBytes = bufferSize.width() * 4;
     dest.data = pixelBytes;
 
-    switch (m_effect.type()) {
+    switch (m_effect->type()) {
     case ColorMatrixType::FECOLORMATRIX_TYPE_UNKNOWN:
         break;
 
     case ColorMatrixType::FECOLORMATRIX_TYPE_MATRIX: {
-        const auto& values = m_effect.values();
+        const auto& values = m_effect->values();
 
         const int16_t matrix[4 * 4] = {
             static_cast<int16_t>(roundf(values[ 0] * divisor)),
@@ -193,7 +193,7 @@ void FEColorMatrixSoftwareApplier::applyPlatformUnaccelerated(PixelBuffer& pixel
 {
     auto pixelByteLength = pixelBuffer.bytes().size();
 
-    switch (m_effect.type()) {
+    switch (m_effect->type()) {
     case ColorMatrixType::FECOLORMATRIX_TYPE_UNKNOWN:
         break;
 
@@ -245,11 +245,11 @@ void FEColorMatrixSoftwareApplier::applyPlatformUnaccelerated(PixelBuffer& pixel
 void FEColorMatrixSoftwareApplier::applyPlatform(PixelBuffer& pixelBuffer) const
 {
 #if USE(ACCELERATE)
-    const auto& values = m_effect.values();
+    const auto& values = m_effect->values();
 
     // vImageMatrixMultiply_ARGB8888 takes a 4x4 matrix, if any value in the last column of the FEColorMatrix 5x4 matrix
     // is not zero, fall back to non-vImage code.
-    if (m_effect.type() != ColorMatrixType::FECOLORMATRIX_TYPE_MATRIX || (!values[4] && !values[9] && !values[14] && !values[19])) {
+    if (m_effect->type() != ColorMatrixType::FECOLORMATRIX_TYPE_MATRIX || (!values[4] && !values[9] && !values[14] && !values[19])) {
         applyPlatformAccelerated(pixelBuffer);
         return;
     }
@@ -257,7 +257,7 @@ void FEColorMatrixSoftwareApplier::applyPlatform(PixelBuffer& pixelBuffer) const
     applyPlatformUnaccelerated(pixelBuffer);
 }
 
-bool FEColorMatrixSoftwareApplier::apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const
+bool FEColorMatrixSoftwareApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
 

@@ -523,6 +523,22 @@ again:
 		     (int)offset, uio_resid(uio), (int)fp->ff_size,
 		     (int)filebytes, 0);
 
+	/*
+	 * If the file has SUID/SGID, and the user writing the data is not `root`
+	 * then disable SUID/SGUID for safety, speculatively . This prevents
+	 * a competing exec from observing SUID and then mmaping the data in.
+	 *
+	 * Note that at this point we still hold the cnode lock exclusive; this gates
+	 * other threads' visibility into the cnode.
+	 */
+	if (cp->c_mode & (S_ISUID | S_ISGID)) {
+		cred = vfs_context_ucred(ap->a_context);
+		if (cred && suser(cred, NULL)) {
+			cp->c_mode &= ~(S_ISUID | S_ISGID);
+			cp->c_flag |= C_MODIFIED;
+		}
+	}
+
 	/* Check if we do not need to extend the file */
 	if (writelimit <= filebytes) {
 		goto sizeok;
@@ -720,19 +736,8 @@ ioerr_exit:
 		cp->c_touch_chgtime = TRUE;
 		cp->c_touch_modtime = TRUE;
 		hfs_incr_gencount(cp);
-
-		/*
-		 * If we successfully wrote any data, and we are not the superuser
-		 * we clear the setuid and setgid bits as a precaution against
-		 * tampering.
-		 */
-		if (cp->c_mode & (S_ISUID | S_ISGID)) {
-			cred = vfs_context_ucred(ap->a_context);
-			if (cred && suser(cred, NULL)) {
-				cp->c_mode &= ~(S_ISUID | S_ISGID);
-			}
-		}
 	}
+
 	if (retval) {
 		if (ioflag & IO_UNIT) {
 			(void)hfs_truncate(vp, origFileSize, ioflag & IO_SYNC,

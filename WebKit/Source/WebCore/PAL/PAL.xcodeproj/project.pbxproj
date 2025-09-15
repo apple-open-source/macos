@@ -48,6 +48,9 @@
 		2E1342CD215AA10A007199D2 /* UIKitSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2E1342CB215AA10A007199D2 /* UIKitSoftLink.mm */; };
 		31647FB0251759DD0010F8FB /* OpenGLSoftLinkCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 31647FAE251759DB0010F8FB /* OpenGLSoftLinkCocoa.mm */; };
 		3A02FE2B2B214A38001724B1 /* ARKitSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A02FE2A2B214A38001724B1 /* ARKitSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		3AA35C462D6E7F430078EA17 /* WebContentRestrictionsSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AA35C452D6E7F430078EA17 /* WebContentRestrictionsSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		3AA35C4C2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AA35C4A2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		3AA35C4D2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3AA35C4B2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.mm */; };
 		3CBEEDE928A1861D00221FAE /* BarcodeSupportSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 3C963637289DC1C600570DD6 /* BarcodeSupportSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		416E995323DAE6BE00E871CB /* AudioToolboxSoftLink.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 416E995123DAE6BD00E871CB /* AudioToolboxSoftLink.cpp */; };
 		4177B3DA296CB8C3009711F0 /* CoreCryptoSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 4177B3D9296CB8C3009711F0 /* CoreCryptoSPI.h */; };
@@ -104,6 +107,7 @@
 		A3C66CDC1F462D6A009E6EE9 /* SessionID.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A3C66CDA1F462D6A009E6EE9 /* SessionID.cpp */; };
 		CD6122CD2559B6AC00FC657A /* OutputContext.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD6122CB2559B6AC00FC657A /* OutputContext.mm */; };
 		CD6122D12559B8F200FC657A /* OutputDevice.mm in Sources */ = {isa = PBXBuildFile; fileRef = CD6122CF2559B8F200FC657A /* OutputDevice.mm */; };
+		CD722A092D6914BB00F2E1E7 /* AudioToolboxCoreSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CD722A082D6914BB00F2E1E7 /* AudioToolboxCoreSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		CDACB3602387425B0018D7CE /* MediaToolboxSoftLink.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CDACB35E23873E480018D7CE /* MediaToolboxSoftLink.cpp */; };
 		D065131629B69F11008C65C4 /* QuartzCoreSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = D065131429B69F11008C65C4 /* QuartzCoreSoftLink.mm */; };
 		D065131729B69F12008C65C4 /* QuartzCoreSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = D065131529B69F11008C65C4 /* QuartzCoreSoftLink.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -140,7 +144,6 @@
 		DD20DDC627BC90D70093D175 /* LookupSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 44E1A8AD21FA54DA00C3048E /* LookupSoftLink.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDC727BC90D70093D175 /* QuickLookUISoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = F4C85A4D2658551A005B89CC /* QuickLookUISoftLink.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDC827BC90D70093D175 /* ScreenCaptureKitSoftLink.h in Headers */ = {isa = PBXBuildFile; fileRef = 07789180273B14FF00E408D1 /* ScreenCaptureKitSoftLink.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD20DDC927BC90D70093D175 /* CFLocaleSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C2DA0671F33CA8400DBC317 /* CFLocaleSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDCA27BC90D70093D175 /* CFNetworkConnectionCacheSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C2DA0681F33CA8400DBC317 /* CFNetworkConnectionCacheSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDCB27BC90D70093D175 /* CFNetworkSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C2DA0691F33CA8400DBC317 /* CFNetworkSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDCC27BC90D70093D175 /* CFNotificationCenterSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 445097BB26EBF66D003EF771 /* CFNotificationCenterSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -162,7 +165,6 @@
 		DD20DDDC27BC90D70093D175 /* AVKitSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C2DA1221F3BEB4900DBC317 /* AVKitSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDDD27BC90D70093D175 /* AVStreamDataParserSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 41B99E4525DD70150007829A /* AVStreamDataParserSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDDE27BC90D70093D175 /* AXSpeechManagerSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 29CDEB9E2548D055007C07B7 /* AXSpeechManagerSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD20DDDF27BC90D70093D175 /* CFNSURLConnectionSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C2DA1231F3BEB4900DBC317 /* CFNSURLConnectionSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDE027BC90D70093D175 /* CommonCryptoSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A36D0F8223AD9AB00B0522E /* CommonCryptoSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDE127BC90D70093D175 /* CoreMotionSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = ABCA536724895DB900361BFF /* CoreMotionSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DDE227BC90D70093D175 /* CoreServicesSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = C138EA1A2436447200656DF1 /* CoreServicesSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -231,7 +233,6 @@
 		DD20DE2527BC90D80093D175 /* NSCellSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = A1175B4A1F6B2D7E00C4B9F0 /* NSCellSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE2627BC90D80093D175 /* NSColorWellSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = E5D45D112106A07400D2B738 /* NSColorWellSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE2727BC90D80093D175 /* NSEventSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C7785761F45130F00F4EBB6 /* NSEventSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		DD20DE2827BC90D80093D175 /* NSFontSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C7785771F45130F00F4EBB6 /* NSFontSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE2927BC90D80093D175 /* NSGraphicsSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = A10826FD1F58A433004772AC /* NSGraphicsSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE2A27BC90D80093D175 /* NSImageSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 7A3A6A7F20CADB4600317AAE /* NSImageSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE2B27BC90D80093D175 /* NSImmediateActionGestureRecognizerSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C7785781F45130F00F4EBB6 /* NSImmediateActionGestureRecognizerSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -293,6 +294,7 @@
 		DD20DE6327BC90D80093D175 /* SessionID.h in Headers */ = {isa = PBXBuildFile; fileRef = A3C66CDB1F462D6A009E6EE9 /* SessionID.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE6427BC90D80093D175 /* ThreadGlobalData.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C5C57DE275719F4003B540D /* ThreadGlobalData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DD20DE6527BC90F90093D175 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C09D0571E31C57E00725F18 /* config.h */; };
+		DD5697F92DC1303C00050321 /* rdar150228472.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD5697F82DC1303C00050321 /* rdar150228472.swift */; };
 		DDB04F32278E4F1B008D3678 /* libWebKitAdditions.a in Product Dependencies */ = {isa = PBXBuildFile; fileRef = DDE99300278D07B800F60D26 /* libWebKitAdditions.a */; };
 		E34F26F62846D0D90076E549 /* PowerLogSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = E34F26F52846B7550076E549 /* PowerLogSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E544F3922CEBD95D007E1413 /* CoreMaterialSoftLink.mm in Sources */ = {isa = PBXBuildFile; fileRef = E544F3912CEBD95D007E1413 /* CoreMaterialSoftLink.mm */; };
@@ -467,7 +469,6 @@
 		0C00CFD11F68CE4600AAC26D /* MediaTimeAVFoundation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MediaTimeAVFoundation.cpp; sourceTree = "<group>"; };
 		0C00CFD21F68CE4600AAC26D /* MediaTimeAVFoundation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MediaTimeAVFoundation.h; sourceTree = "<group>"; };
 		0C2D9E721EEF5AF600DBC317 /* ExportMacros.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ExportMacros.h; sourceTree = "<group>"; };
-		0C2DA0671F33CA8400DBC317 /* CFLocaleSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFLocaleSPI.h; sourceTree = "<group>"; };
 		0C2DA0681F33CA8400DBC317 /* CFNetworkConnectionCacheSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFNetworkConnectionCacheSPI.h; sourceTree = "<group>"; };
 		0C2DA0691F33CA8400DBC317 /* CFNetworkSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFNetworkSPI.h; sourceTree = "<group>"; };
 		0C2DA06A1F33CA8400DBC317 /* CFUtilitiesSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFUtilitiesSPI.h; sourceTree = "<group>"; };
@@ -476,7 +477,6 @@
 		0C2DA11C1F3BE9E000DBC317 /* CoreGraphicsSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CoreGraphicsSPI.h; sourceTree = "<group>"; };
 		0C2DA11D1F3BE9E000DBC317 /* ImageIOSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImageIOSPI.h; sourceTree = "<group>"; };
 		0C2DA1221F3BEB4900DBC317 /* AVKitSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AVKitSPI.h; sourceTree = "<group>"; };
-		0C2DA1231F3BEB4900DBC317 /* CFNSURLConnectionSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFNSURLConnectionSPI.h; sourceTree = "<group>"; };
 		0C2DA1241F3BEB4900DBC317 /* CoreTextSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CoreTextSPI.h; sourceTree = "<group>"; };
 		0C2DA1251F3BEB4900DBC317 /* DataDetectorsCoreSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataDetectorsCoreSPI.h; sourceTree = "<group>"; };
 		0C2DA1261F3BEB4900DBC317 /* IOPMLibSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOPMLibSPI.h; sourceTree = "<group>"; };
@@ -516,7 +516,6 @@
 		0C7785741F45130F00F4EBB6 /* NSAccessibilitySPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSAccessibilitySPI.h; sourceTree = "<group>"; };
 		0C7785751F45130F00F4EBB6 /* NSApplicationSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSApplicationSPI.h; sourceTree = "<group>"; };
 		0C7785761F45130F00F4EBB6 /* NSEventSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSEventSPI.h; sourceTree = "<group>"; };
-		0C7785771F45130F00F4EBB6 /* NSFontSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSFontSPI.h; sourceTree = "<group>"; };
 		0C7785781F45130F00F4EBB6 /* NSImmediateActionGestureRecognizerSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSImmediateActionGestureRecognizerSPI.h; sourceTree = "<group>"; };
 		0C7785791F45130F00F4EBB6 /* NSMenuSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSMenuSPI.h; sourceTree = "<group>"; };
 		0C77857A1F45130F00F4EBB6 /* NSPasteboardSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSPasteboardSPI.h; sourceTree = "<group>"; };
@@ -606,6 +605,9 @@
 		31647FAE251759DB0010F8FB /* OpenGLSoftLinkCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OpenGLSoftLinkCocoa.mm; sourceTree = "<group>"; };
 		31647FAF251759DC0010F8FB /* OpenGLSoftLinkCocoa.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OpenGLSoftLinkCocoa.h; sourceTree = "<group>"; };
 		3A02FE2A2B214A38001724B1 /* ARKitSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ARKitSPI.h; sourceTree = "<group>"; };
+		3AA35C452D6E7F430078EA17 /* WebContentRestrictionsSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebContentRestrictionsSPI.h; sourceTree = "<group>"; };
+		3AA35C4A2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebContentRestrictionsSoftLink.h; sourceTree = "<group>"; };
+		3AA35C4B2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebContentRestrictionsSoftLink.mm; sourceTree = "<group>"; };
 		3C963637289DC1C600570DD6 /* BarcodeSupportSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BarcodeSupportSPI.h; sourceTree = "<group>"; };
 		411A9AC02525D4CA00807D7E /* AVAssetWriterSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AVAssetWriterSPI.h; sourceTree = "<group>"; };
 		416E995123DAE6BD00E871CB /* AudioToolboxSoftLink.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AudioToolboxSoftLink.cpp; sourceTree = "<group>"; };
@@ -722,6 +724,7 @@
 		CD6122CB2559B6AC00FC657A /* OutputContext.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OutputContext.mm; sourceTree = "<group>"; };
 		CD6122CE2559B8F200FC657A /* OutputDevice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OutputDevice.h; sourceTree = "<group>"; };
 		CD6122CF2559B8F200FC657A /* OutputDevice.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = OutputDevice.mm; sourceTree = "<group>"; };
+		CD722A082D6914BB00F2E1E7 /* AudioToolboxCoreSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AudioToolboxCoreSPI.h; sourceTree = "<group>"; };
 		CDACB35E23873E480018D7CE /* MediaToolboxSoftLink.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = MediaToolboxSoftLink.cpp; sourceTree = "<group>"; };
 		CDACB35F23873E480018D7CE /* MediaToolboxSoftLink.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaToolboxSoftLink.h; sourceTree = "<group>"; };
 		CDF91112220E4EEC001EA39E /* CelestialSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CelestialSPI.h; sourceTree = "<group>"; };
@@ -730,6 +733,7 @@
 		D065131529B69F11008C65C4 /* QuartzCoreSoftLink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = QuartzCoreSoftLink.h; sourceTree = "<group>"; };
 		DD05A35F27BF0AC40096EFAB /* libWTF.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libWTF.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD0B43C127F67999009E31FC /* WebGPU.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = WebGPU.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD5697F82DC1303C00050321 /* rdar150228472.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = rdar150228472.swift; path = DerivedSources/WebCore/rdar150228472.swift; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE99300278D07B800F60D26 /* libWebKitAdditions.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libWebKitAdditions.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF83E208263734F1000825EF /* CryptoKitPrivateSPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CryptoKitPrivateSPI.h; sourceTree = "<group>"; };
 		E327C0DE260BDC90002281C5 /* NotifySPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotifySPI.h; sourceTree = "<group>"; };
@@ -821,7 +825,6 @@
 		0C2DA0661F33CA3A00DBC317 /* cf */ = {
 			isa = PBXGroup;
 			children = (
-				0C2DA0671F33CA8400DBC317 /* CFLocaleSPI.h */,
 				0C2DA0681F33CA8400DBC317 /* CFNetworkConnectionCacheSPI.h */,
 				0C2DA0691F33CA8400DBC317 /* CFNetworkSPI.h */,
 				445097BB26EBF66D003EF771 /* CFNotificationCenterSPI.h */,
@@ -854,6 +857,7 @@
 				C037494124127CCB00D9A36E /* AccessibilitySupportSPI.h */,
 				576CA9D522B854AB0030143C /* AppSSOSPI.h */,
 				3A02FE2A2B214A38001724B1 /* ARKitSPI.h */,
+				CD722A082D6914BB00F2E1E7 /* AudioToolboxCoreSPI.h */,
 				2D02E93B2056FAA700A13797 /* AudioToolboxSPI.h */,
 				572A107722B456F500F410C8 /* AuthKitSPI.h */,
 				411A9AC02525D4CA00807D7E /* AVAssetWriterSPI.h */,
@@ -861,7 +865,6 @@
 				0C2DA1221F3BEB4900DBC317 /* AVKitSPI.h */,
 				41B99E4525DD70150007829A /* AVStreamDataParserSPI.h */,
 				29CDEB9E2548D055007C07B7 /* AXSpeechManagerSPI.h */,
-				0C2DA1231F3BEB4900DBC317 /* CFNSURLConnectionSPI.h */,
 				7A36D0F8223AD9AB00B0522E /* CommonCryptoSPI.h */,
 				5157AE062B23CD8100C0E095 /* ContactsSPI.h */,
 				4177B3D9296CB8C3009711F0 /* CoreCryptoSPI.h */,
@@ -914,6 +917,7 @@
 				E5C5B20A2C379AA000838733 /* UIFoundationSPI.h */,
 				0C2DA12B1F3BEB4900DBC317 /* URLFormattingSPI.h */,
 				F46B8C4E26740AD8007A6554 /* VisionKitCoreSPI.h */,
+				3AA35C452D6E7F430078EA17 /* WebContentRestrictionsSPI.h */,
 				0C2DA13D1F3BEB4900DBC317 /* WebFilterEvaluatorSPI.h */,
 				F499BAAE2947FDDB001241D6 /* WebPrivacySPI.h */,
 				077121B52C1E8B4400FACBF9 /* WritingToolsSPI.h */,
@@ -964,7 +968,6 @@
 				0C2DA1311F3BEB4900DBC317 /* NSColorSPI.h */,
 				E5D45D112106A07400D2B738 /* NSColorWellSPI.h */,
 				0C7785761F45130F00F4EBB6 /* NSEventSPI.h */,
-				0C7785771F45130F00F4EBB6 /* NSFontSPI.h */,
 				A10826FD1F58A433004772AC /* NSGraphicsSPI.h */,
 				7A3A6A7F20CADB4600317AAE /* NSImageSPI.h */,
 				0C7785781F45130F00F4EBB6 /* NSImmediateActionGestureRecognizerSPI.h */,
@@ -1026,6 +1029,7 @@
 				1C09D03F1E31C32800725F18 /* pal */,
 				1C09D03E1E31C32800725F18 /* Products */,
 				1C09D0571E31C57E00725F18 /* config.h */,
+				DD5697F82DC1303C00050321 /* rdar150228472.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1162,6 +1166,8 @@
 				F46B8C4C26740918007A6554 /* VisionKitCoreSoftLink.mm */,
 				E57B44B329AB45F4006069DE /* VisionSoftLink.h */,
 				E57B44B429AB45F4006069DE /* VisionSoftLink.mm */,
+				3AA35C4A2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.h */,
+				3AA35C4B2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.mm */,
 				F499BAAA2947FDBA001241D6 /* WebPrivacySoftLink.h */,
 				F499BAAB2947FDBA001241D6 /* WebPrivacySoftLink.mm */,
 				44047A0A2C220D22004EF28D /* WritingToolsUISoftLink.h */,
@@ -1264,8 +1270,7 @@
 				94F4AA012B730D2C006DFFDE /* CryptoKitShim.swift */,
 				94A41E702BB1E10D00DA715C /* UnsafeOverlays.swift */,
 			);
-			name = PALSwift;
-			path = ../PALSwift;
+			path = PALSwift;
 			sourceTree = "<group>";
 		};
 		A1038D312AB12BBF00F57BA4 /* cocoa */ = {
@@ -1394,6 +1399,7 @@
 				DD20DD1A27BC90D60093D175 /* AppSSOSoftLink.h in Headers */,
 				DD20DDD727BC90D70093D175 /* AppSSOSPI.h in Headers */,
 				3A02FE2B2B214A38001724B1 /* ARKitSPI.h in Headers */,
+				CD722A092D6914BB00F2E1E7 /* AudioToolboxCoreSPI.h in Headers */,
 				DD20DD1527BC90D60093D175 /* AudioToolboxSoftLink.h in Headers */,
 				DD20DDD827BC90D70093D175 /* AudioToolboxSPI.h in Headers */,
 				DD20DDD927BC90D70093D175 /* AuthKitSPI.h in Headers */,
@@ -1408,11 +1414,9 @@
 				3CBEEDE928A1861D00221FAE /* BarcodeSupportSPI.h in Headers */,
 				F4F0A5502B634D88001A54E5 /* BrowserEngineKitSPI.h in Headers */,
 				DD20DE0F27BC90D80093D175 /* CelestialSPI.h in Headers */,
-				DD20DDC927BC90D70093D175 /* CFLocaleSPI.h in Headers */,
 				DD20DDCA27BC90D70093D175 /* CFNetworkConnectionCacheSPI.h in Headers */,
 				DD20DDCB27BC90D70093D175 /* CFNetworkSPI.h in Headers */,
 				DD20DDCC27BC90D70093D175 /* CFNotificationCenterSPI.h in Headers */,
-				DD20DDDF27BC90D70093D175 /* CFNSURLConnectionSPI.h in Headers */,
 				DD20DDCD27BC90D70093D175 /* CFUtilitiesSPI.h in Headers */,
 				DD20DE4827BC90D80093D175 /* Clock.h in Headers */,
 				DD20DE4927BC90D80093D175 /* ClockGeneric.h in Headers */,
@@ -1504,7 +1508,6 @@
 				DD20DDF727BC90D70093D175 /* NSExtensionSPI.h in Headers */,
 				DD20DDF827BC90D70093D175 /* NSFileManagerSPI.h in Headers */,
 				DD20DDF927BC90D70093D175 /* NSFileSizeFormatterSPI.h in Headers */,
-				DD20DE2827BC90D80093D175 /* NSFontSPI.h in Headers */,
 				DD20DE2927BC90D80093D175 /* NSGraphicsSPI.h in Headers */,
 				DD20DE2A27BC90D80093D175 /* NSImageSPI.h in Headers */,
 				DD20DE2B27BC90D80093D175 /* NSImmediateActionGestureRecognizerSPI.h in Headers */,
@@ -1611,6 +1614,8 @@
 				E57B44B529AB45F4006069DE /* VisionSoftLink.h in Headers */,
 				A1038D332AB12BF100F57BA4 /* WebAVContentKeyGrouping.h in Headers */,
 				A1038D4F2AB21FBB00F57BA4 /* WebAVContentKeyReportGroupExtras.h in Headers */,
+				3AA35C4C2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.h in Headers */,
+				3AA35C462D6E7F430078EA17 /* WebContentRestrictionsSPI.h in Headers */,
 				DD20DE0E27BC90D80093D175 /* WebFilterEvaluatorSPI.h in Headers */,
 				DD20DE4727BC90D80093D175 /* WebPanel.h in Headers */,
 				F499BAAC2947FDBA001241D6 /* WebPrivacySoftLink.h in Headers */,
@@ -1629,6 +1634,7 @@
 			buildConfigurationList = 1C09D0481E31C32800725F18 /* Build configuration list for PBXNativeTarget "PAL" */;
 			buildPhases = (
 				DDE992FF278D07A100F60D26 /* Product Dependencies */,
+				DD5697DA2DC0930B00050321 /* Generate Swift platform args */,
 				DD20DD1127BC90B80093D175 /* Headers */,
 				1C09D0391E31C32800725F18 /* Sources */,
 				1C09D03A1E31C32800725F18 /* Frameworks */,
@@ -1723,6 +1729,36 @@
 		};
 /* End PBXReferenceProxy section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		DD5697DA2DC0930B00050321 /* Generate Swift platform args */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			dependencyFile = "$(DERIVED_FILES_DIR)/generate-platform-args.d";
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(WTF_BUILD_SCRIPTS_DIR)/generate-platform-args",
+			);
+			name = "Generate Swift platform args";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64_32.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.arm64e.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.armv7k.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.i386.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/platform-enabled-swift-args.x86_64.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/rdar150228472.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = installhdrs ]\nthen touch \"${DERIVED_FILES_DIR}/generate-platform-args.d\"\nelse \"${SCRIPT_INPUT_FILE_0}\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		1C09D0391E31C32800725F18 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -1775,6 +1811,7 @@
 				D065131629B69F11008C65C4 /* QuartzCoreSoftLink.mm in Sources */,
 				4450FC9F21F5F602004DFA56 /* QuickLookSoftLink.mm in Sources */,
 				F4C85A4E2658551A005B89CC /* QuickLookUISoftLink.mm in Sources */,
+				DD5697F92DC1303C00050321 /* rdar150228472.swift in Sources */,
 				071C00372707EDF000D027C7 /* ReplayKitSoftLink.mm in Sources */,
 				F4974EA4265EEA2200B49B8C /* RevealSoftLink.mm in Sources */,
 				07789181273B14FF00E408D1 /* ScreenCaptureKitSoftLink.mm in Sources */,
@@ -1812,6 +1849,7 @@
 				41E1F344248A6A000022D5DE /* VideoToolboxSoftLink.cpp in Sources */,
 				F46B8C4D26740918007A6554 /* VisionKitCoreSoftLink.mm in Sources */,
 				E57B44B729AB462E006069DE /* VisionSoftLink.mm in Sources */,
+				3AA35C4D2D6E802D0078EA17 /* WebContentRestrictionsSoftLink.mm in Sources */,
 				A10826FA1F576292004772AC /* WebPanel.mm in Sources */,
 				F499BAAD2947FDBA001241D6 /* WebPrivacySoftLink.mm in Sources */,
 				44047A0F2C220D45004EF28D /* WritingToolsUISoftLink.mm in Sources */,

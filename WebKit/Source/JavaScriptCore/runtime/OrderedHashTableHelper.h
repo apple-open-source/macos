@@ -223,7 +223,7 @@ public:
 
     ALWAYS_INLINE static Storage* tryCreate(VM& vm, int length)
     {
-        return Storage::tryCreate(vm, vm.immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithContiguous) - NumberOfIndexingShapes].get(), length);
+        return Storage::tryCreate(vm, vm.immutableButterflyStructure(CopyOnWriteArrayWithContiguous), length);
     }
     ALWAYS_INLINE static Storage* tryCreate(JSGlobalObject* globalObject, TableSize aliveEntryCount = 0, TableSize deletedEntryCount = 0, TableSize capacity = InitialCapacity)
     {
@@ -232,13 +232,13 @@ public:
         ASSERT(!(capacity & (capacity - 1)));
 
         TableSize length = tableSize(capacity);
-        if (UNLIKELY(length > IndexingHeader::maximumLength)) {
+        if (length > IndexingHeader::maximumLength) [[unlikely]] {
             throwOutOfMemoryError(globalObject, scope);
             return nullptr;
         }
 
         Storage* storage = tryCreate(vm, length);
-        if (UNLIKELY(!storage)) {
+        if (!storage) [[unlikely]] {
             throwOutOfMemoryError(globalObject, scope);
             return nullptr;
         }
@@ -440,7 +440,7 @@ public:
         RETURN_IF_EXCEPTION(scope, void());
 
         bool firstAliveEntry = result.normalizedKey.isEmpty();
-        if (UNLIKELY(firstAliveEntry)) {
+        if (firstAliveEntry) [[unlikely]] {
             result.normalizedKey = normalizeMapKey(key);
             result.hash = jsMapHash(globalObject, vm, result.normalizedKey);
             RETURN_IF_EXCEPTION(scope, void());
@@ -453,7 +453,7 @@ public:
         incrementAliveEntryCount(candidateRef);
 
         bool rehashed = &base != candidate;
-        if (UNLIKELY(rehashed || firstAliveEntry))
+        if (rehashed || firstAliveEntry) [[unlikely]]
             result.bucketIndex = bucketIndex(capacity, result.hash);
 
         addToChain(candidateRef, result.bucketIndex, newEntryKeyIndex);
@@ -461,7 +461,7 @@ public:
         if constexpr (Traits::hasValueData)
             setKeyOrValueData(vm, candidateRef, newEntryKeyIndex + 1, value);
 
-        if (UNLIKELY(rehashed))
+        if (rehashed) [[unlikely]]
             owner->m_storage.set(vm, owner, candidate);
     }
     ALWAYS_INLINE static void add(JSGlobalObject* globalObject, HashTable* owner, Storage& storage, JSValue key, JSValue value)

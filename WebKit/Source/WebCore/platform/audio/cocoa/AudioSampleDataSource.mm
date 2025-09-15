@@ -122,7 +122,7 @@ MediaTime AudioSampleDataSource::hostTime() const
     return MediaTime::createWithDouble(mach_absolute_time() * frequency);
 }
 
-void AudioSampleDataSource::pushSamplesInternal(const AudioBufferList& bufferList, const MediaTime& presentationTime, size_t sampleCount)
+void AudioSampleDataSource::pushSamplesInternal(const AudioBufferList& bufferList, const MediaTime& presentationTime, size_t sampleCount, NeedsFlush needsFlush)
 {
     int64_t ringBufferIndexToWrite = presentationTime.toTimeScale(m_outputDescription->sampleRate()).timeValue();
 
@@ -130,22 +130,23 @@ void AudioSampleDataSource::pushSamplesInternal(const AudioBufferList& bufferLis
     const AudioBufferList* sampleBufferList;
 
     if (m_converter.updateBufferedAmount(m_lastBufferedAmount, sampleCount)) {
-        m_scratchBuffer->reset();
-        m_converter.convert(bufferList, *m_scratchBuffer, sampleCount);
+        RefPtr scratchBuffer = m_scratchBuffer;
+        scratchBuffer->reset();
+        m_converter.convert(bufferList, *scratchBuffer, sampleCount);
         auto expectedSampleCount = sampleCount * m_outputDescription->sampleRate() / m_inputDescription->sampleRate();
 
-        if (m_converter.isRegular() && expectedSampleCount > m_scratchBuffer->sampleCount()) {
+        if (m_converter.isRegular() && expectedSampleCount > scratchBuffer->sampleCount()) {
             // Sometimes converter is not writing enough data, for instance on first chunk conversion.
             // Pretend this is the case to keep pusher and puller in sync.
             offset = 0;
             sampleCount = expectedSampleCount;
-            if (m_scratchBuffer->sampleCount() > sampleCount)
-                m_scratchBuffer->setSampleCount(sampleCount);
+            if (scratchBuffer->sampleCount() > sampleCount)
+                scratchBuffer->setSampleCount(sampleCount);
         } else {
-            offset = m_scratchBuffer->sampleCount() - expectedSampleCount;
-            sampleCount = m_scratchBuffer->sampleCount();
+            offset = scratchBuffer->sampleCount() - expectedSampleCount;
+            sampleCount = scratchBuffer->sampleCount();
         }
-        sampleBufferList = m_scratchBuffer->bufferList().list();
+        sampleBufferList = scratchBuffer->bufferList().list();
     } else
         sampleBufferList = &bufferList;
 
@@ -166,10 +167,13 @@ void AudioSampleDataSource::pushSamplesInternal(const AudioBufferList& bufferLis
     if (m_isInNeedOfMoreData) {
         m_isInNeedOfMoreData = false;
         DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
-        RunLoop::main().dispatch([logIdentifier = LOGIDENTIFIER, sampleCount, this, protectedThis = Ref { *this }] {
+        RunLoop::mainSingleton().dispatch([logIdentifier = LOGIDENTIFIER, sampleCount, this, protectedThis = Ref { *this }] {
             ALWAYS_LOG(logIdentifier, "needed more data, pushing ", sampleCount, " samples");
         });
     }
+
+    if (needsFlush == NeedsFlush::Yes)
+        m_seekTo = static_cast<uint64_t>(ringBufferIndexToWrite);
 
     m_ringBuffer->store(sampleBufferList, sampleCount, ringBufferIndexToWrite);
 
@@ -182,12 +186,12 @@ void AudioSampleDataSource::pushSamples(const AudioStreamBasicDescription& sampl
     ASSERT_UNUSED(sampleDescription, *m_inputDescription == sampleDescription);
 
     WebAudioBufferList list(*m_inputDescription, sampleBuffer);
-    pushSamplesInternal(list, PAL::toMediaTime(PAL::CMSampleBufferGetPresentationTimeStamp(sampleBuffer)), PAL::CMSampleBufferGetNumSamples(sampleBuffer));
+    pushSamplesInternal(list, PAL::toMediaTime(PAL::CMSampleBufferGetPresentationTimeStamp(sampleBuffer)), PAL::CMSampleBufferGetNumSamples(sampleBuffer), NeedsFlush::No);
 }
 
-void AudioSampleDataSource::pushSamples(const MediaTime& sampleTime, const PlatformAudioData& audioData, size_t sampleCount)
+void AudioSampleDataSource::pushSamples(const MediaTime& sampleTime, const PlatformAudioData& audioData, size_t sampleCount, NeedsFlush needsFlush)
 {
-    pushSamplesInternal(*downcast<WebAudioBufferList>(audioData).list(), sampleTime, sampleCount);
+    pushSamplesInternal(*downcast<WebAudioBufferList>(audioData).list(), sampleTime, sampleCount, needsFlush);
 }
 
 bool AudioSampleDataSource::pullSamples(AudioBufferList& buffer, size_t sampleCount, uint64_t timeStamp, double /*hostTime*/, PullMode mode)
@@ -207,7 +211,12 @@ bool AudioSampleDataSource::pullSamples(AudioBufferList& buffer, size_t sampleCo
         return false;
     }
 
+    uint64_t seekTo = m_seekTo.exchange(NoSeek);
+    if (seekTo != NoSeek)
+        m_readCount = seekTo;
+
     auto [startFrame, endFrame] = m_ringBuffer->getFetchTimeBounds();
+    startFrame = std::max(m_readCount, startFrame);
 
     ASSERT(m_waitToStartForPushCount);
 
@@ -230,7 +239,7 @@ bool AudioSampleDataSource::pullSamples(AudioBufferList& buffer, size_t sampleCo
         if (!m_isInNeedOfMoreData) {
             m_isInNeedOfMoreData = true;
             DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
-            RunLoop::main().dispatch([logIdentifier = LOGIDENTIFIER, timeStamp, startFrame = startFrame, endFrame = endFrame, sampleCount, outputSampleOffset = m_outputSampleOffset, this, protectedThis = Ref { *this }] {
+            RunLoop::mainSingleton().dispatch([logIdentifier = LOGIDENTIFIER, timeStamp, startFrame = startFrame, endFrame = endFrame, sampleCount, outputSampleOffset = m_outputSampleOffset, this, protectedThis = Ref { *this }] {
                 ERROR_LOG(logIdentifier, "need more data, sample ", timeStamp, " with offset ", outputSampleOffset, ", trying to get ", sampleCount, " samples, but not completely in range [", startFrame, " .. ", endFrame, "]");
             });
         }
@@ -258,12 +267,13 @@ bool AudioSampleDataSource::pullSamplesInternal(AudioBufferList& buffer, size_t 
         return true;
     }
 
-    if (m_scratchBuffer->copyFrom(*m_ringBuffer, sampleCount, timeStamp, CARingBuffer::Copy))
+    RefPtr scratchBuffer = m_scratchBuffer;
+    if (scratchBuffer->copyFrom(*m_ringBuffer, sampleCount, timeStamp, CARingBuffer::Copy))
         return false;
 
-    m_scratchBuffer->applyGain(m_volume);
-    m_scratchBuffer->mixFrom(buffer, sampleCount);
-    if (m_scratchBuffer->copyTo(buffer, sampleCount))
+    scratchBuffer->applyGain(m_volume);
+    scratchBuffer->mixFrom(buffer, sampleCount);
+    if (scratchBuffer->copyTo(buffer, sampleCount))
         return false;
 
     return true;

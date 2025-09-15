@@ -68,8 +68,8 @@ static NSDate *verifyDate2 = nil;
 
     // May 1, 2016 at 5:53:20 AM PDT
     verifyDate1 = [NSDate dateWithTimeIntervalSinceReferenceDate:483800000.0];
-    // May 27, 2016 at 4:20:50 PM PDT
-    verifyDate2 = [NSDate dateWithTimeIntervalSinceReferenceDate:486084050.0];
+    // May 27, 2016 at 22:30:00 GMT -- a time between the expiration of _pathScoringIntSHA1 and _pathScoringInt1024
+    verifyDate2 = [NSDate dateWithTimeIntervalSinceReferenceDate:486081000.0];
 }
 
 + (void)tearDown {

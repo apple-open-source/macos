@@ -119,7 +119,7 @@ hitting such a bug usually is a sign of port right mismanagement.
 
 ### `kGUARD_EXC_MOD_REFS` 0x00000002
 
-- **ReportCrash Name**: OVER\_DEALLOC or MOD\_REFS,
+- **ReportCrash Name**: `OVER_DEALLOC` or `MOD_REFS`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**:
    - `0x0100000000000000`: a `deallocate` function,
@@ -136,7 +136,7 @@ sign of port-right mismanagement.
 
 ### `kGUARD_EXC_INVALID_OPTIONS` 0x00000003
 
-- **ReportCrash Name**: INVALID\_OPTIONS,
+- **ReportCrash Name**: `INVALID_OPTIONS`,
 - **Target meaning**: the message ID of a rejected message via the legacy
   `mach_msg_trap()` or zero,
 - **Payload meaning**: the kernel sanitized (see `ipc_current_user_policy()`)
@@ -148,7 +148,7 @@ There are several policies dictating the shape of options passed to calls of the
 
 ### `kGUARD_EXC_SET_CONTEXT` 0x00000004
 
-- **ReportCrash Name**: SET\_CONTEXT,
+- **ReportCrash Name**: `SET_CONTEXT`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: the value of the context guarding the Mach Port.
 
@@ -163,8 +163,11 @@ This is usually a sign of port right mismanagement.
 ### `kGUARD_EXC_THREAD_SET_STATE` 0x00000005
 
 - **ReportCrash Name**: N/A,
-- **Target meaning**: always zero,
-- **Payload meaning**: always zero.
+- **Target meaning**: exception flavor,
+- **Payload meaning**:
+  - `0x0100000000000000`: tss called from userspace exception handler,
+  - `0x0200000000000000`: tss with flavor that modifies cpu registers,
+  - `0x0300000000000000`: tss called from fatal PAC exception.
 
 This exception is thrown when a process is trying to use the
 `thread_set_state()` interface, or any interface leading to it (such as trying
@@ -175,8 +178,8 @@ is disallowed by policy for this process.
 ### `kGUARD_EXC_EXCEPTION_BEHAVIOR_ENFORCE` 0x00000006
 
 - **ReportCrash Name**: N/A,
-- **Target meaning**: always zero,
-- **Payload meaning**: always zero.
+- **Target meaning**: the new exception behavior,
+- **Payload meaning**: the exception mask.
 
 This exception is thrown when a process is trying to register an exception port
 for a behavior not using a task identity port, and that this is disallowed by
@@ -205,10 +208,31 @@ as `mach_port_unguard()` on a port that isn't guarded.
 
 This is usually a sign of port right mismanagement.
 
+### `kGUARD_EXC_KOBJECT_REPLY_PORT_SEMANTICS` 0x00000009
+
+- **ReportCrash Name**: KOBJECT\_REPLY\_PORT\_SEMANTICS,
+- **Target meaning**: the mach port name the incorrect operation targets,
+- **Payload meaning**: always zero.
+
+This exception is thrown when a hardened process is trying to send a message
+to a kobject port without using an `IOT_REPLY_PORT` to receive the reply.
+
+### `kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS` 0x0000000a
+
+- **ReportCrash Name**: `REQUIRE_REPLY_PORT_SEMANTICS`,
+- **Target meaning**: the mach port name the incorrect operation targets,
+- **Payload meaning**: 1 if the port is a bootstrap port, 0 otherwise.
+
+This exception is thrown when a caller is violating the reply port semantics in
+a process where this is disallowed by policy. This is used to gather telemetry
+around violators pending enforcement in a future release.
+
+This is usually a sign of a programming mistake (violation of the reply port
+semantics rules).
 
 ### `kGUARD_EXC_INCORRECT_GUARD` 0x00000010
 
-- **ReportCrash Name**: INCORRECT\_GUARD,
+- **ReportCrash Name**: `INCORRECT_GUARD`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: the value of the context guarding the Mach Port.
 
@@ -221,9 +245,9 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_IMMOVABLE` 0x00000020
 
-- **ReportCrash Name**: ILLEGAL\_MOVE,
+- **ReportCrash Name**: `ILLEGAL_MOVE`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**: (target port type << 32) | disposition.
 
 This exception is thrown when a process is attempting to move a port right,
 and this has been disallowed by policy for this port type and process.
@@ -240,9 +264,37 @@ point, and that this is likely going to be phased out in favor of tracking reply
 ports at the port type level, this is left mostly undocumented on purpose.
 
 
+### `kGUARD_EXC_INVALID_NOTIFICATION_REQ` 0x00000041
+
+- **ReportCrash Name**: INVALID\_NOTIFICATION\_REQ,
+- **Target meaning**: IOT_ port type that you are trying to arm the notification on
+- **Payload meaning**: The type of notification you were registering for
+
+This exception is thrown when a process is trying to arm a notification
+on a port type that disallows such requests.
+
+
+### `kGUARD_EXC_INVALID_MPO_ENTITLEMENT` 0x00000042
+
+- **ReportCrash Name**: `INVALID_MPO_ENTITLEMENT`,
+- **Target meaning**: The `mpo_flags_t` that were passed into `mach_port_construct`
+
+This exception is thrown when you try to construct a mach port type that is disallowed
+for your process based on entitlements.
+
+### `kGUARD_EXC_DESCRIPTOR_VIOLATION` 0x00000043
+
+- **ReportCrash Name**: `DESCRIPTOR_VIOLATION`,
+- **Target meaning**: The IPC space policy.
+- **Payload meaning**:
+   - `(violation_type << 56) | aux` : the violation's type, among with associated metadata
+
+This exception is thrown when a process attempts to violate any
+Mach message descriptor policies.
+
 ### `kGUARD_EXC_MSG_FILTERED` 0x00000080
 
-- **ReportCrash Name**: MSG\_FILTERED,
+- **ReportCrash Name**: `MSG_FILTERED`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: the message ID of the filtered message.
 
@@ -270,9 +322,17 @@ exceptions in the Mach IPC and VM world. This is not a supported configuration.
 
 ### `kGUARD_EXC_INVALID_RIGHT` 0x00000100
 
-- **ReportCrash Name**: INVALID\_RIGHT,
+- **ReportCrash Name**: `INVALID_RIGHT`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**:
+   - `0x01 << 56`                              : `ipc_port_translate_receive` failed,
+   - `(0x02 << 56) | (right << 32) | ie_bits`  : `ipc_right_delta` failed,
+   - `(0x03 << 56) | ie_bits`                  : `ipc_right_destruct` failed,
+   - `(0x04 << 56) | (reason << 32) | ie_bits` : `ipc_right_copyin` failed,
+   - `(0x05 << 56) | ie_bits`                  : `ipc_right_dealloc` failed,
+   - `(0x06 << 56) | (otype << 32) | io_type`  : `ipc_right_deallocate_kernel` failed,
+   - `(0x07 << 56) | ie_bits`                  : invalid port in `ipc_object_translate_port_pset`,
+   - `(0x08 << 56) | ie_bits`                  : invalid pset in `ipc_object_translate_port_pset`.
 
 This exception is thrown when an operation is targetting a port which rights do
 not match the caller's expectations. Examples of such mistakes are:
@@ -289,7 +349,7 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_INVALID_NAME` 0x00000200
 
-- **ReportCrash Name**: INVALID\_NAME,
+- **ReportCrash Name**: `INVALID_NAME`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: always zero.
 
@@ -304,9 +364,12 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_INVALID_VALUE` 0x00000400
 
-- **ReportCrash Name**: INVALID\_VALUE,
+- **ReportCrash Name**: `INVALID_VALUE`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**:
+   - `(0x01 << 56) | (type << 32)  | size`                     : invalid trailer in `mach_port_peek`,
+   - `(0x02 << 56) | (right << 32) | (delta << 16) | ie_bits`  : `ipc_right_delta` failed,
+   - `(0x03 << 56) | (srdelta << 32) | ie_bits`                : `ipc_right_destruct` failed,
 
 This exception is thrown when:
 
@@ -323,7 +386,7 @@ Mach IPC interfaces.
 
 ### `kGUARD_EXC_INVALID_ARGUMENT` 0x00000800
 
-- **ReportCrash Name**: INVALID\_ARGUMENT,
+- **ReportCrash Name**: `INVALID_ARGUMENT`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: the correct value of the context guarding the Mach Port.
 
@@ -335,9 +398,13 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_KERN_FAILURE` 0x00004000
 
-- **ReportCrash Name**: KERN\_FAILURE,
-- **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **ReportCrash Name**: `KERN_FAILURE`,
+- **Target meaning**: always zero,
+- **Payload meaning**:
+   - `0x0100000000000000`: task other than launchd arm pd on service ports,
+   - `0x0200000000000000`: not using IOT_NOTIFICATION_PORT for pd notification,
+   - `0x0300000000000000`: notification port not owned by launchd,
+   - `0x0400000000000000`: register multiple pd notification.
 
 This exception is thrown when a caller is trying to request a port-destroyed
 notification that is disallowed by system policy.  This should really have been
@@ -348,9 +415,9 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_SEND_INVALID_REPLY` 0x00010000
 
-- **ReportCrash Name**: SEND\_INVALID\_REPLY,
+- **ReportCrash Name**: `SEND_INVALID_REPLY`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**: (reply port ie bits << 32) | disposition.
 
 This exception is thrown when a caller is trying to send a message whose reply
 port (the `msgh_local_port` field of a Mach message) violates policies around
@@ -361,9 +428,12 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_SEND_INVALID_RIGHT` 0x00020000
 
-- **ReportCrash Name**: SEND\_INVALID\_RIGHT,
+- **ReportCrash Name**: `SEND_INVALID_RIGHT`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**:
+   - `(0x01 << 56) | disposition`: copyin port descriptor failed,
+   - `(0x02 << 56) | disposition`: copyin ool port descriptor failed,
+   - `(0x03 << 56) | disposition`: copyin guarded port descriptor failed,
 
 This exception is thrown when a caller is trying to send a message where one of
 the port descriptors denotes a right that doesn't match the requested
@@ -375,9 +445,9 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_SEND_INVALID_VOUCHER` 0x00040000
 
-- **ReportCrash Name**: SEND\_INVALID\_VOUCHER,
+- **ReportCrash Name**: `SEND_INVALID_VOUCHER`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**: disposition of the voucher port.
 
 This exception is thrown when a caller is trying to send a message whose voucher
 port (the `msgh_voucher_port` field of a Mach message) violates policies around
@@ -388,7 +458,7 @@ This is usually a sign of port right mismanagement.
 
 ### `kGUARD_EXC_RCV_INVALID_NAME` 0x00080000
 
-- **ReportCrash Name**: RCV\_INVALID\_NAME,
+- **ReportCrash Name**: `RCV_INVALID_NAME`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: always zero.
 
@@ -406,7 +476,7 @@ crash log, and the process will keep going).
 
 ### `kGUARD_EXC_RCV_GUARDED_DESC` 0x00100000
 
-- **ReportCrash Name**: RCV\_GUARDED\_DESC,
+- **ReportCrash Name**: `RCV_GUARDED_DESC`,
 - **Target meaning**: the mach port name the incorrect operation targets,
 - **Payload meaning**: always zero.
 
@@ -440,11 +510,41 @@ reply port on iOS. It is currently a soft crash to collect telemetry before
 the actual enforcement.
 
 
+### `kGUARD_EXC_OOL_PORT_ARRAY_CREATION` 0x00100003
+
+- **ReportCrash Name**: N/A,
+- **Target meaning**: always zero.
+- **Payload meaning**: always zero.
+
+This is telemetry for processes creating a port with flag
+MPO_CONNECTION_PORT_WITH_PORT_ARRAY without an entitlement
+
+
+### `kGUARD_EXC_MOVE_PROVISIONAL_REPLY_PORT` 0x00100004
+
+- **ReportCrash Name**: N/A,
+- **Target meaning**: the mach port name of the provisional reply port,
+- **Payload meaning**: always zero.
+
+This exception is thrown when a process opted for enhanced security v2 moves
+the receive right of a provisional reply port out of its ipc space.
+
+### `kGUARD_EXC_REPLY_PORT_SINGLE_SO_RIGHT` 0x00100005
+
+- **ReportCrash Name**: N/A,
+- **Target meaning**: the mach port name of the reply port,
+- **Payload meaning**: the copyin reason.
+
+This exception is thrown when a process attempts to create more than
+one single send-once right for a reply port. Reply ports are not allowed
+to extend more than one single send-once right at any given moment.
+
+
 ### `kGUARD_EXC_MOD_REFS_NON_FATAL` 0x00200000
 
-- **ReportCrash Name**: OVERDEALLOC\_SOFT,
+- **ReportCrash Name**: `OVERDEALLOC_SOFT`,
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**: same as `kGUARD_EXC_MOD_REFS`.
 
 This is the same as `kGUARD_EXC_MOD_REFS`, except that this is delivered as a
 soft error.
@@ -452,24 +552,10 @@ soft error.
 
 ### `kGUARD_EXC_IMMOVABLE_NON_FATAL` 0x00400000
 
-- **ReportCrash Name**: ILLEGALMOVE\_SOFT.
+- **ReportCrash Name**: `ILLEGALMOVE_SOFT`.
 - **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
+- **Payload meaning**: same as `kGUARD_EXC_IMMOVABLE`.
 
 This is the same as `kGUARD_EXC_IMMOVABLE`, except that this is delivered as a
 soft error.
-
-
-### `kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS` 0x00800000
-
-- **ReportCrash Name**: REQUIRE\_REPLY\_PORT\_SEMANTICS,
-- **Target meaning**: the mach port name the incorrect operation targets,
-- **Payload meaning**: always zero.
-
-This exception is thrown when a caller is violating the reply port semantics in
-a process where this is disallowed by policy. This is used to gather telemetry
-around violators pending enforcement in a future release.
-
-This is usually a sign of a programming mistake (violation of the reply port
-semantics rules).
 

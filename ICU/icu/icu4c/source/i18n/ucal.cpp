@@ -736,8 +736,6 @@ static const char * const CAL_TYPES[] = {
         "islamic-umalqura",
         "islamic-tbla",
         "islamic-rgsa",
-        "hindu-lunar",
-        "hindu-solar",
         "vikram",
         "gujarati",
         "kannada",

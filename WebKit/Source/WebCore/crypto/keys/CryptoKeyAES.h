@@ -27,13 +27,13 @@
 
 #include "CryptoAlgorithmIdentifier.h"
 #include "CryptoKey.h"
-#include "ExceptionOr.h"
 #include <wtf/Function.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class CryptoAlgorithmParameters;
+template<typename> class ExceptionOr;
 
 struct JsonWebKey;
 

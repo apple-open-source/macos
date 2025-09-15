@@ -3410,6 +3410,7 @@ nfsrv_link(
 	struct nfs_export *nx;
 	struct nfs_export_options *nxo;
 	struct nfsm_chain *nmreq, nmrep;
+	const char *vname = NULL;
 
 	error = 0;
 	dpreattrerr = dpostattrerr = attrerr = ENOENT;
@@ -3445,7 +3446,8 @@ nfsrv_link(
 		goto out;
 	}
 
-	NDINIT(&ni, CREATE, OP_LINK, LOCKPARENT, UIO_SYSSPACE, CAST_USER_ADDR_T(vnode_getname(vp)), ctx);
+	vname = vnode_getname(vp);
+	NDINIT(&ni, CREATE, OP_LINK, LOCKPARENT, UIO_SYSSPACE, CAST_USER_ADDR_T(vname), ctx);
 	error = nfsm_chain_get_path_namei(nmreq, len, &ni);
 	if (!error) {
 		error = nfsrv_namei(nd, ctx, &ni, &dnfh, &dirp, &nx, &nxo);
@@ -3531,6 +3533,9 @@ out:
 		dpostattrerr = vnode_getattr(dirp, &dpostattr, ctx);
 		vnode_put(dirp);
 		dirp = NULL;
+	}
+	if (vname) {
+		vnode_putname(vname);
 	}
 	vnode_put(vp);
 	vp = NULL;

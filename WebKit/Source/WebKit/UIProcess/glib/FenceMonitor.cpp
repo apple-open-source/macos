@@ -73,7 +73,7 @@ GSourceFuncs FenceSource::sourceFuncs = {
 
 void FenceMonitor::ensureSource()
 {
-    if (LIKELY(m_source))
+    if (m_source) [[likely]]
         return;
 
     m_source = adoptGRef(g_source_new(&FenceSource::sourceFuncs, sizeof(FenceSource)));

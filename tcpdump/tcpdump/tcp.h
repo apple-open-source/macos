@@ -86,6 +86,10 @@ struct tcphdr {
 #define TCPOPT_TCPAO		29	/* TCP authentication option (rfc5925) */
 #define	TCPOPT_MPTCP		30	/* MPTCP options */
 #define TCPOPT_FASTOPEN		34	/* TCP Fast Open (rfc7413) */
+#ifdef __APPLE__
+#define TCPOPT_ACC_ECN_0	172    /* draft-ietf-tcpm-accurate-ecn */
+#define TCPOPT_ACC_ECN_1	174    /* draft-ietf-tcpm-accurate-ecn */
+#endif /* __APPLE__ */
 #define TCPOPT_EXPERIMENT2	254	/* experimental headers (rfc4727) */
 
 #define TCPOPT_TSTAMP_HDR	\

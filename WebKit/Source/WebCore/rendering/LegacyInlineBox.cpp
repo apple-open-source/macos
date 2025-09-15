@@ -146,16 +146,6 @@ float LegacyInlineBox::logicalHeight() const
     return result;
 }
 
-LayoutUnit LegacyInlineBox::baselinePosition(FontBaseline baselineType) const
-{
-    return boxModelObject()->baselinePosition(baselineType, m_bitfields.firstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine);
-}
-
-LayoutUnit LegacyInlineBox::lineHeight() const
-{
-    return boxModelObject()->lineHeight(m_bitfields.firstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine);
-}
-
 int LegacyInlineBox::caretMinOffset() const
 { 
     return renderer().caretMinOffset();
@@ -250,40 +240,49 @@ void LegacyInlineBox::clearKnownToHaveNoOverflow()
 
 FloatPoint LegacyInlineBox::locationIncludingFlipping() const
 {
-    if (!renderer().writingMode().isBlockFlipped())
+    auto& rootContainer = root().blockFlow();
+    auto writingMode = rootContainer.writingMode();
+    if (!writingMode.isBlockFlipped())
         return topLeft();
-    RenderBlockFlow& block = root().blockFlow();
-    if (block.writingMode().isHorizontal())
-        return { x(), block.height() - height() - y() };
-    return { block.width() - width() - x(), y() };
+    if (writingMode.isHorizontal())
+        return { x(), rootContainer.height() - height() - y() };
+    return { rootContainer.width() - width() - x(), y() };
 }
 
 void LegacyInlineBox::flipForWritingMode(FloatRect& rect) const
 {
-    if (!renderer().writingMode().isBlockFlipped())
+    auto& rootContainer = root().blockFlow();
+    auto writingMode = rootContainer.writingMode();
+    if (!writingMode.isBlockFlipped())
         return;
-    root().blockFlow().flipForWritingMode(rect);
+    rootContainer.flipForWritingMode(rect);
 }
 
 FloatPoint LegacyInlineBox::flipForWritingMode(const FloatPoint& point) const
 {
-    if (!renderer().writingMode().isBlockFlipped())
+    auto& rootContainer = root().blockFlow();
+    auto writingMode = rootContainer.writingMode();
+    if (!writingMode.isBlockFlipped())
         return point;
-    return root().blockFlow().flipForWritingMode(point);
+    return rootContainer.flipForWritingMode(point);
 }
 
 void LegacyInlineBox::flipForWritingMode(LayoutRect& rect) const
 {
-    if (!renderer().writingMode().isBlockFlipped())
+    auto& rootContainer = root().blockFlow();
+    auto writingMode = rootContainer.writingMode();
+    if (!writingMode.isBlockFlipped())
         return;
-    root().blockFlow().flipForWritingMode(rect);
+    rootContainer.flipForWritingMode(rect);
 }
 
 LayoutPoint LegacyInlineBox::flipForWritingMode(const LayoutPoint& point) const
 {
-    if (!renderer().writingMode().isBlockFlipped())
+    auto& rootContainer = root().blockFlow();
+    auto writingMode = rootContainer.writingMode();
+    if (!writingMode.isBlockFlipped())
         return point;
-    return root().blockFlow().flipForWritingMode(point);
+    return rootContainer.flipForWritingMode(point);
 }
 
 } // namespace WebCore

@@ -17,5 +17,5 @@ mkdir ../dir3
 
 cd ..
 # call -a without -r
-rsync -Dgorltp -- dir1/foo/bar/baz/one.txt dir3
+rsync -Dgoltp -- dir1/foo/bar/baz/one.txt dir3
 compare_trees dir2 dir3

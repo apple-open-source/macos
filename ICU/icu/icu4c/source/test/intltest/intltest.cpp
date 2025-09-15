@@ -1613,7 +1613,7 @@ main(int argc, char* argv[])
     // adding a couple of minutes to the overall run time, so let's not
     // do that. However, it can still be useful for leak checking when
     // running the original intltest.
-    if (uprv_strcmp(getprogname(), "xctest") != 0) { // rdar://137994165
+    if (!uaprv_isRunningXCTest()) { // rdar://137994165
         printf("Sleeping 8 sec to check leaks\n");
         sleep(8);
     }
@@ -1625,7 +1625,37 @@ main(int argc, char* argv[])
     return major.getErrors();
 }
 
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+#define TESTDATA_DIR "testdata"
+#define BUILT_PRODUCTS_ENV "ICU_BUILT_PRODUCTS_DIR"
+static void setTestDataDirectory(void) {
+    if (_testDataPath == nullptr) {
+        size_t path_size;
+        const char* builtProductDir = getenv(BUILT_PRODUCTS_ENV);
+        if (builtProductDir == NULL) {
+            log_err("ERROR: environment variable %s not found.\n", BUILT_PRODUCTS_ENV);
+            return;
+        }
+        path_size = strlen(builtProductDir) + strlen(U_FILE_SEP_STRING) + strlen(TESTDATA_DIR) + strlen(U_FILE_SEP_STRING) + 1;
+        _testDataPath = (char *)malloc(path_size);
+        strcpy(_testDataPath, builtProductDir);
+        strcat(_testDataPath, U_FILE_SEP_STRING);
+        strcat(_testDataPath, TESTDATA_DIR);
+        strcat(_testDataPath, U_FILE_SEP_STRING);
+    }
+}
+#endif // APPLE_XCODE_BUILD
+
 const char* IntlTest::loadTestData(UErrorCode& err){
+#if APPLE_ICU_CHANGES // rdar://145866894
+    if (U_FAILURE(err)) {
+        return nullptr;
+    }
+#endif // APPLE_ICU_CHANGES
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    setTestDataDirectory();
+    return _testDataPath;
+#else
     if ( _testDataPath == nullptr){
         const char*      directory=nullptr;
         UResourceBundle* test =nullptr;
@@ -1634,7 +1664,7 @@ const char* IntlTest::loadTestData(UErrorCode& err){
 
 #if defined (U_TOPBUILDDIR)
 #if APPLE_ICU_CHANGES & U_PLATFORM_IS_DARWIN_BASED // rdar://137994165
-        if (uprv_strcmp(getprogname(), "xctest") == 0) {
+        if (uaprv_isRunningXCTest()) {
             tdrelativepath = U_FILE_SEP_STRING;
         } else {
             tdrelativepath = "test" U_FILE_SEP_STRING "testdata" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
@@ -1675,6 +1705,7 @@ const char* IntlTest::loadTestData(UErrorCode& err){
         return _testDataPath;
     }
     return _testDataPath;
+#endif // APPLE_XCODE_BUILD
 }
 
 const char* IntlTest::getTestDataPath(UErrorCode& err) {
@@ -1686,6 +1717,10 @@ const char* IntlTest::getTestDataPath(UErrorCode& err) {
  * Note: this function is parallel with C loadSourceTestData in cintltst.c
  */
 const char *IntlTest::getSourceTestData(UErrorCode& /*err*/) {
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    setTestDataDirectory();
+    return _testDataPath;
+#else
     const char *srcDataDir = nullptr;
 #ifdef U_TOPSRCDIR
     srcDataDir = U_TOPSRCDIR U_FILE_SEP_STRING"test" U_FILE_SEP_STRING "testdata" U_FILE_SEP_STRING;
@@ -1703,6 +1738,7 @@ const char *IntlTest::getSourceTestData(UErrorCode& /*err*/) {
     }
 #endif
     return srcDataDir;
+#endif // APPLE_XCODE_BUILD
 }
 
 static bool fileExists(const char* fileName) {
@@ -1808,6 +1844,10 @@ const char* IntlTest::fgDataDir = nullptr;
 const char *  IntlTest::pathToDataDirectory()
 {
 
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    setTestDataDirectory();
+    return _testDataPath;
+#else
     if(fgDataDir != nullptr) {
         return fgDataDir;
     }
@@ -1867,6 +1907,7 @@ const char *  IntlTest::pathToDataDirectory()
 #endif
 
     return fgDataDir;
+#endif // APPLE_XCODE_BUILD
 
 }
 
@@ -2385,6 +2426,27 @@ UBool IntlTest::assertEquals(const UnicodeString& message,
     return assertEquals(extractToAssertBuf(message), expected, actual);
 }
 #endif
+
+#if APPLE_ICU_CHANGES
+    // rdar://148837256 Adding asserting for a range of values
+UBool IntlTest::assertInClosedRange(const UnicodeString& message,
+                          int32_t from,
+                          int32_t to,
+                          int32_t actual) {
+    if (actual < from || actual > to) {
+        errln(UnicodeString("FAIL: ") + message + "; got " +
+              actual + "=0x" + toHex(actual) +
+              "; expected it to be in the range from " + from + "=0x" + toHex(from) + " to " + to + toHex(to));
+        return false;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        logln(UnicodeString("Ok: ") + message + "; got " + actual + "=0x" + toHex(actual));
+    }
+#endif
+    return true;
+}
+#endif  // APPLE_ICU_CHANGES
 
 void IntlTest::setProperty(const char* propline) {
     if (numProps < kMaxProps) {

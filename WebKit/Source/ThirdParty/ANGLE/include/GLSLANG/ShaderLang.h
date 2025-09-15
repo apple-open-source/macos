@@ -26,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 371
+#define ANGLE_SH_VERSION 376
 
 enum ShShaderSpec
 {
@@ -396,9 +396,6 @@ struct ShCompileOptions
 
     uint64_t forceShaderPrecisionHighpToMediump : 1;
 
-    // Allow compiler to use specialization constant to do pre-rotation and y flip.
-    uint64_t useSpecializationConstant : 1;
-
     // Ask compiler to generate Vulkan transform feedback emulation support code.
     uint64_t addVulkanXfbEmulationSupportCode : 1;
 
@@ -473,6 +470,15 @@ struct ShCompileOptions
 
     // Specify struct in one statement, declare instance in other.
     uint64_t separateCompoundStructDeclarations : 1;
+
+    // Whether to preserve denorm floats in the lexer or convert to zero
+    uint64_t preserveDenorms : 1;
+
+    // Whether inactive shader variables from the output.
+    uint64_t removeInactiveVariables : 1;
+
+    // Ensure all loops execute side-effects or terminate.
+    uint64_t ensureLoopForwardProgress : 1;
 
     ShCompileOptionsMetal metal;
     ShPixelLocalStorageOptions pls;
@@ -738,7 +744,6 @@ struct ShBuiltInResources
 
     // ANGLE_shader_pixel_local_storage.
     int MaxPixelLocalStoragePlanes;
-    int MaxColorAttachmentsWithActivePixelLocalStorage;
     int MaxCombinedDrawBuffersAndPixelLocalStoragePlanes;
 };
 
@@ -1003,19 +1008,17 @@ namespace vk
 // Specialization constant ids
 enum class SpecializationConstantId : uint32_t
 {
-    SurfaceRotation = 0,
-    Dither          = 1,
+    Dither = 0,
 
-    InvalidEnum = 2,
+    InvalidEnum = 1,
     EnumCount   = InvalidEnum,
 };
 
 enum class SpecConstUsage : uint32_t
 {
-    Rotation = 0,
-    Dither   = 1,
+    Dither = 0,
 
-    InvalidEnum = 2,
+    InvalidEnum = 1,
     EnumCount   = InvalidEnum,
 };
 

@@ -175,8 +175,8 @@ static const struct skmem_region_params skmem_regions[SKMEM_REGIONS] = {
 		.srp_id         = SKMEM_REGION_UMD,
 		.srp_cflags     = SKMEM_REGION_CR_MMAPOK |
     SKMEM_REGION_CR_NOMAGAZINES,
-		.srp_md_type    = NEXUS_META_TYPE_QUANTUM,
-		.srp_md_subtype = NEXUS_META_SUBTYPE_PAYLOAD,
+		.srp_md_type    = NEXUS_META_TYPE_PACKET,
+		.srp_md_subtype = NEXUS_META_SUBTYPE_RAW,
 		.srp_max_frags  = 1,
 	},
 
@@ -293,8 +293,8 @@ static const struct skmem_region_params skmem_regions[SKMEM_REGIONS] = {
 		.srp_id         = SKMEM_REGION_KMD,
 		.srp_cflags     = SKMEM_REGION_CR_NOMAGAZINES |
     SKMEM_REGION_CR_MEMTAG,
-		.srp_md_type    = NEXUS_META_TYPE_QUANTUM,
-		.srp_md_subtype = NEXUS_META_SUBTYPE_PAYLOAD,
+		.srp_md_type    = NEXUS_META_TYPE_PACKET,
+		.srp_md_subtype = NEXUS_META_SUBTYPE_RAW,
 		.srp_max_frags  = 1,
 	},
 	[SKMEM_REGION_RXKMD] = {
@@ -303,8 +303,8 @@ static const struct skmem_region_params skmem_regions[SKMEM_REGIONS] = {
 		.srp_cflags     = SKMEM_REGION_CR_NOMAGAZINES |
     SKMEM_REGION_CR_MEMTAG,
 		.srp_r_obj_cnt  = 0,
-		.srp_md_type    = NEXUS_META_TYPE_QUANTUM,
-		.srp_md_subtype = NEXUS_META_SUBTYPE_PAYLOAD,
+		.srp_md_type    = NEXUS_META_TYPE_PACKET,
+		.srp_md_subtype = NEXUS_META_SUBTYPE_RAW,
 		.srp_max_frags  = 1,
 	},
 	[SKMEM_REGION_TXKMD] = {
@@ -313,8 +313,8 @@ static const struct skmem_region_params skmem_regions[SKMEM_REGIONS] = {
 		.srp_cflags     = SKMEM_REGION_CR_NOMAGAZINES |
     SKMEM_REGION_CR_MEMTAG,
 		.srp_r_obj_cnt  = 0,
-		.srp_md_type    = NEXUS_META_TYPE_QUANTUM,
-		.srp_md_subtype = NEXUS_META_SUBTYPE_PAYLOAD,
+		.srp_md_type    = NEXUS_META_TYPE_PACKET,
+		.srp_md_subtype = NEXUS_META_SUBTYPE_RAW,
 		.srp_max_frags  = 1,
 	},
 
@@ -544,7 +544,7 @@ skmem_sys_region_init(void)
 	srp.srp_r_obj_size = SK_SYS_OBJSIZE_DEFAULT;
 	skmem_region_params_config(&srp);
 
-	_CASSERT(SK_SYS_OBJSIZE_DEFAULT >= sizeof(skmem_sysctl));
+	static_assert(SK_SYS_OBJSIZE_DEFAULT >= sizeof(skmem_sysctl));
 	sk_sys_region = skmem_region_create("global", &srp, NULL, NULL, NULL);
 	if (sk_sys_region == NULL) {
 		panic("failed to allocate global sysctls region");
@@ -601,19 +601,6 @@ skmem_get_sysctls_obj(size_t * size)
 	c += k;                                                 \
 } while (0)
 
-/*
- * The compiler doesn't know that snprintf() supports %b format
- * specifier, so use our own wrapper to vsnprintf() here instead.
- */
-#define skmem_snprintf(str, size, format, ...)  ({ \
-	_Pragma("clang diagnostic push")                                   \
-	_Pragma("clang diagnostic ignored \"-Wformat-invalid-specifier\"") \
-	_Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")        \
-	_Pragma("clang diagnostic ignored \"-Wformat\"")                   \
-	snprintf(str, size, format, ## __VA_ARGS__)                        \
-	_Pragma("clang diagnostic pop");                                   \
-})
-
 __attribute__((noinline, cold, not_tail_called))
 char *
 skmem_dump(struct skmem_region *skr)
@@ -632,14 +619,13 @@ skmem_dump(struct skmem_region *skr)
 	}
 	c = skmem_dump_buf;
 
-	k = skmem_snprintf(c, clen,
+	k = sk_snprintf(c, clen,
 	    "Region %p\n"
-	    "  | Mode         : 0x%b\n"
+	    "  | Mode         : 0x%x\n"
 	    "  | Memory       : [%llu in use [%llu wired]] / [%llu total]\n"
 	    "  | Transactions : [%llu segment allocs, %llu frees]\n\n",
-	    skr, skr->skr_mode, SKR_MODE_BITS, skr->skr_meminuse,
-	    skr->skr_w_meminuse, skr->skr_memtotal, skr->skr_alloc,
-	    skr->skr_free);
+	    skr, skr->skr_mode, skr->skr_meminuse, skr->skr_w_meminuse,
+	    skr->skr_memtotal, skr->skr_alloc, skr->skr_free);
 	SKMEM_WDT_DUMP_BUF_CHK();
 
 	if (skr->skr_mode & SKR_MODE_SLAB) {
@@ -647,22 +633,21 @@ skmem_dump(struct skmem_region *skr)
 			if ((skm = skr->skr_cache[i]) == NULL) {
 				continue;
 			}
-			k = skmem_snprintf(c, clen, "Cache %p\n"
-			    "  | Mode         : 0x%b\n"
+			k = sk_snprintf(c, clen, "Cache %p\n"
+			    "  | Mode         : 0x%x\n"
 			    "  | Memory       : [%llu in use] / [%llu total]\n"
 			    "  | Transactions : [%llu alloc failures]\n"
 			    "  |                [%llu slab creates, %llu destroys]\n"
 			    "  |                [%llu slab allocs,  %llu frees]\n\n",
-			    skm, skm->skm_mode, SKM_MODE_BITS,
-			    skm->skm_sl_bufinuse, skm->skm_sl_bufmax,
-			    skm->skm_sl_alloc_fail, skm->skm_sl_create,
-			    skm->skm_sl_destroy, skm->skm_sl_alloc,
-			    skm->skm_sl_free);
+			    skm, skm->skm_mode, skm->skm_sl_bufinuse,
+			    skm->skm_sl_bufmax, skm->skm_sl_alloc_fail,
+			    skm->skm_sl_create, skm->skm_sl_destroy,
+			    skm->skm_sl_alloc, skm->skm_sl_free);
 			SKMEM_WDT_DUMP_BUF_CHK();
 		}
 	}
 
-	k = skmem_snprintf(c, clen,
+	k = sk_snprintf(c, clen,
 	    "VM Pages\n"
 	    "  | Free         : %u [%u speculative]\n"
 	    "  | Active       : %u\n"

@@ -238,6 +238,6 @@ fail:
             psOutAttr->fa_allocsize = VCTOF(vp, cp)->ff_blocks * VTOHFS(vp)->blockSize;
             psOutAttr->fa_size      = VCTOF(vp, cp)->ff_size;
         }
-        psOutAttr->fa_nlink     = (cp->c_flag & C_HARDLINK)? cp->c_linkcount : 1;
+        psOutAttr->fa_nlink     = cp->c_linkcount;
     }
 }

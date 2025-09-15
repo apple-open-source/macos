@@ -14,16 +14,6 @@
 #include <unistd.h>
 #include <TargetConditionals.h>
 
-#define IKOT_THREAD_CONTROL             1
-#define IKOT_THREAD_READ                47
-#define IKOT_THREAD_INSPECT             46
-
-#define IKOT_TASK_CONTROL               2
-#define IKOT_TASK_READ                  45
-#define IKOT_TASK_INSPECT               44
-#define IKOT_TASK_NAME                  20
-
-
 /*
  * This test verifies various security properties for task and thread
  * read/inspect interfaces. Specifically, it checks and makes sure:
@@ -159,7 +149,7 @@ test_task_threads(
 	thread_array_t threadList;
 	mach_msg_type_number_t threadCount = 0;
 
-	unsigned int kotype;
+	ipc_info_object_type_t kotype;
 	unsigned int kaddr;
 
 	T_LOG("Testing task_threads() with task flavor %d", flavor);
@@ -191,13 +181,13 @@ test_task_threads(
 		}
 		switch (flavor) {
 		case TASK_FLAVOR_CONTROL:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_THREAD_CONTROL, "Task control port should yield thread control port");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_THREAD_CONTROL, "Task control port should yield thread control port");
 			break;
 		case TASK_FLAVOR_READ:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_THREAD_READ, "Task read port should yield thread read port");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_THREAD_READ, "Task read port should yield thread read port");
 			break;
 		case TASK_FLAVOR_INSPECT:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_THREAD_INSPECT, "Task inspect port should yield thread inspect port");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_THREAD_INSPECT, "Task inspect port should yield thread inspect port");
 			break;
 		default:
 			T_FAIL("task_threads() returned thread ports with task name port??");
@@ -223,7 +213,7 @@ test_processor_set_tasks(
 	mach_msg_type_number_t pcnt = 0, tcnt = 0;
 	mach_port_t host = mach_host_self();
 
-	unsigned int kotype;
+	ipc_info_object_type_t kotype;
 	unsigned int kaddr;
 
 	T_LOG("Testing processor_set_tasks() with task flavor %d", flavor);
@@ -255,16 +245,16 @@ test_processor_set_tasks(
 		}
 		switch (flavor) {
 		case TASK_FLAVOR_CONTROL:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_TASK_CONTROL, "TASK_FLAVOR_CONTROL should yield control ports");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_TASK_CONTROL, "TASK_FLAVOR_CONTROL should yield control ports");
 			break;
 		case TASK_FLAVOR_READ:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_TASK_READ, "TASK_FLAVOR_READ should yield read ports");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_TASK_READ, "TASK_FLAVOR_READ should yield read ports");
 			break;
 		case TASK_FLAVOR_INSPECT:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_TASK_INSPECT, "TASK_FLAVOR_INSPECT should yield inspect ports");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_TASK_INSPECT, "TASK_FLAVOR_INSPECT should yield inspect ports");
 			break;
 		case TASK_FLAVOR_NAME:
-			T_QUIET; T_EXPECT_EQ(kotype, IKOT_TASK_NAME, "TASK_FLAVOR_NAME should yield name ports");
+			T_QUIET; T_EXPECT_EQ(kotype, IPC_OTYPE_TASK_NAME, "TASK_FLAVOR_NAME should yield name ports");
 			break;
 		default:
 			T_FAIL("strange flavor");
@@ -476,7 +466,6 @@ test_thread_port_mig_intrans(
 		mach_msg_type_number_t count = THREAD_QOS_POLICY_COUNT;
 		boolean_t get_default = FALSE;
 
-		processor_set_name_t name = MACH_PORT_NULL;
 		kr = thread_policy_get(tport, THREAD_QOS_POLICY,
 		    (thread_policy_t)&info, &count, &get_default);
 		RESULT_CHECK(kr, flavor, THREAD_FLAVOR_INSPECT, "thread_policy_get");

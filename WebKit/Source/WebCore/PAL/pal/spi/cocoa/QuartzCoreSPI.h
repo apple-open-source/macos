@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #import <CoreVideo/CoreVideo.h>
 #import <QuartzCore/QuartzCore.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -113,7 +115,6 @@ typedef struct _CARenderContext CARenderContext;
 #if PLATFORM(MAC)
 @property uint64_t GPURegistryID;
 @property uint32_t commitPriority;
-@property BOOL colorMatchUntaggedContent;
 #endif
 @property (readonly) uint32_t contextId;
 @property (strong) CALayer *layer;
@@ -155,6 +156,7 @@ typedef struct _CARenderContext CARenderContext;
 @property BOOL needsLayoutOnGeometryChange;
 @property BOOL shadowPathIsBounds;
 @property BOOL continuousCorners;
+@property CGFloat contentsEDRStrength;
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
 @property (getter=isSeparated) BOOL separated;
 #endif
@@ -303,6 +305,7 @@ void CARenderCGRender(CARenderCGContext*, CARenderUpdate*, CGContextRef);
 void CARenderUpdateAddContext(CARenderUpdate*, CARenderContext*);
 void CARenderUpdateAddRect(CARenderUpdate*, const CGRect*);
 void CARenderUpdateFinish(CARenderUpdate*);
+bool CASupportsFeature(uint64_t);
 
 WTF_EXTERN_C_END
 
@@ -314,6 +317,7 @@ extern NSString * const kCAFilterColorSaturate;
 extern NSString * const kCAFilterGaussianBlur;
 extern NSString * const kCAFilterPlusD;
 extern NSString * const kCAFilterPlusL;
+extern NSString * const kCAFilterVibrantColorMatrix;
 
 extern NSString * const kCAFilterNormalBlendMode;
 extern NSString * const kCAFilterMultiplyBlendMode;
@@ -331,6 +335,8 @@ extern NSString * const kCAFilterHueBlendMode;
 extern NSString * const kCAFilterSaturationBlendMode;
 extern NSString * const kCAFilterColorBlendMode;
 extern NSString * const kCAFilterLuminosityBlendMode;
+
+extern NSString * const kCAFilterInputColorMatrix;
 
 extern NSString * const kCAContextCIFilterBehavior;
 extern NSString * const kCAContextDisplayName;

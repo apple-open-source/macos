@@ -39,7 +39,6 @@
 #import "keychain/ot/OTStates.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTJoinWithVoucherOperation ()
@@ -91,7 +90,7 @@
     if (!metadata.voucher || !metadata.voucherSignature || error) {
         secnotice("octagon", "No voucher available: %@", error);
         self.error = error;
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
+        [event sendMetricWithResult:NO error:self.error];
         return;
     }
 
@@ -154,7 +153,7 @@
                 } else {
                     self.error = error;
                 }
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
+                [event sendMetricWithResult:NO error:self.error];
             } else {
                 self.peerID = peerID;
 
@@ -177,11 +176,11 @@
                 if(!persisted || localError) {
                     secnotice("octagon", "Couldn't persist results: %@", localError);
                     self.error = localError;
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:NO error:self.error];
+                    [event sendMetricWithResult:NO error:self.error];
                 } else {
                     secerror("octagon: join successful");
                     self.nextState = self.intendedState;
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+                    [event sendMetricWithResult:YES error:nil];
                 }
 
                 // Tell CKKS about our shiny new records!

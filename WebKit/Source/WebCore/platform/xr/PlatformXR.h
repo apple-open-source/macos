@@ -25,7 +25,6 @@
 #include "IntRect.h"
 #include "IntSize.h"
 #include <memory>
-#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
@@ -256,7 +255,7 @@ struct FrameData {
     static constexpr size_t projectionMatrixSize = 16;
     typedef std::array<float, projectionMatrixSize> ProjectionMatrix;
 
-    using Projection = std::variant<Fov, ProjectionMatrix, std::nullptr_t>;
+    using Projection = Variant<Fov, ProjectionMatrix, std::nullptr_t>;
 
     struct View {
         Pose offset;
@@ -291,7 +290,7 @@ struct FrameData {
     };
 
     struct ExternalTextureData {
-        size_t reusableTextureIndex = 0;
+        uint64_t reusableTextureIndex = 0;
         ExternalTexture colorTexture;
         ExternalTexture depthStencilBuffer;
     };

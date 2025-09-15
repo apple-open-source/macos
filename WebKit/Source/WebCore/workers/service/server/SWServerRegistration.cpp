@@ -140,7 +140,7 @@ void SWServerRegistration::fireUpdateFoundEvent()
     });
 }
 
-void SWServerRegistration::forEachConnection(const Function<void(SWServer::Connection&)>& apply)
+void SWServerRegistration::forEachConnection(NOESCAPE const Function<void(SWServer::Connection&)>& apply)
 {
     for (auto connectionIdentifierWithClients : m_connectionsWithClientRegistrations.values()) {
         if (RefPtr connection = protectedServer()->connection(connectionIdentifierWithClients))
@@ -301,11 +301,11 @@ void SWServerRegistration::activate()
         updateWorkerState(*worker, ServiceWorkerState::Redundant);
     }
     // Run the Update Registration State algorithm passing registration, "active" and registration's waiting worker as the arguments.
-    updateRegistrationState(ServiceWorkerRegistrationState::Active, waitingWorker());
+    updateRegistrationState(ServiceWorkerRegistrationState::Active, protectedWaitingWorker().get());
     // Run the Update Registration State algorithm passing registration, "waiting" and null as the arguments.
     updateRegistrationState(ServiceWorkerRegistrationState::Waiting, nullptr);
     // Run the Update Worker State algorithm passing registration's active worker and activating as the arguments.
-    updateWorkerState(*activeWorker(), ServiceWorkerState::Activating);
+    updateWorkerState(*protectedActiveWorker(), ServiceWorkerState::Activating);
     // FIXME: For each service worker client whose creation URL matches registration's scope url...
 
     // The registration now has an active worker so we need to check if there are any ready promises that were waiting for this.
@@ -359,7 +359,7 @@ void SWServerRegistration::controlClient(ScriptExecutionContextIdentifier identi
 
     HashSet<ScriptExecutionContextIdentifier> identifiers;
     identifiers.add(identifier);
-    protectedServer()->connection(identifier.processIdentifier())->notifyClientsOfControllerChange(identifiers, activeWorker->data());
+    protectedServer()->protectedConnection(identifier.processIdentifier())->notifyClientsOfControllerChange(identifiers, activeWorker->data());
 }
 
 bool SWServerRegistration::shouldSoftUpdate(const FetchOptions& options) const
@@ -429,12 +429,12 @@ std::optional<ExceptionData> SWServerRegistration::setNavigationPreloadHeaderVal
 
 void SWServerRegistration::addCookieChangeSubscriptions(Vector<CookieChangeSubscription>&& subscriptions)
 {
-    m_cookieChangeSubscriptions.add(subscriptions.begin(), subscriptions.end());
+    m_cookieChangeSubscriptions.addAll(WTFMove(subscriptions));
 }
 
 void SWServerRegistration::removeCookieChangeSubscriptions(Vector<CookieChangeSubscription>&& subscriptions)
 {
-    m_cookieChangeSubscriptions.remove(subscriptions.begin(), subscriptions.end());
+    m_cookieChangeSubscriptions.removeAll(subscriptions);
 }
 
 Vector<CookieChangeSubscription> SWServerRegistration::cookieChangeSubscriptions() const

@@ -102,7 +102,7 @@ enum EventClass {
 message Rules {
     // field one used to be eventRules, but it was unversioned, so let not use it any more
     // older clients not get rules and that is ok
-    //reserved = 1;
+    reserved 1;
     
     // Events that will trigger actions
     repeated EventRule eventRules = 2;

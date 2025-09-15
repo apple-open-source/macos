@@ -77,19 +77,19 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->type();
+    return IMPL->type().createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setType(newType);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::typeAttr, newType);
 }
 
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -101,7 +101,7 @@
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::valueAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::valueAttr).createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue
@@ -119,7 +119,7 @@
 - (NSString *)accessKey
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr).createNSString().autorelease();
 }
 
 - (void)setAccessKey:(NSString *)newAccessKey

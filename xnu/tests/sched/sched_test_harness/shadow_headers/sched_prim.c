@@ -76,6 +76,7 @@
 
 #include <kern/sched_prim.h>
 #include <kern/processor.h>
+#include <kern/sched_rt.h>
 
 boolean_t
 priority_is_urgent(int priority)
@@ -240,9 +241,9 @@ run_queue_peek(
 	}
 }
 
-uint32_t       sched_run_buckets[TH_BUCKET_MAX];
-unsigned                sched_tick = 0;
-int8_t          sched_load_shifts[NRQS];
+uint32_t          sched_run_buckets[TH_BUCKET_MAX];
+_Atomic uint32_t  sched_tick = 0;
+int8_t            sched_load_shifts[NRQS];
 
 #define         DEFAULT_PREEMPTION_RATE         100             /* (1/s) */
 int default_preemption_rate = DEFAULT_PREEMPTION_RATE;
@@ -325,6 +326,23 @@ pset_type_for_id(uint32_t cluster_id)
 	return pset_array[cluster_id]->pset_type;
 }
 
+cluster_type_t
+pset_cluster_type_to_cluster_type(pset_cluster_type_t pset_cluster_type)
+{
+	switch (pset_cluster_type) {
+#if __AMP__
+	case PSET_AMP_E:
+		return CLUSTER_TYPE_E;
+	case PSET_AMP_P:
+		return CLUSTER_TYPE_P;
+#endif /* __AMP__ */
+	case PSET_SMP:
+		return CLUSTER_TYPE_SMP;
+	default:
+		panic("Unexpected pset cluster type %d", pset_cluster_type);
+	}
+}
+
 #if CONFIG_SCHED_EDGE
 
 uint64_t
@@ -344,20 +362,20 @@ processor_t
 choose_processor(
 	processor_set_t         starting_pset,
 	processor_t             processor,
-	thread_t                thread)
+	thread_t                thread,
+	__unused sched_options_t *options)
 {
 	(void)processor;
+
+	if (thread->sched_pri >= BASEPRI_RTQUEUES) {
+		return sched_rt_choose_processor(starting_pset, processor, thread);
+	}
+
 	if (thread->bound_processor != NULL) {
 		return thread->bound_processor;
 	}
 	/* Choose the first-indexed processor in the pset */
 	return processor_array[starting_pset->cpu_set_low];
-}
-
-static cpumap_t
-pset_available_cpumap(processor_set_t pset)
-{
-	return pset->cpu_available_map & pset->recommended_bitmask;
 }
 
 int
@@ -392,9 +410,18 @@ sched_update_pset_load_average(processor_set_t pset, uint64_t curtime)
 	(void)curtime;
 }
 
-int
-rt_runq_count(processor_set_t pset)
+void
+thread_setrun(thread_t thread, sched_options_t options)
 {
-	(void)pset;
-	return 0;
+	(void)thread;
+	(void)options;
+	assertf(false, "unimplemented");
 }
+
+bool
+sched_steal_thread_enabled(processor_set_t pset)
+{
+	return bit_count(pset->node->pset_map) > 1;
+}
+
+int sched_rt_n_backup_processors = SCHED_DEFAULT_BACKUP_PROCESSORS;

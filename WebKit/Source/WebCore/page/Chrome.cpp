@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2012, Samsung Electronics. All rights reserved.
  *
@@ -28,11 +28,17 @@
 #include "ColorChooser.h"
 #include "ContactInfo.h"
 #include "ContactsRequestData.h"
+#include "ContainerNodeInlines.h"
 #include "DataListSuggestionPicker.h"
 #include "DateTimeChooser.h"
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#include "DigitalCredentialsRequestData.h"
+#include "DigitalCredentialsResponseData.h"
+#endif
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentType.h"
+#include "ExceptionData.h"
 #include "FaceDetectorInterface.h"
 #include "FileList.h"
 #include "FloatRect.h"
@@ -136,9 +142,9 @@ IntRect Chrome::rootViewToAccessibilityScreen(const IntRect& rect) const
 }
 
 #if PLATFORM(IOS_FAMILY)
-void Chrome::relayAccessibilityNotification(const String& notificationName, const RetainPtr<NSData>& notificationData) const
+void Chrome::relayAccessibilityNotification(String&& notificationName, RetainPtr<NSData>&& notificationData) const
 {
-    return m_client->relayAccessibilityNotification(notificationName, notificationData);
+    return m_client->relayAccessibilityNotification(WTFMove(notificationName), WTFMove(notificationData));
 }
 #endif
 
@@ -295,13 +301,13 @@ bool Chrome::canRunBeforeUnloadConfirmPanel()
     return m_client->canRunBeforeUnloadConfirmPanel();
 }
 
-bool Chrome::runBeforeUnloadConfirmPanel(const String& message, LocalFrame& frame)
+bool Chrome::runBeforeUnloadConfirmPanel(String&& message, LocalFrame& frame)
 {
     // Defer loads in case the client method runs a new event loop that would
     // otherwise cause the load to continue while we're in the middle of executing JavaScript.
     PageGroupLoadDeferrer deferrer(m_page, true);
 
-    return m_client->runBeforeUnloadConfirmPanel(message, frame);
+    return m_client->runBeforeUnloadConfirmPanel(WTFMove(message), frame);
 }
 
 void Chrome::closeWindow()
@@ -349,11 +355,6 @@ bool Chrome::runJavaScriptPrompt(LocalFrame& frame, const String& prompt, const 
 
 void Chrome::mouseDidMoveOverElement(const HitTestResult& result, OptionSet<PlatformEventModifier> modifiers)
 {
-    if (RefPtr localMainFrame = m_page->localMainFrame()) {
-        if (result.innerNode() && result.innerNode()->document().isDNSPrefetchEnabled())
-            localMainFrame->protectedLoader()->client().prefetchDNS(result.absoluteLinkURL().host().toString());
-    }
-
     String toolTip;
     TextDirection toolTipDirection;
     getToolTip(result, toolTip, toolTipDirection);
@@ -475,15 +476,27 @@ void Chrome::runOpenPanel(LocalFrame& frame, FileChooser& fileChooser)
     m_client->runOpenPanel(frame, fileChooser);
 }
 
-void Chrome::showShareSheet(ShareDataWithParsedURL& shareData, CompletionHandler<void(bool)>&& callback)
+void Chrome::showShareSheet(ShareDataWithParsedURL&& shareData, CompletionHandler<void(bool)>&& callback)
 {
-    m_client->showShareSheet(shareData, WTFMove(callback));
+    m_client->showShareSheet(WTFMove(shareData), WTFMove(callback));
 }
 
-void Chrome::showContactPicker(const ContactsRequestData& requestData, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&& callback)
+void Chrome::showContactPicker(ContactsRequestData&& requestData, CompletionHandler<void(std::optional<Vector<ContactInfo>>&&)>&& callback)
 {
-    m_client->showContactPicker(requestData, WTFMove(callback));
+    m_client->showContactPicker(WTFMove(requestData), WTFMove(callback));
 }
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+void Chrome::showDigitalCredentialsPicker(const DigitalCredentialsRequestData& requestData, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& callback)
+{
+    m_client->showDigitalCredentialsPicker(requestData, WTFMove(callback));
+}
+
+void Chrome::dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&& callback)
+{
+    m_client->dismissDigitalCredentialsPicker(WTFMove(callback));
+}
+#endif
 
 void Chrome::loadIconForFiles(const Vector<String>& filenames, FileIconLoader& loader)
 {
@@ -534,7 +547,7 @@ void Chrome::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
     m_client->setCursorHiddenUntilMouseMoves(hiddenUntilMouseMoves);
 }
 
-RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat pixelFormat) const
+RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferFormat pixelFormat) const
 {
     return m_client->createImageBuffer(size, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat);
 }

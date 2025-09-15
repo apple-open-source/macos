@@ -33,37 +33,40 @@ class VersionSetDSL:
         vers = ""
         def __init__(self, vers):
             self.vers = vers
-        def hex(self):
-            major = 0
-            minor = 0
-            revision = 0
             match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
             assert match  is not None
-            if (match.group(1)): major = int(match.group(1))
-            if (match.group(2)): minor = int(match.group(2))
-            if (match.group(3)): revision = int(match.group(3))
-            return f"0x00{major :02x}{minor :02x}{revision :02x}"
+            if (match.group(1)):
+                self.major = int(match.group(1))
+            else:
+                print(f"Invalid version number (missing major)")
+                exit(-1)
+            if (match.group(2)):
+                self.minor = int(match.group(2))
+            else:
+                print(f"Invalid version number (missing minor)")
+                exit(-1)
+            if (match.group(3)):
+                self.revision = int(match.group(3))
+            else:
+                self.revision = 0
+        def hex(self):
+            return f"0x00{self.major :02x}{self.minor :02x}{self.revision :02x}"
         def decimal(self, macosFormat):
-            major = 0
-            minor = 0
-            revision = 0
-            result = ""
-            match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
-            assert match is not None
-            if (match.group(1)): major = int(match.group(1))
-            if (match.group(2)): minor = int(match.group(2))
-            if (match.group(3)): revision = int(match.group(3))
-            if macosFormat and major == 10 and minor <= 9: result = f"{major}{minor :01}{revision :01}"
-            else: result = f"{major}{minor :02}{revision :02}"
+            if macosFormat and self.major == 10 and self.minor <= 9: result = f"{self.major}{self.minor :01}{self.revision :01}"
+            else: result = f"{self.major}{self.minor :02}{self.revision :02}"
             return result.rjust(6)
         def symbol(self):
-            match = re.match(r"^(\d+)(?:.(\d+))?(?:.(\d+))?$", self.vers)
-            assert match is not None
-            if match.group(3) and match.group(3) != 0: return f"{match.group(1)}_{match.group(2)}_{match.group(3)}"
-            if match.group(2): return f"{match.group(1)}_{match.group(2)}"
-            if match.group(1): return match.group(1)
-            sys.exit("Illegal version")
+            if self.revision != 0: return f"{self.major}_{self.minor}_{self.revision}"
+            return f"{self.major}_{self.minor}"
+        def __eq__(self, other):
+            return (self.major == other.major) and (self.minor == other.minor) and (self.revision == other.revision)
+        def __lt__(self, other):
+            if self.major > other.major: return False
+            if self.minor > other.minor: return False
+            if self.revision > other.revision: return False
+            return True
         def string(self): return self.vers
+        def __str__(self): return self.vers
     class Variant:
         def __init__(self, name, macroName, **optionals):
             self.name                                   = name
@@ -91,6 +94,7 @@ class VersionSetDSL:
             self.bleached                               = optionals.get("bleached", False)
             self.target_os_name                         = optionals.get("target_os_name", name)
             self.supports_legacy_environment_defines    = optionals.get("supports_legacy_environment_defines", False)
+            self.midVersionAlias                        = False
             if "platform_define_name" in optionals:
                 self.platform_define = f"PLATFORM_{optionals['platform_define_name']}"
             if "cmd_aliases" in optionals:
@@ -107,7 +111,11 @@ class VersionSetDSL:
                 self.availability_deprecation_define_name = optionals["availability_deprecation_define_name"]
             if "version_define_name" in optionals:
                 self.availability_define_prefix = f"__{optionals['version_define_name']}_"
-        def add_version(self, version): return self.versions.append(version);
+        def add_version(self, version):
+            if (len(self.versions) > 0) and (self.versions[-1] > version):
+                print(f"Out of order version {version} for platform {self.name}")
+                exit(-1)
+            self.versions.append(version)
         def add_variant(self, variant): return self.variants.append(variant);
     class Parser:
         platforms       = {}
@@ -133,15 +141,31 @@ class VersionSetDSL:
             platforms = {}
             for (platformName, platform) in self.platforms.items():
                 if platform.versioned:
-                    platforms[platformName] = platform.versions[-1]
+                    if platform.midVersionAlias:
+                        platforms[platformName] = platform.versions[-2]
+                    else:
+                        platforms[platformName] = platform.versions[-1]
             version_set                 = {}
             version_set["name"]         = name
             version_set["version"]      = VersionSetDSL.Version(version)
             version_set["platforms"]    = platforms
             self.version_sets.append(version_set)
             # TODO add error checking for version decrease
-        def version(self, platform, version):
-            if platform in self.platforms: self.platforms[platform].add_version(VersionSetDSL.Version(version))
+        def version(self, platform, version, **optionals):
+            if platform in self.platforms:
+                self.platforms[platform].midVersionAlias = False
+                version = VersionSetDSL.Version(version)
+                if "alias_version" in optionals:
+                    self.platforms[platform].midVersionAlias = True
+                    aliasVersion = VersionSetDSL.Version(optionals["alias_version"])
+                    if aliasVersion > version:
+                        self.platforms[platform].add_version(version)
+                        self.platforms[platform].add_version(aliasVersion)
+                    else:
+                        self.platforms[platform].add_version(aliasVersion)
+                        self.platforms[platform].add_version(version)
+                else:
+                    self.platforms[platform].add_version(version)
             else:
                 print(f"Unknown platform \"{platform}\"")
                 exit(-1)
@@ -285,22 +309,24 @@ static const std::array<VersionSetEntry, {}> sVersionMap = {{{{
             if platform.bleached:
                 output.write(f"#ifndef __APPLE_BLEACH_SDK__\n")
             output.write(f"#ifndef __{platform.min_max_define_name}_VERSION_MIN_REQUIRED\n")
-            output.write(f"    #if defined(__has_builtin) && __has_builtin(__is_target_os)\n")
-            output.write(f"        #if __is_target_os({platform.target_os_name})\n")
-            output.write(f"            #define __{platform.min_max_define_name}_VERSION_MIN_REQUIRED __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__\n")
-            output.write(f"            #define __{platform.min_max_define_name}_VERSION_MAX_ALLOWED {platform.availability_define_prefix + platform.versions[-1].symbol()}\n")
+            output.write(f"    #if defined(__has_builtin)\n")
+            output.write(f"        #if __has_builtin(__is_target_os)\n")
+            output.write(f"            #if __is_target_os({platform.target_os_name})\n")
+            output.write(f"                #define __{platform.min_max_define_name}_VERSION_MIN_REQUIRED __ENVIRONMENT_OS_VERSION_MIN_REQUIRED__\n")
+            output.write(f"                #define __{platform.min_max_define_name}_VERSION_MAX_ALLOWED {platform.availability_define_prefix + platform.versions[-1].symbol()}\n")
             if platform.ios_compatility_version:
-                output.write(f"            /* for compatibility with existing code.  New code should use platform specific checks */\n")
-                output.write(f"            #define __IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_{platform.ios_compatility_version.symbol()}\n")
-            output.write(f"        #endif\n")
+                output.write(f"                /* for compatibility with existing code.  New code should use platform specific checks */\n")
+                output.write(f"                #define __IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_{platform.ios_compatility_version.symbol()}\n")
+            output.write(f"            #endif\n")
             if platform.supports_legacy_environment_defines:
-                output.write(f"    #elif  __ENVIRONMENT_{platform.min_max_define_name}_VERSION_MIN_REQUIRED__ \n")
-                output.write(f"        #define __{platform.min_max_define_name}_VERSION_MIN_REQUIRED __ENVIRONMENT_{platform.min_max_define_name}_VERSION_MIN_REQUIRED__\n")
-                output.write(f"        #define __{platform.min_max_define_name}_VERSION_MAX_ALLOWED {platform.availability_define_prefix + platform.versions[-1].symbol()}\n")
+                output.write(f"        #elif  __ENVIRONMENT_{platform.min_max_define_name}_VERSION_MIN_REQUIRED__ \n")
+                output.write(f"            #define __{platform.min_max_define_name}_VERSION_MIN_REQUIRED __ENVIRONMENT_{platform.min_max_define_name}_VERSION_MIN_REQUIRED__\n")
+                output.write(f"            #define __{platform.min_max_define_name}_VERSION_MAX_ALLOWED {platform.availability_define_prefix + platform.versions[-1].symbol()}\n")
                 if platform.ios_compatility_version:
-                    output.write(f"        /* for compatibility with existing code.  New code should use platform specific checks */\n")
-                    output.write(f"        #define __IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_{platform.ios_compatility_version.symbol()}\n")
-            output.write(f"    #endif /*  __has_builtin(__is_target_os) && __is_target_os({platform.target_os_name}) */\n")
+                    output.write(f"            /* for compatibility with existing code.  New code should use platform specific checks */\n")
+                    output.write(f"            #define __IPHONE_OS_VERSION_MIN_REQUIRED __IPHONE_{platform.ios_compatility_version.symbol()}\n")
+            output.write(f"        #endif /* __has_builtin(__is_target_os) */\n")
+            output.write(f"    #endif /* defined(__has_builtin) */\n")
             output.write(f"#endif /* __{platform.min_max_define_name}_VERSION_MIN_REQUIRED */\n")
             if platform.bleached:
                 output.write(f"#endif /* __APPLE_BLEACH_SDK__ */\n")

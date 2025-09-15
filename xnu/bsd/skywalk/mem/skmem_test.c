@@ -71,7 +71,7 @@ struct skmt_thread_info {
 	kern_packet_t   sti_mpc;        /* cloned packet */
 	thread_t        sti_thread;     /* thread instance */
 	boolean_t       sti_nosleep;    /* non-sleeping allocation */
-} __attribute__((aligned(CHANNEL_CACHE_ALIGN_MAX)));
+} __sk_aligned(CHANNEL_CACHE_ALIGN_MAX);
 
 static struct skmt_thread_info *skmth_info;
 static uint32_t skmth_info_size;
@@ -925,7 +925,7 @@ skmem_packet_tests(uint32_t flags)
 	VERIFY(__packet_finalize(ph_mb) == 0);
 	if (csum_eeo_ref != csum) {
 		SK_ERR("pkt_copypkt_sum: csum_eeo_mismatch 0x%x, "
-		    "0x%x, 0x%llx", csum_eeo_ref, csum,
+		    "0x%x, %p", csum_eeo_ref, csum,
 		    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 	}
 	VERIFY(csum_eeo_ref == csum);
@@ -941,7 +941,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_eoe_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_eoe_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_eoe_ref, csum,
+			    "0x%x, %p", csum_eoe_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_eoe_ref == csum);
@@ -956,7 +956,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_eoo_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_eoo_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_eoo_ref, csum,
+			    "0x%x, %p", csum_eoo_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_eoo_ref == csum);
@@ -971,7 +971,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_oeo_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_oeo_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_oeo_ref, csum,
+			    "0x%x, %p", csum_oeo_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_oeo_ref == csum);
@@ -985,7 +985,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_ooo_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_ooo_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_ooo_ref, csum,
+			    "0x%x, %p", csum_ooo_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_ooo_ref == csum);
@@ -999,7 +999,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_ooe_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_ooe_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_ooe_ref, csum,
+			    "0x%x, %p", csum_ooe_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_ooe_ref == csum);
@@ -1014,7 +1014,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_ooe_ref != csum) {
 			SK_ERR("pkt_copypkt_sum: csum_oee_mismatch 0x%x, "
-			    "0x%x, 0x%llx", csum_oee_ref, csum,
+			    "0x%x, %p", csum_oee_ref, csum,
 			    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 		}
 		VERIFY(csum_oee_ref == csum);
@@ -1031,7 +1031,7 @@ skmem_packet_tests(uint32_t flags)
 	VERIFY(__packet_finalize(ph_mb) == 0);
 	if (csum_eee_ref != csum) {
 		SK_ERR("pkt_copypkt_sum: csum_eee_mismatch 0x%x, "
-		    "0x%x, 0x%llx", csum_eee_ref, csum,
+		    "0x%x, %p", csum_eee_ref, csum,
 		    SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)));
 	}
 	VERIFY(csum_eee_ref == csum);
@@ -1040,7 +1040,7 @@ skmem_packet_tests(uint32_t flags)
 	csum = pkt_copyaddr_sum(ph_mb, 0, buffer, len - 1, TRUE, 0, NULL);
 	if (csum_eeo_ref != csum) {
 		SK_ERR("pkt_copyaddr_sum: csum_eeo_mismatch "
-		    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eeo_ref,
+		    "0x%x, 0x%x, %p, %p", csum_eeo_ref,
 		    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 		    SK_KVA(buffer));
 	}
@@ -1050,7 +1050,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 0, buffer + 1, len - 1, TRUE, 0, NULL);
 		if (csum_eoo_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_eoo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eoo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_eoo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1059,7 +1059,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 0, buffer + 1, len - 2, TRUE, 0, NULL);
 		if (csum_eoe_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_eoe_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eoe_ref,
+			    "0x%x, 0x%x, %p, %p", csum_eoe_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1068,7 +1068,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 1, buffer + 1, len - 2, TRUE, 0, NULL);
 		if (csum_ooe_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_ooe_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_ooe_ref,
+			    "0x%x, 0x%x, %p, %p", csum_ooe_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1077,7 +1077,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 1, buffer, len - 2, TRUE, 0, NULL);
 		if (csum_oee_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_oee_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_oee_ref,
+			    "0x%x, 0x%x, %p, %p", csum_oee_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1086,7 +1086,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 1, buffer, len - 1, TRUE, 0, NULL);
 		if (csum_oeo_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_oeo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_oeo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_oeo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1095,7 +1095,7 @@ skmem_packet_tests(uint32_t flags)
 		csum = pkt_copyaddr_sum(ph_mb, 1, buffer + 1, len - 1, TRUE, 0, NULL);
 		if (csum_ooo_ref != csum) {
 			SK_ERR("pkt_copyaddr_sum: csum_ooo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_ooo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_ooo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(buffer));
 		}
@@ -1105,7 +1105,7 @@ skmem_packet_tests(uint32_t flags)
 	csum = pkt_copyaddr_sum(ph_mb, 0, buffer, len, TRUE, 0, NULL);
 	if (csum_eee_ref != csum) {
 		SK_ERR("pkt_copyaddr_sum: csum_eee_mismatch "
-		    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eee_ref,
+		    "0x%x, 0x%x, %p, %p", csum_eee_ref,
 		    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 		    SK_KVA(buffer));
 	}
@@ -1128,7 +1128,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_eee_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_eee_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eee_ref,
+			    "0x%x, 0x%x, %p, %p", csum_eee_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1145,7 +1145,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_eoe_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_eoe_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eoe_ref,
+			    "0x%x, 0x%x, %p, %p", csum_eoe_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1162,7 +1162,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_eoo_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_eoo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eoo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_eoo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1180,7 +1180,7 @@ skmem_packet_tests(uint32_t flags)
 	VERIFY(__packet_finalize(ph_mb) == 0);
 	if (csum_eeo_ref != csum) {
 		SK_ERR("pkt_mcopypkt_sum: csum_eeo_mismatch "
-		    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_eeo_ref,
+		    "0x%x, 0x%x, %p, %p", csum_eeo_ref,
 		    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 		    SK_KVA(m));
 	}
@@ -1198,7 +1198,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_oeo_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_oeo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_oeo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_oeo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1215,7 +1215,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_oee_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_oee_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_oee_ref,
+			    "0x%x, 0x%x, %p, %p", csum_oee_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1232,7 +1232,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_ooe_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_ooe_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_ooe_ref,
+			    "0x%x, 0x%x, %p, %p", csum_ooe_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1249,7 +1249,7 @@ skmem_packet_tests(uint32_t flags)
 		VERIFY(__packet_finalize(ph_mb) == 0);
 		if (csum_ooo_ref != csum) {
 			SK_ERR("pkt_mcopypkt_sum: csum_ooo_mismatch "
-			    "0x%x, 0x%x, 0x%llx, 0x%llx", csum_ooo_ref,
+			    "0x%x, 0x%x, %p, %p", csum_ooo_ref,
 			    csum, SK_KVA(SK_PTR_ADDR_KQUM(ph_mb)),
 			    SK_KVA(m));
 		}
@@ -1269,140 +1269,6 @@ skmem_packet_tests(uint32_t flags)
 
 	kfree_data(ref_buffer, SKMEM_TEST_BUFSIZE);
 	ref_buffer = NULL;
-}
-
-static void
-skmem_quantum_tests(uint32_t flags)
-{
-	struct kern_pbufpool_init pp_init;
-	struct kern_pbufpool_memory_info pp_mem_info;
-	kern_pbufpool_t pp = NULL;
-	kern_packet_t *phary = NULL;
-	uint32_t phcnt = 0;
-	kern_packet_t ph = 0;
-	uint32_t i;
-	errno_t err;
-
-	flags |= KBIF_QUANTUM;
-
-	SK_ERR("flags 0x%x", flags);
-
-	phary = (kern_packet_t *) kalloc_data(sizeof(kern_packet_t) * MAX_PH_ARY,
-	    Z_WAITOK | Z_ZERO);
-
-	bzero(&pp_init, sizeof(pp_init));
-	pp_init.kbi_version = KERN_PBUFPOOL_CURRENT_VERSION;
-	pp_init.kbi_buf_seg_size = skmem_usr_buf_seg_size;
-	(void) snprintf((char *)pp_init.kbi_name, sizeof(pp_init.kbi_name),
-	    "%s", "skmem_quantum_tests");
-	pp_init.kbi_flags = (KBIF_QUANTUM | flags);
-	pp_init.kbi_packets = 64;
-	pp_init.kbi_bufsize = SKMEM_TEST_BUFSIZE;
-	pp_init.kbi_buflets = (64 * 2);
-	pp_init.kbi_ctx = NULL;
-	pp_init.kbi_ctx_retain = NULL;
-	pp_init.kbi_ctx_release = NULL;
-
-	pp_init.kbi_max_frags = 4;
-	/* max_frags must be 1 for quantum type */
-	VERIFY(kern_pbufpool_create(&pp_init, &pp, NULL) == EINVAL);
-	pp_init.kbi_max_frags = 1;
-	if ((flags & KBIF_QUANTUM) && (flags & KBIF_BUFFER_ON_DEMAND)) {
-		VERIFY(kern_pbufpool_create(&pp_init, &pp, NULL) == EINVAL);
-		goto done;
-	}
-	VERIFY(kern_pbufpool_create(&pp_init, &pp, NULL) == 0);
-	bzero(&pp_mem_info, sizeof(pp_mem_info));
-	VERIFY(kern_pbufpool_get_memory_info(pp, &pp_mem_info) == 0);
-	VERIFY(pp_mem_info.kpm_flags & KPMF_EXTERNAL);
-	VERIFY(pp_mem_info.kpm_buflets >= pp_mem_info.kpm_packets);
-	VERIFY(pp_mem_info.kpm_packets >= 64);
-	VERIFY(pp_mem_info.kpm_packets <= MAX_PH_ARY);
-	VERIFY(pp_mem_info.kpm_max_frags == 1);
-	VERIFY(pp_mem_info.kpm_buflets >= 64);
-	VERIFY(pp_mem_info.kpm_bufsize == SKMEM_TEST_BUFSIZE);
-	VERIFY(kern_pbufpool_alloc(pp, 4, &ph) == EINVAL);
-	/* allocate and free one at a time */
-	for (i = 0, phcnt = 0; i < pp_mem_info.kpm_packets; i++) {
-		boolean_t stop = FALSE;
-		/*
-		 * This may fail if skmem_region_mtbf is set, or if
-		 * the system is short on memory.  Perform retries
-		 * at this layer to get at least 64 packets.
-		 */
-		while ((err = kern_pbufpool_alloc_nosleep(pp, 1, &ph)) != 0) {
-			VERIFY(err == ENOMEM);
-			if (phcnt < 64) {
-				SK_ERR("retrying alloc for quantum %u", phcnt);
-				delay(250 * NSEC_PER_USEC); /* 1/4 sec */
-				continue;
-			}
-			stop = TRUE;
-			break;
-		}
-		if (stop) {
-			break;
-		}
-		VERIFY(ph != 0);
-		VERIFY(kern_packet_get_data_length(ph) == 0);
-		VERIFY(kern_packet_get_buflet_count(ph) == 1);
-		phary[phcnt++] = ph;
-	}
-	VERIFY(phcnt >= 64);
-	for (i = 0; i < phcnt; i++) {
-		kern_pbufpool_free(pp, phary[i]);
-		phary[i] = 0;
-	}
-	/* allocate and free in batch */
-	phcnt = pp_mem_info.kpm_packets;
-	for (;;) {
-		err = kern_pbufpool_alloc_batch_nosleep(pp, 1, phary, &phcnt);
-		VERIFY(err != EINVAL && err != ENOTSUP);
-		if (err == ENOMEM) {
-			phcnt = pp_mem_info.kpm_packets;
-			SK_ERR("retrying batch alloc for %u quantums", phcnt);
-			delay(250 * NSEC_PER_USEC);     /* 1/4 sec */
-		} else if (err == EAGAIN) {
-			SK_ERR("batch alloc for %u quantums only returned %u",
-			    pp_mem_info.kpm_packets, phcnt);
-			break;
-		} else {
-			VERIFY(err == 0);
-			break;
-		}
-	}
-	VERIFY(phcnt > 0);
-	for (i = 0; i < phcnt; i++) {
-		VERIFY(phary[i] != 0);
-		VERIFY(kern_packet_get_data_length(phary[i]) == 0);
-		VERIFY(kern_packet_get_buflet_count(phary[i]) == 1);
-	}
-	kern_pbufpool_free_batch(pp, phary, phcnt);
-	/* allocate and free one at a time (blocking) */
-	for (i = 0, phcnt = 0; i < pp_mem_info.kpm_packets; i++) {
-		VERIFY(kern_pbufpool_alloc(pp, 1, &ph) == 0);
-		VERIFY(ph != 0);
-		VERIFY(kern_packet_get_data_length(ph) == 0);
-		VERIFY(kern_packet_get_buflet_count(ph) == 1);
-		phary[phcnt++] = ph;
-	}
-	VERIFY(phcnt >= 64);
-	for (i = 0; i < phcnt; i++) {
-		kern_pbufpool_free(pp, phary[i]);
-		phary[i] = 0;
-	}
-	/* allocate and free in batch (blocking) */
-	bzero(&skmt_alloccb_ctx, sizeof(skmt_alloccb_ctx));
-	skmt_alloccb_ctx.stc_req = phcnt;
-	VERIFY(kern_pbufpool_alloc_batch_callback(pp, 1, phary, &phcnt,
-	    skmem_test_alloccb, &skmt_alloccb_ctx) == 0);
-	VERIFY(skmt_alloccb_ctx.stc_idx == phcnt);
-	kern_pbufpool_free_batch(pp, phary, phcnt);
-	kern_pbufpool_destroy(pp);
-	pp = NULL;
-done:
-	kfree_data(phary, sizeof(kern_packet_t) * MAX_PH_ARY);
-	phary = NULL;
 }
 
 static void
@@ -1550,71 +1416,6 @@ skmem_basic_tests(void)
 	skmem_packet_tests(KBIF_VIRTUAL_DEVICE | KBIF_BUFFER_ON_DEMAND |
 	    TEST_OPTION_INHIBIT_CACHE);
 #endif
-
-	/* check quantum KPIs */
-	skmem_quantum_tests(0);
-	skmem_quantum_tests(KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_PERSISTENT);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_NO_MAGAZINES);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_MONOLITHIC |
-	    KBIF_USER_ACCESS);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_PERSISTENT | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_MONOLITHIC |
-	    KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_MONOLITHIC |
-	    KBIF_USER_ACCESS | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_PERSISTENT | KBIF_MONOLITHIC |
-	    KBIF_BUFFER_ON_DEMAND | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_USER_ACCESS);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_USER_ACCESS |
-	    KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_USER_ACCESS |
-	    TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_MONOLITHIC | KBIF_BUFFER_ON_DEMAND |
-	    TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_BUFFER_ON_DEMAND | KBIF_NO_MAGAZINES);
-	skmem_quantum_tests(KBIF_BUFFER_ON_DEMAND | KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_BUFFER_ON_DEMAND | TEST_OPTION_INHIBIT_CACHE);
-
-	/* check quantum KPIs (vdev) */
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_NO_MAGAZINES);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    KBIF_MONOLITHIC | KBIF_USER_ACCESS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    KBIF_MONOLITHIC | KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    KBIF_MONOLITHIC | KBIF_USER_ACCESS | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_PERSISTENT |
-	    KBIF_MONOLITHIC | KBIF_BUFFER_ON_DEMAND | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_USER_ACCESS | KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_USER_ACCESS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_USER_ACCESS | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_MONOLITHIC |
-	    KBIF_BUFFER_ON_DEMAND | TEST_OPTION_INHIBIT_CACHE);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_BUFFER_ON_DEMAND);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_BUFFER_ON_DEMAND |
-	    KBIF_PHYS_CONTIGUOUS);
-	skmem_quantum_tests(KBIF_VIRTUAL_DEVICE | KBIF_BUFFER_ON_DEMAND |
-	    TEST_OPTION_INHIBIT_CACHE);
 }
 
 static void

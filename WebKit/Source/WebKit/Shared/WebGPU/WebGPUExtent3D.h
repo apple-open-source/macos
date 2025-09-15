@@ -29,7 +29,6 @@
 
 #include <WebCore/WebGPUIntegralTypes.h>
 #include <optional>
-#include <variant>
 #include <wtf/Vector.h>
 
 namespace WebKit::WebGPU {
@@ -40,7 +39,7 @@ struct Extent3DDict {
     WebCore::WebGPU::IntegerCoordinate depthOrArrayLayers { 0 };
 };
 
-using Extent3D = std::variant<Vector<WebCore::WebGPU::IntegerCoordinate>, Extent3DDict>;
+using Extent3D = Variant<Vector<WebCore::WebGPU::IntegerCoordinate>, Extent3DDict>;
 
 } // namespace WebKit::WebGPU
 

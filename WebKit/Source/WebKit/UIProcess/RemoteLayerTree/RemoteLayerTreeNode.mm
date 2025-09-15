@@ -26,6 +26,7 @@
 #import "config.h"
 #import "RemoteLayerTreeNode.h"
 
+#import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeLayers.h"
 #import <QuartzCore/CALayer.h>
 #import <WebCore/WebActionDisablingCALayerDelegate.h>
@@ -40,7 +41,6 @@
 #endif
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-#import "RemoteLayerTreeHost.h"
 #import <WebCore/AcceleratedEffectStack.h>
 #endif
 
@@ -87,8 +87,8 @@ RemoteLayerTreeNode::RemoteLayerTreeNode(WebCore::PlatformLayerIdentifier layerI
 RemoteLayerTreeNode::~RemoteLayerTreeNode()
 {
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-    if (m_effectStack)
-        m_effectStack->clear(layer());
+    if (RefPtr effectStack = m_effectStack)
+        effectStack->clear(layer());
 #endif
     [layer() setValue:nil forKey:WKRemoteLayerTreeNodePropertyKey];
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
@@ -128,6 +128,23 @@ void RemoteLayerTreeNode::initializeLayer()
     if (![layer() isKindOfClass:[CATransformLayer class]])
         [layer() setHitTestsContentsAlphaChannel:YES];
 #endif
+}
+
+void RemoteLayerTreeNode::applyBackingStore(RemoteLayerTreeHost* host, LayerContentsType layerContentsType, RemoteLayerBackingStoreProperties& properties)
+{
+    if (asyncContentsIdentifier() && properties.contentsRenderingResourceIdentifier() && *asyncContentsIdentifier() >= *properties.contentsRenderingResourceIdentifier())
+        return;
+
+    UIView* hostingView = nil;
+#if PLATFORM(IOS_FAMILY)
+    hostingView = uiView();
+#endif
+
+    properties.updateCachedBuffers(*this, layerContentsType, hostingView);
+    properties.applyBackingStoreToLayer(layer(), layerContentsType, host->replayDynamicContentScalingDisplayListsIntoBackingStore(), hostingView);
+
+    if (auto identifier = properties.contentsRenderingResourceIdentifier())
+        setAsyncContentsIdentifier(*identifier);
 }
 
 #if ENABLE(GAZE_GLOW_FOR_INTERACTION_REGIONS)
@@ -260,8 +277,8 @@ RemoteLayerTreeNode* RemoteLayerTreeNode::forCALayer(CALayer *layer)
 NSString *RemoteLayerTreeNode::appendLayerDescription(NSString *description, CALayer *layer)
 {
     auto layerID = WebKit::RemoteLayerTreeNode::layerID(layer);
-    NSString *layerDescription = [NSString stringWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, layer.name ? layer.name : @""];
-    return [description stringByAppendingString:layerDescription];
+    RetainPtr layerDescription = adoptNS([[NSString alloc] initWithFormat:@" layerID = %llu \"%@\"", layerID ? layerID->object().toUInt64() : 0, layer.name ? layer.name : @""]);
+    return [description stringByAppendingString:layerDescription.get()];
 }
 
 void RemoteLayerTreeNode::addToHostingNode(RemoteLayerTreeNode& hostingNode)
@@ -287,25 +304,26 @@ void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::Acce
 {
     ASSERT(isUIThread());
 
-    if (m_effectStack)
-        m_effectStack->clear(layer());
+    if (RefPtr effectStack = m_effectStack)
+        effectStack->clear(layer());
     host.animationsWereRemovedFromNode(*this);
 
     if (effects.isEmpty())
         return;
 
-    m_effectStack = RemoteAcceleratedEffectStack::create(layer().bounds, host.acceleratedTimelineTimeOrigin(m_layerID.processIdentifier()));
+    Ref effectStack = RemoteAcceleratedEffectStack::create(layer().bounds, host.acceleratedTimelineTimeOrigin(m_layerID.processIdentifier()));
+    m_effectStack = effectStack.copyRef();
 
     auto clonedEffects = effects;
     auto clonedBaseValues = baseValues.clone();
 
-    m_effectStack->setEffects(WTFMove(clonedEffects));
-    m_effectStack->setBaseValues(WTFMove(clonedBaseValues));
+    effectStack->setEffects(WTFMove(clonedEffects));
+    effectStack->setBaseValues(WTFMove(clonedBaseValues));
 
 #if PLATFORM(IOS_FAMILY)
-    m_effectStack->applyEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()), backdropRootIsOpaque());
+    effectStack->applyEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()), backdropRootIsOpaque());
 #else
-    m_effectStack->initEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()));
+    effectStack->initEffectsFromMainThread(layer(), host.animationCurrentTime(m_layerID.processIdentifier()));
 #endif
 
     host.animationsWereAddedToNode(*this);

@@ -35,13 +35,13 @@ namespace WebCore {
 
 class AccessibilityARIATable final : public AccessibilityTable {
 public:
-    static Ref<AccessibilityARIATable> create(AXID, RenderObject&);
-    static Ref<AccessibilityARIATable> create(AXID, Node&);
+    static Ref<AccessibilityARIATable> create(AXID, RenderObject&, AXObjectCache&);
+    static Ref<AccessibilityARIATable> create(AXID, Node&, AXObjectCache&);
     virtual ~AccessibilityARIATable();
 
 private:
-    explicit AccessibilityARIATable(AXID, RenderObject&);
-    explicit AccessibilityARIATable(AXID, Node&);
+    explicit AccessibilityARIATable(AXID, RenderObject&, AXObjectCache&);
+    explicit AccessibilityARIATable(AXID, Node&, AXObjectCache&);
 
     bool isMultiSelectable() const final;
     bool computeIsTableExposableThroughAccessibility() const final { return true; }

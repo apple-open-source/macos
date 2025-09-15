@@ -720,7 +720,11 @@ static const char *etypestr[] = {
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,  /* 24-31 */
 	"oakley-quick", "oakley-newgroup",               /* 32-33 */
 /* IKEv2 exchange types */
-	"ikev2_init", "ikev2_auth", "child_sa", "inf2"   /* 34-37 */
+	"ikev2_init", "ikev2_auth", "child_sa", "inf2",  /* 34-37 */
+#ifdef __APPLE__
+	NULL, NULL, NULL, NULL, NULL,                    /* 38-42 */
+	"intmd", "followup"                              /* 43-44 */
+#endif /* __APPLE__ */
 };
 
 #define STR_OR_ID(x, tab) \

@@ -1,7 +1,7 @@
 {
-    "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v4.json",
-    "assetVersion": 25,
-    "assetVersionV2": 1006,
+    "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v5.json",
+    "assetVersion": 26,
+    "assetVersionV2": 1007,
     "operators": [
         {
             "email": [
@@ -22,7 +22,8 @@
                     "url": "https://ct.startssl.com/"
                 }
             ],
-            "name": "StartCom"
+            "name": "StartCom",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -204,7 +205,8 @@
                     "url": "https://ct.cloudflare.com/logs/nimbus2026/"
                 }
             ],
-            "name": "Cloudflare"
+            "name": "Cloudflare",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -225,7 +227,8 @@
                     "url": "https://ctlog.wosign.com/"
                 }
             ],
-            "name": "WoSign"
+            "name": "WoSign",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -267,7 +270,8 @@
                     "url": "https://log2.gdca.com.cn/"
                 }
             ],
-            "name": "GDCA"
+            "name": "GDCA",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -301,7 +305,8 @@
                     "url": "https://ctlog.api.venafi.com/"
                 }
             ],
-            "name": "Venafi"
+            "name": "Venafi",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -322,7 +327,8 @@
                     "url": "https://ctserver.cnnic.cn/"
                 }
             ],
-            "name": "CNNIC"
+            "name": "CNNIC",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -343,7 +349,8 @@
                     "url": "https://ct.izenpe.com/"
                 }
             ],
-            "name": "Izenpe"
+            "name": "Izenpe",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -807,7 +814,8 @@
                     "url": "https://ct.googleapis.com/logs/eu1/xenon2026h2/"
                 }
             ],
-            "name": "Google"
+            "name": "Google",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -828,7 +836,8 @@
                     "url": "https://www.certificatetransparency.cn/ct/"
                 }
             ],
-            "name": "Beijing PuChuangSiDa Technology Ltd."
+            "name": "Beijing PuChuangSiDa Technology Ltd.",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -849,7 +858,8 @@
                     "url": "https://log.certly.io/"
                 }
             ],
-            "name": "Certly"
+            "name": "Certly",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -1182,9 +1192,9 @@
                     "log_id": "fVkeEuF4KnscYWd8Xv340IdcFKBOlZ65Ay/ZDowuebg=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2022-11-13T00:00:00Z",
-                            "version": "176"
+                        "retired": {
+                            "timestamp": "2025-07-24T00:00:00Z",
+                            "version": "367"
                         }
                     },
                     "temporal_interval": {
@@ -1415,7 +1425,8 @@
                     "url": "https://sphinx.ct.digicert.com/2026h2/"
                 }
             ],
-            "name": "DigiCert"
+            "name": "DigiCert",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -1441,13 +1452,9 @@
                     "log_id": "VYHUwhaQNgFK6gubVzxT8MDkOHhwJQgXL6OqHQcT0ww=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "rBTMeBSKemBB90yJ598PhN+iLHApXbJpHhlCuNcUfgg=",
-                                "tree_size": 546099878
-                            },
-                            "timestamp": "2024-05-06T12:53:20Z",
-                            "version": "262"
+                        "rejected": {
+                            "timestamp": "2025-06-09T14:40:00Z",
+                            "version": "366"
                         }
                     },
                     "url": "https://sabre.ct.comodo.com/"
@@ -1844,7 +1851,8 @@
                     "url": "https://tiger2027h2.ct.sectigo.com/"
                 }
             ],
-            "name": "Sectigo"
+            "name": "Sectigo",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -2039,7 +2047,8 @@
                     "url": "https://oak.ct.letsencrypt.org/2026h2/"
                 }
             ],
-            "name": "Let's Encrypt"
+            "name": "Let's Encrypt",
+            "tiled_logs": []
         },
         {
             "email": [
@@ -2200,8 +2209,113 @@
                     "url": "https://ct2026-b.trustasia.com/log2026b/"
                 }
             ],
-            "name": "TrustAsia"
+            "name": "TrustAsia",
+            "tiled_logs": []
+        },
+        {
+            "email": [
+                "ct@geomys.org"
+            ],
+            "logs": [],
+            "name": "Geomys",
+            "tiled_logs": [
+                {
+                    "description": "Tuscolo2025h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEK9d4GGtzbkwwsYpEtvnU9KKgZr67MsGlB7mnF8DW9bHnngHzPzXPbdo7n+FyCwSDYqEHbal1Z0CCVyZD6wQ/ow==",
+                    "log_id": "750EQi4gtDIQJ1TfUtJRRgJ/hEwH/YZeySLub86fe7w=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://tuscolo2025h2.skylight.geomys.org/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-06-13T02:40:00Z",
+                            "version": "369"
+                        }
+                    },
+                    "submission_url": "https://tuscolo2025h2.sunlight.geomys.org/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-01-01T00:00:00Z",
+                        "start_inclusive": "2025-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Tuscolo2026h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEflxzMg2Ajjg7h1+ZIvQ9LV6yFvdj6uRi9YbvtRnSCgS2SamkH56WcPRaBTRYARPDIr5JwLqgJAVA/NvDxdJXOw==",
+                    "log_id": "cX6V88I4im2x44RJPTHhWqliCHYtQgDgBQzQZ7WmYeI=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://tuscolo2026h1.skylight.geomys.org/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-06-13T02:40:00Z",
+                            "version": "371"
+                        }
+                    },
+                    "submission_url": "https://tuscolo2026h1.sunlight.geomys.org/",
+                    "temporal_interval": {
+                        "end_exclusive": "2026-07-01T00:00:00Z",
+                        "start_inclusive": "2026-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Tuscolo2026h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEaA6P0i7JTsd9XfzF1/76avRWA3XXI4NStsFO/aFtBp6SY7olDEMiPSFSxGzFQjKA1r9vgG/oFQwurlWMy9FQNw==",
+                    "log_id": "Rq+GPTs+5Z+ld96oJF02sNntIqIj9GF3QSKUUu6VUF8=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://tuscolo2026h2.skylight.geomys.org/",
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2025-06-13T02:40:00Z",
+                            "version": "373"
+                        }
+                    },
+                    "submission_url": "https://tuscolo2026h2.sunlight.geomys.org/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-01-01T00:00:00Z",
+                        "start_inclusive": "2026-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Tuscolo2027h1",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEOYwwGoaNpZ/SQW0VNGICP7wGRQsSeEowTRl4DPSdPjSkO/+ouvFH78I8sQTR3FWPZDScALbclBqnqL0ptY8beA==",
+                    "log_id": "WW5sM4aUsllyolbIoOjdkEp26Ag92oc7AQg4KBQ87lk=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://tuscolo2027h1.skylight.geomys.org/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-06-02T00:00:00Z",
+                            "version": "374"
+                        }
+                    },
+                    "submission_url": "https://tuscolo2027h1.sunlight.geomys.org/",
+                    "temporal_interval": {
+                        "end_exclusive": "2027-07-01T00:00:00Z",
+                        "start_inclusive": "2027-01-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                },
+                {
+                    "description": "Tuscolo2027h2",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIAz2gOD7wIptaiLTnmR4k7AQwp5kFmqmGHY/8JmMJxaSHyAipoFA/YSBCTX7ZowxIkSKpZYGlqLtdLVcLWDS5w==",
+                    "log_id": "1d5V7roItgyf/BjFE75qYLoARga8WVuWu0T2LMV9Ofo=",
+                    "mmd": 86400,
+                    "monitoring_url": "https://tuscolo2027h2.skylight.geomys.org/",
+                    "state": {
+                        "pending": {
+                            "timestamp": "2025-06-02T00:00:00Z",
+                            "version": "375"
+                        }
+                    },
+                    "submission_url": "https://tuscolo2027h2.sunlight.geomys.org/",
+                    "temporal_interval": {
+                        "end_exclusive": "2028-01-01T00:00:00Z",
+                        "start_inclusive": "2027-07-01T00:00:00Z"
+                    },
+                    "tls_only": true
+                }
+            ]
         }
     ],
-    "version": "364"
+    "version": "375"
 }

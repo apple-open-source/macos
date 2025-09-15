@@ -122,7 +122,7 @@ Ref<AudioSessionIOS> AudioSessionIOS::create()
 AudioSessionIOS::AudioSessionIOS()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    m_interruptionObserverHelper = adoptNS([[WebInterruptionObserverHelper alloc] initWithCallback:this]);
+    lazyInitialize(m_interruptionObserverHelper, adoptNS([[WebInterruptionObserverHelper alloc] initWithCallback:this]));
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -197,6 +197,9 @@ void AudioSessionIOS::setCategory(CategoryType newCategory, Mode newMode, RouteS
     NSString *categoryString;
     AVAudioSessionCategoryOptions options = 0;
 
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
+    m_isFakingPlayAndRecordForTesting = false;
+#endif
     switch (newCategory) {
     case CategoryType::AmbientSound:
         categoryString = AVAudioSessionCategoryAmbient;
@@ -211,12 +214,21 @@ void AudioSessionIOS::setCategory(CategoryType newCategory, Mode newMode, RouteS
         categoryString = AVAudioSessionCategoryRecord;
         break;
     case CategoryType::PlayAndRecord:
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
+        // We prevent setting category to AVAudioSessionCategoryPlayAndRecord as it may trigger TCC prompts.
+        m_isFakingPlayAndRecordForTesting = true;
+        categoryString = AVAudioSessionCategoryPlayback;
+#else
         categoryString = AVAudioSessionCategoryPlayAndRecord;
+        // FIXME: Stop using `AVAudioSessionCategoryOptionAllowBluetooth` as it is deprecated (rdar://145294046).
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         options |= AVAudioSessionCategoryOptionAllowBluetooth | AVAudioSessionCategoryOptionAllowBluetoothA2DP | AVAudioSessionCategoryOptionAllowAirPlay;
+        ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(MEDIA_STREAM)
         if (!AVAudioSessionCaptureDeviceManager::singleton().isReceiverPreferredSpeaker())
 #endif
             options |= AVAudioSessionCategoryOptionDefaultToSpeaker;
+#endif
         break;
     case CategoryType::AudioProcessing:
         categoryString = AVAudioSessionCategoryAudioProcessing;
@@ -289,8 +301,13 @@ AudioSession::CategoryType AudioSessionIOS::category() const
         return CategoryType::AmbientSound;
     if ([categoryString isEqual:AVAudioSessionCategorySoloAmbient])
         return CategoryType::SoloAmbientSound;
-    if ([categoryString isEqual:AVAudioSessionCategoryPlayback])
+    if ([categoryString isEqual:AVAudioSessionCategoryPlayback]) {
+#if PLATFORM(IOS_FAMILY_SIMULATOR)
+        if (m_isFakingPlayAndRecordForTesting)
+            return CategoryType::PlayAndRecord;
+#endif
         return CategoryType::MediaPlayback;
+    }
     if ([categoryString isEqual:AVAudioSessionCategoryRecord])
         return CategoryType::RecordAudio;
     if ([categoryString isEqual:AVAudioSessionCategoryPlayAndRecord])
@@ -415,7 +432,7 @@ void AudioSessionIOS::updateSpatialExperience()
         [session setIntendedSpatialExperience:AVAudioSessionSpatialExperienceHeadTracked options:@{
             @"AVAudioSessionSpatialExperienceOptionSoundStageSize" : @(size),
             @"AVAudioSessionSpatialExperienceOptionAnchoringStrategy" : @(AVAudioSessionAnchoringStrategyScene),
-            @"AVAudioSessionSpatialExperienceOptionSceneIdentifier" : (NSString *)m_sceneIdentifier
+            @"AVAudioSessionSpatialExperienceOptionSceneIdentifier" : m_sceneIdentifier.createNSString().get()
         } error:&error];
     } else {
         [session setIntendedSpatialExperience:AVAudioSessionSpatialExperienceHeadTracked options:@{

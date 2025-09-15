@@ -164,6 +164,10 @@ public:
 	void isInDomainList(SecPreferencesDomain domain, const char* dbName, const CSSM_GUID &guid, uint32 subServiceType);
 	void removeFromDomainList(SecPreferencesDomain domain, const char* dbName, const CSSM_GUID &guid, uint32 subServiceType);
 	
+    OSStatus pushForLaterUnlock(CFDataRef passphrase, uint32_t* handle);
+    OSStatus releaseIndirectUnlockHandle(uint32_t handle);
+    OSStatus getDerivedEntropy(uint32_t handle, CFDataRef* CF_RETURNS_RETAINED entropy);
+
 private:
 	static void convertList(DLDbList &ids, const KeychainList &kcs);
 	void convertList(KeychainList &kcs, const DLDbList &ids);

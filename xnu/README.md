@@ -119,7 +119,7 @@ This can be customized by setting the `RC_DARWIN_KERNEL_VERSION` variable in
 the environment or on the `make` command line.
 
 
-See doc/xnu_version.md for more details.
+See doc/building/xnu_version.md for more details.
 
 ### Debug Information Formats
 
@@ -421,6 +421,8 @@ DriverKit SDK headers used by userspace drivers.
 ExclaveKit SDK headers.
 9. `EXCLAVECORE`: If defined, enclosed code is visible exclusively in the
 ExclaveCore SDK headers.
+10. `MODULES_SUPPORTED` If defined, enclosed code is visible exclusively
+in locations that support modules/Swift (i.e. not System or Kernel frameworks).
 
 ## VM header file name convention
 The VM headers follow the following naming conventions:

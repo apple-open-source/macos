@@ -98,7 +98,7 @@
 - (NSString *)align
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr).createNSString().autorelease();
 }
 
 - (void)setAlign:(NSString *)newAlign
@@ -110,7 +110,7 @@
 - (NSString *)bgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr).createNSString().autorelease();
 }
 
 - (void)setBgColor:(NSString *)newBgColor
@@ -122,7 +122,7 @@
 - (NSString *)border
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::borderAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::borderAttr).createNSString().autorelease();
 }
 
 - (void)setBorder:(NSString *)newBorder
@@ -134,7 +134,7 @@
 - (NSString *)cellPadding
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::cellpaddingAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::cellpaddingAttr).createNSString().autorelease();
 }
 
 - (void)setCellPadding:(NSString *)newCellPadding
@@ -146,7 +146,7 @@
 - (NSString *)cellSpacing
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::cellspacingAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::cellspacingAttr).createNSString().autorelease();
 }
 
 - (void)setCellSpacing:(NSString *)newCellSpacing
@@ -158,7 +158,7 @@
 - (NSString *)frameBorders
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::frameAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::frameAttr).createNSString().autorelease();
 }
 
 - (void)setFrameBorders:(NSString *)newFrameBorders
@@ -170,7 +170,7 @@
 - (NSString *)rules
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::rulesAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::rulesAttr).createNSString().autorelease();
 }
 
 - (void)setRules:(NSString *)newRules
@@ -182,7 +182,7 @@
 - (NSString *)summary
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::summaryAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::summaryAttr).createNSString().autorelease();
 }
 
 - (void)setSummary:(NSString *)newSummary
@@ -194,7 +194,7 @@
 - (NSString *)width
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr).createNSString().autorelease();
 }
 
 - (void)setWidth:(NSString *)newWidth

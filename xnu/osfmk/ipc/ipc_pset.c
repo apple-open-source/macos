@@ -84,11 +84,19 @@
 
 /* processor_set stole ipc_pset_init */
 static void
-ipc_port_set_init(ipc_pset_t pset, mach_port_name_t name, int policy)
+ipc_port_set_init(ipc_pset_t pset, mach_port_name_t name)
 {
-	waitq_init(&pset->ips_wqset, WQT_PORT_SET, policy | SYNC_POLICY_FIFO);
+	waitq_init(&pset->ips_wqset, WQT_PORT_SET,
+	    SYNC_POLICY_INIT_LOCKED | SYNC_POLICY_FIFO);
 	klist_init(&pset->ips_klist);
 	pset->ips_wqset.wqset_index = MACH_PORT_INDEX(name);
+
+	/* init io_bits */
+	os_ref_init_raw(&pset->ips_object.io_references, NULL);
+	io_label_init(&pset->ips_object, (ipc_object_label_t){
+		.io_type  = IOT_PORT_SET,
+		.io_state = IO_STATE_IN_SPACE_IMMOVABLE,
+	});
 }
 
 void
@@ -117,20 +125,26 @@ ipc_pset_alloc(
 	mach_port_name_t        *namep,
 	ipc_pset_t              *psetp)
 {
-	ipc_pset_t pset;
 	mach_port_name_t name;
 	kern_return_t kr;
+	ipc_entry_t entry;
+	mach_port_type_t type = MACH_PORT_TYPE_PORT_SET;
+	mach_port_urefs_t urefs = 0;
+	ipc_pset_t pset;
+	ipc_object_t object;
 
-	kr = ipc_object_alloc(space, IOT_PORT_SET,
-	    MACH_PORT_TYPE_PORT_SET, 0,
-	    &name, (ipc_object_t *) &pset);
+	pset = ips_alloc();
+	object = ips_to_object(pset);
+	kr = ipc_object_alloc_entry(space, object, &name, &entry);
 	if (kr != KERN_SUCCESS) {
+		ips_free(pset);
 		return kr;
 	}
 	/* space is locked */
 
-	ipc_port_set_init(pset, name, SYNC_POLICY_INIT_LOCKED);
+	ipc_port_set_init(pset, name);
 	/* port set is locked */
+	ipc_entry_init(space, object, type, entry, urefs, name);
 
 	is_write_unlock(space);
 
@@ -156,14 +170,31 @@ kern_return_t
 ipc_pset_alloc_name(
 	ipc_space_t             space,
 	mach_port_name_t        name,
-	ipc_pset_t              *psetp)
+	ipc_pset_t             *psetp)
 {
-	return ipc_object_alloc_name(space, IOT_PORT_SET,
-	           MACH_PORT_TYPE_PORT_SET, 0,
-	           name, (ipc_object_t *)psetp, ^(ipc_object_t object){
-		ipc_port_set_init(ips_object_to_pset(object), name,
-		SYNC_POLICY_INIT_LOCKED);
-	});
+	kern_return_t kr;
+	ipc_entry_t entry;
+	mach_port_type_t type = MACH_PORT_TYPE_PORT_SET;
+	mach_port_urefs_t urefs = 0;
+	ipc_pset_t pset;
+	ipc_object_t object;
+
+	pset = ips_alloc();
+	object = ips_to_object(pset);
+	kr = ipc_object_alloc_entry_with_name(space, name, &entry);
+	if (kr != KERN_SUCCESS) {
+		ips_free(pset);
+		return kr;
+	}
+	/* space is locked */
+
+	ipc_port_set_init(pset, name);
+	/* port set is locked */
+	ipc_entry_init(space, object, type, entry, urefs, name);
+
+	is_write_unlock(space);
+	*psetp = pset;
+	return KERN_SUCCESS;
 }
 
 
@@ -171,7 +202,7 @@ ipc_pset_alloc_name(
  *	Routine:	ipc_pset_alloc_special
  *	Purpose:
  *		Allocate a port set in a special space.
- *		The new port set is returned with one ref.
+ *		The new port set is returned with one ref and locked.
  *		If unsuccessful, IPS_NULL is returned.
  *	Conditions:
  *		Nothing locked.
@@ -180,21 +211,13 @@ ipc_pset_t
 ipc_pset_alloc_special(
 	__assert_only ipc_space_t space)
 {
-	ipc_pset_t pset;
+	ipc_pset_t pset = ips_alloc();
 
 	assert(space != IS_NULL);
 	assert(!is_active(space));
 
-	pset = ips_object_to_pset(io_alloc(IOT_PORT_SET, Z_WAITOK | Z_ZERO));
-	if (pset == IPS_NULL) {
-		return IPS_NULL;
-	}
-
-	os_atomic_init(&pset->ips_object.io_bits, io_makebits(IOT_PORT_SET));
-	os_atomic_init(&pset->ips_object.io_references, 1);
-
-	ipc_port_set_init(pset, MACH_PORT_SPECIAL_DEFAULT, 0);
-
+	ipc_port_set_init(pset, MACH_PORT_SPECIAL_DEFAULT);
+	/* port set is locked */
 	return pset;
 }
 
@@ -215,10 +238,11 @@ ipc_pset_destroy(
 	ipc_pset_t      pset)
 {
 	waitq_link_list_t free_l = { };
+	ipc_object_label_t label = io_label_get(&pset->ips_object, IOT_PORT_SET);
 
-	assert(ips_active(pset));
-
-	io_bits_andnot(ips_to_object(pset), IO_BITS_ACTIVE);
+	ipc_release_assert(io_state_in_space(label.io_state));
+	label.io_state = IO_STATE_INACTIVE;
+	io_label_set_and_put(&pset->ips_object, &label);
 
 	/*
 	 * Set all waiters on the portset running to
@@ -240,7 +264,7 @@ ipc_pset_destroy(
 }
 
 /*
- *	Routine:	ipc_pset_finalize
+ *	Routine:	ipc_pset_free
  *	Purpose:
  *		Called on last reference deallocate to
  *		free any remaining data associated with the pset.
@@ -248,10 +272,11 @@ ipc_pset_destroy(
  *		Nothing locked.
  */
 void
-ipc_pset_finalize(
+ipc_pset_free(
 	ipc_pset_t              pset)
 {
 	waitq_deinit(&pset->ips_wqset);
+	ips_free(pset);
 }
 
 
@@ -450,7 +475,7 @@ filt_machport_turnstile_prepare_lazily(
 	}
 
 	struct turnstile *ts = filt_ipc_kqueue_turnstile(kn);
-	if ((msgt_name == MACH_MSG_TYPE_PORT_SEND_ONCE && port->ip_specialreply) ||
+	if ((msgt_name == MACH_MSG_TYPE_PORT_SEND_ONCE && ip_is_special_reply_port(port)) ||
 	    (msgt_name == MACH_MSG_TYPE_PORT_RECEIVE)) {
 		struct turnstile *kn_ts = turnstile_alloc();
 		struct turnstile *ts_store = TURNSTILE_NULL;
@@ -469,7 +494,7 @@ filt_machport_turnstile_complete_port(struct knote *kn, ipc_port_t port)
 	struct turnstile *ts = TURNSTILE_NULL;
 
 	ip_mq_lock(port);
-	if (port->ip_specialreply) {
+	if (ip_is_special_reply_port(port)) {
 		/*
 		 * If the reply has been sent to the special reply port already,
 		 * then the special reply port may already be reused to do something
@@ -599,12 +624,12 @@ filt_wlattach_sync_ipc(struct knote *kn)
 
 	if (bits & MACH_PORT_TYPE_RECEIVE) {
 		port = ip_object_to_port(object);
-		if (port->ip_specialreply || ip_is_kobject(port)) {
+		if (ip_is_special_reply_port(port) || ip_is_kobject(port)) {
 			error = ENOENT;
 		}
 	} else if (bits & MACH_PORT_TYPE_SEND_ONCE) {
 		port = ip_object_to_port(object);
-		if (!port->ip_specialreply) {
+		if (!ip_is_special_reply_port(port)) {
 			error = ENOENT;
 		}
 	} else {
@@ -625,7 +650,7 @@ filt_wlattach_sync_ipc(struct knote *kn)
 		return ENOENT;
 	}
 
-	if (port->ip_specialreply) {
+	if (ip_is_special_reply_port(port)) {
 		ipc_port_adjust_special_reply_port_locked(port, kn,
 		    IPC_PORT_ADJUST_SR_LINK_WORKLOOP, FALSE);
 	} else {
@@ -661,7 +686,7 @@ filt_portattach(struct knote *kn, ipc_port_t port)
 	struct turnstile *send_turnstile = TURNSTILE_NULL;
 	int result = 0;
 
-	if (port->ip_specialreply) {
+	if (ip_is_special_reply_port(port)) {
 		/*
 		 * Registering for kevents on special reply ports
 		 * isn't supported for two reasons:
@@ -1005,7 +1030,7 @@ filt_machportprocess(
 	option64 = kn->kn_sfflags & (MACH_RCV_MSG | MACH_RCV_LARGE |
 	    MACH_RCV_LARGE_IDENTITY | MACH_RCV_TRAILER_MASK |
 	    MACH_RCV_VOUCHER | MACH_MSG_STRICT_REPLY);
-	option64 = ipc_current_user_policy(current_task(), option64);
+	option64 = ipc_current_msg_options(current_task(), option64);
 
 	if (option64 & MACH_RCV_MSG) {
 		msg_addr = (mach_vm_address_t) kn->kn_ext[0];
@@ -1109,7 +1134,7 @@ filt_machportprocess(
 		kqueue_process_preadopt_thread_group(self, kq, tg);
 	}
 #endif
-	if (otype == IOT_PORT) {
+	if (io_is_any_port_type(otype)) {
 		ipc_port_t port = ip_object_to_port(object);
 		struct kqueue *kqwl = knote_get_kq(kn);
 		if (port->ip_kernel_iotier_override != kqueue_get_iotier_override(kqwl)) {

@@ -136,6 +136,7 @@ extern "C" kern_return_t
 IOCPURunPlatformQuiesceActions(void)
 {
 	assert(preemption_enabled() == false);
+	cpu_event_debug_log(PLATFORM_QUIESCE, 0);
 	return iocpu_run_platform_actions(&gActionQueues[kQueueQuiesce], 0, 0U - 1,
 	           NULL, NULL, NULL, PLATFORM_ACTION_FLAGS_ALLOW_NESTED_CALLOUTS);
 }
@@ -144,6 +145,7 @@ extern "C" kern_return_t
 IOCPURunPlatformActiveActions(void)
 {
 	assert(preemption_enabled() == false);
+	cpu_event_debug_log(PLATFORM_ACTIVE, 0);
 	ml_hibernate_active_pre();
 	kern_return_t result = iocpu_run_platform_actions(&gActionQueues[kQueueActive], 0, 0U - 1,
 	    NULL, NULL, NULL, PLATFORM_ACTION_FLAGS_ALLOW_NESTED_CALLOUTS);
@@ -157,6 +159,7 @@ IOCPURunPlatformHaltRestartActions(uint32_t message)
 	if (!gActionQueues[kQueueHaltRestart].next) {
 		return kIOReturnNotReady;
 	}
+	cpu_event_debug_log(PLATFORM_HALT_RESTART, 0);
 	return iocpu_run_platform_actions(&gActionQueues[kQueueHaltRestart], 0, 0U - 1,
 	           (void *)(uintptr_t) message, NULL, NULL, PLATFORM_ACTION_FLAGS_ALLOW_NESTED_CALLOUTS);
 }
@@ -173,6 +176,7 @@ IOCPURunPlatformPanicActions(uint32_t message, uint32_t details)
 	if (!verbose_panic_flow_logging) {
 		platform_action_flags = PLATFORM_ACTION_FLAGS_NO_LOGGING;
 	}
+	cpu_event_debug_log(PLATFORM_PANIC, 0);
 	return iocpu_run_platform_actions(&gActionQueues[kQueuePanic], 0, 0U - 1,
 	           (void *)(uintptr_t) message, (void *)(uintptr_t) details, NULL, platform_action_flags);
 }
@@ -190,6 +194,7 @@ IOCPURunPlatformPanicSyncAction(void *addr, uint32_t offset, uint32_t len)
 	if (!gActionQueues[kQueuePanic].next) {
 		return kIOReturnNotReady;
 	}
+	cpu_event_debug_log(PLATFORM_PANIC_SYNC, 0);
 	return iocpu_run_platform_actions(&gActionQueues[kQueuePanic], 0, 0U - 1,
 	           (void *)(uintptr_t)(kPEPanicSync), &context, NULL, FALSE);
 }
@@ -197,6 +202,7 @@ IOCPURunPlatformPanicSyncAction(void *addr, uint32_t offset, uint32_t len)
 void
 IOPlatformActionsPreSleep(void)
 {
+	cpu_event_debug_log(PLATFORM_PRE_SLEEP, 0);
 	iocpu_run_platform_actions(&gActionQueues[kQueueSleep], 0, 0U - 1,
 	    NULL, NULL, NULL, PLATFORM_ACTION_FLAGS_ALLOW_NESTED_CALLOUTS);
 }
@@ -204,6 +210,7 @@ IOPlatformActionsPreSleep(void)
 void
 IOPlatformActionsPostResume(void)
 {
+	cpu_event_debug_log(PLATFORM_POST_RESUME, 0);
 	iocpu_run_platform_actions(&gActionQueues[kQueueWake], 0, 0U - 1,
 	    NULL, NULL, NULL, PLATFORM_ACTION_FLAGS_ALLOW_NESTED_CALLOUTS);
 }

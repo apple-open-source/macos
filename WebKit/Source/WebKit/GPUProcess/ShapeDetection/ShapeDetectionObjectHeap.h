@@ -30,7 +30,6 @@
 #include "ScopedActiveMessageReceiveQueue.h"
 #include "ShapeDetectionIdentifier.h"
 #include <functional>
-#include <variant>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>

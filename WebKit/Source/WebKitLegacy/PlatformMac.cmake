@@ -426,7 +426,6 @@ set(WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES
     mac/Plugins/WebPluginPackagePrivate.h
     mac/Plugins/WebPluginPackage.h
     mac/Plugins/WebPluginContainerPrivate.h
-    mac/Plugins/WebJavaPlugIn.h
     mac/Plugins/WebPluginViewFactory.h
     mac/Plugins/WebPluginDatabase.h
     mac/Plugins/WebPlugin.h

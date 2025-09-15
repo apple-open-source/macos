@@ -48,6 +48,9 @@ class IOPCIHostBridge;
 #include <IOKit/pci/IOPCIConfigurator.h>
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOLib.h>
+#include <os/log.h>
+#include <IOKit/pci/IOPCITraceEventBuffer.h>
 
 enum
 {
@@ -167,12 +170,26 @@ struct IOPCIDeviceExpansionData
 	bool hardwareResetNeeded;
 	bool clientCrashed;
 
+	OSSerializer *linkStatusSerializer;
+
 	uint8_t linkDepth;
 	uint64_t linkUpTimestamp;
+
+	uint32_t domainId;
+
+	OSDictionary *capDict;
+
+    IOTimerEventSource *republishTimer;
+	uint8_t publishRetryCount;
 
 	IOTimerEventSource *pauseTimer;
 	IONotifier *busyNotifier;
 	AbsoluteTime busyTimestamp;
+
+	IOPCIEventSource *pciEventSource;
+	IOWorkLoop *pciEventSourceWorkLoop;
+	IOCommandGate *pciEventSourceCmdGate;
+	uint32_t iommuEventCount;
 };
 
 enum
@@ -260,7 +277,6 @@ struct IOPCIConfigShadow
     OSObject *               tunnelID;
     IOPCIDeviceConfigHandler handler;
     void *                   handlerRef;
-    uint64_t                 restoreCount;
     IOOptionBits             sharedRootASPMState;
 };
 
@@ -365,6 +381,8 @@ enum
 
 #define kIOPCISkipRematchReset "pci-skip-rematch-reset"
 
+#define kIOPCIGetDARTError "pci-get-dart-error"
+
 // PCI Express Capabilities Structure Mask (sec 7.5.3)
 enum
 {
@@ -449,7 +467,11 @@ enum
 
 #define kIOPCILinkUpTimeoutKey			"link-up-timeout"
 
+#define kIOPCIDARTErrorDataKey			"pci-dart-error-data"
+
 #define kIOPCIDeviceDeadOnRestoreKey	"IOPCIDeviceDeadOnRestore"
+
+#define kIOPCIPublishRetryTimeoutKey	"IOPCIDevicePublishRetryTimeout"
 
 // Entitlements
 #define kIOPCITransportDextEntitlement                     "com.apple.developer.driverkit.transport.pci"
@@ -458,6 +480,9 @@ enum
 extern const    IORegistryPlane * gIOPCIACPIPlane;
 extern const    OSSymbol *        gIOPlatformDeviceASPMEnableKey;
 extern uint32_t                   gIOPCIFlags;
+extern uint32_t                   gIOPCILogFlags;
+extern uint32_t                   gIOPCILogModeFlags;
+extern uint32_t                   gIOPCILogDomains;
 extern const OSSymbol *           gIOPlatformGetMessagedInterruptControllerKey;
 extern const OSSymbol *           gIOPlatformGetMessagedInterruptAddressKey;
 extern const OSSymbol *           gIOPCIThunderboltKey;
@@ -471,6 +496,7 @@ extern const OSSymbol *           gIOPolledInterfaceActiveKey;
 extern const OSSymbol *           gIOPCIPSMethods[kIOPCIDevicePowerStateCount];
 #endif
 extern const OSSymbol *           gIOPCIExpressLinkStatusKey;
+extern const OSSymbol *           gIOPCIDARTErrorData;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -496,6 +522,93 @@ enum
 {
     kMSIX       = 0x01
 };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+//
+// pci_log_mode= flags (if unspecified, defaults to os_log())
+//
+
+#define kPCI_LOG_MODE_KPRINTF	(0x00000001)
+#define kPCI_LOG_MODE_IOLOG		(0x00000002)
+#define kPCI_LOG_MODE_OSLOG		(0x00000004)
+
+//
+// pci_log= flags (if unspecified, defaults to ALWAYS_ON | AER)
+//
+
+/* Logs related to AER handling (e.g. reporter, type, status). */
+#define kPCI_LOG_AER			(0x00000001)
+
+/* Logs related to software and local (on-die) hardware initialization */
+#define kPCI_LOG_INIT			(0x00000002)
+
+/* Logs related to software (e.g. IOPM callouts) and hardware (e.g. D-state
+ * configuration) power management and PCIe reset.
+ */
+#define kPCI_LOG_POWER			(0x00000004)
+
+/* Logs of every local (on-die) register access. */
+#define kPCI_LOG_REG			(0x00000008)
+
+/* Logs of every config-space access. */
+#define kPCI_LOG_CONFIG			(0x00000010)
+
+/* Logs related to driver state transitions. */
+#define kPCI_LOG_STATE			(0x00000020)
+
+/* Logs related to interrupt configuration. */
+#define kPCI_LOG_INTERRUPT		(0x00000040)
+
+/* Logs related to tunable application. */
+#define kPCI_LOG_TUNABLE		(0x00000080)
+
+/* Logs related to DART configuration. */
+#define kPCI_LOG_DART			(0x00000100)
+
+/* Logs related to PCIe enumeration (hierarchy scan, bus number and memory
+ * space assignments, and device configuration) and link training.
+ */
+#define kPCI_LOG_ENUMERATION	(0x00000200)
+
+/* Logs related to IOService object life cycle
+ * (init()/attach()/probe()/.../stop()/detach()/free()).
+ */
+#define kPCI_LOG_LIFE_CYCLE  	(0x00000400)
+
+/* Always-on logs. */
+#define kPCI_LOG_ALWAYS_ON		(0x80000000)
+
+//
+// pci_log_rc=<bitmap> (if unspecified, all RCs selected)
+//
+// See https://confluence.sd.apple.com/display/USBSW/PCIe+Boot-Args
+// for the mapping from root complex to domain ID.
+//
+// E.g. enable logging on only apciec0: pci_log_rc=0x2
+
+#define pci_log(domain, facility, fmt, args...)												\
+	do {																					\
+		if (   (gIOPCILogDomains & (1 << domain)) 											\
+			&& (gIOPCILogFlags & (kPCI_LOG_ ## facility))) {								\
+			uint64_t __now_ns, __now = mach_continuous_time();								\
+			absolutetime_to_nanoseconds(__now, &__now_ns);									\
+																							\
+			if (gIOPCILogModeFlags & kPCI_LOG_MODE_KPRINTF)									\
+			{																				\
+				kprintf("[PCIe:%u %llu ns] " fmt, domain, __now_ns, ##args);	 			\
+			}		 	 																	\
+			if (   (gIOPCILogModeFlags & kPCI_LOG_MODE_IOLOG)								\
+				&& ml_get_interrupts_enabled()) 											\
+			{																				\
+				IOLog("[PCIe:%u %llu ns] " fmt, domain, __now_ns, ##args);					\
+			}																				\
+			if (gIOPCILogModeFlags & kPCI_LOG_MODE_OSLOG) 									\
+			{																				\
+				os_log(OS_LOG_DEFAULT, "[PCIe:%u %llu ns] " fmt, domain, __now_ns, ##args);	\
+			}																				\
+		}																					\
+	} while(0)																				\
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -541,7 +654,7 @@ public:
     void enableDeviceMSI(IOPCIDevice *device);
     void disableDeviceMSI(IOPCIDevice *device);
 
-    bool init(UInt32 numVectors, UInt32 baseVector);
+    bool init(UInt32 numVectors, UInt32 baseVector, uint32_t domainId = 0);
 
     bool init(UInt32 numVectors);
 
@@ -580,7 +693,8 @@ protected:
     virtual bool     allocateInterruptVectors( IOService *device,
                                                uint32_t numVectors,
                                                IORangeScalar *rangeStartOut);
-
+private:
+	uint32_t _domainId;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -669,6 +783,8 @@ public:
     virtual bool init(void) override;
     virtual void free(void) override;
 
+    bool initWithParameters(uint32_t domainId);
+
     queue_head_t        _allPCIDeviceRestoreQ;
     uint32_t            _tunnelSleep;
     uint32_t            _tunnelWait;
@@ -689,7 +805,6 @@ public:
 
     IOSimpleLock *      _allPCI2PCIBridgesLock;
     uint32_t            _allPCI2PCIBridgeState;
-    uint64_t            _wakeCount;
     bool                _isUSBCSystem;
 #if ACPI_SUPPORT
     bool                _vtdInterruptsInstalled;
@@ -728,8 +843,15 @@ private:
 
 	void disablePowerAssertion(void);
 	void powerAssertionTimeout(IOTimerEventSource* timer);
+
+	IONotifier *_pmrdPowerNotifier;
 public:
 	void restartPowerAssertionTimer(void);
+	bool _supportsOffloadEngine;
+	bool _useLinkStatusSerializer;
+	uint32_t _domainId;
+
+	IOPCITraceEventBuffer 	_traceEventBuffer;
 };
 
 class IOPCIHostBridge : public IOPCIBridge
@@ -747,6 +869,7 @@ public:
     // Host bridge data is shared, when bridges have shared resources, i.e. PCIe config space (legacy systems).
     // They must be unique, if bridge has no resources to share (Apple Silicone).
     IOPCIHostBridgeData *bridgeData;
+	uint32_t _domainId;
 protected:
     virtual IOReturn setLinkSpeed(tIOPCILinkSpeed linkSpeed, bool retrain) override { return kIOReturnUnsupported; };
     virtual IOReturn getLinkSpeed(tIOPCILinkSpeed *linkSpeed) override { return kIOReturnUnsupported; };

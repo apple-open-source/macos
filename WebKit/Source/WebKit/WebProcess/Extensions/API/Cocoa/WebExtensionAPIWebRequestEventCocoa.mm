@@ -43,7 +43,7 @@
 
 namespace WebKit {
 
-void WebExtensionAPIWebRequestEvent::enumerateListeners(WebExtensionTabIdentifier tabIdentifier, WebExtensionWindowIdentifier windowIdentifier, const ResourceLoadInfo& resourceLoadInfo, const Function<void(WebExtensionCallbackHandler&, const Vector<String>&)>& function)
+void WebExtensionAPIWebRequestEvent::enumerateListeners(WebExtensionTabIdentifier tabIdentifier, WebExtensionWindowIdentifier windowIdentifier, const ResourceLoadInfo& resourceLoadInfo, NOESCAPE const Function<void(WebExtensionCallbackHandler&, const Vector<String>&)>& function)
 {
     if (m_listeners.isEmpty())
         return;
@@ -56,7 +56,7 @@ void WebExtensionAPIWebRequestEvent::enumerateListeners(WebExtensionTabIdentifie
 
     for (auto& listener : listenersCopy) {
         auto* filter = listener.filter.get();
-        if (filter && ![filter matchesRequestForResourceOfType:resourceType URL:resourceURL tabID:toWebAPI(tabIdentifier) windowID:toWebAPI(windowIdentifier)])
+        if (filter && ![filter matchesRequestForResourceOfType:resourceType URL:resourceURL.createNSURL().get() tabID:toWebAPI(tabIdentifier) windowID:toWebAPI(windowIdentifier)])
             continue;
 
         function(*listener.callback, listener.extraInfo);

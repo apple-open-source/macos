@@ -46,10 +46,10 @@ String WebExtensionControllerConfiguration::createStorageDirectoryPath(std::opti
     String identifierPath = identifier ? identifier->toString().convertToASCIIUppercase() : "Default"_s;
 
     if (processHasContainer())
-        return FileSystem::pathByAppendingComponents(libraryPath, { "WebKit"_s, "WebExtensions"_s, identifierPath });
+        return FileSystem::pathByAppendingComponents(libraryPath, std::initializer_list<StringView>({ "WebKit"_s, "WebExtensions"_s, identifierPath }));
 
     String appDirectoryName = NSBundle.mainBundle.bundleIdentifier ?: NSProcessInfo.processInfo.processName;
-    return FileSystem::pathByAppendingComponents(libraryPath, { "WebKit"_s, appDirectoryName, "WebExtensions"_s, identifierPath });
+    return FileSystem::pathByAppendingComponents(libraryPath, std::initializer_list<StringView>({ "WebKit"_s, appDirectoryName, "WebExtensions"_s, identifierPath }));
 }
 
 String WebExtensionControllerConfiguration::createTemporaryStorageDirectoryPath()

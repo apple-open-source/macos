@@ -203,7 +203,7 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
         op.configuration.isCloudKitSupportOperation = true
         op.configuration.setApplicationBundleIdentifierOverride(CuttlefishPushTopicBundleIdentifier)
 
-        let requestCompletion = { (requestInfo: CKRequestInfo?) -> Void in
+        let requestCompletion = { (requestInfo: CKRequestInfo?) in
             if let requestUUID = requestInfo?.requestUUID {
                 logger.info("ckoperation request finished: \(functionName, privacy: .public) \(requestUUID, privacy: .public)")
             }
@@ -230,13 +230,13 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             case .success:
                 event.addMetrics([kSecurityRTCFieldRetryAttemptCount: attemptNumber,
                                  kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime), ])
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: true, error: nil)
+                event.sendMetric(withResult: true, error: nil)
 
                 completion(response)
             case .failure(let error):
                 event.addMetrics([kSecurityRTCFieldRetryAttemptCount: attemptNumber,
                                  kSecurityRTCFieldTotalRetryDuration: Date().timeIntervalSince(startTime), ])
-                SecurityAnalyticsReporterRTC.sendMetric(withEvent: event, success: false, error: error)
+                event.sendMetric(withResult: false, error: error)
 
                 if RetryingCKCodeService.retryableError(error: error) {
                     let now = Date()
@@ -345,6 +345,13 @@ public class RetryingCKCodeService: ConfiguredCuttlefishAPIAsync {
             return CuttlefishAPI.GetRepairActionOperation(request: request)
         }, completion: completion)
     }
+    public func getEscrowCheck(
+      _ request: GetEscrowCheckRequest,
+      completion: @escaping (Swift.Result<GetEscrowCheckResponse, Swift.Error>) -> Swift.Void) {
+        retry(functionName: #function, deviceSessionID: request.metrics.deviceSessionID, flowID: request.metrics.flowID, operationCreator: {
+            return CuttlefishAPI.GetEscrowCheckOperation(request: request)
+        }, completion: completion)
+    }
     public func getSupportAppInfo(
       _ request: GetSupportAppInfoRequest,
       completion: @escaping (Swift.Result<GetSupportAppInfoResponse, Swift.Error>) -> Swift.Void) {
@@ -420,7 +427,9 @@ class CuttlefishCKCodeOperationRunner: CKOperationRunner {
 
     private let ckContainer: CKContainer
 
-    init(container: CKContainer) {
+    private let user: TPSpecificUser
+
+    init(container: CKContainer, user: TPSpecificUser) {
         self.ckContainer = container
         // Cuttlefish is using its own push topic.
         // To register for this push topic, we need to issue CK operations with a specific bundle identifier
@@ -428,10 +437,11 @@ class CuttlefishCKCodeOperationRunner: CKOperationRunner {
 
         let ckDatabase = self.ckContainer.privateCloudDatabase
         self.underlyingCodeService = self.ckContainer.codeService(named: "Cuttlefish", databaseScope: ckDatabase.databaseScope)
+        self.user = user
     }
 
     func altDSID() -> String? {
-        return self.ckContainer.options.accountOverrideInfo?.altDSID
+        return self.user.altDSID
     }
 
     func add<RequestType, ResponseType>(_ operation: CKCodeOperation<RequestType, ResponseType>) where RequestType: InternalSwiftProtobuf.Message, ResponseType: InternalSwiftProtobuf.Message {
@@ -439,11 +449,11 @@ class CuttlefishCKCodeOperationRunner: CKOperationRunner {
     }
 
     func configuredFor(user: TPSpecificUser) -> Bool {
-        if let altDSID = self.ckContainer.options.accountOverrideInfo?.altDSID {
-            if user.altDSID == altDSID {
+        if let accountID = self.ckContainer.options.accountOverrideInfo?.accountID {
+            if user.appleAccountID == accountID {
                 return true
             } else {
-                logger.info("Mismatch between configured CKContainer (altDSID \(altDSID, privacy: .public) and requested user \(user.altDSID, privacy: .public)")
+                logger.info("Mismatch between configured CKContainer (accountID \(accountID, privacy: .public) and requested user (appleAccountID:\(user.appleAccountID, privacy: .public), altDSID:\(user.altDSID, privacy: .public)")
                 return false
             }
         } else {
@@ -463,7 +473,7 @@ protocol ContainerNameToCKOperationRunner {
 
 class CuttlefishCKOperationRunnerCreator: ContainerNameToCKOperationRunner {
     func client(user: TPSpecificUser) -> CKOperationRunner {
-        return CuttlefishCKCodeOperationRunner(container: user.makeCKContainer())
+        return CuttlefishCKCodeOperationRunner(container: user.makeCKContainer(), user: user)
     }
 }
 
@@ -499,31 +509,32 @@ class ContainerMap {
 
         return try queue.sync {
             if let container = self.containers[containerName] {
-                guard container.configuredFor(user: user) else {
-                    throw ContainerError.configuredContainerDoesNotMatchSpecifiedUser(user)
+                // If the container exists and it matches, great! Otherwise, we'll need to remake the container.
+                if container.configuredFor(user: user) {
+                    self.personaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: user.personaUniqueString)
+                    return container
+                } else {
+                    logger.info("Mismatch between existing container and account, remaking container for \(user, privacy: .public)")
                 }
-
-                self.personaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: user.personaUniqueString)
-                return container
-            } else {
-                // Set up Core Data stack
-                let persistentStoreURL = try ContainerMap.urlForPersistentStore(name: containerName)
-                let description = NSPersistentStoreDescription(url: persistentStoreURL)
-
-                // Wrap whatever we're given in a magically-retrying layer
-                let ckCodeOperationRunner = self.ckCodeOperationRunnerCreator.client(user: user)
-                let retryingCuttlefish = RetryingCKCodeService(retry: ckCodeOperationRunner)
-
-                let container = try Container(name: containerName,
-                                              persistentStoreDescription: description,
-                                              darwinNotifier: self.darwinNotifier,
-                                              managedConfigurationAdapter: self.managedConfigurationAdapter,
-                                              cuttlefish: retryingCuttlefish)
-                self.containers[containerName] = container
-
-                self.personaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: user.personaUniqueString)
-                return container
             }
+
+            // Set up Core Data stack
+            let persistentStoreURL = try ContainerMap.urlForPersistentStore(name: containerName)
+            let description = NSPersistentStoreDescription(url: persistentStoreURL)
+
+            // Wrap whatever we're given in a magically-retrying layer
+            let ckCodeOperationRunner = self.ckCodeOperationRunnerCreator.client(user: user)
+            let retryingCuttlefish = RetryingCKCodeService(retry: ckCodeOperationRunner)
+
+            let container = try Container(name: containerName,
+                                          persistentStoreDescription: description,
+                                          darwinNotifier: self.darwinNotifier,
+                                          managedConfigurationAdapter: self.managedConfigurationAdapter,
+                                          cuttlefish: retryingCuttlefish)
+            self.containers[containerName] = container
+
+            self.personaAdapter.prepareThreadForKeychainAPIUse(forPersonaIdentifier: user.personaUniqueString)
+            return container
         }
     }
 

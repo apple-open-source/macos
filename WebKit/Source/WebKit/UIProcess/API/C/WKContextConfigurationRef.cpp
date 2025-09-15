@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@ using namespace WebKit;
 
 WKContextConfigurationRef WKContextConfigurationCreate()
 {
-    return toAPI(&API::ProcessPoolConfiguration::create().leakRef());
+    return toAPILeakingRef(API::ProcessPoolConfiguration::create());
 }
 
 WKContextConfigurationRef WKContextConfigurationCreateWithLegacyOptions()
@@ -68,12 +68,12 @@ WKStringRef WKContextConfigurationCopyInjectedBundlePath(WKContextConfigurationR
 
 void WKContextConfigurationSetInjectedBundlePath(WKContextConfigurationRef configuration, WKStringRef injectedBundlePath)
 {
-    toImpl(configuration)->setInjectedBundlePath(toImpl(injectedBundlePath)->string());
+    toImpl(configuration)->setInjectedBundlePath(toProtectedImpl(injectedBundlePath)->string());
 }
 
 WKArrayRef WKContextConfigurationCopyCustomClassesForParameterCoder(WKContextConfigurationRef configuration)
 {
-    return toAPI(&API::Array::createStringArray(Vector<String>()).leakRef());
+    return toAPILeakingRef(API::Array::createStringArray(Vector<String>()));
 }
 
 void WKContextConfigurationSetCustomClassesForParameterCoder(WKContextConfigurationRef configuration, WKArrayRef classesForCoder)
@@ -139,7 +139,7 @@ void WKContextConfigurationSetIgnoreSynchronousMessagingTimeoutsForTesting(WKCon
 WKArrayRef WKContextConfigurationCopyOverrideLanguages(WKContextConfigurationRef)
 {
     // FIXME: Delete this function.
-    return toAPI(&API::Array::create().leakRef());
+    return toAPILeakingRef(API::Array::create());
 }
 
 void WKContextConfigurationSetOverrideLanguages(WKContextConfigurationRef, WKArrayRef overrideLanguages)
@@ -147,7 +147,7 @@ void WKContextConfigurationSetOverrideLanguages(WKContextConfigurationRef, WKArr
     // FIXME: This is an SPI function, and is only (supposed to be) used for testing.
     // However, playwright automation tests rely on it.
     // See https://bugs.webkit.org/show_bug.cgi?id=242827 for details.
-    WebKit::setOverrideLanguages(toImpl(overrideLanguages)->toStringVector());
+    WebKit::setOverrideLanguages(toProtectedImpl(overrideLanguages)->toStringVector());
 }
 
 bool WKContextConfigurationProcessSwapsOnNavigation(WKContextConfigurationRef configuration)
@@ -215,5 +215,5 @@ WKStringRef WKContextConfigurationCopyTimeZoneOverride(WKContextConfigurationRef
 
 void WKContextConfigurationSetTimeZoneOverride(WKContextConfigurationRef configuration, WKStringRef timeZoneOverride)
 {
-    toImpl(configuration)->setTimeZoneOverride(toImpl(timeZoneOverride)->string());
+    toImpl(configuration)->setTimeZoneOverride(toProtectedImpl(timeZoneOverride)->string());
 }

@@ -62,6 +62,7 @@ body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .
 .call-frame:is(.async-boundary, .truncated-boundary) {
     cursor: default;
     color: var(--text-color-gray-medium);
+    text-overflow: clip;
 }
 
 .tree-outline:not(.single-thread) > .children > .item.call-frame.async-boundary {

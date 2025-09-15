@@ -61,6 +61,7 @@
 #include <machine/commpage.h>
 #include <machine/pmap.h>
 #include <vm/vm_kern_xnu.h>
+#include <vm/vm_map_internal.h>
 #include <vm/vm_map_xnu.h>
 #include <stdatomic.h>
 
@@ -652,6 +653,9 @@ commpage_populate( void )
 	asb_kaddr %= (kernel_max - kernel_min);
 	asb_kaddr += kernel_min;
 	commpage_update(_COMM_PAGE_ASB_TARGET_KERN_ADDRESS, &asb_kaddr, sizeof(asb_kaddr));
+
+	vm_map_seal(commpage32_map, true /* nested_pmap */);
+	vm_map_seal(commpage64_map, true /* nested_pmap */);
 }
 
 /* Fill in the common routines during kernel initialization.
@@ -705,6 +709,9 @@ commpage_text_populate( void )
 	if (next > _COMM_PAGE_TEXT_END) {
 		panic("commpage text overflow: next=0x%08x, commPagePtr=%p", next, commPagePtr);
 	}
+
+	vm_map_seal(commpage_text32_map, true /* nested_pmap */);
+	vm_map_seal(commpage_text64_map, true /* nested_pmap */);
 }
 
 /* Update commpage nanotime information.

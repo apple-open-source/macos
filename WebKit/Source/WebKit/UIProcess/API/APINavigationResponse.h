@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,14 +48,14 @@ public:
 
     const WebCore::ResourceRequest& request() const { return m_request; }
     const WebCore::ResourceResponse& response() const { return m_response; }
+    FrameInfo* navigationInitiatingFrame();
+    Navigation* navigation() { return m_navigation.get(); }
 
     bool canShowMIMEType() const { return m_canShowMIMEType; }
     const WTF::String& downloadAttribute() const { return m_downloadAttribute; }
 
-    FrameInfo* navigationInitiatingFrame();
-
 private:
-    NavigationResponse(API::FrameInfo&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, bool canShowMIMEType, const WTF::String& downloadAttribute, Navigation*);
+    NavigationResponse(API::FrameInfo&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, bool canShowMIMEType, WTF::String&& downloadAttribute, Navigation*);
 
     const Ref<FrameInfo> m_frame;
     WebCore::ResourceRequest m_request;
@@ -67,3 +67,5 @@ private:
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(NavigationResponse);

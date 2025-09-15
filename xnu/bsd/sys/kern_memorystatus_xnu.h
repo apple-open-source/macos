@@ -40,6 +40,12 @@ __BEGIN_DECLS
 /* TODO: migrate other xnu-private interfaces from kern_memorystatus.h */
 
 /*
+ * Query if this process is state-managed by RunningBoard.
+ */
+typedef struct proc * proc_t;
+extern bool memorystatus_get_proc_is_managed(proc_t proc);
+
+/*
  * Return the minimum number of available pages jetsam requires before it
  * begins killing non-idle processes. This is useful for some pageout
  * mechanisms to avoid deadlock.

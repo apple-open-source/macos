@@ -396,6 +396,11 @@ inchar_loop(
 	    len = read_from_input_buf(buf, (long)maxlen);
 	    if (len > 0)
 		return len;
+#ifdef __APPLE__
+	    // Surface the blank line
+	    if (got_susp)
+		return 0;
+#endif
 	    continue;
 	}
 	// Timed out or interrupted with no character available.
@@ -414,8 +419,17 @@ inchar_loop(
 #endif
 		|| wait_time > 0
 		|| (wtime < 0 && !did_start_blocking))
+#ifdef __APPLE__
+	{
+	    // no character available, but something to be done, keep going
+	    // unless we we interrupted due to a SIGINT.
+	    if (!interrupted || !got_int)
+		continue;
+	}
+#else
 	    // no character available, but something to be done, keep going
 	    continue;
+#endif
 
 	// no character available or interrupted, return zero
 	break;
@@ -1051,6 +1065,18 @@ fill_input_buf(int exit_on_error UNUSED)
 		inbufcount = 0;
 		got_int = TRUE;
 	    }
+#ifdef __APPLE__
+            // If a CTRL-Z was typed, we must suspend.
+	    if (Unix2003_compat && exmode_active == EXMODE_NORMAL
+			&& inbuf[inbufcount] == susp_char)
+	    {
+		len--;
+		mch_memmove(inbuf + inbufcount, inbuf + inbufcount + 1,
+		    (size_t)(len));
+		got_susp = TRUE;
+		continue;
+	    }
+#endif
 	    --len;
 	    ++inbufcount;
 	}

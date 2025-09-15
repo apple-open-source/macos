@@ -47,8 +47,6 @@
 #include <mach/mach_traps.h>
 #include <mach/mach_eventlink_server.h>
 
-#include <libkern/OSAtomic.h>
-
 static KALLOC_TYPE_DEFINE(ipc_eventlink_zone,
     struct ipc_eventlink_base, KT_DEFAULT);
 
@@ -125,6 +123,7 @@ port_name_to_eventlink(
 	struct ipc_eventlink          **ipc_eventlink_ptr);
 
 IPC_KOBJECT_DEFINE(IKOT_EVENTLINK,
+    .iko_op_movable_send = true,
     .iko_op_no_senders = ipc_eventlink_no_senders);
 
 /*
@@ -176,8 +175,8 @@ ipc_eventlink_initialize(
 	for (int i = 0; i < 2; i++) {
 		struct ipc_eventlink *ipc_eventlink = &(ipc_eventlink_base->elb_eventlink[i]);
 
-		ipc_eventlink->el_port = ipc_kobject_alloc_port((ipc_kobject_t)ipc_eventlink,
-		    IKOT_EVENTLINK, IPC_KOBJECT_ALLOC_MAKE_SEND | IPC_KOBJECT_ALLOC_NSREQUEST);
+		ipc_eventlink->el_port = ipc_kobject_alloc_port(ipc_eventlink,
+		    IKOT_EVENTLINK, IPC_KOBJECT_ALLOC_MAKE_SEND);
 		/* ipc_kobject_alloc_port never fails */
 		ipc_eventlink->el_thread = THREAD_NULL;
 		ipc_eventlink->el_sync_counter = 0;
@@ -321,7 +320,8 @@ ipc_eventlink_destroy_internal(
 	splx(s);
 
 	/* Destroy the local eventlink port */
-	ipc_kobject_dealloc_port(ipc_eventlink_port, 0, IKOT_EVENTLINK);
+	ipc_kobject_dealloc_port(ipc_eventlink_port, IPC_KOBJECT_NO_MSCOUNT,
+	    IKOT_EVENTLINK);
 	/* Drops port reference */
 
 	/* Clear the remote eventlink port without destroying it */
@@ -1005,7 +1005,7 @@ convert_port_to_eventlink_locked(
 	kern_return_t kr = KERN_INVALID_CAPABILITY;
 	struct ipc_eventlink *ipc_eventlink = IPC_EVENTLINK_NULL;
 
-	if (ip_active(port) && ip_kotype(port) == IKOT_EVENTLINK) {
+	if (ip_active(port) && ip_type(port) == IKOT_EVENTLINK) {
 		ipc_eventlink = ipc_kobject_get_raw(port, IKOT_EVENTLINK);
 		if (ipc_eventlink) {
 			ipc_eventlink_reference(ipc_eventlink);

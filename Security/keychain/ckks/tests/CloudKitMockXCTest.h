@@ -58,6 +58,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (strong, retain) NSString* persona;
 @property bool hsa2;
 @property bool demo;
+@property (strong) NSString* passwordResetToken;
 @property bool isPrimary;
 @property bool isDataSeparated;
 
@@ -123,7 +124,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSArray<TPSpecificUser *> * _Nullable)inflateAllTPSpecificUsers:(nonnull NSString *)cloudkitContainerName
                                                   octagonContextID:(nonnull NSString *)octagonContextID;
 
-
+- (CloudKitAccount* _Nullable)accountForAccountID:(NSString*)accountID;
 - (CloudKitAccount* _Nullable)accountForAltDSID:(NSString*)altDSID;
 
 - (BOOL)accountIsDemoAccountByAltDSID:(nonnull NSString *)altDSID error:(NSError *__autoreleasing  _Nullable * _Nullable)error;
@@ -388,7 +389,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rejectWrite:(CKModifyRecordsOperation*)op failedRecords:(NSMutableDictionary<CKRecordID*, NSError*>*)failedRecords;
 
 
-- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)altDSID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler;
+- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)accountID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler;
 
 @end
 

@@ -97,7 +97,6 @@
 #include <ipc/ipc_notify.h>
 #include <ipc/ipc_kmsg.h>
 #include <ipc/ipc_hash.h>
-#include <ipc/ipc_init.h>
 #include <ipc/ipc_voucher.h>
 #include <ipc/ipc_eventlink.h>
 
@@ -111,18 +110,6 @@ SECURITY_READ_ONLY_LATE(vm_map_t) ipc_kernel_copy_map;
 const vm_size_t ipc_kmsg_max_vm_space = ((IPC_KERNEL_COPY_MAP_SIZE * 7) / 8);
 
 #define IPC_KERNEL_MAP_SIZE      (CONFIG_IPC_KERNEL_MAP_SIZE << 20)
-
-/* Note: Consider Developer Mode when changing the default. */
-#if XNU_TARGET_OS_OSX
-#define IPC_CONTROL_PORT_OPTIONS_DEFAULT (ICP_OPTIONS_IMMOVABLE_1P_HARD | ICP_OPTIONS_PINNED_1P_HARD)
-#else
-#define IPC_CONTROL_PORT_OPTIONS_DEFAULT (ICP_OPTIONS_IMMOVABLE_ALL_HARD | \
-	ICP_OPTIONS_PINNED_1P_HARD | \
-	ICP_OPTIONS_PINNED_3P_SOFT)
-#endif
-
-TUNABLE(ipc_control_port_options_t, ipc_control_port_options,
-    "ipc_control_port_options", IPC_CONTROL_PORT_OPTIONS_DEFAULT);
 
 LCK_GRP_DECLARE(ipc_lck_grp, "ipc");
 LCK_ATTR_DECLARE(ipc_lck_attr, 0, 0);
@@ -152,37 +139,16 @@ __startup_func
 static void
 ipc_init(void)
 {
-	kern_return_t kr;
-
 	/* create special spaces */
 
-	kr = ipc_space_create_special(&ipc_space_kernel);
-	assert(kr == KERN_SUCCESS);
-
-	kr = ipc_space_create_special(&ipc_space_reply);
-	assert(kr == KERN_SUCCESS);
+	ipc_space_kernel = ipc_space_create_special();
+	ipc_space_reply = ipc_space_create_special();
 
 	/* initialize modules with hidden data structures */
 
 #if CONFIG_ARCADE
 	arcade_init();
 #endif
-
-	bool pinned_control_port_enabled_1p = !!(ipc_control_port_options & ICP_OPTIONS_1P_PINNED);
-	bool immovable_control_port_enabled_1p = !!(ipc_control_port_options & ICP_OPTIONS_1P_IMMOVABLE);
-
-	bool pinned_control_port_enabled_3p = !!(ipc_control_port_options & ICP_OPTIONS_3P_PINNED);
-	bool immovable_control_port_enabled_3p = !!(ipc_control_port_options & ICP_OPTIONS_3P_IMMOVABLE);
-
-	if (pinned_control_port_enabled_1p && !immovable_control_port_enabled_1p) {
-		kprintf("Invalid ipc_control_port_options boot-arg: pinned control port cannot be enabled without immovability enforcement. Ignoring 1p pinning boot-arg.");
-		ipc_control_port_options &= ~ICP_OPTIONS_1P_PINNED;
-	}
-
-	if (pinned_control_port_enabled_3p && !immovable_control_port_enabled_3p) {
-		kprintf("Invalid ipc_control_port_options boot-arg: pinned control port cannot be enabled without immovability enforcement. Ignoring 3p pinning boot-arg.");
-		ipc_control_port_options &= ~ICP_OPTIONS_3P_PINNED;
-	}
 
 	ipc_kernel_map = kmem_suballoc(kernel_map, &ipc_kernel_range.min_address,
 	    IPC_KERNEL_MAP_SIZE, VM_MAP_CREATE_PAGEABLE,
@@ -201,4 +167,6 @@ ipc_init(void)
 	ipc_host_init();
 	ux_handler_init();
 }
+#ifndef __BUILDING_XNU_LIB_UNITTEST__ /* unittests don't support creating submap in kernel_map */
 STARTUP(MACH_IPC, STARTUP_RANK_LAST, ipc_init);
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */

@@ -33,13 +33,13 @@ namespace WebKit {
 namespace NetworkCache {
 
 Data::Data(std::span<const uint8_t> data)
-    : m_buffer(Box<std::variant<Vector<uint8_t>, FileSystem::MappedFileData>>::create(Vector<uint8_t>(data.size())))
+    : m_buffer(Box<Variant<Vector<uint8_t>, FileSystem::MappedFileData>>::create(Vector<uint8_t>(data.size())))
 {
-    memcpy(std::get<Vector<uint8_t>>(*m_buffer).data(), data.data(), data.size());
+    memcpySpan(std::get<Vector<uint8_t>>(*m_buffer).mutableSpan(), data);
 }
 
-Data::Data(std::variant<Vector<uint8_t>, FileSystem::MappedFileData>&& data)
-    : m_buffer(Box<std::variant<Vector<uint8_t>, FileSystem::MappedFileData>>::create(WTFMove(data)))
+Data::Data(Variant<Vector<uint8_t>, FileSystem::MappedFileData>&& data)
+    : m_buffer(Box<Variant<Vector<uint8_t>, FileSystem::MappedFileData>>::create(WTFMove(data)))
     , m_isMap(std::holds_alternative<FileSystem::MappedFileData>(*m_buffer))
 {
 }
@@ -76,7 +76,7 @@ bool Data::isNull() const
     return !m_buffer;
 }
 
-bool Data::apply(const Function<bool(std::span<const uint8_t>)>& applier) const
+bool Data::apply(NOESCAPE const Function<bool(std::span<const uint8_t>)>& applier) const
 {
     if (isEmpty())
         return false;
@@ -105,10 +105,10 @@ Data concatenate(const Data& a, const Data& b)
     return Data(WTFMove(buffer));
 }
 
-Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::PlatformFileHandle fd)
+Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::FileHandle&& fileHandle)
 {
     ASSERT(mappedFile);
-    FileSystem::closeFile(fd);
+    fileHandle = { };
 
     return { WTFMove(mappedFile) };
 }

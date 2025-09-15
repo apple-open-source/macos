@@ -36,7 +36,7 @@
 #include "ActiveDOMObject.h"
 #include "EventNames.h"
 #include "EventTarget.h"
-#include "ExceptionOr.h"
+#include "EventTargetInterfaces.h"
 #include "IDLTypes.h"
 #include "MediaTrackConstraints.h"
 #include "RealtimeMediaSourceCenter.h"
@@ -80,21 +80,21 @@ public:
     };
 
     struct StreamConstraints {
-        std::variant<bool, MediaTrackConstraints> video;
-        std::variant<bool, MediaTrackConstraints> audio;
+        Variant<bool, MediaTrackConstraints> video;
+        Variant<bool, MediaTrackConstraints> audio;
     };
     void getUserMedia(StreamConstraints&&, Promise&&);
 
     struct DisplayMediaStreamConstraints {
-        std::variant<bool, MediaTrackConstraints> video;
-        std::variant<bool, MediaTrackConstraints> audio;
+        Variant<bool, MediaTrackConstraints> video;
+        Variant<bool, MediaTrackConstraints> audio;
     };
     void getDisplayMedia(DisplayMediaStreamConstraints&&, Promise&&);
 
     void enumerateDevices(EnumerateDevicesPromise&&);
     MediaTrackSupportedConstraints getSupportedConstraints();
 
-    String deviceIdToPersistentId(const String& deviceId) const { return m_audioOutputDeviceIdToPersistentId.get(deviceId); }
+    String deviceIdToPersistentId(const String&) const;
 
     void willStartMediaCapture(bool microphone, bool camera);
 

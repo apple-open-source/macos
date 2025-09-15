@@ -59,7 +59,7 @@ class WeakPtrImplWithEventTargetData;
 class FontCascade;
 class FloatPoint;
 class GraphicsContext;
-class InspectorClient;
+class InspectorBackendClient;
 class InspectorController;
 class Node;
 class NodeList;
@@ -143,7 +143,7 @@ struct InspectorOverlayHighlight {
 class InspectorOverlay : public CanMakeWeakPtr<InspectorOverlay> {
     WTF_MAKE_TZONE_ALLOCATED(InspectorOverlay);
 public:
-    InspectorOverlay(InspectorController&, InspectorClient*);
+    InspectorOverlay(InspectorController&, InspectorBackendClient*);
     ~InspectorOverlay();
 
     void ref() const;
@@ -253,7 +253,7 @@ private:
     Page& page() const;
 
     const WeakRef<InspectorController> m_controller;
-    InspectorClient* m_client;
+    InspectorBackendClient* m_client;
 
     RefPtr<Node> m_highlightNode;
     RefPtr<NodeList> m_highlightNodeList;

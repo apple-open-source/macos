@@ -52,7 +52,7 @@ class Format;
 static constexpr size_t kMaxExtensionNames = 400;
 using ExtensionNameList                    = angle::FixedVector<const char *, kMaxExtensionNames>;
 
-static constexpr size_t kMaxSyncValExtraProperties = 5;
+static constexpr size_t kMaxSyncValExtraProperties = 9;
 // Information used to accurately skip known synchronization issues in ANGLE.
 // TODO: remove messageContents1 and messageContents2 fields after all
 // supressions have transitioned to using extraProperties.
@@ -101,21 +101,6 @@ class ImageMemorySuballocator : angle::NonCopyable
 // Supports one semaphore from current surface, and one semaphore passed to
 // glSignalSemaphoreEXT.
 using SignalSemaphoreVector = angle::FixedVector<VkSemaphore, 2>;
-
-// Recursive function to process variable arguments for garbage collection
-inline void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut) {}
-template <typename ArgT, typename... ArgsT>
-void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut, ArgT object, ArgsT... objectsIn)
-{
-    if (object->valid())
-    {
-        garbageOut->emplace_back(vk::GarbageObject::Get(object));
-    }
-    CollectGarbage(garbageOut, objectsIn...);
-}
-
-// Recursive function to process variable arguments for garbage destroy
-inline void DestroyGarbage(vk::Renderer *renderer) {}
 
 class OneOffCommandPool : angle::NonCopyable
 {
@@ -269,6 +254,10 @@ class Renderer : angle::NonCopyable
     uint32_t getMaxVertexAttribDivisor() const { return mMaxVertexAttribDivisor; }
     VkDeviceSize getMaxVertexAttribStride() const { return mMaxVertexAttribStride; }
     uint32_t getMaxColorInputAttachmentCount() const { return mMaxColorInputAttachmentCount; }
+    ANGLE_INLINE bool isInFlightCommandsEmpty() const
+    {
+        return mCommandQueue.isInFlightCommandsEmpty();
+    }
 
     uint32_t getDefaultUniformBufferSize() const { return mDefaultUniformBufferSize; }
 
@@ -285,15 +274,12 @@ class Renderer : angle::NonCopyable
         const VkFormatFeatureFlags featureBits) const;
     VkFormatFeatureFlags getImageFormatFeatureBits(angle::FormatID format,
                                                    const VkFormatFeatureFlags featureBits) const;
+    VkFormatFeatureFlags getBufferFormatFeatureBits(angle::FormatID format,
+                                                    const VkFormatFeatureFlags featureBits) const;
     bool hasImageFormatFeatureBits(angle::FormatID format,
                                    const VkFormatFeatureFlags featureBits) const;
     bool hasBufferFormatFeatureBits(angle::FormatID format,
                                     const VkFormatFeatureFlags featureBits) const;
-
-    bool isAsyncCommandBufferResetAndGarbageCleanupEnabled() const
-    {
-        return mFeatures.asyncCommandBufferResetAndGarbageCleanup.enabled;
-    }
 
     ANGLE_INLINE egl::ContextPriority getDriverPriority(egl::ContextPriority priority)
     {
@@ -332,29 +318,42 @@ class Renderer : angle::NonCopyable
                                            VkPipelineStageFlags waitSemaphoreStageMasks,
                                            QueueSerial submitQueueSerial);
 
-    template <typename... ArgsT>
-    void collectGarbage(const vk::ResourceUse &use, ArgsT... garbageIn)
+    template <typename ArgT>
+    void collectGarbage(const vk::ResourceUse &use, ArgT garbageIn)
     {
+        if (!garbageIn->valid())
+        {
+            return;
+        }
+
         if (hasResourceUseFinished(use))
         {
-            DestroyGarbage(this, garbageIn...);
+            garbageIn->destroy(mDevice);
         }
         else
         {
             std::vector<vk::GarbageObject> sharedGarbage;
-            CollectGarbage(&sharedGarbage, garbageIn...);
-            if (!sharedGarbage.empty())
-            {
-                collectGarbage(use, std::move(sharedGarbage));
-            }
+            sharedGarbage.emplace_back(vk::GarbageObject::Get(garbageIn));
+            collectGarbage(use, std::move(sharedGarbage));
         }
     }
 
     void collectGarbage(const vk::ResourceUse &use, vk::GarbageObjects &&sharedGarbage)
     {
         ASSERT(!sharedGarbage.empty());
-        vk::SharedGarbage garbage(use, std::move(sharedGarbage));
-        mSharedGarbageList.add(this, std::move(garbage));
+        if (hasResourceUseFinished(use))
+        {
+            for (auto &garbage : sharedGarbage)
+            {
+                garbage.destroy(this);
+            }
+            sharedGarbage.clear();
+        }
+        else
+        {
+            vk::SharedGarbage garbage(use, std::move(sharedGarbage));
+            mSharedGarbageList.add(this, std::move(garbage));
+        }
     }
 
     void collectSuballocationGarbage(const vk::ResourceUse &use,
@@ -476,12 +475,10 @@ class Renderer : angle::NonCopyable
     angle::Result getOutsideRenderPassCommandBufferHelper(
         vk::ErrorContext *context,
         vk::SecondaryCommandPool *commandPool,
-        vk::SecondaryCommandMemoryAllocator *commandsAllocator,
         vk::OutsideRenderPassCommandBufferHelper **commandBufferHelperOut);
     angle::Result getRenderPassCommandBufferHelper(
         vk::ErrorContext *context,
         vk::SecondaryCommandPool *commandPool,
-        vk::SecondaryCommandMemoryAllocator *commandsAllocator,
         vk::RenderPassCommandBufferHelper **commandBufferHelperOut);
 
     void recycleOutsideRenderPassCommandBufferHelper(
@@ -654,7 +651,7 @@ class Renderer : angle::NonCopyable
 
     void requestAsyncCommandsAndGarbageCleanup(vk::ErrorContext *context);
 
-    VkDeviceSize getMaxMemoryAllocationSize()
+    VkDeviceSize getMaxMemoryAllocationSize() const
     {
         return mMaintenance3Properties.maxMemoryAllocationSize;
     }
@@ -695,6 +692,11 @@ class Renderer : angle::NonCopyable
         ASSERT(mPlaceHolderDescriptorSetLayout->valid());
         return mPlaceHolderDescriptorSetLayout;
     }
+
+    // VK_EXT_device_fault allows gathering more info if the device is lost.
+    VkResult retrieveDeviceLostDetails() const;
+
+    bool supportsAstcHdr() const;
 
   private:
     angle::Result setupDevice(vk::ErrorContext *context,
@@ -780,7 +782,6 @@ class Renderer : angle::NonCopyable
     template <typename CommandBufferHelperT, typename RecyclerT>
     angle::Result getCommandBufferImpl(vk::ErrorContext *context,
                                        vk::SecondaryCommandPool *commandPool,
-                                       vk::SecondaryCommandMemoryAllocator *commandsAllocator,
                                        RecyclerT *recycler,
                                        CommandBufferHelperT **commandBufferHelperOut);
 
@@ -894,10 +895,12 @@ class Renderer : angle::NonCopyable
     VkPhysicalDeviceFloatControlsProperties mFloatControlProperties;
     VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR mUniformBufferStandardLayoutFeatures;
     VkPhysicalDeviceMaintenance3Properties mMaintenance3Properties;
+    VkPhysicalDeviceFaultFeaturesEXT mFaultFeatures;
+    VkPhysicalDeviceASTCDecodeFeaturesEXT mPhysicalDeviceAstcDecodeFeatures;
 
     uint32_t mLegacyDitheringVersion = 0;
 
-    angle::PackedEnumBitSet<gl::ShadingRate, uint8_t> mSupportedFragmentShadingRates;
+    angle::PackedEnumBitSet<gl::ShadingRate, uint16_t> mSupportedFragmentShadingRates;
     angle::PackedEnumMap<gl::ShadingRate, VkSampleCountFlags>
         mSupportedFragmentShadingRateSampleCounts;
     std::vector<VkQueueFamilyProperties> mQueueFamilyProperties;
@@ -946,7 +949,7 @@ class Renderer : angle::NonCopyable
 
     // The mutex protects -
     // 1. initialization of the cache
-    // 2. Vulkan driver guarantess synchronization for read and write operations but the spec
+    // 2. Vulkan driver guarantees synchronization for read and write operations but the spec
     //    requires external synchronization when mPipelineCache is the dstCache of
     //    vkMergePipelineCaches. Lock the mutex if mergeProgramPipelineCachesToGlobalCache is
     //    enabled
@@ -1068,6 +1071,12 @@ class Renderer : angle::NonCopyable
 
     // A placeholder descriptor set layout handle for layouts with no bindings.
     vk::DescriptorSetLayoutPtr mPlaceHolderDescriptorSetLayout;
+
+    // Cached value for the buffer memory size limit.
+    VkDeviceSize mMaxBufferMemorySizeLimit;
+
+    // Record submitted queue serials not belongs to any context.
+    vk::ResourceUse mSubmittedResourceUse;
 };
 
 ANGLE_INLINE Serial Renderer::generateQueueSerial(SerialIndex index)
@@ -1124,27 +1133,7 @@ ANGLE_INLINE angle::Result Renderer::checkCompletedCommandsAndCleanup(vk::ErrorC
 
 ANGLE_INLINE angle::Result Renderer::releaseFinishedCommands(vk::ErrorContext *context)
 {
-    return mCommandQueue.releaseFinishedCommands(context);
-}
-
-template <typename ArgT, typename... ArgsT>
-void DestroyGarbage(Renderer *renderer, ArgT object, ArgsT... objectsIn)
-{
-    if (object->valid())
-    {
-        object->destroy(renderer->getDevice());
-    }
-    DestroyGarbage(renderer, objectsIn...);
-}
-
-template <typename... ArgsT>
-void DestroyGarbage(Renderer *renderer, vk::Allocation *object, ArgsT... objectsIn)
-{
-    if (object->valid())
-    {
-        object->destroy(renderer->getAllocator());
-    }
-    DestroyGarbage(renderer, objectsIn...);
+    return mCommandQueue.releaseFinishedCommands(context, WhenToResetCommandBuffer::Now);
 }
 }  // namespace vk
 }  // namespace rx

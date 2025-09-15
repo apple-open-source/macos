@@ -55,9 +55,9 @@ class Connection;
 class Decoder;
 }
 
-namespace rtc {
+namespace webrtc {
 class SocketAddress;
-struct PacketOptions;
+struct AsyncSocketPacketOptions;
 }
 
 namespace WebCore {
@@ -104,7 +104,7 @@ public:
 
         virtual void close() = 0;
         virtual void setOption(int option, int value) = 0;
-        virtual void sendTo(std::span<const uint8_t>, const rtc::SocketAddress&, const rtc::PacketOptions&) = 0;
+        virtual void sendTo(std::span<const uint8_t>, const webrtc::SocketAddress&, const webrtc::AsyncSocketPacketOptions&) = 0;
     };
 
     std::unique_ptr<Socket> takeSocket(WebCore::LibWebRTCSocketIdentifier);
@@ -120,6 +120,7 @@ public:
     void closeSocket(WebCore::LibWebRTCSocketIdentifier);
 
 #if PLATFORM(COCOA)
+    bool webRTCInterfaceMonitoringViaNWEnabled() const;
     const std::optional<audit_token_t>& sourceApplicationAuditToken() const { return m_sourceApplicationAuditToken; }
     const char* applicationBundleIdentifier() const { return m_applicationBundleIdentifier.data(); }
 #endif
@@ -142,8 +143,8 @@ private:
 #if PLATFORM(COCOA)
     const String& attributedBundleIdentifierFromPageIdentifier(WebPageProxyIdentifier);
 #else
-    static rtc::Thread& rtcNetworkThread();
-    void createSocket(WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<rtc::AsyncPacketSocket>&&, Socket::Type, Ref<IPC::Connection>&&);
+    static webrtc::Thread& rtcNetworkThread();
+    void createSocket(WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<webrtc::AsyncPacketSocket>&&, Socket::Type, Ref<IPC::Connection>&&);
 #endif
 
     // FunctionDispatcher
@@ -158,10 +159,6 @@ private:
 
     Ref<NetworkRTCMonitor> protectedRTCMonitor();
 
-#if PLATFORM(COCOA)
-    Ref<WorkQueue> protectedRTCNetworkThreadQueue();
-#endif
-
     static constexpr size_t maxSockets { 256 };
 
     StdMap<WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<Socket>, SocketComparator> m_sockets;
@@ -175,11 +172,11 @@ private:
     HashMap<WebPageProxyIdentifier, String> m_attributedBundleIdentifiers;
     std::optional<audit_token_t> m_sourceApplicationAuditToken;
     CString m_applicationBundleIdentifier;
-    Ref<WorkQueue> m_rtcNetworkThreadQueue;
+    const Ref<WorkQueue> m_rtcNetworkThreadQueue;
 #endif
 
 #if !PLATFORM(COCOA)
-    UniqueRef<rtc::BasicPacketSocketFactory> m_packetSocketFactory;
+    UniqueRef<webrtc::BasicPacketSocketFactory> m_packetSocketFactory;
 #endif
 };
 

@@ -75,7 +75,7 @@ private:
     TextureFormat getPreferredColorFormat() final;
 
     WebGPUPtr<WGPUXRBinding> m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
 };
 
 } // namespace WebCore::WebGPU

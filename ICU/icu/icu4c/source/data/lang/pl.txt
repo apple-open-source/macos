@@ -150,6 +150,7 @@ pl{
         crs{"kreolski seszelski"}
         cs{"czeski"}
         csb{"kaszubski"}
+        cst{"chochenyo"}
         csw{"kri bagienny"}
         cu{"cerkiewnosłowiański"}
         cv{"czuwaski"}
@@ -254,6 +255,7 @@ pl{
         hak{"hakka"}
         haw{"hawajski"}
         hax{"haida południowy"}
+        hch{"wixárika"}
         he{"hebrajski"}
         hi{"hindi"}
         hi_Latn{"hindi (alfabet łaciński)"}
@@ -284,6 +286,7 @@ pl{
         inh{"inguski"}
         io{"ido"}
         is{"islandzki"}
+        isc{"iskonawa"}
         it{"włoski"}
         iu{"inuktitut"}
         izh{"ingryjski"}
@@ -554,6 +557,7 @@ pl{
         sh{"serbsko-chorwacki"}
         shi{"tashelhiyt"}
         shn{"szan"}
+        shp{"shipibo-konibo"}
         shu{"arabski (Czad)"}
         si{"syngaleski"}
         sid{"sidamo"}
@@ -861,6 +865,7 @@ pl{
     }
     Types{
         calendar{
+            bangla{"kalendarz bengalski"}
             buddhist{"kalendarz buddyjski"}
             chinese{"kalendarz chiński"}
             coptic{"kalendarz koptyjski"}
@@ -868,6 +873,7 @@ pl{
             ethiopic{"kalendarz etiopski"}
             ethiopic-amete-alem{"kalendarz etiopski Amete Alem"}
             gregorian{"kalendarz gregoriański"}
+            gujarati{"kalendarz gudżaracki"}
             hebrew{"kalendarz hebrajski"}
             indian{"narodowy kalendarz hinduski"}
             islamic{"kalendarz muzułmański"}
@@ -877,8 +883,16 @@ pl{
             islamic-umalqura{"kalendarz muzułmański (Umm al-Kura)"}
             iso8601{"kalendarz ISO-8601"}
             japanese{"kalendarz japoński"}
+            kannada{"kalendarz kannada"}
+            malayalam{"kalendarz malajalam"}
+            marathi{"kalendarz marathijski"}
+            odia{"kalendarz orija"}
             persian{"kalendarz perski"}
             roc{"kalendarz Republiki Chińskiej"}
+            tamil{"kalendarz tamilski"}
+            telugu{"kalendarz telugu"}
+            vietnamese{"kalendarz wietnamski"}
+            vikram{"kalendarz wikrama"}
         }
         cf{
             account{"księgowy format waluty"}

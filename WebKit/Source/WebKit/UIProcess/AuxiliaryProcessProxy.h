@@ -33,6 +33,7 @@
 #include <WebCore/ProcessIdentifier.h>
 #include <memory>
 #include <wtf/CheckedRef.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
@@ -42,6 +43,7 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/VectorHash.h>
+#include <wtf/WeakPtrFactory.h>
 
 namespace WebCore {
 class SharedBuffer;
@@ -316,7 +318,7 @@ private:
     bool m_alwaysRunsAtBackgroundPriority { false };
     bool m_didBeginResponsivenessChecks { false };
     bool m_isSuspended { false };
-    const WebCore::ProcessIdentifier m_processIdentifier { WebCore::ProcessIdentifier::generate() };
+    const WebCore::ProcessIdentifier m_processIdentifier { WebCore::Process::generateIdentifier() };
     std::optional<UseLazyStop> m_delayedResponsivenessCheck;
     MonotonicTime m_processStart;
     ProcessThrottler m_throttler;
@@ -340,20 +342,19 @@ bool AuxiliaryProcessProxy::send(T&& message, uint64_t destinationID, OptionSet<
     static_assert(!T::isSync, "Async message expected");
 
     if constexpr (T::deferSendingIfSuspended) {
-        if (UNLIKELY(m_isSuspended)) {
-            // encodeCoalescingKey must be called before arguments() below since arguments() takes ownership of the message's args tuple.
+        if (m_isSuspended) [[unlikely]] {
             auto coalescingKeyEncoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
             message.encodeCoalescingKey(coalescingKeyEncoder.get());
             Vector<uint8_t> coalescingKey { coalescingKeyEncoder->mutableSpan() };
 
             auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
-            encoder.get() << message.arguments();
+            message.encode(encoder.get());
             return sendMessageAfterResuming(WTFMove(coalescingKey), WTFMove(encoder));
         }
     }
 
     auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
-    encoder.get() << message.arguments();
+    message.encode(encoder.get());
     return sendMessage(WTFMove(encoder), sendOptions);
 }
 
@@ -377,7 +378,7 @@ std::optional<AuxiliaryProcessProxy::AsyncReplyID> AuxiliaryProcessProxy::sendWi
     static_assert(!T::isSync, "Async message expected");
 
     auto encoder = makeUniqueRef<IPC::Encoder>(T::name(), destinationID);
-    encoder.get() << message.arguments();
+    message.encode(encoder.get());
     auto handler = IPC::Connection::makeAsyncReplyHandler<T>(std::forward<C>(completionHandler));
     auto replyID = handler.replyID;
     if (sendMessage(WTFMove(encoder), sendOptions, WTFMove(handler), shouldStartProcessThrottlerActivity))

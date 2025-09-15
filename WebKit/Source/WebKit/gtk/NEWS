@@ -1,4 +1,61 @@
 ================
+WebKitGTK 2.49.3
+================
+
+What's new in WebKitGTK 2.49.3?
+
+  - Add new API to get the theme color of a WebKitWebView.
+  - Fix rendering with GTK 3.
+  - Notify automation session on abnormal disconnections.
+  - Fix a crash by ensuring SkiaRecordingResult is destroyed on the main thread.
+  - Fix build on s390x.
+  - Fix the build with GTK 3.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.49.2
+================
+
+What's new in WebKitGTK 2.49.2?
+
+  - Enable damage propagation to the UI process by default.
+  - Pass available input devices from UI process to web process for Interaction Media Features.
+  - Always have a fallback when domain does not have known base.
+  - Fix URL after HSTS upgrade in case of redirection.
+  - Fix rendering when device scale factor change comes before the web view geometry update.
+  - Ensure web view is focused on tap gesture.
+  - Fix a crash when setting WEBKIT_SKIA_GPU_PAINTING_THREADS=0.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Brazilian Portuguese, Swedish.
+
+================
+WebKitGTK 2.49.1
+================
+
+What's new in WebKitGTK 2.49.1?
+
+  - Change threaded rendering implementation to use Skia API instead of WebCore display
+    list that is not thread safe. This also allowed to improve performance by recording
+    layers once and replaying every dirty region in different worker threads.
+  - Added hybrid rendering mode that tries to use the GPU worker threads, but if they
+    are all busy the CPU worker threads are used if possible.
+  - Add volume locking support to media player.
+  - Add support for tracing counters with Sysprof.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.47.4
+================
+
+What's new in WebKitGTK 2.47.4?
+
+  - Add support for the Cookie Store API.
+  - Add documentation about how to use the remote web inspector.
+  - Enable WebDriver BiDi as an experimental feature.
+  - Fix a crash when enabling Skia CPU rendering.
+  - Fix several crashes and rendering issues.
+
+================
 WebKitGTK 2.47.3
 ================
 

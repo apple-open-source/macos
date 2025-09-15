@@ -4,7 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2021-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -39,21 +39,21 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(FEDisplacementMapSoftwareApplier);
 FEDisplacementMapSoftwareApplier::FEDisplacementMapSoftwareApplier(const FEDisplacementMap& effect)
     : Base(effect)
 {
-    ASSERT(m_effect.xChannelSelector() != ChannelSelectorType::CHANNEL_UNKNOWN);
-    ASSERT(m_effect.yChannelSelector() != ChannelSelectorType::CHANNEL_UNKNOWN);
+    ASSERT(m_effect->xChannelSelector() != ChannelSelectorType::CHANNEL_UNKNOWN);
+    ASSERT(m_effect->yChannelSelector() != ChannelSelectorType::CHANNEL_UNKNOWN);
 }
 
 int FEDisplacementMapSoftwareApplier::xChannelIndex() const
 {
-    return static_cast<int>(m_effect.xChannelSelector()) - 1;
+    return static_cast<int>(m_effect->xChannelSelector()) - 1;
 }
 
 int FEDisplacementMapSoftwareApplier::yChannelIndex() const
 {
-    return static_cast<int>(m_effect.yChannelSelector()) - 1;
+    return static_cast<int>(m_effect->yChannelSelector()) - 1;
 }
 
-bool FEDisplacementMapSoftwareApplier::apply(const Filter& filter, const FilterImageVector& inputs, FilterImage& result) const
+bool FEDisplacementMapSoftwareApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
     auto& input2 = inputs[1].get();
@@ -75,7 +75,7 @@ bool FEDisplacementMapSoftwareApplier::apply(const Filter& filter, const FilterI
     ASSERT(inputPixelBuffer->bytes().size() == displacementPixelBuffer->bytes().size());
 
     auto paintSize = result.absoluteImageRect().size();
-    auto scale = filter.resolvedSize({ m_effect.scale(), m_effect.scale() });
+    auto scale = filter.resolvedSize({ m_effect->scale(), m_effect->scale() });
     auto absoluteScale = filter.scaledByFilterScale(scale);
 
     float scaleForColorX = absoluteScale.width() / 255.0;

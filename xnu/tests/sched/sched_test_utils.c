@@ -1,10 +1,11 @@
-#include <mach/mach.h>
-#include <stdlib.h>
-#include <signal.h>
 #include <mach/mach_time.h>
-#include <os/atomic_private.h>
-#include <sys/commpage.h>
+#include <mach/mach.h>
 #include <machine/cpu_capabilities.h>
+#include <os/atomic_private.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <sys/commpage.h>
+#include <sys/kdebug.h>
 
 #include <darwintest.h>
 #include <darwintest_utils.h>
@@ -27,30 +28,35 @@ reenable_verbose_sched_utils(void)
 }
 
 static mach_timebase_info_data_t timebase_info;
-static bool initialized_timebase = false;
 
 uint64_t
 nanos_to_abs(uint64_t nanos)
 {
-	kern_return_t kr;
-	if (!initialized_timebase) {
+	mach_timebase_info_data_t timebase = timebase_info;
+
+	if (timebase.numer == 0 || timebase.denom == 0) {
+		kern_return_t kr;
+
 		kr = mach_timebase_info(&timebase_info);
 		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_timebase_info");
-		initialized_timebase = true;
+
+		timebase = timebase_info;
 	}
-	return nanos * timebase_info.denom / timebase_info.numer;
+	return nanos * timebase.denom / timebase.numer;
 }
 
 uint64_t
 abs_to_nanos(uint64_t abs)
 {
-	kern_return_t kr;
-	if (!initialized_timebase) {
+	mach_timebase_info_data_t timebase = timebase_info;
+
+	if (timebase.numer == 0 || timebase.denom == 0) {
+		kern_return_t kr;
 		kr = mach_timebase_info(&timebase_info);
 		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_timebase_info");
-		initialized_timebase = true;
+		timebase = timebase_info;
 	}
-	return abs * timebase_info.numer / timebase_info.denom;
+	return abs * timebase.numer / timebase.denom;
 }
 
 static int num_perf_levels = 0;
@@ -74,9 +80,23 @@ platform_perflevel_name(unsigned int perflevel)
 		char sysctl_name[64] = { 0 };
 		snprintf(sysctl_name, sizeof(sysctl_name), "hw.perflevel%d.name", perflevel);
 		ret = sysctlbyname(sysctl_name, &perflevel_names[perflevel], &(size_t){ sizeof(perflevel_names[perflevel]) }, NULL, 0);
-		T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, sysctl_name);
+		T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "%s", sysctl_name);
 	}
 	return (const char *)perflevel_names[perflevel];
+}
+
+static unsigned int perflevel_ncpus[64] = {0};
+unsigned int
+platform_perflevel_ncpus(unsigned int perflevel)
+{
+	if (perflevel_ncpus[perflevel] == 0) {
+		int ret;
+		char sysctl_name[64] = { 0 };
+		snprintf(sysctl_name, sizeof(sysctl_name), "hw.perflevel%d.logicalcpu", perflevel);
+		ret = sysctlbyname(sysctl_name, &perflevel_ncpus[perflevel], &(size_t){ sizeof(perflevel_ncpus[perflevel]) }, NULL, 0);
+		T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "%s", sysctl_name);
+	}
+	return perflevel_ncpus[perflevel];
 }
 
 static bool reported_is_amp = false;
@@ -98,10 +118,14 @@ platform_is_virtual_machine(void)
 	int vmm_present = 0;
 	ret = sysctlbyname("kern.hv_vmm_present", &vmm_present, &(size_t){ sizeof(vmm_present) }, NULL, 0);
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(ret, "kern.hv_vmm_present");
-	if (vmm_present && verbosity_enabled) {
-		T_LOG("🛰️ Platform is a virtual machine!");
+	if (vmm_present) {
+		if (verbosity_enabled) {
+			T_LOG("🛰️ Platform is a virtual machine!");
+		}
+		return true;
 	}
-	return (bool)vmm_present;
+
+	return false;
 }
 
 static char sched_policy_name[64];
@@ -259,6 +283,26 @@ create_threads(int num_threads, int priority,
 		create_thread(&thread_handles[i], attr, func, arg_array == NULL ? NULL : arg_array[i]);
 	}
 	return thread_handles;
+}
+
+const char *
+platform_train_descriptor(void)
+{
+#if TARGET_OS_XR
+	return "visionOS";
+#elif TARGET_OS_TV
+	return "tvOS";
+#elif TARGET_OS_WATCH
+	return "watchOS";
+#elif TARGET_OS_BRIDGE
+	return "bridgeOS";
+#elif TARGET_OS_OSX
+	return "macOS";
+#elif TARGET_OS_IOS
+	return "iOS";
+#else
+	return "unknown";
+#endif
 }
 
 static const double default_idle_threshold = 0.9;
@@ -522,7 +566,7 @@ sched_utils_tracing_supported(void)
 trace_handle_t
 begin_collect_trace(int argc, char *const argv[], char *filename)
 {
-	return begin_collect_trace_fmt(argc, argv, filename);
+	return begin_collect_trace_fmt(COLLECT_TRACE_FLAG_NONE, argc, argv, filename);
 }
 static bool first_trace = true;
 
@@ -538,10 +582,14 @@ static char *begin_notification = "🖊️_trace_begun...";
 static char *end_notification = "🖊️_trace_ended...";
 static char *trigger_end_notification = "🖊️_stopping_trace...";
 
+#if !(TARGET_OS_WATCH || TARGET_OS_TV)
 static const int waiting_timeout_sec = 60 * 2; /* 2 minutes, allows trace post-processing to finish */
+#else /* !(TARGET_OS_WATCH || TARGET_OS_TV) */
+static const int waiting_timeout_sec = 60 * 3 + 30; /* 3 minutes and 30 seconds for slower targets */
+#endif /* !(TARGET_OS_WATCH || TARGET_OS_TV) */
 
 trace_handle_t
-begin_collect_trace_fmt(int argc, char *const argv[], char *fmt, ...)
+begin_collect_trace_fmt(collect_trace_flags_t flags, int argc, char *const argv[], char *fmt, ...)
 {
 	/* Check trace requirements */
 	if (!sched_utils_tracing_supported() || !trace_requested(argc, argv)) {
@@ -589,10 +637,31 @@ begin_collect_trace_fmt(int argc, char *const argv[], char *fmt, ...)
 	T_QUIET; T_WITH_ERRNO; T_EXPECT_EQ(ret, 0, "dt_launch_tool");
 
 	/* Launch trace record */
-	char *trace_args[] = {trace_bin, "record", handle->abs_filename, "--plan", "default", "--unsafe",
-		              "--kdebug-filter-include", "C0x01", "--omit", "Logging", "--kdebug-buffer-size", "1gb",
-		              "--notify-after-start", begin_notification, "--notify-after-end", end_notification,
-		              "--end-on-notification", trigger_end_notification, "&", NULL};
+	char *trace_args_base[18] = {trace_bin, "record", handle->abs_filename, "--plan", "default", "--unsafe",
+		                     "--kdebug-filter-include", "C0x01",
+		                     "--omit", "Logging", "--kdebug-buffer-size", "1gb",
+		                     "--notify-after-start", begin_notification, "--notify-after-end", end_notification,
+		                     "--end-on-notification", trigger_end_notification};
+	const unsigned trace_args_cap = 32; /* INCREASE THIS if there are too many trace args */
+	char* trace_args[trace_args_cap];
+	unsigned trace_args_len = 0;
+	for (unsigned i = 0; i < sizeof(trace_args_base) / sizeof(char *); ++i) {
+		trace_args[trace_args_len++] = trace_args_base[i];
+		T_QUIET; T_ASSERT_LT(trace_args_len, trace_args_cap, "too many trace args");
+	}
+	if (flags & COLLECT_TRACE_FLAG_DISABLE_SYSCALLS) {
+		trace_args[trace_args_len++] = "--omit=syscalls,syscall-sampling";
+		T_QUIET; T_ASSERT_LT(trace_args_len, trace_args_cap, "too many trace args");
+		trace_args[trace_args_len++] = "--kdebug-filter-exclude=S0x0103,S0x040c";
+		T_QUIET; T_ASSERT_LT(trace_args_len, trace_args_cap, "too many trace args");
+	}
+	if (flags & COLLECT_TRACE_FLAG_DISABLE_CLUTCH) {
+		trace_args[trace_args_len++] = "--kdebug-filter-exclude=S0x01A9";
+		T_QUIET; T_ASSERT_LT(trace_args_len, trace_args_cap, "too many trace args");
+	}
+	trace_args[trace_args_len++] = NULL;
+	T_QUIET; T_ASSERT_LT(trace_args_len, trace_args_cap, "too many trace args");
+
 	pid_t trace_pid = dt_launch_tool_pipe(trace_args, false, NULL,
 	    ^bool (char *data, __unused size_t data_size, __unused dt_pipe_data_handler_context_t *context) {
 		T_LOG("🖊️ [trace] %s", data);
@@ -607,7 +676,7 @@ begin_collect_trace_fmt(int argc, char *const argv[], char *fmt, ...)
 	T_LOG("🖊️ Starting trace collection for \"%s\" trace[%u]", handle->trace_filename, trace_pid);
 
 	/* Wait for tracing to start */
-	int signal_num;
+	int signal_num = 0;
 	ret = dt_waitpid(handle->wait_on_start_pid, NULL, &signal_num, waiting_timeout_sec);
 	T_QUIET; T_EXPECT_TRUE(ret, "dt_waitpid for trace start signal_num %d", signal_num);
 
@@ -636,8 +705,8 @@ end_collect_trace(trace_handle_t handle)
 
 	/* Wait for tracing to actually stop */
 	T_LOG("🖊️ Now waiting on trace to finish up...");
-	int signal_num;
-	int exit_status;
+	int signal_num = 0;
+	int exit_status = 0;
 	ret = dt_waitpid(trace_state->wait_on_end_pid, &exit_status, &signal_num, waiting_timeout_sec);
 	T_QUIET; T_EXPECT_TRUE(ret, "dt_waitpid for trace stop, exit status %d signal_num %d", exit_status, signal_num);
 
@@ -709,4 +778,10 @@ discard_collected_trace(trace_handle_t handle)
 		T_LOG("🖊️ Deleted recorded trace file at \"%s\"", trace_state->abs_filename);
 	}
 	trace_state->status = DISCARDED;
+}
+
+void
+sched_kdebug_test_fail(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3)
+{
+	kdebug_trace(ARIADNEDBG_CODE(0, 0), arg0, arg1, arg2, arg3);
 }

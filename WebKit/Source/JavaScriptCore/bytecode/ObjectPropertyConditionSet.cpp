@@ -514,8 +514,22 @@ ObjectPropertyConditionSet generateConditionsForPrototypeEquivalenceConcurrently
         });
 }
 
-ObjectPropertyConditionSet generateConditionsForPropertyMissConcurrently(
-    VM& vm, JSGlobalObject* globalObject, Structure* headStructure, UniquedStringImpl* uid)
+ObjectPropertyConditionSet generateConditionsForPrototypePropertyHitConcurrently(VM& vm, JSGlobalObject* globalObject, Structure* headStructure, JSObject* prototype, UniquedStringImpl* uid)
+{
+    return generateConditions(
+        globalObject, headStructure, prototype, uid,
+        [&](auto& conditions, JSObject* object, Structure* structure) -> bool {
+            PropertyCondition::Kind kind = object == prototype ? PropertyCondition::Presence : PropertyCondition::Absence;
+            ObjectPropertyCondition result =
+                generateCondition(vm, nullptr, object, structure, uid, kind, Concurrency::ConcurrentThread);
+            if (!result)
+                return false;
+            conditions.append(result);
+            return true;
+        });
+}
+
+ObjectPropertyConditionSet generateConditionsForPropertyMissConcurrently(VM& vm, JSGlobalObject* globalObject, Structure* headStructure, UniquedStringImpl* uid)
 {
     return generateConditions(
         globalObject, headStructure, nullptr, uid,

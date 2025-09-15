@@ -25,7 +25,7 @@
 
 [ExceptionForEnabledBy]
 messages -> UserMediaCaptureManager {
-    ValidateUserMediaRequestConstraints(struct WebCore::MediaStreamRequest request, struct WebCore::MediaDeviceHashSalts mediaDeviceIdentifierHashSalts) -> (std::optional<WebCore::MediaConstraintType> invalidConstraint, Vector<WebCore::CaptureDevice> audioDevices, Vector<WebCore::CaptureDevice> videoDevices)
+    ValidateUserMediaRequestConstraints(struct WebCore::MediaStreamRequest request, struct WebCore::MediaDeviceHashSalts mediaDeviceIdentifierHashSalts) -> (Expected<WebCore::RealtimeMediaSourceCenter::ValidDevices, WebCore::MediaConstraintType> result)
     GetMediaStreamDevices(bool revealIdsAndLabels) -> (Vector<WebCore::CaptureDeviceWithCapabilities> devices)
 }
 

@@ -29,8 +29,6 @@
 #include "GStreamerAudioStreamDescription.h"
 #include "GStreamerCaptureDeviceManager.h"
 
-#include <gst/app/gstappsink.h>
-#include <gst/gst.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/MakeString.h>
 
@@ -49,13 +47,14 @@ class GStreamerAudioCaptureSourceFactory : public AudioCaptureFactory {
 public:
     CaptureSourceOrError createAudioCaptureSource(const CaptureDevice& device, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier>) final
     {
+        // Here, like in GStreamerVideoCaptureSource, we could rely on the DesktopPortal and
+        // PipeWireCaptureDeviceManager, but there is no audio desktop portal yet. See
+        // https://github.com/flatpak/xdg-desktop-portal/discussions/1142.
         return GStreamerAudioCaptureSource::create(String { device.persistentId() }, WTFMove(hashSalts), constraints);
     }
 private:
     CaptureDeviceManager& audioCaptureDeviceManager() final { return GStreamerAudioCaptureDeviceManager::singleton(); }
-    const Vector<CaptureDevice>& speakerDevices() const { return m_speakerDevices; }
-
-    Vector<CaptureDevice> m_speakerDevices;
+    const Vector<CaptureDevice>& speakerDevices() const final { return GStreamerAudioCaptureDeviceManager::singleton().speakerDevices(); }
 };
 
 static GStreamerAudioCaptureSourceFactory& libWebRTCAudioCaptureSourceFactory()
@@ -111,6 +110,13 @@ void GStreamerAudioCaptureSource::captureEnded()
 {
     m_capturer->stop();
     captureFailed();
+}
+
+void GStreamerAudioCaptureSource::captureDeviceUpdated(const GStreamerCaptureDevice& device)
+{
+    setName(AtomString { device.label() });
+    setPersistentId(device.persistentId());
+    configurationChanged();
 }
 
 std::pair<GstClockTime, GstClockTime> GStreamerAudioCaptureSource::queryCaptureLatency() const

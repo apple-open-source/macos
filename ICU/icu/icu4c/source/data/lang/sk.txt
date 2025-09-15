@@ -132,6 +132,7 @@ sk{
         crs{"seychelská kreolčina"}
         cs{"čeština"}
         csb{"kašubčina"}
+        cst{"čočenyo"}
         csw{"swampy cree"}
         cu{"cirkevná slovančina"}
         cv{"čuvaština"}
@@ -225,6 +226,7 @@ sk{
         hai{"haida"}
         haw{"havajčina"}
         hax{"haida (juh)"}
+        hch{"wixárika"}
         he{"hebrejčina"}
         hi{"hindčina"}
         hil{"hiligajnončina"}
@@ -252,6 +254,7 @@ sk{
         inh{"inguština"}
         io{"ido"}
         is{"islandčina"}
+        isc{"iskonawa"}
         it{"taliančina"}
         iu{"inuktitut"}
         ja{"japončina"}
@@ -489,6 +492,7 @@ sk{
         sh{"srbochorvátčina"}
         shi{"tachelhit"}
         shn{"šančina"}
+        shp{"shipibo-konibo"}
         shu{"čadská arabčina"}
         si{"sinhalčina"}
         sid{"sidamo"}
@@ -706,6 +710,7 @@ sk{
     }
     Types{
         calendar{
+            bangla{"bengálsky kalendár"}
             buddhist{"buddhistický kalendár"}
             chinese{"čínsky kalendár"}
             coptic{"koptský kalendár"}
@@ -713,6 +718,7 @@ sk{
             ethiopic{"etiópsky kalendár"}
             ethiopic-amete-alem{"etiópsky kalendár Amete Alem"}
             gregorian{"gregoriánsky kalendár"}
+            gujarati{"gudžarátsky kalendár"}
             hebrew{"židovský kalendár"}
             indian{"Indický národný kalendár"}
             islamic{"kalendár hidžry"}
@@ -720,8 +726,16 @@ sk{
             islamic-umalqura{"kalendár hidžry (Umm al-Qura)"}
             iso8601{"kalendár ISO 8601"}
             japanese{"japonský kalendár"}
+            kannada{"kannadský kalendár"}
+            malayalam{"malajálamský kalendár"}
+            marathi{"maráthský kalendár"}
+            odia{"urijský kalendár"}
             persian{"perzský kalendár"}
             roc{"čínsky republikánsky kalendár"}
+            tamil{"tamilský kalendár"}
+            telugu{"telugský kalendár"}
+            vietnamese{"vietnamský kalendár"}
+            vikram{"vikramský kalendár"}
         }
         cf{
             account{"účtovný formát meny"}

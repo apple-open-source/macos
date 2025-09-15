@@ -21,7 +21,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-#if canImport(WritingTools)
+#if ENABLE_WRITING_TOOLS
 
 import Foundation
 
@@ -66,4 +66,4 @@ extension IntelligenceTextEffectChunk: Hashable, Equatable {
     }
 }
 
-#endif
+#endif // ENABLE_WRITING_TOOLS

@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "WebProcessProxy.h"
+#include <WebCore/ServiceWorkerTypes.h>
 
 #import "AccessibilitySupportSPI.h"
 #import "CodeSigning.h"
@@ -34,7 +35,6 @@
 #import "SandboxUtilities.h"
 #import "SharedBufferReference.h"
 #import "WKAPICast.h"
-#import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WebProcessMessages.h"
 #import "WebProcessPool.h"
@@ -55,6 +55,7 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 #import "WebInspectorUtilities.h"
+#import <JavaScriptCore/RemoteInspector.h>
 #import <JavaScriptCore/RemoteInspectorConstants.h>
 #endif
 
@@ -69,6 +70,9 @@
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 #import "TCCSoftLink.h"
 #endif
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, connection())
+#define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromWebProcess(url), connection())
 
 namespace WebKit {
 
@@ -195,7 +199,7 @@ void WebProcessProxy::sendAudioComponentRegistrations()
         if (!registrations)
             return;
         
-        RunLoop::protectedMain()->dispatch([weakThis = WTFMove(weakThis), registrations = WTFMove(registrations)] () mutable {
+        RunLoop::mainSingleton().dispatch([weakThis = WTFMove(weakThis), registrations = WTFMove(registrations)] () mutable {
             if (!weakThis)
                 return;
 
@@ -260,13 +264,88 @@ bool WebProcessProxy::shouldDisableJITCage() const
 #endif
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
 void WebProcessProxy::setupLogStream(uint32_t pid, IPC::StreamServerConnectionHandle&& serverConnection, LogStreamIdentifier logStreamIdentifier, CompletionHandler<void(IPC::Semaphore& streamWakeUpSemaphore, IPC::Semaphore& streamClientWaitSemaphore)>&& completionHandler)
 {
-    Ref logStream = LogStream::create(processID());
-    logStream->setup(WTFMove(serverConnection), logStreamIdentifier, WTFMove(completionHandler));
+    Ref logStream = LogStream::create(processID(), logStreamIdentifier);
+    logStream->setup(WTFMove(serverConnection), WTFMove(completionHandler));
     m_logStream = WTFMove(logStream);
 }
+#else
+void WebProcessProxy::setupLogStream(uint32_t pid, LogStreamIdentifier logStreamIdentifier, CompletionHandler<void()>&& completionHandler)
+{
+    Ref logStream = LogStream::create(processID(), logStreamIdentifier);
+    logStream->setup(protectedConnection());
+    addMessageReceiver(Messages::LogStream::messageReceiverName(), logStreamIdentifier, logStream);
+    m_logStream = WTFMove(logStream);
+    completionHandler();
+}
+#endif
 #endif // ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+
+#if ENABLE(REMOTE_INSPECTOR)
+void WebProcessProxy::createServiceWorkerDebuggable(WebCore::ServiceWorkerIdentifier identifier, URL&& url, WebCore::ServiceWorkerIsInspectable isInspectable, CompletionHandler<void(bool shouldWaitForAutoInspection)>&& completionHandler)
+{
+    MESSAGE_CHECK_URL(url);
+    RELEASE_LOG(Inspector, "WebProcessProxy::createServiceWorkerDebuggable");
+    if (!shouldEnableRemoteInspector()) {
+        if (completionHandler)
+            completionHandler(false);
+        return;
+    }
+
+    Ref serviceWorkerDebuggableProxy = ServiceWorkerDebuggableProxy::create(url.string(), identifier, *this);
+    m_serviceWorkerDebuggableProxies.add(identifier, serviceWorkerDebuggableProxy);
+    serviceWorkerDebuggableProxy->init();
+    serviceWorkerDebuggableProxy->setInspectable(isInspectable == WebCore::ServiceWorkerIsInspectable::Yes);
+
+    if (completionHandler) {
+#if ENABLE(REMOTE_INSPECTOR_SERVICE_WORKER_AUTO_INSPECTION)
+        completionHandler(serviceWorkerDebuggableProxy->isPausedWaitingForAutomaticInspection());
+#else
+        completionHandler(false);
+#endif
+    }
+}
+
+void WebProcessProxy::deleteServiceWorkerDebuggable(WebCore::ServiceWorkerIdentifier identifier)
+{
+    RELEASE_LOG(Inspector, "WebProcessProxy::deleteServiceWorkerDebuggable");
+    if (!shouldEnableRemoteInspector())
+        return;
+    m_serviceWorkerDebuggableProxies.remove(identifier);
+}
+
+void WebProcessProxy::sendMessageToInspector(WebCore::ServiceWorkerIdentifier identifier, String&& message)
+{
+    RELEASE_LOG(Inspector, "WebProcessProxy::sendMessageToInspector");
+    if (!shouldEnableRemoteInspector())
+        return;
+    if (RefPtr serviceWorkerDebuggableProxy = m_serviceWorkerDebuggableProxies.get(identifier)) {
+        auto targetID = serviceWorkerDebuggableProxy->targetIdentifier();
+        Inspector::RemoteInspector::singleton().sendMessageToRemote(targetID, WTFMove(message));
+    }
+}
+#endif
+
+void WebProcessProxy::platformDestroy()
+{
+#if PLATFORM(IOS_FAMILY)
+#if HAVE(MOUSE_DEVICE_OBSERVATION)
+    [[WKMouseDeviceObserver sharedInstance] stop];
+#endif
+#if HAVE(STYLUS_DEVICE_OBSERVATION)
+    [[WKStylusDeviceObserver sharedInstance] stop];
+#endif
+#endif // PLATFORM(IOS_FAMILY)
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT) && !ENABLE(STREAMING_IPC_IN_LOG_FORWARDING)
+    if (m_logStream.get())
+        removeMessageReceiver(Messages::LogStream::messageReceiverName(), m_logStream->identifier());
+#endif
+}
 
 }
 
+#undef MESSAGE_CHECK_URL
+#undef MESSAGE_CHECK

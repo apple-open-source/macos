@@ -1,4 +1,4 @@
-#if !U_PLATFORM_IS_DARWIN_BASED
+#if !APPLE_ICU_CHANGES
 // Copyright (C) 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 1999-2016, International Business Machines
@@ -989,7 +989,7 @@ static const UBiDiProps ubidi_props_singleton={
 };
 
 #endif  // INCLUDED_FROM_UBIDI_PROPS_C
-#else // U_PLATFORM_IS_DARWIN_BASED
+#else // APPLE_ICU_CHANGES
 // Copyright (C) 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 1999-2016, International Business Machines
@@ -1988,4 +1988,4 @@ static const UBiDiProps ubidi_props_singleton={
 };
 
 #endif  // INCLUDED_FROM_UBIDI_PROPS_C
-#endif // U_PLATFORM_IS_DARWIN_BASED
+#endif // APPLE_ICU_CHANGES

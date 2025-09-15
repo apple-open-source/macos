@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if PLATFORM(MAC)
 #import <pal/spi/mac/IOKitSPIMac.h>
 #else

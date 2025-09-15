@@ -357,6 +357,7 @@ tcp_log_keepalive(const char *func_name, int line_no, struct tcpcb *tp,
 	    TCP_LOG_COMMON_PCB_FMT
 	    "snd_una: %u snd_max: %u "
 	    "SO_KA: %d RSTALL: %d TFOPRB: %d idle_time: %u "
+	    "rtimo_probes: %u adaptive_rtimo: %u "
 	    "KIDLE: %d KINTV: %d KCNT: %d",
 	    func_name, line_no,
 	    TCP_LOG_COMMON_PCB_ARGS,
@@ -364,7 +365,7 @@ tcp_log_keepalive(const char *func_name, int line_no, struct tcpcb *tp,
 	    tp->t_inpcb->inp_socket->so_options & SO_KEEPALIVE,
 	    tp->t_flagsext & TF_DETECT_READSTALL,
 	    tp->t_tfo_probe_state == TFO_PROBE_PROBING,
-	    idle_time,
+	    idle_time, tp->t_rtimo_probes, tp->t_adaptive_rtimo,
 	    TCP_CONN_KEEPIDLE(tp), TCP_CONN_KEEPINTVL(tp),
 	    TCP_CONN_KEEPCNT(tp));
 }
@@ -422,8 +423,8 @@ tcp_log_connection(struct tcpcb *tp, const char *event, int error)
 	    event, \
 	    TCP_LOG_COMMON_PCB_ARGS, \
 	    tp->t_syn_rcvd, tp->t_syn_sent, \
-	    inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	    inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	    inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	    inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	    P_MS(tp->t_srtt, TCP_RTT_SHIFT), \
 	    P_MS(tp->t_rttvar, TCP_RTTVAR_SHIFT), \
 	    get_base_rtt(tp), \
@@ -639,8 +640,8 @@ tcp_log_connection_summary(const char *func_name, int line_no, struct tcpcb *tp)
 	    TCP_LOG_COMMON_PCB_ARGS,  \
 	    duration / TCP_RETRANSHZ, duration % TCP_RETRANSHZ, \
 	    conntime / TCP_RETRANSHZ, conntime % TCP_RETRANSHZ,  \
-	    inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	    inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	    inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	    inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	    tp->t_stat.rxmitpkts, \
 	    tp->t_rcvoopack, tp->t_stat.rxduplicatebytes, tp->t_stat.acks_delayed, tp->t_stat.delayed_acks_sent, \
 	    P_MS(tp->t_srtt, TCP_RTT_SHIFT), \
@@ -1040,8 +1041,8 @@ tcp_log_message(const char *func_name, int line_no, struct tcpcb *tp, const char
 #define TCP_LOG_MESSAGE_ARGS \
 	func_name, line_no, \
 	TCP_LOG_COMMON_PCB_ARGS, \
-	inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	message
 
 	os_log(OS_LOG_DEFAULT, TCP_LOG_MESSAGE_FMT,
@@ -1210,8 +1211,8 @@ tcp_log_output(const char *func_name, int line_no, struct tcpcb *tp, const char 
 #define TCP_LOG_MESSAGE_ARGS \
 	func_name, line_no, \
 	TCP_LOG_COMMON_PCB_ARGS, \
-	inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	tp->t_stat.rxmitpkts, tp->t_stat.txretransmitbytes, \
 	message
 

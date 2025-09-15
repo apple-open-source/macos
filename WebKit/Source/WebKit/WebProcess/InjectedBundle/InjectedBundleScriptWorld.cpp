@@ -63,8 +63,8 @@ Ref<InjectedBundleScriptWorld> InjectedBundleScriptWorld::create(const String& n
 
 Ref<InjectedBundleScriptWorld> InjectedBundleScriptWorld::getOrCreate(DOMWrapperWorld& world)
 {
-    if (&world == &mainThreadNormalWorld())
-        return normalWorld();
+    if (&world == &mainThreadNormalWorldSingleton())
+        return normalWorldSingleton();
 
     if (auto existingWorld = allWorlds().get(world))
         return *existingWorld;
@@ -81,9 +81,9 @@ InjectedBundleScriptWorld* InjectedBundleScriptWorld::find(const String& name)
     return nullptr;
 }
 
-InjectedBundleScriptWorld& InjectedBundleScriptWorld::normalWorld()
+InjectedBundleScriptWorld& InjectedBundleScriptWorld::normalWorldSingleton()
 {
-    static InjectedBundleScriptWorld& world = adoptRef(*new InjectedBundleScriptWorld(mainThreadNormalWorld(), String())).leakRef();
+    static InjectedBundleScriptWorld& world = adoptRef(*new InjectedBundleScriptWorld(mainThreadNormalWorldSingleton(), String())).leakRef();
     return world;
 }
 
@@ -131,9 +131,24 @@ void InjectedBundleScriptWorld::makeAllShadowRootsOpen()
     m_world->setShadowRootIsAlwaysOpen();
 }
 
+void InjectedBundleScriptWorld::exposeClosedShadowRootsForExtensions()
+{
+    m_world->setClosedShadowRootIsExposedForExtensions();
+}
+
 void InjectedBundleScriptWorld::disableOverrideBuiltinsBehavior()
 {
     m_world->disableLegacyOverrideBuiltInsBehavior();
+}
+
+Ref<const WebCore::DOMWrapperWorld> InjectedBundleScriptWorld::protectedCoreWorld() const
+{
+    return m_world;
+}
+
+Ref<WebCore::DOMWrapperWorld> InjectedBundleScriptWorld::protectedCoreWorld()
+{
+    return m_world;
 }
 
 } // namespace WebKit

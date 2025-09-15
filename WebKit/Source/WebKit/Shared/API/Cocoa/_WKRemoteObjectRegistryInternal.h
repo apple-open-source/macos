@@ -24,7 +24,6 @@
  */
 
 #import "_WKRemoteObjectRegistry.h"
-#import <wtf/NakedRef.h>
 
 namespace IPC {
 class MessageSender;
@@ -42,8 +41,8 @@ class WebPageProxy;
 
 @property (nonatomic, readonly) WebKit::RemoteObjectRegistry& remoteObjectRegistry;
 
-- (id)_initWithWebPage:(NakedRef<WebKit::WebPage>)messageSender;
-- (id)_initWithWebPageProxy:(NakedRef<WebKit::WebPageProxy>)messageSender;
+- (id)_initWithWebPage:(std::reference_wrapper<WebKit::WebPage>)messageSender;
+- (id)_initWithWebPageProxy:(std::reference_wrapper<WebKit::WebPageProxy>)messageSender;
 - (void)_invalidate;
 
 - (void)_sendInvocation:(NSInvocation *)invocation interface:(_WKRemoteObjectInterface *)interface;

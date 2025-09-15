@@ -352,10 +352,11 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         }
         return NSOrderedSame;
     }];
-    
+
     NSMutableArray<CKRecordID*>* reversedRecordIDsMutable = [NSMutableArray arrayWithArray:reversedRecordIDs];
     if (limitFetchTo) {
-        for (CKRecordID* recordIDToDelete in [zone.pastDatabases[limitFetchTo.token] allKeys]) {
+        NSArray<CKRecordID*>* recordIDsToWithhold = [zone.pastDatabases[limitFetchTo.token] allKeys];
+        for (CKRecordID* recordIDToDelete in recordIDsToWithhold) {
             [reversedRecordIDsMutable removeObject:recordIDToDelete];
         }
     }
@@ -373,7 +374,6 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
     for(CKRecordZoneID* zoneID in self.recordZoneIDs) {
         FakeCKZone* zone = ckdb[zoneID];
-        BOOL fetchNewestChangesFirst = NO;
 
         if(!zone) {
             // Only really supports a single zone failure
@@ -414,10 +414,9 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         if (self.configurationsByRecordZoneID[zoneID].previousServerChangeToken) {
             fetchTokenWithDirection = [FakeCKServerChangeToken decodeCKServerChangeToken:self.configurationsByRecordZoneID[zoneID].previousServerChangeToken];
         }
-        ckksnotice("fakeck", zone.zoneID, "fetch token: %@", fetchTokenWithDirection);
 
-        // Set direction of fetch either using previous fetch token, or we assume reverse sync with nil fetch token.
-        fetchNewestChangesFirst = fetchTokenWithDirection ? !fetchTokenWithDirection.forward : YES;
+        BOOL fetchNewestChangesFirst = fetchTokenWithDirection ? !fetchTokenWithDirection.forward : YES;
+        ckksnotice("fakeck", zone.zoneID, "fetch token: %@ fetchNewestChangesFirst: %@", fetchTokenWithDirection, fetchNewestChangesFirst ? @"YES" : @"NO");
 
         // Forward Sync
         if (!fetchNewestChangesFirst) {
@@ -506,19 +505,24 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
                 currentChangeToken = [[FakeCKServerChangeToken alloc] initWithAttributes:zone.currentChangeToken.token forward:NO];
 
+                // Obtain the record IDs in the diff between previous fetch token and current change token
+                sortedCKRecordIDs = [self obtainReverseSortedRecordIDs:zone fetchToken:fetchTokenWithDirection limitFetchTo:zone.limitFetchTo];
+                
                 // Limit the "latest" records returned to `limitFetchTo`
                 if (zone.limitFetchTo != nil) {
                     currentChangeToken = zone.limitFetchTo;
+                    currentChangeToken.forward = NO;
+                    currentChangeToken.zoneCurrentChangeToken = zone.currentChangeToken.token;
                     zone.limitFetchTo = nil;
                     opError = zone.limitFetchError;
                     moreComing = true;
                 }
 
-                // Obtain the record IDs in the diff between previous fetch token and current change token
-                sortedCKRecordIDs = [self obtainReverseSortedRecordIDs:zone fetchToken:fetchTokenWithDirection limitFetchTo:zone.limitFetchTo];
                 currentDatabase = [[NSMutableDictionary alloc] init];
                 for (CKRecordID* recordID in sortedCKRecordIDs) {
-                    currentDatabase[recordID] = zone.currentDatabase[recordID];
+                    if (![zone.deletedRecordIDs containsObject:recordID]) {
+                        currentDatabase[recordID] = zone.currentDatabase[recordID];
+                    }
                 }
 
                 ckksnotice("fakeck", zone.zoneID, "FakeCKFetchRecordZoneChangesOperation(%@): database is currently %@ change token %@", zone.zoneID, currentDatabase, fetchTokenWithDirection);
@@ -540,19 +544,28 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
                 }
 
                 // Zone additions and modifications should be processed the same way regardless of forward sync or reverse sync. Deletions don't call `recordWithIDWasDeletedBlock`.
-
                 [filteredCurrentDatabase enumerateKeysAndObjectsUsingBlock:^(CKRecordID * _Nonnull recordID, CKRecord * _Nonnull record, BOOL * _Nonnull stop) {
                     self.recordChangedBlock(record);
                 }];
 
-                // If we no longer have more things coming and we are in reverse sync then we change to forward syncing
-                if (!moreComing) {
-                    currentChangeToken.forward = YES;
-                }
-
                 // Record current serverChangeToken as previous serverChangeToken
                 NSKeyedArchiver *encoder = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
-                [currentChangeToken encodeWithCoder:encoder];
+                FakeCKServerChangeToken* changeTokenToReturn = currentChangeToken;
+
+                // If we no longer have more things coming and we are in reverse sync then we change to forward syncing
+                if (!moreComing) {
+
+                    // Check that the database hasn't changed since our first fetch got kicked off.
+                    if (fetchTokenWithDirection && (![fetchTokenWithDirection.zoneCurrentChangeToken isEqual:zone.currentChangeToken.token])) {
+                        // The zone has changed! Return the change token corresponding with our fetch token's change tag.
+                        changeTokenToReturn = [[FakeCKServerChangeToken alloc] initWithAttributes:fetchTokenWithDirection.zoneCurrentChangeToken forward:YES];
+                        changeTokenToReturn.zoneCurrentChangeToken = zone.currentChangeToken.token;
+                    }
+
+                    changeTokenToReturn.forward = YES;
+                }
+
+                [changeTokenToReturn encodeWithCoder:encoder];
                 CKServerChangeToken* encodedChangeToken = [[CKServerChangeToken alloc] initWithData:encoder.encodedData];
                 self.recordZoneChangeTokensUpdatedBlock(zoneID, encodedChangeToken, nil);
                 self.recordZoneFetchCompletionBlock(zoneID, encodedChangeToken, nil, moreComing, opError);
@@ -780,7 +793,6 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 
 @interface FakeCKZone ()
 @property NSMutableArray<NSError*>* fetchErrors;
-@property int ctag;
 @end
 
 @implementation FakeCKZone
@@ -800,6 +812,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         _fetchRecordZoneChangesOperationCount = 0;
         _fetchRecordZoneChangesTimestamps = [[NSMutableArray alloc] init];
         _ctag = 0;
+        _deletedRecordIDs = [NSMutableSet set];
 
         dispatch_sync(_queue, ^{
             [self _onqueueRollChangeToken];
@@ -815,8 +828,9 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 - (void)_onqueueRollChangeToken {
     dispatch_assert_queue(self.queue);
 
-    NSData* changeToken = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
-    self.currentChangeToken = [[FakeCKServerChangeToken alloc] initWithAttributes:[[CKServerChangeToken alloc] initWithData: changeToken] forward:YES];
+    NSData* changeTokenData = [[[NSUUID UUID] UUIDString] dataUsingEncoding:NSUTF8StringEncoding];
+    CKServerChangeToken* changeToken = [[CKServerChangeToken alloc] initWithData: changeTokenData];
+    self.currentChangeToken = [[FakeCKServerChangeToken alloc] initWithAttributes:changeToken forward:YES];
     self.ctag += 1;
 }
 
@@ -860,7 +874,22 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
     ckksnotice("fakeck", self.zoneID, "change tag: %@ %@", record.recordChangeTag, record.recordID);
     record.modificationDate = [NSDate date];
     self.currentDatabase[record.recordID] = record;
+
+    // If we're resurrecting an item with this UUID that was deleted, remove it from our set of deleted recordIDs.
+    [self.deletedRecordIDs removeObject:record.recordID];
     return record;
+}
+
+- (void)addCloudKitTombstoneToZone:(CKRecord*)record {
+    dispatch_sync(self.queue, ^{
+        [self _onqueueAddCloudKitTombstoneToZone:record];
+    });
+}
+
+- (CKRecord*)_onqueueAddCloudKitTombstoneToZone:(CKRecord*)record {
+    CKRecord* addedTombstoneRecord = [self _onqueueAddToZone:record];
+    [self.deletedRecordIDs addObject:record.recordID];
+    return addedTombstoneRecord;
 }
 
 - (NSError * _Nullable)errorFromSavingRecord:(CKRecord*) record {
@@ -893,7 +922,6 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
             }
         }
     }
-    //
 
     if(existingRecord && ![existingRecord.recordChangeTag isEqualToString: record.recordChangeTag]) {
         ckksnotice("fakeck", self.zoneID, "change tag mismatch! Fail the write: %@ %@", record, existingRecord);
@@ -937,6 +965,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         [self _onqueueRollChangeToken];
 
         [self.currentDatabase removeObjectForKey: recordID];
+        [self.deletedRecordIDs addObject:recordID];
 
         ckksnotice("fakeck", self.zoneID, "Change token after server-deleted record is : %@", self.currentChangeToken);
     });
@@ -1034,7 +1063,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
         if (coder) {
             _token = [[CKServerChangeToken alloc] initWithData:[coder decodeObjectOfClass:[NSData class] forKey:@"token"]];
             _forward = [coder decodeBoolForKey:@"forward"];
-
+            _zoneCurrentChangeToken = [[CKServerChangeToken alloc] initWithData:[coder decodeObjectOfClass:[NSData class] forKey:@"zoneCurrentChangeToken"]];
         }
     }
     return self;
@@ -1043,6 +1072,7 @@ NSString* const CKKSMockCloudKitContextID = @"ckks_mock_cloudkit_contextid";
 - (void)encodeWithCoder:(nonnull NSCoder *)coder {
     [coder encodeObject:self.token.data forKey:@"token"];
     [coder encodeBool:self.forward forKey:@"forward"];
+    [coder encodeObject:self.zoneCurrentChangeToken.data forKey:@"zoneCurrentChangeToken"];
 }
 
 + (BOOL)supportsSecureCoding {

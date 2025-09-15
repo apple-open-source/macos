@@ -74,7 +74,7 @@
 
 namespace WebCore {
 
-using LayerToPlatformCALayerMap = UncheckedKeyHashMap<void*, PlatformCALayer*>;
+using LayerToPlatformCALayerMap = HashMap<void*, PlatformCALayer*>;
 
 static Lock layerToPlatformLayerMapLock;
 static LayerToPlatformCALayerMap& layerToPlatformLayerMap() WTF_REQUIRES_LOCK(layerToPlatformLayerMapLock)
@@ -112,7 +112,7 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
 
 // Delegate for animationDidStart callback
 @interface WebAnimationDelegate : NSObject {
-    WebCore::PlatformCALayer* m_owner;
+    ThreadSafeWeakPtr<WebCore::PlatformCALayer> m_owner;
 }
 
 - (void)animationDidStart:(CAAnimation *)anim;
@@ -128,7 +128,8 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
 #if PLATFORM(IOS_FAMILY)
     WebThreadLock();
 #endif
-    if (!m_owner)
+    RefPtr owner = m_owner.get();
+    if (!owner)
         return;
 
     MonotonicTime startTime;
@@ -139,7 +140,7 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
     } else
         startTime = mediaTimeToCurrentTime([animation beginTime]);
 
-    CALayer *layer = m_owner->platformLayer();
+    CALayer *layer = owner->platformLayer();
 
     String animationKey;
     for (NSString *key in [layer animationKeys]) {
@@ -150,7 +151,7 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
     }
 
     if (!animationKey.isEmpty())
-        m_owner->animationStarted(animationKey, startTime);
+        owner->animationStarted(animationKey, startTime);
 }
 
 - (void)animationDidStop:(CAAnimation *)animation finished:(BOOL)finished
@@ -160,11 +161,11 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
     WebThreadLock();
 #endif
     UNUSED_PARAM(finished);
-
-    if (!m_owner)
+    RefPtr owner = m_owner.get();
+    if (!owner)
         return;
     
-    CALayer *layer = m_owner->platformLayer();
+    CALayer *layer = owner->platformLayer();
 
     String animationKey;
     for (NSString *key in [layer animationKeys]) {
@@ -175,7 +176,7 @@ static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
     }
 
     if (!animationKey.isEmpty())
-        m_owner->animationEnded(animationKey);
+        owner->animationEnded(animationKey);
 }
 
 - (void)setOwner:(WebCore::PlatformCALayer*)owner
@@ -247,6 +248,11 @@ PlatformCALayerCocoa::PlatformCALayerCocoa(LayerType layerType, PlatformCALayerC
 #if HAVE(CORE_MATERIAL)
     case LayerType::LayerTypeMaterialLayer:
         layerClass = PAL::getMTMaterialLayerClass();
+        break;
+#endif
+#if HAVE(MATERIAL_HOSTING)
+    case LayerType::LayerTypeMaterialHostingLayer:
+        layerClass = [CALayer class];
         break;
 #endif
     case LayerType::LayerTypeTiledBackingLayer:
@@ -388,7 +394,7 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::clone(PlatformCALayerClient* owner) c
         AVPlayerLayer *sourcePlayerLayer = avPlayerLayer();
         ASSERT(sourcePlayerLayer);
 
-        RunLoop::main().dispatch([destinationPlayerLayer = retainPtr(destinationPlayerLayer), sourcePlayerLayer = retainPtr(sourcePlayerLayer)] {
+        RunLoop::mainSingleton().dispatch([destinationPlayerLayer = retainPtr(destinationPlayerLayer), sourcePlayerLayer = retainPtr(sourcePlayerLayer)] {
             [destinationPlayerLayer setPlayer:[sourcePlayerLayer player]];
         });
     }
@@ -558,20 +564,20 @@ void PlatformCALayerCocoa::addAnimationForKey(const String& key, PlatformCAAnima
         [propertyAnimation setDelegate:static_cast<id>(m_delegate.get())];
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer addAnimation:propertyAnimation forKey:key];
+    [m_layer addAnimation:propertyAnimation forKey:key.createNSString().get()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void PlatformCALayerCocoa::removeAnimationForKey(const String& key)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer removeAnimationForKey:key];
+    [m_layer removeAnimationForKey:key.createNSString().get()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
 RefPtr<PlatformCAAnimation> PlatformCALayerCocoa::animationForKey(const String& key)
 {
-    CAAnimation *propertyAnimation = static_cast<CAAnimation *>([m_layer animationForKey:key]);
+    CAAnimation *propertyAnimation = static_cast<CAAnimation *>([m_layer animationForKey:key.createNSString().get()]);
     if (!propertyAnimation)
         return nullptr;
     return PlatformCAAnimationCocoa::create(propertyAnimation);
@@ -933,6 +939,9 @@ bool PlatformCALayerCocoa::filtersCanBeComposited(const FilterOperations& filter
             if (i < (filters.size() - 1))
                 return false;
             break;
+        case FilterOperation::Type::DropShadowWithStyleColor:
+            ASSERT_NOT_REACHED();
+            break;
         default:
             break;
         }
@@ -949,7 +958,7 @@ void PlatformCALayerCocoa::setBlendMode(BlendMode blendMode)
 void PlatformCALayerCocoa::setName(const String& value)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_layer setName:value];
+    [m_layer setName:value.createNSString().get()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -1154,16 +1163,15 @@ void PlatformCALayerCocoa::setIsDescendentOfSeparatedPortal(bool)
 
 #if HAVE(CORE_MATERIAL)
 
-AppleVisualEffect PlatformCALayerCocoa::appleVisualEffect() const
+AppleVisualEffectData PlatformCALayerCocoa::appleVisualEffectData() const
 {
     // FIXME: Add an implementation for when UI-side compositing is disabled.
-    return m_appleVisualEffect;
+    return { };
 }
 
-void PlatformCALayerCocoa::setAppleVisualEffect(AppleVisualEffect effect)
+void PlatformCALayerCocoa::setAppleVisualEffectData(AppleVisualEffectData)
 {
     // FIXME: Add an implementation for when UI-side compositing is disabled.
-    m_appleVisualEffect = effect;
 }
 
 #endif
@@ -1176,9 +1184,11 @@ void PlatformCALayerCocoa::updateContentsFormat()
 
         if (NSString *formatString = contentsFormatString(contentsFormat))
             [m_layer setContentsFormat:formatString];
-#if HAVE(HDR_SUPPORT)
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
         if (contentsFormat == ContentsFormat::RGBA16F) {
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             [m_layer setWantsExtendedDynamicRangeContent:true];
+            ALLOW_DEPRECATED_DECLARATIONS_END
             [m_layer setToneMapMode:CAToneMapModeIfSupported];
         }
 #endif
@@ -1207,7 +1217,7 @@ bool PlatformCALayer::isWebLayer()
 
 void PlatformCALayer::setBoundsOnMainThread(CGRect bounds)
 {
-    RunLoop::main().dispatch([layer = m_layer, bounds] {
+    RunLoop::mainSingleton().dispatch([layer = m_layer, bounds] {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [layer setBounds:bounds];
         END_BLOCK_OBJC_EXCEPTIONS
@@ -1216,7 +1226,7 @@ void PlatformCALayer::setBoundsOnMainThread(CGRect bounds)
 
 void PlatformCALayer::setPositionOnMainThread(CGPoint position)
 {
-    RunLoop::main().dispatch([layer = m_layer, position] {
+    RunLoop::mainSingleton().dispatch([layer = m_layer, position] {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [layer setPosition:position];
         END_BLOCK_OBJC_EXCEPTIONS
@@ -1225,7 +1235,7 @@ void PlatformCALayer::setPositionOnMainThread(CGPoint position)
 
 void PlatformCALayer::setAnchorPointOnMainThread(FloatPoint3D value)
 {
-    RunLoop::main().dispatch([layer = m_layer, value] {
+    RunLoop::mainSingleton().dispatch([layer = m_layer, value] {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [layer setAnchorPoint:CGPointMake(value.x(), value.y())];
         [layer setAnchorPointZ:value.z()];

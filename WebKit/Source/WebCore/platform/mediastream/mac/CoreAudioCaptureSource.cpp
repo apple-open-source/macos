@@ -45,7 +45,6 @@
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
 #include <sys/time.h>
-#include <wtf/Algorithms.h>
 #include <wtf/Lock.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -304,7 +303,7 @@ const RealtimeMediaSourceSettings& CoreAudioCaptureSource::settings()
 
 void CoreAudioCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag> settings)
 {
-    if (!m_isReadyToStart) {
+    if (!m_isReadyToStart || m_echoCancellationChanging) {
         m_currentSettings = std::nullopt;
         return;
     }
@@ -366,6 +365,25 @@ void CoreAudioCaptureSource::handleNewCurrentMicrophoneDevice(const CaptureDevic
     forEachObserver([](auto& observer) {
         observer.sourceConfigurationChanged();
     });
+}
+
+void CoreAudioCaptureSource::echoCancellationChanged()
+{
+    if (!isProducingData() || echoCancellation() == CoreAudioSharedUnit::singleton().enableEchoCancellation())
+        return;
+
+    m_echoCancellationChanging = true;
+    setEchoCancellation(CoreAudioSharedUnit::singleton().enableEchoCancellation());
+    m_echoCancellationChanging = false;
+
+    configurationChanged();
+}
+
+const AudioStreamDescription* CoreAudioCaptureSource::audioStreamDescription() const
+{
+    if (!CoreAudioSharedUnit::singleton().microphoneProcFormat())
+        return nullptr;
+    return &CoreAudioSharedUnit::singleton().microphoneProcFormat().value();
 }
 
 } // namespace WebCore

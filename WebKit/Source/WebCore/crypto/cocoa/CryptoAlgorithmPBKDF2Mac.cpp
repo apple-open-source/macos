@@ -38,8 +38,9 @@ static CCPseudoRandomAlgorithm commonCryptoHMACAlgorithm(CryptoAlgorithmIdentifi
     switch (hashFunction) {
     case CryptoAlgorithmIdentifier::SHA_1:
         return kCCPRFHmacAlgSHA1;
-    case CryptoAlgorithmIdentifier::SHA_224:
-        return kCCPRFHmacAlgSHA224;
+    case CryptoAlgorithmIdentifier::DEPRECATED_SHA_224:
+        RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE(sha224DeprecationMessage);
+        return kCCPRFHmacAlgSHA256;
     case CryptoAlgorithmIdentifier::SHA_256:
         return kCCPRFHmacAlgSHA256;
     case CryptoAlgorithmIdentifier::SHA_384:
@@ -58,7 +59,8 @@ ExceptionOr<Vector<uint8_t>> CryptoAlgorithmPBKDF2::platformDeriveBits(const Cry
     Vector<uint8_t> result(length / 8);
     // CCKeyDerivationPBKDF returns an error if the key pointer is null, even if the key length is 0. For this reason, we need to make sure we pass the empty string
     // instead of a null pointer in this case.
-    if (CCKeyDerivationPBKDF(kCCPBKDF2, key.key().data() ? reinterpret_cast<const char *>(key.key().data()) : "", key.key().size(), parameters.saltVector().data(), parameters.saltVector().size(), CryptoAlgorithmPBKDF2MacInternal::commonCryptoHMACAlgorithm(parameters.hashIdentifier), parameters.iterations, result.data(), length / 8))
+    auto keySpan = spanReinterpretCast<const char>(key.key().span());
+    if (CCKeyDerivationPBKDF(kCCPBKDF2, keySpan.data() ? keySpan.data() : "", key.key().size(), parameters.saltVector().span().data(), parameters.saltVector().size(), CryptoAlgorithmPBKDF2MacInternal::commonCryptoHMACAlgorithm(parameters.hashIdentifier), parameters.iterations, result.mutableSpan().data(), length / 8))
         return Exception { ExceptionCode::OperationError };
     return WTFMove(result);
 }

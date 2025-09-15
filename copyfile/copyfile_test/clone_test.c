@@ -17,7 +17,7 @@
 
 REGISTER_TEST(clone_copy_intent, false, 30);
 
-#define XATTR_1_NAME	"com.apple.quarantine"
+#define XATTR_1_NAME	"com.apple.metadata:kMDItemCollaborationIdentifier"
 #define XATTR_1_DATA	"dib"
 #define XATTR_2_NAME	"zim"
 #define XATTR_2_DATA	"gir"
@@ -77,6 +77,11 @@ bool do_clone_copy_intent_test(const char *apfs_test_directory, __unused size_t 
 	assert_no_err(do_copy(source_name, dest_name, COPYFILE_ALL));
 
 	// Verify that the xattrs are correct on the destination.
+	success = success && verify_test_xattrs(dest_name);
+
+	// now do the same with a recursive copy
+	assert_no_err(removefile(dest_name, NULL, 0));
+	assert_no_err(do_copy(source_name, dest_name, COPYFILE_ALL|COPYFILE_RECURSIVE));
 	success = success && verify_test_xattrs(dest_name);
 
 	// (3) Repeat the test with COPYFILE_CLONE set.

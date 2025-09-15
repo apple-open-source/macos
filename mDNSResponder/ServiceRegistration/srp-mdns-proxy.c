@@ -1,6 +1,6 @@
 /* srp-mdns-proxy.c
  *
- * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@
 #include <inttypes.h>
 #include <sys/resource.h>
 #include <ctype.h>
-#include <mdns/pf.h>
 
 #include "srp.h"
 #include "dns-msg.h"
@@ -47,25 +46,12 @@
 #include "dnssd-proxy.h"
 #include "config-parse.h"
 #include "cti-services.h"
-#include "route.h"
-#include "adv-ctl-server.h"
 #include "srp-replication.h"
 #include "ioloop-common.h"
-#include "thread-device.h"
-#include "nat64-macos.h"
 #include "srp-dnssd.h"
 #include "ifpermit.h"
-#include "state-machine.h"
-#include "thread-service.h"
-#include "omr-watcher.h"
-#include "omr-publisher.h"
-#include "service-publisher.h"
 
-
-#if SRP_FEATURE_NAT64
-#include "nat64.h"
-#endif
-
+#include "srp-strict.h"
 
 #ifdef SRP_TEST_SERVER
 #include "srp-test-runner.h"
@@ -74,16 +60,11 @@
 #define ADDRESS_RECORD_TTL  4500
 #define OTHER_RECORD_TTL    4500
 
-#define _DNSSD_API_AVAILABLE_FALL_2024 (1)
-
 static const char local_suffix_ld[] = ".local";
 static const char *local_suffix = &local_suffix_ld[1];
 
-os_log_t global_os_log;
 void *dns_service_op_not_to_be_freed;
 srp_server_t *srp_servers;
-const uint8_t thread_anycast_preamble[7] = { 0, 0, 0, 0xff, 0xfe, 0, 0xfc };
-const uint8_t thread_rloc_preamble[6] = { 0, 0, 0, 0xff, 0xfe, 0 };
 
 extern int num_push_sessions;
 extern int dp_num_outstanding_queries;
@@ -114,7 +95,7 @@ static void adv_update_finalize(adv_update_t *update);
 void
 srp_mdns_shared_record_remove(srp_server_t *server_state, adv_record_t *record, bool remove_previous)
 {
-    RETAIN_HERE(record, adv_record);
+    RETAIN_HERE_LOG(record, adv_record);
     DNSRecordRef rref_to_remove = remove_previous ? record->previous_rref : record->rref;
     intptr_t shared_txn = remove_previous ? record->previous_shared_txn : record->shared_txn;
     const char *which = remove_previous ? "previous rref" : "current rref";
@@ -126,7 +107,7 @@ srp_mdns_shared_record_remove(srp_server_t *server_state, adv_record_t *record, 
             // We can't release the record here if we got an error removing it, because if we get an error removing it,
             // it doesn't get removed from the list. This should never happen, but if it does, the record will leak.
             if (err == kDNSServiceErr_NoError) {
-                RELEASE_HERE(record, adv_record); // Release the DNSService callback's reference
+                RELEASE_HERE_LOG(record, adv_record); // Release the DNSService callback's reference
             } else {
                 // At this point we should never see an error calling DNSServiceRemoveRecord, so if we do, call
                 // attention to it.
@@ -147,7 +128,7 @@ srp_mdns_shared_record_remove(srp_server_t *server_state, adv_record_t *record, 
         record->rref = NULL;
         record->shared_txn = 0;
     }
-    RELEASE_HERE(record, adv_record);
+    RELEASE_HERE_LOG(record, adv_record);
 }
 
 
@@ -163,8 +144,8 @@ adv_record_finalize(adv_record_t *record)
         RELEASE_HERE(record->host, adv_host);
     }
 
-    free(record->rdata);
-    free(record);
+    srp_strict_free(&record->rdata);
+    srp_strict_free(&record);
 }
 
 static void
@@ -174,15 +155,9 @@ adv_instance_finalize(adv_instance_t *instance)
         ioloop_dnssd_txn_cancel_srp(instance->host->server_state, instance->txn);
         ioloop_dnssd_txn_release(instance->txn);
     }
-    if (instance->txt_data != NULL) {
-        free(instance->txt_data);
-    }
-    if (instance->instance_name != NULL) {
-        free(instance->instance_name);
-    }
-    if (instance->service_type != NULL) {
-        free(instance->service_type);
-    }
+    srp_strict_free(&instance->txt_data);
+    srp_strict_free(&instance->instance_name);
+    srp_strict_free(&instance->service_type);
     if (instance->host != NULL) {
         RELEASE_HERE(instance->host, adv_host);
         instance->host = NULL;
@@ -199,7 +174,7 @@ adv_instance_finalize(adv_instance_t *instance)
         ioloop_wakeup_release(instance->retry_wakeup);
         instance->retry_wakeup = NULL;
     }
-    free(instance);
+    srp_strict_free(&instance);
 }
 
 void
@@ -224,38 +199,36 @@ adv_instance_release_(adv_instance_t *instance, const char *file, int line)
 void
 adv_record_retain_(adv_record_t *record, const char *file, int line)
 {
-    RETAIN(record, adv_record);
+    RETAIN_LOG(record, adv_record);
 }
 
 void
 adv_record_release_(adv_record_t *record, const char *file, int line)
 {
-    RELEASE(record, adv_record);
+    RELEASE_LOG(record, adv_record);
 }
 
-#define DECLARE_VEC_CREATE(type)                        \
-static type ## _vec_t *                                 \
-type ## _vec_create(int size)                           \
-{                                                       \
-    type ## _vec_t *vec;                                \
-                                                        \
-    vec = calloc(1, sizeof(*vec));                      \
-    if (vec != NULL) {                                  \
-        if (size == 0) {                                \
-            size = 1;                                   \
-        }                                               \
-        vec->vec = calloc(size, sizeof (*(vec->vec)));  \
-        if (vec->vec == NULL) {                         \
-            free(vec);                                  \
-            vec = NULL;                                 \
-        } else {                                        \
-            RETAIN_HERE(vec, type##_vec);               \
-        }                                               \
-    }                                                   \
-    return vec;                                         \
+#define DECLARE_VEC_CREATE(type)                                   \
+static type ## _vec_t *                                            \
+type ## _vec_create(int size)                                      \
+{                                                                  \
+    type ## _vec_t *vec;                                           \
+    vec = srp_strict_calloc(1, sizeof(*vec));                      \
+    if (vec != NULL) {                                             \
+        if (size == 0) {                                           \
+            size = 1;                                              \
+        }                                                          \
+        vec->vec = srp_strict_calloc(size, sizeof (*(vec->vec)));  \
+        if (vec->vec == NULL) {                                    \
+            srp_strict_free(&vec);                                 \
+        } else {                                                   \
+            RETAIN_HERE(vec, type##_vec);                          \
+        }                                                          \
+    }                                                              \
+    return vec;                                                    \
 }
 
-#define DECLARE_VEC_COPY(type)                          \
+#define DECLARE_VEC_COPY(type, retain)                  \
 static type ## _vec_t *                                 \
 type ## _vec_copy(type ## _vec_t *vec)                  \
 {                                                       \
@@ -267,7 +240,7 @@ type ## _vec_copy(type ## _vec_t *vec)                  \
         for (i = 0; i < vec->num; i++) {                \
             if (vec->vec[i] != NULL) {                  \
                 new_vec->vec[i] = vec->vec[i];          \
-                RETAIN_HERE(new_vec->vec[i], type);     \
+                retain(new_vec->vec[i], type);          \
             }                                           \
         }                                               \
         new_vec->num = vec->num;                        \
@@ -275,7 +248,7 @@ type ## _vec_copy(type ## _vec_t *vec)                  \
     return new_vec;                                     \
 }
 
-#define DECLARE_VEC_FINALIZE(type)                              \
+#define DECLARE_VEC_FINALIZE(type, release)                     \
 static void                                                     \
 type ## _vec_finalize(type ## _vec_t *vec)                      \
 {                                                               \
@@ -283,21 +256,22 @@ type ## _vec_finalize(type ## _vec_t *vec)                      \
                                                                 \
     for (i = 0; i < vec->num; i++) {                            \
         if (vec->vec[i] != NULL) {                              \
-            RELEASE_HERE(vec->vec[i], type);                    \
+            release(vec->vec[i], type);                         \
             vec->vec[i] = NULL;                                 \
         }                                                       \
     }                                                           \
-    free(vec->vec);                                             \
-    free(vec);                                                  \
+    srp_strict_free(&vec->vec);                                 \
+    srp_strict_free(&vec);                                      \
 }
 
+
 DECLARE_VEC_CREATE(adv_instance);
-DECLARE_VEC_COPY(adv_instance);
-DECLARE_VEC_FINALIZE(adv_instance);
+DECLARE_VEC_COPY(adv_instance, RETAIN_HERE);
+DECLARE_VEC_FINALIZE(adv_instance, RELEASE_HERE);
 
 DECLARE_VEC_CREATE(adv_record);
-DECLARE_VEC_COPY(adv_record);
-DECLARE_VEC_FINALIZE(adv_record);
+DECLARE_VEC_COPY(adv_record, RETAIN_HERE_LOG);
+DECLARE_VEC_FINALIZE(adv_record, RELEASE_HERE_LOG);
 
 static void
 srp_dump_server_stats(srp_server_t *server_state, bool full, bool periodic)
@@ -403,77 +377,6 @@ srp_dump_server_stats(srp_server_t *server_state, bool full, bool periodic)
          periodic ? "" : "after update, ", host_count, matter_host_count, hap_host_count, instance_count,
          a_record_count, aaaa_record_count, srp_fractional_time());
 
-#if STUB_ROUTER
-    route_state_t *route_state = server_state->route_state;
-    if (route_state) {
-        SEGMENTED_IPv6_ADDR_GEN_SRP(&route_state->srp_listener_ip_address, addr_buf);
-        // do we have an SRP listener?
-        if (route_state->srp_listener != NULL) {
-            INFO("have SRP listener on " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(&route_state->srp_listener_ip_address, addr_buf),
-                 route_state->srp_service_listen_port);
-        } else {
-            INFO("no SRP listener");
-        }
-
-        // are we publishing anycast services?
-        INFO(PUB_S_SRP "advertising anycast service", route_state->advertising_srp_anycast_service ? "" : "not ");
-
-        // are we publishing unicast service?
-        if (route_state->advertising_srp_unicast_service) {
-            INFO("advertising unicast service on " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(&route_state->srp_listener_ip_address, addr_buf),
-                 route_state->srp_service_listen_port);
-        } else {
-            INFO("not advertising unicast service");
-        }
-
-        // what SRP replication peers do we see? and how many are we actively connected to?
-        srpl_dump_connection_states(server_state);
-
-        // are we publishing OMR prefix?
-        if (route_state->omr_publisher != NULL &&
-            omr_publisher_publishing_prefix(route_state->omr_publisher))
-        {
-            omr_prefix_t *prefix = omr_publisher_published_prefix_get(route_state->omr_publisher);
-            SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
-            INFO("publishing " PUB_S_SRP " OMR prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d",
-                 omr_publisher_publishing_dhcp(route_state->omr_publisher) ? "dhcp" : "ula",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf),
-                 prefix->prefix_length);
-        } else {
-            INFO("not publishing OMR prefix");
-        }
-
-        // what prefixes do we see on Thread?
-        if (route_state->omr_watcher != NULL) {
-            omr_prefix_t *thread_prefixes = omr_watcher_prefixes_get(route_state->omr_watcher);
-            for (struct omr_prefix *prefix = thread_prefixes; prefix != NULL; prefix = prefix->next) {
-                SEGMENTED_IPv6_ADDR_GEN_SRP(prefix->prefix.s6_addr, prefix_buf);
-                INFO("OMR prefix " PRI_SEGMENTED_IPv6_ADDR_SRP "/%d seen on thread" PUB_S_SRP PUB_S_SRP
-                     PUB_S_SRP, SEGMENTED_IPv6_ADDR_PARAM_SRP(prefix->prefix.s6_addr, prefix_buf),
-                     prefix->prefix_length, prefix->user ? " (user)" : "", prefix->ncp ? " (ncp)": "",
-                     prefix->stable ? " (stable)" : "");
-            }
-        }
-
-        // are we publishing infrastructure prefix?
-        interface_t *interface;
-        bool is_advertising = false;
-        for (interface = route_state->interfaces; interface; interface = interface->next) {
-            if (interface->our_prefix_advertised) {
-               SEGMENTED_IPv6_ADDR_GEN_SRP(interface->ipv6_prefix.s6_addr, ipv6_prefix_buf);
-               INFO("advertising infrastructure prefix " PRI_SEGMENTED_IPv6_ADDR_SRP " on " PUB_S_SRP,
-                    SEGMENTED_IPv6_ADDR_PARAM_SRP(interface->ipv6_prefix.s6_addr, ipv6_prefix_buf),
-                    interface->name);
-               is_advertising = true;
-            }
-        }
-        if (!is_advertising) {
-            INFO("not advertising infrastructure prefix");
-        }
-    }
-#endif // STUB_ROUTER
 
     // how many DNS push queries added since last state dump?
     // how many DNS queries seen since last state dump?
@@ -541,7 +444,7 @@ srp_replication_advertise_finished(adv_host_t *host, char *hostname, srp_server_
 
         if (host != NULL) {
             if (rcode == dns_rcode_noerror) {
-                memcpy(&host->server_stable_id, &host->server_state->ula_prefix, sizeof(host->server_stable_id));
+                memcpy(&host->server_stable_id, &host->server_state->srp_server_stable_id, sizeof(host->server_stable_id));
             }
             INFO("local host " PRI_S_SRP " server stable ID %" PRIx64, hostname, host->server_stable_id);
             srpl_srp_client_update_finished_event_send(host, rcode);
@@ -550,7 +453,7 @@ srp_replication_advertise_finished(adv_host_t *host, char *hostname, srp_server_
     } else
     {
         if (host != NULL && host->server_state != NULL) {
-            memcpy(&host->server_stable_id, &host->server_state->ula_prefix, sizeof(host->server_stable_id));
+            memcpy(&host->server_stable_id, &host->server_state->srp_server_stable_id, sizeof(host->server_stable_id));
             host->update_server_id = 0;
         }
     }
@@ -558,31 +461,6 @@ srp_replication_advertise_finished(adv_host_t *host, char *hostname, srp_server_
 }
 #endif // SRP_FEATURE_REPLICATION
 
-static void
-srp_ml_eid_mapping_callback(void *context, cti_status_t status)
-{
-    adv_record_t *arec = context;
-    adv_host_t *host = arec->host;
-    SEGMENTED_IPv6_ADDR_GEN_SRP(arec->rdata, omr_buf);
-    if (status == kCTIStatus_NoError) {
-        if (host == NULL) {
-            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " was orphaned.",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf));
-        } else {
-            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " to host " PRI_S_SRP " succeeded",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), host->name);
-        }
-    } else {
-        if (host == NULL) {
-            INFO("orphaned mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " failed: %d",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), status);
-        } else {
-            INFO("mapping for address " PRI_SEGMENTED_IPv6_ADDR_SRP " to host " PRI_S_SRP " failed: %d",
-                 SEGMENTED_IPv6_ADDR_PARAM_SRP(arec->rdata, omr_buf), host->name, status);
-        }
-    }
-    RELEASE_HERE(arec, adv_record);
-}
 
 // We call advertise_finished when a client request has finished, successfully or otherwise.
 static void
@@ -719,11 +597,12 @@ srp_mdns_shared_registration_txn_setup(srp_server_t *server_state)
         DNSServiceRef sdref;
         int err = DNSServiceCreateConnection(&sdref);
         if (err != kDNSServiceErr_NoError) {
+            ERROR("unable to create shared connection for registration: %d", err);
             return false;
         }
         server_state->shared_registration_txn = ioloop_dnssd_txn_add(sdref, server_state, NULL, shared_registration_fail);
         if (server_state->shared_registration_txn == NULL) {
-            ERROR("unable to create shared connection for registration.");
+            ERROR("unable to create shared connection transaction object for registration.");
             dns_service_op_not_to_be_freed = NULL;
             DNSServiceRefDeallocate(sdref);
             return false;
@@ -869,8 +748,11 @@ adv_instances_cancel(adv_instance_vec_t *instances)
 }
 
 static void
-adv_update_free_instance_vectors(adv_update_t *NONNULL update)
+adv_update_free_instance_vectors(adv_update_t *NULLABLE update)
 {
+    if (update == NULL) {
+        return;
+    }
     if (update->update_instances != NULL) {
         adv_instance_vec_remove_update(update->update_instances, update);
         adv_instances_cancel(update->update_instances);
@@ -896,8 +778,12 @@ adv_update_free_instance_vectors(adv_update_t *NONNULL update)
 }
 
 static void
-adv_update_finalize(adv_update_t *NONNULL update)
+adv_update_finalize(adv_update_t *NULLABLE update)
 {
+    if (update == NULL) {
+        return;
+    }
+
     if (update->host != NULL) {
         RELEASE_HERE(update->host, adv_host);
     }
@@ -919,9 +805,9 @@ adv_update_finalize(adv_update_t *NONNULL update)
 
     adv_update_free_instance_vectors(update);
     if (update->key != NULL) {
-        RELEASE_HERE(update->key, adv_record);
+        RELEASE_HERE_LOG(update->key, adv_record);
     }
-    free(update);
+    srp_strict_free(&update);
 }
 
 static void
@@ -1004,7 +890,7 @@ adv_update_cancel(adv_update_t *NONNULL update)
             srp_mdns_shared_record_remove(host->server_state, update->key, true);
             srp_mdns_shared_record_remove(host->server_state, update->key, false);
         }
-        RELEASE_HERE(update->key, adv_record);
+        RELEASE_HERE_LOG(update->key, adv_record);
         update->key = NULL;
     }
     if (host != NULL) {
@@ -1019,10 +905,11 @@ update_failed(adv_update_t *update, int rcode, bool expire, bool send_response)
     // Retain the update for the life of this function call, since we may well release the last other reference to it.
     RETAIN_HERE(update, adv_update);
 
+    adv_host_t *host = update->host;
+    host->registered = false;
     // If we still have a client waiting for the result of this update, tell it we failed.
     // Updates that have never worked are abandoned when the client is notified.
     if (update->client != NULL) {
-        adv_host_t *host = update->host;
         client_update_t *client = update->client;
         adv_update_cancel(update);
         advertise_finished(host, host->name, host->server_state, host->srpl_connection,
@@ -1056,7 +943,7 @@ host_addr_free(adv_host_t *host)
                 INFO("Removing AAAA record for " PRI_S_SRP, host->registered_name);
                 srp_mdns_shared_record_remove(host->server_state, host->addresses->vec[i], true);
                 srp_mdns_shared_record_remove(host->server_state, host->addresses->vec[i], false);
-                RELEASE_HERE(host->addresses->vec[i], adv_record);
+                RELEASE_HERE_LOG(host->addresses->vec[i], adv_record);
                 host->addresses->vec[i] = NULL;
             }
         }
@@ -1090,7 +977,7 @@ host_invalidate(adv_host_t *host)
     if (host->key_record != NULL) {
         srp_mdns_shared_record_remove(host->server_state, host->key_record, true);
         srp_mdns_shared_record_remove(host->server_state, host->key_record, false);
-        RELEASE_HERE(host->key_record, adv_record);
+        RELEASE_HERE_LOG(host->key_record, adv_record);
         host->key_record = NULL;
     }
     host->update = NULL;
@@ -1110,12 +997,9 @@ adv_host_finalize(adv_host_t *host)
         host->addresses = NULL;
     }
 
-    if (host->key_rdata != NULL) {
-        free(host->key_rdata);
-        host->key_rdata = NULL;
-    }
+    srp_strict_free(&host->key_rdata);
     if (host->key_record != NULL) {
-        RELEASE_HERE(host->key_record, adv_record);
+        RELEASE_HERE_LOG(host->key_record, adv_record);
         host->key_record = NULL;
     }
 
@@ -1141,13 +1025,9 @@ adv_host_finalize(adv_host_t *host)
     if (host->registered_name == host->name) {
         host->registered_name = NULL;
     }
-    if (host->name != NULL) {
-        free(host->name);
-    }
-    if (host->registered_name != NULL) {
-        free(host->registered_name);
-    }
-    free(host);
+    srp_strict_free(&host->name);
+    srp_strict_free(&host->registered_name);
+    srp_strict_free(&host);
 }
 
 void
@@ -1262,7 +1142,7 @@ lease_callback(void *context)
 {
     int64_t now = ioloop_timenow();
     adv_host_t **p_hosts, *host = context;
-    int i, num_instances = 0;
+    int i;
 
     p_hosts = host_ready(host);
     if (p_hosts == NULL) {
@@ -1307,7 +1187,6 @@ lease_callback(void *context)
             INFO("host " PRI_S_SRP " instance " PRI_S_SRP "." PRI_S_SRP " has not expired",
                  host->name, instance->instance_name, instance->service_type);
         }
-        num_instances++;
     }
 
     int64_t next_lease_expiry = host->lease_expiry;
@@ -1453,7 +1332,7 @@ srp_mdns_update_finished(adv_update_t *update)
                         host->addresses->vec[i]->update = NULL;
                     }
                     addresses->vec[j] = rec;
-                    RETAIN_HERE(addresses->vec[j], adv_record);
+                    RETAIN_HERE_LOG(addresses->vec[j], adv_record);
                     j++;
                 }
             }
@@ -1475,13 +1354,13 @@ srp_mdns_update_finished(adv_update_t *update)
                     }
 #endif
                     addresses->vec[j] = rec;
-                    RETAIN_HERE(addresses->vec[j], adv_record);
+                    RETAIN_HERE_LOG(addresses->vec[j], adv_record);
                     j++;
                     if (rec->update != NULL) {
                         RELEASE_HERE(update->add_addresses->vec[i]->update, adv_update);
                         update->add_addresses->vec[i]->update = NULL;
                     }
-                    RELEASE_HERE(update->add_addresses->vec[i], adv_record);
+                    RELEASE_HERE_LOG(update->add_addresses->vec[i], adv_record);
                     update->add_addresses->vec[i] = NULL;
                 }
             }
@@ -1657,12 +1536,12 @@ srp_mdns_update_finished(adv_update_t *update)
     if (host->key_record != NULL && update->key != NULL && host->key_record != update->key) {
         srp_mdns_shared_record_remove(host->server_state, host->key_record, true);
         srp_mdns_shared_record_remove(host->server_state, host->key_record, false);
-        RELEASE_HERE(host->key_record, adv_record);
+        RELEASE_HERE_LOG(host->key_record, adv_record);
         host->key_record = NULL;
     }
     if (host->key_record == NULL && update->key != NULL) {
         host->key_record = update->key;
-        RETAIN_HERE(host->key_record, adv_record);
+        RETAIN_HERE_LOG(host->key_record, adv_record);
         if (update->key->update != NULL) {
             RELEASE_HERE(update->key->update, adv_update);
             update->key->update = NULL;
@@ -1724,20 +1603,8 @@ srp_mdns_update_finished(adv_update_t *update)
     // Set the lease time based on this update. Even if we scheduled an update for the next time we
     // enter the dispatch loop, we still want to schedule a lease expiry here, because it's possible
     // that in the process of returning to the dispatch loop, the scheduled update will be removed.
-    if (0) {
-#if STUB_ROUTER
-    } else if (server_state->stub_router_enabled) {
-        host->lease_interval = update->host_lease;
-        host->key_lease = update->key_lease;
-#endif
-    } else {
-        // For the Thread in Mobile use case, use the duration of the key lease to determine when to expire host
-        // entries, rather than expiring them when the host lease expires. This is technically out of spec, but
-        // accomplishes part of the stated goal of keeping usable cached data around for use immediately after
-        // connecting to a Thread mesh.
-        host->lease_interval = update->key_lease;
-        host->key_lease = update->key_lease;
-    }
+    host->lease_interval = update->host_lease;
+    host->key_lease = update->key_lease;
 
     // It would probably be harmless to set this for replications, since the value currently wouldn't change,
     // but to avoid future issues we only set this if it's a direct SRP update and not a replicated update.
@@ -1999,6 +1866,7 @@ register_instance_completion(DNSServiceRef sdref, DNSServiceFlags flags, DNSServ
         if (error_code == kDNSServiceErr_ServiceNotRunning || error_code == kDNSServiceErr_DefunctConnection) {
             service_disconnected(host->server_state, instance->shared_txn);
             instance->shared_txn = 0;
+            host->registered = false;
             wait_retry(host);
         } else {
             if (update != NULL) {
@@ -2094,9 +1962,7 @@ srp_message_tsr_attribute_generate(message_t *message, uint32_t key_id, char *ti
                 memcpy(time_buf, msg, sizeof(msg));
             }
         }
-        if (_DNSSD_API_AVAILABLE_FALL_2024) {
-            DNSServiceAttributeSetHostKeyHash(attribute, key_id);
-        }
+        DNSServiceAttributeSetHostKeyHash(attribute, key_id);
         DNSServiceAttributeSetTimestamp(attribute, offset);
     }
     return attribute;
@@ -2163,10 +2029,7 @@ register_instance(adv_instance_t *instance)
     if (tsr_attribute == NULL) {
         err = kDNSServiceErr_NoMemory;
     } else {
-        uint32_t flags = kDNSServiceFlagsShareConnection | kDNSServiceFlagsNoAutoRename;
-        if (_DNSSD_API_AVAILABLE_FALL_2024) {
-            flags |= kDNSServiceFlagsKnownUnique;
-        }
+        uint32_t flags = kDNSServiceFlagsShareConnection | kDNSServiceFlagsNoAutoRename | kDNSServiceFlagsKnownUnique;
         err = dns_service_register_wa(server_state, &service_ref, flags,
                                       server_state->advertise_interface,
                                       instance->instance_name, instance->service_type, local_suffix,
@@ -2230,7 +2093,7 @@ update_from_host(adv_host_t *host)
     }
 
     // Allocate the update structure.
-    update = calloc(1, sizeof *update);
+    update = srp_strict_calloc(1, sizeof *update);
     if (update == NULL) {
         ERROR("no memory for update.");
         goto fail;
@@ -2367,6 +2230,12 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
         ERROR("null record");
         return;
     }
+
+    // If the record has been released, all we can do is return.
+    if (!srp_log_ref_check(record, "adv_record", __FILE__, __LINE__, true)) {
+        return;
+    }
+
     // If we get a callback on a record that's been re-registered with a new TSR, all we need to do is garbage collect
     // This can happen if for some reason DNSServiceRemoveRecord returns something other than success. In this case, all
     // the cleanup that can be done has already been done, and all we can do is ignore the problem.
@@ -2381,9 +2250,8 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
         ERROR("no host");
         return;
     }
-
     // Make sure record remains valid for the duration of this call.
-    RETAIN_HERE(record, adv_record);
+    RETAIN_HERE_LOG(record, adv_record);
 
     if (srp_mdns_cancel_previous_record(host, record, rref, error_code, "register")) {
         goto out;
@@ -2462,6 +2330,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
         if (error_code == kDNSServiceErr_ServiceNotRunning || error_code == kDNSServiceErr_DefunctConnection) {
             service_disconnected(host->server_state, record->shared_txn);
             if (update != NULL) {
+                host->registered = false;
                 wait_retry(host);
             }
         } else {
@@ -2484,7 +2353,7 @@ register_host_record_completion(DNSServiceRef sdref, DNSRecordRef rref,
         RELEASE_HERE(update, adv_update);
     }
 out:
-    RELEASE_HERE(record, adv_record); // Release the reference to the record that we retained at the beginning
+    RELEASE_HERE_LOG(record, adv_record); // Release the reference to the record that we retained at the beginning
 }
 
 static adv_instance_t *
@@ -2495,7 +2364,7 @@ adv_instance_create(service_instance_t *raw, adv_host_t *host, adv_update_t *upd
     uint8_t *txt_data;
 
     // Allocate the raw registration
-    adv_instance_t *instance = calloc(1, sizeof *instance);
+    adv_instance_t *instance = srp_strict_calloc(1, sizeof *instance);
     if (instance == NULL) {
         ERROR("adv_instance:create: unable to allocate raw registration struct.");
         return NULL;
@@ -2515,13 +2384,13 @@ adv_instance_create(service_instance_t *raw, adv_host_t *host, adv_update_t *upd
         return NULL;
     }
 
-    instance->instance_name = strdup(instance_name);
+    instance->instance_name = srp_strict_strdup(instance_name);
     if (instance->instance_name == NULL) {
         ERROR("adv_instance:create: unable to allocate instance name.");
         RELEASE_HERE(instance, adv_instance);
         return NULL;
     }
-    instance->service_type = strdup(service_type);
+    instance->service_type = srp_strict_strdup(service_type);
     if (instance->service_type == NULL) {
         ERROR("adv_instance:create: unable to allocate instance type.");
         RELEASE_HERE(instance, adv_instance);
@@ -2530,15 +2399,17 @@ adv_instance_create(service_instance_t *raw, adv_host_t *host, adv_update_t *upd
 
     // Allocate the text record buffer
     if (raw->txt != NULL) {
-        txt_data = malloc(raw->txt->data.txt.len);
-        if (txt_data == NULL) {
-            RELEASE_HERE(instance, adv_instance);
-            ERROR("adv_instance:create: unable to allocate txt_data buffer");
-            return NULL;
+        if (raw->txt->data.txt.len > 0) {
+            txt_data = srp_strict_malloc(raw->txt->data.txt.len);
+            if (txt_data == NULL) {
+                RELEASE_HERE(instance, adv_instance);
+                ERROR("adv_instance:create: unable to allocate txt_data buffer");
+                return NULL;
+            }
+            // Format the txt buffer as required by DNSServiceRegister().
+            memcpy(txt_data, raw->txt->data.txt.data, raw->txt->data.txt.len);
+            instance->txt_data = txt_data;
         }
-        // Format the txt buffer as required by DNSServiceRegister().
-        memcpy(txt_data, raw->txt->data.txt.data, raw->txt->data.txt.len);
-        instance->txt_data = txt_data;
         instance->txt_length = raw->txt->data.txt.len;
     } else {
         instance->txt_data = NULL;
@@ -2551,29 +2422,35 @@ adv_instance_create(service_instance_t *raw, adv_host_t *host, adv_update_t *upd
     return instance;
 }
 
-#define adv_record_create(rrtype, rdlen, rdata, host) \
-    adv_record_create_(rrtype, rdlen, rdata, host, __FILE__, __LINE__)
-static adv_record_t *
+adv_record_t *
 adv_record_create_(uint16_t rrtype, uint16_t rdlen, uint8_t *rdata, adv_host_t *host, const char *file, int line)
 {
 
-    adv_record_t *new_record = calloc(1, sizeof(*new_record) + rdlen - 1);
+    adv_record_t *new_record = srp_strict_calloc(1, sizeof(*new_record) + rdlen - 1);
     if (new_record == NULL) {
         ERROR("no memory for new_record");
         return NULL;
     }
-    new_record->rdata = malloc(rdlen);
-    if (new_record->rdata == NULL) {
-        ERROR("no memory for new_record->rdata");
-        free(new_record);
-        return NULL;
+    if (rdlen > 0) {
+        new_record->rdata = srp_strict_malloc(rdlen);
+        if (new_record->rdata == NULL) {
+            ERROR("no memory for new_record->rdata");
+            srp_strict_free(&new_record);
+            return NULL;
+        }
+        memcpy(new_record->rdata, rdata, rdlen);
     }
     new_record->host = host;
-    RETAIN(host, adv_host);
+    if (0) {
+#ifdef SRP_TEST_SERVER
+    } else if (host == NULL) {
+#endif
+    } else {
+        RETAIN(host, adv_host);
+    }
     new_record->rrtype = rrtype;
     new_record->rdlen = rdlen;
-    memcpy(new_record->rdata, rdata, rdlen);
-    RETAIN(new_record, adv_record);
+    RETAIN_LOG(new_record, adv_record);
     return new_record;
 }
 
@@ -2705,7 +2582,7 @@ register_host_record(adv_host_t *host, adv_record_t *record, bool skipping)
         goto fail;
     }
     record->shared_txn = (intptr_t)host->server_state->shared_registration_txn;
-    RETAIN_HERE(record, adv_record); // for the callback
+    RETAIN_HERE_LOG(record, adv_record); // for the callback
     if (host->update != NULL) {
         record->update_pending = true;
     }
@@ -2736,6 +2613,7 @@ start_host_update(adv_host_t *host)
 
 
     update->num_records_started = 0;
+    host->registered = true;
 
     // Add all of the addresses that have been registered. These are new addresses, so there should be no existing registration
     // for any of them.
@@ -2790,8 +2668,8 @@ start_host_update(adv_host_t *host)
          host->key_record->rref == NULL))
     {
         update->key = host->key_record;
-        RETAIN_HERE(update->key, adv_record);
-        RELEASE_HERE(host->key_record, adv_record);
+        RETAIN_HERE_LOG(update->key, adv_record);
+        RELEASE_HERE_LOG(host->key_record, adv_record);
         host->key_record = NULL;
         update->key->rref = NULL;
         update->key->update = update;
@@ -2923,7 +2801,7 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
     //     eliminated the possibility that it exists on some other host).
 
     // Allocate the update structure.
-    update = calloc(1, sizeof *update);
+    update = srp_strict_calloc(1, sizeof *update);
     if (update == NULL) {
         ERROR("no memory for update.");
         goto fail;
@@ -3017,7 +2895,7 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
         for (i = 0; i < num_remove_addrs; i++) {
             if (host->addresses != NULL && host->addresses->vec[i] != NULL) {
                 remove_addrs->vec[i] = host->addresses->vec[i];
-                RETAIN_HERE(remove_addrs->vec[i], adv_record);
+                RETAIN_HERE_LOG(remove_addrs->vec[i], adv_record);
             }
             for (j = 0; j < num_add_addrs; j++) {
                 // If the address is present in both places, and has a valid registration, remove it from the list of
@@ -3030,9 +2908,9 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
                     add_addrs->vec[j]->rdlen == remove_addrs->vec[i]->rdlen &&
                     !memcmp(add_addrs->vec[j]->rdata, remove_addrs->vec[i]->rdata, remove_addrs->vec[i]->rdlen))
                 {
-                    RELEASE_HERE(remove_addrs->vec[i], adv_record);
+                    RELEASE_HERE_LOG(remove_addrs->vec[i], adv_record);
                     remove_addrs->vec[i] = NULL;
-                    RELEASE_HERE(add_addrs->vec[j], adv_record);
+                    RELEASE_HERE_LOG(add_addrs->vec[j], adv_record);
                     add_addrs->vec[j] = NULL;
                 }
             }
@@ -3154,7 +3032,6 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
             goto fail;
         }
 
-        prepared_instance->anycast = false;
         if (client_update != NULL && client_update->connection != NULL) {
             const struct sockaddr *server_addr = connection_get_local_address(client_update->message);
             if (server_addr && server_addr->sa_family == AF_INET6) {
@@ -3163,9 +3040,6 @@ prepare_update(adv_host_t *host, client_update_t *client_update)
                 SEGMENTED_IPv6_ADDR_GEN_SRP(ipv6_address, addr_buf);
                 INFO("server address " PRI_SEGMENTED_IPv6_ADDR_SRP "; server port %d",
                       SEGMENTED_IPv6_ADDR_PARAM_SRP(ipv6_address, addr_buf), server_port);
-                if (is_thread_mesh_anycast_address(ipv6_address) && server_port == 53) {
-                    prepared_instance->anycast = true;
-                }
             }
         }
         add_instances->vec[i++] = prepared_instance;
@@ -3619,7 +3493,7 @@ found_something:
                                connection, raw_message, dns_rcode_noerror, NULL, true, true);
             goto cleanup;
         }
-        host = calloc(1, sizeof *host);
+        host = srp_strict_calloc(1, sizeof *host);
         if (host == NULL) {
             ERROR("no memory for host data structure.");
             advertise_finished(NULL, new_host_name, server_state, srpl_connection,
@@ -3660,7 +3534,7 @@ found_something:
             goto cleanup;
         }
         dns_name_print(new_host->name, pres_name, sizeof pres_name);
-        host->name = strdup(pres_name);
+        host->name = srp_strict_strdup(pres_name);
         if (host->name == NULL) {
             RELEASE_HERE(host, adv_host);
             host = NULL;
@@ -3673,7 +3547,7 @@ found_something:
         // Normally this would be invalid, but we never use the name of the key record.
         host->key.name = NULL;
         host->key_rdlen = new_host->key->data.key.len + 4;
-        host->key_rdata = malloc(host->key_rdlen);
+        host->key_rdata = srp_strict_malloc(host->key_rdlen);
         if (host->key_rdata == NULL) {
             RELEASE_HERE(host, adv_host);
             host = NULL;
@@ -3843,10 +3717,10 @@ srp_server_t *
 server_state_create(const char *name, int max_lease_time, int min_lease_time,
                     int key_max_lease_time, int key_min_lease_time)
 {
-    srp_server_t *server_state = calloc(1, sizeof(*server_state));
-    if (server_state == NULL || (server_state->name = strdup(name)) == NULL) {
+    srp_server_t *server_state = srp_strict_calloc(1, sizeof(*server_state));
+    if (server_state == NULL || (server_state->name = srp_strict_strdup(name)) == NULL) {
         ERROR("no memory for server state");
-        free(server_state);
+        srp_strict_free(&server_state);
         return NULL;
     }
     server_state->max_lease_time = max_lease_time;
@@ -3892,10 +3766,6 @@ main(int argc, char **argv)
 #else
     bool normal_srp_startup = true;
 #endif
-#if STUB_ROUTER
-    bool stub_router_enabled = false;
-    bool thread_device_enabled = false;
-#endif
 
     srp_servers = server_state_create("srp-mdns-proxy",
                                       3600 * 27,     // max lease time one day plus 20%
@@ -3907,22 +3777,12 @@ main(int argc, char **argv)
     }
 
     if (normal_srp_startup) {
-        srp_servers->srp_replication_enabled = true;
-#  if SRP_FEATURE_NAT64
-        srp_servers->srp_nat64_enabled = true;
-#  endif
     }
 
 
     // Set the advertise interface
-    if (0) {
-#if STUB_ROUTER
-    } else if (stub_router_enabled) {
-        srp_servers->advertise_interface = kDNSServiceInterfaceIndexAny;
-#endif
-    } else {
-        srp_servers->advertise_interface = if_nametoindex("lo0");
-    }
+    srp_servers->advertise_interface = kDNSServiceInterfaceIndexAny;
+
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--max-lease-time")) {
             if (i + 1 == argc) {
@@ -3944,36 +3804,22 @@ main(int argc, char **argv)
             i++;
         } else if (!strcmp(argv[i], "--log-stderr")) {
             log_stderr = true;
-#ifdef LOG_FPRINTF_STDERR
+#  ifdef LOG_FPRINTF_STDERR
         } else if (!strcmp(argv[i], "--log-relative-timestamp")) {
             srp_log_timestamp_relative = true;
-#endif
+#  endif
         } else if (!strcmp(argv[i], "--enable-replication")) {
             srp_servers->srp_replication_enabled = true;
         } else if (!strcmp(argv[i], "--disable-replication")) {
             srp_servers->srp_replication_enabled = false;
-        } else if (!strcmp(argv[i], "--fake-xpanid")) {
-            if (i + 1 == argc) {
-                usage();
-            }
-            srp_servers->xpanid = strtoul(argv[i + 1], &end, 16);
-            if (end == argv[i + 1] || end[0] != 0) {
-                usage();
-            }
-#ifdef SRP_TEST_SERVER
+#  ifdef SRP_TEST_SERVER
         } else if (!strcmp(argv[i], "--test")) {
             if (i + 1 == argc) {
                 usage();
             }
             test_to_run = argv[i + 1];
             i++;
-#endif
-#if SRP_FEATURE_NAT64
-        } else if (!strcmp(argv[i], "--enable-nat64")) {
-            srp_servers->srp_nat64_enabled = true;
-        } else if (!strcmp(argv[i], "--disable-nat64")) {
-            srp_servers->srp_nat64_enabled = false;
-#endif
+#  endif
         } else {
             usage();
         }
@@ -3989,6 +3835,7 @@ main(int argc, char **argv)
          "srp-mdns-proxy starting, compiled on " PUB_S_SRP ", " PUB_S_SRP
          "--------------------------------", __DATE__, __TIME__);
 #endif
+    srp_servers->start_time = srp_time();
 
     if (!ioloop_init()) {
         return 1;
@@ -3999,27 +3846,6 @@ main(int argc, char **argv)
     } else if (!normal_srp_startup && !srp_test_server_run_test(test_to_run)) {
 #endif
     } else {
-        if (0) {
-#if STUB_ROUTER
-        } else if (stub_router_enabled) {
-            srp_servers->route_state = route_state_create(srp_servers, "srp-mdns-proxy");
-            if (srp_servers->route_state == NULL) {
-                return 1;
-            }
-#endif // STUB_ROUTER
-        }
-
-        if (!srp_mdns_shared_registration_txn_setup(srp_servers)) {
-            return 1;
-        }
-        dns_service_op_not_to_be_freed = srp_servers->shared_registration_txn->sdref;
-
-#if STUB_ROUTER
-        if (stub_router_enabled) {
-            // Set up the ULA early just in case we get an early registration, nat64 will use the ula
-            route_ula_setup(srp_servers->route_state);
-        }
-#endif
 
 
 #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
@@ -4028,20 +3854,18 @@ main(int argc, char **argv)
         }
 #endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
 
-#if STUB_ROUTER
-        if (stub_router_enabled) {
-            if (!start_icmp_listener()) {
-                ERROR("failed to start icmp listener");
-            }
+
+        srp_servers->srp_server_stable_id = srp_random64();
+
+        // Start srp listener
+        srp_proxy_listen(NULL, 0, NULL, NULL, NULL, NULL, NULL, srp_servers);
+
+#  if SRP_FEATURE_REPLICATION
+        if (srp_servers->srp_replication_enabled) {
+            INFO("start srp replication.");
+            srpl_startup(srp_servers);
         }
-#endif
-
-
-        infrastructure_network_startup(srp_servers->route_state);
-
-        if (adv_ctl_init(srp_servers) != kDNSServiceErr_NoError) {
-            ERROR("Can't start advertising proxy control server.");
-        }
+#  endif
 
         // We require one open file per service and one per instance.
         struct rlimit limits;

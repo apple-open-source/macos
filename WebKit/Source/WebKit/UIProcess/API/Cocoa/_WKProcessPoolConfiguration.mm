@@ -32,7 +32,9 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation _WKProcessPoolConfiguration
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (instancetype)init
 {
@@ -56,7 +58,7 @@
 
 - (NSURL *)injectedBundleURL
 {
-    return [NSURL fileURLWithPath:_processPoolConfiguration->injectedBundlePath()];
+    return [NSURL fileURLWithPath:_processPoolConfiguration->injectedBundlePath().createNSString().get()];
 }
 
 - (void)setInjectedBundleURL:(NSURL *)injectedBundleURL
@@ -335,7 +337,7 @@
 
 - (NSString *)description
 {
-    NSString *description = [NSString stringWithFormat:@"<%@: %p", NSStringFromClass(self.class), self];
+    RetainPtr description = adoptNS([[NSString alloc] initWithFormat:@"<%@: %p", NSStringFromClass(self.class), self]);
 
     if (!_processPoolConfiguration->injectedBundlePath().isEmpty())
         return [description stringByAppendingFormat:@"; injectedBundleURL: \"%@\">", [self injectedBundleURL]];
@@ -369,7 +371,7 @@
 
 - (NSString *)timeZoneOverride
 {
-    return _processPoolConfiguration->timeZoneOverride();
+    return _processPoolConfiguration->timeZoneOverride().createNSString().autorelease();
 }
 
 - (void)setTimeZoneOverride:(NSString *)timeZone
@@ -398,10 +400,10 @@
 
 - (void)setMemoryFootprintNotificationThresholds:(NSArray<NSNumber *> *)thresholds
 {
-    Vector<size_t> sizes;
+    Vector<uint64_t> sizes;
     sizes.reserveCapacity(thresholds.count);
     for (NSNumber *threshold in thresholds)
-        sizes.append(static_cast<size_t>(threshold.unsignedLongLongValue));
+        sizes.append(static_cast<uint64_t>(threshold.unsignedLongLongValue));
     _processPoolConfiguration->setMemoryFootprintNotificationThresholds(WTFMove(sizes));
 }
 

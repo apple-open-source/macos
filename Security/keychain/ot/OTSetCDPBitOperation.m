@@ -27,10 +27,11 @@
 
 #import "keychain/ot/OTSetCDPBitOperation.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTSetCDPBitOperation ()
 @property OTOperationDependencies* deps;
-
 @property NSOperation* finishedOp;
 @end
 
@@ -52,6 +53,16 @@
 
 - (void)groupStart
 {
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.deps.accountIsW)};
+    AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
+                                                                                                altDSID:self.deps.activeAccount.altDSID
+                                                                                                 flowID:self.deps.flowID
+                                                                                        deviceSessionID:self.deps.deviceSessionID
+                                                                                              eventName:kSecurityRTCEventNameOTSetCDPBitOperation
+                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         canSendMetrics:self.deps.permittedToSendMetrics
+                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
     NSError* localError = nil;
     [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
         metadata.cdpState = OTAccountMetadataClassC_CDPState_ENABLED;
@@ -60,9 +71,11 @@
 
     if(localError) {
         secnotice("octagon-cdp-status", "Unable to set CDP bit: %@", localError);
+        [event sendMetricWithResult:NO error:localError];
     } else {
         secnotice("octagon-cdp-status", "Successfully set CDP bit");
         self.nextState = self.intendedState;
+        [event sendMetricWithResult:YES error:nil];
     }
 }
 

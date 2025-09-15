@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -119,4 +119,88 @@ IPConfigurationForgetNetwork(CFStringRef interface_name, CFStringRef ssid)
 	success = TRUE;
     }
     return (success);
+}
+
+CFStringRef
+IPConfigurationCopyIPv4RouterInformation(CFStringRef interface_name,
+					 CFStringRef * ret_ip)
+{
+    InterfaceName		ifname;
+    xmlDataOut_t		info_data = NULL;
+    unsigned int		info_data_len = 0;
+    CFDictionaryRef		info_dict = NULL;
+    kern_return_t		kret;
+    CFStringRef			router_ip;
+    CFStringRef			router_mac = NULL;
+    mach_port_t			server = MACH_PORT_NULL;
+    ipconfig_status_t		status;
+
+    _IPConfigurationInitLog(kIPConfigurationLogCategoryLibrary);
+
+    if (interface_name == NULL) {
+	IPConfigLog(LOG_NOTICE, "%s: interface must not be NULL",
+		    __func__);
+	goto done;
+    }
+    kret = ipconfig_server_port(&server);
+    if (kret != BOOTSTRAP_SUCCESS) {
+	IPConfigLog(LOG_NOTICE,
+		    "ipconfig_server_port, %s",
+		    mach_error_string(kret));
+	goto done;
+    }
+    InterfaceNameInitWithCFString(ifname, interface_name);
+    kret = ipconfig_get_ipv4_router_info(server, ifname,
+					 &info_data, &info_data_len,
+					 &status);
+    if (kret != KERN_SUCCESS) {
+	IPConfigLog(LOG_NOTICE,
+		    "ipconfig_get_ipv4_router_info(%s) failed, %s",
+		    ifname, mach_error_string(kret));
+	goto done;
+    }
+    if (info_data != NULL) {
+	info_dict
+	    = my_CFPropertyListCreateWithBytePtrAndLength(info_data,
+							  info_data_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)info_data,
+			    info_data_len);
+	if (isA_CFDictionary(info_dict) == NULL) {
+	    IPConfigLog(LOG_NOTICE,
+			"ipconfig_get_ipv4_router() returned invalid data");
+	    goto done;
+	}
+    }
+    if (status != ipconfig_status_success_e) {
+	IPConfigLog(LOG_NOTICE,
+		    "ipconfig_get_ipv4_router_info(%s) failed, %s",
+		    ifname, ipconfig_status_string(status));
+	goto done;
+    }
+    if (info_dict == NULL) {
+	IPConfigLog(LOG_NOTICE,
+		    "ipconfig_get_ipv4_router() returned no information");
+	goto done;
+    }
+    router_mac = CFDictionaryGetValue(info_dict, kARPResolvedHardwareAddress);
+    router_ip = CFDictionaryGetValue(info_dict, kARPResolvedIPAddress);
+    if (isA_CFString(router_mac) == NULL || isA_CFString(router_ip) == NULL) {
+	router_mac = NULL;
+	router_ip = NULL;
+	IPConfigLog(LOG_NOTICE,
+		    "ipconfig_get_ipv4_router() missing properties");
+	goto done;
+    }
+    CFRetain(router_mac);
+    IPConfigLog(LOG_INFO, "ipconfig_get_ipv4_router_info(%s) success", ifname);
+
+ done:
+    if (ret_ip != NULL) {
+	if (router_ip != NULL) {
+	    CFRetain(router_ip);
+	}
+	*ret_ip = router_ip;
+    }
+    my_CFRelease(&info_dict);
+    return (router_mac);
 }

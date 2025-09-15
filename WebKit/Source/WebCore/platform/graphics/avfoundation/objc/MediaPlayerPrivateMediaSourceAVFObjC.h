@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
 #include <wtf/RefCounted.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 OBJC_CLASS AVAsset;
@@ -47,7 +48,7 @@ OBJC_CLASS AVSampleBufferVideoRenderer;
 OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 
 typedef struct OpaqueCMTimebase* CMTimebaseRef;
-typedef struct __CVBuffer *CVPixelBufferRef;
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 typedef struct __CVBuffer *CVOpenGLTextureRef;
 typedef struct OpaqueFigVideoTarget *FigVideoTargetRef;
 
@@ -132,7 +133,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     void setCDMSession(LegacyCDMSession*) override;
-    CDMSessionAVContentKeySession* cdmSession() const;
+    RefPtr<CDMSessionAVContentKeySession> cdmSession() const;
     void keyAdded() final;
 #endif
 
@@ -166,6 +167,12 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     void maybeUpdateDisplayLayer();
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    void sceneIdentifierDidChange() final;
+    void applicationWillResignActive() final;
+    void applicationDidBecomeActive() final;
+#endif
+
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     ASCIILiteral logClassName() const override { return "MediaPlayerPrivateMediaSourceAVFObjC"_s; }
@@ -182,10 +189,12 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
         SeekCompleted,
     };
 
+    bool supportsLimitedMatroska() const { return m_loadOptions.supportsLimitedMatroska; }
+
 private:
     // MediaPlayerPrivateInterface
     void load(const String& url) override;
-    void load(const URL&, const ContentType&, MediaSourcePrivateClient&) override;
+    void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) override;
 #if ENABLE(MEDIA_STREAM)
     void load(MediaStreamPrivate&) override;
 #endif
@@ -250,10 +259,12 @@ private:
     void notifyActiveSourceBuffersChanged() override;
 
     void setPresentationSize(const IntSize&) final;
-    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) final;
+    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRightAnnotated&&) final;
 
     void updateDisplayLayer();
     RefPtr<VideoMediaSampleRenderer> layerOrVideoRenderer() const;
+
+    RefPtr<MediaSourcePrivateAVFObjC> protectedMediaSourcePrivate() const;
 
     // NOTE: Because the only way for MSE to recieve data is through an ArrayBuffer provided by
     // javascript running in the page, the video will, by necessity, always be CORS correct and
@@ -307,6 +318,7 @@ private:
     bool playAtHostTime(const MonotonicTime&) final;
     bool pauseAtHostTime(const MonotonicTime&) final;
 
+    void setVideoFrameMetadataGatheringCallbackIfNeeded(VideoMediaSampleRenderer&);
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final { return std::exchange(m_videoFrameMetadata, { }); }
@@ -316,6 +328,7 @@ private:
     MediaTime clampTimeToSensicalValue(const MediaTime&) const;
 
     void setShouldDisableHDR(bool) final;
+    void setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit) final;
     void playerContentBoxRectChanged(const LayoutRect&) final;
     void setShouldMaintainAspectRatio(bool) final;
 
@@ -328,12 +341,6 @@ private:
 #endif
 
     void isInFullscreenOrPictureInPictureChanged(bool) final;
-
-    void setDecompressionSessionPreferences(bool preferDecompressionSession, bool canFallbackToDecompressionSession) final
-    {
-        m_preferDecompressionSession = preferDecompressionSession;
-        m_canFallbackToDecompressionSession = canFallbackToDecompressionSession;
-    }
 
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     bool supportsLinearMediaPlayer() const final { return true; }
@@ -367,8 +374,8 @@ private:
         bool hasAudibleSample { false };
     };
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
-    UncheckedKeyHashMap<RetainPtr<CFTypeRef>, AudioRendererProperties> m_sampleBufferAudioRendererMap;
-    RetainPtr<AVSampleBufferRenderSynchronizer> m_synchronizer;
+    HashMap<RetainPtr<CFTypeRef>, AudioRendererProperties> m_sampleBufferAudioRendererMap;
+    const RetainPtr<AVSampleBufferRenderSynchronizer> m_synchronizer;
 ALLOW_NEW_API_WITHOUT_GUARDS_END
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
     RetainPtr<id> m_timeChangedObserver;
@@ -382,7 +389,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     Deque<RetainPtr<id>> m_sizeChangeObservers;
     Timer m_seekTimer;
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    WeakPtr<CDMSessionAVContentKeySession> m_session;
+    ThreadSafeWeakPtr<CDMSessionAVContentKeySession> m_session;
 #endif
     MediaPlayer::NetworkState m_networkState;
     MediaPlayer::ReadyState m_readyState;
@@ -404,10 +411,10 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_shouldPlayToTarget { false };
 #endif
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
-    std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
-    Ref<EffectiveRateChangedListener> m_effectiveRateChangedListener;
+    const UniqueRef<VideoLayerManagerObjC> m_videoLayerManager;
+    const Ref<EffectiveRateChangedListener> m_effectiveRateChangedListener;
     uint64_t m_sampleCount { 0 };
     RetainPtr<id> m_videoFrameMetadataGatheringObserver;
     bool m_isGatheringVideoFrameMetadata { false };
@@ -416,8 +423,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     ProcessIdentity m_resourceOwner;
     bool m_shouldMaintainAspectRatio { true };
     bool m_needsPlaceholderImage { false };
-    bool m_preferDecompressionSession { false };
-    bool m_canFallbackToDecompressionSession { false };
+    LoadOptions m_loadOptions;
 #if HAVE(SPATIAL_TRACKING_LABEL)
     String m_defaultSpatialTrackingLabel;
     String m_spatialTrackingLabel;

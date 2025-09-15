@@ -61,12 +61,14 @@ static void tests(void)
 
     ensureKeychainExists();
     int fd;
-    ok_unix(fd = open(keychain_name, O_RDWR | O_CREAT | O_TRUNC, 0644),
-        "create keychain file '%s'", keychain_name);
+    if (!ok_unix(fd = open(keychain_name, O_RDWR | O_CREAT | O_TRUNC, 0644),
+                 "create keychain file '%s'", keychain_name)) {
+        return;
+    }
     ok_unix(fchmod(fd, 0), " keychain file '%s'", keychain_name);
     ok_unix(close(fd), "close keychain file '%s'", keychain_name);
 
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

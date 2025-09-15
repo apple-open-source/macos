@@ -70,11 +70,11 @@
     if (!(self = [super init]))
         return nil;
     
-    _URL = information.url;
-    _imageURL = information.imageURL;
-    _imageMIMEType = information.imageMIMEType;
+    _URL = information.url.createNSURL();
+    _imageURL = information.imageURL.createNSURL();
+    _imageMIMEType = information.imageMIMEType.createNSString().get();
     _interactionLocation = information.request.point;
-    _title = information.title;
+    _title = information.title.createNSString().get();
     _boundingRect = information.bounds;
     
     if (information.isAttachment)
@@ -87,7 +87,7 @@
         _type = _WKActivatedElementTypeUnspecified;
     
     _image = information.image;
-    _ID = information.idAttribute;
+    _ID = information.idAttribute.createNSString().get();
     _animatedImage = information.isAnimatedImage;
     _isAnimating = information.isAnimating;
     _canShowAnimationControls = information.canShowAnimationControls;
@@ -106,12 +106,12 @@
 
 - (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url information:(const WebKit::InteractionInformationAtPosition&)information
 {
-    return [self _initWithType:type URL:url imageURL:information.imageURL information:information];
+    return [self _initWithType:type URL:url imageURL:information.imageURL.createNSURL().get() information:information];
 }
 
 - (instancetype)_initWithType:(_WKActivatedElementType)type image:(WebCore::ShareableBitmap*)image information:(const WebKit::InteractionInformationAtPosition&)information
 {
-    return [self _initWithType:type URL:information.url imageURL:information.imageURL image:image userInfo:nil information:information];
+    return [self _initWithType:type URL:information.url.createNSURL().get() imageURL:information.imageURL.createNSURL().get() image:image userInfo:nil information:information];
 }
 
 - (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url imageURL:(NSURL *)imageURL information:(const WebKit::InteractionInformationAtPosition&)information
@@ -121,7 +121,7 @@
 
 - (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url image:(WebCore::ShareableBitmap*)image information:(const WebKit::InteractionInformationAtPosition&)information
 {
-    return [self _initWithType:type URL:url imageURL:information.imageURL image:image userInfo:nil information:information];
+    return [self _initWithType:type URL:url imageURL:information.imageURL.createNSURL().get() image:image userInfo:nil information:information];
 }
 
 - (instancetype)_initWithType:(_WKActivatedElementType)type URL:(NSURL *)url imageURL:(NSURL *)imageURL userInfo:(NSDictionary *)userInfo information:(const WebKit::InteractionInformationAtPosition&)information
@@ -137,7 +137,7 @@
     Vector<WebCore::ElementAnimationContext> animationsAtPoint;
 #endif
 
-    return [self _initWithType:type URL:url imageURL:imageURL location:information.request.point title:information.title ID:information.idAttribute rect:information.bounds image:image imageMIMEType:information.imageMIMEType isAnimatedImage:information.isAnimatedImage isAnimating:information.isAnimating canShowAnimationControls:information.canShowAnimationControls animationsUnderElement:animationsAtPoint userInfo:userInfo];
+    return [self _initWithType:type URL:url imageURL:imageURL location:information.request.point title:information.title.createNSString().get() ID:information.idAttribute.createNSString().get() rect:information.bounds image:image imageMIMEType:information.imageMIMEType.createNSString().get() isAnimatedImage:information.isAnimatedImage isAnimating:information.isAnimating canShowAnimationControls:information.canShowAnimationControls animationsUnderElement:animationsAtPoint userInfo:userInfo];
 }
 #endif // PLATFORM(IOS_FAMILY)
 
@@ -245,13 +245,14 @@
     if (_cocoaImage)
         return adoptNS([_cocoaImage copy]).autorelease();
 
-    if (!_image)
+    RefPtr image = _image;
+    if (!image)
         return nil;
 
 #if USE(APPKIT)
-    _cocoaImage = adoptNS([[NSImage alloc] initWithCGImage:_image->makeCGImageCopy().get() size:NSSizeFromCGSize(_boundingRect.size)]);
+    _cocoaImage = adoptNS([[NSImage alloc] initWithCGImage:image->makeCGImageCopy().get() size:NSSizeFromCGSize(_boundingRect.size)]);
 #else
-    _cocoaImage = adoptNS([[UIImage alloc] initWithCGImage:_image->makeCGImageCopy().get()]);
+    _cocoaImage = adoptNS([[UIImage alloc] initWithCGImage:image->makeCGImageCopy().get()]);
 #endif
     _image = nullptr;
 

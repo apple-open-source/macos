@@ -40,7 +40,7 @@
 #include <wtf/text/WTFString.h>
 
 using CGImageRef = CGImage*;
-using CVPixelBufferRef = struct __CVBuffer*;
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 using IOSurfaceRef = struct __IOSurface*;
 using CMSampleBufferRef = struct opaqueCMSampleBuffer*;
 
@@ -73,7 +73,7 @@ class DisplayCaptureSourceCocoa final
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<DisplayCaptureSourceCocoa, WTF::DestructionThread::MainRunLoop> {
     WTF_MAKE_TZONE_ALLOCATED(DisplayCaptureSourceCocoa);
 public:
-    using DisplayFrameType = std::variant<RefPtr<NativeImage>, RetainPtr<IOSurfaceRef>, RetainPtr<CMSampleBufferRef>>;
+    using DisplayFrameType = Variant<RefPtr<NativeImage>, RetainPtr<IOSurfaceRef>, RetainPtr<CMSampleBufferRef>>;
 
     class Capturer : public LoggerHelper {
         WTF_MAKE_TZONE_ALLOCATED(Capturer);
@@ -108,18 +108,18 @@ public:
 
         void isRunningChanged(bool running)
         {
-            if (m_observer)
-                m_observer->capturerIsRunningChanged(running);
+            if (RefPtr observer = m_observer.get())
+                observer->capturerIsRunningChanged(running);
         }
         void captureFailed()
         {
-            if (m_observer)
-                m_observer->capturerFailed();
+            if (RefPtr observer = m_observer.get())
+                observer->capturerFailed();
         }
         void configurationChanged()
         {
-            if (m_observer)
-                m_observer->capturerConfigurationChanged();
+            if (RefPtr observer = m_observer.get())
+                observer->capturerConfigurationChanged();
         }
 
     private:
@@ -165,7 +165,7 @@ private:
     void commitConfiguration() { m_capturer->commitConfiguration(settings()); }
     void emitFrame();
 
-    UniqueRef<Capturer> m_capturer;
+    const UniqueRef<Capturer> m_capturer;
     std::optional<RealtimeMediaSourceCapabilities> m_capabilities;
     std::optional<RealtimeMediaSourceSettings> m_currentSettings;
     RealtimeMediaSourceSupportedConstraints m_supportedConstraints;

@@ -83,12 +83,12 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionAction, WebExtensionAction, 
 
 - (NSString *)label
 {
-    return self._protectedWebExtensionAction->label();
+    return self._protectedWebExtensionAction->label().createNSString().autorelease();
 }
 
 - (NSString *)badgeText
 {
-    return self._protectedWebExtensionAction->badgeText();
+    return self._protectedWebExtensionAction->badgeText().createNSString().autorelease();
 }
 
 - (BOOL)hasUnreadBadgeText

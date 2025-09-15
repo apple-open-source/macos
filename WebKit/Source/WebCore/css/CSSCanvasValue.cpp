@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@ CSSCanvasValue::CSSCanvasValue(String&& name)
 
 CSSCanvasValue::~CSSCanvasValue() = default;
 
-String CSSCanvasValue::customCSSText() const
+String CSSCanvasValue::customCSSText(const CSS::SerializationContext&) const
 {
     return makeString("-webkit-canvas("_s, m_name, ')');
 }

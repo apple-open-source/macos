@@ -319,6 +319,7 @@ void addLocaleTest(TestNode** root)
     TESTCASE(TestDisplayKeywords);
     TESTCASE(TestCanonicalization21749StackUseAfterScope);
     TESTCASE(TestDisplayKeywordValues);
+    TESTCASE(TestCalendarNamesExist);
     TESTCASE(TestGetBaseName);
 #if !UCONFIG_NO_FILE_IO
     TESTCASE(TestGetLocale);
@@ -3056,6 +3057,101 @@ static void TestDisplayKeywordValues(void){
     }
 }
 
+// Tests to check that for each of the locales given as test cases — which are meant to be reflective of the most common locales for UI Localizations as of this writing — all the provided calendars have localized names.
+static void TestCalendarNamesExist(void) {
+    static const struct {
+        const char *localeID;
+    } testCases[] = {
+        { "ar_AE", },
+        { "ar_SA", },
+        { "bg_BG", },
+        { "ca_ES", },
+        { "cs_CZ", },
+        { "da_DK", },
+        { "de_AT", },
+        { "de_CH", },
+        { "de_DE", },
+        { "el_GR", },
+        { "en_AU", },
+        { "en_GB", },
+        { "en_IN", },
+        { "en_US", },
+        { "es_ES", },
+        { "es_MX", },
+        { "es_US", },
+        { "fi_FI", },
+        { "fr_BE", },
+        { "fr_CA", },
+        { "fr_CH", },
+        { "fr_FR", },
+        { "gu_IN", },
+        { "he_IL", },
+        { "hi_IN", },
+        { "hr_HR", },
+        { "hu_HU", },
+        { "id_ID", },
+        { "it_IT", },
+        { "ja_JP", },
+        { "kk_KZ", },
+        { "kn_IN", },
+        { "ko_KR", },
+        { "lt_LT", },
+        { "ml_IN", },
+        { "mr_IN", },
+        { "ms_MY", },
+        { "nl_BE", },
+        { "nl_NL", },
+        { "no_NO", },
+        { "or_IN", },
+        { "pa_IN", },
+        { "pl_PL", },
+        { "pt_BR", },
+        { "pt_PT", },
+        { "ro_RO", },
+        { "ru_KZ", },
+        { "ru_RU", },
+        { "ru_UA", },
+        { "sk_SK", },
+        { "sl_SI", },
+        { "sv_SE", },
+        { "ta_IN", },
+        { "ta_SG", },
+        { "te_IN", },
+        { "th_TH", },
+        { "tr_TR", },
+        { "uk_UA", },
+        { "ur_IN", },
+        { "ur_PK", },
+        { "vi_VN", },
+        { "zh_CN", },
+        { "zh_HK", },
+        { "zh_MO", },
+        { "zh_SG", },
+        { "zh_TW", },
+    };
+    
+    for (int i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UEnumeration *uenum = ucal_getKeywordValuesForLocale("calendar", testCases[i].localeID, TRUE, &status);
+        if (U_SUCCESS(status)) {
+            const char *calendar;
+            while ((calendar = uenum_next(uenum, NULL, &status)) != NULL && U_SUCCESS(status)) {
+                char placeholderLocale[100] = "en_001@calendar=";
+                strcat(placeholderLocale, calendar);
+                UChar localizedName[100];
+                int bufferSize = uloc_getDisplayKeywordValue(placeholderLocale, "calendar", testCases[i].localeID, localizedName, sizeof(localizedName), &status);
+                if (U_FAILURE(status) || bufferSize == 0) {
+                    log_err("%s: uloc_getDisplayKeywordValue failed for calendar = %s, localeID = %s, displayLocale = %s with error : %s \n", __PRETTY_FUNCTION__, calendar, testCases[i].localeID, placeholderLocale, u_errorName(status));
+                    break;
+                }
+            }
+            uenum_close(uenum);
+        } else {
+            log_err("%s: ucal_getKeywordValuesForLocale failed for localeID = %s with error : %s \n", __PRETTY_FUNCTION__, testCases[i].localeID, u_errorName(status));
+            break;
+        }
+    }
+}
 
 static void TestGetBaseName(void) {
     static const struct {
@@ -8142,19 +8238,30 @@ static const UldnItem ru_StdMidLong[] = {
 };
 
 static const UldnItem ur_StdMidLong[] = {
-	{ "ps_Arab",                TEST_ULDN_LOCALE, u"پشتو (عربی)" },
-	{ "ps_Arab_AF",             TEST_ULDN_LOCALE, u"پشتو (عربی،افغانستان)" },
-	{ "ur_Aran",                TEST_ULDN_LOCALE, u"اردو (نستعلیق)" }, // rdar://47494884
-	{ "ur_Arab",                TEST_ULDN_LOCALE, u"اردو (نسخ)" }, // rdar://50687287
-	{ "ur_Aran_PK",             TEST_ULDN_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
-	{ "ur_Arab_PK",             TEST_ULDN_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://50687287
+    { "ps_Arab",                TEST_ULDN_LOCALE, u"پشتو (عربی)" },
+    { "ps_Arab_AF",             TEST_ULDN_LOCALE, u"پشتو (عربی،افغانستان)" },
+    { "ur_Aran",                TEST_ULDN_LOCALE, u"اردو (نستعلیق)" }, // rdar://47494884
+    { "ur_Arab",                TEST_ULDN_LOCALE, u"اردو (نسخ)" }, // rdar://50687287
+    { "ur_Aran_PK",             TEST_ULDN_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
+    { "ur_Arab_PK",             TEST_ULDN_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://50687287
+    
+    { "ps_Arab",                TEST_ULOC_LOCALE, u"پشتو (عربی)" },
+    { "ps_Arab_AF",             TEST_ULOC_LOCALE, u"پشتو (عربی،افغانستان)" },
+    { "ur_Aran",                TEST_ULOC_LOCALE, u"اردو (نستعلیق)" },     // rdar://47494884
+    { "ur_Arab",                TEST_ULOC_LOCALE, u"اردو (نسخ)" },         // rdar://51418203
+    { "ur_Aran_PK",             TEST_ULOC_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
+    { "ur_Arab_PK",             TEST_ULOC_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://51418203
+    
+    { "zh_Hant",                TEST_ULOC_LOCALE, u"چینی (روایتی)" }, // rdar://147782461
+    { "zh_Hans",                TEST_ULOC_LOCALE, u"چینی (آسان)" }, // rdar://147782461
 
-	{ "ps_Arab",                TEST_ULOC_LOCALE, u"پشتو (عربی)" },
-	{ "ps_Arab_AF",             TEST_ULOC_LOCALE, u"پشتو (عربی،افغانستان)" },
-	{ "ur_Aran",                TEST_ULOC_LOCALE, u"اردو (نستعلیق)" },     // rdar://47494884
-	{ "ur_Arab",                TEST_ULOC_LOCALE, u"اردو (نسخ)" },         // rdar://51418203
-	{ "ur_Aran_PK",             TEST_ULOC_LOCALE, u"اردو (نستعلیق،پاکستان)" }, // rdar://47494884
-	{ "ur_Arab_PK",             TEST_ULOC_LOCALE, u"اردو (نسخ،پاکستان)" }, // rdar://51418203
+    // tests for rdar://148617832
+    { "apw",                    TEST_ULDN_LANGUAGE, u"اپاچے، مغربی" },
+    { "lut",                    TEST_ULDN_LANGUAGE, u"لشوٹ سیڈ" },
+    { "osa",                    TEST_ULDN_LANGUAGE, u"اوسیج" },
+    { "sjd",                    TEST_ULDN_LANGUAGE, u"کِلڈِن سامی" },
+    { "sje",                    TEST_ULDN_LANGUAGE, u"پیتے سامی" },
+    { "sju",                    TEST_ULDN_LANGUAGE, u"اومے سامی" },
 };
 
 static const UldnItem pa_Arab_StdMidLong[] = {
@@ -8268,6 +8375,13 @@ static const UldnItem hi_StdMidLong[] = { // rdar://53653337
 	{ "guc",                    TEST_ULOC_LOCALE, u"वायु" },
     { "smj",                    TEST_ULOC_LOCALE, u"लूले सामी" }, // rdar://117588343
 	{ "JM",                     TEST_ULDN_REGION, u"जमैका"}, // rdar://52174281, which supersedes rdar://16850007
+    // tests for rdar://148617832
+    { "apw",                    TEST_ULDN_LANGUAGE, u"अपाची, पश्चिमी" },
+    { "lut",                    TEST_ULDN_LANGUAGE, u"लुशुत्सीद" },
+    { "osa",                    TEST_ULDN_LANGUAGE, u"ओसेज" },
+    { "sjd",                    TEST_ULDN_LANGUAGE, u"किल्दिन सामी" },
+    { "sje",                    TEST_ULDN_LANGUAGE, u"पीते सामी" },
+    { "sju",                    TEST_ULDN_LANGUAGE, u"ऊमे सामी" },
 };
 
 static const UldnItem hi_Latn_StdMidLong[] = { // rdar://53216112
@@ -8558,6 +8672,87 @@ static const UldnItem no_StdLstLong[] = { // rdar://81296782
     { "ja",                 TEST_ULDN_LANGUAGE, u"Japansk" },
     { "zh",                 TEST_ULDN_LANGUAGE, u"Kinesisk" },
 };
+
+static const UldnItem bn_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"আপাচি, পশ্চিমী" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"লাশ্যুটসিড" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ওসেজ" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"কিলডিন সামি" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"পিটে সামি" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ইউমে সামি" },
+};
+
+static const UldnItem gu_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"અપાચી, પશ્ચિમી" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"લુશુત્સીદ" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ઓસેજ" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"કિલ્ડિન સામિ" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"પાઇટ સામિ" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ઉમે સામિ" },
+};
+
+static const UldnItem kn_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"ಅಪಾಚಿ, ಪಶ್ಚಿಮ" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"ಲಶೂಟ್‌ಸೀಡ್" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ಓಸೇಜ್" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"ಕಿಲ್ಡಿನ್ ಸಾಮಿ" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"ಪೈಟ್ ಸಾಮಿ" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ಯುಮ್ ಸಾಮಿ" },
+};
+
+static const UldnItem ml_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"അപാച്ചി, പശ്ചിമം" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"ലഷൂട്ട്സീഡ്" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ഓസേജ്" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"കിൽഡിൻ സാമി" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"പിതെ സാമി" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ഉമെ സാമി" },
+};
+
+static const UldnItem mr_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"अपाची, वेस्टर्न" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"लुशुत्सीद" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ओसेज" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"किल्दिन सामी" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"पीते सामी" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ऊमे सामी" },
+};
+
+static const UldnItem or_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"ଆପାଚି, ପାଶ୍ଚାତ‍୍ୟ" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"ଲୁଶୂତ୍‌ସୀଦ୍‌" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ଓସେଜ୍" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"କିଲ୍‌ଡିନ୍‌ ସାମି" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"ପାଇଟ୍‌ ସାମି" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ଊମେ ସାମି" },
+};
+
+static const UldnItem pa_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"ਅਪਾਚੀ, ਪੱਛਮੀ" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"ਲੁਸ਼ੁਟਸੀਡ" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ਓਸੇਜ" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"ਕਿਲਡਿਨ ਸਾਮੀ" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"ਪੀਟੇ ਸਾਮੀ" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"ਉਮੇ ਸਾਮੀ" },
+};
+
+static const UldnItem ta_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"அபாச்சி, வெஸ்டர்ன்" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"லஷூத்சீத்" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ஓசேஜ்" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"கில்டின் சாமி" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"பிதே சாமி" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"உம் சாமி" },
+};
+
+static const UldnItem te_StdMidLong[] = { // rdar://148617832
+    { "apw",                TEST_ULDN_LANGUAGE, u"అపాచీ, వెస్టర్న్" },
+    { "lut",                TEST_ULDN_LANGUAGE, u"లషూట్‌సీడ్" },
+    { "osa",                TEST_ULDN_LANGUAGE, u"ఒసేజ్" },
+    { "sjd",                TEST_ULDN_LANGUAGE, u"కిల్డిన్ సామి" },
+    { "sje",                TEST_ULDN_LANGUAGE, u"పైట్ సామి" },
+    { "sju",                TEST_ULDN_LANGUAGE, u"యుమ్ సామి" },
+};
 #endif  // APPLE_ICU_CHANGES
 
 static const UldnLocAndOpts uldnLocAndOpts[] = {
@@ -8646,6 +8841,15 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "kk", optStdMidLong, kk_StdMidLong, UPRV_LENGTHOF(kk_StdMidLong) }, // rdar://95015661
     { "kk", optDiaMidLong, kk_DiaMidLong, UPRV_LENGTHOF(kk_DiaMidLong) }, // rdar://95015661
     { "ar", optStdMidLong, ar_StdMidLong, UPRV_LENGTHOF(ar_StdMidLong) }, // rdar://123305986
+    { "bn", optStdMidLong, bn_StdMidLong, UPRV_LENGTHOF(bn_StdMidLong) }, // rdar://148617832
+    { "gu", optStdMidLong, gu_StdMidLong, UPRV_LENGTHOF(gu_StdMidLong) }, // rdar://148617832
+    { "kn", optStdMidLong, kn_StdMidLong, UPRV_LENGTHOF(kn_StdMidLong) }, // rdar://148617832
+    { "ml", optStdMidLong, ml_StdMidLong, UPRV_LENGTHOF(ml_StdMidLong) }, // rdar://148617832
+    { "mr", optStdMidLong, mr_StdMidLong, UPRV_LENGTHOF(mr_StdMidLong) }, // rdar://148617832
+    { "or", optStdMidLong, or_StdMidLong, UPRV_LENGTHOF(or_StdMidLong) }, // rdar://148617832
+    { "pa", optStdMidLong, pa_StdMidLong, UPRV_LENGTHOF(pa_StdMidLong) }, // rdar://148617832
+    { "ta", optStdMidLong, ta_StdMidLong, UPRV_LENGTHOF(ta_StdMidLong) }, // rdar://148617832
+    { "te", optStdMidLong, te_StdMidLong, UPRV_LENGTHOF(te_StdMidLong) }, // rdar://148617832
 #endif  // APPLE_ICU_CHANGES
     { NULL, NULL, NULL, 0 }
 };

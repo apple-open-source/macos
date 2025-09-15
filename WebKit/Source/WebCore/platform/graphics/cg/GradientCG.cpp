@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@
 #include "GradientRendererCG.h"
 #include "GraphicsContextCG.h"
 #include <pal/spi/cg/CoreGraphicsSPI.h>
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -48,13 +49,19 @@ void Gradient::fill(GraphicsContext& context, const FloatRect& rect)
 
 void Gradient::paint(GraphicsContext& context)
 {
-    paint(context.platformContext());
+    paint(context.platformContext(), context.colorSpace());
 }
 
-void Gradient::paint(CGContextRef platformContext)
+void Gradient::paint(CGContextRef platformContext, std::optional<DestinationColorSpace> colorSpace)
 {
-    if (!m_platformRenderer)
-        m_platformRenderer = GradientRendererCG { m_colorInterpolationMethod, m_stops.sorted() };
+    auto ensurePlatformRenderer = [&] {
+        if (m_platformRenderer && m_platformRenderer->colorSpace() == colorSpace)
+            return;
+
+        m_platformRenderer = GradientRendererCG { m_colorInterpolationMethod, m_stops.sorted(), colorSpace };
+    };
+
+    ensurePlatformRenderer();
 
     WTF::switchOn(m_data,
         [&] (const LinearData& data) {
@@ -160,16 +167,12 @@ void Gradient::paint(CGContextRef platformContext)
                 CGContextRestoreGState(platformContext);
         },
         [&] (const ConicData& data) {
-#if HAVE(CORE_GRAPHICS_CONIC_GRADIENTS)
             CGContextSaveGState(platformContext);
             CGContextTranslateCTM(platformContext, data.point0.x(), data.point0.y());
-            CGContextRotateCTM(platformContext, (CGFloat)-M_PI_2);
+            CGContextRotateCTM(platformContext, (CGFloat)-piOverTwoDouble);
             CGContextTranslateCTM(platformContext, -data.point0.x(), -data.point0.y());
             m_platformRenderer->drawConicGradient(platformContext, data.point0, data.angleRadians);
             CGContextRestoreGState(platformContext);
-#else
-            UNUSED_PARAM(data);
-#endif
         }
     );
 }

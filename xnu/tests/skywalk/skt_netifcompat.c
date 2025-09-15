@@ -57,12 +57,12 @@ skt_netifcompat_common(void)
 
 	channel = sktu_channel_create_extended(sktc_instance_uuid, NEXUS_PORT_NET_IF_HOST,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(!channel);
 
 	channel = sktu_channel_create_extended(sktc_instance_uuid, NEXUS_PORT_NET_IF_DEV,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(!channel);
 
 	uuid_generate_random(if_uuid);
@@ -84,7 +84,7 @@ skt_netifcompat_common(void)
 
 	channel = sktu_channel_create_extended(sktc_instance_uuid, NEXUS_PORT_NET_IF_DEV,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	if (channel != NULL) {
 		error = __os_nexus_ifdetach(sktc_nexus_controller,
 		    sktc_instance_uuid, if_uuid);
@@ -254,12 +254,12 @@ skt_fsw_common(const char *name)
 	/* must fail without user packet pool set (flow switch) */
 	assert(sktu_channel_create_extended(ms_instance, 2,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
 
 	/* Open and close channel to the flow switch */
 	channel = sktu_channel_create_extended(ms_instance, 2,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, 1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, 1, 1, -1, -1);
 	assert(channel);
 
 	os_channel_destroy(channel);

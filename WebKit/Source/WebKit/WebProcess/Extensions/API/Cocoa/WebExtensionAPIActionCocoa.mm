@@ -43,7 +43,7 @@
 #import "WebExtensionUtilities.h"
 #import "WebFrame.h"
 #import "WebProcess.h"
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIKit.h>
@@ -79,7 +79,7 @@ bool WebExtensionAPIAction::parseActionDetails(NSDictionary *details, std::optio
         return false;
 
     if (details[tabIdKey] && details[windowIdKey]) {
-        *outExceptionString = toErrorString(nullString(), @"details", @"it cannot specify both 'tabId' and 'windowID'");
+        *outExceptionString = toErrorString(nullString(), @"details", @"it cannot specify both 'tabId' and 'windowID'").createNSString().autorelease();
         return false;
     }
 
@@ -109,11 +109,11 @@ void WebExtensionAPIAction::getTitle(NSDictionary *details, Ref<WebExtensionCall
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionGetTitle(windowIdentifier, tabIdentifier), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<String, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
-        callback->call(result.value());
+        callback->call(result.value().createNSString().get());
     }, extensionContext().identifier());
 }
 
@@ -141,7 +141,7 @@ void WebExtensionAPIAction::setTitle(NSDictionary *details, Ref<WebExtensionCall
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetTitle(windowIdentifier, tabIdentifier, title), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -160,11 +160,11 @@ void WebExtensionAPIAction::getBadgeText(NSDictionary *details, Ref<WebExtension
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionGetBadgeText(windowIdentifier, tabIdentifier), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<String, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
-        callback->call(result.value());
+        callback->call(result.value().createNSString().get());
     }, extensionContext().identifier());
 }
 
@@ -192,7 +192,7 @@ void WebExtensionAPIAction::setBadgeText(NSDictionary *details, Ref<WebExtension
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetBadgeText(windowIdentifier, tabIdentifier, text), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -238,7 +238,7 @@ void WebExtensionAPIAction::enable(double tabID, Ref<WebExtensionCallbackHandler
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetEnabled(tabIdentifer, true), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -256,7 +256,7 @@ void WebExtensionAPIAction::disable(double tabID, Ref<WebExtensionCallbackHandle
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetEnabled(tabIdentifer, false), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -275,7 +275,7 @@ void WebExtensionAPIAction::isEnabled(NSDictionary *details, Ref<WebExtensionCal
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionGetEnabled(windowIdentifier, tabIdentifier), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<bool, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -292,13 +292,13 @@ static NSString *dataURLFromImageData(JSValue *imageData, size_t *outWidth, NSSt
 
     auto *imageDataConstructor = imageData.context[@"ImageData"];
     if (![imageData isInstanceOf:imageDataConstructor]) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
     auto *dataObject = imageData[@"data"];
     if (!dataObject.isObject) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
@@ -307,7 +307,7 @@ static NSString *dataURLFromImageData(JSValue *imageData, size_t *outWidth, NSSt
 
     auto dataArrayType = JSValueGetTypedArrayType(context, dataObjectRef, nullptr);
     if (dataArrayType != kJSTypedArrayTypeUint8ClampedArray) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
@@ -321,7 +321,7 @@ static NSString *dataURLFromImageData(JSValue *imageData, size_t *outWidth, NSSt
     constexpr size_t bitsPerComponent = 8;
     constexpr size_t bitsPerPixel = 32;
     const size_t bytesPerRow = 4 * width;
-    auto colorSpace = CGColorSpaceCreateWithName([colorSpaceString isEqualToString:@"display-p3"] ? kCGColorSpaceDisplayP3 : kCGColorSpaceSRGB);
+    RetainPtr colorSpace = adoptCF(CGColorSpaceCreateWithName([colorSpaceString isEqualToString:@"display-p3"] ? kCGColorSpaceDisplayP3 : kCGColorSpaceSRGB));
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-anon-enum-enum-conversion"
@@ -332,36 +332,30 @@ static NSString *dataURLFromImageData(JSValue *imageData, size_t *outWidth, NSSt
     constexpr CGFloat *decode = nullptr;
     constexpr bool shouldInterpolate = YES;
 
-    auto dataProvider = CGDataProviderCreateWithCFData((__bridge CFDataRef)pixelData);
-    auto cgImage = CGImageCreate(width, height, bitsPerComponent, bitsPerPixel, bytesPerRow, colorSpace, bitmapInfo, dataProvider, decode, shouldInterpolate, renderingIntent);
-    CGDataProviderRelease(dataProvider);
-    CGColorSpaceRelease(colorSpace);
+    RetainPtr dataProvider = adoptCF(CGDataProviderCreateWithCFData((__bridge CFDataRef)pixelData));
+    RetainPtr cgImage = adoptCF(CGImageCreate(width, height, bitsPerComponent, bitsPerPixel, bytesPerRow, colorSpace.get(), bitmapInfo, dataProvider.get(), decode, shouldInterpolate, renderingIntent));
 
     if (!cgImage) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
 #if USE(APPKIT)
-    auto *imageRep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage];
-    CGImageRelease(cgImage);
-
+    auto *imageRep = [[NSBitmapImageRep alloc] initWithCGImage:cgImage.get()];
     auto *pngData = [imageRep representationUsingType:NSBitmapImageFileTypePNG properties:@{ }];
 #else
-    UIImage *image = [UIImage imageWithCGImage:cgImage];
-    CGImageRelease(cgImage);
-
+    auto *image = [UIImage imageWithCGImage:cgImage.get()];
     auto *pngData = UIImagePNGRepresentation(image);
 #endif
 
     if (!pngData.length) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
     auto *base64String = [pngData base64EncodedStringWithOptions:0];
     if (!base64String.length) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError);
+        *outExceptionString = toErrorString(nullString(), sourceKey, notImageDataError).createNSString().autorelease();
         return nil;
     }
 
@@ -399,7 +393,7 @@ NSString *WebExtensionAPIAction::parseIconPath(NSString *path, const URL& baseUR
     // Resolve paths as relative against the base URL, unless it is a data URL.
     if ([path hasPrefix:@"data:"])
         return path;
-    return URL { baseURL, path }.path().toString();
+    return URL { baseURL, path }.path().createNSString().autorelease();
 }
 
 NSMutableDictionary *WebExtensionAPIAction::parseIconPathsDictionary(NSDictionary *input, const URL& baseURL, bool forVariants, NSString *inputKey, NSString **outExceptionString)
@@ -414,12 +408,12 @@ NSMutableDictionary *WebExtensionAPIAction::parseIconPathsDictionary(NSDictionar
 
         if (!isValidDimensionKey(key)) {
             if (outExceptionString)
-                *outExceptionString = toErrorString(nullString(), inputKey, @"'%@' is not a valid dimension", key);
+                *outExceptionString = toErrorString(nullString(), inputKey, @"'%@' is not a valid dimension", key).createNSString().autorelease();
             return nil;
         }
 
         NSString *path = input[key];
-        if (!validateObject(path, [NSString stringWithFormat:@"%@[%@]", inputKey, key], NSString.class, outExceptionString))
+        if (!validateObject(path, adoptNS([[NSString alloc] initWithFormat:@"%@[%@]", inputKey, key]).get(), NSString.class, outExceptionString))
             return nil;
 
         result[key] = parseIconPath(path, baseURL);
@@ -440,12 +434,12 @@ NSMutableDictionary *WebExtensionAPIAction::parseIconImageDataDictionary(NSDicti
 
         if (!isValidDimensionKey(key)) {
             if (outExceptionString)
-                *outExceptionString = toErrorString(nullString(), inputKey, @"'%@' is not a valid dimension", key);
+                *outExceptionString = toErrorString(nullString(), inputKey, @"'%@' is not a valid dimension", key).createNSString().autorelease();
             return nil;
         }
 
         id value = input[key];
-        if (!validateObject(value, [NSString stringWithFormat:@"%@[%@]", inputKey, key], JSValue.class, outExceptionString))
+        if (!validateObject(value, adoptNS([[NSString alloc] initWithFormat:@"%@[%@]", inputKey, key]).get(), JSValue.class, outExceptionString))
             return nil;
 
         auto *dataURLString = dataURLFromImageData(value, nullptr, key, outExceptionString);
@@ -488,7 +482,7 @@ NSArray *WebExtensionAPIAction::parseIconVariants(NSArray *input, const URL& bas
 
             if (![colorSchemes containsObject:lightKey] && ![colorSchemes containsObject:darkKey]) {
                 if (!firstExceptionString)
-                    firstExceptionString = toErrorString(nullString(), colorSchemesCompositeKey, @"it must specify either 'light' or 'dark'");
+                    firstExceptionString = toErrorString(nullString(), colorSchemesCompositeKey, @"it must specify either 'light' or 'dark'").createNSString().autorelease();
                 continue;
             }
 
@@ -503,7 +497,7 @@ NSArray *WebExtensionAPIAction::parseIconVariants(NSArray *input, const URL& bas
         // An exception is only set if no valid icon variants were found,
         // maintaining flexibility for future support of different inputs.
         if (!firstExceptionString)
-            firstExceptionString = toErrorString(nullString(), inputKey, @"it didn't contain any valid icon variants");
+            firstExceptionString = toErrorString(nullString(), inputKey, @"it didn't contain any valid icon variants").createNSString().autorelease();
         if (outExceptionString)
             *outExceptionString = firstExceptionString;
         return nil;
@@ -535,7 +529,7 @@ void WebExtensionAPIAction::setIcon(WebFrame& frame, NSDictionary *details, Ref<
         return;
 
     if (details[pathKey] && details[imageDataKey]) {
-        *outExceptionString = toErrorString(nullString(), @"details", @"it cannot specify both 'path' and 'imageData'");
+        *outExceptionString = toErrorString(nullString(), @"details", @"it cannot specify both 'path' and 'imageData'").createNSString().autorelease();
         return;
     }
 
@@ -583,7 +577,7 @@ void WebExtensionAPIAction::setIcon(WebFrame& frame, NSDictionary *details, Ref<
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetIcon(windowIdentifier, tabIdentifier, iconsJSON), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -602,11 +596,11 @@ void WebExtensionAPIAction::getPopup(NSDictionary *details, Ref<WebExtensionCall
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionGetPopup(windowIdentifier, tabIdentifier), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<String, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
-        callback->call(result.value());
+        callback->call(result.value().createNSString().get());
     }, extensionContext().identifier());
 }
 
@@ -634,7 +628,7 @@ void WebExtensionAPIAction::setPopup(NSDictionary *details, Ref<WebExtensionCall
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionSetPopup(windowIdentifier, tabIdentifier, popup), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -653,7 +647,7 @@ void WebExtensionAPIAction::openPopup(WebPageProxyIdentifier webPageProxyIdentif
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ActionOpenPopup(webPageProxyIdentifier, windowIdentifier, tabIdentifier), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -678,7 +672,7 @@ void WebExtensionContextProxy::dispatchActionClickedEvent(const std::optional<We
     auto *tab = tabParameters ? toWebAPI(tabParameters.value()) : nil;
 
     enumerateFramesAndNamespaceObjects([&](auto& frame, auto& namespaceObject) {
-        RefPtr coreFrame = frame.protectedCoreLocalFrame();
+        RefPtr coreFrame = frame.coreLocalFrame();
         WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, coreFrame ? coreFrame->document() : nullptr);
         namespaceObject.action().onClicked().invokeListenersWithArgument(tab);
     });

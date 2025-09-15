@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,14 +50,14 @@ void WKContextMenuListenerUseContextMenuItems(WKContextMenuListenerRef listenerR
     Vector<Ref<WebContextMenuItem>> items;
     items.reserveInitialCapacity(newSize);
     for (size_t i = 0; i < newSize; ++i) {
-        WebContextMenuItem* item = array->at<WebContextMenuItem>(i);
+        RefPtr item = array->at<WebContextMenuItem>(i);
         if (!item)
             continue;
         
-        items.append(*item);
+        items.append(item.releaseNonNull());
     }
 
-    toImpl(listenerRef)->useContextMenuItems(WTFMove(items));
+    toProtectedImpl(listenerRef)->useContextMenuItems(WTFMove(items));
 #else
     UNUSED_PARAM(listenerRef);
     UNUSED_PARAM(arrayRef);

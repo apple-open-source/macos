@@ -23,5 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 @interface NSBlockInvocation : NSInvocation
 @end

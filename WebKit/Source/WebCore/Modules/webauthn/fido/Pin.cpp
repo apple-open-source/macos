@@ -42,6 +42,7 @@
 #include "CryptoKeyEC.h"
 #include "CryptoKeyHMAC.h"
 #include "DeviceResponseConverter.h"
+#include "ExceptionOr.h"
 #include "WebAuthenticationConstants.h"
 #include "WebAuthenticationUtils.h"
 #if HAVE(SWIFT_CPP_INTEROP)
@@ -268,7 +269,7 @@ std::optional<TokenRequest> TokenRequest::tryCreate(const CString& pin, const Cr
 
     // The following calculates a SHA-256 digest of the PIN, and shrink to the left 16 bytes.
     crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(pin.span());
+    crypto->addBytes(byteCast<uint8_t>(pin.span()));
     auto pinHash = crypto->computeHash();
     pinHash.shrink(16);
 
@@ -282,23 +283,12 @@ TokenRequest::TokenRequest(Ref<WebCore::CryptoKeyAES>&& sharedKey, cbor::CBORVal
 {
 }
 
-const CryptoKeyAES& TokenRequest::sharedKey() const
-{
-    return m_sharedKey;
-}
-
-
 SetPinRequest::SetPinRequest(Ref<WebCore::CryptoKeyAES>&& sharedKey, cbor::CBORValue::MapValue&& coseKey, Vector<uint8_t>&& newPinEnc, Vector<uint8_t>&& pinUvAuthParam)
     : m_sharedKey(WTFMove(sharedKey))
     , m_coseKey(WTFMove(coseKey))
     , m_newPinEnc(WTFMove(newPinEnc))
     , m_pinUvAuthParam(WTFMove(pinUvAuthParam))
 {
-}
-
-const WebCore::CryptoKeyAES& SetPinRequest::sharedKey() const
-{
-    return m_sharedKey;
 }
 
 const Vector<uint8_t>& SetPinRequest::pinAuth() const

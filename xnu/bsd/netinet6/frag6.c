@@ -72,6 +72,7 @@
 #include <sys/syslog.h>
 #include <kern/queue.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
 
 #include <net/droptap.h>
 #include <net/if.h>
@@ -173,7 +174,7 @@ frag6_init(void)
 	ip6q.ip6q_next = ip6q.ip6q_prev = &ip6q;
 
 	/* same limits as IPv4 */
-	ip6_maxfragpackets = nmbclusters / 32;
+	ip6_maxfragpackets = 8192;
 	ip6_maxfrags = ip6_maxfragpackets * 2;
 	ip6q_updateparams();
 	lck_mtx_unlock(&ip6qlock);
@@ -1303,7 +1304,7 @@ sysctl_maxfragpackets SYSCTL_HANDLER_ARGS
 		goto done;
 	}
 	/* impose bounds */
-	if (i < -1 || i > (nmbclusters / 4)) {
+	if (i < -1) {
 		error = EINVAL;
 		goto done;
 	}
@@ -1327,7 +1328,7 @@ sysctl_maxfrags SYSCTL_HANDLER_ARGS
 		goto done;
 	}
 	/* impose bounds */
-	if (i < -1 || i > (nmbclusters / 4)) {
+	if (i < -1) {
 		error = EINVAL;
 		goto done;
 	}

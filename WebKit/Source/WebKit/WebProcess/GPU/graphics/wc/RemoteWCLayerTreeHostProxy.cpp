@@ -58,9 +58,9 @@ IPC::Connection* RemoteWCLayerTreeHostProxy::messageSenderConnection() const
 
 GPUProcessConnection& RemoteWCLayerTreeHostProxy::ensureGPUProcessConnection()
 {
-    auto gpuProcessConnection = m_gpuProcessConnection.get();
+    RefPtr gpuProcessConnection = m_gpuProcessConnection.get();
     if (!gpuProcessConnection) {
-        gpuProcessConnection = &WebProcess::singleton().ensureGPUProcessConnection();
+        gpuProcessConnection = WebProcess::singleton().ensureGPUProcessConnection();
         m_gpuProcessConnection = gpuProcessConnection;
         gpuProcessConnection->addClient(*this);
         gpuProcessConnection->connection().send(

@@ -43,7 +43,7 @@ public:
     explicit MediaPlaybackTargetPickerMac(MediaPlaybackTargetPicker::Client&);
     virtual ~MediaPlaybackTargetPickerMac();
 
-    void showPlaybackTargetPicker(PlatformView*, const FloatRect&, bool checkActiveRoute, bool useDarkAppearance) final;
+    void showPlaybackTargetPicker(CocoaView*, const FloatRect&, bool checkActiveRoute, bool useDarkAppearance) final;
     void startingMonitoringPlaybackTargets() final;
     void stopMonitoringPlaybackTargets() final;
     void invalidatePlaybackTargets() final;

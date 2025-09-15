@@ -281,11 +281,6 @@ getAddrLenForInd(
 		addr = cur.address;
 		len  = cur.length;
 	}
-#if CONFIG_PROB_GZALLOC
-	if (task == kernel_task) {
-		addr = pgz_decode(addr, len);
-	}
-#endif /* CONFIG_PROB_GZALLOC */
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1584,24 +1579,26 @@ IOReturn
 IOGeneralMemoryDescriptor::memoryReferenceGetPageCounts(
 	IOMemoryReference * ref,
 	IOByteCount       * residentPageCount,
-	IOByteCount       * dirtyPageCount)
+	IOByteCount       * dirtyPageCount,
+	IOByteCount       * swappedPageCount)
 {
 	IOReturn        err;
 	IOMemoryEntry * entries;
-	unsigned int resident, dirty;
-	unsigned int totalResident, totalDirty;
+	UInt64 resident, dirty, swapped;
+	UInt64 totalResident, totalDirty, totalSwapped;
 
-	totalResident = totalDirty = 0;
+	totalResident = totalDirty = totalSwapped = 0;
 	err = kIOReturnSuccess;
 	entries = ref->entries + ref->count;
 	while (entries > &ref->entries[0]) {
 		entries--;
-		err = mach_memory_entry_get_page_counts(entries->entry, &resident, &dirty);
+		err = mach_memory_entry_get_page_counts(entries->entry, &resident, &dirty, &swapped);
 		if (KERN_SUCCESS != err) {
 			break;
 		}
 		totalResident += resident;
 		totalDirty    += dirty;
+		totalSwapped  += swapped;
 	}
 
 	if (residentPageCount) {
@@ -1609,6 +1606,9 @@ IOGeneralMemoryDescriptor::memoryReferenceGetPageCounts(
 	}
 	if (dirtyPageCount) {
 		*dirtyPageCount    = totalDirty;
+	}
+	if (swappedPageCount) {
+		*swappedPageCount  = totalSwapped;
 	}
 	return err;
 }
@@ -2475,10 +2475,10 @@ IOMemoryDescriptor::getFlags(void)
 }
 
 OSObject *
-IOMemoryDescriptor::copyContext(void) const
+IOMemoryDescriptor::copyContext(const OSSymbol * key) const
 {
-	if (reserved) {
-		OSObject * context = reserved->contextObject;
+	if (reserved && reserved->contextObjects) {
+		OSObject * context = reserved->contextObjects->getObject(key);
 		if (context) {
 			context->retain();
 		}
@@ -2488,8 +2488,31 @@ IOMemoryDescriptor::copyContext(void) const
 	}
 }
 
+OSObject *
+IOMemoryDescriptor::copyContext(const char * key) const
+{
+	OSSharedPtr<const OSSymbol> sym = OSSymbol::withCString(key);
+	return copyContext(sym.get());
+}
+
+OSObject *
+IOMemoryDescriptor::copySharingContext(const char * key) const
+{
+	OSObject * context = NULL;
+	OSObject * obj = copyContext(kIOMemoryDescriptorSharingContextKey);
+	OSDictionary * dict = OSDynamicCast(OSDictionary, obj);
+	if (dict) {
+		context = dict->getObject(key);
+		if (context) {
+			context->retain();
+		}
+	}
+	OSSafeReleaseNULL(obj);
+	return context;
+}
+
 void
-IOMemoryDescriptor::setContext(OSObject * obj)
+IOMemoryDescriptor::setContext(const OSSymbol * key, OSObject * obj)
 {
 	if (this->reserved == NULL && obj == NULL) {
 		// No existing object, and no object to set
@@ -2498,15 +2521,54 @@ IOMemoryDescriptor::setContext(OSObject * obj)
 
 	IOMemoryDescriptorReserved * reserved = getKernelReserved();
 	if (reserved) {
-		OSObject * oldObject = reserved->contextObject;
-		if (oldObject && OSCompareAndSwapPtr(oldObject, NULL, &reserved->contextObject)) {
-			oldObject->release();
+		if (NULL == reserved->contextObjects) {
+			reserved->contextObjects = OSDictionary::withCapacity(2);
 		}
-		if (obj != NULL) {
-			obj->retain();
-			reserved->contextObject = obj;
+		if (obj) {
+			reserved->contextObjects->setObject(key, obj);
+		} else {
+			reserved->contextObjects->removeObject(key);
 		}
 	}
+}
+
+void
+IOMemoryDescriptor::setContext(const char * key, OSObject * obj)
+{
+	OSSharedPtr<const OSSymbol> sym = OSSymbol::withCString(key);
+	setContext(sym.get(), obj);
+}
+
+OSObject *
+IOMemoryDescriptor::copyContext(void) const
+{
+	return copyContext((const OSSymbol *) kOSBooleanFalse);
+}
+enum {
+	kIOMemoryDescriptorInternalFlagsSharing = 0x0001,
+};
+
+void
+IOMemoryDescriptor::setSharingContext(const char * key, OSObject * obj)
+{
+	OSSharedPtr<const OSSymbol> sym = OSSymbol::withCString(key);
+	OSSharedPtr<OSDictionary> dict = OSDictionary::withCapacity(1);
+
+	dict->setObject(sym.get(), obj);
+	setContext(kIOMemoryDescriptorSharingContextKey, dict.get());
+	OSBitOrAtomic16(kIOMemoryDescriptorInternalFlagsSharing, &_internalIOMDFlags);
+}
+
+bool
+IOMemoryDescriptor::hasSharingContext(void)
+{
+	return 0 != (kIOMemoryDescriptorInternalFlagsSharing & _internalIOMDFlags);
+}
+
+void
+IOMemoryDescriptor::setContext(OSObject * obj)
+{
+	setContext((const OSSymbol *) kOSBooleanFalse, obj);
 }
 
 #ifndef __LP64__
@@ -2728,10 +2790,7 @@ IOMemoryDescriptor::cleanKernelReserved( IOMemoryDescriptorReserved * reserved )
 		reserved->creator = NULL;
 	}
 
-	if (reserved->contextObject) {
-		reserved->contextObject->release();
-		reserved->contextObject = NULL;
-	}
+	reserved->contextObjects = NULL;
 }
 
 IOMemoryDescriptorReserved *
@@ -3846,10 +3905,10 @@ IOMemoryDescriptor::getDMAMapLength(uint64_t * offset)
 	return length;
 }
 
-
 IOReturn
 IOMemoryDescriptor::getPageCounts( IOByteCount * residentPageCount,
-    IOByteCount * dirtyPageCount )
+    IOByteCount * dirtyPageCount,
+    IOByteCount * swappedPageCount )
 {
 	IOReturn err = kIOReturnNotReady;
 
@@ -3862,14 +3921,14 @@ IOMemoryDescriptor::getPageCounts( IOByteCount * residentPageCount,
 		LOCK;
 	}
 	if (_memRef) {
-		err = IOGeneralMemoryDescriptor::memoryReferenceGetPageCounts(_memRef, residentPageCount, dirtyPageCount);
+		err = IOGeneralMemoryDescriptor::memoryReferenceGetPageCounts(_memRef, residentPageCount, dirtyPageCount, swappedPageCount);
 	} else {
 		IOMultiMemoryDescriptor * mmd;
 		IOSubMemoryDescriptor   * smd;
 		if ((smd = OSDynamicCast(IOSubMemoryDescriptor, this))) {
-			err = smd->getPageCounts(residentPageCount, dirtyPageCount);
+			err = smd->getPageCounts(residentPageCount, dirtyPageCount, swappedPageCount);
 		} else if ((mmd = OSDynamicCast(IOMultiMemoryDescriptor, this))) {
-			err = mmd->getPageCounts(residentPageCount, dirtyPageCount);
+			err = mmd->getPageCounts(residentPageCount, dirtyPageCount, swappedPageCount);
 		}
 	}
 	if (kIOMemoryThreadSafe & _flags) {
@@ -3877,6 +3936,13 @@ IOMemoryDescriptor::getPageCounts( IOByteCount * residentPageCount,
 	}
 
 	return err;
+}
+
+IOReturn
+IOMemoryDescriptor::getPageCounts( IOByteCount * residentPageCount,
+    IOByteCount * dirtyPageCount )
+{
+	return getPageCounts(residentPageCount, dirtyPageCount, NULL);
 }
 
 
@@ -4985,6 +5051,7 @@ IOGeneralMemoryDescriptor::doMap(
 		}
 	}
 
+
 	memory_object_t pager;
 	pager = (memory_object_t) (reserved ? reserved->dp.devicePager : NULL);
 
@@ -5789,23 +5856,6 @@ IOMemoryDescriptor::createMappingInTask(
 	}
 
 	mapping = new IOMemoryMap;
-
-#if 136275805
-	/*
-	 * XXX: Redundantly check the mapping size here so that failure stack traces
-	 *      are more useful. This has no functional value but is helpful because
-	 *      telemetry traps can currently only capture the last five calls and
-	 *      so we want to trap as shallow as possible in a select few cases
-	 *      where we anticipate issues.
-	 *
-	 *      When telemetry collection is complete, this will be removed.
-	 */
-	if (__improbable(mapping && !vm_map_is_map_size_valid(
-		    get_task_map(intoTask), length, /* no_soft_limit */ false))) {
-		mapping->release();
-		mapping = NULL;
-	}
-#endif /* 136275805 */
 
 	if (mapping
 	    && !mapping->init( intoTask, atAddress,

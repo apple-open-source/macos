@@ -428,6 +428,8 @@ struct proc {
 	uint32_t        p_pth_tsd_offset;       /* offset from pthread_t to TSD for new threads */
 	user_addr_t     p_stack_addr_hint;      /* stack allocation hint for wq threads */
 	struct workqueue *_Atomic p_wqptr;                      /* workq ptr */
+	struct workq_aio_s *_Atomic p_aio_wqptr;                /* aio_workq ptr */
+
 
 	struct  timeval p_start;                /* starting time */
 	void *  p_rcall;
@@ -587,6 +589,7 @@ struct proc {
 #define P_VFS_IOPOLICY_ALTLINK                          0x0400
 #define P_VFS_IOPOLICY_NOCACHE_WRITE_FS_BLKSIZE         0x0800
 #define P_VFS_IOPOLICY_SUPPORT_LONG_PATHS               0x1000
+#define P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS          0x2000
 
 #define P_VFS_IOPOLICY_INHERITED_MASK                   \
 	(P_VFS_IOPOLICY_FORCE_HFS_CASE_SENSITIVITY | \
@@ -604,7 +607,8 @@ struct proc {
 
 #define P_VFS_IOPOLICY_VALID_MASK                       \
 	(P_VFS_IOPOLICY_INHERITED_MASK | \
-	P_VFS_IOPOLICY_ALLOW_LOW_SPACE_WRITES)
+	P_VFS_IOPOLICY_ALLOW_LOW_SPACE_WRITES | \
+	P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS)
 
 /* process creation arguments */
 #define PROC_CREATE_FORK        0       /* independent child (running) */
@@ -733,7 +737,7 @@ struct user64_extern_proc {
 };
 #endif  /* KERNEL */
 
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 extern struct vfs_context vfs_context0;
 
@@ -749,6 +753,26 @@ extern unsigned int proc_shutdown_exitcount;
 #define PID_MAX         99999
 #define NO_PID          100000
 extern lck_mtx_t proc_list_mlock;
+
+#ifdef XNU_KERNEL_PRIVATE
+/*
+ * Identify a process uniquely.
+ * proc_ident's fields match 1-1 with those in struct proc.
+ */
+#define PROC_IDENT_PID_BIT_COUNT 28
+struct proc_ident {
+	uint64_t        p_uniqueid;
+	pid_t
+	    may_exit : 1,
+	    may_exec : 1,
+	    reserved : 2,
+	    p_pid : PROC_IDENT_PID_BIT_COUNT;
+	int             p_idversion;
+};
+_Static_assert(sizeof(pid_t) == 4, "proc_ident assumes a 32-bit pid_t");
+_Static_assert(PID_MAX < (1 << PROC_IDENT_PID_BIT_COUNT), "proc_ident assumes PID_MAX requires less than 28bits");
+_Static_assert(NO_PID < (1 << PROC_IDENT_PID_BIT_COUNT), "proc_ident assumes NO_PID requires less than 28bits");
+#endif
 
 #define BSD_SIMUL_EXECS         33 /* 32 , allow for rounding */
 #define BSD_PAGEABLE_SIZE_PER_EXEC      (NCARGS + PAGE_SIZE + PAGE_SIZE) /* page for apple vars, page for executable header */
@@ -776,14 +800,17 @@ LIST_HEAD(proclist, proc);
 extern struct proclist allproc;         /* List of all processes. */
 extern struct proclist zombproc;        /* List of zombie processes. */
 
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 extern const char * defaultcorefiledir;
 extern const char * defaultdrivercorefiledir;
 extern char corefilename[MAXPATHLEN + 1];
 extern char drivercorefilename[MAXPATHLEN + 1];
 extern int do_coredump;
 extern int sugid_coredump;
-#endif
+#if CONFIG_UCOREDUMP
+extern int do_ucoredump;
+#endif /* CONFIG_UCOREDUMP */
+#endif /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
 
 __options_decl(cloneproc_flags_t, uint32_t, {
 	CLONEPROC_SPAWN     = 0,
@@ -816,9 +843,9 @@ extern void proc_update_creds_onproc(struct proc *, kauth_cred_t cred);
 extern kauth_cred_t proc_ucred_locked(proc_t p);
 extern kauth_cred_t proc_ucred_smr(proc_t p);
 extern kauth_cred_t proc_ucred_unsafe(proc_t p) __exported;
-#if CONFIG_COREDUMP
-__private_extern__ int proc_core_name(const char *format, const char *name, uid_t uid, pid_t pid,
-    char *cr_name, size_t cr_name_len);
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
+__private_extern__ int proc_core_name(const char *format, const char *name,
+    uid_t uid, pid_t pid, char *cr_name, size_t cr_name_len);
 #endif
 /* proc_best_name_for_pid finds a process with a given pid and copies its best name of
  * the executable (32-byte name if it exists, otherwise the 16-byte name) to
@@ -826,7 +853,8 @@ __private_extern__ int proc_core_name(const char *format, const char *name, uid_
  */
 extern void proc_best_name_for_pid(int pid, char * buf, int size);
 extern int isinferior(struct proc *, struct proc *);
-__private_extern__ struct proc *pzfind(pid_t);  /* Find zombie by id. */
+__private_extern__ bool pzfind(pid_t);                   /* Check zombie by pid. */
+__private_extern__ bool pzfind_unique(pid_t, uint64_t);  /* Check zombie by uniqueid. */
 __private_extern__ struct proc *proc_find_zombref(pid_t);       /* Find zombie by id. */
 __private_extern__ struct proc *proc_find_zombref_locked(pid_t); /* Find zombie by id. */
 __private_extern__ void proc_drop_zombref(struct proc * p);     /* Drop zombie ref. */
@@ -1031,6 +1059,16 @@ extern void proc_childrenwalk(proc_t p, proc_iterate_fn_t callout, void *arg);
 extern void proc_rebootscan(proc_iterate_fn_t callout, void *arg,
     proc_iterate_fn_t filterfn, void *filterarg);
 
+/*
+ * Construct a proc_ident from a proc_t
+ */
+extern struct proc_ident proc_ident_with_policy(proc_t p, proc_ident_validation_policy_t policy);
+
+/*
+ * Validate that a particular policy bit is set
+ */
+extern bool proc_ident_has_policy(const proc_ident_t ident, enum proc_ident_validation_policy policy);
+
 pid_t dtrace_proc_selfpid(void);
 pid_t dtrace_proc_selfppid(void);
 uid_t dtrace_proc_selfruid(void);
@@ -1053,10 +1091,12 @@ bool proc_ignores_node_permissions(proc_t proc);
 
 /*
  * @func no_paging_space_action
+ *
  * @brief React to compressor/swap exhaustion
+ *
  * @returns true if the low-swap note should be sent
  */
-extern bool no_paging_space_action(void);
+extern bool no_paging_space_action(uint32_t cause);
 
-#pragma GCC visibility pop
+__exported_pop
 #endif  /* !_SYS_PROC_INTERNAL_H_ */

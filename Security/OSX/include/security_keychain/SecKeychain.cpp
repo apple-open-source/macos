@@ -1255,6 +1255,28 @@ OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob)
 	END_SECAPI
 }
 
+OSStatus
+SecKeychainCopySalt(SecKeychainRef keychainRef, CFDataRef *outSalt)
+{
+    BEGIN_SECAPI
+
+    os_activity_t activity = os_activity_create("SecKeychainCopySalt", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
+
+    RequiredParam(outSalt);
+
+    secnotice("salt", "SecKeychainCopySalt %p", keychainRef);
+
+    Keychain keychain = Keychain::optional(keychainRef);
+    CssmAutoData data(keychain->database()->allocator());
+    keychain->copySalt(data.get());
+
+    *outSalt = CFDataCreate(kCFAllocatorDefault, data, data.length());
+
+    END_SECAPI
+}
+
 // make a new keychain with pre-existing secrets
 OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef)
 {
@@ -1788,4 +1810,43 @@ OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
         secnotice("SecKeychain", "Failed to erase stored wrapped unlock key: %d", (int) result);
     }
     return result;
+}
+
+OSStatus SecKeychainPushForLaterUnlock(CFDataRef passphrase, uint32_t* handle)
+{
+    BEGIN_SECAPI
+
+    os_activity_t activity = os_activity_create("SecKeychainPushForLaterUnlock", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
+
+    return globals().storageManager.pushForLaterUnlock(passphrase, handle);
+
+    END_SECAPI
+}
+
+OSStatus SecKeychainReleaseIndirectUnlockHandle(uint32_t handle)
+{
+    BEGIN_SECAPI
+
+    os_activity_t activity = os_activity_create("SecKeychainReleaseIndirectUnlockHandle", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
+
+    return globals().storageManager.releaseIndirectUnlockHandle(handle);
+
+    END_SECAPI
+}
+
+OSStatus SecKeychainGetDerivedEntropy(uint32_t handle, CFDataRef* entropy)
+{
+    BEGIN_SECAPI
+
+    os_activity_t activity = os_activity_create("SecKeychainGetDerivedEntropy", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+    os_activity_scope(activity);
+    os_release(activity);
+
+    return globals().storageManager.getDerivedEntropy(handle, entropy);
+
+    END_SECAPI
 }

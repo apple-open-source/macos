@@ -28,6 +28,7 @@
 
 #import "WKError.h"
 #import "WebCompiledContentRuleList.h"
+#import <WebCore/ContentExtensionParser.h>
 #import <WebCore/WebCoreObjCExtras.h>
 
 @implementation WKContentRuleList
@@ -37,7 +38,7 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKContentRuleList.class, self))
         return;
 
-    _contentRuleList->~ContentRuleList();
+    Ref { *_contentRuleList }->~ContentRuleList();
 
     [super dealloc];
 }
@@ -52,7 +53,7 @@
 - (NSString *)identifier
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    return _contentRuleList->name();
+    return Ref { *_contentRuleList }->name().createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -74,12 +75,12 @@
 + (NSError *)_parseRuleList:(NSString *)ruleList
 {
 #if ENABLE(CONTENT_EXTENSIONS)
-    std::error_code error = API::ContentRuleList::parseRuleList(ruleList);
+    std::error_code error = API::ContentRuleList::parseRuleList(ruleList, WebCore::ContentExtensions::CSSSelectorsAllowed::Yes);
     if (!error)
         return nil;
 
-    auto userInfo = @{ NSHelpAnchorErrorKey: [NSString stringWithFormat:@"Rule list parsing failed: %s", error.message().c_str()] };
-    return [NSError errorWithDomain:WKErrorDomain code:WKErrorContentRuleListStoreCompileFailed userInfo:userInfo];
+    RetainPtr userInfo = @{ NSHelpAnchorErrorKey: adoptNS([[NSString alloc] initWithFormat:@"Rule list parsing failed: %s", error.message().c_str()]).get() };
+    return [NSError errorWithDomain:WKErrorDomain code:WKErrorContentRuleListStoreCompileFailed userInfo:userInfo.get()];
 #else
     return nil;
 #endif

@@ -29,6 +29,7 @@
 #include "NetworkDataTask.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkSession.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/text/WTFString.h>
 
@@ -90,6 +91,10 @@ public:
     std::optional<WebCore::PageIdentifier> webPageID() const;
     Ref<NetworkProcess> networkProcess();
 
+    size_t bytesTransferredOverNetwork() const;
+
+    void clearClient() { m_client = nullptr; }
+
 private:
     NetworkLoad(NetworkLoadClient&, NetworkLoadParameters&&, NetworkSession&);
 
@@ -118,8 +123,8 @@ private:
 
     void notifyDidReceiveResponse(WebCore::ResourceResponse&&, NegotiatedLegacyTLS, PrivateRelayed, ResponseCompletionHandler&&);
 
-    std::reference_wrapper<NetworkLoadClient> m_client;
-    Ref<NetworkProcess> m_networkProcess;
+    CheckedPtr<NetworkLoadClient> m_client;
+    const Ref<NetworkProcess> m_networkProcess;
     const NetworkLoadParameters m_parameters;
     RefPtr<NetworkDataTask> m_task;
     WeakPtr<NetworkLoadScheduler> m_scheduler;

@@ -32,8 +32,7 @@ import "OTPrivateKey.proto";
 
 message BottleContents {
     // tags 1 and 2 were briefly used during development for the raw private key data, with nothing to specify the key type.
-    optional bytes reserved1 = 1;
-    optional bytes reserved2 = 2;
+    reserved 1 to 2;
 
     optional PrivateKey peerSigningPrivKey = 3;
     optional PrivateKey peerEncryptionPrivKey = 4;

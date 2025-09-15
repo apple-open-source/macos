@@ -38,6 +38,7 @@
 #include "RenderStyleInlines.h"
 #include "StyleGridData.h"
 #include <cstdlib>
+#include <ranges>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -295,7 +296,7 @@ NamedLineCollection::NamedLineCollection(const RenderGrid& initialGrid, const St
 
             if (appended) {
                 // Re-sort m_inheritedNamedLinesIndices
-                std::sort(m_inheritedNamedLinesIndices.begin(), m_inheritedNamedLinesIndices.end());
+                std::ranges::sort(m_inheritedNamedLinesIndices);
             }
         }
     }

@@ -22,6 +22,7 @@
 #include "JSTestGenerateIsReachable.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -167,7 +168,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateIsReachableConstructor, (JSGlobalObject* 
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestGenerateIsReachablePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestGenerateIsReachable::getConstructor(vm, prototype->globalObject()));
 }
@@ -187,7 +188,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateIsReachable_aSecretAttribute, (JSGlobalOb
 
 JSC::GCClient::IsoSubspace* JSTestGenerateIsReachable::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestGenerateIsReachable, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestGenerateIsReachable, UseCustomHeapCellType::No>(vm, "JSTestGenerateIsReachable"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestGenerateIsReachable.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestGenerateIsReachable = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestGenerateIsReachable.get(); },
@@ -208,7 +209,7 @@ bool JSTestGenerateIsReachableOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC:
 {
     auto* jsTestGenerateIsReachable = jsCast<JSTestGenerateIsReachable*>(handle.slot()->asCell());
     TestGenerateIsReachable* owner = &jsTestGenerateIsReachable->wrapped();
-    if (UNLIKELY(reason))
+    if (reason) [[unlikely]]
         *reason = "Reachable from TestGenerateIsReachable"_s;
     return containsWebCoreOpaqueRoot(visitor, owner);
 }
@@ -228,7 +229,9 @@ extern "C" { extern void (*const __identifier("??_7TestGenerateIsReachable@WebCo
 #else
 extern "C" { extern void* _ZTVN7WebCore23TestGenerateIsReachableE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestGenerateIsReachable>, void>> static inline void verifyVTable(TestGenerateIsReachable* ptr) {
+template<std::same_as<TestGenerateIsReachable> T>
+static inline void verifyVTable(TestGenerateIsReachable* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

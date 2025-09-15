@@ -45,7 +45,7 @@ void DownloadProxy::publishProgress(const URL& url)
         return;
 
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    RetainPtr localURL = adoptNS([[NSURL alloc] initFileURLWithPath:url.fileSystemPath() relativeToURL:nil]);
+    RetainPtr localURL = adoptNS([[NSURL alloc] initFileURLWithPath:url.fileSystemPath().createNSString().get() relativeToURL:nil]);
     NSError *error = nil;
     RetainPtr bookmark = [localURL bookmarkDataWithOptions:NSURLBookmarkCreationMinimalBookmark includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
     m_dataStore->networkProcess().send(Messages::NetworkProcess::PublishDownloadProgress(m_downloadID, url, span(bookmark.get()), UseDownloadPlaceholder::No, activityAccessToken().span()), 0);
@@ -85,7 +85,7 @@ void DownloadProxy::didStartUpdatingProgress()
 
 Vector<uint8_t> DownloadProxy::bookmarkDataForURL(const URL& url)
 {
-    RetainPtr localURL = adoptNS([[NSURL alloc] initFileURLWithPath:url.fileSystemPath() relativeToURL:nil]);
+    RetainPtr localURL = adoptNS([[NSURL alloc] initFileURLWithPath:url.fileSystemPath().createNSString().get() relativeToURL:nil]);
     NSError *error = nil;
     RetainPtr bookmark = [localURL bookmarkDataWithOptions:NSURLBookmarkCreationMinimalBookmark includingResourceValuesForKeys:nil relativeToURL:nil error:&error];
     return span(bookmark.get());

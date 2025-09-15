@@ -166,7 +166,7 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
 #if HAVE(CNCONTACTPICKERVIEWCONTROLLER)
     _contactPickerViewController = adoptNS([allocCNContactPickerViewControllerInstance() init]);
     [_contactPickerViewController setDelegate:_contactPickerDelegate.get()];
-    [_contactPickerViewController setPrompt:requestData.url];
+    [_contactPickerViewController setPrompt:requestData.url.createNSString().get()];
 
     auto presentationViewController = [_webView _wk_viewControllerForFullScreenPresentation];
     [presentationViewController presentViewController:_contactPickerViewController.get() animated:YES completion:[weakSelf = WeakObjCPtr<WKContactPicker>(self)] {
@@ -240,8 +240,8 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
     WebCore::ContactInfo contactInfo;
 
     if (_properties.contains(WebCore::ContactProperty::Name)) {
-        NSString *contactName = [getCNContactFormatterClass() stringFromContact:contact style:CNContactFormatterStyleFullName];
-        contactInfo.name = { contactName };
+        RetainPtr contactName = [getCNContactFormatterClass() stringFromContact:contact style:CNContactFormatterStyleFullName];
+        contactInfo.name = { contactName.get() };
     }
 
     if (_properties.contains(WebCore::ContactProperty::Email)) {
@@ -277,9 +277,9 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
     if (!jsContacts)
         return [NSArray array];
 
-    NSMutableArray<CNContact*> *contacts = [NSMutableArray arrayWithCapacity:jsContacts.count];
+    RetainPtr<NSMutableArray<CNContact*>> contacts = adoptNS([[NSMutableArray alloc] initWithCapacity:jsContacts.count]);
 
-    NSPredicate *stringValuePredicate = [NSPredicate predicateWithFormat:@"self isKindOfClass: %@", [NSString class]];
+    RetainPtr stringValuePredicate = [NSPredicate predicateWithFormat:@"self isKindOfClass: %@", [NSString class]];
 
     for (id jsContact in jsContacts) {
         if (![jsContact isKindOfClass:[NSDictionary class]])
@@ -287,39 +287,39 @@ SOFT_LINK_CLASS(ContactsUI, CNContactPickerViewController)
 
         auto contact = adoptNS([allocCNMutableContactInstance() init]);
 
-        id names = [(NSDictionary *)jsContact objectForKey:@"name"];
+        RetainPtr<id> names = [(NSDictionary *)jsContact objectForKey:@"name"];
         if ([names isKindOfClass:[NSArray class]]) {
-            for (NSString *name in [names filteredArrayUsingPredicate:stringValuePredicate]) {
+            for (NSString *name in [names filteredArrayUsingPredicate:stringValuePredicate.get()]) {
                 [contact setGivenName:name];
                 break;
             }
         }
 
-        id emails = [(NSDictionary *)jsContact objectForKey:@"email"];
+        RetainPtr<id> emails = [(NSDictionary *)jsContact objectForKey:@"email"];
         if ([emails isKindOfClass:[NSArray class]]) {
-            NSMutableArray<CNLabeledValue<NSString*>*> *emailAddresses = [NSMutableArray array];
-            for (NSString *email in [emails filteredArrayUsingPredicate:stringValuePredicate]) {
-                CNLabeledValue<NSString*> *labeledValue = [getCNLabeledValueClass() labeledValueWithLabel:nil value:email];
-                [emailAddresses addObject:labeledValue];
+            RetainPtr<NSMutableArray<CNLabeledValue<NSString*>*>> emailAddresses = adoptNS([[NSMutableArray alloc] init]);
+            for (NSString *email in [emails filteredArrayUsingPredicate:stringValuePredicate.get()]) {
+                RetainPtr<CNLabeledValue<NSString*>> labeledValue = [getCNLabeledValueClass() labeledValueWithLabel:nil value:email];
+                [emailAddresses addObject:labeledValue.get()];
             }
-            [contact setEmailAddresses:emailAddresses];
+            [contact setEmailAddresses:emailAddresses.get()];
         }
 
-        id phoneNumbers = [(NSDictionary *)jsContact objectForKey:@"tel"];
+        RetainPtr<id> phoneNumbers = [(NSDictionary *)jsContact objectForKey:@"tel"];
         if ([phoneNumbers isKindOfClass:[NSArray class]]) {
-            NSMutableArray<CNLabeledValue<CNPhoneNumber*>*> *numbers = [NSMutableArray array];
-            for (NSString *phoneNumber in [phoneNumbers filteredArrayUsingPredicate:stringValuePredicate]) {
-                CNPhoneNumber *cnPhoneNumber = [getCNPhoneNumberClass() phoneNumberWithStringValue:phoneNumber];
-                CNLabeledValue<CNPhoneNumber*> *labeledValue = [getCNLabeledValueClass() labeledValueWithLabel:nil value:cnPhoneNumber];
-                [numbers addObject:labeledValue];
+            RetainPtr<NSMutableArray<CNLabeledValue<CNPhoneNumber*>*>> numbers = adoptNS([[NSMutableArray alloc] init]);
+            for (NSString *phoneNumber in [phoneNumbers filteredArrayUsingPredicate:stringValuePredicate.get()]) {
+                RetainPtr<CNPhoneNumber> cnPhoneNumber = [getCNPhoneNumberClass() phoneNumberWithStringValue:phoneNumber];
+                RetainPtr<CNLabeledValue<CNPhoneNumber*>> labeledValue = [getCNLabeledValueClass() labeledValueWithLabel:nil value:cnPhoneNumber.get()];
+                [numbers addObject:labeledValue.get()];
             }
-            [contact setPhoneNumbers:numbers];
+            [contact setPhoneNumbers:numbers.get()];
         }
 
         [contacts addObject:contact.get()];
     }
 
-    return contacts;
+    return contacts.autorelease();
 }
 
 @end

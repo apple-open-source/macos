@@ -69,8 +69,7 @@ enum {
 
 	kIOServiceRematchOnDetach   = 0x00008000,
 	kIOServiceUserUnhidden      = 0x00004000,
-//	kIOServiceX1                = 0x00004000,
-//	kIOServiceX2                = 0x00002000,
+	kIOServiceTermPhase2ReadyState = 0x00002000,
 //	kIOServiceX3                = 0x00001000,
 //	kIOServiceX4                = 0x00000800,
 //	kIOServiceX5                = 0x00000400,
@@ -220,6 +219,7 @@ public:
 	    IOUserClient ** handler) APPLE_KEXT_OVERRIDE;
 	virtual IOWorkLoop * getWorkLoop() const APPLE_KEXT_OVERRIDE;
 	virtual bool matchPropertyTable( OSDictionary * table ) APPLE_KEXT_OVERRIDE;
+	virtual IOReturn powerStateWillChangeTo(IOPMPowerFlags flags, unsigned long state, IOService * service) APPLE_KEXT_OVERRIDE;
 };
 
 class _IOOpenServiceIterator : public OSIterator
@@ -271,5 +271,16 @@ extern const OSSymbol * gIOConsoleSessionUIDKey;
 extern const OSSymbol * gIOConsoleSessionAuditIDKey;
 extern const OSSymbol * gIOConsoleSessionOnConsoleKey;
 extern const OSSymbol * gIOConsoleSessionSecureInputPIDKey;
+
+extern "C" bool
+IOSystemStateAOT(void);
+
+enum {
+	kIOServiceSystemStateOffPhase1 = (1U << 4) | 1,
+	kIOServiceSystemStateOffPhase2 = (1U << 4) | 2,
+	kIOServiceSystemStateAOT = (2U << 4),
+	kIOServiceSystemStateOn  = (3U << 4)
+#define IsIOServiceSystemStateOff(state) ((state) < kIOServiceSystemStateAOT)
+};
 
 #endif /* ! _IOKIT_IOSERVICEPRIVATE_H */

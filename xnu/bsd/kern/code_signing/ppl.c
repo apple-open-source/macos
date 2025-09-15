@@ -337,6 +337,20 @@ ppl_reconstitute_code_signature(
 #pragma mark Address Spaces
 
 kern_return_t
+ppl_setup_nested_address_space(
+	__unused pmap_t pmap,
+	__unused const vm_address_t region_addr,
+	__unused const vm_size_t region_size)
+{
+	/*
+	 * We don't need to do anything here from the code-signing-monitor's perspective
+	 * because the PMAP's base address fields are setup when someone eventually calls
+	 * pmap_nest on the PMAP object.
+	 */
+	return KERN_SUCCESS;
+}
+
+kern_return_t
 ppl_associate_code_signature(
 	pmap_t pmap,
 	void *sig_obj,
@@ -380,7 +394,6 @@ ppl_associate_debug_region(
 	const vm_address_t region_addr,
 	const vm_size_t region_size)
 {
-	volatile bool force_true = true;
 	bool debugger_mapping = false;
 
 	/*
@@ -408,16 +421,6 @@ ppl_associate_debug_region(
 		debugger_mapping = true;
 	}
 #endif
-
-	/*
-	 * For now, we're just going to revert back to our previous policy and continue
-	 * to allow a debugger mapped to be created by a process on its own.
-	 *
-	 * For more information: rdar://145588999.
-	 */
-	if (force_true == true) {
-		debugger_mapping = true;
-	}
 
 	if (debugger_mapping == false) {
 		printf("disallowed non-debugger initiated debug mapping\n");

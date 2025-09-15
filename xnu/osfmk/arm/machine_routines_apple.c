@@ -40,6 +40,10 @@
 #include <machine/machine_routines.h>
 #include <vm/vm_protos.h>
 
+#if APPLEVIRTUALPLATFORM
+#include <pexpert/device_tree.h>
+#endif
+
 
 #if defined(APPLEAVALANCHE) && defined(ARM64_BOARD_CONFIG_T6020)
 #define CHECK_RDAR_145882231 1
@@ -260,4 +264,5 @@ ml_non_arm64e_user_jop_pid(void)
 #endif /* HAS_PARAVIRTUALIZED_PAC */
 }
 #endif /* HAS_APPLE_PAC */
+
 

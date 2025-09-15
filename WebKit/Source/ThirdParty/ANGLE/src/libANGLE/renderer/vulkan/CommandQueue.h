@@ -20,6 +20,7 @@
 #include "common/vulkan/vk_headers.h"
 #include "libANGLE/renderer/vulkan/PersistentCommandPool.h"
 #include "libANGLE/renderer/vulkan/vk_helpers.h"
+#include "vulkan/vulkan_core.h"
 
 namespace rx
 {
@@ -87,7 +88,7 @@ class CommandBatch final : angle::NonCopyable
     CommandBatch &operator=(CommandBatch &&other);
 
     void destroy(VkDevice device);
-    angle::Result release(ErrorContext *context);
+    angle::Result release(ErrorContext *context, WhenToResetCommandBuffer whenToReset);
 
     void setQueueSerial(const QueueSerial &serial);
     void setProtectionType(ProtectionType protectionType);
@@ -101,6 +102,8 @@ class CommandBatch final : angle::NonCopyable
     const PrimaryCommandBuffer &getPrimaryCommands() const;
     const SharedExternalFence &getExternalFence();
 
+    // Accessing the shared fence is prioritized before the shared external fence, since the shared
+    // fence may be used in an extra empty submission after the external fence (via a feature flag).
     bool hasFence() const;
     VkFence getFenceHandle() const;
     VkResult getFenceStatus(VkDevice device) const;
@@ -129,8 +132,9 @@ class QueueFamily final : angle::NonCopyable
     static const uint32_t kInvalidIndex = std::numeric_limits<uint32_t>::max();
 
     static uint32_t FindIndex(const std::vector<VkQueueFamilyProperties> &queueFamilyProperties,
-                              VkQueueFlags flags,
-                              int32_t matchNumber,  // 0 = first match, 1 = second match ...
+                              VkQueueFlags includeFlags,
+                              VkQueueFlags optionalFlags,
+                              VkQueueFlags excludeFlags,
                               uint32_t *matchCount);
     static const uint32_t kQueueCount = static_cast<uint32_t>(egl::ContextPriority::EnumCount);
     static const float kQueuePriorities[static_cast<uint32_t>(egl::ContextPriority::EnumCount)];
@@ -185,6 +189,9 @@ class DeviceQueueMap final
         return mQueueAndIndices[priority].queue;
     }
 
+    // Wait for all queues to be idle, called on device loss and destruction.
+    void waitAllQueuesIdle();
+
   private:
     uint32_t mQueueFamilyIndex;
     bool mIsProtected;
@@ -211,7 +218,8 @@ class CommandPoolAccess : angle::NonCopyable
     void destroyPrimaryCommandBuffer(VkDevice device, PrimaryCommandBuffer *primaryCommands) const;
     angle::Result collectPrimaryCommandBuffer(ErrorContext *context,
                                               const ProtectionType protectionType,
-                                              PrimaryCommandBuffer *primaryCommands);
+                                              PrimaryCommandBuffer *primaryCommands,
+                                              WhenToResetCommandBuffer whenToReset);
     angle::Result flushOutsideRPCommands(Context *context,
                                          ProtectionType protectionType,
                                          egl::ContextPriority priority,
@@ -422,12 +430,15 @@ class CommandQueue : angle::NonCopyable
     // Release finished commands and clean up garbage immediately, or request async clean up if
     // enabled.
     angle::Result releaseFinishedCommandsAndCleanupGarbage(ErrorContext *context);
-    angle::Result releaseFinishedCommands(ErrorContext *context)
+    angle::Result releaseFinishedCommands(ErrorContext *context,
+                                          WhenToResetCommandBuffer whenToReset)
     {
         std::lock_guard<angle::SimpleMutex> lock(mCmdReleaseMutex);
-        return releaseFinishedCommandsLocked(context);
+        return releaseFinishedCommandsLocked(context, whenToReset);
     }
     angle::Result postSubmitCheck(ErrorContext *context);
+
+    bool isInFlightCommandsEmpty() const;
 
     // Try to cleanup garbage and return if something was cleaned.  Otherwise, wait for the
     // mInFlightCommands and retry.
@@ -446,7 +457,8 @@ class CommandQueue : angle::NonCopyable
                                         std::unique_lock<angle::SimpleMutex> *lock);
     void onCommandBatchFinishedLocked(CommandBatch &&batch);
     // Walk mFinishedCommands, reset and recycle all command buffers.
-    angle::Result releaseFinishedCommandsLocked(ErrorContext *context);
+    angle::Result releaseFinishedCommandsLocked(ErrorContext *context,
+                                                WhenToResetCommandBuffer whenToReset);
     // Walk mInFlightCommands, check and update mLastCompletedSerials for all commands that are
     // finished
     angle::Result checkCompletedCommandsLocked(ErrorContext *context);
@@ -497,6 +509,11 @@ class CommandQueue : angle::NonCopyable
 
     angle::VulkanPerfCounters mPerfCounters;
 };
+
+ANGLE_INLINE bool CommandQueue::isInFlightCommandsEmpty() const
+{
+    return mInFlightCommands.empty();
+}
 
 // A helper thread used to clean up garbage
 class CleanUpThread : public ErrorContext

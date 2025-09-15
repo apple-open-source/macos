@@ -233,6 +233,7 @@ typedef struct jetsam_snapshot_entry {
 	uint64_t csflags;
 	uint32_t cs_trust_level;
 	uint64_t jse_neural_nofootprint_total_pages;
+	uint64_t jse_prio_start;                /* absolute time process moved to current priority */
 } memorystatus_jetsam_snapshot_entry_t;
 
 typedef struct jetsam_snapshot {
@@ -246,9 +247,6 @@ typedef struct jetsam_snapshot {
 
 /* TODO - deprecate; see <rdar://problem/12969599> */
 #define kMaxSnapshotEntries 192
-
-#define memorystatus_jetsam_snapshot_list memorystatus_jetsam_snapshot->entries
-#define JETSAM_SNAPSHOT_TIMEOUT_SECS 30
 
 /* State */
 #define kMemorystatusSuspended        0x001
@@ -287,7 +285,8 @@ typedef struct jetsam_snapshot {
 #define JETSAM_REASON_LOWSWAP                            13
 #define JETSAM_REASON_MEMORY_SUSTAINED_PRESSURE          14
 #define JETSAM_REASON_MEMORY_VMPAGEOUT_STARVATION        15
-#define JETSAM_REASON_MEMORY_LONGIDLE_EXIT               17 /* Skips 16 on purpose to make room for conclave limit reason */
+#define JETSAM_REASON_MEMORY_CONCLAVELIMIT               16
+#define JETSAM_REASON_MEMORY_LONGIDLE_EXIT               17
 #define JETSAM_REASON_MEMORYSTATUS_MAX  JETSAM_REASON_MEMORY_LONGIDLE_EXIT
 
 /* non-memorystatus jetsam reasons */
@@ -313,6 +312,7 @@ typedef enum {
 	kMemorystatusKilledLowSwap = JETSAM_REASON_LOWSWAP,
 	kMemorystatusKilledSustainedPressure = JETSAM_REASON_MEMORY_SUSTAINED_PRESSURE,
 	kMemorystatusKilledVMPageoutStarvation = JETSAM_REASON_MEMORY_VMPAGEOUT_STARVATION,
+	kMemorystatusKilledConclaveLimit = JETSAM_REASON_MEMORY_CONCLAVELIMIT,
 } memorystatus_kill_cause_t;
 
 /*
@@ -379,10 +379,13 @@ __END_DECLS
 #define MEMORYSTATUS_CMD_GET_JETSAM_ZPRINT_NAMES      32   /* Get jetsam snapshot zprint names array */
 #define MEMORYSTATUS_CMD_GET_JETSAM_ZPRINT_INFO       33   /* Get jetsam snapshot zprint zone info */
 #define MEMORYSTATUS_CMD_GET_JETSAM_ZPRINT_MEMINFO    34   /* Get jetsam snapshot zprint wired memory info */
+#define MEMORYSTATUS_CMD_REARM_MEMLIMIT               36 /* Re-arm memory limit (EXC_RESOURCE) */
 
 #define MEMORYSTATUS_CMD_GET_PRIORITY_LIST_V2         35 /* Get priority list with v2 struct */
 
 #define MEMORYSTATUS_CMD_GET_KILL_COUNTS              37 /* Get kill counts */
+
+#define MEMORYSTATUS_CMD_GET_CONCLAVE_LIMIT           38 /* Get the conclave memory limit */
 
 /* Commands that act on a group of processes */
 #define MEMORYSTATUS_CMD_GRP_SET_PROPERTIES           100
@@ -395,8 +398,12 @@ __END_DECLS
 #define MEMORYSTATUS_CMD_TEST_JETSAM_SORT       1001
 
 /* Select priority band sort order */
-#define JETSAM_SORT_NOSORT      0
-#define JETSAM_SORT_DEFAULT     1
+__enum_decl(memorystatus_jetsam_sort_order_t, int, {
+	JETSAM_SORT_NONE             = 0x0, /* No sort */
+	JETSAM_SORT_LRU              = 0x1, /* Sort by LRU by coalition leader */
+	JETSAM_SORT_FOOTPRINT        = 0x2, /* Sort by footprint by coalition leader */
+	JETSAM_SORT_FOOTPRINT_NOCOAL = 0x3, /* Sort by footprint ignoring coalitions */
+});
 
 #endif /* PRIVATE */
 
@@ -418,6 +425,9 @@ __END_DECLS
 
 #define MEMORYSTATUS_FLAGS_GRP_SET_FREEZE_PRIORITY      0x100   /* Set a new ordered list of freeze candidates */
 #define MEMORYSTATUS_FLAGS_GRP_SET_DEMOTE_PRIORITY      0x200   /* Set a new ordered list of demote candidates */
+
+#define MEMORYSTATUS_FLAGS_REARM_ACTIVE   0x400 /* Re-arm active limit */
+#define MEMORYSTATUS_FLAGS_REARM_INACTIVE 0x800 /* Re-arm inactive limit */
 /*
  * For use with memorystatus_control:
  * MEMORYSTATUS_CMD_GET_JETSAM_SNAPSHOT
@@ -658,8 +668,9 @@ void memorystatus_knote_unregister(struct knote *kn);
 void memorystatus_log_exception(const int max_footprint_mb, boolean_t memlimit_is_active, boolean_t memlimit_is_fatal);
 void memorystatus_log_diag_threshold_exception(const int diag_threshold_value);
 void memorystatus_on_ledger_footprint_exceeded(int warning, boolean_t memlimit_is_active, boolean_t memlimit_is_fatal);
+void memorystatus_on_conclave_limit_exceeded(const int max_footprint_mb);
 void proc_memstat_skip(proc_t p, boolean_t set);
-void memorystatus_proc_flags_unsafe(void * v, boolean_t *is_dirty, boolean_t *is_dirty_tracked, boolean_t *allow_idle_exit);
+void memorystatus_proc_flags_unsafe(void * v, boolean_t *is_dirty, boolean_t *is_dirty_tracked, boolean_t *allow_idle_exit, boolean_t *is_active, boolean_t *is_managed, boolean_t *has_assertion);
 
 #if __arm64__
 void memorystatus_act_on_legacy_footprint_entitlement(proc_t p, boolean_t footprint_increase);
@@ -671,18 +682,10 @@ void memorystatus_act_on_entitled_developer_task_limit(proc_t p);
 #endif /* CONFIG_MEMORYSTATUS */
 
 int memorystatus_get_pressure_status_kdp(void);
-int  memorystatus_get_proccnt_upto_priority(int32_t max_bucket_index);
 
 #if CONFIG_JETSAM
 
 extern unsigned int memorystatus_swap_all_apps;
-
-/*
- * Wake up the memorystatus thread so it can do async kills.
- * The memorystatus thread will keep killing until the system is
- * considered healthy.
- */
-void memorystatus_thread_wake(void);
 
 void jetsam_on_ledger_cpulimit_exceeded(void);
 

@@ -33,7 +33,7 @@
 #import "DOMTokenListInternal.h"
 #import "ExceptionHandlers.h"
 #import <WebCore/Attr.h>
-#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/CSSStyleProperties.h>
 #import <WebCore/Element.h>
 #import <WebCore/HTMLCollection.h>
 #import <WebCore/HTMLNames.h>
@@ -67,7 +67,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)tagName
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).tagName();
+    return unwrap(*self).tagName().createNSString().autorelease();
 }
 
 - (DOMCSSStyleDeclaration *)style
@@ -170,7 +170,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)innerHTML
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).innerHTML();
+    return unwrap(*self).innerHTML().createNSString().autorelease();
 }
 
 - (void)setInnerHTML:(NSString *)newInnerHTML
@@ -182,7 +182,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)outerHTML
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).outerHTML();
+    return unwrap(*self).outerHTML().createNSString().autorelease();
 }
 
 - (void)setOuterHTML:(NSString *)newOuterHTML
@@ -194,7 +194,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)className
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::classAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::classAttr).createNSString().autorelease();
 }
 
 - (void)setClassName:(NSString *)newClassName
@@ -212,13 +212,13 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)innerText
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).innerText();
+    return unwrap(*self).innerText().createNSString().autorelease();
 }
 
 - (NSString *)uiactions
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::uiactionsAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::uiactionsAttr).createNSString().autorelease();
 }
 
 - (void)setUiactions:(NSString *)newUiactions
@@ -275,7 +275,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)getAttribute:(NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(name);
+    return unwrap(*self).getAttribute(name).createNSString().autorelease();
 }
 
 - (void)setAttribute:(NSString *)name value:(NSString *)value
@@ -325,7 +325,7 @@ DOMElement *kit(WebCore::Element* value)
 - (NSString *)getAttributeNS:(NSString *)namespaceURI localName:(NSString *)localName
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttributeNS(namespaceURI, localName);
+    return unwrap(*self).getAttributeNS(namespaceURI, localName).createNSString().autorelease();
 }
 
 - (void)setAttributeNS:(NSString *)namespaceURI qualifiedName:(NSString *)qualifiedName value:(NSString *)value

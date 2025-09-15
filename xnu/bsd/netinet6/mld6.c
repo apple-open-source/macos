@@ -112,6 +112,7 @@
 #include <dev/random/randomdev.h>
 
 #include <kern/zalloc.h>
+#include <kern/uipc_domain.h>
 
 #include <net/if.h>
 #include <net/route.h>
@@ -2663,7 +2664,6 @@ mld_handle_state_change(struct in6_multi *inm, struct mld_ifinfo *mli,
     struct mld_tparams *mtp)
 {
 	struct ifnet            *ifp;
-	int                      retval = 0;
 
 	IN6M_LOCK_ASSERT_HELD(inm);
 	MLI_LOCK_ASSERT_NOTHELD(mli);
@@ -2698,16 +2698,13 @@ mld_handle_state_change(struct in6_multi *inm, struct mld_ifinfo *mli,
 
 	IF_DRAIN(&inm->in6m_scq);
 
-	retval = mld_v2_enqueue_group_record(&inm->in6m_scq, inm, 1, 0, 0,
+	int retval = mld_v2_enqueue_group_record(&inm->in6m_scq, inm, 1, 0, 0,
 	    (mli->mli_flags & MLIF_USEALLOW));
 	mtp->cst = (inm->in6m_scq.ifq_len > 0);
 	MLD_PRINTF(("%s: enqueue record = %d\n", __func__, retval));
 	if (retval <= 0) {
 		MLI_UNLOCK(mli);
-		retval *= -1;
-		goto done;
-	} else {
-		retval = 0;
+		return -retval;
 	}
 
 	/*
@@ -2720,7 +2717,7 @@ mld_handle_state_change(struct in6_multi *inm, struct mld_ifinfo *mli,
 	MLI_UNLOCK(mli);
 
 done:
-	return retval;
+	return 0;
 }
 
 /*
@@ -3690,7 +3687,7 @@ mld_dispatch_packet(struct mbuf *m)
 	 * Check if the ifnet is still attached.
 	 */
 	ifp = mld_restore_context(m);
-	if (ifp == NULL || !ifnet_is_attached(ifp, 0)) {
+	if (ifp == NULL || !ifnet_is_fully_attached(ifp)) {
 		os_log_error(OS_LOG_DEFAULT, "%s: dropped 0x%llx as interface went away\n",
 		    __func__, (uint64_t)VM_KERNEL_ADDRPERM(m));
 		m_freem(m);

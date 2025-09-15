@@ -439,6 +439,13 @@ static int xmlFAComputesDeterminism(xmlRegParserCtxtPtr ctxt);
  *
  * Returns the new array or NULL in case of error.
  */
+#ifdef __APPLE__
+#define xmlRegCalloc2(dim1, dim2, size) (^void*{ \
+    if ((size_t)(dim1) > ((size_t)INT_MAX / (size_t)(dim2) / (size_t)(size))) \
+        return (NULL); \
+    return calloc((size_t)(dim1) * (size_t)(dim2), (size_t)(size)); \
+}())
+#else
 static void*
 xmlRegCalloc2(size_t dim1, size_t dim2, size_t elemSize) {
     size_t totalSize;
@@ -453,6 +460,7 @@ xmlRegCalloc2(size_t dim1, size_t dim2, size_t elemSize) {
         memset(ret, 0, totalSize);
     return (ret);
 }
+#endif
 
 /**
  * xmlRegEpxFromParse:

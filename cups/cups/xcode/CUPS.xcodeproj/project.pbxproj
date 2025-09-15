@@ -130,6 +130,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		08B751A12C90C6B90050C9CD /* testLibCups.m in Sources */ = {isa = PBXBuildFile; fileRef = 08B751A02C90C6B90050C9CD /* testLibCups.m */; };
+		08B751A82C90DA880050C9CD /* libcups.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72220EAE1333047D00FCA411 /* libcups.dylib */; };
+		08B751A92C90DA880050C9CD /* libcups.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 72220EAE1333047D00FCA411 /* libcups.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		270696001CADF3E200FFE5FB /* array.c in Sources */ = {isa = PBXBuildFile; fileRef = 72220EB81333056300FCA411 /* array.c */; };
 		270696021CADF3E200FFE5FB /* auth.c in Sources */ = {isa = PBXBuildFile; fileRef = 72220EBB1333056300FCA411 /* auth.c */; };
 		270696071CADF3E200FFE5FB /* debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 72220ED1133305BB00FCA411 /* debug.c */; };
@@ -938,6 +941,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		08B751AA2C90DA880050C9CD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 72BF96371333042100B1EAD7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72220EAD1333047D00FCA411;
+			remoteInfo = libcups;
+		};
 		270CCDB1135E3CDE00007BE2 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 72BF96371333042100B1EAD7 /* Project object */;
@@ -2404,6 +2414,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		08B751AC2C90DA880050C9CD /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				08B751A92C90DA880050C9CD /* libcups.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		270CCDA5135E3C9E00007BE2 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -3217,8 +3238,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		08B7519E2C90C6B90050C9CD /* TestLibCups.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TestLibCups.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		08B751A02C90C6B90050C9CD /* testLibCups.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = testLibCups.m; sourceTree = "<group>"; };
 		2706965A1CADF3E200FFE5FB /* libcups_ios.a */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcups_ios.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		270B267D17F5C06700C8A3A9 /* tls-darwin.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "tls-darwin.c"; path = "../cups/tls-darwin.c"; sourceTree = "<group>"; };
+		270B267D17F5C06700C8A3A9 /* tls-darwin.c */ = {isa = PBXFileReference; indentWidth = 1; lastKnownFileType = sourcecode.c.c; name = "tls-darwin.c"; path = "../cups/tls-darwin.c"; sourceTree = "<group>"; };
 		270B267E17F5C06700C8A3A9 /* tls-gnutls.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "tls-gnutls.c"; path = "../cups/tls-gnutls.c"; sourceTree = "<group>"; };
 		270B268117F5C5D600C8A3A9 /* tls-sspi.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "tls-sspi.c"; path = "../cups/tls-sspi.c"; sourceTree = "<group>"; };
 		270CCDA7135E3C9E00007BE2 /* testmime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = testmime; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3360,6 +3383,7 @@
 		27A0347B1A8BDB1300650675 /* lpadmin */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lpadmin; sourceTree = BUILT_PRODUCTS_DIR; };
 		27D3037D134148CB00F022B1 /* libcups2.def */ = {isa = PBXFileReference; lastKnownFileType = text; name = libcups2.def; path = ../cups/libcups2.def; sourceTree = "<group>"; };
 		27F89DA21B3AC43B00E5A4B7 /* testraster.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = testraster.c; path = ../cups/testraster.c; sourceTree = "<group>"; };
+		3E8839B22D30E5D200DF259E /* cups.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = cups.xctestplan; sourceTree = "<group>"; };
 		720DD6C21358FD5F0064AA82 /* snmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = snmp; sourceTree = BUILT_PRODUCTS_DIR; };
 		720DD6D21358FDDE0064AA82 /* snmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = snmp.c; path = ../backend/snmp.c; sourceTree = "<group>"; };
 		720E854120164E7A00C6C411 /* ipp-file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "ipp-file.c"; path = "../cups/ipp-file.c"; sourceTree = "<group>"; };
@@ -3679,6 +3703,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		08B7519B2C90C6B90050C9CD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08B751A82C90DA880050C9CD /* libcups.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		270696331CADF3E200FFE5FB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -4774,6 +4806,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		08B7519F2C90C6B90050C9CD /* TestCups */ = {
+			isa = PBXGroup;
+			children = (
+				08B751A02C90C6B90050C9CD /* testLibCups.m */,
+			);
+			path = TestCups;
+			sourceTree = "<group>";
+		};
 		2712867F1CC1394100E517C7 /* monitors */ = {
 			isa = PBXGroup;
 			children = (
@@ -5022,6 +5062,7 @@
 				273B1EBB226B3E5200428143 /* ippeveps */,
 				274770E02345342B0089BC31 /* testthreads */,
 				AA3880D2270638DD001035DA /* ipp_static */,
+				08B7519E2C90C6B90050C9CD /* TestLibCups.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -5326,6 +5367,7 @@
 		72BF96351333042100B1EAD7 = {
 			isa = PBXGroup;
 			children = (
+				3E8839B22D30E5D200DF259E /* cups.xctestplan */,
 				72E65BA218DC796500097E89 /* Autoconf Files */,
 				72E65BB818DC79F800097E89 /* Documentation */,
 				72220F45133305D000FCA411 /* Public Headers */,
@@ -5345,6 +5387,7 @@
 				276683CB1337B1CC000D33D0 /* ppdc tools */,
 				273BF6B81333B4A90022CAAB /* tests */,
 				271286821CC13D7600E517C7 /* tools */,
+				08B7519F2C90C6B90050C9CD /* TestCups */,
 				72220FB113330B4A00FCA411 /* Frameworks */,
 				72220EAF1333047D00FCA411 /* Products */,
 			);
@@ -5577,6 +5620,25 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		08B7519D2C90C6B90050C9CD /* TestLibCups */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 08B751A72C90C6B90050C9CD /* Build configuration list for PBXNativeTarget "TestLibCups" */;
+			buildPhases = (
+				08B7519A2C90C6B90050C9CD /* Sources */,
+				08B7519B2C90C6B90050C9CD /* Frameworks */,
+				08B7519C2C90C6B90050C9CD /* Resources */,
+				08B751AC2C90DA880050C9CD /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				08B751AB2C90DA880050C9CD /* PBXTargetDependency */,
+			);
+			name = TestLibCups;
+			productName = TestLibCups;
+			productReference = 08B7519E2C90C6B90050C9CD /* TestLibCups.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		270695FD1CADF3E200FFE5FB /* libcups_ios */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 270696571CADF3E200FFE5FB /* Build configuration list for PBXNativeTarget "libcups_ios" */;
@@ -7412,11 +7474,18 @@
 				LastUpgradeCheck = 1100;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
+					08B7519D2C90C6B90050C9CD = {
+						CreatedOnToolsVersion = 16.0;
+						ProvisioningStyle = Automatic;
+					};
 					270695FD1CADF3E200FFE5FB = {
 						DevelopmentTeam = RU58A2256H;
 					};
 					27A0347A1A8BDB1200650675 = {
 						CreatedOnToolsVersion = 6.1.1;
+					};
+					724378FC1333E43E009631B9 = {
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -7536,11 +7605,30 @@
 				7243795A1333FF1D009631B9 /* usb */,
 				274770D12345342B0089BC31 /* testthreads */,
 				AA3880C4270638DD001035DA /* ipp_static */,
+				08B7519D2C90C6B90050C9CD /* TestLibCups */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		08B7519C2C90C6B90050C9CD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
+		08B7519A2C90C6B90050C9CD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08B751A12C90C6B90050C9CD /* testLibCups.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		270695FE1CADF3E200FFE5FB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -8601,6 +8689,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		08B751AB2C90DA880050C9CD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72220EAD1333047D00FCA411 /* libcups */;
+			targetProxy = 08B751AA2C90DA880050C9CD /* PBXContainerItemProxy */;
+		};
 		270CCDB2135E3CDE00007BE2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 270CCDA6135E3C9E00007BE2 /* testmime */;
@@ -9649,6 +9742,99 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		08B751A52C90C6B90050C9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.print.TestLibCups;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Debug;
+		};
+		08B751A62C90C6B90050C9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GENERATE_INFOPLIST_FILE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.print.TestLibCups;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+				SKIP_INSTALL = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+			};
+			name = Release;
+		};
 		270696581CADF3E200FFE5FB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -10907,7 +11093,7 @@
 				EXECUTABLE_PREFIX = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/lib;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/cups;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/cups;
@@ -10924,7 +11110,7 @@
 				DYLIB_CURRENT_VERSION = 2.12.0;
 				EXECUTABLE_PREFIX = "";
 				INSTALL_PATH = /usr/lib;
-				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/cups;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/cups;
@@ -10988,11 +11174,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_ENTITLEMENTS = ../../ipp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = ../../ipp.plist;
 				INSTALL_MODE_FLAG = "u+rwX,go-rwX";
 				INSTALL_PATH = /usr/libexec/cups/backend;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.apple.ipp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
 			name = Debug;
 		};
@@ -11000,11 +11193,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_ENTITLEMENTS = ../../ipp.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = ../../ipp.plist;
 				INSTALL_MODE_FLAG = "u+rwX,go-rwX";
 				INSTALL_PATH = /usr/libexec/cups/backend;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" = com.apple.ipp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 			};
 			name = Release;
 		};
@@ -11903,6 +12103,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		08B751A72C90C6B90050C9CD /* Build configuration list for PBXNativeTarget "TestLibCups" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				08B751A52C90C6B90050C9CD /* Debug */,
+				08B751A62C90C6B90050C9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		270696571CADF3E200FFE5FB /* Build configuration list for PBXNativeTarget "libcups_ios" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

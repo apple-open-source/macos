@@ -35,6 +35,7 @@
 #include <CoreFoundation/CFArray.h>
 #include <Security/SecKeychain.h>
 
+#include <Security/SecCoreAnalytics.h>
 // SecKeychainCopyLogin
 #include <Security/SecKeychainPriv.h>
 #include <Security/SecItem.h>
@@ -172,6 +173,9 @@ keychain_list(int argc, char * const *argv)
 	Boolean use_domain = false;
 	int ch, result = 0;
 	OSStatus status;
+
+    // ensure that use of `security list-keychains` during early boot doesn't hang waiting to send CA events at shutdown (rdar://146406899)
+    SecCoreAnalyticsSetEnabledForProcess(false);
 
 	while ((ch = getopt(argc, argv, "d:hs")) != -1)
 	{

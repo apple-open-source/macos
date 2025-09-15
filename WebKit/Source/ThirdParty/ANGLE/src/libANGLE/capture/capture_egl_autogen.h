@@ -13,6 +13,9 @@
 
 #include "common/PackedEnums.h"
 #include "libANGLE/capture/FrameCapture.h"
+#ifdef ANGLE_ENABLE_CL
+#    include "common/PackedCLEnums_autogen.h"
+#endif
 
 namespace egl
 {
@@ -423,12 +426,6 @@ angle::CallCapture CaptureStreamPostD3DTextureANGLE(egl::Thread *thread,
                                                     void *texture,
                                                     const AttributeMap &attrib_listPacked,
                                                     EGLBoolean returnValue);
-angle::CallCapture CaptureSwapBuffersWithFrameTokenANGLE(egl::Thread *thread,
-                                                         bool isCallValid,
-                                                         egl::Display *dpyPacked,
-                                                         SurfaceID surfacePacked,
-                                                         EGLFrameTokenANGLE frametoken,
-                                                         EGLBoolean returnValue);
 angle::CallCapture CaptureGetMscRateANGLE(egl::Thread *thread,
                                           bool isCallValid,
                                           egl::Display *dpyPacked,

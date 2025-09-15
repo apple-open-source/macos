@@ -49,12 +49,12 @@
 
 static void *do_add(void *arg)
 {
-    int tid=(int)(arg);
+    intptr_t tid=(intptr_t)(arg);
 
     for(int i=0;i<N_ADDS;i++) {
         /* Creating a password */
-        SInt32 v_eighty = (tid+1)*1000+i;
-        CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);
+        SInt64 v_eighty = (tid+1)*1000+i;
+        CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt64Type, &v_eighty);
         const char *v_data = "test";
         CFDataRef pwdata = CFDataCreate(NULL, (UInt8 *)v_data, strlen(v_data));
         const void *keys[] = {
@@ -115,10 +115,10 @@ int secd_05_corrupted_items(int argc, char *const *argv)
         CFReleaseNull(port);
     }
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
         /* corrupt all the password */
-        NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
+        NSString *keychain_path = CFBridgingRelease(SecServerKeychainCopyPath());
         char corrupt_item_sql[80];
         sqlite3 *db;
 

@@ -39,6 +39,10 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
      appleID:(NSString * _Nullable)appleID
         dsid:(NSString *_Nullable)dsid;
 
+- (int)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                    appleID:(NSString * _Nullable)appleID
+                                       dsid:(NSString *_Nullable)dsid;
+
 - (int)status:(OTControlArguments*)arguments json:(bool)json;
 
 - (int)recoverUsingBottleID:(NSString *)bottleID
@@ -61,10 +65,18 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
 - (int)healthCheck:(OTControlArguments*)arguments
        skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                       repair:(BOOL)repair
+         danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                  updateIdMS:(BOOL)updateIdMS
                         json:(BOOL)json;
+
+- (int)escrowCheck:(OTControlArguments*)arguments
+              json:(BOOL)json;
 
 - (int)simulateReceivePush:(OTControlArguments*)arguments
                       json:(BOOL)json;
+
+- (int)simulateReceiveTDLChangePush:(OTControlArguments*)arguments
+                               json:(BOOL)json;
 
 - (int)refetchCKKSPolicy:(OTControlArguments*)arguments;
 
@@ -87,31 +99,31 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
 
 - (int)fetchUserControllableViewsSyncStatus:(OTControlArguments*)arguments;
 
-- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)argumentsName
+- (int)resetAccountCDPContentsWithArguments:(OTControlArguments*)arguments
 idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword notifyIdMS:(bool)notifyIdMS ;
 
-- (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)createCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
                                     uuidString:(NSString*_Nullable)uuidString
                                           json:(bool)json
                                        timeout:(NSTimeInterval)timeout;
 
-- (int)joinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)joinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
                                      wrappingKey:(NSString*)wrappingKey
                                       wrappedKey:(NSString*)wrappedKey
                                       uuidString:(NSString*)uuidString
                                          timeout:(NSTimeInterval)timeout;
 
-- (int)preflightJoinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)preflightJoinWithCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
                                               wrappingKey:(NSString*)wrappingKey
                                                wrappedKey:(NSString*)wrappedKey
                                                uuidString:(NSString*)uuidString
                                                   timeout:(NSTimeInterval)timeout;
 
-- (int)removeCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)removeCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
                                     uuidString:(NSString*)uuidString
                                        timeout:(NSTimeInterval)timeout;
 
-- (int)checkCustodianRecoveryKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)checkCustodianRecoveryKeyWithArguments:(OTControlArguments*)arguments
                                    uuidString:(NSString*)uuidString
                                       timeout:(NSTimeInterval)timeout;
 
@@ -125,42 +137,42 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
 
 - (int)preflightJoinWithRecoveryKeyWithArguments:(OTControlArguments*)arguments recoveryKey:(NSString*)recoveryKey;
 
-- (int)createInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)createInheritanceKeyWithArguments:(OTControlArguments*)arguments
                               uuidString:(NSString*_Nullable)uuidString
                                     json:(bool)json
                                  timeout:(NSTimeInterval)timeout;
 
-- (int)generateInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)generateInheritanceKeyWithArguments:(OTControlArguments*)arguments
                                       json:(bool)json
                                    timeout:(NSTimeInterval)timeout;
 
-- (int)storeInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)storeInheritanceKeyWithArguments:(OTControlArguments*)arguments
                             wrappingKey:(NSString*)wrappingKey
                              wrappedKey:(NSString*)wrappedKey
                              uuidString:(NSString*)uuidString
                                 timeout:(NSTimeInterval)timeout;
 
-- (int)joinWithInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)joinWithInheritanceKeyWithArguments:(OTControlArguments*)arguments
                                wrappingKey:(NSString*)wrappingKey
                                 wrappedKey:(NSString*)wrappedKey
                                 uuidString:(NSString*)uuidString
                                    timeout:(NSTimeInterval)timeout;
 
-- (int)preflightJoinWithInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)preflightJoinWithInheritanceKeyWithArguments:(OTControlArguments*)arguments
                                         wrappingKey:(NSString*)wrappingKey
                                          wrappedKey:(NSString*)wrappedKey
                                          uuidString:(NSString*)uuidString
                                             timeout:(NSTimeInterval)timeout;
 
-- (int)removeInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)removeInheritanceKeyWithArguments:(OTControlArguments*)arguments
                               uuidString:(NSString*)uuidString
                                  timeout:(NSTimeInterval)timeout;
 
-- (int)checkInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)checkInheritanceKeyWithArguments:(OTControlArguments*)arguments
                              uuidString:(NSString*)uuidString
                                 timeout:(NSTimeInterval)timeout;
 
-- (int)recreateInheritanceKeyWithArguments:(OTControlArguments*)argumentsName
+- (int)recreateInheritanceKeyWithArguments:(OTControlArguments*)arguments
                                 uuidString:(NSString*_Nullable)uuidString
                                wrappingKey:(NSString*)wrappingKey
                                 wrappedKey:(NSString*)wrappedKey
@@ -168,7 +180,7 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
                                       json:(bool)json
                                    timeout:(NSTimeInterval)timeout;
 
-- (int)createInheritanceKeyWithClaimTokenAndWrappingKey:(OTControlArguments*)argumentsName
+- (int)createInheritanceKeyWithClaimTokenAndWrappingKey:(OTControlArguments*)arguments
                                              uuidString:(NSString*_Nullable)uuidString
                                              claimToken:(NSString*)claimToken
                                             wrappingKey:(NSString*)wrappingKey
@@ -179,30 +191,39 @@ idmsTargetContext:(NSString*_Nullable)idmsTargetContextString idmsCuttlefishPass
                   machineID:(NSString* _Nullable)machineID
                        json:(bool)json;
 
-- (int)fetchAccountSettingsWithArguments:(OTControlArguments*)argumentsName
+- (int)fetchAccountSettingsWithArguments:(OTControlArguments*)arguments
                                     json:(bool)json;
 - (int)fetchAccountWideSettingsWithArguments:(OTControlArguments*)arguments
                                   useDefault:(bool)useDefault
                                   forceFetch:(bool)forceFetch
                                         json:(bool)json;
 
-- (int)disableWalrusWithArguments:(OTControlArguments*)argumentsName
+- (int)disableWalrusWithArguments:(OTControlArguments*)arguments
                           timeout:(NSTimeInterval)timeout;
 
-- (int)enableWalrusWithArguments:(OTControlArguments*)argumentsName
+- (int)enableWalrusWithArguments:(OTControlArguments*)arguments
                          timeout:(NSTimeInterval)timeout;
 
-- (int)disableWebAccessWithArguments:(OTControlArguments*)argumentsName
+- (int)disableWebAccessWithArguments:(OTControlArguments*)arguments
                              timeout:(NSTimeInterval)timeout;
 
-- (int)enableWebAccessWithArguments:(OTControlArguments*)argumentsName
+- (int)enableWebAccessWithArguments:(OTControlArguments*)arguments
                             timeout:(NSTimeInterval)timeout;
 
-- (int)printAccountMetadataWithArguments:(OTControlArguments*)argumentsName
+- (int)printAccountMetadataWithArguments:(OTControlArguments*)arguments
                                     json:(bool)json;
 
-- (int)rerollWithArguments:(OTControlArguments*)argumentsName
+- (int)rerollWithArguments:(OTControlArguments*)arguments
                       json:(bool)json;
+
+- (int)icscRepairResetWithArguments:(OTControlArguments*)arguments
+                               json:(bool)json;
+
+- (int)fetchTotalTrustedPeersWithArguments:(OTControlArguments*)arguments
+                                      json:(bool)json;
+
+- (int)fetchTrustedFullPeersWithArguments:(OTControlArguments*)arguments
+                                     json:(bool)json;
 
 @end
 

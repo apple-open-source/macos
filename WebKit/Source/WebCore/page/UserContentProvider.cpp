@@ -115,9 +115,9 @@ static ContentExtensions::ContentExtensionsBackend::RuleListFilter ruleListFilte
         };
     }
 
-    auto policySourceLoader = mainLoader;
+    RefPtr policySourceLoader = mainLoader;
     if (!mainLoader->request().url().hasSpecialScheme() && documentLoader.request().url().protocolIsInHTTPFamily())
-        policySourceLoader = &documentLoader;
+        policySourceLoader = documentLoader;
 
     auto& exceptions = policySourceLoader->contentExtensionEnablement().second;
     switch (policySourceLoader->contentExtensionEnablement().first) {

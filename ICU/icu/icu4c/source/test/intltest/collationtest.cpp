@@ -90,6 +90,9 @@ public:
     void TestCollatorPredicateTypes();
     void TestUCollatorPredicateTypes();
     void TestCollatorMap();
+#if APPLE_ICU_CHANGES // rdar://155499333
+    void TestCompressibleLeadByte();
+#endif
 
 private:
     void checkFCD(const char *name, CollationIterator &ci, CodePointIterator &cpi);
@@ -168,6 +171,9 @@ void CollationTest::runIndexedTest(int32_t index, UBool exec, const char *&name,
     TESTCASE_AUTO(TestCollatorPredicateTypes);
     TESTCASE_AUTO(TestUCollatorPredicateTypes);
     TESTCASE_AUTO(TestCollatorMap);
+#if APPLE_ICU_CHANGES // rdar://155499333
+    TESTCASE_AUTO(TestCompressibleLeadByte);
+#endif
     TESTCASE_AUTO_END;
 }
 
@@ -2122,4 +2128,35 @@ void CollationTest::TestCollatorMap() {
     assertEquals(R"(u16m["a"])", 2, um[u"a"]);
 }
 
+#if APPLE_ICU_CHANGES // rdar://155499333
+void CollationTest::TestCompressibleLeadByte() {
+    // This test is for ucol_isCompressibleLeadByte() which would
+    // ideally be in cintltst, but since we're comparing it against
+    // results from C++ code, it's here in intltest.
+    IcuTestErrorCode errorCode(*this, "TestCompressibleLeadByte");
+    const CollationData *data = CollationRoot::getData(errorCode);
+    if(errorCode.errDataIfFailureAndReset("CollationRoot::getData()")) {
+        return;
+    }
+    uint32_t b;
+    bool expected;
+    bool actual;
+    UErrorCode status = U_ZERO_ERROR;
+    int count = 0;
+    for (b=0; b <= 255; b++) {
+        // Compare results from ucol_isCompressibleLeadByte()
+        // against results from CollationData::isCompressibleLeadByte().
+        expected = data->isCompressibleLeadByte(b);
+        actual = ucol_isCompressibleLeadByte(b, &status);
+        assertEquals("status", U_ZERO_ERROR, status);
+        assertEquals("result", expected, actual);
+        if (actual == true) {
+            count++;
+        }
+    }
+    // Make sure we're not just getting all true or all false.
+    assertNotEquals("count",   0, count);
+    assertNotEquals("count", 256, count);
+}
+#endif
 #endif  // !UCONFIG_NO_COLLATION

@@ -788,6 +788,14 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     } error:error];
 }
 
++ (NSArray*)allWithContextID:(NSString*)contextID
+                       error:(NSError * __autoreleasing *)error
+{
+    return [self allWhere: @{
+        @"contextID": CKKSNilToNSNull(contextID),
+    } error:error];
+}
+
 + (bool)deleteAllWithContextID:(NSString*)contextID
                         zoneID:(CKRecordZoneID*)zoneID
                          error:(NSError * __autoreleasing *)error
@@ -795,6 +803,21 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{
         @"contextID": CKKSNilToNSNull(contextID),
         @"ckzone":CKKSNilToNSNull(zoneID.zoneName)
+    } connection:nil error: error];
+
+    if(ok) {
+        secdebug("ckksitem", "Deleted all %@", self);
+    } else {
+        secdebug("ckksitem", "Couldn't delete all %@: %@", self, error ? *error : @"unknown");
+    }
+    return ok;
+}
+
++ (bool)deleteAllWithContextID:(NSString*)contextID
+                         error:(NSError * __autoreleasing *)error
+{
+    bool ok = [CKKSSQLDatabaseObject deleteFromTable:[self sqlTable] where: @{
+        @"contextID": CKKSNilToNSNull(contextID),
     } connection:nil error: error];
 
     if(ok) {

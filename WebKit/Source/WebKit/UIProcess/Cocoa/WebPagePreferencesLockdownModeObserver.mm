@@ -55,7 +55,7 @@ RefPtr<API::WebsitePolicies> WebPagePreferencesLockdownModeObserver::protectedPo
 
 void WebPagePreferencesLockdownModeObserver::willChangeLockdownMode()
 {
-    if (auto preferences = wrapper(protectedPolicies().get())) {
+    if (RetainPtr preferences = wrapper(protectedPolicies().get())) {
         [preferences willChangeValueForKey:@"_captivePortalModeEnabled"];
         [preferences willChangeValueForKey:@"lockdownModeEnabled"];
     }
@@ -63,7 +63,7 @@ void WebPagePreferencesLockdownModeObserver::willChangeLockdownMode()
 
 void WebPagePreferencesLockdownModeObserver::didChangeLockdownMode()
 {
-    if (auto preferences = wrapper(protectedPolicies().get())) {
+    if (RetainPtr preferences = wrapper(protectedPolicies().get())) {
         [preferences didChangeValueForKey:@"_captivePortalModeEnabled"];
         [preferences didChangeValueForKey:@"lockdownModeEnabled"];
     }

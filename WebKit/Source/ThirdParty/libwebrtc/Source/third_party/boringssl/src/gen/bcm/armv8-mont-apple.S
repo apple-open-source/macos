@@ -4,8 +4,6 @@
 #include <openssl/asm_base.h>
 
 #if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_AARCH64) && defined(__APPLE__)
-#include <openssl/arm_arch.h>
-
 .text
 
 .globl	_bn_mul_mont
@@ -208,7 +206,7 @@ Lcond_copy:
 	ldp	x19,x20,[x29,#16]
 	mov	sp,x29
 	ldp	x21,x22,[x29,#32]
-	mov	x0,#1
+	// No return value
 	ldp	x23,x24,[x29,#48]
 	ldr	x29,[sp],#64
 	AARCH64_VALIDATE_LINK_REGISTER
@@ -967,7 +965,7 @@ Lsqr8x_done:
 	ldp	x19,x20,[x29,#16]
 	mov	sp,x29
 	ldp	x21,x22,[x29,#32]
-	mov	x0,#1
+	// No return value
 	ldp	x23,x24,[x29,#48]
 	ldp	x25,x26,[x29,#64]
 	ldp	x27,x28,[x29,#80]
@@ -1410,7 +1408,7 @@ Lmul4x_done:
 	ldp	x19,x20,[x29,#16]
 	mov	sp,x29
 	ldp	x21,x22,[x29,#32]
-	mov	x0,#1
+	// No return value
 	ldp	x23,x24,[x29,#48]
 	ldp	x25,x26,[x29,#64]
 	ldp	x27,x28,[x29,#80]

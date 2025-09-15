@@ -284,16 +284,22 @@ const PAL::TextEncoding& TextResourceDecoder::defaultEncoding(ContentType conten
     return specifiedDefaultEncoding;
 }
 
-inline TextResourceDecoder::TextResourceDecoder(const String& mimeType, const PAL::TextEncoding& specifiedDefaultEncoding, bool usesEncodingDetector)
-    : m_contentType(determineContentType(mimeType))
-    , m_encoding(defaultEncoding(m_contentType, specifiedDefaultEncoding))
+inline TextResourceDecoder::TextResourceDecoder(ContentType contentType, const PAL::TextEncoding& encoding, bool usesEncodingDetector)
+    : m_contentType(contentType)
+    , m_encoding(encoding)
     , m_usesEncodingDetector(usesEncodingDetector)
 {
 }
 
-Ref<TextResourceDecoder> TextResourceDecoder::create(const String& mimeType, const PAL::TextEncoding& defaultEncoding, bool usesEncodingDetector)
+Ref<TextResourceDecoder> TextResourceDecoder::create(const String& mimeType, const PAL::TextEncoding& encoding, bool usesEncodingDetector)
 {
-    return adoptRef(*new TextResourceDecoder(mimeType, defaultEncoding, usesEncodingDetector));
+    auto contentType = determineContentType(mimeType);
+    return adoptRef(*new TextResourceDecoder(contentType, defaultEncoding(contentType, encoding), usesEncodingDetector));
+}
+
+Ref<TextResourceDecoder> TextResourceDecoder::create(ContentType contentType, const PAL::TextEncoding& encoding, bool usesEncodingDetector)
+{
+    return adoptRef(*new TextResourceDecoder(contentType, encoding, usesEncodingDetector));
 }
 
 TextResourceDecoder::~TextResourceDecoder() = default;

@@ -127,7 +127,7 @@ MALLOC_STATIC_ASSERT(sizeof(pgm_zone_t) < (2 * PAGE_MAX_SIZE),
 
 MALLOC_STATIC_ASSERT(sizeof(void *) >= sizeof(uint32_t), "Pointer is used as 32bit counter");
 
-#define TSD_GET_COUNTER() ((uint32_t)_pthread_getspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER))
+#define TSD_GET_COUNTER() ((uint32_t)(uintptr_t)_pthread_getspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER))
 #define TSD_SET_COUNTER(val) _pthread_setspecific_direct(__TSD_MALLOC_PROB_GUARD_SAMPLE_COUNTER, (void *)(uintptr_t)val)
 
 static const uint32_t k_no_sample = UINT32_MAX;
@@ -715,7 +715,7 @@ pgm_claimed_address(pgm_zone_t *zone, void *ptr)
 
 static void *
 pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
-		uint64_t options)
+		malloc_zone_malloc_options_t options)
 {
 	if (os_unlikely(align > PAGE_SIZE)) {
 		return DELEGATE(malloc_with_options, align, size, options);
@@ -730,7 +730,7 @@ pgm_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
 
 static void *
 pgm_malloc_type_malloc_with_options(pgm_zone_t *zone, size_t align, size_t size,
-		uint64_t options, malloc_type_id_t type_id)
+		malloc_zone_malloc_options_t options, malloc_type_id_t type_id)
 {
 	if (os_unlikely(align > PAGE_SIZE)) {
 		return DELEGATE(malloc_type_malloc_with_options, align, size, options,

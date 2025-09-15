@@ -109,7 +109,7 @@ _pinst_set_sctlr:
 
 #endif /* defined(KERNEL_INTEGRITY_KTRR) */
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 
 	.text
 	.section	__LAST,__pinst
@@ -129,5 +129,5 @@ _pinst_spsel_1:
 	check_instruction x2, x3, __pinst_spsel_1, 0xd65f03c0d50041bf
 	b __pinst_spsel_1
 
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 

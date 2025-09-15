@@ -466,6 +466,23 @@ mac_proc_check_inherit_ipc_ports(
 	return error;
 }
 
+int
+mac_proc_check_iopolicysys(struct proc *p, kauth_cred_t cred, int cmd, int type, int scope, int policy)
+{
+	int error;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_system_enforce) {
+		return 0;
+	}
+#endif
+
+	MAC_CHECK(proc_check_iopolicysys, p, cred, cmd, type, scope, policy);
+
+	return error;
+}
+
 /*
  * The type of maxprot in proc_check_map_anon must be equivalent to vm_prot_t
  * (defined in <mach/vm_prot.h>). mac_policy.h does not include any header

@@ -27,8 +27,27 @@
 // code shared with kernel/kext tests
 #include "../../osfmk/tests/vm_parameter_validation.h"
 
-#define GOLDEN_FILES_VERSION "vm_parameter_validation_golden_images_edeef315.tar.xz"
+#define GOLDEN_FILES_VERSION "vm_parameter_validation_golden_images_a2474e92.tar.xz"
 #define GOLDEN_FILES_ASSET_FILE_POINTER GOLDEN_FILES_VERSION
+
+/*
+ * Architecture to pass to the golden file decompressor.
+ * watchOS passes 'arm64' or 'arm64_32'.
+ * Decompressor ignores this parameter on other platforms.
+ */
+#if TARGET_OS_WATCH
+#       if TARGET_CPU_ARM64
+#               if TARGET_RT_64_BIT
+#                       define GOLDEN_FILES_ARCH "arm64"
+#               else
+#                       define GOLDEN_FILES_ARCH "arm64_32"
+#               endif
+#       else
+#               error unknown watchOS architecture
+#       endif
+#else
+#       define GOLDEN_FILES_ARCH "unspecified"
+#endif
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
@@ -36,7 +55,7 @@ T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_VERSION("VM"),
 	T_META_S3_ASSET(GOLDEN_FILES_ASSET_FILE_POINTER),
 	T_META_ASROOT(true),  /* required for vm_wire tests on macOS */
-	T_META_RUN_CONCURRENTLY(false), /* vm_parameter_validation_kern uses kernel globals */
+	T_META_RUN_CONCURRENTLY(false), /* tests should be concurrency-safe now, but keep this in case concurrent tests would provoke timeouts */
 	T_META_ALL_VALID_ARCHS(true),
 	XNU_T_META_REQUIRES_DEVELOPMENT_KERNEL
 	);
@@ -2454,8 +2473,10 @@ reenable_vm_sanitize_telemetry(void)
 
 #define KERN_GOLDEN_FILE TMP_DIR "kern_golden_image.log"
 
-results_t *golden_list[MAX_NUM_TESTS];
-results_t *kern_list[MAX_NUM_TESTS];
+static results_t *golden_list[MAX_NUM_TESTS];
+static results_t *kern_list[MAX_NUM_TESTS];
+static uint32_t num_tests = 0; // num of tests in golden_list
+static uint32_t num_kern_tests = 0; // num of tests in kern_list
 
 #define FILL_TRIALS_NAMES_AND_CONTINUE(results, trials, t_count) { \
 	for (unsigned i = 0; i < t_count; i++) { \
@@ -2808,21 +2829,203 @@ goldenprintf(const char *format, ...)
 	GOLDEN_OUTPUT_BUF += printed;
 }
 
+// Knobs controlled by environment variables
+
 // Verbose output in dump_results, controlled by DUMP_RESULTS env.
-bool dump = FALSE;
+static bool dump = FALSE;
 // Output to create a golden test result, controlled by GENERATE_GOLDEN_IMAGE.
-bool generate_golden = FALSE;
+static bool generate_golden = FALSE;
 // Read existing golden file and print its contents in verbose format (like dump_results). Controlled by DUMP_GOLDEN_IMAGE.
-bool dump_golden = FALSE;
+static bool dump_golden = FALSE;
 // Run tests as tests (i.e. emit TS_{PASS/FAIL}), enabled unless golden image generation is true.
-bool should_test_results =  TRUE;
+static bool should_test_results =  TRUE;
+
+static void
+read_env()
+{
+	dump = (getenv("DUMP_RESULTS") != NULL);
+	dump_golden = (getenv("DUMP_GOLDEN_IMAGE") != NULL);
+	// Shouldn't do both
+	generate_golden = (getenv("GENERATE_GOLDEN_IMAGE") != NULL) && !dump_golden;
+	// Only test when no other golden image flag is set
+	should_test_results = (getenv("SKIP_TESTS") == NULL) && !dump_golden && !generate_golden;
+}
+
+// Comparator function for sorting result_t list by name
+static int
+compare_names(const void *a, const void *b)
+{
+	assert(((const result_t *)a)->name);
+	assert(((const result_t *)b)->name);
+	return strcmp(((const result_t *)a)->name, ((const result_t *)b)->name);
+}
+
+static unsigned
+binary_search(result_t *list, unsigned count, const result_t *trial)
+{
+	const char *name = trial->name;
+	unsigned left = 0, right = count;
+	while (left < right) {
+		// Range [left, right) is to be searched.
+		unsigned mid = left + (right - left) / 2;
+		int cmp = strcmp(list[mid].name, name);
+		if (cmp == 0) {
+			return mid;
+		} else if (cmp < 0) {
+			// Narrow search to [mid + 1, right).
+			left = mid + 1;
+		} else {
+			// Narrow search to [left, mid).
+			right = mid;
+		}
+	}
+	return UINT_MAX; // Not found
+}
+
+static inline bool
+trial_name_equals(const result_t *a, const result_t *b)
+{
+	// NB: strlen match need to handle cases where a shorter 'bname' would match a longer 'aname'.
+	if (strlen(a->name) == strlen(b->name) && compare_names(a, b) == 0) {
+		return true;
+	}
+	return false;
+}
+
+static const result_t *
+get_golden_result(results_t *golden_results, const result_t *trial, unsigned trial_idx)
+{
+	if (golden_results->trialsformula == eUNKNOWN_TRIALS) {
+		// golden results don't contain trials names
+		T_LOG("%s: update test's alloc_results to have a valid trialsformula_t\n", golden_results->testname);
+		return NULL;
+	}
+
+	if (trial_idx < golden_results->count &&
+	    golden_results->list[trial_idx].name &&
+	    trial_name_equals(&golden_results->list[trial_idx], trial)) {
+		// "fast search" path taken when golden file is in sync to test.
+		return &golden_results->list[trial_idx];
+	}
+
+	// "slow search" path taken when tests idxs are not aligned. Sort the array
+	// by name and do binary search.
+	qsort(golden_results->list, golden_results->count, sizeof(result_t), compare_names);
+	unsigned g_idx = binary_search(golden_results->list, golden_results->count, trial);
+	if (g_idx < golden_results->count) {
+		return &golden_results->list[g_idx];
+	}
+
+	return NULL;
+}
+
+static void
+test_results(results_t *golden_results, results_t *results)
+{
+	bool passed = TRUE;
+	unsigned result_count = results->count;
+	unsigned acceptable_count = 0;
+	const unsigned acceptable_max = 16;  // log up to this many ACCEPTABLE results
+	const result_t *golden_result = NULL;
+	if (golden_results->count != results->count) {
+		if (results->kernel_buffer_full) {
+			T_FAIL("%s: number of iterations mismatch (wanted %u, got %u) "
+			    "(kernel output buffer full)",
+			    results->testname, golden_results->count, results->count);
+			passed = FALSE;
+		} else {
+			T_LOG("%s: number of iterations mismatch (wanted %u, got %u)",
+			    results->testname, golden_results->count, results->count);
+		}
+	}
+	for (unsigned i = 0; i < result_count; i++) {
+		golden_result = get_golden_result(golden_results, &results->list[i], i);
+		if (golden_result) {
+			if (results->list[i].ret == ACCEPTABLE) {
+				// trial has declared itself to be correct
+				// no matter what the golden result is
+				acceptable_count++;
+				if (acceptable_count <= acceptable_max) {
+					T_LOG("%s RESULT ACCEPTABLE (expected %d), %s\n",
+					    results->testname,
+					    golden_result->ret, results->list[i].name);
+				}
+			} else if (results->list[i].ret != golden_result->ret) {
+				T_FAIL("%s RESULT %d (expected %d), %s\n",
+				    results->testname, results->list[i].ret,
+				    golden_result->ret, results->list[i].name);
+				passed = FALSE;
+			}
+		} else {
+			/*
+			 * This trial is not present in the golden results.
+			 *
+			 * This may be caused by new tests that require
+			 * updates to the golden results.
+			 * Or this may be caused by the last trial name being
+			 * truncated when the kernel's output buffer is full.
+			 * (Or both at once, in which case we only complain
+			 * about one of them.)
+			 */
+			const char *suggestion;
+			if (results->kernel_buffer_full && i == results->count - 1) {
+				suggestion = "kernel test output buffer is full";
+			} else {
+				suggestion = "regenerate golden files to fix this";
+			}
+			T_FAIL("%s NEW RESULT %d, %s -- %s\n",
+			    results->testname, results->list[i].ret,
+			    results->list[i].name, suggestion);
+			passed = FALSE;
+		}
+	}
+
+	if (acceptable_count > acceptable_max) {
+		T_LOG("%s %u more RESULT ACCEPTABLE trials not logged\n",
+		    results->testname, acceptable_count - acceptable_max);
+	}
+	if (passed) {
+		T_PASS("%s passed\n", results->testname);
+	}
+}
+
+static results_t *
+process_results(results_t *results)
+{
+	results_t *golden_results = NULL;
+
+	if (dump && !generate_golden) {
+		__dump_results(results);
+	}
+
+	if (generate_golden) {
+		dump_golden_results(results);
+	}
+
+	if (should_test_results) {
+		golden_results = test_name_to_golden_results(results->testname);
+
+		if (golden_results) {
+			test_results(golden_results, results);
+		} else {
+			T_FAIL("New test %s found, update golden list to allow return code testing", results->testname);
+			// Dump results if not done previously
+			if (!dump) {
+				__dump_results(results);
+			}
+		}
+	}
+
+	return results;
+}
 
 T_DECL(vm_parameter_validation_user,
     "parameter validation for userspace calls",
     T_META_SPAWN_TOOL(DECOMPRESS),
     T_META_SPAWN_TOOL_ARG("user"),
     T_META_SPAWN_TOOL_ARG(TMP_DIR),
-    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_VERSION)
+    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_VERSION),
+    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_ARCH)
     )
 {
 	if (disable_vm_sanitize_telemetry() != 0) {
@@ -3458,8 +3661,6 @@ out:
 // The actual test code is in:
 // osfmk/tests/vm_parameter_validation_kern.c
 
-#define KERN_RESULT_DELIMITER "\n"
-
 #ifndef STRINGIFY
 #define __STR(x)        #x
 #define STRINGIFY(x)    __STR(x)
@@ -3484,53 +3685,78 @@ static int
 populate_kernel_results(char *kern_buffer)
 {
 	char *line = NULL;
-	char *sub_line = NULL;
 	char *test_name = NULL;
-	char *result_name = NULL;
-	char *token = NULL;
-	char *s_num_kern_results = NULL;
 	results_t *kern_results = NULL;
-	uint32_t num_kern_results = 0;
-	uint32_t result_number = 0;
-	int result_ret = 0;
 	bool in_test = FALSE;
 
 	line = strtok(kern_buffer, KERN_RESULT_DELIMITER);
 	while (line != NULL) {
 		if (strncmp(line, TESTNAME_DELIMITER, strlen(TESTNAME_DELIMITER)) == 0) {
-			sub_line = line + strlen(TESTNAME_DELIMITER);
+			char *sub_line = line + strlen(TESTNAME_DELIMITER);
 			test_name = strdup(sub_line);
-			result_number = 0;
 			in_test = TRUE;
 		} else if (in_test && strncmp(line, RESULTCOUNT_DELIMITER, strlen(RESULTCOUNT_DELIMITER)) == 0) {
-			s_num_kern_results = line + strlen(RESULTCOUNT_DELIMITER);
-			num_kern_results = (uint32_t)strtoul(s_num_kern_results, NULL, 10);
+			char *s_num_kern_results = line + strlen(RESULTCOUNT_DELIMITER);
+			uint32_t num_kern_results = (uint32_t)strtoul(s_num_kern_results, NULL, 10);
 			kern_results = alloc_results(test_name, eUNKNOWN_TRIALS, num_kern_results);
-			kern_results->count = num_kern_results;
 			kern_list[num_kern_tests++] = kern_results;
 		} else if (in_test && strncmp(line, TESTCONFIG_DELIMITER, strlen(TESTCONFIG_DELIMITER)) == 0) {
-			sub_line = line + strlen(TESTCONFIG_DELIMITER);
+			char *sub_line = line + strlen(TESTCONFIG_DELIMITER);
 			kern_results->testconfig = strdup(sub_line);
 		} else if (in_test && strstr(line, KERN_TESTRESULT_DELIMITER)) {
 			// should have found TESTCONFIG already
 			assert(kern_results->testconfig != NULL);
+			int result_ret = 0;
+			char *token;
 			sscanf(line, KERN_TESTRESULT_DELIMITER "%d", &result_ret);
 			// get result name (comes after the first ,)
 			token = strchr(line, ',');
-			if (token) {
+			if (token && strlen(token) > 2) {
 				token = token + 2; // skip the , and the extra space
-				result_name = strdup(token);
-				if (result_number >= num_kern_results) {
-					T_LOG("\tKERN Invalid output in test %s, seeing more results (%u) than expected (%u), ignoring trial RESULT %d, %s\n",
-					    test_name, result_number, num_kern_results, result_ret, result_name);
+				char *result_name = strdup(token);
+				if (kern_results->count >= kern_results->capacity) {
+					T_LOG("\tKERN Invalid output in test %s, "
+					    "too many results (expected %u), "
+					    "ignoring trial RESULT %d, %s\n",
+					    test_name, kern_results->capacity, result_ret, result_name);
 					free(result_name);
 				} else {
-					kern_results->list[result_number++] = (result_t){.ret = result_ret, .name = result_name};
+					kern_results->list[kern_results->count++] =
+					    (result_t){.ret = result_ret, .name = result_name};
 				}
 			}
+		} else if (strncmp(line, KERN_FAILURE_DELIMITER, strlen(KERN_FAILURE_DELIMITER)) == 0) {
+			/*
+			 * A fatal error message interrupted the output.
+			 * (for example, the kernel test's output buffer is full)
+			 * Clean up the last test because it may be
+			 * invalid due to truncated output.
+			 */
+			T_FAIL("%s", line);
+			if (kern_results != NULL) {
+				if (kern_results->testconfig == NULL) {
+					// We didn't get any results for this test.
+					// Just drop it.
+					dealloc_results(kern_results);
+					kern_results = NULL;
+					kern_list[--num_kern_tests] = NULL;
+				} else {
+					kern_results->kernel_buffer_full = true;
+				}
+			}
+
+			// Stop reading results now.
+			break;
 		} else {
+			/*
+			 * Unrecognized output text.
+			 * One possible cause is that the kernel test's output
+			 * buffer is full so this line was truncated beyond
+			 * recognition. In that case we'll hit the
+			 * KERN_FAILURE_DELIMITER line next.
+			 */
+
 			// T_LOG("Unknown kernel result line: %s\n", line);
-			//in_test = FALSE;
 		}
 
 		line = strtok(NULL, KERN_RESULT_DELIMITER);
@@ -3551,6 +3777,16 @@ run_sysctl_test(const char *t, int64_t value)
 
 	snprintf(name, sizeof(name), "debug.test.%s", t);
 	rc = sysctlbyname(name, &result, &s, &value, s);
+	if (rc == -1 && errno == ENOENT) {
+		/*
+		 * sysctl name not found. Probably an older kernel with the
+		 * previous version of this test.
+		 */
+		T_FAIL("sysctl %s not found; may be running on an older kernel "
+		    "that does not implement the current version of this test",
+		    name);
+		exit(1);
+	}
 	T_QUIET; T_ASSERT_POSIX_SUCCESS(rc, "sysctlbyname(%s)", t);
 	return result;
 }
@@ -3560,7 +3796,8 @@ T_DECL(vm_parameter_validation_kern,
     T_META_SPAWN_TOOL(DECOMPRESS),
     T_META_SPAWN_TOOL_ARG("kern"),
     T_META_SPAWN_TOOL_ARG(TMP_DIR),
-    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_VERSION)
+    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_VERSION),
+    T_META_SPAWN_TOOL_ARG(GOLDEN_FILES_ARCH)
     )
 {
 	if (disable_vm_sanitize_telemetry() != 0) {
@@ -3596,22 +3833,37 @@ T_DECL(vm_parameter_validation_kern,
 	// code print directly to the serial console, which takes many minutes
 	// to transfer our test output at 14.4 KB/s.
 	// We align this buffer to KB16 to allow the lower bits to be used for a fd.
-	void *output;
-	int alloc_failed = posix_memalign(&output, KB16, SYSCTL_OUTPUT_BUFFER_SIZE);
-	assert(alloc_failed == 0);
+	char *output = calloc(SYSCTL_OUTPUT_BUFFER_SIZE, 1);
 
-	memset(output, 0, SYSCTL_OUTPUT_BUFFER_SIZE);
+	vm_parameter_validation_kern_args_t args = {
+		.sizeof_args = sizeof(args),
+		.output_buffer_address = (uint64_t)output,
+		.output_buffer_size = SYSCTL_OUTPUT_BUFFER_SIZE,
+		.file_descriptor = get_fd(),
+		.generate_golden = generate_golden
+	};
+	int64_t result = run_sysctl_test("vm_parameter_validation_kern_v2", (int64_t)&args);
 
-	int fd = get_fd();
-	assert((fd & ((int)KB16 - 1)) == fd);
-	if (generate_golden) {
-		// pass flag on the msb of the fd
-		assert((fd & ((int)(KB16 >> 1) - 1)) == fd);
-		fd |=  KB16 >> 1;
+	switch (result) {
+	case KERN_TEST_SUCCESS:
+		break;
+	case KERN_TEST_BAD_ARGS:
+		T_FAIL("version mismatch between test and kernel: "
+		    "sizeof(vm_parameter_validation_kern_args_t) did not match");
+		goto out;
+	case KERN_TEST_FAILED:
+		if (output[0] == 0) {
+			// no output from the kernel test; print a generic error
+			T_FAIL("kernel test failed for unknown reasons");
+		} else {
+			// kernel provided a message: print it
+			T_FAIL("kernel test failed: %s", output);
+		}
+		goto out;
+	default:
+		T_FAIL("kernel test failed with unknown error %llu", result);
+		goto out;
 	}
-	int64_t result = run_sysctl_test("vm_parameter_validation_kern", (int64_t)output + fd);
-
-	T_QUIET; T_EXPECT_EQ(1ull, result, "vm_parameter_validation_kern");
 
 	if (generate_golden) {
 		if (!out_bad_param_in_kern_golden_results(output) || (dump && !should_test_results)) {

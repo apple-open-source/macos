@@ -58,7 +58,8 @@ first_free_is_valid_ll(vm_map_t map)
 void
 vm_map_store_init_ll(struct vm_map_header *hdr)
 {
-	hdr->links.next = hdr->links.prev = CAST_TO_VM_MAP_ENTRY(hdr);
+	hdr->links.next = CAST_TO_VM_MAP_ENTRY(hdr);
+	VMH_PREV_SET(hdr, CAST_TO_VM_MAP_ENTRY(hdr));
 }
 
 void
@@ -67,24 +68,23 @@ vm_map_store_entry_link_ll(
 	vm_map_entry_t          after_where,
 	vm_map_entry_t          entry)
 {
-	if (entry->map_aligned) {
-		assert(VM_MAP_PAGE_ALIGNED(entry->vme_start,
-		    VM_MAP_HDR_PAGE_MASK(hdr)));
-		assert(VM_MAP_PAGE_ALIGNED(entry->vme_end,
-		    VM_MAP_HDR_PAGE_MASK(hdr)));
-	}
+	assert(VM_MAP_PAGE_ALIGNED(entry->vme_start,
+	    VM_MAP_HDR_PAGE_MASK(hdr)));
+	assert(VM_MAP_PAGE_ALIGNED(entry->vme_end,
+	    VM_MAP_HDR_PAGE_MASK(hdr)));
 	hdr->nentries++;
-	entry->vme_prev = after_where;
+	VME_PREV_SET(entry, after_where);
 	entry->vme_next = after_where->vme_next;
-	entry->vme_prev->vme_next = entry->vme_next->vme_prev = entry;
+	VME_PREV(entry)->vme_next = entry;
+	VME_PREV_SET(entry->vme_next, entry);
 }
 
 void
 vm_map_store_entry_unlink_ll(struct vm_map_header *hdr, vm_map_entry_t entry)
 {
 	hdr->nentries--;
-	entry->vme_next->vme_prev = entry->vme_prev;
-	entry->vme_prev->vme_next = entry->vme_next;
+	VME_PREV_SET(entry->vme_next, VME_PREV(entry));
+	VME_PREV(entry)->vme_next = entry->vme_next;
 }
 
 void
@@ -94,9 +94,8 @@ vm_map_store_copy_reset_ll(
 	__unused int            nentries)
 {
 	copy->cpy_hdr.nentries = 0;
-	vm_map_copy_first_entry(copy) =
-	    vm_map_copy_last_entry(copy) =
-	    vm_map_copy_to_entry(copy);
+	vm_map_copy_first_entry(copy) = vm_map_copy_to_entry(copy);
+	VMH_PREV_SET(&copy->cpy_hdr, vm_map_copy_to_entry(copy));
 }
 
 /*

@@ -92,7 +92,8 @@ inline bool requiresLineBox(const LegacyInlineIterator& it, const LineInfo& line
         return true;
 
     UChar current = it.current();
-    bool notJustWhitespace = current != ' ' && current != '\t' && current != softHyphen && (current != '\n' || it.renderer()->preservesNewline()) && !skipNonBreakingSpace(it, lineInfo);
+    auto preservesNewline = !it.renderer()->isRenderSVGInlineText() && it.renderer()->style().preserveNewline();
+    bool notJustWhitespace = current != ' ' && current != '\t' && current != softHyphen && (current != '\n' || preservesNewline) && !skipNonBreakingSpace(it, lineInfo);
     return notJustWhitespace || rendererIsEmptyInline;
 }
 

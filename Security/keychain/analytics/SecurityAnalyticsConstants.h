@@ -108,17 +108,60 @@ extern NSString *const kSecurityRTCEventNameVouchWithBottle;
 extern NSString *const kSecurityRTCEventNamePreflightVouchWithBottle;
 extern NSString *const kSecurityRTCEventNameFetchRecoverableTLKShares;
 extern NSString *const kSecurityRTCEventNameVouchWithBottleTPH;
-
-
 extern NSString *const kSecurityRTCEventNamePerformEscrowRecovery;
 extern NSString *const kSecurityRTCEventNameRecoverWithCDPContext;
-
 
 // MARK: Account Creation
 extern NSString *const kSecurityRTCEventNameEstablish;
 extern NSString *const kSecurityRTCEventNameEstablishOperation;
 extern NSString *const kSecurityRTCEventNameOnqueueEstablishTPH;
 extern NSString *const kSecurityRTCEventNameFetchAfterEstablish;
+
+// MARK: Reset Protected Data
+extern NSString *const kSecurityRTCEventNameResetProtectedData;
+extern NSString *const kSecurityRTCEventNameOTResetOperation;
+extern NSString *const kSecurityRTCEventNameFetchAccountWideSettings;
+extern NSString *const kSecurityRTCEventNameFetchAccountWideSettingsTPH;
+extern NSString *const kSecurityRTCEventNameResetSOS;
+extern NSString *const kSecurityRTCEventNameResetTPH;
+
+// MARK: Establish Path
+extern NSString *const kSecurityRTCEventNameResetCKKSZonesLackingTLKsOperation;
+extern NSString *const kSecurityRTCEventNameOTSetCDPBitOperation;
+extern NSString *const kSecurityRTCEventNameOTTriggerEscrowUpdateOperation;
+extern NSString *const kSecurityRTCEventNameOTBecomeReadyOperation;
+extern NSString *const kSecurityRTCEventNameOTLocalCKKSResetOperation;
+
+// MARK: iCSC reliability
+extern NSString *const kSecurityRTCEventNameEscrowPasscodeEnableCacheFlow;
+extern NSString *const kSecurityRTCEventNameEscrowPasscodeCacheAvailable;
+extern NSString *const kSecurityRTCEventNameEscrowRepairOperation;
+
+// MARK: RPD
+extern NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemoval;
+extern NSString *const kSecurityRTCEventNamePerformCKServerUnreadableDataRemovalTPH;
+
+// MARK: 2FAFA RPD
+extern NSString *const kSecurityRTCEventNameClearCliqueFromAccount;
+
+extern NSString *const kSecurityRTCErrorDomain;
+
+typedef NS_ERROR_ENUM(kSecurityRTCErrorDomain, OctagonTrustDepartureReasonErrorCode) {
+    OctagonTrustDepartureReasonErrorCodeUnknown,
+    OctagonTrustDepartureReasonErrorCodeTDLUserInitiated,
+    OctagonTrustDepartureReasonErrorCodeTDLEvicted,
+    OctagonTrustDepartureReasonErrorCodeTDLUnknown,
+    OctagonTrustDepartureReasonErrorCodeTDLGhost,
+    OctagonTrustDepartureReasonErrorCodeTDLMidRoll,
+    OctagonTrustDepartureReasonErrorCodeLeaveClique,
+    OctagonTrustDepartureReasonErrorCodeCLI,
+    OctagonTrustDepartureReasonErrorCodeRPD,
+    OctagonTrustDepartureReasonErrorCodeResetRecipient,
+    OctagonTrustDepartureReasonErrorCodePeerDistrust,
+    OctagonTrustDepartureReasonErrorCodeCFDeletedEgo,
+};
+
+extern NSString *const kSecurityRTCEventNameOctagonTrustLost;
 
 // MARK: RTC Fields
 
@@ -135,7 +178,6 @@ extern NSString *const kSecurityRTCFieldNumberOfTrustedPeers;
 extern NSString *const kSecurityRTCFieldSecurityLevel;
 extern NSString *const kSecurityRTCFieldRetryAttemptCount;
 extern NSString *const kSecurityRTCFieldTotalRetryDuration;
-extern NSString *const kSecurityRTCFieldEgoMachineIDVanishedFromTDL;
 extern NSString *const kSecurityRTCFieldPairingSuccessfulImportCount;
 extern NSString *const kSecurityRTCFieldPairingFailedImportCount;
 
@@ -168,6 +210,7 @@ extern NSString *const kSecurityRTCEventNameContentSyncFinish;
 extern NSString *const kSecurityRTCEventNameDeviceLocked;
 extern NSString *const kSecurityRTCEventNameDeviceUnlocked;
 extern NSString *const kSecurityRTCEventNameLocalReset;
+extern NSString *const kSecurityRTCEventNameEvaluateTLKShares;
 
 /* CKKS Initial Launch Fields */
 extern NSString *const kSecurityRTCFieldNumViews;
@@ -202,6 +245,29 @@ extern NSString *const kSecurityRTCFieldNumLocalRecords;
 extern NSString *const kSecurityRTCFieldNumKeychainItems;
 extern NSString *const kSecurityRTCFieldTotalCKRecords;
 extern NSString *const kSecurityRTCFieldAvgCKRecords;
+extern NSString *const kSecurityRTCFieldNumModificationsFetched;
+extern NSString *const kSecurityRTCFieldNumDeletionsFetched;
+extern NSString *const kSecurityRTCFieldNumZonesReverseSyncing;
+extern NSString *const kSecurityRTCFieldPeersEvaluatedForTLKShares;
+extern NSString *const kSecurityRTCFieldNumPeersMissingShares;
+extern NSString *const kSecurityRTCFieldNumTLKSharesEvaluated;
+extern NSString *const kSecurityRTCFieldIsCurrentDevice;
+
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseAPNS;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseAPIFetchRequest;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseSEAPIFetchRequest;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseKeySetFetchRequest;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseCurrentItemFetchRequest;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseInitialStart;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecausePreviousFetchFailed;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseNetwork;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseKeyHierarchy;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseTesting;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseResync;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseMoreComing;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseResolvingConflict;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecausePeriodicRefetch;
+extern NSString *const kSecurityRTCFieldCKKSFetchBecauseOctagonPairingComplete;
 
 /* Escrow Recovery Fields */
 extern NSString *const kSecurityRTCFieldRecordDataMissing;
@@ -216,6 +282,10 @@ extern NSString *const kSecurityRTCFieldTotalNumberOfCustodians;
 extern NSString *const kSecurityRTCFieldTotalNumberOfTrustedRecoveryKeys;
 extern NSString *const kSecurityRTCFieldTotalNumberOfTrustedCustodians;
 extern NSString *const kSecurityRTCFieldTotalNumberOfPreapprovals;
+
+/* Reset Protected Data Fields */
+extern NSString *const kSecurityRTCFieldAccountIsW;
+extern NSString *const kSecurityRTCFieldAccountIsG;
 
 NS_ASSUME_NONNULL_END
 

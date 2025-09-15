@@ -399,8 +399,7 @@ struct nxdom {
 	(struct kern_nexus *, nexus_port_t);
 	int (*nxdom_connect)                            /* required */
 	(struct kern_nexus_domain_provider *, struct kern_nexus *,
-	struct kern_channel *, struct chreq *, struct kern_channel *,
-	struct nxbind *, struct proc *);
+	struct kern_channel *, struct chreq *, struct nxbind *, struct proc *);
 	void (*nxdom_disconnect)                        /* required */
 	(struct kern_nexus_domain_provider *, struct kern_nexus *,
 	struct kern_channel *);
@@ -512,6 +511,11 @@ extern int nxctl_inet_traffic_rule_find_qset_id_with_pkt(const char *,
 extern int nxctl_inet_traffic_rule_find_qset_id(const char *,
     struct ifnet_traffic_descriptor_inet *, uint64_t *);
 extern int nxctl_inet_traffic_rule_get_count(const char *, uint32_t *);
+extern int nxctl_eth_traffic_rule_find_qset_id_with_pkt(const char *,
+    struct __kern_packet *, uint64_t *);
+extern int nxctl_eth_traffic_rule_find_qset_id(const char *,
+    uint16_t, ether_addr_t *, uint64_t *);
+extern int nxctl_eth_traffic_rule_get_count(const char *, uint32_t *);
 extern int nxctl_get_opt(struct nxctl *, struct sockopt *);
 extern int nxctl_set_opt(struct nxctl *, struct sockopt *);
 extern void nxctl_retain(struct nxctl *);
@@ -639,32 +643,6 @@ nx_tx_doorbell(struct __kern_channel_ring *kring, boolean_t async)
 	ASSERT(nxprov->nxprov_ext.nxpi_tx_doorbell != NULL);
 	nxprov->nxprov_ext.nxpi_tx_doorbell(nxprov, KRNA(kring)->na_nx,
 	    kring, (async ? KERN_NEXUS_TXDOORBELLF_ASYNC_REFILL: 0));
-}
-
-__attribute__((always_inline))
-static inline int
-nx_rx_sync_packets(struct __kern_channel_ring *kring,
-    uint64_t *__counted_by(*count)packets, uint32_t *count)
-{
-	struct kern_nexus_provider *nxprov = NX_PROV(KRNA(kring)->na_nx);
-
-	ASSERT(kring->ckr_tx == NR_RX);
-	if (nxprov->nxprov_ext.nxpi_rx_sync_packets != NULL) {
-		return nxprov->nxprov_ext.nxpi_rx_sync_packets(nxprov,
-		           KRNA(kring)->na_nx, kring, packets, count, 0);
-	} else {
-		return 0;
-	}
-}
-
-__attribute__((always_inline))
-static inline boolean_t
-nx_has_rx_sync_packets(struct __kern_channel_ring *kring)
-{
-	struct kern_nexus_provider *nxprov = NX_PROV(KRNA(kring)->na_nx);
-
-	ASSERT(kring->ckr_tx == NR_RX);
-	return nxprov->nxprov_ext.nxpi_rx_sync_packets != NULL;
 }
 
 __attribute__((always_inline))

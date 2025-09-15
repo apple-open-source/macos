@@ -35,11 +35,11 @@ typedef int pid_t;
  * Posix networking compatibility
  */
 extern unsigned
-if_nametoindex( const char * ifname );
+if_nametoindex_win( const char * ifname );
 
 
 extern char*
-if_indextoname( unsigned ifindex, char * ifname );
+if_indextoname_win( unsigned ifindex, char * ifname );
 
 
 /* 

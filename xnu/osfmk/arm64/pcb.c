@@ -290,6 +290,15 @@ machine_switch_pmap_and_extended_context(thread_t old, thread_t new)
 		 * a pending kernel TLB or cache maintenance instruction.
 		 */
 		__builtin_arm_dsb(DSB_ISH);
+
+		/*
+		 * An ISB is needed for similar userspace reasons to the DSB above. Unlike the DSB
+		 * case, the context synchronization needs to happen on the CPU the 'old' thread will
+		 * later be scheduled on. We can rely on the fact that when 'old' is later scheduled,
+		 * whatever thread it is replacing will go through this function as 'old' and will
+		 * issue this ISB on its behalf.
+		 */
+		arm_context_switch_requires_sync();
 	}
 
 
@@ -354,7 +363,6 @@ machine_thread_on_core_allow_invalid(thread_t thread)
 	 * from anything but a thread, zeroed or freed memory.
 	 */
 	assert(get_preemption_level() > 0);
-	thread = pgz_decode_allow_invalid(thread, ZONE_ID_THREAD);
 	if (thread == THREAD_NULL) {
 		return false;
 	}

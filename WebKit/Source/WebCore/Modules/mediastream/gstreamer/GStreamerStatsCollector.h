@@ -22,12 +22,15 @@
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 
 #include "GRefPtrGStreamer.h"
+#include "GUniquePtrGStreamer.h"
+#include "RTCStatsReport.h"
 
 #include <wtf/CompletionHandler.h>
+#include <wtf/HashMap.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/glib/GRefPtr.h>
-#include <wtf/glib/GUniquePtr.h>
 
 namespace WebCore {
 
@@ -42,8 +45,17 @@ public:
     using PreprocessCallback = Function<GUniquePtr<GstStructure>(const GRefPtr<GstPad>&, const GstStructure*)>;
     void getStats(CollectorCallback&&, const GRefPtr<GstPad>&, PreprocessCallback&&);
 
+    void invalidateCache();
+
 private:
     GRefPtr<GstElement> m_webrtcBin;
+
+    struct CachedReport {
+        MonotonicTime generationTime;
+        RefPtr<RTCStatsReport> report;
+    };
+    HashMap<GRefPtr<GstPad>, CachedReport> m_cachedReportsPerPad;
+    std::optional<CachedReport> m_cachedGlobalReport;
 };
 
 } // namespace WebCore

@@ -46,14 +46,14 @@ public:
 
     MediaSessionManagerGLib& manager() const { return m_manager; }
 
-    GVariant* getPlaybackStatusAsGVariant(std::optional<const PlatformMediaSession*>);
+    GVariant* getPlaybackStatusAsGVariant(std::optional<const PlatformMediaSessionInterface*>);
     GVariant* getMetadataAsGVariant(std::optional<NowPlayingInfo>);
     GVariant* getPositionAsGVariant();
     GVariant* canSeekAsGVariant();
 
     void emitPositionChanged(double time);
     void updateNowPlaying(NowPlayingInfo&);
-    void playbackStatusChanged(PlatformMediaSession&);
+    void playbackStatusChanged(PlatformMediaSessionInterface&);
 
     void unregisterMprisSession();
 

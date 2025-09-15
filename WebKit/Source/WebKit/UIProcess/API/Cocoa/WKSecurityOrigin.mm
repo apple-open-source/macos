@@ -52,12 +52,12 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)protocol
 {
-    return _securityOrigin->securityOrigin().protocol();
+    return _securityOrigin->securityOrigin().protocol().createNSString().autorelease();
 }
 
 - (NSString *)host
 {
-    return _securityOrigin->securityOrigin().host();
+    return _securityOrigin->securityOrigin().host().createNSString().autorelease();
 }
 
 - (NSInteger)port

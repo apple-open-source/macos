@@ -101,19 +101,7 @@ extern void             sched_startup(void);
 
 extern void             sched_timebase_init(void);
 
-extern void             pset_rt_init(processor_set_t pset);
-
-extern void             sched_rtlocal_init(processor_set_t pset);
-
-extern rt_queue_t       sched_rtlocal_runq(processor_set_t pset);
-
-extern void             sched_rtlocal_queue_shutdown(processor_t processor);
-
-extern int64_t          sched_rtlocal_runq_count_sum(void);
-
-extern thread_t         sched_rtlocal_steal_thread(processor_set_t stealing_pset, uint64_t earliest_deadline);
-
-extern thread_t         sched_rt_choose_thread(processor_set_t pset);
+extern bool             processor_is_fast_track_candidate_for_realtime_thread(processor_set_t pset, processor_t processor);
 
 extern void             sched_check_spill(processor_set_t pset, thread_t thread);
 
@@ -279,6 +267,7 @@ __options_decl(sched_options_t, uint32_t, {
 	SCHED_HEADQ     = 0x2,
 	SCHED_PREEMPT   = 0x4,
 	SCHED_REBALANCE = 0x8,
+	SCHED_STIR_POT  = 0x10,
 });
 
 /* Reschedule thread for execution */
@@ -304,9 +293,6 @@ extern void             thread_unbind_after_queue_shutdown(
 extern bool pset_has_stealable_threads(
 	processor_set_t         pset);
 
-extern bool pset_has_stealable_rt_threads(
-	processor_set_t         pset);
-
 extern processor_set_t choose_starting_pset(
 	pset_node_t  node,
 	thread_t     thread,
@@ -328,14 +314,16 @@ extern pset_node_t sched_choose_node(
 extern processor_t      choose_processor_smt(
 	processor_set_t                pset,
 	processor_t                    processor,
-	thread_t                       thread);
-#else /* CONFIG_SCHED_SMT */
+	thread_t                       thread,
+	sched_options_t               *options);
+#else /* !CONFIG_SCHED_SMT */
 /* Choose the best processor to run a thread */
 extern processor_t      choose_processor(
 	processor_set_t                pset,
 	processor_t                    processor,
-	thread_t                       thread);
-#endif /* CONFIG_SCHED_SMT */
+	thread_t                       thread,
+	sched_options_t               *options);
+#endif /* !CONFIG_SCHED_SMT */
 
 extern bool sched_SMT_balance(
 	processor_t processor,
@@ -373,7 +361,6 @@ struct sched_update_scan_context {
 };
 typedef struct sched_update_scan_context *sched_update_scan_context_t;
 
-extern void             sched_rtlocal_runq_scan(sched_update_scan_context_t scan_context);
 
 extern void sched_pset_made_schedulable(
 	processor_t processor,
@@ -581,7 +568,7 @@ __BEGIN_DECLS
 
 #ifdef  XNU_KERNEL_PRIVATE
 
-extern void thread_soft_bind_cluster_type(thread_t, char cluster_type);
+extern kern_return_t thread_soft_bind_cluster_type(thread_t, char cluster_type);
 
 __options_decl(thread_bind_option_t, uint64_t, {
 	/* Unbind a previously cluster bound thread */
@@ -923,7 +910,9 @@ struct sched_dispatch_table {
 	processor_t     (*choose_processor)(
 		processor_set_t                pset,
 		processor_t                    processor,
-		thread_t                       thread);
+		thread_t                       thread,
+		sched_options_t               *options);
+
 	/*
 	 * Enqueue a timeshare or fixed priority thread onto the per-processor
 	 * runqueue
@@ -1025,12 +1014,14 @@ struct sched_dispatch_table {
 	 * Called with pset lock held, returns with pset lock unlocked.
 	 */
 	bool    (*processor_balance)(processor_t processor, processor_set_t pset);
-	rt_queue_t      (*rt_runq)(processor_set_t pset);
-	void    (*rt_init)(processor_set_t pset);
+
+	processor_t (*rt_choose_processor)(processor_set_t starting_pset, processor_t starting_processor, thread_t thread);
+	thread_t    (*rt_steal_thread)(processor_set_t stealing_pset);
+	void    (*rt_init_pset)(processor_set_t pset);
+	void    (*rt_init_completed)(void);
 	void    (*rt_queue_shutdown)(processor_t processor);
 	void    (*rt_runq_scan)(sched_update_scan_context_t scan_context);
 	int64_t (*rt_runq_count_sum)(void);
-	thread_t (*rt_steal_thread)(processor_set_t pset, uint64_t earliest_deadline);
 
 	uint32_t (*qos_max_parallelism)(int qos, uint64_t options);
 	void    (*check_spill)(processor_set_t pset, thread_t thread);

@@ -165,6 +165,8 @@
 		95B2F4AC266ADD8B0051A87B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */; };
 		95C3007926851EB90016F757 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95AB0D2B2683D57C00682648 /* DiskArbitration.framework */; };
 		A407C29F2908897A00928858 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A407C29E2908897A00928858 /* FSKit.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		A49FEE242D35D4890032574A /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A49FEE232D35D4890032574A /* libbsm.tbd */; };
+		A4ACD8A92CBDFA7B00E52051 /* com.apple.DiskArbitration.diskarbitrationd.plist in Copy Logging Preferences */ = {isa = PBXBuildFile; fileRef = A4ACD8A62CBDFA2100E52051 /* com.apple.DiskArbitration.diskarbitrationd.plist */; };
 		A4C105602C652A2B00689640 /* DATelemetry.h in Headers */ = {isa = PBXBuildFile; fileRef = A4C1055F2C652A2B00689640 /* DATelemetry.h */; };
 		A4C105622C652AEA00689640 /* DATelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = A4C105612C652AEA00689640 /* DATelemetry.m */; };
 		A4C105642C6563A700689640 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4C105632C6563A700689640 /* CoreAnalytics.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
@@ -264,6 +266,17 @@
 			dstSubfolderSpec = 0;
 			files = (
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		A4ACD8A82CBDFA3A00E52051 /* Copy Logging Preferences */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				A4ACD8A92CBDFA7B00E52051 /* com.apple.DiskArbitration.diskarbitrationd.plist in Copy Logging Preferences */,
+			);
+			name = "Copy Logging Preferences";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		DB0BFD1829DE37F400CE569E /* Copy Feature Flag plist */ = {
@@ -390,6 +403,9 @@
 		95AB0D2B2683D57C00682648 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/DiskArbitration.framework; sourceTree = DEVELOPER_DIR; };
 		95B2F4AB266ADD8B0051A87B /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.0.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
 		A407C29E2908897A00928858 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS17.0.Internal.sdk/System/Library/Frameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
+		A49FEE212D35D4590032574A /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS19.0.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
+		A49FEE232D35D4890032574A /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX16.0.Internal.sdk/usr/lib/libbsm.tbd; sourceTree = DEVELOPER_DIR; };
+		A4ACD8A62CBDFA2100E52051 /* com.apple.DiskArbitration.diskarbitrationd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.apple.DiskArbitration.diskarbitrationd.plist; path = diskarbitrationd/com.apple.DiskArbitration.diskarbitrationd.plist; sourceTree = "<group>"; };
 		A4C1055F2C652A2B00689640 /* DATelemetry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = DATelemetry.h; path = diskarbitrationd/DATelemetry.h; sourceTree = "<group>"; };
 		A4C105612C652AEA00689640 /* DATelemetry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = DATelemetry.m; path = diskarbitrationd/DATelemetry.m; sourceTree = "<group>"; };
 		A4C105632C6563A700689640 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
@@ -437,6 +453,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A49FEE242D35D4890032574A /* libbsm.tbd in Frameworks */,
 				603C882208EC8117004474CD /* CoreFoundation.framework in Frameworks */,
 				603C882308EC8117004474CD /* IOKit.framework in Frameworks */,
 				603C882408EC8117004474CD /* Security.framework in Frameworks */,
@@ -469,6 +486,8 @@
 		1236382F031ABDC703A87B01 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A49FEE212D35D4590032574A /* libbsm.tbd */,
+				A49FEE232D35D4890032574A /* libbsm.tbd */,
 				A4FA51AC2D08E9C1008ECF30 /* libutil.tbd */,
 				A4C105632C6563A700689640 /* CoreAnalytics.framework */,
 				A407C29E2908897A00928858 /* FSKit.framework */,
@@ -575,6 +594,7 @@
 			children = (
 				30B32ACA20EEF86A00D71734 /* DAServer.entitlements */,
 				6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */,
+				A4ACD8A62CBDFA2100E52051 /* com.apple.DiskArbitration.diskarbitrationd.plist */,
 				12363823031AA75703A87B01 /* diskarbitrationd.8 */,
 				6D676E9D0406DCE100A87B01 /* DAServer.defs */,
 				6DC05AF6047D66D400A87B01 /* DAServer.defs.h */,
@@ -839,6 +859,7 @@
 				9500560C268A876400C60718 /* ShellScript */,
 				DB0BFD1829DE37F400CE569E /* Copy Feature Flag plist */,
 				D3A68EE22B7D2DF100451D9A /* Update Feature Flag plist */,
+				A4ACD8A82CBDFA3A00E52051 /* Copy Logging Preferences */,
 			);
 			buildRules = (
 			);
@@ -1039,7 +1060,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"macosx\" = \"$PLATFORM_NAME\" ]; then\n    /usr/libexec/PlistBuddy -c \"set :enableFSKitModules:DevelopmentPhase FeatureComplete\" -c \"save\" $SCRIPT_INPUT_FILE_0\nfi\n";
+			shellScript = "if [ \"macosx\" = \"$PLATFORM_NAME\" ]; then\n    /usr/libexec/PlistBuddy -c \"set :FSKitModulesProbe:DevelopmentPhase FeatureComplete\" -c \"save\" $SCRIPT_INPUT_FILE_0\nfi\n\nif [ \"iphoneos\" = \"$PLATFORM_NAME\" ]; then\n    /usr/libexec/PlistBuddy -c \"set :FSKitModulesProbe:DevelopmentPhase FeatureComplete\" -c \"save\" $SCRIPT_INPUT_FILE_0\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1453,7 +1474,16 @@
 					"-fcoverage-mapping",
 					"-fprofile-instr-generate",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = (
+					"-fprofile-instr-generate",
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					FSKit,
+					"-weak_framework",
+					UserManagement,
+					"-lfs",
+				);
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
@@ -1561,7 +1591,16 @@
 					"-fcoverage-mapping",
 					"-fprofile-instr-generate",
 				);
-				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				OTHER_LDFLAGS = (
+					"-fprofile-instr-generate",
+					"-lfs",
+					"-weak_framework",
+					UserFS,
+					"-weak_framework",
+					LiveFS,
+					"-weak_framework",
+					UserManagement,
+				);
 				PRODUCT_NAME = diskarbitrationd;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";

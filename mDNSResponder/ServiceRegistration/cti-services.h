@@ -1,6 +1,6 @@
 /* cti-services.h
  *
- * Copyright (c) 2020-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,8 +52,8 @@ typedef struct cti_service {
     uint16_t service_version;
     uint16_t rloc16;
     uint16_t service_id;
-    uint8_t *NONNULL service;
-    uint8_t *NONNULL server;
+    uint8_t *NULLABLE service;
+    uint8_t *NULLABLE server;
     size_t service_length;
     size_t server_length;
     int ref_count;
@@ -63,8 +63,13 @@ typedef struct cti_service {
 typedef struct cti_service_vec {
     size_t num;
     int ref_count;
-    cti_service_t *NULLABLE *NONNULL services;
+    cti_service_t *NULLABLE *NULLABLE services;
 } cti_service_vec_t;
+
+typedef struct cti_6lowpan_context {
+    uint16_t cid;     // 6LoWPAN Context ID, only meaningful if has_context_id is true
+    bool compression_allowed;
+} cti_6lowpan_context_t;
 
 typedef struct cti_prefix {
     struct in6_addr prefix;
@@ -74,70 +79,22 @@ typedef struct cti_prefix {
     int rloc;
     bool stable;
     bool ncp;
+    bool has_6lowpan_context;
+    cti_6lowpan_context_t thread_6lowpan_context;
     int ref_count;
 } cti_prefix_t;
 
-// Bits in the prefix flags
-#define kCTIPriorityShift      14
-#define kCTIPreferredShift     13
-#define kCTISLAACShift         12
-#define kCTIDHCPShift          11
-#define kCTIConfigureShift     10
-#define kCTIDefaultRouteShift  9
-#define kCTIOnMeshShift        8
-#define kCTIDNSShift           7
-#define kCTIDPShift            6
-
-// Priority values
-#define kCTIPriorityMedium    0
-#define kCTIPriorityHigh      1
-#define kCTIPriorityReserved  2
-#define kCTIPriorityLow       3
-
-// Macros to fetch values from the prefix flags
-#define CTI_PREFIX_FLAGS_PRIORITY(flags)       (((flags) >> kCTIPriorityShift) & 3)
-#define CTI_PREFIX_FLAGS_PREFERRED(flags)      (((flags) >> kCTIPreferredShift) & 1)
-#define CTI_PREFIX_FLAGS_SLAAC(flags)          (((flags) >> kCTISLAACShift) & 1)
-#define CTI_PREFIX_FLAGS_DHCP(flags)           (((flags) >> kCTIDHCPShift) & 1)
-#define CTI_PREFIX_FLAGS_CONFIGURE(flags)      (((flags) >> kCTIConfigureShift) & 1)
-#define CTI_PREFIX_FLAGS_DEFAULT_ROUTE(flags)  (((flags) >> kCTIDefaultRouteShift) & 1)
-#define CTI_PREFIX_FLAGS_ON_MESH(flags)        (((flags) >> kCTIOnMeshShift) & 1)
-#define CTI_PREFIX_FLAGS_DNS(flags)            (((flags) >> kCTIDNSShift) & 1)
-#define CTI_PREFIX_DLAGS_DP(flags)             (((flags) >> kCTIDPShift) & 1)
-
-// Macros to set values in the prefix flags
-#define CTI_PREFIX_FLAGS_PRIORITY_SET(flags, value)       ((flags) = \
-                                                            (((flags) & ~(3 << kCTIPriorityShift)) | \
-                                                             (((value) & 3) << kCTIPriorityShift)))
-#define CTI_PREFIX_FLAGS_PREFERRED_SET(flags, value)      ((flags) = \
-                                                            (((flags) & ~(1 << kCTIPreferredShift)) | \
-                                                             (((value) & 1) << kCTIPreferredShift)))
-#define CTI_PREFIX_FLAGS_SLAAC_SET(flags, value)          ((flags) = \
-                                                            (((flags) & ~(1 << kCTISLAACShift)) | \
-                                                             (((value) & 1) << kCTISLAACShift)))
-#define CTI_PREFIX_FLAGS_DHCP_SET(flags, value)           ((flags) = \
-                                                            (((flags) & ~(1 << kCTIDHCPShift)) | \
-                                                             (((value) & 1) << kCTIDHCPShift)))
-#define CTI_PREFIX_FLAGS_CONFIGURE_SET(flags, value)      ((flags) = \
-                                                            (((flags) & ~(1 << kCTIConfigureShift)) | \
-                                                             (((value) & 1) << kCTIConfigureShift)))
-#define CTI_PREFIX_FLAGS_DEFAULT_ROUTE_SET(flags, value)  ((flags) = \
-                                                            (((flags) & ~(1 << kCTIDefaultRouteShift)) | \
-                                                             (((value) & 1) << kCTIDefaultRouteShift)))
-#define CTI_PREFIX_FLAGS_ON_MESH_SET(flags, value)        ((flags) = \
-                                                            (((flags) & ~(1 << kCTIOnMeshShift)) | \
-                                                             (((value) & 1) << kCTIOnMeshShift)))
-#define CTI_PREFIX_FLAGS_DNS_SET(flags, value)            ((flags) = \
-                                                            (((flags) & ~(1 << kCTIDNSShift)) | \
-                                                             (((value) & 1) << kCTIDNSShift)))
-#define CTI_PREFIX_DLAGS_DP_SET(flags, value)             ((flags) = \
-                                                            (((flags) & ~(1 << kCTIDPShift)) | \
-                                                             (((value) & 1) << kCTIDPShift)))
+// TODO: Remove the following enum upon successful integration of the new netdata API
+typedef enum netdata_api_mode {
+    NETDATA_API_MODE_UNKNOWN,       // we need to ask to the XPC server what mode is enabled
+    NETDATA_API_MODE_LEGACY_API,    // we get services, routes and prefixes the old way
+    NETDATA_API_MODE_NEW_API,       // we get services, routes and prefixes using the raw Thread network data
+} cti_netdata_api_mode_t;
 
 typedef struct cti_prefix_vec {
     size_t num;
     int ref_count;
-    cti_prefix_t *NULLABLE *NONNULL prefixes;
+    cti_prefix_t *NULLABLE *NULLABLE prefixes;
 } cti_prefix_vec_t;
 
 typedef struct cti_route {
@@ -155,8 +112,16 @@ typedef struct cti_route {
 typedef struct cti_route_vec {
     size_t num;
     int ref_count;
-    cti_route_t *NULLABLE *NONNULL routes;
+    cti_route_t *NULLABLE *NULLABLE routes;
 } cti_route_vec_t;
+
+typedef struct cti_netdata {
+    cti_prefix_vec_t  *NULLABLE prefixes;
+    cti_route_vec_t   *NULLABLE offmesh_routes;
+    cti_service_vec_t *NULLABLE services;
+    size_t             dataset_length;  // The length in bytes of Thread the network data TLV sequence
+                                        // This can be used to check whether the network data is full
+} cti_netdata_t;
 
 typedef struct srp_server srp_server_t;
 
@@ -347,7 +312,7 @@ cti_service_vec_release_(cti_service_vec_t *NONNULL services, const char *NONNUL
 
 cti_service_t *NULLABLE
 cti_service_create_(uint64_t enterprise_number, uint16_t rloc16, uint16_t service_type, uint16_t service_version,
-                    uint8_t *NONNULL service, size_t service_length, uint8_t *NONNULL server, size_t server_length,
+                    uint8_t *NULLABLE service, size_t service_length, uint8_t *NULLABLE server, size_t server_length,
                     uint16_t service_id, int flags, const char *NONNULL file, int line);
 #define cti_service_create(enterprise_number, rloc16, service_type, service_version, service, service_length, \
                            server, server_length, service_id, flags) \
@@ -465,32 +430,52 @@ cti_prefix_vec_release_(cti_prefix_vec_t *NONNULL prefixes, const char *NONNULL 
 #define cti_prefix_vec_release(prefixes) cti_prefix_vec_release_(prefixes, __FILE__, __LINE__)
 
 /*
+ * cti_prefix_vec_retain
+ *
+ * increments the reference count on the provided prefix vector.
+ *
+ */
+
+void
+cti_prefix_vec_retain_(cti_prefix_vec_t *NONNULL prefixes, const char *NONNULL file, int line);
+#define cti_prefix_vec_retain(prefixes) cti_prefix_vec_retain_(prefixes, __FILE__, __LINE__)
+
+/*
  * cti_prefix_create
  *
  * Creates a prefix containing the specified information.   prefix and server are retained, and will be
  * freed using free() when the prefix object is finalized.   Caller must not retain or free these values, and
  * they must be allocated on the malloc heap.
  *
- * enterprise_number: The enterprise number for this prefix.
+ * prefix            The prefix, represented in a struct in_addr. Masked bits must be zero.
  *
- * prefix_type:      The prefix type, from the prefix data.
+ * prefix_length:    Length of the prefix, in bits
  *
- * prefix_version:   The prefix version, from the prefix data.
+ * metric:           The prefix routing metric
  *
- * server:            Server information for this prefix, stored in network byte order.   Format depends on prefix type.
+ * flags:            Prefix flags
  *
- * server_length:     Length of server information in bytes.
+ * rloc:             RLOC of device advertising prefix
  *
- * flags:             Thread network status flags, e.g. NCP versue User
+ * stable:           Stable flag
+ *
+ * ncp:              True if came from Thread network data (as opposed to locally)
+ *
+ * deprecated:       True if this prefix is being removed
+ *
+ * context_id:       Context ID of prefix (for 6lowpan compression, etc)
  *
  * return value:     NULL, if the call failed; otherwise a prefix object containing the specified state.
  */
 
 cti_prefix_t *NULLABLE
-cti_prefix_create_(struct in6_addr *NONNULL prefix, int prefix_length, int metric, int flags, int rloc, bool stable, bool ncp,
+cti_prefix_create_(struct in6_addr *NONNULL prefix, int prefix_length, int metric, int flags, int rloc, bool stable,
+                   bool ncp, bool has_6lowpan_context, cti_6lowpan_context_t thread_6lowpan_context,
                    const char *NONNULL file, int line);
-#define cti_prefix_create(prefix, prefix_length, metric, flags, rloc, stable, ncp) \
-    cti_prefix_create_(prefix, prefix_length, metric, flags, rloc, stable, ncp, __FILE__, __LINE__)
+#define cti_prefix_create(prefix, prefix_length, metric, flags, rloc, stable, ncp, has_6lowpan_context, \
+                          thread_6lowpan_context) \
+        cti_prefix_create_(prefix, prefix_length, metric, flags, rloc, stable, ncp, has_6lowpan_context, \
+                           thread_6lowpan_context, __FILE__, __LINE__)
 
 /*
  * cti_prefix_vec_release
@@ -506,7 +491,7 @@ cti_prefix_create_(struct in6_addr *NONNULL prefix, int prefix_length, int metri
 
 void
 cti_prefix_release_(cti_prefix_t *NONNULL prefix, const char *NONNULL file, int line);
-#define cti_prefix_release(prefixes) cti_prefix_release(prefix, __FILE__, __LINE__)
+#define cti_prefix_release(prefix) cti_prefix_release_(prefix, __FILE__, __LINE__)
 
 /* cti_prefix_reply: Callback from cti_get_prefix_list()
  *
@@ -532,6 +517,29 @@ cti_prefix_release_(cti_prefix_t *NONNULL prefix, const char *NONNULL file, int 
 
 typedef void
 (*cti_prefix_reply_t)(void *NULLABLE context, cti_prefix_vec_t *NULLABLE prefixes, cti_status_t status);
+
+/*
+ * cti_netdata_reply: Callback from cti_track_network_data()
+ *
+ * Called when an error occurs during processing of the cti_track_network_data call, or when the Thread network data
+ * are updated. An initial callback with the current network data is called, and subsequent calls are triggered
+ * only upon a change to network data.
+ *
+ *
+ * netdata_reply parameters:
+ *
+ * context:           The context that was passed to the cti prefix call to which this is a callback.
+ *
+ * netdata_t:         If status is kCTIStatus_NoError, a vector containing all of the prefixes, services and
+ *                    offmesh routes that were reported in this event. If the status is kCTIStatus_NoError,
+ *                    netdata->services, netdata->prefixes and netdata->offmesh_routes are ensured to be non-NULL.
+ *                    They can be NULL otherwise.
+ *
+ * status:            Will be kCTIStatus_NoError if the prefix list request is successful, or
+ *                    will indicate the failure that occurred.
+ */
+typedef void
+(*cti_netdata_reply_t)(void *NULLABLE context, cti_netdata_t *NONNULL netdata, cti_status_t status);
 
 /* cti_get_prefix_list
  *
@@ -858,19 +866,37 @@ cti_remove_service_(srp_server_t *NULLABLE server, void *NULLABLE context, cti_r
  *
  * prefix_len:     The length of the prefix in bits.
  *
+ * on_mesh:        Controls the "on mesh" flag in the prefix.
+ *
+ * preferred:      Controls the preferred flag in the prefix.
+ *
+ * slaac:          Indicates whether or not SLAAC is permitted for use with this prefix.
+ *
+ * stable:         If false, indicates that the prefix is being withdrawn.
+ *
+ * default_route:  If true, the device advertising this prefix provides a default
+ *                 route (e.g. to reach infrastructure). The default route is source-specific:
+ *                 packets must have this prefix in their source IP address to use it.
+ *                 This is true even if there is no actual IPv6 default route on infrastructure.
+ *                 Thread 1.3 and later devices are expected to discover the default route using
+ *                 off-mesh routes, which provides finer-grained reachability information.
+ *
+ * priority:       low, medium or high, indicates whether the prefix is locally generated (low),
+ *                 DHCP-provided (medium) or explicitly configured (high).
+ *
  * return value:   Returns kCTIStatus_NoError when no error otherwise returns an error code indicating
  *                 the error that occurred. Note: A return value of kCTIStatus_NoError does not mean
  *                 that the request succeeded, merely that it was successfully started.
  */
 
 #define cti_add_prefix(server, context, callback, client_queue, \
-                       prefix, prefix_length, on_mesh, preferred, slaac, stable, priority) \
+                       prefix, prefix_length, on_mesh, preferred, slaac, stable, default_route, priority) \
     cti_add_prefix_(server, context, callback, client_queue, prefix, prefix_length, \
-                    on_mesh, preferred, slaac, stable, priority, __FILE__, __LINE__)
+                    on_mesh, preferred, slaac, stable, default_route, priority, __FILE__, __LINE__)
 DNS_SERVICES_EXPORT cti_status_t
 cti_add_prefix_(srp_server_t *NULLABLE server, void *NULLABLE context, cti_reply_t NONNULL callback, run_context_t NULLABLE client_queue,
                 struct in6_addr *NONNULL prefix, int prefix_length, bool on_mesh, bool preferred, bool slaac,
-                bool stable, int priority, const char *NONNULL file, int line);
+                bool stable, bool default_route, int priority, const char *NONNULL file, int line);
 
 /* cti_remove_prefix
  *
@@ -1052,6 +1078,35 @@ cti_route_create_(struct in6_addr *NONNULL prefix, int prefix_length, offmesh_ro
 void
 cti_route_release_(cti_route_t *NONNULL route, const char *NONNULL file, int line);
 #define cti_route_release(routes) cti_route_release(route, __FILE__, __LINE__)
+
+/* cti_track_network_data
+ *
+ * Requests wpantund to immediately send the current network data. Whenever the network data is updated,
+ * the callback will be called again with the new information.
+ * A return value of kCTIStatus_NoError means that the caller can expect the reply callback to be
+ * called at least once.  Any other error means that the request could not be sent, and the callback will
+ * never be called.
+ *
+ * ref:            A pointer to a reference to the connection is stored through ref if ref is not NULL.
+ *                 When events are no longer needed, call cti_discontinue_events() on the returned pointer.
+ *
+ * context:        An anonymous pointer that will be passed along to the callback when
+ *                 an event occurs.
+ *
+ * callback:       CallBack function for the client that indicates success or failure.
+ *
+ * client_queue:   Queue the client wants to schedule the callback on
+ *
+ * return value:   Returns kCTIStatus_NoError when no error otherwise returns an error code indicating
+ *                 the error that occurred. Note: A return value of kCTIStatus_NoError does not mean
+ *                 that the request succeeded, merely that it was successfully started.
+ */
+#define cti_track_network_data(server, ref, context, callback, client_queue) \
+    cti_track_network_data_(server, ref, context, callback, client_queue, __FILE__, __LINE__)
+cti_status_t
+cti_track_network_data_(srp_server_t *NULLABLE server, cti_connection_t *NULLABLE *NULLABLE ref,
+                        void *NULLABLE context, cti_netdata_reply_t NONNULL callback,
+                        run_context_t NULLABLE client_queue, const char *NONNULL file, int line);
 
 /* cti_offmesh_route_reply: Callback from cti_get_offmesh_route_list()
  *
@@ -1300,6 +1355,30 @@ typedef void
 (*cti_wed_reply_t)(void *NULLABLE context, const char *NULLABLE ext_address, const char *NULLABLE ml_eid, bool added,
                    cti_status_t status);
 
+// TODO: Remove the cti_netdata_mode_reply_t type upon successful integration of the new netdata API
+/* cti_netdata_mode_reply_t: Callback for get calls that fetch the current netdata mode
+ *
+ * cti_netdata_mode_reply parameters:
+ *
+ * context:       The context that was passed to the cti service call to which this is a callback.
+ *
+ * mode:          The retrieved netdata mode
+ *
+ * status:        Will be kCTIStatus_NoError on success, otherwise will indicate the
+ *                   failure that occurred.
+ */
+
+typedef void
+(*cti_netdata_mode_reply_t)(void *NULLABLE context, cti_netdata_api_mode_t mode, cti_status_t status);
+
+// TODO: Remove the following prototype upon successful integration of the new netdata API
+#define cti_get_netdata_mode(server, context, callback, client_queue) \
+    cti_get_netdata_mode_(server, context, callback, client_queue, __FILE__, __LINE__)
+DNS_SERVICES_EXPORT cti_status_t
+cti_get_netdata_mode_(srp_server_t *NULLABLE server, void *NULLABLE context,
+                      cti_netdata_mode_reply_t NONNULL callback,
+                      run_context_t NULLABLE client_queue, const char *NONNULL file, int line);
+
 /* cti_get_wed_change
  *
  * Requests wpantund to immediately send the WED attachment status of the local device. Whenever the WED attachment
@@ -1376,10 +1455,12 @@ typedef union cti_callback {
     cti_service_reply_t NONNULL service_reply;
     cti_prefix_reply_t NONNULL prefix_reply;
     cti_state_reply_t NONNULL state_reply;
+    cti_netdata_mode_reply_t NONNULL netdata_mode_reply;
     cti_uint64_property_reply_t NONNULL uint64_property_reply;
     cti_network_node_type_reply_t NONNULL network_node_type_reply;
     cti_offmesh_route_reply_t NONNULL offmesh_route_reply;
     cti_onmesh_prefix_reply_t NONNULL onmesh_prefix_reply;
+    cti_netdata_reply_t NONNULL netdata_reply;
     cti_rloc16_reply_t NONNULL rloc16_reply;
     cti_wed_reply_t NONNULL wed_reply;
 } cti_callback_t;

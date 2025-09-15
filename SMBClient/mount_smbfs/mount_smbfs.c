@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 				err(EX_UNAVAILABLE, "internal error");
 				break;
 			case STATUS_UNSUCCESSFUL:
-				err(EX_USAGE, "mount error: %s", mountPoint);
+				err(EX_USAGE, "mount error: %s", url);
 				break;
 			case STATUS_INVALID_PARAMETER:
 				err(EX_USAGE, "URL parsing failed, please correct the URL and try again");

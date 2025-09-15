@@ -28,6 +28,7 @@
 [
     DispatchedFrom=WebContent,
     DispatchedTo=UI,
+    SharedPreferencesNeedsConnection,
     EnabledBy=WebXREnabled
 ]
 messages -> PlatformXRSystem {
@@ -35,7 +36,7 @@ messages -> PlatformXRSystem {
     RequestPermissionOnSessionFeatures(WebCore::SecurityOriginData origin, PlatformXR::SessionMode mode, Vector<PlatformXR::SessionFeature> granted, Vector<PlatformXR::SessionFeature> consentRequired, Vector<PlatformXR::SessionFeature> consentOptional, Vector<PlatformXR::SessionFeature> requiredFeaturesRequested, Vector<PlatformXR::SessionFeature> optionalFeaturesRequested) -> (std::optional<Vector<PlatformXR::SessionFeature>> userGranted)
     InitializeTrackingAndRendering()
     ShutDownTrackingAndRendering()
-    RequestFrame(std::optional<PlatformXR::RequestData> requestData) -> (struct PlatformXR::FrameData frameData)
+    RequestFrame(struct std::optional<PlatformXR::RequestData> requestData) -> (struct PlatformXR::FrameData frameData)
     SubmitFrame()
     DidCompleteShutdownTriggeredBySystem()
 }

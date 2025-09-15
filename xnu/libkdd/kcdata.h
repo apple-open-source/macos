@@ -490,7 +490,7 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_GLOBAL_MEM_STATS            0x902u /* struct mem_and_io_snapshot */
 #define STACKSHOT_KCCONTAINER_TASK                   0x903u
 #define STACKSHOT_KCCONTAINER_THREAD                 0x904u
-#define STACKSHOT_KCTYPE_TASK_SNAPSHOT               0x905u /* task_snapshot_v2 */
+#define STACKSHOT_KCTYPE_TASK_SNAPSHOT               0x905u /* task_snapshot_v2, task_snapshot_v3 */
 #define STACKSHOT_KCTYPE_THREAD_SNAPSHOT             0x906u /* thread_snapshot_v2, thread_snapshot_v3 */
 #define STACKSHOT_KCTYPE_DONATING_PIDS               0x907u /* int[] */
 #define STACKSHOT_KCTYPE_SHAREDCACHE_LOADINFO        0x908u /* dyld_shared_cache_loadinfo */
@@ -568,6 +568,8 @@ struct kcdata_type_definition {
 #define STACKSHOT_KCTYPE_KERN_EXCLAVES_CRASH_THREADINFO 0x955u /* struct thread_crash_exclaves_info */
 #define STACKSHOT_KCTYPE_LATENCY_INFO_CPU            0x956u /* struct stackshot_latency_cpu */
 #define STACKSHOT_KCTYPE_TASK_EXEC_META              0x957u /* struct task_exec_meta */
+#define STACKSHOT_KCTYPE_TASK_MEMORYSTATUS           0x958u /* struct task_memorystatus_snapshot */
+#define STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER         0x95au /* struct stackshot_latency_buffer */
 
 
 struct stack_snapshot_frame32 {
@@ -707,6 +709,10 @@ enum task_snapshot_flags {
 	kTaskDyldCompactInfoTriedFault              = 0x1000000000,
 	kTaskWqExceededCooperativeThreadLimit       = 0x2000000000,
 	kTaskWqExceededActiveConstrainedThreadLimit = 0x4000000000,
+	kTaskRunawayMitigation                      = 0x8000000000,
+	kTaskIsActive                               = 0x10000000000,
+	kTaskIsManaged                              = 0x20000000000,
+	kTaskHasAssertion                           = 0x40000000000,
 }; // Note: Add any new flags to kcdata.py (ts_ss_flags)
 
 enum task_transition_type {
@@ -983,6 +989,27 @@ struct task_snapshot_v2 {
 	char      ts_p_comm[32];
 } __attribute__ ((packed));
 
+struct task_snapshot_v3 {
+	uint64_t  ts_unique_pid;
+	uint64_t  ts_ss_flags;
+	uint64_t  ts_user_time_in_terminated_threads;
+	uint64_t  ts_system_time_in_terminated_threads;
+	uint64_t  ts_p_start_sec;
+	uint64_t  ts_task_size;
+	uint64_t  ts_max_resident_size;
+	uint32_t  ts_suspend_count;
+	uint32_t  ts_faults;
+	uint32_t  ts_pageins;
+	uint32_t  ts_cow_faults;
+	uint32_t  ts_was_throttled;
+	uint32_t  ts_did_throttle;
+	uint32_t  ts_latency_qos;
+	int32_t   ts_pid;
+	char      ts_p_comm[32];
+	uint32_t  ts_uid;
+	uint32_t  ts_gid;
+} __attribute__ ((packed));
+
 struct transitioning_task_snapshot {
 	uint64_t  tts_unique_pid;
 	uint64_t  tts_ss_flags;
@@ -1005,6 +1032,13 @@ struct task_delta_snapshot_v2 {
 	uint32_t  tds_was_throttled;
 	uint32_t  tds_did_throttle;
 	uint32_t  tds_latency_qos;
+} __attribute__ ((packed));
+
+struct task_memorystatus_snapshot {
+	int32_t  tms_current_memlimit;
+	int32_t  tms_effectivepriority;
+	int32_t  tms_requestedpriority;
+	int32_t  tms_assertionpriority;
 } __attribute__ ((packed));
 
 #define KCDATA_INVALID_CS_TRUST_LEVEL 0xffffffff
@@ -1157,6 +1191,14 @@ struct stackshot_latency_cpu {
 	uint64_t total_buf;
 	uint64_t intercluster_buf_used;
 } __attribute__((packed));
+
+/* only collected if STACKSHOT_COLLECTS_LATENCY_INFO is set to !0 */
+struct stackshot_latency_buffer {
+	int32_t  cluster_type;
+	uint64_t size;
+	uint64_t used;
+	uint64_t overhead;
+} __attribute__ ((packed));
 
 /* only collected if STACKSHOT_COLLECTS_LATENCY_INFO is set to !0 */
 struct stackshot_latency_task {
@@ -1321,6 +1363,10 @@ struct crashinfo_mb {
 	uint64_t data[64];
 } __attribute__((packed));
 
+struct crashinfo_task_security_config {
+	uint32_t task_security_config; /* struct task_security_config */
+} __attribute__((packed));
+
 
 #define MAX_CRASHINFO_SIGNING_ID_LEN 64
 #define MAX_CRASHINFO_TEAM_ID_LEN 32
@@ -1400,6 +1446,10 @@ struct crashinfo_mb {
 #define TASK_CRASHINFO_JIT_ADDRESS_RANGE                        0x840 /* struct crashinfo_jit_address_range */
 #define TASK_CRASHINFO_MB                                       0x841 /* struct crashinfo_mb */
 #define TASK_CRASHINFO_CS_AUXILIARY_INFO                        0x842 /* uint64_t */
+#define TASK_CRASHINFO_RLIM_CORE                                0x843 /* rlim_t */
+#define TASK_CRASHINFO_CORE_ALLOWED                             0x844 /* uint8_t */
+#define TASK_CRASHINFO_TASK_SECURITY_CONFIG                     0x845 /* struct task_security_config */
+
 
 #define TASK_CRASHINFO_END                  KCDATA_TYPE_BUFFER_END
 

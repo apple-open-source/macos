@@ -183,7 +183,7 @@ nx_netif_host_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 	    na->na_type == NA_NETIF_COMPAT_HOST);
 	ASSERT(na->na_flags & NAF_HOST_ONLY);
 
-	SK_DF(SK_VERB_NETIF, "na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_NETIF, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 
 	switch (mode) {
@@ -255,10 +255,9 @@ nx_netif_host_krings_create(struct nexus_adapter *na, struct kern_channel *ch)
 			    NX_MBQ_NO_LIMIT, &nexus_mbq_lock_group,
 			    &nexus_lock_attr);
 			SK_DF(SK_VERB_NETIF,
-			    "na \"%s\" (0x%llx) initialized host kr \"%s\" "
-			    "(0x%llx) krflags 0x%b", na->na_name, SK_KVA(na),
-			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-			    CKRF_BITS);
+			    "na \"%s\" (%p) initialized host kr \"%s\" "
+			    "(%p) krflags 0x%x", na->na_name, SK_KVA(na),
+			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags);
 		}
 	}
 	return ret;
@@ -290,10 +289,10 @@ nx_netif_host_krings_delete(struct nexus_adapter *na, struct kern_channel *ch,
 		kring = &NAKR(na, NR_RX)[i];
 		q = &kring->ckr_rx_queue;
 		SK_DF(SK_VERB_NETIF,
-		    "na \"%s\" (0x%llx) destroy host kr \"%s\" (0x%llx) "
-		    "krflags 0x%b with qlen %u", na->na_name, SK_KVA(na),
+		    "na \"%s\" (%p) destroy host kr \"%s\" (%p) "
+		    "krflags 0x%x with qlen %u", na->na_name, SK_KVA(na),
 		    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-		    CKRF_BITS, nx_mbq_len(q));
+		    nx_mbq_len(q));
 		nx_mbq_purge(q);
 		if (!defunct) {
 			nx_mbq_safe_destroy(q);
@@ -444,11 +443,12 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 	struct __kern_packet *pkt_chain_head, *pkt_chain_tail;
 	struct netif_qset *__single qset = NULL;
 	struct pktq pkt_q;
-	uint64_t qset_id;
 	bool qset_id_valid = false;
 	boolean_t pkt_drop = FALSE;
 	uint32_t n_pkts = 0, n_bytes = 0;
 	errno_t error = 0;
+
+	static_assert(sizeof(m_head->m_pkthdr.pkt_mpriv_qsetid) == sizeof(uint64_t));
 
 	ASSERT(ifp->if_eflags & IFEF_SKYWALK_NATIVE);
 	ASSERT(hostna->na_type == NA_NETIF_HOST);
@@ -483,7 +483,7 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 		}
 		if (__improbable(!NA_IS_ACTIVE(hwna) || !NA_IS_ACTIVE(hostna))) {
 			STATS_INC(nifs, NETIF_STATS_DROP_NA_INACTIVE);
-			SK_ERR("\"%s\" (0x%llx) not in skywalk mode anymore",
+			SK_ERR("\"%s\" (%p) not in skywalk mode anymore",
 			    hwna->na_name, SK_KVA(hwna));
 			error = ENXIO;
 			pkt_drop = TRUE;
@@ -496,9 +496,9 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 			STATS_INC(nifs, NETIF_STATS_DROP_KRDROP_MODE);
 			/* not a serious error, so no need to be chatty here */
 			SK_DF(SK_VERB_NETIF,
-			    "kr \"%s\" (0x%llx) krflags 0x%b or %s in drop mode",
+			    "kr \"%s\" (%p) krflags 0x%x or %s in drop mode",
 			    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-			    CKRF_BITS, ifp->if_xname);
+			    ifp->if_xname);
 			error = ENXIO;
 			pkt_drop = TRUE;
 			goto out;
@@ -506,7 +506,7 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 		if (__improbable(((unsigned)m_pktlen(m) + ifp->if_tx_headroom) >
 		    kring->ckr_max_pkt_len)) {     /* too long for us */
 			STATS_INC(nifs, NETIF_STATS_DROP_BADLEN);
-			SK_ERR("\"%s\" (0x%llx) from_host, drop packet size %u > %u",
+			SK_ERR("\"%s\" (%p) from_host, drop packet size %u > %u",
 			    hwna->na_name, SK_KVA(hwna), m_pktlen(m),
 			    kring->ckr_max_pkt_len);
 			pkt_drop = TRUE;
@@ -530,32 +530,32 @@ nx_netif_host_output(struct ifnet *ifp, struct mbuf *m_chain)
 				nx_netif_pktap_output(ifp, af, kpkt);
 			}
 		}
-		if (NX_LLINK_PROV(nif->nif_nx) &&
-		    ifp->if_traffic_rule_count > 0 &&
-		    !qset_id_valid &&
-		    nxctl_inet_traffic_rule_find_qset_id_with_pkt(ifp->if_xname,
-		    kpkt, &qset_id) == 0) {
-			qset_id_valid = true;
-			/*
-			 * This always returns a qset because if the qset id
-			 * is invalid the default qset is returned.
-			 */
-			qset = nx_netif_find_qset(nif, qset_id);
-			ASSERT(qset != NULL);
+		if (!qset_id_valid) {
+			if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_QSET_ID_VALID) {
+				kpkt->pkt_pflags |= PKT_F_PRIV_HAS_QSET_ID;
+				kpkt->pkt_priv =
+				    __unsafe_forge_single(void *, m->m_pkthdr.pkt_mpriv_qsetid);
+			}
+
+			qset = nx_netif_find_qset_with_pkt(ifp, kpkt);
+			if (qset != NULL) {
+				qset_id_valid = true;
+			}
 		}
+
 		if (qset != NULL) {
 			kpkt->pkt_qset_idx = qset->nqs_idx;
 		}
 
 		if (!netif_chain_enqueue_enabled(ifp)) {
 			if (qset != NULL) {
-				error = ifnet_enqueue_ifcq_pkt(ifp,
+				error = ifnet_enqueue_pkt(ifp,
 				    qset->nqs_ifcq, kpkt,
 				    false, &pkt_drop);
 				nx_netif_qset_release(&qset);
 			} else {
 				/* callee consumes packet */
-				error = ifnet_enqueue_pkt(ifp, kpkt, false, &pkt_drop);
+				error = ifnet_enqueue_pkt(ifp, ifp->if_snd, kpkt, false, &pkt_drop);
 			}
 
 			if (pkt_drop) {
@@ -589,13 +589,13 @@ out:
 		pkt_chain_head = KPKTQ_FIRST(&pkt_q);
 		pkt_chain_tail = KPKTQ_LAST(&pkt_q);
 		if (qset != NULL) {
-			error = ifnet_enqueue_ifcq_pkt_chain(ifp, qset->nqs_ifcq,
+			error = ifnet_enqueue_pkt_chain(ifp, qset->nqs_ifcq,
 			    pkt_chain_head, pkt_chain_tail, n_pkts, n_bytes, false, &pkt_drop);
 			nx_netif_qset_release(&qset);
 		} else {
 			/* callee consumes packet */
-			error = ifnet_enqueue_pkt_chain(ifp, pkt_chain_head, pkt_chain_tail,
-			    n_pkts, n_bytes, false, &pkt_drop);
+			error = ifnet_enqueue_pkt_chain(ifp, ifp->if_snd, pkt_chain_head,
+			    pkt_chain_tail, n_pkts, n_bytes, false, &pkt_drop);
 		}
 		if (pkt_drop) {
 			STATS_ADD(nifs, NETIF_STATS_TX_DROP_ENQ_AQM, n_pkts);
@@ -668,7 +668,7 @@ nx_netif_mbuf_to_kpkt_log(struct __kern_packet *kpkt, uint32_t len,
 	    " hr %u l2 %u poff %u", len, kpkt->pkt_length,
 	    kpkt->pkt_headroom, kpkt->pkt_l2_len, poff);
 	SK_DF(SK_VERB_HOST | SK_VERB_TX | SK_VERB_DUMP, "%s",
-	    sk_dump("buf", baddr, pkt_len, 128, NULL, 0));
+	    sk_dump("buf", baddr, pkt_len, 128));
 }
 #endif /* SK_LOG */
 
@@ -700,8 +700,8 @@ nx_netif_mbuf_to_kpkt(struct nexus_adapter *na, struct mbuf *m)
 	if (__improbable(ph == 0)) {
 		STATS_INC(nifs, NETIF_STATS_DROP_NOMEM_PKT);
 		SK_DF(SK_VERB_MEM,
-		    "%s(%d) pp \"%s\" (0x%llx) has no more "
-		    "packet for %s", sk_proc_name_address(current_proc()),
+		    "%s(%d) pp \"%s\" (%p) has no more "
+		    "packet for %s", sk_proc_name(current_proc()),
 		    sk_proc_pid(current_proc()), pp->pp_name, SK_KVA(pp),
 		    if_name(na->na_ifp));
 		return NULL;

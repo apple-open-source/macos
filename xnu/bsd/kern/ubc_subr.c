@@ -534,9 +534,6 @@ cs_validate_csblob(
 		uint32_t n, count;
 		const CS_CodeDirectory *best_cd = NULL;
 		unsigned int best_rank = 0;
-#if XNU_PLATFORM_WatchOS
-		const CS_CodeDirectory *sha1_cd = NULL;
-#endif
 
 		if (length < sizeof(CS_SuperBlob)) {
 			return EBADEXEC;
@@ -592,15 +589,6 @@ cs_validate_csblob(
 					printf("multiple hash=%d CodeDirectories in signature; rejecting\n", best_cd->hashType);
 					return EBADEXEC;
 				}
-#if XNU_PLATFORM_WatchOS
-				if (candidate->hashType == CS_HASHTYPE_SHA1) {
-					if (sha1_cd != NULL) {
-						printf("multiple sha1 CodeDirectories in signature; rejecting\n");
-						return EBADEXEC;
-					}
-					sha1_cd = candidate;
-				}
-#endif
 			} else if (type == CSSLOT_ENTITLEMENTS) {
 				if (ntohl(subBlob->magic) != CSMAGIC_EMBEDDED_ENTITLEMENTS) {
 					return EBADEXEC;
@@ -657,37 +645,6 @@ cs_validate_csblob(
 				library_constraint = subBlob;
 			}
 		}
-
-#if XNU_PLATFORM_WatchOS
-		/* To keep watchOS fast enough, we have to resort to sha1 for
-		 * some code.
-		 *
-		 * At the time of writing this comment, known sha1 attacks are
-		 * collision attacks (not preimage or second preimage
-		 * attacks), which do not apply to platform binaries since
-		 * they have a fixed hash in the trust cache.  Given this
-		 * property, we only prefer sha1 code directories for adhoc
-		 * signatures, which always have to be in a trust cache to be
-		 * valid (can-load-cdhash does not exist for watchOS). Those
-		 * are, incidentally, also the platform binaries, for which we
-		 * care about the performance hit that sha256 would bring us.
-		 *
-		 * Platform binaries may still contain a (not chosen) sha256
-		 * code directory, which keeps software updates that switch to
-		 * sha256-only small.
-		 */
-
-		if (*rcd != NULL && sha1_cd != NULL && (ntohl(sha1_cd->flags) & CS_ADHOC)) {
-			if (sha1_cd->flags != (*rcd)->flags) {
-				printf("mismatched flags between hash %d (flags: %#x) and sha1 (flags: %#x) cd.\n",
-				    (int)(*rcd)->hashType, (*rcd)->flags, sha1_cd->flags);
-				*rcd = NULL;
-				return EBADEXEC;
-			}
-
-			*rcd = sha1_cd;
-		}
-#endif
 	} else if (ntohl(blob->magic) == CSMAGIC_CODEDIRECTORY) {
 		if ((error = cs_validate_codedirectory((const CS_CodeDirectory *)(const void *)addr, length)) != 0) {
 			return error;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc.  All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@ IntSize IntSize::constrainedBetween(const IntSize& min, const IntSize& max) cons
 
 TextStream& operator<<(TextStream& ts, const IntSize& size)
 {
-    return ts << "width=" << size.width() << " height=" << size.height();
+    return ts << "width="_s << size.width() << " height="_s << size.height();
 }
 
 Ref<JSON::Object> IntSize::toJSONObject() const

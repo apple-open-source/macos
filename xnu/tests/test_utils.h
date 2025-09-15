@@ -2,9 +2,16 @@
 #define XNU_DARWINTEST_UTILS_H
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 /* Misc. utility functions for writing darwintests. */
 bool is_development_kernel(void);
+
+/*
+ * Returns true if the process is translated according to sysctl.proc_translated.
+ * For example, Rosetta processes are translated processes.
+ */
+bool process_is_translated(void);
 
 /* Launches the given helper variant as a managed process. */
 pid_t launch_background_helper(

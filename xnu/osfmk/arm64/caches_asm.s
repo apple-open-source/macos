@@ -80,7 +80,7 @@ L_ipui_loop:
 	bl		EXT(InvalidatePoU_Icache)
 #endif
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(InvalidatePoU_IcacheRegion)
 
 /*
  *	Obtains cache physical layout information required for way/set
@@ -348,7 +348,7 @@ LEXT(CleanPoC_DcacheRegion_Force)
 	bl		EXT(CleanPoC_DcacheRegion_Force_nopreempt)
 	bl		EXT(_enable_preemption)
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(CleanPoC_DcacheRegion_Force)
 #else
 	ARM64_PROLOG
 	b		EXT(CleanPoC_DcacheRegion_internal)

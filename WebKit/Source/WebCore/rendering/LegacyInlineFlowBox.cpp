@@ -40,7 +40,6 @@
 #include "Text.h"
 #include "TextBoxPainter.h"
 #include "TextDecorationThickness.h"
-#include "TextUnderlineOffset.h"
 #include <math.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -115,7 +114,7 @@ void LegacyInlineFlowBox::addToLine(LegacyInlineBox* child)
         bool hasMarkers = false;
         if (auto* textBox = dynamicDowncast<LegacyInlineTextBox>(*child))
             hasMarkers = textBox->hasMarkers();
-        if (childStyle->letterSpacing() < 0 || childStyle->textShadow() || childStyle->textEmphasisMark() != TextEmphasisMark::None || childStyle->hasPositiveStrokeWidth() || hasMarkers || !childStyle->textUnderlineOffset().isAuto() || !childStyle->textDecorationThickness().isAuto() || !childStyle->textUnderlinePosition().isEmpty())
+        if (childStyle->letterSpacing() < 0 || childStyle->hasTextShadow() || !childStyle->textEmphasisStyle().isNone() || childStyle->hasPositiveStrokeWidth() || hasMarkers || !childStyle->textUnderlineOffset().isAuto() || !childStyle->textDecorationThickness().isAuto() || !childStyle->textUnderlinePosition().isEmpty())
             child->clearKnownToHaveNoOverflow();
     } else if (child->boxModelObject()->hasSelfPaintingLayer())
         child->clearKnownToHaveNoOverflow();
@@ -185,32 +184,6 @@ void LegacyInlineFlowBox::removeLineBoxFromRenderObject()
     downcast<RenderInline>(renderer()).legacyLineBoxes().removeLineBox(this);
 }
 
-void LegacyInlineFlowBox::extractLine()
-{
-    if (!extracted())
-        extractLineBoxFromRenderObject();
-    for (auto* child = firstChild(); child; child = child->nextOnLine())
-        child->extractLine();
-}
-
-void LegacyInlineFlowBox::extractLineBoxFromRenderObject()
-{
-    downcast<RenderInline>(renderer()).legacyLineBoxes().extractLineBox(this);
-}
-
-void LegacyInlineFlowBox::attachLine()
-{
-    if (extracted())
-        attachLineBoxToRenderObject();
-    for (auto* child = firstChild(); child; child = child->nextOnLine())
-        child->attachLine();
-}
-
-void LegacyInlineFlowBox::attachLineBoxToRenderObject()
-{
-    downcast<RenderInline>(renderer()).legacyLineBoxes().attachLineBox(this);
-}
-
 void LegacyInlineFlowBox::adjustPosition(float dx, float dy)
 {
     LegacyInlineBox::adjustPosition(dx, dy);
@@ -225,11 +198,12 @@ inline void LegacyInlineFlowBox::addTextBoxVisualOverflow(LegacyInlineTextBox& t
     if (textBox.knownToHaveNoOverflow())
         return;
 
-    const RenderStyle& lineStyle = this->lineStyle();
-    
+    const auto& lineStyle = this->lineStyle();
+    auto writingMode = lineStyle.writingMode();
+
     GlyphOverflowAndFallbackFontsMap::iterator it = textBoxDataMap.find(&textBox);
     GlyphOverflow* glyphOverflow = it == textBoxDataMap.end() ? nullptr : &it->value.second;
-    bool isFlippedLine = lineStyle.writingMode().isLineInverted();
+    bool isFlippedLine = writingMode.isLineInverted();
 
     auto topGlyphEdge = glyphOverflow ? (isFlippedLine ? glyphOverflow->bottom : glyphOverflow->top) : 0_lu;
     auto bottomGlyphEdge = glyphOverflow ? (isFlippedLine ? glyphOverflow->top : glyphOverflow->bottom) : 0_lu;
@@ -244,8 +218,8 @@ inline void LegacyInlineFlowBox::addTextBoxVisualOverflow(LegacyInlineTextBox& t
     auto rightGlyphOverflow = strokeOverflow + rightGlyphEdge;
 
     if (auto markExistsAndIsAbove = RenderText::emphasisMarkExistsAndIsAbove(textBox.renderer(), lineStyle)) {
-        LayoutUnit emphasisMarkHeight = lineStyle.fontCascade().emphasisMarkHeight(lineStyle.textEmphasisMarkString());
-        if (*markExistsAndIsAbove == !lineStyle.writingMode().isBlockFlipped())
+        LayoutUnit emphasisMarkHeight = lineStyle.fontCascade().emphasisMarkHeight(lineStyle.textEmphasisStyle().markString());
+        if (*markExistsAndIsAbove == !writingMode.isBlockFlipped())
             topGlyphOverflow = std::min(topGlyphOverflow, -emphasisMarkHeight);
         else
             bottomGlyphOverflow = std::max(bottomGlyphOverflow, emphasisMarkHeight);
@@ -255,24 +229,20 @@ inline void LegacyInlineFlowBox::addTextBoxVisualOverflow(LegacyInlineTextBox& t
     // applied to the right, so this is not an issue with left overflow.
     rightGlyphOverflow -= std::min(0, (int)lineStyle.fontCascade().letterSpacing());
 
-    LayoutUnit textShadowLogicalTop;
-    LayoutUnit textShadowLogicalBottom;
-    lineStyle.getTextShadowBlockDirectionExtent(textShadowLogicalTop, textShadowLogicalBottom);
-    
-    LayoutUnit childOverflowLogicalTop = std::min<LayoutUnit>(textShadowLogicalTop + topGlyphOverflow, topGlyphOverflow);
-    LayoutUnit childOverflowLogicalBottom = std::max<LayoutUnit>(textShadowLogicalBottom + bottomGlyphOverflow, bottomGlyphOverflow);
+    auto [textShadowLogicalTop, textShadowLogicalBottom] = Style::shadowBlockDirectionExtent(lineStyle.textShadow(), writingMode);
 
-    LayoutUnit textShadowLogicalLeft;
-    LayoutUnit textShadowLogicalRight;
-    lineStyle.getTextShadowInlineDirectionExtent(textShadowLogicalLeft, textShadowLogicalRight);
+    auto childOverflowLogicalTop = std::min<LayoutUnit>(textShadowLogicalTop + topGlyphOverflow, topGlyphOverflow);
+    auto childOverflowLogicalBottom = std::max<LayoutUnit>(textShadowLogicalBottom + bottomGlyphOverflow, bottomGlyphOverflow);
 
-    LayoutUnit childOverflowLogicalLeft = std::min<LayoutUnit>(textShadowLogicalLeft + leftGlyphOverflow, leftGlyphOverflow);
-    LayoutUnit childOverflowLogicalRight = std::max<LayoutUnit>(textShadowLogicalRight + rightGlyphOverflow, rightGlyphOverflow);
+    auto [textShadowLogicalLeft, textShadowLogicalRight] = Style::shadowInlineDirectionExtent(lineStyle.textShadow(), writingMode);
 
-    LayoutUnit logicalTopVisualOverflow = std::min(LayoutUnit(textBox.logicalTop() + childOverflowLogicalTop), logicalVisualOverflow.y());
-    LayoutUnit logicalBottomVisualOverflow = std::max(LayoutUnit(textBox.logicalBottom() + childOverflowLogicalBottom), logicalVisualOverflow.maxY());
-    LayoutUnit logicalLeftVisualOverflow = std::min(LayoutUnit(textBox.logicalLeft() + childOverflowLogicalLeft), logicalVisualOverflow.x());
-    LayoutUnit logicalRightVisualOverflow = std::max(LayoutUnit(textBox.logicalRight() + childOverflowLogicalRight), logicalVisualOverflow.maxX());
+    auto childOverflowLogicalLeft = std::min<LayoutUnit>(textShadowLogicalLeft + leftGlyphOverflow, leftGlyphOverflow);
+    auto childOverflowLogicalRight = std::max<LayoutUnit>(textShadowLogicalRight + rightGlyphOverflow, rightGlyphOverflow);
+
+    auto logicalTopVisualOverflow = std::min(LayoutUnit(textBox.logicalTop() + childOverflowLogicalTop), logicalVisualOverflow.y());
+    auto logicalBottomVisualOverflow = std::max(LayoutUnit(textBox.logicalBottom() + childOverflowLogicalBottom), logicalVisualOverflow.maxY());
+    auto logicalLeftVisualOverflow = std::min(LayoutUnit(textBox.logicalLeft() + childOverflowLogicalLeft), logicalVisualOverflow.x());
+    auto logicalRightVisualOverflow = std::max(LayoutUnit(textBox.logicalRight() + childOverflowLogicalRight), logicalVisualOverflow.maxX());
     
     logicalVisualOverflow = LayoutRect(logicalLeftVisualOverflow, logicalTopVisualOverflow, logicalRightVisualOverflow - logicalLeftVisualOverflow, logicalBottomVisualOverflow - logicalTopVisualOverflow);
 
@@ -285,9 +255,7 @@ void LegacyInlineFlowBox::computeOverflow(LayoutUnit lineTop, LayoutUnit lineBot
     if (knownToHaveNoOverflow())
         return;
 
-    if (m_overflow)
-        m_overflow = nullptr;
-
+    m_overflow = { };
     // Visual overflow just includes overflow for stuff we need to repaint ourselves. Self-painting layers are ignored.
     // Layout overflow is used to determine scrolling extent, so it still includes child layers and also factors in
     // transforms, relative positioning, etc.
@@ -316,7 +284,7 @@ void LegacyInlineFlowBox::setVisualOverflow(const LayoutRect& rect, LayoutUnit l
         return;
 
     if (!m_overflow)
-        m_overflow = adoptRef(new RenderOverflow(frameBox, frameBox));
+        m_overflow = makeUnique<RenderOverflow>(frameBox, frameBox);
 
     m_overflow->setVisualOverflow(rect);
 }

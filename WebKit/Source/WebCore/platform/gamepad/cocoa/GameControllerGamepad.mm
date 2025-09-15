@@ -22,23 +22,18 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #import "config.h"
 #import "GameControllerGamepad.h"
 
 #if ENABLE(GAMEPAD)
 #import "GameControllerGamepadProvider.h"
 #import "GameControllerHapticEngines.h"
+#import "GameControllerSoftLink.h"
 #import "GamepadConstants.h"
 #import <GameController/GCControllerElement.h>
 #import <GameController/GameController.h>
-#import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/text/MakeString.h>
-
-#if PLATFORM(IOS_FAMILY)
-#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
-#endif
-
-#import "GameControllerSoftLink.h"
 
 namespace WebCore {
 
@@ -60,12 +55,6 @@ static void disableDefaultSystemAction(GCControllerButtonInput *button)
 
 void GameControllerGamepad::setupElements()
 {
-#if PLATFORM(IOS_FAMILY)
-    // rdar://103093747 - Backbone controller not recognized by Backbone app
-    if (WTF::IOSApplication::isBackboneApp() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::UsesGameControllerPhysicalInputProfile))
-        m_gcController.get().extendedGamepad.valueChangedHandler = ^(GCExtendedGamepad *, GCControllerElement *) { };
-#endif
-
     auto *profile = m_gcController.get().physicalInputProfile;
 
     // The user can expose an already-connected game controller to a web page by expressing explicit intent.
@@ -180,7 +169,7 @@ void GameControllerGamepad::setupElements()
 GameControllerHapticEngines& GameControllerGamepad::ensureHapticEngines()
 {
     if (!m_hapticEngines)
-        m_hapticEngines = GameControllerHapticEngines::create(m_gcController.get());
+        lazyInitialize(m_hapticEngines, GameControllerHapticEngines::create(m_gcController.get()));
     return *m_hapticEngines;
 }
 #endif
@@ -199,8 +188,8 @@ void GameControllerGamepad::playEffect(GamepadHapticEffectType type, const Gamep
 void GameControllerGamepad::stopEffects(CompletionHandler<void()>&& completionHandler)
 {
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
-    if (RefPtr hapticEngines = m_hapticEngines)
-        hapticEngines->stopEffects();
+    if (m_hapticEngines)
+        m_hapticEngines->stopEffects();
 #endif
     completionHandler();
 }
@@ -209,8 +198,8 @@ void GameControllerGamepad::noLongerHasAnyClient()
 {
 #if HAVE(WIDE_GAMECONTROLLER_SUPPORT)
     // Stop the haptics engine if it is running.
-    if (RefPtr hapticEngines = m_hapticEngines)
-        hapticEngines->stop([] { });
+    if (m_hapticEngines)
+        m_hapticEngines->stop([] { });
 #endif
 }
 

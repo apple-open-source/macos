@@ -13,6 +13,8 @@
 
 #include <darwintest.h>
 
+#include "net_test_lib.h"
+
 /* sizeof(struct ip6_pktopts) */
 #define SIZEOF_STRUCT_IP6_PKTOPTS 192
 
@@ -99,4 +101,6 @@ T_DECL(tcp_input_outputopts_uaf_56155583, "Use-after-free when accepting TCP6 co
 	for (n = 0; n < nthreads; ++n) {
 		pthread_join(threads[n], NULL);
 	}
+
+	force_zone_gc();
 }

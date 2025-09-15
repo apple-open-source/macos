@@ -10,6 +10,8 @@
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
 
 @interface OTLocalCKKSResetOperation ()
 @property OTOperationDependencies* operationDependencies;
@@ -38,11 +40,28 @@
 {
     secnotice("octagon-ckks", "Beginning an 'reset CKKS' operation");
 
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW)};
+
+    AAFAnalyticsEventSecurity *event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
+                                                                                                altDSID:self.operationDependencies.activeAccount.altDSID
+                                                                                                 flowID:self.operationDependencies.flowID
+                                                                                        deviceSessionID:self.operationDependencies.deviceSessionID
+                                                                                              eventName:kSecurityRTCEventNameOTLocalCKKSResetOperation
+                                                                                        testsAreEnabled:SecCKKSTestsEnabled()
+                                                                                         canSendMetrics:self.operationDependencies.permittedToSendMetrics
+                                                                                               category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+
     WEAKIFY(self);
 
     self.finishedOp = [NSBlockOperation blockOperationWithBlock:^{
         STRONGIFY(self);
         secnotice("octagon-ckks", "Finishing a ckks-local-reset operation with %@", self.error ?: @"no error");
+        if (self.error) {
+            [event sendMetricWithResult:NO error:self.error];
+        } else {
+            [event sendMetricWithResult:YES error:nil];
+        }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 

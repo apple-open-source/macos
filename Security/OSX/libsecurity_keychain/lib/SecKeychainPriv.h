@@ -180,6 +180,29 @@ OSStatus SecKeychainMDSInstall(void)
 API_DEPRECATED("SecKeychain is deprecated", macos(10.2, 10.10))
 API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
+/*!
+ @function SecKeychainPushForLaterUnlock
+ Push a passphrase to securityd to be used by a client that doesn't know that passphrase
+ */
+OSStatus SecKeychainPushForLaterUnlock(CFDataRef passphrase, uint32_t* handle /* out */);
+
+/*!
+ @function SecKeychainReleaseIndirectUnlockHandle
+ Tell daemon to release an indirect unlock key handle. Use when you're done with it.
+ */
+OSStatus SecKeychainReleaseIndirectUnlockHandle(uint32_t handle);
+
+/*!
+ @function SecKeychainGetDerivedEntropy
+ Get the derived entropy for a given handle (to cache in the DP keychain)
+ */
+OSStatus SecKeychainGetDerivedEntropy(uint32_t handle, CFDataRef* CF_RETURNS_RETAINED entropy);
+
+/*!@function SecKeychainCopySalt
+ Copy the salt value from a keychain
+ */
+OSStatus SecKeychainCopySalt(SecKeychainRef keychain, CFDataRef* salt);
+
 #if defined(__cplusplus)
 }
 #endif

@@ -248,10 +248,10 @@ String DragData::asPlainText() const
     // FIXME: It's not clear this is 100% correct since we know -[NSURL URLWithString:] does not handle
     // all the same cases we handle well in the URL code for creating an NSURL.
     if (text.isURL)
-        return WTF::userVisibleString([NSURL URLWithString:string]);
+        return WTF::userVisibleString([NSURL URLWithString:string.createNSString().get()]);
 
     // FIXME: WTF should offer a non-Mac-specific way to convert string to precomposed form so we can do it for all platforms.
-    return [(NSString *)string precomposedStringWithCanonicalMapping];
+    return [string.createNSString() precomposedStringWithCanonicalMapping];
 }
 
 Color DragData::asColor() const
@@ -317,7 +317,7 @@ bool DragData::containsURL(FilenameConversionPolicy) const
     Vector<String> types;
     platformStrategies()->pasteboardStrategy()->getTypes(types, m_pasteboardName, context.get());
     if (types.contains(String(legacyFilesPromisePasteboardType())) && fileNames().size() == 1)
-        return !![NSURL fileURLWithPath:fileNames().first()];
+        return !![NSURL fileURLWithPath:fileNames().first().createNSString().get()];
 #endif
 
     return false;
@@ -340,7 +340,7 @@ String DragData::asURL(FilenameConversionPolicy, String* title) const
     Vector<String> types;
     platformStrategies()->pasteboardStrategy()->getTypes(types, m_pasteboardName, context.get());
     if (types.contains(String(legacyFilesPromisePasteboardType())) && fileNames().size() == 1)
-        return [URLByCanonicalizingURL([NSURL fileURLWithPath:fileNames()[0]]) absoluteString];
+        return [URLByCanonicalizingURL([NSURL fileURLWithPath:fileNames()[0].createNSString().get()]) absoluteString];
 #endif
 
     return { };

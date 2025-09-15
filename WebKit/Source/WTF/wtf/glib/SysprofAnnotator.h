@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <glib.h>
 #include <sysprof-capture.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
@@ -64,7 +65,7 @@ public:
         Vector<char> buffer(1024);
         va_list args;
         va_start(args, description);
-        vsnprintf(buffer.data(), buffer.size(), description, args);
+        vsnprintf(buffer.mutableSpan().data(), buffer.size(), description, args);
         va_end(args);
 
         auto value = std::make_pair(SYSPROF_CAPTURE_CURRENT_TIME, WTFMove(buffer));
@@ -89,7 +90,7 @@ public:
         if (value) {
             int64_t startTime = std::get<0>(*value);
             const Vector<char>& description = std::get<1>(*value);
-            sysprof_collector_mark(startTime, SYSPROF_CAPTURE_CURRENT_TIME - startTime, m_processName, name.data(), description[0] ? description.data() : nullptr);
+            sysprof_collector_mark(startTime, SYSPROF_CAPTURE_CURRENT_TIME - startTime, m_processName, name.data(), description[0] ? description.span().data() : nullptr);
         } else {
             va_list args;
             va_start(args, description);
@@ -158,7 +159,7 @@ public:
         case WebXRCPFrameStartSubmissionStart:
         case WebXRCPFrameEndSubmissionStart:
         case WakeUpAndApplyDisplayListStart:
-            beginMark(nullptr, tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
+            beginMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
         case VMEntryScopeEnd:
@@ -192,6 +193,9 @@ public:
         case WebXRLayerStartFrameEnd:
         case WebXRLayerEndFrameEnd:
         case WebXRSessionFrameCallbacksEnd:
+        case ProgrammaticScroll:
+        case FixedContainerEdgeSamplingStart:
+        case FixedContainerEdgeSamplingEnd:
         case WebHTMLViewPaintEnd:
         case BackingStoreFlushEnd:
         case WaitForCompositionCompletionEnd:
@@ -218,7 +222,7 @@ public:
         case WebXRCPFrameStartSubmissionEnd:
         case WebXRCPFrameEndSubmissionEnd:
         case WakeUpAndApplyDisplayListEnd:
-            endMark(nullptr, tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
+            endMark(nullptr, tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
         case DisplayRefreshDispatchingToMainThread:
@@ -228,7 +232,7 @@ public:
         case SyntheticMomentumEvent:
         case RemoteLayerTreeScheduleRenderingUpdate:
         case DisplayLinkUpdate:
-            instantMark(tracePointCodeName(code).unsafeSpanIncludingNullTerminator(), "%s", "");
+            instantMark(tracePointCodeName(code).spanIncludingNullTerminator(), "%s", "");
             break;
 
         case WTFRange:
@@ -240,6 +244,31 @@ public:
         case GPUProcessRange:
         case GTKWPEPortRange:
             break;
+        }
+    }
+
+    void setCounter(std::span<const char> name, int64_t value)
+    {
+        Locker locker { m_countersLock };
+
+        if (auto id = m_counters.getOptional(static_cast<const void*>(name.data()))) {
+            SysprofCaptureCounterValue counterValue;
+            counterValue.v64 = value;
+            sysprof_collector_set_counters(&id.value(), &counterValue, 1);
+        } else {
+            unsigned newId = sysprof_collector_request_counters(1);
+
+            m_counters.add(static_cast<const void*>(name.data()), newId);
+
+            SysprofCaptureCounter counter = { };
+            counter.id = newId;
+            counter.type = SYSPROF_CAPTURE_COUNTER_INT64;
+            counter.value.v64 = value;
+            g_strlcpy(counter.category, m_processName.characters(), sizeof counter.category);
+            g_strlcpy(counter.name, name.data(), sizeof counter.name);
+            g_strlcpy(counter.description, "", sizeof counter.description);
+
+            sysprof_collector_define_counters(&counter, 1);
         }
     }
 
@@ -363,6 +392,11 @@ private:
         case WebXRSessionFrameCallbacksStart:
         case WebXRSessionFrameCallbacksEnd:
             return "WebXRSessionFrameCallbacks"_s;
+        case ProgrammaticScroll:
+            return "ProgrammaticScroll"_s;
+        case FixedContainerEdgeSamplingStart:
+        case FixedContainerEdgeSamplingEnd:
+            return "FixedContainerEdgeSampling"_s;
 
         case WebHTMLViewPaintStart:
         case WebHTMLViewPaintEnd:
@@ -477,6 +511,8 @@ private:
     ASCIILiteral m_processName;
     Lock m_lock;
     UncheckedKeyHashMap<RawPointerPair, TimestampAndString> m_ongoingMarks WTF_GUARDED_BY_LOCK(m_lock);
+    Lock m_countersLock;
+    UncheckedKeyHashMap<const void*, unsigned> m_counters WTF_GUARDED_BY_LOCK(m_countersLock);
     static SysprofAnnotator* s_annotator;
 };
 

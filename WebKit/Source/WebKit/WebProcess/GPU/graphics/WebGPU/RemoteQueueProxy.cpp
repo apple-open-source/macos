@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteBufferProxy.h"
 #include "RemoteQueueMessages.h"
 #include "WebGPUConvertToBackingContext.h"
 #include "WebProcess.h"
@@ -47,7 +48,7 @@ RemoteQueueProxy::RemoteQueueProxy(RemoteAdapterProxy& parent, ConvertToBackingC
 #if ENABLE(VIDEO) && PLATFORM(COCOA) && ENABLE(WEB_CODECS)
     RefPtr<RemoteVideoFrameObjectHeapProxy> videoFrameObjectHeapProxy;
     callOnMainRunLoopAndWait([&videoFrameObjectHeapProxy] {
-        videoFrameObjectHeapProxy = WebProcess::singleton().ensureProtectedGPUProcessConnection()->protectedVideoFrameObjectHeapProxy();
+        videoFrameObjectHeapProxy = WebProcess::singleton().ensureProtectedGPUProcessConnection()->videoFrameObjectHeapProxy();
     });
 
     m_videoFrameObjectHeapProxy = videoFrameObjectHeapProxy;
@@ -63,7 +64,7 @@ RemoteQueueProxy::~RemoteQueueProxy()
 void RemoteQueueProxy::submit(Vector<Ref<WebCore::WebGPU::CommandBuffer>>&& commandBuffers)
 {
     auto convertedCommandBuffers = WTF::compactMap(commandBuffers, [&](auto& commandBuffer) -> std::optional<WebGPUIdentifier> {
-        auto convertedCommandBuffer = protectedConvertToBackingContext()->convertToBacking(commandBuffer);
+        auto convertedCommandBuffer = m_convertToBackingContext->convertToBacking(commandBuffer);
         return convertedCommandBuffer;
     });
 
@@ -86,16 +87,22 @@ void RemoteQueueProxy::writeBuffer(
     WebCore::WebGPU::Size64 dataOffset,
     std::optional<WebCore::WebGPU::Size64> size)
 {
-    auto convertedBuffer = protectedConvertToBackingContext()->convertToBacking(buffer);
+    auto convertedBuffer = m_convertToBackingContext->convertToBacking(buffer);
 
-    auto sharedMemory = WebCore::SharedMemory::copySpan(source.subspan(dataOffset, static_cast<size_t>(size.value_or(source.size() - dataOffset))));
-    std::optional<WebCore::SharedMemoryHandle> handle;
-    if (sharedMemory)
-        handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
-    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, WTFMove(handle)), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
-        RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
-    });
-    UNUSED_VARIABLE(sendResult);
+    size_t actualSourceSize = static_cast<size_t>(size.value_or(source.size() - dataOffset));
+    if (actualSourceSize > maxCrossProcessResourceCopySize) {
+        auto sharedMemory = WebCore::SharedMemory::copySpan(source.subspan(dataOffset, actualSourceSize));
+        std::optional<WebCore::SharedMemoryHandle> handle;
+        if (sharedMemory)
+            handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
+        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteBuffer(convertedBuffer, bufferOffset, WTFMove(handle)), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
+            RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+        });
+        UNUSED_VARIABLE(sendResult);
+    } else {
+        auto sendResult = send(Messages::RemoteQueue::WriteBufferWithCopy(convertedBuffer, bufferOffset, source.subspan(dataOffset, actualSourceSize)));
+        UNUSED_VARIABLE(sendResult);
+    }
 }
 
 void RemoteQueueProxy::writeTexture(
@@ -104,24 +111,28 @@ void RemoteQueueProxy::writeTexture(
     const WebCore::WebGPU::ImageDataLayout& dataLayout,
     const WebCore::WebGPU::Extent3D& size)
 {
-    Ref convertToBackingContext = m_convertToBackingContext;
-    auto convertedDestination = convertToBackingContext->convertToBacking(destination);
+    auto convertedDestination = m_convertToBackingContext->convertToBacking(destination);
     ASSERT(convertedDestination);
-    auto convertedDataLayout = convertToBackingContext->convertToBacking(dataLayout);
+    auto convertedDataLayout = m_convertToBackingContext->convertToBacking(dataLayout);
     ASSERT(convertedDataLayout);
-    auto convertedSize = convertToBackingContext->convertToBacking(size);
+    auto convertedSize = m_convertToBackingContext->convertToBacking(size);
     ASSERT(convertedSize);
     if (!convertedDestination || !convertedDataLayout || !convertedSize)
         return;
 
-    auto sharedMemory = WebCore::SharedMemory::copySpan(source);
-    std::optional<WebCore::SharedMemoryHandle> handle;
-    if (sharedMemory)
-        handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
-    auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteTexture(*convertedDestination, WTFMove(handle), *convertedDataLayout, *convertedSize), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
-        RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
-    });
-    UNUSED_VARIABLE(sendResult);
+    if (source.size() > maxCrossProcessResourceCopySize) {
+        auto sharedMemory = WebCore::SharedMemory::copySpan(source);
+        std::optional<WebCore::SharedMemoryHandle> handle;
+        if (sharedMemory)
+            handle = sharedMemory->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
+        auto sendResult = sendWithAsyncReply(Messages::RemoteQueue::WriteTexture(*convertedDestination, WTFMove(handle), *convertedDataLayout, *convertedSize), [sharedMemory = sharedMemory.copyRef(), handleHasValue = handle.has_value()](auto) mutable {
+            RELEASE_ASSERT(sharedMemory.get() || !handleHasValue);
+        });
+        UNUSED_VARIABLE(sendResult);
+    } else {
+        auto sendResult = send(Messages::RemoteQueue::WriteTextureWithCopy(*convertedDestination, Vector(source), *convertedDataLayout, *convertedSize));
+        UNUSED_VARIABLE(sendResult);
+    }
 }
 
 void RemoteQueueProxy::writeBufferNoCopy(
@@ -166,11 +177,6 @@ void RemoteQueueProxy::setLabelInternal(const String& label)
 {
     auto sendResult = send(Messages::RemoteQueue::SetLabel(label));
     UNUSED_VARIABLE(sendResult);
-}
-
-Ref<ConvertToBackingContext> RemoteQueueProxy::protectedConvertToBackingContext() const
-{
-    return m_convertToBackingContext;
 }
 
 RefPtr<WebCore::NativeImage> RemoteQueueProxy::getNativeImage(WebCore::VideoFrame& videoFrame)

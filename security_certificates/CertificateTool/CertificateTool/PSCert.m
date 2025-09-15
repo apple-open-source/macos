@@ -63,10 +63,12 @@ static CFDataRef GetSubjectKeyID(SecCertificateRef cert)
 @synthesize flags = _flags;
 @synthesize anchor_type = _anchor_type;
 
-static NSString* kSecAnchorTypeUndefined = @"none";
-static NSString* kSecAnchorTypeSystem = @"system";
-static NSString* kSecAnchorTypePlatform = @"platform";
-static NSString* kSecAnchorTypeCustom = @"custom";
+const NSString* kSecAnchorTypeUndefined = @"none";
+const NSString* kSecAnchorTypeSystem = @"system";
+const NSString* kSecAnchorTypePlatform = @"platform";
+const NSString* kSecAnchorTypeCustom = @"custom";
+const NSString* kSecAnchorTypeSystemTEST = @"test-system";
+const NSString* kSecAnchorTypePlatformTEST = @"test-platform";
 
 
 - (id)initWithCertFilePath:(NSString *)filePath withFlags:(NSNumber*)flags
@@ -100,9 +102,17 @@ static NSString* kSecAnchorTypeCustom = @"custom";
         _spki_hash = [self getSPKIHash:certRef];
 
         if (isSystem & assetFlags) {
-            _anchor_type = kSecAnchorTypeSystem;
+            if (isTest & assetFlags) {
+                _anchor_type = kSecAnchorTypeSystemTEST;
+            } else {
+                _anchor_type = kSecAnchorTypeSystem;
+            }
         } else if (isPlatform & assetFlags) {
-            _anchor_type = kSecAnchorTypePlatform;
+            if (isTest & assetFlags) {
+                _anchor_type = kSecAnchorTypePlatformTEST;
+            } else {
+                _anchor_type = kSecAnchorTypePlatform;
+            }
         } else if (isCustom & assetFlags) {
             _anchor_type = kSecAnchorTypeCustom;
         } else {

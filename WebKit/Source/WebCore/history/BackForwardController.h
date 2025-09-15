@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,10 +78,9 @@ public:
 
 private:
     Ref<Page> protectedPage() const;
-    Ref<BackForwardClient> protectedClient() const;
 
     WeakRef<Page> m_page;
-    Ref<BackForwardClient> m_client;
+    const Ref<BackForwardClient> m_client;
 };
 
 } // namespace WebCore

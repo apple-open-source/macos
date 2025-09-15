@@ -43,6 +43,7 @@ POLICYCHECKMACRO(GrayListedLeaf,                 R, T, L,  ,  , R, 0x8001212A, e
 POLICYCHECKMACRO(LeafSPKISHA256,                 R, P, L,  ,  , P, 0x8001243D, errSSLATSCertificateTrustViolation) //CSSMERR_APPLETP_LEAF_PIN_MISMATCH
 POLICYCHECKMACRO(NotCA,                          R, C, L,  , O, P, 0x80012116, errSecCertificateIsCA) // CSSMERR_TP_INVALID_CERT_AUTHORITY
 POLICYCHECKMACRO(MarkRepresentation,             R, P, L,  ,  , P, 0x80010846, errSecInvalidData) //CSSMERR_CSP_INVALID_DATA
+POLICYCHECKMACRO(URI,                            R, N, L,  , O, H, 0x80012400, errSecHostNameMismatch) //CSSMERR_APPLETP_HOSTNAME_MISMATCH
 
 /********************************************************
 *********** Unverified Intermediate Checks *************
@@ -67,6 +68,7 @@ POLICYCHECKMACRO(AnchorTrusted,                  R, T,  ,  ,  , A, 0x8001212A, e
 POLICYCHECKMACRO(MissingIntermediate,            R, T,  ,  ,  , M, 0x8001212A, errSecCreateChainFailed) //CSSMERR_TP_NOT_TRUSTED
 POLICYCHECKMACRO(AnchorApple,                    R, P,  , A,  , A, 0x8001243C, errSecInvalidRoot) //CSSMERR_APPLETP_CA_PIN_MISMATCH
 POLICYCHECKMACRO(CAspkiSHA256,                   R, P,  , A,  , P, 0x8001243C, errSSLATSCertificateTrustViolation) //CSSMERR_APPLETP_CA_PIN_MISMATCH
+POLICYCHECKMACRO(RootMarkerOid,                  R, P,  , A,  , P, 0x80012439, errSecMissingRequiredExtension) //CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION
 
 /********************************************************
 *********** Unverified Certificate Checks **************

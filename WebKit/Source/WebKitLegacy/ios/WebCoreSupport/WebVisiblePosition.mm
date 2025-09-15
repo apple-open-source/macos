@@ -535,7 +535,7 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
         return [super endPosition];
     
     RenderTextControl& textControl = downcast<RenderTextControl>(*object);
-    VisiblePosition visiblePosition = textControl.textFormControlElement().visiblePositionForIndex(textControl.textFormControlElement().value().length());
+    VisiblePosition visiblePosition = textControl.textFormControlElement().visiblePositionForIndex(textControl.textFormControlElement().value()->length());
     return [WebVisiblePosition _wrapVisiblePosition:visiblePosition];
 }
 
@@ -562,7 +562,7 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
         return [super endPosition];
     
     RenderTextControl& textControl = downcast<RenderTextControl>(*object);
-    VisiblePosition visiblePosition = textControl.textFormControlElement().visiblePositionForIndex(textControl.textFormControlElement().value().length());
+    VisiblePosition visiblePosition = textControl.textFormControlElement().visiblePositionForIndex(textControl.textFormControlElement().value()->length());
     return [WebVisiblePosition _wrapVisiblePosition:visiblePosition];
 }
 

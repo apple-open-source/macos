@@ -46,6 +46,7 @@ typedef enum sktu_if_type {
 
 #define SKTU_IFF_ENABLE_NETIF   0x00000001 // no-netif (txstart bsd interface) by default
 #define SKTU_IFF_NO_ATTACH_FSW  0x00000002 // auto-attach fsw for netif by default
+#define SKTU_IFF_ENABLE_CHANNEL 0x00000004 // auto-attach kpipe
 typedef uint32_t sktu_if_flag_t;
 
 typedef struct sktc_nexus_handles {
@@ -213,14 +214,11 @@ typedef struct sktu_flow {
 } *sktu_nexus_flow_t;
 
 channel_t
-sktu_channel_create_extended(const uuid_t uuid,
-    const nexus_port_t port, const ring_dir_t dir,
-    const ring_id_t rid, const channel_attr_t attr,
-    uint64_t exclusive, uint64_t monitor,
-    uint64_t txlowatunit, uint64_t txlowatval,
-    uint64_t rxlowatunit, uint64_t rxlowatval,
-    uint64_t userpacketpool, uint64_t defunctok,
-    uint64_t event_ring, uint64_t low_latency);
+sktu_channel_create_extended(const uuid_t uuid, const nexus_port_t port,
+    const ring_dir_t dir, const ring_id_t rid, const channel_attr_t attr,
+    uint64_t exclusive, uint64_t txlowatunit, uint64_t txlowatval,
+    uint64_t rxlowatunit, uint64_t rxlowatval, uint64_t userpacketpool,
+    uint64_t defunctok, uint64_t event_ring, uint64_t low_latency);
 void permutefuncP(int n, int *permute, void (*func)(int, int *permute));
 void permutefuncH(int n, int *permute, void (*func)(int, int *permute));
 void permutefuncR(int n, int *permute, void (*func)(int, int *permute), int total, unsigned seed);

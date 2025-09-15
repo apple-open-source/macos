@@ -21,11 +21,17 @@
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GRefPtrGStreamer.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
+#include <wtf/RunLoop.h>
+#include <wtf/TZoneMalloc.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
-class GStreamerVideoFrameConverter {
+class GStreamerVideoFrameConverter final : public CanMakeCheckedPtr<GStreamerVideoFrameConverter> {
+    WTF_MAKE_TZONE_ALLOCATED(GStreamerVideoFrameConverter);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GStreamerVideoFrameConverter);
     friend NeverDestroyed<GStreamerVideoFrameConverter>;
 
 public:
@@ -36,9 +42,44 @@ public:
 private:
     GStreamerVideoFrameConverter();
 
-    GRefPtr<GstElement> m_pipeline;
-    GRefPtr<GstElement> m_src;
-    GRefPtr<GstElement> m_sink;
+    class Pipeline {
+        WTF_MAKE_TZONE_ALLOCATED(Pipeline);
+    public:
+        enum class Type : uint8_t {
+            SystemMemory,
+#if USE(GSTREAMER_GL)
+            GLMemory,
+            DMABufMemory
+#endif
+        };
+        Pipeline(Type);
+        ~Pipeline();
+
+        GRefPtr<GstSample> run(const GRefPtr<GstSample>&, GstCaps*);
+
+    private:
+        Type m_type { Type::SystemMemory };
+        GRefPtr<GstElement> m_pipeline;
+        GRefPtr<GstElement> m_src;
+        GRefPtr<GstElement> m_sink;
+        GRefPtr<GstElement> m_capsfilter;
+    };
+
+    Pipeline& ensurePipeline(GstCaps*);
+    void releaseUnusedSystemMemoryPipelineTimerFired();
+#if USE(GSTREAMER_GL)
+    void releaseUnusedGLMemoryPipelineTimerFired();
+    void releaseUnusedDMABufMemoryPipelineTimerFired();
+#endif
+
+    std::unique_ptr<Pipeline> m_systemMemoryPipeline;
+    std::unique_ptr<RunLoop::Timer> m_releaseUnusedSystemMemoryPipelineTimer;
+#if USE(GSTREAMER_GL)
+    std::unique_ptr<Pipeline> m_glMemoryPipeline;
+    std::unique_ptr<RunLoop::Timer> m_releaseUnusedGLMemoryPipelineTimer;
+    std::unique_ptr<Pipeline> m_dmabufMemoryPipeline;
+    std::unique_ptr<RunLoop::Timer> m_releaseUnusedDMABufMemoryPipelineTimer;
+#endif
 };
 
 } // namespace WebCore

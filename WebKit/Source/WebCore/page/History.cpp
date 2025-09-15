@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -186,7 +186,7 @@ ExceptionOr<void> History::go(Document& document, int distance)
 
     ASSERT(isMainThread());
 
-    if (!document.canNavigate(frame.get()))
+    if (document.canNavigate(frame.get()) != CanNavigateState::Able)
         return { };
 
     frame->protectedNavigationScheduler()->scheduleHistoryNavigation(distance);
@@ -262,7 +262,7 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
     if (!frame->page())
         return { };
 
-    RefPtr document = frame->protectedDocument();
+    RefPtr document = frame->document();
     const URL& documentURL = document->url();
     URL fullURL = documentURL;
 
@@ -303,7 +303,7 @@ ExceptionOr<void> History::stateObjectAdded(RefPtr<SerializedScriptValue>&& data
         return result.releaseException();
 
     if (document->settings().navigationAPIEnabled()) {
-        Ref navigation = document->domWindow()->navigation();
+        Ref navigation = document->window()->navigation();
         if (!navigation->dispatchPushReplaceReloadNavigateEvent(fullURL, historyBehavior == NavigationHistoryBehavior::Push ? NavigationNavigationType::Push : NavigationNavigationType::Replace, true, nullptr, data.get()))
             return { };
     }

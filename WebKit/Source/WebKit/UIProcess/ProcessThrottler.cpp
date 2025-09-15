@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -104,7 +104,7 @@ private:
         CachedAssertion(ProcessAssertionCache& cache, Ref<ProcessAssertion>&& assertion)
             : m_cache(cache)
             , m_assertion(WTFMove(assertion))
-            , m_expirationTimer(RunLoop::main(), this, &CachedAssertion::entryExpired)
+            , m_expirationTimer(RunLoop::mainSingleton(), "CachedAssertion::ExpirationTimer"_s, this, &CachedAssertion::entryExpired)
         {
             m_expirationTimer.startOneShot(processAssertionCacheLifetime);
         }
@@ -115,7 +115,7 @@ private:
             m_cache->remove(m_assertion->type());
         }
 
-        CheckedRef<ProcessAssertionCache> m_cache;
+        const CheckedRef<ProcessAssertionCache> m_cache;
         RefPtr<ProcessAssertion> m_assertion;
         RunLoop::Timer m_expirationTimer;
     };
@@ -140,9 +140,9 @@ static uint64_t generatePrepareToSuspendRequestID()
 ProcessThrottler::ProcessThrottler(AuxiliaryProcessProxy& process, bool shouldTakeUIBackgroundAssertion)
     : m_assertionCache(makeUniqueRef<ProcessAssertionCache>())
     , m_process(process)
-    , m_prepareToSuspendTimeoutTimer(RunLoop::main(), this, &ProcessThrottler::prepareToSuspendTimeoutTimerFired)
-    , m_dropNearSuspendedAssertionTimer(RunLoop::main(), this, &ProcessThrottler::dropNearSuspendedAssertionTimerFired)
-    , m_prepareToDropLastAssertionTimeoutTimer(RunLoop::main(), this, &ProcessThrottler::prepareToDropLastAssertionTimeoutTimerFired)
+    , m_prepareToSuspendTimeoutTimer(RunLoop::mainSingleton(), "ProcessThrottler::PrepareToSuspendTimeoutTimer"_s, this, &ProcessThrottler::prepareToSuspendTimeoutTimerFired)
+    , m_dropNearSuspendedAssertionTimer(RunLoop::mainSingleton(), "ProcessThrottler::DropNearSuspendedAssertionTimer"_s, this, &ProcessThrottler::dropNearSuspendedAssertionTimerFired)
+    , m_prepareToDropLastAssertionTimeoutTimer(RunLoop::mainSingleton(), "ProcessThrottler::PrepareToDropLastAssertionTimeoutTimer"_s, this, &ProcessThrottler::prepareToDropLastAssertionTimeoutTimerFired)
     , m_shouldTakeUIBackgroundAssertion(shouldTakeUIBackgroundAssertion)
 {
 }
@@ -195,9 +195,9 @@ void ProcessThrottler::invalidateAllActivities()
     ASSERT(isMainRunLoop());
     PROCESSTHROTTLER_RELEASE_LOG("invalidateAllActivities: BEGIN (foregroundActivityCount: %u, backgroundActivityCount: %u)", m_foregroundActivities.computeSize(), m_backgroundActivities.computeSize());
     while (!m_foregroundActivities.isEmptyIgnoringNullReferences())
-        m_foregroundActivities.begin()->invalidate(ProcessThrottlerActivity::ForceEnableActivityLogging::Yes);
+        Ref { *m_foregroundActivities.begin() }->invalidate(ProcessThrottlerActivity::ForceEnableActivityLogging::Yes);
     while (!m_backgroundActivities.isEmptyIgnoringNullReferences())
-        m_backgroundActivities.begin()->invalidate(ProcessThrottlerActivity::ForceEnableActivityLogging::Yes);
+        Ref { *m_backgroundActivities.begin() }->invalidate(ProcessThrottlerActivity::ForceEnableActivityLogging::Yes);
     PROCESSTHROTTLER_RELEASE_LOG("invalidateAllActivities: END");
 }
 
@@ -294,7 +294,7 @@ void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
         } else
             m_assertion = ProcessAssertion::create(process, assertionName(newType), newType, ProcessAssertion::Mode::Async, [previousAssertion = WTFMove(previousAssertion)] { });
     }
-    m_assertion->setInvalidationHandler([weakThis = WeakPtr { *this }] {
+    RefPtr { m_assertion }->setInvalidationHandler([weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->assertionWasInvalidated();
     });
@@ -419,10 +419,10 @@ void ProcessThrottler::sendPrepareToSuspendIPC(IsSuspensionImminent isSuspension
         Ref process = m_process.get();
         double remainingRunTime = ProcessAssertion::remainingRunTimeInSeconds(process->processID());
         PROCESSTHROTTLER_RELEASE_LOG("sendPrepareToSuspendIPC: Sending PrepareToSuspend(%" PRIu64 ", isSuspensionImminent=%d) IPC, remainingRunTime=%fs", *m_pendingRequestToSuspendID, isSuspensionImminent == IsSuspensionImminent::Yes, remainingRunTime);
-        process->sendPrepareToSuspend(isSuspensionImminent, remainingRunTime, [this, weakThis = WeakPtr { *this }, requestToSuspendID = *m_pendingRequestToSuspendID]() mutable {
+        process->sendPrepareToSuspend(isSuspensionImminent, remainingRunTime, [weakThis = WeakPtr { *this }, requestToSuspendID = *m_pendingRequestToSuspendID]() mutable {
             RefPtr protectedThis = weakThis.get();
-            if (protectedThis && m_pendingRequestToSuspendID && *m_pendingRequestToSuspendID == requestToSuspendID)
-                processReadyToSuspend();
+            if (protectedThis && protectedThis->m_pendingRequestToSuspendID && *protectedThis->m_pendingRequestToSuspendID == requestToSuspendID)
+                protectedThis->processReadyToSuspend();
         });
     }
 
@@ -519,16 +519,18 @@ void ProcessThrottler::clearAssertion()
         m_prepareToDropLastAssertionTimeoutTimer.startOneShot(10_s);
 
     m_assertionToClearAfterPrepareToDropLastAssertion = std::exchange(m_assertion, nullptr);
-    protectedProcess()->prepareToDropLastAssertion([this, weakThis = WeakPtr { *this }] {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return;
-        PROCESSTHROTTLER_RELEASE_LOG("clearAssertion: Releasing near-suspended assertion");
-        m_prepareToDropLastAssertionTimeoutTimer.stop();
-        m_assertionToClearAfterPrepareToDropLastAssertion = nullptr;
-        if (!m_assertion)
-            protectedProcess()->didDropLastAssertion();
+    protectedProcess()->prepareToDropLastAssertion([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->dropLastAssertion();
     });
+}
+
+void ProcessThrottler::dropLastAssertion() {
+    PROCESSTHROTTLER_RELEASE_LOG("clearAssertion: Releasing near-suspended assertion");
+    m_prepareToDropLastAssertionTimeoutTimer.stop();
+    m_assertionToClearAfterPrepareToDropLastAssertion = nullptr;
+    if (!m_assertion)
+        protectedProcess()->didDropLastAssertion();
 }
 
 Ref<AuxiliaryProcessProxy> ProcessThrottler::protectedProcess() const
@@ -544,7 +546,7 @@ Ref<ProcessThrottlerTimedActivity> ProcessThrottlerTimedActivity::create(Seconds
 }
 
 ProcessThrottlerTimedActivity::ProcessThrottlerTimedActivity(Seconds timeout, RefPtr<ProcessThrottlerTimedActivity::Activity>&& activity)
-    : m_timer(RunLoop::main(), this, &ProcessThrottlerTimedActivity::activityTimedOut)
+    : m_timer(RunLoop::mainSingleton(), "ProcessThrottlerTimedActivity::Timer"_s, this, &ProcessThrottlerTimedActivity::activityTimedOut)
     , m_timeout(timeout)
     , m_activity(WTFMove(activity))
 {
@@ -635,10 +637,10 @@ static void logActivityNames(WTF::TextStream& ts, ASCIILiteral description, cons
     didLog = true;
 
     bool isFirstItem = true;
-    for (const auto& activity : activities) {
+    for (Ref activity : activities) {
         if (!isFirstItem)
             ts << ", "_s;
-        ts << activity.name();
+        ts << activity->name();
         isFirstItem = false;
     }
 }

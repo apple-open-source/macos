@@ -29,6 +29,7 @@
 #include "WPEKeymap.h"
 #include "WPEToplevelWayland.h"
 #include <wayland-client.h>
+#include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
@@ -47,6 +48,8 @@ public:
     WPEKeymap* keymap() const { return m_keymap.get(); }
     uint32_t pointerModifiers() const { return m_pointer.modifiers; }
     std::pair<double, double> pointerCoords() const { return std::pair<double, double>(m_pointer.x, m_pointer.y); }
+    uint32_t keyboardSerial() const { return m_keyboard.serial; }
+    WPEAvailableInputDevices availableInputDevices() const;
 
     void startListening();
 
@@ -54,6 +57,8 @@ public:
 
     void emitPointerEnter(WPEView*) const;
     void emitPointerLeave(WPEView*) const;
+
+    void setAvailableInputDevicesChangedCallback(Function<void(WPEAvailableInputDevices)>&& callback) { m_capabilitiesChangedCallback = WTFMove(callback); }
 
 private:
     static const struct wl_seat_listener s_listener;
@@ -96,6 +101,7 @@ private:
         GWeakPtr<WPEToplevelWayland> toplevel;
         uint32_t modifiers { 0 };
         uint32_t time { 0 };
+        uint32_t serial { 0 };
 
         struct {
             std::optional<int32_t> rate;
@@ -119,6 +125,7 @@ private:
         GWeakPtr<WPEToplevelWayland> toplevel;
         HashMap<int32_t, std::pair<double, double>, IntHash<int32_t>, WTF::SignedWithZeroKeyHashTraits<int32_t>> points;
     } m_touch;
+    Function<void(WPEAvailableInputDevices)> m_capabilitiesChangedCallback;
 };
 
 } // namespace WPE

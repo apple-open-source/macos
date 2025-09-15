@@ -1308,6 +1308,16 @@ kaudit_to_bsm(struct kaudit_record *kar, struct au_record **pau)
 			kau_write(rec, tok);
 		}
 		break;
+	case AUE_FUNMOUNT:
+		if (ARG_IS_VALID(kar, ARG_FD)) {
+			tok = au_to_arg32(2, "dir fd", ar->ar_arg_fd);
+			kau_write(rec, tok);
+		}
+		if (ARG_IS_VALID(kar, ARG_FFLAGS)) {
+			tok = au_to_arg32(3, "flags", ar->ar_arg_fflags);
+			kau_write(rec, tok);
+		}
+		break;
 
 	case AUE_MSGCTL:
 		ar->ar_event = audit_msgctl_to_event(ar->ar_arg_svipc_cmd);

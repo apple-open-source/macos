@@ -37,7 +37,9 @@
 #import "FontSelector.h"
 #import "GraphicsContextCG.h"
 #import "Image.h"
+#import "ImageAdapter.h"
 #import "LocalDefaultSystemAppearance.h"
+#import "NodeInlines.h"
 #import "Page.h"
 #import "StringTruncator.h"
 #import "TextIndicator.h"
@@ -71,9 +73,6 @@ RetainPtr<NSImage> scaleDragImage(RetainPtr<NSImage> image, FloatSize scale)
     NSSize newSize = NSMakeSize((originalSize.width * scale.width()), (originalSize.height * scale.height()));
     newSize.width = roundf(newSize.width);
     newSize.height = roundf(newSize.height);
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [image setScalesWhenResized:YES];
-ALLOW_DEPRECATED_DECLARATIONS_END
     [image setSize:newSize];
     return image;
 }
@@ -92,7 +91,7 @@ RetainPtr<NSImage> dissolveDragImageToFraction(RetainPtr<NSImage> image, float d
     return dissolvedImage;
 }
 
-RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientation orientation)
+RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientation orientation, GraphicsClient*, float)
 {
     if (auto* bitmapImage = dynamicDowncast<BitmapImage>(*image)) {
         if (orientation == ImageOrientation::Orientation::FromImage)
@@ -190,15 +189,15 @@ struct LinkImageLayout {
 LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
 {
     NSString *title = nsStringNilIfEmpty(titleString);
-    NSURL *cocoaURL = url;
-    NSString *absoluteURLString = [cocoaURL absoluteString];
+    RetainPtr nsURL = url.createNSURL();
+    NSString *absoluteURLString = [nsURL absoluteString];
 
     NSString *domain = absoluteURLString;
 #if HAVE(URL_FORMATTING)
-    domain = [cocoaURL _lp_simplifiedDisplayString];
+    domain = [nsURL _lp_simplifiedDisplayString];
 #else
     if (LinkPresentationLibrary())
-        domain = [cocoaURL _lp_simplifiedDisplayString];
+        domain = [nsURL _lp_simplifiedDisplayString];
 #endif
 
     if ([title isEqualToString:absoluteURLString])
@@ -248,7 +247,7 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
         Vector<CGPoint> origins(lineCount);
         CGRect lineBounds;
         CGFloat height = 0;
-        CTFrameGetLineOrigins(textFrame.get(), CFRangeMake(0, 0), origins.data());
+        CTFrameGetLineOrigins(textFrame.get(), CFRangeMake(0, 0), origins.mutableSpan().data());
         for (CFIndex lineIndex = 0; lineIndex < lineCount; ++lineIndex) {
             CTLineRef line = (CTLineRef)CFArrayGetValueAtIndex(ctLines, lineIndex);
 
@@ -288,7 +287,7 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     boundingRect.setHeight((static_cast<int>(boundingRect.height() / 2) * 2));
 }
 
-DragImageRef createDragImageForLink(Element& element, URL& url, const String& title, TextIndicatorData&, float deviceScaleFactor)
+DragImageData createDragImageForLink(Element& element, URL& url, const String& title, float deviceScaleFactor)
 {
     LinkImageLayout layout(url, title);
 
@@ -310,7 +309,7 @@ DragImageRef createDragImageForLink(Element& element, URL& url, const String& ti
 
     [dragImage unlockFocus];
 
-    return dragImage;
+    return  { dragImage, nullptr };
 }
 
 DragImageRef createDragImageForColor(const Color& color, const FloatRect&, float, Path&)

@@ -32,7 +32,7 @@
 #include "CanvasBase.h"
 #include "ContextDestructionObserver.h"
 #include "EventTarget.h"
-#include "ExceptionOr.h"
+#include "EventTargetInterfaces.h"
 #include "IDLTypes.h"
 #include "ImageBuffer.h"
 #include "IntSize.h"
@@ -64,7 +64,9 @@ class WebGL2RenderingContext;
 class WebGLRenderingContext;
 class WebGLRenderingContextBase;
 
-using OffscreenRenderingContext = std::variant<
+template<typename> class ExceptionOr;
+
+using OffscreenRenderingContext = Variant<
 #if ENABLE(WEBGL)
     RefPtr<WebGLRenderingContext>,
     RefPtr<WebGL2RenderingContext>,
@@ -95,7 +97,7 @@ private:
     bool m_originClean;
 };
 
-class OffscreenCanvas final : public ActiveDOMObject, public RefCounted<OffscreenCanvas>, public CanvasBase, public EventTarget {
+class OffscreenCanvas final : public ActiveDOMObject, public CanvasBase, public RefCounted<OffscreenCanvas>, public EventTarget {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED_EXPORT(OffscreenCanvas, WEBCORE_EXPORT);
 public:
     void ref() const final { RefCounted::ref(); }
@@ -128,7 +130,7 @@ public:
 
     CanvasRenderingContext* renderingContext() const final { return m_context.get(); }
 
-    const CSSParserContext& cssParserContext() const final;
+    std::unique_ptr<CSSParserContext> createCSSParserContext() const final;
 
     ExceptionOr<std::optional<OffscreenRenderingContext>> getContext(JSC::JSGlobalObject&, RenderingContextType, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments);
     ExceptionOr<RefPtr<ImageBitmap>> transferToImageBitmap();
@@ -146,7 +148,7 @@ public:
 
     void commitToPlaceholderCanvas();
 
-    void queueTaskKeepingObjectAlive(TaskSource, Function<void()>&&) final;
+    void queueTaskKeepingObjectAlive(TaskSource, Function<void(CanvasBase&)>&&) final;
     void dispatchEvent(Event&) final;
     bool isDetached() const { return m_detached; };
 
@@ -174,8 +176,6 @@ private:
     mutable RefPtr<Image> m_copiedImage;
     bool m_detached { false };
     bool m_hasScheduledCommit { false };
-
-    mutable std::unique_ptr<CSSParserContext> m_cssParserContext;
 };
 
 }

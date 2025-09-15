@@ -27,9 +27,10 @@
 #import "WKWebProcessPlugInScriptWorldInternal.h"
 
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/AlignedStorage.h>
 
 @implementation WKWebProcessPlugInScriptWorld {
-    API::ObjectStorage<WebKit::InjectedBundleScriptWorld> _world;
+    AlignedStorage<WebKit::InjectedBundleScriptWorld> _world;
 }
 
 + (WKWebProcessPlugInScriptWorld *)world
@@ -39,7 +40,7 @@
 
 + (WKWebProcessPlugInScriptWorld *)normalWorld
 {
-    return WebKit::wrapper(WebKit::InjectedBundleScriptWorld::normalWorld());
+    return WebKit::wrapper(WebKit::InjectedBundleScriptWorld::normalWorldSingleton());
 }
 
 - (void)dealloc
@@ -60,6 +61,11 @@
     _world->makeAllShadowRootsOpen();
 }
 
+- (void)exposeClosedShadowRootsForExtensions
+{
+    _world->exposeClosedShadowRootsForExtensions();
+}
+
 - (void)disableOverrideBuiltinsBehavior
 {
     _world->disableOverrideBuiltinsBehavior();
@@ -67,7 +73,7 @@
 
 - (NSString *)name
 {
-    return _world->name();
+    return _world->name().createNSString().autorelease();
 }
 
 - (WebKit::InjectedBundleScriptWorld&)_scriptWorld

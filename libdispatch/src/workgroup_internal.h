@@ -136,10 +136,12 @@ struct __attribute__((__packed__)) os_workgroup_interval_data_s {
 	void *telemetry_dst;
 	os_workgroup_telemetry_flavor_t telemetry_flavor;
 	uint16_t telemetry_size;
+	uint32_t padding;
+	uint64_t complexity;
 #if defined(__LP64__)
-	uint32_t reserved[10];
+	uint32_t reserved[7];
 #else
-	uint32_t reserved[11];
+	uint32_t reserved[8];
 #endif
 };
 

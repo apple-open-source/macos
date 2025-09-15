@@ -39,6 +39,7 @@
 #import <WebCore/DragController.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
+#import <WebCore/ImageAdapter.h>
 #import <WebCore/LocalFrame.h>
 #import <WebCore/WebCoreJITOperations.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -183,13 +184,13 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
     return [[[self _domNode] ownerDocument] webFrame];
 }
 
-// String's NSString* operator converts null Strings to empty NSStrings for compatibility
+// String::createNSString() converts null Strings to empty NSStrings for compatibility
 // with AppKit. We need to work around that here.
 static NSString* NSStringOrNil(String coreString)
 {
     if (coreString.isNull())
         return nil;
-    return coreString;
+    return coreString.createNSString().autorelease();
 }
 
 - (NSString *)_altDisplayString
@@ -221,12 +222,12 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSURL *)_absoluteImageURL
 {
-    return _result->absoluteImageURL();
+    return _result->absoluteImageURL().createNSURL().autorelease();
 }
 
 - (NSURL *)_absoluteMediaURL
 {
-    return _result->absoluteMediaURL();
+    return _result->absoluteMediaURL().createNSURL().autorelease();
 }
 
 - (NSNumber *)_isSelected
@@ -242,7 +243,7 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSURL *)_absoluteLinkURL
 {
-    return _result->absoluteLinkURL();
+    return _result->absoluteLinkURL().createNSURL().autorelease();
 }
 
 - (WebFrame *)_targetWebFrame

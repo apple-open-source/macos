@@ -1,7 +1,0 @@
-module os_availability_private [system] {
-  header "AvailabilityInternalPrivate.h"
-  #ifndef BUILD_FOR_DRIVERKIT
-  header "AvailabilityProhibitedInternal.h"
-  #endif
-  export *
-}

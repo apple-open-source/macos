@@ -41,6 +41,7 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/NeverDestroyed.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/text/StringToIntegerConversion.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -97,11 +98,9 @@ using namespace WebCore;
 
 - (void)stream:(SCStream *)stream didStopWithError:(NSError *)error
 {
-    callOnMainRunLoop([self, strongSelf = RetainPtr { self }, error = RetainPtr { error }]() mutable {
-        if (!_callback)
-            return;
-
-        _callback->sessionFailedWithError(WTFMove(error), "-[SCStreamDelegate stream:didStopWithError:] called"_s);
+    callOnMainRunLoop([strongSelf = RetainPtr { self }, error = RetainPtr { error }]() mutable {
+        if (RefPtr callback = strongSelf->_callback.get())
+            callback->sessionFailedWithError(WTFMove(error), "-[SCStreamDelegate stream:didStopWithError:] called"_s);
     });
 }
 
@@ -112,10 +111,10 @@ using namespace WebCore;
     if (!sampleBuffer)
         return;
 
-    auto attachments = (__bridge NSArray *)PAL::CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
+    RetainPtr attachments = (__bridge NSArray *)PAL::CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
     SCFrameStatus status = SCFrameStatusStopped;
     [attachments enumerateObjectsUsingBlock:makeBlockPtr([&] (NSDictionary *attachment, NSUInteger, BOOL *stop) {
-        auto statusNumber = (NSNumber *)attachment[SCStreamFrameInfoStatus];
+        RetainPtr statusNumber = dynamic_objc_cast<NSNumber>(attachment[SCStreamFrameInfoStatus]);
         if (!statusNumber)
             return;
 
@@ -136,31 +135,25 @@ using namespace WebCore;
     }
 
     callOnMainRunLoop([strongSelf = RetainPtr { self }, sampleBuffer = RetainPtr { sampleBuffer }]() mutable {
-        if (!strongSelf->_callback)
-            return;
-
-        strongSelf->_callback->streamDidOutputVideoSampleBuffer(WTFMove(sampleBuffer));
+        if (RefPtr callback = strongSelf->_callback.get())
+            callback->streamDidOutputVideoSampleBuffer(WTFMove(sampleBuffer));
     });
 }
 
 #if HAVE(SC_CONTENT_SHARING_PICKER)
 - (void)outputVideoEffectDidStartForStream:(SCStream *)stream
 {
-    callOnMainRunLoop([self, strongSelf = RetainPtr { self }]() mutable {
-        if (!_callback)
-            return;
-
-        _callback->outputVideoEffectDidStartForStream();
+    callOnMainRunLoop([strongSelf = RetainPtr { self }]() mutable {
+        if (RefPtr callback = strongSelf->_callback.get())
+            callback->outputVideoEffectDidStartForStream();
     });
 }
 
 - (void)outputVideoEffectDidStopForStream:(SCStream *)stream
 {
-    callOnMainRunLoop([self, strongSelf = RetainPtr { self }]() mutable {
-        if (!_callback)
-            return;
-
-        _callback->outputVideoEffectDidStopForStream();
+    callOnMainRunLoop([strongSelf = RetainPtr { self }]() mutable {
+        if (RefPtr callback = strongSelf->_callback.get())
+            callback->outputVideoEffectDidStopForStream();
     });
 }
 #endif // HAVE(SC_CONTENT_SHARING_PICKER)
@@ -310,14 +303,14 @@ void ScreenCaptureKitCaptureSource::sessionFilterDidChange(SCContentFilter* cont
     std::optional<CaptureDevice> device;
     switch ([contentFilter type]) {
     case SCContentFilterTypeDesktopIndependentWindow: {
-        auto *window = [contentFilter desktopIndependentWindowInfo].window;
-        device = CaptureDevice(String::number(window.windowID), CaptureDevice::DeviceType::Window, window.title, emptyString(), true);
+        RetainPtr window = retainPtr([contentFilter desktopIndependentWindowInfo].window);
+        device = CaptureDevice(String::number([window windowID]), CaptureDevice::DeviceType::Window, [window title], emptyString(), true);
         m_content = window;
         break;
     }
     case SCContentFilterTypeDisplay: {
-        auto *display = [contentFilter displayInfo].display;
-        device = CaptureDevice(String::number(display.displayID), CaptureDevice::DeviceType::Screen, "Screen"_str, emptyString(), true);
+        RetainPtr display = retainPtr([contentFilter displayInfo].display);
+        device = CaptureDevice(String::number([display displayID]), CaptureDevice::DeviceType::Screen, "Screen"_str, emptyString(), true);
         m_content = display;
         break;
     }
@@ -462,20 +455,20 @@ void ScreenCaptureKitCaptureSource::startContentStream()
         return;
     }
 
-    auto completionHandler = makeBlockPtr([this, weakThis = WeakPtr { *this }, identifier = LOGIDENTIFIER] (NSError *error) mutable {
-        callOnMainRunLoop([this, weakThis = WTFMove(weakThis), error = RetainPtr { error }, identifier]() mutable {
+    auto completionHandler = makeBlockPtr([weakThis = WeakPtr { *this }, identifier = LOGIDENTIFIER] (NSError *error) mutable {
+        callOnMainRunLoop([weakThis = WTFMove(weakThis), error = RetainPtr { error }, identifier]() mutable {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return;
 
             if (error) {
-                sessionFailedWithError(WTFMove(error), "-[SCStream startCaptureWithCompletionHandler:] failed"_s);
+                protectedThis->sessionFailedWithError(WTFMove(error), "-[SCStream startCaptureWithCompletionHandler:] failed"_s);
                 return;
             }
 
-            m_intrinsicSize = { };
-            configurationChanged();
-            ALWAYS_LOG_IF_POSSIBLE(identifier, "stream started");
+            protectedThis->m_intrinsicSize = { };
+            protectedThis->configurationChanged();
+            ALWAYS_LOG_WITH_THIS_IF_POSSIBLE(protectedThis, identifier, "stream started");
         });
     });
 
@@ -553,7 +546,7 @@ void ScreenCaptureKitCaptureSource::streamDidOutputVideoSampleBuffer(RetainPtr<C
         return;
     }
 
-    auto attachments = (__bridge NSArray *)PAL::CMSampleBufferGetSampleAttachmentsArray(sampleBuffer.get(), false);
+    RetainPtr attachments = (__bridge NSArray *)PAL::CMSampleBufferGetSampleAttachmentsArray(sampleBuffer.get(), false);
     SCFrameStatus status = SCFrameStatusStopped;
 
     double contentScale = 1;
@@ -563,29 +556,33 @@ void ScreenCaptureKitCaptureSource::streamDidOutputVideoSampleBuffer(RetainPtr<C
 #if HAVE(SC_CONTENT_SHARING_PICKER)
     auto canCheckForOverlayMode = PAL::canLoad_ScreenCaptureKit_SCStreamFrameInfoPresenterOverlayContentRect();
 #endif
-    [attachments enumerateObjectsUsingBlock:makeBlockPtr([&] (NSDictionary *attachment, NSUInteger, BOOL *stop) {
-        if (auto scaleFactorNumber = (NSNumber *)attachment[SCStreamFrameInfoScaleFactor])
+    [attachments.get() enumerateObjectsUsingBlock:makeBlockPtr([weakThis = WeakPtr { *this }, &scaleFactor, &contentScale, &contentRect, &canCheckForOverlayMode, &shouldDisallowReconfiguration, &status] (NSDictionary *attachment, NSUInteger, BOOL *stop) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return;
+
+        if (RetainPtr scaleFactorNumber = dynamic_objc_cast<NSNumber>(attachment[SCStreamFrameInfoScaleFactor]))
             scaleFactor = [scaleFactorNumber floatValue];
 
-        if (auto contentScaleNumber = (NSNumber *)attachment[SCStreamFrameInfoContentScale])
+        if (RetainPtr contentScaleNumber = dynamic_objc_cast<NSNumber>(attachment[SCStreamFrameInfoContentScale]))
             contentScale = [contentScaleNumber floatValue];
 
-        if (auto contentRectDictionary = (CFDictionaryRef)attachment[SCStreamFrameInfoContentRect]) {
+        if (RetainPtr contentRectDictionary = dynamic_cf_cast<CFDictionaryRef>(attachment[SCStreamFrameInfoContentRect])) {
             CGRect cgRect;
-            if (CGRectMakeWithDictionaryRepresentation(contentRectDictionary, &cgRect))
+            if (CGRectMakeWithDictionaryRepresentation(contentRectDictionary.get(), &cgRect))
                 contentRect = cgRect;
         }
 
 #if HAVE(SC_CONTENT_SHARING_PICKER)
-        if (m_isVideoEffectEnabled && canCheckForOverlayMode) {
-            if (auto overlayRectDictionary = (CFDictionaryRef)attachment[SCStreamFrameInfoPresenterOverlayContentRect]) {
+        if (protectedThis->m_isVideoEffectEnabled && canCheckForOverlayMode) {
+            if (RetainPtr overlayRectDictionary = dynamic_cf_cast<CFDictionaryRef>(attachment[SCStreamFrameInfoPresenterOverlayContentRect])) {
                 CGRect overlayRect;
-                if (CGRectMakeWithDictionaryRepresentation(overlayRectDictionary, &overlayRect))
+                if (CGRectMakeWithDictionaryRepresentation(overlayRectDictionary.get(), &overlayRect))
                     shouldDisallowReconfiguration = overlayRect.origin.x && overlayRect.origin.y;
             }
         }
 #endif
-        auto statusNumber = (NSNumber *)attachment[SCStreamFrameInfoStatus];
+        RetainPtr statusNumber = dynamic_objc_cast<NSNumber>(attachment[SCStreamFrameInfoStatus]);
         if (!statusNumber)
             return;
 

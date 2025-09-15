@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@ typedef Class ClassStructPtr;
 typedef id ObjectStructPtr;
 typedef Method MethodStructPtr;
 typedef Ivar IvarStructPtr;
+typedef SEL SELStructPtr;
 
 @class NSMethodSignature;
 
@@ -45,6 +46,7 @@ typedef struct objc_class* ClassStructPtr;
 typedef struct objc_object* ObjectStructPtr;
 typedef struct objc_method* MethodStructPtr;
 typedef struct objc_ivar* IvarStructPtr;
+typedef struct objc_selector* SELStructPtr;
 
 class NSMethodSignature;
 

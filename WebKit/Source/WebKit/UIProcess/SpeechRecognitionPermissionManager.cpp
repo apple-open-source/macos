@@ -81,8 +81,8 @@ SpeechRecognitionPermissionManager::SpeechRecognitionPermissionManager(WebPagePr
 
 SpeechRecognitionPermissionManager::~SpeechRecognitionPermissionManager()
 {
-    for (auto& request : m_requests)
-        request->complete(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "Permission manager has exited"_s });
+    for (auto& [request, frameInfo] : m_requests)
+        Ref { request }->complete(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "Permission manager has exited"_s });
 }
 
 RefPtr<WebPageProxy> SpeechRecognitionPermissionManager::protectedPage() const
@@ -90,9 +90,9 @@ RefPtr<WebPageProxy> SpeechRecognitionPermissionManager::protectedPage() const
     return m_page.get();
 }
 
-void SpeechRecognitionPermissionManager::request(WebCore::SpeechRecognitionRequest& request, SpeechRecognitionPermissionRequestCallback&& completiontHandler)
+void SpeechRecognitionPermissionManager::request(WebCore::SpeechRecognitionRequest& request, FrameInfoData&& frameInfo, SpeechRecognitionPermissionRequestCallback&& completiontHandler)
 {
-    m_requests.append(SpeechRecognitionPermissionRequest::create(request, WTFMove(completiontHandler)));
+    m_requests.append({ SpeechRecognitionPermissionRequest::create(request, WTFMove(completiontHandler)), WTFMove(frameInfo) });
     if (m_requests.size() == 1)
         startNextRequest();
 }
@@ -104,7 +104,7 @@ WebPageProxy* SpeechRecognitionPermissionManager::page()
 
 void SpeechRecognitionPermissionManager::startNextRequest()
 {
-    while (!m_requests.isEmpty() && !m_requests.first()->request())
+    while (!m_requests.isEmpty() && !m_requests.first().first->request())
         m_requests.removeFirst();
 
     if (m_requests.isEmpty())
@@ -115,9 +115,9 @@ void SpeechRecognitionPermissionManager::startNextRequest()
 
 void SpeechRecognitionPermissionManager::startProcessingRequest()
 {
-    auto page = protectedPage();
+    Ref page = *this->page();
     page->syncIfMockDevicesEnabledChanged();
-    if (page->preferences().mockCaptureDevicesEnabled()) {
+    if (page->protectedPreferences()->mockCaptureDevicesEnabled()) {
         m_microphoneCheck = CheckResult::Granted;
         m_speechRecognitionServiceCheck = CheckResult::Granted;
     } else {
@@ -135,7 +135,7 @@ void SpeechRecognitionPermissionManager::startProcessingRequest()
         }
 
 #if HAVE(SPEECHRECOGNIZER)
-        if (!checkSpeechRecognitionServiceAvailability(m_requests.first()->request()->lang())) {
+        if (!checkSpeechRecognitionServiceAvailability(m_requests.first().first->request()->lang())) {
             completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::ServiceNotAllowed, "Speech recognition service is not available"_s });
             return;
         }
@@ -153,7 +153,8 @@ void SpeechRecognitionPermissionManager::startProcessingRequest()
 void SpeechRecognitionPermissionManager::continueProcessingRequest()
 {
     ASSERT(!m_requests.isEmpty());
-    auto recognitionRequest = m_requests.first()->request();
+    auto recognitionRequest = m_requests.first().first->request();
+    auto frameInfo = m_requests.first().second;
     if (!recognitionRequest) {
         completeCurrentRequest();
         return;
@@ -172,7 +173,7 @@ void SpeechRecognitionPermissionManager::continueProcessingRequest()
     ASSERT(m_microphoneCheck == CheckResult::Granted);
 
     if (m_userPermissionCheck == CheckResult::Unknown) {
-        requestUserPermission(*recognitionRequest);
+        requestUserPermission(*recognitionRequest, WTFMove(frameInfo));
         return;
     }
     ASSERT(m_userPermissionCheck == CheckResult::Granted);
@@ -188,7 +189,7 @@ void SpeechRecognitionPermissionManager::continueProcessingRequest()
 void SpeechRecognitionPermissionManager::completeCurrentRequest(std::optional<WebCore::SpeechRecognitionError>&& error)
 {
     ASSERT(!m_requests.isEmpty());
-    auto currentRequest = m_requests.takeFirst();
+    Ref currentRequest = m_requests.takeFirst().first;
     currentRequest->complete(WTFMove(error));
 
     startNextRequest();
@@ -199,17 +200,18 @@ void SpeechRecognitionPermissionManager::requestSpeechRecognitionServiceAccess()
     ASSERT(m_speechRecognitionServiceCheck == CheckResult::Unknown);
 
 #if HAVE(SPEECHRECOGNIZER)
-    requestSpeechRecognitionAccess([this, weakThis = WeakPtr { *this }](bool authorized) mutable {
-        if (!weakThis)
+    requestSpeechRecognitionAccess([weakThis = WeakPtr { *this }](bool authorized) mutable {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
-        m_speechRecognitionServiceCheck = authorized ? CheckResult::Granted : CheckResult::Denied;
-        if (m_speechRecognitionServiceCheck == CheckResult::Denied) {
-            completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::ServiceNotAllowed, "Speech recognition service permission check has failed"_s });
+        protectedThis->m_speechRecognitionServiceCheck = authorized ? CheckResult::Granted : CheckResult::Denied;
+        if (protectedThis->m_speechRecognitionServiceCheck == CheckResult::Denied) {
+            protectedThis->completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::ServiceNotAllowed, "Speech recognition service permission check has failed"_s });
             return;
         }
 
-        continueProcessingRequest();
+        protectedThis->continueProcessingRequest();
     });
 #endif
 }
@@ -219,39 +221,41 @@ void SpeechRecognitionPermissionManager::requestMicrophoneAccess()
     ASSERT(m_microphoneCheck == CheckResult::Unknown);
 
 #if HAVE(AVCAPTUREDEVICE)
-    requestAVCaptureAccessForType(MediaPermissionType::Audio, [this, weakThis = WeakPtr { *this }](bool authorized) {
-        if (!weakThis)
+    requestAVCaptureAccessForType(MediaPermissionType::Audio, [weakThis = WeakPtr { *this }](bool authorized) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
-        m_microphoneCheck = authorized ? CheckResult::Granted : CheckResult::Denied;
-        if (m_microphoneCheck == CheckResult::Denied) {
-            completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "Microphone permission check has failed"_s });
+        protectedThis->m_microphoneCheck = authorized ? CheckResult::Granted : CheckResult::Denied;
+        if (protectedThis->m_microphoneCheck == CheckResult::Denied) {
+            protectedThis->completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "Microphone permission check has failed"_s });
             return;
         }
 
-        continueProcessingRequest();
+        protectedThis->continueProcessingRequest();
     });
 #endif
 }
 
-void SpeechRecognitionPermissionManager::requestUserPermission(WebCore::SpeechRecognitionRequest& recognitionRequest)
+void SpeechRecognitionPermissionManager::requestUserPermission(WebCore::SpeechRecognitionRequest& recognitionRequest, FrameInfoData&& frameInfo)
 {
     auto clientOrigin = recognitionRequest.clientOrigin();
     auto requestingOrigin = clientOrigin.clientOrigin.securityOrigin();
     auto topOrigin = clientOrigin.topOrigin.securityOrigin();
-    auto decisionHandler = [this, weakThis = WeakPtr { *this }](bool granted) {
-        if (!weakThis)
+    auto decisionHandler = [weakThis = WeakPtr { *this }](bool granted) {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
-        m_userPermissionCheck = granted ? CheckResult::Granted : CheckResult::Denied;
-        if (m_userPermissionCheck == CheckResult::Denied) {
-            completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "User permission check has failed"_s });
+        protectedThis->m_userPermissionCheck = granted ? CheckResult::Granted : CheckResult::Denied;
+        if (protectedThis->m_userPermissionCheck == CheckResult::Denied) {
+            protectedThis->completeCurrentRequest(WebCore::SpeechRecognitionError { WebCore::SpeechRecognitionErrorType::NotAllowed, "User permission check has failed"_s });
             return;
         }
 
-        continueProcessingRequest();
+        protectedThis->continueProcessingRequest();
     };
-    protectedPage()->requestUserMediaPermissionForSpeechRecognition(recognitionRequest.frameIdentifier(), requestingOrigin, topOrigin, WTFMove(decisionHandler));
+    protectedPage()->requestUserMediaPermissionForSpeechRecognition(recognitionRequest.mainFrameIdentifier(), WTFMove(frameInfo), requestingOrigin, topOrigin, WTFMove(decisionHandler));
 }
 
 void SpeechRecognitionPermissionManager::decideByDefaultAction(const WebCore::SecurityOriginData& origin, CompletionHandler<void(bool)>&& completionHandler)

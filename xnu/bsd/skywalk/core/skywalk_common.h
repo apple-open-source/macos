@@ -94,9 +94,9 @@ __END_DECLS
 	((((x) % (align)) == 0) ? (x) : ((x) + ((align) - ((x) % (align)))))
 
 /* compile time assert */
-#ifndef _CASSERT
-#define _CASSERT(x)     _Static_assert(x, "compile-time assertion failed")
-#endif /* !_CASSERT */
+#ifndef static_assert
+#define static_assert(x) _Static_assert(x, #x)
+#endif /* !static_assert */
 
 /* power of 2 address alignment */
 #ifndef IS_P2ALIGNED

@@ -32,7 +32,7 @@ namespace WebKit {
 
 class SecItemResponseData {
 public:
-    using Result = std::variant<
+    using Result = Variant<
         std::nullptr_t,
         Vector<RetainPtr<SecCertificateRef>>
 #if HAVE(SEC_KEYCHAIN)

@@ -30,52 +30,62 @@
 #import "WebPushToolConnection.h"
 #import <optional>
 #import <wtf/MainThread.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/WTFProcess.h>
+#import <wtf/cocoa/NSStringExtras.h>
 
 #if HAVE(OS_LAUNCHD_JOB) && (PLATFORM(MAC) || PLATFORM(IOS))
 
-using WebKit::WebPushD::PushMessageForTesting;
+#if USE(APPLE_INTERNAL_SDK)
+// AppServerSupport cannot be safely imported within modules, so avoid putting
+// this SPI declaration in headers.
+#import <AppServerSupport/OSLaunchdJob.h>
+#else
+#import <Foundation/NSError.h>
+@interface OSLaunchdJob : NSObject
+- (instancetype)initWithPlist:(xpc_object_t)plist;
+- (BOOL)submit:(NSError **)errorOut;
+@end
+#endif
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+using WebKit::WebPushD::PushMessageForTesting;
 
 __attribute__((__noreturn__))
 static void printUsageAndTerminate(NSString *message)
 {
-    fprintf(stderr, "%s\n\n", message.UTF8String);
+    SAFE_FPRINTF(stderr, "%s\n\n", message);
 
-    fprintf(stderr, "Usage: webpushtool [options] verb [verb_args]\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "options is one or more of:\n");
-    fprintf(stderr, "  --development\n");
-    fprintf(stderr, "    Connects to mach service \"org.webkit.webpushtestdaemon.service\" (Default)\n");
-    fprintf(stderr, "  --production\n");
-    fprintf(stderr, "    Connects to mach service \"com.apple.webkit.webpushd.service\"\n");
-    fprintf(stderr, "  --bundleIdentifier <bundleIdentifier>\n");
-    fprintf(stderr, "    Sets connection config to use bundle identifier <bundleIdentifier>.\n");
-    fprintf(stderr, "  --pushPartition <partition>\n");
-    fprintf(stderr, "    Sets connection config to use push partition <partition>.\n");
-    fprintf(stderr, "\n");
-    fprintf(stderr, "verb is one of:\n");
+    SAFE_FPRINTF(stderr, "Usage: webpushtool [options] verb [verb_args]\n");
+    SAFE_FPRINTF(stderr, "\n");
+    SAFE_FPRINTF(stderr, "options is one or more of:\n");
+    SAFE_FPRINTF(stderr, "  --development\n");
+    SAFE_FPRINTF(stderr, "    Connects to mach service \"org.webkit.webpushtestdaemon.service\" (Default)\n");
+    SAFE_FPRINTF(stderr, "  --production\n");
+    SAFE_FPRINTF(stderr, "    Connects to mach service \"com.apple.webkit.webpushd.service\"\n");
+    SAFE_FPRINTF(stderr, "  --bundleIdentifier <bundleIdentifier>\n");
+    SAFE_FPRINTF(stderr, "    Sets connection config to use bundle identifier <bundleIdentifier>.\n");
+    SAFE_FPRINTF(stderr, "  --pushPartition <partition>\n");
+    SAFE_FPRINTF(stderr, "    Sets connection config to use push partition <partition>.\n");
+    SAFE_FPRINTF(stderr, "\n");
+    SAFE_FPRINTF(stderr, "verb is one of:\n");
 #if HAVE(OS_LAUNCHD_JOB)
-    fprintf(stderr, "  host\n");
-    fprintf(stderr, "    Dynamically registers the service with launchd so it is visible to other applications\n");
-    fprintf(stderr, "    The service name of the registration depends on either the --development or --production option chosen\n");
+    SAFE_FPRINTF(stderr, "  host\n");
+    SAFE_FPRINTF(stderr, "    Dynamically registers the service with launchd so it is visible to other applications\n");
+    SAFE_FPRINTF(stderr, "    The service name of the registration depends on either the --development or --production option chosen\n");
 #endif
-    fprintf(stderr, "  streamDebugMessages\n");
-    fprintf(stderr, "    Stream debug messages from webpushd\n");
-    fprintf(stderr, "  injectPushMessage <scope URL> <message>\n");
-    fprintf(stderr, "    Inject a test push message <message> to the provided --bundleIdentifier and --pushPartition with service worker scope <scope URL>\n");
-    fprintf(stderr, "  getPushPermissionState <scope URL>\n");
-    fprintf(stderr, "    Gets the permission state for the given service worker scope.\n");
-    fprintf(stderr, "  requestPushPermission <scope URL>\n");
-    fprintf(stderr, "    Requests permission state for the given service worker scope.\n");
-    fprintf(stderr, "\n");
+    SAFE_FPRINTF(stderr, "  streamDebugMessages\n");
+    SAFE_FPRINTF(stderr, "    Stream debug messages from webpushd\n");
+    SAFE_FPRINTF(stderr, "  injectPushMessage <scope URL> <message>\n");
+    SAFE_FPRINTF(stderr, "    Inject a test push message <message> to the provided --bundleIdentifier and --pushPartition with service worker scope <scope URL>\n");
+    SAFE_FPRINTF(stderr, "  getPushPermissionState <scope URL>\n");
+    SAFE_FPRINTF(stderr, "    Gets the permission state for the given service worker scope.\n");
+    SAFE_FPRINTF(stderr, "  requestPushPermission <scope URL>\n");
+    SAFE_FPRINTF(stderr, "    Requests permission state for the given service worker scope.\n");
+    SAFE_FPRINTF(stderr, "\n");
 
     exitProcess(-1);
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 static std::unique_ptr<PushMessageForTesting> pushMessageFromArguments(NSEnumerator<NSString *> *enumerator)
 {
@@ -178,15 +188,13 @@ public:
         pushMessage.targetAppCodeSigningIdentifier = connection.bundleIdentifier();
         pushMessage.pushPartitionString = connection.pushPartition();
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
         connection.sendPushMessage(WTFMove(pushMessage), [this, bundleIdentifier = connection.bundleIdentifier(), webClipIdentifier = connection.pushPartition()](String error) mutable {
             if (error.isEmpty())
-                printf("Successfully injected push message %s for [bundleID = %s, webClipIdentifier = %s, scope = %s]\n", m_pushMessage.payload.utf8().data(), bundleIdentifier.utf8().data(), webClipIdentifier.utf8().data(), m_pushMessage.registrationURL.string().utf8().data());
+                SAFE_PRINTF("Successfully injected push message %s for [bundleID = %s, webClipIdentifier = %s, scope = %s]\n", m_pushMessage.payload.utf8(), bundleIdentifier.utf8(), webClipIdentifier.utf8(), m_pushMessage.registrationURL.string().utf8());
             else
-                printf("Injected push message with error: %s\n", error.utf8().data());
+                SAFE_PRINTF("Injected push message with error: %s\n", error.utf8());
             done();
         });
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     }
 
 private:
@@ -264,7 +272,7 @@ int WebPushToolMain(int, char **)
             else if ([argument isEqualToString:@"injectPushMessage"]) {
                 auto pushMessage = pushMessageFromArguments(enumerator);
                 if (!pushMessage)
-                    printUsageAndTerminate([NSString stringWithFormat:@"Invalid push arguments specified"]);
+                    printUsageAndTerminate(adoptNS([[NSString alloc] initWithFormat:@"Invalid push arguments specified"]).get());
                 verb = makeUnique<InjectPushMessageVerb>(WTFMove(*pushMessage));
             } else if ([argument isEqualToString:@"getPushPermissionState"]) {
                 String scope { [enumerator nextObject] };
@@ -273,7 +281,7 @@ int WebPushToolMain(int, char **)
                 String scope { [enumerator nextObject] };
                 verb = makeUnique<RequestPushPermissionVerb>(scope);
             } else
-                printUsageAndTerminate([NSString stringWithFormat:@"Invalid option provided: %@", argument]);
+                printUsageAndTerminate(adoptNS([[NSString alloc] initWithFormat:@"Invalid option provided: %@", argument]).get());
 
             argument = [enumerator nextObject];
         }

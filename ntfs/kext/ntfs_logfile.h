@@ -315,7 +315,7 @@ typedef struct {
 __private_extern__ errno_t ntfs_logfile_check(ntfs_inode *ni,
 		RESTART_PAGE_HEADER **rp);
 
-__private_extern__ BOOL ntfs_logfile_is_clean(ntfs_inode *ni,
+__private_extern__ NTFS_BOOL ntfs_logfile_is_clean(ntfs_inode *ni,
 		const RESTART_PAGE_HEADER *rp);
 
 __private_extern__ errno_t ntfs_logfile_empty(ntfs_inode *ni);

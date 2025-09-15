@@ -19,13 +19,16 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "unicode/uloc.h"
 #include "unicode/ucal.h"
 #include "unicode/udat.h"
+#include "unicode/udatpg.h"
 #include "unicode/ustring.h"
 #include "cintltst.h"
 #include "ccaltst.h"
@@ -51,6 +54,22 @@ void TestGetDayPeriods(void); /* Apple-specific */
 void TestWeekOfYear(void); /* Apple-specific */
 // rdar://138850954
 void TestHinduCalendars(void); /* Apple-specific */
+void TestHinduSolarMonthsAndYears(void); // rdar://153144480
+void TestHinduDateFormats(void) ; // rdar://145904555
+void TestVikramRepeatedDays(void); /* Apple-specific */ // rdar://138880732
+void TestVikramRepeatedDaysConsistency(void); /* Apple-specific */// rdar://151153366
+void TestLunarMonthNames(void); /* Apple-specific */// rdar://144904333
+void TestHinduLeapMonthFormatting(void); // // rdar://151394973
+void TestApplyPattern(void); /* Apple-specific */// rdar://145772893
+void TestVikramAddDayFoundationStyle(void); /* Apple-specific */ // rdar://151715392
+void TestHinduAddDayFoundationStyle(void); /* Apple-specific */ // rdar://151715392
+void TestHinduCalendarAddMonth2(void); // rdar://156473289
+void TestVikramRoundTrip(void); /* Apple-specific */// rdar://145903949
+void TestHinduCalendarAddMonth(void); /* Apple-specific */// rdar://151415578
+void TestChineseAlignedLunisolarCalendars(void); /* Apple-specific */ // rdar://24832944
+void TestVietnameseBestPatternForSkeleton(void); /* Apple-specific */ // rdar://146190481
+void TestLimitsForLeapMonthAndRepeatedDay(void); /* Apple-specific */ // rdar://154212299
+void TestHinduDayOfYear(void); // rdar://154447321
 #endif  // APPLE_ICU_CHANGES
 
 void TestFWWithISO8601(void);
@@ -90,6 +109,22 @@ void addCalTest(TestNode** root)
     addTest(root, &TestGetDayPeriods, "tsformat/ccaltst/TestGetDayPeriods"); /* Apple-specific */
     addTest(root, &TestWeekOfYear, "tsformat/ccaltst/TestWeekOfYear"); /* Apple-specific */
     addTest(root, &TestHinduCalendars, "tsformat/ccaltst/TestHinduCalendars"); /* Apple-specific */
+    addTest(root, &TestVikramRepeatedDays, "tsformat/ccaltst/TestVikramRepeatedDays"); /* Apple-specific */ // rdar://138880732
+    addTest(root, &TestVikramRepeatedDaysConsistency, "tsformat/ccaltst/TestVikramRepeatedDaysConsistency"); /* Apple-specific */ //rdar://151153366
+    addTest(root, &TestChineseAlignedLunisolarCalendars, "tsformat/ccaltst/TestChineseAlignedLunisolarCalendars"); /* Apple-specific */ // rdar://24832944
+    addTest(root, &TestVietnameseBestPatternForSkeleton, "tsformat/ccaltst/TestVietnameseBestPatternForSkeleton"); /* Apple-specific */ // rdar://146190481
+    addTest(root, &TestLunarMonthNames, "tsformat/ccaltst/TestLunarMonthNames"); /* Apple-specific */ //rdar://144904333
+    addTest(root, &TestHinduLeapMonthFormatting, "tsformat/ccaltst/TestHinduLeapMonthFormatting"); /* Apple-specific */ // rdar://151394973
+    addTest(root, &TestApplyPattern, "tsformat/ccaltst/TestApplyPattern"); /* Apple-specific */ //rdar://145772893
+    addTest(root, &TestVikramAddDayFoundationStyle, "tsformat/ccaltst/TestVikramAddDayFoundationStyle"); // rdar://151715392
+    addTest(root, &TestHinduAddDayFoundationStyle, "tsformat/ccaltst/TestHinduAddDayFoundationStyle"); // rdar://151715392
+    addTest(root, &TestHinduCalendarAddMonth2, "tsformat/ccaltst/TestHinduCalendarAddMonth2"); // rdar://156473289
+    addTest(root, &TestVikramRoundTrip, "tsformat/ccaltst/TestVikramRoundTrip"); /* Apple-specific */ //rdar://145903949
+    addTest(root, &TestHinduCalendarAddMonth, "tsformat/ccaltst/TestHinduCalendarAddMonth"); /* Apple-specific */ // rdar://151415578
+    addTest(root, &TestHinduSolarMonthsAndYears, "tsformat/ccaltst/TestHinduSolarMonthsAndYears"); // rdar://153144480
+    addTest(root, &TestHinduDateFormats, "tsformat/ccaltst/TestHinduDateFormats"); // rdar://145904555
+    addTest(root, &TestLimitsForLeapMonthAndRepeatedDay, "tsformat/ccaltst/TestLimitsForLeapMonthAndRepeatedDay"); /* Apple-specific */ // rdar://154212299
+    addTest(root, &TestHinduDayOfYear, "tsformat/ccaltst/TestHinduDayOfYear"); // rdar://154447321
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -326,7 +361,7 @@ static void TestCalendar(void)
         }
     }
 #endif  // APPLE_ICU_CHANGES
-    
+
     /*Testing ucal_getCanonicalTimeZoneID*/
     status = U_ZERO_ERROR;
     resultlength = ucal_getCanonicalTimeZoneID(PST, -1,
@@ -1749,6 +1784,10 @@ static void TestGetKeywordValuesForLocale(void) {
             if (U_SUCCESS(status) && size == uenum_count(ALL, &status)) {
                 matchAll = true;
                 ALLList = ulist_getListFromEnum(ALL);
+                // rdar://146085622 make sure hindu-lunar and hindu-solar are not in the calendar list
+                if (ulist_containsString(ALLList, "hindu-lunar", 11) || ulist_containsString(ALLList, "hindu-solar", 11)) {
+                    log_err("ERROR hindu-lunar and/or hindu-solar are not valid calendar IDs \n");
+                }
                 for (j = 0; j < size; j++) {
                     if ((value = uenum_next(all, &valueLength, &status)) != NULL && U_SUCCESS(status)) {
                         if (!ulist_containsString(ALLList, value, (int32_t)uprv_strlen(value))) {
@@ -3005,13 +3044,7 @@ TestGetIanaTimeZoneID(void) {
         {u"Europe/Zaporozhye",  u"Europe/Kyiv"},
         {u"Etc/GMT-1",          u"Etc/GMT-1"},
         {u"Etc/GMT+20",         UNKNOWN},
-#if APPLE_ICU_CHANGES
-// rdar://136543653 (Integrate ICU 76rc and CLDR 46rc into Apple ICU)
-// We backed out the OSICU time zone data as part of integrating ICU 76, so we have to back out the test too
-        {u"PST8PDT",            u"PST8PDT"},
-#else
         {u"PST8PDT",            u"America/Los_Angeles"},
-#endif // APPLE_ICU_CHANGES
         {u"GMT-08:00",          UNKNOWN},
         {0,                     0}
     };
@@ -3342,13 +3375,13 @@ void TestWeekOfYear() {
 // More exhaustive set of tests for Hindu calendars is TestHinduCalendars() in intltest/caltest.cpp
 void TestHinduCalendars() {
     UErrorCode status = U_ZERO_ERROR;
-    
+
     // Lunar
     UCalendar *hinduLunar = ucal_open(NULL, 0, "en@calendar=hindu-lunar", UCAL_DEFAULT, &status);
     ucal_set(hinduLunar, UCAL_JULIAN_DAY, 2448698);
     if ( ucal_get(hinduLunar, UCAL_YEAR, &status) != 2048 ||
-        ucal_get(hinduLunar, UCAL_MONTH, &status) != 12 ||
-        ucal_get(hinduLunar, UCAL_DATE, &status) != 14) {
+        ucal_get(hinduLunar, UCAL_MONTH, &status) != 11 ||
+        ucal_get(hinduLunar, UCAL_DATE, &status) != 13) {
         log_err("FAIL: error when testing hindu lunar calendar, incorrect date returned");
     }
     ucal_close(hinduLunar);
@@ -3356,31 +3389,992 @@ void TestHinduCalendars() {
     UCalendar *vikram = ucal_open(NULL, 0, "en@calendar=vikram", UCAL_DEFAULT, &status);
     ucal_set(vikram, UCAL_JULIAN_DAY, 2448698);
     if ( ucal_get(vikram, UCAL_YEAR, &status) != 2048 ||
-        ucal_get(vikram, UCAL_MONTH, &status) != 12 ||
-        ucal_get(vikram, UCAL_DATE, &status) != 14) {
+        ucal_get(vikram, UCAL_MONTH, &status) != 11 ||
+        ucal_get(vikram, UCAL_DATE, &status) != 28) {
         log_err("FAIL: error when testing vikram calendar, incorrect date returned");
     }
     ucal_close(vikram);
 
-    // Solar
-    UCalendar *hinduSolar = ucal_open(NULL, 0, "en@calendar=hindu-solar", UCAL_DEFAULT, &status);
-    ucal_set(hinduSolar, UCAL_JULIAN_DAY, 2448698);
-    if ( ucal_get(hinduSolar, UCAL_YEAR, &status) != 1913 ||
-        ucal_get(hinduSolar, UCAL_MONTH, &status) != 12 ||
-        ucal_get(hinduSolar, UCAL_DATE, &status) != 4) {
-        log_err("FAIL: error when testing hindu solar calendar, incorrect date returned");
-    }
-    ucal_close(hinduSolar);
-    
     UCalendar *tamil = ucal_open(NULL, 0, "en@calendar=tamil", UCAL_DEFAULT, &status);
     ucal_set(tamil, UCAL_JULIAN_DAY, 2448698);
     if ( ucal_get(tamil, UCAL_YEAR, &status) != 1913 ||
-        ucal_get(tamil, UCAL_MONTH, &status) != 12 ||
-        ucal_get(tamil, UCAL_DATE, &status) != 4) {
-        log_err("FAIL: error when testing tamil calendar, incorrect date returned");
+        ucal_get(tamil, UCAL_MONTH, &status) != 11 ||
+        ucal_get(tamil, UCAL_DATE, &status) != 3) {
+        log_err("ERR: Wrong calculation for Tamil calendar!\nHinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+                2448698,
+                1913, 11, 3,
+                ucal_get(tamil, UCAL_YEAR, &status), ucal_get(tamil, UCAL_MONTH, &status), ucal_get(tamil, UCAL_DATE, &status));
     }
     ucal_close(tamil);
 }
+
+// rdar://138880732
+typedef struct {
+    // set:
+    int32_t julian;
+    // expected:
+    int32_t year;
+    int32_t month;
+    int32_t day;
+    int32_t repeat;
+} RDSetJulianStruct;
+RDSetJulianStruct RDSetJulian[] = {
+    // for this, the Julian day is what's set,
+    // and the Vikram date & repeat flag are what's expected
+
+    // normal non-repeating day
+    {2460777, 2082,  0, 29, 0}, // Gregorian 2025-04-11 at noon UTC
+    {2460778, 2082,  0, 30, 0}, // Gregorian 2025-04-12 at noon UTC
+
+    // repeating day
+    {2460779, 2082,  1,  1, 0}, // Gregorian 2025-04-13 at noon UTC
+    {2460780, 2082,  1,  1, 1}, // Gregorian 2025-04-14 at noon UTC
+
+    {      0,    0,  0,  0, 0}  // sentinel record
+};
+
+typedef struct {
+    // set:
+    int32_t year;
+    int32_t month;
+    int32_t day;
+    int32_t repeat;
+    // expected:
+    int32_t julian;
+    int32_t expected_repeat;
+} RDSetVikramStruct;
+
+RDSetVikramStruct RDSetVikram[] = {
+    // for this, the Vikram date & repeat flag are what's set,
+    // and the Julian day is what's expected
+
+    // this Vikram day does not repeat, so repeat field should be ignored
+    {2082, 0, 29, 0, 2460777, 0}, // Gregorian 2025-04-11 at noon UTC
+    {2082, 0, 29, 1, 2460777, 0}, // Gregorian 2025-04-11 at noon UTC
+
+    // this Vikram day does repeat, so repeat field should be honored
+    {2082, 1,  1, 0, 2460779, 0}, // Gregorian 2025-04-13 at noon UTC
+    {2082, 1,  1, 1, 2460780, 1}, // Gregorian 2025-04-14 at noon UTC
+
+    {   0, 0,  0, 0,       0, 0}  // sentinel record
+};
+
+
+void TestVikramRepeatedDays(void) { // rdar://138880732
+    UErrorCode status = U_ZERO_ERROR;
+    UCalendar *vikram = ucal_open(u"Asia/Kolkata", -1, "en@calendar=vikram", UCAL_DEFAULT, &status);
+    int32_t julian, year, month, day, repeat, expected_repeat;
+    int32_t i;
+
+    // test setting the Julian day and
+    // getting the Vikram date and "is repeated day" field
+    for(i=0; RDSetJulian[i].julian != 0; i++) {
+        ucal_set(vikram, UCAL_JULIAN_DAY, RDSetJulian[i].julian);
+        year = ucal_get(vikram, UCAL_YEAR, &status);
+        month = ucal_get(vikram, UCAL_MONTH, &status);
+        day = ucal_get(vikram, UCAL_DATE, &status);
+        repeat = ucal_get(vikram, UCAL_IS_REPEATED_DAY, &status);
+        if ((year != RDSetJulian[i].year) ||
+            (month != RDSetJulian[i].month) ||
+            (day != RDSetJulian[i].day) ||
+            (repeat != RDSetJulian[i].repeat)) {
+            log_err("FAIL: error when testing vikram calendar, expected: %d-%d-%d (%d) got: %d-%d-%d (%d)\n",
+                    RDSetJulian[i].year, RDSetJulian[i].month, RDSetJulian[i].day, RDSetJulian[i].repeat,
+                    year, month, day, repeat);
+        }
+    }
+
+#if 0 // TODO: enable this after the round-tripping errors in rdar://151149828 are fixed
+    // test setting the Vikram date and "is repeated field" and
+    // getting the Julian day and the "is repeated day" field
+    for(i=0; RDSetVikram[i].julian != 0; i++) {
+        ucal_set(vikram, UCAL_YEAR, RDSetVikram[i].year);
+        ucal_set(vikram, UCAL_MONTH, RDSetVikram[i].month);
+        ucal_set(vikram, UCAL_DATE, RDSetVikram[i].day);
+        ucal_set(vikram, UCAL_IS_REPEATED_DAY, RDSetVikram[i].repeat);
+        julian = ucal_get(vikram, UCAL_JULIAN_DAY, &status);
+        repeat = ucal_get(vikram, UCAL_IS_REPEATED_DAY, &status);
+        if((julian != RDSetVikram[i].julian) || (repeat != RDSetVikram[i].expected_repeat)) {
+            log_err("FAIL: error when testing vikram calendar, expected: %d (%d) got: %d (%d)\n",
+                    RDSetVikram[i].julian, RDSetVikram[i].expected_repeat,
+                    julian, repeat);
+        }
+    }
+#endif
+    ucal_close(vikram);
+}
+
+//    rdar://151153366
+void TestVikramRepeatedDaysConsistency(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t julian, year, month, day, repeat, expected_repeat;
+    int32_t prev_year=0, prev_month=0, prev_day=0, prev_repeat=0;
+
+    UCalendar *vikram = ucal_open(u"Asia/Kolkata", -1, "en@calendar=vikram", UCAL_DEFAULT, &status);
+
+    // Julian day 2460677 = 2025 January 1
+    // Julian day 2462867 = 2030 December 31
+    for(julian=2460677; julian <= 2462867; julian++) {
+        ucal_set(vikram, UCAL_JULIAN_DAY, julian);
+        year = ucal_get(vikram, UCAL_YEAR, &status);
+        month = ucal_get(vikram, UCAL_MONTH, &status);
+        day = ucal_get(vikram, UCAL_DATE, &status);
+        repeat = ucal_get(vikram, UCAL_IS_REPEATED_DAY, &status);
+        if (((day == prev_day) && (repeat == 0)) ||
+            ((day != prev_day) && (repeat != 0))) {
+            log_err("%d -> %04d-%02d-%02d (%d) and %d -> %04d-%02d-%02d (%d)\n",
+                    julian-1, prev_year, prev_month, prev_day, prev_repeat,
+                    julian, year, month, day, repeat);
+        }
+        prev_year = year;
+        prev_month = month;
+        prev_day = day;
+        prev_repeat = repeat;
+    }
+    ucal_close(vikram);
+    }
+    
+struct { // rdar://144904333 & rdar://145184053
+      const char *locale;
+      const char *expected;
+} LunarMonthNamesData[] = { 
+  { "bn@calendar=vikram", "ফাল্গুন কৃষ্ণ দ্বিতীয়া" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
+  { "en@calendar=vikram", "Phālguna K. 2" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names
+  { "gu@calendar=vikram", "ફાગણ કૃ૰ બીજ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
+  { "hi@calendar=vikram", "फाल्गुन कृ॰ द्वितीया" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
+  { "kn@calendar=vikram", "ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names
+  { "ml@calendar=vikram", "ഫാൽ. ദ്വിതീയ" },  // rdar://145171191 replace numeric values with strings rdar://145904346 Shorten narrow names
+  { "mr@calendar=vikram", "फाल्गुन कृ॰ द्वितीया" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first rdar://145904346 Shorten narrow names
+  { "or@calendar=vikram", "ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },  // rdar://145171191 replace numeric values with strings
+  { "pa@calendar=vikram", "ਫੱਗਣ ਵਦੀ ਦੂਜ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
+  { "ta@calendar=vikram", "பங்குனி துவிதியை" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
+  { "te@calendar=vikram", "ఫాల్గుణం కృష్ణ విదియ" },  // rdar://145171191 replace numeric values with strings rdar://145904555 move month first
+  { "ur@calendar=vikram", "پھاگن بَدی دوج" },  // rdar://145171191 replace numeric values with strings
+  { "en@calendar=bangla", "1 Falgun" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=gujarati", "Mahā Vad 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=kannada", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=odia", "Phalguna 3" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=tamil", "2 Maasi" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=telugu", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "en@calendar=malayalam", "Kumbham 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names rdar://153720231 malayalam field order
+  { "en@calendar=marathi", "Māgha K. 2" },  // rdar://145860573 additional Hindu calendars rdar://145904346 Shorten narrow names
+  { "gu@calendar=gujarati", "મહા કૃ૰ બીજ" },  // rdar://151311580 Gujarati should return Amanta based dates rdar://145904346 Shorten narrow names
+  { "kn@calendar=kannada", "ಮಾಘ ಕೃ. ದ್ವಿತೀಯ" },  // rdar://151311580 Kannada should return Amanta based dates rdar://145904346 Shorten narrow names
+  { "mr@calendar=marathi", "माघ कृ॰ द्वितीया" },  // rdar://151311580 Marathi should return Amanta based dates rdar://145904346 Shorten narrow names
+  { "bn@calendar=bangla", "1 ফাল্গুন" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "or@calendar=odia", "ଫାଲ୍‌ଗୁନ 3" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "ta@calendar=tamil", "2 மாசி" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "ml@calendar=malayalam", "കുംഭം 2" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "gu@calendar=tamil", "2 મહા" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "hi@calendar=tamil", "2 माघ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "kn@calendar=tamil", "2 ಮಾಘ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "mr@calendar=tamil", "2 माघ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "pa@calendar=tamil", "2 ਮਾਘ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "te@calendar=tamil", "2 మాఘం" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "ur@calendar=tamil", "2 ماگھ" },  // rdar://152047000 (Tamil: Month and date format of Tamil calendar leading to confusion, should be aligned to native Tamil calendars)
+  { "fi@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fr@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "en_IN@calendar=vikram", "Phālguna K. 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fi@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fr@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "en_IN@calendar=tamil", "2 Maasi" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fi@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fr@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "en_IN@calendar=bangla", "1 Falgun" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fi@calendar=gujarati", "Mahā Vad 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "fr@calendar=gujarati", "Mahā Vad 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+  { "en_IN@calendar=gujarati", "Mahā Vad 2" },  // rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+};
+    
+// rdar://151394973
+void TestHinduLeapMonthFormatting() {
+    struct TestCase {
+        const char* locale;
+        const char* expected;
+    } testCases[] = {
+        // the month names, month numbers, and years were scraped from Drik Panchang
+        { "bn@calendar=vikram", "অ৽জ্যৈষ্ঠ শুক্ল প্রতিপদ" },
+        { "en@calendar=vikram", "Jyeṣṭha (A) Ś. 1" },
+        { "gu@calendar=vikram", "અ૰જેઠ શુ૰ પ્રતિપદા" },
+        { "hi@calendar=vikram", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
+        { "kn@calendar=vikram", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪ್ರತಿಪದ" },
+        { "ml@calendar=vikram", "അ.ജ്യേഷ്. പ്രഥമ" },
+        { "mr@calendar=vikram", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
+        { "or@calendar=vikram", "ଅ.ଜ‍୍ୟେଷ୍ଠ ଶୁକ୍ଳ ପ୍ରତିପଦା" },
+        { "pa@calendar=vikram", "ਅ.ਜੇਠ ਸੁਦੀ ਏਕਮ" },
+        { "ta@calendar=vikram", "அ.ஆனி பிரதமை" },
+        { "te@calendar=vikram", "అ.జ్యేష్ఠం శుక్ల పాడ్యమి" },
+        { "ur@calendar=vikram", "ادھکجیٹھ سُدی پرِوا" },
+        { "en@calendar=gujarati", "Jeth (A) Sud 1" },
+        { "en@calendar=kannada", "Jyeṣṭha (A) Ś. 1" },
+        { "en@calendar=telugu", "Jyeṣṭha (A) S. 1" },
+        { "en@calendar=marathi", "Jyeṣṭha (A) Ś. 1" },
+        { "gu@calendar=gujarati", "અ૰જેઠ શુ૰ પ્રતિપદા" },
+        { "kn@calendar=kannada", "ಅ.ಜ್ಯೇಷ್ಠ ಶು. ಪ್ರತಿಪದ" },
+        { "mr@calendar=marathi", "अ॰ज्येष्ठ शु॰ प्रतिपदा" },
+        { "te@calendar=telugu", "అ.జ్యేష్ఠం శుక్ల పాడ్యమి" },
+    };
+
+    UErrorCode status = U_ZERO_ERROR;
+  
+    UDateFormat *cal;
+    // Testing for May 17th 2026, which is the first day of leap month in the year of 2083 of Hindu lunisolar calendars
+    UDate date = 1779056889874;
+
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+      cal = udat_open(UDAT_SHORT, UDAT_LONG, testCases[i].locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+      UChar buf[256];
+      char cbuf[256];
+      UDateTimePatternGenerator* dtpgen = udatpg_open(testCases[i].locale, &status);
+      const UChar* testSkeleton = u"yMMMd";
+      int kUbufMax = 64;
+      UChar pattern[kUbufMax];
+      int32_t patlen = udatpg_getBestPattern(dtpgen, testSkeleton, -1, pattern, kUbufMax, &status);
+      if (U_FAILURE(status)) {
+        log_err("Failed to get best pattern: %s", u_errorName(status));
+        break;
+      }
+      udat_applyPattern(cal, true, pattern, patlen);
+      udat_format(cal, date, buf, sizeof(buf), NULL, &status);
+      if (U_FAILURE(status)) {
+          log_err("FAIL: udat_format() failed with %s\n", u_errorName(status));
+      }
+      u_austrcpy(cbuf, buf);
+      if (strcmp(testCases[i].expected, cbuf) != 0) {
+        log_err("FAIL: Lunar month is not correct for %s. Expected: %s Got %s\n", testCases[i].locale, testCases[i].expected, cbuf);
+      }
+      udatpg_close(dtpgen);
+      udat_close(cal);
+    }
+}
+  
+// rdar://144904333
+void TestLunarMonthNames() {
+  UErrorCode status = U_ZERO_ERROR;
+  
+  UDateFormat *cal;
+  UDate date = 1739592360103;
+
+  for (int i = 0; i < sizeof(LunarMonthNamesData) / sizeof(LunarMonthNamesData[0]); i++) {
+    cal = udat_open(UDAT_SHORT, UDAT_LONG, LunarMonthNamesData[i].locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+    UChar buf[256];
+    char cbuf[256];
+    UDateTimePatternGenerator* dtpgen = udatpg_open(LunarMonthNamesData[i].locale, &status);
+    const UChar* testSkeleton = u"yMMMd";
+    int kUbufMax = 64;
+    UChar pattern[kUbufMax];
+    int32_t patlen = udatpg_getBestPattern(dtpgen, testSkeleton, -1, pattern, kUbufMax, &status);
+    if (U_FAILURE(status)) {
+      log_err("Failed to get best pattern: %s", u_errorName(status));
+      break;
+    }
+    udat_applyPattern(cal, true, pattern, patlen);
+    udat_format(cal, date, buf, sizeof(buf), NULL, &status);
+    if (U_FAILURE(status)) {
+        log_err("FAIL: udat_format() failed with %s\n", u_errorName(status));
+    }
+    u_austrcpy(cbuf, buf);
+    if (strcmp(LunarMonthNamesData[i].expected, cbuf) != 0) {
+      log_err("FAIL: Lunar month is not correct for %s. Expected: %s Got %s\n", LunarMonthNamesData[i].locale, LunarMonthNamesData[i].expected, cbuf);
+    }
+    udatpg_close(dtpgen);
+    udat_close(cal);
+  }
+}
+    
+// rdar://145904555 & rdar://145904346 Shorten narrow names
+void TestHinduDateFormats(void) {
+    struct TestCase {
+        const char* locale;
+        const UChar* skeleton;
+        const char* expected;
+    } testCases[] = {
+        // the month names, month numbers, and years were scraped from Drik Panchang
+        { "hi@calendar=gujarati", u"MMMd",  "माघ कृ॰ द्वितीया" },
+        { "hi@calendar=gujarati", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=kannada", u"MMMd",  "माघ कृ॰ द्वितीया" },
+        { "hi@calendar=kannada", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=marathi", u"MMMd",  "माघ कृ॰ द्वितीया" },
+        { "hi@calendar=marathi", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=telugu", u"MMMd",  "माघ कृ॰ द्वितीया" },
+        { "hi@calendar=telugu", u"MMMMEEEEd", "शुक्रवार, माघ कृ॰ द्वितीया" },
+        { "hi@calendar=vikram", u"MMMd",  "फाल्गुन कृ॰ द्वितीया" },
+        { "hi@calendar=vikram", u"MMMMEEEEd", "शुक्रवार, फाल्गुन कृ॰ द्वितीया" },
+        { "bn@calendar=vikram", u"MMMd",  "ফাল্গুন কৃষ্ণ দ্বিতীয়া" },
+        { "bn@calendar=vikram", u"MMMMEEEEd", "শুক্রবার, ফাল্গুন কৃষ্ণ দ্বিতীয়া" },
+        { "en@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
+        { "en@calendar=vikram", u"MMMMEEEEd", "Phālguna K. 2, Friday" },
+        { "kn@calendar=vikram", u"MMMd",  "ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },
+        { "kn@calendar=vikram", u"MMMMEEEEd", "ಶುಕ್ರವಾರ, ಫಾಲ್ಗುಣ ಕೃ. ದ್ವಿತೀಯ" },
+        { "ml@calendar=vikram", u"MMMd",  "ഫാൽ. ദ്വിതീയ" },
+        { "ml@calendar=vikram", u"MMMMEEEEd", "ഫാൽഗുനം ദ്വിതീയ, വെള്ളിയാഴ്‌ച" },
+        { "mr@calendar=vikram", u"MMMd",  "फाल्गुन कृ॰ द्वितीया" },
+        { "mr@calendar=vikram", u"MMMMEEEEd", "शुक्रवार, फाल्गुन कृ॰ द्वितीया" },
+        { "or@calendar=vikram", u"MMMd",  "ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },
+        { "or@calendar=vikram", u"MMMMEEEEd", "ଶୁକ୍ରବାର, ଫାଲ୍‌ଗୁନ କୃଷ୍ଣ ଦ୍ୱିତୀୟା" },
+        { "pa@calendar=vikram", u"MMMd",  "ਫੱਗਣ ਵਦੀ ਦੂਜ" },
+        { "pa@calendar=vikram", u"MMMMEEEEd", "ਸ਼ੁੱਕਰਵਾਰ, ਫੱਗਣ ਵਦੀ ਦੂਜ" },
+        { "ta@calendar=vikram", u"MMMd",  "பங்குனி துவிதியை" },
+        { "ta@calendar=vikram", u"MMMMEEEEd", "வெள்ளி, பங்குனி துவிதியை" },
+        { "te@calendar=vikram", u"MMMd",  "ఫాల్గుణం కృష్ణ విదియ" },
+        { "te@calendar=vikram", u"MMMMEEEEd", "శుక్రవారం, ఫాల్గుణం కృష్ణ విదియ" },
+        { "ur@calendar=vikram", u"MMMd",  "پھاگن بَدی دوج" },
+        { "ur@calendar=vikram", u"MMMMEEEEd", "جمعہ، پھاگن بَدی دوج" },
+        // tests for rdar://151305763 ([Calendar]: K: Cheer25A270: Alternate calendars display appears unlocalized)
+        { "en@calendar=gujarati", u"MMMd",  "Mahā Vad 2" },
+        { "en@calendar=kannada", u"MMMd",  "Māgha K. 2" },
+        { "en@calendar=marathi", u"MMMd",  "Māgha K. 2" },
+        { "en@calendar=telugu", u"MMMd",  "Māgha K. 2" },
+        { "en@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
+        { "en@calendar=tamil", u"MMMd",  "2 Maasi" },
+        { "en@calendar=bangla", u"MMMd",  "1 Falgun" },
+        { "en@calendar=malayalam", u"MMMd",  "Kumbham 2" },
+        { "en@calendar=odia", u"MMMd",  "Phalguna 3" },
+        { "en_IN@calendar=gujarati", u"MMMd",  "Mahā Vad 2" },
+        { "en_IN@calendar=kannada", u"MMMd",  "Māgha K. 2" },
+        { "en_IN@calendar=marathi", u"MMMd",  "Māgha K. 2" },
+        { "en_IN@calendar=telugu", u"MMMd",  "Māgha K. 2" },
+        { "en_IN@calendar=vikram", u"MMMd",  "Phālguna K. 2" },
+        { "en_IN@calendar=tamil", u"MMMd",  "2 Maasi" },
+        { "en_IN@calendar=bangla", u"MMMd",  "1 Falgun" },
+        { "en_IN@calendar=malayalam", u"MMMd",  "Kumbham 2" },
+        { "en_IN@calendar=odia", u"MMMd",  "Phalguna 3" },
+    };
+    UErrorCode status = U_ZERO_ERROR;
+    
+    UDateFormat *cal;
+    UDate date = 1739592360103;
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        struct TestCase testCase = testCases[i];
+        const char* locale = testCase.locale;
+        
+        cal = udat_open(UDAT_SHORT, UDAT_LONG, locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+        UChar buf[256];
+        char cbuf[256];
+
+        UDateTimePatternGenerator* dtpgen = udatpg_open(locale, &status);
+        int kUbufMax = 64;
+        char tempMsgBuf[1024];
+        UChar pattern[kUbufMax];
+        int32_t patlen = udatpg_getBestPattern(dtpgen, testCase.skeleton, -1, pattern, kUbufMax, &status);
+        if (U_FAILURE(status)) {
+            log_err("Failed to get best pattern: %s", u_errorName(status));
+            break;
+        }
+        udat_applyPattern(cal, true, pattern, patlen);
+        udat_format(cal, date, buf, sizeof(buf), NULL, &status);
+        if (U_FAILURE(status)) {
+            log_err("FAIL: udat_format() failed with %s\n", u_errorName(status));
+        }
+        u_austrcpy(cbuf, buf);
+        if (strcmp(testCase.expected, cbuf) != 0) {
+            log_err("FAIL: Date formatting is not correct for %s with %s format. Expected: %s Got %s\n", locale, u_austrcpy(tempMsgBuf, testCase.skeleton), testCase.expected, cbuf);
+        }
+        udatpg_close(dtpgen);
+        udat_close(cal);
+    }
+}
+    
+// test for rdar://153144480 (Odia and Bangla calendars have the wrong month names and year starts) rdar://145904346 Shorten narrow names
+void TestHinduSolarMonthsAndYears(void) {
+    UDate now = 1749625200000; // June 11, 2025
+    
+    struct TestCase {
+        const char* locale;
+        const UChar* expectedFormattedDate;
+        int32_t expectedYear;
+        int32_t expectedMonth;
+        int32_t expectedDay;
+    } testCases[] = {
+        // the month names, month numbers, and years were scraped from Drik Panchang
+        { "en@calendar=odia",      u"Jyosta 28",  1432, 8, 28 },
+        { "en@calendar=bangla",    u"27 Joishtho",  1432, 1, 27 },
+        { "en@calendar=malayalam", u"Itavam 28", 1200, 9, 28 },
+        { "en@calendar=tamil",     u"28 Vaikaasi", 1947, 1, 28 },
+    };
+    
+    char errorMessage[256];
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        struct TestCase testCase = testCases[i];
+        const char* locale = testCase.locale;
+        
+        UErrorCode err = U_ZERO_ERROR;
+        UDateFormat* df = udat_open(UDAT_NONE, UDAT_MEDIUM, locale, u"America/Los_Angeles", -1, NULL, 0, &err);
+        
+        sprintf(errorMessage, "Could not create formatter for %s", locale);
+        if (assertSuccess(errorMessage, &err)) {
+            UChar result[256];
+            udat_format(df, now, result, 256, NULL, &err);
+            
+            sprintf(errorMessage, "Error formatting date for %s", locale);
+            if (assertSuccess(errorMessage, &err)) {
+                sprintf(errorMessage, "Wrong formatting result for %s", locale);
+                assertUEquals(errorMessage, testCase.expectedFormattedDate, result);
+            }
+            
+            udat_close(df);
+        }
+        
+        UCalendar* cal = ucal_open(u"America/Los_Angeles", -1, locale, UCAL_DEFAULT, &err);
+        
+        sprintf(errorMessage, "Could not create calendar for %s", locale);
+        if (assertSuccess(errorMessage, &err)) {
+            ucal_setMillis(cal, now, &err);
+            int32_t year = ucal_get(cal, UCAL_YEAR, &err);
+            int32_t month = ucal_get(cal, UCAL_MONTH, &err);
+            int32_t day = ucal_get(cal, UCAL_DAY_OF_MONTH, &err);
+            
+            sprintf(errorMessage, "Could not do date calculation for %s", locale);
+            if (assertSuccess(errorMessage, &err)) {
+                sprintf(errorMessage, "Wrong year for %s", locale);
+                assertIntEquals(errorMessage, testCase.expectedYear, year);
+                sprintf(errorMessage, "Wrong month for %s", locale);
+                assertIntEquals(errorMessage, testCase.expectedMonth, month);
+                sprintf(errorMessage, "Wrong day for %s", locale);
+                assertIntEquals(errorMessage, testCase.expectedDay, day);
+            }
+            
+            ucal_close(cal);
+        }
+    }
+}
+
+    
+void TestHinduCalendarAddMonth() {
+    UErrorCode err = U_ZERO_ERROR;
+    UCalendar* gc = ucal_open(u"UTC", -1, "en", UCAL_GREGORIAN, &err);
+    UCalendar* hindu = ucal_open(u"UTC", -1, "en@calendar=vikram", UCAL_DEFAULT, &err);
+
+    ucal_set(gc, UCAL_YEAR, 2025);
+    ucal_set(gc, UCAL_MONTH, UCAL_MAY);
+    ucal_set(gc, UCAL_DAY_OF_MONTH, 1);
+    
+    ucal_set(hindu, UCAL_JULIAN_DAY, ucal_get(gc, UCAL_JULIAN_DAY, &err));
+ 
+    int32_t yearBefore = ucal_get(hindu, UCAL_YEAR, &err);
+    int32_t monthBefore = ucal_get(hindu, UCAL_MONTH, &err);
+    int32_t dayBefore = ucal_get(hindu, UCAL_DAY_OF_MONTH, &err);
+   
+    ucal_add(hindu,UCAL_MONTH, 1, &err);
+    
+    int32_t yearAfter = ucal_get(hindu, UCAL_YEAR, &err);
+    int32_t monthAfter = ucal_get(hindu, UCAL_MONTH, &err);
+    int32_t dayAfter = ucal_get(hindu, UCAL_DAY_OF_MONTH, &err);
+   
+    if (monthAfter != monthBefore + 1) {
+        log_err("FAIL: ICU returned an error during the test TestHinduCalendarAddMonth; got \"%f\"; expected \"%f\"\n", monthAfter, monthBefore + 1);
+    }
+    ucal_close(gc);
+    ucal_close(hindu);
+}
+    
+void TestVikramRoundTrip(void) { /* Apple-specific */ // rdar://145903949
+    UErrorCode err = U_ZERO_ERROR;
+    UCalendar* gregorian = ucal_open(u"UTC", -1, "en", UCAL_GREGORIAN, &err);
+    ucal_clear(gregorian);
+    ucal_set(gregorian, UCAL_YEAR, 2025);
+    ucal_set(gregorian, UCAL_MONTH, UCAL_MAY);
+    ucal_set(gregorian, UCAL_DAY_OF_MONTH, 1);
+    ucal_set(gregorian, UCAL_HOUR, 7);
+    
+    UDate dateBefore = ucal_getMillis(gregorian, &err);
+    
+    UCalendar* vikram1 = ucal_open(u"UTC", -1, "en@calendar=vikram", UCAL_DEFAULT, &err);
+    ucal_setMillis(vikram1, dateBefore, &err);
+
+    UCalendar* vikram2 = ucal_open(u"UTC", -1, "en@calendar=vikram", UCAL_DEFAULT, &err);
+    ucal_clear(vikram2);
+    ucal_set(vikram2, UCAL_ERA, ucal_get(vikram1, UCAL_ERA, &err));
+    ucal_set(vikram2, UCAL_YEAR, ucal_get(vikram1, UCAL_YEAR, &err));
+    ucal_set(vikram2, UCAL_MONTH, ucal_get(vikram1, UCAL_MONTH, &err));
+    ucal_set(vikram2, UCAL_DAY_OF_MONTH, ucal_get(vikram1, UCAL_DAY_OF_MONTH, &err));
+    ucal_set(vikram2, UCAL_HOUR, ucal_get(vikram1, UCAL_HOUR, &err));
+
+    UDate dateAfter = ucal_getMillis(vikram2, &err);
+    
+    if (assertSuccess("ICU returned an error during the test", &err)) {
+        // Round tripping can return a couple of milliseconds difference between dateBefore and dateAfter, so putting some buffer to prevent false alarms
+        if (fabs(dateBefore - dateAfter) > 10) {
+            log_err("FAIL: ICU returned an error during the test TestVikramRoundTrip; got \"%f\"; expected \"%f\"\n", dateAfter, dateBefore);
+        }
+    #ifdef VERBOSE_ASSERTIONS
+        else {
+            log_verbose("Ok: TestVikramRoundTrip; got \"%f\"\n", dateAfter);
+        }
+    #endif
+       
+    }
+    
+    ucal_close(gregorian);
+    ucal_close(vikram1);
+    ucal_close(vikram2);
+}
+    
+// rdar://151715392
+// testing calling ucal_set after ucal_add
+void TestVikramAddDayFoundationStyle(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDate millis, millis_c, millis_v;
+
+    UCalendar *chinese = ucal_open(u"UTC", -1, "en@calendar=chinese", UCAL_DEFAULT, &status);
+    UCalendar *vikram = ucal_open(u"UTC", -1, "en@calendar=vikram", UCAL_DEFAULT, &status);
+
+    millis = 1747699200000; // TUE 2025 May 20 00:00:00 UTC
+
+    ucal_setMillis(chinese, millis, &status);
+    ucal_setMillis(vikram, millis, &status);
+
+    ucal_add(chinese, UCAL_DAY_OF_MONTH, 3, &status);
+    ucal_add(vikram, UCAL_DAY_OF_MONTH, 3, &status);
+
+    // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+    // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+    ucal_set(chinese, UCAL_HOUR_OF_DAY, ucal_getLimit(chinese, UCAL_HOUR_OF_DAY, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(chinese, UCAL_MINUTE, ucal_getLimit(chinese, UCAL_MINUTE, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(chinese, UCAL_SECOND, ucal_getLimit(chinese, UCAL_SECOND, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(chinese, UCAL_MILLISECOND, 0);
+
+    // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+    // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+    ucal_set(vikram, UCAL_HOUR_OF_DAY, ucal_getLimit(vikram, UCAL_HOUR_OF_DAY, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(vikram, UCAL_MINUTE, ucal_getLimit(vikram, UCAL_MINUTE, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(vikram, UCAL_SECOND, ucal_getLimit(vikram, UCAL_SECOND, UCAL_ACTUAL_MINIMUM, &status));
+    ucal_set(vikram, UCAL_MILLISECOND, 0);
+
+    millis_c = ucal_getMillis(chinese, &status);
+    millis_v = ucal_getMillis(vikram, &status);
+    
+    if (millis_c != millis_v) {
+        log_err("Chinese: %13.0f != Vikram: %13.0f\n", millis_c, millis_v);
+    }
+
+    ucal_close(vikram);
+    ucal_close(chinese);
+}
+
+
+typedef struct {
+    const char * calendar;
+    int32_t month_gMin;
+    int32_t month_gMax;
+    int32_t month_min;
+    int32_t month_max;
+    int32_t day_gMin;
+    int32_t day_gMax;
+    int32_t day_min;
+    int32_t day_max;
+
+} LimitsTestItem;
+
+static const LimitsTestItem limitsTestItems[] = {
+    // (repeated) leap month, no repeated day
+    { "chinese",    0, 1, 0, 1, -1, -1, -1, -1 },
+    { "dangi",      0, 1, 0, 1, -1, -1, -1, -1 },
+    { "vietnamese", 0, 1, 0, 1, -1, -1, -1, -1 },
+
+    // (repeated) leap month and repeated day
+    { "hindu-lunar", 0, 1, 0, 1, 0, 1, 0, 1 },
+    { "vikram",      0, 1, 0, 1, 0, 1, 0, 1 },
+    { "gujarati",    0, 1, 0, 1, 0, 1, 0, 1 },
+    { "kannada",     0, 1, 0, 1, 0, 1, 0, 1 },
+    { "marathi",     0, 1, 0, 1, 0, 1, 0, 1 },
+    { "telugu",      0, 1, 0, 1, 0, 1, 0, 1 },
+
+    // no (repeated) leap month, no repeated day
+    {"gregorian",           -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"japanese",            -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"buddhist",            -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"roc",                 -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"persian",             -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"islamic-civil",       -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"islamic",             -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"hebrew",              -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"indian",              -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"coptic",              -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"ethiopic",            -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"ethiopic-amete-alem", -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"iso8601",             -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"islamic-umalqura",    -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"islamic-tbla",        -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"islamic-rgsa",        -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"hindu-solar",         -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"bangla",              -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"malayalam",           -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"odia",                -1, -1, -1, -1, -1, -1, -1, -1 },
+    {"tamil",               -1, -1, -1, -1, -1, -1, -1, -1 },
+    
+    // sentinel record
+   { NULL, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+
+
+void TestLimitsForLeapMonthAndRepeatedDay(void) { /* Apple-specific */ // rdar://154212299
+    UCalendar ucalendar;
+    UCalendarDateFields fields;		
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t month_gMin;
+    int32_t month_gMax;
+    int32_t month_min;
+    int32_t month_max;
+    int32_t day_gMin;
+    int32_t day_gMax;
+    int32_t day_min;
+    int32_t day_max;
+    int32_t i;
+    char locale[256];
+    
+    i = 0;
+    while(limitsTestItems[i].calendar != NULL) {
+        sprintf(locale, "en@calendar=%s", limitsTestItems[i].calendar);
+        ucalendar = ucal_open(u"UTC", -1, locale, UCAL_DEFAULT, &status);
+        fields = UCAL_IS_LEAP_MONTH;
+        month_gMin = ucal_getLimit(ucalendar, fields, UCAL_GREATEST_MINIMUM, &status);
+        month_gMax = ucal_getLimit(ucalendar, fields, UCAL_LEAST_MAXIMUM, &status);
+        month_min = ucal_getLimit(ucalendar, fields, UCAL_MINIMUM, &status);
+        month_max = ucal_getLimit(ucalendar, fields, UCAL_MAXIMUM, &status);
+        fields = UCAL_IS_REPEATED_DAY;
+        day_gMin = ucal_getLimit(ucalendar, fields, UCAL_GREATEST_MINIMUM, &status);
+        day_gMax = ucal_getLimit(ucalendar, fields, UCAL_LEAST_MAXIMUM, &status);
+        day_min = ucal_getLimit(ucalendar, fields, UCAL_MINIMUM, &status);
+        day_max = ucal_getLimit(ucalendar, fields, UCAL_MAXIMUM, &status);
+        if(
+           (month_gMin != limitsTestItems[i].month_gMin) ||
+           (month_gMax != limitsTestItems[i].month_gMax) ||
+           (month_min != limitsTestItems[i].month_min) ||
+           (month_max != limitsTestItems[i].month_max) ||
+           (day_gMin != limitsTestItems[i].day_gMin) ||
+           (day_gMax != limitsTestItems[i].day_gMax) ||
+           (day_min != limitsTestItems[i].day_min) ||
+           (day_max != limitsTestItems[i].day_max)) {
+            log_err("For %s, expected: month: %d, %d, %d, %d, day: %d, %d, %d,%d; got: month: %d, %d, %d, %d, day: %d, %d, %d, %d\n",
+                    limitsTestItems[i].calendar,
+                    limitsTestItems[i].month_gMin, limitsTestItems[i].month_gMax, limitsTestItems[i].month_min, limitsTestItems[i].month_max,
+                    limitsTestItems[i].day_gMin, limitsTestItems[i].day_gMax, limitsTestItems[i].day_min, limitsTestItems[i].day_max,
+                    month_gMin, month_gMax, month_min, month_max,
+                    day_gMin, day_gMax, day_min, day_max);
+        }
+        ucal_close(ucalendar);
+        i++;
+    }
+}
+    
+// rdar://151715392
+// testing calling ucal_set after ucal_add
+const char *localesForAddDayTest[] = {
+    // solar
+    "en@calendar=bangla",
+    "en@calendar=malayalam",
+    "en@calendar=odia",
+    "en@calendar=tamil",
+    // lunisolar
+    "en@calendar=gujarati",
+    "en@calendar=kannada",
+    "en@calendar=marathi",
+    "en@calendar=telugu",
+    "en@calendar=vikram",
+    NULL
+};
+ 
+// rdar://156473289
+void TestHinduCalendarAddMonth2(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDate millis, millis_c, millis_h, delta;
+    UDate start_millis, end_millis, hour_in_millis, day_in_millis;
+    char *locale;
+    int32_t i;
+    start_millis = 1735689600000.0; // WED 2025 Jan 01 00:00:00 UTC
+    end_millis = 1767225600000.0; // THU 2026 Jan 01 00:00:00 UTC
+    hour_in_millis = 3600000.0;
+    day_in_millis = 86400000;
+    for(millis = start_millis; millis < end_millis; millis += hour_in_millis) {
+        for (i=0; localesForAddDayTest[i] != NULL; i++) {
+            UCalendar *cal = ucal_open(u"UTC", -1, localesForAddDayTest[i], UCAL_DEFAULT, &status);
+            ucal_setMillis(cal, millis, &status);
+            ucal_add(cal, UCAL_MONTH, 1, &status);
+            millis_h = ucal_getMillis(cal, &status);
+            delta = (millis_h - millis) / day_in_millis;
+            if (delta < 29) {
+                log_err("%s: %13.0f + 1 month = %13.0f, difference in days: %3.0f\n", localesForAddDayTest[i], millis, millis_h, delta);
+            }
+            ucal_close(cal);
+        }
+    }
+}
+    
+void TestHinduAddDayFoundationStyle(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDate millis, millis_c, millis_h;
+    UDate start_millis, end_millis, hour_in_millis;
+    char *locale;
+    int32_t i;
+    start_millis = 1735689600000.0; // WED 2025 Jan 01 00:00:00 UTC
+    end_millis = 1767225600000.0; // THU 2026 Jan 01 00:00:00 UTC
+    hour_in_millis = 3600000.0;
+    for(millis = start_millis; millis < end_millis; millis += hour_in_millis) {
+        for (i=0; localesForAddDayTest[i] != NULL; i++) {
+            
+            UCalendar *chinese = ucal_open(u"UTC", -1, "en@calendar=chinese", UCAL_DEFAULT, &status);
+            UCalendar *cal = ucal_open(u"UTC", -1, localesForAddDayTest[i], UCAL_DEFAULT, &status);
+            
+            
+            ucal_setMillis(chinese, millis, &status);
+            ucal_setMillis(cal, millis, &status);
+            
+            ucal_add(chinese, UCAL_DAY_OF_MONTH, 3, &status);
+            ucal_add(cal, UCAL_DAY_OF_MONTH, 3, &status);
+            
+            // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+            // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+            ucal_set(chinese, UCAL_HOUR_OF_DAY, ucal_getLimit(chinese, UCAL_HOUR_OF_DAY, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(chinese, UCAL_MINUTE, ucal_getLimit(chinese, UCAL_MINUTE, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(chinese, UCAL_SECOND, ucal_getLimit(chinese, UCAL_SECOND, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(chinese, UCAL_MILLISECOND, 0);
+            
+            // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+            // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+            ucal_set(cal, UCAL_HOUR_OF_DAY, ucal_getLimit(cal, UCAL_HOUR_OF_DAY, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(cal, UCAL_MINUTE, ucal_getLimit(cal, UCAL_MINUTE, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(cal, UCAL_SECOND, ucal_getLimit(cal, UCAL_SECOND, UCAL_ACTUAL_MINIMUM, &status));
+            ucal_set(cal, UCAL_MILLISECOND, 0);
+            
+            millis_c = ucal_getMillis(chinese, &status);
+            millis_h = ucal_getMillis(cal, &status);
+            
+            if (millis_c != millis_h) {
+                log_err("Chinese: %13.0f != %s: %13.0f\n", millis_c, localesForAddDayTest[i],  millis_h);
+            }
+            
+            ucal_close(cal);
+            ucal_close(chinese);
+        }
+    }
+}
+
+
+//  rdar://145772893
+void TestApplyPattern() {
+    struct { // rdar://144904333 & rdar://145184053
+        const char *locale;
+        const char *expected;
+    } NumericDayTestValues[] = {
+      { "en@calendar=vikram", "2" },
+      { "en@calendar=bangla", "1" },
+      { "en@calendar=gujarati", "17" },
+      { "en@calendar=malayalam", "2" },
+      { "en@calendar=odia", "3" },
+      { "en@calendar=tamil", "2" },
+      { "en@calendar=telugu", "17" },
+      { "en@calendar=marathi", "17" },
+      { "en@calendar=kannada", "17" },
+    };
+    UErrorCode status = U_ZERO_ERROR;
+  
+    UDateFormat *cal;
+    UDate date = 1739592360103;
+    UChar buf[256];
+    char cbuf[256];
+
+    for (int i = 0; i < sizeof(NumericDayTestValues) / sizeof(NumericDayTestValues[0]); i++) {
+      cal = udat_open(UDAT_SHORT, UDAT_LONG, NumericDayTestValues[i].locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+      // rdar://145703926 removed year from the formatted output
+      UDateTimePatternGenerator* dtpgen = udatpg_open(NumericDayTestValues[i].locale, &status);
+      const UChar* testSkeleton = u"d";
+      int kUbufMax = 64;
+      UChar pattern[kUbufMax];
+      int32_t patlen = udatpg_getBestPattern(dtpgen, testSkeleton, -1, pattern, kUbufMax, &status);
+      if (U_FAILURE(status)) {
+        log_err("Failed to get best pattern: %s", u_errorName(status));
+        break;
+      }
+      udat_applyPattern(cal, false, pattern, patlen);
+      udat_format(cal, date, buf, sizeof(buf), NULL, &status);
+      if (U_FAILURE(status)) {
+        log_err("FAIL: udat_format() failed with %s\n", u_errorName(status));
+      }
+      u_austrcpy(cbuf, buf);
+      if (strcmp(NumericDayTestValues[i].expected, cbuf) != 0) {
+        log_err("FAIL: Apply Pattern \"d\" is not correct for %s. Expected: %s Got %s\n", NumericDayTestValues[i].locale, NumericDayTestValues[i].expected, cbuf);
+      }
+      
+      udatpg_close(dtpgen);
+      udat_close(cal);
+    }
+}
+   
+struct { // rdar://24832944
+    UDate dateMillis;
+    UDateFormatStyle dateFormatStyle;
+    const char *locale;
+    UChar *expected;
+} CALCData[] = { // CALC = Chinese Aligned Lunisolar Calendar
+    // 2025 -> 42 = 乙巳 (yǐsì) =  을사 (eulsa) = Ất Tỵ = wood snake year in the 60 year cycle
+    // https://en.wikipedia.org/wiki/Sexagenary_cycle
+
+    // 1738800000000.0 milliseconds = THU 2025 Feb 06 00:00:00 UTC
+
+    { 1738800000000.0, UDAT_LONG, "zh@calendar=chinese",    u"2025\u4E59\u5DF3\u5E74\u6B63\u6708\u521D\u516B" }, // 2025乙巳年正月初八 = 2025 snake year, first month, day 8
+    { 1738800000000.0, UDAT_LONG, "ko@calendar=dangi",      u"\uC744\uC0AC\uB144 1\uC6D4 8\uC77C"}, // 을사년 1월 8일 = snake year, 1 month, 8 day
+    { 1738800000000.0, UDAT_LONG, "vi@calendar=vietnamese", u"Ng\u00E0y 08 th\u00E1ng 1 n\u0103m \u1EA4t T\u1EF5" }, // Ngày 08 tháng 1 năm Ất Tỵ = day 08, month 1, snake year
+
+    { 1738800000000.0, UDAT_MEDIUM, "zh@calendar=chinese",    u"2025\u5E74\u6B63\u6708\u521D\u516B" }, // 2025年正月初八
+    { 1738800000000.0, UDAT_MEDIUM, "ko@calendar=dangi",      u"42. 1. 8."},
+    { 1738800000000.0, UDAT_MEDIUM, "vi@calendar=vietnamese", u"08-01 \u1EA4t T\u1EF5" }, // 08-01 Ất Tỵ
+
+    { 1738800000000.0, UDAT_SHORT, "zh@calendar=chinese",    u"2025-1-8" },
+    { 1738800000000.0, UDAT_SHORT, "ko@calendar=dangi",      u"42. 1. 8."},
+    { 1738800000000.0, UDAT_SHORT, "vi@calendar=vietnamese", u"08/01/42" },
+
+    
+    { 0.0, UDAT_NONE, NULL, NULL},
+};
+
+void TestChineseAlignedLunisolarCalendars(void) { // rdar://24832944
+    UErrorCode status = U_ZERO_ERROR;
+    UChar formattedDate[kFormattedDateMax];
+    UChar expected[kFormattedDateMax];
+
+    for (int i = 0; CALCData[i].locale != 0; i++) {
+        UDateFormat *formatter = udat_open(UDAT_NONE, CALCData[i].dateFormatStyle, CALCData[i].locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+        if (U_FAILURE(status)) {
+            log_err("Failed to create date formatter");
+            continue;
+        }
+        
+        int32_t resultLength = udat_format(formatter, CALCData[i].dateMillis, formattedDate, kFormattedDateMax, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_err("Failed to format date");
+            udat_close(formatter);
+            continue;
+        }
+        
+        u_strcpy(expected, CALCData[i].expected);
+        if(u_strcmp(formattedDate, expected) !=0) {
+            char xbuf[2048];
+            char gbuf[2048];
+            u_austrcpy(xbuf, expected);
+            u_austrcpy(gbuf, formattedDate);
+            log_err("FAIL: %s expected %s got %s\n", CALCData[i].locale, xbuf, gbuf);
+        }
+        udat_close(formatter);
+    }
+    return;
+}
+
+struct { // // rdar://146190481
+    UDate dateMillis;
+    UChar *skeleton;
+    UChar *expected;
+} VietData[] = {
+    
+    // WED 2025 Mar 05 12:00:00 UTC -> 6/2 năm Ất Tỵ
+    { 1741176000000, u"UMMMd", u"6/2 n\u0103m \u1EA4t T\u1EF5"},
+ 
+    // WED 2025 Mar 05 12:00:00 UTC -> ngày 6 tháng 2 năm Ất Tỵ
+    { 1741176000000, u"UMMMMd", u"ng\u00E0y 6 th\u00E1ng 2 n\u0103m \u1EA4t T\u1EF5"},
+
+    // FRI 2025 Aug 08 12:00:00 UTC -> 15/6 nhuận năm Ất Tỵ
+    { 1754654400000, u"UMMMd", u"15/6 nhu\u1EADn n\u0103m \u1EA4t T\u1EF5" },
+
+    // FRI 2025 Aug 08 12:00:00 UTC -> ngày 15 tháng 6 nhuận năm Ất Tỵ
+    { 1754654400000, u"UMMMMd", u"ng\u00E0y 15 th\u00E1ng 6 nhu\u1EADn n\u0103m \u1EA4t T\u1EF5" },
+
+    // rdar://148390734 and rdar://148392830
+    // FRI 2025 Jul 25 12:00:00 UTC -> 1/6 nhuận
+    { 1753444800000, u"MMMd", u"1/6 nhu\u1EADn" },
+
+    // FRI 2025 Jul 25 12:00:00 UTC -> ngày 1 tháng 6 nhuận
+    { 1753444800000, u"MMMMd", u"ng\u00E0y 1 th\u00E1ng 6 nhu\u1EADn" },
+
+    // end marker
+    { 0, NULL, NULL}
+    
+};
+
+#define VIETNAMESE_DATE_BUFFER_SIZE 512
+void TestVietnameseBestPatternForSkeleton(void) { // rdar://146190481
+    UErrorCode status = U_ZERO_ERROR;
+    UChar formattedDate[VIETNAMESE_DATE_BUFFER_SIZE];
+    UChar expected[kFormattedDateMax];
+    char *locale = "vi@calendar=vietnamese";
+
+    UDateFormat *formatter = udat_open(UDAT_NONE, UDAT_LONG, locale, AMERICA_LOS_ANGELES, -1, NULL, 0, &status);
+    if (U_FAILURE(status)) {
+        log_err("Failed to create date formatter: %s", u_errorName(status));
+        return;
+    }
+    UDateTimePatternGenerator* dtpgen = udatpg_open(locale, &status);
+    if (U_FAILURE(status)) {
+        log_err("Failed to open pattern generator: %s", u_errorName(status));
+        udat_close(formatter);
+        return;
+    }
+    int kUbufMax = 256;
+    UChar pattern[kUbufMax];
+
+    for(int i = 0; VietData[i].dateMillis != 0; i++) {
+        int32_t patlen = udatpg_getBestPattern(dtpgen, VietData[i].skeleton, -1, pattern, kUbufMax, &status);
+        if (U_FAILURE(status)) {
+            log_err("Failed to get best pattern: %s", u_errorName(status));
+            break;
+        }
+        
+        udat_applyPattern(formatter, true, pattern, patlen);
+        
+        int32_t resultLength = udat_format(formatter, VietData[i].dateMillis, formattedDate, VIETNAMESE_DATE_BUFFER_SIZE, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_err("Failed to format date: %s", u_errorName(status));
+            break;
+        }
+        
+        u_strcpy(expected, VietData[i].expected);
+        if(u_strcmp(formattedDate, expected) !=0) {
+            char xbuf[2048];
+            char gbuf[2048];
+            u_austrcpy(xbuf, expected);
+            u_austrcpy(gbuf, formattedDate);
+            log_err("FAIL: expected %s got %s\n", xbuf, gbuf);
+        }
+    }
+    udatpg_close(dtpgen);
+    udat_close(formatter);
+    return;
+}
+    
+// rdar://154447321
+void TestHinduDayOfYear(void) {
+    struct TestCase {
+        const char* locale;
+        int32_t expectedDayOfYear;
+    } testCases[] = {
+        { "en@calendar=bangla",    58  },
+        { "en@calendar=tamil",     59  },
+        { "en@calendar=odia",      269 },
+        { "en@calendar=malayalam", 299 },
+        { "en@calendar=vikram",    89  },
+        { "en@calendar=marathi",   74  },
+        { "en@calendar=gujarati",  74  },
+        { "en@calendar=kannada",   74  },
+        { "en@calendar=telugu",    74  }
+    };
+
+    const UDate june11 = 1749625200000; // June 11, 2025
+    UErrorCode err = U_ZERO_ERROR;
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UCalendar* cal = ucal_open(u"America/Los_Angeles", -1, testCases[i].locale, UCAL_DEFAULT, &err);
+
+        ucal_setMillis(cal, june11, &err);
+        int32_t dayOfYear = ucal_get(cal, UCAL_DAY_OF_YEAR, &err);
+
+        if (assertSuccess("Error in test", &err)) {
+            assertIntEquals("Wrong day of year", testCases[i].expectedDayOfYear, dayOfYear);
+        }
+
+        ucal_close(cal);
+    }
+}
+
+
 #endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

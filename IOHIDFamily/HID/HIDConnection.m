@@ -23,4 +23,11 @@
                                 (__bridge IOHIDEventSystemConnectionRef)self, token);
 }
 
+
+- (IOHIDEventSystemConnectionType)type
+{
+    return IOHIDEventSystemConnectionGetType((__bridge IOHIDEventSystemConnectionRef)self);
+}
+
+
 @end

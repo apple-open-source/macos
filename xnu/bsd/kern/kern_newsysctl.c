@@ -77,6 +77,7 @@
 #include <sys/kauth.h>
 #include <sys/systm.h>
 #include <sys/sysproto.h>
+#include <sys/variant_internal.h>
 
 #include <vm/vm_pageout_xnu.h>
 
@@ -1676,16 +1677,36 @@ sysctl_new_user(struct sysctl_req *req, void *p, size_t l)
 	return error;
 }
 
-#define WRITE_EXPERIMENT_FACTORS_ENTITLEMENT "com.apple.private.write-kr-experiment-factors"
+const char *trial_experiment_factors_entitlement = "com.apple.private.kernel.read-write-trial-experiment-factors";
+
+/*
+ * Is the current task allowed to read/write trial experiment factors?
+ * Requires either:
+ *  - trial_experiment_factors_entitlement
+ *  - root user (internal-diagnostics only)
+ */
+STATIC bool
+can_rw_trial_experiment_factors(struct sysctl_req *req)
+{
+	if (IOTaskHasEntitlement(proc_task(req->p), trial_experiment_factors_entitlement)) {
+		return true;
+	}
+	if (os_variant_has_internal_diagnostics("com.apple.xnu")) {
+		return !proc_suser(req->p);
+	}
+	return false;
+}
+
+#define WRITE_LEGACY_EXPERIMENT_FACTORS_ENTITLEMENT "com.apple.private.write-kr-experiment-factors"
 /*
  * Is the current task allowed to write to experiment factors?
  * tasks with the WRITE_EXPERIMENT_FACTORS_ENTITLEMENT are always allowed to write these.
  * In the development / debug kernel we also allow root to write them.
  */
 STATIC bool
-can_write_experiment_factors(__unused struct sysctl_req *req)
+can_write_legacy_experiment_factors(__unused struct sysctl_req *req)
 {
-	if (IOCurrentTaskHasEntitlement(WRITE_EXPERIMENT_FACTORS_ENTITLEMENT)) {
+	if (IOCurrentTaskHasEntitlement(WRITE_LEGACY_EXPERIMENT_FACTORS_ENTITLEMENT)) {
 		return true;
 	}
 #if DEBUG || DEVELOPMENT
@@ -1832,13 +1853,20 @@ found:
 		goto err;
 	}
 
+	if (oid->oid_kind & CTLFLAG_EXPERIMENT && req->p) {
+		if (!can_rw_trial_experiment_factors(req)) {
+			error = (EPERM);
+			goto err;
+		}
+	}
+
 	if (req->newptr && req->p) {
-		if (oid->oid_kind & CTLFLAG_EXPERIMENT) {
+		if (oid->oid_kind & CTLFLAG_LEGACY_EXPERIMENT) {
 			/*
 			 * Experiment factors have different permissions since they need to be
 			 * writable by procs with WRITE_EXPERIMENT_FACTORS_ENTITLEMENT.
 			 */
-			if (!can_write_experiment_factors(req)) {
+			if (!can_write_legacy_experiment_factors(req)) {
 				error = (EPERM);
 				goto err;
 			}
@@ -2223,6 +2251,9 @@ scalable_counter_sysctl_handler SYSCTL_HANDLER_ARGS
 	return SYSCTL_OUT(req, &value, sizeof(value));
 }
 
+SYSCTL_NODE(_kern, OID_AUTO, trial, CTLFLAG_RW | CTLFLAG_LOCKED, 0,
+    "trial experiment factors");
+
 #define X(name, T) \
 int \
 experiment_factor_##name##_handler SYSCTL_HANDLER_ARGS \
@@ -2285,7 +2316,12 @@ sysctl_register_test_startup(struct sysctl_test_setup_spec *spec)
 		.oid_parent     = &sysctl__debug_test_children,
 		.oid_number     = OID_AUTO,
 		.oid_kind       = CTLTYPE_QUAD | CTLFLAG_OID2 | CTLFLAG_WR |
-	    CTLFLAG_PERMANENT | CTLFLAG_LOCKED | CTLFLAG_MASKED,
+	    CTLFLAG_PERMANENT | CTLFLAG_LOCKED | CTLFLAG_MASKED
+#ifdef __BUILDING_XNU_LIB_UNITTEST__
+	    | CTLFLAG_KERN,     /* allow calls from unit-test which use kernel_sysctlbyname() */
+#else /* __BUILDING_XNU_LIB_UNITTEST__ */
+		,
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
 		.oid_arg1       = (void *)(uintptr_t)spec->st_func,
 		.oid_name       = spec->st_name,
 		.oid_handler    = sysctl_test_handler,
@@ -2457,3 +2493,35 @@ SYSCTL_OID(_debug_test_sysctl_node_test_l2, OID_AUTO, hanging_oid,
     CTLFLAG_RW | CTLFLAG_LOCKED, 0, 0, NULL, "", "rdar://138698424 L2 hanging OID");
 
 #endif /* DEBUG || DEVELOPMENT */
+
+static int
+sysctl_static_if_modified_keys SYSCTL_HANDLER_ARGS
+{
+	extern char __static_if_segment_start[] __SEGMENT_START_SYM(STATIC_IF_SEGMENT);
+
+	uint64_t addr;
+	int      err;
+
+	for (static_if_key_t key = static_if_modified_keys;
+	    key; key = key->sik_modified_next) {
+		if ((key->sik_enable_count >= 0) == key->sik_init_value) {
+			continue;
+		}
+
+		addr = (vm_offset_t)key->sik_entries_head - (vm_offset_t)__static_if_segment_start;
+		err = SYSCTL_OUT(req, &addr, sizeof(addr));
+		if (err) {
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, static_if_modified_keys,
+    CTLFLAG_RD | CTLFLAG_LOCKED | CTLTYPE_OPAQUE,
+    0, 0, sysctl_static_if_modified_keys, "-",
+    "List of unslid addresses of modified keys");
+
+SYSCTL_UINT(_kern, OID_AUTO, static_if_abi, CTLFLAG_RD | CTLFLAG_LOCKED,
+    &static_if_abi, 0, "static_if ABI");

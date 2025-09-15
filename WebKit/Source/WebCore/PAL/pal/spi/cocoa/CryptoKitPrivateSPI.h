@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(RSA_BSSA)
 
 #if USE(APPLE_INTERNAL_SDK)

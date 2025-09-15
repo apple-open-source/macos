@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FindClient_h
-#define FindClient_h
+#pragma once
 
 #import "WKFoundation.h"
 
@@ -53,8 +52,10 @@ private:
 
     virtual void didAddLayerForFindOverlay(WebKit::WebPageProxy*, CALayer *);
     virtual void didRemoveLayerForFindOverlay(WebKit::WebPageProxy*);
+
+    bool isWebKitFindClient() const final { return true; }
     
-    WKWebView *m_webView;
+    WeakObjCPtr<WKWebView> m_webView;
     WeakObjCPtr<id <_WKFindDelegate>> m_delegate;
     
     struct {
@@ -68,4 +69,6 @@ private:
     
 } // namespace WebKit
 
-#endif // FindClient_h
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::FindClient) \
+    static bool isType(const API::FindClient& client) { return client.isWebKitFindClient(); } \
+SPECIALIZE_TYPE_TRAITS_END()

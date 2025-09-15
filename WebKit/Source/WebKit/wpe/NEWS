@@ -1,4 +1,81 @@
 =================
+WPE WebKit 2.49.3
+=================
+
+What's new in WPE WebKit 2.49.3?
+
+  - Add new API to get the theme color of a WebKitWebView.
+  - Add new WPEPlatform API to allow providing rendering synchronization information.
+  - Add support for gamepad analog button events.
+  - Notify automation session on abnormal disconnections.
+  - Fix a crash by ensuring SkiaRecordingResult is destroyed on the main thread.
+  - Fix the build on s390x.
+  - Fix the build with USE_EXTERNAL_HOLEPUNCH=ON.
+  - Fix the build with USE_LIBWEBRTC=ON.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.49.2
+=================
+
+What's new in WPE WebKit 2.49.2?
+
+  - Pass available input devices from UI process to web process for
+    Interaction Media Features.
+  - Always have a fallback when domain does not have known base.
+  - Add gamepad support to the WPEPlatform API.
+  - Add clipboard support to the WPEPlatform API.
+  - Add support for Interaction Media Features when using the
+    WPEPlatform API.
+  - Add support to allow applications to handle toplevels when using
+    the WPEPlatform API.
+  - The MiniBrowser now defaults to using the WPEPlatform API.
+  - Add support to build for Android, passing -DANDROID to CMake.
+  - Fix WPE_SETTINGS_DARK_MODE not enabling dark mode when using the
+    WPEPlatform API.
+  - Fix URL after HSTS upgrade in case of redirection.
+  - Fix rendering when device scale factor change comes before the
+    web view geometry update.
+  - Fix the build with ENABLE_GAMEPAD=OFF.
+  - Fix the build with ENABLE_RESOURCE_USAGE=OFF.
+  - Fix a crash when setting WEBKIT_SKIA_GPU_PAINTING_THREADS=0.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.49.1
+=================
+
+What's new in WPE WebKit 2.49.1?
+
+  - Change threaded rendering implementation to use Skia API instead of WebCore display
+    list that is not thread safe. This also allowed to improve performance by recording
+    layers once and replaying every dirty region in different worker threads.
+  - Added hybrid rendering mode that tries to use the GPU worker threads, but if they
+    are all busy the CPU worker threads are used if possible.
+  - Add volume locking support to media player.
+  - Add support for tracing counters with Sysprof.
+  - Add a default accessibility implementation using ATK to WPEPlatform.
+  - Add new API in WPEPlatform that allows attaching user data to WPEEvent.
+  - Add new API in WPEPlatform to get/set the input purpose and hints for
+    the current input through WPEInputMethodContext.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.47.4
+=================
+
+What's new in WPE WebKit 2.47.4?
+
+  - Add support for the Cookie Store API.
+  - Add initial support for per-element audio output selection.
+  - Add debuging aids to visualize damage rectangles.
+  - Add documentation about how to use the remote web inspector.
+  - Enable WebDriver BiDi as an experimental feature.
+  - Remove support for GLib versions older than 2.70.
+  - Fix a crash when enabling Skia CPU rendering.
+  - Fix several crashes and rendering issues.
+
+=================
 WPE WebKit 2.47.3
 =================
 

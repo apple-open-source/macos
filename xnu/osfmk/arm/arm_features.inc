@@ -32,6 +32,7 @@
  * below based on the MSR that will be used to populate the data.
  */
 
+
 /* Features from: ID_AA64ISAR0_EL1 */
 ARM_FEATURE_FLAG(FEAT_CRC32);
 ARM_FEATURE_FLAG(FEAT_FlagM);
@@ -72,6 +73,7 @@ ARM_FEATURE_FLAG(FEAT_WFxT);
 ARM_FEATURE_FLAG(FEAT_RPRES);
 ARM_FEATURE_FLAG(FEAT_CSSC);
 ARM_FEATURE_FLAG(FEAT_HBC);
+
 
 /* Features from: ID_AA64MMFR0_EL1 */
 ARM_FEATURE_FLAG(FEAT_ECV);

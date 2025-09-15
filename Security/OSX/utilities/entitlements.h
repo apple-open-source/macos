@@ -25,6 +25,7 @@
 #define _utilities_entitlements_h
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreEntitlements/CoreEntitlements.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -47,6 +48,21 @@ bool needsOSInstallerSetupdEntitlementsFixup(CFStringRef identifier, bool isLike
 /// This function removes the kTCCServiceSystemPolicyAllFiles entitlement if it exists.
 /// This should only be called if needsOSInstallerSetupdEntitlementsFixup returns true.
 bool updateOSInstallerSetupdEntitlements(CFMutableDictionaryRef entitlement);
+
+// MARK: CoreEntitlements wrappers
+
+/// This CERuntime does not implement CERuntime.alloc or CERuntime.free. This is important because
+/// the Secure Userspace Allocator doesn't work with malloc/free wrappers.
+extern CERuntime_t CESecRuntime;
+
+/// Custom implementation of CEManagedContextFromCFData
+CEError_t SecCEContextFromCFData(CFDataRef data, CEQueryContext_t* ctx);
+
+/// Custom implementation of CEManagedContextFromCFDataWithOptions
+CEError_t SecCEContextFromCFDataWithOptions(CEValidationOptions* options, CFDataRef data, CEQueryContext_t* ctx);
+
+/// Custom implementation of CEReleaseManagedContext
+CEError_t SecCEReleaseContext(CEQueryContext_t* ctx);
 
 __END_DECLS
 

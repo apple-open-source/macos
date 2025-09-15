@@ -146,6 +146,7 @@ extension OctagonPairingTests {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         let joiningContext = self.manager.context(forContainerName: OTCKContainerName, contextID: self.initiatorArguments.contextID)
+        let joiningPeerID = self.fetchEgoPeerID(context: joiningContext)
         XCTAssertNil(joiningContext.pairingUUID, "pairingUUID should be nil")
 
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -179,6 +180,10 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joiningPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)
@@ -328,6 +333,7 @@ extension OctagonPairingTests {
         }
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
+        let joiningPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -338,6 +344,10 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joiningPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)
@@ -1228,6 +1238,17 @@ extension OctagonPairingTests {
 
         XCTAssertTrue(requestSession!.isDone(), "requestor should be done")
         XCTAssertTrue(acceptSession!.isDone(), "acceptor should be done")
+
+        // Acceptor context shouldn't have sponsored anything
+        let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
+        self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContextForAcceptor.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 0, "shouldn't have sponsored any peers")
+            acceptorDumpCallback.fulfill()
+        }
+        self.wait(for: [acceptorDumpCallback], timeout: 10)
     }
 
     func testPiggybackingForTLKRequest() throws {
@@ -1497,13 +1518,17 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joiningPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 2, "should be 2 bottles")
     }
 
-    func testV3RequestorAndV2AcceptorPiggybacking() throws {
+    func tesV3RequestorAndV2AcceptorPiggybacking() throws {
         self.startCKAccountStatusMock()
 
         let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -1653,6 +1678,10 @@ extension OctagonPairingTests {
             let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joiningPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
             acceptorDumpCallback.fulfill()
         }
         self.wait(for: [acceptorDumpCallback], timeout: 10)

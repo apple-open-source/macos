@@ -40,7 +40,7 @@ namespace JSC { namespace DFG {
 
 void VariableEventStreamBuilder::logEvent(const VariableEvent& event)
 {
-    dataLogF("seq#%u:", static_cast<unsigned>(m_stream.size()));
+    dataLog("seq#", static_cast<unsigned>(m_stream.size()), ":");
     event.dump(WTF::dataFile());
     dataLogLn(" ");
 }
@@ -241,6 +241,11 @@ unsigned VariableEventStream::reconstruct(
         MinifiedGenerationInfo info = generationInfos.get(source.id());
         if (!info.alive) {
             dataLogLnIf(verbose, "Operand ", valueRecoveries.operandForIndex(i), " is dead.");
+            if (Options::poisonDeadOSRExitVariables()) [[unlikely]] {
+                valueRecoveries[i] = ValueRecovery::constant(JSValue::decode(poisonedDeadOSRExitValue));
+                continue;
+            }
+
             valueRecoveries[i] = ValueRecovery::constant(jsUndefined());
             if (style == ReconstructionStyle::Separated)
                 recordUndefinedOperand(i);

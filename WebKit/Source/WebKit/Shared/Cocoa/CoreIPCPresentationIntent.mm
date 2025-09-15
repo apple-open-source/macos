@@ -89,7 +89,7 @@ RetainPtr<id> CoreIPCPresentationIntent::toID() const
     case NSPresentationIntentKindListItem:
         return [NSPresentationIntent listItemIntentWithIdentity:m_identity ordinal:m_ordinal nestedInsideIntent:parent.get()];
     case NSPresentationIntentKindCodeBlock:
-        return [NSPresentationIntent codeBlockIntentWithIdentity:m_identity languageHint:m_languageHint nestedInsideIntent:parent.get()];
+        return [NSPresentationIntent codeBlockIntentWithIdentity:m_identity languageHint:m_languageHint.createNSString().get() nestedInsideIntent:parent.get()];
     case NSPresentationIntentKindBlockQuote:
         return [NSPresentationIntent blockQuoteIntentWithIdentity:m_identity nestedInsideIntent:parent.get()];
     case NSPresentationIntentKindThematicBreak:

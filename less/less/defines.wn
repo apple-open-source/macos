@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2021  Mark Nudelman
+ * Copyright (C) 1984-2024  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -91,6 +91,12 @@
 #define	LOGFILE		(!SECURE)
 
 /*
+ * OSC8_SEARCH is 1 if you wish to allow the ^O^O and related commands
+ * (to open OSC8 hyperlinks).
+ */
+#define OSC8_LINK	1
+
+/*
  * GNU_OPTIONS is 1 if you wish to support the GNU-style command
  * line options --help and --version.
  */
@@ -115,6 +121,7 @@
 #define	LESSKEYFILE		"_less"
 #define	LESSKEYFILE_SYS		"c:\\_sysless"
 #define	DEF_LESSKEYINFILE	"_lesskey"
+#define	LESSKEYINFILE_SYS	"c:\\_syslesskey"
 #define LESSHISTFILE		"_lesshst"
 
 
@@ -169,6 +176,9 @@
  */
 #define	HAVE_DUP	1
 
+/* Define to 1 to support reading lesskey source files (not just binary). */
+#define HAVE_LESSKEYSRC 1
+
 /*
  * Sizes of various buffers.
  */
@@ -186,7 +196,7 @@
 #define	CMDBUF_SIZE	2048	/* Buffer for multichar commands */
 #define	UNGOT_SIZE	200	/* Max chars to unget() */
 #define	LINEBUF_SIZE	1024	/* Initial max size of line in input file */
-#define	OUTBUF_SIZE	1024	/* Output buffer */
+#define	OUTBUF_SIZE	8192	/* Output buffer: 8K avoids end-of-buffer bugs in win_flush */
 #define	PROMPT_SIZE	2048	/* Max size of prompt string */
 #define	TERMBUF_SIZE	2048	/* Termcap buffer for tgetent */
 #define	TERMSBUF_SIZE	1024	/* Buffer to hold termcap strings */
@@ -256,11 +266,7 @@
 /* Define MUST_DEFINE_ERRNO if you have errno but it is not define 
  * in errno.h */
 #define HAVE_ERRNO 1
-#ifdef MINGW
 #define MUST_DEFINE_ERRNO 0
-#else
-#define MUST_DEFINE_ERRNO 1
-#endif
 
 /* Define HAVE_SYS_ERRLIST if you have the sys_errlist[] variable */
 #define HAVE_SYS_ERRLIST 1
@@ -323,9 +329,6 @@
 /* Define if you have the <fcntl.h> header file.  */
 #define HAVE_FCNTL_H 1
 
-/* Define HAVE_FLOAT if your compiler supports the "double" type. */
-#define HAVE_FLOAT 1
-
 /* Define if you have the <limits.h> header file.  */
 #define HAVE_LIMITS_H 1
 
@@ -378,8 +381,16 @@
 #endif
 
 #define	popen	_popen
-#if !defined(_MSC_VER) || (_MSC_VER < 1900) 
-#define snprintf	_snprintf
+
+/*
+ * _snprintf in msvcrt/ucrt is non-compliant (no '\0' on overflow).
+ * ucrt has a C99 snprintf, and is the default since msvc 2015 (ver 1900).
+ * mingw with msvcrt has its own C99 snprintf, and with ucrt there's no need.
+ * so if we don't have a compliant snprintf, specify that there's none.
+ */
+#if !defined (MINGW) && (!defined(_MSC_VER) || (_MSC_VER < 1900))
+#undef HAVE_SNPRINTF
+#define HAVE_SNPRINTF 0
 #endif
 
 #ifndef MINGW

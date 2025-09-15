@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -122,14 +122,12 @@
 		BE9D63131A73159E0021F0B6 /* Certificates.bundle in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		BE9D63151A7315BD0021F0B6 /* Certificates.bundle in Copy Files */ = {isa = PBXBuildFile; fileRef = BE7F81FB1A3F697800784BBB /* Certificates.bundle */; };
 		BEB232EF2AD5D11400118B1E /* SystemTrustSettings.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7DE1A72CFB100C14393 /* SystemTrustSettings.plist */; };
-		BEB232F22AD5D11900118B1E /* EVRoots.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7D81A72CF9800C14393 /* EVRoots.plist */; };
 		BEB232F32AD5D12800118B1E /* X509Anchors in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7E21A72CFDE00C14393 /* X509Anchors */; };
 		BED4A7DD1A72CFAA00C14393 /* SystemRootCertificates.keychain in CopyFiles */ = {isa = PBXBuildFile; fileRef = BED4A7DC1A72CFAA00C14393 /* SystemRootCertificates.keychain */; };
 		BED4A7FF1A72D73A00C14393 /* certsIndex.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7ED1A72D41900C14393 /* certsIndex.data */; };
 		BED4A8001A72D73A00C14393 /* certsTable.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EE1A72D41900C14393 /* certsTable.data */; };
 		BED4A8011A72D73A00C14393 /* EVRoots.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EF1A72D41900C14393 /* EVRoots.plist */; };
 		BED4A8031A72D73A00C14393 /* manifest.data in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7F11A72D41900C14393 /* manifest.data */; };
-		BED4A8041A72D73A00C14393 /* Blocked.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7EB1A72D40300C14393 /* Blocked.plist */; };
 		BED4A8051A72D73A00C14393 /* AssetVersion.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED4A7E91A72D3FD00C14393 /* AssetVersion.plist */; };
 		BED9C8051ED64DB60052A224 /* ValidUpdate.plist in Resources */ = {isa = PBXBuildFile; fileRef = BED9C8031ED64DA30052A224 /* ValidUpdate.plist */; };
 		D443E1691E28264800CD9CB0 /* CertificatePinning.plist in Resources */ = {isa = PBXBuildFile; fileRef = D4D71DC81E26F51C009CF310 /* CertificatePinning.plist */; };
@@ -287,7 +285,6 @@
 				BEB232EF2AD5D11400118B1E /* SystemTrustSettings.plist in CopyFiles */,
 				BED4A7DD1A72CFAA00C14393 /* SystemRootCertificates.keychain in CopyFiles */,
 				BEB232F32AD5D12800118B1E /* X509Anchors in CopyFiles */,
-				BEB232F22AD5D11900118B1E /* EVRoots.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -348,7 +345,6 @@
 		BED4A7EF1A72D41900C14393 /* EVRoots.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = EVRoots.plist; sourceTree = "<group>"; };
 		BED4A7F01A72D41900C14393 /* GrayListedKeys.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = GrayListedKeys.plist; sourceTree = "<group>"; };
 		BED4A7F11A72D41900C14393 /* manifest.data */ = {isa = PBXFileReference; lastKnownFileType = file; path = manifest.data; sourceTree = "<group>"; };
-		BED60BAF1A6F2EC500A395C2 /* evroot.config */ = {isa = PBXFileReference; lastKnownFileType = text; path = evroot.config; sourceTree = "<group>"; };
 		BED60BD41A6F470200A395C2 /* CertificateTool.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = CertificateTool.xcodeproj; path = CertificateTool/CertificateTool.xcodeproj; sourceTree = "<group>"; };
 		BED9C8031ED64DA30052A224 /* ValidUpdate.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = ValidUpdate.plist; path = valid_db_snapshot/ValidUpdate.plist; sourceTree = "<group>"; };
 		BEF6F7E52AC479A0007B60A0 /* buildTrustStoreAsset.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = buildTrustStoreAsset.sh; sourceTree = "<group>"; };
@@ -357,17 +353,20 @@
 		D418CC771E69F46D00330A44 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = Pinning/README.txt; sourceTree = "<group>"; };
 		D427C3DF2D66D7E3000AAB9A /* custom */ = {isa = PBXFileReference; lastKnownFileType = folder; path = custom; sourceTree = "<group>"; };
 		D427C5012D66D7E3000AAB9A /* removed */ = {isa = PBXFileReference; lastKnownFileType = folder; path = removed; sourceTree = "<group>"; };
-		D427C50C2D66D7E3000AAB9A /* revoked */ = {isa = PBXFileReference; lastKnownFileType = folder; path = revoked; sourceTree = "<group>"; };
 		D427C5A82D66D7E3000AAB9A /* roots */ = {isa = PBXFileReference; lastKnownFileType = folder; path = roots; sourceTree = "<group>"; };
+		D457A5042DEE7E01006DDCF7 /* create_human_names.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = create_human_names.py; sourceTree = "<group>"; };
+		D457A5052DEE803C006DDCF7 /* hash_to_human_name.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = hash_to_human_name.json; sourceTree = "<group>"; };
 		D46127412552199000CFA05B /* TrustedCTLogs_nonTLS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = TrustedCTLogs_nonTLS.plist; sourceTree = "<group>"; };
 		D46BF2E32D1238DF006F2495 /* constraints.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = constraints.json; sourceTree = "<group>"; };
 		D46BF2E62D12395F006F2495 /* update_trust_store.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = update_trust_store.py; sourceTree = "<group>"; };
 		D46BF2E72D123974006F2495 /* generate_qwac_constraints.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = generate_qwac_constraints.py; sourceTree = "<group>"; };
-		D46BF2E82D123AC7006F2495 /* root_store_updates_schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = root_store_updates_schema.json; sourceTree = "<group>"; };
+		D46BF2E82D123AC7006F2495 /* trust_store_updates_schema_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = trust_store_updates_schema_v1.json; sourceTree = "<group>"; };
 		D46BF2E92D1241B3006F2495 /* validate_update_json.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = validate_update_json.py; sourceTree = "<group>"; };
 		D4AE94221FD64257002FE721 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; name = Makefile; path = TrustSupplementalsAsset/Makefile; sourceTree = "<group>"; usesTabs = 1; };
 		D4AE94261FD64257002FE721 /* README.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = README.txt; path = TrustSupplementalsAsset/README.txt; sourceTree = "<group>"; };
 		D4AE94271FD64257002FE721 /* com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; path = TrustSupplementalsAsset/com.apple.MobileAsset.AssetTypeDescriptor.PKITrustSupplementals.plist; sourceTree = "<group>"; };
+		D4B8150B2DCD6E2600CB9DA4 /* trust_store_updates_schema_v2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = trust_store_updates_schema_v2.json; sourceTree = "<group>"; };
+		D4B8150E2DCD6EEA00CB9DA4 /* generate_trust_store_update_description.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = generate_trust_store_update_description.py; sourceTree = "<group>"; };
 		D4C1CCB12D137E36003E0DDB /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		D4C1CCB22D137F38003E0DDB /* ts_119612v020101_additionaltypes_xsd.xsd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = ts_119612v020101_additionaltypes_xsd.xsd; sourceTree = "<group>"; };
 		D4C1CCB32D137F38003E0DDB /* ts_119612v020101_sie_xsd.xsd */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = ts_119612v020101_sie_xsd.xsd; sourceTree = "<group>"; };
@@ -379,7 +378,15 @@
 		D4E565A226A76A03003226B9 /* .open_source_exclude */ = {isa = PBXFileReference; lastKnownFileType = text; name = .open_source_exclude; path = TrustSupplementalsAsset/.open_source_exclude; sourceTree = "<group>"; };
 		D4F8CF341E5FEF8700ECC040 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = Pinning/Info.plist; sourceTree = "<group>"; };
 		D4F8CF371E5FF18200ECC040 /* com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; path = Pinning/com.apple.MobileAsset.AssetTypeDescriptor.CertificatePinning.plist; sourceTree = "<group>"; };
+		D4FDC8EA2DCEB54B00FBA581 /* convert_roots.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_roots.py; sourceTree = "<group>"; };
+		D4FDC8ED2DD2C87900FBA581 /* convert_evroot.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = convert_evroot.py; sourceTree = "<group>"; };
+		D4FDC8EF2DD2D79600FBA581 /* EVRoots.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = EVRoots.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		D44D5C542DF0C71300A6DBF0 /* test-roots */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "test-roots"; sourceTree = "<group>"; };
+		D44D5C572DF0C71F00A6DBF0 /* test-platform */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "test-platform"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		BE7F81F81A3F697800784BBB /* Frameworks */ = {
@@ -449,13 +456,15 @@
 		BE7F81FD1A3F697800784BBB /* certificates */ = {
 			isa = PBXGroup;
 			children = (
+				D44D5C572DF0C71F00A6DBF0 /* test-platform */,
+				D44D5C542DF0C71300A6DBF0 /* test-roots */,
 				D4C342022D66DABD00D88D50 /* platform */,
 				D427C3DF2D66D7E3000AAB9A /* custom */,
 				D427C5012D66D7E3000AAB9A /* removed */,
-				D427C50C2D66D7E3000AAB9A /* revoked */,
 				D427C5A82D66D7E3000AAB9A /* roots */,
 				D46BF2E32D1238DF006F2495 /* constraints.json */,
-				BED60BAF1A6F2EC500A395C2 /* evroot.config */,
+				D457A5052DEE803C006DDCF7 /* hash_to_human_name.json */,
+				D4FDC8EF2DD2D79600FBA581 /* EVRoots.json */,
 			);
 			path = certificates;
 			sourceTree = "<group>";
@@ -518,10 +527,15 @@
 		D46BF2E52D12393F006F2495 /* update_scripts */ = {
 			isa = PBXGroup;
 			children = (
+				D457A5042DEE7E01006DDCF7 /* create_human_names.py */,
 				D4C1CCB02D137E1D003E0DDB /* QWACS */,
 				D46BF2E92D1241B3006F2495 /* validate_update_json.py */,
-				D46BF2E82D123AC7006F2495 /* root_store_updates_schema.json */,
+				D46BF2E82D123AC7006F2495 /* trust_store_updates_schema_v1.json */,
+				D4B8150B2DCD6E2600CB9DA4 /* trust_store_updates_schema_v2.json */,
 				D46BF2E62D12395F006F2495 /* update_trust_store.py */,
+				D4B8150E2DCD6EEA00CB9DA4 /* generate_trust_store_update_description.py */,
+				D4FDC8EA2DCEB54B00FBA581 /* convert_roots.py */,
+				D4FDC8ED2DD2C87900FBA581 /* convert_evroot.py */,
 			);
 			path = update_scripts;
 			sourceTree = "<group>";
@@ -591,7 +605,6 @@
 			buildPhases = (
 				BE7F81F71A3F697800784BBB /* Sources */,
 				BE7F81F81A3F697800784BBB /* Frameworks */,
-				BEFFE9162CC1B9CA008A583B /* ShellScript */,
 				BE7F81F91A3F697800784BBB /* Resources */,
 			);
 			buildRules = (
@@ -704,7 +717,6 @@
 				BED4A8001A72D73A00C14393 /* certsTable.data in Resources */,
 				BED4A8011A72D73A00C14393 /* EVRoots.plist in Resources */,
 				BED4A8031A72D73A00C14393 /* manifest.data in Resources */,
-				BED4A8041A72D73A00C14393 /* Blocked.plist in Resources */,
 				BED4A8051A72D73A00C14393 /* AssetVersion.plist in Resources */,
 				BE4DBC631A9401410025962E /* TrustStore.html in Resources */,
 				0C406A8C1C0FAC930053517B /* TrustedCTLogs.plist in Resources */,
@@ -751,26 +763,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/sh -e -x";
 			shellScript = "${SRCROOT}/xcscripts/buildTrustStoreAsset.sh -cryptex\n";
-		};
-		BEFFE9162CC1B9CA008A583B /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/Anchors",
-				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/Anchors.plist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "true
-";
 		};
 		D4AE942C1FD64501002FE721 /* build_and_stage_assets.sh */ = {
 			isa = PBXShellScriptBuildPhase;

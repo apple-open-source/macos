@@ -137,3 +137,18 @@ sptm_get_page_table_refcnt(sptm_paddr_t table_paddr)
 
 	return refcnt;
 }
+
+/**
+ * Convenience function for determining whether a frame type allows userspace
+ * executable mapping permissions.
+ *
+ * @param frame_type the frame type to query
+ *
+ * @return True If [frame_type] allows userspace mappings with executable
+ *         privileges, false otherwise.
+ */
+static inline bool
+sptm_type_is_user_executable(sptm_frame_type_t frame_type)
+{
+	return (frame_type == XNU_USER_EXEC) || (frame_type == XNU_USER_DEBUG) || (frame_type == XNU_USER_JIT);
+}

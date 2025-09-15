@@ -116,7 +116,7 @@ WK_EXTERN NSString * const _WKLocalAuthenticatorCredentialLastUsedDateKey;
 
 - (void)panel:(_WKWebAuthenticationPanel *)panel updateWebAuthenticationPanel:(_WKWebAuthenticationPanelUpdate)update WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)panel:(_WKWebAuthenticationPanel *)panel requestPINWithRemainingRetries:(NSUInteger)retries completionHandler:(void (^)(NSString *))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
-- (void)panel:(_WKWebAuthenticationPanel *)panel requestNewPINWithMinLength:(NSUInteger)minLength completionHandler:(void (^)(NSString *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)panel:(_WKWebAuthenticationPanel *)panel requestNewPINWithMinLength:(NSUInteger)minLength completionHandler:(void (^)(NSString *))completionHandler WK_API_AVAILABLE(macos(15.4), ios(18.4));
 - (void)panel:(_WKWebAuthenticationPanel *)panel selectAssertionResponse:(NSArray < _WKWebAuthenticationAssertionResponse *> *)responses source:(_WKWebAuthenticationSource)source completionHandler:(void (^)(_WKWebAuthenticationAssertionResponse * _Nullable))completionHandler WK_API_AVAILABLE(macos(11.0), ios(14.0));
 - (void)panel:(_WKWebAuthenticationPanel *)panel requestLAContextForUserVerificationWithCompletionHandler:(void (^)(LAContext *context))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
 

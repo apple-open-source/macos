@@ -103,12 +103,12 @@ struct srp_key {
 // Uncomment the following line to print the data being feed into the hash operation for debugging purpose.
 // #define DEBUG_SHA256
 #ifdef DEBUG_SHA256
-int srp_mbedtls_sha256_update_ret(const char *NONNULL thing_name,
-                                  mbedtls_sha256_context *NONNULL sha, uint8_t *NONNULL message, size_t msglen);
-int srp_mbedtls_sha256_finish_ret(mbedtls_sha256_context *NONNULL sha, uint8_t *NONNULL hash);
+int srp_mbedtls_sha256_update(const char *NONNULL thing_name,
+                              mbedtls_sha256_context *NONNULL sha, uint8_t *NONNULL message, size_t msglen);
+int srp_mbedtls_sha256_finish(mbedtls_sha256_context *NONNULL sha, uint8_t *NONNULL hash);
 #else
-#define srp_mbedtls_sha256_update_ret(name, ...) mbedtls_sha256_update_ret(__VA_ARGS__)
-#define srp_mbedtls_sha256_finish_ret mbedtls_sha256_finish_ret
+#define srp_mbedtls_sha256_update(name, ...) mbedtls_sha256_update(__VA_ARGS__)
+#define srp_mbedtls_sha256_finish mbedtls_sha256_finish
 #endif // DEBUG_SHA256
 #ifdef THREAD_DEVKIT_ADK
 #define mbedtls_strerror(code, buf, bufsize) snprintf(buf, bufsize, "%d", (int)(code))
@@ -133,10 +133,11 @@ int srp_store_key_data(void *NULLABLE host_context, const char *NONNULL key_name
                        uint16_t length);
 
 int srp_remove_key_file(void *NULLABLE host_context, const char *NONNULL key_name);
+int srp_mbedtls_random(void *NULLABLE context, uint8_t *NONNULL buf, size_t buflen);
 #endif // SRP_CRYPTO_MBEDTLS
 
 // sign_*.c:
-void srp_keypair_free(srp_key_t *NONNULL key);
+void srp_keypair_free(srp_key_t *NULLABLE key);
 uint64_t srp_random64(void);
 uint32_t srp_random32(void);
 uint16_t srp_random16(void);

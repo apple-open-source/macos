@@ -49,7 +49,7 @@
     if (!(self = [super _initWithRequest:request presenter:presenter]))
         return nil;
 
-    RefPtr client = presenter.protectedClient();
+    RefPtr client = presenter.client();
     if (!client)
         return nil;
 
@@ -130,7 +130,7 @@
 - (NSString *)presentationSceneBundleIdentifierForPaymentAuthorizationController:(PKPaymentAuthorizationController *)controller
 {
     if (!_presenter)
-        return applicationBundleIdentifier();
+        return applicationBundleIdentifier().createNSString().autorelease();
     return nsStringNilIfEmpty(_presenter->bundleIdentifier());
 }
 #endif

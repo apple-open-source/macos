@@ -45,8 +45,8 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
         console.assert(script.range.startLine === 0);
         console.assert(script.range.startColumn === 0);
 
-        var toolTip = WI.UIString("Pretty print");
-        var activatedToolTip = WI.UIString("Original formatting");
+        var toolTip = WI.UIString("Click to pretty print");
+        var activatedToolTip = WI.UIString("Click to show original formatting");
         this._prettyPrintButtonNavigationItem = new WI.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
         this._prettyPrintButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
         this._prettyPrintButtonNavigationItem.enabled = false; // Enabled when the text editor is populated with content.

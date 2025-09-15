@@ -34,16 +34,11 @@
 #import <LiveFS/LiveFSMountManagerClient.h>
 
 #import <err.h>
-#else /* __has_include(<FSKit/FSKit.h>) */
-#include <os/errno.h>
-#endif /* __has_include(<FSKit/FSKit.h>) */
-
 
 int
 invoke_tool_from_fskit(fskit_command_t operation, int flags,
                        int argc, char * const *argv)
 {
-#ifdef HAS_FSKIT
             FSClient            *client;
             NSString            *shortName;
     __block FSModuleIdentity    *module;
@@ -55,7 +50,7 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
     }
 
 #pragma mark - Find Extension
-    client = [FSClient new];
+    client = [FSClient sharedInstance];
     shortName = [NSString stringWithUTF8String:argv[0]];
     [client installedExtensionWithShortName:shortName
                                 synchronous:TRUE
@@ -89,17 +84,17 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
 
     switch (operation) {
         case check_fs_op:
-            commandOptions = attributes[FSCheckOptionSyntaxKey];
+            commandOptions = attributes[FSModuleIdentityAttributeCheckOptionSyntax];
             expectedArgs = 1;
             operationName = @"fsck";
             break;
         case format_fs_op:
-            commandOptions = attributes[FSFormatOptionSyntaxKey];
+            commandOptions = attributes[FSModuleIdentityAttributeFormatOptionSyntax];
             expectedArgs = 1;
             operationName = @"newfs";
             break;
         case mount_fs_op:
-            commandOptions = attributes[FSActivateOptionSyntaxKey];
+            commandOptions = attributes[FSModuleIdentityAttributeActivateOptionSyntax];
             expectedArgs = 2;
             operationName = @"mount";
             break;
@@ -147,9 +142,11 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
         case check_fs_op:
             // read-only if either -q or -n
             writable = true;
-            [optionBundle enumerateOptionsWithBlock:^(int ch, NSString * _Nullable optarg,
-                                                      NSUInteger idx, BOOL * _Nonnull stop) {
-                if (ch == 'q' || ch == 'n') {
+            [optionBundle enumerateOptionsUsingBlock:^(NSString *option,
+                                                       NSString * _Nullable optionValue,
+                                                       NSUInteger idx,
+                                                       BOOL * _Nonnull stop) {
+                if ([option isEqualToString:@"q"] || [option isEqualToString:@"n"]) {
                     writable = false;
                     *stop = true;
                 }
@@ -163,13 +160,15 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
         case mount_fs_op:
             // read-only if either -o ro or -o rdonly
             writable = true;
-            [optionBundle enumerateOptionsWithBlock:^(int ch, NSString * _Nullable optarg,
-                                                      NSUInteger idx, BOOL * _Nonnull stop) {
-                if (ch != 'o' || optarg == nil) {
+            [optionBundle enumerateOptionsUsingBlock:^(NSString *option,
+                                                       NSString * _Nullable optionValue,
+                                                       NSUInteger idx,
+                                                       BOOL * _Nonnull stop) {
+                if ([option isEqualToString:@"o"] == NO || optionValue == nil) {
                     // Next!
                     return;
                 }
-                NSArray<NSString *> *oOptions   = [optarg componentsSeparatedByString:@","];
+                NSArray<NSString *> *oOptions   = [optionValue componentsSeparatedByString:@","];
                 NSSet<NSString *>   *oSet       = [[NSSet alloc] initWithArray:oOptions];
 
                 if ([oSet containsObject:@"ro"] || [oSet containsObject:@"rdonly"]) {
@@ -193,16 +192,22 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
     FSResource  *theResource;
     NSString    *mountPathString;
     NSNumber    *num;
-    bool acceptsBD =   ((num = attributes[@"FSSupportsBlockResources"])
-                        && ([num isKindOfClass:[NSNumber class]])
-                        && num.boolValue);
-    bool acceptsPath = ((num = attributes[@"FSSupportsPathURLs"])
-                        && ([num isKindOfClass:[NSNumber class]])
-                        && num.boolValue);
+    bool acceptsBD =        ((num = attributes[@"FSSupportsBlockResources"])
+                            && ([num isKindOfClass:[NSNumber class]])
+                            && num.boolValue);
+    bool acceptsPath =      ((num = attributes[@"FSSupportsPathURLs"])
+                            && ([num isKindOfClass:[NSNumber class]])
+                            && num.boolValue);
+    bool acceptsServerURL = ((num = attributes[@"FSSupportsServerURLs"])
+                            && ([num isKindOfClass:[NSNumber class]])
+                            && num.boolValue);
+    bool acceptsGenericURL = ((num = attributes[@"FSSupportsGenericURLResources"])
+                            && ([num isKindOfClass:[NSNumber class]])
+                            && num.boolValue);
 
     if (acceptsBD) {
         theResource = [FSBlockDeviceResource proxyResourceForBSDName:argv0String
-                                                            writable:writable];
+                                                          isWritable:writable];
     } else if (acceptsPath) {
         bool securityScoped;
         NSURL   *url;
@@ -217,8 +222,22 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
         } else {
             theResource = [FSPathURLResource resourceWithURL:url];
         }
+    } else if (acceptsGenericURL) {
+        NSURL *url = [NSURL URLWithString:argv0String];
+        theResource = [FSGenericURLResource resourceWithURL:url];
+    } else if (acceptsServerURL) {
+        NSURL *url = [NSURL URLWithString:argv0String];
+        theResource = [FSServerURLResource resourceWithURL:url];
     } else {
-        warnx("Filesystem %s supports neither Block Device nor PathURL resources.",
+        warnx("Filesystem %s supports neither Block Device nor PathURL resources nor ServerURL resources.",
+              shortName.UTF8String);
+        return EINVAL;
+    }
+
+    // format or check only works on block device or pathURL resources
+    if (!(acceptsBD || acceptsPath) &&
+        (operation == check_fs_op || operation == format_fs_op) ) {
+        warnx("Filesystem %s doesn't support Block Device or PathURL resources, can't preform format/check task.",
               shortName.UTF8String);
         return EINVAL;
     }
@@ -235,21 +254,23 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
     if (operation == format_fs_op || operation == check_fs_op) {
         containerID = [NSUUID UUID].fs_containerIdentifier;
     } else {
-        __block FSProbeResult       *probeResult;
-        [client probeResourceSync:theResource
-                      usingBundle:module.bundleIdentifier
-                     replyHandler:^(FSProbeResult * _Nullable res, NSError * _Nullable err) {
-            error = err;
-            probeResult = res;
-        }];
+        if (acceptsBD || acceptsPath) {
+            __block FSProbeResult       *probeResult;
+            [client probeResourceSync:theResource
+                          usingBundle:module.bundleIdentifier
+                         replyHandler:^(FSProbeResult * _Nullable res, NSError * _Nullable err) {
+                error = err;
+                probeResult = res;
+            }];
 
-        if (error) {
-            warnx("Probing resource: %s", error.localizedDescription.UTF8String);
-            return EIO;
+            if (error) {
+                warnx("Probing resource: %s", error.localizedDescription.UTF8String);
+                return EIO;
+            }
+            containerID = probeResult.containerID;
+
+            /* ***** prep/probe done. Now load ***** */
         }
-        containerID = probeResult.containerID;
-
-        /* ***** prep/probe done. Now load ***** */
 
         // Really should load a resource into a given container. Can't do that yet.
         [client loadResource:theResource
@@ -289,36 +310,63 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
     /* ***** Now do the op ***** */
 
     dispatch_group_enter(theGroup); // Once for the operation
-    if (operation == format_fs_op) {
-        [client formatResource:theResource
-                   usingBundle:module.bundleIdentifier
-                       options:optionBundle
-                    connection:conn
-                  replyHandler:^(NSUUID * _Nullable taskID, NSError * _Nullable err)
-         {
-            // dispatch_group_leave(theGroup); Hand off to the connection
-            if (err) {
-                warnx("Operation ended with error: %s", err.localizedDescription.UTF8String);
-                error = err;
-                dispatch_group_leave(theGroup); // connection didn't start, never completes
-                didCallLeave = true;
-            }
-        }];
-    } else if (operation == check_fs_op) {
-        [client checkResource:theResource
-                  usingBundle:module.bundleIdentifier
-                      options:optionBundle
-                   connection:conn
-                 replyHandler:^(NSUUID * _Nullable taskID, NSError * _Nullable err)
-         {
-            // dispatch_group_leave(theGroup); Hand off to the connection
+    if (operation == format_fs_op || operation == check_fs_op) {
+        FSTaskMessageSTDIOWithProgress *messageDumper;
+        NSProgressPublishingHandler subscribeBlock;
+        if (flags & SHOW_PROGRESS_FLAG) {
+            // For check/format we want to show progress so use FSTaskMessageSTDIOWithProgress
+            messageDumper = [FSTaskMessageSTDIOWithProgress new];
+            receiver = [FSMessageReceiver receiverWithDelegate:messageDumper];
+            conn = [receiver getConnection];
+            messageDumper.dispatch_group = theGroup;
+
+            subscribeBlock = ^(NSProgress *innerProgress) {
+                NSProgressUnpublishingHandler unsubscribeBlock = ^{
+                    // Nothing
+                };
+                messageDumper.progress = innerProgress;
+                [messageDumper showProgress];
+                return unsubscribeBlock;
+            };
+        }
+        void(^replyHandler)(NSUUID * _Nullable, NSError * _Nullable) = ^(NSUUID * _Nullable taskID, NSError * _Nullable err){
             if (err) {
                 warnx("%s:%d: Operation ended with error: %s", __FUNCTION__, __LINE__, err.localizedDescription.UTF8String);
                 error = err;
                 dispatch_group_leave(theGroup); // connection didn't start, never completes
                 didCallLeave = true;
+            } else if (flags & SHOW_PROGRESS_FLAG) {
+                [NSProgress addSubscriberForFileURL:theResource.progressURLKey
+                              withPublishingHandler:subscribeBlock];
             }
-        }];
+        };
+        if (operation == format_fs_op) {
+            [client formatResource:theResource
+                       usingBundle:module.bundleIdentifier
+                           options:optionBundle
+                        connection:conn
+                      replyHandler:replyHandler];
+        } else if (operation == check_fs_op) {
+            [client checkResource:theResource
+                      usingBundle:module.bundleIdentifier
+                          options:optionBundle
+                       connection:conn
+                     replyHandler:replyHandler];
+        }
+
+        // We wait in a different thread so we can get updates on the progress of the task
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+            dispatch_group_wait(theGroup, DISPATCH_TIME_FOREVER);
+            messageDumper.progress = nil;
+            if (error) {
+                warnx("operation exiting with error %s", error.description.UTF8String);
+                exit(error.code);
+            }
+            exit(0);
+        });
+
+        // Ok, now we need threads running so asynchronous things happen (like updating the NSProgress). So call CFRunLoopRun()
+        CFRunLoopRun();
     } else if (operation == mount_fs_op) {
         if (!outVols || outVols.count == 0) {
             warnx("Operation did not add any volumes");
@@ -336,14 +384,12 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
             dispatch_group_leave(theGroup);
             didCallLeave = true;
         }];
-    }
-    dispatch_group_wait(theGroup, DISPATCH_TIME_FOREVER);
-    if (error) {
-        warnx("operation exiting with error %s", error.description.UTF8String);
-        return (int)error.code;
-    }
+        dispatch_group_wait(theGroup, DISPATCH_TIME_FOREVER);
+        if (error) {
+            warnx("operation exiting with error %s", error.description.UTF8String);
+            return (int)error.code;
+        }
 
-    if (operation == mount_fs_op) {
         // Successfully activated volume service. Tell fskitd to mount it
         LiveFSMountClient   *mountClient;
         NSString            *fpProviderName;
@@ -415,13 +461,19 @@ invoke_tool_from_fskit(fskit_command_t operation, int flags,
             dispatch_group_wait(unloadGroup, DISPATCH_TIME_FOREVER);
             return (int)error.code;
         }
-
-    } else {
-        // Successfully formatted or checked. Unload the resource
     }
 
     return 0;
-#else
-    return ENOTSUP;
-#endif /* HAS_FSKIT */
 }
+
+#else /* __has_include(<FSKit/FSKit.h>) */
+#include <os/errno.h>
+
+int
+invoke_tool_from_fskit(fskit_command_t operation, int flags,
+                       int argc, char * const *argv)
+{
+    return ENOTSUP;
+}
+#endif /* __has_include(<FSKit/FSKit.h>) */
+

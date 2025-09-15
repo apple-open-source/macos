@@ -28,7 +28,7 @@
 
 #include "BidiResolver.h"
 #include "DecomposedGlyphs.h"
-#include "DisplayListReplayer.h"
+#include "DisplayList.h"
 #include "Filter.h"
 #include "FilterImage.h"
 #include "FloatRoundedRect.h"
@@ -36,7 +36,7 @@
 #include "ImageBuffer.h"
 #include "ImageOrientation.h"
 #include "IntRect.h"
-#include "RoundedRect.h"
+#include "LayoutRoundedRect.h"
 #include "SystemImage.h"
 #include "TextBoxIterator.h"
 #include "VideoFrame.h"
@@ -173,10 +173,15 @@ void GraphicsContext::drawGlyphs(const Font& font, std::span<const GlyphBufferGl
     FontCascade::drawGlyphs(*this, font, glyphs, advances, point, fontSmoothingMode);
 }
 
+void GraphicsContext::drawGlyphsImmediate(const Font& font, std::span<const GlyphBufferGlyph> glyphs, std::span<const GlyphBufferAdvance> advances, const FloatPoint& point, FontSmoothingMode fontSmoothingMode)
+{
+    // Called by implementations that transform drawGlyphs into drawGlyphsImmediate or drawDecomposedGlyphs.
+    drawGlyphs(font, glyphs, advances, point, fontSmoothingMode);
+}
+
 void GraphicsContext::drawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
 {
-    auto positionedGlyphs = decomposedGlyphs.positionedGlyphs();
-    FontCascade::drawGlyphs(*this, font, positionedGlyphs.glyphs.span(), positionedGlyphs.advances.span(), positionedGlyphs.localAnchor, positionedGlyphs.smoothingMode);
+    FontCascade::drawGlyphs(*this, font, decomposedGlyphs.glyphs(), decomposedGlyphs.advances(), decomposedGlyphs.localAnchor(), decomposedGlyphs.fontSmoothingMode());
 }
 
 void GraphicsContext::drawEmphasisMarks(const FontCascade& font, const TextRun& run, const AtomString& mark, const FloatPoint& point, unsigned from, std::optional<unsigned> to)
@@ -255,9 +260,9 @@ RenderingMode GraphicsContext::renderingModeForCompatibleBuffer() const
     return RenderingMode::Unaccelerated;
 }
 
-RefPtr<ImageBuffer> GraphicsContext::createImageBuffer(const FloatSize& size, float resolutionScale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod>) const
+RefPtr<ImageBuffer> GraphicsContext::createImageBuffer(const FloatSize& size, float resolutionScale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod>, ImageBufferFormat pixelFormat) const
 {
-    return ImageBuffer::create(size, renderingMode.value_or(this->renderingModeForCompatibleBuffer()), RenderingPurpose::Unspecified, resolutionScale, colorSpace, ImageBufferPixelFormat::BGRA8);
+    return ImageBuffer::create(size, renderingMode.value_or(this->renderingModeForCompatibleBuffer()), RenderingPurpose::Unspecified, resolutionScale, colorSpace, pixelFormat);
 }
 
 RefPtr<ImageBuffer> GraphicsContext::createScaledImageBuffer(const FloatSize& size, const FloatSize& scale, const DestinationColorSpace& colorSpace, std::optional<RenderingMode> renderingMode, std::optional<RenderingMethod> renderingMethod) const
@@ -579,9 +584,24 @@ void GraphicsContext::strokeEllipseAsPath(const FloatRect& ellipse)
     strokePath(path);
 }
 
-void GraphicsContext::drawLineForText(const FloatRect& rect, bool printing, bool doubleUnderlines, StrokeStyle style)
+void GraphicsContext::drawLineForText(const FloatRect& rect, bool isPrinting, bool doubleUnderlines, StrokeStyle style)
 {
-    drawLinesForText(rect.location(), rect.height(), DashArray { 0, rect.width() }, printing, doubleUnderlines, style);
+    FloatSegment line[1] { { 0, rect.width() } };
+    drawLinesForText(rect.location(), rect.height(), line, isPrinting, doubleUnderlines, style);
+}
+
+void GraphicsContext::drawDisplayList(const DisplayList::DisplayList& displayList)
+{
+    Ref controlFactory = ControlFactory::shared();
+    drawDisplayList(displayList, controlFactory);
+}
+
+void GraphicsContext::drawDisplayList(const DisplayList::DisplayList& displayList, ControlFactory& controlFactory)
+{
+    // FIXME: ControlFactory should be property of the context and not passed this way here.
+    // Currently this mutates each ControlPart which is unsuitable for display lists.
+    for (auto& item : displayList.items())
+        applyItem(*this, controlFactory, item);
 }
 
 FloatRect GraphicsContext::computeUnderlineBoundsForText(const FloatRect& rect, bool printing)
@@ -666,6 +686,85 @@ Vector<FloatPoint> GraphicsContext::centerLineAndCutOffCorners(bool isVerticalLi
     }
 
     return { point1, point2 };
+}
+
+auto GraphicsContext::computeRectsAndStrokeColorForLinesForText(const FloatPoint& point, float thickness, std::span<const FloatSegment> lineSegments, bool isPrinting, bool doubleLines, StrokeStyle strokeStyle) -> RectsAndStrokeColor
+{
+#if USE(CG)
+    auto makeRect = [](float x, float y, float width, float height) -> CGRect {
+        return { { x, y }, { width, height } };
+    };
+#else
+    auto makeRect = [](float x, float y, float width, float height) -> FloatRect {
+        return { x, y, width, height };
+    };
+#endif
+
+    RectsAndStrokeColor result;
+    auto& rects = result.rects;
+    auto& strokeColor = result.strokeColor;
+    if (lineSegments.empty())
+        return result;
+    strokeColor = this->strokeColor();
+    FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(FloatRect { point, FloatSize { lineSegments.back().end, thickness } }, isPrinting, strokeColor);
+    if (bounds.isEmpty())
+        return result;
+
+    rects.reserveInitialCapacity((doubleLines ? 2 : 1) * lineSegments.size());
+
+    float dashWidth = 0;
+    switch (strokeStyle) {
+    case StrokeStyle::DottedStroke:
+        dashWidth = bounds.height();
+        break;
+    case StrokeStyle::DashedStroke:
+        dashWidth = 2 * bounds.height();
+        break;
+    case StrokeStyle::SolidStroke:
+    default:
+        break;
+    }
+
+    if (dashWidth) {
+        for (const auto& lineSegment : lineSegments) {
+            auto left = lineSegment.begin;
+            auto width = lineSegment.length();
+            auto doubleWidth = 2 * dashWidth;
+            auto quotient = static_cast<int>(left / doubleWidth);
+            auto startOffset = left - quotient * doubleWidth;
+            auto effectiveLeft = left + startOffset;
+            auto startParticle = static_cast<int>(std::floor(effectiveLeft / doubleWidth));
+            auto endParticle = static_cast<int>(std::ceil((left + width) / doubleWidth));
+
+            for (auto j = startParticle; j < endParticle; ++j) {
+                auto actualDashWidth = dashWidth;
+                auto dashStart = bounds.x() + j * doubleWidth;
+
+                if (j == startParticle && startOffset > 0 && startOffset < dashWidth) {
+                    actualDashWidth -= startOffset;
+                    dashStart += startOffset;
+                }
+
+                if (j == endParticle - 1) {
+                    auto remainingWidth = left + width - (j * doubleWidth);
+                    if (remainingWidth < dashWidth)
+                        actualDashWidth = remainingWidth;
+                }
+
+                rects.append(makeRect(dashStart, bounds.y(), actualDashWidth, bounds.height()));
+            }
+        }
+    } else {
+        for (const auto& lineSegment : lineSegments)
+            rects.append(makeRect(bounds.x() + lineSegment.begin, bounds.y(), lineSegment.length(), bounds.height()));
+    }
+    if (doubleLines) {
+        // The space between double underlines is equal to the height of the underline.
+        float y = bounds.y() + 2 * bounds.height();
+        for (const auto& lineSegment : lineSegments)
+            rects.append(makeRect(bounds.x() + lineSegment.begin, y, lineSegment.length(), bounds.height()));
+    }
+    return result;
 }
 
 } // namespace WebCore

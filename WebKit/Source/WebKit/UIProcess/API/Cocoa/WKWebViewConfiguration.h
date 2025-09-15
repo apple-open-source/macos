@@ -57,7 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSInteger, WKSelectionGranularity) {
     WKSelectionGranularityDynamic,
     WKSelectionGranularityCharacter,
-} WK_API_AVAILABLE(ios(8.0));
+} WK_API_DEPRECATED("This property is ignored; selection granularity is always `character`.", ios(8.0, 11.0), visionos(1.0, 1.0));
 
 #else
 
@@ -107,7 +107,7 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
  will be created for it from the specified pool, or an existing process in
  that pool will be used.
 */
-@property (nonatomic, strong) WKProcessPool *processPool;
+@property (nonatomic, strong) WKProcessPool *processPool WK_API_DEPRECATED("Creating and using multiple instances of WKProcessPool no longer has any effect.", macos(10.10, 12.0), ios(8.0, 15.0), visionos(1.0, 1.0));
 
 /*! @abstract The preference settings to be used by the web view.
 */
@@ -119,7 +119,7 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 
 /*! @abstract The web extension controller to associate with the web view.
 */
-@property (nullable, nonatomic, strong) WKWebExtensionController *webExtensionController WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+@property (nullable, nonatomic, strong) WKWebExtensionController *webExtensionController WK_API_AVAILABLE(macos(15.4), ios(18.4), visionos(2.4));
 
 /*! @abstract The website data store to be used by the web view.
  */
@@ -139,6 +139,11 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
  @discussion The default value is YES.
  */
 @property (nonatomic) BOOL allowsAirPlayForMediaPlayback WK_API_AVAILABLE(macos(10.11), ios(9.0));
+
+/*! @abstract A Boolean value indicating whether the System Screen Time blocking view should be shown.
+ @discussion The default value is YES.
+ */
+@property (nonatomic) BOOL showsSystemScreenTimeBlockingView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 /*! @abstract A Boolean value indicating whether HTTP requests to servers known to support HTTPS should be automatically upgraded to HTTPS requests.
  @discussion The default value is YES.
@@ -174,7 +179,7 @@ on the system setting.
  @discussion Possible values are described in WKSelectionGranularity.
  The default value is WKSelectionGranularityDynamic.
  */
-@property (nonatomic) WKSelectionGranularity selectionGranularity;
+@property (nonatomic) WKSelectionGranularity selectionGranularity WK_API_DEPRECATED("This property is ignored; selection granularity is always `character`.", ios(8.0, 11.0), visionos(1.0, 1.0));
 
 /*! @abstract A Boolean value indicating whether HTML5 videos may play
  picture-in-picture.
@@ -232,12 +237,12 @@ on the system setting.
     */
 @property (nonatomic) BOOL supportsAdaptiveImageGlyph WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
-#if (TARGET_OS_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) || (defined(TARGET_OS_VISION) && TARGET_OS_VISION && __has_include(<GameKit/GKReleaseState.h>))
+#if (TARGET_OS_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) || (defined(TARGET_OS_VISION) && TARGET_OS_VISION && __VISION_OS_VERSION_MIN_REQUIRED >= 20400)
 /*! @abstract The preferred behavior of Writing Tools.
     @discussion The default behavior is equivalent to `UIWritingToolsBehaviorLimited`.
     */
-@property (nonatomic) UIWritingToolsBehavior writingToolsBehavior WK_API_AVAILABLE(ios(18.0), visionos(WK_XROS_TBA));
-#elif TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000
+@property (nonatomic) UIWritingToolsBehavior writingToolsBehavior WK_API_AVAILABLE(ios(18.0), visionos(2.4));
+#elif TARGET_OS_OSX && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
 /*! @abstract The preferred behavior of Writing Tools.
     @discussion The default behavior is equivalent to `NSWritingToolsBehaviorLimited`.
     */

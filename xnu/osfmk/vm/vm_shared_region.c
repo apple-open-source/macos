@@ -53,15 +53,49 @@
  * it without having to enter it in their own pmap.
  *
  * When a process is being exec'ed, vm_map_exec() calls vm_shared_region_enter()
- * to map the appropriate shared region in the process's address space.
+ * to associate the appropriate shared region with the process's address space.
  * We look up the appropriate shared region for the process's environment.
  * If we can't find one, we create a new (empty) one and add it to the list.
  * Otherwise, we just take an extra reference on the shared region we found.
+ * At this point, the shared region is not actually mapped into the process's
+ * address space, but rather a permanent VM_PROT_NONE placeholder covering the
+ * same VA region as the shared region is inserted.
  *
  * The "dyld" runtime, mapped into the process's address space at exec() time,
  * will then use the shared_region_check_np() and shared_region_map_and_slide_2_np()
  * system calls to validate and/or populate the shared region with the
- * appropriate dyld_shared_cache file.
+ * appropriate dyld_shared_cache file.  If the initial call to shared_region_check_np()
+ * indicates that the shared region has not been configured, dyld will then call
+ * shared_region_map_and_slide_2_np() to configure the shared region.  It's possible
+ * that multiple tasks may simultaneously issue this call sequence for the same shared
+ * region, but the synchronization done by shared_region_acquire() will ensure that
+ * only one task will ultimately configure the shared region.  All other tasks will
+ * wait for that task to finish its configuration step, at which point (assuming
+ * successful configuration) they will observe the configured shared region and
+ * re-issue the shared_region_check_np() system call to obtain the final shared
+ * region info.
+ *
+ * For the task that ends up configuring the shared region, the mapping and
+ * sliding of the shared region is performed against a temporary configuration-only
+ * vm_map, which is temporarily activated for the calling thread using
+ * vm_map_switch_to().  Once mapping and sliding completes successfully, the shared
+ * region will be "sealed" by stabilizing all its vm_map_entrys using COPY_DELAY
+ * objects, which eliminates the need for later modification of shared region map
+ * entries and thus simplifies the shared region's runtime locking requirements.
+ * After this sealing step, the original task vm_map will be restored.  Since this
+ * entire configuration sequence happens within the context of a single system call,
+ * use of the temporary vm_map effectively guarantees that the shared region will
+ * not be visible in the task's address space (either to other threads in the task
+ * or to other tasks attempting to query the address space e.g. for debugging purposes)
+ * until it has been fully configured and sealed.
+ *
+ * The shared region is only inserted into a task's address space when the
+ * shared_region_check_np() system call detects that the shared region has been fully
+ * configured.  Only at this point will the placeholder entry inserted at exec()
+ * time be replaced with the real shared region submap entry.  This step is required
+ * of all tasks; even the task that previously configured the shared region must
+ * issue a final shared_region_check_np() system call to obtain the real shared
+ * region mapping.
  *
  * The shared region is inherited on fork() and the child simply takes an
  * extra reference on its parent's shared region.
@@ -119,6 +153,7 @@
 #include <machine/cpu_capabilities.h>
 #include <sys/random.h>
 #include <sys/errno.h>
+#include <sys/code_signing.h>
 
 #if defined(__arm64__)
 #include <arm/cpu_data_internal.h>
@@ -228,6 +263,8 @@ static kern_return_t vm_shared_region_slide_mapping(
 	uint32_t           slide,
 	memory_object_control_t,
 	vm_prot_t          prot); /* forward */
+static kern_return_t vm_shared_region_insert_placeholder(vm_map_t map, vm_shared_region_t shared_region);
+static kern_return_t vm_shared_region_insert_submap(vm_map_t map, vm_shared_region_t shared_region, bool overwrite);
 
 static int __commpage_setup = 0;
 #if XNU_TARGET_OS_OSX
@@ -256,7 +293,7 @@ vm_shared_region_get(
 	task_lock(task);
 	vm_shared_region_lock();
 	shared_region = task->shared_region;
-	if (shared_region) {
+	if (shared_region != NULL) {
 		assert(shared_region->sr_ref_count > 0);
 		vm_shared_region_reference_locked(shared_region);
 	}
@@ -269,6 +306,44 @@ vm_shared_region_get(
 		(void *)VM_KERNEL_ADDRPERM(shared_region)));
 
 	return shared_region;
+}
+
+static void
+vm_shared_region_acquire(vm_shared_region_t shared_region)
+{
+	vm_shared_region_lock();
+	assert(shared_region->sr_ref_count > 0);
+	while (shared_region->sr_mapping_in_progress != NULL) {
+		/* wait for our turn... */
+		vm_shared_region_sleep(&shared_region->sr_mapping_in_progress,
+		    THREAD_UNINT);
+	}
+	assert(shared_region->sr_mapping_in_progress == NULL);
+	assert(shared_region->sr_ref_count > 0);
+
+	/* let others know to wait while we're working in this shared region */
+	shared_region->sr_mapping_in_progress = current_thread();
+	vm_shared_region_unlock();
+}
+
+static void
+vm_shared_region_release(vm_shared_region_t shared_region)
+{
+	vm_shared_region_lock();
+	assert(shared_region->sr_mapping_in_progress == current_thread());
+	shared_region->sr_mapping_in_progress = THREAD_NULL;
+	vm_shared_region_wakeup((event_t) &shared_region->sr_mapping_in_progress);
+	vm_shared_region_unlock();
+}
+
+static void
+vm_shared_region_seal(
+	struct vm_shared_region *sr)
+{
+	vm_map_t sr_map;
+
+	sr_map = vm_shared_region_vm_map(sr);
+	vm_map_seal(sr_map, true /* nested_pmap */);
 }
 
 vm_map_t
@@ -678,7 +753,8 @@ vm_shared_region_create(
 	vm_named_entry_t        mem_entry;
 	ipc_port_t              mem_entry_port;
 	vm_shared_region_t      shared_region;
-	vm_map_t                sub_map;
+	vm_map_t                sub_map, config_map;
+	pmap_t                  nested_pmap, config_pmap;
 	mach_vm_offset_t        base_address, pmap_nesting_start;
 	mach_vm_size_t          size, pmap_nesting_size;
 
@@ -693,6 +769,9 @@ vm_shared_region_create(
 	mem_entry = NULL;
 	mem_entry_port = IPC_PORT_NULL;
 	sub_map = VM_MAP_NULL;
+	config_map = VM_MAP_NULL;
+	nested_pmap = PMAP_NULL;
+	config_pmap = PMAP_NULL;
 
 	/* create a new shared region structure... */
 	shared_region = kalloc_type(struct vm_shared_region,
@@ -768,7 +847,6 @@ vm_shared_region_create(
 
 #if defined(__arm64__)
 	{
-		struct pmap *pmap_nested;
 		int pmap_flags = 0;
 		pmap_flags |= is_64bit ? PMAP_CREATE_64BIT : 0;
 
@@ -781,45 +859,74 @@ vm_shared_region_create(
 		}
 #endif /* __ARM_MIXED_PAGE_SIZE__ */
 
-		pmap_nested = pmap_create_options(NULL, 0, pmap_flags);
-		if (pmap_nested != PMAP_NULL) {
-			pmap_set_nested(pmap_nested);
-			sub_map = vm_map_create_options(pmap_nested, 0,
+		nested_pmap = pmap_create_options(NULL, 0, pmap_flags | PMAP_CREATE_NESTED);
+		config_pmap = pmap_create_options(NULL, 0, pmap_flags);
+		if ((nested_pmap != PMAP_NULL) && (config_pmap != PMAP_NULL)) {
+			pmap_set_nested(nested_pmap);
+#if CODE_SIGNING_MONITOR
+			csm_setup_nested_address_space(nested_pmap, base_address, size);
+#endif /* CODE_SIGNING_MONITOR */
+			pmap_set_shared_region(config_pmap, nested_pmap, base_address, size);
+			sub_map = vm_map_create_options(nested_pmap, 0,
 			    (vm_map_offset_t)size, VM_MAP_CREATE_PAGEABLE);
+			config_map = vm_map_create_options(config_pmap, base_address,
+			    base_address + size, VM_MAP_CREATE_PAGEABLE);
 
 			if (is_64bit ||
 			    page_shift_user32 == SIXTEENK_PAGE_SHIFT) {
 				/* enforce 16KB alignment of VM map entries */
 				vm_map_set_page_shift(sub_map, SIXTEENK_PAGE_SHIFT);
+				vm_map_set_page_shift(config_map, SIXTEENK_PAGE_SHIFT);
 			}
 #if __ARM_MIXED_PAGE_SIZE__
 			if (cputype == CPU_TYPE_ARM64 &&
 			    target_page_shift == FOURK_PAGE_SHIFT) {
 				/* arm64/4k address space */
 				vm_map_set_page_shift(sub_map, FOURK_PAGE_SHIFT);
+				vm_map_set_page_shift(config_map, FOURK_PAGE_SHIFT);
 			}
 #endif /* __ARM_MIXED_PAGE_SIZE__ */
-		} else {
-			sub_map = VM_MAP_NULL;
 		}
 	}
 #else /* defined(__arm64__) */
 	{
 		/* create a VM sub map and its pmap */
-		pmap_t pmap = pmap_create_options(NULL, 0, is_64bit);
-		if (pmap != NULL) {
-			sub_map = vm_map_create_options(pmap, 0,
+		nested_pmap = pmap_create_options(NULL, 0, is_64bit);
+		config_pmap = pmap_create_options(NULL, 0, is_64bit);
+		if ((nested_pmap != NULL) && (config_pmap != NULL)) {
+			pmap_set_shared_region(config_pmap, nested_pmap, base_address, size);
+			sub_map = vm_map_create_options(nested_pmap, 0,
 			    (vm_map_offset_t)size, VM_MAP_CREATE_PAGEABLE);
-		} else {
-			sub_map = VM_MAP_NULL;
+			config_map = vm_map_create_options(config_pmap, base_address,
+			    base_address + size, VM_MAP_CREATE_PAGEABLE);
 		}
 	}
 #endif /* defined(__arm64__) */
-	if (sub_map == VM_MAP_NULL) {
+
+	if (sub_map != VM_MAP_NULL) {
+		nested_pmap = PMAP_NULL;
+	}
+	if (config_map != VM_MAP_NULL) {
+		config_pmap = PMAP_NULL;
+	}
+	if (nested_pmap != PMAP_NULL) {
+		pmap_destroy(nested_pmap);
+	}
+	if (config_pmap != PMAP_NULL) {
+		pmap_destroy(config_pmap);
+	}
+
+	if ((sub_map == VM_MAP_NULL) || (config_map == VM_MAP_NULL)) {
+		if (sub_map != VM_MAP_NULL) {
+			vm_map_deallocate(sub_map);
+		}
+		if (config_map != VM_MAP_NULL) {
+			vm_map_deallocate(config_map);
+		}
 		ipc_port_release_send(mem_entry_port);
 		kfree_type(struct vm_shared_region, shared_region);
 		shared_region = NULL;
-		SHARED_REGION_TRACE_ERROR(("shared_region: create: couldn't allocate map\n"));
+		SHARED_REGION_TRACE_ERROR(("shared_region: create: couldn't allocate maps\n"));
 		goto done;
 	}
 
@@ -827,9 +934,13 @@ vm_shared_region_create(
 	vm_map_cs_enforcement_set(sub_map, true);
 	assert(vm_map_cs_enforcement(sub_map));
 	assert(pmap_get_vm_map_cs_enforced(vm_map_pmap(sub_map)));
+	vm_map_cs_enforcement_set(config_map, true);
+	assert(vm_map_cs_enforcement(config_map));
+	assert(pmap_get_vm_map_cs_enforced(vm_map_pmap(config_map)));
 
 	assert(!sub_map->disable_vmentry_reuse);
 	sub_map->is_nested_map = TRUE;
+	sub_map->vmmap_sealed = VM_MAP_WILL_BE_SEALED;
 
 	/* make the memory entry point to the VM sub map */
 	mem_entry->is_sub_map = TRUE;
@@ -841,6 +952,7 @@ vm_shared_region_create(
 	shared_region->sr_mem_entry = mem_entry_port;
 
 	/* fill in the shared region's environment and settings */
+	shared_region->sr_config_map = config_map;
 	shared_region->sr_base_address = base_address;
 	shared_region->sr_size = size;
 	shared_region->sr_pmap_nesting_start = pmap_nesting_start;
@@ -879,6 +991,14 @@ vm_shared_region_create(
 	shared_region->sr_next_auth_section = 0;
 	shared_region->sr_auth_section = NULL;
 #endif /* __has_feature(ptrauth_calls) */
+	kern_return_t kr = vm_shared_region_insert_submap(config_map, shared_region, false);
+	if (kr != KERN_SUCCESS) {
+		SHARED_REGION_TRACE_ERROR(
+			("shared_region: create(%p): insert_submap returned 0x%x\n", shared_region, kr));
+		shared_region->sr_ref_count = 0;
+		vm_shared_region_destroy(shared_region);
+		shared_region = NULL;
+	}
 
 done:
 	if (shared_region) {
@@ -934,6 +1054,12 @@ vm_shared_region_destroy(
 	assert(mem_entry->is_sub_map);
 	assert(!mem_entry->internal);
 	assert(!mem_entry->is_copy);
+
+	if (shared_region->sr_config_map != VM_MAP_NULL) {
+		vm_map_deallocate(shared_region->sr_config_map);
+		shared_region->sr_config_map = VM_MAP_NULL;
+	}
+
 	map = mem_entry->backing.map;
 
 	/*
@@ -953,7 +1079,7 @@ vm_shared_region_destroy(
 	/*
 	 * Release our (one and only) handle on the memory entry.
 	 * This will generate a no-senders notification, which will be processed
-	 * by ipc_kobject_notify_no_senders(), which will release the one and only
+	 * by ipc_notify_no_senders_kobject(), which will release the one and only
 	 * reference on the memory entry and cause it to be destroyed, along
 	 * with the VM sub map and its pmap.
 	 */
@@ -1003,8 +1129,7 @@ vm_shared_region_destroy(
 kern_return_t
 vm_shared_region_start_address(
 	vm_shared_region_t      shared_region,
-	mach_vm_offset_t        *start_address,
-	task_t                  task)
+	mach_vm_offset_t        *start_address)
 {
 	kern_return_t           kr;
 	mach_vm_offset_t        sr_base_address;
@@ -1021,12 +1146,12 @@ vm_shared_region_start_address(
 	 * in this shared region right when we're looking at it.
 	 * We want a consistent view of the map...
 	 */
-	while (shared_region->sr_mapping_in_progress) {
+	while (shared_region->sr_mapping_in_progress != NULL) {
 		/* wait for our turn... */
 		vm_shared_region_sleep(&shared_region->sr_mapping_in_progress,
 		    THREAD_UNINT);
 	}
-	assert(!shared_region->sr_mapping_in_progress);
+	assert(shared_region->sr_mapping_in_progress == NULL);
 	assert(shared_region->sr_ref_count > 0);
 
 	sr_base_address = shared_region->sr_base_address;
@@ -1041,28 +1166,59 @@ vm_shared_region_start_address(
 	}
 
 
-	uint32_t slide = shared_region->sr_slide;
-
 	vm_shared_region_unlock();
-
-	/*
-	 * Cache shared region info in the task for telemetry gathering, if we're
-	 * passed in the task. No task lock here as we're still in intial task set up.
-	 */
-	if (kr == KERN_SUCCESS && task != NULL && task->task_shared_region_slide == -1) {
-		uint_t sc_header_uuid_offset = offsetof(struct _dyld_cache_header, uuid);
-		if (copyin((user_addr_t)(*start_address + sc_header_uuid_offset),
-		    (char *)&task->task_shared_region_uuid,
-		    sizeof(task->task_shared_region_uuid)) == 0) {
-			task->task_shared_region_slide = slide;
-		}
-	}
 
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: start_address(%p) <- 0x%llx\n",
 		(void *)VM_KERNEL_ADDRPERM(shared_region),
 		(long long)shared_region->sr_base_address));
 
+	return kr;
+}
+
+kern_return_t
+vm_shared_region_update_task(task_t task, vm_shared_region_t shared_region, mach_vm_offset_t start_address)
+{
+	kern_return_t kr = KERN_SUCCESS;
+	uuid_t shared_region_uuid;
+	_Static_assert(sizeof(shared_region_uuid) == sizeof(task->task_shared_region_uuid),
+	    "sizeof task_shared_region_uuid != sizeof uuid_t");
+	task_lock(task);
+	if (task->task_shared_region_slide == -1) {
+		assert(vm_map_is_sealed(vm_shared_region_vm_map(shared_region)));
+		kr = vm_shared_region_insert_submap(task->map, shared_region, true);
+		if (kr == KERN_SUCCESS) {
+			task->task_shared_region_slide = shared_region->sr_slide;
+			/*
+			 * Drop the task lock to avoid potential deadlock if copyin() faults.
+			 * With the lock dropped, another thread in the task could theoretically
+			 * call this function, observe task_shared_region_slide != -1, and
+			 * return before the UUID has been copied to the task, but in practice
+			 * dyld should only issue the shared_region_check_np() syscall that ends
+			 * up invoking this function exactly once, and while the task is still
+			 * single-threaded at that.
+			 */
+			task_unlock(task);
+			/*
+			 * Now that shared region is accessible in the task's address space,
+			 * copyin the UUID for debugging/telemetry purposes.
+			 * copyin had better succeed here.  We've already inserted the submap,
+			 * which can't be undone or re-done later.  If the shared region header
+			 * isn't accessible at this point, we have big problems.
+			 */
+			const uint_t sc_header_uuid_offset = offsetof(struct _dyld_cache_header, uuid);
+			if (copyin((user_addr_t)(start_address + sc_header_uuid_offset),
+			    (char *)&shared_region_uuid, sizeof(shared_region_uuid)) != 0) {
+				SHARED_REGION_TRACE_ERROR(
+					("shared_region: update_task(%p) copyin failed\n",
+					(void *)VM_KERNEL_ADDRPERM(shared_region)));
+			}
+			task_lock(task);
+			memcpy(&task->task_shared_region_uuid, shared_region_uuid, sizeof(shared_region_uuid));
+		}
+	}
+
+	task_unlock(task);
 	return kr;
 }
 
@@ -1075,18 +1231,25 @@ find_mapping_to_slide(vm_map_t map, vm_map_address_t addr, vm_map_entry_t entry)
 {
 	vm_map_entry_t found;
 
+	vmlp_api_start(FIND_MAPPING_TO_SLIDE);
+
 	/* find the shared region's map entry to slide */
 	vm_map_lock_read(map);
-	if (!vm_map_lookup_entry_allow_pgz(map, addr, &found)) {
+	if (!vm_map_lookup_entry(map, addr, &found)) {
 		/* no mapping there */
 		vm_map_unlock(map);
+		vmlp_api_end(FIND_MAPPING_TO_SLIDE, KERN_INVALID_ARGUMENT);
 		return KERN_INVALID_ARGUMENT;
 	}
 
 	*entry = *found;
+
+	vmlp_range_event_entry(map, entry);
+
 	/* extra ref to keep object alive while map is unlocked */
 	vm_object_reference(VME_OBJECT(found));
 	vm_map_unlock_read(map);
+	vmlp_api_end(FIND_MAPPING_TO_SLIDE, KERN_SUCCESS);
 	return KERN_SUCCESS;
 }
 
@@ -1181,25 +1344,20 @@ vm_shared_region_auth_remap(vm_shared_region_t sr)
 	boolean_t                     use_ptr_auth = task_sign_pointers(task);
 
 	/*
-	 * Don't do this more than once and avoid any race conditions in finishing it.
+	 * Taking the full shared region lock here shouldn't be necessary for
+	 * functional correctness here, so we could potentially gain some scalability
+	 * by only taking the task lock here which would avoid the possibility of
+	 * serializing multiple tasks at the auth_remap step.  But shared_region_pager_match()
+	 * is slightly racy and can produce duplicate pagers without shared-region-wide
+	 * synchronization, which is a potential memory footprint issue.
 	 */
-	vm_shared_region_lock();
-	while (sr->sr_mapping_in_progress) {
-		/* wait for our turn... */
-		vm_shared_region_sleep(&sr->sr_mapping_in_progress, THREAD_UNINT);
-	}
-	assert(!sr->sr_mapping_in_progress);
-	assert(sr->sr_ref_count > 0);
+	vm_shared_region_acquire(sr);
 
 	/* Just return if already done. */
 	if (task->shared_region_auth_remapped) {
-		vm_shared_region_unlock();
+		vm_shared_region_release(sr);
 		return KERN_SUCCESS;
 	}
-
-	/* let others know to wait while we're working in this shared region */
-	sr->sr_mapping_in_progress = current_thread();
-	vm_shared_region_unlock();
 
 	/*
 	 * Remap any sections with pointer authentications into the private map.
@@ -1260,7 +1418,7 @@ vm_shared_region_auth_remap(vm_shared_region_t sr)
 		/* Preserve the TPRO flag if task has TPRO enabled */
 		vmk_flags.vmf_tpro = (vm_map_tpro(task->map) &&
 		    tmp_entry->used_for_tpro &&
-		    task_is_hardened_binary(task));
+		    task_has_tpro(task));
 
 		map_addr = si->si_slid_address;
 		kr = mach_vm_map_kernel(task->map,
@@ -1308,12 +1466,8 @@ done:
 	/*
 	 * Mark the region as having it's auth sections remapped.
 	 */
-	vm_shared_region_lock();
 	task->shared_region_auth_remapped = TRUE;
-	assert(sr->sr_mapping_in_progress == current_thread());
-	sr->sr_mapping_in_progress = THREAD_NULL;
-	vm_shared_region_wakeup((event_t)&sr->sr_mapping_in_progress);
-	vm_shared_region_unlock();
+	vm_shared_region_release(sr);
 	return kr;
 }
 #endif /* __has_feature(ptrauth_calls) */
@@ -1328,7 +1482,6 @@ vm_shared_region_undo_mappings(
 {
 	unsigned int             j = 0;
 	vm_shared_region_t       shared_region = NULL;
-	boolean_t                reset_shared_region_state = FALSE;
 	struct _sr_file_mappings *srfmp;
 	unsigned int             mappings_count;
 	struct shared_file_mapping_slide_np *mappings;
@@ -1344,23 +1497,6 @@ vm_shared_region_undo_mappings(
 	if (sr_map == NULL) {
 		ipc_port_t              sr_handle;
 		vm_named_entry_t        sr_mem_entry;
-
-		vm_shared_region_lock();
-		assert(shared_region->sr_ref_count > 0);
-
-		while (shared_region->sr_mapping_in_progress) {
-			/* wait for our turn... */
-			vm_shared_region_sleep(&shared_region->sr_mapping_in_progress,
-			    THREAD_UNINT);
-		}
-		assert(!shared_region->sr_mapping_in_progress);
-		assert(shared_region->sr_ref_count > 0);
-		/* let others know we're working in this shared region */
-		shared_region->sr_mapping_in_progress = current_thread();
-
-		vm_shared_region_unlock();
-
-		reset_shared_region_state = TRUE;
 
 		/* no need to lock because this data is never modified... */
 		sr_handle = shared_region->sr_mem_entry;
@@ -1417,17 +1553,6 @@ vm_shared_region_undo_mappings(
 		}
 	}
 
-	if (reset_shared_region_state) {
-		vm_shared_region_lock();
-		assert(shared_region->sr_ref_count > 0);
-		assert(shared_region->sr_mapping_in_progress == current_thread());
-		/* we're done working on that shared region */
-		shared_region->sr_mapping_in_progress = THREAD_NULL;
-		vm_shared_region_wakeup((event_t) &shared_region->sr_mapping_in_progress);
-		vm_shared_region_unlock();
-		reset_shared_region_state = FALSE;
-	}
-
 	vm_shared_region_deallocate(shared_region);
 }
 
@@ -1470,38 +1595,7 @@ vm_shared_region_map_file_setup(
 	struct shared_file_mapping_slide_np *mappings;
 	struct _sr_file_mappings *srfmp;
 
-	vm_shared_region_lock();
-	assert(shared_region->sr_ref_count > 0);
-
-	/*
-	 * Make sure we handle only one mapping at a time in a given
-	 * shared region, to avoid race conditions.  This should not
-	 * happen frequently...
-	 */
-	while (shared_region->sr_mapping_in_progress) {
-		/* wait for our turn... */
-		vm_shared_region_sleep(&shared_region->sr_mapping_in_progress,
-		    THREAD_UNINT);
-	}
-	assert(!shared_region->sr_mapping_in_progress);
-	assert(shared_region->sr_ref_count > 0);
-
-
-	/* let others know we're working in this shared region */
-	shared_region->sr_mapping_in_progress = current_thread();
-
-	/*
-	 * Did someone race in and map this shared region already?
-	 */
-	if (shared_region->sr_first_mapping != -1) {
-		vm_shared_region_unlock();
-#if DEVELOPMENT || DEBUG
-		printf("shared_region: caught race in map and slide\n");
-#endif /* DEVELOPMENT || DEBUG */
-		return KERN_FAILURE;
-	}
-
-	vm_shared_region_unlock();
+	assert(shared_region->sr_mapping_in_progress == current_thread());
 
 	/* no need to lock because this data is never modified... */
 	sr_handle = shared_region->sr_mem_entry;
@@ -1521,6 +1615,7 @@ vm_shared_region_map_file_setup(
 	for (srfmp = &sr_file_mappings[0];
 	    srfmp < &sr_file_mappings[sr_file_mappings_count];
 	    srfmp++) {
+		i = 0; /* reset i early because it's used in the error recovery path */
 		mappings_count = srfmp->mappings_count;
 		mappings = srfmp->mappings;
 		file_control = srfmp->file_control;
@@ -1582,7 +1677,8 @@ vm_shared_region_map_file_setup(
 			vm_map_offset_t kaddr = 0;
 			vmk_flags = VM_MAP_KERNEL_FLAGS_ANYWHERE();
 			vmk_flags.vmkf_no_copy_on_read = 1;
-			vmk_flags.vmkf_range_id = KMEM_RANGE_ID_DATA;
+			vmk_flags.vmkf_range_id = kmem_needs_data_share_range() ?
+			    KMEM_RANGE_ID_DATA_SHARED : KMEM_RANGE_ID_DATA;
 
 			kr = vm_map_enter(kernel_map,
 			    &kaddr,
@@ -1621,7 +1717,7 @@ vm_shared_region_map_file_setup(
 			    copyin((user_addr_t)mappings->sms_file_offset, (void *)kaddr, mappings->sms_size);
 			vm_map_remove(kernel_map, kaddr, kaddr + obj_size);
 			if (copyin_err) {
-				printf("%s(): for fd==-1 copyin() failed, errno=%d\n", __func__, copyin_err);
+				printf("%s(): for fd==-1 copyin(%p) failed, errno=%d\n", __func__, (void*)mappings->sms_file_offset, copyin_err);
 				switch (copyin_err) {
 				case EPERM:
 				case EACCES:
@@ -1984,6 +2080,10 @@ vm_shared_region_map_file(
 	memory_object_control_t *slid_file_controls = NULL;             /* [0..vmsr_num_slides] */
 	struct shared_file_mapping_slide_np **mappings_to_slide = NULL; /* [0..vmsr_num_slides] */
 	struct _sr_file_mappings *srfmp;
+	vm_map_switch_context_t switch_ctx;
+	bool                    map_switched = false;
+
+	vmlp_api_start(VM_SHARED_REGION_MAP_FILE);
 
 	/*
 	 * Figure out how many of the mappings have slides.
@@ -2008,14 +2108,30 @@ vm_shared_region_map_file(
 		    kalloc_type(struct shared_file_mapping_slide_np *, vmsr_num_slides, Z_WAITOK | Z_ZERO);
 	}
 
+	vm_shared_region_acquire(shared_region);
+
+	/*
+	 * Did someone race in and map this shared region already, or did an earlier mapping fail?
+	 */
+	if (shared_region->sr_first_mapping != -1) {
+#if DEVELOPMENT || DEBUG
+		printf("shared_region: caught race in map and slide\n");
+#endif /* DEVELOPMENT || DEBUG */
+		kr = KERN_FAILURE;
+		goto done;
+	}
+
 	kr = vm_shared_region_map_file_setup(shared_region, sr_file_mappings_count, sr_file_mappings,
 	    &mappings_to_slide_cnt, mappings_to_slide, slid_mappings, slid_file_controls,
 	    &sfm_min_address, &sfm_max_address, &sr_map, &lowest_unnestable_addr, vmsr_num_slides);
 	if (kr != KERN_SUCCESS) {
-		vm_shared_region_lock();
 		goto done;
 	}
 	assert(vmsr_num_slides == mappings_to_slide_cnt);
+
+	assert(shared_region->sr_config_map != NULL);
+	switch_ctx = vm_map_switch_to(shared_region->sr_config_map);
+	map_switched = true;
 
 	/*
 	 * The call above installed direct mappings to the shared cache file.
@@ -2065,7 +2181,6 @@ vm_shared_region_map_file(
 			    &sr_file_mappings[0],
 			    &sr_file_mappings[sr_file_mappings_count - 1],
 			    sr_file_mappings_count);
-			vm_shared_region_lock();
 			goto done;
 		}
 	}
@@ -2076,6 +2191,7 @@ vm_shared_region_map_file(
 	lowest_unnestable_addr &= ~(pmap_shared_region_size_min(sr_map->pmap) - 1);
 	if (lowest_unnestable_addr != sr_map->lowest_unnestable_start) {
 		vm_map_lock(sr_map);
+		vmlp_range_event_none(sr_map);
 		sr_map->lowest_unnestable_start = lowest_unnestable_addr;
 		vm_map_unlock(sr_map);
 	}
@@ -2085,33 +2201,33 @@ vm_shared_region_map_file(
 	assert(shared_region->sr_mapping_in_progress == current_thread());
 
 	vm_shared_region_map_file_final(shared_region, sr_map, sfm_min_address, sfm_max_address);
-
-done:
-	/*
-	 * We're done working on that shared region.
-	 * Wake up any waiting threads.
-	 */
-	assert(shared_region->sr_mapping_in_progress == current_thread());
-	shared_region->sr_mapping_in_progress = THREAD_NULL;
-	vm_shared_region_wakeup((event_t) &shared_region->sr_mapping_in_progress);
 	vm_shared_region_unlock();
 
-#if __has_feature(ptrauth_calls)
-	if (kr == KERN_SUCCESS) {
-		/*
-		 * Since authenticated mappings were just added to the shared region,
-		 * go back and remap them into private mappings for this task.
-		 */
-		kr = vm_shared_region_auth_remap(shared_region);
-	}
-#endif /* __has_feature(ptrauth_calls) */
+done:
 
-	/* Cache shared region info needed for telemetry in the task */
-	task_t task;
-	if (kr == KERN_SUCCESS && (task = current_task())->task_shared_region_slide == -1) {
-		mach_vm_offset_t start_address;
-		(void)vm_shared_region_start_address(shared_region, &start_address, task);
+#ifndef NO_NESTED_PMAP
+	/*
+	 * If we succeeded, we know the bounds of the shared region.
+	 * Trim our pmaps to only cover this range (if applicable to
+	 * this platform).
+	 */
+	if (kr == KERN_SUCCESS) {
+		pmap_trim(shared_region->sr_config_map->pmap, sr_map->pmap, sfm_min_address, sfm_max_address - sfm_min_address);
 	}
+#endif
+	if (map_switched) {
+		vm_map_switch_back(switch_ctx);
+	}
+
+	if (kr == KERN_SUCCESS) {
+		vm_map_deallocate(shared_region->sr_config_map);
+		shared_region->sr_config_map = VM_MAP_NULL;
+	}
+
+	if (kr == KERN_SUCCESS) {
+		vm_shared_region_seal(shared_region);
+	}
+	vm_shared_region_release(shared_region);
 
 	SHARED_REGION_TRACE_DEBUG(
 		("shared_region: map(%p) <- 0x%x \n",
@@ -2122,6 +2238,7 @@ done:
 		kfree_type(struct shared_file_mapping_slide_np *, vmsr_num_slides,
 		    mappings_to_slide);
 	}
+	vmlp_api_end(VM_SHARED_REGION_MAP_FILE, kr);
 	return kr;
 }
 
@@ -2218,75 +2335,19 @@ vm_shared_region_map_file_final(
 		}
 		primary_system_shared_region = shared_region;
 	}
-
-#ifndef NO_NESTED_PMAP
-	/*
-	 * If we succeeded, we know the bounds of the shared region.
-	 * Trim our pmaps to only cover this range (if applicable to
-	 * this platform).
-	 */
-	if (VM_MAP_PAGE_SHIFT(current_map()) == VM_MAP_PAGE_SHIFT(sr_map)) {
-		pmap_trim(current_map()->pmap, sr_map->pmap, sfm_min_address, sfm_max_address - sfm_min_address);
-	}
-#endif
 }
 
 /*
- * Retrieve a task's shared region and grab an extra reference to
- * make sure it doesn't disappear while the caller is using it.
- * The caller is responsible for consuming that extra reference if
- * necessary.
- *
- * This also tries to trim the pmap for the shared region.
- */
-vm_shared_region_t
-vm_shared_region_trim_and_get(task_t task)
-{
-	vm_shared_region_t shared_region;
-	ipc_port_t sr_handle;
-	vm_named_entry_t sr_mem_entry;
-	vm_map_t sr_map;
-
-	/* Get the shared region and the map. */
-	shared_region = vm_shared_region_get(task);
-	if (shared_region == NULL) {
-		return NULL;
-	}
-
-	sr_handle = shared_region->sr_mem_entry;
-	sr_mem_entry = mach_memory_entry_from_port(sr_handle);
-	sr_map = sr_mem_entry->backing.map;
-
-#ifndef NO_NESTED_PMAP
-	/* Trim the pmap if possible. */
-	if (VM_MAP_PAGE_SHIFT(task->map) == VM_MAP_PAGE_SHIFT(sr_map)) {
-		pmap_trim(task->map->pmap, sr_map->pmap, 0, 0);
-	}
-#endif
-
-	return shared_region;
-}
-
-/*
- * Enter the appropriate shared region into "map" for "task".
- * This involves looking up the shared region (and possibly creating a new
- * one) for the desired environment, then mapping the VM sub map into the
- * task's VM "map", with the appropriate level of pmap-nesting.
+ * Insert the real shared region submap entry into a task's VM map over the placeholder
+ * installed by vm_map_exec().  Note that this function can only be called once per vm_map,
+ * and cannot be undone.  This is because it results in the shared region's pmap being nested
+ * into [map]'s pmap; on some platforms the security model requires this nesting relationship
+ * to be permanent, so the nested pmap cannot be "de-nested" from the top-level pmap or
+ * "re-nested" again into the same top-level pmap.
  */
 kern_return_t
-vm_shared_region_enter(
-	struct _vm_map          *map,
-	struct task             *task,
-	boolean_t               is_64bit,
-	void                    *fsroot,
-	cpu_type_t              cpu,
-	cpu_subtype_t           cpu_subtype,
-	boolean_t               reslide,
-	boolean_t               is_driverkit,
-	uint32_t                rsr_version)
+vm_shared_region_insert_submap(vm_map_t map, vm_shared_region_t shared_region, bool overwrite)
 {
-	kern_return_t           kr;
-	vm_shared_region_t      shared_region;
 	vm_map_offset_t         sr_address, sr_offset, target_address;
 	vm_map_size_t           sr_size, mapping_size;
 	vm_map_offset_t         sr_pmap_nesting_start;
@@ -2295,31 +2356,7 @@ vm_shared_region_enter(
 	vm_prot_t               cur_prot, max_prot;
 	vm_map_kernel_flags_t   vmk_flags;
 
-	SHARED_REGION_TRACE_DEBUG(
-		("shared_region: -> "
-		"enter(map=%p,task=%p,root=%p,cpu=<%d,%d>,64bit=%d,driverkit=%d)\n",
-		(void *)VM_KERNEL_ADDRPERM(map),
-		(void *)VM_KERNEL_ADDRPERM(task),
-		(void *)VM_KERNEL_ADDRPERM(fsroot),
-		cpu, cpu_subtype, is_64bit, is_driverkit));
-
-	/* lookup (create if needed) the shared region for this environment */
-	shared_region = vm_shared_region_lookup(fsroot, cpu, cpu_subtype, is_64bit, VM_MAP_PAGE_SHIFT(map), reslide, is_driverkit, rsr_version);
-	if (shared_region == NULL) {
-		/* this should not happen ! */
-		SHARED_REGION_TRACE_ERROR(
-			("shared_region: -> "
-			"enter(map=%p,task=%p,root=%p,cpu=<%d,%d>,64bit=%d,reslide=%d,driverkit=%d): "
-			"lookup failed !\n",
-			(void *)VM_KERNEL_ADDRPERM(map),
-			(void *)VM_KERNEL_ADDRPERM(task),
-			(void *)VM_KERNEL_ADDRPERM(fsroot),
-			cpu, cpu_subtype, is_64bit, reslide, is_driverkit));
-		//panic("shared_region_enter: lookup failed");
-		return KERN_FAILURE;
-	}
-
-	kr = KERN_SUCCESS;
+	kern_return_t kr = KERN_SUCCESS;
 	/* no need to lock since this data is never modified */
 	sr_address = (vm_map_offset_t)shared_region->sr_base_address;
 	sr_size = (vm_map_size_t)shared_region->sr_size;
@@ -2327,7 +2364,15 @@ vm_shared_region_enter(
 	sr_pmap_nesting_start = (vm_map_offset_t)shared_region->sr_pmap_nesting_start;
 	sr_pmap_nesting_size = (vm_map_size_t)shared_region->sr_pmap_nesting_size;
 	vmk_flags = VM_MAP_KERNEL_FLAGS_FIXED();
+	if (overwrite) {
+		vmk_flags.vmf_overwrite = true;
+		vmk_flags.vmkf_overwrite_immutable = true;
+	}
 
+	/*
+	 * vm_map_lookup_and_lock_object() expects the parent map entry
+	 * for a shared region submap to have protections r-- by default.
+	 */
 	cur_prot = VM_PROT_READ;
 	if (VM_MAP_POLICY_WRITABLE_SHARED_REGION(map)) {
 		/*
@@ -2366,24 +2411,20 @@ vm_shared_region_enter(
 			VM_INHERIT_SHARE);
 		if (kr != KERN_SUCCESS) {
 			SHARED_REGION_TRACE_ERROR(
-				("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+				("shared_region: insert_submap(%p,%p): "
 				"vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 				(void *)VM_KERNEL_ADDRPERM(map),
-				(void *)VM_KERNEL_ADDRPERM(task),
-				(void *)VM_KERNEL_ADDRPERM(fsroot),
-				cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+				(void *)VM_KERNEL_ADDRPERM(shared_region),
 				(long long)target_address,
 				(long long)mapping_size,
 				(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
-			goto done;
+			return kr;
 		}
 		SHARED_REGION_TRACE_DEBUG(
-			("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+			("shared_region: insert_submap(%p,%p): "
 			"vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 			(void *)VM_KERNEL_ADDRPERM(map),
-			(void *)VM_KERNEL_ADDRPERM(task),
-			(void *)VM_KERNEL_ADDRPERM(fsroot),
-			cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+			(void *)VM_KERNEL_ADDRPERM(shared_region),
 			(long long)target_address, (long long)mapping_size,
 			(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
 		sr_offset += mapping_size;
@@ -2417,24 +2458,20 @@ vm_shared_region_enter(
 		VM_INHERIT_SHARE);
 	if (kr != KERN_SUCCESS) {
 		SHARED_REGION_TRACE_ERROR(
-			("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+			("shared_region: insert_submap(%p,%p): "
 			"vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 			(void *)VM_KERNEL_ADDRPERM(map),
-			(void *)VM_KERNEL_ADDRPERM(task),
-			(void *)VM_KERNEL_ADDRPERM(fsroot),
-			cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+			(void *)VM_KERNEL_ADDRPERM(shared_region),
 			(long long)target_address,
 			(long long)sr_pmap_nesting_size,
 			(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
-		goto done;
+		return kr;
 	}
 	SHARED_REGION_TRACE_DEBUG(
-		("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+		("shared_region: insert_submap(%p,%p): "
 		"nested vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 		(void *)VM_KERNEL_ADDRPERM(map),
-		(void *)VM_KERNEL_ADDRPERM(task),
-		(void *)VM_KERNEL_ADDRPERM(fsroot),
-		cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+		(void *)VM_KERNEL_ADDRPERM(shared_region),
 		(long long)target_address, (long long)sr_pmap_nesting_size,
 		(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
 
@@ -2460,24 +2497,20 @@ vm_shared_region_enter(
 			VM_INHERIT_SHARE);
 		if (kr != KERN_SUCCESS) {
 			SHARED_REGION_TRACE_ERROR(
-				("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+				("shared_region: insert_submap(%p,%p): "
 				"vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 				(void *)VM_KERNEL_ADDRPERM(map),
-				(void *)VM_KERNEL_ADDRPERM(task),
-				(void *)VM_KERNEL_ADDRPERM(fsroot),
-				cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+				(void *)VM_KERNEL_ADDRPERM(shared_region),
 				(long long)target_address,
 				(long long)mapping_size,
 				(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
-			goto done;
+			return kr;
 		}
 		SHARED_REGION_TRACE_DEBUG(
-			("shared_region: enter(%p,%p,%p,%d,%d,%d,%d,%d): "
+			("shared_region: insert_submap(%p,%p): "
 			"vm_map_enter(0x%llx,0x%llx,%p) error 0x%x\n",
 			(void *)VM_KERNEL_ADDRPERM(map),
-			(void *)VM_KERNEL_ADDRPERM(task),
-			(void *)VM_KERNEL_ADDRPERM(fsroot),
-			cpu, cpu_subtype, is_64bit, reslide, is_driverkit,
+			(void *)VM_KERNEL_ADDRPERM(shared_region),
 			(long long)target_address, (long long)mapping_size,
 			(void *)VM_KERNEL_ADDRPERM(sr_handle), kr));
 		sr_offset += mapping_size;
@@ -2485,7 +2518,89 @@ vm_shared_region_enter(
 	}
 	assert(sr_size == 0);
 
-done:
+	return kr;
+}
+
+/*
+ * Inserts a VM_PROT_NONE placeholder covering the shared region into [map].
+ * This is intended to be called when a new task is exec'ed and initially associated
+ * with a shared region.  Once the userspace dyld initialization sequence successfully
+ * queries the shared region start address via the shared_region_check_np syscall,
+ * this placeholder will be replaced with the real shared region submap entry.
+ */
+static kern_return_t
+vm_shared_region_insert_placeholder(vm_map_t map, vm_shared_region_t shared_region)
+{
+	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_FIXED_PERMANENT();
+
+	vm_map_offset_t address = shared_region->sr_base_address;
+
+	pmap_set_shared_region(map->pmap, vm_shared_region_vm_map(shared_region)->pmap,
+	    address, shared_region->sr_size);
+
+	return vm_map_enter(
+		map,
+		&address,
+		shared_region->sr_size,
+		(vm_map_offset_t)0,
+		vmk_flags,
+		VM_OBJECT_NULL,
+		(vm_object_offset_t)0,
+		FALSE,
+		VM_PROT_NONE,
+		VM_PROT_NONE,
+		VM_INHERIT_COPY);
+}
+
+/*
+ * Enter the appropriate shared region into "map" for "task".
+ * This involves looking up the shared region (and possibly creating a new
+ * one) for the desired environment, then entering a permanent placeholder
+ * entry for the shared region.  If the task actually chooses to map a
+ * shared region, this placeholder will later be overwritten by a submap
+ * entry for the real shared region in vm_shared_region_insert_submap().
+ */
+kern_return_t
+vm_shared_region_enter(
+	struct _vm_map          *map,
+	struct task             *task,
+	boolean_t               is_64bit,
+	void                    *fsroot,
+	cpu_type_t              cpu,
+	cpu_subtype_t           cpu_subtype,
+	boolean_t               reslide,
+	boolean_t               is_driverkit,
+	uint32_t                rsr_version)
+{
+	kern_return_t           kr;
+	vm_shared_region_t      shared_region;
+
+	SHARED_REGION_TRACE_DEBUG(
+		("shared_region: -> "
+		"enter(map=%p,task=%p,root=%p,cpu=<%d,%d>,64bit=%d,driverkit=%d)\n",
+		(void *)VM_KERNEL_ADDRPERM(map),
+		(void *)VM_KERNEL_ADDRPERM(task),
+		(void *)VM_KERNEL_ADDRPERM(fsroot),
+		cpu, cpu_subtype, is_64bit, is_driverkit));
+
+	/* lookup (create if needed) the shared region for this environment */
+	shared_region = vm_shared_region_lookup(fsroot, cpu, cpu_subtype, is_64bit, VM_MAP_PAGE_SHIFT(map), reslide, is_driverkit, rsr_version);
+	if (shared_region == NULL) {
+		/* this should not happen ! */
+		SHARED_REGION_TRACE_ERROR(
+			("shared_region: -> "
+			"enter(map=%p,task=%p,root=%p,cpu=<%d,%d>,64bit=%d,reslide=%d,driverkit=%d): "
+			"lookup failed !\n",
+			(void *)VM_KERNEL_ADDRPERM(map),
+			(void *)VM_KERNEL_ADDRPERM(task),
+			(void *)VM_KERNEL_ADDRPERM(fsroot),
+			cpu, cpu_subtype, is_64bit, reslide, is_driverkit));
+		//panic("shared_region_enter: lookup failed");
+		return KERN_FAILURE;
+	}
+
+	kr = vm_shared_region_insert_placeholder(map, shared_region);
+
 	if (kr == KERN_SUCCESS) {
 		/* let the task use that shared region */
 		vm_shared_region_set(task, shared_region);
@@ -2632,7 +2747,7 @@ vm_shared_region_slide_mapping(
 	}
 	error = copyin(slide_info_addr, slide_info_entry, (size_t)slide_info_size);
 	if (error) {
-		printf("copyin of slide_info failed\n");
+		printf("copyin of slide_info (%p) failed\n", (void*)slide_info_addr);
 		kr = KERN_INVALID_ADDRESS;
 		goto done;
 	}
@@ -3284,6 +3399,10 @@ vm_shared_region_slide_page_v3(
 
 		bool isBind = (value & (1ULL << 62)) != 0;
 		if (isBind) {
+#if CONFIG_SPTM
+			pmap_batch_sign_user_ptr(NULL, NULL, 0, 0, 0);
+			assert(preemption_enabled());
+#endif /* CONFIG_SPTM */
 			return KERN_FAILURE;
 		}
 
@@ -3310,11 +3429,18 @@ vm_shared_region_slide_page_v3(
 			}
 
 			if (jop_key != 0 && si->si_ptrauth && !arm_user_jop_disabled()) {
+#if CONFIG_SPTM
+				pmap_batch_sign_user_ptr(rebaseLocation, (void *)value, key, discriminator, jop_key);
+#else /* CONFIG_SPTM */
 				/*
 				 * these pointers are used in user mode. disable the kernel key diversification
 				 * so we can sign them for use in user mode.
 				 */
 				value = (uintptr_t)pmap_sign_user_ptr((void *)value, key, discriminator, jop_key);
+				memcpy(rebaseLocation, &value, sizeof(value));
+#endif /* CONFIG_SPTM */
+			} else {
+				memcpy(rebaseLocation, &value, sizeof(value));
 			}
 #endif /* __has_feature(ptrauth_calls) */
 		} else {
@@ -3326,10 +3452,15 @@ vm_shared_region_slide_page_v3(
 			uint64_t bottom43Bits = value & 0x000007FFFFFFFFFFULL;
 			uint64_t targetValue = (top8Bits << 13) | bottom43Bits;
 			value = targetValue + slide_amount;
+			memcpy(rebaseLocation, &value, sizeof(value));
 		}
-
-		memcpy(rebaseLocation, &value, sizeof(value));
 	} while (delta != 0);
+
+#if CONFIG_SPTM
+	/* Sign the leftovers if there's any. */
+	pmap_batch_sign_user_ptr(NULL, NULL, 0, 0, 0);
+	assert(preemption_enabled());
+#endif /* CONFIG_SPTM */
 
 	return KERN_SUCCESS;
 }
@@ -3517,20 +3648,32 @@ vm_shared_region_slide_page_v5(
 			}
 
 			if (jop_key != 0 && si->si_ptrauth && !arm_user_jop_disabled()) {
+#if CONFIG_SPTM
+				pmap_batch_sign_user_ptr(rebaseLocation, (void *)value, key, discriminator, jop_key);
+#else /* CONFIG_SPTM */
 				/*
 				 * these pointers are used in user mode. disable the kernel key diversification
 				 * so we can sign them for use in user mode.
 				 */
 				value = (uintptr_t)pmap_sign_user_ptr((void *)value, key, discriminator, jop_key);
+				memcpy(rebaseLocation, &value, sizeof(value));
+#endif /* CONFIG_SPTM */
+			} else {
+				memcpy(rebaseLocation, &value, sizeof(value));
 			}
 #endif /* __has_feature(ptrauth_calls) */
 		} else {
 			// the value already has the correct low bits, so just add in the high8 if it exists
 			value += high8;
+			memcpy(rebaseLocation, &value, sizeof(value));
 		}
-
-		memcpy(rebaseLocation, &value, sizeof(value));
 	} while (delta != 0);
+
+#if CONFIG_SPTM
+	/* Sign the leftovers if there's any. */
+	pmap_batch_sign_user_ptr(NULL, NULL, 0, 0, 0);
+	assert(preemption_enabled());
+#endif /* CONFIG_SPTM */
 
 	return KERN_SUCCESS;
 }
@@ -3603,6 +3746,7 @@ _vm_commpage_init(
 		panic("_vm_commpage_init: could not allocate pmap");
 	}
 	new_map = vm_map_create_options(new_pmap, 0, size, VM_MAP_CREATE_DEFAULT);
+	new_map->vmmap_sealed = VM_MAP_WILL_BE_SEALED;
 
 	mem_entry = mach_memory_entry_allocate(handlep);
 	mem_entry->backing.map = new_map;

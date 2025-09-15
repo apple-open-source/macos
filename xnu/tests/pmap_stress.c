@@ -28,6 +28,7 @@
 #include <darwintest.h>
 #include <sys/sysctl.h>
 #include <assert.h>
+#include <pthread.h>
 #include "test_utils.h"
 
 T_GLOBAL_META(
@@ -96,8 +97,21 @@ T_DECL(pmap_huge_pv_list_test,
 	} hugepv_in;
 	hugepv_in.num_loops = 500;
 	hugepv_in.num_mappings = 500000;
+
+	/**
+	 * This test spawns a number of long-running and CPU-intensive kernel worker threads
+	 * which inherit the main thread's priority.  Temporarily drop our priority down to
+	 * the default (low) userspace priority to avoid producing a bunch of foreground-
+	 * priority kernel threads that may starve other threads on smaller/slower devices.
+	 */
+	qos_class_t prev_qos;
+	pthread_get_qos_class_np(pthread_self(), &prev_qos, NULL);
+	pthread_set_qos_class_self_np(QOS_CLASS_DEFAULT, 0);
+
 	T_ASSERT_POSIX_SUCCESS(sysctlbyname("kern.pmap_huge_pv_list_test", NULL, NULL,
 	    &hugepv_in, sizeof(hugepv_in)), "kern.pmap_huge_pv_list_test");
+
+	pthread_set_qos_class_self_np(prev_qos, 0);
 }
 
 T_DECL(pmap_reentrance_test,
@@ -107,4 +121,24 @@ T_DECL(pmap_reentrance_test,
 	int num_loops = 10000;
 	T_ASSERT_POSIX_SUCCESS(sysctlbyname("kern.pmap_reentrance_test", NULL, NULL, &num_loops, sizeof(num_loops)),
 	    "kern.pmap_reentrance_test, %d loops", num_loops);
+}
+
+T_DECL(surt_test,
+    "Test that surt can handle a surge of SURT requests",
+    T_META_REQUIRES_SYSCTL_EQ("kern.page_protection_type", 2),
+    T_META_REQUIRES_SYSCTL_EQ("kern.surt_ready", 1),
+    T_META_TAG_VM_NOT_ELIGIBLE)
+{
+	/* Use maxproc to get the theoretical upper bound on the sizeof a SURT request surge. */
+	int maxproc;
+	size_t maxproc_size = sizeof(maxproc);
+	sysctlbyname("kern.maxproc", &maxproc, &maxproc_size, NULL, 0);
+
+	int num_surts = maxproc;
+	const int num_loops = 100;
+
+	for (int i = 0; i < num_loops; i++) {
+		T_ASSERT_POSIX_SUCCESS(sysctlbyname("kern.surt_test", NULL, NULL, &num_surts, sizeof(num_surts)),
+		    "kern.surt_test, %d surts", num_surts);
+	}
 }

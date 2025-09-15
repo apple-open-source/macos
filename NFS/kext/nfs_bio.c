@@ -2054,7 +2054,7 @@ finish:
 #if CONFIG_NFS4
 	if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error) && !ISSET(bp->nb_flags, NB_ERROR)) {
 		lck_mtx_lock(&nmp->nm_lock);
-		if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (cb.rcb_args.stategenid == nmp->nm_stategenid)) {
+		if (nfs_mount_state_error_should_restart_and_recover(error) && (cb.rcb_args.stategenid == nmp->nm_stategenid)) {
 			NP(np, "nfs_buf_read_rpc_finish: error %d @ 0x%llx, 0x%x 0x%x, initiating recovery",
 			    error, NBOFF(bp) + offset, cb.rcb_args.stategenid, nmp->nm_stategenid);
 			nfs_need_recover(nmp, error);
@@ -3341,7 +3341,7 @@ finish:
 #if CONFIG_NFS4
 	if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error) && !ISSET(bp->nb_flags, NB_ERROR)) {
 		lck_mtx_lock(&nmp->nm_lock);
-		if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (cb.rcb_args.stategenid == nmp->nm_stategenid)) {
+		if (nfs_mount_state_error_should_restart_and_recover(error) && (cb.rcb_args.stategenid == nmp->nm_stategenid)) {
 			NP(np, "nfs_buf_write_rpc_finish: error %d @ 0x%llx, 0x%x 0x%x, initiating recovery",
 			    error, NBOFF(bp) + offset, cb.rcb_args.stategenid, nmp->nm_stategenid);
 			nfs_need_recover(nmp, error);

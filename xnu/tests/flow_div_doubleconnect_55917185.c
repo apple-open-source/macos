@@ -8,6 +8,8 @@
 
 #include <darwintest.h>
 
+#include "net_test_lib.h"
+
 /* we should win the race in this window: */
 #define NTRIES 200000
 
@@ -58,6 +60,9 @@ T_DECL(flow_div_doubleconnect_55917185, "Bad error path in double-connect for fl
 		s = -1;
 	}
 
+
 	T_ASSERT_POSIX_ZERO(pthread_join(t, NULL), NULL);
 	T_PASS("flow_divert_kctl_connect race didn't trigger panic");
+
+	force_zone_gc();
 }

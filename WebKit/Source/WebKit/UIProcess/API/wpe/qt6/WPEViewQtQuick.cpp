@@ -172,7 +172,7 @@ QSGTexture* wpe_view_qtquick_render_buffer_to_texture(WPEViewQtQuick* view, QSiz
         RELEASE_ASSERT(priv->wpeQtView->window());
 
         auto texture = QNativeInterface::QSGOpenGLTexture::fromNative(priv->textureId, priv->wpeQtView->window(), size, QQuickWindow::TextureHasAlphaChannel);
-        if (UNLIKELY(!texture)) {
+        if (!texture) [[unlikely]] {
             g_set_error_literal(error, WPE_VIEW_ERROR, WPE_VIEW_ERROR_RENDER_FAILED, "Failed to import QSOpenGLTexture from native OpenGL texture");
             return nullptr;
         }
@@ -180,7 +180,7 @@ QSGTexture* wpe_view_qtquick_render_buffer_to_texture(WPEViewQtQuick* view, QSiz
         return texture;
     };
 
-    if (UNLIKELY(!priv->pendingBuffer)) {
+    if (!priv->pendingBuffer) [[unlikely]] {
         if (!priv->committedBuffer) {
             g_set_error_literal(error, WPE_VIEW_ERROR, WPE_VIEW_ERROR_RENDER_FAILED, "Failed to render, no pending buffer available to render into, and no commitedBuffer.");
             return nullptr;
@@ -192,13 +192,13 @@ QSGTexture* wpe_view_qtquick_render_buffer_to_texture(WPEViewQtQuick* view, QSiz
 
     GUniqueOutPtr<GError> bufferError;
     auto eglImage = wpe_buffer_import_to_egl_image(priv->pendingBuffer.get(), &bufferError.outPtr());
-    if (UNLIKELY(!eglImage)) {
+    if (!eglImage) [[unlikely]] {
         g_set_error(error, WPE_VIEW_ERROR, WPE_VIEW_ERROR_RENDER_FAILED, "Failed to render: %s", bufferError->message);
         return nullptr;
     }
 
     auto* glFunctions = priv->context->functions();
-    if (UNLIKELY(!priv->textureId)) {
+    if (!priv->textureId) [[unlikely]] {
         glFunctions->glGenTextures(1, &priv->textureId);
         glFunctions->glBindTexture(GL_TEXTURE_2D, priv->textureId);
         glFunctions->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

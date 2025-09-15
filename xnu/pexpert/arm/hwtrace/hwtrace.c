@@ -81,6 +81,12 @@ boolean_t panic_trace_disabled_for_rdar107003520 = FALSE;
 
 static boolean_t debug_and_trace_initialized = false;
 
+#if DEVELOPMENT || DEBUG
+static boolean_t _panic_trace_always_enabled = false;
+
+static boolean_t _panic_trace_stress_racks = false;
+#endif /* DEVELOPMENT || DEBUG */
+
 /************
 * Boot-args *
 ************/
@@ -340,25 +346,32 @@ static TUNABLE_DT(uint32_t, panic_trace_partial_percent,
     "panic_trace_partial_percent", 50, TUNABLE_DT_NONE);
 
 /*
+ * Detect if we're running on stress-racks.
+ */
+static boolean_t
+_is_stress_racks(void)
+{
+	DTEntry ent = NULL;
+	const void *propP = NULL;
+	unsigned int size = 0;
+	if (SecureDTLookupEntry(NULL, "/chosen", &ent) == kSuccess &&
+	    SecureDTGetProperty(ent, "stress-rack", &propP, &size) == kSuccess) {
+		return true;
+	}
+	return false;
+}
+
+/*
  * Stress racks opt out of panic_trace, unless overridden by the panic_trace boot-arg.
  */
 static void
 panic_trace_apply_stress_rack_policy(void)
 {
-	DTEntry ent = NULL;
-	DTEntry entryP = NULL;
-	const void *propP = NULL;
-	unsigned int size = 0;
-
-	if (SecureDTLookupEntry(NULL, "/chosen", &ent) == kSuccess &&
-	    SecureDTGetProperty(ent, "stress-rack", &propP, &size) == kSuccess) {
-		(void)entryP;
-		if (PE_parse_boot_argn("panic_trace", NULL, 0)) {
-			// Prefer user specified boot-arg even when running on stress racks.
-			// Make an exception for devices with broken single-stepping.
-		} else {
-			panic_trace = 0;
-		}
+	if (PE_parse_boot_argn("panic_trace", NULL, 0)) {
+		// Prefer user specified boot-arg even when running on stress racks.
+		// Make an exception for devices with broken single-stepping.
+	} else {
+		panic_trace = 0;
 	}
 }
 
@@ -509,9 +522,18 @@ pe_arm_debug_init_early(void *boot_cpu_data)
 		return;
 	}
 
-	/* Update the panic_trace start policy depending on the execution environment. */
 #if DEVELOPMENT || DEBUG
-	if (panic_trace != 0) {
+
+	/* Determine if we're enabled at 100% rate,
+	 * report it globally. */
+	_panic_trace_always_enabled = (panic_trace & panic_trace_enabled) && !(panic_trace & panic_trace_partial_policy);
+
+	/* Determine if we're running on stress-racks,
+	 * report it globally. */
+	_panic_trace_stress_racks = _is_stress_racks();
+
+	/* Update the panic_trace start policy depending on the execution environment. */
+	if ((panic_trace != 0) && (_panic_trace_stress_racks)) {
 		panic_trace_apply_stress_rack_policy();
 	}
 
@@ -565,6 +587,7 @@ void
 pe_arm_debug_init_late(void)
 {
 }
+
 
 /*********************
 * Panic-trace sysctl *

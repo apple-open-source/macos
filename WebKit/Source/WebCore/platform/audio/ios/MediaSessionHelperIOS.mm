@@ -53,8 +53,8 @@ WEBCORE_EXPORT NSString *WebUIApplicationDidEnterBackgroundNotification = @"WebU
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(MediaExperience)
 SOFT_LINK_CLASS_OPTIONAL(MediaExperience, AVSystemController)
-SOFT_LINK_CONSTANT_MAY_FAIL(MediaExperience, AVSystemController_PIDToInheritApplicationStateFrom, NSString *)
-SOFT_LINK_CONSTANT_MAY_FAIL(MediaExperience, AVSystemController_ServerConnectionDiedNotification, NSString *)
+SOFT_LINK_CONSTANT(MediaExperience, AVSystemController_PIDToInheritApplicationStateFrom, NSString *)
+SOFT_LINK_CONSTANT(MediaExperience, AVSystemController_ServerConnectionDiedNotification, NSString *)
 #endif
 
 using namespace WebCore;
@@ -106,7 +106,7 @@ private:
     void startMonitoringWirelessRoutesInternal() final;
     void stopMonitoringWirelessRoutesInternal() final;
 
-    RetainPtr<WebMediaSessionHelper> m_objcObserver;
+    const RetainPtr<WebMediaSessionHelper> m_objcObserver;
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
     std::optional<int> m_presentedApplicationPID;
 #endif
@@ -159,25 +159,25 @@ void MediaSessionHelper::activeAudioRouteDidChange(ShouldPause shouldPause)
 void MediaSessionHelper::applicationWillEnterForeground(SuspendedUnderLock suspendedUnderLock)
 {
     for (auto& client : m_clients)
-        client.applicationWillEnterForeground(suspendedUnderLock);
+        client.uiApplicationWillEnterForeground(suspendedUnderLock);
 }
 
 void MediaSessionHelper::applicationDidEnterBackground(SuspendedUnderLock suspendedUnderLock)
 {
     for (auto& client : m_clients)
-        client.applicationDidEnterBackground(suspendedUnderLock);
+        client.uiApplicationDidEnterBackground(suspendedUnderLock);
 }
 
 void MediaSessionHelper::applicationWillBecomeInactive()
 {
     for (auto& client : m_clients)
-        client.applicationWillBecomeInactive();
+        client.uiApplicationWillBecomeInactive();
 }
 
 void MediaSessionHelper::applicationDidBecomeActive()
 {
     for (auto& client : m_clients)
-        client.applicationDidBecomeActive();
+        client.uiApplicationDidBecomeActive();
 }
 
 void MediaSessionHelper::externalOutputDeviceAvailableDidChange(HasAvailableTargets hasAvailableTargets)
@@ -258,7 +258,7 @@ void MediaSessionHelper::setActiveAudioRouteSupportsSpatialPlayback(bool support
 MediaSessionHelperIOS::MediaSessionHelperIOS()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    m_objcObserver = adoptNS([[WebMediaSessionHelper alloc] initWithCallback:*this]);
+    lazyInitialize(m_objcObserver, adoptNS([[WebMediaSessionHelper alloc] initWithCallback:*this]));
     setIsExternalOutputDeviceAvailable([m_objcObserver hasWirelessTargetsAvailable]);
     END_BLOCK_OBJC_EXCEPTIONS
 
@@ -271,15 +271,14 @@ void MediaSessionHelperIOS::providePresentingApplicationPID(int pid, ShouldOverr
     if (m_presentedApplicationPID && (*m_presentedApplicationPID == pid || shouldOverride == ShouldOverride::No))
         return;
 
-    m_presentedApplicationPID = pid;
+    RELEASE_LOG(Media, "Setting AVSystemController_PIDToInheritApplicationStateFrom to %d", pid);
 
-    if (!canLoadAVSystemController_PIDToInheritApplicationStateFrom())
-        return;
+    m_presentedApplicationPID = pid;
 
     NSError *error = nil;
     [[getAVSystemControllerClass() sharedAVSystemController] setAttribute:@(pid) forKey:getAVSystemController_PIDToInheritApplicationStateFrom() error:&error];
     if (error)
-        WTFLogAlways("Failed to set up PID proxying: %s", error.localizedDescription.UTF8String);
+        RELEASE_LOG_ERROR(Media, "Failed to set AVSystemController_PIDToInheritApplicationStateFrom: %@", error.localizedDescription);
 #else
     UNUSED_PARAM(pid);
     UNUSED_PARAM(shouldOverride);
@@ -384,12 +383,11 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     [center addObserver:self selector:@selector(spatialPlaybackCapabilitiesChanged:) name:PAL::get_AVFoundation_AVAudioSessionSpatialPlaybackCapabilitiesChangedNotification() object:nil];
 
 #if HAVE(MEDIAEXPERIENCE_AVSYSTEMCONTROLLER)
-    if (canLoadAVSystemController_ServerConnectionDiedNotification())
-        [center addObserver:self selector:@selector(mediaServerConnectionDied:) name:getAVSystemController_ServerConnectionDiedNotification() object:nil];
+    [center addObserver:self selector:@selector(mediaServerConnectionDied:) name:getAVSystemController_ServerConnectionDiedNotification() object:nil];
 #endif
 
     // Now playing won't work unless we turn on the delivery of remote control events.
-    RunLoop::main().dispatch([] {
+    RunLoop::mainSingleton().dispatch([] {
         BEGIN_BLOCK_OBJC_EXCEPTIONS
         [[PAL::getUIApplicationClass() sharedApplication] beginReceivingRemoteControlEvents];
         END_BLOCK_OBJC_EXCEPTIONS
@@ -404,7 +402,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
 
 #if !PLATFORM(WATCHOS)
     if (!pthread_main_np()) {
-        RunLoop::main().dispatch([routeDetector = std::exchange(_routeDetector, nil)]() {
+        RunLoop::mainSingleton().dispatch([routeDetector = std::exchange(_routeDetector, nil)]() {
             LOG(Media, "safelyTearDown - dipatched to UI thread.");
             BEGIN_BLOCK_OBJC_EXCEPTIONS
             [routeDetector setRouteDetectionEnabled:NO];
@@ -453,7 +451,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
         ASSERT(!_routeDetector);
 
-        if (auto callback = _callback.get()) {
+        if (RefPtr callback = _callback.get()) {
             BEGIN_BLOCK_OBJC_EXCEPTIONS
             _routeDetector = adoptNS([PAL::allocAVRouteDetectorInstance() init]);
             [_routeDetector setRouteDetectionEnabled:_monitoringAirPlayRoutes];
@@ -489,7 +487,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
 
     auto isSuspendedUnderLock = [[[notification userInfo] objectForKey:@"isSuspendedUnderLock"] boolValue] ? SuspendedUnderLock::Yes : SuspendedUnderLock::No;
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self), isSuspendedUnderLock]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->applicationWillEnterForeground(isSuspendedUnderLock);
     });
 }
@@ -501,7 +499,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper applicationDidBecomeActive]");
 
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->applicationDidBecomeActive();
     });
 }
@@ -513,7 +511,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper applicationWillResignActive]");
 
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->applicationWillBecomeInactive();
     });
 }
@@ -525,7 +523,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper wirelessRoutesAvailableDidChange]");
 
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
-        auto callback = _callback.get();
+        RefPtr callback = _callback.get();
         if (callback && _monitoringAirPlayRoutes)
             callback->externalOutputDeviceAvailableDidChange();
     });
@@ -539,7 +537,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
 
     auto isSuspendedUnderLock = [[[notification userInfo] objectForKey:@"isSuspendedUnderLock"] boolValue] ? SuspendedUnderLock::Yes : SuspendedUnderLock::No;
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self), isSuspendedUnderLock]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->applicationDidEnterBackground(isSuspendedUnderLock);
     });
 }
@@ -550,7 +548,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
     LOG(Media, "-[WebMediaSessionHelper mediaServerConnectionDied:]");
     UNUSED_PARAM(notification);
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->mediaServerConnectionDied();
     });
 }
@@ -562,7 +560,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
 
     bool shouldPause = [[notification.userInfo objectForKey:AVAudioSessionRouteChangeReasonKey] unsignedIntegerValue] == AVAudioSessionRouteChangeReasonOldDeviceUnavailable;
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self), shouldPause]() {
-        if (auto callback = _callback.get()) {
+        if (RefPtr callback = _callback.get()) {
             callback->updateCarPlayIsConnected();
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST) && !PLATFORM(WATCHOS)
             callback->activeAudioRouteDidChange(shouldPause);
@@ -578,7 +576,7 @@ void MediaSessionHelperIOS::externalOutputDeviceAvailableDidChange()
 {
     LOG(Media, "-[WebMediaSessionHelper spatialPlaybackCapabilitiesChanged:]");
     callOnWebThreadOrDispatchAsyncOnMainThread([self, protectedSelf = retainPtr(self)]() {
-        if (auto callback = _callback.get())
+        if (RefPtr callback = _callback.get())
             callback->updateActiveAudioRouteSupportsSpatialPlayback();
     });
 }

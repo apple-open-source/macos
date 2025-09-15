@@ -80,19 +80,46 @@ static int      rn_walktree_from(struct radix_node_head *h, void *a,
     void *m, walktree_f_t *f, void *w);
 static int rn_walktree(struct radix_node_head *, walktree_f_t *, void *);
 static struct radix_node *rn_insert(void *, struct radix_node_head *, int *, struct radix_node[2]);
-static struct radix_node *rn_newpair(void * __sized_by(vlen), uint8_t vlen, int, struct radix_node[2]);
+static struct radix_node *rn_newpair(const void * __sized_by(vlen), uint8_t vlen, int, struct radix_node[2]);
 static struct radix_node *rn_search(void *, struct radix_node *);
 static struct radix_node *rn_search_m(void *, struct radix_node *, void *);
 
-static int max_keylen;
 static struct radix_mask *rn_mkfreelist;
 static struct radix_node_head *mask_rnhead;
-static char *addmask_key;
 static char normal_chars[] = {0, 0x80, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc, 0xfe, -1};
-static char *rn_zeros, *rn_ones;
 
-static zone_t radix_node_zone;
 KALLOC_TYPE_DEFINE(radix_node_head_zone, struct radix_node_head, KT_DEFAULT);
+
+
+#define MAX_KEYLEN 32
+#define MAX_KEYLEN_BMASK 0x1F
+
+/*
+ * Constant size buffers that are used for the netmask radix maintenance.
+ *
+ * rn_ones     - buffer with all bits set to 1, used when constructing new keys.
+ * rn_zeros    - buffer with all bits set to 0, used when constructing new keys.
+ */
+
+/*
+ * Constant size buffers that are used for the netmask radix maintenance.
+ *
+ * rn_ones     - buffer with all bits set to 1, used when constructing new keys.
+ * rn_zeros    - buffer with all bits set to 0, used when constructing new keys.
+ */
+static const char rn_zeros[MAX_KEYLEN] = {
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0
+};
+
+static const char rn_ones[MAX_KEYLEN] = {
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+};
 
 #define rn_masktop (mask_rnhead->rnh_treetop)
 #undef Bcmp
@@ -105,6 +132,52 @@ static int rn_satisfies_leaf(char *trial, struct radix_node *leaf, int skip,
     rn_matchf_t *f, void *w);
 
 #define RN_MATCHF(rn, f, arg)   (f == NULL || (*f)((rn), arg))
+
+
+/*
+ * Netmask radix tree.
+ *
+ * Most netmasks are going to be same for the different routes.
+ * Because of that, it is important to avoid wasting memory
+ * for the duplicate copies of same mask bitpatterns.
+ *
+ * The radix datastructure solves this by using another radix tree,
+ * which is keyed by the netmask bits.
+ *
+ */
+
+/*
+ * Radix tree glue.
+ */
+struct rn_base_entry {
+	union {
+		struct {
+			struct radix_node tt;
+			struct radix_node t;
+		} _split_nodes;
+#define rnb_tt _split_nodes.tt
+#define rnb_t _split_nodes.t
+		struct radix_node rnb_nodes[2];
+	};
+};
+
+static struct radix_node *
+rn_lexical_parent(struct radix_node *tt)
+{
+	struct rn_base_entry *nrn;
+	nrn = __container_of(tt, struct rn_base_entry, rnb_tt);
+	return &nrn->rnb_t;
+}
+
+/*
+ * The entry in the netmask radix tree.
+ */
+struct netmask_rn_entry {
+	struct rn_base_entry nrn_base;
+#define nrn_tt nrn_base.rnb_tt
+#define nrn_t nrn_base.rnb_t
+	char nrn_netmask[MAX_KEYLEN];
+};
 
 /*
  * The data structure for the keys is a radix tree with one way
@@ -283,17 +356,20 @@ rn_satisfies_leaf(char *trial, struct radix_node *leaf, int skip,
     rn_matchf_t *f, void *w)
 {
 	uint8_t cplen;
-	char *cp = rnarg_unpack(trial, &cplen);
-	char *cp2 = rn_get_key(leaf);
-	char *cp3 = rn_get_mask(leaf);
-	char *cplim;
-	int length = min(*(u_char *)cp, *(u_char *)cp2);
+	const char *cp = rnarg_unpack(trial, &cplen);
+	const char *cp2 = rn_get_key(leaf);
+	const char *cp3 = rn_get_mask(leaf);
+	const char *cplim;
+	int length = min(*cp, *cp2);
 
 	if (cp3 == 0) {
 		cp3 = rn_ones;
 	} else {
-		length = min(length, *(u_char *)cp3);
+		length = min(length, *cp3);
 	}
+
+	length = min(length, MAX_KEYLEN);
+
 	cplim = cp + length; cp3 += skip; cp2 += skip;
 	for (cp += skip; cp < cplim; cp++, cp2++, cp3++) {
 		if ((*cp ^ *cp2) & *cp3) {
@@ -317,10 +393,10 @@ rn_match_args(void *v_arg, struct radix_node_head *head,
 	uint8_t vlen0;
 	caddr_t v = rnarg_unpack(v_arg, &vlen0);
 	struct radix_node *t = head->rnh_treetop, *x;
-	caddr_t cp = v, cp2;
-	caddr_t cplim;
+	caddr_t cp, cp2, cplim, key;
 	struct radix_node *saved_t, *top = t;
-	int off = t->rn_offset, vlen = vlen0, matched_off;
+	int off = t->rn_offset, matched_off;
+	uint8_t klen, cmp_len;
 	int test, b, rn_bit;
 
 	/*
@@ -328,7 +404,8 @@ rn_match_args(void *v_arg, struct radix_node_head *head,
 	 * subroutine call.
 	 */
 	for (; t->rn_bit >= 0;) {
-		if (t->rn_bmask & cp[t->rn_offset]) {
+		uint8_t test_byte = rnarg_get(v, vlen0, t->rn_offset);
+		if (t->rn_bmask & test_byte) {
 			t = t->rn_right;
 		} else {
 			t = t->rn_left;
@@ -346,11 +423,23 @@ rn_match_args(void *v_arg, struct radix_node_head *head,
 	 * are probably the most common case...
 	 */
 	if (rn_get_mask(t)) {
-		vlen = rn_get_masklen(t);
+		cmp_len = rn_get_masklen(t);
+	} else {
+		cmp_len = vlen0;
 	}
-	cp += off;
-	cp2 = rn_get_key(t) + off;
-	cplim = v + vlen;
+
+	/*
+	 * Set the `cmp_len' to the minimal of the 3 lengths:
+	 * - the length of t's mask (cmp_len)
+	 * - the length of t's key (klen)
+	 * - the length of the v argument (vlen)
+	 */
+	key = rn_get_key(t, &klen);
+	cmp_len = (uint8_t)min(min(cmp_len, klen), vlen0);
+
+	cp = v + off;
+	cp2 = key + off;
+	cplim = v + cmp_len;
 
 	for (; cp < cplim; cp++, cp2++) {
 		if (*cp != *cp2) {
@@ -454,15 +543,18 @@ int     rn_debug =  1;
 #endif
 
 static struct radix_node *
-rn_newpair(void *v __sized_by(vlen), uint8_t vlen, int b, struct radix_node nodes[2])
+rn_newpair(const void *v __sized_by(vlen), uint8_t vlen, int b, struct radix_node nodes[2])
 {
-	struct radix_node *tt = nodes, *t = tt + 1;
+	struct radix_node *tt = &nodes[0];
+	struct radix_node *t = &nodes[1];
+
 	t->rn_bit = (short)b;
 	t->rn_bmask = 0x80 >> (b & 7);
 	t->rn_left = tt;
 	t->rn_offset = b >> 3;
 	tt->rn_bit = -1;
 	rn_set_key(tt, v, vlen);
+
 	tt->rn_parent = t;
 	tt->rn_flags = t->rn_flags = RNF_ACTIVE;
 	tt->rn_mklist = t->rn_mklist = NULL;
@@ -487,6 +579,7 @@ rn_insert(void *v_arg, struct radix_node_head *head, int *dupentry,
 	caddr_t cp = v + head_off;
 	int b;
 	struct radix_node *tt;
+	uint8_t test_byte;
 	/*
 	 * Find first bit at which v and t->rn_key differ
 	 */
@@ -511,10 +604,10 @@ on1:
 	}
 	{
 		struct radix_node *p, *x = top;
-		cp = v;
 		do {
 			p = x;
-			if (cp[x->rn_offset] & x->rn_bmask) {
+			test_byte = rnarg_get(v, vlen, x->rn_offset);
+			if (x->rn_bmask & test_byte) {
 				x = x->rn_right;
 			} else {
 				x = x->rn_left;
@@ -526,16 +619,18 @@ on1:
 			log(LOG_DEBUG, "rn_insert: Going In:\n"), traverse(p);
 		}
 #endif
-		t = rn_newpair(v_arg, vlen, b, nodes);
+		t = rn_newpair(v, vlen, b, nodes);
 		tt = t->rn_left;
-		if ((cp[p->rn_offset] & p->rn_bmask) == 0) {
+		test_byte = rnarg_get(v, vlen, p->rn_offset);
+		if ((p->rn_bmask & test_byte) == 0) {
 			p->rn_left = t;
 		} else {
 			p->rn_right = t;
 		}
 		x->rn_parent = t;
 		t->rn_parent = p; /* frees x, p as temp vars below */
-		if ((cp[t->rn_offset] & t->rn_bmask) == 0) {
+		test_byte = rnarg_get(v, vlen, t->rn_offset);
+		if ((t->rn_bmask & test_byte) == 0) {
 			t->rn_right = x;
 		} else {
 			t->rn_right = tt;
@@ -553,17 +648,19 @@ on1:
 struct radix_node *
 rn_addmask(void *n_arg, int search, int skip)
 {
-	caddr_t netmask = (caddr_t)n_arg;
-	struct radix_node *x;
+	uint8_t mlen0;
+	caddr_t netmask = rnarg_unpack(n_arg, &mlen0);
+	struct radix_node *x __single;
+	struct netmask_rn_entry *nrn_entry;
 	caddr_t cp, cplim;
 	int b = 0, mlen, j;
+	uint8_t cmp_len;
+	caddr_t key;
 	int maskduplicated, m0, isnormal;
-	struct radix_node *saved_x;
-	static int last_zeroed = 0;
 
-	if ((mlen = *(u_char *)netmask) > max_keylen) {
-		mlen = max_keylen;
-	}
+	char addmask_key[MAX_KEYLEN] = {0, };
+
+	mlen = min(mlen0, MAX_KEYLEN);
 	if (skip == 0) {
 		skip = 1;
 	}
@@ -571,10 +668,10 @@ rn_addmask(void *n_arg, int search, int skip)
 		return mask_rnhead->rnh_nodes;
 	}
 	if (skip > 1) {
-		Bcopy(rn_ones + 1, addmask_key + 1, skip - 1);
+		bcopy(rn_ones + 1, addmask_key + 1, skip - 1);
 	}
 	if ((m0 = mlen) > skip) {
-		Bcopy(netmask + skip, addmask_key + skip, mlen - skip);
+		bcopy(netmask + skip, addmask_key + skip, mlen - skip);
 	}
 	/*
 	 * Trim trailing zeroes.
@@ -584,36 +681,36 @@ rn_addmask(void *n_arg, int search, int skip)
 	}
 	mlen = (int)(cp - addmask_key);
 	if (mlen <= skip) {
-		if (m0 >= last_zeroed) {
-			last_zeroed = mlen;
-		}
 		return mask_rnhead->rnh_nodes;
 	}
-	if (m0 < last_zeroed) {
-		Bzero(addmask_key + m0, last_zeroed - m0);
-	}
-	*addmask_key = last_zeroed = (char)mlen;
+
+	*addmask_key = (char)mlen;
 	x = rn_search(addmask_key, rn_masktop);
-	if (Bcmp(addmask_key, rn_get_key(x), mlen) != 0) {
+	key = rn_get_key(x, &cmp_len);
+	if (mlen < cmp_len) {
+		cmp_len = (int8_t)mlen;
+	}
+	if (Bcmp(addmask_key, key, cmp_len) != 0) {
 		x = NULL;
 	}
 	if (x || search) {
 		return x;
 	}
-	x = saved_x = zalloc_flags(radix_node_zone, Z_WAITOK_ZERO_NOFAIL);
-	netmask = cp = (caddr_t)(x + 2);
-	Bcopy(addmask_key, cp, mlen);
-	x = rn_insert(cp, mask_rnhead, &maskduplicated, x);
+	nrn_entry = kalloc_type(struct netmask_rn_entry, Z_WAITOK_ZERO_NOFAIL);
+	netmask = nrn_entry->nrn_netmask;
+	Bcopy(addmask_key, netmask, mlen);
+	x = rn_insert(netmask, mask_rnhead, &maskduplicated, nrn_entry->nrn_base.rnb_nodes);
 	if (maskduplicated) {
 		log(LOG_ERR, "rn_addmask: mask impossibly already in tree");
-		zfree(radix_node_zone, saved_x);
+		kfree_type(struct netmask_rn_entry, nrn_entry);
 		return x;
 	}
 	mask_rnhead->rnh_cnt++;
 	/*
 	 * Calculate index of mask, and check for normalcy.
 	 */
-	cplim = netmask + mlen; isnormal = 1;
+	cplim = netmask + mlen;
+	isnormal = 1;
 	for (cp = netmask + skip; (cp < cplim) && *(u_char *)cp == 0xff;) {
 		cp++;
 	}
@@ -637,14 +734,16 @@ static int
 /* XXX: arbitrary ordering for non-contiguous masks */
 rn_lexobetter(void *m_arg, void *n_arg)
 {
-	u_char *mp = m_arg, *np = n_arg, *lim;
+	uint8_t mplen, nlen;
+	caddr_t mp = rnarg_unpack(m_arg, &mplen);
+	caddr_t np = rnarg_unpack(n_arg, &nlen);
 
 	if (*mp > *np) {
 		return 1;  /* not really, but need to check longer one first */
 	}
 	if (*mp == *np) {
-		for (lim = mp + *mp; mp < lim;) {
-			if (*mp++ > *np++) {
+		for (int i = 1; i < mplen; ++i) {
+			if (mp[i] > np[i]) {
 				return 1;
 			}
 		}
@@ -674,9 +773,10 @@ struct radix_node *
 rn_addroute(void *v_arg, void *n_arg, struct radix_node_head *head,
     struct radix_node treenodes[2])
 {
-	uint8_t vlen, masklen;
+	uint8_t vlen, mlen0;
 	caddr_t v = rnarg_unpack(v_arg, &vlen);
-	caddr_t netmask = rnarg_unpack(n_arg, &masklen);
+	caddr_t netmask = rnarg_unpack(n_arg, &mlen0);
+	uint8_t mlen = mlen0;
 	struct radix_node *t, *x = NULL, *tt;
 	struct radix_node *saved_tt, *top = head->rnh_treetop;
 	short b = 0, b_leaf = 0;
@@ -700,7 +800,7 @@ rn_addroute(void *v_arg, void *n_arg, struct radix_node_head *head,
 		/*
 		 * Note: the auxillary mask is stored as a "key".
 		 */
-		netmask = rn_get_key(x);
+		netmask = rn_get_key(x, &mlen);
 	}
 	/*
 	 * Deal with duplicated keys: attach node to previous instance
@@ -763,7 +863,7 @@ rn_addroute(void *v_arg, void *n_arg, struct radix_node_head *head,
 	 * Put mask in tree.
 	 */
 	if (netmask) {
-		rn_set_mask(tt, netmask, masklen);
+		rn_set_mask(tt, netmask, mlen);
 		tt->rn_bit = x->rn_bit;
 		tt->rn_flags |= x->rn_flags & RNF_NORMAL;
 	}
@@ -848,24 +948,44 @@ on2:
 struct radix_node *
 rn_delete(void *v_arg, void *netmask_arg, struct radix_node_head *head)
 {
-	struct radix_node *t, *p, *x, *tt;
+	uint8_t vlen, mlen0;
+	caddr_t v = rnarg_unpack(v_arg, &vlen);
+	caddr_t netmask = rnarg_unpack(netmask_arg, &mlen0);
+	uint8_t masklen = mlen0, key_cmp_len, tt_key_len;
+
+	struct radix_node *t __single, *p __single, *x __single, *tt __single;
 	struct radix_mask *m, *saved_m, **mp;
 	struct radix_node *dupedkey, *saved_tt, *top;
-	caddr_t v, netmask;
-	int b, head_off, vlen;
+	int b, head_off;
 
-	v = v_arg;
-	netmask = netmask_arg;
-	x = head->rnh_treetop;
-	tt = rn_search(v, x);
-	head_off = x->rn_offset;
-	vlen =  *(u_char *)v;
-	saved_tt = tt;
-	top = x;
-	if (tt == 0 ||
-	    Bcmp(v + head_off, rn_get_key(tt) + head_off, vlen - head_off)) {
+	x = top = head->rnh_treetop;
+	tt = saved_tt = rn_search(v, x);
+
+	/*
+	 * Verify that the found node (`tt'), is valid, and that it can
+	 * be compared against `v_arg'.
+	 */
+	if (tt == NULL) {
+		log(LOG_ERR, "rn_delete: key not found (key_len=%d)\n", vlen);
 		return NULL;
 	}
+
+	head_off = x->rn_offset;
+	tt_key_len = rn_get_keylen(tt);
+	key_cmp_len = (uint8_t)min(vlen, tt_key_len);
+
+	if (key_cmp_len < head_off) {
+		log(LOG_ERR, "rn_delete: key too short (cmp_len=%d, head_offset=%d)\n",
+		    key_cmp_len, head_off);
+		return NULL;
+	}
+
+	if (Bcmp(v + head_off, rn_get_key(tt) + head_off, key_cmp_len - head_off)) {
+		log(LOG_ERR, "rn_delete: key mismatch (cmp_len=%d, head_offset=%d)\n",
+		    key_cmp_len, head_off);
+		return NULL;
+	}
+
 	/*
 	 * Delete our route from mask lists.
 	 */
@@ -873,7 +993,7 @@ rn_delete(void *v_arg, void *netmask_arg, struct radix_node_head *head)
 		if ((x = rn_addmask(netmask, 1, head_off)) == 0) {
 			return NULL;
 		}
-		netmask = rn_get_key(x);
+		netmask = rn_get_key(x, &masklen);
 		while (rn_get_mask(tt) != netmask) {
 			if ((tt = tt->rn_dupedkey) == 0) {
 				return NULL;
@@ -947,7 +1067,8 @@ on1:
 		 */
 		if (tt == saved_tt) {
 			/* remove from head of chain */
-			x = dupedkey; x->rn_parent = t;
+			x = dupedkey;
+			x->rn_parent = t;
 			if (t->rn_left == tt) {
 				t->rn_left = x;
 			} else {
@@ -968,10 +1089,11 @@ on1:
 				log(LOG_ERR, "rn_delete: couldn't find us\n");
 			}
 		}
-		t = tt + 1;
+		t = rn_lexical_parent(tt);
 		if (t->rn_flags & RNF_ACTIVE) {
 #ifndef RN_DEBUG
-			*++x = *t;
+			x = rn_lexical_parent(x);
+			*x = *t;
 			p = t->rn_parent;
 #else
 			b = t->rn_info;
@@ -1035,7 +1157,7 @@ on1:
 	/*
 	 * We may be holding an active internal node in the tree.
 	 */
-	x = tt + 1;
+	x = rn_lexical_parent(tt);
 	if (t != x) {
 #ifndef RN_DEBUG
 		*t = *x;
@@ -1054,8 +1176,10 @@ on1:
 		}
 	}
 out:
+	x = rn_lexical_parent(tt);
+	x->rn_flags &= ~RNF_ACTIVE;
 	tt->rn_flags &= ~RNF_ACTIVE;
-	tt[1].rn_flags &= ~RNF_ACTIVE;
+
 	return tt;
 }
 
@@ -1068,9 +1192,10 @@ rn_walktree_from(struct radix_node_head *h, void *a, void *m, walktree_f_t *f,
     void *w)
 {
 	int error;
+	uint8_t alen, mlen;
 	struct radix_node *base, *next;
-	u_char *xa = (u_char *)a;
-	u_char *xm = (u_char *)m;
+	caddr_t xa = rnarg_unpack(a, &alen);
+	caddr_t xm = rnarg_unpack(m, &mlen);
 	struct radix_node *rn, *last;
 	int stopping;
 	int lastb;
@@ -1097,11 +1222,13 @@ restart:
 	 */
 	for (rn = h->rnh_treetop; rn->rn_bit >= 0;) {
 		last = rn;
-		if (!(rn->rn_bmask & xm[rn->rn_offset])) {
+		uint8_t test_byte;
+		test_byte = rnarg_get(xm, mlen, rn->rn_offset);
+		if (!(rn->rn_bmask & test_byte)) {
 			break;
 		}
-
-		if (rn->rn_bmask & xa[rn->rn_offset]) {
+		test_byte = rnarg_get(xa, alen, rn->rn_offset);
+		if (rn->rn_bmask & test_byte) {
 			rn = rn->rn_right;
 		} else {
 			rn = rn->rn_left;
@@ -1269,7 +1396,7 @@ rn_inithead(void **head, int off)
 
 	rnh = zalloc_flags(radix_node_head_zone, Z_WAITOK_ZERO_NOFAIL);
 	*head = rnh;
-	t = rn_newpair(rn_zeros, (int8_t)max_keylen, off, rnh->rnh_nodes);
+	t = rn_newpair(rn_zeros, (int8_t)MAX_KEYLEN, off, rnh->rnh_nodes);
 	ttt = rnh->rnh_nodes + 2;
 	t->rn_right = ttt;
 	t->rn_parent = t;
@@ -1277,7 +1404,7 @@ rn_inithead(void **head, int off)
 	tt->rn_flags = t->rn_flags = RNF_ROOT | RNF_ACTIVE;
 	tt->rn_bit = (short)(-1 - off);
 	*ttt = *tt;
-	rn_set_key(ttt, rn_ones, (int8_t)max_keylen);
+	rn_set_key(ttt, rn_ones, (int8_t)MAX_KEYLEN);
 	rnh->rnh_addaddr = rn_addroute;
 	rnh->rnh_deladdr = rn_delete;
 	rnh->rnh_matchaddr = rn_match;
@@ -1294,31 +1421,27 @@ rn_inithead(void **head, int off)
 void
 rn_init(void)
 {
-	char *cp, *cplim;
 	struct domain *dom;
 
-	/* lock already held when rn_init is called */
+	/*
+	 * Validate that no domain has max key that exceeds the MAX_KEYLEN constant.
+	 * This is really not expected to happen unless we introduce a new domain.
+	 * In such case, the MAX_KEYLEN constant will need to be updated,
+	 * along with the layout of `struct rn_base_entry'.
+	 *
+	 * N.B. lock already held when rn_init is called.
+	 */
 	TAILQ_FOREACH(dom, &domains, dom_entry) {
-		if (dom->dom_maxrtkey > max_keylen) {
-			max_keylen = dom->dom_maxrtkey;
+		if (MAX_KEYLEN < dom->dom_maxrtkey) {
+			log(LOG_ERR, "rn_init: encountered domain %s with max key len %d exceeding the limit %d",
+			    dom->dom_name,
+			    dom->dom_maxrtkey,
+			    MAX_KEYLEN);
+			return;
 		}
 	}
-	if (max_keylen == 0) {
-		log(LOG_ERR,
-		    "rn_init: radix functions require max_keylen be set\n");
-		return;
-	}
-	rn_zeros = zalloc_permanent(3 * max_keylen, ZALIGN_NONE);
-	rn_ones = cp = rn_zeros + max_keylen;
-	addmask_key = cplim = rn_ones + max_keylen;
-	while (cp < cplim) {
-		*cp++ = -1;
-	}
+
 	if (rn_inithead((void **)&mask_rnhead, 0) == 0) {
 		panic("rn_init 2");
 	}
-
-	radix_node_zone = zone_create("radix_node",
-	    sizeof(struct radix_node) * 2 + max_keylen,
-	    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM);
 }

@@ -190,6 +190,7 @@ class ContextImpl : public GLImplFactory
                                          const std::string &message) = 0;
     virtual angle::Result popDebugGroup(const gl::Context *context)  = 0;
     virtual angle::Result handleNoopDrawEvent();
+    virtual angle::Result handleNoopMultiDrawEvent();
 
     // KHR_parallel_shader_compile
     virtual void setMaxShaderCompilerThreads(GLuint count) {}
@@ -244,8 +245,6 @@ class ContextImpl : public GLImplFactory
                                                 GLbitfield barriers)                     = 0;
 
     const gl::State &getState() const { return mState; }
-    int getClientMajorVersion() const { return mState.getClientMajorVersion(); }
-    int getClientMinorVersion() const { return mState.getClientMinorVersion(); }
     const gl::Caps &getCaps() const { return mState.getCaps(); }
     const gl::TextureCapsMap &getTextureCaps() const { return mState.getTextureCaps(); }
     const gl::Extensions &getExtensions() const { return mState.getExtensions(); }

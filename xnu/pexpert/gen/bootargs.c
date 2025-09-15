@@ -71,6 +71,7 @@ PE_parse_boot_argn_internal(
 	boolean_t arg_boolean;
 	boolean_t arg_found;
 
+	/* Please don't change this behavior */
 	if (*args == '\0') {
 		return FALSE;
 	}

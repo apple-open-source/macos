@@ -41,13 +41,37 @@
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 #import <LowPowerMode/_PMCoreSmartPowerNap.h>
 #import <LowPowerMode/_PMCoreSmartPowerNapProtocol.h>
-
 #endif // (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 /*************************************************************************/
 
 #if TARGET_OS_OSX
 static bool gSleepWake = false;
 #endif
+
+#if WATCH_POWER_RANGER
+NSNumber *PMExtendedBatteryStateNumberFromString(char *string) {
+    if (!strcmp(string, "on")) {
+        return @(PMExtendedBatteryStateOn);
+    } else if (!strcmp(string, "off")) {
+        return @(PMExtendedBatteryStateOff);
+    }
+
+    // Fail to parse it
+    return nil;
+}
+
+NSNumber *PMExtendedBatteryFeatureAvailableFromString(char *string) {
+    if (!strcmp(string, "true")) {
+        return @(PMExtendedBatteryFeatureAvailableTrue);
+    } else if (!strcmp(string, "false")) {
+        return @(PMExtendedBatteryFeatureAvailableFalse);
+    } else if (!strcmp(string, "unknown")) {
+        return @(PMExtendedBatteryFeatureAvailableUnknown);
+    }
+
+    return nil;
+}
+#endif // WATCH_POWER_RANGER
 
 struct args_struct {
     int     standardSleepIntervals; // Defines whether pmtool should accelerate btinternal and dwlinterval.
@@ -79,6 +103,11 @@ struct args_struct {
     long    cspnQueryDelta;
     long    cspnRequeryDelta;
     long    cspnIgnoreRemoteClient;
+#if WATCH_POWER_RANGER
+    PMExtendedBatteryAction    extendedBatteryAction;
+    PMExtendedBatteryFeatureAvailable   extendedBatteryAvailable;
+    PMExtendedBatteryState     extendedBatteryState;
+#endif // WATCH_POWER_RANGER
 
     int64_t pfStatus;
     
@@ -295,6 +324,13 @@ static DTOption pmtool_options[] =
         "Sets the permanent fault status of the battery to the specified value.\n",
         { NULL }, {NULL}},
 #endif // TARGET_OS_OSX
+#if WATCH_POWER_RANGER
+    { {kActionExtendedBattery, optional_argument, &args.doAction[kActionExtendedBatteryIndex], 1},
+        kActionType,
+        "Shows or sets the extended battery status.  Usage: '--extendedBattery' to show current info; '--extendedBattery state <on|off>' to set the state; '--extendedBattery available <true|false|unknown>' to set feature available.",
+        { NULL }, { NULL }
+    },
+#endif // WATCH_POWER_RANGER
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
     {
         {kActionSetCoreSmartPowerNap, required_argument, &args.doAction[kSetCoreSmartPowerNapIndex], 1},
@@ -388,6 +424,12 @@ int main(int argc, char *argv[])
         sendAgingDataFromCFPrefs();
         exit(0);
     }
+#if WATCH_POWER_RANGER
+    if (args.doAction[kActionExtendedBatteryIndex]) {
+        handleExtendedBattery(args.extendedBatteryAction, args.extendedBatteryState, args.extendedBatteryAvailable);
+        exit(0);
+    }
+#endif // WATCH_POWER_RANGER
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
     if (args.doAction[kSetCoreSmartPowerNapIndex]) {
         setCoreSmartPowerNap(args.coreSmartPowerNap);
@@ -768,6 +810,43 @@ static bool parse_it_all(int argc, char *argv[]) {
         else if (arg && !strcmp(arg, kActionSetBHUpdateDelta)) {
             args.nccpUpdateDelta = (int)strtol(optarg, NULL, 0);
         }
+#if WATCH_POWER_RANGER
+        else if (arg && !strcmp(arg, kActionExtendedBattery)) {
+            int num_args = argc - optind;
+
+            if (num_args == 0) {
+                args.extendedBatteryAction = PMExtendedBatteryActionGetCurrenInfo;
+            } else if (num_args >= 2) {
+                // Process "state" argument
+                if (!strcmp(argv[optind], "state")) {
+                    optind++; // Consume "state"
+                    args.extendedBatteryAction = PMExtendedBatteryActionSetState;
+                    NSNumber *stateNumber = PMExtendedBatteryStateNumberFromString(argv[optind]);
+                    if (stateNumber != nil) {
+                        args.extendedBatteryState = PMExtendedBatteryStateFromNSInteger(stateNumber.integerValue);
+                    } else {
+                        printf("Error: Invalid value for 'state'. Use '--extendedBattery state <on|off>'.\n");
+                        exit(1);
+                    }
+                    optind++; // Consume state_value
+                } else if (!strcmp(argv[optind], "available")) {
+                    optind++; // Consume "availability"
+                    args.extendedBatteryAction = PMExtendedBatteryActionSetFeatureAvailable;
+                    NSNumber *availabilityNumber = PMExtendedBatteryFeatureAvailableFromString(argv[optind]);
+                    if (availabilityNumber != nil) {
+                        args.extendedBatteryAvailable = PMExtendedBatteryFeatureAvailableFromNSInteger(availabilityNumber.integerValue);
+                    } else {
+                        printf("Error: Invalid value for 'availability'. Use '--extendedBattery available <true|false|unknown>'.\n");
+                        exit(1);
+                    }
+                    optind++; // Consume availability_value
+                }
+            } else {
+                printf("Error: Expected 'state <on|off>' or 'available <true|false|unknown>' as parameters.\n");
+                exit(1);
+            }
+        }
+#endif // WATCH_POWER_RANGER
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
         else if (arg && !strcmp(arg, kActionSetCoreSmartPowerNap)) {
             args.coreSmartPowerNap = (int)strtol(optarg, NULL, 0);
@@ -945,6 +1024,9 @@ static DTAssertionOption *createAssertionOptions(int *count)
         {kIOPMAssertionTypePreventUserIdleDisplaySleep,
             kAssertPreventUserIdleDisplaySleep,
             "kIOPMAssertionTypePreventUserIdleDisplaySleep"},
+        {kIOPMAssertionTypeSoftwareUpdateTask,
+            kAssertSoftwareUpdateTask,
+            "kIOPMAssertionTypeSoftwareUpdateTask"},
     };
     
     assertions_heap = calloc(1, sizeof(assertions_local));
@@ -1088,7 +1170,7 @@ static void execute_Assertion(CFStringRef type, long timeout)
         }
     }
     if (d) CFRelease(d);
-    
+
 }
 /*************************************************************************/
 
@@ -1645,6 +1727,11 @@ void init_args(args_struct *a) {
     
     a->ackIORegisterForSystemPower = true;
     a->ackIOPMConnection = true;
+#if WATCH_POWER_RANGER
+    a->extendedBatteryAction = PMExtendedBatteryActionGetCurrenInfo;
+    a->extendedBatteryAvailable = PMExtendedBatteryFeatureAvailableUnknown;
+    a->extendedBatteryState = PMExtendedBatteryStateOff;
+#endif // WATCH_POWER_RANGER
 }
 
 void init_globals(globals_struct *g2) {
@@ -1874,11 +1961,40 @@ static void sendAgingDataFromCFPrefs(void){}
 static void isVactSupported(){}
 
 
+#if WATCH_POWER_RANGER
+static void handleExtendedBattery(PMExtendedBatteryAction action,
+                                  PMExtendedBatteryState state,
+                                  PMExtendedBatteryFeatureAvailable available) {
+
+    PMExtendedBattery *extendedBattery = [PMExtendedBattery new];
+    switch (action) {
+        case PMExtendedBatteryActionGetCurrenInfo:
+            printf("Getting extended Battery Info\n");
+            printf("Extended Battery Info, feature available: %s, state: %s\n",
+                   [NSStringFromPMExtendedBatteryFeatureAvailable(extendedBattery.featureAvailable) UTF8String],
+                   [NSStringFromPMExtendedBatteryState(extendedBattery.state) UTF8String]);
+            break;
+        case PMExtendedBatteryActionSetState:
+            printf("Setting Extended Battery state: %s\n", [NSStringFromPMExtendedBatteryState(state) UTF8String]);
+            [extendedBattery setState:state fromSource:kPMEBSourcePMTool];
+            printf("Set Extended Battery state: %s\n", [NSStringFromPMExtendedBatteryState(extendedBattery.state) UTF8String]);
+            break;
+        case PMExtendedBatteryActionSetFeatureAvailable:
+            printf("Setting Extended Battery available: %s\n", [NSStringFromPMExtendedBatteryFeatureAvailable(available) UTF8String]);
+            [extendedBattery setFeatureAvailable:available fromSource:kPMEBSourcePMTool];
+            printf("Set Extended Battery available: %s state: %s\n",
+                   [NSStringFromPMExtendedBatteryFeatureAvailable(extendedBattery.featureAvailable) UTF8String],
+                   [NSStringFromPMExtendedBatteryState(extendedBattery.state) UTF8String]);
+            break;
+    }
+}
+#endif // WATCH_POWER_RANGER
+
 
 #if (TARGET_OS_IOS && !TARGET_OS_XR) || TARGET_OS_OSX
 static void setCoreSmartPowerNap(int state)
 {
-    if(state != _PMCoreSmartPowerNapStateOff && state != _PMCoreSmartPowerNapStateOn)
+    if(state >= _PMCoreSmartPowerNapStateCount)
     {
         printf("Requested invalid Core Smart Power Nap State!\n");
         return;

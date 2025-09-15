@@ -2,7 +2,7 @@
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2009 Google, Inc.  All rights reserved.
+ * Copyright (C) 2009 Google, Inc. All rights reserved.
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2020, 2021, 2022 Igalia S.L.
  *
@@ -188,7 +188,15 @@ bool RenderSVGContainer::nodeAtPoint(const HitTestRequest& request, HitTestResul
             return true;
     }
 
-    // Spec: Only graphical elements can be targeted by the mouse, period.
+    // pointer-events=bounding-box makes it possible for containers to be direct targets.
+    if (style().pointerEvents() == PointerEvents::BoundingBox) {
+        if (!isObjectBoundingBoxValid())
+            return false;
+        if (objectBoundingBox().contains(localPoint)) {
+            updateHitTestResult(result, LayoutPoint(localPoint));
+            return true;
+        }
+    }
     // 16.4: "If there are no graphics elements whose relevant graphics content is under the pointer (i.e., there is no target element), the event is not dispatched."
     return false;
 }

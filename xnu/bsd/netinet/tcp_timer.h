@@ -191,23 +191,6 @@ extern int tcptv_persmin_val;
 
 #define TCPTV_FINWAIT2  ( 60*TCP_RETRANSHZ)     /* timeout to get out of FIN_WAIT_2 */
 
-/*
- * Window for counting received bytes to see if ack-stretching
- * can start (default 100 ms)
- */
-#define TCPTV_UNACKWIN  ( TCP_RETRANSHZ/10 )
-
-/* Receiver idle time, avoid ack-stretching after this idle time */
-#define TCPTV_MAXRCVIDLE (TCP_RETRANSHZ/5 )
-
-/*
- * No ack stretching during slow-start, until we see some packets.
- * By the time the receiver gets 512 packets, the senders cwnd
- * should open by a few hundred packets consdering the
- * slow-start progression.
- */
-#define TCP_RCV_SS_PKTCOUNT     512
-
 #define TCPTV_TWTRUNC   8               /* RTO factor to truncate TW */
 
 #define TCP_LINGERTIME  120             /* linger at most 2 minutes */
@@ -235,11 +218,11 @@ static char *tcptimers[] =
 struct tcptimerlist;
 
 struct tcptimerentry {
-	LIST_ENTRY(tcptimerentry) le;   /* links for timer list */
-	uint32_t timer_start;   /* tcp clock when the timer was started */
-	uint16_t index;         /* index of lowest timer that needs to run first */
-	uint16_t mode;          /* Bit-wise OR of timers that are active */
-	uint32_t runtime;       /* deadline at which the first timer has to fire */
+	LIST_ENTRY(tcptimerentry) te_le;   /* links for timer list */
+	uint32_t te_timer_start;   /* tcp clock when the timer was started */
+	uint16_t te_index;         /* index of lowest timer that needs to run first */
+	uint16_t te_mode;          /* Bit-wise OR of timers that are active */
+	uint32_t te_runtime;       /* deadline at which the first timer has to fire */
 };
 
 LIST_HEAD(timerlisthead, tcptimerentry);
@@ -251,8 +234,10 @@ struct tcptimerlist {
 	thread_call_t call;     /* call entry */
 	uint32_t runtime;       /* time at which this list is going to run */
 	uint32_t schedtime;     /* time at which this list was scheduled */
+	uint32_t started_at;     /* time at which this list started to run */
 	uint32_t entries;       /* Number of entries on the list */
 	uint32_t maxentries;    /* Max number of entries at any time */
+	uint32_t processed_count;       /* Number of entries that have been processed */
 
 	/* Set desired mode when timer list running */
 	boolean_t running;      /* Set when timer list is being processed */
@@ -328,8 +313,6 @@ extern int tcp_ttl;             /* time to live for TCP segs */
 extern int tcp_backoff[TCP_MAXRXTSHIFT + 1];
 extern int tcp_rexmt_slop;
 extern u_int32_t tcp_max_persist_timeout;       /* Maximum persistence for Zero Window Probes */
-
-#define OFFSET_FROM_START(tp, off) ((tcp_now + (off)) - (tp)->tentry.timer_start)
 
 #endif /* BSD_KERNEL_PRIVATE */
 #endif /* !_NETINET_TCP_TIMER_H_ */

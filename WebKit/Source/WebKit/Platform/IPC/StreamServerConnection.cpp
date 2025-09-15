@@ -62,7 +62,7 @@ StreamServerConnection::~StreamServerConnection()
 
 void StreamServerConnection::open(StreamConnectionWorkQueue& workQueue)
 {
-    m_workQueue = &workQueue;
+    m_workQueue = workQueue;
     // FIXME(http://webkit.org/b/238986): Workaround for not being able to deliver messages from the dedicated connection to the work queue the client uses.
     Ref connection = m_connection;
     connection->addMessageReceiveQueue(*this, { });
@@ -128,7 +128,7 @@ void StreamServerConnection::didClose(Connection&)
     // Client is expected to listen to didClose from the main connection.
 }
 
-void StreamServerConnection::didReceiveInvalidMessage(Connection&, MessageName, int32_t)
+void StreamServerConnection::didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>&)
 {
     // The sender is expected to be trusted, so all invalid messages are programming errors.
     ASSERT_NOT_REACHED();
@@ -146,7 +146,7 @@ StreamServerConnection::DispatchResult StreamServerConnection::dispatchStreamMes
             return DispatchResult::HasNoMessages;
         IPC::Decoder decoder { *span, m_currentDestinationID };
         if (!decoder.isValid()) {
-            protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indexOfObjectFailingDecoding());
+            protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indicesOfObjectsFailingDecoding());
             return DispatchResult::HasNoMessages;
         }
         if (decoder.messageName() == MessageName::SetStreamDestinationID) {
@@ -166,7 +166,7 @@ StreamServerConnection::DispatchResult StreamServerConnection::dispatchStreamMes
         if (!currentReceiver) {
             auto key = std::make_pair(static_cast<uint8_t>(currentReceiverName), m_currentDestinationID);
             if (!ReceiversMap::isValidKey(key)) {
-                protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indexOfObjectFailingDecoding());
+                protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indicesOfObjectsFailingDecoding());
                 return DispatchResult::HasNoMessages;
             }
             Locker locker { m_receiversLock };
@@ -192,7 +192,7 @@ bool StreamServerConnection::processSetStreamDestinationID(Decoder& decoder, Ref
 {
     auto destinationID = decoder.decode<uint64_t>();
     if (!destinationID) {
-        protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indexOfObjectFailingDecoding());
+        protectedConnection()->dispatchDidReceiveInvalidMessage(decoder.messageName(), decoder.indicesOfObjectsFailingDecoding());
         return false;
     }
     if (m_currentDestinationID != *destinationID) {
@@ -276,7 +276,7 @@ bool StreamServerConnection::dispatchStreamMessage(Decoder& message, StreamMessa
         return false;
     }
 #endif
-    connection->dispatchDidReceiveInvalidMessage(message.messageName(), message.indexOfObjectFailingDecoding());
+    connection->dispatchDidReceiveInvalidMessage(message.messageName(), message.indicesOfObjectsFailingDecoding());
     return false;
 }
 

@@ -22,10 +22,12 @@
 #include "config.h"
 #include "LegacyRenderSVGResourcePattern.h"
 
+#include "ContainerNodeInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "GraphicsContext.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LocalFrameView.h"
+#include "NativeImage.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGFitToViewBox.h"
 #include "SVGRenderStyle.h"
@@ -129,6 +131,9 @@ PatternData* LegacyRenderSVGResourcePattern::buildPattern(RenderElement& rendere
     patternData->transform.scale(tileBoundaries.size() / tileImageSize);
 
     AffineTransform patternTransform = m_attributes.patternTransform();
+    if (!patternTransform.isInvertible())
+        return nullptr;
+
     if (!patternTransform.isIdentity())
         patternData->transform = patternTransform * patternData->transform;
 

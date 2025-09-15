@@ -35,6 +35,7 @@
 #import "SceneKitModelLoader.h"
 #import "SceneKitModelLoaderClient.h"
 #import <pal/spi/cocoa/SceneKitSPI.h>
+#import <wtf/FileHandle.h>
 
 namespace WebCore {
 
@@ -102,13 +103,13 @@ static RetainPtr<NSURL> writeToTemporaryFile(WebCore::Model& modelSource)
     // initializer but currently that does not work.
 
     auto [filePath, fileHandle] = FileSystem::openTemporaryFile("ModelFile"_s, ".usdz"_s);
-    ASSERT(FileSystem::isHandleValid(fileHandle));
+    ASSERT(fileHandle);
 
-    size_t byteCount = FileSystem::writeToFile(fileHandle, modelSource.data()->makeContiguous()->span());
+    auto byteCount = fileHandle.write(modelSource.data()->makeContiguous()->span());
     ASSERT_UNUSED(byteCount, byteCount == modelSource.data()->size());
-    FileSystem::closeFile(fileHandle);
+    fileHandle = { };
 
-    return adoptNS([[NSURL alloc] initFileURLWithPath:filePath]);
+    return adoptNS([[NSURL alloc] initFileURLWithPath:filePath.createNSString().get()]);
 }
 
 Ref<SceneKitModelLoader> loadSceneKitModelUsingUSDLoader(Model& modelSource, SceneKitModelLoaderClient& client)

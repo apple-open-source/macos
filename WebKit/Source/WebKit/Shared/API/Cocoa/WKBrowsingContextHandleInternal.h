@@ -26,7 +26,6 @@
 #import "WKBrowsingContextHandlePrivate.h"
 #import "WebPageProxyIdentifier.h"
 #import <WebCore/PageIdentifier.h>
-#import <wtf/NakedRef.h>
 
 namespace WebKit {
 class WebPage;
@@ -38,7 +37,7 @@ class WebPageProxy;
 @property (nonatomic, readonly, getter=_pageProxyID) Markable<WebKit::WebPageProxyIdentifier> pageProxyID;
 @property (nonatomic, readonly, getter=_webPageID) uint64_t webPageID;
 
-- (id)_initWithPageProxy:(NakedRef<WebKit::WebPageProxy>)page;
-- (id)_initWithPage:(NakedRef<WebKit::WebPage>)page;
+- (id)_initWithPageProxy:(std::reference_wrapper<WebKit::WebPageProxy>)page;
+- (id)_initWithPage:(std::reference_wrapper<WebKit::WebPage>)page;
 - (id)_initWithPageProxyID:(WebKit::WebPageProxyIdentifier)pageProxyID andWebPageID:(WebCore::PageIdentifier)webPageID;
 @end

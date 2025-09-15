@@ -49,6 +49,31 @@ ulistfmt_openForType(const char*  locale, UListFormatterType type,
 }
 
 
+#if APPLE_ICU_CHANGES // rdar://143908339
+U_CAPI UListFormatter* U_EXPORT2
+ulistfmt_openWithPatterns(const char* locale,
+    const UChar* const twoPattern, const int32_t twoPatternLength,
+    const UChar* const startPattern, const int32_t startLength,
+    const UChar* const middlePattern, const int32_t middleLength,
+    const UChar* const endPattern, const int32_t endLength,
+    UErrorCode* status)
+{
+    if (U_FAILURE(*status)) {
+        return nullptr;
+    }
+    Locale localeObject = Locale(locale);
+    ListFormatData rawPatterns = ListFormatData(UnicodeString(twoPattern, twoPatternLength),
+        UnicodeString(startPattern, startLength), UnicodeString(middlePattern, middleLength),
+        UnicodeString(endPattern, endLength), localeObject);
+    LocalPointer<ListFormatter> listfmt(new ListFormatter(rawPatterns, *status));
+    if (U_FAILURE(*status)) {
+        return nullptr;
+    }
+    return (UListFormatter*)listfmt.orphan();
+}
+#endif  // APPLE_ICU_CHANGES
+
+
 U_CAPI void U_EXPORT2
 ulistfmt_close(UListFormatter *listfmt)
 {

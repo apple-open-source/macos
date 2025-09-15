@@ -26,7 +26,7 @@
 #import "DOMAttrInternal.h"
 
 #import <WebCore/Attr.h>
-#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/CSSStyleProperties.h>
 #import "DOMCSSStyleDeclarationInternal.h"
 #import "DOMElementInternal.h"
 #import "DOMNodeInternal.h"
@@ -46,7 +46,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->name();
+    return IMPL->name().createNSString().autorelease();
 }
 
 - (BOOL)specified
@@ -58,7 +58,7 @@
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->value();
+    return IMPL->value().createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue

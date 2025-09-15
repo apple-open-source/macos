@@ -272,7 +272,10 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
         element->_usageMin = value->u.range.usageMin;
         element->_usageMax = value->u.range.usageMax;
 
-        element->_reportCount = 1;
+        // reportCount = 0 is valid, in the future we should also consider reportCount > 1
+        if ( element->_reportCount != 0 ) {
+            element->_reportCount = 1;
+        }
     }
     else
     {

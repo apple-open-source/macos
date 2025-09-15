@@ -177,7 +177,7 @@ static mach_port_t libtop_port;
 static char *libtop_arg;
 static int libtop_argmax;
 
-static mach_port_t libtop_master_port;
+static mach_port_t libtop_main_port;
 
 static uint32_t interval;
 
@@ -227,6 +227,7 @@ typedef enum libtop_status libtop_status_t;
 static boolean_t libtop_p_print(void *user_data, const char *format, ...);
 static int libtop_p_mach_state_order(int state, long sleep_time);
 static int libtop_p_load_get(host_info_t r_load);
+static boolean_t libtop_p_hvwait_data_get(hvwait_data_t *);
 static int libtop_p_loadavg_update(void);
 static bool in_shared_region(mach_vm_address_t addr, cpu_type_t type);
 static void libtop_p_fw_scan(
@@ -350,8 +351,8 @@ libtop_init_with_options(libtop_print_t *print, void *user_data,
 	 * Get ports and services for drive statistics.
 	 */
 
-	if (IOMasterPort(bootstrap_port, &libtop_master_port)) {
-		libtop_print(libtop_user_data, "Error in IOMasterPort()");
+	if (IOMainPort(bootstrap_port, &libtop_main_port)) {
+		libtop_print(libtop_user_data, "Error in IOMainPort()");
 		return -1;
 	}
 
@@ -415,6 +416,22 @@ libtop_set_interval(uint32_t ival)
 	return 0;
 }
 
+void
+libtop_init_hvwait(boolean_t active)
+{
+	if (active) {
+		const bool supported = libtop_p_hvwait_data_get(&tsamp.hvw);
+		if (supported) {
+			tsamp.hvw_is_active = true;
+			tsamp.b_hvw = tsamp.p_hvw = tsamp.hvw;
+			return;
+		}
+	}
+	tsamp.hvw_is_active = false;
+	tsamp.b_hvw = tsamp.p_hvw = tsamp.hvw =
+	    (hvwait_data_t) { .invol_wait = 0, };
+}
+
 /* Take a sample. */
 int
 libtop_sample(boolean_t reg, boolean_t fw)
@@ -450,6 +467,12 @@ libtop_sample(boolean_t reg, boolean_t fw)
 	tsamp.p_cpu = tsamp.cpu;
 	if (res == 0)
 		libtop_p_load_get((host_info_t)&tsamp.cpu);
+
+	if (res == 0 && tsamp.hvw_is_active) {
+		/* update involuntary wait data, if active */
+		tsamp.p_hvw = tsamp.hvw;
+		(void) libtop_p_hvwait_data_get(&tsamp.hvw);
+	}
 
 	if (res == 0)
 		libtop_p_fw_sample(fw);
@@ -693,6 +716,26 @@ libtop_p_load_get(host_info_t r_load)
 	}
 
 	return 0;
+}
+
+/*
+ * Get "host times" to assess involuntary waits by this VM
+ * (present only when we're running as a guest)
+ */
+static boolean_t
+libtop_p_hvwait_data_get(hvwait_data_t *data)
+{
+#if HOST_HV_LOAD_INFO
+	host_hv_load_info_data_t info = {};
+	mach_msg_type_number_t count = sizeof(info) / sizeof(natural_t);
+	const kern_return_t ret = host_statistics(mach_host_self(),
+	    HOST_HV_LOAD_INFO, (host_info_t)&info, &count);
+	if (ret == KERN_SUCCESS) {
+		data->invol_wait = info.invol_wait_ns;
+		return true;
+	}
+#endif
+	return false;
 }
 
 /* Update load averages. */
@@ -1143,8 +1186,8 @@ libtop_p_disks_sample(void)
 	UInt64 value;
 
 	/* Get the list of all drive objects. */
-	if (IOServiceGetMatchingServices(
-				libtop_master_port, IOServiceMatching("IOBlockStorageDriver"), &drive_list)) {
+	if (IOServiceGetMatchingServices(libtop_main_port,
+	    IOServiceMatching("IOBlockStorageDriver"), &drive_list)) {
 		libtop_print(libtop_user_data, "Error in IOServiceGetMatchingServices()");
 		return -1;
 	}

@@ -43,6 +43,7 @@
 #include "TextTrackList.h"
 #include "VTTRegion.h"
 #include "VTTRegionList.h"
+#include <numeric>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -151,7 +152,7 @@ void TextTrack::didMoveToNewDocument(Document& newDocument)
 {
     TrackBase::didMoveToNewDocument(newDocument);
     ActiveDOMObject::didMoveToNewDocument(newDocument);
-    if (RefPtr cues = protectedCues())
+    if (RefPtr cues = this->cues())
         cues->didMoveToNewDocument(newDocument);
 }
 
@@ -417,13 +418,13 @@ void TextTrack::removeCuesNotInTimeRanges(const PlatformTimeRanges& buffered)
 
     Vector<Ref<TextTrackCue>> toPurge;
     for (size_t i = 0; i < m_cues->length(); ++i) {
-        auto cue = m_cues->item(i);
+        RefPtr cue = m_cues->item(i);
         ASSERT(cue->track() == this);
 
         PlatformTimeRanges activeCueRange { cue->startMediaTime(), cue->endMediaTime() };
         activeCueRange.intersectWith(buffered);
         if (!activeCueRange.length())
-            toPurge.append(*cue);
+            toPurge.append(cue.releaseNonNull());
     }
 
     if (!toPurge.size())
@@ -454,6 +455,11 @@ VTTRegionList* TextTrack::regions()
     if (m_mode == Mode::Disabled)
         return nullptr;
     return &ensureVTTRegionList();
+}
+
+RefPtr<VTTRegionList> TextTrack::protectedRegions()
+{
+    return regions();
 }
 
 void TextTrack::cueWillChange(TextTrackCue& cue)
@@ -564,7 +570,7 @@ RefPtr<TextTrackCue> TextTrack::matchCue(TextTrackCue& cue, TextTrackCue::CueMat
             }
         }
         
-        size_t index = (searchStart + searchEnd) / 2;
+        size_t index = std::midpoint(searchStart, searchEnd);
         existingCue = m_cues->item(index);
         if ((cue.startMediaTime() + startTimeVariance()) < existingCue->startMediaTime() || (match != TextTrackCue::IgnoreDuration && cue.hasEquivalentStartTime(*existingCue) && cue.endMediaTime() > existingCue->endMediaTime()))
             searchEnd = index;

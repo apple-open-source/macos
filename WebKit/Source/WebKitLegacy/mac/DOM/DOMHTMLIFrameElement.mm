@@ -46,7 +46,7 @@
 - (NSString *)align
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::alignAttr).createNSString().autorelease();
 }
 
 - (void)setAlign:(NSString *)newAlign
@@ -58,7 +58,7 @@
 - (NSString *)frameBorder
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::frameborderAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::frameborderAttr).createNSString().autorelease();
 }
 
 - (void)setFrameBorder:(NSString *)newFrameBorder
@@ -70,7 +70,7 @@
 - (NSString *)height
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr).createNSString().autorelease();
 }
 
 - (void)setHeight:(NSString *)newHeight
@@ -82,7 +82,7 @@
 - (NSString *)longDesc
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::longdescAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::longdescAttr).createNSString().autorelease();
 }
 
 - (void)setLongDesc:(NSString *)newLongDesc
@@ -94,7 +94,7 @@
 - (NSString *)marginHeight
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::marginheightAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::marginheightAttr).createNSString().autorelease();
 }
 
 - (void)setMarginHeight:(NSString *)newMarginHeight
@@ -106,7 +106,7 @@
 - (NSString *)marginWidth
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::marginwidthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::marginwidthAttr).createNSString().autorelease();
 }
 
 - (void)setMarginWidth:(NSString *)newMarginWidth
@@ -118,7 +118,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -130,7 +130,7 @@
 - (NSString *)sandbox
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::sandboxAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::sandboxAttr).createNSString().autorelease();
 }
 
 - (void)setSandbox:(NSString *)newSandbox
@@ -142,7 +142,7 @@
 - (NSString *)scrolling
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::scrollingAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::scrollingAttr).createNSString().autorelease();
 }
 
 - (void)setScrolling:(NSString *)newScrolling
@@ -154,7 +154,7 @@
 - (NSString *)src
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string().createNSString().autorelease();
 }
 
 - (void)setSrc:(NSString *)newSrc
@@ -166,7 +166,7 @@
 - (NSString *)srcdoc
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::srcdocAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::srcdocAttr).createNSString().autorelease();
 }
 
 - (void)setSrcdoc:(NSString *)newSrcdoc
@@ -178,7 +178,7 @@
 - (NSString *)width
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr).createNSString().autorelease();
 }
 
 - (void)setWidth:(NSString *)newWidth

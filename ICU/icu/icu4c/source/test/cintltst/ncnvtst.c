@@ -82,6 +82,11 @@ static void TestUnicodeSet(void);
 
 static void TestWithBufferSize(int32_t osize, int32_t isize);
 
+#if APPLE_ICU_CHANGES
+// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
+static void TestISO2022Crash(void);
+#endif
+
 
 static void printSeq(const unsigned char* a, int len)
 {
@@ -137,6 +142,10 @@ void addExtraTests(TestNode** root)
      addTest(root, &TestRegressionUTF32,            "tsconv/ncnvtst/TestRegressionUTF32");
      addTest(root, &TestTruncated,                  "tsconv/ncnvtst/TestTruncated");
      addTest(root, &TestUnicodeSet,                 "tsconv/ncnvtst/TestUnicodeSet");
+#if APPLE_ICU_CHANGES
+// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
+    addTest(root, &TestISO2022Crash,                 "tsconv/ncnvtst/TestISO2022Crash");
+#endif
 }
 
 /*test surrogate behaviour*/
@@ -2061,3 +2070,35 @@ TestUnicodeSet(void) {
 
     uset_close(set);
 }
+
+#if APPLE_ICU_CHANGES
+// rdar://154598515 ([7f10c7887aea4da7] ASAN_SEGV | ucnv_MBCSSimpleGetNextUChar; UConverter_toUnicode_ISO_2022_CN_OFFSETS_LOGIC; _toUnicodeWithCallback)
+// Filed https://unicode-org.atlassian.net/browse/ICU-23165 to fix this in OSICU
+static void TestISO2022Crash(void) {
+    static const char offendingText[] = {
+        0x6d, 0x1b, 0x24, 0x29, 0x45, 0x65, 0x6c, 0x3a,
+        0x6c, 0x2e, 0x27, 0x41, 0x41, 0x0e, 0x41, 0x6c,
+    };
+    UErrorCode   err = U_ZERO_ERROR;
+    UConverter * cnv = ucnv_open("ISO_2022,locale=zh,version=2", &err);
+    if (U_FAILURE(err)) {
+        log_data_err("Unable to open ISO-2022-CN converter: %s\n", u_errorName(err));
+        return;
+    }
+    ucnv_setToUCallBack(cnv, UCNV_TO_U_CALLBACK_ESCAPE, NULL, NULL, NULL, &err);
+    if (U_FAILURE(err)) {
+        log_data_err("Unable to setToUCallBack for ISO-2022-CN converter: %s\n", u_errorName(err));
+        ucnv_close(cnv);
+        return;
+    }
+    {
+        UChar         toUChars[100];
+        UChar *       toUCharsPtr = toUChars;
+        const UChar * toUCharsLimit = toUCharsPtr + 100;
+        const char *  inCharsPtr = offendingText;
+        const char *  inCharsLimit = offendingText + sizeof(offendingText);
+        ucnv_toUnicode(cnv, &toUCharsPtr, toUCharsLimit, &inCharsPtr, inCharsLimit, NULL, true, &err);
+    }
+    ucnv_close(cnv);
+}
+#endif

@@ -76,12 +76,12 @@ public:
     // remove the marker. If the argument is false, we will adjust the span of the marker so that it retains
     // the portion that is outside of the range.
     WEBCORE_EXPORT void removeMarkers(const SimpleRange&, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers(), RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
-    WEBCORE_EXPORT void removeMarkers(Node&, OffsetRange, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers(), const Function<FilterMarkerResult(const DocumentMarker&)>& filterFunction = nullptr, RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
+    WEBCORE_EXPORT void removeMarkers(Node&, OffsetRange, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers(), NOESCAPE const Function<FilterMarkerResult(const DocumentMarker&)>& filterFunction = nullptr, RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
 
-    WEBCORE_EXPORT void filterMarkers(const SimpleRange&, const Function<FilterMarkerResult(const DocumentMarker&)>& filterFunction, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers(), RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
+    WEBCORE_EXPORT void filterMarkers(const SimpleRange&, NOESCAPE const Function<FilterMarkerResult(const DocumentMarker&)>& filterFunction, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers(), RemovePartiallyOverlappingMarker = RemovePartiallyOverlappingMarker::No);
 
     WEBCORE_EXPORT void removeMarkers(OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers());
-    WEBCORE_EXPORT void removeMarkers(OptionSet<DocumentMarkerType>, const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction);
+    WEBCORE_EXPORT void removeMarkers(OptionSet<DocumentMarkerType>, NOESCAPE const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction);
     void removeMarkers(Node&, OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers());
     void repaintMarkers(OptionSet<DocumentMarkerType> = DocumentMarker::allMarkers());
     void shiftMarkers(Node&, unsigned startOffset, int delta);
@@ -117,10 +117,10 @@ private:
     };
     Vector<TextRange> collectTextRanges(const SimpleRange&);
 
-    using MarkerMap = UncheckedKeyHashMap<Ref<Node>, std::unique_ptr<Vector<RenderedDocumentMarker>>>;
+    using MarkerMap = HashMap<Ref<Node>, std::unique_ptr<Vector<RenderedDocumentMarker>>>;
 
     bool possiblyHasMarkers(OptionSet<DocumentMarkerType>) const;
-    OptionSet<DocumentMarkerType> removeMarkersFromList(MarkerMap::iterator, OptionSet<DocumentMarkerType>, const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction = nullptr);
+    OptionSet<DocumentMarkerType> removeMarkersFromList(MarkerMap::iterator, OptionSet<DocumentMarkerType>, NOESCAPE const Function<FilterMarkerResult(const RenderedDocumentMarker&)>& filterFunction = nullptr);
 
     void forEachOfTypes(OptionSet<DocumentMarkerType>, Function<bool(Node&, RenderedDocumentMarker&)>&&);
 

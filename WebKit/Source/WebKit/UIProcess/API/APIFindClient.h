@@ -53,6 +53,8 @@ public:
 
     virtual void didAddLayerForFindOverlay(WebKit::WebPageProxy*, PlatformLayer*) { }
     virtual void didRemoveLayerForFindOverlay(WebKit::WebPageProxy*) { }
+
+    virtual bool isWebKitFindClient() const { return false; }
 };
 
 } // namespace API

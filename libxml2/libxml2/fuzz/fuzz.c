@@ -13,6 +13,7 @@
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <libxml/tree.h>
+#include <libxml/xmlerror.h>
 #include <libxml/xmlIO.h>
 #include "fuzz.h"
 
@@ -334,10 +335,18 @@ xmlFuzzEntityLoader(const char *URL, const char *ID ATTRIBUTE_UNUSED,
         return(NULL);
 
     input = xmlNewInputStream(ctxt);
-    input->filename = NULL;
+    if (input == NULL)
+        return(NULL);
+    input->filename = (char *) xmlCharStrdup(URL);
+    if (input->filename == NULL) {
+        xmlErrMemory(ctxt, "xmlFuzzEntityLoader");
+        xmlFreeInputStream(input);
+        return(NULL);
+    }
     input->buf = xmlParserInputBufferCreateMem(entity->data, entity->size,
                                                XML_CHAR_ENCODING_NONE);
     if (input->buf == NULL) {
+        xmlErrMemory(ctxt, "xmlFuzzEntityLoader");
         xmlFreeInputStream(input);
         return(NULL);
     }

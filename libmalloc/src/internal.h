@@ -156,6 +156,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 # include <os/crashlog_private.h>
 # include <os/lock_private.h>
 # include <os/once_private.h>
+# include <os/security_config_private.h>
 #else
 # include <_liblibc/_error.h>
 #endif // !MALLOC_TARGET_EXCLAVES
@@ -234,6 +235,10 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
 #if !MALLOC_TARGET_EXCLAVES
 # include <xlocale.h>
 #endif // !MALLOC_TARGET_EXCLAVES
+
+#if !MALLOC_TARGET_EXCLAVES
+#include <corecrypto/ccsha2.h>
+#endif
 
 #if !MALLOC_TARGET_EXCLAVES
 // pthread reserves 5 TSD keys for libmalloc
@@ -321,14 +326,10 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
  * Resource Exception Reports are generated on process limits and
  * system-critical memory pressure.
  */
-#if ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING
 #define MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING ( \
 		NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | \
 		NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | \
 		NOTE_MEMORYSTATUS_PRESSURE_CRITICAL )
-#else /* ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING */
-#define MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING 0
-#endif
 
 /* MallocStackLogging.framework notification dependencies */
 #define MSL_MEMORYPRESSURE_MASK ( NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | \
@@ -348,8 +349,7 @@ _Static_assert(sizeof(plat_map_exclaves_t) == sizeof(plat_map_t),
  * the `_MSL` mask.
  */
 #define MALLOC_MEMORYPRESSURE_MASK_DEFAULT ( NOTE_MEMORYSTATUS_MSL_STATUS | \
-		MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF | \
-		MALLOC_MEMORYSTATUS_MASK_RESOURCE_EXCEPTION_HANDLING )
+		MALLOC_MEMORYSTATUS_MASK_PRESSURE_RELIEF )
 #define MALLOC_MEMORYPRESSURE_MASK_MSL ( MALLOC_MEMORYPRESSURE_MASK_DEFAULT | \
 		MSL_MEMORYPRESSURE_MASK )
 
@@ -414,8 +414,8 @@ _malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size,
 #if !MALLOC_TARGET_EXCLAVES
 MALLOC_NOEXPORT
 void * __sized_by_or_null(size)
-_malloc_zone_malloc_with_options_np_outlined(malloc_zone_t *zone, size_t align,
-		size_t size, malloc_options_np_t options)
+_malloc_zone_malloc_with_options_outlined(malloc_zone_t *zone, size_t align,
+		size_t size, malloc_zone_malloc_options_t options)
 		__alloc_align(2) __alloc_size(3);
 #endif // !MALLOC_TARGET_EXCLAVES
 

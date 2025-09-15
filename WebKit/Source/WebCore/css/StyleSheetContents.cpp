@@ -27,7 +27,8 @@
 #include "CachePolicy.h"
 #include "CachedCSSStyleSheet.h"
 #include "CommonAtomStrings.h"
-#include "Document.h"
+#include "DocumentInlines.h"
+#include "FrameInlines.h"
 #include "FrameLoader.h"
 #include "LocalFrame.h"
 #include "MediaList.h"
@@ -350,7 +351,7 @@ bool StyleSheetContents::wrapperDeleteRule(unsigned index)
 
     unsigned childVectorIndex = index;
     if (childVectorIndex < m_layerRulesBeforeImportRules.size()) {
-        m_layerRulesBeforeImportRules.remove(childVectorIndex);
+        m_layerRulesBeforeImportRules.removeAt(childVectorIndex);
         return true;
     }
     childVectorIndex -= m_layerRulesBeforeImportRules.size();
@@ -358,7 +359,7 @@ bool StyleSheetContents::wrapperDeleteRule(unsigned index)
     if (childVectorIndex < m_importRules.size()) {
         m_importRules[childVectorIndex]->cancelLoad();
         m_importRules[childVectorIndex]->clearParentStyleSheet();
-        m_importRules.remove(childVectorIndex);
+        m_importRules.removeAt(childVectorIndex);
         return true;
     }
     childVectorIndex -= m_importRules.size();
@@ -367,12 +368,12 @@ bool StyleSheetContents::wrapperDeleteRule(unsigned index)
         // Deleting @namespace rule when list contains anything other than @import or @namespace rules is not allowed.
         if (!m_childRules.isEmpty())
             return false;
-        m_namespaceRules.remove(childVectorIndex);
+        m_namespaceRules.removeAt(childVectorIndex);
         return true;
     }
     childVectorIndex -= m_namespaceRules.size();
 
-    m_childRules.remove(childVectorIndex);
+    m_childRules.removeAt(childVectorIndex);
     return true;
 }
 
@@ -424,14 +425,13 @@ bool StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cached
         return false;
     }
 
-    CSSParser(parserContext()).parseSheet(*this, sheetText);
+    CSSParser::parseStyleSheet(sheetText, parserContext(), *this);
     return true;
 }
 
 bool StyleSheetContents::parseString(const String& sheetText)
 {
-    CSSParser p(parserContext());
-    p.parseSheet(*this, sheetText);
+    CSSParser::parseStyleSheet(sheetText, parserContext(), *this);
     return true;
 }
 
@@ -502,7 +502,7 @@ Document* StyleSheetContents::singleOwnerDocument() const
     return ownerNode ? &ownerNode->document() : nullptr;
 }
 
-static bool traverseRulesInVector(const Vector<Ref<StyleRuleBase>>& rules, const Function<bool(const StyleRuleBase&)>& handler)
+static bool traverseRulesInVector(const Vector<Ref<StyleRuleBase>>& rules, NOESCAPE const Function<bool(const StyleRuleBase&)>& handler)
 {
     for (auto& rule : rules) {
         if (handler(rule))
@@ -520,7 +520,7 @@ static bool traverseRulesInVector(const Vector<Ref<StyleRuleBase>>& rules, const
     return false;
 }
 
-bool StyleSheetContents::traverseRules(const Function<bool(const StyleRuleBase&)>& handler) const
+bool StyleSheetContents::traverseRules(NOESCAPE const Function<bool(const StyleRuleBase&)>& handler) const
 {
     for (auto& importRule : m_importRules) {
         if (handler(importRule))
@@ -537,8 +537,10 @@ bool StyleSheetContents::hasNestingRules() const
     if (m_hasNestingRulesCache)
         return *m_hasNestingRulesCache;
 
-    m_hasNestingRulesCache = traverseRulesInVector(m_childRules, [&] (auto& rule) {
+    m_hasNestingRulesCache = traverseRulesInVector(m_childRules, [&] (const auto& rule) {
         if (rule.isStyleRuleWithNesting())
+            return true;
+        if (rule.isNestedDeclarationsRule())
             return true;
         return false;
     });
@@ -546,7 +548,7 @@ bool StyleSheetContents::hasNestingRules() const
     return *m_hasNestingRulesCache;
 }
 
-bool StyleSheetContents::traverseSubresources(const Function<bool(const CachedResource&)>& handler) const
+bool StyleSheetContents::traverseSubresources(NOESCAPE const Function<bool(const CachedResource&)>& handler) const
 {
     return traverseRules([&] (const StyleRuleBase& rule) {
         switch (rule.type()) {
@@ -606,7 +608,7 @@ bool StyleSheetContents::subresourcesAllowReuse(CachePolicy cachePolicy, FrameLo
         if (page && documentLoader) {
             const auto& request = resource.resourceRequest();
             auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, request.url(), ContentExtensions::toResourceType(resource.type(), resource.resourceRequest().requester(), loader.frame().isMainFrame()), *documentLoader);
-            if (results.summary.blockedLoad || results.summary.madeHTTPS)
+            if (results.shouldBlock() || results.summary.madeHTTPS)
                 return true;
         }
 #else
@@ -701,4 +703,4 @@ void StyleSheetContents::shrinkToFit()
     m_childRules.shrinkToFit();
 }
 
-}
+} // namespace WebCore

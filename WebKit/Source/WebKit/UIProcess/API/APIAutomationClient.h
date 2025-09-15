@@ -29,19 +29,12 @@
 #include <wtf/Forward.h>
 #include <wtf/TZoneMallocInlines.h>
 
-namespace WebKit {
-class WebProcessPool;
-}
-
 namespace API {
 
 class AutomationClient {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(AutomationClient);
 public:
     virtual ~AutomationClient() { }
-
-    virtual bool allowsRemoteAutomation(WebKit::WebProcessPool*) { return false; }
-    virtual void didRequestAutomationSession(WebKit::WebProcessPool*, const WTF::String&) { }
 };
 
 } // namespace API

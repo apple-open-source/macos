@@ -60,7 +60,7 @@ void CtapCcidDriver::transact(Vector<uint8_t>&& data, ResponseCallback&& callbac
         command.setIns(kCtapNfcApduIns);
         command.setData(WTFMove(data));
         command.setResponseLength(ApduCommand::kApduMaxResponseLength);
-        auto ncallback = [callback = WTFMove(callback), this](Vector<uint8_t>&& resp) mutable {
+        auto ncallback = [callback = WTFMove(callback), this, protectedThis = Ref { *this }](Vector<uint8_t>&& resp) mutable {
             auto apduResponse = ApduResponse::createFromMessage(WTFMove(resp));
             if (!apduResponse) {
                 respondAsync(WTFMove(callback), { });
@@ -91,7 +91,7 @@ void CtapCcidDriver::transact(Vector<uint8_t>&& data, ResponseCallback&& callbac
 
 void CtapCcidDriver::respondAsync(ResponseCallback&& callback, Vector<uint8_t>&& response) const
 {
-    RunLoop::main().dispatch([callback = WTFMove(callback), response = WTFMove(response)] () mutable {
+    RunLoop::mainSingleton().dispatch([callback = WTFMove(callback), response = WTFMove(response)] () mutable {
         callback(WTFMove(response));
     });
 }

@@ -475,7 +475,7 @@ smb_rq_sign(struct smb_rq *rqp)
 	MD5_CTX md5;
 	u_char digest[16];
 	
-	KASSERT(sessionp->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE,
+	SMB_ASSERT(sessionp->session_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE,
 	    ("signatures not enabled"));
 	
 	/*
@@ -509,7 +509,7 @@ smb_rq_sign(struct smb_rq *rqp)
 		 * requests in the transaction.
 		 * (At least we hope so.)
 		 */
-		KASSERT(rqp->sr_t2 == NULL ||
+		SMB_ASSERT(rqp->sr_t2 == NULL ||
 		    (rqp->sr_t2->t2_flags & SMBT2_SECONDARY) == 0 ||
 		    rqp->sr_t2->t2_rq == rqp,
 		    ("sec t2 rq not using same smb_rq"));
@@ -555,7 +555,7 @@ smb_verify(struct smb_rq *rqp, uint32_t seqno)
 	 */
 	smb_rq_getreply(rqp, &mdp);
 	mb = mdp->md_top;
-	KASSERT(mbuf_len(mb) >= SMB_HDRLEN, ("forgot to mbuf_pullup"));
+	SMB_ASSERT(mbuf_len(mb) >= SMB_HDRLEN, ("forgot to mbuf_pullup"));
 	MD5Init(&md5);
 	MD5Update(&md5, sessionp->session_mackey, sessionp->session_mackeylen);
 	MD5Update(&md5, mbuf_data(mb), SMBSIGOFF);

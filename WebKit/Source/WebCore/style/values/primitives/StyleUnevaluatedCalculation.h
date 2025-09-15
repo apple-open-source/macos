@@ -26,6 +26,7 @@
 
 #include "StylePrimitiveNumericConcepts.h"
 #include <wtf/Forward.h>
+#include <wtf/Ref.h>
 
 namespace WebCore {
 
@@ -39,6 +40,7 @@ namespace Style {
 
 // Non-generic base type to allow code sharing and out-of-line definitions.
 struct UnevaluatedCalculationBase {
+    explicit UnevaluatedCalculationBase(CalculationValue&);
     explicit UnevaluatedCalculationBase(Ref<CalculationValue>&&);
     explicit UnevaluatedCalculationBase(Calculation::Child&&, Calculation::Category, CSS::Range);
 
@@ -65,6 +67,11 @@ template<CSS::Numeric CSSType> struct UnevaluatedCalculation : UnevaluatedCalcul
     using CSS = CSSType;
     static constexpr auto range = CSS::range;
     static constexpr auto category = CSS::category;
+
+    explicit UnevaluatedCalculation(CalculationValue& calculationValue)
+        : UnevaluatedCalculationBase(calculationValue)
+    {
+    }
 
     explicit UnevaluatedCalculation(Calculation::Child&& child)
         : UnevaluatedCalculationBase(WTFMove(child), category, range)

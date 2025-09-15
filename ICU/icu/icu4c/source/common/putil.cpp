@@ -39,6 +39,11 @@
 ******************************************************************************
 */
 
+// the extra include is here because of rdar://145524181; we need getprogname(), but Apple's version of
+// stdlib.h #ifdefs it out if _POSIX_C_SOURCE is defined, and uposixdefs.h is defining _POSIX_C_SOURCE
+// (this isn't gated behind APPLE_ICU_CHANGES because APPLE_ICU_CHANGES is defined in platform.h below)
+#include <stdlib.h>
+
 // Defines _XOPEN_SOURCE for access to POSIX functions.
 // Must be before any other #includes.
 #include "uposixdefs.h"
@@ -1620,6 +1625,15 @@ static void U_CALLCONV TimeZoneDataDirInitFn(UErrorCode &status) {
 #endif // APPLE_ICU_CHANGES
     }
 #endif
+    
+#if APPLE_ICU_CHANGES
+// rdar://145524181 (ICU time zone unit tests are using he OTA time zone data)
+// if we're running the unit tests, use the time zone data that's built into ICU, rather than the
+// /var/db/timezone/xxx/icutz/icutz44l.dat filr (if it's there)
+    if (dir != nullptr && uaprv_isRunningUnitTests()) {
+        dir = nullptr;
+    }
+#endif // APPLE_ICU_CHANGES
 
 #if APPLE_ICU_CHANGES
 // rdar://22764088 commit 537acb6863.. If /var/db/icutz/icutz44l.dat exists, use it for timezone resources instead of main data (now always at /usr/share/icu/)
@@ -2612,6 +2626,28 @@ uaprv_onCalciumDevice() {
 #else
     return false;
 #endif // U_PLATFORM_IS_DARWIN_BASED && __has_include(<os/eligibility.h>)
+}
+
+// rdar://145524181 (ICU time zone unit tests are using he OTA time zone data)
+U_CAPI bool U_EXPORT2 uaprv_isRunningUnitTests() {
+#if U_PLATFORM_IS_DARWIN_BASED
+    const char *progname = getprogname();
+    if (uprv_strcmp(progname, "cintltst") == 0 || uprv_strcmp(progname, "intltest") == 0 || uprv_strcmp(progname, "xctest") == 0) {
+        return true;
+    }
+#endif // U_PLATFORM_IS_DARWIN_BASED
+    return false;
+}
+
+// rdar://145524181 (ICU time zone unit tests are using he OTA time zone data)
+U_CAPI bool U_EXPORT2 uaprv_isRunningXCTest() {
+#if U_PLATFORM_IS_DARWIN_BASED
+    const char *progname = getprogname();
+    if (uprv_strcmp(progname, "xctest") == 0) {
+        return true;
+    }
+#endif // U_PLATFORM_IS_DARWIN_BASED
+    return false;
 }
 
 #endif // APPLE_ICU_CHANGES

@@ -50,8 +50,8 @@ static std::optional<CGFloat> getCGFloatValue(CFNumberRef number)
 
 CGFloat UnrealizedCoreTextFont::getSize() const
 {
-    if (auto sizeAttribute = static_cast<CFNumberRef>(CFDictionaryGetValue(m_attributes.get(), kCTFontSizeAttribute))) {
-        if (auto result = getCGFloatValue(sizeAttribute))
+    if (RetainPtr sizeAttribute = static_cast<CFNumberRef>(CFDictionaryGetValue(m_attributes.get(), kCTFontSizeAttribute))) {
+        if (auto result = getCGFloatValue(sizeAttribute.get()))
             return *result;
     }
 
@@ -71,9 +71,9 @@ CGFloat UnrealizedCoreTextFont::getSize() const
 UnrealizedCoreTextFont::operator bool() const
 {
     return WTF::switchOn(m_baseFont, [](const RetainPtr<CTFontRef>& font) -> bool {
-        return font;
+        return !!font;
     }, [](const RetainPtr<CTFontDescriptorRef>& fontDescriptor) -> bool {
-        return fontDescriptor;
+        return !!fontDescriptor;
     });
 }
 
@@ -177,8 +177,8 @@ static void applyFeatures(CFMutableDictionaryRef attributes, const FeaturesMap& 
         return;
 
     RetainPtr<CFMutableArrayRef> featureArray;
-    if (auto fontFeatureSettings = static_cast<CFArrayRef>(CFDictionaryGetValue(attributes, kCTFontFeatureSettingsAttribute)))
-        featureArray = adoptCF(CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, fontFeatureSettings));
+    if (RetainPtr fontFeatureSettings = static_cast<CFArrayRef>(CFDictionaryGetValue(attributes, kCTFontFeatureSettingsAttribute)))
+        featureArray = adoptCF(CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, fontFeatureSettings.get()));
     else
         featureArray = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks));
 
@@ -196,8 +196,8 @@ void UnrealizedCoreTextFont::applyVariations(CFMutableDictionaryRef attributes, 
         return;
 
     RetainPtr<CFMutableDictionaryRef> variationDictionary;
-    if (auto fontVariations = static_cast<CFDictionaryRef>(CFDictionaryGetValue(attributes, kCTFontVariationAttribute)))
-        variationDictionary = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, fontVariations));
+    if (RetainPtr fontVariations = static_cast<CFDictionaryRef>(CFDictionaryGetValue(attributes, kCTFontVariationAttribute)))
+        variationDictionary = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, fontVariations.get()));
     else
         variationDictionary = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
 

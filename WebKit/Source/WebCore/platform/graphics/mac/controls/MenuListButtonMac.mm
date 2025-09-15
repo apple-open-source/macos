@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,8 @@ MenuListButtonMac::MenuListButtonMac(MenuListButtonPart& owningPart, ControlFact
     : ControlMac(owningPart, controlFactory)
 {
 }
+
+MenuListButtonMac::~MenuListButtonMac() = default;
 
 static void interpolateGradient(const CGFloat* rawInData, CGFloat* rawOutData, std::span<const float, 4> dark, std::span<const float, 4> light)
 {
@@ -104,7 +106,7 @@ static void drawMenuListBackground(GraphicsContext& context, const FloatRect& re
 
     bool useDarkAppearance = style.states.contains(ControlStyle::State::DarkAppearance);
 
-    CGColorSpaceRef cspace = sRGBColorSpaceRef();
+    CGColorSpaceRef cspace = sRGBColorSpaceSingleton();
 
     FloatRect topGradient(rect.x(), rect.y(), rect.width(), rect.height() / 2.0f);
     struct CGFunctionCallbacks topCallbacks = { 0, useDarkAppearance ? darkTopGradientInterpolate : topGradientInterpolate, NULL };

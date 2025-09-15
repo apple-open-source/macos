@@ -52,7 +52,7 @@ extern kern_return_t arm_cpu_capabilities_legacy_test(void);
 extern kern_return_t pmap_test(void);
 #endif /* defined(__arm64__) */
 kern_return_t ipi_test(void);
-#if defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 extern kern_return_t ctrr_test(void);
 #endif
 #if __ARM_PAN_AVAILABLE__
@@ -75,7 +75,7 @@ struct xnupost_test bsd_post_tests[] = {
  *            This will be addressed in a future change.
  */
 #else
-#if defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	XNUPOST_TEST_CONFIG_BASIC(ctrr_test),
 #endif
 #endif

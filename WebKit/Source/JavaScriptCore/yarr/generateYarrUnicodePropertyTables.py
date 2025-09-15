@@ -605,7 +605,7 @@ class PropertyData:
             propertyData.dump(file, propertyData != cls.allPropertyData[-1])
 
         file.write("using CreateCharacterClass = std::unique_ptr<CharacterClass> (*)();\n")
-        file.write("static CreateCharacterClass createCharacterClassFunctions[{}] = {{\n   ".format(len(cls.allPropertyData)))
+        file.write("static constinit CreateCharacterClass createCharacterClassFunctions[{}] = {{\n   ".format(len(cls.allPropertyData)))
         functionsOnThisLine = 0
         for propertyData in cls.allPropertyData:
             file.write(" {},".format(propertyData.getCreateFuncName()))
@@ -650,7 +650,7 @@ class PropertyData:
                 hashTable[hash] = (len(valueTable), None)
                 valueTable.append((key, keyValue[1]))
 
-            hashTableString += "static const struct HashIndex {}TableIndex[{}] = {{\n".format(tablePrefix, len(hashTable))
+            hashTableString += "static constinit const struct HashIndex {}TableIndex[{}] = {{\n".format(tablePrefix, len(hashTable))
 
             for tableIndex in hashTable:
                 value = -1
@@ -664,12 +664,12 @@ class PropertyData:
 
             hashTableString += "};\n\n"
 
-            hashTableString += "static const struct HashValue {}TableValue[{}] = {{\n".format(tablePrefix, len(valueTable))
+            hashTableString += "static constinit const struct HashValue {}TableValue[{}] = {{\n".format(tablePrefix, len(valueTable))
             for value in valueTable:
                 hashTableString += "    {{ \"{}\", {} }},\n".format(value[0], value[1])
             hashTableString += "};\n\n"
 
-            hashTableString += "static const struct HashTable {}HashTable = \n".format(tablePrefix)
+            hashTableString += "static constinit const struct HashTable {}HashTable = \n".format(tablePrefix)
             hashTableString += "    {{ {}, {}, {}TableValue, {}TableIndex }};\n\n".format(len(valueTable), hashMask, tablePrefix, tablePrefix)
             return hashTableString
 
@@ -778,6 +778,8 @@ class Scripts:
                 self.unknownScript.addMatch(MaxUnicode)
             else:
                 self.unknownScript.addRange(lastAssignedCodePoint + 1, MaxUnicode)
+
+        self.scriptsByName["Unknown"] = self.unknownScript
 
         self.scriptsParsed = True
 

@@ -81,7 +81,7 @@ static bool isAppendableHeader(const String &key)
 ResourceResponse::ResourceResponse(CurlResponse& response)
     : ResourceResponseBase()
 {
-    setURL(response.url);
+    setURL(URL { response.url });
     setExpectedContentLength(response.expectedContentLength);
     setHTTPStatusCode(response.statusCode ? response.statusCode : response.httpConnectCode);
 
@@ -132,7 +132,8 @@ void ResourceResponse::appendHTTPHeaderField(const String& header)
 
 String ResourceResponse::platformSuggestedFilename() const
 {
-    StringView contentDisposition = filenameFromHTTPContentDisposition(httpHeaderField(HTTPHeaderName::ContentDisposition));
+    auto value = httpHeaderField(HTTPHeaderName::ContentDisposition);
+    StringView contentDisposition = filenameFromHTTPContentDisposition(value);
     if (contentDisposition.is8Bit())
         return String::fromUTF8WithLatin1Fallback(contentDisposition.span8());
     return contentDisposition.toString();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -119,6 +119,7 @@ typedef struct {
 typedef struct {
     struct in6_addr	addr;
     int			prefix_length;
+    struct in6_addr	router;
 } ipconfig_method_data_manual_v6, *ipconfig_method_data_manual_v6_t;
 
 typedef enum {

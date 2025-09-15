@@ -5,7 +5,7 @@
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) 2010 Renata Hodovan <reni@inf.u-szeged.hu>
  * Copyright (C) 2011 Gabor Loki <loki@webkit.org>
- * Copyright (C) 2017-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017-2022 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -342,7 +342,7 @@ void FETurbulenceSoftwareApplier::applyPlatform(const IntRect& filterRegion, con
     applyPlatformGeneric(filterRegion, filterScale, pixelBuffer, paintingData, stitchData, 0, height);
 }
 
-bool FETurbulenceSoftwareApplier::apply(const Filter& filter, const FilterImageVector&, FilterImage& result) const
+bool FETurbulenceSoftwareApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>>, FilterImage& result) const
 {
     auto destinationPixelBuffer = result.pixelBuffer(AlphaPremultiplication::Unpremultiplied);
     if (!destinationPixelBuffer)
@@ -359,11 +359,11 @@ bool FETurbulenceSoftwareApplier::apply(const Filter& filter, const FilterImageV
 
     auto tileSize = roundedIntSize(result.primitiveSubregion().size());
 
-    float baseFrequencyX = m_effect.baseFrequencyX();
-    float baseFrequencyY = m_effect.baseFrequencyY();
-    auto stitchData = computeStitching(tileSize, baseFrequencyX, baseFrequencyY, m_effect.stitchTiles());
+    float baseFrequencyX = m_effect->baseFrequencyX();
+    float baseFrequencyY = m_effect->baseFrequencyY();
+    auto stitchData = computeStitching(tileSize, baseFrequencyX, baseFrequencyY, m_effect->stitchTiles());
 
-    auto paintingData = initPaintingData(m_effect.type(), baseFrequencyX, baseFrequencyY, m_effect.numOctaves(), m_effect.seed(), m_effect.stitchTiles(), tileSize);
+    auto paintingData = initPaintingData(m_effect->type(), baseFrequencyX, baseFrequencyY, m_effect->numOctaves(), m_effect->seed(), m_effect->stitchTiles(), tileSize);
 
     applyPlatform(result.absoluteImageRect(), filter.filterScale(), *destinationPixelBuffer, paintingData, stitchData);
     return true;

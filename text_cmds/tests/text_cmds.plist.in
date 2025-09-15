@@ -8411,6 +8411,87 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
+			<string>text_cmds.sed.sed2.minus_e</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/sed/sed2_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/sed</string>
+				<string>-r</string>
+				<string>sed2_test.sh.minus_e.results.txt</string>
+				<string>minus_e</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that -e and implicit arg do the same thing</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.sed.sed2.command_c</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/sed/sed2_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/sed</string>
+				<string>-r</string>
+				<string>sed2_test.sh.command_c.results.txt</string>
+				<string>command_c</string>
+			</array>
+			<key>Description</key>
+			<string>Verify that the 'c' command starts a new cycle</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>text_cmds.sed.sed2.command_D</string>
+			<key>ShellEnv</key>
+			<dict>
+				<key>ATF_SH</key>
+				<string>/usr/local/bin/atf-sh</string>
+				<key>__RUNNING_INSIDE_ATF_RUN</key>
+				<string>internal-yes-value</string>
+			</dict>
+			<key>Command</key>
+			<array>
+				<string>/usr/local/bin/atf-sh</string>
+				<string>/AppleInternal/Tests/text_cmds/sed/sed2_test.sh</string>
+				<string>-s</string>
+				<string>/AppleInternal/Tests/text_cmds/sed</string>
+				<string>-r</string>
+				<string>sed2_test.sh.command_D.results.txt</string>
+				<string>command_D</string>
+			</array>
+			<key>Description</key>
+			<string>Test handling of an empty pattern space</string>
+			<key>MayRunConcurrently</key>
+			<true/>
+			<key>Timeout</key>
+			<integer>300</integer>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>text_cmds.sort.basic</string>
 			<key>ShellEnv</key>
 			<dict>

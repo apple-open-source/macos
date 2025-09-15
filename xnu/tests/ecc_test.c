@@ -207,23 +207,19 @@ run_test(bool use_dcs)
 T_DECL(ecc_uncorrected_test, "test detection and handling of non-fatal ECC uncorrected errors",
     T_META_IGNORECRASHES(".*ecc_test_helper.*"),
     T_META_ASROOT(true),
-    T_META_ENABLED(false /* TARGET_CPU_ARM64 && TARGET_OS_OSX */) /* rdar://133461215 */,
+    T_META_ENABLED(false /* TARGET_CPU_ARM64 && TARGET_OS_OSX */), /* rdar://133461215 */
     T_META_REQUIRES_SYSCTL_EQ("vm.retired_pages_end_test", 0),
     T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	run_test(false);
 }
 
-/* DCS injection was fixed but then broke again..
- * Waiting on rdar://115998013 (WRDIS_DRAM_RAS_ERR needs to be disabled for dev fused units)
- */
-#if 0
 T_DECL(dcs_uncorrected_test, "test detection and handling from non-fatal ECC uncorrected errors (injected via DCS)",
     T_META_IGNORECRASHES(".*ecc_test_helper.*"),
     T_META_ASROOT(true),
-    T_META_ENABLED(TARGET_CPU_ARM64 && TARGET_OS_OSX),
-    T_META_REQUIRES_SYSCTL_EQ("vm.retired_pages_end_test", 0), T_META_TAG_VM_NOT_ELIGIBLE)
+    T_META_ENABLED(false /* TARGET_CPU_ARM64 && TARGET_OS_OSX */), /* rdar://133461215 */
+    T_META_REQUIRES_SYSCTL_EQ("vm.retired_pages_end_test", 0),
+    T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	run_test(true);
 }
-#endif

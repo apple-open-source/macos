@@ -132,6 +132,8 @@ protected:
 private:
     GStreamerMediaEndpoint(GStreamerPeerConnectionBackend&);
 
+    RefPtr<GStreamerPeerConnectionBackend> peerConnectionBackend() const;
+
     bool initializePipeline();
     void teardownPipeline();
     void disposeElementChain(GstElement*);
@@ -189,7 +191,7 @@ private:
 
     HashMap<String, RealtimeMediaSource::Type> m_mediaForMid;
 
-    GStreamerPeerConnectionBackend& m_peerConnectionBackend;
+    WeakPtr<GStreamerPeerConnectionBackend> m_peerConnectionBackend;
     GRefPtr<GstElement> m_webrtcBin;
     GRefPtr<GstElement> m_pipeline;
 
@@ -202,7 +204,7 @@ private:
 #if !RELEASE_LOG_DISABLED
     Timer m_statsLogTimer;
     Seconds m_statsFirstDeliveredTimestamp;
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 
@@ -232,6 +234,13 @@ private:
     NetSimOptions netSimOptionsFromEnvironment(ASCIILiteral);
     NetSimOptions m_srcNetSimOptions;
     NetSimOptions m_sinkNetSimOptions;
+
+    GUniquePtr<GstSDPMessage> completeSDPAnswer(const String&, const GstSDPMessage*);
+
+    void updatePtDemuxSrcPadCaps(GstElement*, GstPad*);
+
+    // This stores only the first received buffer for each SSRC.
+    HashMap<uint32_t, GRefPtr<GstBuffer>> m_inputBuffers;
 };
 
 } // namespace WebCore

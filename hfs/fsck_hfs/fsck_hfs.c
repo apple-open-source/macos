@@ -46,6 +46,10 @@
 #include "fsck_hfs.h"
 #include "fsck_messages.h"
 
+#if __has_include(<FSKit/FSKit.h>)
+#define HAS_FSKIT
+#endif
+
 static void usage __P((void));
 static char*    check_path(char *name);
 static int      add_file_block(const char *filepath);
@@ -161,7 +165,6 @@ int main(int argc, char *argv[])
     
     fsck_init_state();
     fsck_set_context_properties(vprint, fsckPrint, DPRINTF, NULL, msgsContext);
-        
     fsck_set_progname(strrchr(*argv, '/'));
     if (fsck_get_progname()) {
         progName = fsck_get_progname();
@@ -170,7 +173,7 @@ int main(int argc, char *argv[])
         fsck_set_progname(*argv);
     }
     
-	while ((ch = getopt(argc, argv, "b:B:c:D:e:Edfglm:npqrR:SuyxJ")) != EOF) {
+	while ((ch = getopt(argc, argv, "b:B:c:dD:e:EfgJlm:npqrR:SuxXy")) != EOF) {
 		switch (ch) {
 		case 'b':
             blockSize = atoi(optarg);
@@ -248,6 +251,14 @@ int main(int argc, char *argv[])
             fsck_set_xmlcontrol(1);
             fsck_set_guicontrol(1);
 			break;
+        case 'X':
+#ifdef HAS_FSKIT
+            fsck_set_check_update_routines(fsckStart, fsckUpdate, fsckDone);
+#else
+            fsck_print(LOG_TYPE_STDERR, "%s: progress tracking is unsupported\n", fsck_get_progname());
+            exit(2);
+#endif
+            break;
 		case 'l':
             fsck_set_lflag(1);
             fsck_set_nflag(1);
@@ -548,7 +559,13 @@ read_disk_info() {
     if (ioctl(fd, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
         fsck_print(LOG_TYPE_INFO, "Can't get device block size (%s)\n", strerror(errno));
         goto exit;
-    } else {
+	} else if ((devBlockSize & (devBlockSize - 1)) != 0) {
+		fsck_print(LOG_TYPE_INFO, "Physical block size is not a power of 2\n");
+		goto exit;
+	} else if (devBlockSize > 16 * 1024) {
+		fsck_print(LOG_TYPE_INFO, "Physical block size cannot be greater than 16 KiB\n");
+		goto exit;
+	} else {
         fsck_set_dev_block_size(devBlockSize);
     }
     

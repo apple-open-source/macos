@@ -133,8 +133,6 @@ hibernate_teardown(hibernate_page_list_t * page_list,
     hibernate_page_list_t * page_list_wired,
     hibernate_page_list_t * page_list_pal)
 {
-	hibernate_free_gobble_pages();
-
 	if (page_list) {
 		kfree_data(page_list, page_list->list_size);
 	}

@@ -30,9 +30,11 @@ class GStreamerQuirkAmLogic final : public GStreamerQuirk {
 public:
     GStreamerQuirkAmLogic();
     const ASCIILiteral identifier() const final { return "AmLogic"_s; }
+    bool isPlatformSupported() const final;
 
     GstElement* createWebAudioSink() final;
     void configureElement(GstElement*, const OptionSet<ElementRuntimeCharacteristics>&) final;
+    bool needsCustomInstantRateChange() const final { return true; }
 };
 
 } // namespace WebCore

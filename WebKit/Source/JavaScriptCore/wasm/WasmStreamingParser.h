@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2018 Yusuke Suzuki <yusukesuzuki@slowstart.org>.
- * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -111,7 +111,7 @@ private:
 
     State failOnState(State);
 
-    Ref<ModuleInformation> m_info;
+    const Ref<ModuleInformation> m_info;
     StreamingParserClient& m_client;
     Vector<uint8_t> m_remaining;
     String m_errorMessage;
@@ -129,8 +129,8 @@ private:
     uint32_t m_functionIndex { 0 };
 
     uint32_t m_functionSize { 0 };
+    size_t m_totalFunctionSize { 0 };
 
-    Lock m_stateLock;
     State m_state { State::ModuleHeader };
     Section m_section { Section::Begin };
     Section m_previousKnownSection { Section::Begin };

@@ -34,12 +34,15 @@ class CSSGridLineValue final : public CSSValue {
 public:
     static Ref<CSSGridLineValue> create(RefPtr<CSSPrimitiveValue>&&, RefPtr<CSSPrimitiveValue>&&, RefPtr<CSSPrimitiveValue>&&);
 
-    String customCSSText() const;
+    String customCSSText(const CSS::SerializationContext&) const;
     bool equals(const CSSGridLineValue& other) const;
 
     CSSPrimitiveValue* spanValue() const { return m_spanValue.get(); }
+    RefPtr<CSSPrimitiveValue> protectedSpanValue() const { return m_spanValue.get(); }
     CSSPrimitiveValue* numericValue() const { return m_numericValue.get(); }
+    RefPtr<CSSPrimitiveValue> protectedNumericValue() const { return m_numericValue.get(); }
     CSSPrimitiveValue* gridLineName() const { return m_gridLineName.get(); }
+    RefPtr<CSSPrimitiveValue> protectedGridLineName() const { return m_gridLineName.get(); }
 
 private:
     explicit CSSGridLineValue(RefPtr<CSSPrimitiveValue>&&, RefPtr<CSSPrimitiveValue>&&, RefPtr<CSSPrimitiveValue>&&);

@@ -1,4 +1,5 @@
 import Foundation
+import InternalSwiftProtobuf
 import os
 import System
 
@@ -28,6 +29,7 @@ var deviceName: String?
 var serialNumber: String?
 var osVersion: String?
 var policySecrets: [String: Data]?
+
 enum Command {
     case dump
     case depart
@@ -608,7 +610,9 @@ let connection = NSXPCConnection(serviceName: "com.apple.TrustedPeersHelper")
 connection.remoteObjectInterface = TrustedPeersHelperSetupProtocol(NSXPCInterface(with: TrustedPeersHelperProtocol.self))
 connection.resume()
 
-let tpHelper = connection.synchronousRemoteObjectProxyWithErrorHandler { error in print("Unable to connect to TPHelper:", error) } as! TrustedPeersHelperProtocol
+guard let tpHelper = connection.synchronousRemoteObjectProxyWithErrorHandler({ error in print("Unable to connect to TPHelper:", error) }) as? TrustedPeersHelperProtocol else {
+    fatalError("Unable to cast ROP to TPH protocol")
+}
 
 class NullRemoverPiperToStdOut {
     var readEnd: FileHandle
@@ -620,7 +624,7 @@ class NullRemoverPiperToStdOut {
             let (readEnd, writeEnd) = try FileDescriptor.pipe()
             self.readEnd = FileHandle(fileDescriptor: readEnd.rawValue, closeOnDealloc: true)
             guard let xpcFd = xpc_fd_create(writeEnd.rawValue) else {
-                fatalError("Piper couldn't wrap write end of pipe")
+                fatalError("Piper couldn't wrap write end of pipe: \(errno)")
             }
             writeFd = xpcFd
             try writeEnd.close()
@@ -740,13 +744,13 @@ for command in commands {
                 return
             }
 
-            let synckeysAsList: [String] = synckeys?.map { $0.recordID.recordName } ?? []
+            let synckeysAsList = synckeys?.map { $0.recordID.recordName } ?? []
             let currentItemsAsList: [[String: String?]] =
                 currentItems?.map { currentItem in
-                    return ["item_id": currentItem.item.recordID.recordName,
-                            "item_pointer_name": currentItem.itemPtr.itemPtrName,
-                            "zone": currentItem.itemPtr.zoneID, ]
-                } ?? [:] as! [[String: String?]]
+                    ["item_id": currentItem.item.recordID.recordName,
+                     "item_pointer_name": currentItem.itemPtr.itemPtrName,
+                     "zone": currentItem.itemPtr.zoneID, ]
+                } ?? []
             do {
                 print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON([
                     "synckeys": synckeysAsList,
@@ -766,14 +770,14 @@ for command in commands {
                 return
             }
 
-            let synckeysAsList: [String] = synckeys?.map { $0.recordID.recordName } ?? []
+            let synckeysAsList = synckeys?.map { $0.recordID.recordName } ?? []
             let pcsIdentitiesAsList: [[String: String?]] =
                 pcsIdentities?.map { pcsIdentity in
-                    return ["pcs_identity": pcsIdentity.item.recordID.recordName,
-                            "pcs_service": pcsIdentity.service.pcsServiceID?.stringValue,
-                            "pcs_public_key": pcsIdentity.service.pcsPublicKey?.base64EncodedString(),
-                            "zone": pcsIdentity.service.zoneID, ]
-                } ?? [:] as! [[String: String?]]
+                    ["pcs_identity": pcsIdentity.item.recordID.recordName,
+                     "pcs_service": pcsIdentity.service.pcsServiceID?.stringValue,
+                     "pcs_public_key": pcsIdentity.service.pcsPublicKey?.base64EncodedString(),
+                     "zone": pcsIdentity.service.zoneID, ]
+                } ?? []
             do {
                 print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON([
                     "synckeys": synckeysAsList,

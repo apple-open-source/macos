@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #include "ContextDestructionObserver.h"
 #include "Event.h"
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "MediaControllerInterface.h"
 #include "Timer.h"
 #include <wtf/Vector.h>
@@ -130,12 +131,16 @@ private:
 
     ReadyState readyState() const final { return m_readyState; }
 
+    void forEachElement(Function<void(Ref<HTMLMediaElement>&&)>&&) const;
+    bool anyElement(Function<bool(Ref<HTMLMediaElement>&&)>&&) const;
+    bool everyElement(Function<bool(Ref<HTMLMediaElement>&&)>&&) const;
+
     enum PlaybackState { WAITING, PLAYING, ENDED };
 
     friend class HTMLMediaElement;
     friend class MediaControllerEventListener;
 
-    Vector<HTMLMediaElement*> m_mediaElements;
+    Vector<CheckedPtr<HTMLMediaElement>> m_mediaElements;
     bool m_paused;
     double m_defaultPlaybackRate;
     double m_volume;

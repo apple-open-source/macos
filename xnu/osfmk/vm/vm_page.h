@@ -280,13 +280,13 @@ struct vm_page {
 		                                            /* be reused ahead of other pages (P) */
 		uint8_t                 vmp_reference:1;    /* page has been used (P) */
 		uint8_t                 vmp_realtime:1;     /* page used by realtime thread (P) */
+		uint8_t                 vmp_iopl_wired:1;   /* page has been wired for I/O UPL (O&P) */
 #if CONFIG_TRACK_UNMODIFIED_ANON_PAGES
 		uint8_t                 vmp_unmodified_ro:1;/* Tracks if an anonymous page is modified after a decompression (O&P).*/
 #else
 		uint8_t                 __vmp_reserved1:1;
 #endif
 		uint8_t                 __vmp_reserved2:1;
-		uint8_t                 __vmp_reserved3:1;
 	};
 
 	/*
@@ -493,8 +493,12 @@ extern unsigned int     vm_clump_mask, vm_clump_shift;
 #define VM_PAGE_PACKED_ALIGNED          __attribute__((aligned(VM_PAGE_PACKED_PTR_ALIGNMENT)))
 #define VM_PAGE_PACKED_PTR_BITS         31
 #define VM_PAGE_PACKED_PTR_SHIFT        6
+#ifndef __BUILDING_XNU_LIB_UNITTEST__
 #define VM_PAGE_PACKED_PTR_BASE         ((uintptr_t)VM_MIN_KERNEL_AND_KEXT_ADDRESS)
-
+#else
+extern uintptr_t mock_page_ptr_base;
+#define VM_PAGE_PACKED_PTR_BASE         (mock_page_ptr_base)
+#endif
 #define VM_PAGE_PACKED_FROM_ARRAY       0x80000000
 
 static inline vm_page_packed_t
@@ -1425,6 +1429,10 @@ unsigned int    vm_page_purgeable_wired_count;/* How many purgeable pages are wi
 extern
 uint64_t        vm_page_purged_count;   /* How many pages got purged so far ? */
 
+extern
+_Atomic unsigned int vm_page_swapped_count;
+/* How many pages are swapped to disk? */
+
 extern unsigned int     vm_page_free_wanted;
 /* how many threads are waiting for memory */
 
@@ -1502,6 +1510,7 @@ __enum_decl(vm_grab_options_t, uint32_t, {
 
 extern void             vm_page_init_local_q(unsigned int num_cpus);
 
+extern vm_page_t        vm_page_create(ppnum_t phys_page, bool canonical, zalloc_flags_t flags);
 extern void             vm_page_create_canonical(ppnum_t pnum);
 
 extern void             vm_page_create_retired(ppnum_t pn);

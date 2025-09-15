@@ -34,7 +34,7 @@ class UserMediaPermissionRequestProxyMac final : public UserMediaPermissionReque
 public:
     ~UserMediaPermissionRequestProxyMac() final;
 
-    UserMediaPermissionRequestProxyMac(UserMediaPermissionRequestManagerProxy&, std::optional<WebCore::UserMediaRequestIdentifier>, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaStreamRequest&&, CompletionHandler<void(bool)>&&);
+    UserMediaPermissionRequestProxyMac(UserMediaPermissionRequestManagerProxy&, std::optional<WebCore::UserMediaRequestIdentifier>, WebCore::FrameIdentifier mainFrameID, FrameInfoData&&, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaStreamRequest&&, CompletionHandler<void(bool)>&&);
 
 private:
     void promptForGetDisplayMedia(UserMediaDisplayCapturePromptType) final;
@@ -42,7 +42,7 @@ private:
     void invalidate() final;
 
 #if ENABLE(MEDIA_STREAM)
-    bool m_hasPendingGetDispayMediaPrompt { false };
+    bool m_hasPendingGetDisplayMediaPrompt { false };
 #endif
 };
 

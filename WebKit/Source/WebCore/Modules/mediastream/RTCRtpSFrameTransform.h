@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
+#include "EventTargetInterfaces.h"
 #include "JSDOMPromiseDeferredForward.h"
 #include "RTCRtpSFrameTransformer.h"
 #include <wtf/WeakPtr.h>
@@ -97,7 +98,7 @@ private:
 
     bool m_isAttached { false };
     bool m_hasWritable { false };
-    Ref<RTCRtpSFrameTransformer> m_transformer;
+    const Ref<RTCRtpSFrameTransformer> m_transformer;
     RefPtr<ReadableStream> m_readable;
     RefPtr<WritableStream> m_writable;
     RefPtr<SimpleReadableStreamSource> m_readableStreamSource;

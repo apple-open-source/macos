@@ -274,38 +274,26 @@ int verify_cert(int argc, char * const *argv) {
 		CFArrayAppendValue(certs, CFArrayGetValueAtIndex(roots, 0));
 	}
 
+    dict = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(dict, kSecPolicyClient, client);
+    if (name) {
+        CFDictionaryAddValue(dict, kSecPolicyName, name);
+    }
+
 	/* Per-policy options */
 	if (!CFStringCompare(policyID, kSecPolicyAppleSSL, 0) || !CFStringCompare(policyID, kSecPolicyAppleIPsec, 0)) {
-		dict = CFDictionaryCreateMutable(NULL, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
 		if (name == NULL) {
 			fprintf(stderr, "Name not specified for IPsec or SSL policy. '-n' is a required option for these policies.");
 			ourRtn = 2;
 			goto errOut;
 		}
-		CFDictionaryAddValue(dict, kSecPolicyName, name);
-		CFDictionaryAddValue(dict, kSecPolicyClient, client);
-	}
-	else if (!CFStringCompare(policyID, kSecPolicyAppleEAP, 0)) {
-		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
-		CFDictionaryAddValue(dict, kSecPolicyClient, client);
-	}
-	else if (!CFStringCompare(policyID, kSecPolicyAppleSMIME, 0)) {
-		dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-
+	} else if (!CFStringCompare(policyID, kSecPolicyAppleSMIME, 0)) {
 		if (name == NULL) {
 			fprintf(stderr, "Name not specified for SMIME policy. '-n' is a required option for this policy.");
 			ourRtn = 2;
 			goto errOut;
 		}
-		CFDictionaryAddValue(dict, kSecPolicyName, name);
-    } else {
-        /* all other policy specifiers */
-        dict = CFDictionaryCreateMutable(NULL, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        if (name != NULL) {
-            CFDictionaryAddValue(dict, kSecPolicyName, name);
-        }
     }
 
     policyRef = SecPolicyCreateWithProperties(policyID, dict);

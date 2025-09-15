@@ -18,5 +18,7 @@
 	<true/>
 	<key>com.apple.CloudKeychainProxy.client</key>
 	<true/>
+    <key>com.apple.private.keychain.databasepath</key>
+    <true/>
 </dict>
 </plist>

@@ -170,7 +170,7 @@ const mach_trap_t       mach_trap_table[MACH_TRAP_TABLE_COUNT] = {
 /* 60 */ MACH_TRAP(swtch, 0, 0, NULL),
 /* 61 */ MACH_TRAP(thread_switch, 3, 3, munge_www),
 /* 62 */ MACH_TRAP(clock_sleep_trap, 5, 5, munge_wwwww),
-/* 63 */ MACH_TRAP(kern_invalid, 0, 0, NULL),
+/* 63 */ MACH_TRAP(mach_vm_reclaim_update_kernel_accounting_trap, 2, 2, munge_wl),
 /* 64 */ MACH_TRAP(kern_invalid, 0, 0, NULL),
 /* 65 */ MACH_TRAP(kern_invalid, 0, 0, NULL),
 /* 66 */ MACH_TRAP(kern_invalid, 0, 0, NULL),
@@ -306,7 +306,7 @@ const char * const mach_syscall_name_table[MACH_TRAP_TABLE_COUNT] = {
 /* 60 */ "swtch",
 /* 61 */ "thread_switch",
 /* 62 */ "clock_sleep_trap",
-/* 63 */ "kern_invalid",
+/* 63 */ "mach_vm_reclaim_update_kernel_accounting_trap",
 /* traps 64 - 95 reserved (debo) */
 /* 64 */ "kern_invalid",
 /* 65 */ "kern_invalid",

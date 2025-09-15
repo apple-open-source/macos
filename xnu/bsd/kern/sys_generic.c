@@ -2264,7 +2264,7 @@ ledger(struct proc *p, struct ledger_args *args, __unused int32_t *retval)
 	/* Finish copying in the necessary args before taking the proc lock */
 	error = 0;
 	len = 0;
-	if (args->cmd == LEDGER_ENTRY_INFO) {
+	if (args->cmd == LEDGER_ENTRY_INFO || args->cmd == LEDGER_ENTRY_INFO_V2) {
 		error = copyin(args->arg3, (char *)&len, sizeof(len));
 	} else if (args->cmd == LEDGER_TEMPLATE_INFO) {
 		error = copyin(args->arg2, (char *)&len, sizeof(len));
@@ -2327,17 +2327,20 @@ ledger(struct proc *p, struct ledger_args *args, __unused int32_t *retval)
 		break;
 	}
 
-	case LEDGER_ENTRY_INFO: {
+	case LEDGER_ENTRY_INFO:
+	case LEDGER_ENTRY_INFO_V2: {
+		bool v2 = (args->cmd == LEDGER_ENTRY_INFO_V2);
+		int entry_size = (v2) ? sizeof(struct ledger_entry_info_v2) : sizeof(struct ledger_entry_info);
 		void *buf;
 		int sz;
 
 		/* Settle ledger entries for memorystatus and pages grabbed */
 		task_ledger_settle(task);
 
-		rval = ledger_get_task_entry_info_multiple(task, &buf, &len);
+		rval = ledger_get_task_entry_info_multiple(task, &buf, &len, v2);
 		proc_rele(proc);
 		if ((rval == 0) && (len >= 0)) {
-			sz = len * sizeof(struct ledger_entry_info);
+			sz = len * entry_size;
 			rval = copyout(buf, args->arg2, sz);
 			kfree_data(buf, sz);
 		}
@@ -2804,6 +2807,8 @@ SYSCTL_PROC(_kern, OID_AUTO, sched_thread_bind_cpu, CTLTYPE_INT | CTLFLAG_RW | C
 
 #if __AMP__
 
+errno_t mach_to_bsd_errno(kern_return_t mach_err);
+
 extern char sysctl_get_bound_cluster_type(void);
 static int
 sysctl_kern_sched_thread_bind_cluster_type SYSCTL_HANDLER_ARGS
@@ -2825,14 +2830,10 @@ sysctl_kern_sched_thread_bind_cluster_type SYSCTL_HANDLER_ARGS
 		goto out;
 	}
 
-	if (cluster_type != 'P' &&
-	    cluster_type != 'p' &&
-	    cluster_type != 'E' &&
-	    cluster_type != 'e') {
-		return EINVAL;
+	kern_return_t kr = thread_soft_bind_cluster_type(current_thread(), cluster_type);
+	if (kr != KERN_SUCCESS) {
+		return mach_to_bsd_errno(kr);
 	}
-
-	thread_soft_bind_cluster_type(current_thread(), cluster_type);
 
 out:
 	buff[0] = sysctl_get_bound_cluster_type();
@@ -2844,7 +2845,7 @@ SYSCTL_PROC(_kern, OID_AUTO, sched_thread_bind_cluster_type, CTLTYPE_STRING | CT
     0, 0, sysctl_kern_sched_thread_bind_cluster_type, "A", "");
 
 extern char sysctl_get_task_cluster_type(void);
-extern void sysctl_task_set_cluster_type(char cluster_type);
+extern kern_return_t sysctl_task_set_cluster_type(char cluster_type);
 static int
 sysctl_kern_sched_task_set_cluster_type SYSCTL_HANDLER_ARGS
 {
@@ -2865,14 +2866,11 @@ sysctl_kern_sched_task_set_cluster_type SYSCTL_HANDLER_ARGS
 		goto out;
 	}
 
-	if (cluster_type != 'E' &&
-	    cluster_type != 'e' &&
-	    cluster_type != 'P' &&
-	    cluster_type != 'p') {
-		return EINVAL;
+	kern_return_t kr = sysctl_task_set_cluster_type(cluster_type);
+	if (kr != KERN_SUCCESS) {
+		return mach_to_bsd_errno(kr);
 	}
 
-	sysctl_task_set_cluster_type(cluster_type);
 out:
 	cluster_type = sysctl_get_task_cluster_type();
 	buff[0] = cluster_type;
@@ -2934,9 +2932,15 @@ SYSCTL_INT(_kern, OID_AUTO, sched_edge_migrate_ipi_immediate, CTLFLAG_RW | CTLFL
 
 #endif /* __AMP__ */
 
+#if DEVELOPMENT || DEBUG
+extern int timeouts_are_fatal;
+EXPERIMENT_FACTOR_INT(timeouts_are_fatal, &timeouts_are_fatal, 0, 1,
+    "Do timeouts panic or emit telemetry (0: telemetry, 1: panic)");
+#endif
+
 #if SCHED_HYGIENE_DEBUG
 
-SYSCTL_QUAD(_kern, OID_AUTO, interrupt_masked_threshold_mt, CTLFLAG_RW | CTLFLAG_LOCKED,
+SYSCTL_QUAD(_kern, OID_AUTO, interrupt_masked_threshold_mt, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_LEGACY_EXPERIMENT,
     &interrupt_masked_timeout,
     "Interrupt masked duration after which a tracepoint is emitted or the device panics (in mach timebase units)");
 
@@ -2944,7 +2948,7 @@ SYSCTL_INT(_kern, OID_AUTO, interrupt_masked_debug_mode, CTLFLAG_RW | CTLFLAG_LO
     &interrupt_masked_debug_mode, 0,
     "Enable interrupt masked tracing or panic (0: off, 1: trace, 2: panic)");
 
-SYSCTL_QUAD(_kern, OID_AUTO, sched_preemption_disable_threshold_mt, CTLFLAG_RW | CTLFLAG_LOCKED,
+SYSCTL_QUAD(_kern, OID_AUTO, sched_preemption_disable_threshold_mt, CTLFLAG_RW | CTLFLAG_LOCKED | CTLFLAG_LEGACY_EXPERIMENT,
     &sched_preemption_disable_threshold_mt,
     "Preemption disablement duration after which a tracepoint is emitted or the device panics (in mach timebase units)");
 

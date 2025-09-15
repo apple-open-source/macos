@@ -60,7 +60,7 @@ void createMediaPlayerDecodingConfigurationGStreamer(MediaDecodingConfiguration&
     MediaCapabilitiesDecodingInfo info;
     info.supported = lookupResult.isSupported;
     info.powerEfficient = lookupResult.isUsingHardware;
-    info.supportedConfiguration = WTFMove(configuration);
+    info.configuration = WTFMove(configuration);
 
     callback(WTFMove(info));
 }
@@ -72,7 +72,7 @@ void createMediaPlayerEncodingConfigurationGStreamer(MediaEncodingConfiguration&
     MediaCapabilitiesEncodingInfo info;
     info.supported = lookupResult.isSupported;
     info.powerEfficient = lookupResult.isUsingHardware;
-    info.supportedConfiguration = WTFMove(configuration);
+    info.configuration = WTFMove(configuration);
 
     callback(WTFMove(info));
 }

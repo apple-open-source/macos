@@ -258,6 +258,8 @@
 #define SO_APPLICATION_ID          0x1133  /* ID of attributing app - so_application_id_t */
                                            /* 0x1134 is SO_BINDTODEVICE, see socket.h */
 #define SO_MARK_DOMAIN_INFO_SILENT 0x1135  /* Domain information should be silently withheld */
+#define SO_MAX_PACING_RATE         0x1136  /* Define per-socket maximum pacing rate in bytes/sec */
+#define SO_CONNECTION_IDLE         0x1137  /* Connection is idle (int) */
 
 struct so_mark_cellfallback_uuid_args {
 	uuid_t flow_uuid;
@@ -571,6 +573,7 @@ struct user32_sa_endpoints {
 #define SCM_TIMESTAMP_CONTINUOUS        0x07    /* timestamp (uint64_t) */
 #define SCM_MPKL_SEND_INFO              0x08    /* send info for multi-layer packet logging (struct so_mpkl_send_info) */
 #define SCM_MPKL_RECV_INFO              0x09    /* receive info for multi-layer packet logging (struct so_mpkl_recv_info */
+#define SCM_TXTIME                      0x10    /* Set expected transmit time in absolute-time nanoseconds */
 
 #ifdef KERNEL_PRIVATE
 /*

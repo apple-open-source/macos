@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -232,12 +232,13 @@ void AudioMediaStreamTrackRendererInternalUnitManagerProxy::setLastDeviceUsed(co
 
 void AudioMediaStreamTrackRendererInternalUnitManagerProxy::stopThread()
 {
-    if (!m_thread)
+    RefPtr thread = m_thread;
+    if (!thread)
         return;
 
     m_shouldStopThread = true;
     m_semaphore->signal();
-    m_thread->waitForCompletion();
+    thread->waitForCompletion();
     m_thread = nullptr;
 }
 

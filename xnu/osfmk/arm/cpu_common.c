@@ -211,6 +211,23 @@ cpu_idle_tickle(void)
 	(void) ml_set_interrupts_enabled(intr);
 }
 
+/*
+ *	Routine:	cpu_set_perfcontrol_timer
+ *
+ */
+void
+cpu_set_perfcontrol_timer(uint64_t now, uint64_t timeout_ticks)
+{
+	assert(ml_get_interrupts_enabled() == FALSE);
+	processor_t processor = current_processor();
+	if (timeout_ticks == EndOfAllTime) {
+		running_timer_cancel(processor, RUNNING_TIMER_PERFCONTROL);
+	} else {
+		uint64_t deadline = now + timeout_ticks;
+		running_timer_enter(processor, RUNNING_TIMER_PERFCONTROL, NULL, deadline, now);
+	}
+}
+
 static void
 cpu_handle_xcall(cpu_data_t *cpu_data_ptr)
 {
@@ -222,25 +239,25 @@ cpu_handle_xcall(cpu_data_t *cpu_data_ptr)
 	* added SIGPxcall to the pending mask, but hasn't yet assigned the call params.*/
 	if (cpu_data_ptr->cpu_xcall_p0 != NULL && cpu_data_ptr->cpu_xcall_p1 != NULL) {
 		xfunc = ptrauth_auth_function(cpu_data_ptr->cpu_xcall_p0, ptrauth_key_function_pointer, cpu_data_ptr);
-		INTERRUPT_MASKED_DEBUG_START(xfunc, DBG_INTR_TYPE_IPI);
+		ml_interrupt_masked_debug_start(xfunc, DBG_INTR_TYPE_IPI);
 		xparam = cpu_data_ptr->cpu_xcall_p1;
 		cpu_data_ptr->cpu_xcall_p0 = NULL;
 		cpu_data_ptr->cpu_xcall_p1 = NULL;
 		os_atomic_thread_fence(acq_rel);
 		os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPxcall, relaxed);
 		xfunc(xparam);
-		INTERRUPT_MASKED_DEBUG_END();
+		ml_interrupt_masked_debug_end();
 	}
 	if (cpu_data_ptr->cpu_imm_xcall_p0 != NULL && cpu_data_ptr->cpu_imm_xcall_p1 != NULL) {
 		xfunc = ptrauth_auth_function(cpu_data_ptr->cpu_imm_xcall_p0, ptrauth_key_function_pointer, cpu_data_ptr);
-		INTERRUPT_MASKED_DEBUG_START(xfunc, DBG_INTR_TYPE_IPI);
+		ml_interrupt_masked_debug_start(xfunc, DBG_INTR_TYPE_IPI);
 		xparam = cpu_data_ptr->cpu_imm_xcall_p1;
 		cpu_data_ptr->cpu_imm_xcall_p0 = NULL;
 		cpu_data_ptr->cpu_imm_xcall_p1 = NULL;
 		os_atomic_thread_fence(acq_rel);
 		os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPxcallImm, relaxed);
 		xfunc(xparam);
-		INTERRUPT_MASKED_DEBUG_END();
+		ml_interrupt_masked_debug_end();
 	}
 }
 
@@ -590,17 +607,17 @@ cpu_signal_handler_internal(boolean_t disable_signal)
 	while (cpu_signal & ~SIGPdisabled) {
 		if (cpu_signal & SIGPdebug) {
 			os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPdebug, acquire);
-			INTERRUPT_MASKED_DEBUG_START(DebuggerXCall, DBG_INTR_TYPE_IPI);
+			ml_interrupt_masked_debug_start(DebuggerXCall, DBG_INTR_TYPE_IPI);
 			DebuggerXCall(cpu_data_ptr->cpu_int_state);
-			INTERRUPT_MASKED_DEBUG_END();
+			ml_interrupt_masked_debug_end();
 		}
 #if KPERF
 		if (cpu_signal & SIGPkppet) {
 			os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPkppet, acquire);
 			extern void kperf_signal_handler(void);
-			INTERRUPT_MASKED_DEBUG_START(kperf_signal_handler, DBG_INTR_TYPE_IPI);
+			ml_interrupt_masked_debug_start(kperf_signal_handler, DBG_INTR_TYPE_IPI);
 			kperf_signal_handler();
-			INTERRUPT_MASKED_DEBUG_END();
+			ml_interrupt_masked_debug_end();
 		}
 #endif /* KPERF */
 		if (cpu_signal & (SIGPxcall | SIGPxcallImm)) {
@@ -608,15 +625,15 @@ cpu_signal_handler_internal(boolean_t disable_signal)
 		}
 		if (cpu_signal & SIGPast) {
 			os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPast, acquire);
-			INTERRUPT_MASKED_DEBUG_START(ast_check, DBG_INTR_TYPE_IPI);
+			ml_interrupt_masked_debug_start(ast_check, DBG_INTR_TYPE_IPI);
 			ast_check(current_processor());
-			INTERRUPT_MASKED_DEBUG_END();
+			ml_interrupt_masked_debug_end();
 		}
 		if (cpu_signal & SIGPTimerLocal) {
 			os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPTimerLocal, acquire);
-			INTERRUPT_MASKED_DEBUG_START(timer_queue_expire_local, DBG_INTR_TYPE_IPI);
+			ml_interrupt_masked_debug_start(timer_queue_expire_local, DBG_INTR_TYPE_IPI);
 			timer_queue_expire_local(current_processor());
-			INTERRUPT_MASKED_DEBUG_END();
+			ml_interrupt_masked_debug_end();
 		}
 		if (cpu_signal & SIGPdeferred) {
 			os_atomic_andnot(&cpu_data_ptr->cpu_signal, SIGPdeferred, acquire);

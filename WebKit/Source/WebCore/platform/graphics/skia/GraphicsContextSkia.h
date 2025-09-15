@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Igalia S.L.
+ * Copyright (C) 2024, 2025 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,21 @@
 
 #if USE(SKIA)
 
+#include "GLFence.h"
 #include "GraphicsContext.h"
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkCanvas.h>
+#include <skia/core/SkImage.h>
 #include <skia/effects/SkDashPathEffect.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include <wtf/CompletionHandler.h>
+#include <wtf/HashMap.h>
+
+class SkSurface;
 
 namespace WebCore {
+
+using SkiaImageToFenceMap = HashMap<const SkImage*, std::unique_ptr<GLFence>>;
 
 class WEBCORE_EXPORT GraphicsContextSkia final : public GraphicsContext {
 public:
@@ -46,7 +53,11 @@ public:
 
     const DestinationColorSpace& colorSpace() const final;
 
-    void didUpdateState(GraphicsContextState&);
+    void beginRecording();
+    SkiaImageToFenceMap endRecording();
+
+    void didUpdateState(GraphicsContextState&) final;
+    void didUpdateSingleState(GraphicsContextState&, GraphicsContextState::ChangeIndex) final;
 
     void setLineCap(LineCap) final;
     void setLineDash(const DashArray&, float) final;
@@ -66,11 +77,9 @@ public:
 
     void drawNativeImageInternal(NativeImage&, const FloatRect&, const FloatRect&, ImagePaintingOptions) final;
     void drawPattern(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform&, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions) final;
-    void drawFilteredImageBuffer(ImageBuffer* sourceImage, const FloatRect& sourceImageRect, Filter&, FilterResults&) final;
-
     void drawRect(const FloatRect&, float) final;
     void drawLine(const FloatPoint&, const FloatPoint&) final;
-    void drawLinesForText(const FloatPoint&, float thickness, const DashArray&, bool, bool, StrokeStyle) final;
+    void drawLinesForText(const FloatPoint&, float thickness, std::span<const FloatSegment>, bool isPrinting, bool doubleLines, StrokeStyle) final;
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
     void drawEllipse(const FloatRect&) final;
 
@@ -107,11 +116,21 @@ public:
 
     void drawSkiaText(const sk_sp<SkTextBlob>&, SkScalar, SkScalar, bool, bool);
 
-private:
-    bool makeGLContextCurrentIfNeeded() const;
+    static std::unique_ptr<GLFence> createAcceleratedRenderingFenceIfNeeded(SkSurface*);
+    static std::unique_ptr<GLFence> createAcceleratedRenderingFenceIfNeeded(const sk_sp<SkImage>&);
 
-    void setupFillSource(SkPaint&) const;
-    void setupStrokeSource(SkPaint&) const;
+private:
+    enum class ContextMode : bool {
+        PaintingMode,
+        RecordingMode
+    };
+
+    bool makeGLContextCurrentIfNeeded() const;
+    void trackAcceleratedRenderingFenceIfNeeded(const sk_sp<SkImage>&);
+    void trackAcceleratedRenderingFenceIfNeeded(SkPaint&);
+
+    void setupFillSource(SkPaint&);
+    void setupStrokeSource(SkPaint&);
 
     enum class ShadowStyle : uint8_t { Outset, Inset };
     sk_sp<SkImageFilter> createDropShadowFilterIfNeeded(ShadowStyle) const;
@@ -119,8 +138,6 @@ private:
 
     void drawSkiaRect(const SkRect&, SkPaint&);
     void drawSkiaPath(const SkPath&, SkPaint&);
-    void drawSkiaImage(const sk_sp<SkImage>&, const IntSize&, const FloatRect&, const FloatRect&, ImagePaintingOptions);
-    void drawSkiaPattern(const sk_sp<SkImage>&, const IntSize&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, ImagePaintingOptions);
 
     class SkiaState {
     public:
@@ -139,12 +156,14 @@ private:
     };
 
     SkCanvas& m_canvas;
+    ContextMode m_contextMode { ContextMode::PaintingMode };
     RenderingMode m_renderingMode { RenderingMode::Accelerated };
     RenderingPurpose m_renderingPurpose { RenderingPurpose::Unspecified };
     CompletionHandler<void()> m_destroyNotify;
     SkiaState m_skiaState;
     Vector<SkiaState, 1> m_skiaStateStack;
     Vector<LayerState, 1> m_layerStateStack;
+    SkiaImageToFenceMap m_imageToFenceMap;
     const DestinationColorSpace m_colorSpace;
 };
 

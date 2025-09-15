@@ -77,6 +77,7 @@ void ConnectionToMachService<Traits>::initializeConnectionIfNeeded() const
 #endif
         }
         if (event == XPC_ERROR_CONNECTION_INTERRUPTED) {
+            RELEASE_LOG(IPC, "Connetion to mach service %s is interrupted", weakThis->m_machServiceName.data());
             // Daemon crashed, we will need to make a new connection to a new instance of the daemon.
             weakThis->m_connection = nullptr;
         }
@@ -102,14 +103,17 @@ void ConnectionToMachService<Traits>::sendWithReply(typename Traits::MessageType
 
     Connection::sendWithReply(dictionaryFromMessage(messageType, WTFMove(message)).get(), [completionHandler = WTFMove(completionHandler)] (xpc_object_t reply) mutable {
         if (xpc_get_type(reply) != XPC_TYPE_DICTIONARY) {
-            ASSERT_NOT_REACHED();
+            if (reply == XPC_ERROR_CONNECTION_INTERRUPTED)
+                LOG_ERROR("ConnectionToMachService::sendWithReply: connection is interrupted");
+            else
+                ASSERT_NOT_REACHED();
             return completionHandler({ });
         }
         if (xpc_dictionary_get_uint64(reply, Traits::protocolVersionKey) != Traits::protocolVersionValue) {
             ASSERT_NOT_REACHED();
             return completionHandler({ });
         }
-        completionHandler(xpc_dictionary_get_data_span(reply, Traits::protocolEncodedMessageKey));
+        completionHandler(xpcDictionaryGetData(reply, Traits::protocolEncodedMessageKey));
     });
 }
 

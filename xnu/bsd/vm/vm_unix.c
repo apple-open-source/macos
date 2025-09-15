@@ -105,10 +105,11 @@
 
 #include <vm/vm_dyld_pager_internal.h>
 #include <vm/vm_protos_internal.h>
-#if DEVELOPMENT || DEBUG
 #include <vm/vm_compressor_info.h>         /* for c_segment_info */
 #include <vm/vm_compressor_xnu.h>          /* for vm_compressor_serialize_segment_debug_info() */
-#endif
+#include <vm/vm_object_xnu.h>              /* for vm_chead_select_t */
+#include <vm/vm_memory_entry_xnu.h>
+#include <vm/vm_iokit.h>
 #include <vm/vm_reclaim_xnu.h>
 
 #include <sys/kern_memorystatus.h>
@@ -323,7 +324,51 @@ extern int apple_protect_pager_data_request_debug;
 SYSCTL_INT(_vm, OID_AUTO, apple_protect_pager_data_request_debug, CTLFLAG_RW | CTLFLAG_LOCKED, &apple_protect_pager_data_request_debug, 0, "");
 
 extern unsigned int vm_object_copy_delayed_paging_wait_disable;
-EXPERIMENT_FACTOR_UINT(_vm, vm_object_copy_delayed_paging_wait_disable, &vm_object_copy_delayed_paging_wait_disable, FALSE, TRUE, "");
+EXPERIMENT_FACTOR_LEGACY_UINT(_vm, vm_object_copy_delayed_paging_wait_disable, &vm_object_copy_delayed_paging_wait_disable, FALSE, TRUE, "");
+
+__enum_closed_decl(vm_submap_test_op, uint32_t, {
+	vsto_make_submap = 1,  /* make submap from entries in current_map()
+	                        * at start..end, offset ignored */
+	vsto_remap_submap = 2, /* map in current_map() at start..end,
+	                        * from parent address submap_base_address
+	                        * and submap address offset */
+	vsto_end
+});
+
+static int
+sysctl_vm_submap_test_ctl SYSCTL_HANDLER_ARGS
+{
+	int error;
+	struct {
+		vm_submap_test_op op;
+		mach_vm_address_t submap_base_address;
+		mach_vm_address_t start;
+		mach_vm_address_t end;
+		mach_vm_address_t offset;
+	} args;
+	if (req->newlen != sizeof(args)) {
+		return EINVAL;
+	}
+	error = SYSCTL_IN(req, &args, sizeof(args));
+	if (error) {
+		return error;
+	}
+
+	switch (args.op) {
+	case vsto_make_submap:
+		vm_map_testing_make_sealed_submap(current_map(), args.start, args.end);
+		break;
+	case vsto_remap_submap:
+		vm_map_testing_remap_submap(current_map(),
+		    args.submap_base_address, args.start, args.end, args.offset);
+		break;
+	default:
+		return EINVAL;
+	}
+
+	return 0;
+}
+SYSCTL_PROC(_vm, OID_AUTO, submap_test_ctl, CTLFLAG_WR | CTLFLAG_LOCKED, 0, 0, &sysctl_vm_submap_test_ctl, "-", "");
 
 #if __arm64__
 /* These are meant to support the page table accounting unit test. */
@@ -407,6 +452,20 @@ SCALABLE_COUNTER_DECLARE(page_worker_inheritor_sleeps);
 SYSCTL_SCALABLE_COUNTER(_vm, page_worker_inheritor_sleeps, page_worker_inheritor_sleeps, "");
 #endif /* DEVELOPMENT || DEBUG */
 #endif /* PAGE_SLEEP_WITH_INHERITOR */
+
+#if COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1
+extern uint32_t vm_cheads;
+extern vm_chead_select_t vm_chead_select;
+extern boolean_t vm_chead_rehint;
+#if DEVELOPMENT || DEBUG
+SYSCTL_UINT(_vm, OID_AUTO, compressor_heads, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_cheads, 0, "");
+SYSCTL_UINT(_vm, OID_AUTO, compressor_head_select, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_chead_select, 0, "");
+SYSCTL_INT(_vm, OID_AUTO, compressor_head_rehint, CTLFLAG_RD | CTLFLAG_LOCKED, &vm_chead_rehint, 0, "");
+#endif /* DEVELOPMENT || DEBUG */
+EXPERIMENT_FACTOR_UINT(compressor_heads, &vm_cheads, 1, COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT, "");
+EXPERIMENT_FACTOR_UINT(compressor_head_select, &vm_chead_select, CSEL_MIN, CSEL_MAX, "");
+EXPERIMENT_FACTOR_INT(compressor_head_rehint, &vm_chead_rehint, 0, 1, "");
+#endif /* COMPRESSOR_PAGEOUT_CHEADS_MAX_COUNT > 1 */
 
 /*
  * Sysctl's related to data/stack execution.  See osfmk/vm/vm_map.c
@@ -917,7 +976,8 @@ SYSCTL_INT(_vm, OID_AUTO, shared_region_persistence, CTLFLAG_RW | CTLFLAG_LOCKED
  * dyld will then check what's mapped at that address.
  *
  * If the shared region is empty, dyld will then attempt to map the shared
- * cache file in the shared region via the shared_region_map_np() system call.
+ * cache file in the shared region via the shared_region_map_and_slide_2_np()
+ * system call.
  *
  * If something's already mapped in the shared region, dyld will check if it
  * matches the shared cache it would like to use for that process.
@@ -943,7 +1003,7 @@ shared_region_check_np(
 	vm_shared_region_t      shared_region;
 	mach_vm_offset_t        start_address = 0;
 	int                     error = 0;
-	kern_return_t           kr;
+	kern_return_t           kr = KERN_FAILURE;
 	task_t                  task = current_task();
 
 	SHARED_REGION_TRACE_DEBUG(
@@ -961,7 +1021,7 @@ shared_region_check_np(
 		return 0;
 	}
 
-	/* retrieve the current tasks's shared region */
+	/* retrieve the current task's shared region */
 	shared_region = vm_shared_region_get(task);
 	if (shared_region != NULL) {
 		/*
@@ -974,47 +1034,59 @@ shared_region_check_np(
 			vm_shared_region_set(task, NULL);
 		} else {
 			/* retrieve address of its first mapping... */
-			kr = vm_shared_region_start_address(shared_region, &start_address, task);
+			kr = vm_shared_region_start_address(shared_region, &start_address);
 			if (kr != KERN_SUCCESS) {
 				SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
 				    "check_np(0x%llx) "
-				    "vm_shared_region_start_address() failed\n",
+				    "vm_shared_region_start_address() returned 0x%x\n",
+				    (void *)VM_KERNEL_ADDRPERM(current_thread()),
+				    proc_getpid(p), p->p_comm,
+				    (uint64_t)uap->start_address, kr));
+				error = ENOMEM;
+			}
+			if (error == 0) {
+				/* Insert the shared region submap and various bits of debug info into the task. */
+				kr = vm_shared_region_update_task(task, shared_region, start_address);
+				if (kr != KERN_SUCCESS) {
+					SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
+					    "check_np(0x%llx) "
+					    "vm_shared_update_task() returned 0x%x\n",
+					    (void *)VM_KERNEL_ADDRPERM(current_thread()),
+					    proc_getpid(p), p->p_comm,
+					    (uint64_t)uap->start_address, kr));
+
+					error = ENOMEM;
+				}
+			}
+#if __has_feature(ptrauth_calls)
+			/*
+			 * Remap any section of the shared library that
+			 * has authenticated pointers into private memory.
+			 */
+			if ((error == 0) && (vm_shared_region_auth_remap(shared_region) != KERN_SUCCESS)) {
+				SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
+				    "check_np(0x%llx) "
+				    "vm_shared_region_auth_remap() failed\n",
 				    (void *)VM_KERNEL_ADDRPERM(current_thread()),
 				    proc_getpid(p), p->p_comm,
 				    (uint64_t)uap->start_address));
 				error = ENOMEM;
-			} else {
-#if __has_feature(ptrauth_calls)
-				/*
-				 * Remap any section of the shared library that
-				 * has authenticated pointers into private memory.
-				 */
-				if (vm_shared_region_auth_remap(shared_region) != KERN_SUCCESS) {
-					SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
-					    "check_np(0x%llx) "
-					    "vm_shared_region_auth_remap() failed\n",
-					    (void *)VM_KERNEL_ADDRPERM(current_thread()),
-					    proc_getpid(p), p->p_comm,
-					    (uint64_t)uap->start_address));
-					error = ENOMEM;
-				}
+			}
 #endif /* __has_feature(ptrauth_calls) */
-
-				/* ... and give it to the caller */
-				if (error == 0) {
-					error = copyout(&start_address,
-					    (user_addr_t) uap->start_address,
-					    sizeof(start_address));
-					if (error != 0) {
-						SHARED_REGION_TRACE_ERROR(
-							("shared_region: %p [%d(%s)] "
-							"check_np(0x%llx) "
-							"copyout(0x%llx) error %d\n",
-							(void *)VM_KERNEL_ADDRPERM(current_thread()),
-							proc_getpid(p), p->p_comm,
-							(uint64_t)uap->start_address, (uint64_t)start_address,
-							error));
-					}
+			/* Give the start address to the caller */
+			if (error == 0) {
+				error = copyout(&start_address,
+				    (user_addr_t) uap->start_address,
+				    sizeof(start_address));
+				if (error != 0) {
+					SHARED_REGION_TRACE_ERROR(
+						("shared_region: %p [%d(%s)] "
+						"check_np(0x%llx) "
+						"copyout(0x%llx) error %d\n",
+						(void *)VM_KERNEL_ADDRPERM(current_thread()),
+						proc_getpid(p), p->p_comm,
+						(uint64_t)uap->start_address, (uint64_t)start_address,
+						error));
 				}
 			}
 		}
@@ -1100,7 +1172,7 @@ shared_region_map_and_slide_setup(
 	boolean_t                       is_driverkit = task_is_driver(current_task());
 
 	SHARED_REGION_TRACE_DEBUG(
-		("shared_region: %p [%d(%s)] -> map\n",
+		("shared_region: %p [%d(%s)] -> map_and_slide_setup\n",
 		(void *)VM_KERNEL_ADDRPERM(current_thread()),
 		proc_getpid(p), p->p_comm));
 
@@ -1133,7 +1205,7 @@ shared_region_map_and_slide_setup(
 	}
 
 	/* get the process's shared region (setup in vm_map_exec()) */
-	shared_region = vm_shared_region_trim_and_get(current_task());
+	shared_region = vm_shared_region_get(current_task());
 	*shared_region_ptr = shared_region;
 	if (shared_region == NULL) {
 		SHARED_REGION_TRACE_ERROR(
@@ -1539,6 +1611,10 @@ done:
 		*sr_file_mappings = NULL;
 		*shared_region_ptr = NULL;
 	}
+	SHARED_REGION_TRACE_DEBUG(
+		("shared_region: %p [%d(%s)] map_and_slide_setup <- %d\n",
+		(void *)VM_KERNEL_ADDRPERM(current_thread()),
+		proc_getpid(p), p->p_comm, error));
 	return error;
 }
 
@@ -1871,6 +1947,12 @@ shared_region_map_and_slide_2_np(
 	files_count = uap->files_count;
 	mappings_count = uap->mappings_count;
 
+	SHARED_REGION_TRACE_DEBUG(
+		("shared_region: %p [%d(%s)] -> map_and_slide(0x%llx)\n",
+		(void *)VM_KERNEL_ADDRPERM(current_thread()),
+		proc_getpid(p), p->p_comm,
+		(uint64_t)uap->mappings_u));
+
 	if (files_count == 0) {
 		SHARED_REGION_TRACE_INFO(
 			("shared_region: %p [%d(%s)] map(): "
@@ -1927,6 +2009,10 @@ shared_region_map_and_slide_2_np(
 	 */
 	kr = shared_region_copyin(p, uap->files, files_count, sizeof(shared_files[0]), shared_files);
 	if (kr != KERN_SUCCESS) {
+		SHARED_REGION_TRACE_ERROR(
+			("shared_region: %p [%d(%s)] copyin() returned 0x%x\n",
+			(void *)VM_KERNEL_ADDRPERM(current_thread()),
+			proc_getpid(p), p->p_comm, kr));
 		goto done;
 	}
 
@@ -1936,6 +2022,10 @@ shared_region_map_and_slide_2_np(
 		mappings_count,
 		mappings);
 	if (__improbable(kr != KERN_SUCCESS)) {
+		SHARED_REGION_TRACE_ERROR(
+			("shared_region: %p [%d(%s)] sanitize() returned 0x%x\n",
+			(void *)VM_KERNEL_ADDRPERM(current_thread()),
+			proc_getpid(p), p->p_comm, kr));
 		kr = vm_sanitize_get_kr(kr);
 		goto done;
 	}
@@ -2006,6 +2096,13 @@ shared_region_map_and_slide_2_np(
 done:
 	kfree_data(shared_files, files_count * sizeof(shared_files[0]));
 	kfree_data(mappings, mappings_count * sizeof(mappings[0]));
+
+	SHARED_REGION_TRACE_DEBUG(
+		("shared_region: %p [%d(%s)] map_and_slide(0x%llx) <- 0x%x\n",
+		(void *)VM_KERNEL_ADDRPERM(current_thread()),
+		proc_getpid(p), p->p_comm,
+		(uint64_t)uap->mappings_u, kr));
+
 	return kr;
 }
 
@@ -2377,6 +2474,13 @@ SYSCTL_INT(_vm, OID_AUTO, kern_lpage_count, CTLFLAG_RD | CTLFLAG_LOCKED,
 
 SCALABLE_COUNTER_DECLARE(vm_page_grab_count);
 SYSCTL_SCALABLE_COUNTER(_vm, pages_grabbed, vm_page_grab_count, "Total pages grabbed");
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_kern);
+SYSCTL_SCALABLE_COUNTER(_vm, pages_grabbed_kern, vm_page_grab_count_kern, "Total pages grabbed (kernel)");
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_iopl);
+SYSCTL_SCALABLE_COUNTER(_vm, pages_grabbed_iopl, vm_page_grab_count_iopl, "Total pages grabbed (iopl)");
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_upl);
+SYSCTL_SCALABLE_COUNTER(_vm, pages_grabbed_upl, vm_page_grab_count_upl, "Total pages grabbed (upl)");
+
 
 #if DEVELOPMENT || DEBUG
 SCALABLE_COUNTER_DECLARE(vm_page_deactivate_behind_count);
@@ -2491,8 +2595,11 @@ SYSCTL_INT(_vm, OID_AUTO, pageout_protect_realtime, CTLFLAG_RW | CTLFLAG_LOCKED,
 
 /* counts of pages prefaulted when entering a memory object */
 extern int64_t vm_prefault_nb_pages, vm_prefault_nb_bailout;
+extern int64_t vm_prefault_nb_no_page, vm_prefault_nb_wrong_page;
 SYSCTL_QUAD(_vm, OID_AUTO, prefault_nb_pages, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_prefault_nb_pages, "");
 SYSCTL_QUAD(_vm, OID_AUTO, prefault_nb_bailout, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_prefault_nb_bailout, "");
+SYSCTL_QUAD(_vm, OID_AUTO, prefault_nb_no_page, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_prefault_nb_no_page, "");
+SYSCTL_QUAD(_vm, OID_AUTO, prefault_nb_wrong_page, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_prefault_nb_wrong_page, "");
 
 #if defined (__x86_64__)
 extern unsigned int vm_clump_promote_threshold;
@@ -2675,13 +2782,13 @@ SYSCTL_PROC(_vm_reclaim, OID_AUTO, drain_all,
 extern uint32_t vm_reclaim_buffer_count;
 extern uint64_t vm_reclaim_gc_epoch;
 extern uint64_t vm_reclaim_gc_reclaim_count;
+extern uint64_t vm_reclaim_sampling_period_abs;
+extern uint64_t vm_reclaim_sampling_period_ns;
+extern bool vm_reclaim_debug;
 #if XNU_TARGET_OS_IOS
 extern uint64_t vm_reclaim_max_threshold;
 #else /* !XNU_TARGET_OS_IOS */
-extern bool vm_reclaim_debug;
 extern bool vm_reclaim_enabled;
-extern uint64_t vm_reclaim_sampling_period_ns;
-extern uint64_t vm_reclaim_sampling_period_abs;
 extern uint32_t vm_reclaim_autotrim_pct_normal;
 extern uint32_t vm_reclaim_autotrim_pct_pressure;
 extern uint32_t vm_reclaim_autotrim_pct_critical;
@@ -2700,6 +2807,9 @@ SYSCTL_QUAD(_vm_reclaim, OID_AUTO, reclaim_gc_epoch,
 SYSCTL_QUAD(_vm_reclaim, OID_AUTO, reclaim_gc_reclaim_count,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_gc_reclaim_count,
     "Number of times the global GC thread has reclaimed from a buffer");
+SYSCTL_COMPAT_UINT(_vm_reclaim, OID_AUTO, debug,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_debug, 0,
+    "Debug logs for vm.reclaim");
 #if XNU_TARGET_OS_IOS
 SYSCTL_QUAD(_vm_reclaim, OID_AUTO, max_threshold,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_max_threshold,
@@ -2709,9 +2819,6 @@ SYSCTL_QUAD(_vm_reclaim, OID_AUTO, max_threshold,
 SYSCTL_COMPAT_UINT(_vm_reclaim, OID_AUTO, enabled,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_enabled, 0,
     "Whether deferred memory reclamation is enabled on this system");
-SYSCTL_COMPAT_UINT(_vm_reclaim, OID_AUTO, debug,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_debug, 0,
-    "Whether vm.reclaim debug logs are enabled");
 SYSCTL_UINT(_vm_reclaim, OID_AUTO, autotrim_pct_normal,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_autotrim_pct_normal, 0,
     "Percentage of a task's lifetime max phys_footprint that must be reclaimable "
@@ -2737,6 +2844,7 @@ SYSCTL_QUAD(_vm_reclaim, OID_AUTO, abandonment_threshold,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_reclaim_abandonment_threshold,
     "The number of sampling periods between accounting updates that may elapse "
     "before the buffer is considered \"abandoned\"");
+#endif /* XNU_TARGET_OS_IOS */
 
 static int
 sysctl_vm_reclaim_sampling_period SYSCTL_HANDLER_ARGS
@@ -2756,10 +2864,9 @@ sysctl_vm_reclaim_sampling_period SYSCTL_HANDLER_ARGS
 }
 
 SYSCTL_PROC(_vm_reclaim, OID_AUTO, sampling_period_ns,
-    CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0, sysctl_vm_reclaim_sampling_period, "I",
+    CTLFLAG_RW | CTLTYPE_QUAD | CTLFLAG_LOCKED, NULL, 0, sysctl_vm_reclaim_sampling_period, "QU",
     "Interval (nanoseconds) at which to sample the minimum buffer size and "
     "consider trimming excess");
-#endif /* XNU_TARGET_OS_IOS */
 #endif /* DEVELOPMENT || DEBUG */
 #endif /* CONFIG_DEFERRED_RECLAIM */
 
@@ -3112,8 +3219,14 @@ extern int vm_protect_privileged_from_untrusted;
 SYSCTL_INT(_vm, OID_AUTO, protect_privileged_from_untrusted,
     CTLFLAG_RW | CTLFLAG_LOCKED, &vm_protect_privileged_from_untrusted, 0, "");
 extern uint64_t vm_copied_on_read;
+extern uint64_t vm_copied_on_read_kernel_map;
+extern uint64_t vm_copied_on_read_platform_map;
 SYSCTL_QUAD(_vm, OID_AUTO, copied_on_read,
     CTLFLAG_RD | CTLFLAG_LOCKED, &vm_copied_on_read, "");
+SYSCTL_QUAD(_vm, OID_AUTO, copied_on_read_kernel_map,
+    CTLFLAG_RD | CTLFLAG_LOCKED, &vm_copied_on_read_kernel_map, "");
+SYSCTL_QUAD(_vm, OID_AUTO, copied_on_read_platform_map,
+    CTLFLAG_RD | CTLFLAG_LOCKED, &vm_copied_on_read_platform_map, "");
 
 extern int vm_shared_region_count;
 extern int vm_shared_region_peak;
@@ -3225,6 +3338,11 @@ SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_forced, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vm_object_shadow_forced, "");
 SYSCTL_QUAD(_vm, OID_AUTO, object_shadow_skipped, CTLFLAG_RD | CTLFLAG_LOCKED,
     &vm_object_shadow_skipped, "");
+
+extern uint64_t vm_object_upl_throttle_cnt;
+SYSCTL_QUAD(_vm, OID_AUTO, object_upl_throttle_cnt, CTLFLAG_RD | CTLFLAG_LOCKED,
+    &vm_object_upl_throttle_cnt,
+    "The number of times in which a UPL write was throttled due to pageout starvation");
 
 
 SYSCTL_INT(_vm, OID_AUTO, vmtc_total, CTLFLAG_RD | CTLFLAG_LOCKED,
@@ -3624,7 +3742,58 @@ out:
 }
 
 SYSCTL_PROC(_vm, OID_AUTO, task_vm_objects_slotmap, CTLTYPE_NODE | CTLFLAG_LOCKED | CTLFLAG_RD, 0, 0, sysctl_task_vm_objects_slotmap, "S", "");
+static int
+systctl_vm_reset_tag SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	int error;
+	int tag;
+	kern_return_t kr;
 
+	/* Need to be root */
+	if (!kauth_cred_issuser(kauth_cred_get())) {
+		return EPERM;
+	}
 
+	error = SYSCTL_IN(req, &tag, sizeof(tag));
+	if (error) {
+		return error;
+	}
+
+	if (tag > VM_MAX_TAG_VALUE) {
+		return EINVAL;
+	}
+
+	kr = vm_tag_reset_peak((vm_tag_t)tag);
+
+	return mach_to_bsd_errno(kr);
+}
+
+SYSCTL_PROC(_vm, OID_AUTO, reset_tag,
+    CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_MASKED | CTLFLAG_LOCKED,
+    0, 0, &systctl_vm_reset_tag, "I", "");
+
+static int
+systctl_vm_reset_all_tags SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	/* Only reset the values if the sysctl is a write */
+	if (!req->newptr) {
+		return EINVAL;
+	}
+
+	/* Need to be root */
+	if (!kauth_cred_issuser(kauth_cred_get())) {
+		return EPERM;
+	}
+
+	vm_tag_reset_all_peaks();
+
+	return 0;
+}
+
+SYSCTL_PROC(_vm, OID_AUTO, reset_all_tags,
+    CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_MASKED | CTLFLAG_LOCKED,
+    0, 0, &systctl_vm_reset_all_tags, "I", "");
 
 #endif /* DEVELOPMENT || DEBUG */

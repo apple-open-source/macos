@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
- * Copyright (C) 2010-2023 Google Inc. All Rights Reserved.
+ * Copyright (C) 2010-2023 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -124,7 +124,7 @@ public:
         if (m_tagId >= TagId::Unknown)
             return;
 
-        Ref document = protectedDocument();
+        Ref document = m_document.get();
         for (auto& attribute : attributes) {
             auto knownAttributeName = AtomString::lookUp(attribute.name.span());
             processAttribute(knownAttributeName, attribute.value.span(), pictureState);
@@ -219,7 +219,7 @@ private:
     {
         bool inPicture = !pictureState.isEmpty();
         bool alreadyMatchedSource = inPicture && pictureState.last();
-        Ref document = protectedDocument();
+        Ref document = m_document.get();
 
         switch (m_tagId) {
         case TagId::Img:
@@ -262,7 +262,7 @@ private:
             }
             if (match(attributeName, mediaAttr) && m_mediaAttribute.isNull()) {
                 m_mediaAttribute = attributeValue.toString();
-                auto mediaQueries = MQ::MediaQueryParser::parse(m_mediaAttribute, { document.get() });
+                auto mediaQueries = MQ::MediaQueryParser::parse(m_mediaAttribute, document->cssParserContext());
                 RefPtr documentElement = document->documentElement();
                 LOG(MediaQueries, "HTMLPreloadScanner %p processAttribute evaluating media queries", this);
                 m_mediaMatched = MQ::MediaQueryEvaluator { document->printing() ? printAtom() : screenAtom(), document, documentElement ? documentElement->computedStyle() : nullptr }.evaluate(mediaQueries);

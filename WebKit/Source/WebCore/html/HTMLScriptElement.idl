@@ -31,11 +31,11 @@
     [CEReactions=NotNeeded, Reflect] attribute boolean defer;
     [CEReactions=NotNeeded] attribute (TrustedScriptURL or USVString) src;
     [CEReactions=NotNeeded, Reflect] attribute DOMString type;
-    [CEReactions=NotNeeded] attribute [AtomString] DOMString? crossOrigin;
+    [CEReactions=NotNeeded, ReflectSetter] attribute [AtomString] DOMString? crossOrigin;
     [CEReactions=NotNeeded, Reflect] attribute boolean noModule;
     [CEReactions=NotNeeded, Reflect] attribute DOMString integrity;
-    [CEReactions=NotNeeded, ImplementedAs=referrerPolicyForBindings] attribute [AtomString] DOMString referrerPolicy;
-    [CEReactions=NotNeeded, ImplementedAs=fetchPriorityForBindings] attribute [AtomString] DOMString fetchPriority;
+    [CEReactions=NotNeeded, ImplementedAs=referrerPolicyForBindings, ReflectSetter] attribute [AtomString] DOMString referrerPolicy;
+    [CEReactions=NotNeeded, ImplementedAs=fetchPriorityForBindings, ReflectSetter] attribute [AtomString] DOMString fetchPriority;
     [PutForwards=value] readonly attribute DOMTokenList blocking;
 
     static boolean supports(DOMString type);

@@ -64,8 +64,12 @@
 #include <gtk/gtk.h>
 #endif
 
-#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+#if PLATFORM(WPE)
+#include "WPEUtilities.h"
+#if ENABLE(WPE_PLATFORM)
+#include "DisplayVBlankMonitorWPE.h"
 #include <wpe/wpe-platform.h>
+#endif
 #endif
 
 #if USE(GBM)
@@ -291,6 +295,18 @@ static String renderBufferFormat(WebKitURISchemeRequest* request)
 #endif
 #endif
 
+static String vblankMonitorType(const DisplayVBlankMonitor& monitor)
+{
+#if ENABLE(WPE_PLATFORM)
+    if (monitor.type() == DisplayVBlankMonitor::Type::Wpe) {
+        const auto& wpeMonitor = *static_cast<const DisplayVBlankMonitorWPE*>(&monitor);
+        return makeString("WPE ("_s, String::fromUTF8(G_OBJECT_TYPE_NAME(wpeMonitor.observer())), ')');
+    }
+#endif
+
+    return monitor.type() == DisplayVBlankMonitor::Type::Timer ? "Timer"_s : "DRM"_s;
+}
+
 static String prettyPrintJSON(const String& jsonString)
 {
     StringBuilder result;
@@ -449,12 +465,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
 #endif
 
 #if PLATFORM(WPE)
-#if ENABLE(WPE_PLATFORM)
-    bool usingWPEPlatformAPI = !!g_type_class_peek(WPE_TYPE_DISPLAY);
-#else
-    bool usingWPEPlatformAPI = false;
-#endif
-
+    bool usingWPEPlatformAPI = WKWPE::isUsingWPEPlatformAPI();
     if (!usingWPEPlatformAPI) {
         addTableRow(versionObject, "WPE version"_s, makeString(WPE_MAJOR_VERSION, '.', WPE_MINOR_VERSION, '.', WPE_MICRO_VERSION, " (build) "_s, wpe_get_major_version(), '.', wpe_get_minor_version(), '.', wpe_get_micro_version(), " (runtime)"_s));
         addTableRow(versionObject, "WPE backend"_s, String::fromUTF8(wpe_loader_get_loaded_implementation_library_name()));
@@ -497,7 +508,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
     if (displayID) {
         if (auto* displayLink = page->configuration().processPool().displayLinks().existingDisplayLinkForDisplay(*displayID)) {
             auto& vblankMonitor = displayLink->vblankMonitor();
-            addTableRow(displayObject, "VBlank type"_s, vblankMonitor.type() == DisplayVBlankMonitor::Type::Timer ? "Timer"_s : "DRM"_s);
+            addTableRow(displayObject, "VBlank type"_s, vblankMonitorType(vblankMonitor));
             addTableRow(displayObject, "VBlank refresh rate"_s, makeString(vblankMonitor.refreshRate(), "Hz"_s));
         }
     }

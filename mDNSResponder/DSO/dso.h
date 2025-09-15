@@ -1,6 +1,6 @@
 /* dso.h
  *
- * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+
 #include "nullability.h"
+#include "srp-features.h"
+
 
 // Maximum number of additional TLVs we support in a DSO message.
 #define MAX_ADDITLS           2
@@ -279,6 +282,8 @@ bool dso_send_formerr(dso_state_t *dso, const DNSMessageHeader *header);
 bool dso_send_servfail(dso_state_t *dso, const DNSMessageHeader *header);
 bool dso_send_name_error(dso_state_t *dso, const DNSMessageHeader *header);
 bool dso_send_no_error(dso_state_t *dso, const DNSMessageHeader *header);
+
+
 #endif // !defined(__DSO_H)
 
 // Local Variables:

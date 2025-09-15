@@ -31,7 +31,6 @@
 #include "CachedResourceClient.h"
 #include "CachedSVGDocumentClient.h"
 #include "CachedStyleSheetClient.h"
-#include "ExceptionOr.h"
 #include <JavaScriptCore/InspectorAuditAgent.h>
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
@@ -42,6 +41,7 @@ namespace WebCore {
 
 class CachedResource;
 class Document;
+template<typename> class ExceptionOr;
 
 class InspectorAuditResourcesObject : public RefCounted<InspectorAuditResourcesObject> {
 public:

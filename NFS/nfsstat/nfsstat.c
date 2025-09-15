@@ -131,7 +131,7 @@ const nfserr_info_t nfserrs_common[NFSERR_INFO_COMMON_SIZE] = {
 	NFSERR_INFO_COMMON
 };
 
-const nfserr_info_t nfserrs_v4[NFSERR_INFO_V4_SIZE] = {
+const nfserr_info_t nfserrs_v4[NFSERR_INFO_V41_SIZE] = {
 	NFSERR_INFO_V4
 };
 
@@ -668,8 +668,14 @@ nfserrs(u_int display, u_int version)
 		if (version & VERSION_V4) {
 			printer->newline();
 			printer->open(PRINTER_NO_PREFIX, "NFSv4 Client Errors Info");
-			for (int i = 0; i < ARRAY_SIZE(nfserrs_v4); i += ERRS_PER_LINE) {
-				print_nfserrs(clntstats.nfs_errs.errs_v4, nfserrs_v4, i, MIN(ERRS_PER_LINE, ARRAY_SIZE(nfserrs_v4) - i));
+			for (int i = 0; i < NFSERR_INFO_V4_SIZE; i += ERRS_PER_LINE) {
+				print_nfserrs(clntstats.nfs_errs.errs_v4, nfserrs_v4, i, MIN(ERRS_PER_LINE, NFSERR_INFO_V4_SIZE - i));
+			}
+			printer->close();
+			printer->newline();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4.1 Client Errors Info");
+			for (int i = NFSERR_INFO_V4_SIZE; i < ARRAY_SIZE(nfserrs_v4); i += ERRS_PER_LINE) {
+				print_nfserrs(clntstats.nfs_errs.errs_v4, nfserrs_v4, i, MIN(ERRS_PER_LINE, ARRAY_SIZE(nfserrs_v4)  - i));
 			}
 			printer->close();
 		}
@@ -790,6 +796,31 @@ intpr(u_int display, u_int version)
 			printer->intpr(1,
 			    "Rel_lkowner", clntstats.opcntv4[NFS_OP_RELEASE_LOCKOWNER]);
 			printer->close();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4.1 Operation Counts");
+			printer->intpr(6,
+			    "Backchannelctl", clntstats.opcntv4[NFS_OP_BACKCHANNELCTL],
+			    "Bindconntosess", clntstats.opcntv4[NFS_OP_BINDCONNTOSESS],
+			    "Exchangeid", clntstats.opcntv4[NFS_OP_EXCHANGEID],
+			    "Createsession", clntstats.opcntv4[NFS_OP_CREATESESSION],
+			    "Destroysession", clntstats.opcntv4[NFS_OP_DESTROYSESSION],
+			    "Freestateid", clntstats.opcntv4[NFS_OP_FREESTATEID]);
+			printer->intpr(6,
+			    "Getdirdeleg", clntstats.opcntv4[NFS_OP_GETDIRDELEG],
+			    "Getdevinfo", clntstats.opcntv4[NFS_OP_GETDEVINFO],
+			    "Getdevlist", clntstats.opcntv4[NFS_OP_GETDEVLIST],
+			    "Layoutcommit", clntstats.opcntv4[NFS_OP_LAYOUTCOMMIT],
+			    "Layoutget", clntstats.opcntv4[NFS_OP_LAYOUTGET],
+			    "Layoutreturn", clntstats.opcntv4[NFS_OP_LAYOUTRETURN]);
+			printer->intpr(6,
+			    "Secinfononame", clntstats.opcntv4[NFS_OP_SECINFONONAME],
+			    "Sequence", clntstats.opcntv4[NFS_OP_SEQUENCE],
+			    "Setssv", clntstats.opcntv4[NFS_OP_SETSSV],
+			    "Teststateid", clntstats.opcntv4[NFS_OP_TESTSTATEID],
+			    "Wantdeleg", clntstats.opcntv4[NFS_OP_WANTDELEG],
+			    "Destroyclientid", clntstats.opcntv4[NFS_OP_DESTROYCLIENTID]);
+			printer->intpr(1,
+			    "Reclaimcompl", clntstats.opcntv4[NFS_OP_RECLAIMCOMPL]);
+			printer->close();
 			printer->open(PRINTER_NO_PREFIX, "NFSv4 Callback RPC Counts");
 			printer->intpr(2,
 			    "CB Null", clntstats.cbopcntv4[NFSPROC4_CB_NULL],
@@ -799,6 +830,20 @@ intpr(u_int display, u_int version)
 			printer->intpr(2,
 			    "CB Getattr", clntstats.cbopcntv4[NFS_OP_CB_GETATTR],
 			    "CB Recall", clntstats.cbopcntv4[NFS_OP_CB_RECALL]);
+			printer->close();
+			printer->open(PRINTER_NO_PREFIX, "NFSv4.1 Callback Operation Counts");
+			printer->intpr(6,
+			    "CB Layoutrecall", clntstats.cbopcntv4[NFS_OP_CB_LAYOUTRECALL],
+			    "CB Notify", clntstats.cbopcntv4[NFS_OP_CB_NOTIFY],
+			    "CB Pushdeleg", clntstats.cbopcntv4[NFS_OP_CB_PUSHDELEG],
+			    "CB Recallany", clntstats.cbopcntv4[NFS_OP_CB_RECALLANY],
+			    "CB Recallobjavail", clntstats.cbopcntv4[NFS_OP_CB_RECALLOBJAVAIL],
+			    "CB Recallslot", clntstats.cbopcntv4[NFS_OP_CB_RECALLSLOT]);
+			printer->intpr(4,
+			    "CB Sequence", clntstats.cbopcntv4[NFS_OP_CB_SEQUENCE],
+			    "CB Wantcancelled", clntstats.cbopcntv4[NFS_OP_CB_WANTCANCELLED],
+			    "CB Notifylock", clntstats.cbopcntv4[NFS_OP_CB_NOTIFYLOCK],
+			    "CB Notifydevid", clntstats.cbopcntv4[NFS_OP_CB_NOTIFYDEVID]);
 			printer->close();
 		}
 		printer->open(PRINTER_NO_PREFIX, "RPC Info");

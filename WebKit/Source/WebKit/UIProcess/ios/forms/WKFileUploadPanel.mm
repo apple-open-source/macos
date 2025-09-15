@@ -244,7 +244,7 @@ static NSString * firstUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers, U
 #else
     _progressController = adoptNS([allocPUActivityProgressControllerInstance() init]);
 #endif
-    [_progressController setTitle:WEB_UI_STRING_KEY("Preparing…", "Preparing (file upload)", "Title for file upload progress view")];
+    [_progressController setTitle:WEB_UI_STRING_KEY("Preparing…", "Preparing (file upload)", "Title for file upload progress view").createNSString().get()];
     [_progressController showAnimated:YES allowDelay:YES];
 
     [_progressController setCancellationHandler:makeBlockPtr([weakSelf = WeakObjCPtr<WKFileUploadMediaTranscoder>(self)] {
@@ -505,13 +505,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     Ref<API::Array> acceptMimeTypes = parameters->acceptMIMETypes();
     NSMutableArray *mimeTypes = [NSMutableArray arrayWithCapacity:acceptMimeTypes->size()];
     for (auto mimeType : acceptMimeTypes->elementsOfType<API::String>())
-        [mimeTypes addObject:mimeType->string()];
+        [mimeTypes addObject:mimeType->string().createNSString().get()];
 
     Ref<API::Array> acceptFileExtensions = parameters->acceptFileExtensions();
     for (auto extension : acceptFileExtensions->elementsOfType<API::String>()) {
         String mimeType = WebCore::MIMETypeRegistry::mimeTypeForExtension(extension->stringView().substring(1));
         if (!mimeType.isEmpty())
-            [mimeTypes addObject:mimeType];
+            [mimeTypes addObject:mimeType.createNSString().get()];
     }
 
     _acceptedUTIs = UTIsForMIMETypes(mimeTypes);
@@ -699,14 +699,14 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 - (NSString *)_chooseFilesButtonLabel
 {
     if (_allowMultipleFiles)
-        return WebCore::fileButtonChooseMultipleFilesLabel();
+        return WebCore::fileButtonChooseMultipleFilesLabel().createNSString().autorelease();
 
-    return WebCore::fileButtonChooseFileLabel();
+    return WebCore::fileButtonChooseFileLabel().createNSString().autorelease();
 }
 
 - (NSString *)_photoLibraryButtonLabel
 {
-    return WEB_UI_STRING_KEY("Photo Library", "Photo Library (file upload action sheet)", "File Upload alert sheet button string for choosing an existing media item from the Photo Library");
+    return WEB_UI_STRING_KEY("Photo Library", "Photo Library (file upload action sheet)", "File Upload alert sheet button string for choosing an existing media item from the Photo Library").createNSString().autorelease();
 }
 
 - (NSString *)_cameraButtonLabel
@@ -714,12 +714,12 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     ASSERT(_allowedImagePickerTypes.containsAny({ WKFileUploadPanelImagePickerType::Image, WKFileUploadPanelImagePickerType::Video }));
 
     if (_allowedImagePickerTypes.containsAll({ WKFileUploadPanelImagePickerType::Image, WKFileUploadPanelImagePickerType::Video }))
-        return WEB_UI_STRING_KEY("Take Photo or Video", "Take Photo or Video (file upload action sheet)", "File Upload alert sheet camera button string for taking photos or videos");
+        return WEB_UI_STRING_KEY("Take Photo or Video", "Take Photo or Video (file upload action sheet)", "File Upload alert sheet camera button string for taking photos or videos").createNSString().autorelease();
 
     if (_allowedImagePickerTypes.contains(WKFileUploadPanelImagePickerType::Video))
-        return WEB_UI_STRING_KEY("Take Video", "Take Video (file upload action sheet)", "File Upload alert sheet camera button string for taking only videos");
+        return WEB_UI_STRING_KEY("Take Video", "Take Video (file upload action sheet)", "File Upload alert sheet camera button string for taking only videos").createNSString().autorelease();
 
-    return WEB_UI_STRING_KEY("Take Photo", "Take Photo (file upload action sheet)", "File Upload alert sheet camera button string for taking only photos");
+    return WEB_UI_STRING_KEY("Take Photo", "Take Photo (file upload action sheet)", "File Upload alert sheet camera button string for taking only photos").createNSString().autorelease();
 }
 
 #if USE(UICONTEXTMENU)
@@ -958,14 +958,14 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
 #pragma mark - UIDocumentPickerControllerDelegate implementation
 
-static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
+static RetainPtr<NSString> displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 {
     auto urlsCount = urls.count;
     ASSERT(urlsCount);
     if (urlsCount == 1)
         return urls[0].lastPathComponent;
 
-    return WebCore::multipleFileUploadText(urlsCount);
+    return WebCore::multipleFileUploadText(urlsCount).createNSString();
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urlsFromUIKit
@@ -1001,8 +1001,8 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
         }
 
         [retainedSelf->_view _removeTemporaryDirectoriesWhenDeallocated:std::exchange(retainedSelf->_temporaryUploadedFileURLs, { })];
-        RunLoop::main().dispatch([retainedSelf = WTFMove(retainedSelf), maybeMovedURLs = WTFMove(maybeMovedURLs)] {
-            [retainedSelf _chooseFiles:maybeMovedURLs.get() displayString:displayStringForDocumentsAtURLs(maybeMovedURLs.get()) iconImage:WebKit::iconForFiles({ maybeMovedURLs.get()[0].absoluteString }).get()];
+        RunLoop::mainSingleton().dispatch([retainedSelf = WTFMove(retainedSelf), maybeMovedURLs = WTFMove(maybeMovedURLs)] {
+            [retainedSelf _chooseFiles:maybeMovedURLs.get() displayString:displayStringForDocumentsAtURLs(maybeMovedURLs.get()).get() iconImage:WebKit::iconForFiles({ maybeMovedURLs.get()[0].absoluteString }).get()];
         });
     }).get());
 }
@@ -1346,18 +1346,19 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 + (WebKit::TemporaryFileMoveResults)_moveToNewTemporaryDirectory:(NSURL *)originalURL fileCoordinator:(NSFileCoordinator *)fileCoordinator fileManager:(NSFileManager *)fileManager asCopy:(BOOL)asCopy
 {
     NSError *error = nil;
-    NSString *temporaryDirectory = FileSystem::createTemporaryDirectory(@"WKFileUploadPanel");
+    RetainPtr temporaryDirectory = FileSystem::createTemporaryDirectory(@"WKFileUploadPanel");
     if (!temporaryDirectory) {
         LOG_ERROR("WKFileUploadPanel: Failed to make temporary directory");
         return { WebKit::MovedSuccessfully::No, originalURL, nil };
     }
-    NSString *filePath = [temporaryDirectory stringByAppendingPathComponent:originalURL.lastPathComponent];
-    auto destinationFileURL = adoptNS([[NSURL alloc] initFileURLWithPath:filePath isDirectory:NO]);
 
     __block WebKit::TemporaryFileMoveResults results;
     [fileCoordinator coordinateWritingItemAtURL:originalURL options:NSFileCoordinatorWritingForMoving error:&error byAccessor:^(NSURL *coordinatedOriginalURL) {
         NSError *error = nil;
         BOOL didMoveOrCopy;
+
+        RetainPtr filePath = [temporaryDirectory stringByAppendingPathComponent:coordinatedOriginalURL.lastPathComponent];
+        RetainPtr destinationFileURL = adoptNS([[NSURL alloc] initFileURLWithPath:filePath.get() isDirectory:NO]);
 
         if (asCopy)
             didMoveOrCopy = [fileManager copyItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error];
@@ -1366,14 +1367,14 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 
         if (!didMoveOrCopy || error) {
             // If moving/copying fails, keep the original URL and our 60 second time limit for file URLs from UIKit before it is deleted. We tried our best to extend it.
-            results = { WebKit::MovedSuccessfully::No, coordinatedOriginalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+            results = { WebKit::MovedSuccessfully::No, coordinatedOriginalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory.get() isDirectory:YES]) };
         } else
-            results = { WebKit::MovedSuccessfully::Yes, destinationFileURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+            results = { WebKit::MovedSuccessfully::Yes, destinationFileURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory.get() isDirectory:YES]) };
     }];
     if (error) {
         LOG_ERROR("WKFileUploadPanel: Failed to coordinate moving file with error %@", error);
         // If moving fails, keep the original URL and our 60 second time limit before it is deleted. We tried our best to extend it.
-        return { WebKit::MovedSuccessfully::No, originalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
+        return { WebKit::MovedSuccessfully::No, originalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory.get() isDirectory:YES]) };
     }
 
     return results;

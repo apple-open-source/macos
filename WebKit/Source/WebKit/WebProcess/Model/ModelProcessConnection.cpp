@@ -107,7 +107,7 @@ void ModelProcessConnection::didClose(IPC::Connection&)
     m_clients.clear();
 }
 
-void ModelProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t)
+void ModelProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>&)
 {
 }
 
@@ -133,6 +133,11 @@ void ModelProcessConnection::didInitialize(std::optional<ModelProcessConnectionI
         return;
     }
     m_hasInitialized = true;
+}
+
+void ModelProcessConnection::didUnloadModelPlayer(WebCore::ModelPlayerIdentifier modelPlayerIdentifier)
+{
+    WebProcess::singleton().modelProcessModelPlayerManager().didUnloadModelProcessModelPlayer(modelPlayerIdentifier);
 }
 
 bool ModelProcessConnection::waitForDidInitialize()

@@ -46,7 +46,7 @@
 #import <WebCore/FrameSelection.h>
 #import <WebCore/FrameSnapshotting.h>
 #import <WebCore/HitTestResult.h>
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/Position.h>
 #import <WebCore/Range.h>
@@ -206,7 +206,7 @@ using namespace WebCore;
 
 - (NSArray *)selectionRectsForCoreRange:(const SimpleRange&)range
 {
-    return createNSArray(RenderObject::collectSelectionGeometries(range), [] (auto&& geometry) {
+    return createNSArray(RenderObject::collectSelectionGeometries(range).geometries, [](auto&& geometry) {
         auto webRect = [WebSelectionRect selectionRect];
         webRect.rect = geometry.rect();
         webRect.writingDirection = geometry.direction() == TextDirection::LTR ? WKWritingDirectionLeftToRight : WKWritingDirectionRightToLeft;

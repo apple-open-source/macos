@@ -21,6 +21,7 @@ enum
     isSystem = (1UL << 6),
     isPlatform = (1UL << 7),
     isCustom = (1UL << 8),
+    isTest = (1UL << 9),
 };
 
 typedef unsigned long PSAssetFlags;

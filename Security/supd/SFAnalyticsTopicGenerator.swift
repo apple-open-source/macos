@@ -24,24 +24,27 @@
 import Foundation
 import OSLog
 
-
 private let SFAUploadFileTable = "upload_file"
 
-@objc class SFAnalyticsTopicGenerator: NSObject {
+@objc
+class SFAnalyticsTopicGenerator: NSObject {
     enum SFAnalyticsTopicGeneratorError: CustomNSError {
         static let errorDomain: String = "com.apple.securityuploadd.SFAnalyticsTopicGeneratorError"
+
         case fileHandleNotOpen
     }
+
     let topic: SFAnalyticsTopic
     let logger: Logger
     let uploadTime: UInt64
-    
-    @objc init(topic: SFAnalyticsTopic) {
+
+    @objc
+    init(topic: SFAnalyticsTopic) {
         self.topic = topic
         self.logger = Logger(subsystem: "SFAnalyticsTopicGenerator", category: "")
         self.uploadTime = UInt64(Date().timeIntervalSince1970 * 1000)
     }
-    
+
     /*
      * Build output files with JSON content (array of element), assume input
      * is JSON from the database, so just concat the data with JSON goop
@@ -57,7 +60,7 @@ private let SFAUploadFileTable = "upload_file"
         var currentFile: URL?
         var fileCount: Int = 0
         var fileHandle: FileHandle?
-        var filterError: Error? = nil
+        var filterError: Error?
         var firstElement: Bool
         let logger: Logger
         let uploadTime: UInt64
@@ -87,11 +90,11 @@ private let SFAUploadFileTable = "upload_file"
             }
             try fileHandle.write(contentsOf: data)
         }
-        
+
         static func stringName(topic: SFAnalyticsTopic, store: SFAnalyticsSQLiteStore, fileCount: Int) -> String {
             "OutputFile-\(topic.internalTopicName)-\(store.databaseBasename)-\(fileCount).json"
         }
-        
+
         // Create file if needed
         func createFileIfNeeded() throws {
             guard self.fileHandle == nil else {
@@ -100,26 +103,26 @@ private let SFAUploadFileTable = "upload_file"
             let filename = Self.stringName(topic: topic, store: store, fileCount: fileCount)
             let file = outputDirectory.appending(path: filename)
             self.currentFile = file
-            
+
             FileManager.default.createFile(atPath: file.path, contents: nil)
             self.fileHandle = try FileHandle(forWritingTo: file)
-            
+
             self.currentSize = 0
             self.firstElement = true
-            
+
             try self.insert(string: "{\"postTime\":\(uploadTime),\"events\":[")
         }
 
         // Insert file and rotate to a new file if needed
         func insert(event: Data) throws {
-            
+
             // recode with required/denied fields rules applies
             guard let event = self.topic.applyFilterLogic(event, linkedID: linkedID) else {
                 self.logger.info("object in \(self.linkedID) was not allowed/valid")
                 return
             }
-            
-            if (self.currentSize + (Int64)(event.count) > self.limit) {
+
+            if self.currentSize + (Int64)(event.count) > self.limit {
                 try rotate()
                 try createFileIfNeeded()
             }
@@ -137,17 +140,17 @@ private let SFAUploadFileTable = "upload_file"
                 throw error
             }
         }
-                
+
         func rotate() throws {
             try commit()
-            
+
             fileCount += 1
             self.currentSize = 0
             self.firstElement = true
             self.fileHandle = nil
             self.currentFile = nil
         }
-        
+
         func insert(string: String) throws {
             guard fileHandle != nil else {
                 return
@@ -189,17 +192,17 @@ private let SFAUploadFileTable = "upload_file"
             self.currentFile = nil
         }
     }
-    
-    @objc func uploadFiles(topicClient: SFAnalyticsClient) -> [URL] {
+
+    @objc
+    func uploadFiles(topicClient: SFAnalyticsClient) -> [URL] {
         var urls: [URL] = []
         topicClient.withStore { store in
-            store.select(from: SFAUploadFileTable, 
+            store.select(from: SFAUploadFileTable,
                          where: "store = ?",
                          bindings: [store.databaseBasename],
                          orderBy: nil,
-                         limit: nil)
-            { item, stop in
-                guard let dict = item as? Dictionary<String,AnyObject> else {
+                         limit: nil) { item, _ in
+                guard let dict = item as? [String: AnyObject] else {
                     return
                 }
                 guard let file = dict["file"] as? String else {
@@ -212,17 +215,18 @@ private let SFAUploadFileTable = "upload_file"
         return urls
     }
 
-    @objc func confirmUploadFile(topicClient: SFAnalyticsClient, url: URL) {
+    @objc
+    func confirmUploadFile(topicClient: SFAnalyticsClient, url: URL) {
         topicClient.withStore { store in
             /* remove url from store */
             store.delete(from: SFAUploadFileTable, matchingValues: [
-                "store" : store.databaseBasename,
+                "store": store.databaseBasename,
                 "file": url.path,
             ])
             try? FileManager.default.removeItem(at: url)
         }
     }
-    
+
     func deleteUploadFiles(store: SFAnalyticsSQLiteStore, outputDirectory: URL) {
         // First delete all files that are in the output directory
         if let items = store.select(["file"], from: SFAUploadFileTable, where: "store = ?", bindings: [store.databaseBasename]) {
@@ -236,27 +240,28 @@ private let SFAUploadFileTable = "upload_file"
                 try? FileManager.default.removeItem(atPath: file)
             }
         }
-        store.delete(from: SFAUploadFileTable, matchingValues: ["store" : store.databaseBasename])
+        store.delete(from: SFAUploadFileTable, matchingValues: ["store": store.databaseBasename])
     }
-    
-    @objc func deleteAllUploadFiles(topicClient: SFAnalyticsClient, outputDirectory: URL) {
+
+    @objc
+    func deleteAllUploadFiles(topicClient: SFAnalyticsClient, outputDirectory: URL) {
         topicClient.withStore { store in
             deleteUploadFiles(store: store, outputDirectory: outputDirectory)
         }
     }
 
-    @objc func generate(topicClient: SFAnalyticsClient,
-                        outputDirectory: URL,
-                        uploadSizeLimit: off_t,
-                        eventQuota: UInt,
-                        uuid: UUID) throws
-    {
+    @objc
+    func generate(topicClient: SFAnalyticsClient,
+                  outputDirectory: URL,
+                  uploadSizeLimit: off_t,
+                  eventQuota: UInt,
+                  uuid: UUID) throws {
         topicClient.withStore { store in
-            
+
             deleteUploadFiles(store: store, outputDirectory: outputDirectory)
 
             let outputFile: OutputFile
-            
+
             do {
                 outputFile = try OutputFile(topic: topic,
                                             store: store,
@@ -269,9 +274,9 @@ private let SFAUploadFileTable = "upload_file"
                 logger.log("failed to create output file generator \(error)")
                 return
             }
-                    
+
             var numEvents: UInt = 0
-            
+
             // Always include health event
             if let health = topic.healthSummary(withName: topicClient,
                                                 store: store,
@@ -289,21 +294,21 @@ private let SFAUploadFileTable = "upload_file"
             store.streamEvents(withLimit: nil, fromTable: SFAnalyticsTableRockwell) { row in
                 try? outputFile.insert(event: row as Data)
                 numEvents += 1
-                return (eventQuota > numEvents);
+                return (eventQuota > numEvents)
             }
             store.streamEvents(withLimit: nil, fromTable: SFAnalyticsTableHardFailures) { row in
                 try? outputFile.insert(event: row as Data)
                 numEvents += 1
-                return (eventQuota > numEvents);
+                return (eventQuota > numEvents)
             }
             store.streamEvents(withLimit: nil, fromTable: SFAnalyticsTableSoftFailures) { row in
                 try? outputFile.insert(event: row as Data)
                 numEvents += 1
-                return (eventQuota > numEvents);
+                return (eventQuota > numEvents)
             }
-            
+
             try? outputFile.commit()
-            
+
             store.clearAllData()
         }
     }

@@ -174,10 +174,12 @@ pai_to_pvh(unsigned int pai)
  * type needs to be checked before dereferencing the pointer to determine which
  * pointer type to dereference as.
  */
-#define PVH_TYPE_NULL 0x0UL
-#define PVH_TYPE_PVEP 0x1UL
-#define PVH_TYPE_PTEP 0x2UL
-#define PVH_TYPE_PTDP 0x3UL
+__enum_closed_decl(pvh_type_t, uint8_t, {
+	PVH_TYPE_NULL = 0b00,
+	PVH_TYPE_PVEP = 0b01,
+	PVH_TYPE_PTEP = 0b10,
+	PVH_TYPE_PTDP = 0b11,
+});
 
 #define PVH_TYPE_MASK (0x3UL)
 
@@ -474,7 +476,7 @@ pvh_lock_enter_sleep_mode(locked_pvh_t *locked_pvh)
  *         otherwise.
  */
 static inline bool
-pvh_test_type(uintptr_t pvh, uintptr_t type)
+pvh_test_type(uintptr_t pvh, pvh_type_t type)
 {
 	return (pvh & PVH_TYPE_MASK) == type;
 }
@@ -989,7 +991,7 @@ pve_remove(locked_pvh_t *locked_pvh, pv_entry_t **pvepp, pv_entry_t *pvep)
  * the fields were within the same structure.
  */
 typedef struct {
-	/*
+	/**
 	 * For non-leaf pagetables, should be 0.
 	 * For leaf pagetables, should reflect the number of wired entries.
 	 * For IOMMU pages, may optionally reflect a driver-defined refcount (IOMMU
@@ -1094,21 +1096,23 @@ typedef struct pt_desc {
  * This structure is intended to be embedded in the pmap per-CPU data object,
  * and is meant to be used for situations in which the caller needs to ensure
  * that potentially sensitive concurrent SPTM operations have completed on other
- * CPUs prior to retyping a page.  If these sensitive operations haven't completed
- * when the retype occurs, and they happen to involve the page being retyped
- * (either directly or through mappings thereof), an SPTM violation panic may
- * result.
+ * CPUs prior to an operation (such as a retype) that requires page or mapping
+ * state to be stable.  When draining these concurrent operations, the caller
+ * is also expected to have already taken steps to ensure the page/mapping
+ * state requirements will be visible to any concurrent pmap operation initiated
+ * after the drain operation is begun, so that only previously-initiated
+ * operations will need to be purged.
  */
 typedef struct {
 	/**
 	 * Critical section sequence number of the local CPU.  A value of zero
-	 * indicates that no retype epoch critical section is currently active on
+	 * indicates that no pmap epoch critical section is currently active on
 	 * the CPU.
 	 */
 	uint64_t local_seq;
 
 	/**
-	 * The sequence number to use the next time a retype epoch critical section
+	 * The sequence number to use the next time a pmap epoch critical section
 	 * is entered on the local CPU.  This should monotonically increase.
 	 */
 	uint64_t next_seq;
@@ -1124,7 +1128,7 @@ typedef struct {
 	uint64_t remote_seq[MAX_CPUS];
 
 	/**
-	 * Flags used to track the state of an active retype epoch drain operation
+	 * Flags used to track the state of an active pmap epoch drain operation
 	 * on the local CPU.
 	 */
 
@@ -1133,7 +1137,7 @@ typedef struct {
 	 * local CPU by sampling remote CPU epoch states into the remote_seq array.
 	 * This must be set before the drain operation can be performed.
 	 */
-	#define PMAP_RETYPE_EPOCH_PREPARED (1 << 0)
+	#define PMAP_EPOCH_PREPARED (1 << 0)
 
 	/**
 	 * This flag indicates that one or more remote CPUs had a non-zero retype
@@ -1142,9 +1146,9 @@ typedef struct {
 	 * be in a critical section in which prior mapping state for the page to
 	 * be retyped may have been observed, so we can skip the drain operation.
 	 */
-	#define PMAP_RETYPE_EPOCH_DRAIN_REQUIRED (1 << 1)
+	#define PMAP_EPOCH_DRAIN_REQUIRED (1 << 1)
 	uint8_t flags;
-} pmap_retype_epoch_t;
+} pmap_epoch_t;
 
 #define PMAP_SPTM_PCPU_ALIGN (8192)
 
@@ -1161,6 +1165,9 @@ typedef struct {
 	 */
 	void *sptm_iommu_scratch;
 
+	/* Accumulator for batched user pointer SPTM ops, to avoid excessive stack usage. */
+	sptm_user_pointer_op_t sptm_user_pointer_ops[SPTM_MAPPING_LIMIT];
+
 	/* Accumulator for batched disjoint SPTM ops, to avoid excessive stack usage. */
 	sptm_disjoint_op_t sptm_ops[SPTM_MAPPING_LIMIT];
 
@@ -1171,6 +1178,9 @@ typedef struct {
 		/* Accumulator for PA arrays to be passed to the SPTM, to avoid excessive stack usage. */
 		sptm_paddr_t sptm_paddrs[SPTM_MAPPING_LIMIT];
 	};
+
+	/* Base PA of user pointer ops array, for passing the ops into the SPTM. */
+	pmap_paddr_t sptm_user_pointer_ops_pa;
 
 	/* Base PA of ops array, for passing the ops into the SPTM. */
 	pmap_paddr_t sptm_ops_pa;
@@ -1192,8 +1202,8 @@ typedef struct {
 	#define PMAP_SPTM_FLAG_ALTACCT (0x2)
 	uint8_t sptm_acct_flags[SPTM_MAPPING_LIMIT];
 
-	/* Retype epoch tracking structure. */
-	pmap_retype_epoch_t retype_epoch;
+	/* pmap epoch tracking structure. */
+	pmap_epoch_t pmap_epoch;
 
 	/* Guest virtual machine dispatch structure. */
 	sptm_guest_dispatch_t sptm_guest_dispatch;
@@ -1958,54 +1968,57 @@ ppattr_test_modfault(unsigned int pai)
 }
 
 /**
- * Retype epoch operations:
+ * pmap epoch operations:
  *
- * The retype epoch facility provides an SMR/RCU-like mechanism by which the SPTM pmap
- * can ensure all CPUs have observed updated mapping state before retyping a physical page.
+ * The pmap epoch facility provides an SMR/RCU-like mechanism by which the SPTM pmap
+ * can ensure all CPUs have observed updated mapping state before performing an operation
+ * such as a retype which requires that no other operations be in-flight against the
+ * prior mapping state.
  *
  * There are certain cases in which the pmap, while issuing an SPTM call that modifies
- * mappings, cannot hold locks such as the PVH lock which would prevent the page from
- * being concurrently retyped.  This is particularly true for batched operations such
- * as pmap_remove(), phys_attribute_clear_range(), and pmap_batch_set_cache_attributes().
- * In these cases, the pmap may call pmap_retype_epoch_enter() to note that it is
- * performing such a sensitive operation on the local CPU.  It must then call
- * pmap_retype_epoch_exit() upon completion of the sensitive operation.
+ * mappings, cannot hold locks such as the PVH lock which would prevent the mapped page
+ * from being concurrently retyped.  This is particularly true for batched operations
+ * such as pmap_remove(), phys_attribute_clear_range(), and pmap_batch_set_cache_attributes().
+ * In these cases, the pmap may call pmap_epoch_enter() to note that it is performing such
+ * a sensitive operation on the local CPU.  It must then call pmap_epoch_exit() upon
+ * completion of the sensitive operation.  While retyping is the most common case that
+ * requires epoch synchronization, there are a few other cases as well, such as marking
+ * a leaf page table as unnested so that all subsequent mappings in it will be non-global.
  *
- * Then, for any instance in which the pmap needs to retype a page without being
- * otherwise guaranteed (e.g. by VM layer locking or the existing page type) that such
- * a sensitive operation is not in progress on some other CPU, it must drain these
+ * For any instance in which the pmap needs to retype a page (or otherwise alter mapping
+ * policy) without being guaranteed (e.g. by VM layer locking or the existing page type)
+ * that such a sensitive operation is not in progress on some other CPU, it must drain these
  * sensitive operations from other CPUs.  Specifically, it must ensure that any
- * sensitive operation which may have observed prior mapping state of the page that
- * is to be retyped has completed.  This is accomplished by first calling
- * pmap_retype_epoch_prepare_drain() to record the initial retype epoch state of
- * all CPUs, followed by pmap_retype_epoch_drain() to ensure all remote CPUs are
- * either not in an epoch or have advanced beyond the initially recorded epoch.
- * These are exposed as two separate functions in order to allow the calling CPU
- * to do other work between calling pmap_retype_epoch_prepare_drain() and
- * pmap_retype_epoch_drain(), as a best-effort attempt to minimize time wasted
- * spinning in pmap_retype_epoch_drain().
+ * sensitive operation which may have observed mapping state under the prior mapping policy
+ * has completed.  This is accomplished by first calling pmap_epoch_prepare_drain() to
+ * record the initial pmap epoch state of all CPUs, followed by pmap_epoch_drain() to ensure
+ * all remote CPUs are either not in an epoch or have advanced beyond the initially recorded
+ * epoch. These are exposed as two separate functions in order to allow the calling CPU to
+ * do other work between calling pmap_epoch_prepare_drain() and pmap_epoch_drain(), as a
+ * best-effort attempt to minimize time wasted spinning in pmap_epoch_drain().
  *
- * When draining the retype epoch, the following assumptions must hold true:
+ * When draining the epoch, the following assumptions must hold true:
  *
- * 1) The calling thread must guarantee that prior updates needed to bring the page
- * into the correct mapping state for retyping have already been performed and made
- * globally visible using the appropriate barriers.  In most cases this means that
- * all existing mappings of the page must have been removed.  For any alterations
- * of mapping state, global visibility is conveniently already guaranteed by the
- * DSBs that are architecturally required to synchronize PTE updates and the TLBIs
- * that follow them.
+ * 1) The calling thread must guarantee that prior updates needed to apply the new mapping
+ * policy have already been performed and made globally visible using the appropriate
+ * barriers.  In the most common (retype) case, this means all existing mappings of the
+ * page must have been removed.  For any alterations of mapping state, global visibility is
+ * conveniently already guaranteed by the DSBs that are architecturally required to
+ * synchronize PTE updates and the TLBIs that follow them.
  *
- * 2) The calling thread must have some means of ensuring the new mappings cannot
- * be added for the page that would bring it out of the correct state for retyping.
- * This is typically done by holding the PVH lock and/or the exclusive pmap lock
- * such that pmap_enter() cannot concurrently execute against the page.
+ * 2) For operations that require exclusive in-flight page references such as retyping,
+ * the calling thread must have some means of ensuring that new mappings cannot be added
+ * for the page that would bring it out of the correct state for the operation, or that
+ * would cause an SPTM violation due to a shared/exclusive in-flight reference conflict.
+ * For retyping this is typically done by holding the PVH lock such that pmap_enter()
+ * cannot concurrently execute against the page.
  *
  * 3) The calling thread must not perform any operation which requires preemptibility
- * between calling pmap_retype_epoch_prepare_drain() and pmap_retype_epoch_drain().
+ * between calling pmap_epoch_prepare_drain() and pmap_epoch_drain().
  */
 
 /**
- * Enter the retype epoch on the local CPU to indicate an in-progress SPTM operation
+ * Enter the pmap epoch on the local CPU to indicate an in-progress SPTM operation
  * that may be sensitive to a concurrent retype operation on another CPU.
  *
  * @note This function increments the thread's preemption disable count and returns
@@ -2015,17 +2028,17 @@ ppattr_test_modfault(unsigned int pai)
  *       the epoch update relative to ensuing SPTM accesses.
  */
 static inline void
-pmap_retype_epoch_enter(void)
+pmap_epoch_enter(void)
 {
 	mp_disable_preemption();
-	pmap_retype_epoch_t *retype_epoch = &PERCPU_GET(pmap_sptm_percpu)->retype_epoch;
+	pmap_epoch_t *pmap_epoch = &PERCPU_GET(pmap_sptm_percpu)->pmap_epoch;
 	assert(!preemption_enabled());
 
-	/* Must not already been in a retype epoch on this CPU. */
-	assert(retype_epoch->local_seq == 0);
-	retype_epoch->local_seq = ++retype_epoch->next_seq;
+	/* Must not already been in a pmap epoch on this CPU. */
+	assert(pmap_epoch->local_seq == 0);
+	pmap_epoch->local_seq = ++pmap_epoch->next_seq;
 	/* Unsigned 64-bit per-CPU integer should never overflow on any human timescale. */
-	assert(retype_epoch->local_seq != 0);
+	assert(pmap_epoch->local_seq != 0);
 
 	/**
 	 * Issue a store-load barrier to ensure that remote observers of any ensuing
@@ -2035,25 +2048,25 @@ pmap_retype_epoch_enter(void)
 }
 
 /**
- * Exit the retype epoch on the local CPU to indicate completion of an SPTM operation
+ * Exit the pmap epoch on the local CPU to indicate completion of an SPTM operation
  * that may be sensitive to a concurrent retype operation on another CPU.
  *
  * @note This function must be called with preemption disabled and will decrement
  *       the current thread's preemption disable count.
  */
 static inline void
-pmap_retype_epoch_exit(void)
+pmap_epoch_exit(void)
 {
-	pmap_retype_epoch_t *retype_epoch = &PERCPU_GET(pmap_sptm_percpu)->retype_epoch;
+	pmap_epoch_t *pmap_epoch = &PERCPU_GET(pmap_sptm_percpu)->pmap_epoch;
 	assert(!preemption_enabled());
-	assert(retype_epoch->local_seq == retype_epoch->next_seq);
+	assert(pmap_epoch->local_seq == pmap_epoch->next_seq);
 
 	/**
 	 * Clear the sequence using a store-release operation to ensure that prior
 	 * SPTM modifications will be visible to remote observers before the absence
 	 * of an epoch is visible.
 	 */
-	os_atomic_store(&retype_epoch->local_seq, 0, release);
+	os_atomic_store(&pmap_epoch->local_seq, 0, release);
 	mp_enable_preemption();
 }
 
@@ -2065,7 +2078,7 @@ pmap_retype_epoch_exit(void)
 static inline bool
 pmap_in_epoch(void)
 {
-	return !preemption_enabled() && (PERCPU_GET(pmap_sptm_percpu)->retype_epoch.local_seq != 0);
+	return !preemption_enabled() && (PERCPU_GET(pmap_sptm_percpu)->pmap_epoch.local_seq != 0);
 }
 
 /**
@@ -2088,30 +2101,30 @@ pmap_in_epoch(void)
  *       thread_fence) before calling this function.
  */
 static inline void
-pmap_retype_epoch_prepare_drain(void)
+pmap_epoch_prepare_drain(void)
 {
 	mp_disable_preemption();
-	pmap_retype_epoch_t *retype_epoch = &PERCPU_GET(pmap_sptm_percpu)->retype_epoch;
-	assert(retype_epoch->flags == 0);
+	pmap_epoch_t *pmap_epoch = &PERCPU_GET(pmap_sptm_percpu)->pmap_epoch;
+	assert(pmap_epoch->flags == 0);
 	unsigned int i = 0;
-	uint8_t flags = PMAP_RETYPE_EPOCH_PREPARED;
+	uint8_t flags = PMAP_EPOCH_PREPARED;
 
 	/* Sample each CPU's epoch state. */
 	percpu_foreach(pmap_pcpu, pmap_sptm_percpu) {
 		const uint64_t remote_epoch =
-		    os_atomic_load(&pmap_pcpu->retype_epoch.local_seq, relaxed);
-		retype_epoch->remote_seq[i] = remote_epoch;
+		    os_atomic_load(&pmap_pcpu->pmap_epoch.local_seq, relaxed);
+		pmap_epoch->remote_seq[i] = remote_epoch;
 
 		/**
 		 * If the remote CPU has an active epoch, make a note to ourselves that
 		 * we'll need to drain it.
 		 */
 		if (remote_epoch != 0) {
-			flags |= PMAP_RETYPE_EPOCH_DRAIN_REQUIRED;
+			flags |= PMAP_EPOCH_DRAIN_REQUIRED;
 		}
 		++i;
 	}
-	retype_epoch->flags = flags;
+	pmap_epoch->flags = flags;
 
 	/**
 	 * Issue a load-load barrier to ensure subsequent drain or retype operations will
@@ -2122,12 +2135,12 @@ pmap_retype_epoch_prepare_drain(void)
 
 /**
  * Ensure that all CPUs have advanced beyond any active epoch that was recorded in the
- * most recent call to pmap_retype_epoch_prepare_drain().
+ * most recent call to pmap_epoch_prepare_drain().
  *
  * @note This function expects to be called with preemption disabled and will decrement
  *       the current thread's preemption disable count.
  *
- * @note pmap_retype_epoch_prepare_drain() must have been called on the local CPU
+ * @note pmap_epoch_prepare_drain() must have been called on the local CPU
  *       prior to calling this function.  This function will return immediately if
  *       this prior call did not observe any active epochs on remote CPUs.
  *
@@ -2135,28 +2148,28 @@ pmap_retype_epoch_prepare_drain(void)
  *       retype operation is not speculated ahead of the epoch sampling.
  */
 static inline void
-pmap_retype_epoch_drain(void)
+pmap_epoch_drain(void)
 {
 	assert(!preemption_enabled());
-	pmap_retype_epoch_t *retype_epoch = &PERCPU_GET(pmap_sptm_percpu)->retype_epoch;
-	const uint8_t flags = retype_epoch->flags;
-	assert(flags & PMAP_RETYPE_EPOCH_PREPARED);
-	retype_epoch->flags = 0;
-	if (!(flags & PMAP_RETYPE_EPOCH_DRAIN_REQUIRED)) {
+	pmap_epoch_t *pmap_epoch = &PERCPU_GET(pmap_sptm_percpu)->pmap_epoch;
+	const uint8_t flags = pmap_epoch->flags;
+	assert(flags & PMAP_EPOCH_PREPARED);
+	pmap_epoch->flags = 0;
+	if (!(flags & PMAP_EPOCH_DRAIN_REQUIRED)) {
 		mp_enable_preemption();
 		return;
 	}
 	unsigned int i = 0;
 	percpu_foreach(pmap_pcpu, pmap_sptm_percpu) {
-		if (retype_epoch->remote_seq[i] != 0) {
-			assert((pmap_pcpu->retype_epoch.local_seq == 0) ||
-			    (pmap_pcpu->retype_epoch.local_seq >= retype_epoch->remote_seq[i]));
+		if (pmap_epoch->remote_seq[i] != 0) {
+			assert((pmap_pcpu->pmap_epoch.local_seq == 0) ||
+			    (pmap_pcpu->pmap_epoch.local_seq >= pmap_epoch->remote_seq[i]));
 			/**
 			 * If the remote CPU was in an epoch, WFE-spin until it either exits the epoch
 			 * or advances to a new epoch.
 			 */
-			while ((os_atomic_load_exclusive(&pmap_pcpu->retype_epoch.local_seq, relaxed) ==
-			    retype_epoch->remote_seq[i])) {
+			while ((os_atomic_load_exclusive(&pmap_pcpu->pmap_epoch.local_seq, relaxed) ==
+			    pmap_epoch->remote_seq[i])) {
 				__builtin_arm_wfe();
 			}
 			/* Clear the monitor if we exclusive-loaded a value that didn't require WFE. */
@@ -2166,7 +2179,7 @@ pmap_retype_epoch_drain(void)
 	}
 	mp_enable_preemption();
 	/**
-	 * Issue a load-load barrier to ensure subsequent retype operations will
+	 * Issue a load-load barrier to ensure subsequent accesses to sensitive state will
 	 * not be speculated ahead of the sampling we just did.
 	 */
 	os_atomic_thread_fence(acquire);
@@ -2174,70 +2187,16 @@ pmap_retype_epoch_drain(void)
 
 /**
  * Helper to determine whether a frame type is one that requires automatic
- * retyping (by the pmap layer) back to XNU_DEFAULT when all mappings of the
- * page are gone.
+ * retyping (by the pmap layer) back to XNU_DEFAULT when the page is about
+ * to be recycled by the VM layer.
  *
  * @return true if the type requires auto-retyping, false otherwise.
  */
 static inline bool
-pmap_type_requires_retype_on_unmap(sptm_frame_type_t frame_type)
+pmap_type_requires_retype_on_recycle(sptm_frame_type_t frame_type)
 {
-	return (frame_type == XNU_USER_EXEC) || (frame_type == XNU_USER_DEBUG) ||
-	       (frame_type == XNU_USER_JIT) || (frame_type == XNU_ROZONE) ||
-	       (frame_type == XNU_KERNEL_RESTRICTED);
-}
-
-
-/**
- * If necessary, prepare a physical page for being retyped back to XNU_DEFAULT
- * after the last CPU mapping has been removed.  This is only needed for pages of
- * certain special types such as the various executable types and the kernel RO
- * zone type.
- *
- * @note The PVH lock for the physical page that is getting a new mapping
- *       registered must already be held.
- *
- * @param pa The physical address of the recently-unmapped page.
- *
- * @return true if the page will need to be retyped, false otherwise.
- */
-static inline bool
-pmap_prepare_unmapped_page_for_retype(pmap_paddr_t pa)
-{
-	pvh_assert_locked(pa_index(pa));
-	const sptm_frame_type_t frame_type = sptm_get_frame_type(pa);
-	if (__improbable(pmap_type_requires_retype_on_unmap(frame_type))) {
-		pmap_retype_epoch_prepare_drain();
-		return true;
-	}
-	return false;
-}
-
-/**
- * If necessary, retype a physical page back to XNU_DEFAULT after the last CPU
- * mapping has been removed.  This is only needed for pages of certain special
- * types such as the various executable types, the kernel RO zone type,
- * and XNU_KERNEL_RESTRICTED.
- *
- * @note The PVH lock for the physical page that is getting a new mapping
- *       registered must already be held.
- *
- * @param pa The physical address of the recently-unmapped page.
- *
- * @return true if the page needed to be retyped, false otherwise.
- */
-static inline bool
-pmap_retype_unmapped_page(pmap_paddr_t pa)
-{
-	pvh_assert_locked(pa_index(pa));
-	const sptm_frame_type_t frame_type = sptm_get_frame_type(pa);
-	if (__improbable(pmap_type_requires_retype_on_unmap(frame_type))) {
-		sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
-		pmap_retype_epoch_drain();
-		sptm_retype(pa & ~PAGE_MASK, frame_type, XNU_DEFAULT, retype_params);
-		return true;
-	}
-	return false;
+	return sptm_type_is_user_executable(frame_type) ||
+	       (frame_type == XNU_ROZONE) || (frame_type == XNU_KERNEL_RESTRICTED);
 }
 
 static inline boolean_t
@@ -2367,6 +2326,7 @@ extern pt_desc_t *ptd_alloc(pmap_t, unsigned int);
 extern void ptd_deallocate(pt_desc_t *);
 extern void ptd_info_init(
 	pt_desc_t *, pmap_t, vm_map_address_t, unsigned int, pt_entry_t *);
+extern void ptd_info_finalize(pt_desc_t *);
 
 extern kern_return_t pmap_ledger_credit(pmap_t, int, ledger_amount_t);
 extern kern_return_t pmap_ledger_debit(pmap_t, int, ledger_amount_t);
@@ -2382,11 +2342,14 @@ extern void validate_pmap_mutable_internal(const volatile struct pmap *, const c
 #define validate_pmap_mutable(x) validate_pmap_mutable_internal(x, __func__)
 
 /**
- * This structure describes a SPTM-owned I/O range.
+ * This structure describes a SPTM-owned physical memory range.
  *
- * @note This doesn't necessarily have to represent "I/O" only, this can also
- *       represent non-kernel-managed DRAM (e.g., iBoot carveouts). Any physical
- *       address region that isn't considered "kernel-managed" is fair game.
+ * @note This doesn't necessarily have to represent "I/O" only, this
+ *       can also represent non-kernel-managed DRAM (e.g., iBoot
+ *       carveouts). In some special cases, this can also represent
+ *       kernel-managed DRAM, when adding flags for special behavior
+ *       (e.g. the range being off limits for hibtext). Such ranges
+ *       must be marked with the PMAP_IO_RANGE_NOT_IO flag.
  *
  * @note The layout of this structure needs to map 1-to-1 with the pmap-io-range
  *       device tree nodes. Astris (through the LowGlobals) also depends on the
@@ -2402,16 +2365,34 @@ typedef struct pmap_io_range {
 	uint64_t len;
 
 	/* Strong DSB required for pages in this range. */
-	#define PMAP_IO_RANGE_STRONG_SYNC (1UL << 31)
+	#define PMAP_IO_RANGE_STRONG_SYNC (1U << 31)
 
 	/* Corresponds to memory carved out by bootloader. */
-	#define PMAP_IO_RANGE_CARVEOUT (1UL << 30)
+	#define PMAP_IO_RANGE_CARVEOUT (1U << 30)
 
-	/* Pages in this range need to be included in the hibernation image */
-	#define PMAP_IO_RANGE_NEEDS_HIBERNATING (1UL << 29)
+	/* Pages in this range need to be included in the hibernation image. */
+	#define PMAP_IO_RANGE_NEEDS_HIBERNATING (1U << 29)
 
-	/* Mark the range as 'owned' by a given subsystem */
-	#define PMAP_IO_RANGE_OWNED (1UL << 28)
+	/* Mark the range as 'owned' by a given subsystem. */
+	#define PMAP_IO_RANGE_OWNED (1U << 28)
+
+	/**
+	 * Denotes a range that is *not* to be treated as an I/O range that
+	 * needs to be mapped, but only to decorate arbitrary physical
+	 * memory ranges (including of managed memory) with extra
+	 * flags. I.e. this allows tagging of "ordinary" managed memory
+	 * pages with flags like `PMAP_IO_RANGE_PROHIBIT_HIB_WRITE`, or
+	 * informing the SPTM that some (nominally) managed memory pages are
+	 * unavailable for some reason.
+	 *
+	 * Notably, `pmap_find_io_attr()`, and anything else that uses
+	 * `pmap_io_range`s for denoting to-be-mapped I/O ranges, ignores
+	 * entries with this flag.
+	 */
+    #define PMAP_IO_RANGE_NOT_IO (1U << 27)
+
+	/* Pages in this range may never be written during hibernation restore. */
+	#define PMAP_IO_RANGE_PROHIBIT_HIB_WRITE (1U << 26)
 
 	/**
 	 * Lower 16 bits treated as pp_attr_t, upper 16 bits contain additional
@@ -2427,6 +2408,8 @@ typedef struct pmap_io_range {
 _Static_assert(sizeof(pmap_io_range_t) == 24, "unexpected size for pmap_io_range_t");
 
 extern pmap_io_range_t* pmap_find_io_attr(pmap_paddr_t);
+
+extern void pmap_range_iterate(bool (^step) (pmap_io_range_t const *));
 
 /**
  * This structure describes a sub-page-size I/O region owned by SPTM but the kernel can write to.
@@ -2452,3 +2435,57 @@ typedef struct pmap_io_filter_entry {
 _Static_assert(sizeof(pmap_io_filter_entry_t) == 8, "unexpected size for pmap_io_filter_entry_t");
 
 extern void pmap_cpu_data_init_internal(unsigned int);
+
+/**
+ * Convert a SURT PA to the containing SURT page's PA.
+ *
+ * @param surt_pa The SURT's physical addresss.
+ *
+ * @return The containing SURT page's PA.
+ */
+static inline pmap_paddr_t
+surt_page_pa_from_surt_pa(pmap_paddr_t surt_pa)
+{
+	return surt_pa & ~PAGE_MASK;
+}
+
+/**
+ * Given a SURT PA, get its index in the containing SURT page.
+ *
+ * @param surt_pa The PA of the SURT.
+ *
+ * @return The index of the SURT in the containing SURT page.
+ */
+static inline uint8_t
+surt_index_from_surt_pa(pmap_paddr_t surt_pa)
+{
+	return (uint8_t)((surt_pa & PAGE_MASK) / SUBPAGE_USER_ROOT_TABLE_SIZE);
+}
+
+/**
+ * Given a SURT page PA and an index, compute the PA of the associated SURT.
+ *
+ * @param surt_page_pa The PA of the SURT page.
+ * @param index THe index of the SURT in the SURT page.
+ *
+ * @return The computed PA of the SURT.
+ */
+static inline pmap_paddr_t
+surt_pa_from_surt_page_pa_and_index(pmap_paddr_t surt_page_pa, uint8_t index)
+{
+	assert((surt_page_pa & PAGE_MASK) == 0);
+	return surt_page_pa + index * SUBPAGE_USER_ROOT_TABLE_SIZE;
+}
+
+#if __ARM64_PMAP_SUBPAGE_L1__
+extern void surt_init(void);
+extern pmap_paddr_t surt_try_alloc(void);
+extern bool surt_free(pmap_paddr_t surt_pa);
+extern void surt_feed_page_with_first_table_allocated(pmap_paddr_t surt_page_pa);
+extern unsigned int surt_list_len(void);
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+
+#if DEBUG || DEVELOPMENT
+extern unsigned int pmap_wcrt_on_non_dram_count_get(void);
+extern void pmap_wcrt_on_non_dram_count_increment_atomic(void);
+#endif /* DEBUG || DEVELOPMENT */

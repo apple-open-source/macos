@@ -79,7 +79,7 @@ public:
     AddResult add(ValueArg* key)
     {
         // Constructing a Weak shouldn't trigger a GC but add this ASSERT for good measure.
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
         return m_set.add(key);
     }
 
@@ -88,7 +88,7 @@ public:
     {
         // If functor invokes GC, GC can prune WeakGCSet, and manipulate HashSet while we are touching it in the ensure function.
         // The functor must not invoke GC.
-        DisallowGC disallowGC;
+        AssertNoGC assertNoGC;
         
         auto result = m_set.template ensure<HashTranslator>(std::forward<T>(key), functor);
         return result.iterator->get();

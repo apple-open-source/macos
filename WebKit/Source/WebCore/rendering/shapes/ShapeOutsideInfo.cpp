@@ -39,6 +39,7 @@
 #include "RenderFragmentContainer.h"
 #include "RenderImage.h"
 #include "RenderView.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
@@ -164,7 +165,7 @@ Ref<const LayoutShape> makeShapeForShapeOutside(const RenderBox& renderer)
     case ShapeValue::Type::Box: {
         auto shapeRect = computeRoundedRectForBoxShape(shapeValue.effectiveCSSBox(), renderer);
         auto flipForWritingAndInlineDirection = [&] {
-            // FIXME: We should consider this moving to RoundedRect::transposedRect.
+            // FIXME: We should consider this moving to LayoutRoundedRect::transposedRect.
             if (!isHorizontalWritingMode) {
                 shapeRect = shapeRect.transposedRect();
                 auto radiiForBlockDirection = shapeRect.radii();
@@ -183,7 +184,7 @@ Ref<const LayoutShape> makeShapeForShapeOutside(const RenderBox& renderer)
     }
     }
     ASSERT_NOT_REACHED();
-    return LayoutShape::createBoxShape(RoundedRect { { } }, writingMode, 0);
+    return LayoutShape::createBoxShape(LayoutRoundedRect { { } }, writingMode, 0);
 }
 
 static inline bool checkShapeImageOrigin(Document& document, const StyleImage& styleImage)

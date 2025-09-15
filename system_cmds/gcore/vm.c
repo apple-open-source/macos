@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc.  All rights reserved.
+ * Copyright (c) 2024 Apple Inc.  All rights reserved.
  */
 
 #include "options.h"
@@ -16,126 +16,91 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <sys/queue.h>
+#include <sys/param.h>
 
 #include <mach-o/dyld_introspection.h>
 
 static __inline boolean_t
 in_shared_region(dyld_shared_cache_t sc, mach_vm_address_t addr)
 {
-    uint64_t base = dyld_shared_cache_get_base_address(sc);
-    uint64_t size = dyld_shared_cache_get_mapped_size(sc);
-    return addr >= base && addr < (base + size);
+    if (sc) {
+        const uint64_t base = dyld_shared_cache_get_base_address(sc);
+        const uint64_t size = dyld_shared_cache_get_mapped_size(sc);
+        return addr >= base && addr < (base + size);
+    }
+    return false;
+}
+
+boolean_t
+in_stack_tagged_region(const struct region *r)
+{
+    return r->r_info.user_tag == VM_MEMORY_STACK;
 }
 
 /*
- * On both x64 and arm, there's a globallly-shared
- * read-only page at _COMM_PAGE_START_ADDRESS
- * which low-level library routines reference.
+ * On both x64 and arm, there's a globally-shared, read-only area of
+ * _COMM_PAGE_AREA_LENGTH at _COMM_PAGE_START_ADDRESS which various
+ * low-level library routines use directly i.e. they have this address
+ * and offsets from it literally compiled into them.
  *
- * On x64, somewhere randomly chosen between _COMM_PAGE_TEXT_ADDRESS
- * and the top of the user address space, there's the
- * pre-emption-free-zone read-execute page.
+ * The purpose of forcing the commpage into a dump is to allow someone
+ * debugging an application's use of those libraries to know what data was
+ * present there when the dump was taken.
+ *
+ * (While it might be tempting to try and identify the commpage "automatically"
+ * via the attributes of the region that contains it, this doesn't work
+ * well on arm64 because of the fun and games the platform code plays in order
+ * to map the commpage globally. See also hack in new_region())
  */
 
 #include <System/machine/cpu_capabilities.h>
 
 static __inline boolean_t
-in_comm_region(const mach_vm_address_t addr, const vm_region_submap_info_data_64_t *info)
+in_comm_region(const mach_vm_address_t addr)
 {
     return addr >= _COMM_PAGE_START_ADDRESS &&
-        SM_TRUESHARED == info->share_mode &&
-        VM_INHERIT_SHARE == info->inheritance &&
-        !info->external_pager && (info->max_protection & VM_PROT_WRITE) == 0;
+        addr < _COMM_PAGE_START_ADDRESS + _COMM_PAGE_AREA_LENGTH;
 }
 
 static struct region *
 new_region(mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *infop, dyld_shared_cache_t sc)
 {
     struct region *r = calloc(1, sizeof (*r));
+    r->r_info = *infop;
+    r->r_purgable = VM_PURGABLE_DENY;
+
+#if defined(__arm64__)
+    // At the time of writing, the commpage lives at 0xf_ffff_c000 at
+    // the end of a 1GiB read-none segment that starts at 0xf_c000_0000
+    if (vmaddr <= _COMM_PAGE_START_ADDRESS &&
+        vmaddr + vmsize >= _COMM_PAGE_START_ADDRESS + _COMM_PAGE_AREA_LENGTH) {
+        // Rewrite the region to describe only the globally shared page
+        // to be dumped. Note that we map the contents of the commpage of
+        // *this* process in map_memory_range(), since it's, er.. common.
+        vmaddr = _COMM_PAGE_START_ADDRESS;
+        vmsize = roundup(_COMM_PAGE_AREA_LENGTH, (1u << pageshift_host));
+        r->r_info.protection = r->r_info.max_protection = VM_PROT_READ;
+    }
+#endif
+
     assert(vmaddr != 0 && vmsize != 0);
     R_SETADDR(r, vmaddr);
     R_SETSIZE(r, vmsize);
-    r->r_info = *infop;
-    r->r_purgable = VM_PURGABLE_DENY;
+
     r->r_insharedregion = in_shared_region(sc, vmaddr);
-    r->r_incommregion = in_comm_region(vmaddr, &r->r_info);
-    r->r_inzfodregion = in_zfod_region(&r->r_info);
+    r->r_incommregion = in_comm_region(vmaddr);
+    r->r_op = &vanilla_ops;
 
-    if (r->r_inzfodregion)
-        r->r_op = &zfod_ops;
-    else
-        r->r_op = &vanilla_ops;
     return r;
-}
-
-void
-rop_fileref_delete(struct region *r)
-{
-    assert(&fileref_ops == r->r_op);
-    /* r->r_fileref->fr_libent is a reference into the name table */
-    poison(r->r_fileref, 0xdeadbee9, sizeof (*r->r_fileref));
-    free(r->r_fileref);
-    poison(r, 0xdeadbeeb, sizeof (*r));
-    free(r);
-}
-
-void
-rop_zfod_delete(struct region *r)
-{
-    assert(&zfod_ops == r->r_op);
-    assert(r->r_inzfodregion && 0 == r->r_nsubregions);
-    assert(NULL == r->r_fileref);
-    poison(r, 0xdeadbeed, sizeof (*r));
-    free(r);
 }
 
 void
 rop_vanilla_delete(struct region *r)
 {
     assert(&vanilla_ops == r->r_op);
-    assert(!r->r_inzfodregion && 0 == r->r_nsubregions);
-    assert(NULL == r->r_fileref);
+    assert(0 == r->r_nsubregions);
     poison(r, 0xdeadbeef, sizeof (*r));
     free(r);
-}
-
-/*
- * "does any part of this address range match the tag?"
- */
-int
-is_tagged(task_t task, mach_vm_offset_t addr, mach_vm_offset_t size, unsigned tag)
-{
-    mach_vm_offset_t vm_addr = addr;
-    mach_vm_offset_t vm_size = 0;
-    natural_t depth = 0;
-    size_t pgsize = (1u << pageshift_host);
-
-    do {
-        mach_msg_type_number_t count = VM_REGION_SUBMAP_INFO_COUNT_64;
-        vm_region_submap_info_data_64_t info;
-
-        kern_return_t ret = mach_vm_region_recurse(task, &vm_addr, &vm_size, &depth, (vm_region_recurse_info_t)&info, &count);
-
-        if (KERN_FAILURE == ret) {
-            err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            return -1;
-        } else if (KERN_INVALID_ADDRESS == ret) {
-            err_mach(ret, NULL, "invalid address at %llx", vm_addr);
-            return -1;
-        } else if (KERN_SUCCESS != ret) {
-            err_mach(ret, NULL, "error inspecting task at %llx", vm_addr);
-            return -1;
-        }
-        if (info.is_submap) {
-            depth++;
-            continue;
-        }
-        if (info.user_tag == tag)
-            return 1;
-        if (vm_addr + vm_size > addr + size)
-            return 0;
-        vm_addr += pgsize;
-    } while (1);
 }
 
 STAILQ_HEAD(regionhead, region);
@@ -206,19 +171,13 @@ recursively_walk_regions(task_t task, struct regionhead *rhead, const natural_t 
 #ifdef CONFIG_SUBMAP
         r->r_depth = current_depth;
 #endif
-        /* grab the page info of the first page in the mapping */
-
-        mach_msg_type_number_t pageinfoCount = VM_PAGE_INFO_BASIC_COUNT;
-        ret = mach_vm_page_info(task, R_ADDR(r), VM_PAGE_INFO_BASIC, (vm_page_info_t)&r->r_pageinfo, &pageinfoCount);
-        if (KERN_SUCCESS != ret)
-            err_mach(ret, r, "getting pageinfo at %llx", R_ADDR(r));
 
         /* record the purgability */
 
         ret = mach_vm_purgable_control(task, vm_addr, VM_PURGABLE_GET_STATE, &r->r_purgable);
-        if (KERN_SUCCESS != ret)
+        if (KERN_SUCCESS != ret) {
             r->r_purgable = VM_PURGABLE_DENY;
-
+        }
         STAILQ_INSERT_TAIL(rhead, r, r_linkage);
 
         vm_addr += vm_size;
@@ -228,8 +187,6 @@ recursively_walk_regions(task_t task, struct regionhead *rhead, const natural_t 
 static int
 walk_regions(task_t task, struct regionhead *rhead, bool force_all_regions)
 {
-    dyld_shared_cache_t sc = NULL;
-    dyld_process_t process = NULL;
     dyld_process_snapshot_t snapshot = NULL;
     kern_return_t ret = KERN_SUCCESS;
     int retval = EX_OSERR;
@@ -239,19 +196,43 @@ walk_regions(task_t task, struct regionhead *rhead, bool force_all_regions)
         print_memory_region_header();
 	}
 
-    process = dyld_process_create_for_task(task, &ret);
+    dyld_process_t process = dyld_process_create_for_task(task, &ret);
     if (KERN_SUCCESS != ret) {
         err_mach(ret, NULL, "dyld_process_create_for_task()");
         goto done;
     }
+
     snapshot = dyld_process_snapshot_create_for_process(process, &ret);
+    dyld_process_dispose(process);
     if (KERN_SUCCESS != ret) {
         err_mach(ret, NULL, "dyld_process_snapshot_create_for_process()");
         goto done;
     }
-    sc = dyld_process_snapshot_get_shared_cache(snapshot);
 
-    /* use phys fooptrint accounting when collecting region info so we find the
+    /*
+     * Processes that have not yet loaded dyld will fail to create a
+     * snapshot but have no error, which we treat as success - we just
+     * pass along a null shared cache handle to e.g. in_shared_region()
+     * which will report all regions as not-the-shared-cache as a result.
+     */
+    dyld_shared_cache_t sc = NULL;
+    if (snapshot &&
+        (sc = dyld_process_snapshot_get_shared_cache(snapshot)) == NULL) {
+        /*
+         * But if there is a snapshot, but (seemingly) no shared cache, bail
+         * for now, since there seem to be circumstances with corpses
+         * where the shared cache is fully present in the target, but not
+         * returned (via this API) when the target is a corpse -- seemingly
+         * depending on who's asking e.g. the GCoreFramework XCTest (fails)
+         * vs. a standalone C programs (works).
+         *
+         * XXX Investigate further!
+         */
+        os_log_error(glog, "fatal: dyld_process_snapshot_get_shared_cache() NULL");
+        goto done;
+    }
+
+    /* use phys footprint accounting when collecting region info so we find the
      * "owned unmapped memory"
      */
     set_collect_phys_footprint(true);
@@ -262,11 +243,9 @@ walk_regions(task_t task, struct regionhead *rhead, bool force_all_regions)
     set_collect_phys_footprint(false);
 
 done:
-    if (snapshot)
+    if (snapshot) {
         dyld_process_snapshot_dispose(snapshot);
-    if (process)
-        dyld_process_dispose(process);
-
+    }
     return retval;
 }
 
@@ -350,29 +329,30 @@ setpageshift(void)
 void
 print_memory_region_header(void)
 {
-    printf("%-33s %c %-7s %-7s %8s %16s ",
-           "Address Range", 'S', "Size", "Cur/Max", "Obj32", "FirstPgObjectID");
+    printf("%-33s %c %-7s %-7s %8s ",
+           "Address Range", 'S', "Size", "Cur/Max", "Obj32");
     printf("%9s %-3s %-11s %5s ",
            "Offset", "Tag", "Mode", "Refc");
 #ifdef CONFIG_SUBMAP
     printf("%5s ", "Depth");
 #endif
-    printf("%5s %5s %5s %3s ",
-           "Res", "SNP", "Dirty", "Pgr");
+    printf("%5s %5s %5s %5s %3s ",
+           "Res", "SNP", "Swap", "Dirty", "Pgr");
     printf("\n");
 }
 
 static __inline char
 region_type(const struct region *r)
 {
-    if (r->r_fileref)
-        return 'f';
-    if (r->r_inzfodregion)
-        return 'z';
-    if (r->r_incommregion)
+    if (r->r_incommregion) {
         return 'c';
-    if (r->r_insharedregion)
+    }
+    if (r->r_insharedregion) {
         return 's';
+    }
+    if (((r->r_info.protection | r->r_info.max_protection) & VM_PROT_READ) == 0) {
+        return 'u';
+    }
     return ' ';
 }
 
@@ -382,17 +362,16 @@ print_memory_region(const struct region *r)
     hsize_str_t hstr;
     tag_str_t tstr;
 
-    printf("%016llx-%016llx %c %-7s %s/%s %8x %16llx ",
+    printf("%016llx-%016llx %c %-7s %s/%s %8x ",
            R_ADDR(r), R_ENDADDR(r), region_type(r),
            str_hsize(hstr, R_SIZE(r)),
            str_prot(r->r_info.protection),
            str_prot(r->r_info.max_protection),
-           r->r_info.object_id, r->r_pageinfo.object_id
+           r->r_info.object_id
            );
 
     printf("%9lld %3d %-11s %5u ",
-           r->r_info.external_pager ?
-           r->r_pageinfo.offset : r->r_info.offset,
+           r->r_info.offset,
            r->r_info.user_tag,
            str_shared(r->r_info.share_mode),
            r->r_info.ref_count
@@ -402,32 +381,25 @@ print_memory_region(const struct region *r)
 #endif
 
     if (!r->r_info.is_submap) {
-        printf("%5u %5u %5u %3s ",
+        printf("%5u %5u %5u %5u %3s %s\n",
                r->r_info.pages_resident,
                r->r_info.pages_shared_now_private,
+               r->r_info.pages_swapped_out,
                r->r_info.pages_dirtied,
-               r->r_info.external_pager ? "ext" : "");
-		if (r->r_fileref)
-            printf("\n    %s at %lld ",
-                   r->r_fileref->fr_pathname,
-                   r->r_fileref->fr_offset);
-		else
-			printf("%s", str_tagr(tstr, r));
-        printf("\n");
+               r->r_info.external_pager ? "ext" : "-  ", str_tag(tstr, r));
         if (r->r_nsubregions) {
-            printf("    %-33s %7s %12s\t%s\n",
-                   "Address Range", "Size", "Type(s)", "Filename(s)");
+            printf("    %-33s %7s %5s\n",
+                   "Address Subrange", "Size", "Type");
             for (unsigned i = 0; i < r->r_nsubregions; i++) {
                 struct subregion *s = r->r_subregions[i];
-                printf("    %016llx-%016llx %7s %12s\t%s\n",
+                printf("    %016llx-%016llx %7s %5s\n",
                        S_ADDR(s), S_ENDADDR(s),
                        str_hsize(hstr, S_SIZE(s)),
-                       S_MACHO_TYPE(s),
-                       S_FILENAME(s));
+                       S_TYPE(s) == SR_CLEAN ? "clean" : "data");
             }
         }
-	} else {
-		printf("%5s %5s %5s %3s %s\n", "", "", "", "", str_tagr(tstr, r));
+    } else {
+        printf("%5s %5s %5s %5s %3s %s\n", "", "", "", "", "", str_tag(tstr, r));
     }
 }
 
@@ -450,7 +422,7 @@ print_one_memory_region(const struct region *r)
  * The reported size of a mapping to a file object gleaned from
  * mach_vm_region_recurse() can exceed the underlying size of the file.
  * If we attempt to write out the full reported size, we find that we
- * error (EFAULT) or if we compress it, we die with the SIGBUS.
+ * error (EFAULT) or if we generate a reference to it, we die with SIGBUS.
  *
  * See rdar://23744374
  *
@@ -461,16 +433,16 @@ bool
 is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvmsize)
 {
     if (!r->r_info.external_pager ||
-        (r->r_info.max_protection & VM_PROT_READ) == VM_PROT_NONE)
+        (r->r_info.max_protection & VM_PROT_READ) == VM_PROT_NONE) {
         return true;
+    }
 
     const size_t pagesize_host = 1ul << pageshift_host;
-    const unsigned filepages = r->r_info.pages_resident +
-    r->r_info.pages_swapped_out;
+    const unsigned filepages = r->r_info.pages_resident + r->r_info.pages_swapped_out;
 
-    if (pagesize_host * filepages == R_SIZE(r))
+    if (pagesize_host * filepages == R_SIZE(r)) {
         return true;
-
+    }
     /*
      * Verify that the last couple of host-pagesize pages
      * of a file backed mapping are actually pageable in the
@@ -484,9 +456,9 @@ is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvm
 
         const mach_vm_address_t taddress =
         R_ENDADDR(r) - pagesize_host * (npage + 1);
-        if (taddress < R_ADDR(r) || taddress >= R_ENDADDR(r))
+        if (taddress < R_ADDR(r) || taddress >= R_ENDADDR(r)) {
             break;
-
+        }
         mach_msg_type_number_t pCount = VM_PAGE_INFO_BASIC_COUNT;
         vm_page_info_basic_data_t pInfo;
 
@@ -500,8 +472,9 @@ is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvm
          * If this page has been in memory before, assume it can
          * be brought back again
          */
-        if (pInfo.disposition & (VM_PAGE_QUERY_PAGE_PRESENT | VM_PAGE_QUERY_PAGE_REF | VM_PAGE_QUERY_PAGE_DIRTY | VM_PAGE_QUERY_PAGE_PAGED_OUT))
+        if (pInfo.disposition & (VM_PAGE_QUERY_PAGE_PRESENT | VM_PAGE_QUERY_PAGE_REF | VM_PAGE_QUERY_PAGE_DIRTY | VM_PAGE_QUERY_PAGE_PAGED_OUT)) {
             continue;
+        }
 
         /*
          * Force the page to be fetched to see if it faults
@@ -526,20 +499,4 @@ is_actual_size(const task_t task, const struct region *r, mach_vm_size_t *hostvm
     return R_SIZE(r) == *hostvmsize;
 }
 
-#endif
-/*
- * Public function to insert a region computed externally, normally from the
- * mach-o header of dylds when using a skinny coredump
- */
-struct region *
-vm_insert_region(struct regionhead *rhead,mach_vm_offset_t vmaddr, mach_vm_size_t vmsize, const vm_region_submap_info_data_64_t *info, dyld_shared_cache_t sc)
-{
-    struct region *d = NULL;
-
-    d = new_region(vmaddr, vmsize, info, sc);
-    if (d!=NULL) {
-        STAILQ_INSERT_TAIL(rhead, d, r_linkage);
-
-    }
-    return d;
-}
+#endif /* RDAR_23744374 */

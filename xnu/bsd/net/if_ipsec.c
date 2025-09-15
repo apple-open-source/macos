@@ -539,7 +539,7 @@ ipsec_nexus_connected(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 {
 #pragma unused(nxprov, channel)
 	struct ipsec_pcb *__single pcb = kern_nexus_get_context(nexus);
-	boolean_t ok = ifnet_is_attached(pcb->ipsec_ifp, 1);
+	boolean_t ok = ifnet_get_ioref(pcb->ipsec_ifp);
 	/* Mark the data path as ready */
 	if (ok) {
 		lck_mtx_lock(&pcb->ipsec_pcb_data_move_lock);
@@ -1870,7 +1870,7 @@ ipsec_nexus_ifattach(struct ipsec_pcb *pcb,
 
 	bzero(&pp_init, sizeof(pp_init));
 	pp_init.kbi_version = KERN_PBUFPOOL_CURRENT_VERSION;
-	pp_init.kbi_flags |= KBIF_VIRTUAL_DEVICE;
+	pp_init.kbi_flags |= (KBIF_VIRTUAL_DEVICE | KBIF_USER_ACCESS);
 	// Note: we need more packets than can be held in the tx and rx rings because
 	// packets can also be in the AQM queue(s)
 	pp_init.kbi_packets = pcb->ipsec_netif_ring_size * (2 * pcb->ipsec_kpipe_count + 1);
@@ -2359,13 +2359,12 @@ ipsec_enable_channel(struct ipsec_pcb *pcb, struct proc *proc)
 
 	bzero(&pp_init, sizeof(pp_init));
 	pp_init.kbi_version = KERN_PBUFPOOL_CURRENT_VERSION;
-	pp_init.kbi_flags |= KBIF_VIRTUAL_DEVICE;
+	pp_init.kbi_flags |= (KBIF_VIRTUAL_DEVICE | KBIF_USER_ACCESS);
 	// Note: We only needs are many packets as can be held in the tx and rx rings
 	pp_init.kbi_packets = pcb->ipsec_netif_ring_size * 2 * pcb->ipsec_kpipe_count;
 	pp_init.kbi_bufsize = pcb->ipsec_slot_size;
 	pp_init.kbi_buf_seg_size = IPSEC_IF_DEFAULT_BUF_SEG_SIZE;
 	pp_init.kbi_max_frags = 1;
-	pp_init.kbi_flags |= KBIF_QUANTUM;
 	(void) snprintf((char *)pp_init.kbi_name, sizeof(pp_init.kbi_name),
 	    "com.apple.kpipe.%s", pcb->ipsec_if_xname);
 	pp_init.kbi_ctx = NULL;

@@ -32,6 +32,7 @@
 #ifdef PRIVATE
 
 #include <sys/types.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/proc.h>
 #include <sys/queue.h>
@@ -71,19 +72,40 @@ union in_addr_4_6 {
 	struct in6_addr _in_a_6;
 };
 
-#define NPIF_IPV4       0x0001
-#define NPIF_IPV6       0x0002
-#define NPIF_TCP        0x0004
-#define NPIF_UDP        0x0008
-#define NPIF_DELEGATED  0x0010
-#define NPIF_SOCKET     0x0020
-#define NPIF_CHANNEL    0x0040
-#define NPIF_LISTEN     0x0080
-#define NPIF_WAKEPKT    0x0100
-#define NPIF_NOWAKE     0x0200  /* flow marked with SO_NOWAKEFROMSLEEP are normally excluded */
-#define NPIF_FRAG       0x0400  /* packet is pure fragment (i.e. no src and dst port) */
-#define NPIF_ESP        0x0800  /* for logging only */
-#define NPIF_COMPLINK   0x1000  /* interface is companion link */
+#define NPIF_IPV4               0x0001
+#define NPIF_IPV6               0x0002
+#define NPIF_TCP                0x0004
+#define NPIF_UDP                0x0008
+#define NPIF_DELEGATED          0x0010
+#define NPIF_SOCKET             0x0020
+#define NPIF_CHANNEL            0x0040
+#define NPIF_LISTEN             0x0080
+#define NPIF_WAKEPKT            0x0100
+#define NPIF_NOWAKE             0x0200
+#define NPIF_FRAG               0x0400
+#define NPIF_ESP                0x0800
+#define NPIF_COMPLINK           0x1000
+#define NPIF_CONNECTION_IDLE    0x2000
+#define NPIF_LPW                0x4000
+#define NPIF_DELAYWAKEPKTEVENT  0x8000
+
+#define NPI_FLAGS_TABLE(x) \
+	X(NPIF_IPV4,               "4", "IPv4 flow") \
+	X(NPIF_IPV6,               "6", "IPv6 flow") \
+	X(NPIF_TCP,                "T", "TCP flow") \
+	X(NPIF_UDP,                "U", "UDP flow") \
+	X(NPIF_DELEGATED,          "D", "process delegated") \
+	X(NPIF_SOCKET,             "S", "socket flow") \
+	X(NPIF_CHANNEL,            "C", "channel") \
+	X(NPIF_LISTEN,             "L", "listening flow") \
+	X(NPIF_WAKEPKT,            "W", "wake packet") \
+	X(NPIF_NOWAKE,             "N", "flow marked with NOWAKEFROMSLEEP") \
+	X(NPIF_FRAG,               "F", "packet is pure fragment") \
+	X(NPIF_ESP,                "E", "ESP packet") \
+	X(NPIF_COMPLINK,           "c", "interface is companion link") \
+	X(NPIF_CONNECTION_IDLE,    "i", "flow connection is idle") \
+	X(NPIF_LPW,                "l", "packet received in low power wake") \
+	X(NPIF_DELAYWAKEPKTEVENT,  "d", "delayed wake packet attribution")
 
 #define NPI_HAS_EFFECTIVE_UUID 1
 
@@ -178,7 +200,7 @@ struct npi_if_info {
 #define NPICF_NOWAKE  0x1000
 
 /*
- * struct net_port_info_una_wake_event is the event data for KEV_POWER_WAKE_PACKE
+ * struct net_port_info_wake_event is the event data for KEV_POWER_WAKE_PACKET
  *
  * See <net/if_private.h> for definiton of values of these kinds of fields:
  *  - xxx_if_family             IFRTYPE_FAMILY_YYY
@@ -250,7 +272,7 @@ struct net_port_info_una_wake_event {
 	struct npi_if_info  una_wake_pkt_phy_if_info; /* outer-most interface of wake packet */
 };
 
-#define IFPU_HAS_MATCH_WAKE_PKT_NO_FLAG 1 /* ifpu_match_wake_pkt_no_flag is defined */
+#define IFPU_HAS_DELAY_WAKE_EVENT_FIELDS 1 /* ifpu_delay_phy_wake_pkt and co are defined */
 
 #define IF_PORTS_USED_STATS_LIST \
 	X(uint64_t, ifpu_wakeuid_gen, "wakeuuid generation%s", "", "s") \
@@ -284,10 +306,19 @@ struct net_port_info_una_wake_event {
 	X(uint64_t, ifpu_incomplete_udp_hdr_pkt, "packet%s with incomplete UDP header", "", "s") \
 	X(uint64_t, ifpu_npi_not_added_no_wakeuuid, "port entr%s not added with wakeuuid not set", "y", "ies") \
 	X(uint64_t, ifpu_deferred_isakmp_natt_wake_pkt, "deferred matching of ISAKMP NAT traversal wake packet%s", "", "s") \
-	X(uint64_t, ifpu_spurious_wake_event, "spurious wake packet event%s", "", "s") \
+	X(uint64_t, ifpu_spurious_wake_event, "spurious no wake from sleep packet event%s", "", "s") \
 	X(uint64_t, ifpu_delayed_attributed_wake_event, "delayed attributed wake packet event%s", "", "s") \
 	X(uint64_t, ifpu_delayed_unattributed_wake_event, "delayed unattributed wake packet event%s", "", "s") \
-	X(uint64_t, ifpu_delayed_wake_event_undelivered, "undelivered delayed wake packet event%s", "", "s")
+	X(uint64_t, ifpu_delayed_wake_event_undelivered, "undelivered delayed wake packet event%s", "", "s") \
+	X(uint64_t, ifpu_connection_idle_wake, "connection idle wake%s", "", "s") \
+	X(uint64_t, ifpu_lpw_connection_idle_wake, "LPW connection idle wake%s", "", "s") \
+	X(uint64_t, ifpu_lpw_not_idle_wake, "LPW not idle connection wake%s", "", "s") \
+	X(uint64_t, ifpu_lpw_to_full_wake, "LPW to full wake transition%s", "", "s") \
+	X(uint64_t, ifpu_ignored_phy_wake_pkt, "ignored wake packet%s in same wake cycle", "", "s") \
+	X(uint64_t, ifpu_delay_phy_wake_pkt, "delayed wake packet%s", "", "s") \
+	X(uint64_t, ifpu_ignored_delayed_attributed_events, "ignored delayed attributed event%s", "", "s") \
+	X(uint64_t, ifpu_ignored_delayed_unattributed_events, "ignored delayed unattributed event%s", "", "s") \
+	X(uint64_t, ifpu_wake_pkt_event_notify_in_vain, "wake pkt event notifications%s in vain", "", "s")
 
 struct if_ports_used_stats {
 #define X(_type, _field, ...) _type _field;
@@ -296,6 +327,10 @@ struct if_ports_used_stats {
 };
 
 #ifdef XNU_KERNEL_PRIVATE
+
+#include <os/log.h>
+
+extern os_log_t wake_packet_log_handle;
 
 extern int if_ports_used_verbose;
 
@@ -317,7 +352,18 @@ void if_ports_used_match_pkt(struct ifnet *ifp, struct __kern_packet *pkt);
 void if_ports_used_match_mbuf(struct ifnet *ifp, protocol_family_t proto_family,
     struct mbuf *m);
 
+void init_inband_wake_pkt_tagging_for_family(struct ifnet *ifp);
+
+#if (DEBUG | DEVELOPMENT)
+bool check_wake_mbuf(ifnet_t ifp, protocol_family_t protocol_family, mbuf_ref_t m);
+bool check_wake_pkt(ifnet_t ifp, struct __kern_packet *pkt);
+#endif /* (DEBUG | DEVELOPMENT) */
+
+bool if_is_lpw_enabled(struct ifnet *);
+void if_exit_lpw(struct ifnet *ifp, const char *lpw_exit_reason);
+
 #endif /* XNU_KERNEL_PRIVATE */
 #endif /* PRIVATE */
+
 
 #endif /* _NET_IF_PORT_USED_H_ */

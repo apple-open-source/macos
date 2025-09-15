@@ -84,7 +84,7 @@ skt_pllupipe_txk_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_TX_RING);
@@ -110,7 +110,7 @@ skt_pllupipe_txs_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_TX_RING);
@@ -136,7 +136,7 @@ skt_pllupipe_txp_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_TX_RING);
@@ -162,7 +162,7 @@ skt_pllupipe_rxk_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);
@@ -188,7 +188,7 @@ skt_pllupipe_rxs_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);
@@ -214,7 +214,7 @@ skt_pllupipe_rxp_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ringid = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);

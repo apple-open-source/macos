@@ -45,6 +45,7 @@ public:
 
     FrameInfo* sourceFrame() const { return m_sourceFrame.get(); }
     FrameInfo* targetFrame() const { return m_targetFrame.get(); }
+    RefPtr<FrameInfo> protectedTargetFrame() const { return m_targetFrame; }
     const WTF::String& targetFrameName() const { return m_targetFrameName; }
 
     const WebCore::ResourceRequest& request() const { return m_request; }
@@ -63,15 +64,17 @@ public:
     bool shouldOpenAppLinks() const { return m_shouldOpenAppLinks && m_navigationActionData.shouldOpenExternalURLsPolicy == WebCore::ShouldOpenExternalURLsPolicy::ShouldAllow; }
     bool shouldPerformDownload() const { return !m_navigationActionData.downloadAttribute.isNull(); }
     bool isRedirect() const { return !m_navigationActionData.redirectResponse.isNull(); }
-    bool isContentExtensionRedirect() const { return m_navigationActionData.isContentExtensionRedirect; }
+    bool isContentRuleListRedirect() const { return m_navigationActionData.isContentRuleListRedirect; }
     bool hasOpener() const { return m_navigationActionData.hasOpener; }
     WebCore::ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy() const { return m_navigationActionData.shouldOpenExternalURLsPolicy; }
 
     bool isProcessingUserGesture() const { return m_userInitiatedAction; }
     bool isProcessingUnconsumedUserGesture() const { return m_userInitiatedAction && !m_userInitiatedAction->consumed(); }
     UserInitiatedAction* userInitiatedAction() const { return m_userInitiatedAction.get(); }
+    RefPtr<UserInitiatedAction> protectedUserInitiatedAction() const { return m_userInitiatedAction; }
 
     Navigation* mainFrameNavigation() const { return m_mainFrameNavigation.get(); }
+    RefPtr<Navigation> protectedMainFrameNavigation() const { return m_mainFrameNavigation; }
 
 #if HAVE(APP_SSO)
     bool shouldPerformSOAuthorization() { return m_shouldPerformSOAuthorization; }
@@ -121,3 +124,5 @@ private:
 };
 
 } // namespace API
+
+SPECIALIZE_TYPE_TRAITS_API_OBJECT(NavigationAction);

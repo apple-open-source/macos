@@ -66,6 +66,11 @@ std::optional<bool> WebXRSpace::isPositionEmulated() const
     return xrSession->isPositionEmulated();
 }
 
+ScriptExecutionContext* WebXRSpace::scriptExecutionContext() const
+{
+    return ContextDestructionObserver::scriptExecutionContext();
+}
+
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(WebXRViewerSpace);
 
 WebXRViewerSpace::WebXRViewerSpace(Document& document, WebXRSession& session)

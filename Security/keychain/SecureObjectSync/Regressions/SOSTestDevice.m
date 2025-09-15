@@ -157,7 +157,7 @@ SOSTestDeviceRef SOSTestDeviceCreateWithDb(CFAllocatorRef allocator, CFStringRef
 SOSTestDeviceRef SOSTestDeviceCreateWithDbNamed(CFAllocatorRef allocator, CFStringRef engineID, CFStringRef dbName) {
     CFURLRef url = SecCopyURLForFileInKeychainDirectory(dbName);
     CFStringRef path = CFURLCopyFileSystemPath(url, kCFURLPOSIXPathStyle);
-    SecDbRef db = SecKeychainDbCreate(path, NULL);
+    SecDbRef db = SecServerKeychainDbCreate(path, NULL);
     SOSTestDeviceRef td = SOSTestDeviceCreateWithDb(allocator, engineID, db);
     CFReleaseSafe(db);
     CFReleaseSafe(path);

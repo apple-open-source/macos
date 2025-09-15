@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,17 +28,25 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "BasicCredential.h"
-#include "IDLTypes.h"
-#include "IdentityCredentialProtocol.h"
-#include <wtf/RefCounted.h>
+#include "DigitalCredentialsProtocols.h"
+#include "DigitalCredentialsRequestData.h"
+#include "JSDOMPromiseDeferred.h"
+#include "JSDOMPromiseDeferredForward.h"
+#include "UnvalidatedDigitalCredentialRequest.h"
+#include <JavaScriptCore/Strong.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class DigitalCredential;
+class Document;
+enum class IdentityCredentialProtocol : uint8_t;
+struct CredentialRequestOptions;
+struct DigitalCredentialRequest;
+struct DigitalCredentialRequestOptions;
 template<typename IDLType> class DOMPromiseDeferred;
+template<typename> class ExceptionOr;
 
-using DigitalCredentialPromise = DOMPromiseDeferred<IDLInterface<DigitalCredential>>;
+using CredentialPromise = DOMPromiseDeferred<IDLNullable<IDLInterface<BasicCredential>>>;
 
 class DigitalCredential final : public BasicCredential {
 public:
@@ -56,8 +64,19 @@ public:
         return m_protocol;
     }
 
+    static void discoverFromExternalSource(const Document&, CredentialPromise&&, CredentialRequestOptions&&);
+
+    static bool userAgentAllowsProtocol(const String& protocol)
+    {
+        return protocol == "org-iso-mdoc"_s;
+    }
+
 private:
     DigitalCredential(JSC::Strong<JSC::JSObject>&&, IdentityCredentialProtocol);
+
+    static ExceptionOr<Vector<ValidatedDigitalCredentialRequest>> validateRequests(const Document&, Vector<UnvalidatedDigitalCredentialRequest>&&);
+    static ExceptionOr<Vector<UnvalidatedDigitalCredentialRequest>> convertObjectsToDigitalPresentationRequests(const Document&, const Vector<DigitalCredentialRequest>&);
+    static bool parseResponseData(RefPtr<Document>, const String&, JSC::JSObject*&);
 
     Type credentialType() const final { return Type::DigitalCredential; }
 

@@ -1789,7 +1789,6 @@ retry:
 		NAME_CACHE_LOCK_SHARED();
 		locked = true;
 	}
-	ndp->ni_flag &= ~(NAMEI_TRAILINGSLASH);
 
 	dmp = dp->v_mount;
 	vid = dp->v_id;
@@ -1851,6 +1850,15 @@ retry:
 
 		if (cnp->cn_namelen == 2 && cnp->cn_nameptr[1] == '.' && cnp->cn_nameptr[0] == '.') {
 			cnp->cn_flags |= ISDOTDOT;
+
+			/* if dp is the starting directory and RESOLVE_BENEATH, we should break */
+			if ((ndp->ni_flag & NAMEI_RESOLVE_BENEATH) && (dp == ndp->ni_usedvp)) {
+				break;
+			}
+			/* Break if '..' path traversal is prohibited */
+			if (ndp->ni_flag & NAMEI_NODOTDOT) {
+				break;
+			}
 		}
 
 #if NAMEDRSRCFORK
@@ -1862,6 +1870,11 @@ retry:
 		if ((ndp->ni_pathlen == sizeof(_PATH_RSRCFORKSPEC)) &&
 		    (cp[1] == '.' && cp[2] == '.') &&
 		    bcmp(cp, _PATH_RSRCFORKSPEC, sizeof(_PATH_RSRCFORKSPEC)) == 0) {
+			/* Break if path lookup on named streams is prohibited. */
+			if (ndp->ni_flag & NAMEI_NOXATTRS) {
+				break;
+			}
+
 			/* Skip volfs file systems that don't support native streams. */
 			if ((dmp != NULL) &&
 			    (dmp->mnt_flag & MNT_DOVOLFS) &&
@@ -1985,13 +1998,12 @@ skiprsrcfork:
 		 * for them before checking the cache.
 		 */
 		if (cnp->cn_namelen == 1 && cnp->cn_nameptr[0] == '.') {
+			if ((cnp->cn_flags & ISLASTCN) && !vnode_isdir(dp)) {
+				break;
+			}
 			vp = dp;
 			vvid = vid;
 		} else if ((cnp->cn_flags & ISDOTDOT)) {
-			/* if dp is the starting directory and RESOLVE_BENEATH, we should break */
-			if ((ndp->ni_flag & NAMEI_RESOLVE_BENEATH) && (dp == ndp->ni_usedvp)) {
-				break;
-			}
 			/*
 			 * If this is a chrooted process, we need to check if
 			 * the process is trying to break out of its chrooted
@@ -2167,6 +2179,24 @@ skiprsrcfork:
 			break;
 		}
 #endif /* CONFIG_TRIGGERS */
+
+		if ((ndp->ni_flag & NAMEI_LOCAL) && !(vp->v_mount->mnt_flag & MNT_LOCAL)) {
+			/* Prevent a path lookup from ever crossing into a network filesystem */
+			vp = NULL;
+			break;
+		}
+
+		if ((ndp->ni_flag & NAMEI_NODEVFS) && (vnode_tag(vp) == VT_DEVFS)) {
+			/* Prevent a path lookup into `devfs` filesystem */
+			vp = NULL;
+			break;
+		}
+
+		if ((ndp->ni_flag & NAMEI_IMMOVABLE) && (vp->v_mount->mnt_flag & MNT_REMOVABLE) && !(vp->v_mount->mnt_kern_flag & MNTK_VIRTUALDEV)) {
+			/* prevent a path lookup into a removable filesystem */
+			vp = NULL;
+			break;
+		}
 
 		if (!(locked || vid_is_same(vp, vvid))) {
 			vp = NULL;

@@ -2,7 +2,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2021-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,7 +35,9 @@ enum class ChannelSelectorType : uint8_t {
     CHANNEL_A = 4
 };
 
-class FEDisplacementMap : public FilterEffect {
+class FEDisplacementMap final : public FilterEffect {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FEDisplacementMap);
 public:
     WEBCORE_EXPORT static Ref<FEDisplacementMap> create(ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float scale, DestinationColorSpace = DestinationColorSpace::SRGB());
 
@@ -59,8 +61,8 @@ private:
 
     FloatRect calculateImageRect(const Filter&, std::span<const FloatRect> inputImageRects, const FloatRect& primitiveSubregion) const override;
 
-    const DestinationColorSpace& resultColorSpace(const FilterImageVector&) const override;
-    void transformInputsColorSpace(const FilterImageVector& inputs) const override;
+    const DestinationColorSpace& resultColorSpace(std::span<const Ref<FilterImage>>) const override;
+    void transformInputsColorSpace(std::span<const Ref<FilterImage>> inputs) const override;
 
     std::unique_ptr<FilterEffectApplier> createSoftwareApplier() const override;
 

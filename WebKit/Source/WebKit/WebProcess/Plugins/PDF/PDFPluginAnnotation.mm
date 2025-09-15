@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #import <WebCore/Event.h>
 #import <WebCore/EventLoop.h>
 #import <WebCore/EventNames.h>
+#import <WebCore/ExceptionOr.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLOptionElement.h>
@@ -58,10 +59,8 @@ RefPtr<PDFPluginAnnotation> PDFPluginAnnotation::create(PDFAnnotation *annotatio
 {
     if (annotationIsWidgetOfType(annotation, WidgetType::Text))
         return PDFPluginTextAnnotation::create(annotation, plugin);
-#if PLATFORM(MAC)
     if (annotationIsWidgetOfType(annotation, WidgetType::Choice))
         return PDFPluginChoiceAnnotation::create(annotation, plugin);
-#endif
 
     return nullptr;
 }
@@ -95,12 +94,13 @@ void PDFPluginAnnotation::commit()
 
 PDFPluginAnnotation::~PDFPluginAnnotation()
 {
-    m_element->removeEventListener(eventNames().changeEvent, *m_eventListener, false);
-    m_element->removeEventListener(eventNames().blurEvent, *m_eventListener, false);
+    Ref element = *m_element;
+    element->removeEventListener(eventNames().changeEvent, *m_eventListener, false);
+    element->removeEventListener(eventNames().blurEvent, *m_eventListener, false);
 
     m_eventListener->setAnnotation(nullptr);
 
-    m_element->document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [ weakElement = WeakPtr<Node, WeakPtrImplWithEventTargetData> { element() } ]() {
+    element->protectedDocument()->checkedEventLoop()->queueTask(TaskSource::InternalAsyncTask, [weakElement = WeakPtr<Node, WeakPtrImplWithEventTargetData> { element.get() }]() {
         if (RefPtr element = weakElement.get())
             element->remove();
     });
@@ -108,7 +108,7 @@ PDFPluginAnnotation::~PDFPluginAnnotation()
 
 void PDFPluginAnnotation::updateGeometry()
 {
-    auto annotationRect = m_plugin->pluginBoundsForAnnotation(m_annotation);
+    auto annotationRect = m_plugin->pluginBoundsForAnnotation(m_annotation.get());
 
     Ref styledElement = downcast<StyledElement>(*element());
     styledElement->setInlineStyleProperty(CSSPropertyWidth, annotationRect.size.width, CSSUnitType::CSS_PX);
@@ -129,8 +129,8 @@ bool PDFPluginAnnotation::handleEvent(Event& event)
 
 void PDFPluginAnnotation::PDFPluginAnnotationEventListener::handleEvent(ScriptExecutionContext&, Event& event)
 {
-    if (m_annotation)
-        m_annotation->handleEvent(event);
+    if (RefPtr annotation = m_annotation.get())
+        annotation->handleEvent(event);
 }
 
 } // namespace WebKit

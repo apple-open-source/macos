@@ -125,7 +125,7 @@ IOServiceCopySystemStateNotificationService(
  * see IOService.iig IOService::StateNotificationItemCreate()
  */
 kern_return_t
-IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef schema);
+IOServiceStateNotificationItemCreate(io_service_t service, CFStringRef itemName, CFDictionaryRef value);
 
 /*
  * see IOService.iig IOService::StateNotificationItemSet()

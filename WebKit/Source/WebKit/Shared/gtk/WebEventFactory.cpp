@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  * Copyright (C) 2011 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,7 @@
 #include "config.h"
 #include "WebEventFactory.h"
 
+#include "WebEventConversion.h"
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/GtkVersioning.h>
 #include <WebCore/PlatformKeyboardEvent.h>
@@ -45,6 +46,24 @@ using namespace WebCore;
 static inline bool isGdkKeyCodeFromKeyPad(unsigned keyval)
 {
     return keyval >= GDK_KEY_KP_Space && keyval <= GDK_KEY_KP_9;
+}
+
+static WallTime wallTimeForEvent(const GdkEvent* event)
+{
+    // This works if and only if the X server or Wayland compositor happens to
+    // be using CLOCK_MONOTONIC for its monotonic time, and so long as
+    // g_get_monotonic_time() continues to do so as well, and so long as
+    // MonotonicTime continues to use g_get_monotonic_time().
+#if USE(GTK4)
+    if (!event)
+        return WallTime::now();
+    auto time = gdk_event_get_time(const_cast<GdkEvent*>(event));
+#else
+    auto time = gdk_event_get_time(event);
+#endif
+    if (time == GDK_CURRENT_TIME)
+        return WallTime::now();
+    return wallTimeForEventTimeInMilliseconds(time);
 }
 
 static inline OptionSet<WebEventModifier> modifiersForEvent(const GdkEvent* event)

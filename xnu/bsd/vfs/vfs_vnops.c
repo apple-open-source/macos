@@ -385,7 +385,7 @@ vn_open_auth(struct nameidata *ndp, int *fmodep, struct vnode_attr *vap, vnode_t
 	boolean_t need_vnop_open;
 	boolean_t batched;
 	boolean_t ref_failed;
-	int nretries = 0;
+	int nretries = 0, max_retries = 10;
 
 again:
 	vp = NULL;
@@ -441,7 +441,7 @@ again:
 		/* open calls are allowed for resource forks. */
 		ndp->ni_cnd.cn_flags |= CN_ALLOWRSRCFORK;
 #endif
-		if ((fmode & O_EXCL) == 0 && (fmode & O_NOFOLLOW) == 0 && (origcnflags & FOLLOW) != 0) {
+		if ((fmode & O_EXCL) == 0 && (fmode & O_NOFOLLOW) == 0 && (origcnflags & FOLLOW) != 0 && (fmode & O_SYMLINK) == 0) {
 			ndp->ni_cnd.cn_flags |= FOLLOW;
 		}
 		if (fmode & O_NOFOLLOW_ANY) {
@@ -449,8 +449,12 @@ again:
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
 		}
 		if (fmode & O_RESOLVE_BENEATH) {
-			/* will return EACCES if path resolution escapes the starting directory */
+			/* will return ENOTCAPABLE if path resolution escapes the starting directory */
 			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
+		}
+		if (fmode & O_UNIQUE) {
+			/* will return ENOTCAPABLE if target vnode has multiple links */
+			ndp->ni_flag |= NAMEI_UNIQUE;
 		}
 
 continue_create_lookup:
@@ -571,8 +575,12 @@ continue_create_lookup:
 			ndp->ni_flag |= NAMEI_NOFOLLOW_ANY;
 		}
 		if (fmode & O_RESOLVE_BENEATH) {
-			/* will return EACCES if path resolution escapes the starting directory */
+			/* will return ENOTCAPABLE if path resolution escapes the starting directory */
 			ndp->ni_flag |= NAMEI_RESOLVE_BENEATH;
+		}
+		if (fmode & O_UNIQUE) {
+			/* will return ENOTCAPABLE if target vnode has multiple links */
+			ndp->ni_flag |= NAMEI_UNIQUE;
 		}
 
 		/* Do a lookup, possibly going directly to filesystem for compound operation */
@@ -623,6 +631,28 @@ continue_create_lookup:
 	 */
 	if (ndp->ni_dvp != NULLVP) {
 		panic("Haven't cleaned up adequately in vn_open_auth()");
+	}
+
+	/* Verify that the vnode returned from namei() has the expected fileid and fsid */
+	if (VATTR_IS_ACTIVE(vap, va_flags) && ISSET(vap->va_flags, VA_VAFILEID)) {
+		vnode_t tmp_vp;
+
+		if (!VATTR_IS_ACTIVE(vap, va_fsid64) || !VATTR_IS_ACTIVE(vap, va_fileid)) {
+			error = EINVAL;
+			goto bad;
+		}
+
+		error = vnode_getfromid(vap->va_fsid64.val[0], vap->va_fileid, ctx, FSOPT_ISREALFSID, &tmp_vp);
+		if (error) {
+			goto bad;
+		}
+
+		if (tmp_vp != vp) {
+			vnode_put(tmp_vp);
+			error = ERECYCLE;
+			goto bad;
+		}
+		vnode_put(tmp_vp);
 	}
 
 	/*
@@ -750,14 +780,21 @@ bad:
 			 * may possibly be blcoking other threads from running.
 			 *
 			 * We start yielding the CPU after some number of
-			 * retries for increasing durations. Note that this is
-			 * still a loop without an exit condition.
+			 * retries for increasing durations.
 			 */
 			nretries += 1;
+			if (nretries > max_retries) {
+				printf("%s: reached max_retries error %d need_vnop_open %d "
+				    "fmode 0x%x ref_failed %d\n",
+				    __func__, error, need_vnop_open, *fmodep, ref_failed);
+				goto out;
+			}
 			if (nretries > RETRY_NO_YIELD_COUNT) {
-				/* Every hz/100 secs is 10 msecs ... */
-				tsleep(&nretries, PVFS, "vn_open_auth_retry",
-				    MIN((nretries * (hz / 100)), hz));
+				struct timespec to;
+
+				to.tv_sec = 0;
+				to.tv_nsec = nretries * 10 * NSEC_PER_MSEC;
+				msleep(&nretries, (lck_mtx_t *)0, PVFS, "vn_open_auth_retry", &to);
 			}
 			nameidone(ndp);
 			goto again;
@@ -1499,7 +1536,7 @@ vn_stat_noauth(struct vnode *vp, void *sbptr, kauth_filesec_t *xsec, int isstat6
 	VATTR_WANTED(&va, va_iosize);
 	/* lower layers will synthesise va_total_alloc from va_data_size if required */
 	VATTR_WANTED(&va, va_total_alloc);
-	if (xsec != NULL) {
+	if (xsec != NULL && !vnode_isnamedstream(vp)) {
 		VATTR_WANTED(&va, va_uuuid);
 		VATTR_WANTED(&va, va_guuid);
 		VATTR_WANTED(&va, va_acl);

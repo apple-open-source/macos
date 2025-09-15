@@ -215,11 +215,10 @@ static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeycha
 
 - (void) cloudkeychainproxy_peer_dictionary_handler: (const xpc_connection_t) peer forEvent: (xpc_object_t) event {
     bool result = false;
-    int err = 0;
 
     @autoreleasepool {
 
-        require_action_string(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, err = -51, "expected XPC_TYPE_DICTIONARY");
+        require_string(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, "expected XPC_TYPE_DICTIONARY");
 
         const char *operation = xpc_dictionary_get_string(event, kMessageKeyOperation);
         require_action(operation, xit, result = false);

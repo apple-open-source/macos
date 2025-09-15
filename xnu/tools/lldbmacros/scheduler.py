@@ -631,7 +631,13 @@ def ShowScheduler(cmd_args=None):
     """  Routine to print information of all psets and processors
          Usage: showscheduler
     """
-    node = addressof(kern.globals.pset_node0)
+    if GetEnumValue('pset_cluster_type_t', 'MAX_PSET_TYPES') > 1:
+        # AMP platform
+        node = addressof(kern.globals.pset_nodes[0])
+    else:
+        # SMP platform
+        node = addressof(kern.globals.pset_node0)
+
     show_priority_runq = 0
     show_priority_pset_runq = 0
     show_clutch = 0

@@ -33,6 +33,7 @@
 #include <sys/cdefs.h>
 #include <os/availability.h>
 
+__BEGIN_DECLS
 
 /*********	MallocStackLogging permanent SPIs  ************/
 
@@ -105,5 +106,7 @@ extern void turn_off_stack_logging(void);
 #define MEMORYSTATUS_DISABLE_MSL			0x80000000
 #define MEMORYSTATUS_ENABLE_MSL_LITE_FULL	(MEMORYSTATUS_ENABLE_MSL_LITE | MEMORYSTATUS_ENABLE_MSL_VM | MEMORYSTATUS_ENABLE_MSL_MALLOC)
 #define MEMORYSTATUS_ENABLE_MSL_LITE_VM		(MEMORYSTATUS_ENABLE_MSL_LITE | MEMORYSTATUS_ENABLE_MSL_VM)
+
+__END_DECLS
 
 #endif // _STACK_LOGGING_H_

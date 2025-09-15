@@ -30,7 +30,7 @@ namespace WebCore {
 
 class WindowProxy;
 
-typedef UncheckedKeyHashMap<void*, JSC::Weak<JSC::JSObject>> DOMObjectWrapperMap;
+typedef HashMap<void*, JSC::Weak<JSC::JSObject>> DOMObjectWrapperMap;
 
 class DOMWrapperWorld : public RefCounted<DOMWrapperWorld>, public CanMakeSingleThreadWeakPtr<DOMWrapperWorld> {
 public:
@@ -58,8 +58,13 @@ public:
     void setAllowElementUserInfo() { m_allowElementUserInfo = true; }
     bool allowElementUserInfo() const { return m_allowElementUserInfo; }
 
+    bool canAccessAnyShadowRoot() const { return shadowRootIsAlwaysOpen() || closedShadowRootIsExposedForExtensions(); }
+
     void setShadowRootIsAlwaysOpen() { m_shadowRootIsAlwaysOpen = true; }
     bool shadowRootIsAlwaysOpen() const { return m_shadowRootIsAlwaysOpen; }
+
+    void setClosedShadowRootIsExposedForExtensions() { m_closedShadowRootIsExposedForExtensions = true; }
+    bool closedShadowRootIsExposedForExtensions() const { return m_closedShadowRootIsExposedForExtensions; }
 
     void disableLegacyOverrideBuiltInsBehavior() { m_shouldDisableLegacyOverrideBuiltInsBehavior = true; }
     bool shouldDisableLegacyOverrideBuiltInsBehavior() const { return m_shouldDisableLegacyOverrideBuiltInsBehavior; }
@@ -79,7 +84,7 @@ protected:
 
 private:
     JSC::VM& m_vm;
-    UncheckedKeyHashSet<WindowProxy*> m_jsWindowProxies;
+    HashSet<WindowProxy*> m_jsWindowProxies;
     DOMObjectWrapperMap m_wrappers;
 
     String m_name;
@@ -88,15 +93,16 @@ private:
     bool m_allowAutofill { false };
     bool m_allowElementUserInfo { false };
     bool m_shadowRootIsAlwaysOpen { false };
+    bool m_closedShadowRootIsExposedForExtensions { false };
     bool m_shouldDisableLegacyOverrideBuiltInsBehavior { false };
 };
 
 DOMWrapperWorld& normalWorld(JSC::VM&);
-WEBCORE_EXPORT DOMWrapperWorld& mainThreadNormalWorld();
-inline Ref<DOMWrapperWorld> protectedMainThreadNormalWorld() { return mainThreadNormalWorld(); }
+WEBCORE_EXPORT DOMWrapperWorld& mainThreadNormalWorldSingleton();
+inline Ref<DOMWrapperWorld> protectedMainThreadNormalWorld() { return mainThreadNormalWorldSingleton(); }
 
-inline DOMWrapperWorld& debuggerWorld() { return mainThreadNormalWorld(); }
-inline DOMWrapperWorld& pluginWorld() { return mainThreadNormalWorld(); }
+inline DOMWrapperWorld& debuggerWorldSingleton() { return mainThreadNormalWorldSingleton(); }
+inline DOMWrapperWorld& pluginWorldSingleton() { return mainThreadNormalWorldSingleton(); }
 
 DOMWrapperWorld& currentWorld(JSC::JSGlobalObject&);
 DOMWrapperWorld& worldForDOMObject(JSC::JSObject&);

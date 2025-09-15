@@ -103,7 +103,7 @@ String TextCodecLatin1::decode(std::span<const uint8_t> bytes, bool, bool, bool&
     std::span<LChar> characters;
     if (bytes.empty())
         return emptyString();
-    if (UNLIKELY(bytes.size() > std::numeric_limits<unsigned>::max())) {
+    if (bytes.size() > std::numeric_limits<unsigned>::max()) [[unlikely]] {
         ASSERT_NOT_REACHED();
         sawException = true;
         return emptyString();

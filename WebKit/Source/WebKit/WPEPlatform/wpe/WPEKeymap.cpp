@@ -43,7 +43,7 @@ static void wpe_keymap_class_init(WPEKeymapClass*)
 
 /**
  * wpe_keymap_get_entries_for_keycode:
- * @keymap: a #WPEKaymap
+ * @keymap: a #WPEKeymap
  * @keyval: a keyval
  * @entries: (out): return location for array of #WPEKeymapEntry
  * @n_entries: (out): return location for length of @entries
@@ -63,7 +63,7 @@ gboolean wpe_keymap_get_entries_for_keyval(WPEKeymap* keymap, guint keyval, WPEK
 
 /**
  * wpe_keymap_translate_keyboard_state:
- * @keymap: a #WPEKaymap
+ * @keymap: a #WPEKeymap
  * @keycode: a hardware keycode
  * @modifiers: a #WPEModifiers
  * @group: active keyboard group
@@ -86,7 +86,7 @@ gboolean wpe_keymap_translate_keyboard_state(WPEKeymap* keymap, guint keycode, W
 
 /**
  * wpe_keymap_get_modifiers:
- * @keymap: a #WPEKaymap
+ * @keymap: a #WPEKeymap
  *
  * Get the modifiers state of @keymap
  *

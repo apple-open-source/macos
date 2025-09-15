@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,8 +34,8 @@
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
-#include <wtf/RefCounted.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
 OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS WebRootSampleBufferBoundsChangeListener;
@@ -53,7 +53,7 @@ enum class VideoFrameRotation : uint16_t;
 
 class MediaPlayerPrivateMediaStreamAVFObjC final
     : public MediaPlayerPrivateInterface
-    , public RefCounted<MediaPlayerPrivateMediaStreamAVFObjC>
+    , public ThreadSafeRefCounted<MediaPlayerPrivateMediaStreamAVFObjC, WTF::DestructionThread::Main>
     , private MediaStreamPrivateObserver
     , public MediaStreamTrackPrivateObserver
     , public RealtimeMediaSource::VideoFrameObserver
@@ -61,8 +61,8 @@ class MediaPlayerPrivateMediaStreamAVFObjC final
     , private LoggerHelper
 {
 public:
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
+    void ref() const final { ThreadSafeRefCounted::ref(); }
+    void deref() const final { ThreadSafeRefCounted::deref(); }
 
     explicit MediaPlayerPrivateMediaStreamAVFObjC(MediaPlayer*);
     virtual ~MediaPlayerPrivateMediaStreamAVFObjC();
@@ -106,7 +106,7 @@ private:
 
     void load(const String&) override;
 #if ENABLE(MEDIA_SOURCE)
-    void load(const URL&, const ContentType&, MediaSourcePrivateClient&) override;
+    void load(const URL&, const LoadOptions&, MediaSourcePrivateClient&) override;
 #endif
     void load(MediaStreamPrivate&) override;
     void cancelLoad() override;
@@ -172,6 +172,7 @@ private:
     bool ended() const override { return m_ended; }
 
     void setBufferingPolicy(MediaPlayer::BufferingPolicy) override;
+    void setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit) final;
     void audioOutputDeviceChanged() final;
     std::optional<VideoFrameMetadata> videoFrameMetadata() final;
     void setResourceOwner(const ProcessIdentity&) final { ASSERT_NOT_REACHED(); }
@@ -243,9 +244,11 @@ private:
 
     MediaStreamTrackPrivate* activeVideoTrack() const;
 
-    LayerHostingContextID hostingContextID() const final;
-    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) final;
-    void requestHostingContextID(LayerHostingContextIDCallback&&) final;
+    HostingContext hostingContext() const final;
+    void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRightAnnotated&&) final;
+    void requestHostingContext(LayerHostingContextCallback&&) final;
+
+    RefPtr<MediaStreamPrivate> protectedMediaStreamPrivate() const;
 
     ThreadSafeWeakPtr<MediaPlayer> m_player;
     RefPtr<MediaStreamPrivate> m_mediaStreamPrivate;
@@ -283,9 +286,9 @@ private:
     VideoFrameRotation m_videoRotation { };
     bool m_videoMirrored { false };
 
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
-    std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
+    const UniqueRef<VideoLayerManagerObjC> m_videoLayerManager;
 
     // SampleBufferDisplayLayerClient
     void sampleBufferDisplayLayerStatusDidFail() final;
@@ -317,7 +320,7 @@ private:
 
     std::optional<CGRect> m_storedBounds;
     static NativeImageCreator m_nativeImageCreator;
-    LayerHostingContextIDCallback m_layerHostingContextIDCallback;
+    LayerHostingContextCallback m_layerHostingContextCallback;
     bool m_shouldMaintainAspectRatio { true };
 };
 

@@ -42,7 +42,7 @@
 
 - (NSString *)thirdPartyDomain
 {
-    return _thirdParty->thirdPartyDomain();
+    return _thirdParty->thirdPartyDomain().createNSString().autorelease();
 }
 
 - (NSArray<_WKResourceLoadStatisticsFirstParty *> *)underFirstParties

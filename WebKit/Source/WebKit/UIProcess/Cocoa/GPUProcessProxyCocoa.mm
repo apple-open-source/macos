@@ -33,6 +33,7 @@
 #include "GPUProcessMessages.h"
 #include "MediaPermissionUtilities.h"
 #include "WebProcessProxy.h"
+#include <wtf/cf/TypeCastsCF.h>
 #include <wtf/cocoa/SpanCocoa.h>
 
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
@@ -51,7 +52,7 @@ void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationP
 {
     parameters.mobileGestaltExtensionHandle = createMobileGestaltSandboxExtensionIfNeeded();
     parameters.gpuToolsExtensionHandles = createGPUToolsSandboxExtensionHandlesIfNeeded();
-    parameters.applicationVisibleName = applicationVisibleName();
+    parameters.applicationVisibleName = applicationVisibleName().get();
 #if PLATFORM(MAC)
     if (auto launchServicesExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.coreservices.launchservicesd"_s, std::nullopt))
         parameters.launchServicesExtensionHandle = WTFMove(*launchServicesExtensionHandle);
@@ -63,16 +64,27 @@ void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationP
 #if HAVE(POWERLOG_TASK_MODE_QUERY)
 bool GPUProcessProxy::isPowerLoggingInTaskMode()
 {
-    CFDictionaryRef dictionary = nullptr;
+    RetainPtr<CFDictionaryRef> dictionary;
     if (PLQueryRegistered)
         dictionary = PLQueryRegistered(PLClientIDWebKit, CFSTR("TaskModeQuery"), nullptr);
     if (!dictionary)
         return false;
-    CFNumberRef taskModeRef = static_cast<CFNumberRef>(CFDictionaryGetValue(dictionary, CFSTR("Task Mode")));
+
+    RetainPtr taskModeRef = CFDictionaryGetValue(dictionary.get(), CFSTR("Task Mode"));
     if (!taskModeRef)
         return false;
+
+    if (RetainPtr booleanRef = dynamic_cf_cast<CFBooleanRef>(taskModeRef.get()))
+        return !!CFBooleanGetValue(booleanRef.get());
+
+    RetainPtr numberRef = dynamic_cf_cast<CFNumberRef>(taskModeRef.get());
+    if (!numberRef) {
+        RELEASE_LOG_ERROR(Sandbox, "GPUProcessProxy::isPowerLoggingInTaskMode: Could not process task mode as a boolean or number");
+        return false;
+    }
+
     int taskMode = 0;
-    if (!CFNumberGetValue(taskModeRef, kCFNumberIntType, &taskMode))
+    if (!CFNumberGetValue(numberRef.get(), kCFNumberIntType, &taskMode))
         return false;
     return !!taskMode;
 }
@@ -109,6 +121,11 @@ void GPUProcessProxy::sendBookmarkDataForCacheDirectory()
     }).get());
 }
 #endif
+
+void GPUProcessProxy::postWillTakeSnapshotNotification(CompletionHandler<void()>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::GPUProcess::PostWillTakeSnapshotNotification { }, WTFMove(completionHandler));
+}
 
 }
 

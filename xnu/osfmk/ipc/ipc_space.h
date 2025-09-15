@@ -72,8 +72,6 @@
 #ifndef _IPC_IPC_SPACE_H_
 #define _IPC_IPC_SPACE_H_
 
-
-#include <prng/random.h>
 #include <mach/mach_types.h>
 #include <mach/boolean.h>
 #include <mach/kern_return.h>
@@ -81,18 +79,18 @@
 
 #include <sys/appleapiopts.h>
 
-#ifdef __APPLE_API_PRIVATE
 #ifdef MACH_KERNEL_PRIVATE
-#include <kern/macro_help.h>
-#include <kern/kern_types.h>
+#include <ptrauth.h>
 #include <kern/smr.h>
-#include <kern/locks.h>
-#include <kern/task.h>
-#include <kern/zalloc.h>
 #include <ipc/ipc_entry.h>
 #include <ipc/ipc_types.h>
 
 #include <os/refcnt.h>
+#endif
+
+__BEGIN_DECLS
+
+#ifdef MACH_KERNEL_PRIVATE
 
 /*
  *	Every task has a space of IPC capabilities.
@@ -120,28 +118,65 @@ typedef natural_t ipc_space_refs_t;
 #define IS_AT_MAX_LIMIT_NOTIFY         0x10     /* space has hit the max limit */
 #define IS_AT_MAX_LIMIT_NOTIFIED       0x20     /* sent max limit notification */
 
+/* is_telemetry flags */
+__options_decl(is_telemetry_t, uint8_t, {
+	IS_HAS_BOOTSTRAP_PORT_TELEMETRY         = 0x01,     /* space has emitted a bootstrap port telemetry */
+	IS_HAS_CREATE_PRP_TELEMETRY             = 0x02,     /* space has emitted a create provisional reply port telemetry */
+	IS_HAS_SERVICE_PORT_TELEMETRY           = 0x04,     /* space has emitted a service port telemetry */
+	IS_HAS_MOVE_PRP_TELEMETRY               = 0x08,     /* space has emitted a move provisional reply port telemetry */
+});
+
 struct ipc_space {
 	lck_ticket_t    is_lock;
 	os_ref_atomic_t is_bits;        /* holds refs, active, growing */
 	ipc_entry_num_t is_table_hashed;/* count of hashed elements */
 	ipc_entry_num_t is_table_free;  /* count of free elements */
+	unsigned int    is_entropy[IS_ENTROPY_CNT]; /* pool of entropy taken from RNG */
+	struct bool_gen is_prng;
 	SMR_POINTER(ipc_entry_table_t XNU_PTRAUTH_SIGNED_PTR("ipc_space.is_table")) is_table; /* an array of entries */
 	task_t XNU_PTRAUTH_SIGNED_PTR("ipc_space.is_task") is_task; /* associated task */
+	unsigned long   is_policy;      /* manually dPACed, ipc_space_policy_t */
 	thread_t        is_grower;      /* thread growing the space */
 	ipc_label_t     is_label;       /* [private] mandatory access label */
 	ipc_entry_num_t is_low_mod;     /* lowest modified entry during growth */
 	ipc_entry_num_t is_high_mod;    /* highest modified entry during growth */
-	struct bool_gen bool_gen;       /* state for boolean RNG */
-	unsigned int    is_entropy[IS_ENTROPY_CNT]; /* pool of entropy taken from RNG */
-	int             is_node_id;     /* HOST_LOCAL_NODE, or remote node if proxy space */
 #if CONFIG_PROC_RESOURCE_LIMITS
 	ipc_entry_num_t is_table_size_soft_limit; /* resource_notify is sent when the table size hits this limit */
 	ipc_entry_num_t is_table_size_hard_limit; /* same as soft limit except the task is killed soon after data collection */
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */
+	_Atomic is_telemetry_t is_telemetry;   /* rate limit each type of telemetry to once per space */
 };
 
 #define IS_NULL                 ((ipc_space_t) 0)
 #define IS_INSPECT_NULL         ((ipc_space_inspect_t) 0)
+
+static inline uintptr_t
+ipc_space_policy_discriminator(ipc_space_t is)
+{
+	uint16_t base = ptrauth_string_discriminator("ipc_space.is_policy");
+
+	return ptrauth_blend_discriminator(&is->is_policy, base);
+}
+
+static inline ipc_space_policy_t
+ipc_space_policy(ipc_space_t is)
+{
+	unsigned long policy = is->is_policy;
+
+	return (ipc_space_policy_t)(unsigned long)ptrauth_auth_data(
+		__unsafe_forge_single(void *, policy),
+		ptrauth_key_process_independent_data,
+		ipc_space_policy_discriminator(is));
+}
+
+static inline void
+ipc_space_set_policy(ipc_space_t is, ipc_space_policy_t policy)
+{
+	is->is_policy = (unsigned long)ptrauth_sign_unauthenticated(
+		(void *)(unsigned long)policy,
+		ptrauth_key_process_independent_data,
+		ipc_space_policy_discriminator(is));
+}
 
 static inline bool
 is_bits_set(ipc_space_t is, uint32_t bit)
@@ -237,8 +272,6 @@ extern lck_attr_t  ipc_lck_attr;
 #define is_reference(is)        ipc_space_reference(is)
 #define is_release(is)          ipc_space_release(is)
 
-#define current_space()         (current_task()->itk_space)
-
 extern void         ipc_space_lock(
 	ipc_space_t             space);
 
@@ -252,8 +285,7 @@ extern void         ipc_space_retire_table(
 	ipc_entry_table_t       table);
 
 /* Create a special IPC space */
-extern kern_return_t ipc_space_create_special(
-	ipc_space_t            *spacep);
+extern ipc_space_t ipc_space_create_special(void);
 
 /* Create a new IPC space */
 extern kern_return_t ipc_space_create(
@@ -281,9 +313,6 @@ extern void ipc_space_rand_freelist(
 	mach_port_index_t       bottom,
 	mach_port_index_t       top);
 
-/* Generate a new gencount rollover point from a space's entropy pool */
-extern ipc_entry_bits_t ipc_space_get_rollpoint(ipc_space_t space);
-
 #if CONFIG_PROC_RESOURCE_LIMITS
 /* Set limits on a space's size */
 extern kern_return_t ipc_space_set_table_size_limits(
@@ -305,15 +334,6 @@ extern void ipc_space_set_at_max_limit(
 	ipc_space_t             space);
 
 #endif /* MACH_KERNEL_PRIVATE */
-#endif /* __APPLE_API_PRIVATE */
-
-#ifdef  __APPLE_API_UNSTABLE
-#ifndef MACH_KERNEL_PRIVATE
-
-extern ipc_space_t current_space(void);
-
-#endif /* !MACH_KERNEL_PRIVATE */
-#endif /* __APPLE_API_UNSTABLE */
 
 /* Take a reference on a space */
 extern void ipc_space_reference(
@@ -322,5 +342,7 @@ extern void ipc_space_reference(
 /* Realase a reference on a space */
 extern void ipc_space_release(
 	ipc_space_t             space);
+
+__END_DECLS
 
 #endif  /* _IPC_IPC_SPACE_H_ */

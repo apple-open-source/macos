@@ -533,13 +533,19 @@ extension Container {
         return (retentropy, retbottleID, retspki, reterror)
     }
 
-    func requestHealthCheckSync(requiresEscrowCheck: Bool, repair: Bool, test: XCTestCase) -> (TrustedPeersHelperHealthCheckResult?, Error?) {
+    func requestHealthCheckSync(requiresEscrowCheck: Bool,
+                                repair: Bool,
+                                danglingPeerCleanup: Bool,
+                                updateIdMS: Bool,
+                                test: XCTestCase) -> (TrustedPeersHelperHealthCheckResult?, Error?) {
         let expectation = XCTestExpectation(description: "requestHealthCheck replied")
         var retresponse: TrustedPeersHelperHealthCheckResult?
         var reterror: Error?
 
         self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
                                 repair: repair,
+                                danglingPeerCleanup: danglingPeerCleanup,
+                                updateIdMS: updateIdMS,
                                 knownFederations: [],
                                 flowID: nil,
                                 deviceSessionID: nil) { response, error in

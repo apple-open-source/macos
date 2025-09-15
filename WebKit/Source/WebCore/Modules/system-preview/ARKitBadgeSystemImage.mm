@@ -142,7 +142,7 @@ void ARKitBadgeSystemImage::draw(GraphicsContext& graphicsContext, const FloatRe
 
     // The circle must have an alpha channel value of 1 for the shadow color to appear.
     CGFloat circleColorComponents[4] = { 0, 0, 0, 1 };
-    RetainPtr<CGColorRef> circleColor = adoptCF(CGColorCreate(sRGBColorSpaceRef(), circleColorComponents));
+    RetainPtr<CGColorRef> circleColor = adoptCF(CGColorCreate(sRGBColorSpaceSingleton(), circleColorComponents));
     CGContextSetFillColorWithColor(ctx, circleColor.get());
 
     // Clip out the circle to only show the shadow.
@@ -196,19 +196,20 @@ void ARKitBadgeSystemImage::draw(GraphicsContext& graphicsContext, const FloatRe
 
     RetainPtr<CGImageRef> cgImage;
 #if HAVE(IOSURFACE_COREIMAGE_SUPPORT)
-    // Crop the result to the badge location.
-    CIImage *croppedImage = [sourceOverFilter.outputImage imageByCroppingToRect:flippedInsetBadgeRect];
-    CIImage *translatedImage = [croppedImage imageByApplyingTransform:CGAffineTransformMakeTranslation(-flippedInsetBadgeRect.origin.x, -flippedInsetBadgeRect.origin.y)];
+    if (isInGPUProcess()) {
+        // Crop the result to the badge location.
+        CIImage *croppedImage = [sourceOverFilter.outputImage imageByCroppingToRect:flippedInsetBadgeRect];
+        CIImage *translatedImage = [croppedImage imageByApplyingTransform:CGAffineTransformMakeTranslation(-flippedInsetBadgeRect.origin.x, -flippedInsetBadgeRect.origin.y)];
 
-    auto surfaceDimension = useSmallBadge ? smallBadgeDimension : largeBadgeDimension;
-    std::unique_ptr<IOSurface> badgeSurface = IOSurface::create(&IOSurfacePool::sharedPoolSingleton(), { surfaceDimension, surfaceDimension }, DestinationColorSpace::SRGB());
-    IOSurfaceRef surface = badgeSurface->surface();
-    [ciContext render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceRef()];
-    auto surfaceContext = badgeSurface->createPlatformContext();
-    cgImage = badgeSurface->createImage(surfaceContext.get());
-#else
-    cgImage = adoptCF([ciContext createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
+        auto surfaceDimension = useSmallBadge ? smallBadgeDimension : largeBadgeDimension;
+        std::unique_ptr<IOSurface> badgeSurface = IOSurface::create(&IOSurfacePool::sharedPoolSingleton(), { surfaceDimension, surfaceDimension }, DestinationColorSpace::SRGB());
+        IOSurfaceRef surface = badgeSurface->surface();
+        [ciContext render:translatedImage toIOSurface:surface bounds:badgeRect colorSpace:sRGBColorSpaceSingleton()];
+        auto surfaceContext = badgeSurface->createPlatformContext();
+        cgImage = badgeSurface->createImage(surfaceContext.get());
+    } else
 #endif
+    cgImage = adoptCF([ciContext createCGImage:sourceOverFilter.outputImage fromRect:flippedInsetBadgeRect]);
 
     // Before we render the result, we should clip to a circle around the badge rectangle.
     CGContextSaveGState(ctx);

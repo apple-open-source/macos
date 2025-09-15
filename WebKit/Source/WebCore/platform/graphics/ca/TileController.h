@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "BoxExtents.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include "LengthBox.h"
@@ -38,6 +39,10 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Seconds.h>
 #include <wtf/TZoneMalloc.h>
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+#include "DynamicContentScalingDisplayList.h"
+#endif
 
 namespace WebCore {
 
@@ -74,6 +79,12 @@ public:
 
     WEBCORE_EXPORT void setContentsScale(float);
     WEBCORE_EXPORT float contentsScale() const;
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    WEBCORE_EXPORT bool setNeedsDisplayIfEDRHeadroomExceeds(float);
+    WEBCORE_EXPORT void setTonemappingEnabled(bool);
+    WEBCORE_EXPORT bool tonemappingEnabled() const;
+#endif
 
     bool acceleratesDrawing() const { return m_acceleratesDrawing; }
     WEBCORE_EXPORT void setAcceleratesDrawing(bool);
@@ -136,7 +147,7 @@ public:
     IntRect boundsAtLastRevalidate() const { return m_boundsAtLastRevalidate; }
     IntRect boundsAtLastRevalidateWithoutMargin() const;
     void willRevalidateTiles(TileGrid&, TileRevalidationType);
-    void didRevalidateTiles(TileGrid&, TileRevalidationType, const UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay);
+    void didRevalidateTiles(TileGrid&, TileRevalidationType, const HashSet<TileIndex>& tilesNeedingDisplay);
 
     bool shouldAggressivelyRetainTiles() const;
     bool shouldTemporarilyRetainTileCohorts() const;
@@ -151,12 +162,16 @@ public:
     
     void logFilledVisibleFreshTile(unsigned blankPixelCount);
 
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    std::optional<DynamicContentScalingDisplayList> dynamicContentScalingDisplayListForTile(const TileGrid&, TileIndex);
+#endif
+
 private:
     TileGrid& tileGrid() { return *m_tileGrid; }
 
     void scheduleTileRevalidation(Seconds interval);
 
-    float topContentInset() const { return m_topContentInset; }
+    FloatBoxExtent obscuredContentInsets() const { return m_obscuredContentInsets; }
 
     // TiledBacking member functions.
     PlatformLayerIdentifier layerIdentifier() const final;
@@ -170,7 +185,7 @@ private:
     void setCoverageRect(const FloatRect&) final;
     bool tilesWouldChangeForCoverageRect(const FloatRect&) const final;
     void setTiledScrollingIndicatorPosition(const FloatPoint&) final;
-    void setTopContentInset(float) final;
+    void setObscuredContentInsets(const FloatBoxExtent&) final;
     void setVelocity(const VelocityData&) final;
     void setScrollability(OptionSet<Scrollability>) final;
     void prepopulateRect(const FloatRect&) final;
@@ -210,11 +225,15 @@ private:
     FloatRect adjustTileCoverageForDesktopPageScrolling(const FloatRect& coverageRect, const FloatSize& newSize, const FloatRect& previousVisibleRect, const FloatRect& visibleRect) const;
 #endif
 
-    FloatRect adjustTileCoverageWithScrollingVelocity(const FloatRect& coverageRect, const FloatSize& newSize, const FloatRect& visibleRect, float contentsScale) const;
+    FloatRect adjustTileCoverageWithScrollingVelocity(const FloatRect& coverageRect, const FloatSize& newSize, const FloatRect& visibleRect, float contentsScale, MonotonicTime timestamp) const;
 
     IntRect boundsForSize(const FloatSize&) const;
 
     PlatformCALayerClient* owningGraphicsLayer() const { return m_tileCacheLayer->owner(); }
+
+    void clearObscuredInsetsAdjustments() final { m_obscuredInsetsDelta = std::nullopt; }
+    void obscuredInsetsWillChange(FloatBoxExtent&& obscuredInsetsDelta) final { m_obscuredInsetsDelta = WTFMove(obscuredInsetsDelta); }
+    FloatRect adjustedTileClipRectForObscuredInsets(const FloatRect&) const;
 
     PlatformCALayer* m_tileCacheLayer;
 
@@ -261,6 +280,9 @@ private:
     bool m_tileSizeLocked { false };
     bool m_haveExternalVelocityData { false };
     bool m_isTileSizeUpdateDelayDisabledForTesting { false };
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool m_tonemappingEnabled { false };
+#endif
 
     ContentsFormat m_contentsFormat { ContentsFormat::RGBA8 };
 
@@ -269,7 +291,8 @@ private:
     Color m_tileDebugBorderColor;
     float m_tileDebugBorderWidth { 0 };
     ScrollingModeIndication m_indicatorMode { SynchronousScrollingBecauseOfLackOfScrollingCoordinatorIndication };
-    float m_topContentInset { 0 };
+    FloatBoxExtent m_obscuredContentInsets;
+    std::optional<FloatBoxExtent> m_obscuredInsetsDelta;
 };
 
 } // namespace WebCore

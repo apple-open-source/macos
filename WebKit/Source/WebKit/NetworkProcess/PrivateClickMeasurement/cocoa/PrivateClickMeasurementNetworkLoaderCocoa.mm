@@ -91,13 +91,13 @@ static NSURLSession *statelessSessionWithoutRedirects()
 {
     static NeverDestroyed<RetainPtr<WKNetworkSessionDelegateAllowingOnlyNonRedirectedJSON>> delegate = adoptNS([WKNetworkSessionDelegateAllowingOnlyNonRedirectedJSON new]);
     static NeverDestroyed<RetainPtr<NSURLSession>> session = [&] {
-        NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
-        configuration.HTTPCookieAcceptPolicy = NSHTTPCookieAcceptPolicyNever;
-        configuration.URLCredentialStorage = nil;
-        configuration.URLCache = nil;
-        configuration.HTTPCookieStorage = nil;
-        configuration._shouldSkipPreferredClientCertificateLookup = YES;
-        return [NSURLSession sessionWithConfiguration:configuration delegate:delegate.get().get() delegateQueue:[NSOperationQueue mainQueue]];
+        RetainPtr configuration = [NSURLSessionConfiguration ephemeralSessionConfiguration];
+        configuration.get().HTTPCookieAcceptPolicy = NSHTTPCookieAcceptPolicyNever;
+        configuration.get().URLCredentialStorage = nil;
+        configuration.get().URLCache = nil;
+        configuration.get().HTTPCookieStorage = nil;
+        configuration.get()._shouldSkipPreferredClientCertificateLookup = YES;
+        return [NSURLSession sessionWithConfiguration:configuration.get() delegate:delegate.get().get() delegateQueue:[NSOperationQueue mainQueue]];
     }();
     return session.get().get();
 }
@@ -114,20 +114,20 @@ void NetworkLoader::start(URL&& url, RefPtr<JSON::Object>&& jsonPayload, WebCore
     if (allowedLocalTestServerTrust() && url.host() != "127.0.0.1"_s)
         return callback({ }, { });
 
-    auto request = adoptNS([[NSMutableURLRequest alloc] initWithURL:url]);
-    [request setValue:WebCore::HTTPHeaderValues::maxAge0() forHTTPHeaderField:@"Cache-Control"];
-    [request setValue:WebCore::standardUserAgentWithApplicationName({ }) forHTTPHeaderField:@"User-Agent"];
+    auto request = adoptNS([[NSMutableURLRequest alloc] initWithURL:url.createNSURL().get()]);
+    [request setValue:WebCore::HTTPHeaderValues::maxAge0().createNSString().get() forHTTPHeaderField:@"Cache-Control"];
+    [request setValue:WebCore::standardUserAgentWithApplicationName({ }).createNSString().get() forHTTPHeaderField:@"User-Agent"];
     if (jsonPayload) {
         request.get().HTTPMethod = @"POST";
-        [request setValue:WebCore::HTTPHeaderValues::applicationJSONContentType() forHTTPHeaderField:@"Content-Type"];
+        [request setValue:WebCore::HTTPHeaderValues::applicationJSONContentType().createNSString().get() forHTTPHeaderField:@"Content-Type"];
         auto body = jsonPayload->toJSONString().utf8();
-        request.get().HTTPBody = toNSData(body.span()).get();
+        request.get().HTTPBody = toNSData(byteCast<uint8_t>(body.span())).get();
     }
 
     setPCMDataCarriedOnRequest(pcmDataCarried, request.get());
 
     auto identifier = LoadTaskIdentifier::generate();
-    NSURLSessionDataTask *task = [statelessSessionWithoutRedirects() dataTaskWithRequest:request.get() completionHandler:makeBlockPtr([callback = WTFMove(callback), identifier](NSData *data, NSURLResponse *response, NSError *error) mutable {
+    RetainPtr task = [statelessSessionWithoutRedirects() dataTaskWithRequest:request.get() completionHandler:makeBlockPtr([callback = WTFMove(callback), identifier](NSData *data, NSURLResponse *response, NSError *error) mutable {
         taskMap().remove(identifier);
         if (error)
             return callback(error.localizedDescription, { });
@@ -136,7 +136,7 @@ void NetworkLoader::start(URL&& url, RefPtr<JSON::Object>&& jsonPayload, WebCore
         callback({ }, nullptr);
     }).get()];
     [task resume];
-    taskMap().add(identifier, task);
+    taskMap().add(identifier, task.get());
 }
 
 } // namespace WebKit::PCM

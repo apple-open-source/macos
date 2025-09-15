@@ -100,7 +100,6 @@ static ACAccount *GetPrimaryAccount(void) {
         return;
     }
     context.altDSID = primaryAccount.aa_altDSID;
-    context.services = @[ AKServiceNameiCloud ];
     
     AKAppleIDAuthenticationController *authController = [AKAppleIDAuthenticationController new];
     if(!authController) {

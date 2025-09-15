@@ -51,7 +51,7 @@ public:
     bool hasRegexGroupsFromPartList() const { return m_hasRegexGroupsFromPartList; }
     bool matchSpecialSchemeProtocol(ScriptExecutionContext&) const;
     JSC::JSValue componentExec(ScriptExecutionContext&, StringView) const;
-    URLPatternComponentResult createComponentMatchResult(ScriptExecutionContext&, String&& input, const JSC::JSValue& execResult) const;
+    URLPatternComponentResult createComponentMatchResult(JSC::JSGlobalObject*, String&& input, const JSC::JSValue& execResult) const;
     URLPatternComponent() = default;
 
 private:

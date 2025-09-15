@@ -73,6 +73,7 @@ public:
     WEBCORE_EXPORT void appendChild(Frame&);
     void detachFromParent() { m_parent = nullptr; }
     WEBCORE_EXPORT void removeChild(Frame&);
+    WEBCORE_EXPORT void replaceChild(Frame&, Frame&);
 
     Frame* child(unsigned index) const;
     Frame* childBySpecifiedName(const AtomString& name) const;
@@ -96,7 +97,7 @@ private:
     Frame* nextAncestorSibling(const Frame* stayWithin) const;
 
     Frame* scopedChild(unsigned index, TreeScope*) const;
-    Frame* scopedChild(const Function<bool(const FrameTree&)>& isMatch, TreeScope*) const;
+    Frame* scopedChild(NOESCAPE const Function<bool(const FrameTree&)>& isMatch, TreeScope*) const;
     unsigned scopedChildCount(TreeScope*) const;
 
     template<typename F> Frame* find(const AtomString& name, F&& nameGetter, Frame& activeFrame) const;

@@ -38,15 +38,15 @@ void WebPopupMenu::setUpPlatformData(const IntRect&, PlatformPopupMenuData& data
 {
 #if USE(APPKIT)
     // FIXME: font will be nil here for custom fonts, we should fix that.
-    CTFontRef font = m_popupClient->menuStyle().font().primaryFont().getCTFont();
+    RetainPtr font = m_popupClient->menuStyle().font().primaryFont()->getCTFont();
     if (!font)
         return;
 
-    auto fontDescriptor = adoptCF(CTFontCopyFontDescriptor(font));
+    RetainPtr fontDescriptor = adoptCF(CTFontCopyFontDescriptor(font.get()));
     if (!fontDescriptor)
         return;
 
-    auto attributes = adoptCF(CTFontDescriptorCopyAttributes(fontDescriptor.get()));
+    RetainPtr attributes = adoptCF(CTFontDescriptorCopyAttributes(fontDescriptor.get()));
     if (!attributes)
         return;
     

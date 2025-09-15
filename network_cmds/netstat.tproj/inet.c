@@ -305,7 +305,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 					tp = (struct xtcpcb_n *)xgn;
 					break;
 				default:
-					printf("unexpected kind %d\n", xgn->xgn_kind);
+					if (vflag > 2) {
+						printf("unexpected kind %d\n", xgn->xgn_kind);
+					}
 					break;
 			}
 		} else {
@@ -547,6 +549,8 @@ printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2), plural(TCPDIFF(f2)))
 printf(m, TCPDIFF(f1), plural(TCPDIFF(f1)), TCPDIFF(f2))
 #define	p3(f, m) if (TCPDIFF(f) || sflag <= 1) \
 printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
+#define	py(f, m) if (TCPDIFF(f) || sflag <= 1) \
+printf(m, TCPDIFF(f), TCPDIFF(f) != 1 ? "ies" : "y")
 
 	p(tcps_sndtotal, "\t%u packet%s sent\n");
 	p2(tcps_sndpack,tcps_sndbyte,
@@ -563,6 +567,7 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 	p(tcps_fcholdpacket, "\t\t%u data packet%s sent after flow control\n");
 	p(tcps_synchallenge, "\t\t%u challenge ACK%s sent due to unexpected SYN\n");
 	p(tcps_rstchallenge, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
+	p(tcps_minmssdrops, "\t\t%u challenge ACK%s sent due to unexpected RST\n");
 	t_swcsum = tcpstat.tcps_snd_swcsum + tcpstat.tcps_snd6_swcsum;
 	if ((t_swcsum - pt_swcsum) || sflag <= 1)
 		printf("\t\t%u checksummed in software\n", (t_swcsum - pt_swcsum));
@@ -684,23 +689,25 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 	p(tcps_ecn_fallback_ce, "\t\t%u connection%s fell back to non-ECN due to excessive CE-markings\n");
 	p(tcps_ecn_fallback_droprst, "\t\t%u connection%s fell back caused by connection drop due to RST\n");
 	p(tcps_ecn_fallback_droprxmt, "\t\t%u connection%s fell back due to drop after multiple retransmits \n");
-	p(tcps_ecn_fallback_synrst, "\t\t%u connection%s fell back due to RST after SYN\n");
+
+	p(tcps_ecn_ace_syn_not_ect, "\t\t%u time%s received AccECN SYN packet with Not-ECT\n");
+	p(tcps_ecn_ace_syn_ect1, "\t\t%u time%s received AccECN SYN packet with ECT1\n");
+	p(tcps_ecn_ace_syn_ect0, "\t\t%u time%s received AccECN SYN packet with ECT0\n");
+	p(tcps_ecn_ace_syn_ce, "\t\t%u time%s received AccECN SYN packet with CE\n");
+	p(tcps_ecn_ace_recv_ce, "\t\t%u time%s CE received in ACE field\n");
 
 	p(tcps_detect_reordering, "\t%u time%s packet reordering was detected on a connection\n");
 	p(tcps_reordered_pkts, "\t\t%u time%s transmitted packets were reordered\n");
 	p(tcps_delay_recovery, "\t\t%u time%s fast recovery was delayed to handle reordering\n");
 	p(tcps_avoid_rxmt, "\t\t%u time%s retransmission was avoided by delaying recovery\n");
-	p(tcps_unnecessary_rxmt, "\t\t%u retransmission%s not needed \n");
 	p(tcps_tailloss_rto, "\t%u retransmission%s due to tail loss\n");
 	p(tcps_dsack_sent, "\t%u time%s DSACK option was sent\n");
 	p(tcps_dsack_recvd, "\t\t%u time%s DSACK option was received\n");
-	p(tcps_dsack_disable, "\t\t%u time%s DSACK was disabled on a connection\n");
 	p(tcps_dsack_badrexmt, "\t\t%u time%s recovered from bad retransmission using DSACK\n");
 	p(tcps_dsack_ackloss,"\t\t%u time%s ignored DSACK due to ack loss\n");
 	p(tcps_dsack_recvd_old,"\t\t%u time%s ignored old DSACK options\n");
 	p(tcps_pmtudbh_reverted, "\t%u time%s PMTU Blackhole detection, size reverted\n");
 	p(tcps_drop_after_sleep, "\t%u connection%s were dropped after long sleep\n");
-	p(tcps_nostretchack, "\t%u connection%s had stretch ack algorithm disabled\n");
 
 	p(tcps_tfo_cookie_sent,"\t%u time%s a TFO-cookie has been announced\n");
 	p(tcps_tfo_syn_data_rcv,"\t%u SYN%s with data and a valid TFO-cookie have been received\n");
@@ -733,6 +740,12 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 
 	p(tcps_fin_timeout_drops,"\t%u FIN_WAIT timeout drop%s\n");
 
+	p(tcps_sc_dropped,"\t%u time%s could not reply to packet\n");
+	py(tcps_sc_completed,"\t%u successful extraction of entr%s\n");
+	py(tcps_sc_aborted,"\t%u syncache entr%s aborted\n");
+	p(tcps_sc_sendcookie,"\t%u SYN cookie%s sent\n");
+	p(tcps_sc_recvcookie,"\t%u SYN cookie%s received\n");
+
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
 		pr_swcsum = r_swcsum;
@@ -745,6 +758,7 @@ printf(m, TCPDIFF(f), plurales(TCPDIFF(f)))
 #undef p2
 #undef p2a
 #undef p3
+#undef py
 
 	len = sizeof(pcbcount);
 	if (sysctlbyname("net.inet.tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)
@@ -794,6 +808,8 @@ MPTCPDIFF(f2), plural(MPTCPDIFF(f2)))
 printf(m, MPTCPDIFF(f1), plural(MPTCPDIFF(f1)), MPTCPDIFF(f2))
 #define	p3(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
 printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
+#define	p64(f, m) if (MPTCPDIFF(f) || sflag <= 1) \
+printf(m, MPTCPDIFF(f), plural(MPTCPDIFF(f)))
 
 	p(tcps_mp_sndpacks, "\t%u data packet%s sent\n");
 	p(tcps_mp_sndbytes, "\t%u data byte%s sent\n");
@@ -811,11 +827,40 @@ printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
 	p(tcps_mp_badcsum, "\t%u bad DSS checksum%s\n");
 	p(tcps_mp_oodata, "\t%u time%s received out of order data \n");
 	p3(tcps_mp_switches, "\t%u subflow switch%s\n");
-	p3(tcps_mp_sel_symtomsd, "\t%u subflow switch%s due to advisory\n");
 	p3(tcps_mp_sel_rtt, "\t%u subflow switch%s due to rtt\n");
 	p3(tcps_mp_sel_rto, "\t%u subflow switch%s due to rto\n");
-	p3(tcps_mp_sel_peer, "\t%u subflow switch%s due to peer\n");
 	p3(tcps_mp_num_probes, "\t%u number of subflow probe%s\n");
+
+	p3(tcps_join_rxmts, "\t%u number of join ack retransmits%s\n");
+	p3(tcps_mptcp_rcvmemdrop, "\t%u MPTCP packet%s dropped for lack of memory\n");
+	p3(tcps_mptcp_rcvduppack, "\t%u MPTCP duplicate-only packet%s received\n");
+	p3(tcps_mptcp_rcvpackafterwin, "\t%u MPTCP packet%s with data after window\n");
+
+	p3(tcps_mptcp_handover_attempt, "\t%u MPTCP attempt%s using handover mode\n");
+	p3(tcps_mptcp_handover_success_wifi, "\t%u successfull handover mode connection%s that started on Wi-Fi\n");
+	p3(tcps_mptcp_handover_success_cell, "\t%u successfull handover mode connection%s that started on cellular\n");
+	p3(tcps_mptcp_fp_handover_success_wifi, "\t%u successfull handover mode connection%s that started on Wi-Fi\n");
+	p3(tcps_mptcp_fp_handover_success_cell, "\t%u successfull handover mode connection%s that started on cellular\n");
+	p64(tcps_mptcp_handover_cell_bytes, "\t%llu byte%s sent on cellular in handover-mode\n");
+	p64(tcps_mptcp_handover_all_bytes, "\t%llu byte%s sent in handover\n");
+
+	p3(tcps_mptcp_handover_attempt, "\t%u MPTCP attempt%s using handover mode\n");
+	p3(tcps_mptcp_handover_success_wifi, "\t%u successfull handover mode connection%s that started on Wi-Fi\n");
+	p3(tcps_mptcp_handover_success_cell, "\t%u successfull handover mode connection%s that started on cellular\n");
+	p3(tcps_mptcp_fp_handover_success_wifi, "\t%u successfull handover mode connection%s that started on Wi-Fi\n");
+	p3(tcps_mptcp_fp_handover_success_cell, "\t%u successfull handover mode connection%s that started on cellular\n");
+	p64(tcps_mptcp_handover_cell_bytes, "\t%llu byte%s sent on cellular in handover mode\n");
+	p64(tcps_mptcp_handover_all_bytes, "\t%llu byte%s sent in handover\n");
+
+	p3(tcps_mptcp_aggregate_attempt, "\t%u MPTCP attempt%s using aggregate mode\n");
+	p3(tcps_mptcp_aggregate_success, "\t%u aggregate mode connection%s that negotiated MPTCP\n");
+	p64(tcps_mptcp_aggregate_cell_bytes, "\t%llu byte%s sent on cellular in aggregate mode\n");
+	p64(tcps_mptcp_aggregate_all_bytes, "\t%llu byte%s sent in aggregate\n");
+
+	p3(tcps_mptcp_back_to_wifi, "\t%u connection%s that moved traffic away from cellular when starting on cellular\n");
+	p3(tcps_mptcp_wifi_proxy, "\t%u new subflow%s that fell back to regular TCP on cellular\n");
+	p3(tcps_mptcp_cell_proxy, "\t%u new subflow%s that fell back to regular TCP on Wi-Fi\n");
+	p3(tcps_mptcp_triggered_cell, "\t%u time%s an MPTCP connection triggered cellular\n");
 
 	if (interval > 0) {
 		bcopy(&tcpstat, &ptcpstat, len);
@@ -827,6 +872,7 @@ printf(m, MPTCPDIFF(f), plurales(MPTCPDIFF(f)))
 #undef p2
 #undef p2a
 #undef p3
+#undef p64
 
 	len = sizeof(pcbcount);
 	if (sysctlbyname("net.inet.m[tcp.pcbcount", &pcbcount, &len, 0, 0) == -1)

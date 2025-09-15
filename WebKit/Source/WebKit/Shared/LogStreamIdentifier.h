@@ -29,7 +29,7 @@
 
 namespace WebKit {
 
-enum class LogStreamIdentifierType { };
+struct LogStreamIdentifierType;
 using LogStreamIdentifier = AtomicObjectIdentifier<LogStreamIdentifierType>;
 
 } // namespace WebKit

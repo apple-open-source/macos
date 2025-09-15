@@ -103,7 +103,7 @@ public:
     void retrieve(const Key&, unsigned priority, RetrieveCompletionHandler&&);
 
     using MappedBodyHandler = Function<void (const Data& mappedBody)>;
-    void store(const Record&, MappedBodyHandler&&, CompletionHandler<void(int)>&& = { });
+    void store(const Record&, MappedBodyHandler&&);
 
     void remove(const Key&);
     void remove(const Vector<Key>&, CompletionHandler<void()>&&);
@@ -166,20 +166,19 @@ private:
     void dispatchPendingWriteOperations();
     void addWriteOperationActivity(WriteOperationIdentifier);
     bool removeWriteOperationActivity(WriteOperationIdentifier);
-    void finishWriteOperationActivity(WriteOperationIdentifier, int error = 0);
+    void finishWriteOperationActivity(WriteOperationIdentifier);
 
     bool shouldStoreBodyAsBlob(const Data& bodyData);
     std::optional<BlobStorage::Blob> storeBodyAsBlob(WriteOperationIdentifier, const Storage::Record&);
     Data encodeRecord(const Record&, std::optional<BlobStorage::Blob>);
     Record readRecord(const Data&);
-    void readRecordFromData(Storage::ReadOperationIdentifier, MonotonicTime, Data&&, int error);
+    void readRecordFromData(Storage::ReadOperationIdentifier, MonotonicTime, std::optional<Vector<uint8_t>>&&);
     void readBlobIfNecessary(Storage::ReadOperationIdentifier, const String& blobPath);
 
     void updateFileModificationTime(String&& path);
     void removeFromPendingWriteOperations(const Key&);
 
     ConcurrentWorkQueue& ioQueue() { return m_ioQueue.get(); }
-    Ref<ConcurrentWorkQueue> protectedIOQueue() { return ioQueue(); }
     ConcurrentWorkQueue& backgroundIOQueue() { return m_backgroundIOQueue.get(); }
     WorkQueue& serialBackgroundIOQueue() { return m_serialBackgroundIOQueue.get(); }
 
@@ -226,9 +225,9 @@ private:
     HashMap<WriteOperationIdentifier, std::unique_ptr<WriteOperation>> m_activeWriteOperations;
     WebCore::Timer m_writeOperationDispatchTimer;
 
-    Ref<ConcurrentWorkQueue> m_ioQueue;
-    Ref<ConcurrentWorkQueue> m_backgroundIOQueue;
-    Ref<WorkQueue> m_serialBackgroundIOQueue;
+    const Ref<ConcurrentWorkQueue> m_ioQueue;
+    const Ref<ConcurrentWorkQueue> m_backgroundIOQueue;
+    const Ref<WorkQueue> m_serialBackgroundIOQueue;
 
     BlobStorage m_blobStorage;
 

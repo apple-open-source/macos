@@ -20,6 +20,7 @@
 #include "config.h"
 #include "RenderSVGGradientStop.h"
 
+#include "ContainerNodeInlines.h"
 #include "ElementInlines.h"
 #include "LegacyRenderSVGResourceContainer.h"
 #include "RenderSVGGradientStopInlines.h"

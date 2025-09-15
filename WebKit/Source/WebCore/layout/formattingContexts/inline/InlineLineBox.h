@@ -123,7 +123,7 @@ private:
     InlineLevelBox m_rootInlineBox;
     InlineLevelBoxList m_nonRootInlineLevelBoxList;
 
-    UncheckedKeyHashMap<const Box*, size_t> m_nonRootInlineLevelBoxMap;
+    HashMap<const Box*, size_t> m_nonRootInlineLevelBoxMap;
 };
 
 inline InlineLevelBox* LineBox::inlineLevelBoxFor(const Box& layoutBox)

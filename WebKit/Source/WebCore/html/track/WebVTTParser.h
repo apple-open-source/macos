@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2011, 2013 Google Inc.  All rights reserved.
+ * Copyright (C) 2011, 2013 Google Inc. All rights reserved.
  * Copyright (C) 2013 Cable Television Labs, Inc.
- * Copyright (C) 2014 Apple Inc.  All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -169,11 +169,11 @@ private:
 
     static bool collectTimeStamp(VTTScanner& input, MediaTime& timeStamp);
 
-    Document& m_document;
+    const Ref<Document> m_document;
     ParseState m_state { Initial };
 
     BufferedLineReader m_lineReader;
-    RefPtr<TextResourceDecoder> m_decoder;
+    const Ref<TextResourceDecoder> m_decoder;
     AtomString m_currentId;
     MediaTime m_currentStartTime;
     MediaTime m_currentEndTime;

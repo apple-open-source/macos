@@ -30,15 +30,15 @@
           'isolated_scripts': 'isolated_scripts_group_pixel6',
         },
       },
-      'android-arm64-exp-s22': {
+      'android-arm64-exp-s24': {
         'os_type': 'android',
         'mixins': [
           'gpu-swarming-pool',
-          'samsung_s22',
+          'samsung_s24',
         ],
         'test_suites': {
           'gtest_tests': 'android_vulkan_gtests',
-          'isolated_scripts': 'isolated_scripts_group_s22',
+          'isolated_scripts': 'isolated_scripts_group_s24',
         },
       },
       'android-arm64-pixel4': {
@@ -234,6 +234,14 @@
           'gtest_tests': 'mac_amd_and_intel_gtests',
         },
       },
+      'mac-arm64-apple': {
+        'os_type': 'mac',
+        'mixins': [
+          'mac_arm64_apple_m2_retina_gpu_stable',
+        ],
+        'test_suites': {
+        },
+      },
       'mac-exp-amd': {
         'os_type': 'mac',
         'mixins': [
@@ -252,14 +260,6 @@
           'gtest_tests': 'mac_amd_and_intel_gtests',
         },
       },
-      'mac-exp-nvidia': {
-        'os_type': 'mac',
-        'mixins': [
-          'mac_retina_nvidia_gpu_experimental',
-        ],
-        'test_suites': {
-        },
-      },
       'mac-intel': {
         'os_type': 'mac',
         'mixins': [
@@ -267,16 +267,6 @@
         ],
         'test_suites': {
           'gtest_tests': 'mac_amd_and_intel_gtests',
-        },
-      },
-      'mac-nvidia': {
-        'os_type': 'mac',
-        'mixins': [
-          'mac_retina_nvidia_gpu_stable',
-        ],
-        'test_suites': {
-          # Fewer tests enabled on this config because of limited capacity.
-          'gtest_tests': 'mac_nvidia_gtests',
         },
       },
       'win10-x64-exp-intel': {

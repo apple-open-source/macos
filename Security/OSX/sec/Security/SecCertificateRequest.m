@@ -1039,17 +1039,15 @@ typedef NS_ENUM(NSInteger, AcmeRequestState) {
 {
     //%%% RFC 8555 says to wait until the Retry-After header in the response.
     // For now just try a simple interval with a retry limit.
-    NSUInteger retries = 3;
     NSUInteger interval = NSEC_PER_SEC * 5;
 #if 1 // %%% workaround while polling flow is not yet working: rdar://89209631
     // for now, just waiting at least 5 seconds before making the next request
     // is good enough to move forward.
     dispatch_semaphore_t ds = dispatch_semaphore_create(0);
-    if (dispatch_semaphore_wait(ds, dispatch_time(DISPATCH_TIME_NOW, interval)) != 0) {
-        retries--;
-    }
+    dispatch_semaphore_wait(ds, dispatch_time(DISPATCH_TIME_NOW, interval));
     return nil;
 #else
+    NSUInteger retries = 3;
     NSError *error = nil;
     NSString *statusString = nil;
     do {

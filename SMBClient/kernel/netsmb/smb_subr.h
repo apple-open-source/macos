@@ -56,6 +56,7 @@
 #define SMB_FILE_OPS_LOG_LEVEL     0x0400
 #define SMB_UBC_LOG_LEVEL          0x0800
 #define SMB_COMPRESSION_LOG_LEVEL  0x1000
+#define SMB_CREDITS_LOG_LEVEL      0x2000
 
 extern int smbfs_loglevel;
 
@@ -237,7 +238,18 @@ extern int smbfs_loglevel;
     } \
     } while(0)
 
+#define SMB_LOG_CREDITS(format, args...) do { \
+    if (smbfs_loglevel & SMB_CREDITS_LOG_LEVEL) \
+        os_log(OS_LOG_DEFAULT, "%s: " format, __FUNCTION__ ,## args); \
+    } while(0)
 
+#define SMB_LOG_CREDITS_LOCK(np, format, args...) do { \
+    if (smbfs_loglevel & SMB_CREDITS_LOG_LEVEL) { \
+        lck_rw_lock_shared(&(np)->n_name_rwlock); \
+        os_log(OS_LOG_DEFAULT, "%s: " format, __FUNCTION__ ,## args); \
+        lck_rw_unlock_shared(&(np)->n_name_rwlock); \
+    } \
+    } while(0)
 
 
 #define SMB_ASSERT(exp, msg) { \

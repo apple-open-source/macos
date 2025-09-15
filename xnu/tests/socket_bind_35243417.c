@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
+#include "net_test_lib.h"
+
 static int
 sockv6_open(void)
 {
@@ -87,6 +89,9 @@ loop_done:
 	T_ASSERT_TRUE(bound_count == bind_attempts,
 	    "number of successful binds %d (out of %d)",
 	    bound_count, bind_attempts);
+
+	force_zone_gc();
+
 	return success;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,11 +99,11 @@ Ref<CSSFunctionValue> CSSFunctionValue::create(CSSValueID name, Ref<CSSValue> ar
     return adoptRef(*new CSSFunctionValue(name, WTFMove(argument1), WTFMove(argument2), WTFMove(argument3), WTFMove(argument4)));
 }
 
-String CSSFunctionValue::customCSSText() const
+String CSSFunctionValue::customCSSText(const CSS::SerializationContext& context) const
 {
     StringBuilder result;
     result.append(nameLiteral(m_name), '(');
-    serializeItems(result);
+    serializeItems(result, context);
     result.append(')');
     return result.toString();
 }

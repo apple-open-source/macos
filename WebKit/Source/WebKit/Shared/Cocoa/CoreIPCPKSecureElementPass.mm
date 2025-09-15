@@ -40,7 +40,7 @@ CoreIPCPKSecureElementPass::CoreIPCPKSecureElementPass(PKSecureElementPass *pass
 
 RetainPtr<id> CoreIPCPKSecureElementPass::toID() const
 {
-    RetainPtr data = adoptNS([[NSData alloc] initWithBytesNoCopy:const_cast<uint8_t*>(m_data.data()) length:m_data.size() freeWhenDone:NO]);
+    RetainPtr data = toNSDataNoCopy(m_data.span(), FreeWhenDone::No);
     RELEASE_ASSERT(isInWebProcess());
     return [NSKeyedUnarchiver unarchivedObjectOfClass:PAL::getPKSecureElementPassClass() fromData:data.get() error:nil];
 }

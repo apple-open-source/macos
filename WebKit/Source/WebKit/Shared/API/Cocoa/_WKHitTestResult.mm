@@ -47,7 +47,7 @@
 
 static NSURL *URLFromString(const WTF::String& urlString)
 {
-    return urlString.isEmpty() ? nil : [NSURL URLWithString:urlString];
+    return urlString.isEmpty() ? nil : [NSURL URLWithString:urlString.createNSString().get()];
 }
 
 - (NSURL *)absoluteImageURL
@@ -67,12 +67,12 @@ static NSURL *URLFromString(const WTF::String& urlString)
 
 - (BOOL)hasLocalDataForLinkURL
 {
-    return _hitTestResult->hasLocalDataForLinkURL();
+    return NO;
 }
 
 - (NSString *)linkLocalDataMIMEType
 {
-    return _hitTestResult->linkLocalDataMIMEType();
+    return nil;
 }
 
 - (NSURL *)absoluteMediaURL
@@ -82,32 +82,32 @@ static NSURL *URLFromString(const WTF::String& urlString)
 
 - (NSString *)linkLabel
 {
-    return _hitTestResult->linkLabel();
+    return _hitTestResult->linkLabel().createNSString().autorelease();
 }
 
 - (NSString *)linkTitle
 {
-    return _hitTestResult->linkTitle();
+    return _hitTestResult->linkTitle().createNSString().autorelease();
 }
 
 - (NSString *)lookupText
 {
-    return _hitTestResult->lookupText();
+    return _hitTestResult->lookupText().createNSString().autorelease();
 }
 
 - (NSString *)linkSuggestedFilename
 {
-    return _hitTestResult->linkSuggestedFilename();
+    return _hitTestResult->linkSuggestedFilename().createNSString().autorelease();
 }
 
 - (NSString *)imageSuggestedFilename
 {
-    return _hitTestResult->imageSuggestedFilename();
+    return _hitTestResult->imageSuggestedFilename().createNSString().autorelease();
 }
 
 - (NSString *)imageMIMEType
 {
-    return _hitTestResult->sourceImageMIMEType();
+    return _hitTestResult->sourceImageMIMEType().createNSString().autorelease();
 }
 
 - (BOOL)isContentEditable
@@ -148,6 +148,13 @@ static NSURL *URLFromString(const WTF::String& urlString)
 
     ASSERT_NOT_REACHED();
     return _WKHitTestResultElementTypeNone;
+}
+
+- (NSURLResponse *)linkLocalResourceResponse
+{
+    if (auto& response = _hitTestResult->linkLocalResourceResponse())
+        return response->nsURLResponse();
+    return nil;
 }
 
 - (WKFrameInfo *)frameInfo

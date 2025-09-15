@@ -29,6 +29,7 @@
 #ifndef _NETINET_TCP_UTILS_H_
 #define _NETINET_TCP_UTILS_H_
 
+#include <kern/mem_acct.h>
 #include <netinet/tcp_var.h>
 
 struct tcp_globals {};
@@ -49,5 +50,35 @@ tcp_globals_now(struct tcp_globals *globals)
 
 extern void tcp_ccdbg_control_register(void);
 extern void tcp_ccdbg_trace(struct tcpcb *tp, struct tcphdr *th, int32_t event);
+
+static inline void
+tcp_memacct_add(unsigned int size)
+{
+	mem_acct_add(tcp_memacct, size);
+}
+
+static inline void
+tcp_memacct_sub(unsigned int size)
+{
+	mem_acct_sub(tcp_memacct, size);
+}
+
+static inline int
+tcp_memacct_limited(void)
+{
+	return mem_acct_limited(tcp_memacct);
+}
+
+static inline bool
+tcp_memacct_hardlimit(void)
+{
+	return mem_acct_limited(tcp_memacct) == MEMACCT_HARDLIMIT;
+}
+
+static inline bool
+tcp_memacct_softlimit(void)
+{
+	return mem_acct_limited(tcp_memacct) > MEMACCT_PRESOFTLIMIT;
+}
 
 #endif /* _NETINET_TCP_UTILS_H_ */

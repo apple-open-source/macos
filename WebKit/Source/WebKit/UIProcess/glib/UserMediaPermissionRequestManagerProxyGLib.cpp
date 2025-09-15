@@ -23,20 +23,23 @@
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include <WebCore/CaptureDeviceWithCapabilities.h>
+#include <WebCore/ContextDestructionObserverInlines.h>
 #include <WebCore/MediaConstraintType.h>
 #include <WebCore/UserMediaRequest.h>
+
+namespace IPC {
+class Decoder;
+template<> struct ArgumentCoder<WebCore::RealtimeMediaSourceCenter::ValidDevices> {
+    static std::optional<WebCore::RealtimeMediaSourceCenter::ValidDevices> decode(Decoder&);
+};
+}
 
 namespace WebKit {
 using namespace WebCore;
 
-void UserMediaPermissionRequestManagerProxy::platformValidateUserMediaRequestConstraints(RealtimeMediaSourceCenter::ValidConstraintsHandler&& validHandler, RealtimeMediaSourceCenter::InvalidConstraintsHandler&& invalidHandler, WebCore::MediaDeviceHashSalts&& deviceIDHashSalts)
+void UserMediaPermissionRequestManagerProxy::validateUserMediaRequestConstraints(RealtimeMediaSourceCenter::ValidateHandler&& validateHandler, WebCore::MediaDeviceHashSalts&& deviceIDHashSalts)
 {
-    m_page->legacyMainFrameProcess().protectedConnection()->sendWithAsyncReply(Messages::UserMediaCaptureManager::ValidateUserMediaRequestConstraints(m_currentUserMediaRequest->userRequest(), WTFMove(deviceIDHashSalts)), [validHandler = WTFMove(validHandler), invalidHandler = WTFMove(invalidHandler)](std::optional<WebCore::MediaConstraintType> invalidConstraint, Vector<WebCore::CaptureDevice> audioDevices, Vector<WebCore::CaptureDevice> videoDevices) mutable {
-        if (invalidConstraint)
-            invalidHandler(*invalidConstraint);
-        else
-            validHandler(WTFMove(audioDevices), WTFMove(videoDevices));
-    });
+    m_page->legacyMainFrameProcess().protectedConnection()->sendWithAsyncReply(Messages::UserMediaCaptureManager::ValidateUserMediaRequestConstraints(m_currentUserMediaRequest->userRequest(), WTFMove(deviceIDHashSalts)), WTFMove(validateHandler));
 }
 
 void UserMediaPermissionRequestManagerProxy::platformGetMediaStreamDevices(bool revealIdsAndLabels, CompletionHandler<void(Vector<CaptureDeviceWithCapabilities>&&)>&& completionHandler)

@@ -204,6 +204,13 @@
     [self.ckksViews addObject:self.photosView];
     [self.ckksZones addObject:self.photosZoneID];
 
+    self.findMyZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"FindMy" ownerName:CKCurrentUserDefaultName];
+    self.findMyZone = [[FakeCKZone alloc] initZone: self.findMyZoneID];
+    self.findMyView = [self.defaultCKKS.operationDependencies viewStateForName:@"FindMy"];
+    XCTAssertNotNil(self.findMyView, "CKKS created the FindMy view");
+    [self.ckksViews addObject:self.findMyView];
+    [self.ckksZones addObject:self.findMyZoneID];
+
     self.ptaZoneID = [[CKRecordZoneID alloc] initWithZoneName:CKKSSEViewPTA ownerName:CKCurrentUserDefaultName];
     self.ptaZone = [[FakeCKZone alloc] initZone:self.ptaZoneID];
     self.ptaView = [self.defaultCKKS.operationDependencies viewStateForName:CKKSSEViewPTA];
@@ -246,6 +253,7 @@
     self.contactsView = nil;
     self.groupsView = nil;
     self.photosView = nil;
+    self.findMyView = nil;
     self.ptaView = nil;
 
     [super tearDown];
@@ -407,6 +415,18 @@
     self.zones[self.photosZoneID] = zone;
 }
 
+- (ZoneKeys*)findMyZoneKeys {
+    return self.keys[self.findMyZoneID];
+}
+
+- (FakeCKZone*)findMyZone {
+    return self.zones[self.findMyZoneID];
+}
+
+- (void)setFindMyZone:(FakeCKZone*)zone {
+    self.zones[self.findMyZoneID] = zone;
+}
+
 - (FakeCKZone*)ptaZone {
     return self.zones[self.ptaZoneID];
 }
@@ -438,6 +458,7 @@
     [self putFakeDeviceStatusInCloudKit: self.contactsZoneID];
     [self putFakeDeviceStatusInCloudKit: self.groupsZoneID];
     [self putFakeDeviceStatusInCloudKit: self.photosZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.findMyZoneID];
 }
 
 - (void)putFakeKeyHierachiesInCloudKit{
@@ -454,6 +475,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.contactsZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.groupsZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.photosZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.findMyZoneID];
 }
 
 - (void)saveTLKsToKeychain{
@@ -470,6 +492,7 @@
     [self saveTLKMaterialToKeychain:self.contactsZoneID];
     [self saveTLKMaterialToKeychain:self.groupsZoneID];
     [self saveTLKMaterialToKeychain:self.photosZoneID];
+    [self saveTLKMaterialToKeychain:self.findMyZoneID];
 }
 
 - (void)deleteTLKMaterialsFromKeychain{
@@ -486,6 +509,7 @@
     [self deleteTLKMaterialFromKeychain:self.contactsZoneID];
     [self deleteTLKMaterialFromKeychain:self.groupsZoneID];
     [self deleteTLKMaterialFromKeychain:self.photosZoneID];
+    [self deleteTLKMaterialFromKeychain:self.findMyZoneID];
 }
 
 - (void)putAllFakeDeviceStatusesInCloudKit
@@ -503,6 +527,7 @@
     [self putFakeDeviceStatusInCloudKit:self.contactsZoneID];
     [self putFakeDeviceStatusInCloudKit:self.groupsZoneID];
     [self putFakeDeviceStatusInCloudKit:self.photosZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.findMyZoneID];
 }
 
 - (void)putAllSelfTLKSharesInCloudKit:(id<CKKSSelfPeer>)sharingPeer
@@ -525,6 +550,7 @@
     [self putTLKShareInCloudKit:self.contactsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.contactsZoneID];
     [self putTLKShareInCloudKit:self.groupsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.groupsZoneID];
     [self putTLKShareInCloudKit:self.photosZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.photosZoneID];
+    [self putTLKShareInCloudKit:self.findMyZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.findMyZoneID];
 }
 
 - (void)waitForKeyHierarchyReadinesses {
@@ -541,6 +567,7 @@
     XCTAssertEqual([self.contactsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Contacts should enter key state ready");
     XCTAssertEqual([self.groupsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Groups should enter key state ready");
     XCTAssertEqual([self.photosView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Photos should enter key state ready");
+    XCTAssertEqual([self.findMyView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "FindMy should enter key state ready");
 }
 
 - (void)expectCKKSTLKSelfShareUploads {
@@ -718,6 +745,25 @@
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self waitForExpectations:@[limitedChanged] timeout:1];
+    [self waitForExpectations:@[pcsChanged] timeout:0.2];
+}
+
+- (void)testAddFindMyItems {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* findMyChanged = [self expectChangeForView:self.findMyZoneID.zoneName];
+    // FindMy is not a PCS view, so it should NOT send the fake 'PCS' view notification
+    XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
+    pcsChanged.inverted = YES;
+
+    // We expect a single record to be uploaded to the LimitedPeersOkay view.
+    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.findMyZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-find-my" viewHint:(NSString*) kSecAttrViewHintFindMy];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForExpectations:@[findMyChanged] timeout:1];
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
 

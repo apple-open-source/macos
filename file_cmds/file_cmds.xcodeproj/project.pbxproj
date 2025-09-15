@@ -286,7 +286,7 @@
 		2AF6027F27C8515E00027A07 /* ln_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6025F27C84E5D00027A07 /* ln_test.sh */; };
 		2AF6028127C8517900027A07 /* ls_tests.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026027C84E7600027A07 /* ls_tests.sh */; };
 		2AF6028327C8519D00027A07 /* mkdir_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026127C84E8B00027A07 /* mkdir_test.sh */; };
-		2AF6028527C851BA00027A07 /* legacy_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026227C84EB900027A07 /* legacy_test.sh */; };
+		2AF6028527C851BA00027A07 /* mv_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026227C84EB900027A07 /* mv_test.sh */; };
 		2AF6028727C851DA00027A07 /* rm_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026627C84F0900027A07 /* rm_test.sh */; };
 		2AF6028927C851F600027A07 /* rmdir_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026727C84F1E00027A07 /* rmdir_test.sh */; };
 		2AF6028B27C8521A00027A07 /* readlink_test.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 2AF6026827C84F3800027A07 /* readlink_test.sh */; };
@@ -1213,7 +1213,7 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		2A62DBC827695534001389AF /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1375,7 +1375,7 @@
 			dstPath = /AppleInternal/Tests/file_cmds/mv;
 			dstSubfolderSpec = 0;
 			files = (
-				2AF6028527C851BA00027A07 /* legacy_test.sh in Copy Test Files */,
+				2AF6028527C851BA00027A07 /* mv_test.sh in Copy Test Files */,
 			);
 			name = "Copy Test Files";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1426,7 +1426,7 @@
 		};
 		3E966CEF1FB221740019F7A1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 2147483647;
 			dstPath = /AppleInternal/Tests/file_cmds;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1457,14 +1457,14 @@
 		};
 		CB5DC37D2BD71A3C008660B9 /* Copy Test Files */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /AppleInternal/Tests/file_cmds/xattr;
 			dstSubfolderSpec = 0;
 			files = (
 				CB5DC37F2BD71A50008660B9 /* xattr_test.sh in Copy Test Files */,
 			);
 			name = "Copy Test Files";
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		CB914DA32A3A5D080097BCBD /* Copy Test Files */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1499,7 +1499,7 @@
 		};
 		D3343F502609722E005A89FC /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1529,7 +1529,7 @@
 		};
 		FC8A8B0F14B648D7001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1539,7 +1539,7 @@
 		};
 		FC8A8B1714B648E0001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1549,7 +1549,7 @@
 		};
 		FC8A8B1F14B648E3001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1559,7 +1559,7 @@
 		};
 		FC8A8B2714B648E5001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1569,7 +1569,7 @@
 		};
 		FC8A8B2F14B648E7001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1579,7 +1579,7 @@
 		};
 		FC8A8B3714B648EA001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1589,7 +1589,7 @@
 		};
 		FC8A8B3F14B648EA001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1599,7 +1599,7 @@
 		};
 		FC8A8B4714B648EB001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1609,7 +1609,7 @@
 		};
 		FC8A8B4F14B648EB001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1619,7 +1619,7 @@
 		};
 		FC8A8B5714B648EB001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1629,7 +1629,7 @@
 		};
 		FC8A8B5F14B648EC001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1639,7 +1639,7 @@
 		};
 		FC8A8B6714B648EC001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1649,7 +1649,7 @@
 		};
 		FC8A8B6F14B648ED001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1659,7 +1659,7 @@
 		};
 		FC8A8B7714B648ED001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1669,7 +1669,7 @@
 		};
 		FC8A8B7F14B648ED001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1679,7 +1679,7 @@
 		};
 		FC8A8B8714B648ED001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1689,7 +1689,7 @@
 		};
 		FC8A8B8F14B648ED001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1699,7 +1699,7 @@
 		};
 		FC8A8B9714B648EE001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1709,7 +1709,7 @@
 		};
 		FC8A8B9F14B648EE001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1719,7 +1719,7 @@
 		};
 		FC8A8BA714B648EE001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1729,7 +1729,7 @@
 		};
 		FC8A8BAF14B648EF001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1739,7 +1739,7 @@
 		};
 		FC8A8BB714B648EF001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1749,7 +1749,7 @@
 		};
 		FC8A8BC714B648EF001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1759,7 +1759,7 @@
 		};
 		FC8A8BCF14B648F0001B97AD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1850,7 +1850,7 @@
 		};
 		FCB1BDB614B645D10070FACB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -1860,7 +1860,7 @@
 		};
 		FDAD94951808BB6D00B4D5A0 /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = "$(GZIP_PREFIX)/share/man/man1";
 			dstSubfolderSpec = 0;
 			files = (
@@ -1899,7 +1899,7 @@
 		2AF6025F27C84E5D00027A07 /* ln_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = ln_test.sh; path = tests/ln_test.sh; sourceTree = "<group>"; };
 		2AF6026027C84E7600027A07 /* ls_tests.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = ls_tests.sh; path = tests/ls_tests.sh; sourceTree = "<group>"; };
 		2AF6026127C84E8B00027A07 /* mkdir_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = mkdir_test.sh; path = tests/mkdir_test.sh; sourceTree = "<group>"; };
-		2AF6026227C84EB900027A07 /* legacy_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = legacy_test.sh; path = tests/legacy_test.sh; sourceTree = "<group>"; };
+		2AF6026227C84EB900027A07 /* mv_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = mv_test.sh; path = tests/mv_test.sh; sourceTree = "<group>"; };
 		2AF6026627C84F0900027A07 /* rm_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = rm_test.sh; path = tests/rm_test.sh; sourceTree = "<group>"; };
 		2AF6026727C84F1E00027A07 /* rmdir_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = rmdir_test.sh; path = tests/rmdir_test.sh; sourceTree = "<group>"; };
 		2AF6026827C84F3800027A07 /* readlink_test.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = readlink_test.sh; path = tests/readlink_test.sh; sourceTree = "<group>"; };
@@ -2457,7 +2457,7 @@
 		2AF6025C27C84E1300027A07 /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				2AF6026227C84EB900027A07 /* legacy_test.sh */,
+				2AF6026227C84EB900027A07 /* mv_test.sh */,
 			);
 			name = tests;
 			sourceTree = "<group>";
@@ -3775,7 +3775,7 @@
 		};
 		D1AB3F1426D24BC900045278 /* Install tests plist */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 2147483647;
 			files = (
 			);
 			inputFileListPaths = (

@@ -41,7 +41,6 @@ namespace WebKit {
 class RemoteLayerTreeTransaction;
 class RemotePageDrawingAreaProxy;
 class RemoteScrollingCoordinatorProxy;
-class RemoteScrollingCoordinatorProxy;
 class RemoteScrollingCoordinatorTransaction;
 
 class RemoteLayerTreeDrawingAreaProxy : public DrawingAreaProxy, public RefCounted<RemoteLayerTreeDrawingAreaProxy> {
@@ -62,7 +61,7 @@ public:
     void acceleratedAnimationDidStart(WebCore::PlatformLayerIdentifier, const String& key, MonotonicTime startTime);
     void acceleratedAnimationDidEnd(WebCore::PlatformLayerIdentifier, const String& key);
 
-    TransactionID nextMainFrameLayerTreeTransactionID() const { return m_webPageProxyProcessState.pendingLayerTreeTransactionID.next(); }
+    TransactionID nextMainFrameLayerTreeTransactionID() const { return m_webPageProxyProcessState.pendingLayerTreeTransactionID.value_or(TransactionID(TransactionIdentifier(),  m_transactionIDForPendingCACommit.processIdentifier())).next(); }
     TransactionID lastCommittedMainFrameLayerTreeTransactionID() const { return m_transactionIDForPendingCACommit; }
 
     virtual void didRefreshDisplay();
@@ -85,6 +84,10 @@ public:
     // For testing.
     unsigned countOfTransactionsWithNonEmptyLayerChanges() const { return m_countOfTransactionsWithNonEmptyLayerChanges; }
 
+#if ENABLE(TOUCH_EVENT_REGIONS)
+    WebCore::TrackingType eventTrackingTypeForPoint(WebCore::EventTrackingRegions::EventType, WebCore::IntPoint);
+#endif
+
 protected:
     RemoteLayerTreeDrawingAreaProxy(WebPageProxy&, WebProcessProxy&);
 
@@ -104,8 +107,8 @@ protected:
         ProcessState& operator=(ProcessState&&) = default;
 
         CommitLayerTreeMessageState commitLayerTreeMessageState { Idle };
-        TransactionID lastLayerTreeTransactionID;
-        TransactionID pendingLayerTreeTransactionID;
+        std::optional<TransactionID> lastLayerTreeTransactionID;
+        std::optional<TransactionID> pendingLayerTreeTransactionID;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
         Seconds acceleratedTimelineTimeOrigin;
@@ -132,7 +135,7 @@ private:
     virtual void scheduleDisplayRefreshCallbacks() { }
     virtual void pauseDisplayRefreshCallbacks() { }
 
-    virtual void dispatchSetTopContentInset() { }
+    virtual void dispatchSetObscuredContentInsets() { }
 
     float indicatorScale(WebCore::IntSize contentsSize) const;
     void updateDebugIndicator() final;
@@ -171,7 +174,7 @@ private:
     void commitLayerTreeTransaction(IPC::Connection&, const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&);
     virtual void didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction&, const RemoteScrollingCoordinatorTransaction&) { }
 
-    void asyncSetLayerContents(WebCore::PlatformLayerIdentifier, ImageBufferBackendHandle&&, const WebCore::RenderingResourceIdentifier&);
+    void asyncSetLayerContents(WebCore::PlatformLayerIdentifier, RemoteLayerBackingStoreProperties&&);
 
     void sendUpdateGeometry();
 

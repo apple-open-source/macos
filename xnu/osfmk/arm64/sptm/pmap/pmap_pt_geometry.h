@@ -85,7 +85,7 @@ struct page_table_ops {
  * differences between stage 1 and stage 2 page tables. This allows one set of
  * code to seamlessly handle the differences between various address space
  * layouts as well as stage 1 vs stage 2 page tables on the fly. See
- * doc/arm_pmap.md for more details.
+ * doc/arm/arm_pmap.md for more details.
  *
  * Instead of accessing the fields in this structure directly, it is recommended
  * to use the page table attribute getter functions defined below.
@@ -141,6 +141,12 @@ struct page_table_attr {
 	 * SPTM page table geometry index.
 	 */
 	const uint8_t geometry_id;
+
+	/**
+	 * Mask of significant address bits. This is the mask needed to address the
+	 * virtual page number portion of the VA.
+	 */
+	const uint64_t pta_va_valid_mask;
 };
 
 typedef struct page_table_attr pt_attr_t;
@@ -485,6 +491,12 @@ pt_attr_leaf_level(const pt_attr_t * const pt_attr)
 	return pt_attr_twig_level(pt_attr) + 1;
 }
 
+/* Significant address bits in PTE */
+static inline uint64_t
+pt_attr_va_valid_mask(const pt_attr_t * const pt_attr)
+{
+	return pt_attr->pta_va_valid_mask;
+}
 
 /**
  * Return the index into a specific level of page table for a given virtual
@@ -497,7 +509,8 @@ pt_attr_leaf_level(const pt_attr_t * const pt_attr)
 static inline unsigned int
 ttn_index(const pt_attr_t * const pt_attr, vm_map_address_t addr, unsigned int pt_level)
 {
-	const uint64_t index_unshifted = addr & pt_attr_ln_index_mask(pt_attr, pt_level);
+	const uint64_t addr_masked = addr & pt_attr_va_valid_mask(pt_attr);
+	const uint64_t index_unshifted = addr_masked & pt_attr_ln_index_mask(pt_attr, pt_level);
 	return (unsigned int)(index_unshifted >> pt_attr_ln_shift(pt_attr, pt_level));
 }
 

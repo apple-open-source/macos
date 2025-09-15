@@ -137,14 +137,78 @@ bool ScrollingTreeScrollingNode::isLatchedNode() const
     return scrollingTree()->latchedNodeID() == scrollingNodeID();
 }
 
+bool ScrollingTreeScrollingNode::shouldRubberBandOnSide(BoxSide side, RectEdges<bool> pinnedEdges) const
+{
+    if (!pinnedEdges[side])
+        return false;
+
+    auto mainFrameRubberBandingBehavior = scrollingTree()->clientAllowsMainFrameRubberBandingOnSide(side);
+
+    if (isRootNode() && mainFrameRubberBandingBehavior == RubberBandingBehavior::Never)
+        return false;
+
+    switch (side) {
+    case BoxSide::Top:
+    case BoxSide::Bottom:
+        if (!overscrollBehaviorAllowsVerticalRubberBand())
+            return false;
+
+        // The root allows rubberbanding if it doesn't have enough content, but only if a scrollbar is allowed.
+        if (isRootNode() && canHaveVerticalScrollbar()) {
+            if (!allowsVerticalScrolling() && mainFrameRubberBandingBehavior == RubberBandingBehavior::BasedOnSize)
+                return false;
+
+            return true;
+        }
+
+        if (!allowsVerticalScrolling())
+            return false;
+
+        return verticalOverscrollBehaviorPreventsPropagation();
+
+    case BoxSide::Left:
+    case BoxSide::Right:
+        if (!overscrollBehaviorAllowsHorizontalRubberBand())
+            return false;
+
+        // The root allows rubberbanding if it doesn't have enough content, but only if a scrollbar is allowed.
+        if (isRootNode() && canHaveHorizontalScrollbar()) {
+            if (!allowsHorizontalScrolling() && mainFrameRubberBandingBehavior == RubberBandingBehavior::BasedOnSize)
+                return false;
+
+            return true;
+        }
+
+        if (!allowsHorizontalScrolling())
+            return false;
+
+        return horizontalOverscrollBehaviorPreventsPropagation();
+    }
+    return true;
+}
+
 bool ScrollingTreeScrollingNode::shouldRubberBand(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting) const
 {
-    // We always rubber-band the latched node, or the root node.
-    // The stateless wheel event doesn't trigger rubber-band.
-    // Also rubberband when we should block scroll propagation
-    // at this node, which has overscroll behavior that is not none.
-    auto scrollPropagationInfo = computeScrollPropagation(wheelEvent.delta());
-    return (isLatchedNode() || eventTargeting == EventTargeting::NodeOnly || (isRootNode() && !wheelEvent.isNonGestureEvent()) || ( scrollPropagationInfo.shouldBlockScrollPropagation && scrollPropagationInfo.isHandled && overscrollBehaviorAllowsRubberBand()));
+    if (isLatchedNode())
+        return true;
+
+    if (eventTargeting == EventTargeting::NodeOnly)
+        return true;
+
+    if (wheelEvent.isNonGestureEvent())
+        return false;
+
+    auto pinnedEdges = edgePinnedState();
+
+    auto horizontalSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Horizontal);
+    if (horizontalSide && shouldRubberBandOnSide(*horizontalSide, pinnedEdges))
+        return true;
+
+    auto verticalSide = ScrollableArea::targetSideForScrollDelta(-wheelEvent.delta(), ScrollEventAxis::Vertical);
+    if (verticalSide && shouldRubberBandOnSide(*verticalSide, pinnedEdges))
+        return true;
+
+    return false;
 }
 
 bool ScrollingTreeScrollingNode::canHandleWheelEvent(const PlatformWheelEvent& wheelEvent, EventTargeting eventTargeting) const
@@ -152,8 +216,8 @@ bool ScrollingTreeScrollingNode::canHandleWheelEvent(const PlatformWheelEvent& w
     if (!canHaveScrollbars())
         return false;
 
-    // MayBegin is used to flash scrollbars; if this node is scrollable, it can handle it.
-    if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin)
+    // MayBegin and End are used to update scrollbars; if this node is scrollable, it can handle it.
+    if (wheelEvent.phase() == PlatformWheelEventPhase::MayBegin || wheelEvent.phase() == PlatformWheelEventPhase::Ended || wheelEvent.momentumPhase() == PlatformWheelEventPhase::Ended)
         return true;
 
     if (shouldRubberBand(wheelEvent, eventTargeting))
@@ -414,37 +478,37 @@ void ScrollingTreeScrollingNode::wasScrolledByDelegatedScrolling(const FloatPoin
 void ScrollingTreeScrollingNode::dumpProperties(TextStream& ts, OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const
 {
     ScrollingTreeNode::dumpProperties(ts, behavior);
-    ts.dumpProperty("scrollable area size", m_scrollableAreaSize);
-    ts.dumpProperty("total content size", m_totalContentsSize);
+    ts.dumpProperty("scrollable area size"_s, m_scrollableAreaSize);
+    ts.dumpProperty("total content size"_s, m_totalContentsSize);
     if (m_totalContentsSizeForRubberBand != m_totalContentsSize)
-        ts.dumpProperty("total content size for rubber band", m_totalContentsSizeForRubberBand);
+        ts.dumpProperty("total content size for rubber band"_s, m_totalContentsSizeForRubberBand);
     if (m_reachableContentsSize != m_totalContentsSize)
-        ts.dumpProperty("reachable content size", m_reachableContentsSize);
-    ts.dumpProperty("last committed scroll position", m_lastCommittedScrollPosition);
+        ts.dumpProperty("reachable content size"_s, m_reachableContentsSize);
+    ts.dumpProperty("last committed scroll position"_s, m_lastCommittedScrollPosition);
 
     if (!m_currentScrollPosition.isZero())
-        ts.dumpProperty("scroll position", m_currentScrollPosition);
+        ts.dumpProperty("scroll position"_s, m_currentScrollPosition);
 
     if (!m_scrollOrigin.isZero())
-        ts.dumpProperty("scroll origin", m_scrollOrigin);
+        ts.dumpProperty("scroll origin"_s, m_scrollOrigin);
 
     if (m_snapOffsetsInfo.horizontalSnapOffsets.size())
-        ts.dumpProperty("horizontal snap offsets", m_snapOffsetsInfo.horizontalSnapOffsets);
+        ts.dumpProperty("horizontal snap offsets"_s, m_snapOffsetsInfo.horizontalSnapOffsets);
 
     if (m_snapOffsetsInfo.verticalSnapOffsets.size())
-        ts.dumpProperty("vertical snap offsets", m_snapOffsetsInfo.verticalSnapOffsets);
+        ts.dumpProperty("vertical snap offsets"_s, m_snapOffsetsInfo.verticalSnapOffsets);
 
     if (m_currentHorizontalSnapPointIndex)
-        ts.dumpProperty("current horizontal snap point index", m_currentHorizontalSnapPointIndex);
+        ts.dumpProperty("current horizontal snap point index"_s, m_currentHorizontalSnapPointIndex);
 
     if (m_currentVerticalSnapPointIndex)
-        ts.dumpProperty("current vertical snap point index", m_currentVerticalSnapPointIndex);
+        ts.dumpProperty("current vertical snap point index"_s, m_currentVerticalSnapPointIndex);
 
-    ts.dumpProperty("scrollable area parameters", m_scrollableAreaParameters);
+    ts.dumpProperty("scrollable area parameters"_s, m_scrollableAreaParameters);
 
 #if ENABLE(SCROLLING_THREAD)
     if (!m_synchronousScrollingReasons.isEmpty())
-        ts.dumpProperty("synchronous scrolling reasons", ScrollingCoordinator::synchronousScrollingReasonsAsText(m_synchronousScrollingReasons));
+        ts.dumpProperty("synchronous scrolling reasons"_s, ScrollingCoordinator::synchronousScrollingReasonsAsText(m_synchronousScrollingReasons));
 #endif
 }
 

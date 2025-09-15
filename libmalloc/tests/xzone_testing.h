@@ -9,6 +9,72 @@
 
 #if CONFIG_XZONE_MALLOC
 
+#pragma mark shims
+
+#define TESTING_XZONE_MALLOC 1
+
+// On exclavekit, we only want one copy of the code enclosed here, which we'll
+// arbitrarily build into the metapool tests - they just have to be built into
+// one of them
+
+#if !TARGET_OS_EXCLAVEKIT || defined(TESTING_METAPOOL)
+
+#include "../src/vm.c"
+
+void
+malloc_report(uint32_t flags, const char *fmt, ...)
+{
+	T_LOG("malloc_report(): %s", fmt);
+}
+
+void
+malloc_zone_error(uint32_t flags, bool is_corruption, const char *fmt, ...)
+{
+	__builtin_trap();
+}
+
+#endif // !TARGET_OS_EXCLAVEKIT || defined(TESTING_METAPOOL)
+
+static void test_malloc_lock_lock(_malloc_lock_s *lock) {
+#if MALLOC_HAS_OS_LOCK
+	os_unfair_lock_lock(lock);
+#else
+	T_QUIET; T_ASSERT_EQ(pthread_mutex_lock(lock), 0, "Lock lock");
+#endif // MALLOC_HAS_OS_LOCK
+}
+#define _malloc_lock_lock(lock) test_malloc_lock_lock(lock);
+
+static void test_malloc_lock_unlock(_malloc_lock_s *lock) {
+#if MALLOC_HAS_OS_LOCK
+	os_unfair_lock_unlock(lock);
+#else
+	T_QUIET; T_ASSERT_EQ(pthread_mutex_unlock(lock), 0, "Unlock lock");
+#endif // MALLOC_HAS_OS_LOCK
+}
+#define _malloc_lock_unlock(lock) test_malloc_lock_unlock(lock);
+
+#if !MALLOC_TARGET_EXCLAVES && !defined(TESTING_METAPOOL)
+
+// When not specifically testing the metapool, stub out these functions so that
+// we can build code that uses them.
+
+void *
+xzm_metapool_alloc(xzm_metapool_t mp)
+{
+	__builtin_trap();
+	return NULL;
+}
+
+void
+xzm_metapool_free(xzm_metapool_t mp, void *blockp)
+{
+	__builtin_trap();
+}
+
+#endif // !MALLOC_TARGET_EXCLAVES && !defined(TESTING_METAPOOL)
+
+#pragma mark TMO test helpers
+
 #if defined(_MALLOC_TYPE_ENABLED) && _MALLOC_TYPE_ENABLED
 #define HAVE_MALLOC_TYPE 1
 #else
@@ -120,7 +186,7 @@ get_default_xzone_zone(void)
 
 static inline void
 validate_bucket_distribution(xzm_malloc_zone_t zone, const char *expr,
-		void **ptrs, size_t n, bool do_free)
+		void **ptrs, size_t n, bool do_free, bool require_smooth_distribution)
 {
 	size_t counts[XZM_XZONE_DEFAULT_POINTER_BUCKET_COUNT] = { 0 };
 
@@ -166,10 +232,29 @@ validate_bucket_distribution(xzm_malloc_zone_t zone, const char *expr,
 
 	T_LOG("(%s) %zu early allocations", expr, early_count);
 
-	for (int i = 0; i < XZM_XZONE_DEFAULT_POINTER_BUCKET_COUNT; i++) {
-		T_EXPECT_GT(counts[i], (size_t)0,
-				"(%s) expected nonzero allocations for bucket %d, found %zu",
-				expr, i, counts[i]);
+	if (require_smooth_distribution) {
+		for (int i = 0; i < XZM_XZONE_DEFAULT_POINTER_BUCKET_COUNT; i++) {
+			T_EXPECT_GT(counts[i], (size_t)0,
+					"(%s) expected nonzero allocations for bucket %d, found %zu",
+					expr, i, counts[i]);
+		}
+	} else {
+		// In practice, we can at least assert that the allocations didn't all
+		// fall into a single bucket.  Although that's theoretically possible,
+		// it's unlikely enough that it's worth flagging as a test failure that
+		// we'll occasionally have to waive so that we can catch cases where the
+		// type descriptor is getting lost entirely
+		int nonzero_counts = 0;
+		for (int i = 0; i < XZM_XZONE_DEFAULT_POINTER_BUCKET_COUNT; i++) {
+			T_LOG("(%s) found %zu allocations for bucket %d", expr, counts[i],
+					i);
+			if (counts[i]) {
+				nonzero_counts++;
+			}
+		}
+		T_EXPECT_GT(nonzero_counts, 1,
+				"(%s) expected at least two buckets with nonzero counts, found %d",
+				expr, nonzero_counts);
 	}
 }
 

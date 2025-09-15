@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,14 +48,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <strings.h>
-
+#include <os/availability.h>
 #include "rfc_options.h"
 #include "gen_dhcp_types.h"
-
 #include "dhcp_options.h"
 #include "gen_dhcp_parse_table.h"
 #include "util.h"
 #include "DNSNameList.h"
+#include "DNSEncryptedServers.h"
 #include "IPv4ClasslessRoute.h"
 #include "nbo.h"
 #include "cfutil.h"
@@ -401,6 +401,50 @@ dhcptype_print_cfstr_simple(CFMutableStringRef str, dhcptype_t type,
 	  STRING_APPEND(str, "}");
 	  break;
       }
+#if !TARGET_OS_BRIDGE
+      case dhcptype_dns_dnr_data_e: {
+	  CFArrayRef	dnr_list = NULL;
+	  CFIndex	dnr_list_count = 0;
+
+	  dnr_list = DNSEncryptedServerListCreateWithDHCPv4Data(option,
+								option_len);
+	  if (dnr_list == NULL) {
+	      break;
+	  }
+	  dnr_list_count = CFArrayGetCount(dnr_list);
+	  if (dnr_list_count == 0) {
+	      CFRelease(dnr_list);
+	      break;
+	  }
+	  STRING_APPEND_STR(str, "{\n");
+	  for (CFIndex i = 0; i < dnr_list_count; i++) {
+	      CFDictionaryRef	dnr = NULL;
+	      CFStringRef	adn = NULL;
+	      CFNumberRef	svc_prio = NULL;
+	      CFArrayRef	addrs = NULL;
+	      CFDataRef		params = NULL;
+
+	      dnr = CFArrayGetValueAtIndex(dnr_list, i);
+	      adn =
+	      CFDictionaryGetValue(dnr,
+				   kSCPropNetDNSEncryptedServerAuthenticationDomainName);
+	      svc_prio =
+	      CFDictionaryGetValue(dnr,
+				   kSCPropNetDNSEncryptedServerServicePriority);
+	      addrs =
+	      CFDictionaryGetValue(dnr, kSCPropNetDNSEncryptedServerAddresses);
+	      params =
+	      CFDictionaryGetValue(dnr,
+				   kSCPropNetDNSEncryptedServerServiceParameters);
+	      STRING_APPEND(str,
+			    "{ %@ (%@)\n%@\n'%@'\n}",
+			    adn, svc_prio, addrs, params);
+	  }
+	  STRING_APPEND_STR(str, "\n}");
+	  CFRelease(dnr_list);
+	  break;
+      }
+#endif // !TARGET_OS_BRIDGE
       case dhcptype_classless_route_e: {
 	  int			i;
 	  IPv4ClasslessRouteRef	route_list;

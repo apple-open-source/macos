@@ -41,6 +41,7 @@ IF(ENABLE_TEST)
     test_archive_string.c
     test_archive_string_conversion.c
     test_archive_write_add_filter_by_name.c
+    test_archive_write_secure_symlink.c
     test_archive_write_set_filter_option.c
     test_archive_write_set_format_by_name.c
     test_archive_write_set_format_filter_by_ext.c
@@ -70,6 +71,7 @@ IF(ENABLE_TEST)
     test_compat_xz.c
     test_compat_zip.c
     test_compat_zstd.c
+    test_edit_deep_directories.c
     test_empty_write.c
     test_entry.c
     test_entry_strmode.c

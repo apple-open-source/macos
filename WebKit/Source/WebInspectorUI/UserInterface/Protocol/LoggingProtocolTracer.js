@@ -87,7 +87,7 @@ WI.LoggingProtocolTracer = class LoggingProtocolTracer extends WI.ProtocolTracer
     {
         let entry = {type: "response", connection, message};
         if (timings)
-            entry.timings = Object.shallowCopy(timings);
+            entry.timings = {...timings};
 
         this._processEntry(entry);
     }
@@ -102,7 +102,7 @@ WI.LoggingProtocolTracer = class LoggingProtocolTracer extends WI.ProtocolTracer
     {
         let entry = {type: "event", connection, message};
         if (timings)
-            entry.timings = Object.shallowCopy(timings);
+            entry.timings = {...timings};
 
         this._processEntry(entry);
     }

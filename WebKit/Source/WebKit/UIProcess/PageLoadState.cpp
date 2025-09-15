@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -317,8 +317,7 @@ void PageLoadState::didCommitLoad(const Transaction::Token& token, const WebCore
     m_uncommittedState.certificateInfo = certificateInfo;
 
     ASSERT(!m_uncommittedState.provisionalURL.isNull());
-    m_uncommittedState.url = m_uncommittedState.provisionalURL.isNull() ? aboutBlankURL().string() : m_uncommittedState.provisionalURL;
-    m_uncommittedState.provisionalURL = String();
+    m_uncommittedState.url = m_uncommittedState.provisionalURL.isNull() ? aboutBlankURL().string() : std::exchange(m_uncommittedState.provisionalURL, { });
     m_uncommittedState.negotiatedLegacyTLS = usedLegacyTLS;
     m_uncommittedState.wasPrivateRelayed = wasPrivateRelayed;
     m_uncommittedState.origin = origin;
@@ -377,10 +376,10 @@ const String& PageLoadState::title() const
     return m_committedState.title;
 }
 
-void PageLoadState::setTitle(const Transaction::Token& token, const String& title)
+void PageLoadState::setTitle(const Transaction::Token& token, String&& title)
 {
     ASSERT_UNUSED(token, &token.m_pageLoadState == this);
-    m_uncommittedState.title = title;
+    m_uncommittedState.title = WTFMove(title);
 }
 
 void PageLoadState::setTitleFromBrowsingWarning(const Transaction::Token& token, const String& title)

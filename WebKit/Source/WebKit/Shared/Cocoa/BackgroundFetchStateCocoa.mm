@@ -37,16 +37,16 @@ NSDictionary *BackgroundFetchState::toDictionary() const
 {
     // FIXME: Expose icon URLS.
     return @{
-        @"TopOrigin" : (NSString *)topOrigin.toString(),
-        @"Scope" : (NSURL *)scope,
-        @"WebIdentifier" : (NSString *)identifier,
-        @"Title" : (NSString *)options.title,
+        @"TopOrigin" : topOrigin.toString().createNSString().get(),
+        @"Scope" : scope.createNSURL().get(),
+        @"WebIdentifier" : identifier.createNSString().get(),
+        @"Title" : options.title.createNSString().get(),
         @"DownloadTotal" : @(downloadTotal),
         @"Downloaded" : @(downloaded),
         @"UploadTotal" : @(uploadTotal),
         @"Uploaded" : @(uploaded),
-        @"Result" : (NSString *)(convertEnumerationToString(result)),
-        @"FailureReason" : (NSString *)(convertEnumerationToString(failureReason)),
+        @"Result" : convertEnumerationToString(result).createNSString().get(),
+        @"FailureReason" : convertEnumerationToString(failureReason).createNSString().get(),
         @"IsPaused" : @(isPaused),
     };
 }

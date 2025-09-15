@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2023 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2015-2023 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,17 +36,16 @@ namespace WebCore {
 static Vector<uint16_t> portVectorFromList(NSArray<NSNumber *> *portList)
 {
     return Vector<uint16_t>(portList.count, [portList](size_t i) {
-        NSNumber *port = portList[i];
-        return port.unsignedShortValue;
+        return RetainPtr { portList[i] }.get().unsignedShortValue;
     });
 }
 
-static NSString * _Nullable portStringFromVector(const Vector<uint16_t>& ports)
+static RetainPtr<NSString> portStringFromVector(const Vector<uint16_t>& ports)
 {
     if (ports.isEmpty())
         return nil;
 
-    auto *string = [NSMutableString stringWithCapacity:ports.size() * 5];
+    RetainPtr string = adoptNS([[NSMutableString alloc] initWithCapacity:ports.size() * 5]);
 
     for (size_t i = 0; i < ports.size() - 1; ++i)
         [string appendFormat:@"%" PRIu16 ", ", ports[i]];
@@ -58,24 +57,24 @@ static NSString * _Nullable portStringFromVector(const Vector<uint16_t>& ports)
 
 static double cookieCreated(NSHTTPCookie *cookie)
 {
-    id value = cookie.properties[@"Created"];
+    RetainPtr<id> value = cookie.properties[@"Created"];
 
     auto toCanonicalFormat = [](double referenceFormat) {
         return 1000.0 * (referenceFormat + NSTimeIntervalSince1970);
     };
 
-    if (auto *number = dynamic_objc_cast<NSNumber>(value))
-        return toCanonicalFormat(number.doubleValue);
+    if (RetainPtr number = dynamic_objc_cast<NSNumber>(value.get()))
+        return toCanonicalFormat(number.get().doubleValue);
 
-    if (auto *string = dynamic_objc_cast<NSString>(value))
-        return toCanonicalFormat(string.doubleValue);
+    if (RetainPtr string = dynamic_objc_cast<NSString>(value.get()))
+        return toCanonicalFormat(string.get().doubleValue);
 
     return 0;
 }
 
 static std::optional<double> cookieExpiry(NSHTTPCookie *cookie)
 {
-    NSDate *expiryDate = cookie.expiresDate;
+    RetainPtr<NSDate> expiryDate = cookie.expiresDate;
     if (!expiryDate)
         return std::nullopt;
     return [expiryDate timeIntervalSince1970] * 1000.0;
@@ -132,55 +131,55 @@ Cookie::operator NSHTTPCookie * _Nullable () const
     if (isNull())
         return nil;
 
-    NSMutableDictionary *properties = [NSMutableDictionary dictionaryWithCapacity:14];
+    RetainPtr properties = adoptNS([[NSMutableDictionary alloc] initWithCapacity:14]);
 
     if (!comment.isNull())
-        [properties setObject:(NSString *)comment forKey:NSHTTPCookieComment];
+        [properties setObject:comment.createNSString().get() forKey:NSHTTPCookieComment];
 
     if (!commentURL.isNull())
-        [properties setObject:(NSURL *)commentURL forKey:NSHTTPCookieCommentURL];
+        [properties setObject:commentURL.createNSURL().get() forKey:NSHTTPCookieCommentURL];
 
     if (!domain.isNull())
-        [properties setObject:(NSString *)domain forKey:NSHTTPCookieDomain];
+        [properties setObject:domain.createNSString().get() forKey:NSHTTPCookieDomain];
 
     if (!name.isNull())
-        [properties setObject:(NSString *)name forKey:NSHTTPCookieName];
+        [properties setObject:name.createNSString().get() forKey:NSHTTPCookieName];
 
     if (!path.isNull())
-        [properties setObject:(NSString *)path forKey:NSHTTPCookiePath];
+        [properties setObject:path.createNSString().get() forKey:NSHTTPCookiePath];
 
     if (!partitionKey.isNull())
-        [properties setObject:(NSString *)partitionKey forKey:@"StoragePartition"];
+        [properties setObject:partitionKey.createNSString().get() forKey:@"StoragePartition"];
 
     if (!value.isNull())
-        [properties setObject:(NSString *)value forKey:NSHTTPCookieValue];
+        [properties setObject:value.createNSString().get() forKey:NSHTTPCookieValue];
 
     if (expires) {
-        NSDate *expirationDate = [NSDate dateWithTimeIntervalSince1970:*expires / 1000.0];
-        [properties setObject:expirationDate forKey:NSHTTPCookieExpires];
+        RetainPtr expirationDate = [NSDate dateWithTimeIntervalSince1970:*expires / 1000.0];
+        [properties setObject:expirationDate.get() forKey:NSHTTPCookieExpires];
     }
 
-    [properties setObject:@(created / 1000.0 - NSTimeIntervalSince1970) forKey:@"Created"];
+    SUPPRESS_UNRETAINED_ARG [properties setObject:@(created / 1000.0 - NSTimeIntervalSince1970) forKey:@"Created"];
 
-    auto* portString = portStringFromVector(ports);
+    RetainPtr portString = portStringFromVector(ports);
     if (portString)
-        [properties setObject:portString forKey:NSHTTPCookiePort];
+        [properties setObject:portString.get() forKey:NSHTTPCookiePort];
 
     if (secure)
-        [properties setObject:@YES forKey:NSHTTPCookieSecure];
+        SUPPRESS_UNRETAINED_ARG [properties setObject:@YES forKey:NSHTTPCookieSecure];
 
     if (session)
-        [properties setObject:@YES forKey:NSHTTPCookieDiscard];
+        SUPPRESS_UNRETAINED_ARG [properties setObject:@YES forKey:NSHTTPCookieDiscard];
     
     if (httpOnly)
-        [properties setObject:@YES forKey:@"HttpOnly"];
+        SUPPRESS_UNRETAINED_ARG [properties setObject:@YES forKey:@"HttpOnly"];
 
-    if (auto* sameSitePolicy = nsSameSitePolicy(sameSite))
-        [properties setObject:sameSitePolicy forKey:@"SameSite"];
+    if (RetainPtr sameSitePolicy = nsSameSitePolicy(sameSite))
+        [properties setObject:sameSitePolicy.get() forKey:@"SameSite"];
 
     [properties setObject:@"1" forKey:NSHTTPCookieVersion];
 
-    return [NSHTTPCookie cookieWithProperties:properties];
+    return [NSHTTPCookie cookieWithProperties:properties.get()];
 }
     
 bool Cookie::operator==(const Cookie& other) const
@@ -190,14 +189,19 @@ bool Cookie::operator==(const Cookie& other) const
     bool otherNull = other.isNull();
     if (thisNull || otherNull)
         return thisNull == otherNull;
-    return [static_cast<NSHTTPCookie *>(*this) isEqual:other];
+    return [toProtectedNSHTTPCookie() isEqual:other.toProtectedNSHTTPCookie().get()];
 }
     
 unsigned Cookie::hash() const
 {
     ASSERT(!name.isHashTableDeletedValue());
     ASSERT(!isNull());
-    return static_cast<NSHTTPCookie *>(*this).hash;
+    return toProtectedNSHTTPCookie().get().hash;
+}
+
+RetainPtr<NSHTTPCookie> Cookie::toProtectedNSHTTPCookie() const
+{
+    return static_cast<NSHTTPCookie *>(*this);
 }
 
 NS_ASSUME_NONNULL_END

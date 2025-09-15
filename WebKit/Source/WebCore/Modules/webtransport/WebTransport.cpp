@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "JSWebTransportCloseInfo.h"
 #include "JSWebTransportSendStream.h"
 #include "ReadableStream.h"
+#include "ScriptExecutionContextInlines.h"
 #include "SocketProvider.h"
 #include "WebTransportBidirectionalStreamConstructionParameters.h"
 #include "WebTransportBidirectionalStreamSource.h"
@@ -92,7 +93,7 @@ ExceptionOr<Ref<WebTransport>> WebTransport::create(ScriptExecutionContext& cont
     if (outgoingDatagrams.hasException())
         return outgoingDatagrams.releaseException();
 
-    auto socketProvider = context.socketProvider();
+    RefPtr socketProvider = context.socketProvider();
     if (!socketProvider) {
         ASSERT_NOT_REACHED();
         return Exception { ExceptionCode::InvalidStateError };
@@ -113,8 +114,8 @@ void WebTransport::initializeOverHTTP(SocketProvider& provider, ScriptExecutionC
 
     // FIXME: Rename SocketProvider to NetworkProvider or something to reflect that it provides a little more than just simple sockets. SocketAndTransportProvider?
     RefPtr workerSession = is<WorkerGlobalScope>(context) ? WorkerWebTransportSession::create(context.identifier(), *this).ptr() : nullptr;
-    auto& client = workerSession ? static_cast<WebTransportSessionClient&>(*workerSession) : static_cast<WebTransportSessionClient&>(*this);
-    context.enqueueTaskWhenSettled(provider.initializeWebTransportSession(context, client, url), TaskSource::Networking, [this, protectedThis = Ref { *this }, workerSession] (auto&& result) mutable {
+    Ref client = workerSession ? static_cast<WebTransportSessionClient&>(*workerSession) : static_cast<WebTransportSessionClient&>(*this);
+    context.enqueueTaskWhenSettled(provider.initializeWebTransportSession(context, client.get(), url), TaskSource::Networking, [this, protectedThis = Ref { *this }, workerSession] (auto&& result) mutable {
         if (!result) {
             m_state = State::Failed;
             m_ready.second->reject();

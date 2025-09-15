@@ -31,6 +31,7 @@
 #import "CommonAtomStrings.h"
 #import "DragData.h"
 #import "Image.h"
+#import "ImageAdapter.h"
 #import "LegacyNSPasteboardTypes.h"
 #import "LoaderNSURLExtras.h"
 #import "MIMETypeRegistry.h"
@@ -82,7 +83,7 @@ static Vector<String> writableTypesForImage()
 
 NSArray *Pasteboard::supportedFileUploadPasteboardTypes()
 {
-    return @[ (NSString *)legacyFilesPromisePasteboardType(), (NSString *)legacyFilenamesPasteboardType() ];
+    return @[ legacyFilesPromisePasteboardType(), legacyFilenamesPasteboardType() ];
 }
 
 Pasteboard::Pasteboard(std::unique_ptr<PasteboardContext>&& context)
@@ -209,27 +210,27 @@ static long writeURLForTypes(const Vector<String>& types, const String& pasteboa
     
     ASSERT(!pasteboardURL.url.isEmpty());
     
-    NSURL *cocoaURL = pasteboardURL.url;
-    NSString *userVisibleString = pasteboardURL.userVisibleForm;
-    NSString *title = (NSString *)pasteboardURL.title;
+    RetainPtr nsURL = pasteboardURL.url.createNSURL();
+    RetainPtr userVisibleString = pasteboardURL.userVisibleForm.createNSString();
+    RetainPtr title = pasteboardURL.title.createNSString();
     if (![title length]) {
-        title = [[cocoaURL path] lastPathComponent];
+        title = [[nsURL path] lastPathComponent];
         if (![title length])
             title = userVisibleString;
     }
 
     if (types.contains(WebURLsWithTitlesPboardType)) {
-        PasteboardURL url = { pasteboardURL.url, String(title).trim(deprecatedIsSpaceOrNewline), emptyString() };
+        PasteboardURL url = { pasteboardURL.url, String(title.get()).trim(deprecatedIsSpaceOrNewline), emptyString() };
         newChangeCount = platformStrategies()->pasteboardStrategy()->setURL(url, pasteboardName, context);
     }
     if (types.contains(String(legacyURLPasteboardType())))
-        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType([cocoaURL absoluteString], legacyURLPasteboardType(), pasteboardName, context);
+        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType([nsURL absoluteString], legacyURLPasteboardType(), pasteboardName, context);
     if (types.contains(WebURLPboardType))
-        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(userVisibleString, WebURLPboardType, pasteboardName, context);
+        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(userVisibleString.get(), WebURLPboardType, pasteboardName, context);
     if (types.contains(WebURLNamePboardType))
-        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(title, WebURLNamePboardType, pasteboardName, context);
+        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(title.get(), WebURLNamePboardType, pasteboardName, context);
     if (types.contains(String(legacyStringPasteboardType())))
-        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(userVisibleString, legacyStringPasteboardType(), pasteboardName, context);
+        newChangeCount = platformStrategies()->pasteboardStrategy()->setStringForType(userVisibleString.get(), legacyStringPasteboardType(), pasteboardName, context);
 
     return newChangeCount;
 }
@@ -254,8 +255,8 @@ void Pasteboard::write(const Color& color)
 
 static NSFileWrapper* fileWrapper(const PasteboardImage& pasteboardImage)
 {
-    auto wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:pasteboardImage.resourceData->makeContiguous()->createNSData().get()]);
-    [wrapper setPreferredFilename:suggestedFilenameWithMIMEType(pasteboardImage.url.url, pasteboardImage.resourceMIMEType)];
+    auto wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:Ref { *pasteboardImage.resourceData }->makeContiguous()->createNSData().get()]);
+    [wrapper setPreferredFilename:suggestedFilenameWithMIMEType(pasteboardImage.url.url.createNSURL().get(), pasteboardImage.resourceMIMEType)];
     return wrapper.autorelease();
 }
 
@@ -272,7 +273,7 @@ static void writeFileWrapperAsRTFDAttachment(NSFileWrapper *wrapper, const Strin
 
 void Pasteboard::write(const PasteboardImage& pasteboardImage)
 {
-    CFDataRef imageData = pasteboardImage.image->adapter().tiffRepresentation();
+    CFDataRef imageData = Ref { *pasteboardImage.image }->adapter().tiffRepresentation();
     if (!imageData)
         return;
 
@@ -443,7 +444,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
 {
     auto& strategy = *platformStrategies()->pasteboardStrategy();
     auto platformTypesFromItems = [](const Vector<PasteboardItemInfo>& items) {
-        UncheckedKeyHashSet<String> types;
+        HashSet<String> types;
         for (auto& item : items) {
             for (auto& type : item.platformTypesByFidelity)
                 types.add(type);
@@ -451,7 +452,7 @@ void Pasteboard::read(PasteboardWebContentReader& reader, WebContentReadingPolic
         return types;
     };
 
-    UncheckedKeyHashSet<String> nonTranscodedTypes;
+    HashSet<String> nonTranscodedTypes;
     Vector<String> types;
     if (itemIndex) {
         if (auto itemInfo = strategy.informationForItemAtIndex(*itemIndex, m_pasteboardName, m_changeCount, context())) {
@@ -609,9 +610,9 @@ bool Pasteboard::hasData()
 
 static String cocoaTypeFromHTMLClipboardType(const String& type)
 {
-    if (NSString *platformType = PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(type)) {
-        if (platformType.length)
-            return platformType;
+    if (RetainPtr platformType = PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(type).createNSString().get()) {
+        if (platformType.get().length)
+            return platformType.get();
     }
 
     // Reject types that might contain subframe information.
@@ -648,7 +649,7 @@ Vector<String> Pasteboard::readPlatformValuesAsStrings(const String& domType, in
     auto values = strategy.allStringsForType(cocoaType, pasteboardName, context());
     if (cocoaType == String(legacyStringPasteboardType())) {
         values = values.map([&] (auto& value) -> String {
-            return [value precomposedStringWithCanonicalMapping];
+            return [value.createNSString() precomposedStringWithCanonicalMapping];
         });
     }
 
@@ -703,7 +704,7 @@ void Pasteboard::writeString(const String& type, const String& data)
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if (cocoaType == String(legacyURLPasteboardType()) || cocoaType == String(kUTTypeFileURL)) {
-        NSURL *url = [NSURL URLWithString:cocoaData];
+        RetainPtr url = adoptNS([[NSURL alloc] initWithString:cocoaData.createNSString().get()]);
         if ([url isFileURL])
             return;
         platformStrategies()->pasteboardStrategy()->setTypes({ cocoaType }, m_pasteboardName, context());
@@ -859,7 +860,7 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return pasteboardBuffer.data;
 ALLOW_DEPRECATED_DECLARATIONS_END
 
-    auto sourceData = pasteboardBuffer.data->createCFData();
+    auto sourceData = Ref { *pasteboardBuffer.data }->createCFData();
     auto sourceType = pasteboardBuffer.type.createCFString();
 
     const void* key = kCGImageSourceTypeIdentifierHint;

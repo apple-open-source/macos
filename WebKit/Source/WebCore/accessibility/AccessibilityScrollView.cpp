@@ -38,12 +38,12 @@
 
 namespace WebCore {
     
-AccessibilityScrollView::AccessibilityScrollView(AXID axID, ScrollView& view)
-    : AccessibilityObject(axID)
-    , m_scrollView(view)
+AccessibilityScrollView::AccessibilityScrollView(AXID axID, ScrollView& view, AXObjectCache& cache)
+    : AccessibilityObject(axID, cache)
     , m_childrenDirty(false)
+    , m_scrollView(view)
 {
-    if (auto* localFrameView = dynamicDowncast<LocalFrameView>(view))
+    if (RefPtr localFrameView = dynamicDowncast<LocalFrameView>(view))
         m_frameOwnerElement = localFrameView->frame().ownerElement();
 }
 
@@ -52,15 +52,35 @@ AccessibilityScrollView::~AccessibilityScrollView()
     ASSERT(isDetached());
 }
 
+bool AccessibilityScrollView::isRoot() const
+{
+    RefPtr frameView = dynamicDowncast<FrameView>(m_scrollView.get());
+    return frameView && frameView->frame().isMainFrame();
+}
+
+String AccessibilityScrollView::ownerDebugDescription() const
+{
+    if (!m_frameOwnerElement) {
+        StringBuilder builder;
+        builder.append("null frame owner"_s);
+        if (isRoot())
+            builder.append(" (root)"_s);
+        return builder.toString();
+    }
+
+    CheckedPtr renderer = m_frameOwnerElement->renderer();
+    return makeString("owned by: "_s, renderer ? renderer->debugDescription() : m_frameOwnerElement->debugDescription());
+}
+
 void AccessibilityScrollView::detachRemoteParts(AccessibilityDetachmentType detachmentType)
 {
     AccessibilityObject::detachRemoteParts(detachmentType);
 
-    auto* remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get());
+    RefPtr remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get());
     if (remoteFrameView && m_remoteFrame && (detachmentType == AccessibilityDetachmentType::ElementDestroyed || detachmentType == AccessibilityDetachmentType::CacheDestroyed)) {
 #if PLATFORM(MAC)
-        auto& remoteFrame = remoteFrameView->frame();
-        remoteFrame.unbindRemoteAccessibilityFrames(m_remoteFrame->processIdentifier());
+        Ref remoteFrame = remoteFrameView->frame();
+        remoteFrame->unbindRemoteAccessibilityFrames(m_remoteFrame->processIdentifier());
 #endif
         m_remoteFrame = nullptr;
     }
@@ -69,9 +89,9 @@ void AccessibilityScrollView::detachRemoteParts(AccessibilityDetachmentType deta
     m_frameOwnerElement = nullptr;
 }
 
-Ref<AccessibilityScrollView> AccessibilityScrollView::create(AXID axID, ScrollView& view)
+Ref<AccessibilityScrollView> AccessibilityScrollView::create(AXID axID, ScrollView& view, AXObjectCache& cache)
 {
-    return adoptRef(*new AccessibilityScrollView(axID, view));
+    return adoptRef(*new AccessibilityScrollView(axID, view, cache));
 }
 
 ScrollView* AccessibilityScrollView::currentScrollView() const
@@ -100,27 +120,27 @@ AccessibilityObject* AccessibilityScrollView::scrollBar(AccessibilityOrientation
 // In WebKit2, the ScrollView object will return the AX information (because there are no platform widgets).
 bool AccessibilityScrollView::isAttachment() const
 {
-    if (auto* scrollView = currentScrollView())
+    if (RefPtr scrollView = currentScrollView())
         return scrollView->platformWidget();
     return false;
 }
 
 PlatformWidget AccessibilityScrollView::platformWidget() const
 {
-    if (auto* scrollView = currentScrollView())
+    if (RefPtr scrollView = currentScrollView())
         return scrollView->platformWidget();
     return nullptr;
 }
 
 bool AccessibilityScrollView::canSetFocusAttribute() const
 {
-    AccessibilityObject* webArea = webAreaObject();
+    RefPtr webArea = webAreaObject();
     return webArea && webArea->canSetFocusAttribute();
 }
     
 bool AccessibilityScrollView::isFocused() const
 {
-    AccessibilityObject* webArea = webAreaObject();
+    RefPtr webArea = webAreaObject();
     return webArea && webArea->isFocused();
 }
 
@@ -129,7 +149,7 @@ void AccessibilityScrollView::setFocused(bool focused)
     // Call the base class setFocused to ensure the view is focused and active.
     AccessibilityObject::setFocused(focused);
 
-    if (AccessibilityObject* webArea = webAreaObject())
+    if (RefPtr webArea = webAreaObject())
         webArea->setFocused(focused);
 }
 
@@ -144,7 +164,7 @@ void AccessibilityScrollView::updateChildrenIfNecessary()
 
 void AccessibilityScrollView::updateScrollbars()
 {
-    auto* scrollView = currentScrollView();
+    RefPtr scrollView = currentScrollView();
     if (!scrollView)
         return;
 
@@ -177,10 +197,13 @@ void AccessibilityScrollView::removeChildScrollbar(AccessibilityObject* scrollba
     if (!scrollbar)
         return;
 
-    size_t position = m_children.find(Ref { *scrollbar });
+    size_t position = m_children.findIf([&scrollbar] (const Ref<AXCoreObject>& child) {
+        return child.ptr() == scrollbar;
+    });
     if (position != notFound) {
         m_children[position]->detachFromParent();
-        m_children.remove(position);
+        m_children.removeAt(position);
+        resetChildrenIndexInParent();
 
         if (CheckedPtr cache = axObjectCache())
             cache->remove(scrollbar->objectID());
@@ -196,10 +219,10 @@ AccessibilityScrollbar* AccessibilityScrollView::addChildScrollbar(Scrollbar* sc
     if (!cache)
         return nullptr;
 
-    auto& scrollBarObject = uncheckedDowncast<AccessibilityScrollbar>(*cache->getOrCreate(*scrollbar));
-    scrollBarObject.setParent(this);
-    addChild(scrollBarObject);
-    return &scrollBarObject;
+    Ref scrollBarObject = uncheckedDowncast<AccessibilityScrollbar>(*cache->getOrCreate(*scrollbar));
+    scrollBarObject->setParent(this);
+    addChild(scrollBarObject.get());
+    return scrollBarObject.ptr();
 }
         
 void AccessibilityScrollView::clearChildren()
@@ -218,7 +241,7 @@ bool AccessibilityScrollView::computeIsIgnored() const
     if (m_remoteFrame)
         return false;
 
-    AccessibilityObject* webArea = webAreaObject();
+    RefPtr webArea = webAreaObject();
     if (!webArea)
         return true;
 
@@ -227,7 +250,7 @@ bool AccessibilityScrollView::computeIsIgnored() const
 
 void AccessibilityScrollView::addRemoteFrameChild()
 {
-    auto* remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get());
+    RefPtr remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get());
     if (!remoteFrameView)
         return;
 
@@ -266,11 +289,15 @@ void AccessibilityScrollView::addChildren()
     addRemoteFrameChild();
     addChild(webAreaObject());
     updateScrollbars();
+
+#ifndef NDEBUG
+    verifyChildrenIndexInParent();
+#endif
 }
 
 AccessibilityObject* AccessibilityScrollView::webAreaObject() const
 {
-    auto* document = this->document();
+    RefPtr document = this->document();
     if (!document || !document->hasLivingRenderTree() || m_remoteFrame)
         return nullptr;
 
@@ -282,7 +309,7 @@ AccessibilityObject* AccessibilityScrollView::webAreaObject() const
 
 AccessibilityObject* AccessibilityScrollView::accessibilityHitTest(const IntPoint& point) const
 {
-    AccessibilityObject* webArea = webAreaObject();
+    RefPtr webArea = webAreaObject();
     if (!webArea)
         return nullptr;
     
@@ -296,17 +323,17 @@ AccessibilityObject* AccessibilityScrollView::accessibilityHitTest(const IntPoin
 
 LayoutRect AccessibilityScrollView::elementRect() const
 {
-    auto* scrollView = currentScrollView();
+    RefPtr scrollView = currentScrollView();
     return scrollView ? scrollView->frameRectShrunkByInset() : LayoutRect();
 }
 
 Document* AccessibilityScrollView::document() const
 {
-    if (auto* frameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
+    if (RefPtr frameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
         return frameView->frame().document();
 
     // For the RemoteFrameView case, we need to return the document of our hosting parent so axObjectCache() resolves correctly.
-    if (auto* remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get())) {
+    if (RefPtr remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get())) {
         if (auto* owner = remoteFrameView->frame().ownerElement())
             return &(owner->document());
     }
@@ -316,8 +343,8 @@ Document* AccessibilityScrollView::document() const
 
 LocalFrameView* AccessibilityScrollView::documentFrameView() const
 {
-    if (auto* localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
-        return localFrameView;
+    if (RefPtr localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
+        return localFrameView.get();
 
     if (m_frameOwnerElement && m_frameOwnerElement->contentDocument())
         return m_frameOwnerElement->contentDocument()->view();
@@ -331,9 +358,9 @@ AccessibilityObject* AccessibilityScrollView::parentObject() const
         return nullptr;
 
     WeakPtr owner = m_frameOwnerElement.get();
-    if (auto* localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
+    if (RefPtr localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get()))
         owner = localFrameView->frame().ownerElement();
-    else if (auto* remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get()))
+    else if (RefPtr remoteFrameView = dynamicDowncast<RemoteFrameView>(m_scrollView.get()))
         owner = remoteFrameView->frame().ownerElement();
 
     if (owner && owner->renderer())
@@ -343,7 +370,7 @@ AccessibilityObject* AccessibilityScrollView::parentObject() const
 
 void AccessibilityScrollView::scrollTo(const IntPoint& point) const
 {
-    if (auto* scrollView = currentScrollView())
+    if (RefPtr scrollView = currentScrollView())
         scrollView->setScrollPosition(point);
 }
 

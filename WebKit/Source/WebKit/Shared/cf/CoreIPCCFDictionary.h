@@ -33,10 +33,21 @@
 namespace WebKit {
 
 class CoreIPCCFType;
+class CoreIPCCFArray;
+class CoreIPCBoolean;
+class CoreIPCCFCharacterSet;
+class CoreIPCData;
+class CoreIPCDate;
+class CoreIPCCFDictionary;
+class CoreIPCNull;
+class CoreIPCNumber;
+class CoreIPCString;
+class CoreIPCCFURL;
 
 class CoreIPCCFDictionary {
 public:
-    using KeyValueVector = Vector<KeyValuePair<CoreIPCCFType, CoreIPCCFType>>;
+    using KeyType = Variant<CoreIPCCFArray, CoreIPCBoolean, CoreIPCCFCharacterSet, CoreIPCData, CoreIPCDate, CoreIPCCFDictionary, CoreIPCNull, CoreIPCNumber, CoreIPCString, CoreIPCCFURL>;
+    using KeyValueVector = Vector<KeyValuePair<KeyType, CoreIPCCFType>>;
 
     CoreIPCCFDictionary(CFDictionaryRef);
     CoreIPCCFDictionary(CoreIPCCFDictionary&&);

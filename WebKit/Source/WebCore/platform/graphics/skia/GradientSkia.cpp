@@ -152,7 +152,7 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
         [&](const LinearData& data) {
             SkPoint points[] = { SkPoint::Make(data.point0.x(), data.point0.y()), SkPoint::Make(data.point1.x(), data.point1.y()) };
 
-            return SkGradientShader::MakeLinear(points, colors.data(), nullptr, positions.data(), colors.size(), tileMode, interpolation, &matrix);
+            return SkGradientShader::MakeLinear(points, colors.span().data(), nullptr, positions.span().data(), colors.size(), tileMode, interpolation, &matrix);
         },
         [&](const RadialData& data) {
             if (data.aspectRatio != 1)
@@ -163,13 +163,13 @@ sk_sp<SkShader> Gradient::shader(float globalAlpha, const AffineTransform& gradi
             SkScalar startRadius = std::max(webCoreDoubleToSkScalar(data.startRadius), 0.0f);
             SkScalar endRadius = std::max(webCoreDoubleToSkScalar(data.endRadius), 0.0f);
 
-            return SkGradientShader::MakeTwoPointConical(start, startRadius, end, endRadius, colors.data(), nullptr, positions.data(), colors.size(), tileMode, interpolation, &matrix);
+            return SkGradientShader::MakeTwoPointConical(start, startRadius, end, endRadius, colors.span().data(), nullptr, positions.span().data(), colors.size(), tileMode, interpolation, &matrix);
         },
         [&](const ConicData& data) {
             // Skia's renders it tilted by 90 degrees, so offset that rotation in the matrix
             matrix.preRotate(SkRadiansToDegrees(data.angleRadians) - 90.0f, data.point0.x(), data.point0.y());
 
-            return SkGradientShader::MakeSweep(data.point0.x(), data.point0.y(), colors.data(), nullptr, positions.data(), colors.size(), tileMode, 0, 360, interpolation, &matrix);
+            return SkGradientShader::MakeSweep(data.point0.x(), data.point0.y(), colors.span().data(), nullptr, positions.span().data(), colors.size(), tileMode, 0, 360, interpolation, &matrix);
         });
 
     return m_shader;

@@ -81,7 +81,7 @@ public:
 
     void quantify(const AtomQuantifier&);
 
-    ImmutableCharNFANodeBuilder generateGraph(NFA&, ImmutableCharNFANodeBuilder& source, const ActionList& finalActions) const;
+    ImmutableCharNFANodeBuilder generateGraph(NFA&, ImmutableCharNFANodeBuilder& source, ActionList&& finalActions) const;
     void generateGraph(NFA&, ImmutableCharNFANodeBuilder& source, uint32_t destination) const;
 
     bool isEndOfLineAssertion() const;
@@ -380,11 +380,11 @@ inline void Term::quantify(const AtomQuantifier& quantifier)
     m_quantifier = quantifier;
 }
 
-inline ImmutableCharNFANodeBuilder Term::generateGraph(NFA& nfa, ImmutableCharNFANodeBuilder& source, const ActionList& finalActions) const
+inline ImmutableCharNFANodeBuilder Term::generateGraph(NFA& nfa, ImmutableCharNFANodeBuilder& source, ActionList&& finalActions) const
 {
     ImmutableCharNFANodeBuilder newEnd(nfa);
     generateGraph(nfa, source, newEnd.nodeId());
-    newEnd.setActions(finalActions.begin(), finalActions.end());
+    newEnd.setActions(WTFMove(finalActions));
     return newEnd;
 }
 

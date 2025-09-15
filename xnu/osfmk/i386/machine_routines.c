@@ -1437,3 +1437,10 @@ void
 ml_task_post_signature_processing_hook(__unused task_t task)
 {
 }
+
+bool
+ml_unsafe_kernel_text(void)
+{
+	/* No text lockdown on x86. */
+	return true;
+}

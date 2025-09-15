@@ -28,13 +28,13 @@
 
 #import "JSDOMBinding.h"
 #import "ObjCRuntimeObject.h"
+#import "WebCoreJSClientData.h"
 #import "WebScriptObject.h"
 #import "WebScriptObjectProtocol.h"
 #import "objc_instance.h"
 #import "runtime_array.h"
 #import "runtime_object.h"
 #import <JavaScriptCore/Error.h>
-#import <JavaScriptCore/IsoSubspacePerVM.h>
 #import <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #import <JavaScriptCore/JSGlobalObject.h>
 #import <JavaScriptCore/JSLock.h>
@@ -61,7 +61,7 @@ ClassStructPtr webUndefinedClass()
 
 // ---------------------- ObjcMethod ----------------------
 
-ObjcMethod::ObjcMethod(ClassStructPtr aClass, SEL selector)
+ObjcMethod::ObjcMethod(ClassStructPtr aClass, SELStructPtr selector)
     : _objcClass(aClass)
     , _selector(selector)
 {
@@ -334,10 +334,7 @@ bool ObjcFallbackObjectImp::toBoolean(JSGlobalObject*) const
 
 JSC::GCClient::IsoSubspace* ObjcFallbackObjectImp::subspaceForImpl(JSC::VM& vm)
 {
-    static NeverDestroyed<JSC::IsoSubspacePerVM> perVM([] (JSC::Heap& heap) {
-        return ISO_SUBSPACE_PARAMETERS(heap.destructibleObjectHeapCellType, ObjcFallbackObjectImp);
-    });
-    return &perVM.get().clientIsoSubspaceforVM(vm);
+    return &downcast<JSVMClientData>(vm.clientData)->objcFallbackObjectImpSpace();
 }
 
 } // namespace Bindings

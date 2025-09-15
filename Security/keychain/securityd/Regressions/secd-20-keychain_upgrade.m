@@ -87,7 +87,7 @@ keychain_upgrade(bool musr, const char *dbname)
     }, NULL);
     is(res, 0, "SecItemAdd(user)");
 
-    NSString *keychain_path = CFBridgingRelease(__SecKeychainCopyPath());
+    NSString *keychain_path = CFBridgingRelease(SecServerKeychainCopyPath());
 
     // Add a row to a non-item table
     /* Create a new keychain sqlite db */
@@ -97,8 +97,8 @@ keychain_upgrade(bool musr, const char *dbname)
     is(sqlite3_exec(db, "INSERT into ckmirror VALUES(\"ckzone\", \"importantuuid\", \"keyuuid\", 0, \"asdf\", \"qwer\", \"ckrecord\", 0, 0, 0, NULL, NULL, NULL, \"contextID\");", NULL, NULL, NULL), SQLITE_OK, "row added to ckmirror table");
     is(sqlite3_close(db), SQLITE_OK, "close db");
 
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(^{
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(^{
 
         /* Create a new keychain sqlite db */
         sqlite3 *db;

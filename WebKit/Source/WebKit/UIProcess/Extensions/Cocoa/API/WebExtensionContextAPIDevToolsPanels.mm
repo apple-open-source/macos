@@ -51,7 +51,7 @@ void WebExtensionContext::devToolsPanelsCreate(WebPageProxyIdentifier webPagePro
 
     extension->createTab(title, { baseURL(), iconPath }, { baseURL(), pagePath }, [completionHandler = WTFMove(completionHandler)](Expected<Inspector::ExtensionTabID, Inspector::ExtensionError>&& result) mutable {
         if (!result) {
-            RELEASE_LOG_ERROR(Extensions, "Inspector could not create panel (%{public}@)", (NSString *)extensionErrorToString(result.error()));
+            RELEASE_LOG_ERROR(Extensions, "Inspector could not create panel (%{public}@)", extensionErrorToString(result.error()).createNSString().get());
             completionHandler(toWebExtensionError(apiName, nullString(), @"Web Inspector could not create the panel"));
             return;
         }

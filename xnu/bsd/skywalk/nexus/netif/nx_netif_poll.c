@@ -385,7 +385,7 @@ netif_rxpoll_compat_thread_cont(void *v, wait_result_t wres)
 		 * else hold an IO refcnt to prevent the interface
 		 * from being detached (will be released below.)
 		 */
-		if (!ifnet_is_attached(ifp, 1)) {
+		if (!ifnet_get_ioref(ifp)) {
 			lck_mtx_lock_spin(&ifp->if_poll_lock);
 			break;
 		}
@@ -447,7 +447,7 @@ netif_rxpoll_compat_thread_cont(void *v, wait_result_t wres)
 		if (ts != NULL) {
 			uint64_t interval;
 
-			_CASSERT(IF_RXPOLL_INTERVALTIME_MIN >= (1ULL * 1000));
+			static_assert(IF_RXPOLL_INTERVALTIME_MIN >= (1ULL * 1000));
 			net_timerusec(ts, &interval);
 			ASSERT(interval <= UINT32_MAX);
 			clock_interval_to_deadline((uint32_t)interval, NSEC_PER_USEC,

@@ -321,6 +321,7 @@ struct vnode {
 /* v_ext_flags (8 bits) */
 #define VE_LINKCHANGE            0x01
 #define VE_LINKCHANGEWAIT        0x02
+#define VE_NOT_HARDLINK          0x04
 
 /*
  * This structure describes vnode data which is specific to a file descriptor.
@@ -456,7 +457,7 @@ struct ostat;
 /* bdevvp moved to vnode.h as private KPI */
 void    cvtstat(struct stat *st, struct ostat *ost);
 void    vprint(const char *label, struct vnode *vp);
-
+void    vprint_path(const char *label, struct vnode *vp);
 
 __private_extern__ int set_package_extensions_table(user_addr_t data, int nentries, int maxwidth);
 #if CONFIG_MACF

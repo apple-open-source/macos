@@ -70,6 +70,10 @@ typedef
 #define BZ_EXPORT
 #endif
 
+#ifdef __cplusplus
+}
+#endif
+
 #ifndef BZ_NO_STDIO
 /* Need a definitition for FILE */
 #include <stdio.h>
@@ -94,6 +98,9 @@ typedef
 #   define BZ_EXTERN extern
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*-- Core (low-level) library functions --*/
 

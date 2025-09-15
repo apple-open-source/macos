@@ -33,6 +33,7 @@ static char sccsid[] = "@(#)getenv.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/getenv.c,v 1.8 2007/05/01 16:02:41 ache Exp $");
 
+#include <errno.h>
 #include <os/lock_private.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -122,4 +123,72 @@ getenv(const char *name)
 	char *result = __findenv_locked(name, &offset, *_NSGetEnviron());
 	environ_unlock_np();
 	return result;
+}
+
+/*
+ * getenv_copy_np --
+ *	Returns ptr to copy of value associated with name, if any, else NULL.
+ *	Caller is responsible for freeing the return value.
+ *	Sets errno == ENOMEM and returns NULL if memory allocation fails.
+ *	Sets errno == EAGAIN and returns NULL if 5 attempts to copy the
+ *	string fails.
+ */
+char *
+getenv_copy_np(const char *name)
+{
+	/*
+	 * malloc() calls getenv() (which takes the environ_lock_np()), so
+	 * strdup() can not be called with environ_lock_np() held. Instead,
+	 * perform a two-step check for the length of the value (under lock),
+	 * then allocate a buffer, then try to copy the value into the buffer
+	 * (under lock). If the value of the environment variable changed such
+	 * that it no longer fits in the buffer, then try again up to four more
+	 * times. This algorithm is prescribed when using getenv_s() (ISO-C
+	 * Annex K), so this function abstracts that from the user since it is
+	 * difficult to implement correctly.
+	 */
+	unsigned attempts = 0;
+	char *result_buffer = NULL;
+	size_t result_buffer_length = 0;
+	int unused_offset;
+	char *value;
+	size_t value_length;
+
+	/* 1. Get the length of the value. */
+	environ_lock_np();
+	value = __findenv_locked(name, &unused_offset, *_NSGetEnviron());
+	value_length = value ? strlen(value) : 0;
+	environ_unlock_np();
+
+	if (!value)
+		return NULL;
+
+	do {
+		if (++attempts > 5) {
+			errno = EAGAIN;
+			return NULL;
+		}
+
+		/* 2. Allocate a buffer for the copy.  Round up to nearest/next 16 bytes. */
+		result_buffer_length = value_length + 1;
+		result_buffer_length += (16 - (result_buffer_length % 16));
+		result_buffer = (char *)reallocf((void *)result_buffer, result_buffer_length);
+		if (result_buffer == NULL) {
+			/* reallocf() sets errno = ENOMEM on failure. */
+			return NULL;
+		}
+
+		/* 3. Get the variable again and make a copy. */
+		environ_lock_np();
+		value = __findenv_locked(name, &unused_offset, *_NSGetEnviron());
+		value_length = value ? strlcpy(result_buffer, value, result_buffer_length) : 0;
+		environ_unlock_np();
+
+		if (!value)
+			return NULL;
+
+		/* 4. If value was too long for buffer, try again. */
+	} while (value_length >= result_buffer_length);
+
+	return result_buffer;
 }

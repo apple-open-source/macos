@@ -81,12 +81,12 @@ public:
     }
 
 private:
-    BlobPart(std::variant<Vector<uint8_t>, URL>&& dataOrURL)
+    BlobPart(Variant<Vector<uint8_t>, URL>&& dataOrURL)
         : m_dataOrURL(WTFMove(dataOrURL))
     {
     }
 
-    std::variant<Vector<uint8_t>, URL> m_dataOrURL;
+    Variant<Vector<uint8_t>, URL> m_dataOrURL;
 };
 
 } // namespace WebCore

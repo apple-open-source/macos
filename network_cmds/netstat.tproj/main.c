@@ -69,6 +69,7 @@ char const copyright[] =
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/sys_domain.h>
+#include <sys/vsock_private.h>
 
 #include <netinet/in.h>
 #include <net/pfkeyv2.h>
@@ -175,7 +176,8 @@ struct protox kernprotox[] = {
 
 #ifdef AF_VSOCK
 struct protox vsockprotox[] = {
-	{ vsockpr,	vsockstats,	NULL,	"vsock", 0 },
+	{ vsockpr,	vsockstats,	NULL,	"vsock",   VSOCK_PROTO_STANDARD },
+    { vsockpr,  vsockstats, NULL,   "vsock_private", VSOCK_PROTO_PRIVATE },
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 #endif
@@ -691,10 +693,16 @@ print_socket_stats_format(void)
 		}
 	}
 	if (vflag > 0) {
-		printf(" %7.7s %7.7s %6.6s %6.6s %5.5s %8.8s",
-		       "rhiwat", "shiwat", "pid", "epid", "state", "options");
-		printf(" %16.16s %8.8s %8.8s %6s %6s %5s",
-		       "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
+		if (vflag > 1) {
+			printf(" %7.7s %7.7s %16s:%-6s %16s:%-6s",
+			       "rhiwat", "shiwat", "process", "pid", "eprocess", "epid");
+		} else {
+			printf(" %7.7s %7.7s %16s:%-6s",
+			       "rhiwat", "shiwat", "process", "pid");
+		}
+
+		printf(" %5.5s %8.8s %16.16s %8.8s %8.8s %6s %6s %5s",
+		       "state", "options", "gencnt", "flags", "flags1", "usecnt", "rtncnt", "fltrs");
 	}
 
 }
@@ -726,14 +734,37 @@ print_socket_stats_data(struct xsocket_n *so, struct xsockbuf_n *so_rcv, struct 
 		}
 	}
 	if (vflag > 0) {
-		printf(" %7u %7u %6u %6u %05x %08x",
-		       so_rcv->sb_hiwat,
-		       so_snd->sb_hiwat,
-		       so->so_last_pid,
-		       so->so_e_pid,
+		char namebuf[32] = { 0 };
+
+		proc_name(so->so_last_pid, namebuf, sizeof(namebuf));
+
+		if (vflag > 1) {
+			char epidbuf[16] = { 0 };
+			char enamebuf[32] = { 0 };
+
+			/* print empty strings of the effective pid is not set (i.e. 0)*/
+			if (so->so_e_pid != 0) {
+				snprintf(epidbuf, sizeof(epidbuf),"%d", so->so_e_pid);
+				proc_name(so->so_e_pid, enamebuf, sizeof(enamebuf));
+			}
+			printf(" %7u %7u %16s:%-6u %16s:%-6s",
+			       so_rcv->sb_hiwat,
+			       so_snd->sb_hiwat,
+			       namebuf,
+			       so->so_last_pid,
+			       enamebuf,
+			       epidbuf);
+		} else {
+			printf(" %7u %7u %16s:%-6u",
+			       so_rcv->sb_hiwat,
+			       so_snd->sb_hiwat,
+			       namebuf,
+			       so->so_last_pid);
+		}
+
+		printf(" %05x %08x %016llx %08x %08x %6d %6d %06x",
 		       so->so_state,
-		       so->so_options);
-		printf(" %016llx %08x %08x %6d %6d %06x",
+		       so->so_options,
 		       so->so_gencnt,
 		       so->so_flags,
 		       so->so_flags1,

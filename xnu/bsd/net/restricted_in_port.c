@@ -368,11 +368,11 @@ restricted_in_port_init(void)
 	unsigned int i;
 
 #if SKYWALK
-	_CASSERT(PORT_FLAGS_LISTENER == NETNS_LISTENER);
-	_CASSERT(PORT_FLAGS_SKYWALK == NETNS_SKYWALK);
-	_CASSERT(PORT_FLAGS_BSD == NETNS_BSD);
-	_CASSERT(PORT_FLAGS_PF == NETNS_PF);
-	_CASSERT(PORT_FLAGS_MAX == NETNS_OWNER_MAX);
+	static_assert(PORT_FLAGS_LISTENER == NETNS_LISTENER);
+	static_assert(PORT_FLAGS_SKYWALK == NETNS_SKYWALK);
+	static_assert(PORT_FLAGS_BSD == NETNS_BSD);
+	static_assert(PORT_FLAGS_PF == NETNS_PF);
+	static_assert(PORT_FLAGS_MAX == NETNS_OWNER_MAX);
 #endif /* SKYWALK */
 
 	restricted_port_bitmap = bitmap_alloc(UINT16_MAX);

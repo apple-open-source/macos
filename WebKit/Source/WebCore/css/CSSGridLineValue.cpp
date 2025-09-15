@@ -32,19 +32,19 @@
 
 namespace WebCore {
 
-String CSSGridLineValue::customCSSText() const
+String CSSGridLineValue::customCSSText(const CSS::SerializationContext& context) const
 {
     Vector<String> parts;
     if (m_spanValue)
-        parts.append(m_spanValue->cssText());
+        parts.append(m_spanValue->cssText(context));
     // Only return the numeric value if not 1, or if it provided without a span value.
     // https://drafts.csswg.org/css-grid-2/#grid-placement-span-int
     if (m_numericValue) {
         if (m_numericValue->isOne() != true || !m_spanValue || !m_gridLineName)
-            parts.append(m_numericValue->cssText());
+            parts.append(m_numericValue->cssText(context));
     }
     if (m_gridLineName)
-        parts.append(m_gridLineName->cssText());
+        parts.append(m_gridLineName->cssText(context));
     return makeStringByJoining(parts, " "_s);
 }
 
@@ -63,22 +63,17 @@ Ref<CSSGridLineValue> CSSGridLineValue::create(RefPtr<CSSPrimitiveValue>&& spanV
 
 bool CSSGridLineValue::equals(const CSSGridLineValue& other) const
 {
-    if (m_spanValue) {
-        if (!other.m_spanValue || !m_spanValue->equals(*other.m_spanValue))
+    auto equals = [](CSSPrimitiveValue* value, CSSPrimitiveValue* otherValue) {
+        if ((!value && otherValue) || (value && !otherValue))
             return false;
-    } else if (other.m_spanValue)
-        return false;
+        return (!value && !otherValue) || value->equals(*otherValue);
+    };
 
-    if (m_numericValue) {
-        if (!other.m_numericValue || !m_numericValue->equals(*other.m_numericValue))
-            return false;
-    } else if (other.m_numericValue)
+    if (!equals(protectedSpanValue().get(), other.protectedSpanValue().get()))
         return false;
-
-    if (m_gridLineName) {
-        if (!other.m_gridLineName || !m_gridLineName->equals(*other.m_gridLineName))
-            return false;
-    } else if (other.m_gridLineName)
+    if (!equals(protectedNumericValue().get(), other.protectedNumericValue().get()))
+        return false;
+    if (!equals(protectedGridLineName().get(), other.protectedGridLineName().get()))
         return false;
 
     return true;

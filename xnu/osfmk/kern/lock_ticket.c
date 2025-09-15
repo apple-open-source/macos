@@ -72,11 +72,7 @@ extern uint64_t TLockTimeOut;
  * to execute before checking for timeouts and
  * issuing a "wait" hypercall.
  */
-#if __x86_64__
 #define DEFAULT_TICKET_LOOPS (LOCK_SNOOP_SPINS)
-#else
-#define DEFAULT_TICKET_LOOPS (LOCK_SNOOP_SPINS / 8)
-#endif
 uint32_t ticket_lock_spins = DEFAULT_TICKET_LOOPS;
 #define TICKET_LOCK_SNOOP_LOOPS ticket_lock_spins
 

@@ -20,6 +20,10 @@
 
 #if USE(GSTREAMER_WEBRTC)
 
+#include "GRefPtrGStreamer.h"
+#include "RealtimeMediaSource.h"
+#include <wtf/text/WTFString.h>
+
 namespace WebCore {
 
 using WebRTCTrackData = struct _WebRTCTrackData {
@@ -30,7 +34,10 @@ using WebRTCTrackData = struct _WebRTCTrackData {
     RealtimeMediaSource::Type type;
     GRefPtr<GstCaps> caps;
     unsigned ssrc;
+    String mid;
 };
+
+void gstPayloaderSetPayloadType(const GRefPtr<GstElement>&, int pt);
 
 } // namespace WebCore
 

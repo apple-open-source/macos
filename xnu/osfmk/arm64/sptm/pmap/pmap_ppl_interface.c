@@ -34,7 +34,7 @@
  * contains the ppl_handler_table, as well as a few PPL-only entry/exit helper
  * functions.
  *
- * See doc/ppl.md for more information about how these PPL entry points work.
+ * See doc/arm/PPL.md for more information about how these PPL entry points work.
  */
 #include <kern/ledger.h>
 
@@ -50,7 +50,7 @@
  * generates the code for the _ppl() variant which is what is used to jump into
  * the PPL.
  *
- * See doc/ppl.md for more information about how these PPL entry points work.
+ * See doc/arm/PPL.md for more information about how these PPL entry points work.
  */
 
 PMAP_SUPPORT_PROTOTYPES(

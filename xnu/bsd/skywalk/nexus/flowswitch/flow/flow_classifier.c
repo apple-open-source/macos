@@ -35,10 +35,10 @@
 
 #define CL_SKIP_ON(t)                           \
 	if (__improbable(t)) {                  \
-	        SK_ERR("%d: skip " #t, __LINE__); \
+	        SK_PERR(current_proc(), "%d: skip " #t, __LINE__); \
 	        SK_ERR("%s %s", if_name(ifp), sk_dump("buf", \
 	            pkt_buf + pkt->pkt_headroom, __packet_get_real_data_length(pkt), \
-	            MIN(128, bdlen), NULL, 0)); \
+	            MIN(128, bdlen)));          \
 	        error = ENOTSUP;                \
 	        goto done;                      \
 	}
@@ -113,53 +113,53 @@ flow_pkt_classify(struct __kern_packet *pkt, struct ifnet *ifp, sa_family_t af,
 	int error = 0;
 
 	/* must be 16-bytes aligned due to use of sk_copy* below */
-	_CASSERT((offsetof(struct __flow, flow_l3) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_ipv4_src) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_ipv6_src) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_l4) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_tcp_src) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_udp_src) % 16) == 0);
-	_CASSERT((offsetof(struct __flow, flow_esp_spi) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_l3) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_ipv4_src) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_ipv6_src) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_l4) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_tcp_src) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_udp_src) % 16) == 0);
+	static_assert((offsetof(struct __flow, flow_esp_spi) % 16) == 0);
 
-	_CASSERT(sizeof(struct __flow_l3_ipv4_addrs) == 8);
-	_CASSERT((offsetof(struct __flow_l3_ipv4_addrs, _dst) -
+	static_assert(sizeof(struct __flow_l3_ipv4_addrs) == 8);
+	static_assert((offsetof(struct __flow_l3_ipv4_addrs, _dst) -
 	    offsetof(struct __flow_l3_ipv4_addrs, _src)) ==
 	    (offsetof(struct ip, ip_dst) - offsetof(struct ip, ip_src)));
 
-	_CASSERT(sizeof(struct __flow_l3_ipv6_addrs) == 32);
-	_CASSERT((offsetof(struct __flow_l3_ipv6_addrs, _dst) -
+	static_assert(sizeof(struct __flow_l3_ipv6_addrs) == 32);
+	static_assert((offsetof(struct __flow_l3_ipv6_addrs, _dst) -
 	    offsetof(struct __flow_l3_ipv6_addrs, _src)) ==
 	    (offsetof(struct ip6_hdr, ip6_dst) -
 	    offsetof(struct ip6_hdr, ip6_src)));
 
 	/* __flow_l4_tcp must mirror tcphdr for the first 16-bytes */
-	_CASSERT(sizeof(struct __flow_l4_tcp) == 16);
-	_CASSERT((offsetof(struct __flow_l4_tcp, _dst) -
+	static_assert(sizeof(struct __flow_l4_tcp) == 16);
+	static_assert((offsetof(struct __flow_l4_tcp, _dst) -
 	    offsetof(struct __flow_l4_tcp, _src)) ==
 	    (offsetof(struct tcphdr, th_dport) -
 	    offsetof(struct tcphdr, th_sport)));
-	_CASSERT((offsetof(struct __flow_l4_tcp, _seq) -
+	static_assert((offsetof(struct __flow_l4_tcp, _seq) -
 	    offsetof(struct __flow_l4_tcp, _src)) ==
 	    (offsetof(struct tcphdr, th_seq) -
 	    offsetof(struct tcphdr, th_sport)));
-	_CASSERT((offsetof(struct __flow_l4_tcp, _ack) -
+	static_assert((offsetof(struct __flow_l4_tcp, _ack) -
 	    offsetof(struct __flow_l4_tcp, _src)) ==
 	    (offsetof(struct tcphdr, th_ack) -
 	    offsetof(struct tcphdr, th_sport)));
-	_CASSERT((offsetof(struct __flow_l4_tcp, _flags) -
+	static_assert((offsetof(struct __flow_l4_tcp, _flags) -
 	    offsetof(struct __flow_l4_tcp, _src)) ==
 	    (offsetof(struct tcphdr, th_flags) -
 	    offsetof(struct tcphdr, th_sport)));
-	_CASSERT((offsetof(struct __flow_l4_tcp, _win) -
+	static_assert((offsetof(struct __flow_l4_tcp, _win) -
 	    offsetof(struct __flow_l4_tcp, _src)) ==
 	    (offsetof(struct tcphdr, th_win) -
 	    offsetof(struct tcphdr, th_sport)));
 
 	/* ensure same offsets use for TCP and UDP */
-	_CASSERT(sizeof(struct __flow_l4_udp) == 8);
-	_CASSERT(offsetof(struct __flow, flow_tcp_src) ==
+	static_assert(sizeof(struct __flow_l4_udp) == 8);
+	static_assert(offsetof(struct __flow, flow_tcp_src) ==
 	    offsetof(struct __flow, flow_udp_src));
-	_CASSERT(offsetof(struct __flow, flow_tcp_dst) ==
+	static_assert(offsetof(struct __flow, flow_tcp_dst) ==
 	    offsetof(struct __flow, flow_udp_dst));
 
 
@@ -429,7 +429,7 @@ done:
 				    pkt->pkt_length, mtu,
 				    pkt->pkt_proto_seg_sz);
 				SK_ERR("%s", sk_dump("buf", l3_hdr, cls_len,
-				    128, NULL, 0));
+				    128));
 				error = EMSGSIZE;
 				goto fail;
 			}

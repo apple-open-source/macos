@@ -137,6 +137,76 @@
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
+            <key>Ap,AppleVideoEncoder0</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder0.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder1</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder1.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder2</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder2.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder3</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder3.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder4</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder4.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder5</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder5.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder6</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder6.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder7</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder7.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AppleVideoEncoder8</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AppleVideoEncoder8.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,AVD</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,AVD.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
             <key>AOP</key>
             <dict>
                 <key>DestinationPath</key>
@@ -256,6 +326,55 @@
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
+            <key>PERTOS1</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS1.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS2</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS2.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS3</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS3.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS4</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS4.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS5</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS5.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS6</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS6.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS7</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS7.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
             <key>PHLEET</key>
             <dict>
                 <key>DestinationPath</key>
@@ -267,6 +386,55 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/RBM.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM1</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM1.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM2</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM2.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM3</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM3.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM4</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM4.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM5</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM5.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM6</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM6.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM7</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM7.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>
@@ -358,6 +526,13 @@
             <dict>
                 <key>DestinationPath</key>
                 <string>./usr/standalone/firmware/FUD/Ap,SecureM3Firmware.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,XHC</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Ap,XHC.img4</string>
                 <key>ManifestRule</key>
                 <integer>1</integer>
             </dict>

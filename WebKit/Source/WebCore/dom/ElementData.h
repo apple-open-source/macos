@@ -30,6 +30,7 @@
 #include <wtf/IndexedRange.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -63,7 +64,7 @@ public:
     unsigned length() const;
     bool isEmpty() const { return !length(); }
 
-    std::span<const Attribute> attributes() const;
+    std::span<const Attribute> attributes() const LIFETIME_BOUND;
     const Attribute& attributeAt(unsigned index) const;
     const Attribute* findAttributeByName(const QualifiedName&) const;
     unsigned findAttributeIndexByName(const QualifiedName&) const;
@@ -145,11 +146,6 @@ private:
     Ref<UniqueElementData> makeUniqueCopy() const;
 };
 
-#if COMPILER(MSVC)
-#pragma warning(push)
-#pragma warning(disable: 4200) // Disable "zero-sized array in struct/union" warning
-#endif
-
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ShareableElementData);
 class ShareableElementData : public ElementData {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ShareableElementData);
@@ -168,10 +164,6 @@ public:
     Attribute m_attributeArray[0];
 };
 
-#if COMPILER(MSVC)
-#pragma warning(pop)
-#endif
-
 class UniqueElementData : public ElementData {
 public:
     static Ref<UniqueElementData> create();
@@ -179,12 +171,12 @@ public:
 
     // These functions do no error/duplicate checking.
     void addAttribute(const QualifiedName&, const AtomString&);
-    void removeAttribute(unsigned index);
+    void removeAttributeAt(unsigned index);
 
     Attribute& attributeAt(unsigned index);
     Attribute* findAttributeByName(const QualifiedName&);
 
-    std::span<const Attribute> attributes() const { return m_attributeVector.span(); }
+    std::span<const Attribute> attributes() const LIFETIME_BOUND { return m_attributeVector.span(); }
 
     UniqueElementData();
     explicit UniqueElementData(const ShareableElementData&);
@@ -214,7 +206,7 @@ inline unsigned ElementData::length() const
 inline const Attribute* ElementData::attributeBase() const
 {
     if (auto* uniqueData = dynamicDowncast<UniqueElementData>(*this))
-        return uniqueData->m_attributeVector.data();
+        return uniqueData->m_attributeVector.span().data();
     return uncheckedDowncast<ShareableElementData>(*this).m_attributeArray;
 }
 
@@ -292,9 +284,9 @@ inline void UniqueElementData::addAttribute(const QualifiedName& attributeName, 
     m_attributeVector.append(Attribute(attributeName, value));
 }
 
-inline void UniqueElementData::removeAttribute(unsigned index)
+inline void UniqueElementData::removeAttributeAt(unsigned index)
 {
-    m_attributeVector.remove(index);
+    m_attributeVector.removeAt(index);
 }
 
 inline Attribute& UniqueElementData::attributeAt(unsigned index)

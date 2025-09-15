@@ -1236,15 +1236,128 @@ root{
         bangla{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d MMMM, y",
+                "d MMMM",
+                "d MMM",
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/tamil/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/tamil/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Boishakh",
+                        "Joishtho",
+                        "Asharh",
+                        "Srabon",
+                        "Bhadro",
+                        "Ashshin",
+                        "Kartik",
+                        "Agrahayan",
+                        "Poush",
+                        "Magh",
+                        "Falgun",
+                        "Choitro",
+                    }
+                    narrow{
+                        "B",
+                        "J",
+                        "A",
+                        "S",
+                        "B",
+                        "A",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "F",
+                        "C",
+                    }
+                    wide{
+                        "Boishakh",
+                        "Joishtho",
+                        "Asharh",
+                        "Srabon",
+                        "Bhadro",
+                        "Ashshin",
+                        "Kartik",
+                        "Agrahayan",
+                        "Poush",
+                        "Magh",
+                        "Falgun",
+                        "Choitro",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Boishakh",
+                        "Joishtho",
+                        "Asharh",
+                        "Srabon",
+                        "Bhadro",
+                        "Ashshin",
+                        "Kartik",
+                        "Agrahayan",
+                        "Poush",
+                        "Magh",
+                        "Falgun",
+                        "Choitro",
+                    }
+                    narrow{
+                        "B",
+                        "J",
+                        "A",
+                        "S",
+                        "B",
+                        "A",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "F",
+                        "C",
+                    }
+                    wide{
+                        "Boishakh",
+                        "Joishtho",
+                        "Asharh",
+                        "Srabon",
+                        "Bhadro",
+                        "Ashshin",
+                        "Kartik",
+                        "Agrahayan",
+                        "Poush",
+                        "Magh",
+                        "Falgun",
+                        "Choitro",
+                    }
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         buddhist{
@@ -2437,15 +2550,158 @@ root{
         gujarati{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                {
+                    "EEEE, MMMM d, y",
+                    "d=tithieng",
+                }
+                {
+                    "MMMM, d",
+                    "d=tithieng",
+                }
+                {
+                    "MMM, d",
+                    "d=tithieng",
+                }
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yEEEEMMMMd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Kārtak",
+                        "Māgśar",
+                        "Posh",
+                        "Mahā",
+                        "Phāgan",
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jeth",
+                        "Āṣāḍh",
+                        "Śrāvan",
+                        "Bhādarvo",
+                        "Āso",
+                    }
+                    narrow{
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                    }
+                    wide{
+                        "Kārtak",
+                        "Māgśar",
+                        "Posh",
+                        "Mahā",
+                        "Phāgan",
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jeth",
+                        "Āṣāḍh",
+                        "Śrāvan",
+                        "Bhādarvo",
+                        "Āso",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Kārtak",
+                        "Māgśar",
+                        "Posh",
+                        "Mahā",
+                        "Phāgan",
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jeth",
+                        "Āṣāḍh",
+                        "Śrāvan",
+                        "Bhādarvo",
+                        "Āso",
+                    }
+                    narrow{
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                    }
+                    wide{
+                        "Kārtak",
+                        "Māgśar",
+                        "Posh",
+                        "Mahā",
+                        "Phāgan",
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jeth",
+                        "Āṣāḍh",
+                        "Śrāvan",
+                        "Bhādarvo",
+                        "Āso",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated:alias{"/LOCALE/calendar/gujarati/monthPatterns/format/narrow"}
+                    narrow:alias{"/LOCALE/calendar/gujarati/monthPatterns/stand-alone/narrow"}
+                    wide{
+                        leap{"{0} (Adhika)"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0} (A)"}
+                    }
+                }
+                stand-alone{
+                    abbreviated:alias{"/LOCALE/calendar/gujarati/monthPatterns/format/abbreviated"}
+                    narrow{
+                        leap{"{0} (A)"}
+                    }
+                    wide:alias{"/LOCALE/calendar/gujarati/monthPatterns/format/wide"}
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         hebrew{
@@ -2512,29 +2768,29 @@ root{
         hindu-lunar{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns:alias{"/LOCALE/calendar/vikram/DateTimePatterns"}
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames:alias{"/LOCALE/calendar/vikram/monthNames"}
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         hindu-solar{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns:alias{"/LOCALE/calendar/tamil/DateTimePatterns"}
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/tamil/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/tamil/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
+            monthNames:alias{"/LOCALE/calendar/tamil/monthNames"}
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         indian{
@@ -3460,57 +3716,586 @@ root{
         kannada{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                {
+                    "EEEE, MMMM d, y",
+                    "d=tithienk",
+                }
+                {
+                    "MMMM, d",
+                    "d=tithienk",
+                }
+                {
+                    "MMM, d",
+                    "d=tithienk",
+                }
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated:alias{"/LOCALE/calendar/kannada/monthPatterns/format/narrow"}
+                    narrow:alias{"/LOCALE/calendar/kannada/monthPatterns/stand-alone/narrow"}
+                    wide{
+                        leap{"{0} (Adhika)"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0} (A)"}
+                    }
+                }
+                stand-alone{
+                    abbreviated:alias{"/LOCALE/calendar/kannada/monthPatterns/format/abbreviated"}
+                    narrow{
+                        leap{"{0} (A)"}
+                    }
+                    wide:alias{"/LOCALE/calendar/kannada/monthPatterns/format/wide"}
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         malayalam{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, y MMMM d",
+                "MMMM d",
+                "MMM d",
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/tamil/appendItems"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"MMM G"}
+                GyMMMEd{"E, MMM d G"}
+                GyMMMd{"MMM d G"}
+                GyMd{"d/M GGGGG"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"L"}
+                MEd{"MM-dd, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MM-dd"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"y-MM"}
+                yMEd{"E, d/M"}
+                yMM{"MM"}
+                yMMM{"MMM"}
+                yMMMEd{"E, MMM d"}
+                yMMMM{"MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"d/M"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Chingam",
+                        "Kanni",
+                        "Thulam",
+                        "Vrushchikam",
+                        "Dhanu",
+                        "Makaram",
+                        "Kumbham",
+                        "Meenam",
+                        "Metam",
+                        "Itavam",
+                        "Midhunam",
+                        "Karkkitakam",
+                    }
+                    narrow{
+                        "C",
+                        "K",
+                        "T",
+                        "V",
+                        "D",
+                        "M",
+                        "K",
+                        "M",
+                        "M",
+                        "I",
+                        "M",
+                        "K",
+                    }
+                    wide{
+                        "Chingam",
+                        "Kanni",
+                        "Thulam",
+                        "Vrushchikam",
+                        "Dhanu",
+                        "Makaram",
+                        "Kumbham",
+                        "Meenam",
+                        "Metam",
+                        "Itavam",
+                        "Midhunam",
+                        "Karkkitakam",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Chingam",
+                        "Kanni",
+                        "Thulam",
+                        "Vrushchikam",
+                        "Dhanu",
+                        "Makaram",
+                        "Kumbham",
+                        "Meenam",
+                        "Metam",
+                        "Itavam",
+                        "Midhunam",
+                        "Karkkitakam",
+                    }
+                    narrow{
+                        "C",
+                        "K",
+                        "T",
+                        "V",
+                        "D",
+                        "M",
+                        "K",
+                        "M",
+                        "M",
+                        "I",
+                        "M",
+                        "K",
+                    }
+                    wide{
+                        "Chingam",
+                        "Kanni",
+                        "Thulam",
+                        "Vrushchikam",
+                        "Dhanu",
+                        "Makaram",
+                        "Kumbham",
+                        "Meenam",
+                        "Metam",
+                        "Itavam",
+                        "Midhunam",
+                        "Karkkitakam",
+                    }
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         marathi{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                {
+                    "EEEE, MMMM d, y",
+                    "d=tithienm",
+                }
+                {
+                    "MMMM, d",
+                    "d=tithienm",
+                }
+                {
+                    "MMM, d",
+                    "d=tithienm",
+                }
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames:alias{"/LOCALE/calendar/vikram/monthNames"}
+            monthPatterns{
+                format{
+                    abbreviated:alias{"/LOCALE/calendar/marathi/monthPatterns/format/narrow"}
+                    narrow:alias{"/LOCALE/calendar/marathi/monthPatterns/stand-alone/narrow"}
+                    wide{
+                        leap{"{0} (Adhika)"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0} (A)"}
+                    }
+                }
+                stand-alone{
+                    abbreviated:alias{"/LOCALE/calendar/marathi/monthPatterns/format/abbreviated"}
+                    narrow{
+                        leap{"{0} (A)"}
+                    }
+                    wide:alias{"/LOCALE/calendar/marathi/monthPatterns/format/wide"}
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         odia{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, MMMM d, y",
+                "MMMM d",
+                "MMM d",
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/tamil/appendItems"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"MMM G"}
+                GyMMMEd{"E, MMM d, G"}
+                GyMMMd{"MMM d, G"}
+                GyMd{"d/M GGGGG"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"L"}
+                MEd{"MM-dd, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MM-dd"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"y-MM"}
+                yMEd{"E, d/M"}
+                yMM{"MM"}
+                yMMM{"MMM"}
+                yMMMEd{"E, MMM d"}
+                yMMMM{"MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"d/M"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/tamil/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Aswin",
+                        "Kartika",
+                        "Margashira",
+                        "Pausha",
+                        "Magha",
+                        "Phalguna",
+                        "Chyatra",
+                        "Byisakha",
+                        "Jyosta",
+                        "Asadha",
+                        "Srabana",
+                        "Bhadra",
+                    }
+                    narrow{
+                        "A",
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                        "C",
+                        "B",
+                        "J",
+                        "A",
+                        "S",
+                        "B",
+                    }
+                    wide{
+                        "Aswin",
+                        "Kartika",
+                        "Margashira",
+                        "Pausha",
+                        "Magha",
+                        "Phalguna",
+                        "Chyatra",
+                        "Byisakha",
+                        "Jyosta",
+                        "Asadha",
+                        "Srabana",
+                        "Bhadra",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Aswin",
+                        "Kartika",
+                        "Margashira",
+                        "Pausha",
+                        "Magha",
+                        "Phalguna",
+                        "Chyatra",
+                        "Byisakha",
+                        "Jyosta",
+                        "Asadha",
+                        "Srabana",
+                        "Bhadra",
+                    }
+                    narrow{
+                        "A",
+                        "K",
+                        "M",
+                        "P",
+                        "M",
+                        "P",
+                        "C",
+                        "B",
+                        "J",
+                        "A",
+                        "S",
+                        "B",
+                    }
+                    wide{
+                        "Aswin",
+                        "Kartika",
+                        "Margashira",
+                        "Pausha",
+                        "Magha",
+                        "Phalguna",
+                        "Chyatra",
+                        "Byisakha",
+                        "Jyosta",
+                        "Asadha",
+                        "Srabana",
+                        "Bhadra",
+                    }
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         persian{
@@ -3594,43 +4379,563 @@ root{
         tamil{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, d MMMM, y",
+                "d MMMM",
+                "d MMM",
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"MMM G"}
+                GyMMMEd{"E, d MMM, G"}
+                GyMMMd{"d MMM, G"}
+                GyMd{"d/M GGGGG"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"L"}
+                MEd{"MM-dd, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"d MMM"}
+                Md{"MM-dd"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"y-MM"}
+                yMEd{"E, d/M"}
+                yMM{"MM"}
+                yMMM{"MMM"}
+                yMMMEd{"E, d MMM"}
+                yMMMM{"MMMM"}
+                yMMMd{"d MMM"}
+                yMd{"d/M"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Chithirai",
+                        "Vaikaasi",
+                        "Aani",
+                        "Aadi",
+                        "Aavani",
+                        "Purattaasi",
+                        "Aippasi",
+                        "Karthikai",
+                        "Maargazhi",
+                        "Thai",
+                        "Maasi",
+                        "Panguni",
+                    }
+                    narrow{
+                        "C",
+                        "V",
+                        "A",
+                        "A",
+                        "A",
+                        "P",
+                        "A",
+                        "K",
+                        "M",
+                        "T",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Chithirai",
+                        "Vaikaasi",
+                        "Aani",
+                        "Aadi",
+                        "Aavani",
+                        "Purattaasi",
+                        "Aippasi",
+                        "Karthikai",
+                        "Maargazhi",
+                        "Thai",
+                        "Maasi",
+                        "Panguni",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Chithirai",
+                        "Vaikaasi",
+                        "Aani",
+                        "Aadi",
+                        "Aavani",
+                        "Purattaasi",
+                        "Aippasi",
+                        "Karthikai",
+                        "Maargazhi",
+                        "Thai",
+                        "Maasi",
+                        "Panguni",
+                    }
+                    narrow{
+                        "C",
+                        "V",
+                        "A",
+                        "A",
+                        "A",
+                        "P",
+                        "A",
+                        "K",
+                        "M",
+                        "T",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Chithirai",
+                        "Vaikaasi",
+                        "Aani",
+                        "Aadi",
+                        "Aavani",
+                        "Purattaasi",
+                        "Aippasi",
+                        "Karthikai",
+                        "Maargazhi",
+                        "Thai",
+                        "Maasi",
+                        "Panguni",
+                    }
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
         telugu{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                {
+                    "EEEE, MMMM d, y",
+                    "d=tithient",
+                }
+                {
+                    "MMMM, d",
+                    "d=tithient",
+                }
+                {
+                    "MMM, d",
+                    "d=tithient",
+                }
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
-            appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            appendItems:alias{"/LOCALE/calendar/vikram/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/vikram/availableFormats"}
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
-            intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            intervalFormats:alias{"/LOCALE/calendar/vikram/intervalFormats"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated:alias{"/LOCALE/calendar/telugu/monthPatterns/format/narrow"}
+                    narrow:alias{"/LOCALE/calendar/telugu/monthPatterns/stand-alone/narrow"}
+                    wide{
+                        leap{"{0} (Adhika)"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0} (A)"}
+                    }
+                }
+                stand-alone{
+                    abbreviated:alias{"/LOCALE/calendar/telugu/monthPatterns/format/abbreviated"}
+                    narrow{
+                        leap{"{0} (A)"}
+                    }
+                    wide:alias{"/LOCALE/calendar/telugu/monthPatterns/format/wide"}
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
+        }
+        vietnamese{
+            AmPmMarkers:alias{"/LOCALE/calendar/chinese/AmPmMarkers"}
+            AmPmMarkersNarrow:alias{"/LOCALE/calendar/chinese/AmPmMarkersNarrow"}
+            DateTimePatterns:alias{"/LOCALE/calendar/chinese/DateTimePatterns"}
+            NoonMarker:alias{"/LOCALE/calendar/chinese/NoonMarker"}
+            NoonMarkerNarrow:alias{"/LOCALE/calendar/chinese/NoonMarkerNarrow"}
+            appendItems:alias{"/LOCALE/calendar/chinese/appendItems"}
+            availableFormats:alias{"/LOCALE/calendar/chinese/availableFormats"}
+            cyclicNameSets:alias{"/LOCALE/calendar/chinese/cyclicNameSets"}
+            dayNames:alias{"/LOCALE/calendar/chinese/dayNames"}
+            intervalFormats:alias{"/LOCALE/calendar/chinese/intervalFormats"}
+            monthNames:alias{"/LOCALE/calendar/chinese/monthNames"}
+            monthPatterns:alias{"/LOCALE/calendar/chinese/monthPatterns"}
+            quarters:alias{"/LOCALE/calendar/chinese/quarters"}
         }
         vikram{
             AmPmMarkers:alias{"/LOCALE/calendar/gregorian/AmPmMarkers"}
             AmPmMarkersNarrow:alias{"/LOCALE/calendar/gregorian/AmPmMarkersNarrow"}
-            DateTimePatterns:alias{"/LOCALE/calendar/gregorian/DateTimePatterns"}
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                {
+                    "EEEE, MMMM d, y",
+                    "d=tithienp",
+                }
+                {
+                    "MMMM, d",
+                    "d=tithienp",
+                }
+                {
+                    "d MMM",
+                    "d=tithienp",
+                }
+                "M/d/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "MMMMd",
+                "MMMd",
+                "yyMd",
+            }
             NoonMarker:alias{"/LOCALE/calendar/gregorian/NoonMarker"}
             NoonMarkerNarrow:alias{"/LOCALE/calendar/gregorian/NoonMarkerNarrow"}
             appendItems:alias{"/LOCALE/calendar/gregorian/appendItems"}
-            availableFormats:alias{"/LOCALE/calendar/gregorian/availableFormats"}
+            availableFormats{
+                Bh{"h B"}
+                Bhm{"h:mm B"}
+                Bhms{"h:mm:ss B"}
+                E{"ccc"}
+                EBhm{"E h:mm B"}
+                EBhms{"E h:mm:ss B"}
+                EHm{"E HH:mm"}
+                EHms{"E HH:mm:ss"}
+                Ed{"d, E"}
+                Ehm{"E h:mm a"}
+                Ehms{"E h:mm:ss a"}
+                Gy{"G y"}
+                GyMMM{"MMM G"}
+                GyMMMEd{"E, MMM d, G"}
+                GyMMMd{"MMM d, G"}
+                GyMd{"d/M GGGGG"}
+                H{"HH"}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                Hmsv{"HH:mm:ss v"}
+                Hmv{"HH:mm v"}
+                M{"L"}
+                MEd{"MM-dd, E"}
+                MMM{"LLL"}
+                MMMEd{"MMM d, E"}
+                MMMMW{
+                    other{"'week' W 'of' MMMM"}
+                }
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"MM-dd"}
+                d{"d"}
+                h{"h a"}
+                hm{"h:mm a"}
+                hms{"h:mm:ss a"}
+                hmsv{"h:mm:ss a v"}
+                hmv{"h:mm a v"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"y-MM"}
+                yMEd{"E, d/M"}
+                yMM{"MM"}
+                yMMM{"MMM"}
+                yMMMEd{"E, MMM d"}
+                yMMMM{"MMMM"}
+                yMMMd{"MMM d"}
+                yMd{"d/M"}
+                yQQQ{"y QQQ"}
+                yQQQQ{"y QQQQ"}
+                yw{
+                    other{"'week' w 'of' Y"}
+                }
+            }
             dayNames:alias{"/LOCALE/calendar/gregorian/dayNames"}
             eras:alias{"/LOCALE/calendar/gregorian/eras"}
             intervalFormats:alias{"/LOCALE/calendar/gregorian/intervalFormats"}
-            monthNames:alias{"/LOCALE/calendar/gregorian/monthNames"}
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                    narrow{
+                        "Ć",
+                        "V",
+                        "J",
+                        "Ā",
+                        "Ś",
+                        "B",
+                        "Ā",
+                        "K",
+                        "A",
+                        "P",
+                        "M",
+                        "P",
+                    }
+                    wide{
+                        "Ćaitra",
+                        "Vaiśākh",
+                        "Jyeṣṭha",
+                        "Āṣāḍh",
+                        "Śrāvana",
+                        "Bhādrapada",
+                        "Āświna",
+                        "Kārtika",
+                        "Agrahāyaṇa",
+                        "Pauṣa",
+                        "Māgha",
+                        "Phālguna",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated:alias{"/LOCALE/calendar/vikram/monthPatterns/format/narrow"}
+                    narrow:alias{"/LOCALE/calendar/vikram/monthPatterns/stand-alone/narrow"}
+                    wide{
+                        leap{"{0} (Adhika)"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0} (A)"}
+                    }
+                }
+                stand-alone{
+                    abbreviated:alias{"/LOCALE/calendar/vikram/monthPatterns/format/abbreviated"}
+                    narrow{
+                        leap{"{0} (A)"}
+                    }
+                    wide:alias{"/LOCALE/calendar/vikram/monthPatterns/format/wide"}
+                }
+            }
             quarters:alias{"/LOCALE/calendar/gregorian/quarters"}
         }
     }

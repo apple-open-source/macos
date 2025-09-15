@@ -29,6 +29,8 @@
 #include <mach/mach_types.h>
 #include <mach/mach_host.h>
 
+#include <ipc/ipc_policy.h>
+
 #include <kern/kern_types.h>
 #include <kern/ipc_kobject.h>
 #include <kern/host_notify.h>
@@ -97,11 +99,14 @@ again:
 		/*
 		 * Preserve original ABI of host-notify ports being immovable
 		 * as a side effect of being a kobject.
-		 *
-		 * Unlike the original ABI, multiple registrations
-		 * for the same port are now allowed.
 		 */
-		port->ip_immovable_receive = true;
+		if (!ip_is_immovable_receive(port)) {
+			ipc_object_label_t label = ip_label_get(port);
+
+			ipc_release_assert(label.io_state == IO_STATE_IN_SPACE);
+			label.io_state = IO_STATE_IN_SPACE_IMMOVABLE;
+			io_label_set_and_put(&port->ip_object, &label);
+		}
 		enqueue_tail(&host_notify_queue[notify_type], &entry->entries);
 	}
 

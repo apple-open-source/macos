@@ -45,7 +45,6 @@
 #include <Security/SecItemPriv.h>
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import <utilities/SecCoreAnalytics.h>
@@ -91,6 +90,7 @@
         _handleMismatchedViewItems = handleMismatchedViewItems;
 
         _viewsToScan = [NSMutableSet set];
+        _deletedRecordCount = 0;
 
         // Use setter to access parent class field
         self.name = @"incoming-queue-operation";
@@ -246,11 +246,12 @@
         }
     }
 
-    if(newOrChangedRecords.count > 0 || deletedRecordIDs > 0) {
+    if(newOrChangedRecords.count > 0 || deletedRecordIDs.count > 0) {
         // Schedule a view change notification
         [viewState.notifyViewChangedScheduler trigger];
     }
 
+    self.deletedRecordCount += deletedRecordIDs.count;
     return true;
 }
 
@@ -441,8 +442,8 @@
         
         if(!success) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation (after processing deletes): %@", self.error);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:NO error:self.error];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+            [loadAndProcessIQEsEventS sendMetricWithResult:NO error:self.error];
+            [eventS sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -451,8 +452,8 @@
         
         if(!success) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation (after processing all incoming entries): %@", self.error);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:NO error:self.error];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+            [loadAndProcessIQEsEventS sendMetricWithResult:NO error:self.error];
+            [eventS sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -462,8 +463,8 @@
         
         if(![self fixMismatchedViewItems:viewState]) {
             ckksnotice("ckksincoming", viewState, "Early-exiting from IncomingQueueOperation due to failure fixing mismatched items");
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:YES error:nil];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+            [loadAndProcessIQEsEventS sendMetricWithResult:YES error:nil];
+            [eventS sendMetricWithResult:NO error:self.error];
             return;
         }
 
@@ -509,8 +510,8 @@
         kSecurityRTCFieldAvgCKRecords:@(avgCKRecords),
         kSecurityRTCFieldTotalCKRecords:@(totalQueueEntries)
     }];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:loadAndProcessIQEsEventS success:YES error:nil];
-    
+    [loadAndProcessIQEsEventS sendMetricWithResult:YES error:nil];
+
     if(self.newOutgoingEntries) {
         self.deps.currentOutgoingQueueOperationGroup = [CKOperationGroup CKKSGroupWithName:@"incoming-queue-response"];
         [self.deps.flagHandler handleFlag:CKKSFlagProcessOutgoingQueue];
@@ -574,7 +575,7 @@
                          kSecurityRTCFieldSuccessfulItemsProcessed: @(totalSuccessfulItemsProcessed),
                          kSecurityRTCFieldErrorItemsProcessed: @(totalErrorItemsProcessed)
                        }];
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:!(self.pendingClassAEntries || self.missingKey) error:self.error];
+    [eventS sendMetricWithResult:!(self.pendingClassAEntries || self.missingKey) error:self.error];
 
     [self.deps.overallLaunch addEvent:@"incoming-processing-complete"];
 }
@@ -717,9 +718,11 @@
 
     if (numMismatchedItems > 0) {
         [fixMismatchedViewItemsEventS addMetrics:@{kSecurityRTCFieldNumMismatchedItems:@(numMismatchedItems)}];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:fixMismatchedViewItemsEventS success:!errored error:self.error];
+        [fixMismatchedViewItemsEventS sendMetricWithResult:!errored error:self.error];
+    } else {
+        [fixMismatchedViewItemsEventS sendMetricWithResult:YES error:nil];
     }
-
+    
     return !errored;
 }
 
@@ -868,7 +871,7 @@
     __block BOOL keptOldItem = NO;
     __block NSDate* moddate = (__bridge NSDate*) CFDictionaryGetValue(item->attributes, kSecAttrModificationDate);
 
-    ok = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt){
+    ok = kc_with_dbt(true, NULL , &cferror, ^(SecDbConnectionRef dbt){
         bool replaceok = SecDbItemInsertOrReplace(item, dbt, &cferror, ^(SecDbItemRef olditem, SecDbItemRef *replace) {
             // If the UUIDs do not match, then check to be sure that the local item is live and known to CKKS. If not, accept the cloud value.
             // Otherwise, when the UUIDs do not match, then select the item with the 'lower' UUID, and tell CKKS to
@@ -1060,7 +1063,7 @@
         return;
     }
 
-    ok = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
+    ok = kc_with_dbt(true, NULL , &cferror, ^(SecDbConnectionRef dbt) {
         return s3dl_query_delete(dbt, q, NULL, &cferror);
     });
 

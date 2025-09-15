@@ -4286,7 +4286,7 @@ krb5_get_init_creds_password(krb5_context context,
     if (delegate_bundle) {
 	//ONLY set the delegate identifier when it doesn't match the current process.
 	CFBundleRef appBundle = CFBundleGetMainBundle();
-	if (appBundle) {
+	if (appBundle && (context->flags & KRB5_CONTEXT_FLAG_FORK_SAFE) == 0) {
 	    CFStringRef currentBundleIdentifier = CFBundleGetIdentifier(appBundle);
 	    CFStringRef delegateBundleIdentifier = CFStringCreateWithCString(NULL, delegate_bundle, kCFStringEncodingUTF8);
 	    if (delegateBundleIdentifier && currentBundleIdentifier) {

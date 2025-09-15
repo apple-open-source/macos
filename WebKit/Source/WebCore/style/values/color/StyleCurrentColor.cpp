@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,12 +34,12 @@ namespace Style {
 
 // MARK: - Serialization
 
-void serializationForCSS(StringBuilder& builder, const CurrentColor&)
+void serializationForCSSTokenization(StringBuilder& builder, const CSS::SerializationContext&, const CurrentColor&)
 {
     builder.append("currentcolor"_s);
 }
 
-String serializationForCSS(const CurrentColor&)
+String serializationForCSSTokenization(const CSS::SerializationContext&, const CurrentColor&)
 {
     return "currentcolor"_s;
 }
@@ -47,7 +48,7 @@ String serializationForCSS(const CurrentColor&)
 
 WTF::TextStream& operator<<(WTF::TextStream& ts, const CurrentColor&)
 {
-    return ts << "currentColor";
+    return ts << "currentColor"_s;
 }
 
 } // namespace Style

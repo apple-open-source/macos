@@ -29,10 +29,10 @@
 #ifndef _NETINET_MPTCP_VAR_H_
 #define _NETINET_MPTCP_VAR_H_
 
-#ifdef PRIVATE
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#endif
+#include <netinet/tcp_private.h>
+#include <sys/_types/_uuid_t.h>
 
 #ifdef BSD_KERNEL_PRIVATE
 #include <sys/queue.h>
@@ -267,6 +267,7 @@ struct mptsub {
 	uint32_t                mpts_probesoon; /* send probe after probeto */
 	uint32_t                mpts_probecnt;  /* number of probes sent */
 	uint32_t                mpts_maxseg;    /* cached value of t_maxseg */
+	struct mpt_dsn_map      mpts_rcv_map;   /* Receive mapping list */
 };
 
 /*
@@ -644,7 +645,6 @@ extern int mptcp_validate_csum(struct tcpcb *tp, struct mbuf *m, uint64_t dsn,
 __END_DECLS
 
 #endif /* BSD_KERNEL_PRIVATE */
-#ifdef PRIVATE
 
 typedef struct mptcp_flow {
 	uint64_t                flow_len;
@@ -679,7 +679,6 @@ typedef struct conninfo_mptcp {
 
 	/* Receive side */
 	uint64_t        mptcpci_rcvnxt;         /* Next expected DSN */
-	uint64_t        mptcpci_rcvatmark;      /* Session level rcvnxt */
 	uint64_t        mptcpci_ridsn;          /* Peer's IDSN */
 	uint32_t        mptcpci_rcvwnd;         /* Receive window */
 
@@ -733,5 +732,4 @@ struct kev_mptcp_data {
 	int value;
 };
 
-#endif /* PRIVATE */
 #endif /* _NETINET_MPTCP_VAR_H_ */

@@ -66,7 +66,7 @@ static_assert((KERNEL_PMAP_HEAP_RANGE_START & ~ARM_TT_ROOT_OFFMASK) > ARM_KERNEL
  * We must have enough space in the TTBR1_EL1 range to create the EL0 mapping of
  * the exception vectors.
  */
-static_assert((((~ARM_KERNEL_PROTECT_EXCEPTION_START) + 1) * 2ULL) <= (ARM_TT_ROOT_SIZE + ARM_TT_ROOT_INDEX_MASK));
+static_assert((KERN_PROTECT_REGION_SIZE * 2ULL) <= KERN_ADDRESS_SPACE_SIZE);
 #endif /* __ARM_KERNEL_PROTECT__ */
 
 #define ARM_DYNAMIC_TABLE_XN (ARM_TTE_TABLE_PXN | ARM_TTE_TABLE_XN)
@@ -457,7 +457,7 @@ alloc_ptpage(boolean_t map_static)
 {
 	vm_offset_t vaddr;
 
-#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR))
+#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR))
 	map_static = FALSE;
 #endif
 
@@ -619,7 +619,7 @@ arm_vm_map(tt_entry_t * root_ttp, vm_offset_t vaddr, pt_entry_t pte)
 	 * Walk the target page table to find the PTE for the given virtual
 	 * address.  Allocate any page table pages needed to do this.
 	 */
-	l1_ttep = ttp + ((vaddr & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	l1_ttep = ttp + L1_TABLE_T1_INDEX(vaddr, TCR_EL1_BOOT);
 	l1_tte = *l1_ttep;
 
 	if (l1_tte == ARM_TTE_EMPTY) {
@@ -666,7 +666,7 @@ arm_vm_map(tt_entry_t * root_ttp, vm_offset_t vaddr, pt_entry_t pte)
 	*ptep = pte;
 }
 
-#endif // __ARM_KERNEL_PROTECT || XNU_MONITOR
+#endif /* __ARM_KERNEL_PROTECT__ || XNU_MONITOR */
 
 #if __ARM_KERNEL_PROTECT__
 
@@ -681,7 +681,7 @@ static void
 arm_vm_kernel_el0_map(vm_offset_t vaddr, pt_entry_t pte)
 {
 	/* Calculate where vaddr will be in the EL1 kernel page tables. */
-	vm_offset_t kernel_pmap_vaddr = vaddr - ((ARM_TT_ROOT_INDEX_MASK + ARM_TT_ROOT_SIZE) / 2ULL);
+	vm_offset_t kernel_pmap_vaddr = vaddr - KERN_PROTECT_REGION_SIZE;
 	arm_vm_map(cpu_tte, kernel_pmap_vaddr, pte);
 }
 
@@ -716,7 +716,7 @@ arm_vm_kernel_pte(vm_offset_t vaddr)
 	pt_entry_t * ptep = NULL;
 	pt_entry_t pte = 0;
 
-	ttep = ttp + ((vaddr & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	ttep = ttp + L1_TABLE_T1_INDEX(vaddr, TCR_EL1_BOOT);
 	tte = *ttep;
 
 	assert(tte & ARM_TTE_VALID);
@@ -824,7 +824,7 @@ arm_vm_expand_kernel_el0_mappings(void)
 }
 #endif /* __ARM_KERNEL_PROTECT__ */
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 extern void bootstrap_instructions;
 
 /*
@@ -858,7 +858,7 @@ arm_replace_identity_map(void)
 	 */
 	l1_ptp_phys = kvtophys((vm_offset_t)&bootstrap_pagetables);
 	l1_ptp_virt = (tt_entry_t *)phystokv(l1_ptp_phys);
-	tte1 = &l1_ptp_virt[L1_TABLE_INDEX(paddr)];
+	tte1 = &l1_ptp_virt[L1_TABLE_T1_INDEX(paddr, TCR_EL1_BOOT)];
 
 	l2_ptp_virt = L2_TABLE_VA(tte1);
 	l2_ptp_phys = (*tte1) & ARM_TTE_TABLE_MASK;
@@ -887,7 +887,7 @@ arm_replace_identity_map(void)
 	    ARM_PTE_AP(AP_RONA) |
 	    ARM_PTE_NX;
 }
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 tt_entry_t *arm_kva_to_tte(vm_offset_t);
 
@@ -895,7 +895,7 @@ tt_entry_t *
 arm_kva_to_tte(vm_offset_t va)
 {
 	tt_entry_t *tte1, *tte2;
-	tte1 = cpu_tte + L1_TABLE_INDEX(va);
+	tte1 = cpu_tte + L1_TABLE_T1_INDEX(va, TCR_EL1_BOOT);
 	tte2 = L2_TABLE_VA(tte1) + L2_TABLE_INDEX(va);
 
 	return tte2;
@@ -1560,7 +1560,7 @@ arm_vm_physmap_init(boot_args *args)
 	arm_vm_physmap_slide(temp_ptov_table, gVirtBase, segLOWEST - gVirtBase, AP_RWNA, 0);
 
 	// kext bootstrap segments
-#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR)
+#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR) && !defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* __KLD,__text is covered by the rorgn */
 	arm_vm_physmap_slide(temp_ptov_table, segKLDB, segSizeKLD, AP_RONA, 0);
 #endif
@@ -1686,7 +1686,7 @@ arm_vm_prot_finalize(boot_args * args __unused)
 #endif /* __ARM_KERNEL_PROTECT__ */
 
 #if XNU_MONITOR
-#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR)
+#if !defined(KERNEL_INTEGRITY_KTRR) && !defined(KERNEL_INTEGRITY_CTRR) && !defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* __KLD,__text is covered by the rorgn */
 	for (vm_offset_t va = segKLDB; va < (segKLDB + segSizeKLD); va += ARM_PGBYTES) {
 		pt_entry_t *pte = arm_kva_to_pte(va);
@@ -1722,7 +1722,7 @@ arm_vm_prot_finalize(boot_args * args __unused)
 	}
 #endif /* XNU_MONITOR */
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/*
 	 * __LAST,__pinst should no longer be executable.
 	 */
@@ -1752,48 +1752,6 @@ arm_vm_prot_finalize(boot_args * args __unused)
 }
 
 /*
- * TBI (top-byte ignore) is an ARMv8 feature for ignoring the top 8 bits of
- * address accesses. It can be enabled separately for TTBR0 (user) and
- * TTBR1 (kernel).
- */
-void
-arm_set_kernel_tbi(void)
-{
-#if !__ARM_KERNEL_PROTECT__ && CONFIG_KERNEL_TBI
-	uint64_t old_tcr, new_tcr;
-
-	old_tcr = new_tcr = get_tcr();
-	/*
-	 * For kernel configurations that require TBI support on
-	 * PAC systems, we enable DATA TBI only.
-	 */
-	new_tcr |= TCR_TBI1_TOPBYTE_IGNORED;
-	new_tcr |= TCR_TBID1_ENABLE;
-
-	if (old_tcr != new_tcr) {
-		set_tcr(new_tcr);
-		sysreg_restore.tcr_el1 = new_tcr;
-	}
-#endif /* !__ARM_KERNEL_PROTECT__ && CONFIG_KERNEL_TBI */
-}
-
-static void
-arm_set_user_tbi(void)
-{
-#if !__ARM_KERNEL_PROTECT__
-	uint64_t old_tcr, new_tcr;
-
-	old_tcr = new_tcr = get_tcr();
-	new_tcr |= TCR_TBI0_TOPBYTE_IGNORED;
-
-	if (old_tcr != new_tcr) {
-		set_tcr(new_tcr);
-		sysreg_restore.tcr_el1 = new_tcr;
-	}
-#endif /* !__ARM_KERNEL_PROTECT__ */
-}
-
-/*
  * Initialize and enter blank (invalid) page tables in a L1 translation table for a given VA range.
  *
  * This is a helper function used to build up the initial page tables for the kernel translation table.
@@ -1819,7 +1777,7 @@ init_ptpages(tt_entry_t *tt, vm_map_address_t start, vm_map_address_t end, bool 
 	tt_entry_t *l1_tte;
 	vm_offset_t ptpage_vaddr;
 
-	l1_tte = tt + ((start & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	l1_tte = tt + L1_TABLE_T1_INDEX(start, TCR_EL1_BOOT);
 
 	while (start < end) {
 		if (*l1_tte == ARM_TTE_EMPTY) {
@@ -1973,7 +1931,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	 */
 	first_avail_phys = avail_start = args->topOfKernelData;
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	arm_replace_identity_map();
 #endif
 
@@ -2136,7 +2094,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	 *     LOW_GLOBAL_BASE_ADDRESS + 2MB
 	 */
 	va_l1 = va_l2 = LOW_GLOBAL_BASE_ADDRESS;
-	cpu_l1_tte = cpu_tte + ((va_l1 & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(va_l1, TCR_EL1_BOOT);
 	cpu_l2_tte = ((tt_entry_t *) phystokv(((*cpu_l1_tte) & ARM_TTE_TABLE_MASK))) + ((va_l2 & ARM_TT_L2_INDEX_MASK) >> ARM_TT_L2_SHIFT);
 	ptpage_vaddr = alloc_ptpage(TRUE);
 	*cpu_l2_tte = (kvtophys(ptpage_vaddr) & ARM_TTE_TABLE_MASK) | ARM_TTE_TYPE_TABLE | ARM_TTE_VALID | ARM_TTE_TABLE_PXN | ARM_TTE_TABLE_XN;
@@ -2171,8 +2129,6 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 #if CONFIG_CPU_COUNTERS
 	mt_early_init();
 #endif /* CONFIG_CPU_COUNTERS */
-
-	arm_set_user_tbi();
 
 	arm_vm_physmap_init(args);
 	set_mmu_ttb_alternate(cpu_ttep & TTBR_BADDR_MASK);
@@ -2251,7 +2207,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	}
 
 	dynamic_memory_begin = ROUND_TWIG(dynamic_memory_begin);
-#if defined(KERNEL_INTEGRITY_CTRR) && defined(CONFIG_XNUPOST)
+#if (defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)) && defined(CONFIG_XNUPOST)
 	// reserve a 32MB region without permission overrides to use later for a CTRR unit test
 	{
 		extern vm_offset_t ctrr_test_page;
@@ -2259,7 +2215,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 
 		ctrr_test_page = dynamic_memory_begin;
 		dynamic_memory_begin += ARM_TT_L2_SIZE;
-		cpu_l1_tte = cpu_tte + ((ctrr_test_page & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+		cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(ctrr_test_page, TCR_EL1_BOOT);
 		assert((*cpu_l1_tte) & ARM_TTE_VALID);
 		cpu_l2_tte = ((tt_entry_t *) phystokv(((*cpu_l1_tte) & ARM_TTE_TABLE_MASK))) + ((ctrr_test_page & ARM_TT_L2_INDEX_MASK) >> ARM_TT_L2_SHIFT);
 		assert((*cpu_l2_tte) == ARM_TTE_EMPTY);
@@ -2267,7 +2223,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 		bzero(new_tte, ARM_PGBYTES);
 		*cpu_l2_tte = (kvtophys((vm_offset_t)new_tte) & ARM_TTE_TABLE_MASK) | ARM_TTE_TYPE_TABLE | ARM_TTE_VALID;
 	}
-#endif /* defined(KERNEL_INTEGRITY_CTRR) && defined(CONFIG_XNUPOST) */
+#endif /* (defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)) && defined(CONFIG_XNUPOST) */
 #if XNU_MONITOR
 	for (vm_offset_t cur = (vm_offset_t)pmap_stacks_start; cur < (vm_offset_t)pmap_stacks_end; cur += ARM_PGBYTES) {
 		arm_vm_map(cpu_tte, cur, ARM_PTE_EMPTY);
@@ -2295,7 +2251,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	va_l1_end += round_page(args->Video.v_height * args->Video.v_rowBytes);
 	va_l1_end = (va_l1_end + 0x00000000007FFFFFULL) & 0xFFFFFFFFFF800000ULL;
 
-	cpu_l1_tte = cpu_tte + ((va_l1 & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(va_l1, TCR_EL1_BOOT);
 
 	while (va_l1 < va_l1_end) {
 		va_l2 = va_l1;
@@ -2330,7 +2286,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 		cpu_l1_tte++;
 	}
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/*
 	 * In this configuration, the bootstrap mappings (arm_vm_init) and
 	 * the heap mappings occupy separate L1 regions.  Explicitly set up
@@ -2347,7 +2303,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	/* For large memory systems with no KTRR/CTRR such as virtual machines */
 	init_ptpages(cpu_tte, KERNEL_PMAP_HEAP_RANGE_START & ~ARM_TT_L1_OFFMASK, VM_MAX_KERNEL_ADDRESS, FALSE, ARM_DYNAMIC_TABLE_XN | ARM_TTE_TABLE_AP(ARM_TTE_TABLE_AP_USER_NA));
 #endif
-#endif // defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#endif // defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 
 	/*
 	 * Initialize l3 page table pages :
@@ -2357,7 +2313,7 @@ arm_vm_init(uint64_t memory_size, boot_args * args)
 	va_l1 = (VM_MAX_KERNEL_ADDRESS & CPUWINDOWS_BASE_MASK) - PE_EARLY_BOOT_VA;
 	va_l1_end = VM_MAX_KERNEL_ADDRESS;
 
-	cpu_l1_tte = cpu_tte + ((va_l1 & ARM_TT_L1_INDEX_MASK) >> ARM_TT_L1_SHIFT);
+	cpu_l1_tte = cpu_tte + L1_TABLE_T1_INDEX(va_l1, TCR_EL1_BOOT);
 
 	while (va_l1 < va_l1_end) {
 		va_l2 = va_l1;

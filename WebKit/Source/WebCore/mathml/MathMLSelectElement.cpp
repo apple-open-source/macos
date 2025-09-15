@@ -118,7 +118,7 @@ int MathMLSelectElement::getSelectedActionChildAndIndex(Element*& selectedChild)
     if (!selectedChild)
         return 1;
 
-    int selection = getIntegralAttribute(MathMLNames::selectionAttr);
+    int selection = integralAttribute(MathMLNames::selectionAttr);
     int i;
     for (i = 1; i < selection; i++) {
         auto* nextChild = selectedChild->nextElementSibling();

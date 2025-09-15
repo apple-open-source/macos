@@ -91,7 +91,7 @@ __nexus_open(struct proc *p, struct __nexus_open_args *uap, int *retval)
 
 	if (__improbable(uap->init == USER_ADDR_NULL ||
 	    uap->init_len < sizeof(init))) {
-		SK_DSC(p, "EINVAL: init %p, init_len %u", uap->init,
+		SK_PERR(p, "EINVAL: init 0x%llx, init_len %u", uap->init,
 		    uap->init_len);
 		err = EINVAL;
 		goto done;
@@ -99,12 +99,12 @@ __nexus_open(struct proc *p, struct __nexus_open_args *uap, int *retval)
 
 	err = copyin(uap->init, (caddr_t)&init, sizeof(init));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyin err %d, init 0x%llx", err, SK_KVA(uap->init));
+		SK_PERR(p, "copyin err %d, init %p", err, SK_KVA(uap->init));
 		goto done;
 	}
 
 	if (__improbable(init.ni_version != NEXUSCTL_INIT_CURRENT_VERSION)) {
-		SK_DSC(p, "ENOTSUP: version %u != %u", init.ni_version,
+		SK_PERR(p, "ENOTSUP: version %u != %u", init.ni_version,
 		    NEXUSCTL_INIT_CURRENT_VERSION);
 		err = ENOTSUP;
 		goto done;
@@ -117,14 +117,14 @@ __nexus_open(struct proc *p, struct __nexus_open_args *uap, int *retval)
 	err = falloc_guarded(p, &fp, &fd, vfs_context_current(), &guard,
 	    GUARD_CLOSE | GUARD_DUP | GUARD_SOCKET_IPC | GUARD_FILEPORT | GUARD_WRITE);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "falloc_guarded err %d", err);
+		SK_PERR(p, "falloc_guarded err %d", err);
 		goto done;
 	}
 
 	nxctl = nxctl_create(p, fp, nxctl_uuid, &err);
 	if (__improbable(nxctl == NULL)) {
 		ASSERT(err != 0);
-		SK_DSC(p, "nxctl_create err %d", err);
+		SK_PERR(p, "nxctl_create err %d", err);
 		goto done;
 	}
 
@@ -132,7 +132,7 @@ __nexus_open(struct proc *p, struct __nexus_open_args *uap, int *retval)
 	init.ni_guard = guard;
 	err = copyout(&init, uap->init, sizeof(init));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyout err %d, init 0x%llx", err,
+		SK_PERR(p, "copyout err %d, init %p", err,
 		    SK_KVA(uap->init));
 		goto done;
 	}
@@ -150,7 +150,7 @@ __nexus_open(struct proc *p, struct __nexus_open_args *uap, int *retval)
 	*retval = fd;
 
 	SK_D("%s(%d) fd %d guard 0x%llx",
-	    sk_proc_name_address(p), sk_proc_pid(p), fd, guard);
+	    sk_proc_name(p), sk_proc_pid(p), fd, guard);
 
 done:
 	if (__improbable(err != 0)) {
@@ -182,7 +182,7 @@ __nexus_register(struct proc *p, struct __nexus_register_args *uap, int *retval)
 	if (__improbable(uap->reg == USER_ADDR_NULL ||
 	    uap->reg_len < sizeof(reg) || uap->prov_uuid == USER_ADDR_NULL ||
 	    uap->prov_uuid_len < sizeof(uuid_t))) {
-		SK_DSC(p, "EINVAL: reg 0x%llx, reg_len %u, prov_uuid 0x%llx, "
+		SK_PERR(p, "EINVAL: reg %p, reg_len %u, prov_uuid %p, "
 		    "prov_uuid_len %u", SK_KVA(uap->reg), uap->reg_len,
 		    SK_KVA(uap->prov_uuid), uap->prov_uuid_len);
 		return EINVAL;
@@ -190,25 +190,25 @@ __nexus_register(struct proc *p, struct __nexus_register_args *uap, int *retval)
 
 	err = copyin(uap->reg, (caddr_t)&reg, sizeof(reg));
 	if (err != 0) {
-		SK_DSC(p, "copyin err %d, reg 0x%llx", err, SK_KVA(uap->reg));
+		SK_PERR(p, "copyin err %d, reg %p", err, SK_KVA(uap->reg));
 		return err;
 	}
 
 	if (__improbable(reg.nxpreg_version != NXPROV_REG_CURRENT_VERSION)) {
-		SK_DSC(p, "EINVAL: version %u != %u", reg.nxpreg_version,
+		SK_PERR(p, "EINVAL: version %u != %u", reg.nxpreg_version,
 		    NXPROV_REG_CURRENT_VERSION);
 		return EINVAL;
 	}
 
 	if (__improbable(reg.nxpreg_params.nxp_namelen == 0 ||
 	    reg.nxpreg_params.nxp_namelen > sizeof(nexus_name_t))) {
-		SK_DSC(p, "EINVAL: namelen %u", reg.nxpreg_params.nxp_namelen);
+		SK_PERR(p, "EINVAL: namelen %u", reg.nxpreg_params.nxp_namelen);
 		return EINVAL;
 	}
 
 	err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype: %d", err);
+		SK_PERR(p, "fp_get_ftype: %d", err);
 		return err;
 	}
 	nxctl = (struct nxctl *)fp_get_data(fp);
@@ -218,13 +218,13 @@ __nexus_register(struct proc *p, struct __nexus_register_args *uap, int *retval)
 	lck_mtx_unlock(&nxctl->nxctl_lock);
 	if (__improbable(nxprov == NULL)) {
 		ASSERT(err != 0);
-		SK_DSC(p, "nxprov_create: %d", err);
+		SK_PERR(p, "nxprov_create: %d", err);
 		goto done;
 	}
 
 	err = copyout(&nxprov->nxprov_uuid, uap->prov_uuid, sizeof(uuid_t));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyout err %d, prov_uuid 0x%llx", err,
+		SK_PERR(p, "copyout err %d, prov_uuid %p", err,
 		    SK_KVA(uap->prov_uuid));
 		goto done;
 	}
@@ -257,26 +257,26 @@ __nexus_deregister(struct proc *p, struct __nexus_deregister_args *uap,
 	AUDIT_ARG(fd, uap->ctl);
 
 	if (__improbable(uap->prov_uuid_len < sizeof(uuid_t))) {
-		SK_DSC(p, "EINVAL: prov_len %u < %u", uap->prov_uuid_len,
+		SK_PERR(p, "EINVAL: prov_len %u < %lu", uap->prov_uuid_len,
 		    sizeof(uuid_t));
 		return EINVAL;
 	}
 
 	err = copyin(uap->prov_uuid, (caddr_t)&nxprov_uuid, sizeof(uuid_t));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyin err %d, prov_uuid 0x%llx", err,
+		SK_PERR(p, "copyin err %d, prov_uuid %p", err,
 		    SK_KVA(uap->prov_uuid));
 		return err;
 	}
 
 	if (__improbable(uuid_is_null(nxprov_uuid))) {
-		SK_DSC(p, "EINVAL: uuid_is_null");
+		SK_PERR(p, "EINVAL: uuid_is_null");
 		return EINVAL;
 	}
 
 	err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype: %d", err);
+		SK_PERR(p, "fp_get_ftype: %d", err);
 		return err;
 	}
 	nxctl = (struct nxctl *)fp_get_data(fp);
@@ -305,27 +305,27 @@ __nexus_create(struct proc *p, struct __nexus_create_args *uap, int *retval)
 	if (__improbable(uap->prov_uuid_len < sizeof(uuid_t) ||
 	    uap->nx_uuid_len < sizeof(uuid_t) ||
 	    uap->nx_uuid == USER_ADDR_NULL)) {
-		SK_DSC(p, "EINVAL: prov_uuid_len %u, nx_uuid_len %u, "
-		    "nx_uuid 0x%llx", uap->prov_uuid_len, uap->nx_uuid_len,
+		SK_PERR(p, "EINVAL: prov_uuid_len %u, nx_uuid_len %u, "
+		    "nx_uuid %p", uap->prov_uuid_len, uap->nx_uuid_len,
 		    SK_KVA(uap->nx_uuid));
 		return EINVAL;
 	}
 
 	err = copyin(uap->prov_uuid, (caddr_t)&nxprov_uuid, sizeof(uuid_t));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyin err %d, prov_uuid 0x%llx", err,
+		SK_PERR(p, "copyin err %d, prov_uuid %p", err,
 		    SK_KVA(uap->prov_uuid));
 		return err;
 	}
 
 	if (__improbable(uuid_is_null(nxprov_uuid))) {
-		SK_DSC(p, "EINVAL: uuid_is_null");
+		SK_PERR(p, "EINVAL: uuid_is_null");
 		return EINVAL;
 	}
 
 	err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype: %d", err);
+		SK_PERR(p, "fp_get_ftype: %d", err);
 		return err;
 	}
 	nxctl = (struct nxctl *)fp_get_data(fp);
@@ -336,12 +336,12 @@ __nexus_create(struct proc *p, struct __nexus_create_args *uap, int *retval)
 	lck_mtx_unlock(&nxctl->nxctl_lock);
 	if (__improbable(nx == NULL)) {
 		ASSERT(err != 0);
-		SK_DSC(p, "nx_create: %d", err);
+		SK_PERR(p, "nx_create: %d", err);
 		goto done;
 	}
 	err = copyout(&nx->nx_uuid, uap->nx_uuid, sizeof(uuid_t));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyout err %d, nx_uuid 0x%llx", err,
+		SK_PERR(p, "copyout err %d, nx_uuid %p", err,
 		    SK_KVA(uap->nx_uuid));
 		goto done;
 	}
@@ -370,26 +370,26 @@ __nexus_destroy(struct proc *p, struct __nexus_destroy_args *uap, int *retval)
 
 	if (__improbable(uap->nx_uuid == USER_ADDR_NULL ||
 	    uap->nx_uuid_len < sizeof(uuid_t))) {
-		SK_DSC(p, "EINVAL: nx_uuid 0x%llx, nx_uuid_len %u",
+		SK_PERR(p, "EINVAL: nx_uuid %p, nx_uuid_len %u",
 		    SK_KVA(uap->nx_uuid), uap->nx_uuid_len);
 		return EINVAL;
 	}
 
 	err = copyin(uap->nx_uuid, (caddr_t)&nx_uuid, sizeof(uuid_t));
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "copyin err %d, nx_uuid 0x%llx", err,
+		SK_PERR(p, "copyin err %d, nx_uuid %p", err,
 		    SK_KVA(uap->nx_uuid));
 		return err;
 	}
 
 	if (__improbable(uuid_is_null(nx_uuid))) {
-		SK_DSC(p, "EINVAL: uuid_is_null");
+		SK_PERR(p, "EINVAL: uuid_is_null");
 		return EINVAL;
 	}
 
 	err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype: %d", err);
+		SK_PERR(p, "fp_get_ftype: %d", err);
 		return err;
 	}
 	nxctl = (struct nxctl *)fp_get_data(fp);
@@ -417,13 +417,13 @@ __nexus_get_opt(struct proc *p, struct __nexus_get_opt_args *uap, int *retval)
 
 	err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 	if (__improbable(err != 0)) {
-		SK_DSC(p, "fp_get_ftype: %d", err);
+		SK_PERR(p, "fp_get_ftype: %d", err);
 		return err;
 	}
 	nxctl = (struct nxctl *)fp_get_data(fp);
 
 	if (__improbable(uap->aoptlen == USER_ADDR_NULL)) {
-		SK_DSC(p, "EINVAL: aoptlen == USER_ADDR_NULL");
+		SK_PERR(p, "EINVAL: aoptlen == USER_ADDR_NULL");
 		err = EINVAL;
 		goto done;
 	}
@@ -431,7 +431,7 @@ __nexus_get_opt(struct proc *p, struct __nexus_get_opt_args *uap, int *retval)
 	if (uap->aoptval != USER_ADDR_NULL) {
 		err = copyin(uap->aoptlen, &optlen, sizeof(optlen));
 		if (__improbable(err != 0)) {
-			SK_DSC(p, "copyin err %d, aoptlen 0x%llx", err,
+			SK_PERR(p, "copyin err %d, aoptlen %p", err,
 			    SK_KVA(uap->aoptlen));
 			goto done;
 		}
@@ -454,7 +454,7 @@ __nexus_get_opt(struct proc *p, struct __nexus_get_opt_args *uap, int *retval)
 		err = copyout(&optlen, uap->aoptlen, sizeof(optlen));
 #if SK_LOG
 		if (__improbable(err != 0)) {
-			SK_DSC(p, "copyout err %d, aoptlen 0x%llx", err,
+			SK_PERR(p, "copyout err %d, aoptlen %p", err,
 			    SK_KVA(uap->aoptlen));
 		}
 #endif /* SK_LOG */
@@ -487,7 +487,7 @@ __nexus_set_opt(struct proc *p, struct __nexus_set_opt_args *uap, int *retval)
 
 		err = fp_get_ftype(p, uap->ctl, DTYPE_NEXUS, ENODEV, &fp);
 		if (__improbable(err != 0)) {
-			SK_DSC(p, "fp_get_ftype: %d", err);
+			SK_PERR(p, "fp_get_ftype: %d", err);
 			return err;
 		}
 		nxctl = (struct nxctl *)fp_get_data(fp);

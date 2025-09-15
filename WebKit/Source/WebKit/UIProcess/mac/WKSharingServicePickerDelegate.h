@@ -35,7 +35,7 @@ class WebContextMenuProxyMac;
 @class NSSharingServicePicker;
 
 @interface WKSharingServicePickerDelegate : NSObject <NSSharingServiceDelegate, NSSharingServicePickerDelegate> {
-    WebKit::WebContextMenuProxyMac* _menuProxy;
+    WeakPtr<WebKit::WebContextMenuProxyMac> _menuProxy;
     RetainPtr<NSSharingServicePicker> _picker;
     BOOL _filterEditingServices;
     BOOL _handleEditingReplacement;

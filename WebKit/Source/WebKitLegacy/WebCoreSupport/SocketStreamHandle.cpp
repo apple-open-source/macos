@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2011, 2012 Google Inc.  All rights reserved.
+ * Copyright (C) 2009, 2011, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -60,7 +60,7 @@ void SocketStreamHandle::sendHandshake(CString&& handshake, std::optional<Cookie
 {
     if (m_state == Connecting || m_state == Closing)
         return completionHandler(false, false);
-    platformSendHandshake(handshake.span(), WTFMove(headerFieldProxy), WTFMove(completionHandler));
+    platformSendHandshake(byteCast<uint8_t>(handshake.span()), WTFMove(headerFieldProxy), WTFMove(completionHandler));
 }
 
 void SocketStreamHandle::close()

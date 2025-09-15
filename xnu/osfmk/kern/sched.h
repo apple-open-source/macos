@@ -206,6 +206,11 @@ typedef enum {
 
 #endif /* defined(__arm64__) && CONFIG_CLUTCH && !CONFIG_SCHED_EDGE_OPT_OUT */
 
+#if CONFIG_SCHED_EDGE
+
+
+#endif /* CONFIG_SCHED_EDGE */
+
 /*
  * Since the clutch scheduler organizes threads based on the thread group
  * and the scheduling bucket, its important to not mix threads from multiple
@@ -291,11 +296,6 @@ typedef struct rt_queue *rt_queue_t;
 #define RT_DEADLINE_NONE                UINT64_MAX
 #define RT_DEADLINE_QUANTUM_EXPIRED     (UINT64_MAX - 1)
 
-extern int rt_runq_count(processor_set_t);
-extern uint64_t rt_runq_earliest_deadline(processor_set_t);
-
-
-
 /*
  *	Scheduler routines.
  */
@@ -307,6 +307,11 @@ extern void             thread_quantum_expire(
 
 /* Handle preemption timer expiration for an executing thread */
 extern void             thread_preempt_expire(
+	timer_call_param_t      processor,
+	timer_call_param_t      thread);
+
+/* Invoke the performance controller supplied callback on the processor */
+extern void             perfcontrol_timer_expire(
 	timer_call_param_t      processor,
 	timer_call_param_t      thread);
 
@@ -347,7 +352,7 @@ extern int default_preemption_rate;
 #define SCHED_TICK_SHIFT        3
 #define SCHED_TICK_MAX_DELTA    (8)
 
-extern unsigned         sched_tick;
+extern _Atomic uint32_t sched_tick;
 extern uint32_t         sched_tick_interval;
 
 #endif /* CONFIG_SCHED_TIMESHARE_CORE */
@@ -419,6 +424,11 @@ struct shift_data {
 /*
  * Save the current thread time and compute a delta since the last call for the
  * scheduler tick.
+ *
+ * Places that consume this delta should also accumulate it to
+ * thread->sched_usage, thread->cpu_delta, and any policy-specific
+ * tracking like in sched_clutch_cpu_usage_update(), to maintain
+ * accurate CPU usage accounting for the scheduler.
  */
 #define sched_tick_delta(thread, delta) \
 MACRO_BEGIN \

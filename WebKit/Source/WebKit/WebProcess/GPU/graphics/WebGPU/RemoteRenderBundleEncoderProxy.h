@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ public:
 
     virtual ~RemoteRenderBundleEncoderProxy();
 
-    RemoteDeviceProxy& parent() { return m_parent; }
+    RemoteDeviceProxy& parent() const { return m_parent; }
     RemoteGPUProxy& root() { return m_parent->root(); }
 
 private:
@@ -60,8 +60,7 @@ private:
     RemoteRenderBundleEncoderProxy& operator=(RemoteRenderBundleEncoderProxy&&) = delete;
 
     WebGPUIdentifier backing() const { return m_backing; }
-    Ref<ConvertToBackingContext> protectedConvertToBackingContext() const;
-    
+
     template<typename T>
     WARN_UNUSED_RETURN IPC::Error send(T&& message)
     {
@@ -83,10 +82,10 @@ private:
     void drawIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset) final;
     void drawIndexedIndirect(const WebCore::WebGPU::Buffer& indirectBuffer, WebCore::WebGPU::Size64 indirectOffset) final;
 
-    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup&,
+    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup*,
         std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets) final;
 
-    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup&,
+    void setBindGroup(WebCore::WebGPU::Index32, const WebCore::WebGPU::BindGroup*,
         std::span<const uint32_t> dynamicOffsetsArrayBuffer,
         WebCore::WebGPU::Size64 dynamicOffsetsDataStart,
         WebCore::WebGPU::Size32 dynamicOffsetsDataLength) final;
@@ -100,8 +99,8 @@ private:
     void setLabelInternal(const String&) final;
 
     WebGPUIdentifier m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
-    Ref<RemoteDeviceProxy> m_parent;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<RemoteDeviceProxy> m_parent;
 };
 
 } // namespace WebKit::WebGPU

@@ -219,6 +219,7 @@ onbeforecopy
 onbeforecut
 onbeforeinput
 onbeforeload
+onbeforematch
 onbeforepaste
 onbeforeprint
 onbeforetoggle
@@ -230,6 +231,7 @@ oncanplaythrough
 onchange
 onclick
 onclose
+oncommand
 oncontentvisibilityautostatechange
 oncontextmenu
 oncopy
@@ -309,6 +311,7 @@ onrejectionhandled
 onreset
 onresize
 onscroll
+onscrollend
 onsecuritypolicyviolation
 onseeked
 onseeking
@@ -391,8 +394,10 @@ scrolling
 select
 selected
 shadowrootclonable
+shadowrootcustomelementregistry
 shadowrootdelegatesfocus
 shadowrootmode
+shadowrootreferencetarget
 shadowrootserializable
 shape
 size
@@ -404,6 +409,7 @@ src
 srcdoc
 srclang
 srcset
+stagemode
 standby
 start
 step

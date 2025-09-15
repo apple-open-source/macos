@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,8 +44,8 @@
  * allocated by the user, is limited to 1MB. These overall limits should ensure that the memory impact on the system
  * is minimal, while helping to tackle the problems of catching use after frees and out of bounds accesses.
  *
- * PGM will maintain the metadata of recently deallocated objects. This is beneficial for crash analystics to better 
- * identify the type and reason for a crash. After enough deallocations an object will no longer be considered 
+ * PGM will maintain the metadata of recently deallocated objects. This is beneficial for crash analystics to better
+ * identify the type and reason for a crash. After enough deallocations an object will no longer be considered
  * recently deleted and will have its metadata destroyed.
  */
 
@@ -54,11 +54,21 @@
 
 #include "pas_utils.h"
 #include "pas_large_heap.h"
+#include "pas_large_map_entry.h"
 #include "pas_ptr_hash_map.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 PAS_BEGIN_EXTERN_C;
+
+#define PGM_BACKTRACE_MAX_FRAMES 31
+
+/* structure for holding the allocation and deallocation backtraces */
+typedef struct pas_backtrace_metadata pas_backtrace_metadata;
+struct pas_backtrace_metadata {
+    int frame_size;
+    void* backtrace_buffer[PGM_BACKTRACE_MAX_FRAMES];
+};
 
 /* structure for holding pgm metadata allocations */
 typedef struct pas_pgm_storage pas_pgm_storage;
@@ -68,6 +78,9 @@ struct pas_pgm_storage {
     uintptr_t start_of_data_pages;
     size_t size_of_allocated_pages;
     uintptr_t start_of_allocated_pages;
+
+    pas_backtrace_metadata* alloc_backtrace;
+    pas_backtrace_metadata* dealloc_backtrace;
 
     /*
      * These parameter below rely on page sizes being less than 65536.
@@ -124,6 +137,7 @@ size_t pas_probabilistic_guard_malloc_get_free_wasted_memory(void);
 pas_ptr_hash_map_entry* pas_probabilistic_guard_malloc_get_metadata_array(void);
 
 bool pas_probabilistic_guard_malloc_check_exists(uintptr_t mem);
+bool pas_probabilistic_guard_malloc_enabled_on_process(void);
 
 /*
  * Determine whether PGM can be called at runtime.

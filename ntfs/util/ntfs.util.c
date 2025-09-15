@@ -129,7 +129,7 @@ static void usage(const char *progname)
  *
  * Copied from ../kext/ntfs_vfsops.c.
  */
-static BOOL ntfs_boot_sector_is_valid(const NTFS_BOOT_SECTOR *b)
+static NTFS_BOOL ntfs_boot_sector_is_valid(const NTFS_BOOT_SECTOR *b)
 {
 	/* Check OEMidentifier is "NTFS    " */
 	if (b->oem_id != magicNTFS)
@@ -1025,8 +1025,8 @@ static u8 sfm2mac[0x30] = {
  *
  * On error return FSUR_INVAL or FSUR_IO_FAIL.
  */
-static int do_probe(char *rdev, const BOOL removable __attribute__((unused)),
-		const BOOL writable __attribute__((unused)))
+static int do_probe(char *rdev, const NTFS_BOOL removable __attribute__((unused)),
+		const NTFS_BOOL writable __attribute__((unused)))
 {
 	MFT_RECORD *m;
 	ATTR_RECORD *a;
@@ -1186,8 +1186,8 @@ static int do_exec(const char *progname, char *const args[])
  * do_mount - Mount a file system.
  */
 static int do_mount(const char *progname, char *dev, char *mp,
-		const BOOL removable __attribute__((unused)),
-		const BOOL readonly, const BOOL nosuid, const BOOL nodev)
+		const NTFS_BOOL removable __attribute__((unused)),
+		const NTFS_BOOL readonly, const NTFS_BOOL nosuid, const NTFS_BOOL nodev)
 {
 	char *const kextargs[] = { "/sbin/kextload",
 			"/System/Library/Extensions/ntfs.kext", NULL };
@@ -1233,7 +1233,7 @@ main(int argc, char **argv)
 	char *progname, *dev, *mp = NULL;
 	int err;
 	char opt;
-	BOOL removable, readonly, nosuid, nodev;
+	NTFS_BOOL removable, readonly, nosuid, nodev;
 	char rawdev[MAXPATHLEN];
 	char blockdev[MAXPATHLEN];
 	struct stat sb;

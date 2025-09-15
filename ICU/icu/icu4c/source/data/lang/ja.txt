@@ -150,6 +150,7 @@ ja{
         crs{"セーシェル・クレオール語"}
         cs{"チェコ語"}
         csb{"カシューブ語"}
+        cst{"チョチェンヨ語"}
         csw{"湿原クリー語"}
         cu{"教会スラブ語"}
         cv{"チュヴァシ語"}
@@ -249,6 +250,7 @@ ja{
         hak{"客家語"}
         haw{"ハワイ語"}
         hax{"南部ハイダ語"}
+        hch{"ウィラリカ語"}
         he{"ヘブライ語"}
         hi{"ヒンディー語"}
         hif{"フィジー・ヒンディー語"}
@@ -278,6 +280,7 @@ ja{
         inh{"イングーシ語"}
         io{"イド語"}
         is{"アイスランド語"}
+        isc{"イスコナワ語"}
         it{"イタリア語"}
         iu{"イヌクティトット語"}
         izh{"イングリア語"}
@@ -547,6 +550,7 @@ ja{
         sh{"セルボ・クロアチア語"}
         shi{"タシルハイト語"}
         shn{"シャン語"}
+        shp{"シピボ・コニボ語"}
         shu{"チャド・アラビア語"}
         si{"シンハラ語"}
         sid{"シダモ語"}
@@ -888,13 +892,15 @@ ja{
     }
     Types{
         calendar{
+            bangla{"ベンガル暦"}
             buddhist{"仏暦"}
             chinese{"中国暦"}
             coptic{"コプト暦"}
-            dangi{"ダンギ暦"}
+            dangi{"韓国暦"}
             ethiopic{"エチオピア暦"}
             ethiopic-amete-alem{"エチオピア創世紀元暦"}
             gregorian{"西暦（グレゴリオ暦）"}
+            gujarati{"グジャラート暦"}
             hebrew{"ユダヤ暦"}
             indian{"インド国定暦"}
             islamic{"ヒジュラ暦"}
@@ -904,8 +910,16 @@ ja{
             islamic-umalqura{"ヒジュラ暦（ウンム・アルクラー）"}
             iso8601{"ISO-8601"}
             japanese{"和暦"}
+            kannada{"カンナダ暦"}
+            malayalam{"マラヤーラム暦"}
+            marathi{"マラーティー暦"}
+            odia{"オディア暦"}
             persian{"ペルシア暦"}
             roc{"中華民国暦"}
+            tamil{"タミル暦"}
+            telugu{"テルグ暦"}
+            vietnamese{"ベトナム暦"}
+            vikram{"ヴィクラマ暦"}
         }
         cf{
             account{"会計通貨フォーマット"}

@@ -32,7 +32,12 @@
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 #import <WebCore/IntRectHash.h>
+#import <WebCore/PlatformLayerIdentifier.h>
 #import <wtf/HashSet.h>
+
+namespace WebKit {
+class RemoteLayerTreeHost;
+}
 #endif
 
 @class WKBEScrollViewScrollUpdate;
@@ -49,13 +54,19 @@
 
 @property (nonatomic, weak) id<WKBaseScrollViewDelegate> baseScrollViewDelegate;
 @property (nonatomic, readonly) UIAxis axesToPreventMomentumScrolling;
+@property (nonatomic, readonly) CGSize interactiveScrollVelocityInPointsPerSecond;
+
+- (void)updateInteractiveScrollVelocity;
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 @property (nonatomic) NSUInteger _scrollingBehavior;
 @property (nonatomic, readonly, getter=overlayRegionsForTesting) HashSet<WebCore::IntRect>& overlayRegionRects;
+@property (nonatomic, readonly, getter=overlayRegionAssociatedLayersForTesting) HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionAssociatedLayers;
+
 
 - (BOOL)_hasEnoughContentForOverlayRegions;
-- (void)_updateOverlayRegionRects:(const HashSet<WebCore::IntRect>&)overlayRegions;
+- (void)_updateOverlayRegionRects:(const HashSet<WebCore::IntRect>&)overlayRegions whileStable:(BOOL)stable;
+- (void)_associateRelatedLayersForOverlayRegions:(const HashSet<WebCore::PlatformLayerIdentifier>&)relatedLayers with:(const WebKit::RemoteLayerTreeHost&)host;
 - (void)_updateOverlayRegionsBehavior:(BOOL)selected;
 #endif // ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
 

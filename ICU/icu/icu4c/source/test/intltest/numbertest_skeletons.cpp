@@ -455,6 +455,12 @@ void NumberSkeletonTest::perUnitInArabic() {
 
 void NumberSkeletonTest::perUnitToSkeleton() {
     IcuTestErrorCode status(*this, "perUnitToSkeleton");
+#if APPLE_ICU_CHANGES // rdar://137998419
+    if (uaprv_isRunningXCTest()) {
+        logKnownIssue("rdar://147359260", "Skipping perUnitToSkeleton in XCTest.");
+        return;
+    }
+#endif
     struct TestCase {
         const char16_t* type;
         const char16_t* subtype;

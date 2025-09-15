@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,10 @@
 #include "IDBConnectionToServerDelegate.h"
 #include "IDBDatabaseConnectionIdentifier.h"
 #include "IDBIndexIdentifier.h"
+#include "IDBKeyPath.h"
 #include "IDBObjectStoreIdentifier.h"
 #include "IDBResourceIdentifier.h"
+#include "IndexKey.h"
 #include <pal/SessionID.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Function.h>
@@ -66,7 +68,7 @@ public:
 
     WEBCORE_EXPORT IDBConnectionIdentifier identifier() const;
 
-    IDBConnectionProxy& proxy();
+    IDBConnectionProxy& proxy() { return m_proxy; }
 
     void deleteDatabase(const IDBOpenRequestData&);
     WEBCORE_EXPORT void didDeleteDatabase(const IDBResultData&);
@@ -95,7 +97,7 @@ public:
     void renameIndex(const IDBRequestData&, IDBObjectStoreIdentifier, IDBIndexIdentifier, const String& newName);
     WEBCORE_EXPORT void didRenameIndex(const IDBResultData&);
 
-    void putOrAdd(const IDBRequestData&, const IDBKeyData&, const IDBValue&, const IndexedDB::ObjectStoreOverwriteMode);
+    void putOrAdd(const IDBRequestData&, const IDBKeyData&, const IDBValue&, const IndexIDToIndexKeyMap&, const IndexedDB::ObjectStoreOverwriteMode);
     WEBCORE_EXPORT void didPutOrAdd(const IDBResultData&);
 
     void getRecord(const IDBRequestData&, const IDBGetRecordData&);
@@ -127,6 +129,9 @@ public:
     WEBCORE_EXPORT void fireVersionChangeEvent(IDBDatabaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier, uint64_t requestedVersion);
     void didFireVersionChangeEvent(IDBDatabaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier, IndexedDB::ConnectionClosedOnBehalfOfServer);
 
+    WEBCORE_EXPORT void generateIndexKeyForRecord(const IDBResourceIdentifier& requestIdentifier, const IDBIndexInfo&, const std::optional<IDBKeyPath>&, const IDBKeyData&, const IDBValue&, std::optional<int64_t> recordID);
+    void didGenerateIndexKeyForRecord(const IDBResourceIdentifier& transactionIdentifier, const IDBResourceIdentifier& requestIdentifier, const IDBIndexInfo&, const IDBKeyData&, const IndexKey&, std::optional<int64_t> recordID);
+
     WEBCORE_EXPORT void didStartTransaction(const IDBResourceIdentifier& transactionIdentifier, const IDBError&);
 
     WEBCORE_EXPORT void didCloseFromServer(IDBDatabaseConnectionIdentifier, const IDBError&);
@@ -157,7 +162,7 @@ private:
     WeakPtr<IDBConnectionToServerDelegate> m_delegate;
     bool m_serverConnectionIsValid { true };
 
-    std::unique_ptr<IDBConnectionProxy> m_proxy;
+    const UniqueRef<IDBConnectionProxy> m_proxy;
 };
 
 } // namespace IDBClient

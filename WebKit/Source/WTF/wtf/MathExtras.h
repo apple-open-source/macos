@@ -26,12 +26,15 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <climits>
 #include <cmath>
 #include <float.h>
 #include <limits>
+#include <numbers>
 #include <stdint.h>
 #include <stdlib.h>
+#include <wtf/CheckedArithmetic.h>
 #include <wtf/StdLibExtras.h>
 
 #if OS(OPENBSD)
@@ -39,54 +42,20 @@
 #include <machine/ieee.h>
 #endif
 
-#ifndef M_PI
-constexpr double piDouble = 3.14159265358979323846;
-constexpr float piFloat = 3.14159265358979323846f;
-#else
-constexpr double piDouble = M_PI;
-constexpr float piFloat = static_cast<float>(M_PI);
-#endif
+constexpr double piOverTwoDouble = std::numbers::pi / 2;
+constexpr float piOverTwoFloat = static_cast<float>(piOverTwoDouble);
 
-#ifndef M_PI_2
-constexpr double piOverTwoDouble = 1.57079632679489661923;
-constexpr float piOverTwoFloat = 1.57079632679489661923f;
-#else
-constexpr double piOverTwoDouble = M_PI_2;
-constexpr float piOverTwoFloat = static_cast<float>(M_PI_2);
-#endif
-
-#ifndef M_PI_4
-constexpr double piOverFourDouble = 0.785398163397448309616;
-constexpr float piOverFourFloat = 0.785398163397448309616f;
-#else
-constexpr double piOverFourDouble = M_PI_4;
-constexpr float piOverFourFloat = static_cast<float>(M_PI_4);
-#endif
-
-#ifndef M_SQRT2
-constexpr double sqrtOfTwoDouble = 1.41421356237309504880;
-constexpr float sqrtOfTwoFloat = 1.41421356237309504880f;
-#else
-constexpr double sqrtOfTwoDouble = M_SQRT2;
-constexpr float sqrtOfTwoFloat = static_cast<float>(M_SQRT2);
-#endif
-
-#ifndef M_E
-constexpr double eDouble = 2.71828182845904523536028747135266250;
-constexpr float eFloat = 2.71828182845904523536028747135266250f;
-#else
-constexpr double eDouble = M_E;
-constexpr float eFloat = static_cast<float>(M_E);
-#endif
+constexpr double piOverFourDouble = std::numbers::pi / 4;
+constexpr float piOverFourFloat = static_cast<float>(piOverFourDouble);
 
 #if OS(WINDOWS)
 
 // Work around a bug in Win, where atan2(+-infinity, +-infinity) yields NaN instead of specific values.
 extern "C" inline double wtf_atan2(double x, double y)
 {
-    double posInf = std::numeric_limits<double>::infinity();
-    double negInf = -std::numeric_limits<double>::infinity();
-    double nan = std::numeric_limits<double>::quiet_NaN();
+    constexpr double posInf = std::numeric_limits<double>::infinity();
+    constexpr double negInf = -std::numeric_limits<double>::infinity();
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
 
     double result = nan;
 
@@ -108,13 +77,13 @@ extern "C" inline double wtf_atan2(double x, double y)
 
 #endif // OS(WINDOWS)
 
-constexpr double radiansPerDegreeDouble = piDouble / 180.0;
-constexpr double degreesPerRadianDouble = 180.0 / piDouble;
+constexpr double radiansPerDegreeDouble = std::numbers::pi / 180.0;
+constexpr double degreesPerRadianDouble = 180.0 / std::numbers::pi;
 constexpr double gradientsPerDegreeDouble = 400.0 / 360.0;
 constexpr double degreesPerGradientDouble = 360.0 / 400.0;
 constexpr double turnsPerDegreeDouble = 1.0 / 360.0;
 constexpr double degreesPerTurnDouble = 360.0;
-constexpr double radiansPerTurnDouble = 2.0f * piDouble;
+constexpr double radiansPerTurnDouble = 2.0 * std::numbers::pi;
 
 constexpr double deg2rad(double d)  { return d * radiansPerDegreeDouble; }
 constexpr double rad2deg(double r)  { return r * degreesPerRadianDouble; }
@@ -125,13 +94,13 @@ constexpr double turn2deg(double t) { return t * degreesPerTurnDouble; }
 
 
 // Note that these differ from the casting the double values above in their rounding errors.
-constexpr float radiansPerDegreeFloat = piFloat / 180.0f;
-constexpr float degreesPerRadianFloat = 180.0f / piFloat;
+constexpr float radiansPerDegreeFloat = std::numbers::pi_v<float> / 180.0f;
+constexpr float degreesPerRadianFloat = 180.0f / std::numbers::pi_v<float>;
 constexpr float gradientsPerDegreeFloat= 400.0f / 360.0f;
 constexpr float degreesPerGradientFloat = 360.0f / 400.0f;
 constexpr float turnsPerDegreeFloat = 1.0f / 360.0f;
 constexpr float degreesPerTurnFloat = 360.0f;
-constexpr float radiansPerTurnFloat = 2.0f * piFloat;
+constexpr float radiansPerTurnFloat = 2.0f * std::numbers::pi_v<float>;
 
 constexpr float deg2rad(float d)  { return d * radiansPerDegreeFloat; }
 constexpr float rad2deg(float r)  { return r * degreesPerRadianFloat; }
@@ -439,17 +408,14 @@ inline void doubleToInteger(double d, unsigned long long& value)
 
 namespace WTF {
 
-// From http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-constexpr uint32_t roundUpToPowerOfTwo(uint32_t v)
+constexpr uint32_t roundUpToPowerOfTwo(auto v)
 {
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-    return v;
+    return std::bit_ceil(v);
+}
+
+constexpr bool isPowerOfTwo(auto value)
+{
+    return std::has_single_bit(value);
 }
 
 constexpr unsigned maskForSize(unsigned size)
@@ -461,26 +427,11 @@ constexpr unsigned maskForSize(unsigned size)
 
 inline constexpr unsigned fastLog2(unsigned i)
 {
-    unsigned log2 = 0;
+    if (!i)
+        return 0;
+    constexpr int unsignedBitWidth = std::numeric_limits<unsigned>::digits - 1;
+    unsigned log2 = unsignedBitWidth - std::countl_zero(i);
     if (i & (i - 1))
-        log2 += 1;
-    if (i >> 16) {
-        log2 += 16;
-        i >>= 16;
-    }
-    if (i >> 8) {
-        log2 += 8;
-        i >>= 8;
-    }
-    if (i >> 4) {
-        log2 += 4;
-        i >>= 4;
-    }
-    if (i >> 2) {
-        log2 += 2;
-        i >>= 2;
-    }
-    if (i >> 1)
         log2 += 1;
     return log2;
 }
@@ -534,9 +485,9 @@ inline typename std::enable_if<std::is_floating_point<T>::value, T>::type nanPro
     return std::isnan(a) || std::isnan(b) ? std::numeric_limits<T>::quiet_NaN() : std::max(a, b);
 }
 
-inline bool isIntegral(float value)
+inline constexpr bool isIntegral(float value)
 {
-    return static_cast<int>(value) == value;
+    return !std::isinf(value) && std::trunc(value) == value;
 }
 
 template<typename T>
@@ -605,8 +556,7 @@ constexpr unsigned clzConstexpr(T value)
 {
     constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
 
-    using UT = typename std::make_unsigned<T>::type;
-    UT uValue = value;
+    auto uValue = unsignedCast(value);
 
     unsigned zeroCount = 0;
     for (int i = bitSize - 1; i >= 0; i--) {
@@ -622,8 +572,7 @@ inline unsigned clz(T value)
 {
     constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
 
-    using UT = typename std::make_unsigned<T>::type;
-    UT uValue = value;
+    auto uValue = unsignedCast(value);
 
     constexpr unsigned bitSize64 = sizeof(uint64_t) * CHAR_BIT;
     if (uValue)
@@ -636,8 +585,7 @@ constexpr unsigned ctzConstexpr(T value)
 {
     constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
 
-    using UT = typename std::make_unsigned<T>::type;
-    UT uValue = value;
+    auto uValue = unsignedCast(value);
 
     unsigned zeroCount = 0;
     for (unsigned i = 0; i < bitSize; i++) {
@@ -655,8 +603,7 @@ inline unsigned ctz(T value)
 {
     constexpr unsigned bitSize = sizeof(T) * CHAR_BIT;
 
-    using UT = typename std::make_unsigned<T>::type;
-    UT uValue = value;
+    auto uValue = unsignedCast(value);
 
     if (uValue)
         return __builtin_ctzll(uValue);
@@ -743,7 +690,7 @@ template<typename T>
 requires std::is_integral_v<T>
 constexpr T negate(T v)
 {
-    return static_cast<T>(~static_cast<std::make_unsigned_t<T>>(v) + 1U);
+    return static_cast<T>(~unsignedCast(v) + 1U);
 }
 
 template<typename BitsType, typename InputType>
@@ -811,6 +758,81 @@ inline bool isRepresentableAs(double value)
     return isRepresentableAsImpl<ResultType, double, int64_t>(value);
 }
 
+template<typename T>
+ALWAYS_INLINE constexpr T roundUpToMultipleOfImpl(size_t divisor, T x)
+{
+    T remainderMask = static_cast<T>(divisor) - 1;
+    return (x + remainderMask) & ~remainderMask;
+}
+
+// Efficient implementation that takes advantage of powers of two.
+template<typename T>
+inline constexpr T roundUpToMultipleOf(size_t divisor, T x)
+{
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(divisor && isPowerOfTwo(divisor));
+    return roundUpToMultipleOfImpl<T>(divisor, x);
+}
+
+template<size_t divisor> constexpr size_t roundUpToMultipleOf(size_t x)
+{
+    static_assert(divisor && isPowerOfTwo(divisor));
+    return roundUpToMultipleOfImpl(divisor, x);
+}
+
+template<size_t divisor, typename T> inline constexpr T* roundUpToMultipleOf(T* x)
+{
+    static_assert(sizeof(T*) == sizeof(size_t));
+    return reinterpret_cast<T*>(roundUpToMultipleOf<divisor>(reinterpret_cast<size_t>(x)));
+}
+
+template<typename T>
+inline constexpr T roundUpToMultipleOfNonPowerOfTwo(size_t divisor, T x)
+{
+    T remainder = x % divisor;
+    if (!remainder)
+        return x;
+    return x + static_cast<T>(divisor - remainder);
+}
+
+template<typename T, typename C>
+inline constexpr Checked<T, C> roundUpToMultipleOfNonPowerOfTwo(Checked<T, C> divisor, Checked<T, C> x)
+{
+    if (x.hasOverflowed() || divisor.hasOverflowed())
+        return ResultOverflowed;
+    T remainder = x % divisor;
+    if (!remainder)
+        return x;
+    return x + static_cast<T>(divisor.value() - remainder);
+}
+
+// Returns positive distance to next multiple of a power-of-two divisor.
+template<size_t divisor>
+inline constexpr size_t distanceToMultipleOf(size_t x)
+{
+    static_assert(divisor && isPowerOfTwo(divisor));
+    return (divisor - (x % divisor)) % divisor;
+}
+
+template<typename T>
+inline constexpr T roundDownToMultipleOf(size_t divisor, T x)
+{
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(divisor && isPowerOfTwo(divisor));
+    static_assert(sizeof(T) == sizeof(uintptr_t), "sizeof(T) must be equal to sizeof(uintptr_t).");
+    return static_cast<T>(mask(static_cast<uintptr_t>(x), ~(divisor - 1ul)));
+}
+
+template<typename T> inline constexpr T* roundDownToMultipleOf(size_t divisor, T* x)
+{
+    ASSERT_UNDER_CONSTEXPR_CONTEXT(isPowerOfTwo(divisor));
+    return reinterpret_cast<T*>(mask(reinterpret_cast<uintptr_t>(x), ~(divisor - 1ul)));
+}
+
+template<size_t divisor, typename T> constexpr T roundDownToMultipleOf(T x)
+{
+    static_assert(isPowerOfTwo(divisor), "'divisor' must be a power of two.");
+    return roundDownToMultipleOf(divisor, x);
+}
+
 } // namespace WTF
 
 using WTF::shuffleVector;
@@ -821,5 +843,11 @@ using WTF::getMSBSet;
 using WTF::isNaNConstExpr;
 using WTF::fabsConstExpr;
 using WTF::reverseBits32;
+using WTF::roundDownToMultipleOf;
+using WTF::roundUpToMultipleOf;
+using WTF::roundUpToMultipleOfNonPowerOfTwo;
+using WTF::distanceToMultipleOf;
+using WTF::roundUpToPowerOfTwo;
 using WTF::isIdentical;
 using WTF::isRepresentableAs;
+using WTF::isPowerOfTwo;

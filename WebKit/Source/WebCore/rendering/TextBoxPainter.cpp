@@ -47,7 +47,6 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
-#include "ShadowData.h"
 #include "StyledMarkedText.h"
 #include "TextDecorationThickness.h"
 #include "TextPaintStyle.h"
@@ -79,16 +78,16 @@ TextBoxPainter::TextBoxPainter(const LayoutIntegration::InlineContent& inlineCon
     }())
     , m_isPrinting(m_document.printing())
     , m_haveSelection(computeHaveSelection())
-    , m_containsComposition(m_renderer.textNode() && m_renderer.frame().editor().compositionNode() == m_renderer.textNode())
-    , m_useCustomUnderlines(m_containsComposition && m_renderer.frame().editor().compositionUsesCustomUnderlines())
     , m_emphasisMarkExistsAndIsAbove(RenderText::emphasisMarkExistsAndIsAbove(m_renderer, m_style))
 {
     ASSERT(paintInfo.phase == PaintPhase::Foreground || paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::TextClip || paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::Accessibility);
+
+    auto& editor = m_renderer.frame().editor();
+    m_containsComposition = m_renderer.textNode() && editor.compositionNode() == m_renderer.textNode();
+    m_useCustomUnderlines = m_containsComposition && editor.compositionUsesCustomUnderlines();
 }
 
-TextBoxPainter::~TextBoxPainter()
-{
-}
+TextBoxPainter::~TextBoxPainter() = default;
 
 InlineIterator::TextBoxIterator TextBoxPainter::makeIterator() const
 {
@@ -98,6 +97,9 @@ InlineIterator::TextBoxIterator TextBoxPainter::makeIterator() const
 
 void TextBoxPainter::paint()
 {
+    if (m_paintInfo.paintBehavior.contains(PaintBehavior::ExcludeText))
+        return;
+
     if (m_paintInfo.phase == PaintPhase::Selection && !m_haveSelection)
         return;
 
@@ -119,9 +121,9 @@ void TextBoxPainter::paint()
     if (m_paintInfo.phase == PaintPhase::Accessibility) {
         if (glyphRotation) {
             auto transform = rotation(m_paintRect, *glyphRotation);
-            m_paintInfo.accessibilityRegionContext()->takeBounds(m_renderer, transform.mapRect(m_paintRect));
+            m_paintInfo.accessibilityRegionContext()->takeBounds(m_renderer, transform.mapRect(m_paintRect), textBox().lineIndex());
         } else
-            m_paintInfo.accessibilityRegionContext()->takeBounds(m_renderer, m_paintRect);
+            m_paintInfo.accessibilityRegionContext()->takeBounds(m_renderer, m_paintRect, textBox().lineIndex());
 
         return;
     }
@@ -211,9 +213,15 @@ void TextBoxPainter::paintBackground()
 
 void TextBoxPainter::paintCompositionForeground(const StyledMarkedText& markedText)
 {
-    auto& editor = m_renderer.frame().editor();
+    auto hasCompositionCustomHighlights = [&]() {
+        if (!m_containsComposition)
+            return false;
 
-    if (!(editor.compositionUsesCustomHighlights() && m_containsComposition)) {
+        auto& editor = m_renderer.frame().editor();
+        return editor.compositionUsesCustomHighlights();
+    };
+
+    if (!hasCompositionCustomHighlights()) {
         paintForeground(markedText);
         return;
     }
@@ -221,6 +229,7 @@ void TextBoxPainter::paintCompositionForeground(const StyledMarkedText& markedTe
     // The highlight ranges must be "packed" so that there is no non-empty interval between
     // any two adjacent highlight ranges. This is needed since otherwise, `paintForeground`
     // will not be called in those would-be non-empty intervals.
+    auto& editor = m_renderer.frame().editor();
     auto highlights = editor.customCompositionHighlights();
 
     Vector<CompositionHighlight> highlightsWithForeground;
@@ -258,7 +267,7 @@ void TextBoxPainter::paintCompositionForeground(const StyledMarkedText& markedTe
 void TextBoxPainter::paintForegroundAndDecorations()
 {
     auto shouldPaintSelectionForeground = m_haveSelection && !m_useCustomUnderlines;
-    auto hasTextDecoration = !m_style.textDecorationsInEffect().isEmpty();
+    auto hasTextDecoration = !m_style.textDecorationLineInEffect().isEmpty();
     auto hasHighlightDecoration = m_document.hasHighlight() && !MarkedText::collectForHighlights(m_renderer, m_selectableRange, MarkedText::PaintPhase::Decoration).isEmpty();
     auto hasMismatchingContentDirection = m_renderer.containingBlock()->writingMode().bidiDirection() != textBox().direction();
     auto hasBackwardTrunctation = m_selectableRange.truncation && hasMismatchingContentDirection;
@@ -273,7 +282,7 @@ void TextBoxPainter::paintForegroundAndDecorations()
         if (hasSpellingError) {
             auto spellingErrorStyle = m_renderer.spellingErrorPseudoStyle();
             if (spellingErrorStyle)
-                return !spellingErrorStyle->textDecorationsInEffect().isEmpty();
+                return !spellingErrorStyle->textDecorationLineInEffect().isEmpty();
         }
 
         auto hasGrammarError = markedTexts.containsIf([](auto&& markedText) {
@@ -283,7 +292,7 @@ void TextBoxPainter::paintForegroundAndDecorations()
         if (hasGrammarError) {
             auto grammarErrorStyle = m_renderer.grammarErrorPseudoStyle();
             if (grammarErrorStyle)
-                return !grammarErrorStyle->textDecorationsInEffect().isEmpty();
+                return !grammarErrorStyle->textDecorationLineInEffect().isEmpty();
         }
 
         return false;
@@ -491,22 +500,25 @@ void TextBoxPainter::paintForeground(const StyledMarkedText& markedText)
     if (markedText.startOffset >= markedText.endOffset)
         return;
 
-    GraphicsContext& context = m_paintInfo.context();
+    auto& context = m_paintInfo.context();
     const FontCascade& font = fontCascade();
 
     float emphasisMarkOffset = 0;
-    const AtomString& emphasisMark = m_emphasisMarkExistsAndIsAbove ? m_style.textEmphasisMarkString() : nullAtom();
+    auto& emphasisMark = m_emphasisMarkExistsAndIsAbove ? m_style.textEmphasisStyle().markString() : nullAtom();
     if (!emphasisMark.isEmpty())
         emphasisMarkOffset = *m_emphasisMarkExistsAndIsAbove ? -font.metricsOfPrimaryFont().intAscent() - font.emphasisMarkDescent(emphasisMark) : font.metricsOfPrimaryFont().intDescent() + font.emphasisMarkAscent(emphasisMark);
 
-    TextPainter textPainter { context, font, m_style };
-    textPainter.setStyle(markedText.style.textStyles);
-    if (markedText.style.textShadow) {
-        textPainter.setShadow(&markedText.style.textShadow.value());
-        if (m_style.hasAppleColorFilter())
-            textPainter.setShadowColorFilter(&m_style.appleColorFilter());
-    }
-    textPainter.setEmphasisMark(emphasisMark, emphasisMarkOffset, m_isCombinedText ? &downcast<RenderCombineText>(m_renderer) : nullptr);
+    TextPainter textPainter {
+        context,
+        font,
+        m_style,
+        markedText.style.textStyles,
+        markedText.style.textShadow,
+        !markedText.style.textShadow.isNone() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
+        emphasisMark,
+        emphasisMarkOffset,
+        m_isCombinedText ? &downcast<RenderCombineText>(m_renderer) : nullptr
+    };
 
     bool isTransparentMarkedText = markedText.type == MarkedText::Type::DraggedContent || markedText.type == MarkedText::Type::TransparentContent;
     GraphicsContextStateSaver stateSaver(context, markedText.style.textStyles.strokeWidth > 0 || isTransparentMarkedText);
@@ -522,7 +534,7 @@ void TextBoxPainter::paintForeground(const StyledMarkedText& markedText)
 
 TextDecorationPainter TextBoxPainter::createDecorationPainter(const StyledMarkedText& markedText, const FloatRect& clipOutRect)
 {
-    GraphicsContext& context = m_paintInfo.context();
+    auto& context = m_paintInfo.context();
 
     updateGraphicsContext(context, markedText.style.textStyles);
 
@@ -539,9 +551,14 @@ TextDecorationPainter TextBoxPainter::createDecorationPainter(const StyledMarked
     }
 
     // Create painter
-    auto* shadow = markedText.style.textShadow ? &markedText.style.textShadow.value() : nullptr;
-    auto* colorFilter = markedText.style.textShadow && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr;
-    return { context, fontCascade(), shadow, colorFilter, m_document.printing(), writingMode() };
+    return {
+        context,
+        fontCascade(),
+        markedText.style.textShadow,
+        !markedText.style.textShadow.isNone() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
+        m_document.printing(),
+        writingMode()
+    };
 }
 
 static inline float computedTextDecorationThickness(const RenderStyle& styleToUse, float deviceScaleFactor)
@@ -562,7 +579,7 @@ static inline float computedLinethroughCenter(const RenderStyle& styleToUse, flo
 
 static inline OptionSet<TextDecorationLine> computedTextDecorationType(const RenderStyle& style, const TextDecorationPainter::Styles& textDecorationStyles)
 {
-    auto textDecorations = style.textDecorationsInEffect();
+    auto textDecorations = style.textDecorationLineInEffect();
     textDecorations.add(TextDecorationPainter::textDecorationsInEffectForStyle(textDecorationStyles));
     return textDecorations;
 }
@@ -590,7 +607,7 @@ static inline bool isDecoratingBoxForBackground(const InlineIterator::InlineBox&
         return true;
     }
     return styleToUse.textDecorationLine().containsAny({ TextDecorationLine::Underline, TextDecorationLine::Overline })
-        || (inlineBox.isRootInlineBox() && styleToUse.textDecorationsInEffect().containsAny({ TextDecorationLine::Underline, TextDecorationLine::Overline }));
+        || (inlineBox.isRootInlineBox() && styleToUse.textDecorationLineInEffect().containsAny({ TextDecorationLine::Underline, TextDecorationLine::Overline }));
 }
 
 void TextBoxPainter::collectDecoratingBoxesForBackgroundPainting(DecoratingBoxList& decoratingBoxList, const InlineIterator::TextBoxIterator& textBox, FloatPoint textBoxLocation, const TextDecorationPainter::Styles& overrideDecorationStyle)
@@ -617,7 +634,7 @@ void TextBoxPainter::collectDecoratingBoxesForBackgroundPainting(DecoratingBoxLi
         auto& style = decoratingBoxStyleForInlineBox(*inlineBox, m_isFirstLine);
 
         auto computedDecorationStyle = [&] {
-            return TextDecorationPainter::stylesForRenderer(inlineBox->renderer(), style.textDecorationsInEffect(), m_isFirstLine);
+            return TextDecorationPainter::stylesForRenderer(inlineBox->renderer(), style.textDecorationLineInEffect(), m_isFirstLine);
         };
         if (!isDecoratingBoxForBackground(*inlineBox, style)) {
             // Some cases even non-decoration boxes may have some decoration pieces coming from the marked text (e.g. highlight).
@@ -711,7 +728,7 @@ void TextBoxPainter::paintForegroundDecorations(TextDecorationPainter& decoratio
     auto textBox = makeIterator();
     auto& styleForDecoration = decoratingBoxStyle(textBox);
     auto computedTextDecorationType = [&] {
-        auto textDecorations = styleForDecoration.textDecorationsInEffect();
+        auto textDecorations = styleForDecoration.textDecorationLineInEffect();
         textDecorations.add(TextDecorationPainter::textDecorationsInEffectForStyle(markedText.style.textDecorationStyles));
         return textDecorations;
     }();
@@ -1017,14 +1034,14 @@ void TextBoxPainter::paintPlatformDocumentMarkers()
         return;
 
     auto spellingErrorStyle = m_renderer.spellingErrorPseudoStyle();
-    if (spellingErrorStyle && !spellingErrorStyle->textDecorationsInEffect().isEmpty()) {
+    if (spellingErrorStyle && !spellingErrorStyle->textDecorationLineInEffect().isEmpty()) {
         markedTexts.removeAllMatching([] (auto&& markedText) {
             return markedText.type == MarkedText::Type::SpellingError;
         });
     }
 
     auto grammarErrorStyle = m_renderer.grammarErrorPseudoStyle();
-    if (grammarErrorStyle && !grammarErrorStyle->textDecorationsInEffect().isEmpty()) {
+    if (grammarErrorStyle && !grammarErrorStyle->textDecorationLineInEffect().isEmpty()) {
         markedTexts.removeAllMatching([] (auto&& markedText) {
             return markedText.type == MarkedText::Type::GrammarError;
         });
@@ -1053,11 +1070,49 @@ void TextBoxPainter::paintPlatformDocumentMarkers()
 
 #if ENABLE(WRITING_TOOLS)
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/TextBoxPainterAdditions.cpp>
-#else
-static void drawUnifiedTextReplacementUnderline(GraphicsContext&, const FloatRect&, IntSize) { }
-#endif
+constexpr Seconds writingToolsAnimationLoop = 10000_ms;
+static void drawWritingToolsUnderline(GraphicsContext& context, const FloatRect& rect, IntSize frameSize)
+{
+    auto radius = rect.height() / 2.0;
+    auto minX = rect.x();
+    auto maxX = rect.maxX();
+    auto minY = rect.y();
+    auto maxY = rect.maxY();
+    auto midY = (minY + maxY) / 2.0;
+
+    auto frameX = frameSize.width();
+    auto frameY = frameSize.height();
+
+    constexpr auto redColor = SRGBA<uint8_t> { 227, 100, 136 };
+    constexpr auto yellowColor = SRGBA<uint8_t> { 242, 225, 162 };
+    constexpr auto purpleColor = SRGBA<uint8_t> { 154, 109, 209 };
+
+    auto animationProgress = (MonotonicTime::now() % writingToolsAnimationLoop).value() / 10;
+
+    auto xOffset = frameX * fmod(animationProgress + midY / frameY, 1.0);
+    constexpr std::array colorList { purpleColor, redColor, yellowColor, redColor, purpleColor, purpleColor, redColor, yellowColor, redColor, purpleColor };
+
+    Ref gradient = Gradient::create(Gradient::LinearData { FloatPoint(0 - xOffset, 0), FloatPoint(frameX * 2 - xOffset, frameY) }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
+
+    auto colorStop = 0.f;
+    auto colorIncrement = 1.0 / colorList.size();
+    for (auto color : colorList) {
+        gradient->addColorStop({ colorStop, color });
+        colorStop += colorIncrement;
+    }
+
+    context.save();
+    context.setFillGradient(WTFMove(gradient));
+
+    Path path;
+    path.moveTo(FloatPoint(minX + radius, maxY));
+    path.addArc(FloatPoint(minX + radius, midY), radius, piOverTwoDouble, 3 * piOverTwoDouble, RotationDirection::Clockwise);
+    path.addLineTo(FloatPoint(maxX - radius, minY));
+    path.addArc(FloatPoint(maxX - radius, midY), radius, 3 * piOverTwoDouble, piOverTwoDouble, RotationDirection::Clockwise);
+
+    context.fillPath(path);
+    context.restore();
+}
 
 #endif // ENABLE(WRITING_TOOLS)
 
@@ -1072,7 +1127,7 @@ void TextBoxPainter::paintPlatformDocumentMarker(const MarkedText& markedText)
 
 #if ENABLE(WRITING_TOOLS)
     if (markedText.type == MarkedText::Type::WritingToolsTextSuggestion) {
-        drawUnifiedTextReplacementUnderline(m_paintInfo.context(), bounds,  m_renderer.frame().view()->size());
+        drawWritingToolsUnderline(m_paintInfo.context(), bounds,  m_renderer.frame().view()->size());
         return;
     }
 #endif

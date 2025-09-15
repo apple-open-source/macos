@@ -520,7 +520,10 @@ static SecKeyDescriptor SecTestKeyDescriptor = {
     };
     id publicKey;
     id privateKey;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     OSStatus status = SecKeyGeneratePair((CFDictionaryRef)keyAttrs, requirePublicKey ? (void *)&publicKey : nil, requirePrivateKey ? (void *)&privateKey : nil);
+#pragma clang diagnostic pop
     XCTAssertEqual(status, errSecSuccess, @"Failed to generate public key");
     if (requirePublicKey) {
         XCTAssertNotNil(publicKey);

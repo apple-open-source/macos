@@ -653,7 +653,7 @@ log_stream_teardown(log_stream_t *ls)
 		kfree_data(ls->ls_buf, buf_size);
 	}
 	if (ls->ls_blk) {
-		kfree_type(uint8_t, ls->ls_blk_count, ls->ls_blk);
+		kfree_data(ls->ls_blk, ls->ls_blk_count);
 	}
 	bzero(ls, sizeof(*ls));
 }

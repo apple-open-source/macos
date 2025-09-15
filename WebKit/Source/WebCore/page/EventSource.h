@@ -34,7 +34,7 @@
 #include "ActiveDOMObject.h"
 #include "EventLoop.h"
 #include "EventTarget.h"
-#include "ExceptionOr.h"
+#include "EventTargetInterfaces.h"
 #include "ThreadableLoaderClient.h"
 #include "Timer.h"
 #include <wtf/URL.h>
@@ -45,6 +45,7 @@ namespace WebCore {
 class MessageEvent;
 class TextResourceDecoder;
 class ThreadableLoader;
+template<typename> class ExceptionOr;
 
 class EventSource final : public RefCounted<EventSource>, public EventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(EventSource);
@@ -114,7 +115,7 @@ private:
     bool m_withCredentials;
     State m_state { CONNECTING };
 
-    Ref<TextResourceDecoder> m_decoder;
+    const Ref<TextResourceDecoder> m_decoder;
     RefPtr<ThreadableLoader> m_loader;
     EventLoopTimerHandle m_connectTimer;
     Vector<UChar> m_receiveBuffer;

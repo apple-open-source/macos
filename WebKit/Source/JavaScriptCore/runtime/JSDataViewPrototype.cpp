@@ -155,7 +155,7 @@ EncodedJSValue getData(JSGlobalObject* globalObject, CallFrame* callFrame)
 
     IdempotentArrayBufferByteLengthGetter<std::memory_order_relaxed> getter;
     auto byteLengthValue = dataView->viewByteLength(getter);
-    if (UNLIKELY(!byteLengthValue))
+    if (!byteLengthValue) [[unlikely]]
         return throwVMTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
 
     size_t byteLength = byteLengthValue.value();
@@ -203,7 +203,7 @@ EncodedJSValue setData(JSGlobalObject* globalObject, CallFrame* callFrame)
 
     IdempotentArrayBufferByteLengthGetter<std::memory_order_relaxed> getter;
     auto byteLengthValue = dataView->viewByteLength(getter);
-    if (UNLIKELY(!byteLengthValue))
+    if (!byteLengthValue) [[unlikely]]
         return throwVMTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
 
     size_t byteLength = byteLengthValue.value();
@@ -241,12 +241,12 @@ JSC_DEFINE_HOST_FUNCTION(dataViewProtoGetterByteLength, (JSGlobalObject* globalO
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSDataView* view = jsDynamicCast<JSDataView*>(callFrame->thisValue());
-    if (UNLIKELY(!view))
+    if (!view) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "DataView.prototype.byteLength expects |this| to be a DataView object"_s);
 
     IdempotentArrayBufferByteLengthGetter<std::memory_order_seq_cst> getter;
     auto byteLengthValue = view->viewByteLength(getter);
-    if (UNLIKELY(!byteLengthValue))
+    if (!byteLengthValue) [[unlikely]]
         return throwVMTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
 
     return JSValue::encode(jsNumber(byteLengthValue.value()));
@@ -263,7 +263,7 @@ JSC_DEFINE_CUSTOM_GETTER(dataViewProtoGetterByteOffset, (JSGlobalObject* globalO
 
     IdempotentArrayBufferByteLengthGetter<std::memory_order_seq_cst> getter;
     auto byteLengthValue = view->viewByteLength(getter);
-    if (UNLIKELY(!byteLengthValue))
+    if (!byteLengthValue) [[unlikely]]
         return throwVMTypeError(globalObject, scope, typedArrayBufferHasBeenDetachedErrorMessage);
 
     return JSValue::encode(jsNumber(view->byteOffsetRaw()));

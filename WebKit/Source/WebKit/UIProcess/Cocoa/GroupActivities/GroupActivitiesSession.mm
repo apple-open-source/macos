@@ -105,4 +105,4 @@ void GroupActivitiesSession::addFallbackURLObserver(const FallbackURLObserver& o
 
 }
 
-#endif
+#endif // ENABLE(MEDIA_SESSION_COORDINATOR) && HAVE(GROUP_ACTIVITIES)

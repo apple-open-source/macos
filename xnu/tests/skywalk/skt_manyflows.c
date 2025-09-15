@@ -330,7 +330,7 @@ skt_mcflows_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(fsw_uuid, NEXUS_PORT_FLOW_SWITCH_CLIENT + child,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	if ((ret = write(MPTEST_SEQ_FILENO, buf, sizeof(buf))) == -1) {

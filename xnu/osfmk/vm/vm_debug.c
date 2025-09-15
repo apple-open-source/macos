@@ -95,6 +95,8 @@
 
 #include <mach/vm32_map_server.h>
 #include <mach/vm_map.h>
+#include <vm/vm_map_xnu.h>
+#include <vm/vm_lock_perf.h>
 
 /*
  *	Routine:	mach_vm_region_info [kernel call]
@@ -118,7 +120,10 @@ vm32_mach_vm_region_info(
 	__DEBUG_ONLY vm_info_object_array_t     *objectsp,
 	__DEBUG_ONLY mach_msg_type_number_t     *objectsCntp)
 {
+	vmlp_api_start(VM32_REGION_INFO);
+
 #if !MACH_VM_DEBUG
+	vmlp_api_end(VM32_REGION_INFO, KERN_FAILURE);
 	return KERN_FAILURE;
 #else
 	/* This unwrap is safe as this function is DEBUG only. */
@@ -132,6 +137,7 @@ vm32_mach_vm_region_info(
 	kern_return_t kr;
 
 	if (map == VM_MAP_NULL) {
+		vmlp_api_end(VM32_REGION_INFO, KERN_INVALID_TASK);
 		return KERN_INVALID_TASK;
 	}
 
@@ -149,8 +155,7 @@ vm32_mach_vm_region_info(
 		for (cmap = map;; cmap = nmap) {
 			/* cmap is read-locked */
 
-			if (!vm_map_lookup_entry_allow_pgz(cmap,
-			    (vm_map_address_t)address, &entry)) {
+			if (!vm_map_lookup_entry(cmap, address, &entry)) {
 				entry = entry->vme_next;
 				if (entry == vm_map_to_entry(cmap)) {
 					vm_map_unlock_read(cmap);
@@ -158,6 +163,7 @@ vm32_mach_vm_region_info(
 						kmem_free(ipc_kernel_map,
 						    addr, size);
 					}
+					vmlp_api_end(VM32_REGION_INFO, KERN_NO_SPACE);
 					return KERN_NO_SPACE;
 				}
 			}
@@ -175,6 +181,7 @@ vm32_mach_vm_region_info(
 		}
 
 		/* cmap is read-locked; we have a real entry */
+		vmlp_range_event_entry(cmap, entry);
 
 		object = VME_OBJECT(entry);
 		region.vir_start = (natural_t) entry->vme_start;
@@ -279,6 +286,7 @@ vm32_mach_vm_region_info(
 		kr = kmem_alloc(ipc_kernel_map, &addr, size,
 		    KMA_DATA, VM_KERN_MEMORY_IPC);
 		if (kr != KERN_SUCCESS) {
+			vmlp_api_end(VM32_REGION_INFO, KERN_RESOURCE_SHORTAGE);
 			return KERN_RESOURCE_SHORTAGE;
 		}
 	}
@@ -316,6 +324,7 @@ vm32_mach_vm_region_info(
 	*regionp = region;
 	*objectsp = (vm_info_object_array_t) copy;
 	*objectsCntp = used;
+	vmlp_api_end(VM32_REGION_INFO, KERN_SUCCESS);
 	return KERN_SUCCESS;
 #endif /* MACH_VM_DEBUG */
 }
@@ -332,7 +341,10 @@ vm32_mach_vm_region_info_64(
 	__DEBUG_ONLY vm_info_object_array_t     *objectsp,
 	__DEBUG_ONLY mach_msg_type_number_t     *objectsCntp)
 {
+	vmlp_api_start(VM32_REGION_INFO_64);
+
 #if !MACH_VM_DEBUG
+	vmlp_api_end(VM32_REGION_INFO_64, KERN_FAILURE);
 	return KERN_FAILURE;
 #else
 	/* This unwrap is safe as this function is DEBUG only. */
@@ -346,6 +358,7 @@ vm32_mach_vm_region_info_64(
 	kern_return_t kr;
 
 	if (map == VM_MAP_NULL) {
+		vmlp_api_end(VM32_REGION_INFO_64, KERN_INVALID_TASK);
 		return KERN_INVALID_TASK;
 	}
 
@@ -363,7 +376,7 @@ vm32_mach_vm_region_info_64(
 		for (cmap = map;; cmap = nmap) {
 			/* cmap is read-locked */
 
-			if (!vm_map_lookup_entry_allow_pgz(cmap, address, &entry)) {
+			if (!vm_map_lookup_entry(cmap, address, &entry)) {
 				entry = entry->vme_next;
 				if (entry == vm_map_to_entry(cmap)) {
 					vm_map_unlock_read(cmap);
@@ -371,6 +384,7 @@ vm32_mach_vm_region_info_64(
 						kmem_free(ipc_kernel_map,
 						    addr, size);
 					}
+					vmlp_api_end(VM32_REGION_INFO_64, KERN_NO_SPACE);
 					return KERN_NO_SPACE;
 				}
 			}
@@ -388,6 +402,7 @@ vm32_mach_vm_region_info_64(
 		}
 
 		/* cmap is read-locked; we have a real entry */
+		vmlp_range_event_entry(cmap, entry);
 
 		object = VME_OBJECT(entry);
 		region.vir_start = (natural_t) entry->vme_start;
@@ -492,6 +507,7 @@ vm32_mach_vm_region_info_64(
 		kr = kmem_alloc(ipc_kernel_map, &addr, size,
 		    KMA_DATA, VM_KERN_MEMORY_IPC);
 		if (kr != KERN_SUCCESS) {
+			vmlp_api_end(VM32_REGION_INFO_64, KERN_RESOURCE_SHORTAGE);
 			return KERN_RESOURCE_SHORTAGE;
 		}
 	}
@@ -529,6 +545,7 @@ vm32_mach_vm_region_info_64(
 	*regionp = region;
 	*objectsp = (vm_info_object_array_t) copy;
 	*objectsCntp = used;
+	vmlp_api_end(VM32_REGION_INFO_64, KERN_SUCCESS);
 	return KERN_SUCCESS;
 #endif /* MACH_VM_DEBUG */
 }
@@ -682,7 +699,7 @@ host_virtual_physical_table_info(
 		size = vm_map_round_page(actual * sizeof *info,
 		    VM_MAP_PAGE_MASK(ipc_kernel_map));
 		kr = kmem_alloc(ipc_kernel_map, &addr, size,
-		    KMA_PAGEABLE | KMA_DATA, VM_KERN_MEMORY_IPC);
+		    KMA_PAGEABLE | KMA_DATA_SHARED, VM_KERN_MEMORY_IPC);
 		if (kr != KERN_SUCCESS) {
 			return KERN_RESOURCE_SHORTAGE;
 		}

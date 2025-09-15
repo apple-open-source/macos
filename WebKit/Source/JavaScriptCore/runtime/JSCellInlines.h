@@ -190,7 +190,7 @@ inline Allocator allocatorForConcurrently(VM& vm, size_t allocationSize, Allocat
 template<typename T, AllocationFailureMode failureMode>
 ALWAYS_INLINE void* tryAllocateCellHelper(VM& vm, size_t size, GCDeferralContext* deferralContext)
 {
-    ASSERT(deferralContext || vm.heap.isDeferred() || !DisallowGC::isInEffectOnCurrentThread());
+    ASSERT(deferralContext || vm.heap.isDeferred() || !AssertNoGC::isInEffectOnCurrentThread());
     ASSERT(size >= sizeof(T));
     JSCell* result = static_cast<JSCell*>(subspaceFor<T>(vm)->allocate(vm, WTF::roundUpToMultipleOf<T::atomSize>(size), deferralContext, failureMode));
     if constexpr (failureMode == AllocationFailureMode::ReturnNull) {
@@ -408,7 +408,7 @@ inline TriState JSCell::pureToBoolean() const
 inline void JSCellLock::lock()
 {
     Atomic<IndexingType>* lock = std::bit_cast<Atomic<IndexingType>*>(&m_indexingTypeAndMisc);
-    if (UNLIKELY(!IndexingTypeLockAlgorithm::lockFast(*lock)))
+    if (!IndexingTypeLockAlgorithm::lockFast(*lock)) [[unlikely]]
         lockSlow();
 }
 
@@ -421,7 +421,7 @@ inline bool JSCellLock::tryLock()
 inline void JSCellLock::unlock()
 {
     Atomic<IndexingType>* lock = std::bit_cast<Atomic<IndexingType>*>(&m_indexingTypeAndMisc);
-    if (UNLIKELY(!IndexingTypeLockAlgorithm::unlockFast(*lock)))
+    if (!IndexingTypeLockAlgorithm::unlockFast(*lock)) [[unlikely]]
         unlockSlow();
 }
 
@@ -476,7 +476,7 @@ ALWAYS_INLINE JSString* JSCell::toStringInline(JSGlobalObject* globalObject) con
 ALWAYS_INLINE bool JSCell::putInline(JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
 {
     Structure* structure = this->structure();
-    if (LIKELY(!structure->typeInfo().overridesPut()))
+    if (!structure->typeInfo().overridesPut()) [[likely]]
         return JSObject::putInlineForJSObject(asObject(this), globalObject, propertyName, value, slot);
     return structure->methodTable()->put(this, globalObject, propertyName, value, slot);
 }

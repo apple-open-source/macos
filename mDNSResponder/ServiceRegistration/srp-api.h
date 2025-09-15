@@ -93,6 +93,12 @@ int srp_start_address_refresh(void);
 // Call this when the address refresh is done.   This invokes srp_network_state_stable().
 int srp_finish_address_refresh(bool *NULLABLE did_something);
 
+// Call this when an interface-only address refresh is done.   This invokes srp_network_state_stable().
+int srp_finish_interface_address_refresh(bool *NULLABLE did_something);
+
+// Call this when a service-only address refresh is done.   This invokes srp_network_state_stable().
+int srp_finish_service_address_refresh(bool *NULLABLE did_something);
+
 // Call this to deregister everything that's currently registered.  A return value other than kDNSServiceErr_NoError
 // means that there's nothing to deregister.
 int srp_deregister(void *NULLABLE os_context);

@@ -106,7 +106,7 @@ const nfserr_info_t nfserrs_common[NFSERR_INFO_COMMON_SIZE] = {
 	NFSERR_INFO_COMMON
 };
 
-const nfserr_info_t nfserrs_v4[NFSERR_INFO_V4_SIZE] = {
+const nfserr_info_t nfserrs_v4[NFSERR_INFO_V41_SIZE] = {
 	NFSERR_INFO_V4
 };
 
@@ -140,7 +140,7 @@ nfs_sendmbuf(__unused struct sockaddr *saddr, socket_t sock, const struct msghdr
 }
 
 static int
-is_error_in_range(const nfserr_info_t *arr, int arr_size, int error)
+is_error_in_range(const nfserr_info_t *arr, size_t arr_size, int error)
 {
 	if (arr_size == 0) {
 		return 0;
@@ -149,8 +149,11 @@ is_error_in_range(const nfserr_info_t *arr, int arr_size, int error)
 }
 
 void
-nfsstat_update_nfserror(int error, int vers)
+nfsstat_update_nfserror(int error, int vers, int minor_vers)
 {
+	size_t array_size;
+
+	// Common errors handling
 	if (is_error_in_range(nfserrs_common, ARRAY_SIZE(nfserrs_common), error)) {
 		for (uint32_t i = 0; i < ARRAY_SIZE(nfserrs_common); i++) {
 			if (error == nfserrs_common[i].nei_error) {
@@ -160,11 +163,15 @@ nfsstat_update_nfserror(int error, int vers)
 		}
 	}
 
-	if (vers >= NFS_VER4 && is_error_in_range(nfserrs_v4, ARRAY_SIZE(nfserrs_v4), error)) {
-		for (uint32_t i = 0; i < ARRAY_SIZE(nfserrs_v4); i++) {
-			if (error == nfserrs_v4[i].nei_error) {
-				nfsclntstats.nfs_errs.errs_v4[nfserrs_v4[i].nei_index]++;
-				return;
+	// NFSv4 errors handling
+	if (vers >= NFS_VER4) {
+		array_size = (minor_vers == NFSV4_MINORVERSION) ? NFSERR_INFO_V4_SIZE : ARRAY_SIZE(nfserrs_v4);
+		if (is_error_in_range(nfserrs_v4, array_size, error)) {
+			for (uint32_t i = 0; i < array_size; i++) {
+				if (error == nfserrs_v4[i].nei_error) {
+					nfsclntstats.nfs_errs.errs_v4[nfserrs_v4[i].nei_index]++;
+					return;
+				}
 			}
 		}
 	}
@@ -1938,7 +1945,7 @@ nfs_connect_setup(
 	if (nmp->nm_vers >= NFS_VER4) {
 		if (nmp->nm_state & NFSSTA_CLIENTID) {
 			/* first, try to renew our current state */
-			error = nfs4_renew(nmp, R_SETUP);
+			error = nmp->nm_funcs4->nf4_renew_rpc(nmp, R_SETUP);
 			if ((error == NFSERR_ADMIN_REVOKED) ||
 			    (error == NFSERR_CB_PATH_DOWN) ||
 			    (error == NFSERR_EXPIRED) ||
@@ -1949,7 +1956,7 @@ nfs_connect_setup(
 				lck_mtx_unlock(&nmp->nm_lock);
 			}
 		}
-		error = nfs4_setclientid(nmp, 0);
+		error = nfs4_create_clientid(nmp, R_SETUP);
 	}
 #endif
 	return error;
@@ -2068,7 +2075,7 @@ tryagain:
 		lck_mtx_lock(&nmp->nm_sndstate_lock);
 		if (nmp->nm_sndstate & NFSSENDSTA_SENDING) { /* wait for sending to complete */
 			nmp->nm_sndstate |= NFSSENDSTA_WANTSND;
-			msleep(&nmp->nm_sndstate, &nmp->nm_sndstate_lock, PDROP | (PZERO - 1), "nfswaitsending", &ts);;
+			msleep(&nmp->nm_sndstate, &nmp->nm_sndstate_lock, PDROP | (PZERO - 1), "nfswaitsending", &ts);
 			lck_mtx_lock(&nmp->nm_lock);
 			goto tryagain;
 		}
@@ -2476,7 +2483,7 @@ uint32_t nfs4_cb_so_usecount = 0;
 TAILQ_HEAD(nfs4_cb_sock_list, nfs_callback_socket) nfs4_cb_socks;
 TAILQ_HEAD(nfs4_cb_mount_list, nfsmount) nfs4_cb_mounts;
 
-int nfs4_cb_handler(struct nfs_callback_socket *, mbuf_t);
+int nfs4_cb_handler(struct nfsmount *, socket_t, struct sockaddr *, mbuf_t);
 
 /*
  * Set up the callback channel for the NFS mount.
@@ -2859,7 +2866,7 @@ nfs4_cb_rcv(socket_t so, void *arg, __unused int waitflag)
 	while (!error && recv) {
 		error = nfs_rpc_record_read(so, &ncbsp->ncbs_rrs, MSG_DONTWAIT, &recv, &m);
 		if (m) { /* handle the request */
-			error = nfs4_cb_handler(ncbsp, m);
+			error = nfs4_cb_handler(NULL, ncbsp->ncbs_so, (struct sockaddr *)&ncbsp->ncbs_saddr, m);
 		}
 	}
 
@@ -2889,24 +2896,25 @@ nfs4_cb_rcv(socket_t so, void *arg, __unused int waitflag)
  * Handle an NFS callback channel request.
  */
 int
-nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
+nfs4_cb_handler(struct nfsmount *nmp, socket_t so, struct sockaddr *saddr, mbuf_t mreq)
 {
-	socket_t so = ncbsp->ncbs_so;
 	struct nfsm_chain nmreq, nmrep;
-	mbuf_t mhead = NULL, mrest = NULL, m;
+	mbuf_t mhead = NULL, mrest = NULL, mreply = NULL, m;
 	struct msghdr msg;
-	struct nfsmount *nmp = NULL;
 	fhandle_t *fh;
 	nfsnode_t np;
 	nfs_stateid stateid;
 	uint32_t bitmap[NFS_ATTR_BITMAP_LEN], rbitmap[NFS_ATTR_BITMAP_LEN], bmlen, truncate, attrbytes;
-	uint32_t val, xid, procnum, taglen, cbid, numops, op, status;
+	uint32_t val, xid, procnum, taglen, cbid, numops, op, status, minor_vers;
+	nfs_session_id sessionid = {}, recall_sessionid = {};
+	uint32_t seqid = 0, slot = NFS4_SEQ_SLOT_INIT, high_slot, max_slot, cache_this, rcall_list, rcalls;
 	uint32_t auth_type, auth_len;
 	uint32_t numres, *pnumres;
 	int error = 0, replen, len;
 	size_t sentlen = 0;
+	nfsseq_cbslot *cbslot = NULL;
 
-	NFS_KDBG_ENTRY(NFSDBG_CB4_HANDLER, ncbsp, ncbsp->ncbs_so, ncbsp->ncbs_flags, ncbsp->ncbs_stamp);
+	NFS_KDBG_ENTRY(NFSDBG_CB4_HANDLER, nmp, so, nmp ? nmp->nm_clientid : 0, nmp ? nmp->nm_cbrefs: 0);
 
 	xid = numops = op = status = procnum = taglen = cbid = 0;
 	fh = zalloc(get_zone(NFS_FILE_HANDLE_ZONE));
@@ -2948,7 +2956,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 	case NFSPROC4_CB_NULL:
 		OSAddAtomic64(1, &nfsclntstats.cbopcntv4[procnum]);
 		status = NFSERR_RETVOID;
-		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc001, ncbsp, ncbsp->ncbs_so, status);
+		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc001, nmp, so, status);
 		break;
 	case NFSPROC4_CB_COMPOUND:
 		OSAddAtomic64(1, &nfsclntstats.cbopcntv4[procnum]);
@@ -2972,12 +2980,11 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 		nfsm_chain_add_32(error, &nmrep, numres);
 		pnumres = (uint32_t*)(nmrep.nmc_ptr - NFSX_UNSIGNED);
 
-		nfsm_chain_get_32(error, &nmreq, val);          /* minorversion */
-		nfsm_assert(error, (val == 0), NFSERR_MINOR_VERS_MISMATCH);
+		nfsm_chain_get_32(error, &nmreq, minor_vers);   /* minorversion */
 		nfsm_chain_get_32(error, &nmreq, cbid);         /* callback ID */
 		nfsm_chain_get_32(error, &nmreq, numops);       /* number of operations */
 		if (error) {
-			if ((error == EBADRPC) || (error == NFSERR_MINOR_VERS_MISMATCH)) {
+			if (error == EBADRPC) {
 				status = error;
 			} else if ((error == ENOBUFS) || (error == ENOMEM)) {
 				status = NFSERR_RESOURCE;
@@ -2988,25 +2995,33 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 			nfsm_chain_null(&nmrep);
 			goto nfsmout;
 		}
-		/* match the callback ID to a registered mount */
+		/*
+		 * match the callback ID to a registered mount
+		 *
+		 * RFC 8881 2.10.2.1:
+		 * callback ID is superfluous in NFSv4.1 and MUST be ignored by the client
+		 */
 		lck_mtx_lock(get_lck_mtx(NLM_GLOBAL));
-		TAILQ_FOREACH(nmp, &nfs4_cb_mounts, nm_cblink) {
-			if (nmp->nm_cbid != cbid) {
-				continue;
-			}
-			/* verify socket's source address matches this mount's server address */
-			if (!nmp->nm_saddr) {
-				continue;
-			}
-			if (nfs_sockaddr_cmp((struct sockaddr*)&ncbsp->ncbs_saddr, nmp->nm_saddr) == 0) {
-				break;
+		if (!nmp && (minor_vers == NFSV4_MINORVERSION)) {
+			TAILQ_FOREACH(nmp, &nfs4_cb_mounts, nm_cblink) {
+				if (nmp->nm_cbid != cbid) {
+					continue;
+				}
+				/* verify socket's source address matches this mount's server address */
+				if (!nmp->nm_saddr) {
+					continue;
+				}
+				if (nfs_sockaddr_cmp(saddr, nmp->nm_saddr) == 0) {
+					break;
+				}
 			}
 		}
+
 		/* mark the NFS mount as busy */
 		if (nmp) {
 			nmp->nm_cbrefs++;
 		}
-		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc002, ncbsp, nmp, nmp ? nmp->nm_cbrefs : 0);
+		NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc002, nmp, nmp ? nmp->nm_cbrefs : 0);
 		lck_mtx_unlock(get_lck_mtx(NLM_GLOBAL));
 		if (!nmp) {
 			/* if no mount match, just drop socket. */
@@ -3014,15 +3029,68 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 			nfsm_chain_null(&nmrep);
 			goto out;
 		}
+		if (nmp->nm_minor_vers != minor_vers) {
+			status = NFSERR_MINOR_VERS_MISMATCH;
+			error = 0;
+			nfsm_chain_null(&nmrep);
+			goto nfsmout;
+		}
+		if (NM_VERS41(nmp) && (numops > nmp->nm_session.ns_cbmaxops)) {
+			status = NFSERR_TOOMANYOPS;
+			error = 0;
+			nfsm_chain_null(&nmrep);
+			goto nfsmout;
+		}
 
 		/* process ops, adding results to mrest */
-		while (numops > 0) {
-			numops--;
+		for (uint32_t i = 0; i < numops; i++) {
 			nfsm_chain_get_32(error, &nmreq, op);
 			if (error) {
 				break;
 			}
-			NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc003, ncbsp, op, numops);
+			NFS_KDBG_INFO(NFSDBG_CB4_HANDLER, 0xabc003, so, op, numops);
+			if (op == NFS_OP_CB_ILLEGAL) {
+				status = NFSERR_OP_ILLEGAL;
+				nfsm_chain_add_32(error, &nmrep, NFS_OP_CB_ILLEGAL);
+				nfsm_chain_add_32(error, &nmrep, status);
+				i = numops; /* don't process any more ops */
+				numres++;
+				break;
+			}
+			/*
+			 * NFSv4.0 handling
+			 * Only the CB_GETATTR and CB_RECALL operations are supported.
+			 */
+			if (minor_vers == NFSV4_MINORVERSION && (op < NFS_OP_CB_GETATTR || op >= NFS_V4_OP_CB_COUNT)) {
+				status = NFSERR_OP_ILLEGAL;
+				nfsm_chain_add_32(error, &nmrep, NFS_OP_CB_ILLEGAL);
+				nfsm_chain_add_32(error, &nmrep, status);
+				i = numops; /* don't process any more ops */
+				numres++;
+				break;
+			}
+			/*
+			 * NFSv4.1 handling
+			 * The CB_SEQUENCE must be the first operation.
+			 */
+			if (minor_vers == NFSV41_MINORVERSION) {
+				if (i == 0 && op != NFS_OP_CB_SEQUENCE) {
+					status = NFSERR_OPNOTINSESS;
+					nfsm_chain_add_32(error, &nmrep, op);
+					nfsm_chain_add_32(error, &nmrep, status);
+					i = numops; /* don't process any more ops */
+					numres++;
+					break;
+				}
+				if ((op < NFS_OP_CB_GETATTR) || (op >= NFS_V41_OP_CB_COUNT)) {
+					status = NFSERR_OP_ILLEGAL;
+					nfsm_chain_add_32(error, &nmrep, NFS_OP_CB_ILLEGAL);
+					nfsm_chain_add_32(error, &nmrep, status);
+					i = numops; /* don't process any more ops */
+					numres++;
+					break;
+				}
+			}
 			switch (op) {
 			case NFS_OP_CB_GETATTR:
 				OSAddAtomic64(1, &nfsclntstats.cbopcntv4[op]);
@@ -3034,7 +3102,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 				if (error) {
 					status = error;
 					error = 0;
-					numops = 0; /* don't process any more ops */
+					i = numops; /* don't process any more ops */
 				} else {
 					/* find the node for the file handle */
 					error = nfs_nget(nmp->nm_mountp, NULL, NULL, fh->fh_data, fh->fh_len, NULL, NULL, RPCAUTH_UNKNOWN, NG_NOCREATE, &np);
@@ -3042,7 +3110,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 						status = NFSERR_BADHANDLE;
 						error = 0;
 						np = NULL;
-						numops = 0; /* don't process any more ops */
+						i = numops; /* don't process any more ops */
 					}
 				}
 				nfsm_chain_add_32(error, &nmrep, op);
@@ -3099,7 +3167,7 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 				if (error) {
 					status = error;
 					error = 0;
-					numops = 0; /* don't process any more ops */
+					i = numops; /* don't process any more ops */
 				} else {
 					/* find the node for the file handle */
 					error = nfs_nget(nmp->nm_mountp, NULL, NULL, fh->fh_data, fh->fh_len, NULL, NULL, RPCAUTH_UNKNOWN, NG_NOCREATE, &np);
@@ -3107,12 +3175,12 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 						status = NFSERR_BADHANDLE;
 						error = 0;
 						np = NULL;
-						numops = 0; /* don't process any more ops */
+						i = numops; /* don't process any more ops */
 					} else if (!(np->n_openflags & N_DELEG_MASK) ||
 					    bcmp(&np->n_dstateid, &stateid, sizeof(stateid))) {
 						/* delegation stateid state doesn't match */
 						status = NFSERR_BAD_STATEID;
-						numops = 0; /* don't process any more ops */
+						i = numops; /* don't process any more ops */
 					}
 					if (!status) { /* add node to recall queue, and wake socket thread */
 						nfs4_delegation_return_enqueue(np);
@@ -3128,12 +3196,97 @@ nfs4_cb_handler(struct nfs_callback_socket *ncbsp, mbuf_t mreq)
 					error = status;
 				}
 				break;
-			case NFS_OP_CB_ILLEGAL:
-			default:
-				nfsm_chain_add_32(error, &nmrep, NFS_OP_CB_ILLEGAL);
-				status = NFSERR_OP_ILLEGAL;
+			case NFS_OP_CB_SEQUENCE:
+				OSAddAtomic64(1, &nfsclntstats.cbopcntv4[op]);
+				if (i != 0) {
+					/* The CB_SEQUENCE must be the first operation */
+					status = NFSERR_SEQUENCEPOS;
+					nfsm_chain_add_32(error, &nmrep, op);
+					nfsm_chain_add_32(error, &nmrep, status);
+					i = numops; /* don't process any more ops */
+					break;
+				}
+
+				/* The CB_SEQUENCE request parsing */
+				nfsm_chain_get_session(error, &nmreq, sessionid); /* csa_sessionid */
+				nfsm_chain_get_32(error, &nmreq, seqid);          /* csa_sequenceid */
+				nfsm_chain_get_32(error, &nmreq, slot);           /* csa_slotid */
+				nfsm_chain_get_32(error, &nmreq, high_slot);      /* csa_highest_slotid */
+				nfsm_chain_get_32(error, &nmreq, cache_this);     /* csa_cachethis */
+				nfsm_chain_get_32(error, &nmreq, rcall_list);     /* csa_referring_call_lists */
+
+				/* Ignore csa_referring_call_lists for now... */
+				for (uint32_t j = 0; j < rcall_list; j++) {
+					nfsm_chain_get_session(error, &nmrep, recall_sessionid); /* rcl_sessionid */
+					nfsm_chain_get_32(error, &nmreq, rcalls);                /* csa_referring_call_lists */
+					for (uint32_t k = 0; k < rcalls; k++) {
+						nfsm_chain_get_32(error, &nmreq, val);               /* rc_sequenceid */
+						nfsm_chain_get_32(error, &nmreq, val);               /* rc_slotid */
+					}
+				}
+
+				/* Check for error */
+				if (error) {
+					status = error;
+					error = 0;
+					i = numops; /* don't process any more ops */
+					break;
+				}
+
+				/* Verify sessionID */
+				if (memcmp(sessionid, nmp->nm_session.ns_sessionid, NFS4_SESSIONID_SIZE)) {
+					status = NFSERR_BADSESSION;
+					nfsm_chain_add_32(error, &nmrep, op);
+					nfsm_chain_add_32(error, &nmrep, status);
+					i = numops; /* don't process any more ops */
+					break;
+				}
+				max_slot = MIN(nmp->nm_session.ns_backslots, NFS41_CBSLOTS) - 1;
+
+				/* Validate sequenceID. return cached reply if needed */
+				status = nfs41_sequence_cb_get(&nmp->nm_session, seqid, slot, high_slot, max_slot, &mreply);
+				if (status != 0 && status != NFSERR_REPLYFROMCACHE) {
+					error = 0;
+					i = numops; /* don't process any more ops */
+					break;
+				}
+
+				cbslot = &nmp->nm_session.ns_cbslots[i];
+				if (mreply && (status == NFSERR_REPLYFROMCACHE)) {
+					/* Use cached reply */
+					mrest = NULL;
+					nfsm_chain_cleanup(&nmrep);
+					error = mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &mhead);
+					nfsm_chain_init(&nmrep, mhead);
+
+					NFS_SOCK_DUMP_MBUF("Using cached reply", mreply);
+
+					/* Copy the cached reply data */
+					replen = 0;
+					for (m = mreply; m; m = mbuf_next(m)) {
+						replen += mbuf_len(m);
+						nfsm_chain_add_opaque(error, &nmrep, mbuf_data(m), mbuf_len(m));
+					}
+
+					nfsm_chain_build_done(error, &nmrep);
+					nfsm_chain_null(&nmrep);
+					goto done;
+				}
+
+				/* The CB_SEQUENCE reply */
+				nfsm_chain_add_32(error, &nmrep, op);
 				nfsm_chain_add_32(error, &nmrep, status);
-				numops = 0; /* don't process any more ops */
+				nfsm_chain_add_session(error, &nmrep, sessionid); /* csr_sessionid */
+				nfsm_chain_add_32(error, &nmrep, seqid);          /* csr_sequenceid */
+				nfsm_chain_add_32(error, &nmrep, slot);           /* csr_slotid */
+				nfsm_chain_add_32(error, &nmrep, max_slot);       /* csr_highest_slotid */
+				nfsm_chain_add_32(error, &nmrep, max_slot);       /* csr_target_highest_slotid */
+				break;
+			default:
+				status = NFSERR_NOTSUPP;
+				nfsm_chain_add_32(error, &nmrep, op);
+				nfsm_chain_add_32(error, &nmrep, status);
+				i = numops; /* don't process any more ops */
 				break;
 			}
 			numres++;
@@ -3237,10 +3390,23 @@ nfsmout:
 	nfsm_chain_set_recmark(error, &nmrep, (replen - NFSX_UNSIGNED) | 0x80000000);
 	nfsm_chain_null(&nmrep);
 
+	/* Cache callback reply */
+	if (cbslot) {
+		mbuf_copym(mhead, 0, MBUF_COPYALL, MBUF_WAITOK, &cbslot->ncbs_reply);
+		NFS_SOCK_DUMP_MBUF("Caching reply", cbslot->ncbs_reply);
+	}
+
+done:
 	/* send the reply */
 	bzero(&msg, sizeof(msg));
-	error = nfs_sendmbuf((struct sockaddr *)&ncbsp->ncbs_saddr, so, &msg, mhead, 0, &sentlen);
+	error = nfs_sendmbuf(saddr, so, &msg, mhead, 0, &sentlen);
 	mhead = NULL;
+
+	if (cbslot) {
+		lck_mtx_lock(&nmp->nm_session.ns_lock);
+		cbslot->ncbs_inprog = 0;
+		lck_mtx_unlock(&nmp->nm_session.ns_lock);
+	}
 	if (!error && ((int)sentlen != replen)) {
 		error = EWOULDBLOCK;
 	}
@@ -3261,7 +3427,7 @@ out:
 		mbuf_freem(mreq);
 	}
 	NFS_ZFREE(get_zone(NFS_FILE_HANDLE_ZONE), fh);
-	NFS_KDBG_EXIT(NFSDBG_CB4_HANDLER, ncbsp, nmp, sentlen, error);
+	NFS_KDBG_EXIT(NFSDBG_CB4_HANDLER, nmp, so, sentlen, error);
 	return error;
 }
 #endif /* CONFIG_NFS4 */
@@ -3924,6 +4090,18 @@ nfs_request_match_reply(struct nfsmount *nmp, mbuf_t mrep)
 
 	NFS_KDBG_ENTRY(NFSDBG_OP_REQ_MATCH_REPLY, nmp, nmp ? nmp->nm_sotype : 0, rxid, reply);
 
+#if CONFIG_NFS4
+	if (!error && reply == RPC_CALL && NM_VERS41(nmp)) {
+		/* NFSv4.1 callback handler */
+		error = nfs4_cb_handler(nmp, nmp->nm_nso->nso_so, nmp->nm_nso->nso_saddr, mrep);
+		if (error) {
+			printf("nfs_request_match_reply got error %d returned from nfs4_cb_handler\n", error);
+		}
+		/* mrep will be freed by nfs4_cb_handler() */
+		goto out_return;
+	}
+#endif /* CONFIG_NFS4 */
+
 	if (error || (reply != RPC_REPLY)) {
 		OSAddAtomic64(1, &nfsclntstats.rpcinvalid);
 		mbuf_freem(mrep);
@@ -4191,6 +4369,8 @@ nfs_request_create(
 	nmp->nm_ref++;
 	req->r_np = np;
 	req->r_thread = thd;
+	req->r_rslot = NFS4_SEQ_SLOT_INIT;
+
 	if (!thd) {
 		req->r_flags |= R_NOINTR;
 	}
@@ -4391,6 +4571,17 @@ nfs_request_add_header(struct nfsreq *req)
 	if (nfs_mount_gone(nmp)) {
 		return ENXIO;
 	}
+
+#if CONFIG_NFS4
+	/* update SEQUENCE seqid */
+	if (NM_VERS41(nmp) && !(req->r_flags & R_NOSEQUENCE)) {
+		error = nfs41_sequence_set(req);
+		if (error) {
+			return error;
+		}
+		req->r_flags |= R_SEQ;
+	}
+#endif /* CONFIG_NFS4 */
 
 	error = nfsm_rpchead(req, req->r_mrest, &req->r_xid, &req->r_mhead);
 	if (error) {
@@ -4660,7 +4851,7 @@ nfs_request_finish(
 			nfsm_chain_get_32(error, &nmrep, *status);
 			nfsmout_if(error);
 		}
-		nfsstat_update_nfserror(*status, nmp->nm_vers);
+		nfsstat_update_nfserror(*status, nmp->nm_vers, nmp->nm_minor_vers);
 
 		if ((nmp->nm_vers != NFS_VER2) && (*status == NFSERR_TRYLATER)) {
 			/*
@@ -4967,16 +5158,29 @@ nfs_request2(
 		req->r_error = 0;
 		req->r_flags &= ~R_RESTART;
 		if ((error = nfs_request_add_header(req))) {
-			break;
+			goto loop_break;
 		}
 		if (xidp) {
 			*xidp = req->r_xid;
 		}
 		if ((error = nfs_request_send(req, 1))) {
-			break;
+			goto loop_break;
 		}
 		nfs_request_wait(req);
 		if ((error = nfs_request_finish(req, nmrepp, status))) {
+			goto loop_break;
+		}
+
+loop_break:
+    #if CONFIG_NFS4
+		if ((req->r_flags & R_SEQ)) {
+			error = nfs41_sequence_parse(req, nmrepp, error);
+			if (nfs41_request_error_should_restart(req, error ? error : *status)) {
+				error = 0;
+			}
+		}
+    #endif /* CONFIG_NFS4 */
+		if (error) {
 			break;
 		}
 	} while (req->r_flags & R_RESTART);
@@ -5216,6 +5420,15 @@ nfs_request_async_finish(
 		error = nfs_request_finish(req, nmrepp, status);
 	}
 
+#if CONFIG_NFS4
+	if (req->r_flags & R_SEQ) {
+		error = nfs41_sequence_parse(req, nmrepp, error);
+		if (nfs41_request_error_should_restart(req, error ? error : *status)) {
+			error = 0;
+		}
+	}
+#endif /* CONFIG_NFS4 */
+
 	while (!error && (req->r_flags & R_RESTART)) {
 		if (asyncio) {
 			assert(req->r_achain.tqe_next == NFSREQNOLIST);
@@ -5232,19 +5445,34 @@ nfs_request_async_finish(
 		req->r_error = 0;
 		req->r_flags &= ~R_RESTART;
 		if ((error = nfs_request_add_header(req))) {
-			break;
+			goto loop_break;
 		}
 		if ((error = nfs_request_send(req, !asyncio))) {
-			break;
+			goto loop_break;
 		}
 		if (asyncio) {
-			return EINPROGRESS;
+			error = EINPROGRESS;
+			goto out_return;
 		}
 		nfs_request_wait(req);
 		if ((error = nfs_request_finish(req, nmrepp, status))) {
+			goto loop_break;
+		}
+
+loop_break:
+#if CONFIG_NFS4
+		if ((req->r_flags & R_SEQ)) {
+			error = nfs41_sequence_parse(req, nmrepp, error);
+			if (nfs41_request_error_should_restart(req, error ? error : *status)) {
+				error = 0;
+			}
+		}
+#endif /* CONFIG_NFS4 */
+		if (error) {
 			break;
 		}
 	}
+
 	if (xidp) {
 		*xidp = req->r_xid;
 	}

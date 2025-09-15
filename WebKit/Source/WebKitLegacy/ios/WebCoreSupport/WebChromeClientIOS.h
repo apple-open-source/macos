@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@ private:
     bool runJavaScriptPrompt(WebCore::LocalFrame&, const WTF::String& message, const WTF::String& defaultValue, WTF::String& result) final;
 
     void runOpenPanel(WebCore::LocalFrame&, WebCore::FileChooser&) final;
-    void showShareSheet(WebCore::ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&) final;
+    void showShareSheet(WebCore::ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&&) final;
 
     bool hoverSupportedByPrimaryPointingDevice() const final { return false; }
     bool hoverSupportedByAnyAvailablePointingDevice() const final { return false; }
@@ -97,7 +97,7 @@ private:
     bool selectItemAlignmentFollowsMenuWritingDirection() final;
     RefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient&) const final;
     RefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient&) const final;
-    void relayAccessibilityNotification(const String&, const RetainPtr<NSData>&) const final { }
+    void relayAccessibilityNotification(String&&, RetainPtr<NSData>&&) const final { }
     void webAppOrientationsUpdated() final;
     void focusedElementChanged(WebCore::Element*) final;
     void showPlaybackTargetPicker(bool hasVideo, WebCore::RouteSharingPolicy, const String&) final;

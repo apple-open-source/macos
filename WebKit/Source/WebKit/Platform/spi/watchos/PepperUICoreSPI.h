@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(PEPPER_UI_CORE)
 
 #import "UIKitSPI.h"

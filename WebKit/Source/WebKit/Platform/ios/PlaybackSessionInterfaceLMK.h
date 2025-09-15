@@ -49,18 +49,20 @@ public:
     void currentTimeChanged(double, double) final;
     void bufferedTimeChanged(double) final { }
     void rateChanged(OptionSet<WebCore::PlaybackSessionModel::PlaybackState>, double, double) final;
-    void seekableRangesChanged(const WebCore::TimeRanges&, double, double) final;
+    void seekableRangesChanged(const WebCore::PlatformTimeRanges&, double, double) final;
     void canPlayFastReverseChanged(bool) final;
     void audioMediaSelectionOptionsChanged(const Vector<WebCore::MediaSelectionOption>&, uint64_t) final;
     void legibleMediaSelectionOptionsChanged(const Vector<WebCore::MediaSelectionOption>&, uint64_t) final;
     void audioMediaSelectionIndexChanged(uint64_t) final;
     void legibleMediaSelectionIndexChanged(uint64_t) final;
     void externalPlaybackChanged(bool, WebCore::PlaybackSessionModel::ExternalPlaybackTargetType, const String&) final { }
+    void setPlayerIdentifier(std::optional<WebCore::MediaPlayerIdentifier>) final;
     void wirelessVideoPlaybackDisabledChanged(bool) final { }
     void mutedChanged(bool) final;
     void volumeChanged(double) final;
     void supportsLinearMediaPlayerChanged(bool) final;
     void spatialVideoMetadataChanged(const std::optional<WebCore::SpatialVideoMetadata>&) final;
+    void videoProjectionMetadataChanged(const std::optional<WebCore::VideoProjectionMetadata>&) final;
     void startObservingNowPlayingMetadata() final;
     void stopObservingNowPlayingMetadata() final;
 #if !RELEASE_LOG_DISABLED
@@ -68,9 +70,6 @@ public:
 #endif
 
     void nowPlayingMetadataChanged(const WebCore::NowPlayingMetadata&);
-
-    void setSpatialVideoEnabled(bool enabled) { m_spatialVideoEnabled = enabled; }
-    bool spatialVideoEnabled() const { return m_spatialVideoEnabled; }
 
     void swapFullscreenModesWith(PlaybackSessionInterfaceIOS&);
 
@@ -80,7 +79,6 @@ private:
     RetainPtr<WKSLinearMediaPlayer> m_player;
     RetainPtr<WKLinearMediaPlayerDelegate> m_playerDelegate;
     WebCore::NowPlayingMetadataObserver m_nowPlayingMetadataObserver;
-    bool m_spatialVideoEnabled { false };
     WebCore::VideoReceiverEndpoint m_videoReceiverEndpoint;
 };
 

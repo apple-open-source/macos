@@ -143,13 +143,13 @@ vm_map_combine_hole(__unused vm_map_t map, vm_map_entry_t hole_entry)
 	middle_hole_entry = hole_entry->vme_next;
 	last_hole_entry = middle_hole_entry->vme_next;
 
-	assert(last_hole_entry->vme_prev == middle_hole_entry);
+	assert(VME_PREV(last_hole_entry) == middle_hole_entry);
 	assert(middle_hole_entry->vme_end != last_hole_entry->vme_start);
 
-	last_hole_entry->vme_prev = hole_entry;
+	VME_PREV_SET(last_hole_entry, hole_entry);
 	hole_entry->vme_next = last_hole_entry;
 
-	middle_hole_entry->vme_prev = NULL;
+	VME_PREV_SET(middle_hole_entry, NULL);
 	middle_hole_entry->vme_next = NULL;
 
 	zfree_id(ZONE_ID_VM_MAP_HOLES, middle_hole_entry);
@@ -172,23 +172,23 @@ vm_map_delete_hole(vm_map_t map, vm_map_entry_t hole_entry)
 			vm_map_entry_t l_next, l_prev;
 
 			l_next = (vm_map_entry_t) map->holes_list->next;
-			l_prev = (vm_map_entry_t) map->holes_list->prev;
+			l_prev = (vm_map_entry_t) VML_PREV(map->holes_list);
 			map->holes_list = (struct vm_map_links*) l_next;
 
-			l_next->vme_prev = l_prev;
+			VME_PREV_SET(l_next, l_prev);
 			l_prev->vme_next = l_next;
 
 			SAVE_HINT_HOLE_WRITE(map, (struct vm_map_links*) l_next);
 		}
 	} else {
-		SAVE_HINT_HOLE_WRITE(map, (struct vm_map_links*) hole_entry->vme_prev);
+		SAVE_HINT_HOLE_WRITE(map, (struct vm_map_links*) VME_PREV(hole_entry));
 
-		hole_entry->vme_prev->vme_next = hole_entry->vme_next;
-		hole_entry->vme_next->vme_prev = hole_entry->vme_prev;
+		VME_PREV(hole_entry)->vme_next = hole_entry->vme_next;
+		VME_PREV_SET(hole_entry->vme_next, VME_PREV(hole_entry));
 	}
 
 	hole_entry->vme_next = NULL;
-	hole_entry->vme_prev = NULL;
+	VME_PREV_SET(hole_entry, NULL);
 	zfree_id(ZONE_ID_VM_MAP_HOLES, hole_entry);
 }
 
@@ -263,7 +263,7 @@ check_map_sanity(vm_map_t map, vm_map_entry_t old_hole_entry)
 static void
 copy_hole_info(vm_map_entry_t hole_entry, vm_map_entry_t old_hole_entry)
 {
-	old_hole_entry->vme_prev = hole_entry->vme_prev;
+	VME_PREV_SET(old_hole_entry) = VME_PREV(hole_entry);
 	old_hole_entry->vme_next = hole_entry->vme_next;
 	old_hole_entry->vme_start = hole_entry->vme_start;
 	old_hole_entry->vme_end = hole_entry->vme_end;
@@ -302,7 +302,7 @@ update_holes_on_entry_deletion(vm_map_t map, vm_map_entry_t old_entry)
 				 * Hit.
 				 */
 
-				hole_entry = hole_entry->vme_prev;
+				hole_entry = VME_PREV(hole_entry);
 			}
 		} else if (hole_entry->vme_start > old_entry->vme_end) {
 			/*
@@ -390,7 +390,7 @@ update_holes_on_entry_deletion(vm_map_t map, vm_map_entry_t old_entry)
 
 				if (hole_entry != CAST_TO_VM_MAP_ENTRY(map->holes_list)) {
 					assert(hole_entry->vme_start != old_entry->vme_start);
-					hole_entry = hole_entry->vme_prev;
+					hole_entry = VME_PREV(hole_entry);
 				}
 				break;
 			}
@@ -398,7 +398,7 @@ update_holes_on_entry_deletion(vm_map_t map, vm_map_entry_t old_entry)
 			hole_entry = next_hole_entry;
 
 			if (hole_entry == CAST_TO_VM_MAP_ENTRY(map->holes_list)) {
-				hole_entry = hole_entry->vme_prev;
+				hole_entry = VME_PREV(hole_entry);
 				break;
 			}
 		}
@@ -418,25 +418,27 @@ update_holes_on_entry_deletion(vm_map_t map, vm_map_entry_t old_entry)
 		if (map->holes_list == NULL || (hole_entry == CAST_TO_VM_MAP_ENTRY(map->holes_list) && hole_entry->vme_start > old_entry->vme_start)) {
 			if (map->holes_list == NULL) {
 				map->holes_list = new_hole_entry;
-				new_hole_entry->prev = new_hole_entry->next = CAST_TO_VM_MAP_ENTRY(map->holes_list);
+				VML_PREV_SET(new_hole_entry, CAST_TO_VM_MAP_ENTRY(map->holes_list));
+				new_hole_entry->next = CAST_TO_VM_MAP_ENTRY(map->holes_list);
 			} else {
 				l_next = CAST_TO_VM_MAP_ENTRY(map->holes_list);
-				l_prev = map->holes_list->prev;
+				l_prev = VML_PREV(map->holes_list);
 				map->holes_list = new_hole_entry;
 				new_hole_entry->next = l_next;
-				new_hole_entry->prev = l_prev;
+				VML_PREV_SET(new_hole_entry, l_prev);
 
-				l_prev->vme_next = l_next->vme_prev = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
+				l_prev->vme_next = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
+				VME_PREV_SET(l_next, CAST_TO_VM_MAP_ENTRY(new_hole_entry));
 			}
 		} else {
 			l_next = hole_entry->vme_next;
-			l_prev = hole_entry->vme_next->vme_prev;
+			l_prev = VME_PREV(hole_entry->vme_next);
 
-			new_hole_entry->prev = hole_entry;
+			VML_PREV_SET(new_hole_entry, hole_entry);
 			new_hole_entry->next = l_next;
 
 			hole_entry->vme_next = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
-			l_next->vme_prev = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
+			VME_PREV_SET(l_next, CAST_TO_VM_MAP_ENTRY(new_hole_entry));
 		}
 
 		new_hole_entry->start = old_entry->vme_start;
@@ -540,9 +542,9 @@ update_holes_on_entry_creation(vm_map_t map, vm_map_entry_t new_entry)
 			copy_hole_info(hole_entry, &old_hole_entry);
 #endif /* DEBUG */
 
-			new_hole_entry->prev = hole_entry;
+			VML_PREV_SET(new_hole_entry, hole_entry);
 			new_hole_entry->next = hole_entry->vme_next;
-			hole_entry->vme_next->vme_prev = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
+			VME_PREV_SET(hole_entry->vme_next, CAST_TO_VM_MAP_ENTRY(new_hole_entry));
 			hole_entry->vme_next = CAST_TO_VM_MAP_ENTRY(new_hole_entry);
 
 			new_hole_entry->start = new_entry->vme_end;
@@ -617,9 +619,9 @@ update_holes_on_entry_creation(vm_map_t map, vm_map_entry_t new_entry)
 	}
 
 	panic("Illegal action: h1: %p, s:0x%llx, e:0x%llx...h2:%p, s:0x%llx, e:0x%llx...h3:0x%p, s:0x%llx, e:0x%llx",
-	    hole_entry->vme_prev,
-	    (unsigned long long)hole_entry->vme_prev->vme_start,
-	    (unsigned long long)hole_entry->vme_prev->vme_end,
+	    VME_PREV(hole_entry),
+	    (unsigned long long)VME_PREV(hole_entry)->vme_start,
+	    (unsigned long long)VME_PREV(hole_entry)->vme_end,
 	    hole_entry,
 	    (unsigned long long)hole_entry->vme_start,
 	    (unsigned long long)hole_entry->vme_end,

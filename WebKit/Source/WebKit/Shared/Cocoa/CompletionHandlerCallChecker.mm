@@ -50,8 +50,8 @@ CompletionHandlerCallChecker::~CompletionHandlerCallChecker()
     if (m_didCallCompletionHandler)
         return;
 
-    Class delegateClass = classImplementingDelegateMethod();
-    [NSException raise:NSInternalInconsistencyException format:@"Completion handler passed to %c[%@ %@] was not called", class_isMetaClass(delegateClass) ? '+' : '-', NSStringFromClass(delegateClass), NSStringFromSelector(m_delegateMethodSelector)];
+    RetainPtr delegateClass = classImplementingDelegateMethod();
+    [NSException raise:NSInternalInconsistencyException format:@"Completion handler passed to %c[%@ %@] was not called", class_isMetaClass(delegateClass.get()) ? '+' : '-', NSStringFromClass(delegateClass.get()), NSStringFromSelector(m_delegateMethodSelector)];
 }
 
 void CompletionHandlerCallChecker::didCallCompletionHandler()
@@ -76,20 +76,20 @@ bool CompletionHandlerCallChecker::completionHandlerHasBeenCalled() const
         return false;
 
     if (shouldThrowExceptionForDuplicateCompletionHandlerCall()) {
-        Class delegateClass = classImplementingDelegateMethod();
-        [NSException raise:NSInternalInconsistencyException format:@"Completion handler passed to %c[%@ %@] was called more than once", class_isMetaClass(delegateClass) ? '+' : '-', NSStringFromClass(delegateClass), NSStringFromSelector(m_delegateMethodSelector)];
+        RetainPtr delegateClass = classImplementingDelegateMethod();
+        [NSException raise:NSInternalInconsistencyException format:@"Completion handler passed to %c[%@ %@] was called more than once", class_isMetaClass(delegateClass.get()) ? '+' : '-', NSStringFromClass(delegateClass.get()), NSStringFromSelector(m_delegateMethodSelector)];
     }
 
     return true;
 }
 
-Class CompletionHandlerCallChecker::classImplementingDelegateMethod() const
+RetainPtr<Class> CompletionHandlerCallChecker::classImplementingDelegateMethod() const
 {
-    Class delegateClass = m_delegateClass;
-    Method delegateMethod = class_getInstanceMethod(delegateClass, m_delegateMethodSelector);
+    RetainPtr<Class> delegateClass = m_delegateClass;
+    Method delegateMethod = class_getInstanceMethod(delegateClass.get(), m_delegateMethodSelector);
 
-    for (Class superclass = class_getSuperclass(delegateClass); superclass; superclass = class_getSuperclass(superclass)) {
-        if (class_getInstanceMethod(superclass, m_delegateMethodSelector) != delegateMethod)
+    for (RetainPtr<Class> superclass = class_getSuperclass(delegateClass.get()); superclass; superclass = class_getSuperclass(superclass.get())) {
+        if (class_getInstanceMethod(superclass.get(), m_delegateMethodSelector) != delegateMethod)
             break;
 
         delegateClass = superclass;

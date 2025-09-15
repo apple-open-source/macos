@@ -38,7 +38,7 @@ struct RawPolicy {
     }
 }
 
-let prevailingPolicyVersion = TPPolicyVersion(version: 20, hash: "SHA256:OIzjC3WyLGrM8GAd/EyIfVzTJdYmcGoKPFdQeWeRZTY=")
+let prevailingPolicyVersion = TPPolicyVersion(version: 21, hash: "SHA256:TE6llImFfeO/5Vmp0gcKrUFM/netqyTEITqL6Nnmqjg=")
 
 // Some peers don't know how to handle new policies when pairing. If we're pairing with one of those,
 // we must prepare our identity using this policy.
@@ -2452,6 +2452,172 @@ func rawPolicies() -> [RawPolicy] {[
                                             TPPBPolicyKeyViewMapping(view: "Contacts", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Contacts$")),
                                             TPPBPolicyKeyViewMapping(view: "Photos", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Photos$")),
                                             TPPBPolicyKeyViewMapping(view: "Groups", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Groups$")),
+
+                                            TPPBPolicyKeyViewMapping(view: "Applications", matchingRule:
+                                                                        TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^[0-9A-Z]{10}\\.")),
+
+                                            TPPBPolicyKeyViewMapping(view: "SecureObjectSync", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.andMatch([
+                                                                                TPDictionaryMatchingRule.fieldMatch("class", fieldRegex: "^genp$"),
+                                                                                TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.sbd$"),
+                                                                            ]),
+                                                                            TPDictionaryMatchingRule.andMatch([
+                                                                                TPDictionaryMatchingRule.fieldMatch("class", fieldRegex: "^keys$"),
+                                                                                TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.security\\.sos$"),
+                                                                            ]),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^BackupBagV0$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^iCloudIdentity$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "WiFi", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^WiFi$"),
+                                                                            TPDictionaryMatchingRule.andMatch([
+                                                                                TPDictionaryMatchingRule.fieldMatch("class", fieldRegex: "^genp$"),
+                                                                                TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^apple$"),
+                                                                                TPDictionaryMatchingRule.fieldMatch("svce", fieldRegex: "^AirPort$"),
+                                                                            ]),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "ProtectedCloudStorage", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Backup$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-CloudKit$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Escrow$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-FDE$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Feldspar$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-MailDrop$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Maildrop$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-MasterKey$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Notes$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Photos$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-Sharing$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-iCloudBackup$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-iCloudDrive$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^PCS-iMessage$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "CreditCards", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.safari\\.credit-cards$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^CreditCards$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "Passwords", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.cfnetwork$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.cfnetwork-recently-deleted$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager-recently-deleted$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.WebKit\\.WebAuthn$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.webkit\\.webauthn$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.webkit\\.webauthn-recently-deleted$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager\\.personal$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager\\.personal-recently-deleted$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager\\.generated-passwords$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^com\\.apple\\.password-manager\\.generated-passwords-recently-deleted$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Passwords$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "DevicePairing", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^AccessoryPairing$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^NanoRegistry$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^WatchMigration$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "Backstop", matchingRule:
+                                                                        TPDictionaryMatchingRule.trueMatch()),
+                                          ],
+                                          userControllableViewList: [
+                                            "Applications",
+                                            "Backstop",
+                                            "CreditCards",
+                                            "Passwords",
+                                            "WiFi",
+                                          ],
+                                          piggybackViews: [
+                                            "Passwords",
+                                          ],
+                                          priorityViews: [
+                                            "ProtectedCloudStorage",
+                                            "SecureObjectSync",
+                                          ],
+                                          inheritedExcludedViews: [
+                                            "Passwords",
+                                          ],
+                                          hashAlgo: .SHA256)}),
+    RawPolicy(
+        version: TPPolicyVersion(version: 21, hash: "SHA256:TE6llImFfeO/5Vmp0gcKrUFM/netqyTEITqL6Nnmqjg="),
+        policyData: { "CBUSDQoHQXBwbGVUVhICdHYSFwoOQXVkaW9BY2Nlc3NvcnkSBWF1ZGlvEgsKA01hYxIEZnVsbBIOCgVXYXRjaBIFd2F0Y2gSEAoFV2luUEMSB3dpbmRvd3MSDAoEaU1hYxIEZnVsbBIMCgRpUGFkEgRmdWxsEg4KBmlQaG9uZRIEZnVsbBIMCgRpUG9kEgRmdWxsEhUKDVJlYWxpdHlEZXZpY2USBGZ1bGwaFwoIQXBwbGVQYXkSBGZ1bGwSBXdhdGNoGhsKDEFwcGxpY2F0aW9ucxIEZnVsbBIFd2F0Y2gaGQoKQXV0b1VubG9jaxIEZnVsbBIFd2F0Y2gaFwoIQmFja3N0b3ASBGZ1bGwSBXdhdGNoGhoKC0NyZWRpdENhcmRzEgRmdWxsEgV3YXRjaBoXCghDb250YWN0cxIEZnVsbBIFd2F0Y2gaHAoNRGV2aWNlUGFpcmluZxIEZnVsbBIFd2F0Y2gaFQoGRW5ncmFtEgRmdWxsEgV3YXRjaBoeCgZGaW5kTXkSBGZ1bGwSBXdhdGNoEgd3aW5kb3dzGhUKBkdyb3VwcxIEZnVsbBIFd2F0Y2gaFQoGSGVhbHRoEgRmdWxsEgV3YXRjaBoeCgRIb21lEgRmdWxsEgV3YXRjaBICdHYSBWF1ZGlvGjYKE0xpbWl0ZWRQZWVyc0FsbG93ZWQSB3dpbmRvd3MSBGZ1bGwSBXdhdGNoEgJ0dhIFYXVkaW8aEwoETWFpbBIEZnVsbBIFd2F0Y2gaEgoDTUZpEgRmdWxsEgV3YXRjaBofCgdNYW5hdGVlEgRmdWxsEgV3YXRjaBIHd2luZG93cxohCglQYXNzd29yZHMSBGZ1bGwSBXdhdGNoEgd3aW5kb3dzGiIKBlBob3RvcxIEZnVsbBIFd2F0Y2gSAnR2Egd3aW5kb3dzGjgKFVByb3RlY3RlZENsb3VkU3RvcmFnZRIHd2luZG93cxIEZnVsbBIFd2F0Y2gSAnR2EgVhdWRpbxofChBTZWN1cmVPYmplY3RTeW5jEgRmdWxsEgV3YXRjaBoeCgRXaUZpEgRmdWxsEgV3YXRjaBICdHYSBWF1ZGlvIhsKBWF1ZGlvEgRmdWxsEgV3YXRjaBIFYXVkaW8iEwoEZnVsbBIEZnVsbBIFd2F0Y2giFQoCdHYSBGZ1bGwSBXdhdGNoEgJ0diIUCgV3YXRjaBIEZnVsbBIFd2F0Y2giFgoHd2luZG93cxIEZnVsbBIFd2F0Y2gyIgoWAAQiEgIEdndodAoKXkFwcGxlUGF5JBIIQXBwbGVQYXkyJgoYAAQiFAIEdndodAoMXkF1dG9VbmxvY2skEgpBdXRvVW5sb2NrMh4KFAAEIhACBHZ3aHQKCF5FbmdyYW0kEgZFbmdyYW0yHgoUAAQiEAIEdndodAoIXkhlYWx0aCQSBkhlYWx0aDIaChIABCIOAgR2d2h0CgZeSG9tZSQSBEhvbWUyIAoVAAQiEQIEdndodAoJXk1hbmF0ZWUkEgdNYW5hdGVlMjgKIQAEIh0CBHZ3aHQKFV5MaW1pdGVkUGVlcnNBbGxvd2VkJBITTGltaXRlZFBlZXJzQWxsb3dlZDJdClAAAhIeAAQiGgIEdndodAoSXkNvbnRpbnVpdHlVbmxvY2skEhUABCIRAgR2d2h0CgleSG9tZUtpdCQSFQAEIhECBHZ3aHQKCV5BcHBsZVRWJBIJTm90U3luY2VkMhgKEQAEIg0CBHZ3aHQKBV5NRmkkEgNNRmkyGgoSAAQiDgIEdndodAoGXk1haWwkEgRNYWlsMiIKFgAEIhICBHZ3aHQKCl5Db250YWN0cyQSCENvbnRhY3RzMh4KFAAEIhACBHZ3aHQKCF5QaG90b3MkEgZQaG90b3MyHgoUAAQiEAIEdndodAoIXkdyb3VwcyQSBkdyb3VwczIeChQABCIQAgR2d2h0CgheRmluZE15JBIGRmluZE15MisKGwAEIhcCBGFncnAKD15bMC05QS1aXXsxMH1cLhIMQXBwbGljYXRpb25zMsoBCrUBAAISNgABChMABCIPAgVjbGFzcwoGXmdlbnAkCh0ABCIZAgRhZ3JwChFeY29tXC5hcHBsZVwuc2JkJBJAAAEKEwAEIg8CBWNsYXNzCgZea2V5cyQKJwAEIiMCBGFncnAKG15jb21cLmFwcGxlXC5zZWN1cml0eVwuc29zJBIZAAQiFQIEdndodAoNXkJhY2t1cEJhZ1YwJBIcAAQiGAIEdndodAoQXmlDbG91ZElkZW50aXR5JBIQU2VjdXJlT2JqZWN0U3luYzJjClsAAhISAAQiDgIEdndodAoGXldpRmkkEkMAAQoTAAQiDwIFY2xhc3MKBl5nZW5wJAoTAAQiDwIEYWdycAoHXmFwcGxlJAoVAAQiEQIEc3ZjZQoJXkFpclBvcnQkEgRXaUZpMp0DCoMDAAISGAAEIhQCBHZ3aHQKDF5QQ1MtQmFja3VwJBIaAAQiFgIEdndodAoOXlBDUy1DbG91ZEtpdCQSGAAEIhQCBHZ3aHQKDF5QQ1MtRXNjcm93JBIVAAQiEQIEdndodAoJXlBDUy1GREUkEhoABCIWAgR2d2h0Cg5eUENTLUZlbGRzcGFyJBIaAAQiFgIEdndodAoOXlBDUy1NYWlsRHJvcCQSGgAEIhYCBHZ3aHQKDl5QQ1MtTWFpbGRyb3AkEhsABCIXAgR2d2h0Cg9eUENTLU1hc3RlcktleSQSFwAEIhMCBHZ3aHQKC15QQ1MtTm90ZXMkEhgABCIUAgR2d2h0CgxeUENTLVBob3RvcyQSGQAEIhUCBHZ3aHQKDV5QQ1MtU2hhcmluZyQSHgAEIhoCBHZ3aHQKEl5QQ1MtaUNsb3VkQmFja3VwJBIdAAQiGQIEdndodAoRXlBDUy1pQ2xvdWREcml2ZSQSGgAEIhYCBHZ3aHQKDl5QQ1MtaU1lc3NhZ2UkEhVQcm90ZWN0ZWRDbG91ZFN0b3JhZ2UyXApNAAISLgAEIioCBGFncnAKIl5jb21cLmFwcGxlXC5zYWZhcmlcLmNyZWRpdC1jYXJkcyQSGQAEIhUCBHZ3aHQKDV5DcmVkaXRDYXJkcyQSC0NyZWRpdENhcmRzMpIFCoQFAAISIwAEIh8CBGFncnAKF15jb21cLmFwcGxlXC5jZm5ldHdvcmskEjQABCIwAgRhZ3JwCiheY29tXC5hcHBsZVwuY2ZuZXR3b3JrLXJlY2VudGx5LWRlbGV0ZWQkEioABCImAgRhZ3JwCh5eY29tXC5hcHBsZVwucGFzc3dvcmQtbWFuYWdlciQSOwAEIjcCBGFncnAKL15jb21cLmFwcGxlXC5wYXNzd29yZC1tYW5hZ2VyLXJlY2VudGx5LWRlbGV0ZWQkEioABCImAgRhZ3JwCh5eY29tXC5hcHBsZVwuV2ViS2l0XC5XZWJBdXRobiQSKgAEIiYCBGFncnAKHl5jb21cLmFwcGxlXC53ZWJraXRcLndlYmF1dGhuJBI7AAQiNwIEYWdycAovXmNvbVwuYXBwbGVcLndlYmtpdFwud2ViYXV0aG4tcmVjZW50bHktZGVsZXRlZCQSNAAEIjACBGFncnAKKF5jb21cLmFwcGxlXC5wYXNzd29yZC1tYW5hZ2VyXC5wZXJzb25hbCQSRQAEIkECBGFncnAKOV5jb21cLmFwcGxlXC5wYXNzd29yZC1tYW5hZ2VyXC5wZXJzb25hbC1yZWNlbnRseS1kZWxldGVkJBI/AAQiOwIEYWdycAozXmNvbVwuYXBwbGVcLnBhc3N3b3JkLW1hbmFnZXJcLmdlbmVyYXRlZC1wYXNzd29yZHMkElAABCJMAgRhZ3JwCkReY29tXC5hcHBsZVwucGFzc3dvcmQtbWFuYWdlclwuZ2VuZXJhdGVkLXBhc3N3b3Jkcy1yZWNlbnRseS1kZWxldGVkJBIXAAQiEwIEdndodAoLXlBhc3N3b3JkcyQSCVBhc3N3b3JkczJtClwAAhIeAAQiGgIEdndodAoSXkFjY2Vzc29yeVBhaXJpbmckEhoABCIWAgR2d2h0Cg5eTmFub1JlZ2lzdHJ5JBIcAAQiGAIEdndodAoQXldhdGNoTWlncmF0aW9uJBINRGV2aWNlUGFpcmluZzIOCgIABhIIQmFja3N0b3A6DEFwcGxpY2F0aW9uczoIQmFja3N0b3A6C0NyZWRpdENhcmRzOglQYXNzd29yZHM6BFdpRmlCCVBhc3N3b3Jkc0oVUHJvdGVjdGVkQ2xvdWRTdG9yYWdlShBTZWN1cmVPYmplY3RTeW5jUglQYXNzd29yZHM=" },
+        plaintextPolicy: {TPPolicyDocument(version: 21,
+                                          modelToCategory: [
+                                            TPPBPolicyModelToCategory(prefix: "AppleTV", category: "tv"),
+                                            TPPBPolicyModelToCategory(prefix: "AudioAccessory", category: "audio"),
+                                            TPPBPolicyModelToCategory(prefix: "Mac", category: "full"),
+                                            TPPBPolicyModelToCategory(prefix: "Watch", category: "watch"),
+                                            TPPBPolicyModelToCategory(prefix: "WinPC", category: "windows"),
+                                            TPPBPolicyModelToCategory(prefix: "iMac", category: "full"),
+                                            TPPBPolicyModelToCategory(prefix: "iPad", category: "full"),
+                                            TPPBPolicyModelToCategory(prefix: "iPhone", category: "full"),
+                                            TPPBPolicyModelToCategory(prefix: "iPod", category: "full"),
+                                            TPPBPolicyModelToCategory(prefix: "RealityDevice", category: "full"),
+                                          ],
+                                          categoriesByView: [
+                                            TPPBPolicyCategoriesByView(view: "ApplePay", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Applications", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "AutoUnlock", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Backstop", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "CreditCards", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Contacts", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "DevicePairing", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Engram", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "FindMy", categories: ["full", "watch", "windows"]),
+                                            TPPBPolicyCategoriesByView(view: "Groups", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Health", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Home", categories: ["full", "watch", "tv", "audio"]),
+                                            TPPBPolicyCategoriesByView(view: "LimitedPeersAllowed", categories: ["windows", "full", "watch", "tv", "audio"]),
+                                            TPPBPolicyCategoriesByView(view: "Mail", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "MFi", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "Manatee", categories: ["full", "watch", "windows"]),
+                                            TPPBPolicyCategoriesByView(view: "Passwords", categories: ["full", "watch", "windows"]),
+                                            TPPBPolicyCategoriesByView(view: "Photos", categories: ["full", "watch", "tv", "windows"]),
+                                            TPPBPolicyCategoriesByView(view: "ProtectedCloudStorage", categories: [ "windows", "full", "watch", "tv", "audio"]),
+                                            TPPBPolicyCategoriesByView(view: "SecureObjectSync", categories: ["full", "watch"]),
+                                            TPPBPolicyCategoriesByView(view: "WiFi", categories: ["full", "watch", "tv", "audio"]),
+                                          ],
+                                          introducersByCategory: [
+                                            TPPBPolicyIntroducersByCategory(category: "audio", introducers: ["full", "watch", "audio"]),
+                                            TPPBPolicyIntroducersByCategory(category: "full", introducers: ["full", "watch"]),
+                                            TPPBPolicyIntroducersByCategory(category: "tv", introducers: ["full", "watch", "tv"]),
+                                            TPPBPolicyIntroducersByCategory(category: "watch", introducers: ["full", "watch"]),
+                                            TPPBPolicyIntroducersByCategory(category: "windows", introducers: ["full", "watch"]),
+                                          ],
+                                          redactions: [],
+                                          keyViewMapping: [
+                                            TPPBPolicyKeyViewMapping(view: "ApplePay", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^ApplePay$")),
+                                            TPPBPolicyKeyViewMapping(view: "AutoUnlock", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^AutoUnlock$")),
+                                            TPPBPolicyKeyViewMapping(view: "Engram", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Engram$")),
+                                            TPPBPolicyKeyViewMapping(view: "Health", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Health$")),
+                                            TPPBPolicyKeyViewMapping(view: "Home", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Home$")),
+                                            TPPBPolicyKeyViewMapping(view: "Manatee", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Manatee$")),
+                                            TPPBPolicyKeyViewMapping(view: "LimitedPeersAllowed", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^LimitedPeersAllowed$")),
+
+                                            // These items will not be synced by Octagon
+                                            TPPBPolicyKeyViewMapping(view: "NotSynced", matchingRule:
+                                                                        TPDictionaryMatchingRule.orMatch([
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^ContinuityUnlock$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^HomeKit$"),
+                                                                            TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^AppleTV$"),
+                                                                        ])),
+
+                                            TPPBPolicyKeyViewMapping(view: "MFi", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^MFi$")),
+                                            TPPBPolicyKeyViewMapping(view: "Mail", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Mail$")),
+                                            TPPBPolicyKeyViewMapping(view: "Contacts", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Contacts$")),
+                                            TPPBPolicyKeyViewMapping(view: "Photos", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Photos$")),
+                                            TPPBPolicyKeyViewMapping(view: "Groups", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^Groups$")),
+                                            TPPBPolicyKeyViewMapping(view: "FindMy", matchingRule: TPDictionaryMatchingRule.fieldMatch("vwht", fieldRegex: "^FindMy$")),
 
                                             TPPBPolicyKeyViewMapping(view: "Applications", matchingRule:
                                                                         TPDictionaryMatchingRule.fieldMatch("agrp", fieldRegex: "^[0-9A-Z]{10}\\.")),

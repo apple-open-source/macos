@@ -28,6 +28,7 @@
 
 #include <skywalk/os_skywalk_private.h>
 #include <kern/sched_prim.h>
+#include <kern/uipc_domain.h>
 #include <sys/sdt.h>
 
 static void kr_update_user_stats(struct __kern_channel_ring *,
@@ -130,7 +131,7 @@ kr_enter(struct __kern_channel_ring *kr, boolean_t can_sleep)
 			lck_spin_unlock(&kr->ckr_slock);
 			(void) thread_block(THREAD_CONTINUE_NULL);
 			SK_DF(SK_VERB_LOCKS, "waited for kr \"%s\" "
-			    "(0x%llx) busy=%u", kr->ckr_name,
+			    "(%p) busy=%u", kr->ckr_name,
 			    SK_KVA(kr), kr->ckr_busy);
 			lck_spin_lock(&kr->ckr_slock);
 		}
@@ -142,7 +143,7 @@ kr_enter(struct __kern_channel_ring *kr, boolean_t can_sleep)
 done:
 	lck_spin_unlock(&kr->ckr_slock);
 
-	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (0x%llx) right acquired",
+	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (%p) right acquired",
 	    kr->ckr_name, SK_KVA(kr));
 
 	return 0;
@@ -174,7 +175,7 @@ kr_exit(struct __kern_channel_ring *kr)
 		lck_spin_unlock(&kr->ckr_slock);
 	}
 
-	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (0x%llx) right released (%u waiters)",
+	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (%p) right released (%u waiters)",
 	    kr->ckr_name, SK_KVA(kr), want);
 }
 
@@ -191,7 +192,7 @@ kr_start(struct __kern_channel_ring *kr)
 
 	kr_exit(kr);
 
-	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (0x%llx) is started",
+	SK_DF(SK_VERB_LOCKS, "kr \"%s\" (%p) is started",
 	    kr->ckr_name, SK_KVA(kr));
 }
 
@@ -217,8 +218,8 @@ kr_stop(struct __kern_channel_ring *kr, uint32_t state)
 	lck_spin_unlock(&kr->ckr_slock);
 
 	SK_DF(SK_VERB_LOCKS,
-	    "kr \"%s\" (0x%llx) krflags 0x%b is now stopped s=%u",
-	    kr->ckr_name, SK_KVA(kr), kr->ckr_flags, CKRF_BITS, state);
+	    "kr \"%s\" (0x%p) krflags 0x%x is now stopped s=%u",
+	    kr->ckr_name, SK_KVA(kr), kr->ckr_flags, state);
 }
 
 static void
@@ -321,6 +322,7 @@ kr_update_stats(struct __kern_channel_ring *kring, uint32_t slot_count,
 	}
 
 	now = net_uptime();
+	stats->crs_last_update_net_uptime = now;
 	if (__probable(kring->ckr_accumulate_start != 0)) {
 		diff_secs = now - kring->ckr_accumulate_start;
 		if (diff_secs >= kr_accumulate_interval) {
@@ -383,10 +385,8 @@ kr_log_bad_ring(struct __kern_channel_ring *kring)
 	slot_idx_t i;
 	int errors = 0;
 
-	// XXX KASSERT nm_kr_tryget
-	SK_ERR("kr \"%s\" (0x%llx) krflags 0x%b", kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS);
-	// XXX probably wrong to trust userspace
+	SK_ERR("kr \"%s\" (0x%p) krflags 0x%x", kring->ckr_name, SK_KVA(kring),
+	    kring->ckr_flags);
 
 	if (ring->ring_head > lim) {
 		errors++;
@@ -414,11 +414,11 @@ kr_log_bad_ring(struct __kern_channel_ring *kring)
 
 	if (errors != 0) {
 		SK_ERR("total %d errors", errors);
-		SK_ERR("kr \"%s\" (0x%llx) krflags 0x%b crash, "
-		    "head %u -> %u tail %u -> %u", kring->ckr_name,
-		    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, ring->ring_head,
-		    kring->ckr_rhead, kring->ckr_khead,
-		    ring->ring_tail, kring->ckr_ktail);
+		SK_ERR("kr \"%s\" (0x%p) krflags 0x%x crash, "
+		    "head %u/%u -> %u tail %u/%u -> %u", kring->ckr_name,
+		    SK_KVA(kring), kring->ckr_flags, ring->ring_head,
+		    kring->ckr_rhead, kring->ckr_khead, ring->ring_tail,
+		    kring->ckr_rtail, kring->ckr_ktail);
 	}
 }
 #endif /* SK_LOG */
@@ -490,9 +490,9 @@ kr_txprologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 		/* Internalize */
 		err = kr_internalize_metadata(ch, kring, maxfrags, kqum, p);
 		if (__improbable(err != 0)) {
-			SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u dropped "
+			SK_ERR("%s(%d) kr \"%s\" (%p) slot %u dropped "
 			    "(err %d) kh %u kt %u | rh %u rt %u | h %u t %u",
-			    sk_proc_name_address(p), sk_proc_pid(p),
+			    sk_proc_name(p), sk_proc_pid(p),
 			    kring->ckr_name, SK_KVA(kring), slot_idx, err,
 			    kring->ckr_khead, kring->ckr_ktail,
 			    kring->ckr_rhead, kring->ckr_rtail,
@@ -538,9 +538,9 @@ kr_txprologue_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 		kqum = pp_remove_upp_locked(pp, usd->sd_md_idx, &err);
 		if (__improbable(err != 0)) {
 			if (kqum != NULL) {
-				SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u "
+				SK_ERR("%s(%d) kr \"%s\" (%p) slot %u "
 				    "kqum %p, bad buflet chain",
-				    sk_proc_name_address(p), sk_proc_pid(p),
+				    sk_proc_name(p), sk_proc_pid(p),
 				    kring->ckr_name, SK_KVA(kring), slot_idx,
 				    SK_KVA(kqum));
 				*err_reason =
@@ -548,10 +548,10 @@ kr_txprologue_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 				goto done;
 			}
 
-			SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u "
+			SK_ERR("%s(%d) kr \"%s\" (%p) slot %u "
 			    " unallocated packet %u kh %u kt %u | "
 			    "rh %u rt %u | h %u t %u",
-			    sk_proc_name_address(p), sk_proc_pid(p),
+			    sk_proc_name(p), sk_proc_pid(p),
 			    kring->ckr_name, SK_KVA(kring), slot_idx,
 			    usd->sd_md_idx, kring->ckr_khead, kring->ckr_ktail,
 			    kring->ckr_rhead, kring->ckr_rtail,
@@ -573,9 +573,9 @@ kr_txprologue_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 		/* Internalize */
 		err = kr_internalize_metadata(ch, kring, maxfrags, kqum, p);
 		if (__improbable(err != 0)) {
-			SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u dropped "
+			SK_ERR("%s(%d) kr \"%s\" (%p) slot %u dropped "
 			    "(err %d) kh %u kt %u | rh %u rt %u | h %u t %u",
-			    sk_proc_name_address(p), sk_proc_pid(p),
+			    sk_proc_name(p), sk_proc_pid(p),
 			    kring->ckr_name, SK_KVA(kring), slot_idx, err,
 			    kring->ckr_khead, kring->ckr_ktail,
 			    kring->ckr_rhead, kring->ckr_rtail,
@@ -678,7 +678,7 @@ kr_txsync_prologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	ckr_rtail = kring->ckr_rtail;
 
 	SK_DF(SK_VERB_SYNC | SK_VERB_TX, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, ckr_rtail,
 	    ring->ring_head, ring->ring_tail);
@@ -711,11 +711,11 @@ kr_txsync_prologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	return head;
 
 error:
-	SK_ERR("%s(%d) kr \"%s\" (0x%llx) krflags 0x%b error: kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u |", sk_proc_name_address(p),
+	SK_ERR("%s(%d) kr \"%s\" (%p) krflags 0x%x error: kh %u kt %u | "
+	    "rh %u rt %u | h %u t %u |", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, ckr_khead, ckr_ktail, kring->ckr_rhead,
-	    ckr_rtail, head, ring->ring_tail);
+	    ckr_khead, ckr_ktail, kring->ckr_rhead, ckr_rtail, head,
+	    ring->ring_tail);
 
 	skywalk_kill_process(p, err_reason | SKYWALK_KILL_REASON_TX_SYNC);
 
@@ -744,7 +744,7 @@ kr_free_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	ckr_rtail = kring->ckr_rtail;
 
 	SK_DF(SK_VERB_SYNC, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, ckr_rtail, ring->ring_head, ring->ring_tail);
 
@@ -755,11 +755,11 @@ kr_free_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	return head;
 
 error:
-	SK_ERR("%s(%d) kr \"%s\" (0x%llx) krflags 0x%b error: kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u |", sk_proc_name_address(p),
+	SK_ERR("%s(%d) kr \"%s\" (%p) krflags 0x%x error: kh %u kt %u | "
+	    "rh %u rt %u | h %u t %u |", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, ckr_khead, ckr_ktail, kring->ckr_rhead,
-	    ckr_rtail, head, ring->ring_tail);
+	    ckr_khead, ckr_ktail, kring->ckr_rhead, ckr_rtail, head,
+	    ring->ring_tail);
 
 	skywalk_kill_process(p, err_reason | SKYWALK_KILL_REASON_FREE_SYNC);
 	return kring->ckr_num_slots;
@@ -809,9 +809,9 @@ kr_rxprologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	 * subtract byte counts from slots just given back to the kernel.
 	 */
 	if (kring->ckr_ready_bytes < *byte_count) {
-		SK_ERR("%s(%d) kr \"%s\" (0x%llx) inconsistent ready bytes "
-		    "(%u < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
-		    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
+		SK_ERR("%s(%d) kr \"%s\" (%p) inconsistent ready bytes "
+		    "(%llu < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
+		    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
 		    SK_KVA(kring), kring->ckr_ready_bytes, *byte_count,
 		    kring->ckr_khead, kring->ckr_ktail, kring->ckr_rhead,
 		    kring->ckr_rtail, kring->ckr_ring->ring_head,
@@ -856,9 +856,9 @@ kr_rxprologue_nodetach(struct kern_channel *ch,
 	 * subtract byte counts from slots just given back to the kernel.
 	 */
 	if (kring->ckr_ready_bytes < *byte_count) {
-		SK_ERR("%s(%d) kr \"%s\" (0x%llx) inconsistent ready bytes "
-		    "(%u < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
-		    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
+		SK_ERR("%s(%d) kr \"%s\" (%p) inconsistent ready bytes "
+		    "(%llu < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
+		    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
 		    SK_KVA(kring), kring->ckr_ready_bytes, *byte_count,
 		    kring->ckr_khead, kring->ckr_ktail, kring->ckr_rhead,
 		    kring->ckr_rtail, kring->ckr_ring->ring_head,
@@ -866,7 +866,7 @@ kr_rxprologue_nodetach(struct kern_channel *ch,
 		*err_reason = SKYWALK_KILL_REASON_INCONSISTENT_READY_BYTES;
 #if (DEVELOPMENT || DEBUG)
 		if (kr_disable_panic_on_sync_err == 0) {
-			panic("kr(0x%llx), inconsistent, head %u, ready %llu, "
+			panic("kr(%p), inconsistent, head %u, ready %llu, "
 			    "cnt %u", SK_KVA(kring), head,
 			    kring->ckr_ready_bytes, *byte_count);
 			/* NOTREACHED */
@@ -908,9 +908,9 @@ kr_rxprologue_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 		 */
 		ASSERT(!KSD_VALID_METADATA(KR_KSD(kring, slot_idx)));
 		if (SD_VALID_METADATA(usd)) {
-			SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u not "
+			SK_ERR("%s(%d) kr \"%s\" (%p) slot %u not "
 			    "detached md %u kh %u kt %u | rh %u rt %u |"
-			    " h %u t %u", sk_proc_name_address(p),
+			    " h %u t %u", sk_proc_name(p),
 			    sk_proc_pid(p), kring->ckr_name,
 			    SK_KVA(kring), slot_idx, usd->sd_md_idx,
 			    kring->ckr_khead, kring->ckr_ktail,
@@ -930,9 +930,9 @@ kr_rxprologue_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	 * subtract byte counts from slots just given back to the kernel
 	 */
 	if (kring->ckr_ready_bytes < *byte_count) {
-		SK_ERR("%s(%d) kr \"%s\" (0x%llx) inconsistent ready bytes "
-		    "(%u < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
-		    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
+		SK_ERR("%s(%d) kr \"%s\" (%p) inconsistent ready bytes "
+		    "(%llu < %u)  kh %u kt %u | rh %u rt %u | h %u t %u",
+		    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
 		    SK_KVA(kring), kring->ckr_ready_bytes, *byte_count,
 		    kring->ckr_khead, kring->ckr_ktail, kring->ckr_rhead,
 		    kring->ckr_rtail, kring->ckr_ring->ring_head,
@@ -999,7 +999,7 @@ kr_rxsync_prologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	ckr_ktail = kring->ckr_ktail;
 
 	SK_DF(SK_VERB_SYNC | SK_VERB_RX, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    ring->ring_head, ring->ring_tail);
@@ -1033,7 +1033,7 @@ kr_rxsync_prologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 
 	/* Update Rx dequeue timestamp */
 	if (slot_count > 0) {
-		kring->ckr_rx_dequeue_ts = _net_uptime;
+		kring->ckr_rx_dequeue_ts = net_uptime();
 	}
 
 	/* update the kernel view of ring */
@@ -1041,11 +1041,10 @@ kr_rxsync_prologue(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	return head;
 
 error:
-	SK_ERR("%s(%d) kr \"%s\" (0x%llx) krflags 0x%b error: kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	SK_ERR("%s(%d) kr \"%s\" (%p) krflags 0x%x error: kh %u kt %u | "
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, ckr_khead, ckr_ktail,
-	    kring->ckr_rhead, kring->ckr_rtail,
+	    ckr_khead, ckr_ktail, kring->ckr_rhead, kring->ckr_rtail,
 	    ring->ring_head, ring->ring_tail);
 
 	skywalk_kill_process(p, err_reason | SKYWALK_KILL_REASON_RX_SYNC);
@@ -1073,7 +1072,7 @@ kr_alloc_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	head = ring->ring_head;
 
 	SK_DF(SK_VERB_SYNC, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    head, ring->ring_tail);
@@ -1089,11 +1088,10 @@ kr_alloc_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	return head;
 
 error:
-	SK_ERR("%s(%d) kr \"%s\" (0x%llx) krflags 0x%b error: kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	SK_ERR("%s(%d) kr \"%s\" (%p) krflags 0x%x error: kh %u kt %u | "
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, ckr_khead, ckr_ktail,
-	    kring->ckr_rhead, kring->ckr_rtail,
+	    ckr_khead, ckr_ktail, kring->ckr_rhead, kring->ckr_rtail,
 	    ring->ring_head, ring->ring_tail);
 
 	skywalk_kill_process(p, err_reason | SKYWALK_KILL_REASON_ALLOC_SYNC);
@@ -1260,7 +1258,7 @@ kr_txsync_finalize(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	*(slot_idx_t *)(uintptr_t)&kring->ckr_ring->ring_khead = ckr_khead;
 
 	SK_DF(SK_VERB_SYNC | SK_VERB_TX, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    kring->ckr_ring->ring_head,
@@ -1354,6 +1352,7 @@ kr_rxfinalize_upp(struct kern_channel *ch, struct __kern_channel_ring *kring,
 		byte_count += kqum->qum_len;
 		slot_idx = SLOT_NEXT(slot_idx, kring->ckr_lim);
 	}
+	ch_update_upp_buf_stats(ch, pp);
 	PP_UNLOCK(pp);
 
 	kring->ckr_ready_bytes += byte_count;
@@ -1410,7 +1409,7 @@ kr_rxsync_finalize(struct kern_channel *ch, struct __kern_channel_ring *kring,
 	*(slot_idx_t *)(uintptr_t)&kring->ckr_ring->ring_khead = ckr_khead;
 
 	SK_DF(SK_VERB_SYNC | SK_VERB_RX, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    kring->ckr_ring->ring_head,
@@ -1437,7 +1436,7 @@ kr_alloc_sync_finalize(struct __kern_channel_ring *kring, struct proc *p)
 
 	SK_DF(SK_VERB_SYNC, "%s(%d) kr \"%s\", kh %u kt %u | "
 	    "rh %u rt %u | h %u t %u | ws %u",
-	    sk_proc_name_address(p),
+	    sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    kring->ckr_ring->ring_head,
@@ -1461,7 +1460,7 @@ kr_free_sync_finalize(struct __kern_channel_ring *kring, struct proc *p)
 	*(slot_idx_t *)(uintptr_t)&kring->ckr_ring->ring_khead = ckr_khead;
 
 	SK_DF(SK_VERB_SYNC, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    kring->ckr_ring->ring_head,
@@ -1485,7 +1484,7 @@ kr_event_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	head = ring->ring_head;
 
 	SK_DF(SK_VERB_SYNC, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    head, ring->ring_tail);
@@ -1509,9 +1508,9 @@ kr_event_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 		 */
 		VERIFY(!KSD_VALID_METADATA(ksd));
 		if (__improbable(SD_VALID_METADATA(usd))) {
-			SK_ERR("%s(%d) kr \"%s\" (0x%llx) slot %u not "
+			SK_ERR("%s(%d) kr \"%s\" (%p) slot %u not "
 			    "detached md %u kh %u kt %u | rh %u rt %u |"
-			    " h %u t %u", sk_proc_name_address(p),
+			    " h %u t %u", sk_proc_name(p),
 			    sk_proc_pid(p), kring->ckr_name,
 			    SK_KVA(kring), slot_idx, usd->sd_md_idx,
 			    ckr_khead, ckr_ktail, kring->ckr_rhead,
@@ -1528,11 +1527,10 @@ kr_event_sync_prologue(struct __kern_channel_ring *kring, struct proc *p)
 	return head;
 
 error:
-	SK_ERR("%s(%d) kr \"%s\" (0x%llx) krflags 0x%b error: kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	SK_ERR("%s(%d) kr \"%s\" (%p) krflags 0x%x error: kh %u kt %u | "
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, ckr_khead, ckr_ktail,
-	    kring->ckr_rhead, kring->ckr_rtail,
+	    ckr_khead, ckr_ktail, kring->ckr_rhead, kring->ckr_rtail,
 	    ring->ring_head, ring->ring_tail);
 
 	skywalk_kill_process(p, err_reason | SKYWALK_KILL_REASON_EVENT_SYNC);
@@ -1579,6 +1577,7 @@ kr_event_sync_finalize(struct kern_channel *ch,
 		ASSERT((usd->sd_flags & ~SD_FLAGS_USER) == 0);
 		slot_idx = SLOT_NEXT(slot_idx, kring->ckr_lim);
 	}
+	ch_update_upp_buf_stats(ch, pp);
 	PP_UNLOCK(pp);
 
 	/* just recalculate slot count using pointer arithmetic */
@@ -1594,7 +1593,7 @@ kr_event_sync_finalize(struct kern_channel *ch,
 	*(slot_idx_t *)(uintptr_t)&kring->ckr_ring->ring_khead = ckr_khead;
 
 	SK_DF(SK_VERB_SYNC | SK_VERB_RX, "%s(%d) kr \"%s\", kh %u kt %u | "
-	    "rh %u rt %u | h %u t %u", sk_proc_name_address(p),
+	    "rh %u rt %u | h %u t %u", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, ckr_khead, ckr_ktail,
 	    kring->ckr_rhead, kring->ckr_rtail,
 	    kring->ckr_ring->ring_head,
@@ -1640,8 +1639,6 @@ kr_internalize_metadata(struct kern_channel *ch,
 	struct __user_quantum *uqum;            /* user source */
 	struct __user_packet *upkt;
 	struct __kern_packet *kpkt;
-	const nexus_meta_type_t md_type = METADATA_TYPE(kqum);
-	const nexus_meta_subtype_t md_subtype = METADATA_SUBTYPE(kqum);
 	uint32_t len = 0, bdoff, bdlim;
 	uint16_t bcnt = 0, bmax, i;
 	boolean_t dropped;
@@ -1654,8 +1651,8 @@ kr_internalize_metadata(struct kern_channel *ch,
 	 */
 	ASSERT(kqum->qum_pp == kring->ckr_pp);
 
-	_CASSERT(sizeof(uqum->qum_com) == sizeof(kqum->qum_com));
-	_CASSERT(sizeof(upkt->pkt_com) == sizeof(kpkt->pkt_com));
+	static_assert(sizeof(uqum->qum_com) == sizeof(kqum->qum_com));
+	static_assert(sizeof(upkt->pkt_com) == sizeof(kpkt->pkt_com));
 	uqum = __DECONST(struct __user_quantum *, kqum->qum_user);
 	ASSERT(!(kqum->qum_qflags & QUM_F_KERNEL_ONLY) && uqum != NULL);
 	upkt = SK_PTR_ADDR_UPKT(uqum);
@@ -1663,8 +1660,8 @@ kr_internalize_metadata(struct kern_channel *ch,
 
 	DTRACE_SKYWALK3(internalize, struct __kern_channel_ring *, kring,
 	    struct __kern_packet *, kpkt, struct __user_packet *, upkt);
-	SK_DF(SK_VERB_MEM, "%s(%d) kring 0x%llx uqum 0x%llx -> kqum 0x%llx",
-	    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(kring),
+	SK_DF(SK_VERB_MEM, "%s(%d) kring %p uqum %p -> kqum %p",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(kring),
 	    SK_KVA(uqum), SK_KVA(kqum));
 
 	/* check if it's dropped before we internalize it */
@@ -1681,55 +1678,32 @@ kr_internalize_metadata(struct kern_channel *ch,
 
 	/* if marked as dropped, don't bother going further */
 	if (__improbable(dropped)) {
-		SK_ERR("%s(%d) kring 0x%llx dropped",
-		    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(kring));
+		SK_ERR("%s(%d) kring %p dropped",
+		    sk_proc_name(p), sk_proc_pid(p), SK_KVA(kring));
 		err = ERANGE;
 		goto done;
 	}
 
-	switch (md_type) {
-	case NEXUS_META_TYPE_PACKET:
-		/*
-		 * Internalize common packet metadata.
-		 */
-		_PKT_INTERNALIZE(upkt, kpkt);
+	/*
+	 * Internalize common packet metadata.
+	 */
+	_PKT_INTERNALIZE(upkt, kpkt);
 
-		switch (md_subtype) {
-		case NEXUS_META_SUBTYPE_PAYLOAD:
-			/* sanitize link layer fields for payload mode */
-			kpkt->pkt_link_flags = 0;
-			break;
-		default:
-			break;
-		}
+	if (__probable(ch != NULL)) {
+		_UUID_COPY(kpkt->pkt_flowsrc_id,
+		    ch->ch_info->cinfo_ch_id);
+	}
 
-		if (__probable(ch != NULL)) {
-			_UUID_COPY(kpkt->pkt_flowsrc_id,
-			    ch->ch_info->cinfo_ch_id);
-		}
-
-		bcnt = upkt->pkt_bufs_cnt;
-		bmax = kpkt->pkt_bufs_max;
-		ASSERT(bmax == maxfrags);
-		if (__improbable((bcnt == 0) || (bcnt > bmax) ||
-		    (upkt->pkt_bufs_max != bmax))) {
-			SK_ERR("%s(%d) kring 0x%llx bad bufcnt %d, %d, %d",
-			    sk_proc_name_address(p), sk_proc_pid(p),
-			    SK_KVA(kring), bcnt, bmax, upkt->pkt_bufs_max);
-			err = ERANGE;
-			goto done;
-		}
-		break;
-
-	case NEXUS_META_TYPE_QUANTUM:
-		ASSERT(maxfrags == 1);
-		bcnt = bmax = 1;
-		break;
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
+	bcnt = upkt->pkt_bufs_cnt;
+	bmax = kpkt->pkt_bufs_max;
+	ASSERT(bmax == maxfrags);
+	if (__improbable((bcnt == 0) || (bcnt > bmax) ||
+	    (upkt->pkt_bufs_max != bmax))) {
+		SK_ERR("%s(%d) kring %p bad bufcnt %d, %d, %d",
+		    sk_proc_name(p), sk_proc_pid(p),
+		    SK_KVA(kring), bcnt, bmax, upkt->pkt_bufs_max);
+		err = ERANGE;
+		goto done;
 	}
 
 	ASSERT(bcnt != 0);
@@ -1740,9 +1714,9 @@ kr_internalize_metadata(struct kern_channel *ch,
 	 * Validate and internalize buflets.
 	 */
 	for (i = 0; i < bcnt; i++) {
-		_CASSERT(offsetof(struct __kern_packet, pkt_qum) == 0);
-		_CASSERT(offsetof(struct __user_packet, pkt_qum) == 0);
-		_CASSERT(offsetof(struct __kern_quantum, qum_com) == 0);
+		static_assert(offsetof(struct __kern_packet, pkt_qum) == 0);
+		static_assert(offsetof(struct __user_packet, pkt_qum) == 0);
+		static_assert(offsetof(struct __kern_quantum, qum_com) == 0);
 		PKT_GET_NEXT_BUFLET(kpkt, bcnt, pkbuf, kbuf);
 		ASSERT(kbuf != NULL);
 		if (kbuf->buf_flag & BUFLET_FLAG_EXTERNAL) {
@@ -1778,8 +1752,8 @@ kr_internalize_metadata(struct kern_channel *ch,
 		if (__improbable(!BUF_IN_RANGE(kbuf) ||
 		    ubuf->buf_idx != kbuf->buf_idx)) {
 			kbuf->buf_dlen = kbuf->buf_doff = 0;
-			SK_ERR("%s(%d) kring 0x%llx bad bufidx 0x%x, 0x%x",
-			    sk_proc_name_address(p), sk_proc_pid(p),
+			SK_ERR("%s(%d) kring %p bad bufidx 0x%x, 0x%x",
+			    sk_proc_name(p), sk_proc_pid(p),
 			    SK_KVA(kring), kbuf->buf_idx, ubuf->buf_idx);
 			err = ERANGE;
 			goto done;
@@ -1796,62 +1770,36 @@ kr_internalize_metadata(struct kern_channel *ch,
 		pkbuf = kbuf;
 	}
 
-	_CASSERT(offsetof(struct __kern_packet, pkt_length) ==
-	    offsetof(struct __kern_packet, pkt_qum.qum_len));
+	static_assert(offsetof(struct __kern_packet, pkt_length) == offsetof(struct __kern_packet, pkt_qum.qum_len));
 	if (__improbable(kpkt->pkt_length != len)) {
-		SK_ERR("%s(%d) kring 0x%llx bad pktlen %d, %d",
-		    sk_proc_name_address(p), sk_proc_pid(p),
+		SK_ERR("%s(%d) kring %p bad pktlen %d, %d",
+		    sk_proc_name(p), sk_proc_pid(p),
 		    SK_KVA(kring), kpkt->pkt_length, len);
 		err = ERANGE;
 		goto done;
 	}
 
-	if ((err == 0) && (md_type == NEXUS_META_TYPE_PACKET)) {
+	if (err == 0) {
 		bdlim = PP_BUF_SIZE_DEF(kqum->qum_pp);
-		switch (md_subtype) {
-		case NEXUS_META_SUBTYPE_RAW:
-			/*
-			 * For a raw packet from user space we need to
-			 * validate that headroom is sane and is in the
-			 * first buflet.
-			 */
-			if (__improbable(kpkt->pkt_headroom != bdoff)) {
-				SK_ERR("%s(%d) kring 0x%llx bad headroom %d, %d",
-				    sk_proc_name_address(p), sk_proc_pid(p),
-				    SK_KVA(kring), kpkt->pkt_headroom, bdoff);
-				err = ERANGE;
-				goto done;
-			}
-			if (__improbable(kpkt->pkt_headroom +
-			    kpkt->pkt_l2_len >= bdlim)) {
-				SK_ERR("%s(%d) kring 0x%llx bad headroom l2len %d, %d",
-				    sk_proc_name_address(p), sk_proc_pid(p),
-				    SK_KVA(kring), kpkt->pkt_l2_len, bdlim);
-				err = ERANGE;
-				goto done;
-			}
-			break;
-		case NEXUS_META_SUBTYPE_PAYLOAD:
-			/*
-			 * For a payload packet from user space we need
-			 * to validate that payload starts from 0 and L2
-			 * length is 0.
-			 */
-			if (__improbable((kpkt->pkt_headroom != 0) ||
-			    (kpkt->pkt_l2_len != 0))) {
-				SK_ERR("%s(%d) kring 0x%llx bad headroom "
-				    "payload subtype %d headroom %d l2len %d",
-				    sk_proc_name_address(p), sk_proc_pid(p),
-				    SK_KVA(kring), SK_PTR_SUBTYPE(kpkt),
-				    kpkt->pkt_headroom, kpkt->pkt_l2_len);
-				err = ERANGE;
-				goto done;
-			}
-			break;
-		default:
-			VERIFY(0);
-			/* NOTREACHED */
-			__builtin_unreachable();
+		/*
+		 * For a raw packet from user space we need to
+		 * validate that headroom is sane and is in the
+		 * first buflet.
+		 */
+		if (__improbable(kpkt->pkt_headroom != bdoff)) {
+			SK_ERR("%s(%d) kring %p bad headroom %d, %d",
+			    sk_proc_name(p), sk_proc_pid(p),
+			    SK_KVA(kring), kpkt->pkt_headroom, bdoff);
+			err = ERANGE;
+			goto done;
+		}
+		if (__improbable(kpkt->pkt_headroom +
+		    kpkt->pkt_l2_len >= bdlim)) {
+			SK_ERR("%s(%d) kring %p bad headroom l2len %d, %d",
+			    sk_proc_name(p), sk_proc_pid(p),
+			    SK_KVA(kring), kpkt->pkt_l2_len, bdlim);
+			err = ERANGE;
+			goto done;
 		}
 
 		/* validate checksum offload properties */
@@ -1862,7 +1810,7 @@ kr_internalize_metadata(struct kern_channel *ch,
 			    start > kpkt->pkt_length ||
 			    (stuff + sizeof(uint16_t)) > kpkt->pkt_length)) {
 				SK_ERR("%s(%d) flags 0x%x start %u stuff %u "
-				    "len %u", sk_proc_name_address(p),
+				    "len %u", sk_proc_name(p),
 				    sk_proc_pid(p), kpkt->pkt_csum_flags,
 				    start, stuff, kpkt->pkt_length);
 				err = ERANGE;
@@ -1897,8 +1845,6 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 	struct __user_quantum *uqum;            /* user destination */
 	struct __user_packet *upkt;
 	struct __kern_packet *kpkt;
-	const nexus_meta_type_t md_type = METADATA_TYPE(kqum);
-	const nexus_meta_subtype_t md_subtype = METADATA_SUBTYPE(kqum);
 	uint32_t len = 0;
 	uint16_t bcnt = 0, bmax, i;
 
@@ -1910,8 +1856,8 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 	ASSERT(kqum->qum_pp == kring->ckr_pp);
 	ASSERT(kqum->qum_qflags & (QUM_F_FINALIZED | QUM_F_INTERNALIZED));
 
-	_CASSERT(sizeof(kpkt->pkt_com) == sizeof(upkt->pkt_com));
-	_CASSERT(sizeof(kqum->qum_com) == sizeof(uqum->qum_com));
+	static_assert(sizeof(kpkt->pkt_com) == sizeof(upkt->pkt_com));
+	static_assert(sizeof(kqum->qum_com) == sizeof(uqum->qum_com));
 	uqum = __DECONST(struct __user_quantum *, kqum->qum_user);
 	ASSERT(!(kqum->qum_qflags & QUM_F_KERNEL_ONLY) && uqum != NULL);
 	upkt = SK_PTR_ADDR_UPKT(uqum);
@@ -1919,8 +1865,8 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 
 	DTRACE_SKYWALK3(externalize, struct __kern_channel_ring *, kring,
 	    struct __kern_packet *, kpkt, struct __user_packet *, upkt);
-	SK_DF(SK_VERB_MEM, "%s(%d) kring 0x%llx kqum 0x%llx -> uqum 0x%llx",
-	    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(kring),
+	SK_DF(SK_VERB_MEM, "%s(%d) kring %p kqum %p -> uqum %p",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(kring),
 	    SK_KVA(kqum), SK_KVA(uqum));
 
 	/*
@@ -1928,45 +1874,20 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 	 */
 	_QUM_EXTERNALIZE(kqum, uqum);
 
-	switch (md_type) {
-	case NEXUS_META_TYPE_PACKET: {
-		bcnt = kpkt->pkt_bufs_cnt;
-		bmax = kpkt->pkt_bufs_max;
-		ASSERT(bmax == maxfrags);
-		ASSERT(bcnt <= bmax);
-		/*
-		 * Externalize common packet metadata.
-		 */
-		_PKT_EXTERNALIZE(kpkt, upkt);
+	bcnt = kpkt->pkt_bufs_cnt;
+	bmax = kpkt->pkt_bufs_max;
+	ASSERT(bmax == maxfrags);
+	ASSERT(bcnt <= bmax);
+	/*
+	 * Externalize common packet metadata.
+	 */
+	_PKT_EXTERNALIZE(kpkt, upkt);
 
-		/* sanitize buflet count and limit (deconst) */
-		_CASSERT(sizeof(upkt->pkt_bufs_max) == sizeof(uint16_t));
-		_CASSERT(sizeof(upkt->pkt_bufs_cnt) == sizeof(uint16_t));
-		*(uint16_t *)(uintptr_t)&upkt->pkt_bufs_max = bmax;
-		*(uint16_t *)(uintptr_t)&upkt->pkt_bufs_cnt = bcnt;
-
-		switch (md_subtype) {
-		case NEXUS_META_SUBTYPE_PAYLOAD:
-			/* sanitize link layer fields for payload mode */
-			upkt->pkt_headroom = 0;
-			upkt->pkt_link_flags = 0;
-			break;
-		default:
-			break;
-		}
-		break;
-	}
-
-	case NEXUS_META_TYPE_QUANTUM:
-		ASSERT(maxfrags == 1);
-		bcnt = bmax = 1;
-		break;
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
+	/* sanitize buflet count and limit (deconst) */
+	static_assert(sizeof(upkt->pkt_bufs_max) == sizeof(uint16_t));
+	static_assert(sizeof(upkt->pkt_bufs_cnt) == sizeof(uint16_t));
+	*(uint16_t *)(uintptr_t)&upkt->pkt_bufs_max = bmax;
+	*(uint16_t *)(uintptr_t)&upkt->pkt_bufs_cnt = bcnt;
 
 	ASSERT(bcnt != 0);
 	/*
@@ -1985,7 +1906,7 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 	 * Externalize buflets.
 	 */
 	for (i = 0; i < bcnt; i++) {
-		_CASSERT(offsetof(struct __kern_packet, pkt_qum) == 0);
+		static_assert(offsetof(struct __kern_packet, pkt_qum) == 0);
 		PKT_GET_NEXT_BUFLET(kpkt, bcnt, pkbuf, kbuf);
 		ASSERT(kbuf != NULL);
 
@@ -2022,10 +1943,21 @@ kr_externalize_metadata_internal(struct __kern_channel_ring *kring,
 	kqum->qum_qflags &= ~QUM_F_INTERNALIZED;
 }
 
-
 void
 kr_externalize_metadata(struct __kern_channel_ring *kring,
     const uint32_t maxfrags, struct __kern_quantum *kqum, struct proc *p)
 {
 	kr_externalize_metadata_internal(kring, maxfrags, kqum, p);
+}
+
+SK_NO_INLINE_ATTRIBUTE
+char *
+kr2str(const struct __kern_channel_ring *kr, char *__counted_by(dsz)dst,
+    size_t dsz)
+{
+	(void) sk_snprintf(dst, dsz, "%p %s %s flags 0x%b",
+	    SK_KVA(kr), kr->ckr_name, sk_ring2str(kr->ckr_tx), kr->ckr_flags,
+	    CKRF_BITS);
+
+	return dst;
 }

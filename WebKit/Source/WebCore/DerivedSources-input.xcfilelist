@@ -403,7 +403,6 @@ $(PROJECT_DIR)/Modules/async-clipboard/ClipboardItem.idl
 $(PROJECT_DIR)/Modules/async-clipboard/Navigator+Clipboard.idl
 $(PROJECT_DIR)/Modules/audiosession/DOMAudioSession.idl
 $(PROJECT_DIR)/Modules/audiosession/Navigator+AudioSession.idl
-$(PROJECT_DIR)/Modules/badge/Navigator+Badge.idl
 $(PROJECT_DIR)/Modules/badge/NavigatorBadge.idl
 $(PROJECT_DIR)/Modules/beacon/Navigator+Beacon.idl
 $(PROJECT_DIR)/Modules/cache/CacheQueryOptions.idl
@@ -482,12 +481,12 @@ $(PROJECT_DIR)/Modules/fetch/FetchRequestRedirect.idl
 $(PROJECT_DIR)/Modules/fetch/FetchResponse.idl
 $(PROJECT_DIR)/Modules/fetch/RequestPriority.idl
 $(PROJECT_DIR)/Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemDirectoryHandle.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemFileHandle.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemHandle.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/FileSystemWritableFileStream.idl
-$(PROJECT_DIR)/Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
+$(PROJECT_DIR)/Modules/filesystem/FileSystemDirectoryHandle.idl
+$(PROJECT_DIR)/Modules/filesystem/FileSystemFileHandle.idl
+$(PROJECT_DIR)/Modules/filesystem/FileSystemHandle.idl
+$(PROJECT_DIR)/Modules/filesystem/FileSystemSyncAccessHandle.idl
+$(PROJECT_DIR)/Modules/filesystem/FileSystemWritableFileStream.idl
+$(PROJECT_DIR)/Modules/filesystem/StorageManager+FileSystem.idl
 $(PROJECT_DIR)/Modules/gamepad/Gamepad.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadButton.idl
 $(PROJECT_DIR)/Modules/gamepad/GamepadEffectParameters.idl
@@ -513,7 +512,8 @@ $(PROJECT_DIR)/Modules/identity/DigitalCredential.idl
 $(PROJECT_DIR)/Modules/identity/DigitalCredentialRequest.idl
 $(PROJECT_DIR)/Modules/identity/DigitalCredentialRequestOptions.idl
 $(PROJECT_DIR)/Modules/identity/IdentityCredentialProtocol.idl
-$(PROJECT_DIR)/Modules/identity/OpenID4VPRequest.idl
+$(PROJECT_DIR)/Modules/identity/protocols/ISO18013/MobileDocumentRequest.idl
+$(PROJECT_DIR)/Modules/identity/protocols/openid/OpenID4VPRequest.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursor.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorDirection.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorWithValue.idl
@@ -610,7 +610,6 @@ $(PROJECT_DIR)/Modules/mediastream/RTCDataChannelEvent.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCDegradationPreference.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCDtlsTransport.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCDtlsTransportState.idl
-$(PROJECT_DIR)/Modules/mediastream/RTCDtxStatus.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCEncodedAudioFrame.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCEncodedVideoFrame.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCError.idl
@@ -646,12 +645,10 @@ $(PROJECT_DIR)/Modules/mediastream/RTCRtpCodecParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpCodingParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpContributingSource.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpEncodingParameters.idl
-$(PROJECT_DIR)/Modules/mediastream/RTCRtpFecParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpHeaderExtensionParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpReceiver+Transform.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpReceiver.idl
-$(PROJECT_DIR)/Modules/mediastream/RTCRtpRtxParameters.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpSFrameTransform.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpSFrameTransformErrorEvent.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCRtpScriptTransform.idl
@@ -840,6 +837,7 @@ $(PROJECT_DIR)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl
 $(PROJECT_DIR)/Modules/remoteplayback/RemotePlayback.idl
 $(PROJECT_DIR)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
 $(PROJECT_DIR)/Modules/reporting/DeprecationReportBody.idl
+$(PROJECT_DIR)/Modules/reporting/IntegrityPolicyViolationReportBody.idl
 $(PROJECT_DIR)/Modules/reporting/Report.idl
 $(PROJECT_DIR)/Modules/reporting/ReportBody.idl
 $(PROJECT_DIR)/Modules/reporting/ReportingObserver.idl
@@ -992,6 +990,7 @@ $(PROJECT_DIR)/Modules/webaudio/WebKitAudioPannerNode.idl
 $(PROJECT_DIR)/Modules/webaudio/WebKitDynamicsCompressorNode.idl
 $(PROJECT_DIR)/Modules/webaudio/WebKitOfflineAudioContext.idl
 $(PROJECT_DIR)/Modules/webaudio/WebKitOscillatorNode.idl
+$(PROJECT_DIR)/Modules/webauthn/AllAcceptedCredentialsOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/AttestationConveyancePreference.idl
 $(PROJECT_DIR)/Modules/webauthn/AuthenticationExtensionsClientInputs.idl
 $(PROJECT_DIR)/Modules/webauthn/AuthenticationExtensionsClientInputsJSON.idl
@@ -1005,6 +1004,7 @@ $(PROJECT_DIR)/Modules/webauthn/AuthenticatorResponse.idl
 $(PROJECT_DIR)/Modules/webauthn/AuthenticatorSelectionCriteria.idl
 $(PROJECT_DIR)/Modules/webauthn/AuthenticatorTransport.idl
 $(PROJECT_DIR)/Modules/webauthn/CredentialPropertiesOutput.idl
+$(PROJECT_DIR)/Modules/webauthn/CurrentUserDetailsOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredential.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialCreationOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialCreationOptionsJSON.idl
@@ -1020,6 +1020,7 @@ $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialUserEntity.idl
 $(PROJECT_DIR)/Modules/webauthn/PublicKeyCredentialUserEntityJSON.idl
 $(PROJECT_DIR)/Modules/webauthn/RegistrationResponseJSON.idl
 $(PROJECT_DIR)/Modules/webauthn/ResidentKeyRequirement.idl
+$(PROJECT_DIR)/Modules/webauthn/UnknownCredentialOptions.idl
 $(PROJECT_DIR)/Modules/webauthn/UserVerificationRequirement.idl
 $(PROJECT_DIR)/Modules/webcodecs/AacEncoderConfig.idl
 $(PROJECT_DIR)/Modules/webcodecs/AudioSampleFormat.idl
@@ -1218,6 +1219,7 @@ $(PROJECT_DIR)/bindings/scripts/CodeGeneratorJS.pm
 $(PROJECT_DIR)/bindings/scripts/Hasher.pm
 $(PROJECT_DIR)/bindings/scripts/IDLAttributes.json
 $(PROJECT_DIR)/bindings/scripts/IDLParser.pm
+$(PROJECT_DIR)/bindings/scripts/InFilesCompiler.pm
 $(PROJECT_DIR)/bindings/scripts/StaticString.pm
 $(PROJECT_DIR)/bindings/scripts/generate-bindings.pl
 $(PROJECT_DIR)/bindings/scripts/preprocess-idls.pl
@@ -1254,6 +1256,7 @@ $(PROJECT_DIR)/crypto/parameters/X25519Params.idl
 $(PROJECT_DIR)/css/CSSConditionRule.idl
 $(PROJECT_DIR)/css/CSSContainerRule.idl
 $(PROJECT_DIR)/css/CSSCounterStyleRule.idl
+$(PROJECT_DIR)/css/CSSFontFaceDescriptors.idl
 $(PROJECT_DIR)/css/CSSFontFaceRule.idl
 $(PROJECT_DIR)/css/CSSFontFeatureValuesRule.idl
 $(PROJECT_DIR)/css/CSSFontPaletteValuesRule.idl
@@ -1266,9 +1269,11 @@ $(PROJECT_DIR)/css/CSSLayerStatementRule.idl
 $(PROJECT_DIR)/css/CSSMediaRule.idl
 $(PROJECT_DIR)/css/CSSNamespaceRule.idl
 $(PROJECT_DIR)/css/CSSNestedDeclarations.idl
+$(PROJECT_DIR)/css/CSSPageDescriptors.idl
 $(PROJECT_DIR)/css/CSSPageRule.idl
 $(PROJECT_DIR)/css/CSSPaintCallback.idl
 $(PROJECT_DIR)/css/CSSPaintSize.idl
+$(PROJECT_DIR)/css/CSSPositionTryDescriptors.idl
 $(PROJECT_DIR)/css/CSSPositionTryRule.idl
 $(PROJECT_DIR)/css/CSSProperties.json
 $(PROJECT_DIR)/css/CSSPropertyRule.idl
@@ -1278,6 +1283,8 @@ $(PROJECT_DIR)/css/CSSRuleList.idl
 $(PROJECT_DIR)/css/CSSScopeRule.idl
 $(PROJECT_DIR)/css/CSSStartingStyleRule.idl
 $(PROJECT_DIR)/css/CSSStyleDeclaration.idl
+$(PROJECT_DIR)/css/CSSStyleProperties.idl
+$(PROJECT_DIR)/css/CSSStyleRule+Typedom.idl
 $(PROJECT_DIR)/css/CSSStyleRule.idl
 $(PROJECT_DIR)/css/CSSStyleSheet.idl
 $(PROJECT_DIR)/css/CSSSupportsRule.idl
@@ -1298,7 +1305,7 @@ $(PROJECT_DIR)/css/DeprecatedCSSOMRGBColor.idl
 $(PROJECT_DIR)/css/DeprecatedCSSOMRect.idl
 $(PROJECT_DIR)/css/DeprecatedCSSOMValue.idl
 $(PROJECT_DIR)/css/DeprecatedCSSOMValueList.idl
-$(PROJECT_DIR)/css/DocumentOrShadowRoot+CSSOM.idl
+$(PROJECT_DIR)/css/ElementCSSInlineStyle+Typedom.idl
 $(PROJECT_DIR)/css/ElementCSSInlineStyle.idl
 $(PROJECT_DIR)/css/FontFace.idl
 $(PROJECT_DIR)/css/FontFaceSet.idl
@@ -1322,10 +1329,10 @@ $(PROJECT_DIR)/css/htmlSwitchControl.css
 $(PROJECT_DIR)/css/make-css-file-arrays.pl
 $(PROJECT_DIR)/css/mathml.css
 $(PROJECT_DIR)/css/popover.css
-$(PROJECT_DIR)/css/process-css-properties.py
-$(PROJECT_DIR)/css/process-css-pseudo-selectors.py
-$(PROJECT_DIR)/css/process-css-values.py
 $(PROJECT_DIR)/css/quirks.css
+$(PROJECT_DIR)/css/scripts/process-css-properties.py
+$(PROJECT_DIR)/css/scripts/process-css-pseudo-selectors.py
+$(PROJECT_DIR)/css/scripts/process-css-values.py
 $(PROJECT_DIR)/css/svg.css
 $(PROJECT_DIR)/css/typedom/CSSKeywordValue.idl
 $(PROJECT_DIR)/css/typedom/CSSNumericValue.idl
@@ -1430,6 +1437,7 @@ $(PROJECT_DIR)/dom/Document+ViewTransition.idl
 $(PROJECT_DIR)/dom/Document.idl
 $(PROJECT_DIR)/dom/DocumentAndElementEventHandlers.idl
 $(PROJECT_DIR)/dom/DocumentFragment.idl
+$(PROJECT_DIR)/dom/DocumentOrShadowRoot+CSSOM.idl
 $(PROJECT_DIR)/dom/DocumentOrShadowRoot+Fullscreen.idl
 $(PROJECT_DIR)/dom/DocumentOrShadowRoot+PointerLock.idl
 $(PROJECT_DIR)/dom/DocumentOrShadowRoot.idl
@@ -1441,8 +1449,10 @@ $(PROJECT_DIR)/dom/Element+DOMParsing.idl
 $(PROJECT_DIR)/dom/Element+Fullscreen.idl
 $(PROJECT_DIR)/dom/Element+PointerEvents.idl
 $(PROJECT_DIR)/dom/Element+PointerLock.idl
+$(PROJECT_DIR)/dom/Element+Typedom.idl
 $(PROJECT_DIR)/dom/Element.idl
 $(PROJECT_DIR)/dom/ElementContentEditable.idl
+$(PROJECT_DIR)/dom/ElementCreationOptions.idl
 $(PROJECT_DIR)/dom/ElementInternals.idl
 $(PROJECT_DIR)/dom/ErrorEvent.idl
 $(PROJECT_DIR)/dom/Event.idl
@@ -1466,6 +1476,7 @@ $(PROJECT_DIR)/dom/HashChangeEvent.idl
 $(PROJECT_DIR)/dom/IdleDeadline.idl
 $(PROJECT_DIR)/dom/IdleRequestCallback.idl
 $(PROJECT_DIR)/dom/IdleRequestOptions.idl
+$(PROJECT_DIR)/dom/ImportNodeOptions.idl
 $(PROJECT_DIR)/dom/InnerHTML.idl
 $(PROJECT_DIR)/dom/InputEvent.idl
 $(PROJECT_DIR)/dom/KeyboardEvent.idl
@@ -1664,7 +1675,6 @@ $(PROJECT_DIR)/html/ImageBitmapOptions.idl
 $(PROJECT_DIR)/html/ImageData.idl
 $(PROJECT_DIR)/html/ImageDataSettings.idl
 $(PROJECT_DIR)/html/ImageDataStorageFormat.idl
-$(PROJECT_DIR)/html/InvokerElement.idl
 $(PROJECT_DIR)/html/MediaController.idl
 $(PROJECT_DIR)/html/MediaEncryptedEvent.idl
 $(PROJECT_DIR)/html/MediaError.idl
@@ -1681,7 +1691,6 @@ $(PROJECT_DIR)/html/VideoFrameMetadata.idl
 $(PROJECT_DIR)/html/VideoFrameRequestCallback.idl
 $(PROJECT_DIR)/html/VoidCallback.idl
 $(PROJECT_DIR)/html/WebKitMediaKeyError.idl
-$(PROJECT_DIR)/html/closewatcher/CloseWatcher.idl
 $(PROJECT_DIR)/html/canvas/ANGLEInstancedArrays.idl
 $(PROJECT_DIR)/html/canvas/CanvasCompositing.idl
 $(PROJECT_DIR)/html/canvas/CanvasDirection.idl
@@ -1792,6 +1801,7 @@ $(PROJECT_DIR)/html/canvas/WebGLTransformFeedback.idl
 $(PROJECT_DIR)/html/canvas/WebGLUniformLocation.idl
 $(PROJECT_DIR)/html/canvas/WebGLVertexArrayObject.idl
 $(PROJECT_DIR)/html/canvas/WebGLVertexArrayObjectOES.idl
+$(PROJECT_DIR)/html/closewatcher/CloseWatcher.idl
 $(PROJECT_DIR)/html/parser/HTMLEntityNames.in
 $(PROJECT_DIR)/html/parser/create-html-entity-table
 $(PROJECT_DIR)/html/shadow/attachmentElementShadow.css
@@ -1825,7 +1835,6 @@ $(PROJECT_DIR)/inspector/InspectorFrontendHost.idl
 $(PROJECT_DIR)/inspector/RTCLogsCallback.idl
 $(PROJECT_DIR)/loader/COEPInheritenceViolationReportBody.idl
 $(PROJECT_DIR)/loader/CORPViolationReportBody.idl
-$(PROJECT_DIR)/loader/appcache/DOMApplicationCache.idl
 $(PROJECT_DIR)/make-hash-tools.pl
 $(PROJECT_DIR)/mathml/MathMLElement.idl
 $(PROJECT_DIR)/mathml/MathMLMathElement.idl
@@ -1845,6 +1854,7 @@ $(PROJECT_DIR)/page/DOMWindow+VisualViewport.idl
 $(PROJECT_DIR)/page/DOMWindow.idl
 $(PROJECT_DIR)/page/EventSource.idl
 $(PROJECT_DIR)/page/FragmentDirective.idl
+$(PROJECT_DIR)/page/GetComposedRangesOptions.idl
 $(PROJECT_DIR)/page/History.idl
 $(PROJECT_DIR)/page/IntersectionObserver.idl
 $(PROJECT_DIR)/page/IntersectionObserverCallback.idl
@@ -2107,11 +2117,17 @@ $(PROJECT_DIR)/workers/service/ExtendableEvent.idl
 $(PROJECT_DIR)/workers/service/ExtendableEventInit.idl
 $(PROJECT_DIR)/workers/service/ExtendableMessageEvent.idl
 $(PROJECT_DIR)/workers/service/FetchEvent.idl
+$(PROJECT_DIR)/workers/service/InstallEvent.idl
 $(PROJECT_DIR)/workers/service/NavigationPreloadManager.idl
 $(PROJECT_DIR)/workers/service/NavigationPreloadState.idl
 $(PROJECT_DIR)/workers/service/PushEvent.idl
 $(PROJECT_DIR)/workers/service/PushEventInit.idl
 $(PROJECT_DIR)/workers/service/PushMessageData.idl
+$(PROJECT_DIR)/workers/service/RouterCondition.idl
+$(PROJECT_DIR)/workers/service/RouterRule.idl
+$(PROJECT_DIR)/workers/service/RouterSourceDict.idl
+$(PROJECT_DIR)/workers/service/RouterSourceEnum.idl
+$(PROJECT_DIR)/workers/service/RunningStatus.idl
 $(PROJECT_DIR)/workers/service/ServiceWorker.idl
 $(PROJECT_DIR)/workers/service/ServiceWorkerClient.idl
 $(PROJECT_DIR)/workers/service/ServiceWorkerClientType.idl

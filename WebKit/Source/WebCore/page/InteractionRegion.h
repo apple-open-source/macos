@@ -62,9 +62,12 @@ struct InteractionRegion {
     OptionSet<CornerMask> maskedCorners { };
     ContentHint contentHint { ContentHint::Default };
     std::optional<Path> clipPath { std::nullopt };
+    bool useContinuousCorners { false };
 #if ENABLE(INTERACTION_REGION_TEXT_CONTENT)
     String text { };
 #endif
+
+    static void clearCache();
 
     WEBCORE_EXPORT ~InteractionRegion();
 };

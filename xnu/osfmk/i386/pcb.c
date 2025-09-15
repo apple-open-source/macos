@@ -532,7 +532,6 @@ machine_thread_on_core_allow_invalid(thread_t thread)
 	 * from anything but a thread, zeroed or freed memory.
 	 */
 	assert(get_preemption_level() > 0);
-	thread = pgz_decode_allow_invalid(thread, ZONE_ID_THREAD);
 	if (thread == THREAD_NULL) {
 		return false;
 	}

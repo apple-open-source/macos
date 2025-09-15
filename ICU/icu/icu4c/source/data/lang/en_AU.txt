@@ -23,7 +23,6 @@ en_AU{
     }
     Types{
         calendar{
-            dangi{"Korean Calendar"}
             ethiopic{"Ethiopian Calendar"}
         }
     }

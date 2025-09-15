@@ -174,6 +174,11 @@ OSStatus MakeServerConnection(
         memcpy(&host, ent->h_addr, sizeof(struct in_addr));
     }
     sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1)
+    {
+        perror("socket");
+        return errSecIO;
+    }
     addr.sin_addr = host;
     addr.sin_port = htons((u_short)port);
 
@@ -431,14 +436,11 @@ OSStatus SocketWrite(
 	
 	if(oneAtATime && (*dataLength > 1)) {
 		size_t i;
-		size_t outLen;
 		size_t thisMove;
 		
-		outLen = 0;
 		for(i=0; i<dataLen; i++) {
 			thisMove = 1;
 			ortn = SocketWrite(connection, dataPtr, &thisMove);
-			outLen += thisMove;
 			dataPtr++;  
 			if(ortn) {
 				return ortn;

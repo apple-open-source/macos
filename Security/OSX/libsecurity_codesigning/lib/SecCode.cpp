@@ -54,7 +54,6 @@ const CFStringRef kSecCFErrorGuestAttributes =	CFSTR("SecCSGuestAttributes");
 const CFStringRef kSecCFErrorRequirementSyntax = CFSTR("SecRequirementSyntax");
 const CFStringRef kSecCFErrorPath =				CFSTR("SecComponentPath");
 
-
 //
 // CF-standard type code functions
 //
@@ -332,6 +331,7 @@ const CFStringRef kSecCodeInfoLaunchConstraintsSelf = CFSTR("LaunchConstraints-s
 const CFStringRef kSecCodeInfoLaunchConstraintsParent = CFSTR("LaunchConstraints-parent");
 const CFStringRef kSecCodeInfoLaunchConstraintsResponsible = CFSTR("LaunchConstraints-responsible");
 const CFStringRef kSecCodeInfoLibraryConstraints = CFSTR("LibraryConstraints");
+const CFStringRef kSecCodeInfoValidationCategory = CFSTR("ValidationCategory");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");
@@ -352,7 +352,8 @@ OSStatus SecCodeCopySigningInformation(SecStaticCodeRef codeRef, SecCSFlags flag
 		| kSecCSDynamicInformation
 		| kSecCSContentInformation
 		| kSecCSSkipResourceDirectory
-		| kSecCSCalculateCMSDigest);
+		| kSecCSCalculateCMSDigest
+		| kSecCSSkipCodeDirectoryValidation);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(codeRef);
 	CFRef<CFDictionaryRef> info = code->signingInformation(flags);

@@ -55,7 +55,7 @@ class ScrollingEffectsControllerTimer : public RunLoop::TimerBase {
     WTF_MAKE_TZONE_ALLOCATED(ScrollingEffectsControllerTimer);
 public:
     ScrollingEffectsControllerTimer(RunLoop& runLoop, Function<void()>&& callback)
-        : RunLoop::TimerBase(runLoop)
+        : RunLoop::TimerBase(runLoop, "ScrollingEffectsControllerTimer"_s)
         , m_callback(WTFMove(callback))
     {
     }
@@ -148,7 +148,7 @@ public:
 
     void stopKeyboardScrolling();
 
-    bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, const Function<FloatPoint(const FloatPoint&)>& destinationModifier);
+    bool startMomentumScrollWithInitialVelocity(const FloatPoint& initialOffset, const FloatSize& initialVelocity, const FloatSize& initialDelta, NOESCAPE const Function<FloatPoint(const FloatPoint&)>& destinationModifier);
 
     void willBeginKeyboardScrolling();
     void didStopKeyboardScrolling();
@@ -240,6 +240,8 @@ private:
     FloatPoint scrollOffset(ScrollAnimation&) final;
 
     void adjustDeltaForSnappingIfNeeded(float& deltaX, float& deltaY);
+
+    void clampDeltaForAllowedAxes(const PlatformWheelEvent&, FloatSize&);
 
 #if ENABLE(KINETIC_SCROLLING) && !PLATFORM(MAC)
     // Returns true if handled.

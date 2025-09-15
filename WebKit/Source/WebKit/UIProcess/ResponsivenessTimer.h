@@ -27,6 +27,7 @@
 #define ResponsivenessTimer_h
 
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakRef.h>

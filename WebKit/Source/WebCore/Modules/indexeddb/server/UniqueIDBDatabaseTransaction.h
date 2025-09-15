@@ -29,6 +29,7 @@
 #include "IDBIndexIdentifier.h"
 #include "IDBObjectStoreIdentifier.h"
 #include "IDBTransactionInfo.h"
+#include "IndexKey.h"
 #include <wtf/Deque.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
@@ -80,7 +81,7 @@ public:
     WEBCORE_EXPORT void createIndex(const IDBRequestData&, const IDBIndexInfo&);
     WEBCORE_EXPORT void deleteIndex(const IDBRequestData&, IDBObjectStoreIdentifier, const String& indexName);
     WEBCORE_EXPORT void renameIndex(const IDBRequestData&, IDBObjectStoreIdentifier, IDBIndexIdentifier, const String& newName);
-    WEBCORE_EXPORT void putOrAdd(const IDBRequestData&, const IDBKeyData&, const IDBValue&, IndexedDB::ObjectStoreOverwriteMode);
+    WEBCORE_EXPORT void putOrAdd(const IDBRequestData&, const IDBKeyData&, const IDBValue&, const IndexIDToIndexKeyMap& indexKeys, IndexedDB::ObjectStoreOverwriteMode);
     WEBCORE_EXPORT void getRecord(const IDBRequestData&, const IDBGetRecordData&);
     WEBCORE_EXPORT void getAllRecords(const IDBRequestData&, const IDBGetAllRecordsData&);
     WEBCORE_EXPORT void getCount(const IDBRequestData&, const IDBKeyRangeData&);
@@ -95,6 +96,11 @@ public:
     void setSuspensionAbortResult(const IDBError& error) { m_suspensionAbortResult = { error }; }
     const std::optional<IDBError>& suspensionAbortResult() const { return m_suspensionAbortResult; }
 
+    uint64_t pendingGenerateIndexKeyRequests() const { return m_pendingGenerateIndexKeyRequests; }
+    WEBCORE_EXPORT void didCreateIndexAsync(const IDBError&);
+    bool generateIndexKeyForRecord(const IDBIndexInfo&, const std::optional<IDBKeyPath>&, const IDBKeyData&, const IDBValue&, std::optional<int64_t> recordID);
+    WEBCORE_EXPORT void didGenerateIndexKeyForRecord(IDBResourceIdentifier createIndexRequestIdentifier, const IDBIndexInfo&, const IDBKeyData&, const IndexKey&, std::optional<int64_t> recordID);
+
 private:
     UniqueIDBDatabaseTransaction(UniqueIDBDatabaseConnection&, const IDBTransactionInfo&);
 
@@ -107,6 +113,9 @@ private:
 
     std::optional<IDBError> m_suspensionAbortResult;
     Vector<IDBError> m_requestResults;
+
+    uint64_t m_pendingGenerateIndexKeyRequests { 0 };
+    IDBResourceIdentifier m_createIndexRequestIdentifier;
 };
 
 } // namespace IDBServer

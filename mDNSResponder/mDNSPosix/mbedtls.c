@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,10 +38,8 @@
 #include <mbedtls/sha256.h>
 #include <mbedtls/base64.h>
 
-#include <mbedtls/certs.h>
 #include <mbedtls/x509.h>
 #include <mbedtls/ssl.h>
-#include <mbedtls/config.h>
 
 // Posix TLS server context
 struct TLSContext_struct {

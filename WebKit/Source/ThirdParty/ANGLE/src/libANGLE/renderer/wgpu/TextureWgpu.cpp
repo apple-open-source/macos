@@ -9,11 +9,13 @@
 
 #include "libANGLE/renderer/wgpu/TextureWgpu.h"
 
+#include "common/PackedGLEnums_autogen.h"
 #include "common/debug.h"
 #include "libANGLE/Error.h"
 #include "libANGLE/angletypes.h"
 #include "libANGLE/renderer/wgpu/ContextWgpu.h"
 #include "libANGLE/renderer/wgpu/DisplayWgpu.h"
+#include "libANGLE/renderer/wgpu/ImageWgpu.h"
 #include "libANGLE/renderer/wgpu/RenderTargetWgpu.h"
 
 namespace rx
@@ -21,6 +23,8 @@ namespace rx
 
 namespace
 {
+
+constexpr angle::SubjectIndex kTextureImageSubjectIndex = 0;
 
 void GetRenderTargetLayerCountAndIndex(webgpu::ImageHelper *image,
                                        const gl::ImageIndex &index,
@@ -77,7 +81,7 @@ bool IsTextureLevelDefinitionCompatibleWithImage(webgpu::ImageHelper *image,
                                                  const gl::Extents &size,
                                                  const webgpu::Format &format)
 {
-    return size == wgpu_gl::getExtents(image->getSize()) &&
+    return size == wgpu_gl::GetExtents(image->getSize()) &&
            image->getIntendedFormatID() == format.getIntendedFormatID() &&
            image->getActualFormatID() == format.getActualImageFormatID();
 }
@@ -86,12 +90,19 @@ bool IsTextureLevelDefinitionCompatibleWithImage(webgpu::ImageHelper *image,
 
 TextureWgpu::TextureWgpu(const gl::TextureState &state)
     : TextureImpl(state),
-      mImage(new webgpu::ImageHelper()),
       mCurrentBaseLevel(state.getBaseLevel()),
-      mCurrentMaxLevel(state.getMaxLevel())
-{}
+      mCurrentMaxLevel(state.getMaxLevel()),
+      mImageObserverBinding(this, kTextureImageSubjectIndex)
+{
+    setImageHelper(new webgpu::ImageHelper(), true);
+}
 
 TextureWgpu::~TextureWgpu() {}
+
+void TextureWgpu::onDestroy(const gl::Context *context)
+{
+    setImageHelper(nullptr, true);
+}
 
 angle::Result TextureWgpu::setImage(const gl::Context *context,
                                     const gl::ImageIndex &index,
@@ -254,6 +265,10 @@ angle::Result TextureWgpu::setEGLImageTarget(const gl::Context *context,
                                              gl::TextureType type,
                                              egl::Image *image)
 {
+    ImageWgpu *imageWgpu = webgpu::GetImpl(image);
+    setImageHelper(imageWgpu->getImage(), false);
+    ASSERT(mImage->isInitialized());
+
     return angle::Result::Continue;
 }
 
@@ -363,6 +378,27 @@ angle::Result TextureWgpu::getAttachmentRenderTarget(const gl::Context *context,
     return angle::Result::Continue;
 }
 
+void TextureWgpu::onSubjectStateChange(angle::SubjectIndex index, angle::SubjectMessage message)
+{
+    ASSERT(index == kTextureImageSubjectIndex &&
+           (message == angle::SubjectMessage::SubjectChanged ||
+            message == angle::SubjectMessage::InitializationComplete));
+
+    // Forward the notification to the parent that the staging buffer changed.
+    onStateChange(message);
+}
+
+angle::Result TextureWgpu::ensureImageInitialized(const gl::Context *context)
+{
+    return initializeImage(webgpu::GetImpl(context), ImageMipLevels::EnabledLevels);
+}
+
+void TextureWgpu::releaseOwnershipOfImage(const gl::Context *context)
+{
+    mOwnsImage = false;
+    setImageHelper(nullptr, true);
+}
+
 angle::Result TextureWgpu::setImageImpl(const gl::Context *context,
                                         GLenum internalFormat,
                                         GLenum type,
@@ -415,6 +451,7 @@ angle::Result TextureWgpu::setSubImageImpl(const gl::Context *context,
     uint32_t outputDepthPitch         = outputRowPitch * glExtents.height;
     uint32_t allocationSize           = outputDepthPitch * glExtents.depth;
 
+    // TODO(anglebug.com/389145696): ignores area.x|y|z
     ANGLE_TRY(mImage->stageTextureUpload(contextWgpu, webgpuFormat, type, glExtents, inputRowPitch,
                                          inputDepthPitch, outputRowPitch, outputDepthPitch,
                                          allocationSize, index, pixels));
@@ -427,21 +464,32 @@ angle::Result TextureWgpu::initializeImage(ContextWgpu *contextWgpu, ImageMipLev
     {
         return angle::Result::Continue;
     }
+
+    const DawnProcTable *wgpu = webgpu::GetProcs(contextWgpu);
+
     const webgpu::Format &webgpuFormat      = getBaseLevelFormat(contextWgpu);
     DisplayWgpu *displayWgpu                = contextWgpu->getDisplay();
     const gl::ImageDesc *firstLevelDesc     = &mState.getBaseLevelDesc();
     uint32_t levelCount                     = getMipLevelCount(mipLevels);
     gl::LevelIndex firstLevel               = gl::LevelIndex(mState.getEffectiveBaseLevel());
-    const gl::Extents &firstLevelExtents    = firstLevelDesc->size;
-    wgpu::TextureDimension textureDimension = gl_wgpu::getWgpuTextureDimension(mState.getType());
-    wgpu::TextureUsage textureUsage = wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst |
-                                      wgpu::TextureUsage::RenderAttachment |
-                                      wgpu::TextureUsage::TextureBinding;
+    WGPUExtent3D wgpuExtents                = gl_wgpu::GetExtent3D(firstLevelDesc->size);
+    WGPUTextureDimension textureDimension   = gl_wgpu::GetWgpuTextureDimension(mState.getType());
+    WGPUTextureUsage textureUsage           = WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst |
+                                    WGPUTextureUsage_RenderAttachment |
+                                    WGPUTextureUsage_TextureBinding;
+
+    if (mState.getType() == gl::TextureType::CubeMap)
+    {
+        ASSERT(wgpuExtents.depthOrArrayLayers == 1);
+        ASSERT(wgpuExtents.width == wgpuExtents.height);
+        wgpuExtents.depthOrArrayLayers = 6;
+    }
+
     return mImage->initImage(
-        webgpuFormat.getIntendedFormatID(), webgpuFormat.getActualImageFormatID(),
+        wgpu, webgpuFormat.getIntendedFormatID(), webgpuFormat.getActualImageFormatID(),
         displayWgpu->getDevice(), firstLevel,
         mImage->createTextureDescriptor(
-            textureUsage, textureDimension, gl_wgpu::getExtent3D(firstLevelExtents),
+            textureUsage, textureDimension, wgpuExtents,
             webgpu::GetWgpuTextureFormatFromFormatID(webgpuFormat.getActualImageFormatID()),
             levelCount, 1));
 }
@@ -451,14 +499,22 @@ angle::Result TextureWgpu::redefineLevel(const gl::Context *context,
                                          const gl::ImageIndex &index,
                                          const gl::Extents &size)
 {
-    if (mImage != nullptr)
+    if (mImage != nullptr && mOwnsImage)
     {
         // If there are any staged changes for this index, we can remove them since we're going to
         // override them with this call.
         gl::LevelIndex levelIndexGL(index.getLevelIndex());
-        // Multilayer images are not yet supported.
-        const uint32_t layerIndex = 0;
-        mImage->removeStagedUpdates(levelIndexGL);
+        const uint32_t layerIndex = index.hasLayer() ? index.getLayerIndex() : 0;
+
+        if (index.hasLayer())
+        {
+            mImage->removeSingleSubresourceStagedUpdates(levelIndexGL, layerIndex,
+                                                         index.getLayerCount());
+        }
+        else
+        {
+            mImage->removeStagedUpdates(levelIndexGL);
+        }
 
         if (mImage->isInitialized())
         {
@@ -474,13 +530,15 @@ angle::Result TextureWgpu::redefineLevel(const gl::Context *context,
                                      mImage->getLevelCount(), layerIndex, index,
                                      mImage->getFirstAllocatedLevel(), &mRedefinedLevels))
             {
+                // TODO(anglebug.com/425449020): release any views or references to this image,
+                // including RenderTargets.
                 mImage->resetImage();
             }
         }
     }
     else
     {
-        mImage = new webgpu::ImageHelper;
+        setImageHelper(new webgpu::ImageHelper, true);
     }
 
     return angle::Result::Continue;
@@ -661,8 +719,8 @@ angle::Result TextureWgpu::initSingleLayerRenderTargets(
 
     for (uint32_t layerIndex = 0; layerIndex < layerCount; ++layerIndex)
     {
-        wgpu::TextureView textureView;
-        ANGLE_TRY(mImage->createTextureView(levelIndex, layerIndex, textureView));
+        webgpu::TextureViewHandle textureView;
+        ANGLE_TRY(mImage->createTextureViewSingleLevel(levelIndex, layerIndex, textureView));
 
         renderTargets[layerIndex].set(mImage, textureView, mImage->toWgpuLevel(levelIndex),
                                       layerIndex, mImage->toWgpuTextureFormat());
@@ -675,6 +733,25 @@ const webgpu::Format &TextureWgpu::getBaseLevelFormat(ContextWgpu *contextWgpu) 
 {
     const gl::ImageDesc &baseLevelDesc = mState.getBaseLevelDesc();
     return contextWgpu->getFormat(baseLevelDesc.format.info->sizedInternalFormat);
+}
+
+void TextureWgpu::setImageHelper(webgpu::ImageHelper *imageHelper, bool ownsImageHelper)
+{
+    if (mOwnsImage && mImage)
+    {
+        mImageObserverBinding.bind(nullptr);
+        SafeDelete(mImage);
+    }
+
+    mImage     = imageHelper;
+    mOwnsImage = ownsImageHelper;
+
+    if (mImage)
+    {
+        mImageObserverBinding.bind(mImage);
+    }
+
+    onStateChange(angle::SubjectMessage::SubjectChanged);
 }
 
 }  // namespace rx

@@ -744,7 +744,8 @@ ProgramExecutable::ProgramExecutable(rx::GLImplFactory *factory, InfoLog *infoLo
       mInfoLog(infoLog),
       mCachedBaseVertex(0),
       mCachedBaseInstance(0),
-      mIsPPO(false)
+      mIsPPO(false),
+      mBinaryRetrieveableHint(false)
 {
     memset(&mPod, 0, sizeof(mPod));
     reset();
@@ -1953,8 +1954,9 @@ bool ProgramExecutable::linkAtomicCounterBuffers(const Caps &caps)
     {
         auto &uniform = mUniforms[index];
 
-        uniform.pod.blockOffset                    = uniform.getOffset();
         uniform.pod.blockArrayStride               = uniform.isArray() ? 4 : 0;
+        uniform.pod.blockOffset =
+            uniform.getOffset() + uniform.pod.blockArrayStride * uniform.getOuterArrayOffset();
         uniform.pod.blockMatrixStride              = 0;
         uniform.pod.flagBits.blockIsRowMajorMatrix = false;
         uniform.pod.flagBits.isBlock               = true;
@@ -2421,6 +2423,11 @@ void ProgramExecutable::getActiveUniform(GLuint index,
                                          GLenum *type,
                                          GLchar *name) const
 {
+    if (length)
+    {
+        *length = 0;
+    }
+
     if (mUniforms.empty())
     {
         // Program is not successfully linked
@@ -2429,13 +2436,15 @@ void ProgramExecutable::getActiveUniform(GLuint index,
             name[0] = '\0';
         }
 
-        if (length)
+        if (size)
         {
-            *length = 0;
+            *size = 0;
         }
 
-        *size = 0;
-        *type = GL_NONE;
+        if (type)
+        {
+            *type = GL_NONE;
+        }
     }
 
     ASSERT(index < mUniforms.size());
@@ -2447,8 +2456,14 @@ void ProgramExecutable::getActiveUniform(GLuint index,
         CopyStringToBuffer(name, string, bufsize, length);
     }
 
-    *size = clampCast<GLint>(uniform.getBasicTypeElementCount());
-    *type = uniform.getType();
+    if (size)
+    {
+        *size = clampCast<GLint>(uniform.getBasicTypeElementCount());
+    }
+    if (type)
+    {
+        *type = uniform.getType();
+    }
 }
 
 GLint ProgramExecutable::getActiveUniformMaxLength() const

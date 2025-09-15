@@ -1236,6 +1236,59 @@ ATF_TC_BODY(test_viqr_oob, tc)
 	iconv_close(cd);
 }
 
+/*
+ * rdar://problem/146526269 - this demonstrates a failure in iconv_std to return
+ * valid characters already converted when we hit an error in trying to do some
+ * batch processing.  We force an E2BIG to start with and it should essentially
+ * drop everything that was processed in the first batch, then we finish the
+ * conversion and ensure that we didn't lose data.
+ */
+ATF_TC_WITHOUT_HEAD(test_shiftjis_trunc);
+ATF_TC_BODY(test_shiftjis_trunc, tc)
+{
+	iconv_t cd;
+	int32_t in[12] = { 0x3053, 0x3093, 0x306b, 0x3061, 0x306f, 0x41,
+		0x42, 0x43, 0x4e16, 0x754c, 0x58, 0x59 };
+	char expected[] = "\x82\xb1\x82\xf1\x82\xc9\x82\xbf\x82\xcd" "ABC" "\x90\xa2\x8a\x45" "XY";
+	char out[64] = { 0 };
+	char *inbuf, *outbuf;
+	size_t inleft, outleft;
+	size_t ret;
+
+	inbuf = (void *)&in[0];
+	outbuf = &out[0];
+	inleft = sizeof(in);
+	/* Too short of buffer to trigger E2BIG failure prematurely. */
+	outleft = 14;
+
+	cd = iconv_open("SHIFT_JIS", "UTF-32LE");
+	ATF_REQUIRE(cd != (iconv_t)-1);
+
+	ret = iconv(cd, &inbuf, &inleft, &outbuf, &outleft);
+	ATF_REQUIRE(ret == (size_t)-1);
+	ATF_REQUIRE(errno == E2BIG);
+
+	/*
+	 * Enlarge the output buffer so we can finish the conversion.  If we
+	 * triggered the bug, then we've already lost a good chunk of our
+	 * input.
+	 */
+	outleft = sizeof(out) - (outbuf - out);
+
+	ret = iconv(cd, &inbuf, &inleft, &outbuf, &outleft);
+	ATF_REQUIRE(ret == 0);
+
+	// Flush internal state
+	ret = iconv(cd, (char**)NULL, (size_t*)NULL, &outbuf, &outleft);
+	ATF_REQUIRE(ret == 0);
+
+	iconv_close(cd);
+
+	ATF_REQUIRE_INTEQ(inleft, 0);
+	ATF_REQUIRE_INTEQ(outbuf - out, sizeof(expected) - 1);
+	ATF_REQUIRE(strcmp(out, expected) == 0);
+}
+
 ATF_TP_ADD_TCS(tp)
 {
 
@@ -1268,6 +1321,7 @@ ATF_TP_ADD_TCS(tp)
 	ATF_TP_ADD_TC(tp, test_utf7_oob);
 	ATF_TP_ADD_TC(tp, test_zw_oob);
 	ATF_TP_ADD_TC(tp, test_viqr_oob);
+	ATF_TP_ADD_TC(tp, test_shiftjis_trunc);
 	return (atf_no_error());
 }
 

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebTransportDatagramDuplexStream.h"
 
+#include "ExceptionOr.h"
 #include "JSDOMPromise.h"
 #include "ReadableStream.h"
 #include "WritableStream.h"

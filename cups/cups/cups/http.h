@@ -578,6 +578,7 @@ extern int		httpIsEncrypted(http_t *http) _CUPS_API_2_0;
 extern int		httpLoadCredentials(const char *path, cups_array_t **credentials, const char *common_name) _CUPS_API_2_0;
 extern const char	*httpResolveHostname(http_t *http, char *buffer, size_t bufsize) _CUPS_API_2_0;
 extern int		httpSaveCredentials(const char *path, cups_array_t *credentials, const char *common_name) _CUPS_API_2_0;
+extern int              httpDeleteCredentials(const char *common_name) _CUPS_API_2_26;
 extern void		httpSetKeepAlive(http_t *http, http_keepalive_t keep_alive) _CUPS_API_2_0;
 extern void		httpShutdown(http_t *http) _CUPS_API_2_0;
 extern const char	*httpStateString(http_state_t state) _CUPS_API_2_0;

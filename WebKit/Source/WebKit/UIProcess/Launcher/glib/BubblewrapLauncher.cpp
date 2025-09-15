@@ -420,10 +420,15 @@ static void bindGStreamerData(Vector<CString>& args)
         bindIfExists(args, parentDir.utf8().data(), BindFlags::ReadWrite);
     }
 
-    // /usr/lib is already added so this is only requried for other dirs
+    // /usr/lib is already added so this is only required for other dirs.
     const char* scannerPath = environmentVariableValue("GST_PLUGIN_SCANNER", "/usr/libexec/gstreamer-1.0/gst-plugin-scanner");
     const char* installPluginsHelperPath = environmentVariableValue("GST_INSTALL_PLUGINS_HELPER", "/usr/libexec/gstreamer-1.0/gst-install-plugins-helper");
     const char* ptpHelperPath = environmentVariableValue("GST_PTP_HELPER", "/usr/libexec/gstreamer-1.0/gst-ptp-helper");
+
+    // Workaround for UsrMerge systems, where /lib64 on host is a symlink and bwrap doesn't handle this.
+    // See also https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/2877#note_2042004
+    bindIfExists(args, "/lib64/../libexec/gstreamer-1.0/gst-plugin-scanner");
+    bindIfExists(args, "/lib64/../libexec/gstreamer-1.0/gst-ptp-helper");
 
     bindIfExists(args, scannerPath);
     bindIfExists(args, installPluginsHelperPath);
@@ -452,6 +457,7 @@ static void bindOpenGL(Vector<CString>& args)
     }));
 }
 
+#if PLATFORM(WPE)
 static void bindV4l(Vector<CString>& args)
 {
     args.appendVector(Vector<CString>({
@@ -463,6 +469,7 @@ static void bindV4l(Vector<CString>& args)
         "--dev-bind-try", "/dev/media0", "/dev/media0",
     }));
 }
+#endif
 
 static bool enableDebugPermissions()
 {
@@ -894,8 +901,20 @@ GRefPtr<GSubprocess> bubblewrapSpawn(GSubprocessLauncher* launcher, const Proces
         bindFonts(sandboxArgs);
         bindGStreamerData(sandboxArgs);
         bindOpenGL(sandboxArgs);
-        // FIXME: This is also fixed by Pipewire once in use.
+
+        // NOTE: We don't bind v4l2 devices in the sandbox for WebKitGTK builds. We expect the
+        // WebKitGTK Application/UIProcess to be packaged as a Flatpak so that Camera access can be
+        // managed via the DesktopPortal. Our fake WebProcess .flatpak-info file is not sufficient
+        // for this, at least on GNOME hosts, where GNOME-Shell expects the Window/UIProcess to also
+        // have a .flatpak-info file mapped in /proc/<pid>/root/.flatpak-info in order to show the
+        // camera access permission popup.
+        //
+        // For WPEWebKit applications, we expect to find no DesktopPortal at runtime, so we bind the
+        // v4l2 devices in the sandbox.
+#if PLATFORM(WPE)
         bindV4l(sandboxArgs);
+#endif
+
 #if USE(ATSPI)
         auto accessibilityBusAddress = launchOptions.extraInitializationData.get("accessibilityBusAddress"_s);
         auto sandboxedAccessibilityBusAddress = launchOptions.extraInitializationData.get("sandboxedAccessibilityBusAddress"_s);

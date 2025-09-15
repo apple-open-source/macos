@@ -178,21 +178,6 @@ ipc_space_lock_sleep(
 	    THREAD_UNINT, TIMEOUT_WAIT_FOREVER);
 }
 
-/*      Routine:		ipc_space_get_rollpoint
- *      Purpose:
- *              Generate a new gencount rollover point from a space's entropy pool
- */
-ipc_entry_bits_t
-ipc_space_get_rollpoint(
-	ipc_space_t     space)
-{
-	return random_bool_gen_bits(
-		&space->bool_gen,
-		&space->is_entropy[0],
-		IS_ENTROPY_CNT,
-		IE_BITS_ROLL_BITS);
-}
-
 /*
  *	Routine:	ipc_entry_rand_freelist
  *	Purpose:
@@ -234,7 +219,9 @@ ipc_space_rand_freelist(
 	 */
 	while (bottom <= top) {
 		ipc_entry_t entry = &table[curr];
+		mach_port_index_t next;
 		int which;
+
 #ifdef CONFIG_SEMI_RANDOM_ENTRIES
 		/*
 		 * XXX: This is a horrible hack to make sure that randomizing the port
@@ -245,13 +232,11 @@ ipc_space_rand_freelist(
 			which = 0;
 		} else
 #endif
-		which = random_bool_gen_bits(
-			&space->bool_gen,
-			&space->is_entropy[0],
-			IS_ENTROPY_CNT,
-			1);
+		{
+			which = random_bool_gen_bits(&space->is_prng,
+			    space->is_entropy, IS_ENTROPY_CNT, 1);
+		}
 
-		mach_port_index_t next;
 		if (which) {
 			next = top;
 			top--;
@@ -261,14 +246,14 @@ ipc_space_rand_freelist(
 		}
 
 		/*
-		 * The entry's gencount will roll over on its first allocation, at which
-		 * point a random rollover will be set for the entry.
+		 * The entry's gencount will roll over on its first allocation,
+		 * at which point a random rollover will be set for the entry.
 		 */
-		entry->ie_bits   = IE_BITS_GEN_MASK;
-		entry->ie_next   = next;
+		entry->ie_bits = IE_BITS_GEN_INIT;
+		entry->ie_next = next;
 		curr = next;
 	}
-	table[curr].ie_bits   = IE_BITS_GEN_MASK;
+	table[curr].ie_bits = IE_BITS_GEN_INIT;
 }
 
 
@@ -300,14 +285,13 @@ ipc_space_create(
 	space = ipc_space_alloc();
 	count = ipc_entry_table_count(table);
 
-	random_bool_init(&space->bool_gen);
+	random_bool_init(&space->is_prng);
 	ipc_space_rand_freelist(space, ipc_entry_table_base(table), 0, count);
 
 	os_ref_init_count_mask(&space->is_bits, IS_FLAGS_BITS, &is_refgrp, 2, 0);
 	space->is_table_free = count - 1;
 	space->is_label = label;
 	space->is_low_mod = count;
-	space->is_node_id = HOST_LOCAL_NODE; /* HOST_LOCAL_NODE, except proxy spaces */
 	smr_init_store(&space->is_table, table);
 
 	*spacep = space;
@@ -375,6 +359,7 @@ ipc_space_add_label(
 	is_write_unlock(space);
 	return KERN_SUCCESS;
 }
+
 /*
  *	Routine:	ipc_space_create_special
  *	Purpose:
@@ -382,27 +367,24 @@ ipc_space_add_label(
  *		doesn't hold rights in the normal way.
  *		Instead it is place-holder for holding
  *		disembodied (naked) receive rights.
- *		See ipc_port_alloc_special/ipc_port_dealloc_special.
+ *		See ipc_port_alloc_special.
  *	Conditions:
  *		Nothing locked.
  *	Returns:
  *		KERN_SUCCESS		Created a space.
  *		KERN_RESOURCE_SHORTAGE	Couldn't allocate memory.
  */
-
-kern_return_t
-ipc_space_create_special(
-	ipc_space_t     *spacep)
+ipc_space_t
+ipc_space_create_special(void)
 {
 	ipc_space_t space;
 
 	space = ipc_space_alloc();
 	os_ref_init_count_mask(&space->is_bits, IS_FLAGS_BITS, &is_refgrp, 1, 0);
-	space->is_label      = IPC_LABEL_SPECIAL;
-	space->is_node_id = HOST_LOCAL_NODE; /* HOST_LOCAL_NODE, except proxy spaces */
+	ipc_space_set_policy(space, IPC_SPACE_POLICY_KERNEL);
+	space->is_label = IPC_LABEL_SPECIAL;
 
-	*spacep = space;
-	return KERN_SUCCESS;
+	return space;
 }
 
 /*
@@ -451,6 +433,22 @@ ipc_space_terminate(
 	 *	being sent when the notification destination
 	 *	was a receive right in this space.
 	 */
+
+	for (mach_port_index_t index = 1;
+	    ipc_entry_table_contains(table, index);
+	    index++) {
+		ipc_entry_t entry = ipc_entry_table_get_nocheck(table, index);
+		mach_port_type_t type;
+
+		type = IE_BITS_TYPE(entry->ie_bits);
+		if (type & MACH_PORT_TYPE_RECEIVE) {
+			mach_port_name_t name;
+
+			name = MACH_PORT_MAKE(index,
+			    IE_BITS_GEN(entry->ie_bits));
+			ipc_right_terminate(space, name, entry);
+		}
+	}
 
 	for (mach_port_index_t index = 1;
 	    ipc_entry_table_contains(table, index);

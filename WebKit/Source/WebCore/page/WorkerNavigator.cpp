@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,28 +65,15 @@ GPU* WorkerNavigator::gpu()
 {
 #if HAVE(WEBGPU_IMPLEMENTATION)
     if (!m_gpuForWebGPU) {
-        auto scriptExecutionContext = this->scriptExecutionContext();
-        if (scriptExecutionContext->isWorkerGlobalScope()) {
-            WorkerGlobalScope& workerGlobalScope = downcast<WorkerGlobalScope>(*scriptExecutionContext);
-            if (!workerGlobalScope.graphicsClient())
-                return nullptr;
+        Ref context = downcast<WorkerGlobalScope>(*this->scriptExecutionContext());
+        if (!context->graphicsClient())
+            return nullptr;
 
-            RefPtr gpu = workerGlobalScope.graphicsClient()->createGPUForWebGPU();
-            if (!gpu)
-                return nullptr;
+        RefPtr gpu = context->graphicsClient()->createGPUForWebGPU();
+        if (!gpu)
+            return nullptr;
 
-            m_gpuForWebGPU = GPU::create(*gpu);
-        } else if (scriptExecutionContext->isDocument()) {
-            Ref document = downcast<Document>(*scriptExecutionContext);
-            RefPtr page = document->page();
-            if (!page)
-                return nullptr;
-            RefPtr gpu = page->chrome().createGPUForWebGPU();
-            if (!gpu)
-                return nullptr;
-
-            m_gpuForWebGPU = GPU::create(*gpu);
-        }
+        m_gpuForWebGPU = GPU::create(*gpu);
     }
 
     return m_gpuForWebGPU.get();
@@ -98,15 +85,15 @@ GPU* WorkerNavigator::gpu()
 void WorkerNavigator::setAppBadge(std::optional<unsigned long long> badge, Ref<DeferredPromise>&& promise)
 {
 #if ENABLE(DECLARATIVE_WEB_PUSH)
-    if (is<ServiceWorkerGlobalScope>(scriptExecutionContext())) {
-        if (RefPtr declarativePushEvent = downcast<ServiceWorkerGlobalScope>(scriptExecutionContext())->declarativePushEvent()) {
+    if (RefPtr context = dynamicDowncast<ServiceWorkerGlobalScope>(scriptExecutionContext())) {
+        if (RefPtr declarativePushEvent = context->declarativePushEvent()) {
             declarativePushEvent->setUpdatedAppBadge(WTFMove(badge));
             return;
         }
     }
 #endif // ENABLE(DECLARATIVE_WEB_PUSH)
 
-    auto* scope = downcast<WorkerGlobalScope>(scriptExecutionContext());
+    RefPtr scope = downcast<WorkerGlobalScope>(scriptExecutionContext());
     if (!scope) {
         promise->reject(ExceptionCode::InvalidStateError);
         return;

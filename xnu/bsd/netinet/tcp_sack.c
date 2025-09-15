@@ -93,6 +93,8 @@
 #include <netinet/tcp_cache.h>
 #include <sys/kdebug.h>
 
+#include "tcp_includes.h"
+
 #if IPSEC
 #include <netinet6/ipsec.h>
 #endif /*IPSEC*/
@@ -105,14 +107,10 @@ SYSCTL_SKMEM_TCP_INT(OID_AUTO, sack_maxholes, CTLFLAG_RW | CTLFLAG_LOCKED,
     static int, tcp_sack_maxholes, 128,
     "Maximum number of TCP SACK holes allowed per connection");
 
+/* ToDo - remove when uTCP stops using it */
 SYSCTL_SKMEM_TCP_INT(OID_AUTO, sack_globalmaxholes,
     CTLFLAG_RW | CTLFLAG_LOCKED, static int, tcp_sack_globalmaxholes, 65536,
     "Global maximum number of TCP SACK holes");
-
-static SInt32 tcp_sack_globalholes = 0;
-SYSCTL_INT(_net_inet_tcp, OID_AUTO, sack_globalholes, CTLFLAG_RD | CTLFLAG_LOCKED,
-    &tcp_sack_globalholes, 0,
-    "Global number of TCP SACK holes currently allocated");
 
 static KALLOC_TYPE_DEFINE(sack_hole_zone, struct sackhole, NET_KT_DEFAULT);
 
@@ -208,13 +206,10 @@ tcp_update_sack_list(struct tcpcb *tp, tcp_seq rcv_start, tcp_seq rcv_end)
 	/* Save the number of SACK blocks. */
 	tp->rcv_numsacks = num_head + num_saved;
 
-	/* If we are requesting SACK recovery, reset the stretch-ack state
+	/* If we are requesting SACK recovery, reset the force-ACK counter
 	 * so that connection will generate more acks after recovery and
 	 * sender's cwnd will open.
 	 */
-	if ((tp->t_flags & TF_STRETCHACK) != 0 && tp->rcv_numsacks > 0) {
-		tcp_reset_stretch_ack(tp);
-	}
 	if (tp->rcv_numsacks > 0) {
 		tp->t_forced_acks = TCP_FORCED_ACKS_COUNT;
 	}
@@ -245,19 +240,23 @@ tcp_sackhole_alloc(struct tcpcb *tp, tcp_seq start, tcp_seq end)
 	struct sackhole *hole;
 
 	if (tp->snd_numholes >= tcp_sack_maxholes ||
-	    tcp_sack_globalholes >= tcp_sack_globalmaxholes) {
+	    tcp_memacct_hardlimit()) {
+		/*
+		 * We only check for hardlimit, because properly handling SACK
+		 * will allow us to recover quicker (and thus free memory).
+		 */
 		tcpstat.tcps_sack_sboverflow++;
 		return NULL;
 	}
 
 	hole = zalloc_flags(sack_hole_zone, Z_WAITOK | Z_NOFAIL);
+	tcp_memacct_add(kalloc_type_size(sack_hole_zone));
 
 	hole->start = start;
 	hole->end = end;
 	hole->rxmit = start;
 
 	tp->snd_numholes++;
-	OSIncrementAtomic(&tcp_sack_globalholes);
 
 	return hole;
 }
@@ -269,9 +268,9 @@ static void
 tcp_sackhole_free(struct tcpcb *tp, struct sackhole *hole)
 {
 	zfree(sack_hole_zone, hole);
+	tcp_memacct_sub(kalloc_type_size(sack_hole_zone));
 
 	tp->snd_numholes--;
-	OSDecrementAtomic(&tcp_sack_globalholes);
 }
 
 /*
@@ -373,16 +372,6 @@ tcp_sack_detect_reordering(struct tcpcb *tp, struct sackhole *s,
 
 		tcpstat.tcps_reordered_pkts++;
 		tp->t_reordered_pkts++;
-
-		/*
-		 * If reordering is seen on a connection wth ECN enabled,
-		 * increment the heuristic
-		 */
-		if (TCP_ECN_ENABLED(tp)) {
-			INP_INC_IFNET_STAT(tp->t_inpcb, ecn_fallback_reorder);
-			tcpstat.tcps_ecn_fallback_reorder++;
-			tcp_heuristic_ecn_aggressive(tp);
-		}
 
 		VERIFY(SEQ_GEQ(snd_fack, s->rxmit));
 
@@ -490,7 +479,8 @@ tcp_sack_doack(struct tcpcb *tp, struct tcpopt *to, struct tcphdr *th,
 
 		*highest_sacked_seq = sblkp->end;
 
-		while (sblkp >= sack_blocks) {
+		/* RACK can get disabled if segment allocation fails */
+		while (sblkp >= sack_blocks && TCP_RACK_ENABLED(tp)) {
 			/*
 			 * Mark SACKed segments which allows us to skip through such
 			 * segments during RACK loss detection

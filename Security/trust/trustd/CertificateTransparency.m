@@ -626,7 +626,6 @@ static bool verify_tls_ct_policy(SecPVCRef pvc, CFDictionaryRef currentLogsValid
     } else if (hasValidEmbeddedSCT) {
         /* Count Logs */
         __block unsigned once_or_current_qualified_embedded = 0;
-        __block bool failed_once_check = false;
         CFDictionaryForEach(logsValidatingEmbeddedScts, ^(const void *key, const void *value) {
             CFDictionaryRef log = key;
             CFDateRef ts = value;
@@ -637,8 +636,6 @@ static bool verify_tls_ct_policy(SecPVCRef pvc, CFDictionaryRef currentLogsValid
                        issuanceTime < CFDateGetAbsoluteTime(expiry)) {          // at the time of issuance.)
                 once_or_current_qualified_embedded++;
                 trustedSCTCount++;
-            } else {
-                failed_once_check = true;
             }
         });
 

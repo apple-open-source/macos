@@ -82,7 +82,6 @@ public:
 
     Seconds frameDurationAtIndex(size_t) const final;
     bool frameHasAlphaAtIndex(size_t) const final;
-    unsigned frameBytesAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default) const final;
 
     WEBCORE_EXPORT PlatformImagePtr createFrameImageAtIndex(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = DecodingOptions(DecodingMode::Synchronous)) final;
 
@@ -113,7 +112,7 @@ private:
     RetainPtr<AVAssetTrack> m_track;
     RetainPtr<WebCoreSharedBufferResourceLoaderDelegate> m_loader;
     std::unique_ptr<ImageRotationSessionVT> m_imageRotationSession;
-    Ref<WebCoreDecompressionSession> m_decompressionSession;
+    const Ref<WebCoreDecompressionSession> m_decompressionSession;
     Function<void(EncodedDataStatus)> m_encodedDataStatusChangedCallback;
 
     SampleMap m_sampleData;

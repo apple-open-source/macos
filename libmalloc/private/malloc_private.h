@@ -40,9 +40,9 @@ __BEGIN_DECLS
 
 #if !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 /* Memorypressure notification mask to use by default */
-extern const unsigned long malloc_memorypressure_mask_default_4libdispatch;
+extern unsigned long malloc_memorypressure_mask_default_4libdispatch;
 /* Memorypressure notification mask to use if MSL has been enabled */
-extern const unsigned long malloc_memorypressure_mask_msl_4libdispatch;
+extern unsigned long malloc_memorypressure_mask_msl_4libdispatch;
 #endif // !TARGET_OS_EXCLAVECORE && !TARGET_OS_EXCLAVEKIT
 
 /*********	Callbacks	************/
@@ -232,53 +232,27 @@ kern_return_t sanitizer_diagnose_fault_from_crash_reporter(
 
 /****** Malloc with flags ******/
 
-OS_OPTIONS(malloc_options_np, uint64_t,
-	MALLOC_NP_OPTION_CLEAR = 0x1,
-);
+typedef malloc_zone_malloc_options_t malloc_options_np_t;
+#define MALLOC_NP_OPTION_CLEAR MALLOC_ZONE_MALLOC_OPTION_CLEAR
+#define MALLOC_OPTIONS_NP_DEFAULT_ALIGN (sizeof(void *))
+
 
 #if defined(__LP64__) // MALLOC_TARGET_64BIT
-/*!
- * @function malloc_type_zone_malloc_with_options_np
- *
- * @discussion
- * When malloc_zone_malloc_with_options_np was introduced, the TMO inference
- * argument index was incorrectly set to the 4th argument (options). As such,
- * TMO rewritten callsites will put the type descriptor in the 5th argument,
- * instead of the 4th. To avoid revlocking and potential bincompat issues, we're
- * leaving this symbol (_with_options_np) in the dylib with the type_id in the
- * fifth argument, and adding the corrected symbol under a different name.
- *
- * This symbol will be deleted at some point in the future when no software is
- * calling through it.
- */
-SPI_DEPRECATED("Do not call through typed entrypoint directly",
-		macos(14.3, 15.0), ios(17.4, 18.0), tvos(17.4, 18.0),
-		watchos(10.4, 11.0), driverkit(23.4, 24.0), visionos(1.1, 2.0))
-void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_np(
-		malloc_zone_t *zone, size_t align, size_t size,
-		malloc_options_np_t options, malloc_type_id_t desc) __result_use_check
-#if defined(__has_attribute) && __has_attribute(diagnose_if)
-__attribute__((__diagnose_if__(align & (align-1),
-		"alignment should be 0 or a power of 2", "error")))
-__attribute__((__diagnose_if__(align && (size % align),
-		"size should be an integral multiple of align", "error")))
-#endif
-		__alloc_size(3) __alloc_align(2);
-
 /*!
  * @function malloc_type_zone_malloc_with_options_internal
  *
  * @discussion
- * This function shouldn't be called directly, the declaration is an
- * implementation detail for malloc_zone_malloc_with_options_np
+ * This function shouldn't be called directly, it is the deprecated rewrite
+ * target for the corrected symbol with the type_id in the fourth argument.
  */
-SPI_AVAILABLE(macos(15.0), ios(18.0), tvos(18.0), watchos(11.0),
-		driverkit(24.0), visionos(2.0))
+SPI_DEPRECATED_WITH_REPLACEMENT("malloc_type_zone_malloc_with_options",
+		macos(15.0,16.0), ios(18.0,19.0), tvos(18.0,19.0), watchos(11.0,12.0),
+		driverkit(24.0,25.0), visionos(2.0,3.0))
 void * __sized_by_or_null(size) malloc_type_zone_malloc_with_options_internal(
 		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_type_id_t desc, malloc_options_np_t options) __result_use_check
 #if defined(__has_attribute) && __has_attribute(diagnose_if)
-__attribute__((__diagnose_if__(align & (align-1),
+__attribute__((__diagnose_if__(align && (align & (align-1)),
 		"alignment should be 0 or a power of 2", "error")))
 __attribute__((__diagnose_if__(align && (size % align),
 		"size should be an integral multiple of align", "error")))
@@ -289,36 +263,17 @@ __attribute__((__diagnose_if__(align && (size % align),
 /*!
  * @function malloc_zone_malloc_with_options_np
  *
- * @param zone
- * The malloc zone that should be used to used to serve the allocation. This
- * parameter may be NULL, in which case the default zone will be used.
- *
- * @param align
- * The minimum alignment of the requested allocation. This parameter must be
- * zero to request no particular alignment, or a power of 2 >= sizeof(void *).
- *
- * @param size
- * The size, in bytes, of the requested allocation. Must be an integral multiple
- * of align if align is non-zero.
- *
- * @param options
- * A bitmask of options defining how the memory should be allocated. See the
- * available bit values in the malloc_options_np_t enum definition.
- *
- * @result
- * A pointer to the newly allocated block of memory, or NULL if the allocation
- * failed.
- *
  * @discussion
- * This SPI does not set errno on all codepaths when the allocation fails.
+ * This function shouldn't be called directly, it is a deprecated SPI.
  */
-SPI_AVAILABLE(macos(14.3), ios(17.4), tvos(17.4), watchos(10.4),
-		driverkit(23.4), visionos(1.1))
+SPI_DEPRECATED_WITH_REPLACEMENT("malloc_zone_malloc_with_options",
+		macos(14.3,16.0), ios(17.4,19.0), tvos(17.4,19.0), watchos(10.4,12.0),
+		driverkit(23.4,25.0), visionos(1.1,3.0))
 void * __sized_by_or_null(size) malloc_zone_malloc_with_options_np(
 		malloc_zone_t *zone, size_t align, size_t size,
 		malloc_options_np_t options) __result_use_check
 #if defined(__has_attribute) && __has_attribute(diagnose_if)
-__attribute__((__diagnose_if__(align & (align-1),
+__attribute__((__diagnose_if__(align && (align & (align-1)),
 		"alignment should be 0 or a power of 2", "error")))
 __attribute__((__diagnose_if__(align && (size % align),
 		"size should be an integral multiple of align", "error")))

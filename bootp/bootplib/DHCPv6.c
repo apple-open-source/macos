@@ -33,12 +33,12 @@
  * - created
  */
 
+#include <stddef.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include "DHCPv6.h"
 #include "DHCPv6Options.h"
-#include <stddef.h>
 #include "util.h"
 #include "cfutil.h"
-#include <SystemConfiguration/SCPrivate.h>
 
 const char *
 DHCPv6MessageTypeName(DHCPv6MessageType message_type)

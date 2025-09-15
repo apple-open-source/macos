@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,50 +27,29 @@
 #import "LayerHostingContext.h"
 
 #import "LayerTreeContext.h"
+#import "Logging.h"
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/FixedVector.h>
 #import <wtf/MachSendRight.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/cocoa/SpanCocoa.h>
 
 #if USE(EXTENSIONKIT)
 #import "ExtensionKitSPI.h"
 #import <BrowserEngineKit/BELayerHierarchy.h>
 #import <BrowserEngineKit/BELayerHierarchyHandle.h>
 #import <BrowserEngineKit/BELayerHierarchyHostingTransactionCoordinator.h>
-
-SOFT_LINK_FRAMEWORK_OPTIONAL(BrowserEngineKit);
-SOFT_LINK_CLASS_OPTIONAL(BrowserEngineKit, BELayerHierarchy);
-SOFT_LINK_CLASS_OPTIONAL(BrowserEngineKit, BELayerHierarchyHandle);
-SOFT_LINK_CLASS_OPTIONAL(BrowserEngineKit, BELayerHierarchyHostingTransactionCoordinator);
 #endif
 
 namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LayerHostingContext);
 
-std::unique_ptr<LayerHostingContext> LayerHostingContext::createForPort(const MachSendRight& serverPort)
+std::unique_ptr<LayerHostingContext> LayerHostingContext::create(const LayerHostingContextOptions& options)
 {
     auto layerHostingContext = makeUnique<LayerHostingContext>();
-
-    NSDictionary *options = @{
-        kCAContextPortNumber : @(serverPort.sendRight()),
-#if PLATFORM(MAC)
-        kCAContextCIFilterBehavior : @"ignore",
-#endif
-    };
-
-    layerHostingContext->m_layerHostingMode = LayerHostingMode::InProcess;
-    layerHostingContext->m_context = [CAContext remoteContextWithOptions:options];
-    layerHostingContext->m_cachedContextID = layerHostingContext->contextID();
-    return layerHostingContext;
-}
-
-#if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
-std::unique_ptr<LayerHostingContext> LayerHostingContext::createForExternalHostingProcess(const LayerHostingContextOptions& options)
-{
-    auto layerHostingContext = makeUnique<LayerHostingContext>();
-    layerHostingContext->m_layerHostingMode = LayerHostingMode::OutOfProcess;
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     // Use a very large display ID to ensure that the context is never put on-screen
@@ -84,7 +63,7 @@ std::unique_ptr<LayerHostingContext> LayerHostingContext::createForExternalHosti
     };
 #if USE(EXTENSIONKIT)
     if (options.useHostable) {
-        layerHostingContext->m_hostable = [getBELayerHierarchyClass() layerHierarchyWithOptions:contextOptions error:nil];
+        layerHostingContext->m_hostable = [BELayerHierarchy layerHierarchyWithOptions:contextOptions error:nil];
         return layerHostingContext;
     }
 #endif
@@ -103,20 +82,9 @@ std::unique_ptr<LayerHostingContext> LayerHostingContext::createForExternalHosti
     return layerHostingContext;
 }
 
-#if PLATFORM(MAC)
-std::unique_ptr<LayerHostingContext> LayerHostingContext::createForExternalPluginHostingProcess()
-{
-    auto layerHostingContext = makeUnique<LayerHostingContext>();
-    layerHostingContext->m_layerHostingMode = LayerHostingMode::OutOfProcess;
-    layerHostingContext->m_context = [CAContext contextWithCGSConnection:CGSMainConnectionID() options:@{ kCAContextCIFilterBehavior : @"ignore" }];
-    return layerHostingContext;
-}
-#endif
-
 std::unique_ptr<LayerHostingContext> LayerHostingContext::createTransportLayerForRemoteHosting(LayerHostingContextID contextID)
 {
     auto layerHostingContext = makeUnique<LayerHostingContext>();
-    layerHostingContext->m_layerHostingMode = LayerHostingMode::OutOfProcess;
     layerHostingContext->m_cachedContextID = contextID;
     return layerHostingContext;
 }
@@ -125,8 +93,6 @@ RetainPtr<CALayer> LayerHostingContext::createPlatformLayerForHostingContext(Lay
 {
     return [CALayer _web_renderLayerWithContextID:contextID shouldPreserveFlip:NO];
 }
-
-#endif // HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
 
 LayerHostingContext::LayerHostingContext()
 {
@@ -159,11 +125,23 @@ CALayer *LayerHostingContext::rootLayer() const
     return [m_context layer];
 }
 
+RetainPtr<CALayer> LayerHostingContext::protectedRootLayer() const
+{
+    return rootLayer();
+}
+
 LayerHostingContextID LayerHostingContext::contextID() const
 {
 #if USE(EXTENSIONKIT)
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+    // When layer hosting with Mach ports is enabled, we do not have access to the actual CA context ID.
+    // In this case we generate an ID. This is ok, since it is only used as an identifier in the WebContent process.
+    static LayerHostingContextID contextID = 0;
+    return ++contextID;
+#else
     if (auto xpcDictionary = xpcRepresentation())
         return xpc_dictionary_get_uint64(xpcDictionary.get(), contextIDKey);
+#endif
 #endif
     return [m_context contextId];
 }
@@ -183,18 +161,6 @@ CGColorSpaceRef LayerHostingContext::colorSpace() const
     return [m_context colorSpace];
 }
 
-#if PLATFORM(MAC)
-void LayerHostingContext::setColorMatchUntaggedContent(bool colorMatchUntaggedContent)
-{
-    [m_context setColorMatchUntaggedContent:colorMatchUntaggedContent];
-}
-
-bool LayerHostingContext::colorMatchUntaggedContent() const
-{
-    return [m_context colorMatchUntaggedContent];
-}
-#endif
-
 void LayerHostingContext::setFencePort(mach_port_t fencePort)
 {
 #if USE(EXTENSIONKIT)
@@ -208,17 +174,55 @@ MachSendRight LayerHostingContext::createFencePort()
     return MachSendRight::adopt([m_context createFencePort]);
 }
 
-void LayerHostingContext::updateCachedContextID(LayerHostingContextID contextID)
-{
-    m_cachedContextID = contextID;
-}
-
 LayerHostingContextID LayerHostingContext::cachedContextID()
 {
     return m_cachedContextID;
 }
 
 #if USE(EXTENSIONKIT)
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+WTF::MachSendRightAnnotated LayerHostingContext::sendRightAnnotated() const
+{
+    __block MachSendRight sendRight;
+    __block RetainPtr<NSData> dataRepresentation;
+    [[m_hostable handle] encodeWithBlock:^(mach_port_t copiedPort, NSData * _Nonnull data) {
+        sendRight = MachSendRight::create(copiedPort);
+        dataRepresentation = data;
+    }];
+    return { WTFMove(sendRight), FixedVector<uint8_t> { span(dataRepresentation.get()) } };
+}
+
+RetainPtr<BELayerHierarchyHostingTransactionCoordinator> LayerHostingContext::createHostingUpdateCoordinator(WTF::MachSendRightAnnotated&& sendRightAnnotated)
+{
+    // We are leaking the send right here, since [BELayerHierarchyHostingTransactionCoordinator coordinatorWithPort] takes ownership of the send right, even in the error case.
+    NSError *error = nil;
+    auto coordinator = [BELayerHierarchyHostingTransactionCoordinator coordinatorWithPort:sendRightAnnotated.sendRight.leakSendRight() data:toNSData(sendRightAnnotated.data.span()).get() error:&error];
+    if (error)
+        RELEASE_LOG_ERROR(Process, "Could not create update coordinator, error = %@", error);
+    return coordinator;
+}
+
+WTF::MachSendRightAnnotated LayerHostingContext::fence(BELayerHierarchyHostingTransactionCoordinator *coordinator)
+{
+    __block MachSendRight sendRight;
+    __block RetainPtr<NSData> dataRepresentation;
+    [coordinator encodeWithBlock:^(mach_port_t copiedPort, NSData * _Nonnull data) {
+        sendRight = MachSendRight::create(copiedPort);
+        dataRepresentation = data;
+    }];
+    return { WTFMove(sendRight), FixedVector<uint8_t> { span(dataRepresentation.get()) } };
+}
+
+RetainPtr<BELayerHierarchyHandle> LayerHostingContext::createHostingHandle(WTF::MachSendRightAnnotated&& sendRightAnnotated)
+{
+    // We are leaking the send right here, since [BELayerHierarchyHandle handleWithPort] takes ownership of the send right, even in the error case.
+    NSError *error = nil;
+    auto handle = [BELayerHierarchyHandle handleWithPort:sendRightAnnotated.sendRight.leakSendRight() data:toNSData(sendRightAnnotated.data.span()).get() error:&error];
+    if (error)
+        RELEASE_LOG_ERROR(Process, "Could not create layer hierarchy handle, error = %@", error);
+    return handle;
+}
+#else
 OSObjectPtr<xpc_object_t> LayerHostingContext::xpcRepresentation() const
 {
     if (!m_hostable)
@@ -231,9 +235,9 @@ RetainPtr<BELayerHierarchyHostingTransactionCoordinator> LayerHostingContext::cr
     auto xpcRepresentation = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
     xpc_dictionary_set_mach_send(xpcRepresentation.get(), machPortKey, sendRight);
     NSError* error = nil;
-    auto coordinator = [getBELayerHierarchyHostingTransactionCoordinatorClass() coordinatorWithXPCRepresentation:xpcRepresentation.get() error:&error];
+    auto coordinator = [BELayerHierarchyHostingTransactionCoordinator coordinatorWithXPCRepresentation:xpcRepresentation.get() error:&error];
     if (error)
-        NSLog(@"Could not create update coordinator, error = %@", error);
+        RELEASE_LOG_ERROR(Process, "Could not create update coordinator, error = %@", error);
     return coordinator;
 }
 
@@ -243,11 +247,22 @@ RetainPtr<BELayerHierarchyHandle> LayerHostingContext::createHostingHandle(uint6
     xpc_dictionary_set_uint64(xpcRepresentation.get(), processIDKey, pid);
     xpc_dictionary_set_uint64(xpcRepresentation.get(), contextIDKey, contextID);
     NSError* error = nil;
-    auto handle = [getBELayerHierarchyHandleClass() handleWithXPCRepresentation:xpcRepresentation.get() error:&error];
+    auto handle = [BELayerHierarchyHandle handleWithXPCRepresentation:xpcRepresentation.get() error:&error];
     if (error)
-        NSLog(@"Could not create layer hierarchy handle, error = %@", error);
+        RELEASE_LOG_ERROR(Process, "Could not create layer hierarchy handle, error = %@", error);
     return handle;
 }
+#endif // ENABLE(MACH_PORT_LAYER_HOSTING)
+#endif // USE(EXTENSIONKIT)
+
+WebCore::HostingContext LayerHostingContext::hostingContext() const
+{
+    WebCore::HostingContext context;
+    context.contextID = contextID();
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+    context.sendRightAnnotated = sendRightAnnotated();
 #endif
+    return context;
+}
 
 } // namespace WebKit

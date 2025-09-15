@@ -71,7 +71,7 @@
 
     RELEASE_ASSERT(position <= dataSegment.size());
     RELEASE_ASSERT(size <= dataSegment.size() - position);
-    _dataSegment = &dataSegment;
+    _dataSegment = dataSegment;
     _position = position;
     _size = size;
     return self;
@@ -84,7 +84,7 @@
 
 - (const void *)bytes
 {
-    return _dataSegment->span().subspan(_position).data();
+    return Ref { *_dataSegment }->span().subspan(_position).data();
 }
 
 @end
@@ -175,7 +175,7 @@ RetainPtr<NSData> DataSegment::createNSData() const
     return adoptNS([[WebCoreSharedBufferData alloc] initWithDataSegment:*this position:0 size:size()]);
 }
 
-void DataSegment::iterate(CFDataRef data, const Function<void(std::span<const uint8_t>)>& apply) const
+void DataSegment::iterate(CFDataRef data, NOESCAPE const Function<void(std::span<const uint8_t>)>& apply) const
 {
     [(__bridge NSData *)data enumerateByteRangesUsingBlock:^(const void *bytes, NSRange byteRange, BOOL *) {
         apply(unsafeMakeSpan(static_cast<const uint8_t*>(bytes), byteRange.length));

@@ -599,7 +599,7 @@ iptap_bpf_tap(struct mbuf *m, u_int32_t proto, int outgoing)
 			struct ifnet *ifp = outgoing ? NULL : m->m_pkthdr.rcvif;
 
 			/* Verify the structure is packed */
-			_CASSERT(sizeof(hdr_buffer) == sizeof(struct pktap_header) + sizeof(u_int32_t));
+			static_assert(sizeof(hdr_buffer) == sizeof(struct pktap_header) + sizeof(u_int32_t));
 
 			bzero(&hdr_buffer, sizeof(hdr_buffer));
 			hdr->pth_length = sizeof(struct pktap_header);

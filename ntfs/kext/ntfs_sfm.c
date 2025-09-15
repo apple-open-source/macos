@@ -106,12 +106,12 @@ ntfschar NTFS_SFM_COMMENTS_NAME[9] = { const_cpu_to_le16('C'),
  * Return true if the NTFS Unicode name @name of length @len characters is a
  * Services For Macintosh (SFM) protected name and false otherwise.
  */
-BOOL ntfs_is_sfm_name(ntfs_volume *vol,
+NTFS_BOOL ntfs_is_sfm_name(ntfs_volume *vol,
 		const ntfschar *name, const unsigned len)
 {
 	const ntfschar *upcase = vol->upcase;
 	const unsigned upcase_len = vol->upcase_len;
-	const BOOL case_sensitive = NVolCaseSensitive(vol);
+	const NTFS_BOOL case_sensitive = NVolCaseSensitive(vol);
 
 	return (ntfs_are_names_equal(name, len, NTFS_SFM_AFPINFO_NAME, 11,
 			case_sensitive, upcase, upcase_len) ||

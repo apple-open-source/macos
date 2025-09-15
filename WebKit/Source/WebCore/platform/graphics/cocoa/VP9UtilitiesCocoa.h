@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@ struct MediaCapabilitiesInfo;
 struct VideoConfiguration;
 struct VideoInfo;
 
+WEBCORE_EXPORT bool shouldEnableVP9Decoder();
 WEBCORE_EXPORT bool shouldEnableSWVP9Decoder();
 WEBCORE_EXPORT void registerWebKitVP9Decoder();
 WEBCORE_EXPORT void registerSupplementalVP9Decoder();
@@ -88,12 +89,16 @@ public:
     void setSWVPDecodersAlwaysEnabled(bool);
     bool swVPDecodersAlwaysEnabled() const { return m_swVPDecodersAlwaysEnabled; }
 
+    void setShouldEnableVP9Decoder(bool);
+    bool shouldEnableVP9Decoder() const;
+
 private:
     std::optional<bool> m_hardwareDecoderDisabled;
     std::optional<bool> m_vp9DecoderDisabled;
-    bool m_swVPDecodersAlwaysEnabled { false };
     std::optional<ScreenDataOverrides> m_screenSizeAndScale;
     Function<void(bool)> m_configurationChangedCallback;
+    bool m_vp9DecoderEnabled { false };
+    bool m_swVPDecodersAlwaysEnabled { false };
 };
 
 }

@@ -282,8 +282,6 @@ struct sched_clutch_bucket_group {
 	uint32_t _Atomic                scbg_pri_shift;
 	/* (A) preferred cluster ID for clutch bucket */
 	uint32_t _Atomic                scbg_preferred_cluster;
-	/* (A) cluster ID for AMP rebalancing */
-	uint32_t                        scbg_amp_rebalance_last_chosen;
 	/* (I) clutch to which this clutch bucket_group belongs */
 	struct sched_clutch             *scbg_clutch;
 	/* (A) holds blocked timestamp and runnable/running count */
@@ -348,17 +346,39 @@ uint32_t sched_clutch_root_count(sched_clutch_root_t);
 extern sched_clutch_t sched_clutch_for_thread(thread_t);
 extern sched_clutch_t sched_clutch_for_thread_group(struct thread_group *);
 
+#if DEVELOPMENT || DEBUG
+
+extern kern_return_t sched_clutch_thread_group_cpu_time_for_thread(thread_t thread, int sched_bucket, uint64_t *cpu_stats);
+
+#endif /* DEVELOPMENT || DEBUG */
+
 #if CONFIG_SCHED_EDGE
 
 /*
  * Getter and Setter for Edge configuration. Used by CLPC to affect thread migration behavior.
  */
-void sched_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_request_bitmap, uint64_t flags, uint64_t matrix_order);
-void sched_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changes_bitmap, uint64_t flags, uint64_t matrix_order);
+void sched_edge_matrix_get(sched_clutch_edge *edge_matrix, bool *edge_request_bitmap, uint64_t flags, uint64_t num_psets);
+void sched_edge_matrix_set(sched_clutch_edge *edge_matrix, bool *edge_changes_bitmap, uint64_t flags, uint64_t num_psets);
 void sched_edge_tg_preferred_cluster_change(struct thread_group *tg, uint32_t *tg_bucket_preferred_cluster, sched_perfcontrol_preferred_cluster_options_t options);
 
 uint16_t sched_edge_cluster_cumulative_count(sched_clutch_root_t root_clutch, sched_bucket_t bucket);
 uint16_t sched_edge_shared_rsrc_runnable_load(sched_clutch_root_t root_clutch, cluster_shared_rsrc_type_t load_type);
+
+/*
+ * sched_edge_search_order_weight_then_locality_cmp()
+ *
+ * Search order that prioritizes outgoing edges with a lower
+ * migration weight, then breaks ties with die-locality followed
+ * by least pset id.
+ */
+extern int (*sched_edge_search_order_weight_then_locality_cmp)(const void *a, const void *b);
+
+/*
+ * Used to keep stir-the-pot state up-to-date for the current
+ * processor, as new threads come on-core.
+ */
+extern void sched_edge_stir_the_pot_update_registry_state(thread_t thread);
+extern void sched_edge_stir_the_pot_clear_registry_entry(void);
 
 #endif /* CONFIG_SCHED_EDGE */
 

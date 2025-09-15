@@ -27,6 +27,7 @@
 
 #include "CSSPrimitiveNumericTypes+CSSValueVisitation.h"
 #include "CSSPrimitiveNumericTypes+Serialization.h"
+#include "CSSURLValue.h"
 #include "CSSValuePool.h"
 #include "DeprecatedCSSOMFilterFunctionValue.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
@@ -45,9 +46,9 @@ CSSFilterPropertyValue::CSSFilterPropertyValue(CSS::FilterProperty filter)
 {
 }
 
-String CSSFilterPropertyValue::customCSSText() const
+String CSSFilterPropertyValue::customCSSText(const CSS::SerializationContext& context) const
 {
-    return CSS::serializationForCSS(m_filter);
+    return CSS::serializationForCSS(context, m_filter);
 }
 
 bool CSSFilterPropertyValue::equals(const CSSFilterPropertyValue& other) const
@@ -55,7 +56,7 @@ bool CSSFilterPropertyValue::equals(const CSSFilterPropertyValue& other) const
     return m_filter == other.m_filter;
 }
 
-IterationStatus CSSFilterPropertyValue::customVisitChildren(const Function<IterationStatus(CSSValue&)>& func) const
+IterationStatus CSSFilterPropertyValue::customVisitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>& func) const
 {
     return CSS::visitCSSValueChildren(func, m_filter);
 }
@@ -70,7 +71,7 @@ Ref<DeprecatedCSSOMValue> CSSFilterPropertyValue::createDeprecatedCSSOMWrapper(C
             auto values = list.value.template map<Vector<Ref<DeprecatedCSSOMValue>, 4>>([&](const auto& value) {
                 return WTF::switchOn(value,
                     [&](const CSS::FilterReference& reference) -> Ref<DeprecatedCSSOMValue> {
-                        return DeprecatedCSSOMPrimitiveValue::create(CSSPrimitiveValue::createURI(reference.url), owner);
+                        return DeprecatedCSSOMPrimitiveValue::create(CSSURLValue::create(reference.url), owner);
                     },
                     [&](const auto& function) -> Ref<DeprecatedCSSOMValue> {
                         return DeprecatedCSSOMFilterFunctionValue::create(CSS::FilterFunction { function }, owner);

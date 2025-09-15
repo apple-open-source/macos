@@ -3,7 +3,7 @@
 /*
 *******************************************************************************
 *   Copyright (C) 2010-2012, International Business Machines
-*   Corporation and others.  All Rights Reserved.
+*   Corporation and others.  All rights reserved.
 *******************************************************************************
 *   file name:  udicttrie.h
 *   encoding:   UTF-8

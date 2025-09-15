@@ -99,6 +99,8 @@
 #include <skywalk/os_skywalk_private.h>
 #include <net/necp.h>
 
+#include <kern/uipc_domain.h>
+
 static void skmem_arena_destroy(struct skmem_arena *);
 static void skmem_arena_teardown(struct skmem_arena *, boolean_t);
 static int skmem_arena_create_finalize(struct skmem_arena *);
@@ -180,9 +182,9 @@ skmem_arena_sd_setup(const struct nexus_adapter *na,
 	name = __unsafe_null_terminated_from_indexable(na->na_name);
 	ksd_skr = skmem_region_create(name, &srp[ksd_type], NULL, NULL, NULL);
 	if (ksd_skr == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to "
-		    "create %s region", ar->ar_name, SK_KVA(ar),
-		    ar->ar_flags, ARF_BITS, srp[ksd_type].srp_name);
+		SK_ERR("\"%s\" ar 0x%p flags 0x%x failed to create %s region",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags,
+		    srp[ksd_type].srp_name);
 		err = ENOMEM;
 		goto failed;
 	}
@@ -204,8 +206,8 @@ skmem_arena_sd_setup(const struct nexus_adapter *na,
 	    NULL, NULL, NULL, NULL, ar->ar_regions[ksd_type],
 	    SKMEM_CR_NOMAGAZINES);
 	if (*cachep == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS, cname);
+		SK_ERR("\"%s\" ar %p flags 0x%x failed to create %s",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags, cname);
 		err = ENOMEM;
 		goto failed;
 	}
@@ -285,8 +287,8 @@ skmem_arena_pp_setup(struct skmem_arena *ar,
 		rx_pp = pp_create(name, srp, NULL, NULL, NULL, NULL, NULL,
 		    ppcreatef);
 		if (rx_pp == NULL) {
-			SK_ERR("\"%s\" ar 0x%llx flags %b failed to create pp",
-			    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
+			SK_ERR("\"%s\" ar %p flags 0x%x failed to create pp",
+			    ar->ar_name, SK_KVA(ar), ar->ar_flags);
 			return false;
 		}
 		pp_retain(rx_pp);
@@ -645,9 +647,9 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 		/* otherwise create it */
 		if ((ar->ar_regions[i] = skmem_region_create(name, &srp[i],
 		    NULL, NULL, NULL)) == NULL) {
-			SK_ERR("\"%s\" ar 0x%llx flags %b failed to "
+			SK_ERR("\"%s\" ar %p flags 0x%x failed to "
 			    "create %s region", ar->ar_name, SK_KVA(ar),
-			    ar->ar_flags, ARF_BITS, srp[i].srp_name);
+			    ar->ar_flags, srp[i].srp_name);
 			goto failed;
 		}
 	}
@@ -661,9 +663,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 		    srp[SKMEM_REGION_SCHEMA].srp_c_obj_size, 0, NULL,
 		    NULL, NULL, NULL, ar->ar_regions[SKMEM_REGION_SCHEMA],
 		    SKMEM_CR_NOMAGAZINES)) == NULL) {
-			SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s",
-			    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS,
-			    cname);
+			SK_ERR("\"%s\" ar %p flags 0x%x failed to create %s",
+			    ar->ar_name, SK_KVA(ar), ar->ar_flags, cname);
 			goto failed;
 		}
 	}
@@ -677,8 +678,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 	    srp[SKMEM_REGION_RING].srp_c_obj_size, 0, NULL, NULL, NULL,
 	    NULL, ar->ar_regions[SKMEM_REGION_RING],
 	    SKMEM_CR_NOMAGAZINES)) == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS, cname);
+		SK_ERR("\"%s\" ar %p flags 0x%x failed to create %s",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags, cname);
 		goto failed;
 	}
 
@@ -698,9 +699,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 
 		if ((obj = skmem_region_alloc(skr, &maddr,
 		    NULL, NULL, SKMEM_SLEEP, skr->skr_c_obj_size, &msize)) == NULL) {
-			SK_ERR("\"%s\" ar 0x%llx flags %b failed to alloc "
-			    "stats", ar->ar_name, SK_KVA(ar), ar->ar_flags,
-			    ARF_BITS);
+			SK_ERR("\"%s\" ar %p flags 0x%x failed to alloc stats",
+			    ar->ar_name, SK_KVA(ar), ar->ar_flags);
 			goto failed;
 		}
 		arn->arn_stats_obj = obj;
@@ -723,9 +723,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 
 		if ((obj = skmem_region_alloc(skr, &maddr,
 		    NULL, NULL, SKMEM_SLEEP, skr->skr_c_obj_size, &msize)) == NULL) {
-			SK_ERR("\"%s\" ar 0x%llx flags %b failed to alloc "
-			    "flowadv", ar->ar_name, SK_KVA(ar), ar->ar_flags,
-			    ARF_BITS);
+			SK_ERR("\"%s\" ar %p flags 0x%x failed to alloc "
+			    "flowadv", ar->ar_name, SK_KVA(ar), ar->ar_flags);
 			goto failed;
 		}
 		/* XXX -fbounds-safety: should get the count elsewhere */
@@ -734,8 +733,8 @@ skmem_arena_create_for_nexus(const struct nexus_adapter *na,
 	}
 
 	if (skmem_arena_create_finalize(ar) != 0) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to finalize",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
+		SK_ERR("\"%s\" ar %p flags 0x%x failed to finalize",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags);
 		goto failed;
 	}
 
@@ -976,17 +975,11 @@ skmem_arena_create_for_necp(const char *name,
 
 	if ((ar->ar_regions[SKMEM_REGION_USTATS] = skmem_region_create(name,
 	    srp_ustats, NULL, NULL, NULL)) == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s region",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS,
-		    srp_ustats->srp_name);
 		goto failed;
 	}
 
 	if ((ar->ar_regions[SKMEM_REGION_KSTATS] = skmem_region_create(name,
 	    srp_kstats, NULL, NULL, NULL)) == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s region",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS,
-		    srp_kstats->srp_name);
 		goto failed;
 	}
 
@@ -999,14 +992,10 @@ skmem_arena_create_for_necp(const char *name,
 	    srp_kstats->srp_c_obj_size, 0, necp_stats_ctor, NULL, NULL,
 	    NULL, ar->ar_regions[SKMEM_REGION_KSTATS],
 	    SKMEM_CR_NOMAGAZINES)) == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create %s",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS, cname);
 		goto failed;
 	}
 
 	if (skmem_arena_create_finalize(ar) != 0) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to finalize",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
 		goto failed;
 	}
 
@@ -1052,6 +1041,8 @@ skmem_arena_create_for_necp(const char *name,
 	return ar;
 
 failed:
+	SK_ERR("\"%s\" ar %p flags 0x%x failed to create %s region",
+	    ar->ar_name, SK_KVA(ar), ar->ar_flags, srp_kstats->srp_name);
 	AR_LOCK_ASSERT_HELD(ar);
 	skmem_arena_destroy(ar);
 	*perr = ENOMEM;
@@ -1154,8 +1145,8 @@ skmem_arena_create_for_system(const char *name, int *perr)
 	ASSERT(ars->ars_sysctls_objsize != 0);
 
 	if (skmem_arena_create_finalize(ar) != 0) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to finalize",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
+		SK_ERR("\"%s\" ar %p flags 0x%x failed to finalize",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags);
 		goto failed;
 	}
 
@@ -1289,8 +1280,8 @@ skmem_arena_destroy(struct skmem_arena *ar)
 {
 	AR_LOCK_ASSERT_HELD(ar);
 
-	SK_DF(SK_VERB_MEM_ARENA, "\"%s\" ar 0x%llx flags %b",
-	    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS);
+	SK_DF(SK_VERB_MEM_ARENA, "\"%s\" ar %p flags 0x%x",
+	    ar->ar_name, SK_KVA(ar), ar->ar_flags);
 
 	ASSERT(ar->ar_refcnt == 0);
 	if (ar->ar_link.tqe_next != NULL || ar->ar_link.tqe_prev != NULL) {
@@ -1397,9 +1388,8 @@ skmem_arena_create_finalize(struct skmem_arena *ar)
 	 */
 	ar->ar_ar = IOSKArenaCreate(reg, (IOSKCount)regcnt);
 	if (ar->ar_ar == NULL) {
-		SK_ERR("\"%s\" ar 0x%llx flags %b failed to create "
-		    "IOSKArena of %u regions", ar->ar_name, SK_KVA(ar),
-		    ar->ar_flags, ARF_BITS, regcnt);
+		SK_ERR("\"%s\" ar %p flags 0x%x failed to create IOSKArena of"
+		    "%u regions", ar->ar_name, SK_KVA(ar), ar->ar_flags, regcnt);
 		err = ENOMEM;
 		goto failed;
 	}
@@ -1713,9 +1703,9 @@ skmem_arena_mredirect(struct skmem_arena *ar, struct skmem_arena_mmap_info *ami,
 	AR_UNLOCK(ar);
 
 	SK_DF(((err != 0) ? SK_VERB_ERROR : SK_VERB_DEFAULT),
-	    "%s(%d) \"%s\" ar 0x%llx flags %b inactive %u need_defunct %u "
-	    "err %d", sk_proc_name_address(p), sk_proc_pid(p), ar->ar_name,
-	    SK_KVA(ar), ar->ar_flags, ARF_BITS, !(ar->ar_flags & ARF_ACTIVE),
+	    "%s(%d) \"%s\" ar %p flags 0x%x inactive %u need_defunct %u "
+	    "err %d", sk_proc_name(p), sk_proc_pid(p), ar->ar_name,
+	    SK_KVA(ar), ar->ar_flags, !(ar->ar_flags & ARF_ACTIVE),
 	    *need_defunct, err);
 
 	return err;
@@ -1729,8 +1719,8 @@ skmem_arena_defunct(struct skmem_arena *ar)
 {
 	AR_LOCK(ar);
 
-	SK_DF(SK_VERB_MEM_ARENA, "\"%s\" ar 0x%llx flags 0x%b", ar->ar_name,
-	    SK_KVA(ar), ar->ar_flags, ARF_BITS);
+	SK_DF(SK_VERB_MEM_ARENA, "\"%s\" ar %p flags 0x%x", ar->ar_name,
+	    SK_KVA(ar), ar->ar_flags);
 
 	if (ar->ar_flags & ARF_DEFUNCT) {
 		AR_UNLOCK(ar);
@@ -1892,16 +1882,16 @@ skmem_arena_create_region_log(struct skmem_arena *ar)
 
 	switch (ar->ar_type) {
 	case SKMEM_ARENA_TYPE_NEXUS:
-		SK_D("\"%s\" ar 0x%llx flags %b rx_pp 0x%llx tx_pp 0x%llu",
-		    ar->ar_name, SK_KVA(ar), ar->ar_flags, ARF_BITS,
+		SK_D("\"%s\" ar %p flags 0x%x rx_pp %p tx_pp %p",
+		    ar->ar_name, SK_KVA(ar), ar->ar_flags,
 		    SK_KVA(skmem_arena_nexus(ar)->arn_rx_pp),
 		    SK_KVA(skmem_arena_nexus(ar)->arn_tx_pp));
 		break;
 
 	case SKMEM_ARENA_TYPE_NECP:
 	case SKMEM_ARENA_TYPE_SYSTEM:
-		SK_D("\"%s\" ar 0x%llx flags %b", ar->ar_name,
-		    SK_KVA(ar), ar->ar_flags, ARF_BITS);
+		SK_D("\"%s\" ar %p flags 0x%x", ar->ar_name, SK_KVA(ar),
+		    ar->ar_flags);
 		break;
 	}
 
@@ -2045,4 +2035,15 @@ skmem_arena_mib_get_sysctl SYSCTL_HANDLER_ARGS
 	}
 
 	return error;
+}
+
+SK_NO_INLINE_ATTRIBUTE
+char *
+ar2str(const struct skmem_arena *ar, char *__counted_by(dsz)dst,
+    size_t dsz)
+{
+	(void) sk_snprintf(dst, dsz, "%p %s flags 0x%b",
+	    SK_KVA(ar), ar->ar_name, ar->ar_flags, ARF_BITS);
+
+	return dst;
 }

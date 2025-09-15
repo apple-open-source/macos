@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,19 +74,19 @@ public:
     void clearRequestCountTracker() { m_requestCountTracker = std::nullopt; }
     void resetRequestCountTracker(CachedResourceLoader& loader, const CachedResource& resource) { m_requestCountTracker = RequestCountTracker { loader, resource }; }
 
-private:
-    SubresourceLoader(LocalFrame&, CachedResource&, const ResourceLoaderOptions&);
-
-    void init(ResourceRequest&&, CompletionHandler<void(bool)>&&) final;
-
     void willSendRequestInternal(ResourceRequest&&, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&&) final;
     void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) final;
-    void didReceiveResponse(const ResourceResponse&, CompletionHandler<void()>&& policyCompletionHandler) final;
+    void didReceiveResponse(ResourceResponse&&, CompletionHandler<void()>&& policyCompletionHandler) final;
     void didReceiveBuffer(const FragmentedSharedBuffer&, long long encodedDataLength, DataPayloadType) final;
     void didFinishLoading(const NetworkLoadMetrics&) final;
     void didFail(const ResourceError&) final;
     void willCancel(const ResourceError&) final;
     void didCancel(LoadWillContinueInAnotherProcess) final;
+
+private:
+    SubresourceLoader(LocalFrame&, CachedResource&, const ResourceLoaderOptions&);
+
+    void init(ResourceRequest&&, CompletionHandler<void(bool)>&&) final;
     
     void updateReferrerPolicy(const String&);
 
@@ -108,7 +108,7 @@ private:
 
 #if USE(QUICK_LOOK)
     bool shouldCreatePreviewLoaderForResponse(const ResourceResponse&) const;
-    void didReceivePreviewResponse(const ResourceResponse&) final;
+    void didReceivePreviewResponse(ResourceResponse&&) final;
 #endif
 
     enum SubresourceLoaderState {

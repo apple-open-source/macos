@@ -244,7 +244,7 @@ vm_map_store_entry_unlink(
 	}
 	if ((map->holelistenabled == FALSE) && (map->disable_vmentry_reuse == FALSE)) {
 		if (VMEU_entry->vme_start <= VMEU_map->first_free->vme_start) {
-			VMEU_first_free = VMEU_entry->vme_prev;
+			VMEU_first_free = VME_PREV(VMEU_entry);
 		} else {
 			VMEU_first_free = VMEU_map->first_free;
 		}
@@ -336,14 +336,14 @@ vm_map_store_find_space_backwards(
 			return VM_MAP_ENTRY_NULL;
 		}
 
-		entry = entry->vme_prev;
+		entry = VME_PREV(entry);
 
 		while (end <= entry->vme_start) {
 			if (entry == CAST_TO_VM_MAP_ENTRY(map->holes_list)) {
 				return VM_MAP_ENTRY_NULL;
 			}
 
-			entry = entry->vme_prev;
+			entry = VME_PREV(entry);
 		}
 
 		if (entry->vme_end < end) {
@@ -395,10 +395,10 @@ vm_map_store_find_space_backwards(
 				return VM_MAP_ENTRY_NULL;
 			}
 
-			entry = entry->vme_prev;
+			entry = VME_PREV(entry);
 			end = entry->vme_end;
 		} else {
-			entry = entry->vme_prev;
+			entry = VME_PREV(entry);
 
 			if (entry == vm_map_to_entry(map)) {
 				/*

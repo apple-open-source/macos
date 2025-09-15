@@ -3910,6 +3910,64 @@ extern errno_t ifnet_set_congested_link(ifnet_t interface, boolean_t on);
  */
 extern errno_t ifnet_get_congested_link(ifnet_t interface, boolean_t *on);
 
+/*!
+ *       @function ifnet_set_rx_flow_steering
+ *       @param interface The interface.
+ *       @param on Set the truth value that the interface supports Rx flow steering.
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_set_rx_flow_steering(ifnet_t interface, boolean_t on);
+
+/*!
+ *       @function ifnet_get_rx_flow_steering
+ *       @param interface The interface.
+ *       @param on On output contains the truth value that the interface
+ *               supports Rx flow steering
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_get_rx_flow_steering(ifnet_t interface, boolean_t *on);
+
+/*!
+ *       @function ifnet_set_inband_wake_packet_tagging
+ *       @param interface The interface.
+ *       @param on Set the truth value that the interface supports inband tagging of
+ *              the wake packet flag.
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_set_inband_wake_packet_tagging(ifnet_t interface, boolean_t on);
+
+/*!
+ *       @function ifnet_get_inband_wake_packet_tagging
+ *       @param interface The interface.
+ *       @param on On output contains the truth value whether the interface supports
+ *              inband tagging of the wake packet flag.
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_get_inband_wake_packet_tagging(ifnet_t interface, boolean_t *on);
+
+/*!
+ *       @function ifnet_set_low_power_wake
+ *       @param interface The interface.
+ *       @param on Set the truth value that the interface supports LPW.
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_set_low_power_wake(ifnet_t interface, boolean_t on);
+
+#define HAS_IFNET_SET_LOW_POWER_WAKE 1
+
+/*!
+ *       @function ifnet_get_low_power_wake
+ *       @param interface The interface.
+ *       @param on On output contains the truth value whether the interface supports LPW.
+ *       @result Returns 0 on success, error number otherwise.
+ */
+extern errno_t ifnet_get_low_power_wake(ifnet_t interface, boolean_t *on);
+
+/*!
+ *       @function ifnet_enable_cellular_thread_group
+ *       @param interface The interface.
+ */
+extern void ifnet_enable_cellular_thread_group(ifnet_t interface);
 
 #endif /* KERNEL_PRIVATE */
 

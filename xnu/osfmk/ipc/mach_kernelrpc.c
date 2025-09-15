@@ -26,6 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
+#include <mach/error.h>
 #include <mach/mach_types.h>
 #include <mach/mach_traps.h>
 #include <mach/mach_vm_server.h>
@@ -37,8 +38,11 @@
 #include <kern/task.h>
 #include <kern/ipc_tt.h>
 #include <kern/kalloc.h>
+#include <ipc/ipc_space.h>
 #include <vm/vm_protos.h>
 #include <vm/vm_kern_xnu.h>
+#include <vm/vm_reclaim_internal.h>
+#include <vm/vm_sanitize_internal.h>
 #include <kdp/kdp_dyld.h>
 
 kern_return_t
@@ -246,7 +250,7 @@ _kernelrpc_mach_port_insert_right_trap(struct _kernelrpc_mach_port_insert_right_
 	}
 
 	rv = ipc_object_copyin(task->itk_space, args->poly, args->polyPoly,
-	    IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND, NULL, &port);
+	    IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND, IPC_COPYIN_KERNEL_DESTINATION, NULL, &port);
 	if (rv != KERN_SUCCESS) {
 		goto done;
 	}
@@ -439,7 +443,7 @@ _kernelrpc_mach_port_request_notification_trap(
 
 	if (MACH_PORT_VALID(args->notify)) {
 		rv = ipc_object_copyin(task->itk_space, args->notify, args->notifyPoly,
-		    IPC_OBJECT_COPYIN_FLAGS_NONE, NULL, &notify);
+		    IPC_OBJECT_COPYIN_FLAGS_NONE, IPC_COPYIN_KERNEL_DESTINATION, NULL, &notify);
 	} else {
 		notify = CAST_MACH_NAME_TO_PORT(args->notify);
 	}
@@ -771,3 +775,30 @@ copyout_failed:
 
 	return kr;
 }
+
+#if __LP64__
+mach_error_t
+mach_vm_reclaim_update_kernel_accounting_trap(
+	struct mach_vm_reclaim_update_kernel_accounting_trap_args *args)
+{
+	task_t task = port_name_to_current_task_noref(args->target_task);
+	if (task == TASK_NULL) {
+		return MACH_SEND_INVALID_DEST;
+	}
+	if (args->bytes_reclaimed_out == USER_ADDR_NULL) {
+		return KERN_INVALID_ARGUMENT;
+	}
+#if CONFIG_DEFERRED_RECLAIM
+	mach_error_t err;
+	uint64_t bytes_reclaimed;
+	err = vm_deferred_reclamation_update_accounting_internal(
+		task, &bytes_reclaimed);
+	if (!err) {
+		mach_copyout(&bytes_reclaimed, (user_addr_t)args->bytes_reclaimed_out, sizeof(bytes_reclaimed));
+	}
+	return err;
+#else /* !CONFIG_DEFERRED_RECLAIM */
+	return KERN_NOT_SUPPORTED;
+#endif /* CONFIG_DEFERRED_RECLAIM */
+}
+#endif /* __LP64__ */

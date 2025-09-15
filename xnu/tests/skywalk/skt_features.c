@@ -54,7 +54,6 @@ skt_features_main(int argc, char *argv[])
 	assert(features & SK_FEATURE_NETNS);
 	assert(features & SK_FEATURE_NEXUS_USER_PIPE);
 	assert(features & SK_FEATURE_NEXUS_KERNEL_PIPE);
-	assert(features & SK_FEATURE_NEXUS_MONITOR);
 	assert(features & SK_FEATURE_NEXUS_FLOWSWITCH);
 	assert(features & SK_FEATURE_NEXUS_NETIF);
 

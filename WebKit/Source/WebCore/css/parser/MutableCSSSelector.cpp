@@ -27,11 +27,6 @@
 #include "SelectorPseudoTypeMap.h"
 #include <wtf/TZoneMallocInlines.h>
 
-#if COMPILER(MSVC)
-// See https://msdn.microsoft.com/en-us/library/1wea5zwe.aspx
-#pragma warning(disable: 4701)
-#endif
-
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MutableCSSSelector);
@@ -194,8 +189,8 @@ static bool selectorListMatchesPseudoElement(const CSSSelectorList* selectorList
     if (!selectorList)
         return false;
 
-    for (const CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
-        for (const CSSSelector* selector = subSelector; selector; selector = selector->tagHistory()) {
+    for (auto& subSelector : *selectorList) {
+        for (const CSSSelector* selector = &subSelector; selector; selector = selector->tagHistory()) {
             if (selector->matchesPseudoElement())
                 return true;
             if (const CSSSelectorList* subselectorList = selector->selectorList()) {

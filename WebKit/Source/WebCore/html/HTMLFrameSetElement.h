@@ -66,7 +66,7 @@ private:
     
     void defaultEventHandler(Event&) final;
 
-    void willRecalcStyle(Style::Change) final;
+    void willRecalcStyle(OptionSet<Style::Change>) final;
 
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
     void removedFromAncestor(RemovalType, ContainerNode&) final;

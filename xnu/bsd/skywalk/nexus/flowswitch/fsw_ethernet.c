@@ -37,6 +37,7 @@
 #include <net/route.h>
 #include <sys/eventhandler.h>
 #include <net/sockaddr_utils.h>
+#include <kern/uipc_domain.h>
 
 #define FSW_ETHER_LEN_PADDED     16
 #define FSW_ETHER_PADDING        (FSW_ETHER_LEN_PADDED - ETHER_HDR_LEN)
@@ -83,13 +84,13 @@ fsw_ethernet_ctor(struct nx_flowswitch *fsw, struct flow_route *fr)
 	    htons(ETHERTYPE_IP) : htons(ETHERTYPE_IPV6));
 
 	/* const override */
-	_CASSERT(sizeof(fr->fr_llhdr.flh_off) == sizeof(uint8_t));
-	_CASSERT(sizeof(fr->fr_llhdr.flh_len) == sizeof(uint8_t));
+	static_assert(sizeof(fr->fr_llhdr.flh_off) == sizeof(uint8_t));
+	static_assert(sizeof(fr->fr_llhdr.flh_len) == sizeof(uint8_t));
 	*(uint8_t *)(uintptr_t)&fr->fr_llhdr.flh_off = 2;
 	*(uint8_t *)(uintptr_t)&fr->fr_llhdr.flh_len = ETHER_HDR_LEN;
 
 	SK_DF(SK_VERB_FLOW_ROUTE,
-	    "fr 0x%llx eth_type 0x%x eth_src %x:%x:%x:%x:%x:%x",
+	    "fr %p eth_type 0x%x eth_src %x:%x:%x:%x:%x:%x",
 	    SK_KVA(fr), ntohs(fr->fr_eth.ether_type),
 	    fr->fr_eth.ether_shost[0], fr->fr_eth.ether_shost[1],
 	    fr->fr_eth.ether_shost[2], fr->fr_eth.ether_shost[3],
@@ -355,7 +356,7 @@ fsw_ethernet_resolve(struct nx_flowswitch *fsw, struct flow_route *fr,
 			    ETHER_ADDR_LEN) {
 				err = EHOSTUNREACH;
 				SK_ERR("invalid permanent route %s on %s"
-				    "ln 0x%llx (err %d)",
+				    "ln %p (err %d)",
 				    sk_sa_ntop(rt_key(tgt_rt), dst_s,
 				    sizeof(dst_s)), ifp->if_xname,
 				    SK_KVA(ln), err);
@@ -415,7 +416,7 @@ fsw_ethernet_resolve(struct nx_flowswitch *fsw, struct flow_route *fr,
 			RT_UNLOCK(tgt_rt);
 
 			SK_DF(SK_VERB_FLOW_ROUTE, "soliciting for %s on %s"
-			    "ln 0x%llx state %u", sk_sa_ntop(rt_key(tgt_rt),
+			    "ln %p state %u", sk_sa_ntop(rt_key(tgt_rt),
 			    dst_s, sizeof(dst_s)), ifp->if_xname, SK_KVA(ln),
 			    ln->ln_state);
 
@@ -498,9 +499,9 @@ fsw_ethernet_frame(struct nx_flowswitch *fsw, struct flow_route *fr,
 		bcopy(&fr->fr_eth.ether_shost, &old_shost, ETHER_ADDR_LEN);
 		fsw_ethernet_ctor(fsw, fr);
 
-		SK_ERR("fr 0x%llx source MAC address updated on %s, "
+		SK_ERR("fr %p source MAC address updated on %s, "
 		    "was %x:%x:%x:%x:%x:%x now %x:%x:%x:%x:%x:%x",
-		    SK_KVA(fr), fsw->fsw_ifp,
+		    SK_KVA(fr), if_name(fsw->fsw_ifp),
 		    old_shost[0], old_shost[1],
 		    old_shost[2], old_shost[3],
 		    old_shost[4], old_shost[5],
@@ -509,7 +510,7 @@ fsw_ethernet_frame(struct nx_flowswitch *fsw, struct flow_route *fr,
 		    fr->fr_eth.ether_shost[4], fr->fr_eth.ether_shost[5]);
 	}
 
-	_CASSERT(sizeof(fr->fr_eth_padded) == FSW_ETHER_LEN_PADDED);
+	static_assert(sizeof(fr->fr_eth_padded) == FSW_ETHER_LEN_PADDED);
 
 	if ((fr->fr_flags & FLOWRTF_DST_LL_MCAST) != 0) {
 		pkt->pkt_link_flags |= PKT_LINKF_MCAST;

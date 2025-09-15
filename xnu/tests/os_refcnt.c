@@ -371,7 +371,7 @@ T_DECL(refcnt_overflow, "Overflow")
 		(void)os_ref_retain_raw(&rc, NULL);
 		T_FAIL("overflow not caught");
 	} else {
-		T_ASSERT_EQ_INT(x, OSREF_RETAIN, "overflow caught");
+		T_ASSERT_EQ_INT(x, OSREF_OVERFLOW, "overflow caught");
 	}
 }
 

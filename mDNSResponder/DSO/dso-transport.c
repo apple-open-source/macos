@@ -1194,9 +1194,6 @@ static void dso_connect_internal(dso_connect_state_t *cs, mDNSBool reconnecting)
     if (cs->tls_enabled) {
         const uint32_t cs_serial = cs->serial;
         bool trusts_alternative_server_certificates = false;
-    #if MDNSRESPONDER_SUPPORTS(APPLE, TERMINUS_ASSISTED_UNICAST_DISCOVERY)
-        trusts_alternative_server_certificates = cs->trusts_alternative_server_certificates;
-    #endif
         configure_tls = ^(nw_protocol_options_t tls_options) {
             sec_protocol_options_t sec_options = nw_tls_copy_sec_protocol_options(tls_options);
             sec_protocol_options_set_verify_block(sec_options,

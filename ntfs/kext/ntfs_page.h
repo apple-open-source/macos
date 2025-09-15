@@ -49,7 +49,7 @@ __private_extern__ int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size,
 
 __private_extern__ errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs,
 		upl_t *upl, upl_page_info_array_t *pl, u8 **kaddr,
-		const BOOL uptodate, const BOOL rw);
+		const NTFS_BOOL uptodate, const NTFS_BOOL rw);
 
 /**
  * ntfs_page_map - map a page of a vnode into memory
@@ -75,7 +75,7 @@ __private_extern__ errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs,
  *	    - Caller must hold @ni->lock for reading or writing.
  */
 static inline errno_t ntfs_page_map(ntfs_inode *ni, s64 ofs, upl_t *upl,
-		upl_page_info_array_t *pl, u8 **kaddr, const BOOL rw)
+		upl_page_info_array_t *pl, u8 **kaddr, const NTFS_BOOL rw)
 {
 	return ntfs_page_map_ext(ni, ofs, upl, pl, kaddr, TRUE, rw);
 }
@@ -105,13 +105,13 @@ static inline errno_t ntfs_page_map(ntfs_inode *ni, s64 ofs, upl_t *upl,
  *	    - Caller must hold @ni->lock for reading or writing.
  */
 static inline errno_t ntfs_page_grab(ntfs_inode *ni, s64 ofs, upl_t *upl,
-		upl_page_info_array_t *pl, u8 **kaddr, const BOOL rw)
+		upl_page_info_array_t *pl, u8 **kaddr, const NTFS_BOOL rw)
 {
 	return ntfs_page_map_ext(ni, ofs, upl, pl, kaddr, FALSE, rw);
 }
 
 __private_extern__ void ntfs_page_unmap(ntfs_inode *ni, upl_t upl,
-		upl_page_info_array_t pl, const BOOL mark_dirty);
+		upl_page_info_array_t pl, const NTFS_BOOL mark_dirty);
 
 __private_extern__ void ntfs_page_dump(ntfs_inode *ni, upl_t upl,
 		upl_page_info_array_t pl);

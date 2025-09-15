@@ -22,6 +22,7 @@
 #include "GStreamerEMEUtilities.h"
 
 #include <wtf/StdLibExtras.h>
+#include <wtf/glib/GSpanExtras.h>
 #include <wtf/text/Base64.h>
 
 #if ENABLE(ENCRYPTED_MEDIA) && USE(GSTREAMER)
@@ -30,6 +31,24 @@ GST_DEBUG_CATEGORY_EXTERN(webkit_media_common_encryption_decrypt_debug_category)
 #define GST_CAT_DEFAULT webkit_media_common_encryption_decrypt_debug_category
 
 namespace WebCore {
+
+ProtectionSystemEvents::ProtectionSystemEvents(GstMessage* message)
+{
+    const GstStructure* structure = gst_message_get_structure(message);
+
+    const GValue* streamEncryptionEventsList = gst_structure_get_value(structure, "stream-encryption-events");
+    ASSERT(streamEncryptionEventsList && GST_VALUE_HOLDS_LIST(streamEncryptionEventsList));
+    unsigned numEvents = gst_value_list_get_size(streamEncryptionEventsList);
+    m_events.reserveInitialCapacity(numEvents);
+    for (unsigned i = 0; i < numEvents; ++i)
+        m_events.append(GRefPtr<GstEvent>(GST_EVENT_CAST(g_value_get_boxed(gst_value_list_get_value(streamEncryptionEventsList, i)))));
+    const GValue* streamEncryptionAllowedSystemsValue = gst_structure_get_value(structure, "available-stream-encryption-systems");
+    auto systemsArray = g_value_get_boxed(streamEncryptionAllowedSystemsValue);
+    if (!systemsArray)
+        return;
+    for (const auto system : span(static_cast<char**>(systemsArray)))
+        m_availableSystems.append(String::fromLatin1(system));
+}
 
 struct GMarkupParseContextUserData {
     bool isParsingPssh { false };

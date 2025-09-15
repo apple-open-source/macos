@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -266,10 +266,10 @@ void PDFDocumentImage::drawPDFPage(GraphicsContext& context)
 void PDFDocumentImage::dump(TextStream& ts) const
 {
     Image::dump(ts);
-    ts.dumpProperty("page-count", pageCount());
-    ts.dumpProperty("crop-box", m_cropBox);
+    ts.dumpProperty("page-count"_s, pageCount());
+    ts.dumpProperty("crop-box"_s, m_cropBox);
     if (m_rotationDegrees)
-        ts.dumpProperty("rotation", m_rotationDegrees);
+        ts.dumpProperty("rotation"_s, m_rotationDegrees);
 }
 
 }

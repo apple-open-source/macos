@@ -40,6 +40,7 @@
 #define FADV_SUCCESS            0       /* success */
 #define FADV_FLOW_CONTROLLED    1       /* regular flow control */
 #define FADV_SUSPENDED          2       /* flow control due to suspension */
+#define FADV_CONGESTED          3       /* AQM gives congestion notification signal */
 
 struct flowadv {
 	int32_t         code;           /* FADV advisory code */
@@ -55,7 +56,8 @@ struct flowadv_fcentry {
 	STAILQ_ENTRY(flowadv_fcentry) fce_link;
 	u_int32_t        fce_flowsrc_type;       /* FLOWSRC values */
 	u_int32_t        fce_flowid;
-	u_int32_t        fce_ce_cnt;
+	u_int32_t        fce_congestion_cnt;
+	u_int32_t        l4s_ce_cnt;
 	u_int32_t        fce_pkts_since_last_report;
 	fce_event_type_t fce_event_type;
 #if SKYWALK

@@ -78,7 +78,7 @@ typedef struct uthread * uthread_t;
 #include <sys/kdebug.h>
 
 #define USE_PC_TABLE 0
-#define KSANCOV_MAX_DEV 64
+#define KSANCOV_MAX_DEV 128
 #define KSANCOV_MAX_PCS (1024U * 64)  /* default to 256k buffer => 64k pcs */
 
 extern boolean_t ml_at_interrupt_context(void);
@@ -119,6 +119,8 @@ struct ksancov_od_module_handle {
 	uint32_t *start; /* guards boundaries */
 	uint32_t *stop;
 	uint64_t *gate; /* pointer to __DATA,__sancov_gate*/
+	uint64_t text_start; /* .text section start, stripped and unslided address */
+	uint64_t text_end;   /* .text section end, stripped and unslided address */
 };
 
 static struct ksancov_od_module_entry *ksancov_od_module_entries = NULL;
@@ -281,23 +283,23 @@ kcov_ksancov_trace_guard(uint32_t *guardp, void *caller)
 		return;
 	}
 
-	/*
-	 * Since this code was originally introduced, VM_KERNEL_UNSLIDE
-	 * evolved significantly, and it now expands to a series of
-	 * function calls that check whether the address is slid, mask
-	 * off tags and ultimately unslide the pointer.
-	 *
-	 * Therefore we need to make sure that we do not instrument any function
-	 * in the closure of VM_KERNEL_UNSLIDE: this would cause a loop where the
-	 * instrumentation callbacks end up calling into instrumented code.
-	 *
-	 */
-	uintptr_t pc = (uintptr_t)(VM_KERNEL_UNSLIDE(caller) - 1);
-
 	uint32_t gd = *guardp;
 	if (__improbable(gd && !(gd & GUARD_SEEN))) {
 		size_t idx = gd & GUARD_IDX_MASK;
 		if (idx < ksancov_edgemap->ke_nedges) {
+			/*
+			 * Since this code was originally introduced, VM_KERNEL_UNSLIDE
+			 * evolved significantly, and it now expands to a series of
+			 * function calls that check whether the address is slid, mask
+			 * off tags and ultimately unslide the pointer.
+			 *
+			 * Therefore we need to make sure that we do not instrument any function
+			 * in the closure of VM_KERNEL_UNSLIDE: this would cause a loop where the
+			 * instrumentation callbacks end up calling into instrumented code.
+			 *
+			 */
+			uintptr_t pc = (uintptr_t)(VM_KERNEL_UNSLIDE(caller) - 1);
+
 			ksancov_edgemap->ke_addrs[idx] = pc;
 			*guardp |= GUARD_SEEN;
 		}
@@ -308,7 +310,7 @@ void
 kcov_ksancov_trace_pc(kcov_thread_data_t *data, uint32_t *guardp, void *caller, uintptr_t sp)
 {
 #pragma unused(sp)
-	uintptr_t pc = (uintptr_t)(VM_KERNEL_UNSLIDE(caller) - 1);
+	uintptr_t pc;
 	ksancov_dev_t dev = data->ktd_device;
 
 	/* Check that we have coverage recording enabled for a thread. */
@@ -326,10 +328,12 @@ kcov_ksancov_trace_pc(kcov_thread_data_t *data, uint32_t *guardp, void *caller, 
 	 */
 	switch (dev->mode) {
 	case KS_MODE_TRACE:
+		pc = (uintptr_t)(VM_KERNEL_UNSLIDE(caller) - 1);
 		trace_pc_guard_pcs(dev, pc);
 		break;
 #if CONFIG_STKSZ
 	case KS_MODE_STKSIZE:
+		pc = (uintptr_t)(VM_KERNEL_UNSLIDE(caller) - 1);
 		trace_pc_guard_pcs_stk(dev, pc, data->ktd_stksz.kst_stksz);
 		break;
 #endif
@@ -365,6 +369,126 @@ kcov_ksancov_trace_pc_guard_init(uint32_t *start, uint32_t *stop)
 		kcov_ksancov_bookmark_on_demand_module(start, stop);
 	}
 }
+
+void
+kcov_ksancov_trace_cmp(kcov_thread_data_t *data, uint32_t type, uint64_t arg1, uint64_t arg2, void *caller)
+{
+	ksancov_dev_t dev = data->ktd_device;
+
+	/* Check that we have coverage recording enabled for a thread. */
+	if (__probable(dev == NULL)) {
+		return;
+	}
+
+	/* Check that we have cmps tracing enabled. */
+	if (os_atomic_load(&dev->cmps_hdr, relaxed) == NULL) {
+		return;
+	}
+	if (os_atomic_load(&dev->cmps_hdr->kh_enabled, relaxed) == 0) {
+		return;
+	}
+
+	/*
+	 * Treat all unsupported tracing modes as no-op. It is not destructive for the kernel itself just
+	 * coverage sanitiser will not record anything in such case.
+	 */
+	if (dev->cmps_mode != KS_CMPS_MODE_TRACE && dev->cmps_mode != KS_CMPS_MODE_TRACE_FUNC) {
+		return;
+	}
+
+	if (__improbable(dev->cmps_sz < sizeof(ksancov_trace_t))) {
+		return;
+	}
+	size_t max_entries = (dev->cmps_sz - sizeof(ksancov_trace_t)) / sizeof(ksancov_cmps_trace_ent_t);
+
+	if (os_atomic_load(&dev->cmps_trace->kt_head, relaxed) >= max_entries) {
+		return; /* overflow */
+	}
+
+	uint32_t idx = os_atomic_inc_orig(&dev->cmps_trace->kt_head, relaxed);
+	if (__improbable(idx >= max_entries)) {
+		return;
+	}
+
+	uint64_t pc = (uint64_t)(VM_KERNEL_UNSLIDE(caller) - 1);
+
+	ksancov_cmps_trace_ent_t *entries = (ksancov_cmps_trace_ent_t *)dev->cmps_trace->kt_entries;
+	entries[idx].pc = pc;
+	entries[idx].type = type;
+	entries[idx].args[0] = arg1;
+	entries[idx].args[1] = arg2;
+}
+
+void
+kcov_ksancov_trace_cmp_func(kcov_thread_data_t *data, uint32_t type, const void *arg1, size_t len1, const void *arg2, size_t len2, void *caller, bool always_log)
+{
+	if (len1 + len2 > KSANCOV_CMPS_TRACE_FUNC_MAX_BYTES) {
+		return;
+	}
+
+	ksancov_dev_t dev = data->ktd_device;
+
+	/* Check that we have coverage recording enabled for a thread. */
+	if (__probable(dev == NULL)) {
+		return;
+	}
+
+	/* Check that we have cmps tracing enabled. */
+	if (os_atomic_load(&dev->cmps_hdr, relaxed) == NULL) {
+		return;
+	}
+	if (os_atomic_load(&dev->cmps_hdr->kh_enabled, relaxed) == 0) {
+		return;
+	}
+
+	/*
+	 * Treat all unsupported tracing modes as no-op. It is not destructive for the kernel itself just
+	 * coverage sanitiser will not record anything in such case.
+	 */
+	if (dev->cmps_mode != KS_CMPS_MODE_TRACE_FUNC) {
+		return;
+	}
+
+	if (__improbable(dev->cmps_sz < sizeof(ksancov_trace_t))) {
+		return;
+	}
+
+	size_t max_entries = (dev->cmps_sz - sizeof(ksancov_trace_t)) / sizeof(ksancov_cmps_trace_ent_t);
+	if (os_atomic_load(&dev->cmps_trace->kt_head, relaxed) >= max_entries) {
+		return; /* overflow */
+	}
+
+	uintptr_t addr = (uintptr_t)VM_KERNEL_UNSLIDE(caller);
+	if (!addr) {
+		return;
+	}
+
+	if (!always_log && !kcov_ksancov_must_instrument((uintptr_t)caller)) {
+		return;
+	}
+
+	uint32_t space = (uint32_t)ksancov_cmps_trace_func_space(len1, len2);
+
+	uint32_t idx = os_atomic_add_orig(&dev->cmps_trace->kt_head, space / sizeof(ksancov_cmps_trace_ent_t), relaxed);
+	if (__improbable(idx >= max_entries)) {
+		return;
+	}
+
+	uint64_t pc = (uint64_t)(addr - 1);
+
+	ksancov_cmps_trace_ent_t *entries = (ksancov_cmps_trace_ent_t *)dev->cmps_trace->kt_entries;
+
+	entries[idx].pc = pc;
+	entries[idx].type = type;
+	entries[idx].len1_func = (uint16_t)len1;
+	entries[idx].len2_func = (uint16_t)len2;
+
+	uint8_t* func_args = (uint8_t*)entries[idx].args;
+
+	__builtin_memcpy(func_args, arg1, len1);
+	__builtin_memcpy(&func_args[len1], arg2, len2);
+}
+
 
 void
 kcov_ksancov_pcs_init(uintptr_t *start, uintptr_t *stop)
@@ -467,6 +591,8 @@ kcov_ksancov_bookmark_on_demand_module(uint32_t *start, uint32_t *stop)
 	handle->start = start;
 	handle->stop = stop;
 	handle->gate = gate_section;
+	handle->text_start = (uint64_t)VM_KERNEL_UNSLIDE(summary.text_exec_address);
+	handle->text_end = (uint64_t)VM_KERNEL_UNSLIDE(summary.text_exec_address + summary.text_exec_size);
 
 	strlcpy(entry->bundle, summary.name, sizeof(entry->bundle));
 	entry->idx = (uint32_t)idx;
@@ -475,6 +601,43 @@ kcov_ksancov_bookmark_on_demand_module(uint32_t *start, uint32_t *stop)
 	    entry->bundle, (uintptr_t)handle->start, (uintptr_t)handle->stop,
 	    handle->stop - handle->start, entry->idx);
 	lck_mtx_unlock(&ksancov_od_lck);
+}
+
+bool
+kcov_ksancov_must_instrument(uintptr_t addr)
+{
+	/*
+	 * If the kernel itself was not compiled with sanitizer coverage skip
+	 * addresses from the kernel itself and focus on KEXTs only.
+	 */
+#if __has_feature(coverage_sanitizer)
+	if (kernel_text_contains(addr)) {
+		return true;
+	}
+#endif
+
+	uintptr_t unslided_addr = (uintptr_t)VM_KERNEL_UNSLIDE(addr);
+	if (!unslided_addr) {
+		return false;
+	}
+
+	/*
+	 * Check that the address is in a KEXT and that the on demand gate is enabled
+	 * NOTE: We don't use any lock here as we are reading:
+	 *  1) atomically ksancov_od_modules_count, that can only increase
+	 *  2) ksancov_od_module_handles[...] that are constant after being added to the
+	 *     array, with only the gate field changing
+	 *  3) atomically the gate value
+	 */
+	unsigned int modules_count = os_atomic_load(&ksancov_od_modules_count, relaxed);
+	for (unsigned int idx = 0; idx < modules_count; idx++) {
+		struct ksancov_od_module_handle *handle = &ksancov_od_module_handles[idx];
+		if (unslided_addr >= handle->text_start && unslided_addr < handle->text_end && handle->gate) {
+			return os_atomic_load(handle->gate, relaxed) != 0;
+		}
+	}
+
+	return false;
 }
 
 /*
@@ -498,10 +661,13 @@ create_dev(dev_t dev)
 static void
 free_dev(ksancov_dev_t d)
 {
-	if (d->mode == KS_MODE_TRACE && d->trace) {
+	if ((d->mode == KS_MODE_TRACE || d->mode == KS_MODE_STKSIZE) && d->trace) {
 		kmem_free(kernel_map, (uintptr_t)d->trace, d->sz);
 	} else if (d->mode == KS_MODE_COUNTERS && d->counters) {
 		kmem_free(kernel_map, (uintptr_t)d->counters, d->sz);
+	}
+	if ((d->cmps_mode == KS_CMPS_MODE_TRACE || d->cmps_mode == KS_CMPS_MODE_TRACE_FUNC) && d->cmps_trace) {
+		kmem_free(kernel_map, (uintptr_t)d->cmps_trace, d->cmps_sz);
 	}
 	lck_mtx_destroy(&d->lock, &ksancov_lck_grp);
 	kfree_type(struct ksancov_dev, d);
@@ -648,7 +814,7 @@ ksancov_open(dev_t dev, int flags, int devtype, proc_t p)
 		size_t sz = sizeof(struct ksancov_edgemap) + nedges * sizeof(uintptr_t);
 
 		kern_return_t kr = kmem_alloc(kernel_map, &buf, sz,
-		    KMA_DATA | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_DIAG);
+		    KMA_DATA_SHARED | KMA_ZERO | KMA_PERMANENT, VM_KERN_MEMORY_DIAG);
 		if (kr) {
 			printf("ksancov: failed to allocate edge addr map\n");
 			lck_rw_unlock_exclusive(&ksancov_devs_lck);
@@ -691,7 +857,7 @@ ksancov_trace_alloc(ksancov_dev_t d, ksancov_mode_t mode, size_t maxpcs)
 	}
 
 	/* allocate the shared memory buffer */
-	kern_return_t kr = kmem_alloc(kernel_map, &buf, sz, KMA_DATA | KMA_ZERO,
+	kern_return_t kr = kmem_alloc(kernel_map, &buf, sz, KMA_DATA_SHARED | KMA_ZERO,
 	    VM_KERN_MEMORY_DIAG);
 	if (kr != KERN_SUCCESS) {
 		return ENOMEM;
@@ -723,7 +889,7 @@ ksancov_counters_alloc(ksancov_dev_t d)
 	size_t sz = sizeof(struct ksancov_counters) + ksancov_edgemap->ke_nedges * sizeof(uint8_t);
 
 	/* allocate the shared memory buffer */
-	kern_return_t kr = kmem_alloc(kernel_map, &buf, sz, KMA_DATA | KMA_ZERO,
+	kern_return_t kr = kmem_alloc(kernel_map, &buf, sz, KMA_DATA_SHARED | KMA_ZERO,
 	    VM_KERN_MEMORY_DIAG);
 	if (kr != KERN_SUCCESS) {
 		return ENOMEM;
@@ -814,6 +980,78 @@ ksancov_detach(ksancov_dev_t d)
 }
 
 static int
+ksancov_cmps_trace_alloc(ksancov_dev_t d, ksancov_cmps_mode_t mode, size_t maxcmps)
+{
+	if (d->cmps_mode != KS_CMPS_MODE_NONE) {
+		return EBUSY; /* cmps trace already created */
+	}
+	assert(d->cmps_trace == NULL);
+
+	uintptr_t buf;
+	size_t sz;
+
+	if (mode == KS_CMPS_MODE_TRACE || mode == KS_CMPS_MODE_TRACE_FUNC) {
+		if (os_mul_and_add_overflow(maxcmps, sizeof(ksancov_cmps_trace_ent_t),
+		    sizeof(struct ksancov_trace), &sz)) {
+			return EINVAL;
+		}
+	} else {
+		return EINVAL;
+	}
+
+	/* allocate the shared memory buffer */
+	kern_return_t kr = kmem_alloc(kernel_map, &buf, sz, KMA_DATA_SHARED | KMA_ZERO,
+	    VM_KERN_MEMORY_DIAG);
+	if (kr != KERN_SUCCESS) {
+		return ENOMEM;
+	}
+
+	struct ksancov_trace *cmps_trace = (struct ksancov_trace *)buf;
+	cmps_trace->kt_hdr.kh_magic = KSANCOV_CMPS_TRACE_MAGIC;
+	os_atomic_init(&cmps_trace->kt_head, 0);
+	os_atomic_init(&cmps_trace->kt_hdr.kh_enabled, 0);
+	cmps_trace->kt_maxent = (uint32_t)maxcmps;
+
+	d->cmps_trace = cmps_trace;
+	d->cmps_sz = sz;
+	d->cmps_mode = mode;
+
+	return 0;
+}
+
+/*
+ * map the sancov comparisons buffer into the current process
+ */
+static int
+ksancov_cmps_map(ksancov_dev_t d, uintptr_t *bufp, size_t *sizep)
+{
+	uintptr_t addr;
+	size_t size = d->cmps_sz;
+
+	switch (d->cmps_mode) {
+	case KS_CMPS_MODE_TRACE:
+	case KS_CMPS_MODE_TRACE_FUNC:
+		if (!d->cmps_trace) {
+			return EINVAL;
+		}
+		addr = (uintptr_t)d->cmps_trace;
+		break;
+	default:
+		return EINVAL; /* not configured */
+	}
+
+	void *buf = ksancov_do_map(addr, size, VM_PROT_READ | VM_PROT_WRITE);
+	if (buf == NULL) {
+		return ENOMEM;
+	}
+
+	*bufp = (uintptr_t)buf;
+	*sizep = size;
+
+	return 0;
+}
+
+static int
 ksancov_close(dev_t dev, int flags, int devtype, proc_t p)
 {
 #pragma unused(flags,devtype,p)
@@ -840,6 +1078,9 @@ ksancov_close(dev_t dev, int flags, int devtype, proc_t p)
 
 	if (d->mode != KS_MODE_NONE && d->hdr != NULL) {
 		os_atomic_store(&d->hdr->kh_enabled, 0, relaxed); /* stop tracing */
+	}
+	if (d->cmps_mode != KS_CMPS_MODE_NONE && d->cmps_hdr != NULL) {
+		os_atomic_store(&d->cmps_hdr->kh_enabled, 0, relaxed); /* stop tracing cmps */
 	}
 
 	ksancov_detach(d);
@@ -896,9 +1137,27 @@ ksancov_handle_on_demand_cmd(struct ksancov_on_demand_msg *kmsg)
 	struct ksancov_od_module_entry *entry = NULL;
 	struct ksancov_od_module_handle *handle = NULL;
 	ksancov_on_demand_operation_t op = kmsg->operation;
-	int ret = 0;
 
 	lck_mtx_lock(&ksancov_od_lck);
+
+	if (op == KS_OD_GET_BUNDLE) {
+		uint64_t pc = kmsg->pc;
+		for (unsigned int idx = 0; idx < ksancov_od_modules_count; idx++) {
+			entry = &ksancov_od_module_entries[idx];
+			handle = &ksancov_od_module_handles[idx];
+
+			if (pc >= handle->text_start && pc < handle->text_end) {
+				strncpy(kmsg->bundle, entry->bundle, sizeof(kmsg->bundle));
+				lck_mtx_unlock(&ksancov_od_lck);
+				return 0;
+			}
+		}
+
+		lck_mtx_unlock(&ksancov_od_lck);
+		return EINVAL;
+	}
+
+	int ret = 0;
 
 	/* find the entry/handle to the module */
 	for (unsigned int idx = 0; idx < ksancov_od_modules_count; idx++) {
@@ -945,8 +1204,8 @@ ksancov_handle_on_demand_cmd(struct ksancov_on_demand_msg *kmsg)
 		/* Get which range of the guards table covers the given module */
 		ksancov_od_log("ksancov: Range for '%s': %u, %u\n",
 		    kmsg->bundle, *handle->start, *(handle->stop - 1));
-		kmsg->range.start = *handle->start;
-		kmsg->range.stop = *(handle->stop - 1);
+		kmsg->range.start = *handle->start & GUARD_IDX_MASK;
+		kmsg->range.stop = *(handle->stop - 1) & GUARD_IDX_MASK;
 		break;
 	default:
 		ret = EINVAL;
@@ -1015,6 +1274,19 @@ ksancov_ioctl(dev_t dev, unsigned long cmd, caddr_t _data, int fflag, proc_t p)
 		break;
 	case KSANCOV_IOC_TESTPANIC:
 		ksancov_testpanic(*(uint64_t *)data);
+		break;
+	case KSANCOV_IOC_CMPS_TRACE:
+	case KSANCOV_IOC_CMPS_TRACE_FUNC:
+		lck_mtx_lock(&d->lock);
+		ksancov_cmps_mode_t cmp_mode = (cmd == KSANCOV_IOC_CMPS_TRACE) ? KS_CMPS_MODE_TRACE : KS_CMPS_MODE_TRACE_FUNC;
+		ret = ksancov_cmps_trace_alloc(d, cmp_mode, *(size_t *)data);
+		lck_mtx_unlock(&d->lock);
+		break;
+	case KSANCOV_IOC_CMPS_MAP:
+		mcmd = (struct ksancov_buf_desc *)data;
+		lck_mtx_lock(&d->lock);
+		ret = ksancov_cmps_map(d, &mcmd->ptr, &mcmd->sz);
+		lck_mtx_unlock(&d->lock);
 		break;
 	default:
 		ret = EINVAL;

@@ -219,8 +219,8 @@ static void munge_vinfo_stat(struct stat64 *sbp, struct vinfo_stat *vsbp);
 static int proc_piduuidinfo(pid_t pid, uuid_t uuid_buf, uint32_t buffersize);
 
 extern int proc_pidpathinfo_internal(proc_t p, __unused uint64_t arg, char *buf, uint32_t buffersize, __unused int32_t *retval);
-extern int cansignal(struct proc *, kauth_cred_t, struct proc *, int);
-extern int cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum);
+extern bool cansignal(struct proc *, kauth_cred_t, struct proc *, int);
+extern bool cansignal_nomac(proc_t src, kauth_cred_t uc_src, proc_t dst, int signum);
 extern int proc_get_rusage(proc_t proc, int flavor, user_addr_t buffer, int is_zombie);
 
 #define CHECK_SAME_USER         TRUE
@@ -3539,7 +3539,7 @@ proc_ident_for_audit_token(proc_ident_t out, audit_token_t token)
 		goto out;
 	}
 
-	*out = proc_ident(p);
+	*out = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 out:
 	if (p != PROC_NULL) {
 		proc_rele(p);

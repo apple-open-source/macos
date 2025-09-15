@@ -25,7 +25,12 @@
 
 #import <WebKit/WKNavigation.h>
 
+@class WKNavigationAction;
+@class WKFrameInfo;
+
 @interface WKNavigation (WKPrivate)
 @property (nonatomic, readonly, copy) NSURLRequest *_request;
+@property (nonatomic, readonly, copy) WKFrameInfo *_initiatingFrame WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 @property (nonatomic, readonly, getter=_isUserInitiated) BOOL _userInitiated;
+
 @end

@@ -163,6 +163,7 @@ _Ppmd8_Update1_0
 _Ppmd8_Update2
 _Ppmd8_UpdateBin
 ___archive_mkstemp
+___archive_get_tempdir
 ___archive_ppmd8_functions
 ___archive_read_header
 ___archive_write_entry_filetype_unsupported

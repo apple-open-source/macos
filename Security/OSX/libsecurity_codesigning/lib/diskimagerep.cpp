@@ -189,7 +189,7 @@ void DiskImageRep::prepareForSigning(SigningContext& context)
 {
 	// default to SHA256 unconditionally - we have no legacy issues to worry about
 	if (context.digestAlgorithms().empty())
-		context.setDigestAlgorithm(kSecCodeSignatureHashSHA256);
+		context.addDigestAlgorithm(kSecCodeSignatureHashSHA256);
 }
 
 

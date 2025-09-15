@@ -23,14 +23,20 @@
 
 #if ENABLE(MODEL_PROCESS)
 
-[EnabledBy=ModelElementEnabled && ModelProcessEnabled]
+[
+    DispatchedFrom=WebContent,
+    DispatchedTo=Model,
+    EnabledBy=ModelElementEnabled && ModelProcessEnabled
+]
 messages -> ModelProcessModelPlayerProxy {
     CreateLayer()
+    ReloadModel(Ref<WebCore::Model> model, WebCore::LayoutSize layoutSize, std::optional<WebCore::TransformationMatrix> entityTransformToRestore, std::optional<WebCore::ModelPlayerAnimationState> animationStateToRestore)
+    ModelVisibilityDidChange(bool isVisible)
+    DisableUnloadDelayForTesting()
     
     # WebCore::ModelPlayer
     LoadModel(Ref<WebCore::Model> url, WebCore::LayoutSize layoutSize)
     SizeDidChange(WebCore::LayoutSize layoutSize)
-    SetBackgroundColor(WebCore::Color color)
     SetEntityTransform(WebCore::TransformationMatrix transform)
     SetAutoplay(bool autoplay)
     SetLoop(bool loop)
@@ -39,6 +45,12 @@ messages -> ModelProcessModelPlayerProxy {
     SetCurrentTime(Seconds currentTime) -> () Async
     SetEnvironmentMap(Ref<WebCore::SharedBuffer> data)
     SetHasPortal(bool hasPortal)
+    SetStageMode(enum:bool WebCore::StageModeOperation stagemodeOp)
+    BeginStageModeTransform(WebCore::TransformationMatrix transform)
+    UpdateStageModeTransform(WebCore::TransformationMatrix transform)
+    EndStageModeInteraction()
+    AnimateModelToFitPortal() -> (bool success)
+    ResetModelTransformAfterDrag()
 }
 
 #endif

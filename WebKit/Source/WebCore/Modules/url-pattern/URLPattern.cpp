@@ -26,6 +26,7 @@
 #include "config.h"
 #include "URLPattern.h"
 
+#include "ExceptionOr.h"
 #include "ScriptExecutionContext.h"
 #include "URLPatternCanonical.h"
 #include "URLPatternConstructorStringParser.h"
@@ -81,10 +82,8 @@ static ExceptionOr<URLPatternInit> processInit(URLPatternInit&& init, BaseURLStr
     if  (!init.baseURL.isNull()) {
         baseURL = URL(init.baseURL);
 
-        if (!baseURL.isValid()) {
-            // FIXME: Check if empty string should be allowed.
+        if (!baseURL.isValid())
             return Exception { ExceptionCode::TypeError, "Invalid baseURL."_s };
-        }
 
         if (init.protocol.isNull())
             result.protocol = processBaseURLString(baseURL.protocol(), type);
@@ -166,7 +165,7 @@ static ExceptionOr<URLPatternInit> processInit(URLPatternInit&& init, BaseURLStr
     }
 
     if (!init.port.isNull()) {
-        auto portResult = canonicalizePort(init.port, init.protocol, type);
+        auto portResult = canonicalizePort(init.port, result.protocol, type);
 
         if (portResult.hasException())
             return portResult.releaseException();
@@ -279,6 +278,18 @@ ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context,
     return create(context, WTFMove(*input), String { }, WTFMove(options));
 }
 
+// https://urlpattern.spec.whatwg.org/#build-a-url-pattern-from-a-web-idl-value
+ExceptionOr<Ref<URLPattern>> URLPattern::create(ScriptExecutionContext& context, Compatible&& value, const String& baseURL)
+{
+    return switchOn(WTFMove(value), [&](RefPtr<URLPattern>&& pattern) -> ExceptionOr<Ref<URLPattern>> {
+        return pattern.releaseNonNull();
+    }, [&](URLPatternInit&& init) -> ExceptionOr<Ref<URLPattern>> {
+        return URLPattern::create(context, WTFMove(init), { }, { });
+    }, [&](String&& string) -> ExceptionOr<Ref<URLPattern>> {
+        return URLPattern::create(context, WTFMove(string), String { baseURL }, { });
+    });
+}
+
 URLPattern::~URLPattern() = default;
 
 // https://urlpattern.spec.whatwg.org/#dom-urlpattern-test
@@ -381,7 +392,7 @@ static inline void matchHelperAssignInputsFromInit(const URLPatternInit& input, 
 }
 
 // https://urlpattern.spec.whatwg.org/#url-pattern-match
-ExceptionOr<std::optional<URLPatternResult>> URLPattern::match(ScriptExecutionContext& context, std::variant<URL, URLPatternInput>&& input, String&& baseURLString) const
+ExceptionOr<std::optional<URLPatternResult>> URLPattern::match(ScriptExecutionContext& context, Variant<URL, URLPatternInput>&& input, String&& baseURLString) const
 {
     URLPatternResult result;
     String protocol, username, password, hostname, port, pathname, search, hash;
@@ -430,42 +441,46 @@ ExceptionOr<std::optional<URLPatternResult>> URLPattern::match(ScriptExecutionCo
     auto protocolExecResult = m_protocolComponent.componentExec(context, protocol);
     if (protocolExecResult.isNull() || protocolExecResult.isUndefined())
         return { std::nullopt };
-    result.protocol = m_protocolComponent.createComponentMatchResult(context, WTFMove(protocol), protocolExecResult);
+
+    auto* globalObject = context.globalObject();
+    if (!globalObject)
+        return  { std::nullopt };
+    result.protocol = m_protocolComponent.createComponentMatchResult(globalObject, WTFMove(protocol), protocolExecResult);
 
     auto usernameExecResult = m_usernameComponent.componentExec(context, username);
     if (usernameExecResult.isNull() || usernameExecResult.isUndefined())
         return { std::nullopt };
-    result.username = m_usernameComponent.createComponentMatchResult(context, WTFMove(username), usernameExecResult);
+    result.username = m_usernameComponent.createComponentMatchResult(globalObject, WTFMove(username), usernameExecResult);
 
     auto passwordExecResult = m_passwordComponent.componentExec(context, password);
     if (passwordExecResult.isNull() || passwordExecResult.isUndefined())
         return { std::nullopt };
-    result.password = m_passwordComponent.createComponentMatchResult(context, WTFMove(password), passwordExecResult);
+    result.password = m_passwordComponent.createComponentMatchResult(globalObject, WTFMove(password), passwordExecResult);
 
     auto hostnameExecResult = m_hostnameComponent.componentExec(context, hostname);
     if (hostnameExecResult.isNull() || hostnameExecResult.isUndefined())
         return { std::nullopt };
-    result.hostname = m_hostnameComponent.createComponentMatchResult(context, WTFMove(hostname), hostnameExecResult);
+    result.hostname = m_hostnameComponent.createComponentMatchResult(globalObject, WTFMove(hostname), hostnameExecResult);
 
     auto pathnameExecResult = m_pathnameComponent.componentExec(context, pathname);
     if (pathnameExecResult.isNull() || pathnameExecResult.isUndefined())
         return { std::nullopt };
-    result.pathname = m_pathnameComponent.createComponentMatchResult(context, WTFMove(pathname), pathnameExecResult);
+    result.pathname = m_pathnameComponent.createComponentMatchResult(globalObject, WTFMove(pathname), pathnameExecResult);
 
     auto portExecResult = m_portComponent.componentExec(context, port);
     if (portExecResult.isNull() || portExecResult.isUndefined())
         return { std::nullopt };
-    result.port = m_portComponent.createComponentMatchResult(context, WTFMove(port), portExecResult);
+    result.port = m_portComponent.createComponentMatchResult(globalObject, WTFMove(port), portExecResult);
 
     auto searchExecResult = m_searchComponent.componentExec(context, search);
     if (searchExecResult.isNull() || searchExecResult.isUndefined())
         return { std::nullopt };
-    result.search = m_searchComponent.createComponentMatchResult(context, WTFMove(search), searchExecResult);
+    result.search = m_searchComponent.createComponentMatchResult(globalObject, WTFMove(search), searchExecResult);
 
     auto hashExecResult = m_hashComponent.componentExec(context, hash);
     if (hashExecResult.isNull() || hashExecResult.isUndefined())
         return { std::nullopt };
-    result.hash = m_hashComponent.createComponentMatchResult(context, WTFMove(hash), hashExecResult);
+    result.hash = m_hashComponent.createComponentMatchResult(globalObject, WTFMove(hash), hashExecResult);
 
     return { result };
 }

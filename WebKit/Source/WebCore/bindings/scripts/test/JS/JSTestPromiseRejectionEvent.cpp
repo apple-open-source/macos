@@ -22,6 +22,7 @@
 #include "JSTestPromiseRejectionEvent.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMPromiseProxy.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
@@ -59,7 +60,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -72,7 +73,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto bubblesConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, bubblesValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(bubblesConversionResult.hasException(throwScope)))
+    if (bubblesConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.bubbles = bubblesConversionResult.releaseReturnValue();
     JSValue cancelableValue;
@@ -83,7 +84,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto cancelableConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, cancelableValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(cancelableConversionResult.hasException(throwScope)))
+    if (cancelableConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.cancelable = cancelableConversionResult.releaseReturnValue();
     JSValue composedValue;
@@ -94,7 +95,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto composedConversionResult = convertOptionalWithDefault<IDLBoolean>(lexicalGlobalObject, composedValue, [&]() -> ConversionResult<IDLBoolean> { return Converter<IDLBoolean>::ReturnType { false }; });
-    if (UNLIKELY(composedConversionResult.hasException(throwScope)))
+    if (composedConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.composed = composedConversionResult.releaseReturnValue();
     JSValue promiseValue;
@@ -109,7 +110,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
         return ConversionResultException { };
     }
     auto promiseConversionResult = convert<IDLPromise<IDLAny>>(lexicalGlobalObject, promiseValue);
-    if (UNLIKELY(promiseConversionResult.hasException(throwScope)))
+    if (promiseConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.promise = promiseConversionResult.releaseReturnValue();
     JSValue reasonValue;
@@ -120,7 +121,7 @@ template<> ConversionResult<IDLDictionary<TestPromiseRejectionEvent::Init>> conv
         RETURN_IF_EXCEPTION(throwScope, ConversionResultException { });
     }
     auto reasonConversionResult = convertOptionalWithDefault<IDLAny>(lexicalGlobalObject, reasonValue, [&]() -> ConversionResult<IDLAny> { return Converter<IDLAny>::ReturnType { jsUndefined() }; });
-    if (UNLIKELY(reasonConversionResult.hasException(throwScope)))
+    if (reasonConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.reason = reasonConversionResult.releaseReturnValue();
     return result;
@@ -172,15 +173,15 @@ template<> EncodedJSValue JSC_HOST_CALL_ATTRIBUTES JSTestPromiseRejectionEventDO
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* castedThis = jsCast<JSTestPromiseRejectionEventDOMConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    if (UNLIKELY(callFrame->argumentCount() < 2))
+    if (callFrame->argumentCount() < 2) [[unlikely]]
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto typeConversionResult = convert<IDLAtomStringAdaptor<IDLDOMString>>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(typeConversionResult.hasException(throwScope)))
+    if (typeConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
     auto eventInitDictConversionResult = convert<IDLDictionary<TestPromiseRejectionEvent::Init>>(*lexicalGlobalObject, argument1.value());
-    if (UNLIKELY(eventInitDictConversionResult.hasException(throwScope)))
+    if (eventInitDictConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     auto object = TestPromiseRejectionEvent::create(*castedThis->globalObject(), typeConversionResult.releaseReturnValue(), eventInitDictConversionResult.releaseReturnValue());
     if constexpr (IsExceptionOr<decltype(object)>)
@@ -264,7 +265,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestPromiseRejectionEventConstructor, (JSGlobalObject
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestPromiseRejectionEventPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestPromiseRejectionEvent::getConstructor(vm, prototype->globalObject()));
 }
@@ -297,7 +298,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestPromiseRejectionEvent_reason, (JSGlobalObject* le
 
 JSC::GCClient::IsoSubspace* JSTestPromiseRejectionEvent::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestPromiseRejectionEvent, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestPromiseRejectionEvent, UseCustomHeapCellType::No>(vm, "JSTestPromiseRejectionEvent"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestPromiseRejectionEvent.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestPromiseRejectionEvent = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestPromiseRejectionEvent.get(); },
@@ -322,7 +323,9 @@ extern "C" { extern void (*const __identifier("??_7TestPromiseRejectionEvent@Web
 #else
 extern "C" { extern void* _ZTVN7WebCore25TestPromiseRejectionEventE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestPromiseRejectionEvent>, void>> static inline void verifyVTable(TestPromiseRejectionEvent* ptr) {
+template<std::same_as<TestPromiseRejectionEvent> T>
+static inline void verifyVTable(TestPromiseRejectionEvent* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

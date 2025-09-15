@@ -104,7 +104,7 @@ private:
 
     bool canRunBeforeUnloadConfirmPanel() const final { return true; }
 
-    void runBeforeUnloadConfirmPanel(WebPageProxy&, const String& message, WebFrameProxy*, WebKit::FrameInfoData&&, Function<void(bool)>&& completionHandler) final
+    void runBeforeUnloadConfirmPanel(WebPageProxy&, String&& message, WebFrameProxy*, WebKit::FrameInfoData&&, Function<void(bool)>&& completionHandler) final
     {
         webkitWebViewRunJavaScriptBeforeUnloadConfirm(m_webView, message.utf8(), WTFMove(completionHandler));
     }
@@ -164,14 +164,14 @@ private:
         if (geometry.width != targetGeometry->width || geometry.height != targetGeometry->height)
             return FALSE;
 
-        RunLoop::current().stop();
+        RunLoop::currentSingleton().stop();
         return FALSE;
     }
 #endif // PLATFORM(GTK) && !USE(GTK4)
 
     void setWindowFrameTimerFired()
     {
-        RunLoop::current().stop();
+        RunLoop::currentSingleton().stop();
     }
 
     void setWindowFrame(WebPageProxy&, const WebCore::FloatRect& frame) final
@@ -207,7 +207,7 @@ private:
             auto* surface = gtk_native_get_surface(GTK_NATIVE(window));
             auto signalID = g_signal_connect(surface, "layout", G_CALLBACK(+[](GdkSurface*, int width, int height, GdkRectangle* targetGeometry) {
                 if (width == targetGeometry->width && height == targetGeometry->height)
-                    RunLoop::current().stop();
+                    RunLoop::currentSingleton().stop();
             }), &geometry);
 #else
             auto signalID = g_signal_connect(window, "configure-event", G_CALLBACK(windowConfigureEventCallback), &geometry);
@@ -219,7 +219,7 @@ private:
 
             // We need the move/resize to happen synchronously in automation mode, so we use a nested RunLoop
             // to wait, up top 200 milliseconds, for the configure events.
-            auto timer = makeUnique<RunLoop::Timer>(RunLoop::main(), this, &UIClient::setWindowFrameTimerFired);
+            auto timer = makeUnique<RunLoop::Timer>(RunLoop::mainSingleton(), "setWindowFrame timer"_s, this, &UIClient::setWindowFrameTimerFired);
             timer->setPriority(RunLoopSourcePriority::RunLoopTimer);
             timer->startOneShot(200_ms);
             RunLoop::run();
@@ -295,12 +295,6 @@ private:
     {
         GRefPtr<WebKitUserMediaPermissionRequest> userMediaPermissionRequest = adoptGRef(webkitUserMediaPermissionRequestCreate(permissionRequest, userMediaDocumentOrigin, topLevelDocumentOrigin));
         webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(userMediaPermissionRequest.get()));
-    }
-
-    void checkUserMediaPermissionForOrigin(WebPageProxy& page, WebFrameProxy&, API::SecurityOrigin& userMediaDocumentOrigin, API::SecurityOrigin& topLevelDocumentOrigin, UserMediaPermissionCheckProxy& permissionRequest) override
-    {
-        auto deviceInfoPermissionRequest = adoptGRef(webkitDeviceInfoPermissionRequestCreate(permissionRequest, page.websiteDataStore().ensureProtectedDeviceIdHashSaltStorage().ptr()));
-        webkitWebViewMakePermissionRequest(m_webView, WEBKIT_PERMISSION_REQUEST(deviceInfoPermissionRequest.get()));
     }
 
     void decidePolicyForNotificationPermissionRequest(WebPageProxy&, API::SecurityOrigin&, CompletionHandler<void(bool allowed)>&& completionHandler) final

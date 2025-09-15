@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2006 Jon Shier (jshier@iastate.edu)
- *  Copyright (C) 2003-2021 Apple Inc. All rights reseved.
+ *  Copyright (C) 2003-2025 Apple Inc. All rights reseved.
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  *  Copyright (c) 2015 Canon Inc. All rights reserved.
  *
@@ -265,7 +265,7 @@ public:
     {
         auto runnability = currentRunnability();
         if (runnability == JSC::QueuedTask::Result::Executed) {
-            UserGestureIndicator gestureIndicator(m_userGestureToken.ptr(), UserGestureToken::GestureScope::MediaOnly, UserGestureToken::IsPropagatedFromFetch::Yes);
+            UserGestureIndicator gestureIndicator(m_userGestureToken.ptr(), UserGestureToken::GestureScope::MediaOnly, UserGestureToken::ShouldPropagateToMicroTask::Yes);
             JSExecState::runTask(task.globalObject(), task);
         }
         return runnability;
@@ -277,7 +277,7 @@ public:
     }
 
 private:
-    Ref<UserGestureToken> m_userGestureToken;
+    const Ref<UserGestureToken> m_userGestureToken;
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UserGestureInitiatedMicrotaskDispatcher);
@@ -291,7 +291,7 @@ void JSDOMWindowBase::queueMicrotaskToEventLoop(JSGlobalObject& object, QueuedTa
     auto& eventLoop = objectScriptExecutionContext->eventLoop();
     // Propagating media only user gesture for Fetch API's promise chain.
     auto userGestureToken = UserGestureIndicator::currentUserGesture();
-    if (userGestureToken && (!userGestureToken->isPropagatedFromFetch() || !objectScriptExecutionContext->settingsValues().userGesturePromisePropagationEnabled))
+    if (userGestureToken && (!userGestureToken->shouldPropagateToMicroTask() || !objectScriptExecutionContext->settingsValues().userGesturePromisePropagationEnabled))
         userGestureToken = nullptr;
 
     if (!userGestureToken)
@@ -399,7 +399,7 @@ LocalDOMWindow& legacyActiveDOMWindowForAccessor(JSGlobalObject& fallbackGlobalO
 void JSDOMWindowBase::fireFrameClearedWatchpointsForWindow(LocalDOMWindow* window)
 {
     JSC::VM& vm = commonVM();
-    JSVMClientData* clientData = static_cast<JSVMClientData*>(vm.clientData);
+    JSVMClientData* clientData = downcast<JSVMClientData>(vm.clientData);
     Vector<Ref<DOMWrapperWorld>> wrapperWorlds;
     clientData->getAllWorlds(wrapperWorlds);
     for (unsigned i = 0; i < wrapperWorlds.size(); ++i) {

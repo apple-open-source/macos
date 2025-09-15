@@ -102,7 +102,7 @@ void WebExtensionCommand::dispatchChangedEventSoonIfNeeded()
     }).get());
 }
 
-bool WebExtensionCommand::setActivationKey(String activationKey)
+bool WebExtensionCommand::setActivationKey(String activationKey, SuppressEvents suppressEvents)
 {
     if (activationKey.isEmpty()) {
         m_activationKey = nullString();
@@ -129,12 +129,17 @@ bool WebExtensionCommand::setActivationKey(String activationKey)
         notAllowedCharacterSet = allowedCharacterSet.invertedSet;
     });
 
-    if ([(NSString *)activationKey rangeOfCharacterFromSet:notAllowedCharacterSet].location != NSNotFound)
+    if ([activationKey.createNSString() rangeOfCharacterFromSet:notAllowedCharacterSet].location != NSNotFound)
         return false;
 
-    dispatchChangedEventSoonIfNeeded();
+    if (suppressEvents == SuppressEvents::No)
+        dispatchChangedEventSoonIfNeeded();
 
+#if PLATFORM(IOS_FAMILY)
+    m_activationKey = activationKey.convertToASCIIUppercase();
+#else
     m_activationKey = activationKey.convertToASCIILowercase();
+#endif
 
     return true;
 }
@@ -218,7 +223,7 @@ String WebExtensionCommand::userVisibleShortcut() const
         return emptyString();
 
 #if PLATFORM(MAC)
-    NSKeyboardShortcut *shortcut = [NSKeyboardShortcut shortcutWithKeyEquivalent:key modifierMask:flags.toRaw()];
+    NSKeyboardShortcut *shortcut = [NSKeyboardShortcut shortcutWithKeyEquivalent:key.createNSString().get() modifierMask:flags.toRaw()];
     return shortcut.localizedDisplayName ?: @"";
 #else
     static NeverDestroyed<HashMap<String, String>> specialKeyMap = HashMap<String, String> {
@@ -275,19 +280,19 @@ String WebExtensionCommand::userVisibleShortcut() const
 CocoaMenuItem *WebExtensionCommand::platformMenuItem() const
 {
 #if USE(APPKIT)
-    auto *result = [[_WKWebExtensionMenuItem alloc] initWithTitle:description() handler:makeBlockPtr([this, protectedThis = Ref { *this }](id sender) mutable {
+    auto *result = [[_WKWebExtensionMenuItem alloc] initWithTitle:description().createNSString().get() handler:makeBlockPtr([this, protectedThis = Ref { *this }](id sender) mutable {
         if (RefPtr context = extensionContext())
             context->performCommand(const_cast<WebExtensionCommand&>(*this), WebExtensionContext::UserTriggered::Yes);
     }).get()];
 
-    result.keyEquivalent = activationKey();
+    result.keyEquivalent = activationKey().createNSString().get();
     result.keyEquivalentModifierMask = modifierFlags().toRaw();
     if (RefPtr context = extensionContext())
-        result.image = toCocoaImage(context->extension().icon(WebCore::FloatSize(16, 16)));
+        result.image = toCocoaImage(context->protectedExtension()->icon(WebCore::FloatSize(16, 16)));
 
     return result;
 #else
-    return [UIAction actionWithTitle:description() image:nil identifier:nil handler:makeBlockPtr([this, protectedThis = Ref { *this }](UIAction *) mutable {
+    return [UIAction actionWithTitle:description().createNSString().get() image:nil identifier:nil handler:makeBlockPtr([this, protectedThis = Ref { *this }](UIAction *) mutable {
         if (RefPtr context = extensionContext())
             context->performCommand(const_cast<WebExtensionCommand&>(*this), WebExtensionContext::UserTriggered::Yes);
     }).get()];
@@ -300,12 +305,12 @@ UIKeyCommand *WebExtensionCommand::keyCommand() const
     if (activationKey().isEmpty())
         return nil;
 
-    return [_WKWebExtensionKeyCommand commandWithTitle:description() image:nil input:activationKey() modifierFlags:modifierFlags().toRaw() identifier:identifier()];
+    return [_WKWebExtensionKeyCommand commandWithTitle:description().createNSString().get() image:nil input:activationKey().createNSString().get() modifierFlags:modifierFlags().toRaw() identifier:identifier().createNSString().get()];
 }
 
 bool WebExtensionCommand::matchesKeyCommand(UIKeyCommand *keyCommand) const
 {
-    return keyCommand.modifierFlags == modifierFlags().toRaw() && [keyCommand.input isEqual:activationKey()] && [keyCommand.propertyList[@"identifier"] isEqual:identifier()];
+    return keyCommand.modifierFlags == modifierFlags().toRaw() && [keyCommand.input isEqual:activationKey().createNSString().get()] && [keyCommand.propertyList[@"identifier"] isEqual:identifier().createNSString().get()];
 }
 #endif
 

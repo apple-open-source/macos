@@ -104,6 +104,7 @@
 #if CONFIG_FREEZE
 #include <sys/kern_memorystatus_freeze.h> /* for memorystatus_freeze_mark_ui_transition */
 #endif /* CONFIG_FREEZE */
+#include <sys/kern_memorystatus_xnu.h> /* for memorystatus_get_proc_is_managed */
 #include <sys/socketvar.h>      /* for struct socket */
 #if NECP
 #include <net/necp.h>
@@ -131,13 +132,16 @@ static int dosetrlimit(struct proc *p, u_int which, struct rlimit *limp);
 static void do_background_socket(struct proc *p, thread_t thread);
 static int do_background_thread(thread_t thread, int priority);
 static int do_background_proc(struct proc *curp, struct proc *targetp, int priority);
-static int set_gpudeny_proc(struct proc *curp, struct proc *targetp, int priority);
+static int proc_set_gpurole(struct proc *curp, struct proc *targetp, int priority);
+static int proc_get_gpurole(proc_t targetp, int *priority);
 static int proc_set_darwin_role(proc_t curp, proc_t targetp, int priority);
 static int proc_get_darwin_role(proc_t curp, proc_t targetp, int *priority);
 static int proc_set_game_mode(proc_t targetp, int priority);
 static int proc_get_game_mode(proc_t targetp, int *priority);
 static int proc_set_carplay_mode(proc_t targetp, int priority);
 static int proc_get_carplay_mode(proc_t targetp, int *priority);
+static int proc_set_runaway_mitigation(proc_t targetp, int priority);
+static int proc_get_runaway_mitigation(proc_t targetp, int *priority);
 static int get_background_proc(struct proc *curp, struct proc *targetp, int *priority);
 
 int fill_task_rusage(task_t task, rusage_info_current *ri);
@@ -357,6 +361,50 @@ getpriority(struct proc *curp, struct getpriority_args *uap, int32_t *retval)
 		}
 		break;
 
+	case PRIO_DARWIN_GPU:
+		if (uap->who == 0) {
+			p = curp;
+		} else {
+			p = proc_find(uap->who);
+			if (p == PROC_NULL) {
+				break;
+			}
+			refheld = 1;
+		}
+
+
+		error = proc_get_gpurole(p, &low);
+
+		if (refheld) {
+			proc_rele(p);
+		}
+		if (error) {
+			return error;
+		}
+		break;
+
+	case PRIO_DARWIN_RUNAWAY_MITIGATION:
+		if (uap->who == 0) {
+			p = curp;
+		} else {
+			p = proc_find(uap->who);
+			if (p == PROC_NULL) {
+				break;
+			}
+			refheld = 1;
+		}
+
+
+		error = proc_get_runaway_mitigation(p, &low);
+
+		if (refheld) {
+			proc_rele(p);
+		}
+		if (error) {
+			return error;
+		}
+		break;
+
 	default:
 		return EINVAL;
 	}
@@ -533,7 +581,7 @@ setpriority(struct proc *curp, struct setpriority_args *uap, int32_t *retval)
 			break;
 		}
 
-		error = set_gpudeny_proc(curp, p, uap->prio);
+		error = proc_set_gpurole(curp, p, uap->prio);
 
 		found++;
 		proc_rele(p);
@@ -593,6 +641,26 @@ setpriority(struct proc *curp, struct setpriority_args *uap, int32_t *retval)
 		}
 
 		error = proc_set_carplay_mode(p, uap->prio);
+
+		found++;
+		if (refheld != 0) {
+			proc_rele(p);
+		}
+		break;
+	}
+
+	case PRIO_DARWIN_RUNAWAY_MITIGATION: {
+		if (uap->who == 0) {
+			p = curp;
+		} else {
+			p = proc_find(uap->who);
+			if (p == PROC_NULL) {
+				break;
+			}
+			refheld = 1;
+		}
+
+		error = proc_set_runaway_mitigation(p, uap->prio);
 
 		found++;
 		if (refheld != 0) {
@@ -663,8 +731,10 @@ out:
 	return error;
 }
 
+#define SET_GPU_ROLE_ENTITLEMENT "com.apple.private.set-gpu-role"
+
 static int
-set_gpudeny_proc(struct proc *curp, struct proc *targetp, int priority)
+proc_set_gpurole(struct proc *curp, struct proc *targetp, int priority)
 {
 	int error = 0;
 	kauth_cred_t ucred;
@@ -673,7 +743,12 @@ set_gpudeny_proc(struct proc *curp, struct proc *targetp, int priority)
 	ucred = kauth_cred_get();
 	target_cred = kauth_cred_proc_ref(targetp);
 
-	/* TODO: Entitlement instead of uid check */
+	boolean_t entitled = FALSE;
+	entitled = IOCurrentTaskHasEntitlement(SET_GPU_ROLE_ENTITLEMENT);
+	if (!entitled) {
+		error = EPERM;
+		goto out;
+	}
 
 	if (!kauth_cred_issuser(ucred) && kauth_cred_getruid(ucred) &&
 	    kauth_cred_getuid(ucred) != kauth_cred_getuid(target_cred) &&
@@ -695,11 +770,16 @@ set_gpudeny_proc(struct proc *curp, struct proc *targetp, int priority)
 #endif
 
 	switch (priority) {
-	case PRIO_DARWIN_GPU_DENY:
-		task_set_gpu_denied(proc_task(targetp), TRUE);
-		break;
+	case PRIO_DARWIN_GPU_UNKNOWN:
 	case PRIO_DARWIN_GPU_ALLOW:
-		task_set_gpu_denied(proc_task(targetp), FALSE);
+	case PRIO_DARWIN_GPU_DENY:
+	case PRIO_DARWIN_GPU_BACKGROUND:
+	case PRIO_DARWIN_GPU_UTILITY:
+	case PRIO_DARWIN_GPU_UI_NON_FOCAL:
+	case PRIO_DARWIN_GPU_UI:
+	case PRIO_DARWIN_GPU_UI_FOCAL:
+		task_set_gpu_role(proc_task(targetp),
+		    (darwin_gpu_role_t)priority);
 		break;
 	default:
 		error = EINVAL;
@@ -710,6 +790,42 @@ out:
 	kauth_cred_unref(&target_cred);
 	return error;
 }
+
+static int
+proc_get_gpurole(proc_t targetp, int *priority)
+{
+	int error = 0;
+
+	kauth_cred_t ucred, target_cred;
+
+	ucred = kauth_cred_get();
+	target_cred = kauth_cred_proc_ref(targetp);
+
+	boolean_t entitled = FALSE;
+	entitled = IOCurrentTaskHasEntitlement(SET_GPU_ROLE_ENTITLEMENT);
+
+	/* Root is allowed to get without entitlement */
+	if (!kauth_cred_issuser(ucred) && !entitled) {
+		error = EPERM;
+		goto out;
+	}
+
+	/* Even with entitlement, non-root is only alllowed to see same-user */
+	if (!kauth_cred_issuser(ucred) &&
+	    kauth_cred_getuid(ucred) != kauth_cred_getuid(target_cred)) {
+		error = EPERM;
+		goto out;
+	}
+
+	darwin_gpu_role_t gpurole = task_get_gpu_role(proc_task(targetp));
+
+	*priority = gpurole;
+
+out:
+	kauth_cred_unref(&target_cred);
+	return error;
+}
+
 
 static int
 proc_set_darwin_role(proc_t curp, proc_t targetp, int priority)
@@ -959,6 +1075,116 @@ out:
 	kauth_cred_unref(&target_cred);
 	return error;
 }
+
+#define RUNAWAY_MITIGATION_ENTITLEMENT "com.apple.private.runaway-mitigation"
+
+/* Boot arg to allow RunningBoard-managed processes to be mitigated */
+static TUNABLE(bool, allow_managed_mitigation, "allow_managed_mitigation", false);
+
+static int
+proc_set_runaway_mitigation(proc_t targetp, int priority)
+{
+	int error = 0;
+
+	kauth_cred_t ucred, target_cred;
+
+	ucred = kauth_cred_get();
+	target_cred = kauth_cred_proc_ref(targetp);
+
+	boolean_t entitled = FALSE;
+	entitled = IOCurrentTaskHasEntitlement(RUNAWAY_MITIGATION_ENTITLEMENT);
+	if (!entitled) {
+		error = EPERM;
+		goto out;
+	}
+
+	/* Even with entitlement, non-root is only alllowed to set same-user */
+	if (!kauth_cred_issuser(ucred) &&
+	    kauth_cred_getuid(ucred) != kauth_cred_getuid(target_cred)) {
+		error = EPERM;
+		goto out;
+	}
+
+	switch (priority) {
+	case PRIO_DARWIN_RUNAWAY_MITIGATION_OFF:
+		printf("%s[%d] disabling runaway mitigation on %s[%d]\n",
+		    proc_best_name(current_proc()), proc_selfpid(),
+		    proc_best_name(targetp), proc_getpid(targetp));
+
+		proc_set_task_policy(proc_task(targetp), TASK_POLICY_ATTRIBUTE,
+		    TASK_POLICY_RUNAWAY_MITIGATION, TASK_POLICY_DISABLE);
+		break;
+
+	case PRIO_DARWIN_RUNAWAY_MITIGATION_ON:
+		/*
+		 * RunningBoard-managed processes are not mitigatable - they should be
+		 * managed through RunningBoard-level interfaces instead.
+		 * Set the boot arg allow_managed_mitigation=1 to allow this.
+		 */
+		if (memorystatus_get_proc_is_managed(targetp) && !allow_managed_mitigation) {
+			printf("%s[%d] blocked from disabling runaway mitigation on RunningBoard managed process %s[%d]\n",
+			    proc_best_name(current_proc()), proc_selfpid(),
+			    proc_best_name(targetp), proc_getpid(targetp));
+
+			error = ENOTSUP;
+			goto out;
+		}
+
+		proc_set_task_policy(proc_task(targetp), TASK_POLICY_ATTRIBUTE,
+		    TASK_POLICY_RUNAWAY_MITIGATION, TASK_POLICY_ENABLE);
+
+		printf("%s[%d] enabling runaway mitigation on %s[%d]\n",
+		    proc_best_name(current_proc()), proc_selfpid(),
+		    proc_best_name(targetp), proc_getpid(targetp));
+		break;
+
+	default:
+		error = EINVAL;
+		goto out;
+	}
+
+out:
+	kauth_cred_unref(&target_cred);
+	return error;
+}
+
+static int
+proc_get_runaway_mitigation(proc_t targetp, int *priority)
+{
+	int error = 0;
+
+	kauth_cred_t ucred, target_cred;
+
+	ucred = kauth_cred_get();
+	target_cred = kauth_cred_proc_ref(targetp);
+
+	boolean_t entitled = FALSE;
+	entitled = IOCurrentTaskHasEntitlement(RUNAWAY_MITIGATION_ENTITLEMENT);
+
+	/* Root is allowed to get without entitlement */
+	if (!kauth_cred_issuser(ucred) && !entitled) {
+		error = EPERM;
+		goto out;
+	}
+
+	/* Even with entitlement, non-root is only alllowed to see same-user */
+	if (!kauth_cred_issuser(ucred) &&
+	    kauth_cred_getuid(ucred) != kauth_cred_getuid(target_cred)) {
+		error = EPERM;
+		goto out;
+	}
+
+	if (proc_get_task_policy(proc_task(targetp), TASK_POLICY_ATTRIBUTE, TASK_POLICY_RUNAWAY_MITIGATION)) {
+		*priority = PRIO_DARWIN_RUNAWAY_MITIGATION_ON;
+	} else {
+		*priority = PRIO_DARWIN_RUNAWAY_MITIGATION_OFF;
+	}
+
+out:
+	kauth_cred_unref(&target_cred);
+	return error;
+}
+
 
 static int
 get_background_proc(struct proc *curp, struct proc *targetp, int *priority)
@@ -1501,22 +1727,30 @@ getrlimit(struct proc *p, struct getrlimit_args *uap, __unused int32_t *retval)
 		return EINVAL;
 	}
 	lim = proc_limitget(p, uap->which);
-	return copyout((caddr_t)&lim,
-	           uap->rlp, sizeof(struct rlimit));
+	return copyout((caddr_t)&lim, uap->rlp, sizeof(struct rlimit));
+}
+
+static struct timeval
+_absolutetime_to_timeval(uint64_t abstime)
+{
+	clock_sec_t sec;
+	clock_usec_t usec;
+	absolutetime_to_microtime(abstime, &sec, &usec);
+	return (struct timeval){
+		       .tv_sec = sec,
+		       .tv_usec = usec,
+	};
 }
 
 /*
  * Transform the running time and tick information in proc p into user,
  * system, and interrupt time usage.
  */
-/* No lock on proc is held for this.. */
 void
 calcru(struct proc *p, struct timeval *up, struct timeval *sp, struct timeval *ip)
 {
-	task_t                  task;
+	task_t task;
 
-	timerclear(up);
-	timerclear(sp);
 	if (ip != NULL) {
 		timerclear(ip);
 	}
@@ -1524,51 +1758,39 @@ calcru(struct proc *p, struct timeval *up, struct timeval *sp, struct timeval *i
 	task = proc_task(p);
 	if (task) {
 		mach_task_basic_info_data_t tinfo;
-		task_thread_times_info_data_t ttimesinfo;
-		task_events_info_data_t teventsinfo;
-		mach_msg_type_number_t task_info_count, task_ttimes_count;
+		mach_msg_type_number_t task_info_count;
 		mach_msg_type_number_t task_events_count;
-		struct timeval ut, st;
+		task_events_info_data_t teventsinfo;
+		struct recount_times_mach times;
 
 		task_info_count = MACH_TASK_BASIC_INFO_COUNT;
 		task_info(task, MACH_TASK_BASIC_INFO,
 		    (task_info_t)&tinfo, &task_info_count);
-		ut.tv_sec = tinfo.user_time.seconds;
-		ut.tv_usec = tinfo.user_time.microseconds;
-		st.tv_sec = tinfo.system_time.seconds;
-		st.tv_usec = tinfo.system_time.microseconds;
-		timeradd(&ut, up, up);
-		timeradd(&st, sp, sp);
-
-		task_ttimes_count = TASK_THREAD_TIMES_INFO_COUNT;
-		task_info(task, TASK_THREAD_TIMES_INFO,
-		    (task_info_t)&ttimesinfo, &task_ttimes_count);
-
-		ut.tv_sec = ttimesinfo.user_time.seconds;
-		ut.tv_usec = ttimesinfo.user_time.microseconds;
-		st.tv_sec = ttimesinfo.system_time.seconds;
-		st.tv_usec = ttimesinfo.system_time.microseconds;
-		timeradd(&ut, up, up);
-		timeradd(&st, sp, sp);
-
 		task_events_count = TASK_EVENTS_INFO_COUNT;
 		task_info(task, TASK_EVENTS_INFO,
 		    (task_info_t)&teventsinfo, &task_events_count);
 
+		times = recount_task_times(task);
+		*up = _absolutetime_to_timeval(times.rtm_user);
+		*sp = _absolutetime_to_timeval(times.rtm_system);
+
 		/*
-		 * No need to lock "p":  this does not need to be
-		 * completely consistent, right ?
+		 * No lock is held here, but it's only a consistency issue for non-
+		 * getrusage(2) callers of this function.
 		 */
-		p->p_stats->p_ru.ru_minflt = (teventsinfo.faults -
-		    teventsinfo.pageins);
+		p->p_stats->p_ru.ru_minflt = teventsinfo.faults -
+		    teventsinfo.pageins;
 		p->p_stats->p_ru.ru_majflt = teventsinfo.pageins;
-		p->p_stats->p_ru.ru_nivcsw = (teventsinfo.csw -
-		    p->p_stats->p_ru.ru_nvcsw);
+		p->p_stats->p_ru.ru_nivcsw = teventsinfo.csw -
+		    p->p_stats->p_ru.ru_nvcsw;
 		if (p->p_stats->p_ru.ru_nivcsw < 0) {
 			p->p_stats->p_ru.ru_nivcsw = 0;
 		}
 
 		p->p_stats->p_ru.ru_maxrss = (long)tinfo.resident_size_max;
+	} else {
+		timerclear(up);
+		timerclear(sp);
 	}
 }
 
@@ -1586,7 +1808,6 @@ getrusage(struct proc *p, struct getrusage_args *uap, __unused int32_t *retval)
 	caddr_t retbuf = (caddr_t)&rubuf;               /* default: 32 bits */
 	struct timeval utime;
 	struct timeval stime;
-
 
 	switch (uap->who) {
 	case RUSAGE_SELF:
@@ -1857,6 +2078,8 @@ static int iopolicysys_vfs_altlink(struct proc *p, int cmd, int scope, int polic
 static int iopolicysys_vfs_nocache_write_fs_blksize(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
 static int
 iopolicysys_vfs_support_long_paths(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
+static int
+iopolicysys_vfs_entitled_reserve_access(struct proc *p, int cmd, int scope, int policy, struct _iopol_param_t *iop_param);
 
 /*
  * iopolicysys
@@ -1879,6 +2102,17 @@ iopolicysys(struct proc *p, struct iopolicysys_args *uap, int32_t *retval)
 	if ((error = copyin(uap->arg, &iop_param, sizeof(iop_param))) != 0) {
 		goto out;
 	}
+
+#if CONFIG_MACF
+	error = mac_proc_check_iopolicysys(p, kauth_cred_get(),
+	    uap->cmd,
+	    iop_param.iop_iotype,
+	    iop_param.iop_scope,
+	    iop_param.iop_policy);
+	if (error) {
+		return error;
+	}
+#endif
 
 	switch (iop_param.iop_iotype) {
 	case IOPOL_TYPE_DISK:
@@ -1965,6 +2199,12 @@ iopolicysys(struct proc *p, struct iopolicysys_args *uap, int32_t *retval)
 		break;
 	case IOPOL_TYPE_VFS_SUPPORT_LONG_PATHS:
 		error = iopolicysys_vfs_support_long_paths(p, uap->cmd, iop_param.iop_scope, iop_param.iop_policy, &iop_param);
+		if (error) {
+			goto out;
+		}
+		break;
+	case IOPOL_TYPE_VFS_ENTITLED_RESERVE_ACCESS:
+		error = iopolicysys_vfs_entitled_reserve_access(p, uap->cmd, iop_param.iop_scope, iop_param.iop_policy, &iop_param);
 		if (error) {
 			goto out;
 		}
@@ -2575,6 +2815,54 @@ out:
 	return error;
 }
 
+static int
+get_proc_vfs_ignore_permissions_policy(struct proc *p)
+{
+	return os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS ?
+	       IOPOL_VFS_IGNORE_PERMISSIONS_ON : IOPOL_VFS_IGNORE_PERMISSIONS_OFF;
+}
+
+static int
+get_thread_vfs_ignore_permissions_policy(thread_t thread)
+{
+	struct uthread *ut = get_bsdthread_info(thread);
+
+	return (ut->uu_flag & UT_IGNORE_NODE_PERMISSIONS) ?
+	       IOPOL_VFS_IGNORE_PERMISSIONS_ON : IOPOL_VFS_IGNORE_PERMISSIONS_OFF;
+}
+
+static void
+set_proc_vfs_ignore_permissions_policy(struct proc *p, int policy)
+{
+	switch (policy) {
+	case IOPOL_VFS_IGNORE_PERMISSIONS_OFF:
+		os_atomic_andnot(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS, relaxed);
+		break;
+	case IOPOL_VFS_IGNORE_PERMISSIONS_ON:
+		os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS, relaxed);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+set_thread_vfs_ignore_permissions_policy(thread_t thread, int policy)
+{
+	struct uthread *ut = get_bsdthread_info(thread);
+
+	switch (policy) {
+	case IOPOL_VFS_IGNORE_PERMISSIONS_OFF:
+		ut->uu_flag &= ~UT_IGNORE_NODE_PERMISSIONS;
+		break;
+	case IOPOL_VFS_IGNORE_PERMISSIONS_ON:
+		ut->uu_flag |= UT_IGNORE_NODE_PERMISSIONS;
+		break;
+	default:
+		break;
+	}
+}
+
 #define AUTHORIZED_ACCESS_ENTITLEMENT \
 	"com.apple.private.vfs.authorized-access"
 int
@@ -2582,8 +2870,12 @@ iopolicysys_vfs_ignore_node_permissions(struct proc *p, int cmd, int scope,
     int policy, __unused struct _iopol_param_t *iop_param)
 {
 	int error = EINVAL;
+	thread_t thread = THREAD_NULL;
 
 	switch (scope) {
+	case IOPOL_SCOPE_THREAD:
+		thread = current_thread();
+		break;
 	case IOPOL_SCOPE_PROCESS:
 		break;
 	default:
@@ -2592,8 +2884,11 @@ iopolicysys_vfs_ignore_node_permissions(struct proc *p, int cmd, int scope,
 
 	switch (cmd) {
 	case IOPOL_CMD_GET:
-		policy = os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS ?
-		    IOPOL_VFS_IGNORE_PERMISSIONS_ON : IOPOL_VFS_IGNORE_PERMISSIONS_OFF;
+		if (thread != THREAD_NULL) {
+			policy = get_thread_vfs_ignore_permissions_policy(thread);
+		} else {
+			policy = get_proc_vfs_ignore_permissions_policy(p);
+		}
 		iop_param->iop_policy = policy;
 		goto out_ok;
 	case IOPOL_CMD_SET:
@@ -2608,15 +2903,10 @@ iopolicysys_vfs_ignore_node_permissions(struct proc *p, int cmd, int scope,
 		goto out;
 	}
 
-	switch (policy) {
-	case IOPOL_VFS_IGNORE_PERMISSIONS_OFF:
-		os_atomic_andnot(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS, relaxed);
-		break;
-	case IOPOL_VFS_IGNORE_PERMISSIONS_ON:
-		os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_IGNORE_NODE_PERMISSIONS, relaxed);
-		break;
-	default:
-		break;
+	if (thread != THREAD_NULL) {
+		set_thread_vfs_ignore_permissions_policy(thread, policy);
+	} else {
+		set_proc_vfs_ignore_permissions_policy(p, policy);
 	}
 
 out_ok:
@@ -2863,40 +3153,20 @@ static int
 iopolicysys_vfs_nocache_write_fs_blksize(struct proc *p, int cmd, int scope, int policy,
     struct _iopol_param_t *iop_param)
 {
-	thread_t thread;
-
-	switch (scope) {
-	case IOPOL_SCOPE_THREAD:
-		thread = current_thread();
-		break;
-	case IOPOL_SCOPE_PROCESS:
-		thread = THREAD_NULL;
-		break;
-	default:
+	if (scope != IOPOL_SCOPE_PROCESS) {
 		return EINVAL;
 	}
 
 	if (cmd == IOPOL_CMD_GET) {
-		if (thread != THREAD_NULL) {
-			struct uthread *ut = get_bsdthread_info(thread);
-			policy = ut->uu_flag & UT_FS_BLKSIZE_NOCACHE_WRITES ?
-			    IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON : IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_DEFAULT;
-		} else {
-			policy = (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_NOCACHE_WRITE_FS_BLKSIZE) ?
-			    IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON : IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_DEFAULT;
-		}
+		policy = (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_NOCACHE_WRITE_FS_BLKSIZE) ?
+		    IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON : IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_DEFAULT;
 		iop_param->iop_policy = policy;
 		return 0;
 	}
 
-	/* Once set, we don't allow the process or thread to clear it. */
-	if ((cmd == IOPOL_CMD_SET) && (policy == IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON)) {
-		if (thread != THREAD_NULL) {
-			struct uthread *ut = get_bsdthread_info(thread);
-			ut->uu_flag |= UT_FS_BLKSIZE_NOCACHE_WRITES;
-		} else {
-			os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_NOCACHE_WRITE_FS_BLKSIZE, relaxed);
-		}
+	/* Once set, we don't allow the process to clear it. */
+	if (policy == IOPOL_VFS_NOCACHE_WRITE_FS_BLKSIZE_ON) {
+		os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_NOCACHE_WRITE_FS_BLKSIZE, relaxed);
 		return 0;
 	}
 
@@ -3000,6 +3270,67 @@ iopolicysys_vfs_support_long_paths(struct proc *p, int cmd, int scope,
 
 out:
 	return error;
+}
+
+#define ENTITLED_RESERVE_ACCESS_ENTITLEMENT \
+	"com.apple.private.vfs.entitled-reserve-access"
+static int
+iopolicysys_vfs_entitled_reserve_access(struct proc *p, int cmd, int scope,
+    int policy, struct _iopol_param_t *iop_param)
+{
+	struct uthread *ut;
+
+	switch (scope) {
+	case IOPOL_SCOPE_THREAD:
+		ut = get_bsdthread_info(current_thread());
+		break;
+	case IOPOL_SCOPE_PROCESS:
+		ut = NULL;
+		break;
+	default:
+		return EINVAL;
+	}
+
+	if (cmd == IOPOL_CMD_GET) {
+		if (scope == IOPOL_SCOPE_THREAD) {
+			policy = (os_atomic_load(&ut->uu_flag, relaxed) & UT_FS_ENTITLED_RESERVE_ACCESS) ?
+			    IOPOL_VFS_ENTITLED_RESERVE_ACCESS_ON : IOPOL_VFS_ENTITLED_RESERVE_ACCESS_OFF;
+		} else {
+			policy = (os_atomic_load(&p->p_vfs_iopolicy, relaxed) & P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS) ?
+			    IOPOL_VFS_ENTITLED_RESERVE_ACCESS_ON : IOPOL_VFS_ENTITLED_RESERVE_ACCESS_OFF;
+		}
+		iop_param->iop_policy = policy;
+		return 0;
+	}
+
+	if (cmd != IOPOL_CMD_SET) {
+		return EINVAL;
+	}
+
+	if (!IOCurrentTaskHasEntitlement(ENTITLED_RESERVE_ACCESS_ENTITLEMENT)) {
+		return EPERM;
+	}
+
+	switch (policy) {
+	case IOPOL_VFS_ENTITLED_RESERVE_ACCESS_OFF:
+		if (scope == IOPOL_SCOPE_THREAD) {
+			os_atomic_andnot(&ut->uu_flag, UT_FS_ENTITLED_RESERVE_ACCESS, relaxed);
+		} else {
+			os_atomic_andnot(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS, relaxed);
+		}
+		break;
+	case IOPOL_VFS_ENTITLED_RESERVE_ACCESS_ON:
+		if (scope == IOPOL_SCOPE_THREAD) {
+			os_atomic_or(&ut->uu_flag, UT_FS_ENTITLED_RESERVE_ACCESS, relaxed);
+		} else {
+			os_atomic_or(&p->p_vfs_iopolicy, P_VFS_IOPOLICY_ENTITLED_RESERVE_ACCESS, relaxed);
+		}
+		break;
+	default:
+		return EINVAL;
+	}
+
+	return 0;
 }
 
 void

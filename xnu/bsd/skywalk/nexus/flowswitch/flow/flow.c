@@ -91,8 +91,7 @@ flow_init(void)
 	/* these are initialized in skywalk_init() */
 	VERIFY(sk_max_flows > 0 && sk_max_flows <= NX_FLOWADV_MAX);
 	VERIFY(sk_fadv_nchunks != 0);
-	_CASSERT(sizeof(*((struct flow_owner *)0)->fo_flowadv_bmap) ==
-	    sizeof(bitmap_t));
+	static_assert(sizeof(*((struct flow_owner *)0)->fo_flowadv_bmap) == sizeof(bitmap_t));
 
 	sk_fab_size = (sk_fadv_nchunks * sizeof(bitmap_t));
 	if (sk_fab_cache == NULL) {

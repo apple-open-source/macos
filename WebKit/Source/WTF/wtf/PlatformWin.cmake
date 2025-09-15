@@ -6,10 +6,12 @@ list(APPEND WTF_SOURCES
 
     win/CPUTimeWin.cpp
     win/DbgHelperWin.cpp
+    win/FileHandleWin.cpp
     win/FileSystemWin.cpp
     win/LanguageWin.cpp
     win/LoggingWin.cpp
     win/MainThreadWin.cpp
+    win/MappedFileDataWin.cpp
     win/MemoryFootprintWin.cpp
     win/MemoryPressureHandlerWin.cpp
     win/OSAllocatorWin.cpp
@@ -17,6 +19,7 @@ list(APPEND WTF_SOURCES
     win/RunLoopWin.cpp
     win/SignalsWin.cpp
     win/ThreadingWin.cpp
+    win/WTFCRTDebug.cpp
     win/Win32Handle.cpp
 )
 
@@ -27,6 +30,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     win/GDIObject.h
     win/PathWalker.h
     win/SoftLinking.h
+    win/WTFCRTDebug.h
     win/Win32Handle.h
 )
 

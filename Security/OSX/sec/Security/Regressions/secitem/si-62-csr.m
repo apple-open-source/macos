@@ -324,7 +324,21 @@ static void test_ec_csr(void) {
     CFReleaseNull(challenge);
 }
 
-static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
+static bool test_cert_trust(SecCertificateRef leaf_cert, CFArrayRef anchors, SecPolicyRef policy) {
+    bool status = false;
+    SecTrustRef trust = NULL;
+    SecTrustResultType trustResult = kSecTrustResultInvalid;
+    require_noerr(SecTrustCreateWithCertificates(leaf_cert, policy, &trust), out);
+    require_noerr(SecTrustSetAnchorCertificates(trust, anchors), out);
+    require_noerr(SecTrustEvaluate(trust, &trustResult), out);
+    require(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed, out);
+    CFReleaseNull(trust);
+    status = true;
+out:
+    return status;
+}
+
+static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv, SecPolicyRef policy,
                          CFStringRef cert_hashing_alg, CFStringRef csr_hashing_alg) {
     bool status = false;
     SecCertificateRef ca_cert = NULL, leaf_cert1 = NULL, leaf_cert2 = NULL;
@@ -334,9 +348,6 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
     NSData *csr = nil, *serial_no = nil;
     SecKeyRef csr_pub_key = NULL;
     CFDataRef csr_subject = NULL, csr_extensions = NULL;
-    SecPolicyRef policy = NULL;
-    SecTrustRef trust = NULL;
-    SecTrustResultType trustResult = kSecTrustResultInvalid;
 
     /* Generate a self-signed cert */
     NSString *common_name = [NSString stringWithFormat:@"CSR Test Root: %@", cert_hashing_alg];
@@ -348,7 +359,7 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
     NSDictionary *ca_parameters = @{
         (__bridge NSString *)kSecCMSSignHashAlgorithm: (__bridge NSString*)cert_hashing_alg,
         (__bridge NSString *)kSecCSRBasicContraintsPathLen: @0,
-        (__bridge NSString *)kSecCertificateKeyUsage: @(kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign)
+        (__bridge NSString *)kSecCertificateKeyUsage: @(kSecKeyUsageKeyCertSign | kSecKeyUsageCRLSign),
     };
     ca_cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)ca_rdns,
                                                (__bridge CFDictionaryRef)ca_parameters,
@@ -365,10 +376,13 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
     ];
     leaf_parameters = @{
         (__bridge NSString*)kSecCMSSignHashAlgorithm: (__bridge NSString*)csr_hashing_alg,
+        (__bridge NSString*)kSecCertificateExtendedKeyUsage : @[(__bridge NSString*)kSecEKUServerAuth],
         (__bridge NSString*)kSecSubjectAltName: @{
             (__bridge NSString*)kSecSubjectAltNameDNSName : @[ @"valid.apple.com",
-                                                              @"valid-qa.apple.com",
-                                                              @"valid-uat.apple.com"]
+                                                               @"valid-qa.apple.com",
+                                                               @"valid-uat.apple.com"],
+            (__bridge NSString*)kSecSubjectAltNameIPAddress: @[ @"162.159.132.53",
+                                                                @"2606:4700:4700::1111"]
         },
         (__bridge NSString*)kSecCertificateKeyUsage : @(kSecKeyUsageDigitalSignature)
     };
@@ -415,20 +429,9 @@ static bool test_csr_create_sign_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
     require(leaf_cert2, out);
 
     /* Verify the signed leaf certs chain to the root */
-    require(policy = SecPolicyCreateBasicX509(), out);
-    require_noerr(SecTrustCreateWithCertificates(leaf_cert1, policy, &trust), out);
     anchors = @[ (__bridge id)ca_cert ];
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    require(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed, out);
-    CFReleaseNull(trust);
-
-    require_noerr(SecTrustCreateWithCertificates(leaf_cert2, policy, &trust), out);
-    require_noerr(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors), out);
-    require_noerr(SecTrustEvaluate(trust, &trustResult), out);
-    require(trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed, out);
-    CFReleaseNull(trust);
-
+    require(test_cert_trust(leaf_cert1, (__bridge CFArrayRef)anchors, policy), out);
+    require(test_cert_trust(leaf_cert2, (__bridge CFArrayRef)anchors, policy), out);
     status = true;
 out:
     CFReleaseNull(ca_cert);
@@ -438,8 +441,18 @@ out:
     CFReleaseNull(csr_pub_key);
     CFReleaseNull(csr_subject);
     CFReleaseNull(csr_extensions);
+    return status;
+}
+
+static bool test_csr_create_sign_x509_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
+                                             CFStringRef cert_hashing_alg, CFStringRef csr_hashing_alg) {
+
+    bool status = false;
+    SecPolicyRef policy = NULL;
+    require(policy = SecPolicyCreateBasicX509(), out);
+    status = test_csr_create_sign_verify(ca_priv, leaf_priv, policy, cert_hashing_alg, csr_hashing_alg);
+out:
     CFReleaseNull(policy);
-    CFReleaseNull(trust);
     return status;
 }
 
@@ -472,33 +485,206 @@ static void test_algs(void) {
     CFReleaseNull(publicKey);
 
     /* Single algorithm tests */
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA1, kSecCMSHashingAlgorithmSHA1),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA1, kSecCMSHashingAlgorithmSHA1),
        "Failed to run csr test with RSA SHA-1");
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA256),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA256),
        "Failed to run csr test with RSA SHA-256");
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA384),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA384),
        "Failed to run csr test with RSA SHA-384");
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA512, kSecCMSHashingAlgorithmSHA512),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA512, kSecCMSHashingAlgorithmSHA512),
        "Failed to run csr test with RSA SHA-512");
-    ok(test_csr_create_sign_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA256),
+    ok(test_csr_create_sign_x509_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA256),
        "Failed to run csr test with EC SHA-256");
-    ok(test_csr_create_sign_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA384),
+    ok(test_csr_create_sign_x509_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA384),
        "Failed to run csr test with EC SHA-384");
-    ok(test_csr_create_sign_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA512, kSecCMSHashingAlgorithmSHA512),
+    ok(test_csr_create_sign_x509_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA512, kSecCMSHashingAlgorithmSHA512),
        "Failed to run csr test with EC SHA-512");
 
     /* Mix and match */
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA384),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA384),
        "Failed to run csr test with RSA CA, EC leaf, SHA256 certs, SHA384 csrs");
-    ok(test_csr_create_sign_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA1),
+    ok(test_csr_create_sign_x509_verify(ca_rsa_key, leaf_rsa_key, kSecCMSHashingAlgorithmSHA256, kSecCMSHashingAlgorithmSHA1),
        "Failed to run csr test with RSA keys, SHA256 certs, SHA1 csrs");
-    ok(test_csr_create_sign_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA256),
+    ok(test_csr_create_sign_x509_verify(ca_ec_key, leaf_ec_key, kSecCMSHashingAlgorithmSHA384, kSecCMSHashingAlgorithmSHA256),
        "Failed to run csr test with EC keys, SHA384 certs, SHA256 csrs");
 
     CFReleaseNull(ca_rsa_key);
     CFReleaseNull(ca_ec_key);
     CFReleaseNull(leaf_rsa_key);
     CFReleaseNull(leaf_ec_key);
+}
+
+static bool test_csr_create_sign_ssl_verify(SecKeyRef ca_priv, SecKeyRef leaf_priv,
+                                            CFStringRef hostname, CFStringRef cert_hashing_alg, CFStringRef csr_hashing_alg) {
+
+    bool status = false;
+    SecPolicyRef policy = NULL;
+    require(policy = SecPolicyCreateSSL(true, hostname), out);
+    status = test_csr_create_sign_verify(ca_priv, leaf_priv, policy, cert_hashing_alg, csr_hashing_alg);
+    out:
+    CFReleaseNull(policy);
+    return status;
+}
+
+static void test_ssl_algs(void) {
+    SecKeyRef ca_rsa_key = NULL, ca_ec_key = NULL;
+    SecKeyRef leaf_rsa_key = NULL, leaf_ec_key = NULL;
+    SecKeyRef publicKey = NULL;
+    NSDictionary *rsa_parameters = nil, *ec_parameters = nil;
+//    SecPolicyRef policy = NULL;
+
+    rsa_parameters = @{
+        (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeRSA,
+        (__bridge NSString*)kSecAttrKeySizeInBits : @2048,
+    };
+    ok_status(SecKeyGeneratePair((__bridge CFDictionaryRef)rsa_parameters, &publicKey, &ca_rsa_key),
+              "Failed to generate CA RSA key");
+    CFReleaseNull(publicKey);
+    ok_status(SecKeyGeneratePair((__bridge CFDictionaryRef)rsa_parameters, &publicKey, &leaf_rsa_key),
+              "Failed to generate leaf RSA key");
+    CFReleaseNull(publicKey);
+
+    ec_parameters = @{
+        (__bridge NSString*)kSecAttrKeyType: (__bridge NSString*)kSecAttrKeyTypeECSECPrimeRandom,
+        (__bridge NSString*)kSecAttrKeySizeInBits : @384,
+    };
+    ok_status(SecKeyGeneratePair((__bridge CFDictionaryRef)ec_parameters, &publicKey, &ca_ec_key),
+              "Failed to generate CA EC key");
+    CFReleaseNull(publicKey);
+    ok_status(SecKeyGeneratePair((__bridge CFDictionaryRef)ec_parameters, &publicKey, &leaf_ec_key),
+              "Failed to generate leaf EC key");
+    CFReleaseNull(publicKey);
+
+    NSString* valid_hostname = @"valid.apple.com";
+    NSString* invalid_hostname = @"invalid.apple.com";
+    NSString* valid_ip4 = @"162.159.132.53";
+    NSString* invalid_ip4 = @"162.159.132.55";
+    NSString* valid_ip6 = @"2606:4700:4700::1111";
+    NSString* invalid_ip6 = @"2606:4700:4700::2222";
+
+    NSArray* valid_subject_alt_names = @[valid_hostname, valid_ip4, valid_ip6];
+    NSArray* invalid_subject_alt_names = @[invalid_hostname, invalid_ip4, invalid_ip6];
+
+    for (NSString *hostname in valid_subject_alt_names) {
+
+        /* Single algorithm tests */
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with RSA SHA-256");
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with RSA SHA-384");
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA512,
+                                           kSecCMSHashingAlgorithmSHA512),
+           "Failed to run ssl test with RSA SHA-512");
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with EC SHA-256");
+
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with EC SHA-384");
+
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA512,
+                                           kSecCMSHashingAlgorithmSHA512),
+           "Failed to run ssl test with EC SHA-512");
+
+        /* Mix and match */
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with RSA CA, EC leaf, SHA256 certs, SHA384 csrs");
+        ok(test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with EC keys, SHA384 certs, SHA256 csrs");
+    }
+
+    for (NSString *hostname in invalid_subject_alt_names) {
+
+        /* Single algorithm tests */
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with RSA SHA-256");
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with RSA SHA-384");
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA512,
+                                           kSecCMSHashingAlgorithmSHA512),
+           "Failed to run ssl test with RSA SHA-512");
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with EC SHA-256");
+
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with EC SHA-384");
+
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA512,
+                                           kSecCMSHashingAlgorithmSHA512),
+           "Failed to run ssl test with EC SHA-512");
+
+        /* Mix and match */
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA256,
+                                           kSecCMSHashingAlgorithmSHA384),
+           "Failed to run ssl test with RSA CA, EC leaf, SHA256 certs, SHA384 csrs");
+        ok(!test_csr_create_sign_ssl_verify(ca_rsa_key,
+                                           leaf_rsa_key,
+                                           (__bridge CFStringRef)hostname,
+                                           kSecCMSHashingAlgorithmSHA384,
+                                           kSecCMSHashingAlgorithmSHA256),
+           "Failed to run ssl test with EC keys, SHA384 certs, SHA256 csrs");
+    }
+
+
+    CFReleaseNull(ca_rsa_key);
+    CFReleaseNull(ca_ec_key);
+    CFReleaseNull(leaf_rsa_key);
+    CFReleaseNull(leaf_ec_key);
+//    CFReleaseNull(policy);
 }
 
     static void test_lifetimes(void) {
@@ -915,11 +1101,12 @@ static void test_algs(void) {
 
 int si_62_csr(int argc, char *const *argv)
 {
-	plan_tests(95);
+	plan_tests(147);
 
 	tests();
     test_ec_csr();
     test_algs();
+    test_ssl_algs();
     test_lifetimes();
     test_ekus();
     test_ca_extensions();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+struct ElementIdentifierType;
+using ElementIdentifier = ObjectIdentifier<ElementIdentifierType>;
     
 class DataTransfer;
 class Element;
@@ -54,7 +56,7 @@ public:
     virtual void didConcludeEditDrag() { }
     virtual OptionSet<DragSourceAction> dragSourceActionMaskForPoint(const IntPoint& rootViewPoint) = 0;
     
-    virtual void startDrag(DragItem, DataTransfer&, Frame&) = 0;
+    virtual void startDrag(DragItem, DataTransfer&, Frame&, const std::optional<ElementIdentifier>&) = 0;
     virtual void dragEnded() { }
 
     virtual void beginDrag(DragItem, LocalFrame&, const IntPoint&, const IntPoint&, DataTransfer&, DragSourceAction) { }

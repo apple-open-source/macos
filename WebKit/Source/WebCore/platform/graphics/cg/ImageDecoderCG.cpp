@@ -44,6 +44,7 @@
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/FlipBytes.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/cf/TypeCastsCF.h>
 
 #include "MediaAccessibilitySoftLink.h"
 #if ENABLE(QUICKLOOK_FULLSCREEN)
@@ -126,27 +127,42 @@ static RetainPtr<CFMutableDictionaryRef> appendImageSourceOptions(RetainPtr<CFMu
 {
     if (subsamplingLevel != SubsamplingLevel::Default)
         options = appendImageSourceOption(WTFMove(options), subsamplingLevel);
-    
+
     options = appendImageSourceOption(WTFMove(options), sizeForDrawing);
     return WTFMove(options);
 }
 
-static RetainPtr<CFDictionaryRef> imageSourceOptions(SubsamplingLevel subsamplingLevel = SubsamplingLevel::Default)
+static RetainPtr<CFMutableDictionaryRef> appendImageSourceOption(RetainPtr<CFMutableDictionaryRef>&& options, ShouldDecodeToHDR shouldDecodeToHDR)
 {
-    static const auto options = createImageSourceOptions().leakRef();
-    if (subsamplingLevel == SubsamplingLevel::Default)
-        return options;
-    return appendImageSourceOption(adoptCF(CFDictionaryCreateMutableCopy(nullptr, 0, options)), subsamplingLevel);
+#if HAVE(SUPPORT_HDR_DISPLAY_APIS)
+    if (shouldDecodeToHDR == ShouldDecodeToHDR::Yes)
+        CFDictionarySetValue(options.get(), kCGImageSourceDecodeRequest, kCGImageSourceDecodeToHDR);
+#else
+    UNUSED_PARAM(shouldDecodeToHDR);
+#endif
+    return WTFMove(options);
 }
 
-static RetainPtr<CFDictionaryRef> imageSourceThumbnailOptions(SubsamplingLevel subsamplingLevel, const IntSize& sizeForDrawing)
+static RetainPtr<CFDictionaryRef> imageSourceOptions(SubsamplingLevel subsamplingLevel = SubsamplingLevel::Default, ShouldDecodeToHDR shouldDecodeToHDR = ShouldDecodeToHDR::No)
+{
+    static const auto options = createImageSourceOptions().leakRef();
+    if (subsamplingLevel == SubsamplingLevel::Default && shouldDecodeToHDR == ShouldDecodeToHDR::No)
+        return options;
+
+    return appendImageSourceOption(adoptCF(CFDictionaryCreateMutableCopy(nullptr, 0, options)), shouldDecodeToHDR);
+}
+
+static RetainPtr<CFDictionaryRef> imageSourceThumbnailOptions(SubsamplingLevel subsamplingLevel, const IntSize& sizeForDrawing, ShouldDecodeToHDR shouldDecodeToHDR = ShouldDecodeToHDR::No)
 {
     static CFMutableDictionaryRef options;
     static std::once_flag initializeThumbnailOptionsOnce;
     std::call_once(initializeThumbnailOptionsOnce, [] {
         options = createImageSourceThumbnailOptions().leakRef();
     });
-    return appendImageSourceOptions(adoptCF(CFDictionaryCreateMutableCopy(nullptr, 0, options)), subsamplingLevel, sizeForDrawing);
+
+    auto extendedOptions = appendImageSourceOptions(adoptCF(CFDictionaryCreateMutableCopy(nullptr, 0, options)), subsamplingLevel, sizeForDrawing);
+
+    return appendImageSourceOption(WTFMove(extendedOptions), shouldDecodeToHDR);
 }
 
 static IntSize frameSizeFromProperties(CFDictionaryRef properties)
@@ -365,6 +381,58 @@ EncodedDataStatus ImageDecoderCG::encodedDataStatus() const
     return m_encodedDataStatus;
 }
 
+bool ImageDecoderCG::hasHDRGainMap() const
+{
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    auto properties = adoptCF(CGImageSourceCopyProperties(m_nativeDecoder.get(), createImageSourceMetadataOptions().get()));
+    if (!properties)
+        return false;
+
+    // Look for FileContentsDictionary like this one:
+    //
+    // "{FileContents}" = {
+    //      ImageCount = 1;
+    //      Images = ( {
+    //              AuxiliaryData = ( {
+    //                      AuxiliaryDataType = kCGImageAuxiliaryDataTypeISOGainMap;
+    //                      Height = 667;
+    //                      Orientation = 1;
+    //                      PixelFormat = 875836518;
+    //                      Width = 1000;
+    //              } );
+    auto fileContentsProperties = dynamic_cf_cast<CFDictionaryRef>(CFDictionaryGetValue(properties.get(), kCGImagePropertyFileContentsDictionary));
+    if (!fileContentsProperties)
+        return false;
+
+    auto imagesInfoArray = dynamic_cf_cast<CFArrayRef>(CFDictionaryGetValue(fileContentsProperties, kCGImagePropertyImages));
+    if (!imagesInfoArray || !CFArrayGetCount(imagesInfoArray))
+        return false;
+
+    auto imageInfo = dynamic_cf_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(imagesInfoArray, 0));
+    if (!imageInfo)
+        return false;
+
+    auto auxiliaryDataArray = dynamic_cf_cast<CFArrayRef>(CFDictionaryGetValue(imageInfo, kCGImagePropertyAuxiliaryData));
+    if (!auxiliaryDataArray)
+        return false;
+
+    CFIndex count = CFArrayGetCount(auxiliaryDataArray);
+    for (CFIndex index = 0; index < count; ++index) {
+        auto auxiliaryData = dynamic_cf_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(auxiliaryDataArray, index));
+        if (!auxiliaryData)
+            continue;
+
+        auto type = dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(auxiliaryData, kCGImagePropertyAuxiliaryDataType));
+        if (!type)
+            continue;
+
+        if (CFStringCompare(type, kCGImageAuxiliaryDataTypeHDRGainMap, 0) == kCFCompareEqualTo || CFStringCompare(type, kCGImageAuxiliaryDataTypeISOGainMap, 0) == kCFCompareEqualTo)
+            return true;
+    }
+#endif
+    return false;
+}
+
 size_t ImageDecoderCG::frameCount() const
 {
     return CGImageSourceGetCount(m_nativeDecoder.get());
@@ -397,16 +465,7 @@ RepetitionCount ImageDecoderCG::repetitionCount() const
     if (!loopCount)
         return RepetitionCountInfinite;
 
-#if HAVE(CGIMAGESOURCE_WITH_ACCURATE_LOOP_COUNT)
     return loopCount;
-#else
-    if (!isGIFImageType(uti()))
-        return loopCount;
-
-    // For GIF and loopCount > 0, the specs is not clear about it. But it looks the meaning
-    // is: play once + loop loopCount which is equivalent to play loopCount + 1.
-    return loopCount + 1;
-#endif
 }
 
 std::optional<IntPoint> ImageDecoderCG::hotSpot() const
@@ -526,11 +585,6 @@ bool ImageDecoderCG::frameHasAlphaAtIndex(size_t index) const
     return !frameIsCompleteAtIndex(index) || hasAlpha();
 }
 
-unsigned ImageDecoderCG::frameBytesAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const
-{
-    return frameSizeAtIndex(index, subsamplingLevel).area() * 4;
-}
-
 bool ImageDecoderCG::fetchFrameMetaDataAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions& options, ImageFrame& frame) const
 {
     auto properties = adoptCF(CGImageSourceCopyPropertiesAtIndex(m_nativeDecoder.get(), index, imageSourceOptions(subsamplingLevel).get()));
@@ -538,8 +592,8 @@ bool ImageDecoderCG::fetchFrameMetaDataAtIndex(size_t index, SubsamplingLevel su
         return false;
 
     if (options.hasSizeForDrawing()) {
-        ASSERT(frame.hasNativeImage());
-        frame.m_size = frame.nativeImage()->size();
+        ASSERT(frame.hasNativeImage(options.shouldDecodeToHDR()));
+        frame.m_size = frame.nativeImage(options.shouldDecodeToHDR())->size();
     } else
         frame.m_size = frameSizeFromProperties(properties.get());
 
@@ -550,13 +604,9 @@ bool ImageDecoderCG::fetchFrameMetaDataAtIndex(size_t index, SubsamplingLevel su
     else
         frame.m_densityCorrectedSize = std::nullopt;
 
-    if (frame.hasNativeImage())
-        frame.m_headroom = frame.nativeImage()->headroom();
-
     bool frameIsComplete = frameIsCompleteAtIndex(index);
 
     frame.m_subsamplingLevel = subsamplingLevel;
-    frame.m_decodingOptions = options;
     frame.m_hasAlpha = !frameIsComplete || hasAlpha();
     frame.m_orientation = orientationFromProperties(properties.get());
     frame.m_decodingStatus = frameIsComplete ? DecodingStatus::Complete : DecodingStatus::Partial;
@@ -573,7 +623,7 @@ PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampli
 
     if (decodingOptions.decodingMode() == DecodingMode::Synchronous) {
         // Decode an image synchronously for its native size.
-        options = imageSourceOptions(subsamplingLevel);
+        options = imageSourceOptions(subsamplingLevel, decodingOptions.shouldDecodeToHDR());
         image = adoptCF(CGImageSourceCreateImageAtIndex(m_nativeDecoder.get(), index, options.get()));
     } else {
         auto size = frameSizeAtIndex(index, SubsamplingLevel::Default);
@@ -585,7 +635,7 @@ PlatformImagePtr ImageDecoderCG::createFrameImageAtIndex(size_t index, Subsampli
                 size = *sizeForDrawing;
         }
 
-        options = imageSourceThumbnailOptions(subsamplingLevel, size);
+        options = imageSourceThumbnailOptions(subsamplingLevel, size, decodingOptions.shouldDecodeToHDR());
         image = adoptCF(CGImageSourceCreateThumbnailAtIndex(m_nativeDecoder.get(), index, options.get()));
     }
     

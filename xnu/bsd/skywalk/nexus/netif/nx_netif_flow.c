@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -147,7 +147,7 @@ netif_flow_ethertype_info(struct __kern_packet *pkt,
 	}
 	etype = ntohs(etype);
 
-	if (kern_packet_get_vlan_tag(SK_PKT2PH(pkt), &tag, NULL) == 0) {
+	if (kern_packet_get_vlan_tag(SK_PKT2PH(pkt), &tag) == 0) {
 		DTRACE_SKYWALK2(hw__vlan, struct __kern_packet *, pkt,
 		    uint16_t, tag);
 	} else if (etype == ETHERTYPE_VLAN) {
@@ -783,7 +783,7 @@ nx_netif_flow_add(struct nx_netif *nif, nexus_port_t port,
 	}
 	STATS_INC(nifs, NETIF_STATS_VP_FLOW_ADD);
 	lck_mtx_unlock(&nif->nif_flow_lock);
-	SK_DF(SK_VERB_VP, "flow add successful: if %s, nif 0x%llx",
+	SK_DF(SK_VERB_VP, "flow add successful: if %s, nif %p",
 	    if_name(nif->nif_ifp), SK_KVA(nif));
 	nx_netif_flow_log(nif, nf, TRUE);
 	return 0;
@@ -798,7 +798,7 @@ fail:
 		}
 	}
 	lck_mtx_unlock(&nif->nif_flow_lock);
-	SK_ERR("flow add failed: if %s, nif 0x%llx, err %d",
+	SK_ERR("flow add failed: if %s, nif %p, err %d",
 	    if_name(nif->nif_ifp), SK_KVA(nif), err);
 	return err;
 }
@@ -829,7 +829,7 @@ nx_netif_flow_remove(struct nx_netif *nif, struct netif_flow *nf)
 	STATS_INC(nifs, NETIF_STATS_VP_FLOW_REMOVE);
 	lck_mtx_unlock(&nif->nif_flow_lock);
 
-	SK_DF(SK_VERB_VP, "flow remove: if %s, nif 0x%llx",
+	SK_DF(SK_VERB_VP, "flow remove: if %s, nif %p",
 	    if_name(nif->nif_ifp), SK_KVA(nif));
 	nx_netif_flow_log(nif, nf, FALSE);
 	sk_free_type(struct netif_flow, nf);
@@ -898,11 +898,11 @@ nx_netif_flow_set_enable(struct nx_netif *nif, boolean_t set)
 	}
 	lck_mtx_lock(&nif->nif_flow_lock);
 	if (set) {
-		SK_DF(SK_VERB_VP, "%s: flow enable, nif 0x%llx",
+		SK_DF(SK_VERB_VP, "%s: flow enable, nif %p",
 		    if_name(nif->nif_ifp), SK_KVA(nif));
 		nif->nif_flow_flags |= NETIF_FLOW_FLAG_ENABLED;
 	} else {
-		SK_DF(SK_VERB_VP, "%s: flow disable, nif 0x%llx",
+		SK_DF(SK_VERB_VP, "%s: flow disable, nif %p",
 		    if_name(nif->nif_ifp), SK_KVA(nif));
 		nif->nif_flow_flags &= ~NETIF_FLOW_FLAG_ENABLED;
 	}

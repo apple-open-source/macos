@@ -175,13 +175,13 @@ private:
 
     ALWAYS_INLINE void refIfNotNull()
     {
-        if (T* ptr = PtrTraits::unwrap(m_ptr); LIKELY(ptr))
+        if (T* ptr = PtrTraits::unwrap(m_ptr); ptr) [[likely]]
             ptr->incrementCheckedPtrCount();
     }
 
     ALWAYS_INLINE void derefIfNotNull()
     {
-        if (T* ptr = PtrTraits::unwrap(m_ptr); LIKELY(ptr))
+        if (T* ptr = PtrTraits::unwrap(m_ptr); ptr) [[likely]]
             ptr->decrementCheckedPtrCount();
     }
 

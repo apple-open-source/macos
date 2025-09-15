@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <AppKit/NSSharingService_Private.h>
-
-@interface NSSharingServicePicker (Staging_r88855017)
-- (NSMenuItem *)standardShareMenuItem;
-@end
 
 #else
 
@@ -44,7 +44,7 @@ typedef NS_ENUM(NSInteger, NSSharingServicePickerStyle) {
 
 @interface NSSharingServicePicker (Private)
 @property NSSharingServicePickerStyle style;
-- (NSMenuItem *)standardShareMenuItem;
+- (NSMenuItem *)standardShareMenuItemRelativeToRect:(NSRect)rect ofView:(NSView *)view preferredEdge:(NSRectEdge)preferredEdge;
 - (NSMenu *)menu;
 - (void)getMenuWithCompletion:(void(^)(NSMenu *))completion;
 - (void)hide;

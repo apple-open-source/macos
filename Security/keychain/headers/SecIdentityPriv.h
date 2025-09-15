@@ -32,23 +32,10 @@
 
 #include <Security/SecBase.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecIdentity.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 __BEGIN_DECLS
-
-/*! @function SecIdentityCreate
-    @abstract create a new identity object from the provided certificate and its associated private key.
-    @param allocator CFAllocator to allocate the identity object. Pass NULL to use the default allocator.
-    @param certificate A certificate reference.
-    @param privateKey A private key reference.
-    @result An identity reference.
-*/
-SecIdentityRef SecIdentityCreate(
-     CFAllocatorRef allocator,
-     SecCertificateRef certificate,
-     SecKeyRef privateKey)
-    __SEC_MAC_AND_IOS_UNKNOWN;
-    //__OSX_AVAILABLE_STARTING(__MAC_10_3, __SEC_IPHONE_UNKNOWN);
 
 #if SEC_OS_OSX
 /*!

@@ -43,7 +43,7 @@
 - (NSString *)behavior
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::behaviorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::behaviorAttr).createNSString().autorelease();
 }
 
 - (void)setBehavior:(NSString *)newBehavior
@@ -55,7 +55,7 @@
 - (NSString *)bgColor
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::bgcolorAttr).createNSString().autorelease();
 }
 
 - (void)setBgColor:(NSString *)newBgColor
@@ -67,7 +67,7 @@
 - (NSString *)direction
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::directionAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::directionAttr).createNSString().autorelease();
 }
 
 - (void)setDirection:(NSString *)newDirection
@@ -79,7 +79,7 @@
 - (NSString *)height
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::heightAttr).createNSString().autorelease();
 }
 
 - (void)setHeight:(NSString *)newHeight
@@ -91,7 +91,7 @@
 - (unsigned)hspace
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getUnsignedIntegralAttribute(WebCore::HTMLNames::hspaceAttr);
+    return IMPL->unsignedIntegralAttribute(WebCore::HTMLNames::hspaceAttr);
 }
 
 - (void)setHspace:(unsigned)newHspace
@@ -151,7 +151,7 @@
 - (unsigned)vspace
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getUnsignedIntegralAttribute(WebCore::HTMLNames::vspaceAttr);
+    return IMPL->unsignedIntegralAttribute(WebCore::HTMLNames::vspaceAttr);
 }
 
 - (void)setVspace:(unsigned)newVspace
@@ -163,7 +163,7 @@
 - (NSString *)width
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::widthAttr).createNSString().autorelease();
 }
 
 - (void)setWidth:(NSString *)newWidth

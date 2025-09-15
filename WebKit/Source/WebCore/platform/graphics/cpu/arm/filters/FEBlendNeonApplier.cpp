@@ -2,7 +2,7 @@
  * Copyright (C) 2012 University of Szeged
  * Copyright (C) 2012 Gabor Rapcsanyi
  * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
- * Copyright (C) 2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -133,7 +133,7 @@ void FEBlendNeonApplier::applyPlatform(unsigned char* srcPixelArrayA, unsigned c
         uint16x8_t alphaB = vcombine_u16(vdup_n_u16(alphaB1), vdup_n_u16(alphaB2));
 
         uint16x8_t result;
-        switch (m_effect.blendMode()) {
+        switch (m_effect->blendMode()) {
         case BlendMode::Normal:
             result = FEBlendUtilitiesNEON::normal(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
@@ -170,7 +170,7 @@ void FEBlendNeonApplier::applyPlatform(unsigned char* srcPixelArrayA, unsigned c
     }
 }
 
-bool FEBlendNeonApplier::apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const
+bool FEBlendNeonApplier::apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
     auto& input2 = inputs[1].get();

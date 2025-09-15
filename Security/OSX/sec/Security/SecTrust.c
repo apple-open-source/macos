@@ -1937,9 +1937,9 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
                     result = errSecSuccess;
                     return;
                 }
-                result = SecOSStatusWith(^bool (CFErrorRef *error2) {
+                result = SecOSStatusWith(^bool (CFErrorRef CF_CONSUMED *error2) {
                     if (error2 != NULL) {
-                        *error2 = error;
+                        *error2 = CFRetainSafe(error);
                     }
                     return trust->_trustResult != kSecTrustResultInvalid;
                 });
@@ -2300,12 +2300,20 @@ bool SecTrustSetExceptions(SecTrustRef trust, CFDataRef encodedExceptions) {
 		exceptions = NULL;
 	}
 
+    __block bool same = false;
     dispatch_sync(trust->_trustQueue, ^{
+        if (trust->_exceptions == exceptions) {
+            same = true;
+            return;
+        }
         CFReleaseSafe(trust->_exceptions);
         /* take an extra retain for local use, since another thread could release trust->_exceptions */
         CFRetainSafe(exceptions);
         trust->_exceptions = exceptions;
     });
+    if (same) {
+        return true;
+    }
 
     /* We changed the exceptions -- so we need to re-evaluate */
     SecTrustSetNeedsEvaluation(trust);
@@ -3276,6 +3284,27 @@ SecTrustRef SecTrustDeserialize(CFDataRef serializedTrust, CFErrorRef *error) {
 
 out:
     CFReleaseNull(plist);
+    return trust;
+}
+
+CFPropertyListRef SecTrustCopyPropertyListRepresentation(SecTrustRef trust, CFErrorRef *error) {
+    CFPropertyListRef trustPlist = NULL;
+    require_action_quiet(trust, out,
+                         SecError(errSecParam, error, CFSTR("null trust input")));
+    require_action_quiet(trustPlist = SecTrustCopyPlist(trust), out,
+                         SecError(errSecDecode, error, CFSTR("unable to create trust plist")));
+out:
+    return trustPlist;
+}
+
+SecTrustRef SecTrustCreateFromPropertyListRepresentation(CFPropertyListRef trustPlist, CFErrorRef *error) {
+    SecTrustRef trust = NULL;
+    OSStatus status = errSecSuccess;
+    require_action_quiet(trustPlist, out,
+                         SecError(errSecParam, error, CFSTR("null property list input")));
+    require_noerr_action_quiet(status = SecTrustCreateFromPlist(trustPlist, &trust), out,
+                               SecError(status, error, CFSTR("unable to create trust ref")));
+out:
     return trust;
 }
 

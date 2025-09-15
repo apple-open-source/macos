@@ -109,7 +109,7 @@ public:
 
     WebExtensionControllerConfiguration& configuration() const { return m_configuration.get(); }
     Ref<WebExtensionControllerConfiguration> protectedConfiguration() const { return m_configuration; }
-    WebExtensionControllerParameters parameters() const;
+    WebExtensionControllerParameters parameters(const API::PageConfiguration&) const;
 
     bool operator==(const WebExtensionController& other) const { return (this == &other); }
 
@@ -132,6 +132,8 @@ public:
     bool unload(WebExtensionContext&, NSError ** = nullptr);
 
     void unloadAll();
+
+    void dispatchDidLoad(WebExtensionContext&);
 
     void addPage(WebPageProxy&);
     void removePage(WebPageProxy&);
@@ -194,6 +196,9 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
+    bool hasLoadedContexts(IPC::Decoder&) const { return hasLoadedContexts(); }
+    bool inTestingMode(IPC::Decoder&) const { return inTestingMode(); }
+
     void initializePlatform();
 
     void addProcessPool(WebProcessPool&);
@@ -223,7 +228,9 @@ private:
     void testEqual(bool result, String expected, String actual, String message, String sourceURL, unsigned lineNumber);
     void testLogMessage(String message, String sourceURL, unsigned lineNumber);
     void testSentMessage(String message, String argument, String sourceURL, unsigned lineNumber);
-    void testFinished(bool result, String message, String sourceURL, unsigned lineNumber);
+    void testAdded(String testName, String sourceURL, unsigned lineNumber);
+    void testStarted(String testName, String sourceURL, unsigned lineNumber);
+    void testFinished(String testName, bool result, String message, String sourceURL, unsigned lineNumber);
 
     class HTTPCookieStoreObserver : public API::HTTPCookieStoreObserver {
         WTF_MAKE_TZONE_ALLOCATED_INLINE(HTTPCookieStoreObserver);
@@ -255,7 +262,7 @@ private:
 
     RefPtr<HTTPCookieStoreObserver> protectedCookieStoreObserver() { return m_cookieStoreObserver; }
 
-    Ref<WebExtensionControllerConfiguration> m_configuration;
+    const Ref<WebExtensionControllerConfiguration> m_configuration;
 
 #if PLATFORM(COCOA)
     RetainPtr<_WKWebExtensionControllerHelper> m_webExtensionControllerHelper;

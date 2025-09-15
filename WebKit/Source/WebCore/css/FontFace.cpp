@@ -33,8 +33,6 @@
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
 #include "DOMPromiseProxy.h"
-#include "Document.h"
-#include "DocumentInlines.h"
 #include "JSFontFace.h"
 #include "TrustedFonts.h"
 #include <JavaScriptCore/ArrayBuffer.h>
@@ -78,8 +76,7 @@ Ref<FontFace> FontFace::create(ScriptExecutionContext& context, const String& fa
     auto fontTrustedTypes = context.settingsValues().downloadableBinaryFontTrustedTypes;
     auto sourceConversionResult = WTF::switchOn(source,
         [&] (String& string) -> ExceptionOr<void> {
-            auto* document = dynamicDowncast<Document>(context);
-            auto value = CSSPropertyParserHelpers::parseFontFaceSrc(string, document ? CSSParserContext(*document) : HTMLStandardMode);
+            auto value = CSSPropertyParserHelpers::parseFontFaceSrc(string, context);
             if (!value)
                 return Exception { ExceptionCode::SyntaxError };
             CSSFontFace::appendSources(result->backing(), *value, &context, false);
@@ -184,11 +181,11 @@ FontFace::~FontFace()
 
 ExceptionOr<void> FontFace::setFamily(ScriptExecutionContext& context, const String& family)
 {
-    if (family.isNull())
-        return Exception { ExceptionCode::SyntaxError };
-    // FIXME: Don't use a list here. https://bugs.webkit.org/show_bug.cgi?id=196381
-    m_backing->setFamilies(CSSValueList::createCommaSeparated(context.cssValuePool().createFontFamilyValue(AtomString { family })));
-    return { };
+    if (auto value = CSSPropertyParserHelpers::parseFontFaceFontFamily(family, context)) {
+        m_backing->setFamily(*value);
+        return { };
+    }
+    return Exception { ExceptionCode::SyntaxError };
 }
 
 ExceptionOr<void> FontFace::setStyle(ScriptExecutionContext& context, const String& style)

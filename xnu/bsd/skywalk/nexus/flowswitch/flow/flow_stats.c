@@ -73,8 +73,8 @@ flow_stats_alloc(boolean_t cansleep)
 {
 	struct flow_stats *fs;
 
-	_CASSERT((offsetof(struct flow_stats, fs_stats) % 16) == 0);
-	_CASSERT((offsetof(struct sk_stats_flow, sf_key) % 16) == 0);
+	static_assert((offsetof(struct flow_stats, fs_stats) % 16) == 0);
+	static_assert((offsetof(struct sk_stats_flow, sf_key) % 16) == 0);
 
 	/* XXX -fbounds-safety: fix after skmem merge */
 	fs = __unsafe_forge_bidi_indexable(struct flow_stats *,
@@ -92,7 +92,7 @@ flow_stats_alloc(boolean_t cansleep)
 	ASSERT(IS_P2ALIGNED(fs, 16));
 	bzero(fs, flow_stats_size);
 	os_ref_init(&fs->fs_refcnt, &flow_stats_refgrp);
-	SK_DF(SK_VERB_MEM, "allocated fs 0x%llx", SK_KVA(fs));
+	SK_DF(SK_VERB_MEM, "allocated fs %p", SK_KVA(fs));
 	return fs;
 }
 
@@ -101,6 +101,6 @@ flow_stats_free(struct flow_stats *fs)
 {
 	VERIFY(os_ref_get_count(&fs->fs_refcnt) == 0);
 
-	SK_DF(SK_VERB_MEM, "freeing fs 0x%llx", SK_KVA(fs));
+	SK_DF(SK_VERB_MEM, "freeing fs %p", SK_KVA(fs));
 	skmem_cache_free(flow_stats_cache, fs);
 }

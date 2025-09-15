@@ -86,6 +86,7 @@ public:
     const Vector<uint64_t>& constants() const { return m_constants; }
     const Vector<uint64_t>& constantRegisters() const { return m_constants; }
     const WasmInstructionStream& instructions() const { return *m_instructions; }
+    bool hasTailCallSuccessors() const { return m_hasTailCallSuccessors; }
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
     void setTailCall(uint32_t, bool);
@@ -142,6 +143,7 @@ private:
     // Number of VirtualRegister. The naming is unfortunate, but has to match UnlinkedCodeBlock
     unsigned m_numCalleeLocals { 0 };
     uint32_t m_numArguments { 0 };
+    bool m_hasTailCallSuccessors { false };
     bool m_tailCallClobbersInstance { false };
     Vector<Type> m_constantTypes;
     Vector<uint64_t> m_constants;

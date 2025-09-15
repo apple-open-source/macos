@@ -25,6 +25,8 @@
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
+#define __STDC_WANT_LIB_EXT1__ 1
+
 #include <unistd.h>
 #include <stdio.h>
 #include <math.h>
@@ -33,13 +35,12 @@
 #include <pthread.h>
 #include <errno.h>
 #include <err.h>
-#include <string.h>
 #include <assert.h>
 #include <sysexits.h>
 #include <sys/sysctl.h>
 #include <getopt.h>
 #include <libproc.h>
-
+#include <string.h>
 #include <spawn.h>
 #include <spawn_private.h>
 #include <sys/spawn_internal.h>
@@ -60,11 +61,9 @@
 #include <os/lock.h>
 #include <TargetConditionals.h>
 
-#if TARGET_OS_XR
 #include <pthread/workgroup_private.h>
 #include <os/workgroup.h>
 #include <os/workgroup_private.h>
-#endif /* TARGET_OS_XR */
 
 typedef enum wake_type { WAKE_BROADCAST_ONESEM, WAKE_BROADCAST_PERTHREAD, WAKE_CHAIN, WAKE_HOP } wake_type_t;
 typedef enum my_policy_type { MY_POLICY_REALTIME, MY_POLICY_TIMESHARE, MY_POLICY_TIMESHARE_NO_SMT, MY_POLICY_FIXEDPRI } my_policy_type_t;
@@ -114,6 +113,7 @@ static semaphore_t              g_main_sem;
 static uint64_t                *g_thread_endtimes_abs;
 static boolean_t                g_verbose       = FALSE;
 static boolean_t                g_do_affinity   = FALSE;
+static boolean_t                g_rt_workgroup_interval = FALSE;
 static uint64_t                 g_starttime_abs;
 static uint32_t                 g_iteration_sleeptime_us = 0;
 static uint32_t                 g_priority = 0;
@@ -159,6 +159,11 @@ static boolean_t                g_test_rt = FALSE;
 
 static boolean_t                g_rt_churn = FALSE;
 
+/* If true, churn threads will join the same work interval as non-churn. This
+ * will not change the work interval's start or deadline. Useful if churn threads
+ * are meant to pre-warm the workgroup. */
+static boolean_t                g_rt_churn_same_wg = FALSE;
+
 /* On SMT machines, test whether realtime threads are scheduled on the correct CPUs */
 static boolean_t                g_test_rt_smt = FALSE;
 
@@ -194,11 +199,13 @@ static semaphore_t              g_rt_churn_start_sem;
 static semaphore_t             *g_semarr;
 
 
-#if TARGET_OS_XR
-/* Workgroup which allows RT on xrOS */
+/* Workgroup (for CLPC, and required to get RT on visionOS)  */
 os_workgroup_t g_rt_workgroup = NULL;
-os_workgroup_join_token_s g_rt_workgroup_join_token = { 0 };
-#endif /* TARGET_OS_XR */
+os_workgroup_interval_t g_rt_churn_workgroup = NULL;
+__thread os_workgroup_join_token_s th_rt_workgroup_join = { 0 };
+
+/* Cluster to bind to, if any */
+static char                     g_bind_cluster_type = '\0';
 
 typedef struct {
 	__attribute__((aligned(128))) uint32_t current;
@@ -224,9 +231,9 @@ inline static void
 yield(void)
 {
 #if defined(__arm64__)
-	asm volatile ("yield");
+	__asm__ volatile ("yield");
 #elif defined(__x86_64__) || defined(__i386__)
-	asm volatile ("pause");
+	__asm__ volatile ("pause");
 #else
 #error Unrecognized architecture
 #endif
@@ -235,77 +242,11 @@ yield(void)
 #define BIT(b)                          (1ULL << (b))
 #define mask(width)                     (width >= 64 ? -1ULL : (BIT(width) - 1))
 
-
 #if TARGET_OS_XR
-/*
- * The plist (in JSON as it's more compact).
- *
- * {
- * "WorkloadIDTable":{
- *   "com.apple.test":{
- *     "Phases":{
- *       "Realtime":{
- *         "WorkIntervalType":"DEFAULT",
- *         "WorkloadClass":"REALTIME"
- *       }
- *     },
- *       "Root":{"DefaultPhase":"Realtime"}}
- *     }
- * }
- */
-static uint8_t workload_config_plist[] = {
-	0x3c, 0x3f, 0x78, 0x6d, 0x6c, 0x20, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f,
-	0x6e, 0x3d, 0x22, 0x31, 0x2e, 0x30, 0x22, 0x20, 0x65, 0x6e, 0x63, 0x6f,
-	0x64, 0x69, 0x6e, 0x67, 0x3d, 0x22, 0x55, 0x54, 0x46, 0x2d, 0x38, 0x22,
-	0x3f, 0x3e, 0x0a, 0x3c, 0x21, 0x44, 0x4f, 0x43, 0x54, 0x59, 0x50, 0x45,
-	0x20, 0x70, 0x6c, 0x69, 0x73, 0x74, 0x20, 0x50, 0x55, 0x42, 0x4c, 0x49,
-	0x43, 0x20, 0x22, 0x2d, 0x2f, 0x2f, 0x41, 0x70, 0x70, 0x6c, 0x65, 0x2f,
-	0x2f, 0x44, 0x54, 0x44, 0x20, 0x50, 0x4c, 0x49, 0x53, 0x54, 0x20, 0x31,
-	0x2e, 0x30, 0x2f, 0x2f, 0x45, 0x4e, 0x22, 0x20, 0x22, 0x68, 0x74, 0x74,
-	0x70, 0x3a, 0x2f, 0x2f, 0x77, 0x77, 0x77, 0x2e, 0x61, 0x70, 0x70, 0x6c,
-	0x65, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x44, 0x54, 0x44, 0x73, 0x2f, 0x50,
-	0x72, 0x6f, 0x70, 0x65, 0x72, 0x74, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x2d,
-	0x31, 0x2e, 0x30, 0x2e, 0x64, 0x74, 0x64, 0x22, 0x3e, 0x0a, 0x3c, 0x70,
-	0x6c, 0x69, 0x73, 0x74, 0x20, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
-	0x3d, 0x22, 0x31, 0x2e, 0x30, 0x22, 0x3e, 0x0a, 0x3c, 0x64, 0x69, 0x63,
-	0x74, 0x3e, 0x0a, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x57, 0x6f, 0x72,
-	0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x49, 0x44, 0x54, 0x61, 0x62, 0x6c, 0x65,
-	0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x3c, 0x64, 0x69, 0x63,
-	0x74, 0x3e, 0x0a, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x63, 0x6f,
-	0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x74, 0x65, 0x73, 0x74,
-	0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x09, 0x3c, 0x64, 0x69,
-	0x63, 0x74, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e,
-	0x50, 0x68, 0x61, 0x73, 0x65, 0x73, 0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e,
-	0x0a, 0x09, 0x09, 0x09, 0x3c, 0x64, 0x69, 0x63, 0x74, 0x3e, 0x0a, 0x09,
-	0x09, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x52, 0x65, 0x61, 0x6c,
-	0x74, 0x69, 0x6d, 0x65, 0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09,
-	0x09, 0x09, 0x09, 0x3c, 0x64, 0x69, 0x63, 0x74, 0x3e, 0x0a, 0x09, 0x09,
-	0x09, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x57, 0x6f, 0x72, 0x6b,
-	0x49, 0x6e, 0x74, 0x65, 0x72, 0x76, 0x61, 0x6c, 0x54, 0x79, 0x70, 0x65,
-	0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x09, 0x09,
-	0x3c, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x3e, 0x44, 0x45, 0x46, 0x41,
-	0x55, 0x4c, 0x54, 0x3c, 0x2f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x3e,
-	0x0a, 0x09, 0x09, 0x09, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x57,
-	0x6f, 0x72, 0x6b, 0x6c, 0x6f, 0x61, 0x64, 0x43, 0x6c, 0x61, 0x73, 0x73,
-	0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x09, 0x09,
-	0x3c, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x3e, 0x52, 0x45, 0x41, 0x4c,
-	0x54, 0x49, 0x4d, 0x45, 0x3c, 0x2f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67,
-	0x3e, 0x0a, 0x09, 0x09, 0x09, 0x09, 0x3c, 0x2f, 0x64, 0x69, 0x63, 0x74,
-	0x3e, 0x0a, 0x09, 0x09, 0x09, 0x3c, 0x2f, 0x64, 0x69, 0x63, 0x74, 0x3e,
-	0x0a, 0x09, 0x09, 0x09, 0x3c, 0x6b, 0x65, 0x79, 0x3e, 0x52, 0x6f, 0x6f,
-	0x74, 0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x3c,
-	0x64, 0x69, 0x63, 0x74, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x09, 0x3c, 0x6b,
-	0x65, 0x79, 0x3e, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x50, 0x68,
-	0x61, 0x73, 0x65, 0x3c, 0x2f, 0x6b, 0x65, 0x79, 0x3e, 0x0a, 0x09, 0x09,
-	0x09, 0x09, 0x3c, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67, 0x3e, 0x52, 0x65,
-	0x61, 0x6c, 0x74, 0x69, 0x6d, 0x65, 0x3c, 0x2f, 0x73, 0x74, 0x72, 0x69,
-	0x6e, 0x67, 0x3e, 0x0a, 0x09, 0x09, 0x09, 0x3c, 0x2f, 0x64, 0x69, 0x63,
-	0x74, 0x3e, 0x0a, 0x09, 0x09, 0x3c, 0x2f, 0x64, 0x69, 0x63, 0x74, 0x3e,
-	0x0a, 0x09, 0x3c, 0x2f, 0x64, 0x69, 0x63, 0x74, 0x3e, 0x0a, 0x3c, 0x2f,
-	0x64, 0x69, 0x63, 0x74, 0x3e, 0x0a, 0x3c, 0x2f, 0x70, 0x6c, 0x69, 0x73,
-	0x74, 0x3e, 0x0a
+static const char workload_config_plist[] = {
+#embed "zero_to_n_workload_config.plist" suffix(,)
+	0,
 };
-static const size_t workload_config_plist_len = 591;
 
 static bool
 workload_config_load(void)
@@ -313,7 +254,7 @@ workload_config_load(void)
 	/* Try to load the test workload config plist. */
 	size_t len = 0;
 	int result = sysctlbyname("kern.workload_config", NULL, &len,
-	    &workload_config_plist[0], workload_config_plist_len);
+	    (void*) (const void*) workload_config_plist, strlen(workload_config_plist));
 	if (result != 0) {
 		warnx("failed to load the workload config: %d", errno);
 		return false;
@@ -328,9 +269,6 @@ workload_config_unload(void)
 	/* clear the loaded workload config plist.. */
 	size_t len = 0;
 	sysctlbyname("kern.workload_config", NULL, &len, "", 1);
-
-	/* Leave the workgroup */
-	os_workgroup_leave(g_rt_workgroup, &g_rt_workgroup_join_token);
 }
 #endif /* TARGET_OS_XR */
 
@@ -395,12 +333,7 @@ create_churn_threads()
 	for (uint32_t i = 0; i < g_churn_count; i++) {
 		pthread_t new_thread;
 
-#if TARGET_OS_XR
-		err = pthread_create_with_workgroup_np(&new_thread, g_rt_workgroup,
-		    &attr, churn_thread, NULL);
-#else
 		err = pthread_create(&new_thread, &attr, churn_thread, NULL);
-#endif /* TARGET_OS_XR */
 
 		if (err) {
 			errc(EX_OSERR, err, "pthread_create");
@@ -459,6 +392,14 @@ rt_churn_thread(__unused void *arg)
 {
 	rt_churn_thread_setup();
 
+	int kr;
+	if (g_rt_churn_same_wg) {
+		kr = os_workgroup_join(g_rt_workgroup, &th_rt_workgroup_join);
+	} else {
+		kr = os_workgroup_join(g_rt_churn_workgroup, &th_rt_workgroup_join);
+	}
+	mach_assert_zero_t(0, kr);
+
 	for (uint32_t i = 0; i < g_iterations; i++) {
 		kern_return_t kr = semaphore_wait_signal(g_rt_churn_start_sem, g_rt_churn_sem);
 		mach_assert_zero_t(0, kr);
@@ -473,8 +414,14 @@ rt_churn_thread(__unused void *arg)
 		}
 	}
 
-	kern_return_t kr = semaphore_signal(g_rt_churn_sem);
+	kr = semaphore_signal(g_rt_churn_sem);
 	mach_assert_zero_t(0, kr);
+
+	if (g_rt_churn_same_wg) {
+		os_workgroup_leave(g_rt_workgroup, &th_rt_workgroup_join);
+	} else {
+		os_workgroup_leave(g_rt_churn_workgroup, &th_rt_workgroup_join);
+	}
 
 	return NULL;
 }
@@ -529,13 +476,7 @@ create_rt_churn_threads(void)
 	for (uint32_t i = 0; i < g_rt_churn_count; i++) {
 		pthread_t new_thread;
 
-#if TARGET_OS_XR
-		err = pthread_create_with_workgroup_np(&new_thread, g_rt_workgroup,
-		    &attr, rt_churn_thread, NULL);
-#else
 		err = pthread_create(&new_thread, &attr, rt_churn_thread, NULL);
-#endif /* TARGET_OS_XR */
-
 		if (err) {
 			errc(EX_OSERR, err, "pthread_create");
 		}
@@ -699,6 +640,13 @@ worker_thread(void *arg)
 	/* Set policy and so forth */
 	thread_setup(my_id);
 
+	if (g_rt_workgroup != NULL) {
+		kr = os_workgroup_join(g_rt_workgroup, &th_rt_workgroup_join);
+		if (kr) {
+			errc(EX_OSERR, kr, "os_workgroup_join from worker thread %d", my_id);
+		}
+	}
+
 	for (uint32_t i = 0; i < g_iterations; i++) {
 		if (my_id == 0) {
 			/*
@@ -735,7 +683,6 @@ worker_thread(void *arg)
 			}
 
 			/* Signal main thread and wait for start of iteration */
-
 			kr = semaphore_wait_signal(g_leadersem, g_main_sem);
 			mach_assert_zero_t(my_id, kr);
 
@@ -744,6 +691,17 @@ worker_thread(void *arg)
 			debug_log("%d Leader thread go\n", i);
 
 			assert_zero_t(my_id, atomic_load_explicit(&g_done_threads, memory_order_relaxed));
+
+			if (g_rt_workgroup_interval) {
+				uint64_t interval_start = mach_absolute_time();
+				uint64_t constraint_nanos = g_rt_ll ? LL_CONSTRAINT_NANOS : CONSTRAINT_NANOS;
+				uint64_t deadline = interval_start + nanos_to_abs(constraint_nanos);
+				debug_log("Starting work interval %u at %llu, deadline %llu\n", i, interval_start, deadline);
+				kr = os_workgroup_interval_start(g_rt_workgroup, interval_start, deadline, NULL);
+				if (kr != 0) {
+					printf("WARN: os_workgroup_interval_start returned %d; overlapping intervals?\n", kr);
+				}
+			}
 
 			switch (g_waketype) {
 			case WAKE_BROADCAST_ONESEM:
@@ -877,7 +835,16 @@ worker_thread(void *arg)
 			}
 		}
 
-		debug_log("Thread %p done spinning, iteration %d\n", pthread_self(), i);
+		debug_log("Thread %u[%p] done spinning, iteration %d\n", my_id, pthread_self(), i);
+
+		if (g_rt_workgroup_interval && my_id == 0) {
+			debug_log("Finishing work interval %u at %llu\n", i, mach_absolute_time());
+			/* Finish the work interval. */
+			kr = os_workgroup_interval_finish(g_rt_workgroup, NULL);
+			if (kr != 0) {
+				printf("WARN: os_workgroup_interval_start returned %d; overlapping intervals?\n", kr);
+			}
+		}
 	}
 
 	if (my_id == 0) {
@@ -914,6 +881,10 @@ worker_thread(void *arg)
 	os_unfair_lock_lock(&runtime_lock);
 	time_value_add(&worker_threads_total_runtime, &runtime);
 	os_unfair_lock_unlock(&runtime_lock);
+
+	if (g_rt_workgroup != NULL) {
+		os_workgroup_leave(g_rt_workgroup, &th_rt_workgroup_join);
+	}
 
 	return 0;
 }
@@ -1053,22 +1024,50 @@ main(int argc, char **argv)
 		printf("TEST SKIPPED\n");
 		exit(0);
 	}
+#endif /* TARGET_OS_XR */
 
-	os_workgroup_attr_s attr = OS_WORKGROUP_ATTR_INITIALIZER_DEFAULT;
-	g_rt_workgroup = os_workgroup_create_with_workload_id("test", "com.apple.test", &attr);
-	if (g_rt_workgroup == NULL) {
-		err(EX_OSERR, "failed to create the test workgroup");
+	if (g_rt_workgroup_interval) {
+		assert(g_policy == MY_POLICY_REALTIME);
+
+		os_workgroup_attr_s attr = OS_WORKGROUP_ATTR_INITIALIZER_DEFAULT;
+		/* Pretend to be an audio client so that os_workgroup_max_parallel_threads is accurate. */
+		ret = os_workgroup_attr_set_interval_type(&attr, OS_WORKGROUP_INTERVAL_TYPE_AUDIO_CLIENT);
+		if (ret != 0) {
+			errx(EX_OSERR, "os_workgroup_attr_set_interval_type(OS_WORKGROUP_INTERVAL_TYPE_AUDIO_CLIENT)");
+		}
+		g_rt_workgroup = os_workgroup_interval_create_with_workload_id("zero-to-n", "com.apple.test.zero-to-n.audio", OS_CLOCK_MACH_ABSOLUTE_TIME, &attr);
+		if (g_rt_workgroup == NULL) {
+			errx(EX_OSERR, "Failed to create zero-to-n workgroup interval.");
+		}
+	} else if (g_policy == MY_POLICY_REALTIME) {
+		os_workgroup_attr_s attr = OS_WORKGROUP_ATTR_INITIALIZER_DEFAULT;
+		g_rt_workgroup = os_workgroup_create_with_workload_id("zero-to-n", "com.apple.test.zero-to-n.default", &attr);
+		if (g_rt_workgroup == NULL) {
+			errx(EX_OSERR, "Failed to create zero-to-n workgroup.");
+		}
 	}
 
-	/* Join the main thread to the workgroup. */
-	ret = os_workgroup_join(g_rt_workgroup, &g_rt_workgroup_join_token);
-	assert_zero_t(0, ret);
-#endif /* TARGET_OS_XR */
+	if (g_rt_churn && !g_rt_churn_same_wg) {
+		os_workgroup_attr_s attr = OS_WORKGROUP_ATTR_INITIALIZER_DEFAULT;
+		g_rt_churn_workgroup = os_workgroup_create_with_workload_id("churn", "com.apple.test.zero-to-n.churn", &attr);
+		if (g_rt_churn_workgroup == NULL) {
+			errx(EX_OSERR, "Failed to create RT churn workgroup.");
+		}
+	}
+
+	if (g_bind_cluster_type != '\0') {
+		ret = set_recommended_cluster(g_bind_cluster_type);
+		if (ret != 0) {
+			warn("Failed to bind to cluster type %c", g_bind_cluster_type);
+		} else {
+			printf("Bound to cluster type %c\n", g_bind_cluster_type);
+		}
+	}
 
 	size_t maxcpu_size = sizeof(g_maxcpus);
 	ret = sysctlbyname("hw.ncpu", &g_maxcpus, &maxcpu_size, NULL, 0);
 	if (ret) {
-		err(EX_OSERR, "Failed sysctlbyname(hw.ncpu)");
+		errc(EX_OSERR, ret, "Failed sysctlbyname(hw.ncpu)");
 	}
 	assert(g_maxcpus <= 64); /* g_cpu_map needs to be extended for > 64 cpus */
 
@@ -1077,21 +1076,11 @@ main(int argc, char **argv)
 	if (ret) {
 		/* hw.perflevel0.logicalcpu failed so falling back to hw.ncpu */
 		g_numcpus = g_maxcpus;
-	} else {
-		/* Test for multiple perf levels */
-		uint32_t result = 0;
-		size_t result_size = sizeof(result);
-		ret = sysctlbyname("hw.perflevel1.logicalcpu", &result, &result_size, NULL, 0);
-		if ((ret == 0) && (result > 0)) {
-			/* <rdar://137716223> */
-			/* Multiple perf levels detected, so bind this task to the highest perf node */
-			ret = set_recommended_cluster('p');
-			if (ret && g_test_rt) {
-				printf("set_recommended_cluster('p') failed.  Skipping test\n");
-				printf("TEST SKIPPED\n");
-				exit(0);
-			}
-		}
+	}
+
+	if (g_rt_workgroup_interval) {
+		/* Use the os_workgroup's max parallelism instead of any heuristic. */
+		g_numcpus = os_workgroup_max_parallel_threads(g_rt_workgroup, NULL);
 	}
 
 	size_t physicalcpu_size = sizeof(g_nphysicalcpu);
@@ -1105,13 +1094,10 @@ main(int argc, char **argv)
 	}
 
 	size_t logicalcpu_size = sizeof(g_nlogicalcpu);
-	ret = sysctlbyname("hw.perflevel0.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
+	/* hw.perflevel0.logicalcpu failed so falling back to hw.logicalcpu */
+	ret = sysctlbyname("hw.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
 	if (ret) {
-		/* hw.perflevel0.logicalcpu failed so falling back to hw.logicalcpu */
-		ret = sysctlbyname("hw.logicalcpu", &g_nlogicalcpu, &logicalcpu_size, NULL, 0);
-		if (ret) {
-			err(EX_OSERR, "Failed sysctlbyname(hw.logicalcpu)");
-		}
+		err(EX_OSERR, "Failed sysctlbyname(hw.logicalcpu)");
 	}
 
 	if (g_test_rt) {
@@ -1124,6 +1110,7 @@ main(int argc, char **argv)
 				g_numthreads = 2;
 			}
 		}
+
 		g_policy = MY_POLICY_REALTIME;
 		g_histogram = true;
 		/* Don't change g_traceworthy_latency_ns if it's explicity been set to something other than the default */
@@ -1306,12 +1293,7 @@ main(int argc, char **argv)
 
 	/* Create the threads */
 	for (uint32_t i = 0; i < g_numthreads; i++) {
-#if TARGET_OS_XR
-		ret = pthread_create_with_workgroup_np(&threads[i], g_rt_workgroup,
-		    NULL, worker_thread, (void*)(uintptr_t)i);
-#else
 		ret = pthread_create(&threads[i], NULL, worker_thread, (void*)(uintptr_t)i);
-#endif
 		if (ret) {
 			errc(EX_OSERR, ret, "pthread_create %d", i);
 		}
@@ -1323,8 +1305,6 @@ main(int argc, char **argv)
 	}
 
 	bool recommended_cores_warning = false;
-
-	thread_setup(0);
 
 	g_starttime_abs = mach_absolute_time();
 
@@ -1651,11 +1631,12 @@ usage()
 {
 	errx(EX_USAGE, "Usage: %s <threads> <chain | hop | broadcast-single-sem | broadcast-per-thread> "
 	    "<realtime | timeshare | timeshare_no_smt | fixed> <iterations>\n\t\t"
-	    "[--trace <traceworthy latency in ns>] "
+	    "[--trace <traceworthy latency in ns>]\n\t\t"
+	    "[--rt-interval] [--bind <cluster type>]\n\t\t"
 	    "[--verbose] [--spin-one] [--spin-all] [--spin-time <nanos>] [--affinity]\n\t\t"
 	    "[--no-sleep] [--drop-priority] [--churn-pri <pri>] [--churn-count <n>] [--churn-random]\n\t\t"
 	    "[--extra-thread-count <signed int>]\n\t\t"
-	    "[--rt-churn] [--rt-churn-count <n>] [--rt-ll]\n\t\t"
+	    "[--rt-churn <mode>] [--rt-churn-count <n>] [--rt-ll]\n\t\t"
 	    "[--test-rt] [--test-rt-smt] [--test-rt-avoid0] [--test-strict-fail]",
 	    getprogname());
 }
@@ -1695,6 +1676,22 @@ read_signed_dec_arg()
 	return arg_val;
 }
 
+static char
+read_cluster_type_arg()
+{
+	char cluster = optarg[0];
+	switch (cluster) {
+	case 'E':
+	case 'P':
+		/* Cluster type is valid. */
+		return cluster;
+	default:
+		errx(EX_USAGE, "arg --%s should be a valid cluster type, found \"%s\"",
+		    g_longopts[option_index].name, optarg);
+		return 'P';
+	}
+}
+
 static void
 parse_args(int argc, char *argv[])
 {
@@ -1707,6 +1704,7 @@ parse_args(int argc, char *argv[])
 		OPT_CHURN_COUNT,
 		OPT_RT_CHURN_COUNT,
 		OPT_EXTRA_THREAD_COUNT,
+		OPT_BIND_CLUSTER,
 	};
 
 	static struct option longopts[] = {
@@ -1718,12 +1716,14 @@ parse_args(int argc, char *argv[])
 		{ "churn-count",        required_argument,      NULL,                           OPT_CHURN_COUNT },
 		{ "rt-churn-count",     required_argument,      NULL,                           OPT_RT_CHURN_COUNT },
 		{ "extra-thread-count", required_argument,      NULL,                           OPT_EXTRA_THREAD_COUNT },
+		{ "bind" ,              required_argument,      NULL,                           OPT_BIND_CLUSTER },
 		{ "churn-random",       no_argument,            (int*)&g_churn_random,          TRUE },
 		{ "switched_apptype",   no_argument,            (int*)&g_seen_apptype,          TRUE },
 		{ "spin-one",           no_argument,            (int*)&g_do_one_long_spin,      TRUE },
 		{ "intel-only",         no_argument,            (int*)&g_run_on_intel_only,     TRUE },
 		{ "spin-all",           no_argument,            (int*)&g_do_all_spin,           TRUE },
 		{ "affinity",           no_argument,            (int*)&g_do_affinity,           TRUE },
+		{ "rt-interval",        no_argument,            (int*)&g_rt_workgroup_interval, TRUE },
 		{ "no-sleep",           no_argument,            (int*)&g_do_sleep,              FALSE },
 		{ "drop-priority",      no_argument,            (int*)&g_drop_priority,         TRUE },
 		{ "test-rt",            no_argument,            (int*)&g_test_rt,               TRUE },
@@ -1731,6 +1731,7 @@ parse_args(int argc, char *argv[])
 		{ "test-rt-avoid0",     no_argument,            (int*)&g_test_rt_avoid0,        TRUE },
 		{ "test-strict-fail",   no_argument,            (int*)&g_test_strict_fail,      TRUE },
 		{ "rt-churn",           no_argument,            (int*)&g_rt_churn,              TRUE },
+		{ "rt-churn-same-wg",   no_argument,            (int*)&g_rt_churn_same_wg,      FALSE },
 		{ "rt-ll",              no_argument,            (int*)&g_rt_ll,                 TRUE },
 		{ "histogram",          no_argument,            (int*)&g_histogram,             TRUE },
 		{ "verbose",            no_argument,            (int*)&g_verbose,               TRUE },
@@ -1768,6 +1769,9 @@ parse_args(int argc, char *argv[])
 			break;
 		case OPT_EXTRA_THREAD_COUNT:
 			g_extra_thread_count = read_signed_dec_arg();
+			break;
+		case OPT_BIND_CLUSTER:
+			g_bind_cluster_type = read_cluster_type_arg();
 			break;
 		case '?':
 		case 'h':
@@ -1827,5 +1831,13 @@ parse_args(int argc, char *argv[])
 
 	if (g_numthreads == 1 && g_waketype == WAKE_HOP) {
 		errx(EX_USAGE, "hop mode requires more than one thread");
+	}
+
+	if (g_rt_churn_same_wg && !g_rt_churn) {
+		errx(EX_USAGE, "--rt-churn-same-wg requires rt-churn");
+	}
+
+	if (g_rt_workgroup_interval && g_policy != MY_POLICY_REALTIME) {
+		errx(EX_USAGE, "--rt-interval can only be used with realtime policy.");
 	}
 }

@@ -77,7 +77,7 @@ private:
     std::span<const uint8_t> m_data;
     float m_sampleRate { 0 };
     int m_channels { 0 };
-    UncheckedKeyHashMap<int, GRefPtr<GstBufferList>> m_buffers;
+    HashMap<int, GRefPtr<GstBufferList>> m_buffers;
     GRefPtr<GstElement> m_pipeline;
     std::optional<int> m_firstChannelType;
     unsigned m_channelSize { 0 };
@@ -140,7 +140,7 @@ void AudioFileReader::decodebinPadAddedCallback(AudioFileReader* reader, GstPad*
 }
 
 AudioFileReader::AudioFileReader(std::span<const uint8_t> data)
-    : m_runLoop(RunLoop::current())
+    : m_runLoop(RunLoop::currentSingleton())
     , m_data(data)
 {
 }
@@ -294,7 +294,7 @@ void AudioFileReader::handleNewDeinterleavePad(GstPad* pad)
     // in an appsink so we can pull the data from each
     // channel. Pipeline looks like:
     // ... deinterleave ! appsink.
-    GstElement* sink = makeGStreamerElement("appsink", nullptr);
+    GstElement* sink = makeGStreamerElement("appsink"_s);
 
     if (!m_firstChannelType) {
         auto caps = adoptGRef(gst_pad_query_caps(pad, nullptr));
@@ -347,16 +347,16 @@ void AudioFileReader::plugDeinterleave(GstPad* pad)
         return;
 
     auto padCaps = adoptGRef(gst_pad_query_caps(pad, nullptr));
-    if (!doCapsHaveType(padCaps.get(), "audio/x-raw"))
+    if (!doCapsHaveType(padCaps.get(), "audio/x-raw"_s))
         return;
 
     // A decodebin pad was added, plug in a deinterleave element to
     // separate each planar channel. Sub pipeline looks like
     // ... decodebin2 ! audioconvert ! audioresample ! capsfilter ! deinterleave.
-    GstElement* audioConvert  = makeGStreamerElement("audioconvert", nullptr);
-    GstElement* audioResample = makeGStreamerElement("audioresample", nullptr);
+    GstElement* audioConvert  = makeGStreamerElement("audioconvert"_s);
+    GstElement* audioResample = makeGStreamerElement("audioresample"_s);
     GstElement* capsFilter = gst_element_factory_make("capsfilter", nullptr);
-    m_deInterleave = makeGStreamerElement("deinterleave", "deinterleave");
+    m_deInterleave = makeGStreamerElement("deinterleave"_s, "deinterleave"_s);
 
     g_object_set(m_deInterleave.get(), "keep-positions", TRUE, nullptr);
     g_signal_connect_swapped(m_deInterleave.get(), "pad-added", G_CALLBACK(deinterleavePadAddedCallback), this);
@@ -384,6 +384,8 @@ void AudioFileReader::plugDeinterleave(GstPad* pad)
 void AudioFileReader::decodeAudioForBusCreation()
 {
     assertIsCurrent(m_runLoop);
+    if (m_data.empty())
+        return;
 
     // Build the pipeline giostreamsrc ! decodebin
     // A deinterleave element is added once a src pad becomes available in decodebin.
@@ -409,12 +411,11 @@ void AudioFileReader::decodeAudioForBusCreation()
         return GST_BUS_DROP;
     }, this, nullptr);
 
-    ASSERT(!m_data.empty());
-    auto* source = makeGStreamerElement("giostreamsrc", nullptr);
+    auto* source = makeGStreamerElement("giostreamsrc"_s);
     auto memoryStream = adoptGRef(g_memory_input_stream_new_from_data(m_data.data(), m_data.size(), nullptr));
     g_object_set(source, "stream", memoryStream.get(), nullptr);
 
-    m_decodebin = makeGStreamerElement("decodebin", "decodebin");
+    m_decodebin = makeGStreamerElement("decodebin"_s, "decodebin"_s);
     g_signal_connect(m_decodebin.get(), "autoplug-select", G_CALLBACK(decodebinAutoplugSelectCallback), nullptr);
     g_signal_connect_swapped(m_decodebin.get(), "pad-added", G_CALLBACK(decodebinPadAddedCallback), this);
 
@@ -459,7 +460,7 @@ RefPtr<AudioBus> AudioFileReader::createBus(float sampleRate, bool mixToMono)
     m_buffers.clear();
 
     if (mixToMono)
-        return AudioBus::createByMixingToMono(audioBus.get());
+        return AudioBus::createByMixingToMono(audioBus);
     return audioBus;
 }
 

@@ -163,6 +163,12 @@ static bool hasSignatureForWebM(std::span<const uint8_t> sequence)
             //  7. If matched is true, abort these steps and return true.
             if (sequence[iter] == 0x77 && sequence[iter + 1] == 0x65 && sequence[iter + 2] == 0x62 && sequence[iter + 3] == 0x6d)
                 return true;
+
+            // case for matroska, treat it as webm.
+            if (iter + 8 >= length)
+                break;
+            if (sequence[iter] == 'm' && sequence[iter + 1] == 'a' && sequence[iter + 2] == 't' && sequence[iter + 3] == 'r' && sequence[iter + 4] == 'o' && sequence[iter + 5] == 's' && sequence[iter + 6] == 'k' && sequence[iter + 7] == 'a')
+                return true;
         }
         //  2. Increment iter by 1.
         iter++;

@@ -23,13 +23,14 @@
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 [
     EnabledBy=VideoPresentationManagerEnabled || VideoPresentationModeAPIEnabled,
+    SharedPreferencesNeedsConnection,
     DispatchedFrom=WebContent,
     DispatchedTo=UI
 ]
 messages -> PlaybackSessionManagerProxy {
     CurrentTimeChanged(WebKit::PlaybackSessionContextIdentifier contextId, double currentTime, double hostTime)
     BufferedTimeChanged(WebKit::PlaybackSessionContextIdentifier contextId, double bufferedTime)
-    SeekableRangesVectorChanged(WebKit::PlaybackSessionContextIdentifier contextId, Vector<std::pair<double, double>> ranges, double lastModifiedTime, double liveUpdateInterval)
+    SeekableRangesVectorChanged(WebKit::PlaybackSessionContextIdentifier contextId, WebCore::PlatformTimeRanges ranges, double lastModifiedTime, double liveUpdateInterval)
     CanPlayFastReverseChanged(WebKit::PlaybackSessionContextIdentifier contextId, bool value)
     AudioMediaSelectionOptionsChanged(WebKit::PlaybackSessionContextIdentifier contextId, Vector<WebCore::MediaSelectionOption> options, uint64_t selectedIndex)
     LegibleMediaSelectionOptionsChanged(WebKit::PlaybackSessionContextIdentifier contextId, Vector<WebCore::MediaSelectionOption> options, uint64_t selectedIndex)
@@ -44,10 +45,14 @@ messages -> PlaybackSessionManagerProxy {
     VolumeChanged(WebKit::PlaybackSessionContextIdentifier contextId, double volume);
     PictureInPictureSupportedChanged(WebKit::PlaybackSessionContextIdentifier contextId, bool pictureInPictureSupported)
     IsInWindowFullscreenActiveChanged(WebKit::PlaybackSessionContextIdentifier contextId, bool isInWindow)
+#if HAVE(PIP_SKIP_PREROLL)
+    CanSkipAdChanged(WebKit::PlaybackSessionContextIdentifier contextId, bool value)
+#endif
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     SupportsLinearMediaPlayerChanged(WebKit::PlaybackSessionContextIdentifier contextId, bool supportsLinearMediaPlayer)
-    SpatialVideoMetadataChanged(WebKit::PlaybackSessionContextIdentifier contextId, std::optional<WebCore::SpatialVideoMetadata> metadata);
 #endif
+    SpatialVideoMetadataChanged(WebKit::PlaybackSessionContextIdentifier contextId, struct std::optional<WebCore::SpatialVideoMetadata> metadata);
+    VideoProjectionMetadataChanged(WebKit::PlaybackSessionContextIdentifier contextId, struct std::optional<WebCore::VideoProjectionMetadata> metadata);
     SetUpPlaybackControlsManagerWithID(WebKit::PlaybackSessionContextIdentifier contextId, bool isVideo)
     ClearPlaybackControlsManager()
 

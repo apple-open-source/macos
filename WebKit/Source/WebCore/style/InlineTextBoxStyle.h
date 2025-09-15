@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2014-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,9 +57,9 @@ struct TextUnderlinePositionUnder {
     // on line that belong to the same decorating box.
     float textRunOffsetFromBottomMost { 0.f };
 };
-GlyphOverflow visualOverflowForDecorations(const RenderStyle&);
-GlyphOverflow visualOverflowForDecorations(const RenderStyle&, TextUnderlinePositionUnder);
-GlyphOverflow visualOverflowForDecorations(const InlineIterator::LineBoxIterator&, const RenderText&, float textBoxLogicalTop, float textBoxLogicalBottom);
+GlyphOverflow inkOverflowForDecorations(const RenderStyle&);
+GlyphOverflow inkOverflowForDecorations(const RenderStyle&, TextUnderlinePositionUnder);
+GlyphOverflow inkOverflowForDecorations(const InlineIterator::LineBoxIterator&, const RenderText&, float textBoxLogicalTop, float textBoxLogicalBottom);
 bool isAlignedForUnder(const RenderStyle& decoratingBoxStyle);
 
 float underlineOffsetForTextBoxPainting(const InlineIterator::InlineBox&, const RenderStyle&);

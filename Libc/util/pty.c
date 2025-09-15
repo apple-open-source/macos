@@ -64,15 +64,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <termios.h>
 #include <unistd.h>
 #include <util.h>
-#include <syslog.h>
 
 int openpty(int *aprimary, int *areplica, char *name, struct termios *termp, struct winsize *winp)
 {
 	int primary, replica;
-	char rname[128];
+	char rname[__PTYNAMELEN];
 	int errno_saved;
 
 	if ((primary = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
@@ -88,7 +88,7 @@ int openpty(int *aprimary, int *areplica, char *name, struct termios *termp, str
 	*aprimary = primary;
 	*areplica = replica;
 	if (name)
-		strcpy(name, rname);
+		strlcpy(name, rname, __PTYNAMELEN);
 	if (termp)
 		(void) tcsetattr(replica, TCSAFLUSH, termp);
 	if (winp)

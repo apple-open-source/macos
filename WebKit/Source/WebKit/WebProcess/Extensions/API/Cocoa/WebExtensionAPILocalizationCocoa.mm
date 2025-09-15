@@ -57,7 +57,7 @@ NSString *WebExtensionAPILocalization::getMessage(NSString* messageName, id subs
 
     RefPtr localization = extensionContext().localization();
     if (!localization)
-        return emptyString();
+        return @"";
 
     NSArray<NSString *> *substitutionsArray;
     if ([substitutions isKindOfClass:NSString.class])
@@ -70,7 +70,7 @@ NSString *WebExtensionAPILocalization::getMessage(NSString* messageName, id subs
 
     auto substitutionsVector = makeVector<String>(substitutionsArray);
 
-    return localization->localizedStringForKey(messageName, substitutionsVector);
+    return localization->localizedStringForKey(messageName, substitutionsVector).createNSString().autorelease();
 }
 
 NSString *WebExtensionAPILocalization::getUILanguage()

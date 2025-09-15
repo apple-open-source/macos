@@ -26,8 +26,10 @@
 #pragma once
 
 #include "ProcessIdentifier.h"
+#include <wtf/GetPtr.h>
 #include <wtf/Hasher.h>
 #include <wtf/Markable.h>
+#include <wtf/text/IntegerToStringConversion.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
@@ -84,12 +86,36 @@ public:
 
     static ProcessQualified generate() { return { T::generate(), Process::identifier() }; }
 
-    String toString() const { return makeString(m_processIdentifier.toUInt64(), '-', m_object.toUInt64()); }
+    // MonotonicObjectIdentifier support
+    static ProcessQualified generateMonotonic() { return { T(), Process::identifier() }; }
+    ProcessQualified next() const { return { m_object.next(), m_processIdentifier }; }
+    ProcessQualified& increment() { m_object.increment(); return *this; }
 
-    struct MarkableTraits {
-        static bool isEmptyValue(const ProcessQualified& identifier) { return T::MarkableTraits::isEmptyValue(identifier.object()); }
-        static constexpr ProcessQualified emptyValue() { return { T::MarkableTraits::emptyValue(), ProcessIdentifier::MarkableTraits::emptyValue() }; }
-    };
+    String toString() const { return makeString(m_processIdentifier.toUInt64(), '-', m_object.toUInt64()); }
+    String loggingString() const { return toString(); }
+
+    // Comparison operators for callers that have already verified that
+    // the objects originate from the same process.
+    bool lessThanSameProcess(const ProcessQualified& other)
+    {
+        ASSERT(processIdentifier() == other.processIdentifier());
+        return object() < other.object();
+    }
+    bool lessThanOrEqualSameProcess(const ProcessQualified& other)
+    {
+        ASSERT(processIdentifier() == other.processIdentifier());
+        return object() <= other.object();
+    }
+    bool greaterThanSameProcess(const ProcessQualified& other)
+    {
+        ASSERT(processIdentifier() == other.processIdentifier());
+        return object() > other.object();
+    }
+    bool greaterThanOrEqualSameProcess(const ProcessQualified& other)
+    {
+        ASSERT(processIdentifier() == other.processIdentifier());
+        return object() >= other.object();
+    }
 
 private:
     T m_object;
@@ -97,33 +123,18 @@ private:
 };
 
 template<typename T>
-bool operator>(const ProcessQualified<T>& a, const ProcessQualified<T>& b)
-{
-    return a.object() > b.object();
-}
-
+bool operator>(const ProcessQualified<T>&, const ProcessQualified<T>&) = delete;
 template<typename T>
-bool operator>=(const ProcessQualified<T>& a, const ProcessQualified<T>& b)
-{
-    return a.object() >= b.object();
-}
-
+bool operator>=(const ProcessQualified<T>&, const ProcessQualified<T>&) = delete;
 template<typename T>
-bool operator<(const ProcessQualified<T>& a, const ProcessQualified<T>& b)
-{
-    return a.object() < b.object();
-}
-
+bool operator<(const ProcessQualified<T>&, const ProcessQualified<T>&) = delete;
 template<typename T>
-bool operator<=(const ProcessQualified<T>& a, const ProcessQualified<T>& b)
-{
-    return a.object() <= b.object();
-}
+bool operator<=(const ProcessQualified<T>&, const ProcessQualified<T>&) = delete;
 
 template <typename T>
 inline TextStream& operator<<(TextStream& ts, const ProcessQualified<T>& processQualified)
 {
-    ts << "ProcessQualified(" << processQualified.object() << ", " << processQualified.processIdentifier() << ')';
+    ts << "ProcessQualified("_s << processQualified.object() << ", "_s << processQualified.processIdentifier() << ')';
     return ts;
 }
 
@@ -185,6 +196,12 @@ class StringTypeAdapter<WebCore::ProcessQualified<T>, void> : public ProcessQual
 public:
     explicit StringTypeAdapter(const WebCore::ProcessQualified<T>& processQualified)
         : ProcessQualifiedStringTypeAdapter(processQualified.processIdentifier().toUInt64(), processQualified.object().toUInt64()) { }
+};
+
+template<typename T>
+struct MarkableTraits<WebCore::ProcessQualified<T>> {
+    static bool isEmptyValue(const WebCore::ProcessQualified<T>& identifier) { return MarkableTraits<T>::isEmptyValue(identifier.object()); }
+    static constexpr WebCore::ProcessQualified<T> emptyValue() { return { MarkableTraits<T>::emptyValue(), MarkableTraits<WebCore::ProcessIdentifier>::emptyValue() }; }
 };
 
 } // namespace WTF

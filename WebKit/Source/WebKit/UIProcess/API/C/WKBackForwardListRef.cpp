@@ -40,45 +40,45 @@ WKTypeID WKBackForwardListGetTypeID()
 
 WKBackForwardListItemRef WKBackForwardListGetCurrentItem(WKBackForwardListRef listRef)
 {
-    return toAPI(toImpl(listRef)->currentItem());
+    return toAPI(toProtectedImpl(listRef)->protectedCurrentItem().get());
 }
 
 WKBackForwardListItemRef WKBackForwardListGetBackItem(WKBackForwardListRef listRef)
 {
-    return toAPI(toImpl(listRef)->backItem());
+    return toAPI(toProtectedImpl(listRef)->protectedBackItem().get());
 }
 
 WKBackForwardListItemRef WKBackForwardListGetForwardItem(WKBackForwardListRef listRef)
 {
-    return toAPI(toImpl(listRef)->forwardItem());
+    return toAPI(toProtectedImpl(listRef)->protectedForwardItem().get());
 }
 
 WKBackForwardListItemRef WKBackForwardListGetItemAtIndex(WKBackForwardListRef listRef, int index)
 {
-    return toAPI(toImpl(listRef)->itemAtIndex(index));
+    return toAPI(toProtectedImpl(listRef)->protectedItemAtIndex(index).get());
 }
 
 void WKBackForwardListClear(WKBackForwardListRef listRef)
 {
-    toImpl(listRef)->clear();
+    toProtectedImpl(listRef)->clear();
 }
 
 unsigned WKBackForwardListGetBackListCount(WKBackForwardListRef listRef)
 {
-    return toImpl(listRef)->backListCount();
+    return toProtectedImpl(listRef)->backListCount();
 }
 
 unsigned WKBackForwardListGetForwardListCount(WKBackForwardListRef listRef)
 {
-    return toImpl(listRef)->forwardListCount();
+    return toProtectedImpl(listRef)->forwardListCount();
 }
 
 WKArrayRef WKBackForwardListCopyBackListWithLimit(WKBackForwardListRef listRef, unsigned limit)
 {
-    return toAPI(&toImpl(listRef)->backListAsAPIArrayWithLimit(limit).leakRef());
+    return toAPILeakingRef(toProtectedImpl(listRef)->backListAsAPIArrayWithLimit(limit));
 }
 
 WKArrayRef WKBackForwardListCopyForwardListWithLimit(WKBackForwardListRef listRef, unsigned limit)
 {
-    return toAPI(&toImpl(listRef)->forwardListAsAPIArrayWithLimit(limit).leakRef());
+    return toAPILeakingRef(toProtectedImpl(listRef)->forwardListAsAPIArrayWithLimit(limit));
 }

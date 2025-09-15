@@ -174,7 +174,11 @@ vm_memtag_extract_tag(vm_map_address_t tagged_ptr)
  * (e.g. when packing VM pointers), the following definition hardcodes the
  * tag value to achieve optimal codegen and no external calls.
  */
+#ifndef __BUILDING_XNU_LIBRARY__
 #define vm_memtag_canonicalize_kernel(addr)     vm_memtag_insert_tag(addr, 0xF)
+#else /* __BUILDING_XNU_LIBRARY__ */
+#define vm_memtag_canonicalize_kernel(addr)     vm_memtag_insert_tag(addr, 0x0)
+#endif/* __BUILDING_XNU_LIBRARY__ */
 #define vm_memtag_canonicalize_user(addr)       vm_memtag_insert_tag(addr, 0x0)
 
 extern vm_map_address_t

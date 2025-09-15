@@ -24,8 +24,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION) || ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
 #include "NetworkCacheSpeculativeLoad.h"
 
 #include "Logging.h"
@@ -55,9 +53,9 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameI
 {
     ASSERT(!m_cacheEntry || m_cacheEntry->needsValidation());
 
-    auto* networkSession = m_cache->networkProcess().networkSession(m_cache->sessionID());
+    CheckedPtr networkSession = m_cache->networkProcess().networkSession(m_cache->sessionID());
     if (!networkSession) {
-        RunLoop::main().dispatch([completionHandler = WTFMove(m_completionHandler)]() mutable {
+        RunLoop::mainSingleton().dispatch([completionHandler = WTFMove(m_completionHandler)]() mutable {
             completionHandler(nullptr);
         });
         return;
@@ -74,8 +72,9 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameI
     parameters.isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain;
     parameters.allowPrivacyProxy = allowPrivacyProxy;
     parameters.advancedPrivacyProtections = advancedPrivacyProtections;
-    m_networkLoad = NetworkLoad::create(*this, WTFMove(parameters), *networkSession);
-    m_networkLoad->startWithScheduling();
+    Ref networkLoad = NetworkLoad::create(*this, WTFMove(parameters), *networkSession);
+    m_networkLoad = networkLoad.copyRef();
+    networkLoad->startWithScheduling();
 }
 
 SpeculativeLoad::~SpeculativeLoad()
@@ -85,11 +84,10 @@ SpeculativeLoad::~SpeculativeLoad()
 
 void SpeculativeLoad::cancel()
 {
-    if (!m_networkLoad)
-        return;
-    m_networkLoad->cancel();
-    m_networkLoad = nullptr;
-    m_completionHandler(nullptr);
+    if (RefPtr networkLoad = std::exchange(m_networkLoad, nullptr)) {
+        networkLoad->cancel();
+        m_completionHandler(nullptr);
+    }
 }
 
 void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
@@ -97,7 +95,7 @@ void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, Resou
     LOG(NetworkCacheSpeculativePreloading, "Speculative redirect %s -> %s", request.url().string().utf8().data(), redirectRequest.url().string().utf8().data());
 
     std::optional<Seconds> maxAgeCap;
-    if (auto* networkStorageSession = m_cache->networkProcess().storageSession(m_cache->sessionID()))
+    if (CheckedPtr networkStorageSession = m_cache->networkProcess().storageSession(m_cache->sessionID()))
         maxAgeCap = networkStorageSession->maxAgeCacheCap(request);
     m_cacheEntry = m_cache->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
     // Create a synthetic cache entry if we can't store.
@@ -126,7 +124,7 @@ void SpeculativeLoad::didReceiveResponse(ResourceResponse&& receivedResponse, Pr
     completionHandler(PolicyAction::Use);
 }
 
-void SpeculativeLoad::didReceiveBuffer(const WebCore::FragmentedSharedBuffer& buffer, uint64_t reportedEncodedDataLength)
+void SpeculativeLoad::didReceiveBuffer(const WebCore::FragmentedSharedBuffer& buffer)
 {
     ASSERT(!m_cacheEntry);
 
@@ -218,5 +216,3 @@ bool requestsHeadersMatch(const ResourceRequest& speculativeValidationRequest, c
 
 } // namespace NetworkCache
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION) || ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)

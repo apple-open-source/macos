@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,7 +66,7 @@ public:
 private:
     explicit LocalAuthenticator(Ref<LocalConnection>&&);
 
-    std::optional<WebCore::ExceptionData> processClientExtensions(std::variant<Ref<WebCore::AuthenticatorAttestationResponse>, Ref<WebCore::AuthenticatorAssertionResponse>>);
+    std::optional<WebCore::ExceptionData> processClientExtensions(Variant<Ref<WebCore::AuthenticatorAttestationResponse>, Ref<WebCore::AuthenticatorAssertionResponse>>);
 
     void makeCredential() final;
     void continueMakeCredentialAfterReceivingLAContext(LAContext *);
@@ -86,10 +86,8 @@ private:
 
     std::optional<Vector<Ref<WebCore::AuthenticatorAssertionResponse>>> getExistingCredentials(const String& rpId);
 
-    Ref<LocalConnection> protectedConnection() const { return m_connection; }
-
     State m_state { State::Init };
-    Ref<LocalConnection> m_connection;
+    const Ref<LocalConnection> m_connection;
     Vector<Ref<WebCore::AuthenticatorAssertionResponse>> m_existingCredentials;
     RetainPtr<NSData> m_provisionalCredentialId;
 };

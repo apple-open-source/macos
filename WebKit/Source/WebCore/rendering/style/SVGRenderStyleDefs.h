@@ -8,7 +8,7 @@
     Copyright (C) 2000-2003 Lars Knoll (knoll@kde.org)
               (C) 2000 Antti Koivisto (koivisto@kde.org)
               (C) 2000-2003 Dirk Mueller (mueller@kde.org)
-              (C) 2002-2003 Apple Inc.
+              (C) 2002-2003 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -30,9 +30,12 @@
 
 #include "Length.h"
 #include "SVGLengthValue.h"
-#include "ShadowData.h"
+#include "StyleBoxShadow.h"
 #include "StyleColor.h"
 #include "StylePathData.h"
+#include "StyleSVGPaint.h"
+#include "StyleURL.h"
+#include <wtf/FixedVector.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -44,17 +47,6 @@ namespace WebCore {
 
 class CSSValue;
 class CSSValueList;
-class SVGPaint;
-
-enum class SVGPaintType : uint8_t {
-    RGBColor,
-    None,
-    CurrentColor,
-    URINone,
-    URICurrentColor,
-    URIRGBColor,
-    URI
-};
 
 enum class BaselineShift : uint8_t {
     Baseline,
@@ -156,12 +148,8 @@ public:
 #endif
 
     float opacity;
-    Style::Color paintColor;
-    Style::Color visitedLinkPaintColor;
-    String paintUri;
-    String visitedLinkPaintUri;
-    SVGPaintType paintType;
-    SVGPaintType visitedLinkPaintType;
+    Style::SVGPaint paint;
+    Style::SVGPaint visitedLinkPaint;
 
 private:
     StyleFillData();
@@ -182,18 +170,10 @@ public:
 #endif
 
     float opacity;
-
-    Style::Color paintColor;
-    Style::Color visitedLinkPaintColor;
-
-    String paintUri;
-    String visitedLinkPaintUri;
-
+    Style::SVGPaint paint;
+    Style::SVGPaint visitedLinkPaint;
     Length dashOffset;
-    Vector<SVGLengthValue> dashArray;
-
-    SVGPaintType paintType;
-    SVGPaintType visitedLinkPaintType;
+    FixedVector<Length> dashArray;
 
 private:
     StyleStrokeData();
@@ -239,7 +219,7 @@ public:
     Style::Color floodColor;
     Style::Color lightingColor;
 
-    SVGLengthValue baselineShiftValue;
+    Length baselineShiftValue;
 
 private:
     StyleMiscData();
@@ -259,7 +239,7 @@ public:
     void dumpDifferences(TextStream&, const StyleShadowSVGData&) const;
 #endif
 
-    std::unique_ptr<ShadowData> shadow;
+    Style::BoxShadows shadow;
 
 private:
     StyleShadowSVGData();
@@ -280,9 +260,9 @@ public:
     void dumpDifferences(TextStream&, const StyleInheritedResourceData&) const;
 #endif
 
-    String markerStart;
-    String markerMid;
-    String markerEnd;
+    Style::URL markerStart;
+    Style::URL markerMid;
+    Style::URL markerEnd;
 
 private:
     StyleInheritedResourceData();
@@ -326,7 +306,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, ColorRendering);
 WTF::TextStream& operator<<(WTF::TextStream&, DominantBaseline);
 WTF::TextStream& operator<<(WTF::TextStream&, GlyphOrientation);
 WTF::TextStream& operator<<(WTF::TextStream&, MaskType);
-WTF::TextStream& operator<<(WTF::TextStream&, SVGPaintType);
 WTF::TextStream& operator<<(WTF::TextStream&, ShapeRendering);
 WTF::TextStream& operator<<(WTF::TextStream&, TextAnchor);
 WTF::TextStream& operator<<(WTF::TextStream&, VectorEffect);

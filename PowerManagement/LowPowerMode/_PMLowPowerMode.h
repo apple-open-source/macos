@@ -20,6 +20,8 @@ extern NSString *const kPMLPMSourceSiri;
 extern NSString *const kPMLPMSourceLostMode;
 extern NSString *const kPMLPMSourceSystemDisable;
 extern NSString *const kPMLPMSourceWorkouts;
+extern NSString *const kPMLPMSourceStandbyMode;
+extern NSString *const kPMLPMSourceIBLM;
 
 
 @interface _PMLowPowerMode : NSObject <_PMLowPowerModeProtocol>

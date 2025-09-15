@@ -43,7 +43,7 @@ IntRect InputMethodFilter::platformTransformCursorRectToViewCoordinates(const In
 bool InputMethodFilter::platformEventKeyIsKeyPress(PlatformEventKey* event) const
 {
 #if USE(GTK4)
-    if (UNLIKELY(m_filteringContext.isFakeKeyEventForTesting))
+    if (m_filteringContext.isFakeKeyEventForTesting) [[unlikely]]
         return reinterpret_cast<KeyEvent*>(event)->type == GDK_KEY_PRESS;
 #endif
     return gdk_event_get_event_type(event) == GDK_KEY_PRESS;

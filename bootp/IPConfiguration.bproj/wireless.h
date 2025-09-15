@@ -41,6 +41,7 @@
 #include <TargetConditionals.h>
 
 typedef struct WiFiInfo *WiFiInfoRef;
+typedef uint32_t WiFiConnectionID;
 
 typedef CF_ENUM(uint32_t, WiFiAuthType) {
 	kWiFiAuthTypeNone 	= 0x0000,
@@ -84,5 +85,11 @@ WiFiInfoCompare(WiFiInfoRef info1, WiFiInfoRef info2);
 
 bool
 WiFiInfoAllowSharingDeviceType(WiFiInfoRef info);
+
+WiFiConnectionID
+WiFiInfoGetConnectionID(WiFiInfoRef w);
+
+bool
+WiFiAcknowledgeConnectionID(CFStringRef ifname, WiFiConnectionID cid);
 
 #endif /* _S_WIRELESS_H */

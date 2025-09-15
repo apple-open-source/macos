@@ -236,7 +236,7 @@ private:
             // XXX: be smarter and resolve to the low Tmp
             if (value->type().kind() == Int32)
                 return false;
-            FALLTHROUGH;
+            [[fallthrough]];
         case Identity:
         case Opaque:
             return true;
@@ -4122,6 +4122,11 @@ private:
             return;
         }
 
+        case FTrunc: {
+            appendUnOp<Air::Oops, Air::Oops, TruncDouble, TruncFloat>(m_value->child(0));
+            return;
+        }
+
         case Sqrt: {
             appendUnOp<Air::Oops, Air::Oops, SqrtDouble, SqrtFloat>(m_value->child(0));
             return;
@@ -4798,7 +4803,9 @@ private:
 
         case Const128: {
             // We expect that the moveConstants() phase has run, and any constant vector referenced from stackmaps get fused.
+            WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             RELEASE_ASSERT(!m_value->asV128().u64x2[0] && !m_value->asV128().u64x2[1]);
+            WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             append(MoveZeroToVector, tmp(m_value));
             return;
         }

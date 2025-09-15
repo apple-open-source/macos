@@ -204,7 +204,7 @@ bool isIDBKeyPathValid(const IDBKeyPath& keyPath)
         }
         return true;
     });
-    return std::visit(visitor, keyPath);
+    return WTF::visit(visitor, keyPath);
 }
 
 #if !LOG_DISABLED
@@ -225,7 +225,7 @@ String loggingString(const IDBKeyPath& path)
         return builder.toString();
     });
 
-    return std::visit(visitor, path);
+    return WTF::visit(visitor, path);
 }
 #endif
 

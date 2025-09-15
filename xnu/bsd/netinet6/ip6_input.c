@@ -177,10 +177,10 @@ u_int32_t in6addr_nhash = 0;                  /* hash table size */
 struct in6_ifaddrhashhead *__counted_by(in6addr_nhash) in6_ifaddrhashtbl = 0;
 
 #define IN6_IFSTAT_REQUIRE_ALIGNED_64(f)        \
-	_CASSERT(!(offsetof(struct in6_ifstat, f) % sizeof (uint64_t)))
+	static_assert(!(offsetof(struct in6_ifstat, f) % sizeof (uint64_t)))
 
 #define ICMP6_IFSTAT_REQUIRE_ALIGNED_64(f)      \
-	_CASSERT(!(offsetof(struct icmp6_ifstat, f) % sizeof (uint64_t)))
+	static_assert(!(offsetof(struct icmp6_ifstat, f) % sizeof (uint64_t)))
 
 struct ip6stat ip6stat;
 
@@ -352,7 +352,7 @@ ip6_proto_input(protocol_family_t protocol, mbuf_t packet)
  * All protocols not implemented in kernel go to raw IP6 protocol handler.
  */
 void
-ip6_init(struct ip6protosw *pp, struct domain *dp)
+ip6_init(struct protosw *pp, struct domain *dp)
 {
 	static int ip6_initialized = 0;
 	struct protosw *__single pr;
@@ -363,13 +363,13 @@ ip6_init(struct ip6protosw *pp, struct domain *dp)
 	domain_proto_mtx_lock_assert_held();
 	VERIFY((pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
-	_CASSERT((sizeof(struct ip6_hdr) +
-	    sizeof(struct icmp6_hdr)) <= _MHLEN);
+	static_assert((sizeof(struct ip6_hdr) + sizeof(struct icmp6_hdr)) <= _MHLEN);
 
-	if (ip6_initialized) {
+	static_assert(IP_RECV_LINK_ADDR_TYPE == IPV6_RECV_LINK_ADDR_TYPE);
+
+	if (!os_atomic_cmpxchg(&ip6_initialized, 0, 1, relaxed)) {
 		return;
 	}
-	ip6_initialized = 1;
 
 	eventhandler_lists_ctxt_init(&in6_evhdlr_ctxt);
 	(void)EVENTHANDLER_REGISTER(&in6_evhdlr_ctxt, in6_event,
@@ -774,6 +774,16 @@ ip6_input_check_interface(struct mbuf *m, struct ip6_hdr *ip6, struct ifnet *ini
 	}
 
 	return result;
+}
+
+static void
+ip6_input_process_wake_packet(struct mbuf *m)
+{
+	struct ifnet *ifp = m->m_pkthdr.rcvif;
+
+	if (if_is_lpw_enabled(ifp)) {
+		if_exit_lpw(ifp, "IP6 packet");
+	}
 }
 
 void
@@ -1429,6 +1439,13 @@ injectit:
 		    struct ip6_hdr *, ip6, struct ifnet *, inifp,
 		    struct ip *, NULL, struct ip6_hdr *, ip6);
 
+		/*
+		 * Check if need to switch to full wake mode -- TCP knows about idle connections
+		 */
+		if (__improbable(nxt != IPPROTO_TCP && (m->m_pkthdr.pkt_flags & PKTF_WAKE_PKT) != 0)) {
+			ip6_input_process_wake_packet(m);
+		}
+
 		if ((pr_input = ip6_protox[nxt]->pr_input) == NULL) {
 			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_NO_PROTO, NULL, 0);
 			m = NULL;
@@ -1920,6 +1937,21 @@ ip6_savecontrol_v4(struct inpcb *inp, struct mbuf *m, struct mbuf **mp,
 		mp = sbcreatecontrol_mbuf((caddr_t)&hlim, sizeof(int),
 		    IS2292(inp, IPV6_2292HOPLIMIT, IPV6_HOPLIMIT),
 		    IPPROTO_IPV6, mp);
+		if (*mp == NULL) {
+			return NULL;
+		}
+	}
+
+	if (inp->inp_flags2 & INP2_RECV_LINK_ADDR_TYPE) {
+		int mode = IP_RECV_LINK_ADDR_UNICAST;
+
+		/* There is no broadcast for IPv6 */
+		if (m->m_flags & M_MCAST) {
+			mode = IP_RECV_LINK_ADDR_MULTICAST;
+		}
+
+		mp = sbcreatecontrol_mbuf((caddr_t)&mode,
+		    sizeof(int), IPV6_RECV_LINK_ADDR_TYPE, IPPROTO_IPV6, mp);
 		if (*mp == NULL) {
 			return NULL;
 		}

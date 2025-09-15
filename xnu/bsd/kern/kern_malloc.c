@@ -263,7 +263,7 @@ OSMalloc_external(uint32_t size, OSMallocTag tag)
 	OSMalloc_Tagref(tag);
 	if ((tag->OSMT_attr & OSMT_PAGEABLE) && (size & ~PAGE_MASK)) {
 		if ((kr = kmem_alloc(kernel_map, (vm_offset_t *)&addr, size,
-		    KMA_PAGEABLE | KMA_DATA, vm_tag_bt())) != KERN_SUCCESS) {
+		    KMA_PAGEABLE | KMA_DATA_SHARED, vm_tag_bt())) != KERN_SUCCESS) {
 			addr = NULL;
 		}
 	} else {
@@ -433,3 +433,50 @@ SYSCTL_PROC(_kern, OID_AUTO, zones_collectable_bytes,
     CTLTYPE_QUAD | CTLFLAG_RD | CTLFLAG_MASKED | CTLFLAG_LOCKED,
     0, 0, &sysctl_zones_collectable_bytes, "Q",
     "Collectable memory in zones");
+
+#if DEVELOPMENT || DEBUG
+
+static int
+sysctl_zone_reset_peak SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	kern_return_t kr;
+	int ret;
+	const size_t name_len = MAX_ZONE_NAME + 1;
+	char zonename[name_len];
+
+	ret = sysctl_io_string(req, zonename, name_len, 0, NULL);
+	if (ret) {
+		return ret;
+	}
+
+	kr = zone_reset_peak(zonename);
+	return mach_to_bsd_errno(kr);
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, zone_reset_peak,
+    CTLTYPE_STRING | CTLFLAG_WR | CTLFLAG_MASKED | CTLFLAG_LOCKED,
+    0, 0, &sysctl_zone_reset_peak, "-",
+    "Reset the peak size of a kernel zone by name.");
+
+static int
+sysctl_zone_reset_all_peaks SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	kern_return_t kr;
+
+	if (!req->newptr) {
+		/* Only reset on a write */
+		return EINVAL;
+	}
+
+	kr = zone_reset_all_peaks();
+	return mach_to_bsd_errno(kr);
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, zone_reset_all_peaks,
+    CTLTYPE_INT | CTLFLAG_WR | CTLFLAG_MASKED | CTLFLAG_LOCKED,
+    0, 0, &sysctl_zone_reset_all_peaks, "I",
+    "Reset the peak size of all kernel zones.");
+
+#endif /* DEVELOPMENT || DEBUG */

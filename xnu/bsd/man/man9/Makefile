@@ -12,6 +12,7 @@ DATAFILES = \
 	backtrace_pack.9 \
 	backtrace_unpack.9 \
 	backtrace_user.9 \
+	byteorder.9	\
 	copy.9		\
 	copyin.9	\
 	copyinstr.9	\

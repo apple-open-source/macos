@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <wtf/MallocCommon.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
@@ -38,9 +39,9 @@ namespace WTF {
     DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SegmentedVector);
 
     // An iterator for SegmentedVector. It supports only the pre ++ operator
-    template <typename T, size_t SegmentSize = 8, typename Malloc = SegmentedVectorMalloc> class SegmentedVector;
+    template <typename T, size_t SegmentSize, typename Malloc> class SegmentedVector;
     template <typename T, size_t SegmentSize = 8, typename Malloc = SegmentedVectorMalloc> class SegmentedVectorIterator {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_CONFIGURABLE_ALLOCATED(FastMalloc);
     private:
         friend class SegmentedVector<T, SegmentSize, Malloc>;
     public:
@@ -83,7 +84,7 @@ namespace WTF {
         {
         }
 
-        SegmentedVector<T, SegmentSize>& m_vector;
+        SegmentedVector<T, SegmentSize, Malloc>& m_vector;
         size_t m_index;
     };
 
@@ -114,43 +115,43 @@ namespace WTF {
         size_t size() const { return m_size; }
         bool isEmpty() const { return !size(); }
 
-        T& at(size_t index)
+        T& at(size_t index) LIFETIME_BOUND
         {
             ASSERT_WITH_SECURITY_IMPLICATION(index < m_size);
             return segmentFor(index)->entries[subscriptFor(index)];
         }
 
-        const T& at(size_t index) const
+        const T& at(size_t index) const LIFETIME_BOUND
         {
             return const_cast<SegmentedVector<T, SegmentSize, Malloc>*>(this)->at(index);
         }
 
-        T& operator[](size_t index)
+        T& operator[](size_t index) LIFETIME_BOUND
         {
             return at(index);
         }
 
-        const T& operator[](size_t index) const
+        const T& operator[](size_t index) const LIFETIME_BOUND
         {
             return at(index);
         }
 
-        T& first()
+        T& first() LIFETIME_BOUND
         {
             ASSERT_WITH_SECURITY_IMPLICATION(!isEmpty());
             return at(0);
         }
-        const T& first() const
+        const T& first() const LIFETIME_BOUND
         {
             ASSERT_WITH_SECURITY_IMPLICATION(!isEmpty());
             return at(0);
         }
-        T& last()
+        T& last() LIFETIME_BOUND
         {
             ASSERT_WITH_SECURITY_IMPLICATION(!isEmpty());
             return at(size() - 1);
         }
-        const T& last() const
+        const T& last() const LIFETIME_BOUND
         {
             ASSERT_WITH_SECURITY_IMPLICATION(!isEmpty());
             return at(size() - 1);
@@ -203,12 +204,12 @@ namespace WTF {
             m_size = 0;
         }
 
-        Iterator begin()
+        Iterator begin() LIFETIME_BOUND
         {
             return Iterator(*this, 0);
         }
 
-        Iterator end()
+        Iterator end() LIFETIME_BOUND
         {
             return Iterator(*this, m_size);
         }
@@ -236,7 +237,7 @@ namespace WTF {
             return index / SegmentSize < m_segments.size();
         }
 
-        Segment* segmentFor(size_t index)
+        Segment* segmentFor(size_t index) LIFETIME_BOUND
         {
             return m_segments[index / SegmentSize];
         }

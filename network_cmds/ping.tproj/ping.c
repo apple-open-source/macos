@@ -351,7 +351,9 @@ main(int argc, char *const *argv)
 			npackets = ultmp;
 			break;
 		case 'D':
-			options |= F_HDRINCL;
+			if (uid == 0) {
+				options |= F_HDRINCL;
+			}
 			df = 1;
 			break;
 		case 'd':
@@ -827,6 +829,13 @@ main(int argc, char *const *argv)
 		ip->ip_src.s_addr = source ? sock_in.sin_addr.s_addr : INADDR_ANY;
 		ip->ip_dst = to->sin_addr;
         }
+
+	if (df && uid != 0) {
+		if (setsockopt(s, IPPROTO_IP, IP_DONTFRAG, &df,
+		    sizeof(df)) < 0) {
+			err(EX_OSERR, "setsockopt IP_DONTFRAG");
+		}
+	}
 
 	if (options & F_TTL) {
 		if (setsockopt(s, IPPROTO_IP, IP_TTL, &ttl,

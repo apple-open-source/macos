@@ -28,6 +28,7 @@
 
 #include "Logging.h"
 #include "MessageSenderInlines.h"
+#include "PluginView.h"
 #include "ViewGestureGeometryCollectorMessages.h"
 #include "WebFrame.h"
 #include "WebPage.h"
@@ -42,6 +43,7 @@
 #include <WebCore/Range.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/TextIterator.h>
+#include <ranges>
 #include <wtf/HashCountedSet.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -213,9 +215,7 @@ std::optional<std::pair<double, double>> ViewGestureGeometryCollector::computeTe
         return FontSizeAndCount { entry.key, entry.value };
     });
 
-    std::sort(sortedFontSizesAndCounts.begin(), sortedFontSizesAndCounts.end(), [] (auto& first, auto& second) {
-        return first.fontSize < second.fontSize;
-    });
+    std::ranges::sort(sortedFontSizesAndCounts, { }, &FontSizeAndCount::fontSize);
 
     double defaultScale = clampTo<double>(defaultTextLegibilityZoomScale, viewportMinimumScale, viewportMaximumScale);
     double textLegibilityScale = defaultScale;
@@ -244,8 +244,8 @@ void ViewGestureGeometryCollector::computeZoomInformationForNode(Node& node, Flo
 {
     absoluteBoundingRect = node.absoluteBoundingRect(&isReplaced);
     if (node.document().isImageDocument()) {
-        if (HTMLImageElement* imageElement = static_cast<ImageDocument&>(node.document()).imageElement()) {
-            if (&node != imageElement) {
+        if (RefPtr imageElement = downcast<ImageDocument>(node.document()).imageElement()) {
+            if (&node != imageElement.get()) {
                 absoluteBoundingRect = imageElement->absoluteBoundingRect(&isReplaced);
                 FloatPoint newOrigin = origin;
                 if (origin.x() < absoluteBoundingRect.x() || origin.x() > absoluteBoundingRect.maxX())
@@ -256,7 +256,15 @@ void ViewGestureGeometryCollector::computeZoomInformationForNode(Node& node, Flo
             }
             isReplaced = true;
         }
+    }  else {
+#if ENABLE(PDF_PLUGIN)
+        if (RefPtr pluginView = m_webPage->mainFramePlugIn()) {
+            absoluteBoundingRect = pluginView->absoluteBoundingRectForSmartMagnificationAtPoint(origin);
+            isReplaced = false;
+        }
+#endif
     }
+
     computeMinimumAndMaximumViewportScales(viewportMinimumScale, viewportMaximumScale);
 }
 

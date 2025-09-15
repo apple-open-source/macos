@@ -35,6 +35,7 @@
 #include <AudioUnit/AudioUnit.h>
 #include <CoreMedia/CMSync.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
+#include <ranges>
 #include <wtf/Assertions.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -245,7 +246,7 @@ std::optional<CoreAudioCaptureDevice> CoreAudioCaptureDeviceManager::coreAudioDe
 
 static inline bool hasDevice(const Vector<CoreAudioCaptureDevice>& devices, uint32_t deviceID, CaptureDevice::DeviceType deviceType)
 {
-    return std::any_of(devices.begin(), devices.end(), [&deviceID, deviceType](auto& device) {
+    return std::ranges::any_of(devices, [&deviceID, deviceType](auto& device) {
         return device.deviceID() == deviceID && device.type() == deviceType;
     });
 }
@@ -266,7 +267,7 @@ static inline Vector<CoreAudioCaptureDevice> computeAudioDeviceList(bool filterT
 
     size_t deviceCount = dataSize / sizeof(AudioObjectID);
     Vector<AudioObjectID> deviceIDs(deviceCount);
-    err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, nullptr, &dataSize, deviceIDs.data());
+    err = AudioObjectGetPropertyData(kAudioObjectSystemObject, &address, 0, nullptr, &dataSize, deviceIDs.mutableSpan().data());
     if (err) {
         RELEASE_LOG(WebRTC, "computeAudioDeviceList failed to get device list %d (%.4s)", (int)err, (char*)&err);
         return { };
@@ -338,7 +339,7 @@ void CoreAudioCaptureDeviceManager::refreshAudioCaptureDevices(NotifyIfDevicesHa
     if (!haveDeviceChanges)
         return;
 
-    std::sort(audioDevices.begin(), audioDevices.end(), [] (auto& first, auto& second) -> bool {
+    std::ranges::sort(audioDevices, [] (auto& first, auto& second) -> bool {
         return first.isDefault() && !second.isDefault();
     });
     m_coreAudioCaptureDevices = WTFMove(audioDevices);

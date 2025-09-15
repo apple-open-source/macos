@@ -28,6 +28,7 @@
 #include "CustomElementRegistry.h"
 #include "ShadowRootMode.h"
 #include "SlotAssignmentMode.h"
+#include <JavaScriptCore/JSCJSValue.h>
 
 namespace WebCore {
 
@@ -37,7 +38,8 @@ struct ShadowRootInit {
     bool clonable { false };
     bool serializable { false };
     SlotAssignmentMode slotAssignment { SlotAssignmentMode::Named };
-    RefPtr<CustomElementRegistry> registry;
+    RefPtr<CustomElementRegistry> customElementRegistry;
+    String referenceTarget;
 };
 
 }

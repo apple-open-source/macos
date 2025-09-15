@@ -392,7 +392,7 @@ struct nx_flow_req {
 	union sockaddr_in_4_6           nfr_daddr;
 	uint8_t                         nfr_ip_protocol;
 	uint8_t                         nfr_transport_protocol;
-	uint16_t                        nfr_flags;
+	uint32_t                        nfr_flags;
 	uuid_t                          nfr_flow_uuid;
 	packet_svc_class_t              nfr_svc_class;
 	uuid_t                          nfr_euuid;
@@ -405,6 +405,7 @@ struct nx_flow_req {
 	uuid_t                          nfr_parent_flow_uuid;
 	uint8_t                         nfr_flow_demux_count;
 	struct flow_demux_pattern       nfr_flow_demux_patterns[MAX_FLOW_DEMUX_PATTERN];
+	uint32_t                        nfr_flowid;
 	// below is reserved kernel-only fields
 	union {
 #ifdef KERNEL
@@ -438,26 +439,30 @@ struct nx_flow_req {
 };
 
 /* valid flags for nfr_flags */
-#define NXFLOWREQF_TRACK          0x0001  /* enable state tracking */
-#define NXFLOWREQF_QOS_MARKING    0x0002  /* allow qos marking */
-#define NXFLOWREQF_FILTER         0x0004  /* interpose filter */
-#define NXFLOWREQF_CUSTOM_ETHER   0x0008  /* custom ethertype */
-#define NXFLOWREQF_IPV6_ULA       0x0010  /* ipv6 ula */
-#define NXFLOWREQF_LISTENER       0x0020  /* listener */
-#define NXFLOWREQF_OVERRIDE_ADDRESS_SELECTION 0x0040  /* override system address selection */
-#define NXFLOWREQF_USE_STABLE_ADDRESS     0x0080  /* if override local, use stable address */
-#define NXFLOWREQF_FLOWADV        0x0100  /* allocate flow advisory */
-#define NXFLOWREQF_ASIS           0x0200  /* create flow as is in nfr */
-#define NXFLOWREQF_LOW_LATENCY    0x0400  /* low latency flow */
-#define NXFLOWREQF_NOWAKEFROMSLEEP        0x0800  /* Don't wake for traffic to this flow */
-#define NXFLOWREQF_REUSEPORT      0x1000  /* Don't wake for traffic to this flow */
-#define NXFLOWREQF_PARENT         0x4000  /* Parent flow */
+#define NXFLOWREQF_TRACK                  0x00000001  /* enable state tracking */
+#define NXFLOWREQF_QOS_MARKING            0x00000002  /* allow qos marking */
+#define NXFLOWREQF_FILTER                 0x00000004  /* interpose filter */
+#define NXFLOWREQF_CUSTOM_ETHER           0x00000008  /* custom ethertype */
+#define NXFLOWREQF_IPV6_ULA               0x00000010  /* ipv6 ula */
+#define NXFLOWREQF_LISTENER               0x00000020  /* listener */
+#define NXFLOWREQF_OVERRIDE_ADDRESS_SELECTION 0x00000040  /* override system address selection */
+#define NXFLOWREQF_USE_STABLE_ADDRESS     0x00000080  /* if override local, use stable address */
+#define NXFLOWREQF_FLOWADV                0x00000100  /* allocate flow advisory */
+#define NXFLOWREQF_ASIS                   0x00000200  /* create flow as is in nfr */
+#define NXFLOWREQF_LOW_LATENCY            0x00000400  /* low latency flow */
+#define NXFLOWREQF_NOWAKEFROMSLEEP        0x00000800  /* Don't wake for traffic to this flow */
+#define NXFLOWREQF_REUSEPORT              0x00001000  /* Don't wake for traffic to this flow */
+#define NXFLOWREQF_PARENT                 0x00004000  /* Parent flow */
+#define NXFLOWREQF_AOP_OFFLOAD            0x00008000  /* AOP2 offload flow */
+#define NXFLOWREQF_CONNECTION_IDLE        0x00010000  /* connection is idle */
+#define NXFLOWREQF_CONNECTION_REUSED      0x00020000  /* connection is reused */
 
 #define NXFLOWREQF_BITS                                                   \
-	"\020\01TRACK\02QOS_MARKING\03FILTER\04CUSTOM_ETHER\05IPV6_ULA" \
-	"\06LISTENER\07OVERRIDE_ADDRESS_SELECTION\010USE_STABLE_ADDRESS" \
-	"\011ALLOC_FLOWADV\012ASIS\013LOW_LATENCY\014NOWAKEUPFROMSLEEP" \
-	"\015REUSEPORT\017PARENT"
+	"\020\01TRACK\02QOS_MARKING\03FILTER\04CUSTOM_ETHER\05IPV6_ULA"   \
+	"\06LISTENER\07OVERRIDE_ADDRESS_SELECTION\010USE_STABLE_ADDRESS"  \
+	"\011ALLOC_FLOWADV\012ASIS\013LOW_LATENCY\014NOWAKEUPFROMSLEEP"   \
+	"\015REUSEPORT\017PARENT\020AOP_OFFLOAD\021CONNECTION_IDLE\022CONNECTION_REUSED"
+
 
 struct flow_ip_addr {
 	union {
@@ -514,8 +519,8 @@ extern const struct flow_key fk_mask_ipflow2;
 extern const struct flow_key fk_mask_ipflow3;
 
 #define FLOW_KEY_CLEAR(_fk) do {                                        \
-	_CASSERT(FLOW_KEY_LEN == 48);                                   \
-	_CASSERT(FLOW_KEY_LEN == sizeof(struct flow_key));              \
+	static_assert(FLOW_KEY_LEN == 48);                                   \
+	static_assert(FLOW_KEY_LEN == sizeof(struct flow_key));              \
 	sk_zero_48(_fk);                                                \
 } while (0)
 
@@ -526,7 +531,8 @@ extern const struct flow_key fk_mask_ipflow3;
     NXFLOWREQF_CUSTOM_ETHER | NXFLOWREQF_IPV6_ULA | NXFLOWREQF_LISTENER | \
     NXFLOWREQF_OVERRIDE_ADDRESS_SELECTION | NXFLOWREQF_USE_STABLE_ADDRESS | \
     NXFLOWREQF_FLOWADV | NXFLOWREQF_LOW_LATENCY | NXFLOWREQF_NOWAKEFROMSLEEP | \
-    NXFLOWREQF_REUSEPORT | NXFLOWREQF_PARENT)
+    NXFLOWREQF_REUSEPORT | NXFLOWREQF_PARENT | NXFLOWREQF_AOP_OFFLOAD | \
+    NXFLOWREQF_CONNECTION_IDLE | NXFLOWREQF_CONNECTION_REUSED)
 
 #define NXFLOWREQF_EXT_PORT_RSV   0x1000  /* external port reservation */
 #define NXFLOWREQF_EXT_PROTO_RSV  0x2000  /* external proto reservation */
@@ -534,8 +540,7 @@ extern const struct flow_key fk_mask_ipflow3;
 static inline void
 nx_flow_req_internalize(struct nx_flow_req *req)
 {
-	_CASSERT(offsetof(struct nx_flow_req, _nfr_kernel_field_end) ==
-	    offsetof(struct nx_flow_req, _nfr_common_field_end));
+	static_assert(offsetof(struct nx_flow_req, _nfr_kernel_field_end) == offsetof(struct nx_flow_req, _nfr_common_field_end));
 
 	/* init kernel only fields */
 	bzero(&req->_nfr_opaque, sizeof(req->_nfr_opaque));
@@ -687,6 +692,8 @@ extern int __os_nexus_flow_del(const nexus_controller_t ncd,
 extern int __os_nexus_get_llink_info(const nexus_controller_t ncd,
     const uuid_t nx_uuid, const struct nx_llink_info_req *nlir, size_t len);
 extern int os_nexus_flow_set_wake_from_sleep(const uuid_t nx_uuid,
+    const uuid_t flow_uuid, bool enable);
+extern int os_nexus_flow_set_connection_idle(const uuid_t nx_uuid,
     const uuid_t flow_uuid, bool enable);
 
 __END_DECLS

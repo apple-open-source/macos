@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,13 +26,17 @@
 #pragma once
 
 #include "IdentityCredentialProtocol.h"
-#include "OpenID4VPRequest.h"
+#include <JavaScriptCore/Strong.h>
+
+namespace JSC {
+class JSObject;
+}
 
 namespace WebCore {
 
 struct DigitalCredentialRequest {
     IdentityCredentialProtocol protocol;
-    OpenID4VPRequest data;
+    JSC::Strong<JSC::JSObject> data;
 };
 
 } // namespace WebCore

@@ -131,7 +131,10 @@ typedef uint32_t dispatch_unote_ident_t;
 
 #define DISPATCH_UNOTE_CLASS_HEADER() \
 	dispatch_source_type_t __ptrauth_objc_isa_pointer du_type; \
-	uintptr_t du_owner_wref; /* "weak" back reference to the owner object */ \
+	union { \
+		uintptr_t du_owner_wref; /* "weak" back reference to the owner object */ \
+		struct dispatch_unote_class_s *du_freelist_next; \
+	}; \
 	os_atomic(dispatch_unote_state_t) du_state; \
 	dispatch_unote_ident_t du_ident; \
 	int8_t    du_filter; \
@@ -412,6 +415,7 @@ typedef struct dispatch_deferred_items_s {
 	dispatch_qos_t ddi_stashed_qos;
 	dispatch_wlh_t ddi_wlh;
 #if DISPATCH_EVENT_BACKEND_KEVENT
+	dispatch_unote_class_t ddi_unote_freelist;
 	dispatch_kevent_t ddi_eventlist;
 	uint16_t ddi_nevents;
 	uint16_t ddi_maxevents;
@@ -427,10 +431,16 @@ typedef struct dispatch_deferred_items_s {
 
 #if DISPATCH_PURE_C
 
+// When we park, instead of holding a ddi in the TSD, we hold a list of unotes
+// to be freed when we return to userspace. As a debugging aid, and to
+// disambiguate the TSD to ddt, when the TSD holds the freelist we set the LSb
+#define DISPATCH_UNOTE_FREELIST_REF 1ul
+
 DISPATCH_ALWAYS_INLINE
 static inline void
 _dispatch_deferred_items_set(dispatch_deferred_items_t ddi)
 {
+	dispatch_assert(((uintptr_t)ddi & DISPATCH_UNOTE_FREELIST_REF) == 0);
 	_dispatch_thread_setspecific(dispatch_deferred_items_key, (void *)ddi);
 }
 
@@ -438,8 +448,32 @@ DISPATCH_ALWAYS_INLINE
 static inline dispatch_deferred_items_t
 _dispatch_deferred_items_get(void)
 {
-	return (dispatch_deferred_items_t)
+	dispatch_deferred_items_t ddi = (dispatch_deferred_items_t)
 			_dispatch_thread_getspecific(dispatch_deferred_items_key);
+	dispatch_assert(((uintptr_t)ddi & DISPATCH_UNOTE_FREELIST_REF) == 0);
+	return ddi;
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline void
+_dispatch_deferred_free_unotes_set(dispatch_unote_class_t du)
+{
+	if (du) {
+		uintptr_t _du = (uintptr_t)du | DISPATCH_UNOTE_FREELIST_REF;
+		_dispatch_thread_setspecific(dispatch_deferred_items_key, (void *)_du);
+	} else {
+		_dispatch_thread_setspecific(dispatch_deferred_items_key, NULL);
+	}
+}
+
+DISPATCH_ALWAYS_INLINE
+static inline dispatch_unote_class_t
+_dispatch_deferred_free_unotes_get(void)
+{
+	uintptr_t _du = (uintptr_t)
+			_dispatch_thread_getspecific(dispatch_deferred_items_key);
+	dispatch_assert(!_du || (_du & DISPATCH_UNOTE_FREELIST_REF));
+	return (dispatch_unote_class_t)(_du & ~DISPATCH_UNOTE_FREELIST_REF);
 }
 
 DISPATCH_ALWAYS_INLINE
@@ -653,7 +687,7 @@ dispatch_unote_t _dispatch_unote_create_with_fd(dispatch_source_type_t dst,
 		uintptr_t handle, uintptr_t mask);
 dispatch_unote_t _dispatch_unote_create_without_handle(
 		dispatch_source_type_t dst, uintptr_t handle, uintptr_t mask);
-void _dispatch_unote_dispose(dispatch_unote_t du);
+void _dispatch_unote_dispose(dispatch_unote_t du, bool may_defer);
 
 /*
  * @const DUU_DELETE_ACK
@@ -688,6 +722,8 @@ void _dispatch_unote_resume_muxed(dispatch_unote_t du);
 bool _dispatch_unote_unregister_direct(dispatch_unote_t du, uint32_t flags);
 bool _dispatch_unote_register_direct(dispatch_unote_t du, dispatch_wlh_t wlh);
 void _dispatch_unote_resume_direct(dispatch_unote_t du);
+void _dispatch_unote_dispose_defer(dispatch_unote_t du);
+void _dispatch_free_deferred_unotes(dispatch_unote_class_t du);
 #endif
 
 void _dispatch_timer_unote_configure(dispatch_timer_source_refs_t dt);
@@ -718,7 +754,6 @@ void _dispatch_event_loop_leave_immediate(uint64_t dq_state);
 void _dispatch_event_loop_leave_deferred(dispatch_deferred_items_t ddi,
 		uint64_t dq_state);
 void _dispatch_event_loop_merge(dispatch_kevent_t events, int nevents);
-void _dispatch_event_update_all_deferred(dispatch_deferred_items_t ddi);
 #endif
 void _dispatch_event_loop_drain(uint32_t flags);
 

@@ -27,12 +27,12 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "RemoteDisplayListRecorderIdentifier.h"
 #include <WebCore/DisplayListRecorder.h>
-#include <WebCore/DrawGlyphsRecorder.h>
 #include <WebCore/GraphicsContext.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/URL.h>
-#include <wtf/WeakPtr.h>
 
 namespace IPC {
 class Signal;
@@ -49,19 +49,26 @@ class SharedVideoFrameWriter;
 class RemoteDisplayListRecorderProxy : public WebCore::DisplayList::Recorder {
     WTF_MAKE_TZONE_ALLOCATED(RemoteDisplayListRecorderProxy);
 public:
-    RemoteDisplayListRecorderProxy(RemoteImageBufferProxy&, RemoteRenderingBackendProxy&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&);
-    RemoteDisplayListRecorderProxy(RemoteRenderingBackendProxy& , WebCore::RenderingResourceIdentifier, const WebCore::DestinationColorSpace&, WebCore::ContentsFormat, WebCore::RenderingMode, const WebCore::FloatRect&, const WebCore::AffineTransform&);
-    virtual ~RemoteDisplayListRecorderProxy();
+    RemoteDisplayListRecorderProxy(const WebCore::DestinationColorSpace&, WebCore::RenderingMode, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&, RemoteRenderingBackendProxy&);
+    RemoteDisplayListRecorderProxy(const WebCore::DestinationColorSpace&, WebCore::ContentsFormat, WebCore::RenderingMode, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&, RemoteDisplayListRecorderIdentifier, RemoteRenderingBackendProxy&);
+    ~RemoteDisplayListRecorderProxy();
+    RemoteDisplayListRecorderIdentifier identifier() const { return m_identifier; }
 
+    // Called when rendering backend connection is lost.
     void disconnect();
 
-    WebCore::RenderingResourceIdentifier identifier() const { return m_destinationBufferIdentifier; }
+    // Called when rendering backend gets discarded but reference to the owning image buffer is still referenced.
+    void abandon();
+
+
+    void setClient(ThreadSafeWeakPtr<RemoteImageBufferProxy>&& client) { m_client = WTFMove(client); }
+    // Returns false if there has not been any potential draws since last call.
+    // Returns true if there has been potential draws since last call.
+    bool consumeHasDrawn();
 
 private:
     template<typename T> void send(T&& message);
-    RefPtr<IPC::StreamClientConnection> connection() const;
     void didBecomeUnresponsive() const;
-    friend class WebCore::DrawGlyphsRecorder;
 
     WebCore::RenderingMode renderingMode() const final;
 
@@ -82,18 +89,26 @@ private:
     void clipOut(const WebCore::Path&) final;
     void clipOutRoundedRect(const WebCore::FloatRoundedRect&) final;
     void clipPath(const WebCore::Path&, WebCore::WindRule) final;
+    void clipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
     void resetClip() final;
     void beginTransparencyLayer(float) final;
     void beginTransparencyLayer(WebCore::CompositeOperator, WebCore::BlendMode) final;
     void endTransparencyLayer() final;
+    void drawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect&, WebCore::Filter&, WebCore::FilterResults&) final;
+    void drawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions) final;
+    void drawNativeImageInternal(WebCore::NativeImage&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions) final;
+    void drawSystemImage(WebCore::SystemImage&, const WebCore::FloatRect&) final;
     void drawRect(const WebCore::FloatRect&, float) final;
     void drawLine(const WebCore::FloatPoint& point1, const WebCore::FloatPoint& point2) final;
-    void drawLinesForText(const WebCore::FloatPoint&, float thickness, const WebCore::DashArray& widths, bool printing, bool doubleLines, WebCore::StrokeStyle) final;
+    void drawLinesForText(const WebCore::FloatPoint&, float thickness, std::span<const WebCore::FloatSegment>, bool isPrinting, bool doubleLines, WebCore::StrokeStyle) final;
     void drawDotsForDocumentMarker(const WebCore::FloatRect&, WebCore::DocumentMarkerLineStyle) final;
     void drawEllipse(const WebCore::FloatRect&) final;
     void drawPath(const WebCore::Path&) final;
     void drawFocusRing(const WebCore::Path&, float outlineWidth, const WebCore::Color&) final;
     void drawFocusRing(const Vector<WebCore::FloatRect>&, float outlineOffset, float outlineWidth, const WebCore::Color&) final;
+    void drawPattern(WebCore::NativeImage&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, WebCore::ImagePaintingOptions = { }) final;
+    void drawPattern(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, WebCore::ImagePaintingOptions = { }) final;
+    void fillPath(const WebCore::Path&) final;
     void fillRect(const WebCore::FloatRect&, RequiresClipToRect) final;
     void fillRect(const WebCore::FloatRect&, const WebCore::Color&) final;
     void fillRect(const WebCore::FloatRect&, WebCore::Gradient&) final;
@@ -105,10 +120,15 @@ private:
 #if ENABLE(VIDEO)
     void drawVideoFrame(WebCore::VideoFrame&, const WebCore::FloatRect& distination, WebCore::ImageOrientation, bool shouldDiscardAlpha) final;
 #endif
+    void strokePath(const WebCore::Path&) final;
     void strokeRect(const WebCore::FloatRect&, float) final;
     void strokeEllipse(const WebCore::FloatRect&) final;
     void clearRect(const WebCore::FloatRect&) final;
     void drawControlPart(WebCore::ControlPart&, const WebCore::FloatRoundedRect& borderRect, float deviceScaleFactor, const WebCore::ControlStyle&) final;
+    void drawGlyphs(const WebCore::Font&, std::span<const WebCore::GlyphBufferGlyph>, std::span<const WebCore::GlyphBufferAdvance>, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
+    void drawGlyphsImmediate(const WebCore::Font&, std::span<const WebCore::GlyphBufferGlyph>, std::span<const WebCore::GlyphBufferAdvance>, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
+    void drawDecomposedGlyphs(const WebCore::Font&, const WebCore::DecomposedGlyphs&) final;
+
 #if USE(CG)
     void applyStrokePattern() final;
     void applyFillPattern() final;
@@ -119,61 +139,56 @@ private:
     void endPage() final;
     void setURLForRect(const URL&, const WebCore::FloatRect&) final;
 
-private:
-    void recordSetInlineFillColor(WebCore::PackedColor::RGBA) final;
-    void recordSetInlineStroke(WebCore::DisplayList::SetInlineStroke&&) final;
-    void recordSetState(const WebCore::GraphicsContextState&) final;
-    void recordClearDropShadow() final;
-    void recordClipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
-    void recordDrawFilteredImageBuffer(WebCore::ImageBuffer*, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&) final;
-    void recordDrawGlyphs(const WebCore::Font&, std::span<const WebCore::GlyphBufferGlyph>, std::span<const WebCore::GlyphBufferAdvance>, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
-    void recordDrawDecomposedGlyphs(const WebCore::Font&, const WebCore::DecomposedGlyphs&) final;
-    void recordDrawImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions) final;
-    void recordDrawNativeImage(WebCore::RenderingResourceIdentifier imageIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& srcRect, WebCore::ImagePaintingOptions) final;
-    void recordDrawSystemImage(WebCore::SystemImage&, const WebCore::FloatRect&);
-    void recordDrawPattern(WebCore::RenderingResourceIdentifier, const WebCore::FloatRect& destRect, const WebCore::FloatRect& tileRect, const WebCore::AffineTransform&, const WebCore::FloatPoint& phase, const WebCore::FloatSize& spacing, WebCore::ImagePaintingOptions = { }) final;
-#if ENABLE(INLINE_PATH_DATA)
-    void recordFillLine(const WebCore::PathDataLine&) final;
-    void recordFillArc(const WebCore::PathArc&) final;
-    void recordFillClosedArc(const WebCore::PathClosedArc&) final;
-    void recordFillQuadCurve(const WebCore::PathDataQuadCurve&) final;
-    void recordFillBezierCurve(const WebCore::PathDataBezierCurve&) final;
-#endif
-    void recordFillPathSegment(const WebCore::PathSegment&) final;
-    void recordFillPath(const WebCore::Path&) final;
-#if ENABLE(INLINE_PATH_DATA)
-    void recordStrokeLine(const WebCore::PathDataLine&) final;
-    void recordStrokeLineWithColorAndThickness(const WebCore::PathDataLine&, WebCore::DisplayList::SetInlineStroke&&) final;
-    void recordStrokeArc(const WebCore::PathArc&) final;
-    void recordStrokeClosedArc(const WebCore::PathClosedArc&) final;
-    void recordStrokeQuadCurve(const WebCore::PathDataQuadCurve&) final;
-    void recordStrokeBezierCurve(const WebCore::PathDataBezierCurve&) final;
-#endif
-    void recordStrokePathSegment(const WebCore::PathSegment&) final;
-    void recordStrokePath(const WebCore::Path&) final;
+    bool recordResourceUse(WebCore::NativeImage&);
+    bool recordResourceUse(WebCore::ImageBuffer&);
+    bool recordResourceUse(const WebCore::SourceImage&);
+    bool recordResourceUse(WebCore::Font&);
+    bool recordResourceUse(WebCore::DecomposedGlyphs&);
+    bool recordResourceUse(WebCore::Gradient&);
+    bool recordResourceUse(WebCore::Filter&);
+    // Synchronizes draw state.
+    void appendStateChangeItemIfNecessary() final;
+    struct InlineStrokeData {
+        std::optional<WebCore::PackedColor::RGBA> color;
+        std::optional<float> thickness;
+    };
+    // Synchronizes draw state and returns stroke state that needs to be sent inline with the stroke command.
+    InlineStrokeData appendStateChangeItemForInlineStrokeIfNecessary();
 
-    bool recordResourceUse(WebCore::NativeImage&) final;
-    bool recordResourceUse(WebCore::ImageBuffer&) final;
-    bool recordResourceUse(const WebCore::SourceImage&) final;
-    bool recordResourceUse(WebCore::Font&) final;
-    bool recordResourceUse(WebCore::DecomposedGlyphs&) final;
-    bool recordResourceUse(WebCore::Gradient&) final;
-    bool recordResourceUse(WebCore::Filter&) final;
-
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>) const final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>, WebCore::ImageBufferFormat) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatRect&, const WebCore::DestinationColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
 
-    WebCore::RenderingResourceIdentifier m_destinationBufferIdentifier;
-    ThreadSafeWeakPtr<RemoteImageBufferProxy> m_imageBuffer;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    void setMaxEDRHeadroom(std::optional<float> headroom) final { m_maxEDRHeadroom = headroom; }
+    float maxPaintedEDRHeadroom() const final { return m_maxPaintedEDRHeadroom; }
+    float maxRequestedEDRHeadroom() const final { return m_maxRequestedEDRHeadroom; }
+    void clearMaxEDRHeadrooms() final { m_maxPaintedEDRHeadroom = 1; m_maxRequestedEDRHeadroom = 1; }
+#endif
+
+    const WebCore::RenderingMode m_renderingMode;
+    const RemoteDisplayListRecorderIdentifier m_identifier;
+    RefPtr<IPC::StreamClientConnection> m_connection;
     WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
     std::optional<WebCore::ContentsFormat> m_contentsFormat;
-    WebCore::RenderingMode m_renderingMode;
+    ThreadSafeWeakPtr<RemoteImageBufferProxy> m_client;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     Lock m_sharedVideoFrameWriterLock;
     std::unique_ptr<SharedVideoFrameWriter> m_sharedVideoFrameWriter WTF_GUARDED_BY_LOCK(m_sharedVideoFrameWriterLock);
 #endif
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    std::optional<float> m_maxEDRHeadroom;
+    float m_maxPaintedEDRHeadroom { 1 };
+    float m_maxRequestedEDRHeadroom { 1 };
+#endif
+    // Flag for pending draws. Start with true because we do not know what commands have been scheduled to the context.
+    bool m_hasDrawn { true };
 };
+
+inline bool RemoteDisplayListRecorderProxy::consumeHasDrawn()
+{
+    return std::exchange(m_hasDrawn, false);
+}
 
 } // namespace WebKit
 

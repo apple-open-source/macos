@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,7 +27,6 @@
 #include "MediaQuery.h"
 #include "StyleSheet.h"
 #include <memory>
-#include <variant>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TypeCasts.h>
@@ -62,7 +61,7 @@ class CSSStyleSheet final : public StyleSheet, public CanMakeSingleThreadWeakPtr
 public:
     struct Init {
         String baseURL;
-        std::variant<RefPtr<MediaList>, String> media { emptyString() };
+        Variant<RefPtr<MediaList>, String> media { emptyString() };
         bool disabled { false };
     };
     static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule = nullptr, std::optional<bool>isOriginClean = std::nullopt);
@@ -133,7 +132,7 @@ public:
         ~RuleMutationScope();
 
     private:
-        CSSStyleSheet* m_styleSheet;
+        RefPtr<CSSStyleSheet> m_styleSheet;
         RuleMutationType m_mutationType;
         ContentsClonedForMutation m_contentsClonedForMutation;
         RefPtr<StyleRuleKeyframes> m_insertedKeyframesRule;
@@ -159,8 +158,8 @@ public:
     bool canAccessRules() const;
 
     String debugDescription() const final;
-    String cssTextWithReplacementURLs(const UncheckedKeyHashMap<String, String>&, const UncheckedKeyHashMap<RefPtr<CSSStyleSheet>, String>&);
-    void getChildStyleSheets(UncheckedKeyHashSet<RefPtr<CSSStyleSheet>>&);
+    String cssText(const CSS::SerializationContext&);
+    void getChildStyleSheets(HashSet<RefPtr<CSSStyleSheet>>&);
 
     bool isDetached() const;
 
@@ -170,7 +169,7 @@ private:
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node& ownerNode, const TextPosition& startPosition, bool isInlineStylesheet, const std::optional<bool>&);
     CSSStyleSheet(Ref<StyleSheetContents>&&, Document&, Init&&);
 
-    void forEachStyleScope(const Function<void(Style::Scope&)>&);
+    void forEachStyleScope(NOESCAPE const Function<void(Style::Scope&)>&);
 
     bool isCSSStyleSheet() const final { return true; }
     String type() const final { return cssContentTypeAtom(); }

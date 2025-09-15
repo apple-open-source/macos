@@ -37,7 +37,7 @@
 
 - (NSURL *)URL
 {
-    return downcast<API::URLRequest>(&self._apiObject)->resourceRequest().url();
+    return downcast<API::URLRequest>(&self._apiObject)->resourceRequest().url().createNSURL().autorelease();
 }
 
 #pragma mark NSCopying protocol implementation

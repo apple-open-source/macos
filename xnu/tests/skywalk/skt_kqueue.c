@@ -150,7 +150,7 @@ skt_kqueue_basic_rx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		ch_attr,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	ring_id = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);
@@ -231,7 +231,7 @@ skt_kqueue_basic_tx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		ch_attr,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	ring_id = os_channel_ring_id(channel, CHANNEL_FIRST_TX_RING);
@@ -363,7 +363,7 @@ skt_kqueue_lowat_basic_rx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		ch_attr,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	ring_id = os_channel_ring_id(channel, CHANNEL_FIRST_RX_RING);
@@ -482,7 +482,7 @@ skt_kqueue_lowat_basic_tx(void *ctx_)
 		ctx->nexus_uuid,
 		port, ring_dir, ring_id,
 		ch_attr,
-		-1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+		-1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel != NULL);
 
 	slot_size = channel->chd_info->cinfo_nxprov_params.nxp_buf_size;

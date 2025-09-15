@@ -34,17 +34,9 @@
 #include <wtf/AbstractRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakPtr.h>
-
-namespace WebCore {
-class CSSFontFaceClient;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::CSSFontFaceClient> : std::true_type { };
-}
 
 namespace WebCore {
 
@@ -68,13 +60,13 @@ class StyleRuleFontFace;
 enum class ExternalResourceDownloadPolicy : bool;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSFontFace);
-class CSSFontFace final : public RefCounted<CSSFontFace> {
+class CSSFontFace final : public RefCountedAndCanMakeWeakPtr<CSSFontFace> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CSSFontFace);
 public:
     static Ref<CSSFontFace> create(CSSFontSelector&, StyleRuleFontFace* cssConnection = nullptr, FontFace* wrapper = nullptr, bool isLocalFallback = false);
     virtual ~CSSFontFace();
 
-    void setFamilies(CSSValueList&);
+    void setFamily(CSSValue&);
     void setStyle(CSSValue&);
     void setWeight(CSSValue&);
     void setWidth(CSSValue&);
@@ -103,10 +95,16 @@ public:
     //             Success    Failure
     enum class Status : uint8_t { Pending, Loading, TimedOut, Success, Failure };
 
-    struct UnicodeRange;
+    struct UnicodeRange {
+        char32_t from;
+        char32_t to;
 
-    RefPtr<CSSValueList> families() const;
-    std::span<const UnicodeRange> ranges() const { ASSERT(m_status != Status::Failure); return m_ranges.span(); }
+        bool operator==(const UnicodeRange&) const = default;
+    };
+
+    std::span<const UnicodeRange> ranges() const LIFETIME_BOUND { ASSERT(m_status != Status::Failure); return m_ranges.span(); }
+
+    RefPtr<CSSValue> familyCSSValue() const;
 
     void setFontSelectionCapabilities(FontSelectionCapabilities capabilities) { m_fontSelectionCapabilities = capabilities; }
     FontSelectionCapabilities fontSelectionCapabilities() const { ASSERT(m_status != Status::Failure); return m_fontSelectionCapabilities.computeFontSelectionCapabilities(); }
@@ -134,12 +132,6 @@ public:
 
     static void appendSources(CSSFontFace&, CSSValueList&, ScriptExecutionContext*, bool isInitiatingElementInUserAgentShadowTree);
 
-    struct UnicodeRange {
-        char32_t from;
-        char32_t to;
-        friend bool operator==(const UnicodeRange&, const UnicodeRange&) = default;
-    };
-
     bool rangesMatchCodePoint(char32_t) const;
 
     // We don't guarantee that the FontFace wrapper will be the same every time you ask for it.
@@ -164,7 +156,7 @@ public:
     void setErrorState();
 
 private:
-    CSSFontFace(const Settings::Values*, StyleRuleFontFace*, FontFace*, bool isLocalFallback);
+    CSSFontFace(const SettingsValues*, StyleRuleFontFace*, FontFace*, bool isLocalFallback);
 
     size_t pump(ExternalResourceDownloadPolicy);
     void setStatus(Status);
@@ -178,10 +170,10 @@ private:
     const StyleProperties& properties() const;
     MutableStyleProperties& mutableProperties();
 
-    Document* document();
+    RefPtr<Document> protectedDocument();
 
-    const std::variant<Ref<MutableStyleProperties>, Ref<StyleRuleFontFace>> m_propertiesOrCSSConnection;
-    RefPtr<CSSValueList> m_families;
+    const Variant<Ref<MutableStyleProperties>, Ref<StyleRuleFontFace>> m_propertiesOrCSSConnection;
+    RefPtr<CSSValue> m_family;
     Vector<UnicodeRange> m_ranges;
 
     FontFeatureSettings m_featureSettings;
@@ -210,7 +202,7 @@ public:
     virtual ~CSSFontFaceClient() = default;
     virtual void fontLoaded(CSSFontFace&) { }
     virtual void fontStateChanged(CSSFontFace&, CSSFontFace::Status /*oldState*/, CSSFontFace::Status /*newState*/) { }
-    virtual void fontPropertyChanged(CSSFontFace&, CSSValueList* /*oldFamilies*/ = nullptr) { }
+    virtual void fontPropertyChanged(CSSFontFace&, CSSValue* /*oldFamily*/ = nullptr) { }
     virtual void updateStyleIfNeeded(CSSFontFace&) { }
 };
 

@@ -30,17 +30,20 @@
 #include "CSSGridTemplateAreasValue.h"
 #include "CSSParserIdioms.h"
 #include "CSSPendingSubstitutionValue.h"
+#include "CSSPropertyInitialValues.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertyParser.h"
 #include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserConsumer+Grid.h"
 #include "CSSPropertyParserConsumer+Ident.h"
+#include "CSSSerializationContext.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
-#include "ComputedStyleExtractor.h"
 #include "FontSelectionValueInlines.h"
 #include "Quad.h"
+#include "StyleExtractor.h"
 #include "StylePropertiesInlines.h"
 #include "StylePropertyShorthand.h"
 #include "TimelineRange.h"
@@ -54,7 +57,7 @@ constexpr unsigned maxShorthandLength = 18; // FIXME: Generate this from CSSProp
 
 class ShorthandSerializer {
 public:
-    template<typename PropertiesType> explicit ShorthandSerializer(const PropertiesType&, CSSPropertyID shorthandID);
+    template<typename PropertiesType> explicit ShorthandSerializer(const CSS::SerializationContext&, const PropertiesType&, CSSPropertyID shorthandID);
     String serialize();
 
 private:
@@ -82,7 +85,7 @@ private:
     };
 
     static bool isInitialValue(Longhand);
-    static String serializeValue(Longhand);
+    String serializeValue(Longhand) const;
 
     unsigned length() const { return m_shorthand.length(); }
     Longhand longhand(unsigned index) const { return { longhandProperty(index), longhandValue(index) }; }
@@ -102,7 +105,7 @@ private:
 
     bool subsequentLonghandsHaveInitialValues(unsigned index) const;
 
-    bool commonSerializationChecks(const ComputedStyleExtractor&);
+    bool commonSerializationChecks(const Style::Extractor&);
     bool commonSerializationChecks(const StyleProperties&);
 
     String serializeLonghands() const;
@@ -132,6 +135,7 @@ private:
     String serializeGridTemplate() const;
     String serializeOffset() const;
     String serializePageBreak() const;
+    String serializePositionTry() const;
     String serializeLineClamp() const;
     String serializeTextBox() const;
     String serializeTextWrap() const;
@@ -143,12 +147,14 @@ private:
     std::array<RefPtr<CSSValue>, maxShorthandLength> m_longhandValues;
     String m_result;
     bool m_commonSerializationChecksSuppliedResult { false };
+    const CSS::SerializationContext& m_serializationContext;
 };
 
 template<typename PropertiesType>
-inline ShorthandSerializer::ShorthandSerializer(const PropertiesType& properties, CSSPropertyID shorthandID)
+inline ShorthandSerializer::ShorthandSerializer(const CSS::SerializationContext& serializationContext, const PropertiesType& properties, CSSPropertyID shorthandID)
     : m_shorthand(shorthandForProperty(shorthandID))
     , m_commonSerializationChecksSuppliedResult(commonSerializationChecks(properties))
+    , m_serializationContext(serializationContext)
 {
 }
 
@@ -162,9 +168,9 @@ inline CSSValue& ShorthandSerializer::longhandValue(unsigned index) const
     return *m_longhandValues[index];
 }
 
-inline String ShorthandSerializer::serializeValue(Longhand longhand)
+inline String ShorthandSerializer::serializeValue(Longhand longhand) const
 {
-    return WebCore::serializeLonghandValue(longhand.property, longhand.value);
+    return WebCore::serializeLonghandValue(m_serializationContext, longhand.property, longhand.value);
 }
 
 inline bool ShorthandSerializer::isInitialValue(Longhand longhand)
@@ -197,7 +203,7 @@ bool ShorthandSerializer::subsequentLonghandsHaveInitialValues(unsigned startInd
     return true;
 }
 
-bool ShorthandSerializer::commonSerializationChecks(const ComputedStyleExtractor& properties)
+bool ShorthandSerializer::commonSerializationChecks(const Style::Extractor& properties)
 {
     ASSERT(length() && length() <= maxShorthandLength);
 
@@ -283,7 +289,7 @@ bool ShorthandSerializer::commonSerializationChecks(const StyleProperties& prope
         return true;
     }
     if (*firstValueFromShorthand) {
-        m_result = (*firstValueFromShorthand)->shorthandValue().cssText();
+        m_result = (*firstValueFromShorthand)->shorthandValue().cssText(m_serializationContext);
         return true;
     }
     return false;
@@ -357,6 +363,7 @@ String ShorthandSerializer::serialize()
     case CSSPropertyBorderColor:
     case CSSPropertyBorderStyle:
     case CSSPropertyBorderWidth:
+    case CSSPropertyCornerShape:
     case CSSPropertyInset:
     case CSSPropertyMargin:
     case CSSPropertyPadding:
@@ -403,6 +410,8 @@ String ShorthandSerializer::serialize()
     case CSSPropertyPageBreakInside:
     case CSSPropertyWebkitColumnBreakInside:
         return serializeBreakInside();
+    case CSSPropertyPositionTry:
+        return serializePositionTry();
     case CSSPropertyTextDecorationSkip:
     case CSSPropertyTextDecoration:
     case CSSPropertyWebkitBackgroundSize:
@@ -564,7 +573,7 @@ public:
         return value && value->isPair();
     }
 
-    void serialize(StringBuilder& builder) const
+    void serialize(StringBuilder& builder, const CSS::SerializationContext& context) const
     {
         // If all are skipped, then serialize the first.
         auto range = std::span { m_skipSerializing }.first(m_shorthand.length());
@@ -578,7 +587,7 @@ public:
             if (longhand == CSSPropertyBackgroundSize || longhand == CSSPropertyMaskSize)
                 separator = " / "_s;
             if (auto& value = m_values[j])
-                builder.append(separator, serializeLonghandValue(longhand, *value));
+                builder.append(separator, serializeLonghandValue(context, longhand, *value));
             else
                 builder.append(separator, initialValueTextForLonghand(longhand));
             separator = " "_s;
@@ -625,7 +634,7 @@ String ShorthandSerializer::serializeCoordinatingListPropertyGroup() const
         }
         // The coordinating list base property must never be skipped.
         layerValues.skip(0) = false;
-        layerValues.serialize(result);
+        layerValues.serialize(result, m_serializationContext);
     }
     return result.toString();
 }
@@ -653,6 +662,7 @@ String ShorthandSerializer::serializeLayered() const
             }
         }
 
+        bool hasUnskippedValue = false;
         for (unsigned j = 0; j < length(); j++) {
             auto longhand = longhandProperty(j);
 
@@ -700,8 +710,22 @@ String ShorthandSerializer::serializeLayered() const
                 }
             }
 
+            // If we get to "animation-timeline" and yet haven't encountered an unskipped value,
+            // this means that this "animation" shorthand only has initial values for the non
+            // reset-only longhands and so we cannot serialize it. We only do this when we deal
+            // with multiple layers since the single "none" case would be caught otherwise.
+            if (numLayers > 1 && longhand == CSSPropertyAnimationTimeline && !hasUnskippedValue)
+                return String();
+
             if (layerValues.skip(j))
                 continue;
+
+            hasUnskippedValue = true;
+
+            // If we encounter one of the reset-only "animation" longhands and the value was not skipped,
+            // then it was set to a non-initial value and we cannot serialize it.
+            if (longhand == CSSPropertyAnimationTimeline || longhand == CSSPropertyAnimationRangeStart || longhand == CSSPropertyAnimationRangeEnd)
+                return String();
 
             // The syntax for background-size means that if it is present, background-position must be too.
             // The syntax for mask-size means that if it is present, mask-position must be too.
@@ -767,7 +791,7 @@ String ShorthandSerializer::serializeLayered() const
             }
         }
 
-        layerValues.serialize(result);
+        layerValues.serialize(result, m_serializationContext);
     }
 
     return result.toString();
@@ -810,6 +834,11 @@ String ShorthandSerializer::serializeBorder(unsigned sectionLength) const
 
 String ShorthandSerializer::serializeBorderImage() const
 {
+    auto isLength = [](const CSSValue& value) {
+        RefPtr primitive = dynamicDowncast<CSSPrimitiveValue>(value);
+        return primitive && primitive->isLength();
+    };
+
     ASSERT(length() == 5);
     StringBuilder result;
     bool omittedSlice = false;
@@ -831,10 +860,10 @@ String ShorthandSerializer::serializeBorderImage() const
         // -webkit-border-image has a legacy behavior that makes fixed border slices also set the border widths.
         if (auto* width = dynamicDowncast<CSSBorderImageWidthValue>(longhand.value)) {
             auto& widths = width->widths();
-            bool overridesBorderWidths = m_shorthand.id() == CSSPropertyWebkitBorderImage && (widths.top().isLength() || widths.right().isLength() || widths.bottom().isLength() || widths.left().isLength());
+            bool overridesBorderWidths = m_shorthand.id() == CSSPropertyWebkitBorderImage && (isLength(widths.top()) || isLength(widths.right()) || isLength(widths.bottom()) || isLength(widths.left()));
             if (overridesBorderWidths != width->overridesBorderWidths())
                 return String();
-            valueText = widths.cssText();
+            valueText = widths.cssText(m_serializationContext);
         } else
             valueText = serializeValue(longhand);
 
@@ -858,8 +887,8 @@ String ShorthandSerializer::serializeBorderRadius() const
     std::array<RefPtr<const CSSValue>, 4> verticalRadii;
     for (unsigned i = 0; i < 4; ++i) {
         auto& value = longhandValue(i);
-        horizontalRadii[i] = &value.first();
-        verticalRadii[i] = &value.second();
+        horizontalRadii[i] = value.first();
+        verticalRadii[i] = value.second();
     }
 
     bool serializeBoth = false;
@@ -873,13 +902,13 @@ String ShorthandSerializer::serializeBorderRadius() const
     StringBuilder result;
     auto serializeRadii = [&](const std::array<RefPtr<const CSSValue>, 4>& r) {
         if (!r[3]->equals(*r[1]))
-            result.append(r[0]->cssText(), ' ', r[1]->cssText(), ' ', r[2]->cssText(), ' ', r[3]->cssText());
+            result.append(r[0]->cssText(m_serializationContext), ' ', r[1]->cssText(m_serializationContext), ' ', r[2]->cssText(m_serializationContext), ' ', r[3]->cssText(m_serializationContext));
         else if (!r[2]->equals(*r[0]) || (m_shorthand.id() == CSSPropertyWebkitBorderRadius && !serializeBoth && !r[1]->equals(*r[0])))
-            result.append(r[0]->cssText(), ' ', r[1]->cssText(), ' ', r[2]->cssText());
+            result.append(r[0]->cssText(m_serializationContext), ' ', r[1]->cssText(m_serializationContext), ' ', r[2]->cssText(m_serializationContext));
         else if (!r[1]->equals(*r[0]))
-            result.append(r[0]->cssText(), ' ', r[1]->cssText());
+            result.append(r[0]->cssText(m_serializationContext), ' ', r[1]->cssText(m_serializationContext));
         else
-            result.append(r[0]->cssText());
+            result.append(r[0]->cssText(m_serializationContext));
     };
     serializeRadii(horizontalRadii);
     if (serializeBoth) {
@@ -1112,16 +1141,10 @@ String ShorthandSerializer::serializeGrid() const
     return makeString("auto-flow"_s, dense, ' ', serializeLonghandValue(autoRowsIndex), " / "_s, serializeLonghandValue(columnsIndex));
 }
 
-static bool isCustomIdentValue(const CSSValue& value)
-{
-    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
-    return primitiveValue && primitiveValue->isCustomIdent();
-}
-
-static bool canOmitTrailingGridAreaValue(CSSValue& value, CSSValue& trailing)
+static bool canOmitTrailingGridAreaValue(CSSValue& value, CSSValue& trailing, const CSS::SerializationContext& context)
 {
     if (isCustomIdentValue(value))
-        return isCustomIdentValue(trailing) && value.cssText() == trailing.cssText();
+        return isCustomIdentValue(trailing) && value.cssText(context) == trailing.cssText(context);
     return isValueID(trailing, CSSValueAuto);
 }
 
@@ -1129,11 +1152,11 @@ String ShorthandSerializer::serializeGridArea() const
 {
     ASSERT(length() == 4);
     unsigned longhandsToSerialize = 4;
-    if (canOmitTrailingGridAreaValue(longhandValue(1), longhandValue(3))) {
+    if (canOmitTrailingGridAreaValue(longhandValue(1), longhandValue(3), m_serializationContext)) {
         --longhandsToSerialize;
-        if (canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(2))) {
+        if (canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(2), m_serializationContext)) {
             --longhandsToSerialize;
-            if (canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1)))
+            if (canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1), m_serializationContext))
                 --longhandsToSerialize;
         }
     }
@@ -1143,7 +1166,7 @@ String ShorthandSerializer::serializeGridArea() const
 String ShorthandSerializer::serializeGridRowColumn() const
 {
     ASSERT(length() == 2);
-    return serializeLonghands(canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1)) ? 1 : 2, " / "_s);
+    return serializeLonghands(canOmitTrailingGridAreaValue(longhandValue(0), longhandValue(1), m_serializationContext) ? 1 : 2, " / "_s);
 }
 
 String ShorthandSerializer::serializeGridTemplate() const
@@ -1199,13 +1222,13 @@ String ShorthandSerializer::serializeGridTemplate() const
         if (!result.isEmpty())
             result.append(' ');
         if (auto lineNames = dynamicDowncast<CSSGridLineNamesValue>(currentValue))
-            result.append(lineNames->customCSSText());
+            result.append(lineNames->customCSSText(m_serializationContext));
         else {
             result.append('"', areasValue->stringForRow(row), '"');
             if (!isValidTrackSize(currentValue))
                 return String();
             if (!isValueID(currentValue, CSSValueAuto))
-                result.append(' ', currentValue.cssText());
+                result.append(' ', currentValue.cssText(m_serializationContext));
             row++;
         }
     }
@@ -1270,6 +1293,18 @@ String ShorthandSerializer::serializePageBreak() const
     }
 }
 
+String ShorthandSerializer::serializePositionTry() const
+{
+    auto positionTryOrderIndex = longhandIndex(0, CSSPropertyPositionTryOrder);
+    auto positionTryFallbacksIndex = longhandIndex(1, CSSPropertyPositionTryFallbacks);
+
+    auto positionTryFallbacksSerialization = serializeLonghandValue(positionTryFallbacksIndex);
+    if (isLonghandInitialValue(positionTryOrderIndex))
+        return positionTryFallbacksSerialization;
+
+    return makeString(serializeLonghandValue(positionTryOrderIndex), " "_s, positionTryFallbacksSerialization);
+}
+
 String ShorthandSerializer::serializeLineClamp() const
 {
     auto isMaxLinesInitial = isLonghandInitialValue(0);
@@ -1305,9 +1340,9 @@ String ShorthandSerializer::serializeTextBox() const
         return nameLiteral(textBoxTrim);
 
     if (textBoxTrim == CSSValueTrimBoth)
-        return textBoxEdge.cssText();
+        return textBoxEdge.cssText(m_serializationContext);
 
-    return makeString(nameLiteral(textBoxTrim), ' ', textBoxEdge.cssText());
+    return makeString(nameLiteral(textBoxTrim), ' ', textBoxEdge.cssText(m_serializationContext));
 }
 
 String ShorthandSerializer::serializeTextWrap() const
@@ -1331,11 +1366,11 @@ String ShorthandSerializer::serializeSingleAnimationRange(const CSSValue& value,
         bool isDefaultValue = SingleTimelineRange::isDefault(downcast<CSSPrimitiveValue>(pair->second()), SingleTimelineRange::Type::Start);
         if (isDefaultValue && (isStartValue || !isSameNameAsStart))
             return nameLiteral(pair->first().valueID());
-        return pair->cssText();
+        return pair->cssText(m_serializationContext);
     }
     if (RefPtr primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
         if (SingleTimelineRange::isOffsetValue(*primitiveValue))
-            return primitiveValue->cssText();
+            return primitiveValue->cssText(m_serializationContext);
         bool isNormal = primitiveValue->valueID() == CSSValueNormal;
         bool isSameNameAsStart = primitiveValue->valueID() == startValueID;
         bool isStartValue = type == SingleTimelineRange::Type::Start;
@@ -1353,7 +1388,9 @@ String ShorthandSerializer::serializeAnimationRange() const
     auto* startList = dynamicDowncast<CSSValueList>(startValue);
     auto* endList = dynamicDowncast<CSSValueList>(endValue);
     if (startList && endList) {
-        ASSERT(startList->size() == endList->size());
+        if (startList->size() != endList->size())
+            return emptyString();
+
         for (unsigned i = 0; i < startList->size(); i++) {
             auto start = startList->item(i);
             RefPtr startPair = dynamicDowncast<CSSValuePair>(start);
@@ -1403,14 +1440,14 @@ String ShorthandSerializer::serializeWhiteSpace() const
     return makeString(nameLiteral(whiteSpaceCollapse), ' ', nameLiteral(textWrapMode));
 }
 
-String serializeShorthandValue(const StyleProperties& properties, CSSPropertyID shorthand)
+String serializeShorthandValue(const CSS::SerializationContext& context, const StyleProperties& properties, CSSPropertyID shorthand)
 {
-    return ShorthandSerializer(properties, shorthand).serialize();
+    return ShorthandSerializer(context, properties, shorthand).serialize();
 }
 
-String serializeShorthandValue(const ComputedStyleExtractor& extractor, CSSPropertyID shorthand)
+String serializeShorthandValue(const CSS::SerializationContext& context, const Style::Extractor& extractor, CSSPropertyID shorthand)
 {
-    return ShorthandSerializer(extractor, shorthand).serialize();
+    return ShorthandSerializer(context, extractor, shorthand).serialize();
 }
 
 }

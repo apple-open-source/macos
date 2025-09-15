@@ -29,6 +29,7 @@
 #include "APIPageConfiguration.h"
 #include "RemotePageProxy.h"
 #include "WebPageProxy.h"
+#include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 
 namespace WebKit {
@@ -67,7 +68,7 @@ WebProcessActivityState::WebProcessActivityState(RemotePageProxy& page)
 
 void WebProcessActivityState::takeVisibleActivity()
 {
-    m_isVisibleActivity = process().throttler().foregroundActivity("View is visible"_s);
+    m_isVisibleActivity = protectedProcess()->protectedThrottler()->foregroundActivity("View is visible"_s);
 #if PLATFORM(MAC)
     m_wasRecentlyVisibleActivity->setActivity(nullptr);
 #endif
@@ -75,30 +76,31 @@ void WebProcessActivityState::takeVisibleActivity()
 
 void WebProcessActivityState::takeAudibleActivity()
 {
-    m_isAudibleActivity = process().throttler().foregroundActivity("View is playing audio"_s);
+    m_isAudibleActivity = protectedProcess()->protectedThrottler()->foregroundActivity("View is playing audio"_s);
 }
 
 void WebProcessActivityState::takeCapturingActivity()
 {
-    m_isCapturingActivity = process().throttler().foregroundActivity("View is capturing media"_s);
+    m_isCapturingActivity = protectedProcess()->protectedThrottler()->foregroundActivity("View is capturing media"_s);
 }
 
 void WebProcessActivityState::takeMutedCaptureAssertion()
 {
-    m_isMutedCaptureAssertion = ProcessAssertion::create(protectedProcess(), "WebKit Muted Media Capture"_s, ProcessAssertionType::Background);
+    Ref isMutedCaptureAssertion = ProcessAssertion::create(protectedProcess(), "WebKit Muted Media Capture"_s, ProcessAssertionType::Background);
+    m_isMutedCaptureAssertion = isMutedCaptureAssertion.copyRef();
 
-    auto page = std::visit([](auto&& weakPageRef) -> std::variant<WeakPtr<WebPageProxy>, WeakPtr<RemotePageProxy>> {
+    auto page = WTF::visit([](auto&& weakPageRef) -> Variant<WeakPtr<WebPageProxy>, WeakPtr<RemotePageProxy>> {
         return weakPageRef.get();
     }, m_page);
 
-    m_isMutedCaptureAssertion->setInvalidationHandler([weakPage = page] {
+    isMutedCaptureAssertion->setInvalidationHandler([weakPage = page] {
         auto invalidateCaptureAssertion = [](auto&& weakPage) {
             if (auto* page = weakPage.get()) {
                 RELEASE_LOG(ProcessSuspension, "Muted capture assertion is invalidated");
                 page->processActivityState().m_isMutedCaptureAssertion = nullptr;
             }
         };
-        std::visit(invalidateCaptureAssertion, weakPage);
+        WTF::visit(invalidateCaptureAssertion, weakPage);
     });
 }
 
@@ -120,9 +122,9 @@ void WebProcessActivityState::dropVisibleActivity()
 {
 #if PLATFORM(MAC)
     if (WTF::numberOfProcessorCores() > 4)
-        m_wasRecentlyVisibleActivity->setActivity(process().throttler().backgroundActivity("View was recently visible"_s));
+        m_wasRecentlyVisibleActivity->setActivity(protectedProcess()->protectedThrottler()->backgroundActivity("View was recently visible"_s));
     else
-        m_wasRecentlyVisibleActivity->setActivity(process().throttler().foregroundActivity("View was recently visible"_s));
+        m_wasRecentlyVisibleActivity->setActivity(protectedProcess()->protectedThrottler()->foregroundActivity("View was recently visible"_s));
 #endif
     m_isVisibleActivity = nullptr;
 }
@@ -165,7 +167,7 @@ bool WebProcessActivityState::hasValidMutedCaptureAssertion() const
 #if PLATFORM(IOS_FAMILY)
 void WebProcessActivityState::takeOpeningAppLinkActivity()
 {
-    m_openingAppLinkActivity = process().throttler().backgroundActivity("Opening AppLink"_s);
+    m_openingAppLinkActivity = protectedProcess()->protectedThrottler()->backgroundActivity("Opening AppLink"_s);
 }
 
 void WebProcessActivityState::dropOpeningAppLinkActivity()
@@ -183,8 +185,8 @@ bool WebProcessActivityState::hasValidOpeningAppLinkActivity() const
 
 void WebProcessActivityState::updateWebProcessSuspensionDelay()
 {
-    Seconds timeout = std::visit(WTF::makeVisitor([&](const WeakRef<WebPageProxy>& page) {
-        return webProcessSuspensionDelay(page.ptr());
+    Seconds timeout = WTF::visit(WTF::makeVisitor([&](const WeakRef<WebPageProxy>& page) {
+        return webProcessSuspensionDelay(Ref { page.get() }.ptr());
     }, [&] (const WeakRef<RemotePageProxy>& page) {
         return webProcessSuspensionDelay(page->protectedPage().get());
     }), m_page);
@@ -212,7 +214,7 @@ void WebProcessActivityState::takeAccessibilityActivityWhenInWindow()
 
 void WebProcessActivityState::takeAccessibilityActivity()
 {
-    m_accessibilityActivity = process().throttler().backgroundActivity("Remote AX element"_s);
+    m_accessibilityActivity = protectedProcess()->protectedThrottler()->backgroundActivity("Remote AX element"_s);
 }
 
 bool WebProcessActivityState::hasAccessibilityActivityForTesting() const
@@ -235,7 +237,7 @@ void WebProcessActivityState::viewDidLeaveWindow()
 
 WebProcessProxy& WebProcessActivityState::process() const
 {
-    return std::visit([](auto& page) -> WebProcessProxy& {
+    return WTF::visit([](auto& page) -> WebProcessProxy& {
         using T = std::decay_t<decltype(page)>;
         if constexpr (std::is_same_v<T, WeakRef<WebPageProxy>>)
             return page->legacyMainFrameProcess();

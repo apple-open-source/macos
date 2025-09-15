@@ -163,14 +163,14 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
                  complete:(void (^)(NSData *blob, NSError *))complete;
 - (void)joinCircleWithBlob:(NSData *)blob 
                    altDSID:(NSString*)altDSID
-                    flowID:(NSString*)flowID 
+                    flowID:(NSString*)flowID
            deviceSessionID:(NSString*)deviceSessionID
             canSendMetrics:(BOOL)canSendMetrics
                    version:(PiggyBackProtocolVersion)version
                   complete:(void (^)(bool success, NSError *))complete;
 - (void)initialSyncCredentials:(uint32_t)flags 
                        altDSID:(NSString*)altDSID
-                        flowID:(NSString*)flowID 
+                        flowID:(NSString*)flowID
                deviceSessionID:(NSString*)deviceSessionID
                 canSendMetrics:(BOOL)canSendMetrics
                       complete:(void (^)(NSArray *, NSError *))complete;

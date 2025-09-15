@@ -53,6 +53,11 @@ ProcessLauncher::~ProcessLauncher()
         tracePoint(ProcessLaunchEnd, m_launchOptions.processIdentifier.toUInt64(), static_cast<uint64_t>(m_launchOptions.processType));
 }
 
+auto ProcessLauncher::checkedClient() const -> CheckedPtr<Client>
+{
+    return m_client;
+}
+
 #if !PLATFORM(COCOA)
 void ProcessLauncher::platformDestroy()
 {
@@ -66,7 +71,8 @@ void ProcessLauncher::didFinishLaunchingProcess(ProcessID processIdentifier, IPC
 
     tracePoint(ProcessLaunchEnd, m_launchOptions.processIdentifier.toUInt64(), static_cast<uint64_t>(m_launchOptions.processType), static_cast<uint64_t>(m_processID));
 
-    if (!m_client) {
+    CheckedPtr client = m_client;
+    if (!client) {
 #if OS(DARWIN) && !USE(UNIX_DOMAIN_SOCKETS)
         // FIXME: Release port rights/connections in the Connection::Identifier destructor.
         if (identifier.port)
@@ -74,8 +80,8 @@ void ProcessLauncher::didFinishLaunchingProcess(ProcessID processIdentifier, IPC
 #endif
         return;
     }
-    
-    m_client->didFinishLaunching(this, WTFMove(identifier));
+
+    client->didFinishLaunching(this, WTFMove(identifier));
 }
 
 void ProcessLauncher::invalidate()

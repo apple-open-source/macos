@@ -3,8 +3,9 @@
 # Setup user specific overrides for this in ~/.zshrc. See zshbuiltins(1)
 # and zshoptions(1) for more details.
 
-# Correctly display UTF-8 with combining characters.
-if [[ "$(locale LC_CTYPE)" == "UTF-8" ]]; then
+# Correctly display UTF-8 with combining characters.  We'll assume UTF-8 if the
+# locale(1) binary is missing entirely.
+if [[ ! -x /usr/bin/locale ]] || [[ "$(locale LC_CTYPE)" == "UTF-8" ]]; then
     setopt COMBINING_CHARS
 fi
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@ public:
     RefPtr<NativeImage> copyNativeImage() override;
     RefPtr<NativeImage> createNativeImageReference() override;
     void getPixelBuffer(const IntRect&, PixelBuffer&) override;
-    void putPixelBuffer(const PixelBuffer&, const IntRect&, const IntPoint&, AlphaPremultiplication) override;
+    void putPixelBuffer(const PixelBufferSourceView&, const IntRect&, const IntPoint&, AlphaPremultiplication) override;
     bool canMapBackingStore() const override;
     String debugDescription() const override;
 

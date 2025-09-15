@@ -56,7 +56,7 @@ static void webkitTextSinkHandleSample(WebKitTextSink* self, GRefPtr<GstSample>&
         priv->streamId = getStreamIdFromPad(pad.get());
     }
 
-    if (UNLIKELY(!priv->streamId)) {
+    if (!priv->streamId) [[unlikely]] {
         GST_WARNING_OBJECT(self, "Unable to handle sample with no stream start event.");
         return;
     }
@@ -79,7 +79,7 @@ static void webkitTextSinkConstructed(GObject* object)
     auto* sink = WEBKIT_TEXT_SINK(object);
     auto* priv = sink->priv;
 
-    priv->appSink = makeGStreamerElement("appsink", nullptr);
+    priv->appSink = makeGStreamerElement("appsink"_s);
     gst_bin_add(GST_BIN_CAST(sink), priv->appSink.get());
 
     auto pad = adoptGRef(gst_element_get_static_pad(priv->appSink.get(), "sink"));

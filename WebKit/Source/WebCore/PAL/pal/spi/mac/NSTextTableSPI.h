@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #import <AppKit/NSTextTable.h>
 
 @interface NSTextBlock (Internal)

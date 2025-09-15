@@ -100,7 +100,7 @@
  * KDBG_EVENTID(DBG_FSYSTEM, DBG_VFS, dcode) global event id, see bsd/sys/kdebug.h.
  * Note that dcode is multiplied by 4 and ORed as part of the construction. See bsd/kern/trace_codes
  * for list of system-wide {global event id, name} pairs. Currently DBG_VFS event ids are in range
- * [0x3130000, 0x3130198].
+ * [0x3130000, 0x313019C].
  */
 
 //#define VFS_TRACE_POLICY_OPS
@@ -187,7 +187,7 @@ mac_vnode_label_init(vnode_t vp)
 	struct label *label;
 
 	label = mac_vnode_label_alloc(vp);
-	vp->v_label = label;
+	os_atomic_store(&vp->v_label, label, release);
 }
 
 struct label *
@@ -2158,7 +2158,7 @@ mac_vnode_label_update(vfs_context_t ctx, struct vnode *vp, struct label *newlab
 	 * somebody else might have already got here first.
 	 */
 	if (mac_vnode_label(vp) == NULL) {
-		vp->v_label = tmpl;
+		os_atomic_store(&vp->v_label, tmpl, release);
 		tmpl = NULL;
 	}
 
@@ -2949,10 +2949,158 @@ mac_vnode_check_rename_swap(vfs_context_t ctx, struct vnode *fdvp,
 	return error;
 }
 
+int
+mac_vnode_check_dataprotect_set(vfs_context_t ctx, struct vnode *vp, uint32_t *dataprotect_class)
+{
+	kauth_cred_t cred;
+	int error = 0;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return 0;
+	}
+	VFS_KERNEL_DEBUG_START1(101, vp);
+	MAC_PERFORM(vnode_check_dataprotect_set, cred, vp, dataprotect_class);
+	VFS_KERNEL_DEBUG_END1(101, vp);
+
+	return error;
+}
+
 void
 mac_mount_notify_mount(vfs_context_t ctx, struct mount *mp)
 {
 	VFS_KERNEL_DEBUG_START1(102, mp);
 	MAC_PERFORM(mount_notify_mount, vfs_context_ucred(ctx), mp, mac_mount_label(mp));
 	VFS_KERNEL_DEBUG_END1(102, mp);
+}
+
+int
+mac_mount_check_remount_with_flags(vfs_context_t ctx, struct mount *mp, int *flagsp)
+{
+	kauth_cred_t cred;
+	int error;
+	int visflags;
+
+	if (!flagsp) {
+		return EINVAL;
+	}
+	visflags = (*flagsp & (MNT_CMDFLAGS | MNT_VISFLAGMASK));
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return 0;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return 0;
+	}
+	VFS_KERNEL_DEBUG_START1(103, mp);
+	MAC_CHECK(mount_check_remount_with_flags, cred, mp, mac_mount_label(mp), &visflags);
+	VFS_KERNEL_DEBUG_END1(103, mp);
+
+	if (error) {
+		return error;
+	}
+
+	/* Sanity check */
+	if (visflags != (visflags & (MNT_CMDFLAGS | MNT_VISFLAGMASK))) {
+		return EINVAL;
+	}
+	*flagsp = visflags;
+
+	return 0;
+}
+
+int
+mac_graft_check_graft(vfs_context_t ctx, struct vnode *graft_dir_vp)
+{
+	kauth_cred_t cred;
+	int error;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return 0;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return 0;
+	}
+	VFS_KERNEL_DEBUG_START1(104, vp);
+	MAC_CHECK(graft_check_graft, cred, graft_dir_vp);
+	VFS_KERNEL_DEBUG_END1(104, vp);
+
+	return error;
+}
+
+int
+mac_graft_check_ungraft(vfs_context_t ctx, struct vnode *graft_dir_vp)
+{
+	kauth_cred_t cred;
+	int error;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return 0;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return 0;
+	}
+	VFS_KERNEL_DEBUG_START1(105, vp);
+	MAC_CHECK(graft_check_ungraft, cred, graft_dir_vp);
+	VFS_KERNEL_DEBUG_END1(105, vp);
+
+	return error;
+}
+
+void
+mac_graft_notify_graft(vfs_context_t ctx, struct vnode *graft_dir_vp)
+{
+	kauth_cred_t cred;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return;
+	}
+	VFS_KERNEL_DEBUG_START1(106, vp);
+	MAC_PERFORM(graft_notify_graft, cred, graft_dir_vp);
+	VFS_KERNEL_DEBUG_END1(106, vp);
+}
+
+void
+mac_graft_notify_ungraft(vfs_context_t ctx, struct vnode *graft_dir_vp)
+{
+	kauth_cred_t cred;
+
+#if SECURITY_MAC_CHECK_ENFORCE
+	/* 21167099 - only check if we allow write */
+	if (!mac_vnode_enforce) {
+		return;
+	}
+#endif
+	cred = vfs_context_ucred(ctx);
+	if (!mac_cred_check_enforce(cred)) {
+		return;
+	}
+	VFS_KERNEL_DEBUG_START1(107, vp);
+	MAC_PERFORM(graft_notify_ungraft, cred, graft_dir_vp);
+	VFS_KERNEL_DEBUG_END1(107, vp);
 }

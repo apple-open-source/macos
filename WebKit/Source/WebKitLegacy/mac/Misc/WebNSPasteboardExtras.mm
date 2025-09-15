@@ -39,6 +39,7 @@
 #import "WebURLsWithTitles.h"
 #import "WebViewPrivate.h"
 #import <WebCore/CachedImage.h>
+#import <WebCore/ContainerNodeInlines.h>
 #import <WebCore/Element.h>
 #import <WebCore/Image.h>
 #import <WebCore/LegacyNSPasteboardTypes.h>
@@ -267,14 +268,14 @@ static CachedImage* imageFromElement(DOMElement *domElement)
 {
     ASSERT(self == [NSPasteboard pasteboardWithName:NSPasteboardNameDrag]);
 
-    NSString *extension = @"";
+    RetainPtr<NSString> extension = @"";
     RetainPtr<NSMutableArray> types = adoptNS([[NSMutableArray alloc] initWithObjects:legacyFilesPromisePasteboardType(), nil]);
-    NSString *originIdentifier = core(element)->document().originIdentifierForPasteboard();
+    RetainPtr originIdentifier = core(element)->document().originIdentifierForPasteboard().createNSString();
     RetainPtr<NSData> customDataBuffer;
-    if (originIdentifier.length) {
+    if (originIdentifier.get().length) {
         [types addObject:@(PasteboardCustomData::cocoaType().characters())];
         PasteboardCustomData customData;
-        customData.setOrigin(originIdentifier);
+        customData.setOrigin(originIdentifier.get());
         customDataBuffer = customData.createSharedBuffer()->createNSData();
     }
 
@@ -282,7 +283,7 @@ static CachedImage* imageFromElement(DOMElement *domElement)
         if (is<RenderImage>(*renderer)) {
             if (auto* image = downcast<RenderImage>(*renderer).cachedImage()) {
                 // FIXME: This doesn't check errorOccured the way imageFromElement does.
-                extension = image->image()->filenameExtension();
+                extension = image->image()->filenameExtension().createNSString();
                 if (![extension length])
                     return nullptr;
                 [types addObjectsFromArray:[NSPasteboard _web_writableTypesForImageIncludingArchive:(archive != nil)]];
@@ -303,7 +304,7 @@ static CachedImage* imageFromElement(DOMElement *domElement)
     if (customDataBuffer)
         [self setData:customDataBuffer.get() forType:@(PasteboardCustomData::cocoaType().characters())];
 
-    [self setPropertyList:@[extension] forType:legacyFilesPromisePasteboardType()];
+    [self setPropertyList:@[extension.get()] forType:legacyFilesPromisePasteboardType()];
 
     return source;
 }

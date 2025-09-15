@@ -72,17 +72,12 @@ public:
         m_lineBoxBottom = lineBoxBottom;
     }
 
-    LayoutUnit baselinePosition(FontBaseline baselineType) const final;
-    LayoutUnit lineHeight() const final;
-
     RenderObject::HighlightState selectionState() const final;
     const LegacyInlineBox* firstSelectedBox() const;
     const LegacyInlineBox* lastSelectedBox() const;
 
-    void extractLineBoxFromRenderObject() final;
-    void attachLineBoxToRenderObject() final;
     void removeLineBoxFromRenderObject() final;
-    
+
     FontBaseline baselineType() const { return static_cast<FontBaseline>(m_baselineType); }
     
     LayoutUnit logicalTopVisualOverflow() const

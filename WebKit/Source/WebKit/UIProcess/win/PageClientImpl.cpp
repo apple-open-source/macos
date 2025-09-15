@@ -92,7 +92,7 @@ bool PageClientImpl::isViewFocused()
     return m_view.isFocused();
 }
 
-bool PageClientImpl::isViewVisible()
+bool PageClientImpl::isActiveViewVisible()
 {
     return m_view.isVisible();
 }
@@ -195,9 +195,9 @@ RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& pag
 }
 
 #if ENABLE(CONTEXT_MENUS)
-Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
 {
-    return WebContextMenuProxyWin::create(page, WTFMove(context), userData);
+    return WebContextMenuProxyWin::create(page, WTFMove(frameInfo), WTFMove(context), userData);
 }
 #endif
 
@@ -226,11 +226,8 @@ void PageClientImpl::preferencesDidChange()
     notImplemented();
 }
 
-bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const FrameInfoData&, API::OpenPanelParameters* parameters, WebOpenPanelResultListenerProxy* listener)
+bool PageClientImpl::handleRunOpenPanel(const WebPageProxy&, const WebFrameProxy&, const FrameInfoData&, API::OpenPanelParameters& parameters, WebOpenPanelResultListenerProxy& listener)
 {
-    ASSERT(parameters);
-    ASSERT(listener);
-
     HWND viewWindow = viewWidget();
     if (!IsWindow(viewWindow))
         return false;
@@ -240,7 +237,7 @@ bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const Fra
     // So we can assume the required size can't be more than the maximum value for a short.
     constexpr size_t maxFilePathsListSize = USHRT_MAX;
 
-    bool isAllowMultipleFiles = parameters->allowMultipleFiles();
+    bool isAllowMultipleFiles = parameters.allowMultipleFiles();
     Vector<wchar_t> fileBuffer(isAllowMultipleFiles ? maxFilePathsListSize : MAX_PATH);
 
     OPENFILENAME ofn { };
@@ -250,7 +247,7 @@ bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const Fra
 
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = viewWindow;
-    ofn.lpstrFile = fileBuffer.data();
+    ofn.lpstrFile = fileBuffer.mutableSpan().data();
     ofn.nMaxFile = fileBuffer.size();
     ofn.lpstrTitle = L"Upload";
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER;
@@ -259,7 +256,7 @@ bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const Fra
 
     if (GetOpenFileName(&ofn)) {
         Vector<String> fileList;
-        auto p = fileBuffer.data();
+        auto p = fileBuffer.span().data();
         auto length = wcslen(p);
         auto firstValue = String(p, length);
 
@@ -280,7 +277,7 @@ bool PageClientImpl::handleRunOpenPanel(WebPageProxy*, WebFrameProxy*, const Fra
             fileList.append(WTFMove(firstValue));
 
         ASSERT(fileList.size());
-        listener->chooseFiles(fileList);
+        listener.chooseFiles(fileList);
         return true;
     }
     // FIXME: Show some sort of error if too many files are selected and the buffer is too small. For now, this will fail silently.
@@ -318,30 +315,33 @@ bool PageClientImpl::isFullScreen()
     return false;
 }
 
-void PageClientImpl::enterFullScreen(CompletionHandler<void(bool)>&& completionHandler)
+void PageClientImpl::enterFullScreen(FloatSize, CompletionHandler<void(bool)>&& completionHandler)
 {
     notImplemented();
     completionHandler(false);
 }
 
-void PageClientImpl::exitFullScreen()
+void PageClientImpl::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
+    completionHandler();
 }
 
-void PageClientImpl::beganEnterFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */)
+void PageClientImpl::beganEnterFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */, CompletionHandler<void(bool)>&& completionHandler)
 {
     notImplemented();
+    completionHandler(true);
 }
 
-void PageClientImpl::beganExitFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */)
+void PageClientImpl::beganExitFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */, CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
+    completionHandler();
 }
 #endif // ENABLE(FULLSCREEN_API)
 
 #if ENABLE(TOUCH_EVENTS)
-void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& event, bool wasEventHandled)
+void PageClientImpl::doneWithTouchEvent(const WebTouchEvent& event, bool wasEventHandled)
 {
     notImplemented();
 }

@@ -168,7 +168,8 @@ struct ctlname {
 #if XNU_KERNEL_PRIVATE
 #define CTLFLAG_PERMANENT   0x00200000      /* permanent sysctl_oid */
 #endif
-#define CTLFLAG_EXPERIMENT 0x00100000 /* Allows writing w/ the trial experiment entitlement. */
+#define CTLFLAG_EXPERIMENT  0x00100000 /* Allows read/write w/ the trial experiment entitlement. */
+#define CTLFLAG_LEGACY_EXPERIMENT 0x00080000 /* Allows writing w/ the legacy trial experiment entitlement. */
 
 /*
  * USE THIS instead of a hardwired number from the categories below
@@ -530,16 +531,20 @@ __END_DECLS
 	SYSCTL_OID(parent, nbr, name, access, \
 	    ptr, arg, handler, fmt, descr)
 
+#pragma mark Trial Experiments
+
 /*
  * The EXPERIMENT macros below expose values for on-device experimentation (A/B testing) via Trial.
- * These values will be set shortly after boot by the KRExperiments framework based on any
- * active experiments on the device.
- * Values exposed via these macros are still normal sysctls and can be set by the superuser in the
- * development or debug kernel. However, on the release kernel they can ONLY be set by processes
- * with the com.apple.private.write-kr-experiment-factors entitlement.
- * In addition, for numeric types, special macros are provided that enforce a valid range for the value (inclusive)
- * to ensure that an errant experiment can't set a totally unexpected value. These macros also track which
- * values have been modified via sycstl(3) so that they can be inspected with the showexperiments lldb macro.
+ * These values will be set shortly after boot by triald based on any active experiments on the
+ * device. Values exposed via these macros are still normal sysctls and can be set by the
+ * superuser in the development or debug kernel. However, on the release kernel they can ONLY be
+ * set by processes with the com.apple.private.kernel.read-write-trial-experiment-factors
+ * entitlement.
+ *
+ * For numeric types, special macros are provided that enforce a valid range for the value
+ * (inclusive) to ensure that an errant experiment can't set a totally unexpected value. These
+ * macros also track which values have been modified via sycstl(3) so that they can be inspected
+ * with the showexperiments lldb macro.
  */
 
 struct experiment_spec {
@@ -568,7 +573,57 @@ int experiment_factor_##experiment_factor_typename##_handler SYSCTL_HANDLER_ARGS
 experiment_factor_numeric_types
 #undef X
 
-#define __EXPERIMENT_FACTOR_SPEC(parent, name, p, min, max) \
+#define __EXPERIMENT_FACTOR_SPEC(name, p, min, max) \
+	struct experiment_spec _experiment_##name = { \
+	        .ptr = p, \
+	        .min_value = min, \
+	        .max_value = max, \
+	        .original_value = 0, \
+	        .modified = false \
+	}
+
+#define EXPERIMENT_FACTOR_UINT(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(unsigned int), "must be integer sized"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_uint_handler, "IU", descr);
+
+#define EXPERIMENT_FACTOR_INT(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(int), "must be integer sized"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_int_handler, "I", descr);
+
+#define EXPERIMENT_FACTOR_ULONG(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(unsigned long), "must be long sized"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_ulong_handler, "LU", descr);
+
+#define EXPERIMENT_FACTOR_LONG(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(long), "must be long sized"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_long_handler, "L", descr);
+
+#define EXPERIMENT_FACTOR_UINT64(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(uint64_t), "must be 8 bytes"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_uint64_handler, "QU", descr);
+
+#define EXPERIMENT_FACTOR_INT64(name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_SPEC(name, ptr, min, max); \
+	_Static_assert(sizeof(*(ptr)) == sizeof(int64_t), "must be 8 bytes"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &_experiment_##name, 1, &experiment_factor_int64_handler, "Q", descr);
+
+/*
+ * Calls an user provided handler to read / write this factor.
+ * Entitlement checking will still be done by sysctl, but it's the callers responsibility to validate any new values.
+ * This factor will not be printed out via the showexperiments lldb macro.
+ */
+#define EXPERIMENT_FACTOR_PROC(access, ptr, arg, handler, fmt, descr) \
+	_Static_assert(arg != 1, "arg can not be 1"); \
+	SYSCTL_PROC(_kern_trial, OID_AUTO, name, access | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, ptr, arg, handler, fmt, descr);
+
+/* Legacy factors */
+
+#define __EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, p, min, max) \
 	struct experiment_spec experiment_##parent##_##name = { \
 	        .ptr = p, \
 	        .min_value = min, \
@@ -577,44 +632,44 @@ experiment_factor_numeric_types
 	        .modified = false \
 	}
 
-#define EXPERIMENT_FACTOR_UINT(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_UINT(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(unsigned int), "must be integer sized"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_uint_handler, "IU", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_uint_handler, "IU", descr);
 
-#define EXPERIMENT_FACTOR_INT(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_INT(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(int), "must be integer sized"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_int_handler, "I", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_int_handler, "I", descr);
 
-#define EXPERIMENT_FACTOR_ULONG(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_ULONG(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(unsigned long), "must be long sized"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_ulong_handler, "LU", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_ulong_handler, "LU", descr);
 
-#define EXPERIMENT_FACTOR_LONG(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_LONG(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(long), "must be long sized"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_long_handler, "L", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_long_handler, "L", descr);
 
-#define EXPERIMENT_FACTOR_UINT64(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_UINT64(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(uint64_t), "must be 8 bytes"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_uint64_handler, "QU", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_uint64_handler, "QU", descr);
 
-#define EXPERIMENT_FACTOR_INT64(parent, name, ptr, min, max, descr) \
-	__EXPERIMENT_FACTOR_SPEC(parent, name, ptr, min, max); \
+#define EXPERIMENT_FACTOR_LEGACY_INT64(parent, name, ptr, min, max, descr) \
+	__EXPERIMENT_FACTOR_LEGACY_SPEC(parent, name, ptr, min, max); \
 	_Static_assert(sizeof(*(ptr)) == sizeof(int64_t), "must be 8 bytes"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_int64_handler, "Q", descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, &experiment_##parent##_##name, 1, &experiment_factor_int64_handler, "Q", descr);
 
 /*
  * Calls an user provided handler to read / write this factor.
  * Entitlement checking will still be done by sysctl, but it's the callers responsibility to validate any new values.
  * This factor will not be printed out via the showexperiments lldb macro.
  */
-#define EXPERIMENT_FACTOR_PROC(parent, name, access, ptr, arg, handler, fmt, descr) \
+#define EXPERIMENT_FACTOR_LEGACY_PROC(parent, name, access, ptr, arg, handler, fmt, descr) \
 	_Static_assert(arg != 1, "arg can not be 1"); \
-	SYSCTL_PROC(parent, OID_AUTO, name, access | CTLFLAG_ANYBODY | CTLFLAG_EXPERIMENT, ptr, arg, handler, fmt, descr);
+	SYSCTL_PROC(parent, OID_AUTO, name, access | CTLFLAG_ANYBODY | CTLFLAG_LEGACY_EXPERIMENT, ptr, arg, handler, fmt, descr);
 
 #ifdef XNU_KERNEL_PRIVATE
 /*
@@ -651,6 +706,11 @@ SYSCTL_DECL(_debug_test);
 #ifdef PRIVATE
 SYSCTL_DECL(_kern_bridge);
 SYSCTL_DECL(_hw_features);
+SYSCTL_DECL(_kern_trial);
+#endif
+
+#if BSD_KERNEL_PRIVATE
+SYSCTL_DECL(_kern_memorystatus);
 #endif
 
 #if defined(BSD_KERNEL_PRIVATE) && SKYWALK

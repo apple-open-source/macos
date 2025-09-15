@@ -34,6 +34,7 @@
 #include "ScopedActiveMessageReceiveQueue.h"
 #include "SharedPreferencesForWebProcess.h"
 #include "WebPageProxyIdentifier.h"
+#include <WebCore/ModelPlayerIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessIdentity.h>
@@ -71,7 +72,7 @@ class ModelConnectionToWebProcess
     WTF_MAKE_FAST_ALLOCATED;
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(ModelConnectionToWebProcess);
 public:
-    static Ref<ModelConnectionToWebProcess> create(ModelProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&);
+    static Ref<ModelConnectionToWebProcess> create(ModelProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&, const std::optional<String>&);
     virtual ~ModelConnectionToWebProcess();
 
     void ref() const final { ThreadSafeRefCounted::ref(); }
@@ -96,6 +97,7 @@ public:
 
     const WebCore::ProcessIdentity& webProcessIdentity() const { return m_webProcessIdentity; }
 
+    void didUnloadModelPlayer(WebCore::ModelPlayerIdentifier);
     bool allowsExitUnderMemoryPressure() const;
 
     void lowMemoryHandler(WTF::Critical, WTF::Synchronous);
@@ -104,8 +106,11 @@ public:
 
     bool isAlwaysOnLoggingAllowed() const;
 
+    const std::optional<String> attributionTaskID() const { return m_attributionTaskID; };
+    std::optional<int> debugEntityMemoryLimit() const;
+
 private:
-    ModelConnectionToWebProcess(ModelProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&);
+    ModelConnectionToWebProcess(ModelProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, ModelProcessConnectionParameters&&, const std::optional<String>&);
 
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     void createVisibilityPropagationContextForPage(WebPageProxyIdentifier, WebCore::PageIdentifier, bool canShowWhileLocked);
@@ -116,7 +121,7 @@ private:
 
     // IPC::Connection::Client
     void didClose(IPC::Connection&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) final;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final;
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
@@ -146,6 +151,8 @@ private:
 #if ENABLE(IPC_TESTING_API)
     const Ref<IPCTester> m_ipcTester;
 #endif
+
+    std::optional<String> m_attributionTaskID;
 
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
 };

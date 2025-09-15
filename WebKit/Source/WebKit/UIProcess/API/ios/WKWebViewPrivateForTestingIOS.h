@@ -73,7 +73,6 @@
 - (double)timePickerValueHour;
 - (double)timePickerValueMinute;
 
-- (NSDictionary *)_propertiesOfLayerWithID:(unsigned long long)layerID;
 - (void)_simulateElementAction:(_WKElementActionType)actionType atLocation:(CGPoint)location;
 - (void)_simulateLongPressActionAtLocation:(CGPoint)location;
 - (void)_simulateTextEntered:(NSString *)text;
@@ -84,17 +83,21 @@
 
 - (void)_setDeviceOrientationUserPermissionHandlerForTesting:(BOOL (^)(void))handler;
 
-- (void)_setDeviceHasAGXCompilerServiceForTesting;
-
 - (void)_resetObscuredInsetsForTesting;
 - (BOOL)_hasResizeAssertion;
 - (void)_simulateSelectionStart;
+
+- (void)_simulateModelInteractionPanGestureBeginAtPoint:(CGPoint)hitPoint;
+- (void)_simulateModelInteractionPanGestureUpdateAtPoint:(CGPoint)hitPoint;
+- (NSDictionary *)_stageModeInfoForTesting;
 
 + (void)_resetPresentLockdownModeMessage;
 
 - (void)_doAfterNextVisibleContentRectAndStablePresentationUpdate:(void (^)(void))updateBlock;
 
-- (NSString *)_scrollbarState:(unsigned long long)scrollingNodeID processID: (unsigned long long)processID isVertical:(bool)isVertical;
+- (NSString *)_scrollbarState:(unsigned long long)scrollingNodeID processID:(unsigned long long)processID isVertical:(bool)isVertical;
+
+- (UIView *)_colorExtensionViewForTesting:(UIRectEdge)edge;
 
 @end
 

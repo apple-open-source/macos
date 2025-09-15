@@ -12,7 +12,6 @@
 #include "GLES2/gl2.h"
 #include "test_utils/ANGLETest.h"
 #include "test_utils/gl_raii.h"
-#include "util/gles_loader_autogen.h"
 
 using namespace angle;
 

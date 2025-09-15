@@ -27,6 +27,7 @@
 #import "WKNavigationResponseInternal.h"
 
 #import "WKFrameInfoInternal.h"
+#import "WKNavigationInternal.h"
 #import <WebCore/WebCoreObjCExtras.h>
 
 @implementation WKNavigationResponse
@@ -38,7 +39,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKNavigationResponse.class, self))
         return;
 
-    _navigationResponse->~NavigationResponse();
+    RefPtr { _navigationResponse.get() }->~NavigationResponse();
 
     [super dealloc];
 }
@@ -82,7 +83,12 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (WKFrameInfo *)_navigationInitiatingFrame
 {
-    return wrapper(_navigationResponse->navigationInitiatingFrame());
+    return wrapper(RefPtr { _navigationResponse.get() }->navigationInitiatingFrame());
+}
+
+- (WKNavigation *)_navigation
+{
+    return wrapper(_navigationResponse->navigation());
 }
 
 - (NSURLRequest *)_request
@@ -93,7 +99,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (NSString *)_downloadAttribute
 {
     const String& attribute = _navigationResponse->downloadAttribute();
-    return attribute.isNull() ? nil : (NSString *)attribute;
+    return attribute.isNull() ? nil : attribute.createNSString().autorelease();
 }
 
 - (BOOL)_wasPrivateRelayed
@@ -103,7 +109,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)_proxyName
 {
-    return _navigationResponse->response().proxyName();
+    return _navigationResponse->response().proxyName().createNSString().autorelease();
 }
 
 - (BOOL)_isFromNetwork

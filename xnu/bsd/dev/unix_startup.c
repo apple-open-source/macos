@@ -59,11 +59,6 @@ extern uint32_t kern_maxvnodes;
 extern vm_map_t mb_map;
 #endif /* CONFIG_MBUF_MCACHE */
 
-#if INET
-extern uint32_t   tcp_sendspace;
-extern uint32_t   tcp_recvspace;
-#endif
-
 void            bsd_bufferinit(void);
 
 unsigned int    bsd_mbuf_cluster_reserve(boolean_t *);
@@ -173,27 +168,6 @@ bsd_startupearly(void)
 	    VM_KERN_MEMORY_FILE);
 
 	buf_headers = (struct buf *)bufferhdr_range.min_address;
-
-#if SOCKETS
-	{
-		static const unsigned int       maxspace = 128 * 1024;
-		int             scale;
-
-#if INET
-		if ((scale = nmbclusters / NMBCLUSTERS) > 1) {
-			tcp_sendspace *= scale;
-			tcp_recvspace *= scale;
-
-			if (tcp_sendspace > maxspace) {
-				tcp_sendspace = maxspace;
-			}
-			if (tcp_recvspace > maxspace) {
-				tcp_recvspace = maxspace;
-			}
-		}
-#endif /* INET */
-	}
-#endif /* SOCKETS */
 
 	if (vnodes_sized == 0) {
 		if (!PE_get_default("kern.maxvnodes", &desiredvnodes, sizeof(desiredvnodes))) {
@@ -331,51 +305,42 @@ done:
 
 #if defined(__LP64__)
 extern int tcp_tcbhashsize;
-extern int max_cached_sock_count;
 #endif
 
 void
 bsd_scale_setup(int scale)
 {
 #if defined(__LP64__)
-	if ((scale > 0) && (serverperfmode == 0)) {
-		maxproc *= scale;
-		maxprocperuid = (maxproc * 2) / 3;
-		if (scale > 2) {
-			maxfiles *= scale;
-			maxfilesperproc = maxfiles / 2;
-		}
-	}
-	/* Apply server scaling rules */
-	if ((scale > 0) && (serverperfmode != 0)) {
-		maxproc = 2500 * scale;
-		hard_maxproc = maxproc;
-		/* no fp usage */
-		maxprocperuid = (maxproc * 3) / 4;
-		maxfiles = (150000 * scale);
-		maxfilesperproc = maxfiles / 2;
-		desiredvnodes = maxfiles;
-		vnodes_sized = 1;
-		tcp_tfo_backlog = 100 * scale;
-		if (scale > 4) {
-			/* clip somaxconn at 32G level */
-			somaxconn = 2048;
-			/*
-			 * For scale > 4 (> 32G), clip
-			 * tcp_tcbhashsize to 32K
-			 */
-			tcp_tcbhashsize = 32 * 1024;
-
-			if (scale > 7) {
-				/* clip at 64G level */
-				max_cached_sock_count = 165000;
-			} else {
-				max_cached_sock_count = 60000 + ((scale - 1) * 15000);
+	if (scale > 0) {
+		if (!serverperfmode) {
+			maxproc *= scale;
+			maxprocperuid = (maxproc * 2) / 3;
+			if (scale > 2) {
+				maxfiles *= scale;
+				maxfilesperproc = maxfiles / 2;
 			}
 		} else {
-			somaxconn = 512 * scale;
-			tcp_tcbhashsize = 4 * 1024 * scale;
-			max_cached_sock_count = 60000 + ((scale - 1) * 15000);
+			maxproc = 2500 * scale;
+			hard_maxproc = maxproc;
+			/* no fp usage */
+			maxprocperuid = (maxproc * 3) / 4;
+			maxfiles = (150000 * scale);
+			maxfilesperproc = maxfiles / 2;
+			desiredvnodes = maxfiles;
+			vnodes_sized = 1;
+			tcp_tfo_backlog = 100 * scale;
+			if (scale > 4) {
+				/* clip somaxconn at 32G level */
+				somaxconn = 2048;
+				/*
+				 * For scale > 4 (> 32G), clip
+				 * tcp_tcbhashsize to 32K
+				 */
+				tcp_tcbhashsize = 32 * 1024;
+			} else {
+				somaxconn = 512 * scale;
+				tcp_tcbhashsize = 4 * 1024 * scale;
+			}
 		}
 	}
 

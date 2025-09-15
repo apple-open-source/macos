@@ -151,6 +151,7 @@ nl{
         crs{"Seychellencreools"}
         cs{"Tsjechisch"}
         csb{"Kasjoebisch"}
+        cst{"Chochenyo"}
         csw{"Swampy Cree"}
         cu{"Kerkslavisch"}
         cv{"Tsjoevasjisch"}
@@ -244,6 +245,7 @@ nl{
         hak{"Hakka"}
         haw{"Hawaïaans"}
         hax{"Zuid-Haida"}
+        hch{"Wixárika"}
         he{"Hebreeuws"}
         hi{"Hindi"}
         hif{"Fijisch Hindi"}
@@ -273,6 +275,7 @@ nl{
         inh{"Ingoesjetisch"}
         io{"Ido"}
         is{"IJslands"}
+        isc{"Iskonawa"}
         it{"Italiaans"}
         iu{"Inuktitut"}
         izh{"Ingrisch"}
@@ -541,6 +544,7 @@ nl{
         sh{"Servo-Kroatisch"}
         shi{"Tashelhiyt"}
         shn{"Shan"}
+        shp{"Shipibo-Konibo"}
         shu{"Tsjadisch Arabisch"}
         si{"Singalees"}
         sid{"Sidamo"}
@@ -900,13 +904,15 @@ nl{
     }
     Types{
         calendar{
+            bangla{"Bangla kalender"}
             buddhist{"Boeddhistische kalender"}
             chinese{"Chinese kalender"}
             coptic{"Koptische kalender"}
-            dangi{"Dangi-kalender"}
+            dangi{"Koreaanse kalender"}
             ethiopic{"Ethiopische kalender"}
             ethiopic-amete-alem{"Ethiopische Amete Alem-kalender"}
             gregorian{"Gregoriaanse kalender"}
+            gujarati{"Gujarati kalender"}
             hebrew{"Hebreeuwse kalender"}
             indian{"Indiase nationale kalender"}
             islamic{"heigeriaanse kalender"}
@@ -916,8 +922,16 @@ nl{
             islamic-umalqura{"heigeriaanse kalender (Umm al-Qura)"}
             iso8601{"ISO-8601-kalender"}
             japanese{"Japanse kalender"}
+            kannada{"Kannada kalender"}
+            malayalam{"Malayalam kalender"}
+            marathi{"Marathi kalender"}
+            odia{"Odia kalender"}
             persian{"Perzische kalender"}
             roc{"Kalender van de Chinese Republiek"}
+            tamil{"Tamil kalender"}
+            telugu{"Telugu kalender"}
+            vietnamese{"Vietnamese kalender"}
+            vikram{"Vikram kalender"}
         }
         cf{
             account{"financiële valutanotatie"}

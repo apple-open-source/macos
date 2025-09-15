@@ -58,7 +58,6 @@ OPTIONS/kctl_test			optional kctl_test
 OPTIONS/skywalk				optional skywalk
 OPTIONS/config_nexus_user_pipe		optional config_nexus_user_pipe
 OPTIONS/config_nexus_kernel_pipe	optional config_nexus_kernel_pipe
-OPTIONS/config_nexus_monitor		optional config_nexus_monitor
 OPTIONS/config_nexus_flowswitch		optional config_nexus_flowswitch
 OPTIONS/config_nexus_netif		optional config_nexus_netif
 
@@ -188,7 +187,7 @@ bsd/net/multicast_list.c		optional networking bound-checks
 bsd/net/if_bond.c			optional bond bound-checks
 bsd/net/devtimer.c			optional bond bound-checks
 bsd/net/ndrv.c				optional networking bound-checks
-bsd/net/radix.c				optional networking
+bsd/net/radix.c				optional networking bound-checks-pending
 bsd/net/raw_cb.c			optional networking bound-checks
 bsd/net/raw_usrreq.c			optional networking bound-checks
 bsd/net/route.c				optional networking bound-checks
@@ -226,6 +225,7 @@ bsd/net/pktap.c				optional networking bound-checks
 bsd/net/droptap.c			optional networking bound-checks
 bsd/net/if_llreach.c          		optional networking bound-checks
 bsd/net/flowhash.c			optional networking bound-checks
+bsd/net/siphash.c			optional networking bound-checks
 bsd/net/flowadv.c			optional networking bound-checks
 bsd/net/content_filter.c		optional content_filter bound-checks
 bsd/net/content_filter_crypto.c         optional content_filter bound-checks
@@ -245,6 +245,9 @@ bsd/net/classq/classq_fq_codel.c	optional networking bound-checks
 bsd/net/pktsched/pktsched.c		optional networking bound-checks
 bsd/net/pktsched/pktsched_fq_codel.c	optional networking bound-checks
 bsd/net/pktsched/pktsched_netem.c	optional networking bound-checks
+bsd/net/pktsched/pktsched_ops.c		optional networking bound-checks
+
+bsd/net/aop/kpi_aop.c                   optional networking bound-checks
 
 bsd/netinet/cpu_in_cksum_gen.c		standard bound-checks
 bsd/netinet/in_cksum.c			optional inet bound-checks
@@ -277,10 +280,12 @@ bsd/netinet/tcp_cc.c			optional inet bound-checks
 bsd/netinet/tcp_newreno.c		optional inet bound-checks
 bsd/netinet/tcp_cubic.c			optional inet bound-checks
 bsd/netinet/tcp_prague.c		optional inet bound-checks
+bsd/netinet/tcp_pacing.c		optional inet bound-checks
 bsd/netinet/cbrtf.c			optional inet bound-checks
 bsd/netinet/tcp_ledbat.c		optional inet bound-checks
 bsd/netinet/tcp_rledbat.c		optional inet bound-checks
 bsd/netinet/tcp_rack.c			optional inet bound-checks
+bsd/netinet/tcp_syncookie.c		optional inet bound-checks
 bsd/netinet/tcp_log.c			optional inet bound-checks
 bsd/netinet/tcp_sysctls.c		optional inet bound-checks
 bsd/netinet/tcp_ccdbg.c			optional inet bound-checks
@@ -390,6 +395,7 @@ bsd/kern/kern_authorization.c		standard
 bsd/kern/kern_backtrace.c		standard
 bsd/kern/kern_clock.c			standard
 bsd/kern/kern_core.c			optional config_coredump
+bsd/kern/kern_core.c			optional config_ucoredump
 bsd/kern/kern_credential.c		standard
 bsd/kern/kern_crossarch.c		standard
 bsd/kern/kern_cs.c			standard
@@ -436,6 +442,7 @@ bsd/kern/kern_xxx.c			standard
 bsd/kern/lockdown_mode.c	standard
 bsd/kern/mach_process.c			standard
 bsd/kern/mcache.c			optional sockets config_mbuf_mcache
+bsd/kern/mem_acct.c			optional sockets bound-checks
 bsd/kern/stackshot.c			standard
 bsd/kern/subr_log.c			standard
 bsd/kern/subr_log_stream.c		standard
@@ -466,13 +473,14 @@ bsd/kern/tty_tty.c			standard
 bsd/kern/ubc_subr.c			standard
 bsd/kern/uipc_domain.c			optional sockets bound-checks
 bsd/kern/uipc_mbuf.c			optional sockets bound-checks
-bsd/kern/uipc_mbuf2.c		 	optional sockets bound-checks
+bsd/kern/uipc_mbuf_mcache.c		optional sockets config_mbuf_mcache
+bsd/kern/uipc_mbuf2.c		 	optional sockets bound-checks-soft
 bsd/kern/uipc_proto.c			optional sockets bound-checks
 bsd/kern/uipc_socket.c			optional sockets bound-checks
 bsd/kern/uipc_socket2.c			optional sockets bound-checks
 bsd/kern/uipc_syscalls.c		optional sockets bound-checks
 bsd/kern/uipc_usrreq.c			optional sockets bound-checks
-bsd/kern/vsock_domain.c			optional sockets
+bsd/kern/vsock_domain.c			optional sockets bound-checks-soft
 bsd/kern/sysv_ipc.c			standard
 bsd/kern/sysv_shm.c			standard
 bsd/kern/sysv_sem.c			standard
@@ -568,6 +576,8 @@ bsd/skywalk/nexus/nexus_mbq.c			optional skywalk bound-checks
 bsd/skywalk/nexus/nexus_pktq.c			optional skywalk bound-checks
 bsd/skywalk/nexus/nexus_syscalls.c		optional skywalk bound-checks
 bsd/skywalk/nexus/nexus_traffic_rule.c		optional skywalk bound-checks
+bsd/skywalk/nexus/nexus_traffic_rule_inet.c            optional skywalk bound-checks
+bsd/skywalk/nexus/nexus_traffic_rule_eth.c             optional skywalk bound-checks
 bsd/skywalk/nexus/flowswitch/nx_flowswitch.c	optional config_nexus_flowswitch bound-checks
 bsd/skywalk/nexus/flowswitch/fsw.c		optional config_nexus_flowswitch bound-checks
 bsd/skywalk/nexus/flowswitch/fsw_vp.c		optional config_nexus_flowswitch bound-checks
@@ -590,7 +600,6 @@ bsd/skywalk/nexus/flowswitch/flow/flow_route.c	optional config_nexus_flowswitch 
 bsd/skywalk/nexus/flowswitch/flow/flow_stats.c	optional config_nexus_flowswitch bound-checks
 bsd/skywalk/nexus/flowswitch/flow/flow_track.c	optional config_nexus_flowswitch bound-checks
 bsd/skywalk/nexus/flowswitch/flow/flow_agg.c	optional config_nexus_flowswitch bound-checks
-bsd/skywalk/nexus/monitor/nx_monitor.c		optional config_nexus_monitor
 bsd/skywalk/nexus/netif/nx_netif.c		optional config_nexus_netif bound-checks
 bsd/skywalk/nexus/netif/nx_netif_compat.c	optional config_nexus_netif bound-checks
 bsd/skywalk/nexus/netif/nx_netif_host.c		optional config_nexus_netif bound-checks

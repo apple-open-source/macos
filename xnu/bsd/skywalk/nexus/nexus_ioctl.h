@@ -35,7 +35,7 @@
  * included by code implementing the nexus controller ioctl logic,
  * in particular, the Skywalk kernel and libsyscall code.
  */
-#include <skywalk/os_nexus_private.h>
+
 #include <sys/ioctl.h>
 #include <sys/errno.h>
 
@@ -45,7 +45,9 @@
 #endif /* !LIBSYSCALL_INTERFACE */
 #else
 extern int nxioctl(struct nxctl *, u_long, caddr_t, proc_t);
+extern int nxioctl_kernel(struct nexus_controller *, u_long, caddr_t, proc_t);
 extern int nxioctl_add_traffic_rule_inet(struct nxctl *, caddr_t, proc_t);
+extern int nxioctl_add_traffic_rule_eth(struct nxctl *, caddr_t, proc_t);
 extern int nxioctl_remove_traffic_rule(struct nxctl *, caddr_t, proc_t);
 extern int nxioctl_get_traffic_rules(struct nxctl *, caddr_t, proc_t);
 #endif /* !KERNEL */
@@ -66,6 +68,16 @@ struct nxctl_add_traffic_rule_inet_iocargs {
 };
 #define NXIOC_ADD_TRAFFIC_RULE_INET \
     _IOWR('n', 1, struct nxctl_add_traffic_rule_inet_iocargs)
+
+struct nxctl_add_traffic_rule_eth_iocargs {
+	char atre_ifname[IFNAMSIZ];
+	struct ifnet_traffic_descriptor_eth atre_td;
+	struct ifnet_traffic_rule_action_steer atre_ra;
+	uint32_t atre_flags;
+	uuid_t atre_uuid;
+};
+#define NXIOC_ADD_TRAFFIC_RULE_ETH \
+    _IOWR('n', 4, struct nxctl_add_traffic_rule_eth_iocargs)
 
 struct nxctl_remove_traffic_rule_iocargs {
 	uuid_t rtr_uuid;
@@ -89,6 +101,11 @@ struct nxctl_traffic_rule_inet_iocinfo {
 	struct nxctl_traffic_rule_generic_iocinfo tri_common;
 	struct ifnet_traffic_descriptor_inet tri_td;
 	struct ifnet_traffic_rule_action_steer tri_ra;
+};
+struct nxctl_traffic_rule_eth_iocinfo {
+	struct nxctl_traffic_rule_generic_iocinfo tre_common;
+	struct ifnet_traffic_descriptor_eth tre_td;
+	struct ifnet_traffic_rule_action_steer tre_ra;
 };
 struct nxctl_get_traffic_rules_iocargs {
 	uint8_t gtr_type;

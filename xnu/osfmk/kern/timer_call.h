@@ -214,6 +214,7 @@ enum running_timer {
 #if KPERF
 	RUNNING_TIMER_KPERF,
 #endif /* KPERF */
+	RUNNING_TIMER_PERFCONTROL,
 	RUNNING_TIMER_MAX,
 };
 

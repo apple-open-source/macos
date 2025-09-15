@@ -951,6 +951,12 @@ void Program::setupExecutableForLink(const Context *context)
     mState.mInfoLog.reset();
 }
 
+void Program::syncExecutableOnSuccessfulLink()
+{
+    // Sync GL_PROGRAM_BINARY_RETRIEVABLE_HINT to the effective value when linking successfully.
+    mState.mExecutable->mBinaryRetrieveableHint = mState.mBinaryRetrieveableHint;
+}
+
 angle::Result Program::link(const Context *context, angle::JobResultExpectancy resultExpectancy)
 {
     auto *platform   = ANGLEPlatformCurrent();
@@ -1247,6 +1253,8 @@ void Program::resolveLinkImpl(const Context *context)
     // Only successfully linked program can replace the executables.
     ASSERT(mLinked);
 
+    syncExecutableOnSuccessfulLink();
+
     // In case of a successful link, it is no longer required for the attached shaders to hold on to
     // the memory they have used. Therefore, the shader compilations are resolved to save memory.
     for (Shader *shader : mAttachedShaders)
@@ -1462,7 +1470,7 @@ angle::Result Program::getBinary(Context *context,
                                  GLsizei bufSize,
                                  GLsizei *length)
 {
-    if (!mState.mBinaryRetrieveableHint)
+    if (!mState.mExecutable->mBinaryRetrieveableHint)
     {
         ANGLE_PERF_WARNING(
             context->getState().getDebug(), GL_DEBUG_SEVERITY_LOW,
@@ -1551,7 +1559,7 @@ void Program::setBinaryRetrievableHint(bool retrievable)
 bool Program::getBinaryRetrievableHint() const
 {
     ASSERT(!mLinkingState);
-    return mState.mBinaryRetrieveableHint;
+    return mState.mExecutable->mBinaryRetrieveableHint;
 }
 
 int Program::getInfoLogLength() const
@@ -1624,6 +1632,18 @@ void Program::validate(const Caps &caps)
 
     if (mLinked)
     {
+        // According GLES 3.2 11.1.3.11 Validation:
+        // ValidateProgram will check for all the conditions described in this section:
+        // Now only check this condition:
+        // Any two active samplers in the set of active program objects are of different
+        // types, but refer to the same texture image unit.
+        // TODO should check other conditions in future.
+        if (getExecutable().validateSamplers(caps) == false)
+        {
+            mValidated = false;
+            mState.mInfoLog << err::kTextureTypeConflict;
+            return;
+        }
         mValidated = ConvertToBool(mProgram->validate(caps));
     }
     else
@@ -2164,8 +2184,8 @@ angle::Result Program::serialize(const Context *context)
     // nullptr context is supported when computing binary length.
     if (context)
     {
-        stream.writeInt(context->getClientVersion().major);
-        stream.writeInt(context->getClientVersion().minor);
+        stream.writeInt(context->getClientVersion().getMajor());
+        stream.writeInt(context->getClientVersion().getMinor());
     }
     else
     {
@@ -2174,11 +2194,11 @@ angle::Result Program::serialize(const Context *context)
     }
 
     // mSeparable must be before mExecutable->save(), since it uses the value.
-    stream.writeBool(mState.mSeparable);
-    stream.writeInt(mState.mTransformFeedbackBufferMode);
+    stream.writeBool(mState.mExecutable->mPod.isSeparable);
+    stream.writeInt(mState.mExecutable->mPod.transformFeedbackBufferMode);
 
-    stream.writeInt(mState.mTransformFeedbackVaryingNames.size());
-    for (const std::string &name : mState.mTransformFeedbackVaryingNames)
+    stream.writeInt(mState.mExecutable->mTransformFeedbackVaryingNames.size());
+    for (const std::string &name : mState.mExecutable->mTransformFeedbackVaryingNames)
     {
         stream.writeString(name);
     }
@@ -2265,10 +2285,10 @@ bool Program::deserialize(const Context *context, BinaryInputStream &stream)
         return false;
     }
 
-    int majorVersion = stream.readInt<int>();
-    int minorVersion = stream.readInt<int>();
-    if (majorVersion != context->getClientMajorVersion() ||
-        minorVersion != context->getClientMinorVersion())
+    const uint32_t majorVersion = stream.readInt<int>();
+    const uint32_t minorVersion = stream.readInt<int>();
+    if (majorVersion != context->getClientVersion().getMajor() ||
+        minorVersion != context->getClientVersion().getMinor())
     {
         mState.mInfoLog << "Cannot load program binaries across different ES context versions.";
         return false;
@@ -2316,7 +2336,6 @@ bool Program::deserialize(const Context *context, BinaryInputStream &stream)
             ASSERT(shaderSource.length() > 0);
             sources[shaderType] = std::move(shaderSource);
         }
-
         // Store it for use during mid-execution capture
         context->getShareGroup()->getFrameCaptureShared()->setProgramSources(id(),
                                                                              std::move(sources));
@@ -2353,7 +2372,7 @@ void Program::cacheProgramBinaryIfNotAlready(const Context *context)
 {
     // If program caching is disabled, we already consider the binary cached.
     ASSERT(!context->getFrontendFeatures().disableProgramCaching.enabled || mIsBinaryCached);
-    if (!mLinked || mIsBinaryCached || mState.mBinaryRetrieveableHint)
+    if (!mLinked || mIsBinaryCached || mState.mExecutable->mBinaryRetrieveableHint)
     {
         // Program caching is disabled, the program is yet to be linked, it's already cached, or the
         // application has specified that it prefers to cache the program binary itself.

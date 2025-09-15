@@ -67,7 +67,7 @@ private:
     void clearNotificationPermissionState();
 #endif
 
-    void setTopContentInset(float, CompletionHandler<void()>&&);
+    void setObscuredContentInsets(float top, float right, float bottom, float left, CompletionHandler<void()>&&);
 
     void clearWheelEventTestMonitor();
 

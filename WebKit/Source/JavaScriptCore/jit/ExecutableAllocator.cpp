@@ -31,6 +31,7 @@
 #include "ExecutableAllocationFuzz.h"
 #include "JITOperationValidation.h"
 #include "LinkBuffer.h"
+#include <bit>
 #include <wtf/ByteOrder.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/FastBitVector.h>
@@ -42,6 +43,7 @@
 #include <wtf/ProcessID.h>
 #include <wtf/RedBlackTree.h>
 #include <wtf/Scope.h>
+#include <wtf/SequesteredMalloc.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/UUID.h>
@@ -275,7 +277,9 @@ static ALWAYS_INLINE MacroAssemblerCodeRef<JITThunkPtrTag> jitWriteThunkGenerato
 #else // not USE(EXECUTE_ONLY_JIT_WRITE_FUNCTION)
 static void genericWriteToJITRegion(off_t offset, const void* data, size_t dataSize)
 {
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
     memcpy((void*)(g_jscConfig.startOfFixedWritableMemoryPool + offset), data, dataSize);
+WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
 static MacroAssemblerCodeRef<JITThunkPtrTag> ALWAYS_INLINE jitWriteThunkGenerator(void* address, void*, size_t)
@@ -390,7 +394,7 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
         // On Linux, if we use uncommitted reservation, mmap operation is recorded with small page size in perf command's output.
         // This makes the following JIT code logging broken and some of JIT code is not recorded correctly.
         // To avoid this problem, we use committed reservation if we need perf JITDump logging.
-        if (Options::logJITCodeForPerf())
+        if (Options::useJITDump())
             return PageReservation::tryReserveAndCommitWithGuardPages(reservationSize, OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true, false);
 #endif
         if (Options::useJITCage() && JSC_ALLOW_JIT_CAGE_SPECIFIC_RESERVATION)
@@ -435,8 +439,10 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
         {
             uint64_t pid = getCurrentProcessID();
             auto uuid = WTF::UUID::createVersion5(jscJITNamespace, std::span { std::bit_cast<const uint8_t*>(&pid), sizeof(pid) });
-            kdebug_trace(KDBG_CODE(DBG_DYLD, DBG_DYLD_UUID, DBG_DYLD_UUID_MAP_A), WTF::byteSwap64(uuid.high()), WTF::byteSwap64(uuid.low()), std::bit_cast<uintptr_t>(reservation.base), 0);
+            kdebug_trace(KDBG_CODE(DBG_DYLD, DBG_DYLD_UUID, DBG_DYLD_UUID_MAP_A), std::byteswap(uuid.high()), std::byteswap(uuid.low()), std::bit_cast<uintptr_t>(reservation.base), 0);
         }
+#elif USE(SYSPROF_CAPTURE)
+        WTFEmitSignpost(reservation, InitJITPageReservation);
 #endif
     }
 
@@ -448,7 +454,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 class FixedVMPoolExecutableAllocator final {
     // This does not need to be TZONE_ALLOCATED because it's only used as a singleton
     // and is only allocated once long before any scripts are executed.
-    WTF_MAKE_FAST_ALLOCATED(FixedVMPoolExecutableAllocator);
+    WTF_MAKE_SEQUESTERED_IMMORTAL_ALLOCATED(FixedVMPoolExecutableAllocator);
 
 #if ENABLE(JUMP_ISLANDS)
     class Islands;
@@ -540,7 +546,7 @@ public:
     {
 #if ENABLE(LIBPAS_JIT_HEAP)
         Vector<void*, 0> randomAllocations;
-        if (UNLIKELY(Options::useRandomizingExecutableIslandAllocation())) {
+        if (Options::useRandomizingExecutableIslandAllocation()) [[unlikely]] {
             // Let's fragment the executable memory agressively
             auto bytesAllocated = m_bytesAllocated.load(std::memory_order_relaxed);
             uint64_t allocationRoom = (m_reservation.size() - bytesAllocated) * 1 / 100 / sizeInBytes;
@@ -548,7 +554,7 @@ public:
                 allocationRoom = 1;
             int count = cryptographicallyRandomNumber<uint32_t>() % allocationRoom;
 
-            randomAllocations.resize(count);
+            randomAllocations.grow(count);
 
             for (int i = 0; i < count; ++i) {
                 void* result = jit_heap_try_allocate(sizeInBytes);
@@ -556,16 +562,16 @@ public:
                     // We are running out of memory, so make sure this allocation will succeed.
                     for (int j = 0; j < i; ++j)
                         jit_heap_deallocate(randomAllocations[j]);
-                    randomAllocations.resize(0);
+                    randomAllocations.shrink(0);
                     break;
                 }
                 randomAllocations[i] = result;
             }
         }
         auto result = ExecutableMemoryHandle::createImpl(sizeInBytes);
-        if (LIKELY(result))
+        if (result) [[likely]]
             m_bytesAllocated.fetch_add(result->sizeInBytes(), std::memory_order_relaxed);
-        if (UNLIKELY(Options::useRandomizingExecutableIslandAllocation())) {
+        if (Options::useRandomizingExecutableIslandAllocation()) [[unlikely]] {
             for (unsigned i = 0; i < randomAllocations.size(); ++i)
                 jit_heap_deallocate(randomAllocations[i]);
         }
@@ -574,7 +580,7 @@ public:
         Locker locker { getLock() };
 
         unsigned start = 0;
-        if (UNLIKELY(Options::useRandomizingExecutableIslandAllocation()))
+        if (Options::useRandomizingExecutableIslandAllocation()) [[unlikely]]
             start = cryptographicallyRandomNumber<uint32_t>() % m_allocators.size();
 
         unsigned i = start;
@@ -1010,7 +1016,7 @@ private:
             const size_t maxIslandsInThisRegion = this->maxIslandsInThisRegion();
 
             RELEASE_ASSERT(oldSize <= maxIslandsInThisRegion);
-            if (UNLIKELY(oldSize == maxIslandsInThisRegion))
+            if (oldSize == maxIslandsInThisRegion) [[unlikely]]
                 crashOnJumpIslandExhaustion();
 
             const size_t newSize = std::min(oldSize + islandsPerPage(), maxIslandsInThisRegion);
@@ -1320,6 +1326,7 @@ void dumpJITMemory(const void* dst, const void* src, size_t size)
     static size_t offset WTF_GUARDED_BY_LOCK(dumpJITMemoryLock) = 0;
     static bool needsToFlush WTF_GUARDED_BY_LOCK(dumpJITMemoryLock) = false;
     static LazyNeverDestroyed<Ref<WorkQueue>> flushQueue;
+    static auto flushQueueSingleton = []() { return flushQueue.get(); };
     struct DumpJIT {
         static void flush() WTF_REQUIRES_LOCK(dumpJITMemoryLock)
         {
@@ -1340,7 +1347,7 @@ void dumpJITMemory(const void* dst, const void* src, size_t size)
                 return;
 
             needsToFlush = true;
-            flushQueue.get()->dispatchAfter(Seconds(Options::dumpJITMemoryFlushInterval()), [] {
+            flushQueueSingleton()->dispatchAfter(Seconds(Options::dumpJITMemoryFlushInterval()), [] {
                 Locker locker { dumpJITMemoryLock };
                 if (!needsToFlush)
                     return;
@@ -1350,7 +1357,7 @@ void dumpJITMemory(const void* dst, const void* src, size_t size)
 
         static void write(const void* src, size_t size) WTF_REQUIRES_LOCK(dumpJITMemoryLock)
         {
-            if (UNLIKELY(offset + size > bufferSize))
+            if (offset + size > bufferSize) [[unlikely]]
                 flush();
             memcpy(buffer + offset, src, size);
             offset += size;
@@ -1416,7 +1423,7 @@ ExecutableMemoryHandle::~ExecutableMemoryHandle()
     AssemblyCommentRegistry::singleton().unregisterCodeRange(start().untaggedPtr(), end().untaggedPtr());
     FixedVMPoolExecutableAllocator* allocator = g_jscConfig.fixedVMPoolExecutableAllocator;
     allocator->handleWillBeReleased(*this, sizeInBytes());
-    if (UNLIKELY(Options::zeroExecutableMemoryOnFree())) {
+    if (Options::zeroExecutableMemoryOnFree()) [[unlikely]] {
         // We don't have a performJITMemset so just use a zeroed buffer.
         auto zeros = MallocSpan<uint8_t>::zeroedMalloc(sizeInBytes());
         auto span = zeros.span();

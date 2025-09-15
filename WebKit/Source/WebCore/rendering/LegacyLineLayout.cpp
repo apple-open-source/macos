@@ -44,6 +44,7 @@
 #include "RenderFragmentedFlow.h"
 #include "RenderLayoutState.h"
 #include "RenderLineBreak.h"
+#include "RenderObjectInlines.h"
 #include "RenderSVGText.h"
 #include "RenderView.h"
 #include "SVGElementTypeHelpers.h"
@@ -63,8 +64,8 @@ LegacyLineLayout::LegacyLineLayout(RenderBlockFlow& flow)
 
 LegacyLineLayout::~LegacyLineLayout()
 {
-    lineBoxes().deleteLineBoxTree();
-};
+    deleteLegacyRootBox(true);
+}
 
 static void determineDirectionality(TextDirection& dir, LegacyInlineIterator iter)
 {
@@ -91,9 +92,21 @@ inline std::unique_ptr<BidiRun> createRun(int start, int end, RenderObject& obj,
     return makeUnique<BidiRun>(start, end, obj, resolver.context(), resolver.dir());
 }
 
+bool LegacyLineLayout::shouldSkipCreatingRunsForObject(RenderObject& object)
+{
+    if (is<RenderText>(object))
+        return false;
+    auto& renderElement = downcast<RenderElement>(object);
+    if (renderElement.isFloating())
+        return true;
+    if (renderElement.isOutOfFlowPositioned() && !renderElement.style().isOriginalDisplayInlineType() && !renderElement.container()->isRenderInline())
+        return true;
+    return false;
+}
+
 void LegacyLineLayout::appendRunsForObject(BidiRunList<BidiRun>* runs, int start, int end, RenderObject& obj, InlineBidiResolver& resolver)
 {
-    if (start > end || RenderBlock::shouldSkipCreatingRunsForObject(obj))
+    if (start > end || shouldSkipCreatingRunsForObject(obj))
         return;
 
     LineWhitespaceCollapsingState& lineWhitespaceCollapsingState = resolver.whitespaceCollapsingState();
@@ -146,16 +159,13 @@ std::unique_ptr<LegacyRootInlineBox> LegacyLineLayout::createRootInlineBox()
 
 LegacyRootInlineBox* LegacyLineLayout::createAndAppendRootInlineBox()
 {
-    auto newRootBox = createRootInlineBox();
-    LegacyRootInlineBox* rootBox = newRootBox.get();
-    m_lineBoxes.appendLineBox(WTFMove(newRootBox));
-
-    if (UNLIKELY(AXObjectCache::accessibilityEnabled()) && legacyRootBox() == rootBox) {
+    m_legacyRootInlineBox = createRootInlineBox();
+    if (AXObjectCache::accessibilityEnabled()) [[unlikely]] {
         if (AXObjectCache* cache = m_flow.document().existingAXObjectCache())
             cache->deferRecomputeIsIgnored(m_flow.element());
     }
 
-    return rootBox;
+    return m_legacyRootInlineBox.get();
 }
 
 LegacyInlineBox* LegacyLineLayout::createInlineBoxForRenderer(RenderObject* renderer)
@@ -163,7 +173,7 @@ LegacyInlineBox* LegacyLineLayout::createInlineBoxForRenderer(RenderObject* rend
     if (renderer == &m_flow)
         return createAndAppendRootInlineBox();
 
-    if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(*renderer))
+    if (CheckedPtr textRenderer = dynamicDowncast<RenderSVGInlineText>(*renderer))
         return textRenderer->createInlineTextBox();
 
     if (CheckedPtr renderInline = dynamicDowncast<RenderInline>(renderer))
@@ -175,10 +185,10 @@ LegacyInlineBox* LegacyLineLayout::createInlineBoxForRenderer(RenderObject* rend
 
 static inline void dirtyLineBoxesForRenderer(RenderObject& renderer)
 {
-    if (CheckedPtr renderText = dynamicDowncast<RenderText>(renderer))
-        renderText->dirtyLegacyLineBoxes(true);
+    if (CheckedPtr renderText = dynamicDowncast<RenderSVGInlineText>(renderer))
+        renderText->deleteLegacyLineBoxes();
     else if (CheckedPtr renderInline = dynamicDowncast<RenderInline>(renderer))
-        renderInline->dirtyLegacyLineBoxes(true);
+        renderInline->deleteLegacyLineBoxes();
 }
 
 static bool parentIsConstructedOrHaveNext(LegacyInlineFlowBox* parentBox)
@@ -308,7 +318,7 @@ void LegacyLineLayout::removeInlineBox(BidiRun& run, const LegacyRootInlineBox& 
     inlineBox->removeFromParent();
 
     auto& renderer = run.renderer();
-    if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(renderer))
+    if (CheckedPtr textRenderer = dynamicDowncast<RenderSVGInlineText>(renderer))
         textRenderer->removeTextBox(downcast<LegacyInlineTextBox>(*inlineBox));
     delete inlineBox;
     run.setBox(nullptr);
@@ -337,7 +347,7 @@ void LegacyLineLayout::removeEmptyTextBoxesAndUpdateVisualReordering(LegacyRootI
     }
 }
 
-static inline void notifyResolverToResumeInIsolate(InlineBidiResolver& resolver, RenderObject* root, RenderObject* startObject)
+static inline void notifyResolverToResumeInIsolate(InlineBidiResolver& resolver, const RenderInline* root, RenderObject* startObject)
 {
     if (root != startObject) {
         RenderObject* parent = startObject->parent();
@@ -346,7 +356,7 @@ static inline void notifyResolverToResumeInIsolate(InlineBidiResolver& resolver,
     }
 }
 
-static inline void setUpResolverToResumeInIsolate(InlineBidiResolver& resolver, InlineBidiResolver& topResolver, BidiRun& isolatedRun, RenderObject* root, RenderObject* startObject)
+static inline void setUpResolverToResumeInIsolate(InlineBidiResolver& resolver, InlineBidiResolver& topResolver, BidiRun& isolatedRun, const RenderInline* root, RenderObject* startObject)
 {
     // Set up m_whitespaceCollapsingState
     resolver.whitespaceCollapsingState() = topResolver.whitespaceCollapsingState();
@@ -454,7 +464,7 @@ static void repaintSelfPaintInlineBoxes(const LegacyRootInlineBox& rootInlineBox
 
 void LegacyLineLayout::layoutRunsAndFloats(bool hasInlineChild)
 {
-    m_lineBoxes.deleteLineBoxTree();
+    deleteLegacyRootBox(true);
 
     TextDirection direction = style().writingMode().bidiDirection();
     if (style().unicodeBidi() == UnicodeBidi::Plaintext)
@@ -498,7 +508,6 @@ void LegacyLineLayout::layoutRunsAndFloatsInRange(InlineBidiResolver& resolver)
         lineInfo.resetRunsFromLeadingWhitespace();
 
         end = lineBreaker.nextLineBreak(resolver, lineInfo, renderTextInfo);
-        m_flow.cachePriorCharactersIfNeeded(renderTextInfo.lineBreakIteratorFactory);
         renderTextInfo.lineBreakIteratorFactory.priorContext().reset();
         if (resolver.position().atEnd()) {
             // FIXME: We shouldn't be creating any runs in nextLineBreak to begin with!
@@ -544,7 +553,7 @@ void LegacyLineLayout::layoutLineBoxes()
 {
     m_flow.setLogicalHeight(0_lu);
 
-    lineBoxes().deleteLineBoxes();
+    deleteLegacyRootBox();
 
     if (m_flow.firstChild()) {
         // In full layout mode, clear the line boxes of children upfront. Otherwise,
@@ -593,5 +602,24 @@ const LocalFrameViewLayoutContext& LegacyLineLayout::layoutContext() const
     return m_flow.view().frameView().layoutContext();
 }
 
+void LegacyLineLayout::shiftLineBy(LayoutUnit shiftX, LayoutUnit shiftY)
+{
+    if (m_legacyRootInlineBox)
+        m_legacyRootInlineBox->adjustPosition(shiftX, shiftY);
+}
+
+void LegacyLineLayout::deleteLegacyRootBox(bool runCleanup)
+{
+    if (!m_legacyRootInlineBox)
+        return;
+
+    if (!runCleanup) {
+        m_legacyRootInlineBox = { };
+        return;
+    }
+
+    auto* rootInlineBoxToDestroy = m_legacyRootInlineBox.release();
+    rootInlineBoxToDestroy->deleteLine();
+}
 
 }

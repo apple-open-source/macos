@@ -121,6 +121,9 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include <kern/ipc_kobject.h>
+#if MACH_KERNEL_PRIVATE
+#include <ipc/ipc_port.h>
+#endif /* MACH_KERNEL_PRIVATE */
 
 /*
  * Functions in iokit:IOUserClient.cpp
@@ -133,13 +136,15 @@ typedef IOMachPort * io_kobject_t;
 typedef struct IOMachPort * io_kobject_t;
 #endif
 
-extern void iokit_add_reference( io_object_t obj, ipc_kobject_type_t type );
+extern void iokit_add_reference( io_object_t obj );
 
-extern ipc_port_t iokit_port_for_object(io_object_t obj,
-    ipc_kobject_type_t type, ipc_kobject_t * kobj);
+extern ipc_port_t iokit_port_make_send_for_object( io_object_t obj,
+    ipc_kobject_type_t type );
 
-extern kern_return_t iokit_client_died( io_object_t obj,
-    ipc_port_t port, ipc_kobject_type_t type, mach_port_mscount_t * mscount );
+extern void iokit_ident_no_senders( ipc_port_t port, mach_port_mscount_t mscount );
+extern void iokit_object_no_senders( ipc_port_t port, mach_port_mscount_t mscount );
+extern void iokit_connect_no_senders( ipc_port_t port, mach_port_mscount_t mscount );
+extern void iokit_uext_no_senders( ipc_port_t port, mach_port_mscount_t mscount );
 
 extern kern_return_t
 iokit_client_memory_for_type(
@@ -150,26 +155,38 @@ iokit_client_memory_for_type(
 	vm_size_t    *  size );
 
 /*
+ * Re-externs from <ipc/ipc_port.h> and <kern/ipc_kobject.h> for iokit/...
+ *
+ * Note: these are safe because IOKitServer.h is used from osfmk/...
+ *       context and will fail to build if they diverge.
+ */
+
+extern mach_port_t ipc_port_make_send_mqueue(mach_port_t) __result_use_check;
+extern mach_port_t ipc_port_copy_send_mqueue(mach_port_t) __result_use_check;
+extern void ipc_port_release_send(ipc_port_t port);
+
+extern bool ipc_kobject_is_mscount_current_locked(ipc_port_t port, mach_port_mscount_t mscount);
+extern ipc_kobject_t ipc_kobject_get_locked(ipc_port_t port, ipc_kobject_type_t type);
+extern void ipc_kobject_enable(ipc_port_t, ipc_kobject_t, ipc_kobject_type_t);
+extern ipc_kobject_t ipc_kobject_disable(ipc_port_t, ipc_kobject_type_t);
+extern mach_port_t ipc_kobject_make_send(mach_port_t, ipc_kobject_t, ipc_kobject_type_t) __result_use_check;
+extern mach_port_t ipc_kobject_copy_send(mach_port_t, ipc_kobject_t, ipc_kobject_type_t) __result_use_check;
+
+/*
  * Functions in osfmk:iokit_rpc.c
  */
 
+extern void iokit_lock_port(ipc_port_t port);
+extern void iokit_unlock_port(ipc_port_t port);
+
 extern ipc_port_t iokit_alloc_object_port( io_kobject_t obj,
     ipc_kobject_type_t type );
-extern void iokit_remove_object_port( ipc_port_t port,
-    ipc_kobject_type_t type );
-extern kern_return_t iokit_destroy_object_port( ipc_port_t port,
-    ipc_kobject_type_t type );
+extern void iokit_destroy_object_port( ipc_port_t port, ipc_kobject_type_t type );
 
 extern ipc_kobject_type_t iokit_port_type(ipc_port_t port);
 
 extern mach_port_name_t iokit_make_send_right( task_t task,
     io_object_t obj, ipc_kobject_type_t type );
-
-extern mach_port_t ipc_kobject_make_send(mach_port_t, ipc_kobject_t, ipc_kobject_type_t) __result_use_check;
-extern mach_port_t ipc_kobject_copy_send(mach_port_t, ipc_kobject_t, ipc_kobject_type_t) __result_use_check;
-extern mach_port_t ipc_port_make_send_mqueue(mach_port_t) __result_use_check;
-extern mach_port_t ipc_port_copy_send_mqueue(mach_port_t) __result_use_check;
-extern void ipc_port_release_send(ipc_port_t port);
 
 extern io_object_t iokit_lookup_io_object(ipc_port_t port, ipc_kobject_type_t type);
 
@@ -180,12 +197,7 @@ extern io_object_t iokit_lookup_object_with_port_name(mach_port_name_t name, ipc
 extern io_object_t iokit_lookup_connect_ref_current_task(mach_port_name_t name);
 extern io_object_t iokit_lookup_uext_ref_current_task(mach_port_name_t name);
 
-extern void iokit_retain_port( ipc_port_t port );
-extern void iokit_release_port( ipc_port_t port );
 extern void iokit_release_port_send( ipc_port_t port );
-
-extern void iokit_lock_port(ipc_port_t port);
-extern void iokit_unlock_port(ipc_port_t port);
 
 extern kern_return_t iokit_lookup_raw_current_task(mach_port_name_t name, ipc_kobject_type_t type, ipc_port_t *port);
 

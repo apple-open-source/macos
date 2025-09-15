@@ -1,3 +1,6 @@
+#!special-case-list-v1
+# rdar://139815990
+
 # Blanket ignore non-sanitized functions
 fun:ksancov_*
 fun:kcov_*
@@ -30,3 +33,13 @@ fun:get_preemption_level
 fun:vm_memtag_add_ptr_tag
 fun:ml_static_unslide
 fun:vm_is_addr_slid
+
+# Exclude static_if dependencies
+src:./osfmk/*/static_if.c
+src:./osfmk/kern/static_if_common.c
+
+# STATIC_IF_INIT functions
+fun:static_if_tests_setup
+fun:kern_feature_override_apply
+# Called in kern_feature_override_apply
+fun:lck_rw_assert_init

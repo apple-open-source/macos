@@ -92,6 +92,58 @@ typedef struct ksancov_edgemap {
 } ksancov_edgemap_t;
 
 /*
+ * Supported comparison logging modes.
+ */
+typedef enum {
+	KS_CMPS_MODE_NONE,
+	KS_CMPS_MODE_TRACE,
+	KS_CMPS_MODE_TRACE_FUNC,
+	KS_CMPS_MODE_MAX
+} ksancov_cmps_mode_t;
+
+#define KSANCOV_CMPS_TRACE_FUNC_MAX_BYTES 512
+
+/* CMPS TRACE mode tracks comparison values */
+typedef struct __attribute__((__packed__)) ksancov_cmps_trace_entry {
+	uint64_t pc;
+	uint32_t type;
+	uint16_t len1_func;
+	uint16_t len2_func;
+	union {
+		uint64_t args[2];              /* cmp instruction arguments */
+		uint8_t args_func[0];          /* cmp function arguments (variadic) */
+	};
+} ksancov_cmps_trace_ent_t;
+
+/* Calculate the total space that a ksancov_cmps_trace_ent_t tracing a function takes */
+static inline size_t
+ksancov_cmps_trace_func_space(size_t len1_func, size_t len2_func)
+{
+	static_assert(sizeof(ksancov_cmps_trace_ent_t) == sizeof(uint64_t) * 3 + sizeof(uint32_t) + sizeof(uint16_t) * 2, "ksancov_cmps_trace_ent_t invalid size");
+
+	size_t size = sizeof(uint64_t) + sizeof(uint32_t) + sizeof(uint16_t) * 2; // header
+	size += len1_func + len2_func;
+	size_t rem = size % sizeof(ksancov_cmps_trace_ent_t);
+	if (rem == 0) {
+		return size;
+	}
+	return size + sizeof(ksancov_cmps_trace_ent_t) - rem;
+}
+
+static inline uint8_t *
+ksancov_cmps_trace_func_arg1(ksancov_cmps_trace_ent_t *entry)
+{
+	return entry->args_func;
+}
+
+static inline uint8_t *
+ksancov_cmps_trace_func_arg2(ksancov_cmps_trace_ent_t *entry)
+{
+	uint8_t* func_args = entry->args_func;
+	return &func_args[entry->len1_func];
+}
+
+/*
  * Represents state of a ksancov device when userspace asks for coverage data recording.
  */
 
@@ -106,6 +158,14 @@ struct ksancov_dev {
 	size_t sz;     /* size of allocated trace/counters buffer */
 
 	size_t maxpcs;
+
+	ksancov_cmps_mode_t cmps_mode;
+
+	union {
+		ksancov_header_t       *cmps_hdr;
+		ksancov_trace_t        *cmps_trace;
+	};
+	size_t cmps_sz;     /* size of allocated cmps trace buffer */
 
 	thread_t thread;
 	dev_t dev;

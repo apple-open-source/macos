@@ -45,17 +45,20 @@ public:
     static Ref<InjectedBundleScriptWorld> create(const String& name, Type = Type::Internal);
     static Ref<InjectedBundleScriptWorld> getOrCreate(WebCore::DOMWrapperWorld&);
     static InjectedBundleScriptWorld* find(const String&);
-    static InjectedBundleScriptWorld& normalWorld();
+    static InjectedBundleScriptWorld& normalWorldSingleton();
 
     virtual ~InjectedBundleScriptWorld();
 
     const WebCore::DOMWrapperWorld& coreWorld() const;
     WebCore::DOMWrapperWorld& coreWorld();
+    Ref<const WebCore::DOMWrapperWorld> protectedCoreWorld() const;
+    Ref<WebCore::DOMWrapperWorld> protectedCoreWorld();
 
     void clearWrappers();
     void setAllowAutofill();
     void setAllowElementUserInfo();
     void makeAllShadowRootsOpen();
+    void exposeClosedShadowRootsForExtensions();
     void disableOverrideBuiltinsBehavior();
 
     const String& name() const { return m_name; }
@@ -63,10 +66,14 @@ public:
 private:
     InjectedBundleScriptWorld(WebCore::DOMWrapperWorld&, const String&);
 
-    Ref<WebCore::DOMWrapperWorld> m_world;
+    const Ref<WebCore::DOMWrapperWorld> m_world;
     String m_name;
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::InjectedBundleScriptWorld)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BundleScriptWorld; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // InjectedBundleScriptWorld_h

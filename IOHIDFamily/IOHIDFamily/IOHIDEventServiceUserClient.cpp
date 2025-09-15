@@ -425,11 +425,31 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
     IOHIDEvent *    outEvent    = NULL;
     IOReturn        ret         = kIOReturnError;
     IOByteCount     length      = 0;
+    IOMemoryMap *   mmap        = NULL;
+    void *          outData     = NULL;
+    size_t          outSize     = 0;
     
     require_action(arguments->structureInputSize < kEventSizeMax, exit, ret = kIOReturnNoMemory);
 
     if ( arguments->structureInput && arguments->structureInputSize) {
         inEvent = IOHIDEvent::withBytes(arguments->structureInput, arguments->structureInputSize);
+    }
+
+    if ( arguments->structureOutputDescriptor ) {
+        // Memory mapping could fail if process is terminating or userland is shutting down
+        require_noerr((ret = arguments->structureOutputDescriptor->prepare()), exit);
+
+        mmap = arguments->structureOutputDescriptor->map();
+        require_action(mmap, map_fail, ret = kIOReturnNoMemory);
+
+        outData = (void *)mmap->getVirtualAddress();
+        outSize = arguments->structureOutputDescriptor->getLength();
+    } else if ( arguments->structureOutput ) {
+        outData = arguments->structureOutput;
+        outSize = arguments->structureOutputSize;
+    } else {
+        HIDLogError("_copyEvent: No output data");
+        goto exit;
     }
 
     do { 
@@ -441,16 +461,25 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
             
         length = outEvent->getLength();
         
-        if ( length > arguments->structureOutputSize ) {
-            HIDLogError("event length:%d expected:%d", (unsigned int)length, arguments->structureOutputSize);
+        if ( length > outSize ) {
+            HIDLogError("event length:%d expected:%ld", (unsigned int)length, outSize);
             ret = kIOReturnBadArgument;
             break;
         }
 
-        outEvent->readBytes(arguments->structureOutput, length);
-        arguments->structureOutputSize = (uint32_t)length;
-
+        outEvent->readBytes(outData, outSize);
+        if ( arguments->structureOutputDescriptor ) {
+            arguments->structureOutputDescriptorSize = (uint32_t)length;
+        } else {
+            arguments->structureOutputSize = (uint32_t)length;
+        }
     } while ( 0 );
+
+map_fail:
+    if ( arguments->structureOutputDescriptor ) {
+        OSSafeReleaseNULL(mmap);
+        arguments->structureOutputDescriptor->complete();
+    }
 
 exit:
     if ( inEvent )

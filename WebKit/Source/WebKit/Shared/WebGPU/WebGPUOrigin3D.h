@@ -29,7 +29,6 @@
 
 #include <WebCore/WebGPUIntegralTypes.h>
 #include <optional>
-#include <variant>
 #include <wtf/Vector.h>
 
 namespace WebKit::WebGPU {
@@ -40,7 +39,7 @@ struct Origin3DDict {
     WebCore::WebGPU::IntegerCoordinate z { 0 };
 };
 
-using Origin3D = std::variant<Vector<WebCore::WebGPU::IntegerCoordinate>, Origin3DDict>;
+using Origin3D = Variant<Vector<WebCore::WebGPU::IntegerCoordinate>, Origin3DDict>;
 
 } // namespace WebKit::WebGPU
 

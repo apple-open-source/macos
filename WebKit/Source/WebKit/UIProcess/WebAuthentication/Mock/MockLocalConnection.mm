@@ -34,6 +34,8 @@
 #import <WebCore/ExceptionData.h>
 #import <wtf/RunLoop.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/cf/TypeCastsCF.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
 #import <wtf/text/Base64.h>
 #import <wtf/text/WTFString.h>
@@ -58,7 +60,7 @@ MockLocalConnection::MockLocalConnection(const MockWebAuthenticationConfiguratio
 void MockLocalConnection::verifyUser(const String&, ClientDataType, SecAccessControlRef, WebCore::UserVerificationRequirement, UserVerificationCallback&& callback)
 {
     // Mock async operations.
-    RunLoop::main().dispatch([configuration = m_configuration, callback = WTFMove(callback)]() mutable {
+    RunLoop::mainSingleton().dispatch([configuration = m_configuration, callback = WTFMove(callback)]() mutable {
         ASSERT(configuration.local);
 
         UserVerification userVerification = UserVerification::No;
@@ -83,7 +85,7 @@ void MockLocalConnection::verifyUser(const String&, ClientDataType, SecAccessCon
 void MockLocalConnection::verifyUser(SecAccessControlRef, LAContext *, CompletionHandler<void(UserVerification)>&& callback)
 {
     // Mock async operations.
-    RunLoop::main().dispatch([configuration = m_configuration, callback = WTFMove(callback)]() mutable {
+    RunLoop::mainSingleton().dispatch([configuration = m_configuration, callback = WTFMove(callback)]() mutable {
         ASSERT(configuration.local);
 
         UserVerification userVerification = UserVerification::No;
@@ -117,22 +119,22 @@ RetainPtr<SecKeyRef> MockLocalConnection::createCredentialPrivateKey(LAContext *
     };
     CFErrorRef errorRef = nullptr;
     auto key = adoptCF(SecKeyCreateWithData(
-        (__bridge CFDataRef)adoptNS([[NSData alloc] initWithBase64EncodedString:m_configuration.local->privateKeyBase64 options:NSDataBase64DecodingIgnoreUnknownCharacters]).get(),
+        (__bridge CFDataRef)adoptNS([[NSData alloc] initWithBase64EncodedString:m_configuration.local->privateKeyBase64.createNSString().get() options:NSDataBase64DecodingIgnoreUnknownCharacters]).get(),
         (__bridge CFDictionaryRef)options,
         &errorRef
     ));
     if (errorRef)
         return nullptr;
 
-    NSDictionary* addQuery = @{
+    RetainPtr addQuery = @{
         (id)kSecValueRef: (id)key.get(),
         (id)kSecClass: (id)kSecClassKey,
-        (id)kSecAttrLabel: secAttrLabel,
+        (id)kSecAttrLabel: secAttrLabel.createNSString().get(),
         (id)kSecAttrApplicationTag: secAttrApplicationTag,
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecUseDataProtectionKeychain: @YES
     };
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
+    OSStatus status = SecItemAdd(bridge_cast(addQuery.get()), NULL);
     if (status) {
         LOG_ERROR("Couldn't add the key to the keychain. %d", status);
         return nullptr;
@@ -149,7 +151,7 @@ void MockLocalConnection::filterResponses(Vector<Ref<AuthenticatorAssertionRespo
 
     RefPtr<AuthenticatorAssertionResponse> matchingResponse;
     for (auto& response : responses) {
-        auto* rawId = response->rawId();
+        RefPtr rawId = response->rawId();
         ASSERT(rawId);
         auto rawIdBase64 = base64EncodeToString(rawId->span());
         if (rawIdBase64 == preferredCredentialIdBase64) {
@@ -164,25 +166,24 @@ void MockLocalConnection::filterResponses(Vector<Ref<AuthenticatorAssertionRespo
 RetainPtr<NSArray> MockLocalConnection::getExistingCredentials(const String& rpId)
 {
     // Search Keychain for existing credential matched the RP ID.
-    NSDictionary *query = @{
+    RetainPtr query = @{
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
-        (id)kSecAttrLabel: rpId,
+        (id)kSecAttrLabel: rpId.createNSString().get(),
         (id)kSecReturnAttributes: @YES,
         (id)kSecMatchLimit: (id)kSecMatchLimitAll,
         (id)kSecUseDataProtectionKeychain: @YES
     };
 
     CFTypeRef attributesArrayRef = nullptr;
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &attributesArrayRef);
+    OSStatus status = SecItemCopyMatching(bridge_cast(query.get()), &attributesArrayRef);
     if (status && status != errSecItemNotFound)
         return nullptr;
-    auto retainAttributesArray = adoptCF(attributesArrayRef);
-    NSArray *sortedAttributesArray = [(NSArray *)attributesArrayRef sortedArrayUsingComparator:^(NSDictionary *a, NSDictionary *b) {
+    RetainPtr nsAttributesArray = bridge_cast(adoptCF(checked_cf_cast<CFArrayRef>(attributesArrayRef)));
+    return [nsAttributesArray sortedArrayUsingComparator:^(NSDictionary *a, NSDictionary *b) {
         return [b[(id)kSecAttrModificationDate] compare:a[(id)kSecAttrModificationDate]];
     }];
-    return retainPtr(sortedAttributesArray);
 }
 
 } // namespace WebKit

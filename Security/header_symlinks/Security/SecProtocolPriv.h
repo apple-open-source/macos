@@ -6,6 +6,10 @@
 #ifndef SecProtocolPriv_h
 #define SecProtocolPriv_h
 
+#ifdef __OBJC__
+#import <Foundation/Foundation.h>
+#endif
+
 #include <Security/SecProtocolOptions.h>
 #include <Security/SecProtocolMetadata.h>
 #include <Security/SecProtocolConfiguration.h>
@@ -41,6 +45,21 @@ typedef CF_ENUM(uint16_t, tls_key_exchange_group_set_t) {
 };
 
 SEC_ASSUME_NONNULL_BEGIN
+
+#ifdef __OBJC__
+#define SEC_PROTOCOL_HAS_SESSION_TICKET_INFO 1
+#define SEC_PROTOCOL_HAS_SEC_SESSION_TICKET_INFO 1
+@interface SecSessionInfo : NSObject
+@property (retain) NSData *psk;
+@property (retain) NSData *psk_id;
+@property uint32_t ticket_age_add;
+@property uint64_t ticket_creation_time;
+@property uint64_t ticket_lifetime;
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithPSK:(NSData *)psk :(NSData *)psk_id :(uint32_t)ticket_age_add :(uint64_t)ticket_creation_time :(uint64_t)ticket_lifetime;
+@end
+#endif // __OBJC__
 
 #ifndef SEC_OBJECT_IMPL
 SEC_OBJECT_DECL(sec_array);
@@ -276,6 +295,41 @@ void
 sec_protocol_options_set_session_update_block(sec_protocol_options_t options,
                                               sec_protocol_session_update_t update_block,
                                               dispatch_queue_t update_queue);
+
+#define SEC_PROTOCOL_OPTIONS_GET_SESSION_UPDATE 1
+/*!
+ * @function sec_protocol_options_get_session_update_block
+ *
+ * @abstract
+ *      Get the session update block. Read `sec_protocol_options_set_session_update_block`
+ *      for more information on session update block
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @result
+ *      Returns a `sec_protocol_session_update_t` block.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+sec_protocol_session_update_t
+sec_protocol_options_get_session_update_block(sec_protocol_options_t options);
+
+/*!
+ * @function sec_protocol_options_get_session_update_queue
+ *
+ * @abstract
+ *      Get the session update queue. Read `sec_protocol_options_set_session_update_block`
+ *      for more information.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @result
+ *      Returns a `dispatch_queue_t` associated with the session update.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+dispatch_queue_t
+sec_protocol_options_get_session_update_queue(sec_protocol_options_t options);
 
 /*!
  * @function sec_protocol_options_set_session_state
@@ -882,6 +936,74 @@ API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_copy_tls_negotiated_group
 const char * __nullable
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
 
+#ifdef __OBJC__
+/*!
+ * @function sec_protocol_metadata_get_sec_session_ticket_info
+ *
+ * @abstract
+ *      Get the session ticket info object which includes psk, psk_id (aka ticket), ticket_age_add, and ticket_creation_time.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A SecSessionInfo * that contains psk, psk_id (aka ticket), ticket_age_add, and ticket_creation_time.
+ *
+ * @discussion This is an experimental SPI. Do not depend on it.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), watchos(12), tvos(19.0))
+SecSessionInfo* __nullable
+sec_protocol_metadata_get_sec_session_ticket_info(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_options_set_session_ticket_info
+ *
+ * @abstract
+ *      Set the session ticket info object which includes psk, psk_id (aka ticket), ticket_age_add, ticket_creation_time, and ticket_lifetime.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @discussion This is an experimental SPI. Do not depend on it.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), watchos(12), tvos(19.0))
+void
+sec_protocol_options_set_session_ticket_info(sec_protocol_options_t options, SecSessionInfo* session_info);
+
+/*!
+ * @function sec_protocol_options_get_sec_session_ticket_info
+ *
+ * @abstract
+ *      Get the session ticket info object which includes psk, psk_id (aka ticket), ticket_age_add, ticket_creation_time, and ticket_lifetime.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @discussion This is an experimental SPI. Do not depend on it.
+ *
+ * @return A SecSessionInfo * that contains psk, psk_id (aka ticket), ticket_age_add, and ticket_creation_time.
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), watchos(12), tvos(19.0))
+SecSessionInfo*
+sec_protocol_options_get_sec_session_ticket_info(sec_protocol_options_t options);
+#endif // __OBJC__
+
+/*!
+ * @function sec_protocol_options_get_tls_ciphersuites
+ *
+ * @abstract
+ *      Get the ciphersuites set in sec_protocol_options.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @discussion This is an experimental SPI. Do not depend on it.
+ *
+ * @return xpc_object_t with ciphersuites
+ */
+SPI_AVAILABLE(macos(16.0), ios(19.0), watchos(12), tvos(19.0))
+__nullable xpc_object_t
+sec_protocol_options_get_tls_ciphersuites(sec_protocol_options_t options);
+
 /*!
  * @function sec_protocol_metadata_copy_tls_negotiated_group
  *
@@ -912,6 +1034,53 @@ sec_protocol_metadata_copy_tls_negotiated_group(sec_protocol_metadata_t metadata
 SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
 uint16_t
 sec_protocol_metadata_get_tls_negotiated_pake(sec_protocol_metadata_t metadata);
+
+#define SEC_PROTOCOL_METADATA_HAS_PAKE_OFFERED 1
+/*!
+ * @function sec_protocol_metadata_get_tls_pake_offered
+ *
+ * @abstract
+ *      Get whether the client offered a pake share
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A bool, true if the client offered a pake share. False if it did not.
+ */
+SPI_AVAILABLE(macos(26.0), ios(26.0), watchos(26.0), tvos(26.0), visionos(26.0))
+bool
+sec_protocol_metadata_get_tls_pake_offered(sec_protocol_metadata_t metadata);
+
+#define SEC_PROTOCOL_METADATA_HAS_EPSK_GETTERS 1
+/*!
+ * @function sec_protocol_metadata_get_tls_negotiated_epsk
+ *
+ * @abstract
+ *      Get whether the client negotiated an epsk
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A bool, true if an epsk was used to authenticate the TLS handshake.
+ */
+SPI_AVAILABLE(macos(26.0), ios(26.0), watchos(26.0), tvos(26.0), visionos(26.0))
+bool
+sec_protocol_metadata_get_tls_negotiated_epsk(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_get_tls_epsk_offered
+ *
+ * @abstract
+ *      Get whether the client offered a TLS 1.3 epsk
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return A bool, true if the client offered a TLS 1.3 epsk. False if it did not.
+ */
+SPI_AVAILABLE(macos(26.0), ios(26.0), watchos(26.0), tvos(26.0), visionos(26.0))
+bool
+sec_protocol_metadata_get_tls_epsk_offered(sec_protocol_metadata_t metadata);
 
 /*!
  * @function sec_protocol_metadata_get_experiment_identifier
@@ -1386,21 +1555,6 @@ sec_protocol_metadata_access_sent_certificates(sec_protocol_metadata_t metadata,
                                                void (^handler)(sec_certificate_t certificate));
 
 /*!
- * @function sec_protocol_metadata_get_tls_negotiated_group
- *
- * @abstract
- *      Get a human readable representation of the negotiated key exchange group.
- *
- * @param metadata
- *      A `sec_protocol_metadata_t` instance.
- *
- * @return A string representation of the negotiated group, or NULL if it does not exist.
- */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
-const char * __nullable
-sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
-
-/*!
  * @function sec_protocol_configuration_copy_singleton
  *
  * @abstract
@@ -1740,6 +1894,84 @@ SPI_AVAILABLE(macos(15.4), ios(18.4), watchos(11.4), tvos(18.4), visionos(2.4))
 void
 sec_protocol_options_set_sec_protocol_configuration(sec_protocol_options_t options, sec_protocol_configuration_t configuration);
 
+#ifdef __OBJC__
+/*!
+ * @function sec_protocol_metadata_set_session_ticket_info
+ *
+ * @abstract
+ *      Set session ticket info on metadata.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param sessionInfo
+ *      Session Info object.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+void
+sec_protocol_metadata_set_session_ticket_info(sec_protocol_metadata_t metadata, SecSessionInfo *sessionInfo);
+#endif
+
+/*!
+ * @function sec_protocol_metadata_set_negotiated_tls_ciphersuite
+ *
+ * @abstract
+ *      Set negotiated TLS ciphersuite.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param ciphersuite
+ *      Negotiated cipher suite.
+ *
+ * @return true if the ciphersuite is set in the metadata.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+bool
+sec_protocol_metadata_set_negotiated_tls_ciphersuite(sec_protocol_metadata_t metadata, tls_ciphersuite_t ciphersuite);
+
+#define SEC_PROTOCOL_HAS_TLS_PROTOCOL_VERSION_SETTERS 1
+/*!
+ * @function sec_protocol_metadata_set_negotiated_tls_protocol_version
+ *
+ * @abstract
+ *      Set negotiated TLS version.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param version
+ *      Negotiated TLS version.
+ *
+ * @return true if version is set in the metadata.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+bool
+sec_protocol_metadata_set_negotiated_tls_protocol_version(sec_protocol_metadata_t metadata, tls_protocol_version_t version);
+
+/*!
+ * @function sec_protocol_metadata_set_negotiated_protocol
+ *
+ * @abstract
+ *      Set negotiated application protocol.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param protocol
+ *      Negotiated protocol.
+ *
+ * @return true if protocol is set in the metadata.
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), watchos(12.0), tvos(19.0))
+bool
+sec_protocol_metadata_set_negotiated_protocol(sec_protocol_metadata_t metadata, const char *protocol);
+
+/*
+ * WARNING: SwiftTLS and Boringssl directly access fields in this struct.
+ * Changing the size or offset of fields in the struct will cause problems.
+ * Changing this struct means both  SwiftTLS and Boringssl MUST be rebuilt.
+ */
 struct sec_protocol_options_content {
     tls_protocol_version_t min_version;
     tls_protocol_version_t max_version;
@@ -1845,8 +2077,24 @@ struct sec_protocol_options_content {
     unsigned quic_use_legacy_codepoint_override : 1;
 
     sec_protocol_block_length_padding_t tls_block_length_padding;
+    _Nullable CFTypeRef session_ticket_info;
+    #define sec_protocol_options_content_get_session_ticket_info(options) ((__bridge SecSessionInfo*)((options)->session_ticket_info))
+
+    _Nullable CFTypeRef external_pre_shared_keys;
+    #define sec_protocol_options_content_get_external_pre_shared_keys(options) ((__bridge NSMutableArray*)((options)->external_pre_shared_keys))
+    
+    _Nullable CFTypeRef external_psk_selection_block;
+    #define sec_protocol_options_content_get_external_psk_selection_block(options) ((__bridge sec_protocol_external_pre_shared_key_selection_t)((options)->external_psk_selection_block))
+
+    dispatch_queue_t external_psk_selection_queue;
+    unsigned enable_raw_external_pre_shared_keys : 1;
 };
 
+/*
+ * WARNING: SwiftTLS and Boringssl directly access fields in this struct.
+ * Changing the size or offset of fields in the struct will cause problems.
+ * Changing this struct means both  SwiftTLS and Boringssl MUST be rebuilt.
+ */
 struct sec_protocol_metadata_content {
     void *exporter_context; // Opaque context for the exporter function
     sec_protocol_metadata_exporter exporter_function; // Exporter function pointer. This MUST be set by the metadata allocator.
@@ -1913,6 +2161,12 @@ struct sec_protocol_metadata_content {
     sec_protocol_metadata_copy_authenticator_f copy_authenticator_function;
     sec_protocol_metadata_copy_authenticator_trust_f copy_authenticator_trust_function;
     void *authenticator_context; // Opaque context for the authenticator functions
+    _Nullable CFTypeRef session_ticket_info;
+    #define sec_protocol_content_metadata_get_session_ticket_info(metadata) ((__bridge SecSessionInfo*)((metadata)->session_ticket_info))
+
+    unsigned external_psk_offered : 1;
+    unsigned external_psk_used : 1;
+    unsigned pake_offered : 1;
 
     // This set is initialized within legacy APIs that return raw string pointers.
     // It is freed within boringssl when metadata is deallocated.

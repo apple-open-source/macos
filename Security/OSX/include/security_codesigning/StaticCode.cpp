@@ -167,7 +167,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 	  mRep(rep),
 	  mValidated(false), mExecutableValidated(false), mResourcesValidated(false), mResourcesValidContext(NULL),
 	  mProgressQueue("com.apple.security.validation-progress", false, QOS_CLASS_UNSPECIFIED),
-	  mOuterScope(NULL), mResourceScope(NULL),
+	  mOuterScope(NULL), mResourceScope(NULL), mInfoDictValidated(false), mEntitlementsValidated(false),
 	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL),
 	  mFlags(flags), mNotarizationChecked(false), mStaplingChecked(false), mNotarizationDate(NAN),
 	  mNetworkEnabledByDefault(true), mTrustedSigningCertChain(false), mValidationCategory(CS_VALIDATION_CATEGORY_INVALID)
@@ -190,7 +190,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 //
 SecStaticCode::~SecStaticCode() _NOEXCEPT
 try {
-	CEReleaseManagedContext(&mCEQueryContext);
+	SecCEReleaseContext(&mCEQueryContext);
 	::free(const_cast<Requirement *>(mDesignatedReq));
 	delete mResourcesValidContext;
 	delete mLimitedAsync;
@@ -414,7 +414,9 @@ void SecStaticCode::resetValidity()
 	for (unsigned n = 0; n < cdSlotCount; n++)
 		mCache[n] = NULL;
 	mInfoDict = NULL;
+	mInfoDictValidated = false;
 	mEntitlements = NULL;
+	mEntitlementsValidated = false;
 	mResourceDict = NULL;
 	mDesignatedReq = NULL;
 	mCDHash = NULL;
@@ -426,7 +428,7 @@ void SecStaticCode::resetValidity()
 	mNotarizationDate = NAN;
 	mRep->flush();
 	mCEReconstitutedEnts = NULL;
-	CEReleaseManagedContext(&mCEQueryContext);
+	SecCEReleaseContext(&mCEQueryContext);
 
 #if TARGET_OS_OSX
 	// we may just have updated the system database, so check again
@@ -1640,30 +1642,33 @@ bool SecStaticCode::hasWeakResourceRules(CFDictionaryRef rulesDict, uint32_t ver
 //
 // Load, validate, cache, and return CFDictionary forms of sealed resources.
 //
-CFDictionaryRef SecStaticCode::infoDictionary()
+CFDictionaryRef SecStaticCode::infoDictionary(bool check /* = true */)
 {
-	if (!mInfoDict) {
-		mInfoDict.take(getDictionary(cdInfoSlot, errSecCSInfoPlistFailed));
-		secinfo("staticCode", "%p loaded InfoDict %p", this, mInfoDict.get());
+	if (!mInfoDict || (!mInfoDictValidated && check)) {
+		mInfoDict.take(getDictionary(cdInfoSlot, check));
+		mInfoDictValidated = check;
+		secinfo("staticCode", "%p loaded InfoDict %p, %schecked", this, mInfoDict.get(), check ? "" : "not ");
 	}
 	return mInfoDict;
 }
 
-CFDictionaryRef SecStaticCode::entitlements()
+CFDictionaryRef SecStaticCode::entitlements(bool check /* = true */)
 {
-	if (!mEntitlements) {
-		validateDirectory();
+	if (!mEntitlements || (!mEntitlementsValidated && check)) {
+		if (check) {
+			validateDirectory();
+		}
 		if (CFDataRef derData = component(cdEntitlementDERSlot)) {
 			if (codeDirectory()->slotIsPresent(-cdEntitlementDERSlot)) {
 				validateComponent(cdEntitlementDERSlot);
 			}
 			const EntitlementDERBlob *blob = reinterpret_cast<const EntitlementDERBlob *>(CFDataGetBytePtr(derData));
 			if (blob->validateBlob()) {
-				secinfo("staticCode", "%p loaded DER blob with length %zu", this, blob->length());
+				secinfo("staticCode", "%p loaded DER blob with length %zu, %schecked", this, blob->length(), check ? "" : "not ");
 				if (!mCEQueryContext) {
 					CFRef<CFDataRef> innerData = blob->innerData();
 					secinfo("staticCode", "%p creating new CEQueryContext DER blob with length %lu", this, CFDataGetLength(innerData.get()));
-					if(!CE_OK(CEManagedContextFromCFData(CECRuntime, innerData.get() , &mCEQueryContext))) {
+					if(!CE_OK(SecCEContextFromCFData(innerData.get() , &mCEQueryContext))) {
 						mCEQueryContext = nullptr;
 						secerror("%p caused an error during CoreEntitlements parsing", this);
 						MacOSError::throwMe(errSecDecode);
@@ -1675,6 +1680,7 @@ CFDictionaryRef SecStaticCode::entitlements()
 					MacOSError::throwMe(errSecDecode);
 				}
 				mEntitlements.take(ceDict);
+				mEntitlementsValidated = check;
 			}
 			// we do not consider a different blob type to be an error. We think it's a new format we don't understand
 		}
@@ -2412,6 +2418,13 @@ CFArrayRef SecStaticCode::certificates()
 //
 CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 {
+	// Some properties have historically triggered some validation even
+	// though the function is documented as not performing validation.
+	// This flag keeps the existing behavior for old callers, but allows
+	// new callers who know they want no code directory validation to get
+	// the signing information.
+	bool skipValidation = ((flags & kSecCSSkipCodeDirectoryValidation) != 0);
+
 	//
 	// Start with the pieces that we return even for unsigned code.
 	// This makes Sec[Static]CodeRefs useful as API-level replacements
@@ -2446,12 +2459,12 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	if (cd->runtimeVersion()) {
 		CFDictionaryAddValue(dict, kSecCodeInfoRuntimeVersion, CFTempNumber(cd->runtimeVersion()));
 	}
-
+		
 	//
 	// Deliver any Info.plist only if it looks intact
 	//
 	try {
-		if (CFDictionaryRef info = this->infoDictionary())
+		if (CFDictionaryRef info = this->infoDictionary(!skipValidation))
 			CFDictionaryAddValue(dict, kSecCodeInfoPList, info);
 	} catch (...) { }		// don't deliver Info.plist if questionable
 
@@ -2474,6 +2487,8 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			if (CFAbsoluteTime time = this->signingTimestamp())
 				if (CFRef<CFDateRef> date = CFDateCreate(NULL, time))
 					CFDictionaryAddValue(dict, kSecCodeInfoTimestamp, date);
+			if (CFTempNumber valcat = this->validationCategory())
+				CFDictionaryAddValue(dict, kSecCodeInfoValidationCategory, valcat);
 		} catch (...) { }
 
 	//
@@ -2511,7 +2526,7 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 		// This slot might be fake
 		CFDataRef entDER = this->component(cdEntitlementDERSlot);
 		if (entDER) {
-			if (CFDictionaryRef entdict = this->entitlements()) {
+			if (CFDictionaryRef entdict = this->entitlements(!skipValidation)) {
 				if (!mCEReconstitutedEnts) {
 					secinfo("staticCode", "%p reconstituting XML entitlements with context %p", this, mCEQueryContext);
 					size_t numElements = 0;

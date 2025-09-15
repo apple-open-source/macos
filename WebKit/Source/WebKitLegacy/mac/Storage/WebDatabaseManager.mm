@@ -111,7 +111,7 @@ static NSString *databasesDirectoryPath();
         return nil;
 
     return @{
-        WebDatabaseDisplayNameKey: details.displayName().isEmpty() ? databaseIdentifier : (NSString *)details.displayName(),
+        WebDatabaseDisplayNameKey: details.displayName().isEmpty() ? databaseIdentifier : details.displayName().createNSString().get(),
         WebDatabaseExpectedSizeKey: @(details.expectedUsage()),
         WebDatabaseUsageKey: @(details.currentUsage()),
     };

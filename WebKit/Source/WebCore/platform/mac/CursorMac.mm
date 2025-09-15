@@ -28,6 +28,8 @@
 
 #if HAVE(NSCURSOR)
 
+#import "ImageAdapter.h"
+#import "NativeImage.h"
 #import <AppKit/NSCursor.h>
 #import <objc/runtime.h>
 #import <wtf/BlockObjCExceptions.h>

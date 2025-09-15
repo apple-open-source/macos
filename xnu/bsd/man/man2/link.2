@@ -126,12 +126,23 @@ Values for
 are constructed by a bitwise-inclusive OR of flags from the following
 list, defined in
 .In fcntl.h :
-.Bl -tag -width indent
+.Bl -tag -width AT_SYMLINK_NOFOLLOW_ANY
 .It Dv AT_SYMLINK_FOLLOW
 If
 .Fa name1
 names a symbolic link, a new link for the target of the symbolic link is
 created.
+.It Dv AT_SYMLINK_NOFOLLOW_ANY
+If
+.Fa name1
+names a symbolic link, a new link for the symbolic link is
+created.
+If a symbolic link is encountered during pathname resolution, an error is returned.
+.It Dv AT_RESOLVE_BENEATH
+If
+.Fa name1
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .El
 .Pp
 If
@@ -156,12 +167,11 @@ the behavior is identical to a call to
 Unless
 .Fa flag
 contains the
-.Dv AT_SYMLINK_FOLLOW
-flag, if
-.Fa name1
-names a symbolic link, a new link is created for the symbolic link
-.Fa name1
-and not its target. On OS X, not assigning AT_SYMLINK_FOLLOW to
+.Dv AT_SYMLINK_FOLLOW,
+.Dv AT_SYMLINK_NOFOLLOW_ANY
+or the
+.Dv AT_RESOLVE_BENEATH
+flags. On OS X, not assigning AT_SYMLINK_FOLLOW, AT_SYMLINK_NOFOLLOW_ANY or AT_RESOLVE_BENEATH to
 .Fa flag
 may result in some file systems returning an error.
 .Sh RETURN VALUES
@@ -301,6 +311,22 @@ or
 respectively, is neither
 .Dv AT_FDCWD
 nor a file descriptor associated with a directory.
+.It Bq Er ELOOP
+If AT_SYMLINK_NOFOLLOW_ANY was passed and a symbolic link was encountered in
+translating either the
+.Fa name1
+or
+.Fa name2
+arguments.
+.It Bq Er ENOTCAPABLE
+AT_RESOLVE_BENEATH was passed and
+.Fa path
+does not reside in the directory hierarchy beneath the starting directory encountered in
+translating either the
+.Fa name1
+or
+.Fa name2
+arguments.
 .El
 .Sh SEE ALSO
 .Xr symlink 2 ,

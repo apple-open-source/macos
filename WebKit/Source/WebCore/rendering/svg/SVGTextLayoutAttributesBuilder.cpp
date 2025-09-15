@@ -180,11 +180,12 @@ static inline void updateCharacterData(unsigned i, float& lastRotation, SVGChara
 
 void SVGTextLayoutAttributesBuilder::fillCharacterDataMap(const TextPosition& position)
 {
-    const auto& xList = position.element->x();
-    const auto& yList = position.element->y();
-    const auto& dxList = position.element->dx();
-    const auto& dyList = position.element->dy();
-    const auto& rotateList = position.element->rotate();
+    RefPtr element = position.element.get();
+    const auto& xList = element->x();
+    const auto& yList = element->y();
+    const auto& dxList = element->dx();
+    const auto& dyList = element->dy();
+    const auto& rotateList = element->rotate();
 
     unsigned xListSize = xList.size();
     unsigned yListSize = yList.size();
@@ -195,8 +196,7 @@ void SVGTextLayoutAttributesBuilder::fillCharacterDataMap(const TextPosition& po
         return;
 
     float lastRotation = SVGTextLayoutAttributes::emptyValue();
-    RefPtr positionElement = position.element;
-    SVGLengthContext lengthContext(positionElement.get());
+    SVGLengthContext lengthContext(element.get());
     for (unsigned i = 0; i < position.length; ++i) {
         const SVGLengthList* xListPtr = i < xListSize ? &xList : nullptr;
         const SVGLengthList* yListPtr = i < yListSize ? &yList : nullptr;

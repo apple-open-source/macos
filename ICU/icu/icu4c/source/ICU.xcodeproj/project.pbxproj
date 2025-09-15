@@ -28,6 +28,12 @@
 				CC767934243BF27C00780598 /* Run pkgdata tool */,
 				CC061070243FBEED00B7262F /* CopyFiles */,
 				CC061074243FBF2500B7262F /* CopyFiles */,
+				DE1204C82D6948880044DD2E /* CopyFiles */,
+				DED3A24C2D6D240C00E54833 /* CopyFiles */,
+				DEF44E072D7264090043470A /* CopyFiles */,
+				DE28D2F32D7B54EE0033BE7A /* CopyFiles */,
+				DE49D92C2D80E8C400D066EA /* CopyFiles */,
+				DE49D9362D80EFAB00D066EA /* CopyFiles */,
 			);
 			dependencies = (
 				CC06108A243FFD7100B7262F /* PBXTargetDependency */,
@@ -990,6 +996,13 @@
 		CCF9312C2432D86400C185CD /* ualoc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CCF92F102432BADC00C185CD /* ualoc.cpp */; };
 		CCF9312D2432D86400C185CD /* urbtok.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CCF92E8F2432BADC00C185CD /* urbtok.cpp */; };
 		CCF9312F2433DE8500C185CD /* libicudata.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CCF92C522432BA5400C185CD /* libicudata.dylib */; };
+		DE1204C72D6947860044DD2E /* ConverterSelectorTestUTF8.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76764B243BEF4900780598 /* ConverterSelectorTestUTF8.txt */; };
+		DE1204C92D6948AC0044DD2E /* confusablesWholeScript.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BED243699BA00503646 /* confusablesWholeScript.txt */; };
+		DE1204CA2D694A5B0044DD2E /* confusables.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BF2243699BA00503646 /* confusables.txt */; };
+		DE1204CB2D6951BA0044DD2E /* CaseFolding.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BEB243699BA00503646 /* CaseFolding.txt */; };
+		DE1204CC2D695B3C0044DD2E /* riwords.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76761B243BEF4900780598 /* riwords.txt */; };
+		DE1204CD2D695B560044DD2E /* translit_rules.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76764A243BEF4900780598 /* translit_rules.txt */; };
+		DE1204CE2D695DE00044DD2E /* UnicodeData.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BEE243699BA00503646 /* UnicodeData.txt */; };
 		DE2544E02CA47E2A0015BDAD /* xc_cintltst.m in Sources */ = {isa = PBXBuildFile; fileRef = DE2544DF2CA47E2A0015BDAD /* xc_cintltst.m */; };
 		DE2544E12CA47E2A0015BDAD /* libicui18n.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7980BC2433EE410086956E /* libicui18n.dylib */; };
 		DE2544E72CA47E3E0015BDAD /* libicutest.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CCCF80AB24340E4F0057283F /* libicutest.dylib */; };
@@ -1087,6 +1100,52 @@
 		DE25457A2CA483C80015BDAD /* utf16tst.c in Sources */ = {isa = PBXBuildFile; fileRef = CC76785B243BEF4A00780598 /* utf16tst.c */; };
 		DE25457B2CA483C80015BDAD /* utmstest.c in Sources */ = {isa = PBXBuildFile; fileRef = CC76782F243BEF4A00780598 /* utmstest.c */; };
 		DE25457C2CA483C80015BDAD /* utransts.c in Sources */ = {isa = PBXBuildFile; fileRef = CC76783A243BEF4A00780598 /* utransts.c */; };
+		DE28D2F22D7B53E10033BE7A /* NormalizationTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BEA243699BA00503646 /* NormalizationTest.txt */; };
+		DE28D2F42D7B55140033BE7A /* rfc3491.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0ED9243699BD00503646 /* rfc3491.txt */; };
+		DE49D92E2D80E92700D066EA /* DerivedCoreProperties.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BDD243699BA00503646 /* DerivedCoreProperties.txt */; };
+		DE49D92F2D80E95C00D066EA /* DerivedNormalizationProps.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BDF243699BA00503646 /* DerivedNormalizationProps.txt */; };
+		DE49D9302D80E99B00D066EA /* ppucd.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC6F0BEF243699BA00503646 /* ppucd.txt */; };
+		DE49D9312D80E9D300D066EA /* localeMatcherTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767651243BEF4900780598 /* localeMatcherTest.txt */; };
+		DE49D9322D80EE3200D066EA /* NumberFormatTestCases.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767674243BEF4900780598 /* NumberFormatTestCases.txt */; };
+		DE49D9332D80EE6C00D066EA /* dcfmtest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767613243BEF4900780598 /* dcfmtest.txt */; };
+		DE49D9342D80EEB400D066EA /* numberformattestspecification.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767634243BEF4900780598 /* numberformattestspecification.txt */; };
+		DE49D9352D80EF5900D066EA /* numberpermutationtest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767671243BEF4900780598 /* numberpermutationtest.txt */; };
+		DE49DAD12D80F0D900D066EA /* set2-overlap.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC52D80F0D900D066EA /* set2-overlap.small16.toml */; };
+		DE49DAD22D80F0D900D066EA /* set1.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABF2D80F0D900D066EA /* set1.8.toml */; };
+		DE49DAD32D80F0D900D066EA /* set1.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC22D80F0D900D066EA /* set1.small16.toml */; };
+		DE49DAD42D80F0D900D066EA /* set-single-value.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABB2D80F0D900D066EA /* set-single-value.8.toml */; };
+		DE49DAD52D80F0D900D066EA /* set-empty.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB82D80F0D900D066EA /* set-empty.16.toml */; };
+		DE49DAD62D80F0D900D066EA /* set3-initial-9.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC72D80F0D900D066EA /* set3-initial-9.16.toml */; };
+		DE49DAD72D80F0D900D066EA /* grow-data.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB52D80F0D900D066EA /* grow-data.32.toml */; };
+		DE49DAD82D80F0D900D066EA /* set-single-value.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABE2D80F0D900D066EA /* set-single-value.small16.toml */; };
+		DE49DAD92D80F0D900D066EA /* free-blocks.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB02D80F0D900D066EA /* free-blocks.16.toml */; };
+		DE49DADA2D80F0D900D066EA /* set3-initial-9.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC92D80F0D900D066EA /* set3-initial-9.small16.toml */; };
+		DE49DADB2D80F0D900D066EA /* set-single-value.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABC2D80F0D900D066EA /* set-single-value.16.toml */; };
+		DE49DADC2D80F0D900D066EA /* set2-overlap.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC32D80F0D900D066EA /* set2-overlap.16.toml */; };
+		DE49DADD2D80F0D900D066EA /* grow-data.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB62D80F0D900D066EA /* grow-data.small16.toml */; };
+		DE49DADE2D80F0D900D066EA /* set3-initial-9.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC82D80F0D900D066EA /* set3-initial-9.32.toml */; };
+		DE49DADF2D80F0D900D066EA /* set-empty.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB72D80F0D900D066EA /* set-empty.8.toml */; };
+		DE49DAE02D80F0D900D066EA /* set-empty.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB92D80F0D900D066EA /* set-empty.32.toml */; };
+		DE49DAE12D80F0D900D066EA /* grow-data.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB32D80F0D900D066EA /* grow-data.8.toml */; };
+		DE49DAE22D80F0D900D066EA /* short-all-same.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACA2D80F0D900D066EA /* short-all-same.8.toml */; };
+		DE49DAE32D80F0D900D066EA /* set2-overlap.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC42D80F0D900D066EA /* set2-overlap.32.toml */; };
+		DE49DAE42D80F0D900D066EA /* free-blocks.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAAF2D80F0D900D066EA /* free-blocks.8.toml */; };
+		DE49DAE52D80F0D900D066EA /* grow-data.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB42D80F0D900D066EA /* grow-data.16.toml */; };
+		DE49DAE62D80F0D900D066EA /* free-blocks.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB22D80F0D900D066EA /* free-blocks.small16.toml */; };
+		DE49DAE72D80F0D900D066EA /* small0-in-fast.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACC2D80F0D900D066EA /* small0-in-fast.8.toml */; };
+		DE49DAE82D80F0D900D066EA /* small0-in-fast.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACD2D80F0D900D066EA /* small0-in-fast.16.toml */; };
+		DE49DAE92D80F0D900D066EA /* set1.16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC02D80F0D900D066EA /* set1.16.toml */; };
+		DE49DAEA2D80F0D900D066EA /* set-empty.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABA2D80F0D900D066EA /* set-empty.small16.toml */; };
+		DE49DAEB2D80F0D900D066EA /* set1.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC12D80F0D900D066EA /* set1.32.toml */; };
+		DE49DAEC2D80F0D900D066EA /* short-all-same.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACB2D80F0D900D066EA /* short-all-same.small16.toml */; };
+		DE49DAED2D80F0D900D066EA /* free-blocks.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAB12D80F0D900D066EA /* free-blocks.32.toml */; };
+		DE49DAEE2D80F0D900D066EA /* set-single-value.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DABD2D80F0D900D066EA /* set-single-value.32.toml */; };
+		DE49DAEF2D80F0D900D066EA /* set3-initial-9.8.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAC62D80F0D900D066EA /* set3-initial-9.8.toml */; };
+		DE49DAF02D80F0D900D066EA /* small0-in-fast.32.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACE2D80F0D900D066EA /* small0-in-fast.32.toml */; };
+		DE49DAF12D80F0D900D066EA /* small0-in-fast.small16.toml in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DACF2D80F0D900D066EA /* small0-in-fast.small16.toml */; };
+		DE49DAF22D80F0F900D066EA /* localeCanonicalization.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DA3B2D80F0C800D066EA /* localeCanonicalization.txt */; };
+		DE49DAF32D80F10900D066EA /* unitsTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAAC2D80F0C800D066EA /* unitsTest.txt */; };
+		DE49DAF42D80F11600D066EA /* unitPreferencesTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = DE49DAAB2D80F0C800D066EA /* unitPreferencesTest.txt */; };
 		DE4B99CC2CD2A8EE00E7C905 /* libicuio.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7981B22434011E0086956E /* libicuio.dylib */; };
 		DE4B99DE2CD2A9A600E7C905 /* filetst.c in Sources */ = {isa = PBXBuildFile; fileRef = CC7677B8243BEF4A00780598 /* filetst.c */; };
 		DE4B99DF2CD2A9A600E7C905 /* iotest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CC7677B1243BEF4A00780598 /* iotest.cpp */; };
@@ -1271,7 +1330,49 @@
 		DE587E1C2CBDBAB800946D2E /* libicuuc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CCF930312432CB8C00C185CD /* libicuuc.dylib */; };
 		DE619A3B2CA4961200E027F3 /* cintltst.c in Sources */ = {isa = PBXBuildFile; fileRef = CC7677FD243BEF4A00780598 /* cintltst.c */; };
 		DE62F92C2CC6DDA500663210 /* libicui18n.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7980BC2433EE410086956E /* libicui18n.dylib */; };
+		DE82E2092D7A50120020A6FD /* NormalizationTest-3.2.0.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767666243BEF4900780598 /* NormalizationTest-3.2.0.txt */; };
+		DE8651CC2D69183B00018969 /* nfs4_cs_prep_ci.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767647243BEF4900780598 /* nfs4_cs_prep_ci.txt */; };
 		DEBF22772CCC4255005389CD /* libicui18n.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7980BC2433EE410086956E /* libicui18n.dylib */; };
+		DED3A24B2D6D240500E54833 /* uni-text.bin in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76760E243BEF4900780598 /* uni-text.bin */; };
+		DEF44E012D725F2F0043470A /* emoji-test.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767617243BEF4900780598 /* emoji-test.txt */; };
+		DEF44E022D7263060043470A /* GraphemeBreakTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767620243BEF4900780598 /* GraphemeBreakTest.txt */; };
+		DEF44E032D7263060043470A /* LineBreakTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76764E243BEF4900780598 /* LineBreakTest.txt */; };
+		DEF44E042D7263060043470A /* SentenceBreakTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76761C243BEF4900780598 /* SentenceBreakTest.txt */; };
+		DEF44E052D7263060043470A /* WordBreakTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767665243BEF4900780598 /* WordBreakTest.txt */; };
+		DEF44E062D7263500043470A /* rbbitst.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76766A243BEF4900780598 /* rbbitst.txt */; };
+		DEF44E082D7264380043470A /* grapheme.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765B243BEF4900780598 /* grapheme.txt */; };
+		DEF44E092D72647D0043470A /* word.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767663243BEF4900780598 /* word.txt */; };
+		DEF44E0A2D7264B20043470A /* line.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767661243BEF4900780598 /* line.txt */; };
+		DEF44E0B2D7264D80043470A /* line_cj.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765F243BEF4900780598 /* line_cj.txt */; };
+		DEF44E0C2D72651C0043470A /* sentence.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765A243BEF4900780598 /* sentence.txt */; };
+		DEF44E0D2D7265420043470A /* line_normal.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765C243BEF4900780598 /* line_normal.txt */; };
+		DEF44E0E2D7265640043470A /* line_normal_cj.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767664243BEF4900780598 /* line_normal_cj.txt */; };
+		DEF44E0F2D7265800043470A /* line_loose.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765E243BEF4900780598 /* line_loose.txt */; };
+		DEF44E102D7265A10043470A /* line_loose_cj.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76765D243BEF4900780598 /* line_loose_cj.txt */; };
+		DEF44E112D7265CF0043470A /* word_POSIX.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767662243BEF4900780598 /* word_POSIX.txt */; };
+		DEF44E122D72660C0043470A /* Thai_graphclust_model4_heavy_Test.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CCC4BE772D01448F0001350E /* Thai_graphclust_model4_heavy_Test.txt */; };
+		DEF44E132D7266410043470A /* Thai_codepoints_exclusive_model5_heavy_Test.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CCC4BE752D01448F0001350E /* Thai_codepoints_exclusive_model5_heavy_Test.txt */; };
+		DEF44E142D72664C0043470A /* Burmese_graphclust_model5_heavy_Test.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CCC4BE712D01448F0001350E /* Burmese_graphclust_model5_heavy_Test.txt */; };
+		DEF44E152D7267C80043470A /* CollationTest_NON_IGNORABLE_SHORT.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76766E243BEF4900780598 /* CollationTest_NON_IGNORABLE_SHORT.txt */; };
+		DEF44E162D7267C80043470A /* CollationTest_SHIFTED_SHORT.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767658243BEF4900780598 /* CollationTest_SHIFTED_SHORT.txt */; };
+		DEF44E172D7267F10043470A /* collationtest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767618243BEF4900780598 /* collationtest.txt */; };
+		DEF44E182D72685A0043470A /* ssearch.xml in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76767B243BEF4900780598 /* ssearch.xml */; };
+		DEF44E192D72693F0043470A /* regextst.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76767F243BEF4900780598 /* regextst.txt */; };
+		DEF44E1A2D72694D0043470A /* re_tests.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767679243BEF4900780598 /* re_tests.txt */; };
+		DEF44E1B2D7269A70043470A /* IdnaTestV2.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76760F243BEF4900780598 /* IdnaTestV2.txt */; };
+		DEF44E1C2D7269BB0043470A /* idna_conf.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76761F243BEF4900780598 /* idna_conf.txt */; };
+		DEF44E1D2D726A0C0043470A /* csdetest.xml in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767622243BEF4900780598 /* csdetest.xml */; };
+		DEF44E1E2D726A430043470A /* BidiTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767675243BEF4900780598 /* BidiTest.txt */; };
+		DEF44E1F2D726A4E0043470A /* BidiCharacterTest.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767627243BEF4900780598 /* BidiCharacterTest.txt */; };
+		DEF72D0E2D69269F003729FE /* nfs4_cs_prep_cs.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76764F243BEF4900780598 /* nfs4_cs_prep_cs.txt */; };
+		DEF72D0F2D6926F0003729FE /* nfs4_cis_prep.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767610243BEF4900780598 /* nfs4_cis_prep.txt */; };
+		DEF72D102D69272E003729FE /* nfs4_mixed_prep_s.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC76762F243BEF4900780598 /* nfs4_mixed_prep_s.txt */; };
+		DEF72D112D69275C003729FE /* nfs4_mixed_prep_p.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = CC767625243BEF4900780598 /* nfs4_mixed_prep_p.txt */; };
+		DEFDA00E2D51887F00E3658F /* vietnamesecal.h in Headers */ = {isa = PBXBuildFile; fileRef = DEFDA00C2D51887F00E3658F /* vietnamesecal.h */; };
+		DEFDA00F2D51887F00E3658F /* vietnamesecal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DEFDA00D2D51887F00E3658F /* vietnamesecal.cpp */; };
+		DEFDA0102D51887F00E3658F /* vietnamesecal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DEFDA00D2D51887F00E3658F /* vietnamesecal.cpp */; };
+		DEFDA0112D51887F00E3658F /* vietnamesecal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DEFDA00D2D51887F00E3658F /* vietnamesecal.cpp */; };
+		DEFDA0122D51887F00E3658F /* vietnamesecal.h in Headers */ = {isa = PBXBuildFile; fileRef = DEFDA00C2D51887F00E3658F /* vietnamesecal.h */; };
 		EAE0E2082A9E613700A1C0D9 /* ubidi.h in Headers */ = {isa = PBXBuildFile; fileRef = CCF92EF72432BADC00C185CD /* ubidi.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EAE0E2092A9E613700A1C0D9 /* umutex.h in Headers */ = {isa = PBXBuildFile; fileRef = CCF92E6B2432BADC00C185CD /* umutex.h */; };
 		EAE0E20A2A9E613700A1C0D9 /* putilimp.h in Headers */ = {isa = PBXBuildFile; fileRef = CCF92FE92432BADD00C185CD /* putilimp.h */; };
@@ -3218,6 +3319,42 @@
 			dstPath = testdata;
 			dstSubfolderSpec = 16;
 			files = (
+				DE49D9352D80EF5900D066EA /* numberpermutationtest.txt in CopyFiles */,
+				DE49D9342D80EEB400D066EA /* numberformattestspecification.txt in CopyFiles */,
+				DE49D9332D80EE6C00D066EA /* dcfmtest.txt in CopyFiles */,
+				DE49D9322D80EE3200D066EA /* NumberFormatTestCases.txt in CopyFiles */,
+				DE49D9312D80E9D300D066EA /* localeMatcherTest.txt in CopyFiles */,
+				DE28D2F22D7B53E10033BE7A /* NormalizationTest.txt in CopyFiles */,
+				DE82E2092D7A50120020A6FD /* NormalizationTest-3.2.0.txt in CopyFiles */,
+				DEF44E1F2D726A4E0043470A /* BidiCharacterTest.txt in CopyFiles */,
+				DEF44E1E2D726A430043470A /* BidiTest.txt in CopyFiles */,
+				DEF44E1D2D726A0C0043470A /* csdetest.xml in CopyFiles */,
+				DEF44E1C2D7269BB0043470A /* idna_conf.txt in CopyFiles */,
+				DEF44E1B2D7269A70043470A /* IdnaTestV2.txt in CopyFiles */,
+				DEF44E1A2D72694D0043470A /* re_tests.txt in CopyFiles */,
+				DEF44E192D72693F0043470A /* regextst.txt in CopyFiles */,
+				DEF44E182D72685A0043470A /* ssearch.xml in CopyFiles */,
+				DEF44E172D7267F10043470A /* collationtest.txt in CopyFiles */,
+				DEF44E152D7267C80043470A /* CollationTest_NON_IGNORABLE_SHORT.txt in CopyFiles */,
+				DEF44E162D7267C80043470A /* CollationTest_SHIFTED_SHORT.txt in CopyFiles */,
+				DEF44E142D72664C0043470A /* Burmese_graphclust_model5_heavy_Test.txt in CopyFiles */,
+				DEF44E132D7266410043470A /* Thai_codepoints_exclusive_model5_heavy_Test.txt in CopyFiles */,
+				DEF44E122D72660C0043470A /* Thai_graphclust_model4_heavy_Test.txt in CopyFiles */,
+				DEF44E062D7263500043470A /* rbbitst.txt in CopyFiles */,
+				DEF44E022D7263060043470A /* GraphemeBreakTest.txt in CopyFiles */,
+				DEF44E032D7263060043470A /* LineBreakTest.txt in CopyFiles */,
+				DEF44E042D7263060043470A /* SentenceBreakTest.txt in CopyFiles */,
+				DEF44E052D7263060043470A /* WordBreakTest.txt in CopyFiles */,
+				DEF44E012D725F2F0043470A /* emoji-test.txt in CopyFiles */,
+				DED3A24B2D6D240500E54833 /* uni-text.bin in CopyFiles */,
+				DE1204CD2D695B560044DD2E /* translit_rules.txt in CopyFiles */,
+				DE1204CC2D695B3C0044DD2E /* riwords.txt in CopyFiles */,
+				DE1204C72D6947860044DD2E /* ConverterSelectorTestUTF8.txt in CopyFiles */,
+				DEF72D112D69275C003729FE /* nfs4_mixed_prep_p.txt in CopyFiles */,
+				DEF72D102D69272E003729FE /* nfs4_mixed_prep_s.txt in CopyFiles */,
+				DEF72D0F2D6926F0003729FE /* nfs4_cis_prep.txt in CopyFiles */,
+				DEF72D0E2D69269F003729FE /* nfs4_cs_prep_cs.txt in CopyFiles */,
+				DE8651CC2D69183B00018969 /* nfs4_cs_prep_ci.txt in CopyFiles */,
 				CC061088243FCF0000B7262F /* word.txt in CopyFiles */,
 				CC061084243FBFF600B7262F /* wordNLLT_icu57.dat in CopyFiles */,
 				CC061085243FBFF600B7262F /* wordNLLT_icu60.dat in CopyFiles */,
@@ -3397,6 +3534,114 @@
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
+		};
+		DE1204C82D6948880044DD2E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/unidata;
+			dstSubfolderSpec = 16;
+			files = (
+				DE49D9302D80E99B00D066EA /* ppucd.txt in CopyFiles */,
+				DE49D92F2D80E95C00D066EA /* DerivedNormalizationProps.txt in CopyFiles */,
+				DE49D92E2D80E92700D066EA /* DerivedCoreProperties.txt in CopyFiles */,
+				DE1204CE2D695DE00044DD2E /* UnicodeData.txt in CopyFiles */,
+				DE1204CB2D6951BA0044DD2E /* CaseFolding.txt in CopyFiles */,
+				DE1204CA2D694A5B0044DD2E /* confusables.txt in CopyFiles */,
+				DE1204C92D6948AC0044DD2E /* confusablesWholeScript.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DE28D2F32D7B54EE0033BE7A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/sprep;
+			dstSubfolderSpec = 16;
+			files = (
+				DE28D2F42D7B55140033BE7A /* rfc3491.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DE49D92C2D80E8C400D066EA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/cldr/localeIdentifiers;
+			dstSubfolderSpec = 16;
+			files = (
+				DE49DAF22D80F0F900D066EA /* localeCanonicalization.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DE49D9362D80EFAB00D066EA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/cldr/units;
+			dstSubfolderSpec = 16;
+			files = (
+				DE49DAF42D80F11600D066EA /* unitPreferencesTest.txt in CopyFiles */,
+				DE49DAF32D80F10900D066EA /* unitsTest.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DED3A24C2D6D240C00E54833 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/codepointtrie;
+			dstSubfolderSpec = 16;
+			files = (
+				DE49DAD12D80F0D900D066EA /* set2-overlap.small16.toml in CopyFiles */,
+				DE49DAD22D80F0D900D066EA /* set1.8.toml in CopyFiles */,
+				DE49DAD32D80F0D900D066EA /* set1.small16.toml in CopyFiles */,
+				DE49DAD42D80F0D900D066EA /* set-single-value.8.toml in CopyFiles */,
+				DE49DAD52D80F0D900D066EA /* set-empty.16.toml in CopyFiles */,
+				DE49DAD62D80F0D900D066EA /* set3-initial-9.16.toml in CopyFiles */,
+				DE49DAD72D80F0D900D066EA /* grow-data.32.toml in CopyFiles */,
+				DE49DAD82D80F0D900D066EA /* set-single-value.small16.toml in CopyFiles */,
+				DE49DAD92D80F0D900D066EA /* free-blocks.16.toml in CopyFiles */,
+				DE49DADA2D80F0D900D066EA /* set3-initial-9.small16.toml in CopyFiles */,
+				DE49DADB2D80F0D900D066EA /* set-single-value.16.toml in CopyFiles */,
+				DE49DADC2D80F0D900D066EA /* set2-overlap.16.toml in CopyFiles */,
+				DE49DADD2D80F0D900D066EA /* grow-data.small16.toml in CopyFiles */,
+				DE49DADE2D80F0D900D066EA /* set3-initial-9.32.toml in CopyFiles */,
+				DE49DADF2D80F0D900D066EA /* set-empty.8.toml in CopyFiles */,
+				DE49DAE02D80F0D900D066EA /* set-empty.32.toml in CopyFiles */,
+				DE49DAE12D80F0D900D066EA /* grow-data.8.toml in CopyFiles */,
+				DE49DAE22D80F0D900D066EA /* short-all-same.8.toml in CopyFiles */,
+				DE49DAE32D80F0D900D066EA /* set2-overlap.32.toml in CopyFiles */,
+				DE49DAE42D80F0D900D066EA /* free-blocks.8.toml in CopyFiles */,
+				DE49DAE52D80F0D900D066EA /* grow-data.16.toml in CopyFiles */,
+				DE49DAE62D80F0D900D066EA /* free-blocks.small16.toml in CopyFiles */,
+				DE49DAE72D80F0D900D066EA /* small0-in-fast.8.toml in CopyFiles */,
+				DE49DAE82D80F0D900D066EA /* small0-in-fast.16.toml in CopyFiles */,
+				DE49DAE92D80F0D900D066EA /* set1.16.toml in CopyFiles */,
+				DE49DAEA2D80F0D900D066EA /* set-empty.small16.toml in CopyFiles */,
+				DE49DAEB2D80F0D900D066EA /* set1.32.toml in CopyFiles */,
+				DE49DAEC2D80F0D900D066EA /* short-all-same.small16.toml in CopyFiles */,
+				DE49DAED2D80F0D900D066EA /* free-blocks.32.toml in CopyFiles */,
+				DE49DAEE2D80F0D900D066EA /* set-single-value.32.toml in CopyFiles */,
+				DE49DAEF2D80F0D900D066EA /* set3-initial-9.8.toml in CopyFiles */,
+				DE49DAF02D80F0D900D066EA /* small0-in-fast.32.toml in CopyFiles */,
+				DE49DAF12D80F0D900D066EA /* small0-in-fast.small16.toml in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DEF44E072D7264090043470A /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = testdata/break_rules;
+			dstSubfolderSpec = 16;
+			files = (
+				DEF44E112D7265CF0043470A /* word_POSIX.txt in CopyFiles */,
+				DEF44E102D7265A10043470A /* line_loose_cj.txt in CopyFiles */,
+				DEF44E0F2D7265800043470A /* line_loose.txt in CopyFiles */,
+				DEF44E0E2D7265640043470A /* line_normal_cj.txt in CopyFiles */,
+				DEF44E0D2D7265420043470A /* line_normal.txt in CopyFiles */,
+				DEF44E0C2D72651C0043470A /* sentence.txt in CopyFiles */,
+				DEF44E0B2D7264D80043470A /* line_cj.txt in CopyFiles */,
+				DEF44E0A2D7264B20043470A /* line.txt in CopyFiles */,
+				DEF44E092D72647D0043470A /* word.txt in CopyFiles */,
+				DEF44E082D7264380043470A /* grapheme.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -10774,6 +11019,47 @@
 		DE18D3D92CBEE91600D42931 /* xc_intltest.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = xc_intltest.xctestplan; sourceTree = "<group>"; };
 		DE2544DD2CA47E2A0015BDAD /* xc_cintltst.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xc_cintltst.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE2544DF2CA47E2A0015BDAD /* xc_cintltst.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = xc_cintltst.m; sourceTree = "<group>"; };
+		DE49DA392D80F0C800D066EA /* _readme.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = _readme.txt; sourceTree = "<group>"; };
+		DE49DA3A2D80F0C800D066EA /* likelySubtags.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = likelySubtags.txt; sourceTree = "<group>"; };
+		DE49DA3B2D80F0C800D066EA /* localeCanonicalization.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = localeCanonicalization.txt; sourceTree = "<group>"; };
+		DE49DA3C2D80F0C800D066EA /* localeDisplayName.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = localeDisplayName.txt; sourceTree = "<group>"; };
+		DE49DAA92D80F0C800D066EA /* _readme.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = _readme.txt; sourceTree = "<group>"; };
+		DE49DAAA2D80F0C800D066EA /* unitLocalePreferencesTest.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = unitLocalePreferencesTest.txt; sourceTree = "<group>"; };
+		DE49DAAB2D80F0C800D066EA /* unitPreferencesTest.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = unitPreferencesTest.txt; sourceTree = "<group>"; };
+		DE49DAAC2D80F0C800D066EA /* unitsTest.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = unitsTest.txt; sourceTree = "<group>"; };
+		DE49DAAF2D80F0D900D066EA /* free-blocks.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "free-blocks.8.toml"; sourceTree = "<group>"; };
+		DE49DAB02D80F0D900D066EA /* free-blocks.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "free-blocks.16.toml"; sourceTree = "<group>"; };
+		DE49DAB12D80F0D900D066EA /* free-blocks.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "free-blocks.32.toml"; sourceTree = "<group>"; };
+		DE49DAB22D80F0D900D066EA /* free-blocks.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "free-blocks.small16.toml"; sourceTree = "<group>"; };
+		DE49DAB32D80F0D900D066EA /* grow-data.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "grow-data.8.toml"; sourceTree = "<group>"; };
+		DE49DAB42D80F0D900D066EA /* grow-data.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "grow-data.16.toml"; sourceTree = "<group>"; };
+		DE49DAB52D80F0D900D066EA /* grow-data.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "grow-data.32.toml"; sourceTree = "<group>"; };
+		DE49DAB62D80F0D900D066EA /* grow-data.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "grow-data.small16.toml"; sourceTree = "<group>"; };
+		DE49DAB72D80F0D900D066EA /* set-empty.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-empty.8.toml"; sourceTree = "<group>"; };
+		DE49DAB82D80F0D900D066EA /* set-empty.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-empty.16.toml"; sourceTree = "<group>"; };
+		DE49DAB92D80F0D900D066EA /* set-empty.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-empty.32.toml"; sourceTree = "<group>"; };
+		DE49DABA2D80F0D900D066EA /* set-empty.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-empty.small16.toml"; sourceTree = "<group>"; };
+		DE49DABB2D80F0D900D066EA /* set-single-value.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-single-value.8.toml"; sourceTree = "<group>"; };
+		DE49DABC2D80F0D900D066EA /* set-single-value.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-single-value.16.toml"; sourceTree = "<group>"; };
+		DE49DABD2D80F0D900D066EA /* set-single-value.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-single-value.32.toml"; sourceTree = "<group>"; };
+		DE49DABE2D80F0D900D066EA /* set-single-value.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set-single-value.small16.toml"; sourceTree = "<group>"; };
+		DE49DABF2D80F0D900D066EA /* set1.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = set1.8.toml; sourceTree = "<group>"; };
+		DE49DAC02D80F0D900D066EA /* set1.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = set1.16.toml; sourceTree = "<group>"; };
+		DE49DAC12D80F0D900D066EA /* set1.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = set1.32.toml; sourceTree = "<group>"; };
+		DE49DAC22D80F0D900D066EA /* set1.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = set1.small16.toml; sourceTree = "<group>"; };
+		DE49DAC32D80F0D900D066EA /* set2-overlap.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set2-overlap.16.toml"; sourceTree = "<group>"; };
+		DE49DAC42D80F0D900D066EA /* set2-overlap.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set2-overlap.32.toml"; sourceTree = "<group>"; };
+		DE49DAC52D80F0D900D066EA /* set2-overlap.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set2-overlap.small16.toml"; sourceTree = "<group>"; };
+		DE49DAC62D80F0D900D066EA /* set3-initial-9.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set3-initial-9.8.toml"; sourceTree = "<group>"; };
+		DE49DAC72D80F0D900D066EA /* set3-initial-9.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set3-initial-9.16.toml"; sourceTree = "<group>"; };
+		DE49DAC82D80F0D900D066EA /* set3-initial-9.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set3-initial-9.32.toml"; sourceTree = "<group>"; };
+		DE49DAC92D80F0D900D066EA /* set3-initial-9.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "set3-initial-9.small16.toml"; sourceTree = "<group>"; };
+		DE49DACA2D80F0D900D066EA /* short-all-same.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "short-all-same.8.toml"; sourceTree = "<group>"; };
+		DE49DACB2D80F0D900D066EA /* short-all-same.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "short-all-same.small16.toml"; sourceTree = "<group>"; };
+		DE49DACC2D80F0D900D066EA /* small0-in-fast.8.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "small0-in-fast.8.toml"; sourceTree = "<group>"; };
+		DE49DACD2D80F0D900D066EA /* small0-in-fast.16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "small0-in-fast.16.toml"; sourceTree = "<group>"; };
+		DE49DACE2D80F0D900D066EA /* small0-in-fast.32.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "small0-in-fast.32.toml"; sourceTree = "<group>"; };
+		DE49DACF2D80F0D900D066EA /* small0-in-fast.small16.toml */ = {isa = PBXFileReference; lastKnownFileType = text; path = "small0-in-fast.small16.toml"; sourceTree = "<group>"; };
 		DE4B99C82CD2A8EE00E7C905 /* xc_iotest.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xc_iotest.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE587D582CBDB8A800946D2E /* xc_intltest.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xc_intltest.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DE6CEA2B2CACB8D700002FEE /* xc_cintltst.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = xc_cintltst.xctestplan; sourceTree = "<group>"; };
@@ -10790,6 +11076,8 @@
 		DE7FBA202BD1906A00DC7443 /* lut.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = lut.txt; sourceTree = "<group>"; };
 		DE7FBA212BD1906A00DC7443 /* mus.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = mus.txt; sourceTree = "<group>"; };
 		DE9D907C2CD2D2A100957755 /* xc_iotest.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = xc_iotest.xctestplan; sourceTree = "<group>"; };
+		DEFDA00C2D51887F00E3658F /* vietnamesecal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vietnamesecal.h; sourceTree = "<group>"; };
+		DEFDA00D2D51887F00E3658F /* vietnamesecal.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vietnamesecal.cpp; sourceTree = "<group>"; };
 		EAE0E39B2A9E613700A1C0D9 /* libicucore.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libicucore.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		F110A3EE27ED184E00DEE027 /* stubdata.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stubdata.h; sourceTree = "<group>"; };
 		F18721D62821E89B007D5C4E /* libicui18n.a */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libicui18n.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -16677,6 +16965,8 @@
 				CCC4BE712D01448F0001350E /* Burmese_graphclust_model5_heavy_Test.txt */,
 				CC76767A243BEF4900780598 /* calendar.txt */,
 				CC767655243BEF4900780598 /* casing.txt */,
+				DE49DAAE2D80F0C800D066EA /* cldr */,
+				DE49DAD02D80F0D900D066EA /* codepointtrie */,
 				CC767618243BEF4900780598 /* collationtest.txt */,
 				CC76766E243BEF4900780598 /* CollationTest_NON_IGNORABLE_SHORT.txt */,
 				CC767658243BEF4900780598 /* CollationTest_SHIFTED_SHORT.txt */,
@@ -18203,6 +18493,8 @@
 		CCF92C5C2432BADA00C185CD /* i18n */ = {
 			isa = PBXGroup;
 			children = (
+				DEFDA00C2D51887F00E3658F /* vietnamesecal.h */,
+				DEFDA00D2D51887F00E3658F /* vietnamesecal.cpp */,
 				CCF92CAF2432BADA00C185CD /* alphaindex.cpp */,
 				CCF92C602432BADA00C185CD /* anytrans.h */,
 				CCF92DC92432BADB00C185CD /* anytrans.cpp */,
@@ -19293,6 +19585,77 @@
 			path = xc_cintltst;
 			sourceTree = "<group>";
 		};
+		DE49DA3D2D80F0C800D066EA /* localeIdentifiers */ = {
+			isa = PBXGroup;
+			children = (
+				DE49DA392D80F0C800D066EA /* _readme.txt */,
+				DE49DA3A2D80F0C800D066EA /* likelySubtags.txt */,
+				DE49DA3B2D80F0C800D066EA /* localeCanonicalization.txt */,
+				DE49DA3C2D80F0C800D066EA /* localeDisplayName.txt */,
+			);
+			path = localeIdentifiers;
+			sourceTree = "<group>";
+		};
+		DE49DAAD2D80F0C800D066EA /* units */ = {
+			isa = PBXGroup;
+			children = (
+				DE49DAA92D80F0C800D066EA /* _readme.txt */,
+				DE49DAAA2D80F0C800D066EA /* unitLocalePreferencesTest.txt */,
+				DE49DAAB2D80F0C800D066EA /* unitPreferencesTest.txt */,
+				DE49DAAC2D80F0C800D066EA /* unitsTest.txt */,
+			);
+			path = units;
+			sourceTree = "<group>";
+		};
+		DE49DAAE2D80F0C800D066EA /* cldr */ = {
+			isa = PBXGroup;
+			children = (
+				DE49DA3D2D80F0C800D066EA /* localeIdentifiers */,
+				DE49DAAD2D80F0C800D066EA /* units */,
+			);
+			path = cldr;
+			sourceTree = "<group>";
+		};
+		DE49DAD02D80F0D900D066EA /* codepointtrie */ = {
+			isa = PBXGroup;
+			children = (
+				DE49DAAF2D80F0D900D066EA /* free-blocks.8.toml */,
+				DE49DAB02D80F0D900D066EA /* free-blocks.16.toml */,
+				DE49DAB12D80F0D900D066EA /* free-blocks.32.toml */,
+				DE49DAB22D80F0D900D066EA /* free-blocks.small16.toml */,
+				DE49DAB32D80F0D900D066EA /* grow-data.8.toml */,
+				DE49DAB42D80F0D900D066EA /* grow-data.16.toml */,
+				DE49DAB52D80F0D900D066EA /* grow-data.32.toml */,
+				DE49DAB62D80F0D900D066EA /* grow-data.small16.toml */,
+				DE49DAB72D80F0D900D066EA /* set-empty.8.toml */,
+				DE49DAB82D80F0D900D066EA /* set-empty.16.toml */,
+				DE49DAB92D80F0D900D066EA /* set-empty.32.toml */,
+				DE49DABA2D80F0D900D066EA /* set-empty.small16.toml */,
+				DE49DABB2D80F0D900D066EA /* set-single-value.8.toml */,
+				DE49DABC2D80F0D900D066EA /* set-single-value.16.toml */,
+				DE49DABD2D80F0D900D066EA /* set-single-value.32.toml */,
+				DE49DABE2D80F0D900D066EA /* set-single-value.small16.toml */,
+				DE49DABF2D80F0D900D066EA /* set1.8.toml */,
+				DE49DAC02D80F0D900D066EA /* set1.16.toml */,
+				DE49DAC12D80F0D900D066EA /* set1.32.toml */,
+				DE49DAC22D80F0D900D066EA /* set1.small16.toml */,
+				DE49DAC32D80F0D900D066EA /* set2-overlap.16.toml */,
+				DE49DAC42D80F0D900D066EA /* set2-overlap.32.toml */,
+				DE49DAC52D80F0D900D066EA /* set2-overlap.small16.toml */,
+				DE49DAC62D80F0D900D066EA /* set3-initial-9.8.toml */,
+				DE49DAC72D80F0D900D066EA /* set3-initial-9.16.toml */,
+				DE49DAC82D80F0D900D066EA /* set3-initial-9.32.toml */,
+				DE49DAC92D80F0D900D066EA /* set3-initial-9.small16.toml */,
+				DE49DACA2D80F0D900D066EA /* short-all-same.8.toml */,
+				DE49DACB2D80F0D900D066EA /* short-all-same.small16.toml */,
+				DE49DACC2D80F0D900D066EA /* small0-in-fast.8.toml */,
+				DE49DACD2D80F0D900D066EA /* small0-in-fast.16.toml */,
+				DE49DACE2D80F0D900D066EA /* small0-in-fast.32.toml */,
+				DE49DACF2D80F0D900D066EA /* small0-in-fast.small16.toml */,
+			);
+			path = codepointtrie;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -19377,6 +19740,7 @@
 				F1CFFC2B27EA285A0004C419 /* dtptngen_impl.h in Headers */,
 				F110A3A527E3DC5700DEE027 /* plurrule.h in Headers */,
 				F1CFFC0E27EA21CE0004C419 /* vzone.h in Headers */,
+				DEFDA00E2D51887F00E3658F /* vietnamesecal.h in Headers */,
 				F1CFFBFA27E92BEB0004C419 /* number_formatimpl.h in Headers */,
 				F1CFFBDA27E91F3E0004C419 /* dangical.h in Headers */,
 				F1CFFBF627E92A800004C419 /* collationfastlatinbuilder.h in Headers */,
@@ -20060,6 +20424,7 @@
 				EAE0E29A2A9E613700A1C0D9 /* std_string.h in Headers */,
 				EAE0E4A02A9E636200A1C0D9 /* ustdio.h in Headers */,
 				EAE0E29B2A9E613700A1C0D9 /* rbbidata57.h in Headers */,
+				DEFDA0122D51887F00E3658F /* vietnamesecal.h in Headers */,
 				EAE0E5012A9E64B200A1C0D9 /* titletrn.h in Headers */,
 				EAE0E29C2A9E613700A1C0D9 /* unistr.h in Headers */,
 				EAE0E5402A9E654C00A1C0D9 /* plurfmt.h in Headers */,
@@ -20914,17 +21279,17 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/icuData/tmp/icudata.lst",
+				"$(BUILT_PRODUCTS_DIR)/icuData/tmp/icudata.lst",
 			);
 			name = "Run pkgdata tool";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/icudt66l.dat",
+				"$(BUILT_PRODUCTS_DIR)/icudt66l.dat",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\n$CONFIGURATION_BUILD_DIR/pkgdata -q -c -s $CONFIGURATION_BUILD_DIR/icuData/build/icudt76l -d $CONFIGURATION_BUILD_DIR -e icudt74 -T $CONFIGURATION_BUILD_DIR/icuData/tmp -p icudt76l -m common -r 76.0.1 $CONFIGURATION_BUILD_DIR/icuData/tmp/icudata.lst\n";
+			shellScript = "export DYLD_LIBRARY_PATH=$BUILT_PRODUCTS_DIR\n$BUILT_PRODUCTS_DIR/pkgdata -q -c -s $BUILT_PRODUCTS_DIR/icuData/build/icudt76l -d $BUILT_PRODUCTS_DIR -e icudt74 -T $BUILT_PRODUCTS_DIR/icuData/tmp -p icudt76l -m common -r 76.0.1 $BUILT_PRODUCTS_DIR/icuData/tmp/icudata.lst\n";
 		};
 		CC6FECDE243686F500503646 /* Run icutools.databuilder tool */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -20940,11 +21305,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/icuData/tmp/icudata.lst",
+				"$(BUILT_PRODUCTS_DIR)/icuData/tmp/icudata.lst",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../data\" --out_dir \"$CONFIGURATION_BUILD_DIR/icuData/build/icudt76l\" --tmp_dir \"$CONFIGURATION_BUILD_DIR/icuData/tmp\" --verbose --tool_dir \"$CONFIGURATION_BUILD_DIR\"\n\n";
+			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$BUILT_PRODUCTS_DIR\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../data\" --out_dir \"$BUILT_PRODUCTS_DIR/icuData/build/icudt76l\" --tmp_dir \"$BUILT_PRODUCTS_DIR/icuData/tmp\" --verbose --tool_dir \"$BUILT_PRODUCTS_DIR\"\n\n";
 		};
 		CC767933243BF27C00780598 /* Run icutools.databuilder tool */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -20960,11 +21325,11 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/testdata/testdata.lst",
+				"$(BUILT_PRODUCTS_DIR)/testdata/testdata.lst",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\n# if you run `icutools.databuilder` in `unix-exec` mode, it looks for the ICU data in the `build` directory of `out_dir`\n# to get the collation rules in the test data to work right, that means we have to copy the UCA data to that location from where we're building it\nmkdir -p $CONFIGURATION_BUILD_DIR/testdata/build/icudt76l/coll\ncp $CONFIGURATION_BUILD_DIR/icuData/build/icudt76l/coll/ucadata.icu $CONFIGURATION_BUILD_DIR/testdata/build/icudt76l/coll/ucadata.icu\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../test/testdata\" --out_dir \"$CONFIGURATION_BUILD_DIR/testdata\" --tmp_dir \"$CONFIGURATION_BUILD_DIR/testdata\" --verbose --tool_dir \"$CONFIGURATION_BUILD_DIR\"\n";
+			shellScript = "cd $SRCROOT/python\nexport DYLD_LIBRARY_PATH=$BUILT_PRODUCTS_DIR\n# if you run `icutools.databuilder` in `unix-exec` mode, it looks for the ICU data in the `build` directory of `out_dir`\n# to get the collation rules in the test data to work right, that means we have to copy the UCA data to that location from where we're building it\nmkdir -p $BUILT_PRODUCTS_DIR/testdata/build/icudt76l/coll\ncp $BUILT_PRODUCTS_DIR/icuData/build/icudt76l/coll/ucadata.icu $BUILT_PRODUCTS_DIR/testdata/build/icudt76l/coll/ucadata.icu\npython3 -m icutools.databuilder --mode unix-exec --seqmode parallel --src_dir \"../test/testdata\" --out_dir \"$BUILT_PRODUCTS_DIR/testdata\" --tmp_dir \"$BUILT_PRODUCTS_DIR/testdata\" --verbose --tool_dir \"$BUILT_PRODUCTS_DIR\"\n";
 		};
 		CC767934243BF27C00780598 /* Run pkgdata tool */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -20974,17 +21339,17 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/testdata/testdata.lst",
+				"$(BUILT_PRODUCTS_DIR)/testdata/testdata.lst",
 			);
 			name = "Run pkgdata tool";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(CONFIGURATION_BUILD_DIR)/testdata.dat",
+				"$(BUILT_PRODUCTS_DIR)/testdata.dat",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "export DYLD_LIBRARY_PATH=$CONFIGURATION_BUILD_DIR\n$CONFIGURATION_BUILD_DIR/pkgdata -q -c -s $CONFIGURATION_BUILD_DIR/testdata -d $CONFIGURATION_BUILD_DIR -T $CONFIGURATION_BUILD_DIR/testdata -p testdata -m common -r 76.1.0 $CONFIGURATION_BUILD_DIR/testdata/testdata.lst\n";
+			shellScript = "export DYLD_LIBRARY_PATH=$BUILT_PRODUCTS_DIR\n$BUILT_PRODUCTS_DIR/pkgdata -q -c -s $BUILT_PRODUCTS_DIR/testdata -d $BUILT_PRODUCTS_DIR -T $BUILT_PRODUCTS_DIR/testdata -p testdata -m common -r 76.1.0 $BUILT_PRODUCTS_DIR/testdata/testdata.lst\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -21423,6 +21788,7 @@
 				CC7981112433F2AC0086956E /* cpdtrans.cpp in Sources */,
 				CC7981122433F2AC0086956E /* esctrn.cpp in Sources */,
 				CC7981132433F2AC0086956E /* funcrepl.cpp in Sources */,
+				DEFDA00F2D51887F00E3658F /* vietnamesecal.cpp in Sources */,
 				CC7981142433F2AC0086956E /* listformatter.cpp in Sources */,
 				CC7981152433F2AC0086956E /* name2uni.cpp in Sources */,
 				B3CE883F29B8168200D4B768 /* displayoptions.cpp in Sources */,
@@ -22454,6 +22820,7 @@
 				EAE0E4212A9E62B200A1C0D9 /* simpletz.cpp in Sources */,
 				EAE0E3D32A9E62A200A1C0D9 /* currunit.cpp in Sources */,
 				EAE0E4362A9E62B200A1C0D9 /* measunit_extra.cpp in Sources */,
+				DEFDA0112D51887F00E3658F /* vietnamesecal.cpp in Sources */,
 				EAE0E3172A9E613700A1C0D9 /* ubidiwrt.cpp in Sources */,
 				EAE0E47F2A9E62B700A1C0D9 /* winnmfmt.cpp in Sources */,
 				EAE0E3182A9E613700A1C0D9 /* ucase.cpp in Sources */,
@@ -22877,6 +23244,7 @@
 				F18721642821E89B007D5C4E /* cpdtrans.cpp in Sources */,
 				F18721652821E89B007D5C4E /* esctrn.cpp in Sources */,
 				F18721662821E89B007D5C4E /* funcrepl.cpp in Sources */,
+				DEFDA0102D51887F00E3658F /* vietnamesecal.cpp in Sources */,
 				F18721672821E89B007D5C4E /* listformatter.cpp in Sources */,
 				F18721682821E89B007D5C4E /* name2uni.cpp in Sources */,
 				CCAAD02929D25EC300BFE8E9 /* displayoptions.cpp in Sources */,
@@ -23284,7 +23652,8 @@
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"UCHAR_TYPE=char16_t",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
+					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
 					./common,
@@ -23311,7 +23680,8 @@
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"UCHAR_TYPE=char16_t",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
+					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
 					./common,
@@ -23337,7 +23707,7 @@
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 				);
 				HEADER_SEARCH_PATHS = (
 					./common,
@@ -23363,7 +23733,7 @@
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 				);
 				HEADER_SEARCH_PATHS = (
 					./common,
@@ -23391,7 +23761,7 @@
 					"ICU_VERSION=\"\\\"76.1\\\"\"",
 					"ICUDATA_NAME=\"\\\"icudt76l\\\"\"",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
@@ -23420,7 +23790,7 @@
 					"ICU_VERSION=\"\\\"76.1\\\"\"",
 					"ICUDATA_NAME=\"\\\"icudt76l\\\"\"",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
@@ -24591,8 +24961,6 @@
 					"ICU_UNICODE_VERSION=\"\\\"16.0\\\"\"",
 					"ICU_VERSION=\"\\\"76.1\\\"\"",
 					"ICUDATA_NAME=\"\\\"icudt76l\\\"\"",
-					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
@@ -24620,8 +24988,6 @@
 					"ICU_UNICODE_VERSION=\"\\\"16.0\\\"\"",
 					"ICU_VERSION=\"\\\"76.1\\\"\"",
 					"ICUDATA_NAME=\"\\\"icudt76l\\\"\"",
-					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
 					APPLE_XCODE_BUILD,
 				);
 				HEADER_SEARCH_PATHS = (
@@ -24651,7 +25017,7 @@
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -24662,7 +25028,7 @@
 					./io,
 					./tools/ctestfw,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -24680,7 +25046,7 @@
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					"U_TOPBUILDDIR=\"\\\"$(BUILT_PRODUCTS_DIR)/\\\"\"",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -24691,7 +25057,7 @@
 					./io,
 					./tools/ctestfw,
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -24708,14 +25074,13 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"UCHAR_TYPE=char16_t",
-					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					APPLE_XCODE_BUILD,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
@@ -24747,14 +25112,13 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"UNISTR_FROM_CHAR_EXPLICIT=",
 					"UNISTR_FROM_STRING_EXPLICIT=",
 					"UCHAR_TYPE=char16_t",
-					"U_TOPSRCDIR=\"\\\"$(SRCROOT)/\\\"\"",
-					"U_TOPBUILDDIR=\"\\\"$(CONFIGURATION_BUILD_DIR)/\\\"\"",
+					APPLE_XCODE_BUILD,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;

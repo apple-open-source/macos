@@ -165,6 +165,53 @@ U_CAPI UListFormatter* U_EXPORT2
 ulistfmt_openForType(const char*  locale, UListFormatterType type,
                      UListFormatterWidth width, UErrorCode*  status);
 
+#if APPLE_ICU_CHANGES // rdar://143908339
+/**
+ * Open a new UListFormatter object appropriate for the given locale and
+ * patterns.
+ *
+ * @param locale
+ *            The locale whose rules should be used; may be NULL for
+ *            default locale.
+ * @param twoPattern
+ *            The pattern to use when there are exactly two items to format.
+ * @param twoPatternLength
+ *            The length of twoPattern or -1 if the pattern is 0-terminated.
+ * @param startPattern
+ *            The pattern to use between the first two items to format when
+ *            there are three or more items.
+ * @param startPatternLength
+ *            The length of startPattern or -1 if the pattern is 0-terminated.
+ * @param middlePattern
+ *            The pattern to use between any middle two items to format when
+ *            there are three or more items.
+ * @param middlePatternLength
+ *            The length of middlePattern or -1 if the pattern is 0-terminated.
+ * @param endPattern
+ *            The pattern to use between the last two items to format when
+ *            there are three or more items.
+ * @param endPatternLength
+ *            The length of endPattern or -1 if the pattern is 0-terminated.
+ * @param status
+ *            A pointer to a standard ICU UErrorCode (input/output parameter).
+ *            Its input value must pass the U_SUCCESS() test, or else the
+ *            function returns immediately. The caller should check its output
+ *            value with U_FAILURE(), or use with function chaining (see User
+ *            Guide for details).
+ * @return
+ *            A pointer to a UListFormatter object for the specified locale,
+ *            or NULL if an error occurred.
+ * @draft ICU 77
+ */
+U_CAPI UListFormatter* U_EXPORT2
+ulistfmt_openWithPatterns(const char* locale,
+    const UChar* const twoPattern, const int32_t twoPatternLength,
+    const UChar* const startPattern, const int32_t startLength,
+    const UChar* const middlePattern, const int32_t middleLength,
+    const UChar* const endPattern, const int32_t endLength,
+    UErrorCode* status);
+#endif  // APPLE_ICU_CHANGES
+
 /**
  * Close a UListFormatter object. Once closed it may no longer be used.
  * @param listfmt

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,13 +55,13 @@ public:
 
     virtual ~RemoteCompositorIntegrationProxy();
 
-    RemoteGPUProxy& parent() { return m_parent; }
-    RemoteGPUProxy& root() { return m_parent; }
+    RemoteGPUProxy& parent() const { return m_parent; }
+    RemoteGPUProxy& root() const { return m_parent; }
 
     void setPresentationContext(RemotePresentationContextProxy& presentationContext)
     {
         ASSERT(!m_presentationContext);
-        m_presentationContext = &presentationContext;
+        m_presentationContext = presentationContext;
     }
 
     void paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t) final;
@@ -95,10 +95,11 @@ private:
 #endif
 
     void prepareForDisplay(uint32_t frameIndex, CompletionHandler<void()>&&) override;
+    void updateContentsHeadroom(float) override;
 
     WebGPUIdentifier m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
-    Ref<RemoteGPUProxy> m_parent;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<RemoteGPUProxy> m_parent;
     RefPtr<RemotePresentationContextProxy> m_presentationContext;
 };
 

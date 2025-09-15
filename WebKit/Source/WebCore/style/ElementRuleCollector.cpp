@@ -55,6 +55,7 @@
 #include "StyleSheetContents.h"
 #include "StyledElement.h"
 #include "UserAgentStyle.h"
+#include <ranges>
 #include <wtf/SetForScope.h>
 
 namespace WebCore {
@@ -102,7 +103,7 @@ ElementRuleCollector::ElementRuleCollector(const Element& element, const ScopeRu
     , m_userAgentMediaQueryStyle(ruleSets.userAgentMediaQueryStyle())
     , m_dynamicViewTransitionsStyle(ruleSets.dynamicViewTransitionsStyle())
     , m_selectorMatchingState(selectorMatchingState)
-    , m_result(makeUnique<MatchResult>(element.isLink()))
+    , m_result(MatchResult::create(element.isLink()))
 {
     ASSERT(!m_selectorMatchingState || m_selectorMatchingState->selectorFilter.parentStackIsConsistent(element.parentNode()));
 }
@@ -111,7 +112,7 @@ ElementRuleCollector::ElementRuleCollector(const Element& element, const RuleSet
     : m_element(element)
     , m_authorStyle(authorStyle)
     , m_selectorMatchingState(selectorMatchingState)
-    , m_result(makeUnique<MatchResult>(element.isLink()))
+    , m_result(MatchResult::create(element.isLink()))
 {
     ASSERT(!m_selectorMatchingState || m_selectorMatchingState->selectorFilter.parentStackIsConsistent(element.parentNode()));
 }
@@ -119,10 +120,10 @@ ElementRuleCollector::ElementRuleCollector(const Element& element, const RuleSet
 const MatchResult& ElementRuleCollector::matchResult() const
 {
     ASSERT(m_mode == SelectorChecker::Mode::ResolvingStyle);
-    return *m_result;
+    return m_result;
 }
 
-std::unique_ptr<MatchResult> ElementRuleCollector::releaseMatchResult()
+Ref<MatchResult> ElementRuleCollector::releaseMatchResult()
 {
     return WTFMove(m_result);
 }
@@ -529,9 +530,6 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 #endif
         bool selectorMatches = SelectorCompiler::ruleCollectorSimpleSelectorChecker(compiledSelector, &element(), &specificity);
 
-        if (selectorMatches && ruleData.containsUncommonAttributeSelector())
-            m_didMatchUncommonAttributeSelector = true;
-
         return selectorMatches;
     }
 #endif // ENABLE(CSS_SELECTOR_JIT)
@@ -564,10 +562,6 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
             specificity = selector->computeSpecificity();
     }
 
-    if (ruleData.containsUncommonAttributeSelector()) {
-        if (selectorMatches || context.pseudoIDSet)
-            m_didMatchUncommonAttributeSelector = true;
-    }
     m_matchedPseudoElementIds.merge(context.pseudoIDSet);
     m_styleRelations.appendVector(context.styleRelations);
 
@@ -580,7 +574,7 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         return;
 
     for (auto& ruleData : *rules) {
-        if (UNLIKELY(!ruleData.isEnabled()))
+        if (!ruleData.isEnabled()) [[unlikely]]
             continue;
 
         if (!ruleData.canMatchPseudoElement() && m_pseudoElementRequest)
@@ -671,11 +665,11 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
             unsigned distance = 0;
             const auto* ancestor = &element();
             while (ancestor) {
-                for (const auto* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
+                for (auto& selector : selectorList) {
                     auto appendIfMatch = [&] (const ContainerNode* previousScopingRoot = nullptr) {
                         auto subContext = context;
                         subContext.scope = previousScopingRoot;
-                        auto match = checker.match(*selector, *ancestor, subContext);
+                        auto match = checker.match(selector, *ancestor, subContext);
                         if (match)
                             scopingRoots.append({ ancestor, distance });
                     };
@@ -716,8 +710,8 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
             Vector<ScopingRootWithDistance> scopingRootsWithinScope;
             for (auto scopingRootWithDistance : scopingRoots) {
                 bool anyScopingLimitMatch = false;
-                for (const auto* selector = scopeEnd.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    if (match(scopingRootWithDistance.scopingRoot.get(), selector)) {
+                for (auto& selector : scopeEnd) {
+                    if (match(scopingRootWithDistance.scopingRoot.get(), &selector)) {
                         anyScopingLimitMatch = true;
                         break;
                     }
@@ -812,7 +806,7 @@ static inline bool compareRules(MatchedRule r1, MatchedRule r2)
 
 void ElementRuleCollector::sortMatchedRules()
 {
-    std::sort(m_matchedRules.begin(), m_matchedRules.end(), compareRules);
+    std::ranges::sort(m_matchedRules, compareRules);
 }
 
 void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool includeSMILProperties)

@@ -75,6 +75,8 @@ struct fcl_stat {
 	uint64_t fcl_ignore_tx_time;
 	uint64_t fcl_paced_pkts;
 	uint64_t fcl_fcl_pacemaker_needed;
+	uint64_t fcl_high_delay_drop;
+	uint64_t fcl_congestion_feedback;
 };
 
 /* Set the quantum to be one MTU */
@@ -190,6 +192,11 @@ typedef struct fq_if_bitmap_ops {
 	fq_if_bitmaps_move      move;
 } bitmap_ops_t;
 
+typedef void (*fq_codel_dq_t)(void *fqs, void *fq,
+    pktsched_pkt_t *pkt, uint64_t now);
+typedef int (*fq_codel_enq_t)(void *fqs, fq_if_group_t *fq_grp,
+    pktsched_pkt_t *pkt, fq_if_classq_t *fq_cl);
+
 typedef struct fq_codel_sched_data {
 	struct ifclassq         *fqs_ifq;       /* back pointer to ifclassq */
 	flowq_list_t            *fqs_flows __counted_by(fqs_flows_count); /* flows table */
@@ -198,6 +205,7 @@ typedef struct fq_codel_sched_data {
 	uint8_t                 fqs_throttle;   /* throttle on or off */
 	uint8_t                 fqs_flags;      /* flags */
 #define FQS_DRIVER_MANAGED      0x1
+#define FQS_LEGACY              0x2
 	struct flowadv_fclist   fqs_fclist; /* flow control state */
 	struct flowq            *fqs_large_flow; /* flow has highest number of bytes */
 	TAILQ_HEAD(, flowq)     fqs_empty_list; /* list of empty flows */
@@ -215,6 +223,9 @@ typedef struct fq_codel_sched_data {
 #define grp_bitmaps_clr     fqs_bm_ops->clr
 #define grp_bitmaps_move    fqs_bm_ops->move
 	fq_if_group_t           *fqs_classq_groups[FQ_IF_MAX_GROUPS];
+	fq_codel_enq_t          fqs_enqueue;
+	fq_codel_dq_t           fqs_dequeue;
+	ifcq_oid_t              fqs_oid;
 } fq_if_t;
 
 #define FQS_GROUP(_fqs, _group_idx)                                      \
@@ -320,7 +331,15 @@ struct fq_codel_classstats {
 	uint64_t        fcls_ignore_tx_time;
 	uint64_t        fcls_paced_pkts;
 	uint64_t        fcls_fcl_pacing_needed;
+	uint64_t        fcls_high_delay_drop;
+	uint64_t        fcls_congestion_feedback;
 };
+
+extern uint32_t fq_codel_enable_l4s;
+extern unsigned int fq_codel_enable_pacing;
+#if DEBUG || DEVELOPMENT
+extern uint32_t fq_codel_quantum;
+#endif /* DEBUG || DEVELOPMENT */
 
 #ifdef BSD_KERNEL_PRIVATE
 
@@ -328,23 +347,8 @@ _Static_assert(FQ_IF_STATS_MAX_GROUPS == FQ_IF_MAX_GROUPS,
     "max group counts do not match");
 
 extern void pktsched_fq_init(void);
-extern void fq_codel_scheduler_init(void);
-extern int fq_if_enqueue_classq(struct ifclassq *ifq, classq_pkt_t *h,
-    classq_pkt_t *t, uint32_t cnt, uint32_t bytes, boolean_t *pdrop);
-extern void fq_if_dequeue_classq(struct ifclassq *ifq, classq_pkt_t *pkt,
-    uint8_t grp_idx);
-extern void fq_if_dequeue_sc_classq(struct ifclassq *ifq, mbuf_svc_class_t svc,
-    classq_pkt_t *pkt, uint8_t grp_idx);
-extern int fq_if_dequeue_classq_multi(struct ifclassq *ifq, u_int32_t maxpktcnt,
-    u_int32_t maxbytecnt, classq_pkt_t *first_packet, classq_pkt_t *last_packet,
-    u_int32_t *retpktcnt, u_int32_t *retbytecnt, uint8_t grp_idx);
-extern int fq_if_dequeue_sc_classq_multi(struct ifclassq *ifq,
-    mbuf_svc_class_t svc, u_int32_t maxpktcnt, u_int32_t maxbytecnt,
-    classq_pkt_t *first_packet, classq_pkt_t *last_packet, u_int32_t *retpktcnt,
-    u_int32_t *retbytecnt, uint8_t grp_idx);
-extern int fq_if_request_classq(struct ifclassq *ifq, cqrq_t rq, void *arg);
 extern struct flowq *fq_if_hash_pkt(fq_if_t *, fq_if_group_t *,
-    u_int32_t, mbuf_svc_class_t, u_int64_t, bool, fq_tfc_type_t);
+    u_int32_t, mbuf_svc_class_t, u_int64_t, uint8_t, uint8_t, fq_tfc_type_t, bool);
 extern boolean_t fq_if_at_drop_limit(fq_if_t *);
 extern boolean_t fq_if_almost_at_drop_limit(fq_if_t *fqs);
 extern void fq_if_drop_packet(fq_if_t *, uint64_t);
@@ -352,20 +356,12 @@ extern void fq_if_is_flow_heavy(fq_if_t *, struct flowq *);
 extern boolean_t fq_if_add_fcentry(fq_if_t *, pktsched_pkt_t *, uint8_t,
     struct flowq *, fq_if_classq_t *);
 extern void fq_if_flow_feedback(fq_if_t *, struct flowq *, fq_if_classq_t *);
-extern boolean_t fq_if_report_ce(fq_if_t *, pktsched_pkt_t *, uint32_t, uint32_t);
-extern int fq_if_setup_ifclassq(struct ifclassq *ifq, u_int32_t flags,
-    classq_pkt_type_t ptype);
-extern void fq_if_teardown_ifclassq(struct ifclassq *ifq);
-extern int fq_if_getqstats_ifclassq(struct ifclassq *ifq, uint8_t gid,
-    u_int32_t qid, struct if_ifclassq_stats *ifqs);
-extern void fq_if_destroy_flow(fq_if_t *, fq_if_classq_t *, struct flowq *);
+extern boolean_t fq_if_report_congestion(fq_if_t *, pktsched_pkt_t *, uint32_t,
+    uint32_t, uint32_t);
 extern void fq_if_move_to_empty_flow(fq_if_t *, fq_if_classq_t *,
     struct flowq *, uint64_t);
 extern int fq_if_create_grp(struct ifclassq *ifcq, uint8_t qset_idx, uint8_t flags);
-extern void fq_if_set_grp_combined(struct ifclassq *ifcq, uint8_t qset_idx);
-extern void fq_if_set_grp_separated(struct ifclassq *ifcq, uint8_t qset_idx);
 extern fq_if_group_t *fq_if_find_grp(fq_if_t *fqs, uint8_t grp_idx);
-extern boolean_t fq_if_is_all_paced(struct ifclassq *ifq);
 #endif /* BSD_KERNEL_PRIVATE */
 
 #ifdef __cplusplus

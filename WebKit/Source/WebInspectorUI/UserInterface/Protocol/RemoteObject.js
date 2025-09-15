@@ -550,34 +550,25 @@ WI.RemoteObject = class RemoteObject
         return WI.RemoteObject.createCallArgument(this);
     }
 
-    findFunctionSourceCodeLocation()
+    async findFunctionSourceCodeLocation()
     {
-        var result = new WI.WrappedPromise;
+        if (!this._isFunction() || !this._objectId)
+            return WI.RemoteObject.SourceCodeLocationPromise.MissingObjectId;
 
-        if (!this._isFunction() || !this._objectId) {
-            result.resolve(WI.RemoteObject.SourceCodeLocationPromise.MissingObjectId);
-            return result.promise;
+        let location;
+        try {
+            let {details} = await this._target.DebuggerAgent.getFunctionDetails(this._objectId);
+            location = details.location;
+        } catch {
+            return WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound;
         }
 
-        this._target.DebuggerAgent.getFunctionDetails(this._objectId, (error, response) => {
-            if (error) {
-                result.resolve(WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound);
-                return;
-            }
+        let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, this._target);
 
-            var location = response.location;
-            var sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, this._target);
+        if (!sourceCode || (!WI.settings.engineeringShowInternalScripts.value && isWebKitInternalScript(sourceCode.sourceURL)))
+            return WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound
 
-            if (!sourceCode || (!WI.settings.engineeringShowInternalScripts.value && isWebKitInternalScript(sourceCode.sourceURL))) {
-                result.resolve(WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound);
-                return;
-            }
-
-            var sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber || 0);
-            result.resolve(sourceCodeLocation);
-        });
-
-        return result.promise;
+        return sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber || 0);
     }
 
     // Private

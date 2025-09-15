@@ -30,6 +30,7 @@
 
 #include "WebPopupMenuProxy.h"
 #include <wtf/RetainPtr.h>
+#include <wtf/WeakObjCPtr.h>
 
 OBJC_CLASS NSPopUpButtonCell;
 OBJC_CLASS WKView;
@@ -56,7 +57,7 @@ private:
     void populate(const Vector<WebPopupItem>&, NSFont *, WebCore::TextDirection);
 
     RetainPtr<NSPopUpButtonCell> m_popup;
-    NSView *m_webView;
+    WeakObjCPtr<NSView> m_webView;
     bool m_wasCanceled;
 };
 

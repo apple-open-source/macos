@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All Rights Reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,6 @@ StyleGridData::StyleGridData()
     : implicitNamedGridColumnLines(RenderStyle::initialNamedGridColumnLines())
     , implicitNamedGridRowLines(RenderStyle::initialNamedGridRowLines())
     , gridAutoFlow(RenderStyle::initialGridAutoFlow())
-    , masonryAutoFlow(RenderStyle::initialMasonryAutoFlow())
     , gridAutoRows(RenderStyle::initialGridAutoRows())
     , gridAutoColumns(RenderStyle::initialGridAutoColumns())
     , namedGridArea(RenderStyle::initialNamedGridArea())
@@ -71,7 +70,6 @@ inline StyleGridData::StyleGridData(const StyleGridData& o)
     , implicitNamedGridColumnLines(o.implicitNamedGridColumnLines)
     , implicitNamedGridRowLines(o.implicitNamedGridRowLines)
     , gridAutoFlow(o.gridAutoFlow)
-    , masonryAutoFlow(o.masonryAutoFlow)
     , gridAutoRows(o.gridAutoRows)
     , gridAutoColumns(o.gridAutoColumns)
     , namedGridArea(o.namedGridArea)
@@ -115,8 +113,7 @@ bool StyleGridData::operator==(const StyleGridData& o) const
         && namedGridAreaRowCount == o.namedGridAreaRowCount
         && namedGridAreaColumnCount == o.namedGridAreaColumnCount
         && m_masonryRows == o.m_masonryRows
-        && m_masonryColumns == o.m_masonryColumns
-        && masonryAutoFlow == o.masonryAutoFlow;
+        && m_masonryColumns == o.m_masonryColumns;
 }
 
 void StyleGridData::setRows(const GridTrackList& list)
@@ -208,7 +205,7 @@ void StyleGridData::computeCachedTrackData(const GridTrackList& list, Vector<Gri
     });
 
     for (const auto& entry : list.list)
-        std::visit(visitor, entry);
+        WTF::visit(visitor, entry);
 
     // The parser should have rejected any <track-list> without any <track-size> as
     // this is not conformant to the syntax.
@@ -223,7 +220,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, const RepeatEntry& entry)
         ts << names;
     });
 
-    std::visit(visitor, entry);
+    WTF::visit(visitor, entry);
     return ts;
 }
 
@@ -234,17 +231,22 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, const GridTrackEntry& entry)
     }, [&](const Vector<String>& names) {
         ts << names;
     }, [&](const GridTrackEntryRepeat& repeat) {
-        ts << "repeat(" << repeat.repeats << ", " << repeat.list << ")";
+        ts << "repeat("_s << repeat.repeats << ", "_s << repeat.list << ')';
     }, [&](const GridTrackEntryAutoRepeat& repeat) {
-        ts << "repeat(" << repeat.type << ", " << repeat.list << ")";
+        ts << "repeat("_s << repeat.type << ", "_s << repeat.list << ')';
     }, [&](const GridTrackEntrySubgrid&) {
-        ts << "subgrid";
+        ts << "subgrid"_s;
     }, [&](const GridTrackEntryMasonry&) {
-        ts << "masonry";
+        ts << "masonry"_s;
     });
 
-    std::visit(visitor, entry);
+    WTF::visit(visitor, entry);
     return ts;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, const NamedGridLinesMap& namedGridLinesMap)
+{
+    return ts << namedGridLinesMap.map;
 }
 
 Ref<StyleGridData> StyleGridData::copy() const

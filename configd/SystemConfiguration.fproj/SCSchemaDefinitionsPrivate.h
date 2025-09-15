@@ -78,6 +78,16 @@
  *   kSCPropNetDNSConfirmedServiceID                    "ConfirmedServiceID"           CFString
  *   kSCPropNetDNSServiceIdentifier                     "ServiceIdentifier"            CFNumber
  *   kSCPropNetDNSSupplementalMatchDomainsNoSearch      "SupplementalMatchDomainsNoSearch" CFNumber (0 or 1)
+ *   kSCPropNetDNSEncryptedServers                      "EncryptedServers"             CFArray[CFDictionary]
+ *
+ *   --- kSCPropNetDNSEncryptedServer [CFDictionary] keys ---
+ *   kSCPropNetDNSEncryptedServerAuthenticationDomainName "AuthenticationDomainName"     CFString
+ *   kSCPropNetDNSEncryptedServerServicePriority        "ServicePriority"              CFNumber
+ *   kSCPropNetDNSEncryptedServerAddresses              "Addresses"                    CFArray[CFString]
+ *   kSCPropNetDNSEncryptedServerALPN                   "ALPN"                         CFArray[CFString]
+ *   kSCPropNetDNSEncryptedServerPort                   "Port"                         CFNumber
+ *   kSCPropNetDNSEncryptedServerDoHPath                "DoHPath"                      CFString
+ *   kSCPropNetDNSEncryptedServerServiceParameters      "ServiceParameters"            CFData
  *
  * kSCEntNetCaptivePortal Entity Keys
  *
@@ -620,6 +630,62 @@ extern const CFStringRef kSCPropNetDNSServiceIdentifier                     API_
  */
 extern const CFStringRef kSCPropNetDNSSupplementalMatchDomainsNoSearch      API_AVAILABLE(macos(10.9)) SPI_AVAILABLE(ios(7.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetDNSSupplementalMatchDomainsNoSearch kSCPropNetDNSSupplementalMatchDomainsNoSearch
+
+/*!
+  @const kSCPropNetDNSEncryptedServers
+  @discussion Value is a CFArray[CFDictionary]
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServers                      API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServers kSCPropNetDNSEncryptedServers
+
+/*!
+  @const kSCPropNetDNSEncryptedServerAuthenticationDomainName
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerAuthenticationDomainName  API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerAuthenticationDomainName kSCPropNetDNSEncryptedServerAuthenticationDomainName
+
+/*!
+  @const kSCPropNetDNSEncryptedServerServicePriority
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerServicePriority        API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerServicePriority kSCPropNetDNSEncryptedServerServicePriority
+
+/*!
+  @const kSCPropNetDNSEncryptedServerAddresses
+  @discussion Value is a CFArray[CFString]
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerAddresses              API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerAddresses kSCPropNetDNSEncryptedServerAddresses
+
+/*!
+  @const kSCPropNetDNSEncryptedServerALPN
+  @discussion Value is a CFArray[CFString]
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerALPN                   API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerALPN kSCPropNetDNSEncryptedServerALPN
+
+/*!
+  @const kSCPropNetDNSEncryptedServerPort
+  @discussion Value is a CFNumber
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerPort                   API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerPort kSCPropNetDNSEncryptedServerPort
+
+/*!
+  @const kSCPropNetDNSEncryptedServerDoHPath
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerDoHPath                API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerDoHPath kSCPropNetDNSEncryptedServerDoHPath
+
+/*!
+  @const kSCPropNetDNSEncryptedServerServiceParameters
+  @discussion Value is a CFData
+ */
+extern const CFStringRef kSCPropNetDNSEncryptedServerServiceParameters      API_AVAILABLE(macos(16.0)) SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), bridgeos(10.0));
+#define kSCPropNetDNSEncryptedServerServiceParameters kSCPropNetDNSEncryptedServerServiceParameters
 
 /*!
   @group kSCEntNetCaptivePortal Entity Keys

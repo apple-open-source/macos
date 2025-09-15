@@ -44,18 +44,19 @@ class WebPageProxy;
 
 class WebContextMenuProxyGtk final : public WebContextMenuProxy {
 public:
-    static auto create(GtkWidget* widget, WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+    static auto create(GtkWidget* widget, WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     {
-        return adoptRef(*new WebContextMenuProxyGtk(widget, page, WTFMove(context), userData));
+        return adoptRef(*new WebContextMenuProxyGtk(widget, page, WTFMove(frameInfo), WTFMove(context), userData));
     }
     ~WebContextMenuProxyGtk();
 
     void populate(const Vector<WebContextMenuItemGlib>&);
     GtkWidget* gtkWidget() const { return m_menu; }
+    const FrameInfoData& frameInfo() const { return m_frameInfo; }
     static const char* widgetDismissedSignal;
 
 private:
-    WebContextMenuProxyGtk(GtkWidget*, WebPageProxy&, ContextMenuContextData&&, const UserData&);
+    WebContextMenuProxyGtk(GtkWidget*, WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&);
     void show() override;
     Vector<Ref<WebContextMenuItem>> proposedItems() const override;
     void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) override;
@@ -68,6 +69,7 @@ private:
     GtkWidget* m_menu;
     HashMap<unsigned long, void*> m_signalHandlers;
     GRefPtr<GSimpleActionGroup> m_actionGroup { adoptGRef(g_simple_action_group_new()) };
+    const FrameInfoData m_frameInfo;
 };
 
 

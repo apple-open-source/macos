@@ -53,3 +53,4 @@ DOVIEWMACRO(Mail,                   "Mail",                 "mail",             
 DOVIEWMACRO(Contacts,               "Contacts",             "contacts",                CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Photos,                 "Photos",               "photos",                  CKKS, D,  , A,  ,  )
 DOVIEWMACRO(Groups,                 "Groups",               "groups",                  CKKS, D,  , A,  ,  )
+DOVIEWMACRO(FindMy,                 "FindMy",               "findmy",                  CKKS, D,  , A,  ,  )

@@ -55,6 +55,7 @@ __RCSID("$NetBSD: parse.c,v 1.27 2014/07/06 18:15:34 christos Exp $");
  *	setty
  */
 #include "el.h"
+#include <errno.h>
 #include <stdlib.h>
 
 private const struct {
@@ -236,12 +237,12 @@ parse__escape(const Char **ptr)
  *	Parse the escapes from in and put the raw string out
  */
 protected Char *
-parse__string(Char *out, const Char *in)
+parse__string(Char *out, const Char *in, size_t len)
 {
 	Char *rv = out;
 	int n;
 
-	for (;;)
+	while (len) {
 		switch (*in) {
 		case '\0':
 			*out = '\0';
@@ -249,14 +250,18 @@ parse__string(Char *out, const Char *in)
 
 		case '\\':
 		case '^':
-			if ((n = parse__escape(&in)) == -1)
+			if ((n = parse__escape(&in)) == -1) {
+				errno = EINVAL;
 				return NULL;
+			}
 			*out++ = n;
+			len--;
 			break;
 
 		case 'M':
 			if (in[1] == '-' && in[2] != '\0') {
 				*out++ = '\033';
+				len--;
 				in += 2;
 				break;
 			}
@@ -264,8 +269,12 @@ parse__string(Char *out, const Char *in)
 
 		default:
 			*out++ = *in++;
+			len--;
 			break;
 		}
+	}
+	errno = ERANGE;
+	return NULL;
 }
 
 

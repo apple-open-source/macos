@@ -964,6 +964,18 @@ do_cmdline(
 		retval = FAIL;
 		break;
 	    }
+#ifdef __APPLE__
+	    if (got_susp) {
+		exarg_T ea;
+
+		// ^Z must do the same as "suspend", without the "!" to trigger
+		// autowrite.
+		ea.forceit = FALSE;
+		ex_stop(&ea);
+		next_cmdline = NULL;
+		continue;
+	    }
+#endif
 	    used_getline = TRUE;
 
 	    /*
@@ -4006,6 +4018,13 @@ find_ex_command(
 	}
 	if (p == NULL || p == eap->cmd)
 	    eap->cmdidx = CMD_SIZE;
+#ifdef __APPLE__
+	// vim defaults `su` to `substitute` due to the first letter being an
+	// 's', but `su` in particular is defined in the spec as short-hand for
+	// suspend/stop.
+	if (Unix2003_compat && strcmp(eap->cmd, "su") == 0)
+	    eap->cmdidx = CMD_stop;
+#endif
     }
 
     // ":fina" means ":finally" in legacy script, for backwards compatibility.

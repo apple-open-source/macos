@@ -65,6 +65,9 @@ NS_ASSUME_NONNULL_BEGIN
                     fromTable:(NSString *)table
                  eventHandler:(bool (^)(NSData * _Nonnull event))eventHandler;
 
+- (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key;
+- (NSData*_Nullable)dataPropertyForKey:(NSString*)key;
+
 @end
 
 NS_ASSUME_NONNULL_END

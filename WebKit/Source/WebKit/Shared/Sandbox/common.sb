@@ -50,7 +50,10 @@
 (allow process-info-codesignature (with telemetry) (with report))
 #endif
 (allow mach-bootstrap)
-(allow mach-kernel-endpoint)
+(if (defined? 'syscall-mig)
+    (allow syscall-mig)
+    ;; else
+    (allow mach-kernel-endpoint))
 (allow file-test-existence)
 (allow syscall-mach)
 (allow system-memorystatus-control)
@@ -73,9 +76,19 @@
 
 (define (notify-blocking) (require-entitlement "com.apple.developer.web-browser-engine.restrict.notifyd"))
 
+(define (logd-blocking) (require-entitlement "com.apple.private.disable-log-mach-ports"))
+
+(define (debug-features-blocking) (state-flag "local:BlockDebuggingFeaturesInSandbox"))
+
 (define (log-streaming)
     (with-filter
         (require-any
             (system-attribute apple-internal)
             (require-not (process-attribute is-apple-signed-executable)))
         (allow mach-lookup (global-name "com.apple.diagnosticd"))))
+
+#if ENABLE(GPU_PROCESS_IOKIT_RESTRICTIONS)
+#define GPU_PROCESS_IOKIT_DEFAULT_FILTER_OPERATION deny
+#else
+#define GPU_PROCESS_IOKIT_DEFAULT_FILTER_OPERATION allow
+#endif

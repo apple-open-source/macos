@@ -155,6 +155,10 @@
 #include "archive_private.h"
 #include "archive_write_disk_private.h"
 
+#ifdef __APPLE__
+#include "archive_hooks.h"
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -281,6 +285,9 @@ struct archive_write_disk {
 	int64_t			 filesize;
 	/* Dir we were in before this restore; only for deep paths. */
 	int			 restore_pwd;
+#ifdef __APPLE__
+	bool			 restore_per_thread;
+#endif /* __APPLE__
 	/* Mode we should use for this entry; affected by _PERM and umask. */
 	mode_t			 mode;
 	/* UID/GID to use in restoring this entry. */
@@ -375,6 +382,9 @@ static int	check_symlinks_fsobj(char *, int *, struct archive_string *,
 		    int, int);
 static int	check_symlinks(struct archive_write_disk *);
 static int	create_filesystem_object(struct archive_write_disk *);
+#ifdef __APPLE__
+static int	create_filesystem_object_at(int, const char *, struct archive_write_disk *);
+#endif /* __APPLE__ */
 static struct fixup_entry *current_fixup(struct archive_write_disk *,
 		    const char *pathname);
 #if defined(HAVE_FCHDIR) && defined(PATH_MAX)
@@ -852,7 +862,11 @@ _archive_write_disk_header(struct archive *_a, struct archive_entry *entry)
 #ifdef HAVE_FCHDIR
 	/* If we changed directory above, restore it here. */
 	if (a->restore_pwd >= 0) {
+#ifdef __APPLE__
+		r = pthread_fchdir_np(a->restore_per_thread ? a->restore_pwd : -1);
+#else /* !__APPLE__ */
 		r = fchdir(a->restore_pwd);
+#endif /* __APPLE__ */
 		if (r != 0) {
 			archive_set_error(&a->archive, errno,
 			    "chdir() failure");
@@ -860,6 +874,9 @@ _archive_write_disk_header(struct archive *_a, struct archive_entry *entry)
 		}
 		close(a->restore_pwd);
 		a->restore_pwd = -1;
+#ifdef __APPLE__
+		a->restore_per_thread = false;
+#endif /* __APPLE__ */
 	}
 #endif
 
@@ -1108,7 +1125,7 @@ hfs_set_compressed_fflag(struct archive_write_disk *a)
 	// For ensuring that fsctl is used when testing
 	if (getenv("FORCE_UF_COMPRESS_FFSCTL") && !used_fsctl) {
 		archive_set_error(&a->archive, errno,
-			"Failed to set UF_COMPRESSED file flag");
+		    "Failed to set UF_COMPRESSED file flag");
 		return (ARCHIVE_WARN);
 	}
 
@@ -2114,6 +2131,9 @@ edit_deep_directories(struct archive_write_disk *a)
 	__archive_ensure_cloexec_flag(a->restore_pwd);
 	if (a->restore_pwd < 0)
 		return;
+#ifdef __APPLE__
+	a->restore_per_thread = pthread_fchdir_np(-1) == 0;
+#endif /* __APPLE__ */
 
 	/* As long as the path is too long... */
 	while (strlen(tail) >= PATH_MAX) {
@@ -2127,8 +2147,25 @@ edit_deep_directories(struct archive_write_disk *a)
 		/* Create the intermediate dir and chdir to it. */
 		*tail = '\0'; /* Terminate dir portion */
 		ret = create_dir(a, a->name);
+#ifdef __APPLE__
+		CALL_TEST_HOOK(edit_deep_directories_after_create_dir);
+		if (ret == ARCHIVE_OK) {
+			int dir_fd = -1;
+			int flags = O_SEARCH;
+			if (a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS)
+				flags |= O_NOFOLLOW_ANY;
+			if ((dir_fd = open(a->name, flags)) < 0) {
+				ret = ARCHIVE_FAILED;
+			} else {
+				if (pthread_fchdir_np(dir_fd) != 0)
+					ret = ARCHIVE_FAILED;
+				close(dir_fd);
+			}
+		}
+#else /* !__APPLE__ */
 		if (ret == ARCHIVE_OK && chdir(a->name) != 0)
 			ret = ARCHIVE_FAILED;
+#endif /* __APPLE__ */
 		*tail = '/'; /* Restore the / we removed. */
 		if (ret != ARCHIVE_OK)
 			return;
@@ -2342,6 +2379,28 @@ restore_entry(struct archive_write_disk *a)
  */
 static int
 create_filesystem_object(struct archive_write_disk *a)
+#ifdef __APPLE__
+{
+	char *sep = strrchr(a->name, '/');
+	int dird, ret;
+
+	if (sep == NULL)
+		return (create_filesystem_object_at(AT_FDCWD, a->name, a));
+	*sep = '\0';
+	dird = open(a->name,
+	    ((a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) ? O_NOFOLLOW_ANY : 0) |
+	    O_DIRECTORY | O_SEARCH);
+	*sep = '/';
+	if (dird < 0)
+		return (errno);
+	__archive_ensure_cloexec_flag(dird);
+	ret = create_filesystem_object_at(dird, sep + 1, a);
+	(void)close(dird);
+	return (ret);
+}
+static int
+create_filesystem_object_at(int dird, const char *name, struct archive_write_disk *a)
+#endif /* __APPLE__ */
 {
 	/* Create the entry. */
 	const char *linkname;
@@ -2402,6 +2461,11 @@ create_filesystem_object(struct archive_write_disk *a)
 		 * but doing it right, would require us to construct
 		 * an mktemplink() function, and then use rename(2).
 		 */
+#ifdef __APPLE__
+		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
+			(void)unlinkat(dird, name, 0);
+		r = linkat(AT_FDCWD, linkname, dird, name, 0) ? errno : 0;
+#else /* !__APPLE__ */
 		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
 			unlink(a->name);
 #ifdef HAVE_LINKAT
@@ -2410,6 +2474,7 @@ create_filesystem_object(struct archive_write_disk *a)
 #else
 		r = link(linkname, a->name) ? errno : 0;
 #endif
+#endif /* __APPLE__ */
 		/*
 		 * New cpio and pax formats allow hardlink entries
 		 * to carry data, so we may have to open the file
@@ -2426,16 +2491,25 @@ create_filesystem_object(struct archive_write_disk *a)
 			a->todo = 0;
 			a->deferred = 0;
 		} else if (r == 0 && a->filesize > 0) {
+#ifdef __APPLE__
+			r = fstatat(dird, name, &st, AT_SYMLINK_NOFOLLOW);
+#else /* __APPLE__ */
 #ifdef HAVE_LSTAT
 			r = lstat(a->name, &st);
 #else
 			r = la_stat(a->name, &st);
 #endif
+#endif /* __APPLE__ */
 			if (r != 0)
 				r = errno;
 			else if ((st.st_mode & AE_IFMT) == AE_IFREG) {
+#ifdef __APPLE__
+				a->fd = openat(dird, name, O_WRONLY | O_TRUNC |
+				    O_BINARY | O_CLOEXEC | O_NOFOLLOW);
+#else /* __APPLE__ */
 				a->fd = open(a->name, O_WRONLY | O_TRUNC |
 				    O_BINARY | O_CLOEXEC | O_NOFOLLOW);
+#endif
 				__archive_ensure_cloexec_flag(a->fd);
 				if (a->fd < 0)
 					r = errno;
@@ -2452,9 +2526,15 @@ create_filesystem_object(struct archive_write_disk *a)
 		 * but doing it right, would require us to construct
 		 * an mktempsymlink() function, and then use rename(2).
 		 */
+#ifdef __APPLE__
+		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
+			(void)unlinkat(dird, name, 0);
+		return symlinkat(linkname, dird, name) ? errno : 0;
+#else /* __APPLE__ */
 		if (a->flags & ARCHIVE_EXTRACT_SAFE_WRITES)
 			unlink(a->name);
 		return symlink(linkname, a->name) ? errno : 0;
+#endif /* __APPLE__ */
 #else
 		return (EPERM);
 #endif
@@ -2491,17 +2571,13 @@ create_filesystem_object(struct archive_write_disk *a)
 	case AE_IFREG:
 		a->tmpname = NULL;
 #ifdef __APPLE__
-		if (a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) {
-			a->fd = open(a->name,
-				O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC | O_NOFOLLOW_ANY, mode);
-		} else {
-			a->fd = open(a->name,
-				O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
-		}
-#else
+		a->fd = openat(dird, name,
+		    ((a->flags & ARCHIVE_EXTRACT_SECURE_SYMLINKS) ? O_NOFOLLOW : 0) |
+		    O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
+#else /* !__APPLE__ */
 		a->fd = open(a->name,
 		    O_WRONLY | O_CREAT | O_EXCL | O_BINARY | O_CLOEXEC, mode);
-#endif
+#endif /* __APPLE__ */
 		__archive_ensure_cloexec_flag(a->fd);
 		r = (a->fd < 0);
 		break;
@@ -2509,8 +2585,13 @@ create_filesystem_object(struct archive_write_disk *a)
 #ifdef HAVE_MKNOD
 		/* Note: we use AE_IFCHR for the case label, and
 		 * S_IFCHR for the mknod() call.  This is correct.  */
+#ifdef __APPLE__
+		r = mknodat(dird, name, mode | S_IFCHR,
+		    archive_entry_rdev(a->entry));
+#else /* !__APPLE__ */
 		r = mknod(a->name, mode | S_IFCHR,
 		    archive_entry_rdev(a->entry));
+#endif /* __APPLE__ */
 		break;
 #else
 		/* TODO: Find a better way to warn about our inability
@@ -2519,8 +2600,13 @@ create_filesystem_object(struct archive_write_disk *a)
 #endif /* HAVE_MKNOD */
 	case AE_IFBLK:
 #ifdef HAVE_MKNOD
+#ifdef __APPLE__
+		r = mknodat(dird, name, mode | S_IFBLK,
+		    archive_entry_rdev(a->entry));
+#else /* !__APPLE__ */
 		r = mknod(a->name, mode | S_IFBLK,
 		    archive_entry_rdev(a->entry));
+#endif /* __APPLE__ */
 		break;
 #else
 		/* TODO: Find a better way to warn about our inability
@@ -2529,7 +2615,11 @@ create_filesystem_object(struct archive_write_disk *a)
 #endif /* HAVE_MKNOD */
 	case AE_IFDIR:
 		mode = (mode | MINIMUM_DIR_MODE) & MAXIMUM_DIR_MODE;
+#ifdef __APPLE__
+		r = mkdirat(dird, name, mode);
+#else /* __APPLE__ */
 		r = mkdir(a->name, mode);
+#endif /* !__APPLE__ */
 		if (r == 0) {
 			/* Defer setting dir times. */
 			a->deferred |= (a->todo & TODO_TIMES);
@@ -2545,7 +2635,11 @@ create_filesystem_object(struct archive_write_disk *a)
 		break;
 	case AE_IFIFO:
 #ifdef HAVE_MKFIFO
+#ifdef __APPLE__
+		r = mkfifoat(dird, name, mode);
+#else /* !__APPLE__ */
 		r = mkfifo(a->name, mode);
+#endif /* __APPLE__ */
 		break;
 #else
 		/* TODO: Find a better way to warn about our inability
@@ -2917,9 +3011,6 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 #if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 	int fd;
 #endif
-#if __APPLE__
-	int per_thread_dir = 0;
-#endif
 
 	/* Nothing to do here if name is empty */
 	if(path[0] == '\0')
@@ -2947,13 +3038,6 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 		    "Could not open ", path);
 		return (ARCHIVE_FATAL);
 	}
-
-#if __APPLE__
-	r = pthread_fchdir_np(-1);
-	if (r == 0)
-		per_thread_dir = 1;
-#endif
-
 	head = path;
 	tail = path;
 	last = 0;
@@ -2982,7 +3066,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 		c = tail[0];
 		tail[0] = '\0';
 		/* Check that we haven't hit a symlink. */
-#if !__APPLE__ && defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 		r = fstatat(chdir_fd, head, &st, AT_SYMLINK_NOFOLLOW);
 #elif defined(HAVE_LSTAT)
 		r = lstat(head, &st);
@@ -3014,10 +3098,13 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 			}
 		} else if (S_ISDIR(st.st_mode)) {
 			if (!last) {
-#if __APPLE__
-				r = pthread_chdir_np(head);
-#elif defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#ifdef __APPLE__
+				fd = openat(chdir_fd, head,
+				    O_DIRECTORY | O_SEARCH | O_NOFOLLOW_ANY);
+#else /* !__APPLE__ */
 				fd = la_opendirat(chdir_fd, head);
+#endif /* __APPLE__ */
 				if (fd < 0)
 					r = -1;
 				else {
@@ -3067,7 +3154,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 				 * so we can overwrite it with the
 				 * item being extracted.
 				 */
-#if !__APPLE__ && defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 				r = unlinkat(chdir_fd, head, 0);
 #else
 				r = unlink(head);
@@ -3102,7 +3189,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 				break;
 			} else if (flags & ARCHIVE_EXTRACT_UNLINK) {
 				/* User asked us to remove problems. */
-#if !__APPLE__ && defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 				r = unlinkat(chdir_fd, head, 0);
 #else
 				r = unlink(head);
@@ -3125,7 +3212,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 				 * This is needed to extract hardlinks over
 				 * symlinks.
 				 */
-#if !__APPLE__ && defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 				r = fstatat(chdir_fd, head, &st, 0);
 #else
 				r = la_stat(head, &st);
@@ -3142,9 +3229,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 						break;
 					}
 				} else if (S_ISDIR(st.st_mode)) {
-#if __APPLE__
-					r = pthread_chdir_np(head);
-#elif defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 					fd = la_opendirat(chdir_fd, head);
 					if (fd < 0)
 						r = -1;
@@ -3192,15 +3277,7 @@ check_symlinks_fsobj(char *path, int *a_eno, struct archive_string *a_estr,
 	}
 	/* Catches loop exits via break */
 	tail[0] = c;
-#if __APPLE__
-        if (per_thread_dir == 1)
-		pthread_fchdir_np(chdir_fd);
-        else
-		pthread_fchdir_np(-1);
-
-	close(chdir_fd);
-	chdir_fd = -1;
-#elif defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
+#if defined(HAVE_OPENAT) && defined(HAVE_FSTATAT) && defined(HAVE_UNLINKAT)
 	/* If we operate with openat(), fstatat() and unlinkat() there was
 	 * no chdir(), so just close the fd */
 	if (chdir_fd >= 0)
@@ -3238,6 +3315,9 @@ check_symlinks(struct archive_write_disk *a)
 	archive_string_init(&error_string);
 	rc = check_symlinks_fsobj(a->name, &error_number, &error_string,
 	    a->flags, 0);
+#ifdef __APPLE__
+	CALL_TEST_HOOK(after_check_symlinks_fsobj);
+#endif
 	if (rc != ARCHIVE_OK) {
 		archive_set_error(&a->archive, error_number, "%s",
 		    error_string.s);

@@ -103,20 +103,14 @@ enum cqrq;
 
 #if DEBUG || DEVELOPMENT
 extern uint32_t ifclassq_flow_control_adv;
+extern uint32_t ifclassq_congestion_feedback;
 #endif /* DEBUG || DEVELOPMENT */
-extern uint32_t ifclassq_enable_l4s;
-extern unsigned int ifclassq_enable_pacing;
-typedef int (*ifclassq_enq_func)(struct ifclassq *, classq_pkt_t *,
-    boolean_t *);
-typedef void  (*ifclassq_deq_func)(struct ifclassq *, classq_pkt_t *);
-typedef void (*ifclassq_deq_sc_func)(struct ifclassq *, mbuf_svc_class_t,
-    classq_pkt_t *);
-typedef int (*ifclassq_deq_multi_func)(struct ifclassq *, u_int32_t,
-    u_int32_t, classq_pkt_t *, classq_pkt_t *, u_int32_t *, u_int32_t *);
-typedef int (*ifclassq_deq_sc_multi_func)(struct ifclassq *,
-    mbuf_svc_class_t, u_int32_t, u_int32_t, classq_pkt_t *, classq_pkt_t *,
-    u_int32_t *, u_int32_t *);
-typedef int (*ifclassq_req_func)(struct ifclassq *, enum cqrq, void *);
+
+typedef struct ifcq_sysctl_oid {
+	struct sysctl_oid_list  ifcq_oid_list;   /* oid & properties */
+	struct sysctl_oid       ifcq_oid;        /* sysctl oid storage */
+	char                    ifcq_name[32];   /* name */
+} ifcq_oid_t;
 
 /*
  * Structure defining a queue for a network interface.
@@ -137,9 +131,8 @@ struct ifclassq {
 	u_int32_t       ifcq_target_qdelay; /* target queue delay */
 	u_int32_t       ifcq_bytes;     /* bytes count */
 	u_int32_t       ifcq_pkt_drop_limit;
-	/* number of doorbells introduced by pacemaker thread */
-	uint64_t        ifcq_doorbells;
 	void            *ifcq_disc;     /* for scheduler-specific use */
+	struct pktsched_ops  *ifcq_ops;
 	/*
 	 * ifcq_disc_slots[] represents the leaf classes configured for the
 	 * corresponding discpline/scheduler, ordered by their corresponding
@@ -166,6 +159,7 @@ struct ifclassq {
 
 	/* token bucket regulator */
 	struct tb_regulator     ifcq_tbr;       /* TBR */
+	ifcq_oid_t              ifcq_oid;
 };
 
 /* ifcq_flags */
@@ -173,6 +167,7 @@ struct ifclassq {
 #define IFCQF_ENABLED    0x02           /* ifclassq is in use */
 #define IFCQF_TBR        0x04           /* Token Bucket Regulator is in use */
 #define IFCQF_DESTROYED  0x08           /* ifclassq torndown */
+#define IFCQF_LOCKLESS   0x10           /* lockless */
 
 #define IFCQ_IS_READY(_ifcq)            ((_ifcq)->ifcq_flags & IFCQF_READY)
 #define IFCQ_IS_ENABLED(_ifcq)          ((_ifcq)->ifcq_flags & IFCQF_ENABLED)
@@ -192,6 +187,8 @@ struct ifclassq {
 #define CLASSQEQ_DROP_SP        3
 /* packet has been compressed with another one */
 #define CLASSQEQ_COMPRESSED     4
+
+#define CLASSQEQ_CONGESTED      5
 
 /* interface event argument for CLASSQRQ_EVENT */
 typedef enum cqev {
@@ -224,7 +221,9 @@ struct if_ifclassq_stats {
 	struct pktcntr  ifqs_xmitcnt;
 	struct pktcntr  ifqs_dropcnt;
 	u_int32_t       ifqs_scheduler;
-	struct fq_codel_classstats      ifqs_fq_codel_stats;
+	union {
+		struct fq_codel_classstats      ifqs_fq_codel_stats;
+	};
 } __attribute__((aligned(8)));
 
 #ifdef __cplusplus
@@ -293,6 +292,7 @@ struct if_ifclassq_stats {
 #define IFCQ_PKT_DROP_LIMIT(_ifcq)      ((_ifcq)->ifcq_pkt_drop_limit)
 
 extern int ifclassq_setup(struct ifclassq *, struct ifnet *, uint32_t);
+extern int ifclassq_change(struct ifclassq *ifq, uint32_t model);
 extern void ifclassq_teardown(struct ifclassq *);
 extern int ifclassq_pktsched_setup(struct ifclassq *);
 extern void ifclassq_set_maxlen(struct ifclassq *, u_int32_t);
@@ -301,28 +301,20 @@ extern int ifclassq_get_len(struct ifclassq *, mbuf_svc_class_t,
     u_int8_t, u_int32_t *, u_int32_t *);
 extern errno_t ifclassq_enqueue(struct ifclassq *, classq_pkt_t *,
     classq_pkt_t *, u_int32_t, u_int32_t, boolean_t *);
-extern errno_t ifclassq_dequeue(struct ifclassq *, u_int32_t, u_int32_t,
-    classq_pkt_t *, classq_pkt_t *, u_int32_t *, u_int32_t *, u_int8_t);
-extern errno_t ifclassq_dequeue_sc(struct ifclassq *, mbuf_svc_class_t,
+extern errno_t ifclassq_dequeue(struct ifclassq *, mbuf_svc_class_t,
     u_int32_t, u_int32_t, classq_pkt_t *, classq_pkt_t *, u_int32_t *,
     u_int32_t *, u_int8_t);
-extern void *ifclassq_poll(struct ifclassq *, classq_pkt_type_t *);
-extern void *ifclassq_poll_sc(struct ifclassq *, mbuf_svc_class_t,
-    classq_pkt_type_t *);
-extern void ifclassq_update(struct ifclassq *, cqev_t);
+extern void ifclassq_update(struct ifclassq *, cqev_t, bool);
 extern int ifclassq_attach(struct ifclassq *, u_int32_t, void *);
 extern void ifclassq_detach(struct ifclassq *);
 extern int ifclassq_getqstats(struct ifclassq *, u_int8_t, u_int32_t,
     void *, u_int32_t *);
 extern const char *__null_terminated ifclassq_ev2str(cqev_t);
 extern int ifclassq_tbr_set(struct ifclassq *, struct tb_profile *, boolean_t);
+extern void ifclassq_tbr_get(struct ifclassq *, u_int32_t *, u_int64_t *, u_int64_t *);
 extern void ifclassq_tbr_dequeue(struct ifclassq *, classq_pkt_t *, u_int8_t);
 extern void ifclassq_tbr_dequeue_sc(struct ifclassq *, mbuf_svc_class_t,
     classq_pkt_t *, u_int8_t);
-extern void ifclassq_calc_target_qdelay(struct ifnet *ifp,
-    uint64_t *if_target_qdelay, uint32_t flags);
-extern void ifclassq_calc_update_interval(uint64_t *update_interval,
-    uint32_t flags);
 extern void ifclassq_set_packet_metadata(struct ifclassq *ifq,
     struct ifnet *ifp, classq_pkt_t *p);
 extern struct ifclassq *ifclassq_alloc(void);
@@ -330,8 +322,7 @@ extern void ifclassq_retain(struct ifclassq *);
 extern void ifclassq_release(struct ifclassq **);
 extern int ifclassq_setup_group(struct ifclassq *ifcq, uint8_t grp_idx,
     uint8_t flags);
-extern void ifclassq_set_grp_combined(struct ifclassq *ifcq, uint8_t grp_idx);
-extern void ifclassq_set_grp_separated(struct ifclassq *ifcq, uint8_t grp_idx);
+extern int ifclassq_request(struct ifclassq *, enum cqrq, void *, bool);
 
 #endif /* BSD_KERNEL_PRIVATE */
 #endif /* PRIVATE */

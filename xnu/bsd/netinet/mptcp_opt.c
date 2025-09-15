@@ -57,8 +57,8 @@
 
 static int mptcp_validate_join_hmac(struct tcpcb *, u_char* __sized_by(maclen), int maclen);
 static int mptcp_snd_mpprio(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend, int optlen);
-static void mptcp_send_remaddr_opt(struct tcpcb *, struct mptcp_remaddr_opt *);
-static int mptcp_echo_add_addr(struct tcpcb *, u_char * __ended_by(optend), u_char *optend, unsigned int);
+static void mptcp_send_remaddr_opt(struct tcpcb *tp, struct mptcp_remaddr_opt *opt);
+static int mptcp_echo_add_addr(struct tcpcb *tp, u_char * __indexable cp, unsigned int optlen);
 
 /*
  * MPTCP Options Output Processing
@@ -447,7 +447,7 @@ mptcp_setup_opts(struct tcpcb *tp, int32_t off, u_char *opt __ended_by(optend), 
 		}
 		/* Start a timer to retransmit the ACK */
 		tp->t_timer[TCPT_JACK_RXMT] =
-		    OFFSET_FROM_START(tp, tcp_jack_rxmt);
+		    tcp_offset_from_start(tp, tcp_jack_rxmt);
 
 		tp->t_mpflags &= ~TMPF_SND_JACK;
 		goto ret_optlen;
@@ -476,7 +476,7 @@ mptcp_setup_opts(struct tcpcb *tp, int32_t off, u_char *opt __ended_by(optend), 
 	}
 
 	if (tp->t_mpflags & TMPF_MPTCP_ECHO_ADDR) {
-		optlen = mptcp_echo_add_addr(tp, opt, optend, optlen);
+		optlen = mptcp_echo_add_addr(tp, opt, optlen);
 	}
 
 	if (tp->t_mpflags & TMPF_SND_MPPRIO) {
@@ -899,85 +899,6 @@ ret_optlen:
  * MPTCP Options Input Processing
  */
 
-/*
- * In most cases, option can be parsed by performing the cast
- *
- *       opt_type *opt = (opt_type*)optp;
- *
- * However, in some cases there will be less bytes on the wire
- * the size of the corresponding C struct, i.e.:
- *
- *              (optend - optp) < sizeof(opt_type)
- *
- * In such cases, the bounds of `opt' will be smaller than
- * the size of its declared pointee type. Any attempt to
- * dereference `opt' (or to access its fields)
- * will lead to an `-fbounds-safety' trap.
- *
- * To prevent such undesirable situation, we are using
- * the "shadow storage" pattern:
- * - If there are enough bytes so that the cast expression
- *       opt_type *opt = (opt_type*)optp;
- *   will produce a "valid" pointer, we will perform a cast.
- * - Otherwise, we will copy the bytes into a stack allocated
- *   structure, and return a pointer to that structure.
- *
- * If the `VERBOSE_OPTION_PARSING_LOGGING' is set to 1,
- * the code will produce additional logging at the detriment
- * of performance. This is off by default, but the code is kept for now.
- */
-#define VERBOSE_OPTION_PARSING_LOGGING 0
-#if VERBOSE_OPTION_PARSING_LOGGING
-
-#define MPTCP_OPT_CHECK_UNDERRUN(shadow_opt, optlen)  do {                                  \
-	if (__improbable(sizeof((shadow_opt)) < (optlen))) {                                    \
-	        size_t ignored = (optlen) - sizeof((shadow_opt));                               \
-	        os_log(mptcp_log_handle,                                                        \
-	                "%s - option length exceeds the size of underlying storage "            \
-	                "(optlen=%lu, storage size=%lu) %lu bytes will be ignored\n",           \
-	                __func__, (size_t)(optlen), sizeof((shadow_opt)), ignored);             \
-	}                                                                                       \
-} while(0)
-
-#define MPTCP_OPT_REPORT_COPY(shadow_opt, available)  do {                                  \
-	os_log(mptcp_log_handle,                                                                \
-	        "%s - insufficent input to use cast-parsing (required=%lu; available=%ld); "    \
-	        " option data will be copied to local storage\n",                               \
-	                __func__, sizeof((shadow_opt)), available);                             \
-                                                                                            \
-} while(0)
-
-#else /* !VERBOSE_OPTION_PARSING_LOGGING*/
-
-#define MPTCP_OPT_CHECK_UNDERRUN(shadow_opt, optlen)  do {                                 \
-	(void)(optlen);                                                                        \
-} while(0)
-
-#define MPTCP_OPT_REPORT_COPY(shadow_opt, optlen)     do {                                 \
-	(void)(optlen);                                                                        \
-} while(0)
-#endif /* DEBUG || DEVELOPMENT */
-
-
-#define MPTCP_OPT_GET(shadow_opt, optp, optend, optlen)   ({                                \
-	__typeof__((shadow_opt)) * __single opt_ptr;                                            \
-                                                                                            \
-	ptrdiff_t available = (optend) - (optp);                                                \
-                                                                                            \
-    MPTCP_OPT_CHECK_UNDERRUN(shadow_opt, optlen);                                           \
-                                                                                            \
-	if (__improbable(available < sizeof((shadow_opt)))) {                                   \
-	        MPTCP_OPT_REPORT_COPY(shadow_opt, available);                                   \
-	        memset((caddr_t)&(shadow_opt) + available,                                      \
-	                0, sizeof((shadow_opt)) - available);                                   \
-	        memcpy(&(shadow_opt), (optp), available);                                       \
-	        opt_ptr = &(shadow_opt);                                                        \
-	} else {                                                                                \
-	        opt_ptr = __unsafe_forge_single(__typeof__((shadow_opt))*, (optp));             \
-	}                                                                                       \
-	opt_ptr;                                                                                \
-})
-
 static int
 mptcp_sanitize_option(struct tcpcb *tp, int mptcp_subtype)
 {
@@ -1007,42 +928,16 @@ mptcp_sanitize_option(struct tcpcb *tp, int mptcp_subtype)
 	return ret;
 }
 
-static int
-mptcp_valid_mpcapable_common_opt(struct mptcp_mpcapable_opt_common  *crsp)
-{
-	/* mmco_kind, mmco_len and mmco_subtype are validated before */
-
-	if (!(crsp->mmco_flags & MPCAP_PROPOSAL_SBIT)) {
-		return 0;
-	}
-
-	if (crsp->mmco_flags & (MPCAP_BBIT | MPCAP_DBIT |
-	    MPCAP_EBIT | MPCAP_FBIT | MPCAP_GBIT)) {
-		return 0;
-	}
-
-	return 1;
-}
-
-
 static void
-mptcp_do_mpcapable_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend, struct tcphdr *th,
+mptcp_do_mpcapable_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, struct tcphdr *th,
     uint8_t optlen)
 {
-	struct mptcp_mpcapable_opt_common   crsp_s, *crsp;
-	crsp = MPTCP_OPT_GET(crsp_s, cp, optend, optlen);
-	struct mptcp_mpcapable_opt_rsp rsp_s, *rsp = NULL;
+	struct mptcp_mpcapable_opt_rsp *rsp;
 	struct mptcb *mp_tp = tptomptp(tp);
 	struct mptses *mpte = mp_tp->mpt_mpte;
 
 	/* Only valid on SYN/ACK */
 	if ((th->th_flags & (TH_SYN | TH_ACK)) != (TH_SYN | TH_ACK)) {
-		return;
-	}
-
-	/* Validate the kind, len, flags */
-	if (mptcp_valid_mpcapable_common_opt(crsp) != 1) {
-		tcpstat.tcps_invalid_mpcap++;
 		return;
 	}
 
@@ -1061,15 +956,24 @@ mptcp_do_mpcapable_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *
 		return;
 	}
 
+	rsp = (struct mptcp_mpcapable_opt_rsp *)cp;
+
+	if (!(rsp->mmc_common.mmco_flags & MPCAP_PROPOSAL_SBIT) ||
+	    rsp->mmc_common.mmco_flags & (MPCAP_BBIT | MPCAP_DBIT |
+	    MPCAP_EBIT | MPCAP_FBIT | MPCAP_GBIT)) {
+		tcpstat.tcps_invalid_mpcap++;
+		return;
+	}
+
 	/*
 	 * If checksum flag is set, enable MPTCP checksum, even if
 	 * it was not negotiated on the first SYN.
 	 */
-	if (crsp->mmco_flags & MPCAP_CHECKSUM_CBIT) {
+	if (rsp->mmc_common.mmco_flags & MPCAP_CHECKSUM_CBIT) {
 		mp_tp->mpt_flags |= MPTCPF_CHECKSUM;
 	}
 
-	if (crsp->mmco_flags & MPCAP_UNICAST_IPBIT) {
+	if (rsp->mmc_common.mmco_flags & MPCAP_UNICAST_IPBIT) {
 		mpte->mpte_flags |= MPTE_UNICAST_IP;
 
 		/* We need an explicit signal for the addresses - zero the existing ones */
@@ -1077,7 +981,6 @@ mptcp_do_mpcapable_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *
 		memset(&mpte->mpte_sub_dst_v6, 0, sizeof(mpte->mpte_sub_dst_v6));
 	}
 
-	rsp = MPTCP_OPT_GET(rsp_s, cp, optend, optlen);
 	mp_tp->mpt_remotekey = rsp->mmc_localkey;
 	/* For now just downgrade to the peer's version */
 	if (rsp->mmc_common.mmco_version < mp_tp->mpt_version) {
@@ -1097,18 +1000,10 @@ mptcp_do_mpcapable_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *
 
 
 static void
-mptcp_do_mpjoin_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend, struct tcphdr *th, uint8_t optlen)
+mptcp_do_mpjoin_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, struct tcphdr *th, uint8_t optlen)
 {
-#define MPTCP_JOPT_ERROR_PATH(tp) {                                     \
-	tcpstat.tcps_invalid_joins++;                                   \
-	if (tp->t_inpcb->inp_socket != NULL) {                          \
-	        soevent(tp->t_inpcb->inp_socket,                        \
-	            SO_FILT_HINT_LOCKED | SO_FILT_HINT_MUSTRST);        \
-	}                                                               \
-}
-	int error = 0;
-	struct mptcp_mpjoin_opt_rsp join_rsp_s, *join_rsp;
-	join_rsp = MPTCP_OPT_GET(join_rsp_s, cp, optend, optlen);
+	struct mptcp_mpjoin_opt_rsp *join_rsp;
+	int error;
 
 	/* Only valid on SYN/ACK */
 	if ((th->th_flags & (TH_SYN | TH_ACK)) != (TH_SYN | TH_ACK)) {
@@ -1116,29 +1011,40 @@ mptcp_do_mpjoin_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *opt
 	}
 
 	if (optlen != sizeof(struct mptcp_mpjoin_opt_rsp)) {
-		os_log_error(mptcp_log_handle, "%s - %lx: SYN_ACK: unexpected optlen = %u mp option = %lu\n",
-		    __func__, (unsigned long)VM_KERNEL_ADDRPERM(tptomptp(tp)->mpt_mpte),
+		os_log_error(mptcp_log_handle, "%s - %lx: SYN_ACK: unexpected "
+		    "optlen = %u mp option = %lu\n", __func__,
+		    (unsigned long)VM_KERNEL_ADDRPERM(tptomptp(tp)->mpt_mpte),
 		    optlen, sizeof(struct mptcp_mpjoin_opt_rsp));
 		tp->t_mpflags &= ~TMPF_PREESTABLISHED;
 		/* send RST and close */
-		MPTCP_JOPT_ERROR_PATH(tp);
-		return;
+		goto join_error;
 	}
+
+	join_rsp = (struct mptcp_mpjoin_opt_rsp *)cp;
 
 	mptcp_set_raddr_rand(tp->t_local_aid, tptomptp(tp),
 	    join_rsp->mmjo_addr_id, join_rsp->mmjo_rand);
 	error = mptcp_validate_join_hmac(tp,
 	    (u_char*)&join_rsp->mmjo_mac, HMAC_TRUNCATED_SYNACK);
 	if (error) {
-		os_log_error(mptcp_log_handle, "%s - %lx: SYN_ACK error = %d \n",
-		    __func__, (unsigned long)VM_KERNEL_ADDRPERM(tptomptp(tp)->mpt_mpte),
+		os_log_error(mptcp_log_handle, "%s - %lx: SYN_ACK error=%d \n",
+		    __func__,
+		    (unsigned long)VM_KERNEL_ADDRPERM(tptomptp(tp)->mpt_mpte),
 		    error);
 		tp->t_mpflags &= ~TMPF_PREESTABLISHED;
 		/* send RST and close */
-		MPTCP_JOPT_ERROR_PATH(tp);
-		return;
+		goto join_error;
 	}
 	tp->t_mpflags |= (TMPF_SENT_JOIN | TMPF_SND_JACK);
+
+	return;
+
+join_error:
+	tcpstat.tcps_invalid_joins++;
+	if (tp->t_inpcb->inp_socket != NULL) {
+		soevent(tp->t_inpcb->inp_socket,
+		    SO_FILT_HINT_LOCKED | SO_FILT_HINT_MUSTRST);
+	}
 }
 
 static int
@@ -1290,23 +1196,16 @@ mptcp_do_dss_opt_ack_meat(u_int64_t full_dack, u_int64_t full_dsn,
 }
 
 static void
-mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, struct tcpcb *tp, struct tcphdr *th, uint8_t optlen)
+mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, struct tcpcb *tp, struct tcphdr *th)
 {
-	struct mptcp_dss_copt dss_rsp_s, *dss_rsp;
-	dss_rsp = MPTCP_OPT_GET(dss_rsp_s, cp, optend, optlen);
-	u_int64_t full_dack = 0;
-	u_int32_t tiwin = th->th_win << tp->snd_scale;
+	struct mptcp_dss_copt *dss_rsp;
+	uint64_t full_dack = 0;
+	uint32_t tiwin = th->th_win << tp->snd_scale;
 	struct mptcb *mp_tp = tptomptp(tp);
-	int csum_len = 0;
+	unsigned int csum_len = 0;
 
-#define MPTCP_DSS_OPT_SZ_CHK(len, expected_len) {                                 \
-	if (len != expected_len) {                                                \
-	        os_log_error(mptcp_log_handle, "%s - %lx: bad len = %d dss: %x\n",\
-	            __func__, (unsigned long)VM_KERNEL_ADDRPERM(mp_tp->mpt_mpte), \
-	            len, dss_rsp->mdss_flags);                                    \
-	        return;                                                           \
-	}                                                                         \
-}
+	/* bounds-checks happens in the caller of the function */
+	dss_rsp = (struct mptcp_dss_copt *)cp;
 
 	if (mp_tp->mpt_flags & MPTCPF_CHECKSUM) {
 		csum_len = 2;
@@ -1317,11 +1216,14 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M):
 	{
 		/* 32-bit DSS, No Data ACK */
-		struct mptcp_dsn_opt dss_rsp1_s, *dss_rsp1;
-		dss_rsp1 = MPTCP_OPT_GET(dss_rsp1_s, cp, optend, optlen);
+		struct mptcp_dsn_opt *dss_rsp1;
 
-		MPTCP_DSS_OPT_SZ_CHK(dss_rsp1->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_dsn_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dsn_opt) + csum_len) {
+			goto err_len;
+		}
+
+		dss_rsp1 = (struct mptcp_dsn_opt *)cp;
+
 		if (csum_len == 0) {
 			mptcp_update_dss_rcv_state(dss_rsp1, tp, 0);
 		} else {
@@ -1334,13 +1236,16 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_A):
 	{
 		/* 32-bit Data ACK, no DSS */
-		struct mptcp_data_ack_opt dack_opt_s, *dack_opt;
-		dack_opt = MPTCP_OPT_GET(dack_opt_s, cp, optend, optlen);
+		struct mptcp_data_ack_opt *dack_opt;
+		uint32_t dack;
 
-		MPTCP_DSS_OPT_SZ_CHK(dack_opt->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_data_ack_opt));
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_data_ack_opt)) {
+			goto err_len;
+		}
 
-		u_int32_t dack = dack_opt->mdss_ack;
+		dack_opt = (struct mptcp_data_ack_opt *)cp;
+
+		dack = dack_opt->mdss_ack;
 		NTOHL(dack);
 		MPTCP_EXTEND_DSN(mp_tp->mpt_snduna, dack, full_dack);
 		mptcp_do_dss_opt_ack_meat(full_dack, mp_tp->mpt_sndwl1, tp, tiwin);
@@ -1349,16 +1254,19 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M | MDSS_A):
 	{
 		/* 32-bit Data ACK + 32-bit DSS */
-		struct mptcp_dss_ack_opt dss_ack_rsp_s, *dss_ack_rsp;
-		dss_ack_rsp = MPTCP_OPT_GET(dss_ack_rsp_s, cp, optend, optlen);
-		u_int64_t full_dsn;
+		struct mptcp_dss_ack_opt *dss_ack_rsp;
+		uint64_t full_dsn;
 		uint16_t csum = 0;
+		uint32_t dack;
 
-		MPTCP_DSS_OPT_SZ_CHK(dss_ack_rsp->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_dss_ack_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dss_ack_opt) + csum_len) {
+			goto err_len;
+		}
 
-		u_int32_t dack = dss_ack_rsp->mdss_ack;
-		NTOHL(dack);
+		dss_ack_rsp = (struct mptcp_dss_ack_opt *)cp;
+
+		dack = ntohl(dss_ack_rsp->mdss_ack);
+
 		MPTCP_EXTEND_DSN(mp_tp->mpt_snduna, dack, full_dack);
 
 		NTOHL(dss_ack_rsp->mdss_dsn);
@@ -1382,13 +1290,15 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M | MDSS_m):
 	{
 		/* 64-bit DSS , No Data ACK */
-		struct mptcp_dsn64_opt dsn64_s, *dsn64;
-		dsn64 = MPTCP_OPT_GET(dsn64_s, cp, optend, optlen);
-		u_int64_t full_dsn;
+		struct mptcp_dsn64_opt *dsn64;
+		uint64_t full_dsn;
 		uint16_t csum = 0;
 
-		MPTCP_DSS_OPT_SZ_CHK(dsn64->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_dsn64_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dsn64_opt) + csum_len) {
+			goto err_len;
+		}
+
+		dsn64 = (struct mptcp_dsn64_opt *)cp;
 
 		mp_tp->mpt_flags |= MPTCPF_SND_64BITACK;
 
@@ -1409,11 +1319,13 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_A | MDSS_a):
 	{
 		/* 64-bit Data ACK, no DSS */
-		struct mptcp_data_ack64_opt dack64_s, *dack64;
-		dack64 = MPTCP_OPT_GET(dack64_s, cp, optend, optlen);
+		struct mptcp_data_ack64_opt *dack64;
 
-		MPTCP_DSS_OPT_SZ_CHK(dack64->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_data_ack64_opt));
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_data_ack64_opt)) {
+			goto err_len;
+		}
+
+		dack64 = (struct mptcp_data_ack64_opt *)cp;
 
 		mp_tp->mpt_flags |= MPTCPF_RCVD_64BITACK;
 
@@ -1424,15 +1336,17 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M | MDSS_m | MDSS_A):
 	{
 		/* 64-bit DSS + 32-bit Data ACK */
-		struct mptcp_dss64_ack32_opt dss_ack_rsp_s, *dss_ack_rsp;
-		dss_ack_rsp = MPTCP_OPT_GET(dss_ack_rsp_s, cp, optend, optlen);
-		u_int64_t full_dsn;
+		struct mptcp_dss64_ack32_opt *dss_ack_rsp;
+		uint64_t full_dsn;
 		uint16_t csum = 0;
 
-		MPTCP_DSS_OPT_SZ_CHK(dss_ack_rsp->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_dss64_ack32_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dss64_ack32_opt) + csum_len) {
+			goto err_len;
+		}
 
-		u_int32_t dack = dss_ack_rsp->mdss_ack;
+		dss_ack_rsp = (struct mptcp_dss64_ack32_opt *)cp;
+
+		uint32_t dack = dss_ack_rsp->mdss_ack;
 		NTOHL(dack);
 		mp_tp->mpt_flags |= MPTCPF_SND_64BITACK;
 		MPTCP_EXTEND_DSN(mp_tp->mpt_snduna, dack, full_dack);
@@ -1457,13 +1371,14 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M | MDSS_A | MDSS_a):
 	{
 		/* 32-bit DSS + 64-bit Data ACK */
-		struct mptcp_dss32_ack64_opt dss32_ack_64_opt_s, *dss32_ack64_opt;
-		dss32_ack64_opt = MPTCP_OPT_GET(dss32_ack_64_opt_s, cp, optend, optlen);
-		u_int64_t full_dsn;
+		struct mptcp_dss32_ack64_opt *dss32_ack64_opt;
+		uint64_t full_dsn;
 
-		MPTCP_DSS_OPT_SZ_CHK(
-			dss32_ack64_opt->mdss_copt.mdss_len,
-			sizeof(struct mptcp_dss32_ack64_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dss32_ack64_opt) + csum_len) {
+			goto err_len;
+		}
+
+		dss32_ack64_opt = (struct mptcp_dss32_ack64_opt *)cp;
 
 		full_dack = mptcp_ntoh64(dss32_ack64_opt->mdss_ack);
 		NTOHL(dss32_ack64_opt->mdss_dsn);
@@ -1491,12 +1406,14 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	case (MDSS_M | MDSS_m | MDSS_A | MDSS_a):
 	{
 		/* 64-bit DSS + 64-bit Data ACK */
-		struct mptcp_dss64_ack64_opt dss64_ack_64_s, *dss64_ack64;
-		dss64_ack64 = MPTCP_OPT_GET(dss64_ack_64_s, cp, optend, optlen);
-		u_int64_t full_dsn;
+		struct mptcp_dss64_ack64_opt *dss64_ack64;
+		uint64_t full_dsn;
 
-		MPTCP_DSS_OPT_SZ_CHK(dss64_ack64->mdss_copt.mdss_len,
-		    sizeof(struct mptcp_dss64_ack64_opt) + csum_len);
+		if (dss_rsp->mdss_len != sizeof(struct mptcp_dss64_ack64_opt) + csum_len) {
+			goto err_len;
+		}
+
+		dss64_ack64 = (struct mptcp_dss64_ack64_opt *)cp;
 
 		mp_tp->mpt_flags |= MPTCPF_RCVD_64BITACK;
 		mp_tp->mpt_flags |= MPTCPF_SND_64BITACK;
@@ -1522,42 +1439,53 @@ mptcp_do_dss_opt_meat(u_char *cp __ended_by(optend), u_char *optend __unused, st
 	default:
 		break;
 	}
+
+	return;
+
+err_len:
+	os_log_error(mptcp_log_handle, "%s - %lx: bad len = %d dss: %x\n",
+	    __func__, (unsigned long)VM_KERNEL_ADDRPERM(mp_tp->mpt_mpte),
+	    dss_rsp->mdss_len, dss_rsp->mdss_flags);
+	return;
 }
 
 static void
 mptcp_do_dss_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend, struct tcphdr *th, uint8_t optlen)
 {
-	struct mptcp_dss_copt dss_rsp_s, *dss_rsp;
-	dss_rsp = MPTCP_OPT_GET(dss_rsp_s, cp, optend, optlen);
-	struct mptcb *mp_tp = tptomptp(tp);
+	struct mptcp_dss_copt *dss_rsp;
 
-	if (!mp_tp) {
+	if (!tptomptp(tp)) {
 		return;
 	}
 
+	if (optlen < sizeof(struct mptcp_dss_copt)) {
+		tcpstat.tcps_invalid_opt++;
+		return;
+	}
+	dss_rsp = (struct mptcp_dss_copt *)cp;
+
 	if (dss_rsp->mdss_subtype == MPO_DSS) {
 		if (dss_rsp->mdss_flags & MDSS_F) {
-			tp->t_rcv_map.mpt_dfin = 1;
+			tp->t_mpsub->mpts_rcv_map.mpt_dfin = 1;
 		} else {
-			tp->t_rcv_map.mpt_dfin = 0;
+			tp->t_mpsub->mpts_rcv_map.mpt_dfin = 0;
 		}
 
-		mptcp_do_dss_opt_meat(cp, optend, tp, th, optlen);
+		mptcp_do_dss_opt_meat(cp, optend, tp, th);
 	}
 }
 
 static void
 mptcp_do_fastclose_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, struct tcphdr *th, uint8_t optlen)
 {
-	struct mptcb *mp_tp = NULL;
-	struct mptcp_fastclose_opt fc_opt_s, *fc_opt;
-	fc_opt = MPTCP_OPT_GET(fc_opt_s, cp, optend, optlen);
+	struct mptcp_fastclose_opt *fc_opt;
+	struct mptcb *mp_tp;
 
 	if (th->th_flags != TH_ACK) {
 		return;
 	}
 
-	if (fc_opt->mfast_len != sizeof(struct mptcp_fastclose_opt)) {
+	if (optlen != sizeof(struct mptcp_fastclose_opt)) {
 		tcpstat.tcps_invalid_opt++;
 		return;
 	}
@@ -1566,6 +1494,8 @@ mptcp_do_fastclose_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *
 	if (!mp_tp) {
 		return;
 	}
+
+	fc_opt = (struct mptcp_fastclose_opt *)cp;
 
 	if (fc_opt->mfast_key != mp_tp->mpt_localkey) {
 		tcpstat.tcps_invalid_opt++;
@@ -1594,9 +1524,8 @@ mptcp_do_fastclose_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *
 static void
 mptcp_do_mpfail_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, struct tcphdr *th, uint8_t optlen)
 {
-	struct mptcp_mpfail_opt fail_opt_s, *fail_opt;
-	fail_opt = MPTCP_OPT_GET(fail_opt_s, cp, optend, optlen);
-	u_int32_t mdss_subflow_seqn = 0;
+	struct mptcp_mpfail_opt *fail_opt;
+	uint32_t mdss_subflow_seqn = 0;
 	struct mptcb *mp_tp;
 	int error = 0;
 
@@ -1614,9 +1543,11 @@ mptcp_do_mpfail_opt(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *opt
 		return;
 	}
 
-	if (fail_opt->mfail_len != sizeof(struct mptcp_mpfail_opt)) {
+	if (optlen != sizeof(struct mptcp_mpfail_opt)) {
 		return;
 	}
+
+	fail_opt = (struct mptcp_mpfail_opt *)cp;
 
 	mp_tp = tptomptp(tp);
 
@@ -1649,24 +1580,24 @@ mptcp_validate_add_addr_hmac(struct tcpcb *tp, u_char *hmac __sized_by(mac_len),
 }
 
 static void
-mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend, uint8_t optlen)
+mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, uint8_t optlen)
 {
+	struct mptcp_add_addr_opt *addr_opt;
 	struct mptcb *mp_tp = tptomptp(tp);
 	struct mptses *mpte = mp_tp->mpt_mpte;
 
-	struct mptcp_add_addr_opt addr_opt_s, *addr_opt;
-	addr_opt = MPTCP_OPT_GET(addr_opt_s, cp, optend, optlen);
-
-	if (addr_opt->maddr_len != MPTCP_V1_ADD_ADDR_OPT_LEN_V4 &&
-	    addr_opt->maddr_len != MPTCP_V1_ADD_ADDR_OPT_LEN_V4 + 2 &&
-	    addr_opt->maddr_len != MPTCP_V1_ADD_ADDR_OPT_LEN_V6 &&
-	    addr_opt->maddr_len != MPTCP_V1_ADD_ADDR_OPT_LEN_V6 + 2) {
+	if (optlen != MPTCP_V1_ADD_ADDR_OPT_LEN_V4 &&
+	    optlen != MPTCP_V1_ADD_ADDR_OPT_LEN_V4 + 2 &&
+	    optlen != MPTCP_V1_ADD_ADDR_OPT_LEN_V6 &&
+	    optlen != MPTCP_V1_ADD_ADDR_OPT_LEN_V6 + 2) {
 		os_log_error(mptcp_log_handle, "%s - %lx: Wrong ADD_ADDR length %u\n",
 		    __func__, (unsigned long)VM_KERNEL_ADDRPERM(mpte),
-		    addr_opt->maddr_len);
+		    optlen);
 
 		return;
 	}
+
+	addr_opt = (struct mptcp_add_addr_opt *)cp;
 
 	if ((addr_opt->maddr_flags & MPTCP_V1_ADD_ADDR_ECHO) != 0) {
 		os_log(mptcp_log_handle, "%s - %lx: Received ADD_ADDR with echo bit\n",
@@ -1677,7 +1608,7 @@ mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char
 
 	if (addr_opt->maddr_len < MPTCP_V1_ADD_ADDR_OPT_LEN_V6) {
 		struct sockaddr_in *dst = &mpte->mpte_sub_dst_v4;
-		struct in_addr *addr = &addr_opt->maddr_u.maddr_addrv4;
+		struct in_addr *addr = (struct in_addr *)(void *)(cp + sizeof(*addr_opt));
 		in_addr_t haddr = ntohl(addr->s_addr);
 
 		if (IN_ZERONET(haddr) ||
@@ -1700,7 +1631,7 @@ mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char
 		uint16_t msg_len = sizeof(struct mptcp_add_addr_hmac_msg_v4);
 		struct mptcp_add_addr_hmac_msg_v4 msg  = {0};
 		msg.maddr_addrid = addr_opt->maddr_addrid;
-		msg.maddr_addr = addr_opt->maddr_u.maddr_addrv4;
+		msg.maddr_addr = *addr;
 		if (addr_opt->maddr_len > MPTCP_V1_ADD_ADDR_OPT_LEN_V4) {
 			msg.maddr_port = *(uint16_t *)(void *)(cp + addr_opt->maddr_len - HMAC_TRUNCATED_ADD_ADDR - 2);
 		}
@@ -1723,7 +1654,7 @@ mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char
 		mpte->mpte_last_added_addr_is_v4 = TRUE;
 	} else {
 		struct sockaddr_in6 *dst = &mpte->mpte_sub_dst_v6;
-		struct in6_addr *addr = &addr_opt->maddr_u.maddr_addrv6;
+		struct in6_addr *addr = (struct in6_addr *)(void *)(cp + sizeof(*addr_opt));
 
 		if (IN6_IS_ADDR_LINKLOCAL(addr) ||
 		    IN6_IS_ADDR_MULTICAST(addr) ||
@@ -1745,7 +1676,7 @@ mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char
 		uint16_t msg_len = sizeof(struct mptcp_add_addr_hmac_msg_v6);
 		struct mptcp_add_addr_hmac_msg_v6 msg  = {0};
 		msg.maddr_addrid = addr_opt->maddr_addrid;
-		msg.maddr_addr = addr_opt->maddr_u.maddr_addrv6;
+		msg.maddr_addr = *addr;
 		if (addr_opt->maddr_len > MPTCP_V1_ADD_ADDR_OPT_LEN_V6) {
 			msg.maddr_port = *(uint16_t *)(void *)(cp + addr_opt->maddr_len - HMAC_TRUNCATED_ADD_ADDR - 2);
 		}
@@ -1786,17 +1717,18 @@ mptcp_do_add_addr_opt_v1(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char
 static void
 mptcp_do_add_addr_opt_v0(struct mptses *mpte, u_char *cp __ended_by(optend), u_char *optend __unused, uint8_t optlen)
 {
-	struct mptcp_add_addr_opt addr_opt_s, *addr_opt;
-	addr_opt = MPTCP_OPT_GET(addr_opt_s, cp, optend, optlen);
+	struct mptcp_add_addr_opt *addr_opt;
 
-	if (addr_opt->maddr_len != MPTCP_V0_ADD_ADDR_OPT_LEN_V4 &&
-	    addr_opt->maddr_len != MPTCP_V0_ADD_ADDR_OPT_LEN_V6) {
+	if (optlen != MPTCP_V0_ADD_ADDR_OPT_LEN_V4 &&
+	    optlen != MPTCP_V0_ADD_ADDR_OPT_LEN_V6) {
 		os_log_error(mptcp_log_handle, "%s - %lx: Wrong ADD_ADDR length %u\n",
 		    __func__, (unsigned long)VM_KERNEL_ADDRPERM(mpte),
-		    addr_opt->maddr_len);
+		    optlen);
 
 		return;
 	}
+
+	addr_opt = (struct mptcp_add_addr_opt *)cp;
 
 	if (addr_opt->maddr_len == MPTCP_V0_ADD_ADDR_OPT_LEN_V4 &&
 	    addr_opt->maddr_flags != MPTCP_V0_ADD_ADDR_IPV4) {
@@ -1818,7 +1750,7 @@ mptcp_do_add_addr_opt_v0(struct mptses *mpte, u_char *cp __ended_by(optend), u_c
 
 	if (addr_opt->maddr_len == MPTCP_V0_ADD_ADDR_OPT_LEN_V4) {
 		struct sockaddr_in *dst = &mpte->mpte_sub_dst_v4;
-		struct in_addr *addr = &addr_opt->maddr_u.maddr_addrv4;
+		struct in_addr *addr = (struct in_addr *)(void *)(cp + sizeof(*addr_opt));
 		in_addr_t haddr = ntohl(addr->s_addr);
 
 		if (IN_ZERONET(haddr) ||
@@ -1844,7 +1776,7 @@ mptcp_do_add_addr_opt_v0(struct mptses *mpte, u_char *cp __ended_by(optend), u_c
 		mpte->mpte_last_added_addr_is_v4 = TRUE;
 	} else {
 		struct sockaddr_in6 *dst = &mpte->mpte_sub_dst_v6;
-		struct in6_addr *addr = &addr_opt->maddr_u.maddr_addrv6;
+		struct in6_addr *addr = (struct in6_addr *)(void *)(cp + sizeof(*addr_opt));
 
 		if (IN6_IS_ADDR_LINKLOCAL(addr) ||
 		    IN6_IS_ADDR_MULTICAST(addr) ||
@@ -1948,11 +1880,14 @@ mptcp_send_remaddr_opt(struct tcpcb *tp, struct mptcp_remaddr_opt *opt)
 }
 
 static int
-mptcp_echo_add_addr(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *optend __unused, unsigned int optlen)
+mptcp_echo_add_addr(struct tcpcb *tp, u_char * __indexable cp, unsigned int optlen)
 {
-	struct mptcp_add_addr_opt mpaddr;
-	struct mptcb *mp_tp = tptomptp(tp);
-	struct mptses *mpte = mp_tp->mpt_mpte;
+	struct mptcp_add_addr_opt *mpaddr;
+	struct mptcb *mp_tp;
+	struct mptses *mpte;
+
+	mp_tp = tptomptp(tp);
+	mpte = mp_tp->mpt_mpte;
 
 	// MPTCP v0 doesn't require echoing add_addr
 	if (mp_tp->mpt_version == MPTCP_VERSION_0) {
@@ -1964,20 +1899,23 @@ mptcp_echo_add_addr(struct tcpcb *tp, u_char *cp __ended_by(optend), u_char *opt
 		return optlen;
 	}
 
-	bzero(&mpaddr, sizeof(mpaddr));
-	mpaddr.maddr_kind = TCPOPT_MULTIPATH;
-	mpaddr.maddr_len = (uint8_t)mpaddr_size;
-	mpaddr.maddr_subtype = MPO_ADD_ADDR;
-	mpaddr.maddr_flags = MPTCP_V1_ADD_ADDR_ECHO;
+	cp += optlen;
+	mpaddr = (struct mptcp_add_addr_opt *)cp;
+
+	mpaddr->maddr_kind = TCPOPT_MULTIPATH;
+	mpaddr->maddr_len = (uint8_t)mpaddr_size;
+	mpaddr->maddr_subtype = MPO_ADD_ADDR;
+	mpaddr->maddr_flags = MPTCP_V1_ADD_ADDR_ECHO;
 	if (mpte->mpte_last_added_addr_is_v4) {
-		mpaddr.maddr_u.maddr_addrv4.s_addr = mpte->mpte_sub_dst_v4.sin_addr.s_addr;
-		mpaddr.maddr_addrid = mpte->sub_dst_addr_id_v4;
+		struct in_addr *addr = (struct in_addr *)(void *)(cp + sizeof(struct mptcp_add_addr_opt));
+		addr->s_addr = mpte->mpte_sub_dst_v4.sin_addr.s_addr;
+		mpaddr->maddr_addrid = mpte->sub_dst_addr_id_v4;
 	} else {
-		mpaddr.maddr_u.maddr_addrv6 = mpte->mpte_sub_dst_v6.sin6_addr;
-		mpaddr.maddr_addrid = mpte->sub_dst_addr_id_v6;
+		struct in6_addr *addr = (struct in6_addr *)(void *)(cp + sizeof(struct mptcp_add_addr_opt));
+		*addr = mpte->mpte_sub_dst_v6.sin6_addr;
+		mpaddr->maddr_addrid = mpte->sub_dst_addr_id_v6;
 	}
 
-	memcpy(cp + optlen, &mpaddr, mpaddr_size);
 	optlen += mpaddr_size;
 	tp->t_mpflags &= ~TMPF_MPTCP_ECHO_ADDR;
 	return optlen;

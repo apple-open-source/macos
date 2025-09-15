@@ -37,6 +37,7 @@
 #include "JSWebCodecsAudioEncoderSupport.h"
 #include "Logging.h"
 #include "OpusEncoderConfig.h"
+#include "ScriptExecutionContextInlines.h"
 #include "SecurityOrigin.h"
 #include "WebCodecsAudioData.h"
 #include "WebCodecsAudioEncoderConfig.h"
@@ -47,6 +48,7 @@
 #include "WebCodecsErrorCallback.h"
 #include "WebCodecsUtilities.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -231,7 +233,7 @@ ExceptionOr<void> WebCodecsAudioEncoder::configure(ScriptExecutionContext&, WebC
                     result.duration,
                     BufferSource { WTFMove(buffer) }
                 });
-                encoder.m_output->handleEvent(WTFMove(chunk), encoder.createEncodedChunkMetadata());
+                encoder.m_output->invoke(WTFMove(chunk), encoder.createEncodedChunkMetadata());
             });
         });
 
@@ -299,8 +301,8 @@ ExceptionOr<void> WebCodecsAudioEncoder::encode(Ref<WebCodecsAudioData>&& frame)
         // FIXME: These checks are not yet spec-compliant. See also https://github.com/w3c/webcodecs/issues/716
         if (m_baseConfiguration.numberOfChannels != audioData->numberOfChannels()
             || m_baseConfiguration.sampleRate != audioData->sampleRate()) {
-            queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this]() mutable {
-                closeEncoder(Exception { ExceptionCode::EncodingError, "Input audio buffer is incompatible with codec parameters"_s });
+            queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [](auto& encoder) mutable {
+                encoder.closeEncoder(Exception { ExceptionCode::EncodingError, "Input audio buffer is incompatible with codec parameters"_s });
             });
             return WebCodecsControlMessageOutcome::Processed;
         }
@@ -312,7 +314,7 @@ ExceptionOr<void> WebCodecsAudioEncoder::encode(Ref<WebCodecsAudioData>&& frame)
                 return;
 
             if (!result) {
-                if (auto context = protectedThis->protectedScriptExecutionContext())
+                if (RefPtr context = protectedThis->scriptExecutionContext())
                     context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString("AudioEncoder encode failed: "_s, result.error()));
                 protectedThis->closeEncoder(Exception { ExceptionCode::EncodingError, WTFMove(result.error()) });
                 return;
@@ -384,7 +386,7 @@ ExceptionOr<void> WebCodecsAudioEncoder::closeEncoder(Exception&& exception)
     setState(WebCodecsCodecState::Closed);
     m_internalEncoder = nullptr;
     if (exception.code() != ExceptionCode::AbortError)
-        m_error->handleEvent(DOMException::create(WTFMove(exception)));
+        m_error->invoke(DOMException::create(WTFMove(exception)));
 
     return { };
 }

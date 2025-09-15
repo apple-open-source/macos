@@ -211,6 +211,7 @@ public:
 	
 	void recode(const CssmData &data, const CssmData &extraData);
 	void copyBlob(CssmData &dbBlob);
+	void copySalt(CssmData &salt);
 	
 	void setBatchMode(Boolean mode, Boolean rollBack);
 	

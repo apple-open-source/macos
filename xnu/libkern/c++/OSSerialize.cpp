@@ -227,7 +227,7 @@ OSSerialize::initWithCapacity(unsigned int inCapacity)
 	// into user space (the primary use of the OSSerialize object)
 
 	kmr = kmem_alloc_guard(kernel_map, inCapacity, /* mask */ 0,
-	    (kma_flags_t)(KMA_ZERO | KMA_DATA), OSSerialize_guard());
+	    (kma_flags_t)(KMA_ZERO | KMA_DATA_SHARED), OSSerialize_guard());
 
 	if (kmr.kmr_return == KERN_SUCCESS) {
 		data = (char *)kmr.kmr_ptr;

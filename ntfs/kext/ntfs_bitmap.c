@@ -67,7 +67,7 @@
  * Locking: The caller must hold @ni->lock.
  */
 errno_t __ntfs_bitmap_set_bits_in_run(ntfs_inode *ni, const s64 start_bit,
-		const s64 count, const u8 value, const BOOL is_rollback)
+		const s64 count, const u8 value, const NTFS_BOOL is_rollback)
 {
 	s64 rem, cnt = count;
 	u64 ofs, end_ofs;

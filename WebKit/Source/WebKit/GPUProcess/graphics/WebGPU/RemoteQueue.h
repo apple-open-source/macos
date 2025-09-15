@@ -72,8 +72,7 @@ public:
 
     virtual ~RemoteQueue();
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
@@ -104,12 +103,23 @@ private:
         std::optional<WebCore::SharedMemoryHandle>&&,
         CompletionHandler<void(bool)>&&);
 
+    void writeBufferWithCopy(
+        WebGPUIdentifier,
+        WebCore::WebGPU::Size64 bufferOffset,
+        Vector<uint8_t>&&);
+
     void writeTexture(
         const WebGPU::ImageCopyTexture& destination,
         std::optional<WebCore::SharedMemoryHandle>&&,
         const WebGPU::ImageDataLayout&,
         const WebGPU::Extent3D& size,
         CompletionHandler<void(bool)>&&);
+
+    void writeTextureWithCopy(
+        const WebGPU::ImageCopyTexture& destination,
+        Vector<uint8_t>&&,
+        const WebGPU::ImageDataLayout&,
+        const WebGPU::Extent3D& size);
 
     void copyExternalImageToTexture(
         const WebGPU::ImageCopyExternalImage& source,

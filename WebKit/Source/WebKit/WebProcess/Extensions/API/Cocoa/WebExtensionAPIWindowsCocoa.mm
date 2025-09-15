@@ -122,7 +122,7 @@ static NSDictionary *toWebAPI(const WebExtensionWindowParameters& parameters)
     } mutableCopy];
 
     if (parameters.frame) {
-        CGRect frame = parameters.frame.value();
+        CGRect frame = parameters.frame.value().toCG();
         [result addEntriesFromDictionary:@{
             topKey: @(frame.origin.y),
             leftKey: @(frame.origin.x),
@@ -216,7 +216,7 @@ bool WebExtensionAPIWindows::parseWindowTypesFilter(NSDictionary *options, Optio
         windowTypeFilter.remove(WindowTypeFilter::Popup);
 
     if (!windowTypeFilter) {
-        *outExceptionString = toErrorString(nullString(), windowTypesKey, @"it must specify either 'normal', 'popup', or both.");
+        *outExceptionString = toErrorString(nullString(), windowTypesKey, @"it must specify either 'normal', 'popup', or both.").createNSString().autorelease();
         return false;
     }
 
@@ -231,7 +231,7 @@ bool WebExtensionAPIWindows::parseWindowTypeFilter(NSString *windowType, OptionS
         windowTypeFilter.add(WindowTypeFilter::Popup);
 
     if (!windowTypeFilter) {
-        *outExceptionString = toErrorString(nullString(), sourceKey, @"it must specify either 'normal' or 'popup'");
+        *outExceptionString = toErrorString(nullString(), sourceKey, @"it must specify either 'normal' or 'popup'").createNSString().autorelease();
         return false;
     }
 
@@ -275,7 +275,7 @@ bool WebExtensionAPIWindows::parseWindowCreateOptions(NSDictionary *options, Web
         tabParameters.url = URL { extensionContext().baseURL(), url };
 
         if (!tabParameters.url.value().isValid()) {
-            *outExceptionString = toErrorString(nullString(), urlKey, @"'%@' is not a valid URL", url);
+            *outExceptionString = toErrorString(nullString(), urlKey, @"'%@' is not a valid URL", url).createNSString().autorelease();
             return false;
         }
 
@@ -289,7 +289,7 @@ bool WebExtensionAPIWindows::parseWindowCreateOptions(NSDictionary *options, Web
             tabParameters.url = URL { extensionContext().baseURL(), url };
 
             if (!tabParameters.url.value().isValid()) {
-                *outExceptionString = toErrorString(nullString(), urlKey, @"'%@' is not a valid URL", url);
+                *outExceptionString = toErrorString(nullString(), urlKey, @"'%@' is not a valid URL", url).createNSString().autorelease();
                 return false;
             }
 
@@ -329,7 +329,7 @@ bool WebExtensionAPIWindows::parseWindowUpdateOptions(NSDictionary *options, Web
         parameters.state = toStateImpl(state);
 
         if (!parameters.state) {
-            *outExceptionString = toErrorString(nullString(), stateKey, @"it must specify 'normal', 'minimized', 'maximized', or 'fullscreen'");
+            *outExceptionString = toErrorString(nullString(), stateKey, @"it must specify 'normal', 'minimized', 'maximized', or 'fullscreen'").createNSString().autorelease();
             return false;
         }
     }
@@ -344,7 +344,7 @@ bool WebExtensionAPIWindows::parseWindowUpdateOptions(NSDictionary *options, Web
 
     if (left || top || width || height) {
         if (parameters.state && parameters.state.value() != WebExtensionWindow::State::Normal) {
-            *outExceptionString = toErrorString(nullString(), sourceKey, @"when 'top', 'left', 'width', or 'height' are specified, 'state' must specify 'normal'.");
+            *outExceptionString = toErrorString(nullString(), sourceKey, @"when 'top', 'left', 'width', or 'height' are specified, 'state' must specify 'normal'.").createNSString().autorelease();
             return false;
         }
 
@@ -363,13 +363,13 @@ bool WebExtensionAPIWindows::parseWindowUpdateOptions(NSDictionary *options, Web
 
 bool isValid(std::optional<WebExtensionWindowIdentifier> identifier, NSString **outExceptionString)
 {
-    if (UNLIKELY(!isValid(identifier))) {
+    if (!isValid(identifier)) [[unlikely]] {
         if (isNone(identifier))
-            *outExceptionString = toErrorString(nullString(), @"windowId", @"'windows.WINDOW_ID_NONE' is not allowed");
+            *outExceptionString = toErrorString(nullString(), @"windowId", @"'windows.WINDOW_ID_NONE' is not allowed").createNSString().autorelease();
         else if (identifier)
-            *outExceptionString = toErrorString(nullString(), @"windowId", @"'%llu' is not a window identifier", identifier.value().toUInt64());
+            *outExceptionString = toErrorString(nullString(), @"windowId", @"'%llu' is not a window identifier", identifier.value().toUInt64()).createNSString().autorelease();
         else
-            *outExceptionString = toErrorString(nullString(), @"windowId", @"it is not a window identifier");
+            *outExceptionString = toErrorString(nullString(), @"windowId", @"it is not a window identifier").createNSString().autorelease();
         return false;
     }
 
@@ -378,7 +378,7 @@ bool isValid(std::optional<WebExtensionWindowIdentifier> identifier, NSString **
 
 bool WebExtensionAPIWindows::isPropertyAllowed(const ASCIILiteral& name, WebPage*)
 {
-    if (UNLIKELY(extensionContext().isUnsupportedAPI(propertyPath(), name)))
+    if (extensionContext().isUnsupportedAPI(propertyPath(), name)) [[unlikely]]
         return false;
 
 #if PLATFORM(MAC)
@@ -400,7 +400,7 @@ void WebExtensionAPIWindows::createWindow(NSDictionary *data, Ref<WebExtensionCa
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsCreate(WTFMove(parameters)), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<std::optional<WebExtensionWindowParameters>, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -423,7 +423,7 @@ void WebExtensionAPIWindows::get(WebPageProxyIdentifier webPageProxyIdentifier, 
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsGet(webPageProxyIdentifier, windowIdentifer.value(), filter, populate), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<WebExtensionWindowParameters, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -442,7 +442,7 @@ void WebExtensionAPIWindows::getCurrent(WebPageProxyIdentifier webPageProxyIdent
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsGet(webPageProxyIdentifier, WebExtensionWindowConstants::CurrentIdentifier, filter, populate), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<WebExtensionWindowParameters, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -461,7 +461,7 @@ void WebExtensionAPIWindows::getLastFocused(NSDictionary *info, Ref<WebExtension
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsGetLastFocused(filter, populate), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<WebExtensionWindowParameters, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -480,7 +480,7 @@ void WebExtensionAPIWindows::getAll(NSDictionary *info, Ref<WebExtensionCallback
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsGetAll(filter, populate), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Vector<WebExtensionWindowParameters>, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -502,7 +502,7 @@ void WebExtensionAPIWindows::update(double windowID, NSDictionary *info, Ref<Web
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsUpdate(windowIdentifer.value(), WTFMove(parameters)), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<WebExtensionWindowParameters, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -520,7 +520,7 @@ void WebExtensionAPIWindows::remove(double windowID, Ref<WebExtensionCallbackHan
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WindowsRemove(windowIdentifer.value()), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<void, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 

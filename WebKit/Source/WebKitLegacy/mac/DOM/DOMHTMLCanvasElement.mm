@@ -71,7 +71,7 @@
     if (exceptionOrReturnValue.hasException())
         raiseDOMErrorException(exceptionOrReturnValue.releaseException());
 
-    return exceptionOrReturnValue.releaseReturnValue().string;
+    return exceptionOrReturnValue.releaseReturnValue().string.createNSString().autorelease();
 }
 
 @end

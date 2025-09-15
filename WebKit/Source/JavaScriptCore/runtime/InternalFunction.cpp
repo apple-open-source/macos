@@ -148,11 +148,11 @@ Structure* InternalFunction::createSubclassStructure(JSGlobalObject* globalObjec
     // newTarget may be an InternalFunction if we were called from Reflect.construct.
     JSFunction* targetFunction = jsDynamicCast<JSFunction*>(newTarget);
 
-    if (UNLIKELY(!targetFunction || !targetFunction->canUseAllocationProfiles())) {
+    if (!targetFunction || !targetFunction->canUseAllocationProfiles()) [[unlikely]] {
         JSValue prototypeValue = newTarget->get(globalObject, vm.propertyNames->prototype);
         RETURN_IF_EXCEPTION(scope, nullptr);
         // .prototype getter could have triggered having a bad time so need to recheck array structures.
-        if (UNLIKELY(baseGlobalObject->isHavingABadTime())) {
+        if (baseGlobalObject->isHavingABadTime()) [[unlikely]] {
             if (baseGlobalObject->isOriginalArrayStructure(baseClass))
                 baseClass = baseGlobalObject->arrayStructureForIndexingTypeDuringAllocation(baseClass->indexingType());
         }
@@ -166,7 +166,7 @@ Structure* InternalFunction::createSubclassStructure(JSGlobalObject* globalObjec
 
     FunctionRareData* rareData = targetFunction->ensureRareData(vm);
     Structure* structure = rareData->internalFunctionAllocationStructure();
-    if (LIKELY(structure && structure->classInfoForCells() == baseClass->classInfoForCells() && structure->globalObject() == baseGlobalObject))
+    if (structure && structure->classInfoForCells() == baseClass->classInfoForCells() && structure->globalObject() == baseGlobalObject) [[likely]]
         return structure;
 
     // .prototype can't be a getter if we canUseAllocationProfiles().

@@ -57,7 +57,7 @@ private:
     void decidePolicyForLocalAuthenticator(CompletionHandler<void(LocalAuthenticatorPolicy)>&&) const final;
     void requestLAContextForUserVerification(CompletionHandler<void(LAContext *)>&&) const final;
 
-    _WKWebAuthenticationPanel *m_panel;
+    WeakObjCPtr<_WKWebAuthenticationPanel> m_panel;
     WeakObjCPtr<id<_WKWebAuthenticationPanelDelegate>> m_delegate;
 
     struct {

@@ -118,7 +118,7 @@ ExceptionOr<void> DataTransferItemList::remove(unsigned index)
     if (!removedItem->isFile())
         dataTransfer->pasteboard().clear(removedItem->type());
     removedItem->clearListAndPutIntoDisabledMode();
-    items.remove(index);
+    items.removeAt(index);
     if (removedItem->isFile())
         dataTransfer->updateFileList(protectedScriptExecutionContext().get());
 
@@ -172,7 +172,7 @@ static void removeStringItemOfLowercasedType(Vector<Ref<DataTransferItem>>& item
     if (index == notFound)
         return;
     items[index]->clearListAndPutIntoDisabledMode();
-    items.remove(index);
+    items.removeAt(index);
 }
 
 void DataTransferItemList::didClearStringData(const String& type)

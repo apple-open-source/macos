@@ -38,17 +38,20 @@ class WebPageProxy;
 
 class WebContextMenuProxyWin final : public WebContextMenuProxy {
 public:
-    static auto create(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
+    static auto create(WebPageProxy& page, FrameInfoData&& frameInfo, ContextMenuContextData&& context, const UserData& userData)
     {
-        return adoptRef(*new WebContextMenuProxyWin(page, WTFMove(context), userData));
+        return adoptRef(*new WebContextMenuProxyWin(page, WTFMove(frameInfo), WTFMove(context), userData));
     }
     ~WebContextMenuProxyWin();
 
+    FrameInfoData frameInfo() { return m_frameInfo; }
+
 private:
-    WebContextMenuProxyWin(WebPageProxy&, ContextMenuContextData&&, const UserData&);
+    WebContextMenuProxyWin(WebPageProxy&, FrameInfoData&&, ContextMenuContextData&&, const UserData&);
     void showContextMenuWithItems(Vector<Ref<WebContextMenuItem>>&&) override;
 
     HMENU m_menu;
+    FrameInfoData m_frameInfo;
 };
 
 

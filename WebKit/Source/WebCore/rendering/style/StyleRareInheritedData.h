@@ -31,14 +31,24 @@
 #include "ScrollbarColor.h"
 #include "StyleColor.h"
 #include "StyleCustomPropertyData.h"
+#include "StyleLineBoxContain.h"
+#include "StyleDynamicRangeLimit.h"
 #include "StyleTextEdge.h"
+#include "StyleTextEmphasisStyle.h"
+#include "StyleTextIndent.h"
+#include "StyleTextShadow.h"
+#include "StyleTextUnderlineOffset.h"
 #include "TabSize.h"
-#include "TextUnderlineOffset.h"
 #include "TouchAction.h"
 #include <wtf/DataRef.h>
+#include <wtf/FixedVector.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomString.h>
+
+#if HAVE(CORE_MATERIAL)
+#include "AppleVisualEffect.h"
+#endif
 
 #if ENABLE(TEXT_AUTOSIZING)
 #include "TextSizeAdjustment.h"
@@ -56,7 +66,6 @@ namespace WebCore {
 
 class CursorList;
 class QuotesData;
-class ShadowData;
 class StyleFilterData;
 class StyleImage;
 
@@ -96,13 +105,16 @@ public:
 
     Style::Color accentColor;
 
-    std::unique_ptr<ShadowData> textShadow;
-    
+    Style::DynamicRangeLimit dynamicRangeLimit;
+
+    Style::TextShadows textShadow;
+
     RefPtr<CursorList> cursorData;
-    Length indent;
     float usedZoom;
 
-    TextUnderlineOffset textUnderlineOffset;
+    Style::TextEmphasisStyle textEmphasisStyle;
+    Style::TextIndent textIndent;
+    Style::TextUnderlineOffset textUnderlineOffset;
 
     TextEdge textBoxEdge;
     TextEdge lineFitEdge;
@@ -110,74 +122,64 @@ public:
     Length wordSpacing;
     float miterLimit;
 
-    DataRef<StyleCustomPropertyData> customProperties;
+    DataRef<Style::CustomPropertyData> customProperties;
 
-    // Paged media properties.
     unsigned short widows;
     unsigned short orphans;
-    unsigned hasAutoWidows : 1;
-    unsigned hasAutoOrphans : 1;
-    
-    unsigned textSecurity : 2; // TextSecurity
-    unsigned userModify : 2; // UserModify (editing)
-    unsigned wordBreak : 3; // WordBreak
-    unsigned overflowWrap : 2; // OverflowWrap
-    unsigned nbspMode : 1; // NBSPMode
-    unsigned lineBreak : 3; // LineBreak
-    unsigned userSelect : 2; // UserSelect
-    unsigned colorSpace : 1; // ColorSpace
-    unsigned speakAs : 4 { 0 }; // OptionSet<SpeakAs>
-    unsigned hyphens : 2; // Hyphens
-    unsigned textCombine : 1; // TextCombine
-    unsigned textEmphasisFill : 1; // TextEmphasisFill
-    unsigned textEmphasisMark : 3; // TextEmphasisMark
-    unsigned textEmphasisPosition : 4; // TextEmphasisPosition
-    unsigned textIndentLine : 1; // TextIndentLine
-    unsigned textIndentType : 1; // TextIndentType
-    unsigned textUnderlinePosition : 4; // TextUnderlinePosition
-    unsigned lineBoxContain: 7; // OptionSet<LineBoxContain>
-    // CSS Image Values Level 3
-    unsigned imageOrientation : 1; // ImageOrientation
-    unsigned imageRendering : 3; // ImageRendering
-    unsigned lineSnap : 2; // LineSnap
-    unsigned lineAlign : 1; // LineAlign
+    PREFERRED_TYPE(bool) unsigned hasAutoWidows : 1;
+    PREFERRED_TYPE(bool) unsigned hasAutoOrphans : 1;
+
+    PREFERRED_TYPE(TextSecurity) unsigned textSecurity : 2;
+    PREFERRED_TYPE(UserModify) unsigned userModify : 2;
+    PREFERRED_TYPE(WordBreak) unsigned wordBreak : 3;
+    PREFERRED_TYPE(OverflowWrap) unsigned overflowWrap : 2;
+    PREFERRED_TYPE(NBSPMode) unsigned nbspMode : 1;
+    PREFERRED_TYPE(LineBreak) unsigned lineBreak : 3;
+    PREFERRED_TYPE(UserSelect) unsigned userSelect : 2;
+    PREFERRED_TYPE(ColorSpace) unsigned colorSpace : 1;
+    PREFERRED_TYPE(OptionSet<SpeakAs>) unsigned speakAs : 4 { 0 };
+    PREFERRED_TYPE(Hyphens) unsigned hyphens : 2;
+    PREFERRED_TYPE(TextCombine) unsigned textCombine : 1;
+    PREFERRED_TYPE(TextEmphasisPosition) unsigned textEmphasisPosition : 4;
+    PREFERRED_TYPE(TextUnderlinePosition) unsigned textUnderlinePosition : 4;
+    PREFERRED_TYPE(OptionSet<Style::LineBoxContain>) unsigned lineBoxContain: 7;
+    PREFERRED_TYPE(ImageOrientation) unsigned imageOrientation : 1;
+    PREFERRED_TYPE(ImageRendering) unsigned imageRendering : 3;
+    PREFERRED_TYPE(LineSnap) unsigned lineSnap : 2;
+    PREFERRED_TYPE(LineAlign) unsigned lineAlign : 1;
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
-    unsigned useTouchOverflowScrolling: 1;
+    PREFERRED_TYPE(bool) unsigned useTouchOverflowScrolling: 1;
 #endif
-    unsigned textAlignLast : 3; // TextAlignLast
-    unsigned textJustify : 2; // TextJustify
-    unsigned textDecorationSkipInk : 2; // TextDecorationSkipInk
-    unsigned rubyPosition : 2; // RubyPosition
-    unsigned rubyAlign : 2; // RubyAlign
-    unsigned rubyOverhang : 1; // RubyOverhang
-    unsigned textZoom: 1; // TextZoom
-
+    PREFERRED_TYPE(TextAlignLast) unsigned textAlignLast : 3;
+    PREFERRED_TYPE(TextJustify) unsigned textJustify : 2;
+    PREFERRED_TYPE(TextDecorationSkipInk) unsigned textDecorationSkipInk : 2;
+    PREFERRED_TYPE(MathStyle) unsigned mathStyle : 1;
+    PREFERRED_TYPE(RubyPosition) unsigned rubyPosition : 2;
+    PREFERRED_TYPE(RubyAlign) unsigned rubyAlign : 2;
+    PREFERRED_TYPE(RubyOverhang) unsigned rubyOverhang : 1;
+    PREFERRED_TYPE(TextZoom) unsigned textZoom: 1;
 #if PLATFORM(IOS_FAMILY)
-    unsigned touchCalloutEnabled : 1;
+    PREFERRED_TYPE(bool) unsigned touchCalloutEnabled : 1;
 #endif
-
-    unsigned hangingPunctuation : 4; // OptionSet<HangingPunctuation>
-
-    unsigned paintOrder : 3; // PaintOrder
-    unsigned capStyle : 2; // LineCap
-    unsigned joinStyle : 2; // LineJoin
-    unsigned hasSetStrokeWidth : 1;
-    unsigned hasSetStrokeColor : 1;
-
-    unsigned mathStyle : 1; // MathStyle
-
-    unsigned hasAutoCaretColor : 1;
-    unsigned hasVisitedLinkAutoCaretColor : 1;
-
-    unsigned hasAutoAccentColor : 1;
-
-    unsigned effectiveInert : 1;
-
-    unsigned isInSubtreeWithBlendMode : 1;
-
-    unsigned isInVisibilityAdjustmentSubtree : 1;
-
-    unsigned usedContentVisibility : 2; // ContentVisibility
+    PREFERRED_TYPE(OptionSet<HangingPunctuation>) unsigned hangingPunctuation : 4;
+    PREFERRED_TYPE(PaintOrder) unsigned paintOrder : 3;
+    PREFERRED_TYPE(LineCap) unsigned capStyle : 2;
+    PREFERRED_TYPE(LineJoin) unsigned joinStyle : 2;
+    PREFERRED_TYPE(bool) unsigned hasSetStrokeWidth : 1;
+    PREFERRED_TYPE(bool) unsigned hasSetStrokeColor : 1;
+    PREFERRED_TYPE(bool) unsigned hasAutoCaretColor : 1;
+    PREFERRED_TYPE(bool) unsigned hasVisitedLinkAutoCaretColor : 1;
+    PREFERRED_TYPE(bool) unsigned hasAutoAccentColor : 1;
+    PREFERRED_TYPE(bool) unsigned effectiveInert : 1;
+    PREFERRED_TYPE(bool) unsigned isInSubtreeWithBlendMode : 1;
+    PREFERRED_TYPE(bool) unsigned isForceHidden : 1;
+    PREFERRED_TYPE(ContentVisibility) unsigned usedContentVisibility : 2;
+    PREFERRED_TYPE(bool) unsigned autoRevealsWhenFound : 1;
+    PREFERRED_TYPE(bool) unsigned insideDefaultButton : 1;
+    PREFERRED_TYPE(bool) unsigned insideDisabledSubmitButton : 1;
+#if HAVE(CORE_MATERIAL)
+    PREFERRED_TYPE(AppleVisualEffect) unsigned usedAppleVisualEffectForSubtree : 4;
+#endif
 
     OptionSet<TouchAction> usedTouchActions;
     OptionSet<EventListenerRegionType> eventListenerRegionTypes;
@@ -195,7 +197,6 @@ public:
     Style::ColorScheme colorScheme;
 #endif
 
-    AtomString textEmphasisCustomMark;
     RefPtr<QuotesData> quotes;
     DataRef<StyleFilterData> appleColorFilter;
 

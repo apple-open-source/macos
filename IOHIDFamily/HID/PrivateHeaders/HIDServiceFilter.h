@@ -254,6 +254,49 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (void)clientNotification:(HIDConnection *)client added:(BOOL)added;
 
+/*!
+ * @method filterSetProperty
+ *
+ * @abstract
+ * Set a property on the service filter.
+ *
+ * @param value
+ * The pointer to  value of the property to set.
+ *
+ * @param key
+ * The property key to set.
+ *
+ * @param client
+ * The client setting the property, if any.
+ *
+ */
+- (void)filterSetProperty:(id _Nullable * _Nonnull)value
+                   forKey:(NSString *)key
+                   forClient:(nullable HIDConnection *)client;
+
+
+
+/*!
+ * @method filterEvent
+ *
+ * @abstract
+ * Filter an event for the service for a  specific client
+ *
+ * @discussion
+ * The filter method provides the service filter with a stream of events from
+ * the service. The service filter may observe, modify, or drop the event if
+ * it chooses. If the filter is only observing the events, it should return the
+ * event unmodified.
+ *
+ * @param event
+ * The event to filter.
+ * @param client
+ * The client  to dispatch event to
+ *
+ * @result
+ * A filtered event, or nil if the event should be dropped.
+ */
+- (nullable HIDEvent *)filterEvent:(HIDEvent *)event forClient:(nullable HIDConnection *)client;
 @end
 
 NS_ASSUME_NONNULL_END

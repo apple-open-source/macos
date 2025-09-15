@@ -72,6 +72,7 @@
 #include "OperationResult.h"
 #include "PureNaN.h"
 #include <cmath>
+#include <numbers>
 #include <regex>
 #include <string>
 #include <wtf/FastTLS.h>
@@ -341,10 +342,6 @@ typedef B3Operand<int8_t> Int8Operand;
 
 #define MAKE_OPERAND(value) B3Operand<decltype(value)> { #value, value }
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846264338327950288
-#endif
-
 template<typename FloatType>
 void populateWithInterestingValues(Vector<B3Operand<FloatType>>& operands)
 {
@@ -362,8 +359,8 @@ void populateWithInterestingValues(Vector<B3Operand<FloatType>>& operands)
     operands.append({ "-1.1", static_cast<FloatType>(-1.1) });
     operands.append({ "2.", static_cast<FloatType>(2.) });
     operands.append({ "-2.", static_cast<FloatType>(-2.) });
-    operands.append({ "M_PI", static_cast<FloatType>(M_PI) });
-    operands.append({ "-M_PI", static_cast<FloatType>(-M_PI) });
+    operands.append({ "M_PI", static_cast<FloatType>(std::numbers::pi) });
+    operands.append({ "-M_PI", static_cast<FloatType>(-std::numbers::pi) });
     operands.append({ "min", std::numeric_limits<FloatType>::min() });
     operands.append({ "max", std::numeric_limits<FloatType>::max() });
     operands.append({ "lowest", std::numeric_limits<FloatType>::lowest() });
@@ -556,9 +553,7 @@ EffectiveType modelLoad(EffectiveType value)
     } u;
     
     u.original = value;
-    if (std::is_signed<LoadedType>::value)
-        return static_cast<EffectiveType>(u.loaded);
-    return static_cast<EffectiveType>(static_cast<typename std::make_unsigned<EffectiveType>::type>(u.loaded));
+    return static_cast<EffectiveType>(static_cast<std::make_unsigned_t<EffectiveType>>(u.loaded));
 }
 
 template<>
@@ -816,6 +811,12 @@ void testFloorFloorArg(float);
 void testCeilFloorArg(float);
 void testFloorArgWithUselessDoubleConversion(float);
 void testFloorArgWithEffectfulDoubleConversion(float);
+void testFTruncArg(double);
+void testFTruncImm(double);
+void testFTruncMem(double);
+void testFTruncArg(float);
+void testFTruncImm(float);
+void testFTruncMem(float);
 double correctSqrt(double value);
 void testSqrtArg(double);
 void testSqrtImm(double);
@@ -825,6 +826,7 @@ void testSqrtImm(float);
 void testSqrtMem(float);
 void testSqrtArgWithUselessDoubleConversion(float);
 void testSqrtArgWithEffectfulDoubleConversion(float);
+void testPurifyNaN();
 void testCompareTwoFloatToDouble(float, float);
 void testCompareOneFloatToDouble(float, double);
 void testCompareFloatToDoubleThroughPhi(float, float);
@@ -865,6 +867,8 @@ void testIToD64Arg();
 void testIToF64Arg();
 void testIToD32Arg();
 void testIToF32Arg();
+void testIToDU32Arg();
+void testIToFU32Arg();
 void testIToD64Mem();
 void testIToF64Mem();
 void testIToD32Mem();
@@ -1133,6 +1137,8 @@ void testMulNegSignExtend32();
 void testMulNegZeroExtend32();
 void testMulArgDouble(double);
 void testMulArgsDouble(double, double);
+void testMulNegArgsDouble();
+void testMulNegArgsFloat();
 void testCallSimpleDouble(double, double);
 void testCallSimpleFloat(float, float);
 void testCallFunctionWithHellaDoubleArguments();
@@ -1315,6 +1321,7 @@ void testTernarySubInstructionSelection(B3::Opcode valueModifier, Type valueType
 void testNegDouble(double);
 void testNegFloat(float);
 void testNegFloatWithUselessDoubleConversion(float);
+void testImpureNaN();
 
 void addArgTests(const TestConfig*, Deque<RefPtr<SharedTask<void()>>>&);
 void addBitTests(const TestConfig*, Deque<RefPtr<SharedTask<void()>>>&);
@@ -1371,6 +1378,8 @@ void testVectorFmulByElementFloat();
 void testVectorFmulByElementDouble();
 void testVectorExtractLane0Float();
 void testVectorExtractLane0Double();
+void testVectorMulHigh();
+void testVectorMulLow();
 
 void testConstDoubleMove();
 void testConstFloatMove();
@@ -1380,5 +1389,10 @@ void testSShrCompare64(int64_t);
 
 void testInt52RoundTripUnary(int32_t);
 void testInt52RoundTripBinary();
+
+void testMulHigh32();
+void testMulHigh64();
+void testUMulHigh32();
+void testUMulHigh64();
 
 #endif // ENABLE(B3_JIT)

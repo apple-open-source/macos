@@ -54,7 +54,7 @@ void WebFramePolicyListenerProxy::didReceiveAppBoundDomainResult(std::optional<N
 
     if (m_policyResult && m_safeBrowsingWarning && m_doneWaitingForLinkDecorationFilteringData) {
         if (m_reply)
-            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, WTFMove(*m_safeBrowsingWarning), isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
+            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
     } else
         m_isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain;
 }
@@ -62,11 +62,10 @@ void WebFramePolicyListenerProxy::didReceiveAppBoundDomainResult(std::optional<N
 void WebFramePolicyListenerProxy::didReceiveSafeBrowsingResults(RefPtr<BrowsingWarning>&& safeBrowsingWarning)
 {
     ASSERT(isMainRunLoop());
-    ASSERT(!m_safeBrowsingWarning);
     if (m_policyResult && m_isNavigatingToAppBoundDomain && m_doneWaitingForLinkDecorationFilteringData) {
         if (m_reply)
-            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, WTFMove(safeBrowsingWarning), *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
-    } else
+            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
+    } else if (!m_safeBrowsingWarning)
         m_safeBrowsingWarning = WTFMove(safeBrowsingWarning);
 }
 
@@ -77,7 +76,7 @@ void WebFramePolicyListenerProxy::didReceiveInitialLinkDecorationFilteringData()
 
     if (m_policyResult && m_isNavigatingToAppBoundDomain && m_safeBrowsingWarning) {
         if (m_reply)
-            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, WTFMove(*m_safeBrowsingWarning), *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
+            m_reply(WebCore::PolicyAction::Use, m_policyResult->first.get(), m_policyResult->second, *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
         return;
     }
 
@@ -88,7 +87,7 @@ void WebFramePolicyListenerProxy::use(API::WebsitePolicies* policies, ProcessSwa
 {
     if (m_safeBrowsingWarning && m_isNavigatingToAppBoundDomain && m_doneWaitingForLinkDecorationFilteringData) {
         if (m_reply)
-            m_reply(WebCore::PolicyAction::Use, policies, processSwapRequestedByClient, WTFMove(*m_safeBrowsingWarning), *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
+            m_reply(WebCore::PolicyAction::Use, policies, processSwapRequestedByClient, *m_isNavigatingToAppBoundDomain, WasNavigationIntercepted::No);
     } else if (!m_policyResult)
         m_policyResult = {{ policies, processSwapRequestedByClient }};
 }
@@ -96,13 +95,14 @@ void WebFramePolicyListenerProxy::use(API::WebsitePolicies* policies, ProcessSwa
 void WebFramePolicyListenerProxy::download()
 {
     if (m_reply)
-        m_reply(WebCore::PolicyAction::Download, nullptr, ProcessSwapRequestedByClient::No, { }, { }, WasNavigationIntercepted::No);
+        m_reply(WebCore::PolicyAction::Download, nullptr, ProcessSwapRequestedByClient::No, { }, WasNavigationIntercepted::No);
 }
 
 void WebFramePolicyListenerProxy::ignore(WasNavigationIntercepted wasNavigationIntercepted)
 {
+    WTFReportBacktrace();
     if (m_reply)
-        m_reply(WebCore::PolicyAction::Ignore, nullptr, ProcessSwapRequestedByClient::No, { }, { }, wasNavigationIntercepted);
+        m_reply(WebCore::PolicyAction::Ignore, nullptr, ProcessSwapRequestedByClient::No, { }, wasNavigationIntercepted);
 }
 
 } // namespace WebKit

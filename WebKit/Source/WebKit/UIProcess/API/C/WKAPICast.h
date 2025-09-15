@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -242,7 +242,7 @@ inline WKProcessTerminationReason toAPI(ProcessTerminationReason reason)
     case ProcessTerminationReason::NavigationSwap:
         // We probably shouldn't bother coming up with a new C-API type for process-swapping.
         // "Requested by client" seems like the best match for existing types.
-        FALLTHROUGH;
+        [[fallthrough]];
     case ProcessTerminationReason::RequestedByClient:
         return kWKProcessTerminationReasonRequestedByClient;
     case ProcessTerminationReason::ExceededProcessCountLimit:

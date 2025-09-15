@@ -74,6 +74,7 @@
 #include <kern/host.h>
 #include <kern/misc_protos.h>
 #include <vm/vm_map_xnu.h>
+#include <vm/vm_memory_entry_xnu.h>
 #include <vm/vm_kern_xnu.h>
 #include <ipc/port.h>
 #include <ipc/ipc_types.h>
@@ -441,6 +442,72 @@ mach_port_dnrequest_info(
 	return KERN_SUCCESS;
 }
 
+static ipc_info_object_type_t
+mach_port_kobject_type(ipc_port_t port)
+{
+#define MAKE_CASE(name) \
+	case IKOT_ ## name: return IPC_OTYPE_ ## name
+
+	switch (ip_type(port)) {
+		/* thread ports */
+		MAKE_CASE(THREAD_CONTROL);
+		MAKE_CASE(THREAD_READ);
+		MAKE_CASE(THREAD_INSPECT);
+
+		/* task ports */
+		MAKE_CASE(TASK_CONTROL);
+		MAKE_CASE(TASK_READ);
+		MAKE_CASE(TASK_INSPECT);
+		MAKE_CASE(TASK_NAME);
+
+		MAKE_CASE(TASK_RESUME);
+		MAKE_CASE(TASK_ID_TOKEN);
+		MAKE_CASE(TASK_FATAL);
+
+		/* host services, upcalls, security */
+		MAKE_CASE(HOST);
+		MAKE_CASE(HOST_PRIV);
+		MAKE_CASE(CLOCK);
+		MAKE_CASE(PROCESSOR);
+		MAKE_CASE(PROCESSOR_SET);
+		MAKE_CASE(PROCESSOR_SET_NAME);
+
+		/* common userspace used ports */
+		MAKE_CASE(EVENTLINK);
+		MAKE_CASE(FILEPORT);
+		MAKE_CASE(SEMAPHORE);
+		MAKE_CASE(VOUCHER);
+		MAKE_CASE(WORK_INTERVAL);
+
+		/* VM ports */
+		MAKE_CASE(MEMORY_OBJECT);
+		MAKE_CASE(NAMED_ENTRY);
+
+		/* IOKit & exclaves ports */
+		MAKE_CASE(MAIN_DEVICE);
+		MAKE_CASE(IOKIT_IDENT);
+		MAKE_CASE(IOKIT_CONNECT);
+		MAKE_CASE(IOKIT_OBJECT);
+		MAKE_CASE(UEXT_OBJECT);
+		MAKE_CASE(EXCLAVES_RESOURCE);
+
+		/* misc. */
+		MAKE_CASE(ARCADE_REG);
+		MAKE_CASE(AU_SESSIONPORT);
+		MAKE_CASE(HYPERVISOR);
+		MAKE_CASE(KCDATA);
+		MAKE_CASE(UND_REPLY);
+		MAKE_CASE(UX_HANDLER);
+
+	case IOT_TIMER_PORT:
+		return IPC_OTYPE_TIMER;
+
+	default:
+		return IPC_OTYPE_UNKNOWN;
+	}
+#undef MAKE_CASE
+}
+
 /*
  *	Routine:	mach_port_kobject [kernel call]
  *	Purpose:
@@ -464,52 +531,62 @@ static kern_return_t
 mach_port_kobject_description(
 	ipc_space_t                     space,
 	mach_port_name_t                name,
-	natural_t                       *typep,
+	ipc_info_object_type_t          *typep,
 	mach_vm_address_t               *addrp,
 	kobject_description_t           desc)
 {
 	ipc_entry_bits_t bits;
-	ipc_object_t object;
+	ipc_object_t ipc_object;
 	kern_return_t kr;
 	mach_vm_address_t kaddr = 0;
-	io_object_t obj = NULL;
-	io_kobject_t kobj = NULL;
-	ipc_port_t port = IP_NULL;
 
 	if (space == IS_NULL) {
 		return KERN_INVALID_TASK;
 	}
 
-	kr = ipc_right_lookup_read(space, name, &bits, &object);
+	kr = ipc_right_lookup_read(space, name, &bits, &ipc_object);
 	if (kr != KERN_SUCCESS) {
 		return kr;
 	}
 	/* object is locked and active */
 
 	if ((bits & MACH_PORT_TYPE_SEND_RECEIVE) == 0) {
-		io_unlock(object);
+		io_unlock(ipc_object);
 		return KERN_INVALID_RIGHT;
 	}
 
-	*typep = (unsigned int)io_kotype(object);
-	if (io_is_kobject(object)) {
-		port = ip_object_to_port(object);
-		kaddr = (mach_vm_address_t)ipc_kobject_get_raw(port, io_kotype(object));
+	ipc_port_t port = ip_object_to_port(ipc_object);
+	*typep = mach_port_kobject_type(port);
+	if (ip_is_kobject(port)) {
+		kaddr = (mach_vm_address_t)ipc_kobject_get_raw(port, ip_type(port));
 	}
 	*addrp = 0;
 
 	if (desc) {
 		*desc = '\0';
-		switch (io_kotype(object)) {
+		switch (ip_type(port)) {
 		case IKOT_IOKIT_OBJECT:
 		case IKOT_IOKIT_CONNECT:
 		case IKOT_IOKIT_IDENT:
 		case IKOT_UEXT_OBJECT:
-			kobj = (io_kobject_t) kaddr;
-			if (kobj) {
-				iokit_kobject_retain(kobj);
+		{
+			io_kobject_t io_kobject = (io_kobject_t)kaddr;
+			if (io_kobject) {
+				iokit_kobject_retain(io_kobject);
+				io_unlock(ipc_object);
+
+				// IKOT_IOKIT_OBJECT since iokit_remove_reference() follows
+				io_object_t io_object = iokit_copy_object_for_consumed_kobject(io_kobject);
+				io_kobject = NULL;
+				if (io_object) {
+					iokit_port_object_description(io_object, desc);
+					iokit_remove_reference(io_object);
+					io_object = NULL;
+				}
+				goto unlocked;
 			}
 			break;
+		}
 		case IKOT_TASK_ID_TOKEN:
 		{
 			task_id_token_t token;
@@ -517,25 +594,23 @@ mach_port_kobject_description(
 			snprintf(desc, KOBJECT_DESCRIPTION_LENGTH, "%d,%llu,%d", token->ident.p_pid, token->ident.p_uniqueid, token->ident.p_idversion);
 			break;
 		}
+		case IKOT_NAMED_ENTRY:
+		{
+			vm_named_entry_t named_entry = (vm_named_entry_t)ipc_kobject_get_stable(port, IKOT_NAMED_ENTRY);
+			mach_memory_entry_describe(named_entry, desc);
+			break;
+		}
 		default:
 			break;
 		}
 	}
 
-	io_unlock(object);
+	io_unlock(ipc_object);
 
+unlocked:
 #if (DEVELOPMENT || DEBUG)
 	*addrp = VM_KERNEL_ADDRHASH(kaddr);
 #endif
-	if (kobj) {
-		// IKOT_IOKIT_OBJECT since iokit_remove_reference() follows
-		obj = iokit_copy_object_for_consumed_kobject(kobj, IKOT_IOKIT_OBJECT);
-	}
-	if (obj) {
-		iokit_port_object_description(obj, desc);
-		iokit_remove_reference(obj);
-	}
-
 	return KERN_SUCCESS;
 }
 
@@ -543,7 +618,7 @@ kern_return_t
 mach_port_kobject_description_from_user(
 	mach_port_t                     port,
 	mach_port_name_t                name,
-	natural_t                       *typep,
+	ipc_info_object_type_t          *typep,
 	mach_vm_address_t               *addrp,
 	kobject_description_t           desc)
 {
@@ -565,7 +640,7 @@ kern_return_t
 mach_port_kobject_from_user(
 	mach_port_t                     port,
 	mach_port_name_t                name,
-	natural_t                       *typep,
+	ipc_info_object_type_t          *typep,
 	mach_vm_address_t               *addrp)
 {
 	return mach_port_kobject_description_from_user(port, name, typep, addrp, NULL);

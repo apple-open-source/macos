@@ -150,6 +150,7 @@ kprintf(const char *fmt, ...)
 			if (ml_get_interrupts_enabled()) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 				os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, listp2, caller);
 #pragma clang diagnostic pop
 			}
@@ -190,6 +191,7 @@ kprintf(const char *fmt, ...)
 		if (ml_get_interrupts_enabled()) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 			os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, listp2, caller);
 #pragma clang diagnostic pop
 		}
@@ -199,6 +201,7 @@ kprintf(const char *fmt, ...)
 			va_start(listp, fmt);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
+#pragma clang diagnostic ignored "-Wformat"
 			os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, listp, caller);
 #pragma clang diagnostic pop
 			va_end(listp);

@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <SoftLinking/SoftLinking.h>
+#import <SoftLinking/WeakLinking.h>
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
 #import <AAAFoundation/AAAFoundation.h>
 #endif
@@ -37,19 +37,48 @@
 #endif
 
 #import "AAFAnalyticsEvent+Security.h"
+#import "SecurityAnalyticsConstants.h"
 #import "utilities/debugging.h"
+#include <utilities/SecInternalReleasePriv.h>
 
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, AAAFoundation);
-SOFT_LINK_CLASS(AAAFoundation, AAFAnalyticsEvent);
-SOFT_LINK_CONSTANT(AAAFoundation, kAAFDeviceSessionId, NSString*);
-SOFT_LINK_CONSTANT(AAAFoundation, kAAFFlowId, NSString*)
+WEAK_IMPORT_OBJC_CLASS(AAFAnalyticsEvent);
+WEAK_IMPORT_OBJC_CLASS(AAFAnalyticsTransportRTC);
+WEAK_IMPORT_OBJC_CLASS(AAFAnalyticsReporter);
+WEAK_LINK_FORCE_IMPORT(kAAFDeviceSessionIdString);
+WEAK_LINK_FORCE_IMPORT(kAAFFlowIdString);
 #endif
 
 #if __has_include(<AuthKit/AuthKit.h>)
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, AuthKit);
-SOFT_LINK_CLASS(AuthKit, AKAccountManager);
+WEAK_IMPORT_OBJC_CLASS(AKAccountManager);
 #endif
+
+@interface SecurityAnalyticsReporterRTC : NSObject
+
+#if __has_include(<AAAFoundation/AAAFoundation.h>)
++ (AAFAnalyticsReporter *)rtcAnalyticsReporter;
+#endif
+@end
+
+@implementation SecurityAnalyticsReporterRTC
+
+#if __has_include(<AAAFoundation/AAAFoundation.h>)
++ (AAFAnalyticsReporter *)rtcAnalyticsReporter {
+    static AAFAnalyticsReporter *rtcReporter = nil;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        AAFAnalyticsTransportRTC *transport = [AAFAnalyticsTransportRTC analyticsTransportRTCWithClientType:kSecurityRTCClientType
+                                                                                             clientBundleId:kSecurityRTCClientBundleIdentifier
+                                                                                                 clientName:kSecurityRTCClientNameDNU];
+        rtcReporter = [AAFAnalyticsReporter analyticsReporterWithTransport:transport];
+    });
+    return rtcReporter;
+}
+#endif
+
+@end
+
 
 @interface AAFAnalyticsEventSecurity()
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
@@ -59,7 +88,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 @property BOOL canSendMetrics;
 @property BOOL isAAAFoundationAvailable;
 @property BOOL isAuthKitAvailable;
-
+@property BOOL metricSent;
 @end
 
 
@@ -71,10 +100,10 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
-        if (isAAAFoundationAvailable()) {
+        if ([AAFAnalyticsEvent class] != nil && [AAFAnalyticsTransportRTC class] != nil && [AAFAnalyticsReporter class] != nil) {
             available = YES;
         } else {
-            secerror("aafanalyticsevent-security: failed to softlink AAAFoundation");
+            secerror("aafanalyticsevent-security: failed to weaklink AAAFoundation");
         }
 #else
         secnotice("aafanalyticsevent-security", "AAAFoundation unavailable on this platform");
@@ -90,10 +119,10 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
 #if __has_include(<AuthKit/AuthKit.h>)
-        if (isAuthKitAvailable()) {
+        if ([AKAccountManager class] != nil) {
             available = YES;
         } else {
-            secerror("aafanalyticsevent-security: failed to softlink AuthKit");
+            secerror("aafanalyticsevent-security: failed to weaklink AuthKit");
         }
 #else
         secnotice("aafanalyticsevent-security", "AuthKit unavailable on this platform");
@@ -118,7 +147,7 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
 + (NSString* _Nullable)fetchDeviceSessionIDFromAuthKit:(NSString*)altDSID
 {
-    AKAccountManager *accountManager = [getAKAccountManagerClass() sharedInstance];
+    AKAccountManager *accountManager = [AKAccountManager sharedInstance];
 
     ACAccount* acAccount = nil;
     if (altDSID == nil) {
@@ -171,19 +200,20 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
         _canSendMetrics = canSendMetrics;
         _isAAAFoundationAvailable = YES;
         _isAuthKitAvailable = YES;
-
+        _metricSent = NO;
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
-        AAFAnalyticsEvent *analyticsEvent = [[getAAFAnalyticsEventClass() alloc] initWithEventName:eventName
-                                                                                     eventCategory:category
-                                                                                          initData:nil];
+        AAFAnalyticsEvent *analyticsEvent = [[AAFAnalyticsEvent alloc] initWithEventName:eventName
+                                                                           eventCategory:category
+                                                                                initData:nil
+                                                                                 altDSID:altDSID];
         if (flowID && [flowID isEqualToString:@""] == NO) {
-            analyticsEvent[getkAAFFlowId()] = flowID;
+            analyticsEvent[kAAFFlowIdString] = flowID;
         }
 
         if (deviceSessionID && [deviceSessionID isEqualToString:@""] == NO) {
-            analyticsEvent[getkAAFDeviceSessionId()] = deviceSessionID;
+            analyticsEvent[kAAFDeviceSessionIdString] = deviceSessionID;
         } else {
-            analyticsEvent[getkAAFDeviceSessionId()] = [AAFAnalyticsEventSecurity fetchDeviceSessionIDFromAuthKit:altDSID];
+            analyticsEvent[kAAFDeviceSessionIdString] = [AAFAnalyticsEventSecurity fetchDeviceSessionIDFromAuthKit:altDSID];
         }
         
         if (metrics) {
@@ -258,12 +288,35 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 #endif
 }
 
-- (id)getEvent
+- (void)sendMetricWithResult:(BOOL)success error:(NSError* _Nullable)error
 {
+    if ([self permittedToSendMetrics] == NO) {
+        return;
+    }
+    
 #if __has_include(<AAAFoundation/AAAFoundation.h>)
-    return self.event;
-#else
-    return nil;
+    dispatch_sync(self.queue, ^{
+        self.event[kSecurityRTCFieldDidSucceed] = @(success);
+        [self.event populateUnderlyingErrorsStartingWithRootError:error];
+        [[SecurityAnalyticsReporterRTC rtcAnalyticsReporter] sendEvent:self.event];
+        self.metricSent = YES;
+    });
+#endif
+}
+
+-(void)dealloc
+{
+    if ([self permittedToSendMetrics] == NO) {
+        return;
+    }
+#if __has_include(<AAAFoundation/AAAFoundation.h>)
+    if (self.metricSent == NO) {
+        if (SecIsInternalRelease()) {
+            os_log_fault(OS_LOG_DEFAULT, "failed to send metric event %@ before deallocation", self.event.eventName);
+        } else {
+            secerror("metrics: failed to send metric event %@ before deallocation", self.event.eventName);
+        }
+    }
 #endif
 }
 

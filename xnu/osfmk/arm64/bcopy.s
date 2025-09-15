@@ -180,7 +180,7 @@ L_forwardCleanup:
 	stp     x12,x13,[x3, #32]
 	stp     x14,x15,[x3, #48]
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _memcpy
 
 /*****************************************************************************
  *  forward small copy                                                       *
@@ -206,7 +206,7 @@ L_forwardSmallCopy:
 	subs    x2,      x2, #1
 	b.ne    1b
 2:	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _memcpy
 
 /*****************************************************************************
  *  Reverse copy engines                                                     *
@@ -273,7 +273,7 @@ L_reverseCleanup:
 	stp     x12,x13,[x0, #16] // In the forward copy, we need to compute the
 	stp     x14,x15,[x0]      // address of these stores, but here we already
 	POP_FRAME       // have a pointer to the start of the buffer.
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _memcpy
 
 /*****************************************************************************
  *  reverse small copy                                                       *
@@ -291,9 +291,9 @@ L_reverseSmallCopy:
 	subs    x2,      x2, #1
 	b.ne    1b
 2:	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _memcpy
 
 
 L_return:
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG _memcpy

@@ -107,7 +107,7 @@ EGLImage GLDisplay::createImage(EGLContext context, EGLenum target, EGLClientBuf
     if (checkVersion(1, 5)) {
         static PFNEGLCREATEIMAGEPROC s_eglCreateImage = reinterpret_cast<PFNEGLCREATEIMAGEPROC>(eglGetProcAddress("eglCreateImage"));
         if (s_eglCreateImage)
-            return s_eglCreateImage(m_display, context, target, clientBuffer, attributes.isEmpty() ? nullptr : attributes.data());
+            return s_eglCreateImage(m_display, context, target, clientBuffer, attributes.isEmpty() ? nullptr : attributes.span().data());
         return EGL_NO_IMAGE;
     }
 
@@ -119,7 +119,7 @@ EGLImage GLDisplay::createImage(EGLContext context, EGLenum target, EGLClientBuf
     });
     static PFNEGLCREATEIMAGEKHRPROC s_eglCreateImageKHR = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
     if (s_eglCreateImageKHR)
-        return s_eglCreateImageKHR(m_display, context, target, clientBuffer, intAttributes.isEmpty() ? nullptr : intAttributes.data());
+        return s_eglCreateImageKHR(m_display, context, target, clientBuffer, intAttributes.isEmpty() ? nullptr : intAttributes.span().data());
     return EGL_NO_IMAGE_KHR;
 }
 
@@ -156,7 +156,7 @@ static Vector<GLDisplay::DMABufFormat> queryDMABufFormats(EGLDisplay eglDisplay,
         return { };
 
     Vector<EGLint> formats(formatsCount);
-    if (!s_eglQueryDmaBufFormatsEXT(eglDisplay, formatsCount, reinterpret_cast<EGLint*>(formats.data()), &formatsCount))
+    if (!s_eglQueryDmaBufFormatsEXT(eglDisplay, formatsCount, reinterpret_cast<EGLint*>(formats.mutableSpan().data()), &formatsCount))
         return { };
 
     static PFNEGLQUERYDMABUFMODIFIERSEXTPROC s_eglQueryDmaBufModifiersEXT = supportModifiers ?
@@ -171,7 +171,7 @@ static Vector<GLDisplay::DMABufFormat> queryDMABufFormats(EGLDisplay eglDisplay,
             EGLint modifiersCount;
             if (s_eglQueryDmaBufModifiersEXT(eglDisplay, format, 0, nullptr, nullptr, &modifiersCount) && modifiersCount) {
                 Vector<EGLuint64KHR> modifiers(modifiersCount);
-                if (s_eglQueryDmaBufModifiersEXT(eglDisplay, format, modifiersCount, reinterpret_cast<EGLuint64KHR*>(modifiers.data()), nullptr, &modifiersCount)) {
+                if (s_eglQueryDmaBufModifiersEXT(eglDisplay, format, modifiersCount, reinterpret_cast<EGLuint64KHR*>(modifiers.mutableSpan().data()), nullptr, &modifiersCount)) {
                     dmabufModifiers.grow(modifiersCount);
                     for (int i = 0; i < modifiersCount; ++i)
                         dmabufModifiers[i] = modifiers[i];

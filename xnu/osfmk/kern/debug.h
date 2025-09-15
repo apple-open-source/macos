@@ -43,6 +43,7 @@
 
 #ifdef XNU_KERNEL_PRIVATE
 #include <kern/percpu.h>
+#include <kern/upsi.h>
 #else
 #include <TargetConditionals.h>
 #endif
@@ -142,6 +143,10 @@ struct task_snapshot {
 	/*
 	 * I/O Statistics
 	 * XXX: These fields must be together.
+	 */
+	/*
+	 * In microstackshots, `disk_reads_count` is actually
+	 * the full 64-bits of ss_flags.
 	 */
 	uint64_t                disk_reads_count;
 	uint64_t                disk_reads_size;
@@ -265,6 +270,7 @@ __options_decl(stackshot_flags_t, uint64_t, {
 	STACKSHOT_ACTIVE_KERNEL_THREADS_ONLY       = 0x100,
 	STACKSHOT_GET_BOOT_PROFILE                 = 0x200,
 	STACKSHOT_DO_COMPRESS                      = 0x400,
+	/* Now on by default/unused */
 	STACKSHOT_SAVE_IMP_DONATION_PIDS           = 0x2000,
 	STACKSHOT_SAVE_IN_KERNEL_BUFFER            = 0x4000,
 	STACKSHOT_RETRIEVE_EXISTING_BUFFER         = 0x8000,
@@ -631,23 +637,6 @@ enum {
 #define __FILE_NAME__ __FILE__
 #endif
 
-/* Macros for XNU platform stalls
- *  The "location" macros specify points where we can stall or panic
- *  The "action" macros specify the action to take at these points.
- *  The default action is to stall. */
-#if (DEVELOPMENT || DEBUG)
-#define PLATFORM_STALL_XNU_DISABLE                              (0)
-#define PLATFORM_STALL_XNU_LOCATION_ARM_INIT                    (0x1ULL << 0)
-#define PLATFORM_STALL_XNU_LOCATION_KERNEL_BOOTSTRAP            (0x1ULL << 1)
-#define PLATFORM_STALL_XNU_LOCATION_BSD_INIT                    (0x1ULL << 2)
-#define PLATFORM_STALL_XNU_ACTION_PANIC                         (0x1ULL << 7)
-
-extern uint64_t xnu_platform_stall_value;
-
-void platform_stall_panic_or_spin(uint32_t req);
-
-#endif
-
 struct task;
 struct thread;
 struct proc;
@@ -817,6 +806,7 @@ extern size_t panic_stackshot_len;
 #endif /* defined (__x86_64__) */
 
 void    SavePanicInfo(const char *message, void *panic_data, uint64_t panic_options, const char* panic_initiator);
+void    print_curr_backtrace(void);
 void    paniclog_flush(void);
 void    panic_display_zalloc(void); /* in zalloc.c */
 void    panic_display_kernel_aslr(void);

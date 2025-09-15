@@ -150,6 +150,7 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
 
     uint32_t typeCount() const { return typeSignatures.size(); }
 
+    bool hasGCObjectTypes() const { return m_hasGCObjectTypes; }
     bool hasMemoryImport() const { return memory.isImport(); }
 
     BranchHint getBranchHint(uint32_t functionOffset, uint32_t branchOffset) const
@@ -165,6 +166,12 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     bool callCanClobberInstance(FunctionSpaceIndex functionIndexSpace) const { return m_clobberingTailCalls.test(functionIndexSpace); }
     void addClobberingTailCall(FunctionSpaceIndex functionIndexSpace) { m_clobberingTailCalls.concurrentTestAndSet(functionIndexSpace); }
 
+    void setTotalFunctionSize(size_t totalFunctionSize)
+    {
+        m_totalFunctionSize = totalFunctionSize;
+    }
+    size_t totalFunctionSize() const { return m_totalFunctionSize; }
+
     // FIXME: These should probably be FixedVectors.
     Vector<Import> imports;
     Vector<TypeIndex> importFunctionTypeIndices;
@@ -175,6 +182,9 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     Vector<Ref<TypeDefinition>> recursionGroups;
 
     MemoryInformation memory;
+    bool m_hasGCObjectTypes { false };
+    mutable Atomic<bool> m_usesLegacyExceptions { false };
+    mutable Atomic<bool> m_usesModernExceptions { false };
 
     Vector<FunctionData> functions;
 
@@ -198,6 +208,7 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     BitVector m_declaredExceptions;
     mutable FixedBitVector m_referencedFunctions;
     mutable FixedBitVector m_clobberingTailCalls;
+    size_t m_totalFunctionSize { 0 };
 };
 
     

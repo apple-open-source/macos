@@ -30,8 +30,9 @@
 #include <skywalk/nexus/netif/nx_netif.h>
 #include <sys/kdebug.h>
 #include <mach/thread_act.h>
-#include <kern/thread.h>
 #include <kern/sched_prim.h>
+#include <kern/thread.h>
+#include <kern/uipc_domain.h>
 
 extern kern_return_t thread_terminate(thread_t);
 
@@ -161,8 +162,7 @@ nx_netif_mit_init(struct nx_netif *nif, const struct ifnet *ifp,
 	char oid_name_buf[24];
 	const char *__null_terminated oid_name = NULL;
 
-	_CASSERT(sizeof(mit_cfg_tbl_native_cellular) <=
-	    sizeof(((struct nx_netif_mit *)0)->mit_tbl));
+	static_assert(sizeof(mit_cfg_tbl_native_cellular) <= sizeof(((struct nx_netif_mit *)0)->mit_tbl));
 
 	lck_spin_init(&mit->mit_lock, kr->ckr_qlock_group, &channel_lock_attr);
 
@@ -298,7 +298,7 @@ nx_netif_mit_init(struct nx_netif *nif, const struct ifnet *ifp,
 	MIT_ADD_SKOID(2);
 	MIT_ADD_SKOID(3);
 	MIT_ADD_SKOID(4);
-	_CASSERT(NETIF_MIT_CFG_TBL_MAX_CFG == 5);
+	static_assert(NETIF_MIT_CFG_TBL_MAX_CFG == 5);
 #endif /* !DEVELOPMENT && !DEBUG */
 }
 
@@ -830,7 +830,7 @@ nx_netif_mit_stats(struct __kern_channel_ring *kr, uint64_t pkts,
 		}
 
 		SK_RDF(SK_VERB_NETIF_MIT, 2, "%s [%u]: pavg %u bavg %u "
-		    "delay %llu usec", mit->mit_name, mit->mit_cfg_idx,
+		    "delay %u usec", mit->mit_name, mit->mit_cfg_idx,
 		    mit->mit_packets_avg, mit->mit_bytes_avg,
 		    (mode == MIT_MODE_ADVANCED_STATIC ? 0 :
 		    (mit->mit_tbl[mit->mit_cfg_idx].cfg_ival)));
@@ -855,7 +855,7 @@ nx_netif_mit_stats(struct __kern_channel_ring *kr, uint64_t pkts,
 			ASSERT(cfg_idx < mit->mit_cfg_idx_max);
 
 			SK_DF(SK_VERB_NETIF_MIT, "%s [%u->%u]: pavg %u "
-			    "bavg %u [mode %u->%u, delay %llu->%llu usec]",
+			    "bavg %u [mode %u->%u, delay %u->%u usec]",
 			    mit->mit_name, mit->mit_cfg_idx, cfg_idx,
 			    mit->mit_packets_avg, mit->mit_bytes_avg,
 			    mit->mit_mode, mode,

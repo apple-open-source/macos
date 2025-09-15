@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
-
 #include "NetworkCache.h"
 #include "NetworkCacheEntry.h"
 #include "NetworkCacheSpeculativeLoad.h"
@@ -77,5 +75,3 @@ private:
 
 } // namespace NetworkCache
 } // namespace WebKit
-
-#endif // ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)

@@ -194,7 +194,7 @@ static TUNABLE(bool, syscallfilter_disable, "-disable_syscallfilter", false);
 #if DEBUG
 #define __PROC_INTERNAL_DEBUG 1
 #endif
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 /* Name to give to core files */
 #if defined(XNU_TARGET_OS_BRIDGE)
 __XNU_PRIVATE_EXTERN const char * defaultcorefiledir = "/private/var/internal";
@@ -422,9 +422,11 @@ proc_isinferior(int pid1, int pid2)
  * racy for a current process or if a reference to the process is held.
  */
 struct proc_ident
-proc_ident(proc_t p)
+proc_ident_with_policy(proc_t p, proc_ident_validation_policy_t policy)
 {
 	struct proc_ident ident = {
+		.may_exit = (policy & IDENT_VALIDATION_PROC_MAY_EXIT) != 0,
+		.may_exec = (policy & IDENT_VALIDATION_PROC_MAY_EXEC) != 0,
 		.p_pid = proc_pid(p),
 		.p_uniqueid = proc_uniqueid(p),
 		.p_idversion = proc_pidversion(p),
@@ -433,6 +435,12 @@ proc_ident(proc_t p)
 	return ident;
 }
 
+/*
+ * Function: proc_find_audit_token
+ *
+ * Description: Lookup a process with the provided audit_token_t
+ * will validate that the embedded pidver matches.
+ */
 proc_t
 proc_find_audit_token(const audit_token_t token)
 {
@@ -457,23 +465,200 @@ proc_find_audit_token(const audit_token_t token)
 	return proc;
 }
 
-proc_t
-proc_find_ident(struct proc_ident const *ident)
+/*
+ * Function: proc_find_ident_validated
+ *
+ * Description: Obtain a proc ref from the provided proc_ident.
+ *
+ * Returns:
+ *   - 0 on Success
+ *   - EINVAL: When the provided arguments are invalid (NULL)
+ *   - ESTALE: The process exists but is currently a zombie and
+ *     has not been reaped via wait(). Callers may choose to handle
+ *     this edge case as a non-error.
+ *   - ESRCH: When the lookup or validation fails otherwise. The process
+ *     described by the identifier no longer exists.
+ *
+ * Note: Caller must proc_rele() the out param when this function returns 0
+ */
+errno_t
+proc_find_ident_validated(const proc_ident_t ident, proc_t *out)
 {
-	proc_t proc = PROC_NULL;
-
-	proc = proc_find(ident->p_pid);
-	if (proc == PROC_NULL) {
-		return PROC_NULL;
+	if (ident == NULL || out == NULL) {
+		return EINVAL;
 	}
 
-	if (proc_uniqueid(proc) != ident->p_uniqueid ||
+	proc_t proc = proc_find(ident->p_pid);
+	if (proc == PROC_NULL) {
+		// If the policy indicates the process may exit, we should also check
+		// the zombie list, and return ENOENT to indicate that the process is
+		// a zombie waiting to be reaped.
+		if (proc_ident_has_policy(ident, IDENT_VALIDATION_PROC_MAY_EXIT)
+		    && pzfind_unique(ident->p_pid, ident->p_uniqueid)) {
+			return ESTALE;
+		}
+		return ESRCH;
+	}
+
+	// If the policy indicates that the process shouldn't exec, fail the
+	// lookup if the pidversion doesn't match
+	if (!proc_ident_has_policy(ident, IDENT_VALIDATION_PROC_MAY_EXEC) &&
 	    proc_pidversion(proc) != ident->p_idversion) {
 		proc_rele(proc);
-		return PROC_NULL;
+		return ESRCH;
 	}
 
-	return proc;
+	// Check the uniqueid which is always verified
+	if (proc_uniqueid(proc) != ident->p_uniqueid) {
+		proc_rele(proc);
+		return ESRCH;
+	}
+
+	*out = proc;
+	return 0;
+}
+
+/*
+ * Function: proc_find_ident
+ *
+ * Description: Obtain a proc ref from the provided proc_ident.
+ * Discards the errno result from proc_find_ident_validated
+ * for callers using the old interface.
+ */
+inline proc_t
+proc_find_ident(const proc_ident_t ident)
+{
+	proc_t p = PROC_NULL;
+	if (proc_find_ident_validated(ident, &p) != 0) {
+		return PROC_NULL;
+	}
+	return p;
+}
+
+/*
+ * Function: proc_ident_equal_token
+ *
+ * Description: Compare a proc_ident_t to an audit token. The
+ * process described by the audit token must still exist (which
+ * includes a pidver check during the lookup). But the comparison
+ * with the proc_ident_t will respect IDENT_VALIDATION_PROC_MAY_EXEC
+ * and only compare PID and unique ID when it is set.
+ */
+bool
+proc_ident_equal_token(proc_ident_t ident, audit_token_t token)
+{
+	if (ident == NULL) {
+		return false;
+	}
+
+	// If the PIDs don't match, early return
+	if (ident->p_pid != get_audit_token_pid(&token)) {
+		return false;
+	}
+
+	// Compare pidversion if IDENT_VALIDATION_PROC_MAY_EXEC is not set
+	if (!proc_ident_has_policy(ident, IDENT_VALIDATION_PROC_MAY_EXEC) &&
+	    ident->p_idversion != token.val[7]) {
+		return false;
+	}
+
+	// Lookup the process described by the provided audit token
+	proc_t proc = proc_find_audit_token(token);
+	if (proc == PROC_NULL) {
+		return false;
+	}
+
+	// Always validate that the uniqueid matches
+	if (proc_uniqueid(proc) != ident->p_uniqueid) {
+		proc_rele(proc);
+		return false;
+	}
+
+	proc_rele(proc);
+	return true;
+}
+
+/*
+ * Function: proc_ident_equal_ref
+ *
+ * Description: Compare a proc_ident_t to a proc_t. Will
+ * respect IDENT_VALIDATION_PROC_MAY_EXEC and only compare
+ * PID and unique ID when set.
+ */
+bool
+proc_ident_equal_ref(proc_ident_t ident, proc_t proc)
+{
+	if (ident == NULL || proc == PROC_NULL) {
+		return false;
+	}
+
+	// Always compare PID and p_uniqueid
+	if (proc_pid(proc) != ident->p_pid ||
+	    proc_uniqueid(proc) != ident->p_uniqueid) {
+		return false;
+	}
+
+	// Compare pidversion if IDENT_VALIDATION_PROC_MAY_EXEC is not set
+	if (!proc_ident_has_policy(ident, IDENT_VALIDATION_PROC_MAY_EXEC) &&
+	    proc_pidversion(proc) != ident->p_idversion) {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Function: proc_ident_equal
+ *
+ * Description: Compare two proc_ident_t identifiers. Will
+ * respect IDENT_VALIDATION_PROC_MAY_EXEC and only compare
+ * PID and unique ID when set.
+ */
+bool
+proc_ident_equal(proc_ident_t ident, proc_ident_t other)
+{
+	if (ident == NULL || other == NULL) {
+		return false;
+	}
+
+	// Always compare PID and p_uniqueid
+	if (ident->p_pid != other->p_pid ||
+	    ident->p_uniqueid != other->p_uniqueid) {
+		return false;
+	}
+
+	// Compare pidversion if IDENT_VALIDATION_PROC_MAY_EXEC is not set
+	if (!proc_ident_has_policy(ident, IDENT_VALIDATION_PROC_MAY_EXEC) &&
+	    ident->p_idversion != other->p_idversion) {
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Function: proc_ident_has_policy
+ *
+ * Description: Validate that a particular policy is set.
+ *
+ * Stored in the upper 4 bits of the 32 bit
+ * p_pid field.
+ */
+inline bool
+proc_ident_has_policy(const proc_ident_t ident, enum proc_ident_validation_policy policy)
+{
+	if (ident == NULL) {
+		return false;
+	}
+
+	switch (policy) {
+	case IDENT_VALIDATION_PROC_MAY_EXIT:
+		return ident->may_exit;
+	case IDENT_VALIDATION_PROC_MAY_EXEC:
+		return ident->may_exec;
+	case IDENT_VALIDATION_PROC_EXACT:
+		return ident->may_exec == 0 && ident->may_exit == 0;
+	}
 }
 
 void
@@ -1468,6 +1653,21 @@ proc_archinfo_kdp(void* p, cpu_type_t* cputype, cpu_subtype_t* cpusubtype)
 	}
 }
 
+void
+proc_memstat_data_kdp(void *p, int32_t *current_memlimit, int32_t *prio_effective, int32_t *prio_requested, int32_t *prio_assertion);
+
+void
+proc_memstat_data_kdp(void *p, int32_t *current_memlimit, int32_t *prio_effective, int32_t *prio_requested, int32_t *prio_assertion)
+{
+	proc_t pp = (proc_t)p;
+	if (pp != PROC_NULL) {
+		*current_memlimit = pp->p_memstat_memlimit;
+		*prio_effective = pp->p_memstat_effectivepriority;
+		*prio_assertion = pp->p_memstat_assertionpriority;
+		*prio_requested = pp->p_memstat_requestedpriority;
+	}
+}
+
 const char *
 proc_name_address(void *p)
 {
@@ -2265,27 +2465,59 @@ proc_findthread(thread_t thread)
 	return p;
 }
 
-
 /*
- * Locate a zombie by PID
+ * Determine if the process described by the provided
+ * PID is a zombie
  */
-__private_extern__ proc_t
+__private_extern__ bool
 pzfind(pid_t pid)
 {
-	proc_t p;
+	bool found = false;
 
-
+	/* Enter critical section */
 	proc_list_lock();
 
-	LIST_FOREACH(p, &zombproc, p_list) {
-		if (proc_getpid(p) == pid && !proc_is_shadow(p)) {
-			break;
-		}
+	/* Ensure the proc exists and is a zombie */
+	proc_t p = phash_find_locked(pid);
+	if ((p == PROC_NULL) || !proc_list_exited(p)) {
+		goto out;
 	}
 
+	found = true;
+out:
+	/* Exit critical section */
 	proc_list_unlock();
+	return found;
+}
 
-	return p;
+/*
+ * Determine if the process described by the provided
+ * uniqueid is a zombie. The same as pzfind but with an
+ * additional uniqueid check.
+ */
+__private_extern__ bool
+pzfind_unique(pid_t pid, uint64_t uniqueid)
+{
+	bool found = false;
+
+	/* Enter critical section */
+	proc_list_lock();
+
+	/* Ensure the proc exists and is a zombie */
+	proc_t p = phash_find_locked(pid);
+	if ((p == PROC_NULL) || !proc_list_exited(p)) {
+		goto out;
+	}
+
+	if (proc_uniqueid(p) != uniqueid) {
+		goto out;
+	}
+
+	found = true;
+out:
+	/* Exit critical section */
+	proc_list_unlock();
+	return found;
 }
 
 /*
@@ -3164,7 +3396,7 @@ proc_is_rsr(proc_t p)
 	return os_atomic_load(&p->p_ladvflag, relaxed) & P_RSR;
 }
 
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 /*
  * proc_core_name(format, name, uid, pid)
  * Expand the name described in format, using name, uid, and pid.
@@ -3254,7 +3486,7 @@ endofstring:
 	    (long)pid, name, (uint32_t)uid);
 	return 1;
 }
-#endif /* CONFIG_COREDUMP */
+#endif /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
 
 /* Code Signing related routines */
 
@@ -3769,11 +4001,8 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 			break;
 		}
 #endif /* CONFIG_CSR */
-		task_t task = proc_task(pt);
-
 		proc_lock(pt);
 		proc_csflags_clear(pt, CS_PLATFORM_BINARY | CS_PLATFORM_PATH);
-		task_set_hardened_runtime(task, false);
 		csproc_clear_platform_binary(pt);
 		proc_unlock(pt);
 		break;
@@ -4675,7 +4904,7 @@ proc_pcontrol_null(__unused proc_t p, __unused void *arg)
 extern int32_t  max_kill_priority;
 
 bool
-no_paging_space_action(void)
+no_paging_space_action(memorystatus_kill_cause_t cause)
 {
 	proc_t          p;
 	struct no_paging_space nps;
@@ -4718,7 +4947,7 @@ no_paging_space_action(void)
 				memorystatus_log("memorystatus: killing largest compressed process %s [%d] "
 				    "%llu MB\n",
 				    proc_best_name(p), proc_getpid(p), (nps.npcs_max_size / MB_SIZE));
-				kill_reason = os_reason_create(OS_REASON_JETSAM, JETSAM_REASON_LOWSWAP);
+				kill_reason = os_reason_create(OS_REASON_JETSAM, cause);
 				psignal_with_reason(p, SIGKILL, kill_reason);
 
 				proc_rele(p);
@@ -4728,13 +4957,6 @@ no_paging_space_action(void)
 
 			proc_rele(p);
 		}
-	}
-
-	if (memstat_get_idle_proccnt() > 0) {
-		/*
-		 * There are still idle processes to kill.
-		 */
-		return false;
 	}
 
 	if (nps.pcs_max_size > 0) {
@@ -4750,10 +4972,9 @@ no_paging_space_action(void)
 				memorystatus_log("memorystatus: doing "
 				    "pcontrol on %s [%d]\n",
 				    proc_best_name(p), proc_getpid(p));
-				proc_dopcontrol(p, JETSAM_REASON_LOWSWAP);
+				proc_dopcontrol(p, cause);
 
 				proc_rele(p);
-
 				return true;
 			} else {
 				memorystatus_log("memorystatus: cannot "
@@ -5244,6 +5465,19 @@ proc_get_ro(proc_t p)
 	return ro;
 }
 
+#ifdef __BUILDING_XNU_LIB_UNITTEST__
+/* this is here since unittest Makefile can't build BSD sources yet */
+void mock_init_proc(proc_t p, void* (*calloc_call)(size_t, size_t));
+void
+mock_init_proc(proc_t p, void* (*calloc_call)(size_t, size_t))
+{
+	proc_ro_t ro = calloc_call(1, sizeof(struct proc_ro));
+	ro->pr_proc = p;
+	p->p_proc_ro = ro;
+}
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
+
+
 task_t
 proc_ro_task(proc_ro_t pr)
 {
@@ -5498,7 +5732,7 @@ task_for_pid(
 		error = KERN_FAILURE;
 		goto tfpout;
 	}
-	pident = proc_ident(p);
+	pident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 	is_current_proc = (p == current_proc());
 
 #if CONFIG_AUDIT
@@ -5571,12 +5805,7 @@ task_for_pid(
 
 	/* this reference will be consumed during conversion */
 	task_reference(task);
-	if (task == current_task()) {
-		/* return pinned self if current_task() so equality check with mach_task_self_ passes */
-		sright = (void *)convert_task_to_port_pinned(task);
-	} else {
-		sright = (void *)convert_task_to_port(task);
-	}
+	sright = (void *)convert_task_to_port(task);
 	/* extra task ref consumed */
 
 	/*
@@ -5665,7 +5894,7 @@ task_name_for_pid(
 		    || IOCurrentTaskHasEntitlement("com.apple.system-task-ports.name.safe")
 		    )) {
 			if (proc_task(p) != TASK_NULL) {
-				struct proc_ident pident = proc_ident(p);
+				struct proc_ident pident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 
 				task_t task = proc_task(p);
 
@@ -5753,7 +5982,7 @@ task_inspect_for_pid(struct proc *p __unused, struct task_inspect_for_pid_args *
 		error = ESRCH;
 		goto tifpout;
 	}
-	pident = proc_ident(proc);
+	pident = proc_ident_with_policy(proc, IDENT_VALIDATION_PROC_EXACT);
 	is_current_proc = (proc == current_proc());
 
 	if (!(task_for_pid_posix_check(proc))) {
@@ -5875,7 +6104,7 @@ task_read_for_pid(struct proc *p __unused, struct task_read_for_pid_args *args, 
 		error = ESRCH;
 		goto trfpout;
 	}
-	pident = proc_ident(proc);
+	pident = proc_ident_with_policy(proc, IDENT_VALIDATION_PROC_EXACT);
 	is_current_proc = (proc == current_proc());
 
 	if (!(task_for_pid_posix_check(proc))) {
@@ -6088,7 +6317,7 @@ debug_control_port_for_pid(struct debug_control_port_for_pid_args *args)
 		error = KERN_FAILURE;
 		goto tfpout;
 	}
-	pident = proc_ident(p);
+	pident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 	is_current_proc = (p == current_proc());
 
 #if CONFIG_AUDIT

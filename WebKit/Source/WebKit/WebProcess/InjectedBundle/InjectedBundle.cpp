@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,7 +62,7 @@
 #include <WebCore/JSDOMConvertBufferSource.h>
 #include <WebCore/JSDOMExceptionHandling.h>
 #include <WebCore/JSNotification.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
@@ -101,7 +101,7 @@ RefPtr<InjectedBundle> InjectedBundle::create(WebProcessCreationParameters& para
 
 InjectedBundle::InjectedBundle(const WebProcessCreationParameters& parameters)
     : m_path(parameters.injectedBundlePath)
-    , m_platformBundle(0)
+    , m_platformBundle(nullptr)
     , m_client(makeUnique<API::InjectedBundle::Client>())
 {
 }
@@ -126,16 +126,16 @@ void InjectedBundle::setServiceWorkerProxyCreationCallback(void (*callback)(uint
 void InjectedBundle::postMessage(const String& messageName, API::Object* messageBody)
 {
     auto& webProcess = WebProcess::singleton();
-    webProcess.parentProcessConnection()->send(Messages::WebProcessPool::HandleMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), 0);
+    webProcess.protectedParentProcessConnection()->send(Messages::WebProcessPool::HandleMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), 0);
 }
 
 void InjectedBundle::postSynchronousMessage(const String& messageName, API::Object* messageBody, RefPtr<API::Object>& returnData)
 {
     auto& webProcess = WebProcess::singleton();
-    auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebProcessPool::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), 0);
+    auto sendResult = webProcess.protectedParentProcessConnection()->sendSync(Messages::WebProcessPool::HandleSynchronousMessage(messageName, UserData(webProcess.transformObjectsToHandles(messageBody))), 0);
     if (sendResult.succeeded()) {
         auto [returnUserData] = sendResult.takeReply();
-        returnData = webProcess.transformHandlesToObjects(returnUserData.object());
+        returnData = webProcess.transformHandlesToObjects(returnUserData.protectedObject().get());
     } else
         returnData = nullptr;
 }
@@ -167,13 +167,13 @@ void InjectedBundle::setAsynchronousSpellCheckingEnabled(bool enabled)
 
 int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, double pageHeightInPixels)
 {
-    auto* coreFrame = frame ? frame->coreLocalFrame() : nullptr;
+    RefPtr coreFrame = frame ? frame->coreLocalFrame() : nullptr;
     if (!coreFrame)
         return -1;
     if (!pageWidthInPixels)
-        pageWidthInPixels = coreFrame->view()->width();
+        pageWidthInPixels = coreFrame->protectedView()->width();
     if (!pageHeightInPixels)
-        pageHeightInPixels = coreFrame->view()->height();
+        pageHeightInPixels = coreFrame->protectedView()->height();
 
     return PrintContext::numberOfPages(*coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
@@ -184,34 +184,34 @@ int InjectedBundle::pageNumberForElementById(WebFrame* frame, const String& id, 
     if (!coreFrame)
         return -1;
 
-    RefPtr element = coreFrame->document()->getElementById(id);
+    RefPtr element = coreFrame->protectedDocument()->getElementById(id);
     if (!element)
         return -1;
 
     if (!pageWidthInPixels)
-        pageWidthInPixels = coreFrame->view()->width();
+        pageWidthInPixels = coreFrame->protectedView()->width();
     if (!pageHeightInPixels)
-        pageHeightInPixels = coreFrame->view()->height();
+        pageHeightInPixels = coreFrame->protectedView()->height();
 
     return PrintContext::pageNumberForElement(element.get(), FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 String InjectedBundle::pageSizeAndMarginsInPixels(WebFrame* frame, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft)
 {
-    auto* coreFrame = frame ? frame->coreLocalFrame() : nullptr;
+    RefPtr coreFrame = frame ? frame->coreLocalFrame() : nullptr;
     if (!coreFrame)
         return String();
 
-    return PrintContext::pageSizeAndMarginsInPixels(coreFrame, pageIndex, width, height, marginTop, marginRight, marginBottom, marginLeft);
+    return PrintContext::pageSizeAndMarginsInPixels(coreFrame.get(), pageIndex, width, height, marginTop, marginRight, marginBottom, marginLeft);
 }
 
 bool InjectedBundle::isPageBoxVisible(WebFrame* frame, int pageIndex)
 {
-    auto* coreFrame = frame ? frame->coreLocalFrame() : nullptr;
+    RefPtr coreFrame = frame ? frame->coreLocalFrame() : nullptr;
     if (!coreFrame)
         return false;
 
-    return PrintContext::isPageBoxVisible(coreFrame, pageIndex);
+    return PrintContext::isPageBoxVisible(coreFrame.get(), pageIndex);
 }
 
 bool InjectedBundle::isProcessingUserGesture()
@@ -276,7 +276,7 @@ void InjectedBundle::setUserStyleSheetLocation(const String& location)
 void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
 {
 #if ENABLE(NOTIFICATIONS)
-    page->notificationPermissionRequestManager()->removeAllPermissionsForTesting();
+    page->protectedNotificationPermissionRequestManager()->removeAllPermissionsForTesting();
 #else
     UNUSED_PARAM(page);
 #endif
@@ -285,7 +285,7 @@ void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
 std::optional<WTF::UUID> InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef jsNotification)
 {
 #if ENABLE(NOTIFICATIONS)
-    WebCore::Notification* notification = JSNotification::toWrapped(toJS(jsContext)->vm(), toJS(toJS(jsContext), jsNotification));
+    RefPtr notification = JSNotification::toWrapped(toJS(jsContext)->vm(), toJS(toJS(jsContext), jsNotification));
     if (!notification)
         return std::nullopt;
     return notification->identifier();
@@ -314,11 +314,11 @@ InjectedBundle::DocumentIDToURLMap InjectedBundle::liveDocumentURLs(bool exclude
 
     if (excludeDocumentsInPageGroupPages) {
         Page::forEachPage([&](Page& page) {
-            for (auto* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
-                auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+            for (RefPtr frame = page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
+                RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
                 if (!localFrame)
                     continue;
-                auto* document = localFrame->document();
+                RefPtr document = localFrame->document();
                 if (!document)
                     continue;
                 result.remove(document->identifier().object());

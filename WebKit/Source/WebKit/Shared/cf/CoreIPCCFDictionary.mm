@@ -28,10 +28,74 @@
 
 #if USE(CF)
 
+#import "CoreIPCBoolean.h"
+#import "CoreIPCCFArray.h"
+#import "CoreIPCCFCharacterSet.h"
 #import "CoreIPCCFType.h"
+#import "CoreIPCCFURL.h"
 #import "CoreIPCTypes.h"
+#include <optional>
 
 namespace WebKit {
+
+static std::optional<CoreIPCCFDictionary::KeyType> keyVariantFromCFType(CFTypeRef cfType)
+{
+    switch (IPC::typeFromCFTypeRef(cfType)) {
+    case IPC::CFType::CFArray:
+        return CoreIPCCFArray((CFArrayRef)cfType);
+    case IPC::CFType::CFBoolean:
+        return CoreIPCBoolean((CFBooleanRef)cfType);
+    case IPC::CFType::CFCharacterSet:
+        return CoreIPCCFCharacterSet((CFCharacterSetRef)cfType);
+    case IPC::CFType::CFData:
+        return CoreIPCData((CFDataRef)cfType);
+    case IPC::CFType::CFDate:
+        return CoreIPCDate((CFDateRef)cfType);
+    case IPC::CFType::CFDictionary:
+        return CoreIPCCFDictionary((CFDictionaryRef)cfType);
+    case IPC::CFType::CFNull:
+        return CoreIPCNull((CFNullRef)cfType);
+    case IPC::CFType::CFNumber:
+        return CoreIPCNumber((CFNumberRef)cfType);
+    case IPC::CFType::CFString:
+        return CoreIPCString((CFStringRef)cfType);
+    case IPC::CFType::CFURL:
+        return CoreIPCCFURL((CFURLRef)cfType);
+    case IPC::CFType::Nullptr:
+    case IPC::CFType::SecCertificate:
+    case IPC::CFType::SecAccessControl:
+    case IPC::CFType::SecTrust:
+    case IPC::CFType::CGColorSpace:
+    case IPC::CFType::CGColor:
+    case IPC::CFType::Unknown:
+        return std::nullopt;
+    }
+}
+
+static RetainPtr<CFTypeRef> keyToCFType(const CoreIPCCFDictionary::KeyType& keyType)
+{
+    return WTF::switchOn(keyType, [] (const CoreIPCCFArray& array) -> RetainPtr<CFTypeRef> {
+        return array.createCFArray();
+    }, [] (const CoreIPCBoolean& boolean) -> RetainPtr<CFTypeRef> {
+        return boolean.createBoolean();
+    }, [] (const CoreIPCCFCharacterSet& characterSet) -> RetainPtr<CFTypeRef> {
+        return characterSet.toCF();
+    }, [] (const CoreIPCData& data) -> RetainPtr<CFTypeRef> {
+        return data.data();
+    }, [] (const CoreIPCDate& date) -> RetainPtr<CFTypeRef> {
+        return date.createCFDate();
+    }, [] (const CoreIPCCFDictionary& dictionary) -> RetainPtr<CFTypeRef> {
+        return dictionary.createCFDictionary();
+    }, [] (const CoreIPCNull& nullRef) -> RetainPtr<CFTypeRef> {
+        return nullRef.toCFObject();
+    }, [] (const CoreIPCNumber& number) -> RetainPtr<CFTypeRef> {
+        return number.createCFNumber();
+    }, [] (const CoreIPCString& string) -> RetainPtr<CFTypeRef> {
+        return (CFStringRef)string.toID().get();
+    }, [] (const CoreIPCCFURL& url) -> RetainPtr<CFTypeRef> {
+        return url.createCFURL();
+    });
+}
 
 CoreIPCCFDictionary::CoreIPCCFDictionary(std::unique_ptr<KeyValueVector>&& vector)
     : m_vector(WTFMove(vector)) { }
@@ -47,11 +111,12 @@ CoreIPCCFDictionary::CoreIPCCFDictionary(CFDictionaryRef dictionary)
     m_vector = makeUnique<KeyValueVector>();
     m_vector->reserveInitialCapacity(CFDictionaryGetCount(dictionary));
     [(__bridge NSDictionary *)dictionary enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL*) {
-        if (IPC::typeFromCFTypeRef(key) == IPC::CFType::Unknown)
+        auto keyType = keyVariantFromCFType(key);
+        if (!keyType)
             return;
         if (IPC::typeFromCFTypeRef(value) == IPC::CFType::Unknown)
             return;
-        m_vector->append({ CoreIPCCFType(key), CoreIPCCFType(value) });
+        m_vector->append({ WTFMove(*keyType), CoreIPCCFType(value) });
     }];
 }
 
@@ -62,7 +127,7 @@ RetainPtr<CFDictionaryRef> CoreIPCCFDictionary::createCFDictionary() const
 
     auto result = adoptNS([[NSMutableDictionary alloc] initWithCapacity:m_vector->size()]);
     for (auto& pair : *m_vector) {
-        auto key = pair.key.toID();
+        RetainPtr<id> key = (__bridge id)keyToCFType(pair.key).get();
         auto value = pair.value.toID();
         if (key && value)
             [result setObject:value.get() forKey:key.get()];

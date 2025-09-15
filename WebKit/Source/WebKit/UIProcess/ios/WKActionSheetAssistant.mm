@@ -203,13 +203,13 @@ static const CGFloat presentationElementRectPadding = 15;
     if (!view || !delegate || !_positionInformation)
         return CGRectZero;
 
-    auto indicator = _positionInformation->linkIndicator;
-    if (indicator.textRectsInBoundingRectCoordinates.isEmpty())
+    RefPtr textIndicator = _positionInformation->textIndicator;
+    if (textIndicator->textRectsInBoundingRectCoordinates().isEmpty())
         return CGRectZero;
 
     WebCore::FloatPoint touchLocation = _positionInformation->request.point;
-    WebCore::FloatPoint linkElementLocation = indicator.textBoundingRectInRootViewCoordinates.location();
-    auto indicatedRects = indicator.textRectsInBoundingRectCoordinates.map([&](auto rect) {
+    WebCore::FloatPoint linkElementLocation = textIndicator->textBoundingRectInRootViewCoordinates().location();
+    auto indicatedRects = textIndicator->textRectsInBoundingRectCoordinates().map([&](auto rect) {
         rect.inflate(2);
         rect.moveBy(linkElementLocation);
         return rect;
@@ -293,7 +293,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)isShowingSheet
 {
-    return _interactionSheet != nil;
+    return !!_interactionSheet;
 }
 
 - (void)interactionDidStartWithPositionInformation:(const WebKit::InteractionInformationAtPosition&)information
@@ -305,13 +305,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!WebCore::DataDetection::canBePresentedByDataDetectors(information.url))
         return;
 
-    NSURL *targetURL = information.url;
+    RetainPtr targetURL = information.url.createNSURL();
     if (!targetURL)
         return;
 
     auto *controller = [PAL::getDDDetectionControllerClass() sharedController];
     if ([controller respondsToSelector:@selector(interactionDidStartForURL:)])
-        [controller interactionDidStartForURL:targetURL];
+        [controller interactionDidStartForURL:targetURL.get()];
 #endif
 }
 
@@ -335,26 +335,26 @@ static bool isJavaScriptURL(NSURL *url)
     if (!_positionInformation)
         return;
 
-    NSURL *targetURL = _positionInformation->url;
+    RetainPtr targetURL = _positionInformation->url.createNSURL();
     // FIXME: We should check if Javascript is enabled in the preferences.
 
     _interactionSheet = adoptNS([[WKActionSheet alloc] init]);
     _interactionSheet.get().sheetDelegate = self;
     _interactionSheet.get().preferredStyle = UIAlertControllerStyleActionSheet;
 
-    NSString *titleString = nil;
+    RetainPtr<NSString> titleString;
     if (showLinkTitle && [[targetURL absoluteString] length]) {
-        if (isJavaScriptURL(targetURL))
-            titleString = WEB_UI_STRING_KEY("JavaScript", "JavaScript Action Sheet Title", "Title for action sheet for JavaScript link");
+        if (isJavaScriptURL(targetURL.get()))
+            titleString = WEB_UI_STRING_KEY("JavaScript", "JavaScript Action Sheet Title", "Title for action sheet for JavaScript link").createNSString();
         else
-            titleString = WTF::userVisibleString(targetURL);
+            titleString = WTF::userVisibleString(targetURL.get());
     } else if (defaultTitle)
         titleString = defaultTitle;
     else
-        titleString = _positionInformation->title;
+        titleString = _positionInformation->title.createNSString();
 
     if ([titleString length]) {
-        [_interactionSheet setTitle:titleString];
+        [_interactionSheet setTitle:titleString.get()];
         // We should configure the text field's line breaking mode correctly here, based on whether
         // the title is an URL or not, but the appropriate UIAlertController SPIs are not available yet.
         // The code that used to do this in the UIActionSheet world has been saved for reference in
@@ -370,7 +370,7 @@ static bool isJavaScriptURL(NSURL *url)
         }];
     }
 
-    [_interactionSheet addAction:[UIAlertAction actionWithTitle:WEB_UI_STRING_KEY("Cancel", "Cancel button label in button bar", "Title for Cancel button label in button bar")
+    [_interactionSheet addAction:[UIAlertAction actionWithTitle:WEB_UI_STRING_KEY("Cancel", "Cancel button label in button bar", "Title for Cancel button label in button bar").createNSString().get()
                                                           style:UIAlertActionStyleCancel
                                                         handler:^(UIAlertAction *action) {
                                                             [self cleanupSheet];
@@ -392,11 +392,11 @@ static bool isJavaScriptURL(NSURL *url)
         return;
 
     void (^showImageSheetWithAlternateURLBlock)(NSURL*, NSDictionary *userInfo) = ^(NSURL *alternateURL, NSDictionary *userInfo) {
-        NSURL *targetURL = _positionInformation->url;
-        NSURL *imageURL = _positionInformation->imageURL;
+        RetainPtr targetURL = _positionInformation->url.createNSURL();
+        RetainPtr imageURL = _positionInformation->imageURL.createNSURL();
         if (!targetURL)
             targetURL = alternateURL;
-        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL imageURL:imageURL userInfo:userInfo information:*_positionInformation]);
+        auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeImage URL:targetURL.get() imageURL:imageURL.get() userInfo:userInfo information:*_positionInformation]);
         if ([delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()])
             return;
         auto defaultActions = [self defaultActionsForImageSheet:elementInfo.get()];
@@ -466,7 +466,7 @@ static bool isJavaScriptURL(NSURL *url)
     if (std::max(leftInset, rightInset) <= minimumAvailableWidthOrHeightRatio * CGRectGetWidth(visibleRect) && std::max(topInset, bottomInset) <= minimumAvailableWidthOrHeightRatio * CGRectGetHeight(visibleRect))
         return WKActionSheetPresentAtTouchLocation;
 
-    if (elementInfo.type == _WKActivatedElementTypeLink && positionInfo.linkIndicator.textRectsInBoundingRectCoordinates.size())
+    if (elementInfo.type == _WKActivatedElementTypeLink && positionInfo.textIndicator->textRectsInBoundingRectCoordinates().size())
         return WKActionSheetPresentAtClosestIndicatorRect;
 
     return WKActionSheetPresentAtElementRect;
@@ -484,8 +484,8 @@ static bool isJavaScriptURL(NSURL *url)
     if (!appLink)
         return NO;
 
-    NSString *openInDefaultBrowserTitle = WEB_UI_STRING("Open in Safari", "Title for Open in Safari Link action button");
-    _WKElementAction *openInDefaultBrowserAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeOpenInDefaultBrowser title:openInDefaultBrowserTitle actionHandler:^(_WKActivatedElementInfo *) {
+    RetainPtr openInDefaultBrowserTitle = WEB_UI_STRING("Open in Safari", "Title for Open in Safari Link action button").createNSString();
+    _WKElementAction *openInDefaultBrowserAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeOpenInDefaultBrowser title:openInDefaultBrowserTitle.get() actionHandler:^(_WKActivatedElementInfo *) {
 #if HAVE(APP_LINKS_WITH_ISENABLED)
         appLink.enabled = NO;
         [appLink openWithCompletionHandler:nil];
@@ -501,8 +501,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!externalApplicationName)
         return YES;
 
-    NSString *openInExternalApplicationTitle = [NSString stringWithFormat:WEB_UI_NSSTRING(@"Open in “%@”", "Title for Open in External Application Link action button"), externalApplicationName];
-    _WKElementAction *openInExternalApplicationAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeOpenInExternalApplication title:openInExternalApplicationTitle actionHandler:^(_WKActivatedElementInfo *) {
+    RetainPtr openInExternalApplicationTitle = adoptNS([[NSString alloc] initWithFormat:WEB_UI_NSSTRING(@"Open in “%@”", "Title for Open in External Application Link action button"), externalApplicationName]);
+    _WKElementAction *openInExternalApplicationAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeOpenInExternalApplication title:openInExternalApplicationTitle.get() actionHandler:^(_WKActivatedElementInfo *) {
 #if HAVE(APP_LINKS_WITH_ISENABLED)
         appLink.enabled = YES;
         [appLink openWithCompletionHandler:nil];
@@ -648,13 +648,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (![self synchronouslyRetrievePositionInformation])
         return;
 
-    NSURL *targetURL = _positionInformation->url;
+    RetainPtr targetURL = _positionInformation->url.createNSURL();
     if (!targetURL) {
         _needsLinkIndicator = NO;
         return;
     }
 
-    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL information:*_positionInformation]);
+    auto elementInfo = adoptNS([[_WKActivatedElementInfo alloc] _initWithType:_WKActivatedElementTypeLink URL:targetURL.get() information:*_positionInformation]);
     if ([_delegate respondsToSelector:@selector(actionSheetAssistant:showCustomSheetForElement:)] && [_delegate actionSheetAssistant:self showCustomSheetForElement:elementInfo.get()]) {
         _needsLinkIndicator = NO;
         return;
@@ -776,7 +776,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!WebCore::DataDetection::canBePresentedByDataDetectors(_positionInformation->url))
         return;
 
-    NSURL *targetURL = _positionInformation->url;
+    RetainPtr targetURL = _positionInformation->url.createNSURL();
     if (!targetURL)
         return;
 
@@ -789,14 +789,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if ([_delegate respondsToSelector:@selector(selectedTextForActionSheetAssistant:)])
         textAtSelection = [_delegate selectedTextForActionSheetAssistant:self];
 
-    if ([controller respondsToSelector:@selector(shouldImmediatelyLaunchDefaultActionForURL:)] && [controller shouldImmediatelyLaunchDefaultActionForURL:targetURL]) {
-        auto action = [controller defaultActionForURL:targetURL results:_positionInformation->dataDetectorResults.get() context:context];
+    if ([controller respondsToSelector:@selector(shouldImmediatelyLaunchDefaultActionForURL:)] && [controller shouldImmediatelyLaunchDefaultActionForURL:targetURL.get()]) {
+        auto action = [controller defaultActionForURL:targetURL.get() results:_positionInformation->dataDetectorResults.get() context:context];
         auto *elementAction = [self _elementActionForDDAction:action];
         [elementAction _runActionWithElementInfo:_elementInfo.get() forActionSheetAssistant:self];
         return;
     }
 
-    NSArray *dataDetectorsActions = [controller actionsForURL:targetURL identifier:_positionInformation->dataDetectorIdentifier selectedText:textAtSelection results:_positionInformation->dataDetectorResults.get() context:context];
+    NSArray *dataDetectorsActions = [controller actionsForURL:targetURL.get() identifier:_positionInformation->dataDetectorIdentifier.createNSString().get() selectedText:textAtSelection results:_positionInformation->dataDetectorResults.get() context:context];
     if ([dataDetectorsActions count] == 0)
         return;
     
@@ -811,7 +811,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [elementActions addObject:elementAction];
     }
 
-    NSString *title = [controller titleForURL:targetURL results:_positionInformation->dataDetectorResults.get() context:context];
+    NSString *title = [controller titleForURL:targetURL.get() results:_positionInformation->dataDetectorResults.get() context:context];
     [self _createSheetWithElementActions:elementActions defaultTitle:title showLinkTitle:NO];
     if (!_interactionSheet)
         return;
@@ -835,13 +835,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         if (item.id == WebCore::MediaControlsContextMenuItem::invalidID && item.title.isEmpty() && item.icon.isEmpty() && item.children.isEmpty())
             return [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[]];
 
-        UIImage *image = !item.icon.isEmpty() ? [UIImage systemImageNamed:WTFMove(item.icon)] : nil;
+        UIImage *image = !item.icon.isEmpty() ? [UIImage systemImageNamed:item.icon.createNSString().get()] : nil;
 
         if (!item.children.isEmpty())
-            return [UIMenu menuWithTitle:WTFMove(item.title) image:image identifier:nil options:0 children:[self _uiMenuElementsForMediaControlContextMenuItems:WTFMove(item.children)]];
+            return [UIMenu menuWithTitle:item.title.createNSString().get() image:image identifier:nil options:0 children:[self _uiMenuElementsForMediaControlContextMenuItems:WTFMove(item.children)]];
 
         auto selectedItemID = item.id;
-        UIAction *action = [UIAction actionWithTitle:WTFMove(item.title) image:image identifier:nil handler:[weakSelf = WeakObjCPtr<WKActionSheetAssistant>(self), selectedItemID] (UIAction *) {
+        UIAction *action = [UIAction actionWithTitle:item.title.createNSString().get() image:image identifier:nil handler:[weakSelf = WeakObjCPtr<WKActionSheetAssistant>(self), selectedItemID] (UIAction *) {
             auto strongSelf = weakSelf.get();
             if (!strongSelf)
                 return;
@@ -880,7 +880,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSArray<UIMenuElement *> *menuItems = [self _uiMenuElementsForMediaControlContextMenuItems:WTFMove(itemsToPresent)];
     menuItems = [menuItems arrayByAddingObjectsFromArray:additionalItems];
 
-    _mediaControlsContextMenu = [UIMenu menuWithTitle:WTFMove(menuTitle) children:menuItems];
+    _mediaControlsContextMenu = [UIMenu menuWithTitle:menuTitle.createNSString().get() children:menuItems];
     _mediaControlsContextMenuTargetFrame = WTFMove(targetFrame);
     _mediaControlsContextMenuCallback = WTFMove(completionHandler);
 
@@ -923,11 +923,11 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
             textAtSelection = [_delegate selectedTextForActionSheetAssistant:self];
 
         NSDictionary *newContext = nil;
-        DDResultRef ddResult = [controller resultForURL:_positionInformation->url identifier:_positionInformation->dataDetectorIdentifier selectedText:textAtSelection results:_positionInformation->dataDetectorResults.get() context:context extendedContext:&newContext];
+        DDResultRef ddResult = [controller resultForURL:_positionInformation->url.createNSURL().get() identifier:_positionInformation->dataDetectorIdentifier.createNSString().get() selectedText:textAtSelection results:_positionInformation->dataDetectorResults.get() context:context extendedContext:&newContext];
 
         CGRect sourceRect;
-        if (_positionInformation->isLink)
-            sourceRect = _positionInformation->linkIndicator.textBoundingRectInRootViewCoordinates;
+        if (_positionInformation->isLink && _positionInformation->textIndicator)
+            sourceRect = _positionInformation->textIndicator->textBoundingRectInRootViewCoordinates();
         else
             sourceRect = _positionInformation->bounds;
 
@@ -936,7 +936,7 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
 
         if (ddResult)
             return [ddContextMenuActionClass contextMenuConfigurationWithResult:ddResult inView:_view.getAutoreleased() context:finalContext menuIdentifier:nil];
-        return [ddContextMenuActionClass contextMenuConfigurationWithURL:_positionInformation->url inView:_view.getAutoreleased() context:finalContext menuIdentifier:nil];
+        return [ddContextMenuActionClass contextMenuConfigurationWithURL:_positionInformation->url.createNSURL().get() inView:_view.getAutoreleased() context:finalContext menuIdentifier:nil];
     }
 #endif // ENABLE(DATA_DETECTION)
 

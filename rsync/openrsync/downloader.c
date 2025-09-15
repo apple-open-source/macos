@@ -846,7 +846,10 @@ protocol_token_ff_compress(struct sess *sess, struct download *p, size_t tok)
 	}
 	sz = (tok == p->blk.blksz - 1 && p->blk.rem) ? p->blk.rem : p->blk.len;
 	assert(sz);
-	assert(p->map != NULL);
+	if (p->map == NULL) {
+		ERRX("no map file");
+		return TOKEN_ERROR;
+	}
 	off = tok * p->blk.len;
 
 	if (!fmap_trap(p->map)) {

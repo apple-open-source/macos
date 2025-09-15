@@ -307,7 +307,7 @@ int             getaddresslist(struct nfs_fs_server *);
 void            freeaddresslists(struct nfs_fs_location *);
 int             assemble_mount_args(struct nfs_fs_location *, char **);
 void            usage(void);
-int             nfsparsevers(const char *, uint32_t *, uint32_t *);
+int             nfsparsevers(const char *, uint32_t *, uint32_t *, uint32_t *);
 char *          fh2hexstr(fhandle_t *);
 enum clnt_stat  ping_rpc_statd(struct sockaddr *);
 void            nfs_err(int, const char *, ...) __attribute__((format(printf, 2, 3)));
@@ -1165,18 +1165,18 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
  * version before the minimum version, will swap them.
  */
 uint32_t verstab[] = {
-	0,  /* Version 0 (does not exist) */
-	0,  /* Version 1 (does not exist) */
-	0,  /* Version 2 */
-	0,  /* Version 3 */
-	0   /* Version 4 */
+	0,                    /* Version 0 (does not exist) */
+	0,                    /* Version 1 (does not exist) */
+	0,                    /* Version 2 */
+	0,                    /* Version 3 */
+	NFSV41_MINORVERSION,  /* Version 4 */
 };
 
 #define NFS_MAX_SUPPORTED_VERSION  ((long)(sizeof (verstab) / sizeof (uint32_t) - 1))
 #define NFS_MAX_SUPPORTED_MINOR_VERSION(v) ((long)(verstab[(v)]))
 
 int
-nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
+nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers, uint32_t *got_minor)
 {
 	const char *nptr = vstr;
 	char *eptr;
@@ -1184,6 +1184,8 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 	long val;
 
 	*pmaxvers = 0;
+	*got_minor = 0;
+
 	/* Versions are [2-9][0-9]*(.[0-9]+)?(-[2-9][0-9]*(.[0-9]*)?)? */
 	do {
 		val = strtol(nptr, &eptr, 10);
@@ -1206,6 +1208,7 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 				return 0;
 			}
 			*packvalp |= (uint16_t)val;
+			*got_minor = 1;
 			if (*eptr == '\0') {
 				packvalp = NULL;
 				break;
@@ -1236,7 +1239,7 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
  * Set (and sanity check) the NFS version that is being reuqested to use.
  */
 void
-setNFSVersion(uint32_t pminvers, uint32_t pmaxvers)
+setNFSVersionWithMinor(uint32_t pminvers, uint32_t pmaxvers, uint32_t got_minor)
 {
 	uint32_t vers = PVER2MAJOR(pminvers), mvers = PVER2MINOR(pminvers);
 
@@ -1258,11 +1261,17 @@ setNFSVersion(uint32_t pminvers, uint32_t pmaxvers)
 		options.nfs_minor_version = 0;
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_VERSION);
 		options.nfs_version = vers;
-		if (mvers) {
+		if (got_minor) {
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION);
 			options.nfs_minor_version = mvers;
 		}
 	}
+}
+
+void
+setNFSVersion(uint32_t pminvers, uint32_t pmaxvers)
+{
+	setNFSVersionWithMinor(pminvers, pmaxvers, 0);
 }
 
 /*
@@ -1743,15 +1752,15 @@ handle_mntopts(char *opts)
 		}
 	}
 	if (altflags & ALTF_VERS) {
-		uint32_t pminvers, pmaxvers;
+		uint32_t pminvers = 0, pmaxvers = 0, minor = 0;
 
 		if (!(p2 = getmntoptstr(mop, "vers"))) {
 			p2 = getmntoptstr(mop, "nfsvers");
 		}
 
 		if (p2) {
-			if (nfsparsevers(p2, &pminvers, &pmaxvers)) {
-				setNFSVersion(pminvers, pmaxvers);
+			if (nfsparsevers(p2, &pminvers, &pmaxvers, &minor)) {
+				setNFSVersionWithMinor(pminvers, pmaxvers, minor);
 			} else {
 				warnx("illegal NFS version value -- %s", p2);
 			}

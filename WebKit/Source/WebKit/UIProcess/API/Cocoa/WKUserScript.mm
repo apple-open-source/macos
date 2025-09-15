@@ -62,7 +62,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSString *)source
 {
-    return _userScript->userScript().source();
+    return _userScript->userScript().source().createNSString().autorelease();
 }
 
 - (WKUserScriptInjectionTime)injectionTime

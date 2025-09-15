@@ -48,9 +48,9 @@ inline bool compareVersion(NSData *data, std::span<const uint8_t> version)
 // https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#nfc-applet-selection
 static bool trySelectFidoApplet(NFReaderSession *session)
 {
-    auto *versionData = [session transceive:toNSData(std::span { kCtapNfcAppletSelectionCommand }).get()];
-    if (compareVersion(versionData, std::span { kCtapNfcAppletSelectionU2f })
-        || compareVersion(versionData, std::span { kCtapNfcAppletSelectionCtap }))
+    RetainPtr versionData = [session transceive:toNSData(std::span { kCtapNfcAppletSelectionCommand }).get()];
+    if (compareVersion(versionData.get(), std::span { kCtapNfcAppletSelectionU2f })
+        || compareVersion(versionData.get(), std::span { kCtapNfcAppletSelectionCtap }))
         return true;
 
     // Some legacy U2F keys such as Google T1 Titan don't understand the FIDO applet command. Instead,
@@ -58,7 +58,7 @@ static bool trySelectFidoApplet(NFReaderSession *session)
     // use U2F_VERSION command to double check if the connected tag can actually speak U2F, indicating
     // we are interacting with one of these legacy keys.
     versionData = [session transceive:toNSData(std::span { kCtapNfcU2fVersionCommand }).get()];
-    if (compareVersion(versionData, std::span { kCtapNfcAppletSelectionU2f }))
+    if (compareVersion(versionData.get(), std::span { kCtapNfcAppletSelectionU2f }))
         return true;
 
     return false;
@@ -75,7 +75,7 @@ NfcConnection::NfcConnection(RetainPtr<NFReaderSession>&& session, NfcService& s
     : m_session(WTFMove(session))
     , m_delegate(adoptNS([[WKNFReaderSessionDelegate alloc] initWithConnection:*this]))
     , m_service(service)
-    , m_retryTimer(RunLoop::main(), this, &NfcConnection::startPolling)
+    , m_retryTimer(RunLoop::mainSingleton(), "NfcConnection::RetryTimer"_s, this, &NfcConnection::startPolling)
 {
     [m_session setDelegate:m_delegate.get()];
     startPolling();
@@ -89,8 +89,8 @@ NfcConnection::~NfcConnection()
 Vector<uint8_t> NfcConnection::transact(Vector<uint8_t>&& data) const
 {
     // The method will return an empty NSData if the tag is disconnected.
-    auto *responseData = [m_session transceive:toNSData(data).get()];
-    return makeVector(responseData);
+    RetainPtr responseData = [m_session transceive:toNSData(data).get()];
+    return makeVector(responseData.get());
 }
 
 void NfcConnection::stop() const
@@ -108,7 +108,7 @@ void NfcConnection::didDetectTags(NSArray *tags)
 
     // A physical NFC tag could have multiple interfaces.
     // Therefore, we use tagID to detect if there are multiple physical tags.
-    NSData *tagID = ((NFTag *)tags[0]).tagID;
+    RetainPtr<NSData> tagID = ((NFTag *)tags[0]).tagID;
     for (NFTag *tag : tags) {
         if ([tagID isEqualToData:tag.tagID])
             continue;

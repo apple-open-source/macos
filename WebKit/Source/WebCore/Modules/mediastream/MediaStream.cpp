@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011, 2012, 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,10 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "EventTargetInlines.h"
 #include "Logging.h"
 #include "MediaStreamTrackEvent.h"
 #include "Page.h"
@@ -62,9 +63,9 @@ Ref<MediaStream> MediaStream::create(Document& document, const Vector<Ref<MediaS
     return mediaStream;
 }
 
-Ref<MediaStream> MediaStream::create(Document& document, Ref<MediaStreamPrivate>&& streamPrivate)
+Ref<MediaStream> MediaStream::create(Document& document, Ref<MediaStreamPrivate>&& streamPrivate, AllowEventTracks allowEventTracks)
 {
-    auto mediaStream = adoptRef(*new MediaStream(document, WTFMove(streamPrivate)));
+    auto mediaStream = adoptRef(*new MediaStream(document, WTFMove(streamPrivate), allowEventTracks));
     mediaStream->suspendIfNeeded();
     return mediaStream;
 }
@@ -90,9 +91,10 @@ MediaStream::MediaStream(Document& document, const Vector<Ref<MediaStreamTrack>>
     m_private->addObserver(*this);
 }
 
-MediaStream::MediaStream(Document& document, Ref<MediaStreamPrivate>&& streamPrivate)
+MediaStream::MediaStream(Document& document, Ref<MediaStreamPrivate>&& streamPrivate, AllowEventTracks allowEventTracks)
     : ActiveDOMObject(document)
     , m_private(WTFMove(streamPrivate))
+    , m_allowEventTracks(allowEventTracks)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
@@ -122,13 +124,17 @@ RefPtr<MediaStream> MediaStream::clone()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
+    RefPtr document = this->document();
+    if (!document)
+        return nullptr;
+
     Vector<Ref<MediaStreamTrack>> clonedTracks;
     clonedTracks.reserveInitialCapacity(m_trackMap.size());
     for (auto& track : m_trackMap.values()) {
         if (auto clone = track->clone())
             clonedTracks.append(clone.releaseNonNull());
     }
-    return MediaStream::create(*document(), WTFMove(clonedTracks));
+    return MediaStream::create(*document, WTFMove(clonedTracks));
 }
 
 void MediaStream::addTrack(MediaStreamTrack& track)
@@ -203,7 +209,7 @@ void MediaStream::activeStatusChanged()
 
 void MediaStream::didAddTrack(MediaStreamTrackPrivate& trackPrivate)
 {
-    ScriptExecutionContext* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     if (!context)
         return;
 
@@ -212,18 +218,22 @@ void MediaStream::didAddTrack(MediaStreamTrackPrivate& trackPrivate)
 
     auto track = MediaStreamTrack::create(*context, trackPrivate);
     internalAddTrack(track.copyRef());
+    ASSERT(m_allowEventTracks == AllowEventTracks::Yes);
     dispatchEvent(MediaStreamTrackEvent::create(eventNames().addtrackEvent, Event::CanBubble::No, Event::IsCancelable::No, WTFMove(track)));
 }
 
 void MediaStream::didRemoveTrack(MediaStreamTrackPrivate& trackPrivate)
 {
-    if (auto track = internalTakeTrack(trackPrivate.id()))
+    if (auto track = internalTakeTrack(trackPrivate.id())) {
+        ASSERT(m_allowEventTracks == AllowEventTracks::Yes);
         dispatchEvent(MediaStreamTrackEvent::create(eventNames().removetrackEvent, Event::CanBubble::No, Event::IsCancelable::No, WTFMove(track)));
+    }
 }
 
 void MediaStream::addTrackFromPlatform(Ref<MediaStreamTrack>&& track)
 {
     ALWAYS_LOG(LOGIDENTIFIER, track->logIdentifier());
+    ASSERT(m_allowEventTracks == AllowEventTracks::Yes);
 
     auto& privateTrack = track->privateTrack();
     internalAddTrack(track.copyRef());
@@ -272,7 +282,7 @@ void MediaStream::mediaCanStart(Document& document)
 
 void MediaStream::startProducingData()
 {
-    Document* document = this->document();
+    RefPtr document = this->document();
     if (!document || !document->page())
         return;
 
@@ -353,7 +363,7 @@ void MediaStream::updateActiveState()
     setIsActive(active);
 }
 
-MediaStreamTrackVector MediaStream::filteredTracks(const Function<bool(const MediaStreamTrack&)>& filter) const
+MediaStreamTrackVector MediaStream::filteredTracks(NOESCAPE const Function<bool(const MediaStreamTrack&)>& filter) const
 {
     MediaStreamTrackVector tracks;
     for (auto& track : m_trackMap.values()) {
@@ -369,14 +379,14 @@ Document* MediaStream::document() const
     return downcast<Document>(scriptExecutionContext());
 }
 
-void MediaStream::stop()
+void MediaStream::inactivate()
 {
     m_isActive = false;
 }
 
 bool MediaStream::virtualHasPendingActivity() const
 {
-    return m_isActive;
+    return m_isActive && m_allowEventTracks == AllowEventTracks::Yes && hasEventListeners();
 }
 
 Ref<MediaStreamPrivate> MediaStream::protectedPrivateStream()

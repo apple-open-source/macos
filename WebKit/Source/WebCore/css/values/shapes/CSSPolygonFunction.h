@@ -52,7 +52,7 @@ template<size_t I> const auto& get(const Polygon& value)
         return value.vertices;
 }
 
-template<> struct Serialize<Polygon> { void operator()(StringBuilder&, const Polygon&); };
+template<> struct Serialize<Polygon> { void operator()(StringBuilder&, const SerializationContext&, const Polygon&); };
 
 } // namespace CSS
 } // namespace WebCore

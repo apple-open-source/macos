@@ -22,6 +22,7 @@
 #include "JSTestOverloadedConstructorsWithSequence.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -97,7 +98,7 @@ static inline EncodedJSValue constructJSTestOverloadedConstructorsWithSequence1(
     ASSERT(castedThis);
     EnsureStillAliveScope argument0 = callFrame->argument(0);
     auto sequenceOfStringsConversionResult = convertOptionalWithDefault<IDLSequence<IDLDOMString>>(*lexicalGlobalObject, argument0.value(), [&]() -> ConversionResult<IDLSequence<IDLDOMString>> { return Converter<IDLSequence<IDLDOMString>>::ReturnType { }; });
-    if (UNLIKELY(sequenceOfStringsConversionResult.hasException(throwScope)))
+    if (sequenceOfStringsConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     auto object = TestOverloadedConstructorsWithSequence::create(sequenceOfStringsConversionResult.releaseReturnValue());
     if constexpr (IsExceptionOr<decltype(object)>)
@@ -119,7 +120,7 @@ static inline EncodedJSValue constructJSTestOverloadedConstructorsWithSequence2(
     ASSERT(castedThis);
     EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
     auto stringConversionResult = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
-    if (UNLIKELY(stringConversionResult.hasException(throwScope)))
+    if (stringConversionResult.hasException(throwScope)) [[unlikely]]
        return encodedJSValue();
     auto object = TestOverloadedConstructorsWithSequence::create(stringConversionResult.releaseReturnValue());
     if constexpr (IsExceptionOr<decltype(object)>)
@@ -227,14 +228,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestOverloadedConstructorsWithSequenceConstructor, (J
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestOverloadedConstructorsWithSequencePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestOverloadedConstructorsWithSequence::getConstructor(vm, prototype->globalObject()));
 }
 
 JSC::GCClient::IsoSubspace* JSTestOverloadedConstructorsWithSequence::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestOverloadedConstructorsWithSequence, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestOverloadedConstructorsWithSequence, UseCustomHeapCellType::No>(vm, "JSTestOverloadedConstructorsWithSequence"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestOverloadedConstructorsWithSequence.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestOverloadedConstructorsWithSequence = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestOverloadedConstructorsWithSequence.get(); },
@@ -274,7 +275,9 @@ extern "C" { extern void (*const __identifier("??_7TestOverloadedConstructorsWit
 #else
 extern "C" { extern void* _ZTVN7WebCore38TestOverloadedConstructorsWithSequenceE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestOverloadedConstructorsWithSequence>, void>> static inline void verifyVTable(TestOverloadedConstructorsWithSequence* ptr) {
+template<std::same_as<TestOverloadedConstructorsWithSequence> T>
+static inline void verifyVTable(TestOverloadedConstructorsWithSequence* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

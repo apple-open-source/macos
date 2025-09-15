@@ -308,16 +308,13 @@ T_DECL(thread_selfusage_sanity, "ensure thread_selfusage times are sane", T_META
 T_DECL(proc_pid_rusage_perf_levels,
 		"ensure proc_pid_rusage fills in per-perf level information",
 		REQUIRE_RECOUNT_PMCS,
-    	// REQUIRE_MULTIPLE_PERF_LEVELS, disabled due to rdar://111297938
+		REQUIRE_MULTIPLE_PERF_LEVELS,
 		SET_THREAD_BIND_BOOTARG, T_META_TAG_VM_NOT_ELIGIBLE)
 {
+	T_QUIET; T_ASSERT_GT(perf_level_count(), 1, "Platform should be AMP");
+
 	struct rusage_info_v6 before = { 0 };
 	struct rusage_info_v6 after = { 0 };
-
-	// Until rdar://111297938, manually skip the test if there aren't multiple perf levels.
-	if (perf_level_count() < 2) {
-		T_SKIP("device is not eligible for checking perf levels because it is SMP");
-	}
 
 	_get_proc_pid_rusage(getpid(), &before);
 	run_on_all_perf_levels();
@@ -594,4 +591,82 @@ T_DECL(proc_pidthreadcounts_invalid_tid,
 			"proc_pidinfo(..., PROC_PIDTHREADCOUNTS, UINT64_MAX, ...) should "
 			"fail");
 	T_ASSERT_EQ(errno, ESRCH, "should fail with ESRCH");
+}
+
+// Shared state for the getrusage_thread_terminate_increasing test.
+
+static struct {
+	pthread_mutex_t lock;
+	pthread_cond_t wait_for_thread;
+	pthread_cond_t wait_for_test;
+} _getrusage_thread_state = {
+	.lock = PTHREAD_MUTEX_INITIALIZER,
+	.wait_for_thread = PTHREAD_COND_INITIALIZER,
+	.wait_for_test = PTHREAD_COND_INITIALIZER,
+};
+
+
+static void *
+_thread_spin_and_exit(void * __unused arg)
+{
+	pthread_mutex_lock(&_getrusage_thread_state.lock);
+
+	volatile int counter = 0;
+	while (counter++ < 100000) {}
+
+	pthread_cond_signal(&_getrusage_thread_state.wait_for_thread);
+	pthread_cond_wait(&_getrusage_thread_state.wait_for_test,
+			&_getrusage_thread_state.lock);
+	pthread_mutex_unlock(&_getrusage_thread_state.lock);
+	return NULL;
+}
+
+static uint64_t
+_rusage_to_time_us(struct rusage *usage)
+{
+	return usage->ru_utime.tv_sec * USEC_PER_SEC + usage->ru_utime.tv_usec;
+}
+
+T_DECL(getrusage_thread_terminate_increasing,
+		"check that getrusage(2) is monotonically increasing, even with threads terminating",
+		T_META_TAG_VM_PREFERRED)
+{
+	const uint64_t test_duration_secs = 2;
+	uint64_t now_ns = clock_gettime_nsec_np(CLOCK_MONOTONIC);
+	uint64_t end_ns = now_ns + test_duration_secs * NSEC_PER_SEC;
+
+	while (clock_gettime_nsec_np(CLOCK_MONOTONIC) < end_ns) {
+		pthread_t thread;
+		struct rusage usage;
+		uint64_t old_usage_us, new_usage_us;
+
+		// Start the thread running and doing work.
+		pthread_mutex_lock(&_getrusage_thread_state.lock);
+		pthread_create(&thread, NULL, _thread_spin_and_exit, NULL);
+		pthread_cond_wait(&_getrusage_thread_state.wait_for_thread,
+				&_getrusage_thread_state.lock);
+		pthread_mutex_unlock(&_getrusage_thread_state.lock);
+
+		// Gather the current process user and system time accumulation.
+		T_QUIET; T_ASSERT_POSIX_SUCCESS(getrusage(RUSAGE_SELF, &usage), NULL);
+		old_usage_us = _rusage_to_time_us(&usage);
+
+		// Let the thread terminate.
+		pthread_cond_signal(&_getrusage_thread_state.wait_for_test);
+		pthread_mutex_unlock(&_getrusage_thread_state.lock);
+		pthread_join(thread, NULL);
+
+		// Gather the times again, which might have gone backwards if the
+		// thread's time was temporarily lost due to a race condition in
+		// getrusage(2).
+		T_QUIET; T_ASSERT_POSIX_SUCCESS(getrusage(RUSAGE_SELF, &usage), NULL);
+
+		new_usage_us = _rusage_to_time_us(&usage);
+		T_QUIET;
+		T_ASSERT_GE(new_usage_us, old_usage_us,
+			"getrusage(2) times were not monotonically increasing");
+	}
+
+	T_PASS("checked getrusage(2) times for %llu second%s while threads terminated",
+			test_duration_secs, test_duration_secs == 1 ? "" : "s");
 }

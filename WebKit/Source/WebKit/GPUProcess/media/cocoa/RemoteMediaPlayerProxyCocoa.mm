@@ -30,11 +30,16 @@
 
 #import "LayerHostingContext.h"
 #import "MediaPlayerPrivateRemoteMessages.h"
+#import "RemoteVideoFrameObjectHeap.h"
 #import <QuartzCore/QuartzCore.h>
+#import <WebCore/DestinationColorSpace.h>
+#import <WebCore/FloatRect.h>
 #import <WebCore/FloatSize.h>
+#import <WebCore/HostingContext.h>
 #import <WebCore/IOSurface.h>
 #import <WebCore/VideoFrameCV.h>
-#import <wtf/MachSendRight.h>
+#import <WebCore/VideoFrameMetadata.h>
+#import <wtf/MachSendRightAnnotated.h>
 
 #if USE(EXTENSIONKIT)
 #import <BrowserEngineKit/BELayerHierarchy.h>
@@ -54,7 +59,7 @@ void RemoteMediaPlayerProxy::setVideoLayerSizeIfPossible(const WebCore::FloatSiz
     // We do not want animations here.
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
-    [m_inlineLayerHostingContext->rootLayer() setFrame:CGRectMake(0, 0, size.width(), size.height())];
+    [m_inlineLayerHostingContext->protectedRootLayer() setFrame:CGRectMake(0, 0, size.width(), size.height())];
     [CATransaction commit];
 }
 
@@ -69,7 +74,7 @@ void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    auto* layer = protectedPlayer()->platformLayer();
+    RetainPtr layer = protectedPlayer()->platformLayer();
     if (layer && !m_inlineLayerHostingContext) {
         LayerHostingContextOptions contextOptions;
 #if USE(EXTENSIONKIT)
@@ -78,37 +83,39 @@ void RemoteMediaPlayerProxy::mediaPlayerRenderingModeChanged()
 #if PLATFORM(IOS_FAMILY)
         contextOptions.canShowWhileLocked = m_configuration.canShowWhileLocked;
 #endif
-        m_inlineLayerHostingContext = LayerHostingContext::createForExternalHostingProcess(contextOptions);
+        m_inlineLayerHostingContext = LayerHostingContext::create(contextOptions);
         if (m_configuration.videoLayerSize.isEmpty())
-            m_configuration.videoLayerSize = enclosingIntRect(FloatRect(layer.frame)).size();
+            m_configuration.videoLayerSize = enclosingIntRect(WebCore::FloatRect(layer.get().frame)).size();
         auto& size = m_configuration.videoLayerSize;
         [layer setFrame:CGRectMake(0, 0, size.width(), size.height())];
-        protectedConnection()->send(Messages::MediaPlayerPrivateRemote::LayerHostingContextIdChanged(m_inlineLayerHostingContext->contextID(), size), m_id);
-        for (auto& request : std::exchange(m_layerHostingContextIDRequests, { }))
-            request(m_inlineLayerHostingContext->contextID());
+        protectedConnection()->send(Messages::MediaPlayerPrivateRemote::LayerHostingContextChanged(m_inlineLayerHostingContext->hostingContext(), size), m_id);
+        for (auto& request : std::exchange(m_layerHostingContextRequests, { }))
+            request(m_inlineLayerHostingContext->hostingContext());
     } else if (!layer && m_inlineLayerHostingContext) {
         m_inlineLayerHostingContext = nullptr;
-        protectedConnection()->send(Messages::MediaPlayerPrivateRemote::LayerHostingContextIdChanged(std::nullopt, { }), m_id);
+        protectedConnection()->send(Messages::MediaPlayerPrivateRemote::LayerHostingContextChanged({ }, { }), m_id);
     }
 
     if (m_inlineLayerHostingContext)
-        m_inlineLayerHostingContext->setRootLayer(layer);
+        m_inlineLayerHostingContext->setRootLayer(layer.get());
 
     protectedConnection()->send(Messages::MediaPlayerPrivateRemote::RenderingModeChanged(), m_id);
 }
 
-void RemoteMediaPlayerProxy::requestHostingContextID(CompletionHandler<void(LayerHostingContextID)>&& completionHandler)
+void RemoteMediaPlayerProxy::requestHostingContext(CompletionHandler<void(WebCore::HostingContext)>&& completionHandler)
 {
     if (m_inlineLayerHostingContext) {
-        completionHandler(m_inlineLayerHostingContext->contextID());
+        completionHandler(m_inlineLayerHostingContext->hostingContext());
         return;
     }
 
-    m_layerHostingContextIDRequests.append(WTFMove(completionHandler));
+    m_layerHostingContextRequests.append(WTFMove(completionHandler));
 }
 
-void RemoteMediaPlayerProxy::setVideoLayerSizeFenced(const WebCore::FloatSize& size, WTF::MachSendRight&& machSendRight)
+void RemoteMediaPlayerProxy::setVideoLayerSizeFenced(const WebCore::FloatSize& size, WTF::MachSendRightAnnotated&& sendRightAnnotated)
 {
+    RELEASE_LOG(Media, "RemoteMediaPlayerProxy::setVideoLayerSizeFenced: send right %d, fence data size %lu", sendRightAnnotated.sendRight.sendRight(), sendRightAnnotated.data.size());
+
     ALWAYS_LOG(LOGIDENTIFIER, size.width(), "x", size.height());
 
 #if USE(EXTENSIONKIT)
@@ -117,30 +124,37 @@ void RemoteMediaPlayerProxy::setVideoLayerSizeFenced(const WebCore::FloatSize& s
 
     if (m_inlineLayerHostingContext) {
 #if USE(EXTENSIONKIT)
-        hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(machSendRight.sendRight());
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+        auto sendRightAnnotatedCopy = sendRightAnnotated;
+        hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(WTFMove(sendRightAnnotatedCopy));
+#else
+        hostingUpdateCoordinator = LayerHostingContext::createHostingUpdateCoordinator(sendRightAnnotated.sendRight.sendRight());
+#endif // ENABLE(MACH_PORT_LAYER_HOSTING)
         [hostingUpdateCoordinator addLayerHierarchy:m_inlineLayerHostingContext->hostable().get()];
 #else
-        m_inlineLayerHostingContext->setFencePort(machSendRight.sendRight());
-#endif
+        m_inlineLayerHostingContext->setFencePort(sendRightAnnotated.sendRight.sendRight());
+#endif // USE(EXTENSIONKIT)
     }
 
     m_configuration.videoLayerSize = size;
     setVideoLayerSizeIfPossible(size);
 
-    protectedPlayer()->setVideoLayerSizeFenced(size, WTFMove(machSendRight));
+    protectedPlayer()->setVideoLayerSizeFenced(size, WTFMove(sendRightAnnotated));
 #if USE(EXTENSIONKIT)
     [hostingUpdateCoordinator commit];
 #endif
 }
 
-void RemoteMediaPlayerProxy::mediaPlayerOnNewVideoFrameMetadata(VideoFrameMetadata&& metadata, RetainPtr<CVPixelBufferRef>&& buffer)
+void RemoteMediaPlayerProxy::mediaPlayerOnNewVideoFrameMetadata(WebCore::VideoFrameMetadata&& metadata, RetainPtr<CVPixelBufferRef>&& buffer)
 {
-    auto properties = protectedVideoFrameObjectHeap()->add(WebCore::VideoFrameCV::create({ }, false, VideoFrame::Rotation::None, WTFMove(buffer)));
+    auto properties = protectedVideoFrameObjectHeap()->add(WebCore::VideoFrameCV::create({ }, false, WebCore::VideoFrame::Rotation::None, WTFMove(buffer)));
     protectedConnection()->send(Messages::MediaPlayerPrivateRemote::PushVideoFrameMetadata(metadata, properties), m_id);
 }
 
 void RemoteMediaPlayerProxy::nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&, WebCore::DestinationColorSpace)>&& completionHandler)
 {
+    using namespace WebCore;
+
     RefPtr player = m_player;
     if (!player) {
         completionHandler(std::nullopt, DestinationColorSpace::SRGB());
@@ -172,7 +186,7 @@ void RemoteMediaPlayerProxy::colorSpace(CompletionHandler<void(WebCore::Destinat
 {
     RefPtr player = m_player;
     if (!player) {
-        completionHandler(DestinationColorSpace::SRGB());
+        completionHandler(WebCore::DestinationColorSpace::SRGB());
         return;
     }
 

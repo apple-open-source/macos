@@ -34,10 +34,10 @@ namespace CSS {
 // <circle()> = circle( <radial-size>? [ at <position> ]? )
 // https://drafts.csswg.org/css-shapes-1/#funcdef-basic-shape-circle
 struct Circle {
-    using Extent = std::variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide>;
+    using Extent = Variant<Keyword::ClosestCorner, Keyword::ClosestSide, Keyword::FarthestCorner, Keyword::FarthestSide>;
     // FIXME: The spec says that this should take Length, not a LengthPercentage, but this does not match the tests.
     using Length = CSS::LengthPercentage<Nonnegative>;
-    using RadialSize = std::variant<Length, Extent>;
+    using RadialSize = Variant<Length, Extent>;
 
     RadialSize radius;
     std::optional<Position> position;
@@ -54,7 +54,7 @@ template<size_t I> const auto& get(const Circle& value)
         return value.position;
 }
 
-template<> struct Serialize<Circle> { void operator()(StringBuilder&, const Circle&); };
+template<> struct Serialize<Circle> { void operator()(StringBuilder&, const SerializationContext&, const Circle&); };
 
 } // namespace CSS
 } // namespace WebCore

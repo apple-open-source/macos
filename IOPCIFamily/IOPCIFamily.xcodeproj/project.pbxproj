@@ -148,6 +148,11 @@
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
 		B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */; };
+		B9F43B782D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = B9F43B772D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		B9F43B7A2D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = B9F43B792D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		B9F43B7C2D5ABAC400CEBCE1 /* IOPCITraceEventBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B9F43B7B2D5ABAC400CEBCE1 /* IOPCITraceEventBuffer.cpp */; };
+		B9F43B7D2D5ABB1600CEBCE1 /* IOPCITraceEventDefinitions.h in Copy IOKit.framework User Headers */ = {isa = PBXBuildFile; fileRef = B9F43B772D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h */; };
+		B9F43B7E2D5ABB3700CEBCE1 /* IOPCITraceEventBuffer.h in Copy IOKit.framework User Headers */ = {isa = PBXBuildFile; fileRef = B9F43B792D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -268,6 +273,8 @@
 				9876A96623616B52000531FC /* IOPCIFamilyDefinitions.h in Copy IOKit.framework User Headers */,
 				9874FC74234EA7A800096401 /* IOPCIPrivate.h in Copy IOKit.framework User Headers */,
 				9874FC75234EA7A800096401 /* IOPCIDevice.h in Copy IOKit.framework User Headers */,
+				B9F43B7D2D5ABB1600CEBCE1 /* IOPCITraceEventDefinitions.h in Copy IOKit.framework User Headers */,
+				B9F43B7E2D5ABB3700CEBCE1 /* IOPCITraceEventBuffer.h in Copy IOKit.framework User Headers */,
 			);
 			name = "Copy IOKit.framework User Headers";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -329,6 +336,9 @@
 		A6F210C70A78022400875EC6 /* AppleSamplePCIShared.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleSamplePCIShared.h; sourceTree = "<group>"; };
 		A6F210C80A78022400875EC6 /* AppleSamplePCIUserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCIUserClient.cpp; sourceTree = "<group>"; };
 		B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIMessagedInterruptController.cpp; sourceTree = "<group>"; };
+		B9F43B772D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPCITraceEventDefinitions.h; sourceTree = "<group>"; };
+		B9F43B792D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPCITraceEventBuffer.h; sourceTree = "<group>"; };
+		B9F43B7B2D5ABAC400CEBCE1 /* IOPCITraceEventBuffer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCITraceEventBuffer.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -383,6 +393,8 @@
 				03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */,
 				03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */,
 				03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */,
+				B9F43B772D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h */,
+				B9F43B792D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h */,
 			);
 			path = pci;
 			sourceTree = "<group>";
@@ -429,6 +441,7 @@
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
 				A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */,
+				B9F43B7B2D5ABAC400CEBCE1 /* IOPCITraceEventBuffer.cpp */,
 				03DB1082033AA50A03CA2A5F /* IOKit */,
 			);
 			name = Source;
@@ -557,7 +570,9 @@
 				98B353A6235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */,
 				9874FC53234E9ECB00096401 /* IOAGPDevice.h in Headers */,
 				A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */,
+				B9F43B782D5ABA9300CEBCE1 /* IOPCITraceEventDefinitions.h in Headers */,
 				A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */,
+				B9F43B7A2D5ABAA400CEBCE1 /* IOPCITraceEventBuffer.h in Headers */,
 				9876A93D236131F4000531FC /* PCIDriverKitPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -910,7 +925,7 @@
 		};
 		A613B2A60D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
+			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
@@ -968,6 +983,7 @@
 				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
 				A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */,
 				0A21733A26012D1E00E93AFA /* IOPCIBridgeLegacy.cpp in Sources */,
+				B9F43B7C2D5ABAC400CEBCE1 /* IOPCITraceEventBuffer.cpp in Sources */,
 				B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

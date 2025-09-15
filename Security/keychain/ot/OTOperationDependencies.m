@@ -13,6 +13,7 @@
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
                   personaAdapter:(id<OTPersonaAdapter>)personaAdapter
                deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
+             secureBackupAdapter:(id<OTSecureBackupAdapter>)secureBackupAdapter
                  ckksAccountSync:(CKKSKeychainView* _Nullable)ckks
                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
             cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
@@ -21,7 +22,9 @@
                           flowID:(NSString* _Nullable)flowID
                  deviceSessionID:(NSString* _Nullable)deviceSessionID
           permittedToSendMetrics:(BOOL)permittedToSendMetrics
+                      accountIsW:(BOOL)accountIsW
              reachabilityTracker:(CKKSReachabilityTracker*)reachabilityTracker
+                   escrowChecker:(id<EscrowChecker>)escrowChecker
 {
     if((self = [super init])) {
         _containerName = containerName;
@@ -35,6 +38,7 @@
         _authKitAdapter = authKitAdapter;
         _personaAdapter = personaAdapter;
         _deviceInformationAdapter = deviceInfoAdapter;
+        _secureBackupAdapter = secureBackupAdapter;
         _ckks = ckks;
         _lockStateTracker = lockStateTracker;
         _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
@@ -44,6 +48,8 @@
         _deviceSessionID = deviceSessionID;
         _permittedToSendMetrics = permittedToSendMetrics;
         _reachabilityTracker = reachabilityTracker;
+        _accountIsW = accountIsW;
+        _escrowChecker = escrowChecker;
     }
     return self;
 }

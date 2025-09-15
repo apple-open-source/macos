@@ -32,5 +32,6 @@ header: "WebsiteDataFetchOption.h"
     std::optional<WebKit::SandboxExtensionHandle> containerCachesDirectoryExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> parentBundleDirectoryExtensionHandle;
     std::optional<WebKit::SandboxExtensionHandle> tempDirectoryExtensionHandle;
+    std::optional<WebKit::SandboxExtensionHandle> tempDirectoryRootExtensionHandle;
 #endif
 };

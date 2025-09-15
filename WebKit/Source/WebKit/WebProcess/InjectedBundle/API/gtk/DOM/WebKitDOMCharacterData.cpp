@@ -24,8 +24,10 @@
 #include "DOMObjectCache.h"
 #include <WebCore/DOMException.h>
 #include <WebCore/Document.h>
+#include <WebCore/DocumentInlines.h>
 #include "GObjectEventListener.h"
 #include <WebCore/JSExecState.h>
+#include <WebCore/ShadowRoot.h>
 #include "WebKitDOMCharacterDataPrivate.h"
 #include "WebKitDOMElementPrivate.h"
 #include "WebKitDOMEventPrivate.h"

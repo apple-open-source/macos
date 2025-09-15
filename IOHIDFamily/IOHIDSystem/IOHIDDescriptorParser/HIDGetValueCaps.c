@@ -496,6 +496,13 @@ OSStatus HIDGetSpecificValueCapabilities(HIDReportType reportType,
 					  {
 						  iCount = ptUsageItem->usageMaximum - ptUsageItem->usageMinimum;
 						  iCount++;		// Range count was off by one.
+                          
+                          // The logic in this if statement is not correct with the spec.
+                          // Report count is not directly related the usage range,
+                          // for now we need to fix the zero case.
+                          if (ptReportItem->globals.reportCount == 0) {
+                              iCount = 0;
+                          }
 					  }
 					  else
 						  HIDHasUsage(preparsedDataRef,ptReportItem,

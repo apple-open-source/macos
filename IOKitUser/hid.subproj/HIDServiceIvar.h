@@ -55,7 +55,7 @@ boolean_t                   displayIntegratedDigitizer; \
 boolean_t                   builtIn; \
 boolean_t                   inMomentumPhase; \
 boolean_t                   inDigitizerPhase; \
-boolean_t                   supportReportLatency; \
+uint8_t                     sensorControlOptions; \
 boolean_t                   hidden; \
 boolean_t                   registered; \
 boolean_t                   protectedAccess; \
@@ -98,6 +98,7 @@ struct { \
     SEL         clientNotification; \
     SEL         copyEvent; \
     SEL         setOutputEvent; \
+    SEL         setHIDEventService; \
 } objc;
 
 typedef struct  {

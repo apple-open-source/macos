@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "BitmapImage.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "ContainerNodeInlines.h"
 #include "DOMTokenList.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -53,6 +54,7 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "NamedNodeMap.h"
+#include "NodeInlines.h"
 #include "NodeList.h"
 #include "NodeRenderStyle.h"
 #include "Page.h"
@@ -64,10 +66,12 @@
 #include "ShadowRoot.h"
 #include "SimpleRange.h"
 #include "StyleImage.h"
+#include "StyleURL.h"
 #include "TextExtraction.h"
 #include "TextIterator.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "VisibilityAdjustment.h"
+#include <ranges>
 #include <wtf/HashMap.h>
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -160,7 +164,7 @@ private:
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ClearVisibilityAdjustmentForScope);
 
-using ElementSelectorCache = UncheckedKeyHashMap<Ref<Element>, std::optional<String>>;
+using ElementSelectorCache = HashMap<Ref<Element>, std::optional<String>>;
 
 ElementTargetingController::ElementTargetingController(Page& page)
     : m_page { page }
@@ -176,9 +180,12 @@ static inline bool elementAndAncestorsAreOnlyRenderedChildren(const Element& ele
         return false;
 
     for (auto& ancestor : ancestorsOfType<RenderElement>(*renderer)) {
+        if (ancestor.style().usedVisibility() == Visibility::Hidden)
+            continue;
+
         unsigned numberOfVisibleChildren = 0;
         for (auto& child : childrenOfType<RenderObject>(ancestor)) {
-            if (child.style().usedVisibility() == Visibility::Hidden)
+            if (CheckedPtr renderElement = dynamicDowncast<RenderElement>(child); renderElement && renderElement->style().usedVisibility() == Visibility::Hidden)
                 continue;
 
             if (++numberOfVisibleChildren >= 2)
@@ -221,8 +228,8 @@ static inline ChildElementPosition findChild(const Element& element, const Eleme
 
         if (child.tagName() == elementTagName) {
             if (!firstOfType)
-                firstOfType = &child;
-            lastOfType = &child;
+                firstOfType = child;
+            lastOfType = child;
         }
         currentChildIndex++;
     }
@@ -537,9 +544,7 @@ static Vector<Vector<String>> selectorsForTarget(Element& element, ElementSelect
             selectors.append(WTFMove(selector));
     }
 
-    std::sort(selectors.begin(), selectors.end(), [](auto& first, auto& second) {
-        return first.length() < second.length();
-    });
+    std::ranges::sort(selectors, { }, &String::length);
 
     if (!selectors.isEmpty())
         cache.add(element, selectors.first());
@@ -562,15 +567,15 @@ static inline Vector<FrameIdentifier> collectChildFrameIdentifiers(const Element
 {
     Vector<FrameIdentifier> identifiers;
     for (auto& owner : descendantsOfType<HTMLFrameOwnerElement>(element)) {
-        if (RefPtr frame = owner.protectedContentFrame())
+        if (RefPtr frame = owner.contentFrame())
             identifiers.append(frame->frameID());
     }
     return identifiers;
 }
 
-static FloatRect computeClientRect(RenderObject& renderer)
+static FloatRect computeClientRect(const RenderElement& renderer)
 {
-    FloatRect rect = renderer.absoluteBoundingBoxRect();
+    auto rect = FloatRect { renderer.absoluteBoundingBoxRect() };
     renderer.document().convertAbsoluteToClientRect(rect, renderer.style());
     return rect;
 }
@@ -628,8 +633,8 @@ static bool hasAudibleMedia(const Element& element)
     if (RefPtr media = dynamicDowncast<HTMLMediaElement>(element))
         return media->isAudible();
 
-    for (auto& media : descendantsOfType<HTMLMediaElement>(element)) {
-        if (media.isAudible())
+    for (Ref media : descendantsOfType<HTMLMediaElement>(element)) {
+        if (media->isAudible())
             return true;
     }
 
@@ -660,7 +665,7 @@ static URL urlForElement(const Element& element)
     if (CheckedPtr renderer = element.renderer()) {
         if (auto& style = renderer->style(); style.hasBackgroundImage()) {
             if (RefPtr image = style.backgroundLayers().image())
-                return image->reresolvedURL(element.document());
+                return image->url().resolved;
         }
     }
 
@@ -721,7 +726,7 @@ static std::optional<TargetedElementInfo> targetedElementInfo(Element& element, 
     }
 
     bool isInVisibilityAdjustmentSubtree = [&] {
-        for (RefPtr ancestor = &element; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
+        for (RefPtr ancestor = element; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
             if (adjustedElements.contains(*ancestor))
                 return true;
         }
@@ -763,7 +768,7 @@ static const HTMLElement* findOnlyMainElement(const HTMLBodyElement& bodyElement
             break;
         }
 
-        onlyMainElement = &descendant;
+        onlyMainElement = descendant;
     }
     return onlyMainElement.get();
 }
@@ -820,7 +825,7 @@ static bool isTargetCandidate(Element& element, const HTMLElement* onlyMainEleme
 
 static inline std::optional<IntRect> inflatedClientRectForAdjustmentRegionTracking(Element& element, float viewportArea)
 {
-    CheckedPtr renderer = element.checkedRenderer();
+    CheckedPtr renderer = element.renderer();
     if (!renderer)
         return { };
 
@@ -874,7 +879,7 @@ Vector<TargetedElementInfo> ElementTargetingController::findTargets(TargetedElem
     return extractTargets(WTFMove(nodes), WTFMove(innerElement), checkViewportAreaRatio, includeNearbyElements);
 }
 
-void ElementTargetingController::topologicallySortElementsHelper(ElementIdentifier currentElementID, Vector<ElementIdentifier>& depthSortedIDs, UncheckedKeyHashSet<ElementIdentifier>& processingIDs, UncheckedKeyHashSet<ElementIdentifier>& unprocessedIDs, const UncheckedKeyHashMap<ElementIdentifier, UncheckedKeyHashSet<ElementIdentifier>>& elementIDToOccludedElementIDs)
+void ElementTargetingController::topologicallySortElementsHelper(ElementIdentifier currentElementID, Vector<ElementIdentifier>& depthSortedIDs, HashSet<ElementIdentifier>& processingIDs, HashSet<ElementIdentifier>& unprocessedIDs, const HashMap<ElementIdentifier, HashSet<ElementIdentifier>>& elementIDToOccludedElementIDs)
 {
     if (processingIDs.contains(currentElementID)) {
         ASSERT_NOT_REACHED();
@@ -894,14 +899,13 @@ void ElementTargetingController::topologicallySortElementsHelper(ElementIdentifi
     depthSortedIDs.append(currentElementID);
 }
 
-Vector<ElementIdentifier> ElementTargetingController::topologicallySortElements(const UncheckedKeyHashMap<ElementIdentifier, UncheckedKeyHashSet<ElementIdentifier>>& elementIDToOccludedElementIDs)
+Vector<ElementIdentifier> ElementTargetingController::topologicallySortElements(const HashMap<ElementIdentifier, HashSet<ElementIdentifier>>& elementIDToOccludedElementIDs)
 {
     Vector<ElementIdentifier> depthSortedIDs;
-    UncheckedKeyHashSet<ElementIdentifier> processingIDs;
-    UncheckedKeyHashSet<ElementIdentifier> unprocessedIDs;
+    HashSet<ElementIdentifier> processingIDs;
+    HashSet<ElementIdentifier> unprocessedIDs;
 
-    const auto elementIDs = elementIDToOccludedElementIDs.keys();
-    unprocessedIDs.add(elementIDs.begin(), elementIDs.end());
+    unprocessedIDs.addAll(elementIDToOccludedElementIDs.keys());
 
     while (!unprocessedIDs.isEmpty() || !processingIDs.isEmpty()) {
         if (unprocessedIDs.isEmpty()) {
@@ -950,14 +954,14 @@ Vector<Vector<TargetedElementInfo>> ElementTargetingController::findAllTargets(f
         }
     }
 
-    UncheckedKeyHashMap<ElementIdentifier, UncheckedKeyHashSet<ElementIdentifier>> elementIDToOccludedElementIDs;
-    UncheckedKeyHashMap<ElementIdentifier, Vector<TargetedElementInfo>> elementIDToTargets;
+    HashMap<ElementIdentifier, HashSet<ElementIdentifier>> elementIDToOccludedElementIDs;
+    HashMap<ElementIdentifier, Vector<TargetedElementInfo>> elementIDToTargets;
     for (auto& targets : targetsList) {
         if (targets.isEmpty())
             continue;
 
         const auto topElementID = targets.first().elementIdentifier;
-        UncheckedKeyHashSet<ElementIdentifier> occludedElementIDsToInsert;
+        HashSet<ElementIdentifier> occludedElementIDsToInsert;
         for (unsigned index = 1; index < targets.size(); ++index)
             occludedElementIDsToInsert.add(targets[index].elementIdentifier);
 
@@ -1036,7 +1040,7 @@ static Element* searchForElementContainingText(ContainerNode& container, const S
         }
 
         CheckedPtr renderer = target->renderer();
-        if (!renderer || renderer->style().isInVisibilityAdjustmentSubtree()) {
+        if (!renderer || renderer->style().isForceHidden()) {
             remainingRange.start = foundRange.end;
             continue;
         }
@@ -1091,9 +1095,9 @@ std::pair<Vector<Ref<Node>>, RefPtr<Element>> ElementTargetingController::findNo
     return { { *foundElement }, foundElement };
 }
 
-static Vector<Ref<Element>> filterRedundantNearbyTargets(UncheckedKeyHashSet<Ref<Element>>&& unfilteredNearbyTargets)
+static Vector<Ref<Element>> filterRedundantNearbyTargets(HashSet<Ref<Element>>&& unfilteredNearbyTargets)
 {
-    UncheckedKeyHashMap<Ref<Element>, bool> shouldKeepCache;
+    HashMap<Ref<Element>, bool> shouldKeepCache;
     Vector<Ref<Element>> filteredResults;
 
     for (auto& originalTarget : unfilteredNearbyTargets) {
@@ -1305,8 +1309,8 @@ Vector<TargetedElementInfo> ElementTargetingController::extractTargets(Vector<Re
             if (RefPtr pseudo = dynamicDowncast<PseudoElement>(candidate))
                 candidateOrHost = pseudo->hostElement();
             else
-                candidateOrHost = &candidate;
-            return candidateOrHost && target.containsIncludingShadowDOM(candidateOrHost.get());
+                candidateOrHost = candidate;
+            return candidateOrHost && target.isShadowIncludingInclusiveAncestorOf(candidateOrHost.get());
         };
 
         candidates.removeAllMatching([&](auto& candidate) {
@@ -1344,7 +1348,7 @@ Vector<TargetedElementInfo> ElementTargetingController::extractTargets(Vector<Re
         return results;
 
     auto nearbyTargets = [&]() -> Vector<Ref<Element>> {
-        UncheckedKeyHashSet<Ref<Element>> results;
+        HashSet<Ref<Element>> results;
         CheckedPtr bodyRenderer = bodyElement->renderer();
         if (!bodyRenderer)
             return { };
@@ -1353,12 +1357,12 @@ Vector<TargetedElementInfo> ElementTargetingController::extractTargets(Vector<Re
             if (!renderer.isOutOfFlowPositioned())
                 continue;
 
-            RefPtr element = renderer.protectedElement();
+            RefPtr element = renderer.element();
             if (!element)
                 continue;
 
             bool elementIsAlreadyTargeted = targets.containsIf([&element](auto& target) {
-                return target->containsIncludingShadowDOM(element.get());
+                return target->isShadowIncludingInclusiveAncestorOf(element.get());
             });
 
             if (elementIsAlreadyTargeted)
@@ -1567,7 +1571,7 @@ static void adjustRegionAfterViewportSizeChange(Region& region, FloatSize oldSiz
 
 void ElementTargetingController::adjustVisibilityInRepeatedlyTargetedRegions(Document& document)
 {
-    if (!document.isTopDocument())
+    if (RefPtr frame = document.frame(); !frame || !frame->isMainFrame())
         return;
 
     RefPtr frameView = document.view();
@@ -1834,7 +1838,7 @@ bool ElementTargetingController::resetVisibilityAdjustments(const Vector<Targete
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    UncheckedKeyHashSet<Ref<Element>> elementsToReset;
+    HashSet<Ref<Element>> elementsToReset;
     if (identifiers.isEmpty()) {
         elementsToReset.reserveInitialCapacity(m_adjustedElements.computeSize());
         for (auto& element : m_adjustedElements)
@@ -1917,6 +1921,9 @@ uint64_t ElementTargetingController::numberOfVisibilityAdjustmentRects()
     if (!page)
         return 0;
 
+    if (!page->hasEverSetVisibilityAdjustment() && !m_shouldRecomputeAdjustedElements)
+        return 0;
+
     RefPtr mainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
     if (!mainFrame)
         return 0;
@@ -1953,9 +1960,7 @@ uint64_t ElementTargetingController::numberOfVisibilityAdjustmentRects()
     }
 
     // Sort by area in descending order so that we don't double-count fully overlapped elements.
-    std::sort(clientRects.begin(), clientRects.end(), [](auto first, auto second) {
-        return first.area() > second.area();
-    });
+    std::ranges::sort(clientRects, std::ranges::greater { }, &FloatRect::area);
 
     Region adjustedRegion;
     uint64_t numberOfRects = 0;

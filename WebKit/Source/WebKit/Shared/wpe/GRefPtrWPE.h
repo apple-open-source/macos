@@ -30,11 +30,15 @@
 #include <wtf/glib/GRefPtr.h>
 
 typedef struct _WPEEvent WPEEvent;
+typedef struct _WPEClipboardContent WPEClipboardContent;
 
 namespace WTF {
 
 template <> WPEEvent* refGPtr(WPEEvent*);
 template <> void derefGPtr(WPEEvent*);
+
+template <> WPEClipboardContent* refGPtr(WPEClipboardContent*);
+template <> void derefGPtr(WPEClipboardContent*);
 
 } // namespace WTF
 

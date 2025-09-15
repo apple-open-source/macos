@@ -252,9 +252,15 @@ SEC_CONST_DECL (kSecAttrKeyTypeX25519, "106");  /* <Security/cssmapple.h> CSSM_A
 SEC_CONST_DECL (kSecAttrKeyTypeEd448, "107");  /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 3 */
 SEC_CONST_DECL (kSecAttrKeyTypeX448, "108");  /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 4 */
 SEC_CONST_DECL (kSecAttrKeyTypeKyber, "109"); /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 5 */
+SEC_CONST_DECL (kSecAttrKeyTypeMLKEM, "110"); /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 6 */
+SEC_CONST_DECL (kSecAttrKeyTypeMLDSA, "111"); /* <Security/cssmapple.h> CSSM_ALGID_RUNNING_COUNTER + 7 */
 
 SEC_CONST_DECL (kSecAttrKeySizeKyber768, "768");
 SEC_CONST_DECL (kSecAttrKeySizeKyber1024, "1024");
+SEC_CONST_DECL (kSecAttrKeySizeMLKEM768, "768");
+SEC_CONST_DECL (kSecAttrKeySizeMLKEM1024, "1024");
+SEC_CONST_DECL (kSecAttrKeySizeMLDSA65, "65");
+SEC_CONST_DECL (kSecAttrKeySizeMLDSA87, "87");
 
 /* kSecAttrSynchronizable Value Constants. */
 SEC_CONST_DECL (kSecAttrSynchronizableAny, "syna");

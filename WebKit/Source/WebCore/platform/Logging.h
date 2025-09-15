@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -97,6 +97,7 @@ namespace WebCore {
     M(ContentVisibility) \
     M(Crypto) \
     M(DatabaseTracker) \
+    M(DigitalCredentials) \
     M(DisplayLink) \
     M(DisplayLists) \
     M(DragAndDrop) \
@@ -114,6 +115,7 @@ namespace WebCore {
     M(FTP) \
     M(Fullscreen) \
     M(Gamepad) \
+    M(HDR) \
     M(HID) \
     M(History) \
     M(IOSurface) \
@@ -130,6 +132,7 @@ namespace WebCore {
     M(Loading) \
     M(Media) \
     M(MediaCaptureSamples) \
+    M(MediaPerformance) \
     M(MediaQueries) \
     M(MediaSource) \
     M(MediaStream) \
@@ -157,6 +160,7 @@ namespace WebCore {
     M(ResourceLoading) \
     M(ResourceLoadObserver) \
     M(ResourceLoadStatistics) \
+    M(ResourceMonitoring) \
     M(ScrollAnimations) \
     M(ScrollAnchoring) \
     M(ScrollSnap) \
@@ -175,6 +179,7 @@ namespace WebCore {
     M(Style) \
     M(StyleSheets) \
     M(SVG) \
+    M(Testing) \
     M(TextAutosizing) \
     M(TextDecoding) \
     M(TextFragment) \

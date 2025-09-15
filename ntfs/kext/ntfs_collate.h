@@ -42,7 +42,7 @@
 #include "ntfs_types.h"
 #include "ntfs_volume.h"
 
-static inline BOOL ntfs_is_collation_rule_supported(COLLATION_RULE cr) {
+static inline NTFS_BOOL ntfs_is_collation_rule_supported(COLLATION_RULE cr) {
 	int i;
 
 	/*

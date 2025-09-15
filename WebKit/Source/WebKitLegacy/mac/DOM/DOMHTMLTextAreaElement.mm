@@ -69,7 +69,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)dirName
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::dirnameAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::dirnameAttr).createNSString().autorelease();
 }
 
 - (void)setDirName:(NSString *)newDirName
@@ -111,7 +111,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getNameAttribute();
+    return unwrap(*self).getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -123,7 +123,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)placeholder
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::placeholderAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::placeholderAttr).createNSString().autorelease();
 }
 
 - (void)setPlaceholder:(NSString *)newPlaceholder
@@ -183,7 +183,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)wrap
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::wrapAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::wrapAttr).createNSString().autorelease();
 }
 
 - (void)setWrap:(NSString *)newWrap
@@ -195,13 +195,13 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).type();
+    return unwrap(*self).type().createNSString().autorelease();
 }
 
 - (NSString *)defaultValue
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).defaultValue();
+    return unwrap(*self).defaultValue().createNSString().autorelease();
 }
 
 - (void)setDefaultValue:(NSString *)newDefaultValue
@@ -213,7 +213,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)value
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).value();
+    return unwrap(*self).value()->createNSString().autorelease();
 }
 
 - (void)setValue:(NSString *)newValue
@@ -267,7 +267,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)selectionDirection
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).selectionDirection();
+    return unwrap(*self).selectionDirection().createNSString().autorelease();
 }
 
 - (void)setSelectionDirection:(NSString *)newSelectionDirection
@@ -279,7 +279,7 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)accessKey
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).getAttribute(WebCore::HTMLNames::accesskeyAttr);
+    return unwrap(*self).getAttribute(WebCore::HTMLNames::accesskeyAttr).createNSString().autorelease();
 }
 
 - (void)setAccessKey:(NSString *)newAccessKey
@@ -291,13 +291,13 @@ DOMHTMLTextAreaElement *kit(WebCore::HTMLTextAreaElement* value)
 - (NSString *)autocomplete
 {
     WebCore::JSMainThreadNullState state;
-    return unwrap(*self).autocomplete();
+    return unwrap(*self).autocomplete().createNSString().autorelease();
 }
 
 - (void)setAutocomplete:(NSString *)newAutocomplete
 {
     WebCore::JSMainThreadNullState state;
-    unwrap(*self).setAutocomplete(newAutocomplete);
+    unwrap(*self).setAttributeWithoutSynchronization(WebCore::HTMLNames::autocompleteAttr, newAutocomplete);
 }
 
 - (void)select

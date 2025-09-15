@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if HAVE(SCENEKIT)
 #if USE(APPLE_INTERNAL_SDK)
 

@@ -72,7 +72,6 @@
 #include <ipc/ipc_entry.h>
 #include <ipc/ipc_object.h>
 #include <ipc/ipc_notify.h>
-#include <ipc/ipc_space.h>
 #include <ipc/ipc_pset.h>
 #include <ipc/ipc_machdep.h>
 
@@ -551,7 +550,7 @@ exception_deliver(
 
 			if (kr == KERN_SUCCESS) {
 				if (exception != EXC_CORPSE_NOTIFY &&
-				    ip_kotype(thread_port) == IKOT_THREAD_CONTROL) {
+				    ip_type(thread_port) == IKOT_THREAD_CONTROL) {
 					kr = thread_setstatus_from_user(thread, flavor,
 					    (thread_state_t)new_state, new_state_cnt,
 					    (thread_state_t)old_state, old_state_cnt, set_flags);

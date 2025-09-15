@@ -239,13 +239,28 @@ kern_return_t kern_register_sk_coredump_helper(kern_coredump_callback_config *kc
 kern_return_t kern_register_userspace_coredump(task_t task, const char * name);
 kern_return_t kern_unregister_userspace_coredump(task_t task);
 
-kern_return_t kern_do_coredump(void *core_outvars, boolean_t kernel_only, uint64_t first_file_offset, uint64_t *last_file_offset, uint64_t details_flags);
+__options_closed_decl(kern_coredump_flags_t, uint64_t, {
+	KCF_NONE               = 0,
+	KCF_KERNEL_ONLY        = (1 << 0),
+	KCF_ABORT_ON_FAILURE   = (1 << 1)
+});
+
+kern_return_t kern_do_coredump(void *core_outvars, kern_coredump_flags_t flags, uint64_t first_file_offset, uint64_t *last_file_offset, uint64_t details_flags);
 
 #define KERN_COREDUMP_MAXDEBUGLOGSIZE 16384
 #define KERN_COREDUMP_BEGIN_FILEBYTES_ALIGN 4096
 #define KERN_COREDUMP_THREADSIZE_MAX 1024
 
 #if XNU_KERNEL_PRIVATE
+
+__enum_closed_decl(kern_coredump_type_t, uint8_t, {
+	XNU_COREDUMP,
+	USERSPACE_COREDUMP,
+	COPROCESSOR_COREDUMP,
+	SECURE_COREDUMP,
+	RAW_COREDUMP,
+	NUM_COREDUMP_TYPES,
+});
 
 struct kern_userspace_coredump_context {
 	/* Task to dump */

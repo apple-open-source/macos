@@ -35,6 +35,7 @@
 #include "LayoutState.h"
 #include "LengthFunctions.h"
 #include "RenderStyleInlines.h"
+#include <ranges>
 #include <wtf/FixedVector.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -89,10 +90,10 @@ FlexLayout::LogicalFlexItems FlexFormattingContext::convertFlexItemsToLogicalSpa
             auto crossAxis = LogicalFlexItem::CrossAxisGeometry { };
 
             auto propertyValueForLength = [&](auto& propertyValue, auto availableSize) -> std::optional<LayoutUnit> {
-                if (propertyValue.isFixed())
-                    return LayoutUnit { propertyValue.value() };
+                if (auto fixedPropertyValue = propertyValue.tryFixed())
+                    return LayoutUnit { fixedPropertyValue->value };
                 if (propertyValue.isSpecified() && availableSize)
-                    return valueForLength(propertyValue, *availableSize);
+                    return Style::evaluate(propertyValue, *availableSize);
                 return { };
             };
 
@@ -192,9 +193,7 @@ FlexLayout::LogicalFlexItems FlexFormattingContext::convertFlexItemsToLogicalSpa
         if (!flexItemsNeedReordering)
             return;
 
-        std::stable_sort(flexItemList.begin(), flexItemList.end(), [&] (auto& a, auto& b) {
-            return a.logicalOrder < b.logicalOrder;
-        });
+        std::ranges::stable_sort(flexItemList, { }, &FlexItem::logicalOrder);
     };
     reorderFlexItemsIfApplicable();
 

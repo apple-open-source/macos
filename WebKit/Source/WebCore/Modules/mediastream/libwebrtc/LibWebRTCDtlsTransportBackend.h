@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc.
+ * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +46,7 @@ class LibWebRTCDtlsTransportBackendObserver;
 class LibWebRTCDtlsTransportBackend final : public RTCDtlsTransportBackend, public CanMakeWeakPtr<LibWebRTCDtlsTransportBackend> {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCDtlsTransportBackend);
 public:
-    explicit LibWebRTCDtlsTransportBackend(rtc::scoped_refptr<webrtc::DtlsTransportInterface>&&);
+    explicit LibWebRTCDtlsTransportBackend(webrtc::scoped_refptr<webrtc::DtlsTransportInterface>&&);
     ~LibWebRTCDtlsTransportBackend();
 
 private:
@@ -56,7 +56,7 @@ private:
     void registerClient(RTCDtlsTransportBackendClient&) final;
     void unregisterClient() final;
 
-    rtc::scoped_refptr<webrtc::DtlsTransportInterface> m_backend;
+    webrtc::scoped_refptr<webrtc::DtlsTransportInterface> m_backend;
     RefPtr<LibWebRTCDtlsTransportBackendObserver> m_observer;
 };
 

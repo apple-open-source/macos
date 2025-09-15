@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if USE(APPKIT)
 
 #if USE(APPLE_INTERNAL_SDK)

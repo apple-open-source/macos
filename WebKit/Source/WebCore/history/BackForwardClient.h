@@ -54,6 +54,7 @@ public:
     virtual bool containsItem(const HistoryItem&) const = 0;
 
     virtual void close() = 0;
+    virtual bool isWebBackForwardListProxy() const { return false; }
 };
 
 } // namespace WebCore

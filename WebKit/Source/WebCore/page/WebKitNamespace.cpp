@@ -27,6 +27,7 @@
 #include "WebKitNamespace.h"
 
 #include "FrameLoader.h"
+#include "LocalFrame.h"
 #include "LocalFrameLoaderClient.h"
 #include "Logging.h"
 

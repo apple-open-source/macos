@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -42,18 +42,7 @@
 #include <dev/random/randomdev.h>
 #include <net/sockaddr_utils.h>
 
-typedef union {
-	struct in_addr addr;
-	struct in6_addr addr6;
-} in_4_6_addr;
-
-struct tcp_heuristic_key {
-	union {
-		uint8_t thk_net_signature[IFNET_SIGNATURELEN];
-		in_4_6_addr thk_ip;
-	};
-	sa_family_t     thk_family;
-};
+#include <IOKit/IOBSD.h>
 
 struct tcp_heuristic {
 	SLIST_ENTRY(tcp_heuristic) list;
@@ -69,10 +58,9 @@ struct tcp_heuristic {
 	uint8_t         th_tfo_req_rst; /* The number of times a SYN+cookie-req has received a RST */
 	uint8_t         th_mptcp_loss; /* The number of times a SYN+MP_CAPABLE has been lost */
 	uint8_t         th_mptcp_success; /* The number of times MPTCP-negotiation has been successful */
-	uint8_t         th_ecn_loss; /* The number of times a SYN+ecn has been lost */
+	uint8_t         th_ecn_loss; /* The number of times a SYN+ecn was likely dropped */
 	uint8_t         th_ecn_aggressive; /* The number of times we did an aggressive fallback */
 	uint8_t         th_ecn_droprst; /* The number of times ECN connections received a RST after first data pkt */
-	uint8_t         th_ecn_droprxmt; /* The number of times ECN connection is dropped after multiple retransmits */
 	uint8_t         th_ecn_synrst;  /* number of times RST was received in response to an ECN enabled SYN */
 	uint32_t        th_tfo_enabled_time; /* The moment when we reenabled TFO after backing off */
 	uint32_t        th_tfo_backoff_until; /* Time until when we should not try out TFO */
@@ -86,6 +74,7 @@ struct tcp_heuristic {
 	// N.B.: we may sometimes erase ALL values from th_val_start to the end of the structure.
 };
 
+
 struct tcp_heuristics_head {
 	SLIST_HEAD(tcp_heur_bucket, tcp_heuristic) tcp_heuristics;
 
@@ -93,16 +82,6 @@ struct tcp_heuristics_head {
 	lck_mtx_t       thh_mtx;
 };
 
-struct tcp_cache_key {
-	sa_family_t     tck_family;
-
-	struct tcp_heuristic_key tck_src;
-	in_4_6_addr tck_dst;
-};
-
-#define MPTCP_VERSION_SUPPORTED 1
-#define MPTCP_VERSION_UNSUPPORTED -1
-#define MPTCP_VERSION_SUPPORTED_UNKNOWN 0
 struct tcp_cache {
 	SLIST_ENTRY(tcp_cache) list;
 
@@ -158,10 +137,10 @@ static uint32_t tcp_backoff_maximum = 65536;
 SYSCTL_UINT(_net_inet_tcp, OID_AUTO, backoff_maximum, CTLFLAG_RW | CTLFLAG_LOCKED,
     &tcp_backoff_maximum, 0, "Maximum time for which we won't try TFO");
 
-static uint32_t tcp_ecn_timeout = 60;
+static uint32_t tcp_ecn_timeout = 5;
 
 SYSCTL_UINT(_net_inet_tcp, OID_AUTO, ecn_timeout, CTLFLAG_RW | CTLFLAG_LOCKED,
-    &tcp_ecn_timeout, 60, "Initial minutes to wait before re-trying ECN");
+    &tcp_ecn_timeout, 5, "Initial minutes to wait before re-trying ECN");
 
 static int disable_tcp_heuristics = 0;
 SYSCTL_INT(_net_inet_tcp, OID_AUTO, disable_tcp_heuristics, CTLFLAG_RW | CTLFLAG_LOCKED,
@@ -192,24 +171,25 @@ tcp_min_to_hz(uint32_t minutes)
 
 /* Number of SYN-losses we accept */
 #define TFO_MAX_COOKIE_LOSS     2
-#define ECN_MAX_SYN_LOSS        2
 #define MPTCP_MAX_SYN_LOSS      2
 #define MPTCP_SUCCESS_TRIGGER   10
 #define MPTCP_VERSION_MAX_FAIL  2
+#define ECN_MAX_SYN_LOSS        5
 #define ECN_MAX_DROPRST         1
-#define ECN_MAX_DROPRXMT        4
 #define ECN_MAX_SYNRST          4
+#define ECN_MAX_CE_AGGRESSIVE   1
 
 /* Flags for setting/unsetting loss-heuristics, limited to 4 bytes */
-#define TCPCACHE_F_TFO_REQ      0x01
-#define TCPCACHE_F_TFO_DATA     0x02
-#define TCPCACHE_F_ECN          0x04
-#define TCPCACHE_F_MPTCP        0x08
-#define TCPCACHE_F_ECN_DROPRST  0x10
-#define TCPCACHE_F_ECN_DROPRXMT 0x20
-#define TCPCACHE_F_TFO_REQ_RST  0x40
-#define TCPCACHE_F_TFO_DATA_RST 0x80
-#define TCPCACHE_F_ECN_SYNRST   0x100
+#define TCPCACHE_F_TFO_REQ         0x01
+#define TCPCACHE_F_TFO_DATA        0x02
+#define TCPCACHE_F_ECN             0x04
+#define TCPCACHE_F_MPTCP           0x08
+#define TCPCACHE_F_ECN_DROPRST     0x10
+#define TCPCACHE_F_ECN_AGGRESSIVE  0x20
+#define TCPCACHE_F_TFO_REQ_RST     0x40
+#define TCPCACHE_F_TFO_DATA_RST    0x80
+#define TCPCACHE_F_ECN_SYNRST      0x100
+#define TCPCACHE_F_ECN_SYN_LOSS    0x200
 
 /* Always retry ECN after backing off to this level for some heuristics */
 #define ECN_RETRY_LIMIT 9
@@ -814,12 +794,10 @@ tcp_heuristic_reset_counters(struct tcp_cache_key_src *tcks, uint8_t flags)
 	}
 
 	if (flags & TCPCACHE_F_ECN) {
-		if (tpheur->th_ecn_loss >= ECN_MAX_SYN_LOSS || tpheur->th_ecn_synrst >= ECN_MAX_SYNRST) {
-			os_log(OS_LOG_DEFAULT, "%s: Resetting ECN-loss to 0 from %u and synrst from %u on heur %lx\n",
-			    __func__, tpheur->th_ecn_loss, tpheur->th_ecn_synrst, (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
-		}
 		tpheur->th_ecn_loss = 0;
+		tpheur->th_ecn_aggressive = 0;
 		tpheur->th_ecn_synrst = 0;
+		tpheur->th_ecn_droprst = 0;
 	}
 
 	if (flags & TCPCACHE_F_MPTCP) {
@@ -968,23 +946,6 @@ tcp_heuristic_inc_counters(struct tcp_cache_key_src *tcks,
 		}
 	}
 
-	if ((flags & TCPCACHE_F_ECN) &&
-	    tpheur->th_ecn_loss < TCP_CACHE_OVERFLOW_PROTECT &&
-	    TSTMP_LEQ(tpheur->th_ecn_backoff, tcp_now)) {
-		tpheur->th_ecn_loss++;
-		if (tpheur->th_ecn_loss >= ECN_MAX_SYN_LOSS) {
-			tcpstat.tcps_ecn_fallback_synloss++;
-			TCP_CACHE_INC_IFNET_STAT(tcks->ifp, tcks->af, ecn_fallback_synloss);
-			tpheur->th_ecn_backoff = tcp_now +
-			    (tcp_min_to_hz(tcp_ecn_timeout) <<
-			    (tpheur->th_ecn_loss - ECN_MAX_SYN_LOSS));
-
-			os_log(OS_LOG_DEFAULT, "%s disable ECN until %u now %u on %lx for SYN-loss\n",
-			    __func__, tpheur->th_ecn_backoff, tcp_now,
-			    (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
-		}
-	}
-
 	if ((flags & TCPCACHE_F_MPTCP) &&
 	    tpheur->th_mptcp_loss < TCP_CACHE_OVERFLOW_PROTECT &&
 	    tpheur->th_mptcp_heuristic_disabled == 0) {
@@ -1005,6 +966,32 @@ tcp_heuristic_inc_counters(struct tcp_cache_key_src *tcks,
 		}
 	}
 
+	if ((flags & TCPCACHE_F_ECN_SYN_LOSS) &&
+	    tpheur->th_ecn_loss < TCP_CACHE_OVERFLOW_PROTECT &&
+	    TSTMP_LEQ(tpheur->th_ecn_backoff, tcp_now)) {
+		tpheur->th_ecn_loss++;
+		if (tpheur->th_ecn_loss >= ECN_MAX_SYN_LOSS) {
+			tcpstat.tcps_ecn_fallback_synloss++;
+			TCP_CACHE_INC_IFNET_STAT(tcks->ifp, tcks->af, ecn_fallback_synloss);
+			tpheur->th_ecn_backoff = tcp_now +
+			    (tcp_min_to_hz(tcp_ecn_timeout) <<
+			    (tpheur->th_ecn_loss - ECN_MAX_SYN_LOSS));
+		}
+	}
+
+	if ((flags & TCPCACHE_F_ECN_AGGRESSIVE) &&
+	    tpheur->th_ecn_aggressive < TCP_CACHE_OVERFLOW_PROTECT &&
+	    TSTMP_LEQ(tpheur->th_ecn_backoff, tcp_now)) {
+		tpheur->th_ecn_aggressive++;
+		if (tpheur->th_ecn_aggressive >= ECN_MAX_CE_AGGRESSIVE) {
+			tcpstat.tcps_ecn_fallback_ce++;
+			TCP_CACHE_INC_IFNET_STAT(tcks->ifp, tcks->af, ecn_fallback_ce);
+			tpheur->th_ecn_backoff = tcp_now +
+			    (tcp_min_to_hz(tcp_ecn_timeout) <<
+			    (tpheur->th_ecn_aggressive - ECN_MAX_CE_AGGRESSIVE));
+		}
+	}
+
 	if ((flags & TCPCACHE_F_ECN_DROPRST) &&
 	    tpheur->th_ecn_droprst < TCP_CACHE_OVERFLOW_PROTECT &&
 	    TSTMP_LEQ(tpheur->th_ecn_backoff, tcp_now)) {
@@ -1016,30 +1003,9 @@ tcp_heuristic_inc_counters(struct tcp_cache_key_src *tcks,
 			tpheur->th_ecn_backoff = tcp_now +
 			    (tcp_min_to_hz(tcp_ecn_timeout) <<
 			    (tpheur->th_ecn_droprst - ECN_MAX_DROPRST));
-
-			os_log(OS_LOG_DEFAULT, "%s disable ECN until %u now %u on %lx for drop-RST\n",
-			    __func__, tpheur->th_ecn_backoff, tcp_now,
-			    (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
 		}
 	}
 
-	if ((flags & TCPCACHE_F_ECN_DROPRXMT) &&
-	    tpheur->th_ecn_droprxmt < TCP_CACHE_OVERFLOW_PROTECT &&
-	    TSTMP_LEQ(tpheur->th_ecn_backoff, tcp_now)) {
-		tpheur->th_ecn_droprxmt++;
-		if (tpheur->th_ecn_droprxmt >= ECN_MAX_DROPRXMT) {
-			tcpstat.tcps_ecn_fallback_droprxmt++;
-			TCP_CACHE_INC_IFNET_STAT(tcks->ifp, tcks->af,
-			    ecn_fallback_droprxmt);
-			tpheur->th_ecn_backoff = tcp_now +
-			    (tcp_min_to_hz(tcp_ecn_timeout) <<
-			    (tpheur->th_ecn_droprxmt - ECN_MAX_DROPRXMT));
-
-			os_log(OS_LOG_DEFAULT, "%s disable ECN until %u now %u on %lx for drop-Rxmit\n",
-			    __func__, tpheur->th_ecn_backoff, tcp_now,
-			    (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
-		}
-	}
 	if ((flags & TCPCACHE_F_ECN_SYNRST) &&
 	    tpheur->th_ecn_synrst < TCP_CACHE_OVERFLOW_PROTECT) {
 		tpheur->th_ecn_synrst++;
@@ -1050,10 +1016,6 @@ tcp_heuristic_inc_counters(struct tcp_cache_key_src *tcks,
 			tpheur->th_ecn_backoff = tcp_now +
 			    (tcp_min_to_hz(tcp_ecn_timeout) <<
 			    (tpheur->th_ecn_synrst - ECN_MAX_SYNRST));
-
-			os_log(OS_LOG_DEFAULT, "%s disable ECN until %u now %u on %lx for SYN-RST\n",
-			    __func__, tpheur->th_ecn_backoff, tcp_now,
-			    (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
 		}
 	}
 	tcp_heuristic_unlock(head);
@@ -1126,8 +1088,7 @@ tcp_heuristic_ecn_loss(struct tcpcb *tp)
 	}
 
 	tcp_cache_key_src_create(tp, &tcks);
-
-	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN);
+	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_SYN_LOSS);
 }
 
 void
@@ -1136,18 +1097,7 @@ tcp_heuristic_ecn_droprst(struct tcpcb *tp)
 	struct tcp_cache_key_src tcks;
 
 	tcp_cache_key_src_create(tp, &tcks);
-
 	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_DROPRST);
-}
-
-void
-tcp_heuristic_ecn_droprxmt(struct tcpcb *tp)
-{
-	struct tcp_cache_key_src tcks;
-
-	tcp_cache_key_src_create(tp, &tcks);
-
-	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_DROPRXMT);
 }
 
 void
@@ -1156,8 +1106,16 @@ tcp_heuristic_ecn_synrst(struct tcpcb *tp)
 	struct tcp_cache_key_src tcks;
 
 	tcp_cache_key_src_create(tp, &tcks);
-
 	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_SYNRST);
+}
+
+void
+tcp_heuristic_ecn_aggressive(struct tcpcb *tp)
+{
+	struct tcp_cache_key_src tcks;
+
+	tcp_cache_key_src_create(tp, &tcks);
+	tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_AGGRESSIVE);
 }
 
 void
@@ -1169,50 +1127,6 @@ tcp_heuristic_tfo_middlebox(struct tcpcb *tp)
 
 	tcp_cache_key_src_create(tp, &tcks);
 	tcp_heuristic_tfo_middlebox_common(&tcks);
-}
-
-static void
-tcp_heuristic_ecn_aggressive_common(struct tcp_cache_key_src *tcks)
-{
-	struct tcp_heuristics_head *__single head;
-	struct tcp_heuristic *__single tpheur;
-
-	tpheur = tcp_getheuristic_with_lock(tcks, 1, &head);
-	if (tpheur == NULL) {
-		return;
-	}
-
-	if (TSTMP_GT(tpheur->th_ecn_backoff, tcp_now)) {
-		/* We are already in aggressive mode */
-		tcp_heuristic_unlock(head);
-		return;
-	}
-
-	/* Must be done before, otherwise we will start off with expo-backoff */
-	tpheur->th_ecn_backoff = tcp_now +
-	    (tcp_min_to_hz(tcp_ecn_timeout) << (tpheur->th_ecn_aggressive));
-
-	/*
-	 * Ugly way to prevent integer overflow... limit to prevent in
-	 * overflow during exp. backoff.
-	 */
-	if (tpheur->th_ecn_aggressive < TCP_CACHE_OVERFLOW_PROTECT) {
-		tpheur->th_ecn_aggressive++;
-	}
-
-	tcp_heuristic_unlock(head);
-
-	os_log(OS_LOG_DEFAULT, "%s disable ECN until %u now %u on %lx\n", __func__,
-	    tpheur->th_ecn_backoff, tcp_now, (unsigned long)VM_KERNEL_ADDRPERM(tpheur));
-}
-
-void
-tcp_heuristic_ecn_aggressive(struct tcpcb *tp)
-{
-	struct tcp_cache_key_src tcks;
-
-	tcp_cache_key_src_create(tp, &tcks);
-	tcp_heuristic_ecn_aggressive_common(&tcks);
 }
 
 static boolean_t
@@ -1351,9 +1265,7 @@ tcp_heuristic_do_ecn_common(struct tcp_cache_key_src *tcks)
 		if (tpheur->th_ecn_droprst >= ECN_RETRY_LIMIT) {
 			tpheur->th_ecn_droprst = 0;
 		}
-		if (tpheur->th_ecn_droprxmt >= ECN_RETRY_LIMIT) {
-			tpheur->th_ecn_droprxmt = 0;
-		}
+
 		if (tpheur->th_ecn_synrst >= ECN_RETRY_LIMIT) {
 			tpheur->th_ecn_synrst = 0;
 		}
@@ -1420,15 +1332,13 @@ tcp_heuristics_ecn_update(struct necp_tcp_ecn_cache *necp_buffer,
 	if (necp_buffer->necp_tcp_ecn_heuristics_success) {
 		tcp_heuristic_reset_counters(&tcks, TCPCACHE_F_ECN);
 	} else if (necp_buffer->necp_tcp_ecn_heuristics_loss) {
-		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN);
+		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_SYN_LOSS);
 	} else if (necp_buffer->necp_tcp_ecn_heuristics_drop_rst) {
 		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_DROPRST);
-	} else if (necp_buffer->necp_tcp_ecn_heuristics_drop_rxmt) {
-		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_DROPRXMT);
 	} else if (necp_buffer->necp_tcp_ecn_heuristics_syn_rst) {
 		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_SYNRST);
 	} else if (necp_buffer->necp_tcp_ecn_heuristics_aggressive) {
-		tcp_heuristic_ecn_aggressive_common(&tcks);
+		tcp_heuristic_inc_counters(&tcks, TCPCACHE_F_ECN_AGGRESSIVE);
 	}
 
 	return;
@@ -1637,6 +1547,175 @@ static int sysctl_cleartfo SYSCTL_HANDLER_ARGS
 SYSCTL_PROC(_net_inet_tcp, OID_AUTO, clear_tfocache, CTLTYPE_INT | CTLFLAG_RW |
     CTLFLAG_LOCKED, &tcpcleartfo, 0, &sysctl_cleartfo, "I",
     "Toggle to clear the TFO destination based heuristic cache");
+
+static int
+sysctl_tcp_heuristics_list SYSCTL_HANDLER_ARGS
+{
+#pragma unused(arg1, arg2)
+	int error = 0;
+	size_t total_entries = 0;
+	size_t total_size;
+	bool entitled = false;
+
+	if (tcp_heuristics == NULL || tcp_heuristics_size == 0) {
+		return ENOENT;
+	}
+
+	if (IOCurrentTaskHasEntitlement(TCP_HEURISTICS_LIST_ENTITLEMENT)) {
+		entitled = true;
+	}
+
+	/* First pass: count total number of heuristic entries across all buckets */
+	for (size_t i = 0; i < tcp_heuristics_size; i++) {
+		struct tcp_heuristics_head *head = &tcp_heuristics[i];
+		struct tcp_heuristic *tpheur;
+
+		lck_mtx_lock(&head->thh_mtx);
+		SLIST_FOREACH(tpheur, &head->tcp_heuristics, list) {
+			total_entries++;
+		}
+		lck_mtx_unlock(&head->thh_mtx);
+	}
+
+	total_size = total_entries * sizeof(struct tcp_heuristics_data);
+
+	if (req->oldptr == USER_ADDR_NULL) {
+		/* Just return the size needed */
+		return SYSCTL_OUT(req, NULL, total_size);
+	}
+
+	if (req->oldlen < total_size) {
+		return ENOMEM;
+	}
+
+	/* Second pass: copy out all heuristic entries */
+	for (size_t i = 0; i < tcp_heuristics_size; i++) {
+		struct tcp_heuristics_head *head = &tcp_heuristics[i];
+		struct tcp_heuristic *tpheur;
+
+		lck_mtx_lock(&head->thh_mtx);
+		SLIST_FOREACH(tpheur, &head->tcp_heuristics, list) {
+			struct tcp_heuristics_data heur_data;
+
+			/* Copy data from tcp_heuristic to tcp_heuristics_data (excluding list field) */
+			heur_data.th_last_access = tpheur->th_last_access;
+			if (entitled) {
+				heur_data.th_key = tpheur->th_key;
+			} else {
+				heur_data.th_key.thk_family = tpheur->th_key.thk_family;
+			}
+			heur_data.th_tfo_data_loss = tpheur->th_tfo_data_loss;
+			heur_data.th_tfo_req_loss = tpheur->th_tfo_req_loss;
+			heur_data.th_tfo_data_rst = tpheur->th_tfo_data_rst;
+			heur_data.th_tfo_req_rst = tpheur->th_tfo_req_rst;
+			heur_data.th_mptcp_loss = tpheur->th_mptcp_loss;
+			heur_data.th_mptcp_success = tpheur->th_mptcp_success;
+			heur_data.th_ecn_droprst = tpheur->th_ecn_droprst;
+			heur_data.th_ecn_synrst = tpheur->th_ecn_synrst;
+			heur_data.th_tfo_enabled_time = tpheur->th_tfo_enabled_time;
+			heur_data.th_tfo_backoff_until = tpheur->th_tfo_backoff_until;
+			heur_data.th_tfo_backoff = tpheur->th_tfo_backoff;
+			heur_data.th_mptcp_backoff = tpheur->th_mptcp_backoff;
+			heur_data.th_ecn_backoff = tpheur->th_ecn_backoff;
+			heur_data.th_tfo_in_backoff = tpheur->th_tfo_in_backoff;
+			heur_data.th_mptcp_in_backoff = tpheur->th_mptcp_in_backoff;
+			heur_data.th_mptcp_heuristic_disabled = tpheur->th_mptcp_heuristic_disabled;
+
+			error = SYSCTL_OUT(req, &heur_data, sizeof(struct tcp_heuristics_data));
+			if (error) {
+				lck_mtx_unlock(&head->thh_mtx);
+				return error;
+			}
+		}
+		lck_mtx_unlock(&head->thh_mtx);
+	}
+
+	return error;
+}
+
+SYSCTL_PROC(_net_inet_tcp, OID_AUTO, heuristics_list,
+    CTLTYPE_OPAQUE | CTLFLAG_RD | CTLFLAG_LOCKED,
+    NULL, 0, sysctl_tcp_heuristics_list, "S,tcp_heuristics_data",
+    "TCP heuristics entries from all buckets");
+
+static int
+sysctl_tcp_cache_list SYSCTL_HANDLER_ARGS
+{
+#pragma unused(arg1, arg2)
+	int error = 0;
+	size_t total_entries = 0;
+	size_t total_size;
+	bool entitled = false;
+
+	if (tcp_cache == NULL || tcp_cache_size == 0) {
+		return ENOENT;
+	}
+
+	if (IOCurrentTaskHasEntitlement(TCP_CACHE_LIST_ENTITLEMENT)) {
+		entitled = true;
+	}
+
+	/* First pass: count total number of cache entries across all buckets */
+	for (size_t i = 0; i < tcp_cache_size; i++) {
+		struct tcp_cache_head *head = &tcp_cache[i];
+		struct tcp_cache *tpcache;
+
+		lck_mtx_lock(&head->tch_mtx);
+		SLIST_FOREACH(tpcache, &head->tcp_caches, list) {
+			total_entries++;
+		}
+		lck_mtx_unlock(&head->tch_mtx);
+	}
+
+	total_size = total_entries * sizeof(struct tcp_cache_data);
+
+	if (req->oldptr == USER_ADDR_NULL) {
+		/* Just return the size needed */
+		return SYSCTL_OUT(req, NULL, total_size);
+	}
+
+	if (req->oldlen < total_size) {
+		return ENOMEM;
+	}
+
+	/* Second pass: copy out all cache entries */
+	for (size_t i = 0; i < tcp_cache_size; i++) {
+		struct tcp_cache_head *head = &tcp_cache[i];
+		struct tcp_cache *tpcache;
+
+		lck_mtx_lock(&head->tch_mtx);
+		SLIST_FOREACH(tpcache, &head->tcp_caches, list) {
+			struct tcp_cache_data cache_data;
+
+			/* Copy data from tcp_cache to tcp_cache_data (excluding list field) */
+			cache_data.tc_last_access = tpcache->tc_last_access;
+			if (entitled) {
+				cache_data.tc_key = tpcache->tc_key;
+			} else {
+				cache_data.tc_key.tck_family = tpcache->tc_key.tck_family;
+			}
+			memcpy(cache_data.tc_tfo_cookie, tpcache->tc_tfo_cookie, TFO_COOKIE_LEN_MAX);
+			cache_data.tc_tfo_cookie_len = tpcache->tc_tfo_cookie_len;
+			cache_data.tc_mptcp_version_confirmed = tpcache->tc_mptcp_version_confirmed;
+			cache_data.tc_mptcp_version = tpcache->tc_mptcp_version;
+			cache_data.tc_mptcp_next_version_try = tpcache->tc_mptcp_next_version_try;
+
+			error = SYSCTL_OUT(req, &cache_data, sizeof(struct tcp_cache_data));
+			if (error) {
+				lck_mtx_unlock(&head->tch_mtx);
+				return error;
+			}
+		}
+		lck_mtx_unlock(&head->tch_mtx);
+	}
+
+	return error;
+}
+
+SYSCTL_PROC(_net_inet_tcp, OID_AUTO, cache_list,
+    CTLTYPE_OPAQUE | CTLFLAG_RD | CTLFLAG_LOCKED,
+    NULL, 0, sysctl_tcp_cache_list, "S,tcp_cache_data",
+    "TCP cache entries from all buckets");
 
 void
 tcp_cache_init(void)

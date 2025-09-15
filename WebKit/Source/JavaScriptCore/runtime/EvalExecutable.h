@@ -64,8 +64,13 @@ public:
     DECLARE_INFO;
 
     unsigned numVariables() { return unlinkedCodeBlock()->numVariables(); }
+    std::span<const Identifier> variables() const { return unlinkedCodeBlock()->variables(); }
+
     unsigned numFunctionHoistingCandidates() { return unlinkedCodeBlock()->numFunctionHoistingCandidates(); }
+    std::span<const Identifier> functionHoistingCandidates() const { return unlinkedCodeBlock()->functionHoistingCandidates(); }
+
     unsigned numTopLevelFunctionDecls() { return unlinkedCodeBlock()->numberOfFunctionDecls(); }
+    std::span<const WriteBarrier<UnlinkedFunctionExecutable>> topLevelFunctionDecls() const { return unlinkedCodeBlock()->functionDecls(); }
     bool allowDirectEvalCache() const { return unlinkedCodeBlock()->allowDirectEvalCache(); }
     NeedsClassFieldInitializer needsClassFieldInitializer() const { return static_cast<NeedsClassFieldInitializer>(m_needsClassFieldInitializer); }
     PrivateBrandRequirement privateBrandRequirement() const { return static_cast<PrivateBrandRequirement>(m_privateBrandRequirement); }

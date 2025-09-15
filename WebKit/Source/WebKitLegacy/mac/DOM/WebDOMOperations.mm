@@ -43,7 +43,9 @@
 #import <JavaScriptCore/JSCJSValue.h>
 #import <JavaScriptCore/JSGlobalObjectInlines.h>
 #import <JavaScriptCore/JSLock.h>
+#import <WebCore/BoundaryPointInlines.h>
 #import <WebCore/Document.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLTextFormControlElement.h>
@@ -53,6 +55,7 @@
 #import <WebCore/PlatformWheelEvent.h>
 #import <WebCore/Range.h>
 #import <WebCore/RenderElement.h>
+#import <WebCore/RenderObjectInlines.h>
 #import <WebCore/RenderStyleInlines.h>
 #import <WebCore/RenderTreeAsText.h>
 #import <WebCore/ShadowRoot.h>
@@ -88,12 +91,14 @@ using namespace JSC;
 
 - (WebArchive *)webArchive
 {
-    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self))]).autorelease();
+    WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
+    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTFMove(options))]).autorelease();
 }
 
 - (WebArchive *)webArchiveByFilteringSubframes:(WebArchiveSubframeFilter)webArchiveSubframeFilter
 {
-    auto webArchive = adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), [webArchiveSubframeFilter](LocalFrame& subframe) -> bool {
+    WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
+    auto webArchive = adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core(self), WTFMove(options), [webArchiveSubframeFilter](LocalFrame& subframe) -> bool {
         return webArchiveSubframeFilter(kit(&subframe));
     })]);
 
@@ -142,7 +147,7 @@ using namespace JSC;
     if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
         markupString = makeString(documentTypeString(node.document()), markupString);
 
-    return markupString;
+    return markupString.createNSString().autorelease();
 }
 
 - (NSRect)_renderRect:(bool *)isReplaced
@@ -164,7 +169,7 @@ using namespace JSC;
 
 - (NSURL *)URLWithAttributeString:(NSString *)string
 {
-    return core(self)->completeURL(string);
+    return core(self)->completeURL(string).createNSURL().autorelease();
 }
 
 @end
@@ -187,13 +192,14 @@ using namespace JSC;
 
 - (WebArchive *)webArchive
 {
-    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(makeSimpleRange(*core(self)))]).autorelease();
+    WebCore::LegacyWebArchive::ArchiveOptions options { WebCore::LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::No };
+    return adoptNS([[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(makeSimpleRange(*core(self)), WTFMove(options))]).autorelease();
 }
 
 - (NSString *)markupString
 {
     auto range = makeSimpleRange(*core(self));
-    return makeString(documentTypeString(range.start.document()), serializePreservingVisualAppearance(range, nullptr, AnnotateForInterchange::Yes));
+    return makeString(documentTypeString(range.start.document()), serializePreservingVisualAppearance(range, nullptr, AnnotateForInterchange::Yes)).createNSString().autorelease();
 }
 
 @end

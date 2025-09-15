@@ -27,6 +27,7 @@
 
 #include "FloatSize.h"
 #include "FourCC.h"
+#include "HdrMetadataType.h"
 #include "PlatformVideoColorSpace.h"
 #include "SharedBuffer.h"
 #include <functional>
@@ -36,7 +37,9 @@
 #include <wtf/text/AtomString.h>
 
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
-typedef struct __CVBuffer *CVPixelBufferRef;
+#if PLATFORM(COCOA)
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
+#endif
 typedef struct _GstSample GstSample;
 typedef const struct opaqueCMFormatDescription *CMFormatDescriptionRef;
 
@@ -101,6 +104,8 @@ public:
     virtual SampleFlags flags() const = 0;
     virtual PlatformSample platformSample() const = 0;
     virtual PlatformSample::Type platformSampleType() const = 0;
+
+    virtual bool isImageDecoderAVFObjCSample() const { return false; }
 
     struct ByteRange {
         size_t byteOffset { 0 };
@@ -218,6 +223,8 @@ public:
         MediaTime duration { MediaTime::zeroTime() };
         std::pair<MediaTime, MediaTime> trimInterval { MediaTime::zeroTime(), MediaTime::zeroTime() };
         MediaSampleDataType data;
+        RefPtr<SharedBuffer> hdrMetadata { nullptr };
+        std::optional<HdrMetadataType> hdrMetadataType { std::nullopt };
         uint32_t flags { };
         bool isSync() const { return flags & MediaSample::IsSync; }
     };
@@ -234,6 +241,7 @@ public:
 
     void setInfo(RefPtr<const TrackInfo>&& info) { m_info = WTFMove(info); }
     const TrackInfo* info() const { return m_info.get(); }
+    RefPtr<const TrackInfo> protectedInfo() const { return m_info; }
     MediaTime presentationTime() const { return isEmpty() ? MediaTime::invalidTime() : first().presentationTime; }
     MediaTime duration() const
     {
@@ -260,11 +268,11 @@ public:
     std::optional<bool> discontinuity() const { return m_discontinuity; }
     void setDiscontinuity(bool discontinuity) { m_discontinuity = discontinuity; }
 
-    const MediaSampleItem& operator[](size_t index) const { return m_samples[index]; }
-    const MediaSampleItem& first() const { return m_samples.first(); }
-    const MediaSampleItem& last() const { return m_samples.last(); }
-    SamplesVector::const_iterator begin() const { return m_samples.begin(); }
-    SamplesVector::const_iterator end() const { return m_samples.end(); }
+    const MediaSampleItem& operator[](size_t index) const LIFETIME_BOUND { return m_samples[index]; }
+    const MediaSampleItem& first() const LIFETIME_BOUND { return m_samples.first(); }
+    const MediaSampleItem& last() const LIFETIME_BOUND { return m_samples.last(); }
+    SamplesVector::const_iterator begin() const LIFETIME_BOUND { return m_samples.begin(); }
+    SamplesVector::const_iterator end() const LIFETIME_BOUND { return m_samples.end(); }
 
 private:
     RefPtr<const TrackInfo> m_info;

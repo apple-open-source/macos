@@ -29,7 +29,7 @@
 #pragma once
 
 #include "DatabaseDetails.h"
-#include "ExceptionOr.h"
+#include "DatabaseManagerClient.h"
 #include "SQLiteDatabase.h"
 #include "SecurityOriginData.h"
 #include "SecurityOriginHash.h"
@@ -49,6 +49,7 @@ class DatabaseManagerClient;
 class OriginLock;
 class SecurityOrigin;
 class SecurityOriginData;
+template<typename> class ExceptionOr;
 
 enum class CurrentQueryBehavior { Interrupt, RunToCompletion };
 

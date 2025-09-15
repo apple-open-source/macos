@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-i $(CONFIGURATION_BUILD_DIR) -v -K"
+            argument = "-i $(BUILT_PRODUCTS_DIR) -v -K"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

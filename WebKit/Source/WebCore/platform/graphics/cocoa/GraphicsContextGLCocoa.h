@@ -31,6 +31,7 @@
 #include "IOSurfaceDrawingBuffer.h"
 #include "ProcessIdentity.h"
 #include <array>
+#include <wtf/CheckedPtr.h>
 
 #if ENABLE(MEDIA_STREAM)
 #include <memory>
@@ -72,7 +73,9 @@ private:
     void* m_pbuffer { nullptr };
 };
 
-class WEBCORE_EXPORT GraphicsContextGLCocoa : public GraphicsContextGLANGLE {
+class WEBCORE_EXPORT GraphicsContextGLCocoa : public GraphicsContextGLANGLE, public CanMakeCheckedPtr<GraphicsContextGLCocoa> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GraphicsContextGLCocoa);
 public:
     static RefPtr<GraphicsContextGLCocoa> create(WebCore::GraphicsContextGLAttributes&&, ProcessIdentity&& resourceOwner);
     ~GraphicsContextGLCocoa();

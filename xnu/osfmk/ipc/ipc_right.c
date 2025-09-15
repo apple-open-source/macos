@@ -77,9 +77,10 @@
 #include <kern/assert.h>
 #include <kern/ipc_kobject.h>
 #include <kern/misc_protos.h>
+#include <kern/coalition.h>
 #include <kern/policy_internal.h>
-#include <libkern/coreanalytics/coreanalytics.h>
-#include <ipc/port.h>
+
+#include <ipc/ipc_policy.h>
 #include <ipc/ipc_entry.h>
 #include <ipc/ipc_space.h>
 #include <ipc/ipc_object.h>
@@ -91,15 +92,6 @@
 #include <ipc/ipc_notify.h>
 #include <ipc/ipc_importance.h>
 #include <ipc/ipc_service_port.h>
-#include <security/mac_mach_internal.h>
-
-extern struct proc *current_proc(void);
-extern int csproc_hardened_runtime(struct proc* p);
-
-extern void * XNU_PTRAUTH_SIGNED_PTR("initproc") initproc;
-
-TUNABLE(bool, service_port_defense_enabled, "-service_port_defense_enabled", false);
-static TUNABLE(bool, reply_port_semantics, "reply_port_semantics", true);
 
 /*
  *	Routine:	ipc_right_lookup_read
@@ -460,7 +452,8 @@ ipc_right_request_alloc(
 	mach_port_name_t        name,
 	ipc_port_request_opts_t options,
 	ipc_port_t              notify,
-	ipc_port_t              *previousp)
+	mach_msg_id_t           id,
+	ipc_port_t             *previousp)
 {
 	ipc_port_t previous = IP_NULL;
 	ipc_entry_t entry;
@@ -493,8 +486,24 @@ ipc_right_request_alloc(
 			port = entry->ie_port;
 			assert(port != IP_NULL);
 
-			if (!ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+			if (!ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 				/* port is locked and active */
+
+				/*
+				 * if this port doesn't allow send_possible /
+				 * deadname notifications, fail We only need to
+				 * protect send_once rights since they do not
+				 * coalesce and allow for repeated notification
+				 * requests/allocations
+				 */
+				if ((entry->ie_bits & MACH_PORT_TYPE_SEND_ONCE) &&
+				    !ipc_policy(port)->pol_notif_dead_name) {
+					ip_mq_unlock(port);
+					is_write_unlock(space);
+					*previousp = IP_NULL;
+					mach_port_guard_exception(ip_type(port), id, kGUARD_EXC_INVALID_NOTIFICATION_REQ);
+					return KERN_DENIED;
+				}
 
 				/*
 				 * No matter what, we need to cancel any
@@ -634,10 +643,10 @@ ipc_right_inuse(
 /*
  *	Routine:	ipc_right_check
  *	Purpose:
- *		Check if the port has died.  If it has,
- *              and IPC_OBJECT_COPYIN_FLAGS_ALLOW_DEAD_SEND_ONCE is not
- *              passed and it is not a send once right then
- *		clean up the entry and return TRUE.
+ *      Check if the port has died.  If it has,
+ *      and the location is not IPC_COPYIN_KMSG_DESTINATION
+ *      and it is not a send once right then
+ *	    clean up the entry and return TRUE.
  *	Conditions:
  *		The space is write-locked; the port is not locked.
  *		If returns FALSE, the port is also locked.
@@ -647,13 +656,13 @@ ipc_right_inuse(
  *		had died (returns TRUE).
  */
 
-boolean_t
+bool
 ipc_right_check(
 	ipc_space_t              space,
 	ipc_port_t               port,
 	mach_port_name_t         name,
 	ipc_entry_t              entry,
-	ipc_object_copyin_flags_t flags)
+	ipc_copyin_op_t          copyin_reason)
 {
 	ipc_entry_bits_t bits;
 
@@ -662,10 +671,10 @@ ipc_right_check(
 
 	ip_mq_lock(port);
 	if (ip_active(port) ||
-	    ((flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_DEAD_SEND_ONCE) &&
+	    ((copyin_reason == IPC_COPYIN_KMSG_DESTINATION) &&
 	    entry->ie_request == IE_REQ_NONE &&
 	    (entry->ie_bits & MACH_PORT_TYPE_SEND_ONCE))) {
-		return FALSE;
+		return false;
 	}
 
 	/* this was either a pure send right or a send-once right */
@@ -693,7 +702,8 @@ ipc_right_check(
 	}
 
 	/* convert entry to dead name */
-	bits = (bits & ~IE_BITS_TYPE_MASK) | MACH_PORT_TYPE_DEAD_NAME;
+	bits &= ~(IE_BITS_TYPE_MASK | IE_BITS_PINNED_SEND);
+	bits |= MACH_PORT_TYPE_DEAD_NAME;
 
 	/*
 	 * If there was a notification request outstanding on this
@@ -727,7 +737,7 @@ ipc_right_check(
 
 	ipc_entry_modified(space, name, entry);
 
-	return TRUE;
+	return true;
 }
 
 /*
@@ -746,13 +756,9 @@ ipc_right_terminate(
 	mach_port_name_t        name,
 	ipc_entry_t             entry)
 {
-	mach_port_type_t type;
-	ipc_port_t port = IP_NULL;
-	ipc_pset_t pset = IPS_NULL;
+	mach_port_type_t type = IE_BITS_TYPE(entry->ie_bits);
 
 	assert(!is_active(space));
-
-	type   = IE_BITS_TYPE(entry->ie_bits);
 
 	/*
 	 * Hollow the entry under the port lock,
@@ -763,46 +769,37 @@ ipc_right_terminate(
 	 * of termination (receive rights first, the rest second).
 	 */
 
-	if (type & MACH_PORT_TYPE_PORT_SET) {
-		pset = entry->ie_pset;
-		ips_mq_lock(pset);
-	} else if (type != MACH_PORT_TYPE_DEAD_NAME) {
-		port = entry->ie_port;
-		ip_mq_lock(port);
-	}
-	entry->ie_object = IPC_OBJECT_NULL;
-	entry->ie_bits  &= (IE_BITS_GEN_MASK | IE_BITS_ROLL_MASK);
-
 	switch (type) {
 	case MACH_PORT_TYPE_DEAD_NAME:
 		assert(entry->ie_request == IE_REQ_NONE);
+		assert(entry->ie_object == IPC_OBJECT_NULL);
 		break;
 
-	case MACH_PORT_TYPE_PORT_SET:
-		assert(entry->ie_request == IE_REQ_NONE);
-		assert(ips_active(pset));
+	case MACH_PORT_TYPE_PORT_SET: {
+		ipc_pset_t pset = entry->ie_pset;
 
+		assert(entry->ie_request == IE_REQ_NONE);
+		ips_mq_lock(pset);
 		ipc_pset_destroy(space, pset); /* consumes ref, unlocks */
 		break;
+	}
 
 	case MACH_PORT_TYPE_SEND:
 	case MACH_PORT_TYPE_RECEIVE:
 	case MACH_PORT_TYPE_SEND_RECEIVE:
 	case MACH_PORT_TYPE_SEND_ONCE: {
+		ipc_port_t port = entry->ie_port;
 		ipc_port_t request = IP_NULL;
 		ipc_notify_nsenders_t nsrequest = { };
 
-		if (!ip_active(port)) {
-			ip_mq_unlock(port);
-			ip_release(port);
-			break;
+		ip_mq_lock(port);
+
+		if (ip_active(port)) {
+			request = ipc_right_request_cancel(port, name, entry);
 		}
 
-		request = ipc_right_request_cancel(port, name, entry);
-
 		if (type & MACH_PORT_TYPE_SEND) {
-			ip_srights_dec(port);
-			if (port->ip_srights == 0) {
+			if (ip_srights_dec(port) == 0) {
 				nsrequest = ipc_notify_no_senders_prepare(port);
 			}
 		}
@@ -813,9 +810,6 @@ ipc_right_terminate(
 
 			ipc_port_destroy(port); /* clears receiver, consumes our ref, unlocks */
 		} else if (type & MACH_PORT_TYPE_SEND_ONCE) {
-			assert(port->ip_sorights > 0);
-			port->ip_reply_context = 0;
-
 			ipc_notify_send_once_and_unlock(port); /* consumes our ref */
 		} else {
 			/* port could be dead, in-transit, or in a foreign space */
@@ -825,40 +819,20 @@ ipc_right_terminate(
 			ip_release(port);
 		}
 
-		/*
-		 * For both no-senders and port-deleted notifications,
-		 * look at whether the destination is still active.
-		 * If it isn't, just swallow the send-once right.
-		 *
-		 * This is a racy check, but this ok because we can only
-		 * fail to notice that the port is now inactive, which
-		 * only causes us to fail at an optimizaiton.
-		 *
-		 * The purpose here is to avoid sending messages
-		 * to receive rights that used to be in this space,
-		 * which we can't fail to observe.
-		 */
-		if (nsrequest.ns_notify != IP_NULL) {
-			if (ip_active(nsrequest.ns_notify)) {
-				ipc_notify_no_senders_emit(nsrequest);
-			} else {
-				ipc_notify_no_senders_consume(nsrequest);
-			}
-		}
+		ipc_notify_no_senders_emit(nsrequest);
 
 		if (request != IP_NULL) {
-			if (ip_active(request)) {
-				ipc_notify_port_deleted(request, name);
-			} else {
-				ipc_port_release_sonce(request);
-			}
+			ipc_notify_port_deleted(request, name);
 		}
 		break;
 	}
 
 	default:
-		panic("ipc_right_terminate: strange type - 0x%x", type);
+		ipc_unreachable("ipc_right_terminate: strange type");
 	}
+
+	entry->ie_object = IPC_OBJECT_NULL;
+	entry->ie_bits  &= (IE_BITS_GEN_MASK | IE_BITS_ROLL_MASK);
 }
 
 /*
@@ -869,18 +843,16 @@ ipc_right_terminate(
  *		The space is write-locked (returns unlocked).
  *		The space must be active.
  *	Returns:
- *		KERN_SUCCESS		      The entry was destroyed.
- *      KERN_INVALID_CAPABILITY   The port is pinned.
- *      KERN_INVALID_RIGHT        Port guard violation.
+ *		KERN_SUCCESS		  The entry was destroyed.
+ *		KERN_INVALID_CAPABILITY   The port is pinned.
+ *		KERN_INVALID_RIGHT        Port guard violation.
  */
 
 kern_return_t
 ipc_right_destroy(
 	ipc_space_t             space,
 	mach_port_name_t        name,
-	ipc_entry_t             entry,
-	boolean_t               check_guard,
-	uint64_t                guard)
+	ipc_entry_t             entry)
 {
 	ipc_entry_bits_t bits;
 	mach_port_type_t type;
@@ -922,49 +894,41 @@ ipc_right_destroy(
 	case MACH_PORT_TYPE_SEND_ONCE: {
 		ipc_port_t port = entry->ie_port;
 		ipc_notify_nsenders_t nsrequest = { };
-		ipc_port_t request;
-
-		assert(port != IP_NULL);
-
-		if (type == MACH_PORT_TYPE_SEND) {
-			if (ip_is_pinned(port)) {
-				assert(ip_active(port));
-				is_write_unlock(space);
-				mach_port_guard_exception_pinned(space, name, port, MPG_FLAGS_MOD_REFS_PINNED_DESTROY);
-				return KERN_INVALID_CAPABILITY;
-			}
-			ipc_hash_delete(space, ip_to_object(port), name, entry);
-		}
+		ipc_port_t request = IP_NULL;
 
 		ip_mq_lock(port);
 
-		if (!ip_active(port)) {
-			assert((type & MACH_PORT_TYPE_RECEIVE) == 0);
-			entry->ie_request = IE_REQ_NONE;
-			assert(!ip_is_pinned(port));
-			ipc_entry_dealloc(space, ip_to_object(port), name, entry);
-			ip_mq_unlock(port);
-			is_write_unlock(space);
-			ip_release(port);
-			break;
-		}
-
-		/* For receive rights, check for guarding */
-		if ((type & MACH_PORT_TYPE_RECEIVE) &&
-		    (check_guard) && (port->ip_guarded) &&
-		    (guard != port->ip_context)) {
-			/* Guard Violation */
+		if ((type & MACH_PORT_TYPE_RECEIVE) && port->ip_guarded &&
+		    port->ip_context != 0) {
 			uint64_t portguard = port->ip_context;
+
 			ip_mq_unlock(port);
 			is_write_unlock(space);
-			/* Raise mach port guard exception */
-			mach_port_guard_exception(name, portguard, kGUARD_EXC_DESTROY);
+			mach_port_guard_exception(name, portguard,
+			    kGUARD_EXC_DESTROY);
 			return KERN_INVALID_RIGHT;
 		}
 
+		if ((bits & IE_BITS_PINNED_SEND) && ip_active(port)) {
+			ip_mq_unlock(port);
+			is_write_unlock(space);
+			mach_port_guard_exception_pinned(space, name,
+			    MPG_FLAGS_MOD_REFS_PINNED_DESTROY);
+			return KERN_INVALID_CAPABILITY;
+		}
 
-		request = ipc_right_request_cancel(port, name, entry);
-		assert(!ip_is_pinned(port));
+		/* point of no return */
+
+		if (ip_active(port)) {
+			request = ipc_right_request_cancel(port, name, entry);
+		} else {
+			assert((type & MACH_PORT_TYPE_RECEIVE) == 0);
+			entry->ie_request = IE_REQ_NONE;
+		}
+
+		if (type == MACH_PORT_TYPE_SEND) {
+			ipc_hash_delete(space, ip_to_object(port), name, entry);
+		}
 		ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 
 		is_write_unlock(space);
@@ -982,8 +946,6 @@ ipc_right_destroy(
 
 			ipc_port_destroy(port); /* clears receiver, consumes our ref, unlocks */
 		} else if (type & MACH_PORT_TYPE_SEND_ONCE) {
-			assert(port->ip_sorights > 0);
-			port->ip_reply_context = 0;
 			ipc_notify_send_once_and_unlock(port); /* consumes our ref */
 		} else {
 			assert(!ip_in_space(port, space));
@@ -1021,7 +983,7 @@ ipc_right_destroy(
  *	Returns:
  *		KERN_SUCCESS		A user ref was released.
  *		KERN_INVALID_RIGHT	Entry has wrong type.
- *      KERN_INVALID_CAPABILITY  Deallocating a pinned right.
+ *		KERN_INVALID_CAPABILITY Deallocating a pinned right.
  */
 
 kern_return_t
@@ -1060,7 +1022,6 @@ ipc_right_dealloc(
 
 	case MACH_PORT_TYPE_DEAD_NAME: {
 dead_name:
-
 		assert(IE_BITS_UREFS(bits) > 0);
 		assert(entry->ie_request == IE_REQ_NONE);
 		assert(entry->ie_object == IPC_OBJECT_NULL);
@@ -1091,24 +1052,14 @@ dead_name:
 		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 			bits = entry->ie_bits;
 			assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_DEAD_NAME);
 			goto dead_name;     /* it will release port */
 		}
 		/* port is locked and active */
 
-		assert(port->ip_sorights > 0);
-
-		/*
-		 * clear any reply context:
-		 * no one will be sending the response b/c we are destroying
-		 * the single, outstanding send once right.
-		 */
-		port->ip_reply_context = 0;
-
 		request = ipc_right_request_cancel(port, name, entry);
-		assert(!ip_is_pinned(port));
 		ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 
 		is_write_unlock(space);
@@ -1130,7 +1081,7 @@ dead_name:
 		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 			bits = entry->ie_bits;
 			assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_DEAD_NAME);
 			goto dead_name;     /* it will release port */
@@ -1140,12 +1091,11 @@ dead_name:
 		assert(port->ip_srights > 0);
 
 		if (IE_BITS_UREFS(bits) == 1) {
-			if (ip_is_pinned(port)) {
+			if (bits & IE_BITS_PINNED_SEND) {
 				ip_mq_unlock(port);
-				is_write_unlock(space);
-				mach_port_guard_exception_pinned(space, name, port, MPG_FLAGS_MOD_REFS_PINNED_DEALLOC);
-				return KERN_INVALID_CAPABILITY;
+				goto destroy_pinned;
 			}
+
 			ip_srights_dec(port);
 			if (port->ip_srights == 0) {
 				nsrequest = ipc_notify_no_senders_prepare(port);
@@ -1191,6 +1141,11 @@ dead_name:
 		assert(port->ip_srights > 0);
 
 		if (IE_BITS_UREFS(bits) == 1) {
+			if (bits & IE_BITS_PINNED_SEND) {
+				ip_mq_unlock(port);
+				goto destroy_pinned;
+			}
+
 			ip_srights_dec(port);
 			if (port->ip_srights == 0) {
 				nsrequest = ipc_notify_no_senders_prepare(port);
@@ -1215,11 +1170,19 @@ dead_name:
 
 	default:
 		is_write_unlock(space);
-		mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+		mach_port_guard_exception(name,
+		    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_DEALLOC, bits),
+		    kGUARD_EXC_INVALID_RIGHT);
 		return KERN_INVALID_RIGHT;
 	}
 
 	return KERN_SUCCESS;
+
+destroy_pinned:
+	is_write_unlock(space);
+	mach_port_guard_exception_pinned(space, name,
+	    MPG_FLAGS_MOD_REFS_PINNED_DEALLOC);
+	return KERN_INVALID_CAPABILITY;
 }
 
 /*
@@ -1247,9 +1210,10 @@ ipc_right_delta(
 {
 	ipc_port_t port = IP_NULL;
 	ipc_port_t port_to_release = IP_NULL;
-	ipc_entry_bits_t bits;
+	ipc_entry_bits_t bits = entry->ie_bits;
 
-	bits = entry->ie_bits;
+	/* Debugging information in case a mach port guard exception is raised */
+	bool throw_exception = false;
 
 /*
  *	The following is used (for case MACH_PORT_RIGHT_DEAD_NAME) in the
@@ -1269,7 +1233,7 @@ ipc_right_delta(
 		ipc_pset_t pset;
 
 		if ((bits & MACH_PORT_TYPE_PORT_SET) == 0) {
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+			throw_exception = true;
 			goto invalid_right;
 		}
 
@@ -1301,8 +1265,8 @@ ipc_right_delta(
 		ipc_port_t request = IP_NULL;
 
 		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
-			if ((bits & MACH_PORT_TYPE_EX_RECEIVE) == 0) {
-				mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+			if ((bits & IE_BITS_EX_RECEIVE) == 0) {
+				throw_exception = true;
 			}
 			goto invalid_right;
 		}
@@ -1357,7 +1321,7 @@ ipc_right_delta(
 				 * into the hash table.
 				 */
 				bits &= ~MACH_PORT_TYPE_RECEIVE;
-				bits |= MACH_PORT_TYPE_EX_RECEIVE;
+				bits |= IE_BITS_EX_RECEIVE;
 				ipc_hash_insert(space, ip_to_object(port),
 				    name, entry);
 				ip_reference(port);
@@ -1369,8 +1333,8 @@ ipc_right_delta(
 				 *	or use ipc_right_dncancel, because the
 				 *	port is destroyed "first".
 				 */
-				bits &= ~IE_BITS_TYPE_MASK;
-				bits |= (MACH_PORT_TYPE_DEAD_NAME | MACH_PORT_TYPE_EX_RECEIVE);
+				bits &= ~(IE_BITS_TYPE_MASK | IE_BITS_PINNED_SEND | IE_BITS_IMMOVABLE_SEND);
+				bits |= (MACH_PORT_TYPE_DEAD_NAME | IE_BITS_EX_RECEIVE);
 				if (entry->ie_request) {
 					entry->ie_request = IE_REQ_NONE;
 					/* if urefs are pegged due to overflow, leave them pegged */
@@ -1387,7 +1351,6 @@ ipc_right_delta(
 			assert(IE_BITS_UREFS(bits) == 0);
 
 			request = ipc_right_request_cancel(port, name, entry);
-			assert(!ip_is_pinned(port));
 			ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 		}
 		is_write_unlock(space);
@@ -1413,9 +1376,10 @@ ipc_right_delta(
 		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 			assert(!(entry->ie_bits & MACH_PORT_TYPE_SEND_ONCE));
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+			bits = entry->ie_bits;
+			throw_exception = true;
 			/* port has died and removed from entry, release port */
 			goto invalid_right;
 		}
@@ -1433,15 +1397,7 @@ ipc_right_delta(
 			goto success;
 		}
 
-		/*
-		 * clear any reply context:
-		 * no one will be sending the response b/c we are destroying
-		 * the single, outstanding send once right.
-		 */
-		port->ip_reply_context = 0;
-
 		request = ipc_right_request_cancel(port, name, entry);
-		assert(!ip_is_pinned(port));
 		ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 
 		is_write_unlock(space);
@@ -1461,11 +1417,11 @@ ipc_right_delta(
 			port = entry->ie_port;
 			assert(port != IP_NULL);
 
-			if (!ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+			if (!ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 				/* port is locked and active */
 				ip_mq_unlock(port);
 				port = IP_NULL;
-				mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+				throw_exception = true;
 				goto invalid_right;
 			}
 			bits = entry->ie_bits;
@@ -1473,7 +1429,7 @@ ipc_right_delta(
 			port_to_release = port;
 			port = IP_NULL;
 		} else if ((bits & MACH_PORT_TYPE_DEAD_NAME) == 0) {
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+			throw_exception = true;
 			goto invalid_right;
 		}
 
@@ -1543,7 +1499,7 @@ ipc_right_delta(
 			    && (((bits & MACH_PORT_TYPE_RECEIVE) == 0) || (delta != 1))
 #endif
 			    ) {
-				mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+				throw_exception = true;
 			}
 			goto invalid_right;
 		}
@@ -1553,8 +1509,9 @@ ipc_right_delta(
 		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 			assert((entry->ie_bits & MACH_PORT_TYPE_SEND) == 0);
+			bits = entry->ie_bits;
 			/* port has died and removed from entry, release port */
 			goto invalid_right;
 		}
@@ -1591,13 +1548,10 @@ ipc_right_delta(
 		}
 
 		if ((urefs + delta) == 0) {
-			if (ip_is_pinned(port)) {
+			if (bits & IE_BITS_PINNED_SEND) {
 				ip_mq_unlock(port);
-				is_write_unlock(space);
-				mach_port_guard_exception_pinned(space, name, port, MPG_FLAGS_MOD_REFS_PINNED_DEALLOC);
-				return KERN_INVALID_CAPABILITY;
+				goto destroy_pinned;
 			}
-
 			ip_srights_dec(port);
 			if (port->ip_srights == 0) {
 				nsrequest = ipc_notify_no_senders_prepare(port);
@@ -1619,7 +1573,6 @@ ipc_right_delta(
 				request = ipc_right_request_cancel(port, name, entry);
 				ipc_hash_delete(space, ip_to_object(port),
 				    name, entry);
-				assert(!ip_is_pinned(port));
 				ipc_entry_dealloc(space, ip_to_object(port),
 				    name, entry);
 				port_to_release = port;
@@ -1665,6 +1618,11 @@ invalid_right:
 	if (port != IP_NULL) {
 		ip_release(port);
 	}
+	if (throw_exception) {
+		mach_port_guard_exception(name,
+		    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_DELTA, right, bits),
+		    kGUARD_EXC_INVALID_RIGHT);
+	}
 	return KERN_INVALID_RIGHT;
 
 invalid_value:
@@ -1672,11 +1630,20 @@ invalid_value:
 	if (port_to_release) {
 		ip_release(port_to_release);
 	}
-	mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_VALUE);
+	mach_port_guard_exception(name,
+	    MPG_PAYLOAD(MPG_FLAGS_INVALID_VALUE_DELTA, right, (uint16_t)delta,
+	    IE_BITS_UREFS(bits)),
+	    kGUARD_EXC_INVALID_VALUE);
 	return KERN_INVALID_VALUE;
 
 guard_failure:
 	return KERN_INVALID_RIGHT;
+
+destroy_pinned:
+	is_write_unlock(space);
+	mach_port_guard_exception_pinned(space, name,
+	    MPG_FLAGS_MOD_REFS_PINNED_DEALLOC);
+	return KERN_INVALID_CAPABILITY;
 }
 
 /*
@@ -1716,15 +1683,19 @@ ipc_right_destruct(
 		is_write_unlock(space);
 
 		/* No exception if we used to have receive and held entry since */
-		if ((bits & MACH_PORT_TYPE_EX_RECEIVE) == 0) {
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+		if ((bits & IE_BITS_EX_RECEIVE) == 0) {
+			mach_port_guard_exception(name,
+			    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_DESTRUCT, bits),
+			    kGUARD_EXC_INVALID_RIGHT);
 		}
 		return KERN_INVALID_RIGHT;
 	}
 
 	if (srdelta && (bits & MACH_PORT_TYPE_SEND) == 0) {
 		is_write_unlock(space);
-		mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+		mach_port_guard_exception(name,
+		    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_DESTRUCT, bits),
+		    kGUARD_EXC_INVALID_RIGHT);
 		return KERN_INVALID_RIGHT;
 	}
 
@@ -1815,7 +1786,7 @@ ipc_right_destruct(
 			 * into the hash table.
 			 */
 			bits &= ~MACH_PORT_TYPE_RECEIVE;
-			bits |= MACH_PORT_TYPE_EX_RECEIVE;
+			bits |= IE_BITS_EX_RECEIVE;
 			ipc_hash_insert(space, ip_to_object(port),
 			    name, entry);
 			ip_reference(port);
@@ -1827,8 +1798,8 @@ ipc_right_destruct(
 			 *	or use ipc_right_dncancel, because the
 			 *	port is destroyed "first".
 			 */
-			bits &= ~IE_BITS_TYPE_MASK;
-			bits |= (MACH_PORT_TYPE_DEAD_NAME | MACH_PORT_TYPE_EX_RECEIVE);
+			bits &= ~(IE_BITS_TYPE_MASK | IE_BITS_PINNED_SEND);
+			bits |= (MACH_PORT_TYPE_DEAD_NAME | IE_BITS_EX_RECEIVE);
 			if (entry->ie_request) {
 				entry->ie_request = IE_REQ_NONE;
 				if (IE_BITS_UREFS(bits) < MACH_PORT_UREFS_MAX) {
@@ -1843,7 +1814,6 @@ ipc_right_destruct(
 		assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_RECEIVE);
 		assert(IE_BITS_UREFS(bits) == 0);
 		request = ipc_right_request_cancel(port, name, entry);
-		assert(!ip_is_pinned(port));
 		ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 	}
 
@@ -1862,7 +1832,10 @@ ipc_right_destruct(
 
 invalid_value:
 	is_write_unlock(space);
-	mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_VALUE);
+	mach_port_guard_exception(name,
+	    MPG_PAYLOAD(MPG_FLAGS_INVALID_VALUE_DESTRUCT, srdelta,
+	    IE_BITS_UREFS(bits)),
+	    kGUARD_EXC_INVALID_VALUE);
 	return KERN_INVALID_VALUE;
 }
 
@@ -1911,7 +1884,7 @@ ipc_right_info(
 		 * types while we still have it locked.  Otherwise,
 		 * recapture the (now dead) bits.
 		 */
-		if (!ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (!ipc_right_check(space, port, name, entry, IPC_COPYIN_REASON_NONE)) {
 			if (request != IE_REQ_NONE) {
 				type |= ipc_port_request_type(port, name, request);
 			}
@@ -1944,52 +1917,60 @@ ipc_right_info(
  *		The space is locked (read or write) and active.
  */
 
-boolean_t
+bool
 ipc_right_copyin_check_reply(
 	__assert_only ipc_space_t       space,
 	mach_port_name_t                reply_name,
 	ipc_entry_t                     reply_entry,
-	mach_msg_type_name_t            reply_type,
-	ipc_entry_t                     dest_entry,
-	uint8_t                         *reply_port_semantics_violation)
+	mach_msg_type_name_t            reply_type)
 {
-	ipc_entry_bits_t bits;
-	ipc_port_t reply_port;
-	ipc_port_t dest_port;
-	bool violate_reply_port_semantics = false;
+	ipc_entry_bits_t reply_bits = reply_entry->ie_bits;
+	ipc_port_t reply_port = reply_entry->ie_port;
 
-	bits = reply_entry->ie_bits;
 	assert(is_active(space));
+
+	if (ip_is_reply_port(reply_port) &&
+	    !MACH_MSG_TYPE_PORT_ANY_SEND_ONCE(reply_type)) {
+		return false;
+	}
 
 	switch (reply_type) {
 	case MACH_MSG_TYPE_MAKE_SEND:
-		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
-			return FALSE;
+		if ((reply_bits & MACH_PORT_TYPE_RECEIVE) == 0) {
+			return false;
 		}
 		break;
 
 	case MACH_MSG_TYPE_MAKE_SEND_ONCE:
-		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
-			return FALSE;
+		if ((reply_bits & MACH_PORT_TYPE_RECEIVE) == 0) {
+			return false;
 		}
 		break;
 
 	case MACH_MSG_TYPE_MOVE_RECEIVE:
 		/* ipc_kmsg_copyin_header already filters it out */
-		return FALSE;
+		return false;
+
+	case MACH_MSG_TYPE_MOVE_SEND:
+		if ((reply_bits & IE_BITS_PINNED_SEND) &&
+		    ip_active(reply_port) &&
+		    IE_BITS_UREFS(reply_bits) == 1) {
+			mach_port_guard_exception_pinned(space, reply_name,
+			    MPG_FLAGS_MOD_REFS_PINNED_COPYIN);
+			return false;
+		}
+		OS_FALLTHROUGH;
 
 	case MACH_MSG_TYPE_COPY_SEND:
-	case MACH_MSG_TYPE_MOVE_SEND:
 	case MACH_MSG_TYPE_MOVE_SEND_ONCE: {
-		if (bits & MACH_PORT_TYPE_DEAD_NAME) {
+		if (reply_bits & MACH_PORT_TYPE_DEAD_NAME) {
 			break;
 		}
 
-		if ((bits & MACH_PORT_TYPE_SEND_RIGHTS) == 0) {
-			return FALSE;
+		if ((reply_bits & MACH_PORT_TYPE_SEND_RIGHTS) == 0) {
+			return false;
 		}
 
-		reply_port = reply_entry->ie_port;
 		assert(reply_port != IP_NULL);
 
 		/*
@@ -2002,22 +1983,21 @@ ipc_right_copyin_check_reply(
 		}
 
 		/*
-		 * Can't copyin a send right that is marked immovable. This bit
-		 * is set only during port creation and never unset. So it can
-		 * be read without a lock.
+		 * Can't copyin a send right that is marked immovable. This bit is on
+		 * the entry and protected by the space lock.
 		 */
-		if (ip_is_immovable_send(reply_port)) {
-			mach_port_guard_exception_immovable(space, reply_name, reply_port);
+		if (reply_entry->ie_bits & IE_BITS_IMMOVABLE_SEND) {
+			mach_port_guard_exception_immovable(space, reply_name, reply_port, MACH_MSG_TYPE_MOVE_SEND_ONCE, reply_entry);
 			return FALSE;
 		}
 
 		if (reply_type == MACH_MSG_TYPE_MOVE_SEND_ONCE) {
-			if ((bits & MACH_PORT_TYPE_SEND_ONCE) == 0) {
-				return FALSE;
+			if ((reply_bits & MACH_PORT_TYPE_SEND_ONCE) == 0) {
+				return false;
 			}
 		} else {
-			if ((bits & MACH_PORT_TYPE_SEND) == 0) {
-				return FALSE;
+			if ((reply_bits & MACH_PORT_TYPE_SEND) == 0) {
+				return false;
 			}
 		}
 
@@ -2028,38 +2008,7 @@ ipc_right_copyin_check_reply(
 		panic("ipc_right_copyin_check: strange rights");
 	}
 
-	if ((IE_BITS_TYPE(dest_entry->ie_bits) == MACH_PORT_TYPE_PORT_SET) ||
-	    (IE_BITS_TYPE(reply_entry->ie_bits) == MACH_PORT_TYPE_PORT_SET)) {
-		return TRUE;
-	}
-
-	/* The only disp allowed when a reply port is a local port of mach msg is MAKE_SO. */
-	reply_port = reply_entry->ie_port;
-	assert(reply_port != IP_NULL);
-
-	if (ip_active(reply_port)) {
-		if (ip_is_reply_port(reply_port) && (reply_type != MACH_MSG_TYPE_MAKE_SEND_ONCE)) {
-			return FALSE;
-		}
-
-		/* When sending a msg to remote port that requires reply port semantics enforced the local port of that msg needs to be a reply port. */
-		dest_port = dest_entry->ie_port;
-		if (IP_VALID(dest_port)) {
-			ip_mq_lock(dest_port);
-			if (ip_active(dest_port)) {
-				/* populates reply_port_semantics_violation if we need to send telemetry */
-				violate_reply_port_semantics = ip_violates_rigid_reply_port_semantics(dest_port, reply_port, reply_port_semantics_violation) ||
-				    ip_violates_reply_port_semantics(dest_port, reply_port, reply_port_semantics_violation);
-			}
-			ip_mq_unlock(dest_port);
-			if (violate_reply_port_semantics && reply_port_semantics) {
-				mach_port_guard_exception(reply_name, 0, kGUARD_EXC_REQUIRE_REPLY_PORT_SEMANTICS);
-				return FALSE;
-			}
-		}
-	}
-
-	return TRUE;
+	return true;
 }
 
 /*
@@ -2165,19 +2114,20 @@ ipc_right_copyin(
 	mach_port_name_t        name,
 	mach_msg_type_name_t    msgt_name,
 	ipc_object_copyin_flags_t  flags,
+	ipc_copyin_op_t         copyin_reason,
 	ipc_entry_t             entry,
 	ipc_port_t             *portp,
 	ipc_copyin_cleanup_t   *icc,
 	ipc_copyin_rcleanup_t  *icrc)
 {
-	ipc_entry_bits_t bits;
-	ipc_port_t port;
+	ipc_entry_bits_t bits = entry->ie_bits;
+	ipc_port_t port = entry->ie_port;
+	ipc_object_label_t label;
 	kern_return_t kr;
+
 	uint32_t moves = (flags & IPC_OBJECT_COPYIN_FLAGS_DEST_EXTRA_MOVE) ? 2 : 1;
-	boolean_t deadok = !!(flags & IPC_OBJECT_COPYIN_FLAGS_DEADOK);
-	boolean_t allow_imm_send = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND);
-	boolean_t allow_reply_make_so = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_REPLY_MAKE_SEND_ONCE);
-	boolean_t allow_reply_move_so = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_REPLY_MOVE_SEND_ONCE);
+	bool deadok = !!(flags & IPC_OBJECT_COPYIN_FLAGS_DEADOK);
+	bool allow_imm_send = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_SEND);
 
 	if (flags & IPC_OBJECT_COPYIN_FLAGS_DEST_EXTRA_MOVE) {
 		assert((flags & IPC_OBJECT_COPYIN_FLAGS_DEST_EXTRA_COPY) == 0);
@@ -2192,9 +2142,16 @@ ipc_right_copyin(
 	icc->icc_release_port = IP_NULL;
 	icc->icc_deleted_port = IP_NULL;
 
-	bits = entry->ie_bits;
-
 	assert(is_active(space));
+
+	/* Only allow send_once disposition on certain ports */
+	if (IP_VALID(port) && ip_is_reply_port(port) &&
+	    !MACH_MSG_TYPE_PORT_ANY_SEND_ONCE(msgt_name)) {
+		mach_port_guard_exception(name,
+		    MPG_PAYLOAD(MPG_FLAGS_NONE, ip_type(port), msgt_name),
+		    kGUARD_EXC_IMMOVABLE);
+		return KERN_INVALID_CAPABILITY;
+	}
 
 	switch (msgt_name) {
 	case MACH_MSG_TYPE_MAKE_SEND: {
@@ -2202,13 +2159,7 @@ ipc_right_copyin(
 			goto invalid_right;
 		}
 
-		port = entry->ie_port;
 		assert(port != IP_NULL);
-
-		if (ip_is_reply_port(port)) {
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
-			return KERN_INVALID_CAPABILITY;
-		}
 
 		ip_mq_lock(port);
 		assert(ip_get_receiver_name(port) == name);
@@ -2222,40 +2173,22 @@ ipc_right_copyin(
 	}
 
 	case MACH_MSG_TYPE_MAKE_SEND_ONCE: {
+		bool send_telemetry = false;
+
 		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
 			goto invalid_right;
 		}
-
-		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if ((ip_is_reply_port(port)) && !allow_reply_make_so) {
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+		if (ip_is_reply_port(port) &&
+		    (copyin_reason != IPC_COPYIN_KMSG_REPLY &&
+		    copyin_reason != IPC_COPYIN_KMSG_DESTINATION)) {
+			mach_port_guard_exception(name,
+			    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_COPYIN, copyin_reason,
+			    msgt_name),
+			    kGUARD_EXC_INVALID_RIGHT);
 			return KERN_INVALID_CAPABILITY;
 		}
-
-		ip_mq_lock(port);
-		require_ip_active(port);
-		assert(ip_get_receiver_name(port) == name);
-		assert(ip_in_space(port, space));
-
-		ipc_port_make_sonce_locked(port);
-		ip_mq_unlock(port);
-
-		*portp = port;
-		break;
-	}
-
-	case MACH_MSG_TYPE_MOVE_RECEIVE: {
-		bool allow_imm_recv = false;
-		ipc_port_t request = IP_NULL;
-
-		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
-			goto invalid_right;
-		}
-
-		port = entry->ie_port;
-		assert(port != IP_NULL);
 
 		ip_mq_lock(port);
 		require_ip_active(port);
@@ -2263,46 +2196,55 @@ ipc_right_copyin(
 		assert(ip_in_space(port, space));
 
 		/*
-		 * Disallow moving receive-right kobjects/kolabel, e.g. mk_timer ports
-		 * The ipc_port structure uses the kdata union of kobject and
-		 * imp_task exclusively. Thus, general use of a kobject port as
-		 * a receive right can cause type confusion in the importance
-		 * code.
+		 * Reply ports can extend one single
+		 * send-once right at any given moment.
 		 */
-		if (ip_is_kobject(port) || ip_is_kolabeled(port)) {
-			/*
-			 * Distinguish an invalid right, e.g., trying to move
-			 * a send right as a receive right, from this
-			 * situation which is, "This is a valid receive right,
-			 * but it's also a kobject and you can't move it."
-			 */
-			ip_mq_unlock(port);
-			mach_port_guard_exception(name, 0, kGUARD_EXC_IMMOVABLE);
+#if DEVELOPMENT || DEBUG
+		if (ip_is_reply_port(port) && (port->ip_sorights > 0)) {
+			send_telemetry = true;
+		}
+#endif /* DEVELOPMENT || DEBUG */
+
+		ipc_port_make_sonce_locked(port);
+		ip_mq_unlock(port);
+
+		if (__improbable(send_telemetry)) {
+			mach_port_guard_exception(name,
+			    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_COPYIN, copyin_reason,
+			    msgt_name),
+			    kGUARD_EXC_REPLY_PORT_SINGLE_SO_RIGHT);
+		}
+
+		*portp = port;
+		break;
+	}
+
+	case MACH_MSG_TYPE_MOVE_RECEIVE: {
+		ipc_port_t request = IP_NULL;
+
+		if ((bits & MACH_PORT_TYPE_RECEIVE) == 0) {
+			goto invalid_right;
+		}
+		assert(port != IP_NULL);
+
+		/*
+		 * ipc_move_receive_allowed raises the appropritate
+		 * Guard exception if needed
+		 */
+		if (!ipc_move_receive_allowed(space, port, name)) {
 			return KERN_INVALID_CAPABILITY;
 		}
 
-		if (port->ip_service_port && port->ip_splabel &&
-		    !ipc_service_port_label_is_bootstrap_port((ipc_service_port_label_t)port->ip_splabel)) {
-			allow_imm_recv = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_IMMOVABLE_RECEIVE);
-		} else if (ip_is_libxpc_connection_port(port)) {
-			allow_imm_recv = !!(flags & IPC_OBJECT_COPYIN_FLAGS_ALLOW_CONN_IMMOVABLE_RECEIVE);
-		}
-
-		if ((!allow_imm_recv && port->ip_immovable_receive) ||
-		    ip_is_reply_port(port) ||     /* never move reply port rcv right */
-		    port->ip_specialreply) {
-			assert(!ip_in_space(port, ipc_space_kernel));
-			ip_mq_unlock(port);
-			assert(current_task() != kernel_task);
-			mach_port_guard_exception(name, 0, kGUARD_EXC_IMMOVABLE);
-			return KERN_INVALID_CAPABILITY;
-		}
+		label = ip_mq_lock_label_get(port);
+		require_ip_active(port);
+		assert(ip_get_receiver_name(port) == name);
+		assert(ip_in_space(port, space));
 
 		if (icrc->icrc_guarded_desc) {
 			kr = ipc_right_copyin_check_guard_locked(port, name,
 			    icrc->icrc_guarded_desc);
 			if (kr != KERN_SUCCESS) {
-				ip_mq_unlock(port);
+				ip_mq_unlock_label_put(port, &label);
 				return kr;
 			}
 			/* this flag will be cleared during copyout */
@@ -2317,7 +2259,7 @@ ipc_right_copyin(
 			assert(port->ip_srights > 0);
 
 			bits &= ~MACH_PORT_TYPE_RECEIVE;
-			bits |= MACH_PORT_TYPE_EX_RECEIVE;
+			bits |= IE_BITS_EX_RECEIVE;
 			entry->ie_bits = bits;
 			ipc_hash_insert(space, ip_to_object(port), name, entry);
 			ip_reference(port);
@@ -2327,12 +2269,11 @@ ipc_right_copyin(
 			assert(IE_BITS_UREFS(bits) == 0);
 
 			request = ipc_right_request_cancel(port, name, entry);
-			assert(!ip_is_pinned(port));
 			ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 		}
 
-		/* ipc_port_clear_receiver unguards the port and clears the ip_immovable_receive bit */
-		(void)ipc_port_clear_receiver(port, FALSE, &icrc->icrc_free_list); /* don't destroy the port/mqueue */
+		/* This will unguard the port and make it movable. */
+		ipc_port_mark_in_limbo(port, &label, &icrc->icrc_free_list);
 
 #if IMPORTANCE_INHERITANCE
 		/*
@@ -2353,6 +2294,7 @@ ipc_right_copyin(
 		}
 #endif /* IMPORTANCE_INHERITANCE */
 
+		/* We already set the label above */
 		ip_mq_unlock(port);
 
 		*portp = port;
@@ -2373,10 +2315,7 @@ ipc_right_copyin(
 
 		assert(IE_BITS_UREFS(bits) > 0);
 
-		port = entry->ie_port;
-		assert(port != IP_NULL);
-
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, copyin_reason)) {
 			bits = entry->ie_bits;
 			icc->icc_release_port = port;
 			goto copy_dead;
@@ -2391,15 +2330,9 @@ ipc_right_copyin(
 			goto invalid_right;
 		}
 
-		if (ip_is_reply_port(port)) {
+		if (!allow_imm_send && (entry->ie_bits & IE_BITS_IMMOVABLE_SEND)) {
 			ip_mq_unlock(port);
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
-			return KERN_INVALID_CAPABILITY;
-		}
-
-		if (!allow_imm_send && ip_is_immovable_send(port)) {
-			ip_mq_unlock(port);
-			mach_port_guard_exception_immovable(space, name, port);
+			mach_port_guard_exception_immovable(space, name, port, MACH_MSG_TYPE_COPY_SEND, entry);
 			return KERN_INVALID_CAPABILITY;
 		}
 
@@ -2427,11 +2360,9 @@ ipc_right_copyin(
 		}
 
 		assert(IE_BITS_UREFS(bits) > 0);
-
-		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, IPC_OBJECT_COPYIN_FLAGS_NONE)) {
+		if (ipc_right_check(space, port, name, entry, copyin_reason)) {
 			bits = entry->ie_bits;
 			icc->icc_release_port = port;
 			goto move_dead;
@@ -2444,22 +2375,16 @@ ipc_right_copyin(
 			goto invalid_right;
 		}
 
-		if (ip_is_pinned(port) && IE_BITS_UREFS(bits) == moves) {
+		if ((bits & IE_BITS_PINNED_SEND) && IE_BITS_UREFS(bits) == moves) {
 			ip_mq_unlock(port);
 			mach_port_guard_exception_pinned(space, name,
-			    port, MPG_FLAGS_MOD_REFS_PINNED_COPYIN);
+			    MPG_FLAGS_MOD_REFS_PINNED_COPYIN);
 			return KERN_INVALID_CAPABILITY;
 		}
 
-		if (ip_is_reply_port(port)) {
+		if (!allow_imm_send && (entry->ie_bits & IE_BITS_IMMOVABLE_SEND)) {
 			ip_mq_unlock(port);
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
-			return KERN_INVALID_CAPABILITY;
-		}
-
-		if (!allow_imm_send && ip_is_immovable_send(port)) {
-			ip_mq_unlock(port);
-			mach_port_guard_exception_immovable(space, name, port);
+			mach_port_guard_exception_immovable(space, name, port, MACH_MSG_TYPE_MOVE_SEND, entry);
 			return KERN_INVALID_CAPABILITY;
 		}
 
@@ -2523,7 +2448,7 @@ ipc_right_copyin(
 	}
 
 	case MACH_MSG_TYPE_MOVE_SEND_ONCE: {
-		ipc_port_t request;
+		ipc_port_t request = IP_NULL;
 
 		if (bits & MACH_PORT_TYPE_DEAD_NAME) {
 			goto move_dead;
@@ -2536,11 +2461,9 @@ ipc_right_copyin(
 		}
 
 		assert(IE_BITS_UREFS(bits) > 0);
-
-		port = entry->ie_port;
 		assert(port != IP_NULL);
 
-		if (ipc_right_check(space, port, name, entry, flags)) {
+		if (ipc_right_check(space, port, name, entry, copyin_reason)) {
 			bits = entry->ie_bits;
 			icc->icc_release_port = port;
 			goto move_dead;
@@ -2560,15 +2483,17 @@ ipc_right_copyin(
 			goto invalid_right;
 		}
 
-		if (ip_is_reply_port(port) && !allow_reply_move_so) {
+		if (ip_is_reply_port(port) && copyin_reason != IPC_COPYIN_KMSG_DESTINATION) {
 			ip_mq_unlock(port);
-			mach_port_guard_exception(name, 0, kGUARD_EXC_INVALID_RIGHT);
+			mach_port_guard_exception(name,
+			    MPG_PAYLOAD(MPG_FLAGS_INVALID_RIGHT_COPYIN, copyin_reason, msgt_name),
+			    kGUARD_EXC_INVALID_RIGHT);
 			return KERN_INVALID_CAPABILITY;
 		}
 
-		if (!allow_imm_send && ip_is_immovable_send(port)) {
+		if (!allow_imm_send && (entry->ie_bits & IE_BITS_IMMOVABLE_SEND)) {
 			ip_mq_unlock(port);
-			mach_port_guard_exception_immovable(space, name, port);
+			mach_port_guard_exception_immovable(space, name, port, MACH_MSG_TYPE_MOVE_SEND_ONCE, entry);
 			return KERN_INVALID_CAPABILITY;
 		}
 
@@ -2577,7 +2502,6 @@ ipc_right_copyin(
 		assert(port->ip_sorights > 0);
 
 		request = ipc_right_request_cancel(port, name, entry);
-		assert(!ip_is_pinned(port));
 		ipc_entry_dealloc(space, ip_to_object(port), name, entry);
 		ip_mq_unlock(port);
 
@@ -2630,7 +2554,7 @@ move_dead:
 }
 
 /*
- *	Routine:	ipc_right_copyout
+ *	Routine:	ipc_right_copyout_any_send
  *	Purpose:
  *		Copyout a capability to a space.
  *		If successful, consumes a ref for the port.
@@ -2646,37 +2570,28 @@ move_dead:
  *		The space is write-locked and active.
  *		The port is locked and active.
  *		The port is unlocked; the space isn't.
- *	Returns:
- *		KERN_SUCCESS		Copied out capability.
  */
 
-kern_return_t
-ipc_right_copyout(
+void
+ipc_right_copyout_any_send(
 	ipc_space_t             space,
 	ipc_port_t              port,
 	mach_msg_type_name_t    msgt_name,
 	ipc_object_copyout_flags_t flags,
 	mach_port_name_t        name,
-	ipc_entry_t             entry,
-	mach_msg_guarded_port_descriptor_t *gdesc)
+	ipc_entry_t             entry)
 {
-	ipc_entry_bits_t bits;
-	mach_port_name_t sp_name = MACH_PORT_NULL;
-	mach_port_context_t sp_context = 0;
-
-	bits = entry->ie_bits;
+	ipc_entry_bits_t bits = entry->ie_bits;
 
 	assert(IP_VALID(port));
 	assert(ip_active(port));
 	assert(entry->ie_port == port);
+	ipc_object_label_t label = ip_label_get(port);
 
-	if (flags & IPC_OBJECT_COPYOUT_FLAGS_PINNED) {
-		assert(!ip_is_pinned(port));
-		assert(ip_is_immovable_send(port));
-		assert(task_is_immovable(space->is_task));
-		assert(task_is_pinned(space->is_task));
-		port->ip_pinned = 1;
+	if (ipc_should_mark_immovable_send(space->is_task, port, label)) {
+		bits |= IE_BITS_IMMOVABLE_SEND;
 	}
+	ip_label_put(port, &label);
 
 	switch (msgt_name) {
 	case MACH_MSG_TYPE_PORT_SEND_ONCE:
@@ -2685,7 +2600,7 @@ ipc_right_copyout(
 		assert(IE_BITS_UREFS(bits) == 0);
 		assert(port->ip_sorights > 0);
 
-		if (port->ip_specialreply) {
+		if (ip_is_special_reply_port(port)) {
 			ipc_port_adjust_special_reply_port_locked(port,
 			    current_thread()->ith_knote, IPC_PORT_ADJUST_SR_LINK_WORKLOOP, FALSE);
 			/* port unlocked on return */
@@ -2701,23 +2616,11 @@ ipc_right_copyout(
 		assert(port->ip_srights > 0);
 
 		if (bits & MACH_PORT_TYPE_SEND) {
-			mach_port_urefs_t urefs = IE_BITS_UREFS(bits);
+			__assert_only mach_port_urefs_t urefs = IE_BITS_UREFS(bits);
 
 			assert(port->ip_srights > 1);
 			assert(urefs > 0);
 			assert(urefs <= MACH_PORT_UREFS_MAX);
-
-			if (urefs == MACH_PORT_UREFS_MAX) {
-				/*
-				 * leave urefs pegged to maximum,
-				 * consume send right and ref
-				 */
-
-				ip_srights_dec(port);
-				ip_mq_unlock(port);
-				ip_release_live(port);
-				return KERN_SUCCESS;
-			}
 
 			/* consume send right and ref */
 			ip_srights_dec(port);
@@ -2742,151 +2645,148 @@ ipc_right_copyout(
 			ipc_hash_insert(space, ip_to_object(port), name, entry);
 		}
 
-		entry->ie_bits = (bits | MACH_PORT_TYPE_SEND) + 1; /* increment urefs */
+		if (flags & IPC_OBJECT_COPYOUT_FLAGS_PINNED) {
+			bits |= IE_BITS_PINNED_SEND;
+		}
+		if (IE_BITS_UREFS(bits) != MACH_PORT_UREFS_MAX) {
+			bits = (bits | MACH_PORT_TYPE_SEND) + 1; /* increment urefs */
+		}
+		entry->ie_bits = bits;
 		ipc_entry_modified(space, name, entry);
 		break;
-
-	case MACH_MSG_TYPE_PORT_RECEIVE: {
-		ipc_port_t dest;
-#if IMPORTANCE_INHERITANCE
-		natural_t assertcnt = port->ip_impcount;
-#endif /* IMPORTANCE_INHERITANCE */
-
-		assert(port->ip_mscount == 0);
-		assert(!ip_in_a_space(port));
-
-		/*
-		 * Don't copyout kobjects or kolabels as receive right
-		 */
-		if (ip_is_kobject(port) || ip_is_kolabeled(port)) {
-			panic("ipc_right_copyout: Copyout kobject/kolabel as receive right");
-		}
-
-		dest = ip_get_destination(port);
-
-		/* port transitions to IN-SPACE state */
-		port->ip_receiver_name = name;
-		port->ip_receiver = space;
-
-		struct knote *kn = current_thread()->ith_knote;
-
-		if (gdesc && gdesc->flags & MACH_MSG_GUARD_FLAGS_IMMOVABLE_RECEIVE) {
-			assert(port->ip_immovable_receive == 0);
-			port->ip_guarded = 1;
-			port->ip_strict_guard = 0;
-			/* pseudo receive shouldn't set the receive right as immovable in the sender's space */
-			if (kn != ITH_KNOTE_PSEUDO) {
-				port->ip_immovable_receive = 1;
-			}
-			port->ip_context = current_thread()->ith_recv_bufs.recv_msg_addr;
-			gdesc->u_context = port->ip_context;
-			gdesc->flags &= ~MACH_MSG_GUARD_FLAGS_UNGUARDED_ON_SEND;
-		}
-
-		if (ip_is_libxpc_connection_port(port)) {
-			/*
-			 * There are 3 ways to reach here.
-			 * 1. A libxpc client successfully sent this receive right to a named service
-			 *    and we are copying out in that service's ipc space.
-			 * 2. A libxpc client tried doing (1) but failed so we are doing pseudo-receive.
-			 * 3. Kernel sent this receive right to a libxpc client as a part of port destroyed notification.
-			 *
-			 * This flag needs to be set again in all 3 cases as they reset it as part of their flow.
-			 */
-			port->ip_immovable_receive = 1;
-		}
-
-		/* Check if this is a service port */
-		if (port->ip_service_port) {
-			assert(port->ip_splabel != NULL);
-			/*
-			 * This flag gets reset during all 3 ways described above for libxpc connection port.
-			 * The only difference is launchd acts as an initiator instead of a libxpc client.
-			 */
-			if (service_port_defense_enabled) {
-				port->ip_immovable_receive = 1;
-			}
-
-			/* Check if this is a port-destroyed notification to ensure
-			 * that initproc doesnt end up with a guarded service port
-			 * sent in a regular message
-			 */
-			if (!ipc_service_port_label_is_pd_notification((ipc_service_port_label_t)port->ip_splabel)) {
-				goto skip_sp_check;
-			}
-
-			ipc_service_port_label_clear_flag(port->ip_splabel, ISPL_FLAGS_SEND_PD_NOTIFICATION);
-#if !(DEVELOPMENT || DEBUG)
-			if (get_bsdtask_info(current_task()) != initproc) {
-				goto skip_sp_check;
-			}
-#endif /* !(DEVELOPMENT || DEBUG) */
-			ipc_service_port_label_get_attr(port->ip_splabel, &sp_name, &sp_context);
-			assert(sp_name != MACH_PORT_NULL);
-			/* Verify the port name and restore the guard value, if any */
-			if (name != sp_name) {
-				panic("Service port name = 0x%x doesnt match the stored launchd port name = 0x%x", name, sp_name);
-			}
-			if (sp_context) {
-				port->ip_guarded = 1;
-				port->ip_strict_guard = 1;
-				port->ip_context = sp_context;
-			}
-		}
-skip_sp_check:
-
-		assert((bits & MACH_PORT_TYPE_RECEIVE) == 0);
-		if (bits & MACH_PORT_TYPE_SEND) {
-			assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_SEND);
-			assert(IE_BITS_UREFS(bits) > 0);
-			assert(port->ip_srights > 0);
-		} else {
-			assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_NONE);
-			assert(IE_BITS_UREFS(bits) == 0);
-		}
-		entry->ie_bits = bits | MACH_PORT_TYPE_RECEIVE;
-		ipc_entry_modified(space, name, entry);
-
-		boolean_t sync_bootstrap_checkin = FALSE;
-		if (kn != ITH_KNOTE_PSEUDO && port->ip_sync_bootstrap_checkin) {
-			sync_bootstrap_checkin = TRUE;
-		}
-		if (!ITH_KNOTE_VALID(kn, MACH_MSG_TYPE_PORT_RECEIVE)) {
-			kn = NULL;
-		}
-		ipc_port_adjust_port_locked(port, kn, sync_bootstrap_checkin);
-		/* port unlocked */
-
-		if (bits & MACH_PORT_TYPE_SEND) {
-			ip_release_live(port);
-
-			/* entry is locked holding ref, so can use port */
-			ipc_hash_delete(space, ip_to_object(port), name, entry);
-		}
-
-		if (dest != IP_NULL) {
-#if IMPORTANCE_INHERITANCE
-			/*
-			 * Deduct the assertion counts we contributed to
-			 * the old destination port.  They've already
-			 * been reflected into the task as a result of
-			 * getting enqueued.
-			 */
-			ip_mq_lock(dest);
-			ipc_port_impcount_delta(dest, 0 - assertcnt, IP_NULL);
-			ip_mq_unlock(dest);
-#endif /* IMPORTANCE_INHERITANCE */
-
-			/* Drop turnstile ref on dest */
-			ipc_port_send_turnstile_complete(dest);
-			/* space lock is held */
-			ip_release_safe(dest);
-		}
-		break;
-	}
 
 	default:
-		ipc_unreachable("ipc_right_copyout: strange rights");
+		ipc_unreachable("ipc_right_copyout_any_send: strange rights");
 	}
-	return KERN_SUCCESS;
+}
+
+void
+ipc_right_copyout_recv_and_unlock_space(
+	ipc_space_t             space,
+	ipc_port_t              port,
+	ipc_object_label_t     *label,
+	mach_port_name_t        name,
+	ipc_entry_t             entry,
+	mach_msg_guarded_port_descriptor_t *gdesc)
+{
+	struct knote *kn;
+	ipc_port_t dest;
+#if IMPORTANCE_INHERITANCE
+	natural_t assertcnt = port->ip_impcount;
+#endif /* IMPORTANCE_INHERITANCE */
+	ipc_object_state_t in_space = IO_STATE_INACTIVE; /* means default */
+	ipc_entry_bits_t bits = entry->ie_bits;
+
+	assert(IP_VALID(port));
+	assert(ip_active(port));
+	assert(entry->ie_port == port);
+	assert(port->ip_mscount == 0);
+
+	kn = current_thread()->ith_knote;
+
+	if (gdesc && gdesc->flags & MACH_MSG_GUARD_FLAGS_IMMOVABLE_RECEIVE) {
+		port->ip_guarded = 1;
+		port->ip_strict_guard = 0;
+		port->ip_context = current_thread()->ith_recv_bufs.recv_msg_addr;
+		gdesc->u_context = port->ip_context;
+		gdesc->flags &= ~MACH_MSG_GUARD_FLAGS_UNGUARDED_ON_SEND;
+		in_space = IO_STATE_IN_SPACE_IMMOVABLE;
+	}
+
+	if (ip_is_any_service_port_type(label->io_type) &&
+	    label->io_state == IO_STATE_IN_TRANSIT_PD) {
+		ipc_service_port_label_t sp_label = label->iol_service;
+
+		/*
+		 * Check if this is a special port-destroyed
+		 * notification to ensure that initproc doesnt end up
+		 * with a guarded service port sent in a regular message
+		 */
+
+#if !(DEVELOPMENT || DEBUG)
+#if CONFIG_COALITIONS
+		if (!task_is_in_privileged_coalition(current_task(), COALITION_TYPE_JETSAM)) {
+			panic("Service port not sent back to launchd");
+		}
+#else /* CONFIG_COALITIONS */
+		if (!task_is_initproc(current_task())) {
+			panic("Service port not sent back to launchd");
+		}
+#endif /* CONFIG_COALITIONS */
+#endif /* !(DEVELOPMENT || DEBUG) */
+
+		/*
+		 * If the service port was guarded, verify the port name
+		 * and restore the guard value.
+		 *
+		 * See mach_port_construct().
+		 */
+		if (sp_label->ispl_launchd_name) {
+			if (name != sp_label->ispl_launchd_name) {
+				panic("Service port name = 0x%x doesnt match "
+				    "the stored launchd port name = 0x%x",
+				    name, sp_label->ispl_launchd_name);
+			}
+
+			port->ip_guarded = 1;
+			port->ip_strict_guard = 1;
+			port->ip_context = sp_label->ispl_launchd_context;
+		}
+	}
+
+	/*
+	 * pseudo receive shouldn't set the receive right
+	 * as immovable in the sender's space, it clearly moved once.
+	 */
+	dest = ipc_port_mark_in_space(port, label, space, name,
+	    (kn == ITH_KNOTE_PSEUDO) ? IO_STATE_IN_SPACE : in_space);
+
+	assert((bits & MACH_PORT_TYPE_RECEIVE) == 0);
+	if (bits & MACH_PORT_TYPE_SEND) {
+		assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_SEND);
+		assert(IE_BITS_UREFS(bits) > 0);
+		assert(port->ip_srights > 0);
+	} else {
+		assert(IE_BITS_TYPE(bits) == MACH_PORT_TYPE_NONE);
+		assert(IE_BITS_UREFS(bits) == 0);
+	}
+	entry->ie_bits = bits | MACH_PORT_TYPE_RECEIVE;
+	ipc_entry_modified(space, name, entry);
+
+	boolean_t sync_bootstrap_checkin = FALSE;
+	if (kn != ITH_KNOTE_PSEUDO && port->ip_sync_bootstrap_checkin) {
+		sync_bootstrap_checkin = TRUE;
+	}
+	if (!ITH_KNOTE_VALID(kn, MACH_MSG_TYPE_PORT_RECEIVE)) {
+		kn = NULL;
+	}
+	ipc_port_adjust_port_locked(port, kn, sync_bootstrap_checkin);
+	/* port unlocked */
+
+	if (bits & MACH_PORT_TYPE_SEND) {
+		ip_release_live(port);
+
+		/* entry is locked holding ref, so can use port */
+		ipc_hash_delete(space, ip_to_object(port), name, entry);
+	}
+
+	is_write_unlock(space);
+
+	if (dest != IP_NULL) {
+#if IMPORTANCE_INHERITANCE
+		/*
+		 * Deduct the assertion counts we contributed to
+		 * the old destination port.  They've already
+		 * been reflected into the task as a result of
+		 * getting enqueued.
+		 */
+		ip_mq_lock(dest);
+		ipc_port_impcount_delta(dest, 0 - assertcnt, IP_NULL);
+		ip_mq_unlock(dest);
+#endif /* IMPORTANCE_INHERITANCE */
+
+		/* Drop turnstile ref on dest */
+		ipc_port_send_turnstile_complete(dest);
+		ip_release(dest);
+	}
 }

@@ -543,6 +543,7 @@ extern const CFStringRef kCKKSViewMail;
 extern const CFStringRef kCKKSViewContacts;
 extern const CFStringRef kCKKSViewPhotos;
 extern const CFStringRef kCKKSViewGroups;
+extern const CFStringRef kCKKSViewFindMy;
 
 
 /*!

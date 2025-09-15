@@ -46,6 +46,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class OTAccountMetadataClassC;
 
 @class TrustedPeersHelperHealthCheckResult;
+@class OTEscrowCheckCallResult;
 
 @protocol OTControlProtocol
 
@@ -108,6 +109,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)resetAndEstablish:(OTControlArguments*)arguments
               resetReason:(CuttlefishResetReason)resetReason
+               accountIsW:(BOOL)accountIsW
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)resetAndEstablish:(OTControlArguments*)arguments
@@ -116,6 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
    idmsCuttlefishPassword:(NSString *_Nullable)idmsCuttlefishPassword
 	       notifyIdMS:(bool)notifyIdMS
           accountSettings:(OTAccountSettings *_Nullable)accountSettings
+               accountIsW:(BOOL)accountIsW
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)establish:(OTControlArguments*)arguments
@@ -216,10 +219,19 @@ NS_ASSUME_NONNULL_BEGIN
 -   (void)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                repair:(BOOL)repair
+  danglingPeerCleanup:(BOOL)danglingPeerCleanup
+           updateIdMS:(BOOL)updateIdMS
                 reply:(void (^)(TrustedPeersHelperHealthCheckResult *_Nullable results, NSError *_Nullable error))reply;
+
+-   (void)escrowCheck:(OTControlArguments*)arguments
+    isBackgroundCheck:(BOOL)isBackgroundCheck
+                reply:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError *_Nullable error))reply;
 
 - (void)simulateReceivePush:(OTControlArguments*)arguments
                       reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)simulateReceiveTDLChangePush:(OTControlArguments*)arguments
+                               reply:(void (^)(NSError *_Nullable error))reply;
 
 - (void)waitForOctagonUpgrade:(OTControlArguments*)arguments
                         reply:(void (^)(NSError* _Nullable error))reply;
@@ -323,17 +335,24 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
                          reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                  accountIsW:(BOOL)accountIsW
                                      altDSID:(NSString*)altDSID
                                        reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)totalTrustedPeers:(OTControlArguments*)arguments
                     reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
 
+- (void)trustedFullPeers:(OTControlArguments*)arguments
+                   reply:(void (^)(NSNumber* _Nullable count, NSError* _Nullable error))reply;
+
 - (void)areRecoveryKeysDistrusted:(OTControlArguments*)arguments
                             reply:(void (^)(BOOL distrustedRecoveryKeysExist, NSError* _Nullable error))reply;
 
 - (void)reroll:(OTControlArguments*)arguments
          reply:(void (^)(NSError *_Nullable error))reply;
+
+- (void)icscRepairReset:(OTControlArguments*)arguments
+                  reply:(void (^)(NSError *_Nullable error))reply;
 
 @end
 

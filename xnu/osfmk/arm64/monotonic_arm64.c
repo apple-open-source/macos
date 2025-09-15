@@ -367,6 +367,20 @@ static uint16_t uncore_active_ctrs = 0;
 static_assert(sizeof(uncore_active_ctrs) * CHAR_BIT >= UNCORE_NCTRS,
     "counter mask should fit the full range of counters");
 
+#if UPMU_9BIT_SELECTORS
+static uint16_t uncore_selectors_bit9 = 0;
+#endif /* UPMU_9BIT_SELECTORS */
+
+static uint64_t
+_upmcr0_value(void)
+{
+#if UPMU_9BIT_SELECTORS
+	return (uint64_t)uncore_selectors_bit9 << 36 | (uint64_t)uncore_active_ctrs;
+#else /* UPMU_9BIT_SELECTORS */
+	return uncore_active_ctrs;
+#endif /* !UPMU_9BIT_SELECTORS */
+}
+
 /*
  * mt_uncore_enabled is true when any uncore counters are active.
  */
@@ -826,7 +840,7 @@ uncmon_init_locked_l(unsigned int monid)
 	 */
 	CTRL_REG_SET("S3_7_C15_C5_4", uncmon_get_pmi_mask(monid));
 	uncmon_set_counting_locked_l(monid,
-	    mt_uncore_enabled ? uncore_active_ctrs : 0);
+	    mt_uncore_enabled ? _upmcr0_value() : 0);
 }
 
 #if UNCORE_PER_CLUSTER
@@ -840,7 +854,7 @@ uncmon_init_locked_r(unsigned int monid)
 
 	*(uint64_t *)(acc_impl[monid] + upmpcm_off) = uncmon_get_pmi_mask(monid);
 	uncmon_set_counting_locked_r(monid,
-	    mt_uncore_enabled ? uncore_active_ctrs : 0);
+	    mt_uncore_enabled ? _upmcr0_value() : 0);
 }
 
 #endif /* UNCORE_PER_CLUSTER */
@@ -974,7 +988,7 @@ uncore_add(struct monotonic_config *config, uint32_t *ctr_out)
 		return EBUSY;
 	}
 
-	uint8_t selector = (uint8_t)config->event;
+	uint16_t selector = (uint16_t)config->event;
 	uint32_t available = ~uncore_active_ctrs & config->allowed_ctr_mask;
 
 	if (available == 0) {
@@ -1026,7 +1040,11 @@ uncore_add(struct monotonic_config *config, uint32_t *ctr_out)
 	uint32_t ctr = __builtin_ffsll(available) - 1;
 
 	uncore_active_ctrs |= UINT64_C(1) << ctr;
-	uncore_config.uc_events.uce_ctrs[ctr] = selector;
+	uncore_config.uc_events.uce_ctrs[ctr] = (uint8_t)selector;
+#if UPMU_9BIT_SELECTORS
+	uncore_selectors_bit9 &= ~(1 << ctr);
+	uncore_selectors_bit9 |= ((selector >> 8) & 1) << ctr;
+#endif /* UPMU_9BIT_SELECTORS */
 	uint64_t cpu_mask = UINT64_MAX;
 	if (config->cpu_mask != 0) {
 		cpu_mask = config->cpu_mask;
@@ -1109,6 +1127,9 @@ uncore_reset(void)
 	}
 
 	uncore_active_ctrs = 0;
+#if UPMU_9BIT_SELECTORS
+	uncore_selectors_bit9 = 0;
+#endif /* UPMU_9BIT_SELECTORS */
 	memset(&uncore_config, 0, sizeof(uncore_config));
 
 	if (mt_owns_counters()) {
@@ -1151,7 +1172,7 @@ uncmon_set_enabled_l_locked(unsigned int monid, bool enable)
 	if (enable) {
 		uncmon_init_locked_l(monid);
 		uncmon_program_events_locked_l(monid);
-		uncmon_set_counting_locked_l(monid, uncore_active_ctrs);
+		uncmon_set_counting_locked_l(monid, _upmcr0_value());
 	} else {
 		uncmon_set_counting_locked_l(monid, 0);
 	}
@@ -1171,7 +1192,7 @@ uncmon_set_enabled_r_locked(unsigned int monid, bool enable)
 		if (enable) {
 			uncmon_init_locked_r(monid);
 			uncmon_program_events_locked_r(monid);
-			uncmon_set_counting_locked_r(monid, uncore_active_ctrs);
+			uncmon_set_counting_locked_r(monid, _upmcr0_value());
 		} else {
 			uncmon_set_counting_locked_r(monid, 0);
 		}

@@ -86,7 +86,6 @@
 #include <stdatomic.h>
 
 #include <security/mac_mach_internal.h>
-#include <libkern/coreanalytics/coreanalytics.h>
 
 static void act_abort(thread_t thread);
 
@@ -94,76 +93,87 @@ static void thread_suspended(void *arg, wait_result_t result);
 static void thread_set_apc_ast(thread_t thread);
 static void thread_set_apc_ast_locked(thread_t thread);
 
-extern void proc_name(int pid, char * buf, int size);
 extern boolean_t IOTaskHasEntitlement(task_t task, const char *entitlement);
-
-CA_EVENT(thread_set_state,
-    CA_STATIC_STRING(CA_PROCNAME_LEN), current_proc);
-
-static void
-send_thread_set_state_telemetry(void)
-{
-	ca_event_t ca_event = CA_EVENT_ALLOCATE(thread_set_state);
-	CA_EVENT_TYPE(thread_set_state) * event = ca_event->data;
-
-	proc_name(task_pid(current_task()), (char *) &event->current_proc, CA_PROCNAME_LEN);
-
-	CA_EVENT_SEND(ca_event);
-}
 
 /* bootarg to create lightweight corpse for thread set state lockdown */
 TUNABLE(bool, tss_should_crash, "tss_should_crash", true);
 
-static inline boolean_t
-thread_set_state_allowed(thread_t thread, int flavor, task_t curr_task)
+#define task_has_tss_entitlement(task) IOTaskHasEntitlement((task), \
+	"com.apple.private.thread-set-state")
+
+static inline bool
+thread_set_state_allowed(
+	thread_t                  thread,
+	int                       flavor,
+	thread_set_status_flags_t flags)
 {
-	task_t target_task = get_threadtask(thread);
+	task_t             curr_task   = TASK_NULL;
+	task_t             target_task = TASK_NULL;
+	ipc_space_policy_t target_pol;
+	ipc_space_policy_t exception_tss_policy_level;
 
 #if DEVELOPMENT || DEBUG
 	/* disable the feature if the boot-arg is disabled. */
 	if (!tss_should_crash) {
-		return TRUE;
+		return true;
 	}
 #endif /* DEVELOPMENT || DEBUG */
 
-	/* hardened binaries must have entitlement - all others ok */
-	if (task_is_hardened_binary(target_task)
-	    && !(thread->options & TH_IN_MACH_EXCEPTION)            /* Allowed for now - rdar://103085786 */
-	    && FLAVOR_MODIFIES_CORE_CPU_REGISTERS(flavor) /* only care about locking down PC/LR */
-#if XNU_TARGET_OS_OSX
-	    && !task_opted_out_mach_hardening(target_task)
-#endif /* XNU_TARGET_OS_OSX */
-#if CONFIG_ROSETTA
-	    && !task_is_translated(target_task)  /* Ignore translated tasks */
-#endif /* CONFIG_ROSETTA */
-	    && !IOTaskHasEntitlement(curr_task, "com.apple.private.thread-set-state")
-	    ) {
-		/* fatal crash */
-		mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
-		send_thread_set_state_telemetry();
-		return FALSE;
+	/* No security check needed if neither of these two flags were set */
+	if ((flags & TSSF_CHECK_ENTITLEMENT) == 0 &&
+	    (thread->options & TH_IN_MACH_EXCEPTION) == 0) {
+		return true;
+	}
+
+	curr_task = current_task();
+	target_task = get_threadtask(thread);
+	target_pol = ipc_space_policy(get_task_ipcspace(target_task));
+	/* Allow if the task is translated, simulated, or has IPC hardening turned off */
+	if (!ipc_should_apply_policy(target_pol, IPC_SPACE_POLICY_DEFAULT)) {
+		return true;
+	}
+
+	/*
+	 * Setting the thread state from a userspace mach exception handler is
+	 * allowed iff it comes from the same process, or if the process is
+	 * being debugged (in dev mode)
+	 */
+#if !(XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE)
+	exception_tss_policy_level = IPC_POLICY_ENHANCED_V1;
+#else
+	exception_tss_policy_level = IPC_POLICY_ENHANCED_V2;
+#endif /* !(XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE) */
+	if ((thread->options & TH_IN_MACH_EXCEPTION) &&
+	    target_task != curr_task &&
+	    ipc_should_apply_policy(target_pol, exception_tss_policy_level) &&
+	    (!is_address_space_debugged(get_bsdtask_info(target_task))) &&
+	    !task_has_tss_entitlement(curr_task)) {
+		mach_port_guard_exception(flavor, 0, kGUARD_EXC_THREAD_SET_STATE);
+		return false;
+	}
+
+	/* enhanced security binaries must have entitlement - all others ok */
+	if ((flags & TSSF_CHECK_ENTITLEMENT) &&
+	    !(thread->options & TH_IN_MACH_EXCEPTION) &&  /* Allowed for now - rdar://103085786 */
+	    ipc_should_apply_policy(target_pol, IPC_POLICY_ENHANCED_V1) &&
+	    FLAVOR_MODIFIES_CORE_CPU_REGISTERS(flavor) && /* only care about locking down PC/LR */
+	    !task_has_tss_entitlement(curr_task)) {
+		mach_port_guard_exception(flavor, 0, kGUARD_EXC_THREAD_SET_STATE);
+		return false;
 	}
 
 #if __has_feature(ptrauth_calls)
 	/* Do not allow Fatal PAC exception binaries to set Debug state */
-	if (task_is_pac_exception_fatal(target_task)
-	    && machine_thread_state_is_debug_flavor(flavor)
-#if XNU_TARGET_OS_OSX
-	    && !task_opted_out_mach_hardening(target_task)
-#endif /* XNU_TARGET_OS_OSX */
-#if CONFIG_ROSETTA
-	    && !task_is_translated(target_task)      /* Ignore translated tasks */
-#endif /* CONFIG_ROSETTA */
-	    && !IOTaskHasEntitlement(curr_task, "com.apple.private.thread-set-state")
-	    ) {
-		/* fatal crash */
-		mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
-		send_thread_set_state_telemetry();
-		return FALSE;
+	if ((flags & TSSF_CHECK_ENTITLEMENT) &&
+	    task_is_pac_exception_fatal(target_task) &&
+	    machine_thread_state_is_debug_flavor(flavor) &&
+	    !task_has_tss_entitlement(curr_task)) {
+		mach_port_guard_exception(flavor, 0, kGUARD_EXC_THREAD_SET_STATE);
+		return false;
 	}
 #endif /* __has_feature(ptrauth_calls) */
 
-	return TRUE;
+	return true;
 }
 
 /*
@@ -266,7 +276,7 @@ thread_terminate_internal(
 	}
 
 	/* unconditionally unpin the thread in internal termination */
-	ipc_thread_port_unpin(get_thread_ro(thread)->tro_self_port);
+	ipc_thread_port_unpin(get_thread_ro(thread)->tro_ports[THREAD_FLAVOR_CONTROL]);
 
 	thread_mtx_unlock(thread);
 
@@ -338,34 +348,19 @@ thread_terminate_from_user(
 }
 
 /*
- * Terminate a thread with pinned control port.
+ * Terminate a thread with immovable control port.
  *
  * Can only be used on threads managed by pthread. Exported in pthread_kern.
  */
 kern_return_t
-thread_terminate_pinned(
+thread_terminate_immovable(
 	thread_t                thread)
 {
-	task_t task;
-
-	if (thread == THREAD_NULL) {
-		return KERN_INVALID_ARGUMENT;
-	}
-
-	task = get_threadtask(thread);
-
-
-	assert(task != kernel_task);
+	assert(thread == current_thread());
+	assert(get_threadtask(thread) != kernel_task);
 	assert(thread_get_tag(thread) & (THREAD_TAG_PTHREAD | THREAD_TAG_MAINTHREAD));
 
-	thread_mtx_lock(thread);
-	if (task_is_pinned(task) && thread->active) {
-		assert(get_thread_ro(thread)->tro_self_port->ip_pinned == 1);
-	}
-	thread_mtx_unlock(thread);
-
-	kern_return_t result = thread_terminate_internal(thread);
-	return result;
+	return thread_terminate_internal(thread);
 }
 
 /*
@@ -719,35 +714,16 @@ thread_set_state_internal(
 {
 	kern_return_t           result = KERN_SUCCESS;
 	boolean_t               from_user = !!(flags & TSSF_TRANSLATE_TO_USER);
-	task_t                  curr_task = NULL;
 
 	if (thread == THREAD_NULL) {
 		return KERN_INVALID_ARGUMENT;
 	}
 
-#if !(XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE)
 	/*
-	 * Setting the thread state from a userspace mach exception handler is
-	 * allowed if it comes from the same process, or if the process is
-	 * being debugged (in dev mode), regardless of TSSF_CHECK_ENTITLEMENT
+	 * process will be crashed with kGUARD_EXC_THREAD_SET_STATE
+	 * if thread_set_state_allowed() return false.
 	 */
-	if (thread->options & TH_IN_MACH_EXCEPTION) {
-		task_t target_task = get_threadtask(thread);
-		proc_t target_proc = get_bsdtask_info(target_task);
-		curr_task = current_task();
-		if (target_task != curr_task &&
-		    task_is_hardened_binary(target_task) &&
-		    !is_address_space_debugged(target_proc) &&
-		    !IOTaskHasEntitlement(curr_task, "com.apple.private.thread-set-state")) {
-			mach_port_guard_exception(MACH_PORT_NULL, 0, kGUARD_EXC_THREAD_SET_STATE);
-			send_thread_set_state_telemetry();
-			return KERN_NO_ACCESS;
-		}
-	}
-#endif /* !(XNU_TARGET_OS_OSX || XNU_TARGET_OS_BRIDGE) */
-
-	if ((flags & TSSF_CHECK_ENTITLEMENT) &&
-	    !thread_set_state_allowed(thread, flavor, curr_task)) {
+	if (!thread_set_state_allowed(thread, flavor, flags)) {
 		return KERN_NO_ACCESS;
 	}
 

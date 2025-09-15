@@ -48,7 +48,7 @@ template<> struct ArgumentCoder<GUniquePtr<char*>> {
     {
         auto length = decoder.decode<unsigned>();
 
-        if (UNLIKELY(!length))
+        if (!length) [[unlikely]]
             return std::nullopt;
 
         GUniquePtr<char*>strv(g_new0(char*, *length + 1));
@@ -56,7 +56,7 @@ template<> struct ArgumentCoder<GUniquePtr<char*>> {
 
         for (auto& str : strvSpan) {
             auto strOptional = decoder.decode<CString>();
-            if (UNLIKELY(!strOptional))
+            if (!strOptional) [[unlikely]]
                 return std::nullopt;
             str = g_strdup(strOptional->data());
         }

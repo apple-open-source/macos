@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,9 +41,9 @@
 #include <wtf/Observer.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WTFSemaphore.h>
-#include <wtf/WeakPtr.h>
 #include <wtf/threads/BinarySemaphore.h>
 
 OBJC_CLASS AVStreamDataParser;
@@ -65,6 +65,7 @@ namespace WebCore {
 class CDMInstance;
 class CDMInstanceFairPlayStreamingAVFObjC;
 class CDMSessionAVContentKeySession;
+class InbandTextTrackPrivate;
 class MediaPlayerPrivateMediaSourceAVFObjC;
 class MediaSourcePrivateAVFObjC;
 class TimeRanges;
@@ -73,7 +74,6 @@ class VideoMediaSampleRenderer;
 class VideoTrackPrivate;
 class AudioTrackPrivateMediaSourceAVFObjC;
 class VideoTrackPrivateMediaSourceAVFObjC;
-class WebCoreDecompressionSession;
 class SharedBuffer;
 
 struct TrackInfo;
@@ -124,6 +124,11 @@ public:
     void flush();
     void flushIfNeeded();
 
+#if PLATFORM(IOS_FAMILY)
+    void applicationWillResignActive();
+    void applicationDidBecomeActive();
+#endif
+
     void registerForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
     void unregisterForErrorNotifications(SourceBufferPrivateAVFObjCErrorClient*);
 
@@ -165,7 +170,6 @@ private:
     void notifyClientWhenReadyForMoreSamples(TrackID) final;
     bool canSetMinimumUpcomingPresentationTime(TrackID) const override;
     void setMinimumUpcomingPresentationTime(TrackID, const MediaTime&) override;
-    void clearMinimumUpcomingPresentationTime(TrackID) override;
     bool canSwitchToType(const ContentType&) final;
     bool isSeeking() const final;
 
@@ -184,7 +188,7 @@ private:
 
     void processPendingTrackChangeTasks();
     void enqueueSample(Ref<MediaSampleAVFObjC>&&, TrackID);
-    void enqueueSampleBuffer(MediaSampleAVFObjC&);
+    void enqueueSampleBuffer(MediaSampleAVFObjC&, const MediaTime&);
     void attachContentKeyToSampleIfNeeded(const MediaSampleAVFObjC&);
     void didBecomeReadyForMoreSamples(TrackID);
     void appendCompleted(bool);
@@ -195,10 +199,14 @@ private:
     bool isEnabledVideoTrackID(TrackID) const;
     bool requiresFlush() const;
     void flushVideo();
+    void setLayerRequiresFlush();
+
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     RetainPtr<AVSampleBufferAudioRenderer> audioRendererForTrackID(TrackID) const;
     void flushAudio(AVSampleBufferAudioRenderer *);
 ALLOW_NEW_API_WITHOUT_GUARDS_END
+
+    bool isTextTrack(TrackID) const;
 
     RefPtr<MediaPlayerPrivateMediaSourceAVFObjC> player() const;
     bool canEnqueueSample(TrackID, const MediaSampleAVFObjC&);
@@ -215,6 +223,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     StdUnorderedMap<TrackID, RefPtr<VideoTrackPrivate>> m_videoTracks;
     StdUnorderedMap<TrackID, RefPtr<AudioTrackPrivate>> m_audioTracks;
+    StdUnorderedMap<TrackID, RefPtr<InbandTextTrackPrivate>> m_textTracks;
     Vector<SourceBufferPrivateAVFObjCErrorClient*> m_errorClients;
 
     const Ref<SourceBufferParser> m_parser;
@@ -229,6 +238,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     const Ref<WebAVSampleBufferListener> m_listener;
 #if PLATFORM(IOS_FAMILY)
     bool m_displayLayerWasInterrupted { false };
+    bool m_applicationIsActive { true };
 #endif
     RetainPtr<NSError> m_hdcpError;
     Box<BinarySemaphore> m_hasSessionSemaphore;
@@ -237,7 +247,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<SharedBuffer> m_initData;
-    WeakPtr<CDMSessionAVContentKeySession> m_session { nullptr };
+    ThreadSafeWeakPtr<CDMSessionAVContentKeySession> m_session;
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     using KeyIDs = Vector<Ref<SharedBuffer>>;
@@ -269,10 +279,9 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 #endif
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
-
     ProcessIdentity m_resourceOwner;
 };
 

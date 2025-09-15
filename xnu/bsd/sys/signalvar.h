@@ -247,6 +247,7 @@ void    psignal_sigkill_try_thread_with_reason(struct proc *p, struct thread *th
 
 cpu_type_t process_cpu_type(struct proc * core_proc);
 cpu_type_t process_cpu_subtype(struct proc * core_proc);
+int     is_coredump_eligible(struct proc *);
 int     coredump(struct proc *p, uint32_t reserve_mb, int coredump_flags);
 void set_thread_exit_reason(void *th, void *reason, boolean_t proc_locked);
 

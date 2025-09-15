@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,7 +84,7 @@ private:
     void rubberBandingStateChanged(bool) final;
     bool scrollPositionIsNotRubberbandingEdge(const FloatPoint&) const;
 
-    Ref<ScrollerPairMac> m_scrollerPair;
+    const Ref<ScrollerPairMac> m_scrollerPair;
 
     bool m_inMomentumPhase { false };
 };

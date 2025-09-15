@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "WKSeparatedImageView.h"
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 
 #if HAVE(CORE_ANIMATION_SEPARATED_LAYERS)
 
@@ -32,7 +33,37 @@
 
 @interface WKSeparatedImageView (WKContentControlled) <WKContentControlled>
 @end
+
 @implementation WKSeparatedImageView (WKContentControlled)
+
++ (Class)layerClass {
+    return [WKObservingLayer class];
+}
+
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    [self layoutCustomSubtree];
+}
+
+@end
+
+@implementation WKObservingLayer
+
+- (void)setSeparated:(BOOL)isSeparated
+{
+    [super setSeparated:isSeparated];
+    [self.layerDelegate layerSeparatedDidChange:self];
+}
+
+- (void)setContents:(id)contents
+{
+    [super setContents:contents];
+    if (!contents)
+        [self.layerDelegate layerWasCleared:self];
+
+}
+
 @end
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -57,6 +88,18 @@
 }
 
 - (void)setSurface:(nullable IOSurfaceRef)surface
+{
+}
+
+- (void)layoutCustomSubtree
+{
+}
+
+- (void)layerSeparatedDidChange:(CALayer *)layer
+{
+}
+
+- (void)layerWasCleared:(CALayer *)layer
 {
 }
 

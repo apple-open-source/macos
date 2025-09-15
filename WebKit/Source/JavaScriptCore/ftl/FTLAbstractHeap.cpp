@@ -128,7 +128,7 @@ void AbstractHeap::deepDump(PrintStream& out, unsigned indent) const
 
 void AbstractHeap::badRangeError() const
 {
-    dataLog("Heap does not have range: ", *this, "\n");
+    dataLogLn("Heap does not have range: ", *this);
     RELEASE_ASSERT_NOT_REACHED();
 }
 
@@ -158,7 +158,7 @@ const AbstractHeap& IndexedAbstractHeap::atSlow(ptrdiff_t index)
 {
     ASSERT(static_cast<size_t>(index) >= m_smallIndices.size());
     
-    if (UNLIKELY(!m_largeIndices))
+    if (!m_largeIndices) [[unlikely]]
         m_largeIndices = makeUnique<MapType>();
 
     std::unique_ptr<AbstractHeap>& field = m_largeIndices->add(index, nullptr).iterator->value;

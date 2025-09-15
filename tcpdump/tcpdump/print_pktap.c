@@ -246,6 +246,20 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 					  prsep);
 				prsep = ", ";
 			}
+#ifdef PTH_FLAG_ULPN
+			if ((pktp_hdr->pth_flags & PTH_FLAG_ULPN)) {
+				ND_PRINT("%s" "ulpn",
+					  prsep);
+				prsep = ", ";
+			}
+#endif /* PTH_FLAG_ULPN */
+#ifdef PTH_FLAG_LPW
+			if ((pktp_hdr->pth_flags & PTH_FLAG_LPW)) {
+				ND_PRINT("%s" "lpw",
+					  prsep);
+				prsep = ", ";
+			}
+#endif /* PTH_FLAG_LPW */
 		}
 		if (ndo->ndo_kflag & PRMD_FLOWID) {
 			ND_PRINT("%s" "flowid 0x%x",

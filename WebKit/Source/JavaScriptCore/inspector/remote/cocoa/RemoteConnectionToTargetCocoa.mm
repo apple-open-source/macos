@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -172,21 +172,22 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
             Locker locker { m_targetMutex };
             target = m_target.get();
         }
+
         if (!target || !target->remoteControlAllowed()) {
             RemoteInspector::singleton().setupFailed(targetIdentifier);
             Locker locker { m_targetMutex };
             m_target = nullptr;
-        } else if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(target.get())) {
-            inspectionTarget->connect(*this, isAutomaticInspection, automaticallyPause);
-            m_connected = true;
-
-            RemoteInspector::singleton().updateTargetListing(targetIdentifier);
-        } else if (auto* automationTarget = dynamicDowncast<RemoteAutomationTarget>(target.get())) {
-            automationTarget->connect(*this);
-            m_connected = true;
-
-            RemoteInspector::singleton().updateTargetListing(targetIdentifier);
+            return;
         }
+
+        if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(target.get()))
+            inspectionTarget->connect(*this, isAutomaticInspection, automaticallyPause);
+        else if (auto* automationTarget = dynamicDowncast<RemoteAutomationTarget>(target.get()))
+            automationTarget->connect(*this);
+
+        m_connectionState = ConnectionState::Connected;
+        RemoteInspector::singleton().updateTargetListing(targetIdentifier);
+        RemoteInspector::singleton().setupCompleted(targetIdentifier);
     });
 
     return true;
@@ -195,7 +196,7 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
 void RemoteConnectionToTarget::targetClosed()
 {
     Locker locker { m_targetMutex };
-
+    m_connectionState = ConnectionState::Closed;
     m_target = nullptr;
 }
 
@@ -211,7 +212,7 @@ void RemoteConnectionToTarget::close()
     dispatchAsyncOnTarget([this, targetIdentifier, protectedThis = Ref { *this }]() {
         Locker locker { m_targetMutex };
         if (RefPtr target = m_target.get()) {
-            if (m_connected)
+            if (m_connectionState.exchange(ConnectionState::Closed) == ConnectionState::Connected)
                 target->disconnect(*this);
 
             m_target = nullptr;
@@ -224,6 +225,9 @@ void RemoteConnectionToTarget::close()
 
 void RemoteConnectionToTarget::sendMessageToTarget(NSString *message)
 {
+    if (m_connectionState == ConnectionState::Closed)
+        return;
+
     dispatchAsyncOnTarget([this, strongMessage = retainPtr(message), protectedThis = Ref { *this }]() {
         RefPtr<RemoteControllableTarget> target;
         {
@@ -237,6 +241,9 @@ void RemoteConnectionToTarget::sendMessageToTarget(NSString *message)
 
 void RemoteConnectionToTarget::sendMessageToFrontend(const String& message)
 {
+    if (m_connectionState == ConnectionState::Closed)
+        return;
+
     std::optional<TargetID> targetIdentifier;
     {
         Locker locker { m_targetMutex };

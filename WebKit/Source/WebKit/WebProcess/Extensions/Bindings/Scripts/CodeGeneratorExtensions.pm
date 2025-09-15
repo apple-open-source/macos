@@ -415,7 +415,7 @@ EOF
 void ${className}::getPropertyNames(JSContextRef context, JSObjectRef thisObject, JSPropertyNameAccumulatorRef propertyNames)
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(!impl))
+    if (!impl) [[unlikely]]
         return;
 
     NSArray *propertyNameStrings = impl->${customGetPropertyNamesFunction}();
@@ -432,7 +432,7 @@ EOF
 bool ${className}::hasProperty(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName)
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(!impl))
+    if (!impl) [[unlikely]]
         return false;
 
     return impl->${customHasPropertyFunction}(toNSString(propertyName));
@@ -481,7 +481,7 @@ EOF
 
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(${functionEarlyReturnCondition}))
+    if (${functionEarlyReturnCondition}) [[unlikely]]
         return ${defaultEarlyReturnValue};
 
     RELEASE_LOG_DEBUG(Extensions, "Called function ${call} (%{public}lu %{public}s) in %{public}s world", argumentCount, argumentCount == 1 ? "argument" : "arguments", toDebugString(impl->contentWorldType()).utf8().data());
@@ -532,7 +532,7 @@ EOF
             if ($requiredArgumentCount) {
                 push(@contents, <<EOF);
     constexpr size_t requiredArgumentCount = ${requiredArgumentCount};
-    if (UNLIKELY(argumentCount < requiredArgumentCount)) {
+    if (argumentCount < requiredArgumentCount) [[unlikely]] {
         *exception = toJSError(context, @"${call}", nil, @"a required argument is missing");
         return ${defaultEarlyReturnValue};
     }
@@ -674,7 +674,7 @@ EOF
 
             if (!$hasSimpleOptionalArgumentHandling) {
                 push(@contents, "\n");
-                push(@contents, "    if (UNLIKELY($argumentIndexConditon)) {\n");
+                push(@contents, "    if ($argumentIndexConditon) [[unlikely]] {\n");
                 push(@contents, "        *exception = toJSError(context, @\"${call}\", nil, @\"an unknown argument was provided\");\n");
                 push(@contents, "        return ${defaultEarlyReturnValue};\n");
                 push(@contents, "    }\n");
@@ -731,7 +731,7 @@ EOF
 
             if ($needsPage || $needsPageIdentifier) {
                 push(@contents, "    RefPtr page = toWebPage(context);\n");
-                push(@contents, "    if (UNLIKELY(!page)) {\n");
+                push(@contents, "    if (!page) [[unlikely]] {\n");
                 push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Page could not be found for JSContextRef\");\n");
                 push(@contents, "        if (promiseResult)\n") if $returnsPromise;
                 push(@contents, "            promiseResult = toJSRejectedPromise(context, @\"${call}\", nil, @\"an unknown error occurred\");\n") if $returnsPromise;
@@ -741,7 +741,7 @@ EOF
 
             if ($needsFrame || $needsFrameIdentifier) {
                 push(@contents, "    RefPtr frame = toWebFrame(context);\n");
-                push(@contents, "    if (UNLIKELY(!frame)) {\n");
+                push(@contents, "    if (!frame) [[unlikely]] {\n");
                 push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Frame could not be found for JSContextRef\");\n");
                 push(@contents, "        if (promiseResult)\n") if $returnsPromise;
                 push(@contents, "            promiseResult = toJSRejectedPromise(context, @\"${call}\", nil, @\"an unknown error occurred\");\n") if $returnsPromise;
@@ -754,7 +754,7 @@ EOF
     NSString *exceptionString;
     JSValueRef result = ${returnExpression};
 
-    if (UNLIKELY(exceptionString)) {
+    if (exceptionString) [[unlikely]] {
         *exception = toJSError(context, @"${call}", nil, exceptionString);
         return ${defaultEarlyReturnValue};
     }
@@ -767,7 +767,7 @@ EOF
     NSString *exceptionString;
     ${functionCall};
 
-    if (UNLIKELY(exceptionString)) {
+    if (exceptionString) [[unlikely]] {
         *exception = toJSError(context, @"${call}", nil, exceptionString);
         return ${defaultEarlyReturnValue};
     }
@@ -788,7 +788,7 @@ EOF
 ${functionSignature}
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(${functionEarlyReturnCondition}))
+    if (${functionEarlyReturnCondition}) [[unlikely]]
         return JSValueMakeUndefined(context);
 
 EOF
@@ -891,7 +891,7 @@ EOF
 
             push(@contents, <<EOF);
     RefPtr impl = to${implementationClassName}(context, object);
-    if (UNLIKELY(${getterEarlyReturnCondition}))
+    if (${getterEarlyReturnCondition}) [[unlikely]]
         return JSValueMakeUndefined(context);
 
     RELEASE_LOG_DEBUG(Extensions, "Called getter ${call} in %{public}s world", toDebugString(impl->contentWorldType()).utf8().data());
@@ -900,7 +900,7 @@ EOF
             if ($needsPage || $needsPageIdentifier) {
                 push(@contents, "\n");
                 push(@contents, "    RefPtr page = toWebPage(context);\n");
-                push(@contents, "    if (UNLIKELY(!page)) {\n");
+                push(@contents, "    if (!page) [[unlikely]] {\n");
                 push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Page could not be found for JSContextRef\");\n");
                 push(@contents, "        return JSValueMakeUndefined(context);\n");
                 push(@contents, "    }\n");
@@ -909,7 +909,7 @@ EOF
             if ($needsFrame || $needsFrameIdentifier) {
                 push(@contents, "\n");
                 push(@contents, "    RefPtr frame = toWebFrame(context);\n");
-                push(@contents, "    if (UNLIKELY(!frame)) {\n");
+                push(@contents, "    if (!frame) [[unlikely]] {\n");
                 push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Frame could not be found for JSContextRef\");\n");
                 push(@contents, "        return JSValueMakeUndefined(context);\n");
                 push(@contents, "    }\n");
@@ -934,7 +934,7 @@ EOF
 
                 push(@contents, <<EOF);
     RefPtr impl = to${implementationClassName}(context, object);
-    if (UNLIKELY(${setterEarlyReturnCondition}))
+    if (${setterEarlyReturnCondition}) [[unlikely]]
         return false;
 
     RELEASE_LOG_DEBUG(Extensions, "Called setter ${call} in %{public}s world", toDebugString(impl->contentWorldType()).utf8().data());
@@ -952,7 +952,7 @@ EOF
                 if ($needsPage || $needsPageIdentifier) {
                     push(@contents, "\n");
                     push(@contents, "    RefPtr page = toWebPage(context);\n");
-                    push(@contents, "    if (UNLIKELY(!page)) {\n");
+                    push(@contents, "    if (!page) [[unlikely]] {\n");
                     push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Page could not be found for JSContextRef\");\n");
                     push(@contents, "        return false;\n");
                     push(@contents, "    }\n");
@@ -961,7 +961,7 @@ EOF
                 if ($needsFrame || $needsFrameIdentifier) {
                     push(@contents, "\n");
                     push(@contents, "    RefPtr frame = toWebFrame(context);\n");
-                    push(@contents, "    if (UNLIKELY(!frame)) {\n");
+                    push(@contents, "    if (!frame) [[unlikely]] {\n");
                     push(@contents, "        RELEASE_LOG_ERROR(Extensions, \"Frame could not be found for JSContextRef\");\n");
                     push(@contents, "        return false;\n");
                     push(@contents, "    }\n");
@@ -1101,7 +1101,7 @@ sub _installArgumentTypeExceptions
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a string is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1113,7 +1113,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a number is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1125,7 +1125,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a boolean is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1137,7 +1137,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an object is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1149,7 +1149,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an object is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1161,7 +1161,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an array is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1173,7 +1173,7 @@ EOF
         $hasExceptions = 1;
 
         push(@$contents, <<EOF);
-${indentString}if (UNLIKELY(!($condition))) {
+${indentString}if (!($condition)) [[unlikely]] {
 ${indentString}    *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a function is expected");
 ${indentString}    return ${result};
 ${indentString}}
@@ -1197,10 +1197,10 @@ sub _installAutomaticExceptions
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(*exception))
+    if (*exception) [[unlikely]]
         return ${result};
 
-    if (UNLIKELY(!$variable)) {
+    if (!$variable) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a JSON serializable value is expected");
         return ${result};
     }
@@ -1212,7 +1212,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(!$variable)) {
+    if (!$variable) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a string is expected");
         return ${result};
     }
@@ -1224,7 +1224,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(!std::isfinite($variable))) {
+    if (!std::isfinite($variable)) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a number is expected");
         return ${result};
     }
@@ -1236,7 +1236,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(!$variable)) {
+    if (!$variable) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an object is expected");
         return ${result};
     }
@@ -1248,7 +1248,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY($variable && !$variable.isObject)) {
+    if ($variable && !$variable.isObject) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an object is expected");
         return ${result};
     }
@@ -1260,7 +1260,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(!$variable)) {
+    if (!$variable) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"an array is expected");
         return ${result};
     }
@@ -1279,7 +1279,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(${isEmptyCheck})) {
+    if (${isEmptyCheck}) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"it cannot be empty");
         return ${result};
     }
@@ -1294,7 +1294,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(${variable}.isFileURL)) {
+    if (${variable}.isFileURL) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"it cannot be a local file URL");
         return ${result};
     }
@@ -1306,7 +1306,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY($variable && !JSObjectIsFunction(context, $variable))) {
+    if ($variable && !JSObjectIsFunction(context, $variable)) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a function is expected");
         return ${result};
     }
@@ -1318,7 +1318,7 @@ EOF
 
         push(@$contents, <<EOF);
 
-    if (UNLIKELY(!$variable)) {
+    if (!$variable) [[unlikely]] {
         *exception = toJSError(context, @"${call}", @"${variableLabel}", @"a function is expected");
         return ${result};
     }
@@ -1682,7 +1682,7 @@ sub _dynamicAttributesImplementation
 void ${className}::getPropertyNames(JSContextRef context, JSObjectRef thisObject, JSPropertyNameAccumulatorRef propertyNames)
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(!impl))
+    if (!impl) [[unlikely]]
         return;
 
     RefPtr page = toWebPage(context);
@@ -1732,7 +1732,7 @@ EOF
 bool ${className}::hasProperty(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName)
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(!impl))
+    if (!impl) [[unlikely]]
         return false;
 
     RefPtr page = toWebPage(context);
@@ -1767,7 +1767,7 @@ EOF
 JSValueRef ${className}::getProperty(JSContextRef context, JSObjectRef thisObject, JSStringRef propertyName, JSValueRef* exception)
 {
     RefPtr impl = to${implementationClassName}(context, thisObject);
-    if (UNLIKELY(!impl))
+    if (!impl) [[unlikely]]
         return JSValueMakeUndefined(context);
 
     RefPtr page = toWebPage(context);

@@ -949,6 +949,7 @@ static bool
 soflow_nstat_provider_request_vals(nstat_provider_context ctx,
     u_int32_t *ifflagsp,
     nstat_counts *countsp,
+    nstat_detailed_counts *detailsp,
     void *metadatap)
 {
 	struct soflow_hash_entry *hash_entry = (struct soflow_hash_entry *) ctx;
@@ -985,6 +986,18 @@ soflow_nstat_provider_request_vals(nstat_provider_context ctx,
 		    countsp->nstat_rxpackets, countsp->nstat_rxbytes, countsp->nstat_txpackets, countsp->nstat_txbytes);
 	}
 
+	if (detailsp) {
+		bzero(detailsp, sizeof(*detailsp));
+		detailsp->nstat_media_stats.ms_total.ts_rxbytes = hash_entry->soflow_rxbytes;
+		detailsp->nstat_media_stats.ms_total.ts_txbytes = hash_entry->soflow_txbytes;
+		detailsp->nstat_media_stats.ms_total.ts_rxpackets = hash_entry->soflow_rxpackets;
+		detailsp->nstat_media_stats.ms_total.ts_txpackets = hash_entry->soflow_txpackets;
+
+		SOFLOW_LOG(LOG_DEBUG, so, hash_entry->soflow_debug,
+		    "Collected NSTAT detailed counts: rxpackets %llu rxbytes %llu txpackets %llu txbytes %llu",
+		    detailsp->nstat_media_stats.ms_total.ts_rxpackets, detailsp->nstat_media_stats.ms_total.ts_rxbytes,
+		    detailsp->nstat_media_stats.ms_total.ts_txpackets, detailsp->nstat_media_stats.ms_total.ts_txbytes);
+	}
 	if (metadatap) {
 		nstat_udp_descriptor *desc = (nstat_udp_descriptor *)metadatap;
 		bzero(desc, sizeof(*desc));

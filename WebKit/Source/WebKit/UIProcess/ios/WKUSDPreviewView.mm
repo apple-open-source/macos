@@ -47,12 +47,12 @@
 SOFT_LINK_PRIVATE_FRAMEWORK(AssetViewer);
 SOFT_LINK_CLASS(AssetViewer, ASVThumbnailView);
 
-static NSString *getUTIForUSDMIMEType(const String& mimeType)
+static RetainPtr<NSString> getUTIForUSDMIMEType(const String& mimeType)
 {
     if (!WebCore::MIMETypeRegistry::isUSDMIMEType(mimeType))
         return nil;
 
-    return WebCore::UTIFromMIMEType(mimeType);
+    return WebCore::UTIFromMIMEType(mimeType).createNSString();
 }
 
 @interface WKUSDPreviewView () <ASVThumbnailViewDelegate>
@@ -92,9 +92,9 @@ static NSString *getUTIForUSDMIMEType(const String& mimeType)
     _suggestedFilename = adoptNS([filename copy]);
     _data = adoptNS([data copy]);
 
-    NSString *contentType = getUTIForUSDMIMEType(_mimeType.get());
+    RetainPtr contentType = getUTIForUSDMIMEType(_mimeType.get());
 
-    _item = adoptNS([PAL::allocQLItemInstance() initWithDataProvider:self contentType:contentType previewTitle:_suggestedFilename.get()]);
+    _item = adoptNS([PAL::allocQLItemInstance() initWithDataProvider:self contentType:contentType.get() previewTitle:_suggestedFilename.get()]);
     [_item setUseLoadingTimeout:NO];
 
     _thumbnailView = adoptNS([allocASVThumbnailViewInstance() init]);
@@ -106,7 +106,10 @@ static NSString *getUTIForUSDMIMEType(const String& mimeType)
     [self addSubview:_thumbnailView.get()];
     [self _layoutThumbnailView];
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // FIXME: <rdar://155548417> ([ Build-Failure ] [ iOS26+ ] error: 'mainScreen' is deprecated: first deprecated in iOS 26.0)
     auto screenBounds = UIScreen.mainScreen.bounds;
+ALLOW_DEPRECATED_DECLARATIONS_END
     CGFloat maxDimension = CGFloatMin(screenBounds.size.width, screenBounds.size.height);
     [_thumbnailView setMaxThumbnailSize:CGSizeMake(maxDimension, maxDimension)];
 

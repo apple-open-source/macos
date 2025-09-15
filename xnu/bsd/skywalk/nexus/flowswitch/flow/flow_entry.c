@@ -31,11 +31,14 @@
 #include <dev/random/randomdev.h>
 #include <net/flowhash.h>
 #include <netkey/key.h>
+#include <netinet/tcp_timer.h>
+#include <netinet/tcp_var.h>
 
 #include <skywalk/nexus/flowswitch/fsw_var.h>
 #include <skywalk/nexus/flowswitch/flow/flow_var.h>
 #include <skywalk/nexus/netif/nx_netif.h>
 #include <skywalk/namespace/flowidns.h>
+
 
 struct flow_entry *fe_alloc(boolean_t);
 static void fe_free(struct flow_entry *);
@@ -188,8 +191,8 @@ flow_entry_calc_flowid(struct flow_entry *fe)
 	struct flowidns_flow_key fk;
 
 	bzero(&fk, sizeof(fk));
-	_CASSERT(sizeof(fe->fe_key.fk_src) == sizeof(fk.ffk_laddr));
-	_CASSERT(sizeof(fe->fe_key.fk_dst) == sizeof(fk.ffk_raddr));
+	static_assert(sizeof(fe->fe_key.fk_src) == sizeof(fk.ffk_laddr));
+	static_assert(sizeof(fe->fe_key.fk_dst) == sizeof(fk.ffk_raddr));
 	bcopy(&fe->fe_key.fk_src, &fk.ffk_laddr, sizeof(fk.ffk_laddr));
 	bcopy(&fe->fe_key.fk_dst, &fk.ffk_raddr, sizeof(fk.ffk_raddr));
 
@@ -211,11 +214,8 @@ flow_entry_add_child(struct flow_entry *parent_fe, struct flow_entry *child_fe)
 	lck_rw_lock_exclusive(&parent_fe->fe_child_list_lock);
 
 	if (parent_fe->fe_flags & FLOWENTF_NONVIABLE) {
-		SK_ERR("child entry add failed, parent fe \"%s\" non viable 0x%llx "
-		    "flags 0x%b %s(%d)", fe_as_string(parent_fe,
-		    dbgbuf, sizeof(dbgbuf)), SK_KVA(parent_fe), parent_fe->fe_flags,
-		    FLOWENTF_BITS, parent_fe->fe_proc_name,
-		    parent_fe->fe_pid);
+		SK_ERR("child entry add failed, parent fe \"%s\" non viable",
+		    fe2str(parent_fe, dbgbuf, sizeof(dbgbuf)));
 		lck_rw_unlock_exclusive(&parent_fe->fe_child_list_lock);
 		return false;
 	}
@@ -224,11 +224,8 @@ flow_entry_add_child(struct flow_entry *parent_fe, struct flow_entry *child_fe)
 	TAILQ_FOREACH_SAFE(fe, &parent_fe->fe_child_list, fe_child_link, tfe) {
 		if (!fe_id_cmp(fe, child_fe)) {
 			lck_rw_unlock_exclusive(&parent_fe->fe_child_list_lock);
-			SK_ERR("child entry \"%s\" already exists at fe 0x%llx "
-			    "flags 0x%b %s(%d)", fe_as_string(fe,
-			    dbgbuf, sizeof(dbgbuf)), SK_KVA(fe), fe->fe_flags,
-			    FLOWENTF_BITS, fe->fe_proc_name,
-			    fe->fe_pid);
+			SK_ERR("child entry \"%s\" already exists",
+			    fe2str(fe, dbgbuf, sizeof(dbgbuf)));
 			return false;
 		}
 
@@ -367,33 +364,59 @@ flow_qset_select_dynamic(struct nx_flowswitch *fsw, struct flow_entry *fe,
 	struct ifnet *ifp;
 	uint64_t qset_id;
 	struct nx_netif *nif;
-	boolean_t changed;
 	int err;
 
 	ifp = fsw->fsw_ifp;
-	changed = ifnet_sync_traffic_rule_genid(ifp, &fe->fe_tr_genid);
-	if (!changed && skip_if_no_change) {
+	if (ifp->if_traffic_rule_genid == fe->fe_tr_genid && skip_if_no_change) {
 		return;
 	}
 	if (fe->fe_qset != NULL) {
 		nx_netif_qset_release(&fe->fe_qset);
 		ASSERT(fe->fe_qset == NULL);
 	}
-	if (ifp->if_traffic_rule_count == 0) {
+
+	/*
+	 * Note: ifp can have either eth traffc rules or inet traffc rules
+	 * and not both.
+	 */
+	if (ifp->if_eth_traffic_rule_count > 0) {
+		if (!fe->fe_route) {
+			return;
+		}
+
+		struct flow_route *fr = fe->fe_route;
+		struct rtentry *rt = (fr->fr_flags & FLOWRTF_GATEWAY)
+		    ? fr->fr_rt_gw : fr->fr_rt_dst;
+		if (!rt) {
+			return;
+		}
+
+		/* If tr_genid is stale in the rtentry, run traffic rules again */
+		ifnet_sync_traffic_rule_genid(ifp, &fe->fe_tr_genid);
+		if (rt->rt_tr_genid != fe->fe_tr_genid) {
+			rt_lookup_qset_id(rt, true);
+		}
+
+		qset_id = rt->rt_qset_id;
+	} else if (ifp->if_inet_traffic_rule_count > 0) {
+		ifnet_sync_traffic_rule_genid(ifp, &fe->fe_tr_genid);
+
+		err = convert_flowkey_to_inet_td(&fe->fe_key, &td);
+		ASSERT(err == 0);
+		err = nxctl_inet_traffic_rule_find_qset_id(ifp->if_xname, &td, &qset_id);
+		if (err != 0) {
+			DTRACE_SKYWALK3(qset__id__not__found,
+			    struct nx_flowswitch *, fsw,
+			    struct flow_entry *, fe,
+			    struct ifnet_traffic_descriptor_inet *, &td);
+			return;
+		}
+	} else {
 		DTRACE_SKYWALK2(no__rules, struct nx_flowswitch *, fsw,
 		    struct flow_entry *, fe);
 		return;
 	}
-	err = convert_flowkey_to_inet_td(&fe->fe_key, &td);
-	ASSERT(err == 0);
-	err = nxctl_inet_traffic_rule_find_qset_id(ifp->if_xname, &td, &qset_id);
-	if (err != 0) {
-		DTRACE_SKYWALK3(qset__id__not__found,
-		    struct nx_flowswitch *, fsw,
-		    struct flow_entry *, fe,
-		    struct ifnet_traffic_descriptor_inet *, &td);
-		return;
-	}
+
 	DTRACE_SKYWALK4(qset__id__found, struct nx_flowswitch *, fsw,
 	    struct flow_entry *, fe, struct ifnet_traffic_descriptor_inet *,
 	    &td, uint64_t, qset_id);
@@ -412,6 +435,7 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 	struct flow_entry *__single parent_fe = NULL;
 	flowadv_idx_t fadv_idx = FLOWADV_IDX_NONE;
 	struct nexus_adapter *dev_na;
+	struct nx_flowswitch *fsw;
 	struct nx_netif *nif;
 	int err;
 
@@ -428,7 +452,8 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 		goto done;
 	}
 
-	struct flow_mgr *fm = fo->fo_fsw->fsw_flow_mgr;
+	fsw = fo->fo_fsw;
+	struct flow_mgr *fm = fsw->fsw_flow_mgr;
 	fe = flow_mgr_find_conflicting_fe(fm, &key);
 	if (fe != NULL) {
 		if ((fe->fe_flags & FLOWENTF_PARENT) &&
@@ -436,11 +461,8 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 			parent_fe = fe;
 			fe = NULL;
 		} else {
-			SK_ERR("entry \"%s\" already exists at fe 0x%llx "
-			    "flags 0x%b %s(%d)", fe_as_string(fe,
-			    dbgbuf, sizeof(dbgbuf)), SK_KVA(fe), fe->fe_flags,
-			    FLOWENTF_BITS, fe->fe_proc_name,
-			    fe->fe_pid);
+			SK_ERR("entry \"%s\" already exists",
+			    fe2str(fe, dbgbuf, sizeof(dbgbuf)));
 			/* don't return it */
 			flow_entry_release(&fe);
 			err = EEXIST;
@@ -491,6 +513,9 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 	if (req->nfr_flags & NXFLOWREQF_NOWAKEFROMSLEEP) {
 		fe->fe_flags |= FLOWENTF_NOWAKEFROMSLEEP;
 	}
+	if (req->nfr_flags & NXFLOWREQF_CONNECTION_IDLE) {
+		fe->fe_flags |= FLOWENTF_CONNECTION_IDLE;
+	}
 	fe->fe_port_reservation = req->nfr_port_reservation;
 	req->nfr_port_reservation = NULL;
 	if (req->nfr_flags & NXFLOWREQF_EXT_PORT_RSV) {
@@ -507,7 +532,7 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 	fe->fe_tx_process = dp_flow_tx_process;
 	fe->fe_rx_process = dp_flow_rx_process;
 
-	dev_na = fo->fo_fsw->fsw_dev_ch->ch_na;
+	dev_na = fsw->fsw_dev_ch->ch_na;
 	nif = NX_NETIF_PRIVATE(dev_na->na_nx);
 	if (NX_LLINK_PROV(nif->nif_nx) &&
 	    (fe->fe_key.fk_mask & (FKMASK_IPVER | FKMASK_PROTO | FKMASK_DST)) ==
@@ -519,7 +544,7 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 		} else {
 			fe->fe_qset_select = FE_QSET_SELECT_DYNAMIC;
 			fe->fe_qset_id = 0;
-			flow_qset_select_dynamic(fo->fo_fsw, fe, FALSE);
+			flow_qset_select_dynamic(fsw, fe, FALSE);
 		}
 	} else {
 		fe->fe_qset_select = FE_QSET_SELECT_NONE;
@@ -530,7 +555,7 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 
 	fe->fe_transport_protocol = req->nfr_transport_protocol;
 	if (NX_FSW_TCP_RX_AGG_ENABLED() &&
-	    (fo->fo_fsw->fsw_nx->nx_prov->nxprov_params->nxp_max_frags > 1) &&
+	    (fsw->fsw_nx->nx_prov->nxprov_params->nxp_max_frags > 1) &&
 	    (fe->fe_key.fk_proto == IPPROTO_TCP) &&
 	    (fe->fe_key.fk_mask == FKMASK_5TUPLE)) {
 		fe->fe_rx_process = flow_rx_agg_tcp;
@@ -591,6 +616,37 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 	fe->fe_policy_id = req->nfr_policy_id;
 	fe->fe_skip_policy_id = req->nfr_skip_policy_id;
 
+	*(struct nx_flowswitch **)(uintptr_t)&fe->fe_fsw = fsw;
+	fe->fe_pid = fo->fo_pid;
+	if (req->nfr_epid != -1 && req->nfr_epid != fo->fo_pid) {
+		fe->fe_epid = req->nfr_epid;
+		proc_name(fe->fe_epid, fe->fe_eproc_name,
+		    sizeof(fe->fe_eproc_name));
+	} else {
+		fe->fe_epid = -1;
+	}
+
+	(void) snprintf(fe->fe_proc_name, sizeof(fe->fe_proc_name), "%s",
+	    fo->fo_name);
+
+	fe_stats_init(fe);
+	flow_stats_retain(fe->fe_stats);
+	req->nfr_flow_stats = fe->fe_stats;
+	fe->fe_rx_worker_tid = 0;
+
+	if (req->nfr_flags & NXFLOWREQF_AOP_OFFLOAD) {
+		os_atomic_or(&fe->fe_flags, FLOWENTF_AOP_OFFLOAD, relaxed);
+		/*
+		 * For TCP flows over AOP, we will always linger in the kernel.
+		 * We do not do TCP Time-Wait in AOP. This is so that we can
+		 * cleanup resources from AOP quickly.
+		 */
+		if (req->nfr_ip_protocol == IPPROTO_TCP) {
+			os_atomic_or(&fe->fe_flags, FLOWENTF_WAIT_CLOSE, relaxed);
+			fe->fe_linger_wait = (2 * tcp_msl) / TCP_RETRANSHZ;
+		}
+	}
+
 	err = flow_mgr_flow_hash_mask_add(fm, fe->fe_key.fk_mask);
 	ASSERT(err == 0);
 
@@ -615,30 +671,7 @@ flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 	RB_INSERT(flow_entry_id_tree, &fo->fo_flow_entry_id_head, fe);
 	flow_entry_retain(fe);  /* one refcnt in id_tree */
 
-	*(struct nx_flowswitch **)(uintptr_t)&fe->fe_fsw = fo->fo_fsw;
-	fe->fe_pid = fo->fo_pid;
-	if (req->nfr_epid != -1 && req->nfr_epid != fo->fo_pid) {
-		fe->fe_epid = req->nfr_epid;
-		proc_name(fe->fe_epid, fe->fe_eproc_name,
-		    sizeof(fe->fe_eproc_name));
-	} else {
-		fe->fe_epid = -1;
-	}
-
-	(void) snprintf(fe->fe_proc_name, sizeof(fe->fe_proc_name), "%s",
-	    fo->fo_name);
-
-	fe_stats_init(fe);
-	flow_stats_retain(fe->fe_stats);
-	req->nfr_flow_stats = fe->fe_stats;
-	fe->fe_rx_worker_tid = 0;
-
-#if SK_LOG
-	SK_DF(SK_VERB_FLOW, "allocated entry \"%s\" fe 0x%llx flags 0x%b "
-	    "[fo 0x%llx ]", fe_as_string(fe, dbgbuf,
-	    sizeof(dbgbuf)), SK_KVA(fe), fe->fe_flags, FLOWENTF_BITS,
-	    SK_KVA(fo));
-#endif /* SK_LOG */
+	SK_D("fe \"%s\"", fe2str(fe, dbgbuf, sizeof(dbgbuf)));
 
 done:
 	if (parent_fe != NULL) {
@@ -649,6 +682,7 @@ done:
 			flow_owner_flowadv_index_free(fo, fadv_idx);
 		}
 		if (fe != NULL) {
+			fe->fe_flags |= (FLOWENTF_TORN_DOWN | FLOWENTF_DESTROYED);
 			flow_entry_release(&fe);
 		}
 	}
@@ -656,15 +690,133 @@ done:
 	return fe;
 }
 
+/*
+ * Add an RX flow steering rule for the given flow entry.
+ *
+ * This function provides a high-level interface for configuring RX flow steering
+ * rules based on flow entry characteristics. It converts the flow key to a traffic
+ * descriptor and configures the underlying netif for hardware steering.
+ *
+ * Parameters:
+ *   fsw         - The flowswitch instance
+ *   fe          - The flow entry to configure steering for
+ *
+ * Returns:
+ *   0           - Success
+ *   ENOTSUP     - RX flow steering not supported
+ *   EINVAL      - Invalid parameters
+ *   ENXIO       - Device unavailable
+ *   Other       - Provider-specific error codes
+ */
+int
+flow_entry_add_rx_steering_rule(struct nx_flowswitch *fsw, struct flow_entry *fe)
+{
+	struct ifnet_traffic_descriptor_inet td;
+	struct kern_nexus *nx;
+	int err = 0;
+
+	if (__improbable(fsw == NULL || fe == NULL)) {
+		SK_ERR("Invalid parameters: fsw=%p, fe=%p", SK_KVA(fsw), SK_KVA(fe));
+		return EINVAL;
+	}
+
+	/* RX steering is only for AOP offload flows */
+	ASSERT(fe->fe_flags & FLOWENTF_AOP_OFFLOAD);
+
+	/* Check if device channel is available */
+	if (__improbable(fsw->fsw_dev_ch == NULL)) {
+		SK_ERR("Device channel not available for RX flow steering");
+		FSW_STATS_INC(FSW_STATS_RX_FS_ADD_FAILURE);
+		return ENXIO;
+	}
+
+	nx = fsw->fsw_dev_ch->ch_na->na_nx;
+	if (__improbable(nx == NULL)) {
+		SK_ERR("Nexus not available for RX flow steering");
+		FSW_STATS_INC(FSW_STATS_RX_FS_ADD_FAILURE);
+		return ENXIO;
+	}
+
+	/* Convert flow key to traffic descriptor */
+	memset(&td, 0, sizeof(struct ifnet_traffic_descriptor_inet));
+	err = convert_flowkey_to_inet_td(&fe->fe_key, &td);
+	if (__improbable(err != 0)) {
+		SK_ERR("Failed to convert flow key to traffic descriptor (err %d)", err);
+		FSW_STATS_INC(FSW_STATS_RX_FS_ADD_FAILURE);
+		return err;
+	}
+
+	/* Always set inbound flag for RX flow steering */
+	td.inet_common.itd_flags = IFNET_TRAFFIC_DESCRIPTOR_FLAG_INBOUND;
+
+	SK_DF(SK_VERB_NETIF,
+	    "Adding RX flow steering rule: fsw=%p, fe=%p, flow_id=%u",
+	    SK_KVA(fsw), SK_KVA(fe), fe->fe_flowid);
+
+	/* Configure the RX flow steering rule */
+	err = nx_netif_configure_rx_flow_steering(nx, fe->fe_flowid,
+	    (struct ifnet_traffic_descriptor_common *)&td,
+	    RX_FLOW_STEERING_ACTION_ADD_AOP);
+
+	if (__improbable(err != 0)) {
+		FSW_STATS_INC(FSW_STATS_RX_FS_ADD_FAILURE);
+		SK_ERR("RX flow steering rule add failed (err %d)", err);
+		DTRACE_SKYWALK4(rx__flow__steering__rule__add__failed,
+		    struct nx_flowswitch *, fsw, struct flow_entry *, fe,
+		    uint32_t, fe->fe_flowid, int, err);
+	} else {
+		FSW_STATS_INC(FSW_STATS_RX_FS_ADD_SUCCESS);
+		SK_DF(SK_VERB_NETIF,
+		    "Successfully added RX flow steering rule: flow_id=%u",
+		    fe->fe_flowid);
+		DTRACE_SKYWALK3(rx__flow__steering__rule__add__success,
+		    struct nx_flowswitch *, fsw, struct flow_entry *, fe,
+		    uint32_t, fe->fe_flowid);
+
+		/* Mark the flow entry as having RX steering configured */
+		os_atomic_or(&fe->fe_flags, FLOWENTF_RX_STEERING, relaxed);
+	}
+
+	return err;
+}
+
+void
+flow_entry_rx_steering_rule_cleanup(struct nx_flowswitch *fsw, struct flow_entry *fe)
+{
+	struct kern_nexus *nx = NULL;
+	int err = 0;
+
+	ASSERT(fe->fe_flags & FLOWENTF_AOP_OFFLOAD);
+
+	/*
+	 * We check for fsw->fsw_dev_ch here because the flow could be cleaned
+	 * up after the flow-switch has detached. The race between flow-switch
+	 * detach and flow cleanup is prevented because flow_entry_teardown() is
+	 * called either with a SK_LOCK() or with fsw_detach_barrier_add().
+	 */
+	if (fsw->fsw_dev_ch != NULL) {
+		nx = fsw->fsw_dev_ch->ch_na->na_nx;
+		err = nx_netif_configure_rx_flow_steering(nx,
+		    fe->fe_flowid, NULL, RX_FLOW_STEERING_ACTION_REMOVE_AOP);
+		if (err != 0) {
+			FSW_STATS_INC(FSW_STATS_RX_FS_REMOVE_FAILURE);
+			SK_ERR("rx flow steering cleanup failed (err %d)", err);
+		} else {
+			FSW_STATS_INC(FSW_STATS_RX_FS_REMOVE_SUCCESS);
+		}
+	} else {
+		FSW_STATS_INC(FSW_STATS_RX_FS_REMOVE_SKIPPED);
+	}
+}
+
 void
 flow_entry_teardown(struct flow_owner *fo, struct flow_entry *fe)
 {
 #if SK_LOG
 	char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
-	SK_DF(SK_VERB_FLOW, "entry \"%s\" fe 0x%llx flags 0x%b [fo 0x%llx] "
-	    "non_via %d withdrawn %d", fe_as_string(fe, dbgbuf, sizeof(dbgbuf)),
-	    SK_KVA(fe), fe->fe_flags, FLOWENTF_BITS, SK_KVA(fo),
-	    fe->fe_want_nonviable, fe->fe_want_withdraw);
+	SK_DF(SK_VERB_FLOW, "fe \"%s\" [fo %p] "
+	    "non_via %d withdrawn %d", fe2str(fe, dbgbuf, sizeof(dbgbuf)),
+	    SK_KVA(fo), fe->fe_want_nonviable, fe->fe_want_withdraw);
 #endif /* SK_LOG */
 	struct nx_flowswitch *fsw = fo->fo_fsw;
 
@@ -745,6 +897,10 @@ flow_entry_destroy(struct flow_owner *fo, struct flow_entry *fe, bool nolinger,
 	ASSERT(!(fe->fe_flags & FLOWENTF_DESTROYED));
 	os_atomic_or(&fe->fe_flags, FLOWENTF_DESTROYED, relaxed);
 
+	if (fe->fe_flags & FLOWENTF_RX_STEERING) {
+		fsw_rxstrc_insert(fe);
+	}
+
 	if (fe->fe_transport_protocol == IPPROTO_QUIC) {
 		if (!nolinger && close_params != NULL) {
 			/*
@@ -785,14 +941,6 @@ flow_entry_release(struct flow_entry **pfe)
 	struct flow_entry *fe = *pfe;
 	ASSERT(fe != NULL);
 	*pfe = NULL;    /* caller lose reference */
-#if SK_LOG
-	if (__improbable(sk_verbose != 0)) {
-		char dbgbuf[FLOWENTRY_DBGBUF_SIZE];
-		SK_DF(SK_VERB_FLOW, "entry \"%s\" fe 0x%llx flags 0x%b",
-		    fe_as_string(fe, dbgbuf, sizeof(dbgbuf)), SK_KVA(fe),
-		    fe->fe_flags, FLOWENTF_BITS);
-	}
-#endif /* SK_LOG */
 
 	if (__improbable(os_ref_release(&fe->fe_refcnt) == 0)) {
 		fe->fe_nx_port = NEXUS_PORT_ANY;
@@ -826,7 +974,7 @@ flow_entry_dead_alloc(zalloc_flags_t how)
 
 	fed = zalloc_flags(sk_fed_zone, how | Z_ZERO);
 	if (fed != NULL) {
-		SK_DF(SK_VERB_MEM, "fed 0x%llx ALLOC", SK_KVA(fed));
+		SK_DF(SK_VERB_MEM, "fed %p ALLOC", SK_KVA(fed));
 	}
 	return fed;
 }
@@ -834,7 +982,7 @@ flow_entry_dead_alloc(zalloc_flags_t how)
 void
 flow_entry_dead_free(struct flow_entry_dead *fed)
 {
-	SK_DF(SK_VERB_MEM, "fed 0x%llx FREE", SK_KVA(fed));
+	SK_DF(SK_VERB_MEM, "fed %p FREE", SK_KVA(fed));
 	zfree(sk_fed_zone, fed);
 }
 
@@ -930,22 +1078,33 @@ fe_stats_update(struct flow_entry *fe)
 	} else {
 		sf->sf_flags &= ~SFLOWF_NOWAKEFROMSLEEP;
 	}
+	if (fe->fe_flags & FLOWENTF_AOP_OFFLOAD) {
+		sf->sf_flags |= SFLOWF_AOP_OFFLOAD;
+	}
+	if (fe->fe_flags & FLOWENTF_CONNECTION_IDLE) {
+		sf->sf_flags |= SFLOWF_CONNECTION_IDLE;
+	} else {
+		sf->sf_flags &= ~SFLOWF_CONNECTION_IDLE;
+	}
 
 	sf->sf_bucket_idx = SFLOW_BUCKET_NONE;
 
-	sf->sf_ltrack.sft_state = fe->fe_ltrack.fse_state;
-	sf->sf_ltrack.sft_seq = fe->fe_ltrack.fse_seqlo;
-	sf->sf_ltrack.sft_max_win = fe->fe_ltrack.fse_max_win;
-	sf->sf_ltrack.sft_wscale = fe->fe_ltrack.fse_wscale;
-	sf->sf_rtrack.sft_state = fe->fe_rtrack.fse_state;
-	sf->sf_rtrack.sft_seq = fe->fe_rtrack.fse_seqlo;
-	sf->sf_rtrack.sft_max_win = fe->fe_rtrack.fse_max_win;
+	/* AOP offload flows are updated in NECP via shared memory with AOP */
+	if (!(fe->fe_flags & FLOWENTF_AOP_OFFLOAD)) {
+		sf->sf_ltrack.sft_state = fe->fe_ltrack.fse_state;
+		sf->sf_ltrack.sft_seq = fe->fe_ltrack.fse_seqlo;
+		sf->sf_ltrack.sft_max_win = fe->fe_ltrack.fse_max_win;
+		sf->sf_ltrack.sft_wscale = fe->fe_ltrack.fse_wscale;
+		sf->sf_rtrack.sft_state = fe->fe_rtrack.fse_state;
+		sf->sf_rtrack.sft_seq = fe->fe_rtrack.fse_seqlo;
+		sf->sf_rtrack.sft_max_win = fe->fe_rtrack.fse_max_win;
+	}
 }
 
 void
 flow_entry_stats_get(struct flow_entry *fe, struct sk_stats_flow *sf)
 {
-	_CASSERT(sizeof(fe->fe_stats->fs_stats) == sizeof(*sf));
+	static_assert(sizeof(fe->fe_stats->fs_stats) == sizeof(*sf));
 
 	fe_stats_update(fe);
 	bcopy(&fe->fe_stats->fs_stats, sf, sizeof(*sf));
@@ -956,7 +1115,7 @@ fe_alloc(boolean_t can_block)
 {
 	struct flow_entry *fe;
 
-	_CASSERT((offsetof(struct flow_entry, fe_key) % 16) == 0);
+	static_assert((offsetof(struct flow_entry, fe_key) % 16) == 0);
 
 	fe = skmem_cache_alloc(sk_fe_cache,
 	    can_block ? SKMEM_SLEEP : SKMEM_NOSLEEP);
@@ -978,7 +1137,7 @@ fe_alloc(boolean_t can_block)
 		return NULL;
 	}
 
-	SK_DF(SK_VERB_MEM, "fe 0x%llx ALLOC", SK_KVA(fe));
+	SK_DF(SK_VERB_MEM, "fe %p ALLOC", SK_KVA(fe));
 
 	os_ref_init(&fe->fe_refcnt, &flow_entry_refgrp);
 
@@ -1037,7 +1196,7 @@ fe_id_cmp(const struct flow_entry *a, const struct flow_entry *b)
 #if SK_LOG
 SK_NO_INLINE_ATTRIBUTE
 char *
-fk_as_string(const struct flow_key *fk, char *__counted_by(dsz)dst, size_t dsz)
+fk2str(const struct flow_key *fk, char *__counted_by(dsz)dst, size_t dsz)
 {
 	int af;
 	char src_s[MAX_IPv6_STR_LEN];
@@ -1045,30 +1204,29 @@ fk_as_string(const struct flow_key *fk, char *__counted_by(dsz)dst, size_t dsz)
 
 	af = fk->fk_ipver == 4 ? AF_INET : AF_INET6;
 
-	(void) inet_ntop(af, &fk->fk_src, src_s, sizeof(src_s));
-	(void) inet_ntop(af, &fk->fk_dst, dst_s, sizeof(dst_s));
+	(void) sk_ntop(af, &fk->fk_src, src_s, sizeof(src_s));
+	(void) sk_ntop(af, &fk->fk_dst, dst_s, sizeof(dst_s));
 	(void) snprintf(dst, dsz,
-	    "ipver=%u,src=%s,dst=%s,proto=0x%02u,sport=%u,dport=%u "
-	    "mask=%08x,hash=%08x",
-	    fk->fk_ipver, src_s, dst_s, fk->fk_proto, ntohs(fk->fk_sport),
-	    ntohs(fk->fk_dport), fk->fk_mask, flow_key_hash(fk));
+	    "ipver=%u,src=%s.%u,dst=%s.%u,proto=0x%02u mask=0x%08x,hash=0x%08x",
+	    fk->fk_ipver, src_s, ntohs(fk->fk_sport), dst_s, ntohs(fk->fk_dport),
+	    fk->fk_proto, fk->fk_mask, flow_key_hash(fk));
 
 	return dst;
 }
 
 SK_NO_INLINE_ATTRIBUTE
 char *
-fe_as_string(const struct flow_entry *fe, char *__counted_by(dsz)dst, size_t dsz)
+fe2str(const struct flow_entry *fe, char *__counted_by(dsz)dst, size_t dsz)
 {
 	char keybuf[FLOWKEY_DBGBUF_SIZE]; /* just for debug message */
 	uuid_string_t uuidstr;
 
-	fk_as_string(&fe->fe_key, keybuf, sizeof(keybuf));
+	fk2str(&fe->fe_key, keybuf, sizeof(keybuf));
 
-	(void) snprintf(dst, dsz,
-	    "fe 0x%llx proc %s nx_port %d flow_uuid %s %s tp_proto=0x%02u",
-	    SK_KVA(fe), fe->fe_proc_name, (int)fe->fe_nx_port,
-	    sk_uuid_unparse(fe->fe_uuid, uuidstr),
+	(void) sk_snprintf(dst, dsz, "%p proc %s(%d)%s nx_port %d flow_uuid %s"
+	    " flags 0x%b %s tp_proto=0x%02u", SK_KVA(fe), fe->fe_proc_name,
+	    fe->fe_pid, fe->fe_eproc_name, (int)fe->fe_nx_port,
+	    sk_uuid_unparse(fe->fe_uuid, uuidstr), fe->fe_flags, FLOWENTF_BITS,
 	    keybuf, fe->fe_transport_protocol);
 
 	return dst;

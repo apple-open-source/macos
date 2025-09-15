@@ -50,7 +50,8 @@ T_GLOBAL_META(
 #if __arm64e__
 static size_t
 exception_handler(mach_port_t task __unused, mach_port_t thread __unused,
-    exception_type_t type __unused, mach_exception_data_t codes __unused)
+    exception_type_t type __unused, mach_exception_data_t codes __unused,
+    uint64_t exception_pc __unused)
 {
 	T_ASSERT_FAIL("kernel ran exception handler instead of terminating process");
 }

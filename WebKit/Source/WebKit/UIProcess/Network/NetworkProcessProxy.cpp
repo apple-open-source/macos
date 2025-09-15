@@ -33,6 +33,7 @@
 #include "APIHTTPCookieStore.h"
 #include "APINavigation.h"
 #include "APIPageConfiguration.h"
+#include "APIURLRequest.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationManager.h"
 #include "BackgroundFetchState.h"
@@ -40,7 +41,9 @@
 #include "DownloadProxy.h"
 #include "DownloadProxyMap.h"
 #include "DownloadProxyMessages.h"
+#include "FormDataReference.h"
 #include "FrameInfoData.h"
+#include "ITPThirdPartyData.h"
 #include "LegacyGlobalSettings.h"
 #include "LoadedWebArchive.h"
 #include "Logging.h"
@@ -68,6 +71,7 @@
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include "WebProcessProxyMessages.h"
+#include "WebPushMessage.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include "WebUserContentControllerProxy.h"
 #include "WebsiteData.h"
@@ -157,7 +161,8 @@ Ref<NetworkProcessProxy> NetworkProcessProxy::ensureDefaultNetworkProcess()
 void NetworkProcessProxy::terminate()
 {
     AuxiliaryProcessProxy::terminate();
-    protectedConnection()->invalidate();
+    if (hasConnection())
+        protectedConnection()->invalidate();
 }
 
 void NetworkProcessProxy::requestTermination()
@@ -186,6 +191,7 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
             if (RefPtr protectedThis = weakThis.get())
                 protectedThis->sendCreationParametersToNewProcess();
         });
+        return;
     }
 
     NetworkProcessCreationParameters parameters;
@@ -193,7 +199,9 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
     parameters.urlSchemesRegisteredAsSecure = copyToVector(LegacyGlobalSettings::singleton().schemesToRegisterAsSecure());
     parameters.urlSchemesRegisteredAsBypassingContentSecurityPolicy = copyToVector(LegacyGlobalSettings::singleton().schemesToRegisterAsBypassingContentSecurityPolicy());
     parameters.urlSchemesRegisteredAsLocal = copyToVector(LegacyGlobalSettings::singleton().schemesToRegisterAsLocal());
+#if ENABLE(ALL_LEGACY_REGISTERED_SPECIAL_URL_SCHEMES)
     parameters.urlSchemesRegisteredAsNoAccess = copyToVector(LegacyGlobalSettings::singleton().schemesToRegisterAsNoAccess());
+#endif
     parameters.cacheModel = LegacyGlobalSettings::singleton().cacheModel();
     parameters.urlSchemesRegisteredForCustomProtocols = WebProcessPool::urlSchemesWithCustomProtocolHandlers();
     parameters.localhostAliasesForTesting = LegacyGlobalSettings::singleton().hostnamesToRegisterAsLocal();
@@ -223,6 +231,8 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
     parameters.storageAccessPromptQuirksData = StorageAccessPromptQuirkController::sharedSingleton().cachedListData();
 #endif
+
+    parameters.defaultRequestTimeoutInterval = API::URLRequest::defaultTimeoutInterval();
 
     WebProcessPool::platformInitializeNetworkProcess(parameters);
     sendWithAsyncReply(Messages::NetworkProcess::InitializeNetworkProcess(WTFMove(parameters)), [weakThis = WeakPtr { *this }, initializationActivityAndGrant = initializationActivityAndGrant()] {
@@ -364,7 +374,7 @@ void NetworkProcessProxy::synthesizeAppIsBackground(bool background)
 Ref<DownloadProxy> NetworkProcessProxy::createDownloadProxy(WebsiteDataStore& dataStore, Ref<API::DownloadClient>&& client, const ResourceRequest& resourceRequest, const std::optional<FrameInfoData>& frameInfo, WebPageProxy* originatingPage)
 {
     if (!m_downloadProxyMap)
-        m_downloadProxyMap = makeUniqueWithoutRefCountedCheck<DownloadProxyMap>(*this);
+        lazyInitialize(m_downloadProxyMap, makeUniqueWithoutRefCountedCheck<DownloadProxyMap>(*this));
 
     return Ref { *m_downloadProxyMap }->createDownloadProxy(dataStore, WTFMove(client), resourceRequest, frameInfo, originatingPage);
 }
@@ -459,7 +469,7 @@ void NetworkProcessProxy::networkProcessDidTerminate(ProcessTerminationReason re
     if (RefPtr downloadProxyMap = m_downloadProxyMap.get())
         downloadProxyMap->invalidate();
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
-    m_customProtocolManagerProxy.invalidate();
+    protectedCustomProtocolManagerProxy()->invalidate();
 #endif
 
     m_uploadActivity = std::nullopt;
@@ -488,7 +498,7 @@ void NetworkProcessProxy::didClose(IPC::Connection& connection)
     networkProcessDidTerminate(ProcessTerminationReason::Crash);
 }
 
-void NetworkProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, int32_t)
+void NetworkProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, const Vector<uint32_t>&)
 {
     logInvalidMessage(connection, messageName);
     terminate();
@@ -499,7 +509,7 @@ void NetworkProcessProxy::processAuthenticationChallenge(PAL::SessionID sessionI
 {
     RefPtr store = websiteDataStoreFromSessionID(sessionID);
     if (!store || authenticationChallenge->core().protectionSpace().authenticationScheme() != ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested) {
-        authenticationChallenge->protectedListener()->completeChallenge(AuthenticationChallengeDisposition::PerformDefaultHandling);
+        authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::PerformDefaultHandling);
         return;
     }
     store->client().didReceiveAuthenticationChallenge(WTFMove(authenticationChallenge));
@@ -527,7 +537,7 @@ void NetworkProcessProxy::didReceiveAuthenticationChallenge(PAL::SessionID sessi
     }
 
     if (!topOrigin) {
-        authenticationChallenge->protectedListener()->completeChallenge(AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue);
+        authenticationChallenge->listener().completeChallenge(AuthenticationChallengeDisposition::RejectProtectionSpaceAndContinue);
         return;
     }
 
@@ -1670,7 +1680,11 @@ void NetworkProcessProxy::preconnectTo(PAL::SessionID sessionID, WebPageProxyIde
 {
     if (!request.url().isValid() || !request.url().protocolIsInHTTPFamily())
         return;
-    send(Messages::NetworkProcess::PreconnectTo(sessionID, webPageProxyID, webPageID, WTFMove(request), storedCredentialsPolicy, isNavigatingToAppBoundDomain), 0);
+
+    uint64_t cookiesVersion = 0;
+    if (RefPtr store = websiteDataStoreFromSessionID(sessionID))
+        cookiesVersion = store->cookiesVersion();
+    send(Messages::NetworkProcess::PreconnectTo(sessionID, webPageProxyID, webPageID, WTFMove(request), storedCredentialsPolicy, isNavigatingToAppBoundDomain, cookiesVersion), 0);
 }
 
 static bool anyProcessPoolHasForegroundWebProcesses()
@@ -1800,7 +1814,7 @@ void NetworkProcessProxy::processPushMessage(PAL::SessionID sessionID, const Web
         permission = PushPermissionState::Prompt;
         auto permissions = dataStore->client().notificationPermissions();
         if (permissions.isEmpty())
-            permissions = WebNotificationManagerProxy::protectedSharedServiceWorkerManager()->notificationPermissions();
+            permissions = WebNotificationManagerProxy::serviceWorkerManagerSingleton().notificationPermissions();
 
         auto origin = SecurityOriginData::fromURL(pushMessage.registrationURL).toString();
         if (auto it = permissions.find(origin); it != permissions.end())
@@ -1875,7 +1889,7 @@ void NetworkProcessProxy::openWindowFromServiceWorker(PAL::SessionID sessionID, 
     callback(std::nullopt);
 }
 
-void NetworkProcessProxy::reportConsoleMessage(PAL::SessionID sessionID, const URL& scriptURL, const WebCore::SecurityOriginData& clientOrigin, MessageSource source, MessageLevel level, const String& message, unsigned long requestIdentifier)
+void NetworkProcessProxy::reportConsoleMessage(PAL::SessionID sessionID, const URL& scriptURL, const WebCore::SecurityOriginData& clientOrigin, MessageSource source, MessageLevel level, const String& message, uint64_t requestIdentifier)
 {
     if (RefPtr store = websiteDataStoreFromSessionID(sessionID))
         store->reportServiceWorkerConsoleMessage(scriptURL, clientOrigin, source, level, message, requestIdentifier);
@@ -2010,7 +2024,7 @@ void NetworkProcessProxy::setEmulatedConditions(PAL::SessionID sessionID, std::o
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
-void NetworkProcessProxy::fetchLocalStorage(PAL::SessionID sessionID, CompletionHandler<void(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&)>&& completionHandler)
+void NetworkProcessProxy::fetchLocalStorage(PAL::SessionID sessionID, CompletionHandler<void(std::optional<HashMap<WebCore::ClientOrigin, HashMap<String, String>>>&&)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::NetworkProcess::FetchLocalStorage(sessionID), WTFMove(completionHandler));
 }
@@ -2018,6 +2032,19 @@ void NetworkProcessProxy::fetchLocalStorage(PAL::SessionID sessionID, Completion
 void NetworkProcessProxy::restoreLocalStorage(PAL::SessionID sessionID, HashMap<WebCore::ClientOrigin, HashMap<String, String>>&& localStorage, CompletionHandler<void(bool)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::NetworkProcess::RestoreLocalStorage(sessionID, WTFMove(localStorage)), WTFMove(completionHandler));
+}
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void NetworkProcessProxy::resetResourceMonitorThrottlerForTesting(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::ResetResourceMonitorThrottlerForTesting(sessionID), WTFMove(completionHandler));
+}
+#endif
+
+void NetworkProcessProxy::setDefaultRequestTimeoutInterval(double timeoutInterval)
+{
+    if (canSendMessage())
+        send(Messages::NetworkProcess::SetDefaultRequestTimeoutInterval(timeoutInterval), 0);
 }
 
 } // namespace WebKit

@@ -30,7 +30,6 @@
 
 #import "AudioBus.h"
 #import "AudioChannel.h"
-#import "AudioSampleDataSource.h"
 #import "AudioSourceProviderClient.h"
 #import "Logging.h"
 #import "WebAudioBufferList.h"
@@ -63,30 +62,30 @@ void WebAudioSourceProviderCocoa::setClient(WeakPtr<AudioSourceProviderClient>&&
     hasNewClient(m_client.get());
 }
 
-void WebAudioSourceProviderCocoa::provideInput(AudioBus* bus, size_t framesToProcess)
+void WebAudioSourceProviderCocoa::provideInput(AudioBus& bus, size_t framesToProcess)
 {
     if (!m_lock.tryLock()) {
-        bus->zero();
+        bus.zero();
         return;
     }
     Locker locker { AdoptLock, m_lock };
     if (!m_dataSource || !m_audioBufferList) {
-        bus->zero();
+        bus.zero();
         return;
     }
 
     if (m_writeCount <= m_readCount) {
-        bus->zero();
+        bus.zero();
         return;
     }
 
-    if (bus->numberOfChannels() < m_audioBufferList->bufferCount()) {
-        bus->zero();
+    if (bus.numberOfChannels() < m_audioBufferList->bufferCount()) {
+        bus.zero();
         return;
     }
 
-    for (unsigned i = 0; i < bus->numberOfChannels(); ++i) {
-        auto& channel = *bus->channel(i);
+    for (unsigned i = 0; i < bus.numberOfChannels(); ++i) {
+        auto& channel = *bus.channel(i);
         if (i >= m_audioBufferList->bufferCount()) {
             channel.zero();
             continue;
@@ -97,7 +96,7 @@ void WebAudioSourceProviderCocoa::provideInput(AudioBus* bus, size_t framesToPro
         buffer->mDataByteSize = channel.length() * sizeof(float);
     }
 
-    ASSERT(framesToProcess <= bus->length());
+    ASSERT(framesToProcess <= bus.length());
     m_dataSource->pullSamples(*m_audioBufferList->list(), framesToProcess, m_readCount, 0, AudioSampleDataSource::Copy);
     m_readCount += framesToProcess;
 }
@@ -137,7 +136,7 @@ void WebAudioSourceProviderCocoa::prepare(const AudioStreamBasicDescription& for
 }
 
 // May get called on a background thread.
-void WebAudioSourceProviderCocoa::receivedNewAudioSamples(const PlatformAudioData& data, const AudioStreamDescription& description, size_t frameCount)
+void WebAudioSourceProviderCocoa::receivedNewAudioSamples(const PlatformAudioData& data, const AudioStreamDescription& description, size_t frameCount, NeedsFlush needsFlush)
 {
     ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
     auto& basicDescription = *std::get<const AudioStreamBasicDescription*>(description.platformDescription().description);
@@ -147,7 +146,7 @@ void WebAudioSourceProviderCocoa::receivedNewAudioSamples(const PlatformAudioDat
     if (!m_dataSource)
         return;
 
-    m_dataSource->pushSamples(MediaTime(m_writeCount, m_inputDescription->sampleRate()), data, frameCount);
+    m_dataSource->pushSamples(MediaTime(m_writeCount, m_inputDescription->sampleRate()), data, frameCount, needsFlush);
 
     m_writeCount += frameCount;
 }

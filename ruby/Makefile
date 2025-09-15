@@ -79,28 +79,8 @@ AEP_Project    = $(Project)
 AEP_Version    = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceVersion' $(AEP_Project).plist)
 AEP_URL        = $(shell /usr/libexec/PlistBuddy -c 'Print :OpenSourceURL' $(AEP_Project).plist)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(shell basename $(AEP_URL))
+AEP_Filename   = $(shell basename $(AEP_URL) | cut -d. -f1,2,3)
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = \
-	0001-Revert-Support-Universal-Binary-for-macOS.patch \
-	configure.diff \
-	tool_config.guess.diff \
-	tool_mkconfig.rb.diff \
-	common.mk.diff \
-	message_tracing_main.c.diff \
-	lib_rubygems_defaults.rb.diff \
-	getaddrinfo-test.diff \
-	empty_files_verifier.diff \
-	deprecate.diff \
-	ruby-gitignore-fix-build.patch \
-	ruby-bigdecimal-fix-build.patch \
-	ruby-configure-remove-cflags-check.patch \
-	ruby-test-maybe-unused.patch \
-	ruby-socket-extconf.patch \
-	update-mkconfig.rb-host_fields.patch \
-	102172098.patch \
-	CVE-2023-28756.patch \
-	108916473.patch
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
@@ -121,6 +101,7 @@ $(ConfigStamp2): $(ConfigStamp)
 
 build:: configure
 	$(INSTALL_DIRECTORY) $(SYMROOT)
+	$(SRCROOT)/scripts/fix-mtimes.sh $(SRCROOT)/ruby
 	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" RUBY_CODESIGN="-" ARCHFLAGS="$(foreach a,$(RC_ARCHS),-arch $(a))"
 
 post-install:
@@ -206,24 +187,3 @@ install-rails-placeholder:
 install-irbrc:
 	$(INSTALL_DIRECTORY) $(ETC_DIR)
 	$(INSTALL_FILE) $(EXTRAS_DIR)/irbrc $(ETC_DIR)/irbrc
-
-# Extract the source.
-install_source::
-	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
-	$(RM) $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	# Annotate the bison generated files
-	for f in $(SRCROOT)/$(Project)/parse.{c,h} $(SRCROOT)/$(Project)/ext/ripper/ripper.c; do \
-		ruby -i -pe '$$_ = $$_ + %(\n/* Apple Note: For the avoidance of doubt, Apple elects to distribute this file under the terms of the BSD license. */\n) if $$_ =~ /version 2.2 of Bison/' $$f && echo "Added BSD exception to $$f"; \
-	done
-	$(CP) $(SRCROOT)/extras/md5cc.{c,h} $(SRCROOT)/$(Project)/ext/digest/md5
-	$(CP) $(SRCROOT)/extras/sha1cc.{c,h} $(SRCROOT)/$(Project)/ext/digest/sha1
-	for patchfile in $(AEP_Patches); do \
-		patch --verbose -d $(SRCROOT)/$(Project) -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
-	done
-	$(TOUCH) $(SRCROOT)/$(Project)/ext/win32ole/.document
-	$(RM) $(SRCROOT)/$(Project)/known_errors.inc
-	$(CP) $(SRCROOT)/known_errors.def $(SRCROOT)/$(Project)/defs/known_errors.def
-	# The LEGAL file incorrectly trips up the XBS license verifier.  It should just look at COPYING.
-	$(RM) $(SRCROOT)/$(Project)/LEGAL

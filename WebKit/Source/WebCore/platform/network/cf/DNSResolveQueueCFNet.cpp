@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Collin Jackson  <collinj@webkit.org>
- * Copyright (C) 2009-2023 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2009-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@
 #include <wtf/URL.h>
 #include <wtf/cf/VectorCF.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#include <wtf/posix/SocketPOSIX.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -102,10 +103,10 @@ static std::optional<IPAddress> extractIPAddress(const struct sockaddr* address)
 {
     if (!address)
         return std::nullopt;
-    if (address->sa_family == AF_INET)
-        return IPAddress { reinterpret_cast<const struct sockaddr_in*>(address)->sin_addr };
-    if (address->sa_family == AF_INET6)
-        return IPAddress { reinterpret_cast<const struct sockaddr_in6*>(address)->sin6_addr };
+    if (auto* addressV4 = dynamicCastToIPV4SocketAddress(*address))
+        return IPAddress { addressV4->sin_addr };
+    if (auto* addressV6 = dynamicCastToIPV6SocketAddress(*address))
+        return IPAddress { addressV6->sin6_addr };
     ASSERT_NOT_REACHED();
     return std::nullopt;
 }
@@ -124,7 +125,9 @@ void DNSResolveQueueCFNet::performDNSLookup(const String& hostname, Ref<Completi
 
     nw_context_set_privacy_level(context.get(), nw_context_privacy_level_silent);
     nw_parameters_set_context(parameters.get(), context.get());
-    RetainPtr resolver = adoptCF(nw_resolver_create_with_endpoint(hostEndpoint.get(), parameters.get()));
+    RetainPtr pathEvaluator = adoptCF(nw_path_create_evaluator_for_endpoint(hostEndpoint.get(), parameters.get()));
+    RetainPtr path = adoptCF(nw_path_evaluator_copy_path(pathEvaluator.get()));
+    RetainPtr resolver = adoptCF(nw_resolver_create_with_path(path.get()));
 
     RELEASE_ASSERT_WITH_MESSAGE(isMainThread(), "Always create timer on the main thread.");
     auto timeoutTimer = makeUnique<Timer>([resolver, completionHandler]() mutable {

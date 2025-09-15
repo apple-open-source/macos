@@ -58,6 +58,7 @@
 #include "exclaves_storage.h"
 #include "exclaves_test_stackshot.h"
 #include "exclaves_xnuproxy.h"
+#include "exclaves_aoe.h"
 
 #include <sys/errno.h>
 
@@ -557,6 +558,22 @@ static const xnuupcallsv2_xnuupcalls__server_s exclaves_tightbeam_upcalls_v2 = {
 	    const uint32_t length,
 	    tb_error_t (^completion)(xnuupcallsv2_conclaveupcallsprivate_crashinfo__result_s)) {
 		return exclaves_conclave_upcall_crash_info(shared_buf, length, completion);
+	},
+	.createpowerassertion = ^(
+		tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_createpowerassertion__result_s)) {
+		return exclaves_driverkit_upcall_lpw_createpowerassertion(completion);
+	},
+	.releasepowerassertion = ^(const xnuupcallsv2_assertionid_s id,
+		tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_releasepowerassertion__result_s)) {
+		return exclaves_driverkit_upcall_lpw_releasepowerassertion(id, completion);
+	},
+	.requestrunmode = ^(const xnuupcallsv2_lpwrunmode_s mode,
+		tb_error_t (^completion)(xnuupcallsv2_lpwupcallsprivate_requestrunmode__result_s)) {
+		return exclaves_driverkit_upcall_lpw_requestrunmode(mode, completion);
+	},
+	.workavailable = ^(const xnuupcallsv2_aoeworkinfo_s * workInfo,
+	    tb_error_t (^completion)(void)) {
+		return exclaves_aoe_upcall_work_available(workInfo, completion);
 	},
 	/* END IGNORE CODESTYLE */
 };

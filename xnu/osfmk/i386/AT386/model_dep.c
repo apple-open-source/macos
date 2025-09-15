@@ -1657,6 +1657,12 @@ print_tasks_user_threads(task_t task)
 }
 
 void
+print_curr_backtrace(void)
+{
+	/*  Not implemented for i386 */
+}
+
+void
 print_thread_num_that_crashed(task_t task)
 {
 	thread_t                c_thread = current_thread();

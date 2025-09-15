@@ -192,7 +192,7 @@ cpu_topology_sort(int ncpus)
 				aset->pset = processor_pset(master_processor);
 			} else {
 				pset_cluster_id++;
-				aset->pset = pset_create(pset_node_root(), PSET_SMP, pset_cluster_id, pset_cluster_id);
+				aset->pset = pset_create(CLUSTER_TYPE_SMP, pset_cluster_id, pset_cluster_id);
 				if (aset->pset == PROCESSOR_SET_NULL) {
 					panic("cpu_topology_start: pset_create");
 				}

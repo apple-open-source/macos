@@ -43,7 +43,7 @@ WKBundleScriptWorldRef WKBundleScriptWorldCreateWorld()
 
 WKBundleScriptWorldRef WKBundleScriptWorldNormalWorld()
 {
-    return toAPI(&WebKit::InjectedBundleScriptWorld::normalWorld());
+    return toAPI(&WebKit::InjectedBundleScriptWorld::normalWorldSingleton());
 }
 
 void WKBundleScriptWorldClearWrappers(WKBundleScriptWorldRef scriptWorldRef)
@@ -54,6 +54,11 @@ void WKBundleScriptWorldClearWrappers(WKBundleScriptWorldRef scriptWorldRef)
 void WKBundleScriptWorldMakeAllShadowRootsOpen(WKBundleScriptWorldRef scriptWorldRef)
 {
     WebKit::toImpl(scriptWorldRef)->makeAllShadowRootsOpen();
+}
+
+void WKBundleScriptWorldExposeClosedShadowRootsForExtensions(WKBundleScriptWorldRef scriptWorldRef)
+{
+    WebKit::toImpl(scriptWorldRef)->exposeClosedShadowRootsForExtensions();
 }
 
 void WKBundleScriptWorldDisableOverrideBuiltinsBehavior(WKBundleScriptWorldRef scriptWorldRef)

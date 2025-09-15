@@ -37,6 +37,7 @@
 #include <sys/vnode_internal.h>
 #include <sys/imageboot.h>
 #include <kern/assert.h>
+#include <vm/vm_far.h>
 
 #include <sys/namei.h>
 #include <sys/fcntl.h>
@@ -243,7 +244,8 @@ imageboot_pivot_image(const char *image_path, imageboot_type_t type, const char 
 		size_t bufsz = 0;
 		void *buf = NULL;
 		error_func = "imageboot_read_file";
-		error = imageboot_read_file_pageable(image_path, &buf, &bufsz);
+		// no_softlimit: di_root_ramfile_buf is OK to handle a no_softlimit buffer
+		error = imageboot_read_file_pageable(image_path, &buf, &bufsz, /* no_softlimit */ true);
 		if (error == 0) {
 			error_func = "di_root_ramfile_buf";
 			error = di_root_ramfile_buf(buf, bufsz, devname, sizeof(devname), &dev);
@@ -572,7 +574,7 @@ errorout:
 }
 
 static int
-imageboot_read_file_internal(const char *path, const off_t offset, const bool pageable, void **bufp, size_t *bufszp, off_t *fsizep)
+imageboot_read_file_internal(const char *path, const off_t offset, const bool pageable, void **bufp, size_t *bufszp, off_t *fsizep, bool no_softlimit)
 {
 	int err = 0;
 	struct nameidata ndp = {};
@@ -639,26 +641,41 @@ imageboot_read_file_internal(const char *path, const off_t offset, const bool pa
 	PE_parse_boot_argn("rootdmg-maxsize", &maxsize, sizeof(maxsize));
 	if (maxsize && (maxsize < (size_t)fsize)) {
 		AUTHPRNT("file is too large (%lld > %lld)", (long long) fsize, (long long) maxsize);
-		err = ENOMEM;
+		err = EFBIG;
 		goto out;
 	}
 
 	if (pageable) {
 		vm_offset_t addr = 0;
+		kma_flags_t kma_flags = 0;
+
+		kma_flags = KMA_PAGEABLE | KMA_DATA_SHARED;
+		if (no_softlimit) {
+			kma_flags |= KMA_NOSOFTLIMIT;
+		}
+
 		if (kmem_alloc(kernel_map, &addr, (vm_size_t)fsize,
-		    KMA_PAGEABLE | KMA_DATA, VM_KERN_MEMORY_FILE) == KERN_SUCCESS) {
+		    kma_flags, VM_KERN_MEMORY_FILE) == KERN_SUCCESS) {
 			buf = (char *)addr;
 		} else {
 			buf = NULL;
 		}
 	} else {
+		zalloc_flags_t zflags = 0;
+
 		//limit kalloc data calls to only 2GB.
 		if (fsize > IMAGEBOOT_MAX_KALLOCSIZE) {
 			AUTHPRNT("file is too large for non-pageable (%lld)", (long long) fsize);
 			err = ENOMEM;
 			goto out;
 		}
-		buf = (char *)kalloc_data((vm_size_t)fsize, Z_WAITOK);
+
+		zflags = Z_WAITOK;
+		if (no_softlimit) {
+			zflags |= Z_NOSOFTLIMIT;
+		}
+
+		buf = (char *)kalloc_data((vm_size_t)fsize, zflags);
 	}
 	if (buf == NULL) {
 		err = ENOMEM;
@@ -699,7 +716,7 @@ imageboot_read_file_internal(const char *path, const off_t offset, const bool pa
 			}
 		}
 
-		readbuf = &readbuf[chunksize];
+		readbuf = VM_FAR_ADD_PTR_UNBOUNDED(readbuf, chunksize);
 		readsize -= chunksize;
 		readoff += chunksize;
 	}
@@ -734,21 +751,21 @@ out:
 }
 
 int
-imageboot_read_file_pageable(const char *path, void **bufp, size_t *bufszp)
+imageboot_read_file_pageable(const char *path, void **bufp, size_t *bufszp, bool no_softlimit)
 {
-	return imageboot_read_file_internal(path, 0, true, bufp, bufszp, NULL);
+	return imageboot_read_file_internal(path, 0, true, bufp, bufszp, NULL, no_softlimit);
 }
 
 int
 imageboot_read_file_from_offset(const char *path, const off_t offset, void **bufp, size_t *bufszp)
 {
-	return imageboot_read_file_internal(path, offset, false, bufp, bufszp, NULL);
+	return imageboot_read_file_internal(path, offset, false, bufp, bufszp, NULL, /* no_softlimit */ false);
 }
 
 int
 imageboot_read_file(const char *path, void **bufp, size_t *bufszp, off_t *fsizep)
 {
-	return imageboot_read_file_internal(path, 0, false, bufp, bufszp, fsizep);
+	return imageboot_read_file_internal(path, 0, false, bufp, bufszp, fsizep, /* no_softlimit */ false);
 }
 
 #if CONFIG_IMAGEBOOT_IMG4 || CONFIG_IMAGEBOOT_CHUNKLIST
@@ -896,8 +913,14 @@ imageboot_mount_ramdisk(const char *path)
 	vnode_t tvp;
 	mount_t new_rootfs;
 
-	/* Read our target image from disk */
-	err = imageboot_read_file_pageable(path, &buf, &bufsz);
+	/*
+	 * Read our target image from disk
+	 *
+	 * We override the allocator soft-limit in order to allow booting large RAM
+	 * disks. As a consequence, we are responsible for manipulating the
+	 * buffer only through vm_far safe APIs.
+	 */
+	err = imageboot_read_file_pageable(path, &buf, &bufsz, /* no_softlimit */ true);
 	if (err) {
 		printf("%s: failed: imageboot_read_file_pageable() = %d\n", __func__, err);
 		goto out;
@@ -1091,8 +1114,13 @@ imageboot_setup_new(imageboot_type_t type)
 	}
 
 	if (error) {
-		panic("Failed to mount root image (err=%d, auth=%d, ramdisk=%d)",
-		    error, auth_root, ramdisk_root);
+		if (error == EFBIG) {
+			panic("root imagefile is too large (err=%d, auth=%d, ramdisk=%d)",
+			    error, auth_root, ramdisk_root);
+		} else {
+			panic("Failed to mount root image (err=%d, auth=%d, ramdisk=%d)",
+			    error, auth_root, ramdisk_root);
+		}
 	}
 
 #if CONFIG_IMAGEBOOT_CHUNKLIST

@@ -26,6 +26,7 @@
 #pragma once
 
 #include "WebFrameMetrics.h"
+#include <WebCore/CertificateInfo.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
@@ -44,13 +45,16 @@ struct FrameInfoData {
     WebCore::ResourceRequest request;
     WebCore::SecurityOriginData securityOrigin;
     String frameName;
-    Markable<WebCore::FrameIdentifier> frameID;
+    WebCore::FrameIdentifier frameID;
     Markable<WebCore::FrameIdentifier> parentFrameID;
     Markable<WebCore::ScriptExecutionContextIdentifier> documentID;
+    WebCore::CertificateInfo certificateInfo;
     ProcessID processID;
     bool isFocused { false };
     bool errorOccurred { false };
     WebFrameMetrics frameMetrics { };
 };
+
+FrameInfoData legacyEmptyFrameInfo(WebCore::ResourceRequest&&);
 
 }

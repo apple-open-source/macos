@@ -29,6 +29,7 @@
 #import "InjectedBundleRangeHandle.h"
 #import "WKBundleAPICast.h"
 #import "WKDOMInternals.h"
+#import <WebCore/BoundaryPointInlines.h>
 #import <WebCore/Document.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/VisibleUnits.h>
@@ -119,7 +120,7 @@
 {
     auto range = makeSimpleRange(*_impl);
     range.start.document().updateLayout();
-    return plainText(range);
+    return plainText(range).createNSString().autorelease();
 }
 
 - (BOOL)isCollapsed

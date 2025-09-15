@@ -64,7 +64,7 @@ BoxPtr<OpenCDMSession> CDMProxyThunder::getDecryptionSession(DecryptionContext& 
     BoxPtr<OpenCDMSession> keyValue = std::get<BoxPtr<OpenCDMSession>>(keyData);
 
     if (!keyValue) {
-        keyValue = adoptInBoxPtr(opencdm_get_system_session(&static_cast<const CDMInstanceThunder*>(instance())->thunderSystem(), keyID.data(),
+        keyValue = adoptInBoxPtr(opencdm_get_system_session(&static_cast<const CDMInstanceThunder*>(instance())->thunderSystem(), keyID.span().data(),
             keyID.size(), s_licenseKeyResponseTimeout.millisecondsAs<uint32_t>()));
         ASSERT(keyValue);
         // takeValueIfDifferent takes and r-value ref of
@@ -80,7 +80,7 @@ BoxPtr<OpenCDMSession> CDMProxyThunder::getDecryptionSession(DecryptionContext& 
     return keyValue;
 }
 
-bool CDMProxyThunder::decrypt(CDMProxyThunder::DecryptionContext& input)
+bool CDMProxyThunder::decrypt(CDMProxyThunder::DecryptionContext& input, const GRefPtr<GstCaps>& inputCaps)
 {
     BoxPtr<OpenCDMSession> session = getDecryptionSession(input);
     if (!session) {
@@ -89,9 +89,15 @@ bool CDMProxyThunder::decrypt(CDMProxyThunder::DecryptionContext& input)
     }
 
     GST_TRACE("decrypting");
-    // Decrypt cipher.
-    OpenCDMError errorCode = opencdm_gstreamer_session_decrypt(session->get(), input.dataBuffer, input.subsamplesBuffer, input.numSubsamples,
+    OpenCDMError errorCode;
+#if THUNDER_HAS_OCDM_DECRYPT_BUFFER
+    RELEASE_ASSERT_WITH_MESSAGE(inputCaps, "Decryption attempted without input caps");
+    errorCode = opencdm_gstreamer_session_decrypt_buffer(session->get(), input.dataBuffer, inputCaps.get());
+#else
+    UNUSED_PARAM(inputCaps);
+    errorCode = opencdm_gstreamer_session_decrypt(session->get(), input.dataBuffer, input.subsamplesBuffer, input.numSubsamples,
         input.ivBuffer, input.keyIDBuffer, 0);
+#endif
     if (errorCode) {
         GST_ERROR("decryption failed, error code %X", errorCode);
         return false;

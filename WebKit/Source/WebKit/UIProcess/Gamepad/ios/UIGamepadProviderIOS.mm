@@ -31,6 +31,7 @@
 #import "UIKitSPI.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
+#import "WebProcessProxy.h"
 
 namespace WebKit {
 

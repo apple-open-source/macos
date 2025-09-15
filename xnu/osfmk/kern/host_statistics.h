@@ -56,5 +56,8 @@ SCALABLE_COUNTER_DECLARE(vm_statistics_swapouts);               /* # of pages sw
 SCALABLE_COUNTER_DECLARE(vm_statistics_total_uncompressed_pages_in_compressor); /* # of pages (uncompressed) held within the compressor. */
 
 SCALABLE_COUNTER_DECLARE(vm_page_grab_count);
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_kern);
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_iopl);
+SCALABLE_COUNTER_DECLARE(vm_page_grab_count_upl);
 
 #endif  /* _KERN_HOST_STATISTICS_H_ */

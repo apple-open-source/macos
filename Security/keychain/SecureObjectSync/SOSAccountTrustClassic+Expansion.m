@@ -277,8 +277,6 @@ errOut:
 {
     bool success = false;
     bool haveOldRing = true;
-    static uint recRingProcessed = 0;
-    static uint bckRingProcessed = 0;
     
     const char * __unused localRemote = localUpdate ? "local": "remote";
     bool ringIsBackup       = SOSRingGetType(prospectiveRing) == kSOSRingBackup;
@@ -558,11 +556,6 @@ leaveAndAccept:
     }
 
     if (ringToPush != NULL) {
-        if(ringIsBackup) {
-            bckRingProcessed++;
-        } else if(ringIsRecovery) {
-            recRingProcessed++;
-        }
         secnotice("ring", "Pushing:[%s] %@", localRemote, ringToPush);
         CFDataRef ringData = SOSRingCopyEncodedData(ringToPush, error);
         if (ringData) {

@@ -144,16 +144,13 @@ T_DECL(thread_selfcounts_cpi_sanity, "check the current thread's CPI",
 T_DECL(thread_selfcounts_perf_level_sanity,
     "check per-perf level time, energy, and CPI",
     REQUIRE_RECOUNT_PMCS,
-    // REQUIRE_MULTIPLE_PERF_LEVELS, disabled due to rdar://111297938
+    REQUIRE_MULTIPLE_PERF_LEVELS,
     SET_THREAD_BIND_BOOTARG,
     T_META_ASROOT(true), T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	unsigned int level_count = perf_level_count();
+	T_QUIET; T_ASSERT_GT(level_count, 1, "Platform should be AMP");
 
-	// Until rdar://111297938, manually skip the test if there aren't multiple perf levels.
-	if (level_count < 2) {
-		T_SKIP("device is not eligible for checking perf levels because it is SMP");
-	}
 	struct thsc_time_energy_cpi *before = calloc(level_count, sizeof(*before));
 	struct thsc_time_energy_cpi *after = calloc(level_count, sizeof(*after));
 
@@ -197,7 +194,7 @@ _expect_counts_on_perf_level(unsigned int perf_level_index,
 	T_ASSERT_POSIX_ZERO(err,
 			"thread_selfcounts(THSC_TIME_ENERGY_CPI_PER_PERF_LEVEL, ...)");
 
-	char *name = perf_level_name(perf_level_index);
+	const char *name = perf_level_name(perf_level_index);
 	_check_usage(&before[perf_level_index], &after[perf_level_index], name);
 }
 
@@ -219,51 +216,48 @@ _expect_no_counts_on_perf_level(unsigned int perf_level_index,
 	T_ASSERT_POSIX_ZERO(err,
 			"thread_selfcounts(THSC_TIME_ENERGY_CPI_PER_PERF_LEVEL, ...)");
 
-	char *name = perf_level_name(perf_level_index);
+	const char *name = perf_level_name(perf_level_index);
 	_check_no_usage(&before[perf_level_index], &after[perf_level_index], name);
 }
 
 T_DECL(thread_selfcounts_perf_level_correct,
     "check that runtimes on each perf level match binding request",
     REQUIRE_RECOUNT_PMCS,
-    // REQUIRE_MULTIPLE_PERF_LEVELS, disabled due to rdar://111297938
+    REQUIRE_MULTIPLE_PERF_LEVELS,
     SET_THREAD_BIND_BOOTARG,
     T_META_ASROOT(true), T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	unsigned int level_count = perf_level_count();
+	T_QUIET; T_ASSERT_GT(level_count, 1, "Platform should be AMP");
 
-	// Until rdar://111297938, manually skip the test if there aren't multiple perf levels.
-	if (level_count < 2) {
-		T_SKIP("device is not eligible for checking perf levels because it is SMP");
-	}
 	T_LOG("Currently running the \"%s\" scheduler policy", sched_policy_name());
 	bool is_edge_scheduler = strcmp(sched_policy_name(), "edge") == 0;
-	for (unsigned int i = 0; i < level_count; i++) {
-		T_LOG("Level %d: %s", i, perf_level_name(i));
-	}
 
 	struct thsc_time_energy_cpi *before = calloc(level_count, sizeof(*before));
 	struct thsc_time_energy_cpi *after = calloc(level_count, sizeof(*after));
 
-	T_LOG("Binding to Efficiency cluster, should only see counts from E-cores");
-	T_SETUPBEGIN;
-	bind_to_cluster('E');
-	T_SETUPEND;
-	_expect_counts_on_perf_level(1, before, after);
-	_expect_no_counts_on_perf_level(0, before, after);
+	for (unsigned int i = 0; i < level_count; i++) {
+		T_LOG("Binding to \"%s\" cluster, should only see counts from %c-cores",
+		    perf_level_name(i), perf_level_name(i)[0]);
 
-	T_LOG("Binding to Performance cluster, should only see counts from P-cores");
-	T_SETUPBEGIN;
-	bind_to_cluster('P');
-	T_SETUPEND;
-	if (!is_edge_scheduler) {
-		T_QUIET; T_EXPECT_EQ_STR(sched_policy_name(), "amp", "Unexpected multicluster scheduling policy");
-		T_LOG("The AMP scheduler doesn't guarantee that a P-bound thread will "
-		    "only run on P-cores, so the following expects may fail.");
-		set_expects_may_fail(true);
+		T_SETUPBEGIN;
+		bind_to_cluster(perf_level_name(i)[0]);
+
+		if (!is_edge_scheduler && (perf_level_name(i)[0] == 'P')) {
+			T_QUIET; T_EXPECT_EQ_STR(sched_policy_name(), "amp", "Unexpected multicluster scheduling policy");
+			T_LOG("The AMP scheduler doesn't guarantee that a P-bound thread will "
+				"only run on P-cores, so the following expects may fail.");
+			set_expects_may_fail(true);
+		}
+		T_SETUPEND;
+
+		_expect_counts_on_perf_level(i, before, after);
+		for (unsigned int j = 0; j < level_count; j++) {
+			if (j != i) {
+				_expect_no_counts_on_perf_level(j, before, after);
+			}
+		}
 	}
-	_expect_counts_on_perf_level(0, before, after);
-	_expect_no_counts_on_perf_level(1, before, after);
 
 	free(before);
 	free(after);

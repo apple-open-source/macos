@@ -73,7 +73,7 @@ class CoreIPCSecureCoding;
 class CoreIPCString;
 class CoreIPCURL;
 
-using ObjectValue = std::variant<
+using ObjectValue = Variant<
     std::nullptr_t,
     CoreIPCArray,
     CoreIPCCFType,

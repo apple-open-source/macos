@@ -75,7 +75,7 @@ public:
 
     struct Span {
         int y { 0 };
-        size_t segmentIndex { 0 };
+        uint64_t segmentIndex { 0 };
 
         friend bool operator==(const Span&, const Span&) = default;
     };
@@ -91,8 +91,8 @@ public:
         bool isRect() const { return m_spans.size() <= 2 && m_segments.size() <= 2; }
         unsigned gridSize() const { return m_spans.size() * m_segments.size(); }
 
-        std::span<const Span> spans() const { return m_spans.span(); }
-        std::span<const int> segments(std::span<const Span>) const;
+        std::span<const Span> spans() const LIFETIME_BOUND { return m_spans.span(); }
+        std::span<const int> segments(std::span<const Span>) const LIFETIME_BOUND;
 
         static Shape unionShapes(const Shape& shape1, const Shape& shape2);
         static Shape intersectShapes(const Shape& shape1, const Shape& shape2);

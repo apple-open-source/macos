@@ -485,11 +485,17 @@ void
 flist_free(struct flist *f, size_t sz)
 {
 	size_t	 i;
+	bool	 sender;
 
 	if (f == NULL)
 		return;
 
+	sender = f->fmode == FARGS_SENDER;
 	for (i = 0; i < sz; i++) {
+		if (sender && f[i].froot != NULL) {
+			froot_release(f[i].froot);
+			f[i].froot = NULL;
+		}
 		if (f[i].pdfd >= 0)
 			close(f[i].pdfd);
 		free(f[i].path);
@@ -895,11 +901,12 @@ flist_recv_name(struct sess *sess, int fd, struct flist *f, uint8_t flags,
 }
 
 /*
- * Reallocate a file list in chunks of FLIST_CHUNK_SIZE;
+ * Reallocate a file list in chunks of FLIST_CHUNK_SIZE; the new entries are
+ * designated for sender/receiver as noted in mode.
  * Returns zero on failure, non-zero on success.
  */
 static int
-flist_realloc(struct flist **fl, size_t *sz, size_t *max)
+flist_realloc(struct flist **fl, size_t *sz, size_t *max, enum fmode mode)
 {
 	void	*pp;
 
@@ -916,11 +923,75 @@ flist_realloc(struct flist **fl, size_t *sz, size_t *max)
 	}
 	*fl = pp;
 	*max += FLIST_CHUNK_SIZE;
-	for (size_t i = *sz; i < *max; i++)
-		(*fl)[i].pdfd = (*fl)[i].sendidx = -1;
+	for (size_t i = *sz; i < *max; i++) {
+		struct flist *flent = &(*fl)[i];
+
+		flent->pdfd = flent->sendidx = -1;
+		flent->fmode = mode;
+	}
 
 	(*sz)++;
 	return 1;
+}
+
+static struct froot *
+froot_open(const char *path)
+{
+	struct froot *froot;
+
+	assert(path[0] != '\0');
+	froot = malloc(sizeof(*froot));
+	if (froot == NULL) {
+		ERR("malloc froot");
+		return NULL;
+	}
+
+	froot->rootpath = strdup(path);
+	if (froot->rootpath == NULL) {
+		ERR("strdup frootpath");
+		free(froot);
+		return NULL;
+	}
+
+	froot->refcount = 1;
+	froot->rootfd = open(path, O_DIRECTORY);
+	if (froot->rootfd == -1) {
+		ERR("open %s", path);
+		free(froot->rootpath);
+		free(froot);
+		return NULL;
+	}
+
+	return froot;
+}
+
+struct froot *
+froot_acquire(struct froot *froot)
+{
+
+	/*
+	 * We allow NULL here to simplify our caller's logic; they don't need
+	 * to care if they're part of a recursive scan or not.
+	 */
+	if (froot == NULL)
+		return NULL;
+
+	assert(froot->refcount > 0);
+	froot->refcount++;
+	return froot;
+}
+
+void
+froot_release(struct froot *froot)
+{
+
+	assert(froot->refcount > 0);
+	if (--froot->refcount != 0)
+		return;
+
+	close(froot->rootfd);
+	free(froot->rootpath);
+	free(froot);
 }
 
 /*
@@ -930,7 +1001,7 @@ flist_realloc(struct flist **fl, size_t *sz, size_t *max)
 long
 fl_new_index(struct fl *fl)
 {
-	if (flist_realloc(&fl->flp, &fl->sz, &fl->max) == 0)
+	if (flist_realloc(&fl->flp, &fl->sz, &fl->max, fl->sess->mode) == 0)
 		return -1;
 
 	return fl->sz - 1;
@@ -942,6 +1013,7 @@ fl_new_index(struct fl *fl)
 struct flist *
 fl_new(struct fl *fl)
 {
+	struct flist *newfl;
 	long index;
 
 	index = fl_new_index(fl);
@@ -958,9 +1030,10 @@ fl_pop(struct fl *fl)
 }
 
 void
-fl_init(struct fl *fl)
+fl_init(struct sess *sess, struct fl *fl)
 {
 	memset(fl, 0, sizeof(*fl));
+	fl->sess = sess;
 }
 
 long
@@ -1098,7 +1171,8 @@ out:
 */
 static int
 flist_append(struct sess *sess, const struct stat *st,
-	const char *path, struct fl *fl, const char *prefix)
+	const char *path, struct fl *fl, const char *prefix,
+	struct froot *froot)
 {
 	struct flist *f;
 	long oldidx;
@@ -1119,6 +1193,7 @@ flist_append(struct sess *sess, const struct stat *st,
 		return 0;
 	}
 
+	f->froot = froot_acquire(froot);
 	if (!sess->opts->relative) {
 		/* Remove prefix from path, if it is not an exact match */
 		prefixlen = strlen(prefix);
@@ -1294,7 +1369,7 @@ flist_recv(struct sess *sess, int fdin, int fdout, struct flist **flp, size_t *s
 			goto out;
 		}
 
-		if (!flist_realloc(&fl, &flsz, &flmax)) {
+		if (!flist_realloc(&fl, &flsz, &flmax, FARGS_RECEIVER)) {
 			ERRX1("flist_realloc");
 			goto out;
 		}
@@ -1667,7 +1742,8 @@ out:
 
 static int
 flist_gen_dirent_file(struct sess *sess, const char *type, const char *root,
-    struct fl *fl, const struct stat *st, const char *prefix)
+    struct fl *fl, const struct stat *st, const char *prefix,
+    struct froot *froot)
 {
 	/* filter files */
 	if (rules_match(root, S_ISDIR(st->st_mode), FARGS_SENDER, 0) == -1) {
@@ -1682,7 +1758,7 @@ flist_gen_dirent_file(struct sess *sess, const char *type, const char *root,
 	}
 
 	/* add it to our world view */
-	if (!flist_append(sess, st, root, fl, prefix)) {
+	if (!flist_append(sess, st, root, fl, prefix, froot)) {
 		ERRX1("flist_append");
 		return 0;
 	}
@@ -1902,7 +1978,8 @@ rsync_lstat(const char *path, struct stat *sb)
  * Returns zero on failure, non-zero on success.
  */
 static int
-flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t stripdir, const char *prefix)
+flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl,
+    ssize_t stripdir, const char *prefix, struct froot *froot)
 {
 	const char	*cargv[2];
 	int		 fts_options;
@@ -1927,6 +2004,7 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 		ret = stat(root, &st);
 	else
 		ret = rsync_lstat(root, &st);
+
 	if (ret == -1) {
 		if (!sess->opts->filesfrom) {
 			ERR("%s: (l)stat", root);
@@ -1935,7 +2013,8 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 		}
 		return 1;
 	} else if (S_ISREG(st.st_mode)) {
-		return flist_gen_dirent_file(sess, "file", root, fl, &st, prefix);
+		return flist_gen_dirent_file(sess, "file", root, fl, &st,
+		    prefix, froot);
 	} else if (S_ISLNK(st.st_mode)) {
 		/*
 		 * How does this work?
@@ -1965,7 +2044,8 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 				snprintf(buf2, sizeof(buf2), "%s/", root);
 				LOG4("symlinks: recursing '%s' -> '%s' '%s'",
 				    root, buf, buf2);
-				return flist_gen_dirent(sess, buf2, fl, stripdir, prefix);
+				return flist_gen_dirent(sess, buf2, fl, stripdir,
+				    prefix, froot);
 			}
 		}
 		if (sess->opts->copy_unsafe_links &&
@@ -1976,16 +2056,19 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 				snprintf(buf2, sizeof(buf2), "%s/", root);
 				LOG4("symlinks: recursing '%s' -> '%s' '%s'",
 				    root, buf, buf2);
-				return flist_gen_dirent(sess, buf2, fl, stripdir, prefix);
+				return flist_gen_dirent(sess, buf2, fl, stripdir,
+				    prefix, froot);
 			} else {
 				return flist_gen_dirent_file(sess, "file",
-				    root, fl, &st2, prefix);
+				    root, fl, &st2, prefix, froot);
 			}
 		}
 
-		return flist_gen_dirent_file(sess, "symlink", root, fl, &st, prefix);
+		return flist_gen_dirent_file(sess, "symlink", root, fl, &st,
+		    prefix, froot);
 	} else if (!S_ISDIR(st.st_mode)) {
-		return flist_gen_dirent_file(sess, "special", root, fl, &st, prefix);
+		return flist_gen_dirent_file(sess, "special", root, fl, &st,
+		    prefix, froot);
 	}
 
 	/*
@@ -1994,11 +2077,29 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 	 */
 	if (sess->opts->dirs && !sess->opts->recursive &&
 	    (stripdir != -1 || !flist_dir_recurse(root))) {
-		return flist_gen_dirent_file(sess, "dir", root, fl, &st, prefix);
+		return flist_gen_dirent_file(sess, "dir", root, fl, &st, prefix,
+		    froot);
 	}
 
 	if (stripdir == -1)
 		stripdir = flist_dirent_strip(sess, root);
+
+	/*
+	 * This is set relatively late because we only want to setup a froot at
+	 * top-level directories.  The above can be hit without having traversed
+	 * into a directory for non-directory entries specified on the command
+	 * line, and for those we need to be sure that we aren't trying to use
+	 * a dirfd.  Their non-NULL `froot` would come from recursive calls in
+	 * the loop below.
+	 */
+	if (froot == NULL) {
+		froot = froot_open(root);
+		if (froot == NULL) {
+			ERRX1("froot_open");
+			sess->total_errors++;
+			return 0;
+		}
+	}
 
 	cargv[0] = root;
 	cargv[1] = NULL;
@@ -2025,6 +2126,8 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 		fts_options |= FTS_XDEV;
 
 	if ((fts = fts_open((char * const *)cargv, fts_options, NULL)) == NULL) {
+		if (froot != NULL)
+			froot_release(froot);
 		sess->total_errors++;
 		ERR("fts_open");
 		return 0;
@@ -2083,7 +2186,7 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 			    is_unsafe_link(buf, root, prefix))) {
 				if (S_ISDIR(st2.st_mode)) {
 					ret = flist_gen_dirent(sess, fts_path,
-					    fl, stripdir, prefix);
+					    fl, stripdir, prefix, froot);
 					if (!ret)
 						sess->total_errors++;
 
@@ -2187,6 +2290,7 @@ flist_gen_dirent(struct sess *sess, const char *root, struct fl *fl, ssize_t str
 			}
 		}
 
+		f->froot = froot_acquire(froot);
 		f->wpath = f->path + stripdir;
 		flist_assert_wpath_len(f->wpath);
 
@@ -2247,7 +2351,8 @@ out:
  * Returns zero on failure, non-zero on success.
  */
 static int
-flist_gen_dirs(struct sess *sess, size_t argc, char **argv, struct fl *fl)
+flist_gen_dirs(struct sess *sess, size_t argc, char **argv, struct fl *fl,
+    struct froot *froot)
 {
 	char		 dname[PATH_MAX];
 	size_t		 dnamelen, i;
@@ -2273,7 +2378,7 @@ flist_gen_dirs(struct sess *sess, size_t argc, char **argv, struct fl *fl)
 				return 0;
 			}
 		}
-		if (!flist_gen_dirent(sess, dname, fl, -1, dname))
+		if (!flist_gen_dirent(sess, dname, fl, -1, dname, froot))
 			errors++;
 	}
 
@@ -2352,7 +2457,7 @@ flist_gen_files(struct sess *sess, size_t argc, char **argv, struct fl *fl)
 		}
 
 		/* Add this file to our file-system worldview. */
-		if (!flist_append(sess, &st, fname, fl, fname)) {
+		if (!flist_append(sess, &st, fname, fl, fname, NULL)) {
 			ERRX1("flist_append");
 			goto out;
 		}
@@ -2545,7 +2650,7 @@ flist_gen(struct sess *sess, size_t argc, char **argv, struct fl *fl)
 	if (sess->opts->syncfile == NULL) {
 #endif
 	rc = sess->opts->recursive || sess->opts->dirs ?
-		flist_gen_dirs(sess, argc, argv, fl) :
+		flist_gen_dirs(sess, argc, argv, fl, NULL) :
 		flist_gen_files(sess, argc, argv, fl);
 #if 0
 	} else
@@ -2814,7 +2919,7 @@ flist_gen_dels(struct sess *sess, const char *root, struct flist **fl,
 
 		/* Not found: we'll delete it. */
 
-		if (!flist_realloc(fl, sz, &max)) {
+		if (!flist_realloc(fl, sz, &max, FARGS_RECEIVER)) {
 			ERRX1("flist_realloc");
 			goto out;
 		}
@@ -2863,7 +2968,7 @@ flist_add_del(struct sess *sess, const char *path, size_t stripdir,
 {
 	struct flist *f;
 
-	if (!flist_realloc(fl, sz, flmax)) {
+	if (!flist_realloc(fl, sz, flmax, FARGS_RECEIVER)) {
 		ERRX1("flist_realloc");
 		return (0);
 	}

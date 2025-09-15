@@ -1078,6 +1078,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 	lck_rw_init(&np->n_name_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_rw_init(&np->n_parent_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
     lck_mtx_init(&np->n_flag_alloc_lock, smbfs_mutex_group, smbfs_lock_attr);
+    lck_mtx_init(&np->n_strategy_mtx, smbfs_mutex_group, smbfs_lock_attr);
 
 	(void) smbnode_lock(np, SMBFS_EXCLUSIVE_LOCK);
 	/* if we error out, don't forget to unlock this */
@@ -1372,6 +1373,7 @@ errout:
 	lck_rw_destroy(&np->n_name_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&np->n_parent_rwlock, smbfs_rwlock_group);
     lck_mtx_destroy(&np->n_flag_alloc_lock, smbfs_mutex_group);
+    lck_mtx_destroy(&np->n_strategy_mtx, smbfs_mutex_group);
 
     SMB_FREE_TYPE(struct smbnode, np);
     
@@ -1485,6 +1487,7 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	lck_rw_init(&snp->n_name_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
 	lck_rw_init(&snp->n_parent_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
     lck_mtx_init(&snp->n_flag_alloc_lock, smbfs_mutex_group, smbfs_lock_attr);
+    lck_mtx_init(&snp->n_strategy_mtx, smbfs_mutex_group, smbfs_lock_attr);
 
 	(void) smbnode_lock(snp, SMBFS_EXCLUSIVE_LOCK);
 	locked = 1;
@@ -1675,6 +1678,7 @@ errout:
 	lck_rw_destroy(&snp->n_name_rwlock, smbfs_rwlock_group);
 	lck_rw_destroy(&snp->n_parent_rwlock, smbfs_rwlock_group);
     lck_mtx_destroy(&np->n_flag_alloc_lock, smbfs_mutex_group);
+    lck_mtx_destroy(&np->n_strategy_mtx, smbfs_mutex_group);
 
     SMB_FREE_TYPE(struct smbnode, snp);
 
@@ -2538,6 +2542,13 @@ smbfs_attr_cachelookup(struct smb_share *share, vnode_t vp, struct vnode_attr *v
                 (void)smb_get_rsrcfrk_size(share, vp, context);
             }
             lck_mtx_lock(&np->rfrkMetaLock);
+
+            if (smp->sm_statfsbuf.f_bsize) {
+                /* Just to be safe */
+                VATTR_RETURN(va, va_rsrc_alloc,
+                             roundup(np->rfrk_alloc_size, smp->sm_statfsbuf.f_bsize));
+            }
+
             VATTR_RETURN(va, va_total_size, np->n_size + np->rfrk_size);
             lck_mtx_unlock(&np->rfrkMetaLock);
             lck_mtx_lock(&smp->sm_statfslock);
@@ -4381,10 +4392,10 @@ smbfs_reconnect(struct smbmount *smp)
    	struct smb_session *sessionp;
 	int error = 0;
     
-	KASSERT(smb != NULL, ("smp is null"));
+	SMB_ASSERT(smp != NULL, ("smp is null"));
     
     sessionp = SS_TO_SESSION(smp->sm_share);
-	KASSERT(sessionp != NULL, ("sessionp is null"));
+	SMB_ASSERT(sessionp != NULL, ("sessionp is null"));
 
     if (sessionp->session_flags & SMBV_SMB2) {
         error = smb2fs_reconnect(smp);

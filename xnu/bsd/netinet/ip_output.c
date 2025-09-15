@@ -1911,7 +1911,7 @@ ip_fragment(struct mbuf *m, struct ifnet *ifp, uint32_t mtu, int sw_csum)
 	firstlen = len = (mtu - hlen) & ~7;
 	if (len < 8) {
 		OSAddAtomic(1, &ipstat.ips_odropped);
-		m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_TOO_SMALL,
+		m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_TOO_SMALL,
 		    NULL, 0);
 		return EMSGSIZE;
 	}
@@ -1934,7 +1934,7 @@ ip_fragment(struct mbuf *m, struct ifnet *ifp, uint32_t mtu, int sw_csum)
 	for (off = hlen + len; off < (u_short)ip->ip_len; off += len) {
 		MGETHDR(m, M_DONTWAIT, MT_HEADER);      /* MAC-OK */
 		if (m == NULL) {
-			m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_NO_MEM,
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_NO_MEM,
 			    NULL, 0);
 			OSAddAtomic(1, &ipstat.ips_odropped);
 			return ENOBUFS;
@@ -1960,7 +1960,7 @@ ip_fragment(struct mbuf *m, struct ifnet *ifp, uint32_t mtu, int sw_csum)
 		mhip->ip_len = htons((u_short)(len + mhlen));
 		m->m_next = m_copy(m0, off, len);
 		if (m->m_next == NULL) {
-			m_drop(m, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_NO_MEM,
+			m_drop_if(m, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP_FRAG_NO_MEM,
 			    NULL, 0);
 			OSAddAtomic(1, &ipstat.ips_odropped);
 			return ENOBUFS;
@@ -2048,7 +2048,7 @@ in_finalize_cksum(struct mbuf *m, uint32_t hoff, uint32_t csum_flags)
 	uint32_t offset, _hlen, mlen, hlen, len, sw_csum;
 	uint16_t csum, ip_len;
 
-	_CASSERT(sizeof(csum) == sizeof(uint16_t));
+	static_assert(sizeof(csum) == sizeof(uint16_t));
 	VERIFY(m->m_flags & M_PKTHDR);
 
 	sw_csum = (csum_flags & m->m_pkthdr.csum_flags);
@@ -2406,6 +2406,7 @@ ip_ctloutput(struct socket *so, struct sockopt *sopt)
 		case IP_RECVPKTINFO:
 		case IP_RECVTOS:
 		case IP_DONTFRAG:
+		case IP_RECV_LINK_ADDR_TYPE:
 			error = sooptcopyin(sopt, &optval, sizeof(optval),
 			    sizeof(optval));
 			if (error) {
@@ -2479,6 +2480,10 @@ ip_ctloutput(struct socket *so, struct sockopt *sopt)
 					break;
 				}
 				OPTSET2(INP2_DONTFRAG);
+				break;
+
+			case IP_RECV_LINK_ADDR_TYPE:
+				OPTSET2(INP2_RECV_LINK_ADDR_TYPE);
 				break;
 #undef OPTSET
 #undef OPTSET2
@@ -2689,6 +2694,7 @@ ip_ctloutput(struct socket *so, struct sockopt *sopt)
 		case IP_RECVPKTINFO:
 		case IP_RECVTOS:
 		case IP_DONTFRAG:
+		case IP_RECV_LINK_ADDR_TYPE:
 			switch (sopt->sopt_name) {
 			case IP_TOS:
 				optval = inp->inp_ip_tos;
@@ -2739,6 +2745,9 @@ ip_ctloutput(struct socket *so, struct sockopt *sopt)
 				break;
 			case IP_DONTFRAG:
 				optval = OPTBIT2(INP2_DONTFRAG);
+				break;
+			case IP_RECV_LINK_ADDR_TYPE:
+				optval = OPTBIT2(INP2_RECV_LINK_ADDR_TYPE);
 				break;
 			}
 			error = sooptcopyout(sopt, &optval, sizeof(optval));

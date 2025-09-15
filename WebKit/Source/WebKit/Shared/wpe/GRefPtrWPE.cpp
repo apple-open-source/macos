@@ -45,6 +45,19 @@ template <> void derefGPtr(WPEEvent* ptr)
         wpe_event_unref(ptr);
 }
 
+template <> WPEClipboardContent* refGPtr(WPEClipboardContent* ptr)
+{
+    if (ptr)
+        wpe_clipboard_content_ref(ptr);
+    return ptr;
+}
+
+template <> void derefGPtr(WPEClipboardContent* ptr)
+{
+    if (ptr)
+        wpe_clipboard_content_unref(ptr);
+}
+
 } // namespace WTF
 
 #endif // ENABLE(WPE_PLATFORM)

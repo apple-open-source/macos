@@ -62,8 +62,7 @@ public:
 
     ~RemoteRenderPassEncoder();
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
@@ -101,7 +100,7 @@ private:
     void drawIndirect(WebGPUIdentifier indirectBuffer, WebCore::WebGPU::Size64 indirectOffset);
     void drawIndexedIndirect(WebGPUIdentifier indirectBuffer, WebCore::WebGPU::Size64 indirectOffset);
 
-    void setBindGroup(WebCore::WebGPU::Index32, WebGPUIdentifier,
+    void setBindGroup(WebCore::WebGPU::Index32, std::optional<WebGPUIdentifier>,
         std::optional<Vector<WebCore::WebGPU::BufferDynamicOffset>>&& dynamicOffsets);
 
     void pushDebugGroup(String&& groupLabel);

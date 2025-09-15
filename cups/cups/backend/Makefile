@@ -257,8 +257,8 @@ dnssd:	dnssd.o ../cups/$(LIBCUPS) libbackend.a
 
 ipp:	ipp.o ../cups/$(LIBCUPS) libbackend.a
 	echo Linking $@...
-	$(LD_CC) $(ALL_LDFLAGS) -o ipp ipp.o libbackend.a $(LINKCUPS)
-	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
+	$(LD_CC) $(ALL_LDFLAGS) -Wl,-sectcreate,__TEXT,__info_plist,$(SRCROOT)/ipp.plist -o ipp ipp.o libbackend.a $(LINKCUPS)
+	/usr/bin/codesign --force --sign "$(CODE_SIGN_IDENTITY)" --entitlements $(SRCROOT)/ipp.entitlements $@
 	$(RM) http https ipps
 	for file in $(IPPALIASES); do \
 		$(LN) ipp $$file; \

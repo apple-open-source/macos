@@ -66,6 +66,12 @@ extern void IOBSDLowSpaceUnlinkKernelCore(void);
  */
 extern boolean_t IOCurrentTaskHasEntitlement(const char * entitlement);
 extern boolean_t IOTaskHasEntitlement(task_t task, const char *entitlement);
+
+/*
+ * IOTaskHasEntitlementAsBooleanOrObject returns true if the entitlement is true boolean, or
+ *  a non-NULL object.
+ */
+extern boolean_t IOTaskHasEntitlementAsBooleanOrObject(task_t task, const char *entitlement);
 extern boolean_t IOVnodeHasEntitlement(struct vnode *vnode, int64_t off, const char *entitlement);
 extern boolean_t IOVnodeGetBooleanEntitlement(
 	struct vnode *vnode,
@@ -78,6 +84,8 @@ extern char * IOTaskGetEntitlement(task_t task, const char * entitlement);
  * IOVnodeGetEntitlement returns a null-terminated string that must be freed with kfree_data().
  */
 extern char *IOVnodeGetEntitlement(struct vnode *vnode, int64_t offset, const char *entitlement);
+
+extern boolean_t IOTaskGetIntegerEntitlement(task_t task, const char *entitlement, uint64_t *value);
 
 /*
  *       Tests that the entitlement is present and has matching value
@@ -97,6 +105,13 @@ typedef enum {
 extern struct IOPolledFileIOVars * gIOPolledCoreFileVars;
 extern kern_return_t gIOPolledCoreFileOpenRet;
 extern IOPolledCoreFileMode_t gIOPolledCoreFileMode;
+
+extern bool IOPMIsAOTMode(void);
+extern bool IOPMIsLPWMode(void);
+enum {
+	kIOPMNetworkStackFullWakeFlag = 0x000000001,
+};
+extern void IOPMNetworkStackFullWake(uint64_t flags, const char * reason);
 
 #ifdef __cplusplus
 }

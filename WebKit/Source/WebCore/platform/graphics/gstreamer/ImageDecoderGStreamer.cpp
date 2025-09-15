@@ -127,7 +127,7 @@ ImageDecoderGStreamer::ImageDecoderGStreamer(FragmentedSharedBuffer& data, const
         auto caps = adoptGRef(gst_pad_query_caps(pad.get(), nullptr));
         auto identityHarness = GStreamerElementHarness::create(GRefPtr<GstElement>(gst_element_factory_make("identity", nullptr)), [](auto&, const auto&) { });
         GST_DEBUG_OBJECT(pad.get(), "Caps on parser source pad: %" GST_PTR_FORMAT, caps.get());
-        if (!caps || !doCapsHaveType(caps.get(), "video")) {
+        if (!caps || !doCapsHaveType(caps.get(), "video"_s)) {
             GST_WARNING_OBJECT(m_decoderHarness->element(), "Ignoring non-video track");
             return identityHarness;
         }
@@ -234,14 +234,6 @@ bool ImageDecoderGStreamer::frameHasAlphaAtIndex(size_t index) const
 {
     auto* sampleData = sampleAtIndex(index);
     return sampleData ? sampleData->hasAlpha() : false;
-}
-
-unsigned ImageDecoderGStreamer::frameBytesAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const
-{
-    if (!frameIsCompleteAtIndex(index))
-        return 0;
-
-    return frameSizeAtIndex(index, subsamplingLevel).area() * 4;
 }
 
 PlatformImagePtr ImageDecoderGStreamer::createFrameImageAtIndex(size_t index, SubsamplingLevel, const DecodingOptions&)

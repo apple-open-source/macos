@@ -105,7 +105,7 @@ RetainPtr<CGImageRef> PresentationContextIOSurface::getTextureAsNativeImage(uint
         return nullptr;
 
     id<MTLTexture> mtlTexture = texture->texture();
-    if (!mtlTexture || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB) {
+    if (!mtlTexture || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm || mtlTexture.pixelFormat == MTLPixelFormatBGRA8Unorm_sRGB || mtlTexture.pixelFormat == MTLPixelFormatRGBA16Float) {
         isIOSurfaceSupportedFormat = true;
         return nullptr;
     }
@@ -160,7 +160,7 @@ void PresentationContextIOSurface::configure(Device& device, const WGPUSwapChain
         return;
 
     bool reportValidationErrors = descriptor.reportValidationErrors;
-    m_device = &device;
+    m_device = device;
     auto allowedFormat = ^(WGPUTextureFormat format) {
         return format == WGPUTextureFormat_BGRA8Unorm || format == WGPUTextureFormat_RGBA8Unorm || format == WGPUTextureFormat_RGBA16Float;
     };
@@ -251,7 +251,7 @@ void PresentationContextIOSurface::configure(Device& device, const WGPUSwapChain
             textureDescriptor.usage = existingUsage;
             textureDescriptor.usage |= MTLTextureUsageShaderRead;
             id<MTLTexture> luminanceClampTexture = device.newTextureWithDescriptor(textureDescriptor);
-            luminanceClampTexture.label = fromAPI(descriptor.label);
+            luminanceClampTexture.label = fromAPI(descriptor.label).createNSString().get();
             auto viewFormats = descriptor.viewFormats;
             parentLuminanceClampTexture = Texture::create(luminanceClampTexture, wgpuTextureDescriptor, WTFMove(viewFormats), device);
             parentLuminanceClampTexture->makeCanvasBacking();
@@ -261,7 +261,7 @@ void PresentationContextIOSurface::configure(Device& device, const WGPUSwapChain
         }
 
         id<MTLTexture> texture = device.newTextureWithDescriptor(textureDescriptor, bridge_cast(iosurface));
-        texture.label = fromAPI(descriptor.label);
+        texture.label = fromAPI(descriptor.label).createNSString().get();
         auto viewFormats = descriptor.viewFormats;
         auto parentTexture = Texture::create(texture, wgpuTextureDescriptor, WTFMove(viewFormats), device);
         parentTexture->makeCanvasBacking();

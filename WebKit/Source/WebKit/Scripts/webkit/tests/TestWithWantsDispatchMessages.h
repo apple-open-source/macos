@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit TestMessage(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 class TestSyncMessage {
@@ -79,17 +80,18 @@ public:
     using ReplyArguments = std::tuple<uint8_t>;
     using Reply = CompletionHandler<void(uint8_t)>;
     explicit TestSyncMessage(uint32_t param)
-        : m_arguments(param)
+        : m_param(param)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_param;
     }
 
 private:
-    std::tuple<uint32_t> m_arguments;
+    uint32_t m_param;
 };
 
 } // namespace TestWithWantsDispatch

@@ -150,16 +150,4 @@ bool screenSupportsExtendedColor(Widget*)
     return false;
 }
 
-#if ENABLE(TOUCH_EVENTS)
-bool screenHasTouchDevice()
-{
-    return true;
-}
-
-bool screenIsTouchPrimaryInputDevice()
-{
-    return true;
-}
-#endif
-
 } // namespace WebCore

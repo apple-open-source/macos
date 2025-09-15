@@ -69,6 +69,7 @@ static void TestRgSubtag(void); // rdar://106566783
 static void TestPolishMonth(void); // rdar://119515016
 static void TestLongDayPeriodDefaults(void); // rdar://116185298
 static void TestLongLocaleID(void); // rdar://134431716
+static void TestGeneralSkeletonToPattern(void); // rdar://154363856
 #endif  // APPLE_ICU_CHANGES
 
     
@@ -95,6 +96,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestPolishMonth); // rdar://119515016
     TESTCASE(TestLongDayPeriodDefaults); // rdar://116185298
     TESTCASE(TestLongLocaleID); // rdar://134431716
+    TESTCASE(TestGeneralSkeletonToPattern); // rdar://154363856
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -469,7 +471,7 @@ static void TestOptions(void) {
         { "da", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
         { "da", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
         { "da", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
-#if APPLE_ICU_CHANGES
+#if APPLE_ICU_CHANGES && U_PLATFORM_IS_DARWIN_BASED
 // rdar://
         // additional tests for rdar://121284009 (results also altered by rdar://17278425)
         // (see also ICU-22669)
@@ -1324,10 +1326,11 @@ static void TestLongDayPeriodDefaults(void) {
     
     const TestCase testCases[] = {
         // Hindi should always use long day periods, unless the caller opts out
+#if U_PLATFORM_IS_DARWIN_BASED
         { "hi",      u"jmm", u"B h:mm", u"a h:mm" },
         { "hi",      u"Cmm", u"B h:mm", u"B h:mm" },
         { "hi",      u"hmm", u"B h:mm", u"a h:mm" },
-        
+
         // This should also be true even with the US region
         { "hi_US",   u"jmm", u"B h:mm", u"a h:mm" },
         { "hi_US",   u"Cmm", u"a h:mm", u"a h:mm" }, // C *doesn't* give you B because C bases its decision on the REGION
@@ -1337,11 +1340,31 @@ static void TestLongDayPeriodDefaults(void) {
         { "zh_Hant", u"jmm", u"Bh:mm",  u"ah:mm"  },
         { "zh_Hant", u"Cmm", u"Bh:mm",  u"Bh:mm"  },
         { "zh_Hant", u"hmm", u"Bh:mm",  u"ah:mm"  },
-        
+
         // double-check that zh_TW and zh_Hant_TW work the same as zh_Hant, but that zh_HK doesn't
         { "zh_TW",      u"jmm", u"Bh:mm",  u"ah:mm"  },
         { "zh_Hant_TW", u"jmm", u"Bh:mm",  u"ah:mm"  },
         { "zh_HK",      u"jmm", u"ah:mm",  u"ah:mm"  },
+#else
+        { "hi",      u"jmm", u"a h:mm", u"a h:mm" },
+        { "hi",      u"Cmm", u"B h:mm", u"B h:mm" },
+        { "hi",      u"hmm", u"a h:mm", u"a h:mm" },
+
+        // This should also be true even with the US region
+        { "hi_US",   u"jmm", u"a h:mm", u"a h:mm" },
+        { "hi_US",   u"Cmm", u"a h:mm", u"a h:mm" }, // C *doesn't* give you B because C bases its decision on the REGION
+        { "hi_US",   u"hmm", u"a h:mm", u"a h:mm" },
+
+        // Same with zh_TW/zh_Hant
+        { "zh_Hant", u"jmm", u"ah:mm",  u"ah:mm"  },
+        { "zh_Hant", u"Cmm", u"Bh:mm",  u"Bh:mm"  },
+        { "zh_Hant", u"hmm", u"ah:mm",  u"ah:mm"  },
+
+        // double-check that zh_TW and zh_Hant_TW work the same as zh_Hant, but that zh_HK doesn't
+        { "zh_TW",      u"jmm", u"ah:mm",  u"ah:mm"  },
+        { "zh_Hant_TW", u"jmm", u"ah:mm",  u"ah:mm"  },
+        { "zh_HK",      u"jmm", u"ah:mm",  u"ah:mm"  },
+#endif
 
         // Regular zh uses 24-hour time, but if we ask for 12-hour time, we still want short day periods
         { "zh",      u"jmm", u"HH:mm",  u"HH:mm"  },
@@ -1404,6 +1427,39 @@ static void TestLongLocaleID(void) {
       "en_US_0000_0001_0002_0003_0004_0005_0006_0007_0008_0009_0010_0011_0012_0013_0014_0015_0016_0017_0018_0019_0020_0021_0022_0023_0024_0025_0026_0027_0028_0029_0030", &err);
     udatpg_close(dtpg);
 }
+
+// rdar://154363856, rdar://154361275
+static void TestGeneralSkeletonToPattern(void) {
+    struct TestCase {
+        const char* locale;
+        const UChar* skeleton;
+        const UChar* expectedPattern;
+    } testCases[] = {
+        // rdar://154363856
+        { "bn", u"MMMEd",   u"EEE, d MMM"     },
+        { "bn", u"MMMMEd",  u"EEE, d MMMM"    },
+        { "bn", u"yMMMEd",  u"EEE, d MMM, y"  },
+        { "bn", u"yMMMMEd", u"EEE, d MMMM, y" },
+        // rdar://154361275
+        { "ta", u"MMMEd",   u"EEE, d MMM"     },
+        { "ta", u"MMMMEd",  u"EEE, d MMMM"    },
+        { "ta", u"yMMMEd",  u"EEE, d MMM, y"  },
+        { "ta", u"yMMMMEd", u"EEE, d MMMM, y" },
+   };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        UErrorCode err = U_ZERO_ERROR;
+        UChar result[200];
+        UDateTimePatternGenerator* dtpg = udatpg_open(testCases[i].locale, &err);
+        udatpg_getBestPattern(dtpg, testCases[i].skeleton, -1, result, 200, &err);
+        
+        if (assertSuccess("Error creating DTPG or getting best pattern", &err)) {
+            assertUEquals("Wrong result", testCases[i].expectedPattern, result);
+        }
+        udatpg_close(dtpg);
+    }
+}
+
 
 #endif  // APPLE_ICU_CHANGES
 

@@ -18,13 +18,13 @@ Defines a comma-separated list of logging channels and their levels for WebKit's
         - `WebDriverBiDi` - For the WebSockets-based [WebDriver BiDi](https://github.com/w3c/webdriver-bidi) protocol.
         - `SessionHost` - For messages related to the management of the Browser under automation.
 
-#if WPE
-
 ## Graphics-related variables
+
+#if WPE
 
 - `WPE_DRM_DEVICE`
 Specifies the primary device that WebKit will use for gpu buffer allocation when it needs access to the main device. It is interesting for DRM backend. You need to specify a file path.
-Example: `dev/dri/card0`
+Example: `/dev/dri/card0`
 
 - `WPE_DRM_RENDER_NODE`:
 Specifies the render device that WebKit will use for buffer allocation, this is the one used for allocating general gpu buffers. You need to specify a file path.
@@ -39,6 +39,28 @@ Example: `AR24:0:scanout`
 
 #endif
 
+- `WEBKIT_SKIA_CPU_PAINTING_THREADS`:
+Specifies the amount of CPU worker threads to use for multi-threaded tile rendering using Skia.
+By default we use as much CPU worker threads as the amount of CPU cores in the system divided by two, capped at eight.
+Example: `2`
+
+- `WEBKIT_SKIA_GPU_PAINTING_THREADS`:
+Specifies the amount of GPU worker threads to use for multi-threaded tile rendering using Skia.
+By default we use two GPU worker threads if the number of CPU cores in the system exceeds 3,
+otherwise we a single GPU worker thread.
+Example: `0` (don't use GPU for tile rendering)
+
+- `WEBKIT_SKIA_ENABLE_CPU_RENDERING`:
+Disallow the use of GPU for rendering purposes. If only setting `WEBKIT_SKIA_GPU_PAINTING_THREADS=0`,
+the GPU may still be used for e.g. accelerated filters (anything using accelerated ImageBuffers),
+even though the tile painting is performed using the CPU only.
+Example: `1`
+
+- `WEBKIT_SKIA_USE_LINEAR_TILE_TEXTURES`:
+Force using a linear texture format for the tile textures -- this allows to bypass OpenGL for texture updates,
+directly modifying dma-buf contents. This might degrade performance, depending on the capabilities of the GPU
+and display controller -- use with care. However, if supported by the GPU/IPU combination, it can reduce the
+kernel load, reduce staging copies in Mesa, etc. Currently some devices out of the i.MX8 line might benefit.
 
 ## Remote Web Inspector Variables
 

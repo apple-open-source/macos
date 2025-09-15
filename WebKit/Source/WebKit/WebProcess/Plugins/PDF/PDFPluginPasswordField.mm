@@ -46,12 +46,12 @@ Ref<PDFPluginPasswordField> PDFPluginPasswordField::create(PDFPluginBase* plugin
 
 PDFPluginPasswordField::~PDFPluginPasswordField()
 {
-    element()->removeEventListener(eventNames().keyupEvent, *eventListener(), false);
+    protectedElement()->removeEventListener(eventNames().keyupEvent, *eventListener(), false);
 }
 
 Ref<Element> PDFPluginPasswordField::createAnnotationElement()
 {
-    auto element = PDFPluginTextAnnotation::createAnnotationElement();
+    Ref element = PDFPluginTextAnnotation::createAnnotationElement();
     element->setAttribute(typeAttr, "password"_s);
     element->setAttribute(enterkeyhintAttr, AtomString { attributeValueForEnterKeyHint(EnterKeyHint::Go) });
     element->addEventListener(eventNames().keyupEvent, *eventListener(), false);

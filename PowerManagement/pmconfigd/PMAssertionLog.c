@@ -26,10 +26,12 @@
 #include <mach/mach.h>
 #include <notify.h>
 #include <CoreFoundation/CFXPCBridge.h>
+#import <sys/kdebug_private.h>
 
 #include "PMAssertions.h"
 #include "PrivateLib.h"
 #include "BatteryTimeRemaining.h"
+#include "PowerManagementSignposts.h"
 
 #include <IOReport.h>
 
@@ -616,6 +618,28 @@ static void logAssertionToASL(assertLogAction  action,
         INFO_LOG("Process %{public}@.%d %{public}s %{public}@ \"%{public}@\" age:%{public}s id:%lld %{public}s %{public}s",
                 procName, assertion->pinfo->pid, assertionAction, foundAssertionType, foundAssertionName, ageString,
                 (((uint64_t)assertion->kassert) << 32) | (assertion->assertionId), assertionsBuf, assertionQualifierBuf);
+    }
+
+    if (gDebugFlags & kIOPMDebugTraceAssertionActivity) {
+        union {
+            struct {
+                uint32_t pid;
+                uint16_t action;
+                uint16_t type;
+                char name[24];
+            } fields;
+            uint64_t args[4];
+        } buffer;
+        buffer.fields.pid = assertion->pinfo->pid;
+        buffer.fields.action = action;
+        buffer.fields.type = assertion->kassert;
+        strncpy(buffer.fields.name, assertionNameCString, sizeof(buffer.fields.name));
+
+        // arg1: pid, action and type
+        // arg2: assertion name (chars 0 - 7)
+        // arg3: assertion name (chars 8 - 15)
+        // arg4: assertion name (chars 16 - 24)
+        kdebug_trace(POWERDBG_CODE(POWERD_ASSERTION_CODE), buffer.args[0], buffer.args[1], buffer.args[2], buffer.args[3]);
     }
 
     if (isA_installEnvironment()) {

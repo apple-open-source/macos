@@ -1,8 +1,5 @@
 INCLUDED_TEST_SOURCE_DIRS += vm
 
-# Revert to legacy vm_test suite until <rdar://problem/56675212> gets solved
-EXCLUDED_SOURCES += vm/vm_allocation.c
-
 EXCLUDED_SOURCES += jumbo_va_spaces_common.c
 
 ifeq ($(PLATFORM),$(filter $(PLATFORM),iphoneos iPhoneOS XROS))
@@ -101,9 +98,18 @@ install-vm/hello: vm/hello
 	mkdir -p $(INSTALLDIR)/vm
 	cp $(SYMROOT)/vm/hello $(INSTALLDIR)/vm/
 
+vm/upl: exc_guard_helper.c exc_helpers.c test_utils.c excserver
+vm/upl: OTHER_CFLAGS += $(OBJROOT)/excserver.c -I $(OBJROOT)
+vm/upl: OTHER_LDFLAGS += -ldarwintest_utils
+vm/upl: CODE_SIGN_ENTITLEMENTS = ./vm/upl.entitlements
+
 vm/vm_tainted_executable: vm/hello
 
 vm/vm_ranges: CODE_SIGN_ENTITLEMENTS = ./vm/vm_ranges_entitlement.plist
 
-vm_test_mach_map: CODE_SIGN_ENTITLEMENTS = ./vm_test_mach_map.plist
+vm/vm_memory_entry: CODE_SIGN_ENTITLEMENTS=vm/memory-ownership-transfer.entitlements
 
+vm/vm_reclaim: OTHER_CFLAGS += -Wno-language-extension-token -Wno-c++98-compat memorystatus_assertion_helpers.c
+vm/vm_reclaim: OTHER_LDFLAGS += -ldarwintest_utils
+vm/vm_reclaim: INVALID_ARCHS = armv7k arm64_32
+vm/vm_reclaim: CODE_SIGN_ENTITLEMENTS = vm/vm_reclaim.entitlements

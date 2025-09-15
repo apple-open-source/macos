@@ -335,7 +335,7 @@ swapfile_pager_data_request(
 	 * destination physical page when it's its turn to be processed.
 	 */
 	kr = kmem_alloc(kernel_map, &kernel_mapping, PAGE_SIZE,
-	    KMA_DATA | KMA_KOBJECT | KMA_PAGEABLE, VM_KERN_MEMORY_NONE);
+	    KMA_DATA_SHARED | KMA_KOBJECT | KMA_PAGEABLE, VM_KERN_MEMORY_NONE);
 	if (kr != KERN_SUCCESS) {
 		retval = kr;
 		goto done;
@@ -688,7 +688,7 @@ swapfile_pager_create(
 	 * The vm_map call takes both named entry ports and raw memory
 	 * objects in the same parameter.  We need to make sure that
 	 * vm_map does not see this object as a named entry port.  So,
-	 * we reserve the second word in the object for a fake ip_kotype
+	 * we reserve the second word in the object for a fake object type
 	 * setting - that will tell vm_map to use it as a memory object.
 	 */
 	pager->swp_pgr_hdr.mo_ikot = IKOT_MEMORY_OBJECT;

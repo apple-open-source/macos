@@ -30,8 +30,10 @@
 
 #include "AXObjectCache.h"
 #include "ElementChildIteratorInlines.h"
+#include "EventTargetInlines.h"
 #include "HTMLNames.h"
 #include "RenderIterator.h"
+#include "RenderObjectInlines.h"
 #include "RenderText.h"
 #include "SVGAElement.h"
 #include "SVGDescElement.h"
@@ -44,23 +46,21 @@
 
 namespace WebCore {
 
-AccessibilitySVGObject::AccessibilitySVGObject(AXID axID, RenderObject& renderer, AXObjectCache* cache)
-    : AccessibilityRenderObject(axID, renderer)
-    , m_axObjectCache(cache)
+AccessibilitySVGObject::AccessibilitySVGObject(AXID axID, RenderObject& renderer, AXObjectCache& cache)
+    : AccessibilityRenderObject(axID, renderer, cache)
 {
-    ASSERT(cache);
 }
 
 AccessibilitySVGObject::~AccessibilitySVGObject() = default;
 
-Ref<AccessibilitySVGObject> AccessibilitySVGObject::create(AXID axID, RenderObject& renderer, AXObjectCache* cache)
+Ref<AccessibilitySVGObject> AccessibilitySVGObject::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
     return adoptRef(*new AccessibilitySVGObject(axID, renderer, cache));
 }
 
 AccessibilityObject* AccessibilitySVGObject::targetForUseElement() const
 {
-    auto* use = dynamicDowncast<SVGUseElement>(element());
+    RefPtr use = dynamicDowncast<SVGUseElement>(element());
     if (!use)
         return nullptr;
 
@@ -76,7 +76,7 @@ AccessibilityObject* AccessibilitySVGObject::targetForUseElement() const
 template <typename ChildrenType>
 Element* AccessibilitySVGObject::childElementWithMatchingLanguage(ChildrenType& children) const
 {
-    String languageCode = language();
+    String languageCode = languageIncludingAncestors();
     if (languageCode.isEmpty())
         languageCode = defaultLanguage();
 
@@ -86,18 +86,18 @@ Element* AccessibilitySVGObject::childElementWithMatchingLanguage(ChildrenType& 
     // that child element having a given position. So we'll look for such an element while
     // building the language list and save it as our fallback.
 
-    Element* fallback = nullptr;
+    RefPtr<Element> fallback;
     Vector<String> childLanguageCodes;
     Vector<Element*> elements;
-    for (auto& child : children) {
-        auto& lang = child.attributeWithoutSynchronization(SVGNames::langAttr);
+    for (Ref child : children) {
+        auto& lang = child->attributeWithoutSynchronization(SVGNames::langAttr);
         childLanguageCodes.append(lang);
-        elements.append(&child);
+        elements.append(child.ptr());
 
         // The current draft of the SVG2 spec states if there are multiple equally-valid
         // matches, the first match should be used.
         if (lang.isEmpty() && !fallback)
-            fallback = &child;
+            fallback = child.ptr();
     }
 
     bool exactMatch;
@@ -105,18 +105,18 @@ Element* AccessibilitySVGObject::childElementWithMatchingLanguage(ChildrenType& 
     if (index < childLanguageCodes.size())
         return elements[index];
 
-    return fallback;
+    return fallback.get();
 }
 
 void AccessibilitySVGObject::accessibilityText(Vector<AccessibilityText>& textOrder) const
 {
     String description = this->description();
     if (!description.isEmpty())
-        textOrder.append(AccessibilityText(description, AccessibilityTextSource::Alternative));
+        textOrder.append(AccessibilityText(WTFMove(description), AccessibilityTextSource::Alternative));
 
     String helptext = helpText();
     if (!helptext.isEmpty())
-        textOrder.append(AccessibilityText(helptext, AccessibilityTextSource::Help));
+        textOrder.append(AccessibilityText(WTFMove(helptext), AccessibilityTextSource::Help));
 }
 
 String AccessibilitySVGObject::description() const
@@ -136,7 +136,7 @@ String AccessibilitySVGObject::description() const
     RefPtr element = this->element();
     if (element) {
         auto titleElements = childrenOfType<SVGTitleElement>(*element);
-        if (auto* titleChild = childElementWithMatchingLanguage(titleElements))
+        if (RefPtr titleChild = childElementWithMatchingLanguage(titleElements))
             return titleChild->textContent();
     }
 
@@ -199,7 +199,7 @@ bool AccessibilitySVGObject::hasTitleOrDescriptionChild() const
     if (!element)
         return false;
 
-    for (const auto& child : childrenOfType<SVGElement>(*element)) {
+    for (const Ref child : childrenOfType<SVGElement>(*element)) {
         if (is<SVGTitleElement>(child) || is<SVGDescElement>(child))
             return true;
     }
@@ -246,7 +246,7 @@ bool AccessibilitySVGObject::computeIsIgnored() const
     if (m_renderer->isRenderOrLegacyRenderSVGShape()) {
         if (canSetFocusAttribute() || element()->hasEventListeners())
             return false;
-        if (auto* svgParent = Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
+        if (RefPtr svgParent = Accessibility::findAncestor<AccessibilityObject>(*this, true, [] (const AccessibilityObject& object) {
             return object.hasAttributesRequiredForInclusion() || object.isAccessibilitySVGRoot();
         }))
             return !svgParent->hasAttributesRequiredForInclusion();
@@ -261,13 +261,13 @@ bool AccessibilitySVGObject::inheritsPresentationalRole() const
     if (canSetFocusAttribute())
         return false;
 
-    AccessibilityRole role = roleValue();
+    auto role = this->role();
     if (role != AccessibilityRole::SVGTextPath && role != AccessibilityRole::SVGTSpan)
         return false;
 
-    for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
-        if (is<AccessibilityRenderObject>(*parent) && parent->hasTagName(SVGNames::textTag))
-            return parent->roleValue() == AccessibilityRole::Presentational;
+    for (RefPtr parent = parentObject(); parent; parent = parent->parentObject()) {
+        if (is<AccessibilityRenderObject>(*parent) && parent->hasElementName(ElementName::SVG_text))
+            return parent->role() == AccessibilityRole::Presentational;
     }
 
     return false;
@@ -314,7 +314,7 @@ AccessibilityRole AccessibilitySVGObject::determineAccessibilityRole()
     if (m_renderer->isRenderSVGTSpan())
         return AccessibilityRole::SVGTSpan;
     if (is<SVGAElement>(element))
-        return AccessibilityRole::WebCoreLink;
+        return AccessibilityRole::Link;
 
     return AccessibilityRenderObject::determineAccessibilityRole();
 }

@@ -11,6 +11,12 @@
 #include <mach/semaphore.h>
 #include <sys/select.h>
 
+T_GLOBAL_META(
+	T_META_RADAR_COMPONENT_NAME("xnu"),
+	T_META_RADAR_COMPONENT_VERSION("file descriptors"));
+
+#define BACKOFF_SLEEP_SECONDS   3
+
 /* Select parameters */
 #define TIMEOUT_CHANCE          17      /* one in this many times, timeout */
 #define TIMEOUT_POLLCHANCE      11      /* one in this many is a poll */
@@ -226,6 +232,31 @@ do_select(void *arg)
 	return NULL;
 }
 
+/*
+ * Work around rdar://87992172: pthread_join() doesn't wait for the thread to be
+ * fully cleaned up, so create/join loops may spuriously fail with too many
+ * threads.
+ */
+static int
+create_thread_backoff(pthread_t *pthread, const pthread_attr_t *attr, void *(*thread_func)(void *), void *arg)
+{
+	int ret, tries;
+
+	for (tries = 0; tries < 3; tries++) {
+		ret = pthread_create(pthread, NULL, thread_func, arg);
+		if (ret != EAGAIN) {
+			break;
+		}
+
+		T_LOG("warning: pthread_create failed with %d (%s), backing off for %d seconds...", ret, strerror(ret), BACKOFF_SLEEP_SECONDS);
+		sleep(BACKOFF_SLEEP_SECONDS);
+	}
+
+	T_QUIET;
+	T_ASSERT_POSIX_ZERO(ret, "pthread_create (after %d retries)", tries);
+	return tries;
+}
+
 
 static void
 test_select_stress(int nthreads, uint64_t duration_seconds)
@@ -260,10 +291,7 @@ test_select_stress(int nthreads, uint64_t duration_seconds)
 		struct endpoint *e = &th[i].ep;
 		th[i].setup = setup_stress_event;
 		th[i].work = do_stress_events;
-		T_QUIET;
-		T_WITH_ERRNO;
-		T_ASSERT_POSIX_ZERO(pthread_create(&e->pth, 0, thread_sync, &th[i]),
-		    "pthread_create:do_stress_events");
+		create_thread_backoff(&e->pth, 0, thread_sync, &th[i]);
 	}
 
 	/*
@@ -319,10 +347,11 @@ handle_ebadf:
 		}
 
 		sarg.ret = 0;
-		T_QUIET;
-		T_WITH_ERRNO;
-		T_ASSERT_POSIX_ZERO(pthread_create(&sarg.pth, 0, do_select, &sarg),
-		    "pthread_create:do_select");
+		int retries = create_thread_backoff(&sarg.pth, 0, do_select, &sarg);
+		if (retries > 0) {
+			/* we had backoff for a few seconds, so extend our deadline */
+			deadline += ns_to_abs(NSEC_PER_SEC * BACKOFF_SLEEP_SECONDS * retries);
+		}
 
 		T_QUIET;
 		T_WITH_ERRNO;

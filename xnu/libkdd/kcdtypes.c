@@ -336,22 +336,24 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 
 	case STACKSHOT_KCTYPE_TASK_SNAPSHOT: {
 		i = 0;
-		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v2, ts_unique_pid);
-		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v2, ts_ss_flags);
-		_SUBTYPE_TRUNC(KC_ST_UINT64, struct task_snapshot_v2, ts_user_time_in_terminated_threads, "ts_user_time_in_terminated_thre");
-		_SUBTYPE_TRUNC(KC_ST_UINT64, struct task_snapshot_v2, ts_system_time_in_terminated_threads, "ts_system_time_in_terminated_th");
-		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v2, ts_p_start_sec);
-		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v2, ts_task_size);
-		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v2, ts_max_resident_size);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_suspend_count);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_faults);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_pageins);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_cow_faults);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_was_throttled);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_did_throttle);
-		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v2, ts_latency_qos);
-		_SUBTYPE(KC_ST_INT32, struct task_snapshot_v2, ts_pid);
-		_SUBTYPE_ARRAY(KC_ST_CHAR, struct task_snapshot_v2, ts_p_comm, 32);
+		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v3, ts_unique_pid);
+		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v3, ts_ss_flags);
+		_SUBTYPE_TRUNC(KC_ST_UINT64, struct task_snapshot_v3, ts_user_time_in_terminated_threads, "ts_user_time_in_terminated_thre");
+		_SUBTYPE_TRUNC(KC_ST_UINT64, struct task_snapshot_v3, ts_system_time_in_terminated_threads, "ts_system_time_in_terminated_th");
+		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v3, ts_p_start_sec);
+		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v3, ts_task_size);
+		_SUBTYPE(KC_ST_UINT64, struct task_snapshot_v3, ts_max_resident_size);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_suspend_count);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_faults);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_pageins);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_cow_faults);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_was_throttled);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_did_throttle);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_latency_qos);
+		_SUBTYPE(KC_ST_INT32, struct task_snapshot_v3, ts_pid);
+		_SUBTYPE_ARRAY(KC_ST_CHAR, struct task_snapshot_v3, ts_p_comm, 32);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_uid);
+		_SUBTYPE(KC_ST_UINT32, struct task_snapshot_v3, ts_gid);
 		setup_type_definition(retval, type_id, i, "task_snapshot");
 		break;
 	}
@@ -1013,6 +1015,16 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		setup_type_definition(retval, type_id, 1, "cs_auxiliary_info");
 		break;
 	}
+	case TASK_CRASHINFO_RLIM_CORE: {
+		setup_subtype_description(&subtypes[0], KC_ST_UINT64, 0, "rlim_core");
+		setup_type_definition(retval, type_id, 1, "rlim_core");
+		break;
+	}
+	case TASK_CRASHINFO_CORE_ALLOWED: {
+		setup_subtype_description(&subtypes[0], KC_ST_UINT8, 0, "core_allowed");
+		setup_type_definition(retval, type_id, 1, "core_allowed");
+		break;
+	}
 	case EXIT_REASON_SNAPSHOT: {
 		_SUBTYPE(KC_ST_UINT32, struct exit_reason_snapshot, ers_namespace);
 		_SUBTYPE(KC_ST_UINT64, struct exit_reason_snapshot, ers_code);
@@ -1180,7 +1192,32 @@ kcdata_get_typedescription(unsigned type_id, uint8_t * buffer, uint32_t buffer_s
 		setup_type_definition(retval, type_id, i, "stackshot_latency_thread");
 		break;
 	}
-
+	case STACKSHOT_KCTYPE_LATENCY_INFO_CPU: {
+		i = 0;
+		_SUBTYPE(KC_ST_INT32, struct stackshot_latency_cpu, cpu_number);
+		_SUBTYPE(KC_ST_INT32, struct stackshot_latency_cpu, cluster_type);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, init_latency_mt);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, workqueue_latency_mt);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, total_latency_mt);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, total_cycles);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, total_instrs);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, tasks_processed);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, threads_processed);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, faulting_time_mt);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, total_buf);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_cpu, intercluster_buf_used);
+		setup_type_definition(retval, type_id, i, "stackshot_latency_cpu");
+		break;
+	}
+	case STACKSHOT_KCTYPE_LATENCY_INFO_BUFFER: {
+		i = 0;
+		_SUBTYPE(KC_ST_INT32, struct stackshot_latency_buffer, cluster_type);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_buffer, size);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_buffer, used);
+		_SUBTYPE(KC_ST_UINT64, struct stackshot_latency_buffer, overhead);
+		setup_type_definition(retval, type_id, i, "stackshot_latency_buffer");
+		break;
+	}
 	case TASK_CRASHINFO_KERNEL_TRIAGE_INFO_V1: {
 		i = 0;
 		_SUBTYPE_ARRAY(KC_ST_CHAR, struct kernel_triage_info_v1, triage_string1, MAX_TRIAGE_STRING_LEN);

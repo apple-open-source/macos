@@ -127,6 +127,12 @@
 #define SIOCGPOINTOPOINTMDNS _IOWR('i', 95, struct ifreq)   /* mDNS on point-to-point interface */
 #define SIOCSPOINTOPOINTMDNS _IOW('i', 95, struct ifreq)    /* mDNS on point-to-point interface */
 
+#define SIOCGINBANDWAKEPKT _IOWR('i', 96, struct ifreq)   /* inband wake packet tagging (int) */
+#define SIOCSINBANDWAKEPKT _IOW('i', 96, struct ifreq)    /* inband wake packet tagging (int) */
+
+#define SIOCGLOWPOWERWAKE _IOWR('i', 97, struct ifreq)   /* low power wake mode (int) */
+#define SIOCSLOWPOWERWAKE _IOW('i', 97, struct ifreq)    /* low power wake mode (int) */
+
 #ifdef KERNEL_PRIVATE
 #define SIOCSDRVSPEC32    _IOW('i', 123, struct ifdrv32)    /* set driver-specific
 	                                                     *     parameters */
@@ -204,7 +210,6 @@
 #define SIOCSIFNETSIGNATURE     _IOWR('i', 174, struct if_nsreq)
 #define SIOCGIFNETSIGNATURE     _IOWR('i', 175, struct if_nsreq)
 
-#define SIOCGECNMODE            _IOWR('i', 176, struct ifreq)
 #define SIOCSECNMODE            _IOW('i', 177, struct ifreq)
 
 #define SIOCSIFORDER    _IOWR('i', 178, struct if_order)
@@ -294,5 +299,10 @@
 
 #define SIOCSIFCONGESTEDLINK _IOW('i', 226, struct ifreq) /* ifr_intval */
 #define SIOCGIFCONGESTEDLINK  _IOWR('i', 226, struct ifreq) /* ifr_intval */
+
+#define SIOCSIFISCOMPANIONLINK _IOW('i', 227, struct ifreq) /* marks interface as a companion link interface */
+
+#define SIOCSIFL4S _IOW('i', 228, struct ifreq) /* Set L4S enablement state (Enable or Disable) */
+#define SIOCGIFL4S _IOWR('i', 228, struct ifreq)
 
 #endif /* !_SYS_SOCKIO_PRIVATE_H_ */

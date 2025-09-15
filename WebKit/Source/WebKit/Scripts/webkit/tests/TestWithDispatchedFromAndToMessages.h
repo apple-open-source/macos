@@ -61,18 +61,19 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit AlwaysEnabled(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
         ASSERT(isInWebProcess());
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 } // namespace TestWithDispatchedFromAndTo

@@ -139,7 +139,7 @@ void CurlStream::tryToReceive()
     Vector<uint8_t> receiveBuffer(kReceiveBufferSize);
     size_t bytesReceived = 0;
 
-    auto errorCode = m_curlHandle->receive(receiveBuffer.data(), kReceiveBufferSize, bytesReceived);
+    auto errorCode = m_curlHandle->receive(receiveBuffer.mutableSpan().data(), kReceiveBufferSize, bytesReceived);
     if (errorCode != CURLE_OK) {
         if (errorCode != CURLE_AGAIN)
             notifyFailure(errorCode);
@@ -174,7 +174,7 @@ void CurlStream::tryToSend()
     m_sendBufferOffset += bytesSent;
 
     if (m_sendBufferOffset >= length) {
-        m_sendBuffers.remove(0);
+        m_sendBuffers.removeAt(0);
         m_sendBufferOffset = 0;
     }
 

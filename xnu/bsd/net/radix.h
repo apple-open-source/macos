@@ -82,6 +82,17 @@ MALLOC_DECLARE(M_RTABLE);
 
 #define __RN_INLINE_LENGTHS (__BIGGEST_ALIGNMENT__ > 4)
 
+#if __arm__ && (__BIGGEST_ALIGNMENT__ > 4)
+/*
+ * For the newer ARMv7k ABI where 64-bit types are 64-bit aligned, but pointers
+ * are 32-bit:
+ * Aligned to 64-bit since this is cast to rtentry, which is 64-bit aligned.
+ */
+#define __RN_NODE_ALIGNMENT_ATTR__ __attribute__((aligned(8)))
+#else /* __arm__ && (__BIGGEST_ALIGNMENT__ > 4) */
+#define __RN_NODE_ALIGNMENT_ATTR__
+#endif /* __arm__ && (__BIGGEST_ALIGNMENT__ > 4) */
+
 /*
  * Radix search tree node layout.
  */
@@ -117,16 +128,7 @@ struct radix_node {
 	struct radix_node *rn_twin;
 	struct radix_node *rn_ybro;
 #endif
-
-#if __arm__ && (__BIGGEST_ALIGNMENT__ > 4)
-/* For the newer ARMv7k ABI where 64-bit types are 64-bit aligned, but pointers
- * are 32-bit:
- * Aligned to 64-bit since this is cast to rtentry, which is 64-bit aligned.
- */
-} __attribute__ ((aligned(8)));
-#else
-};
-#endif
+} __RN_NODE_ALIGNMENT_ATTR__;
 
 #define rn_dupedkey     rn_u.rn_leaf.rn_Dupedkey
 #define rn_offset       rn_u.rn_node.rn_Off
@@ -157,6 +159,7 @@ typedef struct radix_node * __single radix_node_ref_t;
  */
 static inline void
 __attribute__((always_inline))
+__attribute__((overloadable))
 rn_set_key(struct radix_node *rn, void *key __sized_by(keylen), uint8_t keylen)
 {
 #if __RN_INLINE_LENGTHS
@@ -165,6 +168,19 @@ rn_set_key(struct radix_node *rn, void *key __sized_by(keylen), uint8_t keylen)
 	(void)keylen;
 #endif /* !__RN_INLINE_LENGTHS */
 	rn->__rn_key = key;
+}
+
+static inline void
+__attribute__((always_inline))
+__attribute__((overloadable))
+rn_set_key(struct radix_node *rn, const void *key __sized_by(keylen), uint8_t keylen)
+{
+#if __RN_INLINE_LENGTHS
+	rn->__rn_keylen = keylen;
+#else /* !__RN_INLINE_LENGTHS */
+	(void)keylen;
+#endif /* !__RN_INLINE_LENGTHS */
+	rn->__rn_key = __DECONST(void *, key);
 }
 
 /*
@@ -194,10 +210,22 @@ rn_get_keylen(struct radix_node *rn)
  */
 static inline char * __header_indexable
 __attribute__((always_inline)) __stateful_pure
+__attribute__((overloadable))
 rn_get_key(struct radix_node *rn)
 {
 	return __unsafe_forge_bidi_indexable(char *, rn->rn_u.rn_leaf.rn_Key,
 	           rn_get_keylen(rn));
+}
+
+static inline char * __header_indexable
+__attribute__((always_inline)) __stateful_pure
+__attribute__((overloadable))
+rn_get_key(struct radix_node *rn, uint8_t *plen)
+{
+	uint8_t keylen = rn_get_keylen(rn);
+	caddr_t key = __unsafe_forge_bidi_indexable(char *, rn->rn_u.rn_leaf.rn_Key, keylen);
+	*plen = keylen;
+	return key;
 }
 
 /*
@@ -209,7 +237,6 @@ rn_set_mask(struct radix_node *rn, void *mask __sized_by(masklen), uint8_t maskl
 {
 #if __RN_INLINE_LENGTHS
 	/*
-	 * Unlike the keys, the masks are always sockaddrs.
 	 * The first byte is the length of the addressable bytes,
 	 * whereas the second is the address family.
 	 *

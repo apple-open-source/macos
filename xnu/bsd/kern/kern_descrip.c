@@ -1731,6 +1731,8 @@ fp_close_and_unlock(proc_t p, kauth_cred_t cred, int fd, struct fileproc *fp, in
 		proc_fdunlock(p);
 
 		if (FILEGLOB_DTYPE(fg) == DTYPE_VNODE) {
+			vnode_t vp = (vnode_t)fg_get_data(fg);
+
 			/*
 			 * call out to allow 3rd party notification of close.
 			 * Ignore result of kauth_authorize_fileop call.
@@ -1742,15 +1744,15 @@ fp_close_and_unlock(proc_t p, kauth_cred_t cred, int fd, struct fileproc *fp, in
 #endif
 
 			if (kauth_authorize_fileop_has_listeners() &&
-			    vnode_getwithref((vnode_t)fg_get_data(fg)) == 0) {
+			    vnode_getwithref(vp) == 0) {
 				u_int   fileop_flags = 0;
 				if (fg->fg_flag & FWASWRITTEN) {
 					fileop_flags |= KAUTH_FILEOP_CLOSE_MODIFIED;
 				}
 				kauth_authorize_fileop(fg->fg_cred, KAUTH_FILEOP_CLOSE,
-				    (uintptr_t)fg_get_data(fg), (uintptr_t)fileop_flags);
+				    (uintptr_t)vp, (uintptr_t)fileop_flags);
 
-				vnode_put((vnode_t)fg_get_data(fg));
+				vnode_put(vp);
 			}
 		}
 
@@ -1859,6 +1861,16 @@ dupfdopen(proc_t p, int indx, int dfd, int flags, int error)
 		if (fp_isguarded(wfp, GUARD_DUP)) {
 			proc_fdunlock(p);
 			return EPERM;
+		}
+
+		if (wfp->f_type == DTYPE_VNODE) {
+			vnode_t vp = (vnode_t)fp_get_data(wfp);
+
+			/* Don't allow opening symlink if O_SYMLINK was not specified. */
+			if (vp && (vp->v_type == VLNK) && ((flags & O_SYMLINK) == 0)) {
+				proc_fdunlock(p);
+				return ELOOP;
+			}
 		}
 
 		/*
@@ -2764,6 +2776,7 @@ sys_fcntl_nocancel(proc_t p, struct fcntl_nocancel_args *uap, int32_t *retval)
 	int i, tmp, error, error2, flg = 0;
 	struct flock fl = {};
 	struct flocktimeout fltimeout;
+	struct user32_flocktimeout user32_fltimeout;
 	struct timespec *timeout = NULL;
 	off_t offset;
 	int newmin;
@@ -3025,9 +3038,20 @@ sys_fcntl_nocancel(proc_t p, struct fcntl_nocancel_args *uap, int32_t *retval)
 
 		/* Copy in the lock structure */
 		if (F_SETLKWTIMEOUT == cmd || F_OFD_SETLKWTIMEOUT == cmd) {
-			error = copyin(argp, (caddr_t) &fltimeout, sizeof(fltimeout));
-			if (error) {
-				goto outdrop;
+			/* timespec uses long, so munge when we're dealing with 32-bit userspace */
+			if (is64bit) {
+				error = copyin(argp, (caddr_t) &fltimeout, sizeof(fltimeout));
+				if (error) {
+					goto outdrop;
+				}
+			} else {
+				error = copyin(argp, (caddr_t) &user32_fltimeout, sizeof(user32_fltimeout));
+				if (error) {
+					goto outdrop;
+				}
+				fltimeout.fl = user32_fltimeout.fl;
+				fltimeout.timeout.tv_sec = user32_fltimeout.timeout.tv_sec;
+				fltimeout.timeout.tv_nsec = user32_fltimeout.timeout.tv_nsec;
 			}
 			fl = fltimeout.fl;
 			timeout = &fltimeout.timeout;
@@ -4401,6 +4425,16 @@ dropboth:
 
 		struct vnode_attr va;
 
+#if CONFIG_MACF
+		// tmp has already explicitly downcast to uint32_t above.
+		uint32_t dataprotect_class = (uint32_t)tmp;
+		if ((error = mac_vnode_check_dataprotect_set(ctx, vp, &dataprotect_class))) {
+			vnode_put(vp);
+			goto outdrop;
+		}
+		tmp = (int)dataprotect_class;
+#endif
+
 		VATTR_INIT(&va);
 		VATTR_SET(&va, va_dataprotect_class, tmp);
 
@@ -5479,11 +5513,11 @@ fstat(proc_t p, int fd, user_addr_t ub, user_addr_t xsecurity,
 	case DTYPE_VNODE:
 		if ((error = vnode_getwithref((vnode_t)data)) == 0) {
 			/*
-			 * If the caller has the file open, and is not
-			 * requesting extended security information, we are
+			 * If the caller has the file open for reading, and is
+			 * not requesting extended security information, we are
 			 * going to let them get the basic stat information.
 			 */
-			if (xsecurity == USER_ADDR_NULL) {
+			if ((fp->f_flag & FREAD) && (xsecurity == USER_ADDR_NULL)) {
 				error = vn_stat_noauth((vnode_t)data, sbptr, NULL, isstat64, 0, ctx,
 				    fp->fp_glob->fg_cred);
 			} else {

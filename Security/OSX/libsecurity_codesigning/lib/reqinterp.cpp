@@ -92,7 +92,10 @@ static ModuleNexus<Fragments> fragments;
 //
 static CFStringRef appleIntermediateCN = CFSTR("Apple Code Signing Certification Authority");
 static CFStringRef appleIntermediateO = CFSTR("Apple Inc.");
-
+static const uint8_t macOSSWSigningMarker[] = { 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x63, 0x64, 0x06, 22 }; // macOS Software Signing leaf certificate marker
+const CSSM_DATA macOSSWSigningMarkerOID = { sizeof(macOSSWSigningMarker), (uint8_t*)macOSSWSigningMarker };
+static const uint8_t macOSSWSigningQAMarker[] = { 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x63, 0x64, 0x06, 22, 1 }; // ProdQA macOS Software Signing leaf certificate marker
+const CSSM_DATA macOSSWSigningQAMarkerOID = { sizeof(macOSSWSigningQAMarker), (uint8_t*)macOSSWSigningQAMarker };
 
 //
 // Main interpreter function.
@@ -509,11 +512,24 @@ bool Requirement::Interpreter::appleSigned()
         return true;
     }
     else if (appleAnchored()) {
-        if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
-            // first intermediate common name match (exact)
-            if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
-                && certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed))
-                return true;
+		SecCertificateRef leaf = mContext->cert(leafCert);
+		SecCertificateRef intermed = mContext->cert(-2); // first intermediate
+		if (intermed && leaf) {
+			// first intermediate common name match (exact)
+			if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
+				&& certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed)) {
+				// Leaf has production marker extension
+				if (certificateHasField(leaf, macOSSWSigningMarkerOID)) {
+					return true;
+				}
+				// On internal builds, has prodQA (used for CI) marker extension
+				if (csr_check(CSR_ALLOW_APPLE_INTERNAL) == 0) {
+					if (certificateHasField(leaf, macOSSWSigningQAMarkerOID)) {
+						return true;
+					}
+				}
+			}
+		}
     } else if (appleLocalAnchored()) {
         return true;
     }

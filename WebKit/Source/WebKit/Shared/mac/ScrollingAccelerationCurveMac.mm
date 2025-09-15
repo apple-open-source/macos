@@ -160,15 +160,15 @@ static std::optional<ScrollingAccelerationCurve> fromIOHIDDevice(IOHIDEventSende
 
 std::optional<ScrollingAccelerationCurve> ScrollingAccelerationCurve::fromNativeWheelEvent(const NativeWebWheelEvent& nativeWebWheelEvent)
 {
-    NSEvent *event = nativeWebWheelEvent.nativeEvent();
+    RetainPtr event = nativeWebWheelEvent.nativeEvent();
 
-    auto cgEvent = event.CGEvent;
+    RetainPtr<CGEventRef> cgEvent = event.get().CGEvent;
     if (!cgEvent) {
         RELEASE_LOG(ScrollAnimations, "ScrollingAccelerationCurve::fromNativeWheelEvent did not find CG event");
         return std::nullopt;
     }
 
-    auto hidEvent = adoptCF(CGEventCopyIOHIDEvent(cgEvent));
+    auto hidEvent = adoptCF(CGEventCopyIOHIDEvent(cgEvent.get()));
     if (!hidEvent) {
         RELEASE_LOG(ScrollAnimations, "ScrollingAccelerationCurve::fromNativeWheelEvent did not find HID event");
         return std::nullopt;

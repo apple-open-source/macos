@@ -60,7 +60,7 @@ private:
 inline std::optional<StreamServerConnectionBuffer> StreamServerConnectionBuffer::map(Handle&& handle)
 {
     auto sharedMemory = WebCore::SharedMemory::map(WTFMove(handle), WebCore::SharedMemory::Protection::ReadWrite);
-    if (UNLIKELY(!sharedMemory))
+    if (!sharedMemory) [[unlikely]]
         return std::nullopt;
     return StreamServerConnectionBuffer { sharedMemory.releaseNonNull() };
 }

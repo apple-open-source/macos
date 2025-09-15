@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <objc/runtime.h>
 #import <wtf/Platform.h>
 
@@ -56,6 +60,13 @@ IGNORE_WARNINGS_END
 #import <AVFoundation/AVStreamDataParser.h>
 #endif
 #endif
+
+NS_ASSUME_NONNULL_BEGIN
+@interface AVOutputContext(WKSecureCoding)
+- (NSDictionary *)_webKitPropertyListData;
+- (instancetype)_initWithWebKitPropertyListData:(NSDictionary *)plist;
+@end
+NS_ASSUME_NONNULL_END
 
 #import <AVFoundation/AVAudioSession_Private.h>
 
@@ -93,18 +104,16 @@ typedef NSString * AVVideoRange NS_TYPED_ENUM;
 @end
 #endif
 
-#if HAVE(AVPLAYER_SUPPRESSES_AUDIO_RENDERING)
 @interface AVPlayer (AVPlayerSuppressesAudioRendering)
 @property (nonatomic, getter=_suppressesAudioRendering, setter=_setSuppressesAudioRendering:) BOOL suppressesAudioRendering;
 @end
-#endif
 
 @interface AVPlayerItemVideoOutput (AVPlayerItemVideoOutputEarliestTime)
 @property (nonatomic, readonly) CMTime earliestAvailablePixelBufferItemTime;
 - (void)requestNotificationOfMediaDataChangeAsSoonAsPossible;
 @end
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) || PLATFORM(IOS_FAMILY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -155,7 +164,7 @@ typedef NS_ENUM(NSInteger, AVPlayerExternalPlaybackType) {
 
 NS_ASSUME_NONNULL_END
 
-#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) || PLATFORM(IOS_FAMILY)
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 #import <AVFoundation/AVAssetCache.h>
 NS_ASSUME_NONNULL_BEGIN
@@ -475,8 +484,7 @@ NS_ASSUME_NONNULL_END
 @end
 #endif
 
-// FIXME: Move into !USE(APPLE_INTERNAL_SDK) section once rdar://111695863 has been in the build a while
-#if HAVE(AVURLASSET_ISPLAYABLEEXTENDEDMIMETYPEWITHOPTIONS)
+#if !USE(APPLE_INTERNAL_SDK)
 NS_ASSUME_NONNULL_BEGIN
 @interface AVURLAsset (IsPlayableExtendedMIMETypeWithOptions)
 + (BOOL)isPlayableExtendedMIMEType:(NSString *)extendedMIMEType options:(nullable NSDictionary<NSString *, id> *)options;

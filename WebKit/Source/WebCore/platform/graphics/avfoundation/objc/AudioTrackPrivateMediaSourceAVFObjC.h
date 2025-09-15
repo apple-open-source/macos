@@ -50,7 +50,6 @@ public:
 
     void setEnabled(bool) final;
 
-    void setAssetTrack(AVAssetTrack*);
     AVAssetTrack* assetTrack();
 
 private:
@@ -58,7 +57,7 @@ private:
     
     void resetPropertiesFromTrack();
 
-    std::unique_ptr<AVTrackPrivateAVFObjCImpl> m_impl;
+    const Ref<AVTrackPrivateAVFObjCImpl> m_impl;
 };
 
 }

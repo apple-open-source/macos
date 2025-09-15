@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if PLATFORM(IOS) || PLATFORM(VISION)
 
 #import <pal/spi/cocoa/LaunchServicesSPI.h>

@@ -248,6 +248,15 @@ bool ScrollingEffectsController::handleWheelEvent(const PlatformWheelEvent& whee
     return handled;
 }
 
+void ScrollingEffectsController::clampDeltaForAllowedAxes(const PlatformWheelEvent& wheelEvent, FloatSize& delta)
+{
+    if (!m_client.allowsHorizontalStretching(wheelEvent))
+        delta.setWidth(0);
+
+    if (!m_client.allowsVerticalStretching(wheelEvent))
+        delta.setHeight(0);
+}
+
 bool ScrollingEffectsController::modifyScrollDeltaForStretching(const PlatformWheelEvent& wheelEvent, FloatSize& delta, bool isHorizontallyStretched, bool isVerticallyStretched)
 {
     auto affectedSide = affectedSideOnDominantAxis(delta);
@@ -291,11 +300,7 @@ bool ScrollingEffectsController::modifyScrollDeltaForStretching(const PlatformWh
                 m_unappliedOverscrollDelta.expand(delta.width(), 0);
         }
 
-        if (!m_client.allowsHorizontalStretching(wheelEvent))
-            delta.setWidth(0);
-
-        if (!m_client.allowsVerticalStretching(wheelEvent))
-            delta.setHeight(0);
+        clampDeltaForAllowedAxes(wheelEvent, delta);
 
         return !delta.isZero();
     }
@@ -347,6 +352,8 @@ bool ScrollingEffectsController::applyScrollDeltaWithStretching(const PlatformWh
         ceilf(elasticDeltaForReboundDelta(m_stretchScrollForce.width())),
         ceilf(elasticDeltaForReboundDelta(m_stretchScrollForce.height()))
     };
+
+    clampDeltaForAllowedAxes(wheelEvent, dampedDelta);
 
     LOG_WITH_STREAM(ScrollAnimations, stream << "ScrollingEffectsController::applyScrollDeltaWithStretching() - stretchScrollForce " << m_stretchScrollForce << " move delta " << delta << " dampedDelta " << dampedDelta);
 
@@ -576,14 +583,14 @@ static inline WheelEventStatus toWheelEventStatus(PlatformWheelEventPhase phase,
 static TextStream& operator<<(TextStream& ts, WheelEventStatus status)
 {
     switch (status) {
-    case WheelEventStatus::UserScrollBegin: ts << "UserScrollBegin"; break;
-    case WheelEventStatus::UserScrolling: ts << "UserScrolling"; break;
-    case WheelEventStatus::UserScrollEnd: ts << "UserScrollEnd"; break;
-    case WheelEventStatus::MomentumScrollBegin: ts << "MomentumScrollBegin"; break;
-    case WheelEventStatus::MomentumScrolling: ts << "MomentumScrolling"; break;
-    case WheelEventStatus::MomentumScrollEnd: ts << "MomentumScrollEnd"; break;
-    case WheelEventStatus::DiscreteScrollEvent: ts << "DiscreteScrollEvent"; break;
-    case WheelEventStatus::Unknown: ts << "Unknown"; break;
+    case WheelEventStatus::UserScrollBegin: ts << "UserScrollBegin"_s; break;
+    case WheelEventStatus::UserScrolling: ts << "UserScrolling"_s; break;
+    case WheelEventStatus::UserScrollEnd: ts << "UserScrollEnd"_s; break;
+    case WheelEventStatus::MomentumScrollBegin: ts << "MomentumScrollBegin"_s; break;
+    case WheelEventStatus::MomentumScrolling: ts << "MomentumScrolling"_s; break;
+    case WheelEventStatus::MomentumScrollEnd: ts << "MomentumScrollEnd"_s; break;
+    case WheelEventStatus::DiscreteScrollEvent: ts << "DiscreteScrollEvent"_s; break;
+    case WheelEventStatus::Unknown: ts << "Unknown"_s; break;
     }
     return ts;
 }

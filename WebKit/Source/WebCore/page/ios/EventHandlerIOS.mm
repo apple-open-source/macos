@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,9 +32,11 @@
 #import "AutoscrollController.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
+#import "ContainerNodeInlines.h"
 #import "DataTransfer.h"
 #import "DocumentInlines.h"
 #import "DragState.h"
+#import "ElementIdentifier.h"
 #import "EventNames.h"
 #import "FocusController.h"
 #import "FrameLoader.h"
@@ -42,12 +44,17 @@
 #import "KeyboardEvent.h"
 #import "LocalFrame.h"
 #import "LocalFrameView.h"
+#import "MouseEventTypes.h"
 #import "MouseEventWithHitTestResults.h"
 #import "Page.h"
 #import "Pasteboard.h"
 #import "PlatformEventFactoryIOS.h"
 #import "PlatformKeyboardEvent.h"
-#import "RenderWidget.h"
+#import "RemoteFrame.h"
+#import "RemoteFrameGeometryTransformer.h"
+#import "RemoteFrameView.h"
+#import "RenderWidgetInlines.h"
+#import "RenderObjectInlines.h"
 #import "ScrollingCoordinatorTypes.h"
 #import "WAKView.h"
 #import "WAKWindow.h"
@@ -63,6 +70,12 @@
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 #import <WebKitAdditions/EventHandlerIOSTouch.cpp>
+#endif
+
+#if ENABLE(MODEL_PROCESS)
+#import "DOMMatrixReadOnly.h"
+#import "DOMPointReadOnly.h"
+#import "HTMLModelElement.h"
 #endif
 
 namespace WebCore {
@@ -85,9 +98,9 @@ public:
     ~CurrentEventScope();
 
 private:
-    RetainPtr<WebEvent> m_savedCurrentEvent;
+    const RetainPtr<WebEvent> m_savedCurrentEvent;
 #if ASSERT_ENABLED
-    RetainPtr<WebEvent> m_event;
+    const RetainPtr<WebEvent> m_event;
 #endif
 };
 
@@ -133,8 +146,8 @@ bool EventHandler::wheelEvent(WebEvent *event)
 
 bool EventHandler::dispatchSimulatedTouchEvent(IntPoint location)
 {
-    bool handled = handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::Type::TouchStart, location)).wasHandled();
-    handled |= handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::Type::TouchEnd, location)).wasHandled();
+    bool handled = handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::Type::TouchStart, location)).value_or(false);
+    handled |= handleTouchEvent(PlatformEventFactory::createPlatformSimulatedTouchEvent(PlatformEvent::Type::TouchEnd, location)).value_or(false);
     return handled;
 }
     
@@ -142,7 +155,7 @@ void EventHandler::touchEvent(WebEvent *event)
 {
     CurrentEventScope scope(event);
 
-    event.wasHandled = handleTouchEvent(PlatformEventFactory::createPlatformTouchEvent(event)).wasHandled();
+    event.wasHandled = handleTouchEvent(PlatformEventFactory::createPlatformTouchEvent(event)).value_or(false);
 }
 #endif
 
@@ -178,7 +191,7 @@ void EventHandler::focusDocumentView()
     }
 
     RELEASE_ASSERT(page == m_frame->page());
-    page->checkedFocusController()->setFocusedFrame(protectedFrame().ptr());
+    page->focusController().setFocusedFrame(protectedFrame().ptr());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
@@ -456,7 +469,7 @@ void EventHandler::mouseDown(WebEvent *event)
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     // FIXME: Why is this here? EventHandler::handleMousePressEvent() calls it.
-    protectedFrame()->protectedLoader()->resetMultipleFormSubmissionProtection();
+    protectedFrame()->loader().resetMultipleFormSubmissionProtection();
 
     m_mouseDownView = nil;
 
@@ -569,7 +582,7 @@ HandleUserInputEventResult EventHandler::passMouseReleaseEventToSubframe(MouseEv
 
 OptionSet<PlatformEvent::Modifier> EventHandler::accessKeyModifiers()
 {
-    // Control+Option key combinations are usually unused on Mac OS X, but not when VoiceOver is enabled.
+    // Control+Option key combinations are usually unused on macOS, but not when VoiceOver is enabled.
     // So, we use Control in this case, even though it conflicts with Emacs-style key bindings.
     // See <https://bugs.webkit.org/show_bug.cgi?id=21107> for more detail.
     if (AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
@@ -609,12 +622,12 @@ void EventHandler::cancelSelectionAutoscroll()
     m_autoscrollController->stopAutoscrollTimer();
 }
 
-static IntPoint adjustAutoscrollDestinationForInsetEdges(IntPoint autoscrollPoint, std::optional<IntPoint> initialAutoscrollPoint, FloatRect unobscuredRootViewRect)
+static IntPoint adjustAutoscrollDestinationForInsetEdges(IntPoint autoscrollPoint, std::optional<IntPoint> initialAutoscrollPoint, FloatRect unobscuredRootViewRect, float zoomScale)
 {
     IntPoint resultPoint = autoscrollPoint;
 
-    const float edgeInset = 75;
-    const float maximumScrollingSpeed = 20;
+    const float edgeInset = 100 / zoomScale;
+    const float maximumScrollingSpeed = 40 / zoomScale;
     const float insetDistanceThreshold = edgeInset / 2;
 
     // FIXME: Ideally we would only inset on edges that touch the edge of the screen,
@@ -629,14 +642,14 @@ static IntPoint adjustAutoscrollDestinationForInsetEdges(IntPoint autoscrollPoin
         // to make it possible to select text that abuts the edge of `unobscuredRootViewRect` without causing
         // unwanted autoscrolling.
         if (autoscrollDelta.width() < insetDistanceThreshold)
-            insetUnobscuredRootViewRect.shiftXEdgeTo(insetUnobscuredRootViewRect.x() + std::min<float>(edgeInset, -autoscrollDelta.width() - insetDistanceThreshold));
+            insetUnobscuredRootViewRect.shiftXEdgeTo(insetUnobscuredRootViewRect.x() + edgeInset);
         else if (autoscrollDelta.width() > insetDistanceThreshold)
-            insetUnobscuredRootViewRect.shiftMaxXEdgeTo(insetUnobscuredRootViewRect.maxX() - std::min<float>(edgeInset, autoscrollDelta.width() - insetDistanceThreshold));
+            insetUnobscuredRootViewRect.shiftMaxXEdgeTo(insetUnobscuredRootViewRect.maxX() - edgeInset);
 
         if (autoscrollDelta.height() < insetDistanceThreshold)
-            insetUnobscuredRootViewRect.shiftYEdgeTo(insetUnobscuredRootViewRect.y() + std::min<float>(edgeInset, -autoscrollDelta.height() - insetDistanceThreshold));
+            insetUnobscuredRootViewRect.shiftYEdgeTo(insetUnobscuredRootViewRect.y() + edgeInset);
         else if (autoscrollDelta.height() > insetDistanceThreshold)
-            insetUnobscuredRootViewRect.shiftMaxYEdgeTo(insetUnobscuredRootViewRect.maxY() - std::min<float>(edgeInset, autoscrollDelta.height() - insetDistanceThreshold));
+            insetUnobscuredRootViewRect.shiftMaxYEdgeTo(insetUnobscuredRootViewRect.maxY() - edgeInset);
     }
 
     // If the current autoscroll point is beyond the edge of the view (respecting insets), shift it outside
@@ -674,6 +687,10 @@ IntPoint EventHandler::targetPositionInWindowForSelectionAutoscroll() const
     if (!frame->isMainFrame())
         return m_targetAutoscrollPositionInRootView;
 
+    RefPtr page = frame->page();
+    if (!page)
+        return m_targetAutoscrollPositionInRootView;
+
     Ref frameView = *frame->view();
 
     // All work is done in "unscrolled" root view coordinates (as if delegatesScrolling were off),
@@ -684,13 +701,97 @@ IntPoint EventHandler::targetPositionInWindowForSelectionAutoscroll() const
     FloatRect unobscuredContentRectInUnscrolledRootView = frameView->contentsToRootView(frameView->unobscuredContentRect());
     unobscuredContentRectInUnscrolledRootView.move(-scrollPosition);
 
-    return adjustAutoscrollDestinationForInsetEdges(m_targetAutoscrollPositionInUnscrolledRootView, m_initialAutoscrollPositionInUnscrolledRootView, unobscuredContentRectInUnscrolledRootView) + scrollPosition;
+    return adjustAutoscrollDestinationForInsetEdges(m_targetAutoscrollPositionInUnscrolledRootView, m_initialAutoscrollPositionInUnscrolledRootView, unobscuredContentRectInUnscrolledRootView, page->pageScaleFactor()) + scrollPosition;
 }
 
 bool EventHandler::shouldUpdateAutoscroll()
 {
     return m_isAutoscrolling;
 }
+
+#if ENABLE(MODEL_PROCESS)
+std::optional<ElementIdentifier> EventHandler::requestInteractiveModelElementAtPoint(const IntPoint& clientPosition)
+{
+    Ref frame = m_frame.get();
+
+    RefPtr document = frame->document();
+    RefPtr frameView = frame->view();
+    if (!document || !frameView)
+        return std::nullopt;
+
+    SetForScope shouldAllowMouseDownToStartDrag { m_shouldAllowMouseDownToStartDrag, true };
+
+    document->updateLayoutIgnorePendingStylesheets();
+
+    FloatPoint adjustedClientPositionAsFloatPoint(clientPosition);
+    frame->nodeRespondingToClickEvents(clientPosition, adjustedClientPositionAsFloatPoint);
+    auto adjustedClientPosition = roundedIntPoint(adjustedClientPositionAsFloatPoint);
+    auto adjustedGlobalPosition = frameView->windowToContents(adjustedClientPosition);
+
+    PlatformMouseEvent syntheticMousePressEvent(adjustedClientPosition, adjustedGlobalPosition, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, WallTime::now(), 0, SyntheticClickType::NoTap);
+    constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent };
+    auto documentPoint = frameView->windowToContents(syntheticMousePressEvent.position());
+    auto hitTestedMouseEvent = document->prepareMouseEvent(hitType, documentPoint, syntheticMousePressEvent);
+
+    if (RefPtr subframe = dynamicDowncast<LocalFrame>(subframeForHitTestResult(hitTestedMouseEvent))) {
+        if (std::optional<ElementIdentifier> elementID = subframe->eventHandler().requestInteractiveModelElementAtPoint(adjustedClientPosition))
+            return elementID;
+    }
+
+    RefPtr targetElement = hitTestedMouseEvent.hitTestResult().targetElement();
+    if (RefPtr modelElement = dynamicDowncast<HTMLModelElement>(targetElement)) {
+        if (modelElement->supportsStageModeInteraction()) {
+            auto transform = TransformationMatrix::identity;
+            transform.translate(clientPosition.x(), clientPosition.y());
+
+            modelElement->beginStageModeTransform(transform);
+            return modelElement->identifier();
+        }
+    }
+
+    return std::nullopt;
+}
+
+void EventHandler::stageModeSessionDidUpdate(std::optional<ElementIdentifier> elementID, const TransformationMatrix& transform)
+{
+    if (!elementID)
+        return;
+
+    RefPtr element = Element::fromIdentifier(*elementID);
+    if (!element)
+        return;
+
+    RefPtr modelElement = dynamicDowncast<HTMLModelElement>(element);
+    if (!modelElement)
+        return;
+
+    // It's possible that interactivity can change via JS during the session
+    if (!modelElement->supportsStageModeInteraction())
+        return;
+
+    modelElement->updateStageModeTransform(transform);
+}
+
+void EventHandler::stageModeSessionDidEnd(std::optional<ElementIdentifier> elementID)
+{
+    if (!elementID)
+        return;
+
+    RefPtr element = Element::fromIdentifier(*elementID);
+    if (!element)
+        return;
+
+    RefPtr modelElement = dynamicDowncast<HTMLModelElement>(element);
+    if (!modelElement)
+        return;
+
+    // It's possible that interactivity can change via JS during the session
+    if (!modelElement->supportsStageModeInteraction())
+        return;
+
+    modelElement->endStageModeInteraction();
+}
+#endif
 
 #if ENABLE(DRAG_SUPPORT)
 
@@ -699,13 +800,13 @@ bool EventHandler::eventLoopHandleMouseDragged(const MouseEventWithHitTestResult
     return false;
 }
 
-bool EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const IntPoint&)
+void EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const IntPoint&, CompletionHandler<void(Expected<bool, RemoteFrameGeometryTransformer>)>&& completionHandler)
 {
     Ref frame = m_frame.get();
 
     RefPtr document = frame->document();
     if (!document)
-        return false;
+        return completionHandler(false);
 
     SetForScope shouldAllowMouseDownToStartDrag { m_shouldAllowMouseDownToStartDrag, true };
 
@@ -720,15 +821,21 @@ bool EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const I
     PlatformMouseEvent syntheticMouseMoveEvent(adjustedClientPosition, adjustedGlobalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), 0, SyntheticClickType::NoTap);
 
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent };
-    auto documentPoint = frame->view() ? frame->view()->windowToContents(syntheticMouseMoveEvent.position()) : syntheticMouseMoveEvent.position();
+    RefPtr frameView = frame->view();
+    auto documentPoint = frameView ? frameView->windowToContents(syntheticMouseMoveEvent.position()) : syntheticMouseMoveEvent.position();
     auto hitTestedMouseEvent = document->prepareMouseEvent(hitType, documentPoint, syntheticMouseMoveEvent);
 
-    auto subframe = dynamicDowncast<LocalFrame>(subframeForHitTestResult(hitTestedMouseEvent));
-    if (subframe && subframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition))
-        return true;
+    if (RefPtr subframe = subframeForHitTestResult(hitTestedMouseEvent)) {
+        if (RefPtr localSubframe = dynamicDowncast<LocalFrame>(subframe.get()))
+            return localSubframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition, WTFMove(completionHandler));
+        if (RefPtr remoteSubframe = dynamicDowncast<RemoteFrame>(subframe.get())) {
+            if (RefPtr remoteFrameView = remoteSubframe->view(); remoteFrameView && frameView)
+                return completionHandler(makeUnexpected(RemoteFrameGeometryTransformer(remoteFrameView.releaseNonNull(), frameView.releaseNonNull(), remoteSubframe->frameID())));
+        }
+    }
 
     if (!eventMayStartDrag(syntheticMousePressEvent))
-        return false;
+        return completionHandler(false);
 
     handleMousePressEvent(syntheticMousePressEvent);
     bool handledDrag = m_mouseDownMayStartDrag && handleMouseDraggedEvent(hitTestedMouseEvent, DontCheckDragHysteresis);
@@ -737,7 +844,14 @@ bool EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const I
     // Reset this bit to ensure that WebChromeClientIOS::observedContentChange() is called by EventHandler::mousePressed()
     // when we would process the next tap after a drag interaction.
     m_mousePressed = false;
-    return handledDrag;
+
+#if ENABLE(MODEL_PROCESS)
+    RefPtr targetElement = hitTestedMouseEvent.hitTestResult().targetElement();
+    if (RefPtr modelElement = dynamicDowncast<HTMLModelElement>(targetElement))
+        return modelElement->tryAnimateModelToFitPortal(handledDrag, WTFMove(completionHandler));
+#endif
+
+    return completionHandler(handledDrag);
 }
 
 bool EventHandler::supportsSelectionUpdatesOnMouseDrag() const

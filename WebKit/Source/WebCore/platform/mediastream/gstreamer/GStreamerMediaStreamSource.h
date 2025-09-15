@@ -57,5 +57,6 @@ void webkitMediaStreamSrcAddTrack(WebKitMediaStreamSrc*, WebCore::MediaStreamTra
 void webkitMediaStreamSrcReplaceTrack(WebKitMediaStreamSrc*, WTF::RefPtr<WebCore::MediaStreamTrackPrivate>&&);
 void webkitMediaStreamSrcConfigureAudioTracks(WebKitMediaStreamSrc*, float volume, bool isMuted, bool isPlaying);
 bool webkitMediaStreamSrcSignalEndOfStream(WebKitMediaStreamSrc*);
+bool webkitMediaStreamSrcHasPrerolled(WebKitMediaStreamSrc*);
 
 #endif // ENABLE(VIDEO) && ENABLE(MEDIA_STREAM) && USE(GSTREAMER)

@@ -29,6 +29,7 @@
 #import "WebFrameInternal.h"
 #import "WebResourceLoadScheduler.h"
 #import "WebViewPrivate.h"
+#import <WebCore/FrameInlines.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/LocalFrameLoaderClient.h>
 #import <WebCore/NetworkStorageSession.h>

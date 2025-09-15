@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -114,8 +114,8 @@ void WebExtensionCallbackHandler::reportError(NSString *message)
     if (!m_globalContext)
         return;
 
-    if (m_runtime) {
-        m_runtime->reportError(message, *this);
+    if (RefPtr runtime = m_runtime) {
+        runtime->reportError(message, *this);
         return;
     }
 
@@ -209,12 +209,12 @@ NSString *toNSString(JSContextRef context, JSValueRef value, NullStringPolicy nu
     case NullStringPolicy::NullAndUndefinedAsNullString:
         if (JSValueIsUndefined(context, value))
             return nil;
-        FALLTHROUGH;
+        [[fallthrough]];
 
     case NullStringPolicy::NullAsNullString:
         if (JSValueIsNull(context, value))
             return nil;
-        FALLTHROUGH;
+        [[fallthrough]];
 
     case NullStringPolicy::NoNullString:
         // Don't try to convert other objects into strings.
@@ -283,7 +283,7 @@ JSValueRef toJSValueRef(JSContextRef context, NSString *string, NullOrEmptyStrin
     case NullOrEmptyString::NullStringAsNull:
         if (!string)
             return JSValueMakeNull(context);
-        FALLTHROUGH;
+        [[fallthrough]];
 
     case NullOrEmptyString::NullStringAsEmptyString:
         return JSValueMakeString(context, toJSString(string).get());

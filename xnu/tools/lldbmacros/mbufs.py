@@ -29,11 +29,10 @@ def MBufStat(cmd_args=None):
     entry_format = "{0: <16s} {1: >8d} {2: >8d} {3:>7d} / {4:<6d} {5: >8d} {6: >12d} {7: >8d} {8: >8d} {9: >8d} {10: >8d}"
     num_items = sizeof(kern.globals.mbuf_table) // sizeof(kern.globals.mbuf_table[0])
     ncpus = int(kern.globals.ncpu)
-    mb_uses_mcache = int(kern.globals.mb_uses_mcache)
     for i in range(num_items):
         mbuf = kern.globals.mbuf_table[i]
         mcs = Cast(mbuf.mtbl_stats, 'mb_class_stat_t *')
-        if mb_uses_mcache == 0:
+        if kern.arch != 'x86_64':
             cname = str(mcs.mbcl_cname)
             if cname == "mbuf":
                 zone = MbufZoneByName("mbuf")
@@ -80,7 +79,7 @@ def MBufStat(cmd_args=None):
 # EndMacro: mbuf_stat
 
 def DumpMbufData(mp, count):
-    if kern.globals.mb_uses_mcache == 1:
+    if kern.arch == 'x86_64':
         mdata = mp.m_hdr.mh_data
         mlen = mp.m_hdr.mh_len
         flags = mp.m_hdr.mh_flags
@@ -105,7 +104,7 @@ def DecodeMbufData(in_mp, decode_as="ether"):
         full_buf = b''
         mp = scan
         while (mp):
-            if kern.globals.mb_uses_mcache == 1:
+            if kern.arch == 'x86_64':
                 mdata = mp.m_hdr.mh_data
                 mlen = unsigned(mp.m_hdr.mh_len)
                 flags = mp.m_hdr.mh_flags
@@ -145,7 +144,7 @@ def DecodeMbufData(in_mp, decode_as="ether"):
                 except:
                     break
             mp = mnext
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             scan = scan.m_hdr.mh_nextpkt
         else:
             scan = scan.M_hdr_common.M_hdr.mh_nextpkt
@@ -178,7 +177,7 @@ def MbufDumpData(cmd_args=None, cmd_options={}):
         raise ArgumentError()
 
     mp = kern.GetValueFromAddress(cmd_args[0], 'mbuf *')
-    if kern.globals.mb_uses_mcache == 1:
+    if kern.arch == 'x86_64':
         mdata = mp.m_hdr.mh_data
         mhlen = mp.m_hdr.mh_len
     else:
@@ -197,7 +196,7 @@ def MbufDumpData(cmd_args=None, cmd_options={}):
 def ShowMbuf(prefix, mp, count, total, dump_data_len):
     out_string = ""
     mca = ""
-    if kern.globals.mb_uses_mcache == 1:
+    if kern.arch == 'x86_64':
         mhlen = mp.m_hdr.mh_len
         mhtype = mp.m_hdr.mh_type
         mhflags = mp.m_hdr.mh_flags
@@ -232,7 +231,7 @@ def ShowMbuf(prefix, mp, count, total, dump_data_len):
 def WalkMufNext(prefix, mp, count, total, dump_data_len):
     remaining_len = dump_data_len
     while (mp):
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mhlen = mp.m_hdr.mh_len
             mhnext = mp.m_hdr.mh_next
         else:
@@ -272,7 +271,7 @@ def MbufWalkPacket(cmd_args=None, cmd_options={}):
         WalkMufNext(prefix, mp, count, total, dump_data_len)
         count_mbuf += count[0]
         total_len += total[0]
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mp = mp.m_hdr.mh_nextpkt
         else:
             mp = mp.M_hdr_common.M_hdr.mh_nextpkt
@@ -308,7 +307,7 @@ def MbufBuf2Slab(cmd_args=None):
     if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Missing argument 0 in user function.")
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
 
@@ -327,7 +326,7 @@ def MbufBuf2Slab(cmd_args=None):
 def MbufBuf2Mca(cmd_args=None):
     """ Find the mcache audit structure of the corresponding mbuf
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
 
@@ -342,7 +341,7 @@ def MbufSlabs(cmd_args=None):
     """ Print all slabs in the group
     """
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis or zprint")
         return
 
@@ -422,7 +421,7 @@ def MbufSlabsTbl(cmd_args=None):
     out_string = ""
     x = 0
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis or zprint")
         return
 
@@ -454,7 +453,7 @@ def MbufSlabsTbl(cmd_args=None):
 
 def MbufDecode(mbuf, decode_pkt):
     # Ignore free'd mbufs.
-    if kern.globals.mb_uses_mcache == 1:
+    if kern.arch == 'x86_64':
         mhlen = mbuf.m_hdr.mh_len
         mhtype = mbuf.m_hdr.mh_type
         mhflags = mbuf.m_hdr.mh_flags
@@ -472,7 +471,7 @@ def MbufDecode(mbuf, decode_pkt):
     out_string = "mbuf found @ 0x{0:x}, length {1:d}, {2:s}, {3:s}".format(mbuf, length, GetMbufFlags(mbuf), GetMbufPktCrumbs(mbuf))
     print(out_string)
     if flags & M_PKTHDR:
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             rcvif = mbuf.M_dat.MH.MH_pkthdr.rcvif
         else:
             rcvif = mbuf.M_hdr_common.M_pkthdr.rcvif
@@ -496,7 +495,7 @@ def MbufWalkSlabs(cmd_args=None):
     if len(cmd_args) > 0 and cmd_args[0] == 'decode':
         decode_pkt = True
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         for mbuf in kmemory.Zone("mbuf").iter_allocated(gettype("mbuf")):
             MbufDecode(value(mbuf.AddressOf()), decode_pkt)
         return
@@ -695,7 +694,7 @@ def GetMbufFlagsAsString(mbuf_flags):
 def GetMbufFlags(m):
     out_string = ""
     if (m != 0):
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mhflags = m.m_hdr.mh_flags
         else:
             mhflags = m.M_hdr_common.M_hdr.mh_flags
@@ -726,7 +725,7 @@ MBUF_TYPES[16] = "MT_TAG"
 def GetMbufType(m):
     out_string = ""
     if (m != 0):
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mhtype = m.m_hdr.mh_type
         else:
             mhtype = m.M_hdr_common.M_hdr.mh_type
@@ -759,12 +758,12 @@ def GetMbufPktCrumbsAsString(mbuf_crumbs):
 def GetMbufPktCrumbs(m):
     out_string = ""
     if (m != 0):
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mhflags = m.m_hdr.mh_flags
         else:
             mhflags = m.M_hdr_common.M_hdr.mh_flags
         if (mhflags & M_PKTHDR) != 0:
-            if kern.globals.mb_uses_mcache == 1:
+            if kern.arch == 'x86_64':
                 pktcrumbs = m.M_dat.MH.MH_pkthdr.pkt_crumbs
             else:
                 pktcrumbs = m.M_hdr_common.M_pkthdr.pkt_crumbs
@@ -950,7 +949,7 @@ def MbufShowActive(cmd_args=None):
         Pass 2 to also display the mbuf flags and packet crumbs
         Pass 3 to limit display to mbuf and skip clusters
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         if cmd_args:
             GetMbufWalkZone(1, 0, ArgumentStringToInt(cmd_args[0]))
         else:
@@ -968,7 +967,7 @@ def MbufShowActive(cmd_args=None):
 def MbufShowInactive(cmd_args=None):
     """ Print all freed/in-cache mbuf objects
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         GetMbufWalkZone(0, 1, 0)
     else:
         print(GetMbufWalkAllSlabs(0, 1, 0))
@@ -1004,7 +1003,7 @@ def MbufShowTypeSummary(cmd_args=None):
 def MbufShowMca(cmd_args=None):
     """ Print the contents of an mbuf mcache audit structure
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis or zstack_findelem")
         return
     out_string = ""
@@ -1082,7 +1081,7 @@ def MbufShowMca(cmd_args=None):
 def MbufShowAll(cmd_args=None):
     """ Print all mbuf objects
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         GetMbufWalkZone(1, 1, 1)
     else:
         print(GetMbufWalkAllSlabs(1, 1, 1))
@@ -1103,19 +1102,19 @@ def MbufCountChain(cmd_args=None):
 
     while (mp):
         pkt = pkt + 1
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mn = mp.m_hdr.mh_next
         else:
             mn = mp.M_hdr_common.M_hdr.mh_next
         while (mn):
             nxt = nxt + 1
-            if kern.globals.mb_uses_mcache == 1:
+            if kern.arch == 'x86_64':
                 mn = mn.m_hdr.mh_next
             else:
                 mn = mn.M_hdr_common.M_hdr.mh_next
             print("mp 0x{:x} mn 0x{:x}".format(mp, mn))
 
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mp = mp.m_hdr.mh_nextpkt
         else:
             mp = mp.M_hdr_common.M_hdr.mh_nextpkt
@@ -1131,7 +1130,7 @@ def MbufCountChain(cmd_args=None):
 def MbufTopLeak(cmd_args=None):
     """ Print the top suspected mbuf leakers
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use zleak")
         return
     topcnt = 0
@@ -1163,7 +1162,7 @@ def GetMbufTraceLeak(trace):
 def MbufLargeFailures(cmd_args=None):
     """ Print the largest allocation failures
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, this macro is not available. use zleak to detect leaks")
         return
     topcnt = 0
@@ -1196,7 +1195,7 @@ def MbufTraceLeak(cmd_args=None):
     if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Missing argument 0 in user function.")
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
 
@@ -1213,7 +1212,7 @@ def McacheWalkObject(cmd_args=None):
     if cmd_args is None or len(cmd_args) == 0:
         raise ArgumentError("Missing argument 0 in user function.")
 
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
 
@@ -1234,7 +1233,7 @@ def McacheWalkObject(cmd_args=None):
 def McacheStat(cmd_args=None):
     """ Print all mcaches in the system.
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
 
@@ -1295,7 +1294,7 @@ def McacheStat(cmd_args=None):
 def McacheShowCache(cmd_args=None):
     """Display the number of objects in cache.
     """
-    if int(kern.globals.mb_uses_mcache) == 0:
+    if kern.arch != 'x86_64':
         print("mcache is disabled, use kasan whatis")
         return
     out_string = ""

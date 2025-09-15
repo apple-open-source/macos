@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #import <wtf/Platform.h>
 
 #if PLATFORM(IOS_FAMILY)

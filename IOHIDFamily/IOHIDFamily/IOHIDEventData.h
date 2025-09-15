@@ -66,6 +66,18 @@ typedef struct _IOHIDAxisEventData {
     IOHIDAXISEVENT_BASE;
 } IOHIDAxisEventData;
 
+#define IOHIDDOUBLEAXISEVENT_BASE     \
+    struct {                    \
+        IOHIDDouble x;              \
+        IOHIDDouble y;              \
+        IOHIDDouble z;              \
+    } position;
+
+typedef struct _IOHIDDoubleAxisEventData {
+    IOHIDEVENT_BASE;                            
+    IOHIDDOUBLEAXISEVENT_BASE;
+} IOHIDDoubleAxisEventData;
+
 typedef struct _IOHIDMotionEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     IOHIDAXISEVENT_BASE;

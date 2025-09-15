@@ -158,6 +158,7 @@ O_EVTONLY	descriptor requested for event notifications only
 O_CLOEXEC	mark as close-on-exec
 O_NOFOLLOW_ANY	do not follow symlinks in the entire path
 O_RESOLVE_BENEATH	path resolution must not escape the directory associated with the file descriptor
+O_UNIQUE	ensure a file is opened only if it has a single hard link
 .Ed
 .Pp
 Opening a file with
@@ -262,6 +263,11 @@ is used in the mask and the specified path resolution escapes the directory asso
 then the
 .Fn openat
 will fail.
+.Pp
+If
+.Dv O_UNIQUE
+is used in the mask, the open operation will fail if the file has more than one hard link pointing to it.
+The operation succeeds only if the file is guaranteed to be uniquely accessible through the provided pathname.
 .Pp
 If successful,
 .Fn open
@@ -487,11 +493,14 @@ nor a file descriptor associated with a directory.
 The filename does not match the encoding rules.
 .It Bq Er EWOULDBLOCK
 O_SHLOCK or O_EXLOCK is specified, but the file is locked and the O_NONBLOCK option was specified.
-.It Bq Er EACCES
+.It Bq Er ENOTCAPABLE
 .Fa path
 resolution escapes the directory associated with
 .Fa fd
 and O_RESOLVE_BENEATH option was specified.
+.It Bq Er ENOTCAPABLE
+.Fa path
+has multiple hard links and O_UNIQUE option was specified.
 .El
 .Sh COMPATIBILITY
 .Fn open

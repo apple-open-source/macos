@@ -45,7 +45,7 @@ OBJC_CLASS NSString;
 OBJC_CLASS NSUUID;
 
 #define THROW_UNLESS(condition, message) \
-    if (UNLIKELY(!(condition))) \
+    if (!(condition)) [[unlikely]] \
         [NSException raise:NSInternalInconsistencyException format:message]
 
 namespace API {
@@ -154,7 +154,7 @@ NSSet *toAPI(const HashSet<String>&);
 NSArray *toAPIArray(const HashSet<String>&);
 HashSet<String> toImpl(NSSet *);
 
-using DataMap = HashMap<String, std::variant<String, Ref<API::Data>>>;
+using DataMap = HashMap<String, Variant<String, Ref<API::Data>>>;
 DataMap toDataMap(NSDictionary *);
 
 } // namespace WebKit

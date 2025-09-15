@@ -455,7 +455,7 @@ def _ExtractDataFromString(strdata, offset, data_type, length=0):
 
     data = struct.unpack(unpack_str, strdata[offset:(offset + length)])[0]
     if data_type == 'string':
-        return data.decode()
+        return data.decode(errors='backslashreplace')
 
     return data
 

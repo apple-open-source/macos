@@ -36,7 +36,7 @@
 #include <IOKit/IOBSD.h>
 
 extern uint32_t stackshot_estimate_adj;
-EXPERIMENT_FACTOR_UINT(_kern, stackshot_estimate_adj, &stackshot_estimate_adj, 0, 100,
+EXPERIMENT_FACTOR_LEGACY_UINT(_kern, stackshot_estimate_adj, &stackshot_estimate_adj, 0, 100,
     "adjust stackshot estimates up by this percentage");
 
 extern unsigned int stackshot_single_thread;
@@ -646,7 +646,7 @@ stackshot_dirty_buffer_test(__unused int64_t in, int64_t *out)
 	kern_return_t kr;
 
 	// 8MB buffer
-	kr = kmem_alloc(kernel_map, &buf, 8 * 1024 * 1024, KMA_ZERO | KMA_DATA, VM_KERN_MEMORY_DIAG);
+	kr = kmem_alloc(kernel_map, &buf, 8 * 1024 * 1024, KMA_ZERO | KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (kr != KERN_SUCCESS) {
 		printf("stackshot_dirty_buffer_test: kmem_alloc returned %d\n", kr);
 		goto err;
@@ -686,7 +686,7 @@ stackshot_kernel_initiator_test(int64_t in, int64_t *out)
 	uint64_t ss_flags = STACKSHOT_KCDATA_FORMAT | STACKSHOT_NO_IO_STATS | STACKSHOT_SAVE_KEXT_LOADINFO | STACKSHOT_ACTIVE_KERNEL_THREADS_ONLY | STACKSHOT_THREAD_WAITINFO | STACKSHOT_INCLUDE_DRIVER_THREADS_IN_KERNEL;
 	unsigned ss_bytes = 0;
 	if (in == 1) {
-		kr = kmem_alloc(kernel_map, &buf, 8 * 1024 * 1024, KMA_ZERO | KMA_DATA, VM_KERN_MEMORY_DIAG);
+		kr = kmem_alloc(kernel_map, &buf, 8 * 1024 * 1024, KMA_ZERO | KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 		if (kr != KERN_SUCCESS) {
 			printf("stackshot_kernel_initiator_test: kmem_alloc returned %d\n", kr);
 			goto err;

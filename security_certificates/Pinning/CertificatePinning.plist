@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>113</integer>
+	<integer>114</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -61,10 +61,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -456,10 +453,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -547,10 +541,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -638,10 +629,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -825,10 +813,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -1206,11 +1191,8 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -1310,10 +1292,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -1453,10 +1432,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -1541,10 +1517,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -1638,11 +1611,8 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -1859,10 +1829,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -1944,10 +1911,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -2152,10 +2116,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -2369,10 +2330,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -2671,10 +2629,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -2846,10 +2801,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -2949,10 +2901,7 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -3194,11 +3143,8 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -3317,6 +3263,14 @@
 				<key>comment</key>
 				<string>rdar://150474871</string>
 			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^testflight$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+				<key>comment</key>
+				<string>rdar://150801742</string>
+			</dict>
 		</array>
 		<key>policyName</key>
 		<string>AppleIssued</string>
@@ -3340,10 +3294,8 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
@@ -3401,10 +3353,8 @@
 			<dict>
 				<key>AnchorSHA256</key>
 				<array>
-					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
-					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>

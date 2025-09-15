@@ -105,6 +105,11 @@
 
 #define __ARM_RANGE_TLBI__                   1
 
+#if !CONFIG_SPTM
+/* VHE is disabled at runtime on SPTM-based systems. */
+#include <pexpert/arm64/vhe_disable.h>
+#endif /* !CONFIG_SPTM */
+
 #include <pexpert/arm64/apple_arm64_common.h>
 
 #endif /* !_PEXPERT_ARM64_H16_H */

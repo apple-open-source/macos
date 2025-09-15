@@ -310,24 +310,12 @@ WI.SourceCodeLocation = class SourceCodeLocation extends WI.Object
         if (!this._sourceCode)
             return;
 
-        var sourceMaps = this._sourceCode.sourceMaps;
-        if (!sourceMaps.length)
-            return;
-
-        for (var i = 0; i < sourceMaps.length; ++i) {
-            var sourceMap = sourceMaps[i];
-            var entry = sourceMap.findEntry(this._lineNumber, this._columnNumber);
-            if (!entry || entry.length === 2)
-                continue;
-            console.assert(entry.length === 5);
-            var url = entry[2];
-            var sourceMapResource = sourceMap.resourceForURL(url);
-            if (!sourceMapResource)
-                return;
-            this._mappedResource = sourceMapResource;
-            this._mappedLineNumber = entry[3];
-            this._mappedColumnNumber = entry[4];
-            return;
+        for (let sourceMap of this._sourceCode.sourceMaps) {
+            let originalPosition = sourceMap.findOriginalPosition(this._lineNumber, this._columnNumber);
+            if (originalPosition) {
+                [this._mappedResource, this._mappedLineNumber, this._mappedColumnNumber] = originalPosition;
+                break;
+            }
         }
     }
 

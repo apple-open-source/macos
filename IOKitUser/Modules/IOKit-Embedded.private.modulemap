@@ -226,6 +226,7 @@ framework module IOKit_Private [extern_c] [system] {
     header "hid/AppleHIDUsageTables.h"
     header "hid/AppleHIDMultitouchKeys.h"
     header "hid/IOHIDPrivateKeys.h"
+    header "hid/IOHIDTimeSyncKeys.h"
     header "hid/IOHIDEventQueue.h"
     header "hid/IOHIDEventMacroDefs.h"
     header "hid/IOHIDEventStructDefs.h"

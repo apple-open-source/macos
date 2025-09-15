@@ -44,7 +44,6 @@ struct mach_exception_options {
 	thread_state_flavor_t flavors_allowed;
 };
 
-#if __arm64__
 static void
 bad_access_func(void)
 {
@@ -53,11 +52,11 @@ bad_access_func(void)
 	T_QUIET; T_LOG("Recoverd!");
 	return;
 }
-#endif /* __arm64__ */
 
 static int num_exceptions = 0;
 
 static uint32_t signing_key = (uint32_t)(0xa8000000 & 0xff000000);
+
 static size_t
 exc_handler_state_identity_protected(
 	task_id_token_t token,
@@ -123,8 +122,7 @@ create_hardened_exception_port(const struct mach_exception_options meo,
 {
 #if !__arm64__
 	T_SKIP("Hardened exceptions not supported on !arm64");
-	return MACH_PORT_NULL;
-#else /* !__arm64__ */
+#endif /* !__arm64__ */
 	kern_return_t kr;
 	mach_port_t exc_port;
 	mach_port_options_t opts = {
@@ -142,18 +140,17 @@ create_hardened_exception_port(const struct mach_exception_options meo,
 	T_ASSERT_NE_UINT(exc_port, 0, "new exception port not null");
 
 	return exc_port;
-#endif /* !__arm64__ */
 }
 
 T_DECL(hardened_exceptions_default,
     "Test creating and using hardened exception ports") {
 #if !__arm64__
 	T_SKIP("Hardened exceptions not supported on !arm64");
-#else /* !__arm64__ */
+#endif /* !__arm64__ */
 	struct mach_exception_options meo;
 	meo.exceptions_allowed = EXC_MASK_BAD_ACCESS;
 	meo.behaviors_allowed = EXCEPTION_STATE_IDENTITY_PROTECTED | MACH_EXCEPTION_CODES;
-	meo.flavors_allowed = ARM_THREAD_STATE64;
+	meo.flavors_allowed = EXCEPTION_THREAD_STATE;
 
 	mach_port_t exc_port = create_hardened_exception_port(meo, signing_key);
 
@@ -165,7 +162,6 @@ T_DECL(hardened_exceptions_default,
 	bad_access_func();
 
 	printf("Successfully recovered from the exception!\n");
-#endif /* !__arm64__ */
 }
 
 extern char *__progname;
@@ -175,11 +171,11 @@ T_DECL(entitled_process_exceptions_disallowed,
     T_META_IGNORECRASHES("*hardened_exceptions_entitled")) {
 #if !__arm64__
 	T_SKIP("Hardened exceptions not supported on !arm64");
-#else /* !__arm64__ */
+#endif /* !__arm64__ */
 
 	bool entitled = strstr(__progname, "entitled") != NULL;
 	bool debugger = strstr(__progname, "debugger") != NULL;
-	/* thread_set_exception_ports as a hardened binary should fail */
+	/* thread_set_exception_ports as a platform restrictions binary should fail */
 	kern_return_t kr = thread_set_exception_ports(
 		mach_thread_self(),
 		EXC_MASK_ALL,
@@ -196,5 +192,4 @@ T_DECL(entitled_process_exceptions_disallowed,
 	} else {
 		T_FAIL("invalid configuration");
 	}
-#endif /* !__arm64__ */
 }

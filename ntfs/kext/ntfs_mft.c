@@ -91,7 +91,7 @@
  * of @ni.
  */
 errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
-		const BOOL mft_is_locked)
+		const NTFS_BOOL mft_is_locked)
 {
 	ntfs_volume *vol;
 	ntfs_inode *mft_ni;
@@ -388,7 +388,7 @@ void ntfs_mft_record_unmap(ntfs_inode *ni)
  */
 errno_t ntfs_extent_mft_record_map_ext(ntfs_inode *base_ni, MFT_REF mref,
 		ntfs_inode **ext_ni, MFT_RECORD **ext_mrec,
-		const BOOL mft_is_locked)
+		const NTFS_BOOL mft_is_locked)
 {
 	ino64_t mft_no;
 	ntfs_inode **extent_nis = NULL;
@@ -397,7 +397,7 @@ errno_t ntfs_extent_mft_record_map_ext(ntfs_inode *base_ni, MFT_REF mref,
 	errno_t err;
 	unsigned seq_no;
 	int i;
-	BOOL need_reclaim;
+	NTFS_BOOL need_reclaim;
 
 	mft_no = MREF(mref);
 	seq_no = MSEQNO(mref);
@@ -669,7 +669,7 @@ errno_t ntfs_mft_record_sync(ntfs_inode *ni)
  * in the ntfs volume @vol.
  */
 errno_t ntfs_mft_mirror_sync(ntfs_volume *vol, const s64 rec_no,
-		const MFT_RECORD *m, const BOOL sync)
+		const MFT_RECORD *m, const NTFS_BOOL sync)
 {
 	s64 data_size;
 	ntfs_inode *mirr_ni;
@@ -995,7 +995,7 @@ static errno_t ntfs_mft_bitmap_extend_allocation_nolock(ntfs_volume *vol)
 	ATTR_RECORD *a;
 	unsigned mp_size, attr_len = 0;
 	errno_t err, err2;
-	BOOL mp_rebuilt = FALSE;
+	NTFS_BOOL mp_rebuilt = FALSE;
 	u8 tb;
 
 	ntfs_debug("Extending mft bitmap allocation.");
@@ -1459,7 +1459,7 @@ static errno_t ntfs_mft_data_extend_allocation_nolock(ntfs_volume *vol)
 	ATTR_RECORD *a;
 	unsigned mp_size, attr_len = 0;
 	errno_t err, err2;
-	BOOL mp_rebuilt = FALSE;
+	NTFS_BOOL mp_rebuilt = FALSE;
 	ntfs_runlist runlist;
 
 	ntfs_debug("Extending mft data allocation.");
@@ -2266,8 +2266,8 @@ errno_t ntfs_mft_record_alloc(ntfs_volume *vol, struct vnode_attr *va,
 	buf_t buf;
 	errno_t err, err2;
 	le16 seq_no, usn;
-	BOOL record_formatted, mark_sizes_dirty, dirty_buf;
-	BOOL mft_ni_write_locked;
+	NTFS_BOOL record_formatted, mark_sizes_dirty, dirty_buf;
+	NTFS_BOOL mft_ni_write_locked;
 
 	ntfs_debug("Entering (allocating a%s mft record, %s 0x%llx).",
 			va ? " base" : "n extent",
@@ -2857,7 +2857,7 @@ mft_rec_already_initialized:
 		if (NVolUseSDAttr(vol))
 			security_id = 0;
 		else {
-			BOOL is_retry = FALSE;
+			NTFS_BOOL is_retry = FALSE;
 retry:
 			lck_spin_lock(&vol->security_id_lock);
 			if (va->va_type == VDIR)

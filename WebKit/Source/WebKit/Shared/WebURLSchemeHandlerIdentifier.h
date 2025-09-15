@@ -29,8 +29,7 @@
 
 namespace WebKit {
 
-class WebURLSchemeHandler;
-
-using WebURLSchemeHandlerIdentifier = ObjectIdentifier<WebURLSchemeHandler>;
+struct WebURLSchemeHandlerIdentifierType;
+using WebURLSchemeHandlerIdentifier = ObjectIdentifier<WebURLSchemeHandlerIdentifierType>;
 
 }

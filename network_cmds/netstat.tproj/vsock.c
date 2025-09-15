@@ -32,7 +32,7 @@
 #include <sys/proc_info.h>
 #include <sys/socketvar.h>
 #include <sys/sysctl.h>
-#include <sys/vsock.h>
+#include <sys/vsock_private.h>
 
 #include <errno.h>
 #include <err.h>
@@ -44,6 +44,26 @@
 
 static void vsockdomainpr __P((struct xvsockpcb *));
 
+char *
+namespace_string(int protocol)
+{
+    if (protocol == VSOCK_PROTO_PRIVATE) {
+        return "vsock_private";
+    }
+
+    return "vsock";
+}
+
+char *
+namespace_string_abbreviation(int protocol)
+{
+    if (protocol == VSOCK_PROTO_PRIVATE) {
+        return "vsockp";
+    }
+
+    return "vsock";
+}
+
 void
 vsockpr(uint32_t proto,
 char *name, int af)
@@ -53,7 +73,11 @@ char *name, int af)
 	struct xvsockpgen *xvg, *oxvg;
 	struct xvsockpcb *xpcb;
 
-	const char* mibvar = "net.vsock.pcblist";
+    const char* namespace = namespace_string(proto);
+
+    char mibvar[32];
+    snprintf(mibvar, sizeof(mibvar), "net.%s.pcblist", namespace);
+
 	len = 0;
 	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
 		if (errno != ENOENT)
@@ -131,7 +155,7 @@ vsockdomainpr(xpcb)
 
 	if (first) {
 		printf("Active VSock sockets\n");
-		printf("%-5.5s %-6.6s %-6.6s %-6.6s %-18.18s %-18.18s %-11.11s",
+		printf("%-6.6s %-6.6s %-6.6s %-6.6s %-18.18s %-18.18s %-11.11s",
 			   "Proto", "Type",
 			   "Recv-Q", "Send-Q",
 			   "Local Address", "Foreign Address",
@@ -166,8 +190,10 @@ vsockdomainpr(xpcb)
 		state = "CLOSED";
 	}
 
-	printf("%-5.5s %-6.6s %6u %6u %-18s %-18s %-11s",
-	       "vsock", "stream",
+    const char* namespace = namespace_string_abbreviation(so->xso_protocol);
+
+	printf("%-6.6s %-6.6s %6u %6u %-18s %-18s %-11s",
+           namespace, "stream",
 		   so->so_rcv.sb_cc, so->so_snd.sb_cc,
 		   srcAddr, dstAddr,
 	       state);
@@ -192,15 +218,19 @@ vsockstats(uint32_t proto, char *name, int af)
 	uint32_t pcbcount;
 	size_t len;
 
-	printf("vsock:\n");
+    const char* namespace = namespace_string(proto);
+	printf("%s:\n", namespace);
+
+    char sysctlKey[32];
+    snprintf(sysctlKey, sizeof(sysctlKey), "net.%s.pcbcount", namespace);
 
 	len = sizeof(pcbcount);
-	if (sysctlbyname("net.vsock.pcbcount", &pcbcount, &len, 0, 0) < 0) {
-		warn("sysctl: net.vsock.pcbcount");
+	if (sysctlbyname(sysctlKey, &pcbcount, &len, 0, 0) < 0) {
+		warn("sysctl: %s", sysctlKey);
 		return;
 	}
 
-	printf("\t%u open vsock socket%s\n", pcbcount, plural(pcbcount));
+	printf("\t%u open %s socket%s\n", pcbcount, namespace, plural(pcbcount));
 }
 
 #endif /* AF_VSOCK */

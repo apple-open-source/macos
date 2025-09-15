@@ -20,6 +20,8 @@
 #pragma once
 
 #include "RenderBlock.h"
+#include "RenderBoxInlines.h"
+#include "RenderObjectInlines.h"
 #include "RenderStyleInlines.h"
 
 namespace WebCore {
@@ -33,11 +35,6 @@ inline LayoutUnit RenderBlock::logicalLeftOffsetForLine(LayoutUnit position, Lay
 inline LayoutUnit RenderBlock::endOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight) const
 {
     return !writingMode().isLogicalLeftInlineStart() ? logicalLeftOffsetForLine(position, logicalHeight) : logicalWidth() - logicalRightOffsetForLine(position, logicalHeight);
-}
-
-inline bool RenderBlock::shouldSkipCreatingRunsForObject(RenderObject& object)
-{
-    return object.isFloating() || (object.isOutOfFlowPositioned() && !object.style().isOriginalDisplayInlineType() && !object.container()->isRenderInline());
 }
 
 inline LayoutUnit RenderBlock::startOffsetForLine(LayoutUnit position, LayoutUnit logicalHeight) const

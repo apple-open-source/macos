@@ -36,6 +36,10 @@
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
+#if PLATFORM(COCOA)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#endif
+
 namespace WebCore {
 
 String SecurityOriginData::toString() const
@@ -63,8 +67,8 @@ SecurityOriginData SecurityOriginData::fromFrame(LocalFrame* frame)
 {
     if (!frame)
         return SecurityOriginData { };
-    
-    auto* document = frame->document();
+
+    RefPtr document = frame->document();
     if (!document)
         return SecurityOriginData { };
 

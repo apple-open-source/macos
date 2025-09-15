@@ -35,6 +35,7 @@
 #include "RenderIterator.h"
 #include "RenderMathMLBlockInlines.h"
 #include "RenderMathMLOperator.h"
+#include "RenderObjectInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -184,7 +185,7 @@ RenderBox& RenderMathMLUnderOver::over() const
 
 void RenderMathMLUnderOver::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     if (!isValid()) {
         RenderMathMLRow::computePreferredLogicalWidths();
@@ -211,7 +212,7 @@ void RenderMathMLUnderOver::computePreferredLogicalWidths()
 
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
 LayoutUnit RenderMathMLUnderOver::horizontalOffset(const RenderBox& child) const
@@ -250,7 +251,7 @@ RenderMathMLUnderOver::VerticalParameters RenderMathMLUnderOver::verticalParamet
     parameters.overExtraAscender = 0;
     parameters.accentBaseHeight = 0;
 
-    const Ref primaryFont = style().fontCascade().primaryFont();
+    Ref primaryFont = style().fontCascade().primaryFont();
     RefPtr mathData = primaryFont->mathData();
     if (!mathData) {
         // The MATH table specification does not really provide any suggestions, except for some underbar/overbar values and AccentBaseHeight.
@@ -297,13 +298,13 @@ RenderMathMLUnderOver::VerticalParameters RenderMathMLUnderOver::verticalParamet
     return parameters;
 }
 
-void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight)
+void RenderMathMLUnderOver::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit pageLogicalHeight)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     if (!isValid()) {
@@ -381,7 +382,7 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
 
     adjustLayoutForBorderAndPadding();
 
-    layoutPositionedObjects(relayoutChildren);
+    layoutOutOfFlowBoxes(relayoutChildren);
 
     updateScrollInfoAfterLayout();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,7 +58,7 @@ public:
     }
 
     bool hasWork() const final { return !m_completed; }
-    void work(CompilationEffort) final;
+    void work() final;
     bool multiThreaded() const final { return false; }
 
     static FunctionAllowlist& ensureGlobalBBQAllowlist();
@@ -77,7 +77,7 @@ private:
         runCompletionTasks();
     }
 
-    Ref<CalleeGroup> m_calleeGroup;
+    const Ref<CalleeGroup> m_calleeGroup;
     FunctionCodeIndex m_functionIndex;
     bool m_completed { false };
     std::optional<bool> m_hasExceptionHandlers;

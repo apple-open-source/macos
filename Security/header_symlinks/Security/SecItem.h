@@ -1013,10 +1013,11 @@ extern const CFStringRef kSecValuePersistentRef
         is a CFStringRef that represents a user-visible string describing
         the operation for which the application is attempting to authenticate.
         The application is responsible for the text localization.
-    @constant kSecUseNoAuthenticationUI macOS only. Specifies a dictionary key whose value
+    @constant kSecUseNoAuthenticationUI Specifies a dictionary key whose value
         is a CFBooleanRef. If provided with a value of kCFBooleanTrue, the error
         errSecInteractionNotAllowed will be returned if the item is attempting
-        to authenticate with UI.
+        to authenticate with UI. Note: on macOS, this attribute only applies to items stored
+        in the Data Protection keychain. Legacy keychain items will still activate UI if needed.
     @constant kSecUseAuthenticationUI Specifies a dictionary key whose value
         is one of kSecUseAuthenticationUIAllow, kSecUseAuthenticationUIFail, kSecUseAuthenticationUISkip.
     @constant kSecUseAuthenticationContext Specifies a dictionary key whose value

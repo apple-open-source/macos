@@ -27,7 +27,6 @@
 #include "PreciseSubspace.h"
 
 #include "AllocatingScope.h"
-#include "IsoAlignedMemoryAllocator.h"
 #include "IsoCellSetInlines.h"
 #include "JSCellInlines.h"
 #include "MarkedSpaceInlines.h"
@@ -38,9 +37,8 @@ namespace JSC {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PreciseSubspace);
 
 PreciseSubspace::PreciseSubspace(CString name, JSC::Heap& heap, const HeapCellType& heapCellType, AlignedMemoryAllocator* allocator)
-    : Subspace(name, heap)
+    : Subspace(SubspaceKind::PreciseSubspace, name, heap)
 {
-    m_isPreciseOnly = true;
     initialize(heapCellType, allocator);
 }
 

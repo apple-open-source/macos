@@ -23,13 +23,15 @@
 
 #include <os/assumes.h>
 #include <os/once_private.h>
+
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+
+#include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <errno.h>
 
 /*
  * posix_openpt call for cloning pty implementation.
@@ -123,14 +125,10 @@ ptsname_r(int fd, char *buffer, size_t buflen)
 		return -1;
 	}
 
-	size_t len = strlen(ptsnamebuf) + 1;
-	if (buflen < len) {
+	if (strlcpy(buffer, ptsnamebuf, buflen) >= buflen) {
 		errno = ERANGE;
 		return -1;
 	}
-
-	memcpy(buffer, ptsnamebuf, len);
-
 	return 0;
 }
 

@@ -28,7 +28,7 @@
 
 #if USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
 
-#import "LocalCurrentGraphicsContext.h"
+#import "GraphicsContextStateSaver.h"
 #import "SharedBuffer.h"
 #import <Quartz/Quartz.h>
 #import <objc/objc-class.h>
@@ -66,20 +66,14 @@ unsigned PDFDocumentImage::pageCount() const
 
 void PDFDocumentImage::drawPDFPage(GraphicsContext& context)
 {
-    LocalCurrentGraphicsContext localCurrentContext(context);
+    GraphicsContextStateSaver stateSaver { context };
 
-    // These states can be mutated by PDFKit but are not saved
-    // on the context's state stack. (<rdar://problem/14951759&35738181>)
-    bool allowsSmoothing = CGContextGetAllowsFontSmoothing(context.platformContext());
-    bool allowsSubpixelQuantization = CGContextGetAllowsFontSubpixelQuantization(context.platformContext());
+    // This state can be mutated by PDFKit but is not saved
+    // on the context's state stack. (<rdar://35738181>)
     bool allowsSubpixelPositioning = CGContextGetAllowsFontSubpixelPositioning(context.platformContext());
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [[m_document pageAtIndex:0] drawWithBox:kPDFDisplayBoxCropBox];
-ALLOW_DEPRECATED_DECLARATIONS_END
+    [[m_document pageAtIndex:0] drawWithBox:kPDFDisplayBoxCropBox toContext:context.platformContext()];
 
-    CGContextSetAllowsFontSmoothing(context.platformContext(), allowsSmoothing);
-    CGContextSetAllowsFontSubpixelQuantization(context.platformContext(), allowsSubpixelQuantization);
     CGContextSetAllowsFontSubpixelPositioning(context.platformContext(), allowsSubpixelPositioning);
 }
 

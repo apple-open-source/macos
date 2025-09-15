@@ -66,23 +66,23 @@ public:
     size_t size() const { return m_start <= m_end ? m_end - m_start : m_end + m_buffer.capacity() - m_start; }
     bool isEmpty() const { return m_start == m_end; }
 
-    iterator begin() { return iterator(this, m_start); }
-    iterator end() { return iterator(this, m_end); }
-    const_iterator begin() const { return const_iterator(this, m_start); }
-    const_iterator end() const { return const_iterator(this, m_end); }
-    reverse_iterator rbegin() { return reverse_iterator(end()); }
-    reverse_iterator rend() { return reverse_iterator(begin()); }
-    const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
-    const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
+    iterator begin() LIFETIME_BOUND { return iterator(this, m_start); }
+    iterator end() LIFETIME_BOUND { return iterator(this, m_end); }
+    const_iterator begin() const LIFETIME_BOUND { return const_iterator(this, m_start); }
+    const_iterator end() const LIFETIME_BOUND { return const_iterator(this, m_end); }
+    reverse_iterator rbegin() LIFETIME_BOUND { return reverse_iterator(end()); }
+    reverse_iterator rend() LIFETIME_BOUND { return reverse_iterator(begin()); }
+    const_reverse_iterator rbegin() const LIFETIME_BOUND { return const_reverse_iterator(end()); }
+    const_reverse_iterator rend() const LIFETIME_BOUND { return const_reverse_iterator(begin()); }
     
     template<typename U> bool contains(const U&) const;
 
-    T& first() { return m_buffer.capacitySpan()[m_start]; }
-    const T& first() const { return m_buffer.capacitySpan()[m_start]; }
+    T& first() LIFETIME_BOUND { return m_buffer.capacitySpan()[m_start]; }
+    const T& first() const LIFETIME_BOUND { return m_buffer.capacitySpan()[m_start]; }
     T takeFirst();
 
-    T& last() { return m_end ? m_buffer.capacitySpan()[m_end - 1] : m_buffer.capacitySpan().back(); }
-    const T& last() const { return m_end ? m_buffer.capacitySpan()[m_end - 1] : m_buffer.capacitySpan().back(); }
+    T& last() LIFETIME_BOUND { return m_end ? m_buffer.capacitySpan()[m_end - 1] : m_buffer.capacitySpan().back(); }
+    const T& last() const LIFETIME_BOUND { return m_end ? m_buffer.capacitySpan()[m_end - 1] : m_buffer.capacitySpan().back(); }
     T takeLast();
 
     void append(T&& value) { append<T>(std::forward<T>(value)); }
@@ -105,18 +105,18 @@ public:
     // Remove and return the first element for which the callback returns true. Returns a null version of
     // T if it the callback always returns false.
     template<typename Func>
-    T takeFirst(const Func&);
+    T takeFirst(NOESCAPE const Func&);
 
     // Remove and return the last element for which the callback returns true. Returns a null version of
     // T if it the callback always returns false.
     template<typename Func>
-    T takeLast(const Func&);
+    T takeLast(NOESCAPE const Func&);
 
     void clear();
 
-    template<typename Predicate> iterator findIf(const Predicate&);
-    template<typename Predicate> const_iterator findIf(const Predicate&) const;
-    template<typename Predicate> bool containsIf(const Predicate& predicate) const
+    template<typename Predicate> iterator findIf(NOESCAPE const Predicate&);
+    template<typename Predicate> const_iterator findIf(NOESCAPE const Predicate&) const;
+    template<typename Predicate> bool containsIf(NOESCAPE const Predicate& predicate) const
     {
         return findIf(predicate) != end();
     }
@@ -409,14 +409,14 @@ inline void Deque<T, inlineCapacity>::clear()
 
 template<typename T, size_t inlineCapacity>
 template<typename Predicate>
-inline auto Deque<T, inlineCapacity>::findIf(const Predicate& predicate) -> iterator
+inline auto Deque<T, inlineCapacity>::findIf(NOESCAPE const Predicate& predicate) -> iterator
 {
     return std::find_if(begin(), end(), predicate);
 }
 
 template<typename T, size_t inlineCapacity>
 template<typename Predicate>
-inline auto Deque<T, inlineCapacity>::findIf(const Predicate& predicate) const -> const_iterator
+inline auto Deque<T, inlineCapacity>::findIf(NOESCAPE const Predicate& predicate) const -> const_iterator
 {
     return std::find_if(begin(), end(), predicate);
 }
@@ -616,7 +616,7 @@ inline void Deque<T, inlineCapacity>::appendAndBubble(U&& value, const Func& fun
 
 template<typename T, size_t inlineCapacity>
 template<typename Func>
-inline T Deque<T, inlineCapacity>::takeFirst(const Func& func)
+inline T Deque<T, inlineCapacity>::takeFirst(NOESCAPE const Func& func)
 {
     unsigned count = 0;
     unsigned size = this->size();
@@ -635,7 +635,7 @@ inline T Deque<T, inlineCapacity>::takeFirst(const Func& func)
 
 template<typename T, size_t inlineCapacity>
 template<typename Func>
-inline T Deque<T, inlineCapacity>::takeLast(const Func& func)
+inline T Deque<T, inlineCapacity>::takeLast(NOESCAPE const Func& func)
 {
     unsigned count = 0;
     unsigned size = this->size();

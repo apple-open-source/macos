@@ -106,4 +106,7 @@ bool top_prefs_get_secondary_ascending(void);
 void top_prefs_set_mmr(bool mmr);
 bool top_prefs_get_mmr(void);
 
+void top_prefs_set_hvwait(bool show);
+bool top_prefs_get_hvwait(void);
+
 #endif /*PREFERENCES_H*/

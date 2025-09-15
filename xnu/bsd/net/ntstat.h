@@ -95,6 +95,23 @@ typedef struct nstat_counts {
 	u_int32_t       nstat_var_rtt;
 } nstat_counts;
 
+// Note, the nstat_detailed_counts structure is not intended for route statistics,
+// hence no equivalent of the nstat_connectattempts and nstat_connectsuccesses within nstat_counts
+typedef struct nstat_detailed_counts {
+	/* Counters */
+	struct media_stats  nstat_media_stats   __attribute__((aligned(sizeof(u_int64_t))));
+
+	u_int64_t       nstat_rxduplicatebytes;
+	u_int64_t       nstat_rxoutoforderbytes;
+	u_int64_t       nstat_txretransmit;
+
+	u_int32_t       nstat_min_rtt;
+	u_int32_t       nstat_avg_rtt;
+	u_int32_t       nstat_var_rtt;
+	u_int32_t       nstat_xtra_flags;       // Reserved
+	uuid_t          nstat_xtra_uuid;        // Reserved
+} nstat_detailed_counts;
+
 #define NSTAT_SYSINFO_KEYVAL_STRING_MAXSIZE     24
 typedef struct nstat_sysinfo_keyval {
 	u_int32_t       nstat_sysinfo_key;
@@ -363,6 +380,7 @@ enum{
 #define NSTAT_IFNET_IS_WIFI_INFRA                   0x00010000
 #define NSTAT_IFNET_PEEREGRESSINTERFACE_IS_CELLULAR 0x00020000
 #define NSTAT_IFNET_IS_COMPANIONLINK_BT             0x00040000
+#define NSTAT_IFNET_IS_ULTRA_CONSTRAINED            0x00080000
 
 // Not interface properties, but used for filtering in similar fashion
 #define NSTAT_NECP_CONN_HAS_NET_ACCESS              0x01000000
@@ -780,6 +798,7 @@ enum{
 	, NSTAT_MSG_TYPE_SET_FILTER          = 1006 // Obsolete
 	, NSTAT_MSG_TYPE_GET_UPDATE          = 1007
 	, NSTAT_MSG_TYPE_SUBSCRIBE_SYSINFO   = 1008
+	, NSTAT_MSG_TYPE_GET_DETAILS         = 1009
 
 	    // Responses/Notfications
 	, NSTAT_MSG_TYPE_SRC_ADDED           = 10001
@@ -789,6 +808,8 @@ enum{
 	, NSTAT_MSG_TYPE_SYSINFO_COUNTS      = 10005
 	, NSTAT_MSG_TYPE_SRC_UPDATE          = 10006
 	, NSTAT_MSG_TYPE_SRC_EXTENDED_UPDATE = 10007
+	, NSTAT_MSG_TYPE_SRC_DETAILS         = 10008
+	, NSTAT_MSG_TYPE_SRC_EXTENDED_DETAILS = 10009
 };
 
 enum{
@@ -1124,6 +1145,60 @@ typedef struct nstat_msg_src_update_convenient {
 	};
 } nstat_msg_src_update_convenient;
 
+#define NSTAT_SRC_DETAILS_FIELDS                                                        \
+	nstat_msg_hdr		    hdr;                                                        \
+	nstat_src_ref_t		    srcref __attribute__((aligned(sizeof(u_int64_t))));         \
+	nstat_event_flags_t	    event_flags __attribute__((aligned(sizeof(u_int64_t))));    \
+	nstat_detailed_counts   detailed_counts;                                            \
+	nstat_provider_id_t	    provider;                                                   \
+	u_int8_t                reserved[4]
+
+typedef struct nstat_msg_src_details {
+	NSTAT_SRC_DETAILS_FIELDS;
+	u_int8_t        data[];
+} nstat_msg_src_details;
+DEFINE_NTSTAT_DATA_ACCESSOR(struct nstat_msg_src_details)
+
+typedef struct nstat_msg_src_details_hdr {
+	NSTAT_SRC_DETAILS_FIELDS;
+} nstat_msg_src_details_hdr;
+
+typedef struct nstat_msg_src_details_tcp {
+	NSTAT_SRC_DETAILS_FIELDS;
+	nstat_tcp_descriptor            tcp_desc;
+} nstat_msg_src_details_tcp;
+
+typedef struct nstat_msg_src_details_udp {
+	NSTAT_SRC_DETAILS_FIELDS;
+	nstat_udp_descriptor            udp_desc;
+} nstat_msg_src_details_udp;
+
+typedef struct nstat_msg_src_details_quic {
+	NSTAT_SRC_DETAILS_FIELDS;
+	nstat_quic_descriptor           quic_desc;
+} nstat_msg_src_details_quic;
+
+typedef struct nstat_msg_src_details_conn {
+	NSTAT_SRC_DETAILS_FIELDS;
+	nstat_connection_descriptor     conn_desc;
+} nstat_msg_src_details_conn;
+
+
+typedef struct nstat_msg_src_details_convenient {
+	nstat_msg_src_details_hdr                hdr;
+	union {
+		nstat_tcp_descriptor            tcp;
+		nstat_udp_descriptor            udp;
+		nstat_route_descriptor          route;
+		nstat_ifnet_descriptor          ifnet;
+		nstat_sysinfo_descriptor        sysinfo;
+		nstat_quic_descriptor           quic;
+		nstat_connection_descriptor     conn;
+	};
+} nstat_msg_src_details_convenient;
+
+
+
 typedef struct nstat_msg_src_extended_item_hdr {
 	u_int32_t       type;
 	u_int32_t       length;
@@ -1220,6 +1295,7 @@ nstat_sysinfo_get_keyvals(struct nstat_msg_sysinfo_counts *__header_indexable co
 
 #pragma mark -- Statitiscs about Network Statistics --
 
+// For historic "netstat -s -p nstat" command
 struct nstat_stats {
 	u_int32_t nstat_successmsgfailures;
 	u_int32_t nstat_sendcountfailures;
@@ -1239,6 +1315,204 @@ struct nstat_stats {
 	u_int32_t nstat_handle_msg_failures;
 };
 
+// Additional counts that are "global, i.e. not per client
+
+#define NSTAT_GLOBAL_COUNTS_VERSION     1
+struct nstat_global_counts {
+	uint64_t nstat_global_count_version; // current version number for this structure
+
+	uint64_t nstat_global_exclusive_lock_uncontended;   // Uncontended acquisitions of exlusive lock
+	uint64_t nstat_global_exclusive_lock_contended;     // Contended acquisitions of exlusive lock
+
+	uint64_t nstat_global_shared_lock_uncontended;      // Uncontended acquisitions of shared lock
+	uint64_t nstat_global_shared_lock_contended;        // Contended acquisitions of shared lock
+
+	uint64_t nstat_global_client_current;       // current number of clients overall
+	uint64_t nstat_global_client_max;           // max number of clients overall
+	uint64_t nstat_global_client_allocs;        // total number of clients allocated
+	uint64_t nstat_global_client_alloc_fails;   // total number of failures to allocate a client
+
+	uint64_t nstat_global_src_current;          // current number of srcs overall
+	uint64_t nstat_global_src_max;              // max number of srcs overall
+	uint64_t nstat_global_src_allocs;           // total number of sources allocated
+	uint64_t nstat_global_src_alloc_fails;      // total number of failures to allocate a source
+
+	uint64_t nstat_global_tcp_sck_locus_current;    // current number of tcp nstat_sock_locus overall
+	uint64_t nstat_global_tcp_sck_locus_max;        // max number of tcp nstat_sock_locus overall
+	uint64_t nstat_global_tcp_sck_locus_allocs;     // total number of tcp nstat_sock_locus allocated
+	uint64_t nstat_global_tcp_sck_locus_alloc_fails;// total number of failures to allocate a tcp nstat_sock_locus
+
+	uint64_t nstat_global_udp_sck_locus_current;    // current number of udp nstat_extended_sock_locus overall
+	uint64_t nstat_global_udp_sck_locus_max;        // max number of udp nstat_extended_sock_locus overall
+	uint64_t nstat_global_udp_sck_locus_allocs;     // total number of udp nstat_extended_sock_locus allocated
+	uint64_t nstat_global_udp_sck_locus_alloc_fails;// total number of failures to allocate a udp nstat_extended_sock_locus
+
+	uint64_t nstat_global_tu_shad_current;  // current number of nstat_tu_shadow objects overall
+	uint64_t nstat_global_tu_shad_max;      // max number of tu_shadows overall
+	uint64_t nstat_global_tu_shad_allocs;   // total number of tu_shadows allocated
+
+	uint64_t nstat_global_gshad_current;    // current number of generic shadow objects overall
+	uint64_t nstat_global_gshad_max;        // max number of srcs overall
+	uint64_t nstat_global_gshad_allocs;     // total number of sources allocated
+
+	uint64_t nstat_global_procdetails_current;  // current number of procdetails objects overall
+	uint64_t nstat_global_procdetails_max;      // max number of procdetails overall
+	uint64_t nstat_global_procdetails_allocs;   // total number of procdetails allocated
+
+	uint64_t nstat_global_idlecheck_tcp_gone;       // idle check removes a TCP locus
+	uint64_t nstat_global_idlecheck_udp_gone;       // idle check removes a UDP locus
+	uint64_t nstat_global_idlecheck_route_src_gone; // total number of route sources discovered "gone" in idle check
+
+	// Extra details for sock locus lifecycle
+	uint64_t nstat_global_tcp_sck_locus_stop_using; // Socket has WNT_STOPUSING when creating the initial locus
+	uint64_t nstat_global_udp_sck_locus_stop_using; // Socket has WNT_STOPUSING when creating the initial locus
+	uint64_t nstat_global_pcb_detach_with_locus;    // Expected path, locus on pcb_detach
+	uint64_t nstat_global_pcb_detach_with_src;      // Expected path, locus on pcb_detach, an associated source being detached
+	uint64_t nstat_global_pcb_detach_without_locus; // Unexpected path, no locus on pcb_detach
+	uint64_t nstat_global_pcb_detach_udp;           // pcb detach removes a UDP locus
+	uint64_t nstat_global_pcb_detach_tcp;           // pcb detach removes a TCP locus
+
+	uint64_t nstat_global_sck_update_last_owner;    // nstat_pcb_update_last_owner() was called
+	uint64_t nstat_global_sck_fail_first_owner;     // can't set name on sock locus create
+	uint64_t nstat_global_sck_fail_last_owner;      // nstat_pcb_update_last_owner() was called, no name available
+	uint64_t nstat_global_tcp_desc_new_name;        // Socket ownership discovered to have changed
+	uint64_t nstat_global_tcp_desc_fail_name;       // Socket ownership discovered to have changed, fail to get new name
+	uint64_t nstat_global_udp_desc_new_name;        // Socket ownership discovered to have changed
+	uint64_t nstat_global_udp_desc_fail_name;       // Socket ownership discovered to have changed, fail to get new name
+
+	// The following are expected to be removed as and when the socket handling code is refined
+	uint64_t nstat_global_tucookie_current;
+	uint64_t nstat_global_tucookie_max;
+	uint64_t nstat_global_tucookie_allocs;
+	uint64_t nstat_global_tucookie_alloc_fail;
+	uint64_t nstat_global_tucookie_skip_dead;
+	uint64_t nstat_global_tucookie_skip_stopusing;
+	uint64_t nstat_global_src_idlecheck_gone;
+};
+
+
+// Counts that are typically per-client
+// They are also accumulated globally for all previous clients
+//
+// The "net.stats.metrics" systctl can request these metrics either from a specific client,
+// the accumulated counts for closed clients, or a summary of all the closed and current clients.
+// To collect individual metrics for all clients, an initial request is made targeting
+// NSTAT_METRIC_ID_MAX via the mr_id field in the request structure.  The returned metrics will be
+// for the client with the highest identifer, as returned in the nstat_client_id field.
+// The next request should target that returned identifier minus one, which will collect
+// the client with the next highest identifier.  This sequence can continue until metrics
+// for all clients have been collected
+#define NSTAT_METRIC_VERSION        2
+#define NSTAT_METRIC_ID_ACCUMULATED 0x0         /* Accumulation from all clients that have previously closed */
+#define NSTAT_METRIC_ID_GRAND_TOTAL 0x1         /* Accumulation from all clients, current and historic */
+#define NSTAT_METRIC_ID_MAX         0xffffffff  /* Start scanning all clients with this initial value */
+
+struct nstat_metrics_req {
+	uint32_t mr_version;                // The version of metrics being requested
+	uint32_t mr_id;                     // Identifier for the metrics, a client id, or accumulated or grand total
+};
+
+struct nstat_client_details {
+	uint32_t nstat_client_id;           // Identifier for this set of metrics, a client id, or accumulated
+	pid_t    nstat_client_pid;          // Process id of client that owns these metrics
+	uint32_t nstat_client_watching;     // Bitmap of providers being watched
+	uint32_t nstat_client_added_src;    // Bitmap of providers with individually added sources
+};
+
+struct nstat_metrics {
+	uint32_t nstat_src_current;         // current number of srcs for client
+	uint32_t nstat_src_max;             // max number of srcs for client
+	uint32_t nstat_first_uint32_count;  // Subsequent fields must be uint32_t values that, if kept per-client,
+	                                    // should simply added to the global counts when the client exit
+
+	// Tracking client requests
+	uint32_t nstat_query_request_all;   // Client requests for all counts
+	uint32_t nstat_query_request_one;   // Client request for counts on a single source
+	uint32_t nstat_query_description_all; // Client requests for all descriptors
+	uint32_t nstat_query_description_one; // Client requests for descriptor on a single source
+	uint32_t nstat_query_update_all;    // Client requests for all updates
+	uint32_t nstat_query_update_one;    // Client requests for update on a single source
+	uint32_t nstat_remove_src_found;    // Client request to remove a source which is still in existence
+	uint32_t nstat_remove_src_missed;   // Client request to remove a source which is no longer there
+
+	// Details for nstat_query_request all/one
+	uint32_t nstat_query_request_nobuf; // No buffers for message send
+	uint32_t nstat_query_request_upgrade; // Successful lock upgrade to handle "gone" source
+	uint32_t nstat_query_request_noupgrade; // Unsuccessful lock upgrade to handle "gone" source
+	uint32_t nstat_query_request_nodesc; // Can't send a descriptor for "gone" source
+	uint32_t nstat_query_request_yield; // Client yields lock due to possibly higher priority processing
+	uint32_t nstat_query_request_limit; // Client requests for all counts
+
+	// Details for nstat_query_description all/one
+	uint32_t nstat_query_description_nobuf; // No buffers for message send
+	uint32_t nstat_query_description_yield; // Client yields lock due to possibly higher priority processing
+	uint32_t nstat_query_description_limit; // Client requests for all counts
+
+	// Details for nstat_query_details all/one
+	uint32_t nstat_query_details_nobuf;  // No buffers for message send
+	uint32_t nstat_query_details_upgrade; // Successful lock upgrade to handle "gone" source
+	uint32_t nstat_query_details_noupgrade; // Unsuccessful lock upgrade to handle "gone" source
+	uint32_t nstat_query_details_yield;  // Client yields lock due to possibly higher priority processing
+	uint32_t nstat_query_details_limit;  // Client requests for all counts
+	uint32_t nstat_query_details_all;    // Request received for all sources
+	uint32_t nstat_query_details_one;    // Request received for a specific source
+
+	// Details for nstat_query_update all/one
+	uint32_t nstat_query_update_nobuf;  // No buffers for message send
+	uint32_t nstat_query_update_upgrade; // Successful lock upgrade to handle "gone" source
+	uint32_t nstat_query_update_noupgrade; // Unsuccessful lock upgrade to handle "gone" source
+	uint32_t nstat_query_update_nodesc; // Can't send a descriptor for "gone" source
+	uint32_t nstat_query_update_yield;  // Client yields lock due to possibly higher priority processing
+	uint32_t nstat_query_update_limit;  // Client requests for all counts
+
+	// Details for adding a source
+	uint32_t nstat_src_add_success;     // successful src_add
+	uint32_t nstat_src_add_no_buf;      // fail to get buffer for initial src-added
+	uint32_t nstat_src_add_no_src_mem;  // fail to get memory for nstat_src structure
+	uint32_t nstat_src_add_send_err;    // fail to send initial src-added
+	uint32_t nstat_src_add_while_cleanup; // fail to add because client is in clean up state
+
+	// Details for adding the client as a watcher
+	uint32_t nstat_add_all_tcp_skip_dead; // Skip a dead PCB when adding all TCP
+	uint32_t nstat_add_all_udp_skip_dead; // Skip a dead PCB when adding all UDP
+
+	// Details for sending "goodbye" on source removal
+	uint32_t nstat_src_goodbye_successes;// Successful goodbyes (include cases messages filtered out)
+	uint32_t nstat_src_goodbye_failures; // Failed goodbyes, further qualified by..
+	uint32_t nstat_src_goodbye_sent_details;    // Sent a concluding details message
+	uint32_t nstat_src_goodbye_failed_details;  // Failed to send a details message
+	uint32_t nstat_src_goodbye_filtered_details;// Skipped trying to send a details message
+	uint32_t nstat_src_goodbye_sent_update;     // Sent a concluding update message
+	uint32_t nstat_src_goodbye_failed_update;   // Failed to send an update message
+	uint32_t nstat_src_goodbye_filtered_update; // Skipped trying to send an update message
+	uint32_t nstat_src_goodbye_sent_counts;     // Sent a concluding counts message
+	uint32_t nstat_src_goodbye_failed_counts;   // Failed to send a counts message
+	uint32_t nstat_src_goodbye_filtered_counts; // Skipped trying to send both counts and descriptor messages
+	uint32_t nstat_src_goodbye_sent_description;// Sent a concluding description message
+	uint32_t nstat_src_goodbye_failed_description; // Failed to send a description message
+	uint32_t nstat_src_goodbye_sent_removed;    // Sent a concluding removed message
+	uint32_t nstat_src_goodbye_failed_removed;  // Failed to send a removed message
+	uint32_t nstat_src_goodbye_filtered_removed;  // Skipped on sending a removed message
+
+	uint32_t nstat_pcb_event;           // send pcb event code called, one precursor to the send_event metrics
+	uint32_t nstat_send_event;          // send event successful
+	uint32_t nstat_send_event_fail;     // send event fail, likely lack of buffers
+	uint32_t nstat_send_event_notsup;   // send event not supported, old style client
+
+
+	uint32_t nstat_route_src_gone_idlecheck;  // route src gone noted during periodic idle check
+	uint32_t nstat_src_removed_linkage; // removed src linkages on the way to deletion
+
+	uint32_t nstat_src_gone_idlecheck;  // Expected to be redundant/removed when socket handling code is refined
+
+	uint32_t nstat_last_uint32_count;   // Must be the last uint32_t count in the structure
+	uint32_t nstat_stats_pad;
+};
+
+struct nstat_client_info {
+	struct nstat_client_details nstat_client_details;
+	struct nstat_metrics        nstat_metrics;
+};
 /*
  * Structure with information that gives insight into forward progress on an
  * interface, exported to user-land via sysctl(3).
@@ -1433,8 +1707,9 @@ void nstat_udp_new_pcb(struct inpcb *inp);
 void nstat_route_new_entry(struct rtentry *rt);
 void nstat_pcb_detach(struct inpcb *inp);
 void nstat_pcb_event(struct inpcb *inp, u_int64_t event);
-void nstat_pcb_cache(struct inpcb *inp);
-void nstat_pcb_invalidate_cache(struct inpcb *inp);
+void nstat_udp_pcb_cache(struct inpcb *inp);
+void nstat_udp_pcb_invalidate_cache(struct inpcb *inp);
+void nstat_pcb_update_last_owner(struct inpcb *inp);
 
 
 void nstat_ifnet_threshold_reached(unsigned int ifindex);
@@ -1474,6 +1749,7 @@ typedef bool (userland_stats_request_vals_fn)(userland_stats_provider_context *c
     u_int32_t *ifflagsp,
     nstat_progress_digest *digestp,
     nstat_counts *countsp,
+    nstat_detailed_counts *detailed_countsp,
     void *metadatap);
 
 // Netstats can also request "extension" items, specified by the allowed_extensions flag
@@ -1534,6 +1810,7 @@ typedef void *nstat_context;            /* This is quoted by the external provid
 typedef bool (nstat_provider_request_vals_fn)(nstat_provider_context ctx,
     u_int32_t *ifflagsp,    /* Flags for being on cell/wifi etc, used for filtering */
     nstat_counts *countsp,  /* Counts to be filled in */
+    nstat_detailed_counts *detailsp,  /* Detailed Counts to be filled in */
     void *metadatap);       /* A descriptor for the particular provider */
 
 // Netstats can also request "extension" items, specified by the allowed_extensions flag

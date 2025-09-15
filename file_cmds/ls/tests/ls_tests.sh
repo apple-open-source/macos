@@ -994,10 +994,10 @@ badmtime_body()
 	# set the mtime on `foo`.  ls(1) will fill the timestamp field with
 	# question marks if localtime(3) ended up returning NULL.
 	echo "$badfile_volname" > $BADNAME_VOLNAME_FILE
-	atf_check -o not-empty hdiutil create -size 10m \
+	atf_check -e ignore -o not-empty hdiutil create -size 10m \
 	    -volname "$badfile_volname" -nospotlight -fs HFS+ -srcdir hfs_part \
 	    "$badfile_volname.dmg"
-	atf_check -o not-empty hdiutil attach -shadow test_shadow \
+	atf_check -e ignore -o not-empty hdiutil attach -shadow test_shadow \
 	    "$badfile_volname.dmg"
 
 	atf_check "$scriptdir"/touch_epoch /Volumes/"$badfile_volname"/foo

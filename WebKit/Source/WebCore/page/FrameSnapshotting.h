@@ -45,17 +45,20 @@ class LocalFrame;
 class Node;
 
 enum class SnapshotFlags : uint16_t {
-    ExcludeSelectionHighlighting = 1 << 0,
-    PaintSelectionOnly = 1 << 1,
-    InViewCoordinates = 1 << 2,
-    ForceBlackText = 1 << 3,
-    PaintSelectionAndBackgroundsOnly = 1 << 4,
-    PaintEverythingExcludingSelection = 1 << 5,
-    PaintWithIntegralScaleFactor = 1 << 6,
-    Shareable = 1 << 7,
-    Accelerated = 1 << 8,
-    ExcludeReplacedContent = 1 << 9,
-    PaintWith3xBaseScale = 1 << 10,
+    ExcludeSelectionHighlighting            = 1 << 0,
+    PaintSelectionOnly                      = 1 << 1,
+    InViewCoordinates                       = 1 << 2,
+    ForceBlackText                          = 1 << 3,
+    PaintSelectionAndBackgroundsOnly        = 1 << 4,
+    PaintEverythingExcludingSelection       = 1 << 5,
+    PaintWithIntegralScaleFactor            = 1 << 6,
+    Shareable                               = 1 << 7,
+    Accelerated                             = 1 << 8,
+    ExcludeReplacedContentExceptForIFrames  = 1 << 9,
+    PaintWith3xBaseScale                    = 1 << 10,
+    ExcludeText                             = 1 << 11,
+    FixedAndStickyLayersOnly                = 1 << 12,
+    DraggableElement                        = 1 << 13,
 };
 
 struct SnapshotOptions {
@@ -66,7 +69,7 @@ struct SnapshotOptions {
 
 WEBCORE_EXPORT RefPtr<ImageBuffer> snapshotFrameRect(LocalFrame&, const IntRect&, SnapshotOptions&&);
 RefPtr<ImageBuffer> snapshotFrameRectWithClip(LocalFrame&, const IntRect&, const Vector<FloatRect>& clipRects, SnapshotOptions&&);
-RefPtr<ImageBuffer> snapshotNode(LocalFrame&, Node&, SnapshotOptions&&);
+WEBCORE_EXPORT RefPtr<ImageBuffer> snapshotNode(LocalFrame&, Node&, SnapshotOptions&&);
 WEBCORE_EXPORT RefPtr<ImageBuffer> snapshotSelection(LocalFrame&, SnapshotOptions&&);
 
 Color estimatedBackgroundColorForRange(const SimpleRange&, const LocalFrame&);

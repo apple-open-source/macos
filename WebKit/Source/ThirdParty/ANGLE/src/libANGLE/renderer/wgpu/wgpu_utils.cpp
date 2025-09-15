@@ -6,6 +6,7 @@
 
 #include "libANGLE/renderer/wgpu/wgpu_utils.h"
 
+#include "common/log_utils.h"
 #include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/wgpu/ContextWgpu.h"
 #include "libANGLE/renderer/wgpu/DisplayWgpu.h"
@@ -22,40 +23,64 @@ DisplayWgpu *GetDisplay(const gl::Context *context)
     return contextWgpu->getDisplay();
 }
 
-wgpu::Device GetDevice(const gl::Context *context)
+const DawnProcTable *GetProcs(const gl::Context *context)
+{
+    DisplayWgpu *display = GetDisplay(context);
+    return display->getProcs();
+}
+
+const DawnProcTable *GetProcs(const ContextWgpu *context)
+{
+    DisplayWgpu *display = context->getDisplay();
+    return display->getProcs();
+}
+
+const angle::FeaturesWgpu &GetFeatures(const gl::Context *context)
+{
+    DisplayWgpu *display = GetDisplay(context);
+    return display->getFeatures();
+}
+
+const angle::FeaturesWgpu &GetFeatures(const ContextWgpu *context)
+{
+    DisplayWgpu *display = context->getDisplay();
+    return display->getFeatures();
+}
+
+webgpu::DeviceHandle GetDevice(const gl::Context *context)
 {
     DisplayWgpu *display = GetDisplay(context);
     return display->getDevice();
 }
 
-wgpu::Instance GetInstance(const gl::Context *context)
+webgpu::InstanceHandle GetInstance(const gl::Context *context)
 {
     DisplayWgpu *display = GetDisplay(context);
     return display->getInstance();
 }
 
-wgpu::RenderPassColorAttachment CreateNewClearColorAttachment(wgpu::Color clearValue,
+PackedRenderPassColorAttachment CreateNewClearColorAttachment(const gl::ColorF &clearValue,
                                                               uint32_t depthSlice,
-                                                              wgpu::TextureView textureView)
+                                                              TextureViewHandle textureView)
 {
-    wgpu::RenderPassColorAttachment colorAttachment;
+    PackedRenderPassColorAttachment colorAttachment;
     colorAttachment.view       = textureView;
     colorAttachment.depthSlice = depthSlice;
-    colorAttachment.loadOp     = wgpu::LoadOp::Clear;
-    colorAttachment.storeOp    = wgpu::StoreOp::Store;
+    colorAttachment.loadOp     = WGPULoadOp_Clear;
+    colorAttachment.storeOp    = WGPUStoreOp_Store;
     colorAttachment.clearValue = clearValue;
 
     return colorAttachment;
 }
 
-wgpu::RenderPassDepthStencilAttachment CreateNewDepthStencilAttachment(
+PackedRenderPassDepthStencilAttachment CreateNewDepthStencilAttachment(
     float depthClearValue,
     uint32_t stencilClearValue,
-    wgpu::TextureView textureView,
+    TextureViewHandle textureView,
     bool hasDepthValue,
     bool hasStencilValue)
 {
-    wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
+    PackedRenderPassDepthStencilAttachment depthStencilAttachment;
     depthStencilAttachment.view = textureView;
     // WebGPU requires that depth/stencil attachments have a load op if the correlated ReadOnly
     // value is set to false, so we make sure to set the value here to to support cases where only a
@@ -64,28 +89,28 @@ wgpu::RenderPassDepthStencilAttachment CreateNewDepthStencilAttachment(
     depthStencilAttachment.stencilReadOnly = !hasStencilValue;
     if (hasDepthValue)
     {
-        depthStencilAttachment.depthLoadOp     = wgpu::LoadOp::Clear;
-        depthStencilAttachment.depthStoreOp    = wgpu::StoreOp::Store;
+        depthStencilAttachment.depthLoadOp     = WGPULoadOp_Clear;
+        depthStencilAttachment.depthStoreOp    = WGPUStoreOp_Store;
         depthStencilAttachment.depthClearValue = depthClearValue;
     }
     if (hasStencilValue)
     {
-        depthStencilAttachment.stencilLoadOp     = wgpu::LoadOp::Clear;
-        depthStencilAttachment.stencilStoreOp    = wgpu::StoreOp::Store;
+        depthStencilAttachment.stencilLoadOp     = WGPULoadOp_Clear;
+        depthStencilAttachment.stencilStoreOp    = WGPUStoreOp_Store;
         depthStencilAttachment.stencilClearValue = stencilClearValue;
     }
 
     return depthStencilAttachment;
 }
 
-bool IsWgpuError(wgpu::WaitStatus waitStatus)
+bool IsWgpuError(WGPUWaitStatus waitStatus)
 {
-    return waitStatus != wgpu::WaitStatus::Success;
+    return waitStatus != WGPUWaitStatus_Success;
 }
 
-bool IsWgpuError(WGPUBufferMapAsyncStatus mapBufferStatus)
+bool IsWgpuError(WGPUMapAsyncStatus mapAsyncStatus)
 {
-    return mapBufferStatus != WGPUBufferMapAsyncStatus_Success;
+    return mapAsyncStatus != WGPUMapAsyncStatus_Success;
 }
 
 ClearValuesArray::ClearValuesArray() : mValues{}, mEnabled{} {}
@@ -105,7 +130,85 @@ gl::DrawBufferMask ClearValuesArray::getColorMask() const
     return gl::DrawBufferMask(mEnabled.bits() & kUnpackedColorBuffersMask);
 }
 
-void GenerateCaps(const wgpu::Limits &limitsWgpu,
+bool operator==(const PackedRenderPassColorAttachment &a, const PackedRenderPassColorAttachment &b)
+{
+    return std::tie(a.view, a.depthSlice, a.loadOp, a.storeOp, a.clearValue) ==
+           std::tie(b.view, b.depthSlice, b.loadOp, b.storeOp, b.clearValue);
+}
+
+bool operator==(const PackedRenderPassDepthStencilAttachment &a,
+                const PackedRenderPassDepthStencilAttachment &b)
+{
+    return std::tie(a.view, a.depthLoadOp, a.depthStoreOp, a.depthReadOnly, a.depthClearValue,
+                    a.stencilLoadOp, a.stencilStoreOp, a.stencilReadOnly, a.stencilClearValue) ==
+           std::tie(b.view, b.depthLoadOp, b.depthStoreOp, b.depthReadOnly, b.depthClearValue,
+                    b.stencilLoadOp, b.stencilStoreOp, b.stencilReadOnly, b.stencilClearValue);
+}
+
+bool operator==(const PackedRenderPassDescriptor &a, const PackedRenderPassDescriptor &b)
+{
+    return std::tie(a.colorAttachments, a.depthStencilAttachment) ==
+           std::tie(b.colorAttachments, b.depthStencilAttachment);
+}
+
+bool operator!=(const PackedRenderPassDescriptor &a, const PackedRenderPassDescriptor &b)
+{
+    return !(a == b);
+}
+
+RenderPassEncoderHandle CreateRenderPass(const DawnProcTable *wgpu,
+                                         webgpu::CommandEncoderHandle commandEncoder,
+                                         const webgpu::PackedRenderPassDescriptor &packedDesc)
+{
+    WGPURenderPassDescriptor renderPassDesc = WGPU_RENDER_PASS_DESCRIPTOR_INIT;
+
+    angle::FixedVector<WGPURenderPassColorAttachment, gl::IMPLEMENTATION_MAX_DRAW_BUFFERS>
+        colorAttachments;
+    for (size_t i = 0; i < packedDesc.colorAttachments.size(); i++)
+    {
+        const webgpu::PackedRenderPassColorAttachment &packedColorAttachment =
+            packedDesc.colorAttachments[i];
+        WGPURenderPassColorAttachment colorAttachment = WGPU_RENDER_PASS_COLOR_ATTACHMENT_INIT;
+
+        colorAttachment.view          = packedColorAttachment.view.get();
+        colorAttachment.depthSlice    = packedColorAttachment.depthSlice;
+        colorAttachment.resolveTarget = nullptr;
+        colorAttachment.loadOp        = packedColorAttachment.loadOp;
+        colorAttachment.storeOp       = packedColorAttachment.storeOp;
+        colorAttachment.clearValue    = {
+            packedColorAttachment.clearValue.red, packedColorAttachment.clearValue.green,
+            packedColorAttachment.clearValue.blue, packedColorAttachment.clearValue.alpha};
+
+        colorAttachments.push_back(colorAttachment);
+    }
+    renderPassDesc.colorAttachments     = colorAttachments.data();
+    renderPassDesc.colorAttachmentCount = colorAttachments.size();
+
+    WGPURenderPassDepthStencilAttachment depthStencilAttachment =
+        WGPU_RENDER_PASS_DEPTH_STENCIL_ATTACHMENT_INIT;
+    if (packedDesc.depthStencilAttachment.has_value())
+    {
+        const webgpu::PackedRenderPassDepthStencilAttachment &packedDepthStencilAttachment =
+            packedDesc.depthStencilAttachment.value();
+
+        depthStencilAttachment.view              = packedDepthStencilAttachment.view.get();
+        depthStencilAttachment.depthLoadOp       = packedDepthStencilAttachment.depthLoadOp;
+        depthStencilAttachment.depthStoreOp      = packedDepthStencilAttachment.depthStoreOp;
+        depthStencilAttachment.depthReadOnly     = packedDepthStencilAttachment.depthReadOnly;
+        depthStencilAttachment.depthClearValue   = packedDepthStencilAttachment.depthClearValue;
+        depthStencilAttachment.stencilLoadOp     = packedDepthStencilAttachment.stencilLoadOp;
+        depthStencilAttachment.stencilStoreOp    = packedDepthStencilAttachment.stencilStoreOp;
+        depthStencilAttachment.stencilReadOnly   = packedDepthStencilAttachment.stencilReadOnly;
+        depthStencilAttachment.stencilClearValue = packedDepthStencilAttachment.stencilClearValue;
+
+        renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
+    }
+
+    return RenderPassEncoderHandle::Acquire(
+        wgpu, wgpu->commandEncoderBeginRenderPass(commandEncoder.get(), &renderPassDesc));
+}
+
+void GenerateCaps(const WGPULimits &limitsWgpu,
                   gl::Caps *glCaps,
                   gl::TextureCapsMap *glTextureCapsMap,
                   gl::Extensions *glExtensions,
@@ -126,6 +229,11 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
 
     glExtensions->textureStorageEXT = true;
     glExtensions->rgb8Rgba8OES      = true;
+
+    glExtensions->EGLImageOES                  = true;
+    glExtensions->EGLImageExternalOES          = true;
+    glExtensions->EGLImageExternalEssl3OES     = true;
+    glExtensions->EGLImageExternalWrapModesEXT = true;
 
     // OpenGL ES caps
     glCaps->maxElementIndex       = std::numeric_limits<GLuint>::max() - 1;
@@ -162,8 +270,8 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
     glCaps->maxVertexAttribStride =
         rx::LimitToInt(std::min(limitsWgpu.maxVertexBufferArrayStride,
                                 static_cast<uint32_t>(std::numeric_limits<uint16_t>::max())));
-    glCaps->maxElementsIndices    = std::numeric_limits<GLint>::max();
-    glCaps->maxElementsVertices   = std::numeric_limits<GLint>::max();
+    glCaps->maxElementsIndices  = std::numeric_limits<GLint>::max();
+    glCaps->maxElementsVertices = std::numeric_limits<GLint>::max();
     glCaps->vertexHighpFloat.setIEEEFloat();
     glCaps->vertexMediumpFloat.setIEEEHalfFloat();
     glCaps->vertexLowpFloat.setIEEEHalfFloat();
@@ -212,7 +320,7 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
         glCaps->maxCombinedShaderUniformComponents[shaderType] = maxCombinedUniformComponents;
     }
 
-    const GLint maxVarryingComponents = rx::LimitToInt(limitsWgpu.maxInterStageShaderComponents);
+    const GLint maxVaryingComponents = rx::LimitToInt(limitsWgpu.maxInterStageShaderVariables * 4);
 
     glCaps->maxVertexAttributes = rx::LimitToInt(
         limitsWgpu.maxVertexBuffers);  // WebGPU has maxVertexBuffers and maxVertexAttributes but
@@ -222,10 +330,10 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
         maxUniformVectors;  // Uniforms are implemented using a uniform buffer, so the max number of
                             // uniforms we can support is the max buffer range divided by the size
                             // of a single uniform (4X float).
-    glCaps->maxVertexOutputComponents = maxVarryingComponents;
+    glCaps->maxVertexOutputComponents = maxVaryingComponents;
 
     glCaps->maxFragmentUniformVectors     = maxUniformVectors;
-    glCaps->maxFragmentInputComponents    = maxVarryingComponents;
+    glCaps->maxFragmentInputComponents    = maxVaryingComponents;
     glCaps->minProgramTextureGatherOffset = 0;
     glCaps->maxProgramTextureGatherOffset = 0;
     glCaps->minProgramTexelOffset         = -8;
@@ -244,7 +352,7 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
     glCaps->uniformBufferOffsetAlignment =
         rx::LimitToInt(limitsWgpu.minUniformBufferOffsetAlignment);
     glCaps->maxCombinedUniformBlocks = glCaps->maxUniformBufferBindings;
-    glCaps->maxVaryingComponents     = maxVarryingComponents;
+    glCaps->maxVaryingComponents     = maxVaryingComponents;
     glCaps->maxVaryingVectors        = rx::LimitToInt(limitsWgpu.maxInterStageShaderVariables);
     glCaps->maxCombinedTextureImageUnits =
         rx::LimitToInt(limitsWgpu.maxSamplersPerShaderStage * kShaderStageCount);
@@ -291,16 +399,12 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
     eglExtensions->image                              = true;
     eglExtensions->imageBase                          = true;
     eglExtensions->glTexture2DImage                   = true;
-    eglExtensions->glTextureCubemapImage              = true;
-    eglExtensions->glTexture3DImage                   = true;
     eglExtensions->glRenderbufferImage                = true;
     eglExtensions->getAllProcAddresses                = true;
     eglExtensions->noConfigContext                    = true;
-    eglExtensions->directComposition                  = true;
     eglExtensions->createContextNoError               = true;
     eglExtensions->createContextWebGLCompatibility    = true;
     eglExtensions->createContextBindGeneratesResource = true;
-    eglExtensions->swapBuffersWithDamage              = true;
     eglExtensions->pixelFormatFloat                   = true;
     eglExtensions->surfacelessContext                 = true;
     eglExtensions->displayTextureShareGroup           = true;
@@ -308,14 +412,15 @@ void GenerateCaps(const wgpu::Limits &limitsWgpu,
     eglExtensions->createContextClientArrays          = true;
     eglExtensions->programCacheControlANGLE           = true;
     eglExtensions->robustResourceInitializationANGLE  = true;
+    eglExtensions->webgpuTextureClientBuffer          = true;
 }
 
-bool IsStripPrimitiveTopology(wgpu::PrimitiveTopology topology)
+bool IsStripPrimitiveTopology(WGPUPrimitiveTopology topology)
 {
     switch (topology)
     {
-        case wgpu::PrimitiveTopology::LineStrip:
-        case wgpu::PrimitiveTopology::TriangleStrip:
+        case WGPUPrimitiveTopology_LineStrip:
+        case WGPUPrimitiveTopology_TriangleStrip:
             return true;
 
         default:
@@ -323,10 +428,13 @@ bool IsStripPrimitiveTopology(wgpu::PrimitiveTopology topology)
     }
 }
 
-ErrorScope::ErrorScope(wgpu::Instance instance, wgpu::Device device, wgpu::ErrorFilter errorType)
-    : mInstance(instance), mDevice(device)
+ErrorScope::ErrorScope(const DawnProcTable *procTable,
+                       webgpu::InstanceHandle instance,
+                       webgpu::DeviceHandle device,
+                       WGPUErrorFilter errorType)
+    : mProcTable(procTable), mInstance(instance), mDevice(device)
 {
-    mDevice.PushErrorScope(errorType);
+    mProcTable->devicePushErrorScope(mDevice.get(), errorType);
     mActive = true;
 }
 
@@ -346,43 +454,72 @@ angle::Result ErrorScope::PopScope(ContextWgpu *context,
     }
     mActive = false;
 
-    bool hadError  = false;
-    wgpu::Future f = mDevice.PopErrorScope(
-        wgpu::CallbackMode::WaitAnyOnly,
-        [context, file, function, line, &hadError](wgpu::PopErrorScopeStatus status,
-                                                   wgpu::ErrorType type, char const *message) {
-            if (type == wgpu::ErrorType::NoError)
-            {
-                return;
-            }
+    struct PopScopeContext
+    {
+        ContextWgpu *context = nullptr;
+        const char *file     = nullptr;
+        const char *function = nullptr;
+        unsigned int line    = 0;
+        bool hadError        = false;
+    };
 
-            if (context)
-            {
-                ASSERT(file);
-                ASSERT(function);
-                context->handleError(GL_INVALID_OPERATION, message, file, function, line);
-            }
-            else
-            {
-                ERR() << "Unhandled WebGPU error: " << message;
-            }
-            hadError = true;
-        });
-    mInstance.WaitAny(f, -1);
+    WGPUPopErrorScopeCallbackInfo callbackInfo = WGPU_POP_ERROR_SCOPE_CALLBACK_INFO_INIT;
+    callbackInfo.mode                          = WGPUCallbackMode_AllowSpontaneous;
+    callbackInfo.callback = [](WGPUPopErrorScopeStatus status, WGPUErrorType type,
+                               struct WGPUStringView message, void *userdata1, void *userdata2) {
+        PopScopeContext *ctx = reinterpret_cast<PopScopeContext *>(userdata1);
+        ASSERT(userdata2 == nullptr);
 
-    return hadError ? angle::Result::Stop : angle::Result::Continue;
+        if (type == WGPUErrorType_NoError)
+        {
+            return;
+        }
+
+        if (ctx)
+        {
+            ASSERT(ctx->file);
+            ASSERT(ctx->function);
+            std::string msgStr(message.data, message.length);
+            ctx->context->handleError(GL_INVALID_OPERATION, msgStr.c_str(), ctx->file,
+                                      ctx->function, ctx->line);
+            ctx->hadError = true;
+        }
+        else
+        {
+            ERR() << "Unhandled WebGPU error: " << std::string(message.data, message.length);
+        }
+    };
+
+    const angle::FeaturesWgpu &features = GetFeatures(context);
+    if (features.avoidWaitAny.enabled)
+    {
+        // End the error scope but don't wait on it. The error messages will be printed later.
+        mProcTable->devicePopErrorScope(mDevice.get(), callbackInfo);
+        return angle::Result::Continue;
+    }
+    else
+    {
+        PopScopeContext popScopeContext{context, file, function, line, false};
+        callbackInfo.userdata1 = &popScopeContext;
+
+        WGPUFutureWaitInfo future = WGPU_FUTURE_WAIT_INFO_INIT;
+        future.future             = mProcTable->devicePopErrorScope(mDevice.get(), callbackInfo);
+        mProcTable->instanceWaitAny(mInstance.get(), 1, &future, -1);
+
+        return popScopeContext.hadError ? angle::Result::Stop : angle::Result::Continue;
+    }
 }
 
 }  // namespace webgpu
 
 namespace wgpu_gl
 {
-gl::LevelIndex getLevelIndex(webgpu::LevelIndex levelWgpu, gl::LevelIndex baseLevel)
+gl::LevelIndex GetLevelIndex(webgpu::LevelIndex levelWgpu, gl::LevelIndex baseLevel)
 {
     return gl::LevelIndex(levelWgpu.get() + baseLevel.get());
 }
 
-gl::Extents getExtents(wgpu::Extent3D wgpuExtent)
+gl::Extents GetExtents(WGPUExtent3D wgpuExtent)
 {
     gl::Extents glExtent;
     glExtent.width  = wgpuExtent.width;
@@ -400,184 +537,444 @@ webgpu::LevelIndex getLevelIndex(gl::LevelIndex levelGl, gl::LevelIndex baseLeve
     return webgpu::LevelIndex(levelGl.get() - baseLevel.get());
 }
 
-wgpu::Extent3D getExtent3D(const gl::Extents &glExtent)
+WGPUExtent3D GetExtent3D(const gl::Extents &glExtent)
 {
-    wgpu::Extent3D wgpuExtent;
+    WGPUExtent3D wgpuExtent       = WGPU_EXTENT_3D_INIT;
     wgpuExtent.width              = glExtent.width;
     wgpuExtent.height             = glExtent.height;
     wgpuExtent.depthOrArrayLayers = glExtent.depth;
     return wgpuExtent;
 }
 
-wgpu::PrimitiveTopology GetPrimitiveTopology(gl::PrimitiveMode mode)
+WGPUPrimitiveTopology GetPrimitiveTopology(gl::PrimitiveMode mode)
 {
     switch (mode)
     {
         case gl::PrimitiveMode::Points:
-            return wgpu::PrimitiveTopology::PointList;
+            return WGPUPrimitiveTopology_PointList;
         case gl::PrimitiveMode::Lines:
-            return wgpu::PrimitiveTopology::LineList;
+            return WGPUPrimitiveTopology_LineList;
         case gl::PrimitiveMode::LineLoop:
-            return wgpu::PrimitiveTopology::LineStrip;  // Emulated
+            return WGPUPrimitiveTopology_LineStrip;  // Emulated
         case gl::PrimitiveMode::LineStrip:
-            return wgpu::PrimitiveTopology::LineStrip;
+            return WGPUPrimitiveTopology_LineStrip;
         case gl::PrimitiveMode::Triangles:
-            return wgpu::PrimitiveTopology::TriangleList;
+            return WGPUPrimitiveTopology_TriangleList;
         case gl::PrimitiveMode::TriangleStrip:
-            return wgpu::PrimitiveTopology::TriangleStrip;
+            return WGPUPrimitiveTopology_TriangleStrip;
         case gl::PrimitiveMode::TriangleFan:
             UNIMPLEMENTED();
-            return wgpu::PrimitiveTopology::TriangleList;  // Emulated
+            return WGPUPrimitiveTopology_TriangleList;  // Emulated
         default:
             UNREACHABLE();
-            return wgpu::PrimitiveTopology::Undefined;
+            return WGPUPrimitiveTopology_Undefined;
     }
 }
 
-wgpu::IndexFormat GetIndexFormat(gl::DrawElementsType drawElementsType)
+WGPUIndexFormat GetIndexFormat(gl::DrawElementsType drawElementsType)
 {
     switch (drawElementsType)
     {
         case gl::DrawElementsType::UnsignedByte:
-            UNIMPLEMENTED();
-            return wgpu::IndexFormat::Uint16;  // Emulated
+            return WGPUIndexFormat_Uint16;  // Emulated
         case gl::DrawElementsType::UnsignedShort:
-            return wgpu::IndexFormat::Uint16;
+            return WGPUIndexFormat_Uint16;
         case gl::DrawElementsType::UnsignedInt:
-            return wgpu::IndexFormat::Uint32;
+            return WGPUIndexFormat_Uint32;
 
         default:
             UNREACHABLE();
-            return wgpu::IndexFormat::Undefined;
+            return WGPUIndexFormat_Undefined;
     }
 }
 
-wgpu::FrontFace GetFrontFace(GLenum frontFace)
+WGPUFrontFace GetFrontFace(GLenum frontFace)
 {
     switch (frontFace)
     {
         case GL_CW:
-            return wgpu::FrontFace::CW;
+            return WGPUFrontFace_CW;
         case GL_CCW:
-            return wgpu::FrontFace::CCW;
+            return WGPUFrontFace_CCW;
 
         default:
             UNREACHABLE();
-            return wgpu::FrontFace::Undefined;
+            return WGPUFrontFace_Undefined;
     }
 }
 
-wgpu::CullMode GetCullMode(gl::CullFaceMode mode, bool cullFaceEnabled)
+WGPUCullMode GetCullMode(gl::CullFaceMode mode, bool cullFaceEnabled)
 {
     if (!cullFaceEnabled)
     {
-        return wgpu::CullMode::None;
+        return WGPUCullMode_None;
     }
 
     switch (mode)
     {
         case gl::CullFaceMode::Front:
-            return wgpu::CullMode::Front;
+            return WGPUCullMode_Front;
         case gl::CullFaceMode::Back:
-            return wgpu::CullMode::Back;
+            return WGPUCullMode_Back;
         case gl::CullFaceMode::FrontAndBack:
             UNIMPLEMENTED();
-            return wgpu::CullMode::None;  // Emulated
+            return WGPUCullMode_None;  // Emulated
         default:
             UNREACHABLE();
-            return wgpu::CullMode::None;
+            return WGPUCullMode_None;
     }
 }
 
-wgpu::ColorWriteMask GetColorWriteMask(bool r, bool g, bool b, bool a)
+WGPUColorWriteMask GetColorWriteMask(bool r, bool g, bool b, bool a)
 {
-    return (r ? wgpu::ColorWriteMask::Red : wgpu::ColorWriteMask::None) |
-           (g ? wgpu::ColorWriteMask::Green : wgpu::ColorWriteMask::None) |
-           (b ? wgpu::ColorWriteMask::Blue : wgpu::ColorWriteMask::None) |
-           (a ? wgpu::ColorWriteMask::Alpha : wgpu::ColorWriteMask::None);
+    return (r ? WGPUColorWriteMask_Red : WGPUColorWriteMask_None) |
+           (g ? WGPUColorWriteMask_Green : WGPUColorWriteMask_None) |
+           (b ? WGPUColorWriteMask_Blue : WGPUColorWriteMask_None) |
+           (a ? WGPUColorWriteMask_Alpha : WGPUColorWriteMask_None);
 }
 
-wgpu::TextureDimension getWgpuTextureDimension(gl::TextureType glTextureType)
+WGPUBlendFactor GetBlendFactor(gl::BlendFactorType blendFactor)
 {
-    wgpu::TextureDimension dimension = {};
-    switch (glTextureType)
+    switch (blendFactor)
+    {
+        case gl::BlendFactorType::Zero:
+            return WGPUBlendFactor_Zero;
+
+        case gl::BlendFactorType::One:
+            return WGPUBlendFactor_One;
+
+        case gl::BlendFactorType::SrcColor:
+            return WGPUBlendFactor_Src;
+
+        case gl::BlendFactorType::OneMinusSrcColor:
+            return WGPUBlendFactor_OneMinusSrc;
+
+        case gl::BlendFactorType::SrcAlpha:
+            return WGPUBlendFactor_SrcAlpha;
+
+        case gl::BlendFactorType::OneMinusSrcAlpha:
+            return WGPUBlendFactor_OneMinusSrcAlpha;
+
+        case gl::BlendFactorType::DstAlpha:
+            return WGPUBlendFactor_DstAlpha;
+
+        case gl::BlendFactorType::OneMinusDstAlpha:
+            return WGPUBlendFactor_OneMinusDstAlpha;
+
+        case gl::BlendFactorType::DstColor:
+            return WGPUBlendFactor_Dst;
+
+        case gl::BlendFactorType::OneMinusDstColor:
+            return WGPUBlendFactor_OneMinusDst;
+
+        case gl::BlendFactorType::SrcAlphaSaturate:
+            return WGPUBlendFactor_SrcAlphaSaturated;
+
+        case gl::BlendFactorType::ConstantColor:
+            return WGPUBlendFactor_Constant;
+
+        case gl::BlendFactorType::OneMinusConstantColor:
+            return WGPUBlendFactor_OneMinusConstant;
+
+        case gl::BlendFactorType::ConstantAlpha:
+            UNIMPLEMENTED();
+            return WGPUBlendFactor_Undefined;
+
+        case gl::BlendFactorType::OneMinusConstantAlpha:
+            UNIMPLEMENTED();
+            return WGPUBlendFactor_Undefined;
+
+        case gl::BlendFactorType::Src1Alpha:
+            return WGPUBlendFactor_Src1Alpha;
+
+        case gl::BlendFactorType::Src1Color:
+            return WGPUBlendFactor_Src1;
+
+        case gl::BlendFactorType::OneMinusSrc1Color:
+            return WGPUBlendFactor_OneMinusSrc1;
+
+        case gl::BlendFactorType::OneMinusSrc1Alpha:
+            return WGPUBlendFactor_OneMinusSrc1Alpha;
+
+        default:
+            UNREACHABLE();
+            return WGPUBlendFactor_Undefined;
+    }
+}
+
+WGPUBlendOperation GetBlendEquation(gl::BlendEquationType blendEquation)
+{
+    switch (blendEquation)
+    {
+        case gl::BlendEquationType::Add:
+            return WGPUBlendOperation_Add;
+
+        case gl::BlendEquationType::Min:
+            return WGPUBlendOperation_Min;
+
+        case gl::BlendEquationType::Max:
+            return WGPUBlendOperation_Max;
+
+        case gl::BlendEquationType::Subtract:
+            return WGPUBlendOperation_Subtract;
+
+        case gl::BlendEquationType::ReverseSubtract:
+            return WGPUBlendOperation_ReverseSubtract;
+
+        case gl::BlendEquationType::Multiply:
+        case gl::BlendEquationType::Screen:
+        case gl::BlendEquationType::Overlay:
+        case gl::BlendEquationType::Darken:
+        case gl::BlendEquationType::Lighten:
+        case gl::BlendEquationType::Colordodge:
+        case gl::BlendEquationType::Colorburn:
+        case gl::BlendEquationType::Hardlight:
+        case gl::BlendEquationType::Softlight:
+        case gl::BlendEquationType::Unused2:
+        case gl::BlendEquationType::Difference:
+        case gl::BlendEquationType::Unused3:
+        case gl::BlendEquationType::Exclusion:
+        case gl::BlendEquationType::HslHue:
+        case gl::BlendEquationType::HslSaturation:
+        case gl::BlendEquationType::HslColor:
+        case gl::BlendEquationType::HslLuminosity:
+            // EXT_blend_equation_advanced
+            UNIMPLEMENTED();
+            return WGPUBlendOperation_Undefined;
+
+        default:
+            UNREACHABLE();
+            return WGPUBlendOperation_Undefined;
+    }
+}
+
+WGPUTextureViewDimension GetWgpuTextureViewDimension(gl::TextureType textureType)
+{
+    switch (textureType)
     {
         case gl::TextureType::_2D:
         case gl::TextureType::_2DMultisample:
+            return WGPUTextureViewDimension_2D;
+        case gl::TextureType::_2DArray:
+        case gl::TextureType::_2DMultisampleArray:
+            return WGPUTextureViewDimension_2DArray;
+        case gl::TextureType::_3D:
+            return WGPUTextureViewDimension_3D;
+        case gl::TextureType::CubeMap:
+            return WGPUTextureViewDimension_Cube;
+        case gl::TextureType::CubeMapArray:
+            return WGPUTextureViewDimension_CubeArray;
+        default:
+            UNIMPLEMENTED();
+            return WGPUTextureViewDimension_Undefined;
+    }
+}
+
+WGPUTextureDimension GetWgpuTextureDimension(gl::TextureType glTextureType)
+{
+    switch (glTextureType)
+    {
+        // See https://www.w3.org/TR/webgpu/#dom-gputexture-createview.
+        case gl::TextureType::_2D:
+        case gl::TextureType::_2DArray:
+        case gl::TextureType::_2DMultisample:
+        case gl::TextureType::_2DMultisampleArray:
+        case gl::TextureType::CubeMap:
+        case gl::TextureType::CubeMapArray:
         case gl::TextureType::Rectangle:
         case gl::TextureType::External:
         case gl::TextureType::Buffer:
-            dimension = wgpu::TextureDimension::e2D;
-            break;
-        case gl::TextureType::_2DArray:
-        case gl::TextureType::_2DMultisampleArray:
+            return WGPUTextureDimension_2D;
         case gl::TextureType::_3D:
-        case gl::TextureType::CubeMap:
-        case gl::TextureType::CubeMapArray:
         case gl::TextureType::VideoImage:
-            dimension = wgpu::TextureDimension::e3D;
-            break;
+            return WGPUTextureDimension_3D;
         default:
-            break;
+            UNREACHABLE();
+            return WGPUTextureDimension_Undefined;
     }
-    return dimension;
 }
 
-wgpu::CompareFunction GetCompareFunc(const GLenum glCompareFunc, bool testEnabled)
+WGPUCompareFunction GetCompareFunc(const GLenum glCompareFunc, bool testEnabled)
 {
     if (!testEnabled)
     {
-        return wgpu::CompareFunction::Always;
+        return WGPUCompareFunction_Always;
     }
 
     switch (glCompareFunc)
     {
         case GL_NEVER:
-            return wgpu::CompareFunction::Never;
+            return WGPUCompareFunction_Never;
         case GL_LESS:
-            return wgpu::CompareFunction::Less;
+            return WGPUCompareFunction_Less;
         case GL_EQUAL:
-            return wgpu::CompareFunction::Equal;
+            return WGPUCompareFunction_Equal;
         case GL_LEQUAL:
-            return wgpu::CompareFunction::LessEqual;
+            return WGPUCompareFunction_LessEqual;
         case GL_GREATER:
-            return wgpu::CompareFunction::Greater;
+            return WGPUCompareFunction_Greater;
         case GL_NOTEQUAL:
-            return wgpu::CompareFunction::NotEqual;
+            return WGPUCompareFunction_NotEqual;
         case GL_GEQUAL:
-            return wgpu::CompareFunction::GreaterEqual;
+            return WGPUCompareFunction_GreaterEqual;
         case GL_ALWAYS:
-            return wgpu::CompareFunction::Always;
+            return WGPUCompareFunction_Always;
         default:
             UNREACHABLE();
-            return wgpu::CompareFunction::Always;
+            return WGPUCompareFunction_Always;
     }
 }
 
-wgpu::StencilOperation getStencilOp(const GLenum glStencilOp)
+WGPUTextureSampleType GetTextureSampleType(gl::SamplerFormat samplerFormat)
+{
+    switch (samplerFormat)
+    {
+        case gl::SamplerFormat::Float:
+            return WGPUTextureSampleType_Float;
+        case gl::SamplerFormat::Unsigned:
+            return WGPUTextureSampleType_Uint;
+        case gl::SamplerFormat::Signed:
+            return WGPUTextureSampleType_Sint;
+        case gl::SamplerFormat::Shadow:
+            return WGPUTextureSampleType_Depth;
+        default:
+            UNIMPLEMENTED();
+            return WGPUTextureSampleType_Undefined;
+    }
+}
+
+WGPUStencilOperation GetStencilOp(const GLenum glStencilOp)
 {
     switch (glStencilOp)
     {
         case GL_KEEP:
-            return wgpu::StencilOperation::Keep;
+            return WGPUStencilOperation_Keep;
         case GL_ZERO:
-            return wgpu::StencilOperation::Zero;
+            return WGPUStencilOperation_Zero;
         case GL_REPLACE:
-            return wgpu::StencilOperation::Replace;
+            return WGPUStencilOperation_Replace;
         case GL_INCR:
-            return wgpu::StencilOperation::IncrementClamp;
+            return WGPUStencilOperation_IncrementClamp;
         case GL_DECR:
-            return wgpu::StencilOperation::DecrementClamp;
+            return WGPUStencilOperation_DecrementClamp;
         case GL_INCR_WRAP:
-            return wgpu::StencilOperation::IncrementWrap;
+            return WGPUStencilOperation_IncrementWrap;
         case GL_DECR_WRAP:
-            return wgpu::StencilOperation::DecrementWrap;
+            return WGPUStencilOperation_DecrementWrap;
         case GL_INVERT:
-            return wgpu::StencilOperation::Invert;
+            return WGPUStencilOperation_Invert;
         default:
             UNREACHABLE();
-            return wgpu::StencilOperation::Keep;
+            return WGPUStencilOperation_Keep;
     }
+}
+
+WGPUFilterMode GetFilter(const GLenum filter)
+{
+    switch (filter)
+    {
+        case GL_LINEAR_MIPMAP_LINEAR:
+        case GL_LINEAR_MIPMAP_NEAREST:
+        case GL_LINEAR:
+            return WGPUFilterMode_Linear;
+        case GL_NEAREST_MIPMAP_LINEAR:
+        case GL_NEAREST_MIPMAP_NEAREST:
+        case GL_NEAREST:
+            return WGPUFilterMode_Nearest;
+        default:
+            UNREACHABLE();
+            return WGPUFilterMode_Undefined;
+    }
+}
+
+WGPUMipmapFilterMode GetSamplerMipmapMode(const GLenum filter)
+{
+    switch (filter)
+    {
+        case GL_LINEAR_MIPMAP_LINEAR:
+        case GL_NEAREST_MIPMAP_LINEAR:
+            return WGPUMipmapFilterMode_Linear;
+        // GL_LINEAR and GL_NEAREST do not map directly to WebGPU but can be easily emulated,
+        // see below.
+        case GL_LINEAR:
+        case GL_NEAREST:
+        case GL_NEAREST_MIPMAP_NEAREST:
+        case GL_LINEAR_MIPMAP_NEAREST:
+            return WGPUMipmapFilterMode_Nearest;
+        default:
+            UNREACHABLE();
+            return WGPUMipmapFilterMode_Undefined;
+    }
+}
+
+WGPUAddressMode GetSamplerAddressMode(const GLenum wrap)
+{
+    switch (wrap)
+    {
+        case GL_REPEAT:
+            return WGPUAddressMode_Repeat;
+        case GL_MIRRORED_REPEAT:
+            return WGPUAddressMode_MirrorRepeat;
+        case GL_CLAMP_TO_BORDER:
+            // Not in WebGPU and not available in ES 3.0 or before.
+            UNIMPLEMENTED();
+            return WGPUAddressMode_ClampToEdge;
+        case GL_CLAMP_TO_EDGE:
+            return WGPUAddressMode_ClampToEdge;
+        case GL_MIRROR_CLAMP_TO_EDGE_EXT:
+            // Not in WebGPU and not available in ES 3.0 or before.
+            return WGPUAddressMode_ClampToEdge;
+        default:
+            UNREACHABLE();
+            return WGPUAddressMode_Undefined;
+    }
+}
+
+WGPUCompareFunction GetSamplerCompareFunc(const gl::SamplerState *samplerState)
+{
+    if (samplerState->getCompareMode() != GL_COMPARE_REF_TO_TEXTURE)
+    {
+        return WGPUCompareFunction_Undefined;
+    }
+
+    return GetCompareFunc(samplerState->getCompareFunc(), /*testEnabled=*/true);
+}
+
+WGPUSamplerDescriptor GetWgpuSamplerDesc(const gl::SamplerState *samplerState)
+{
+    WGPUMipmapFilterMode wgpuMipmapFilterMode = GetSamplerMipmapMode(samplerState->getMinFilter());
+    // Negative values don't seem to make a difference to the behavior of GLES, a min lod of 0.0
+    // functions the same.
+    float wgpuLodMinClamp =
+        gl::clamp(samplerState->getMinLod(), webgpu::kWGPUMinLod, webgpu::kWGPUMaxLod);
+    float wgpuLodMaxClamp =
+        gl::clamp(samplerState->getMaxLod(), webgpu::kWGPUMinLod, webgpu::kWGPUMaxLod);
+
+    if (!gl::IsMipmapFiltered(samplerState->getMinFilter()))
+    {
+        // Similarly to Vulkan, GL_NEAREST and GL_LINEAR do not map directly to WGPU, so
+        // they must be emulated (See "Mapping of OpenGL to Vulkan filter modes")
+        wgpuMipmapFilterMode = WGPUMipmapFilterMode_Nearest;
+        wgpuLodMinClamp      = 0.0f;
+        wgpuLodMaxClamp      = 0.25f;
+    }
+
+    WGPUSamplerDescriptor samplerDesc = WGPU_SAMPLER_DESCRIPTOR_INIT;
+    samplerDesc.addressModeU = GetSamplerAddressMode(samplerState->getWrapS());
+    samplerDesc.addressModeV = GetSamplerAddressMode(samplerState->getWrapT());
+    samplerDesc.addressModeW = GetSamplerAddressMode(samplerState->getWrapR());
+    samplerDesc.magFilter    = GetFilter(samplerState->getMagFilter());
+    samplerDesc.minFilter    = GetFilter(samplerState->getMinFilter());
+    samplerDesc.mipmapFilter = wgpuMipmapFilterMode;
+    samplerDesc.lodMinClamp  = wgpuLodMinClamp;
+    samplerDesc.lodMaxClamp  = wgpuLodMaxClamp;
+    samplerDesc.compare      = GetSamplerCompareFunc(samplerState);
+    // TODO(anglebug.com/389145696): there's no way to get the supported maxAnisotropy value from
+    // WGPU, so there's no way to communicate to the GL client whether anisotropy is even supported
+    // as an extension, let alone what the max value is.
+    samplerDesc.maxAnisotropy = static_cast<uint16_t>(std::floor(samplerState->getMaxAnisotropy()));
+
+    return samplerDesc;
 }
 
 uint32_t GetFirstIndexForDrawCall(gl::DrawElementsType indexType, const void *indices)

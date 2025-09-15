@@ -336,6 +336,20 @@ typedef enum {
 	REASON_PMGR_SYSTEM,
 } processor_reason_t;
 
+/*
+ * Internal validation policy for resolving a proc ref from a proc_ident
+ */
+enum proc_ident_validation_policy {
+	// Use all identifier metadata to validate the lookup
+	IDENT_VALIDATION_PROC_EXACT = 0b0000,
+	// The process may begin to exit, or has exited before the lookup,
+	// meaning proc_find() may fail.
+	IDENT_VALIDATION_PROC_MAY_EXIT = 0b0001,
+	// Use only p_uniqueid for validation, since p_idversion is allowed
+	// to increment across exec
+	IDENT_VALIDATION_PROC_MAY_EXEC = 0b0010,
+};
+typedef uint8_t proc_ident_validation_policy_t;
 
 /*
  * struct sched_clutch_edge

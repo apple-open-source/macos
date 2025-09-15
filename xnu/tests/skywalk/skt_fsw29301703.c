@@ -86,7 +86,7 @@ skt_fsw29301703_common(int nchannels)
 	/* must fail without user packet pool set (flow switch) */
 	assert(sktu_channel_create_extended(fsw_instance, 2,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
 
 	/*
 	 * Open many channels from userland to the flowswitch.
@@ -95,7 +95,7 @@ skt_fsw29301703_common(int nchannels)
 	for (int i = 0; i < sizeof(channels) / sizeof(channels[0]); i++) {
 		channels[i] = sktu_channel_create_extended(fsw_instance, i + 2,
 		    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-		    -1, -1, -1, -1, -1, -1, 1, 1, -1, -1);
+		    -1, -1, -1, -1, -1, 1, 1, -1, -1);
 		if (!channels[i]) {
 			SKT_LOG("failed on channel %d errno %d\n", 1 + i, errno);
 			result = 1;

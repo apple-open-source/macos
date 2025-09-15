@@ -23,6 +23,7 @@
 #if USE(GSTREAMER_WEBRTC)
 
 #include "GStreamerCommon.h"
+#include "GStreamerWebRTCCommon.h"
 #include <gst/rtp/rtp.h>
 #include <wtf/PrintStream.h>
 #include <wtf/glib/WTFGType.h>
@@ -62,7 +63,7 @@ GStreamerRTPPacketizer::GStreamerRTPPacketizer(GRefPtr<GstElement>&& encoder, GR
     m_stats.reset(gst_structure_new_empty("stats"));
 
     if (m_payloadType)
-        setPayloadType(*m_payloadType);
+        gstPayloaderSetPayloadType(m_payloader, *m_payloadType);
 
     if (m_encodingParameters)
         applyEncodingParameters(m_encodingParameters.get());
@@ -181,42 +182,9 @@ String GStreamerRTPPacketizer::rtpStreamId() const
     return emptyString();
 }
 
-void GStreamerRTPPacketizer::setPayloadType(int pt)
-{
-    auto ptSpec = g_object_class_find_property(G_OBJECT_GET_CLASS(G_OBJECT(m_payloader.get())), "pt");
-
-    GValue value = G_VALUE_INIT;
-    g_object_get_property(G_OBJECT(m_payloader.get()), "pt", &value);
-
-    if (G_VALUE_TYPE(&value) != G_TYPE_INT && G_VALUE_TYPE(&value) != G_TYPE_UINT) {
-        GST_ERROR_OBJECT(m_payloader.get(), "pt property is not integer or unsigned");
-        return;
-    }
-
-    if (G_VALUE_TYPE(&value) == G_TYPE_INT) {
-        auto intSpec = G_PARAM_SPEC_INT(ptSpec);
-        if (pt > intSpec->maximum || pt < intSpec->minimum) {
-            GST_ERROR_OBJECT(m_payloader.get(), "pt %d outside of valid range [%d, %d]", pt, intSpec->minimum, intSpec->maximum);
-            return;
-        }
-        g_object_set(m_payloader.get(), "pt", pt, nullptr);
-        return;
-    }
-
-    if (G_VALUE_TYPE(&value) == G_TYPE_UINT) {
-        auto uintSpec = G_PARAM_SPEC_UINT(ptSpec);
-        unsigned ptValue = static_cast<unsigned>(pt);
-        if (ptValue > uintSpec->maximum || ptValue < uintSpec->minimum) {
-            GST_ERROR_OBJECT(m_payloader.get(), "pt %u outside of valid range [%u, %u]", ptValue, uintSpec->minimum, uintSpec->maximum);
-            return;
-        }
-        g_object_set(m_payloader.get(), "pt", ptValue, nullptr);
-    }
-}
-
 std::optional<int> GStreamerRTPPacketizer::payloadType() const
 {
-    if (LIKELY(m_payloadType))
+    if (m_payloadType) [[likely]]
         return m_payloadType;
 
     GValue value = G_VALUE_INIT;
@@ -263,7 +231,7 @@ int GStreamerRTPPacketizer::findLastExtensionId(const GstCaps* caps)
             return true;
 
         auto identifier = WTF::parseInteger<int>(name.substring(7));
-        if (UNLIKELY(!identifier))
+        if (!identifier) [[unlikely]]
             return true;
 
         holder->extensionId = std::max(holder->extensionId, *identifier);
@@ -336,25 +304,7 @@ void GStreamerRTPPacketizer::stopUpdatingStats()
 void GStreamerRTPPacketizer::applyEncodingParameters(const GstStructure* encodingParameters) const
 {
     ASSERT(encodingParameters);
-
     configure(encodingParameters);
-
-    auto isActive = gstStructureGet<bool>(encodingParameters, "active"_s).value_or(true);
-    GST_DEBUG_OBJECT(m_bin.get(), "Packetizer is active: %s", boolForPrinting(isActive));
-    g_object_set(m_valve.get(), "drop", !isActive, nullptr);
-    if (isActive)
-        return;
-
-    auto srcPad = adoptGRef(gst_element_get_static_pad(m_bin.get(), "src"));
-    if (!srcPad)
-        return;
-
-    auto peer = adoptGRef(gst_pad_get_peer(srcPad.get()));
-    if (!peer)
-        return;
-
-    gst_pad_send_event(peer.get(), gst_event_new_flush_start());
-    gst_pad_send_event(peer.get(), gst_event_new_flush_stop(FALSE));
 }
 
 void GStreamerRTPPacketizer::reconfigure(GUniquePtr<GstStructure>&& encodingParameters)

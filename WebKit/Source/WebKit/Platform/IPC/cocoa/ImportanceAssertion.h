@@ -28,6 +28,8 @@
 #if PLATFORM(MAC)
 
 #include <mach/message.h>
+#include <utility>
+#include <wtf/Compiler.h>
 
 namespace IPC {
 

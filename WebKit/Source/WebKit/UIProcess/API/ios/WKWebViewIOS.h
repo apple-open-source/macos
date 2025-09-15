@@ -118,6 +118,7 @@ enum class TapHandlingResult : uint8_t;
 - (void)_updateScrollViewIndicatorStyle;
 
 - (void)_videoControlsManagerDidChange;
+- (void)_videosInElementFullscreenChanged;
 
 - (void)_navigationGestureDidBegin;
 - (void)_navigationGestureDidEnd;
@@ -136,6 +137,11 @@ enum class TapHandlingResult : uint8_t;
 - (void)_transliterateChinese:(id)sender;
 - (void)replace:(id)sender;
 - (void)_translate:(id)sender;
+
+- (IBAction)alignCenter:(id)sender;
+- (IBAction)alignJustified:(id)sender;
+- (IBAction)alignLeft:(id)sender;
+- (IBAction)alignRight:(id)sender;
 
 #if HAVE(UIFINDINTERACTION)
 - (void)find:(id)sender;
@@ -190,13 +196,9 @@ enum class TapHandlingResult : uint8_t;
 
 - (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event;
 
-#if ENABLE(PDF_PLUGIN)
-- (void)_pluginDidInstallPDFDocument:(double)initialScale;
-#endif
-
 @property (nonatomic, readonly) WKPasswordView *_passwordView;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;
-@property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity;
+@property (nonatomic, readonly) WKSelectionGranularity _selectionGranularity WK_API_DEPRECATED("This property is ignored; selection granularity is always `character`.", ios(8.0, 11.0), visionos(1.0, 1.0));
 
 @property (nonatomic, readonly) BOOL _shouldAvoidSecurityHeuristicScoreUpdates;
 
@@ -208,12 +210,14 @@ enum class TapHandlingResult : uint8_t;
 @property (nonatomic, readonly, getter=_isRetainingActiveFocusedState) BOOL _retainingActiveFocusedState;
 @property (nonatomic, readonly) WebCore::IntDegrees _deviceOrientationIgnoringOverrides;
 
+- (void)_setObscuredInsetsInternal:(UIEdgeInsets)obscuredInsets;
+
 #if HAVE(UIKIT_RESIZABLE_WINDOWS)
 @property (nonatomic, readonly) BOOL _isWindowResizingEnabled;
 #endif
 
 @property (nonatomic, readonly) BOOL _isSimulatingCompatibilityPointerTouches;
-@property (nonatomic, readonly) WKVelocityTrackingScrollView *_scrollViewInternal;
+@property (nonatomic, readonly) WKBaseScrollView *_scrollViewInternal;
 @property (nonatomic, readonly) CGRect _contentRectForUserInteraction;
 
 @property (nonatomic, readonly) BOOL _haveSetUnobscuredSafeAreaInsets;
@@ -222,8 +226,7 @@ enum class TapHandlingResult : uint8_t;
 - (void)_resetUnobscuredSafeAreaInsets;
 - (void)_resetObscuredInsets;
 
-- (void)_overrideZoomScaleParametersWithMinimumZoomScale:(CGFloat)minimumZoomScale maximumZoomScale:(CGFloat)maximumZoomScale allowUserScaling:(BOOL)allowUserScaling;
-- (void)_clearOverrideZoomScaleParameters;
+@property (nonatomic, setter=_setForcesInitialScaleFactor:) BOOL _forcesInitialScaleFactor;
 
 - (void)_setPointerTouchCompatibilitySimulatorEnabled:(BOOL)enabled;
 
@@ -231,7 +234,18 @@ enum class TapHandlingResult : uint8_t;
 - (void)_updatePageLoadObserverState NS_DIRECT;
 #endif
 
+#if ENABLE(MODEL_PROCESS)
+- (void)_willInvalidateDraggedModelWithContainerView:(UIView *)containerView;
+- (void)_setWebViewTransform3DForModel:(CGFloat)newScale;
+#endif
+
+- (BOOL)_isInStableState:(UIScrollView *)scrollView;
+
 - (UIEdgeInsets)currentlyVisibleContentInsetsWithScale:(CGFloat)scaleFactor obscuredInsets:(UIEdgeInsets)obscuredInsets;
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+@property (nonatomic, readonly) BOOL _shouldHideTopScrollPocket;
+#endif
 
 @end
 

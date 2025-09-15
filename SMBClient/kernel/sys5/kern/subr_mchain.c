@@ -143,7 +143,7 @@ mbuf_t smb_mbuf_getm(mbuf_t m, size_t len, int how, int type)
 	size_t mbuf_space;
 	mbuf_t top, tail, mp = NULL, mtail = NULL;
 	
-	KASSERT((ssize_t)len >= 0, ("len is < 0 in smb_mbuf_getm"));
+	SMB_ASSERT((ssize_t)len >= 0, ("len is < 0 in smb_mbuf_getm"));
 	
 	if (mbuf_get(how, type, &mp))
 		return (NULL);

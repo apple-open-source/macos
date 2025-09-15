@@ -25,6 +25,11 @@
 
 #pragma once
 
+#import <wtf/Compiler.h>
+#import <wtf/Platform.h>
+
+DECLARE_SYSTEM_HEADER
+
 #if ENABLE(WRITING_TOOLS) && PLATFORM(MAC)
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -34,8 +39,179 @@
 
 #else
 
-#error Symbols must be forward declared once used with non-internal SDKS.
+#import <AppKit/AppKit.h>
+#import <CoreGraphics/CoreGraphics.h>
 
-#endif
+// MARK: Forward-declared Writing Tools types
+
+typedef NS_ENUM(NSInteger, WTRequestedTool);
+
+@protocol WTWritingToolsDelegate;
+
+// MARK: _WTTextChunk
+
+@interface _WTTextChunk : NSObject
+
+@property (readonly) NSString *identifier;
+
+- (instancetype)initChunkWithIdentifier:(NSString *)identifier;
+
+@end
+
+// MARK: _WTTextPreview
+
+@interface _WTTextPreview : NSObject
+
+@property (readonly) CGImageRef previewImage;
+
+@property (readonly) CGPathRef contentPath;
+
+@property (readonly) CGRect presentationFrame;
+
+@property (readonly) CGColorRef backgroundColor;
+
+@property (readonly) CGPathRef clippingPath;
+
+@property (readonly) CGFloat scale;
+
+@property (readonly) NSArray <NSValue *> *candidateRects;
+
+- (instancetype)initWithSnapshotImage:(CGImageRef)snapshotImage presentationFrame:(CGRect)presentationFrame;
+
+- (instancetype)initWithSnapshotImage:(CGImageRef)snapshotImage presentationFrame:(CGRect)presentationFrame backgroundColor:(CGColorRef)backgroundColor clippingPath:(CGPathRef)clippingPath scale:(CGFloat)scale;
+
+- (instancetype)initWithSnapshotImage:(CGImageRef)snapshotImage presentationFrame:(CGRect)presentationFrame backgroundColor:(CGColorRef)backgroundColor clippingPath:(CGPathRef)clippingPath scale:(CGFloat)scale candidateRects:(NSArray <NSValue *> *)candidateRects;
+
+@end
+
+// MARK: _WTTextPreviewAsyncSource
+
+@protocol _WTTextPreviewAsyncSource <NSObject>
+
+- (void)textPreviewsForChunk:(nonnull _WTTextChunk *)chunk completion:(void (^_Nullable)(NSArray <_WTTextPreview *> * _Nullable previews))completion;
+
+- (void)textPreviewForRect:(CGRect)rect completion:(void (^_Nullable)(_WTTextPreview * _Nullable preview))completion;
+
+- (void)updateIsTextVisible:(BOOL)isTextVisible forChunk:(nonnull _WTTextChunk *)chunk completion:(void (^_Nullable)(void))completion;
+
+@end
+
+// MARK: _WTTextEffect and subclasses
+
+NS_ASSUME_NONNULL_BEGIN
+
+@class _WTTextEffectView;
+
+@protocol _WTTextEffect <NSObject>
+
+@property (strong) _WTTextChunk *chunk;
+
+@property (strong) _WTTextEffectView *effectView;
+
+@property (strong) NSUUID *identifier;
+
+- (void)invalidate:(BOOL)animated;
+
+@optional
+
+- (BOOL)hidesOriginal;
+
+@property (copy, nullable) void (^completion)(void);
+
+@property (copy, nullable) void (^preCompletion)(void);
+
+@end
+
+@interface _WTTextEffect : NSObject <_WTTextEffect>
+
+@property (strong) _WTTextChunk  *chunk;
+
+@property (strong) _WTTextEffectView *effectView;
+
+@property (strong) NSUUID *identifier;
+
+@property BOOL hidesOriginal;
+
+@property (copy, nullable) void (^completion)(void);
+
+@property (copy, nullable) void (^preCompletion)(void);
+
+- (instancetype)initWithChunk:(_WTTextChunk *)chunk effectView:(_WTTextEffectView *)effectView;
+
+- (void)invalidate:(BOOL)animated;
+
+@end
+
+@interface _WTSweepTextEffect : _WTTextEffect
+
+@end
+
+@interface _WTReplaceTextEffect : _WTTextEffect
+
+@property (assign) BOOL animateRemovalWhenDone;
+
+@property BOOL isDestination;
+
+@property BOOL highlightsCandidateRects;
+
+@end
+
+@interface _WTReplaceSourceTextEffect : _WTReplaceTextEffect
+@end
+
+@interface _WTReplaceDestinationTextEffect : _WTReplaceSourceTextEffect
+@end
+
+NS_ASSUME_NONNULL_END
+
+// MARK: WTWritingToolsViewController
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface WTWritingToolsViewController
+
+@property (class, assign, readonly, getter=isAvailable) BOOL available;
+
+@end
+
+NS_ASSUME_NONNULL_END
+
+// MARK: WTWritingTools
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface WTWritingTools : NSObject
+
++ (instancetype)sharedInstance;
+
+- (void)showTool:(WTRequestedTool)requestedTool forSelectionRect:(NSRect)selectionRect ofView:(NSView *)positioningView forDelegate:(NSObject<WTWritingToolsDelegate> *)writingToolsDelegate;
+
+- (void)scheduleShowAffordanceForSelectionRect:(NSRect)selectionRect ofView:(NSView *)positioningView forDelegate:(NSObject<WTWritingToolsDelegate> *)writingToolsDelegate;
+
+@end
+
+NS_ASSUME_NONNULL_END
+
+// MARK: _WTTextEffectView
+
+@interface _WTTextEffectView : NSView
+
+@property (weak) id <_WTTextPreviewAsyncSource> asyncSource;
+
+- (instancetype)initWithAsyncSource:(id <_WTTextPreviewAsyncSource>)asyncSource;
+
+- (NSUUID *)addEffect:(_WTTextEffect *)effect;
+
+- (_WTTextChunk *)removeEffect:(NSUUID *)effectID;
+- (_WTTextChunk *)removeEffect:(NSUUID *)effectID animated:(BOOL)animated;
+
+- (void)removeAllEffects;
+
+- (BOOL)hasActiveEffects;
+- (BOOL)hasActiveEffect:(NSUUID *)effectID;
+
+@end
+
+#endif // USE(APPLE_INTERNAL_SDK)
 
 #endif // ENABLE(WRITING_TOOLS) && PLATFORM(MAC)

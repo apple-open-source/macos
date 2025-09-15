@@ -54,7 +54,7 @@ public:
     void boundingRects(Vector<LayoutRect>&, const LayoutPoint& accumulatedOffset) const final;
     void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const override;
 
-    LayoutSize offsetFromContainer(RenderElement&, const LayoutPoint&, bool* offsetDependsOnPoint = nullptr) const final;
+    LayoutSize offsetFromContainer(const RenderElement&, const LayoutPoint&, bool* offsetDependsOnPoint = nullptr) const final;
 
     LayoutRect borderBoundingBox() const final
     {
@@ -71,8 +71,7 @@ public:
 
     RenderLineBoxList& legacyLineBoxes() { return m_legacyLineBoxes; }
     const RenderLineBoxList& legacyLineBoxes() const { return m_legacyLineBoxes; }
-    void dirtyLegacyLineBoxes(bool fullLayout);
-    void deleteLegacyLines();
+    void deleteLegacyLineBoxes();
     LegacyInlineFlowBox* firstLegacyInlineBox() const { return m_legacyLineBoxes.firstLegacyLineBox(); }
     LegacyInlineFlowBox* lastLegacyInlineBox() const { return m_legacyLineBoxes.lastLegacyLineBox(); }
 
@@ -129,7 +128,7 @@ protected:
     RepaintRects computeVisibleRectsUsingPaintOffset(const RepaintRects&) const;
 
     void mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState&, OptionSet<MapCoordinatesMode>, bool* wasFixed) const override;
-    const RenderObject* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;
+    const RenderElement* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;
 
 private:
     VisiblePosition positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*) final;
@@ -141,7 +140,7 @@ private:
     void dirtyLineFromChangedChild() final { m_legacyLineBoxes.dirtyLineFromChangedChild(*this); }
 
     LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
-    LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
+    LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) const final;
 

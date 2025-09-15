@@ -209,7 +209,7 @@ bool PlatformRawAudioDataCocoa::isInterleaved() const
     return m_description.isInterleaved();
 }
 
-static std::variant<Vector<std::span<uint8_t>>, Vector<std::span<int16_t>>, Vector<std::span<int32_t>>, Vector<std::span<float>>> planesOfSamples(AudioSampleFormat format, const WebAudioBufferList& list, size_t samplesOffset)
+static Variant<Vector<std::span<uint8_t>>, Vector<std::span<int16_t>>, Vector<std::span<int32_t>>, Vector<std::span<float>>> planesOfSamples(AudioSampleFormat format, const WebAudioBufferList& list, size_t samplesOffset)
 {
     auto subspan = [samplesOffset](auto span) {
         RELEASE_ASSERT(samplesOffset <= span.size());
@@ -250,17 +250,18 @@ void PlatformRawAudioData::copyTo(std::span<uint8_t> destination, AudioSampleFor
     WebAudioBufferList sourceList(audioData.m_description, audioData.sampleBuffer());
     bool destinationIsInterleaved = isAudioSampleFormatInterleaved(destinationFormat);
 
-    if (audioSampleElementFormat(sourceFormat) == audioSampleElementFormat(destinationFormat)) {
-        if (numberOfChannels() == 1 || (audioData.isInterleaved() && destinationIsInterleaved)) {
-            // Simplest case.
-            ASSERT(!planeIndex);
-            auto source = sourceList.bufferAsSpan(0);
-            size_t frameOffsetInBytes = frameOffset.value_or(0) * audioData.m_description.bytesPerFrame();
-            RELEASE_ASSERT(frameOffsetInBytes <= source.size());
-            auto subSource = source.subspan(frameOffsetInBytes, source.size() - frameOffsetInBytes);
-            memcpySpan(destination, subSource);
-            return;
-        }
+    // Copy memory when:
+    // - formats fully match
+    // - sample format matches and source is mono (planar and interleaved have the same layout)
+    if (sourceFormat == destinationFormat || (audioSampleElementFormat(sourceFormat) == audioSampleElementFormat(destinationFormat) && numberOfChannels() == 1)) {
+        ASSERT(!destinationIsInterleaved || !planeIndex);
+        auto source = sourceList.bufferAsSpan(planeIndex);
+        size_t frameOffsetInBytes = frameOffset.value_or(0) * audioData.m_description.bytesPerFrame();
+        size_t copyLengthInBytes = copyElementCount * computeBytesPerSample(destinationFormat);
+        RELEASE_ASSERT(frameOffsetInBytes + copyLengthInBytes <= source.size());
+        auto subSource = source.subspan(frameOffsetInBytes, copyLengthInBytes);
+        memcpySpan(destination, subSource);
+        return;
     }
 
     auto source = planesOfSamples(sourceFormat, sourceList, frameOffset.value_or(0) * (audioData.isInterleaved() ? numberOfChannels() : 1));
@@ -269,24 +270,7 @@ void PlatformRawAudioData::copyTo(std::span<uint8_t> destination, AudioSampleFor
         // Copy of all channels of the source into the destination buffer and deinterleave.
         // Ideally we would use an AudioToolbox's AudioConverter but it performs incorrect rounding during sample conversion in a way that makes us fail the W3C's AudioData tests.
         ASSERT(!planeIndex);
-        ASSERT(!(copyElementCount % numberOfChannels()));
-
-        auto copyElements = [numberOfChannels = numberOfChannels()]<typename T>(std::span<T> destination, auto& source, size_t frames) {
-            RELEASE_ASSERT(destination.size() >= frames * numberOfChannels);
-            RELEASE_ASSERT(source[0].size() >= frames); // All planes have the exact same size.
-            size_t index = 0;
-            for (size_t frame = 0; frame < frames; frame++) {
-                for (size_t channel = 0; channel < source.size(); channel++)
-                    destination[index++] = convertAudioSample<T>(source[channel][frame]);
-            }
-        };
-
-        switchOn(audioElementSpan(destinationFormat, destination), [&](auto dst) {
-            switchOn(source, [&](auto& src) {
-                size_t numberOfFrames = copyElementCount / numberOfChannels();
-                copyElements(dst, src, numberOfFrames);
-            });
-        });
+        copyToInterleaved(source, destination, destinationFormat, copyElementCount);
         return;
     }
 

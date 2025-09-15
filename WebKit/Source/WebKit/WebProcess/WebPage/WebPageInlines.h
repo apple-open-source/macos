@@ -48,7 +48,7 @@ inline StorageNamespaceIdentifier WebPage::sessionStorageNamespaceIdentifier() c
 
 inline void WebPage::setHiddenPageDOMTimerThrottlingIncreaseLimit(Seconds limit)
 {
-    m_page->setDOMTimerAlignmentIntervalIncreaseLimit(limit);
+    protectedCorePage()->setDOMTimerAlignmentIntervalIncreaseLimit(limit);
 }
 
 inline bool WebPage::isVisible() const

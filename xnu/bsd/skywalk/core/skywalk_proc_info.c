@@ -42,15 +42,6 @@ ch_mode_to_flags(uint32_t ch_mode)
 {
 	uint32_t        flags = 0;
 
-	if ((ch_mode & CHMODE_MONITOR_RX) != 0) {
-		flags |= PROC_CHANNEL_FLAGS_MONITOR_RX;
-	}
-	if ((ch_mode & CHMODE_MONITOR_TX) != 0) {
-		flags |= PROC_CHANNEL_FLAGS_MONITOR_TX;
-	}
-	if ((ch_mode & CHMODE_MONITOR_NO_COPY) != 0) {
-		flags |= PROC_CHANNEL_FLAGS_MONITOR_NO_COPY;
-	}
 	if ((ch_mode & CHMODE_EXCLUSIVE) != 0) {
 		flags |= PROC_CHANNEL_FLAGS_EXCLUSIVE;
 	}

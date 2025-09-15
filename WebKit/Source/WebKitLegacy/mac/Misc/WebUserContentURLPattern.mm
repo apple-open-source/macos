@@ -68,12 +68,12 @@ using namespace WebCore;
 
 - (NSString *)scheme
 {
-    return _private->pattern.scheme();
+    return _private->pattern.scheme().createNSString().autorelease();
 }
 
 - (NSString *)host
 {
-    return _private->pattern.host();
+    return _private->pattern.host().createNSString().autorelease();
 }
 
 - (BOOL)matchesSubdomains

@@ -54,18 +54,18 @@ enum class CoreIPCSecTrustResult : uint8_t {
 
 struct CoreIPCSecTrustData {
     using Detail = Vector<std::pair<CoreIPCString, bool>>;
-    using InfoOption = std::variant<CoreIPCDate, CoreIPCString, bool>;
+    using InfoOption = Variant<CoreIPCDate, CoreIPCString, bool>;
     using InfoType = Vector<std::pair<CoreIPCString, InfoOption>>;
     using PolicyDictionaryValueIsNumber = Vector<std::pair<CoreIPCString, CoreIPCNumber>>;
-    using PolicyArrayOfArrayContainingDateOrNumbers = Vector<Vector<std::variant<CoreIPCNumber, CoreIPCDate>>>;
+    using PolicyArrayOfArrayContainingDateOrNumbers = Vector<Vector<Variant<CoreIPCNumber, CoreIPCDate>>>;
     using PolicyArrayOfNumbers = Vector<CoreIPCNumber>;
     using PolicyArrayOfStrings = Vector<CoreIPCString>;
     using PolicyArrayOfData = Vector<CoreIPCData>;
-    using PolicyVariant = std::variant<bool, CoreIPCString, PolicyArrayOfNumbers, PolicyArrayOfStrings, PolicyArrayOfData, PolicyArrayOfArrayContainingDateOrNumbers, PolicyDictionaryValueIsNumber>;
+    using PolicyVariant = Variant<bool, CoreIPCString, PolicyArrayOfNumbers, PolicyArrayOfStrings, PolicyArrayOfData, PolicyArrayOfArrayContainingDateOrNumbers, PolicyDictionaryValueIsNumber>;
     using PolicyOption = Vector<std::pair<CoreIPCString, PolicyVariant>>;
-    using PolicyValue = std::variant<CoreIPCString, PolicyOption>;
+    using PolicyValue = Variant<CoreIPCString, PolicyOption>;
     using PolicyType = Vector<std::pair<CoreIPCString, PolicyValue>>;
-    using ExceptionType = Vector<std::pair<CoreIPCString, std::variant<CoreIPCNumber, CoreIPCData, bool>>>;
+    using ExceptionType = Vector<std::pair<CoreIPCString, Variant<CoreIPCNumber, CoreIPCData, bool>>>;
 
     CoreIPCSecTrustResult result { CoreIPCSecTrustResult::Invalid };
     bool anchorsOnly { false };

@@ -145,7 +145,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         }
         self.wait(for: [removeExpectation], timeout: 10)
 
-        var dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -178,7 +178,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         }
         self.wait(for: [dropExpectation], timeout: 10)
 
-        dumpCallback = self.expectation(description: "excluded should be nil callback occurs")
+        let dumpCallback2 = self.expectation(description: "excluded should be nil callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -192,13 +192,13 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             let excluded = dynamicInfo!["excluded"] as? [String]
             XCTAssertNil(excluded, "excluded should be nil")
 
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        dumpCallback = self.expectation(description: "other peer removes excluded callback occurs")
+        let dumpCallback3 = self.expectation(description: "other peer removes excluded callback occurs")
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
             let egoSelf = dump!["self"] as? [String: AnyObject]
@@ -211,9 +211,77 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             let excluded = dynamicInfo!["excluded"] as? [String]
             XCTAssertNil(excluded, "excluded should be nil")
 
-            dumpCallback.fulfill()
+            dumpCallback3.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback3], timeout: 10)
+    }
+
+    func testPeerCleanupofSponsoredBeneficiaries() throws {
+        let initiatorContextID = "initiator-context-id"
+        let clique = try self.getTwoPeersInCircle(contextID: initiatorContextID)
+        XCTAssertNotNil(clique, "clique should not be nil")
+
+        let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
+        XCTAssertNotNil(bottlerContext, "bottlerContext should not be nil")
+
+        // Bottler should learn that it vouched acceptor
+        self.sendContainerChangeWaitForFetch(context: bottlerContext)
+        let bottlerDumpCallback = self.expectation(description: "bottler dumpCallback callback occurs")
+        let joinedPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(joinedPeerID))
+            XCTAssertEqual(sponsoredBeneficiaryIDs!.count, 1, "should have sponsored 1 peer")
+            bottlerDumpCallback.fulfill()
+        }
+        self.wait(for: [bottlerDumpCallback], timeout: 10)
+
+        // For some reason, bottler now distrusts acceptor
+        let removeExpectation = self.expectation(description: "rpcRemoveFriends callback occurs")
+        let acceptorPeerID = self.fetchEgoPeerID(context: self.cuttlefishContext)
+        XCTAssertNotNil(acceptorPeerID, "should not be nil?")
+        bottlerContext.rpcRemoveFriends(inClique: [acceptorPeerID]) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeExpectation.fulfill()
+        }
+        self.wait(for: [removeExpectation], timeout: 10)
+
+        // What happens if we try to drop the acceptor peer?
+        let dropExpectation = self.expectation(description: "dropPeerIDs callback occurs")
+        self.tphClient.dropPeerIDs(with: bottlerContext.activeAccount, peerIDs: [acceptorPeerID]) { error in
+            XCTAssertNil(error, "error should be nil")
+            dropExpectation.fulfill()
+        }
+        self.wait(for: [dropExpectation], timeout: 10)
+
+        // Because the bottler sponsored acceptor, bottler should keep acceptor in its distrusted list & its ego sponsored beneficiary IDs list.
+        self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
+            XCTAssertNotNil(dump, "dump should not be nil")
+            let egoSelf = dump!["self"] as? [String: AnyObject]
+            XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
+            XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
+
+            let excluded = dynamicInfo!["excluded"] as? [String]
+            XCTAssertNotNil(excluded, "excluded should not be nil")
+            XCTAssertEqual(excluded!.count, 1, "should still be 1")
+            let excludedPeerID = excluded![0]
+            XCTAssertEqual(excludedPeerID, acceptorPeerID, "should contain acceptorPeerID in excluded list")
+
+            let sponsoredBeneficiaryIDs = dump!["egoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(sponsoredBeneficiaryIDs)
+            XCTAssertTrue(sponsoredBeneficiaryIDs!.contains(acceptorPeerID))
+
+            let distrustedBeneficiaryIDs = dump!["distrustedEgoSponsoredBeneficiaryIDs"] as? [String]
+            XCTAssertNotNil(distrustedBeneficiaryIDs)
+            XCTAssertTrue(distrustedBeneficiaryIDs!.contains(acceptorPeerID))
+        }
     }
 
     func testRecoveryKeyCleanupAfterRemoval() throws {
@@ -241,7 +309,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
 
         self.sendContainerChangeWaitForFetch(context: bottlerContext)
 
-        var dumpCallback = self.expectation(description: "dump callback occurs")
+        let dumpCallback = self.expectation(description: "dump callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -282,7 +350,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: bottlerContext)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback2 = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -300,14 +368,14 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             let recoveryKeyPeerID = excluded![0]
             XCTAssertTrue(recoveryKeyPeerID.contains("RK-"), "should contain excluded recovery key peerID")
 
-            dumpCallback.fulfill()
+            dumpCallback2.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback2], timeout: 10)
 
         self.sendContainerChangeWaitForFetch(context: bottlerContext)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback3 = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -325,9 +393,9 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             let recoveryKeyPeerID = excluded![0]
             XCTAssertTrue(recoveryKeyPeerID.contains("RK-"), "should contain excluded recovery key peerID")
 
-            dumpCallback.fulfill()
+            dumpCallback3.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback3], timeout: 10)
 
         let removeExpectation = self.expectation(description: "rpcRemoveFriends callback occurs")
         self.cuttlefishContext.rpcRemoveFriends(inClique: [clique.cliqueMemberIdentifier!]) { error in
@@ -337,7 +405,11 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.wait(for: [removeExpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                                    skipRateLimitingCheck: false,
+                                                    repair: false,
+                                                    danglingPeerCleanup: false,
+                                                    updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNotNil(response, "response should not be nil")
             healthCheckCallback.fulfill()
@@ -347,7 +419,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: bottlerContext)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback4 = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -364,9 +436,9 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
 
             XCTAssertTrue(excluded![0].contains("RK-") || excluded![1].contains("RK-"), "should contain excluded recovery key peerID")
 
-            dumpCallback.fulfill()
+            dumpCallback4.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback4], timeout: 10)
 
         let dropExpectation = self.expectation(description: "dropPeerIDs callback occurs")
 
@@ -376,7 +448,7 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
         }
         self.wait(for: [dropExpectation], timeout: 10)
 
-        dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback5 = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(self.cuttlefishContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -393,14 +465,14 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
 
             XCTAssertTrue(excluded![0].contains("RK-") || excluded![1].contains("RK-"), "should contain excluded recovery key peerID")
 
-            dumpCallback.fulfill()
+            dumpCallback5.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback5], timeout: 10)
 
         self.sendContainerChangeWaitForUntrustedFetch(context: bottlerContext)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        dumpCallback = self.expectation(description: "dumpCallback excluded still populated callback occurs")
+        let dumpCallback6 = self.expectation(description: "dumpCallback excluded still populated callback occurs")
 
         self.tphClient.dump(with: try XCTUnwrap(bottlerContext.activeAccount)) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
@@ -414,9 +486,9 @@ class OctagonAccountCleanupTests: OctagonTestsBase {
             XCTAssertNotNil(excluded, "excluded should not be nil")
             XCTAssertEqual(excluded!.count, 1, "should be 1 peer id")
             XCTAssertEqual(egoSelf!["peerID"] as! String, excluded![0], "excluded peer should be the self peer")
-            dumpCallback.fulfill()
+            dumpCallback6.fulfill()
         }
-        self.wait(for: [dumpCallback], timeout: 10)
+        self.wait(for: [dumpCallback6], timeout: 10)
     }
 }
 

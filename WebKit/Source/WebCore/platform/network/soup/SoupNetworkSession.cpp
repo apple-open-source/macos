@@ -94,7 +94,7 @@ private:
         return base64EncodeToString(digest->computeHash());
     }
 
-    UncheckedKeyHashSet<String> m_certificates;
+    HashSet<String> m_certificates;
 };
 
 SoupNetworkSession::SoupNetworkSession(PAL::SessionID sessionID)
@@ -143,7 +143,10 @@ SoupNetworkSession::SoupNetworkSession(PAL::SessionID sessionID)
     setupLogger();
 }
 
-SoupNetworkSession::~SoupNetworkSession() = default;
+SoupNetworkSession::~SoupNetworkSession()
+{
+    soup_session_abort(m_soupSession.get());
+}
 
 void SoupNetworkSession::setupLogger()
 {

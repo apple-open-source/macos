@@ -182,6 +182,7 @@ struct RenderTestParams : public angle::PlatformParameters
     EGLenum colorSpace             = EGL_COLORSPACE_LINEAR;
     bool multisample               = false;
     EGLint samples                 = -1;
+    bool isCL                      = false;
 };
 
 class ANGLERenderTest : public ANGLEPerfTest
@@ -236,6 +237,10 @@ class ANGLERenderTest : public ANGLEPerfTest
 
     void startTest() override;
     void finishTest() override;
+
+    // non-const, so tests (e.g., TracePerfTest,
+    // ProgramPipelineObjectBenchmark) can set the values they need.
+    ConfigParameters &getConfigParams() { return mConfigParams; }
 
   private:
     void SetUp() override;

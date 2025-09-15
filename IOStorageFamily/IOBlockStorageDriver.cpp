@@ -36,6 +36,10 @@
 #include "IOUserBlockStorageDevice_kext.h"
 #include <kern/energy_perf.h>
 #include <kern/thread_call.h>
+#include <libkern/OSAtomic.h>
+#include <AssertMacros.h>
+
+#define kMaximumShutdownProcessingWait_inMilliseconds (5*1000ULL)
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOBlockStorageDriver, IOStorage)
@@ -127,6 +131,8 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     _contextsMaxCount                = 32;
     _perfControlClient               = NULL;
     _userBlockStorageDevice          = NULL;
+    _shutdownProcessed               = 0;
+    _processShutdownThread           = NULL;
 
     if (_contextsLock == 0)
         return false;
@@ -191,6 +197,13 @@ bool IOBlockStorageDriver::start(IOService * provider)
 
     bool success;
 
+    _processShutdownThread = thread_call_allocate(OSMemberFunctionCast(thread_call_func_t,
+                                                                       this,
+                                                                       &IOBlockStorageDriver::processShutdown),
+                                                  (thread_call_param_t)this);
+
+    require(_processShutdownThread != NULL, Exit);
+
     // Open the block storage device.
 
     success = open(this);
@@ -221,10 +234,16 @@ bool IOBlockStorageDriver::start(IOService * provider)
     }
 
     return success;
+
+Exit:
+
+    return false;
 }
 
-void IOBlockStorageDriver::systemWillShutdown(IOOptionBits inOptions)
+void IOBlockStorageDriver::processShutdown(void *eventMask)
 {
+    IOOptionBits inOptions = (IOOptionBits)(UInt64)eventMask;
+
     switch (inOptions)
     {
     
@@ -248,6 +267,42 @@ void IOBlockStorageDriver::systemWillShutdown(IOOptionBits inOptions)
     	
 	}
 	 
+    __sync_synchronize();
+
+    OSAddAtomic(1, &_shutdownProcessed);
+
+    // release our retain()
+    release();
+}
+
+void IOBlockStorageDriver::systemWillShutdown(IOOptionBits inOptions)
+{
+
+    AbsoluteTime debounceDeadline = 0;
+
+    // skip processing if IOBlockStorageDriver doesn't have any clients, that means there is no media
+    if (_processShutdownThread != NULL && getClient() != NULL && !isInactive ( ))
+    {
+        retain();
+
+        thread_call_enter1(_processShutdownThread, (void*)(UInt64)inOptions);
+
+        // systemWillShutdown watchdog timeout is 30s (cumulative), and those calls are not fully parallelized. 
+        // launch separate thread and wait for 5s, before bailing out. Thread can block if device is unresponsive.
+        clock_interval_to_deadline (kMaximumShutdownProcessingWait_inMilliseconds, kMillisecondScale, &debounceDeadline);
+
+        do
+        {
+            IOSleep(10ULL);
+
+        } while ((OSAddAtomic(0, &_shutdownProcessed) == 0) && (mach_absolute_time ( ) < debounceDeadline));
+
+        if (OSAddAtomic(0, &_shutdownProcessed) == 0)
+        {
+            IOLog("%s[IOBlockStorageDriver]::systemWillShutdown, shutdown thread timed out\n", getName());
+        }
+    }
+
     // Call IOService::systemWillShutdown to signal that we are all done
     super::systemWillShutdown ( inOptions );
 }
@@ -1638,6 +1693,19 @@ void
 IOBlockStorageDriver::stop(IOService * provider)
 {
     PMstop ( );
+
+    if (_processShutdownThread != NULL)
+    {
+        boolean_t result = thread_call_cancel_wait(_processShutdownThread);
+
+        if (result)
+        {
+            // release the retain taken while scheduling the shutdown thread
+            release();
+        }
+        thread_call_free(_processShutdownThread);
+        _processShutdownThread = NULL;
+    }
 
     super::stop(provider);
 }

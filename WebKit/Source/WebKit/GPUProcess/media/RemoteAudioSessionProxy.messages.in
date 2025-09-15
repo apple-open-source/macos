@@ -40,7 +40,7 @@ messages -> RemoteAudioSessionProxy {
     [EnabledBy=AllowTestOnlyIPC] TriggerEndInterruptionForTesting()
 
     BeginInterruptionRemote()
-    EndInterruptionRemote(WebCore::AudioSession::MayResume flags)
+    EndInterruptionRemote(enum:bool WebCore::AudioSessionMayResume flags)
 
     SetSceneIdentifier(String sceneIdentifier)
     SetSoundStageSize(enum:uint8_t WebCore::AudioSessionSoundStageSize size)

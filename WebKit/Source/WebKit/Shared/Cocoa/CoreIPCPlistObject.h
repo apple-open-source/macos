@@ -40,7 +40,7 @@ class CoreIPCNumber;
 class CoreIPCDate;
 class CoreIPCData;
 
-using PlistValue = std::variant<
+using PlistValue = Variant<
     CoreIPCPlistArray,
     CoreIPCPlistDictionary,
     CoreIPCString,

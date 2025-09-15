@@ -241,3 +241,10 @@ IOSubMemoryDescriptor::getPageCounts(IOByteCount * residentPageCount,
 {
 	return _parent->getPageCounts(residentPageCount, dirtyPageCount);
 }
+
+IOReturn
+IOSubMemoryDescriptor::getPageCounts(IOByteCount * residentPageCount,
+    IOByteCount * dirtyPageCount, IOByteCount * swappedPageCount)
+{
+	return _parent->getPageCounts(residentPageCount, dirtyPageCount, swappedPageCount);
+}

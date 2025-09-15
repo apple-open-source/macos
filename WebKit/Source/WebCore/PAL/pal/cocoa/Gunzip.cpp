@@ -49,7 +49,7 @@ Vector<LChar> gunzip(std::span<const uint8_t> data)
     ASSERT(status == COMPRESSION_STATUS_OK);
     if (status != COMPRESSION_STATUS_OK)
         return { };
-    stream.dst_ptr = result.data();
+    stream.dst_ptr = result.mutableSpan().data();
     stream.dst_size = result.size();
     stream.src_ptr = data.subspan(ignoredByteCount).data();
     stream.src_size = data.size() - ignoredByteCount;
@@ -74,7 +74,7 @@ Vector<LChar> gunzip(std::span<const uint8_t> data)
             status = compression_stream_destroy(&stream);
             ASSERT(status == COMPRESSION_STATUS_OK);
             if (status == COMPRESSION_STATUS_OK) {
-                result.shrink(stream.dst_ptr - result.data());
+                result.shrink(stream.dst_ptr - result.span().data());
                 return result;
             }
             return { };

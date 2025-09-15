@@ -168,10 +168,10 @@ public:
     unsigned ident() const { return m_ident; }
 #endif
     unsigned frameSize() const { return m_frameSize; }
-    EncodedJSValue wasmCallee() const { return m_wasmCallee; }
+    CalleeBits wasmCallee() const { return m_wasmCallee; }
     TypeIndex typeIndex() const { return m_typeIndex; }
 
-    void setWasmCallee(EncodedJSValue wasmCallee)
+    void setWasmCallee(CalleeBits wasmCallee)
     {
         m_wasmCallee = wasmCallee;
     }
@@ -184,7 +184,7 @@ private:
 #endif
     unsigned m_frameSize { };
     // This must be initialized after the callee is created unfortunately.
-    EncodedJSValue m_wasmCallee;
+    CalleeBits m_wasmCallee;
     const TypeIndex m_typeIndex;
 };
 
@@ -197,7 +197,7 @@ public:
     WasmToJSCallee(FunctionSpaceIndex, std::pair<const Name*, RefPtr<NameSection>>&&);
     static WasmToJSCallee& singleton();
 
-    uintptr_t* boxedWasmCalleeLoadLocation() { return &m_boxedThis; }
+    CalleeBits* boxedWasmCalleeLoadLocation() { return &m_boxedThis; }
 
 private:
     WasmToJSCallee();
@@ -205,7 +205,7 @@ private:
     CodePtr<WasmEntryPtrTag> entrypointImpl() const { return { }; }
     RegisterAtOffsetList* calleeSaveRegistersImpl() { return nullptr; }
 
-    uintptr_t m_boxedThis;
+    CalleeBits m_boxedThis;
 };
 
 #if ENABLE(JIT)

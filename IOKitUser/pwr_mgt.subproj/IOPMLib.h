@@ -1016,7 +1016,7 @@ IOReturn IOPMAssertionCreateWithName(
  * @abstract        This assertion is deprecated. Do not use it.
  * @discussion      Please consider using either assertion type for system activities:
  *                      <ul>
- *                          <li><code>@link kIOPMAssertRemoteAccess @/link</code></li>
+ *                          <li><code>@link kIOPMAssertNetworkClientActive @/link</code></li>
  *                          <li><code>@link kIOPMAssertPreventUserIdleSystemSleep @/link</code></li>
  *                      </ul>
  */

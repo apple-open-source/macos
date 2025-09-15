@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2003-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -801,7 +801,6 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
         #endif
         #ifndef USE_TCP_LOOPBACK
         char* uds_serverpath = NULL;
-        if (!issetugid())
         {
             uds_serverpath = getenv(MDNS_UDS_SERVERPATH_ENVVAR);
         }
@@ -914,8 +913,30 @@ static DNSServiceErrorType ConnectToServer(DNSServiceRef *ref, DNSServiceFlags f
     return kDNSServiceErr_NoError;
 }
 
-#define deliver_request_bailout(MSG) \
-    do { syslog(LOG_WARNING, "dnssd_clientstub deliver_request: %s failed %d (%s)", (MSG), dnssd_errno, dnssd_strerror(dnssd_errno)); goto cleanup; } while(0)
+static DNSServiceErrorType ErrnoToDNSSDErr(const int sys_errno)
+{
+    // Map errno codes directly to negative values
+    // This provides direct errno information to clients
+    const int negative_errno = -sys_errno;
+    if ((negative_errno < 0) && (negative_errno > kDNSServiceErr_Unknown))
+    {
+        // Range check to ensure no conflict with existing DNS Service errors and,
+        // If `sys_errno` is 0, it means no errno was set, so return `kDNSServiceErr_Unknown`
+        // This prevents returning 0 (success) when an actual error occurred.
+        return negative_errno;
+    }
+    // For errno values that would conflict or are invalid values, return `kDNSServiceErr_Unknown`
+    return kDNSServiceErr_Unknown;
+}
+
+#define deliver_request_bailout(MSG)                                            \
+    do                                                                          \
+    {                                                                           \
+        err = ErrnoToDNSSDErr(dnssd_errno);                                     \
+        syslog(LOG_ERR, "dnssd_clientstub deliver_request: %s failed %d (%s)",  \
+            (MSG), dnssd_errno, dnssd_strerror(dnssd_errno));                   \
+        goto cleanup;                                                           \
+    } while(0)
 
 static DNSServiceErrorType deliver_request(ipc_msg_hdr *hdr, DNSServiceOp *sdr)
 {
@@ -2030,7 +2051,7 @@ DNSServiceErrorType DNSServiceRegisterInternal
     ipc_msg_hdr *hdr;
     DNSServiceErrorType err;
     union { uint16_t s; u_char b[2]; } port = { portInNetworkByteOrder };
-    (void)attr;
+    const uint8_t *limit;
 
     if (!sdRef || !regtype) return kDNSServiceErr_BadParam;
     if (!name) name = "";
@@ -2050,10 +2071,20 @@ DNSServiceErrorType DNSServiceRegisterInternal
     len += 2 * sizeof(uint16_t);  // port, txtLen
     len += txtLen;
 
+    if (attr)
+    {
+        if (!validate_attribute_tlvs(attr))
+        {
+            return kDNSServiceErr_BadParam;
+        }
+        len += get_required_length_for_attribute_tlvs(attr);
+    }
+
     hdr = create_hdr(reg_service_request, &len, &ptr, (*sdRef)->primary ? 1 : 0, *sdRef);
     if (!hdr) { DNSServiceRefDeallocate(*sdRef); *sdRef = NULL; return kDNSServiceErr_NoMemory; }
     if (!callBack) hdr->ipc_flags |= IPC_FLAGS_NOREPLY;
 
+    limit = ptr + len;
     put_flags(flags, &ptr);
     put_uint32(interfaceIndex, &ptr);
     put_string(name, &ptr);
@@ -2064,6 +2095,11 @@ DNSServiceErrorType DNSServiceRegisterInternal
     *ptr++ = port.b[1];
     put_uint16(txtLen, &ptr);
     put_rdata(txtLen, txtRecord, &ptr);
+
+    if (attr)
+    {
+        put_attribute_tlvs(attr, hdr, &ptr, limit);
+    }
 
     err = deliver_request(hdr, *sdRef);     // Will free hdr for us
     if (err == kDNSServiceErr_NoAuth && !_should_return_noauth_error())
@@ -2330,7 +2366,7 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
     ipc_msg_hdr *hdr = NULL;
     DNSRecordRef rref = NULL;
     DNSRecord **p;
-    (void)attr;
+    const uint8_t *limit;
 
     // Verify that only one of the following flags is set.
     int f1 = (flags & kDNSServiceFlagsShared) != 0;
@@ -2366,6 +2402,15 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
     len += strlen(fullname) + 1;
     len += rdlen;
 
+    if (attr)
+    {
+        if (!validate_attribute_tlvs(attr))
+        {
+            return kDNSServiceErr_BadParam;
+        }
+        len += get_required_length_for_attribute_tlvs(attr);
+    }
+
     // Bump up the uid. Normally for shared operations (kDNSServiceFlagsShareConnection), this
     // is done in ConnectToServer. For DNSServiceRegisterRecord, ConnectToServer has already
     // been called. As multiple DNSServiceRegisterRecords can be multiplexed over a single
@@ -2379,6 +2424,7 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
     hdr = create_hdr(reg_record_request, &len, &ptr, !(flags & kDNSServiceFlagsQueueRequest), sdRef);
     if (!hdr) return kDNSServiceErr_NoMemory;
 
+    limit = ptr + len;
     put_flags(flags, &ptr);
     put_uint32(interfaceIndex, &ptr);
     put_string(fullname, &ptr);
@@ -2387,6 +2433,12 @@ DNSServiceErrorType DNSServiceRegisterRecordInternal
     put_uint16(rdlen, &ptr);
     put_rdata(rdlen, rdata, &ptr);
     put_uint32(ttl, &ptr);
+
+    if (attr)
+    {
+        put_attribute_tlvs(attr, hdr, &ptr, limit);
+    }
+
     if (flags & kDNSServiceFlagsQueueRequest)
     {
         hdr->ipc_flags |= IPC_FLAGS_NOERRSD;

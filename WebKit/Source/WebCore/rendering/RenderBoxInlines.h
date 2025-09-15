@@ -21,6 +21,8 @@
 
 #include "RenderBox.h"
 #include "RenderBoxModelObjectInlines.h"
+#include "RenderElementInlines.h"
+#include "RenderObjectInlines.h"
 
 namespace WebCore {
 
@@ -66,6 +68,23 @@ inline void RenderBox::setLogicalLocation(LayoutPoint location) { setLocation(wr
 inline void RenderBox::setLogicalSize(LayoutSize size) { setSize(writingMode().isHorizontal() ? size : size.transposedSize()); }
 inline bool RenderBox::shouldTrimChildMargin(MarginTrimType type, const RenderBox& child) const { return style().marginTrim().contains(type) && isChildEligibleForMarginTrim(type, child); }
 inline bool RenderBox::stretchesToViewport() const { return document().inQuirksMode() && style().logicalHeight().isAuto() && !isFloatingOrOutOfFlowPositioned() && (isDocumentElementRenderer() || isBody()) && !shouldComputeLogicalHeightFromAspectRatio() && !isInline(); }
+inline bool RenderBox::isColumnSpanner() const { return style().columnSpan() == ColumnSpan::All; }
+
+inline LayoutPoint RenderBox::topLeftLocation() const
+{
+    // This is inlined for speed, since it is used by updateLayerPosition() during scrolling.
+    if (!document().view() || !document().view()->hasFlippedBlockRenderers())
+        return location();
+    return topLeftLocationWithFlipping();
+}
+
+inline LayoutSize RenderBox::topLeftLocationOffset() const
+{
+    // This is inlined for speed, since it is used by updateLayerPosition() during scrolling.
+    if (!document().view() || !document().view()->hasFlippedBlockRenderers())
+        return locationOffset();
+    return toLayoutSize(topLeftLocationWithFlipping());
+}
 
 inline LayoutRect RenderBox::paddingBoxRectIncludingScrollbar() const
 {
@@ -154,6 +173,31 @@ inline LayoutUnit resolveHeightForRatio(LayoutUnit borderAndPaddingLogicalWidth,
     if (boxSizing == BoxSizing::BorderBox)
         return LayoutUnit((logicalWidth + borderAndPaddingLogicalWidth) * aspectRatio) - borderAndPaddingLogicalHeight;
     return LayoutUnit(logicalWidth * aspectRatio);
+}
+
+inline bool isSkippedContentRoot(const RenderBox& renderBox)
+{
+    return renderBox.element() && WebCore::isSkippedContentRoot(renderBox.style(), *renderBox.protectedElement());
+}
+
+inline bool RenderBox::backgroundIsKnownToBeObscured(const LayoutPoint& paintOffset)
+{
+    if (boxDecorationState() == BoxDecorationState::InvalidObscurationStatus) {
+        auto computedBoxDecorationState = [&] {
+            if (isSkippedContentRoot(*this))
+                return BoxDecorationState::MayBeVisible;
+            return computeBackgroundIsKnownToBeObscured(paintOffset) ? BoxDecorationState::IsKnownToBeObscured : BoxDecorationState::MayBeVisible;
+        };
+        setBoxDecorationState(computedBoxDecorationState());
+    }
+    return boxDecorationState() == BoxDecorationState::IsKnownToBeObscured;
+}
+
+inline LayoutUnit RenderBox::blockSizeFromAspectRatio(LayoutUnit borderPaddingInlineSum, LayoutUnit borderPaddingBlockSum, double aspectRatioValue, BoxSizing boxSizing, LayoutUnit inlineSize, const Style::AspectRatio& aspectRatio, bool isRenderReplaced)
+{
+    if (boxSizing == BoxSizing::BorderBox && aspectRatio.isRatio() && !isRenderReplaced)
+        return std::max(borderPaddingBlockSum, LayoutUnit(inlineSize / aspectRatioValue));
+    return LayoutUnit((inlineSize - borderPaddingInlineSum) / aspectRatioValue) + borderPaddingBlockSum;
 }
 
 } // namespace WebCore

@@ -29,6 +29,7 @@
 #define __KPI__
 
 #include <sys/param.h>
+#include <sys/cdefs.h>
 #include <sys/mbuf.h>
 #include <sys/mcache.h>
 #include <sys/socket.h>
@@ -78,10 +79,33 @@ SYSCTL_QUAD(_kern_ipc_mbtxcf, OID_AUTO, aborted,
     CTLFLAG_RD | CTLFLAG_LOCKED, &mbuf_tx_compl_aborted, "");
 #endif /* (DEBUG || DEVELOPMENT) */
 
-void *
+void * __unsafe_indexable
 mbuf_data(mbuf_t mbuf)
 {
 	return m_mtod_current(mbuf);
+}
+
+errno_t
+mbuf_data_len(mbuf_t mbuf, void *__sized_by(*out_len) *out_buf, size_t *out_len)
+{
+	size_t  len;
+	void   *buf;
+
+	if (out_len == NULL || out_buf == NULL) {
+		return EINVAL;
+	}
+
+	len = mbuf_len(mbuf);
+	buf = m_mtod_current(mbuf);
+
+	if (len == 0 || buf == NULL) {
+		return ENOENT;
+	}
+
+	*out_len = len;
+	*out_buf = buf;
+
+	return 0;
 }
 
 void *
@@ -249,11 +273,6 @@ mbuf_alloccluster(mbuf_how_t how, size_t *size, char * __sized_by_or_null(*size)
 	caddr_t _addr = NULL;
 	size_t _size = *size;
 
-	/* Jumbo cluster pool not available? */
-	if (_size > MBIGCLBYTES && njcl == 0) {
-		return ENOTSUP;
-	}
-
 	if (_size <= MCLBYTES && (_addr = m_mclalloc(how)) != NULL) {
 		_size = MCLBYTES;
 	} else if (_size > MCLBYTES && _size <= MBIGCLBYTES &&
@@ -288,10 +307,8 @@ mbuf_freecluster(caddr_t addr, size_t size)
 		m_mclfree(addr);
 	} else if (size == MBIGCLBYTES) {
 		m_bigfree(addr, MBIGCLBYTES, NULL);
-	} else if (njcl > 0) {
-		m_16kfree(addr, M16KCLBYTES, NULL);
 	} else {
-		panic("%s: freeing jumbo cluster to an empty pool", __func__);
+		m_16kfree(addr, M16KCLBYTES, NULL);
 	}
 }
 
@@ -321,13 +338,7 @@ mbuf_getcluster(mbuf_how_t how, mbuf_type_t type, size_t size, mbuf_t *mbuf)
 	} else if (size == MBIGCLBYTES) {
 		*mbuf = m_mbigget(*mbuf, how);
 	} else if (size == M16KCLBYTES) {
-		if (njcl > 0) {
-			*mbuf = m_m16kget(*mbuf, how);
-		} else {
-			/* Jumbo cluster pool not available? */
-			error = ENOTSUP;
-			goto out;
-		}
+		*mbuf = m_m16kget(*mbuf, how);
 	} else {
 		error = EINVAL;
 		goto out;

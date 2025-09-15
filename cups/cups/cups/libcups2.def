@@ -371,6 +371,7 @@ httpCredentialsString
 httpDecode64
 httpDecode64_2
 httpDelete
+httpDeleteCredentials
 httpEncode64
 httpEncode64_2
 httpEncryption

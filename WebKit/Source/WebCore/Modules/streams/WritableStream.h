@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "JSDOMGlobalObject.h"
 #include <JavaScriptCore/Strong.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
@@ -33,9 +32,11 @@
 
 namespace WebCore {
 
+class Exception;
 class InternalWritableStream;
 class JSDOMGlobalObject;
 class WritableStreamSink;
+template<typename> class ExceptionOr;
 
 class WritableStream : public RefCountedAndCanMakeWeakPtr<WritableStream> {
 public:
@@ -49,6 +50,7 @@ public:
     bool locked() const;
 
     void closeIfPossible();
+    void errorIfPossible(Exception&&);
 
     InternalWritableStream& internalWritableStream();
     enum class Type : bool {
@@ -62,7 +64,7 @@ protected:
     static ExceptionOr<Ref<InternalWritableStream>> createInternalWritableStream(JSDOMGlobalObject&, Ref<WritableStreamSink>&&);
     explicit WritableStream(Ref<InternalWritableStream>&&);
 private:
-    Ref<InternalWritableStream> m_internalWritableStream;
+    const Ref<InternalWritableStream> m_internalWritableStream;
 };
 
 } // namespace WebCore

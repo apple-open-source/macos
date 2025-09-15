@@ -1,0 +1,1 @@
+Potentially risky changes should be qualified by DROPS before nomination using the opt-in process.  If necessary, nominate for DROPS using [the process](https://a1391192.slack.com/archives/C04EXS0T78S/p1677178789284519).

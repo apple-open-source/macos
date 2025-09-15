@@ -1,7 +1,7 @@
 /*
  * This file is part of the render object implementation for KHTML.
  *
- * Copyright (C) 2003 Apple Inc.
+ * Copyright (C) 2003 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -41,9 +41,9 @@ public:
 
     void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
 
-    void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0_lu) override;
-    void layoutHorizontalBox(bool relayoutChildren);
-    void layoutVerticalBox(bool relayoutChildren);
+    void layoutBlock(RelayoutChildren, LayoutUnit pageHeight = 0_lu) override;
+    void layoutHorizontalBox(RelayoutChildren);
+    void layoutVerticalBox(RelayoutChildren);
 
     bool isStretchingChildren() const { return m_stretchingChildren; }
 
@@ -52,6 +52,8 @@ public:
 private:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
     void computePreferredLogicalWidths() override;
+    void layoutSingleClampedFlexItem();
+    bool hasClampingAndNoFlexing() const;
 
     LayoutUnit allowedChildFlex(RenderBox* child, bool expanding, unsigned group);
     void placeChild(RenderBox* child, const LayoutPoint& location, LayoutSize* childLayoutDelta = nullptr);
@@ -64,7 +66,7 @@ private:
         LayoutUnit contentHeight;
         SingleThreadWeakPtr<const RenderBlockFlow> renderer;
     };
-    ClampedContent applyLineClamp(FlexBoxIterator&, bool relayoutChildren);
+    ClampedContent applyLineClamp(FlexBoxIterator&, RelayoutChildren);
     void clearLineClamp();
 
     bool m_stretchingChildren;

@@ -213,12 +213,12 @@ public:
             new (NotNull, &at(i)) T();
     }
 
-    Iterator begin()
+    Iterator begin() LIFETIME_BOUND
     {
         return Iterator(*this, 0);
     }
 
-    Iterator end()
+    Iterator end() LIFETIME_BOUND
     {
         return Iterator(*this, m_size);
     }

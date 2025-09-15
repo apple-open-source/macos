@@ -67,33 +67,32 @@ get_hw_topology(void)
 }
 
 int
-cpu_id_to_cluster_id(int cpu_id)
+pset_id_to_cpu_id(int pset_id)
 {
 	test_hw_topology_t topo = get_hw_topology();
 	int cpu_index = 0;
 	for (int p = 0; p < topo.num_psets; p++) {
-		for (int c = 0; c < topo.psets[p].num_cpus; c++) {
-			if (cpu_index == cpu_id) {
-				return (int)p;
-			}
-			cpu_index++;
-		}
-	}
-	T_QUIET; T_ASSERT_FAIL("cpu id %d never found out of %d cpus", cpu_id, cpu_index);
-}
-
-int
-cluster_id_to_cpu_id(int cluster_id)
-{
-	test_hw_topology_t topo = get_hw_topology();
-	int cpu_index = 0;
-	for (int p = 0; p < topo.num_psets; p++) {
-		if (p == cluster_id) {
+		if (p == pset_id) {
 			return cpu_index;
 		}
 		cpu_index += topo.psets[p].num_cpus;
 	}
-	T_QUIET; T_ASSERT_FAIL("pset id %d never found out of %d psets", cluster_id, topo.num_psets);
+	T_QUIET; T_ASSERT_FAIL("pset id %d never found out of %d psets", pset_id, topo.num_psets);
+}
+
+int
+cpu_id_to_pset_id(int cpu_id)
+{
+	test_hw_topology_t topo = get_hw_topology();
+	T_QUIET; T_ASSERT_LT(cpu_id, topo.total_cpus, "cpu id out of bounds");
+	int cpu_count = 0;
+	for (int p = 0; p < topo.num_psets; p++) {
+		cpu_count += topo.psets[p].num_cpus;
+		if (cpu_id < cpu_count) {
+			return p;
+		}
+	}
+	T_QUIET; T_ASSERT_FAIL("failed to find pset for cpu %d somehow", cpu_id);
 }
 
 static char _log_filepath[MAXPATHLEN];
@@ -164,6 +163,13 @@ cpu_set_thread_current(int cpu_id, test_thread_t thread)
 	fprintf(_log, "\tset %p as current thread on cpu %d\n", thread, cpu_id);
 }
 
+test_thread_t
+cpu_clear_thread_current(int cpu_id)
+{
+	fprintf(_log, "\tclearing the current thread from cpu %d\n", cpu_id);
+	return impl_cpu_clear_thread_current(cpu_id);
+}
+
 bool
 runqueue_empty(test_runq_target_t runq_target)
 {
@@ -176,8 +182,8 @@ runq_target_to_cpu_id(test_runq_target_t runq_target)
 	switch (runq_target.target_type) {
 	case TEST_RUNQ_TARGET_TYPE_CPU:
 		return runq_target.target_id;
-	case TEST_RUNQ_TARGET_TYPE_CLUSTER:
-		return cluster_id_to_cpu_id(runq_target.target_id);
+	case TEST_RUNQ_TARGET_TYPE_PSET:
+		return pset_id_to_cpu_id(runq_target.target_id);
 	default:
 		T_ASSERT_FAIL("unexpected type %d", runq_target.target_type);
 	}
@@ -202,11 +208,11 @@ cpu_enqueue_thread(int cpu_id, test_thread_t thread)
 }
 
 test_runq_target_t
-cluster_target(int cluster_id)
+pset_target(int pset_id)
 {
 	test_runq_target_t target = {
-		.target_type = TEST_RUNQ_TARGET_TYPE_CLUSTER,
-		.target_id = cluster_id,
+		.target_type = TEST_RUNQ_TARGET_TYPE_PSET,
+		.target_id = pset_id,
 	};
 	return target;
 }
@@ -253,7 +259,7 @@ enqueue_threads_rand_order(test_runq_target_t runq_target, unsigned int random_s
 {
 	va_list args;
 	va_start(args, num_threads);
-	test_thread_t *tmp = (test_thread_t *)malloc(sizeof(test_thread_t) * (size_t)num_threads);
+	test_thread_t *tmp = (test_thread_t *)calloc(num_threads, sizeof(test_thread_t));
 	for (int i = 0; i < num_threads; i++) {
 		test_thread_t thread = va_arg(args, test_thread_t);
 		tmp[i] = thread;
@@ -290,11 +296,11 @@ dequeue_thread_expect(test_runq_target_t runq_target, test_thread_t expected_thr
 	if (chosen_thread != expected_thread) {
 		return false;
 	}
-	if (expected_thread != NULL && auto_current_thread_disabled == false) {
+	if (expected_thread != NULL && auto_current_thread_disabled == false && impl_get_thread_is_realtime(chosen_thread) == false) {
 		/*
 		 * Additionally verify that chosen_thread still gets returned as the highest
 		 * thread, even when compared against the remaining runqueue as the currently
-		 * running thread
+		 * running thread.
 		 */
 		cpu_set_thread_current(cpu_id, expected_thread);
 		bool pass = cpu_dequeue_thread_expect_compare_current(cpu_id, expected_thread);
@@ -384,4 +390,15 @@ void
 reenable_auto_current_thread(void)
 {
 	auto_current_thread_disabled = false;
+}
+
+#pragma mark - Realtime
+
+void
+set_thread_realtime(test_thread_t thread, uint32_t period, uint32_t computation, uint32_t constraint, bool preemptible, uint8_t priority_offset, uint64_t deadline)
+{
+	fprintf(_log, "\tsetting realtime deadline on thread %p: period=0x%x, computation=0x%x, constraint=0x%x,"
+	    " preemptible=%s, priority_offset=%x, deadline=%llx\n", (void *) thread, period, computation, constraint,
+	    preemptible ? "true" : "false", priority_offset, deadline);
+	impl_set_thread_realtime(thread, period, computation, constraint, preemptible, priority_offset, deadline);
 }

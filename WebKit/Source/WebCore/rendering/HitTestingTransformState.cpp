@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,39 +30,19 @@
 
 namespace WebCore {
 
-void HitTestingTransformState::translate(int x, int y, TransformAccumulation accumulate)
+void HitTestingTransformState::translate(int x, int y)
 {
-    m_accumulatedTransform.translate(x, y);    
-    if (accumulate == FlattenTransform)
-        flattenWithTransform(m_accumulatedTransform);
-
-    m_accumulatingTransform = accumulate == AccumulateTransform;
+    m_accumulatedTransform.translate(x, y);
 }
 
-void HitTestingTransformState::applyTransform(const TransformationMatrix& transformFromContainer, TransformAccumulation accumulate)
+void HitTestingTransformState::applyTransform(const TransformationMatrix& transformFromContainer)
 {
     m_accumulatedTransform.multiply(transformFromContainer);
-    if (accumulate == FlattenTransform)
-        flattenWithTransform(m_accumulatedTransform);
-
-    m_accumulatingTransform = accumulate == AccumulateTransform;
 }
 
 void HitTestingTransformState::flatten()
 {
-    flattenWithTransform(m_accumulatedTransform);
-}
-
-void HitTestingTransformState::flattenWithTransform(const TransformationMatrix& t)
-{
-    if (std::optional<TransformationMatrix> inverse = t.inverse()) {
-        m_lastPlanarPoint = inverse.value().projectPoint(m_lastPlanarPoint);
-        m_lastPlanarQuad = inverse.value().projectQuad(m_lastPlanarQuad);
-        m_lastPlanarArea = inverse.value().projectQuad(m_lastPlanarArea);
-    }
-
-    m_accumulatedTransform.makeIdentity();
-    m_accumulatingTransform = false;
+    m_accumulatedTransform.flatten();
 }
 
 FloatPoint HitTestingTransformState::mappedPoint() const
@@ -93,5 +73,14 @@ LayoutRect HitTestingTransformState::boundsOfMappedArea() const
     TransformationMatrix identity;
     return identity.clampedBoundsOfProjectedQuad(m_lastPlanarArea);
 }
+
+LayoutRect HitTestingTransformState::boundsOfMappedQuad() const
+{
+    if (auto inverse = m_accumulatedTransform.inverse())
+        return inverse.value().clampedBoundsOfProjectedQuad(m_lastPlanarQuad);
+    TransformationMatrix identity;
+    return identity.clampedBoundsOfProjectedQuad(m_lastPlanarQuad);
+}
+
 
 } // namespace WebCore

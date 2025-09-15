@@ -61,7 +61,7 @@ public:
     ~InspectorDOMDebuggerAgent() override;
 
     // InspectorAgentBase
-    void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
+    void didCreateFrontendAndBackend() override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
     void discardAgent() override;
     virtual bool enabled() const;
@@ -84,6 +84,8 @@ public:
     void didHandleEvent(ScriptExecutionContext&, Event&, const RegisteredEventListener&);
     void willFireTimer(bool oneShot);
     void didFireTimer(bool oneShot);
+    void willFireAnimationFrame();
+    void didFireAnimationFrame();
     void willSendRequest(ResourceRequest&);
     void willSendRequestOfType(ResourceRequest&);
 
@@ -92,14 +94,12 @@ protected:
     virtual void enable();
     virtual void disable();
 
-    virtual bool setAnimationFrameBreakpoint(Inspector::Protocol::ErrorString&, RefPtr<JSC::Breakpoint>&&) = 0;
-
     Inspector::InspectorDebuggerAgent* m_debuggerAgent { nullptr };
 
 private:
     void breakOnURLIfNeeded(const String&);
 
-    RefPtr<Inspector::DOMDebuggerBackendDispatcher> m_backendDispatcher;
+    const Ref<Inspector::DOMDebuggerBackendDispatcher> m_backendDispatcher;
     Inspector::InjectedScriptManager& m_injectedScriptManager;
 
     struct EventBreakpoint {
@@ -129,6 +129,7 @@ private:
     RefPtr<JSC::Breakpoint> m_pauseOnAllIntervalsBreakpoint;
     RefPtr<JSC::Breakpoint> m_pauseOnAllListenersBreakpoint;
     RefPtr<JSC::Breakpoint> m_pauseOnAllTimeoutsBreakpoint;
+    RefPtr<JSC::Breakpoint> m_pauseOnAllAnimationFramesBreakpoint;
 
     MemoryCompactRobinHoodHashMap<String, Ref<JSC::Breakpoint>> m_urlTextBreakpoints;
     MemoryCompactRobinHoodHashMap<String, Ref<JSC::Breakpoint>> m_urlRegexBreakpoints;

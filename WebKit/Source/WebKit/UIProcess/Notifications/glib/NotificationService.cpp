@@ -28,6 +28,7 @@
 
 #include "WebNotification.h"
 #include <WebCore/Image.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/NotificationResources.h>
 #include <gio/gio.h>
 #include <glib/gi18n-lib.h>
@@ -125,7 +126,7 @@ class IconCache {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(IconCache);
 public:
     IconCache()
-        : m_timer(RunLoop::main(), this, &IconCache::timerFired)
+        : m_timer(RunLoop::mainSingleton(), "IconCache::Timer"_s, this, &IconCache::timerFired)
     {
         m_timer.setPriority(RunLoopSourcePriority::ReleaseUnusedResourcesTimer);
     }
@@ -295,7 +296,7 @@ public:
     }
 
 private:
-    HashMap<String, std::pair<uint32_t, std::variant<CString, GRefPtr<GBytes>>>> m_iconCache;
+    HashMap<String, std::pair<uint32_t, Variant<CString, GRefPtr<GBytes>>>> m_iconCache;
     RunLoop::Timer m_timer;
 };
 

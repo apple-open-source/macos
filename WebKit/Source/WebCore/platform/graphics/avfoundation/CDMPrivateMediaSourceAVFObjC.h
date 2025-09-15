@@ -52,7 +52,7 @@ public:
     bool supportsMIMEType(const String& mimeType) const override;
     RefPtr<LegacyCDMSession> createSession(LegacyCDMSessionClient&) override;
 
-    LegacyCDM& cdm() const { return m_cdm.get(); }
+    LegacyCDM& cdm() const;
 
     void invalidateSession(CDMSessionMediaSourceAVFObjC*);
 

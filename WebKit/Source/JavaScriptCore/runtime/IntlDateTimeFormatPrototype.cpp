@@ -116,7 +116,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatFuncFormatDateTime, (JSGlobalObject* 
     // https://tc39.github.io/ecma402/#sec-formatdatetime
 
     IntlDateTimeFormat* format = jsDynamicCast<IntlDateTimeFormat*>(callFrame->thisValue());
-    if (UNLIKELY(!format))
+    if (!format) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.format called on value that's not a DateTimeFormat"_s));
 
     JSValue date = callFrame->argument(0);
@@ -136,7 +136,7 @@ JSC_DEFINE_CUSTOM_GETTER(intlDateTimeFormatPrototypeGetterFormat, (JSGlobalObjec
     auto* dtf = IntlDateTimeFormat::unwrapForOldFunctions(globalObject, JSValue::decode(thisValue));
     RETURN_IF_EXCEPTION(scope, { });
     // 2. ReturnIfAbrupt(dtf).
-    if (UNLIKELY(!dtf))
+    if (!dtf) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.format called on value that's not a DateTimeFormat"_s));
 
     JSBoundFunction* boundFormat = dtf->boundFormat();
@@ -147,7 +147,7 @@ JSC_DEFINE_CUSTOM_GETTER(intlDateTimeFormatPrototypeGetterFormat, (JSGlobalObjec
         // b. The value of F’s length property is 1. (Note: F’s length property was 0 in ECMA-402 1.0)
         JSFunction* targetObject = JSFunction::create(vm, globalObject, 1, "format"_s, intlDateTimeFormatFuncFormatDateTime, ImplementationVisibility::Public);
         // c. Let bf be BoundFunctionCreate(F, «this value»).
-        boundFormat = JSBoundFunction::create(vm, globalObject, targetObject, dtf, { }, 1, jsEmptyString(vm));
+        boundFormat = JSBoundFunction::create(vm, globalObject, targetObject, dtf, { }, 1, jsEmptyString(vm), makeSource("format"_s, SourceOrigin(), SourceTaintedOrigin::Untainted));
         RETURN_IF_EXCEPTION(scope, { });
         boundFormat->reifyLazyPropertyIfNeeded<>(vm, globalObject, vm.propertyNames->name);
         RETURN_IF_EXCEPTION(scope, { });
@@ -169,7 +169,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatToParts, (JSGlobal
 
     // Do not use unwrapForOldFunctions.
     auto* dateTimeFormat = jsDynamicCast<IntlDateTimeFormat*>(callFrame->thisValue());
-    if (UNLIKELY(!dateTimeFormat))
+    if (!dateTimeFormat) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.formatToParts called on value that's not a DateTimeFormat"_s));
 
     JSValue date = callFrame->argument(0);
@@ -187,7 +187,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatRange, (JSGlobalOb
 
     // Do not use unwrapForOldFunctions.
     auto* dateTimeFormat = jsDynamicCast<IntlDateTimeFormat*>(callFrame->thisValue());
-    if (UNLIKELY(!dateTimeFormat))
+    if (!dateTimeFormat) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.formatRange called on value that's not a DateTimeFormat"_s));
 
     JSValue startDateValue = callFrame->argument(0);
@@ -212,7 +212,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncFormatRangeToParts, (JSG
 
     // Do not use unwrapForOldFunctions.
     auto* dateTimeFormat = jsDynamicCast<IntlDateTimeFormat*>(callFrame->thisValue());
-    if (UNLIKELY(!dateTimeFormat))
+    if (!dateTimeFormat) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.formatRangeToParts called on value that's not a DateTimeFormat"_s));
 
     JSValue startDateValue = callFrame->argument(0);
@@ -238,7 +238,7 @@ JSC_DEFINE_HOST_FUNCTION(intlDateTimeFormatPrototypeFuncResolvedOptions, (JSGlob
 
     auto* dateTimeFormat = IntlDateTimeFormat::unwrapForOldFunctions(globalObject, callFrame->thisValue());
     RETURN_IF_EXCEPTION(scope, { });
-    if (UNLIKELY(!dateTimeFormat))
+    if (!dateTimeFormat) [[unlikely]]
         return JSValue::encode(throwTypeError(globalObject, scope, "Intl.DateTimeFormat.prototype.resolvedOptions called on value that's not a DateTimeFormat"_s));
 
     RELEASE_AND_RETURN(scope, JSValue::encode(dateTimeFormat->resolvedOptions(globalObject)));

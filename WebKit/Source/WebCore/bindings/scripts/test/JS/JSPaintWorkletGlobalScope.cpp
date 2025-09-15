@@ -22,6 +22,7 @@
 #include "JSPaintWorkletGlobalScope.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -142,7 +143,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsPaintWorkletGlobalScopeConstructor, (JSGlobalObject* 
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSPaintWorkletGlobalScopePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSPaintWorkletGlobalScope::getConstructor(vm, prototype->globalObject()));
 }
@@ -171,7 +172,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsPaintWorkletGlobalScope_PaintWorkletGlobalScopeConstr
 
 JSC::GCClient::IsoSubspace* JSPaintWorkletGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSPaintWorkletGlobalScope, UseCustomHeapCellType::Yes>(vm,
+    return WebCore::subspaceForImpl<JSPaintWorkletGlobalScope, UseCustomHeapCellType::Yes>(vm, "JSPaintWorkletGlobalScope"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForPaintWorkletGlobalScope.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForPaintWorkletGlobalScope = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForPaintWorkletGlobalScope.get(); },

@@ -77,9 +77,9 @@ int HTMLIFrameElement::defaultTabIndex() const
 DOMTokenList& HTMLIFrameElement::sandbox()
 {
     if (!m_sandbox) {
-        m_sandbox = makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, sandboxAttr, [](Document&, StringView token) {
+        lazyInitialize(m_sandbox, makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, sandboxAttr, [](Document&, StringView token) {
             return SecurityContext::isSupportedSandboxPolicy(token);
-        });
+        }));
     }
     return *m_sandbox;
 }
@@ -150,7 +150,7 @@ void HTMLIFrameElement::attributeChanged(const QualifiedName& name, const AtomSt
         break;
     case AttributeNames::srcdocAttr:
     case AttributeNames::srcAttr:
-        FALLTHROUGH;
+        [[fallthrough]];
     default:
         HTMLFrameElementBase::attributeChanged(name, oldValue, newValue, attributeModificationReason);
         break;
@@ -167,11 +167,6 @@ RenderPtr<RenderElement> HTMLIFrameElement::createElementRenderer(RenderStyle&& 
     return createRenderer<RenderIFrame>(*this, WTFMove(style));
 }
 
-void HTMLIFrameElement::setReferrerPolicyForBindings(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(referrerpolicyAttr, value);
-}
-
 String HTMLIFrameElement::referrerPolicyForBindings() const
 {
     return referrerPolicyToString(referrerPolicy());
@@ -181,7 +176,7 @@ ReferrerPolicy HTMLIFrameElement::referrerPolicy() const
 {
     if (m_lazyLoadFrameObserver)
         return m_lazyLoadFrameObserver->referrerPolicy();
-    return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+    return referrerPolicyFromAttribute();
 }
 
 const AtomString& HTMLIFrameElement::loading() const
@@ -189,17 +184,12 @@ const AtomString& HTMLIFrameElement::loading() const
     return equalLettersIgnoringASCIICase(attributeWithoutSynchronization(HTMLNames::loadingAttr), "lazy"_s) ? lazyAtom() : eagerAtom();
 }
 
-void HTMLIFrameElement::setLoading(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(loadingAttr, value);
-}
-
 String HTMLIFrameElement::srcdoc() const
 {
     return attributeWithoutSynchronization(srcdocAttr);
 }
 
-ExceptionOr<void> HTMLIFrameElement::setSrcdoc(std::variant<RefPtr<TrustedHTML>, String>&& value)
+ExceptionOr<void> HTMLIFrameElement::setSrcdoc(Variant<RefPtr<TrustedHTML>, String>&& value, SubstituteData::SessionHistoryVisibility sessionHistoryVisibility)
 {
     auto stringValueHolder = trustedTypeCompliantString(*document().scriptExecutionContext(), WTFMove(value), "HTMLIFrameElement srcdoc"_s);
 
@@ -207,7 +197,13 @@ ExceptionOr<void> HTMLIFrameElement::setSrcdoc(std::variant<RefPtr<TrustedHTML>,
         return stringValueHolder.releaseException();
 
     setAttributeWithoutSynchronization(srcdocAttr, AtomString { stringValueHolder.releaseReturnValue() });
+    m_srcdocSessionHistoryVisibility = sessionHistoryVisibility;
     return { };
+}
+
+ReferrerPolicy HTMLIFrameElement::referrerPolicyFromAttribute() const
+{
+    return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
 }
 
 static bool isFrameLazyLoadable(const Document& document, const URL& url, const AtomString& loadingAttributeValue)
@@ -223,14 +219,17 @@ static bool isFrameLazyLoadable(const Document& document, const URL& url, const 
 
 bool HTMLIFrameElement::shouldLoadFrameLazily()
 {
-    if (!m_lazyLoadFrameObserver && !document().quirks().shouldDisableLazyIframeLoadingQuirk()) {
-        URL completeURL = document().completeURL(frameURL());
+    if (!document().settings().lazyIframeLoadingEnabled() || document().quirks().shouldDisableLazyIframeLoadingQuirk())
+        return false;
+    URL completeURL = document().completeURL(frameURL());
+    auto referrerPolicy = referrerPolicyFromAttribute();
+    if (!m_lazyLoadFrameObserver) {
         if (isFrameLazyLoadable(document(), completeURL, attributeWithoutSynchronization(HTMLNames::loadingAttr))) {
-            auto currentReferrerPolicy = referrerPolicy();
-            lazyLoadFrameObserver().observe(AtomString { completeURL.string() }, currentReferrerPolicy);
+            lazyLoadFrameObserver().observe(AtomString { completeURL.string() }, referrerPolicy);
             return true;
         }
-    }
+    } else
+        m_lazyLoadFrameObserver->update(AtomString { completeURL.string() }, referrerPolicy);
     return false;
 }
 

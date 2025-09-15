@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/IntSize.h>
 #include <WebCore/LocalFrame.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/RenderElementInlines.h>
 #include <WebCore/RenderImage.h>
@@ -45,7 +46,7 @@ using namespace WebCore;
 RefPtr<ShareableBitmap> createShareableBitmap(RenderImage& renderImage, CreateShareableBitmapFromImageOptions&& options)
 {
     Ref frame = renderImage.frame();
-    auto colorSpaceForBitmap = screenColorSpace(frame->mainFrame().virtualView());
+    auto colorSpaceForBitmap = screenColorSpace(frame->protectedMainFrame()->virtualView());
     if (!renderImage.isRenderMedia() && !renderImage.opacity() && options.useSnapshotForTransparentImages == UseSnapshotForTransparentImages::Yes) {
         auto snapshotRect = renderImage.absoluteBoundingBoxRect();
         if (snapshotRect.isEmpty())
@@ -100,7 +101,7 @@ RefPtr<ShareableBitmap> createShareableBitmap(RenderImage& renderImage, CreateSh
     if (!cachedImage || cachedImage->errorOccurred())
         return { };
 
-    auto* image = cachedImage->imageForRenderer(&renderImage);
+    RefPtr image = cachedImage->imageForRenderer(&renderImage);
     if (!image || image->width() <= 1 || image->height() <= 1)
         return { };
 

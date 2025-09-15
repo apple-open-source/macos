@@ -80,6 +80,7 @@
 namespace WebCore {
 namespace SelectorCompiler {
 
+// Using UncheckedKeyHashSet instead of HashSet improves performance on Speedometer 3.
 using PseudoClassesSet = UncheckedKeyHashSet<CSSSelector::PseudoClass, IntHash<CSSSelector::PseudoClass>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClass>>;
 
 #if ENABLE(SELECTOR_OPERATION_STATS)
@@ -145,7 +146,6 @@ using PseudoClassesSet = UncheckedKeyHashSet<CSSSelector::PseudoClass, IntHash<C
     v(operationAttributeValueSpaceSeparatedListContainsCaseInsensitive) \
     v(operationElementIsActive) \
     v(operationElementIsHovered) \
-    v(operationMakeContextStyleUniqueIfNecessaryAndTestIsPlaceholderShown) \
     v(operationIsPlaceholderShown) \
     v(operationSynchronizeStyleAttributeInternal) \
     v(operationSynchronizeAllAnimatedSVGAttribute) \
@@ -224,7 +224,6 @@ static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationAddStyle
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationElementIsActive, bool, (const Element*));
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationElementIsHovered, bool, (const Element*));
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsPlaceholderShown, bool, (const Element*));
-static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMakeContextStyleUniqueIfNecessaryAndTestIsPlaceholderShown, bool, (const Element*, SelectorChecker::CheckingContext*));
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationSynchronizeAllAnimatedSVGAttribute, void, (SVGElement&));
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationSynchronizeStyleAttributeInternal, void, (StyledElement* styledElement));
 static JSC_DECLARE_NOEXCEPT_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationEqualIgnoringASCIICaseNonNull, bool, (const StringImpl*, const StringImpl*));
@@ -1228,6 +1227,7 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     // Optimized pseudo selectors.
     case CSSSelector::PseudoClass::AnyLink:
     case CSSSelector::PseudoClass::Link:
+    case CSSSelector::PseudoClass::PlaceholderShown:
     case CSSSelector::PseudoClass::Root:
         fragment.pseudoClasses.add(type);
         return FunctionType::SimpleSelectorChecker;
@@ -1256,7 +1256,6 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     case CSSSelector::PseudoClass::Hover:
     case CSSSelector::PseudoClass::LastChild:
     case CSSSelector::PseudoClass::OnlyChild:
-    case CSSSelector::PseudoClass::PlaceholderShown:
     case CSSSelector::PseudoClass::Target:
         fragment.pseudoClasses.add(type);
         if (selectorContext == SelectorContext::QuerySelector)
@@ -1517,13 +1516,13 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
         case CSSSelector::Match::List:
             if (selector->value().find(isASCIIWhitespace<UChar>) != notFound)
                 return FunctionType::CannotMatchAnything;
-            FALLTHROUGH;
+            [[fallthrough]];
         case CSSSelector::Match::Begin:
         case CSSSelector::Match::End:
         case CSSSelector::Match::Contain:
             if (selector->value().isEmpty())
                 return FunctionType::CannotMatchAnything;
-            FALLTHROUGH;
+            [[fallthrough]];
         case CSSSelector::Match::Exact:
         case CSSSelector::Match::Hyphen:
             fragment->onlyMatchesLinksInQuirksMode = false;
@@ -3960,18 +3959,6 @@ void SelectorCodeGenerator::generateElementIsOnlyChild(Assembler::JumpList& fail
     successCase.link(&m_assembler);
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMakeContextStyleUniqueIfNecessaryAndTestIsPlaceholderShown, bool, (const Element* element, SelectorChecker::CheckingContext* checkingContext))
-{
-    COUNT_SELECTOR_OPERATION(operationMakeContextStyleUniqueIfNecessaryAndTestIsPlaceholderShown);
-    auto* formControl = dynamicDowncast<HTMLTextFormControlElement>(*element);
-    if (formControl && element->isTextField()) {
-        if (checkingContext->resolvingMode == SelectorChecker::Mode::ResolvingStyle)
-            checkingContext->styleRelations.append({ *element, Style::Relation::Unique, 1 });
-        return formControl->isPlaceholderVisible();
-    }
-    return false;
-}
-
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationIsPlaceholderShown, bool, (const Element* element))
 {
     COUNT_SELECTOR_OPERATION(operationIsPlaceholderShown);
@@ -3999,21 +3986,9 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationEqualIgnoringASCIICaseNonNull, bool, 
 
 void SelectorCodeGenerator::generateElementHasPlaceholderShown(Assembler::JumpList& failureCases)
 {
-    if (m_selectorContext == SelectorContext::QuerySelector) {
-        FunctionCall functionCall(m_assembler, m_registerAllocator, m_stackAllocator, m_functionCalls);
-        functionCall.setFunctionAddress(operationIsPlaceholderShown);
-        functionCall.setOneArgument(elementAddressRegister);
-        failureCases.append(functionCall.callAndBranchOnBooleanReturnValue(Assembler::Zero));
-        return;
-    }
-
-    Assembler::RegisterID checkingContext = m_registerAllocator.allocateRegisterWithPreference(JSC::GPRInfo::argumentGPR1);
-    loadCheckingContext(checkingContext);
-    m_registerAllocator.deallocateRegister(checkingContext);
-
     FunctionCall functionCall(m_assembler, m_registerAllocator, m_stackAllocator, m_functionCalls);
-    functionCall.setFunctionAddress(operationMakeContextStyleUniqueIfNecessaryAndTestIsPlaceholderShown);
-    functionCall.setTwoArguments(elementAddressRegister, checkingContext);
+    functionCall.setFunctionAddress(operationIsPlaceholderShown);
+    functionCall.setOneArgument(elementAddressRegister);
     failureCases.append(functionCall.callAndBranchOnBooleanReturnValue(Assembler::Zero));
 }
 

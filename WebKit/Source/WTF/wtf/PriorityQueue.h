@@ -54,7 +54,7 @@ public:
         siftUp(location);
     }
 
-    const T& peek() const { return m_buffer[0]; }
+    const T& peek() const LIFETIME_BOUND { return m_buffer[0]; }
     T dequeue()
     {
         std::swap(m_buffer[0], m_buffer.last());
@@ -85,8 +85,8 @@ public:
         ASSERT(isValidHeap());
     }
 
-    const_iterator begin() const { return m_buffer.begin(); };
-    const_iterator end() const { return m_buffer.end(); };
+    const_iterator begin() const LIFETIME_BOUND { return m_buffer.begin(); };
+    const_iterator end() const LIFETIME_BOUND { return m_buffer.end(); };
 
     bool isValidHeap() const
     {
@@ -120,7 +120,7 @@ protected:
     {
         while (leftChildOf(location) < m_buffer.size()) {
             size_t higherPriorityChild;
-            if (LIKELY(rightChildOf(location) < m_buffer.size()))
+            if (rightChildOf(location) < m_buffer.size()) [[likely]]
                 higherPriorityChild = isHigherPriority(m_buffer[leftChildOf(location)], m_buffer[rightChildOf(location)]) ? leftChildOf(location) : rightChildOf(location);
             else
                 higherPriorityChild = leftChildOf(location);

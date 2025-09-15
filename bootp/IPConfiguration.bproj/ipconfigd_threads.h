@@ -51,6 +51,7 @@
 #include "symbol_scope.h"
 
 #define kNetworkSignature	CFSTR("NetworkSignature")
+#define kNetworkSignatureHash	CFSTR("NetworkSignatureHash")
 
 typedef enum {
     IFEventID_start_e = 0,		/* start the configuration method */
@@ -242,17 +243,17 @@ service_is_address_set(ServiceRef service_p);
 ServiceRef
 service_parent_service(ServiceRef service_p);
 
-int
+void
 service_enable_autoaddr(ServiceRef service_p);
 
-int
+void
 service_disable_autoaddr(ServiceRef service_p);
 
-int
+void
 service_set_address(ServiceRef service_p, struct in_addr ip, 
 		    struct in_addr mask, struct in_addr  broadcast);
 
-int
+void
 service_remove_address(ServiceRef service_p);
 
 boolean_t
@@ -280,9 +281,10 @@ boolean_t
 ServiceIsPublished(ServiceRef service_p);
 
 void
-ServiceSetRequestedIPv6Address(ServiceRef service_p,
-			       const struct in6_addr * addr_p,
-			       int prefix_length);
+ServiceSetRequestedIPv6Information(ServiceRef service_p,
+				   const struct in6_addr * addr_p,
+				   int prefix_length,
+				   const struct in6_addr * router_p);
 void
 ServiceGetRequestedIPv6Address(ServiceRef service_p, 
 			       struct in6_addr * addr_p,

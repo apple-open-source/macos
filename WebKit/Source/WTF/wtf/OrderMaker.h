@@ -110,8 +110,8 @@ public:
         typename SentinelLinkedList<Node>::iterator m_iter;
     };
 
-    iterator begin() const { return iterator(const_cast<SentinelLinkedList<Node>&>(m_list).begin()); }
-    iterator end() const { return iterator(const_cast<SentinelLinkedList<Node>&>(m_list).end()); }
+    iterator begin() const LIFETIME_BOUND { return iterator(const_cast<SentinelLinkedList<Node>&>(m_list).begin()); }
+    iterator end() const LIFETIME_BOUND { return iterator(const_cast<SentinelLinkedList<Node>&>(m_list).end()); }
     
 private:
     Node* newNode(T value)

@@ -52,7 +52,7 @@ using namespace WebCore;
 
 static bool shouldAutomaticTextReplacementBeEnabled()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
     if (![defaults objectForKey:WebAutomaticTextReplacementEnabled])
         return [NSSpellChecker isAutomaticTextReplacementEnabled];
     return [defaults boolForKey:WebAutomaticTextReplacementEnabled];
@@ -60,7 +60,7 @@ static bool shouldAutomaticTextReplacementBeEnabled()
 
 static bool shouldAutomaticSpellingCorrectionBeEnabled()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
     if (![defaults objectForKey:WebAutomaticSpellingCorrectionEnabled])
         return [NSSpellChecker isAutomaticTextReplacementEnabled];
     return [defaults boolForKey:WebAutomaticSpellingCorrectionEnabled];
@@ -68,7 +68,7 @@ static bool shouldAutomaticSpellingCorrectionBeEnabled()
 
 static bool shouldAutomaticQuoteSubstitutionBeEnabled()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
     if (![defaults objectForKey:WebAutomaticQuoteSubstitutionEnabled])
         return [NSSpellChecker isAutomaticQuoteSubstitutionEnabled];
 
@@ -77,7 +77,7 @@ static bool shouldAutomaticQuoteSubstitutionBeEnabled()
 
 static bool shouldAutomaticDashSubstitutionBeEnabled()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
     if (![defaults objectForKey:WebAutomaticDashSubstitutionEnabled])
         return [NSSpellChecker isAutomaticDashSubstitutionEnabled];
 
@@ -86,7 +86,7 @@ static bool shouldAutomaticDashSubstitutionBeEnabled()
 
 static bool shouldGrammarCheckingBeEnabled()
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    RetainPtr defaults = [NSUserDefaults standardUserDefaults];
 #if USE(NSSPELLCHECKER_GRAMMAR_CHECKING_POLICY)
     if (![defaults objectForKey:WebGrammarCheckingEnabled])
         return [NSSpellChecker grammarCheckingEnabled];
@@ -310,7 +310,7 @@ bool TextChecker::substitutionsPanelIsShowing()
 
 void TextChecker::toggleSubstitutionsPanelIsShowing()
 {
-    NSPanel *substitutionsPanel = [[NSSpellChecker sharedSpellChecker] substitutionsPanel];
+    RetainPtr substitutionsPanel = [[NSSpellChecker sharedSpellChecker] substitutionsPanel];
     if ([substitutionsPanel isVisible]) {
         [substitutionsPanel orderOut:nil];
         return;
@@ -349,14 +349,14 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(SpellDocumentTag sp
         NSTextCheckingInsertionPointKey : @(insertionPoint),
         NSTextCheckingSuppressInitialCapitalizationKey : @(!initialCapitalizationEnabled)
     };
-    NSArray *incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString.get()
+    RetainPtr incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString.get()
                                                                           range:NSMakeRange(0, text.length())
                                                                           types:nsTextCheckingTypes(checkingTypes) | NSTextCheckingTypeOrthography
                                                                         options:options
                                                          inSpellDocumentWithTag:spellDocumentTag 
                                                                     orthography:NULL
                                                                       wordCount:NULL];
-    for (NSTextCheckingResult *incomingResult in incomingResults) {
+    for (NSTextCheckingResult *incomingResult in incomingResults.get()) {
         NSTextCheckingType resultType = [incomingResult resultType];
         ASSERT(incomingResult.range.location != NSNotFound);
         ASSERT(incomingResult.range.length > 0);
@@ -368,22 +368,22 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(SpellDocumentTag sp
             results.append(WTFMove(result));
         } else if (resultType == NSTextCheckingTypeGrammar && checkingTypes.contains(TextCheckingType::Grammar)) {
             TextCheckingResult result;
-            NSArray *details = [incomingResult grammarDetails];
+            RetainPtr details = [incomingResult grammarDetails];
             result.type = TextCheckingType::Grammar;
             result.range = resultRange;
-            result.details.reserveInitialCapacity(details.count);
-            for (NSDictionary *incomingDetail in details) {
+            result.details.reserveInitialCapacity(details.get().count);
+            for (NSDictionary *incomingDetail in details.get()) {
                 ASSERT(incomingDetail);
                 GrammarDetail detail;
-                NSValue *detailRangeAsNSValue = [incomingDetail objectForKey:NSGrammarRange];
+                RetainPtr detailRangeAsNSValue = [incomingDetail objectForKey:NSGrammarRange];
                 ASSERT(detailRangeAsNSValue);
                 NSRange detailNSRange = [detailRangeAsNSValue rangeValue];
                 ASSERT(detailNSRange.location != NSNotFound);
                 ASSERT(detailNSRange.length > 0);
                 detail.range = detailNSRange;
                 detail.userDescription = [incomingDetail objectForKey:NSGrammarUserDescription];
-                NSArray *guesses = [incomingDetail objectForKey:NSGrammarCorrections];
-                detail.guesses = makeVector<String>(guesses);
+                RetainPtr<NSArray> guesses = [incomingDetail objectForKey:NSGrammarCorrections];
+                detail.guesses = makeVector<String>(guesses.get());
                 result.details.append(WTFMove(detail));
             }
             results.append(result);
@@ -417,12 +417,11 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(SpellDocumentTag sp
             result.range = resultRange;
             result.replacement = [incomingResult replacementString];
             if ([incomingResult respondsToSelector:@selector(detail)]) {
-                NSDictionary *incomingDetail = [incomingResult detail];
-                if (incomingDetail) {
+                if (RetainPtr incomingDetail = [incomingResult detail]) {
                     result.details.reserveInitialCapacity(1);
                     GrammarDetail detail;
 
-                    NSValue *detailRangeAsNSValue = [incomingDetail objectForKey:NSGrammarRange];
+                    RetainPtr detailRangeAsNSValue = [incomingDetail objectForKey:NSGrammarRange];
                     ASSERT(detailRangeAsNSValue);
 
                     NSRange detailNSRange = [detailRangeAsNSValue rangeValue];
@@ -431,8 +430,8 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(SpellDocumentTag sp
 
                     detail.range = detailNSRange;
                     detail.userDescription = [incomingDetail objectForKey:NSGrammarUserDescription];
-                    NSArray *guesses = [incomingDetail objectForKey:NSGrammarCorrections];
-                    detail.guesses = makeVector<String>(guesses);
+                    RetainPtr<NSArray> guesses = [incomingDetail objectForKey:NSGrammarCorrections];
+                    detail.guesses = makeVector<String>(guesses.get());
                     result.details.append(WTFMove(detail));
                 }
             }
@@ -464,7 +463,7 @@ bool TextChecker::spellingUIIsShowing()
 
 void TextChecker::toggleSpellingUIIsShowing()
 {
-    NSPanel *spellingPanel = [[NSSpellChecker sharedSpellChecker] spellingPanel];
+    RetainPtr spellingPanel = [[NSSpellChecker sharedSpellChecker] spellingPanel];
     if ([spellingPanel isVisible])
         [spellingPanel orderOut:nil];
     else
@@ -473,7 +472,7 @@ void TextChecker::toggleSpellingUIIsShowing()
 
 void TextChecker::updateSpellingUIWithMisspelledWord(SpellDocumentTag, const String& misspelledWord)
 {
-    [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithMisspelledWord:misspelledWord];
+    [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithMisspelledWord:misspelledWord.createNSString().get()];
 }
 
 void TextChecker::updateSpellingUIWithGrammarString(SpellDocumentTag, const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
@@ -484,38 +483,38 @@ void TextChecker::updateSpellingUIWithGrammarString(SpellDocumentTag, const Stri
     if (endOfRangeChecked.hasOverflowed() || endOfRangeChecked >= badGrammarPhrase.length())
         return;
 
-    NSDictionary *detail = @{
+    RetainPtr detail = @{
         NSGrammarRange : [NSValue valueWithRange:grammarDetail.range],
-        NSGrammarUserDescription : grammarDetail.userDescription,
+        NSGrammarUserDescription : grammarDetail.userDescription.createNSString().get(),
         NSGrammarCorrections : createNSArray(grammarDetail.guesses).get(),
     };
-    [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:detail];
+    [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase.createNSString().get() detail:detail.get()];
 }
 
 void TextChecker::getGuessesForWord(SpellDocumentTag spellDocumentTag, const String& word, const String& context, int32_t insertionPoint, Vector<String>& guesses, bool initialCapitalizationEnabled)
 {
-    NSString* language = nil;
+    RetainPtr<NSString> language;
     NSOrthography* orthography = nil;
-    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    RetainPtr checker = [NSSpellChecker sharedSpellChecker];
     NSDictionary *options = @{
         NSTextCheckingInsertionPointKey : @(insertionPoint),
         NSTextCheckingSuppressInitialCapitalizationKey : @(!initialCapitalizationEnabled)
     };
     if (context.length()) {
-        [checker checkString:context range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:options inSpellDocumentWithTag:spellDocumentTag orthography:&orthography wordCount:0];
-        language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context orthography:orthography];
+        [checker checkString:context.createNSString().get() range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:options inSpellDocumentWithTag:spellDocumentTag orthography:&orthography wordCount:0];
+        language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context.createNSString().get() orthography:orthography];
     }
-    guesses = makeVector<String>([checker guessesForWordRange:NSMakeRange(0, word.length()) inString:word language:language inSpellDocumentWithTag:spellDocumentTag]);
+    guesses = makeVector<String>([checker guessesForWordRange:NSMakeRange(0, word.length()) inString:word.createNSString().get() language:language.get() inSpellDocumentWithTag:spellDocumentTag]);
 }
 
 void TextChecker::learnWord(SpellDocumentTag, const String& word)
 {
-    [[NSSpellChecker sharedSpellChecker] learnWord:word];
+    [[NSSpellChecker sharedSpellChecker] learnWord:word.createNSString().get()];
 }
 
 void TextChecker::ignoreWord(SpellDocumentTag spellDocumentTag, const String& word)
 {
-    [[NSSpellChecker sharedSpellChecker] ignoreWord:word inSpellDocumentWithTag:spellDocumentTag];
+    [[NSSpellChecker sharedSpellChecker] ignoreWord:word.createNSString().get() inSpellDocumentWithTag:spellDocumentTag];
 }
 
 void TextChecker::requestCheckingOfString(Ref<TextCheckerCompletion>&&, int32_t)

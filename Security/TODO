@@ -39,13 +39,13 @@ each kind as it should.
 in_args are a valid plist.
 
 sec_item_add_id
-    _SecItemAdd() argument 1 is a dictionary, but its contents have not been checked.
+    SecServerItemAdd() argument 1 is a dictionary, but its contents have not been checked.
 sec_item_copy_matching_id
-    _SecItemCopyMatching() argument 1 is a dictionary, but its contents have not been checked.
+    SecServerItemCopyMatching() argument 1 is a dictionary, but its contents have not been checked.
 sec_item_delete_id
-    _SecItemDelete() argument 1 is a dictionary, but its contents have not been checked.
+    SecServerItemDelete() argument 1 is a dictionary, but its contents have not been checked.
 sec_item_update_id
-    _SecItemUpdate() argument 1 and 2 are dictionaries, but their contents have not been checked.
+    SecServerItemUpdate() argument 1 and 2 are dictionaries, but their contents have not been checked.
 sec_trust_store_contains_id (ok)
     SecTrustStoreForDomainName() argument 1 is a string of any length (might be 0).
     SecTrustStoreContainsCertificateWithDigest() argument 1 might be NULL, argument 2 is a data of any length (might be 0).

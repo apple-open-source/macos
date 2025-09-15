@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -47,7 +47,7 @@
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
 #include "ImageBuffer.h"
-#include "InspectorClient.h"
+#include "InspectorBackendClient.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorNetworkAgent.h"
 #include "InspectorOverlay.h"
@@ -57,7 +57,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "Page.h"
-#include "RenderObject.h"
+#include "RenderObjectInlines.h"
 #include "RenderTheme.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
@@ -220,7 +220,7 @@ CachedResource* InspectorPageAgent::cachedResource(const LocalFrame* frame, cons
 
     CachedResource* cachedResource = frame->document()->cachedResourceLoader().cachedResource(MemoryCache::removeFragmentIdentifierIfNeeded(url));
     if (!cachedResource) {
-        ResourceRequest request(url);
+        ResourceRequest request(URL { url });
         request.setDomainForCachePartition(frame->document()->domainForCachePartition());
         cachedResource = MemoryCache::singleton().resourceForRequest(request, frame->page()->sessionID());
     }
@@ -343,9 +343,9 @@ DocumentLoader* InspectorPageAgent::assertDocumentLoader(Inspector::Protocol::Er
     return documentLoader;
 }
 
-InspectorPageAgent::InspectorPageAgent(PageAgentContext& context, InspectorClient* client, InspectorOverlay& overlay)
+InspectorPageAgent::InspectorPageAgent(PageAgentContext& context, InspectorBackendClient* client, InspectorOverlay& overlay)
     : InspectorAgentBase("Page"_s, context)
-    , m_frontendDispatcher(makeUnique<Inspector::PageFrontendDispatcher>(context.frontendRouter))
+    , m_frontendDispatcher(makeUniqueRef<Inspector::PageFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(Inspector::PageBackendDispatcher::create(context.backendDispatcher, this))
     , m_inspectedPage(context.inspectedPage)
     , m_client(client)
@@ -355,7 +355,7 @@ InspectorPageAgent::InspectorPageAgent(PageAgentContext& context, InspectorClien
 
 InspectorPageAgent::~InspectorPageAgent() = default;
 
-void InspectorPageAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
+void InspectorPageAgent::didCreateFrontendAndBackend()
 {
 }
 
@@ -406,10 +406,10 @@ Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::disable()
     inspectedPageSettings.setForcedPrefersReducedMotionAccessibilityValue(ForcedAccessibilityValue::System);
     inspectedPageSettings.setForcedPrefersContrastAccessibilityValue(ForcedAccessibilityValue::System);
 
-    m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::PrivateClickMeasurementDebugModeEnabled, std::nullopt);
-    m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::ITPDebugModeEnabled, std::nullopt);
-    m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::MockCaptureDevicesEnabled, std::nullopt);
-    m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::NeedsSiteSpecificQuirks, std::nullopt);
+    m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::PrivateClickMeasurementDebugModeEnabled, std::nullopt);
+    m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::ITPDebugModeEnabled, std::nullopt);
+    m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::MockCaptureDevicesEnabled, std::nullopt);
+    m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::NeedsSiteSpecificQuirks, std::nullopt);
 
     return { };
 }
@@ -467,7 +467,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::overrideSetting(Ins
 
     switch (setting) {
     case Inspector::Protocol::Page::Setting::PrivateClickMeasurementDebugModeEnabled:
-        m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::PrivateClickMeasurementDebugModeEnabled, value);
+        m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::PrivateClickMeasurementDebugModeEnabled, value);
         return { };
 
     case Inspector::Protocol::Page::Setting::AuthorAndUserStylesEnabled:
@@ -479,7 +479,7 @@ Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::overrideSetting(Ins
         return { };
 
     case Inspector::Protocol::Page::Setting::ITPDebugModeEnabled:
-        m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::ITPDebugModeEnabled, value);
+        m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::ITPDebugModeEnabled, value);
         return { };
 
     case Inspector::Protocol::Page::Setting::ImagesEnabled:
@@ -492,12 +492,12 @@ Inspector::Protocol::ErrorStringOr<void> InspectorPageAgent::overrideSetting(Ins
 
     case Inspector::Protocol::Page::Setting::MockCaptureDevicesEnabled:
         inspectedPageSettings.setMockCaptureDevicesEnabledInspectorOverride(value);
-        m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::MockCaptureDevicesEnabled, value);
+        m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::MockCaptureDevicesEnabled, value);
         return { };
 
     case Inspector::Protocol::Page::Setting::NeedsSiteSpecificQuirks:
         inspectedPageSettings.setNeedsSiteSpecificQuirksInspectorOverride(value);
-        m_client->setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference::NeedsSiteSpecificQuirks, value);
+        m_client->setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference::NeedsSiteSpecificQuirks, value);
         return { };
 
     case Inspector::Protocol::Page::Setting::ScriptEnabled:
@@ -1051,7 +1051,7 @@ void InspectorPageAgent::defaultAppearanceDidChange()
 
 void InspectorPageAgent::didClearWindowObjectInWorld(LocalFrame& frame, DOMWrapperWorld& world)
 {
-    if (&world != &mainThreadNormalWorld())
+    if (&world != &mainThreadNormalWorldSingleton())
         return;
 
     if (m_bootstrapScript.isEmpty())

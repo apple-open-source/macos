@@ -17,7 +17,6 @@
 #include "utilities/SecCFRelease.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 #import "ipc/securityd_client.h"
@@ -70,9 +69,12 @@
         } else {
             OTControlArguments* arguments = [[OTControlArguments alloc] initWithAltDSID:altDSID];
 
-            AAFAnalyticsEventSecurity *eventS = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
-                                                                                                         altDSID:altDSID
-                                                                                                       eventName:kSecurityRTCEventNamePrimaryAccountAdded category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            AAFAnalyticsEventSecurity *event = nil;
+            if (changeType == kACAccountChangeTypeAdded || changeType == kACAccountChangeTypeWarmingUp) {
+                event = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                  altDSID:altDSID
+                                                                                eventName:kSecurityRTCEventNamePrimaryAccountAdded category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+            }
 
             [otcontrol appleAccountSignedIn:arguments reply:^(NSError * _Nullable signedInError) {
                 // take a retain on otcontrol so it won't invalidate the connection
@@ -80,12 +82,16 @@
 
                 if(signedInError) {
                     secerror("octagon-account: error signing in: %s", [[signedInError description] UTF8String]);
-                    [eventS addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(NO)}];
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:signedInError];
+                    if (event) {
+                        [event addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(NO)}];
+                        [event sendMetricWithResult:NO error:signedInError];
+                    }
                 } else {
                     secnotice("octagon-account", "account now signed in for octagon operation");
-                    [eventS addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(YES)}];
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+                    if (event) {
+                        [event addMetrics:@{kSecurityRTCFieldOctagonSignInResult : @(YES)}];
+                        [event sendMetricWithResult:YES error:nil];
+                    }
                 }
             }];
         }
@@ -164,7 +170,7 @@
                     }
                     
                     BOOL success = (idmsError == nil) ? YES : NO;
-                    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:success error:idmsError];
+                    [eventS sendMetricWithResult:success error:idmsError];
                 }];
             }
 

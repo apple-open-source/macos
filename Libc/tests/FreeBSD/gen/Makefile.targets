@@ -1,1 +1,2 @@
 CUSTOM_TARGETS += popen_test
+CUSTOM_TARGETS += t_basedirname

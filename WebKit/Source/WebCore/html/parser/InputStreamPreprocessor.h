@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
- * Copyright (C) 2013 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2013 Google, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@ public:
     // characters in |source| (after collapsing \r\n, etc).
     ALWAYS_INLINE bool peek(SegmentedString& source, bool skipNullCharacters = false)
     {
-        if (UNLIKELY(source.isEmpty()))
+        if (source.isEmpty()) [[unlikely]]
             return false;
 
         m_nextInputCharacter = source.currentCharacter();
@@ -58,7 +58,7 @@ public:
         // handling. Please run the parser benchmark whenever you touch
         // this function. It's very hot.
         constexpr UChar specialCharacterMask = '\n' | '\r' | '\0';
-        if (LIKELY(m_nextInputCharacter & ~specialCharacterMask)) {
+        if (m_nextInputCharacter & ~specialCharacterMask) [[likely]] {
             m_skipNextNewLine = false;
             return true;
         }

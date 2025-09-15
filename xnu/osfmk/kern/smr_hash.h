@@ -501,7 +501,13 @@ smr_hash_array_decode(const struct smr_hash *smrh)
 	uintptr_t ptr = os_atomic_load(&smrh->smrh_array, relaxed);
 
 	array.smrh_order = (uint8_t)(ptr >> SMRH_ARRAY_ORDER_SHIFT);
+#ifndef __BUILDING_XNU_LIBRARY__
+	/* when running in kernel space, top bits are supposed to be 0xff*/
 	ptr |= SMRH_ARRAY_ORDER_MASK;
+#else
+	/* in user-mode top bits need to be 00 */
+	ptr &= ~SMRH_ARRAY_ORDER_MASK;
+#endif
 	array.smrh_array = (struct smrq_slist_head *)ptr;
 
 	return array;

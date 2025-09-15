@@ -150,6 +150,7 @@ de{
         crs{"Seychellenkreol"}
         cs{"Tschechisch"}
         csb{"Kaschubisch"}
+        cst{"Chochenyo"}
         csw{"Swampy Cree"}
         cu{"Kirchenslawisch"}
         cv{"Tschuwaschisch"}
@@ -245,6 +246,7 @@ de{
         hak{"Hakka"}
         haw{"Hawaiisch"}
         hax{"Süd-Haida"}
+        hch{"Wixárika"}
         he{"Hebräisch"}
         hi{"Hindi"}
         hi_Latn{"Hindi (lateinisch)"}
@@ -275,6 +277,7 @@ de{
         inh{"Inguschisch"}
         io{"Ido"}
         is{"Isländisch"}
+        isc{"Iskonawa"}
         it{"Italienisch"}
         iu{"Inuktitut"}
         izh{"Ischorisch"}
@@ -544,6 +547,7 @@ de{
         sh{"Serbo-Kroatisch"}
         shi{"Taschelhit"}
         shn{"Schan"}
+        shp{"Shipibo-Conibo"}
         shu{"Tschadisch-Arabisch"}
         si{"Singhalesisch"}
         sid{"Sidamo"}
@@ -877,13 +881,15 @@ de{
     }
     Types{
         calendar{
+            bangla{"Bengalischer Kalender"}
             buddhist{"Buddhistischer Kalender"}
             chinese{"Chinesischer Kalender"}
             coptic{"Koptischer Kalender"}
-            dangi{"Dangi-Kalender"}
+            dangi{"Koreanischer Kalender"}
             ethiopic{"Äthiopischer Kalender"}
             ethiopic-amete-alem{"Äthiopischer Amätä-Aläm-Kalender"}
             gregorian{"Gregorianischer Kalender"}
+            gujarati{"Gujarati-Kalender"}
             hebrew{"Hebräischer Kalender"}
             indian{"Indischer Nationalkalender"}
             islamic{"Hidschra-Kalender"}
@@ -893,8 +899,16 @@ de{
             islamic-umalqura{"Hidschra-Kalender (Umm-al-Qura)"}
             iso8601{"ISO-8601-Kalender"}
             japanese{"Japanischer Kalender"}
+            kannada{"Kannada-Kalender"}
+            malayalam{"Malayalam-Kalender"}
+            marathi{"Marathi-Kalender"}
+            odia{"Odia-Kalender"}
             persian{"Persischer Kalender"}
             roc{"Minguo-Kalender"}
+            tamil{"Tamilischer Kalender"}
+            telugu{"Telugu-Kalender"}
+            vietnamese{"Vietnamesischer Kalender"}
+            vikram{"Vikram-Kalender"}
         }
         cf{
             account{"Währungsformat (Buchhaltung)"}

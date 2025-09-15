@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -87,7 +87,7 @@ public:
     WEBCORE_EXPORT bool isSuccessful() const;
 
     WEBCORE_EXPORT const URL& url() const;
-    WEBCORE_EXPORT void setURL(const URL&);
+    WEBCORE_EXPORT void setURL(URL&&);
 
     WEBCORE_EXPORT const String& mimeType() const;
     WEBCORE_EXPORT void setMimeType(String&&);
@@ -220,7 +220,7 @@ public:
 
     WEBCORE_EXPORT static ResourceResponse dataURLResponse(const URL&, const DataURLDecoder::Result&);
     
-    WEBCORE_EXPORT ResourceResponseBase(std::optional<ResourceResponseData>);
+    WEBCORE_EXPORT ResourceResponseBase(std::optional<ResourceResponseData>&&);
     
     WEBCORE_EXPORT std::optional<ResourceResponseData> getResponseData() const;
 
@@ -232,7 +232,7 @@ protected:
     };
 
     WEBCORE_EXPORT ResourceResponseBase();
-    WEBCORE_EXPORT ResourceResponseBase(const URL&, const String& mimeType, long long expectedLength, const String& textEncodingName);
+    WEBCORE_EXPORT ResourceResponseBase(URL&&, String&& mimeType, long long expectedLength, String&& textEncodingName);
 
     WEBCORE_EXPORT void lazyInit(InitLevel) const;
 
@@ -270,7 +270,7 @@ protected:
 
 private:
     friend struct WTF::Persistence::Coder<ResourceResponse>;
-    mutable Markable<Seconds, Seconds::MarkableTraits> m_age;
+    mutable Markable<Seconds> m_age;
     mutable Markable<WallTime> m_date;
     mutable Markable<WallTime> m_expires;
     mutable Markable<WallTime> m_lastModified;

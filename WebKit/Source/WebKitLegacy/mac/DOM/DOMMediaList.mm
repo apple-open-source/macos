@@ -55,7 +55,7 @@
 - (NSString *)mediaText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->mediaText();
+    return IMPL->mediaText().createNSString().autorelease();
 }
 
 - (void)setMediaText:(NSString *)newMediaText
@@ -73,7 +73,7 @@
 - (NSString *)item:(unsigned)index
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->item(index);
+    return IMPL->item(index).createNSString().autorelease();
 }
 
 - (void)deleteMedium:(NSString *)oldMedium

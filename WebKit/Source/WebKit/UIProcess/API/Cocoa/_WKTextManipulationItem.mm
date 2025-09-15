@@ -118,9 +118,8 @@ NSString * const _WKTextManipulationItemErrorItemKey = @"item";
         NSString *description = preservePrivacy ? token.description : token.debugDescription;
         [recursiveDescriptions addObject:description];
     }];
-    NSString *tokenDescription = [NSString stringWithFormat:@"[\n\t%@\n]", [recursiveDescriptions componentsJoinedByString:@",\n\t"]];
-    NSString *description = [NSString stringWithFormat:@"<%@: %p; identifier = %@ tokens = %@>", self.class, self, self.identifier, tokenDescription];
-    return description;
+    RetainPtr tokenDescription = adoptNS([[NSString alloc] initWithFormat:@"[\n\t%@\n]", [recursiveDescriptions componentsJoinedByString:@",\n\t"]]);
+    return [NSString stringWithFormat:@"<%@: %p; identifier = %@ tokens = %@>", self.class, self, self.identifier, tokenDescription.get()];
 }
 
 @end

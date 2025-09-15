@@ -38,10 +38,30 @@ skip_if_monotonic_unsupported(void)
 	}
 }
 
+// Don't rely on FastSim's CPMU to produce reliable data.
+// In particular, S3_2_C15_C1_0 (instructions retired) seems to be zero on some devices (rdar://143157256).
+static void
+skip_if_fastsim(void)
+{
+	char buffer[64] = "";
+	size_t buffer_size = sizeof(buffer);
+
+	int r = sysctlbyname("hw.targettype", buffer, &buffer_size, NULL, 0);
+	if (r < 0) {
+		T_WITH_ERRNO;
+		T_SKIP("could not find \"hw.targettype\" sysctl");
+	}
+
+	if (strstr(buffer, "sim") != NULL) {
+		T_SKIP("CPU performance counters are unreliable on FastSim");
+	}
+}
+
 T_DECL(coalition_resource_info_counters,
     "ensure that coalition resource info produces valid counter data", T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	skip_if_monotonic_unsupported();
+	skip_if_fastsim();
 
 	T_SETUPBEGIN;
 

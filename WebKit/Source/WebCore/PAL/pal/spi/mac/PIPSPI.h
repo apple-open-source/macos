@@ -23,10 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #if PLATFORM(MAC)
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <PIP/PIPViewControllerPrivate.h>
+#if HAVE(PIP_SKIP_PREROLL)
+#import <PIP/PIPPlaybackState.h>
+#import <PIP/PIPPrerollAttributes.h>
+#endif
 #else
 
 NS_ASSUME_NONNULL_BEGIN
@@ -41,9 +49,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) bool playing;
 @property (nonatomic) bool userCanResize;
 @property (nonatomic) NSSize aspectRatio;
+#if HAVE(PIP_SKIP_PREROLL)
+@property (nonatomic, readonly) PIPPlaybackState *playbackState;
+#endif
 
 - (void)presentViewControllerAsPictureInPicture:(NSViewController *)viewController;
-
+#if HAVE(PIP_SKIP_PREROLL)
+- (void)updatePlaybackStateUsingBlock:(void (NS_NOESCAPE ^)(PIPMutablePlaybackState *))updateBlock;
+#endif
 @end
 
 @protocol PIPViewControllerDelegate <NSObject>
@@ -54,8 +67,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)pipActionPlay:(PIPViewController *)pip;
 - (void)pipActionPause:(PIPViewController *)pip;
 - (void)pipActionStop:(PIPViewController *)pip;
+- (void)pipActionSkipPreroll:(PIPViewController *)pip;
 @end
 
+#if HAVE(PIP_SKIP_PREROLL)
+@interface PIPPrerollAttributes: NSObject <NSCopying, NSSecureCoding>
+
++ (instancetype)prerollAttributesForAdContentWithRequiredLinearPlaybackEndTime:(NSTimeInterval)requiredLinearPlaybackEndTime preferredTintColor:(NSColor *)preferredTintColor;
+
+@end
+#endif
 NS_ASSUME_NONNULL_END
 
 #endif

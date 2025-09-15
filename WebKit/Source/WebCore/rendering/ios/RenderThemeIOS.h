@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,23 +60,16 @@ public:
 
     WEBCORE_EXPORT static Color systemFocusRingColor();
 
-    struct IconAndSize {
-        RetainPtr<UIImage> icon;
-        FloatSize size;
-    };
-
     WEBCORE_EXPORT static IconAndSize iconForAttachment(const String& fileName, const String& attachmentType, const String& title);
 
 private:
     bool canCreateControlPartForRenderer(const RenderObject&) const final;
 
-    LengthBox popupInternalPaddingBox(const RenderStyle&) const override;
-
-    LayoutRect adjustedPaintRect(const RenderBox&, const LayoutRect&) const override;
+    Style::PaddingBox popupInternalPaddingBox(const RenderStyle&) const override;
 
     int baselinePosition(const RenderBox&) const override;
 
-    bool isControlStyled(const RenderStyle&, const RenderStyle& userAgentStyle) const override;
+    bool isControlStyled(const RenderStyle&) const override;
 
     // Methods for each appearance value.
     void adjustCheckboxStyle(RenderStyle&, const Element*) const override;
@@ -97,29 +91,26 @@ private:
     void paintMenuListButtonDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
 
     void adjustSliderTrackStyle(RenderStyle&, const Element*) const override;
-    bool paintSliderTrack(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    bool paintSliderTrack(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
     void adjustSliderThumbSize(RenderStyle&, const Element*) const override;
 
-    void adjustSwitchStyle(RenderStyle&, const Element*) const final;
-    bool paintSwitchThumb(const RenderObject&, const PaintInfo&, const FloatRect&) final;
-    bool paintSwitchTrack(const RenderObject&, const PaintInfo&, const FloatRect&) final;
     Seconds switchAnimationVisuallyOnDuration() const final { return 0.4880138408543766_s; }
     Seconds switchAnimationHeldDuration() const final { return 0.5073965509413827_s; }
 #if HAVE(UI_IMPACT_FEEDBACK_GENERATOR)
     bool hasSwitchHapticFeedback(SwitchTrigger) const final { return true; }
 #endif
 
-    bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    bool paintProgressBar(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
     IntSize sliderTickSize() const override;
     int sliderTickOffsetFromTrackCenter() const override;
 
     void adjustSearchFieldStyle(RenderStyle&, const Element*) const override;
-    void paintSearchFieldDecorations(const RenderBox&, const PaintInfo&, const IntRect&) override;
+    void paintSearchFieldDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
 
     Color checkboxRadioBorderColor(OptionSet<ControlStyle::State>, OptionSet<StyleColorOptions>);
-    Color checkboxRadioBackgroundColor(bool useAlternateDesign, const RenderStyle&, OptionSet<ControlStyle::State>, OptionSet<StyleColorOptions>);
+    Color checkboxRadioBackgroundColor(const RenderStyle&, OptionSet<ControlStyle::State>, OptionSet<StyleColorOptions>);
     RefPtr<Gradient> checkboxRadioBackgroundGradient(const FloatRect&, OptionSet<ControlStyle::State>);
     Color checkboxRadioIndicatorColor(OptionSet<ControlStyle::State>, OptionSet<StyleColorOptions>);
 
@@ -129,7 +120,7 @@ private:
     void paintCheckboxRadioInnerShadow(const PaintInfo&, const FloatRoundedRect&, OptionSet<ControlStyle::State>);
 
     bool supportsMeter(StyleAppearance) const final;
-    bool paintMeter(const RenderObject&, const PaintInfo&, const IntRect&) final;
+    bool paintMeter(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 
     bool paintListButton(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 
@@ -138,15 +129,15 @@ private:
     void paintColorWellDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 
     void adjustSearchFieldDecorationPartStyle(RenderStyle&, const Element*) const final;
-    bool paintSearchFieldDecorationPart(const RenderObject&, const PaintInfo&, const IntRect&) final;
+    bool paintSearchFieldDecorationPart(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 
     void adjustSearchFieldResultsDecorationPartStyle(RenderStyle&, const Element*) const final;
-    bool paintSearchFieldResultsDecorationPart(const RenderBox&, const PaintInfo&, const IntRect&) final;
+    bool paintSearchFieldResultsDecorationPart(const RenderBox&, const PaintInfo&, const FloatRect&) final;
 
     void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const final;
-    bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const IntRect&) final;
+    bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const FloatRect&) final;
 
-    bool supportsFocusRing(const RenderStyle&) const final;
+    bool supportsFocusRing(const RenderObject&, const RenderStyle&) const final;
 
     bool supportsBoxShadow(const RenderStyle&) const final;
 
@@ -188,8 +179,6 @@ private:
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;
 
     Color pictureFrameColor(const RenderObject&) override;
-
-    Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
 
     void adjustMinimumIntrinsicSizeForAppearance(StyleAppearance, RenderStyle&) const;
 };

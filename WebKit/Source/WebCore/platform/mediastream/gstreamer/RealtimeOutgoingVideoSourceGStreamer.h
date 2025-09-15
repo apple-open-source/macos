@@ -37,8 +37,6 @@ public:
     WARN_UNUSED_RETURN GRefPtr<GstPad> outgoingSourcePad() const final;
     RefPtr<GStreamerRTPPacketizer> createPacketizer(RefPtr<UniqueSSRCGenerator>, const GstStructure*, GUniquePtr<GstStructure>&&) final;
 
-    void teardown() override;
-
     void dispatchBitrateRequest(uint32_t bitrate) final;
 
 protected:
@@ -48,7 +46,7 @@ protected:
     bool m_shouldApplyRotation { false };
 
 private:
-    void initializePreProcessor();
+    void initialize();
 
     RTCRtpCapabilities rtpCapabilities() const final;
 };

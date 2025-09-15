@@ -60,7 +60,7 @@ WI.BackForwardEntry = class BackForwardEntry
     get cookie()
     {
         // Cookies are immutable; they represent a specific navigation action.
-        return Object.shallowCopy(this._cookie);
+        return {...this._cookie};
     }
 
     get tombstone()

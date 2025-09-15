@@ -118,6 +118,11 @@ ScreenProperties ScreenManager::collectScreenProperties() const
     ScreenProperties properties;
     properties.primaryDisplayID = m_primaryDisplayID;
 
+#if ENABLE(TOUCH_EVENTS)
+    if (auto* seat = gdk_display_get_default_seat(gdk_display_get_default()))
+        properties.screenHasTouchDevice = gdk_seat_get_capabilities(seat) & GDK_SEAT_CAPABILITY_TOUCH;
+#endif
+
     for (const auto& iter : m_screenToDisplayIDMap) {
         GdkMonitor* monitor = iter.key;
         ScreenData data;

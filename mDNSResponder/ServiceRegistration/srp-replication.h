@@ -170,7 +170,7 @@ struct address_query {
     address_change_callback_t NULLABLE change_callback;
     address_query_cancel_callback_t NULLABLE cancel_callback;
     void *NULLABLE context;
-    char *NONNULL hostname;
+    char *NULLABLE hostname;
 };
 
 struct srpl_candidate {
@@ -264,7 +264,7 @@ struct srpl_srp_client_queue_entry {
 struct srpl_connection {
     int ref_count;
     uint64_t remote_partner_id;
-    char *NONNULL name;
+    char *NULLABLE name;
     char *NONNULL state_name;
     comm_t *NULLABLE connection;
     const char *NULLABLE connection_null_reason; // for debugging, records why we NULLed connection.
@@ -295,6 +295,7 @@ struct srpl_connection {
     int current_candidate;
     int retry_delay; // How long to send when we send a retry_delay message
     int keepalive_interval;
+    int reconnect_retry;
     srpl_state_t state, next_state;
     uint32_t variation_mask; // Protocol variations to support pre-standard TLV formats
     bool is_server;
@@ -339,6 +340,7 @@ struct srpl_instance {
     srpl_domain_t *NONNULL domain;
     srpl_connection_t *NULLABLE connection;
     wakeup_t *NULLABLE reconnect_timeout;
+    wakeup_t *NULLABLE incoming_connect_timeout;
     char *NULLABLE instance_name;
     srpl_instance_service_t *NONNULL services;
     uint64_t partner_id;
@@ -366,6 +368,7 @@ typedef enum {
 struct srpl_domain {
     uint64_t partner_id; // SRP replication partner ID
     uint64_t dataset_id;
+    uint64_t advertised_dataset_id;
     bool have_dataset_id;
     bool dataset_id_committed;
     bool partner_discovery_pending;
@@ -374,7 +377,7 @@ struct srpl_domain {
     int ref_count;
     srpl_opstate_t srpl_opstate;
     srpl_domain_t *NULLABLE next;
-    char *NONNULL name;
+    char *NULLABLE name;
     srpl_instance_t *NULLABLE instances;
     srpl_instance_service_t *NULLABLE unresolved_services;
     dnssd_txn_t *NULLABLE query;
@@ -382,7 +385,6 @@ struct srpl_domain {
     dnssd_txn_t *NULLABLE srpl_advertise_txn;
     wakeup_t *NULLABLE srpl_register_wakeup;
     wakeup_t *NULLABLE partner_discovery_timeout;
-    wakeup_t *NULLABLE primary_transition_timeout;
 };
 
 #define SRP_THREAD_DOMAIN "thread.home.arpa."

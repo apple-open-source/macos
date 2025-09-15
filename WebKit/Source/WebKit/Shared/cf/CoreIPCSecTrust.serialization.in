@@ -39,18 +39,18 @@ header: "CoreIPCSecTrust.h"
 };
 
 using WebKit::CoreIPCSecTrustData::Detail = Vector<std::pair<WebKit::CoreIPCString, bool>>;
-using WebKit::CoreIPCSecTrustData::InfoOption = std::variant<WebKit::CoreIPCDate, WebKit::CoreIPCString, bool>;
+using WebKit::CoreIPCSecTrustData::InfoOption = Variant<WebKit::CoreIPCDate, WebKit::CoreIPCString, bool>;
 using WebKit::CoreIPCSecTrustData::InfoType = Vector<std::pair<WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::InfoOption>>;
 using WebKit::CoreIPCSecTrustData::PolicyDictionaryValueIsNumber = Vector<std::pair<WebKit::CoreIPCString, WebKit::CoreIPCNumber>>;
-using WebKit::CoreIPCSecTrustData::PolicyArrayOfArrayContainingDateOrNumbers = Vector<Vector<std::variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate>>>;
+using WebKit::CoreIPCSecTrustData::PolicyArrayOfArrayContainingDateOrNumbers = Vector<Vector<Variant<WebKit::CoreIPCNumber, WebKit::CoreIPCDate>>>;
 using WebKit::CoreIPCSecTrustData::PolicyArrayOfNumbers = Vector<WebKit::CoreIPCNumber>;
 using WebKit::CoreIPCSecTrustData::PolicyArrayOfStrings = Vector<WebKit::CoreIPCString>;
 using WebKit::CoreIPCSecTrustData::PolicyArrayOfData = Vector<WebKit::CoreIPCData>;
-using WebKit::CoreIPCSecTrustData::PolicyVariant = std::variant<bool, WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyArrayOfNumbers,WebKit::CoreIPCSecTrustData::PolicyArrayOfStrings,WebKit::CoreIPCSecTrustData::PolicyArrayOfData,WebKit::CoreIPCSecTrustData::PolicyArrayOfArrayContainingDateOrNumbers,WebKit::CoreIPCSecTrustData::PolicyDictionaryValueIsNumber>;
+using WebKit::CoreIPCSecTrustData::PolicyVariant = Variant<bool, WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyArrayOfNumbers, WebKit::CoreIPCSecTrustData::PolicyArrayOfStrings, WebKit::CoreIPCSecTrustData::PolicyArrayOfData, WebKit::CoreIPCSecTrustData::PolicyArrayOfArrayContainingDateOrNumbers, WebKit::CoreIPCSecTrustData::PolicyDictionaryValueIsNumber>;
 using WebKit::CoreIPCSecTrustData::PolicyOption = Vector<std::pair<WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyVariant>>;
-using WebKit::CoreIPCSecTrustData::PolicyValue = std::variant<WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyOption>
+using WebKit::CoreIPCSecTrustData::PolicyValue = Variant<WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyOption>
 using WebKit::CoreIPCSecTrustData::PolicyType = Vector<std::pair<WebKit::CoreIPCString, WebKit::CoreIPCSecTrustData::PolicyValue>>;
-using WebKit::CoreIPCSecTrustData::ExceptionType = Vector<std::pair<WebKit::CoreIPCString, std::variant<WebKit::CoreIPCNumber, WebKit::CoreIPCData, bool>>>;
+using WebKit::CoreIPCSecTrustData::ExceptionType = Vector<std::pair<WebKit::CoreIPCString, Variant<WebKit::CoreIPCNumber, WebKit::CoreIPCData, bool>>>;
 
 header: "CoreIPCSecTrust.h"
 [CustomHeader, WebKitPlatform, AdditionalEncoder=StreamConnectionEncoder] struct WebKit::CoreIPCSecTrustData {

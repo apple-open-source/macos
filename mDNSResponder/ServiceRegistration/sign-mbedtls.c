@@ -1,6 +1,6 @@
 /* sign-mbedtls.c
  *
- * Copyright (c) 2018-2019 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Computer, Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,12 +127,11 @@ typedef struct rng_state {
 } rng_state_t;
 
 static rng_state_t *rng_state;
+int rng_state_fetch_status;
 
 bool
 rng_state_fetch(void)
 {
-    int status;
-
     if (rng_state == NULL) {
         rng_state = calloc(1, sizeof *rng_state);
         if (rng_state == NULL) {
@@ -141,20 +140,20 @@ rng_state_fetch(void)
         }
 
         mbedtls_entropy_init(&rng_state->entropy_context);
-        status = mbedtls_entropy_add_source(&rng_state->entropy_context, get_entropy,
-                                            NULL, 1, MBEDTLS_ENTROPY_SOURCE_STRONG);
-        if (status != 0) {
-            mbedtls_strerror(status, rng_state->errbuf, sizeof rng_state->errbuf);
+        rng_state_fetch_status = mbedtls_entropy_add_source(&rng_state->entropy_context, get_entropy,
+                                                            NULL, 1, MBEDTLS_ENTROPY_SOURCE_STRONG);
+        if (rng_state_fetch_status != 0) {
+            mbedtls_strerror(rng_state_fetch_status, rng_state->errbuf, sizeof rng_state->errbuf);
             ERROR("mbedtls_entropy_add_source failed: %s", rng_state->errbuf);
             goto fail;
         }
 
         mbedtls_ctr_drbg_init(&rng_state->rng_context);
-        status = mbedtls_ctr_drbg_seed(&rng_state->rng_context,
-                                       mbedtls_entropy_func, &rng_state->entropy_context, NULL, 0);
+        rng_state_fetch_status = mbedtls_ctr_drbg_seed(&rng_state->rng_context,
+                                                       mbedtls_entropy_func, &rng_state->entropy_context, NULL, 0);
 
-        if (status != 0) {
-            mbedtls_strerror(status, rng_state->errbuf, sizeof rng_state->errbuf);
+        if (rng_state_fetch_status != 0) {
+            mbedtls_strerror(rng_state_fetch_status, rng_state->errbuf, sizeof rng_state->errbuf);
             ERROR("mbedtls_ctr_drbg_seed failed: %s", rng_state->errbuf);
         fail:
             free(rng_state);
@@ -181,6 +180,16 @@ srp_key_setup(void)
     mbedtls_pk_free(&key->key);
     free(key);
     return NULL;
+}
+
+int
+srp_mbedtls_random(void *context, uint8_t *buf, size_t buflen)
+{
+    (void)context;
+    if (rng_state_fetch()) {
+        return mbedtls_ctr_drbg_random(&rng_state->rng_context, buf, buflen);
+    }
+    return rng_state_fetch_status;
 }
 
 uint16_t
@@ -266,7 +275,7 @@ srp_load_key_from_buffer(const uint8_t *buffer, size_t length)
         return NULL;
     }
 
-    if ((status = mbedtls_pk_parse_key(&key->key, buffer, length, NULL, 0)) != 0) {
+    if ((status = mbedtls_pk_parse_key(&key->key, buffer, length, NULL, 0, mbedtls_ctr_drbg_random, &rng_state->rng_context)) != 0) {
         mbedtls_strerror(status, errbuf, sizeof errbuf);
         ERROR("mbedtls_pk_parse_key failed: %s", errbuf);
     } else if (!mbedtls_pk_can_do(&key->key, MBEDTLS_PK_ECDSA)) {
@@ -401,31 +410,42 @@ srp_signature_length(srp_key_t *key)
 size_t
 srp_pubkey_copy(uint8_t *buf, size_t max, srp_key_t *key)
 {
-    mbedtls_ecp_keypair *ecp = mbedtls_pk_ec(key->key);
-    char errbuf[64];
-    int status;
-
+    size_t ret = 0;
     if (max < ECDSA_KEY_SIZE) {
         return 0;
     }
+    uint8_t keybuf[ECDSA_KEY_SIZE + 1]; // 04 | half | other half
+    uint8_t *bytes = &keybuf[sizeof(keybuf)];
+    int len = mbedtls_pk_write_pubkey(&bytes, keybuf, &key->key);
 
-    // Currently ECP only.
-    if ((status = mbedtls_mpi_write_binary(&ecp->Q.X, buf, ECDSA_KEY_PART_SIZE)) != 0 ||
-        (status = mbedtls_mpi_write_binary(&ecp->Q.Y, buf + ECDSA_KEY_PART_SIZE, ECDSA_KEY_PART_SIZE)) != 0) {
-        mbedtls_strerror(status, errbuf, sizeof errbuf);
-        ERROR("mbedtls_mpi_write_binary: %s", errbuf);
-        return 0;
+    if (len < 0) {
+        char errbuf[64];
+        mbedtls_strerror(len, errbuf, sizeof errbuf);
+        ERROR("write_der failed: " PUB_S_SRP, errbuf);
+        goto out;
+    }
+
+    // Should be 04 | X | Y
+    if (bytes[0] != 4) {
+        ERROR("Unexpected preamble to public key: %d", bytes[0]);
+    } else if (len - 1 > max) {
+        ERROR("Not enough room for public key in buffer: %d > %zd", len - 1, max);
+    } else if (len - 1 != ECDSA_KEY_SIZE) {
+        ERROR("Unexpected key size %d", len - 1);
+    } else {
+        memcpy(buf, bytes + 1, len - 1);
+        ret = ECDSA_KEY_SIZE;
     }
 
 #ifdef MBEDTLS_PUBKEY_DUMP
-    int i;
-    fprintf(stderr, "pubkey %d: ", ECDSA_KEY_SIZE);
-    for (i = 0; i < ECDSA_KEY_SIZE; i++) {
-        fprintf(stderr, "%02x", buf[i]);
+    fprintf(stderr, "pubkey %d %zd: ", len, sizeof(keybuf));
+    for (size_t i = 0; i < sizeof(keybuf); i++) {
+        fprintf(stderr, "%02x", keybuf[i]);
     }
     putc('\n', stderr);
 #endif // MBEDTLS_PUBKEY_DUMP
-    return ECDSA_KEY_SIZE;
+out:
+    return ret;
 }
 
 // Function to generate a signature given some data and a private key
@@ -457,15 +477,22 @@ srp_sign(uint8_t *output, size_t max, uint8_t *message, size_t msglen, uint8_t *
 
     // Calculate the hash across first the SIG RR (minus the signature) and then the message
     // up to but not including the SIG RR.
-    status = mbedtls_sha256_starts_ret(sha, 0);
+    status = mbedtls_sha256_starts(sha, 0);
     if (status == 0) {
-        status = srp_mbedtls_sha256_update_ret("rr", sha, rr, rdlen);
+        status = srp_mbedtls_sha256_update("rr", sha, rr, rdlen);
     }
     if (status == 0) {
-        status = srp_mbedtls_sha256_update_ret("message", sha, message, msglen);
+        status = srp_mbedtls_sha256_update("message", sha, message, msglen);
     }
     if (status == 0) {
-        status = srp_mbedtls_sha256_finish_ret(sha, hash);
+        status = srp_mbedtls_sha256_finish(sha, hash);
+    }
+    mbedtls_ecp_group group;
+    mbedtls_mpi d;
+    mbedtls_ecp_group_init(&group);
+    mbedtls_mpi_init(&d);
+    if (status == 0) {
+        status = mbedtls_ecp_export(ecp, &group, &d, NULL);
     }
     if (status != 0) {
         mbedtls_strerror(status, errbuf, sizeof errbuf);
@@ -474,7 +501,8 @@ srp_sign(uint8_t *output, size_t max, uint8_t *message, size_t msglen, uint8_t *
         goto cleanup;
     }
 
-    status = mbedtls_ecdsa_sign(&ecp->grp, &r, &s, &ecp->d, hash, sizeof hash,
+
+    status = mbedtls_ecdsa_sign(&group, &r, &s, &d, hash, sizeof hash,
                                 mbedtls_ctr_drbg_random, &rng_state->rng_context);
     if (status != 0) {
         mbedtls_strerror(status, errbuf, sizeof errbuf);

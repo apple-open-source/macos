@@ -64,21 +64,32 @@ struct _WPEBufferDMABufPrivate {
 };
 WEBKIT_DEFINE_FINAL_TYPE(WPEBufferDMABuf, wpe_buffer_dma_buf, WPE_TYPE_BUFFER, WPEBuffer)
 
+static void wpeBufferDMABufDisposeEGLImageIfNeeded(WPEBufferDMABuf* buffer)
+{
+    auto* priv = buffer->priv;
+    if (!priv->eglImage)
+        return;
+
+    auto* eglImage = std::exchange(priv->eglImage, nullptr);
+    auto* display = wpe_buffer_get_display(WPE_BUFFER(buffer));
+    if (!display)
+        return;
+
+    if (auto* eglDisplay = wpe_display_get_egl_display(display, nullptr)) {
+        static PFNEGLDESTROYIMAGEPROC s_eglDestroyImageKHR;
+        if (!s_eglDestroyImageKHR)
+            s_eglDestroyImageKHR = reinterpret_cast<PFNEGLDESTROYIMAGEPROC>(epoxy_eglGetProcAddress("eglDestroyImageKHR"));
+        s_eglDestroyImageKHR(eglDisplay, eglImage);
+    }
+}
+
 static void wpeBufferDMABufDispose(GObject* object)
 {
-    auto* priv = WPE_BUFFER_DMA_BUF(object)->priv;
-
-    if (priv->eglImage) {
-        if (auto* eglDisplay = wpe_display_get_egl_display(wpe_view_get_display(wpe_buffer_get_view(WPE_BUFFER(object))), nullptr)) {
-            static PFNEGLDESTROYIMAGEPROC s_eglDestroyImageKHR;
-            if (!s_eglDestroyImageKHR)
-                s_eglDestroyImageKHR = reinterpret_cast<PFNEGLDESTROYIMAGEPROC>(epoxy_eglGetProcAddress("eglDestroyImageKHR"));
-            s_eglDestroyImageKHR(eglDisplay, priv->eglImage);
-        }
-        priv->eglImage = nullptr;
-    }
+    auto* dmabufBuffer = WPE_BUFFER_DMA_BUF(object);
+    wpeBufferDMABufDisposeEGLImageIfNeeded(WPE_BUFFER_DMA_BUF(object));
 
 #if USE(GBM)
+    auto* priv = dmabufBuffer->priv;
     priv->pixels = nullptr;
     g_clear_pointer(&priv->bufferObject, gbm_bo_destroy);
     if (priv->device && priv->device.has_value()) {
@@ -94,11 +105,17 @@ static void wpeBufferDMABufDispose(GObject* object)
 static gpointer wpeBufferDMABufImportToEGLImage(WPEBuffer* buffer, GError** error)
 {
     auto* priv = WPE_BUFFER_DMA_BUF(buffer)->priv;
+    auto* display = wpe_buffer_get_display(buffer);
+    if (!display) {
+        priv->eglImage = nullptr;
+        g_set_error_literal(error, WPE_BUFFER_ERROR, WPE_BUFFER_ERROR_IMPORT_FAILED, "The WPE display of buffer has already been closed");
+        return nullptr;
+    }
+
     if (priv->eglImage)
         return priv->eglImage;
 
     GUniqueOutPtr<GError> eglError;
-    auto* display = wpe_view_get_display(wpe_buffer_get_view(buffer));
     auto* eglDisplay = wpe_display_get_egl_display(display, &eglError.outPtr());
     if (eglDisplay == EGL_NO_DISPLAY) {
         g_set_error(error, WPE_BUFFER_ERROR, WPE_BUFFER_ERROR_IMPORT_FAILED, "Failed to get EGLDisplay when importing buffer to EGL image: %s", eglError->message);
@@ -152,7 +169,7 @@ static gpointer wpeBufferDMABufImportToEGLImage(WPEBuffer* buffer, GError** erro
 #undef ADD_PLANE_ATTRIBUTES
 
     attributes.append(EGL_NONE);
-    priv->eglImage = s_eglCreateImageKHR(eglDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attributes.data());
+    priv->eglImage = s_eglCreateImageKHR(eglDisplay, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attributes.span().data());
     if (!priv->eglImage)
         g_set_error(error, WPE_BUFFER_ERROR, WPE_BUFFER_ERROR_IMPORT_FAILED, "Failed to import buffer to EGL image: eglCreateImageKHR failed with error %#04x", eglGetError());
     return priv->eglImage;
@@ -166,7 +183,10 @@ static bool wpeBufferDMABufTryEnsureGBMDevice(WPEBufferDMABuf* buffer)
         return !!priv->device.value();
 
     priv->device = nullptr;
-    auto* display = wpe_view_get_display(wpe_buffer_get_view(WPE_BUFFER(buffer)));
+    auto* display = wpe_buffer_get_display(WPE_BUFFER(buffer));
+    if (!display)
+        return false;
+
     const char* filename = wpe_display_get_drm_render_node(display);
     if (!filename)
         return false;
@@ -247,7 +267,7 @@ static void wpe_buffer_dma_buf_class_init(WPEBufferDMABufClass* bufferDMABufClas
 
 /**
  * wpe_buffer_dma_buf_new:
- * @view: a #WPEView
+ * @display: a #WPEDisplay
  * @width: the buffer width
  * @height: the buffer height
  * @format: the buffer format
@@ -262,16 +282,16 @@ static void wpe_buffer_dma_buf_class_init(WPEBufferDMABufClass* bufferDMABufClas
  *
  * Returns: (transfer full): a #WPEBufferDMABuf
  */
-WPEBufferDMABuf* wpe_buffer_dma_buf_new(WPEView* view, int width, int height, guint32 format, guint32 planeCount, int* fds, guint32* offsets, guint32* strides, guint64 modifier)
+WPEBufferDMABuf* wpe_buffer_dma_buf_new(WPEDisplay* display, int width, int height, guint32 format, guint32 planeCount, int* fds, guint32* offsets, guint32* strides, guint64 modifier)
 {
-    g_return_val_if_fail(WPE_IS_VIEW(view), nullptr);
+    g_return_val_if_fail(WPE_IS_DISPLAY(display), nullptr);
     g_return_val_if_fail(planeCount > 0, nullptr);
     g_return_val_if_fail(fds, nullptr);
     g_return_val_if_fail(offsets, nullptr);
     g_return_val_if_fail(strides, nullptr);
 
     auto* buffer = WPE_BUFFER_DMA_BUF(g_object_new(WPE_TYPE_BUFFER_DMA_BUF,
-        "view", view,
+        "display", display,
         "width", width,
         "height", height,
         nullptr));
@@ -281,9 +301,9 @@ WPEBufferDMABuf* wpe_buffer_dma_buf_new(WPEView* view, int width, int height, gu
     for (guint32 i = 0; i < planeCount; ++i)
         buffer->priv->fds.append(UnixFileDescriptor { fds[i], UnixFileDescriptor::Adopt });
     buffer->priv->offsets.grow(planeCount);
-    memcpy(buffer->priv->offsets.data(), offsets, planeCount * sizeof(guint32));
+    memcpy(buffer->priv->offsets.mutableSpan().data(), offsets, planeCount * sizeof(guint32));
     buffer->priv->strides.grow(planeCount);
-    memcpy(buffer->priv->strides.data(), strides, planeCount * sizeof(guint32));
+    memcpy(buffer->priv->strides.mutableSpan().data(), strides, planeCount * sizeof(guint32));
     buffer->priv->modifier = modifier;
 
     return buffer;

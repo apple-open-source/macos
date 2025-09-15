@@ -130,7 +130,7 @@ LayoutUnit RenderMathMLRow::preferredLogicalWidthOfRowItems()
 
 void RenderMathMLRow::computePreferredLogicalWidths()
 {
-    ASSERT(preferredLogicalWidthsDirty());
+    ASSERT(needsPreferredLogicalWidthsUpdate());
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = preferredLogicalWidthOfRowItems();
 
@@ -139,7 +139,7 @@ void RenderMathMLRow::computePreferredLogicalWidths()
 
     adjustPreferredLogicalWidthsForBorderAndPadding();
 
-    setPreferredLogicalWidthsDirty(false);
+    clearNeedsPreferredWidthsUpdate();
 }
 
 void RenderMathMLRow::layoutRowItems(LayoutUnit width, LayoutUnit ascent)
@@ -160,13 +160,13 @@ void RenderMathMLRow::layoutRowItems(LayoutUnit width, LayoutUnit ascent)
     }
 }
 
-void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
+void RenderMathMLRow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit)
 {
     ASSERT(needsLayout());
 
     insertPositionedChildrenIntoContainingBlock();
 
-    if (!relayoutChildren && simplifiedLayout())
+    if (relayoutChildren == RelayoutChildren::No && simplifiedLayout())
         return;
 
     layoutFloatingChildren();
@@ -187,7 +187,7 @@ void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     adjustLayoutForBorderAndPadding();
 
-    layoutPositionedObjects(relayoutChildren);
+    layoutOutOfFlowBoxes(relayoutChildren);
 
     updateScrollInfoAfterLayout();
 

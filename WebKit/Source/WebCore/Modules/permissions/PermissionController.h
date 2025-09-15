@@ -44,6 +44,7 @@ class SecurityOriginData;
 class PermissionController : public ThreadSafeRefCounted<PermissionController> {
 public:
     static PermissionController& shared();
+    static Ref<PermissionController> protectedShared();
     WEBCORE_EXPORT static void setSharedController(Ref<PermissionController>&&);
     
     virtual ~PermissionController() = default;

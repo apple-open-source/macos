@@ -35,6 +35,7 @@ class GStreamerQuirkRialto final : public GStreamerQuirk {
 public:
     GStreamerQuirkRialto();
     const ASCIILiteral identifier() const final { return "Rialto"_s; }
+    bool isPlatformSupported() const final;
 
     void configureElement(GstElement*, const OptionSet<ElementRuntimeCharacteristics>&) final;
     GstElement* createAudioSink() final;
@@ -42,6 +43,7 @@ public:
     std::optional<bool> isHardwareAccelerated(GstElementFactory*) final;
     bool shouldParseIncomingLibWebRTCBitStream() const final { return false; }
     unsigned getAdditionalPlaybinFlags() const { return getGstPlayFlag("text") | getGstPlayFlag("native-audio") | getGstPlayFlag("native-video"); }
+    bool needsCustomInstantRateChange() const final { return true; }
 
 private:
     GRefPtr<GstCaps> m_sinkCaps;

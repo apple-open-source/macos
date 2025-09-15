@@ -229,7 +229,8 @@ log_vwritef(enum log_type type, const char *fmt, va_list ap)
 			if (log_sess->role != NULL)
 				client = log_sess->role->client;
 
-			io_write_buf_tagged(log_sess, client, msgbuf, n, tag);
+			io_write_buf_tagged_safe(log_sess, client, msgbuf, n,
+			    tag);
 		} else {
 			size_t *wbufszp = log_sess->wbufszp;
 			size_t pos = *log_sess->wbufszp;
@@ -238,7 +239,7 @@ log_vwritef(enum log_type type, const char *fmt, va_list ap)
 
 			assert(log_sess->opts->sender);
 
-			if (!io_lowbuffer_alloc(log_sess, wbufp, wbufszp,
+			if (!io_lowbuffer_alloc_safe(log_sess, wbufp, wbufszp,
 			    log_sess->wbufmaxp, n))
 				return;
 

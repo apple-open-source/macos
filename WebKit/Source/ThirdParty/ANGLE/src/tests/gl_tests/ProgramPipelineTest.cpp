@@ -2302,6 +2302,50 @@ void main()
     EXPECT_GL_NO_ERROR();
 }
 
+// Test that GetProgramPipelineivf works.
+TEST_P(ProgramPipelineTest31, ProgramPipelineivTest)
+{
+    GLuint pipeline;
+    GLint log_length = -1;
+    glGenProgramPipelines(1, &pipeline);
+    glGetProgramPipelineiv(pipeline, GL_INFO_LOG_LENGTH, &log_length);
+    glGetProgramPipelineInfoLog(pipeline, 0, NULL, NULL);
+    EXPECT_GL_NO_ERROR();
+    glDeleteProgramPipelines(1, &pipeline);
+    EXPECT_GL_NO_ERROR();
+}
+
+// Test that shader interface matching does not accidentally match by name
+// when location is specified in separable programs.
+TEST_P(ProgramPipelineTest31, ShaderInterfaceMatchingTest)
+{
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+
+    const GLchar *vertString = R"(#version 310 es
+precision highp float;
+in vec4 a_position;
+layout(location = 0) flat out uvec3 u3;
+layout(location = 1) out float f[2];
+void main()
+{
+    gl_Position = a_position;
+})";
+
+    const GLchar *fragString = R"(#version 310 es
+precision highp float;
+layout(location = 0) flat in uvec3 f;
+layout(location = 1) in float u3[2];
+out vec4 my_FragColor;
+void main()
+{
+    my_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+})";
+    bindProgramPipeline(vertString, fragString);
+
+    drawQuadWithPPO("a_position", 0.5f, 1.0f);
+    ASSERT_GL_NO_ERROR();
+}
+
 class ProgramPipelineTest32 : public ProgramPipelineTest
 {
   protected:

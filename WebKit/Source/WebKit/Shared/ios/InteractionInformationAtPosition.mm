@@ -42,7 +42,7 @@ void InteractionInformationAtPosition::mergeCompatibleOptionalInformation(const 
         image = oldInformation.image;
 
     if (oldInformation.request.includeLinkIndicator && !request.includeLinkIndicator)
-        linkIndicator = oldInformation.linkIndicator;
+        textIndicator = oldInformation.textIndicator;
 }
 
 #endif // PLATFORM(IOS_FAMILY)

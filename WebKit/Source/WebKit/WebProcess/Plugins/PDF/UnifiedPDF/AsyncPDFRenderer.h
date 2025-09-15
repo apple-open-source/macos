@@ -33,12 +33,18 @@
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/IntPoint.h>
 #include <WebCore/TiledBacking.h>
+#include <limits>
 #include <wtf/HashMap.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WorkQueue.h>
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+#include <WebCore/DynamicContentScalingDisplayList.h>
+#include <WebCore/DynamicContentScalingResourceCache.h>
+#endif
 
 OBJC_CLASS PDFDocument;
 
@@ -84,11 +90,37 @@ struct TileRenderData {
 
 WTF::TextStream& operator<<(WTF::TextStream&, const TileRenderData&);
 
-struct PagePreviewRequest {
+struct RenderedPDFTile {
+    TileRenderInfo tileInfo;
+    RefPtr<WebCore::NativeImage> image;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    std::optional<WebCore::DynamicContentScalingDisplayList> dynamicContentScalingDisplayList;
+#endif
+};
+
+
+struct PDFPagePreviewRenderKey {
+    PDFDocumentLayout::PageIndex pageIndex { std::numeric_limits<PDFDocumentLayout::PageIndex>::max() };
+    bool operator==(const PDFPagePreviewRenderKey&) const = default;
+};
+
+struct PDFPagePreviewRenderRequest {
     PDFDocumentLayout::PageIndex pageIndex;
     WebCore::FloatRect normalizedPageBounds;
     float scale { 1.0f };
     bool showDebugIndicators { false };
+};
+
+struct PDFPagePreviewRenderKeyHash {
+    static unsigned hash(const PDFPagePreviewRenderKey& value)
+    {
+        return WTF::computeHash(value.pageIndex);
+    }
+    static bool equal(const PDFPagePreviewRenderKey& a, const PDFPagePreviewRenderKey& b)
+    {
+        return a == b;
+    }
+    static const bool safeToCompareToEmptyOrDeleted = true;
 };
 
 } // namespace WebKit
@@ -123,6 +155,16 @@ template<> struct HashTraits<WebKit::TileRenderData> : SimpleClassHashTraits<Web
     static bool isEmptyValue(const WebKit::TileRenderData& data) { return HashTraits<WebKit::PDFTileRenderIdentifier>::isEmptyValue(data.renderIdentifier); }
 };
 
+template<> struct HashTraits<WebKit::PDFPagePreviewRenderKey> : GenericHashTraits<WebKit::PDFPagePreviewRenderKey> {
+    static constexpr bool emptyValueIsZero = false;
+    static WebKit::PDFPagePreviewRenderKey emptyValue() { return { std::numeric_limits<WebKit::PDFDocumentLayout::PageIndex>::max() }; }
+    static void constructDeletedValue(WebKit::PDFPagePreviewRenderKey& slot) { slot = { std::numeric_limits<WebKit::PDFDocumentLayout::PageIndex>::max() - 1 }; }
+    static bool isDeletedValue(WebKit::PDFPagePreviewRenderKey value) { return value.pageIndex == std::numeric_limits<WebKit::PDFDocumentLayout::PageIndex>::max() - 1; }
+};
+
+template<> struct DefaultHash<WebKit::PDFPagePreviewRenderKey> : WebKit::PDFPagePreviewRenderKeyHash {
+};
+
 } // namespace WTF
 
 namespace WebKit {
@@ -152,10 +194,10 @@ public:
 
     // Updates existing tiles. Can result in temporarily stale content.
     void setNeedsRenderForRect(WebCore::GraphicsLayer&, const WebCore::FloatRect& bounds);
-    void setNeedsPagePreviewRenderForPageCoverage(const PDFPageCoverage&);
 
     void generatePreviewImageForPage(PDFDocumentLayout::PageIndex, float scale);
     void removePreviewForPage(PDFDocumentLayout::PageIndex);
+    void invalidatePreviewsForPageCoverage(const PDFPageCoverage&);
 
     void setShowDebugBorders(bool);
 
@@ -177,7 +219,7 @@ private:
     void coverageRectDidChange(WebCore::TiledBacking&, const WebCore::FloatRect&) final;
 
     void willRevalidateTiles(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileRevalidationType) final;
-    void didRevalidateTiles(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileRevalidationType, const UncheckedKeyHashSet<WebCore::TileIndex>& tilesNeedingDisplay) final;
+    void didRevalidateTiles(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileRevalidationType, const HashSet<WebCore::TileIndex>& tilesNeedingDisplay) final;
 
     void willRepaintTilesAfterScaleFactorChange(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
     void didRepaintTilesAfterScaleFactorChange(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
@@ -185,12 +227,16 @@ private:
     void didAddGrid(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
     void willRemoveGrid(WebCore::TiledBacking&, WebCore::TileGridIdentifier) final;
 
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    std::optional<WebCore::DynamicContentScalingDisplayList> dynamicContentScalingDisplayListForTile(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileIndex) final;
+#endif
+
     std::optional<PDFTileRenderIdentifier> enqueueTileRenderForTileGridRepaint(WebCore::TiledBacking&, WebCore::TileGridIdentifier, WebCore::TileIndex, const WebCore::FloatRect& tileRect, const WebCore::FloatRect& tileDirtyRect);
     std::optional<PDFTileRenderIdentifier> enqueueTileRenderIfNecessary(const TileForGrid&, TileRenderInfo&&);
 
-    void serviceRequestQueue();
+    void serviceRequestQueues();
 
-    void didCompleteTileRender(RefPtr<WebCore::NativeImage>&&, const TileForGrid&, const TileRenderData&);
+    void didCompleteTileRender(const TileForGrid& renderKey, PDFTileRenderIdentifier, RenderedPDFTile);
 
     struct RevalidationStateForGrid {
         WTF_MAKE_STRUCT_FAST_ALLOCATED;
@@ -205,51 +251,47 @@ private:
 
     void clearRequestsAndCachedTiles();
 
-    void didCompletePagePreviewRender(RefPtr<WebCore::NativeImage>&&, const PagePreviewRequest&);
+    void didCompletePagePreviewRender(RefPtr<WebCore::NativeImage>&&, const PDFPagePreviewRenderRequest&);
     void removePagePreviewsOutsideCoverageRect(const WebCore::FloatRect&, const std::optional<PDFLayoutRow>& = { });
-
-    Ref<ConcurrentWorkQueue> protectedPaintingWorkQueue() { return m_paintingWorkQueue; }
+    void ensurePreviewsForCurrentPageCoverage();
 
     static WebCore::FloatRect convertTileRectToPaintingCoords(const WebCore::FloatRect&, float pageScaleFactor);
     static WebCore::AffineTransform tileToPaintingTransform(float tilingScaleFactor);
     static WebCore::AffineTransform paintingToTileTransform(float tilingScaleFactor);
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    WebCore::DynamicContentScalingResourceCache ensureDynamicContentScalingResourceCache();
+#endif
 
     ThreadSafeWeakPtr<PDFPresentationController> m_presentationController;
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    WebCore::DynamicContentScalingResourceCache m_dynamicContentScalingResourceCache;
+#endif
 
     HashMap<WebCore::PlatformLayerIdentifier, Ref<WebCore::GraphicsLayer>> m_layerIDtoLayerMap;
     HashMap<WebCore::TileGridIdentifier, WebCore::PlatformLayerIdentifier> m_tileGridToLayerIDMap;
 
-    Ref<ConcurrentWorkQueue> m_paintingWorkQueue;
+    const Ref<ConcurrentWorkQueue> m_workQueue;
+    int m_workQueueSlots { 4 };
 
-    HashMap<TileForGrid, TileRenderData> m_currentValidTileRenders;
-
-    const int m_maxConcurrentTileRenders { 4 };
-    int m_numConcurrentTileRenders { 0 };
-    ListHashSet<TileForGrid> m_requestWorkQueue;
-
-    struct RenderedTile {
-        RefPtr<WebCore::NativeImage> image;
-        TileRenderInfo tileInfo;
-    };
-    HashMap<TileForGrid, RenderedTile> m_rendereredTiles;
-    HashMap<TileForGrid, RenderedTile> m_rendereredTilesForOldState;
+    ListHashSet<TileForGrid> m_pendingTileRenderOrder;
+    HashMap<TileForGrid, TileRenderData> m_pendingTileRenders;
+    HashMap<TileForGrid, RenderedPDFTile> m_rendereredTiles;
+    HashMap<TileForGrid, RenderedPDFTile> m_rendereredTilesForOldState;
 
     HashMap<WebCore::TileGridIdentifier, std::unique_ptr<RevalidationStateForGrid>> m_gridRevalidationState;
 
-    struct RenderedPagePreview {
+    struct RenderedPDFPagePreview {
         RefPtr<WebCore::NativeImage> image;
         float scale { 1.0f };
     };
-    using PDFPageIndexSet = HashSet<PDFDocumentLayout::PageIndex, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
-    using PDFPageIndexToPreviewHash = HashMap<PDFDocumentLayout::PageIndex, PagePreviewRequest, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
-    using PDFPageIndexToBufferHash = HashMap<PDFDocumentLayout::PageIndex, RenderedPagePreview, IntHash<PDFDocumentLayout::PageIndex>, WTF::UnsignedWithZeroKeyHashTraits<PDFDocumentLayout::PageIndex>>;
+    ListHashSet<PDFPagePreviewRenderKey> m_pendingPagePreviewOrder;
+    HashMap<PDFPagePreviewRenderKey, PDFPagePreviewRenderRequest> m_pendingPagePreviews;
+    HashMap<PDFPagePreviewRenderKey, RenderedPDFPagePreview> m_pagePreviews;
 
-    PDFPageIndexToPreviewHash m_enqueuedPagePreviews;
-    PDFPageIndexToBufferHash m_pagePreviews;
+    std::optional<PDFPageCoverage> m_currentPageCoverage;
 
     bool m_showDebugBorders { false };
 };
-
 
 } // namespace WebKit
 

@@ -65,9 +65,6 @@ list(APPEND WebKit_SOURCES
     Shared/Cocoa/XPCEndpoint.mm
     Shared/Cocoa/XPCEndpointClient.mm
 
-    UIProcess/QuickLookThumbnailLoader.mm
-    UIProcess/QuickLookThumbnailingSoftLink.mm
-
     UIProcess/API/Cocoa/WKContentWorld.mm
     UIProcess/API/Cocoa/_WKAuthenticationExtensionsClientOutputs.mm
     UIProcess/API/Cocoa/_WKAuthenticatorAssertionResponse.mm
@@ -84,6 +81,7 @@ list(APPEND WebKit_SOURCES
     UIProcess/Cocoa/XPCConnectionTerminationWatchdog.mm
 
     UIProcess/PDF/WKPDFHUDView.mm
+    UIProcess/PDF/WKPDFPageNumberIndicator.mm
 
     WebProcess/InjectedBundle/API/c/mac/WKBundlePageMac.mm
 
@@ -212,6 +210,8 @@ list(APPEND WebKit_MESSAGES_IN_FILES
 
     GPUProcess/media/ios/RemoteMediaSessionHelperProxy
 
+    GPUProcess/webrtc/UserMediaCaptureManagerProxy
+
     NetworkProcess/CustomProtocols/LegacyCustomProtocolManager
 
     Shared/API/Cocoa/RemoteObjectRegistry
@@ -221,7 +221,6 @@ list(APPEND WebKit_MESSAGES_IN_FILES
     UIProcess/ViewGestureController
 
     UIProcess/Cocoa/PlaybackSessionManagerProxy
-    UIProcess/Cocoa/UserMediaCaptureManagerProxy
     UIProcess/Cocoa/VideoFullscreenManagerProxy
 
     UIProcess/Inspector/WebInspectorUIExtensionControllerProxy

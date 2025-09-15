@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@ namespace WebCore {
 struct DisplayUpdate;
 using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
+enum class RubberBandingBehavior : uint8_t;
 }
 
 namespace WebKit {
@@ -61,8 +62,8 @@ public:
         virtual ~Client() = default;
 
     private:
-        virtual void handleSyntheticWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges) = 0;
-        
+        virtual void handleSyntheticWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges) = 0;
+
         virtual void startDisplayDidRefreshCallbacks(WebCore::PlatformDisplayID) = 0;
         virtual void stopDisplayDidRefreshCallbacks(WebCore::PlatformDisplayID) = 0;
 
@@ -74,7 +75,7 @@ public:
     MomentumEventDispatcher(Client&);
     ~MomentumEventDispatcher();
 
-    bool handleWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    bool handleWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
 
     void setScrollingAccelerationCurve(WebCore::PageIdentifier, std::optional<ScrollingAccelerationCurve>);
 
@@ -146,7 +147,7 @@ private:
 
     Markable<WallTime> m_lastScrollTimestamp;
     std::optional<WebWheelEvent> m_lastIncomingEvent;
-    WebCore::RectEdges<bool> m_lastRubberBandableEdges;
+    WebCore::RectEdges<WebCore::RubberBandingBehavior> m_lastRubberBandableEdges;
     bool m_isInOverriddenPlatformMomentumGesture { false };
 
     struct {
@@ -180,7 +181,7 @@ private:
 
     mutable Lock m_accelerationCurvesLock;
     HashMap<WebCore::PageIdentifier, std::optional<ScrollingAccelerationCurve>> m_accelerationCurves WTF_GUARDED_BY_LOCK(m_accelerationCurvesLock);
-    CheckedRef<Client> m_client;
+    const CheckedRef<Client> m_client;
 };
 
 } // namespace WebKit

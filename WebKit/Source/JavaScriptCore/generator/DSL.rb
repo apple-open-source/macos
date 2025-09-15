@@ -217,7 +217,6 @@ module DSL
 #include "BytecodeDumper.h"
 #include "Fits.h"
 #include "GetByIdMetadata.h"
-#include "GetByValHistory.h"
 #include "Instruction.h"
 #include "IterationModeMetadata.h"
 #include "JSPropertyNameEnumerator.h"

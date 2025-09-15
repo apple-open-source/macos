@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/EventNames.h>
 #include <WebCore/LocalDOMWindow.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/Page.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Storage.h>
@@ -108,7 +108,7 @@ void StorageAreaMap::setItem(LocalFrame& sourceFrame, StorageAreaImpl* sourceAre
         if (weakThis)
             weakThis->didSetItem(seed, key, hasError, WTFMove(allItems));
     };
-    auto connection = WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection();
+    Ref connection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
     connection->sendWithAsyncReply(Messages::NetworkStorageManager::SetItem(*m_remoteAreaIdentifier, sourceArea->identifier(), key, value, sourceFrame.document()->url().string()), WTFMove(callback));
 }
 
@@ -250,12 +250,12 @@ void StorageAreaMap::dispatchSessionStorageEvent(const std::optional<StorageArea
     if (!webPage)
         return;
 
-    auto* page = webPage->corePage();
+    RefPtr page = webPage->corePage();
     if (!page)
         return;
 
     StorageEventDispatcher::dispatchSessionStorageEvents(key, oldValue, newValue, *page, m_securityOrigin, urlString, [storageAreaImplID](auto& storage) {
-        return static_cast<StorageAreaImpl&>(storage.area()).identifier() == storageAreaImplID;
+        return downcast<StorageAreaImpl>(storage.area()).identifier() == storageAreaImplID;
     });
 }
 
@@ -264,7 +264,7 @@ void StorageAreaMap::dispatchLocalStorageEvent(const std::optional<StorageAreaIm
     ASSERT(isLocalStorage(type()));
 
     StorageEventDispatcher::dispatchLocalStorageEvents(key, oldValue, newValue, nullptr, m_securityOrigin, urlString, [storageAreaImplID](auto& storage) {
-        return static_cast<StorageAreaImpl&>(storage.area()).identifier() == storageAreaImplID;
+        return downcast<StorageAreaImpl>(storage.area()).identifier() == storageAreaImplID;
     });
 }
 
@@ -303,9 +303,9 @@ void StorageAreaMap::sendConnectMessage(SendMode mode)
         return;
     }
 
-    auto completionHandler = [this, weakThis = WeakPtr { *this }](auto remoteAreaIdentifier, auto items, auto messageIdentifier) mutable {
-        if (weakThis)
-            return didConnect(remoteAreaIdentifier, WTFMove(items), messageIdentifier);
+    auto completionHandler = [weakThis = WeakPtr { *this }](auto remoteAreaIdentifier, auto items, auto messageIdentifier) mutable {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->didConnect(remoteAreaIdentifier, WTFMove(items), messageIdentifier);
     };
 
     ipcConnection->sendWithAsyncReply(Messages::NetworkStorageManager::ConnectToStorageArea(type, identifier(), namespaceIdentifier, origin), WTFMove(completionHandler));
@@ -347,13 +347,13 @@ void StorageAreaMap::disconnect()
     if (!m_remoteAreaIdentifier) {
         RefPtr networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection();
         if (m_isWaitingForConnectReply && networkProcessConnection)
-            networkProcessConnection->protectedConnection()->send(Messages::NetworkStorageManager::CancelConnectToStorageArea(computeStorageType(), m_namespace->storageNamespaceID(), clientOrigin()), 0);
+            networkProcessConnection->connection().send(Messages::NetworkStorageManager::CancelConnectToStorageArea(computeStorageType(), m_namespace->storageNamespaceID(), clientOrigin()), 0);
 
         return;
     }
 
     if (RefPtr networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection())
-        networkProcessConnection->protectedConnection()->send(Messages::NetworkStorageManager::DisconnectFromStorageArea(*m_remoteAreaIdentifier), 0);
+        networkProcessConnection->connection().send(Messages::NetworkStorageManager::DisconnectFromStorageArea(*m_remoteAreaIdentifier), 0);
 
     m_remoteAreaIdentifier = { };
     m_lastHandledMessageIdentifier = 0;

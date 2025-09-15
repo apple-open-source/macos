@@ -350,6 +350,10 @@ chkvnlock(vnode_t vp)
 	}
 	while (vp->v_lflag & VL_DEAD) {
 		msleep(&vp->v_lflag, &vp->v_lock, PVFS, "chkvnlock", NULL);
+		if (!(vp->v_lflag & VL_OPSCHANGE)) {
+			vnode_unlock(vp);
+			return 0;
+		}
 	}
 	vnode_unlock(vp);
 	return 1;

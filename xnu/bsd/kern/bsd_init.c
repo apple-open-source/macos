@@ -163,6 +163,7 @@
 #include <net/restricted_in_port.h>     /* for restricted_in_port_init() */
 #include <net/remote_vif.h>             /* for rvi_init() */
 #include <net/kctl_test.h>              /* for kctl_test_init() */
+#include <net/aop/kpi_aop.h>            /* for kern_aop_net_init() */
 #include <netinet/kpi_ipfilter_var.h>   /* for ipfilter_init() */
 #include <kern/assert.h>                /* for assert() */
 #include <sys/kern_overrides.h>         /* for init_system_override() */
@@ -270,7 +271,9 @@ extern void bsd_bufferinit(void);
 extern void throttle_init(void);
 
 vm_map_t        bsd_pageable_map;
+#if CONFIG_MBUF_MCACHE
 vm_map_t        mb_map;
+#endif /* CONFIG_MBUF_MCACHE */
 
 static  int bsd_simul_execs;
 static int bsd_pageable_map_size;
@@ -491,8 +494,8 @@ bsd_init(void)
 	boolean_t       netboot = FALSE;
 #endif
 
-#if (DEVELOPMENT || DEBUG)
-	platform_stall_panic_or_spin(PLATFORM_STALL_XNU_LOCATION_BSD_INIT);
+#if HAS_UPSI_FAILURE_INJECTION
+	check_for_failure_injection(XNU_STAGE_BSD_INIT_START);
 #endif
 
 #define DEBUG_BSDINIT 0
@@ -705,6 +708,7 @@ bsd_init(void)
 #endif
 
 #if SOCKETS
+	net_update_uptime();
 #if CONFIG_MBUF_MCACHE
 	/* Initialize per-CPU cache allocator */
 	mcache_init();
@@ -774,6 +778,7 @@ bsd_init(void)
 	necp_init();
 #endif
 	netagent_init();
+	net_aop_init();
 #endif /* NETWORKING */
 
 #if CONFIG_FREEZE
@@ -1066,6 +1071,10 @@ bsd_init(void)
 	 */
 	machine_timeout_bsd_init();
 #endif /* DEVELOPMENT || DEBUG */
+
+#if HAS_UPSI_FAILURE_INJECTION
+	check_for_failure_injection(XNU_STAGE_BSD_INIT_END);
+#endif
 
 	bsd_init_kprintf("done\n");
 }

@@ -104,7 +104,6 @@ extern void      c_compressed_record_init(void);
 extern void      c_compressed_record_write(char *, int);
 #endif
 
-
 #endif /* XNU_KERNEL_PRIVATE */
 __END_DECLS
 #endif /* _VM_VM_COMPRESSOR_INTERNAL_H_ */

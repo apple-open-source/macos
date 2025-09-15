@@ -52,7 +52,7 @@ CARingBuffer::CARingBuffer(size_t bytesPerFrame, size_t frameCount, uint32_t num
     , m_frameCount(frameCount)
     , m_capacityBytes(computeCapacityBytes(bytesPerFrame, frameCount))
 {
-    ASSERT(WTF::isPowerOfTwo(frameCount));
+    ASSERT(isPowerOfTwo(frameCount));
 }
 
 CARingBuffer::~CARingBuffer() = default;
@@ -311,7 +311,7 @@ void CARingBuffer::fetchInternal(AudioBufferList* list, size_t nFrames, uint64_t
 
 std::unique_ptr<InProcessCARingBuffer> InProcessCARingBuffer::allocate(const WebCore::CAAudioStreamDescription& format, size_t frameCount)
 {
-    frameCount = WTF::roundUpToPowerOfTwo(frameCount);
+    frameCount = roundUpToPowerOfTwo(frameCount);
     auto bytesPerFrame = format.bytesPerFrame();
     auto numChannelStreams = format.numberOfChannelStreams();
 

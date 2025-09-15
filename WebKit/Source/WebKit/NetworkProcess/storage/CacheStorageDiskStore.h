@@ -35,7 +35,7 @@ namespace WebCore {
 class FormData;
 class SharedBuffer;
 namespace DOMCacheEngine {
-using ResponseBody = std::variant<std::nullptr_t, Ref<FormData>, Ref<SharedBuffer>>;
+using ResponseBody = Variant<std::nullptr_t, Ref<FormData>, Ref<SharedBuffer>>;
 }
 }
 
@@ -69,8 +69,8 @@ private:
     String m_cacheName;
     String m_path;
     FileSystem::Salt m_salt;
-    Ref<WorkQueue> m_callbackQueue;
-    Ref<WorkQueue> m_ioQueue;
+    const Ref<WorkQueue> m_callbackQueue;
+    const Ref<WorkQueue> m_ioQueue;
 };
 
 }

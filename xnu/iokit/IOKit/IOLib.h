@@ -208,7 +208,7 @@ __IOMallocAligned_internal(
 }
 
 #define IOMallocAligned(size, alignment) \
-	__IOMallocAligned_internal(KHEAP_DATA_BUFFERS, size, alignment, Z_WAITOK)
+	__IOMallocAligned_internal(GET_KEXT_KHEAP_DATA(), size, alignment, Z_WAITOK)
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -288,8 +288,11 @@ void IOFreePageable(void * address, vm_size_t size);
 
 #if XNU_KERNEL_PRIVATE
 
-#define IOMallocData(size)     __IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_WAITOK)
-#define IOMallocZeroData(size) __IOMalloc_internal(KHEAP_DATA_BUFFERS, size, Z_ZERO)
+#define IOMallocData(size) __IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_WAITOK)
+#define IOMallocZeroData(size) __IOMalloc_internal(GET_KEXT_KHEAP_DATA(), size, Z_ZERO)
+
+#define IOMallocDataSharable(size) __IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_WAITOK)
+#define IOMallocZeroDataSharable() __IOMalloc_internal(KHEAP_DATA_SHARED, size, Z_ZERO)
 
 #else /* XNU_KERNEL_PRIVATE */
 
@@ -307,6 +310,20 @@ void * IOMallocData(vm_size_t size) __attribute__((alloc_size(1)));
  *   @result Pointer to the allocated memory, or zero on failure. */
 void * IOMallocZeroData(vm_size_t size) __attribute__((alloc_size(1)));
 
+/*! @function IOMallocDataSharable
+ *   @abstract Allocates wired memory in the kernel map, from a separate section meant for pure data that meant to be shared.
+ *   @discussion Same as IOMalloc except that this function should be used for allocating pure data.
+ *   @param size Size of the memory requested.
+ *   @result Pointer to the allocated memory, or zero on failure. */
+void * IOMallocDataSharable(vm_size_t size) __attribute__((alloc_size(1)));
+
+/*! @function IOMallocZeroDataSharable
+ *   @abstract Allocates wired memory in the kernel map, from a separate section meant for pure data bytes that don't contain pointers and meant to be shared.
+ *   @discussion Same as IOMallocDataSharable except that the memory returned is zeroed.
+ *   @param size Size of the memory requested.
+ *   @result Pointer to the allocated memory, or zero on failure. */
+void * IOMallocZeroDataSharable(vm_size_t size) __attribute__((alloc_size(1)));
+
 #endif /* !XNU_KERNEL_PRIVATE */
 
 /*! @function IOFreeData
@@ -315,6 +332,13 @@ void * IOMallocZeroData(vm_size_t size) __attribute__((alloc_size(1)));
  *   @param address Virtual address of the allocated memory. Passing NULL here is acceptable.
  *   @param size Size of the memory allocated. It is acceptable to pass 0 size for a NULL address. */
 void IOFreeData(void * address, vm_size_t size);
+
+/*! @function IOFreeDataSharable
+ *   @abstract Frees memory allocated with IOMallocDataSharable or IOMallocZeroDataSharable.
+ *   @discussion This function frees memory allocated with IOMallocDataSharable/IOMallocZeroDataSharable, it may block and so should not be called from interrupt level or while a simple lock is held.
+ *   @param address Virtual address of the allocated memory. Passing NULL here is acceptable.
+ *   @param size Size of the memory allocated. It is acceptable to pass 0 size for a NULL address. */
+void IOFreeDataSharable(void * address, vm_size_t size);
 
 #define IONewData(type, count) \
 	((type *)IOMallocData(IOMallocArraySize(0, sizeof(type), count)))

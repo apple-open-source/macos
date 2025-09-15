@@ -7,5 +7,15 @@
         <key>DevelopmentPhase</key>
         <string>FeatureComplete</string>
     </dict>
+	<key>workgroup_interval_force_enabled</key>
+    <dict>
+        <key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>workgroup_interval_force_disable</key>
+    <dict>
+        <key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
 </dict>
 </plist>

@@ -83,6 +83,13 @@ parseUCDFile(const char *filename,
         return;
     }
 
+#if defined (APPLE_XCODE_BUILD) // rdar://145099448
+    strcpy(path, ctest_dataSrcDir());
+    strcat(path, U_FILE_SEP_STRING);
+    strcat(path, "unidata" U_FILE_SEP_STRING);
+    strcat(path, filename);
+    u_parseDelimitedFile(path, ';', fields, fieldCount, lineFn, context, pErrorCode);
+#else
     /* Look inside ICU_DATA first */
     strcpy(path, u_getDataDirectory());
     strcat(path, ".." U_FILE_SEP_STRING "unidata" U_FILE_SEP_STRING);
@@ -101,6 +108,7 @@ parseUCDFile(const char *filename,
         *pErrorCode=U_ZERO_ERROR;
         u_parseDelimitedFile(backupPath, ';', fields, fieldCount, lineFn, context, pErrorCode);
     }
+#endif // APPLE_XCODE_BUILD
     if(U_FAILURE(*pErrorCode)) {
         log_err_status(*pErrorCode, "error parsing %s: %s\n", filename, u_errorName(*pErrorCode));
     }

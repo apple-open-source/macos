@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 55;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -225,7 +225,6 @@
 		4DFD946F153600060039B6BA /* fsck_messages.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944A153600060039B6BA /* fsck_messages.c */; };
 		4DFD9470153600060039B6BA /* fsck_strings.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DFD944D153600060039B6BA /* fsck_strings.c */; };
 		4DFD9472153601F50039B6BA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
-		4DFD9473153601F80039B6BA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DE6C7461535012200C11066 /* IOKit.framework */; };
 		4DFD94A5153649070039B6BA /* newfs_hfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DE6C7681535050700C11066 /* newfs_hfs.c */; };
 		4DFD94A6153649070039B6BA /* makehfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DE6C7661535050700C11066 /* makehfs.c */; };
 		4DFD94A7153649070039B6BA /* hfs_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DE6C7641535050700C11066 /* hfs_endian.c */; };
@@ -314,6 +313,8 @@
 		C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
 		C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */; };
 		C1B6FA3010CC0B9500778D48 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
+		CE8267A92CEF50D20019C139 /* FSKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE8267A82CEF50D20019C139 /* FSKit.framework */; platformFilters = (ios, macos, ); settings = {ATTRIBUTES = (Weak, ); }; };
+		CED34AE32D008ED80057F6DB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DE6C7461535012200C11066 /* IOKit.framework */; };
 		D32E9DF9287D577100D15536 /* UVFSPluginTesting.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */; };
 		D39F154B287D55BD00366492 /* hfs_xctests.m in Sources */ = {isa = PBXBuildFile; fileRef = D39F154A287D55BD00366492 /* hfs_xctests.m */; };
 		D39F154C287D55BD00366492 /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
@@ -1159,6 +1160,8 @@
 		C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hfs.util.8; sourceTree = "<group>"; };
 		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE8267A82CEF50D20019C139 /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.2.Internal.sdk/System/Library/PrivateFrameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
+		CED34AE62D008EF00057F6DB /* FSKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FSKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS19.0.Internal.sdk/System/Library/PrivateFrameworks/FSKit.framework; sourceTree = DEVELOPER_DIR; };
 		D32E9DF8287D577100D15536 /* UVFSPluginTesting.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = UVFSPluginTesting.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D377EBD728A3C9550030F8B8 /* hfs_testplan.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = hfs_testplan.xctestplan; sourceTree = "<group>"; };
 		D383E4E029A35B3900EE6F19 /* hfs_xctests.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = hfs_xctests.entitlements; sourceTree = "<group>"; };
@@ -1383,7 +1386,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				4DFD9472153601F50039B6BA /* CoreFoundation.framework in Frameworks */,
-				4DFD9473153601F80039B6BA /* IOKit.framework in Frameworks */,
+				CE8267A92CEF50D20019C139 /* FSKit.framework in Frameworks */,
+				CED34AE32D008ED80057F6DB /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2083,6 +2087,8 @@
 		FDD9FA4014A133A50043D4A9 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				CE8267A82CEF50D20019C139 /* FSKit.framework */,
+				CED34AE62D008EF00057F6DB /* FSKit.framework */,
 				52C526F229265E6D006916EA /* libutil.tbd */,
 				52AE99AC29019AA800CED2F3 /* FSKit.framework */,
 				52AE99AA29019A9100CED2F3 /* UserFS.framework */,
@@ -3856,6 +3862,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,4,7";
 				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -4806,6 +4815,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,4,7";
 				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -6025,7 +6037,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -6107,7 +6119,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -6184,7 +6196,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -6260,7 +6272,7 @@
 					"@executable_path/../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -7242,6 +7254,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,4,7";
 				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -7529,6 +7544,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx watchos watchsimulator xros xrsimulator";
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = "1,4,7";
 				USE_HEADERMAP = YES;
 				WARNING_CFLAGS = (
 					"-Wall",

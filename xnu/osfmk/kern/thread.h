@@ -108,6 +108,7 @@
 #include <mach/port.h>
 #include <kern/cpu_number.h>
 #include <kern/smp.h>
+#include <kern/smr_types.h>
 #include <kern/queue.h>
 
 #include <kern/timer.h>
@@ -165,6 +166,7 @@ __options_closed_decl(thread_tag_t, uint16_t, {
 	THREAD_TAG_PTHREAD      = 0x10,
 	THREAD_TAG_WORKQUEUE    = 0x20,
 	THREAD_TAG_USER_JOIN    = 0x40,
+	THREAD_TAG_AIO_WORKQUEUE    = 0x80,
 });
 
 typedef struct thread_ro *thread_ro_t;
@@ -204,11 +206,10 @@ struct thread_ro {
 #endif
 	struct task                *tro_task;
 
-	struct ipc_port            *tro_self_port;
+	struct ipc_port            *tro_ports[THREAD_SELF_PORT_COUNT];  /* no right */
 #if CONFIG_CSR
 	struct ipc_port            *tro_settable_self_port;             /* send right */
 #endif /* CONFIG_CSR */
-	struct ipc_port            *tro_ports[THREAD_SELF_PORT_COUNT];  /* no right */
 
 	struct exception_action    *tro_exc_actions;
 };
@@ -422,6 +423,15 @@ struct thread {
 	bool            th_shared_rsrc_enqueued[CLUSTER_SHARED_RSRC_TYPE_COUNT];
 	bool            th_shared_rsrc_heavy_user[CLUSTER_SHARED_RSRC_TYPE_COUNT];
 	bool            th_shared_rsrc_heavy_perf_control[CLUSTER_SHARED_RSRC_TYPE_COUNT];
+	/*
+	 * Caution! These bits should only be written/read by the current,
+	 * just previous, or thread_setrun()-ing processor, before this
+	 * thread can be picked up to run by its next processor.
+	 */
+	uint8_t
+	    th_expired_quantum_on_lower_core:1,
+	    th_expired_quantum_on_higher_core:1,
+	:0;
 #endif /* CONFIG_SCHED_EDGE */
 
 #if CONFIG_SCHED_CLUTCH
@@ -457,6 +467,9 @@ struct thread {
 #define TH_OPT_IPC_TG_BLOCKED   0x2000          /* Thread blocked in sync IPC and has made the thread group blocked callout */
 #define TH_OPT_FORCED_LEDGER    0x4000          /* Thread has a forced CPU limit  */
 #define TH_IN_MACH_EXCEPTION    0x8000          /* Thread is currently handling a mach exception */
+#if CONFIG_EXCLAVES
+#define TH_OPT_AOE              0x10000   /* Thread is an AOE exclave thread */
+#endif /* CONFIG_EXCLAVES */
 
 	bool                    wake_active;    /* wake event on stop */
 	bool                    at_safe_point;  /* thread_abort_safely allowed */
@@ -716,12 +729,7 @@ struct thread {
 			mach_msg_size_t         msize;          /* actual size for the msg */
 			mach_msg_size_t         asize;          /* actual size for aux data */
 			mach_port_name_t        receiver_name;  /* the receive port name */
-			union {
-				struct ipc_kmsg   *XNU_PTRAUTH_SIGNED_PTR("thread.ith_kmsg")  kmsg;  /* received message */
-#if MACH_FLIPC
-				struct ipc_mqueue *XNU_PTRAUTH_SIGNED_PTR("thread.ith_peekq") peekq; /* mqueue to peek at */
-#endif /* MACH_FLIPC */
-			};
+			struct ipc_kmsg *XNU_PTRAUTH_SIGNED_PTR("thread.ith_kmsg") kmsg;  /* received message */
 		} receive;
 		struct {
 			struct semaphore        *waitsemaphore;         /* semaphore ref */
@@ -1069,9 +1077,6 @@ struct thread {
 #define ith_asize           saved.receive.asize
 #define ith_receiver_name   saved.receive.receiver_name
 #define ith_kmsg            saved.receive.kmsg
-#if MACH_FLIPC
-#define ith_peekq           saved.receive.peekq
-#endif /* MACH_FLIPC */
 
 #define sth_waitsemaphore   saved.sema.waitsemaphore
 #define sth_signalsemaphore saved.sema.signalsemaphore
@@ -1420,63 +1425,69 @@ thread_get_tag_internal(thread_t thread)
 }
 #endif /* MACH_KERNEL_PRIVATE */
 
-uint64_t        thread_last_run_time(thread_t thread);
+extern uint64_t         thread_last_run_time(
+	thread_t                thread);
 
 extern kern_return_t    thread_state_initialize(
-	thread_t                                thread);
+	thread_t                thread);
 
 extern kern_return_t    thread_setstatus(
-	thread_t                                thread,
-	int                                             flavor,
-	thread_state_t                  tstate,
+	thread_t                thread,
+	int                     flavor,
+	thread_state_t          tstate,
 	mach_msg_type_number_t  count);
 
 extern kern_return_t    thread_setstatus_from_user(
-	thread_t                                thread,
-	int                                             flavor,
-	thread_state_t                  tstate,
+	thread_t                thread,
+	int                     flavor,
+	thread_state_t          tstate,
 	mach_msg_type_number_t  count,
-	thread_state_t                  old_tstate,
+	thread_state_t          old_tstate,
 	mach_msg_type_number_t  old_count,
 	thread_set_status_flags_t flags);
 
 extern kern_return_t    thread_getstatus(
-	thread_t                                thread,
-	int                                             flavor,
-	thread_state_t                  tstate,
-	mach_msg_type_number_t  *count);
-
-extern void main_thread_set_immovable_pinned(thread_t thread);
+	thread_t                thread,
+	int                     flavor,
+	thread_state_t          tstate,
+	mach_msg_type_number_t *count);
 
 extern kern_return_t    thread_getstatus_to_user(
-	thread_t                                thread,
-	int                                             flavor,
-	thread_state_t                  tstate,
-	mach_msg_type_number_t  *count,
+	thread_t                thread,
+	int                     flavor,
+	thread_state_t          tstate,
+	mach_msg_type_number_t *count,
 	thread_set_status_flags_t flags);
 
 extern kern_return_t    thread_create_with_continuation(
-	task_t task,
-	thread_t *new_thread,
-	thread_continue_t continuation);
+	task_t                  task,
+	thread_t               *new_thread,
+	thread_continue_t       continuation);
 
-extern kern_return_t main_thread_create_waiting(task_t    task,
-    thread_continue_t              continuation,
-    event_t                        event,
-    thread_t                       *new_thread);
+extern kern_return_t main_thread_create_waiting(
+	task_t                  task,
+	thread_continue_t       continuation,
+	event_t                 event,
+	thread_t               *new_thread);
 
 extern kern_return_t    thread_create_workq_waiting(
 	task_t                  task,
 	thread_continue_t       thread_return,
-	thread_t                *new_thread,
+	thread_t               *new_thread,
 	bool                    is_permanently_bound);
+
+extern kern_return_t    thread_create_aio_workq_waiting(
+	task_t                  task,
+	thread_continue_t       thread_return,
+	thread_t                *new_thread);
 
 extern  void    thread_yield_internal(
 	mach_msg_timeout_t      interval);
 
 extern void thread_yield_to_preemption(void);
 
-extern void thread_depress_timer_setup(thread_t self);
+extern void thread_depress_timer_setup(
+	thread_t                self);
 
 /*
  * Thread-private CPU limits: apply a private CPU limit to this thread only. Available actions are:
@@ -1608,6 +1619,7 @@ extern int              thread_task_has_ldt(thread_t);
 #endif
 extern void             set_thread_pagein_error(thread_t, int);
 extern event_t          workq_thread_init_and_wq_lock(task_t, thread_t); // bsd/pthread/
+extern event_t          aio_workq_thread_init_and_wq_lock(task_t, thread_t); // bsd/aio/
 
 struct proc;
 struct uthread;
@@ -1849,7 +1861,7 @@ void thread_clear_eager_preempt(thread_t thread);
 void thread_set_honor_qlimit(thread_t thread);
 void thread_clear_honor_qlimit(thread_t thread);
 extern ipc_port_t convert_thread_to_port(thread_t);
-extern ipc_port_t convert_thread_to_port_pinned(thread_t);
+extern ipc_port_t convert_thread_to_port_immovable(thread_t);
 extern ipc_port_t convert_thread_inspect_to_port(thread_inspect_t);
 extern ipc_port_t convert_thread_read_to_port(thread_read_t);
 extern void       convert_thread_array_to_ports(thread_act_array_t, size_t, mach_thread_flavor_t);
@@ -1862,7 +1874,7 @@ extern void thread_iokit_tls_set(uint32_t index, void * data);
 extern int thread_self_region_page_shift(void);
 extern void thread_self_region_page_shift_set(int pgshift);
 extern kern_return_t thread_create_immovable(task_t task, thread_t *new_thread);
-extern kern_return_t thread_terminate_pinned(thread_t thread);
+extern kern_return_t thread_terminate_immovable(thread_t thread);
 
 struct thread_attr_for_ipc_propagation;
 extern kern_return_t thread_get_ipc_propagate_attr(thread_t thread, struct thread_attr_for_ipc_propagation *attr);
@@ -1949,6 +1961,8 @@ extern kern_return_t thread_get_special_port(
 	thread_inspect_t         thread,
 	int                      which,
 	ipc_port_t              *portp);
+
+extern uint64_t thread_c_switch(thread_t thread);
 
 #endif /* XNU_KERNEL_PRIVATE */
 

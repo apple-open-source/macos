@@ -39,7 +39,7 @@ using namespace Inspector;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WorkerNetworkAgent);
 
 WorkerNetworkAgent::WorkerNetworkAgent(WorkerAgentContext& context)
-    : InspectorNetworkAgent(context)
+    : InspectorNetworkAgent(context, { context.globalScope->settingsValues().inspectorMaximumResourcesContentSize, context.globalScope->settingsValues().inspectorSupportsShowingCertificate })
     , m_globalScope(context.globalScope)
 {
     ASSERT(context.globalScope->isContextThread());
@@ -65,7 +65,7 @@ Vector<WebSocket*> WorkerNetworkAgent::activeWebSockets()
 
 void WorkerNetworkAgent::setResourceCachingDisabledInternal(bool disabled)
 {
-    if (auto* workerDebuggerProxy = m_globalScope.workerOrWorkletThread()->workerDebuggerProxy())
+    if (auto* workerDebuggerProxy = m_globalScope->workerOrWorkletThread()->workerDebuggerProxy())
         workerDebuggerProxy->setResourceCachingDisabledByWebInspector(disabled);
 }
 
@@ -80,12 +80,12 @@ bool WorkerNetworkAgent::setEmulatedConditionsInternal(std::optional<int>&& /* b
 
 ScriptExecutionContext* WorkerNetworkAgent::scriptExecutionContext(Inspector::Protocol::ErrorString&, const Inspector::Protocol::Network::FrameId&)
 {
-    return &m_globalScope;
+    return m_globalScope.ptr();
 }
 
 void WorkerNetworkAgent::addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&& message)
 {
-    m_globalScope.addConsoleMessage(WTFMove(message));
+    m_globalScope->addConsoleMessage(WTFMove(message));
 }
 
 } // namespace WebCore

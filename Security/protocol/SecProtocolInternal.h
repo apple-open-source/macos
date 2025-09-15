@@ -23,6 +23,9 @@
 #define _kATSParsedCIDRMaskKey "NSParsedCIDRMaskKey"
 #define _kATSParsedCIDRPrefixKey "NSParsedCIDRPrefixKey"
 
+// Assigns NULL to CF. Releases the value stored at CF unless it was NULL.  Always returns NULL, for your convenience
+#define CFReleaseNull(CF) ({ __typeof__(CF) *const _pcf = &(CF), _cf = *_pcf; (_cf ? (*_pcf) = ((__typeof__(CF))0), (CFRelease(_cf), ((__typeof__(CF))0)) : _cf); })
+
 #define CiphersuitesTLS13 \
     TLS_AES_128_GCM_SHA256, \
     TLS_AES_256_GCM_SHA384, \
@@ -67,6 +70,8 @@
     TLS_DHE_RSA_WITH_AES_256_CBC_SHA, \
     TLS_DHE_RSA_WITH_AES_128_CBC_SHA, \
     SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA
+
+SEC_ASSUME_NONNULL_BEGIN
 
 typedef CF_ENUM(uint16_t, kATSGlobalKey) {
     kATSGlobalKeyNotPresent = 0,
@@ -113,6 +118,25 @@ sec_protocol_options_set_minimum_signature_algorithm(sec_protocol_options_t opti
 void
 sec_protocol_options_set_trusted_peer_certificate(sec_protocol_options_t options, bool trusted_peer_certificate);
 
+/*!
+ * @function sec_session_tickets_are_equal
+ *
+ * @abstract
+ *      Checks if the session ticket info matches.
+ *
+ * @param session_ticket_infoA
+ *      A session ticket info instance.
+ *
+ * @param session_ticket_infoB
+ *      A session ticket info instance.
+ *
+ * @discussion This is an experimental SPI. Do not depend on it.
+ *
+ * @return true if session ticket info matches, false otherwise
+ */
+bool
+sec_session_tickets_are_equal(CFTypeRef session_ticket_infoA, CFTypeRef session_ticket_infoB);
+
 SEC_RETURNS_RETAINED _Nullable sec_protocol_options_t
 sec_protocol_options_copy(sec_protocol_options_t options);
 
@@ -128,7 +152,7 @@ sec_protocol_configuration_populate_secure_defaults(sec_protocol_configuration_t
 void
 sec_protocol_configuration_register_builtin_exceptions(sec_protocol_configuration_t configuration);
 
-const tls_key_exchange_group_t *
+const tls_key_exchange_group_t * _Nullable
 sec_protocol_helper_tls_key_exchange_group_set_to_key_exchange_group_list(tls_key_exchange_group_set_t set, size_t *listSize);
 
 bool
@@ -137,7 +161,8 @@ sec_protocol_helper_dispatch_data_equal(dispatch_data_t left, dispatch_data_t ri
 bool
 client_is_WebKit(void);
 
-SEC_ASSUME_NONNULL_BEGIN
+void
+sec_protocol_options_set_external_pre_shared_key_selection_queue_helper(sec_protocol_options_t options, dispatch_queue_t psk_selection_queue);
 
 /*!
  * @function sec_identity_create_SPAKE2PLUSV1_registration_record

@@ -39,7 +39,7 @@ class Dictionary;
 
 @interface WKRemoteObjectDecoder : NSCoder
 
-- (id)initWithInterface:(_WKRemoteObjectInterface *)interface rootObjectDictionary:(const API::Dictionary*)rootObjectDictionary replyToSelector:(SEL)replyToSelector;
+- (id)initWithInterface:(_WKRemoteObjectInterface *)interface rootObjectDictionary:(Ref<API::Dictionary>&&)rootObjectDictionary replyToSelector:(SEL)replyToSelector;
 
 @end
 

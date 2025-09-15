@@ -29,6 +29,7 @@
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "OTDeviceInformation.h"
 #import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/OTFollowup.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -45,15 +46,33 @@ NS_ASSUME_NONNULL_BEGIN
                           deviceInfo:(nonnull OTDeviceInformation *)deviceInfo
                 skipRateLimitedCheck:(BOOL)skipRateLimitedCheck
              reportRateLimitingError:(BOOL)reportRateLimitingError
-                              repair:(BOOL)repair;
+                              repair:(BOOL)repair
+                 danglingPeerCleanup:(BOOL)danglingPeerCleanup
+                          updateIdMS:(BOOL)updateIdMS;
 
 @property OTDeviceInformation* deviceInfo;
 
 @property (readonly) BOOL skipRateLimitingCheck;
 @property (readonly) BOOL reportRateLimitingError;
 @property (readonly) BOOL repair;
+@property (readonly) BOOL danglingPeerCleanup;
+@property (readonly) BOOL updateIdMS;
 
 @property (nullable) TrustedPeersHelperHealthCheckResult* results;
+
+@end
+
+@class OTEscrowCheckCallResult;
+
+@interface OTCheckEscrowOperation : NSObject
+
+- (instancetype)init NS_UNAVAILABLE;
+
+- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                     followupHandler:(OTFollowup*)followupHandler
+                   isBackgroundCheck:(BOOL)isBackgroundCheck;
+
+- (void)performEscrowCheck:(void (^)(OTEscrowCheckCallResult *_Nullable results, NSError * _Nullable error))reply;
 
 @end
 

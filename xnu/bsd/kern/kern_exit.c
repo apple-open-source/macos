@@ -824,6 +824,12 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 		kcdata_memcpy(crash_info_ptr, uaddr, &trust, sizeof(trust));
 	}
 
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_TASK_SECURITY_CONFIG, sizeof(uint32_t), &uaddr)) {
+		struct crashinfo_task_security_config task_security;
+		task_security.task_security_config = task_get_security_config(corpse_task);
+		kcdata_memcpy(crash_info_ptr, uaddr, &task_security, sizeof(task_security));
+	}
+
 	uint64_t jit_start_addr = 0;
 	uint64_t jit_end_addr = 0;
 	kern_return_t ret = get_jit_address_range_kdp(get_task_pmap(corpse_task), (uintptr_t*)&jit_start_addr, (uintptr_t*)&jit_end_addr);
@@ -840,6 +846,19 @@ populate_corpse_crashinfo(proc_t p, task_t corpse_task, struct rusage_superset *
 	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_CS_AUXILIARY_INFO, sizeof(cs_auxiliary_info), &uaddr)) {
 		kcdata_memcpy(crash_info_ptr, uaddr, &cs_auxiliary_info, sizeof(cs_auxiliary_info));
 	}
+
+	if (KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_RLIM_CORE, sizeof(rlim_t), &uaddr)) {
+		const rlim_t lim = proc_limitgetcur(p, RLIMIT_CORE);
+		kcdata_memcpy(crash_info_ptr, uaddr, &lim, sizeof(lim));
+	}
+
+#if CONFIG_UCOREDUMP
+	if (do_ucoredump && !task_is_driver(proc_task(p)) &&
+	    KERN_SUCCESS == kcdata_get_memory_addr(crash_info_ptr, TASK_CRASHINFO_CORE_ALLOWED, sizeof(uint8_t), &uaddr)) {
+		const uint8_t allow = is_coredump_eligible(p) == 0;
+		kcdata_memcpy(crash_info_ptr, uaddr, &allow, sizeof(allow));
+	}
+#endif /* CONFIG_UCOREDUMP */
 
 	if (p->p_exit_reason != OS_REASON_NULL && reason == OS_REASON_NULL) {
 		reason = p->p_exit_reason;
@@ -3623,12 +3642,13 @@ exit_with_exclave_exception(
 void
 exit_with_mach_exception_using_ast(
 	exception_info_t exception,
-	uint32_t flags)
+	uint32_t flags,
+	bool fatal)
 {
 	const uint32_t __assert_only supported_flags = PX_KTRIAGE;
 	assert((flags & ~supported_flags) == 0);
 
 	bool ktriage = flags & PX_KTRIAGE;
 	thread_ast_mach_exception(current_thread(), exception.os_reason, exception.exception_type,
-	    exception.mx_code, exception.mx_subcode, false, ktriage);
+	    exception.mx_code, exception.mx_subcode, fatal, ktriage);
 }

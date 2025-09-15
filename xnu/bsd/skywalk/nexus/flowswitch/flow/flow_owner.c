@@ -71,7 +71,7 @@ flow_owner_buckets_alloc(size_t fob_cnt, size_t * fob_sz, size_t * tot_sz){
 	ASSERT(IS_P2ALIGNED(fob, cache_sz));
 #endif
 
-	SK_DF(SK_VERB_MEM, "fob 0x%llx fob_cnt %zu fob_sz %zu "
+	SK_DF(SK_VERB_MEM, "fob %p fob_cnt %zu fob_sz %zu "
 	    "(total %zu bytes) ALLOC", SK_KVA(fob), fob_cnt,
 	    *fob_sz, fob_tot_sz);
 
@@ -81,7 +81,7 @@ flow_owner_buckets_alloc(size_t fob_cnt, size_t * fob_sz, size_t * tot_sz){
 void
 flow_owner_buckets_free(struct flow_owner_bucket *fob, size_t tot_sz)
 {
-	SK_DF(SK_VERB_MEM, "fob 0x%llx FREE", SK_KVA(fob));
+	SK_DF(SK_VERB_MEM, "fob %p FREE", SK_KVA(fob));
 	sk_free_type_hash(KT_SK_FOB, tot_sz, fob);
 }
 
@@ -109,7 +109,7 @@ flow_owner_bucket_destroy(struct flow_owner_bucket *fob)
 	 */
 	FOB_LOCK(fob);
 	while (!RB_EMPTY(&fob->fob_owner_head)) {
-		SK_ERR("waiting for fob 0x%llx to go idle", SK_KVA(fob));
+		SK_ERR("waiting for fob %p to go idle", SK_KVA(fob));
 		if (++(fob->fob_dtor_waiters) == 0) {   /* wraparound */
 			fob->fob_dtor_waiters++;
 		}
@@ -353,8 +353,8 @@ flow_owner_alloc(struct flow_owner_bucket *fob, struct proc *p,
 	struct flow_owner *fo;
 	const pid_t pid = proc_pid(p);
 
-	_CASSERT(true == 1);
-	_CASSERT(false == 0);
+	static_assert(true == 1);
+	static_assert(false == 0);
 	ASSERT(low_latency == true || low_latency == false);
 	ASSERT(nx_port != NEXUS_PORT_ANY);
 	FOB_LOCK_ASSERT_HELD(fob);
@@ -413,8 +413,8 @@ flow_owner_alloc(struct flow_owner_bucket *fob, struct proc *p,
 		*(struct nx_flowswitch **)(uintptr_t)&fo->fo_fsw = fsw;
 		RB_INSERT(flow_owner_tree, &fob->fob_owner_head, fo);
 
-		SK_DF(SK_VERB_FLOW, "%s(%d) fob 0x%llx added fo 0x%llx "
-		    "nx_port %d nx_port_pid_bound %d ll %d nx_port_na 0x%llx",
+		SK_DF(SK_VERB_FLOW, "%s(%d) fob %p added fo %p "
+		    "nx_port %d nx_port_pid_bound %d ll %d nx_port_na %p",
 		    fo->fo_name, fo->fo_pid, SK_KVA(fob), SK_KVA(fo),
 		    (int)nx_port, nx_port_pid_bound, fo->fo_low_latency,
 		    SK_KVA(nx_port_na));
@@ -443,7 +443,7 @@ flow_owner_free(struct flow_owner_bucket *fob, struct flow_owner *fo)
 		wakeup(&fob->fob_dtor_waiters);
 	}
 
-	SK_DF(SK_VERB_FLOW, "%s(%d) fob 0x%llx removed fo 0x%llx nx_port %d",
+	SK_DF(SK_VERB_FLOW, "%s(%d) fob %p removed fo %p nx_port %d",
 	    fo->fo_name, fo->fo_pid, SK_KVA(fob), SK_KVA(fo),
 	    (int)fo->fo_nx_port);
 
@@ -567,7 +567,7 @@ fo_alloc(boolean_t can_block)
 
 	bzero(fo, sk_fo_size);
 
-	SK_DF(SK_VERB_MEM, "fo 0x%llx ALLOC", SK_KVA(fo));
+	SK_DF(SK_VERB_MEM, "fo %p ALLOC", SK_KVA(fo));
 
 	return fo;
 }
@@ -579,7 +579,7 @@ fo_free(struct flow_owner *fo)
 	ASSERT(RB_EMPTY(&fo->fo_flow_entry_id_head));
 	ASSERT(fo->fo_flowadv_bmap == NULL);
 
-	SK_DF(SK_VERB_MEM, "fo 0x%llx FREE", SK_KVA(fo));
+	SK_DF(SK_VERB_MEM, "fo %p FREE", SK_KVA(fo));
 
 	skmem_cache_free(sk_fo_cache, fo);
 }

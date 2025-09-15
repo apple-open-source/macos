@@ -152,7 +152,7 @@ public:
     using SamplesPromise = NativePromise<Vector<String>, PlatformMediaError>;
     WEBCORE_EXPORT virtual Ref<SamplesPromise> bufferedSamplesForTrackId(TrackID);
     WEBCORE_EXPORT virtual Ref<SamplesPromise> enqueuedSamplesForTrackID(TrackID);
-    virtual MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID) { return MediaTime::invalidTime(); }
+    WEBCORE_EXPORT virtual MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID);
     virtual void setMaximumQueueDepthForTrackID(TrackID, uint64_t) { }
 
 #if !RELEASE_LOG_DISABLED
@@ -194,7 +194,6 @@ protected:
 
     virtual bool canSetMinimumUpcomingPresentationTime(TrackID) const { return false; }
     virtual void setMinimumUpcomingPresentationTime(TrackID, const MediaTime&) { }
-    virtual void clearMinimumUpcomingPresentationTime(TrackID) { }
 
     enum class NeedsFlush: bool {
         No = 0,
@@ -236,8 +235,12 @@ private:
     void removeCodedFramesInternal(const MediaTime& start, const MediaTime& end, const MediaTime& currentMediaTime);
     bool evictFrames(uint64_t newDataSize, const MediaTime& currentTime);
     bool hasTooManySamples() const;
-    void iterateTrackBuffers(Function<void(TrackBuffer&)>&&);
-    void iterateTrackBuffers(Function<void(const TrackBuffer&)>&&) const;
+    void iterateTrackBuffers(NOESCAPE const Function<void(TrackBuffer&)>&);
+    void iterateTrackBuffers(NOESCAPE const Function<void(const TrackBuffer&)>&) const;
+
+    using OperationPromise = NativePromise<void, PlatformMediaError, WTF::PromiseOption::Default | WTF::PromiseOption::NonExclusive>;
+    Ref<OperationPromise> protectedCurrentSourceBufferOperation() const;
+    Ref<MediaPromise> protectedCurrentAppendProcessing() const;
 
     bool m_hasAudio { false };
     bool m_hasVideo { false };
@@ -248,7 +251,6 @@ private:
     StdUnorderedMap<TrackID, UniqueRef<TrackBuffer>> m_trackBufferMap;
     SourceBufferAppendMode m_appendMode { SourceBufferAppendMode::Segments };
 
-    using OperationPromise = NativePromise<void, PlatformMediaError, WTF::PromiseOption::Default | WTF::PromiseOption::NonExclusive>;
     Ref<OperationPromise> m_currentSourceBufferOperation { OperationPromise::createAndResolve() };
 
     bool m_shouldGenerateTimestamps { false };

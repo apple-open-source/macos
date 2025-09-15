@@ -56,10 +56,6 @@ struct GPUProcessCreationParameters {
     SandboxExtension::Handle containerTemporaryDirectoryExtensionHandle;
     String containerCachesDirectory;
 #endif
-#if PLATFORM(IOS_FAMILY)
-    Vector<SandboxExtension::Handle> compilerServiceExtensionHandles;
-    Vector<SandboxExtension::Handle> dynamicIOKitExtensionHandles;
-#endif
     std::optional<SandboxExtension::Handle> mobileGestaltExtensionHandle;
 #if PLATFORM(COCOA) && ENABLE(REMOTE_INSPECTOR)
     Vector<SandboxExtension::Handle> gpuToolsExtensionHandles;

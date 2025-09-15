@@ -200,6 +200,8 @@ extern int PAGE_SHIFT_CONST;
  * constrain the address space further.
  */
 
+
+#ifndef __BUILDING_XNU_LIBRARY__
 #if XNU_KERNEL_PRIVATE
 #if defined(ARM_LARGE_MEMORY)
 /*
@@ -248,13 +250,13 @@ extern int PAGE_SHIFT_CONST;
  * |                       |        |        | PMAP_HEAP_RANGE_START  | >= H9
  * +-----------------------+--------+--------+------------------------+
  */
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 #define VM_KERNEL_POINTER_SIGNIFICANT_BITS  38
 #define VM_MIN_KERNEL_ADDRESS   ((vm_address_t) (0ULL - GiB(144)))
-#else /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#else /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 #define VM_KERNEL_POINTER_SIGNIFICANT_BITS  37
 #define VM_MIN_KERNEL_ADDRESS   ((vm_address_t) 0xffffffe000000000ULL)
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 #define VM_MAX_KERNEL_ADDRESS   ((vm_address_t) 0xfffffffbffffffffULL)
 
 #endif // ARM_LARGE_MEMORY
@@ -265,6 +267,11 @@ extern int PAGE_SHIFT_CONST;
 #define VM_MIN_KERNEL_ADDRESS   ((vm_address_t) (0ULL - TiB(2)))
 #define VM_MAX_KERNEL_ADDRESS   ((vm_address_t) 0xfffffffbffffffffULL)
 #endif // XNU_KERNEL_PRIVATE
+#else /* __BUILDING_XNU_LIBRARY__ */
+#define VM_MIN_KERNEL_ADDRESS ((vm_address_t)(0x100000000ULL))
+#define VM_MAX_KERNEL_ADDRESS ((vm_address_t)(0ULL + GiB(2)))
+#define VM_KERNEL_POINTER_SIGNIFICANT_BITS  31
+#endif /*__BUILDING_XNU_LIBRARY__ */
 #else
 #error architecture not supported
 #endif

@@ -46,6 +46,9 @@ __FBSDID("$FreeBSD$");
 
 #include "rcv.h"
 #include <fcntl.h>
+#ifdef __APPLE__
+#include <stdbool.h>
+#endif
 #include "extern.h"
 
 /*
@@ -90,8 +93,45 @@ collect(struct header *hp, int printheaders)
 					   out of a long input line. */
 	int nlines, usepager;
 	char *envptr;
+#ifdef __APPLE__
+	bool handle_signals;
+#endif
 
 	collf = NULL;
+
+#ifdef __APPLE__
+	/*
+	 * If we're not interactive, we're expected to use the default action
+	 * for all signals for conformance purposes.
+	 */
+	handle_signals = value("interactive") != NULL;
+	if (handle_signals) {
+		/*
+		 * Start catching signals from here, but we'll still die on
+		 * interrupts until we're in the main loop.
+		 */
+		(void)sigemptyset(&nset);
+		(void)sigaddset(&nset, SIGINT);
+		if (!unix2003_compat) {
+			(void)sigaddset(&nset, SIGHUP);
+		}
+		(void)sigprocmask(SIG_BLOCK, &nset, NULL);
+		if ((saveint = signal(SIGINT, SIG_IGN)) != SIG_IGN)
+			(void)signal(SIGINT, collint);
+		if (!unix2003_compat) {
+			if ((savehup = signal(SIGHUP, SIG_IGN)) != SIG_IGN)
+				(void)signal(SIGHUP, collhup);
+			savetstp = signal(SIGTSTP, collstop);
+			savettou = signal(SIGTTOU, collstop);
+			savettin = signal(SIGTTIN, collstop);
+		}
+		if (setjmp(collabort) || setjmp(colljmp)) {
+			(void)rm(tempname);
+			goto err;
+		}
+		(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+	}
+#else
 	/*
 	 * Start catching signals from here, but we're still die on interrupts
 	 * until we're in the main loop.
@@ -112,6 +152,7 @@ collect(struct header *hp, int printheaders)
 		goto err;
 	}
 	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+#endif
 
 	noreset++;
 	(void)snprintf(tempname, sizeof(tempname),
@@ -546,6 +587,17 @@ out:
 	if (collf != NULL)
 		rewind(collf);
 	noreset--;
+#ifdef __APPLE__
+	if (handle_signals) {
+		(void)sigprocmask(SIG_BLOCK, &nset, NULL);
+		(void)signal(SIGINT, saveint);
+		(void)signal(SIGHUP, savehup);
+		(void)signal(SIGTSTP, savetstp);
+		(void)signal(SIGTTOU, savettou);
+		(void)signal(SIGTTIN, savettin);
+		(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+	}
+#else
 	(void)sigprocmask(SIG_BLOCK, &nset, NULL);
 	(void)signal(SIGINT, saveint);
 	(void)signal(SIGHUP, savehup);
@@ -553,6 +605,7 @@ out:
 	(void)signal(SIGTTOU, savettou);
 	(void)signal(SIGTTIN, savettin);
 	(void)sigprocmask(SIG_UNBLOCK, &nset, NULL);
+#endif
 	return (collf);
 }
 
@@ -940,7 +993,11 @@ collint(int s __unused)
 
 /*ARGSUSED*/
 void
-collhup(int s __unused)
+#ifdef __APPLE__
+collhup(int s)
+#else
+collhup(int s)
+#endif
 {
 	rewind(collf);
 	savedeadletter(collf);
@@ -948,7 +1005,14 @@ collhup(int s __unused)
 	 * Let's pretend nobody else wants to clean up,
 	 * a true statement at this time.
 	 */
+#ifdef __APPLE__
+	signal(s, SIG_DFL);
+	raise(s);
+	/* NOT REACHED */
+	_exit(128 + s);
+#else
 	exit(1);
+#endif
 }
 
 void

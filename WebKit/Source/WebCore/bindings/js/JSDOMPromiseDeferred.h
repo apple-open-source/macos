@@ -38,7 +38,7 @@ class DOMPromise;
 enum class RejectAsHandled : bool { No, Yes };
 
 #define DEFERRED_PROMISE_HANDLE_AND_RETURN_IF_EXCEPTION(scope, globalObject) do { \
-        if (UNLIKELY(scope.exception())) { \
+        if (scope.exception()) [[unlikely]] { \
             handleUncaughtException(scope, *jsCast<JSDOMGlobalObject*>(globalObject)); \
             return; \
         } \
@@ -125,7 +125,7 @@ public:
     }
 
     template<class IDLType>
-    void resolveCallbackValueWithNewlyCreated(const Function<typename IDLType::InnerParameterType(ScriptExecutionContext&)>& createValue)
+    void resolveCallbackValueWithNewlyCreated(NOESCAPE const Function<typename IDLType::InnerParameterType(ScriptExecutionContext&)>& createValue)
     {
         if (shouldIgnoreRequestToFulfill())
             return;

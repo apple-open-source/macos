@@ -150,6 +150,7 @@ platform_flist_modify(const struct sess *sess, struct fl *fl)
 		f = &fl->flp[i];
 		memcpy(packed, f, sizeof(*f));
 
+		packed->froot = NULL;
 		packed->st.mode = (packed->st.mode & ~S_IFMT) | S_IFREG;
 		packed->path = ppath;
 		packed->wpath = ppath + stripdir;

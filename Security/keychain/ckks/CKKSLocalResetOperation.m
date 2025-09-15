@@ -11,7 +11,6 @@
 #import "keychain/ot/OTDefines.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @implementation CKKSLocalResetOperation
@@ -56,8 +55,10 @@
                                                                                     sendMetric:self.deps.sendMetric];
     for(CKKSKeychainViewState* view in self.deps.views) {
         view.viewKeyHierarchyState = SecCKKSZoneKeyStateResettingLocalData;
+    }
 
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry contextID:self.deps.contextID zoneName:view.zoneID.zoneName];
+    NSArray<CKKSZoneStateEntry*>* ckses = [CKKSZoneStateEntry allWithContextID:self.deps.contextID error:&localerror];
+    for (CKKSZoneStateEntry* ckse in ckses) {
         ckse.ckzonecreated = false;
         ckse.ckzonesubscribed = false; // I'm actually not sure about this: can you be subscribed to a non-existent zone?
         ckse.changeToken = NULL;
@@ -69,78 +70,74 @@
 
         [ckse saveToDatabase:&localerror];
         if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't reset zone status: %@", localerror);
+            ckkserror_global("local-reset", "couldn't reset zone status: %@", localerror);
             self.error = localerror;
             localerror = nil;
         }
+    }
 
-        [CKKSMirrorEntry deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSMirrorEntry: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSMirrorEntry deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSMirrorEntry: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSOutgoingQueueEntry deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSOutgoingQueueEntry: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSOutgoingQueueEntry deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSOutgoingQueueEntry: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSIncomingQueueEntry deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSIncomingQueueEntry: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSIncomingQueueEntry deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSIncomingQueueEntry: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSKey deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSKey: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSKey deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSKey: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSTLKShareRecord deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSTLKShare: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSTLKShareRecord deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSTLKShare: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSCurrentKeyPointer deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSCurrentKeyPointer: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSCurrentKeyPointer deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSCurrentKeyPointer: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSCurrentItemPointer deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSCurrentItemPointer: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
+    [CKKSCurrentItemPointer deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSCurrentItemPointer: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
+    }
 
-        [CKKSDeviceStateEntry deleteAllWithContextID:self.deps.contextID zoneID:view.zoneID error:&localerror];
-        if(localerror && self.error == nil) {
-            ckkserror("local-reset", view.zoneID, "couldn't delete all CKKSDeviceStateEntry: %@", localerror);
-            self.error = localerror;
-            localerror = nil;
-        }
-
-        if(self.error) {
-            break;
-        }
+    [CKKSDeviceStateEntry deleteAllWithContextID:self.deps.contextID error:&localerror];
+    if(localerror && self.error == nil) {
+        ckkserror_global("local-reset", "couldn't delete all CKKSDeviceStateEntry: %@", localerror);
+        self.error = localerror;
+        localerror = nil;
     }
 
     if(!self.error) {
         ckksnotice_global("local-reset", "Successfully deleted all local data for zones: %@", self.deps.views);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
         self.nextState = self.intendedState;
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:self.error];
+        [eventS sendMetricWithResult:NO error:self.error];
     }
 }
 

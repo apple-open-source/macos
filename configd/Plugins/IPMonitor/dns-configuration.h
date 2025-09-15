@@ -41,6 +41,7 @@ void	dns_configuration_monitor	(dispatch_queue_t queue,
 					 dns_change_callback	callback);
 
 Boolean	dns_configuration_set		(CFDictionaryRef	defaultResolver,
+					 CFStringRef		defaultResolverService,
 					 CFDictionaryRef	services,
 					 CFArrayRef		serviceOrder,
 					 CFArrayRef		multicastResolvers,

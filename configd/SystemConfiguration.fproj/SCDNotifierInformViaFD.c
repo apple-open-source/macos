@@ -36,6 +36,7 @@
 
 #include <paths.h>
 #include <unistd.h>
+#include <sys/fileport.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>

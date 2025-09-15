@@ -555,7 +555,7 @@ mach_port_kobject(
 		task		: ipc_space_read_t;
 #endif
 		name		: mach_port_name_t;
-	out	object_type	: natural_t;
+	out	object_type	: ipc_info_object_type_t;
 	out	object_addr	: mach_vm_address_t);
 
 
@@ -688,7 +688,7 @@ mach_port_kobject_description(
 		task		: ipc_space_read_t;
 #endif
 		name		: mach_port_name_t;
-	out	object_type	: natural_t;
+	out	object_type	: ipc_info_object_type_t;
 	out	object_addr	: mach_vm_address_t;
 	out     description     : kobject_description_t);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -91,6 +91,9 @@
 #endif /* kSCPropNetDHCPv6LeaseExpirationTime */
 
 #define kDHCPOptionFormat		CFSTR("Option_%d")
+
+#define kARPResolvedIPAddress		CFSTR("ARPResolvedIPAddress")
+#define kARPResolvedHardwareAddress	CFSTR("ARPResolvedHardwareAddress")
 
 typedef char	InterfaceName[kInterfaceNameSize];
 

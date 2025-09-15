@@ -3,7 +3,7 @@
 //  NOTE: We use MixedCase for user-defined settings.
 
 // Customizations from OpenSSH
-AppleSshFeatures = __APPLE_AUDIT_BSM_LOGOUT_FIX__ __APPLE_AUDIT_SESSION_ALWAYS__ __APPLE_CLEAR_LV__ __APPLE_DISPLAY_VAR__ __APPLE_ENDPOINTSECURITY__ __APPLE_KEYCHAIN__ __APPLE_LAUNCHD__ __APPLE_MANAGED_CONFIGURATION__ __APPLE_MEMBERSHIP__ __APPLE_NOHOSTAUTHPROXY__ __APPLE_NW_CONNECTION__ __APPLE_TMPDIR__
+AppleSshFeatures = __APPLE_AUDIT_BSM_LOGOUT_FIX__ __APPLE_AUDIT_SESSION_ALWAYS__ __APPLE_CLEAR_LV__ __APPLE_DISPLAY_VAR__ __APPLE_ENDPOINTSECURITY__ __APPLE_KEYCHAIN__ __APPLE_LAUNCHD__ __APPLE_MANAGED_CONFIGURATION__ __APPLE_MEMBERSHIP__ __APPLE_NOHOSTAUTHPROXY__ __APPLE_NW_CONNECTION__ __APPLE_TMPDIR__ __APPLE_BASESYSTEM__
 
 // libcrypto
 Uses_Libcrypto = $(Uses_Libcrypto_$(TARGET_NAME:identifier):default=YES)
@@ -33,6 +33,7 @@ ssh_pkcs11_helper_path = libexec
 ssh_sk_helper_path = libexec
 sshd_path = sbin
 sshd_session_path = libexec
+sshd_auth_path = libexec
 
 // Installation: OpenSSH regression test suite
 check_perm_path = regress
@@ -43,7 +44,7 @@ setuid_allowed_path = regress
 timestamp_path = regress
 
 // OpenSSH version
-Semvers = 9.9.2
+Semvers = 10.0.2
 
 // Miscellaneous
 GCC_PREPROCESSOR_DEFINITIONS = $(AppleSshFeatures) $(DebugFlagDefinition)

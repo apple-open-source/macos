@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include <wtf/Algorithms.h>
 #include <wtf/HashSet.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/Vector.h>

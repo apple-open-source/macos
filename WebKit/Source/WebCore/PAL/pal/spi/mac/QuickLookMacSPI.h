@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <Quartz/Quartz.h>
 
 #if USE(APPLE_INTERNAL_SDK)

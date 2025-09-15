@@ -30,11 +30,10 @@
 #include "WebGPUInternalError.h"
 #include "WebGPUOutOfMemoryError.h"
 #include "WebGPUValidationError.h"
-#include <variant>
 
 namespace WebKit::WebGPU {
 
-using Error = std::variant<OutOfMemoryError, ValidationError, InternalError>;
+using Error = Variant<OutOfMemoryError, ValidationError, InternalError>;
 
 } // namespace WebKit::WebGPU
 

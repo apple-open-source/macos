@@ -120,9 +120,26 @@ SWIFT_VERSION = $(SWIFT_VERSION$(WK_XCODE_16));
 SWIFT_VERSION_XCODE_BEFORE_16 = 5.0;
 SWIFT_VERSION_XCODE_SINCE_16 = 6.0;
 
-OTHER_SWIFT_FLAGS = $(inherited) -no-warnings-as-errors -Xfrontend -experimental-spi-only-imports $(OTHER_SWIFT_FLAGS$(WK_XCODE_16)) $(OTHER_SWIFT_FLAGS_AVAILABILITY_$(USE_INTERNAL_SDK));
+OTHER_SWIFT_FLAGS = $(inherited) -no-warnings-as-errors -Xfrontend -experimental-spi-only-imports $(OTHER_SWIFT_FLAGS$(WK_XCODE_16)) @$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/platform-enabled-swift-args.$(arch).resp $(OTHER_SWIFT_FLAGS_AVAILABILITY_$(USE_INTERNAL_SDK));
 OTHER_SWIFT_FLAGS_AVAILABILITY_YES = @$(WK_WEBKITADDITIONS_HEADERS_FOLDER_PATH)/Scripts/availability-definitions.txt;
+OTHER_SWIFT_FLAGS_AVAILABILITY_ = -Xfrontend -define-availability -Xfrontend "WK_IOS_TBA:iOS $(IPHONEOS_DEPLOYMENT_TARGET:default=1.0)" -Xfrontend -define-availability -Xfrontend "WK_MAC_TBA:macOS $(MACOSX_DEPLOYMENT_TARGET:default=10.0)" -Xfrontend -define-availability -Xfrontend "WK_XROS_TBA:visionOS $(XROS_DEPLOYMENT_TARGET:default=1.0)";
 OTHER_SWIFT_FLAGS_XCODE_BEFORE_16 = -Xfrontend -enable-experimental-concurrency -Xfrontend -enable-upcoming-feature -Xfrontend IsolatedDefaultValues;
+
+WK_ENABLE_SWIFTUI = YES;
+WK_ENABLE_SWIFTUI[sdk=macosx*] = $(WK_ENABLE_SWIFTUI$(WK_MACOS_1500));
+WK_ENABLE_SWIFTUI[sdk=macosx13*] = NO;
+WK_ENABLE_SWIFTUI[sdk=macosx14*] = NO;
+WK_ENABLE_SWIFTUI[sdk=macosx15*] = NO;
+WK_ENABLE_SWIFTUI_MACOS_SINCE_1500 = YES;
+WK_ENABLE_SWIFTUI_MACOS_BEFORE_1500 = NO;
+WK_ENABLE_SWIFTUI[sdk=iphone*18.*] = NO;
+WK_ENABLE_SWIFTUI[sdk=watch*] = NO;
+WK_ENABLE_SWIFTUI[sdk=appletv*] = NO;
+WK_ENABLE_SWIFTUI[sdk=xros2.*] = NO;
+WK_ENABLE_SWIFTUI[sdk=xrsimulator2.*] = NO;
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) $(SWIFT_ACTIVE_COMPILATION_CONDITIONS_SWIFTUI_$(WK_ENABLE_SWIFTUI))
+SWIFT_ACTIVE_COMPILATION_CONDITIONS_SWIFTUI_YES = ENABLE_SWIFTUI
 
 OTHER_CPLUSPLUSFLAGS = $(inherited) -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders;
 

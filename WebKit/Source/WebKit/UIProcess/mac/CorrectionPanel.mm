@@ -57,8 +57,8 @@ void CorrectionPanel::show(NSView *view, WebViewImpl& webViewImpl, AlternativeTe
 
     NSInteger spellCheckerDocumentTag = webViewImpl.spellCheckerDocumentTag();
 
-    NSString *replacedStringAsNSString = replacedString;
-    NSString *replacementStringAsNSString = replacementString;
+    RetainPtr replacedStringAsNSString = replacedString.createNSString();
+    RetainPtr replacementStringAsNSString = replacementString.createNSString();
 
     m_view = view;
     m_spellCheckerDocumentTag = spellCheckerDocumentTag;
@@ -68,9 +68,9 @@ void CorrectionPanel::show(NSView *view, WebViewImpl& webViewImpl, AlternativeTe
     if (!alternativeReplacementStrings.isEmpty())
         alternativeStrings = createNSArray(alternativeReplacementStrings);
 
-    NSSpellChecker* spellChecker = [NSSpellChecker sharedSpellChecker];
-    [spellChecker showCorrectionIndicatorOfType:indicatorType primaryString:replacementStringAsNSString alternativeStrings:alternativeStrings.get() forStringInRect:boundingBoxOfReplacedString view:m_view.get() completionHandler:^(NSString* acceptedString) {
-        handleAcceptedReplacement(webViewImpl, acceptedString, replacedStringAsNSString, replacementStringAsNSString, indicatorType);
+    RetainPtr spellChecker = [NSSpellChecker sharedSpellChecker];
+    [spellChecker showCorrectionIndicatorOfType:indicatorType primaryString:replacementStringAsNSString.get() alternativeStrings:alternativeStrings.get() forStringInRect:boundingBoxOfReplacedString view:m_view.get() completionHandler:^(NSString* acceptedString) {
+        handleAcceptedReplacement(webViewImpl, acceptedString, replacedStringAsNSString.get(), replacementStringAsNSString.get(), indicatorType);
     }];
 }
 
@@ -96,7 +96,7 @@ void CorrectionPanel::recordAutocorrectionResponse(WebViewImpl& webViewImpl, NSI
     if (webViewImpl.page().sessionID().isEphemeral())
         return;
 
-    [[NSSpellChecker sharedSpellChecker] recordResponse:response toCorrection:replacementString forWord:replacedString language:nil inSpellDocumentWithTag:spellCheckerDocumentTag];
+    [[NSSpellChecker sharedSpellChecker] recordResponse:response toCorrection:replacementString.createNSString().get() forWord:replacedString.createNSString().get() language:nil inSpellDocumentWithTag:spellCheckerDocumentTag];
 }
 
 void CorrectionPanel::handleAcceptedReplacement(WebViewImpl& webViewImpl, NSString* acceptedReplacement, NSString* replaced, NSString* proposedReplacement,  NSCorrectionIndicatorType correctionIndicatorType)

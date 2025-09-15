@@ -88,7 +88,9 @@
 #include <kern/startup.h>
 #include <kern/task.h>
 #include <kern/thread.h>
+#include <kern/timeout.h>
 #include <kern/iotrace.h>
+#include <kern/smr.h>
 
 #include <libkern/OSDebug.h>
 #if ML_IO_TIMEOUTS_ENABLED
@@ -121,14 +123,6 @@ extern void wait_while_mp_kdp_trap(bool check_SIGPdebug);
 #if defined(__x86_64__)
 #include <i386/panic_notify.h>
 #endif
-
-#if ML_IO_TIMEOUTS_ENABLED
-#if defined(__x86_64__)
-#define ml_io_timestamp mach_absolute_time
-#else
-#define ml_io_timestamp ml_get_timebase
-#endif /* __x86_64__ */
-#endif /* ML_IO_TIMEOUTS_ENABLED */
 
 /*
  *	Exported variables:
@@ -621,6 +615,10 @@ uint32_t phy_read_panic = 0;
 uint32_t phy_write_panic = 0;
 #endif
 
+#if ML_IO_TIMEOUTS_ENABLED
+mmio_track_t PERCPU_DATA(mmio_tracker);
+#endif
+
 #if !defined(__x86_64__)
 
 #if DEVELOPMENT || DEBUG
@@ -973,6 +971,32 @@ ml_io_reset_timeouts_phys(vm_offset_t ioaddr_base, unsigned int size)
 #endif /* ML_IO_TIMEOUTS_ENABLED */
 }
 
+#if ML_IO_TIMEOUTS_ENABLED
+boolean_t
+ml_io_check_for_mmio_overrides(__unused uint64_t mt)
+{
+#if __arm64__
+	/* Issue a barrier before accessing the remote mmio trackers */
+	__builtin_arm_dmb(DMB_ISH);
+#endif
+	boolean_t istate = ml_set_interrupts_enabled_with_debug(false, false);
+	percpu_foreach(mmiot, mmio_tracker) {
+		uint64_t read_timeout;
+		uint64_t write_timeout;
+
+		override_io_timeouts(mmiot->mmio_vaddr, mmiot->mmio_paddr, &read_timeout, &write_timeout);
+
+		if (read_timeout > 0 || write_timeout > 0) {
+			if (mt < (mmiot->mmio_start_mt + MAX(read_timeout, write_timeout))) {
+				ml_set_interrupts_enabled_with_debug(istate, false);
+				return true;
+			}
+		}
+	}
+	ml_set_interrupts_enabled_with_debug(istate, false);
+	return false;
+}
+#endif /* ML_IO_TIMEOUTS_ENABLED */
 
 #if DEVELOPMENT || DEBUG
 static int ml_io_read_test_mode;
@@ -1005,8 +1029,8 @@ ml_io_read(uintptr_t vaddr, int size)
 #endif
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	uint64_t sabs, eabs;
-	boolean_t istate, timeread = FALSE;
+	kern_timeout_t timeout;
+	boolean_t istate, use_timeout = FALSE;
 	uint64_t report_read_delay;
 #if __x86_64__
 	report_read_delay = report_phy_read_delay;
@@ -1017,13 +1041,22 @@ ml_io_read(uintptr_t vaddr, int size)
 
 	if (__improbable(report_read_delay != 0)) {
 		istate = ml_set_interrupts_enabled_with_debug(false, false);
-		sabs = ml_io_timestamp();
-		timeread = TRUE;
+
+		kern_timeout_start(&timeout, TF_NONSPEC_TIMEBASE | TF_SAMPLE_PMC);
+		use_timeout = true;
+
+		if (paddr == 0) {
+			paddr = kvtophys(vaddr);
+		}
+		mmio_track_t *mmiot = PERCPU_GET(mmio_tracker);
+		mmiot->mmio_start_mt = kern_timeout_start_time(&timeout);
+		mmiot->mmio_paddr = paddr;
+		mmiot->mmio_vaddr = vaddr;
 	}
 
 #ifdef ML_IO_SIMULATE_STRETCHED_ENABLED
-	if (__improbable(timeread && simulate_stretched_io)) {
-		sabs -= simulate_stretched_io;
+	if (__improbable(use_timeout && simulate_stretched_io)) {
+		kern_timeout_stretch(&timeout, simulate_stretched_io);
 	}
 #endif /* ML_IO_SIMULATE_STRETCHED_ENABLED */
 #endif /* ML_IO_TIMEOUTS_ENABLED */
@@ -1062,22 +1095,18 @@ ml_io_read(uintptr_t vaddr, int size)
 #endif
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	if (__improbable(timeread == TRUE)) {
-		eabs = ml_io_timestamp();
-
+	if (__improbable(use_timeout == TRUE)) {
+		kern_timeout_end(&timeout, TF_NONSPEC_TIMEBASE);
+		uint64_t duration = kern_timeout_gross_duration(&timeout);
 
 		/* Prevent the processor from calling iotrace during its
 		 * initialization procedure. */
 		if (current_processor()->state == PROCESSOR_RUNNING) {
-			iotrace(IOTRACE_IO_READ, vaddr, paddr, size, result, sabs, eabs - sabs);
+			iotrace(IOTRACE_IO_READ, vaddr, paddr, size, result, kern_timeout_start_time(&timeout), duration);
 		}
 
-		if (__improbable((eabs - sabs) > report_read_delay)) {
-			if (paddr == 0) {
-				paddr = kvtophys(vaddr);
-			}
-
-			DTRACE_PHYSLAT5(physioread, uint64_t, (eabs - sabs),
+		if (__improbable(duration > report_read_delay)) {
+			DTRACE_PHYSLAT5(physioread, uint64_t, duration,
 			    uint64_t, vaddr, uint32_t, size, uint64_t, paddr, uint64_t, result);
 
 			uint64_t override = 0;
@@ -1098,23 +1127,23 @@ ml_io_read(uintptr_t vaddr, int size)
 			}
 		}
 
-		if (__improbable((eabs - sabs) > report_read_delay)) {
+		if (__improbable(duration > report_read_delay)) {
 			if (phy_read_panic && (machine_timeout_suspended() == FALSE)) {
+				char str[128];
 #if defined(__x86_64__)
 				panic_notify();
 #endif /* defined(__x86_64__) */
-				uint64_t nsec = 0;
-				absolutetime_to_nanoseconds(eabs - sabs, &nsec);
-				panic("Read from IO vaddr 0x%lx paddr 0x%lx took %llu ns, "
-				    "result: 0x%llx (start: %llu, end: %llu), ceiling: %llu",
-				    vaddr, paddr, nsec, result, sabs, eabs,
+				snprintf(str, sizeof(str),
+				    "Read from IO vaddr 0x%lx paddr 0x%lx (result: 0x%llx) timed out:",
+				    vaddr, paddr, result);
+				kern_timeout_try_panic(KERN_TIMEOUT_MMIO, paddr, &timeout, str,
 				    report_read_delay);
 			}
 		}
 
-		if (__improbable(trace_phy_read_delay > 0 && (eabs - sabs) > trace_phy_read_delay)) {
+		if (__improbable(trace_phy_read_delay > 0 && duration > trace_phy_read_delay)) {
 			KDBG(MACHDBG_CODE(DBG_MACH_IO, DBC_MACH_IO_MMIO_READ),
-			    (eabs - sabs), VM_KERNEL_UNSLIDE_OR_PERM(vaddr), paddr, result);
+			    duration, VM_KERNEL_UNSLIDE_OR_PERM(vaddr), paddr, result);
 		}
 
 		(void)ml_set_interrupts_enabled_with_debug(istate, false);
@@ -1173,8 +1202,8 @@ ml_io_write(uintptr_t vaddr, uint64_t val, int size)
 #endif
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	uint64_t sabs, eabs;
-	boolean_t istate, timewrite = FALSE;
+	kern_timeout_t timeout;
+	boolean_t istate, use_timeout = FALSE;
 	uint64_t report_write_delay;
 #if __x86_64__
 	report_write_delay = report_phy_write_delay;
@@ -1184,13 +1213,22 @@ ml_io_write(uintptr_t vaddr, uint64_t val, int size)
 #endif /* !defined(__x86_64__) */
 	if (__improbable(report_write_delay != 0)) {
 		istate = ml_set_interrupts_enabled_with_debug(false, false);
-		sabs = ml_io_timestamp();
-		timewrite = TRUE;
+
+		kern_timeout_start(&timeout, TF_NONSPEC_TIMEBASE | TF_SAMPLE_PMC);
+		use_timeout = TRUE;
+
+		if (paddr == 0) {
+			paddr = kvtophys(vaddr);
+		}
+		mmio_track_t *mmiot = PERCPU_GET(mmio_tracker);
+		mmiot->mmio_start_mt = kern_timeout_start_time(&timeout);
+		mmiot->mmio_paddr = paddr;
+		mmiot->mmio_vaddr = vaddr;
 	}
 
 #ifdef ML_IO_SIMULATE_STRETCHED_ENABLED
-	if (__improbable(timewrite && simulate_stretched_io)) {
-		sabs -= simulate_stretched_io;
+	if (__improbable(use_timeout && simulate_stretched_io)) {
+		kern_timeout_stretch(&timeout, simulate_stretched_io);
 	}
 #endif /* DEVELOPMENT || DEBUG */
 #endif /* ML_IO_TIMEOUTS_ENABLED */
@@ -1227,22 +1265,18 @@ ml_io_write(uintptr_t vaddr, uint64_t val, int size)
 #endif
 
 #ifdef ML_IO_TIMEOUTS_ENABLED
-	if (__improbable(timewrite == TRUE)) {
-		eabs = ml_io_timestamp();
+	if (__improbable(use_timeout == TRUE)) {
+		kern_timeout_end(&timeout, TF_NONSPEC_TIMEBASE);
+		uint64_t duration = kern_timeout_gross_duration(&timeout);
 
 		/* Prevent the processor from calling iotrace during its
 		 * initialization procedure. */
 		if (current_processor()->state == PROCESSOR_RUNNING) {
-			iotrace(IOTRACE_IO_WRITE, vaddr, paddr, size, val, sabs, eabs - sabs);
+			iotrace(IOTRACE_IO_WRITE, vaddr, paddr, size, val, kern_timeout_start_time(&timeout), duration);
 		}
 
-
-		if (__improbable((eabs - sabs) > report_write_delay)) {
-			if (paddr == 0) {
-				paddr = kvtophys(vaddr);
-			}
-
-			DTRACE_PHYSLAT5(physiowrite, uint64_t, (eabs - sabs),
+		if (__improbable(duration > report_write_delay)) {
+			DTRACE_PHYSLAT5(physiowrite, uint64_t, duration,
 			    uint64_t, vaddr, uint32_t, size, uint64_t, paddr, uint64_t, val);
 
 			uint64_t override = 0;
@@ -1263,24 +1297,23 @@ ml_io_write(uintptr_t vaddr, uint64_t val, int size)
 			}
 		}
 
-		if (__improbable((eabs - sabs) > report_write_delay)) {
+		if (__improbable(duration > report_write_delay)) {
 			if (phy_write_panic && (machine_timeout_suspended() == FALSE)) {
+				char str[128];
 #if defined(__x86_64__)
 				panic_notify();
 #endif /*  defined(__x86_64__) */
-
-				uint64_t nsec = 0;
-				absolutetime_to_nanoseconds(eabs - sabs, &nsec);
-				panic("Write to IO vaddr %p paddr %p val 0x%llx took %llu ns,"
-				    " (start: %llu, end: %llu), ceiling: %llu",
-				    (void *)vaddr, (void *)paddr, val, nsec, sabs, eabs,
+				snprintf(str, sizeof(str),
+				    "Write to IO vaddr 0x%lx paddr 0x%lx (value: 0x%llx) timed out:",
+				    vaddr, paddr, val);
+				kern_timeout_try_panic(KERN_TIMEOUT_MMIO, paddr, &timeout, str,
 				    report_write_delay);
 			}
 		}
 
-		if (__improbable(trace_phy_write_delay > 0 && (eabs - sabs) > trace_phy_write_delay)) {
+		if (__improbable(trace_phy_write_delay > 0 && duration > trace_phy_write_delay)) {
 			KDBG(MACHDBG_CODE(DBG_MACH_IO, DBC_MACH_IO_MMIO_WRITE),
-			    (eabs - sabs), VM_KERNEL_UNSLIDE_OR_PERM(vaddr), paddr, val);
+			    duration, VM_KERNEL_UNSLIDE_OR_PERM(vaddr), paddr, val);
 		}
 
 		(void)ml_set_interrupts_enabled_with_debug(istate, false);
@@ -1322,6 +1355,94 @@ static struct cpu_callback_chain_elem *cpu_callback_chain;
 static LCK_GRP_DECLARE(cpu_callback_chain_lock_grp, "cpu_callback_chain");
 static LCK_SPIN_DECLARE(cpu_callback_chain_lock, &cpu_callback_chain_lock_grp);
 
+struct cpu_event_log_entry {
+	uint64_t       abstime;
+	enum cpu_event event;
+	unsigned int   cpu_or_cluster;
+};
+
+#if DEVELOPMENT || DEBUG
+
+#define CPU_EVENT_RING_SIZE 128
+static struct cpu_event_log_entry cpu_event_ring[CPU_EVENT_RING_SIZE];
+static _Atomic int cpu_event_widx;
+static _Atomic uint64_t cpd_cycles;
+
+void
+cpu_event_debug_log(enum cpu_event event, unsigned int cpu_or_cluster)
+{
+	int oldidx, newidx;
+
+	os_atomic_rmw_loop(&cpu_event_widx, oldidx, newidx, relaxed, {
+		newidx = (oldidx + 1) % CPU_EVENT_RING_SIZE;
+	});
+	cpu_event_ring[newidx].abstime = ml_get_timebase();
+	cpu_event_ring[newidx].event = event;
+	cpu_event_ring[newidx].cpu_or_cluster = cpu_or_cluster;
+
+	if (event == CLUSTER_EXIT_REQUESTED) {
+		os_atomic_inc(&cpd_cycles, relaxed);
+	}
+}
+
+static const char *
+cpu_event_log_string(enum cpu_event e)
+{
+	const char *event_strings[] = {
+		"CPU_BOOT_REQUESTED",
+		"CPU_BOOTED",
+		"CPU_ACTIVE",
+		"CLUSTER_ACTIVE",
+		"CPU_EXIT_REQUESTED",
+		"CPU_DOWN",
+		"CLUSTER_EXIT_REQUESTED",
+		"CPU_EXITED",
+		"PLATFORM_QUIESCE",
+		"PLATFORM_ACTIVE",
+		"PLATFORM_HALT_RESTART",
+		"PLATFORM_PANIC",
+		"PLATFORM_PANIC_SYNC",
+		"PLATFORM_PRE_SLEEP",
+		"PLATFORM_POST_RESUME",
+	};
+
+	assert((unsigned)e < sizeof(event_strings) / sizeof(event_strings[0]));
+	return event_strings[e];
+}
+
+void
+dump_cpu_event_log(int (*printf_func)(const char * fmt, ...))
+{
+	printf_func("CPU event history @ %016llx: (CPD cycles: %lld)\n",
+	    ml_get_timebase(), os_atomic_load(&cpd_cycles, relaxed));
+
+	int idx = os_atomic_load(&cpu_event_widx, relaxed);
+	for (int c = 0; c < CPU_EVENT_RING_SIZE; c++) {
+		idx = (idx + 1) % CPU_EVENT_RING_SIZE;
+
+		struct cpu_event_log_entry *e = &cpu_event_ring[idx];
+		if (e->abstime != 0) {
+			printf_func(" %016llx: %s %d\n", e->abstime,
+			    cpu_event_log_string(e->event), e->cpu_or_cluster);
+		}
+	}
+}
+
+#else /* DEVELOPMENT || DEBUG */
+
+void
+cpu_event_debug_log(__unused enum cpu_event event, __unused unsigned int cpu_or_cluster)
+{
+	/* no logging on production builds */
+}
+
+void
+dump_cpu_event_log(__unused int (*printf_func)(const char * fmt, ...))
+{
+}
+
+#endif /* DEVELOPMENT || DEBUG */
+
 void
 cpu_event_register_callback(cpu_callback_t fn, void *param)
 {
@@ -1351,6 +1472,8 @@ void
 ml_broadcast_cpu_event(enum cpu_event event, unsigned int cpu_or_cluster)
 {
 	struct cpu_callback_chain_elem *cursor;
+
+	cpu_event_debug_log(event, cpu_or_cluster);
 
 	cursor = os_atomic_load(&cpu_callback_chain, dependency);
 	for (; cursor != NULL; cursor = cursor->next) {
@@ -1542,7 +1665,7 @@ machine_timeout_init_with_suffix(const struct machine_timeout_spec *spec, char c
 	}
 
 	if (os_mul_overflow(timeout, scale, &timeout)) {
-		timeout = UINT64_MAX; // clamp
+		timeout = UINT64_MAX;         // clamp
 	}
 
 	os_atomic_store_wide((uint64_t*)spec->ptr, timeout, relaxed);

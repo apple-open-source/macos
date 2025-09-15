@@ -1347,7 +1347,7 @@ decmpfs_pagein_compressed(struct vnop_pagein_args *ap, int *is_compressed, decmp
 	 * alignment requirements.
 	 */
 	err = VNOP_VERIFY(vp, f_offset, NULL, 0, &verify_block_size, NULL,
-	    VNODE_VERIFY_DEFAULT, NULL);
+	    VNODE_VERIFY_DEFAULT, NULL, NULL);
 	if (err) {
 		ErrorLogWithPath("VNOP_VERIFY returned error = %d\n", err);
 		goto out;
@@ -1597,7 +1597,7 @@ decompress:
 	if (!err && verify_block_size) {
 		size_t cur_verify_block_size = verify_block_size;
 
-		if ((err = VNOP_VERIFY(vp, uplPos, vec.buf, rounded_uplSize, &cur_verify_block_size, NULL, 0, NULL))) {
+		if ((err = VNOP_VERIFY(vp, uplPos, vec.buf, rounded_uplSize, &cur_verify_block_size, NULL, 0, NULL, NULL))) {
 			ErrorLogWithPath("Verification failed with error %d, uplPos = %lld, uplSize = %d, did_read = %d, valid_pages = %d, invalid_pages = %d, tail_page_valid = %d\n",
 			    err, (long long)uplPos, (int)rounded_uplSize, (int)did_read, num_valid_pages, num_invalid_pages, file_tail_page_valid);
 		}
@@ -1749,7 +1749,7 @@ decmpfs_read_compressed(struct vnop_read_args *ap, int *is_compressed, decmpfs_c
 	 */
 
 	/* If the verify block size is larger than the page size, the UPL needs to aligned to it */
-	err = VNOP_VERIFY(vp, uplPos, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL);
+	err = VNOP_VERIFY(vp, uplPos, NULL, 0, &verify_block_size, NULL, VNODE_VERIFY_DEFAULT, NULL, NULL);
 	if (err) {
 		goto out;
 	} else if (verify_block_size) {
@@ -1858,7 +1858,7 @@ decompress:
 		if (!err && verify_block_size) {
 			size_t cur_verify_block_size = verify_block_size;
 
-			if ((err = VNOP_VERIFY(vp, curUplPos, data, curUplSize, &cur_verify_block_size, NULL, 0, NULL))) {
+			if ((err = VNOP_VERIFY(vp, curUplPos, data, curUplSize, &cur_verify_block_size, NULL, 0, NULL, NULL))) {
 				ErrorLogWithPath("Verification failed with error %d\n", err);
 				abort_read = 1;
 			}

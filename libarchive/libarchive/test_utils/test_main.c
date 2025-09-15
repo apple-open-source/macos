@@ -147,6 +147,7 @@
 #if defined(HAVE__CrtSetReportMode)
 # include <crtdbg.h>
 #endif
+#include <TargetConditionals.h>
 
 mode_t umasked(mode_t expected_mode)
 {

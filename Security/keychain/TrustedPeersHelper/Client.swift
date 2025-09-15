@@ -969,12 +969,47 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func requestHealthCheck(with user: TPSpecificUser?, requiresEscrowCheck: Bool, repair: Bool, knownFederations: [String], flowID: String?, deviceSessionID: String?, reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
+    func requestEscrowCheck(with user: TPSpecificUser,
+                            requiresEscrowCheck: Bool,
+                            passcodeGeneration: UInt64,
+                            knownFederations: [String],
+                            isBackgroundCheck: Bool,
+                            flowID: String?,
+                            deviceSessionID: String?,
+                            reply: @escaping (OTEscrowCheckCallResult?, (any Error)?) -> Void) {
         do {
-            logger.info("Health Check! requiring escrow check? \(requiresEscrowCheck), \(repair) for \(String(describing: user), privacy: .public)")
+            logger.info("Escrow Check for \(String(describing: user), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: user)
+            container.escrowCheck(passcodeGeneration: passcodeGeneration,
+                                  requiresEscrowCheck: requiresEscrowCheck,
+                                  knownFederations: knownFederations,
+                                  isBackgroundCheck: isBackgroundCheck,
+                                  flowID: flowID,
+                                  deviceSessionID: deviceSessionID) {result, error  in
+                reply(result, error?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("Escrow Check failed for \(String(describing: user), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func requestHealthCheck(with user: TPSpecificUser?,
+                            requiresEscrowCheck: Bool,
+                            repair: Bool,
+                            danglingPeerCleanup: Bool,
+                            updateIdMS: Bool,
+                            knownFederations: [String],
+                            flowID: String?,
+                            deviceSessionID: String?,
+                            reply: @escaping (TrustedPeersHelperHealthCheckResult?, Error?) -> Void) {
+        do {
+            logger.info("Health Check! requiring escrow check? \(requiresEscrowCheck), \(repair), \(danglingPeerCleanup), \(updateIdMS) for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
             container.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck,
                                          repair: repair,
+                                         danglingPeerCleanup: danglingPeerCleanup,
+                                         updateIdMS: updateIdMS,
                                          knownFederations: knownFederations,
                                          flowID: flowID,
                                          deviceSessionID: deviceSessionID) { result, error in
@@ -1022,11 +1057,21 @@ class Client: TrustedPeersHelperProtocol {
             reply(error.sanitizeForClientXPC())
         }
     }
-    func fetchAccountSettings(with user: TPSpecificUser?, forceFetch: Bool, reply: @escaping ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
+    func fetchAccountSettings(with user: TPSpecificUser?,
+                              forceFetch: Bool,
+                              altDSID: String? = nil,
+                              flowID: String? = nil,
+                              deviceSessionID: String? = nil,
+                              canSendMetrics: Bool = false,
+                              reply: @escaping ([String: TPPBPeerStableInfoSetting]?, Error?) -> Void) {
         do {
             logger.info("fetchAccountSettings for \(String(describing: user), privacy: .public)")
             let container = try self.containerMap.findOrCreate(user: user)
-            container.fetchAccountSettings(forceFetch: forceFetch) { settings, error in
+            container.fetchAccountSettings(forceFetch: forceFetch,
+                                           altDSID: altDSID,
+                                           flowID: flowID,
+                                           deviceSessionID: deviceSessionID,
+                                           canSendMetrics: canSendMetrics) { settings, error in
                 reply(settings, error?.sanitizeForClientXPC())
             }
         } catch {
@@ -1107,6 +1152,19 @@ class Client: TrustedPeersHelperProtocol {
             }
         } catch {
             logger.error("fetchTrustedPeerCount failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
+            reply(nil, error.sanitizeForClientXPC())
+        }
+    }
+
+    func fetchTrustedFullPeerCount(with specificUser: TPSpecificUser?, reply: @escaping (NSNumber?, Error?) -> Void) {
+        do {
+            logger.info("fetchTrustedFullPeerCount for \(String(describing: specificUser), privacy: .public)")
+            let container = try self.containerMap.findOrCreate(user: specificUser)
+            container.fetchTrustedFullPeersCount { count, countError in
+                reply(count, countError?.sanitizeForClientXPC())
+            }
+        } catch {
+            logger.error("fetchTrustedFullPeerCount failed for \(String(describing: specificUser), privacy: .public): \(String(describing: error), privacy: .public)")
             reply(nil, error.sanitizeForClientXPC())
         }
     }

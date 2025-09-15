@@ -107,11 +107,13 @@ extern kern_return_t vm_map_unwire_impl(
  * This file contains interfaces that are private to the VM
  */
 
-#define KiB(x) (1024 * (x))
-#define MeB(x) (1024 * 1024 * (x))
+#define KiB(kb) ((kb) << 10ull)
+#define BtoKiB(b) ((b) >> 10)
+#define MiB(mb) ((mb) << 20ull)
+#define BtoMiB(b) ((b) >> 20)
 
 #if __LP64__
-#define KMEM_SMALLMAP_THRESHOLD     (MeB(1))
+#define KMEM_SMALLMAP_THRESHOLD     (MiB(1))
 #else
 #define KMEM_SMALLMAP_THRESHOLD     (KiB(256))
 #endif
@@ -191,6 +193,10 @@ extern void vm_map_clip_end(
 extern boolean_t vm_map_entry_should_cow_for_true_share(
 	vm_map_entry_t          entry);
 
+extern void vm_map_seal(
+	vm_map_t                 map,
+	bool                     nested_pmap);
+
 /*!
  * @typedef vmr_flags_t
  *
@@ -233,13 +239,12 @@ __options_decl(vmr_flags_t, uint32_t, {
 	VM_MAP_REMOVE_KUNWIRE           = 0x001,
 	VM_MAP_REMOVE_INTERRUPTIBLE     = 0x002,
 	VM_MAP_REMOVE_NOKUNWIRE_LAST    = 0x004,
-	VM_MAP_REMOVE_NO_MAP_ALIGN      = 0x008,
-	VM_MAP_REMOVE_IMMUTABLE         = 0x010,
-	VM_MAP_REMOVE_GAPS_FAIL         = 0x020,
-	VM_MAP_REMOVE_NO_YIELD          = 0x040,
-	VM_MAP_REMOVE_GUESS_SIZE        = 0x080,
-	VM_MAP_REMOVE_IMMUTABLE_CODE    = 0x100,
-	VM_MAP_REMOVE_TO_OVERWRITE      = 0x200,
+	VM_MAP_REMOVE_IMMUTABLE         = 0x008,
+	VM_MAP_REMOVE_GAPS_FAIL         = 0x010,
+	VM_MAP_REMOVE_NO_YIELD          = 0x020,
+	VM_MAP_REMOVE_GUESS_SIZE        = 0x040,
+	VM_MAP_REMOVE_IMMUTABLE_CODE    = 0x080,
+	VM_MAP_REMOVE_TO_OVERWRITE      = 0x100,
 });
 
 /* Deallocate a region */
@@ -485,17 +490,6 @@ extern boolean_t        vm_map_lookup_entry_or_next(
 	vm_map_t                map,
 	vm_map_address_t        address,
 	vm_map_entry_t          *entry);                                /* OUT */
-
-/* like vm_map_lookup_entry without the PGZ bear trap */
-#if CONFIG_PROB_GZALLOC
-extern boolean_t        vm_map_lookup_entry_allow_pgz(
-	vm_map_t                map,
-	vm_map_address_t        address,
-	vm_map_entry_t          *entry);                                /* OUT */
-#else /* !CONFIG_PROB_GZALLOC */
-#define vm_map_lookup_entry_allow_pgz vm_map_lookup_entry
-#endif /* !CONFIG_PROB_GZALLOC */
-
 
 extern void             vm_map_copy_remap(
 	vm_map_t                map,

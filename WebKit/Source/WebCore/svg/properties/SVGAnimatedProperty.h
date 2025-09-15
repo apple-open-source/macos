@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,20 +29,22 @@
 #include "SVGPropertyOwner.h"
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/WeakHashSet.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
     
 class SVGElement;
+class WeakPtrImplWithEventTargetData;
 
 class SVGAnimatedProperty : public ThreadSafeRefCounted<SVGAnimatedProperty>, public SVGPropertyOwner {
 public:
     virtual ~SVGAnimatedProperty() = default;
     
     // Manage the relationship with the owner.
-    bool isAttached() const { return m_contextElement; }
+    bool isAttached() const { return !!m_contextElement; }
     void detach() { m_contextElement = nullptr; }
-    SVGElement* contextElement() const { return m_contextElement; }
+    SVGElement* contextElement() const;
     
     virtual String baseValAsString() const { return emptyString(); }
     virtual String animValAsString() const { return emptyString(); }
@@ -62,15 +64,11 @@ public:
     virtual void instanceStopAnimation(SVGAttributeAnimator& animator) { stopAnimation(animator); }
     
 protected:
-    SVGAnimatedProperty(SVGElement* contextElement)
-        : m_contextElement(contextElement)
-    {
-    }
-    
+    explicit SVGAnimatedProperty(SVGElement*);
     SVGPropertyOwner* owner() const override;
     void commitPropertyChange(SVGProperty*) override;
     
-    SVGElement* m_contextElement { nullptr };
+    WeakPtr<SVGElement, WeakPtrImplWithEventTargetData> m_contextElement;
     WeakHashSet<SVGAttributeAnimator> m_animators;
 };
 

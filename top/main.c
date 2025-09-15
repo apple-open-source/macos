@@ -215,6 +215,8 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	libtop_init_hvwait(top_prefs_get_hvwait());
+
 	tinst = top_create(stdscr);
 
 	if (!top_prefs_get_logging_mode()) {

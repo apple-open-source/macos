@@ -101,7 +101,7 @@ ExceptionOr<void> PaymentRequestValidator::validateTotal(const ApplePayLineItem&
     if (!total.amount)
         return Exception { ExceptionCode::TypeError, "Missing total amount."_s };
 
-    double amount = [NSDecimalNumber decimalNumberWithString:total.amount locale:@{ NSLocaleDecimalSeparator : @"." }].doubleValue;
+    double amount = [NSDecimalNumber decimalNumberWithString:total.amount.createNSString().get() locale:@{ NSLocaleDecimalSeparator : @"." }].doubleValue;
 
     if (amount < 0)
         return Exception { ExceptionCode::TypeError, "Total amount must not be negative."_s };
@@ -163,8 +163,8 @@ static ExceptionOr<void> validateSupportedNetworks(const Vector<String>& support
 
 static ExceptionOr<void> validateShippingMethod(const ApplePayShippingMethod& shippingMethod)
 {
-    NSDecimalNumber *amount = [NSDecimalNumber decimalNumberWithString:shippingMethod.amount locale:@{ NSLocaleDecimalSeparator : @"." }];
-    if (amount.integerValue < 0)
+    RetainPtr amount = [NSDecimalNumber decimalNumberWithString:shippingMethod.amount.createNSString().get() locale:@{ NSLocaleDecimalSeparator : @"." }];
+    if (amount.get().integerValue < 0)
         return Exception { ExceptionCode::TypeError, "Shipping method amount must be greater than or equal to zero."_s };
 
     return { };

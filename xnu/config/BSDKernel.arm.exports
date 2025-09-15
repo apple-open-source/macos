@@ -1,5 +1,6 @@
 _file_vnode
 _mbuf_data
+_mbuf_data_len
 _mbuf_len
 _mbuf_next
 _mbuf_nextpkt

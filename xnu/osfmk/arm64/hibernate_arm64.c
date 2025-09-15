@@ -186,23 +186,48 @@ hibernate_page_list_setall_machine(hibernate_page_list_t * page_list,
 #endif /* XNU_MONITOR */
 
 	if (!preflight) {
-		// mark the stack as unavailable for clobbering during restore;
-		// we won't actually save it because we mark these pages as free
-		// in hibernate_page_list_set_volatile
+		/*
+		 * mark the stack as unavailable for clobbering during restore;
+		 * we won't actually save it because we mark these pages as free
+		 * in hibernate_page_list_set_volatile
+		 */
 		hibernate_set_page_state(page_list, page_list_wired,
 		    stack_first_page, stack_page_count,
 		    kIOHibernatePageStateWiredSave);
 
 #if XNU_MONITOR
-		// Mark the PPL stack as not needing to be saved. Any PPL memory that is
-		// excluded from the image will need to be explicitly checked for in
-		// pmap_check_ppl_hashed_flag_all(). That function ensures that all
-		// PPL pages are contained within the image (so any memory explicitly
-		// not being saved, needs to be removed from the check).
+		/*
+		 * Mark the PPL stack as not needing to be saved. Any PPL memory that is
+		 * excluded from the image will need to be explicitly checked for in
+		 * pmap_check_ppl_hashed_flag_all(). That function ensures that all
+		 * PPL pages are contained within the image (so any memory explicitly
+		 * not being saved, needs to be removed from the check).
+		 */
 		hibernate_set_page_state(page_list, page_list_wired,
 		    atop_64(pmap_stacks_start_pa), pmap_stack_page_count,
 		    kIOHibernatePageStateFree);
 #endif /* XNU_MONITOR */
+
+#if CONFIG_SPTM
+		/*
+		 * Pages for which a hibernate-io-range explicitly prohibits
+		 * hibernation restore to write to them must not be
+		 * clobbered. They also will not be saved, because
+		 * hibernate_page_list_set_volatile() will mark them
+		 * appropriately as well.
+		 */
+		bool (^exclude)(pmap_io_range_t const *) =
+		    ^bool (pmap_io_range_t const *range) {
+			if (range->wimg & PMAP_IO_RANGE_PROHIBIT_HIB_WRITE) {
+				/* No-op if page not in any bitmap (i.e. not managed DRAM). */
+				hibernate_set_page_state(page_list, page_list_wired,
+		    range->addr >> PAGE_SHIFT, range->len >> PAGE_SHIFT,
+		    kIOHibernatePageStateWiredSave);
+			}
+			return true;
+		};
+		pmap_range_iterate(exclude);
+#endif /* CONFIG_SPTM */
 	}
 
 	*pagesOut += stack_page_count;
@@ -219,8 +244,10 @@ hibernate_page_list_set_volatile(hibernate_page_list_t * page_list,
 {
 	vm_offset_t page, count;
 
-	// hibernation restore runs on the interrupt stack,
-	// so we need to make sure we don't save it
+	/*
+	 * hibernation restore runs on the interrupt stack,
+	 * so we need to make sure we don't save it
+	 */
 	pal_hib_get_stack_pages(&page, &count);
 	hibernate_set_page_state(page_list, page_list_wired,
 	    page, count,
@@ -228,7 +255,22 @@ hibernate_page_list_set_volatile(hibernate_page_list_t * page_list,
 	*pagesOut -= count;
 
 #if CONFIG_SPTM
-	/**
+	/*
+	 * Pages that are explicitly prohibited to be restored by a
+	 * pmap-io-range must also not be saved.
+	 */
+	bool (^exclude)(pmap_io_range_t const *) = ^bool (pmap_io_range_t const * range) {
+		if (range->wimg & PMAP_IO_RANGE_PROHIBIT_HIB_WRITE) {
+			/* No-op if page not in any bitmap (i.e. not managed DRAM). */
+			hibernate_set_page_state(page_list, page_list_wired,
+	    range->addr >> PAGE_SHIFT, range->len >> PAGE_SHIFT,
+	    kIOHibernatePageStateFree);
+		}
+		return true;
+	};
+	pmap_range_iterate(exclude);
+
+	/*
 	 * On SPTM-based systems, parts of the CTRR-protected regions will be
 	 * loaded from disk by iBoot instead of being loaded from the hibernation
 	 * image for security reasons. Because those regions are being loaded from
@@ -241,8 +283,7 @@ hibernate_page_list_set_volatile(hibernate_page_list_t * page_list,
 	for (size_t i = 0; i < SPTMArgs->hib_metadata->num_iboot_loaded_ranges; ++i) {
 		const hib_phys_range_t *range = &SPTMArgs->hib_metadata->iboot_loaded_ranges[i];
 		hibernate_set_page_state(page_list, page_list_wired,
-		    range->first_page, range->page_count,
-		    kIOHibernatePageStateFree);
+		    range->first_page, range->page_count, kIOHibernatePageStateFree);
 		*pagesOut -= range->page_count;
 	}
 #endif /* CONFIG_SPTM */

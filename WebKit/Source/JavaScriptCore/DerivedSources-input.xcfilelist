@@ -39,12 +39,14 @@ $(PROJECT_DIR)/b3/air/opcode_generator.rb
 $(PROJECT_DIR)/builtins/ArrayConstructor.js
 $(PROJECT_DIR)/builtins/ArrayIteratorPrototype.js
 $(PROJECT_DIR)/builtins/ArrayPrototype.js
+$(PROJECT_DIR)/builtins/AsyncDisposableStackPrototype.js
 $(PROJECT_DIR)/builtins/AsyncFromSyncIteratorPrototype.js
 $(PROJECT_DIR)/builtins/AsyncFunctionPrototype.js
 $(PROJECT_DIR)/builtins/AsyncGeneratorPrototype.js
+$(PROJECT_DIR)/builtins/AsyncIteratorPrototype.js
+$(PROJECT_DIR)/builtins/DisposableStackPrototype.js
 $(PROJECT_DIR)/builtins/FunctionPrototype.js
 $(PROJECT_DIR)/builtins/GeneratorPrototype.js
-$(PROJECT_DIR)/builtins/GlobalObject.js
 $(PROJECT_DIR)/builtins/GlobalOperations.js
 $(PROJECT_DIR)/builtins/InternalPromiseConstructor.js
 $(PROJECT_DIR)/builtins/IteratorHelpers.js
@@ -55,7 +57,6 @@ $(PROJECT_DIR)/builtins/MapConstructor.js
 $(PROJECT_DIR)/builtins/MapIteratorPrototype.js
 $(PROJECT_DIR)/builtins/MapPrototype.js
 $(PROJECT_DIR)/builtins/ModuleLoader.js
-$(PROJECT_DIR)/builtins/NumberConstructor.js
 $(PROJECT_DIR)/builtins/ObjectConstructor.js
 $(PROJECT_DIR)/builtins/PromiseConstructor.js
 $(PROJECT_DIR)/builtins/PromiseOperations.js
@@ -93,7 +94,6 @@ $(PROJECT_DIR)/generator/Wasm.rb
 $(PROJECT_DIR)/generator/main.rb
 $(PROJECT_DIR)/inspector/InjectedScriptSource.js
 $(PROJECT_DIR)/inspector/protocol/Animation.json
-$(PROJECT_DIR)/inspector/protocol/ApplicationCache.json
 $(PROJECT_DIR)/inspector/protocol/Audit.json
 $(PROJECT_DIR)/inspector/protocol/Browser.json
 $(PROJECT_DIR)/inspector/protocol/CPUProfiler.json
@@ -103,7 +103,6 @@ $(PROJECT_DIR)/inspector/protocol/Console.json
 $(PROJECT_DIR)/inspector/protocol/DOM.json
 $(PROJECT_DIR)/inspector/protocol/DOMDebugger.json
 $(PROJECT_DIR)/inspector/protocol/DOMStorage.json
-$(PROJECT_DIR)/inspector/protocol/Database.json
 $(PROJECT_DIR)/inspector/protocol/Debugger.json
 $(PROJECT_DIR)/inspector/protocol/GenericTypes.json
 $(PROJECT_DIR)/inspector/protocol/Heap.json

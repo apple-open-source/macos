@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,7 +54,7 @@ private:
     RefPtr<NativeImage> createNativeImageReference() final;
 
     void getPixelBuffer(const IntRect&, PixelBuffer&) final;
-    void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
+    void putPixelBuffer(const PixelBufferSourceView&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) final;
 
     std::span<uint8_t> m_data;
     RetainPtr<CGDataProviderRef> m_dataProvider;

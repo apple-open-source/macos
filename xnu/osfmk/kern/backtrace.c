@@ -386,7 +386,6 @@ backtrace_user(uintptr_t *bt, unsigned int max_frames,
 	const struct backtrace_control *ctl = ctl_in ?: &ctl_default;
 	uintptr_t pc = 0, next_fp = 0;
 	uintptr_t fp = ctl->btc_frame_addr;
-	bool custom_fp = fp != 0;
 	int64_t addr_offset = ctl ? ctl->btc_addr_offset : 0;
 	vm_map_t map = NULL;
 	vm_map_switch_context_t switch_ctx;
@@ -570,10 +569,10 @@ backtrace_user(uintptr_t *bt, unsigned int max_frames,
 			break;
 		}
 
-		// Stacks grow down; backtracing should be moving to higher addresses,
-		// unless a custom frame pointer is provided, in which case, an async
-		// stack might be walked, which is allocated on the heap in any order.
-		if ((next_fp == fp) || (!custom_fp && next_fp < fp)) {
+		// User space stacks generally grow down, but in some cases can jump to a different stack.
+		// Skip the check that the frame pointer moves downward here.
+
+		if (next_fp == fp) {
 			break;
 		}
 		fp = next_fp;

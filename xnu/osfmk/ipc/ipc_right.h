@@ -76,8 +76,6 @@ __BEGIN_DECLS __ASSUME_PTR_ABI_SINGLE_BEGIN
 
 #define ipc_right_lookup_two_read       ipc_right_lookup_two_write
 
-extern bool service_port_defense_enabled;
-
 /* Find an entry in a space, given the name */
 extern kern_return_t ipc_right_lookup_read(
 	ipc_space_t             space,
@@ -112,6 +110,7 @@ extern kern_return_t ipc_right_request_alloc(
 	mach_port_name_t        name,
 	ipc_port_request_opts_t options,
 	ipc_port_t              notify,
+	mach_msg_id_t           id,
 	ipc_port_t              *previousp);
 
 /* Check if an entry is being used */
@@ -119,12 +118,12 @@ extern bool      ipc_right_inuse(
 	ipc_entry_t             entry);
 
 /* Check if the port has died */
-extern boolean_t ipc_right_check(
+extern bool ipc_right_check(
 	ipc_space_t             space,
 	ipc_port_t              port,
 	mach_port_name_t        name,
 	ipc_entry_t             entry,
-	ipc_object_copyin_flags_t flags);
+	ipc_copyin_op_t         copyin_reason);
 
 /* Clean up an entry in a dead space */
 extern void ipc_right_terminate(
@@ -136,9 +135,7 @@ extern void ipc_right_terminate(
 extern kern_return_t ipc_right_destroy(
 	ipc_space_t             space,
 	mach_port_name_t        name,
-	ipc_entry_t             entry,
-	boolean_t               check_guard,
-	uint64_t                guard);
+	ipc_entry_t             entry);
 
 /* Release a send/send-once/dead-name user reference */
 extern kern_return_t ipc_right_dealloc(
@@ -171,13 +168,11 @@ extern kern_return_t ipc_right_info(
 	mach_port_urefs_t      *urefsp);
 
 /* Check if a subsequent ipc_right_copyin of the reply port will succeed */
-extern boolean_t ipc_right_copyin_check_reply(
+extern bool ipc_right_copyin_check_reply(
 	ipc_space_t             space,
 	mach_port_name_t        reply_name,
 	ipc_entry_t             reply_entry,
-	mach_msg_type_name_t    reply_type,
-	ipc_entry_t             dest_entry,
-	uint8_t                *reply_port_semantics_violation);
+	mach_msg_type_name_t    reply_type);
 
 typedef struct {
 	ipc_port_t              icc_release_port;
@@ -210,17 +205,26 @@ extern kern_return_t ipc_right_copyin(
 	mach_port_name_t        name,
 	mach_msg_type_name_t    msgt_name,
 	ipc_object_copyin_flags_t  flags,
+	ipc_copyin_op_t         copyin_reason,
 	ipc_entry_t             entry,
 	ipc_port_t             *portp,
 	ipc_copyin_cleanup_t   *icc,
 	ipc_copyin_rcleanup_t  *icrc);
 
-/* Copyout a capability to a space */
-extern kern_return_t ipc_right_copyout(
+/* Copyout a send or send-once capability to a space */
+extern void ipc_right_copyout_any_send(
 	ipc_space_t             space,
 	ipc_port_t              port,
 	mach_msg_type_name_t    msgt_name,
 	ipc_object_copyout_flags_t flags,
+	mach_port_name_t        name,
+	ipc_entry_t             entry);
+
+/* Copyout a receive capability to a space */
+extern void ipc_right_copyout_recv_and_unlock_space(
+	ipc_space_t             space,
+	ipc_port_t              port,
+	ipc_object_label_t     *label,
 	mach_port_name_t        name,
 	ipc_entry_t             entry,
 	mach_msg_guarded_port_descriptor_t *gdesc);

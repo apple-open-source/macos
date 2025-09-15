@@ -122,7 +122,8 @@ typedef NS_ENUM(uint8_t, volumeLabelSrc) {
 +(NSError * _Nullable)metaWriteToDevice:(FSBlockDeviceResource *)device
                                    from:(void *)buffer
                              startingAt:(off_t)offset
-                                 length:(size_t)nbyte;
+                                 length:(size_t)nbyte
+                         forceSyncWrite:(bool)forceSync;
 
 +(NSError * _Nullable)syncMetaClearToDevice:(FSBlockDeviceResource *)device
                               rangesToClear:(NSArray<FSMetadataRange *> *)rangesToClear;

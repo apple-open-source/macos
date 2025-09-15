@@ -22,6 +22,7 @@
 #include "JSExposedStar.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "IDLTypes.h"
@@ -180,7 +181,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsExposedStarConstructor, (JSGlobalObject* lexicalGloba
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSExposedStarPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSExposedStar::getConstructor(vm, prototype->globalObject()));
 }
@@ -232,7 +233,7 @@ JSC_DEFINE_HOST_FUNCTION(jsExposedStarPrototypeFunction_operationJustForWorkerCo
 
 JSC::GCClient::IsoSubspace* JSExposedStar::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSExposedStar, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSExposedStar, UseCustomHeapCellType::No>(vm, "JSExposedStar"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForExposedStar.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForExposedStar = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForExposedStar.get(); },
@@ -257,7 +258,9 @@ extern "C" { extern void (*const __identifier("??_7ExposedStar@WebCore@@6B@")[])
 #else
 extern "C" { extern void* _ZTVN7WebCore11ExposedStarE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, ExposedStar>, void>> static inline void verifyVTable(ExposedStar* ptr) {
+template<std::same_as<ExposedStar> T>
+static inline void verifyVTable(ExposedStar* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

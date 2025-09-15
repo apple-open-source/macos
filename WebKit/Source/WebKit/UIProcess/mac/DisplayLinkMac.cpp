@@ -36,28 +36,37 @@ namespace WebKit {
 
 using namespace WebCore;
 
+static RefPtr<__CVDisplayLink> createDisplayLinkWithDisplay(CGDirectDisplayID displayID)
+{
+    CVDisplayLinkRef displayLink = nullptr;
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    CVReturn error = CVDisplayLinkCreateWithCGDisplay(displayID, &displayLink);
+ALLOW_DEPRECATED_DECLARATIONS_END
+    if (error) {
+        RELEASE_LOG_FAULT(DisplayLink, "Could not create a display link for display %u: error %d", displayID, error);
+        return nullptr;
+    }
+    return adoptRef(displayLink);
+}
+
 void DisplayLink::platformInitialize()
 {
     // FIXME: We can get here with displayID == 0 (webkit.org/b/212120), in which case CVDisplayLinkCreateWithCGDisplay()
     // probably defaults to the main screen.
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    CVReturn error = CVDisplayLinkCreateWithCGDisplay(m_displayID, &m_displayLink);
-ALLOW_DEPRECATED_DECLARATIONS_END
-    if (error) {
-        RELEASE_LOG_FAULT(DisplayLink, "Could not create a display link for display %u: error %d", m_displayID, error);
+    m_displayLink = createDisplayLinkWithDisplay(m_displayID);
+    if (!m_displayLink)
         return;
-    }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    error = CVDisplayLinkSetOutputCallback(m_displayLink, displayLinkCallback, this);
+    auto error = CVDisplayLinkSetOutputCallback(m_displayLink.get(), displayLinkCallback, this);
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (error) {
         RELEASE_LOG_FAULT(DisplayLink, "DisplayLink: Could not set the display link output callback for display %u: error %d", m_displayID, error);
         return;
     }
 
-    m_displayNominalFramesPerSecond = nominalFramesPerSecondFromDisplayLink(m_displayLink);
+    m_displayNominalFramesPerSecond = nominalFramesPerSecondFromDisplayLink(m_displayLink.get());
 }
 
 void DisplayLink::platformFinalize()
@@ -68,8 +77,8 @@ void DisplayLink::platformFinalize()
         return;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    CVDisplayLinkStop(m_displayLink);
-    CVDisplayLinkRelease(m_displayLink);
+    CVDisplayLinkStop(m_displayLink.get());
+    m_displayLink = nullptr;
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
@@ -88,14 +97,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 bool DisplayLink::platformIsRunning() const
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    return CVDisplayLinkIsRunning(m_displayLink);
+    return CVDisplayLinkIsRunning(m_displayLink.get());
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 void DisplayLink::platformStart()
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    CVReturn error = CVDisplayLinkStart(m_displayLink);
+    CVReturn error = CVDisplayLinkStart(m_displayLink.get());
 ALLOW_DEPRECATED_DECLARATIONS_END
     if (error)
         RELEASE_LOG_FAULT(DisplayLink, "DisplayLink: Could not start the display link: %d", error);
@@ -104,7 +113,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 void DisplayLink::platformStop()
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    CVDisplayLinkStop(m_displayLink);
+    CVDisplayLinkStop(m_displayLink.get());
 ALLOW_DEPRECATED_DECLARATIONS_END
 }
 

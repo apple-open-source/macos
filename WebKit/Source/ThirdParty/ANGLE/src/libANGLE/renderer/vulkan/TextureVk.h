@@ -422,6 +422,12 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
                                 const vk::Format &format,
                                 const gl::Extents &size);
 
+    // If an image is in use by the GPU but is overwritten completely, a new VkImage can be created
+    // instead to avoid creating an unnecessary dependency.
+    angle::Result ghostOnOverwrite(ContextVk *contextVk,
+                                   const gl::ImageIndex &index,
+                                   const gl::Box &area);
+
     angle::Result setImageImpl(const gl::Context *context,
                                const gl::ImageIndex &index,
                                const gl::InternalFormat &formatInfo,
@@ -583,9 +589,13 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result maybeUpdateBaseMaxLevels(ContextVk *contextVk,
                                            TextureUpdateResult *changeResultOut);
 
-    bool isFastUnpackPossible(const vk::Format &vkFormat,
+    bool isFastUnpackPossible(const gl::Box &area,
+                              GLuint rowLengthPixels,
+                              GLuint imageHeightPixels,
+                              const vk::Format &vkFormat,
                               size_t offset,
-                              const vk::Format &bufferVkFormat) const;
+                              const vk::Format &bufferVkFormat,
+                              GLenum type) const;
 
     bool updateMustBeStaged(gl::LevelIndex textureLevelIndexGL, angle::FormatID dstFormatID) const;
     bool updateMustBeFlushed(gl::LevelIndex textureLevelIndexGL, angle::FormatID dstFormatID) const;
@@ -608,7 +618,9 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
 
     angle::Result ensureMutable(ContextVk *contextVk);
     angle::Result refreshImageViews(ContextVk *contextVk);
-    void initImageUsageFlags(ContextVk *contextVk, angle::FormatID actualFormatID);
+    void initImageUsageFlags(ContextVk *contextVk,
+                             const angle::Format &intendedFormat,
+                             angle::FormatID actualFormatID);
     void handleImmutableSamplerTransition(const vk::ImageHelper *previousImage,
                                           const vk::ImageHelper *nextImage);
 
@@ -633,11 +645,6 @@ class TextureVk : public TextureImpl, public angle::ObserverInterface
     angle::Result setStorageImpl(ContextVk *contextVk,
                                  gl::TextureType type,
                                  const vk::Format &format);
-
-    GLint getFormatSupportedCompressionRatesImpl(vk::Renderer *renderer,
-                                                 const vk::Format &format,
-                                                 GLsizei bufSize,
-                                                 GLint *rates);
 
     bool mOwnsImage;
     // Generated from ImageVk if EGLImage target, or from throw-away generator if Surface target.

@@ -57,12 +57,6 @@ UniqueRef<WebRTCProvider> WebRTCProvider::create()
     return makeUniqueRef<LibWebRTCProviderCocoa>();
 }
 
-void WebRTCProvider::setH264HardwareEncoderAllowed(bool allowed)
-{
-    if (webRTCAvailable())
-        webrtc::setH264HardwareEncoderAllowed(allowed);
-}
-
 LibWebRTCProviderCocoa::~LibWebRTCProviderCocoa()
 {
 }

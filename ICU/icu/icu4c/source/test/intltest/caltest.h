@@ -340,7 +340,20 @@ public: // package
     void TestRollWeekOfYear();
     void TestHinduCalendar();
     void TestIndianLunisolarCalendars();
-    void TestIndianSolarCalendars();
+#if APPLE_ICU_CHANGES
+// rdar://146755503 ([New Calendars]: Luck23A203: Solar: Data Accuracy issue: Incorrect dates are showing in solar calendars)
+// (NOTE: need to add APPLE_ICU_CHANGES around the other Hindu-calendar tests!
+    void TestIndianSolarGregorianConversion();
+    void TestIndianSolarAddRollNormalize();
+    void TestIndianSolarGetActualMaximum();
+#endif // APPLE_ICU_CHANGES
+    void TestHinduCalendarGetMonthLength();
+    void TestHinduCalendarComputeMonthStart();
+    void TestHinduCalendarAddMonth();
+    void TestVikramRoundTrip2();
+    void TestVikramAddDayFoundationStyleExtensive();
+    void TestMarathiYear();
+    void TestIndianLunisolarCalendarsExtensive();
     void Test22633ChineseOverflow();
     void Test22633IndianOverflow();
     void Test22633IslamicUmalquraOverflow();

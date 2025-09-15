@@ -29,6 +29,7 @@
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/GtkVersioning.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/ResourceError.h>
 #include <WebCore/SharedMemory.h>
 #include <fcntl.h>
 #include <gio/gunixfdlist.h>

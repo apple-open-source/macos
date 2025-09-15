@@ -30,12 +30,13 @@
 #import "AuxiliaryProcess.h"
 #import "WebKit2Initialize.h"
 #import <JavaScriptCore/ExecutableAllocator.h>
+#import <wtf/CompletionHandler.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/WTFProcess.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 
 #if !USE(RUNNINGBOARD)
-#import <wtf/spi/darwin/XPCSPI.h>
+#import <wtf/darwin/XPCExtras.h>
 #endif
 
 // FIXME: This should be moved to an SPI header.
@@ -89,6 +90,7 @@ void setOSTransaction(OSObjectPtr<os_transaction_t>&&);
 enum class EnableLockdownMode: bool { No, Yes };
 
 void setJSCOptions(xpc_object_t initializerMessage, EnableLockdownMode, bool isWebContentProcess);
+void disableJSC(NOESCAPE WTF::CompletionHandler<void(void)>&& beforeFinalizeHandler);
 
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType, bool isWebContentProcess = false>
 void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage)

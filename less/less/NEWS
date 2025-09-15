@@ -3,8 +3,7 @@
 
 ======================================================================
 
-  For the latest news about less, see the "less" Web page:
-      https://greenwoodsoftware.com/less
+  For the latest news about less, see https://greenwoodsoftware.com/less
   You can also download the latest version of less from there.
 
   Report bugs, suggestions or comments at 
@@ -12,7 +11,342 @@
 
 ======================================================================
 
-	Major changes between "less" versions 563 and 581.2
+	Major changes between "less" versions 661 and 668
+
+* Make 256/true colors work better on Windows without -Da
+  (github #539, github #546, github #562).
+
+* Fix build using --with-secure (github #544).
+
+* Fix crash when using --header on command line (github #545).
+
+* Fix possible crash when scrolling left/right or toggling -S (github #547).
+
+* Fix bug when using #stop in a lesskey file (github #551).
+
+* Fix bug when using --shift or --match-shift on command line with
+  a parameter starting with '.' (github #554).
+
+* Fix bug in R command when file size changes (github #553).
+
+* Fix bug using --header when file does not fill screen (github #556).
+
+* Fix ^X bug when output is not a terminal (github #558).
+
+* Fix bug where ^Z is not handled immediately (github #563).
+
+* Fix bug where first byte from a LESSOPEN filter is deleted if it is
+  greater than 0x7F (github #568).
+
+* Fix uninitialized variable in edit_ifile (github #573).
+
+* Fix incorrect handling of UTF-8 chars in prompts (github #576).
+
+======================================================================
+
+	Major changes between "less" versions 643 and 661
+
+* Add ^O^N, ^O^P, ^O^L and ^O^O commands and mouse clicks (with --mouse)
+  to find and open OSC8 hyperlinks (github #251).
+
+* Add --match-shift option.
+
+* Add --lesskey-content option (github #447).
+
+* Add LESSKEY_CONTENT environment variable (github #447).
+
+* Add --no-search-header-lines and --no-search-header-columns options
+  (github #397).
+
+* Add ctrl-L search modifier (github #367).
+
+* A ctrl-P at the start of a shell command suppresses the "done" 
+  message (github #462).
+
+* Add attribute characters ('*', '~', '_', '&') to --color
+  parameter (github #471).
+
+* Allow expansion of environment variables in lesskey files.
+
+* Add LESSSECURE_ALLOW environment variable (github #449).
+
+* Add LESS_UNSUPPORT environment variable.
+
+* Add line number parameter to --header option (github #436).
+
+* Mouse right-click jumps to position marked by left-click (github #390).
+
+* Ensure that the target line is not obscured by a header line 
+  set by --header (github #444).
+
+* Change default character set to "utf-8", except remains "dos" on MS-DOS.
+
+* Add message when search with ^W wraps (github #459).
+
+* UCRT builds on Windows 10 and later now support Unicode file names
+  (github #438).
+
+* Improve behavior of interrupt while reading non-terminated pipe
+  (github #414).
+
+* Improve parsing of -j, -x and -# options (github #393).
+
+* Support files larger than 4GB on Windows (github #417).
+
+* Support entry of Unicode chars larger than U+FFFF on Windows (github #391).
+
+* Improve colors of bold, underline and standout text on Windows.
+
+* Allow --rscroll to accept non-ASCII characters (github #483).
+
+* Allow the parameter to certain options to be terminated with a
+  space (--color, --quotes, --rscroll, --search-options 
+  and --intr) (github #495).
+
+* Fix bug where # substitution failed after viewing help (github #420).
+
+* Fix crash if files are deleted while less is viewing them (github #404).
+
+* Workaround unreliable ReadConsoleInputW behavior on Windows
+  with non-ASCII input.
+
+* Fix -J display when searching for non-ASCII characters (github #422).
+
+* Don't filter header lines via the & command (github #423).
+
+* Fix bug when horizontally shifting long lines (github #425).
+
+* Add -x and -D options to lesstest, to make it easier to diagnose
+  a failed lesstest run.
+
+* Fix bug searching long lines with --incsearch and -S (github #428).
+
+* Fix bug that made ESC-} fail if top line on screen was empty (github #429).
+
+* Fix bug with --mouse on Windows when used with pipes (github #440).
+
+* Fix bug in --+OPTION command line syntax.
+
+* Fix display bug when using -w with an empty line with a CR/LF
+  line ending (github #474).
+
+* When substituting '#' or '%' with a filename, quote the filename
+  if it contains a space (github #480).
+
+* Fix wrong sleep time when system has usleep but not nanosleep (github #489).
+
+* Fix bug when file name contains a newline.
+
+* Fix bug when file name contains nonprintable characters (github #503).
+
+* Fix DJGPP build (github #497).
+
+* Update Unicode tables.
+
+======================================================================
+
+	Major changes between "less" versions 633 and 643
+
+* Fix problem when a program piping into less reads from the tty,
+  like sudo asking for password (github #368).
+
+* Fix search modifier ^E after ^W.
+
+* Fix bug using negated (^N) search (github #374).
+
+* Fix bug setting colors with -D on Windows build (github #386).
+
+* Fix reading special chars like PageDown on Windows (github #378).
+
+* Fix mouse wheel scrolling on Windows (github #379).
+
+* Fix erroneous EOF when terminal window size changes (github #372).
+
+* Fix compile error with some definitions of ECHONL (github #395).
+
+* Fix crash on Windows when writing logfile (github #405).
+
+* Fix regression in exit code when stdin is /dev/null and 
+  output is a file (github #373).
+
+* Add lesstest test suite to production release (github #344).
+
+* Change lesstest output to conform with 
+  automake Simple Test Format (github #399).
+
+======================================================================
+
+	Major changes between "less" versions 632 and 633
+
+* Fix build on systems which have ncurses/termcap.h or 
+  ncursesw/termcap.h but not termcap.h.
+
+======================================================================
+
+	Major changes between "less" versions 608 and 632
+
+* Add LESSUTFCHARDEF environment variable (github #275).
+
+* Add # command (github #330).
+
+* Add ^S search modifier (github #196).
+
+* Add --wordwrap option (github #113).
+
+* Add --no-vbell option (github #304).
+
+* Add --no-search-headers option (github #44).
+
+* Add --modelines option (github #89).
+
+* Add --intr option (github #224).
+
+* Add --proc-backspace, --proc-tab and --proc-return options (github #335).
+
+* Add --show-preproc-errors option (github #258).
+
+* Add LESS_LINES and LESS_COLUMNS environment variables (github #84).
+
+* Add LESS_DATA_DELAY environment variable (github #337).
+
+* Allow empty "lines" field in --header option.
+
+* Update Unicode tables.
+
+* Improve ability of ^X to interrupt F command (github #49).
+
+* Status column (-J) shows off-screen matches.
+
+* Parenthesized sub-patterns in searches are colored with unique colors,
+  if supported by the regular expression library (github #196).
+
+* Don't allow opening a tty as file input unless -f is set (github #309).
+
+* Don't require newline input after +&... option (github #339).
+
+* Fix incorrect handling of some Private Use Unicode characters.
+
+* Fix ANSI color bug when overstriking with colored chars (github #276).
+
+* Fix compiler const warning (github #279).
+
+* Fix signal race in iread (github #280).
+
+* Fix reading procfs files on Linux (github #282).
+
+* Fix --ignore-case with ctrl-R (no regex) search (github #300).
+
+* Fix bug doing repeat search after setting & filter (github #299).
+
+* Fix bug doing repeat search before non-repeat search.
+
+* Fix crash with -R and certain line lengths (github #338).
+
+* Fix input of Windows dead keys (github #352).
+
+* Don't retain search options from a cancelled search (github #302).
+
+* Don't call realpath on fake filenames like "-" (github #289).
+
+* Implement lesstest test suite.
+
+* Convert function parameter definitions from K&R to C89 (github #316).
+
+======================================================================
+
+	Major changes between "less" versions 590 and 608
+
+* Add the --header option (github #43).
+
+* Add the --no-number-headers option (github #178).
+
+* Add the --status-line option.
+
+* Add the --redraw-on-quit option (github #36).
+
+* Add the --search-options option (github #213).
+
+* Add the --exit-follow-on-close option (github #244).
+
+* Add 'H' color type to set color of header lines.
+
+* Add #version conditional to lesskey.
+
+* Add += syntax to variable section in lesskey files.
+
+* Allow option name in -- command to end with '=' in addition to '\n'.
+
+* Add $HOME/.config to possible locations of lesskey file (github #153).
+
+* Add $XDG_STATE_HOME and $HOME/.local/state to possible locations
+  of history file (github #223).
+
+* Don't read or write history file in secure mode (github #201).
+
+* Fix display of multibyte and double-width chars in prompt.
+
+* Fix ESC-BACKSPACE command when BACKSPACE key does not send 0x08
+  (github #188).
+
+* Add more \k codes to lesskey format.
+
+* Fix bug when empty file is modified while viewing it.
+
+* Fix bug when parsing a malformed lesskey file (githb #234).
+
+* Fix bug scrolling history when --incsearch is set (github #214).
+
+* Fix buffer overflow when invoking lessecho with more than 63 -m/-n 
+  options (github #198).
+
+* Fix buffer overflow in bin_file (github #271).
+
+* Fix bug restoring color at end of highlighted text.
+
+* Fix bug in parsing lesskey file.
+
+* Defer moving cursor to lower left in some more cases.
+
+* Suppress TAB filename expansion in some cases where it doesn't make sense.
+
+* Fix termlib detection when compiler doesn't accept 
+  calls to undeclared functions.
+
+* Fix bug in input of non-ASCII characters on Windows (github #247)
+
+* Escape filenames when invoking LESSCLOSE.
+
+* Fix bug using multibyte UTF-8 char in search string 
+  with --incsearch (github #273).
+
+======================================================================
+
+	Major changes between "less" versions 581 and 590
+
+* Make less able to read lesskey source files (deprecating lesskey).
+
+* If XDG_CONFIG_HOME is set, find lesskey source file 
+  in $XDG_CONFIG_HOME/lesskey rather than $HOME/.lesskey.
+
+* If XDG_DATA_HOME is set, find and store history file 
+  in $XDG_DATA_HOME/lesshst rather than $HOME/.lesshst.
+
+* Add the --lesskey-src option.
+
+* Add the --file-size option.
+
+* With -F, if screen is resized to make file fit on one screen, don't exit.
+
+* Fix bug which could leave terminal in mouse-reporting mode 
+  after exiting less.
+
+* Fix bug which caused failure to respond to window resize.
+
+* Fix backslash bug searching in tag file.
+
+======================================================================
+
+	Major changes between "less" versions 563 and 581
 
 * Change ESC-u command to toggle, not disable, highlighting per man page.
 
@@ -150,7 +484,7 @@
 
 * Update Unicode tables to 2017-03-08.
 
-* Pass-thru Unicode formating chars (Cf type) instead of treating them
+* Pass-thru Unicode formatting chars (Cf type) instead of treating them
   as binary chars. But treat them as binary if -U is set.
 
 * Fix erroneous binary file warning when UTF-8 file contains ANSI SGR sequences.
@@ -342,7 +676,7 @@
 
 * Fix problem interrupting the line number calculation for initial prompt.
 
-* Fix SGR emulation when dealing with multiple attributes (eg. bold+underline).
+* Fix SGR emulation when dealing with multiple attributes (e.g. bold+underline).
 
 * Fix highlight bug when searching for underlined/overstruck text.
 
@@ -424,7 +758,7 @@
 
 * The -c option has been made identical with the -C option.
 
-* Allow "/dev/null" as synomym for "-" in LESSHISTFILE to indicate
+* Allow "/dev/null" as synonym for "-" in LESSHISTFILE to indicate
   that no history file should be used.
 
 * Search can now find text which follows a null byte, if the PCRE
@@ -574,7 +908,7 @@
 
 * Improved performance in reading very large pipes.
 
-* Eliminated some dependencies on file offets being 32 bits.
+* Eliminated some dependencies on file offsets being 32 bits.
 
 * Fixed problems when viewing files with very long lines.
 

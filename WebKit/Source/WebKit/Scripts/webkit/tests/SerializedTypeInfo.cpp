@@ -97,7 +97,7 @@ static_assert(std::is_same_v<WTF::ProcessID,
 >);
 #endif
 static_assert(std::is_same_v<WebCore::ConditionalVariant,
-    std::variant<
+    Variant<
         int,
 #if USE(CHAR)
         char,
@@ -106,7 +106,7 @@ static_assert(std::is_same_v<WebCore::ConditionalVariant,
     >
 >);
 static_assert(std::is_same_v<WebCore::NonConditionalVariant,
-    std::variant<int, double>
+    Variant<int, double>
 >);
 
 #if ENABLE(IPC_TESTING_API)
@@ -274,7 +274,7 @@ Vector<SerializedTypeInfo> allSerializedTypes()
             },
         } },
         { "WebCore::TimingFunction"_s, {
-            { "std::variant<"
+            { "Variant<"
                 "WebCore::LinearTimingFunction"
                 ", WebCore::CubicBezierTimingFunction"
 #if CONDITION
@@ -296,6 +296,10 @@ Vector<SerializedTypeInfo> allSerializedTypes()
                 "int"_s,
                 "value"_s
             },
+            {
+                "WebCore::TimingFunction"_s,
+                "nonRefMemberWithSubclasses"_s
+            },
         } },
         { "Namespace::AnotherCommonClass"_s, {
             {
@@ -304,7 +308,7 @@ Vector<SerializedTypeInfo> allSerializedTypes()
             },
         } },
         { "WebCore::MoveOnlyBaseClass"_s, {
-            { "std::variant<"
+            { "Variant<"
                 "WebCore::MoveOnlyDerivedClass"
             ">"_s, "subclasses"_s }
         } },
@@ -590,7 +594,7 @@ Vector<SerializedTypeInfo> allSerializedTypes()
 #endif
         { "WebCore::ConditionalVariant"_s, {
         {
-            "std::variant<"
+            "Variant<"
             "int, "
 #if USE(CHAR)
             "char, "
@@ -601,7 +605,7 @@ Vector<SerializedTypeInfo> allSerializedTypes()
         } },
         { "WebCore::NonConditionalVariant"_s, {
         {
-            "std::variant<int, double>"_s
+            "Variant<int, double>"_s
             , "alias"_s }
         } },
     };

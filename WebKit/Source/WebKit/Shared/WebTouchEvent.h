@@ -29,6 +29,10 @@
 #include "WebEvent.h"
 #include <WebCore/IntPoint.h>
 
+namespace WebCore {
+class RemoteFrameGeometryTransformer;
+}
+
 namespace WebKit {
 
 #if ENABLE(TOUCH_EVENTS)
@@ -81,6 +85,8 @@ public:
     WebCore::IntPoint locationInViewport() const { return m_locationInViewport; }
     State phase() const { return m_phase; }
     State state() const { return phase(); }
+
+    void transformToRemoteFrameCoordinates(const WebCore::RemoteFrameGeometryTransformer&);
 
 #if ENABLE(IOS_TOUCH_EVENTS)
     void setRadiusX(double radiusX) { m_radiusX = radiusX; }
@@ -142,7 +148,8 @@ public:
     void setPredictedEvents(const Vector<WebTouchEvent>& predictedEvents) { m_predictedEvents = predictedEvents; }
 
     WebCore::IntPoint position() const { return m_position; }
-    void setPosition(WebCore::IntPoint position) { m_position = position; }
+
+    void transformToRemoteFrameCoordinates(const WebCore::RemoteFrameGeometryTransformer&);
 
     bool isPotentialTap() const { return m_isPotentialTap; }
 
@@ -166,6 +173,9 @@ private:
     bool m_isGesture { false };
     float m_gestureScale { 0 };
     float m_gestureRotation { 0 };
+#if ASSERT_ENABLED
+    bool m_hasTransformedToRemoteFrameCoordinates { false };
+#endif
 };
 
 #else // !PLATFORM(IOS_FAMILY)
@@ -219,6 +229,10 @@ public:
     const Vector<WebTouchEvent>& predictedEvents() const { return m_predictedEvents; }
 
     bool allTouchPointsAreReleased() const;
+
+#if USE(LIBWPE)
+    virtual bool isNativeWebTouchEvent() const { return false; }
+#endif
 
 private:
     static bool isTouchEventType(WebEventType);

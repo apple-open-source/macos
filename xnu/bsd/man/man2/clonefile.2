@@ -134,7 +134,7 @@ parameter specifies the options that can be passed. Options are specified in the
 .Fa flags
 argument by or'ing the following values:
 .
-.Bl -tag -width CLONE_NOFOLLOW 
+.Bl -tag -width CLONE_RESOLVE_BENEATH
 .
 .It CLONE_NOFOLLOW 
 Don't follow the src file if it is a symbolic link (applicable only if the source is not a directory).
@@ -144,7 +144,7 @@ names a symbolic link.
 .
 .El
 .Pp
-.Bl -tag -width CLONE_NOOWNERCOPY 
+.Bl -tag -width CLONE_RESOLVE_BENEATH
 .
 .It CLONE_NOOWNERCOPY 
 Don't copy ownership information from the source when run called with superuser privileges.
@@ -154,10 +154,30 @@ names a symbolic link.
 .
 .El
 .Pp
-.Bl -tag -width CLONE_ACL
+.Bl -tag -width CLONE_RESOLVE_BENEATH
 .
 .It CLONE_ACL
 Copy ACLs from the source file.
+.El
+.Pp
+.Bl -tag -width CLONE_RESOLVE_BENEATH
+.
+.It CLONE_NOFOLLOW_ANY
+do not follow any symbolic links encountered during pathname resolution. An error is returned if a symlink is encountered before the last component of either
+.Fa src
+or
+.Fa dst.
+.El
+.Pp
+.Bl -tag -width CLONE_RESOLVE_BENEATH
+.
+.It CLONE_RESOLVE_BENEATH
+If
+.Fa src
+and
+.Fa dst
+does not reside in the hierarchy beneath the starting directory,
+an error is returned.
 .El
 .Pp
 The
@@ -232,6 +252,19 @@ or
 .Fa dst
 path arguments.
 .
+.It Bq Er ELOOP
+If CLONE_NOFOLLOW_ANY option was passed and a symbolic link was encountered in
+translating the pathname of either
+.Fa src
+or
+.Fa dst
+arguments.
+.It Bq Er ENOTCAPABLE
+If CLONE_RESOLVE_BENEATH was passed and either
+.Fa src
+or
+.Fa dst
+does not reside in the directory hierarchy beneath the starting directory.
 .It Bq Er EROFS
 The requested operation requires writing in a directory on a read-only file system.
 .

@@ -306,6 +306,14 @@ typedef NS_ENUM(NSInteger, HIDEventSerializationType) {
  */
 @property (readonly, nullable) NSArray<HIDEvent *> * children;
 
+/*!
+ * @property needsUngroupForLegacy
+ *
+ * @abstract
+ * Convenience property to determine if the event should be ungrouped for legacy clients.
+ */
+@property (readonly) bool needsUngroupForLegacy;
+
 @end
 
 NS_ASSUME_NONNULL_END

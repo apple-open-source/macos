@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -102,7 +102,7 @@ bool RTCDataChannelRemoteHandler::sendStringData(const CString& text)
         m_pendingMessages.append(Message { false, SharedBuffer::create(text.span()) });
         return true;
     }
-    m_connection->sendData(m_remoteIdentifier, false, text.span());
+    m_connection->sendData(m_remoteIdentifier, false, byteCast<uint8_t>(text.span()));
     return true;
 }
 

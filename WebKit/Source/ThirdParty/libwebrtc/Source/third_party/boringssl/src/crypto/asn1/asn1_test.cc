@@ -1,22 +1,23 @@
-/* Copyright (c) 2016, Google Inc.
- *
- * Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
- * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
- * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+// Copyright 2016 The BoringSSL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include <limits.h>
 #include <stdio.h>
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -105,22 +106,6 @@ TEST(ASN1Test, UnknownTags) {
                                   obj->value.asn1_string->length));
   TestSerialize(obj.get(), i2d_ASN1_TYPE, kTag128);
 
-  // The historical in-memory representation of |kTag128| was for both
-  // |obj->type| and |obj->value.asn1_string->type| to be 128. This is no
-  // longer used but is still accepted by the encoder.
-  //
-  // TODO(crbug.com/boringssl/412): The encoder should reject it. However, it is
-  // still needed to support some edge cases in |ASN1_PRINTABLE|. When that is
-  // fixed, test that we reject it.
-  obj.reset(ASN1_TYPE_new());
-  ASSERT_TRUE(obj);
-  obj->type = 128;
-  obj->value.asn1_string = ASN1_STRING_type_new(128);
-  ASSERT_TRUE(obj->value.asn1_string);
-  const uint8_t zero = 0;
-  ASSERT_TRUE(ASN1_STRING_set(obj->value.asn1_string, &zero, sizeof(zero)));
-  TestSerialize(obj.get(), i2d_ASN1_TYPE, kTag128);
-
   // If a tag is known, but has the wrong constructed bit, it should be
   // rejected, not placed in |V_ASN1_OTHER|.
   static const uint8_t kConstructedOctetString[] = {0x24, 0x00};
@@ -136,7 +121,7 @@ TEST(ASN1Test, UnknownTags) {
 
 static bssl::UniquePtr<BIGNUM> BIGNUMPow2(unsigned bit) {
   bssl::UniquePtr<BIGNUM> bn(BN_new());
-  if (!bn ||
+  if (!bn ||  //
       !BN_set_bit(bn.get(), bit)) {
     return nullptr;
   }
@@ -415,8 +400,8 @@ TEST(ASN1Test, Integer) {
       SCOPED_TRACE(pair.first);
       const ASN1_INTEGER *obj = pair.second.get();
       EXPECT_EQ(t.type, ASN1_STRING_type(obj));
-      EXPECT_EQ(Bytes(t.data), Bytes(ASN1_STRING_get0_data(obj),
-                                     ASN1_STRING_length(obj)));
+      EXPECT_EQ(Bytes(t.data),
+                Bytes(ASN1_STRING_get0_data(obj), ASN1_STRING_length(obj)));
 
       // The object should encode correctly.
       TestSerialize(obj, i2d_ASN1_INTEGER, t.der);
@@ -911,7 +896,8 @@ TEST(ASN1Test, StringToUTF8) {
       {{0, 0, 0xfe, 0xff, 0, 0, 0, 88}, V_ASN1_UNIVERSALSTRING, nullptr},
       // Otherwise, BOMs should pass through.
       {{0, 88, 0xfe, 0xff}, V_ASN1_BMPSTRING, "X\xef\xbb\xbf"},
-      {{0, 0, 0, 88, 0, 0, 0xfe, 0xff}, V_ASN1_UNIVERSALSTRING,
+      {{0, 0, 0, 88, 0, 0, 0xfe, 0xff},
+       V_ASN1_UNIVERSALSTRING,
        "X\xef\xbb\xbf"},
       // The maximum code-point should pass though.
       {{0, 16, 0xff, 0xfd}, V_ASN1_UNIVERSALSTRING, "\xf4\x8f\xbf\xbd"},
@@ -948,9 +934,10 @@ TEST(ASN1Test, StringToUTF8) {
   }
 }
 
-static std::string ASN1StringToStdString(const ASN1_STRING *str) {
-  return std::string(ASN1_STRING_get0_data(str),
-                     ASN1_STRING_get0_data(str) + ASN1_STRING_length(str));
+static std::string_view ASN1StringToStringView(const ASN1_STRING *str) {
+  return std::string_view(
+      reinterpret_cast<const char *>(ASN1_STRING_get0_data(str)),
+      ASN1_STRING_length(str));
 }
 
 static bool ASN1Time_check_posix(const ASN1_TIME *s, int64_t t) {
@@ -975,7 +962,7 @@ static bool ASN1Time_check_posix(const ASN1_TIME *s, int64_t t) {
       !OPENSSL_gmtime_diff(&day, &sec, &ttm, &stm)) {
     return false;
   }
-  return day == 0 && sec ==0;
+  return day == 0 && sec == 0;
 }
 
 static std::string PrintStringToBIO(const ASN1_STRING *str,
@@ -1030,7 +1017,7 @@ TEST(ASN1Test, SetTime) {
     if (t.utc) {
       ASSERT_TRUE(utc);
       EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(utc.get()));
-      EXPECT_EQ(t.utc, ASN1StringToStdString(utc.get()));
+      EXPECT_EQ(t.utc, ASN1StringToStringView(utc.get()));
       EXPECT_TRUE(ASN1Time_check_posix(utc.get(), t.time));
       EXPECT_EQ(ASN1_TIME_to_posix(utc.get(), &tt), 1);
       EXPECT_EQ(tt, t.time);
@@ -1045,7 +1032,7 @@ TEST(ASN1Test, SetTime) {
     if (t.generalized) {
       ASSERT_TRUE(generalized);
       EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(generalized.get()));
-      EXPECT_EQ(t.generalized, ASN1StringToStdString(generalized.get()));
+      EXPECT_EQ(t.generalized, ASN1StringToStringView(generalized.get()));
       EXPECT_TRUE(ASN1Time_check_posix(generalized.get(), t.time));
       EXPECT_EQ(ASN1_TIME_to_posix(generalized.get(), &tt), 1);
       EXPECT_EQ(tt, t.time);
@@ -1063,10 +1050,10 @@ TEST(ASN1Test, SetTime) {
       ASSERT_TRUE(choice);
       if (t.utc) {
         EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(choice.get()));
-        EXPECT_EQ(t.utc, ASN1StringToStdString(choice.get()));
+        EXPECT_EQ(t.utc, ASN1StringToStringView(choice.get()));
       } else {
         EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(choice.get()));
-        EXPECT_EQ(t.generalized, ASN1StringToStdString(choice.get()));
+        EXPECT_EQ(t.generalized, ASN1StringToStringView(choice.get()));
       }
       EXPECT_TRUE(ASN1Time_check_posix(choice.get(), t.time));
       EXPECT_EQ(ASN1_TIME_to_posix(choice.get(), &tt), 1);
@@ -1083,47 +1070,47 @@ TEST(ASN1Test, TimeSetString) {
 
   ASSERT_TRUE(ASN1_UTCTIME_set_string(s.get(), "700101000000Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("700101000000Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_GENERALIZEDTIME_set_string(s.get(), "19700101000000Z"));
   EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("19700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("19700101000000Z", ASN1StringToStringView(s.get()));
 
   // |ASN1_TIME_set_string| accepts either format. It relies on there being no
   // overlap between the two.
   ASSERT_TRUE(ASN1_TIME_set_string(s.get(), "700101000000Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("700101000000Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string(s.get(), "19700101000000Z"));
   EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("19700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("19700101000000Z", ASN1StringToStringView(s.get()));
 
   // |ASN1_TIME_set_string_X509| behaves similarly except it additionally
   // converts GeneralizedTime to UTCTime if it fits.
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "700101000000Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("700101000000Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "19700101000000Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("700101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("700101000000Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "19500101000000Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("500101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("500101000000Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "19491231235959Z"));
   EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("19491231235959Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("19491231235959Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "20491231235959Z"));
   EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("491231235959Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("491231235959Z", ASN1StringToStringView(s.get()));
 
   ASSERT_TRUE(ASN1_TIME_set_string_X509(s.get(), "20500101000000Z"));
   EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(s.get()));
-  EXPECT_EQ("20500101000000Z", ASN1StringToStdString(s.get()));
+  EXPECT_EQ("20500101000000Z", ASN1StringToStringView(s.get()));
 
   // Invalid inputs are rejected.
   EXPECT_FALSE(ASN1_UTCTIME_set_string(s.get(), "nope"));
@@ -1156,6 +1143,52 @@ TEST(ASN1Test, TimeSetString) {
   EXPECT_FALSE(ASN1_GENERALIZEDTIME_set_string(nullptr, "19700101000000-0400"));
   EXPECT_FALSE(ASN1_TIME_set_string(nullptr, "19700101000000-0400"));
   EXPECT_FALSE(ASN1_TIME_set_string_X509(nullptr, "19700101000000-0400"));
+}
+
+TEST(ASN1Test, UTCTimeZoneOffsets) {
+  bssl::UniquePtr<ASN1_STRING> s(ASN1_STRING_new());
+  ASSERT_TRUE(s);
+
+  ASSERT_TRUE(ASN1_UTCTIME_set_string(s.get(), "700101000000Z"));
+  EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
+  EXPECT_EQ("700101000000Z", ASN1StringToStringView(s.get()));
+
+  // UTCTIME_set_string should not allow a timezone offset
+  EXPECT_FALSE(ASN1_UTCTIME_set_string(s.get(), "700101000000-0400"));
+
+  // Forcibly construct a utc time with a timezone offset.
+  ASSERT_TRUE(ASN1_STRING_set(s.get(), "700101000000-0400",
+                              strlen("700101000000-0400")));
+  EXPECT_EQ(V_ASN1_UTCTIME, ASN1_STRING_type(s.get()));
+  EXPECT_EQ("700101000000-0400", ASN1StringToStringView(s.get()));
+
+  // check is expected to be valid with timezone offsets
+  ASSERT_TRUE(ASN1_UTCTIME_check(s.get()));
+
+  int64_t posix_time;
+  EXPECT_FALSE(ASN1_TIME_to_posix(s.get(), &posix_time));
+  ASSERT_TRUE(ASN1_TIME_to_posix_nonstandard(s.get(), &posix_time));
+  EXPECT_EQ(posix_time, (4 * 60 * 60 * -1));
+
+  // Conscrypt expects a utc time with an arbitrary offset to be
+  // accepted by ASN1_TIME_to_generalizedtime.
+  bssl::UniquePtr<ASN1_STRING> g(
+      ASN1_TIME_to_generalizedtime(s.get(), nullptr));
+  ASSERT_TRUE(g);
+  EXPECT_EQ(V_ASN1_GENERALIZEDTIME, ASN1_STRING_type(g.get()));
+  // crbug.com/389147378
+  // This should be the correct value
+  // EXPECT_EQ("19691231200000Z", ASN1StringToStringView(g.get()));
+  // But this function currently generates invalid times.
+  EXPECT_EQ("19700101000000-0400", ASN1StringToStringView(g.get()));
+  // Force this to be a generalized time the same as our utc time
+  EXPECT_TRUE(ASN1_GENERALIZEDTIME_set_string(g.get(), "19691231200000Z"));
+
+  // ASN1_TIME_diff is expected to accept timezone offsets
+  int days, secs;
+  EXPECT_TRUE(ASN1_TIME_diff(&days, &secs, s.get(), g.get()));
+  EXPECT_EQ(days, 0);
+  EXPECT_EQ(secs, 0);
 }
 
 TEST(ASN1Test, AdjTime) {
@@ -1697,8 +1730,8 @@ TEST(ASN1Test, MBString) {
     ERR_clear_error();
 
     ASN1_STRING *str = nullptr;
-    EXPECT_EQ(-1, ASN1_mbstring_copy(&str, t.in.data(), t.in.size(),
-                                     t.format, t.mask));
+    EXPECT_EQ(-1, ASN1_mbstring_copy(&str, t.in.data(), t.in.size(), t.format,
+                                     t.mask));
     ERR_clear_error();
     EXPECT_EQ(nullptr, str);
   }
@@ -1846,9 +1879,9 @@ TEST(ASN1Test, StringByCustomNID) {
                                   ASN1_STRING_length(str.get())));
 
   // Minimum and maximum lengths are enforced.
-  str.reset(ASN1_STRING_set_by_NID(
-      nullptr, reinterpret_cast<const uint8_t *>("1234"), 4, MBSTRING_UTF8,
-      nid1));
+  str.reset(ASN1_STRING_set_by_NID(nullptr,
+                                   reinterpret_cast<const uint8_t *>("1234"), 4,
+                                   MBSTRING_UTF8, nid1));
   EXPECT_FALSE(str);
   ERR_clear_error();
   str.reset(ASN1_STRING_set_by_NID(
@@ -1914,18 +1947,6 @@ TEST(ASN1Test, StringByCustomNIDThreads) {
 }
 #endif  // OPENSSL_THREADS
 
-// Test that multi-string types correctly encode negative ENUMERATED.
-// Multi-string types cannot contain INTEGER, so we only test ENUMERATED.
-TEST(ASN1Test, NegativeEnumeratedMultistring) {
-  static const uint8_t kMinusOne[] = {0x0a, 0x01, 0xff};  // ENUMERATED { -1 }
-  // |ASN1_PRINTABLE| is a multi-string type that allows ENUMERATED.
-  const uint8_t *p = kMinusOne;
-  bssl::UniquePtr<ASN1_STRING> str(
-      d2i_ASN1_PRINTABLE(nullptr, &p, sizeof(kMinusOne)));
-  ASSERT_TRUE(str);
-  TestSerialize(str.get(), i2d_ASN1_PRINTABLE, kMinusOne);
-}
-
 // Encoding a CHOICE type with an invalid selector should fail.
 TEST(ASN1Test, InvalidChoice) {
   bssl::UniquePtr<GENERAL_NAME> name(GENERAL_NAME_new());
@@ -1960,6 +1981,16 @@ TEST(ASN1Test, InvalidASN1Type) {
   ASSERT_TRUE(obj);
   EXPECT_EQ(-1, obj->type);
   EXPECT_EQ(-1, i2d_ASN1_TYPE(obj.get(), nullptr));
+
+  // The historical in-memory representation of [UNIVERSAL 128] was for both
+  // |obj->type| and |obj->value.asn1_string->type| to be 128. This is no longer
+  // used and should be rejected by the encoder.
+  obj.reset(ASN1_TYPE_new());
+  ASSERT_TRUE(obj);
+  obj->type = 128;
+  obj->value.asn1_string = ASN1_STRING_type_new(128);
+  ASSERT_TRUE(obj->value.asn1_string);
+  EXPECT_EQ(-1, i2d_ASN1_TYPE(obj.get(), nullptr));
 }
 
 // Encoding invalid MSTRING types should fail. An MSTRING is a CHOICE of
@@ -1981,7 +2012,7 @@ TEST(ASN1Test, StringTableSorted) {
   size_t table_len;
   asn1_get_string_table_for_testing(&table, &table_len);
   for (size_t i = 1; i < table_len; i++) {
-    EXPECT_LT(table[i-1].nid, table[i].nid);
+    EXPECT_LT(table[i - 1].nid, table[i].nid);
   }
 }
 
@@ -2058,8 +2089,7 @@ TEST(ASN1Test, Unpack) {
   ASSERT_TRUE(str);
 
   static const uint8_t kValid[] = {0x30, 0x00};
-  ASSERT_TRUE(
-      ASN1_STRING_set(str.get(), kValid, sizeof(kValid)));
+  ASSERT_TRUE(ASN1_STRING_set(str.get(), kValid, sizeof(kValid)));
   bssl::UniquePtr<BASIC_CONSTRAINTS> val(static_cast<BASIC_CONSTRAINTS *>(
       ASN1_item_unpack(str.get(), ASN1_ITEM_rptr(BASIC_CONSTRAINTS))));
   ASSERT_TRUE(val);
@@ -2394,7 +2424,7 @@ TEST(ASN1Test, StringEncoding) {
       {d2i_ASN1_T61STRING, {0x14, 0x00}, true},
       {d2i_ASN1_T61STRING, {0x14, 0x01, 0x00}, true},
   };
-  for (const auto& t : kTests) {
+  for (const auto &t : kTests) {
     SCOPED_TRACE(Bytes(t.in));
     const uint8_t *inp;
 
@@ -2972,9 +3002,8 @@ void TestEmbedType(bssl::Span<const uint8_t> inp,
   // Test only the first field present.
   bssl::ScopedCBB cbb;
   ASSERT_TRUE(CBB_init(cbb.get(), 64));
-  CBB seq;
-  ASSERT_TRUE(CBB_add_asn1(cbb.get(), &seq, CBS_ASN1_SEQUENCE));
-  ASSERT_TRUE(CBB_add_bytes(&seq, inp.data(), inp.size()));
+  ASSERT_TRUE(CBB_add_asn1_element(cbb.get(), CBS_ASN1_SEQUENCE, inp.data(),
+                                   inp.size()));
   ASSERT_TRUE(CBB_flush(cbb.get()));
   const uint8_t *ptr = CBB_data(cbb.get());
   obj.reset(d2i_embed(nullptr, &ptr, CBB_len(cbb.get())));
@@ -2990,6 +3019,7 @@ void TestEmbedType(bssl::Span<const uint8_t> inp,
   // Test all fields present.
   cbb.Reset();
   ASSERT_TRUE(CBB_init(cbb.get(), 64));
+  CBB seq;
   ASSERT_TRUE(CBB_add_asn1(cbb.get(), &seq, CBS_ASN1_SEQUENCE));
   ASSERT_TRUE(CBB_add_bytes(&seq, inp.data(), inp.size()));
   CBB child;

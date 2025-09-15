@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  * Copyright (C) 2013 Gustavo Noronha Silva <gns@gnome.org>.
  * Copyright (C) 2011, 2020 Igalia S.L.
  *
@@ -68,6 +68,7 @@
 #include <WebCore/GUniquePtrGtk.h>
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/GtkVersioning.h>
+#include <WebCore/NativeImage.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMouseEvent.h>
@@ -269,7 +270,7 @@ struct _WebKitWebViewBasePrivate {
     _WebKitWebViewBasePrivate()
         : pageScaleFactor(1.0)
 #if GTK_CHECK_VERSION(3, 24, 0)
-        , releaseEmojiChooserTimer(RunLoop::main(), this, &_WebKitWebViewBasePrivate::releaseEmojiChooserTimerFired)
+        , releaseEmojiChooserTimer(RunLoop::mainSingleton(), "_WebKitWebViewBasePrivate::ReleaseEmojiChooserTimer"_s, this, &_WebKitWebViewBasePrivate::releaseEmojiChooserTimerFired)
 #endif
     {
 #if GTK_CHECK_VERSION(3, 24, 0)
@@ -294,7 +295,7 @@ struct _WebKitWebViewBasePrivate {
 #if !USE(GTK4)
     WebKitWebViewChildrenMap children;
 #endif
-    std::unique_ptr<PageClientImpl> pageClient;
+    const std::unique_ptr<PageClientImpl> pageClient;
     RefPtr<WebPageProxy> pageProxy;
     IntSize viewSize { };
 #if USE(GTK4)
@@ -487,10 +488,17 @@ void webkitWebViewBaseToplevelWindowIsActiveChanged(WebKitWebViewBase* webViewBa
 static void webkitWebViewBaseUpdateVisibility(WebKitWebViewBase* webViewBase)
 {
     WebKitWebViewBasePrivate* priv = webViewBase->priv;
-    const bool isVisible = gtk_widget_get_mapped(GTK_WIDGET(webViewBase))
-        && priv->toplevelOnScreenWindow->isInMonitor()
-        && !priv->toplevelOnScreenWindow->isMinimized()
-        && !priv->toplevelOnScreenWindow->isSuspended();
+    const bool isVisible = [&] {
+        if (!gtk_widget_get_mapped(GTK_WIDGET(webViewBase)))
+            return false;
+
+        if (!priv->toplevelOnScreenWindow)
+            return true;
+
+        return priv->toplevelOnScreenWindow->isInMonitor()
+            && !priv->toplevelOnScreenWindow->isMinimized()
+            && !priv->toplevelOnScreenWindow->isSuspended();
+    }();
 
     if (isVisible) {
         if (priv->activityState & ActivityState::IsVisible)
@@ -655,8 +663,10 @@ static void webkitWebViewBaseRealize(GtkWidget* widget)
     gtk_widget_set_window(widget, window);
     gdk_window_set_user_data(window, widget);
 
-    auto* monitor = gdk_display_get_monitor_at_window(gtk_widget_get_display(widget), window);
-    webkitWebViewBaseUpdateDisplayID(webView, monitor);
+    if (priv->toplevelOnScreenWindow) {
+        auto* monitor = gdk_display_get_monitor_at_window(gtk_widget_get_display(widget), window);
+        webkitWebViewBaseUpdateDisplayID(webView, monitor);
+    }
 #endif
 
     auto* imContext = priv->inputMethodFilter.context();
@@ -1325,7 +1335,7 @@ static void webkitWebViewBaseHandleMouseEvent(WebKitWebViewBase* webViewBase, Gd
 
         clickCount = priv->clickCounter.currentClickCountForGdkButtonEvent(event);
     }
-        FALLTHROUGH;
+        [[fallthrough]];
     case GDK_BUTTON_RELEASE:
         gtk_widget_grab_focus(GTK_WIDGET(webViewBase));
         break;
@@ -1670,7 +1680,7 @@ static gboolean webkitWebViewBaseCrossingNotifyEvent(GtkWidget* widget, GdkEvent
     // Do not send mouse move events to the WebProcess for crossing events during testing.
     // WTR never generates crossing events and they can confuse tests.
     // https://bugs.webkit.org/show_bug.cgi?id=185072.
-    if (UNLIKELY(priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()))
+    if (priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()) [[unlikely]]
         return GDK_EVENT_PROPAGATE;
 #endif
 
@@ -1721,7 +1731,7 @@ static void webkitWebViewBaseEnter(WebKitWebViewBase* webViewBase, double x, dou
     // Do not send mouse move events to the WebProcess for crossing events during testing.
     // WTR never generates crossing events and they can confuse tests.
     // https://bugs.webkit.org/show_bug.cgi?id=185072.
-    if (UNLIKELY(priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()))
+    if (priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()) [[unlikely]]
         return;
 #endif
 
@@ -1761,7 +1771,7 @@ static void webkitWebViewBaseLeave(WebKitWebViewBase* webViewBase, GdkCrossingMo
     // Do not send mouse move events to the WebProcess for crossing events during testing.
     // WTR never generates crossing events and they can confuse tests.
     // https://bugs.webkit.org/show_bug.cgi?id=185072.
-    if (UNLIKELY(priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()))
+    if (priv->pageProxy->configuration().processPool().configuration().fullySynchronousModeIsAllowedForTesting()) [[unlikely]]
         return;
 #endif
 
@@ -1890,7 +1900,7 @@ static gboolean webkitWebViewBaseTouchEvent(GtkWidget* widget, GdkEventTouch* ev
         break;
     }
     case GDK_TOUCH_CANCEL:
-        FALLTHROUGH;
+        [[fallthrough]];
     case GDK_TOUCH_END:
         ASSERT(priv->touchEvents.contains(sequence));
         priv->touchEvents.remove(sequence);
@@ -1904,7 +1914,7 @@ static gboolean webkitWebViewBaseTouchEvent(GtkWidget* widget, GdkEventTouch* ev
 
     Vector<WebPlatformTouchPoint> touchPoints;
     webkitWebViewBaseGetTouchPointsForEvent(webViewBase, touchEvent, touchPoints);
-    priv->pageProxy->handleTouchEvent(NativeWebTouchEvent(reinterpret_cast<GdkEvent*>(event), WTFMove(touchPoints)));
+    priv->pageProxy->handleTouchEvent(nullptr, NativeWebTouchEvent(reinterpret_cast<GdkEvent*>(event), WTFMove(touchPoints)));
 
 #if USE(GTK4)
     return GDK_EVENT_PROPAGATE;
@@ -2154,6 +2164,7 @@ static void webkitWebViewBaseTouchLongPress(WebKitWebViewBase* webViewBase, gdou
 
 static void webkitWebViewBaseTouchPress(WebKitWebViewBase* webViewBase, int nPress, double x, double y, GtkGesture*)
 {
+    gtk_widget_grab_focus(GTK_WIDGET(webViewBase));
     webViewBase->priv->isLongPressed = false;
 }
 
@@ -2309,7 +2320,7 @@ static void webkitWebViewBaseConstructed(GObject* object)
     gtk_widget_set_can_focus(viewWidget, TRUE);
 
     WebKitWebViewBasePrivate* priv = WEBKIT_WEB_VIEW_BASE(object)->priv;
-    priv->pageClient = makeUniqueWithoutRefCountedCheck<PageClientImpl>(viewWidget);
+    lazyInitialize(priv->pageClient, makeUniqueWithoutRefCountedCheck<PageClientImpl>(viewWidget));
     gtk_widget_set_parent(priv->keyBindingTranslator.widget(), viewWidget);
 
 #if ENABLE(DRAG_SUPPORT)
@@ -2624,10 +2635,7 @@ void webkitWebViewBaseWillEnterFullScreen(WebKitWebViewBase* webkitWebViewBase, 
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::NotInFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->willEnterFullScreen(WTFMove(completionHandler));
-    else
-        completionHandler(false);
+    completionHandler(true);
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen;
 }
 
@@ -2652,18 +2660,16 @@ static void webkitWebViewBaseDidEnterFullScreen(WebKitWebViewBase* webkitWebView
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->didEnterFullScreen();
+    // FIXME: Call CompletionHandler from PageClientImpl::beganEnterFullScreen here.
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::InFullscreen;
     priv->sleepDisabler = PAL::SleepDisabler::create(String::fromUTF8(_("Website running in fullscreen mode")), PAL::SleepDisabler::Type::Display);
 }
 
-void webkitWebViewBaseWillExitFullScreen(WebKitWebViewBase* webkitWebViewBase)
+void webkitWebViewBaseWillExitFullScreen(WebKitWebViewBase* webkitWebViewBase, CompletionHandler<void()>&& completionHandler)
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen || priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::InFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->willExitFullScreen();
+    completionHandler();
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen;
 }
 
@@ -2685,8 +2691,6 @@ static void webkitWebViewBaseDidExitFullScreen(WebKitWebViewBase* webkitWebViewB
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->didExitFullScreen();
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::NotInFullscreen;
     priv->sleepDisabler = nullptr;
 }
@@ -3043,7 +3047,7 @@ static void emojiChooserClosed(WebKitWebViewBase* webkitWebViewBase)
 {
     // The emoji chooser first closes the popover and then emits emoji-picked signal, so complete
     // the request if the emoji isn't picked before the next run loop iteration.
-    RunLoop::main().dispatch([webViewBase = GRefPtr<WebKitWebViewBase>(webkitWebViewBase)] {
+    RunLoop::mainSingleton().dispatch([webViewBase = GRefPtr<WebKitWebViewBase>(webkitWebViewBase)] {
         webkitWebViewBaseCompleteEmojiChooserRequest(webViewBase.get(), emptyString());
     });
     webkitWebViewBase->priv->releaseEmojiChooserTimer.startOneShot(2_min);

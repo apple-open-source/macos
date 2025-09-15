@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2013-2014 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2013-2014 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Xueqing Huang <huangxueqing@baidu.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,6 +32,7 @@
 #include "ClipboardUtilitiesWin.h"
 #include "Color.h"
 #include "CommonAtomStrings.h"
+#include "ContainerNodeInlines.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
@@ -41,6 +42,7 @@
 #include "HWndDC.h"
 #include "HitTestResult.h"
 #include "Image.h"
+#include "ImageAdapter.h"
 #include "LocalFrame.h"
 #include "NotImplemented.h"
 #include "Range.h"
@@ -639,7 +641,7 @@ static String fileSystemPathFromURLOrTitle(const String& urlString, const String
         return String(wcharFrom(fsPathBuffer.data()));
 
     if (!isLink && usedURL) {
-        PathRenameExtension(wcharFrom(fsPathBuffer.data()), extension.wideCharacters().data());
+        PathRenameExtension(wcharFrom(fsPathBuffer.data()), extension.wideCharacters().span().data());
         return String(wcharFrom(fsPathBuffer.data()));
     }
 
@@ -1007,7 +1009,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Fragme
         if (localPath[0] == '/')
             localPath = localPath.substring(1);
         auto wideCharacters = localPath.wideCharacters();
-        LPCWSTR localPathStr = wideCharacters.data();
+        LPCWSTR localPathStr = wideCharacters.span().data();
         if (localPathStr && wcslen(localPathStr) + 1 < MAX_PATH)
             wcscpy_s(filePath, MAX_PATH, localPathStr);
         else
@@ -1017,7 +1019,7 @@ static HGLOBAL createGlobalHDropContent(const URL& url, String& fileName, Fragme
         WCHAR extension[MAX_PATH];
         if (!::GetTempPath(std::size(tempPath), tempPath))
             return 0;
-        if (!::PathAppend(tempPath, fileName.wideCharacters().data()))
+        if (!::PathAppend(tempPath, fileName.wideCharacters().span().data()))
             return 0;
         LPCWSTR foundExtension = ::PathFindExtension(tempPath);
         if (foundExtension) {

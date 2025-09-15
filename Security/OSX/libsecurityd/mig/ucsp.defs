@@ -37,7 +37,7 @@ import <securityd_client/ucsp_types.h>;
 // Common argument profiles
 //
 #define UCSP_PORTS	requestport sport: mach_port_t; \
-					replyport rport: mach_port_make_send_t; \
+					rport: mach_port_make_send_t; \
                     serveraudittoken sourceAudit: audit_token_t; \
 					usersectoken securitydCreds: security_token_t; \
 					out rcode: CSSM_RETURN
@@ -347,3 +347,20 @@ routine setupWithBootstrap(UCSP_PORTS; in bootstrap: mach_port_t; in info: Setup
 routine setupThreadWithBootstrap(UCSP_PORTS; in bootstrap: mach_port_t);
 
 routine getPublicKey(UCSP_PORTS;  in context: Data; in key: IPCKeyHandle; out pubKeyData: Data);
+
+//
+// Special call to check server version
+//
+routine queryServerVersion(UCSP_PORTS; out version: uint32_t);
+
+//
+// Indirect Unlocking of Login Keychain
+//
+routine unlockKeybagWithPassphrase(UCSP_PORTS; in db: IPCDbHandle; in passphrase: Data);
+routine pushForLaterUnlock(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in passphrase: Data);
+routine unlockDbWithHandle(UCSP_PORTS; in db: IPCDbHandle; in indirectKeyHandle: IPCKeyHandle);
+routine changeDbPassphraseWithHandle(UCSP_PORTS; in db: IPCDbHandle; in indirectKeyHandle: IPCKeyHandle);
+routine changeKeybagPassphrase(UCSP_PORTS; in db: IPCDbHandle; in oldPassPhrase: Data; in newPassPhrase: Data);
+routine generateDerivedEntropy(UCSP_PORTS; out indirectKeyHandle: IPCKeyHandle; in salt: Data; in passphrase: Data);
+routine releaseHandle(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle);
+routine getDerivedEntropy(UCSP_PORTS; in indirectKeyHandle: IPCKeyHandle; out entropy: Data);

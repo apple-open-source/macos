@@ -78,9 +78,6 @@ echo "Moving AssetVersion.plist"
 plutil -convert binary1 ${CONFIG_DIR}/AssetVersion.plist -o ${ASSET_DATA}/AssetVersion.plist
 plutil -replace VersionNumber -integer ${ASSETCONTENTVERSION} ${ASSET_DATA}/AssetVersion.plist
 
-echo "Moving Blocked.plist"
-plutil -convert binary1 ${BUILT_ASSETS_DIR}/Blocked.plist -o ${ASSET_DATA}/Blocked.plist
-
 echo "Moving CertificatePinning.plist"
 plutil -convert binary1 ${PINNING_DIR}/CertificatePinning.plist -o ${ASSET_DATA}/CertificatePinning.plist
 

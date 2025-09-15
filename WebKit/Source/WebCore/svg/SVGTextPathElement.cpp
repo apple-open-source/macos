@@ -30,6 +30,7 @@
 #include "SVGElementInlines.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
+#include "SVGParsingError.h"
 #include "SVGPathElement.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -69,7 +70,7 @@ void SVGTextPathElement::clearResourceReferences()
 
 void SVGTextPathElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
-    SVGParsingError parseError = NoError;
+    auto parseError = SVGParsingError::None;
 
     switch (name.nodeName()) {
     case AttributeNames::startOffsetAttr:
@@ -162,6 +163,9 @@ void SVGTextPathElement::buildPendingResource()
         }
     } else if (RefPtr pathElement = dynamicDowncast<SVGPathElement>(*target.element))
         pathElement->addReferencingElement(*this);
+
+    if (document().settings().layerBasedSVGEngineEnabled())
+        return;
 
     CheckedPtr renderer = this->renderer();
     if (!renderer)

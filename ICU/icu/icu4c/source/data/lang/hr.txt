@@ -133,6 +133,7 @@ hr{
         crs{"sejšelski kreolski"}
         cs{"češki"}
         csb{"kašupski"}
+        cst{"chochenyo"}
         csw{"močvarni cree"}
         cu{"crkvenoslavenski"}
         cv{"čuvaški"}
@@ -228,6 +229,7 @@ hr{
         hak{"hakka kineski"}
         haw{"havajski"}
         hax{"južni haida"}
+        hch{"wixárika"}
         he{"hebrejski"}
         hi{"hindski"}
         hil{"hiligaynonski"}
@@ -256,6 +258,7 @@ hr{
         inh{"ingušetski"}
         io{"ido"}
         is{"islandski"}
+        isc{"iskonawa"}
         it{"talijanski"}
         iu{"inuktitut"}
         ja{"japanski"}
@@ -494,6 +497,7 @@ hr{
         sh{"srpsko-hrvatski"}
         shi{"tachelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"čadski arapski"}
         si{"sinhaleški"}
         sid{"sidamo"}
@@ -812,13 +816,15 @@ hr{
     }
     Types{
         calendar{
+            bangla{"bengalski kalendar"}
             buddhist{"budistički kalendar"}
             chinese{"kineski kalendar"}
             coptic{"koptski kalendar"}
-            dangi{"dangi kalendar"}
+            dangi{"korejski kalendar"}
             ethiopic{"etiopski kalendar"}
             ethiopic-amete-alem{"etiopski kalendar \u0022Amete Alem\u0022"}
             gregorian{"gregorijanski kalendar"}
+            gujarati{"gudžaratski kalendar"}
             hebrew{"hebrejski kalendar"}
             indian{"indijski nacionalni kalendar"}
             islamic{"hidžretski kalendar"}
@@ -826,8 +832,16 @@ hr{
             islamic-umalqura{"hidžretski kalendar (Umm al-Qura)"}
             iso8601{"ISO-8601 kalendar"}
             japanese{"japanski kalendar"}
+            kannada{"kannadski kalendar"}
+            malayalam{"malajalamski kalendar"}
+            marathi{"marathi kalendar"}
+            odia{"odia kalendar"}
             persian{"perzijski kalendar"}
             roc{"kalendar Republike Kine"}
+            tamil{"tamilski kalendar"}
+            telugu{"teluški kalendar"}
+            vietnamese{"vijetnamski kalendar"}
+            vikram{"vikramski kalendar"}
         }
         cf{
             account{"računovodstveni format valute"}

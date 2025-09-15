@@ -201,7 +201,7 @@ struct DMABufFeedback {
     std::pair<uint32_t, uint64_t> format(uint16_t index)
     {
         ASSERT(index < formatTable.size);
-        if (UNLIKELY(index >= formatTable.size))
+        if (index >= formatTable.size) [[unlikely]]
             return { 0, 0 };
 
         return { formatTable.data[index].format, formatTable.data[index].modifier };
@@ -672,7 +672,7 @@ static WPEBufferDMABufFormats* wpeToplevelWaylandGetPreferredDMABufFormats(WPETo
 
         for (const auto& format : tranche.formats) {
             auto [fourcc, modifier] = priv->committedDMABufFeedback->format(format);
-            if (LIKELY(fourcc))
+            if (fourcc) [[likely]]
                 wpe_buffer_dma_buf_formats_builder_append_format(builder, fourcc, modifier);
         }
     }
@@ -755,7 +755,7 @@ static bool regionsEqual(WPERectangle* rectsA, unsigned rectsACount, WPERectangl
 void wpeToplevelWaylandSetOpaqueRectangles(WPEToplevelWayland* toplevel, WPERectangle* rects, unsigned rectsCount)
 {
     auto* priv = toplevel->priv;
-    if (regionsEqual(priv->opaqueRegion.rects.data(), priv->opaqueRegion.rects.size(), rects, rectsCount))
+    if (regionsEqual(priv->opaqueRegion.rects.mutableSpan().data(), priv->opaqueRegion.rects.size(), rects, rectsCount))
         return;
 
     priv->opaqueRegion.rects.clear();
@@ -882,14 +882,15 @@ struct zwp_linux_surface_synchronization_v1* wpeToplevelWaylandGetSurfaceSync(WP
 /**
  * wpe_toplevel_wayland_new:
  * @display: a #WPEDisplayWayland
+ * @max_views: the maximum number of views allowed, or 0 for no limit
  *
- * Create a new #WPEToplevel on @display.
+ * Create a new #WPEToplevel on @display with @max_views allowed
  *
  * Returns: (transfer full): a #WPEToplevel
  */
-WPEToplevel* wpe_toplevel_wayland_new(WPEDisplayWayland* display)
+WPEToplevel* wpe_toplevel_wayland_new(WPEDisplayWayland* display, guint maxViews)
 {
-    return WPE_TOPLEVEL(g_object_new(WPE_TYPE_TOPLEVEL_WAYLAND, "display", display, nullptr));
+    return WPE_TOPLEVEL(g_object_new(WPE_TYPE_TOPLEVEL_WAYLAND, "display", display, "max-views", maxViews, nullptr));
 }
 
 /**

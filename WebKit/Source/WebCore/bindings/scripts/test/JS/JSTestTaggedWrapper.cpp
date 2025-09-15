@@ -22,6 +22,7 @@
 #include "JSTestTaggedWrapper.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -152,14 +153,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestTaggedWrapperConstructor, (JSGlobalObject* lexica
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestTaggedWrapperPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestTaggedWrapper::getConstructor(vm, prototype->globalObject()));
 }
 
 JSC::GCClient::IsoSubspace* JSTestTaggedWrapper::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestTaggedWrapper, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestTaggedWrapper, UseCustomHeapCellType::No>(vm, "JSTestTaggedWrapper"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestTaggedWrapper.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestTaggedWrapper = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestTaggedWrapper.get(); },
@@ -199,7 +200,9 @@ extern "C" { extern void (*const __identifier("??_7TestTaggedWrapper@WebCore@@6B
 #else
 extern "C" { extern void* _ZTVN7WebCore17TestTaggedWrapperE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestTaggedWrapper>, void>> static inline void verifyVTable(TestTaggedWrapper* ptr) {
+template<std::same_as<TestTaggedWrapper> T>
+static inline void verifyVTable(TestTaggedWrapper* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

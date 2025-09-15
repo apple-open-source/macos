@@ -342,6 +342,10 @@ _expand_resources(krb5_context context, PTYPE param, const char *postfix, char *
 {
     char path[MAXPATHLEN];
 
+    if (context->flags & KRB5_CONTEXT_FLAG_FORK_SAFE) {
+	return 0;
+    }
+    
     CFBundleRef appBundle = CFBundleGetMainBundle();
     if (appBundle == NULL)
 	return KRB5_CONFIG_BADFORMAT;

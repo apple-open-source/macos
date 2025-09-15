@@ -40,8 +40,8 @@ class RenderGrid;
 class RenderStyle;
 
 enum class GridTrackSizingDirection : uint8_t {
-    ForColumns,
-    ForRows
+    ForColumns = 1 << 0,
+    ForRows = 1 << 1
 };
 
 class NamedLineCollectionBase {

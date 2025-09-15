@@ -24,9 +24,9 @@
 
 #include "SecdTestKeychainUtilities.h"
 
-#include <regressions/test/testmore.h>
-#include <utilities/SecFileLocations.h>
-#include <utilities/SecCFWrappers.h>
+#include "regressions/test/testmore.h"
+#include "utilities/SecFileLocations.h"
+#include "utilities/SecCFWrappers.h"
 #include "keychain/securityd/SecItemServer.h"
 #include <Security/SecureObjectSync/SOSViews.h>
 
@@ -58,7 +58,7 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
     /* set custom keychain dir, reset db */
     SecSetCustomHomeURLString(tmp_dir);
 
-    SecKeychainDbReset(do_in_reset);
+    SecServerKeychainDbReset(do_in_reset);
 
     CFReleaseNull(tmp_dir);
     CFReleaseNull(keychain_dir);
@@ -75,8 +75,8 @@ bool secd_test_teardown_delete_temp_keychain(const char* test_prefix)
 
     secd_test_clear_testviews();
     SecItemDataSourceFactoryReleaseAll();
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(NULL);
 
     // Only perform the desctructive step if the url matches what we expect!
     NSString* testName = [NSString stringWithUTF8String:test_prefix];

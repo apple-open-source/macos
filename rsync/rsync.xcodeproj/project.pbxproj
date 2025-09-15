@@ -13,6 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				2A4F46A12D70A5F20082C6A1 /* PBXTargetDependency */,
 				2A96BF8B29A3395000F1705B /* PBXTargetDependency */,
 				2A96BF8D29A3395400F1705B /* PBXTargetDependency */,
 				2A9E2A942B19437300F5F14D /* PBXTargetDependency */,
@@ -85,6 +86,7 @@
 		2A23205D2B7F2C9800366342 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A23205C2B7F2C9800366342 /* libutil.tbd */; };
 		2A4018F52C8AC1B200BEBD25 /* fmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4018F42C8AC1B200BEBD25 /* fmap.c */; };
 		2A485F502B58E221009D80F8 /* cleanup.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A485F4F2B58E221009D80F8 /* cleanup.c */; };
+		2A4F469F2D70329F0082C6A1 /* symlink_racer.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A4F469E2D70329F0082C6A1 /* symlink_racer.c */; };
 		2A5465E92AFEC6C0005C5CBB /* hardlinks.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5465E82AFEC6C0005C5CBB /* hardlinks.c */; };
 		2A5465F72AFECA11005C5CBB /* sparseme.c in Sources */ = {isa = PBXBuildFile; fileRef = 2A5465F62AFECA11005C5CBB /* sparseme.c */; };
 		2A5EC31F2C2D2B9E00B6334B /* password_enabled.c in Sources */ = {isa = PBXBuildFile; fileRef = 2EE60D952996EB86005BA0D9 /* password_enabled.c */; };
@@ -232,6 +234,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2A4F46A02D70A5F20082C6A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2A4F46972D7032640082C6A1;
+			remoteInfo = symlink_racer;
+		};
 		2A5EC32E2C2D33B200B6334B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -368,6 +377,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		2A4F46962D7032640082C6A1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		2A5EC3232C2D309100B6334B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -531,6 +549,8 @@
 		2A485F612B59E940009D80F8 /* test25_filter_mods.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test25_filter_mods.test; path = tests/openrsync/test25_filter_mods.test; sourceTree = "<group>"; };
 		2A485F912B6A2153009D80F8 /* test28_size_only.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test28_size_only.test; path = tests/openrsync/test28_size_only.test; sourceTree = "<group>"; };
 		2A4A40BF2C102E3F00B412EC /* test51_dupe_src.test */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = test51_dupe_src.test; path = tests/openrsync/test51_dupe_src.test; sourceTree = "<group>"; };
+		2A4F46982D7032640082C6A1 /* symlink_racer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = symlink_racer; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A4F469E2D70329F0082C6A1 /* symlink_racer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = symlink_racer.c; path = tests/symlink_racer.c; sourceTree = "<group>"; };
 		2A5465E82AFEC6C0005C5CBB /* hardlinks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hardlinks.c; sourceTree = "<group>"; };
 		2A5465EF2AFEC95B005C5CBB /* sparseme */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sparseme; sourceTree = BUILT_PRODUCTS_DIR; };
 		2A5465F62AFECA11005C5CBB /* sparseme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sparseme.c; path = tests/openrsync/sparseme.c; sourceTree = "<group>"; };
@@ -804,6 +824,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2A4F46952D7032640082C6A1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2A5465EC2AFEC95B005C5CBB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -930,6 +957,7 @@
 				2A5465EF2AFEC95B005C5CBB /* sparseme */,
 				2A5EC3252C2D309100B6334B /* netwrapd */,
 				2A7A5FEF2CC1F19900F5DC04 /* setsid */,
+				2A4F46982D7032640082C6A1 /* symlink_racer */,
 				2ABF17182DAE01320021B703 /* mksock */,
 			);
 			name = Products;
@@ -952,6 +980,7 @@
 				2A1BFF2F2CA7BCA000F07958 /* daemon.sh */,
 				2ABF171F2DAEB9240021B703 /* mksock.c */,
 				2AA225512CC2ABDE008D7ABC /* setsid.c */,
+				2A4F469E2D70329F0082C6A1 /* symlink_racer.c */,
 				2A1BFF302CA7BCAC00F07958 /* rsyncd-cancel_pre.sh */,
 				2A1BFF312CA7BCAC00F07958 /* rsyncd-simple_post.sh */,
 				2A1BFF322CA7BCAC00F07958 /* rsyncd-simple_pre.sh */,
@@ -1301,6 +1330,25 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		2A4F46972D7032640082C6A1 /* symlink_racer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A4F469D2D7032640082C6A1 /* Build configuration list for PBXNativeTarget "symlink_racer" */;
+			buildPhases = (
+				2A4F46942D7032640082C6A1 /* Sources */,
+				2A4F46952D7032640082C6A1 /* Frameworks */,
+				2A4F46962D7032640082C6A1 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = symlink_racer;
+			packageProductDependencies = (
+			);
+			productName = symlink_racer;
+			productReference = 2A4F46982D7032640082C6A1 /* symlink_racer */;
+			productType = "com.apple.product-type.tool";
+		};
 		2A5465EE2AFEC95B005C5CBB /* sparseme */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2A5465F32AFEC95B005C5CBB /* Build configuration list for PBXNativeTarget "sparseme" */;
@@ -1512,6 +1560,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					2A4F46972D7032640082C6A1 = {
+						CreatedOnToolsVersion = 16.3;
+					};
 					2A5465EE2AFEC95B005C5CBB = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -1549,6 +1600,7 @@
 				596ED9640FD5E84800CCB493 /* getfsdev */,
 				596ED9760FD5E89A00CCB493 /* trimslash */,
 				2A5465EE2AFEC95B005C5CBB /* sparseme */,
+				2A4F46972D7032640082C6A1 /* symlink_racer */,
 				596ED98A0FD5E8E900CCB493 /* t_unsafe */,
 				596ED9A30FD5E9BE00CCB493 /* wildtest */,
 				596ED73A0FD5A75D00CCB493 /* Embedded */,
@@ -1644,6 +1696,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2A4F46942D7032640082C6A1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2A4F469F2D70329F0082C6A1 /* symlink_racer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2A5465EB2AFEC95B005C5CBB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1870,6 +1930,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2A4F46A12D70A5F20082C6A1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2A4F46972D7032640082C6A1 /* symlink_racer */;
+			targetProxy = 2A4F46A02D70A5F20082C6A1 /* PBXContainerItemProxy */;
+		};
 		2A5EC32F2C2D33B200B6334B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2A5EC3242C2D309100B6334B /* netwrapd */;
@@ -2024,6 +2089,37 @@
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = "-Werror=format-nonliteral";
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		2A4F469C2D7032640082C6A1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INSTALL_PATH = /AppleInternal/Tests/rsync;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
@@ -2344,6 +2440,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A4F469D2D7032640082C6A1 /* Build configuration list for PBXNativeTarget "symlink_racer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A4F469C2D7032640082C6A1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

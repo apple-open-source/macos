@@ -592,7 +592,7 @@ fasttrap_setdebug(proc_t *p)
 			 * should not be possible for the process to actually
 			 * disappear.
 			 */
-			struct proc_ident pident = proc_ident(p);
+			struct proc_ident pident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 			sprunlock(p);
 			p = PROC_NULL;
 
@@ -2428,8 +2428,8 @@ fasttrap_check_cred_priv(cred_t *cr, proc_t *p)
 
 #if CONFIG_MACF
 	/* Check with MAC framework when enabled. */
-	struct proc_ident cur_ident = proc_ident(current_proc());
-	struct proc_ident p_ident = proc_ident(p);
+	struct proc_ident cur_ident = proc_ident_with_policy(current_proc(), IDENT_VALIDATION_PROC_EXACT);
+	struct proc_ident p_ident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
 
 	/* Do not hold ref to proc here to avoid deadlock. */
 	proc_rele(p);

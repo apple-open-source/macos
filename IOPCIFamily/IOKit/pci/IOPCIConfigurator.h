@@ -136,44 +136,38 @@ enum {
 };
 
 enum {
-    kIOPCIConfiguratorIOLog          = 0x00000001,
-    kIOPCIConfiguratorKPrintf        = 0x00000002,
-    kIOPCIConfiguratorVTLog          = 0x00000004,
-    
+    //kIOPCIConfiguratorIOLog          = 0x00000001, (Deprecated)
+    //kIOPCIConfiguratorKPrintf        = 0x00000002, (Deprecated)
+    //kIOPCIConfiguratorVTLog          = 0x00000004, (Deprecated)
     kIOPCIConfiguratorAER            = 0x00000008,
-    kIOPCIConfiguratorWakeToOff      = 0x00000010,       // deprecated rdar://problem/64949845
+    kIOPCIConfiguratorWakeToOff      = 0x00000010, // deprecated rdar://problem/64949845
     kIOPCIConfiguratorDeviceMap      = 0x00000020,
-
-    kIOPCIConfiguratorLogSaveRestore = 0x00000040,
+    //kIOPCIConfiguratorLogSaveRestore = 0x00000040, (Deprecated)
     kIOPCIConfiguratorMapInterrupts  = 0x00000080,
-	kIOPCIConfiguratorPanicOnFault   = 0x00000100, 
-    kIOPCIConfiguratorNoL1           = 0x00000200,           // disable L1 on thunderbolt
-
+    kIOPCIConfiguratorPanicOnFault   = 0x00000100,
+    kIOPCIConfiguratorNoL1           = 0x00000200, // disable L1 on thunderbolt
     kIOPCIConfiguratorDeepIdle       = 0x00000400,
     kIOPCIConfiguratorNoTB           = 0x00000800,
     kIOPCIConfiguratorTBMSIEnable    = 0x00001000,
-
     kIOPCIConfiguratorPFM64          = 0x00002000,
-    kIOPCIConfiguratorBoot	         = 0x00004000,
+    kIOPCIConfiguratorBoot           = 0x00004000,
     kIOPCIConfiguratorIGIsMapped     = 0x00008000,
     kIOPCIConfiguratorFPBEnable      = 0x00010000,
-//  kIOPCIConfiguratorAllocate       = 0x00020000,
+    //<unused>                       = 0x00020000,
     kIOPCIConfiguratorUsePause       = 0x00040000,
-
     kIOPCIConfiguratorCheckTunnel    = 0x00080000,
     kIOPCIConfiguratorNoTunnelDrv    = 0x00100000,
     kIOPCIConfiguratorNoTerminate    = 0x00200000,
     kIOPCIConfiguratorDeferHotPlug   = 0x00400000,
     kIOPCIConfiguratorNoACS          = 0x00800000,
-
     kIOPCIConfiguratorTBPanics       = 0x01000000,
     kIOPCIConfiguratorTBUSBCPanics   = 0x02000000,
-
-    kIOPCIConfiguratorSystemMap      = 0x04000000,  // Force all devices to use system mapper, x86 only
-
+    kIOPCIConfiguratorSystemMap      = 0x04000000, // Force all devices to use system mapper, x86 only
     kIOPCIConfiguratorDefaultETF     = 0x08000000, // Use default extended tag settings
-
     kIOPCIConfiguratorForcePause     = 0x10000000, // Force all probes to trigger a pause
+    //<unused>                       = 0x20000000,
+    //<unused>                       = 0x40000000,
+    //<unused>                       = 0x80000000,
 
     kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
@@ -348,6 +342,7 @@ struct IOPCIConfigEntry
     int16_t   			expressEndpointMaxReadRequestSize;
     uint16_t            expressErrorReporting; // only valid during bridgeScanBus()
 	uint16_t            pausedCommand;
+	bool                commandSaved;
 
     IORegistryEntry *   dtEntry;
 #if ACPI_SUPPORT
@@ -384,6 +379,7 @@ class IOPCIConfigurator : public IOService
     uint32_t				fNextID;
     uint64_t                fResetStartTime;
     uint64_t                fResetWaitTime;
+	uint32_t                fDomainId;
 #if ACPI_SUPPORT
 	uint8_t				 	fAddedHost64;
 #endif /* ACPI_SUPPORT */
@@ -453,8 +449,7 @@ protected:
 	bool    treeInState(IOPCIConfigEntry * entry, uint32_t state, uint32_t mask);
     void    markChanged(IOPCIConfigEntry * entry);
     void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
-    void    topologyMPSOverride(IOPCIConfigEntry * node);
-    void    bridgeMPSOverride(IOPCIConfigEntry * bridge);
+    void    calculateTopologyMPS(IOPCIConfigEntry * bridge);
     void    bridgeFinishProbe(IOPCIConfigEntry * bridge);
     bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);
     OSDictionary * constructProperties(IOPCIConfigEntry * device);
@@ -481,7 +476,7 @@ protected:
     uint8_t  IOPCIIsHotplugPort(IOPCIConfigEntry * bridge);
 
 public:
-    bool init(IOWorkLoop * wl, uint32_t flags);
+    bool init(IOWorkLoop * wl, uint32_t flags, uint32_t domainId);
     virtual IOWorkLoop * getWorkLoop() const;
     virtual void     free(void);
 

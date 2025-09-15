@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004-2009, 2011-2012, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009, 2011, 2012 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
@@ -100,7 +100,7 @@ void ExtensionStyleSheets::clearPageUserSheet()
 {
     if (m_pageUserSheet) {
         m_pageUserSheet = nullptr;
-        protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+        protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
     }
 }
 
@@ -108,7 +108,7 @@ void ExtensionStyleSheets::updatePageUserSheet()
 {
     clearPageUserSheet();
     if (pageUserSheet())
-        protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+        protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 }
 
 const Vector<RefPtr<CSSStyleSheet>>& ExtensionStyleSheets::injectedUserStyleSheets() const
@@ -203,21 +203,21 @@ void ExtensionStyleSheets::removePageSpecificUserStyleSheet(const UserStyleSheet
 void ExtensionStyleSheets::invalidateInjectedStyleSheetCache()
 {
     m_injectedStyleSheetCacheValid = false;
-    protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+    protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 }
 
 void ExtensionStyleSheets::addUserStyleSheet(Ref<StyleSheetContents>&& userSheet)
 {
     ASSERT(userSheet.get().isUserStyleSheet());
     m_userStyleSheets.append(CSSStyleSheet::create(WTFMove(userSheet), protectedDocument().get()));
-    protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+    protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 }
 
 void ExtensionStyleSheets::addAuthorStyleSheetForTesting(Ref<StyleSheetContents>&& authorSheet)
 {
     ASSERT(!authorSheet.get().isUserStyleSheet());
     m_authorStyleSheetsForTesting.append(CSSStyleSheet::create(WTFMove(authorSheet), protectedDocument().get()));
-    protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+    protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
@@ -230,7 +230,7 @@ void ExtensionStyleSheets::addDisplayNoneSelector(const String& identifier, cons
     }
 
     if (result.iterator->value->addDisplayNoneSelector(selector, selectorID))
-        protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+        protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 }
 
 void ExtensionStyleSheets::maybeAddContentExtensionSheet(const String& identifier, StyleSheetContents& sheet)
@@ -243,14 +243,14 @@ void ExtensionStyleSheets::maybeAddContentExtensionSheet(const String& identifie
     Ref<CSSStyleSheet> cssSheet = CSSStyleSheet::create(sheet, protectedDocument().get());
     m_contentExtensionSheets.set(identifier, &cssSheet.get());
     m_userStyleSheets.append(adoptRef(cssSheet.leakRef()));
-    protectedDocument()->checkedStyleScope()->didChangeStyleSheetEnvironment();
+    protectedDocument()->styleScope().didChangeStyleSheetEnvironment();
 
 }
 #endif // ENABLE(CONTENT_EXTENSIONS)
 
 String ExtensionStyleSheets::contentForInjectedStyleSheet(const RefPtr<CSSStyleSheet>& styleSheet) const
 {
-    return m_injectedStyleSheetToSource.get(styleSheet);
+    return m_injectedStyleSheetToSource.get(*styleSheet);
 }
 
 void ExtensionStyleSheets::detachFromDocument()

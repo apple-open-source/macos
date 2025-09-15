@@ -147,14 +147,36 @@ IOPerfControlClient::free()
 	super::free();
 }
 
+void
+IOPerfControlClient::setDeviceType(IOPCDeviceType newDeviceType)
+{
+	if (newDeviceType >= IOPCDeviceTypeMax) {
+		panic("unknown device type %d", newDeviceType);
+	}
+
+	if (deviceType != IOPCDeviceTypeUnknown) {
+		panic("deviceType already set to %d", deviceType);
+	}
+
+	deviceType = newDeviceType;
+}
+
+
 IOPerfControlClient *
-IOPerfControlClient::copyClient(IOService *driver, uint64_t maxWorkCapacity)
+IOPerfControlClient::copyClientForDeviceType(IOService *driver, uint64_t maxWorkCapacity, IOPCDeviceType deviceType)
 {
 	IOPerfControlClient *client = new IOPerfControlClient;
 	if (!client || !client->init(driver, maxWorkCapacity)) {
 		panic("could not create IOPerfControlClient");
 	}
+	client->setDeviceType(deviceType);
 	return client;
+}
+
+IOPerfControlClient *
+IOPerfControlClient::copyClient(IOService *driver, uint64_t maxWorkCapacity)
+{
+	return copyClientForDeviceType(driver, maxWorkCapacity, IOPCDeviceTypeUnknown);
 }
 
 /* Convert the per driver token into a globally unique token for the performance
@@ -766,6 +788,30 @@ IOPerfControlClient::workEndWithContext(IOService *device, OSObject *context, Wo
 #else
 	return;
 #endif
+}
+
+IOReturn
+IOPerfControlClient::querySubmitterRole(IOService *device, task_t clientTask, uint32_t* role_out)
+{
+	IOReturn result = kIOReturnNotFound;
+
+	uint32_t role;
+
+	switch (deviceType) {
+	case IOPCDeviceTypeGPU:
+		role = task_get_gpu_role(clientTask);
+
+		KDBG(IMPORTANCE_CODE(IMP_QUERY_GPU_ROLE, 0), role);
+
+		*role_out = role;
+
+		result = kIOReturnSuccess;
+		break;
+	default:
+		result = kIOReturnNotFound;
+	}
+
+	return result;
 }
 
 IOReturn

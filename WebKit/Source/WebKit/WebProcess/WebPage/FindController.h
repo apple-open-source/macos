@@ -111,11 +111,13 @@ private:
 
     RefPtr<WebCore::LocalFrame> frameWithSelection(WebCore::Page*);
 
+    RefPtr<WebPage> protectedWebPage() const;
+
 #if ENABLE(PDF_PLUGIN)
     PluginView* mainFramePlugIn();
 #endif
 
-    WeakPtr<WebPage> m_webPage;
+    const WeakPtr<WebPage> m_webPage;
     WeakPtr<WebCore::PageOverlay> m_findPageOverlay;
 
     // Whether the UI process is showing the find indicator. Note that this can be true even if

@@ -245,6 +245,18 @@
 		DDD306E129587F6C00E9DB43 /* msdos_tests_utilities.h in Headers */ = {isa = PBXBuildFile; fileRef = D30B572B28C48C5A002886C1 /* msdos_tests_utilities.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DDD306E229587F6C00E9DB43 /* msdos_maintenance_xctests.h in Headers */ = {isa = PBXBuildFile; fileRef = D3AEB95D28BE0CE700558AD7 /* msdos_maintenance_xctests.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		DDD306E329587F8300E9DB43 /* msdos_maintenance_check_tests.h in Headers */ = {isa = PBXBuildFile; fileRef = DDD306DD29587D9300E9DB43 /* msdos_maintenance_check_tests.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		E1800BB22D80756900D69370 /* lib_fsck_msdos.h in Headers */ = {isa = PBXBuildFile; fileRef = D34AF4A628E44B2F00FD69E9 /* lib_fsck_msdos.h */; };
+		E1800BB32D80756900D69370 /* dosfs.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0808E0BBF700C78A0B /* dosfs.h */; };
+		E1800BB42D80756900D69370 /* ext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0908E0BBF700C78A0B /* ext.h */; };
+		E1800BB52D80756900D69370 /* fsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0D08E0BBF700C78A0B /* fsutil.h */; };
+		E1800BB72D80756900D69370 /* boot.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0508E0BBF700C78A0B /* boot.c */; };
+		E1800BB82D80756900D69370 /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0608E0BBF700C78A0B /* check.c */; };
+		E1800BB92D80756900D69370 /* dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0708E0BBF700C78A0B /* dir.c */; };
+		E1800BBA2D80756900D69370 /* fat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0A08E0BBF700C78A0B /* fat.c */; };
+		E1800BBB2D80756900D69370 /* fsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0C08E0BBF700C78A0B /* fsutil.c */; };
+		E1800BBC2D80756900D69370 /* lib_fsck_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = D36FB0A028B75D2E00567E45 /* lib_fsck_msdos.c */; };
+		E1800BC12D80756900D69370 /* fsck_msdos.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCF0B08E0BBF700C78A0B /* fsck_msdos.8 */; };
+		E1800BCA2D80757C00D69370 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = E1800BC82D80757C00D69370 /* main.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -360,6 +372,13 @@
 			remoteGlobalIDString = D77EE2431F69585600DB5C41;
 			remoteInfo = usbstorage_tester;
 		};
+		E1800BB02D80756900D69370 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D3103E7D28D1BE0600EE5F89;
+			remoteInfo = lib_fsck_msdos;
+		};
 		F9E147F423A7EA1400047008 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
@@ -439,6 +458,16 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		E1800BC02D80756900D69370 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				E1800BC12D80756900D69370 /* fsck_msdos.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -618,6 +647,8 @@
 		DD5C37FA294F5BC300B1F757 /* msdos_tests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = msdos_tests.entitlements; sourceTree = "<group>"; };
 		DDD306DC29587D4800E9DB43 /* msdos_maintenance_check_tests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = msdos_maintenance_check_tests.m; sourceTree = "<group>"; };
 		DDD306DD29587D9300E9DB43 /* msdos_maintenance_check_tests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msdos_maintenance_check_tests.h; sourceTree = "<group>"; };
+		E1800BC72D80756900D69370 /* fuzzing_target */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fuzzing_target; sourceTree = BUILT_PRODUCTS_DIR; };
+		E1800BC82D80757C00D69370 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -731,6 +762,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E1800BBE2D80756900D69370 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -801,6 +839,7 @@
 		7D8BA341010E490C02CA2964 /* msdosfs */ = {
 			isa = PBXGroup;
 			children = (
+				E1800BC92D80757C00D69370 /* Fuzzing */,
 				D3F27F8D28DB2F6E00C0627E /* lib_newfs_msdos */,
 				D3FC07C428BC979D0083E343 /* lib_fsck_msdos */,
 				D77EE2371F6957A900DB5C41 /* msdosfs_usbstorage_plugin */,
@@ -847,6 +886,7 @@
 				D1AD93FA20036C1700FF5EF7 /* livefiles_tester */,
 				D32A18FB27A9647C00574BF7 /* msdos_tests.xctest */,
 				CC83F98828916A490040AFF0 /* com.apple.fskit.msdos.appex */,
+				E1800BC72D80756900D69370 /* fuzzing_target */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1045,6 +1085,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		E1800BC92D80757C00D69370 /* Fuzzing */ = {
+			isa = PBXGroup;
+			children = (
+				E1800BC82D80757C00D69370 /* main.c */,
+			);
+			path = Fuzzing;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -1141,6 +1189,17 @@
 				DDD306E129587F6C00E9DB43 /* msdos_tests_utilities.h in Headers */,
 				DDD306E229587F6C00E9DB43 /* msdos_maintenance_xctests.h in Headers */,
 				DDD306E329587F8300E9DB43 /* msdos_maintenance_check_tests.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E1800BB12D80756900D69370 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1800BB22D80756900D69370 /* lib_fsck_msdos.h in Headers */,
+				E1800BB32D80756900D69370 /* dosfs.h in Headers */,
+				E1800BB42D80756900D69370 /* ext.h in Headers */,
+				E1800BB52D80756900D69370 /* fsutil.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1391,6 +1450,27 @@
 			productReference = D77EE2441F69585600DB5C41 /* livefiles_msdos_tester */;
 			productType = "com.apple.product-type.tool";
 		};
+		E1800BAE2D80756900D69370 /* fuzzing_target */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E1800BC32D80756900D69370 /* Build configuration list for PBXNativeTarget "fuzzing_target" */;
+			buildPhases = (
+				E1800BB12D80756900D69370 /* Headers */,
+				E1800BB62D80756900D69370 /* Sources */,
+				E1800BBE2D80756900D69370 /* Frameworks */,
+				E1800BBF2D80756900D69370 /* Rez */,
+				E1800BC02D80756900D69370 /* CopyFiles */,
+				E1800BC22D80756900D69370 /* Run Script */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E1800BAF2D80756900D69370 /* PBXTargetDependency */,
+			);
+			name = fuzzing_target;
+			productName = "msdos.util (Tool)";
+			productReference = E1800BC72D80756900D69370 /* fuzzing_target */;
+			productType = "com.apple.product-type.tool";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -1460,6 +1540,7 @@
 				D1AD93E520036C1700FF5EF7 /* livefiles_tester */,
 				D32A18FA27A9647C00574BF7 /* msdos_tests */,
 				CC83F98728916A490040AFF0 /* msdos.appex */,
+				E1800BAE2D80756900D69370 /* fuzzing_target */,
 			);
 		};
 /* End PBXProject section */
@@ -1539,6 +1620,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E1800BBF2D80756900D69370 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -1602,6 +1690,36 @@
 			shellScript = "\tln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_msdos \"${DSTROOT}/sbin/newfs_msdos\"\n\tchgrp -h wheel \"${DSTROOT}/sbin/newfs_msdos\"\n";
 		};
 		4D42A02D1505622800720D1A /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(DSTROOT)$(FS_BUNDLE_BIN_PATH)/fsck_msdos",
+			);
+			name = "Run Script";
+			outputPaths = (
+				"$(DSTROOT)/sbin/fsck_msdos",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos \"${DSTROOT}/sbin/fsck_msdos\"\nchgrp -h wheel \"${DSTROOT}/sbin/fsck_msdos\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D1AC333C1FFCC8800066739C /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# PLUGIN_LOC in an option to use  pts_lab source to fetch a pre-compiled plugin, Please take care of what plugin version are been tested.\n# Comment it out when SVN release version are used.\n#PLUGIN_LOC=\"master\"\n\nMSDOSFS_VER=\"12.0.2\"\nEXFAT_VER=\"10.5.0\"\nHFS_VER=\"2.8.7\"\n\n\necho \"msdosfs plugin version: $MSDOSFS_VER\"\necho \"exfat plugin version: $EXFAT_VER\"\necho \"hfs plugin version: $HFS_VER\"\n\nif [ ! -z $PLUGIN_LOC ]\nthen\n\nmsdos_src=\"./LiveFilesTester/Resources\"\nexfat_src=\"./LiveFilesTester/Resources\"\nhfs_src=\"./LiveFilesTester/Resources\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\nplugin_loc_msdos=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_msdos.dylib\"\nplugin_loc_exfat=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_exfat.dylib\"\nplugin_loc_hfs=\"/pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\"/plugin/Tester/OSX/livefiles_hfs.dylib\"\necho \"--- Attention!! copy plugin from PTS_LAB root directory /pts_lab/SX_PTS/Files/\"$PLUGIN_LOC\" , validate version correctness!!! ----\"\necho cp $plugin_loc_msdos $src_msdos_dylib\ncp $plugin_loc_msdos $src_msdos_dylib\necho cp $plugin_loc_exfat $src_exfat_dylib\ncp $plugin_loc_exfat $src_exfat_dylib\necho cp $plugin_loc_hfs $src_hfs_dylib\ncp $plugin_loc_hfs $src_hfs_dylib\nelse\n\nmsdos_src=\"./LiveFilesTester/Resources/msdosfs_plugin/OSX\"\nexfat_src=\"./LiveFilesTester/Resources/exfat_plugin/OSX\"\nhfs_src=\"./LiveFilesTester/Resources/hfs_plugin/OSX\"\nsrc_msdos_dylib=$msdos_src\"/livefiles_msdos.dylib\"\nsrc_exfat_dylib=$exfat_src\"/livefiles_exfat.dylib\"\nsrc_hfs_dylib=$hfs_src\"/livefiles_hfs.dylib\"\n\n#SVN_USER=\"regression\"\n#SVN_PASS=\"Regression123\"\n\nSVN_USER=\"nosherovich\"\nSVN_PASS=\"EasyPeasy@2\"\n\n\nset -e # Fail the build in case of error in this script\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/msdosfs_plugin/$MSDOSFS_VER ./LiveFilesTester/Resources/msdosfs_plugin/ --force\n#LAST=$(exec ls ./LiveFiles_tester/Resources/msdosfs_plugin | sort -n | tail -1)\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/exfat_plugin/$EXFAT_VER ./LiveFilesTester/Resources/exfat_plugin/ --force\n\nsvn export --username $SVN_USER --password $SVN_PASS http://iliha1-svn01.euro.apple.com/svn/Integration/S4E/production/Files/hfs_plugin/$HFS_VER ./LiveFilesTester/Resources/hfs_plugin/ --force\n\nfi\n\ndst_dir=/tmp/LiveFilesPlugin\nmkdir -p $dst_dir\nrm -rf $dst_dir/\\*\necho \"copy from $src_msdos_dylib to $dst_dir\"\ncp $src_msdos_dylib $dst_dir\necho \"copy from $src_exfat_dylib to $dst_dir\"\ncp $src_exfat_dylib $dst_dir\necho \"copy from $src_hfs_dylib to $dst_dir\"\ncp $src_hfs_dylib $dst_dir\n\n";
+		};
+		E1800BC22D80756900D69370 /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -1849,6 +1967,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E1800BB62D80756900D69370 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1800BB72D80756900D69370 /* boot.c in Sources */,
+				E1800BB82D80756900D69370 /* check.c in Sources */,
+				E1800BB92D80756900D69370 /* dir.c in Sources */,
+				E1800BBA2D80756900D69370 /* fat.c in Sources */,
+				E1800BCA2D80757C00D69370 /* main.c in Sources */,
+				E1800BBB2D80756900D69370 /* fsutil.c in Sources */,
+				E1800BBC2D80756900D69370 /* lib_fsck_msdos.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -1931,6 +2063,11 @@
 			isa = PBXTargetDependency;
 			target = D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */;
 			targetProxy = DBB91EE61FBCD35B006380E0 /* PBXContainerItemProxy */;
+		};
+		E1800BAF2D80756900D69370 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D3103E7D28D1BE0600EE5F89 /* lib_fsck_msdos */;
+			targetProxy = E1800BB02D80756900D69370 /* PBXContainerItemProxy */;
 		};
 		F9E147F523A7EA1400047008 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2522,7 +2659,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -2573,7 +2710,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -2625,7 +2762,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/ExtensionKit/Extensions";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -3030,7 +3167,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -3082,7 +3219,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -3135,7 +3272,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "${SRCROOT}/msdos_appex";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.4;
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MACOSX_DEPLOYMENT_TARGET = 16.0;
 				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -3208,7 +3345,7 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
@@ -3259,7 +3396,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 			};
 			name = CodeCoverage;
 		};
@@ -3307,7 +3444,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = macosx;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};
@@ -3481,6 +3618,63 @@
 			};
 			name = Release;
 		};
+		E1800BC42D80756900D69370 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = fsck_msdos.tproj/fsck_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				GCC_DYNAMIC_NO_PIC = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				OTHER_CFLAGS = (
+					"-fsanitize=address,fuzzer",
+					"-mllvm -asan-guard-against-version-mismatch=0",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=address,fuzzer",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		E1800BC52D80756900D69370 /* CodeCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = fsck_msdos.tproj/fsck_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
+				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				OTHER_CFLAGS = (
+					"-fsanitize=address,fuzzer",
+					"-mllvm -asan-guard-against-version-mismatch=0",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=address,fuzzer",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = CodeCoverage;
+		};
+		E1800BC62D80756900D69370 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = fsck_msdos.tproj/fsck_msdos.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = fsck_msdos.tproj/fsck_msdos.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				GCC_DYNAMIC_NO_PIC = NO;
+				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				OTHER_CFLAGS = (
+					"-fsanitize=address,fuzzer",
+					"-mllvm -asan-guard-against-version-mismatch=0",
+				);
+				OTHER_LDFLAGS = (
+					"-fsanitize=address,fuzzer",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -3650,6 +3844,16 @@
 				DB1AAB74204727B30036167F /* Debug */,
 				DB1AAB75204727B30036167F /* CodeCoverage */,
 				DB1AAB76204727B30036167F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E1800BC32D80756900D69370 /* Build configuration list for PBXNativeTarget "fuzzing_target" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E1800BC42D80756900D69370 /* Debug */,
+				E1800BC52D80756900D69370 /* CodeCoverage */,
+				E1800BC62D80756900D69370 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

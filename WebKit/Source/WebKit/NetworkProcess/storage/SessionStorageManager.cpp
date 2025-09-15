@@ -28,6 +28,7 @@
 
 #include "MemoryStorageArea.h"
 #include "StorageAreaRegistry.h"
+#include <algorithm>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebKit {
@@ -41,14 +42,14 @@ SessionStorageManager::SessionStorageManager(StorageAreaRegistry& registry)
 
 bool SessionStorageManager::isActive() const
 {
-    return WTF::anyOf(m_storageAreas.values(), [&] (auto& storageArea) {
+    return std::ranges::any_of(m_storageAreas.values(), [&](auto& storageArea) {
         return storageArea->hasListeners();
     });
 }
 
 bool SessionStorageManager::hasDataInMemory() const
 {
-    return WTF::anyOf(m_storageAreas.values(), [&] (auto& storageArea) {
+    return std::ranges::any_of(m_storageAreas.values(), [&](auto& storageArea) {
         return !storageArea->isEmpty();
     });
 }

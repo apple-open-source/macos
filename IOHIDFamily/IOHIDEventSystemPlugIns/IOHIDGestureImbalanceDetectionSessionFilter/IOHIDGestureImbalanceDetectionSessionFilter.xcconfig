@@ -1,0 +1,7 @@
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/SessionFilters
+
+PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOHIDGestureImbalanceDetectionSessionFilter
+
+INFOPLIST_FILE = IOHIDEventSystemPlugIns/IOHIDGestureImbalanceDetectionSessionFilter/Info.plist
+
+SKIP_INSTALL = YES

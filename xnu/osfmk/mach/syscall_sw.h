@@ -147,6 +147,9 @@ kernel_trap(swtch,-60,0)
 
 kernel_trap(syscall_thread_switch,-61,3)
 kernel_trap(clock_sleep_trap,-62,5)
+#if defined(__LP64__)
+kernel_trap(mach_vm_reclaim_update_kernel_accounting_trap,-63,2)
+#endif /* __LP64__ */
 
 /* voucher traps */
 kernel_trap(host_create_mach_voucher_trap,-70,4)

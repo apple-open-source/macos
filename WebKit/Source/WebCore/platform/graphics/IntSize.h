@@ -103,6 +103,19 @@ public:
         this->scale(scale, scale);
     }
 
+    constexpr IntSize scaled(float widthScale, float heightScale) const
+    {
+        return {
+            static_cast<int>(static_cast<float>(m_width) * widthScale),
+            static_cast<int>(static_cast<float>(m_height) * heightScale)
+        };
+    }
+
+    constexpr IntSize scaled(float s) const
+    {
+        return scaled(s, s);
+    }
+
     constexpr IntSize expandedTo(const IntSize& other) const
     {
         return IntSize(std::max(m_width, other.m_width), std::max(m_height, other.m_height));

@@ -74,6 +74,7 @@ static dispatch_queue_t _mutabilityQueue = nil;
 static keybag_state_t _keybag_state = keybag_state_unlocked | keybag_state_been_unlocked;
 static NSMutableArray<NSError *>* _decryptRefKeyErrors = nil;
 static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, posnum: decrement and be locked
+static bool _cacheFlowEnabled = false;
 
 /*
  * Method that limit where this rather in-secure version of AKS can run
@@ -260,6 +261,17 @@ static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, 
     --_operationsUntilUnlock;
 }
 
++ (void)enableCacheFlow {
+    _cacheFlowEnabled = true;
+}
+
++ (void)resetCacheFlow {
+    _cacheFlowEnabled = false;
+}
+
++ (bool)cacheFlowEnabled {
+    return _cacheFlowEnabled;
+}
 
 @end
 
@@ -384,7 +396,7 @@ aks_wrap_key(const void * key, int key_size, keyclass_t key_class, keybag_handle
             abort();
         }
     } else {
-        if (APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN > *wrapped_key_size_inout) {
+        if (AKS_WRAP_KEY_MAX_WRAPPED_KEY_LEN > *wrapped_key_size_inout) {
             abort();
         }
     }
@@ -1056,11 +1068,26 @@ aks_dealloc(void *ptr, size_t size)
     free(ptr);
 }
 
+kern_return_t
+aks_enable_cache_flow(keybag_handle_t handle)
+{
+    [SecMockAKS enableCacheFlow];
+    return kAKSReturnSuccess;
+}
+
 CFStringRef kMKBDeviceModeMultiUser = CFSTR("kMKBDeviceModeMultiUser");
 CFStringRef kMKBDeviceModeSingleUser = CFSTR("kMKBDeviceModeSingleUser");
 CFStringRef kMKBDeviceModeKey = CFSTR("kMKBDeviceModeKey");
+const CFTypeRef kAKSConfigPasscodeGeneration = CFSTR("PasscodeGeneration");
 
 static CFStringRef staticKeybagHandle = CFSTR("keybagHandle");
+
+CF_RETURNS_RETAINED CFDictionaryRef
+MKBGetDeviceConfigurations(CFDictionaryRef options){
+    return CFBridgingRetain(@{
+        (__bridge NSString *)kAKSConfigPasscodeGeneration : @(1),
+    });
+}
 
 int
 MKBKeyBagCreateWithData(CFDataRef keybagBlob, MKBKeyBagHandleRef* newHandle)

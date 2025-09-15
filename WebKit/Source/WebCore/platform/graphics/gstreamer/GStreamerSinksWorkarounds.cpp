@@ -30,6 +30,7 @@
 #include <mutex>
 #include <wtf/PrintStream.h>
 #include <wtf/glib/GRefPtr.h>
+#include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/WTFGType.h>
 
 GST_DEBUG_CATEGORY(webkit_workarounds_debug);

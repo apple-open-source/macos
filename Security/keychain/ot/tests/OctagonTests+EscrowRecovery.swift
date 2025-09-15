@@ -1299,7 +1299,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         XCTAssertNotNil(bottleToExclude, "bottleToExclude should not be nil")
 
         // now call fetchviablebottles, we should get the uncached version
-        var fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+        let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { _ in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
@@ -1307,7 +1307,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
             return nil
         }
         self.fakeCuttlefishServer.fetchViableBottlesDontReturnBottleWithID = bottleToExclude
-        var FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
+        let FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
 
         self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
@@ -1318,26 +1318,26 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
 
         // now call fetchviablebottles, we should get the cached version
-        fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch cached ViableBottles")
-        fetchUnCachedViableBottlesExpectation.isInverted = true
+        let fetchUnCachedViableBottlesExpectation2 = self.expectation(description: "fetch cached ViableBottles")
+        fetchUnCachedViableBottlesExpectation2.isInverted = true
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { _ in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
-            fetchUnCachedViableBottlesExpectation.fulfill()
+            fetchUnCachedViableBottlesExpectation2.fulfill()
             return nil
         }
 
         self.fakeCuttlefishServer.fetchViableBottlesDontReturnBottleWithID = bottleToExclude
 
-        FetchAllViableBottles = self.expectation(description: "FetchAllViableBottles callback occurs")
+        let FetchAllViableBottles2 = self.expectation(description: "FetchAllViableBottles callback occurs")
 
         self.cuttlefishContext.rpcFetchAllViableBottles(from: .default) { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
-            FetchAllViableBottles.fulfill()
+            FetchAllViableBottles2.fulfill()
         }
-        self.wait(for: [FetchAllViableBottles], timeout: 10)
-        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 1)
+        self.wait(for: [FetchAllViableBottles2], timeout: 10)
+        self.wait(for: [fetchUnCachedViableBottlesExpectation2], timeout: 1)
     }
 
     func testRecoverTLKSharesSendByPeers() throws {

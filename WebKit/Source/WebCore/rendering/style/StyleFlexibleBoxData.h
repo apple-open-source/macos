@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All Rights Reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Length.h"
+#include "StyleFlexBasis.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
@@ -50,7 +50,7 @@ public:
 
     float flexGrow;
     float flexShrink;
-    Length flexBasis;
+    Style::FlexBasis flexBasis;
 
     unsigned flexDirection : 2; // FlexDirection
     unsigned flexWrap : 2; // FlexWrap

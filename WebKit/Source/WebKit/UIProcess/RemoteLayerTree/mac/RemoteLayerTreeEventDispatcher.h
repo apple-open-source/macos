@@ -81,7 +81,7 @@ public:
     
     void cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent&);
 
-    void handleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    void handleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
     void wheelEventHandlingCompleted(const WebCore::PlatformWheelEvent&, std::optional<WebCore::ScrollingNodeID>, std::optional<WebCore::WheelScrollGestureState>, bool wasHandled);
 
     void setScrollingTree(RefPtr<RemoteScrollingTree>&&);
@@ -105,14 +105,12 @@ public:
 #endif
 
 private:
-    OptionSet<WebCore::WheelEventProcessingSteps> determineWheelEventProcessing(const WebCore::PlatformWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    OptionSet<WebCore::WheelEventProcessingSteps> determineWheelEventProcessing(const WebCore::PlatformWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
 
-    void scrollingThreadHandleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    void scrollingThreadHandleWheelEvent(const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
     WebCore::WheelEventHandlingResult internalHandleWheelEvent(const WebCore::PlatformWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>);
 
     WebCore::PlatformWheelEvent filteredWheelEvent(const WebCore::PlatformWheelEvent&);
-
-    RemoteScrollingCoordinatorProxyMac* scrollingCoordinator() const { return m_scrollingCoordinator.get(); }
 
     void wheelEventHysteresisUpdated(PAL::HysteresisState);
 
@@ -123,6 +121,7 @@ private:
     DisplayLink* displayLink() const;
     DisplayLink* existingDisplayLink() const;
     RemoteLayerTreeDrawingAreaProxyMac& drawingAreaMac() const;
+    Ref<RemoteLayerTreeDrawingAreaProxyMac> protectedDrawingAreaMac() const;
 
     void startDisplayLinkObserver();
     void stopDisplayLinkObserver();
@@ -146,7 +145,7 @@ private:
     void didStartRubberbanding();
 
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER)
-    void handleSyntheticWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<bool> rubberBandableEdges);
+    void handleSyntheticWheelEvent(WebCore::PageIdentifier, const WebWheelEvent&, WebCore::RectEdges<WebCore::RubberBandingBehavior> rubberBandableEdges);
     void startDisplayDidRefreshCallbacks(WebCore::PlatformDisplayID);
     void stopDisplayDidRefreshCallbacks(WebCore::PlatformDisplayID);
 #if ENABLE(MOMENTUM_EVENT_DISPATCHER_TEMPORARY_LOGGING)
@@ -156,12 +155,14 @@ private:
 
     RefPtr<RemoteScrollingTree> scrollingTree();
 
+    CheckedPtr<RemoteLayerTreeEventDispatcherDisplayLinkClient> checkedDisplayLinkClient();
+
     Lock m_scrollingTreeLock;
     RefPtr<RemoteScrollingTree> m_scrollingTree WTF_GUARDED_BY_LOCK(m_scrollingTreeLock);
 
     Deque<WebWheelEvent, 2> m_wheelEventsBeingProcessed; // FIXME: Remove
 
-    WeakPtr<RemoteScrollingCoordinatorProxyMac> m_scrollingCoordinator;
+    const WeakPtr<RemoteScrollingCoordinatorProxyMac> m_scrollingCoordinator;
     WebCore::PageIdentifier m_pageIdentifier;
 
     std::unique_ptr<WebCore::WheelEventDeltaFilter> m_wheelEventDeltaFilter;

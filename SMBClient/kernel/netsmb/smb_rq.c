@@ -265,7 +265,15 @@ smb_rq_done(struct smb_rq *rqp)
 {
 	struct mbchain *mbp; 
     struct mdchain *mdp;
-	
+    struct timespec ts = {.tv_sec = 1, .tv_nsec = 0};
+
+    SMBRQ_SLOCK(rqp);
+    while ((rqp->sr_flags & SMBR_BUSY)) {
+        rqp->sr_flags |= SMBR_BUSY_WANT;
+        msleep(&rqp->sr_flags, &rqp->sr_slock, 0, "SMBR_BUSY_WANT", &ts);
+    }
+    SMBRQ_SUNLOCK(rqp);
+
     if (rqp->sr_flags & SMBR_ENQUEUED) {
         /* Should never happen but let us know if it does */
         SMBERROR("DANGER: rqp is still queued??? sr_flags 0x%x, sr_extflags 0x%x, cmd %d",

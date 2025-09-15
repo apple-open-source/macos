@@ -41,6 +41,7 @@
 #include <string.h>
 #include "symbol_scope.h"
 #include "DHCPv6.h"
+#include "DNSEncryptedServers.h"
 
 typedef uint16_t DHCPv6OptionLength;
 
@@ -75,6 +76,7 @@ typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
     kDHCPv6OPTION_POSIX_TIMEZONE	= 41,
     kDHCPv6OPTION_TZDB_TIMEZONE		= 42,
     kDHCPv6OPTION_CAPTIVE_PORTAL_URL	= 103,
+    kDHCPv6OPTION_V6_DNR		= 144,
 };
 
 typedef struct {
@@ -136,7 +138,8 @@ typedef CF_ENUM(uint32_t, DHCPv6OptionType) {
     kDHCPv6OptionTypeString = 10,
     kDHCPv6OptionTypeIA_PD = 11,
     kDHCPv6OptionTypeIAPREFIX = 12,
-    kDHCPv6OptionTypeClientFQDN = 13,
+    kDHCPv6OptionTypeDNSEncryptedServer = 13,
+    kDHCPv6OptionTypeClientFQDN = 14,
 };
 
 DHCPv6OptionType
@@ -219,8 +222,10 @@ DHCPv6OptionListRelease(DHCPv6OptionListRef * dhcpol_p);
 
 const uint8_t *
 DHCPv6OptionListGetOptionDataAndLength(DHCPv6OptionListRef options,
-				       DHCPv6OptionCode option_code, int * ret_length,
+				       DHCPv6OptionCode option_code,
+				       int * ret_length,
 				       int * start_index);
+
 void
 DHCPv6OptionListFPrint(FILE * file, DHCPv6OptionListRef options);
 
@@ -527,6 +532,13 @@ typedef struct {
 #define DHCPv6OptionPREFERENCE_MIN_LENGTH	1
 #define kDHCPv6OptionPREFERENCEMinValue		0
 #define kDHCPv6OptionPREFERENCEMaxValue		255
+
+/**
+ ** DNR option
+ **/
+
+CFArrayRef
+DHCPv6OptionDNRCopyAllDNSEncryptedServers(DHCPv6OptionListRef options);
 
 /**
  ** DHCPv6ClientFQDN option

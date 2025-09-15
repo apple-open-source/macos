@@ -30,7 +30,11 @@
 
 #define FILENAME_BUFFER 1024
 
+#if defined (APPLE_XCODE_BUILD) // rdar://145099448
+#define TDSRCPATH  U_FILE_SEP_STRING
+#else
 #define TDSRCPATH  ".." U_FILE_SEP_STRING "test" U_FILE_SEP_STRING "testdata" U_FILE_SEP_STRING
+#endif
 
 static void TestSelector(void);
 static void TestUPropsVector(void);

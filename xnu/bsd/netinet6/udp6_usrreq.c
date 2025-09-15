@@ -224,9 +224,7 @@ udp6_append(struct inpcb *last, struct ip6_hdr *ip6,
 	m_adj(n, off);
 	if (nstat_collect) {
 		stats_functional_type ifnet_count_type = IFNET_COUNT_TYPE(ifp);
-		INP_ADD_STAT(last, ifnet_count_type, rxpackets, 1);
-		INP_ADD_STAT(last, ifnet_count_type, rxbytes, n->m_pkthdr.len);
-		inp_set_activity_bitmap(last);
+		INP_ADD_RXSTAT(last, ifnet_count_type, 1, n->m_pkthdr.len);
 	}
 	so_recv_data_stat(last->in6p_socket, n, 0);
 	if (sbappendaddr(&last->in6p_socket->so_rcv,
@@ -250,7 +248,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	struct  mbuf *__single opts = NULL;
 	int off = *offp;
 	int plen, ulen, ret = 0;
-	stats_functional_type ifnet_count_type = stats_functional_type_none;
+	stats_functional_type ifnet_count_type = stats_functional_type_unclassified;
 	struct sockaddr_in6 udp_in6;
 	struct inpcbinfo *__single pcbinfo = &udbinfo;
 	struct sockaddr_in6 fromsa;
@@ -289,7 +287,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	/* destination port of 0 is illegal, based on RFC768. */
 	if (uh->uh_dport == 0) {
 		IF_UDP_STATINC(ifp, port0);
-		drop_reason = DROP_REASON_IP_ILLEGAL_PORT;
+		drop_reason = DROP_REASON_IP6_ILLEGAL_PORT;
 		goto bad;
 	}
 
@@ -297,7 +295,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	 * Checksum extended UDP header and data.
 	 */
 	if (udp6_input_checksum(m, uh, off, ulen)) {
-		drop_reason = DROP_REASON_IP_BAD_CHECKSUM;
+		drop_reason = DROP_REASON_IP6_BAD_UDP_CHECKSUM;
 		goto bad;
 	}
 
@@ -546,6 +544,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 				if ((m = m_pullup(m, off + sizeof(struct udphdr) +
 				    payload_len)) == NULL) {
 					udpstat.udps_hdrops++;
+					drop_reason = DROP_REASON_UDP_PACKET_SHORTER_THAN_HEADER;
 					goto bad;
 				}
 				/*
@@ -560,6 +559,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 			/* Check for NAT keepalive packet */
 			if (payload_len == 1 && *(u_int8_t*)
 			    ((caddr_t)uh + sizeof(struct udphdr)) == 0xFF) {
+				drop_reason = DROP_REASON_UDP_PACKET_SHORTER_THAN_HEADER;
 				goto bad;
 			} else if (payload_len == 4 && *(u_int32_t*)(void *)
 			    ((caddr_t)uh + sizeof(struct udphdr)) != 0) {
@@ -632,6 +632,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	if (in_pcb_checkstate(in6p, WNT_RELEASE, 1) == WNT_STOPUSING) {
 		udp_unlock(in6p->in6p_socket, 1, 0);
 		IF_UDP_STATINC(ifp, cleanup);
+		drop_reason = DROP_REASON_UDP_PCB_GARBAGE_COLLECTED;
 		goto bad;
 	}
 
@@ -651,9 +652,7 @@ udp6_input(struct mbuf **mp, int *offp, int proto)
 	m_adj(m, off + sizeof(struct udphdr));
 	if (nstat_collect) {
 		ifnet_count_type = IFNET_COUNT_TYPE(ifp);
-		INP_ADD_STAT(in6p, ifnet_count_type, rxpackets, 1);
-		INP_ADD_STAT(in6p, ifnet_count_type, rxbytes, m->m_pkthdr.len);
-		inp_set_activity_bitmap(in6p);
+		INP_ADD_RXSTAT(in6p, ifnet_count_type, 1, m->m_pkthdr.len);
 	}
 	so_recv_data_stat(in6p->in6p_socket, m, 0);
 	if (sbappendaddr(&in6p->in6p_socket->so_rcv,

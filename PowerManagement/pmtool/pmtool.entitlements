@@ -26,5 +26,17 @@
 		<string>AppleSmartBatteryManagerUserClient</string>
 		<string>IOReportUserClient</string>
 	</array>
+	<key>com.apple.private.power.notifications</key>
+	<true/>
+	<key>com.apple.private.iokit.assertion-softwareupdate</key>
+	<true/>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.powerd.extendedbattery</string>
+	</array>
+	<key>com.apple.powerd.extendedbattery</key>
+	<true/>
+	<key>com.apple.powerd.extendedbattery.setInfo</key>
+	<true/>
 </dict>
 </plist>

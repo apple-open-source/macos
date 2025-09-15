@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -66,8 +66,8 @@ WebInspector::WebInspector(WebPage& page)
 
 WebInspector::~WebInspector()
 {
-    if (m_frontendConnection)
-        m_frontendConnection->invalidate();
+    if (RefPtr frontendConnection = m_frontendConnection)
+        frontendConnection->invalidate();
 }
 
 WebPage* WebInspector::page() const
@@ -77,36 +77,35 @@ WebPage* WebInspector::page() const
 
 void WebInspector::openLocalInspectorFrontend()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::RequestOpenLocalInspectorFrontend(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::RequestOpenLocalInspectorFrontend(), m_page->identifier());
 }
 
 void WebInspector::setFrontendConnection(IPC::Connection::Handle&& connectionHandle)
 {
     // We might receive multiple updates if this web process got swapped into a WebPageProxy
     // shortly after another process established the connection.
-    if (m_frontendConnection) {
-        m_frontendConnection->invalidate();
-        m_frontendConnection = nullptr;
-    }
+    if (RefPtr frontendConnection = std::exchange(m_frontendConnection, nullptr))
+        frontendConnection->invalidate();
 
     if (!connectionHandle)
         return;
 
-    m_frontendConnection = IPC::Connection::createClientConnection(IPC::Connection::Identifier { WTFMove(connectionHandle) });
-    m_frontendConnection->open(*this);
+    Ref frontendConnection = IPC::Connection::createClientConnection(IPC::Connection::Identifier { WTFMove(connectionHandle) });
+    m_frontendConnection = frontendConnection.copyRef();
+    frontendConnection->open(*this);
 
     for (auto& callback : m_frontendConnectionActions)
-        callback();
+        callback(frontendConnection.get());
     m_frontendConnectionActions.clear();
 }
 
 void WebInspector::closeFrontendConnection()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::DidClose(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::DidClose(), m_page->identifier());
 
     // If we tried to close the frontend before it was created, then no connection exists yet.
-    if (m_frontendConnection) {
-        m_frontendConnection->invalidate();
+    if (RefPtr frontendConnection = m_frontendConnection) {
+        frontendConnection->invalidate();
         m_frontendConnection = nullptr;
     }
 
@@ -118,13 +117,13 @@ void WebInspector::closeFrontendConnection()
 
 void WebInspector::bringToFront()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::BringToFront(), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::BringToFront(), m_page->identifier());
 }
 
-void WebInspector::whenFrontendConnectionEstablished(Function<void()>&& callback)
+void WebInspector::whenFrontendConnectionEstablished(Function<void(IPC::Connection&)>&& callback)
 {
-    if (m_frontendConnection) {
-        callback();
+    if (RefPtr connection = m_frontendConnection) {
+        callback(*connection);
         return;
     }
 
@@ -166,8 +165,8 @@ void WebInspector::showConsole()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::ShowConsole(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::ShowConsole(), 0);
     });
 }
 
@@ -176,24 +175,24 @@ void WebInspector::showResources()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::ShowResources(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::ShowResources(), 0);
     });
 }
 
 void WebInspector::showMainResourceForFrame(WebCore::FrameIdentifier frameIdentifier)
 {
-    WebFrame* frame = WebProcess::singleton().webFrame(frameIdentifier);
+    RefPtr frame = WebProcess::singleton().webFrame(frameIdentifier);
     if (!frame)
         return;
 
     if (!m_page->corePage())
         return;
 
-    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().ensurePageAgent().frameId(frame->coreLocalFrame());
+    String inspectorFrameIdentifier = m_page->corePage()->inspectorController().ensurePageAgent().frameId(frame->protectedCoreLocalFrame().get());
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::ShowMainResourceForFrame(inspectorFrameIdentifier), 0);
+    whenFrontendConnectionEstablished([inspectorFrameIdentifier](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::ShowMainResourceForFrame(inspectorFrameIdentifier), 0);
     });
 }
 
@@ -202,8 +201,8 @@ void WebInspector::startPageProfiling()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::StartPageProfiling(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::StartPageProfiling(), 0);
     });
 }
 
@@ -212,8 +211,8 @@ void WebInspector::stopPageProfiling()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::StopPageProfiling(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::StopPageProfiling(), 0);
     });
 }
 
@@ -222,8 +221,8 @@ void WebInspector::startElementSelection()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::StartElementSelection(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::StartElementSelection(), 0);
     });
 }
 
@@ -232,31 +231,31 @@ void WebInspector::stopElementSelection()
     if (!m_page->corePage())
         return;
 
-    whenFrontendConnectionEstablished([=, this] {
-        m_frontendConnection->send(Messages::WebInspectorUI::StopElementSelection(), 0);
+    whenFrontendConnectionEstablished([](auto& frontendConnection) {
+        frontendConnection.send(Messages::WebInspectorUI::StopElementSelection(), 0);
     });
 }
 
 void WebInspector::elementSelectionChanged(bool active)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::ElementSelectionChanged(active), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::ElementSelectionChanged(active), m_page->identifier());
 }
 
 void WebInspector::timelineRecordingChanged(bool active)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::TimelineRecordingChanged(active), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::TimelineRecordingChanged(active), m_page->identifier());
 }
 
-void WebInspector::setDeveloperPreferenceOverride(InspectorClient::DeveloperPreference developerPreference, std::optional<bool> overrideValue)
+void WebInspector::setDeveloperPreferenceOverride(InspectorBackendClient::DeveloperPreference developerPreference, std::optional<bool> overrideValue)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::SetDeveloperPreferenceOverride(developerPreference, overrideValue), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::SetDeveloperPreferenceOverride(developerPreference, overrideValue), m_page->identifier());
 }
 
 #if ENABLE(INSPECTOR_NETWORK_THROTTLING)
 
 void WebInspector::setEmulatedConditions(std::optional<int64_t>&& bytesPerSecondLimit)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::SetEmulatedConditions(WTFMove(bytesPerSecondLimit)), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::SetEmulatedConditions(WTFMove(bytesPerSecondLimit)), m_page->identifier());
 }
 
 #endif // ENABLE(INSPECTOR_NETWORK_THROTTLING)
@@ -277,11 +276,11 @@ bool WebInspector::canAttachWindow()
         return true;
 
     // Don't allow the attach if the window would be too small to accommodate the minimum inspector size.
-    RefPtr localMainFrame = m_page->localMainFrame();
+    RefPtr localMainFrame = RefPtr { m_page.get() }->localMainFrame();
     if (!localMainFrame)
         return false;
-    unsigned inspectedPageHeight = localMainFrame->view()->visibleHeight();
-    unsigned inspectedPageWidth = localMainFrame->view()->visibleWidth();
+    unsigned inspectedPageHeight = localMainFrame->protectedView()->visibleHeight();
+    unsigned inspectedPageWidth = localMainFrame->protectedView()->visibleWidth();
     unsigned maximumAttachedHeight = inspectedPageHeight * maximumAttachedHeightRatio;
     return minimumAttachedHeight <= maximumAttachedHeight && minimumAttachedWidth <= inspectedPageWidth;
 }
@@ -297,7 +296,7 @@ void WebInspector::updateDockingAvailability()
 
     m_previousCanAttach = canAttachWindow;
 
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorUIProxy::AttachAvailabilityChanged(canAttachWindow), m_page->identifier());
+    WebProcess::singleton().protectedParentProcessConnection()->send(Messages::WebInspectorUIProxy::AttachAvailabilityChanged(canAttachWindow), m_page->identifier());
 }
 
 } // namespace WebKit

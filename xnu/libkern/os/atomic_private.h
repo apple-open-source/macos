@@ -36,7 +36,7 @@
  * This file defines nicer (terser and safer) wrappers for C11's <stdatomic.h>.
  *
  * @discussion
- * @see xnu.git::doc/atomics.md which provides more extensive documentation
+ * @see xnu.git::doc/primitives/atomics.md which provides more extensive documentation
  * about this header.
  *
  * Note that some of the macros defined in this file may be overridden by
@@ -49,7 +49,7 @@
  *
  * - the os_atomic-specific `dependency` memory ordering that is used to
  *   document intent to a carry a data or address dependency.
- *   See doc/atomics.md for more information.
+ *   See doc/primitives/atomics.md for more information.
  *
  * - a compiler barrier: compiler_acquire, compiler_release, compiler_acq_rel
  *   without a corresponding memory fence.

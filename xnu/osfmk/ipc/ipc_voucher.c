@@ -40,8 +40,6 @@
 #include <kern/zalloc.h>
 #include <kern/smr_hash.h>
 
-#include <libkern/OSAtomic.h>
-
 #include <mach/mach_voucher_server.h>
 #include <mach/mach_host_server.h>
 #include <voucher/ipc_pthread_priority_types.h>
@@ -58,6 +56,7 @@ ZONE_DEFINE_ID(ZONE_ID_IPC_VOUCHERS, "ipc vouchers", struct ipc_voucher,
 static void ipc_voucher_no_senders(ipc_port_t, mach_port_mscount_t);
 
 IPC_KOBJECT_DEFINE(IKOT_VOUCHER,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = ipc_voucher_no_senders);
 
@@ -278,7 +277,8 @@ iv_dealloc(ipc_voucher_t iv, bool unhash)
 	 */
 	if (IP_VALID(port)) {
 		assert(port->ip_srights == 0);
-		ipc_kobject_dealloc_port(port, 0, IKOT_VOUCHER);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    IKOT_VOUCHER);
 		iv->iv_port = MACH_PORT_NULL;
 	}
 
@@ -353,7 +353,7 @@ ipc_voucher_t
 convert_port_to_voucher(
 	ipc_port_t      port)
 {
-	if (IP_VALID(port) && ip_kotype(port) == IKOT_VOUCHER) {
+	if (IP_VALID(port) && ip_type(port) == IKOT_VOUCHER) {
 		/*
 		 * No need to lock because we have a reference on the
 		 * port, and if it is a true voucher port, that reference
@@ -426,7 +426,7 @@ ipc_voucher_no_senders(ipc_port_t port, __unused mach_port_mscount_t mscount)
 {
 	ipc_voucher_t voucher = ip_get_voucher(port);
 
-	assert(IKOT_VOUCHER == ip_kotype(port));
+	assert(ip_type(port) == IKOT_VOUCHER);
 
 	/* consume the reference donated by convert_voucher_to_port */
 	ipc_voucher_release(voucher);
@@ -450,7 +450,7 @@ convert_voucher_to_port(ipc_voucher_t voucher)
 	 * if this is the first send right
 	 */
 	if (!ipc_kobject_make_send_lazy_alloc_port(&voucher->iv_port,
-	    voucher, IKOT_VOUCHER, IPC_KOBJECT_ALLOC_NONE)) {
+	    voucher, IKOT_VOUCHER)) {
 		ipc_voucher_release(voucher);
 	}
 	return voucher->iv_port;
@@ -1891,7 +1891,7 @@ mach_voucher_debug_info(
 	kern_return_t kr;
 	ipc_port_t port = MACH_PORT_NULL;
 
-	if (space == IS_NULL) {
+	if (space == NULL) {
 		return KERN_INVALID_TASK;
 	}
 
@@ -2316,9 +2316,6 @@ ipc_voucher_prepare_processing_recipe(
  */
 uint64_t voucher_activity_id;
 
-#define generate_activity_id(x) \
-	((uint64_t)OSAddAtomic64((x), (int64_t *)&voucher_activity_id))
-
 /*
  *	Routine:	mach_init_activity_id
  *	Purpose:
@@ -2346,7 +2343,8 @@ mach_generate_activity_id(
 		return KERN_INVALID_ARGUMENT;
 	}
 
-	activity_id = generate_activity_id(args->count);
+	activity_id = os_atomic_add_orig(&voucher_activity_id,
+	    args->count, relaxed);
 	kr = copyout(&activity_id, args->activity_id, sizeof(activity_id));
 
 	return kr;

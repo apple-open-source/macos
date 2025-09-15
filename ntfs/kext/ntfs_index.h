@@ -381,7 +381,7 @@ __private_extern__ errno_t ntfs_index_move_root_to_allocation_block(
 __private_extern__ int ntfs_index_entry_delete(ntfs_index_context *ictx);
 
 __private_extern__ errno_t ntfs_index_entry_add_or_node_split(
-		ntfs_index_context *ictx, const BOOL split_only,
+		ntfs_index_context *ictx, const NTFS_BOOL split_only,
 		u32 entry_size, const void *key, const u32 key_len,
 		const void *data, const u32 data_len);
 

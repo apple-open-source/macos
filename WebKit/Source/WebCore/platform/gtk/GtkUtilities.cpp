@@ -121,25 +121,6 @@ unsigned widgetKeyvalToKeycode(GtkWidget* widget, unsigned keyval)
     return keycode;
 }
 
-template<>
-WallTime wallTimeForEvent(const GdkEvent* event)
-{
-    // This works if and only if the X server or Wayland compositor happens to
-    // be using CLOCK_MONOTONIC for its monotonic time, and so long as
-    // g_get_monotonic_time() continues to do so as well, and so long as
-    // MonotonicTime continues to use g_get_monotonic_time().
-#if USE(GTK4)
-    if (!event)
-        return WallTime::now();
-    auto time = gdk_event_get_time(const_cast<GdkEvent*>(event));
-#else
-    auto time = gdk_event_get_time(event);
-#endif
-    if (time == GDK_CURRENT_TIME)
-        return WallTime::now();
-    return MonotonicTime::fromRawSeconds(time / 1000.).approximateWallTime();
-}
-
 unsigned stateModifierForGdkButton(unsigned button)
 {
     return 1 << (8 + button - 1);

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,6 @@
 #include "dnssd_ipc.h"
 #include "ClientRequests.h"
 #include "general.h"
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-#include <mdns/audit_token.h>
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-#include "mdns_trust.h"
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-#include "signed_result.h"
-#endif
 
 /* Client request: */
 
@@ -51,9 +42,6 @@ typedef void (*req_termination_fn)(request_state *request);
 
 typedef struct registered_record_entry
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    uint64_t powerlog_start_time;
-#endif
     struct registered_record_entry *next;
     request_state *request;
     AuthRecord *rr;             // Pointer to variable-sized AuthRecord (Why a pointer? Why not just embed it here?)
@@ -168,40 +156,20 @@ typedef struct
 } request_port_mapping;
 mdns_compile_time_max_size_check(request_port_mapping, 208);
 
-#if MDNSRESPONDER_SUPPORTS(APPLE, PADDING_CHECKS)
-// The member variables of struct request_state are in descending order of alignment requirement to eliminate
-// padding between member variables. That is, member variables with an 8-byte alignment requirement come first, followed
-// by member variables with a 4-byte alignment requirement, and so forth.
-MDNS_CLANG_TREAT_WARNING_AS_ERROR_BEGIN(-Wpadded)
-#endif
 struct request_state
 {
-#if MDNSRESPONDER_SUPPORTS(APPLE, QUERIER)
-    mdns_dns_service_id_t custom_service_id;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, POWERLOG_MDNS_REQUESTS)
-    uint64_t powerlog_start_time;
-#endif
     request_state *next;            // For a shared connection, the next element in the list of subordinate
                                     // requests on that connection. Otherwise null.
     request_state *primary;         // For a subordinate request, the request that represents the shared
                                     // connection to which this request is subordinate (must have been created
                                     // by DNSServiceCreateConnection().
-#if MDNSRESPONDER_SUPPORTS(APPLE, AUDIT_TOKEN)
-    mdns_audit_token_t peer_token;  // The immediate client's audit token.
-#endif
     void * platform_data;
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRUST_ENFORCEMENT)
-    CFMutableArrayRef trusts;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    mdns_signed_result_t signed_obj;
-#endif
-    size_t data_bytes;              // bytes of message data already read [1]
-    uint8_t       *msgbuf;          // pointer to data storage to pass to free() [1]
-    const uint8_t *msgptr;          // pointer to data to be read from (may be modified) [1]
-    const uint8_t *msgend;          // pointer to byte after last byte of message [1]
-    struct reply_state *replies;    // corresponding (active) reply list
+    size_t data_bytes;                 // bytes of message data already read [1]
+    uint8_t       *msgbuf;             // pointer to data storage to pass to free() [1]
+    const uint8_t *msgptr;             // pointer to data to be read from (may be modified) [1]
+    const uint8_t *msgend;             // pointer to byte after last byte of message [1]
+    struct reply_state *replies;       // corresponding (active) reply list
+    struct reply_state **replies_tail; // Reply list tail.
     req_termination_fn terminate;
     request_enumeration *enumeration;
     request_servicereg *servicereg;
@@ -226,24 +194,11 @@ struct request_state
     char pid_name[MAXCOMLEN];       // The effective client's process name.
     mDNSu8 uuid[UUID_SIZE];
     mDNSBool validUUID;
-#if MDNSRESPONDER_SUPPORTS(APPLE, TRACKER_DEBUGGING)
-    mDNSBool addTrackerInfo;
-#endif
-#if MDNSRESPONDER_SUPPORTS(APPLE, SIGNED_RESULTS)
-    mDNSBool sign_result;
-#endif
     transfer_state ts;              // [1]
     mDNSBool no_reply;              // don't send asynchronous replies to client
     mDNSu8 unresponsiveness_reports;
-#if MDNSRESPONDER_SUPPORTS(APPLE, PADDING_CHECKS)
-    MDNS_STRUCT_PAD_64_32(2, 6);
-#endif
 };
-#if MDNSRESPONDER_SUPPORTS(APPLE, PADDING_CHECKS)
-MDNS_CLANG_TREAT_WARNING_AS_ERROR_END()
-MDNS_GENERAL_STRUCT_PAD_CHECK(struct request_state);
-#endif
-mdns_compile_time_max_size_check(struct request_state, 288);
+mdns_compile_time_max_size_check(struct request_state, 296);
 
 // Notes:
 // 1. On a shared connection these fields in the primary structure, including hdr, are re-used

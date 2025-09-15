@@ -34,6 +34,7 @@
 #include "DeprecatedGlobalSettings.h"
 #include "Logging.h"
 #include "PlatformMediaSessionManager.h"
+#include <algorithm>
 
 namespace WebCore {
 
@@ -79,7 +80,7 @@ void BaseAudioSharedUnit::clearClients()
     m_audioThreadClients.clear();
 }
 
-void BaseAudioSharedUnit::forEachClient(const Function<void(CoreAudioCaptureSource&)>& apply) const
+void BaseAudioSharedUnit::forEachClient(NOESCAPE const Function<void(CoreAudioCaptureSource&)>& apply) const
 {
     ASSERT(isMainThread());
     m_clients.forEach(apply);
@@ -90,6 +91,7 @@ const static OSStatus lowPriorityError2 = 561017449;
 void BaseAudioSharedUnit::startProducingData()
 {
     ASSERT(isMainThread());
+    ASSERT(m_isAllowedToStart);
 
     if (m_suspended)
         resume();
@@ -111,7 +113,7 @@ void BaseAudioSharedUnit::startProducingData()
 
 void BaseAudioSharedUnit::continueStartProducingData()
 {
-    if (!m_producingCount)
+    if (!m_producingCount || m_clients.isEmptyIgnoringNullReferences())
         return;
 
     if (isProducingData())
@@ -189,7 +191,7 @@ void BaseAudioSharedUnit::devicesChanged()
     if (persistentID.isEmpty())
         return;
 
-    if (WTF::anyOf(devices, [&persistentID] (auto& device) { return persistentID == device.persistentId(); })) {
+    if (std::ranges::any_of(devices, [&persistentID](auto& device) { return persistentID == device.persistentId(); })) {
         validateOutputDevice(m_outputDeviceID);
         return;
     }
@@ -221,7 +223,20 @@ void BaseAudioSharedUnit::stopProducingData()
 {
     ASSERT(isMainThread());
     ASSERT(m_producingCount);
+#if PLATFORM(MAC)
+    if (!m_suspended) {
+        prewarmAudioUnitCreation([weakThis = WeakPtr { *this }] {
+            if (RefPtr protectedThis = weakThis.get())
+                protectedThis->continueStopProducingData();
+        });
+        return;
+    }
+#endif
+    continueStopProducingData();
+}
 
+void BaseAudioSharedUnit::continueStopProducingData()
+{
     if (m_producingCount && --m_producingCount)
         return;
 
@@ -309,7 +324,7 @@ OSStatus BaseAudioSharedUnit::suspend()
         client.setMuted(true);
     });
 
-    ASSERT(!m_producingCount);
+    m_producingCount = 0;
 
     return 0;
 }

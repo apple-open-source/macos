@@ -79,6 +79,26 @@ uint64_t AbsoluteToMicroseconds(uint64_t t) {
 	return t * f;
 }
 
+int
+_process_prl(ODRecordRef record, pam_handle_t * pamh, const char * user)
+{
+    CFErrorRef error = NULL;
+    int retval = od_record_check_pwpolicy(record, &error);
+    if (retval == PAM_APPLE_ACCT_LOCKED || retval == PAM_APPLE_ACCT_TEMP_LOCK) {
+        /* check user password policy */
+        NSNumber *timeRemaining = ((__bridge NSError *)error).userInfo[kODBackOffSeconds];
+        if (timeRemaining && ([timeRemaining isKindOfClass: [NSNumber class]])) {
+            long backoff = timeRemaining.longValue;
+            pam_set_data(pamh, "prl_backoff", backoff, NULL);
+            _LOG_DEBUG("%s - PRL backoff for user %s reported as %ld", PM_DISPLAY_NAME, user, backoff);
+        } else {
+            _LOG_ERROR("%s - wrong PRL backoff received", PM_DISPLAY_NAME);
+        }
+    }
+    CFReleaseSafe(error);
+    return retval;
+}
+
 PAM_EXTERN int
 pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
@@ -130,16 +150,15 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	}
 
 	/* check user password policy */
-	retval = od_record_check_pwpolicy(cfRecord);
-	if (PAM_SUCCESS != retval) {
+    retval = _process_prl(cfRecord, pamh, user);
+    if (retval != PAM_SUCCESS) {
         if (ignorePasswordLockout && retval == PAM_APPLE_ACCT_TEMP_LOCK) {
             _LOG_INFO("%s - ignored password lockout because non-password auth was used", PM_DISPLAY_NAME);
-        }
-        else {
+        } else {
             _LOG_ERROR("%s - check password policy failed %d", PM_DISPLAY_NAME, retval);
             goto cleanup;
         }
-	}
+    }
 
 	/* check user authentication authority */
 	retval = od_record_check_authauthority(cfRecord);
@@ -224,16 +243,16 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 		retval = od_record_attribute_create_cfstring(cfRecord, (CFStringRef) kODAttributeTypeAuthenticationAuthority, &cfAuthAuthority);
 		NSArray<NSString *> *authAttributes = nil;
 		if (retval == PAM_SUCCESS)
-			authAttributes = [(NSString *)cfAuthAuthority componentsSeparatedByString:@";"];
+            authAttributes = [(__bridge NSString *)cfAuthAuthority componentsSeparatedByString:@";"];
 		if ([authAttributes containsObject:@(kDSTagAuthAuthorityLocalCachedUser)] &&
 			CP_SupportsBootstrapToken()) {
 			/* Get token + authenticate. */
 			NSString *token = CP_GetBootstrapTokenWithOptions(@{ @"NetworkTimeout" : @20 }, NULL);
 			if (token != NULL && token.length > 0) {
-				if (ODRecordSetNodeCredentialsWithBootstrapToken(cfRecord, (CFStringRef) token, &odErr)) {
+                if (ODRecordSetNodeCredentialsWithBootstrapToken(cfRecord, (__bridge CFStringRef) token, &odErr)) {
                     _LOG_VERBOSE("%s - Authenticated with bootstrap token.", PM_DISPLAY_NAME);
 				} else {
-					_LOG_ERROR("%s - Failed to set bootstrap token: %s.", PM_DISPLAY_NAME, [(NSError *)odErr description].UTF8String);
+					_LOG_ERROR("%s - Failed to set bootstrap token: %s.", PM_DISPLAY_NAME, [(__bridge NSError *)odErr description].UTF8String);
 					CFReleaseNull(odErr);
 				}
 			}
@@ -266,6 +285,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 				break;
 			case kODErrorCredentialsAccountTemporarilyLocked :
                 _LOG_ERROR("%s - Account temporarily locked after incorrect password attempt(s).", PM_DISPLAY_NAME);
+                _process_prl(cfRecord, pamh, user);
 				retval = PAM_APPLE_ACCT_TEMP_LOCK;
 				break;
 			case kODErrorCredentialsAccountLocked :

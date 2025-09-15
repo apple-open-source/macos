@@ -37,9 +37,13 @@ public:
     void TestBasics();
     
     void TestMoonAge();
+    
+    void TestHinduCalculations(); // rdar://145903949 Adding unit tests for Hindu calculations
  private:
     void init(UErrorCode&);
     void close(UErrorCode&);
+    bool testCalculation(const char* method, double d1, double d2);
+    bool testCalculation(const char* method, int32_t i1, int32_t i2);
     
     Calendar *gc;
     

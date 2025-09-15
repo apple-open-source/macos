@@ -27,6 +27,7 @@
 
 #define __WPE_WAYLAND_H_INSIDE__
 
+#include <wpe/wayland/WPEClipboardWayland.h>
 #include <wpe/wayland/WPEDisplayWayland.h>
 #include <wpe/wayland/WPEScreenWayland.h>
 #include <wpe/wayland/WPEToplevelWayland.h>

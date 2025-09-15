@@ -69,12 +69,16 @@ enum
     kPMEOptionWakeReason = 0x08,
 };
 
-#define DLOG(fmt, args...)                   \
-    do {                                                    \
-        if ((gIOPCIFlags & kIOPCIConfiguratorIOLog) && !ml_at_interrupt_context())   \
-            IOLog(fmt, ## args);                            \
-        if (gIOPCIFlags & kIOPCIConfiguratorKPrintf)        \
-            kprintf(fmt, ## args);                          \
+#define BDF() "%u:%u:%u"
+
+#define __DLOG(domainId, facility, fmt, args...) \
+	pci_log(domainId, facility, fmt, ## args)
+
+#define DLOG(facility, fmt, args...)								\
+    do {                                                    		\
+		if (reserved) {											\
+			__DLOG(reserved->domainId, facility, fmt, ## args);	\
+		}														\
     } while(0)
 
 #ifdef PROT_DEVICE
@@ -229,7 +233,7 @@ bool IOPCIDevice::attach( IOService * provider )
 		}
 	}
 	reserved->psMethods[kIOPCIDevicePausedState] = reserved->psMethods[kIOPCIDeviceOnState];
-	if (hasPS) DLOG("%s: _PSx %d, %d, %d, %d\n", getName(),
+	if (hasPS) DLOG(LIFE_CYCLE, "%s: _PSx %d, %d, %d, %d\n", getName(),
 				  reserved->psMethods[0], reserved->psMethods[1], 
 				  reserved->psMethods[2], reserved->psMethods[3]);
 	reserved->lastPSMethod = reserved->psMethods[kIOPCIDeviceOnState];
@@ -310,6 +314,30 @@ bool IOPCIDevice::attach( IOService * provider )
     IOService * powerProvider = (originator == this) ? provider : originator;
     powerProvider->joinPMtree( this);
 
+	// Create IOPCIEventSource and associated IOWorkLoop for type 0 devices. The
+	// event source is not enabled until a dext calls Open() on the nub.
+	if (reserved->headerType == kPCIHeaderType0)
+	{
+		reserved->pciEventSource = createEventSource(this,
+													 OSMemberFunctionCast(IOPCIEventSource::Action,
+																		  this,
+																		  &IOPCIDevice::handlePCIEvent),
+													 0);
+
+		if (reserved->pciEventSource)
+		{
+			reserved->pciEventSourceWorkLoop = IOWorkLoop::workLoop();
+			assert(reserved->pciEventSourceWorkLoop);
+			thread_set_thread_name(reserved->pciEventSourceWorkLoop->getThread(), "pciEventSource");
+
+			reserved->pciEventSourceCmdGate = IOCommandGate::commandGate(this);
+			assert(reserved->pciEventSourceCmdGate);
+
+			reserved->pciEventSourceWorkLoop->addEventSource(reserved->pciEventSource);
+			reserved->pciEventSourceWorkLoop->addEventSource(reserved->pciEventSourceCmdGate);
+		}
+	}
+
 	return (true);
 }
 
@@ -322,6 +350,26 @@ void IOPCIDevice::detach( IOService * provider )
 		setTunnelL1Enable(this, true);
 	}
 
+	if (reserved->pciEventSource)
+	{
+		reserved->pciEventSource->disable();
+		reserved->pciEventSourceWorkLoop->removeEventSource(reserved->pciEventSource);
+		reserved->pciEventSource->release();
+	}
+
+	if (reserved->pciEventSourceCmdGate)
+	{
+		reserved->pciEventSourceWorkLoop->removeEventSource(reserved->pciEventSourceCmdGate);
+		reserved->pciEventSourceCmdGate->release();
+	}
+
+	// Don't OSSafeReleaseNULL() the pciEventSource objects, since SetProperties() may be
+	// using them in parallel.
+	if (reserved->pciEventSourceWorkLoop)
+	{
+		reserved->pciEventSourceWorkLoop->release();
+	}
+
     PMstop();
 
 	IORecursiveLockLock(reserved->lock);
@@ -332,6 +380,17 @@ void IOPCIDevice::detach( IOService * provider )
 	}
 	IORecursiveLockUnlock(reserved->lock);
 
+	// A detaching nub should not be published, so cancel the republish timer.
+	// The timer is released in IOPCIDevice::free().
+	if (reserved->republishTimer)
+	{
+		IOWorkLoop *tempWL = NULL;
+		reserved->republishTimer->cancelTimeout();
+		if ((tempWL = reserved->republishTimer->getWorkLoop()))
+		{
+			tempWL->removeEventSource(reserved->republishTimer);
+		}
+	}
 
 	if (reserved->pauseTimer)
 	{
@@ -370,7 +429,7 @@ void IOPCIDevice::detachFromChild(IORegistryEntry *child, const IORegistryPlane 
 	{
 		// Set a flag to reset the function/device next time drivers match on this nub. Use
 		// function level reset if supported, else fall back to hot reset.
-		DLOG("[%s()] Marking %s as needing hardware reset\n", __func__, getName());
+		DLOG(ALWAYS_ON, "[%s()] Marking %s as needing hardware reset\n", __func__, getName());
 		reserved->hardwareResetNeeded = true;
 	}
 
@@ -395,6 +454,8 @@ IOPCIDevice::detachAbove( const IORegistryPlane * plane )
 bool 
 IOPCIDevice::initReserved(void)
 {
+	// Warning: DLOG() should not be used in this function (reserved->domainId is uninitialized)
+
     // allocate our expansion data
     if (!reserved)
     {
@@ -410,12 +471,16 @@ IOPCIDevice::initReserved(void)
 bool 
 IOPCIDevice::init(OSDictionary * propTable)
 {
+	// Warning: DLOG() should not be used in this function (reserved->domainId is uninitialized)
+
     if (!super::init(propTable))  return (false);
     return (initReserved());
 }
 
 bool IOPCIDevice::init( IORegistryEntry * from, const IORegistryPlane * inPlane )
 {
+	// Warning: DLOG() should not be used in this function (reserved->domainId is uninitialized)
+
     if (!super::init(from, inPlane))  return (false);
     return (initReserved());
 }
@@ -437,6 +502,8 @@ void IOPCIDevice::free()
 	{
 		if (reserved->lock)
 			IORecursiveLockFree(reserved->lock);
+		OSSafeReleaseNULL(reserved->republishTimer);
+		OSSafeReleaseNULL(reserved->capDict);
 		OSSafeReleaseNULL(reserved->pauseTimer);
 		if (reserved->busyNotifier)
 		{
@@ -444,7 +511,10 @@ void IOPCIDevice::free()
 			reserved->busyNotifier = NULL;
 		}
         IOFreeType(reserved, IOPCIDeviceExpansionData);
+		reserved = NULL;
 	}
+
+	// Warning: DLOG() is not available at this point
 
     super::free();
 }
@@ -486,13 +556,13 @@ IOReturn IOPCIDevice::powerStateWillChangeToGated (IOPMPowerFlags  *_capabilitie
                 // the the PME_Status bit is set at this point, we clear it but leave all other bits
                 // untouched by writing the exact same value back to the register. This is because the
                 // PME_Status bit is R/WC.
-                DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME set(0x%x) - CLEARING\n", getName(), this, pmcsr);
+                DLOG(POWER, "%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME set(0x%x) - CLEARING\n", getName(), this, pmcsr);
                 extendedConfigWrite16(reserved->pmControlStatus, pmcsr);
-                DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS now is(0x%x)\n", getName(), this, extendedConfigRead16(reserved->pmControlStatus));
+                DLOG(POWER, "%s[%p]::powerStateWillChangeTo(OFF) - PMCS now is(0x%x)\n", getName(), this, extendedConfigRead16(reserved->pmControlStatus));
             }
             else
             {
-                DLOG("%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME clear(0x%x) - not touching\n", getName(), this, pmcsr);
+                DLOG(POWER, "%s[%p]::powerStateWillChangeTo(OFF) - PMCS has PME clear(0x%x) - not touching\n", getName(), this, pmcsr);
             }
         }
         reserved->updateWakeReason = true;
@@ -504,7 +574,7 @@ IOReturn IOPCIDevice::powerStateWillChangeToGated (IOPMPowerFlags  *_capabilitie
 		pmcsr = (kIOReturnSuccess == ret)
 		 ?  extendedConfigRead16(reserved->pmControlStatus) : reserved->pmLastWakeBits;
 		updateWakeReason(pmcsr);
-		DLOG("%s[%p]::powerStateWillChangeTo(ON) - ps %d lnk(0x%x) - PMCS(0x%x, 0x%x)\n", getName(), this, reserved->pciPMState, ret, pmcsr, reserved->pmLastWakeBits);
+		DLOG(POWER, "%s[%p]::powerStateWillChangeTo(ON) - ps %d lnk(0x%x) - PMCS(0x%x, 0x%x)\n", getName(), this, reserved->pciPMState, ret, pmcsr, reserved->pmLastWakeBits);
     }
 
     return super::powerStateWillChangeTo(capabilities, stateNumber, whatDevice);
@@ -527,7 +597,7 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 	}
 	else effectiveState = powerState;
 
-    DLOG("%s[%p]::setPCIPowerState(%d->%d,%d)\n", getName(), this, reserved->pciPMState, powerState, effectiveState);
+    DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(%d->%d,%d)\n", getName(), this, reserved->pciPMState, powerState, effectiveState);
 
 #if ACPI_SUPPORT
 	IOACPIPlatformDevice * device;
@@ -547,19 +617,17 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 					== ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridgeDriver) & shadow->flags))
 				&& (!(0x00FFFFFF & extendedConfigRead32(kPCI2PCIPrimaryBus))))
 			{
-				DLOG("%s::restore bus(0x%x)\n", getName(), shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
+				DLOG(POWER, "%s::restore bus(0x%x)\n", getName(), shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
 				extendedConfigWrite32(kPCI2PCIPrimaryBus, shadow->configSave.savedConfig[kPCI2PCIPrimaryBus >> 2]);
 			}
 			device = (IOACPIPlatformDevice *) reserved->configEntry->acpiDevice;
-			DLOG("%s::evaluateObject(%s)\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy());
+			DLOG(POWER, "%s::evaluateObject(%s)\n", getName(), gIOPCIPSMethods[idx]->getCStringNoCopy());
 			time = mach_absolute_time();
 			ret = device->evaluateObject(gIOPCIPSMethods[idx]);
 			time = mach_absolute_time() - time;
 			absolutetime_to_nanoseconds(time, &time);
-			DLOG("%s::evaluateObject(%s) ret 0x%x %qd ms\n", 
+			DLOG(POWER, "%s::evaluateObject(%s) ret 0x%x %qd ms\n", 
 				getName(), gIOPCIPSMethods[idx]->getCStringNoCopy(), ret, time / 1000000ULL);
-
-			if ((effectiveState < kIOPCIDeviceOnState) && shadow) shadow->restoreCount = 0;
 		}
 		reserved->lastPSMethod = idx;
 	}
@@ -603,11 +671,11 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 
 					if (effectiveState != prevState)
 					{
-						DLOG("%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCS currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
+						DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(OFF) - writing 0x%x to PMCSR currently (0x%x)\n", getName(), this, bits, extendedConfigRead16(reserved->pmControlStatus));
 						extendedConfigWrite16(reserved->pmControlStatus, bits);
 						// PCIe base spec Table 5-13 "PCI Function State Transition Delays"
 						IOSleep(10);
-						DLOG("%s[%p]::setPCIPowerState(OFF) - did move PMCS to D3\n", getName(), this);
+						DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(OFF) - did move PMCSR to D3\n", getName(), this);
 					}
 				}
 				break;
@@ -619,18 +687,18 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 				{
 					if ((pmeState & kPCIPMCSPowerStateMask) != kPCIPMCSPowerStateD0)
 					{
-						DLOG("%s[%p]::setPCIPowerState(ON) - moving PMCS from 0x%x to D0\n", 
+						DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(ON) - moving PMCSR from 0x%x to D0\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
 							// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
 						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus | kPCIPMCSPowerStateD0);
 						// PCIe base spec Table 5-13 "PCI Function State Transition Delays"
 						IOSleep(10);
-						DLOG("%s[%p]::setPCIPowerState(ON) - did move PMCS to 0x%x\n", 
+						DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(ON) - did move PMCSR to 0x%x\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
 					}
 					else
 					{
-						DLOG("%s[%p]::setPCIPowerState(ON) - PMCS already at D0 (0x%x)\n", 
+						DLOG(ALWAYS_ON, "%s[%p]::setPCIPowerState(ON) - PMCSR already at D0 (0x%x)\n", 
 							getName(), this, extendedConfigRead16(reserved->pmControlStatus));
 							// the write below will clear PME_Status, clear PME_En, and set the Power State to D0
 						extendedConfigWrite16(reserved->pmControlStatus, kPCIPMCSPMEStatus);
@@ -815,7 +883,7 @@ bool IOPCIDevice::matchPropertyTable(OSDictionary* table)
                     isMatch = matchPropertyTable(entitlementDictionary, &matchScore);
                     if (isMatch == true)
                     {
-                        DLOG("The %s entitlements array has matched at index %d \n", kIOPCITransportDextEntitlement, i);
+                        DLOG(LIFE_CYCLE, "The %s entitlements array has matched at index %d \n", kIOPCITransportDextEntitlement, i);
                         break;
                     }
                 }
@@ -834,17 +902,17 @@ bool IOPCIDevice::matchPropertyTable(OSDictionary* table)
 
             if (isMatch == false)
             {
-                DLOG("The %s entitlements property doesn't contain a matching entitlement\n", kIOPCITransportDextEntitlement);
+                DLOG(LIFE_CYCLE, "The %s entitlements property doesn't contain a matching entitlement\n", kIOPCITransportDextEntitlement);
             }
         }
         else if (table->getObject(kIOPCITransportDextEntitlement) == kOSBooleanTrue)
         {
             isMatch = true;
-            DLOG("The %s entitlement is not a dictionary, this is intended for Apple internal use only\n", kIOPCITransportDextEntitlement);
+            DLOG(LIFE_CYCLE, "The %s entitlement is not a dictionary, this is intended for Apple internal use only\n", kIOPCITransportDextEntitlement);
         }
         else
         {
-            DLOG("The %s entitlements property is malformed\n", kIOPCITransportDextEntitlement);
+            DLOG(LIFE_CYCLE, "The %s entitlements property is malformed\n", kIOPCITransportDextEntitlement);
         }
     }
 
@@ -896,9 +964,49 @@ void IOPCIDevice::resetNubState(void)
 
 	// Reset the shadow config state
 	configShadow(this)->flags &= ~kIOPCIConfigShadowPermanent;
-	configShadow(this)->restoreCount = 0;
 
 	reserved->clientCrashed = false;
+}
+
+#define REPUBLISH_TIMER_DURATION_MS 100
+#define PUBLISH_MAX_RETRY_ATTEMPTS 100
+
+void IOPCIDevice::republishTimerHandler(IOTimerEventSource * es)
+{
+	uint8_t pciPMState = atomic_load((atomic_char*)&reserved->pciPMState);
+    IOPCIHostBridgeData *vars = parent->reserved->hostBridgeData;
+	bool pausing = vars->_waitingPauseSet->containsObject(this);
+
+	// The nub must be powered, without a pending pause, before matching.
+	if (pciPMState != kIOPCIDeviceOnState || pausing)
+	{
+		// If we've reached the retry attempts limit, add a debug property
+		// and give up.
+		if (reserved->publishRetryCount == PUBLISH_MAX_RETRY_ATTEMPTS)
+		{
+			DLOG(ALWAYS_ON, "[%s()] nub %s did not power on, giving up matching\n", __func__, getName());
+			setProperty(kIOPCIPublishRetryTimeoutKey, kOSBooleanTrue);
+			return;
+		}
+
+		// Otherwise retry
+		DLOG(ALWAYS_ON, "[%s()] nub %s is not powered, retrying matching in %ums\n", __func__, getName(), REPUBLISH_TIMER_DURATION_MS);
+
+		// Time spent paused doesn't count against the retry attempt limit
+		if (!(pciPMState == kIOPCIDevicePausedState || pausing))
+		{
+			reserved->publishRetryCount++;
+		}
+
+		reserved->republishTimer->setTimeoutMS(REPUBLISH_TIMER_DURATION_MS);
+	}
+	else
+	{
+		// The nub is powered; reset the retry counter and publish the nub for matching.
+		reserved->publishRetryCount = 0;
+
+		registerService();
+	}
 }
 
 // The grace period is the time (in seconds) after the nub's busy state
@@ -918,10 +1026,10 @@ bool IOPCIDevice::isInitializing(void)
 void IOPCIDevice::initiatePause(void)
 {
 	if (isInitializing()) {
-		DLOG("%s(0x%qx) still initializing, deferring pause\n", getName(), getRegistryEntryID());
+		DLOG(ENUMERATION, "%s(0x%qx) still initializing, deferring pause\n", getName(), getRegistryEntryID());
 		reserved->pauseTimer->setTimeoutMS(PAUSE_TIMER_DURATION_MS);
 	} else {
-		DLOG("configOp:->deferredRequestPause: %s(0x%qx)\n", getName(), getRegistryEntryID());
+		DLOG(ALWAYS_ON, "configOp:->deferredRequestPause: %s(0x%qx)\n", getName(), getRegistryEntryID());
 		changePowerStateToPriv(kIOPCIDevicePausedState);
 		powerOverrideOnPriv();
 	}
@@ -940,7 +1048,7 @@ IOReturn IOPCIDevice::busyStateChange(void * target, void * refCon,
 	IOPCIDevice *self = OSDynamicCast(IOPCIDevice, (IOService*)refCon);
 
 	if (self) {
-		DLOG("[%s()] nub %s(0x%qx) has busy state %u\n", __func__, self->getName(), self->getRegistryEntryID(), self->getBusyState());
+		__DLOG(self->reserved->domainId, LIFE_CYCLE, "[%s()] nub %s(0x%qx) has busy state %u\n", __func__, self->getName(), self->getRegistryEntryID(), self->getBusyState());
 		self->reserved->busyTimestamp = mach_absolute_time();
 	}
 
@@ -949,13 +1057,31 @@ IOReturn IOPCIDevice::busyStateChange(void * target, void * refCon,
 
 IOReturn IOPCIDevice::getResources( void )
 {
+	// The nub must be powered before matching, or else its configuration space may be
+	// uninitialized. Without configured BARs, the driver can't interact with the PCIe
+	// function's memory space(s).
+	if (atomic_load((atomic_char*)&reserved->pciPMState) != kIOPCIDeviceOnState)
+	{
+		DLOG(ALWAYS_ON, "[%s()] nub %s is not powered, retrying matching in %ums\n", __func__, getName(), REPUBLISH_TIMER_DURATION_MS);
+
+		// Start the 100ms re-publish timer. This timer will be restarted
+		// until either the nub's IOPM state reaches kIOPCIDeviceOnState or 10
+		// seconds elapses and IOPCIDevice gives up, whichever happens first.
+		reserved->republishTimer->setTimeoutMS(REPUBLISH_TIMER_DURATION_MS);
+
+		// Return an error to cancel this attempt at matching.
+		return kIOReturnError;
+	}
+
+	reserved->publishRetryCount = 0;
+
     if (getProperty(kIOPCIResourcedKey) && !getChildEntry(gIOServicePlane))
 	{
 		if (reserved->hardwareResetNeeded)
 		{
 			tIOPCIDeviceResetTypes type = supportsFLR() ? kIOPCIDeviceResetTypeFunctionReset : kIOPCIDeviceResetTypeHotReset;
 
-			DLOG("[%s()] Performing %s on nub %s\n", __func__, (type == kIOPCIDeviceResetTypeFunctionReset) ? "FLR" : "hot reset", getName());
+			DLOG(ALWAYS_ON, "[%s()] Performing %s on nub %s\n", __func__, (type == kIOPCIDeviceResetTypeFunctionReset) ? "FLR" : "hot reset", getName());
 
 			IOReturn ret = reset(type);
 
@@ -967,7 +1093,7 @@ IOReturn IOPCIDevice::getResources( void )
 			}
 		}
 
-		DLOG("[%s()] resetting nub %s's software state\n", __func__, getName());
+		DLOG(LIFE_CYCLE, "[%s()] resetting nub %s's software state\n", __func__, getName());
 
 		// resetNubState() is effectively a no-op on the first match
 		resetNubState();
@@ -1093,9 +1219,9 @@ bool IOPCIDevice::configAccess(bool write)
 			&& reserved
 			&& parent && !parent->reserved->childrenInReset
 			&& (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
-	if (!ok && !ml_at_interrupt_context() && (gIOPCIFlags & kIOPCIConfiguratorIOLog))
+	if (!ok && !ml_at_interrupt_context() && (gIOPCILogModeFlags & kPCI_LOG_MODE_IOLOG))
 	{
-		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
+		OSReportWithBacktrace("config protect fail(2) for device " BDF() "\n",
 								PCI_ADDRESS_TUPLE(this));
 	}
 	return (ok);
@@ -1341,7 +1467,7 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
     if (!reserved->pmControlStatus) return (false);
 
     pciPMCapReg = extendedConfigRead16(reserved->pmControlStatus - sizeof(uint16_t));
-//    DLOG("%s[%p]::hasPCIPwrMgmt found pciPMCapReg %x\n", 
+//    DLOG(POWER, "%s[%p]::hasPCIPwrMgmt found pciPMCapReg %x\n", 
 //        getName(), this, pciPMCapReg);
 
     if (state)
@@ -1379,7 +1505,7 @@ bool IOPCIDevice::hasPCIPowerManagement(IOOptionBits state)
     {
         if ((aString = OSDynamicCast(OSData, getProperty("sleep-power-state"))))
         {
-            DLOG("%s[%p]::hasPCIPwrMgmt found sleep-power-state string %p\n", getName(), this, aString);
+            DLOG(POWER, "%s[%p]::hasPCIPwrMgmt found sleep-power-state string %p\n", getName(), this, aString);
             if (aString->isEqualTo("D3cold", static_cast<unsigned int>(strlen("D3cold"))))
                 reserved->sleepControlBits = (kPCIPMCSPMEStatus | kPCIPMCSPMEEnable | kPCIPMCSPowerStateD3);
             else if (aString->isEqualTo("D3Hot", static_cast<unsigned int>(strlen("D3Hot"))))
@@ -1425,12 +1551,12 @@ IOReturn IOPCIDevice::enablePCIPowerManagement(IOOptionBits state)
         
         if (!reserved->sleepControlBits)
         {
-            DLOG("%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling\n", getName(), this);
+            DLOG(POWER, "%s[%p] - enablePCIPwrMgmt - no sleep control bits - not enabling\n", getName(), this);
             ret = kIOReturnBadArgument;
         }
         else
         {
-            DLOG("%s[%p] - enablePCIPwrMgmt, enabling\n", getName(), this);
+            DLOG(POWER, "%s[%p] - enablePCIPwrMgmt, enabling\n", getName(), this);
             reserved->pmSleepEnabled = kPMEnable | kPMEOption;
 			if (kPCIPMCSPMEDisableInS3 & state) reserved->pmSleepEnabled |= kPMEOptionS3Disable;
 			if (kPCIPMCSPMEWakeReason & state)  reserved->pmSleepEnabled |= kPMEOptionWakeReason;
@@ -1618,6 +1744,93 @@ IOPCIDevice::createEventSource(OSObject * owner, IOPCIEventSource::Action action
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+// Return true if all PCIe links leading to this nub's function are active.
+bool IOPCIDevice::isFunctionAccessible(IOPCIDevice *function)
+{
+	bool isHostBridgeNub = OSDynamicCast(IOPCIHostBridge, parent) != NULL;
+
+	// Recurse upward until reaching the root
+	if (!isHostBridgeNub)
+	{
+		IOPCIDevice *parentNub = OSDynamicCast(IOPCIDevice, getParentEntry(gIODTPlane));
+		assert(parentNub);
+
+		if (!parentNub->isFunctionAccessible(NULL))
+		{
+			return false;
+		}
+	}
+
+	if (!reserved->expressCapability)
+	{
+		DLOG(ALWAYS_ON, "[%s()] " BDF() " (%s) does not have an express capability\n",
+			__func__, PCI_ADDRESS_TUPLE(this), getName());
+		return true;
+	}
+
+	// If the desired function is downstream-facing, don't check its link status register.
+	if (function == this && isDownstreamFacing())
+	{
+		return true;
+	}
+
+	uint32_t linkCaps = extendedConfigRead32(reserved->expressCapability + 0x0C);
+
+	// Skip upstream-facing ports, and assume the link is up for downstream ports that aren't
+	// capable of reporting DL_Active state.
+	if (!isDownstreamFacing() || !(kLinkCapDataLinkLayerActiveReportingCapable & linkCaps))
+	{
+		DLOG(STATE, "[%s()] " BDF() " (%s) is DSP: %u, DLLLA-reporting capable: %u\n",
+			__func__, PCI_ADDRESS_TUPLE(this), getName(), isDownstreamFacing(), (kLinkCapDataLinkLayerActiveReportingCapable & linkCaps));
+		return true;
+	}
+
+	uint16_t linkStatus = extendedConfigRead16(reserved->expressCapability + 0x12);
+	if (linkStatus == 0xFFFF || !(kLinkStatusDataLinkLayerLinkActive & linkStatus))
+	{
+		DLOG(ALWAYS_ON, "[%s()] " BDF() " (%s) linkStatus = 0x%x\n",
+			__func__, PCI_ADDRESS_TUPLE(this), getName(), linkStatus);
+		return false;
+	}
+
+	DLOG(STATE, "[%s()] " BDF() " (%s) is accessible\n", __func__, PCI_ADDRESS_TUPLE(this), getName());
+
+	return true;
+}
+
+bool IOPCIDevice::serializeLinkStatus(void *ref __unused, OSSerialize *serializer)
+{
+	uint32_t linkStatus = 0xFFFF;
+
+	if (isInactive())
+	{
+		// rdar://problem/21926153 - Return empty dictionary
+		OSDictionary* statistics = OSDictionary::withCapacity(1);
+		statistics->serialize(serializer);
+		OSSafeReleaseNULL(statistics);
+		return true;
+	}
+
+	if (reserved->expressCapability && (isFunctionAccessible(this) == true))
+	{
+		linkStatus = extendedConfigRead16(reserved->expressCapability + 0x12);
+		DLOG(ALWAYS_ON, "[%s()] " BDF() " (%s) has linkStatus 0x%x\n", __func__, PCI_ADDRESS_TUPLE(this), getName(), linkStatus);
+	}
+
+	OSNumber* value = OSNumber::withNumber(linkStatus, 32);
+	if (value == NULL)
+	{
+		DLOG(ALWAYS_ON, "[%s()] failed to create link status OSNumber for nub %s\n", __func__, getName());
+		return false;
+	}
+
+	value->serialize(serializer);
+
+	OSSafeReleaseNULL(value);
+
+	return true;
+}
+
 OSObject* IOPCIDevice::getProperty(const OSSymbol * aKey) const
 {
     OSObject *value;
@@ -1649,11 +1862,14 @@ OSObject* IOPCIDevice::getProperty(const OSSymbol * aKey) const
         {
             value = super::getProperty(aKey);
         }
-    } else if (aKey == gIOPCIExpressLinkStatusKey) {
+    } else if (aKey == gIOPCIExpressLinkStatusKey && !parent->reserved->hostBridgeData->_useLinkStatusSerializer) {
 		// Update cached Link Status register
 		IOPCIDevice *device = (IOPCIDevice *)this; // strip 'const' qualifier
 		device->checkLink(kCheckLinkForPower);
 		value = super::getProperty(aKey);
+	} else if (aKey == gIOPCIDARTErrorData) {
+		value = super::getProperty(aKey);
+		reserved->iommuEventCount = 0;
     } else {
         value = super::getProperty(aKey);
     }
@@ -1951,6 +2167,11 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
 #else
             reserved->offloadEngineMMIODisable = 1;
 #endif
+
+			if (reserved->pciEventSource)
+			{
+				reserved->pciEventSource->enable();
+			}
         }
 
     }
@@ -1972,6 +2193,8 @@ uint16_t IOPCIDevice::getCloseCommandMask(uint32_t vendorDevice)
 
 void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
 {
+	DLOG(ALWAYS_ON, "[IOPCIDevice::%s()] client %s (isOpen(forClient) == %u)\n", __FUNCTION__, forClient->getName(), forClient ? isOpen(forClient) : false);
+
     if ((forClient != NULL) && (isOpen(forClient) == true))
     {
         if ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0)
@@ -1983,7 +2206,7 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
             uint16_t commandMask = getCloseCommandMask(viddid);
             if ((command & commandMask) != 0)
             {
-                DLOG("IOPCIDevice::handleClose: disabling memory%s for client %s\n", commandMask & kIOPCICommandBusLead ? " and bus leading" : "", (forClient) ? forClient->getName() : "unknown");
+                DLOG(ALWAYS_ON, "[IOPCIDevice::%s()] disabling memory%s for client %s\n", __FUNCTION__, commandMask & kIOPCICommandBusLead ? " and bus leading" : "", (forClient) ? forClient->getName() : "unknown");
                 extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~commandMask);
             }
 
@@ -1992,7 +2215,12 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
 
             // Reset the shadow config state for the next dext instance
             configShadow(this)->flags &= ~kIOPCIConfigShadowPermanent;
-            configShadow(this)->restoreCount = 0;
+
+			if (reserved->pciEventSource)
+			{
+				reserved->pciEventSource->disable();
+				reserved->pciEventSourceCmdGate->commandWakeup(&reserved->iommuEventCount);
+			}
         }
 
 #if ACPI_SUPPORT
@@ -2006,6 +2234,44 @@ void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn IOPCIDevice::handleIOMMUEvent(void *arg0, void *arg1, void *arg2, void *arg3)
+{
+	IOPCIEvent *event = (IOPCIEvent*) arg0;
+	OSData *iommuEventData = OSDynamicCast(OSData, super::getProperty(gIOPCIDARTErrorData));
+
+	// If the property exists but its contents have been read, remove it.
+	if (iommuEventData && reserved->iommuEventCount == 0) {
+		removeProperty(gIOPCIDARTErrorData);
+
+		iommuEventData = NULL;
+	}
+
+	// If the property doesn't exist, create it. If it does exist, append to it.
+	if (iommuEventData == NULL) {
+		iommuEventData = OSData::withBytes(event->data, sizeof(event->data));
+
+		setProperty(gIOPCIDARTErrorData, iommuEventData);
+
+		OSSafeReleaseNULL(iommuEventData);
+	} else {
+		iommuEventData->appendBytes(event->data, sizeof(event->data));
+	}
+
+	reserved->iommuEventCount++;
+	reserved->pciEventSourceCmdGate->commandWakeup(&reserved->iommuEventCount);
+
+	return kIOReturnSuccess;
+}
+
+void IOPCIDevice::handlePCIEvent(IOPCIEventSource * es, const IOPCIEvent * event)
+{
+	if (event->event != kIOPCIEventIOMMUError) {
+		return;
+	}
+
+	runPropertyAction(OSMemberFunctionCast(IORegistryEntry::Action, this, &IOPCIDevice::handleIOMMUEvent), this, (void*) event);
+}
 
 void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit, char * string, size_t maxLength)
 {
@@ -2148,7 +2414,7 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead64: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead64: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2160,7 +2426,7 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t      memoryIndex,
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
         if(deviceMemoryDescriptor == NULL)
         {
-            DLOG("IOPCIDevice::deviceMemoryRead64: failed to get memory for index %u\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead64: failed to get memory for index %u\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2170,7 +2436,7 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t      memoryIndex,
         if(   (addressSpace.s.space != kIOPCI32BitMemorySpace)
            && (addressSpace.s.space != kIOPCI64BitMemorySpace))
         {
-            DLOG("IOPCIDevice::deviceMemoryRead64: index %u is not MMIO space\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead64: index %u is not MMIO space\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2220,7 +2486,7 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead32: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead32: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2232,7 +2498,7 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t      memoryIndex,
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
         if(deviceMemoryDescriptor == NULL)
         {
-            DLOG("IOPCIDevice::deviceMemoryRead32: failed to get memory for index %u\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead32: failed to get memory for index %u\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2242,7 +2508,7 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t      memoryIndex,
         if(   (addressSpace.s.space != kIOPCI32BitMemorySpace)
            && (addressSpace.s.space != kIOPCI64BitMemorySpace))
         {
-            DLOG("IOPCIDevice::deviceMemoryRead32: index %u is not MMIO space\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead32: index %u is not MMIO space\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2291,7 +2557,7 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead16: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead16: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2303,7 +2569,7 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t      memoryIndex,
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
         if(deviceMemoryDescriptor == NULL)
         {
-            DLOG("IOPCIDevice::deviceMemoryRead16: failed to get memory for index %u\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead16: failed to get memory for index %u\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2313,7 +2579,7 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t      memoryIndex,
         if(   (addressSpace.s.space != kIOPCI32BitMemorySpace)
            && (addressSpace.s.space != kIOPCI64BitMemorySpace))
         {
-            DLOG("IOPCIDevice::deviceMemoryRead16: index %u is not MMIO space\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead16: index %u is not MMIO space\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2362,7 +2628,7 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead8: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead8: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2374,7 +2640,7 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t      memoryIndex,
         IODeviceMemory* deviceMemoryDescriptor = reserved->deviceMemory[memoryIndex];
         if(deviceMemoryDescriptor == NULL)
         {
-            DLOG("IOPCIDevice::deviceMemoryRead8: failed to get memory for index %u\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead8: failed to get memory for index %u\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2384,7 +2650,7 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t      memoryIndex,
         if(   (addressSpace.s.space != kIOPCI32BitMemorySpace)
            && (addressSpace.s.space != kIOPCI64BitMemorySpace))
         {
-            DLOG("IOPCIDevice::deviceMemoryRead8: index %u is not MMIO space\n", memoryIndex);
+            DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryRead8: index %u is not MMIO space\n", memoryIndex);
             return kIOReturnBadArgument;
         }
 
@@ -2460,7 +2726,7 @@ IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryWrite64: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryWrite64: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2499,7 +2765,7 @@ IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryWrite32: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryWrite32: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2538,7 +2804,7 @@ IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryWrite16: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryWrite16: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2576,7 +2842,7 @@ IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t      memoryIndex,
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryWrite8: index %u could not get mapping\n", memoryIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::deviceMemoryWrite8: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -2669,7 +2935,7 @@ IOReturn IOPCIDevice::resetFunction(tIOPCIDeviceResetOptions options)
 {
 	if (!supportsFLR())
 	{
-		DLOG("[%s()] Function %u:%u:%u does not support FLR\n", __func__, PCI_ADDRESS_TUPLE(this));
+		DLOG(ALWAYS_ON, "[%s()] Function " BDF() " does not support FLR\n", __func__, PCI_ADDRESS_TUPLE(this));
 		return kIOReturnUnsupported;
 	}
 
@@ -2701,7 +2967,7 @@ IOReturn IOPCIDevice::resetFunction(tIOPCIDeviceResetOptions options)
 
 IOReturn IOPCIDevice::reset(tIOPCIDeviceResetTypes type, tIOPCIDeviceResetOptions options)
 {
-    DLOG("%s[%p]::%s(0x%x, 0x%x)\n", getName(), this, __func__, type, options);
+    DLOG(ALWAYS_ON, "%s[%p]::%s(0x%x, 0x%x)\n", getName(), this, __func__, type, options);
 
 	if (type == kIOPCIDeviceResetTypeFunctionReset)
 	{
@@ -2718,7 +2984,7 @@ IOReturn IOPCIDevice::reprobeThreadCall(thread_call_t threadCall)
     IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
     if (bridgeDevice != NULL)
     {
-        DLOG("%s waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
+        DLOG(ENUMERATION, "%s waiting for downstream devices to finish terminating\n", __PRETTY_FUNCTION__);
         // wait for the drivers and termination to settle
         IOReturn ret = parent->waitQuiet(60ULL * kSecondScale);
 		if (ret == kIOReturnTimeout)
@@ -2741,7 +3007,7 @@ IOReturn IOPCIDevice::reprobeThreadCall(thread_call_t threadCall)
 			}
 		}
 
-        DLOG("%s reprobing bus\n", __PRETTY_FUNCTION__);
+        DLOG(ALWAYS_ON, "%s reprobing bus\n", __PRETTY_FUNCTION__);
         // re-scan the bridge for this device and its functions
         parent->busProbe(bridgeDevice, kIOPCIProbeOptionNeedsScan | kIOPCIProbeOptionDone);
     }
@@ -2773,7 +3039,7 @@ kern_return_t IOPCIDevice::SetProperties_Impl(OSDictionary* properties)
     if(   (dictionaryValue == kOSBooleanTrue)
        || (dictionaryValue == kOSBooleanFalse))
     {
-        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCIConfigSpaceVolatileKey, PCI_ADDRESS_TUPLE(this));
+        DLOG(LIFE_CYCLE, "%s setting property %s to device " BDF() "\n", __PRETTY_FUNCTION__, kIOPMPCIConfigSpaceVolatileKey, PCI_ADDRESS_TUPLE(this));
         result = kIOReturnSuccess;
         setProperty(kIOPMPCIConfigSpaceVolatileKey, dictionaryValue);
     }
@@ -2782,7 +3048,7 @@ kern_return_t IOPCIDevice::SetProperties_Impl(OSDictionary* properties)
     if(   (dictionaryValue == kOSBooleanTrue)
        || (dictionaryValue == kOSBooleanFalse))
     {
-        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCISleepLinkDisableKey, PCI_ADDRESS_TUPLE(this));
+        DLOG(LIFE_CYCLE, "%s setting property %s to device " BDF() "\n", __PRETTY_FUNCTION__, kIOPMPCISleepLinkDisableKey, PCI_ADDRESS_TUPLE(this));
         result = kIOReturnSuccess;
         setProperty(kIOPMPCISleepLinkDisableKey, dictionaryValue);
     }
@@ -2791,9 +3057,38 @@ kern_return_t IOPCIDevice::SetProperties_Impl(OSDictionary* properties)
     if(   (dictionaryValue == kOSBooleanTrue)
        || (dictionaryValue == kOSBooleanFalse))
     {
-        DLOG("%s setting property %s to device %u:%u:%u\n", __PRETTY_FUNCTION__, kIOPMPCISleepResetKey, PCI_ADDRESS_TUPLE(this));
+        DLOG(LIFE_CYCLE, "%s setting property %s to device " BDF() "\n", __PRETTY_FUNCTION__, kIOPMPCISleepResetKey, PCI_ADDRESS_TUPLE(this));
         result = kIOReturnSuccess;
         setProperty(kIOPMPCISleepResetKey, dictionaryValue);
+    }
+
+    if (properties->getObject(kIOPCIGetDARTError))
+    {
+        if (!isOpen())
+        {
+            result = kIOReturnNotOpen;
+        }
+        else
+        {
+			reserved->pciEventSourceWorkLoop->retain();
+			reserved->pciEventSourceCmdGate->retain();
+			reserved->pciEventSource->retain();
+
+            reserved->pciEventSourceCmdGate->runActionBlock(^IOReturn{
+                if (reserved->iommuEventCount == 0) {
+                    reserved->pciEventSourceCmdGate->commandSleep(&reserved->iommuEventCount, THREAD_ABORTSAFE);
+                }
+                return kIOReturnSuccess;
+            });
+
+            // If this thread was woken up due to the IOPCIDevice being closed, return NotOpen.
+            result = reserved->pciEventSource->isEnabled() ? kIOReturnSuccess : kIOReturnNotOpen;
+
+			reserved->pciEventSource->release();
+			reserved->pciEventSourceCmdGate->release();
+			reserved->pciEventSourceWorkLoop->release();
+
+        }
     }
 
     return result;
@@ -2822,7 +3117,7 @@ IMPL(IOPCIDevice, _ManageSession)
             {
                 return kIOReturnError;
             }
-            DLOG("[%s()] Device %s is not powered, sleeping 100ms\n", __func__, getName());
+            DLOG(LIFE_CYCLE, "[%s()] Device %s is not powered, sleeping 100ms\n", __func__, getName());
             IOSleepWithLeeway(100, 10);
             clock_get_uptime(&now);
         }
@@ -2844,12 +3139,12 @@ IMPL(IOPCIDevice, _ManageSession)
 
 kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t options)
 {
-	DLOG("IOPCIDevice::ClientCrashed_Impl() for client %s\n", (client) ? client->getName() : "unknown");
+	DLOG(ALWAYS_ON, "IOPCIDevice::ClientCrashed_Impl() for client %s\n", (client) ? client->getName() : "unknown");
 
     // only reset the device if the driver potentially changed the state of the device
     if(isOpen(client) == true)
     {
-        IOLog("%s: PCIDriverKit client, %s, crashed for device %s[%u:%u:%u], attempting to recover\n",
+        DLOG(ALWAYS_ON, "%s: PCIDriverKit client, %s, crashed for device %s[" BDF() "], attempting to recover\n",
               __PRETTY_FUNCTION__,
               (client != NULL) ? client->getName() : "unknown",
               getName(),
@@ -2865,14 +3160,14 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
     }
 	else
 	{
-        IOLog("%s: PCIDriverKit client %s does not have open session with device %s[%u:%u:%u], skipping recovery\n",
+        DLOG(ALWAYS_ON, "%s: PCIDriverKit client %s does not have open session with device %s[" BDF() "], skipping recovery\n",
               __PRETTY_FUNCTION__,
               (client != NULL) ? client->getName() : "unknown",
               getName(),
               PCI_ADDRESS_TUPLE(this));
 	}
 
-    DLOG("IOPCIDevice::ClientCrashed_Impl() for client %s done\n", (client) ? client->getName() : "unknown");
+    DLOG(ALWAYS_ON, "IOPCIDevice::ClientCrashed_Impl() for client %s done\n", (client) ? client->getName() : "unknown");
 
     return kIOReturnSuccess;
 }
@@ -2882,14 +3177,14 @@ IMPL(IOPCIDevice, _MemoryAccess)
 {
     if ((forClient == NULL) || (isOpen(forClient) == false))
     {
-        DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
         return kIOReturnNotOpen;
     }
 
 	uint8_t memoryIndex = operation & kPCIDriverKitMemoryAccessOperationDeviceMemoryIndexMask;
 	if(memoryIndex > kIOPCIRangeExpansionROM)
 	{
-		DLOG("IOPCIDevice::%s: invalid index %u for client %s\n", __FUNCTION__, memoryIndex, (forClient != NULL) ? forClient->getName() : "unknown client");
+		DLOG(ALWAYS_ON, "IOPCIDevice::%s: invalid index %u for client %s\n", __FUNCTION__, memoryIndex, (forClient != NULL) ? forClient->getName() : "unknown client");
 		return kIOReturnBadArgument;
 	}
 
@@ -2903,7 +3198,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
         if(os_convert_overflow(offset, &ioSpaceOffset) == true)
         {
             result = kIOReturnBadArgument;
-            DLOG("%s::%s bad offset 0x%llx\n", "IOPCIDevice", __FUNCTION__, offset);
+            DLOG(ALWAYS_ON, "%s::%s bad offset 0x%llx\n", "IOPCIDevice", __FUNCTION__, offset);
         }
 
 
@@ -2938,7 +3233,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
                 }
                 default:
                 {
-                    DLOG("%s::%s bad request with memeoryIndex %u, offset 0x%x, operation 0x%llx\n", "IOPCIDevice", __FUNCTION__, memoryIndex, ioSpaceOffset, operation);
+                    DLOG(ALWAYS_ON, "%s::%s bad request with memeoryIndex %u, offset 0x%x, operation 0x%llx\n", "IOPCIDevice", __FUNCTION__, memoryIndex, ioSpaceOffset, operation);
                     break;
                 }
             }
@@ -2955,7 +3250,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
             else
             {
                 result = kIOReturnBadArgument;
-                DLOG("%s::%s bad request with memeoryIndex %u, offset 0x%x\n", "IOPCIDevice", __FUNCTION__, memoryIndex, ioSpaceOffset);
+                DLOG(ALWAYS_ON, "%s::%s bad request with memeoryIndex %u, offset 0x%x\n", "IOPCIDevice", __FUNCTION__, memoryIndex, ioSpaceOffset);
             }
             memoryDescriptor = NULL;
         }
@@ -3000,7 +3295,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
                 }
                 default:
                 {
-                    DLOG("%s::%s bad request with memeoryIndex %u, offset 0x%x, operation 0x%llx\n",
+                    DLOG(ALWAYS_ON, "%s::%s bad request with memeoryIndex %u, offset 0x%x, operation 0x%llx\n",
                          "IOPCIDevice",
                          __FUNCTION__,
                          memoryIndex,
@@ -3103,20 +3398,20 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 {
     if ((forClient == NULL) || (isOpen(forClient) == false))
     {
-        DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
         return kIOReturnNotOpen;
     }
 
     if(memoryIndex > kIOPCIRangeExpansionROM)
     {
-        DLOG("IOPCIDevice::%s: invalid index %llu for client %s\n", __FUNCTION__, memoryIndex, (forClient != NULL) ? forClient->getName() : "unknown client");
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s: invalid index %llu for client %s\n", __FUNCTION__, memoryIndex, (forClient != NULL) ? forClient->getName() : "unknown client");
         return kIOReturnBadArgument;
     }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
     if (reserved->offloadEngineMMIODisable == 0)
     {
-        DLOG("IOPCIDevice::%s: offload engine requires using _MemoryAccess()\n", __FUNCTION__);
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s: offload engine requires using _MemoryAccess()\n", __FUNCTION__);
         return kIOReturnError;
     }
 #endif
@@ -3126,7 +3421,7 @@ IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 #if TARGET_CPU_X86 || TARGET_CPU_X86_64
 		panic("no-user-memory-mapping unsupported on x86");
 #endif
-        DLOG("IOPCIDevice::%s: no-user-memory-mapping property prevents copying device memory\n", __FUNCTION__);
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s: no-user-memory-mapping property prevents copying device memory\n", __FUNCTION__);
         return kIOReturnError;
     }
 
@@ -3232,19 +3527,19 @@ IMPL(IOPCIDevice, GetBARInfo)
 
     if (barIndex > kIOPCIRangeExpansionROM)
     {
-        DLOG("IOPCIDevice::%s:%s invalid bar index %u\n", __FUNCTION__, getName(), barIndex);
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s:%s invalid bar index %u\n", __FUNCTION__, getName(), barIndex);
         return kIOReturnBadArgument;
     }
 
     if ((deviceMemoryArray = OSDynamicCast(OSArray, getProperty(gIODeviceMemoryKey))) == NULL)
     {
-        DLOG("IOPCIDevice::%s:%s unable to access device memory\n", __FUNCTION__, getName());
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s:%s unable to access device memory\n", __FUNCTION__, getName());
         return kIOReturnError;
     }
 
     if (configEntry == NULL)
     {
-        DLOG("IOPCIDevice::%s:%s NULL config entry\n", __FUNCTION__, getName());
+        DLOG(ALWAYS_ON, "IOPCIDevice::%s:%s NULL config entry\n", __FUNCTION__, getName());
         return kIOReturnError;
     }
 

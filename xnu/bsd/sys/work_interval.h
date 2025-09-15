@@ -306,16 +306,15 @@ int     work_interval_leave(void);
 #define WORK_INTERVAL_WORKLOAD_ID_HAS_ID                (1u << 0)
 #define WORK_INTERVAL_WORKLOAD_ID_RT_ALLOWED            (1u << 1)
 #define WORK_INTERVAL_WORKLOAD_ID_RT_CRITICAL           (1u << 2)
+/* Work interval is allowed to provide complexity values per frame as part of {start, update, finish} calls */
+#define WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED    (1u << 3)
 
 /* Flags allowed to be passed in from userspace as part of kern_work_interval_set_workload_id() */
-#define WORK_INTERVAL_SET_WORKLOAD_ID_FLAGS_MASK        (WORK_INTERVAL_WORKLOAD_ID_RT_CRITICAL | WORK_INTERVAL_WORKLOAD_ID_RT_ALLOWED)
+#define WORK_INTERVAL_SET_WORKLOAD_ID_FLAGS_MASK        (WORK_INTERVAL_WORKLOAD_ID_RT_CRITICAL | WORK_INTERVAL_WORKLOAD_ID_RT_ALLOWED | WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED)
 
 #ifdef XNU_KERNEL_PRIVATE
-
 /* Marker that workinterval was joined before workload ID was set */
 #define WORK_INTERVAL_WORKLOAD_ID_ALREADY_JOINED        (1u << 31)
-/* Work interval is allowed to provide complexity values per frame as part of {start, update, finish} calls */
-#define WORK_INTERVAL_WORKLOAD_ID_COMPLEXITY_ALLOWED    (1u << 30)
 
 #endif /* XNU_KERNEL_PRIVATE */
 

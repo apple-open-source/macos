@@ -187,4 +187,9 @@
                                                 (__bridge IOHIDEventRef)self);
 }
 
+- (bool)needsUngroupForLegacy
+{
+    return IOHIDEventNeedsUngroupForLegacy((__bridge IOHIDEventRef)self);
+}
+
 @end

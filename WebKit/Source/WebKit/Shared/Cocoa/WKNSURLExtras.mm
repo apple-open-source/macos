@@ -33,7 +33,7 @@
 + (instancetype)_web_URLWithWTFString:(const String&)string
 {
     URL url { URL { }, string };
-    return (NSURL *)url;
+    return url.createNSURL().autorelease();
 }
 
 @end

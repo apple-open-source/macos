@@ -48,6 +48,8 @@
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/IOBSD.h>
 #include <paths.h>
+#include <sys/sysctl.h>
+
 
 static void __DARequestClaimCallback( int status, void * context );
 static void __DARequestClaimReleaseCallback( CFTypeRef response, void * context );
@@ -430,7 +432,7 @@ static void __DARequestEjectCallback( int status, void * context )
         else
         {
             DATelemetrySendEjectEvent( err_get_code( DADissenterGetStatus( dissenter ) ) ,
-                                       fsType , DADissenterGetProcessID( dissenter ) );
+                                       disk , DADissenterGetProcessID( dissenter ) );
         }
     }
     else
@@ -440,7 +442,7 @@ static void __DARequestEjectCallback( int status, void * context )
          */
 
         DALogInfo( "ejected disk, id = %@, success.", disk );
-        DATelemetrySendEjectEvent( status , fsType , -1 );
+        DATelemetrySendEjectEvent( status , disk , -1 );
     }
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );
@@ -596,7 +598,12 @@ static Boolean __DARequestMount( DARequestRef request )
     /*
      * Commence the mount approval.
      */
-
+#if TARGET_OS_OSX
+    if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) && DAAPFSCompareVolumeRole ( disk, CFSTR("Enterprise data") ) == TRUE )
+    {
+        DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
+    }
+#endif
     if ( DARequestGetState( request, kDARequestStateStagedApprove ) == FALSE )
     {
         DAReturn status;
@@ -1283,39 +1290,16 @@ static void __DARequestUnmountSendEvent( DARequestRef request , int status , Boo
     CFStringRef fsType = NULL;
     CFStringRef fsImplementation = NULL;
     DADissenterRef dissenter = DARequestGetDissenter( request );
-    CFStringRef preferredMountMethod = NULL;
+    bool isExternal = false;
     
     if ( disk == NULL )
     {
         return;
     }
-    else
-    {
-        filesystem = DADiskGetFileSystem( disk );
-    }
-    
-#if TARGET_OS_OSX
-    /* Get the preferred mount method to figure out who is handling the unmount */
-    preferredMountMethod = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceMountMethodkey );
-#else
-    if ( true == DAMountGetPreference( disk , kDAMountPreferenceEnableUserFSMount ) )
-    {
-        preferredMountMethod = CFSTR("UserFS");
-    }
-#endif
-    
-    if ( filesystem != NULL )
-    {
-        fsType = DAGetFSTypeWithUUID( filesystem ,
-                                      DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
-        fsImplementation = ( DAFilesystemShouldMountWithUserFS( filesystem , preferredMountMethod ) )
-            ? CFSTR("UserFS") : CFSTR("kext");
-    }
     
     DATelemetrySendUnmountEvent( ( dissenter == NULL ) ? status
                                     : err_get_code( DADissenterGetStatus( dissenter ) ) ,
-                                 fsType ,
-                                 fsImplementation ,
+                                 disk ,
                                  ( callbackContext != NULL ) ? callbackContext->forced : FALSE ,
                                  ( dissenter == NULL ) ? -1 : DADissenterGetProcessID( dissenter ) ,
                                  dissentedViaAPI ,
@@ -1394,7 +1378,14 @@ static Boolean __DARequestUnmount( DARequestRef request )
         }
         else
         {
-            if ( DADiskGetState( disk, kDADiskStateZombie ) )
+            bool skipApprovalForPersonaVolume = false;
+#if TARGET_OS_OSX
+            if (  DAUnitGetState( disk, _kDAUnitStateHasAPFS ) && DAAPFSCompareVolumeRole ( disk, CFSTR("Enterprise data") ) == TRUE )
+            {
+                skipApprovalForPersonaVolume = true;
+            }
+#endif
+            if ( DADiskGetState( disk, kDADiskStateZombie ) || skipApprovalForPersonaVolume == true )
             {
                 DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
             }
@@ -1683,6 +1674,28 @@ static int __DARequestUnmountUnmount( void * context )
         if ( -1 == status )
         {
             status = errno;
+            if ( status == EBUSY )
+            {
+                
+                int oldval, newval = 1;
+                size_t oldlen = sizeof(oldval);
+                DALogInfo( "invoking sysctl(vfs.generic.print_busy_vnodes) to enable busy vnodes %@", disk);
+                int ret = sysctlbyname( "vfs.generic.print_busy_vnodes", &oldval, &oldlen, &newval, sizeof(newval) );
+                if (ret == 0 )
+                {
+                    DALogInfo( "invoking unmount after enabling busy vnodes %@", disk);
+                    status = unmount( path, flags );
+                    if ( -1 == status )
+                    {
+                        status = errno;
+                    }
+                    sysctlbyname( "vfs.generic.print_busy_vnodes", NULL, 0, &oldval, sizeof(oldval) );
+                }
+                else
+                {
+                    DALogInfo( "sysctl(vfs.generic.print_busy_vnodes) failed with %x %d", errno, ret);
+                }
+            }
         }
         callbackContext->duration = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - startTime;
         free( path );

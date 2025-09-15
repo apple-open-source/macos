@@ -1442,6 +1442,7 @@ acquire_kerberos(NAHRef na,
 	    goto out;
     }
 
+    krb5_get_init_creds_opt_set_renew_life(opt, 3600 * 24 * 30); /* 1 month */
     krb5_get_init_creds_opt_set_canonicalize(na->context, opt, TRUE);
     krb5_get_init_creds_opt_set_win2k(na->context, opt, TRUE);
 

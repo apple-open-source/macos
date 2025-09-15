@@ -56,8 +56,6 @@
 
 #include <mach/boolean.h>
 #include <mach/thread_switch.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 #include <kern/counter.h>
 #include <kern/ipc_kobject.h>
 #include <kern/processor.h>
@@ -75,6 +73,10 @@
 #include <mach/mach_syscalls.h>
 #include <sys/kdebug.h>
 #include <kern/ast.h>
+
+#if DEVELOPMENT || DEBUG
+SCALABLE_COUNTER_DECLARE(mach_eventlink_handoff_success_count);
+#endif /* DEVELOPMENT || DEBUG */
 
 static void thread_depress_abstime(uint64_t interval);
 static void thread_depress_ms(mach_msg_timeout_t interval);
@@ -280,6 +282,10 @@ thread_switch(
 		    pulled_thread ? TRUE : FALSE, 0, 0);
 
 		if (pulled_thread != THREAD_NULL) {
+#if DEVELOPMENT || DEBUG
+			counter_inc_preemption_disabled(&mach_eventlink_handoff_success_count);
+#endif /* DEVELOPMENT || DEBUG */
+
 			/* We can't be dropping the last ref here */
 			thread_deallocate_safe(thread);
 
@@ -370,6 +376,10 @@ thread_handoff_internal(thread_t thread, thread_continue_t continuation,
 		}
 
 		if (pulled_thread != THREAD_NULL) {
+#if DEVELOPMENT || DEBUG
+			counter_inc_preemption_disabled(&mach_eventlink_handoff_success_count);
+#endif /* DEVELOPMENT || DEBUG */
+
 			int result = thread_run(self, continuation, parameter, pulled_thread);
 
 			splx(s);

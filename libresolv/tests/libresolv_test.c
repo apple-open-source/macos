@@ -17,6 +17,9 @@
 #include <stdio.h>
 
 #include <atf-c.h>
+#ifdef __APPLE__
+#include <pthread.h>
+#endif
 
 #include "dns.h"
 #include "dns_util.h"
@@ -721,6 +724,80 @@ ATF_TC_BODY(test_res_init_multi, tc)
 	ATF_REQUIRE(statep->nscount <= MAXNS);
 }
 
+static void
+check_res_state_init(struct __res_state *statep)
+{
+	/*
+	 * Sanity check as many fields as we can, make sure there's not some
+	 * evidence of garbage that we're overlooking just because we did not
+	 * crash.
+	 */
+	ATF_REQUIRE(statep->retrans >= 0);
+	ATF_REQUIRE(statep->retry >= 0);
+	/* options flag bits are pretty much maxed out, nothing to test. */
+	ATF_REQUIRE(statep->nscount >= 0 && statep->nscount <= MAXNS);
+	/* id is expected to be random, nothing to test. */
+	ATF_REQUIRE(statep->ndots <= RES_MAXNDOTS);
+	ATF_REQUIRE(statep->nsort <= MAXRESOLVSORT);
+
+	/*
+	 * These could become unused in the future, but we'll cope when that
+	 * happens.
+	 */
+	for (size_t i = 0; i < 3; i++)
+		ATF_REQUIRE(statep->unused[i] == 0);
+
+	ATF_REQUIRE(statep->qhook == NULL);
+	ATF_REQUIRE(statep->rhook == NULL);
+	ATF_REQUIRE(statep->res_h_errno == 0);
+	ATF_REQUIRE(statep->_vcsock == -1);
+	ATF_REQUIRE(statep->_pad == 9);	/* Version */
+	ATF_REQUIRE(statep->_u._ext.nscount <= MAXNS);
+}
+
+static void *
+thread_state_grabber(void *cookie __unused)
+{
+	struct __res_state *statep = &_res;
+
+	res_init();
+	check_res_state_init(statep);
+
+	return (statep);
+}
+
+ATF_TC_WITHOUT_HEAD(test_res_init_threads);
+ATF_TC_BODY(test_res_init_threads, tc)
+{
+	struct __res_state *statep = &_res;
+	struct __res_state *threadp = NULL;
+	pthread_t thr;
+
+	pthread_create(&thr, NULL, thread_state_grabber, &threadp);
+	pthread_join(thr, &threadp);
+
+	/* Each thread gets its own state with newer libresolv. */
+	ATF_REQUIRE(threadp != statep);
+
+	res_init();
+	check_res_state_init(statep);
+}
+
+/*
+ * rdar://131556571 - stack garbage in the state caused a crash in res_ninit()
+ * as the RES_INIT bit was set in statep->options.
+ */
+ATF_TC_WITHOUT_HEAD(test_res_ninit);
+ATF_TC_BODY(test_res_ninit, tc)
+{
+	struct __res_state *statep = &_res;
+
+	memset(statep, 0xff, sizeof(*statep));
+	res_ninit(statep);
+	check_res_state_init(statep);
+	res_ndestroy(statep);
+}
+
 _Pragma("clang diagnostic pop")
 #endif	/* __APPLE__ */
 
@@ -754,6 +831,8 @@ ATF_TP_ADD_TCS(tp)
 
 	/* Specific regressions */
 	ATF_TP_ADD_TC(tp, test_res_init_multi);
+	ATF_TP_ADD_TC(tp, test_res_init_threads);
+	ATF_TP_ADD_TC(tp, test_res_ninit);
 #endif /* __APPLE__ */
 
 	return (atf_no_error());            

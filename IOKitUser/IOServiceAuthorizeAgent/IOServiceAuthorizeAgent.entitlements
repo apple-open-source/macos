@@ -4,5 +4,13 @@
 <dict>
 	<key>com.apple.private.iokit.IOServiceSetAuthorizationID</key>
 	<true/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.apple.iokit.IOServiceAuthorizeAgent</string>
+    </array>
+    <key>com.apple.private.security.restricted-application-groups</key>
+    <array>
+        <string>group.com.apple.iokit.IOServiceAuthorizeAgent</string>
+    </array>
 </dict>
 </plist>

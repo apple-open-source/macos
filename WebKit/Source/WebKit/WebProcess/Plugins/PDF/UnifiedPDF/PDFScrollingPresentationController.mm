@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,7 +56,10 @@ void PDFScrollingPresentationController::teardown()
 
     GraphicsLayer::unparentAndClear(m_contentsLayer);
     GraphicsLayer::unparentAndClear(m_pageBackgroundsContainerLayer);
+
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
     GraphicsLayer::unparentAndClear(m_selectionLayer);
+#endif
 }
 
 bool PDFScrollingPresentationController::supportsDisplayMode(PDFDocumentLayout::DisplayMode mode) const
@@ -111,6 +114,7 @@ PDFPageCoverage PDFScrollingPresentationController::pageCoverageForContentsRect(
     auto& documentLayout = m_plugin->documentLayout();
     auto pageCoverage = PDFPageCoverage { };
     for (PDFDocumentLayout::PageIndex i = 0; i < documentLayout.pageCount(); ++i) {
+        // FIXME: This instantiates PDFPages needlessly, just to determine if they exist.
         auto page = documentLayout.pageAtIndex(i);
         if (!page)
             continue;
@@ -141,48 +145,61 @@ PDFPageCoverageAndScales PDFScrollingPresentationController::pageCoverageAndScal
 
 void PDFScrollingPresentationController::setupLayers(GraphicsLayer& scrolledContentsLayer)
 {
-    if (!m_pageBackgroundsContainerLayer) {
-        m_pageBackgroundsContainerLayer = createGraphicsLayer("Page backgrounds"_s, GraphicsLayer::Type::Normal);
-        m_pageBackgroundsContainerLayer->setAnchorPoint({ });
-        scrolledContentsLayer.addChild(*m_pageBackgroundsContainerLayer);
+    RefPtr pageBackgroundsContainerLayer = m_pageBackgroundsContainerLayer;
+    if (!pageBackgroundsContainerLayer) {
+        pageBackgroundsContainerLayer = createGraphicsLayer("Page backgrounds"_s, GraphicsLayer::Type::Normal);
+        m_pageBackgroundsContainerLayer = pageBackgroundsContainerLayer.copyRef();
+        pageBackgroundsContainerLayer->setAnchorPoint({ });
+        scrolledContentsLayer.addChild(pageBackgroundsContainerLayer.releaseNonNull());
     }
 
-    if (!m_contentsLayer) {
-        m_contentsLayer = createGraphicsLayer("PDF contents"_s, m_plugin->isFullMainFramePlugin() ? GraphicsLayer::Type::PageTiledBacking : GraphicsLayer::Type::TiledBacking);
-        m_contentsLayer->setAnchorPoint({ });
-        m_contentsLayer->setDrawsContent(true);
-        m_contentsLayer->setAcceleratesDrawing(true);
-        scrolledContentsLayer.addChild(*m_contentsLayer);
+    RefPtr contentsLayer = m_contentsLayer;
+    if (!contentsLayer) {
+        contentsLayer = createGraphicsLayer("PDF contents"_s, m_plugin->isFullMainFramePlugin() ? GraphicsLayer::Type::PageTiledBacking : GraphicsLayer::Type::TiledBacking);
+        m_contentsLayer = contentsLayer.copyRef();
+        contentsLayer->setAnchorPoint({ });
+        contentsLayer->setDrawsContent(true);
+        contentsLayer->setAcceleratesDrawing(!shouldUseInProcessBackingStore());
+        scrolledContentsLayer.addChild(*contentsLayer);
 
         // This is the call that enables async rendering.
-        asyncRenderer()->startTrackingLayer(*m_contentsLayer);
+        asyncRenderer()->startTrackingLayer(*contentsLayer);
     }
 
-    if (!m_selectionLayer) {
-        m_selectionLayer = createGraphicsLayer("PDF selections"_s, GraphicsLayer::Type::TiledBacking);
-        m_selectionLayer->setAnchorPoint({ });
-        m_selectionLayer->setDrawsContent(true);
-        m_selectionLayer->setAcceleratesDrawing(true);
-        m_selectionLayer->setBlendMode(BlendMode::Multiply);
-        scrolledContentsLayer.addChild(*m_selectionLayer);
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    RefPtr selectionLayer = m_selectionLayer;
+    if (!selectionLayer) {
+        selectionLayer = createGraphicsLayer("PDF selections"_s, GraphicsLayer::Type::TiledBacking);
+        m_selectionLayer = selectionLayer.copyRef();
+        selectionLayer->setAnchorPoint({ });
+        selectionLayer->setDrawsContent(true);
+        selectionLayer->setAcceleratesDrawing(true);
+        selectionLayer->setBlendMode(BlendMode::Multiply);
+
+        // m_selectionLayer will be parented on-demand in `setSelectionLayerEnabled`.
     }
+#endif
 }
 
 void PDFScrollingPresentationController::updateLayersOnLayoutChange(FloatSize documentSize, FloatSize centeringOffset, double scaleFactor)
 {
-    m_contentsLayer->setSize(documentSize);
-    m_contentsLayer->setNeedsDisplay();
-
-    m_selectionLayer->setSize(documentSize);
-    m_selectionLayer->setNeedsDisplay();
+    Ref contentsLayer = *m_contentsLayer;
+    contentsLayer->setSize(documentSize);
+    contentsLayer->setNeedsDisplay();
 
     TransformationMatrix transform;
     transform.scale(scaleFactor);
     transform.translate(centeringOffset.width(), centeringOffset.height());
 
-    m_contentsLayer->setTransform(transform);
-    m_selectionLayer->setTransform(transform);
-    m_pageBackgroundsContainerLayer->setTransform(transform);
+    contentsLayer->setTransform(transform);
+    protectedPageBackgroundsContainerLayer()->setTransform(transform);
+
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    Ref selectionLayer = *m_selectionLayer;
+    selectionLayer->setSize(documentSize);
+    selectionLayer->setNeedsDisplay();
+    selectionLayer->setTransform(transform);
+#endif
 
     updatePageBackgroundLayers();
 }
@@ -191,7 +208,8 @@ void PDFScrollingPresentationController::updatePageBackgroundLayers()
 {
     auto& documentLayout = m_plugin->documentLayout();
 
-    Vector<Ref<GraphicsLayer>> pageContainerLayers = m_pageBackgroundsContainerLayer->children();
+    Ref pageBackgroundsContainerLayer = *m_pageBackgroundsContainerLayer;
+    Vector<Ref<GraphicsLayer>> pageContainerLayers = pageBackgroundsContainerLayer->children();
 
     // pageContentsLayers are always the size of `layoutBoundsForPageAtIndex`; we generate a page preview
     // buffer of the same size. On zooming, this layer just gets scaled, to avoid repainting.
@@ -228,7 +246,7 @@ void PDFScrollingPresentationController::updatePageBackgroundLayers()
         pageBackgroundLayer->setTransform(documentScaleTransform);
     }
 
-    m_pageBackgroundsContainerLayer->setChildren(WTFMove(pageContainerLayers));
+    pageBackgroundsContainerLayer->setChildren(WTFMove(pageContainerLayers));
 }
 
 GraphicsLayer* PDFScrollingPresentationController::backgroundLayerForPage(PDFDocumentLayout::PageIndex pageIndex) const
@@ -255,10 +273,13 @@ void PDFScrollingPresentationController::didGeneratePreviewForPage(PDFDocumentLa
 
 void PDFScrollingPresentationController::updateIsInWindow(bool isInWindow)
 {
-    m_contentsLayer->setIsInWindow(isInWindow);
-    m_selectionLayer->setIsInWindow(isInWindow);
+    protectedContentsLayer()->setIsInWindow(isInWindow);
 
-    for (auto& pageLayer : m_pageBackgroundsContainerLayer->children()) {
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    protectedSelectionLayer()->setIsInWindow(isInWindow);
+#endif
+
+    for (auto& pageLayer : protectedPageBackgroundsContainerLayer()->children()) {
         if (pageLayer->children().size()) {
             Ref pageContentsLayer = pageLayer->children()[0];
             pageContentsLayer->setIsInWindow(isInWindow);
@@ -273,14 +294,16 @@ void PDFScrollingPresentationController::updateDebugBorders(bool showDebugBorder
         layer.setShowRepaintCounter(showRepaintCounters);
     };
 
-    if (m_pageBackgroundsContainerLayer)
-        propagateSettingsToLayer(*m_pageBackgroundsContainerLayer);
+    if (RefPtr pageBackgroundsContainerLayer = m_pageBackgroundsContainerLayer)
+        propagateSettingsToLayer(*pageBackgroundsContainerLayer);
 
-    if (m_contentsLayer)
-        propagateSettingsToLayer(*m_contentsLayer);
+    if (RefPtr contentsLayer = m_contentsLayer)
+        propagateSettingsToLayer(*contentsLayer);
 
-    if (m_selectionLayer)
-        propagateSettingsToLayer(*m_selectionLayer);
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    if (RefPtr selectionLayer = m_selectionLayer)
+        propagateSettingsToLayer(*selectionLayer);
+#endif
 
     if (m_pageBackgroundsContainerLayer) {
         for (auto& pageLayer : m_pageBackgroundsContainerLayer->children()) {
@@ -296,8 +319,16 @@ void PDFScrollingPresentationController::updateDebugBorders(bool showDebugBorder
 
 void PDFScrollingPresentationController::updateForCurrentScrollability(OptionSet<TiledBackingScrollability> scrollability)
 {
-    if (auto* tiledBacking = m_contentsLayer->tiledBacking())
+    RefPtr contentsLayer = m_contentsLayer;
+    if (!contentsLayer)
+        return;
+    if (CheckedPtr tiledBacking = contentsLayer->tiledBacking())
         tiledBacking->setScrollability(scrollability);
+
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    if (CheckedPtr tiledBacking = protectedSelectionLayer()->tiledBacking())
+        tiledBacking->setScrollability(scrollability);
+#endif
 }
 
 auto PDFScrollingPresentationController::layerCoveragesForRepaintPageCoverage(RepaintRequirements repaintRequirements, const PDFPageCoverage& pageCoverage) -> Vector<LayerCoverage>
@@ -307,8 +338,10 @@ auto PDFScrollingPresentationController::layerCoveragesForRepaintPageCoverage(Re
     for (auto& perPage : pageCoverage)
         contentsRect.unite(m_plugin->convertUp(UnifiedPDFPlugin::CoordinateSpace::PDFPage, UnifiedPDFPlugin::CoordinateSpace::Contents, perPage.rectInPageLayoutCoordinates, perPage.pageIndex));
 
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
     if (repaintRequirements.contains(RepaintRequirement::Selection))
         result.append({ *m_selectionLayer, contentsRect, RepaintRequirements { RepaintRequirement::Selection } });
+#endif
 
     if (repaintRequirements.contains(RepaintRequirement::PDFContent))
         result.append({ *m_contentsLayer, contentsRect, RepaintRequirements { RepaintRequirement::PDFContent } });
@@ -372,25 +405,39 @@ std::optional<float> PDFScrollingPresentationController::customContentsScale(con
     return { };
 }
 
+bool PDFScrollingPresentationController::layerNeedsPlatformContext(const GraphicsLayer* layer) const
+{
+    return shouldUseInProcessBackingStore() && (layer == m_contentsLayer || pageIndexForPageBackgroundLayer(layer));
+}
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+bool PDFScrollingPresentationController::layerAllowsDynamicContentScaling(const GraphicsLayer*) const
+{
+    // Provide DCS structures explicitly.
+    return false;
+}
+#endif
+
 void PDFScrollingPresentationController::tiledBackingUsageChanged(const GraphicsLayer* layer, bool usingTiledBacking)
 {
     if (usingTiledBacking)
-        layer->tiledBacking()->setIsInWindow(m_plugin->isInWindow());
+        layer->checkedTiledBacking()->setIsInWindow(m_plugin->isInWindow());
 }
 
 void PDFScrollingPresentationController::paintContents(const GraphicsLayer* layer, GraphicsContext& context, const FloatRect& clipRect, OptionSet<GraphicsLayerPaintBehavior>)
 {
-
     if (layer == m_contentsLayer.get()) {
         RefPtr asyncRenderer = asyncRendererIfExists();
         m_plugin->paintPDFContent(layer, context, clipRect, { }, asyncRenderer.get());
         return;
     }
 
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
     if (layer == m_selectionLayer.get()) {
         paintPDFSelection(layer, context, clipRect, { });
         return;
     }
+#endif
 
     if (auto backgroundLayerPageIndex = pageIndexForPageBackgroundLayer(layer)) {
         paintBackgroundLayerForPage(layer, context, clipRect, *backgroundLayerPageIndex);
@@ -403,12 +450,27 @@ void PDFScrollingPresentationController::paintPDFSelection(const GraphicsLayer* 
     m_plugin->paintPDFSelection(layer, context, clipRect, row);
 }
 
+void PDFScrollingPresentationController::setSelectionLayerEnabled(bool enabled)
+{
+#if ENABLE(PDFKIT_PAINTED_SELECTIONS)
+    Ref selectionLayer = *m_selectionLayer;
+    bool wasEnabled = !!selectionLayer->parent();
+    if (wasEnabled == enabled)
+        return;
+    if (!enabled)
+        selectionLayer->removeFromParent();
+    else
+        m_contentsLayer->protectedParent()->addChild(WTFMove(selectionLayer));
+#endif
+}
+
 std::optional<PlatformLayerIdentifier> PDFScrollingPresentationController::contentsLayerIdentifier() const
 {
-    if (!m_contentsLayer)
+    RefPtr contentsLayer = m_contentsLayer;
+    if (!contentsLayer)
         return std::nullopt;
 
-    return m_contentsLayer->primaryLayerID();
+    return contentsLayer->primaryLayerID();
 }
 
 } // namespace WebKit

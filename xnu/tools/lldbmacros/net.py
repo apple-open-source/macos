@@ -106,53 +106,6 @@ def GetIfConfiguration(ifname):
             return ifnet
     return None
 
-# Macro: net_get_always_on_pktap
-@lldb_command('net_get_always_on_pktap')
-def NetGetAlwaysOnPktap(cmd_args=None):
-    """ Dump the always-on packet capture to /tmp/dump.pktap
-    """
-    for i in range(0, 10):
-        ifnet = GetIfConfiguration("pktap"+str(i))
-        if not ifnet:
-            continue
-        if ifnet.if_bpf == 0:
-            ifnet = None
-            continue
-        if ifnet.if_bpf.bif_dlist.bd_headdrop == 0:
-            ifnet = None
-            continue
-
-        break
-
-    if not ifnet:
-        print("Could not find a pktap interface")
-        return
-
-    bpf_d = ifnet.if_bpf.bif_dlist
-
-    f = tempfile.NamedTemporaryFile(prefix="dump-", suffix=".pktap", dir="/tmp/", mode="wb", delete=False)
-
-    err = lldb.SBError()
-
-    if bpf_d.bd_hbuf != 0:
-        addr = bpf_d.bd_hbuf[0].GetSBValue().GetLoadAddress()
-        hlen = (unsigned(bpf_d.bd_hlen)+(4-1))&~(4-1)
-        buf = LazyTarget.GetProcess().ReadMemory(addr, hlen, err)
-        if err.fail:
-            print("Error, getting sbuf")
-        f.write(buf)
-
-    addr = bpf_d.bd_sbuf[0].GetSBValue().GetLoadAddress()
-    slen = (unsigned(bpf_d.bd_slen)+(4-1))&~(4-1)
-    buf = LazyTarget.GetProcess().ReadMemory(addr, slen, err)
-    if err.fail:
-        print("Error, getting sbuf")
-    f.write(buf)
-
-    print(f.name)
-    f.close()
-# EndMacro: net_get_always_on_pktap
-
 #Macro: ifconfig_dlil
 @lldb_command('ifconfig_dlil')
 def ShowIfconfigDlil(cmd_args=None) :
@@ -281,8 +234,8 @@ def GetIfaddrs(ifp):
     if (ifp != 0):
         i = 1
         for ifaddr in IterateTAILQ_HEAD(ifp.if_addrhead, "ifa_link"):
-            format_string = "\t{0: <d}: 0x{1: <x} {2: <s} [{3: <d}]"
-            out_string += format_string.format(i, ifaddr, GetSocketAddrAsString(ifaddr.ifa_addr), ifaddr.ifa_refcnt) + "\n"
+            format_string = "\t{0: <d}: 0x{1: <x} {2: <s}"
+            out_string += format_string.format(i, ifaddr, GetSocketAddrAsString(ifaddr.ifa_addr)) + "\n"
             i += 1
     else:
         out_string += "Missing argument 0 in user function."
@@ -1559,28 +1512,39 @@ def GetInPcb(pcb, proto):
             tcpcb = cast(pcb.inp_ppcb, 'tcpcb *')
             out_string += " reass=" + str(int(tcpcb.t_reassqlen))
 
-        out_string += " usecnt=" + str(int(so.so_usecount)) + ", "
+        out_string += " usecnt=" + str(int(so.so_usecount))
 
     if (pcb.inp_state == 0 or pcb.inp_state == INPCB_STATE_INUSE):
-        out_string += "inuse"
+        out_string += " inuse"
     else:
         if (pcb.inp_state == INPCB_STATE_DEAD):
-            out_string += "dead"
+            out_string += " dead"
         else:
-            out_string += "unknown (" + str(int(pcb.inp_state)) + ")"
+            out_string += " unknown (" + str(int(pcb.inp_state)) + ")"
+
+    ifname = ""
+    if (pcb.inp_flags & INP_BOUND_IF):
+        ifp = pcb.inp_boundifp
+    else:
+        ifp = pcb.inp_last_outifp
+    if (ifp != 0):
+        ifname = ifp.if_xname
+    out_string += " ifp=" + str(ifname)
+
+    out_string += " last_proc=" + str(pcb.inp_last_proc_name) + ":" + str(int(so.last_pid))
 
     return out_string
 
 def CalcMbufInList(mpkt, pkt_cnt, buf_byte_cnt, mbuf_cnt, mbuf_cluster_cnt):
     while (mpkt != 0):
         mp = mpkt
-        if kern.globals.mb_uses_mcache == 1:
+        if kern.arch == 'x86_64':
             mpkt = mp.m_hdr.mh_nextpkt
         else:
             mpkt = mp.M_hdr_common.M_hdr.mh_nextpkt
         pkt_cnt[0] +=1
         while (mp != 0):
-            if kern.globals.mb_uses_mcache == 1:
+            if kern.arch == 'x86_64':
                 mnext = mp.m_hdr.mh_next
                 mflags = mp.m_hdr.mh_flags
                 mtype = mp.m_hdr.mh_type
@@ -1593,7 +1557,7 @@ def CalcMbufInList(mpkt, pkt_cnt, buf_byte_cnt, mbuf_cnt, mbuf_cluster_cnt):
             buf_byte_cnt[Mbuf_Type.MT_LAST] += 256
             if (mflags & 0x01):
                 mbuf_cluster_cnt[0] += 1
-                if kern.globals.mb_uses_mcache == 1:
+                if kern.arch == 'x86_64':
                     extsize = mp.M_dat.MH.MH_dat.MH_ext.ext_size
                 else:
                     extsize = mp.M_hdr_common.M_ext.ext_size
@@ -1947,23 +1911,6 @@ def ShowUdpPcbInfo(cmd_args=None):
     print(GetPcbInfo(addressof(kern.globals.udbinfo), IPPROTO_UDP))
 # EndMacro:  show_udp_pcbinfo
 
-# Macro: show_udp_pcbinfo
-@lldb_command('show_udb_info')
-def ShowUdb(cmd_args=None):
-    """ Display the list of UDP PCBs from udb.
-    """
-    head = kern.globals.udb
-    pcb = cast(head.lh_first, 'inpcb *')
-    pcbseen = 0
-    while pcb != 0:
-        pcbseen += 1
-        so = pcb.inp_socket
-        pcb = cast(pcb.inp_list.le_next, 'inpcb *')
-        #print(pcb.inp_last_proc_name)
-        print(GetInPcb(pcb, IPPROTO_UDP))
-        #print(pcb.inp_start_timestamp)
-# EndMacro: show_udb_pcbinfo
-
 # Macro: show_rip_pcbinfo
 @lldb_command('show_rip_pcbinfo')
 def ShowRipPcbInfo(cmd_args=None):
@@ -2147,3 +2094,187 @@ def TCPWalkRxtSegments(cmd_args=None):
         print(out_string)
         rxseg = rxseg.rx_link.sle_next
 # EndMacro: tcp_walk_rxt_segments
+
+def GetTCPTimerAsString(value):
+    """ Return a formatted string description of the timer index
+    """
+    index = unsigned(value)
+    if index <= TCPT_MAX:
+        out_string = tcp_timer_strings[index]
+    else:
+        out_string = printf("<{d}>".format(value))
+    return out_string
+
+# Macro: tcp_walk_timer_list
+@lldb_command('tcp_walk_timer_list', 'V')
+def TCPWalkTimerList(cmd_args=None, cmd_options={}):
+    """ Walk the list of tcptimerentry from tcp_timer_list lhead field
+        Usage: tcp_walk_timer_list [-V]
+                -V show detail of the TCP control block
+    """
+    verbose = False
+    if "-V" in cmd_options:
+        verbose = True
+
+    field_offset = getfieldoffset("struct tcpcb", "tentry.te_le.le_next")
+
+    timer_list = addressof(kern.globals.tcp_timer_list)
+
+    timer_entry = Cast(timer_list.lhead.lh_first, 'tcptimerentry *')
+    cnt = 0
+
+    print("Walking entries of tcp_timer_list at 0x{:x}".format(unsigned(timer_list)))
+
+    timer_header_format = "{0:6s} {1:>18s} {2:>12s} {3:>14s} {4:>6s} {5:>12s} {6:>18s} {7:>18s} {8:>18s}"
+    out_string = timer_header_format.format("Entry#", "(tcptimerentry *)", "timer_start", "index", "mode", "runtime", "le_next", "(tcpcb *)", "(inpcb *)")
+    print(out_string)
+
+    while timer_entry != 0:
+        cnt += 1
+        next_entry = timer_entry.te_le.le_next
+        tp = Cast(kern.GetValueFromAddress(Cast(timer_entry, 'char *') - field_offset), 'tcpcb *')
+        timer_entry_format = "{0:6d} 0x{1:<16x} {2:>12d} {3:>14s} {4:>6d} {5:>12d} 0x{6:<16x} 0x{7:<16x} 0x{8:<16x}"
+        out_string = timer_entry_format.format(
+            cnt,
+            unsigned(timer_entry),
+            unsigned(timer_entry.te_timer_start),
+            GetTCPTimerAsString(timer_entry.te_index),
+            unsigned(timer_entry.te_mode),
+            unsigned(timer_entry.te_runtime),
+            unsigned(next_entry) if next_entry else 0,
+            unsigned(tp),
+            unsigned(tp.t_inpcb)
+        )
+        print(out_string)
+
+        if verbose:
+            print(GetInPcb(tp.t_inpcb, IPPROTO_TCP))
+
+        timer_entry = Cast(next_entry, 'tcptimerentry *')
+
+        # Safety check to prevent infinite loops
+        if cnt > 10000:
+            print("Warning: Stopped after 10000 entries to prevent infinite loop")
+            break
+
+    print("Total timer entries: {:d}".format(cnt))
+# EndMacro: tcp_walk_timer_list
+
+def ShowBPFDevice(i, bpf_d):
+    out_string = ""
+    if bpf_d != 0:
+        bd_sbuf = cast(bpf_d.bd_sbuf, 'char *')
+        bd_hbuf = cast(bpf_d.bd_hbuf, 'char *')
+        ifname = ""
+        bd_bif = cast(bpf_d.bd_bif, 'struct bpf_if *')
+        if bd_bif != 0:
+            bif_ifp = cast(bd_bif.bif_ifp, 'struct ifnet *')
+            if bif_ifp != 0:
+                ifname = bif_ifp.if_xname
+        format_string = "bpf{0:<3d} (struct bpf_d *)0x{1:16x} {2:7d} 0x{3:<16x} {4:7d} 0x{5:<16x} {6:16s}"
+        out_string += format_string.format(i, bpf_d, bpf_d.bd_slen, bd_sbuf, bpf_d.bd_hlen, bd_hbuf, ifname)
+    return out_string
+
+# Macro: show_bpf_devices
+@lldb_command('show_bpf_devices')
+def ShowBPFDevices(cmd_args=None):
+    """ Walk the bpf device array
+    """
+    format_string = "{0:6s} {1:34s} {2:>7s} {3:18s} {4:>7s} {5:18s} {6:16s}"
+    out_string = format_string.format("device", "address", "bd_slen", "bd_sbuf", "bd_hlen", "bd_hbuf", "bif_ifp")
+    print(out_string)
+
+    bpf_dtab_size = int(kern.globals.bpf_dtab_size)
+    for i in range(0, bpf_dtab_size):
+        bpf_d = cast(kern.globals.bpf_dtab[i], 'struct bpf_d *')
+        if bpf_d == 0:
+            continue
+        out_string = ShowBPFDevice(i, bpf_d)
+        print(out_string)
+# EndMacro: show_bpf_devices
+
+def DumpBPFToFile(bpf_d):
+    bd_bif = cast(bpf_d.bd_bif, 'struct bpf_if *')
+    if bd_bif == 0:
+        print("bd_bif is NULL")
+        return
+
+    bif_ifp = Cast(bd_bif.bif_ifp, 'struct ifnet *')
+    if bif_ifp == 0:
+        print("bd_bif.bif_ifp is NULL")
+        return
+
+    ifname = cast(bif_ifp.if_xname, 'char *')
+    print("ifname: ", ifname);
+
+    dlt = bd_bif.bif_dlt
+    if dlt == 149:
+        suffix = ".pktap"
+    else:
+        suffix = ".bpf"
+
+    format_string = "{0:s}-dlt-{1:d}-"
+    prefix = format_string.format(ifname, dlt)
+
+    f = tempfile.NamedTemporaryFile(prefix=prefix, suffix=suffix, dir="/tmp/", mode="wb", delete=False)
+
+    err = lldb.SBError()
+
+    if bpf_d.bd_hlen != 0:
+        addr = bpf_d.bd_hbuf[0].GetSBValue().GetLoadAddress()
+        hlen = (unsigned(bpf_d.bd_hlen)+(4-1))&~(4-1)
+        if hlen != 0:
+            buf = LazyTarget.GetProcess().ReadMemory(addr, hlen, err)
+            if err.fail:
+                print("Error, getting sbuf")
+            f.write(buf)
+
+    if bpf_d.bd_slen != 0:
+        addr = bpf_d.bd_sbuf[0].GetSBValue().GetLoadAddress()
+        slen = (unsigned(bpf_d.bd_slen)+(4-1))&~(4-1)
+        if slen != 0:
+            buf = LazyTarget.GetProcess().ReadMemory(addr, slen, err)
+            if err.fail:
+                print("Error, getting sbuf")
+                f.write(buf)
+
+    print(f.name)
+    f.close()
+
+# Macro: net_get_always_on_pktap
+@lldb_command('save_bfp_buffers')
+def SaveBPFBuffer(cmd_args=None):
+    """ Dump the buffers of a BPF to a file in /tmp/
+    """
+    if cmd_args is None or len(cmd_args) == 0:
+        raise ArgumentError()
+
+    bpf_d = kern.GetValueFromAddress(cmd_args[0], 'struct bpf_d *')
+
+    DumpBPFToFile(bpf_d)
+
+# Macro: net_get_always_on_pktap
+@lldb_command('net_get_always_on_pktap')
+def NetGetAlwaysOnPktap(cmd_args=None):
+    """ Dump the always-on packet capture to a file in /tmp/
+    """
+    for i in range(0, 10):
+        ifnet = GetIfConfiguration("pktap"+str(i))
+        if not ifnet:
+            continue
+        if ifnet.if_bpf == 0:
+            ifnet = None
+            continue
+        if ifnet.if_bpf.bif_dlist.bd_headdrop == 0:
+            ifnet = None
+            continue
+        break
+
+    if not ifnet:
+        print("Could not find a pktap interface")
+        return
+
+    bpf_d = ifnet.if_bpf.bif_dlist
+
+    DumpBPFToFile(bpf_d)
+# EndMacro: net_get_always_on_pktap

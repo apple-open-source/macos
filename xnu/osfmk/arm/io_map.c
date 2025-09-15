@@ -76,7 +76,9 @@ io_map_init(void)
 	    VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE, KMS_PERMANENT | KMS_NOFAIL,
 	    VM_KERN_MEMORY_IOKIT).kmr_submap;
 }
+#ifndef __BUILDING_XNU_LIB_UNITTEST__ /* io map is not supported in unit-tests */
 STARTUP(KMEM, STARTUP_RANK_LAST, io_map_init);
+#endif /* __BUILDING_XNU_LIB_UNITTEST__ */
 
 /*
  * Allocate and map memory for devices that may need to be mapped before
@@ -124,7 +126,7 @@ io_map(
 		kma_flags_t kmaflags = KMA_NOFAIL | KMA_PAGEABLE;
 
 		if (unmappable) {
-			kmaflags |= KMA_DATA;
+			kmaflags |= KMA_DATA_SHARED;
 		} else {
 			kmaflags |= KMA_PERMANENT;
 		}

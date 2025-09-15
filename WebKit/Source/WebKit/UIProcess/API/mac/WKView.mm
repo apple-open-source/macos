@@ -34,7 +34,6 @@
 #import "AppKitSPI.h"
 #import "WKBrowsingContextGroupPrivate.h"
 #import "WKNSData.h"
-#import "WKProcessGroupPrivate.h"
 #import "WKWebViewMac.h"
 #import "WebBackForwardListItem.h"
 #import "WebKit2Initialize.h"
@@ -50,7 +49,6 @@
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/mac/NSViewSPI.h>
 #import <wtf/BlockPtr.h>
-#import <wtf/NakedRef.h>
 
 @interface WKViewData : NSObject
 @end
@@ -66,10 +64,8 @@
 @end
 #endif
 
-#if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
 @interface WKView () <NSScrollViewSeparatorTrackingAdapter>
 @end
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
 
@@ -160,13 +156,9 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
 }
 
-#if USE(NSVIEW_SEMANTICCONTEXT)
-
 - (void)_setSemanticContext:(NSViewSemanticContext)semanticContext
 {
 }
-
-#endif
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)renewGState
@@ -801,7 +793,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
 }
 
-- (instancetype)initWithFrame:(NSRect)frame processPool:(NakedRef<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
+- (instancetype)initWithFrame:(NSRect)frame processPool:(std::reference_wrapper<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
 {
     return nil;
 }
@@ -945,8 +937,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 #endif // HAVE(TOUCH_BAR)
 
-#if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
-
 - (NSRect)scrollViewFrame
 {
     return { };
@@ -956,8 +946,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     return NO;
 }
-
-#endif // HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
 
 #if ENABLE(DRAG_SUPPORT)
 

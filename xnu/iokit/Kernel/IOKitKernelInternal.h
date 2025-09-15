@@ -69,7 +69,8 @@ IOKernelAllocateWithPhysicalRestrict(
 	mach_vm_size_t      size,
 	mach_vm_address_t   maxPhys,
 	mach_vm_size_t      alignment,
-	bool                contiguous);
+	bool                contiguous,
+	bool                noSoftLimit);
 void
 IOKernelFreePhysical(
 	kalloc_heap_t       kheap,
@@ -172,7 +173,7 @@ struct IOMemoryDescriptorReserved {
 	vm_tag_t                      kernelTag;
 	vm_tag_t                      userTag;
 	task_t                        creator;
-	OSObject                    * contextObject;
+	OSPtr<OSDictionary>           contextObjects;
 };
 
 #if defined(__x86_64__)
@@ -246,6 +247,8 @@ IOReturn IORemoveServicePlatformActions(IOService * service);
 void     IOCPUSleepKernel(void);
 void     IOPlatformActionsInitialize(void);
 
+void     IOServicePHSystemAOT(int isAOT);
+
 class IOSystemStateNotification : public IOService
 {
 	OSDeclareDefaultStructors(IOSystemStateNotification);
@@ -254,5 +257,7 @@ public:
 	virtual IOReturn setProperties( OSObject * properties) APPLE_KEXT_OVERRIDE;
 	virtual bool serializeProperties(OSSerialize * serialize) const APPLE_KEXT_OVERRIDE;
 };
+
+extern class IOPMrootDomain * gIOPMRootDomain;
 
 #endif /* ! _IOKIT_KERNELINTERNAL_H */

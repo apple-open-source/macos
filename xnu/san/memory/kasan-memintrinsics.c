@@ -32,6 +32,7 @@
 #include <mach/boolean.h>
 #include <machine/limits.h>
 #include <kern/debug.h>
+#include <san/kcov.h>
 
 #include "kasan_internal.h"
 #include "memintrinsics.h"
@@ -79,6 +80,9 @@ __asan_bcmp(const void *a, const void *b, size_t len)
 {
 	kasan_check_range(a, len, TYPE_MEMR);
 	kasan_check_range(b, len, TYPE_MEMR);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_MEMCMP, a, len, b, len, false);
+#endif
 	return __nosan_bcmp(a, b, len);
 }
 
@@ -87,6 +91,9 @@ __asan_memcmp(const void *a, const void *b, size_t n)
 {
 	kasan_check_range(a, n, TYPE_MEMR);
 	kasan_check_range(b, n, TYPE_MEMR);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_MEMCMP, a, n, b, n, false);
+#endif
 	return __nosan_memcmp(a, b, n);
 }
 
@@ -121,8 +128,12 @@ __asan_strncat(char *dst, const char *src, size_t sz)
 size_t
 __asan_strnlen(const char *src, size_t sz)
 {
+	size_t n = __nosan_strnlen(src, sz);
+	if (n < sz) {
+		sz = n + 1; // Include NUL
+	}
 	kasan_check_range(src, sz, TYPE_STRR);
-	return __nosan_strnlen(src, sz);
+	return n;
 }
 
 size_t
@@ -131,4 +142,118 @@ __asan_strlen(const char *src)
 	size_t sz = __nosan_strlen(src);
 	kasan_check_range(src, sz + 1, TYPE_STRR);
 	return sz;
+}
+
+int
+__asan_strcmp(const char *__null_terminated s1, const char *__null_terminated s2)
+{
+	size_t l1 = __asan_strlen(s1);
+	size_t l2 = __asan_strlen(s2);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strcmp(s1, s2);
+}
+
+__ptrcheck_unavailable_r("strlcmp or strbufcmp")
+int
+__asan_strncmp(const char *__unsafe_indexable s1, const char *__unsafe_indexable s2, size_t n)
+{
+	size_t l1 = __asan_strnlen(s1, n);
+	size_t l2 = __asan_strnlen(s2, n);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRNCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strncmp(s1, s2, n);
+}
+
+int
+__asan_strlcmp(const char *__counted_by(n)s1, const char *s2, size_t n)
+{
+	size_t l1 = __asan_strnlen(s1, n);
+	size_t l2 = __asan_strlen(s2);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRNCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strlcmp(s1, s2, n);
+}
+
+int
+__asan_strbufcmp(const char *__counted_by(s1len)s1, size_t s1len, const char *__counted_by(s2len)s2, size_t s2len)
+{
+	size_t l1 = __asan_strnlen(s1, s1len);
+	size_t l2 = __asan_strnlen(s2, s2len);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRBUFCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strbufcmp(s1, s1len, s2, s2len);
+}
+
+int
+__asan_strcasecmp(const char *__null_terminated s1, const char *__null_terminated s2)
+{
+	size_t l1 = __asan_strlen(s1);
+	size_t l2 = __asan_strlen(s2);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strcasecmp(s1, s2);
+}
+
+__ptrcheck_unavailable_r("strlcasecmp or strbufcasecmp")
+int
+__asan_strncasecmp(const char *__unsafe_indexable s1, const char *__unsafe_indexable s2, size_t n)
+{
+	size_t l1 = __asan_strnlen(s1, n);
+	size_t l2 = __asan_strnlen(s2, n);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRNCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strncasecmp(s1, s2, n);
+}
+
+int
+__asan_strlcasecmp(const char *__counted_by(n)s1, const char *s2, size_t n)
+{
+	size_t l1 = __asan_strnlen(s1, n);
+	size_t l2 = __asan_strlen(s2);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRNCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strlcasecmp(s1, s2, n);
+}
+
+int
+__asan_strbufcasecmp(const char *__counted_by(s1len)s1, size_t s1len, const char *__counted_by(s2len)s2, size_t s2len)
+{
+	size_t l1 = __asan_strnlen(s1, s1len);
+	size_t l2 = __asan_strnlen(s2, s2len);
+#if CONFIG_KCOV
+	kcov_trace_cmp_func(__builtin_return_address(0), KCOV_CMP_FUNC_STRBUFCMP, s1, l1, s2, l2, false);
+#else
+	(void)l1;
+	(void)l2;
+#endif
+	return __nosan_strbufcasecmp(s1, s1len, s2, s2len);
 }

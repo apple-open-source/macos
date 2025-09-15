@@ -48,6 +48,7 @@
 #include <fcntl.h>
 #include <fts.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
@@ -145,17 +146,18 @@ copyfile_callback(int what, int stage, copyfile_state_t state,
 		info = 0;
 		(void)copyfile_state_get(state, COPYFILE_STATE_COPIED,
 		    &wtotal);
-		(void)fprintf(stderr, "%s -> %s %3d%%\n", cpctx->src,
-		    cpctx->dst, cp_pct(wtotal, cpctx->size));
+		(void)fprintf(stderr, "%s -> %s%s %3d%%\n", cpctx->src,
+		    to.base, cpctx->dst, cp_pct(wtotal, cpctx->size));
 	}
 	return (COPYFILE_CONTINUE);
 }
 #endif /* !__APPLE__ */
 
 int
-copy_file(const FTSENT *entp, int dne)
+copy_file(const FTSENT *entp, bool dne, bool beneath)
 {
 #ifdef __APPLE__
+	struct statfs sfs;
 	struct stat to_stat;
 	struct copyfile_context cpctx;
 	copyfile_state_t cpfs;
@@ -167,6 +169,7 @@ copy_file(const FTSENT *entp, int dne)
 #ifdef __APPLE__
 	char resp[] = {'\0', '\0'};
 	mode_t mode = 0;
+	int atflags = beneath ? AT_RESOLVE_BENEATH : 0;
 	int cpflags, ret, use_copy_file_range = 0;
 #else /* !__APPLE__ */
 	int use_copy_file_range = 1;
@@ -178,6 +181,8 @@ copy_file(const FTSENT *entp, int dne)
 		if ((from_fd = open(entp->fts_path, O_RDONLY, 0)) < 0 ||
 		    fstat(from_fd, &sb) != 0) {
 			warn("%s", entp->fts_path);
+			if (from_fd >= 0)
+				(void)close(from_fd);
 			return (1);
 		}
 		/*
@@ -206,6 +211,7 @@ copy_file(const FTSENT *entp, int dne)
 		    S_ISLNK(sb.st_mode)) {
 #endif /* __APPLE__ */
 			warnx("%s: File changed", entp->fts_path);
+			(void)close(from_fd);
 			return (1);
 		}
 	}
@@ -221,16 +227,17 @@ copy_file(const FTSENT *entp, int dne)
 	if (!dne) {
 		if (nflag) {
 			if (vflag)
-				printf("%s not overwritten\n", to.p_path);
+				printf("%s%s not overwritten\n",
+				    to.base, to.path);
 			rval = 1;
 			goto done;
 		} else if (iflag) {
-			(void)fprintf(stderr, "overwrite %s? %s", 
-			    to.p_path, YESNO);
 #ifdef __APPLE__
 			/* Load user specified locale */
 			setlocale(LC_MESSAGES, "");
 #endif /* __APPLE__ */
+			(void)fprintf(stderr, "overwrite %s%s? %s",
+			    to.base, to.path, YESNO);
 			checkch = ch = getchar();
 			while (ch != '\n' && ch != EOF)
 				ch = getchar();
@@ -260,7 +267,8 @@ copy_file(const FTSENT *entp, int dne)
 		if (fflag) {
 #endif /* __APPLE__ */
 			/* remove existing destination file */
-			(void)unlink(to.p_path);
+			(void)unlinkat(to.dir, to.path,
+			    beneath ? AT_RESOLVE_BENEATH : 0);
 			dne = 1;
 		}
 	}
@@ -269,27 +277,27 @@ copy_file(const FTSENT *entp, int dne)
 
 #ifdef __APPLE__
 	if (cflag) {
-		ret = clonefile(entp->fts_path, to.p_path, 0);
+		ret = clonefileat(cwd, entp->fts_accpath, to.dir, to.path, 0);
 		if (ret == 0)
 			goto done;
 		if (errno != ENOTSUP) {
-			warn("%s: clonefile failed", to.p_path);
+			warn("%s%s: clonefile failed", to.base, to.path);
 			rval = 1;
 			goto done;
 		}
 	}
 #endif /* __APPLE__ */
 	if (lflag) {
-		if (link(entp->fts_path, to.p_path) != 0) {
-			warn("%s", to.p_path);
+		if (linkat(AT_FDCWD, entp->fts_path, to.dir, to.path, 0) != 0) {
+			warn("%s%s", to.base, to.path);
 			rval = 1;
 		}
 		goto done;
 	}
 
 	if (sflag) {
-		if (symlink(entp->fts_path, to.p_path) != 0) {
-			warn("%s", to.p_path);
+		if (symlinkat(entp->fts_path, to.dir, to.path) != 0) {
+			warn("%s%s", to.base, to.path);
 			rval = 1;
 		}
 		goto done;
@@ -297,7 +305,8 @@ copy_file(const FTSENT *entp, int dne)
 
 	if (!dne) {
 		/* overwrite existing destination file */
-		to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
+		to_fd = openat(to.dir, to.path,
+		    O_WRONLY | O_TRUNC | (beneath ? O_RESOLVE_BENEATH : 0), 0);
 #ifdef __APPLE__
 		/*
 		 * The file already exists, but we failed to open and
@@ -309,7 +318,7 @@ copy_file(const FTSENT *entp, int dne)
 		 */
 		if (to_fd == -1 && fflag) {
 			int saved_errno = errno;
-			if (unlink(to.p_path) == 0)
+			if (unlinkat(to.dir, to.path, atflags) == 0)
 				dne = 1;
 			errno = saved_errno;
 		}
@@ -319,19 +328,19 @@ copy_file(const FTSENT *entp, int dne)
 	} else {
 #endif /* __APPLE__ */
 		/* create new destination file */
-		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
+		to_fd = openat(to.dir, to.path,
+		    O_WRONLY | O_TRUNC | O_CREAT |
+		    (beneath ? O_RESOLVE_BENEATH : 0),
 		    fs->st_mode & ~(S_ISUID | S_ISGID));
 	}
 	if (to_fd == -1) {
-		warn("%s", to.p_path);
+		warn("%s%s", to.base, to.path);
 		rval = 1;
 		goto done;
 	}
 
 #ifdef __APPLE__
 	if (S_ISREG(fs->st_mode)) {
-		struct statfs sfs;
-
 		/*
 		 * Pre-allocate blocks for the destination file if it
 		 * resides on Xsan.
@@ -349,18 +358,17 @@ copy_file(const FTSENT *entp, int dne)
 		}
 	}
 
-	if (fstat(to_fd, &to_stat) == 0) {
-		mode = to_stat.st_mode;
-		if ((mode & (S_IRWXG|S_IRWXO)) &&
-		    fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO)) != 0) {
-			if (errno != EPERM) /* we have write access but do not own the file */
-				warn("%s: fchmod failed", to.p_path);
-			mode = 0;
-		}
-	} else {
-		warn("%s", to.p_path);
+	if (fstat(to_fd, &to_stat) != 0) {
+		warn("%s%s", to.base, to.path);
 		rval = 1;
 		goto done;
+	}
+	mode = to_stat.st_mode;
+	if ((mode & (S_IRWXG|S_IRWXO)) &&
+	    fchmod(to_fd, mode & ~(S_IRWXG|S_IRWXO)) != 0) {
+		if (errno != EPERM) /* we have write access but do not own the file */
+			warn("%s%s: fchmod failed", to.base, to.path);
+		mode = 0;
 	}
 
 	/*
@@ -383,11 +391,11 @@ copy_file(const FTSENT *entp, int dne)
 		 * and will close the file descriptors!
 		 */
 		if ((cpfs = copyfile_state_alloc()) == NULL) {
-			warn("%s: copyfile_state_alloc failed", to.p_path);
+			warn("%s%s: copyfile_state_alloc failed", to.base, to.path);
 			rval = 1;
 		} else {
 			cpctx.src = entp->fts_path;
-			cpctx.dst = to.p_path;
+			cpctx.dst = to.path;
 			cpctx.size = fs->st_size;
 			cpctx.error = 0;
 			(void)copyfile_state_set(cpfs, COPYFILE_STATE_STATUS_CTX,
@@ -402,7 +410,7 @@ copy_file(const FTSENT *entp, int dne)
 			if (ret != 0) {
 				if (errno == ECANCELED)
 					errno = cpctx.error;
-				warn("%s: fcopyfile failed", to.p_path);
+				warn("%s%s: fcopyfile failed", to.base, to.path);
 				rval = 1;
 			}
 		}
@@ -427,8 +435,8 @@ copy_file(const FTSENT *entp, int dne)
 		if (info) {
 			info = 0;
 			(void)fprintf(stderr,
-			    "%s -> %s %3d%%\n",
-			    entp->fts_path, to.p_path,
+			    "%s -> %s%s %3d%%\n",
+			    entp->fts_path, to.base, to.path,
 			    cp_pct(wtotal, fs->st_size));
 		}
 	} while (wcount > 0);
@@ -448,24 +456,35 @@ copy_file(const FTSENT *entp, int dne)
 	 */
 #ifdef __APPLE__
 	if (mode != 0 && fchmod(to_fd, mode))
-		warn("%s: fchmod failed", to.p_path);
+		warn("%s%s: fchmod failed", to.base, to.path);
 	/* do these before setfile in case copyfile changes mtime */
 	if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
-		if (fcopyfile(from_fd, to_fd, NULL,
-			COPYFILE_XATTR) < 0) {
-			warn("%s: could not copy extended attributes to %s",
-			    entp->fts_path, to.p_path);
+		if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_XATTR) < 0) {
+			warn("%s: could not copy extended attributes to %s%s",
+			    entp->fts_path, to.base, to.path);
 			rval = 1;
 		}
 	}
+	/*
+	 * If the destination is on a different filesystem than the
+	 * source, avoid copying suppressed permissions.
+	 */
+	if (fs->st_mode & (S_IXUSR|S_IXGRP|S_IXOTH|S_ISUID|S_ISGID) &&
+	    to_stat.st_dev != fs->st_dev) {
+		ret = fstatfs(from_fd, &sfs);
+		if (ret != 0 || sfs.f_flags & MNT_NOEXEC)
+			fs->st_mode &= ~(S_IXUSR|S_IXGRP|S_IXOTH);
+		if (ret != 0 || sfs.f_flags & MNT_NOSUID)
+			fs->st_mode &= ~(S_ISUID|S_ISGID);
+	}
 #endif /* __APPLE__ */
-	if (pflag && setfile(fs, to_fd))
+	if (pflag && setfile(fs, to_fd, beneath))
 		rval = 1;
 #ifdef __APPLE__
 	/* If this ACL denies writeattr then setfile will fail... */
 	if (pflag && fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0) {
-		warn("%s: could not copy ACL to %s",
-		    entp->fts_path, to.p_path);
+		warn("%s: could not copy ACL to %s%s",
+		    entp->fts_path, to.base, to.path);
 		rval = 1;
 	}
 #else  /* !__APPLE__ */
@@ -473,7 +492,7 @@ copy_file(const FTSENT *entp, int dne)
 		rval = 1;
 #endif /* __APPLE__ */
 	if (close(to_fd)) {
-		warn("%s", to.p_path);
+		warn("%s%s", to.base, to.path);
 		rval = 1;
 	}
 
@@ -484,14 +503,15 @@ done:
 }
 
 int
-copy_link(const FTSENT *p, int exists)
+copy_link(const FTSENT *p, bool dne, bool beneath)
 {
 	ssize_t len;
+	int atflags = beneath ? AT_RESOLVE_BENEATH : 0;
 	char llink[PATH_MAX];
 
-	if (exists && nflag) {
+	if (!dne && nflag) {
 		if (vflag)
-			printf("%s not overwritten\n", to.p_path);
+			printf("%s%s not overwritten\n", to.base, to.path);
 		return (1);
 	}
 	if ((len = readlink(p->fts_path, llink, sizeof(llink) - 1)) == -1) {
@@ -499,91 +519,127 @@ copy_link(const FTSENT *p, int exists)
 		return (1);
 	}
 	llink[len] = '\0';
-	if (exists && unlink(to.p_path)) {
-		warn("unlink: %s", to.p_path);
+	if (!dne && unlinkat(to.dir, to.path, atflags) != 0) {
+		warn("unlink: %s%s", to.base, to.path);
 		return (1);
 	}
-	if (symlink(llink, to.p_path)) {
+	if (symlinkat(llink, to.dir, to.path) != 0) {
 		warn("symlink: %s", llink);
 		return (1);
 	}
 #ifdef __APPLE__
 	if (!Xflag) {
-		if (copyfile(p->fts_path, to.p_path, NULL,
+		int sd = open(p->fts_accpath, O_SYMLINK | O_RDONLY);
+		int dd = openat(to.dir, to.path, O_SYMLINK | O_RDWR);
+		if (sd < 0 || dd < 0 || fcopyfile(sd, dd, NULL,
 		    COPYFILE_XATTR | COPYFILE_NOFOLLOW) < 0) {
-			warn("%s: could not copy extended attributes to %s",
-			     p->fts_path, to.p_path);
+			warn("%s: could not copy extended attributes to %s%s",
+			    p->fts_path, to.base, to.path);
+			if (dd >= 0)
+				close(dd);
+			if (sd >= 0)
+				close(sd);
 			return (1);
 		}
+		close(dd);
+		close(sd);
 	}
 #endif /* __APPLE__ */
-	return (pflag ? setfile(p->fts_statp, -1) : 0);
+	return (pflag ? setfile(p->fts_statp, -1, beneath) : 0);
 }
 
 int
-copy_fifo(struct stat *from_stat, int exists)
+copy_fifo(struct stat *from_stat, bool dne, bool beneath)
 {
+	int atflags = beneath ? AT_RESOLVE_BENEATH : 0;
 
-	if (exists && nflag) {
+	if (!dne && nflag) {
 		if (vflag)
-			printf("%s not overwritten\n", to.p_path);
+			printf("%s%s not overwritten\n", to.base, to.path);
 		return (1);
 	}
-	if (exists && unlink(to.p_path)) {
-		warn("unlink: %s", to.p_path);
+	if (!dne && unlinkat(to.dir, to.path, atflags) != 0) {
+		warn("unlink: %s%s", to.base, to.path);
 		return (1);
 	}
-	if (mkfifo(to.p_path, from_stat->st_mode)) {
-		warn("mkfifo: %s", to.p_path);
+	if (mkfifoat(to.dir, to.path, from_stat->st_mode) != 0) {
+		warn("mkfifo: %s%s", to.base, to.path);
 		return (1);
 	}
-	return (pflag ? setfile(from_stat, -1) : 0);
+	return (pflag ? setfile(from_stat, -1, beneath) : 0);
 }
 
 int
-copy_special(struct stat *from_stat, int exists)
+copy_special(struct stat *from_stat, bool dne, bool beneath)
 {
+	int atflags = beneath ? AT_RESOLVE_BENEATH : 0;
 
-	if (exists && nflag) {
+	if (!dne && nflag) {
 		if (vflag)
-			printf("%s not overwritten\n", to.p_path);
+			printf("%s%s not overwritten\n", to.base, to.path);
 		return (1);
 	}
-	if (exists && unlink(to.p_path)) {
-		warn("unlink: %s", to.p_path);
+	if (!dne && unlinkat(to.dir, to.path, atflags) != 0) {
+		warn("unlink: %s%s", to.base, to.path);
 		return (1);
 	}
-	if (mknod(to.p_path, from_stat->st_mode, from_stat->st_rdev)) {
-		warn("mknod: %s", to.p_path);
+	if (mknodat(to.dir, to.path, from_stat->st_mode, from_stat->st_rdev) != 0) {
+		warn("mknod: %s%s", to.base, to.path);
 		return (1);
 	}
-	return (pflag ? setfile(from_stat, -1) : 0);
+	return (pflag ? setfile(from_stat, -1, beneath) : 0);
 }
 
+#ifdef __APPLE__
+// XXX Remove this entire #ifdef once chflagsat() has been added to XNU
+#undef chflagsat
+#define chflagsat(...) apple_chflagsat(__VA_ARGS__)
+static int
+chflagsat(int dd, const char *path, unsigned long flags, int atflags)
+{
+	int fd, oflags, ret, serrno;
+
+	oflags = O_RDONLY | O_SYMLINK;
+	if (atflags & AT_RESOLVE_BENEATH)
+		oflags |= O_RESOLVE_BENEATH;
+	if (atflags & AT_SYMLINK_NOFOLLOW)
+		oflags |= O_NOFOLLOW;
+	if ((fd = openat(dd, path, oflags)) < 0)
+		return (-1);
+	ret = fchflags(fd, flags);
+	serrno = errno;
+	close(fd);
+	errno = serrno;
+	return (ret);
+}
+#endif
 int
-setfile(struct stat *fs, int fd)
+setfile(struct stat *fs, int fd, bool beneath)
 {
 	static struct timespec tspec[2];
 	struct stat ts;
+	int atflags = beneath ? AT_RESOLVE_BENEATH : 0;
 	int rval, gotstat, islink, fdval;
 
 	rval = 0;
 	fdval = fd != -1;
 	islink = !fdval && S_ISLNK(fs->st_mode);
+	if (islink)
+		atflags |= AT_SYMLINK_NOFOLLOW;
 	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX |
 	    S_IRWXU | S_IRWXG | S_IRWXO;
 
 	tspec[0] = fs->st_atim;
 	tspec[1] = fs->st_mtim;
-	if (fdval ? futimens(fd, tspec) : utimensat(AT_FDCWD, to.p_path, tspec,
-	    islink ? AT_SYMLINK_NOFOLLOW : 0)) {
-		warn("utimensat: %s", to.p_path);
+	if (fdval ? futimens(fd, tspec) :
+	    utimensat(to.dir, to.path, tspec, atflags)) {
+		warn("utimensat: %s%s", to.base, to.path);
 		rval = 1;
 	}
 	if (fdval ? fstat(fd, &ts) :
-	    (islink ? lstat(to.p_path, &ts) : stat(to.p_path, &ts)))
+	    fstatat(to.dir, to.path, &ts, atflags)) {
 		gotstat = 0;
-	else {
+	} else {
 		gotstat = 1;
 		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX |
 		    S_IRWXU | S_IRWXG | S_IRWXO;
@@ -594,38 +650,28 @@ setfile(struct stat *fs, int fd)
 	 * the mode; current BSD behavior is to remove all setuid bits on
 	 * chown.  If chown fails, lose setuid/setgid bits.
 	 */
-	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid)
+	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid) {
 		if (fdval ? fchown(fd, fs->st_uid, fs->st_gid) :
-		    (islink ? lchown(to.p_path, fs->st_uid, fs->st_gid) :
-		    chown(to.p_path, fs->st_uid, fs->st_gid))) {
+		    fchownat(to.dir, to.path, fs->st_uid, fs->st_gid, atflags)) {
 			if (errno != EPERM) {
-#ifdef __APPLE__
-				warn("%schown: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
-#else /* !__APPLE__ */
-				warn("chown: %s", to.p_path);
-#endif /* __APPLE__ */
+				warn("chown: %s%s", to.base, to.path);
 				rval = 1;
 			}
 			fs->st_mode &= ~(S_ISUID | S_ISGID);
 		}
+	}
 
-	if (!gotstat || fs->st_mode != ts.st_mode)
+	if (!gotstat || fs->st_mode != ts.st_mode) {
 		if (fdval ? fchmod(fd, fs->st_mode) :
-		    (islink ? lchmod(to.p_path, fs->st_mode) :
-		    chmod(to.p_path, fs->st_mode))) {
-#ifdef __APPLE__
-			warn("%schmod: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
-#else /* !__APPLE__ */
-			warn("chmod: %s", to.p_path);
-#endif /* __APPLE__ */
+		    fchmodat(to.dir, to.path, fs->st_mode, atflags)) {
+			warn("chmod: %s%s", to.base, to.path);
 			rval = 1;
 		}
+	}
 
-	if (!Nflag && (!gotstat || fs->st_flags != ts.st_flags))
-		if (fdval ?
-		    fchflags(fd, fs->st_flags) :
-		    (islink ? lchflags(to.p_path, fs->st_flags) :
-		    chflags(to.p_path, fs->st_flags))) {
+	if (!Nflag && (!gotstat || fs->st_flags != ts.st_flags)) {
+		if (fdval ? fchflags(fd, fs->st_flags) :
+		    chflagsat(to.dir, to.path, fs->st_flags, atflags)) {
 			/*
 			 * NFS doesn't support chflags; ignore errors unless
 			 * there's reason to believe we're losing bits.  (Note,
@@ -639,10 +685,11 @@ setfile(struct stat *fs, int fd)
 #else /* !__APPLE__ */
 			if (errno != EOPNOTSUPP || fs->st_flags != 0) {
 #endif /* __APPLE__ */
-				warn("chflags: %s", to.p_path);
+				warn("chflags: %s%s", to.base, to.path);
 				rval = 1;
 			}
 		}
+	}
 
 	return (rval);
 }
@@ -660,8 +707,9 @@ preserve_fd_acls(int source_fd, int dest_fd)
 		acl_supported = 1;
 		acl_type = ACL_TYPE_NFS4;
 	} else if (ret < 0 && errno != EINVAL) {
-		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s", to.p_path);
-		return (1);
+		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s%s",
+		    to.base, to.path);
+		return (-1);
 	}
 	if (acl_supported == 0) {
 		ret = fpathconf(source_fd, _PC_ACL_EXTENDED);
@@ -669,9 +717,9 @@ preserve_fd_acls(int source_fd, int dest_fd)
 			acl_supported = 1;
 			acl_type = ACL_TYPE_ACCESS;
 		} else if (ret < 0 && errno != EINVAL) {
-			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s",
-			    to.p_path);
-			return (1);
+			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s%s",
+			    to.base, to.path);
+			return (-1);
 		}
 	}
 	if (acl_supported == 0)
@@ -679,114 +727,63 @@ preserve_fd_acls(int source_fd, int dest_fd)
 
 	acl = acl_get_fd_np(source_fd, acl_type);
 	if (acl == NULL) {
-		warn("failed to get acl entries while setting %s", to.p_path);
-		return (1);
+		warn("failed to get acl entries while setting %s%s",
+		    to.base, to.path);
+		return (-1);
 	}
 	if (acl_is_trivial_np(acl, &trivial)) {
-		warn("acl_is_trivial() failed for %s", to.p_path);
+		warn("acl_is_trivial() failed for %s%s",
+		    to.base, to.path);
 		acl_free(acl);
-		return (1);
+		return (-1);
 	}
 	if (trivial) {
 		acl_free(acl);
 		return (0);
 	}
 	if (acl_set_fd_np(dest_fd, acl, acl_type) < 0) {
-		warn("failed to set acl entries for %s", to.p_path);
+		warn("failed to set acl entries for %s%s",
+		    to.base, to.path);
 		acl_free(acl);
-		return (1);
-	}
-	acl_free(acl);
-	return (0);
-}
-
-int
-preserve_dir_acls(struct stat *fs, char *source_dir, char *dest_dir)
-{
-	acl_t (*aclgetf)(const char *, acl_type_t);
-	int (*aclsetf)(const char *, acl_type_t, acl_t);
-	struct acl *aclp;
-	acl_t acl;
-	acl_type_t acl_type;
-	int acl_supported = 0, ret, trivial;
-
-	ret = pathconf(source_dir, _PC_ACL_NFS4);
-	if (ret > 0) {
-		acl_supported = 1;
-		acl_type = ACL_TYPE_NFS4;
-	} else if (ret < 0 && errno != EINVAL) {
-		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s", source_dir);
-		return (1);
-	}
-	if (acl_supported == 0) {
-		ret = pathconf(source_dir, _PC_ACL_EXTENDED);
-		if (ret > 0) {
-			acl_supported = 1;
-			acl_type = ACL_TYPE_ACCESS;
-		} else if (ret < 0 && errno != EINVAL) {
-			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s",
-			    source_dir);
-			return (1);
-		}
-	}
-	if (acl_supported == 0)
-		return (0);
-
-	/*
-	 * If the file is a link we will not follow it.
-	 */
-	if (S_ISLNK(fs->st_mode)) {
-		aclgetf = acl_get_link_np;
-		aclsetf = acl_set_link_np;
-	} else {
-		aclgetf = acl_get_file;
-		aclsetf = acl_set_file;
-	}
-	if (acl_type == ACL_TYPE_ACCESS) {
-		/*
-		 * Even if there is no ACL_TYPE_DEFAULT entry here, a zero
-		 * size ACL will be returned. So it is not safe to simply
-		 * check the pointer to see if the default ACL is present.
-		 */
-		acl = aclgetf(source_dir, ACL_TYPE_DEFAULT);
-		if (acl == NULL) {
-			warn("failed to get default acl entries on %s",
-			    source_dir);
-			return (1);
-		}
-		aclp = &acl->ats_acl;
-		if (aclp->acl_cnt != 0 && aclsetf(dest_dir,
-		    ACL_TYPE_DEFAULT, acl) < 0) {
-			warn("failed to set default acl entries on %s",
-			    dest_dir);
-			acl_free(acl);
-			return (1);
-		}
-		acl_free(acl);
-	}
-	acl = aclgetf(source_dir, acl_type);
-	if (acl == NULL) {
-		warn("failed to get acl entries on %s", source_dir);
-		return (1);
-	}
-	if (acl_is_trivial_np(acl, &trivial)) {
-		warn("acl_is_trivial() failed on %s", source_dir);
-		acl_free(acl);
-		return (1);
-	}
-	if (trivial) {
-		acl_free(acl);
-		return (0);
-	}
-	if (aclsetf(dest_dir, acl_type, acl) < 0) {
-		warn("failed to set acl entries on %s", dest_dir);
-		acl_free(acl);
-		return (1);
+		return (-1);
 	}
 	acl_free(acl);
 	return (0);
 }
 #endif /* !__APPLE__ */
+
+int
+preserve_dir_acls(const char *source_dir, const char *dest_dir)
+{
+	int source_fd = -1, dest_fd = -1, ret;
+
+	if ((source_fd = open(source_dir, O_DIRECTORY | O_RDONLY)) < 0) {
+		warn("%s: failed to copy ACLs", source_dir);
+		return (-1);
+	}
+	dest_fd = (*dest_dir == '\0') ? to.dir :
+	    openat(to.dir, dest_dir, O_DIRECTORY, AT_RESOLVE_BENEATH);
+	if (dest_fd < 0) {
+		warn("%s: failed to copy ACLs to %s%s", source_dir,
+		    to.base, dest_dir);
+		close(source_fd);
+		return (-1);
+	}
+#ifdef __APPLE__
+	if ((ret = fcopyfile(source_fd, dest_fd, NULL, COPYFILE_ACL)) < 0) {
+		warn("%s: unable to copy ACL to %s%s",
+		    source_dir, to.base, dest_dir);
+	}
+#else
+	if ((ret = preserve_fd_acls(source_fd, dest_fd)) != 0) {
+		/* preserve_fd_acls() already printed a message */
+	}
+#endif /* __APPLE__ */
+	if (dest_fd != to.dir)
+		close(dest_fd);
+	close(source_fd);
+	return (ret);
+}
 
 void
 usage(void)

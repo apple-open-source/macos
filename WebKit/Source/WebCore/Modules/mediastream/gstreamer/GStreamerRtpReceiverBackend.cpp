@@ -92,7 +92,17 @@ RTCRtpParameters GStreamerRtpReceiverBackend::getParameters()
             if (!extensionId)
                 return true;
 
-            auto uri = String::fromLatin1(g_value_get_string(value));
+            String uri;
+            if (G_VALUE_TYPE(value) == G_TYPE_STRING)
+                uri = String::fromLatin1(g_value_get_string(value));
+            else if (G_VALUE_TYPE(value) == GST_TYPE_ARRAY) {
+                if (gst_value_array_get_size(value) < 2)
+                    return true;
+
+                const auto uriValue = gst_value_array_get_value(value, 1);
+                uri = String::fromLatin1(g_value_get_string(uriValue));
+            }
+
             parameters.headerExtensions.append({ uri, *extensionId });
             return true;
         });

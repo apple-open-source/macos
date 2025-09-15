@@ -76,7 +76,7 @@ public:
         return m_parseStatus;
     }
 
-    void atomPatternCharacter(UChar character)
+    void atomPatternCharacter(UChar character, bool)
     {
         if (hasError())
             return;
@@ -184,7 +184,10 @@ public:
         if (hasError())
             return;
 
-        ASSERT(isASCII(character));
+        if (!isASCII(character)) {
+            fail(URLFilterParser::NonASCII);
+            return;
+        }
 
         m_floatingTerm.addCharacter(character, m_patternIsCaseSensitive);
     }
@@ -213,12 +216,12 @@ public:
         // Nothing to do here.
     }
 
-    void atomCharacterClassPushNested()
+    void atomCharacterClassPushNested(bool)
     {
         // Nothing to do here.
     }
 
-    void atomCharacterClassPopNested()
+    void atomCharacterClassPopNested(bool)
     {
         // Nothing to do here.
     }
@@ -244,6 +247,11 @@ public:
     }
 
     void atomParentheticalAssertionBegin(bool, MatchDirection)
+    {
+        fail(URLFilterParser::Group);
+    }
+
+    void atomParentheticalModifierBegin(OptionSet<JSC::Yarr::Flags>, OptionSet<JSC::Yarr::Flags>)
     {
         fail(URLFilterParser::Group);
     }
@@ -326,7 +334,7 @@ private:
             bool isAfterDotStar = false;
             while (termIndex < m_sunkTerms.size()) {
                 if (isAfterDotStar && m_sunkTerms[termIndex].isKnownToMatchAnyString()) {
-                    m_sunkTerms.remove(termIndex);
+                    m_sunkTerms.removeAt(termIndex);
                     continue;
                 }
                 isAfterDotStar = false;
@@ -354,7 +362,7 @@ private:
             m_sunkTerms.removeLast();
     }
 
-    bool m_patternIsCaseSensitive;
+    const bool m_patternIsCaseSensitive;
 
     Deque<Term> m_openGroups;
     Vector<Term> m_sunkTerms;

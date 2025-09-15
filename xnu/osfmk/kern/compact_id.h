@@ -36,7 +36,7 @@
 #include <kern/locks.h>
 
 __BEGIN_DECLS
-#pragma GCC visibility push(hidden)
+__exported_push_hidden
 
 #define COMPACT_ID_SHIFT_BASE     (10)
 #define COMPACT_ID_COUNT_BASE     (1u << COMPACT_ID_SHIFT_BASE)
@@ -149,7 +149,7 @@ extern void compact_id_table_unlock(
 	};                                                                      \
 	STARTUP_ARG(LOCKS, STARTUP_RANK_THIRD, compact_id_table_init, &var)
 
-#pragma GCC visibility pop
+__exported_pop
 __END_DECLS
 
 #endif /* _KERN_COMPACT_ID_H_ */

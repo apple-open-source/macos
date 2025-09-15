@@ -198,7 +198,20 @@ void CalendarTest::runIndexedTest( int32_t index, UBool exec, const char* &name,
     TESTCASE_AUTO(TestRollWeekOfYear);
     TESTCASE_AUTO(TestHinduCalendar);
     TESTCASE_AUTO(TestIndianLunisolarCalendars);
-    TESTCASE_AUTO(TestIndianSolarCalendars);
+#if APPLE_ICU_CHANGES
+// rdar://146755503 ([New Calendars]: Luck23A203: Solar: Data Accuracy issue: Incorrect dates are showing in solar calendars)
+// (NOTE: need to add APPLE_ICU_CHANGES around the other Hindu-calendar tests!
+    TESTCASE_AUTO(TestIndianSolarGregorianConversion);
+    TESTCASE_AUTO(TestIndianSolarAddRollNormalize);
+    TESTCASE_AUTO(TestIndianSolarGetActualMaximum);
+#endif // APPLE_ICU_CHANGES
+    TESTCASE_AUTO(TestHinduCalendarGetMonthLength);
+    TESTCASE_AUTO(TestMarathiYear);
+    TESTCASE_AUTO(TestVikramAddDayFoundationStyleExtensive);
+    TESTCASE_AUTO(TestHinduCalendarComputeMonthStart);
+    TESTCASE_AUTO(TestHinduCalendarAddMonth);
+    TESTCASE_AUTO(TestVikramRoundTrip2);
+    TESTCASE_AUTO(TestIndianLunisolarCalendarsExtensive);
     TESTCASE_AUTO(TestFirstDayOfWeek);
 
     TESTCASE_AUTO(Test22633ChineseOverflow);
@@ -368,8 +381,24 @@ CalendarTest::TestGenericAPI()
             errln(UnicodeString("FAIL: getMinimum larger than getGreatestMinimum for field ") + i);
         if (cal->getLeastMaximum(static_cast<UCalendarDateFields>(i)) > cal->getMaximum(static_cast<UCalendarDateFields>(i)))
             errln(UnicodeString("FAIL: getLeastMaximum larger than getMaximum for field ") + i);
+#if APPLE_ICU_CHANGES
+        // rdar://154212299
+        int32_t min, max;
+        min = cal->getMinimum(static_cast<UCalendarDateFields>(i));
+        max = cal->getMaximum(static_cast<UCalendarDateFields>(i));
+        if (min >= max) {
+            if (((i == UCAL_IS_REPEATED_DAY) || (i == UCAL_IS_LEAP_MONTH))
+                && (min == -1) && (max == -1))
+            {
+                /* don't complain about -1, -1 for repeated day or leap month */
+            } else {
+                errln(UnicodeString("FAIL: getMinimum not less than getMaximum for field ") + i);
+            }
+        }
+#else
         if (cal->getMinimum(static_cast<UCalendarDateFields>(i)) >= cal->getMaximum(static_cast<UCalendarDateFields>(i)))
             errln(UnicodeString("FAIL: getMinimum not less than getMaximum for field ") + i);
+#endif
     }
 
     cal->adoptTimeZone(TimeZone::createDefault());
@@ -5736,8 +5765,12 @@ void CalendarTest::TestRollWeekOfYear() {
 }
 void CalendarTest::TestHinduCalendar() {
     // Test data set from the reference book Calendrical Calculations by Nachum Dershowitz, Edward Reingold
-    // Apendix C
+    // Apendix C, p. 451
+    // For the solar-calendar numbers, our Tamil-calendar calculations match the "hindu solar astronomical"
+    // column in the table on p. 451)
     
+    // rdar://145905328 Update test to round julian day up instead of down
+    // for example, the first test case has JD of 1746893.5 and we're rounding that to 1746894 instead of 1746893
     UErrorCode status = U_ZERO_ERROR;
     struct TestCase {
         int32_t gyear; // Gregorian year
@@ -5754,37 +5787,37 @@ void CalendarTest::TestHinduCalendar() {
         int32_t hi_solar_month; // Hindu solar month, 0-based month number: 1st month = 0, 2nd month = 1.
         int32_t hi_solar_day; // Hindu solar day
     } test_data[] = {
-        {70, UCAL_SEPTEMBER, 24,    25469, 1746893, 127, 8,  3,  0, 0, -8, 7, 9 },
-        {135, UCAL_OCTOBER, 2,   49217, 1770641, 192, 8,  9,  0, 0, 57, 7, 16},
-        {470, UCAL_JANUARY, 8,    171307, 1892731, 526, 11,  19,  0, 0, 391, 10, 21},
-        {576, UCAL_MAY, 20,   210155, 1931579, 633, 3,  5,  0, 0, 498, 2, 31},
-        {694, UCAL_NOVEMBER, 10,  253427, 1974851, 751, 9,  15,  0, 0, 616, 8, 16},
-        {1013, UCAL_APRIL, 25,  369740, 2091164, 1070, 2,  6,  0, 0, 935, 1, 28},
-        {1096, UCAL_MAY, 24,  400085, 2121509, 1153, 3,  23,  1, 0, 1018, 2, 26},
-        {1190, UCAL_MARCH, 23,  434355, 2155779, 1247, 1,  8,  0, 0, 1111, 12, 23},
-        {1240, UCAL_MARCH, 10,  452605, 2174029, 1297, 1,  8,  0, 0, 1161, 12, 10},
-        {1288, UCAL_APRIL, 2,   470160, 2191584, 1345, 1,  22,  0, 0, 1210, 1, 2},
-        {1298, UCAL_APRIL, 27,  473837, 2195261, 1355, 2,  8,  0, 0, 1220, 1, 27},
-        {1391, UCAL_JUNE, 12,  507850, 2229274, 1448, 4,  1,  0, 0, 1313, 3, 8},
-        {1436, UCAL_FEBRUARY, 3,   524156, 2245580, 1492, 11,  7,  0, 0, 1357, 10, 30},
-        {1492, UCAL_APRIL, 9,   544676, 2266100, 1549, 2,  3,  1, 0, 1414, 1, 5},
-        {1553, UCAL_SEPTEMBER, 19,  567118, 2288542, 1610, 7,  2,  0, 0, 1475, 6, 10},
-        {1560, UCAL_MARCH, 5,   569477, 2290901, 1616, 11,  28,  0, 1, 1481, 11, 29},
-        {1648, UCAL_JUNE, 10,  601716, 2323140, 1705, 3,  20,  0, 0, 1570, 3, 3},
-        {1680, UCAL_JUNE, 30,  613424, 2334848, 1737, 4,  4,  0, 0, 1602, 3, 22},
-        {1716, UCAL_JULY, 24,  626596, 2348020, 1773, 5,  6,  0, 0, 1638, 4, 13},
-        {1768, UCAL_JUNE, 19,  645554, 2366978, 1825, 4,  5,  0, 0, 1690, 3, 10},
-        {1819, UCAL_AUGUST, 2,   664224, 2385648, 1876, 5,  11,  0, 0, 1741, 4, 20},
-        {1839, UCAL_MARCH, 27,  671401, 2392825, 1896, 1,  13,  0, 0, 1760, 12, 16},
-        {1903, UCAL_APRIL, 19,  694799, 2416223,1960, 1,  22,  0, 0, 1825, 1, 7},
-        {1929, UCAL_AUGUST, 25,  704424, 2425848, 1986, 5,  20,  0, 0, 1851, 5, 10},
-        {1941, UCAL_SEPTEMBER, 29,  708842, 2430266, 1998, 7,  9,  0, 0, 1863, 6, 14},
-        {1943, UCAL_APRIL, 19,  709409, 2430833, 2000, 1,  14,  0, 0, 1865, 1, 7},
-        {1943, UCAL_OCTOBER, 7,  709580, 2431004, 2000, 7,  8,  0, 0, 1865, 6, 21},
-        {1992, UCAL_MARCH, 17,  727274, 2448698, 2048, 12,  14,  0, 0, 1913, 12, 4},
-        {1996, UCAL_FEBRUARY, 25,  728714, 2450138, 2052, 12,  7,  0, 0, 1917, 11, 13},
-        {2038, UCAL_NOVEMBER, 10, 744313, 2465737, 2095, 8,  14,  0, 0, 1960, 7, 24},
-        {2094, UCAL_JULY, 18,  764652, 2486076, 2151, 4,  6,  0, 0, 2016, 4, 2}
+        { 70,   UCAL_SEPTEMBER, 24,  25469,  1746894,  127,  7,  3,  0, 0,  -8,   6,  5  },
+        { 135,  UCAL_OCTOBER,   2,   49217,  1770642,  192,  7,  9,  0, 0,  57,   6,  11 },
+        { 470,  UCAL_JANUARY,   8,   171307, 1892732,  526,  10, 19, 0, 0,  391,  9,  17 },
+        { 576,  UCAL_MAY,       20,  210155, 1931580,  633,  2,  5,  0, 0,  498,  1,  27 },
+        { 694,  UCAL_NOVEMBER,  10,  253427, 1974852,  751,  8,  15, 0, 0,  616,  7,  13 },
+        { 1013, UCAL_APRIL,     25,  369740, 2091165,  1070, 1,  6,  0, 0,  935,  0,  26 },
+        { 1096, UCAL_MAY,       24,  400085, 2121510,  1153, 2,  23, 1, 0,  1018, 1,  24 },
+        { 1190, UCAL_MARCH,     23,  434355, 2155780,  1247, 0,  8,  0, 0,  1111, 11, 21 },
+        { 1240, UCAL_MARCH,     10,  452605, 2174030,  1297, 0,  8,  0, 0,  1161, 11, 8} ,
+        { 1288, UCAL_APRIL,     2,   470160, 2191585,  1345, 0,  22, 0, 0,  1209, 11, 31 },
+        { 1298, UCAL_APRIL,     27,  473837, 2195262,  1355, 1,  8,  0, 0,  1220, 0,  25 },
+        { 1391, UCAL_JUNE,      12,  507850, 2229275,  1448, 3,  1,  0, 0,  1313, 2,  7  },
+        { 1436, UCAL_FEBRUARY,  3,   524156, 2245581,  1492, 10, 7,  0, 0,  1357, 9,  28 },
+        { 1492, UCAL_APRIL,     9,   544676, 2266101,  1549, 1,  3,  1, 0,  1414, 0,  4  },
+        { 1553, UCAL_SEPTEMBER, 19,  567118, 2288543,  1610, 6,  2,  0, 0,  1475, 5,  9  },
+        { 1560, UCAL_MARCH,     5,   569477, 2290902,  1616, 10, 28, 0, 1,  1481, 10, 28 },
+        { 1648, UCAL_JUNE,      10,  601716, 2323141,  1705, 2,  20, 0, 0,  1570, 2,  2  },
+        { 1680, UCAL_JUNE,      30,  613424, 2334849,  1737, 3,  4,  0, 0,  1602, 2,  22 },
+        { 1716, UCAL_JULY,      24,  626596, 2348021,  1773, 4,  6,  0, 0,  1638, 3,  13 },
+        { 1768, UCAL_JUNE,      19,  645554, 2366979,  1825, 3,  5,  0, 0,  1690, 2,  9  },
+        { 1819, UCAL_AUGUST,    2,   664224, 2385649,  1876, 4,  11, 0, 0,  1741, 3,  20 },
+        { 1839, UCAL_MARCH,     27,  671401, 2392826,  1896, 0,  13, 0, 0,  1760, 11, 15 },
+        { 1903, UCAL_APRIL,     19,  694799, 2416224,  1960, 0,  22, 0, 0,  1825, 0,  7  },
+        { 1929, UCAL_AUGUST,    25,  704424, 2425849,  1986, 4,  20, 0, 0,  1851, 4,  10 },
+        { 1941, UCAL_SEPTEMBER, 29,  708842, 2430267,  1998, 6,  9,  0, 0,  1863, 5,  14 },
+        { 1943, UCAL_APRIL,     19,  709409, 2430834,  2000, 0,  14, 0, 0,  1865, 0,  6  },
+        { 1943, UCAL_OCTOBER,   7,   709580, 2431005,  2000, 6,  8,  0, 0,  1865, 5,  21 },
+        { 1992, UCAL_MARCH,     17,  727274, 2448699,  2048, 11, 14, 0, 0,  1913, 11, 4  },
+        { 1996, UCAL_FEBRUARY,  25,  728714, 2450139,  2052, 11, 7,  0, 0,  1917, 10, 13 },
+        { 2038, UCAL_NOVEMBER,  10,  744313, 2465738,  2095, 7,  14, 0, 0,  1960, 6,  25 },
+        { 2094, UCAL_JULY,      18,  764652, 2486077,  2151, 3,  6,  0, 0,  2016, 3,  2  }
     };
     
     // TODO:
@@ -5795,18 +5828,21 @@ void CalendarTest::TestHinduCalendar() {
     // Before, the Julian date coming from the constructed Gregorian calendar is not matching the values above
     // So, that's something to be investigated
     HinduLunarCalendar* hinduLunar = new HinduLunarCalendar("en", status);
-    HinduSolarCalendar* hinduSolar = new HinduSolarCalendar("en", status);
+    HinduSolarTamilCalendar* hinduSolar = new HinduSolarTamilCalendar("en", status);
     for (auto& test : test_data) {
         hinduLunar->set(UCAL_JULIAN_DAY, test.julian_day);
         if (   hinduLunar->get(UCAL_YEAR, status) != test.hi_lunar_year
             || hinduLunar->get(UCAL_MONTH, status) != test.hi_lunar_month
             || hinduLunar->get(UCAL_DATE, status) != test.hi_lunar_day
-            || hinduLunar->get(UCAL_IS_LEAP_MONTH, status) != test.leap_month || hinduLunar->isLeapDay() != test.leap_day )        {
+            || hinduLunar->get(UCAL_IS_LEAP_MONTH, status) != test.leap_month
+            || hinduLunar->get(UCAL_IS_REPEATED_DAY, status) != test.leap_day ) { // rdar://138880732
             errln("HinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d, leapMonth: %d, leapDay: %d \n Got:       year: %d, month: %d, day: %d, leapMonth: %d, leapDay: %d",
                   test.rd,
                   test.hi_lunar_year, test.hi_lunar_month, test.hi_lunar_day, test.leap_month, test.leap_day,
                   hinduLunar->get(UCAL_YEAR, status), hinduLunar->get(UCAL_MONTH, status), hinduLunar->get(UCAL_DATE, status),
-                  hinduLunar->get(UCAL_IS_LEAP_MONTH, status), hinduLunar->isLeapDay());
+                  hinduLunar->get(UCAL_IS_LEAP_MONTH, status),
+                  hinduLunar->get(UCAL_IS_REPEATED_DAY, status) // rdar://138880732
+                  );
         }
         hinduSolar->set(UCAL_JULIAN_DAY, test.julian_day);
         if (   hinduSolar->get(UCAL_YEAR, status) != test.hi_solar_year
@@ -5820,6 +5856,1062 @@ void CalendarTest::TestHinduCalendar() {
     }
     delete hinduSolar;
     delete hinduLunar;
+}
+
+// rdar://151149828
+void CalendarTest::TestVikramRoundTrip2(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t julian, year, month, day, leap_month;
+    int32_t julian2;
+    int32_t repeated_day;
+
+    HinduLunisolarVikramCalendar cal1("en", status);
+    HinduLunisolarVikramCalendar cal2("en", status);
+    
+    // 2025 January 1 - 2030 December 30
+    // TODO: Original unit test in rdar://151149828 runs through 2030 December 31
+    //       Sure enough, there is an edge case ending in a mismatch by one day for round-tripping exactly on December 31st 2030
+    //       A separate radar will be created for that edge case
+    
+    for(julian=2460677; julian <= 2462866; julian++) {
+        cal1.set(UCAL_JULIAN_DAY, julian);
+
+        year = cal1.get(UCAL_YEAR, status);
+        month = cal1.get(UCAL_MONTH, status);
+        day = cal1.get(UCAL_DATE, status);
+        leap_month = cal1.get(UCAL_IS_LEAP_MONTH, status);
+        repeated_day = cal1.get(UCAL_IS_REPEATED_DAY, status); 
+
+        cal2.set(UCAL_YEAR, year);
+        cal2.set(UCAL_MONTH, month);
+        cal2.set(UCAL_DATE, day);
+        cal2.set(UCAL_IS_LEAP_MONTH, leap_month);
+        cal2.set(UCAL_IS_REPEATED_DAY, repeated_day);
+
+        julian2 = cal2.get(UCAL_JULIAN_DAY, status);
+
+        if (julian != julian2) {
+            errln("Roundtripping error: %d -> %4d-%02d-%02d (r:%d, l:%d) -> %d (diff: %2d)", julian, year, month, day, repeated_day, leap_month, julian2, julian2 - julian);
+        }
+    }
+}
+
+// rdar://151415578
+void CalendarTest::TestHinduCalendarAddMonth() {
+    UErrorCode status = U_ZERO_ERROR;
+    GregorianCalendar gc(status);
+    HinduLunisolarVikramCalendar hindu("en", status);
+        
+    for (int m = 0; m < 12; m++) {
+        for (int d = 1; d < 31; d++) {
+            for (int amount = 1; amount < 10; amount++) {
+                gc.set(UCAL_YEAR, 2025);
+                gc.set(UCAL_MONTH, m);
+                gc.set(UCAL_DAY_OF_MONTH, d);
+                hindu.set(UCAL_JULIAN_DAY, gc.get(UCAL_JULIAN_DAY, status));
+                int32_t yearBefore = hindu.get(UCAL_YEAR, status);
+                int32_t monthBefore = hindu.get(UCAL_MONTH, status);
+                int32_t dateBefore = hindu.get(UCAL_DATE, status);
+                hindu.add(UCAL_MONTH, amount, status);
+                int32_t yearAfter = hindu.get(UCAL_YEAR, status);
+                int32_t monthAfter = hindu.get(UCAL_MONTH, status);
+                int32_t dateAfter = hindu.get(UCAL_DATE, status);
+                // rdar://145772893 For leap months, days are off for 15 days, so there won't be a reasonable match
+                if (hindu.get(UCAL_IS_LEAP_MONTH, status) == 1) {
+                    continue;
+                }
+                if (abs(dateBefore - dateAfter) > 2) {
+                    errln("Adding %d month returns different days. \n Before:  year: %d, month: %d, day: %d \n After:       year: %d, month: %d, day: %d",
+                          amount, yearBefore, monthBefore, dateBefore, yearAfter, monthAfter, dateAfter);
+                }
+                if (monthAfter - monthBefore != amount && monthAfter + 12 - monthBefore != amount) {
+                    errln("Adding %d month returns wrong month. \n Before:  year: %d, month: %d, day: %d \n After:       year: %d, month: %d, day: %d",
+                          amount, yearBefore, monthBefore, dateBefore, yearAfter, monthAfter, dateAfter);
+                }
+            }
+        }
+    }
+}
+
+void CalendarTest::TestHinduCalendarComputeMonthStart() {
+    // rdar://145903949 Adding unit tests for computing month start on Hindu calendars
+    UErrorCode status = U_ZERO_ERROR;
+
+    int32_t eyear = 2081;
+    int64_t useMonth = 2460497;
+    int64_t dontUseMonth = 2460409;
+
+    LocalPointer<Calendar> calendar(
+        Calendar::createInstance(Locale("en_US@calendar=hindu-lunar"), status),
+        status);
+    if (failure(status, "Calendar::createInstance")) return;
+
+    // This test case is a friend of ChineseCalendar and may access internals.
+    const HinduLunarCalendar& hinduLunar =
+        *dynamic_cast<HinduLunarCalendar*>(calendar.getAlias());
+
+    assertEquals("useMonth", useMonth, hinduLunar.handleComputeMonthStart(eyear, 3, true, status));
+    assertEquals("dontUseMonth", dontUseMonth, hinduLunar.handleComputeMonthStart(eyear, 3, false, status));
+}
+
+
+// rdar://145905328 Extensive test for lunisolar calendars covering the whole year of 2025
+// rdar://151394973 Add leap month field in test data
+// rdar://156472909 ([New Calendars]: GJ: Luck23A304: Incorrect date is marked as a new year in Gujarati alternative calendar)
+void CalendarTest::TestIndianLunisolarCalendarsExtensive() {
+    struct TestCase {
+        const char* locale;
+        int32_t gregorianYear;
+        int32_t gregorianMonth;
+        int32_t gregorianDay;
+        int32_t indianYear;
+        int32_t indianMonth;
+        int32_t leapMonth;
+        int32_t indianDay;
+        int32_t repeatedDay;
+    } testCases[] = {
+        { "en_US@calendar=kannada", 2024, 8,  2,  1946, 4, 0,  30, 0 }, // rdar://153726418
+        { "en_US@calendar=kannada", 2024, 8,  3,  1946, 4, 0,  30, 1 }, // rdar://153726418
+        { "en_US@calendar=kannada", 2024, 8,  4,  1946, 5, 0,   1, 0 }, // rdar://153726418
+        { "en_US@calendar=vikram", 2025, 0,  1,   2081, 9, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  2,   2081, 9, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  3,   2081, 9, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  4,   2081, 9, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  5,   2081, 9, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  6,   2081, 9, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  7,   2081, 9, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  8,   2081, 9, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  9,   2081, 9, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  10,  2081, 9, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  11,  2081, 9, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  12,  2081, 9, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  13,  2081, 9, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  14,  2081, 10, 0,  1, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  15,  2081, 10, 0,  2, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  16,  2081, 10, 0,  3, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  17,  2081, 10, 0,  4, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  18,  2081, 10, 0,  5, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  19,  2081, 10, 0,  5, 1  },
+        { "en_US@calendar=vikram", 2025, 0,  20,  2081, 10, 0,  6, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  21,  2081, 10, 0,  7, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  22,  2081, 10, 0,  8, 0  },
+        { "en_US@calendar=vikram", 2025, 0,  23,  2081, 10, 0,  9, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  24,  2081, 10, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  25,  2081, 10, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  26,  2081, 10, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  27,  2081, 10, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  28,  2081, 10, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  29,  2081, 10, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  30,  2081, 10, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 0,  31,  2081, 10, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  1,   2081, 10, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  2,   2081, 10, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  3,   2081, 10, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  4,   2081, 10, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  5,   2081, 10, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  6,   2081, 10, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  7,   2081, 10, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  8,   2081, 10, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  9,   2081, 10, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  10,  2081, 10, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  11,  2081, 10, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  12,  2081, 10, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  13,  2081, 11, 0, 1, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  14,  2081, 11, 0, 2, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  15,  2081, 11, 0, 3, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  16,  2081, 11, 0, 4, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  17,  2081, 11, 0, 5, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  18,  2081, 11, 0, 6, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  19,  2081, 11, 0, 6, 1  },
+        { "en_US@calendar=vikram", 2025, 1,  20,  2081, 11, 0, 7, 0  },
+        { "en_US@calendar=vikram", 2025, 1,  21,  2081, 11, 0, 8, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  22,  2081, 11, 0, 9, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  23,  2081, 11, 0, 10, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  24,  2081, 11, 0, 11, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  25,  2081, 11, 0, 12, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  26,  2081, 11, 0, 13, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  27,  2081, 11, 0, 14, 0 },
+        { "en_US@calendar=vikram", 2025, 1,  28,  2081, 11, 0, 16, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  1,   2081, 11, 0, 17, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  2,   2081, 11, 0, 18, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  3,   2081, 11, 0, 19, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  4,   2081, 11, 0, 20, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  5,   2081, 11, 0, 21, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  6,   2081, 11, 0, 22, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  7,   2081, 11, 0, 23, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  8,   2081, 11, 0, 24, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  9,   2081, 11, 0, 25, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  10,  2081, 11, 0, 26, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  11,  2081, 11, 0, 27, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  12,  2081, 11, 0, 28, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  13,  2081, 11, 0, 29, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  14,  2081, 11, 0, 30, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  15,  2082, 0, 0, 1, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  16,  2082, 0, 0, 2, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  17,  2082, 0, 0, 3, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  18,  2082, 0, 0, 4, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  19,  2082, 0, 0, 5, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  20,  2082, 0, 0, 6, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  21,  2082, 0, 0, 7, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  22,  2082, 0, 0, 8, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  23,  2082, 0, 0, 9, 0  },
+        { "en_US@calendar=vikram", 2025, 2,  24,  2082, 0, 0, 10, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  25,  2082, 0, 0, 11, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  26,  2082, 0, 0, 12, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  27,  2082, 0, 0, 13, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  28,  2082, 0, 0, 14, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  29,  2082, 0, 0, 15, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  30,  2082, 0, 0, 16, 0 },
+        { "en_US@calendar=vikram", 2025, 2,  31,  2082, 0, 0, 17, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  1,   2082, 0, 0, 19, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  2,   2082, 0, 0, 20, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  3,   2082, 0, 0, 21, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  4,   2082, 0, 0, 22, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  5,   2082, 0, 0, 23, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  6,   2082, 0, 0, 24, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  7,   2082, 0, 0, 25, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  8,   2082, 0, 0, 26, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  9,   2082, 0, 0, 27, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  10,  2082, 0, 0, 28, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  11,  2082, 0, 0, 29, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  12,  2082, 0, 0, 30, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  13,  2082, 1, 0,  1, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  14,  2082, 1, 0,  1, 1 },
+        { "en_US@calendar=vikram", 2025, 3,  15,  2082, 1, 0,  2, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  16,  2082, 1, 0,  3, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  17,  2082, 1, 0,  4, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  18,  2082, 1, 0,  5, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  19,  2082, 1, 0,  6, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  20,  2082, 1, 0,  7, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  21,  2082, 1, 0,  8, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  22,  2082, 1, 0,  9, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  23,  2082, 1, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  24,  2082, 1, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  25,  2082, 1, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  26,  2082, 1, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  27,  2082, 1, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  28,  2082, 1, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  29,  2082, 1, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 3,  30,  2082, 1, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  1,   2082, 1, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  2,   2082, 1, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  3,   2082, 1, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  4,   2082, 1, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  5,   2082, 1, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  6,   2082, 1, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  7,   2082, 1, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  8,   2082, 1, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  9,   2082, 1, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  10,  2082, 1, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  11,  2082, 1, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  12,  2082, 1, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  13,  2082, 2, 0,  1, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  14,  2082, 2, 0,  2, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  15,  2082, 2, 0,  3, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  16,  2082, 2, 0,  4, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  17,  2082, 2, 0,  5, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  18,  2082, 2, 0,  5, 1  },
+        { "en_US@calendar=vikram", 2025, 4,  19,  2082, 2, 0,  6, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  20,  2082, 2, 0,  8, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  21,  2082, 2, 0,  9, 0  },
+        { "en_US@calendar=vikram", 2025, 4,  22,  2082, 2, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  23,  2082, 2, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  24,  2082, 2, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  25,  2082, 2, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  26,  2082, 2, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  27,  2082, 2, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  28,  2082, 2, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  29,  2082, 2, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  30,  2082, 2, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 4,  31,  2082, 2, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  1,   2082, 2, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  2,   2082, 2, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  3,   2082, 2, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  4,   2082, 2, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  5,   2082, 2, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  6,   2082, 2, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  7,   2082, 2, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  8,   2082, 2, 0,  27, 1 },
+        { "en_US@calendar=vikram", 2025, 5,  9,   2082, 2, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  10,  2082, 2, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  11,  2082, 2, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  12,  2082, 3, 0,  1, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  13,  2082, 3, 0,  2, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  14,  2082, 3, 0,  3, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  15,  2082, 3, 0,  4, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  16,  2082, 3, 0,  5, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  17,  2082, 3, 0,  6, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  18,  2082, 3, 0,  7, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  19,  2082, 3, 0,  8, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  20,  2082, 3, 0,  9, 0  },
+        { "en_US@calendar=vikram", 2025, 5,  21,  2082, 3, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  22,  2082, 3, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  23,  2082, 3, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  24,  2082, 3, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  25,  2082, 3, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  26,  2082, 3, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  27,  2082, 3, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  28,  2082, 3, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  29,  2082, 3, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 5,  30,  2082, 3, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  1,   2082, 3, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  2,   2082, 3, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  3,   2082, 3, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  4,   2082, 3, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  5,   2082, 3, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  6,   2082, 3, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  7,   2082, 3, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  8,   2082, 3, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  9,   2082, 3, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  10,  2082, 3, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  11,  2082, 4, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  12,  2082, 4, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  13,  2082, 4, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  14,  2082, 4, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  15,  2082, 4, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  16,  2082, 4, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  17,  2082, 4, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  18,  2082, 4, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  19,  2082, 4, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 6,  20,  2082, 4, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  21,  2082, 4, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  22,  2082, 4, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  23,  2082, 4, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  24,  2082, 4, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  25,  2082, 4, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  26,  2082, 4, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  27,  2082, 4, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  28,  2082, 4, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  29,  2082, 4, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  30,  2082, 4, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 6,  31,  2082, 4, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  1,   2082, 4, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  2,   2082, 4, 0,  23, 1 },
+        { "en_US@calendar=vikram", 2025, 7,  3,   2082, 4, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  4,   2082, 4, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  5,   2082, 4, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  6,   2082, 4, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  7,   2082, 4, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  8,   2082, 4, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  9,   2082, 4, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  10,  2082, 5, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  11,  2082, 5, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  12,  2082, 5, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  13,  2082, 5, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  14,  2082, 5, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  15,  2082, 5, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  16,  2082, 5, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  17,  2082, 5, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 7,  18,  2082, 5, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  19,  2082, 5, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  20,  2082, 5, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  21,  2082, 5, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  22,  2082, 5, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  23,  2082, 5, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  24,  2082, 5, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  25,  2082, 5, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  26,  2082, 5, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  27,  2082, 5, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  28,  2082, 5, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  29,  2082, 5, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  30,  2082, 5, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 7,  31,  2082, 5, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  1,   2082, 5, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  2,   2082, 5, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  3,   2082, 5, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  4,   2082, 5, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  5,   2082, 5, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  6,   2082, 5, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  7,   2082, 5, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  8,   2082, 6, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  9,   2082, 6, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  10,  2082, 6, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  11,  2082, 6, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  12,  2082, 6, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  13,  2082, 6, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  14,  2082, 6, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  15,  2082, 6, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 8,  16,  2082, 6, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  17,  2082, 6, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  18,  2082, 6, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  19,  2082, 6, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  20,  2082, 6, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  21,  2082, 6, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  22,  2082, 6, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  23,  2082, 6, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  24,  2082, 6, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  25,  2082, 6, 0,  18, 1 },
+        { "en_US@calendar=vikram", 2025, 8,  26,  2082, 6, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  27,  2082, 6, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  28,  2082, 6, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  29,  2082, 6, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 8,  30,  2082, 6, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  1,   2082, 6, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  2,   2082, 6, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  3,   2082, 6, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  4,   2082, 6, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  5,   2082, 6, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  6,   2082, 6, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  7,   2082, 6, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  8,   2082, 7, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  9,   2082, 7, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  10,  2082, 7, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  11,  2082, 7, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  12,  2082, 7, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  13,  2082, 7, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  14,  2082, 7, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  15,  2082, 7, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 9,  16,  2082, 7, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  17,  2082, 7, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  18,  2082, 7, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  19,  2082, 7, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  20,  2082, 7, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  21,  2082, 7, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  22,  2082, 7, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  23,  2082, 7, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  24,  2082, 7, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  25,  2082, 7, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  26,  2082, 7, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  27,  2082, 7, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  28,  2082, 7, 0,  21, 1 },
+        { "en_US@calendar=vikram", 2025, 9,  29,  2082, 7, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  30,  2082, 7, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 9,  31,  2082, 7, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 1,   2082, 7, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 2,   2082, 7, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 3,   2082, 7, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 4,   2082, 7, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 5,   2082, 7, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 6,   2082, 8, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 7,   2082, 8, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 8,   2082, 8, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 9,   2082, 8, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 10,  2082, 8, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 11,  2082, 8, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 12,  2082, 8, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 13,  2082, 8, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 10, 14,  2082, 8, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 15,  2082, 8, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 16,  2082, 8, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 17,  2082, 8, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 18,  2082, 8, 0,  13, 1 },
+        { "en_US@calendar=vikram", 2025, 10, 19,  2082, 8, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 20,  2082, 8, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 21,  2082, 8, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 22,  2082, 8, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 23,  2082, 8, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 24,  2082, 8, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 25,  2082, 8, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 26,  2082, 8, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 27,  2082, 8, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 28,  2082, 8, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 29,  2082, 8, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 10, 30,  2082, 8, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 1,   2082, 8, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 2,   2082, 8, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 3,   2082, 8, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 4,   2082, 8, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 5,   2082, 9, 0,  1 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 6,   2082, 9, 0,  2 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 7,   2082, 9, 0,  3 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 8,   2082, 9, 0,  4 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 9,   2082, 9, 0,  5 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 10,  2082, 9, 0,  6 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 11,  2082, 9, 0,  7 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 12,  2082, 9, 0,  8 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 13,  2082, 9, 0,  9 , 0 },
+        { "en_US@calendar=vikram", 2025, 11, 14,  2082, 9, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 15,  2082, 9, 0,  11, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 16,  2082, 9, 0,  12, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 17,  2082, 9, 0,  13, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 18,  2082, 9, 0,  14, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 19,  2082, 9, 0,  15, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 20,  2082, 9, 0,  15, 1 },
+        { "en_US@calendar=vikram", 2025, 11, 21,  2082, 9, 0,  16, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 22,  2082, 9, 0,  17, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 23,  2082, 9, 0,  18, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 24,  2082, 9, 0,  19, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 25,  2082, 9, 0,  20, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 26,  2082, 9, 0,  21, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 27,  2082, 9, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 28,  2082, 9, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 29,  2082, 9, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 30,  2082, 9, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2025, 11, 31,  2082, 9, 0,  27, 0 },
+        // rdar://151394973 Adding a couple of months in 2026 (5/1-7/1) covering a whole leap month in lunisolar calendars
+        { "en_US@calendar=vikram", 2026, 4,  1,   2083, 1, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  2,   2083, 2, 0,   1, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  3,   2083, 2, 0,   2, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  4,   2083, 2, 0,   3, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  5,   2083, 2, 0,   4, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  6,   2083, 2, 0,   4, 1 },
+        { "en_US@calendar=vikram", 2026, 4,  7,   2083, 2, 0,   5, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  8,   2083, 2, 0,   6, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  9,   2083, 2, 0,   7, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  10,  2083, 2, 0,   8, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  11,  2083, 2, 0,   9, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  12,  2083, 2, 0,  10, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  13,  2083, 2, 0,  11, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  14,  2083, 2, 0,  12, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  15,  2083, 2, 0,  13, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  16,  2083, 2, 0,  15, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  17,  2083, 2, 1,   1, 0  }, // Start of the leap Jyeshtha month year 2083
+        { "en_US@calendar=vikram", 2026, 4,  18,  2083, 2, 1,   2, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  19,  2083, 2, 1,   3, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  20,  2083, 2, 1,   4, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  21,  2083, 2, 1,   5, 0  },
+        { "en_US@calendar=vikram", 2026, 4,  22,  2083, 2, 1,   6, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  23,  2083, 2, 1,   8, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  24,  2083, 2, 1,   9, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  25,  2083, 2, 1,  10, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  26,  2083, 2, 1,  11, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  27,  2083, 2, 1,  11, 1 },
+        { "en_US@calendar=vikram", 2026, 4,  28,  2083, 2, 1,  12, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  29,  2083, 2, 1,  13, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  30,  2083, 2, 1,  14, 0 },
+        { "en_US@calendar=vikram", 2026, 4,  31,  2083, 2, 1,  15, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  1,   2083, 2, 1,  16, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  2,   2083, 2, 1,  17, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  3,   2083, 2, 1,  18, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  4,   2083, 2, 1,  19, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  5,   2083, 2, 1,  20, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  6,   2083, 2, 1,  21, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  7,   2083, 2, 1,  22, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  8,   2083, 2, 1,  23, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  9,   2083, 2, 1,  24, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  10,  2083, 2, 1,  25, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  11,  2083, 2, 1,  26, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  12,  2083, 2, 1,  27, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  13,  2083, 2, 1,  28, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  14,  2083, 2, 1,  29, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  15,  2083, 2, 1,  30, 0  }, // End of the leap Jyeshtha month year 2083
+        { "en_US@calendar=vikram", 2026, 5,  16,  2083, 2, 0,  17, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  17,  2083, 2, 0,  18, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  18,  2083, 2, 0,  19, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  19,  2083, 2, 0,  20, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  20,  2083, 2, 0,  21, 0  },
+        { "en_US@calendar=vikram", 2026, 5,  21,  2083, 2, 0,  22, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  22,  2083, 2, 0,  23, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  23,  2083, 2, 0,  24, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  24,  2083, 2, 0,  25, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  25,  2083, 2, 0,  26, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  26,  2083, 2, 0,  27, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  27,  2083, 2, 0,  28, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  28,  2083, 2, 0,  29, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  29,  2083, 2, 0,  30, 0 },
+        { "en_US@calendar=vikram", 2026, 5,  30,  2083, 3, 0,   1, 0 },
+        { "en_US@calendar=vikram", 2026, 6,  1,   2083, 3, 0,   1, 1 },
+        // tests for rdar://156472909 ([New Calendars]: GJ: Luck23A304: Incorrect date is marked as a new year in Gujarati alternative calendar)
+        // TODO: Can I cut down on the number of entries here and still test what I need to test?
+        { "en_US@calendar=gujarati", 2024, 9,  1,   2080, 10, 0,  29, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  2,   2080, 10, 0,  30, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  3,   2080, 11, 0,  1,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  4,   2080, 11, 0,  2,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  5,   2080, 11, 0,  3,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  6,   2080, 11, 0,  4,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  7,   2080, 11, 0,  5,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  8,   2080, 11, 0,  5,  1 },
+        { "en_US@calendar=gujarati", 2024, 9,  9,   2080, 11, 0,  6,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  10,  2080, 11, 0,  7,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  11,  2080, 11, 0,  8,  0 },
+        { "en_US@calendar=gujarati", 2024, 9,  12,  2080, 11, 0,  10, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  13,  2080, 11, 0,  11, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  14,  2080, 11, 0,  12, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  15,  2080, 11, 0,  13, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  16,  2080, 11, 0,  14, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  17,  2080, 11, 0,  15, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  18,  2080, 11, 0,  16, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  19,  2080, 11, 0,  17, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  20,  2080, 11, 0,  18, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  21,  2080, 11, 0,  19, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  22,  2080, 11, 0,  20, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  23,  2080, 11, 0,  22, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  24,  2080, 11, 0,  23, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  25,  2080, 11, 0,  24, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  26,  2080, 11, 0,  25, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  27,  2080, 11, 0,  25, 1 },
+        { "en_US@calendar=gujarati", 2024, 9,  28,  2080, 11, 0,  26, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  29,  2080, 11, 0,  27, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  30,  2080, 11, 0,  28, 0 },
+        { "en_US@calendar=gujarati", 2024, 9,  31,  2080, 11, 0,  29, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 1,   2080, 11, 0,  30, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 2,   2081, 0,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 3,   2081, 0,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 4,   2081, 0,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 5,   2081, 0,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 6,   2081, 0,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 7,   2081, 0,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 8,   2081, 0,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 9,   2081, 0,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 10,  2081, 0,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2024, 10, 11,  2081, 0,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 12,  2081, 0,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 13,  2081, 0,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 14,  2081, 0,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 15,  2081, 0,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 16,  2081, 0,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 17,  2081, 0,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 18,  2081, 0,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 19,  2081, 0,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 20,  2081, 0,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 21,  2081, 0,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 22,  2081, 0,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 23,  2081, 0,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 24,  2081, 0,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 25,  2081, 0,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 26,  2081, 0,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 27,  2081, 0,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 28,  2081, 0,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2024, 10, 29,  2081, 0,  0,  28, 1 },
+        { "en_US@calendar=gujarati", 2024, 10, 30,  2081, 0,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 1,   2081, 0,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 2,   2081, 1,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 3,   2081, 1,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 4,   2081, 1,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 5,   2081, 1,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 6,   2081, 1,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 7,   2081, 1,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 8,   2081, 1,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 9,   2081, 1,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2024, 11, 10,  2081, 1,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 11,  2081, 1,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 12,  2081, 1,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 13,  2081, 1,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 14,  2081, 1,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 15,  2081, 1,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 16,  2081, 1,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 17,  2081, 1,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 18,  2081, 1,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 19,  2081, 1,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 20,  2081, 1,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 21,  2081, 1,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 22,  2081, 1,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 23,  2081, 1,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 24,  2081, 1,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 25,  2081, 1,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 26,  2081, 1,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 27,  2081, 1,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 28,  2081, 1,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 29,  2081, 1,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 30,  2081, 1,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2024, 11, 31,  2081, 2,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  1,   2081, 2,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  2,   2081, 2,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  3,   2081, 2,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  4,   2081, 2,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  5,   2081, 2,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  6,   2081, 2,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  7,   2081, 2,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  8,   2081, 2,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 0,  9,   2081, 2,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  10,  2081, 2,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  11,  2081, 2,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  12,  2081, 2,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  13,  2081, 2,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  14,  2081, 2,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  15,  2081, 2,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  16,  2081, 2,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  17,  2081, 2,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  18,  2081, 2,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  19,  2081, 2,  0,  20, 1 },
+        { "en_US@calendar=gujarati", 2025, 0,  20,  2081, 2,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  21,  2081, 2,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  22,  2081, 2,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  23,  2081, 2,  0,  24, 0 } ,
+        { "en_US@calendar=gujarati", 2025, 0,  24,  2081, 2,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  25,  2081, 2,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  26,  2081, 2,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  27,  2081, 2,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  28,  2081, 2,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  29,  2081, 2,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 0,  30,  2081, 3,  0,  1, 0  },
+        { "en_US@calendar=gujarati", 2025, 0,  31,  2081, 3,  0,  2, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  1,   2081, 3,  0,  3, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  2,   2081, 3,  0,  4, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  3,   2081, 3,  0,  6, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  4,   2081, 3,  0,  7, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  5,   2081, 3,  0,  8, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  6,   2081, 3,  0,  9, 0  },
+        { "en_US@calendar=gujarati", 2025, 1,  7,   2081, 3,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  8,   2081, 3,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  9,   2081, 3,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  10,  2081, 3,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  11,  2081, 3,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  12,  2081, 3,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  13,  2081, 3,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  14,  2081, 3,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  15,  2081, 3,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  16,  2081, 3,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  17,  2081, 3,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  18,  2081, 3,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  19,  2081, 3,  0,  21, 1 },
+        { "en_US@calendar=gujarati", 2025, 1,  20,  2081, 3,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  21,  2081, 3,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  22,  2081, 3,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  23,  2081, 3,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  24,  2081, 3,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  25,  2081, 3,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  26,  2081, 3,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  27,  2081, 3,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 1,  28,  2081, 4,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  1,   2081, 4,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  2,   2081, 4,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  3,   2081, 4,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  4,   2081, 4,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  5,   2081, 4,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  6,   2081, 4,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  7,   2081, 4,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  8,   2081, 4,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 2,  9,   2081, 4,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  10,  2081, 4,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  11,  2081, 4,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  12,  2081, 4,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  13,  2081, 4,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  14,  2081, 4,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  15,  2081, 4,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  16,  2081, 4,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  17,  2081, 4,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  18,  2081, 4,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  19,  2081, 4,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  20,  2081, 4,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  21,  2081, 4,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  22,  2081, 4,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  23,  2081, 4,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  24,  2081, 4,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  25,  2081, 4,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  26,  2081, 4,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  27,  2081, 4,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  28,  2081, 4,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  29,  2081, 4,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  30,  2081, 5,  0,  1, 0 },
+        { "en_US@calendar=gujarati", 2025, 2,  31,  2081, 5,  0,  2, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  1,   2081, 5,  0,  4, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  2,   2081, 5,  0,  5, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  3,   2081, 5,  0,  6, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  4,   2081, 5,  0,  7, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  5,   2081, 5,  0,  8, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  6,   2081, 5,  0,  9, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  7,   2081, 5,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  8,   2081, 5,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  9,   2081, 5,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  10,  2081, 5,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  11,  2081, 5,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  12,  2081, 5,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  13,  2081, 5,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  14,  2081, 5,  0,  16, 1 },
+        { "en_US@calendar=gujarati", 2025, 3,  15,  2081, 5,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  16,  2081, 5,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  17,  2081, 5,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  18,  2081, 5,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  19,  2081, 5,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  20,  2081, 5,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  21,  2081, 5,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  22,  2081, 5,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  23,  2081, 5,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  24,  2081, 5,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  25,  2081, 5,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  26,  2081, 5,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  27,  2081, 5,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 3,  28,  2081, 6,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 3,  29,  2081, 6,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 3,  30,  2081, 6,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  1,   2081, 6,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  2,   2081, 6,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  3,   2081, 6,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  4,   2081, 6,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  5,   2081, 6,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  6,   2081, 6,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  7,   2081, 6,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  8,   2081, 6,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  9,   2081, 6,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  10,  2081, 6,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  11,  2081, 6,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  12,  2081, 6,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  13,  2081, 6,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  14,  2081, 6,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  15,  2081, 6,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  16,  2081, 6,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  17,  2081, 6,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  18,  2081, 6,  0,  20, 1 },
+        { "en_US@calendar=gujarati", 2025, 4,  19,  2081, 6,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  20,  2081, 6,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  21,  2081, 6,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  22,  2081, 6,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  23,  2081, 6,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  24,  2081, 6,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  25,  2081, 6,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  26,  2081, 6,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  27,  2081, 6,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 4,  28,  2081, 7,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  29,  2081, 7,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  30,  2081, 7,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 4,  31,  2081, 7,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  1,   2081, 7,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  2,   2081, 7,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  3,   2081, 7,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  4,   2081, 7,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  5,   2081, 7,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  6,   2081, 7,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  7,   2081, 7,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  8,   2081, 7,  0,  12, 1 },
+        { "en_US@calendar=gujarati", 2025, 5,  9,   2081, 7,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  10,  2081, 7,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  11,  2081, 7,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  12,  2081, 7,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  13,  2081, 7,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  14,  2081, 7,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  15,  2081, 7,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  16,  2081, 7,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  17,  2081, 7,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  18,  2081, 7,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  19,  2081, 7,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  20,  2081, 7,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  21,  2081, 7,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  22,  2081, 7,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  23,  2081, 7,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  24,  2081, 7,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  25,  2081, 7,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 5,  26,  2081, 8,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  27,  2081, 8,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  28,  2081, 8,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  29,  2081, 8,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 5,  30,  2081, 8,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  1,   2081, 8,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  2,   2081, 8,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  3,   2081, 8,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  4,   2081, 8,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  5,   2081, 8,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  6,   2081, 8,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  7,   2081, 8,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  8,   2081, 8,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  9,   2081, 8,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  10,  2081, 8,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  11,  2081, 8,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  12,  2081, 8,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  13,  2081, 8,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  14,  2081, 8,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  15,  2081, 8,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  16,  2081, 8,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  17,  2081, 8,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  18,  2081, 8,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  19,  2081, 8,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  20,  2081, 8,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  21,  2081, 8,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  22,  2081, 8,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  23,  2081, 8,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  24,  2081, 8,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 6,  25,  2081, 9,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  26,  2081, 9,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  27,  2081, 9,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  28,  2081, 9,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  29,  2081, 9,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  30,  2081, 9,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 6,  31,  2081, 9,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  1,   2081, 9,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  2,   2081, 9,  0,  8,  1 },
+        { "en_US@calendar=gujarati", 2025, 7,  3,   2081, 9,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  4,   2081, 9,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  5,   2081, 9,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  6,   2081, 9,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  7,   2081, 9,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  8,   2081, 9,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  9,   2081, 9,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  10,  2081, 9,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  11,  2081, 9,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  12,  2081, 9,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  13,  2081, 9,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  14,  2081, 9,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  15,  2081, 9,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  16,  2081, 9,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  17,  2081, 9,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  18,  2081, 9,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  19,  2081, 9,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  20,  2081, 9,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  21,  2081, 9,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  22,  2081, 9,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  23,  2081, 9,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 7,  24,  2081, 10, 0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  25,  2081, 10, 0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  26,  2081, 10, 0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  27,  2081, 10, 0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  28,  2081, 10, 0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  29,  2081, 10, 0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  30,  2081, 10, 0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 7,  31,  2081, 10, 0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  1,   2081, 10, 0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  2,   2081, 10, 0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  3,   2081, 10, 0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  4,   2081, 10, 0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  5,   2081, 10, 0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  6,   2081, 10, 0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  7,   2081, 10, 0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  8,   2081, 10, 0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  9,   2081, 10, 0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  10,  2081, 10, 0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  11,  2081, 10, 0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  12,  2081, 10, 0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  13,  2081, 10, 0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  14,  2081, 10, 0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  15,  2081, 10, 0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  16,  2081, 10, 0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  17,  2081, 10, 0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  18,  2081, 10, 0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  19,  2081, 10, 0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  20,  2081, 10, 0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  21,  2081, 10, 0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 8,  22,  2081, 11, 0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  23,  2081, 11, 0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  24,  2081, 11, 0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  25,  2081, 11, 0,  3,  1 },
+        { "en_US@calendar=gujarati", 2025, 8,  26,  2081, 11, 0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  27,  2081, 11, 0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  28,  2081, 11, 0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  29,  2081, 11, 0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 8,  30,  2081, 11, 0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  1,   2081, 11, 0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  2,   2081, 11, 0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  3,   2081, 11, 0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  4,   2081, 11, 0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  5,   2081, 11, 0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  6,   2081, 11, 0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  7,   2081, 11, 0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  8,   2081, 11, 0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  9,   2081, 11, 0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  10,  2081, 11, 0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  11,  2081, 11, 0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  12,  2081, 11, 0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  13,  2081, 11, 0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  14,  2081, 11, 0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  15,  2081, 11, 0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  16,  2081, 11, 0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  17,  2081, 11, 0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  18,  2081, 11, 0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  19,  2081, 11, 0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  20,  2081, 11, 0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  21,  2081, 11, 0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 9,  22,  2082, 0,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  23,  2082, 0,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  24,  2082, 0,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  25,  2082, 0,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  26,  2082, 0,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  27,  2082, 0,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  28,  2082, 0,  0,  6,  1 },
+        { "en_US@calendar=gujarati", 2025, 9,  29,  2082, 0,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  30,  2082, 0,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 9,  31,  2082, 0,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 1,   2082, 0,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 2,   2082, 0,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 3,   2082, 0,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 4,   2082, 0,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 5,   2082, 0,  0,  15, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 6,   2082, 0,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 7,   2082, 0,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 8,   2082, 0,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 9,   2082, 0,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 10,  2082, 0,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 11,  2082, 0,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 12,  2082, 0,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 13,  2082, 0,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 14,  2082, 0,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 15,  2082, 0,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 16,  2082, 0,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 17,  2082, 0,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 18,  2082, 0,  0,  28, 1 },
+        { "en_US@calendar=gujarati", 2025, 10, 19,  2082, 0,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 20,  2082, 0,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 10, 21,  2082, 1,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 22,  2082, 1,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 23,  2082, 1,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 24,  2082, 1,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 25,  2082, 1,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 26,  2082, 1,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 27,  2082, 1,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 28,  2082, 1,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 29,  2082, 1,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 10, 30,  2082, 1,  0,  10, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 1,   2082, 1,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 2,   2082, 1,  0,  12, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 3,   2082, 1,  0,  13, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 4,   2082, 1,  0,  14, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 5,   2082, 1,  0,  16, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 6,   2082, 1,  0,  17, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 7,   2082, 1,  0,  18, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 8,   2082, 1,  0,  19, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 9,   2082, 1,  0,  20, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 10,  2082, 1,  0,  21, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 11,  2082, 1,  0,  22, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 12,  2082, 1,  0,  23, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 13,  2082, 1,  0,  24, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 14,  2082, 1,  0,  25, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 15,  2082, 1,  0,  26, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 16,  2082, 1,  0,  27, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 17,  2082, 1,  0,  28, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 18,  2082, 1,  0,  29, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 19,  2082, 1,  0,  30, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 20,  2082, 1,  0,  30, 1 },
+        { "en_US@calendar=gujarati", 2025, 11, 21,  2082, 2,  0,  1,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 22,  2082, 2,  0,  2,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 23,  2082, 2,  0,  3,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 24,  2082, 2,  0,  4,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 25,  2082, 2,  0,  5,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 26,  2082, 2,  0,  6,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 27,  2082, 2,  0,  7,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 28,  2082, 2,  0,  8,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 29,  2082, 2,  0,  9,  0 },
+        { "en_US@calendar=gujarati", 2025, 11, 30,  2082, 2,  0,  11, 0 },
+        { "en_US@calendar=gujarati", 2025, 11, 31,  2082, 2,  0,  12, 0 },
+    };
+    
+    
+    UErrorCode err = U_ZERO_ERROR;
+        for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+            const TestCase& testCase(testCases[i]);
+            LocalPointer<Calendar> gregorianCalendar(Calendar::createInstance(Locale("en_US@calendar=gregorian"), err));
+            LocalPointer<Calendar> indianCalendar(Calendar::createInstance(Locale(testCase.locale), err));
+            
+            if (assertSuccess("Error creating calendars", err)) {
+                gregorianCalendar->clear();
+                gregorianCalendar->set(UCAL_YEAR, testCase.gregorianYear);
+                gregorianCalendar->set(UCAL_MONTH, testCase.gregorianMonth);
+                gregorianCalendar->set(UCAL_DAY_OF_MONTH, testCase.gregorianDay);
+                
+                UDate forwardMillis = gregorianCalendar->getTime(err);
+                int32_t forwardJulianDay = gregorianCalendar->get(UCAL_JULIAN_DAY, err);
+                indianCalendar->setTime(forwardMillis, err);
+                
+                if (U_FAILURE(err)) {
+                    errln("ERR: Time calculation failed with %s on Gregorian %d, %d, %d", u_errorName(err), testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay);
+                    continue;
+                }
+                
+                int32_t actualIndianYear = indianCalendar->get(UCAL_YEAR, err);
+                int32_t actualIndianMonth = indianCalendar->get(UCAL_MONTH, err);
+                int32_t actualLeapMonth = indianCalendar->get(UCAL_IS_LEAP_MONTH, err); // rdar://151394973
+                int32_t actualIndianDay = indianCalendar->get(UCAL_DAY_OF_MONTH, err);
+                int32_t actualIndianRepeatedDay = indianCalendar->get(UCAL_IS_REPEATED_DAY, err); // rdar://138880732
+                int32_t testJulianDay = indianCalendar->get(UCAL_JULIAN_DAY, err);
+                
+                if (U_FAILURE(err)) {
+                    errln("ERR: Forward conversion failed with %s on Gregorian %d, %d, %d", u_errorName(err), testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay);
+                    continue;
+                }
+                if (testCase.indianYear != actualIndianYear
+                    || testCase.indianMonth != actualIndianMonth
+                    || testCase.indianDay != actualIndianDay
+                    || testCase.repeatedDay != actualIndianRepeatedDay
+                    || testCase.leapMonth != actualLeapMonth // rdar://151394973
+                    ) {
+                    errln("ERR: Forward conversion got wrong answer on Gregorian %d, %d, %d: Expected %d, %d, %d, %d got %d, %d, %d, %d", testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay, testCase.indianYear, testCase.indianMonth, testCase.indianDay, testCase.repeatedDay, actualIndianYear, actualIndianMonth, actualIndianDay, actualIndianRepeatedDay);
+                    continue;
+                }
+                
+                if (testJulianDay != forwardJulianDay) {
+                    errln("ERR: Conversion didn't yield same Julian day for Gregorian %d, %d, %d: Expected %d, got %d", testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay, forwardJulianDay, testJulianDay);
+                    continue;
+                }
+                // add code here to test converting from Indian calendar back to Gregorian calendar
+            }
+        }
 }
 
 void CalendarTest::verifyFirstDayOfWeek(const char* locale, UCalendarDaysOfWeek expected) {
@@ -6008,8 +7100,6 @@ void CalendarTest::TestIndianLunisolarCalendars() {
     
     UErrorCode status = U_ZERO_ERROR;
     
-    Locale lHinduLunar("en@calendar=hindu-lunar");
-    LocalPointer<Calendar> calHinduLunar(Calendar::createInstance(lHinduLunar, status), status);
     Locale lIndianVikram("en@calendar=vikram");
     LocalPointer<Calendar> calIndianVikram(Calendar::createInstance(lIndianVikram, status), status);
     Locale lIndianGujarati("en@calendar=gujarati");
@@ -6020,91 +7110,963 @@ void CalendarTest::TestIndianLunisolarCalendars() {
     LocalPointer<Calendar> calIndianMarathi(Calendar::createInstance(lIndianMarathi, status), status);
     Locale lIndianTelugu("en@calendar=telugu");
     LocalPointer<Calendar> calIndianTelugu(Calendar::createInstance(lIndianTelugu, status), status);
-    
-    calHinduLunar->set(UCAL_JULIAN_DAY, 2448698);
+  
     calIndianVikram->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduLunar->get(UCAL_YEAR, status) != calIndianVikram->get(UCAL_YEAR, status)
-        || calHinduLunar->get(UCAL_MONTH, status) != calIndianVikram->get(UCAL_MONTH, status)
-        || calHinduLunar->get(UCAL_DATE, status) != calIndianVikram->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Lunisolar Vikram calendar");
+    if (   calIndianVikram->get(UCAL_YEAR, status) != 2048
+        || calIndianVikram->get(UCAL_MONTH, status) != 11
+        || calIndianVikram->get(UCAL_DATE, status) != 28 )        {
+        errln("ERR: Wrong calculation for Vikram calendar!\nHinduLunarDate for R.D.: %d \nExpected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+              2448698,
+              2048, 11, 28,
+              calIndianVikram->get(UCAL_YEAR, status), calIndianVikram->get(UCAL_MONTH, status), calIndianVikram->get(UCAL_DATE, status));
     }
     calIndianGujarati->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduLunar->get(UCAL_YEAR, status) != calIndianGujarati->get(UCAL_YEAR, status)
-        || calHinduLunar->get(UCAL_MONTH, status) != calIndianGujarati->get(UCAL_MONTH, status)
-        || calHinduLunar->get(UCAL_DATE, status) != calIndianGujarati->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Lunisolar Gujarati calendar");
+    if (   calIndianGujarati->get(UCAL_YEAR, status) != 2048
+        || calIndianGujarati->get(UCAL_MONTH, status) != 4
+        || calIndianGujarati->get(UCAL_DATE, status) != 13 )        {
+        errln("ERR: Wrong calculation for Gujarati calendar!\nHinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+              2448698,
+              2048, 4, 13,
+              calIndianGujarati->get(UCAL_YEAR, status), calIndianGujarati->get(UCAL_MONTH, status), calIndianGujarati->get(UCAL_DATE, status));
     }
     calIndianKannada->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduLunar->get(UCAL_YEAR, status) != calIndianKannada->get(UCAL_YEAR, status)
-        || calHinduLunar->get(UCAL_MONTH, status) != calIndianKannada->get(UCAL_MONTH, status)
-        || calHinduLunar->get(UCAL_DATE, status) != calIndianKannada->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Lunisolar Kannada calendar");
+    if (   calIndianKannada->get(UCAL_YEAR, status) != 1913
+        || calIndianKannada->get(UCAL_MONTH, status) != 11
+        || calIndianKannada->get(UCAL_DATE, status) != 13 )        {
+        errln("ERR: Wrong calculation for Kannada calendar!\nHinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+              2448698,
+              1913, 11, 13,
+              calIndianKannada->get(UCAL_YEAR, status), calIndianKannada->get(UCAL_MONTH, status), calIndianKannada->get(UCAL_DATE, status));
     }
     calIndianMarathi->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduLunar->get(UCAL_YEAR, status) != calIndianMarathi->get(UCAL_YEAR, status)
-        || calHinduLunar->get(UCAL_MONTH, status) != calIndianMarathi->get(UCAL_MONTH, status)
-        || calHinduLunar->get(UCAL_DATE, status) != calIndianMarathi->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Lunisolar Marathi calendar");
+    if (   calIndianMarathi->get(UCAL_YEAR, status) != 1913
+        || calIndianMarathi->get(UCAL_MONTH, status) != 11
+        || calIndianMarathi->get(UCAL_DATE, status) != 13 )        {
+        errln("ERR: Wrong calculation for Marathi calendar!\nHinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+              2448698,
+              1913, 11, 13,
+              calIndianMarathi->get(UCAL_YEAR, status), calIndianMarathi->get(UCAL_MONTH, status), calIndianMarathi->get(UCAL_DATE, status));
     }
     calIndianTelugu->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduLunar->get(UCAL_YEAR, status) != calIndianTelugu->get(UCAL_YEAR, status)
-        || calHinduLunar->get(UCAL_MONTH, status) != calIndianTelugu->get(UCAL_MONTH, status)
-        || calHinduLunar->get(UCAL_DATE, status) != calIndianTelugu->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Lunisolar Telugu calendar");
+    if (   calIndianTelugu->get(UCAL_YEAR, status) != 1913
+        || calIndianTelugu->get(UCAL_MONTH, status) != 11
+        || calIndianTelugu->get(UCAL_DATE, status) != 13 )        {
+        errln("ERR: Wrong calculation for Telugu calendar!\nHinduLunarDate for R.D.: %d \n Expected:  year: %d, month: %d, day: %d\n Got:       year: %d, month: %d, day: %d",
+              2448698,
+              1913, 11, 13,
+              calIndianTelugu->get(UCAL_YEAR, status), calIndianTelugu->get(UCAL_MONTH, status), calIndianTelugu->get(UCAL_DATE, status));
     }
 }
 
-void CalendarTest::TestIndianSolarCalendars() {
-    // TODO:
-    //      This unit test is temporarily just making sure we're can create instances for the Indian Solar Calendars
-    //      This is done in order to unblock the clients which needs working calendar ids
-    //      At the moment, all calendrical calculations are the same for every solar variant
-    //      Using that fact to make sure we're really creating an instance of Indian solar calendar
-    //      and not defaulting to Gregorian, which would happen in the case of unknown calendar
-    //      The real unit test will account for different calculations for each solar calendar
+#if APPLE_ICU_CHANGES
+// rdar://146755503 ([New Calendars]: Luck23A203: Solar: Data Accuracy issue: Incorrect dates are showing in solar calendars)
+// (NOTE: need to add APPLE_ICU_CHANGES around the other Hindu-calendar tests!
+void CalendarTest::TestIndianSolarGregorianConversion() {
+    struct TestCase {
+        const char* locale;
+        int32_t gregorianYear;
+        int32_t gregorianMonth;
+        int32_t gregorianDay;
+        int32_t indianYear;
+        int32_t indianMonth;
+        int32_t indianDay;
+    } testCases[] = {
+        // Tests from the old TestIndianSolarCalendars() test
+        // (the dates are outside the current lookup-table range, which means the results we're getting right now
+        // might not match Drik Panchang, but we think they're true to the Reingold/Dershowitz algorithms we've
+        // been using)
+        { "en_US@calendar=bangla",     1994, 11, 11,  1401, 7,  25 },
+        { "en_US@calendar=tamil",      1994, 11, 11,  1916, 7,  26 },
+        { "en_US@calendar=odia",       1994, 11, 11,  1402, 2,  26 },
+        { "en_US@calendar=malayalam",  1994, 11, 11,  1170, 3,  25 },
+
+        // Tamil calendar-- dates in the lookup table that match Reingold/Dershowitz astro-hindu-solar-from-fixed
+        // (including some where R/D astro-hindu-solar-from-fixed doesn't match R/D hindu-solar-from-fixed)
+        // (expected results are from DrikPanchang)
+        { "en_US@calendar=tamil",      2025, 4,  14,  1947, 0,  31 },
+        { "en_US@calendar=tamil",      2025, 4,  15,  1947, 1,  1  },
+        { "en_US@calendar=tamil",      2025, 6,  15,  1947, 2,  31 },
+        { "en_US@calendar=tamil",      2025, 6,  16,  1947, 3,  1  },
+        { "en_US@calendar=tamil",      2025, 7,  16,  1947, 3,  32 },
+        { "en_US@calendar=tamil",      2025, 7,  17,  1947, 4,  1  },
+        { "en_US@calendar=tamil",      2025, 10, 15,  1947, 6,  30 },
+        { "en_US@calendar=tamil",      2025, 10, 16,  1947, 7,  1  },
+        // Tamil calendar-- dates in the lookup table that don't match Reingold/Dershowitz astro-hindu-solar-from-fixed
+        // (expected results are from DrikPanchang)
+        { "en_US@calendar=tamil",      2025, 0,  1,   1946, 8,  17 },
+        { "en_US@calendar=tamil",      2025, 0,  2,   1946, 8,  18 },
+        { "en_US@calendar=tamil",      2025, 0,  3,   1946, 8,  19 },
+        { "en_US@calendar=tamil",      2025, 1,  11,  1946, 9,  29 },
+        { "en_US@calendar=tamil",      2025, 1,  12,  1946, 9,  30 },
+        { "en_US@calendar=tamil",      2025, 1,  13,  1946, 10, 1  },
+        { "en_US@calendar=tamil",      2025, 2,  13,  1946, 10, 29 },
+        { "en_US@calendar=tamil",      2025, 2,  14,  1946, 10, 30 },
+        { "en_US@calendar=tamil",      2025, 3,  13,  1946, 11, 30 },
+        { "en_US@calendar=tamil",      2025, 3,  14,  1947, 0,  1  },
+        // Tamil calendar-- dates that are not in the lookup table (expected results were generated using the
+        // Reingold/Dershowitz Lisp code)
+        { "en_US@calendar=tamil",      1989, 0,  1,   1910, 8,  18 },
+        { "en_US@calendar=tamil",      1989, 1,  10,  1910, 9,  28 },
+        { "en_US@calendar=tamil",      1989, 1,  11,  1910, 9,  29 },
+        { "en_US@calendar=tamil",      1989, 1,  12,  1910, 10, 1  },
+        { "en_US@calendar=tamil",      1989, 1,  13,  1910, 10, 2  },
+        { "en_US@calendar=tamil",      1989, 3,  11,  1910, 11, 29 },
+        { "en_US@calendar=tamil",      1989, 3,  12,  1910, 11, 30 },
+        { "en_US@calendar=tamil",      1989, 3,  13,  1911, 0,  1  },
+        { "en_US@calendar=tamil",      1989, 3,  14,  1911, 0,  2  },
+        { "en_US@calendar=tamil",      1989, 5,  13,  1911, 1,  31 },
+        { "en_US@calendar=tamil",      1989, 5,  14,  1911, 1,  32 },
+        { "en_US@calendar=tamil",      1989, 5,  15,  1911, 2,  1  },
+        { "en_US@calendar=tamil",      1989, 5,  16,  1911, 2,  2  },
+        { "en_US@calendar=tamil",      1989, 11, 14,  1911, 7,  29 },
+        // NOTE: Our copy of the Reingold/Dershowitz Lisp code gets 7/30 and 8/1 for the two entries below.
+        // I think this is a bug in their code.  I traced the discrepancy between our code and theirs down to
+        // a loss in floating-point precision in their code.  If you pass 726451.75 to approx-moment-of-depression,
+        // you get back 726451.75.  I think this is wrong-- I think we should be getting back something like
+        // 726451.7172.  But the following line...
+        // (format t "726451.72 -> ~A~%" 726451.72)
+        // ...prints out "726451.72 -> 726451.75".  Using "726451.72l0" gives the right answer here, so apparently
+        // 726451.72 can't be represented as a single-precision float, and all the floats in moment-of-depression
+        // and the things it calls are single-precision floats.  I don't know how to fix this, and I'm also not
+        // sure how to make our own code match it (or even if that's a good idea), so I'm leaving it alone and
+        // assuming we have our own math right.  I've filed rdar://152015011 (Discrepancies with
+        // Reingold/Dershowitz in Hindu solar calendar calculations) for this issue and a couple of others we
+        // should investigate.  --rtg 5/25/25
+        { "en_US@calendar=tamil",      1989, 11, 15,  1911, 8,  1  },
+        { "en_US@calendar=tamil",      1989, 11, 16,  1911, 8,  2  },
+        { "en_US@calendar=tamil",      1989, 11, 31,  1911, 8,  17  },
+
+        // Odia calendar-- dates in the lookup table that match Reingold/Dershowitz hindu-solar-from-fixed
+        { "en_US@calendar=odia",       2025, 0,  1,   1432, 3,  18 },
+        { "en_US@calendar=odia",       2025, 0,  13,  1432, 3,  30 },
+        { "en_US@calendar=odia",       2025, 0,  14,  1432, 4,  1  },
+        { "en_US@calendar=odia",       2025, 7,  15,  1432, 10, 31 },
+        { "en_US@calendar=odia",       2025, 7,  16,  1432, 10, 32 },
+        { "en_US@calendar=odia",       2025, 7,  17,  1432, 11, 1  },
+        { "en_US@calendar=odia",       2025, 7,  18,  1432, 11, 2  },
+        { "en_US@calendar=odia",       2025, 11, 14,  1433, 2,  29 },
+        { "en_US@calendar=odia",       2025, 11, 15,  1433, 2,  30 },
+        { "en_US@calendar=odia",       2025, 11, 16,  1433, 3,  1  },
+        { "en_US@calendar=odia",       2025, 11, 31,  1433, 3,  16 },
+
+        // Odia calendar-- dates in the lookup table that don't match Reingold/Dershowitz hindu-solar-from-fixed
+        // (expected results are from DrikPanchang)
+        { "en_US@calendar=odia",       2025, 3,  11,  1432, 6,  29 },
+        { "en_US@calendar=odia",       2025, 3,  12,  1432, 6,  30 },
+        { "en_US@calendar=odia",       2025, 3,  13,  1432, 6,  31 },
+        { "en_US@calendar=odia",       2025, 3,  14,  1432, 7,  1  },
+        { "en_US@calendar=odia",       2025, 3,  15,  1432, 7,  2  },
+        { "en_US@calendar=odia",       2025, 5,  13,  1432, 8,  30 },
+        { "en_US@calendar=odia",       2025, 5,  14,  1432, 8,  31 },
+        { "en_US@calendar=odia",       2025, 5,  15,  1432, 9,  1  },
+        { "en_US@calendar=odia",       2025, 5,  16,  1432, 9,  2  },
+
+        // Odia calendar-- dates that are not in the lookup table (expected results were generated using the
+        // Reingold/Dershowitz Lisp code)
+        { "en_US@calendar=odia",       1989, 0,  1,   1396, 3,  18 },
+        { "en_US@calendar=odia",       1989, 0,  12,  1396, 3,  29 },
+        { "en_US@calendar=odia",       1989, 0,  13,  1396, 4,  1  },
+        { "en_US@calendar=odia",       1989, 2,  12,  1396, 5,  29 },
+        { "en_US@calendar=odia",       1989, 2,  13,  1396, 5,  30 },
+        { "en_US@calendar=odia",       1989, 2,  14,  1396, 6,  1  },
+        { "en_US@calendar=odia",       1989, 2,  15,  1396, 6,  2  },
+        { "en_US@calendar=odia",       1989, 3,  11,  1396, 6,  29 },
+        { "en_US@calendar=odia",       1989, 3,  12,  1396, 6,  30 },
+        { "en_US@calendar=odia",       1989, 3,  13,  1396, 7,  1  },
+        { "en_US@calendar=odia",       1989, 3,  14,  1396, 7,  2  },
+        { "en_US@calendar=odia",       1989, 7,  15,  1396, 10, 31 },
+        { "en_US@calendar=odia",       1989, 7,  16,  1396, 10, 32 },
+        { "en_US@calendar=odia",       1989, 7,  17,  1396, 11, 1  },
+        { "en_US@calendar=odia",       1989, 7,  18,  1396, 11, 2  },
+
+        // Malayalam calendar-- dates in the lookup table that match what we get algorithmically
+        { "en_US@calendar=malayalam",  2025, 3,  12,  1200, 7,  29 },
+        { "en_US@calendar=malayalam",  2025, 3,  13,  1200, 7,  30 },
+        { "en_US@calendar=malayalam",  2025, 3,  14,  1200, 8,  1  },
+        { "en_US@calendar=malayalam",  2025, 3,  15,  1200, 8,  2  },
+        { "en_US@calendar=malayalam",  2025, 10, 15,  1201, 2,  29 },
+        { "en_US@calendar=malayalam",  2025, 10, 16,  1201, 2,  30 },
+        { "en_US@calendar=malayalam",  2025, 10, 17,  1201, 3,  1  },
+        { "en_US@calendar=malayalam",  2025, 10, 18,  1201, 3,  2  },
+        { "en_US@calendar=malayalam",  2025, 11, 14,  1201, 3,  28 },
+        { "en_US@calendar=malayalam",  2025, 11, 15,  1201, 3,  29 },
+        { "en_US@calendar=malayalam",  2025, 11, 16,  1201, 4,  1  },
+        { "en_US@calendar=malayalam",  2025, 11, 17,  1201, 4,  2  },
+        { "en_US@calendar=malayalam",  2025, 11, 31,  1201, 4,  16 },
+
+        // Malayalam calendar-- dates in the lookup table that don't match what we get algorithmically
+        // (expected results are from DrikPanchang)
+        { "en_US@calendar=malayalam",  2025, 0,  13,  1200, 4,  29 },
+        { "en_US@calendar=malayalam",  2025, 0,  14,  1200, 5,  1  },
+        { "en_US@calendar=malayalam",  2025, 0,  15,  1200, 5,  2  },
+        { "en_US@calendar=malayalam",  2025, 5,  14,  1200, 9,  31 },
+        { "en_US@calendar=malayalam",  2025, 5,  15,  1200, 10, 1  },
+        { "en_US@calendar=malayalam",  2025, 5,  16,  1200, 10, 2  },
+        { "en_US@calendar=malayalam",  2025, 7,  16,  1200, 11, 31 },
+        { "en_US@calendar=malayalam",  2025, 7,  17,  1201, 0,  1  },
+        { "en_US@calendar=malayalam",  2025, 7,  18,  1201, 0,  2  },
+        { "en_US@calendar=malayalam",  2025, 9,  16,  1201, 1,  30 },
+        { "en_US@calendar=malayalam",  2025, 9,  17,  1201, 1,  31 },
+        { "en_US@calendar=malayalam",  2025, 9,  18,  1201, 2,  1  },
+        { "en_US@calendar=malayalam",  2025, 9,  19,  1201, 2,  2  },
+
+        // Malayalam calendar-- dates that are not in the lookup table (we're trusting ourselves here
+        // because we don't have clear Reingold/Dershowitz example code to follow-- mostly, this test
+        // serves as a regression test to detect changes to the behavior in the future)
+        { "en_US@calendar=malayalam",  1989, 0,  1,   1164, 4,  17 },
+        { "en_US@calendar=malayalam",  1989, 0,  13,  1164, 4,  29 },
+        { "en_US@calendar=malayalam",  1989, 0,  14,  1164, 5,  1  },
+        { "en_US@calendar=malayalam",  1989, 2,  12,  1164, 6,  28 },
+        { "en_US@calendar=malayalam",  1989, 2,  13,  1164, 6,  29 },
+        { "en_US@calendar=malayalam",  1989, 2,  14,  1164, 7,  1  },
+        { "en_US@calendar=malayalam",  1989, 2,  15,  1164, 7,  2  },
+        { "en_US@calendar=malayalam",  1989, 3,  11,  1164, 7,  29 },
+        { "en_US@calendar=malayalam",  1989, 3,  12,  1164, 7,  30 },
+        { "en_US@calendar=malayalam",  1989, 3,  13,  1164, 7,  31  },
+        { "en_US@calendar=malayalam",  1989, 3,  14,  1164, 8,  1  },
+        { "en_US@calendar=malayalam",  1989, 7,  15,  1164, 11, 30 },
+        { "en_US@calendar=malayalam",  1989, 7,  16,  1164, 11, 31 },
+        { "en_US@calendar=malayalam",  1989, 7,  17,  1165, 0,  1  },
+        { "en_US@calendar=malayalam",  1989, 7,  18,  1165, 0,  2  },
+
+        // Bangla calendar-- dates in the lookup table that match what we get algorithmically
+        { "en_US@calendar=bangla",     2025, 1,  11,  1431, 9,  28 },
+        { "en_US@calendar=bangla",     2025, 1,  12,  1431, 9,  29 },
+        { "en_US@calendar=bangla",     2025, 7,  18,  1432, 4,  1  },
+        { "en_US@calendar=bangla",     2025, 7,  19,  1432, 4,  2  },
+        { "en_US@calendar=bangla",     2025, 11, 17,  1432, 8,  1  },
+        { "en_US@calendar=bangla",     2025, 11, 18,  1432, 8,  2  },
+        { "en_US@calendar=bangla",     2025, 11, 31,  1432, 8,  15 },
+
+        // Bangla calendar-- dates in the lookup table that don't match what we get algorithmically
+        // (expected results are from "Benimadhab Shil - Full Panjika")
+        { "en_US@calendar=bangla",     2025, 0,  1,   1431, 8,  16 },
+        { "en_US@calendar=bangla",     2025, 1,  13,  1431, 9,  30 },
+        { "en_US@calendar=bangla",     2025, 1,  14,  1431, 10, 1  },
+        { "en_US@calendar=bangla",     2025, 3,  13,  1431, 11, 30 },
+        { "en_US@calendar=bangla",     2025, 3,  14,  1431, 11, 31 },
+        { "en_US@calendar=bangla",     2025, 3,  15,  1432, 0,  1  },
+        { "en_US@calendar=bangla",     2025, 3,  16,  1432, 0,  2  },
+        { "en_US@calendar=bangla",     2025, 3,  17,  1432, 0,  3  },
+        { "en_US@calendar=bangla",     2025, 4,  13,  1432, 0,  29 },
+        { "en_US@calendar=bangla",     2025, 4,  14,  1432, 0,  30 },
+        { "en_US@calendar=bangla",     2025, 4,  15,  1432, 0,  31 },
+        { "en_US@calendar=bangla",     2025, 4,  16,  1432, 1,  1  },
+        { "en_US@calendar=bangla",     2025, 7,  16,  1432, 3,  30 },
+        { "en_US@calendar=bangla",     2025, 7,  17,  1432, 3,  31 },
+        { "en_US@calendar=bangla",     2025, 11, 15,  1432, 7,  28 },
+        { "en_US@calendar=bangla",     2025, 11, 16,  1432, 7,  29 },
+
+        // Bangla calendar-- dates that are not in the lookup table (we're trusting ourselves here
+        // because we don't have clear Reingold/Dershowitz example code to follow-- mostly, this test
+        // serves as a regression test to detect changes to the behavior in the future)
+        { "en_US@calendar=bangla",     1989, 0,  1,   1395, 8,  17 },
+        { "en_US@calendar=bangla",     1989, 2,  13,  1395, 10, 29 },
+        { "en_US@calendar=bangla",     1989, 2,  14,  1395, 10, 30 },
+        { "en_US@calendar=bangla",     1989, 2,  15,  1395, 11, 1  },
+        { "en_US@calendar=bangla",     1989, 2,  16,  1395, 11, 2  },
+        { "en_US@calendar=bangla",     1989, 3,  12,  1395, 11, 29 },
+        { "en_US@calendar=bangla",     1989, 3,  13,  1395, 11, 30 },
+        { "en_US@calendar=bangla",     1989, 3,  14,  1396, 0,  1  },
+        { "en_US@calendar=bangla",     1989, 3,  15,  1396, 0,  2  },
+        { "en_US@calendar=bangla",     1989, 6,  15,  1396, 2,  31 },
+        { "en_US@calendar=bangla",     1989, 6,  16,  1396, 2,  32 },
+        { "en_US@calendar=bangla",     1989, 6,  17,  1396, 3,  1  },
+        { "en_US@calendar=bangla",     1989, 6,  18,  1396, 3,  2  },
+        { "en_US@calendar=bangla",     1989, 9,  16,  1396, 5,  30 },
+        { "en_US@calendar=bangla",     1989, 9,  17,  1396, 5,  31 },
+        { "en_US@calendar=bangla",     1989, 9,  18,  1396, 6,  1  },
+        { "en_US@calendar=bangla",     1989, 9,  19,  1396, 6,  2  },
+        { "en_US@calendar=bangla",     1989, 11, 14,  1396, 7,  28 },
+        { "en_US@calendar=bangla",     1989, 11, 15,  1396, 7,  29 },
+        { "en_US@calendar=bangla",     1989, 11, 16,  1396, 8,  1  },
+        { "en_US@calendar=bangla",     1989, 11, 17,  1396, 8,  2  },
+        { "en_US@calendar=bangla",     1989, 11, 31,  1396, 8,  16 },
+    };
     
+    UErrorCode err = U_ZERO_ERROR;
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        const TestCase& testCase(testCases[i]);
+        LocalPointer<Calendar> gregorianCalendar(Calendar::createInstance(Locale("en_US@calendar=gregorian"), err));
+        LocalPointer<Calendar> indianCalendar(Calendar::createInstance(Locale(testCase.locale), err));
+        HinduSolarCalendar* solarCalendar = dynamic_cast<HinduSolarCalendar*>(indianCalendar.getAlias());
+        
+        if (assertSuccess("Error creating calendars", err)) {
+            // test forward conversion and field calculation from Gregorian to Indian
+            gregorianCalendar->clear();
+            gregorianCalendar->set(UCAL_YEAR, testCase.gregorianYear);
+            gregorianCalendar->set(UCAL_MONTH, testCase.gregorianMonth);
+            gregorianCalendar->set(UCAL_DAY_OF_MONTH, testCase.gregorianDay);
+            
+            UDate forwardMillis = gregorianCalendar->getTime(err);
+            int32_t forwardJulianDay = gregorianCalendar->get(UCAL_JULIAN_DAY, err);
+            indianCalendar->setTime(forwardMillis, err);
+            
+            if (U_FAILURE(err)) {
+                errln("ERR: Time calculation failed with %s with calendar %s on Gregorian %d, %d, %d", u_errorName(err), testCase.locale, testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay);
+                continue;
+            }
+            
+            int32_t actualIndianYear = indianCalendar->get(UCAL_YEAR, err);
+            int32_t actualIndianMonth = indianCalendar->get(UCAL_MONTH, err);
+            int32_t actualIndianDay = indianCalendar->get(UCAL_DAY_OF_MONTH, err);
+            int32_t testJulianDay = indianCalendar->get(UCAL_JULIAN_DAY, err);
+            
+            if (U_FAILURE(err)) {
+                errln("ERR: Forward conversion failed with %s with calendar %s on Gregorian %d, %d, %d", u_errorName(err), testCase.locale, testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay);
+                continue;
+            }
+            if (testCase.indianYear != actualIndianYear
+                || testCase.indianMonth != actualIndianMonth
+                || testCase.indianDay != actualIndianDay) {
+                errln("ERR: Forward conversion got wrong answer with calendar %s on Gregorian %d, %d, %d: Expected %d, %d, %d, got %d, %d, %d", testCase.locale, testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay, testCase.indianYear, testCase.indianMonth, testCase.indianDay, actualIndianYear, actualIndianMonth, actualIndianDay);
+                continue;
+            }
+            
+            if (testJulianDay != forwardJulianDay) {
+                errln("ERR: Conversion didn't yield same Julian day with calendar %s for Gregorian %d, %d, %d: Expected %d, got %d", testCase.locale, testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay, forwardJulianDay, testJulianDay);
+                continue;
+            }
+            
+            // test reverse conversion and field calculation from Indian to Gregorian
+            indianCalendar->clear();
+            indianCalendar->set(UCAL_YEAR, testCase.indianYear);
+            indianCalendar->set(UCAL_MONTH, testCase.indianMonth);
+            indianCalendar->set(UCAL_DAY_OF_MONTH, testCase.indianDay);
+            
+            UDate backwardMillis = indianCalendar->getTime(err);
+            int32_t backwardJulianDay = indianCalendar->get(UCAL_JULIAN_DAY, err);
+            
+            if (U_FAILURE(err)) {
+                errln("ERR: Time calculation failed with %s with calendar %s on Indian %d, %d, %d", u_errorName(err), testCase.locale, testCase.indianYear, testCase.indianMonth, testCase.indianDay);
+                continue;
+            }
+            
+            if (backwardMillis != forwardMillis || backwardJulianDay != forwardJulianDay) {
+                errln("ERR: Time calculation got wrong answer with calendar %s on Indian %d, %d, %d: Millis: expected %g, got %g; Julian day: Expected %d, got %d", testCase.locale, testCase.indianYear, testCase.indianMonth, testCase.indianDay, forwardMillis, backwardMillis, forwardJulianDay, backwardJulianDay);
+                continue;
+            }
+            
+            gregorianCalendar->setTime(backwardMillis, err);
+            int32_t actualGregorianYear = gregorianCalendar->get(UCAL_YEAR, err);
+            int32_t actualGregorianMonth = gregorianCalendar->get(UCAL_MONTH, err);
+            int32_t actualGregorianDay = gregorianCalendar->get(UCAL_DAY_OF_MONTH, err);
+            
+            if (U_FAILURE(err)) {
+                errln("ERR: Backward conversion failed with %s with calendar %s on Indian %d, %d, %d", u_errorName(err), testCase.locale, testCase.indianYear, testCase.indianMonth, testCase.indianDay);
+                continue;
+            }
+            if (testCase.gregorianYear != actualGregorianYear
+                || testCase.gregorianMonth != actualGregorianMonth
+                || testCase.gregorianDay !=  actualGregorianDay) {
+                errln("ERR: Backward conversion got wrong answer with calendar %s on Indian %d, %d, %d: Expected %d, %d, %d, got %d, %d, %d", testCase.locale, testCase.indianYear, testCase.indianMonth, testCase.indianDay, testCase.gregorianYear, testCase.gregorianMonth, testCase.gregorianDay, actualGregorianYear, actualGregorianMonth, actualGregorianDay);
+                continue;
+            }
+        }
+    }
+}
+
+void CalendarTest::TestIndianSolarAddRollNormalize() {
+    struct TestCase {
+        const char* locale;
+        int32_t startYear;
+        int32_t startMonth;
+        int32_t startDay;
+        bool shouldAdd;
+        int32_t offset;
+        UCalendarDateFields field;
+        int32_t expectedEndYear;
+        int32_t expectedEndMonth;
+        int32_t expectedEndDay;
+    } testCases[] = {
+        // Tamil calendar
+        // math on day field
+        // test adding various values, making sure the month and year boundaries are in the right place
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  1,   UCAL_DAY_OF_MONTH, 1946, 10, 6  },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  5,   UCAL_DAY_OF_MONTH, 1946, 10, 10 },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  10,  UCAL_DAY_OF_MONTH, 1946, 10, 15 },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  20,  UCAL_DAY_OF_MONTH, 1946, 10, 25 },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  30,  UCAL_DAY_OF_MONTH, 1946, 11, 5  },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  60,  UCAL_DAY_OF_MONTH, 1947, 0,  5  },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  90,  UCAL_DAY_OF_MONTH, 1947, 1,  4  },
+        // same thing, but subtract this time
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  -1,  UCAL_DAY_OF_MONTH, 1946, 10, 4  },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  -5,  UCAL_DAY_OF_MONTH, 1946, 9,  30 },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  -10, UCAL_DAY_OF_MONTH, 1946, 9,  25 },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  -30, UCAL_DAY_OF_MONTH, 1946, 9,  5  },
+        { "en_US@calendar=tamil",      1946, 10,  5, true,  -60, UCAL_DAY_OF_MONTH, 1946, 8,  4  },
+        // instead of adding, use out-of-bounds values and make sure they normalize correctly
+        { "en_US@calendar=tamil",      1946, 9,  45, true,  0,   UCAL_DAY_OF_MONTH, 1946, 10, 15 },
+        { "en_US@calendar=tamil",      1946, 8,  45, true,  0,   UCAL_DAY_OF_MONTH, 1946, 9,  16 },
+        { "en_US@calendar=tamil",      1946, 9,  -5, true,  0,   UCAL_DAY_OF_MONTH, 1946, 8,  24 },
+        { "en_US@calendar=tamil",      1946, 10, -5, true,  0,   UCAL_DAY_OF_MONTH, 1946, 9,  25 },
+        // test the roll() function
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 1,   UCAL_DAY_OF_MONTH, 1946, 10, 6  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 5,   UCAL_DAY_OF_MONTH, 1946, 10, 10 },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 20,  UCAL_DAY_OF_MONTH, 1946, 10, 25 },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 30,  UCAL_DAY_OF_MONTH, 1946, 10, 5  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 45,  UCAL_DAY_OF_MONTH, 1946, 10, 20 },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, -1,  UCAL_DAY_OF_MONTH, 1946, 10, 4  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, -5,  UCAL_DAY_OF_MONTH, 1946, 10, 30 },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, -10, UCAL_DAY_OF_MONTH, 1946, 10, 25 },
+        { "en_US@calendar=tamil",      1947, 3,  5,  false, 1,   UCAL_DAY_OF_MONTH, 1947, 3,  6  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  false, 30,  UCAL_DAY_OF_MONTH, 1947, 3,  3  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  false, -10, UCAL_DAY_OF_MONTH, 1947, 3,  27 },
+        // math on month field
+        // add, watching out for year boundaries and making sure to peg to the actual number of days in the month
+        { "en_US@calendar=tamil",      1946, 10, 5,  true,  1,   UCAL_MONTH,        1946, 11, 5  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  true,  2,   UCAL_MONTH,        1947, 0,  5  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  true,  -2,  UCAL_MONTH,        1946, 8,  5  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  true,  1,   UCAL_MONTH,        1947, 4,  5  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  true,  -1,  UCAL_MONTH,        1947, 2,  5  },
+        { "en_US@calendar=tamil",      1946, 10, 30, true,  1,   UCAL_MONTH,        1946, 11, 30  },
+        { "en_US@calendar=tamil",      1946, 10, 30, true,  -2,  UCAL_MONTH,        1946, 8,  29  },
+        { "en_US@calendar=tamil",      1946, 10, 30, true,  2,   UCAL_MONTH,        1947, 0,  30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  1,   UCAL_MONTH,        1947, 4,  31  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  -1,  UCAL_MONTH,        1947, 2,  31  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  2,   UCAL_MONTH,        1947, 5,  30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  5,   UCAL_MONTH,        1947, 8,  29  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  8,   UCAL_MONTH,        1947, 11, 30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  9,   UCAL_MONTH,        1948, 0,  31  },
+        // roll-- should work the same as add(), except when we pass a year boundary
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 1,   UCAL_MONTH,        1946, 11, 5  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, 2,   UCAL_MONTH,        1946, 0,  5  },
+        { "en_US@calendar=tamil",      1946, 10, 5,  false, -2,  UCAL_MONTH,        1946, 8,  5  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  false, 1,   UCAL_MONTH,        1947, 4,  5  },
+        { "en_US@calendar=tamil",      1947, 3,  5,  false, -1,  UCAL_MONTH,        1947, 2,  5  },
+        { "en_US@calendar=tamil",      1946, 10, 30, false, 1,   UCAL_MONTH,        1946, 11, 30  },
+        { "en_US@calendar=tamil",      1946, 10, 30, false, -2,  UCAL_MONTH,        1946, 8,  29  },
+        { "en_US@calendar=tamil",      1946, 10, 30, false, 2,   UCAL_MONTH,        1946, 0,  30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, 1,   UCAL_MONTH,        1947, 4,  31  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, -1,  UCAL_MONTH,        1947, 2,  31  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, 2,   UCAL_MONTH,        1947, 5,  30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, 5,   UCAL_MONTH,        1947, 8,  29  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, 8,   UCAL_MONTH,        1947, 11, 30  },
+        { "en_US@calendar=tamil",      1947, 3,  32, false, 9,   UCAL_MONTH,        1947, 0,  31  },
+        // add() on year field
+        { "en_US@calendar=tamil",      1946, 10, 5,  true,  1,   UCAL_YEAR,         1947, 10, 5  },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  1,   UCAL_YEAR,         1948, 3,  31 },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  2,   UCAL_YEAR,         1949, 3,  31 },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  3,   UCAL_YEAR,         1950, 3,  32 },
+        { "en_US@calendar=tamil",      1947, 3,  32, true,  -1,  UCAL_YEAR,         1946, 3,  32 },
+        // all of the above will use the Tamil-calendar lookup table-- try a smattering of additional
+        // tests on a date range that doesn't use the lookup table
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  1,   UCAL_DAY_OF_MONTH, 1911, 1,  16 },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  20,  UCAL_DAY_OF_MONTH, 1911, 2,  3  },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  50,  UCAL_DAY_OF_MONTH, 1911, 3,  2  },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  -20, UCAL_DAY_OF_MONTH, 1911, 0,  26 },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  -50, UCAL_DAY_OF_MONTH, 1910, 11, 26 },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  1,   UCAL_MONTH,        1911, 2,  15 },
+        { "en_US@calendar=tamil",      1911, 1,  15, true,  -2,  UCAL_MONTH,        1910, 11, 15 },
+        { "en_US@calendar=tamil",      1911, 1,  32, true,  1,   UCAL_MONTH,        1911, 2,  31 },
+        { "en_US@calendar=tamil",      1911, 1,  32, true,  -1,  UCAL_MONTH,        1911, 0,  31 },
+        { "en_US@calendar=tamil",      1911, 1,  32, true,  -2,  UCAL_MONTH,        1910, 11, 30 },
+        // Odia calendar
+        // math on day field
+        // test adding various values, making sure the month and year boundaries are in the right place
+        { "en_US@calendar=odia",       1432, 5,   5, true,  1,   UCAL_DAY_OF_MONTH, 1432, 5,  6  },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  5,   UCAL_DAY_OF_MONTH, 1432, 5,  10 },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  10,  UCAL_DAY_OF_MONTH, 1432, 5,  15 },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  20,  UCAL_DAY_OF_MONTH, 1432, 5,  25 },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  30,  UCAL_DAY_OF_MONTH, 1432, 6,  5  },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  60,  UCAL_DAY_OF_MONTH, 1432, 7,  4  },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  90,  UCAL_DAY_OF_MONTH, 1432, 8,  3  },
+        // same thing, but subtract this time
+        { "en_US@calendar=odia",       1432, 5,   5, true,  -1,  UCAL_DAY_OF_MONTH, 1432, 5,  4  },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  -5,  UCAL_DAY_OF_MONTH, 1432, 4,  29 },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  -10, UCAL_DAY_OF_MONTH, 1432, 4,  24 },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  -30, UCAL_DAY_OF_MONTH, 1432, 4,  4  },
+        { "en_US@calendar=odia",       1432, 5,   5, true,  -60, UCAL_DAY_OF_MONTH, 1432, 3,  4  },
+        // instead of adding, use out-of-bounds values and make sure they normalize correctly
+        { "en_US@calendar=odia",       1432, 4,  45, true,  0,   UCAL_DAY_OF_MONTH, 1432, 5,  16 },
+        { "en_US@calendar=odia",       1432, 3,  45, true,  0,   UCAL_DAY_OF_MONTH, 1432, 4,  15 },
+        { "en_US@calendar=odia",       1432, 4,  -5, true,  0,   UCAL_DAY_OF_MONTH, 1432, 3,  25 },
+        { "en_US@calendar=odia",       1432, 5,  -5, true,  0,   UCAL_DAY_OF_MONTH, 1432, 4,  24 },
+        // test the roll() function
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 1,   UCAL_DAY_OF_MONTH, 1432, 5,  6  },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 5,   UCAL_DAY_OF_MONTH, 1432, 5,  10 },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 20,  UCAL_DAY_OF_MONTH, 1432, 5,  25 },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 30,  UCAL_DAY_OF_MONTH, 1432, 5,  5  },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 45,  UCAL_DAY_OF_MONTH, 1432, 5,  20 },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, -1,  UCAL_DAY_OF_MONTH, 1432, 5,  4  },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, -5,  UCAL_DAY_OF_MONTH, 1432, 5,  30 },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, -10, UCAL_DAY_OF_MONTH, 1432, 5,  25 },
+        { "en_US@calendar=odia",       1432, 10, 5,  false, 1,   UCAL_DAY_OF_MONTH, 1432, 10, 6  },
+        { "en_US@calendar=odia",       1432, 10, 5,  false, 30,  UCAL_DAY_OF_MONTH, 1432, 10, 3  },
+        { "en_US@calendar=odia",       1432, 10, 5,  false, -10, UCAL_DAY_OF_MONTH, 1432, 10, 27 },
+        // math on month field
+        // add, watching out for year boundaries and making sure to peg to the actual number of days in the month
+        { "en_US@calendar=odia",       1432, 5,  5,  true,  1,   UCAL_MONTH,        1432, 6,  5  },
+        { "en_US@calendar=odia",       1432, 5,  5,  true,  2,   UCAL_MONTH,        1432, 7,  5  },
+        { "en_US@calendar=odia",       1432, 5,  5,  true,  -2,  UCAL_MONTH,        1432, 3,  5  },
+        { "en_US@calendar=odia",       1432, 10, 5,  true,  1,   UCAL_MONTH,        1432, 11, 5  },
+        { "en_US@calendar=odia",       1432, 10, 5,  true,  -1,  UCAL_MONTH,        1432, 9,  5  },
+        { "en_US@calendar=odia",       1432, 5,  30, true,  1,   UCAL_MONTH,        1432, 6,  30  },
+        { "en_US@calendar=odia",       1432, 5,  30, true,  -2,  UCAL_MONTH,        1432, 3,  30  },
+        { "en_US@calendar=odia",       1432, 5,  30, true,  2,   UCAL_MONTH,        1432, 7,  30  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  1,   UCAL_MONTH,        1432, 11, 31  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  -1,  UCAL_MONTH,        1432, 9,  31  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  2,   UCAL_MONTH,        1433, 0,  30  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  5,   UCAL_MONTH,        1433, 3,  29  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  8,   UCAL_MONTH,        1433, 6,  30  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  9,   UCAL_MONTH,        1433, 7,  31  },
+        // roll-- should work the same as add(), except when we pass a year boundary
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 1,   UCAL_MONTH,        1432, 6,  5  },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, 2,   UCAL_MONTH,        1432, 7,  5  },
+        { "en_US@calendar=odia",       1432, 5,  5,  false, -2,  UCAL_MONTH,        1432, 3,  5  },
+        { "en_US@calendar=odia",       1432, 10, 5,  false, 1,   UCAL_MONTH,        1432, 11, 5  },
+        { "en_US@calendar=odia",       1432, 10, 5,  false, -1,  UCAL_MONTH,        1432, 9,  5  },
+        { "en_US@calendar=odia",       1432, 5,  30, false, 1,   UCAL_MONTH,        1432, 6,  30  },
+        { "en_US@calendar=odia",       1432, 5,  30, false, -2,  UCAL_MONTH,        1432, 3,  30  },
+        { "en_US@calendar=odia",       1432, 5,  30, false, 2,   UCAL_MONTH,        1432, 7,  30  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, 1,   UCAL_MONTH,        1432, 11, 31  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, -1,  UCAL_MONTH,        1432, 9,  31  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, 2,   UCAL_MONTH,        1432, 0,  31  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, 5,   UCAL_MONTH,        1432, 3,  30  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, 8,   UCAL_MONTH,        1432, 6,  31  },
+        { "en_US@calendar=odia",       1432, 10, 32, false, 9,   UCAL_MONTH,        1432, 7,  31  },
+        // add() on year field
+        { "en_US@calendar=odia",       1432, 5,  5,  true,  1,   UCAL_YEAR,         1433, 5,  5  },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  1,   UCAL_YEAR,         1433, 10, 31 },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  2,   UCAL_YEAR,         1434, 10, 31 },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  3,   UCAL_YEAR,         1435, 10, 31 },
+        { "en_US@calendar=odia",       1432, 10, 32, true,  -1,  UCAL_YEAR,         1431, 10, 31 },
+        // all of the above will use the Odia-calendar lookup table-- try a smattering of additional
+        // tests on a date range that doesn't use the lookup table
+        { "en_US@calendar=odia",       1395, 8,  15, true,  1,   UCAL_DAY_OF_MONTH, 1395, 8,  16 },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  20,  UCAL_DAY_OF_MONTH, 1395, 9,  4  },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  50,  UCAL_DAY_OF_MONTH, 1395, 10, 2  },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  -20, UCAL_DAY_OF_MONTH, 1395, 7,  26 },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  -50, UCAL_DAY_OF_MONTH, 1395, 6,  26 },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  1,   UCAL_MONTH,        1395, 9,  15 },
+        { "en_US@calendar=odia",       1395, 8,  15, true,  -2,  UCAL_MONTH,        1395, 6,  15 },
+        { "en_US@calendar=odia",       1395, 9,  32, true,  1,   UCAL_MONTH,        1395, 10, 31 },
+        { "en_US@calendar=odia",       1395, 9,  32, true,  -1,  UCAL_MONTH,        1395, 8,  31 },
+        { "en_US@calendar=odia",       1395, 9,  32, true,  -2,   UCAL_MONTH,       1395, 7,  31 },
+        // Malayalam calendar
+        // math on day field
+        // test adding various values, making sure the month and year boundaries are in the right place
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  1,   UCAL_DAY_OF_MONTH, 1200, 10, 6  },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  5,   UCAL_DAY_OF_MONTH, 1200, 10, 10 },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  10,  UCAL_DAY_OF_MONTH, 1200, 10, 15 },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  20,  UCAL_DAY_OF_MONTH, 1200, 10, 25 },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  30,  UCAL_DAY_OF_MONTH, 1200, 11, 3  },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  60,  UCAL_DAY_OF_MONTH, 1201, 0,  2  },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  90,  UCAL_DAY_OF_MONTH, 1201, 1,  1  },
+        // same thing, but subtract this time
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  -1,  UCAL_DAY_OF_MONTH, 1200, 10, 4  },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  -5,  UCAL_DAY_OF_MONTH, 1200, 9,  31 },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  -10, UCAL_DAY_OF_MONTH, 1200, 9,  26 },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  -30, UCAL_DAY_OF_MONTH, 1200, 9,  6  },
+        { "en_US@calendar=malayalam",  1200, 10,  5, true,  -60, UCAL_DAY_OF_MONTH, 1200, 8,  7  },
+        // instead of adding, use out-of-bounds values and make sure they normalize correctly
+        { "en_US@calendar=malayalam",  1200, 9,  45, true,  0,   UCAL_DAY_OF_MONTH, 1200, 10, 14 },
+        { "en_US@calendar=malayalam",  1200, 8,  45, true,  0,   UCAL_DAY_OF_MONTH, 1200, 9,  14 },
+        { "en_US@calendar=malayalam",  1200, 9,  -5, true,  0,   UCAL_DAY_OF_MONTH, 1200, 8,  26 },
+        { "en_US@calendar=malayalam",  1200, 10, -5, true,  0,   UCAL_DAY_OF_MONTH, 1200, 9,  26 },
+        // test the roll() function
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 1,   UCAL_DAY_OF_MONTH, 1200, 10, 6  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 5,   UCAL_DAY_OF_MONTH, 1200, 10, 10 },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 20,  UCAL_DAY_OF_MONTH, 1200, 10, 25 },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 30,  UCAL_DAY_OF_MONTH, 1200, 10, 3  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 45,  UCAL_DAY_OF_MONTH, 1200, 10, 18 },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, -1,  UCAL_DAY_OF_MONTH, 1200, 10, 4  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, -5,  UCAL_DAY_OF_MONTH, 1200, 10, 32 },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, -10, UCAL_DAY_OF_MONTH, 1200, 10, 27 },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  false, 1,   UCAL_DAY_OF_MONTH, 1201, 3,  6  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  false, 30,  UCAL_DAY_OF_MONTH, 1201, 3,  6  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  false, -10, UCAL_DAY_OF_MONTH, 1201, 3,  24 },
+        // math on month field
+        // add, watching out for year boundaries and making sure to peg to the actual number of days in the month
+        { "en_US@calendar=malayalam",  1200, 10, 5,  true,  1,   UCAL_MONTH,        1200, 11, 5  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  true,  2,   UCAL_MONTH,        1201, 0,  5  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  true,  -2,  UCAL_MONTH,        1200, 8,  5  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  true,  1,   UCAL_MONTH,        1201, 4,  5  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  true,  -1,  UCAL_MONTH,        1201, 2,  5  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, true,  1,   UCAL_MONTH,        1200, 11, 30  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, true,  -2,  UCAL_MONTH,        1200, 8,  30  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, true,  2,   UCAL_MONTH,        1201, 0,  30  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  1,   UCAL_MONTH,        1201, 11, 31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  -1,  UCAL_MONTH,        1201, 9,  31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  2,   UCAL_MONTH,        1202, 0,  31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  5,   UCAL_MONTH,        1202, 3,  29  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  8,   UCAL_MONTH,        1202, 6,  30  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  9,   UCAL_MONTH,        1202, 7,  31  },
+        // roll-- should work the same as add(), except when we pass a year boundary
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 1,   UCAL_MONTH,        1200, 11, 5  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, 2,   UCAL_MONTH,        1200, 0,  5  },
+        { "en_US@calendar=malayalam",  1200, 10, 5,  false, -2,  UCAL_MONTH,        1200, 8,  5  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  false, 1,   UCAL_MONTH,        1201, 4,  5  },
+        { "en_US@calendar=malayalam",  1201, 3,  5,  false, -1,  UCAL_MONTH,        1201, 2,  5  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, false, 1,   UCAL_MONTH,        1200, 11, 30  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, false, -2,  UCAL_MONTH,        1200, 8,  30  },
+        { "en_US@calendar=malayalam",  1200, 10, 30, false, 2,   UCAL_MONTH,        1200, 0,  30  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, 1,   UCAL_MONTH,        1201, 11, 31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, -1,  UCAL_MONTH,        1201, 9,  31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, 2,   UCAL_MONTH,        1201, 0,  31  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, 5,   UCAL_MONTH,        1201, 3,  29  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, 8,   UCAL_MONTH,        1201, 6,  30  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, false, 9,   UCAL_MONTH,        1201, 7,  30  },
+        // add() on year field
+        { "en_US@calendar=malayalam",  1200, 10, 5,  true,  1,   UCAL_YEAR,         1201, 10, 5  },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  1,   UCAL_YEAR,         1202, 10, 31 },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  2,   UCAL_YEAR,         1203, 10, 31 },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  3,   UCAL_YEAR,         1204, 10, 32 },
+        { "en_US@calendar=malayalam",  1201, 10, 32, true,  -1,  UCAL_YEAR,         1200, 10, 32 },
+        // all of the above will use the Malayalam-calendar lookup table-- try a smattering of additional
+        // tests on a date range that doesn't use the lookup table
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  1,   UCAL_DAY_OF_MONTH, 1164, 1,  16 },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  20,  UCAL_DAY_OF_MONTH, 1164, 2,  4  },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  50,  UCAL_DAY_OF_MONTH, 1164, 3,  5  },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  -20, UCAL_DAY_OF_MONTH, 1164, 0,  26 },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  -50, UCAL_DAY_OF_MONTH, 1163, 11, 27 },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  1,   UCAL_MONTH,        1164, 2,  15 },
+        { "en_US@calendar=malayalam",  1164, 1,  15, true,  -2,  UCAL_MONTH,        1163, 11, 15 },
+        { "en_US@calendar=malayalam",  1164, 10, 32, true,  1,   UCAL_MONTH,        1164, 11, 31 },
+        { "en_US@calendar=malayalam",  1164, 10, 32, true,  -1,  UCAL_MONTH,        1164, 9,  31 },
+        { "en_US@calendar=malayalam",  1164, 10, 32, true,  2,    UCAL_MONTH,       1165, 0,  31 },
+        // Bangla calendar
+        // math on day field
+        // test adding various values, making sure the month and year boundaries are in the right place
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  1,   UCAL_DAY_OF_MONTH, 1431, 10, 6  },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  5,   UCAL_DAY_OF_MONTH, 1431, 10, 10 },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  10,  UCAL_DAY_OF_MONTH, 1431, 10, 15 },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  20,  UCAL_DAY_OF_MONTH, 1431, 10, 25 },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  30,  UCAL_DAY_OF_MONTH, 1431, 11, 6  },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  60,  UCAL_DAY_OF_MONTH, 1432, 0,  5  },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  90,  UCAL_DAY_OF_MONTH, 1432, 1,  4  },
+        // same thing, but subtract this time
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  -1,  UCAL_DAY_OF_MONTH, 1431, 10, 4  },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  -5,  UCAL_DAY_OF_MONTH, 1431, 9,  30 },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  -10, UCAL_DAY_OF_MONTH, 1431, 9,  25 },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  -30, UCAL_DAY_OF_MONTH, 1431, 9,  5  },
+        { "en_US@calendar=bangla",     1431, 10,  5, true,  -60, UCAL_DAY_OF_MONTH, 1431, 8,  4  },
+        // instead of adding, use out-of-bounds values and make sure they normalize correctly
+        { "en_US@calendar=bangla",     1431, 9,  45, true,  0,   UCAL_DAY_OF_MONTH, 1431, 10, 15 },
+        { "en_US@calendar=bangla",     1431, 8,  45, true,  0,   UCAL_DAY_OF_MONTH, 1431, 9,  16 },
+        { "en_US@calendar=bangla",     1431, 9,  -5, true,  0,   UCAL_DAY_OF_MONTH, 1431, 8,  24 },
+        { "en_US@calendar=bangla",     1431, 10, -5, true,  0,   UCAL_DAY_OF_MONTH, 1431, 9,  25 },
+        // test the roll() function
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 1,   UCAL_DAY_OF_MONTH, 1431, 10, 6  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 5,   UCAL_DAY_OF_MONTH, 1431, 10, 10 },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 20,  UCAL_DAY_OF_MONTH, 1431, 10, 25 },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 30,  UCAL_DAY_OF_MONTH, 1431, 10, 6  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 45,  UCAL_DAY_OF_MONTH, 1431, 10, 21 },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, -1,  UCAL_DAY_OF_MONTH, 1431, 10, 4  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, -5,  UCAL_DAY_OF_MONTH, 1431, 10, 29 },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, -10, UCAL_DAY_OF_MONTH, 1431, 10, 24 },
+        { "en_US@calendar=bangla",     1432, 3,  5,  false, 1,   UCAL_DAY_OF_MONTH, 1432, 3,  6  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  false, 30,  UCAL_DAY_OF_MONTH, 1432, 3,  4  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  false, -10, UCAL_DAY_OF_MONTH, 1432, 3,  26 },
+        // math on month field
+        // add, watching out for year boundaries and making sure to peg to the actual number of days in the month
+        { "en_US@calendar=bangla",     1431, 10, 5,  true,  1,   UCAL_MONTH,        1431, 11, 5  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  true,  2,   UCAL_MONTH,        1432, 0,  5  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  true,  -2,  UCAL_MONTH,        1431, 8,  5  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  true,  1,   UCAL_MONTH,        1432, 4,  5  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  true,  -1,  UCAL_MONTH,        1432, 2,  5  },
+        { "en_US@calendar=bangla",     1431, 9,  30, true,  1,   UCAL_MONTH,        1431, 10, 29 },
+        { "en_US@calendar=bangla",     1431, 9,  30, true,  -2,  UCAL_MONTH,        1431, 7,  30 },
+        { "en_US@calendar=bangla",     1431, 9,  30, true,  2,   UCAL_MONTH,        1431, 11, 30 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  1,   UCAL_MONTH,        1432, 3,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  -1,  UCAL_MONTH,        1432, 1,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  2,   UCAL_MONTH,        1432, 4,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  5,   UCAL_MONTH,        1432, 7,  29 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  8,   UCAL_MONTH,        1432, 10, 30 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  9,   UCAL_MONTH,        1432, 11, 30  },
+        // roll-- should work the same as add(), except when we pass a year boundary
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 1,   UCAL_MONTH,        1431, 11, 5  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, 2,   UCAL_MONTH,        1431, 0,  5  },
+        { "en_US@calendar=bangla",     1431, 10, 5,  false, -2,  UCAL_MONTH,        1431, 8,  5  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  false, 1,   UCAL_MONTH,        1432, 4,  5  },
+        { "en_US@calendar=bangla",     1432, 3,  5,  false, -1,  UCAL_MONTH,        1432, 2,  5  },
+        { "en_US@calendar=bangla",     1431, 9,  30, false, 1,   UCAL_MONTH,        1431, 10, 29 },
+        { "en_US@calendar=bangla",     1431, 9,  30, false, -2,  UCAL_MONTH,        1431, 7,  30 },
+        { "en_US@calendar=bangla",     1431, 9,  30, false, 2,   UCAL_MONTH,        1431, 11, 30 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, 1,   UCAL_MONTH,        1432, 3,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, -1,  UCAL_MONTH,        1432, 1,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, 2,   UCAL_MONTH,        1432, 4,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, 5,   UCAL_MONTH,        1432, 7,  29 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, 8,   UCAL_MONTH,        1432, 10, 30 },
+        { "en_US@calendar=bangla",     1432, 2,  32, false, 9,   UCAL_MONTH,        1432, 11, 30 },
+        // add() on year field
+        { "en_US@calendar=bangla",     1431, 10, 5,  true,  1,   UCAL_YEAR,         1432, 10, 5  },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  1,   UCAL_YEAR,         1433, 2,  32 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  2,   UCAL_YEAR,         1434, 2,  31 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  3,   UCAL_YEAR,         1435, 2,  32 },
+        { "en_US@calendar=bangla",     1432, 2,  32, true,  -1,  UCAL_YEAR,         1431, 2,  31 },
+        // all of the above will use the Odia-calendar lookup table-- try a smattering of additional
+        // tests on a date range that doesn't use the lookup table
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  1,   UCAL_DAY_OF_MONTH, 1395, 1,  16 },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  20,  UCAL_DAY_OF_MONTH, 1395, 2,  4  },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  50,  UCAL_DAY_OF_MONTH, 1395, 3,  2  },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  -20, UCAL_DAY_OF_MONTH, 1395, 0,  26 },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  -50, UCAL_DAY_OF_MONTH, 1394, 11, 27 },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  1,   UCAL_MONTH,        1395, 2,  15 },
+        { "en_US@calendar=bangla",     1395, 1,  15, true,  -2,  UCAL_MONTH,        1394, 11, 15 },
+        { "en_US@calendar=bangla",     1395, 2,  32, true,  1,   UCAL_MONTH,        1395, 3,  31 },
+        { "en_US@calendar=bangla",     1395, 2,  32, true,  -1,  UCAL_MONTH,        1395, 1,  31 },
+        { "en_US@calendar=bangla",     1395, 2,  32, true,  -2,   UCAL_MONTH,       1395, 0,  31 },
+    };
     
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        const TestCase& testCase = testCases[i];
+        UErrorCode err = U_ZERO_ERROR;
+        LocalPointer<Calendar> cal(Calendar::createInstance(Locale(testCase.locale), err));
+        if (U_FAILURE(err)) {
+            errln("ERR: Error creating calendar for locale %s: %s", testCase.locale, u_errorName(err));
+            continue;
+        }
+        
+        cal->clear();
+        cal->set(UCAL_YEAR, testCase.startYear);
+        cal->set(UCAL_MONTH, testCase.startMonth);
+        cal->set(UCAL_DAY_OF_MONTH, testCase.startDay);
+        
+        if (testCase.shouldAdd) {
+            cal->add(testCase.field, testCase.offset, err);
+        } else {
+            cal->roll(testCase.field, testCase.offset, err);
+        }
+        int32_t actualEndYear = cal->get(UCAL_YEAR, err);
+        int32_t actualEndMonth = cal->get(UCAL_MONTH, err);
+        int32_t actualEndDay = cal->get(UCAL_DAY_OF_MONTH, err);
+        
+        const char* opString = testCase.shouldAdd ? "add" : "roll";
+        const char* unitString = (testCase.field == UCAL_YEAR) ? "years" : (testCase.field == UCAL_MONTH) ? "months" : "days";
+
+        if (U_FAILURE(err)) {
+            errln("ERR: Error with calendar %s performing calculation for %d, %d, %d %s %d %s: %s", testCase.locale, testCase.startYear, testCase.startMonth, testCase.startDay, opString, testCase.offset, unitString, u_errorName(err));
+            continue;
+        }
+        
+        if (testCase.expectedEndYear != actualEndYear || testCase.expectedEndMonth != actualEndMonth || testCase.expectedEndDay != actualEndDay) {
+            errln("ERR: Wrong answer with calendar %s for %d, %d, %d %s %d %s: expected %d, %d, %d, got %d, %d, %d", testCase.locale, testCase.startYear, testCase.startMonth, testCase.startDay, opString, testCase.offset, unitString, testCase.expectedEndYear, testCase.expectedEndMonth, testCase. expectedEndDay, actualEndYear, actualEndMonth, actualEndDay);
+        }
+    }
+}
+
+void CalendarTest::TestIndianSolarGetActualMaximum() {
+    struct TestCase {
+        const char* locale;
+        int32_t year;
+        int32_t monthLengths[12];
+    } testCases[] = {
+        // Tamil calendar
+        { "en_US@calendar=tamil",      1941, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 31 } },
+        { "en_US@calendar=tamil",      1942, { 30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31 } },
+        { "en_US@calendar=tamil",      1943, { 31, 31, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30 } },
+        { "en_US@calendar=tamil",      1944, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30 } },
+        { "en_US@calendar=tamil",      1945, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 31 } },
+        { "en_US@calendar=tamil",      1946, { 30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30 } },
+        { "en_US@calendar=tamil",      1947, { 31, 31, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30 } },
+        { "en_US@calendar=tamil",      1948, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30 } },
+        { "en_US@calendar=tamil",      1949, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 31 } },
+        { "en_US@calendar=tamil",      1950, { 30, 32, 31, 32, 31, 30, 30, 30, 29, 30, 30, 30 } },
+        // two years that are outside the lookup-table range
+        { "en_US@calendar=tamil",      1910, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30 } },
+        // NOTE: Reingold and Dershowitz have the lengths of months 7 and 8 reversed, but I think that's
+        // a bug in their code (or in how we're using it)-- see the comment I put in
+        // TestIndianSolarGregorianConversion() above.  --rtg 5/25/25
+        { "en_US@calendar=tamil",      1911, { 31, 32, 31, 31, 31, 31, 30, 29, 30, 29, 30, 31 } },
+//        { "en_US@calendar=tamil",      1911, { 31, 32, 31, 31, 31, 31, 30, 30, 29, 29, 30, 31 } },
+        // Odia calendar
+        { "en_US@calendar=odia",       1427, { 31, 30, 29, 30, 29, 30, 30, 31, 32, 31, 31, 31 } },
+        { "en_US@calendar=odia",       1428, { 31, 30, 29, 30, 29, 30, 31, 31, 31, 31, 32, 31 } },
+        { "en_US@calendar=odia",       1429, { 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31, 31 } },
+        { "en_US@calendar=odia",       1430, { 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31, 31 } },
+        { "en_US@calendar=odia",       1431, { 31, 30, 29, 30, 29, 30, 30, 31, 32, 31, 31, 31 } },
+        { "en_US@calendar=odia",       1432, { 31, 30, 29, 30, 29, 30, 31, 31, 31, 31, 32, 31 } },
+        { "en_US@calendar=odia",       1433, { 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31, 31 } },
+        { "en_US@calendar=odia",       1434, { 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31, 31 } },
+        { "en_US@calendar=odia",       1435, { 31, 30, 29, 30, 29, 30, 30, 31, 32, 31, 31, 31 } },
+        { "en_US@calendar=odia",       1436, { 31, 30, 30, 29, 30, 29, 31, 31, 31, 31, 32, 31 } },
+        // Odia calendar, two years that are outside the lookup-table range
+        { "en_US@calendar=odia",       1395, { 31, 29, 30, 29, 30, 30, 30, 31, 31, 32, 31, 31 } },
+        { "en_US@calendar=odia",       1396, { 31, 30, 29, 29, 30, 30, 30, 31, 32, 31, 32, 31 } },
+        // Malayalam calendar
+        { "en_US@calendar=malayalam",  1195, { 31, 31, 30, 30, 29, 30, 29, 31, 31, 31, 31, 32 } },
+        { "en_US@calendar=malayalam",  1196, { 31, 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31 } },
+        { "en_US@calendar=malayalam",  1197, { 31, 31, 30, 29, 30, 29, 30, 30, 31, 31, 32, 31 } },
+        { "en_US@calendar=malayalam",  1198, { 31, 31, 30, 29, 30, 29, 30, 31, 30, 32, 31, 32 } },
+        { "en_US@calendar=malayalam",  1199, { 31, 30, 30, 30, 29, 30, 29, 31, 31, 31, 31, 32 } },
+        { "en_US@calendar=malayalam",  1200, { 31, 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31 } },
+        { "en_US@calendar=malayalam",  1201, { 31, 31, 30, 29, 30, 29, 30, 30, 31, 31, 32, 31 } },
+        { "en_US@calendar=malayalam",  1202, { 31, 31, 30, 29, 30, 29, 30, 31, 30, 32, 31, 32 } },
+        { "en_US@calendar=malayalam",  1203, { 31, 30, 30, 30, 29, 30, 29, 31, 31, 31, 31, 32 } },
+        { "en_US@calendar=malayalam",  1204, { 31, 30, 30, 30, 29, 30, 30, 30, 31, 31, 32, 31 } },
+        // Malayalam calendar, two years that are outside the lookup-table range
+        // (we don't have a good reference here, so we're trusting ourselves-- this mostly serves as a regression test)
+        { "en_US@calendar=malayalam",  1164, { 31, 31, 29, 30, 29, 30, 29, 31, 31, 31, 32, 31 } },
+        { "en_US@calendar=malayalam",  1165, { 31, 31, 30, 29, 29, 30, 30, 30, 31, 31, 32, 32 } },
+        // Bangla calendar
+        { "en_US@calendar=bangla",     1429, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30 } },
+        { "en_US@calendar=bangla",     1430, { 31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 30 } },
+        { "en_US@calendar=bangla",     1431, { 31, 32, 31, 32, 31, 30, 30, 30, 29, 30, 29, 31 } },
+        { "en_US@calendar=bangla",     1432, { 31, 31, 32, 31, 31, 31, 30, 29, 29, 30, 30, 30 } },
+        { "en_US@calendar=bangla",     1433, { 31, 31, 32, 32, 31, 30, 30, 29, 30, 29, 30, 30 } },
+        { "en_US@calendar=bangla",     1434, { 31, 32, 31, 32, 31, 30, 30, 30, 29, 29, 30, 31 } },
+        { "en_US@calendar=bangla",     1435, { 30, 32, 32, 31, 31, 30, 30, 30, 29, 30, 29, 31 } },
+        { "en_US@calendar=bangla",     1436, { 31, 31, 32, 31, 31, 31, 30, 29, 29, 30, 30, 30 } },
+        // Bangla calendar, two years that are outside the lookup-table range
+        // (we don't have a good reference here, so we're trusting ourselves-- this mostly serves as a regression test)
+        { "en_US@calendar=bangla",     1395, { 31, 31, 32, 31, 31, 31, 29, 30, 29, 30, 30, 30 } },
+        { "en_US@calendar=bangla",     1396, { 31, 31, 32, 31, 31, 31, 30, 29, 30, 29, 30, 30 } },
+   };
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i++) {
+        const TestCase& testCase = testCases[i];
+        UErrorCode err = U_ZERO_ERROR;
+        LocalPointer<Calendar> cal(Calendar::createInstance(Locale(testCase.locale), err));
+        if (U_FAILURE(err)) {
+            errln("ERR: Error creating calendar for locale %s: %s", testCase.locale, u_errorName(err));
+            continue;
+        }
+
+        int32_t totalDays = 0;
+        cal->clear();
+        cal->set(UCAL_YEAR, testCase.year);
+        for (int32_t j = 0; j < 12; j++) {
+            cal->set(UCAL_MONTH, j);
+            
+            int32_t actualMonthLength = cal->getActualMaximum(UCAL_DAY_OF_MONTH, err);
+            totalDays += testCase.monthLengths[j];
+            
+            if (U_FAILURE(err)) {
+                errln("ERR: Error with calendar %s getting length of month %d in year %d: %s", testCase.locale, j, testCase.year, u_errorName(err));
+                break;
+            }
+            
+            if (actualMonthLength != testCase.monthLengths[j]) {
+                errln("ERR: With calendar %s, wrong length for month %d of year %d: Expected %d, got %d", testCase.locale, j, testCase.year, testCase.monthLengths[j], actualMonthLength);
+            }
+        }
+        
+        if (U_SUCCESS(err)) {
+            int32_t actualNumMonths = cal->getActualMaximum(UCAL_MONTH, err);
+            if (U_FAILURE(err) || actualNumMonths != 11) {
+                errln("ERR: With calendar %s, wrong number of months in year %d: Expected 12, got %d", testCase.locale, testCase.year, actualNumMonths + 1);
+                continue;
+            }
+            
+            int32_t actualNumDays = cal->getActualMaximum(UCAL_DAY_OF_YEAR, err);
+            if (U_FAILURE(err)) {
+                errln("ERR: Error with calendar %s getting length of year %d: %s", testCase.locale, testCase.year, u_errorName(err));
+                continue;
+            }
+            
+            if (actualNumDays != totalDays) {
+                errln("ERR: With calendar %s, wrong length for year %d: Expected %d, got %d", testCase.locale, testCase.year, totalDays, actualNumDays);
+            }
+        }
+    }
+}
+#endif // APPLE_ICU_CHANGES
+
+// rdar://151856444
+void CalendarTest::TestMarathiYear(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t year;
+    HinduLunisolarMarathiCalendar marathi("en", status);
+    HinduLunisolarGujaratiCalendar gujarati("en", status);
+    HinduLunisolarTeluguCalendar telugu("en", status);
+    HinduLunisolarVikramCalendar vikram("en", status);
+
+    for (int year = 1900; year < 2000; year++) {
+        marathi.set(UCAL_YEAR, year);
+        gujarati.set(UCAL_YEAR, year);
+        telugu.set(UCAL_YEAR, year);
+        vikram.set(UCAL_YEAR, year);
+        
+        if (marathi.get(UCAL_YEAR, status) != year) {
+            errln("Year was set incorrectly for Marathi: Expected: %d, Get: %d\n", year, marathi.get(UCAL_YEAR, status));
+        }
+        if (gujarati.get(UCAL_YEAR, status) != year) {
+            errln("Year was set incorrectly for Gujarati: Expected: %d, Get: %d\n", year, gujarati.get(UCAL_YEAR, status));
+        }
+        if (telugu.get(UCAL_YEAR, status) != year) {
+            errln("Year was set incorrectly for Telugu: Expected: %d, Get: %d\n", year, telugu.get(UCAL_YEAR, status));
+        }
+        if (vikram.get(UCAL_YEAR, status) != year) {
+            errln("Year was set incorrectly for Vikram: Expected: %d, Get: %d\n", year, vikram.get(UCAL_YEAR, status));
+        }
+    }
+}
+
+void CalendarTest::TestVikramAddDayFoundationStyleExtensive(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UDate millis, millis_c, millis_v;
+    
+    HinduLunisolarVikramCalendar vikram("en", status);
+
+    GregorianCalendar gc ("en", status);
+    ChineseCalendar chinese("en", status);
+
+    UDate start_millis = 1735689600000.0; // WED 2025 Jan 01 00:00:00 UTC
+    UDate end_millis = 1767225600000.0; // THU 2026 Jan 01 00:00:00 UTC
+    UDate hour_in_millis = 24*3600000.0;
+
+    for(millis = start_millis; millis < end_millis; millis += hour_in_millis) {
+        vikram.setTime(millis, status);
+        chinese.setTime(millis, status);
+        gc.setTime(millis, status);
+        
+        vikram.add(UCAL_DAY_OF_MONTH, 3, status);
+        chinese.add(UCAL_DAY_OF_MONTH, 3, status);
+        
+        // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+        // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+        vikram.set(UCAL_HOUR_OF_DAY, vikram.get(UCAL_HOUR_OF_DAY, status));
+        vikram.set(UCAL_MINUTE, vikram.get(UCAL_MINUTE, status));
+        vikram.set(UCAL_SECOND, vikram.get(UCAL_SECOND, status));
+        vikram.set(UCAL_MILLISECOND, 0);
+
+        // the following five lines are from Foundation's `_locked_dateInterval` in `Calendar_ICU.swift`:
+        // move back to 0h0m0s, in case the start of the unit wasn't at 0h0m0s
+        chinese.set(UCAL_HOUR_OF_DAY, chinese.get(UCAL_HOUR_OF_DAY, status));
+        chinese.set(UCAL_MINUTE, chinese.get(UCAL_MINUTE, status));
+        chinese.set(UCAL_SECOND, chinese.get(UCAL_SECOND, status));
+        chinese.set(UCAL_MILLISECOND, 0);
+
+        millis_c = chinese.getTime(status);
+        millis_v = vikram.getTime(status);
+
+        if (millis_c != millis_v) {
+            printf("%d-%d\n", gc.get(UCAL_JULIAN_DAY, status), gc.get(UCAL_JULIAN_DAY, status) - 1721424 - 1);
+            errln("%02d-%02d-%02d -> %13.0f -> Chinese: %13.0f != Vikram: %13.0f",
+                  gc.get(UCAL_YEAR, status), gc.get(UCAL_MONTH, status), gc.get(UCAL_DATE, status),
+              millis, millis_c, millis_v);
+        }
+    }
+}
+
+
+
+void CalendarTest::TestHinduCalendarGetMonthLength() {
+    // rdar://148837256 Adding unit tests for computing month length on Hindu calendars
     UErrorCode status = U_ZERO_ERROR;
 
-    Locale lHinduSolar("en@calendar=hindu-solar");
-    LocalPointer<Calendar> calHinduSolar(Calendar::createInstance(lHinduSolar, status), status);
-    Locale lIndianBengali("en@calendar=bangla");
-    LocalPointer<Calendar> calIndianBengali(Calendar::createInstance(lIndianBengali, status), status);
-    Locale lIndianMalayalam("en@calendar=malayalam");
-    LocalPointer<Calendar> calIndianMalayalam(Calendar::createInstance(lIndianMalayalam, status), status);
-    Locale lIndianOriya("en@calendar=odia");
-    LocalPointer<Calendar> calIndianOriya(Calendar::createInstance(lIndianOriya, status), status);
-    Locale lIndianTamil("en@calendar=tamil");
-    LocalPointer<Calendar> calIndianTamil(Calendar::createInstance(lIndianTamil, status), status);
-    
-    calHinduSolar->set(UCAL_JULIAN_DAY, 2448698);
+    LocalPointer<Calendar> calendarHinduLunar(Calendar::createInstance(Locale("en_US@calendar=hindu-lunar"), status), status);
+    LocalPointer<Calendar> calendarHinduSolar(Calendar::createInstance(Locale("en_US@calendar=hindu-solar"), status), status);
+    LocalPointer<Calendar> calendarVikram(Calendar::createInstance(Locale("en_US@calendar=vikram"), status), status);
+    LocalPointer<Calendar> calendarBangla(Calendar::createInstance(Locale("en_US@calendar=bangla"), status), status);
+    if (failure(status, "Calendar::createInstance")) return;
 
-    calIndianBengali->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduSolar->get(UCAL_YEAR, status) != calIndianBengali->get(UCAL_YEAR, status)
-        || calHinduSolar->get(UCAL_MONTH, status) != calIndianBengali->get(UCAL_MONTH, status)
-        || calHinduSolar->get(UCAL_DATE, status) != calIndianBengali->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Solar Bengali calendar");
-    }
-    calIndianMalayalam->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduSolar->get(UCAL_YEAR, status) != calIndianMalayalam->get(UCAL_YEAR, status)
-        || calHinduSolar->get(UCAL_MONTH, status) != calIndianMalayalam->get(UCAL_MONTH, status)
-        || calHinduSolar->get(UCAL_DATE, status) != calIndianMalayalam->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Solar Malayalam calendar");
-    }
-    calIndianOriya->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduSolar->get(UCAL_YEAR, status) != calIndianOriya->get(UCAL_YEAR, status)
-        || calHinduSolar->get(UCAL_MONTH, status) != calIndianOriya->get(UCAL_MONTH, status)
-        || calHinduSolar->get(UCAL_DATE, status) != calIndianOriya->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Solar Oriya calendar");
-    }
-    calIndianTamil->set(UCAL_JULIAN_DAY, 2448698);
-    if (   calHinduSolar->get(UCAL_YEAR, status) != calIndianTamil->get(UCAL_YEAR, status)
-        || calHinduSolar->get(UCAL_MONTH, status) != calIndianTamil->get(UCAL_MONTH, status)
-        || calHinduSolar->get(UCAL_DATE, status) != calIndianTamil->get(UCAL_DATE, status) )        {
-        errln("Error when creating Indian Solar Tamil calendar");
+    // This test case is a friend of Hindu calendars and may access internals.
+    const HinduLunarCalendar& hinduLunar = *dynamic_cast<HinduLunarCalendar*>(calendarHinduLunar.getAlias());
+    const HinduLunisolarVikramCalendar& vikram = *dynamic_cast<HinduLunisolarVikramCalendar*>(calendarVikram.getAlias());
+    const HinduSolarCalendar& hinduSolar = *dynamic_cast<HinduSolarCalendar*>(calendarHinduSolar.getAlias());
+    const HinduSolarBanglaCalendar& bangla = *dynamic_cast<HinduSolarBanglaCalendar*>(calendarBangla.getAlias());
+
+    for (int y = 1; y < 2100; y++) {
+        for (int m = 0; m < 12; m++) {
+            assertInClosedRange("Wrong month length for hindu-lunar", 29, 30, hinduLunar.handleGetMonthLength(y, m, status));
+            assertInClosedRange("Wrong month length for vikram", 29, 30, vikram.handleGetMonthLength(y, m, status));
+            assertInClosedRange("Wrong month length for hindu-solar", 29, 32, hinduSolar.handleGetMonthLength(y, m, status));
+            assertInClosedRange("Wrong month length for bangla ", 29, 32, bangla.handleGetMonthLength(y, m, status));
+        }
     }
 }
-
 
 // This test is designed to work with undefined behavior sanitizer UBSAN to
 // ensure we do not have math operation overflow int32_t.
@@ -6277,6 +8239,9 @@ void CalendarTest::TestAddOverflow() {
             (i == UCAL_YEAR_WOY) ||
             (i == UCAL_EXTENDED_YEAR) ||
             (i == UCAL_IS_LEAP_MONTH) ||
+#if APPLE_ICU_CHANGES // rdar://138880732
+            (i == UCAL_IS_REPEATED_DAY) ||
+#endif // APPLE_ICU_CHANGES
             (i == UCAL_MONTH) ||
             (i == UCAL_ORDINAL_MONTH) ||
             (i == UCAL_ZONE_OFFSET) ||
@@ -6294,6 +8259,9 @@ void CalendarTest::TestAddOverflow() {
             (i == UCAL_YEAR_WOY) ||
             (i == UCAL_EXTENDED_YEAR) ||
             (i == UCAL_IS_LEAP_MONTH) ||
+#if APPLE_ICU_CHANGES // rdar://138880732
+            (i == UCAL_IS_REPEATED_DAY) ||
+#endif // APPLE_ICU_CHANGES
             (i == UCAL_ZONE_OFFSET) ||
             (i == UCAL_DST_OFFSET)) {
             assertTrue("add INT32_MIN should fail", U_FAILURE(status));

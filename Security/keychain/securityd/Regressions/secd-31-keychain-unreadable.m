@@ -44,7 +44,7 @@
 
 #if !(TARGET_OS_IOS && TARGET_OS_SIMULATOR)
 static void setKeychainPermissions(int perm) {
-    CFStringRef kc_path_cf = __SecKeychainCopyPath();
+    CFStringRef kc_path_cf = SecServerKeychainCopyPath();
     CFStringPerformWithCString(kc_path_cf, ^(const char *path) {
         ok_unix(chmod(path, perm), "chmod keychain file %s to be %d", path, perm);
     });
@@ -60,7 +60,7 @@ int secd_31_keychain_unreadable(int argc, char *const *argv)
 #else
     plan_tests(10 + kSecdTestSetupTestCount);
     secd_test_setup_temp_keychain("secd_31_keychain_unreadable", ^{
-        CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+        CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
         
         CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
             int fd;

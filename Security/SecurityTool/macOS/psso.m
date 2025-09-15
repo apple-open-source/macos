@@ -11,7 +11,7 @@
 #import <Security/AuthorizationTagsPriv.h>
 #import <LocalAuthentication/LAContext+Private.h>
 #import <APFS/APFS.h>
-#import <SoftLinking/SoftLinking.h>
+#import <SoftLinking/WeakLinking.h>
 #import <os/log.h>
 #import <sys/stat.h>
 #import <PlatformSSOCore/POLoginUserCore.h>
@@ -19,14 +19,11 @@
 
 #define kBuffLen (128)
 
-SOFT_LINK_FRAMEWORK(PrivateFrameworks, PlatformSSOCore)
-SOFT_LINK_CLASS(PlatformSSOCore, POLoginUserCore)
-SOFT_LINK_FRAMEWORK(PrivateFrameworks, StorageKit)
-SOFT_LINK_CLASS(StorageKit, SKManager)
+WEAK_IMPORT_OBJC_CLASS(POLoginUserCore);
 
 static NSString *getVolumeUuid(NSString *node)
 {
-    SKDisk *disk = [[getSKManagerClass() syncSharedManager] diskForString:node];
+    SKDisk *disk = [[SKManager syncSharedManager] diskForString:node];
     SKAPFSDisk *apfsDisk = (SKAPFSDisk *)disk;
     
     return apfsDisk.volumeUUID;
@@ -34,7 +31,7 @@ static NSString *getVolumeUuid(NSString *node)
 
 static NSString *volumeDescription(NSString *node)
 {
-    SKDisk *disk = [[getSKManagerClass() syncSharedManager] diskForString:node];
+    SKDisk *disk = [[SKManager syncSharedManager] diskForString:node];
     SKAPFSDisk *apfsDisk = (SKAPFSDisk *)disk;
     return [NSString stringWithFormat:@"Volume %@ (name %@, UUUD %@)", node, apfsDisk.volumeName, apfsDisk.volumeName];
 }
@@ -120,7 +117,7 @@ static OSStatus bypassLoginPolicy(int argc, char * const *argv)
         return -1;
     }
     
-    POLoginUserCore *poLoginCore = [[getPOLoginUserCoreClass() alloc] init];
+    POLoginUserCore *poLoginCore = [[POLoginUserCore alloc] init];
     if (!poLoginCore) {
         fprintf(stderr, "No PlatformSSO support on this machine for this command\n");
         return -2;

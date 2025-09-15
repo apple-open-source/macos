@@ -23,6 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <wtf/Platform.h>
 
 #if PLATFORM(MAC)
@@ -43,6 +47,11 @@ enum {
 - (nullable NSEvent *)_initWithCGEvent:(nullable CGEventRef)cgEvent eventRef:(nullable void*)eventRef;
 - (nullable void*)_eventRef NS_RETURNS_INNER_POINTER;
 - (NSEvent *)_eventRelativeToWindow:(NSWindow *)window;
+
+- (NSInteger)_scrollCount;
+- (CGFloat)_unacceleratedScrollingDeltaX;
+- (CGFloat)_unacceleratedScrollingDeltaY;
+
 @end
 
 NS_ASSUME_NONNULL_END

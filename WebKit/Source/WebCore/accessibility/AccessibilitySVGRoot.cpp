@@ -39,14 +39,14 @@
 
 namespace WebCore {
 
-AccessibilitySVGRoot::AccessibilitySVGRoot(AXID axID, RenderObject& renderer, AXObjectCache* cache)
+AccessibilitySVGRoot::AccessibilitySVGRoot(AXID axID, RenderObject& renderer, AXObjectCache& cache)
     : AccessibilitySVGObject(axID, renderer, cache)
 {
 }
 
 AccessibilitySVGRoot::~AccessibilitySVGRoot() = default;
 
-Ref<AccessibilitySVGRoot> AccessibilitySVGRoot::create(AXID axID, RenderObject& renderer, AXObjectCache* cache)
+Ref<AccessibilitySVGRoot> AccessibilitySVGRoot::create(AXID axID, RenderObject& renderer, AXObjectCache& cache)
 {
     return adoptRef(*new AccessibilitySVGRoot(axID, renderer, cache));
 }
@@ -75,7 +75,7 @@ AccessibilityRole AccessibilitySVGRoot::determineAccessibilityRole()
 
 bool AccessibilitySVGRoot::hasAccessibleContent() const
 {
-    auto* rootElement = this->element();
+    RefPtr rootElement = this->element();
     if (!rootElement)
         return false;
 
@@ -97,13 +97,13 @@ bool AccessibilitySVGRoot::hasAccessibleContent() const
         return false;
     };
 
-    auto* svgRootElement = dynamicDowncast<SVGElement>(*rootElement);
+    RefPtr svgRootElement = dynamicDowncast<SVGElement>(*rootElement);
     if (svgRootElement && isAccessibleSVGElement(*svgRootElement))
         return true;
 
     // This SVG hierarchy is accessible if any of its descendants is accessible.
-    for (const auto& descendant : descendantsOfType<SVGElement>(*rootElement)) {
-        if (isAccessibleSVGElement(descendant))
+    for (const Ref descendant : descendantsOfType<SVGElement>(*rootElement)) {
+        if (isAccessibleSVGElement(descendant.get()))
             return true;
     }
 

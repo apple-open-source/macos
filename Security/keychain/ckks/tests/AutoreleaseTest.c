@@ -38,6 +38,9 @@ read_releases_pending(int fd, void (^handler)(ssize_t))
         ssize_t result = -1;
 
         FILE *fp = fdopen(fd, "r");
+        if (fp == NULL) {
+            return;
+        }
 
         char *line = NULL;
         size_t linecap = 0;
@@ -66,8 +69,14 @@ pending_autorelease_count(void)
     int saved_stderr;
 
     // stderr replacement pipe
-    pipe(fds);
-    fcntl(fds[1], F_SETNOSIGPIPE, 1);
+    if (pipe(fds) == -1) {
+        return -1;
+    }
+    if (fcntl(fds[1], F_SETNOSIGPIPE, 1) == -1) {
+        close(fds[0]);
+        close(fds[1]);
+        return -1;
+    }
 
     // sead asynchronously - takes ownership of fds[0]
     sema = dispatch_semaphore_create(0);
@@ -78,14 +87,28 @@ pending_autorelease_count(void)
 
     // save and replace stderr
     saved_stderr = dup(STDERR_FILENO);
-    dup2(fds[1], STDERR_FILENO);
+    if (saved_stderr == -1) {
+        close(fds[0]);
+        close(fds[1]);
+        return -1;
+    }
+    if (dup2(fds[1], STDERR_FILENO) == -1) {
+        close(fds[0]);
+        close(fds[1]);
+        close(saved_stderr);
+        return -1;
+    }
     close(fds[1]);
 
     // make objc print the current autorelease pool
     _objc_autoreleasePoolPrint();
 
     // restore stderr
-    dup2(saved_stderr, STDERR_FILENO);
+    if (dup2(saved_stderr, STDERR_FILENO) == -1) {
+        close(fds[0]);
+        close(saved_stderr);
+        return -1;
+    }
     close(saved_stderr);
 
     // wait for the reader

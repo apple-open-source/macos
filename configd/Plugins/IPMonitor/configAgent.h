@@ -52,8 +52,11 @@ typedef NS_ENUM(NSUInteger, AgentType) {
 typedef NS_ENUM(NSUInteger, AgentSubType) {
 	kAgentSubTypeUnknown = 0,
 	kAgentSubTypeScoped,
+	kAgentSubTypeEncryptedScoped,
 	kAgentSubTypeSupplemental,
+	kAgentSubTypeEncryptedSupplemental,
 	kAgentSubTypeDefault,
+	kAgentSubTypeEncryptedDefault,
 	kAgentSubTypeMulticast,
 	kAgentSubTypePrivate,
 	kAgentSubTypeServiceSpecific,

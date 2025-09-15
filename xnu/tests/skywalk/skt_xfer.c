@@ -153,7 +153,7 @@ static const struct fsw_inject_codes fsw_inject_codes[] = {
 	_S1(1, FSW_STATS_RX_FLOW_EXTRACT_ERR),
 
 	/* ms_copy_to_dev_mbuf() sets mbuf to NULL */
-	/*_S2(11,	FSW_STATS_DROP, FSW_STATS_DROP_NOMEM_MBUF), */
+	_S2(11, FSW_STATS_DROP, FSW_STATS_DROP_NOMEM_MBUF),
 
 	/* ms_copy_to_dev_pkt() set pkt to NULL */
 	_S2(12, FSW_STATS_DROP, FSW_STATS_DROP_NOMEM_PKT),
@@ -296,6 +296,7 @@ connect_flow(nexus_controller_t ncd,
 	nfr.nfr_daddr.sin.sin_addr = dst_addr;
 	nfr.nfr_flowadv_idx = FLOWADV_IDX_NONE;
 	nfr.nfr_qset_id = qset_id;
+
 	error = __os_nexus_flow_add(ncd, fsw, &nfr);
 
 	if (error) {
@@ -1840,8 +1841,8 @@ ping_pong(channel_port_t port, uuid_t flow_id, uint16_t src_port,
 	}
 
 	if (demux_offset <= MAX_DEMUX_OFFSET) {
-		payload.data[demux_offset] = DEMUX_PAYLOAD_VALUE;
-		payload.data[demux_offset + 1] = DEMUX_PAYLOAD_VALUE >> 8;
+		payload.data[demux_offset] = (char)DEMUX_PAYLOAD_VALUE;
+		payload.data[demux_offset + 1] = (char)DEMUX_PAYLOAD_VALUE >> 8;
 	}
 
 	if (child == 0) {
@@ -4124,6 +4125,105 @@ skt_xfer_udp_parent_child(int id, uint16_t demux_offset)
 }
 
 static int
+skt_xfer_rx_flow_steering_drop_packets(int child, bool drop_tx)
+{
+	char            buf[1] = { 0 };
+	int             error;
+	const char *    ifname;
+	uuid_t          flow_id = {};
+	struct in_addr  our_ip;
+	struct in_addr  our_mask;
+	uint16_t        our_port;
+	struct in_addr  peer_ip;
+	uint16_t        peer_port;
+	channel_port    port;
+	ssize_t         ret;
+	flowadv_idx_t   flowadv_idx;
+	struct fsw_stats        stats_before, stats_after;
+	uint64_t        counter = 0;
+	uint16_t                flags = 0;
+
+	our_mask = sktc_make_in_addr(IN_CLASSC_NET);
+
+	if (child == 0) {
+		ifname = FETH0_NAME;
+		our_ip = sktc_feth0_in_addr();
+		peer_ip = sktc_feth1_in_addr();
+		our_port = FETH0_PORT;
+		peer_port = FETH1_PORT;
+		flags = drop_tx ? NXFLOWREQF_AOP_OFFLOAD : 0;
+	} else {
+		child = 1;
+		ifname = FETH1_NAME;
+		our_ip = sktc_feth1_in_addr();
+		peer_ip = sktc_feth0_in_addr();
+		our_port = FETH1_PORT;
+		peer_port = FETH0_PORT;
+		flags = !drop_tx ? NXFLOWREQF_AOP_OFFLOAD : 0;
+	}
+
+	/* set up the flowswitch over the right interface */
+	error = setup_flowswitch_and_flow(&handles, ifname, IPPROTO_UDP,
+	    flags, our_ip, our_mask, our_port, getpid(), peer_ip,
+	    peer_port, flow_id, &flowadv_idx, -1, -1, -1, -1, false);
+	if (error == 0) {
+		sktu_channel_port_init(&port, handles.fsw_nx_uuid,
+		    OUR_FLOWSWITCH_PORT, ENABLE_UPP, false, false);
+		assert(port.chan != NULL);
+	}
+	if ((ret = write(MPTEST_SEQ_FILENO, buf, sizeof(buf))) == -1) {
+		SKT_LOG("write fail: %s\n", strerror(errno));
+		return 1;
+	}
+	assert(ret == 1);
+#if SKT_XFER_DEBUG
+	T_LOG("child %d signaled\n", child);
+#endif
+	/* Wait for go signal */
+	if ((ret = read(MPTEST_SEQ_FILENO, buf, sizeof(buf))) == -1) {
+		SKT_LOG("read fail: %s\n", strerror(errno));
+		return 1;
+	}
+	assert(ret == 1);
+	if (error != 0) {
+		return 1;
+	}
+#if SKT_XFER_DEBUG
+	T_LOG("got input %d from parent in child %d, starting test\n",
+	    buf[0], child);
+#endif
+	port.ip_addr = our_ip;
+
+	if (flags == NXFLOWREQF_AOP_OFFLOAD) {
+		ret = get_fsw_stats(&stats_before);
+		assert(ret == 0);
+	}
+
+	ping_pong(&port, flow_id, our_port, peer_ip, peer_port,
+	    1, 1, child, TRUE, flowadv_idx,
+	    FALSE, FALSE, MAX_DEMUX_OFFSET + 1);
+
+	if (flags == NXFLOWREQF_AOP_OFFLOAD) {
+		ret = get_fsw_stats(&stats_after);
+		assert(ret == 0);
+
+		if (drop_tx) {
+			counter = STATS_VAL(&stats_after, FSW_STATS_TX_DISABLED);
+			counter -= STATS_VAL(&stats_before, FSW_STATS_TX_DISABLED);
+		} else {
+			counter = STATS_VAL(&stats_after, FSW_STATS_RX_DISABLED);
+			counter -= STATS_VAL(&stats_before, FSW_STATS_RX_DISABLED);
+		}
+		if (counter == 0) {
+			T_LOG("Offload packets wasn't dropped");
+			assert(0);
+		}
+		T_LOG("Offload packets dropped %"PRIu64"\n", counter);
+	}
+	return 0;
+}
+
+static int
 skt_xfer_udp_main(int argc, char *argv[])
 {
 	int             child;
@@ -4491,6 +4591,32 @@ skt_xfer_parent_child_flow_main_offset_400(int argc, char *argv[])
 	test_id = 0;
 
 	return skt_xfer_udp_parent_child(child, 400);
+}
+
+static int
+skt_xfer_rx_flow_steering_drop_tx_packets_main(int argc, char *argv[])
+{
+	int child;
+
+	assert(!strcmp(argv[3], "--child"));
+	child = atoi(argv[4]);
+
+	skt_xfer_rx_flow_steering_drop_packets(child, true);
+
+	return 0;
+}
+
+static int
+skt_xfer_rx_flow_steering_drop_rx_packets_main(int argc, char *argv[])
+{
+	int child;
+
+	assert(!strcmp(argv[3], "--child"));
+	child = atoi(argv[4]);
+
+	skt_xfer_rx_flow_steering_drop_packets(child, false);
+
+	return 0;
 }
 
 static void
@@ -4921,6 +5047,26 @@ skt_xfer_fini_parent_child_flow(void)
 	sktc_ifnet_feth_pair_destroy();
 	sktc_restore_ip_reass();
 	sktc_restore_fsw_rx_agg_tcp();
+}
+
+static void
+skt_xfer_init_rx_flow_steering(void)
+{
+	int rx_flow_steering = 1;
+
+	assert(sysctlbyname("net.link.fake.rx_flow_steering_support",
+	    NULL, 0, &rx_flow_steering, sizeof(rx_flow_steering)) == 0);
+	skt_xfer_init_native();
+}
+
+static void
+skt_xfer_fini_rx_flow_steering(void)
+{
+	int rx_flow_steering = 0;
+
+	skt_xfer_fini();
+	assert(sysctlbyname("net.link.fake.rx_flow_steering_support",
+	    NULL, 0, &rx_flow_steering, sizeof(rx_flow_steering)) == 0);
 }
 
 struct skywalk_mptest skt_xferudp = {
@@ -5514,4 +5660,24 @@ struct skywalk_mptest skt_xferparentchildflown_offset_400 = {
 	3, skt_xfer_parent_child_flow_main_offset_400,
 	{ NULL, NULL, NULL, NULL, NULL, NULL },
 	skt_xfer_init_parent_child_flow_native, skt_xfer_fini_parent_child_flow, {},
+};
+
+struct skywalk_mptest skt_xferrxflowsteeringdroptxpackets = {
+	"skt_xferrxflowsteeringdroptxpackets",
+	"drop aop2 offload Tx packets in flowswitch",
+	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_NETIF | SK_FEATURE_DEV_OR_DEBUG |
+	SK_FEATURE_NEXUS_FLOWSWITCH | SK_FEATURE_NETNS,
+	2, skt_xfer_rx_flow_steering_drop_tx_packets_main,
+	{ NULL, NULL, NULL, NULL, NULL, NULL },
+	skt_xfer_init_rx_flow_steering, skt_xfer_fini_rx_flow_steering, {},
+};
+
+struct skywalk_mptest skt_xferrxflowsteeringdroprxpackets = {
+	"skt_xferrxflowsteeringdroprxpackets",
+	"drop aop2 offload Rx packets in flowswitch",
+	SK_FEATURE_SKYWALK | SK_FEATURE_NEXUS_NETIF | SK_FEATURE_DEV_OR_DEBUG |
+	SK_FEATURE_NEXUS_FLOWSWITCH | SK_FEATURE_NETNS,
+	2, skt_xfer_rx_flow_steering_drop_rx_packets_main,
+	{ NULL, NULL, NULL, NULL, NULL, NULL },
+	skt_xfer_init_rx_flow_steering, skt_xfer_fini_rx_flow_steering, {},
 };

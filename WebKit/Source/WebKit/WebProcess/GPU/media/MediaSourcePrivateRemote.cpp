@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@
 #include "RemoteMediaSourceProxyMessages.h"
 #include "RemoteSourceBufferIdentifier.h"
 #include "SourceBufferPrivateRemote.h"
+#include <WebCore/MediaSourceConfiguration.h>
 #include <WebCore/NotImplemented.h>
 #include <mutex>
 #include <wtf/NativePromise.h>
@@ -50,7 +51,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-WorkQueue& MediaSourcePrivateRemote::queue()
+WorkQueue& MediaSourcePrivateRemote::queueSingleton()
 {
     static std::once_flag onceKey;
     static LazyNeverDestroyed<Ref<WorkQueue>> workQueue;
@@ -69,14 +70,14 @@ Ref<MediaSourcePrivateRemote> MediaSourcePrivateRemote::create(GPUProcessConnect
 
 void MediaSourcePrivateRemote::ensureOnDispatcherSync(Function<void()>&& function) const
 {
-    if (queue().isCurrent())
+    if (queueSingleton().isCurrent())
         function();
     else
-        queue().dispatchSync(WTFMove(function));
+        queueSingleton().dispatchSync(WTFMove(function));
 }
 
 MediaSourcePrivateRemote::MediaSourcePrivateRemote(GPUProcessConnection& gpuProcessConnection, RemoteMediaSourceIdentifier identifier, RemoteMediaPlayerMIMETypeCache& mimeTypeCache, const MediaPlayerPrivateRemote& mediaPlayerPrivate, MediaSourcePrivateClient& client)
-    : MediaSourcePrivate(client, queue())
+    : MediaSourcePrivate(client, queueSingleton())
     , m_gpuProcessConnection(gpuProcessConnection)
     , m_receiver(MessageReceiver::create(*this))
     , m_identifier(identifier)
@@ -89,7 +90,7 @@ MediaSourcePrivateRemote::MediaSourcePrivateRemote(GPUProcessConnection& gpuProc
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    gpuProcessConnection.connection().addWorkQueueMessageReceiver(Messages::MediaSourcePrivateRemoteMessageReceiver::messageReceiverName(), queue(), m_receiver, m_identifier.toUInt64());
+    gpuProcessConnection.connection().addWorkQueueMessageReceiver(Messages::MediaSourcePrivateRemoteMessageReceiver::messageReceiverName(), queueSingleton(), m_receiver, m_identifier.toUInt64());
 
 #if !RELEASE_LOG_DISABLED
     client.setLogIdentifier(m_logIdentifier);
@@ -103,7 +104,7 @@ MediaSourcePrivateRemote::~MediaSourcePrivateRemote()
         gpuProcessConnection->connection().removeWorkQueueMessageReceiver(Messages::MediaSourcePrivateRemoteMessageReceiver::messageReceiverName(), m_identifier.toUInt64());
 }
 
-MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const ContentType& contentType, RefPtr<SourceBufferPrivate>& outPrivate)
+MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const ContentType& contentType, const MediaSourceConfiguration& configuration, RefPtr<SourceBufferPrivate>& outPrivate)
 {
     RefPtr mediaPlayerPrivate = m_mediaPlayerPrivate.get();
     RefPtr gpuProcessConnection = m_gpuProcessConnection.get();
@@ -117,7 +118,7 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const Co
     // the sendSync() call requires us to run on the connection's dispatcher, which is the main thread.
     // FIXME: Uses a new Connection for remote playback, and not the main GPUProcessConnection's one.
     // FIXME: m_mimeTypeCache is a main-thread only object.
-    callOnMainRunLoopAndWait([this, &returnedStatus, contentTypeString = contentType.raw().isolatedCopy(), &returnedSourceBuffer, gpuProcessConnection] {
+    callOnMainRunLoopAndWait([this, &returnedStatus, contentTypeString = contentType.raw().isolatedCopy(), &returnedSourceBuffer, gpuProcessConnection, configuration] {
         ContentType contentType { contentTypeString };
         MediaEngineSupportParameters parameters;
         parameters.isMediaSource = true;
@@ -127,7 +128,7 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const Co
             return;
         }
 
-        auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteMediaSourceProxy::AddSourceBuffer(WTFMove(contentType)), m_identifier);
+        auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteMediaSourceProxy::AddSourceBuffer(WTFMove(contentType), configuration), m_identifier);
         auto [status, remoteSourceBufferIdentifier] = sendResult.takeReplyOr(AddStatus::NotSupported, std::nullopt);
 
         if (status == AddStatus::Ok) {
@@ -269,10 +270,10 @@ RefPtr<MediaSourcePrivateClient> MediaSourcePrivateRemote::MessageReceiver::clie
 
 void MediaSourcePrivateRemote::MessageReceiver::proxyWaitForTarget(const WebCore::SeekTarget& target, CompletionHandler<void(MediaTimePromise::Result&&)>&& completionHandler)
 {
-    assertIsCurrent(MediaSourcePrivateRemote::queue());
+    assertIsCurrent(MediaSourcePrivateRemote::queueSingleton());
 
     if (auto client = this->client()) {
-        client->waitForTarget(target)->whenSettled(MediaSourcePrivateRemote::queue(), WTFMove(completionHandler));
+        client->waitForTarget(target)->whenSettled(MediaSourcePrivateRemote::queueSingleton(), WTFMove(completionHandler));
         return;
     }
     completionHandler(makeUnexpected(PlatformMediaError::ClientDisconnected));
@@ -280,10 +281,10 @@ void MediaSourcePrivateRemote::MessageReceiver::proxyWaitForTarget(const WebCore
 
 void MediaSourcePrivateRemote::MessageReceiver::proxySeekToTime(const MediaTime& time, CompletionHandler<void(MediaPromise::Result&&)>&& completionHandler)
 {
-    assertIsCurrent(MediaSourcePrivateRemote::queue());
+    assertIsCurrent(MediaSourcePrivateRemote::queueSingleton());
 
     if (auto client = this->client()) {
-        client->seekToTime(time)->whenSettled(MediaSourcePrivateRemote::queue(), WTFMove(completionHandler));
+        client->seekToTime(time)->whenSettled(MediaSourcePrivateRemote::queueSingleton(), WTFMove(completionHandler));
         return;
     }
     completionHandler(makeUnexpected(PlatformMediaError::SourceRemoved));

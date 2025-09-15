@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,8 +57,8 @@ Color toStyleColor(const CSS::ColorLayers&, ColorResolutionState&);
 WebCore::Color resolveColor(const ColorLayers&, const WebCore::Color& currentColor);
 bool containsCurrentColor(const ColorLayers&);
 
-void serializationForCSS(StringBuilder&, const ColorLayers&);
-String serializationForCSS(const ColorLayers&);
+void serializationForCSSTokenization(StringBuilder&, const CSS::SerializationContext&, const ColorLayers&);
+String serializationForCSSTokenization(const CSS::SerializationContext&, const ColorLayers&);
 
 WTF::TextStream& operator<<(WTF::TextStream&, const ColorLayers&);
 

@@ -39,11 +39,11 @@ using namespace WebCore;
 
 RetainPtr<PKAutomaticReloadPaymentRequest> platformAutomaticReloadPaymentRequest(const ApplePayAutomaticReloadPaymentRequest& webAutomaticReloadPaymentRequest)
 {
-    auto pkAutomaticReloadPaymentRequest = adoptNS([PAL::allocPKAutomaticReloadPaymentRequestInstance() initWithPaymentDescription:webAutomaticReloadPaymentRequest.paymentDescription automaticReloadBilling:platformAutomaticReloadSummaryItem(webAutomaticReloadPaymentRequest.automaticReloadBilling) managementURL:[NSURL URLWithString:webAutomaticReloadPaymentRequest.managementURL]]);
+    auto pkAutomaticReloadPaymentRequest = adoptNS([PAL::allocPKAutomaticReloadPaymentRequestInstance() initWithPaymentDescription:webAutomaticReloadPaymentRequest.paymentDescription.createNSString().get() automaticReloadBilling:platformAutomaticReloadSummaryItem(webAutomaticReloadPaymentRequest.automaticReloadBilling) managementURL:adoptNS([[NSURL alloc] initWithString:webAutomaticReloadPaymentRequest.managementURL.createNSString().get()]).get()]);
     if (auto& billingAgreement = webAutomaticReloadPaymentRequest.billingAgreement; !billingAgreement.isNull())
-        [pkAutomaticReloadPaymentRequest setBillingAgreement:billingAgreement];
+        [pkAutomaticReloadPaymentRequest setBillingAgreement:billingAgreement.createNSString().get()];
     if (auto& tokenNotificationURL = webAutomaticReloadPaymentRequest.tokenNotificationURL; !tokenNotificationURL.isNull())
-        [pkAutomaticReloadPaymentRequest setTokenNotificationURL:[NSURL URLWithString:tokenNotificationURL]];
+        [pkAutomaticReloadPaymentRequest setTokenNotificationURL:adoptNS([[NSURL alloc] initWithString:tokenNotificationURL.createNSString().get()]).get()];
     return pkAutomaticReloadPaymentRequest;
 }
 

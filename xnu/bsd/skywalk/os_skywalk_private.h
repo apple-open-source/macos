@@ -38,7 +38,7 @@
 /* branch prediction helpers */
 #include <sys/cdefs.h>
 #define SK_ALIGN64_CASSERT(type, field) \
-	_CASSERT((__builtin_offsetof(type, field) % sizeof (uint64_t)) == 0)
+	_Static_assert((__builtin_offsetof(type, field) % sizeof(uint64_t)) == 0, "incorrect alignment")
 
 #if !defined(KERNEL) || defined(BSD_KERNEL_PRIVATE)
 enum {
@@ -46,7 +46,7 @@ enum {
 	SK_FEATURE_DEVELOPMENT = 1ULL << 1,
 	SK_FEATURE_DEBUG = 1ULL << 2,
 	SK_FEATURE_NEXUS_FLOWSWITCH = 1ULL << 3,
-	SK_FEATURE_NEXUS_MONITOR = 1ULL << 4,
+	SK_FEATURE_NEXUS_UNUSED_4 = 1ULL << 4,
 	SK_FEATURE_NEXUS_NETIF = 1ULL << 5,
 	SK_FEATURE_NEXUS_USER_PIPE = 1ULL << 6,
 	SK_FEATURE_NEXUS_KERNEL_PIPE = 1ULL << 7,
@@ -144,7 +144,7 @@ enum {
 	X(SK_VERB_SYNC,			9)      /* 0x0000000000000200 */ \
 	X(SK_VERB_NOTIFY,		10)     /* 0x0000000000000400 */ \
 	X(SK_VERB_INTR,			11)     /* 0x0000000000000800 */ \
-	X(SK_VERB_MONITOR,		12)     /* 0x0000000000001000 */ \
+	X(__SK_VERB_12,			12)     /* 0x0000000000001000 */ \
 	X(SK_VERB_DEV,			13)     /* 0x0000000000002000 */ \
 	X(SK_VERB_HOST,			14)     /* 0x0000000000004000 */ \
 	X(SK_VERB_USER,			15)     /* 0x0000000000008000 */ \
@@ -222,59 +222,51 @@ enum SK_VERB_FLAGS {
 #include <mach/vm_param.h>
 #include <kern/cpu_number.h>
 #include <pexpert/pexpert.h>
+#include <os/log.h>
 
-#if (DEVELOPMENT || DEBUG)
-#define SK_KVA(p)       ((uint64_t)(p))
-#define SK_LOG          1
-#else
-#define SK_KVA(p)       ((uint64_t)VM_KERNEL_ADDRPERM(p))
-#define SK_LOG          0
-#endif /* !DEVELOPMENT && !DEBUG */
+#define SK_LOG 1
 
 #if SK_LOG
-#define SK_LOG_VAR(x) x
-#else
-#define SK_LOG_VAR(x)
-#endif
-
-#define SK_INLINE_ATTRIBUTE     __attribute__((always_inline))
-#define SK_NO_INLINE_ATTRIBUTE  __attribute__((noinline))
-#define SK_LOG_ATTRIBUTE        __attribute__((noinline, cold, not_tail_called))
-
-#if SK_LOG
-/*
- * Because the compiler doesn't know about the %b format specifier,
- * most warnings for _SK_D are disabled by pragma.
- *
- * XXX adi@apple.com: This means the compiler will not warn us about
- * invalid parameters passed to kprintf(), so make sure to scrutinize
- * any changes made to code using any logging macros defined below.
- */
-
 extern uint64_t sk_verbose;
-#define _SK_D(_flag, _fmt, ...) do {                                    \
-	if (__improbable(((_flag) && (sk_verbose & (_flag)) == (_flag)) || \
-	    (_flag) == SK_VERB_ERROR)) {                                \
-	        _Pragma("clang diagnostic push")                        \
-	        _Pragma("clang diagnostic ignored \"-Wformat-invalid-specifier\"") \
-	        _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"") \
-	        _Pragma("clang diagnostic ignored \"-Wformat\"") \
-	        kprintf("SK[%u]: %-30s " _fmt "\n",                     \
-	            cpu_number(), __FUNCTION__, ##__VA_ARGS__);         \
-	        _Pragma("clang diagnostic pop")                         \
-	}                                                               \
+extern os_log_t sk_log_handle;
+
+#define SK_KVA(p) (void *)VM_KERNEL_ADDRHIDE(p)
+#define SK_LOG_VAR(x) x
+
+#define _SK_LOG(_type, _flag, _fmt, ...) do { \
+	if (__improbable(((_flag) == SK_VERB_DEFAULT) || \
+	    ((_flag) == SK_VERB_ERROR) || \
+	    ((sk_verbose & (_flag)) == (_flag)))) { \
+	        os_log_with_type(sk_log_handle, \
+	            (_flag) == SK_VERB_ERROR ? OS_LOG_TYPE_ERROR : _type, \
+	            "SK[%u]: %-30s " _fmt "\n", cpu_number(), __FUNCTION__, \
+	            ##__VA_ARGS__); \
+	} \
 } while (0)
 
-#define SK_DF(_flag, _fmt, ...) _SK_D((uint64_t)_flag, _fmt, ##__VA_ARGS__)
-#define SK_D(_fmt, ...)         SK_DF(SK_VERB_DEFAULT, _fmt, ##__VA_ARGS__)
-#define SK_ERR(_fmt, ...)       SK_DF(SK_VERB_ERROR, _fmt, ##__VA_ARGS__)
-#define SK_DSC(_p, _fmt, ...)   SK_ERR("%s(%d): " _fmt,                 \
-	sk_proc_name_address(_p), sk_proc_pid(_p), ##__VA_ARGS__)
+/* error log (captured by default) */
+#define SK_ERR(_fmt, ...)       _SK_LOG(OS_LOG_TYPE_ERROR, SK_VERB_ERROR, _fmt, ##__VA_ARGS__)
+
+/* error log with proc info (captured by default) */
+#define SK_PERR(_p, _fmt, ...) do { \
+	SK_ERR("%s(%d): " _fmt, sk_proc_name(_p), sk_proc_pid(_p), ##__VA_ARGS__); \
+} while (0)
+
+/* default log (captured by default) */
+#define SK_D(_fmt, ...)         _SK_LOG(OS_LOG_TYPE_DEFAULT, SK_VERB_DEFAULT, _fmt, ##__VA_ARGS__)
+
+/* debug log (enabled sk_verbose flag) */
+#define SK_DF(_flag, _fmt, ...)  _SK_LOG(OS_LOG_TYPE_DEFAULT, (uint64_t)_flag, _fmt, ##__VA_ARGS__)
+
+/* SK_DF with proc info */
+#define SK_PDF(_flag, _p, _fmt, ...) do { \
+	SK_DF(_flag, "%s(%d): " _fmt, sk_proc_name(_p), sk_proc_pid(_p), ##__VA_ARGS__); \
+} while (0)
 
 /* rate limited, lps indicates how many per second */
 #define _SK_RD(_flag, _lps, _fmt, ...) do {                             \
 	static int __t0, __now, __cnt;                                  \
-	__now = (int)_net_uptime;                                       \
+	__now = (int)net_uptime();                                       \
 	if (__t0 != __now) {                                            \
 	        __t0 = __now;                                           \
 	        __cnt = 0;                                              \
@@ -289,7 +281,22 @@ extern uint64_t sk_verbose;
 	SK_RDF(SK_VERB_DEFAULT, _lps, _fmt, ##__VA_ARGS__)
 #define SK_RDERR(_lps, _fmt, ...)       \
 	SK_RDF(SK_VERB_ERROR, _lps, _fmt, ##__VA_ARGS__)
+
+/*
+ * The compiler doesn't know that snprintf() supports %b format
+ * specifier, so use our own wrapper to vsnprintf() here instead.
+ */
+#define sk_snprintf(str, size, format, ...)  ({ \
+	_Pragma("clang diagnostic push")                                   \
+	_Pragma("clang diagnostic ignored \"-Wformat-invalid-specifier\"") \
+	_Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")        \
+	_Pragma("clang diagnostic ignored \"-Wformat\"")                   \
+	snprintf(str, size, format, ## __VA_ARGS__)                        \
+	_Pragma("clang diagnostic pop");                                   \
+})
+
 #else /* !SK_LOG */
+#define SK_LOG_VAR(x)
 #define SK_DF(_flag, _fmt, ...)         do { ((void)0); } while (0)
 #define SK_D(_fmt, ...)                 do { ((void)0); } while (0)
 #define SK_ERR(_fmt, ...)               do { ((void)0); } while (0)
@@ -298,6 +305,11 @@ extern uint64_t sk_verbose;
 #define SK_RD(_lps, _fmt, ...)          do { ((void)0); } while (0)
 #define SK_RDERR(_lps, _fmt, ...)       do { ((void)0); } while (0)
 #endif /* ! SK_LOG */
+
+#define SK_INLINE_ATTRIBUTE     __attribute__((always_inline))
+#define SK_NO_INLINE_ATTRIBUTE  __attribute__((noinline))
+#define SK_LOG_ATTRIBUTE        __attribute__((noinline, cold, not_tail_called))
+
 
 #ifdef BSD_KERNEL_PRIVATE
 #include <skywalk/core/skywalk_var.h>

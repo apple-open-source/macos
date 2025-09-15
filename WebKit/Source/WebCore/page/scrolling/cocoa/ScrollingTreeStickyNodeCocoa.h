@@ -48,9 +48,13 @@ private:
     bool commitStateBeforeChildren(const ScrollingStateNode&) final;
     void applyLayerPositions() final WTF_REQUIRES_LOCK(scrollingTree()->treeLock());
     FloatPoint layerTopLeft() const final;
-    CALayer* layer() const final { return m_layer.get(); }
+    CALayer *layer() const final { return m_layer.get(); }
+    bool hasViewportClippingLayer() const final;
+    void setIsSticking(bool) WTF_REQUIRES_LOCK(scrollingTree()->treeLock());
 
+    bool m_isSticking { false };
     RetainPtr<CALayer> m_layer;
+    RetainPtr<CALayer> m_viewportAnchorLayer;
 };
 
 } // namespace WebCore

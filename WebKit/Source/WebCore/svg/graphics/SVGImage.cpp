@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,6 +31,7 @@
 #include "CacheStorageProvider.h"
 #include "Chrome.h"
 #include "CommonVM.h"
+#include "ContainerNodeInlines.h"
 #include "DOMParser.h"
 #include "DocumentLoader.h"
 #include "DocumentSVG.h"
@@ -44,6 +45,7 @@
 #include "LocalDOMWindow.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
+#include "NativeImage.h"
 #include "Page.h"
 #include "PageConfiguration.h"
 #include "RenderSVGRoot.h"
@@ -69,8 +71,8 @@
 
 namespace WebCore {
 
-SVGImage::SVGImage(ImageObserver& observer)
-    : Image(&observer)
+SVGImage::SVGImage(ImageObserver* observer)
+    : Image(observer)
     , m_startAnimationTimer(*this, &SVGImage::startAnimationTimerFired)
 {
 }
@@ -185,7 +187,6 @@ ImageDrawResult SVGImage::drawForContainer(GraphicsContext& context, const Float
         return ImageDrawResult::DidNothing;
 
     RefPtr observer = imageObserver();
-    ASSERT(observer);
 
     // Temporarily reset image observer, we don't want to receive any changeInRect() calls due to this relayout.
     setImageObserver(nullptr);
@@ -209,7 +210,24 @@ ImageDrawResult SVGImage::drawForContainer(GraphicsContext& context, const Float
     return result;
 }
 
+bool SVGImage::hasHDRContent() const
+{
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    if (!m_page)
+        return false;
+
+    if (RefPtr localTopDocument = m_page->localTopDocument())
+        return localTopDocument->hasHDRContent();
+#endif
+    return false;
+}
+
 RefPtr<NativeImage> SVGImage::nativeImage(const DestinationColorSpace& colorSpace)
+{
+    return nativeImage(size(), colorSpace);
+}
+
+RefPtr<NativeImage> SVGImage::nativeImage(const FloatSize& size, const DestinationColorSpace& colorSpace)
 {
     if (!m_page)
         return nullptr;
@@ -220,13 +238,13 @@ RefPtr<NativeImage> SVGImage::nativeImage(const DestinationColorSpace& colorSpac
     if (CheckedPtr contentRenderer = embeddedContentBox())
         hostWindow = contentRenderer->hostWindow();
 
-    RefPtr imageBuffer = ImageBuffer::create(size(), renderingMode, RenderingPurpose::DOM, 1, colorSpace, ImageBufferPixelFormat::BGRA8, hostWindow);
+    RefPtr imageBuffer = ImageBuffer::create(size, renderingMode, RenderingPurpose::DOM, 1, colorSpace, ImageBufferPixelFormat::BGRA8, hostWindow);
     if (!imageBuffer)
         return nullptr;
 
     RefPtr observer = imageObserver();
     setImageObserver(nullptr);
-    setContainerSize(size());
+    setContainerSize(size);
 
     imageBuffer->context().drawImage(*this, FloatPoint(0, 0));
 
@@ -477,6 +495,7 @@ EncodedDataStatus SVGImage::dataChanged(bool allDataReceived)
             if (RefPtr parentSettings = observer->settings()) {
                 m_page->settings().setLayerBasedSVGEngineEnabled(parentSettings->layerBasedSVGEngineEnabled());
                 m_page->settings().fontGenericFamilies() = parentSettings->fontGenericFamilies();
+                m_page->settings().setCSSDPropertyEnabled(parentSettings->cssDPropertyEnabled());
             }
         }
 
@@ -528,10 +547,36 @@ bool isInSVGImage(const Element* element)
     return page->chrome().client().isSVGImageChromeClient();
 }
 
+void SVGImage::subresourcesAreFinished(Document* embedderDocument, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(rootElement());
+    if (embedderDocument)
+        embedderDocument->incrementLoadEventDelayCount();
+    internalPage()->localTopDocument()->whenWindowLoadEventOrDestroyed([embedderDocument = WeakPtr { embedderDocument }, completionHandler = WTFMove(completionHandler)]() mutable {
+        if (RefPtr document = embedderDocument.get())
+            document->decrementLoadEventDelayCount();
+        completionHandler();
+    });
+}
+
+void SVGImage::tryCreateFromData(std::span<const uint8_t> data, CompletionHandler<void(RefPtr<SVGImage>&&)>&& completionHandler)
+{
+    Ref svgImage = SVGImage::create(nullptr);
+    Ref buffer = FragmentedSharedBuffer::create(data);
+    svgImage->setData(buffer.ptr(), true);
+    if (!svgImage->rootElement()) {
+        completionHandler(nullptr);
+        return;
+    }
+    svgImage->subresourcesAreFinished(nullptr, [svgImage, completionHandler = WTFMove(completionHandler)]() mutable {
+        completionHandler(WTFMove(svgImage));
+    });
+}
+
 bool SVGImage::isDataDecodable(const Settings& settings, std::span<const uint8_t> data)
 {
-    auto document = Document::create(settings, aboutBlankURL());
-    auto domParser = DOMParser::create(document.get());
+    Ref document = Document::create(settings, aboutBlankURL());
+    Ref domParser = DOMParser::create(document.get());
     auto parseResult = domParser->parseFromString(String::fromUTF8(data), imageSVGContentTypeAtom());
     if (parseResult.hasException())
         return false;

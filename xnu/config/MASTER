@@ -56,7 +56,6 @@
 options		INET		#				# <inet>
 
 options 	MACH		# Standard Mach features	# <mach>
-options		MACH_FLIPC	# Fast-Local IPC		# <mach_flipc>
 options		LOOP		# loopback support		# <loop>
 options		VLAN		#				# <vlan>
 options		BOND		#				# <bond>
@@ -86,7 +85,6 @@ options 	REMOTE_VIF	#						# <remote_vif>
 options		SKYWALK		#		# <skywalk>
 options		CONFIG_NEXUS_USER_PIPE	#	# <config_nexus_user_pipe>
 options		CONFIG_NEXUS_KERNEL_PIPE #	# <config_nexus_kernel_pipe>
-options		CONFIG_NEXUS_MONITOR	#	# <config_nexus_monitor>
 options		CONFIG_NEXUS_FLOWSWITCH	#	# <config_nexus_flowswitch>
 options		CONFIG_NEXUS_NETIF	#	# <config_nexus_netif>
 options		CONFIG_MBUF_MCACHE	# mbufs use mcache	# <config_mbuf_mcache>
@@ -105,7 +103,6 @@ options		SENDFILE	# sendfile					# <sendfile>
 options		NETWORKING	# networking layer		# <inet>
 options		CONFIG_FSE	# file system events		# <config_fse>
 options		CONFIG_IMAGEBOOT	# local image boot	# <config_imageboot>
-options		CONFIG_MBUF_JUMBO	# jumbo cluster pool	# <config_mbuf_jumbo>
 options		CONFIG_IMAGEBOOT_IMG4	# authenticate image with AppleImage4	# <config_imageboot_img4>
 options		CONFIG_IMAGEBOOT_CHUNKLIST	# authenticate image with a chunk list	# <config_imageboot_chunklist>
 
@@ -449,9 +446,14 @@ options		CONFIG_PROC_UUID_POLICY		# <config_proc_uuid_policy>
 options		CONFIG_ECC_LOGGING		# <config_ecc_logging>
 
 #
-# Application core dumps
+# Application core dumps dumped synchronously by xnu
 #
 options		CONFIG_COREDUMP			# <config_coredump>
+
+#
+# Application core dumps dumped in userland via corpses
+#
+options		CONFIG_UCOREDUMP		# <config_ucoredump>
 
 #
 # Vnode guards
@@ -644,6 +646,9 @@ options		DEVELOPMENT	# dev kernel	    	    # <development>
 # DEBUG kernel
 options		DEBUG		# general debugging code    # <debug>
 
+# RELEASE define for release builds
+options		RELEASE		# <release>
+
 options		MACH_BSD	# BSD subsystem on top of Mach	# <mach_bsd>
 options         IOKIT		#				# <iokit>
 
@@ -677,7 +682,6 @@ options 	CONFIG_SCHED_RT_ALLOW		# <config_sched_rt_allow>
 
 options		CONFIG_SCHED_IDLE_IN_PLACE	# <config_sched_idle_in_place>
 options		CONFIG_SCHED_SFI		# <config_sched_sfi>
-options		CONFIG_PROB_GZALLOC		# <pgzalloc>
 options		CONFIG_SCHED_DEFERRED_AST	# <config_sched_deferred_ast>
 
 options		CONFIG_PREADOPT_TG			# <config_preadopt_tg>
@@ -790,6 +794,3 @@ options		CONFIG_EXT_PANICLOG		# <config_ext_paniclog>
 
 # support for collecting statistics on task suspension
 options		CONFIG_TASK_SUSPEND_STATS	# <config_task_suspend_stats>
-
-# Support for non-fatal Branch Target Identification exception reporting and logging
-options		CONFIG_BTI_TELEMETRY   # <config_bti_telemetry>

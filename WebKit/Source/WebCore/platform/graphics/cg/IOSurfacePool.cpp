@@ -50,7 +50,7 @@ namespace WebCore {
 WTF_MAKE_TZONE_ALLOCATED_IMPL(IOSurfacePool);
 
 IOSurfacePool::IOSurfacePool()
-    : m_collectionTimer(RunLoop::main(), this, &IOSurfacePool::collectionTimerFired)
+    : m_collectionTimer(RunLoop::mainSingleton(), "IOSurfacePool::CollectionTimer"_s, this, &IOSurfacePool::collectionTimerFired)
 {
 }
 
@@ -76,9 +76,10 @@ Ref<IOSurfacePool> IOSurfacePool::create()
     return adoptRef(*new IOSurfacePool);
 }
 
-static bool surfaceMatchesParameters(IOSurface& surface, IntSize requestedSize, const DestinationColorSpace& colorSpace, IOSurface::Format format)
+static bool surfaceMatchesParameters(IOSurface& surface, IntSize requestedSize, const DestinationColorSpace& colorSpace, IOSurface::Format format, UseLosslessCompression useLosslessCompression)
 {
-    if (!surface.hasFormat(format))
+    // FIXME: It might be OK to take a surface that doesn't use compression when requesting one that does, but not the other way around.
+    if (!surface.hasFormat({ format, useLosslessCompression }))
         return false;
     if (colorSpace != surface.colorSpace())
         return false;
@@ -113,11 +114,11 @@ void IOSurfacePool::didRemoveSurface(IOSurface& surface, bool inUse)
 
 void IOSurfacePool::didUseSurfaceOfSize(IntSize size)
 {
-    m_sizesInPruneOrder.remove(m_sizesInPruneOrder.reverseFind(size));
+    m_sizesInPruneOrder.removeLast(size);
     m_sizesInPruneOrder.append(size);
 }
 
-std::unique_ptr<IOSurface> IOSurfacePool::takeSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSurface::Format format)
+std::unique_ptr<IOSurface> IOSurfacePool::takeSurface(IntSize size, const DestinationColorSpace& colorSpace, IOSurface::Format format, UseLosslessCompression useLosslessCompression)
 {
     Locker locker { m_lock };
     CachedSurfaceMap::iterator mapIter = m_cachedSurfaces.find(size);
@@ -128,7 +129,7 @@ std::unique_ptr<IOSurface> IOSurfacePool::takeSurface(IntSize size, const Destin
     }
 
     for (auto surfaceIter = mapIter->value.begin(); surfaceIter != mapIter->value.end(); ++surfaceIter) {
-        if (!surfaceMatchesParameters(*surfaceIter->get(), size, colorSpace, format))
+        if (!surfaceMatchesParameters(*surfaceIter->get(), size, colorSpace, format, useLosslessCompression))
             continue;
 
         auto surface = WTFMove(*surfaceIter);
@@ -151,7 +152,7 @@ std::unique_ptr<IOSurface> IOSurfacePool::takeSurface(IntSize size, const Destin
 
     // Some of the in-use surfaces may no longer actually be in-use, but we haven't moved them over yet.
     for (auto surfaceIter = m_inUseSurfaces.begin(); surfaceIter != m_inUseSurfaces.end(); ++surfaceIter) {
-        if (!surfaceMatchesParameters(*surfaceIter->get(), size, colorSpace, format))
+        if (!surfaceMatchesParameters(*surfaceIter->get(), size, colorSpace, format, useLosslessCompression))
             continue;
         if (surfaceIter->get()->isInUse())
             continue;
@@ -210,7 +211,7 @@ void IOSurfacePool::insertSurfaceIntoPool(std::unique_ptr<IOSurface> surface)
     auto insertedTuple = m_cachedSurfaces.add(surfaceSize, CachedSurfaceQueue());
     insertedTuple.iterator->value.prepend(WTFMove(surface));
     if (!insertedTuple.isNewEntry)
-        m_sizesInPruneOrder.remove(m_sizesInPruneOrder.reverseFind(surfaceSize));
+        m_sizesInPruneOrder.removeLast(surfaceSize);
     m_sizesInPruneOrder.append(surfaceSize);
 
     scheduleCollectionTimer();
@@ -247,7 +248,7 @@ void IOSurfacePool::tryEvictOldestCachedSurface()
 
     if (surfaceQueueIter->value.isEmpty()) {
         m_cachedSurfaces.remove(surfaceQueueIter);
-        m_sizesInPruneOrder.remove(0);
+        m_sizesInPruneOrder.removeAt(0);
     }
 }
 

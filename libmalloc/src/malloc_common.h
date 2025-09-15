@@ -188,6 +188,11 @@ typedef enum {
 	MALLOC_PROCESS_BACKBOARDD,
 #endif
 
+	MALLOC_PROCESS_REPORTCRASH,
+	MALLOC_PROCESS_AUDIOCONVERTERSERVICE,
+
+	MALLOC_PROCESS_HARDENED_HEAP_CONFIG,
+
 	// NOTE: Processes enumerated above this line are considered "security
 	// critical", and will get additional features (guard pages, more pointer
 	// buckets, etc) if the secure allocator is enabled. Processes below the
@@ -199,6 +204,11 @@ typedef enum {
 	MALLOC_PROCESS_AEGIRPOSTER,
 	MALLOC_PROCESS_COLLECTIONSPOSTER,
 
+#if TARGET_OS_WATCH
+	MALLOC_PROCESS_BACKBOARDD,
+	MALLOC_PROCESS_CLOCKFACE,
+#endif // TARGET_OS_WATCH
+
 #if TARGET_OS_OSX
 	// Processes that need secure allocator
 	MALLOC_PROCESS_GROUPSESSIONSERVICE,
@@ -206,12 +216,16 @@ typedef enum {
 	MALLOC_PROCESS_KEYCHAINSHARINGMESSAGINGD,
 	MALLOC_PROCESS_MESSAGES,
 	MALLOC_PROCESS_SCREENSHARING,
+
+	// Processes that do not get secure allocator
+	MALLOC_PROCESS_VTENCODERXPCSERVICE,
 #endif
 
 #if TARGET_OS_VISION
 	MALLOC_PROCESS_WAKEBOARDD,
 	MALLOC_PROCESS_REALITYCAMERAD,
 #endif
+
 
 	MALLOC_PROCESS_COUNT,
 } malloc_process_identity_t;
@@ -230,10 +244,21 @@ malloc_process_is_security_critical_max_perf(
 		malloc_process_identity_t identity)
 {
 #if TARGET_OS_OSX
-	return identity == MALLOC_PROCESS_MTLCOMPILERSERVICE;
-#else
+	if (identity == MALLOC_PROCESS_MTLCOMPILERSERVICE) {
+		return true;
+	}
+#elif TARGET_OS_VISION
+	if (identity == MALLOC_PROCESS_ARKITD ||
+			identity == MALLOC_PROCESS_BACKBOARDD) {
+		return true;
+	}
+#endif
+
+	if (identity == MALLOC_PROCESS_HARDENED_HEAP_CONFIG) {
+		return true;
+	}
+
 	return false;
-#endif // TARGET_OS_OSX
 }
 #endif // CONFIG_MALLOC_PROCESS_IDENTITY
 

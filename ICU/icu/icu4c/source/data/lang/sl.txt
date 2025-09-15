@@ -122,6 +122,7 @@ sl{
         crs{"sejšelska francoska kreolščina"}
         cs{"češčina"}
         csb{"kašubščina"}
+        cst{"čočenyo"}
         csw{"močvirska krijščina"}
         cu{"stara cerkvena slovanščina"}
         cv{"čuvaščina"}
@@ -214,6 +215,7 @@ sl{
         hai{"haidščina"}
         haw{"havajščina"}
         hax{"južna haidščina"}
+        hch{"wixárika"}
         he{"hebrejščina"}
         hi{"hindijščina"}
         hil{"hiligajnonščina"}
@@ -241,6 +243,7 @@ sl{
         inh{"inguščina"}
         io{"ido"}
         is{"islandščina"}
+        isc{"iskonawa"}
         it{"italijanščina"}
         iu{"inuktitutščina"}
         ja{"japonščina"}
@@ -470,6 +473,7 @@ sl{
         sh{"srbohrvaščina"}
         shi{"tahelitska berberščina"}
         shn{"šanščina"}
+        shp{"shipibo-konibo"}
         si{"sinhalščina"}
         sid{"sidamščina"}
         sjd{"kildinska samijščina"}
@@ -746,24 +750,34 @@ sl{
     }
     Types{
         calendar{
+            bangla{"bengalski koledar"}
             buddhist{"budistični koledar"}
             chinese{"kitajski koledar"}
             coptic{"koptski koledar"}
-            dangi{"stari korejski koledar"}
+            dangi{"korejski koledar"}
             ethiopic{"etiopski koledar"}
             ethiopic-amete-alem{"etiopsko ametsko alemski koledar"}
             gregorian{"gregorijanski koledar"}
+            gujarati{"gudžaratski koledar"}
             hebrew{"hebrejski koledar"}
             indian{"indijanski koledar"}
-            islamic{"islamski koledar"}
-            islamic-civil{"islamski civilni koledar"}
-            islamic-rgsa{"islamski koledar ( Saudova Arabija, opazovalni)"}
-            islamic-tbla{"islamski koledar (tabelarni, astronomska epoha)"}
-            islamic-umalqura{"islamski koledar Umm al-Qura"}
+            islamic{"hidžretski koledar"}
+            islamic-civil{"hidžretski civilni koledar"}
+            islamic-rgsa{"hidžretski koledar (Saudova Arabija, opazovalni)"}
+            islamic-tbla{"hidžretski koledar (tabelarni, astronomska epoha)"}
+            islamic-umalqura{"hidžretski koledar Umm al-Qura"}
             iso8601{"koledar ISO-8601"}
             japanese{"japonski koledar"}
+            kannada{"kanareški koledar"}
+            malayalam{"malajalamski koledar"}
+            marathi{"maratski koledar"}
+            odia{"odijski koledar"}
             persian{"perzijski koledar"}
             roc{"koledar Minguo"}
+            tamil{"tamilski koledar"}
+            telugu{"teluški koledar"}
+            vietnamese{"vietnamski koledar"}
+            vikram{"vikramski koledar"}
         }
         cf{
             account{"oblika zapisa valute v računovodstvu"}

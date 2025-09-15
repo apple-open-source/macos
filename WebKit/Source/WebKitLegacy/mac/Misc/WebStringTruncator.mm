@@ -64,7 +64,7 @@ static WebCore::FontCascade& fontFromNSFont(NSFont *font)
     if (!menuFont.get())
         return nil;
 
-    return WebCore::StringTruncator::centerTruncate(string, maxWidth, fontFromNSFont(menuFont.get().get()));
+    return WebCore::StringTruncator::centerTruncate(string, maxWidth, fontFromNSFont(menuFont.get().get())).createNSString().autorelease();
 }
 
 + (NSString *)centerTruncateString:(NSString *)string toWidth:(float)maxWidth withFont:(NSFont *)font
@@ -72,7 +72,7 @@ static WebCore::FontCascade& fontFromNSFont(NSFont *font)
     if (!font)
         return nil;
 
-    return WebCore::StringTruncator::centerTruncate(string, maxWidth, fontFromNSFont(font));
+    return WebCore::StringTruncator::centerTruncate(string, maxWidth, fontFromNSFont(font)).createNSString().autorelease();
 }
 
 + (NSString *)rightTruncateString:(NSString *)string toWidth:(float)maxWidth withFont:(NSFont *)font
@@ -80,7 +80,7 @@ static WebCore::FontCascade& fontFromNSFont(NSFont *font)
     if (!font)
         return nil;
 
-    return WebCore::StringTruncator::rightTruncate(string, maxWidth, fontFromNSFont(font));
+    return WebCore::StringTruncator::rightTruncate(string, maxWidth, fontFromNSFont(font)).createNSString().autorelease();
 }
 
 + (float)widthOfString:(NSString *)string font:(NSFont *)font

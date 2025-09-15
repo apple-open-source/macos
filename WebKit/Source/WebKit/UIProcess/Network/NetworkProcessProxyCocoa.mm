@@ -37,6 +37,7 @@
 #import "XPCEndpoint.h"
 #import <wtf/EnumTraits.h>
 #import <wtf/RuntimeApplicationChecks.h>
+#import <wtf/darwin/XPCExtras.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIKit.h>
@@ -62,7 +63,7 @@ bool NetworkProcessProxy::XPCEventHandler::handleXPCEvent(xpc_object_t event) co
     if (!event || xpc_get_type(event) == XPC_TYPE_ERROR)
         return false;
 
-    auto messageName = xpc_dictionary_get_wtfstring(event, XPCEndpoint::xpcMessageNameKey);
+    auto messageName = xpcDictionaryGetString(event, XPCEndpoint::xpcMessageNameKey);
     if (messageName.isEmpty())
         return false;
 
@@ -94,12 +95,12 @@ bool NetworkProcessProxy::sendXPCEndpointToProcess(AuxiliaryProcessProxy& proces
         return false;
     if (!process.hasConnection())
         return false;
-    auto message = xpcEndpointMessage();
+    RetainPtr message = xpcEndpointMessage();
     if (!message)
         return false;
-    auto xpcConnection = process.connection().xpcConnection();
+    RetainPtr xpcConnection = process.connection().xpcConnection();
     RELEASE_ASSERT(xpcConnection);
-    xpc_connection_send_message(xpcConnection, message);
+    xpc_connection_send_message(xpcConnection.get(), message.get());
     return true;
 }
 

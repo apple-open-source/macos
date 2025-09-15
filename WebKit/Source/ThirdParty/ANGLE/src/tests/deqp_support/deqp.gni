@@ -1111,10 +1111,14 @@ deqp_khr_gl_sources = [
   "$deqp_path/external/openglcts/modules/gl/gl4cComputeShaderTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cConditionalRenderInvertedTests.cpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cConditionalRenderInvertedTests.hpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cTextureBufferTests.cpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cTextureBufferTests.hpp",
 
   # These tests are also disabled in the dEQP CMake build.
   # "$deqp_path/external/openglcts/modules/gl/gl4cContextFlushControlTests.cpp",
   # "$deqp_path/external/openglcts/modules/gl/gl4cContextFlushControlTests.hpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cClearTexImageAndSubImageTests.cpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cClearTexImageAndSubImageTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cCopyImageTests.cpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cCopyImageTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cDirectStateAccessBuffersTests.cpp",
@@ -1196,6 +1200,8 @@ deqp_khr_gl_sources = [
   "$deqp_path/external/openglcts/modules/gl/gl4cTextureFilterMinmaxTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cTextureGatherTests.cpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cTextureGatherTests.hpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cTextureQueryLodTests.cpp",
+  "$deqp_path/external/openglcts/modules/gl/gl4cTextureQueryLodTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cTextureViewTests.cpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cTextureViewTests.hpp",
   "$deqp_path/external/openglcts/modules/gl/gl4cVertexAttrib64BitTest.cpp",
@@ -1488,7 +1494,6 @@ deqp_khr_glesext_sources = [
 deqp_framework_debase_sources = [
   "$deqp_path/framework/delibs/debase/deDefs.c",
   "$deqp_path/framework/delibs/debase/deDefs.h",
-  "$deqp_path/framework/delibs/debase/deDefs_kc_cts.h",
   "$deqp_path/framework/delibs/debase/deFloat16.c",
   "$deqp_path/framework/delibs/debase/deFloat16.h",
   "$deqp_path/framework/delibs/debase/deInt32.c",

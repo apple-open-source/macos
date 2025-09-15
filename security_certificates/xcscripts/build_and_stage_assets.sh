@@ -20,7 +20,7 @@ ditto ${SRC_ASSET_DIR}/v2/Info.plist ${ASSET_DIR2}
 mkdir -p ${ASSET_DATA2}
 
 echo "Starting TrustedCTLogs.plist file build"
-python ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist
+python3 ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs.plist
 STATUS=$?
 if [ $STATUS -ne 0 ] ; then
 echo "BuildTrustedCTLogsPlist.rb failed with exit status $STATUS"
@@ -29,7 +29,7 @@ fi
 ditto ${ASSET_DATA}/TrustedCTLogs.plist ${ASSET_DATA2}/TrustedCTLogs.plist
 
 echo "Starting TrustedCTLogs_nonTLS.plist file build"
-python ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist
+python3 ${ASSET_TOOLS_DIR}/BuildTrustedCTLogsPlist.py -non_tls -infile ${CT_DIR}/log_list.json -outfile ${ASSET_DATA}/TrustedCTLogs_nonTLS.plist
 STATUS=$?
 if [ $STATUS -ne 0 ] ; then
 echo "BuildTrustedCTLogsPlist.rb failed with exit status $STATUS"

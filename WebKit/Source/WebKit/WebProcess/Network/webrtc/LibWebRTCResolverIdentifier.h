@@ -29,7 +29,7 @@
 
 namespace WebKit {
 
-enum class LibWebRTCResolverIdentifierType { };
+struct LibWebRTCResolverIdentifierType;
 using LibWebRTCResolverIdentifier = AtomicObjectIdentifier<LibWebRTCResolverIdentifierType>;
 
 } // namespace WebKit

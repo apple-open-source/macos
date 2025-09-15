@@ -261,7 +261,7 @@ int main(int argc, const char* const argv[])
     // adding a couple of minutes to the overall run time, so let's not
     // do that. However, it can still be useful for leak checking when
     // running the original intltest.
-    if (uprv_strcmp(getprogname(), "xctest") != 0) { // rdar://137994165
+    if (!uaprv_isRunningXCTest()) { // rdar://137994165
         printf("Sleeping 8 sec to check leaks\n");
         sleep(8);
     }
@@ -309,11 +309,35 @@ static void ctest_appendToDataDirectory(const char *toAppend)
 }
 */
 
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+#define TESTDATA_DIR "testdata"
+#define BUILT_PRODUCTS_ENV "ICU_BUILT_PRODUCTS_DIR"
+static void setTestDataDirectory(void) {
+    if (_testDataPath == NULL) {
+        size_t path_size;
+        const char* builtProductDir = getenv(BUILT_PRODUCTS_ENV);
+        if (builtProductDir == NULL) {
+            log_err("ERROR: environment variable %s not found.\n", BUILT_PRODUCTS_ENV);
+            return;
+        }
+        path_size = strlen(builtProductDir) + strlen(U_FILE_SEP_STRING) + strlen(TESTDATA_DIR) + 1;
+        _testDataPath = (char *)ctst_malloc(path_size);
+        strcpy(_testDataPath, builtProductDir);
+        strcat(_testDataPath, U_FILE_SEP_STRING);
+        strcat(_testDataPath, TESTDATA_DIR);
+    }
+}
+#endif // APPLE_XCODE_BUILD
+
 /* returns the path to icu/source/data */
 const char *  ctest_dataSrcDir(void)
 {
     static const char *dataSrcDir = NULL;
 
+#if defined (APPLE_XCODE_BUILD) // rdar://145099448 & rdar://145866894
+    setTestDataDirectory();
+    dataSrcDir = _testDataPath;
+#endif // APPLE_XCODE_BUILD
     if(dataSrcDir) {
         return dataSrcDir;
     }
@@ -553,21 +577,15 @@ char *aescstrdup(const UChar* unichars,int32_t length){
 }
 
 const char* loadTestData(UErrorCode* err){
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    setTestDataDirectory();
+#else
     if( _testDataPath == NULL){
         const char*      directory=NULL;
         UResourceBundle* test =NULL;
         char* tdpath=NULL;
         const char* tdrelativepath;
-#if defined (APPLE_XCODE_BUILD)
-#if APPLE_ICU_CHANGES
-// rdar://
-// assume defined (U_TOPBUILDDIR)?
-        tdrelativepath = "."U_FILE_SEP_STRING;
-#else
-        tdrelativepath = "";
-#endif  // APPLE_ICU_CHANGES
-        directory = U_TOPBUILDDIR;
-#elif defined (U_TOPBUILDDIR)
+#if defined (U_TOPBUILDDIR)
         tdrelativepath = "test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
         directory = U_TOPBUILDDIR;
 #else
@@ -601,6 +619,7 @@ const char* loadTestData(UErrorCode* err){
         _testDataPath = tdpath;
         return _testDataPath;
     }
+#endif //APPLE_XCODE_BUILD
     return _testDataPath;
 }
 
@@ -611,6 +630,10 @@ const char* loadTestData(UErrorCode* err){
 const char *loadSourceTestData(UErrorCode* err) {
     (void)err;
     const char *srcDataDir = NULL;
+#ifdef APPLE_XCODE_BUILD // rdar://145866894
+    setTestDataDirectory();
+    srcDataDir = _testDataPath;
+#else
 #ifdef U_TOPSRCDIR
     srcDataDir = U_TOPSRCDIR U_FILE_SEP_STRING"test" U_FILE_SEP_STRING "testdata" U_FILE_SEP_STRING;
 #else
@@ -626,6 +649,7 @@ const char *loadSourceTestData(UErrorCode* err) {
                      "test" U_FILE_SEP_STRING "testdata" U_FILE_SEP_STRING;
     }
 #endif
+#endif // APPLE_XCODE_BUILD
     return srcDataDir;
 }
 

@@ -10,6 +10,7 @@
 #include "utilities/SecInternalReleasePriv.h"
 #import "utilities/debugging.h"
 
+#import "keychain/ot/SecAsyncPiper.h"
 #import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OT.h"
@@ -22,6 +23,7 @@
 #import "keychain/OctagonTrust/OctagonTrust.h"
 #import <OctagonTrust/OTCustodianRecoveryKey.h>
 #import <OctagonTrust/OTInheritanceKey.h>
+#import <OctagonTrust/OTEscrowCheckCallResult.h>
 
 #import <AuthKit/AKAppleIDAuthenticationController.h>
 #import <AuthKit/AKAppleIDAuthenticationContext.h>
@@ -32,6 +34,10 @@
 #include <Security/OTClique+Private.h>
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
+#import "keychain/categories/NSError+UsefulConstructors.h"
+
+#import <KeychainCircle/SecurityAnalyticsConstants.h>
+#import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 static NSString * fetch_pet(NSString * appleID, NSString * dsid)
 {
@@ -229,6 +235,18 @@ static void print_unjson(const char *title, NSString *key, NSDictionary *dict)
             ret = 0;
         }
     }];
+
+    AAFAnalyticsEventSecurity* trustLossEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+                                                                                                         altDSID:arguments.altDSID
+                                                                                                          flowID:arguments.flowID
+                                                                                                 deviceSessionID:arguments.deviceSessionID
+                                                                                                       eventName:kSecurityRTCEventNameOctagonTrustLost
+                                                                                                 testsAreEnabled:NO
+                                                                                                  canSendMetrics:YES
+                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
+    [trustLossEvent sendMetricWithResult:YES
+                                   error:[NSError errorWithDomain:kSecurityRTCErrorDomain code:OctagonTrustDepartureReasonErrorCodeCLI description:@"CLI invoked departure"]];
+
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");
@@ -247,6 +265,17 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
     __block int ret = 1;
     __block bool retry;
 
+    
+    __block OTAccountSettings* accountSettings = nil;
+    __block NSError* fetchError = nil;
+    [self.control fetchAccountWideSettingsWithForceFetch:true arguments:arguments reply:^(OTAccountSettings * _Nullable retAccountSetting, NSError * _Nullable retError) {
+        accountSettings = retAccountSetting;
+        fetchError = retError;
+    }];
+    BOOL accountIsW = NO;
+    if (accountSettings.hasWalrus) {
+        accountIsW = accountSettings.walrus.enabled ? YES : NO;
+    }
     do {
         retry = false;
         [self.control resetAndEstablish:arguments
@@ -255,6 +284,7 @@ idmsCuttlefishPassword:(NSString*_Nullable)idmsCuttlefishPassword
                  idmsCuttlefishPassword:idmsCuttlefishPassword
                              notifyIdMS:notifyIdMS
                         accountSettings:nil
+                             accountIsW:accountIsW
                                   reply:^(NSError* _Nullable error) {
             if(error) {
                 fprintf(stderr, "Error resetting: %s\n", [[error description] UTF8String]);
@@ -629,120 +659,143 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 #if OCTAGON
     __block int ret = 1;
 
+    NSError* piperError = nil;
+    SecAsyncPiper* piper = [[SecAsyncPiper alloc] initWithError:&piperError];
+    if (piperError) {
+        if(json) {
+            print_json(@{@"error" : [piperError description]});
+        } else {
+            fprintf(stderr, "Error fetching status: %s\n", [[piperError description] UTF8String]);
+        }
+        return ret;
+    }
+
     [self.control status:arguments
+                   xpcFd:[piper xpcFd]
                    reply:^(NSDictionary*_Nullable result, NSError* _Nullable error) {
-                       if(error) {
-                           if(json) {
-                               print_json(@{@"error" : [error description]});
-                           } else {
-                               fprintf(stderr, "Error fetching status: %s\n", [[error description] UTF8String]);
-                           }
-                       } else if (result == nil) {
-                           if(json) {
-                               print_json(@{@"error" : @"No result returned and no error"});
-                           } else {
-                               fprintf(stderr, "Fetching status had no error and gave no result!\n");
-                           }
-                       } else {
-                           ret = 0;
-                           if(json) {
-                               print_json([OTControlCLI annotateStatus:result]);
-                           } else {
-                               printf("Status for %s,%s:\n", [result[@"containerName"] UTF8String], [result[@"contextID"] UTF8String]);
-                               printf("Active account: %s\n", [result[@"activeAccount"] UTF8String]);
+        if(error) {
+            if(json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error fetching status: %s\n", [[error description] UTF8String]);
+            }
+        } else if (result == nil) {
+            if(json) {
+                print_json(@{@"error" : @"No result returned and no error"});
+            } else {
+                fprintf(stderr, "Fetching status had no error and gave no result!\n");
+            }
+        } else {
+            NSError* internalError = nil;
+            NSDictionary* contextDump = [piper dictWithError:&internalError];
+            if(internalError) {
+                if(json) {
+                    print_json(@{@"error" : [internalError description]});
+                } else {
+                    fprintf(stderr, "Error fetching status: %s\n", [[internalError description] UTF8String]);
+                }
+                return;
+            }
+            ret = 0;
+            if(json) {
+                NSMutableDictionary* modifiableResult = [NSMutableDictionary dictionaryWithDictionary:result];
+                modifiableResult[@"contextDump"] = contextDump;
+                print_json([OTControlCLI annotateStatus:modifiableResult]);
+            } else {
+                printf("Status for %s,%s:\n", [result[@"containerName"] UTF8String], [result[@"contextID"] UTF8String]);
+                printf("Active account: %s\n", [result[@"activeAccount"] UTF8String]);
 
-                               printf("\n");
-                               printf("State: %s\n", [[result[@"state"] description] UTF8String]);
-                               printf("Flags: %s; Flags Pending: %s\n\n",
-                                      ([result[@"stateFlags"] count] == 0u) ? "none" : [[result[@"stateFlags"] description] UTF8String],
-                                      ([result[@"statePendingFlags"] count] == 0u) ? "none" : [[result[@"statePendingFlags"] description] UTF8String]);
+                printf("\n");
+                printf("State: %s\n", [[result[@"state"] description] UTF8String]);
+                printf("Flags: %s; Flags Pending: %s\n\n",
+                       ([result[@"stateFlags"] count] == 0u) ? "none" : [[result[@"stateFlags"] description] UTF8String],
+                       ([result[@"statePendingFlags"] count] == 0u) ? "none" : [[result[@"statePendingFlags"] description] UTF8String]);
 
-                               // Make it easy to find peer information
-                               NSDictionary* contextDump = result[@"contextDump"];
-                               NSMutableDictionary<NSString *, NSDictionary*>* peers = [NSMutableDictionary dictionary];
-                               NSMutableArray<NSString *>* allPeerIDs = [NSMutableArray array];
-                               for(NSDictionary* peerInformation in contextDump[@"peers"]) {
-                                   NSString * peerID = peerInformation[@"peerID"];
-                                   if(peerID) {
-                                       peers[peerID] = peerInformation;
-                                       [allPeerIDs addObject:peerID];
-                                   }
-                               }
+                // Make it easy to find peer information
+                NSMutableDictionary<NSString *, NSDictionary*>* peers = [NSMutableDictionary dictionary];
+                NSMutableArray<NSString *>* allPeerIDs = [NSMutableArray array];
+                for(NSDictionary* peerInformation in contextDump[@"peers"]) {
+                    NSString * peerID = peerInformation[@"peerID"];
+                    if(peerID) {
+                        peers[peerID] = peerInformation;
+                        [allPeerIDs addObject:peerID];
+                    }
+                }
 
-                               NSMutableDictionary<NSString *, NSDictionary*>* crks = [NSMutableDictionary dictionary];
-                               for(NSDictionary* crkInformation in contextDump[@"custodian_recovery_keys"]) {
-                                   NSString * peerID = crkInformation[@"peerID"];
-                                   if (peerID) {
-                                       crks[peerID] = crkInformation;
-                                   }
-                               }
+                NSMutableDictionary<NSString *, NSDictionary*>* crks = [NSMutableDictionary dictionary];
+                for(NSDictionary* crkInformation in contextDump[@"custodian_recovery_keys"]) {
+                    NSString * peerID = crkInformation[@"peerID"];
+                    if (peerID) {
+                        crks[peerID] = crkInformation;
+                    }
+                }
 
-                               NSDictionary* egoInformation = contextDump[@"self"];
-                               NSString * egoPeerID = egoInformation[@"peerID"];
-                               NSDictionary* egoStableInfo = egoInformation[@"stableInfo"];
-                               NSDictionary* egoDynamicInfo = egoInformation[@"dynamicInfo"];
+                NSDictionary* egoInformation = contextDump[@"self"];
+                NSString * egoPeerID = egoInformation[@"peerID"];
+                NSDictionary* egoStableInfo = egoInformation[@"stableInfo"];
+                NSDictionary* egoDynamicInfo = egoInformation[@"dynamicInfo"];
 
-                               if(egoPeerID) {
-                                   NSMutableArray *otherPeers = [allPeerIDs mutableCopy];
-                                   [self printPeer:egoInformation prefix:@"    Self: "];
-                                   printf("\n");
+                if(egoPeerID) {
+                    NSMutableArray *otherPeers = [allPeerIDs mutableCopy];
+                    [self printPeer:egoInformation prefix:@"    Self: "];
+                    printf("\n");
 
-                                   // The self peer is technically a peer, so, shove it on in there
-                                   peers[egoPeerID] = egoInformation;
+                    // The self peer is technically a peer, so, shove it on in there
+                    peers[egoPeerID] = egoInformation;
 
-                                   NSArray<NSString *>* includedPeers = egoDynamicInfo[@"included"];
-                                   printf("Trusted peers (by me):\n");
-                                   if(includedPeers && includedPeers.count > 0) {
-                                       [self printPeers:includedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
-                                       [otherPeers removeObjectsInArray:includedPeers];
-                                   } else {
-                                       printf("    No trusted peers.\n");
-                                   }
-                                   printf("\n");
+                    NSArray<NSString *>* includedPeers = egoDynamicInfo[@"included"];
+                    printf("Trusted peers (by me):\n");
+                    if(includedPeers && includedPeers.count > 0) {
+                        [self printPeers:includedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
+                        [otherPeers removeObjectsInArray:includedPeers];
+                    } else {
+                        printf("    No trusted peers.\n");
+                    }
+                    printf("\n");
 
-                                   NSArray<NSString *>* excludedPeers = egoDynamicInfo[@"excluded"];
-                                   printf("Excluded peers (by me):\n");
-                                   if(excludedPeers && excludedPeers.count > 0) {
-                                       [self printPeers:excludedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
-                                       [otherPeers removeObjectsInArray:excludedPeers];
-                                   } else {
-                                       printf("    No excluded peers.\n");
-                                   }
-                                   printf("\n");
+                    NSArray<NSString *>* excludedPeers = egoDynamicInfo[@"excluded"];
+                    printf("Excluded peers (by me):\n");
+                    if(excludedPeers && excludedPeers.count > 0) {
+                        [self printPeers:excludedPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
+                        [otherPeers removeObjectsInArray:excludedPeers];
+                    } else {
+                        printf("    No excluded peers.\n");
+                    }
+                    printf("\n");
 
-                                   printf("Other peers (included/excluded by others):\n");
-                                   if(otherPeers.count > 0) {
-                                       [self printPeers:otherPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
-                                   } else {
-                                       printf("    No other peers.\n");
-                                   }
-                                   printf("\n");
+                    printf("Other peers (included/excluded by others):\n");
+                    if(otherPeers.count > 0) {
+                        [self printPeers:otherPeers egoPeerID:egoPeerID informationOnPeers:peers informationOnCRKs:crks];
+                    } else {
+                        printf("    No other peers.\n");
+                    }
+                    printf("\n");
 
-                                   if(egoStableInfo[@"recovery_encryption_public_key"] && egoStableInfo[@"recovery_signing_public_key"]) {
-                                       printf("Recovery Key:\n");
+                    if(egoStableInfo[@"recovery_encryption_public_key"] && egoStableInfo[@"recovery_signing_public_key"]) {
+                        printf("Recovery Key:\n");
 
-                                       NSString* signingString = egoStableInfo[@"recovery_signing_public_key"];
-                                       NSString* encryptionString = egoStableInfo[@"recovery_encryption_public_key"];
-                                       printf("    Encryption public key: %s\n", [encryptionString UTF8String]);
-                                       printf("    Signing public key: %s\n", [signingString UTF8String]);
-                                       printf("\n");
-                                   }
+                        NSString* signingString = egoStableInfo[@"recovery_signing_public_key"];
+                        NSString* encryptionString = egoStableInfo[@"recovery_encryption_public_key"];
+                        printf("    Encryption public key: %s\n", [encryptionString UTF8String]);
+                        printf("    Signing public key: %s\n", [signingString UTF8String]);
+                        printf("\n");
+                    }
 
-                               } else {
-                                   printf("No current identity for this device.\n\n");
+                } else {
+                    printf("No current identity for this device.\n\n");
 
-                                   if(allPeerIDs.count > 0) {
-                                       printf("All peers currently in this account:\n");
-                                       [self printPeers:allPeerIDs egoPeerID:nil informationOnPeers:peers informationOnCRKs:crks];
-                                   } else {
-                                       printf("No peers currently exist for this account.\n");
-                                   }
-                               }
+                    if(allPeerIDs.count > 0) {
+                        printf("All peers currently in this account:\n");
+                        [self printPeers:allPeerIDs egoPeerID:nil informationOnPeers:peers informationOnCRKs:crks];
+                    } else {
+                        printf("No peers currently exist for this account.\n");
+                    }
+                }
 
-                               printf("\n");
-                           }
-                       }
-                   }];
+                printf("\n");
+            }
+        }
+    }];
 
     return ret;
 #else
@@ -841,6 +894,8 @@ informationOnPeers:(NSDictionary<NSString *, NSDictionary*>*)informationOnPeers
 - (int)healthCheck:(OTControlArguments*)arguments
 skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
             repair:(BOOL)repair
+danglingPeerCleanup:(BOOL)danglingPeerCleanup
+        updateIdMS:(BOOL)updateIdMS
               json:(BOOL)json
 {
 #if OCTAGON
@@ -849,6 +904,8 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [self.control healthCheck:arguments
         skipRateLimitingCheck:skipRateLimitingCheck
                        repair:repair
+          danglingPeerCleanup:danglingPeerCleanup
+                   updateIdMS:updateIdMS
                         reply:^(TrustedPeersHelperHealthCheckResult* _Nullable results, NSError* _Nullable error) {
         if(error) {
             if(json) {
@@ -876,6 +933,42 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+
+- (int)escrowCheck:(OTControlArguments*)arguments
+              json:(BOOL)json
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    [self.control escrowCheck:arguments
+            isBackgroundCheck:FALSE
+                        reply:^(OTEscrowCheckCallResult* _Nullable results, NSError* _Nullable error) {
+        if(error) {
+            if(json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error checking escrow check: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (results != nil) {
+                NSDictionary *d = [results dictionaryRepresentation];
+                if (json) {
+                    print_json(d);
+                } else {
+                    printf("Checking Escrow Check completed.\n");
+                    printf("%s\n", [[d description] UTF8String]);
+                }
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
 - (int)simulateReceivePush:(OTControlArguments*)arguments
                       json:(BOOL)json
 {
@@ -884,6 +977,36 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 
     [self.control simulateReceivePush:arguments
                                 reply:^(NSError* _Nullable error) {
+        if(error) {
+            if(json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error simulating push: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{});
+            } else {
+                printf("Simulated push sent.\n");
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)simulateReceiveTDLChangePush:(OTControlArguments*)arguments
+                               json:(BOOL)json
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    [self.control simulateReceiveTDLChangePush:arguments
+                                         reply:^(NSError* _Nullable error) {
         if(error) {
             if(json) {
                 print_json(@{@"error" : [error description]});
@@ -2188,6 +2311,102 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
 #endif
 }
 
+- (int)icscRepairResetWithArguments:(OTControlArguments*)arguments
+                               json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control icscRepairReset:arguments
+                            reply:^(NSError* _Nullable error) {
+        if(error) {
+            if (json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error resetting icsc repair rate-limiting: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{@"success" : @YES});
+            } else {
+                printf("Successfully reset icsc repair rate-limiting.\n");
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+#else
+    if (json) {
+        print_json(@{@"unimplemented" : @YES});
+    } else {
+        fprintf(stderr, "Unimplemented.\n");
+    }
+    return 1;
+#endif
+}
+
+- (int)fetchTotalTrustedPeersWithArguments:(OTControlArguments*)arguments
+                                      json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control totalTrustedPeers:arguments
+                              reply:^(NSNumber* _Nullable count, NSError* _Nullable error) {
+        if(error) {
+            if (json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error fetching trusted peer count: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{@"total_trusted_peer_count": count});
+            } else {
+                printf("Total trusted peers: %d.\n", [count intValue]);
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)fetchTrustedFullPeersWithArguments:(OTControlArguments*)arguments
+                                     json:(bool)json
+{
+#if OCTAGON
+    __block int ret = 1;
+    
+    [self.control trustedFullPeers:arguments
+                             reply:^(NSNumber* _Nullable count, NSError* _Nullable error) {
+        if(error) {
+            if (json) {
+                print_json(@{@"error" : [error description]});
+            } else {
+                fprintf(stderr, "Error fetching trusted full peer count: %s\n", [[error description] UTF8String]);
+            }
+        } else {
+            if (json) {
+                print_json(@{@"total_trusted_full_peer_count": count});
+            } else {
+                printf("Total trusted full peers: %d.\n", [count intValue]);
+            }
+            ret = 0;
+        }
+    }];
+    return ret;
+
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
 - (int)reset:(OTControlArguments*)arguments
      appleID:(NSString * _Nullable)appleID
         dsid:(NSString *_Nullable)dsid
@@ -2209,8 +2428,36 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
         printf("Account data wiped.\n");
         ret = 0;
     }
-    
-    
+
+    return ret;
+#else
+    fprintf(stderr, "Unimplemented.\n");
+    return 1;
+#endif
+}
+
+- (int)performCKServerUnreadableDataRemoval:(OTControlArguments*)arguments
+                                    appleID:(NSString * _Nullable)appleID
+                                       dsid:(NSString *_Nullable)dsid
+{
+#if OCTAGON
+    __block int ret = 1;
+
+    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
+    data.passwordEquivalentToken = fetch_pet(appleID, dsid);
+    data.authenticationAppleID = appleID;
+    data.altDSID = arguments.altDSID;
+    data.context = arguments.contextID;
+    data.containerName = arguments.containerName;
+    NSError* localError = nil;
+    BOOL result = [OTClique performCKServerUnreadableDataRemoval:data error:&localError];
+    if (localError || !result) {
+        fprintf(stderr, "Failed to remove unreadable CK data: %s\n", [[localError description] UTF8String]);
+    } else {
+        printf("Removed unreadable CK data.\n");
+        ret = 0;
+    }
+
     return ret;
 #else
     fprintf(stderr, "Unimplemented.\n");

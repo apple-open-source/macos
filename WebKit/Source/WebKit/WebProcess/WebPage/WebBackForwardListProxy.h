@@ -55,6 +55,7 @@ private:
     unsigned backListCount() const override;
     unsigned forwardListCount() const override;
     bool containsItem(const WebCore::HistoryItem&) const final;
+    bool isWebBackForwardListProxy() const final { return true; }
     const WebBackForwardListCounts& cacheListCountsIfNecessary() const;
 
     void close() override;
@@ -64,3 +65,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebBackForwardListProxy)
+static bool isType(const WebCore::BackForwardClient& client) { return client.isWebBackForwardListProxy(); }
+SPECIALIZE_TYPE_TRAITS_END()

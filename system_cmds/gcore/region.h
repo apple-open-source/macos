@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Apple Inc.  All rights reserved.
+ * Copyright (c) 2024 Apple Inc.  All rights reserved.
  */
 
 #include <sys/queue.h>
@@ -24,13 +24,18 @@ struct vm_range {
 #define V_SETSIZE(g, z)	((g)->size = (z))
 #define V_ENDADDR(g)	(_V_ADDR(g) + _V_SIZE(g))
 
-static __inline const mach_vm_offset_t V_ADDR(const struct vm_range *vr) {
+static __inline const mach_vm_offset_t
+V_ADDR(const struct vm_range *vr) {
 	return _V_ADDR(vr);
 }
-static __inline const mach_vm_offset_t V_SIZE(const struct vm_range *vr) {
+
+static __inline const mach_vm_offset_t
+V_SIZE(const struct vm_range *vr) {
 	return _V_SIZE(vr);
 }
-static __inline const size_t V_SIZEOF(const struct vm_range *vr) {
+
+static __inline const size_t
+V_SIZEOF(const struct vm_range *vr) {
     assert((typeof (vr->size))(size_t)_V_SIZE(vr) == _V_SIZE(vr));
     return (size_t)_V_SIZE(vr);
 }
@@ -63,40 +68,28 @@ struct region {
 #define R_ENDADDR(r)	(_R_ADDR(r) + _R_SIZE(r))
 
     vm_region_submap_info_data_64_t r_info;
-    vm_page_info_basic_data_t r_pageinfo;
 
     int r_purgable;
 
 #ifdef CONFIG_SUBMAP
     int r_depth;
 #endif
-    boolean_t r_insharedregion, r_inzfodregion, r_incommregion;
+    boolean_t r_insharedregion, r_incommregion;
 
-    /*
-     * This field may be non-NULL if the region is a read-only part
-     * of a mapped file (i.e. the shared cache) and thus
-     * doesn't need to be copied.
-     */
-    struct {
-        const struct libent *fr_libent;
-		const char *fr_pathname;
-        off_t fr_offset;
-    } *r_fileref;
-
-    /*
-     * These (optional) fields are filled in after we parse the information
-     * about the dylibs we've mapped, as provided by dyld.
-     */
+    /* Initialized only when the region is sparsely populated */
     struct subregion **r_subregions;
     unsigned r_nsubregions;
 
     const struct regionop *r_op;
 };
 
-static __inline const mach_vm_offset_t R_ADDR(const struct region *r) {
+static __inline const mach_vm_offset_t
+R_ADDR(const struct region *r) {
     return _R_ADDR(r);
 }
-static __inline const mach_vm_offset_t R_SIZE(const struct region *r) {
+
+static __inline const mach_vm_offset_t
+R_SIZE(const struct region *r) {
     return _R_SIZE(r);
 }
 
@@ -122,13 +115,12 @@ struct regionop {
     void (*rop_delete)(struct region *);
 };
 
-#define ROP_HEADER(r, w)    (((r)->r_op->rop_header)(r, w))
-#define ROP_STREAM(r, w)    (((r)->r_op->rop_stream)(r, w))
-#define ROP_PWRITE(r, w)    (((r)->r_op->rop_pwrite)(r, w))
+#define ROP_HEADER(r, w)    (((r)->r_op->rop_header)((r), (w)))
+#define ROP_STREAM(r, w)    (((r)->r_op->rop_stream)((r), (w)))
+#define ROP_PWRITE(r, w)    (((r)->r_op->rop_pwrite)((r), (w)))
 #define ROP_DELETE(r)       (((r)->r_op->rop_delete)(r))
 
-extern const struct regionop vanilla_ops, sparse_ops, zfod_ops;
-extern const struct regionop fileref_ops;
+extern const struct regionop vanilla_ops, sparse_ops;
 
 struct regionhead;
 

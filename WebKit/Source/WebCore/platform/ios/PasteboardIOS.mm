@@ -295,7 +295,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 static bool shouldTreatAsAttachmentByDefault(const String& typeIdentifier)
 {
-    RetainPtr type = [UTType typeWithIdentifier:typeIdentifier];
+    RetainPtr type = [UTType typeWithIdentifier:typeIdentifier.createNSString().get()];
     for (UTType *attachmentType : std::array { UTTypeVCard, UTTypePDF, UTTypeCalendarEvent }) {
         if ([type conformsToType:attachmentType])
             return true;
@@ -433,10 +433,11 @@ void Pasteboard::readRespectingUTIFidelities(PasteboardWebContentReader& reader,
         // read in order of fidelity, as specified by each pasteboard item.
         ReaderResult result = ReaderResult::DidNotReadType;
         for (auto& type : info->platformTypesByFidelity) {
-            if (!isTypeAllowedByReadingPolicy(type, policy))
+            RetainPtr nsType = type.createNSString();
+            if (!isTypeAllowedByReadingPolicy(nsType.get(), policy))
                 continue;
 
-            result = readPasteboardWebContentDataForType(reader, strategy, type, *info, index);
+            result = readPasteboardWebContentDataForType(reader, strategy, nsType.get(), *info, index);
             if (result == ReaderResult::PasteboardWasChangedExternally)
                 return;
             if (result == ReaderResult::ReadType)
@@ -493,17 +494,18 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 static RetainPtr<NSString> cocoaTypeFromHTMLClipboardType(const String& type)
 {
-    if (NSString *platformType = PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(type)) {
-        if (platformType.length)
+    RetainPtr nsType = type.createNSString();
+    if (RetainPtr platformType = PlatformPasteboard::platformPasteboardTypeForSafeTypeForDOMToReadAndWrite(nsType.get()).createNSString()) {
+        if (platformType.get().length)
             return platformType;
     }
 
     // Try UTI now.
-    if (NSString *utiType = utiTypeFromCocoaType(type))
+    if (RetainPtr utiType = utiTypeFromCocoaType(type.createNSString().get()).createNSString())
         return utiType;
 
     // No mapping, just pass the whole string though.
-    return (NSString *)type;
+    return nsType;
 }
 
 void Pasteboard::clear(const String& type)
@@ -534,7 +536,7 @@ Vector<String> Pasteboard::readPlatformValuesAsStrings(const String& domType, in
     auto values = strategy.allStringsForType(cocoaType.get(), pasteboardName, context());
     if ([cocoaType isEqualToString:UTTypePlainText.identifier]) {
         values = values.map([&] (auto& value) -> String {
-            return [value precomposedStringWithCanonicalMapping];
+            return [value.createNSString() precomposedStringWithCanonicalMapping];
         });
     }
 
@@ -548,25 +550,26 @@ Vector<String> Pasteboard::readPlatformValuesAsStrings(const String& domType, in
 
 void Pasteboard::addHTMLClipboardTypesForCocoaType(ListHashSet<String>& resultTypes, const String& cocoaType)
 {
+    RetainPtr nsType = cocoaType.createNSString();
     // UTI may not do these right, so make sure we get the right, predictable result.
-    if ([cocoaType isEqualToString:UTTypePlainText.identifier]
-        || [cocoaType isEqualToString:UTTypeUTF8PlainText.identifier]
-        || [cocoaType isEqualToString:UTTypeUTF16PlainText.identifier]) {
+    if ([nsType isEqualToString:UTTypePlainText.identifier]
+        || [nsType isEqualToString:UTTypeUTF8PlainText.identifier]
+        || [nsType isEqualToString:UTTypeUTF16PlainText.identifier]) {
         resultTypes.add(textPlainContentTypeAtom());
         return;
     }
-    if ([cocoaType isEqualToString:UTTypeURL.identifier]) {
+    if ([nsType isEqualToString:UTTypeURL.identifier]) {
         resultTypes.add("text/uri-list"_s);
         return;
     }
-    if ([cocoaType isEqualToString:UTTypeHTML.identifier]) {
+    if ([nsType isEqualToString:UTTypeHTML.identifier]) {
         resultTypes.add(textHTMLContentTypeAtom());
         // We don't return here for App compatibility.
     }
 
     if (Pasteboard::shouldTreatCocoaTypeAsFile(cocoaType))
         return;
-    String utiType = utiTypeFromCocoaType(cocoaType);
+    String utiType = utiTypeFromCocoaType(nsType.get());
     if (!utiType.isEmpty()) {
         resultTypes.add(utiType);
         return;

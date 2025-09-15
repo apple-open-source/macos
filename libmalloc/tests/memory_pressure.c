@@ -170,7 +170,7 @@ T_DECL(xzone_mem_pressure, "xzone memory pressure",
 #endif
 
 #define XZM_POINTER_RANGE_SIZE GiB(8)
-#define NUM_ALLOCS ((XZM_POINTER_RANGE_SIZE / XZM_LARGE_BLOCK_SIZE_MAX) + 1)
+#define NUM_ALLOCS ((XZM_POINTER_RANGE_SIZE / XZM_LARGE_BLOCK_SIZE_MAX) + 20)
 	struct pointer {
 		void *dummy[XZM_LARGE_BLOCK_SIZE_MAX / sizeof(void *)];
 	};

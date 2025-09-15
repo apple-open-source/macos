@@ -75,6 +75,7 @@ struct arcade_register {
 typedef struct arcade_register *arcade_register_t;
 
 IPC_KOBJECT_DEFINE(IKOT_ARCADE_REG,
+    .iko_op_movable_send = true,
     .iko_op_stable    = true,
     .iko_op_permanent = true);
 

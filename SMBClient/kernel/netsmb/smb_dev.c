@@ -1667,6 +1667,10 @@ ioc_fsctl_error:
 			} else {
 				error = smb_usr_get_dfs_referral(sdp->sd_share, sdp->sd_session,
                                                  get_dfs_refer_ioc, context);
+
+                /* Convert returned status into errno */
+                get_dfs_refer_ioc->ioc_ret_ntstatus_error = smb_ntstatus_to_errno(get_dfs_refer_ioc->ioc_ret_ntstatus);
+
                 if (error) {
                     /* 
                      * Note: On error, the ioctl code will NOT copy out the data

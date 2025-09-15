@@ -413,7 +413,9 @@ bool FileDesc::isPlainFile(const std::string &path)
 	if (::lstat(path.c_str(), &st2))
 		UnixError::throwMe();
 
-	return (st1.st_ino == st2.st_ino && S_ISREG(st2.st_mode));
+	return (S_ISREG(st1.st_mode) &&
+            (st1.st_dev == st2.st_dev) &&
+            (st1.st_ino == st2.st_ino));
 }
 
 //

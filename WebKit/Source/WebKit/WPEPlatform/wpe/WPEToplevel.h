@@ -49,7 +49,6 @@ struct _WPEToplevelClass
 
     void                    (* set_title)                     (WPEToplevel *toplevel,
                                                                const char  *title);
-    guint                   (* get_max_views)                 (WPEToplevel *toplevel);
     WPEScreen              *(* get_screen)                    (WPEToplevel *toplevel);
     gboolean                (* resize)                        (WPEToplevel *toplevel,
                                                                int          width,
@@ -94,6 +93,7 @@ typedef gboolean (* WPEToplevelForeachViewFunc) (WPEToplevel *toplevel,
                                                  WPEView     *view,
                                                  gpointer     user_data);
 
+WPE_API GList                  *wpe_toplevel_list                              (void);
 WPE_API WPEDisplay             *wpe_toplevel_get_display                       (WPEToplevel               *toplevel);
 WPE_API void                    wpe_toplevel_set_title                         (WPEToplevel               *toplevel,
                                                                                 const char                *title);

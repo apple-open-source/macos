@@ -183,18 +183,25 @@ void ArgumentCoder<Namespace::Subnamespace::StructName>::encode(OtherEncoder& en
 
 std::optional<Namespace::Subnamespace::StructName> ArgumentCoder<Namespace::Subnamespace::StructName>::decode(Decoder& decoder)
 {
+    bool addedDecodingFailureIndex = false;
     auto firstMemberName = decoder.decode<FirstMemberType>();
-    if (UNLIKELY(!firstMemberName))
-        decoder.setIndexOfDecodingFailure(0);
+    if (!firstMemberName && !addedDecodingFailureIndex) [[unlikely]] {
+        decoder.addIndexOfDecodingFailure(0);
+        addedDecodingFailureIndex = true;
+    }
 #if ENABLE(SECOND_MEMBER)
     auto secondMemberName = decoder.decode<SecondMemberType>();
-    if (UNLIKELY(!secondMemberName))
-        decoder.setIndexOfDecodingFailure(1);
+    if (!secondMemberName && !addedDecodingFailureIndex) [[unlikely]] {
+        decoder.addIndexOfDecodingFailure(1);
+        addedDecodingFailureIndex = true;
+    }
 #endif
     auto nullableTestMember = decoder.decode<RetainPtr<CFTypeRef>>();
-    if (UNLIKELY(!nullableTestMember))
-        decoder.setIndexOfDecodingFailure(2);
-    if (UNLIKELY(!decoder.isValid()))
+    if (!nullableTestMember && !addedDecodingFailureIndex) [[unlikely]] {
+        decoder.addIndexOfDecodingFailure(2);
+        addedDecodingFailureIndex = true;
+    }
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::Subnamespace::StructName {
@@ -235,7 +242,7 @@ std::optional<Namespace::OtherClass> ArgumentCoder<Namespace::OtherClass>::decod
     auto a = decoder.decode<int>();
     auto b = decoder.decode<bool>();
     auto dataDetectorResults = decoder.decodeWithAllowedClasses<NSArray>({ NSArray.class, PAL::getDDScannerResultClass() });
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::OtherClass {
@@ -265,7 +272,7 @@ std::optional<Namespace::ClassWithMemberPrecondition> ArgumentCoder<Namespace::C
     if (!(PAL::isPassKitCoreFrameworkAvailable()))
         return std::nullopt;
     auto m_pkPaymentMethod = decoder.decodeWithAllowedClasses<PKPaymentMethod>({ PAL::getPKPaymentMethodClass() });
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::ClassWithMemberPrecondition {
@@ -290,7 +297,7 @@ std::optional<Ref<Namespace::ReturnRefClass>> ArgumentCoder<Namespace::ReturnRef
     auto functionCallmember1 = decoder.decode<double>();
     auto functionCallmember2 = decoder.decode<double>();
     auto uniqueMember = decoder.decode<std::unique_ptr<int>>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::ReturnRefClass::create(
@@ -323,7 +330,7 @@ std::optional<Namespace::EmptyConstructorStruct> ArgumentCoder<Namespace::EmptyC
 {
     auto m_int = decoder.decode<int>();
     auto m_double = decoder.decode<double>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     Namespace::EmptyConstructorStruct result;
     result.m_int = WTFMove(*m_int);
@@ -373,7 +380,7 @@ std::optional<Namespace::EmptyConstructorWithIf> ArgumentCoder<Namespace::EmptyC
 #if CONDITION_AROUND_M_TYPE_AND_M_VALUE
     auto m_value = decoder.decode<OtherMemberType>();
 #endif
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     Namespace::EmptyConstructorWithIf result;
 #if CONDITION_AROUND_M_TYPE_AND_M_VALUE
@@ -402,7 +409,7 @@ void ArgumentCoder<WithoutNamespace>::encode(Encoder& encoder, const WithoutName
 std::optional<WithoutNamespace> ArgumentCoder<WithoutNamespace>::decode(Decoder& decoder)
 {
     auto a = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WithoutNamespace {
@@ -442,7 +449,7 @@ void ArgumentCoder<WithoutNamespaceWithAttributes>::encode(OtherEncoder& encoder
 std::optional<WithoutNamespaceWithAttributes> ArgumentCoder<WithoutNamespaceWithAttributes>::decode(Decoder& decoder)
 {
     auto a = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WithoutNamespaceWithAttributes {
@@ -471,7 +478,7 @@ std::optional<WebCore::InheritsFrom> ArgumentCoder<WebCore::InheritsFrom>::decod
 {
     auto a = decoder.decode<int>();
     auto b = decoder.decode<float>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::InheritsFrom {
@@ -510,7 +517,7 @@ std::optional<WebCore::InheritanceGrandchild> ArgumentCoder<WebCore::Inheritance
     auto a = decoder.decode<int>();
     auto b = decoder.decode<float>();
     auto c = decoder.decode<double>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::InheritanceGrandchild {
@@ -535,7 +542,7 @@ void ArgumentCoder<WTF::Seconds>::encode(Encoder& encoder, const WTF::Seconds& i
 std::optional<WTF::Seconds> ArgumentCoder<WTF::Seconds>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<double>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WTF::Seconds {
@@ -561,7 +568,7 @@ void ArgumentCoder<WTF::CreateUsingClass>::encode(Encoder& encoder, const WTF::C
 std::optional<WTF::CreateUsingClass> ArgumentCoder<WTF::CreateUsingClass>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<double>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WTF::CreateUsingClass::fromDouble(
@@ -589,7 +596,7 @@ std::optional<WebCore::FloatBoxExtent> ArgumentCoder<WebCore::FloatBoxExtent>::d
     auto right = decoder.decode<float>();
     auto bottom = decoder.decode<float>();
     auto left = decoder.decode<float>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::FloatBoxExtent {
@@ -623,7 +630,7 @@ std::optional<SoftLinkedMember> ArgumentCoder<SoftLinkedMember>::decode(Decoder&
 {
     auto firstMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClass() });
     auto secondMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClass() });
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         SoftLinkedMember {
@@ -675,32 +682,32 @@ std::optional<Ref<WebCore::TimingFunction>> ArgumentCoder<WebCore::TimingFunctio
 {
     auto type = decoder.decode<WebCore_TimingFunction_Subclass>();
     UNUSED_PARAM(type);
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
 
     if (type == WebCore_TimingFunction_Subclass::LinearTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::LinearTimingFunction>>();
-        if (UNLIKELY(!decoder.isValid()))
+        if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
         return WTFMove(*result);
     }
     if (type == WebCore_TimingFunction_Subclass::CubicBezierTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::CubicBezierTimingFunction>>();
-        if (UNLIKELY(!decoder.isValid()))
+        if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
         return WTFMove(*result);
     }
 #if CONDITION
     if (type == WebCore_TimingFunction_Subclass::StepsTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::StepsTimingFunction>>();
-        if (UNLIKELY(!decoder.isValid()))
+        if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
         return WTFMove(*result);
     }
 #endif
     if (type == WebCore_TimingFunction_Subclass::SpringTimingFunction) {
         auto result = decoder.decode<Ref<WebCore::SpringTimingFunction>>();
-        if (UNLIKELY(!decoder.isValid()))
+        if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
         return WTFMove(*result);
     }
@@ -726,7 +733,7 @@ void ArgumentCoder<Namespace::ConditionalCommonClass>::encode(Encoder& encoder, 
 std::optional<Namespace::ConditionalCommonClass> ArgumentCoder<Namespace::ConditionalCommonClass>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::ConditionalCommonClass {
@@ -740,25 +747,31 @@ std::optional<Namespace::ConditionalCommonClass> ArgumentCoder<Namespace::Condit
 void ArgumentCoder<Namespace::CommonClass>::encode(Encoder& encoder, const Namespace::CommonClass& instance)
 {
     static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.value)>, int>);
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.nonRefMemberWithSubclasses)>, WebCore::TimingFunction>);
     struct ShouldBeSameSizeAsCommonClass : public VirtualTableAndRefCountOverhead<std::is_polymorphic_v<Namespace::CommonClass>, false> {
         int value;
+        WebCore::TimingFunction nonRefMemberWithSubclasses;
     };
     static_assert(sizeof(ShouldBeSameSizeAsCommonClass) == sizeof(Namespace::CommonClass));
     static_assert(MembersInCorrectOrder < 0
         , offsetof(Namespace::CommonClass, value)
+        , offsetof(Namespace::CommonClass, nonRefMemberWithSubclasses)
     >::value);
 
     encoder << instance.value;
+    encoder << instance.nonRefMemberWithSubclasses;
 }
 
 std::optional<Namespace::CommonClass> ArgumentCoder<Namespace::CommonClass>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    auto nonRefMemberWithSubclasses = decoder.decode<Ref<WebCore::TimingFunction>>();
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::CommonClass {
-            WTFMove(*value)
+            WTFMove(*value),
+            WTFMove(*nonRefMemberWithSubclasses)
         }
     };
 }
@@ -783,7 +796,7 @@ void ArgumentCoder<Namespace::AnotherCommonClass>::encode(Encoder& encoder, cons
 std::optional<Ref<Namespace::AnotherCommonClass>> ArgumentCoder<Namespace::AnotherCommonClass>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::AnotherCommonClass::create(
@@ -812,12 +825,12 @@ std::optional<WebCore::MoveOnlyBaseClass> ArgumentCoder<WebCore::MoveOnlyBaseCla
 {
     auto type = decoder.decode<WebCore_MoveOnlyBaseClass_Subclass>();
     UNUSED_PARAM(type);
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
 
     if (type == WebCore_MoveOnlyBaseClass_Subclass::MoveOnlyDerivedClass) {
         auto result = decoder.decode<Ref<WebCore::MoveOnlyDerivedClass>>();
-        if (UNLIKELY(!decoder.isValid()))
+        if (!decoder.isValid()) [[unlikely]]
             return std::nullopt;
         return WTFMove(*result);
     }
@@ -847,7 +860,7 @@ std::optional<WebCore::MoveOnlyDerivedClass> ArgumentCoder<WebCore::MoveOnlyDeri
 {
     auto firstMember = decoder.decode<int>();
     auto secondMember = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::MoveOnlyDerivedClass {
@@ -860,7 +873,7 @@ std::optional<WebCore::MoveOnlyDerivedClass> ArgumentCoder<WebCore::MoveOnlyDeri
 std::optional<WebKit::CustomEncoded> ArgumentCoder<WebKit::CustomEncoded>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::CustomEncoded {
@@ -943,7 +956,7 @@ std::optional<WebKit::LayerProperties> ArgumentCoder<WebKit::LayerProperties>::d
         else
             return std::nullopt;
     }
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return { WTFMove(result) };
 }
@@ -965,7 +978,7 @@ void ArgumentCoder<WebKit::TemplateTest<WebKit::Fabulous>>::encode(Encoder& enco
 std::optional<WebKit::TemplateTest<WebKit::Fabulous>> ArgumentCoder<WebKit::TemplateTest<WebKit::Fabulous>>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::TemplateTest<WebKit::Fabulous> {
@@ -991,7 +1004,7 @@ void ArgumentCoder<WebKit::TemplateTest<WebCore::Amazing>>::encode(Encoder& enco
 std::optional<WebKit::TemplateTest<WebCore::Amazing>> ArgumentCoder<WebKit::TemplateTest<WebCore::Amazing>>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::TemplateTest<WebCore::Amazing> {
@@ -1017,7 +1030,7 @@ void ArgumentCoder<WebKit::TemplateTest<JSC::Incredible>>::encode(Encoder& encod
 std::optional<WebKit::TemplateTest<JSC::Incredible>> ArgumentCoder<WebKit::TemplateTest<JSC::Incredible>>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::TemplateTest<JSC::Incredible> {
@@ -1043,7 +1056,7 @@ void ArgumentCoder<WebKit::TemplateTest<Testing::StorageSize>>::encode(Encoder& 
 std::optional<WebKit::TemplateTest<Testing::StorageSize>> ArgumentCoder<WebKit::TemplateTest<Testing::StorageSize>>::decode(Decoder& decoder)
 {
     auto value = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::TemplateTest<Testing::StorageSize> {
@@ -1085,7 +1098,7 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNode>> ArgumentCoder<WebCor
         else
             return std::nullopt;
     }
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::ScrollingStateFrameHostingNode::create(
@@ -1145,7 +1158,7 @@ std::optional<Ref<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple>> A
             return std::nullopt;
     }
     auto memberAfterTuple = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple::create(
@@ -1181,7 +1194,7 @@ std::optional<RequestEncodedWithBody> ArgumentCoder<RequestEncodedWithBody>::dec
         if (auto requestBody = decoder.decode<IPC::FormDataReference>())
             request->setHTTPBody(requestBody->takeData());
     }
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         RequestEncodedWithBody {
@@ -1213,7 +1226,7 @@ std::optional<RequestEncodedWithBodyRValue> ArgumentCoder<RequestEncodedWithBody
         if (auto requestBody = decoder.decode<IPC::FormDataReference>())
             request->setHTTPBody(requestBody->takeData());
     }
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         RequestEncodedWithBodyRValue {
@@ -1230,7 +1243,7 @@ void ArgumentCoder<CFFooRef>::encode(Encoder& encoder, CFFooRef instance)
 std::optional<RetainPtr<CFFooRef>> ArgumentCoder<RetainPtr<CFFooRef>>::decode(Decoder& decoder)
 {
     auto result = decoder.decode<WebKit::FooWrapper>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return result->toCF();
 }
@@ -1249,7 +1262,7 @@ void ArgumentCoder<CFBarRef>::encode(StreamConnectionEncoder& encoder, CFBarRef 
 std::optional<RetainPtr<CFBarRef>> ArgumentCoder<RetainPtr<CFBarRef>>::decode(Decoder& decoder)
 {
     auto result = decoder.decode<WebKit::BarWrapper>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return createCFBar(*result);
 }
@@ -1281,7 +1294,7 @@ std::optional<SkFooBar> ArgumentCoder<SkFooBar>::decode(Decoder& decoder)
 {
     auto foo = decoder.decode<int>();
     auto bar = decoder.decode<double>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         CoreIPCSkFooBar {
@@ -1303,7 +1316,7 @@ void ArgumentCoder<WebKit::RValueWithFunctionCalls>::encode(Encoder& encoder, We
 std::optional<WebKit::RValueWithFunctionCalls> ArgumentCoder<WebKit::RValueWithFunctionCalls>::decode(Decoder& decoder)
 {
     auto callFunction = decoder.decode<SandboxExtensionHandle>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::RValueWithFunctionCalls {
@@ -1334,7 +1347,7 @@ std::optional<WebKit::RemoteVideoFrameReference> ArgumentCoder<WebKit::RemoteVid
 {
     auto identifier = decoder.decode<WebKit::RemoteVideoFrameIdentifier>();
     auto version = decoder.decode<uint64_t>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::RemoteVideoFrameReference {
@@ -1366,7 +1379,7 @@ std::optional<WebKit::RemoteVideoFrameWriteReference> ArgumentCoder<WebKit::Remo
 {
     auto reference = decoder.decode<IPC::ObjectIdentifierReference<WebKit::RemoteVideoFrameIdentifier>>();
     auto pendingReads = decoder.decode<uint64_t>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebKit::RemoteVideoFrameWriteReference {
@@ -1394,7 +1407,7 @@ void ArgumentCoder<Namespace::OuterClass>::encode(Encoder& encoder, const Namesp
 std::optional<Namespace::OuterClass> ArgumentCoder<Namespace::OuterClass>::decode(Decoder& decoder)
 {
     auto outerValue = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::OuterClass {
@@ -1423,7 +1436,7 @@ void ArgumentCoder<Namespace::OtherOuterClass>::encode(Encoder& encoder, const N
 std::optional<Namespace::OtherOuterClass> ArgumentCoder<Namespace::OtherOuterClass>::decode(Decoder& decoder)
 {
     auto outerValue = decoder.decode<int>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         Namespace::OtherOuterClass {
@@ -1481,7 +1494,7 @@ std::optional<Ref<WebCore::AppKitControlSystemImage>> ArgumentCoder<WebCore::App
 {
     auto m_tintColor = decoder.decode<WebCore::Color>();
     auto m_useDarkAppearance = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::ScrollbarTrackCornerSystemImageMac::create(
@@ -1512,7 +1525,7 @@ std::optional<WebCore::RectEdges<bool>> ArgumentCoder<WebCore::RectEdges<bool>>:
     auto right = decoder.decode<bool>();
     auto bottom = decoder.decode<bool>();
     auto left = decoder.decode<bool>();
-    if (UNLIKELY(!decoder.isValid()))
+    if (!decoder.isValid()) [[unlikely]]
         return std::nullopt;
     return {
         WebCore::RectEdges<bool> {

@@ -8,8 +8,11 @@
 
 #include "compiler/translator/tree_ops/RewriteStructSamplers.h"
 
+#include "GLSLANG/ShaderVars.h"
 #include "common/hash_containers.h"
 #include "common/span.h"
+#include "compiler/translator/Compiler.h"
+#include "compiler/translator/ImmutableString.h"
 #include "compiler/translator/ImmutableStringBuilder.h"
 #include "compiler/translator/SymbolTable.h"
 #include "compiler/translator/tree_util/IntermNode_util.h"
@@ -51,21 +54,30 @@ bool RewriteExpressionVisitBinaryHelper(TCompiler *compiler,
                                                  const ExtractedSamplerMap &extractedSamplers,
                                                  TIntermTyped **rewritten)
 {
-    // Only interested in EOpIndexDirectStruct binary nodes.
-    if (node->getOp() != EOpIndexDirectStruct)
+    // Only interested in EOpIndex* binary nodes.
+    switch (node->getOp())
     {
-        *rewritten = nullptr;
-        return true;
+        case EOpIndexDirectInterfaceBlock:
+        case EOpIndexIndirect:
+        case EOpIndexDirect:
+        case EOpIndexDirectStruct:
+            break;
+        default:
+			*rewritten = nullptr;
+            return true;
     }
 
     const TStructure *structure = node->getLeft()->getType().getStruct();
-    ASSERT(structure);
+    if (structure == nullptr)
+    {
+        return true;
+    }
 
     // If the result of the index is not a sampler and the struct is not replaced, there's nothing
     // to do.
     if (!node->getType().isSampler() && structureMap.find(structure) == structureMap.end())
     {
-        *rewritten = nullptr;
+		*rewritten = nullptr;
         return true;
     }
 
@@ -193,8 +205,6 @@ bool RewriteModifiedStructFieldSelectionExpression(
     const ExtractedSamplerMap &extractedSamplers,
     TIntermTyped **rewritten)
 {
-    ASSERT(node->getOp() == EOpIndexDirectStruct);
-
     const bool isSampler = node->getType().isSampler();
 
     TIntermSymbol *baseUniform = nullptr;
@@ -229,6 +239,7 @@ bool RewriteModifiedStructFieldSelectionExpression(
 
         iter = iter->getLeft()->getAsBinaryNode();
     }
+
 
     if (isSampler)
     {
@@ -397,6 +408,23 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
     bool hasUnsupportedError() const { return mUnsupportedError; }
 
   private:
+    bool isActiveUniform(const ImmutableString &rootStructureName)
+    {
+        if (!mActiveUniforms)
+        {
+            mActiveUniforms = new TSet<ImmutableString>();
+            for (const ShaderVariable &uniform : mCompiler->getUniforms())
+            {
+                if (uniform.active)
+                {
+                    mActiveUniforms->insert(uniform.name);
+                }
+            }
+        }
+
+        return mActiveUniforms->count(rootStructureName) > 0;
+    }
+
     // Removes all samplers from a struct specifier.
     void stripStructSpecifierSamplers(const TStructure *structure, TIntermSequence *newSequence)
     {
@@ -499,7 +527,8 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
 
         for (const TField *field : structure->fields())
         {
-            extractFieldSamplers(variable.name().data(), field, newSequence);
+            extractFieldSamplers(isActiveUniform(variable.name()), variable.name().data(), field,
+                                 newSequence);
         }
 
         // If there's a replacement structure (because there are non-sampler fields in the struct),
@@ -533,7 +562,8 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
     }
 
     // Extracts samplers from a field of a struct. Works with nested structs and arrays.
-    void extractFieldSamplers(const std::string &prefix,
+    void extractFieldSamplers(bool inActiveUniform,
+                              const std::string &prefix,
                               const TField *field,
                               TIntermSequence *newSequence)
     {
@@ -544,7 +574,10 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
 
             if (fieldType.isSampler())
             {
-                extractSampler(newPrefix, fieldType, newSequence);
+                if (inActiveUniform)
+                {
+                    extractSampler(newPrefix, fieldType, newSequence);
+                }
             }
             else
             {
@@ -552,7 +585,7 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
                 const TStructure *structure = fieldType.getStruct();
                 for (const TField *nestedField : structure->fields())
                 {
-                    extractFieldSamplers(newPrefix, nestedField, newSequence);
+                    extractFieldSamplers(inActiveUniform, newPrefix, nestedField, newSequence);
                 }
                 exitArray(fieldType);
             }
@@ -638,7 +671,10 @@ class RewriteStructSamplersTraverser final : public TIntermTraverser
     // for example when it's nested in an array of structs in an array of structs.
     TVector<unsigned int> mArraySizeStack;
 
-    // FIXME: Used to communicate that an error occurred during the rewrite process that is currently not
+    // Caches the names of all inactive uniforms.
+    TSet<ImmutableString> *mActiveUniforms = nullptr;
+
+	// FIXME: Used to communicate that an error occurred during the rewrite process that is currently not
     // supported so that a failure can be returned to callers of sh::RewriteStructSamplers().
     bool mUnsupportedError;
 };

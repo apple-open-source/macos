@@ -163,7 +163,7 @@ RetainPtr<CGColorSpaceRef> createCGColorSpaceForCVPixelBuffer(CVPixelBufferRef b
     // that requires an embedded ICC profile is unlikely to be presented
     // correctly with any particular fallback color space we choose, so we
     // choose sRGB for ease.
-    return sRGBColorSpaceRef();
+    return sRGBColorSpaceSingleton();
 }
 
 void setOwnershipIdentityForCVPixelBuffer(CVPixelBufferRef pixelBuffer, const ProcessIdentity& owner)

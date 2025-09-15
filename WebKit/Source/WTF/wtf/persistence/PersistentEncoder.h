@@ -70,7 +70,9 @@ public:
     WTF_EXPORT_PRIVATE Encoder& operator<<(float);
     WTF_EXPORT_PRIVATE Encoder& operator<<(double);
 
-    const uint8_t* buffer() const LIFETIME_BOUND { return m_buffer.data(); }
+    // FIXME: Port call sites to span() and remove.
+    const uint8_t* buffer() const LIFETIME_BOUND { return m_buffer.span().data(); }
+
     size_t bufferSize() const { return m_buffer.size(); }
     std::span<const uint8_t> span() const LIFETIME_BOUND { return m_buffer.span(); }
 

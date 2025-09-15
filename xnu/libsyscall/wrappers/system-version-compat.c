@@ -40,7 +40,13 @@
 #define COMPAT_SUFFIX_IOS ""
 
 #define SYSTEM_VERSION_PLIST_FILENAME "SystemVersion.plist"
-#define SYSTEM_VERSION_PLIST_PATH ("/System/Library/CoreServices/" SYSTEM_VERSION_PLIST_FILENAME)
+#define SYSTEM_VERSION_PLIST_PATH "/System/Library/CoreServices/" SYSTEM_VERSION_PLIST_FILENAME
+
+#if TARGET_OS_OSX
+#define SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATH "/System/Volumes/Preboot/Cryptexes/OS" SYSTEM_VERSION_PLIST_PATH
+#else
+#define SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATH "/private/preboot/Cryptexes/OS" SYSTEM_VERSION_PLIST_PATH
+#endif /* TARGET_OS_OSX */
 
 #define SYSTEM_VERSION_COMPAT_PLIST_FILENAME(platform_prefix, compat_suffix) (platform_prefix "SystemVersion" compat_suffix ".plist")
 
@@ -49,6 +55,7 @@
 #define SYSTEM_VERSION_COMPAT_PLIST_FILENAMELEN(platform_prefix, compat_suffix) strlen(SYSTEM_VERSION_COMPAT_PLIST_FILENAME(platform_prefix, compat_suffix))
 
 #define SYSTEM_VERSION_PLIST_PATHLEN strlen(SYSTEM_VERSION_PLIST_PATH)
+#define SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATHLEN strlen(SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATH)
 
 extern system_version_compat_mode_t system_version_compat_mode;
 
@@ -154,14 +161,28 @@ _system_version_compat_open_shim(int opened_fd, int openat_fd, const char *orig_
 		}
 	}
 
-	/* Check to see whether the path matches SYSTEM_VERSION_PLIST_PATH */
+	bool path_needs_shim = false;
 	size_t newpathlen = strnlen(new_path, MAXPATHLEN);
-	if (newpathlen != SYSTEM_VERSION_PLIST_PATHLEN) {
-		errno = stashed_errno;
-		return opened_fd;
+
+	/* Check to see whether the path matches SYSTEM_VERSION_PLIST_PATH */
+	if (newpathlen == SYSTEM_VERSION_PLIST_PATHLEN &&
+	    strncmp(new_path, SYSTEM_VERSION_PLIST_PATH, newpathlen) == 0) {
+		path_needs_shim = true;
 	}
 
-	if (strncmp(new_path, SYSTEM_VERSION_PLIST_PATH, SYSTEM_VERSION_PLIST_PATHLEN) != 0) {
+#if SYSTEM_VERSION_COMPAT_SHIM_OS_CRYPTEX
+	/* Check to see whether the path matches SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATH */
+	if (newpathlen == SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATHLEN &&
+	    strncmp(new_path, SYSTEM_VERSION_PLIST_OS_CRYPTEX_PATH, newpathlen) == 0) {
+		path_needs_shim = true;
+
+		/* Redirect to the system volume path */
+		orig_path = SYSTEM_VERSION_PLIST_PATH;
+		path_str_len = SYSTEM_VERSION_PLIST_PATHLEN;
+	}
+#endif /* SYSTEM_VERSION_COMPAT_SHIM_OS_CRYPTEX */
+
+	if (!path_needs_shim) {
 		errno = stashed_errno;
 		return opened_fd;
 	}

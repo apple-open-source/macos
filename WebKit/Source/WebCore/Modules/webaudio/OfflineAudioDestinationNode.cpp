@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2011, Google Inc. All rights reserved.
- * Copyright (C) 2020-2021, Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "AudioUtilities.h"
 #include "AudioWorklet.h"
 #include "AudioWorkletMessagingProxy.h"
+#include "Exception.h"
 #include "HRTFDatabaseLoader.h"
 #include "OfflineAudioContext.h"
 #include "WorkerRunLoop.h"
@@ -155,10 +156,6 @@ void OfflineAudioDestinationNode::startRendering(CompletionHandler<void(std::opt
 auto OfflineAudioDestinationNode::renderOnAudioThread() -> RenderResult
 {
     ASSERT(!isMainThread());
-    ASSERT(m_renderBus.get());
-
-    if (!m_renderBus.get())
-        return RenderResult::Failure;
 
     RELEASE_ASSERT(context().isInitialized());
 
@@ -181,7 +178,7 @@ auto OfflineAudioDestinationNode::renderOnAudioThread() -> RenderResult
             return RenderResult::Suspended;
 
         // Render one render quantum.
-        renderQuantum(m_renderBus.get(), AudioUtilities::renderQuantumSize, { });
+        renderQuantum(m_renderBus, AudioUtilities::renderQuantumSize, { });
         
         size_t framesAvailableToCopy = std::min(m_framesToProcess, AudioUtilities::renderQuantumSize);
         

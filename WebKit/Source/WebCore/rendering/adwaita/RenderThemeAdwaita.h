@@ -40,7 +40,7 @@ public:
     bool canCreateControlPartForBorderOnly(const RenderObject&) const final;
     bool canCreateControlPartForDecorations(const RenderObject&) const final;
 
-    bool isControlStyled(const RenderStyle&, const RenderStyle& userAgentStyle) const final;
+    bool isControlStyled(const RenderStyle&) const final;
 
     void setAccentColor(const Color&);
 
@@ -48,7 +48,7 @@ private:
     String extraDefaultStyleSheet() final;
 #if ENABLE(VIDEO)
     Vector<String, 2> mediaControlsScripts() final;
-    String mediaControlsStyleSheet() final;
+    Vector<String, 2> mediaControlsStyleSheets(const HTMLMediaElement&) final;
 #endif
 
 #if ENABLE(VIDEO)
@@ -59,7 +59,7 @@ private:
 #endif // ENABLE(VIDEO)
 
     bool supportsHover() const final { return true; }
-    bool supportsFocusRing(const RenderStyle&) const final;
+    bool supportsFocusRing(const RenderObject&, const RenderStyle&) const final;
     bool supportsSelectionForegroundColors(OptionSet<StyleColorOptions>) const final { return false; }
     bool supportsListBoxSelectionForegroundColors(OptionSet<StyleColorOptions>) const final { return true; }
     bool shouldHaveCapsLockIndicator(const HTMLInputElement&) const final;
@@ -82,7 +82,7 @@ private:
     bool popsMenuBySpaceOrReturn() const final { return true; }
     void adjustMenuListStyle(RenderStyle&, const Element*) const override;
     void adjustMenuListButtonStyle(RenderStyle&, const Element*) const override;
-    LengthBox popupInternalPaddingBox(const RenderStyle&) const final;
+    Style::PaddingBox popupInternalPaddingBox(const RenderStyle&) const final;
 
     Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const final;
     IntRect progressBarRectForBounds(const RenderProgress&, const IntRect&) const final;
@@ -94,6 +94,10 @@ private:
     IntSize sliderTickSize() const final;
     int sliderTickOffsetFromTrackCenter() const final;
     void adjustListButtonStyle(RenderStyle&, const Element*) const final;
+
+    Style::PreferredSizePair controlSize(StyleAppearance, const FontCascade&, const Style::PreferredSizePair&, float) const final;
+    Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, float zoomFactor) const final;
+    LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox&, float, const Element*) const final;
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::optional<Seconds> caretBlinkInterval() const override;

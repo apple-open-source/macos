@@ -27,14 +27,17 @@
 #define HistoryPropertyList_h
 
 #include "BinaryPropertyList.h"
+#include <wtf/MallocSpan.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
 
 @class WebHistoryItem;
+struct CFMalloc;
 
 class HistoryPropertyListWriter : public BinaryPropertyListWriter {
 public:
     RetainPtr<CFDataRef> releaseData();
+    ~HistoryPropertyListWriter();
 
 protected:
     HistoryPropertyListWriter();
@@ -45,7 +48,7 @@ private:
     virtual void writeHistoryItems(BinaryPropertyListObjectStream&) = 0;
 
     virtual void writeObjects(BinaryPropertyListObjectStream&);
-    virtual UInt8* buffer(size_t);
+    virtual std::span<UInt8> buffer(size_t);
 
     const String m_displayTitleKey;
     const String m_lastVisitWasFailureKey;
@@ -54,8 +57,7 @@ private:
     const String m_titleKey;
     const String m_urlKey;
 
-    UInt8* m_buffer;
-    size_t m_bufferSize;
+    MallocSpan<UInt8, CFMalloc> m_buffer;
 };
 
 #endif // HistoryPropertyList_h

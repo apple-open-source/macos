@@ -28,6 +28,8 @@
 #pragma once
 
 #include "Color.h"
+#include "FELighting.h"
+#include "Filter.h"
 #include "FilterEffect.h"
 #include "FilterEffectApplier.h"
 #include "FilterImageVector.h"
@@ -35,8 +37,6 @@
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
-
-class FELighting;
 
 class FELightingSoftwareApplier : public FilterEffectConcreteApplier<FELighting> {
     WTF_MAKE_TZONE_ALLOCATED(FELightingSoftwareApplier);
@@ -124,7 +124,7 @@ protected:
 
     virtual void applyPlatformParallel(const LightingData&, const LightSource::PaintingData&) const = 0;
     void applyPlatform(const LightingData&) const;
-    bool apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const final;
+    bool apply(const Filter&, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const final;
 };
 
 } // namespace WebCore

@@ -67,7 +67,7 @@ public:
 private:
     CoordinatedSceneState();
 
-    Ref<WebCore::CoordinatedPlatformLayer> m_rootLayer;
+    const Ref<WebCore::CoordinatedPlatformLayer> m_rootLayer;
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layers;
     Lock m_pendingLayersLock;
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_pendingLayers WTF_GUARDED_BY_LOCK(m_pendingLayersLock);

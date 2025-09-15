@@ -386,8 +386,8 @@ inline void FEGaussianBlurSoftwareApplier::applyPlatform(PixelBuffer& ioBuffer, 
                 IntSize blockSize = { paintSize.width(), endY - startY };
 
                 if (!job) {
-                    params.ioBuffer = &ioBuffer;
-                    params.tempBuffer = &tempBuffer;
+                    params.ioBuffer = ioBuffer;
+                    params.tempBuffer = tempBuffer;
                 } else {
                     params.ioBuffer = ioBuffer.createScratchPixelBuffer(blockSize);
                     params.tempBuffer = tempBuffer.createScratchPixelBuffer(blockSize);
@@ -430,7 +430,7 @@ inline void FEGaussianBlurSoftwareApplier::applyPlatform(PixelBuffer& ioBuffer, 
     boxBlurGeneric(ioBuffer, tempBuffer, kernelSizeX, kernelSizeY, paintSize, isAlphaImage, edgeMode);
 }
 
-bool FEGaussianBlurSoftwareApplier::apply(const Filter& filter, const FilterImageVector& inputs, FilterImage& result) const
+bool FEGaussianBlurSoftwareApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
 
@@ -440,17 +440,17 @@ bool FEGaussianBlurSoftwareApplier::apply(const Filter& filter, const FilterImag
 
     auto effectDrawingRect = result.absoluteImageRectRelativeTo(input);
     input.copyPixelBuffer(*destinationPixelBuffer, effectDrawingRect);
-    if (!m_effect.stdDeviationX() && !m_effect.stdDeviationY())
+    if (!m_effect->stdDeviationX() && !m_effect->stdDeviationY())
         return true;
 
-    auto kernelSize = m_effect.calculateKernelSize(filter, { m_effect.stdDeviationX(), m_effect.stdDeviationY() });
+    auto kernelSize = m_effect->calculateKernelSize(filter, { m_effect->stdDeviationX(), m_effect->stdDeviationY() });
 
     IntSize paintSize = result.absoluteImageRect().size();
     auto tempBuffer = destinationPixelBuffer->createScratchPixelBuffer(paintSize);
     if (!tempBuffer)
         return false;
 
-    applyPlatform(*destinationPixelBuffer, *tempBuffer, kernelSize.width(), kernelSize.height(), paintSize, result.isAlphaImage(), m_effect.edgeMode());
+    applyPlatform(*destinationPixelBuffer, *tempBuffer, kernelSize.width(), kernelSize.height(), paintSize, result.isAlphaImage(), m_effect->edgeMode());
     return true;
 }
 

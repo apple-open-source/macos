@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc.  All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Alp Toker <alp.toker@collabora.co.uk>
  * Copyright (C) 2007 Holger Hans Peter Freyther
@@ -63,10 +63,7 @@ void CurlFormDataStream::clean()
     if (m_postData)
         m_postData = nullptr;
 
-    if (m_fileHandle != FileSystem::invalidPlatformFileHandle) {
-        FileSystem::closeFile(m_fileHandle);
-        m_fileHandle = FileSystem::invalidPlatformFileHandle;
-    }
+    m_fileHandle = { };
 }
 
 const Vector<uint8_t>* CurlFormDataStream::getPostData()
@@ -137,36 +134,33 @@ std::optional<size_t> CurlFormDataStream::read(char* buffer, size_t size)
 
 std::optional<size_t> CurlFormDataStream::readFromFile(const FormDataElement::EncodedFileData& fileData, char* buffer, size_t size)
 {
-    if (m_fileHandle == FileSystem::invalidPlatformFileHandle)
+    if (!m_fileHandle)
         m_fileHandle = FileSystem::openFile(fileData.filename, FileSystem::FileOpenMode::Read);
 
-    if (!FileSystem::isHandleValid(m_fileHandle)) {
+    if (!m_fileHandle) {
         LOG(Network, "Curl - Failed while trying to open %s for upload\n", fileData.filename.utf8().data());
-        m_fileHandle = FileSystem::invalidPlatformFileHandle;
         return std::nullopt;
     }
 
-    auto readBytes = FileSystem::readFromFile(m_fileHandle, { byteCast<uint8_t>(buffer), size });
-    if (readBytes < 0) {
-        LOG(Network, "Curl - Failed while trying to read %s for upload\n", fileData.filename.utf8().data());
-        FileSystem::closeFile(m_fileHandle);
-        m_fileHandle = FileSystem::invalidPlatformFileHandle;
-        return std::nullopt;
-    }
-
+    auto readBytes = m_fileHandle.read({ byteCast<uint8_t>(buffer), size });
     if (!readBytes) {
-        FileSystem::closeFile(m_fileHandle);
-        m_fileHandle = FileSystem::invalidPlatformFileHandle;
-        m_elementPosition++;
+        LOG(Network, "Curl - Failed while trying to read %s for upload\n", fileData.filename.utf8().data());
+        m_fileHandle = { };
+        return std::nullopt;
     }
 
-    return readBytes;
+    if (!*readBytes) {
+        m_fileHandle = { };
+        ++m_elementPosition;
+    }
+
+    return *readBytes;
 }
 
 std::optional<size_t> CurlFormDataStream::readFromData(const Vector<uint8_t>& data, char* buffer, size_t size)
 {
     size_t elementSize = data.size() - m_dataOffset;
-    const uint8_t* elementBuffer = data.data() + m_dataOffset;
+    const uint8_t* elementBuffer = data.subspan(m_dataOffset).data();
 
     size_t readBytes = elementSize > size ? size : elementSize;
     memcpy(buffer, elementBuffer, readBytes);

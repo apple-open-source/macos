@@ -64,29 +64,29 @@ using namespace WebCore;
 
 - (NSString *)protocol
 {
-    return reinterpret_cast<SecurityOrigin*>(_private)->protocol();
+    return reinterpret_cast<SecurityOrigin*>(_private)->protocol().createNSString().autorelease();
 }
 
 - (NSString *)host
 {
-    return reinterpret_cast<SecurityOrigin*>(_private)->host();
+    return reinterpret_cast<SecurityOrigin*>(_private)->host().createNSString().autorelease();
 }
 
 - (NSString *)databaseIdentifier
 {
-    return reinterpret_cast<SecurityOrigin*>(_private)->data().databaseIdentifier();
+    return reinterpret_cast<SecurityOrigin*>(_private)->data().databaseIdentifier().createNSString().autorelease();
 }
 
 #if PLATFORM(IOS_FAMILY)
 - (NSString *)toString
 {
-    return reinterpret_cast<SecurityOrigin*>(_private)->toString();
+    return reinterpret_cast<SecurityOrigin*>(_private)->toString().createNSString().autorelease();
 }
 #endif
 
 - (NSString *)stringValue
 {
-    return reinterpret_cast<SecurityOrigin*>(_private)->toString();
+    return reinterpret_cast<SecurityOrigin*>(_private)->toString().createNSString().autorelease();
 }
 
 - (unsigned short)port

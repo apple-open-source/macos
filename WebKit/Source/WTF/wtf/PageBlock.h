@@ -26,7 +26,7 @@
 #pragma once
 
 #include <wtf/FastMalloc.h>
-#include <wtf/StdLibExtras.h>
+#include <wtf/MathExtras.h>
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 
@@ -106,6 +106,5 @@ inline PageBlock::PageBlock(void* base, size_t size, bool hasGuardPages)
 using WTF::CeilingOnPageSize;
 using WTF::pageSize;
 using WTF::isPageAligned;
-using WTF::isPowerOfTwo;
 
 WTF_ALLOW_UNSAFE_BUFFER_USAGE_END

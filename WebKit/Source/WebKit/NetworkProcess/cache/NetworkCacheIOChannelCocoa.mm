@@ -109,8 +109,8 @@ void IOChannel::read(size_t offset, size_t size, Ref<WTF::WorkQueueBase>&& queue
 
 void IOChannel::write(size_t offset, const Data& data, Ref<WTF::WorkQueueBase>&& queue, Function<void(int error)>&& completionHandler)
 {
-    auto dispatchData = data.dispatchData();
-    dispatch_io_write(m_dispatchIO.get(), offset, dispatchData, queue->dispatchQueue(), makeBlockPtr([protectedThis = Ref { *this }, queue, completionHandler = WTFMove(completionHandler)](bool done, dispatch_data_t, int error) mutable {
+    RetainPtr dispatchData = data.dispatchData();
+    dispatch_io_write(m_dispatchIO.get(), offset, dispatchData.get(), queue->dispatchQueue(), makeBlockPtr([protectedThis = Ref { *this }, queue, completionHandler = WTFMove(completionHandler)](bool done, dispatch_data_t, int error) mutable {
         if (!done) {
             RELEASE_LOG_ERROR(NetworkCacheStorage, "IOChannel::write only part of data is written.");
             return;

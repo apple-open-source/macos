@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -99,7 +100,7 @@ public:
     bool didPassAccessControlCheck() const override { return m_didPassAccessControlCheck.load(); }
 
     // CachedRawResourceClient
-    void responseReceived(CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) override;
+    void responseReceived(const CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) override;
     void redirectReceived(CachedResource&, ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&) override;
     bool shouldCacheResponse(CachedResource&, const ResourceResponse&) override;
     void dataSent(CachedResource&, unsigned long long, unsigned long long) override;
@@ -107,7 +108,6 @@ public:
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&, LoadWillContinueInAnotherProcess) override;
 
 private:
-    Ref<MediaResourceLoader> protectedLoader() const;
     CachedResourceHandle<CachedRawResource> protectedResource() const;
 
     MediaResource(MediaResourceLoader&, CachedResourceHandle<CachedRawResource>&&);

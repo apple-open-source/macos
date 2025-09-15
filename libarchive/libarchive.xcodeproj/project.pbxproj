@@ -637,6 +637,10 @@
 		D3F6CE5C2627BF6C006EC5CB /* archive_entry_time.3 in Install Man(3) Pages */ = {isa = PBXBuildFile; fileRef = D3F6CE382627BF6C006EC5CB /* archive_entry_time.3 */; };
 		D3F6CE5D2627BF6C006EC5CB /* archive_write_filter.3 in Install Man(3) Pages */ = {isa = PBXBuildFile; fileRef = D3F6CE392627BF6C006EC5CB /* archive_write_filter.3 */; };
 		D3F6CE5E2627BF6C006EC5CB /* archive_write_set_passphrase.3 in Install Man(3) Pages */ = {isa = PBXBuildFile; fileRef = D3F6CE3A2627BF6C006EC5CB /* archive_write_set_passphrase.3 */; };
+		EB69F0112DAFC4CF0033C05A /* test_edit_deep_directories.c in Sources */ = {isa = PBXBuildFile; fileRef = EB69F0102DAFC4CF0033C05A /* test_edit_deep_directories.c */; };
+		EB69F0132DAFC4E40033C05A /* test_archive_write_secure_symlink.c in Sources */ = {isa = PBXBuildFile; fileRef = EB69F0122DAFC4E40033C05A /* test_archive_write_secure_symlink.c */; };
+		EB69F0162DAFCBB60033C05A /* archive_hooks.h in Sources */ = {isa = PBXBuildFile; fileRef = EB69F0142DAFCBB60033C05A /* archive_hooks.h */; };
+		EB69F0172DAFCBB60033C05A /* archive_hooks.c in Sources */ = {isa = PBXBuildFile; fileRef = EB69F0152DAFCBB60033C05A /* archive_hooks.c */; };
 		FD22F8B71D6FA2FE0046F7FF /* libarchive.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = FD22F8B41D6FA2F00046F7FF /* libarchive.plist */; };
 		FD9B899E104DC7F10096D791 /* archive_check_magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8969104DC7F00096D791 /* archive_check_magic.c */; };
 		FD9B899F104DC7F10096D791 /* archive_entry_copy_stat.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B896A104DC7F00096D791 /* archive_entry_copy_stat.c */; };
@@ -1459,6 +1463,12 @@
 		D3F6CE382627BF6C006EC5CB /* archive_entry_time.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = archive_entry_time.3; path = libarchive/libarchive/archive_entry_time.3; sourceTree = "<group>"; };
 		D3F6CE392627BF6C006EC5CB /* archive_write_filter.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = archive_write_filter.3; path = libarchive/libarchive/archive_write_filter.3; sourceTree = "<group>"; };
 		D3F6CE3A2627BF6C006EC5CB /* archive_write_set_passphrase.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = archive_write_set_passphrase.3; path = libarchive/libarchive/archive_write_set_passphrase.3; sourceTree = "<group>"; };
+		EB69F00C2DAFC4AF0033C05A /* archive_hooks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = archive_hooks.h; path = libarchive/libarchive/archive_hooks.h; sourceTree = "<group>"; };
+		EB69F00D2DAFC4AF0033C05A /* archive_hooks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = archive_hooks.c; path = libarchive/libarchive/archive_hooks.c; sourceTree = "<group>"; };
+		EB69F0102DAFC4CF0033C05A /* test_edit_deep_directories.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_edit_deep_directories.c; path = libarchive/libarchive/test/test_edit_deep_directories.c; sourceTree = "<group>"; };
+		EB69F0122DAFC4E40033C05A /* test_archive_write_secure_symlink.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_archive_write_secure_symlink.c; path = libarchive/libarchive/test/test_archive_write_secure_symlink.c; sourceTree = "<group>"; };
+		EB69F0142DAFCBB60033C05A /* archive_hooks.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = archive_hooks.h; path = libarchive/libarchive/archive_hooks.h; sourceTree = "<group>"; };
+		EB69F0152DAFCBB60033C05A /* archive_hooks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = archive_hooks.c; path = libarchive/libarchive/archive_hooks.c; sourceTree = "<group>"; };
 		FD22F8B41D6FA2F00046F7FF /* libarchive.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libarchive.plist; sourceTree = "<group>"; };
 		FD9B8961104D9F050096D791 /* libarchive.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libarchive.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FD9B8969104DC7F00096D791 /* archive_check_magic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_check_magic.c; path = libarchive/libarchive/archive_check_magic.c; sourceTree = "<group>"; };
@@ -2052,6 +2062,12 @@
 		FD9B894C104D9EED0096D791 = {
 			isa = PBXGroup;
 			children = (
+				EB69F0142DAFCBB60033C05A /* archive_hooks.h */,
+				EB69F0152DAFCBB60033C05A /* archive_hooks.c */,
+				EB69F0122DAFC4E40033C05A /* test_archive_write_secure_symlink.c */,
+				EB69F0102DAFC4CF0033C05A /* test_edit_deep_directories.c */,
+				EB69F00C2DAFC4AF0033C05A /* archive_hooks.h */,
+				EB69F00D2DAFC4AF0033C05A /* archive_hooks.c */,
 				D0AD4F042C2B3F7D00788319 /* test_write_format_zip64_stream.c */,
 				D0AD4F032C2B3F5900788319 /* test_write_format_zip_entry_size_unset.c */,
 				D0AD4F022C2B3F0B00788319 /* test_read_format_rar_filter.c */,
@@ -2697,6 +2713,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB69F0132DAFC4E40033C05A /* test_archive_write_secure_symlink.c in Sources */,
+				EB69F0112DAFC4CF0033C05A /* test_edit_deep_directories.c in Sources */,
 				D0AD4F012C2B3EF400788319 /* test_write_format_zip64_stream.c in Sources */,
 				D0AD4EFF2C2B3EE100788319 /* test_write_format_zip_entry_size_unset.c in Sources */,
 				D0AD4EFD2C2B3EC300788319 /* test_read_format_rar_filter.c in Sources */,
@@ -3082,6 +3100,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB69F0162DAFCBB60033C05A /* archive_hooks.h in Sources */,
+				EB69F0172DAFCBB60033C05A /* archive_hooks.c in Sources */,
 				D3B0EFE125CC813100E729D9 /* archive_read_support_filter_by_code.c in Sources */,
 				FD9B899E104DC7F10096D791 /* archive_check_magic.c in Sources */,
 				3EE6CF041FA8CFD60018AA21 /* archive_cryptor.c in Sources */,

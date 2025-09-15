@@ -22,7 +22,11 @@
 
 #if ENABLE(MODEL_PROCESS)
 
-[ExceptionForEnabledBy]
+[
+    DispatchedFrom=Model,
+    DispatchedTo=UI,
+    ExceptionForEnabledBy
+]
 messages -> ModelProcessProxy {
 
     TerminateWebProcess(WebCore::ProcessIdentifier webProcessIdentifier)

@@ -193,6 +193,7 @@ close_fdekeystore(io_connect_t conn)
 static OSStatus
 _stash_set_key(service_context_t * context, const uint8_t *keydata, size_t keydata_len)
 {
+    int aksd_rc = kAKSReturnError;
     kern_return_t kr = KERN_INVALID_ARGUMENT;
     io_connect_t conn = IO_OBJECT_NULL;
     size_t len;
@@ -201,7 +202,7 @@ _stash_set_key(service_context_t * context, const uint8_t *keydata, size_t keyda
     require(keydata_len <= MAX_KEY_SIZE, done);
 
     applekeystored_context_t aksd_ctx = AKSD_CTX(context);
-    int aksd_rc = applekeystored_client_stash_create(&aksd_ctx, keydata, (unsigned)keydata_len);
+    aksd_rc = applekeystored_client_stash_create(&aksd_ctx, keydata, (unsigned)keydata_len);
     require_action(aksd_rc == kAKSReturnSuccess || aksd_rc == kAKSReturnUnsupported, done, secerror("stash create failed with 0x%08x", kr); kr = aksd_rc);
 
     conn = open_fdekeystore();
@@ -240,6 +241,11 @@ done:
 
     if (conn)
         close_fdekeystore(conn);
+
+    if (kr == KERN_SUCCESS && aksd_rc == kAKSReturnUnsupported) {
+        secinfo("keybag", "applekeystored_client_stash_create returned unsupported, but other stashing stuff succeeded");
+        kr = kAKSReturnUnsupported;
+    }
 
     return kr;
 }

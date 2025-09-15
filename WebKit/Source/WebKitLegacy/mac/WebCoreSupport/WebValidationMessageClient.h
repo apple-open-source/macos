@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@ public:
 
     // ValidationMessageClient API.
     void documentDetached(WebCore::Document&) final;
-    void showValidationMessage(const WebCore::Element& anchor, const String& message) final;
+    void showValidationMessage(const WebCore::Element& anchor, String&& message) final;
     void hideValidationMessage(const WebCore::Element& anchor) final;
     void hideAnyValidationMessage() final;
     bool isValidationMessageVisible(const WebCore::Element& anchor) final;

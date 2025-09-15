@@ -58,7 +58,7 @@
 - (NSString *)cssText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->cssText();
+    return IMPL->cssText().createNSString().autorelease();
 }
 
 - (void)setCssText:(NSString *)newCssText
@@ -82,7 +82,7 @@
 - (NSString *)getPropertyValue:(NSString *)propertyName
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getPropertyValue(propertyName);
+    return IMPL->getPropertyValue(propertyName).createNSString().autorelease();
 }
 
 - (DOMCSSValue *)getPropertyCSSValue:(NSString *)propertyName
@@ -94,13 +94,13 @@
 - (NSString *)removeProperty:(NSString *)propertyName
 {
     WebCore::JSMainThreadNullState state;
-    return raiseOnDOMError(IMPL->removeProperty(propertyName));
+    return raiseOnDOMError(IMPL->removeProperty(propertyName)).createNSString().autorelease();
 }
 
 - (NSString *)getPropertyPriority:(NSString *)propertyName
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getPropertyPriority(propertyName);
+    return IMPL->getPropertyPriority(propertyName).createNSString().autorelease();
 }
 
 - (void)setProperty:(NSString *)propertyName value:(NSString *)value priority:(NSString *)priority
@@ -112,13 +112,13 @@
 - (NSString *)item:(unsigned)index
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->item(index);
+    return IMPL->item(index).createNSString().autorelease();
 }
 
 - (NSString *)getPropertyShorthand:(NSString *)propertyName
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getPropertyShorthand(propertyName);
+    return IMPL->getPropertyShorthand(propertyName).createNSString().autorelease();
 }
 
 - (BOOL)isPropertyImplicit:(NSString *)propertyName

@@ -76,6 +76,8 @@
 #include <net/ntstat.h>
 #include <net/pktsched/pktsched_fq_codel.h>
 
+#include <skywalk/os_channel.h>
+
 #include <net/pktsched/pktsched.h>
 #include <net/classq/if_classq.h>
 
@@ -1426,6 +1428,9 @@ loop:
 
             switch (scheduler) {
                 case PKTSCHEDT_FQ_CODEL:
+#ifdef PKTSCHEDT_FQ_CODEL_NEW
+                case PKTSCHEDT_FQ_CODEL_NEW:
+#endif /* PKTSCHEDT_FQ_CODEL_NEW */
                     print_fq_codel_stats(n,
                                          &ifcqs->ifqs_fq_codel_stats,
                                          grp);
@@ -1484,6 +1489,10 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst, uint8_t grp)
 	printf("     [ drop overflow: %llu\tearly: %llu\tmemfail: %u\tduprexmt:%u ]\n",
 	    fqst->fcls_drop_overflow, fqst->fcls_drop_early,
 	    fqst->fcls_drop_memfailure, fqst->fcls_dup_rexmts);
+#ifdef AQM_CONGESTION_FEEDBACK
+    printf("     [ congestion feedback: %llu\t congestion drops: %llu ]\n",
+        fqst->fcls_congestion_feedback, fqst->fcls_high_delay_drop);
+#endif /* AQM_CONGESTION_FEEDBACK */
     printf("     [ L4S target qdelay: %10s ]\n", nsec_to_str(fqst->fcls_l4s_target_qdelay));
     printf("     [ CE marked:%llu\tCE marking failures:%llu\tL4S pkts:%llu   ]\n",
            fqst->fcls_ce_marked, fqst->fcls_ce_mark_failures, fqst->fcls_l4s_pkts);
@@ -1569,6 +1578,11 @@ sched2str(unsigned int s)
 	case PKTSCHEDT_FQ_CODEL:
 		c = "FQ_CODEL";
 		break;
+#ifdef PKTSCHEDT_FQ_CODEL_NEW
+    case PKTSCHEDT_FQ_CODEL_NEW:
+        c = "NEW FQ_CODEL";
+        break;
+#endif /* PKTSCHEDT_FQ_CODEL_NEW */
 	default:
 		c = "UNKNOWN";
 		break;

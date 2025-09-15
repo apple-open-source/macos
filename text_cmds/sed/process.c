@@ -34,11 +34,6 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
-
-#ifndef lint
-static const char sccsid[] = "@(#)process.c	8.6 (Berkeley) 4/20/94";
-#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -140,7 +135,7 @@ redirect:
 				psl = 0;
 				if (cp->a2 == NULL || lastaddr || lastline())
 					(void)fprintf(outfile, "%s", cp->t);
-				break;
+				goto new;
 			case 'd':
 				pd = 1;
 				goto new;
@@ -442,13 +437,7 @@ substitute(struct s_command *cp)
 		 * and at the end of the line, terminate.
 		 */
 		if (match[0].rm_so == match[0].rm_eo) {
-			if (*s == '\0' || *s == '\n')
-				slen = -1;
-#ifndef __APPLE__
-			else
-				slen--;
-#endif
-			if (*s != '\0') {
+			if (slen > 0) {
 #ifdef __APPLE__
 				int advance;
 
@@ -481,9 +470,11 @@ substitute(struct s_command *cp)
 				slen -= advance;
 #else
 			 	cspace(&SS, s++, 1, APPEND);
+				slen--;
 				le++;
 #endif
-			}
+			} else
+				slen = -1;
 			lastempty = 1;
 		} else
 			lastempty = 0;

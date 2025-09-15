@@ -28,6 +28,7 @@
 
 #import "CoreIPCNSCFObject.h"
 #import "CoreIPCTypes.h"
+#import <wtf/ObjCRuntimeExtras.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <WebCore/WAKAppKitStubs.h>
@@ -46,13 +47,11 @@ CoreIPCNSValue::CoreIPCNSValue(Value&& value)
 
 auto CoreIPCNSValue::valueFromNSValue(NSValue *nsValue) -> Value
 {
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-    if (!strcmp(nsValue.objCType, @encode(NSRange)))
-        return nsValue.rangeValue;
+    if (nsValueHasObjCType<NSRange>(nsValue))
+        return IPCRange { nsValue.rangeValue.location, nsValue.rangeValue.length };
 
-    if (!strcmp(nsValue.objCType, @encode(CGRect)))
+    if (nsValueHasObjCType<CGRect>(nsValue))
         return nsValue.rectValue;
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     return makeUniqueRef<CoreIPCNSCFObject>(nsValue);
 }
@@ -69,10 +68,10 @@ RetainPtr<id> CoreIPCNSValue::toID() const
     auto nsValueFromWrapped = [](const Value& wrappedValue) {
         RetainPtr<id> result;
 
-        WTF::switchOn(wrappedValue, [&](const NSRange& range) {
-            result = [NSValue valueWithRange:range];
-        }, [&](const CGRect& rect) {
-            result = [NSValue valueWithRect:rect];
+        WTF::switchOn(wrappedValue, [&](const IPCRange& range) {
+            result = [NSValue valueWithRange:NSMakeRange(range.location, range.length)];
+        }, [&](const DoubleRect& rect) {
+            result = [NSValue valueWithRect:rect.toCG()];
         }, [&](const UniqueRef<CoreIPCNSCFObject>& object) {
             result = object->toID();
         });

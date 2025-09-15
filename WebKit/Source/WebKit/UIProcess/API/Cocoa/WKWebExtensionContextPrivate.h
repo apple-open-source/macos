@@ -46,6 +46,23 @@ WK_HEADER_AUDIT_BEGIN(nullability, sendability)
 - (void)_sendTestMessage:(NSString *)message withArgument:(nullable id)argument;
 
 /*!
+ @abstract Sends data to the JavaScript `browser.test.onTestStarted` API.
+ @discussion Allows code to trigger a `browser.test.onTestStarted` event during testing.
+ @param argument The optional JSON-serializable argument to include with the message. Must be JSON-serializable according to \c NSJSONSerialization.
+ */
+- (void)_sendTestStartedWithArgument:(nullable id)argument;
+
+/*!
+ @abstract Sends data to the JavaScript `browser.test.onTestFinished` API.
+ @discussion Allows code to trigger a `browser.test.onTestFinished` event during testing.
+ @param argument The optional JSON-serializable argument to include with the message. Must be JSON-serializable according to \c NSJSONSerialization.
+ */
+- (void)_sendTestFinishedWithArgument:(nullable id)argument;
+
+/*! @abstract Resets the commands back to the state provided by the manifest. */
+- (void)_resetCommands;
+
+/*!
  @abstract Retrieves the extension sidebar for a given tab, or the default sidebar if `nil` is passed.
  @param tab The tab for which to retrieve the extension sidebar, or `nil` to get the default sidebar.
  @discussion The returned object represents the sidebar specific to the tab when provided; otherwise, it returns the default sidebar.

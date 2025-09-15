@@ -48,7 +48,7 @@
 - (NSString *)title
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::titleAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::titleAttr).createNSString().autorelease();
 }
 
 - (void)setTitle:(NSString *)newTitle
@@ -60,7 +60,7 @@
 - (NSString *)lang
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::langAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::langAttr).createNSString().autorelease();
 }
 
 - (void)setLang:(NSString *)newLang
@@ -84,13 +84,13 @@
 - (NSString *)dir
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->dir();
+    return IMPL->dir().createNSString().autorelease();
 }
 
 - (void)setDir:(NSString *)newDir
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setDir(newDir);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::dirAttr, newDir);
 }
 
 - (int)tabIndex
@@ -120,7 +120,7 @@
 - (NSString *)webkitdropzone
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::webkitdropzoneAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::webkitdropzoneAttr).createNSString().autorelease();
 }
 
 - (void)setWebkitdropzone:(NSString *)newWebkitdropzone
@@ -144,7 +144,7 @@
 - (NSString *)accessKey
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::accesskeyAttr).createNSString().autorelease();
 }
 
 - (void)setAccessKey:(NSString *)newAccessKey
@@ -156,7 +156,7 @@
 - (NSString *)innerText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->innerText();
+    return IMPL->innerText().createNSString().autorelease();
 }
 
 - (void)setInnerText:(NSString *)newInnerText
@@ -168,7 +168,7 @@
 - (NSString *)outerText
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->outerText();
+    return IMPL->outerText().createNSString().autorelease();
 }
 
 - (void)setOuterText:(NSString *)newOuterText
@@ -180,7 +180,7 @@
 - (NSString *)contentEditable
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->contentEditable();
+    return IMPL->contentEditable().createNSString().autorelease();
 }
 
 - (void)setContentEditable:(NSString *)newContentEditable
@@ -210,7 +210,7 @@
 - (NSString *)idName
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getIdAttribute();
+    return IMPL->getIdAttribute().createNSString().autorelease();
 }
 
 - (void)setIdName:(NSString *)newIdName
@@ -228,7 +228,7 @@
 - (NSString *)titleDisplayString
 {
     WebCore::JSMainThreadNullState state;
-    return WebCore::displayString(IMPL->title(), core(self));
+    return WebCore::displayString(IMPL->title(), core(self)).createNSString().autorelease();
 }
 
 - (DOMElement *)insertAdjacentElement:(NSString *)where element:(DOMElement *)element
@@ -259,12 +259,14 @@
 
 #if ENABLE(AUTOCORRECT)
 
+// FIXME: This method isn't in a header. Is it used? Can we remove it?
 - (BOOL)autocorrect
 {
     WebCore::JSMainThreadNullState state;
     return IMPL->shouldAutocorrect();
 }
 
+// FIXME: This method isn't in a header. Is it used? Can we remove it?
 - (void)setAutocorrect:(BOOL)newAutocorrect
 {
     WebCore::JSMainThreadNullState state;
@@ -275,16 +277,18 @@
 
 #if ENABLE(AUTOCAPITALIZE)
 
+// FIXME: This method isn't in a header. Is it used? Can we remove it?
 - (NSString *)autocapitalize
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->autocapitalize();
+    return IMPL->autocapitalize().createNSString().autorelease();
 }
 
+// FIXME: This method isn't in a header. Is it used? Can we remove it?
 - (void)setAutocapitalize:(NSString *)newAutocapitalize
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setAutocapitalize(newAutocapitalize);
+    IMPL->setAttributeWithoutSynchronization(WebCore::HTMLNames::autocapitalizeAttr, newAutocapitalize);
 }
 
 #endif

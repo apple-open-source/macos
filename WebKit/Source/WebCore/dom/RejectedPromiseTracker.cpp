@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2017 Yusuke Suzuki <utatane.tea@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,8 +76,8 @@ public:
     }
 
 private:
-    Ref<DOMPromise> m_promise;
-    RefPtr<ScriptCallStack> m_stack;
+    const Ref<DOMPromise> m_promise;
+    const RefPtr<ScriptCallStack> m_stack;
 };
 
 
@@ -165,7 +165,7 @@ void RejectedPromiseTracker::reportUnhandledRejections(Vector<UnhandledPromise>&
 
         PromiseRejectionEvent::Init initializer;
         initializer.cancelable = true;
-        initializer.promise = &domPromise;
+        initializer.promise = domPromise;
         initializer.reason = promise.result(vm);
 
         Ref event = PromiseRejectionEvent::create(eventNames().unhandledrejectionEvent, initializer);

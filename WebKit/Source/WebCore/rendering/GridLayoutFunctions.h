@@ -35,11 +35,6 @@ enum class ItemPosition : uint8_t;
 class RenderElement;
 class RenderGrid;
 
-enum class GridAxis : uint8_t {
-    GridRowAxis = 1 << 0,
-    GridColumnAxis = 1 << 1
-};
-
 struct ExtraMarginsFromSubgrids {
     inline LayoutUnit extraTrackStartMargin() const { return m_extraMargins.first; }
     inline LayoutUnit extraTrackEndMargin() const { return m_extraMargins.second; }
@@ -78,9 +73,6 @@ bool isSubgridReversedDirection(const RenderGrid&, GridTrackSizingDirection oute
 ExtraMarginsFromSubgrids extraMarginForSubgridAncestors(GridTrackSizingDirection, const RenderBox& gridItem);
 
 unsigned alignmentContextForBaselineAlignment(const GridSpan&, const ItemPosition& alignment);
-
-GridAxis gridAxisForDirection(GridTrackSizingDirection);
-GridTrackSizingDirection gridDirectionForAxis(GridAxis);
 
 }
 

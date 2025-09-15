@@ -210,7 +210,10 @@ public:
 
 class ReplyPort : public Port {
 public:
-    ReplyPort() {
+    ReplyPort() {}
+
+    void init() {
+        assert(mPort == MACH_PORT_NULL);
         mach_port_options_t opts = {
             .flags = MPO_PROVISIONAL_REPLY_PORT,
         };
@@ -218,8 +221,10 @@ public:
     }
 
     ~ReplyPort() {
-        check(mach_port_destruct(self(), mPort, 0, 0));
-        mPort = MACH_PORT_NULL;
+        if (mPort != MACH_PORT_NULL) {
+            check(mach_port_destruct(self(), mPort, 0, 0));
+            mPort = MACH_PORT_NULL;
+        }
     }
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc.
+ * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #if ENABLE(WEB_RTC) && USE(LIBWEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LibWebRTCRtpReceiverBackend.h"
 #include "LibWebRTCRtpSenderBackend.h"
@@ -88,9 +89,9 @@ static inline ExceptionOr<webrtc::RtpCodecCapability> toRtpCodecCapability(const
 {
     webrtc::RtpCodecCapability rtcCodec;
     if (codec.mimeType.startsWith("video/"_s))
-        rtcCodec.kind = cricket::MEDIA_TYPE_VIDEO;
+        rtcCodec.kind = webrtc::MediaType::VIDEO;
     else if (codec.mimeType.startsWith("audio/"_s))
-        rtcCodec.kind = cricket::MEDIA_TYPE_AUDIO;
+        rtcCodec.kind = webrtc::MediaType::AUDIO;
     else
         return Exception { ExceptionCode::InvalidModificationError, "RTCRtpCodecCapability bad mimeType"_s };
 

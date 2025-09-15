@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,8 @@
 #include <wtf/MachSendRight.h>
 
 namespace WebCore {
+
+enum class IncludeDynamicContentScalingDisplayList : bool { No, Yes };
 
 class DynamicContentScalingDisplayList {
 public:

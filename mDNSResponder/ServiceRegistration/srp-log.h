@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <time.h>
 
 #ifdef POSIX_BUILD
 #include <limits.h>
@@ -88,50 +90,6 @@ extern bool srp_log_timestamp_relative;
 #        include <syslog.h>
 
         // Apple device always has OS_LOG support.
-#        ifdef __APPLE__
-#            define OS_LOG_ENABLED 1
-#            include <os/log.h>
-extern os_log_t global_os_log;
-
-
-            // Define log level
-#            define LOG_TYPE_FAULT      OS_LOG_TYPE_FAULT
-#            define LOG_TYPE_ERROR      OS_LOG_TYPE_ERROR
-#            define LOG_TYPE_INFO       OS_LOG_TYPE_DEFAULT
-#            define LOG_TYPE_DEBUG      OS_LOG_TYPE_DEBUG
-            // Define log macro
-#            define SRP_OS_LOG(component, type, format, ...) \
-                os_log_with_type((component), (type), ("%{public}s: " format), __FUNCTION__, ##__VA_ARGS__)
-
-#            define OPENLOG(progname, consolep) \
-                do { \
-                    if (consolep) {                                         \
-                        putenv("ACTIVITY_LOG_STDERR=1"); \
-                    } \
-                    (void)progname; \
-                    global_os_log = os_log_create("com.apple.srp-mdns-proxy", "0"); \
-                } while (0)
-#            define FAULT(format, ...)  SRP_OS_LOG(global_os_log, LOG_TYPE_FAULT, format, ##__VA_ARGS__)
-#            define ERROR(format, ...)  SRP_OS_LOG(global_os_log, LOG_TYPE_ERROR, format, ##__VA_ARGS__)
-
-#            ifdef DEBUG_VERBOSE
-#                ifdef DEBUG_FD_LEAKS
-                    int get_num_fds(void);
-#                    define INFO(format, ...) \
-                        do { \
-                            int foo = get_num_fds(); \
-                            SRP_OS_LOG(global_os_log, LOG_TYPE_INFO, "%d " format, foo, ##__VA_ARGS__); \
-                        } while(0)
-#                else // ifdef IOLOOP_MACOS
-#                    define INFO(format, ...) SRP_OS_LOG(global_os_log, LOG_TYPE_INFO, format, ##__VA_ARGS__)
-#                endif // ifdef IOLOOP_MACOS
-
-#                define DEBUG(format, ...) SRP_OS_LOG(global_os_log, LOG_TYPE_DEBUG, format, ##__VA_ARGS__)
-#            else // ifdef DEBUG_VERBOSE
-#                define INFO(format, ...) SRP_OS_LOG(global_os_log, LOG_TYPE_INFO, format, ##__VA_ARGS__)
-#                define DEBUG(format, ...)  do {} while(0)
-#            endif // ifdef DEBUG_VERBOSE
-#        else // ifdef __APPLE__
 #            define OS_LOG_ENABLED 0
 
 #            define OPENLOG(progname, consolep) openlog(progname, (consolep ? LOG_PERROR : 0) | LOG_PID, LOG_DAEMON)
@@ -154,7 +112,6 @@ extern os_log_t global_os_log;
 #                define INFO(fmt, ...)  syslog(LOG_INFO, "%s: " fmt, __FUNCTION__, ##__VA_ARGS__)
 #                define DEBUG(fmt, ...) do {} while(0)
 #            endif // ifdef DEBUG_VERBOSE
-#        endif // ifdef __APPLE__
 #    endif // ifdef LOG_FPRINTF_STDERR
 #endif // ifdef THREAD_DEVKIT_ADK
 

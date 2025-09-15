@@ -109,6 +109,11 @@ static int SocketConnect(const char *hostName, int port)
     }
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == -1)
+    {
+        perror("socket failed");
+        return -1;
+    }
     addr.sin_addr = host;
     addr.sin_port = htons((u_short)port);
 
@@ -134,7 +139,7 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void *data, size_t *len
         ssize_t ret;
         do {
             hexdump(ptr, len);
-            ret = write((int)conn, ptr, len);
+            ret = write((int)(intptr_t)conn, ptr, len);
             if (ret < 0)
                 perror("send");
         } while ((ret < 0) && (errno == EAGAIN || errno == EINTR));
@@ -158,7 +163,7 @@ static OSStatus SocketRead(SSLConnectionRef conn, void *data, size_t *length)
     do {
         ssize_t ret;
         do {
-            ret = read((int)conn, ptr, len);
+            ret = read((int)(intptr_t)conn, ptr, len);
             if (ret < 0)
                 perror("send");
         } while ((ret < 0) && (errno == EAGAIN || errno == EINTR));

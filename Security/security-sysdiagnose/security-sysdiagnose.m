@@ -44,6 +44,8 @@
 #import "supdProtocol.h"
 
 #include <stdio.h>
+#import <sqlite3.h>
+
 
 @interface NSString (FileOutput)
 - (void) writeToStdOut;
@@ -92,6 +94,83 @@ static NSString *dictionaryToString(NSDictionary *dict) {
 }
 
 @end
+
+@interface SQLiteManager : NSObject
++ (NSArray<NSArray*>*)executeQuery:(NSString *)query onDatabaseAtPath:(NSString *)dbPath;
+
+@end
+
+@implementation SQLiteManager
+
++ (NSArray<NSArray*>*)executeQuery:(NSString *)query onDatabaseAtPath:(NSString *)dbPath {
+    // Validate input parameters
+      if (query == NULL) {
+          [[NSString stringWithFormat:@"\nError: SQL query should not be null \n"] writeToStdErr];
+          return NULL;
+      }
+      
+      if (dbPath == NULL) {
+          [[NSString stringWithFormat:@"\nError: DB Path should not be null \n"] writeToStdErr];
+          return NULL;
+      }
+      
+    sqlite3 *database;
+    sqlite3_stmt *statement;
+    
+    NSMutableArray *rows = [NSMutableArray array];
+    // Open database
+    if (sqlite3_open_v2([dbPath UTF8String], &database, SQLITE_OPEN_READONLY, NULL) == SQLITE_OK) {
+
+        // Prepare the query
+        if (sqlite3_prepare_v2(database, [query UTF8String], -1, &statement, NULL) == SQLITE_OK) {
+            
+            // Get column count
+            int columnCount = sqlite3_column_count(statement);
+            
+            NSMutableArray *columnNames = [NSMutableArray arrayWithCapacity:columnCount];
+            // get column names
+            for (int i = 0; i < columnCount; i++) {
+                const char *name = sqlite3_column_name(statement, i);
+                if (name) {
+                    [columnNames addObject:[NSString stringWithUTF8String:name]];
+                } else {
+                    [columnNames addObject:[NSNull null]];
+                }
+            }
+            // Add column names
+            [rows addObject:columnNames];
+        
+            // Execute the query and get results
+            while (sqlite3_step(statement) == SQLITE_ROW) {
+                NSMutableArray *outputRow = [NSMutableArray arrayWithCapacity:columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    const char *value = (const char *)sqlite3_column_text(statement, i);
+                    if (value) {
+                        [outputRow addObject:[NSString stringWithUTF8String:value]];
+                        
+                    } else {
+                        [outputRow addObject:[NSNull null]];
+                    }
+                }
+                [rows addObject:outputRow];
+            }
+
+            // Finalize statement
+            sqlite3_finalize(statement);
+        } else {
+            [[NSString stringWithFormat:@"\nError: Failed to prepare statement %s \n", sqlite3_errmsg(database) ] writeToStdErr];
+        }
+
+        // Close database
+        sqlite3_close(database);
+    } else {
+        [[NSString stringWithFormat:@"\nError: Failed to open SQL DB %s \n", sqlite3_errmsg(database)] writeToStdErr];
+    }
+    
+    return rows;
+}
+@end
+
 
 static void
 circle_sysdiagnose(void)
@@ -315,8 +394,132 @@ kvs_sysdiagnose(void) {
     SOSCCDumpCircleKVSInformation(NULL);
 }
 
-int
-main(int argc, const char ** argv)
+static bool needs_agrp_redacting (NSString* agrp) {
+    // regular expression pattern for sensitive agrp i.e third party apps. However, some of 2nd party apps also follow this thirdParty pattern but we can consider them non-sensitive
+    NSString *thirdPartyApps = @"^[0-9A-Z]{10}\\.";
+    NSString *secondPartyApps = @"\\b(iWork|freeform|Xcode)\\b";
+    NSError *error = nil;
+    NSRegularExpression *thirdPartyregex = [NSRegularExpression regularExpressionWithPattern:thirdPartyApps options:NSRegularExpressionCaseInsensitive error:&error];
+    if (error) {
+        [[NSString stringWithFormat:@"\nError: %@ while creating second party regex \n", error.localizedDescription] writeToStdErr];
+        return false;
+    } else {
+        // Match the thirdParty regex pattern against the agrp
+        NSRange range = NSMakeRange(0, agrp.length);
+        NSTextCheckingResult *thirdPartyMatch = [thirdPartyregex firstMatchInString:agrp options:0 range:range];
+        if (thirdPartyMatch) {
+            // Check if it in 2nd Party apps; if yes we should return it as non-sensitive
+            NSError *innerError = nil;
+            NSRegularExpression * secondPartyRegex = [NSRegularExpression regularExpressionWithPattern:secondPartyApps options:NSRegularExpressionCaseInsensitive error:&innerError];
+            if (innerError) {
+                [[NSString stringWithFormat:@"\nError: %@ while creating second party regex \n", innerError.localizedDescription] writeToStdErr];
+                return false;
+            }
+            NSTextCheckingResult *secondPartyMatch = [secondPartyRegex firstMatchInString:agrp options:0 range:range];
+            if (secondPartyMatch) {
+                return false;
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+}
+
+static void agrp_item_count_sysdiagnose(void) {
+    [[NSString stringWithFormat:@"\n Keychain <access Group, #items> Information \n"] writeToStdOut];
+    CFErrorRef error = NULL;
+    NSString* dbPath = CFBridgingRelease(SecKeychainCopyDatabasePath(&error));
+    if (error != NULL || dbPath == NULL) {
+        NSError *err = (NSError *)CFBridgingRelease(error);
+        [[NSString stringWithFormat:@"\nError: Failed to get Keychain DB Path %@ \n", err] writeToStdErr];
+        return;
+    }
+    NSArray *itemClasses = @[@"inet", @"genp", @"keys", @"cert"];
+    // Threshold to filter access group with total item count
+    NSInteger threshold = 15;
+    // go over item classes and print the stats
+    for (NSString *itemClass in itemClasses) {
+        [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+        [[NSString stringWithFormat:@"\n Keychain <access Group, (#non-tombstone, #tombstone)> information for %@ item Class\n", itemClass] writeToStdOut];
+        [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+        NSString *sqlQuery = [NSString stringWithFormat:@"SELECT agrp,\
+                                 SUM(CASE WHEN tomb = 0 THEN 1 ELSE 0 END) AS count_tomb_0, \
+                                 SUM(CASE WHEN tomb = 1 THEN 1 ELSE 0 END) AS count_tomb_1 \
+                                 FROM %@ \
+                                 GROUP BY agrp \
+                                 ORDER BY (SUM(CASE WHEN tomb = 0 THEN 1 ELSE 0 END) + SUM(CASE WHEN tomb = 1 THEN 1 ELSE 0 END)) DESC", itemClass];
+        NSArray<NSArray*>* sqlResult = [SQLiteManager executeQuery:sqlQuery onDatabaseAtPath:dbPath];
+        // Go through the access groups and do redacting if necessary
+        NSUInteger redactCount = 1;
+        NSUInteger totalNonTombCount = 0;
+        NSUInteger totalTombCount = 0;
+        for (uint64_t i= 0; i < sqlResult.count; i++) {
+            // Column Names
+            if (i==0) {
+                [[NSString stringWithFormat:@"\n%@\n",[sqlResult[0] componentsJoinedByString:@", "]] writeToStdOut];
+                continue;
+            }
+            
+            // calculate total count
+            if (sqlResult[i].count>=3) {
+                totalNonTombCount += [sqlResult[i][1] intValue];
+                totalTombCount += [sqlResult[i][2] intValue];
+            }
+            
+            // print only if item count meets threshold
+            if(sqlResult[i].count>=3 && ([sqlResult[i][1] intValue] + [sqlResult[i][2] intValue]) >= threshold) {
+                // redact agrp if necessary
+                NSString *agrp = sqlResult[i].firstObject;
+                if (needs_agrp_redacting(agrp)) {
+                    NSString *redactedAccessGroup = [NSString stringWithFormat:@"<REDACTED-AGRP-%lu>", redactCount];
+                    NSRange range = NSMakeRange(1, sqlResult[i].count-1);
+                    NSArray *subArray = [sqlResult[i] subarrayWithRange:range];
+                    [[NSString stringWithFormat:@"\n%@, %@\n", redactedAccessGroup, [subArray componentsJoinedByString:@", "]] writeToStdOut];
+                    redactCount += 1;
+                } else {
+                    [[NSString stringWithFormat:@"\n%@\n",[sqlResult[i] componentsJoinedByString:@", "]] writeToStdOut];
+                }
+            }
+        }
+        [[NSString stringWithFormat:@"\n (Total agrps: %lu, Total Non-tombstone items: %lu, Total tombstone items: %lu)\n", (sqlResult.count>0 ? sqlResult.count-1 : 0), totalNonTombCount, totalTombCount] writeToStdOut];
+        [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+    }
+}
+
+static void print_sql_result(NSArray<NSArray*>* sqlResult) {
+    for (uint64_t i = 0; i < sqlResult.count; i++) {
+        [[NSString stringWithFormat:@"\n%@\n",[sqlResult[i] componentsJoinedByString:@", "]] writeToStdOut];
+    }
+}
+
+static void db_table_sizes(void) {
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+    [[NSString stringWithFormat:@"\n Keychain Database Table Size Information \n"] writeToStdOut];
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+    CFErrorRef error = NULL;
+    NSString* dbPath = CFBridgingRelease(SecKeychainCopyDatabasePath(&error));
+    if (error != NULL || dbPath == NULL) {
+        NSError *err = (NSError *)CFBridgingRelease(error);
+        [[NSString stringWithFormat:@"\nError: Failed to get Keychain DB Path %@ \n", err] writeToStdErr];
+        return;
+    }
+    NSString *sqlQuery = @"SELECT name, CASE \
+                           WHEN sum(pgsize) >= 1073741824 THEN ROUND(sum(pgsize)/1073741824.0, 2) || ' GB' \
+                           WHEN sum(pgsize) >= 1048576 THEN ROUND(sum(pgsize)/1048576.0, 2) || ' MB' \
+                           WHEN sum(pgsize) >= 1024 THEN ROUND(sum(pgsize)/1024.0, 2) || ' KB' \
+                           ELSE sum(pgsize) || ' bytes' \
+                       END AS size \
+                       FROM dbstat \
+                       GROUP BY name \
+                       ORDER BY sum(pgsize) DESC";
+    NSArray<NSArray*>* sqlResult = [SQLiteManager executeQuery:sqlQuery onDatabaseAtPath:dbPath];
+    print_sql_result(sqlResult);
+
+    [[NSString stringWithFormat:@"\n -----------------------------------------------------------------\n"] writeToStdOut];
+}
+
+int main(int argc, const char ** argv)
 {
     @autoreleasepool {
         printf("sysdiagnose keychain\n");
@@ -328,6 +531,8 @@ main(int argc, const char ** argv)
         rapport_sysdiagnose();
         notes_sysdiagnose();
         analytics_sysdiagnose();
+        agrp_item_count_sysdiagnose();
+        db_table_sizes();
         
         // Keep this one last
         kvs_sysdiagnose();

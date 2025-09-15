@@ -75,6 +75,8 @@
 #include <sys/syslog.h>
 #include <sys/queue.h>
 
+#include <kern/uipc_domain.h>
+
 #include <net/dlil.h>
 #include <net/nwk_wq.h>
 #include <net/sockaddr_utils.h>
@@ -535,7 +537,6 @@ net_add_proto_old(struct protosw_old *opp, struct domain_old *odp)
 	pp->pr_usrreqs          = pru;
 	pp->pr_init             = pr_init_old;
 	pp->pr_drain            = opp->pr_drain;
-	pp->pr_sysctl           = opp->pr_sysctl;
 	pp->pr_lock             = opp->pr_lock;
 	pp->pr_unlock           = opp->pr_unlock;
 	pp->pr_getlock          = opp->pr_getlock;
@@ -1022,41 +1023,6 @@ net_uptime2timeval(struct timeval *tv)
 
 	tv->tv_usec = 0;
 	tv->tv_sec = (time_t)net_uptime();
-}
-
-/*
- * An alternative way to obtain the coarse-grained uptime (in seconds)
- * for networking code which do not require high-precision timestamp,
- * as this is significantly cheaper than microuptime().
- */
-uint64_t
-net_uptime(void)
-{
-	if (_net_uptime == 0) {
-		net_update_uptime();
-	}
-
-	return _net_uptime;
-}
-
-uint64_t
-net_uptime_ms(void)
-{
-	if (_net_uptime_ms == 0) {
-		net_update_uptime();
-	}
-
-	return _net_uptime_ms;
-}
-
-uint64_t
-net_uptime_us(void)
-{
-	if (_net_uptime_us == 0) {
-		net_update_uptime();
-	}
-
-	return _net_uptime_us;
 }
 
 void

@@ -1010,6 +1010,16 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pktp_hdr->pth_flags & PTH_FLAG_WAKE_PKT) {
 		pmdflags |= PCAPNG_EPB_PMDF_WAKE_PKT;
 	}
+#ifdef PTH_FLAG_ULPN
+	if (pktp_hdr->pth_flags & PTH_FLAG_ULPN) {
+		pmdflags |= PCAPNG_EPB_PMDF_ULPN_PKT;
+	}
+#endif
+#ifdef PTH_FLAG_LPW
+	if (pktp_hdr->pth_flags & PTH_FLAG_LPW) {
+		pmdflags |= PCAPNG_EPB_PMDF_LPW;
+	}
+#endif
 	if (pmdflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
 	}
@@ -1279,6 +1289,18 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 				strsep = ", ";
 			}
 		}
+#ifdef BPF_PKTFLAGS_ULPN
+
+		if (bhep->bh_pktflags & BPF_PKTFLAGS_ULPN) {
+			bzero(&tmpbuf, sizeof (tmpbuf));
+			tlen = snprintf(tmpbuf, sizeof (tmpbuf),
+					"%sulpn", strsep);
+			if (tlen > 0) {
+				strlcat(pkthdr->comment, tmpbuf, sizeof (pkthdr->comment));
+				strsep = ", ";
+			}
+		}
+#endif
 	}
 
 	if (bhep->bh_unsent_bytes > 0) {
@@ -1567,6 +1589,16 @@ pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_WAKE_PKT) {
 		pmdflags |= PCAPNG_EPB_PMDF_WAKE_PKT;
 	}
+#ifdef PTH_FLAG_ULPN
+	if (pktap_v2_hdr->pth_flags & PTH_FLAG_ULPN) {
+		pmdflags |= PCAPNG_EPB_PMDF_ULPN_PKT;
+	}
+#endif
+#ifdef PTH_FLAG_LPW
+	if (pktap_v2_hdr->pth_flags & PTH_FLAG_LPW) {
+		pmdflags |= PCAPNG_EPB_PMDF_LPW;
+	}
+#endif
 	if (pmdflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
 	}

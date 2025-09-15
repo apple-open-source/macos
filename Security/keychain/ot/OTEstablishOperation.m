@@ -38,7 +38,6 @@
 #import "keychain/ot/ObjCImprovements.h"
 
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 
 @interface OTEstablishOperation ()
@@ -71,7 +70,10 @@
 {
     secnotice("octagon", "Beginning an establish operation");
 
-    AAFAnalyticsEventSecurity *establishEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
+    NSDictionary* metrics = nil;
+    metrics = @{kSecurityRTCFieldAccountIsW : @(self.operationDependencies.accountIsW)};
+
+    AAFAnalyticsEventSecurity *establishEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:metrics
                                                                                                          altDSID:self.operationDependencies.activeAccount.altDSID
                                                                                                           flowID:self.operationDependencies.flowID
                                                                                                  deviceSessionID:self.operationDependencies.deviceSessionID
@@ -86,9 +88,9 @@
         STRONGIFY(self);
         secnotice("octagon", "Finishing an establish operation with %@", self.error ?: @"no error");
         if (self.error) {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:establishEvent success:NO error:self.error];
+            [establishEvent sendMetricWithResult:NO error:self.error];
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:establishEvent success:YES error:nil];
+            [establishEvent sendMetricWithResult:YES error:nil];
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];

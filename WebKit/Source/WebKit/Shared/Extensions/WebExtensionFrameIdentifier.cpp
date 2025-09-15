@@ -38,7 +38,7 @@ WebCore::FrameIdentifier toWebCoreFrameIdentifier(const WebExtensionFrameIdentif
     if (isMainFrame(identifier))
         return page.mainWebFrame().frameID();
 
-    return { ObjectIdentifier<WebCore::FrameIdentifierType> { identifier.toUInt64() }, WebCore::Process::identifier() };
+    return WebCore::FrameIdentifier(identifier.toUInt64());
 }
 
 bool matchesFrame(const WebExtensionFrameIdentifier& identifier, const WebFrame& frame)
@@ -49,7 +49,7 @@ bool matchesFrame(const WebExtensionFrameIdentifier& identifier, const WebFrame&
     if (RefPtr page = frame.page(); page && &page->mainWebFrame() == &frame && isMainFrame(identifier))
         return true;
 
-    return frame.frameID().object().toUInt64() == identifier.toUInt64() && !frame.isMainFrame();
+    return frame.frameID().toUInt64() == identifier.toUInt64() && !frame.isMainFrame();
 }
 
 WebExtensionFrameIdentifier toWebExtensionFrameIdentifier(std::optional<WebCore::FrameIdentifier> frameIdentifier)
@@ -59,7 +59,7 @@ WebExtensionFrameIdentifier toWebExtensionFrameIdentifier(std::optional<WebCore:
         return WebExtensionFrameConstants::NoneIdentifier;
     }
 
-    auto identifierAsUInt64 = frameIdentifier->object().toUInt64();
+    auto identifierAsUInt64 = frameIdentifier->toUInt64();
     if (!WebExtensionFrameIdentifier::isValidIdentifier(identifierAsUInt64)) {
         ASSERT_NOT_REACHED();
         return WebExtensionFrameConstants::NoneIdentifier;
@@ -84,7 +84,7 @@ WebExtensionFrameIdentifier toWebExtensionFrameIdentifier(const FrameInfoData& f
     if (frameInfoData.isMainFrame)
         return WebExtensionFrameConstants::MainFrameIdentifier;
 
-    return toWebExtensionFrameIdentifier(frameInfoData.frameID);
+    return toWebExtensionFrameIdentifier(std::optional(frameInfoData.frameID));
 }
 
 std::optional<WebExtensionFrameIdentifier> toWebExtensionFrameIdentifier(double identifier)

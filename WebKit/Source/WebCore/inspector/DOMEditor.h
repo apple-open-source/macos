@@ -30,8 +30,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
-
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
@@ -41,6 +39,8 @@ class Element;
 class InspectorHistory;
 class Node;
 class Text;
+
+template<typename> class ExceptionOr;
 
 typedef String ErrorString;
 

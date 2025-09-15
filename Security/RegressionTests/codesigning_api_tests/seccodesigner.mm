@@ -117,6 +117,16 @@ _deletePath(const char *path)
     return system(command.c_str());
 }
 
+// currently only used in one test that is for MacOS with Apple Silicon
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+static int
+_stripPath(const char* path)
+{
+    std::string command = std::string("strip ") + path + " " + kCommandRedirectOutputToDevNULL;
+    return system(command.c_str());
+}
+#endif
+
 #if TARGET_OS_OSX
 static int
 _runCommand(const char *format, ...) __attribute__((format(printf, 1, 2)));
@@ -229,7 +239,10 @@ _getCertificateChain(SecIdentityRef identity)
     }
 
     SecTrustResultType result;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     status = SecTrustEvaluate(trust, &result);
+#pragma clang diagnostic pop
     if (status != errSecSuccess) {
         INFO("Unable to create trust with certificates.");
         return NULL;
@@ -655,7 +668,7 @@ _forceAddSignatureRemote(const char *path, const char *ident, SecIdentityRef ide
     codeRef.take(_createStaticCode(path));
     require_string(codeRef, exit, "Unable to create SecStaticCode");
 
-    status = SecCodeSignerRemoteAddSignature(signerRef, codeRef, kSecCSDefaultFlags, ^CFDataRef(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgo) {
+    status = SecCodeSignerRemoteAddSignature(signerRef, codeRef, kSecCSDefaultFlags, ^CFDataRef(CFDataRef cmsDigestHash, SecCSDigestAlgorithm digestAlgo, SecKeyAlgorithm signatureAlgo) {
         // Validate expected digest algorithm.
         if (digestAlgo != expectedDigestAlgo) {
             INFO("Called with incorrect digest algorithm type: %d", digestAlgo);
@@ -818,7 +831,7 @@ _CheckAddAdhocSignatureMachOAndPageSizeHelper(boolean_t unsignFirst)
             goto exit;
         }
 #endif
-        ret = _checkPageSizeForStaticCode(codeRef, 4*1024);
+        ret = _checkPageSizeForStaticCode(codeRef, 16*1024);
         if (ret != 0) {
             FAIL("Unexpected page size for ARM64 slice: %s", path);
             goto exit;
@@ -837,7 +850,7 @@ _CheckAddAdhocSignatureMachOAndPageSizeHelper(boolean_t unsignFirst)
             goto exit;
         }
 #endif
-        ret = _checkPageSizeForStaticCode(codeRef, 4*1024);
+        ret = _checkPageSizeForStaticCode(codeRef, 16*1024);
         if (ret != 0) {
             FAIL("Unexpected page size for ARM64_32 slice: %s", path);
             goto exit;
@@ -2433,6 +2446,83 @@ exit:
     return ret;
 }
 
+static int
+CheckOnCopySigningInfoInternalFlags (void)
+{
+    // This function currently checks just for kSecCodeInfoValidationCategory, but could check others
+
+    BEGIN();
+    
+    int ret = -1;
+    OSStatus status = errSecInternalError;
+    Security::CFRef<CFURLRef> fileURL = NULL;
+    CFRef<SecStaticCodeRef> codeRef = NULL;
+    CFRef<CFDictionaryRef> cfinfoDictRef = NULL;
+    CFRef<CFNumberRef> lwcrRef = NULL;
+    CFTypeRef rawCatVal = NULL;
+    int lwcrValue = 0;
+    
+    // create path to test binary
+    const char* pathToBinary = "/bin/ls";
+    CFURLRef rawFileURL = CFURLCreateFromFileSystemRepresentation(
+        kCFAllocatorDefault,
+        (const UInt8 *)pathToBinary,
+        strlen(pathToBinary),
+        false /* isDirectory */
+    );
+    fileURL.take(rawFileURL);
+    if(!fileURL) {
+        FAIL("Unable to create CFURLRef from path: %s", pathToBinary);
+        goto exit;
+    }
+    
+    // get static code reference
+    status = SecStaticCodeCreateWithPath(fileURL.get(), kSecCSDefaultFlags, codeRef.take());
+    if (status != errSecSuccess) {
+        FAIL("Unable to create SecStaticCode: %d", status);
+        goto exit;
+    }
+    
+    // get the dictionary of signing info for that
+    status = SecCodeCopySigningInformation(codeRef.get(), (SecCSFlags) (kSecCSDefaultFlags | kSecCSSigningInformation), cfinfoDictRef.take());
+    if (status != errSecSuccess) {
+        FAIL("Unable to copy signing information through SecCodeCopySigningInformation: %d", status);
+        goto exit;
+    }
+    
+    // pull the particular info we want out of the dictionary
+    rawCatVal = CFDictionaryGetValue(cfinfoDictRef.get(), kSecCodeInfoValidationCategory);
+    if(!rawCatVal) {
+        FAIL("Unable to pull kSecCodeInfoValidationCategory on %s", pathToBinary);
+        goto exit;
+    }
+    if(CFGetTypeID(rawCatVal) != CFNumberGetTypeID()) {
+        FAIL("Incorrect type on validation category in dictionary on %s", pathToBinary);
+        goto exit;
+    }
+    // equal operator calls CFRetain
+    lwcrRef = (CFNumberRef)rawCatVal;
+    
+    // convert to a number
+    if (!CFNumberGetValue(lwcrRef.get(), kCFNumberIntType, &lwcrValue)) {
+        FAIL("Unable to pull integer value from LWCR reference");
+        goto exit;
+    }
+
+    //the binary chosen for this example is /bin/ls and should be a CS_VALIDATION_CATEGORY_PLATFORM (1)
+    if (lwcrValue != CS_VALIDATION_CATEGORY_PLATFORM) {
+        FAIL("Incorrect type of validation category - did not match expected value of %u on %s", (unsigned int) CS_VALIDATION_CATEGORY_PLATFORM, pathToBinary);
+        goto exit;
+    }
+    
+    PASS("Successfully pulled and compared internal validation information on %s", pathToBinary);
+    ret = 0;
+    
+exit:
+    return ret;
+}
+
+
 #if TARGET_OS_OSX
 static int
 CheckStripDisallowedXattrsSigningHFS(void)
@@ -2480,6 +2570,130 @@ exit:
 }
 #endif // TARGET_OS_OSX
 
+
+
+// the strip command is not present on the x86_64 BATS test environment
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+
+static int
+CheckSignaturePaddingPerFile(const char* orig_fname) {
+
+    int ret = -1;
+    
+    const char* bws_fname = "/tmp/sig_pad_test_binary_with_sig";
+    const char* bns_fname = "/tmp/sig_pad_test_binary_no_sig";
+    
+    if(_copyPath(bws_fname, orig_fname) || _copyPath(bns_fname, orig_fname)) {
+        FAIL("Failed to copying test file %s to new location", orig_fname);
+        goto exit;
+    }
+    
+    if(_checkSignatureValidity(bws_fname, (kSecCSDefaultFlags | kSecCSSigningInformation), true)) { // allow untrusted, this test is just about padding
+        FAIL("Test invalid, test binary %s did not begin with valid signature", orig_fname);
+        goto exit;
+    }
+    
+    if(_stripPath(bws_fname)) {
+        FAIL("Test invalid, strip failed on unmodifed test binary %s", orig_fname);
+        goto exit;
+    }
+    
+    // strip cmd has left bws_fname in a modified state, switch to the other copy
+    
+    if(_removeSignature(bns_fname)) {
+        FAIL("Failure while attempting to remove signature from copy");
+        goto exit;
+    }
+    
+    // this is the error that previously occurred - calling strip on a binary after the signature was removed
+    if(_stripPath(bns_fname)) {
+        FAIL("Fail, strip gave error code on %s after signature was removed", orig_fname);
+        goto exit;
+    }
+    
+    PASS("Successfully called strip on binary after the signature was removed");
+    ret = 0;
+    
+exit:
+    _deletePath(bws_fname);
+    _deletePath(bns_fname);
+    return ret;
+}
+
+#endif
+
+
+// the strip command is not present on the x86_64 BATS test environment
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+
+/*
+    This test will...
+    - copy off the file at that path to a temporary location
+    - check if the initial structure is valid (check return code when "strip" is called on it)
+    - remove signature from file
+    - check if the structure is valid after signature removal (check return code when "strip" is called on it)
+    - delete the temporary file
+
+*/
+
+static int
+CheckSignaturePadding(void) {
+    BEGIN();
+    
+    // half of these binaries have one offset after the symbol table, half have another (as of MacOS 16.0)
+    // if they changed over time to be 12-0 either way that would make the test less effective
+    const char* test_bin_paths[] = {
+        "/bin/expr",
+        "/bin/mkdir",
+        "/bin/realpath",
+        "/bin/rmdir",
+        "/bin/sync",
+        "/bin/test",
+        "/bin/cat",
+        "/bin/date",
+        "/bin/echo",
+        "/bin/pwd",
+        "/bin/sleep",
+        "/bin/wait4path"
+    };
+    const unsigned int n_test_bins = sizeof(test_bin_paths) / sizeof(test_bin_paths[0]);
+    
+    int ret = -1;
+    unsigned int nSuccess=0, nFail=0;
+    for (unsigned int i = 0; i < n_test_bins; ++i) {
+        INFO("Trying test file %s", test_bin_paths[i]);
+        try {
+            // returns 0 on success, negative on failure
+            if(0 == CheckSignaturePaddingPerFile(test_bin_paths[i])) {
+                nSuccess++;
+            }else {
+                nFail++;
+            }
+        } catch (const UnixError& err) {
+            FAIL("Unix error: %s (errno: %d) while processing", err.what(), err.error);
+            nFail++;
+        } catch (const std::exception& e) {
+            FAIL("Standard exception: %s while processing", e.what());
+            nFail++;
+        } catch (...) {
+            FAIL("Unknown exception while processing");
+            nFail++;
+        }
+    }
+
+    if(!nFail) {
+        ret = 0;
+        PASS("Completed CheckSignaturePadding() successfully");
+    }else {
+        FAIL("CheckSignaturePadding() - %u test binaries succeeded, %u failed", nSuccess, nFail);
+    }
+        
+    return ret;
+}
+
+#endif
+
+
 int main(int argc, char* argv[])
 {
     fprintf(stdout, "[TEST] secseccodesignerapitest\n\n");
@@ -2501,6 +2715,7 @@ int main(int argc, char* argv[])
         CheckStripDisallowedXattrsOnMachO,
         CheckIgnoreLibraryEntitlements,
         CheckForceLibraryEntitlements,
+        CheckOnCopySigningInfoInternalFlags,
 
         // Bundle tests.
         CheckRemoveSignatureBundle,
@@ -2516,7 +2731,7 @@ int main(int argc, char* argv[])
         CheckAddSignatureRemoteMachO,
         CheckAddECSignatureRemoteMachO,
         CheckAddSignatureRemoteBundle,
-
+        
         // Tests that are only supported on macOS...
 #if TARGET_OS_OSX
         // Encrypted disk image tests
@@ -2524,6 +2739,12 @@ int main(int argc, char* argv[])
 
         // HFS volume extended attribute signing, which involves dmg mounting.
         CheckStripDisallowedXattrsSigningHFS,
+#endif
+      
+        // Test that are only supported on macOS with Apple Silicon...
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+        // MachO signature padding test
+        CheckSignaturePadding,
 #endif
     };
     const int numberOfTests = sizeof(testList) / sizeof(*testList);

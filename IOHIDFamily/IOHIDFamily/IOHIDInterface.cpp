@@ -37,6 +37,7 @@
 #include "IOHIDPrivateKeys.h"
 #include "DriverKitSharedDefs.h"
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOKitKeysPrivate.h>
 
 #define BUFFER_CREATE_WARNING          100
 #define BUFFER_OUTSTANDING_WARNING     20
@@ -189,9 +190,6 @@ IOReturn IOHIDInterface::message(UInt32 type,
 
 bool IOHIDInterface::start( IOService * provider )
 {
-    bool builtin = false;
-    OSArray *entitlements = NULL;
-    OSArray *subArray = NULL;
     OSSerializer * debugSerializer  = NULL;
     
 #define SET_STR_FROM_PROP(key, val)         \
@@ -258,67 +256,9 @@ bool IOHIDInterface::start( IOService * provider )
     SET_INT_FROM_PROP(kIOHIDMaxFeatureReportSizeKey, _maxReportSize[kIOHIDReportTypeFeature]);
     SET_INT_FROM_PROP(kIOHIDReportIntervalKey, _reportInterval);
     
-    OSObject *object = _owner->copyProperty(kIOHIDPhysicalDeviceUniqueIDKey);
-    OSString *string = OSDynamicCast(OSString, object);
-    if ( string ) setProperty(kIOHIDPhysicalDeviceUniqueIDKey, string);
-    OSSafeReleaseNULL(object);
-    
-    object = _owner->copyProperty(kIOHIDBuiltInKey);
-    OSBoolean *boolean = OSDynamicCast(OSBoolean, object);
-    if (boolean) {
-        setProperty(kIOHIDBuiltInKey, boolean);
-        builtin = boolean->getValue();
-    }
-    OSSafeReleaseNULL(object);
+    publishProperties();
 
-    object = _owner->copyProperty(kIOHIDPointerAccelerationSupportKey);
-    boolean = OSDynamicCast(OSBoolean, object);
-    if (boolean) {
-        setProperty(kIOHIDPointerAccelerationSupportKey, boolean);
-    }
-    OSSafeReleaseNULL(object);
-
-    object = _owner->copyProperty(kIOHIDScrollAccelerationSupportKey);
-    boolean = OSDynamicCast(OSBoolean, object);
-    if (boolean) {
-        setProperty(kIOHIDScrollAccelerationSupportKey, boolean);
-    }
-    OSSafeReleaseNULL(object);
-    
-    entitlements = OSArray::withCapacity(1);
-    if (!entitlements) {
-        return false;
-    }
-    
-    OSString *str = OSString::withCString(kIOHIDTransportDextEntitlement);
-    
-    if (builtin) {
-        subArray = OSArray::withCapacity(2);
-        
-        if (subArray) {
-            if (str) {
-                subArray->setObject(str);
-                str->release();
-            }
-            
-            str = OSString::withCString(kIODriverKitTransportBuiltinEntitlementKey);
-            if (str) {
-                subArray->setObject(str);
-                str->release();
-            }
-            
-            entitlements->setObject(subArray);
-            subArray->release();
-        }
-    } else {
-        if (str) {
-            entitlements->setObject(str);
-            str->release();
-        }
-    }
-    
-    setProperty(kIOServiceDEXTEntitlementsKey, entitlements);
-    entitlements->release();
+    setRequiredDextEntitlements();
 
     debugSerializer = OSSerializer::forTarget(this, OSMemberFunctionCast(OSSerializerCallback, this, &IOHIDInterface::serializeDebugState));
     if (debugSerializer) {
@@ -389,11 +329,14 @@ bool IOHIDInterface::open (
         super::close(client, options);
         return false;
     }
-    
-    // Do something with action and refcon here
-    _interruptTarget = client;
-    _interruptAction = action;
-    _interruptRefCon = refCon;
+
+    _commandGate->runActionBlock(^IOReturn{
+        // Do something with action and refcon here
+        _interruptTarget = client;
+        _interruptAction = action;
+        _interruptRefCon = refCon;
+        return kIOReturnSuccess;
+    });
     
     return true;
 }
@@ -426,16 +369,18 @@ void IOHIDInterface::close(
     super::close(client, options);
 }
 
-static const OSSymbol * propagateProps[] = {kIOHIDPropagatePropertyKeys};
+static const char * propagateProps[] = {kIOHIDPropagatePropertyKeys};
 
 bool IOHIDInterface::setProperty( const OSSymbol * key, OSObject * object)
 {
     require(_owner, exit);
 
-    for (const OSSymbol * prop : propagateProps) {
-        if (key->isEqualTo(prop)) {
+    for (const char * prop : propagateProps) {
+        const OSSymbol *sym = OSSymbol::withCString(prop);
+        if (key->isEqualTo(sym)) {
             _owner->setProperty(key, object);
         }
+        OSSafeReleaseNULL(sym);
     }
 
 exit:
@@ -1002,4 +947,70 @@ bool IOHIDInterface::serializeDebugState(void *ref __unused,
 exit:
     OSSafeReleaseNULL(dict);
     return result;
+}
+
+void IOHIDInterface::publishProperties()
+{
+    const struct {
+        char const * key;
+        OSMetaClass const * const type;
+    } properties[] = {
+        { .key = kIOHIDPhysicalDeviceUniqueIDKey,       .type = OSTypeID(OSString)  },
+        { .key = kIOHIDBuiltInKey,                      .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDPointerAccelerationSupportKey,   .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDScrollAccelerationSupportKey,    .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDSupportsIOFastPathKey,           .type = OSTypeID(OSBoolean) },
+        { .key = kIOHIDSpatialBluetoothAccessoryKey,    .type = OSTypeID(OSBoolean) },
+        { .key = kIOUniformTypeIdentifiersKey,          .type = OSTypeID(OSObject)  },
+        { .key = kIOHIDSupportsInputTopology,           .type = OSTypeID(OSBoolean) },
+    };
+    const size_t count = sizeof(properties) / sizeof(properties[0]);
+
+    for (size_t i = 0; i < count; ++i) {
+        OSObject * object = _owner->copyProperty(properties[i].key);
+        if (safeMetaCast(object, properties[i].type)) {
+            setProperty(properties[i].key, object);
+        }
+        OSSafeReleaseNULL(object);
+    }
+}
+
+void IOHIDInterface::setRequiredDextEntitlements()
+{
+    OSBoolean * builtinProperty = OSDynamicCast(OSBoolean, getProperty(kIOHIDBuiltInKey));
+    bool builtin = builtinProperty ? builtinProperty->getValue() : false;
+
+    OSArray * entitlements = OSArray::withCapacity(1);
+    assert(entitlements);
+
+    OSString * str = OSString::withCString(kIOHIDTransportDextEntitlement);
+    assert(str);
+
+    if (builtin) {
+        // built-in devices require both the kIOHIDTransportDextEntitlement and
+        // kIODriverKitTransportBuiltinEntitlementKey entitlements. a nested
+        // array is used to denote an AND requirement for entitlements.
+        OSArray * subArray = OSArray::withCapacity(2);
+        assert(subArray);
+
+        subArray->setObject(str);
+        str->release();
+
+        str = OSString::withCString(kIODriverKitTransportBuiltinEntitlementKey);
+        assert(str);
+
+        subArray->setObject(str);
+        str->release();
+
+        entitlements->setObject(subArray);
+        subArray->release();
+    } else {
+        // non-built-in devices only require the kIOHIDTransportDextEntitlement
+        // entitlement
+        entitlements->setObject(str);
+        str->release();
+    }
+
+    setProperty(kIOServiceDEXTEntitlementsKey, entitlements);
+    entitlements->release();
 }

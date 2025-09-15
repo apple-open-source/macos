@@ -346,7 +346,7 @@ flow_mgr_terminate(struct flow_mgr *fm)
 	for (i = 0; i < fm->fm_owner_buckets_cnt; i++) {
 		struct flow_owner_bucket *fob =
 		    flow_mgr_get_fob_at_idx(fm, i);
-		SK_DF(SK_VERB_FLOW, "purging fob 0x%llx [%u]", SK_KVA(fob), i);
+		SK_DF(SK_VERB_FLOW, "purging fob %p [%u]", SK_KVA(fob), i);
 		flow_owner_bucket_purge_all(fob);
 	}
 
@@ -369,7 +369,7 @@ flow_mgr_terminate(struct flow_mgr *fm)
 	for (i = 0; i < fm->fm_route_buckets_cnt; i++) {
 		struct flow_route_bucket *frb =
 		    flow_mgr_get_frb_at_idx(fm, i);
-		SK_DF(SK_VERB_FLOW, "purging frb 0x%llx [%u]", SK_KVA(frb), i);
+		SK_DF(SK_VERB_FLOW, "purging frb %p [%u]", SK_KVA(frb), i);
 		flow_route_bucket_purge_all(frb);
 	}
 
@@ -876,12 +876,12 @@ flow_req_dump(char *desc, struct nx_flow_req *req)
 	// unsanitized req, treat source and destination AF separately
 	if (saddr->sa.sa_family == AF_INET) {
 		sipver = IPVERSION;
-		(void) inet_ntop(AF_INET, &SIN(saddr)->sin_addr, src_s,
+		(void) sk_ntop(AF_INET, &SIN(saddr)->sin_addr, src_s,
 		    sizeof(src_s));
 		sport = ntohs(saddr->sin.sin_port);
 	} else if (saddr->sa.sa_family == AF_INET6) {
 		sipver = IPV6_VERSION;
-		(void) inet_ntop(AF_INET6, &SIN6(saddr)->sin6_addr, src_s,
+		(void) sk_ntop(AF_INET6, &SIN6(saddr)->sin6_addr, src_s,
 		    sizeof(src_s));
 		sport = ntohs(saddr->sin6.sin6_port);
 	} else {
@@ -890,12 +890,12 @@ flow_req_dump(char *desc, struct nx_flow_req *req)
 	}
 	if (daddr->sa.sa_family == AF_INET) {
 		dipver = IPVERSION;
-		(void) inet_ntop(AF_INET, &SIN(daddr)->sin_addr, dst_s,
+		(void) sk_ntop(AF_INET, &SIN(daddr)->sin_addr, dst_s,
 		    sizeof(dst_s));
 		dport = ntohs(daddr->sin.sin_port);
 	} else if (daddr->sa.sa_family == AF_INET6) {
 		dipver = IPV6_VERSION;
-		(void) inet_ntop(AF_INET6, &SIN6(daddr)->sin6_addr, dst_s,
+		(void) sk_ntop(AF_INET6, &SIN6(daddr)->sin6_addr, dst_s,
 		    sizeof(dst_s));
 		dport = ntohs(daddr->sin6.sin6_port);
 	} else {
@@ -904,10 +904,10 @@ flow_req_dump(char *desc, struct nx_flow_req *req)
 	}
 
 	SK_DF(SK_VERB_FLOW,
-	    "%s %s sipver=%u,dipver=%u,src=%s,dst=%s,proto=%d,sport=%u,dport=%d"
-	    " nx_port=%u,flags 0x%b", desc, sk_uuid_unparse(req->nfr_flow_uuid,
-	    uuid_s), sipver, dipver, src_s, dst_s, protocol, sport, dport,
-	    req->nfr_nx_port, req->nfr_flags, NXFLOWREQF_BITS);
+	    "%s %s sipver=%u,dipver=%u,src=%s.%u,dst=%s.%u,proto=%d "
+	    "nx_port=%u,flags 0x%x", desc, sk_uuid_unparse(req->nfr_flow_uuid,
+	    uuid_s), sipver, dipver, src_s, sport, dst_s, dport, protocol,
+	    req->nfr_nx_port, req->nfr_flags);
 }
 #else
 #define flow_req_dump(str, req) do { ((void)0); } while (0)
@@ -958,6 +958,7 @@ flow_mgr_flow_add(struct kern_nexus *nx, struct flow_mgr *fm,
 	VERIFY((req->nfr_flags & NXFLOWREQF_FLOWADV) ^
 	    (req->nfr_flowadv_idx == FLOWADV_IDX_NONE));
 	req->nfr_flowadv_idx = fe->fe_adv_idx;
+	req->nfr_flowid = fe->fe_flowid;
 
 	flow_req_dump("added ", req);
 
@@ -1072,7 +1073,7 @@ flow_mgr_get_frib_by_uuid(struct flow_mgr *fm, uuid_t fr_uuid)
 	} u;
 	uint64_t key;
 
-	_CASSERT(sizeof(u.uuid) == sizeof(u.u64));
+	static_assert(sizeof(u.uuid) == sizeof(u.u64));
 	uuid_copy(u.uuid, fr_uuid);
 
 	/* XOR fold UUID down to 4-bytes */
@@ -1116,7 +1117,7 @@ __flow_mgr_find_fe_by_key_prelog(struct flow_key *key)
 {
 	SK_LOG_VAR(char dbgbuf[FLOWENTRY_DBGBUF_SIZE]);
 	SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "key %s",
-	    fk_as_string(key, dbgbuf, sizeof(dbgbuf)));
+	    fk2str(key, dbgbuf, sizeof(dbgbuf)));
 }
 
 SK_NO_INLINE_ATTRIBUTE
@@ -1125,8 +1126,8 @@ __flow_mgr_find_fe_by_key_epilog(struct flow_entry *fe)
 {
 	SK_LOG_VAR(char dbgbuf[FLOWENTRY_DBGBUF_SIZE]);
 	if (fe != NULL) {
-		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "fe 0x%llx \"%s\"",
-		    SK_KVA(fe), fe_as_string(fe, dbgbuf, sizeof(dbgbuf)));
+		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "fe \"%s\"",
+		    fe2str(fe, dbgbuf, sizeof(dbgbuf)));
 	} else {
 		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "fe not found");
 	}
@@ -1159,7 +1160,7 @@ flow_mgr_find_fe_by_key(struct flow_mgr *fm, struct flow_key *key)
 		hash = flow_key_hash(key);
 		node = cuckoo_hashtable_find_with_hash(fm->fm_flow_table, key, hash);
 		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP,
-		    "[%d] mask=%08x hash %08x node 0x%llx", i, mask, hash,
+		    "[%d] mask=%08x hash %08x node %p", i, mask, hash,
 		    SK_KVA(node));
 		if (node != NULL) {
 			fe = __container_of(node, struct flow_entry, fe_cnode);

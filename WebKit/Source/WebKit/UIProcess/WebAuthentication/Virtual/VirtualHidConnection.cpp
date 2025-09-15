@@ -79,7 +79,7 @@ void VirtualHidConnection::send(Vector<uint8_t>&& data, DataSentCallback&& callb
     ASSERT(isInitialized());
     auto task = makeBlockPtr([weakThis = WeakPtr { *this }, data = WTFMove(data), callback = WTFMove(callback)]() mutable {
         ASSERT(!RunLoop::isMain());
-        RunLoop::main().dispatch([weakThis, data = WTFMove(data), callback = WTFMove(callback)]() mutable {
+        RunLoop::mainSingleton().dispatch([weakThis, data = WTFMove(data), callback = WTFMove(callback)]() mutable {
             if (!weakThis) {
                 callback(DataSent::No);
                 return;
@@ -111,7 +111,7 @@ void VirtualHidConnection::receiveHidMessage(fido::FidoHidMessage&& message)
 {
     while (message.numPackets()) {
         auto report = message.popNextPacket();
-        RunLoop::main().dispatch([report = WTFMove(report), weakThis = WeakPtr { *this }]() mutable {
+        RunLoop::mainSingleton().dispatch([report = WTFMove(report), weakThis = WeakPtr { *this }]() mutable {
             if (!weakThis)
                 return;
             weakThis->receiveReport(WTFMove(report));
@@ -155,7 +155,7 @@ void VirtualHidConnection::parseRequest()
         auto payload = m_requestMessage->getMessagePayload();
         ASSERT(payload.size());
         auto cmd = static_cast<CtapRequestCommand>(payload[0]);
-        payload.remove(0);
+        payload.removeAt(0);
         auto requestMap = CBORReader::read(payload);
         ASSERT(requestMap || cmd == CtapRequestCommand::kAuthenticatorGetNextAssertion);
         if (cmd == CtapRequestCommand::kAuthenticatorMakeCredential) {

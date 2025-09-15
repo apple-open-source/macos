@@ -29,6 +29,7 @@
 #include <wtf/HashTraits.h>
 #include <wtf/Hasher.h>
 #include <wtf/Vector.h>
+#include <wtf/text/LChar.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {

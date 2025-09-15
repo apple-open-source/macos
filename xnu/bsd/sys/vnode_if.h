@@ -794,6 +794,8 @@ enum {
 	VFS_RENAME_DATALESS             = 0x00000008,
 	/* used by sys/stdio for RENAME_NOFOLLOW_ANY */
 	VFS_RENAME_RESERVED1            = 0x00000010,
+	/* used by sys/stdio for RENAME_RESOLVE_BENEATH */
+	VFS_RENAME_RESERVED2            = 0x00000020,
 
 	VFS_RENAME_FLAGS_MASK   = (VFS_RENAME_SECLUDE | VFS_RENAME_SWAP
 	    | VFS_RENAME_EXCL),
@@ -1821,10 +1823,12 @@ __options_decl(vnode_verify_flags_t, uint32_t, {
 	VNODE_VERIFY_CONTEXT_ALLOC = 1,
 	VNODE_VERIFY_WITH_CONTEXT = 2,
 	VNODE_VERIFY_CONTEXT_FREE = 4,
+	VNODE_VERIFY_PRECOMPUTED = 8,
 });
 
 #define VNODE_VERIFY_DEFAULT VNODE_VERIFY_DEFAULT
 #define VNODE_VERIFY_WITH_CONTEXT VNODE_VERIFY_WITH_CONTEXT
+#define VNODE_VERIFY_PRECOMPUTED VNODE_VERIFY_PRECOMPUTED
 
 struct vnop_verify_args {
 	struct vnodeop_desc *a_desc;
@@ -1836,6 +1840,7 @@ struct vnop_verify_args {
 	void **a_verify_ctxp;
 	vnode_verify_flags_t a_flags;
 	vfs_context_t a_context;
+	vnode_verify_kind_t *a_verifykind; /* vnode_verify_kind_t defined in sys/buf.h */
 };
 
 /*!
@@ -1847,17 +1852,33 @@ struct vnop_verify_args {
  *  @param vp The vnode for which data is to be verified.
  *  @param foffset Offset (in bytes) at which region to be verified starts.
  *  @param buf buffer containing file data at foffset. If this is NULL, then only the verification block size is
- *  being requested.
- *  @param bufsize size of data buffer to be verified.
+ *  being requested. When VNODE_VERIFY_PRECOMPUTED is set, this buffer is for the precomputed verification
+ *  data.
+ *  @param bufsize size of data buffer to be verified. For VNODE_VERIFY_CONTEXT_ALLOC, this specifies the length of the region
+ *  of the file beginning at f_offset that needs verification and the context should be allocated for (f_offset, f_offset + bufsize)
  *  @param verifyblksize pointer to size of verification block size in use for this file. If the verification block size is 0,
  *  no verification will be performed. The verification block size can be any value which is a power of two upto 128KiB.
  *  @param verify_ctxp context for verification to allocated by the FS and used in verification.
+ *
  *  @param flags modifier flags.
+ *  if no flags are set (VNODE_VERIFY_DEFAULT), one or both of a_buf and a_verifyblksize is passed. Verification is only required
+ *  if a_buf is passed. In each of the flag values, a_verifyblocksize must be returned if it is set
+ *  For all flag values, the operation to be performed is specified by the value of the flag and the corresponding
+ *  arguments that the operation requires will be set.
+ *  VNODE_VERIFY_CONTEXT_ALLOC : f_offset, bufsize and verify_ctxp.
+ *  VNODE_VERIFY_WITH_CONTEXT : f_offset, buf, bufsize, verify_ctxp
+ *  VNODE_VERIFY_PRECOMPUTED : f_offset, buf, bufsize
+ *  VNODE_VERIFY_CONTEXT_FREE verify_ctxp
+ *
  *  @param ctx Context to authenticate for verify request; currently often set to NULL.
- *  @return 0 for success, else an error code.
+ *  @param verifykind Additional information on kind of data to be verified. for example if a specific type of hash function is required.
+ *  Only types defined for vnode_verify_kind_t are supported.
+ *  @return 0 for success, else an error code. For VNODE_VERIFY_PRECOMPUTED, an error return of EAGAIN indicates
+ *  that the Filesystem would like to fallback to VNODE_VERIFY_WITH_CONTEXT.
+ *
  */
 #ifdef XNU_KERNEL_PRIVATE
-extern errno_t VNOP_VERIFY(vnode_t, off_t, uint8_t *, size_t, size_t *, void **, vnode_verify_flags_t, vfs_context_t);
+extern errno_t VNOP_VERIFY(vnode_t, off_t, uint8_t *, size_t, size_t *, void **, vnode_verify_flags_t, vfs_context_t, vnode_verify_kind_t *);
 #endif /* XNU_KERNEL_PRIVATE */
 
 #endif // defined(__APPLE_API_UNSTABLE)

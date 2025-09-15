@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,13 +48,14 @@
 #import <WebCore/DisabledAdaptations.h>
 #import <WebCore/FileChooser.h>
 #import <WebCore/FloatRect.h>
+#import <WebCore/FrameDestructionObserverInlines.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/Icon.h>
 #import <WebCore/IntRect.h>
-#import <WebCore/LocalFrame.h>
-#import <WebCore/Node.h>
+#import <WebCore/LocalFrameInlines.h>
+#import <WebCore/NodeInlines.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/RenderBox.h>
 #import <WebCore/RenderObject.h>
@@ -113,14 +114,14 @@ void WebChromeClientIOS::focus()
 void WebChromeClientIOS::runJavaScriptAlert(LocalFrame& frame, const WTF::String& message)
 {
     WebThreadLockPushModal();
-    [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptAlertPanelWithMessage:message initiatedByFrame:kit(&frame)];
+    [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptAlertPanelWithMessage:message.createNSString().get() initiatedByFrame:kit(&frame)];
     WebThreadLockPopModal();
 }
 
 bool WebChromeClientIOS::runJavaScriptConfirm(LocalFrame& frame, const WTF::String& message)
 {
     WebThreadLockPushModal();
-    bool result = [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptConfirmPanelWithMessage:message initiatedByFrame:kit(&frame)];
+    bool result = [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptConfirmPanelWithMessage:message.createNSString().get() initiatedByFrame:kit(&frame)];
     WebThreadLockPopModal();
     return result;
 }
@@ -128,7 +129,7 @@ bool WebChromeClientIOS::runJavaScriptConfirm(LocalFrame& frame, const WTF::Stri
 bool WebChromeClientIOS::runJavaScriptPrompt(LocalFrame& frame, const WTF::String& prompt, const WTF::String& defaultText, WTF::String& result)
 {
     WebThreadLockPushModal();
-    result = [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptTextInputPanelWithPrompt:prompt defaultText:defaultText initiatedByFrame:kit(&frame)];
+    result = [[webView() _UIDelegateForwarder] webView:webView() runJavaScriptTextInputPanelWithPrompt:prompt.createNSString().get() defaultText:defaultText.createNSString().get() initiatedByFrame:kit(&frame)];
     WebThreadLockPopModal();
     return !result.isNull();
 }
@@ -150,14 +151,14 @@ void WebChromeClientIOS::runOpenPanel(LocalFrame&, FileChooser& chooser)
     };
 
     if (WebThreadIsCurrent()) {
-        RunLoop::main().dispatch([this, listener = WTFMove(listener), configuration = retainPtr(configuration)] {
+        RunLoop::mainSingleton().dispatch([this, listener = WTFMove(listener), configuration = retainPtr(configuration)] {
             [[webView() _UIKitDelegateForwarder] webView:webView() runOpenPanelForFileButtonWithResultListener:listener.get() configuration:configuration.get()];
         });
     } else
         [[webView() _UIKitDelegateForwarder] webView:webView() runOpenPanelForFileButtonWithResultListener:listener.get() configuration:configuration];
 }
 
-void WebChromeClientIOS::showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&)
+void WebChromeClientIOS::showShareSheet(ShareDataWithParsedURL&&, CompletionHandler<void(bool)>&&)
 {
 }
 

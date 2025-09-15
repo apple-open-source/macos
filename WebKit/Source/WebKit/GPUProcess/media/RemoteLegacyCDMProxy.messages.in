@@ -30,7 +30,7 @@
 ]
 messages -> RemoteLegacyCDMProxy {
     SupportsMIMEType(String mimeType) -> (bool supports) Synchronous
-    CreateSession(String mediaKeysStorageDirectory, uint64_t logIdentifier) -> (std::optional<WebKit::RemoteLegacyCDMSessionIdentifier> identifier) Synchronous
+    CreateSession(uint64_t logIdentifier) -> (std::optional<WebKit::RemoteLegacyCDMSessionIdentifier> identifier) Synchronous
     SetPlayerId(std::optional<WebCore::MediaPlayerIdentifier> playerId)
 }
 

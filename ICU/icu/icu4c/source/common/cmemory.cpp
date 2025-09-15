@@ -44,6 +44,10 @@ static int n=0;
 static long b=0; 
 #endif
 
+#if !APPLE_ICU_CHANGES
+// rdar://138504706 (ICU implements wrappers around the system allocator interfaces)
+// This removes the ability to call u_setMemoryFunctions() and have it do anything, but we'd already disabled that
+// functionality in response to rdar://133066316
 U_CAPI void * U_EXPORT2
 uprv_malloc(size_t s) {
 #if U_DEBUG && defined(UPRV_MALLOC_COUNT)
@@ -114,6 +118,7 @@ uprv_calloc(size_t num, size_t size) {
     }
     return mem;
 }
+#endif // APPLE_ICU_CHANGES
 
 U_CAPI void U_EXPORT2
 u_setMemoryFunctions(const void *context, UMemAllocFn *a, UMemReallocFn *r, UMemFreeFn *f,  UErrorCode *status)

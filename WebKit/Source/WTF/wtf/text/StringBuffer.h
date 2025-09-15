@@ -31,6 +31,7 @@
 #include <limits>
 #include <unicode/utypes.h>
 #include <wtf/Assertions.h>
+#include <wtf/CheckedArithmetic.h>
 #include <wtf/DebugHeap.h>
 #include <wtf/MallocSpan.h>
 #include <wtf/Noncopyable.h>
@@ -69,10 +70,10 @@ public:
     }
 
     unsigned length() const { return m_length; }
-    CharType* characters() { return m_data; }
-    std::span<CharType> span() { return unsafeMakeSpan(m_data, m_length); }
+    CharType* characters() LIFETIME_BOUND { return m_data; }
+    std::span<CharType> span() LIFETIME_BOUND { return unsafeMakeSpan(m_data, m_length); }
 
-    CharType& operator[](unsigned i) { RELEASE_ASSERT(i < m_length); return m_data[i]; }
+    CharType& operator[](unsigned i) LIFETIME_BOUND { RELEASE_ASSERT(i < m_length); return m_data[i]; }
 
     MallocSpan<CharType, StringBufferMalloc> release()
     {

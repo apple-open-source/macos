@@ -34,7 +34,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
-        var signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
@@ -174,12 +174,12 @@ extension OctagonPairingTests {
         /*
          SECOND PAIRING
          */
-        signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback2 = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
-            signInCallback.fulfill()
+            signInCallback2.fulfill()
         }
-        self.wait(for: [signInCallback], timeout: 10)
+        self.wait(for: [signInCallback2], timeout: 10)
 
         /* PAIR-2 INITIATOR FIRST RTT JOINING MESSAGE*/
         var pair2InitiatorFirstPacket = Data()
@@ -276,7 +276,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [pair2FourthInitiatorCallback], timeout: 10)
-
         try self.forceFetch(context: self.cuttlefishContextForAcceptor)
 
         XCTAssertNil(initiator2Context.pairingUUID, "pairingUUID should be nil")
@@ -350,7 +349,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
-        var signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
@@ -462,12 +461,12 @@ extension OctagonPairingTests {
         /*
          SECOND PAIRING
          */
-        signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback2 = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
-            signInCallback.fulfill()
+            signInCallback2.fulfill()
         }
-        self.wait(for: [signInCallback], timeout: 10)
+        self.wait(for: [signInCallback2], timeout: 10)
 
         /* PAIR-2 INITIATOR FIRST RTT JOINING MESSAGE*/
         var pair2InitiatorFirstPacket = Data()
@@ -610,7 +609,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
-        var signInCallback = self.expectation(description: "trigger sign in for initiator one")
+        let signInCallback = self.expectation(description: "trigger sign in for initiator one")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
@@ -645,12 +644,12 @@ extension OctagonPairingTests {
         self.wait(for: [firstAcceptorCallback], timeout: 10)
         XCTAssertNotNil(acceptorFirstPacket, "first packet should not be nil")
 
-        signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback2 = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
-            signInCallback.fulfill()
+            signInCallback2.fulfill()
         }
-        self.wait(for: [signInCallback], timeout: 10)
+        self.wait(for: [signInCallback2], timeout: 10)
 
         /* PAIR-2 INITIATOR FIRST RTT JOINING MESSAGE*/
         var pair2InitiatorFirstPacket = Data()
@@ -899,7 +898,7 @@ extension OctagonPairingTests {
         XCTAssertNotNil(acceptor2, "acceptor should not be nil")
         XCTAssertNotNil(initiator2, "initiator should not be nil")
 
-        var signInCallback = self.expectation(description: "trigger sign in for initiator one")
+        let signInCallback = self.expectation(description: "trigger sign in for initiator one")
         self.otControl.appleAccountSigned(in: OTControlArguments(altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
             signInCallback.fulfill()
@@ -934,12 +933,12 @@ extension OctagonPairingTests {
         self.wait(for: [firstAcceptorCallback], timeout: 10)
         XCTAssertNotNil(acceptorFirstPacket, "first packet should not be nil")
 
-        signInCallback = self.expectation(description: "trigger sign in")
+        let signInCallback2 = self.expectation(description: "trigger sign in")
         self.otControl.appleAccountSigned(in: OTControlArguments(containerName: OTCKContainerName, contextID: initiator2ContextID, altDSID: try XCTUnwrap(self.mockAuthKit.primaryAltDSID()))) { error in
             XCTAssertNil(error, "error should be nil")
-            signInCallback.fulfill()
+            signInCallback2.fulfill()
         }
-        self.wait(for: [signInCallback], timeout: 10)
+        self.wait(for: [signInCallback2], timeout: 10)
 
         /* PAIR-2 INITIATOR FIRST RTT JOINING MESSAGE*/
         var pair2InitiatorFirstPacket = Data()

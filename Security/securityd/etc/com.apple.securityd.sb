@@ -21,7 +21,8 @@
 (allow file-read*)
 
 (allow file-write* 
-       (subpath "/private/var/db/mds"))
+       (subpath "/private/var/db/mds")
+       (subpath "/private/var/db/SystemKeys"))
 (allow file-ioctl (literal "/dev/auditsessions"))
 
 (allow process-info* (target self))

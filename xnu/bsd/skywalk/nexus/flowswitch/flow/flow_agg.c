@@ -98,15 +98,15 @@ struct flow_agg {
 
 #if __has_ptrcheck
 #define FLOW_AGG_CLEAR(_fa) do {                                    \
-	_CASSERT(sizeof(struct flow_agg) == 48);         \
-	_CASSERT(offsetof(struct flow_agg, fa_fix_pkt_sum) == 40);              \
+	static_assert(sizeof(struct flow_agg) == 48);         \
+	static_assert(offsetof(struct flow_agg, fa_fix_pkt_sum) == 40);              \
 	sk_zero_48(_fa);                                                \
 	(_fa)->fa_fix_pkt_sum = 0;                                                                             \
 } while (0)
 #else
 #define FLOW_AGG_CLEAR(_fa) do {                                    \
-	_CASSERT(sizeof(struct flow_agg) == 40);         \
-	_CASSERT(offsetof(struct flow_agg, fa_fix_pkt_sum) == 32);              \
+	static_assert(sizeof(struct flow_agg) == 40);         \
+	static_assert(offsetof(struct flow_agg, fa_fix_pkt_sum) == 32);              \
 	sk_zero_32(_fa);                                                \
 	(_fa)->fa_fix_pkt_sum = 0;                                                                             \
 } while (0)
@@ -224,8 +224,8 @@ _pkt_agg_log(struct __kern_packet *pkt, struct proc *p, bool is_input)
 		bufcnt = kern_packet_get_buflet_count(ph);
 	}
 
-	SK_DF(logflags, "%s(%d) %spkt 0x%llx plen %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), is_input ? "s":"d",
+	SK_DF(logflags, "%s(%d) %spkt %p plen %u",
+	    sk_proc_name(p), sk_proc_pid(p), is_input ? "s":"d",
 	    SK_KVA(pkt), pkt->pkt_length);
 
 	SK_DF(logflags, "%spkt csumf/rxstart/rxval 0x%x/%u/0x%04x",
@@ -240,7 +240,7 @@ _pkt_agg_log(struct __kern_packet *pkt, struct proc *p, bool is_input)
 		for (uint64_t i = 0; i < bufcnt && buf != NULL; i++) {
 			SK_DF(logflags | SK_VERB_DUMP, "%s",
 			    sk_dump("buf", __buflet_get_data_address(buf),
-			    __buflet_get_data_length(buf), 128, NULL, 0));
+			    __buflet_get_data_length(buf), 128));
 			buf = kern_packet_get_next_buflet(ph, buf);
 		}
 	}
@@ -259,8 +259,8 @@ _mbuf_agg_log(struct mbuf *m, struct proc *p, bool is_mbuf)
 	SK_LOG_VAR(uint64_t logflags = ((SK_VERB_FSW | SK_VERB_RX) |
 	    (is_mbuf ? SK_VERB_COPY_MBUF : SK_VERB_COPY)));
 
-	SK_DF(logflags, "%s(%d) dest mbuf 0x%llx pktlen %u",
-	    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(m),
+	SK_DF(logflags, "%s(%d) dest mbuf %p pktlen %u",
+	    sk_proc_name(p), sk_proc_pid(p), SK_KVA(m),
 	    m->m_pkthdr.len);
 
 	SK_DF(logflags, "dest mbuf csumf/rxstart/rxval 0x%x/%u/0x%04x",
@@ -270,7 +270,7 @@ _mbuf_agg_log(struct mbuf *m, struct proc *p, bool is_mbuf)
 	/* Dump the first mbuf */
 	ASSERT(m_mtod_current(m) != NULL);
 	SK_DF(logflags | SK_VERB_DUMP, "%s", sk_dump("buf",
-	    (uint8_t *)m_mtod_current(m), m->m_len, 128, NULL, 0));
+	    (uint8_t *)m_mtod_current(m), m->m_len, 128));
 }
 
 #define mbuf_agg_log(_m, _p, _is_mbuf) do {                             \
@@ -287,8 +287,8 @@ _mchain_agg_log(struct mbuf *m, struct proc *p, bool is_mbuf)
 	    (is_mbuf ? SK_VERB_COPY_MBUF : SK_VERB_COPY)));
 
 	while (m != NULL) {
-		SK_DF(logflags, "%s(%d) dest mbuf 0x%llx pktlen %u",
-		    sk_proc_name_address(p), sk_proc_pid(p), SK_KVA(m),
+		SK_DF(logflags, "%s(%d) dest mbuf %p pktlen %u",
+		    sk_proc_name(p), sk_proc_pid(p), SK_KVA(m),
 		    m->m_pkthdr.len);
 
 		SK_DF(logflags, "dest mbuf csumf/rxstart/rxval 0x%x/%u/0x%04x",
@@ -697,7 +697,7 @@ copy_pkt_csum(struct __kern_packet *pkt, uint32_t plen, _dbuf_array_t *dbuf,
 	 * assumption that the smallest flowswitch packet pool buffer should
 	 * be large enough to hold the IP and TCP headers in the first buflet.
 	 */
-	_CASSERT(NX_FSW_MINBUFSIZE >= NETIF_COMPAT_MAX_MBUF_DATA_COPY);
+	static_assert(NX_FSW_MINBUFSIZE >= NETIF_COMPAT_MAX_MBUF_DATA_COPY);
 
 	SK_LOG_VAR(uint64_t logflags = (SK_VERB_FSW | SK_VERB_RX |
 	    (PKT_IS_MBUF(pkt) ? SK_VERB_COPY_MBUF : SK_VERB_COPY)));
@@ -966,8 +966,8 @@ can_agg_fastpath(struct flow_agg *fa, struct __kern_packet *pkt,
 	uint8_t *ip_hdr;
 
 	ASSERT(fa->fa_sptr != NULL);
-	_CASSERT(sizeof(struct ip6_tcp_mask) == MASK_SIZE);
-	_CASSERT(sizeof(struct ip_tcp_mask) == MASK_SIZE);
+	static_assert(sizeof(struct ip6_tcp_mask) == MASK_SIZE);
+	static_assert(sizeof(struct ip_tcp_mask) == MASK_SIZE);
 
 	if (__improbable(pkt->pkt_length < MASK_SIZE)) {
 		STATS_INC(fsws, FSW_STATS_RX_AGG_NO_SHORT_TCP);
@@ -1466,7 +1466,7 @@ flow_agg_merge_hdr(struct flow_agg *fa, struct __kern_packet *pkt,
 			/* First time we append packets, need to set it to 1 */
 			spkt->pkt_seg_cnt = 1;
 		}
-		_CASSERT(sizeof(result) == sizeof(spkt->pkt_seg_cnt));
+		static_assert(sizeof(result) == sizeof(spkt->pkt_seg_cnt));
 		if (!os_add_overflow(1, spkt->pkt_seg_cnt, &result)) {
 			spkt->pkt_seg_cnt = result;
 		}
@@ -1479,7 +1479,7 @@ flow_agg_merge_hdr(struct flow_agg *fa, struct __kern_packet *pkt,
 			/* First time we append packets, need to set it to 1 */
 			smbuf->m_pkthdr.rx_seg_cnt = 1;
 		}
-		_CASSERT(sizeof(result) == sizeof(smbuf->m_pkthdr.rx_seg_cnt));
+		static_assert(sizeof(result) == sizeof(smbuf->m_pkthdr.rx_seg_cnt));
 		if (!os_add_overflow(1, smbuf->m_pkthdr.rx_seg_cnt, &result)) {
 			smbuf->m_pkthdr.rx_seg_cnt = result;
 		}
@@ -1723,7 +1723,7 @@ flow_rx_agg_channel(struct nx_flowswitch *fsw, struct flow_entry *fe,
 			}
 			SK_DF(SK_VERB_FLOW_TRACK, "flow_pkt_track failed (err %d)", err);
 			__RX_AGG_CHAN_DROP_SOURCE_PACKET(pkt,
-			    DROP_REASON_FSW_FLOW_TRACK_ERR, 0);
+			    DROP_REASON_FSW_FLOW_TRACK_ERR, DROPTAP_FLAG_DIR_IN);
 			continue;
 		}
 
@@ -1776,7 +1776,7 @@ flow_rx_agg_channel(struct nx_flowswitch *fsw, struct flow_entry *fe,
 			SK_ERR("packet too big: bufcnt %d len %d", bh_cnt_tmp,
 			    plen);
 			__RX_AGG_CHAN_DROP_SOURCE_PACKET(pkt,
-			    DROP_REASON_FSW_GSO_NOMEM_PKT, 0);
+			    DROP_REASON_FSW_GSO_NOMEM_PKT, DROPTAP_FLAG_DIR_IN);
 			continue;
 		}
 		if (bh_cnt < bh_cnt_tmp) {
@@ -1808,7 +1808,7 @@ flow_rx_agg_channel(struct nx_flowswitch *fsw, struct flow_entry *fe,
 				STATS_INC(fsws, FSW_STATS_DROP_NOMEM_PKT);
 				SK_ERR("buflet alloc failed (err %d)", err);
 				__RX_AGG_CHAN_DROP_SOURCE_PACKET(pkt,
-				    DROP_REASON_FSW_GSO_NOMEM_PKT, 0);
+				    DROP_REASON_FSW_GSO_NOMEM_PKT, DROPTAP_FLAG_DIR_IN);
 				continue;
 			}
 		}
@@ -1887,7 +1887,7 @@ non_agg:
 				SK_ERR("packet alloc failed (err %d)", err);
 				_free_dbuf_array(dpp, &dbuf_array);
 				__RX_AGG_CHAN_DROP_SOURCE_PACKET(pkt,
-				    DROP_REASON_FSW_GSO_NOMEM_PKT, 0);
+				    DROP_REASON_FSW_GSO_NOMEM_PKT, DROPTAP_FLAG_DIR_IN);
 				continue;
 			}
 			spkt = SK_PTR_ADDR_KPKT(sph);
@@ -1980,7 +1980,8 @@ _finalize_smbuf(struct mbuf *smbuf)
 SK_NO_INLINE_ATTRIBUTE
 static void
 flow_rx_agg_host(struct nx_flowswitch *fsw, struct flow_entry *fe,
-    struct pktq *rx_pkts, uint32_t rx_bytes, bool is_mbuf)
+    struct pktq *rx_pkts, struct mbufq *host_mq,
+    uint32_t rx_bytes, bool is_mbuf)
 {
 #define __RX_AGG_HOST_DROP_SOURCE_PACKET(_pkt, _reason, _flags)    do {   \
 	drop_packets++;                                                   \
@@ -2497,11 +2498,10 @@ next:
 		}
 
 		/*
-		 * Call fsw_host_sendup() with mbuf chain
-		 * directly.
+		 * Enqueue smbufs for caller to process.
 		 */
 		mchain_agg_log(m_chain, kernproc, is_mbuf);
-		fsw_host_sendup(fsw->fsw_ifp, m_chain, smbuf, smbufs, bytes);
+		mbufq_enqueue(host_mq, m_chain, smbuf, smbufs, bytes);
 
 		if (__improbable(is_mbuf)) {
 			STATS_ADD(fsws, FSW_STATS_RX_AGG_MBUF2MBUF, smbufs);
@@ -2524,14 +2524,15 @@ next:
 
 void
 flow_rx_agg_tcp(struct nx_flowswitch *fsw, struct flow_entry *fe,
-    struct pktq *rx_pkts, uint32_t rx_bytes, uint32_t flags)
+    struct pktq *rx_pkts, uint32_t rx_bytes, struct mbufq *host_mq,
+    uint32_t flags)
 {
 #pragma unused(flags)
 	struct pktq dropped_pkts;
 	bool is_mbuf;
 
 	if (__improbable((flags & FLOW_PROC_FLAG_FRAGMENTS) != 0)) {
-		dp_flow_rx_process(fsw, fe, rx_pkts, rx_bytes, FLOW_PROC_FLAG_FRAGMENTS);
+		dp_flow_rx_process(fsw, fe, rx_pkts, rx_bytes, host_mq, FLOW_PROC_FLAG_FRAGMENTS);
 		return;
 	}
 
@@ -2561,13 +2562,13 @@ flow_rx_agg_tcp(struct nx_flowswitch *fsw, struct flow_entry *fe,
 			    !dlil_has_if_filter(fsw->fsw_ifp);
 		}
 		if (__improbable(!do_rx_agg)) {
-			fsw_host_rx(fsw, rx_pkts);
+			fsw_host_rx_enqueue_mbq(fsw, rx_pkts, host_mq);
 			return;
 		}
 		if (__improbable(pktap_total_tap_count != 0)) {
 			fsw_snoop(fsw, fe, rx_pkts, true);
 		}
-		flow_rx_agg_host(fsw, fe, rx_pkts, rx_bytes, is_mbuf);
+		flow_rx_agg_host(fsw, fe, rx_pkts, host_mq, rx_bytes, is_mbuf);
 	} else {
 		/* channel flow */
 		if (__improbable(pktap_total_tap_count != 0)) {

@@ -647,6 +647,9 @@ kern_return_t IMPL(IOUserBlockStorageDevice, Start)
 
 kern_return_t IMPL(IOUserBlockStorageDevice, StartDev)
 {
+    IOService *     providerAncestorWithIOMMU   = NULL;
+    OSDictionary *  dict                        = NULL;
+
     if(fSkipStartDev){
         return kIOReturnSuccess;
     }
@@ -656,7 +659,6 @@ kern_return_t IMPL(IOUserBlockStorageDevice, StartDev)
         return kIOReturnError;
     }
     fStartDevStarted = true;
-    OSDictionary *    dict = NULL;
     LOG_INFO("Started");
 
     if (super::start(provider) == false) {
@@ -701,7 +703,12 @@ kern_return_t IMPL(IOUserBlockStorageDevice, StartDev)
         goto FailedToStart;
     }
 
-    fMapper = IOMapper::copyMapperForDevice(provider);
+    // Our provider may not be the IOService with a mapper, so search through its
+    // parents recursively for a node drive with the "iommu-parent" property set
+    providerAncestorWithIOMMU = findIOMMUAncestorService(provider);
+    if ( providerAncestorWithIOMMU != NULL ) {
+        fMapper = IOMapper::copyMapperForDevice(providerAncestorWithIOMMU);
+    }
 
     /* Initialize requests pool */
     if (fRequestsPool.init(fDeviceParams.numOfOutstandingIOs,
@@ -725,6 +732,47 @@ FailedToInitPool:
 FailedToStart:
     super::stop(provider);
     return status;
+}
+
+IOService *IOUserBlockStorageDevice::findIOMMUAncestorService(IOService *provider)
+{
+    IOService *ancestorServiceWithIOMMU = NULL;
+    bool registryModified = false;
+
+    if ( provider == NULL ) {
+        return NULL;
+    }
+
+    do {
+        IORegistryIterator * parentIterator = IORegistryIterator::iterateOver( provider, gIOServicePlane, kIORegistryIterateParents );
+        registryModified = false;
+
+        if ( parentIterator ) {
+            // Start search with the provider itself
+            IORegistryEntry * parentRegistryEntry = parentIterator->getCurrentEntry( );
+
+            while ( parentRegistryEntry ) {
+                if ( parentRegistryEntry->propertyExists( "iommu-parent" ) ) {
+                    ancestorServiceWithIOMMU = OSDynamicCast( IOService, parentRegistryEntry );
+                    if (ancestorServiceWithIOMMU != NULL) {
+                        // Found a match
+                        break;
+                    }
+                }
+                parentRegistryEntry = parentIterator->getNextObjectRecursive( );
+            }
+
+            if ( parentIterator->isValid( ) == false ) {
+                // The registry was modified while were iterating through the provider's parents
+                registryModified = true;
+                ancestorServiceWithIOMMU = NULL;
+            }
+
+            parentIterator->release( );
+        }
+    } while ( registryModified );
+
+    return ancestorServiceWithIOMMU;
 }
 
 IORequest *IOUserBlockStorageDevice::removeOutstandingRequestAndMarkSlotFree(uint32_t index)

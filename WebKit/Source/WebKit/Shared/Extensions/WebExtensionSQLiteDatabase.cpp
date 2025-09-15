@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Igalia, S.L. All rights reserved.
+ * Copyright (C) 2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,8 +39,6 @@
 
 static constexpr auto WebExtensionSQLiteErrorDomain = "com.apple.WebKit.SQLite"_s;
 static constexpr auto WebExtensionSQLiteInMemoryDatabaseName = "file::memory:"_s;
-static constexpr auto WebExtensionSQLiteErrorMessageKey = "Message"_s;
-static constexpr auto WebExtensionSQLiteErrorSQLKey = "SQL"_s;
 
 using namespace WebKit;
 
@@ -55,7 +54,7 @@ WebExtensionSQLiteDatabase::WebExtensionSQLiteDatabase(const URL& url, Ref<WorkQ
 
 void WebExtensionSQLiteDatabase::assertQueue()
 {
-    assertIsCurrent(m_queue.get());
+    assertIsCurrent(queue());
 }
 
 int WebExtensionSQLiteDatabase::close()

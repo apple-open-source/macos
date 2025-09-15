@@ -57,6 +57,7 @@
 #define _SKYWALK_CHANNEL_CHANNELVAR_H_
 
 #ifdef BSD_KERNEL_PRIVATE
+#include <skywalk/skywalk_common.h>
 #include <skywalk/core/skywalk_var.h>
 #include <skywalk/os_channel_private.h>
 #include <skywalk/nexus/nexus_mbq.h>
@@ -228,7 +229,6 @@ struct chreq {
 	uint32_t        cr_pipe_id;                     /* in */
 	ring_id_t       cr_ring_id;                     /* in */
 	ring_set_t      cr_ring_set;                    /* out */
-	ch_endpoint_t   cr_real_endpoint;               /* out */
 	ch_endpoint_t   cr_endpoint;                    /* out */
 	mach_vm_size_t  cr_memsize;                     /* out */
 	mach_vm_offset_t cr_memoffset;                  /* out */
@@ -327,8 +327,8 @@ struct __kern_channel_ring {
 	slot_idx_t              ckr_num_slots;  /* # of slots */
 	uint32_t                ckr_max_pkt_len;/* max pp pkt size */
 	uint32_t                ckr_largest;    /* largest packet seen */
-	const slot_idx_t        ckr_lim; /* ckr_num_slots - 1 */
-	enum txrx               ckr_tx;  /* kind of ring (tx/rx/alloc/free) */
+	const slot_idx_t        ckr_lim;        /* ckr_num_slots - 1 */
+	enum txrx               ckr_tx;         /* kind of ring (tx/rx/alloc/free) */
 
 	volatile slot_idx_t     ckr_khead;
 	volatile slot_idx_t     ckr_ktail;
@@ -474,29 +474,9 @@ struct __kern_channel_ring {
 
 	/*
 	 * Protects kring in the event of multiple writers;
-	 * only used by flow switch and monitor.
+	 * only used by flow switch.
 	 */
 	decl_lck_mtx_data(, ckr_qlock);
-
-#if CONFIG_NEXUS_MONITOR
-	/* array of krings that are monitoring this kring */
-	struct __kern_channel_ring **ckr_monitors;
-	uint32_t ckr_max_monitors; /* current size of the monitors array */
-	uint32_t ckr_n_monitors; /* next unused entry in the monitor array */
-	/*
-	 * Monitors work by intercepting the sync and notify callbacks of the
-	 * monitored krings. This is implemented by replacing the pointers
-	 * above and saving the previous ones in mon_* pointers below
-	 */
-	int (*ckr_mon_sync)(struct __kern_channel_ring *kring, struct proc *,
-	    uint32_t flags);
-	int (*ckr_mon_notify)(struct __kern_channel_ring *kring, struct proc *,
-	    uint32_t flags);
-
-	uint32_t ckr_mon_tail;  /* last seen slot on rx */
-	/* index of this ring in the monitored ring array */
-	uint32_t ckr_mon_pos;
-#endif /* CONFIG_NEXUS_MONITOR */
 
 	uint32_t        ckr_users;      /* existing bindings for this ring */
 
@@ -507,19 +487,16 @@ struct __kern_channel_ring {
 #define CKR_TBR_TOKEN_INVALID   INT64_MAX
 
 	/* stats capturing errors */
-	channel_ring_error_stats ckr_err_stats
-	__attribute__((aligned(sizeof(uint64_t))));
+	channel_ring_error_stats ckr_err_stats __sk_aligned(64);
 
 	/* stats capturing actual data movement (nexus provider's view) */
-	channel_ring_stats ckr_stats
-	__attribute__((aligned(sizeof(uint64_t))));
+	channel_ring_stats ckr_stats __sk_aligned(64);
 	uint64_t        ckr_accumulated_bytes;
 	uint64_t        ckr_accumulated_slots;
 	uint64_t        ckr_accumulate_start; /* in seconds */
 
 	/* stats capturing user activities per sync (user's view) */
-	channel_ring_user_stats ckr_usr_stats
-	__attribute__((aligned(sizeof(uint64_t))));
+	channel_ring_user_stats ckr_usr_stats __sk_aligned(64);
 	uint64_t        ckr_user_accumulated_bytes;
 	uint64_t        ckr_user_accumulated_slots;
 	uint64_t        ckr_user_accumulated_syncs;
@@ -532,7 +509,7 @@ struct __kern_channel_ring {
 
 	uint64_t        ckr_rx_dequeue_ts; /* last timestamp when userspace dequeued */
 	uint64_t        ckr_rx_enqueue_ts; /* last timestamp when kernel enqueued */
-} __attribute__((__aligned__(CHANNEL_CACHE_ALIGN_MAX)));
+} __sk_aligned(CHANNEL_CACHE_ALIGN_MAX);
 
 #define KR_LOCK(_kr)                    \
 	lck_mtx_lock(&(_kr)->ckr_qlock)
@@ -650,26 +627,24 @@ KR_SLOT_INDEX(const struct __kern_channel_ring *kr,
 } while (0)
 
 #define _USD_COPY(_src, _dst) do {                                      \
-	_CASSERT(sizeof (struct __user_slot_desc) == 8);                \
+	static_assert(sizeof(struct __user_slot_desc) == 8);                \
 	sk_copy64_8((uint64_t *)(void *)_src, (uint64_t *)(void *)_dst); \
 } while (0)
 
 #define _USD_SWAP(_usd1, _usd2) do {                                    \
-	struct __user_slot_desc _tusd                                   \
-	    __attribute((aligned(sizeof (uint64_t))));                  \
+	struct __user_slot_desc _tusd __sk_aligned(64);                 \
 	_USD_COPY(_usd1, &_tusd);                                       \
 	_USD_COPY(_usd2, _usd1);                                        \
 	_USD_COPY(&_tusd, _usd2);                                       \
 } while (0)
 
 #define _KSD_COPY(_src, _dst) do {                                      \
-	_CASSERT(sizeof (struct __kern_slot_desc) == 8);                \
+	static_assert(sizeof(struct __kern_slot_desc) == 8);                \
 	sk_copy64_8((uint64_t *)(void *)_src, (uint64_t *)(void *)_dst); \
 } while (0)
 
 #define _KSD_SWAP(_ksd1, _ksd2) do {                                    \
-	struct __kern_slot_desc _tksd                                   \
-	    __attribute((aligned(sizeof (uint64_t))));                  \
+	struct __kern_slot_desc _tksd __sk_aligned(64);                 \
 	_KSD_COPY(_ksd1, &_tksd);                                       \
 	_KSD_COPY(_ksd2, _ksd1);                                        \
 	_KSD_COPY(&_tksd, _ksd2);                                       \
@@ -686,34 +661,17 @@ KR_SLOT_INDEX(const struct __kern_channel_ring *kr,
 } while (0)
 
 #define _MD_BUFLET_ADDROFF(_md, _addr, _objaddr, _doff, _dlen, _dlim) do { \
-	struct __kern_quantum *_q = SK_PTR_ADDR_KQUM(_md);              \
-	switch (METADATA_TYPE(_q)) {                                    \
-	case NEXUS_META_TYPE_PACKET: {                                  \
-	        struct __kern_packet *_p =                              \
-	            (struct __kern_packet *)(void *)(_md);              \
-	        struct __kern_buflet *_kbft;                            \
-	        PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);      \
-	        (_addr) = __unsafe_forge_bidi_indexable(void *,         \
-	            __DECONST(void *, _kbft->buf_addr), _kbft->buf_dlim); \
-	        (_objaddr) = __unsafe_forge_bidi_indexable(void *,      \
-	            _kbft->buf_objaddr, _kbft->buf_dlim);               \
-	        (_doff) = _kbft->buf_doff;                              \
-	        (_dlen) = _kbft->buf_dlen;                              \
-	        (_dlim) = _kbft->buf_dlim;                              \
-	        break;                                                  \
-	}                                                               \
-	default:                                                        \
-	        (_addr) = __unsafe_forge_bidi_indexable(void *,         \
-	            __DECONST(void *, _q->qum_buf[0].buf_addr),         \
-	            _q->qum_buf[0].buf_dlim);                           \
-	        (_objaddr) = __unsafe_forge_bidi_indexable(void *,      \
-	            _q->qum_buf[0].buf_objaddr,                         \
-	            _q->qum_buf[0].buf_dlim);                           \
-	        (_doff) = _q->qum_buf[0].buf_doff;                      \
-	        (_dlen) = _q->qum_buf[0].buf_dlen;                      \
-	        (_dlim) = _q->qum_buf[0].buf_dlim;                      \
-	        break;                                                  \
-	}                                                               \
+	struct __kern_packet *_p =                                      \
+	    (struct __kern_packet *)(void *)(_md);                      \
+	struct __kern_buflet *_kbft;                                    \
+	PKT_GET_FIRST_BUFLET(_p, _p->pkt_bufs_cnt, _kbft);              \
+	(_addr) = __unsafe_forge_bidi_indexable(void *,                 \
+	    __DECONST(void *, _kbft->buf_addr), _kbft->buf_dlim);       \
+	(_objaddr) = __unsafe_forge_bidi_indexable(void *,              \
+	    _kbft->buf_objaddr, _kbft->buf_dlim);                       \
+	(_doff) = _kbft->buf_doff;                                      \
+	(_dlen) = _kbft->buf_dlen;                                      \
+	(_dlim) = _kbft->buf_dlim;                                      \
 	ASSERT((_addr) != NULL);                                        \
 	ASSERT((_objaddr) != NULL);                                     \
 } while (0)
@@ -852,6 +810,14 @@ extern void ch_retain_locked(struct kern_channel *);
 extern int ch_release(struct kern_channel *);
 extern int ch_release_locked(struct kern_channel *);
 extern void ch_dtor(struct kern_channel *);
+extern void ch_update_upp_buf_stats(struct kern_channel *ch,
+    struct kern_pbufpool *pp);
+
+#if SK_LOG
+#define CH_DBGBUF_SIZE   256
+extern char * ch2str(const struct kern_channel *na, char *__counted_by(dsz)dst,
+    size_t dsz);
+#endif /* SK_LOG */
 
 extern void csi_init(struct ch_selinfo *, boolean_t, uint64_t);
 extern void csi_destroy(struct ch_selinfo *);
@@ -931,6 +897,8 @@ extern void kr_event_sync_finalize(struct kern_channel *ch,
 
 #if SK_LOG
 extern void kr_log_bad_ring(struct __kern_channel_ring *);
+extern char * kr2str(const struct __kern_channel_ring *kr,
+    char *__counted_by(dsz)dst, size_t dsz);
 #else
 #define kr_log_bad_ring(_kr)    do { ((void)0); } while (0)
 #endif /* SK_LOG */

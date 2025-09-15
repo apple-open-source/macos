@@ -93,39 +93,39 @@ public:
 
     operator unsigned short() const
     {
-        return numericValue().resolveAsNumber<unsigned short>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<unsigned short>(m_builderState.cssToLengthConversionData());
     }
 
     operator int() const
     {
-        return numericValue().resolveAsNumber<int>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<int>(m_builderState.cssToLengthConversionData());
     }
 
     operator unsigned() const
     {
-        return numericValue().resolveAsNumber<unsigned>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<unsigned>(m_builderState.cssToLengthConversionData());
     }
 
     operator float() const
     {
-        return numericValue().resolveAsNumber<float>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<float>(m_builderState.cssToLengthConversionData());
     }
 
     operator double() const
     {
-        return numericValue().resolveAsNumber<double>(m_builderState.cssToLengthConversionData());
+        return protectedNumericValue()->resolveAsNumber<double>(m_builderState.cssToLengthConversionData());
     }
 
 private:
-    const CSSPrimitiveValue& numericValue() const
+    Ref<const CSSPrimitiveValue> protectedNumericValue() const
     {
-        auto& value = downcast<CSSPrimitiveValue>(m_value);
-        ASSERT(value.isNumberOrInteger());
+        Ref value = downcast<const CSSPrimitiveValue>(m_value);
+        ASSERT(value->isNumberOrInteger());
         return value;
     }
 
     const Style::BuilderState& m_builderState;
-    const CSSValue& m_value;
+    Ref<const CSSValue> m_value;
 };
 
 inline TypeDeducingCSSValueMapper fromCSSValueDeducingType(const Style::BuilderState& builderState, const CSSValue& value)
@@ -228,17 +228,14 @@ constexpr CSSValueID toCSSValueID(BorderStyle e)
 
 template<> constexpr BorderStyle fromCSSValueID(CSSValueID valueID)
 {
-    if (valueID == CSSValueAuto) // Valid for CSS outline-style
-        return BorderStyle::Dotted;
     return static_cast<BorderStyle>(valueID - CSSValueNone);
 }
 
-template<> constexpr OutlineIsAuto fromCSSValueID(CSSValueID valueID)
-{
-    if (valueID == CSSValueAuto)
-        return OutlineIsAuto::On;
-    return OutlineIsAuto::Off;
-}
+#define TYPE OutlineStyle
+#define FOR_EACH(CASE) CASE(Auto) CASE(None) CASE(Inset) CASE(Groove) CASE(Ridge) CASE(Outset) CASE(Dotted) CASE(Dashed) CASE(Solid) CASE(Double)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 constexpr CSSValueID toCSSValueID(CompositeOperator e, CSSPropertyID propertyID)
 {
@@ -383,6 +380,9 @@ constexpr CSSValueID toCSSValueID(StyleAppearance e)
         return CSSValueApplePayButton;
 #endif
     case StyleAppearance::ColorWell:
+    case StyleAppearance::ColorWellSwatch:
+    case StyleAppearance::ColorWellSwatchOverlay:
+    case StyleAppearance::ColorWellSwatchWrapper:
 #if ENABLE(SERVICE_CONTROLS)
     case StyleAppearance::ImageControlsButton:
 #endif
@@ -1646,11 +1646,6 @@ constexpr CSSValueID toCSSValueID(TextEmphasisMark mark)
         return CSSValueTriangle;
     case TextEmphasisMark::Sesame:
         return CSSValueSesame;
-    case TextEmphasisMark::None:
-    case TextEmphasisMark::Auto:
-    case TextEmphasisMark::Custom:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return CSSValueNone;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return CSSValueInvalid;
@@ -1659,8 +1654,6 @@ constexpr CSSValueID toCSSValueID(TextEmphasisMark mark)
 template<> constexpr TextEmphasisMark fromCSSValueID(CSSValueID valueID)
 {
     switch (valueID) {
-    case CSSValueNone:
-        return TextEmphasisMark::None;
     case CSSValueDot:
         return TextEmphasisMark::Dot;
     case CSSValueCircle:
@@ -1675,7 +1668,7 @@ template<> constexpr TextEmphasisMark fromCSSValueID(CSSValueID valueID)
         break;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return TextEmphasisMark::None;
+    return TextEmphasisMark::Dot;
 }
 
 #define TYPE TextOrientation
@@ -2014,6 +2007,16 @@ constexpr CSSValueID toCSSValueID(AppleVisualEffect effect)
         return CSSValueAppleSystemBlurMaterialThick;
     case AppleVisualEffect::BlurChromeMaterial:
         return CSSValueAppleSystemBlurMaterialChrome;
+#if HAVE(MATERIAL_HOSTING)
+    case AppleVisualEffect::GlassMaterial:
+        return CSSValueAppleSystemGlassMaterial;
+    case AppleVisualEffect::GlassSubduedMaterial:
+        return CSSValueAppleSystemGlassMaterialSubdued;
+    case AppleVisualEffect::GlassMediaControlsMaterial:
+        return CSSValueAppleSystemGlassMaterialMediaControls;
+    case AppleVisualEffect::GlassSubduedMediaControlsMaterial:
+        return CSSValueAppleSystemGlassMaterialMediaControlsSubdued;
+#endif
     case AppleVisualEffect::VibrancyLabel:
         return CSSValueAppleSystemVibrancyLabel;
     case AppleVisualEffect::VibrancySecondaryLabel:
@@ -2050,6 +2053,16 @@ template<> constexpr AppleVisualEffect fromCSSValueID(CSSValueID valueID)
         return AppleVisualEffect::BlurThickMaterial;
     case CSSValueAppleSystemBlurMaterialChrome:
         return AppleVisualEffect::BlurChromeMaterial;
+#if HAVE(MATERIAL_HOSTING)
+    case CSSValueAppleSystemGlassMaterial:
+        return AppleVisualEffect::GlassMaterial;
+    case CSSValueAppleSystemGlassMaterialSubdued:
+        return AppleVisualEffect::GlassSubduedMaterial;
+    case CSSValueAppleSystemGlassMaterialMediaControls:
+        return AppleVisualEffect::GlassMediaControlsMaterial;
+    case CSSValueAppleSystemGlassMaterialMediaControlsSubdued:
+        return AppleVisualEffect::GlassSubduedMediaControlsMaterial;
+#endif
     case CSSValueAppleSystemVibrancyLabel:
         return AppleVisualEffect::VibrancyLabel;
     case CSSValueAppleSystemVibrancySecondaryLabel:
@@ -2133,32 +2146,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-enum LengthConversion {
-    AnyConversion = ~0,
-    FixedIntegerConversion = 1 << 0,
-    FixedFloatConversion = 1 << 1,
-    AutoConversion = 1 << 2,
-    PercentConversion = 1 << 3,
-    CalculatedConversion = 1 << 4
-};
-
-template<int supported> Length CSSPrimitiveValue::convertToLength(const CSSToLengthConversionData& conversionData) const
-{
-    if (!convertingToLengthHasRequiredConversionData(supported, conversionData))
-        return Length(LengthType::Undefined);
-    if ((supported & FixedIntegerConversion) && isLength())
-        return resolveAsLength<Length>(conversionData);
-    if ((supported & FixedFloatConversion) && isLength())
-        return Length(resolveAsLength<double>(conversionData), LengthType::Fixed);
-    if ((supported & PercentConversion) && isPercentage())
-        return Length(resolveAsPercentage<double>(conversionData), LengthType::Percent);
-    if ((supported & AutoConversion) && valueID() == CSSValueAuto)
-        return Length(LengthType::Auto);
-    if ((supported & CalculatedConversion) && isCalculated())
-        return Length(cssCalcValue()->createCalculationValue(conversionData, CSSCalcSymbolTable { }));
-    return Length(LengthType::Undefined);
-}
-
 #define TYPE BufferedRendering
 #define FOR_EACH(CASE) CASE(Auto) CASE(Dynamic) CASE(Static)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -2176,6 +2163,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
+
 
 #define TYPE DominantBaseline
 #define FOR_EACH(CASE) CASE(Auto) CASE(UseScript) CASE(NoChange) CASE(ResetSize) CASE(Central) \
@@ -2651,7 +2639,13 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-#define TYPE PositionTryFallback::Tactic
+#define TYPE PositionVisibility
+#define FOR_EACH(CASE) CASE(AnchorsValid) CASE(AnchorsVisible) CASE(NoOverflow)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE Style::PositionTryFallback::Tactic
 #define FOR_EACH(CASE) CASE(FlipBlock) CASE(FlipInline) CASE(FlipStart)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE

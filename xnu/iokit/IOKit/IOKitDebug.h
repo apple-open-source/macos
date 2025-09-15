@@ -113,6 +113,7 @@ enum {
 	    | kIOSleepWakeWdogOff
 	    | kIOKextSpinDump
 	    | kIOWaitQuietPanics
+	    | kIOLogExclaves
 };
 
 enum {
@@ -143,13 +144,14 @@ enum {
 	kIODKDisableCDHashChecking  = 0x00004000ULL,
 	kIODKDisableEntitlementChecking = 0x00008000ULL,
 	kIODKDisableCheckInTokenVerification = 0x00010000ULL,
+	kIODKDisableIOPMSystemOffPhase2Allow = 0x00020000ULL,
 };
 
 #if XNU_KERNEL_PRIVATE
 
 #define DKLOG(fmt, args...) { IOLog("DK: " fmt, ## args); }
 #define DKS                "%s-0x%qx"
-#define DKN(s)              s->getName(), s->getRegistryEntryID()
+#define DKN(s)              s ? s->getName() : "NO-NAME", s ? s->getRegistryEntryID() : UINT64_MAX
 
 #ifdef IOKITDEBUG
 #define DEBUG_INIT_VALUE IOKITDEBUG

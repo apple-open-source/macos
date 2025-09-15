@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ WakeLock& NavigatorScreenWakeLock::wakeLock(Navigator& navigator)
 WakeLock& NavigatorScreenWakeLock::wakeLock()
 {
     if (!m_wakeLock)
-        m_wakeLock = WakeLock::create(downcast<Document>(m_navigator.scriptExecutionContext()));
+        lazyInitialize(m_wakeLock, WakeLock::create(downcast<Document>(m_navigator->protectedScriptExecutionContext().get())));
     return *m_wakeLock;
 }
 

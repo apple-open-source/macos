@@ -336,6 +336,9 @@ T_DECL(suspend_stats_update_on_forkcorpse,
 
 	T_LOG("Generating corpse of helper...");
 	kr = task_generate_corpse(child_task, &cp);
+	if (kr == KERN_RESOURCE_SHORTAGE) {
+		T_SKIP("Corpse slot unavailable");
+	}
 	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "task_generate_corpse");
 
 	get_stats(child_task, &post);

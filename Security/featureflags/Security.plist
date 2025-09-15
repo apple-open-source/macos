@@ -34,6 +34,13 @@
 		<key>Enabled</key>
 		<false/>
 	</dict>
+	<key>ProtectLoginKeychainWithDP</key>
+	<dict>
+		<key>Display Name</key>
+		<string>Protect (legacy) login keychain with Data Protection</string>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
 	<key>SeparateUserKeychain</key>
 	<dict>
 		<key>Enabled</key>
@@ -97,10 +104,83 @@
 		<key>DevelopmentPhase</key>
 		<string>FeatureComplete</string>
 	</dict>
+	<key>DisableLegacyTLSExclusions</key>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 	<key>AllowAllMetrics</key>
 	<dict>
 		<key>Enabled</key>
 		<false/>
+	</dict>
+	<key>KCSharingCKSyncEngineTransition</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Move the deprecated CKSyncEngine to use Public API</string>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+		<key>Attributes</key>
+		<dict>
+			<key>TargetRelease</key>
+			<string>WWDC2025</string>
+		</dict>
+	</dict>
+	<key>KCSharingCloudCoreAdoption</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Adopt the new Cloud Core Module</string>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+		<key>Attributes</key>
+		<dict>
+			<key>TargetRelease</key>
+			<string>WWDC2025</string>
+		</dict>
+	</dict>
+	<key>SEPBasedICSCHealingEnabled</key>
+	<dict>
+		<key>Attributes</key>
+		<dict>
+			<key>TargetRelease</key>
+			<string>WWDC2025</string>
+		</dict>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
+	<key>EarlyAnchorExpiration</key>
+	<dict>
+		<key>DisplayName</key>
+		<string>Enable validation of QWAC certificates</string>
+		<key>DevelopmentPhase</key>
+		<string>FeatureComplete</string>
+	</dict>
+	<key>SecDbVerboseDatabaseLogging</key>
+	<dict>
+		<key>Display Name</key>
+		<string>Enable to verbosely log all SecDb operations</string>
+		<key>Enabled</key>
+		<false/>
+	</dict>
+	<key>TestDisableEscrowCheck</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>TestDisableEscrowRepair</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>DisablePrerecord</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
+	</dict>
+	<key>EscrowCheckMigration</key>
+	<dict>
+		<key>DevelopmentPhase</key>
+		<string>UnderDevelopment</string>
 	</dict>
 </dict>
 </plist>

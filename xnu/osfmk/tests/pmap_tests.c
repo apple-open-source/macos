@@ -34,11 +34,13 @@
 #include <pexpert/arm64/board_config.h>
 #if CONFIG_SPTM
 #include <arm64/sptm/pmap/pmap_pt_geometry.h>
+#include <arm64/sptm/pmap/pmap_data.h>
 #else /* CONFIG_SPTM */
 #include <arm/pmap/pmap_pt_geometry.h>
 #endif /* CONFIG_SPTM */
 #endif /* defined(__arm64__) */
 #include <vm/vm_map_xnu.h>
+#include <sys/code_signing.h>
 
 extern void read_random(void* buffer, u_int numBytes);
 
@@ -58,6 +60,7 @@ uint64_t test_pmap_page_protect_overhead(unsigned int num_loops, unsigned int nu
 #if CONFIG_SPTM
 kern_return_t test_pmap_huge_pv_list(unsigned int num_loops, unsigned int num_mappings);
 kern_return_t test_pmap_reentrance(unsigned int num_loops);
+kern_return_t test_surt(unsigned int num_surts);
 #endif
 
 #define PMAP_TEST_VA (0xDEADULL << PAGE_SHIFT)
@@ -251,6 +254,10 @@ test_pmap_exec_remove(unsigned int num_loops __unused)
 
 static const vm_map_address_t nesting_start = SHARED_REGION_BASE;
 static const vm_map_address_t nesting_size = 16 * ARM_16K_TT_L2_SIZE;
+static const vm_map_address_t final_unnest_size = 2 * ARM_16K_TT_L2_SIZE;
+static const vm_map_address_t initial_unnest_size = nesting_size - final_unnest_size;
+static const vm_map_address_t trimmed_start = nesting_start + ARM_16K_TT_L2_SIZE;
+static const vm_map_address_t trimmed_size = nesting_size - (3 * ARM_16K_TT_L2_SIZE);
 
 static void
 pmap_nest_thread(void *arg, wait_result_t __unused wres)
@@ -270,10 +277,11 @@ pmap_nest_thread(void *arg, wait_result_t __unused wres)
 	 * in the main thread.
 	 */
 	if (main_pmap != NULL) {
+		pmap_set_shared_region(main_pmap, args->pmap, nesting_start, nesting_size);
 		kr = pmap_nest(main_pmap, args->pmap, nesting_start, nesting_size);
 		assert(kr == KERN_SUCCESS);
 
-		kr = pmap_unnest(main_pmap, nesting_start, nesting_size - ARM_16K_TT_L2_SIZE);
+		kr = pmap_unnest(main_pmap, nesting_start, initial_unnest_size);
 		assert(kr == KERN_SUCCESS);
 	}
 
@@ -289,7 +297,7 @@ pmap_nest_thread(void *arg, wait_result_t __unused wres)
 
 	/* Unnest all remaining mappings so that we can safely destroy our pmap. */
 	if (main_pmap != NULL) {
-		kr = pmap_unnest(main_pmap, nesting_start + nesting_size - ARM_16K_TT_L2_SIZE, ARM_16K_TT_L2_SIZE);
+		kr = pmap_unnest(main_pmap, nesting_start + initial_unnest_size, final_unnest_size);
 		assert(kr == KERN_SUCCESS);
 		pmap_destroy(main_pmap);
 	}
@@ -324,7 +332,7 @@ test_pmap_nesting(unsigned int num_loops)
 	const ppnum_t pp1 = VM_PAGE_GET_PHYS_PAGE(m1);
 	const ppnum_t pp2 = VM_PAGE_GET_PHYS_PAGE(m2);
 	for (unsigned int i = 0; (i < num_loops) && (kr == KERN_SUCCESS); i++) {
-		pmap_t nested_pmap = pmap_create_wrapper(0);
+		pmap_t nested_pmap = pmap_create_wrapper(PMAP_CREATE_NESTED);
 		pmap_t main_pmap = pmap_create_wrapper(0);
 		if ((nested_pmap == NULL) || (main_pmap == NULL)) {
 			pmap_destroy(main_pmap);
@@ -333,7 +341,10 @@ test_pmap_nesting(unsigned int num_loops)
 			break;
 		}
 		pmap_set_nested(nested_pmap);
-		for (vm_map_address_t va = nesting_start; va < (nesting_start + nesting_size); va += PAGE_SIZE) {
+#if CODE_SIGNING_MONITOR
+		csm_setup_nested_address_space(nested_pmap, nesting_start, nesting_size);
+#endif /* CODE_SIGNING_MONITOR */
+		for (vm_map_address_t va = trimmed_start; va < (trimmed_start + trimmed_size); va += PAGE_SIZE) {
 			uint8_t rand;
 			read_random(&rand, sizeof(rand));
 			uint8_t rand_mod = rand % 3;
@@ -344,6 +355,7 @@ test_pmap_nesting(unsigned int num_loops)
 			    VM_PROT_NONE, VM_WIMG_USE_DEFAULT, FALSE, PMAP_MAPPING_TYPE_INFER);
 			assert(kr == KERN_SUCCESS);
 		}
+		pmap_set_shared_region(main_pmap, nested_pmap, nesting_start, nesting_size);
 		kr = pmap_nest(main_pmap, nested_pmap, nesting_start, nesting_size);
 		assert(kr == KERN_SUCCESS);
 
@@ -361,7 +373,30 @@ test_pmap_nesting(unsigned int num_loops)
 			}
 		}
 
-		/* Now kick off various worker threads to concurrently nest and unnest. */
+		pmap_trim(main_pmap, nested_pmap, trimmed_start, trimmed_size);
+
+		/**
+		 * Validate that the trimmed-off regions at the beginning and end no longer have L3 tables
+		 * in the main or nested pmaps.
+		 */
+		if (pmap_pte(main_pmap, nesting_start) != NULL) {
+			panic("%s: L3 table still present in main pmap for trimmed VA 0x%llx", __func__,
+			    (unsigned long long)nesting_start);
+		}
+		if (pmap_pte(main_pmap, trimmed_start + trimmed_size) != NULL) {
+			panic("%s: L3 table still present in main pmap for trimmed VA 0x%llx", __func__,
+			    (unsigned long long)(trimmed_start + trimmed_size));
+		}
+		if (pmap_pte(nested_pmap, nesting_start) != NULL) {
+			panic("%s: L3 table still present in nested pmap for trimmed VA 0x%llx", __func__,
+			    (unsigned long long)nesting_start);
+		}
+		if (pmap_pte(nested_pmap, trimmed_start + trimmed_size) != NULL) {
+			panic("%s: L3 table still present in nested pmap for trimmed VA 0x%llx", __func__,
+			    (unsigned long long)(trimmed_start + trimmed_size));
+		}
+
+		/* Now kick off various worker threads to concurrently nest, trim, and unnest. */
 		const processor_t nest_proc = current_processor();
 		thread_bind(nest_proc);
 		thread_block(THREAD_CONTINUE_NULL);
@@ -394,10 +429,18 @@ test_pmap_nesting(unsigned int num_loops)
 		}
 
 		/* Unnest the bulk of the nested region and validate that it produced the expected PTE contents. */
-		kr = pmap_unnest(main_pmap, nesting_start, nesting_size - ARM_16K_TT_L2_SIZE);
+		kr = pmap_unnest(main_pmap, nesting_start, initial_unnest_size);
 		assert(kr == KERN_SUCCESS);
 
-		for (vm_map_address_t va = nesting_start; va < (nesting_start + nesting_size - ARM_16K_TT_L2_SIZE); va += PAGE_SIZE) {
+		/**
+		 * Explicitly install a new mapping in the nested pmap after unnesting; this should be created non-global,
+		 * which we'll verify below.
+		 */
+		kr = pmap_enter(nested_pmap, trimmed_start, pp1, VM_PROT_READ,
+		    VM_PROT_NONE, VM_WIMG_USE_DEFAULT, FALSE, PMAP_MAPPING_TYPE_INFER);
+		assert(kr == KERN_SUCCESS);
+
+		for (vm_map_address_t va = trimmed_start; va < (nesting_start + initial_unnest_size); va += PAGE_SIZE) {
 			pt_entry_t *nested_pte = pmap_pte(nested_pmap, va);
 			pt_entry_t *main_pte = pmap_pte(main_pmap, va);
 
@@ -412,7 +455,7 @@ test_pmap_nesting(unsigned int num_loops)
 		}
 
 		/* Validate that the prior unnest did not unnest too much. */
-		for (vm_map_address_t va = nesting_start + nesting_size - ARM_16K_TT_L2_SIZE; va < (nesting_start + nesting_size); va += PAGE_SIZE) {
+		for (vm_map_address_t va = nesting_start + initial_unnest_size; va < (trimmed_start + trimmed_size); va += PAGE_SIZE) {
 			pt_entry_t *nested_pte = pmap_pte(nested_pmap, va);
 			pt_entry_t *main_pte = pmap_pte(main_pmap, va);
 			if (nested_pte != main_pte) {
@@ -426,13 +469,13 @@ test_pmap_nesting(unsigned int num_loops)
 		}
 
 		/* Now unnest the remainder. */
-		kr = pmap_unnest(main_pmap, nesting_start + nesting_size - ARM_16K_TT_L2_SIZE, ARM_16K_TT_L2_SIZE);
+		kr = pmap_unnest(main_pmap, nesting_start + initial_unnest_size, final_unnest_size);
 		assert(kr == KERN_SUCCESS);
 
 		thread_bind(PROCESSOR_NULL);
 		thread_block(THREAD_CONTINUE_NULL);
 
-		for (vm_map_address_t va = nesting_start + nesting_size - ARM_16K_TT_L2_SIZE; va < (nesting_start + nesting_size); va += PAGE_SIZE) {
+		for (vm_map_address_t va = nesting_start + initial_unnest_size; va < (trimmed_start + trimmed_size); va += PAGE_SIZE) {
 			pt_entry_t *nested_pte = pmap_pte(nested_pmap, va);
 			pt_entry_t *main_pte = pmap_pte(main_pmap, va);
 
@@ -456,6 +499,7 @@ test_pmap_nesting(unsigned int num_loops)
 				kr = thread_krs[j];
 			}
 		}
+
 		pmap_remove(nested_pmap, nesting_start, nesting_start + nesting_size);
 		pmap_destroy(main_pmap);
 		pmap_destroy(nested_pmap);
@@ -488,8 +532,6 @@ test_pmap_iommu_disconnect(void)
 kern_return_t
 test_pmap_extended(void)
 {
-#if !CONFIG_SPTM /* SPTM TODO: remove this condition once the SPTM supports 4K and stage-2 mappings */
-#endif /* !CONFIG_SPTM */
 	return KERN_SUCCESS;
 }
 
@@ -837,4 +879,191 @@ test_pmap_reentrance(unsigned int num_loops __unused)
 }
 
 
+#if __ARM64_PMAP_SUBPAGE_L1__
+/* Data shared between the main testing thread and the workers. */
+typedef struct {
+	/* A pointer to an atomic counter of the active worker threads. */
+	unsigned int *surt_test_active_surge_thread;
+
+	/* The SURT physical address this worker is responsible for. */
+	pmap_paddr_t surt_pa;
+} surt_emulation_thread_data;
+
+/**
+ * SURT allocation emulation
+ *
+ * This function emulates the behavior of a thread trying to allocate a SURT.
+ * It tries to find a free SURT in the SURT page list first, and if it does
+ * not manage to find one, it allocates a new SURT page, takes the first SURT,
+ * and feeds the page to the SURT page list.
+ *
+ * @param arg Pointer to the shared structure between the main thread and the
+ *            worker.
+ * @param wres Wait result - unused.
+ */
+static void
+surt_allocation_emulation_thread(void *arg, wait_result_t __unused wres)
+{
+	pmap_paddr_t surt_pa;
+
+	surt_emulation_thread_data *thread_data = (surt_emulation_thread_data *)arg;
+
+	surt_pa = surt_try_alloc();
+
+	if (surt_pa) {
+		goto saet_done;
+	}
+
+	const kern_return_t ret = pmap_page_alloc(&surt_pa, PMAP_PAGE_NOZEROFILL);
+
+	if (ret != KERN_SUCCESS) {
+		goto saet_done;
+	}
+
+	/**
+	 * This has to be retyped to XNU_SUBPAGE_USER_ROOT_TABLES in case
+	 * a SURT request from real process creation shows up. It does not
+	 * need to, and cannot, call SPTM's SURT alloc function, however,
+	 * because some extreme stress test parameters can exhaust available
+	 * ASIDs. The normal operation of the system should be unaffected
+	 * as long as the xnu bitmap tracking used SURTs is a superset of
+	 * the SPTM tracking structures.
+	 */
+	sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
+	sptm_retype(surt_pa, XNU_DEFAULT, XNU_SUBPAGE_USER_ROOT_TABLES, retype_params);
+
+	/* Feed the SURT page to the SURT list. */
+	surt_feed_page_with_first_table_allocated(surt_pa);
+
+saet_done:
+	/* Update the shared structure. */
+	thread_data->surt_pa = surt_pa;
+	if (os_atomic_dec(thread_data->surt_test_active_surge_thread, relaxed) == 0) {
+		thread_wakeup(thread_data->surt_test_active_surge_thread);
+	}
+}
+
+/**
+ * SURT free emulation
+ *
+ * This function pairs with the allocation emulation function to complete the
+ * emulation of the lifecycle of a SURT table. It records and reports the time
+ * it takes to free the SURT, and when applicable, the time it takes to free
+ * the SURT page.
+ *
+ * @param arg Pointer to the shared structure between the main thread and the
+ *            worker.
+ * @param wres Wait result - unused.
+ */
+static void
+surt_free_emulation_thread(void *arg, wait_result_t __unused wres)
+{
+	surt_emulation_thread_data *thread_data = (surt_emulation_thread_data *)arg;
+
+	if (thread_data->surt_pa == 0) {
+		goto sfet_free;
+	}
+
+	const bool retype = surt_free(thread_data->surt_pa);
+
+	if (retype) {
+		os_atomic_thread_fence(acquire);
+		sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
+		sptm_retype(thread_data->surt_pa & ~PAGE_MASK, XNU_SUBPAGE_USER_ROOT_TABLES,
+		    XNU_DEFAULT, retype_params);
+		pmap_page_free(thread_data->surt_pa & ~PAGE_MASK);
+	}
+
+sfet_free:
+	if (os_atomic_dec(thread_data->surt_test_active_surge_thread, relaxed) == 0) {
+		thread_wakeup(thread_data->surt_test_active_surge_thread);
+	}
+}
+
+/**
+ * SURT stress test
+ *
+ * This function tries to stress the SURT system by launching certain numbers
+ * of threads allocating a SURT then free them.
+ *
+ * @param num_surts The number of SURTs to allocate and free. Note that this
+ *                  many of worker threads will be allocated so take care when
+ *                  passing in a large number: memory zones can be exhausted.
+ *
+ * @return Whether the test finishes successfully.
+ */
+kern_return_t
+test_surt(unsigned int num_surts)
+{
+	surt_emulation_thread_data *thread_data_array = kalloc_type(surt_emulation_thread_data,
+	    num_surts, Z_WAITOK | Z_ZERO);
+	if (!thread_data_array) {
+		return KERN_FAILURE;
+	}
+
+	thread_t *thread_array = kalloc_type(thread_t, num_surts, Z_WAITOK | Z_ZERO);
+	if (!thread_array) {
+		return KERN_FAILURE;
+	}
+
+	unsigned int active_threads = 0;
+
+	for (unsigned int i = 0; i < num_surts; i++) {
+		os_atomic_inc(&active_threads, relaxed);
+		thread_data_array[i].surt_test_active_surge_thread = &active_threads;
+
+		kernel_thread_start_priority(surt_allocation_emulation_thread,
+		    &thread_data_array[i],
+		    thread_kern_get_pri(current_thread()) - 1,
+		    &thread_array[i]);
+	}
+
+	assert_wait(&active_threads, THREAD_UNINT);
+
+	if (os_atomic_load(&active_threads, relaxed) == 0) {
+		clear_wait(current_thread(), THREAD_AWAKENED);
+	} else {
+		thread_block(THREAD_CONTINUE_NULL);
+	}
+
+	if (os_atomic_load(&active_threads, relaxed) != 0) {
+		panic("%s: unexpected wakeup of main test thread while workers are active.",
+		    __func__);
+	}
+
+	for (unsigned int i = 0; i < num_surts; i++) {
+		thread_deallocate(thread_array[i]);
+	}
+
+	for (unsigned int i = 0; i < num_surts; i++) {
+		os_atomic_inc(&active_threads, relaxed);
+		kernel_thread_start_priority(surt_free_emulation_thread,
+		    &thread_data_array[i],
+		    thread_kern_get_pri(current_thread()) - 1,
+		    &thread_array[i]);
+	}
+
+	assert_wait(&active_threads, THREAD_UNINT);
+
+	if (os_atomic_load(&active_threads, relaxed) == 0) {
+		clear_wait(current_thread(), THREAD_AWAKENED);
+	} else {
+		thread_block(THREAD_CONTINUE_NULL);
+	}
+
+	if (os_atomic_load(&active_threads, relaxed) != 0) {
+		panic("%s: unexpected wakeup of main test thread while workers are active.",
+		    __func__);
+	}
+
+	for (unsigned int i = 0; i < num_surts; i++) {
+		thread_deallocate(thread_array[i]);
+	}
+
+	kfree_type(surt_emulation_thread_data, num_surts, thread_data_array);
+	kfree_type(thread_t, num_surts, thread_array);
+
+	return KERN_SUCCESS;
+}
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
 #endif /* CONFIG_SPTM */

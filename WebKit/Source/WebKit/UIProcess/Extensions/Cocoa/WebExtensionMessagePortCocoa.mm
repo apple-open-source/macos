@@ -45,26 +45,26 @@ NSError *toAPI(WebExtensionMessagePort::Error error)
         return nil;
 
     WKWebExtensionMessagePortError errorCode;
-    NSString *message;
+    RetainPtr<NSString> message;
 
     switch (error.value().first) {
     case WebKit::WebExtensionMessagePort::ErrorType::Unknown:
         errorCode = WKWebExtensionMessagePortErrorUnknown;
-        message = (NSString *)error.value().second.value_or("An unknown error occurred."_s);
+        message = error.value().second.value_or("An unknown error occurred."_s).createNSString();
         break;
 
     case WebKit::WebExtensionMessagePort::ErrorType::NotConnected:
         errorCode = WKWebExtensionMessagePortErrorNotConnected;
-        message = (NSString *)error.value().second.value_or("Message port is not connected and cannot send messages."_s);
+        message = error.value().second.value_or("Message port is not connected and cannot send messages."_s).createNSString().get();
         break;
 
     case WebKit::WebExtensionMessagePort::ErrorType::MessageInvalid:
         errorCode = WKWebExtensionMessagePortErrorMessageInvalid;
-        message = (NSString *)error.value().second.value_or("Message is not JSON-serializable."_s);
+        message = error.value().second.value_or("Message is not JSON-serializable."_s).createNSString().get();
         break;
     }
 
-    return [NSError errorWithDomain:WKWebExtensionMessagePortErrorDomain code:errorCode userInfo:@{ NSDebugDescriptionErrorKey: message }];
+    return [NSError errorWithDomain:WKWebExtensionMessagePortErrorDomain code:errorCode userInfo:@{ NSDebugDescriptionErrorKey: message.get() }];
 }
 
 WebExtensionMessagePort::Error toWebExtensionMessagePortError(NSError *error)

@@ -210,6 +210,8 @@ public:
             case Add:
             case Sub:
             case Mul:
+            case MulHigh:
+            case UMulHigh:
             case Div:
             case UDiv:
             case Mod:
@@ -247,6 +249,12 @@ public:
                 VALIDATE(value->numChildren() == 1, ("At ", *value));
                 VALIDATE(value->type() == value->child(0)->type(), ("At ", *value));
                 VALIDATE(value->type().isNumeric(), ("At ", *value));
+                break;
+            case PurifyNaN:
+                VALIDATE(!value->kind().hasExtraBits(), ("At ", *value));
+                VALIDATE(value->numChildren() == 1, ("At ", *value));
+                VALIDATE(value->type() == value->child(0)->type(), ("At ", *value));
+                VALIDATE(value->type().isFloat(), ("At ", *value));
                 break;
             case Shl:
             case SShr:
@@ -317,6 +325,7 @@ public:
             case Abs:
             case Ceil:
             case Floor:
+            case FTrunc:
             case Sqrt:
                 VALIDATE(!value->kind().hasExtraBits(), ("At ", *value));
                 VALIDATE(value->numChildren() == 1, ("At ", *value));
@@ -637,6 +646,17 @@ public:
                     VALIDATE(value->asSIMDValue()->simdLane() == SIMDLane::i8x16 || value->asSIMDValue()->simdLane() == SIMDLane::i16x8,  ("At ", *value));
                 else if (value->opcode() == VectorDotProduct)
                     VALIDATE(value->asSIMDValue()->simdLane() == SIMDLane::i32x4,  ("At ", *value));
+                break;
+            case VectorMulHigh:
+            case VectorMulLow:
+                VALIDATE(!value->kind().hasExtraBits(), ("At ", *value));
+                VALIDATE(value->numChildren() == 2, ("At ", *value));
+                VALIDATE(value->type() == V128, ("At ", *value));
+                VALIDATE(value->child(0)->type() == V128, ("At ", *value));
+                VALIDATE(value->child(1)->type() == V128, ("At ", *value));
+                VALIDATE(scalarTypeIsIntegral(value->asSIMDValue()->simdLane()), ("At ", *value));
+                VALIDATE(value->asSIMDValue()->simdLane() != SIMDLane::i8x16, ("At ", *value));
+                VALIDATE(value->asSIMDValue()->signMode() != SIMDSignMode::None, ("At ", *value));
                 break;
             case VectorShl:
             case VectorShr:

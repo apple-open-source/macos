@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #import <AppKit/NSSearchFieldCell.h>
 
 @interface NSSearchFieldCell ()

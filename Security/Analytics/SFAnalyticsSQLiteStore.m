@@ -405,6 +405,21 @@ NS_ASSUME_NONNULL_END
     }
 }
 
+- (void)setDataProperty:(NSData* _Nullable)data forKey:(NSString*)key
+{
+    [self setProperty:[data base64EncodedStringWithOptions:0] forKey:key];
+}
+
+- (NSData*)dataPropertyForKey:(NSString*)key
+{
+    NSData* result = nil;
+    NSString *string = [self propertyForKey:key];
+    if (string) {
+        result = [[NSData alloc] initWithBase64EncodedString:string options:0];
+    }
+    return result;
+}
+
 - (void)clearAllData
 {
     if (![self tryToOpenDatabase]) {

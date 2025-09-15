@@ -86,9 +86,6 @@
 #endif
 
 #if MDNSRESPONDER_SUPPORTS(COMMON, DNS_PUSH)
-    #if MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH)
-        #error "MDNSRESPONDER_SUPPORTS(COMMON, DNS_PUSH) and MDNSRESPONDER_SUPPORTS(APPLE, DNS_PUSH) shouldn't be enabled at the same time."
-    #endif
 #endif
 
 #endif  // __mDNSFeatures_h

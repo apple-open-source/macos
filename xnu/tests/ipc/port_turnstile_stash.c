@@ -103,7 +103,7 @@ T_DECL(port_stash_turnstile, "stashing knote turnstile on port should take a +1"
 
 	int nevents = kevent_qos(kq, &event, 1, out_events, 1, NULL, NULL, 0);
 	T_ASSERT_EQ(nevents, 1, "kevent_qos succeeded");
-	T_ASSERT_EQ(remote->sequence, 0x6666666666666666, NULL);
+	T_ASSERT_EQ(remote->sequence, (uint64_t)0x6666666666666666, NULL);
 
 	int ret = 0;
 	struct kevent_qos_s del_event = {

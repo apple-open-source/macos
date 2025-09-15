@@ -59,23 +59,25 @@ bool RemoteConnectionToTarget::setup(bool isAutomaticInspection, bool automatica
         RemoteInspector::singleton().setupFailed(targetIdentifier);
         Locker locker { m_targetMutex };
         m_target = nullptr;
-    } else if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(*target)) {
-        inspectionTarget->connect(*this, isAutomaticInspection, automaticallyPause);
-        m_connected = true;
-
-        RemoteInspector::singleton().updateTargetListing(targetIdentifier);
-    } else if (auto* inspectionTarget = dynamicDowncast<RemoteAutomationTarget>(*target)) {
-        inspectionTarget->connect(*this);
-        m_connected = true;
-
-        RemoteInspector::singleton().updateTargetListing(targetIdentifier);
+        return true;
     }
 
+    if (auto* inspectionTarget = dynamicDowncast<RemoteInspectionTarget>(*target))
+        inspectionTarget->connect(*this, isAutomaticInspection, automaticallyPause);
+    else if (auto* automationTarget = dynamicDowncast<RemoteAutomationTarget>(*target))
+        automationTarget->connect(*this);
+
+    m_connectionState = ConnectionState::Connected;
+    RemoteInspector::singleton().updateTargetListing(targetIdentifier);
+    RemoteInspector::singleton().setupCompleted(targetIdentifier);
     return true;
 }
 
 void RemoteConnectionToTarget::sendMessageToTarget(String&& message)
 {
+    if (m_connectionState == ConnectionState::Closed)
+        return;
+
     RefPtr<RemoteControllableTarget> target;
     {
         Locker locker { m_targetMutex };
@@ -87,14 +89,14 @@ void RemoteConnectionToTarget::sendMessageToTarget(String&& message)
 
 void RemoteConnectionToTarget::close()
 {
-    RunLoop::current().dispatch([this, protectThis = Ref { *this }] {
+    RunLoop::currentSingleton().dispatch([this, protectThis = Ref { *this }] {
         Locker locker { m_targetMutex };
         TargetID targetIdentifier = 0;
 
         if (RefPtr target = m_target.get()) {
             targetIdentifier = target->targetIdentifier();
 
-            if (m_connected)
+            if (m_connectionState.exchange(ConnectionState::Closed) == ConnectionState::Connected)
                 target->disconnect(*this);
 
             m_target = nullptr;
@@ -108,6 +110,7 @@ void RemoteConnectionToTarget::close()
 void RemoteConnectionToTarget::targetClosed()
 {
     Locker locker { m_targetMutex };
+    m_connectionState = ConnectionState::Closed;
     m_target = nullptr;
 }
 
@@ -119,6 +122,9 @@ std::optional<TargetID> RemoteConnectionToTarget::targetIdentifier() const
 
 void RemoteConnectionToTarget::sendMessageToFrontend(const String& message)
 {
+    if (m_connectionState == ConnectionState::Closed)
+        return;
+
     std::optional<TargetID> targetIdentifier;
     {
         Locker locker { m_targetMutex };

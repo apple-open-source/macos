@@ -699,7 +699,11 @@ static void TestNewTypes(void) {
     {
         const char *sourcePath = ctest_dataSrcDir();
         int32_t srcPathLen = (int32_t)strlen(sourcePath);
+#if defined (APPLE_XCODE_BUILD) // rdar://145099448
+        const char *deltaPath = U_FILE_SEP_STRING;
+#else
         const char *deltaPath = ".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING;
+#endif
         int32_t deltaPathLen = (int32_t)strlen(deltaPath);
         char *testDataFileName = (char *) malloc( srcPathLen+ deltaPathLen + 50 );
         char *path = testDataFileName;

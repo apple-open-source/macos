@@ -31,7 +31,6 @@
 #include <skywalk/nexus/kpipe/nx_kernel_pipe.h>
 #include <skywalk/nexus/flowswitch/nx_flowswitch.h>
 #include <skywalk/nexus/netif/nx_netif.h>
-#include <skywalk/nexus/monitor/nx_monitor.h>
 
 static STAILQ_HEAD(, nxdom) nexus_domains =
     STAILQ_HEAD_INITIALIZER(nexus_domains);
@@ -107,9 +106,6 @@ nxdom_attach_all(void)
 #if CONFIG_NEXUS_NETIF
 	nxdom_attach(&nx_netif_dom_s);
 #endif /* CONFIG_NEXUS_NETIF */
-#if CONFIG_NEXUS_MONITOR
-	nxdom_attach(&nx_monitor_dom_s);
-#endif /* CONFIG_NEXUS_MONITOR */
 
 	/* ask domains to initialize */
 	STAILQ_FOREACH(nxdom, &nexus_domains, nxdom_link)
@@ -177,31 +173,6 @@ nxdom_attach(struct nxdom *nxdom)
 	case NEXUS_TYPE_KERNEL_PIPE:
 	case NEXUS_TYPE_NET_IF:
 	case NEXUS_TYPE_FLOW_SWITCH:
-	case NEXUS_TYPE_MONITOR:
-		break;
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
-
-	/* verify this is a valid metadata type */
-	switch (nxdom->nxdom_md_type) {
-	case NEXUS_META_TYPE_QUANTUM:
-	case NEXUS_META_TYPE_PACKET:
-		break;
-
-	default:
-		VERIFY(0);
-		/* NOTREACHED */
-		__builtin_unreachable();
-	}
-
-	/* verify this is a valid metadata subtype */
-	switch (nxdom->nxdom_md_subtype) {
-	case NEXUS_META_SUBTYPE_PAYLOAD:
-	case NEXUS_META_SUBTYPE_RAW:
 		break;
 
 	default:
@@ -394,7 +365,7 @@ nxdom_prov_add(struct nxdom *nxdom,
 			nxdom_prov_retain_locked(nxdom_prov);
 		}
 
-		SK_D("nxdom_prov 0x%llx (%s) dom %s",
+		SK_D("nxdom_prov %p (%s) dom %s",
 		    SK_KVA(nxdom_prov), nxdom_prov->nxdom_prov_name,
 		    nxdom->nxdom_name);
 	} else {
@@ -419,7 +390,7 @@ nxdom_prov_del(struct kern_nexus_domain_provider *nxdom_prov)
 		return;
 	}
 
-	SK_D("nxdom_prov 0x%llx (%s:%s)", SK_KVA(nxdom_prov), nxdom->nxdom_name,
+	SK_D("nxdom_prov %p (%s:%s)", SK_KVA(nxdom_prov), nxdom->nxdom_name,
 	    nxdom_prov->nxdom_prov_name);
 
 	/* keep the reference around for the detaching list (see below) */
@@ -448,9 +419,9 @@ nxdom_prov_del(struct kern_nexus_domain_provider *nxdom_prov)
 static void
 nxdom_del_provider_final(struct kern_nexus_domain_provider *nxdom_prov)
 {
-#if (DEBUG || DEVELOPMENT)
+#if SK_LOG
 	struct nxdom *nxdom = nxdom_prov->nxdom_prov_dom;
-#endif /* DEBUG || DEVELOPMENT */
+#endif /* SK_LOG */
 
 	SK_LOCK_ASSERT_HELD();
 
@@ -458,7 +429,7 @@ nxdom_del_provider_final(struct kern_nexus_domain_provider *nxdom_prov)
 	    NXDOMPROVF_DETACHING)) == NXDOMPROVF_DETACHING);
 	ASSERT(nxdom != NULL);
 
-	SK_D("nxdom_prov 0x%llx (%s:%s)", SK_KVA(nxdom_prov), nxdom->nxdom_name,
+	SK_D("nxdom_prov %p (%s:%s)", SK_KVA(nxdom_prov), nxdom->nxdom_name,
 	    nxdom_prov->nxdom_prov_name);
 
 	nxdom_prov->nxdom_prov_flags &= ~NXDOMPROVF_DETACHING;
@@ -550,7 +521,7 @@ kern_nexus_register_domain_provider(const nexus_type_t type,
 	struct nxdom *nxdom;
 	errno_t err = 0;
 
-	_CASSERT(sizeof(*init) == sizeof(nxdom_prov->nxdom_prov_ext));
+	static_assert(sizeof(*init) == sizeof(nxdom_prov->nxdom_prov_ext));
 
 	if (type >= NEXUS_TYPE_MAX || dom_prov_uuid == NULL) {
 		return EINVAL;
@@ -721,7 +692,7 @@ nxa_alloc(zalloc_flags_t how)
 static void
 nxa_free(struct nexus_attr *nxa)
 {
-	SK_DF(SK_VERB_MEM, "nxa 0x%llx FREE", SK_KVA(nxa));
+	SK_DF(SK_VERB_MEM, "nxa %p FREE", SK_KVA(nxa));
 	zfree(nxa_zone, nxa);
 }
 
@@ -784,7 +755,7 @@ ncd_alloc(zalloc_flags_t how)
 static void
 ncd_free(struct nexus_controller *ncd)
 {
-	SK_DF(SK_VERB_MEM, "ncd 0x%llx FREE", SK_KVA(ncd));
+	SK_DF(SK_VERB_MEM, "ncd %p FREE", SK_KVA(ncd));
 	zfree(ncd_zone, ncd);
 }
 
@@ -846,9 +817,8 @@ nexus_controller_register_provider_validate_init_params(
 	errno_t err = 0;
 	struct kern_nexus_netif_provider_init *netif_init;
 
-	_CASSERT(__builtin_offsetof(struct kern_nexus_provider_init,
-	    nxpi_version) == 0);
-	_CASSERT(sizeof(init->nxpi_version) == sizeof(uint32_t));
+	static_assert(__builtin_offsetof(struct kern_nexus_provider_init, nxpi_version) == 0);
+	static_assert(sizeof(init->nxpi_version) == sizeof(uint32_t));
 
 	if (init == NULL) {
 		return 0;
@@ -864,6 +834,8 @@ nexus_controller_register_provider_validate_init_params(
 			err = EINVAL;
 			break;
 		}
+		ASSERT(init->nxpi_rx_sync_packets == NULL);
+		ASSERT(init->nxpi_tx_sync_packets == NULL);
 		/*
 		 * sync_{tx,rx} callbacks are required; the rest of the
 		 * callback pairs are optional, but must be symmetrical.
@@ -1737,7 +1709,7 @@ nxdom_prov_free(struct kern_nexus_domain_provider *nxdom_prov)
 	uuid_clear(nxdom_prov->nxdom_prov_uuid);
 	nxdom_prov->nxdom_prov_dom = NULL;
 
-	SK_DF(SK_VERB_MEM, "nxdom_prov 0x%llx %s", SK_KVA(nxdom_prov),
+	SK_DF(SK_VERB_MEM, "nxdom_prov %p %s", SK_KVA(nxdom_prov),
 	    ((nxdom_prov->nxdom_prov_flags & NXDOMPROVF_EXT) ?
 	    "FREE" : "DESTROY"));
 	if (nxdom_prov->nxdom_prov_flags & NXDOMPROVF_EXT) {
@@ -1961,16 +1933,14 @@ nxprov_params_adjust(struct kern_nexus_domain_provider *nxdom_prov,
 
 	if (NXDOM_MIN(nxdom_min, capabilities) != 0 &&
 	    !(capabs & NXDOM_MIN(nxdom_min, capabilities))) {
-		SK_ERR("%s: caps 0x%b < min 0x%b",
-		    nxdom_prov->nxdom_prov_name, capabs, NXPCAP_BITS,
-		    NXDOM_MIN(nxdom_min, capabilities), NXPCAP_BITS);
+		SK_ERR("%s: caps 0x%x < min 0x%x", nxdom_prov->nxdom_prov_name,
+		    capabs, NXDOM_MIN(nxdom_min, capabilities));
 		err = EINVAL;
 		goto error;
 	} else if (NXDOM_MAX(nxdom_max, capabilities) != 0 &&
 	    (capabs & ~NXDOM_MAX(nxdom_max, capabilities))) {
-		SK_ERR("%s: caps 0x%b > max 0x%b",
-		    nxdom_prov->nxdom_prov_name, capabs, NXPCAP_BITS,
-		    NXDOM_MAX(nxdom_max, capabilities), NXPCAP_BITS);
+		SK_ERR("%s: caps 0x%x > max 0x%x", nxdom_prov->nxdom_prov_name,
+		    capabs, NXDOM_MAX(nxdom_max, capabilities));
 		err = EINVAL;
 		goto error;
 	}
@@ -2066,21 +2036,21 @@ nxprov_params_adjust(struct kern_nexus_domain_provider *nxdom_prov,
 	nxp->nxp_rx_slots = rx_slots;
 	nxp->nxp_large_buf_size = large_buf_size;
 
-	SK_D("nxdom \"%s\" (0x%llx) type %d",
+	SK_D("nxdom \"%s\" (%p) type %d",
 	    nxdom_prov->nxdom_prov_dom->nxdom_name,
 	    SK_KVA(nxdom_prov->nxdom_prov_dom),
 	    nxdom_prov->nxdom_prov_dom->nxdom_type);
-	SK_D("nxp \"%s\" (0x%llx) flags 0x%b",
-	    nxp->nxp_name, SK_KVA(nxp), nxp->nxp_flags, NXPF_BITS);
-	SK_D("  req 0x%b rings %u/%u/%u/%u/%u slots %u/%u/%u/%u/%u buf %u "
+	SK_D("nxp \"%s\" (%p) flags 0x%x",
+	    nxp->nxp_name, SK_KVA(nxp), nxp->nxp_flags);
+	SK_D("  req 0x%x rings %u/%u/%u/%u/%u slots %u/%u/%u/%u/%u buf %u "
 	    "type %u subtype %u stats %u flowadv_max %u nexusadv_size %u "
-	    "capabs 0x%b pipes %u extensions %u max_frags %u headguard %u "
-	    "tailguard %u large_buf %u", req, NXPREQ_BITS, tx_rings, rx_rings,
+	    "capabs 0x%x pipes %u extensions %u max_frags %u headguard %u "
+	    "tailguard %u large_buf %u", req, tx_rings, rx_rings,
 	    alloc_rings, free_rings, ev_rings, tx_slots, rx_slots, alloc_slots,
 	    free_slots, ev_slots, nxp->nxp_buf_size, nxp->nxp_md_type,
 	    nxp->nxp_md_subtype, stats_size, flowadv_max, nexusadv_size,
-	    capabs, NXPCAP_BITS, nxp->nxp_pipes, nxp->nxp_extensions,
-	    nxp->nxp_max_frags, srp[SKMEM_REGION_GUARD_HEAD].srp_r_obj_size *
+	    capabs, nxp->nxp_pipes, nxp->nxp_extensions, nxp->nxp_max_frags,
+	    srp[SKMEM_REGION_GUARD_HEAD].srp_r_obj_size *
 	    srp[SKMEM_REGION_GUARD_HEAD].srp_r_obj_cnt,
 	    srp[SKMEM_REGION_GUARD_TAIL].srp_r_obj_size *
 	    srp[SKMEM_REGION_GUARD_TAIL].srp_r_obj_cnt,
@@ -2187,8 +2157,7 @@ nxprov_params_adjust(struct kern_nexus_domain_provider *nxdom_prov,
 
 	/* flow advisory region size */
 	if (flowadv_max != 0) {
-		_CASSERT(NX_FLOWADV_DEFAULT * sizeof(struct __flowadv_entry) <=
-		    SKMEM_MIN_SEG_SIZE);
+		static_assert(NX_FLOWADV_DEFAULT * sizeof(struct __flowadv_entry) <= SKMEM_MIN_SEG_SIZE);
 		MUL(sizeof(struct __flowadv_entry), flowadv_max, &tmp1);
 		srp[SKMEM_REGION_FLOWADV].srp_r_obj_size = tmp1;
 		srp[SKMEM_REGION_FLOWADV].srp_r_obj_cnt = 1;

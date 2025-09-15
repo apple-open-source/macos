@@ -268,6 +268,24 @@ SECURITY_READ_ONLY_LATE(pmap_paddr_t) sptm_cpu_iommu_scratch_end = 0;
 /* Prototypes used by pmap_data_bootstrap(). */
 void pmap_cpu_data_array_init(void);
 
+#if __ARM64_PMAP_SUBPAGE_L1__
+/* A list of subpage user root table page tracking structures. */
+queue_head_t surt_list;
+
+/**
+ * A mutex protecting surt_list related operations.
+ */
+decl_lck_mtx_data(, surt_lock);
+
+/* Is the SURT subsystem initialized? */
+bool surt_ready = false;
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+
+#if DEBUG || DEVELOPMENT
+/* Track number of instances a WC/RT mapping request is converted to Device-GRE. */
+static _Atomic unsigned int pmap_wcrt_on_non_dram_count = 0;
+#endif /* DEBUG || DEVELOPMENT */
+
 /**
  * This function is called once during pmap_bootstrap() to allocate and
  * initialize many of the core data structures that are implemented in this
@@ -1601,8 +1619,6 @@ pmap_remove_pv(
 
 	if (pvh_test_type(locked_pvh->pvh, PVH_TYPE_NULL)) {
 		pvh_set_flags(locked_pvh, 0);
-		const pmap_paddr_t pa = pai_to_pa(pai);
-		pmap_prepare_unmapped_page_for_retype(pa);
 		pp_attr_t attrs_to_clear = 0;
 		if (is_internal) {
 			attrs_to_clear |= PP_ATTR_INTERNAL;
@@ -1613,8 +1629,6 @@ pmap_remove_pv(
 		if (attrs_to_clear != 0) {
 			ppattr_modify_bits(pai, attrs_to_clear, 0);
 		}
-		/* If removing the last mapping to a specially-protected page, retype the page back to XNU_DEFAULT. */
-		pmap_retype_unmapped_page(pa);
 	}
 
 	*is_internal_p = is_internal;
@@ -1808,6 +1822,14 @@ ptd_alloc(pmap_t pmap, unsigned int alloc_flags)
 		return NULL;
 	}
 
+	/**
+	 * For PTDs that are linked to pmaps, initialize the wired count to 1
+	 * to prevent pmap_remove() from concurrently attempting to free a
+	 * newly-installed page table page while it is still being initialized.
+	 * This wired reference will be atomically dropped in ptd_info_init()
+	 * once page table initialization is complete.
+	 */
+	ptdp->ptd_info->wiredcnt = 1;
 	ptdp->pmap = pmap;
 
 	pmap_tt_ledger_credit(pmap, sizeof(*ptdp));
@@ -1846,15 +1868,12 @@ ptd_deallocate(pt_desc_t *ptdp)
 }
 
 /**
- * In address spaces where the VM page size is larger than the underlying
- * hardware page size, one page table descriptor (PTD) object can represent
- * multiple page tables. Some fields (like the reference counts) still need to
- * be tracked on a per-page-table basis. Because of this, those values are
- * stored in a separate array of ptd_info_t objects within the PTD where there's
- * one ptd_info_t for every page table a single PTD can manage.
- *
- * This function initializes the correct ptd_info_t field within a PTD based on
- * the page table it's representing.
+ * This function initializes the VA within a PTD based on the page table it's
+ * representing.  This function must be called before a newly-allocated page
+ * table is installed via sptm_map_table(), as other threads will be able to
+ * use that page table as soon as it is installed and will expect valid PTD
+ * info at that point.  It is assumed that sptm_map_table() will issue barriers
+ * which effectively guarantee the ordering of these updates.
  *
  * @param ptdp Pointer to the PTD object which contains the ptd_info_t field to
  *             update. Must match up with the `pmap` and `ptep` parameters.
@@ -1893,6 +1912,28 @@ ptd_info_init(
 	 * table's level is to the root.
 	 */
 	ptdp->va = (vm_offset_t) va & ~pt_attr_ln_pt_offmask(pt_attr, level - 1);
+}
+
+/**
+ * Performs final initialization of a newly-allocated page table descriptor.
+ * This function effectively marks the linked page table as eligible for deallocation
+ * and should therefore be called once initialization and mapping of the page table is
+ * complete.
+ *
+ * @param ptdp Pointer to the PTD object which contains the ptd_info_t field to
+ *             finalize
+ */
+void
+ptd_info_finalize(pt_desc_t *ptdp)
+{
+	/**
+	 * Atomically drop the wired count (previously initialized to 1) with
+	 * release ordering to ensure all prior page table initialization is visible
+	 * to any subsequent pmap operation that attempts to operate on the PTD.
+	 */
+	__assert_only unsigned short prev_refcnt =
+	    os_atomic_dec_orig(&ptdp->ptd_info->wiredcnt, release);
+	assert3u(prev_refcnt, >, 0);
 }
 
 /**
@@ -2044,8 +2085,14 @@ pmap_find_io_attr(pmap_paddr_t paddr)
 		const int cmp = cmp_io_rgns(&wanted_range, &io_attr_table[middle]);
 
 		if (cmp == 0) {
-			/* Success! Found the wanted I/O range. */
-			return &io_attr_table[middle];
+			pmap_io_range_t const *range = &io_attr_table[middle];
+			if (!(range->wimg & PMAP_IO_RANGE_NOT_IO)) {
+				/* Success! Found the wanted I/O range. */
+				return &io_attr_table[middle];
+			} else {
+				/* Ranges may not overlap, so we're not going to find anything. */
+				break;
+			}
 		} else if (begin == end) {
 			/* We've checked every range and didn't find a match. */
 			break;
@@ -2059,6 +2106,25 @@ pmap_find_io_attr(pmap_paddr_t paddr)
 	}
 
 	return NULL;
+}
+
+/**
+ * Iterate over all pmap-io-ranges, call the given step function on
+ * each of them, returning prematurely if the step function returns
+ * false.
+ *
+ * @param step The step function applied to each range. If it returns
+ *             false, iteration stops.
+ */
+
+void
+pmap_range_iterate(bool (^step)(pmap_io_range_t const *))
+{
+	for (size_t i = 0; i < num_io_rgns; i++) {
+		if (!step(&io_attr_table[i])) {
+			return;
+		}
+	}
 }
 
 /**
@@ -2085,6 +2151,7 @@ pmap_cpu_data_init_internal(unsigned int cpu_number)
 	/* Setup per-cpu fields used when calling into the SPTM. */
 	pmap_sptm_percpu_data_t *sptm_pcpu = PERCPU_GET(pmap_sptm_percpu);
 	assert(((uintptr_t)sptm_pcpu & (PMAP_SPTM_PCPU_ALIGN - 1)) == 0);
+	sptm_pcpu->sptm_user_pointer_ops_pa = kvtophys_nofail((vm_offset_t)sptm_pcpu->sptm_user_pointer_ops);
 	sptm_pcpu->sptm_ops_pa = kvtophys_nofail((vm_offset_t)sptm_pcpu->sptm_ops);
 	sptm_pcpu->sptm_templates_pa = kvtophys_nofail((vm_offset_t)sptm_pcpu->sptm_templates);
 	sptm_pcpu->sptm_paddrs_pa = kvtophys_nofail((vm_offset_t)sptm_pcpu->sptm_paddrs);
@@ -2227,3 +2294,305 @@ pmap_is_page_free(pmap_paddr_t paddr)
 	 */
 	return sptm_frame_is_last_mapping(paddr, SPTM_REFCOUNT_NONE);
 }
+
+#if MACH_ASSERT
+/**
+ * Verify that a given physical page contains no mappings (outside of the
+ * default physical aperture mapping) and if it does, then panic.
+ *
+ * @note It's recommended to use pmap_verify_free() directly when operating in
+ *       the PPL since the PVH lock isn't getting grabbed here (due to this code
+ *       normally being called from outside of the PPL, and the pv_head_table
+ *       can't be modified outside of the PPL).
+ *
+ * @param ppnum Physical page number to check there are no mappings to.
+ */
+void
+pmap_assert_free(ppnum_t ppnum)
+{
+	const pmap_paddr_t pa = ptoa(ppnum);
+
+	/* Only mappings to kernel-managed physical memory are tracked. */
+	if (__probable(!pa_valid(pa) || pmap_verify_free(ppnum))) {
+		return;
+	}
+
+	const unsigned int pai = pa_index(pa);
+	const uintptr_t pvh = pai_to_pvh(pai);
+
+	/**
+	 * This function is always called from outside of the PPL. Because of this,
+	 * the PVH entry can't be locked. This function is generally only called
+	 * before the VM reclaims a physical page and shouldn't be creating new
+	 * mappings. Even if a new mapping is created while parsing the hierarchy,
+	 * the worst case is that the system will panic in another way, and we were
+	 * already about to panic anyway.
+	 */
+
+	/**
+	 * Since pmap_verify_free() returned false, that means there is at least one
+	 * mapping left. Let's get some extra info on the first mapping we find to
+	 * dump in the panic string (the common case is that there is one spare
+	 * mapping that was never unmapped).
+	 */
+	pt_entry_t *first_ptep = PT_ENTRY_NULL;
+
+	if (pvh_test_type(pvh, PVH_TYPE_PTEP)) {
+		first_ptep = pvh_ptep(pvh);
+	} else if (pvh_test_type(pvh, PVH_TYPE_PVEP)) {
+		pv_entry_t *pvep = pvh_pve_list(pvh);
+
+		/* Each PVE can contain multiple PTEs. Let's find the first one. */
+		for (int pve_ptep_idx = 0; pve_ptep_idx < PTE_PER_PVE; pve_ptep_idx++) {
+			first_ptep = pve_get_ptep(pvep, pve_ptep_idx);
+			if (first_ptep != PT_ENTRY_NULL) {
+				break;
+			}
+		}
+
+		/* The PVE should have at least one valid PTE. */
+		assert(first_ptep != PT_ENTRY_NULL);
+	} else if (pvh_test_type(pvh, PVH_TYPE_PTDP)) {
+		panic("%s: Physical page is being used as a page table at PVH %p (pai: %d)",
+		    __func__, (void*)pvh, pai);
+	} else {
+		/**
+		 * The mapping disappeared between here and the pmap_verify_free() call.
+		 * The only way that can happen is if the VM was racing this call with
+		 * a call that unmaps PTEs. Operations on this page should not be
+		 * occurring at the same time as this check, and unfortunately we can't
+		 * lock the PVH entry to prevent it, so just panic instead.
+		 */
+		panic("%s: Mapping was detected but is now gone. Is the VM racing this "
+		    "call with an operation that unmaps PTEs? PVH %p (pai: %d)",
+		    __func__, (void*)pvh, pai);
+	}
+
+	/* Panic with a unique string identifying the first bad mapping and owner. */
+	{
+		/* First PTE is mapped by the main CPUs. */
+		pmap_t pmap = ptep_get_pmap(first_ptep);
+		const char *type = (pmap == kernel_pmap) ? "Kernel" : "User";
+
+		panic("%s: Found at least one mapping to %#llx. First PTEP (%p) is a "
+		    "%s CPU mapping (pmap: %p)",
+		    __func__, (uint64_t)pa, first_ptep, type, pmap);
+	}
+}
+#endif /* MACH_ASSERT */
+
+inline void
+pmap_recycle_page(ppnum_t pn)
+{
+	const bool is_freed = pmap_is_page_free(ptoa(pn));
+
+	if (__improbable(!is_freed)) {
+		/*
+		 * There is a redundancy here, but we are going to panic anyways,
+		 * and ASSERT_PMAP_FREE traces useful information. So, we keep this
+		 * behavior.
+		 */
+#if MACH_ASSERT
+		pmap_assert_free(pn);
+#endif /* MACH_ASSERT */
+		panic("%s: page 0x%llx is referenced", __func__, (unsigned long long)ptoa(pn));
+	}
+
+	const pmap_paddr_t paddr = ptoa(pn);
+	const sptm_frame_type_t frame_type = sptm_get_frame_type(paddr);
+	if (__improbable(pmap_type_requires_retype_on_recycle(frame_type))) {
+		const sptm_retype_params_t retype_params = {.raw = SPTM_RETYPE_PARAMS_NULL};
+		sptm_retype(paddr, frame_type, XNU_DEFAULT, retype_params);
+	}
+}
+
+#if __ARM64_PMAP_SUBPAGE_L1__
+/* A structure tracking the state of a SURT page. */
+typedef struct {
+	/* The PA of the SURT page. */
+	pmap_paddr_t surt_page_pa;
+
+	/* A bitmap tracking the allocation status of the SURTs in the page. */
+	bitmap_t surt_page_free_bitmap[SUBPAGE_USER_ROOT_TABLE_INDEXES / (sizeof(bitmap_t) * 8)];
+
+	/* A queue chain chaining all the tracking structures together. */
+	queue_chain_t surt_chain;
+} surt_page_t;
+
+/**
+ * Initialize the SURT subsystem.
+ *
+ * @note Expected to be called when pmap is being bootstrapped, before a user
+ *       pmap is created.
+ */
+void
+surt_init()
+{
+	if (__improbable(surt_ready)) {
+		panic("%s: initializing the SURT subsystem while it has already been initialized", __func__);
+	}
+
+	queue_init(&surt_list);
+	lck_mtx_init(&surt_lock, &pmap_lck_grp, LCK_ATTR_NULL);
+
+	/* A plain write is okay only in single-core early bootstrapping. */
+	surt_ready = true;
+}
+
+/**
+ * Lock the SURT lock.
+ */
+static inline void
+surt_lock_lock()
+{
+	assert(surt_ready);
+	lck_mtx_lock(&surt_lock);
+}
+
+/**
+ * Unlock the SURT lock.
+ */
+static inline void
+surt_lock_unlock()
+{
+	lck_mtx_unlock(&surt_lock);
+}
+
+/**
+ * Try to find a SURT from the SURT page queue.
+ *
+ * @note This function doesn't block. If a SURT is not found, the caller is
+ *       responsible for allocating a page and feed it to the SURT subsystem.
+ *
+ * @return the PA of the SURT if one is found, 0 otherwise.
+ */
+pmap_paddr_t
+surt_try_alloc()
+{
+	surt_lock_lock();
+	pmap_paddr_t surt_pa = 0ULL;
+
+	/* Look for a free table on existing SURT pages. */
+	surt_page_t *surt_page;
+	qe_foreach_element(surt_page, &surt_list, surt_chain) {
+		const int first_available_index = bitmap_lsb_first(&surt_page->surt_page_free_bitmap[0], SUBPAGE_USER_ROOT_TABLE_INDEXES);
+		if (first_available_index >= 0) {
+			surt_pa = surt_pa_from_surt_page_pa_and_index(surt_page->surt_page_pa, (uint8_t) first_available_index);
+			bitmap_clear(&surt_page->surt_page_free_bitmap[0], first_available_index);
+			break;
+		}
+	}
+
+	/**
+	 * Either return a non-zero PA of the found SURT or zero. A zero return
+	 * value indicates the caller should allocate a new SURT page
+	 */
+	surt_lock_unlock();
+	return surt_pa;
+}
+
+/**
+ * Free the SURT at a physical address.
+ *
+ * @return True if the SURT page has no allocated SURT and has been removed
+ *         from the queue so that the caller can repurpose the page. False
+ *         otherwise.
+ */
+bool
+surt_free(pmap_paddr_t surt_pa)
+{
+	if (__improbable(surt_pa & (SUBPAGE_USER_ROOT_TABLE_SIZE - 1))) {
+		panic("%s: surt_pa %p is expected to be %u-byte aligned",
+		    __func__, (void *)surt_pa, (unsigned int) SUBPAGE_USER_ROOT_TABLE_SIZE);
+	}
+
+	surt_lock_lock();
+	const uint8_t surt_index = (uint8_t) ((surt_pa & PAGE_MASK) / SUBPAGE_USER_ROOT_TABLE_SIZE);
+
+	/* Look for a free table on existing SURT pages. */
+	surt_page_t *surt_page;
+	qe_foreach_element_safe(surt_page, &surt_list, surt_chain) {
+		if (surt_page->surt_page_pa == surt_page_pa_from_surt_pa(surt_pa)) {
+			/* Mark the SURT as free. */
+			bitmap_set(&surt_page->surt_page_free_bitmap[0], surt_index);
+
+			/* If the entire SURT page is free, remove it from the page queue. */
+			if (bitmap_is_full(&surt_page->surt_page_free_bitmap[0], SUBPAGE_USER_ROOT_TABLE_INDEXES)) {
+				remqueue(&surt_page->surt_chain);
+
+				/* Done with the page queue so unlock it before freeing surt_page. */
+				surt_lock_unlock();
+				kfree_type(surt_page_t, surt_page);
+				return true;
+			} else {
+				surt_lock_unlock();
+				return false;
+			}
+		}
+	}
+
+	panic("%s: no matching surt_page_t found for surt_pa: %p", __func__, (void *)surt_pa);
+}
+
+/**
+ * Add a SURT page to the SURT page queue, with its SURT at index 0 allocated.
+ *
+ * @note Designed this way so that the caller can call into SPTM for SURT
+ *       allocation before the page is seen by the other threads in the
+ *       system.
+ *
+ * @param surt_page_pa The phyiscal address of the SURT page.
+ */
+void
+surt_feed_page_with_first_table_allocated(pmap_paddr_t surt_page_pa)
+{
+	surt_page_t *surt_page = kalloc_type(surt_page_t, Z_ZERO | Z_WAITOK);
+
+	if (__improbable(surt_page_pa & PAGE_MASK)) {
+		panic("%s: surt_page_pa %p is expected to be page aligned", __func__, (void *)surt_page_pa);
+	}
+
+	surt_lock_lock();
+	surt_page->surt_page_pa = surt_page_pa;
+	bitmap_full(&surt_page->surt_page_free_bitmap[0], SUBPAGE_USER_ROOT_TABLE_INDEXES);
+	bitmap_clear(&surt_page->surt_page_free_bitmap[0], 0);
+	enqueue_head(&surt_list, &surt_page->surt_chain);
+	surt_lock_unlock();
+}
+
+unsigned int
+surt_list_len()
+{
+	unsigned int len = 0;
+
+	surt_lock_lock();
+	__unused surt_page_t *surt_page;
+	qe_foreach_element(surt_page, &surt_list, surt_chain) {
+		len = len + 1;
+	}
+	surt_lock_unlock();
+	return len;
+}
+#endif /* __ARM64_PMAP_SUBPAGE_L1__ */
+
+#if DEBUG || DEVELOPMENT
+/**
+ * Get the value of the WC/RT on non-DRAM mapping request counter.
+ *
+ * @return The value of the counter.
+ */
+unsigned int
+pmap_wcrt_on_non_dram_count_get()
+{
+	return os_atomic_load(&pmap_wcrt_on_non_dram_count, relaxed);
+}
+
+/**
+ * Atomically increment the WC/RT on non-DRAM mapping request counter.
+ */
+void
+pmap_wcrt_on_non_dram_count_increment_atomic()
+{
+	os_atomic_inc(&pmap_wcrt_on_non_dram_count, relaxed);
+}
+#endif /* DEBUG || DEVELOPMENT */

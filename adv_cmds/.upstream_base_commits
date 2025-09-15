@@ -17,12 +17,6 @@ finger/pathnames.h	freebsd	usr.bin/finger/pathnames.h	1de7b4b805ddbf2429da511c05
 finger/sprint.c	freebsd	usr.bin/finger/sprint.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 finger/util.c	freebsd	usr.bin/finger/util.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
-mklocale/extern.h	freebsd	usr.bin/mklocale/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-mklocale/ldef.h	freebsd	usr.bin/mklocale/ldef.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-mklocale/lex.l	freebsd	usr.bin/mklocale/lex.l	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-mklocale/mklocale.1	freebsd	usr.bin/mklocale/mklocale.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
-mklocale/yacc.y	freebsd	usr.bin/mklocale/yacc.y	8a16b7a18f5d0b031f09832fd7752fba717e2a97
-
 localedef/README	freebsd	usr.bin/localedef/README	057ca2d4372f94cc0911c140cd4d8f117fe9b26a
 localedef/charmap.c	freebsd	usr.bin/localedef/charmap.c	3a7ffe206ce7e4741fae26432f6d6e5159207f45
 localedef/collate.c	freebsd	usr.bin/localedef/collate.c	3141e51d2e38fa7b9e6d81477dfa860d087c514d

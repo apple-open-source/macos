@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,6 +95,7 @@
 
 #define kSystemModeManagedExternally	CFSTR("_SystemModeManagedExternally")
 
+static CFRunLoopRef	    	S_runloop;
 static SCDynamicStoreRef	S_store;
 static char * 			S_eapolclient_path = NULL;
 
@@ -1089,7 +1090,7 @@ eapolClientStartMonitoring(eapolClientRef client)
 }
 
 static void
-eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
+eapolClientExited(EAPOLControlMode mode)
 {
     boolean_t		start_system_mode = FALSE;
 #if ! TARGET_OS_IPHONE
@@ -1115,8 +1116,13 @@ eapolClientExited(eapolClientRef client, EAPOLControlMode mode)
 /**
  ** fork/exec eapolclient routines
  **/
-static void 
-exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
+
+/*
+ * exec_callback_sync
+ * - this runs on S_runloop
+ */
+static void
+exec_callback_sync(pid_t pid, int status)
 {
     eapolClientRef	client;
     EAPOLControlMode	mode;
@@ -1132,7 +1138,23 @@ exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
     }
     mode = client->mode;
     eapolClientInvalidate(client);
-    eapolClientExited(client, mode);
+    eapolClientExited(mode);
+}
+
+/*
+ * exec_callback
+ * - this runs on the main thread/runloop
+ */
+static void
+exec_callback(pid_t pid, int status, struct rusage * rusage, void * context)
+{
+#pragma unused (context)
+#pragma unused (rusage)
+    EAPLOG(LOG_DEBUG, "EAPOLController: pid=%d exited with status %d",
+	   pid, status);
+    CFRunLoopPerformBlock(S_runloop, kCFRunLoopDefaultMode,
+			  ^{ exec_callback_sync(pid, status); });
+    CFRunLoopWakeUp(S_runloop);
     return;
 }
 
@@ -1948,7 +1970,7 @@ ControllerClientDetach(mach_port_t session_port)
     }
     mode = client->mode;
     eapolClientInvalidate(client);
-    eapolClientExited(client, mode);
+    eapolClientExited(mode);
 
  failed:
     return (result);
@@ -2388,8 +2410,6 @@ sim_status_handle_change(CFStringRef status)
     EAPOLSIMGenerationIncrement();
 }
 
-static CFRunLoopRef	eapolRunLoop;
-
 static void
 sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
 {
@@ -2397,10 +2417,10 @@ sim_status_changed(CFTypeRef connection, CFStringRef status, void * info)
 	return;
     }
     CFRetain(status);
-    CFRunLoopPerformBlock(eapolRunLoop, kCFRunLoopDefaultMode,
+    CFRunLoopPerformBlock(S_runloop, kCFRunLoopDefaultMode,
 			  ^{ sim_status_handle_change(status);
 			      CFRelease(status); });
-    CFRunLoopWakeUp(eapolRunLoop);
+    CFRunLoopWakeUp(S_runloop);
 }
 
 static void
@@ -2408,7 +2428,6 @@ register_sim_status_change(void)
 {
     CFTypeRef connection;
 
-    eapolRunLoop = CFRunLoopGetCurrent();
     connection = _SIMAccessConnectionCreate(sim_status_changed, NULL);
     if (connection == NULL) {
 	EAPLOG(LOG_NOTICE,
@@ -3140,7 +3159,9 @@ static void *
 ControllerThread(void * arg)
 {
     boolean_t start_system_mode = TRUE;
+
     EAPLOG(LOG_NOTICE, "%s", __func__);
+    S_runloop = CFRunLoopGetCurrent();
     dynamic_store_schedule(S_store);
 #if TARGET_OS_IPHONE
     start_system_mode = FALSE;

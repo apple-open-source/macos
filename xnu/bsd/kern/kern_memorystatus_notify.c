@@ -142,7 +142,7 @@ kern_return_t memorystatus_update_vm_pressure(boolean_t target_foreground_proces
 #define VM_PRESSURE_MINIMUM_RSIZE        6    /* MB */
 #endif /* XNU_TARGET_OS_OSX */
 
-static uint32_t vm_pressure_task_footprint_min = VM_PRESSURE_MINIMUM_RSIZE;
+static TUNABLE_DEV_WRITEABLE(uint32_t, vm_pressure_task_footprint_min, "vm_pressure_notify_min_footprint_mb", VM_PRESSURE_MINIMUM_RSIZE);
 
 #if DEVELOPMENT || DEBUG
 SYSCTL_UINT(_kern, OID_AUTO, memorystatus_vm_pressure_task_footprint_min, CTLFLAG_RW | CTLFLAG_LOCKED, &vm_pressure_task_footprint_min, 0, "");
@@ -421,34 +421,25 @@ memorystatus_knote_unregister(struct knote *kn __unused)
 
 #if VM_PRESSURE_EVENTS
 
-#if CONFIG_JETSAM
-
 static thread_call_t sustained_pressure_handler_thread_call;
-int memorystatus_should_kill_on_sustained_pressure = 1;
 /* Count the number of sustained pressure kills we've done since boot. */
 uint64_t memorystatus_kill_on_sustained_pressure_count = 0;
 uint64_t memorystatus_kill_on_sustained_pressure_window_s = 60 * 10; /* 10 Minutes */
 uint64_t memorystatus_kill_on_sustained_pressure_delay_ms = 500; /* .5 seconds */
 
-#if DEVELOPMENT || DEBUG
-SYSCTL_INT(_kern, OID_AUTO, memorystatus_should_kill_on_sustained_pressure, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_should_kill_on_sustained_pressure, 0, "");
-#endif /* DEVELOPMENT || DEBUG */
-SYSCTL_QUAD(_kern, OID_AUTO, memorystatus_kill_on_sustained_pressure_count, CTLFLAG_RD | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_count, "");
-SYSCTL_QUAD(_kern, OID_AUTO, memorystatus_kill_on_sustained_pressure_window_s, CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_window_s, "");
-SYSCTL_QUAD(_kern, OID_AUTO, memorystatus_kill_on_sustained_pressure_delay_ms, CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_delay_ms, "");
+SYSCTL_QUAD(_kern_memorystatus, OID_AUTO, kill_on_sustained_pressure_count, CTLFLAG_RD | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_count, "");
+SYSCTL_QUAD(_kern_memorystatus, OID_AUTO, kill_on_sustained_pressure_window_s, CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_window_s, "");
+SYSCTL_QUAD(_kern_memorystatus, OID_AUTO, kill_on_sustained_pressure_delay_ms, CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_kill_on_sustained_pressure_delay_ms, "");
 
 static void sustained_pressure_handler(void*, void*);
-#endif /* CONFIG_JETSAM */
+
 static thread_call_t memorystatus_notify_update_telemetry_thread_call;
 static void update_footprints_for_telemetry(void*, void*);
-
 
 void
 memorystatus_notify_init()
 {
-#if CONFIG_JETSAM
 	sustained_pressure_handler_thread_call = thread_call_allocate_with_options(sustained_pressure_handler, NULL, THREAD_CALL_PRIORITY_KERNEL_HIGH, THREAD_CALL_OPTIONS_ONCE);
-#endif /* CONFIG_JETSAM */
 	memorystatus_notify_update_telemetry_thread_call = thread_call_allocate_with_options(update_footprints_for_telemetry, NULL, THREAD_CALL_PRIORITY_USER, THREAD_CALL_OPTIONS_ONCE);
 }
 
@@ -708,17 +699,23 @@ memorystatus_is_foreground_locked(proc_t p)
  * to access the p_memstat_dirty field.
  */
 void
-memorystatus_proc_flags_unsafe(void * v, boolean_t *is_dirty, boolean_t *is_dirty_tracked, boolean_t *allow_idle_exit)
+memorystatus_proc_flags_unsafe(void * v, boolean_t *is_dirty, boolean_t *is_dirty_tracked, boolean_t *allow_idle_exit, boolean_t *is_active, boolean_t *is_managed, boolean_t *has_assertion)
 {
 	if (!v) {
 		*is_dirty = FALSE;
 		*is_dirty_tracked = FALSE;
 		*allow_idle_exit = FALSE;
+		*is_active = FALSE;
+		*is_managed = FALSE;
+		*has_assertion = FALSE;
 	} else {
 		proc_t p = (proc_t)v;
 		*is_dirty = (p->p_memstat_dirty & P_DIRTY_IS_DIRTY) != 0;
 		*is_dirty_tracked = (p->p_memstat_dirty & P_DIRTY_TRACK) != 0;
 		*allow_idle_exit = (p->p_memstat_dirty & P_DIRTY_ALLOW_IDLE_EXIT) != 0;
+		*is_active = (p->p_memstat_memlimit == p->p_memstat_memlimit_active);
+		*is_managed = (p->p_memstat_state & P_MEMSTAT_MANAGED) != 0;
+		*has_assertion = (p->p_memstat_state & P_MEMSTAT_PRIORITY_ASSERTION) != 0;
 	}
 }
 
@@ -783,7 +780,16 @@ CA_EVENT(memorystatus_pressure_interval,
     CA_INT, num_transitions,
     CA_INT, num_kills,
     CA_INT, duration);
-static CA_EVENT_TYPE(memorystatus_pressure_interval) memorystatus_pressure_interval_telemetry;
+
+/* Separate struct for tracking so that we have aligned members for atomics */
+struct memstat_cur_interval {
+	int64_t             num_procs;
+	int64_t             num_notifs;
+	int64_t             num_transitions;
+	uint64_t            start_mt;
+	_Atomic uint32_t    num_kills;
+	vm_pressure_level_t max_level;
+} memstat_cur_interval;
 
 CA_EVENT(memorystatus_proc_notification,
     CA_INT, footprint_before_notification,
@@ -915,19 +921,15 @@ update_knote_footprint_history(struct knote *kn, task_t task, uint64_t curr_ts)
 }
 
 extern char *proc_name_address(void *p);
+
 /*
- * Attempt to send the given level telemetry event.
- * Finalizes the duration.
- * Clears the src_event struct.
+ * Send pressure interval telemetry.
  */
 static void
-memorystatus_pressure_interval_send(CA_EVENT_TYPE(memorystatus_pressure_interval) *src_event)
+memorystatus_pressure_interval_send(void)
 {
-	uint64_t duration_nanoseconds = 0;
-	uint64_t             curr_ts = mach_absolute_time();
-	src_event->duration = curr_ts - src_event->duration;
-	absolutetime_to_nanoseconds(src_event->duration, &duration_nanoseconds);
-	src_event->duration = (int64_t) (duration_nanoseconds / NSEC_PER_SEC);
+	uint64_t duration_nanoseconds;
+	CA_EVENT_TYPE(memorystatus_pressure_interval) * evt_data;
 
 	/*
 	 * Drop the event rather than block for memory. We should be in a normal pressure level now,
@@ -935,17 +937,23 @@ memorystatus_pressure_interval_send(CA_EVENT_TYPE(memorystatus_pressure_interval
 	 */
 	ca_event_t event_wrapper = CA_EVENT_ALLOCATE_FLAGS(memorystatus_pressure_interval, Z_NOWAIT);
 	if (event_wrapper) {
-		memcpy(event_wrapper->data, src_event, sizeof(CA_EVENT_TYPE(memorystatus_pressure_interval)));
-		CA_EVENT_SEND(event_wrapper);
-	}
-	src_event->num_processes_registered = 0;
-	src_event->num_notifications_sent = 0;
-	src_event->max_level = 0;
-	src_event->num_transitions = 0;
-	src_event->num_kills = 0;
-	src_event->duration = 0;
-}
+		absolutetime_to_nanoseconds(
+			mach_absolute_time() - memstat_cur_interval.start_mt,
+			&duration_nanoseconds);
 
+		evt_data = event_wrapper->data;
+		evt_data->num_processes_registered = memstat_cur_interval.num_procs;
+		evt_data->num_notifications_sent   = memstat_cur_interval.num_notifs;
+		evt_data->max_level                = memstat_cur_interval.max_level;
+		evt_data->num_transitions          = memstat_cur_interval.num_transitions;
+		evt_data->num_kills                = os_atomic_load(&memstat_cur_interval.num_kills, relaxed);
+		evt_data->duration = duration_nanoseconds / NSEC_PER_SEC;
+
+		CA_EVENT_SEND(event_wrapper);
+	} else {
+		memorystatus_log_error("memorystatus: Dropping interval telemetry event\n");
+	}
+}
 
 /*
  * Attempt to send the per-proc telemetry events.
@@ -955,7 +963,6 @@ static void
 memorystatus_pressure_proc_telemetry_send(void)
 {
 	struct knote *kn = NULL;
-	memorystatus_klist_lock();
 	SLIST_FOREACH(kn, &memorystatus_klist, kn_selnext) {
 		proc_t            p = PROC_NULL;
 		struct knote_footprint_history *footprint_history = (struct knote_footprint_history *)kn->kn_ext;
@@ -1000,20 +1007,7 @@ memorystatus_pressure_proc_telemetry_send(void)
 		timestamps[KNOTE_SEND_TIMESTAMP_WARNING_INDEX] = 0;
 		timestamps[KNOTE_SEND_TIMESTAMP_CRITICAL_INDEX] = 0;
 	}
-	memorystatus_klist_unlock();
 }
-
-/*
- * Send all telemetry associated with the increased pressure interval.
- */
-static void
-memorystatus_pressure_telemetry_send(void)
-{
-	LCK_MTX_ASSERT(&memorystatus_klist_mutex, LCK_MTX_ASSERT_NOTOWNED);
-	memorystatus_pressure_interval_send(&memorystatus_pressure_interval_telemetry);
-	memorystatus_pressure_proc_telemetry_send();
-}
-
 
 /*
  * kn_max - knote
@@ -1286,12 +1280,49 @@ uint64_t next_critical_notification_sent_at_ts = 0;
 boolean_t        memorystatus_manual_testing_on = FALSE;
 vm_pressure_level_t    memorystatus_manual_testing_level = kVMPressureNormal;
 
-unsigned int memorystatus_sustained_pressure_maximum_band = JETSAM_PRIORITY_IDLE;
+TUNABLE_DEV_WRITEABLE(unsigned int, memstat_sustained_pressure_max_pri, "memstat_sustained_pressure_max_pri", JETSAM_PRIORITY_IDLE);
 #if DEVELOPMENT || DEBUG
-SYSCTL_INT(_kern, OID_AUTO, memorystatus_sustained_pressure_maximum_band, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, &memorystatus_sustained_pressure_maximum_band, 0, "");
+SYSCTL_UINT(_kern_memorystatus, OID_AUTO, sustained_pressure_max_pri, CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, &memstat_sustained_pressure_max_pri, 0, "");
 #endif /* DEVELOPMENT || DEBUG */
 
 #if CONFIG_JETSAM
+#define MEMSTAT_PRESSURE_CONFIG_DEFAULT (MEMSTAT_WARNING_KILL_SUSTAINED)
+#else
+#define MEMSTAT_PRESSURE_CONFIG_DEFAULT (MEMSTAT_WARNING_KILL_IDLE_THROTTLED | MEMSTAT_CRITICAL_PURGE_CACHES)
+#endif
+
+TUNABLE_WRITEABLE(memstat_pressure_options_t, memstat_pressure_config,
+    "memorystatus_pressure_config", MEMSTAT_PRESSURE_CONFIG_DEFAULT);
+EXPERIMENT_FACTOR_UINT(memorystatus_pressure_config, &memstat_pressure_config,
+    0, MEMSTAT_PRESSURE_CONFIG_MAX,
+    "Which actions to take in response to rising VM pressure");
+#if DEVELOPMENT || DEBUG
+SYSCTL_UINT(_kern_memorystatus, OID_AUTO, pressure_config,
+    CTLFLAG_RW | CTLFLAG_LOCKED, &memstat_pressure_config, 0,
+    "How to respond to VM pressure");
+
+static int
+sysctl_memstat_should_kill_sustained SYSCTL_HANDLER_ARGS
+{
+	int old = !!(memstat_pressure_config & MEMSTAT_WARNING_KILL_SUSTAINED);
+	int new, changed;
+
+	int ret = sysctl_io_number(req, old, sizeof(old), &new, &changed);
+
+	if (changed) {
+		if (new) {
+			memstat_pressure_config |= MEMSTAT_WARNING_KILL_SUSTAINED;
+		} else {
+			memstat_pressure_config &= ~MEMSTAT_WARNING_KILL_SUSTAINED;
+		}
+	}
+	return ret;
+}
+
+SYSCTL_PROC(_kern, OID_AUTO, memorystatus_should_kill_on_sustained_pressure,
+    CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0, sysctl_memstat_should_kill_sustained, "IU",
+    "Whether to kill idle processes under sustained pressure");
+#endif
 
 /*
  * TODO(jason): The memorystatus thread should be responsible for this
@@ -1312,7 +1343,7 @@ sustained_pressure_handler(void* arg0 __unused, void* arg1 __unused)
 	 * If the pressure hasn't been relieved by then, the problem is memory
 	 * consumption in a higher band and this churn is probably doing more harm than good.
 	 */
-	max_kills = memstat_get_proccnt_upto_priority(memorystatus_sustained_pressure_maximum_band) * 2;
+	max_kills = memstat_get_proccnt_upto_priority(memstat_sustained_pressure_max_pri) * 2;
 	memorystatus_log("memorystatus: Pressure level has been elevated for too long. killing up to %d idle processes\n", max_kills);
 	while (memorystatus_vm_pressure_level != kVMPressureNormal && kill_count < max_kills) {
 		bool killed = memorystatus_kill_on_sustained_pressure();
@@ -1323,8 +1354,7 @@ sustained_pressure_handler(void* arg0 __unused, void* arg1 __unused)
 			delay((int)(memorystatus_kill_on_sustained_pressure_delay_ms * NSEC_PER_MSEC / NSEC_PER_USEC));
 			kill_count++;
 			memorystatus_kill_on_sustained_pressure_count++;
-			/* TODO(jason): Should use os_atomic but requires rdar://76310894. */
-			memorystatus_pressure_interval_telemetry.num_kills++;
+			os_atomic_inc(&memstat_cur_interval.num_kills, relaxed);
 		} else {
 			/* Nothing left to kill */
 			break;
@@ -1334,8 +1364,6 @@ sustained_pressure_handler(void* arg0 __unused, void* arg1 __unused)
 		memorystatus_log("memorystatus: Killed %d idle processes due to sustained pressure, but device didn't quiesce. Giving up.\n", kill_count);
 	}
 }
-
-#endif /* CONFIG_JETSAM */
 
 /*
  * Returns the number of processes registered for notifications at this level.
@@ -1354,6 +1382,48 @@ memorystatus_klist_length(int level)
 	}
 	return count;
 }
+
+/*
+ * Starts a pressure interval, setting up tracking for it
+ */
+static void
+memstat_pressure_interval_start(uint64_t curr_ts)
+{
+	LCK_MTX_ASSERT(&memorystatus_klist_mutex, LCK_MTX_ASSERT_OWNED);
+	memstat_cur_interval.num_procs = 0;
+	memstat_cur_interval.num_notifs = 0;
+	memstat_cur_interval.num_transitions = 0;
+	memstat_cur_interval.start_mt = curr_ts;
+	os_atomic_store(&memstat_cur_interval.num_kills, 0, relaxed);
+	memstat_cur_interval.max_level = kVMPressureNormal;
+}
+
+/*
+ * Ends a pressure interval, sending all telemetry associated with it
+ */
+static void
+memstat_pressure_interval_end(void)
+{
+	LCK_MTX_ASSERT(&memorystatus_klist_mutex, LCK_MTX_ASSERT_OWNED);
+	memorystatus_pressure_interval_send();
+	memorystatus_pressure_proc_telemetry_send();
+}
+
+/*
+ * Updates the pressure interval when the pressure level changes
+ */
+static void
+memstat_pressure_interval_update(vm_pressure_level_t new_level)
+{
+	LCK_MTX_ASSERT(&memorystatus_klist_mutex, LCK_MTX_ASSERT_OWNED);
+	memstat_cur_interval.num_transitions++;
+	if (new_level <= memstat_cur_interval.max_level) {
+		return;
+	}
+	memstat_cur_interval.num_procs = memorystatus_klist_length(new_level);
+	memstat_cur_interval.max_level = new_level;
+}
+
 
 /*
  * Updates the footprint telemetry for procs that have received notifications.
@@ -1421,14 +1491,12 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 	 * by immediately killing idle exitable processes. We use a delay
 	 * to avoid overkill.  And we impose a max counter as a fail safe
 	 * in case daemons re-launch too fast.
-	 *
-	 * TODO: These jetsams should be performed on the memorystatus thread. We can
-	 * provide the similar false-idle mitigation by skipping processes with med/high
-	 * relaunch probability and/or using the sustained-pressure mechanism.
-	 * (rdar://134075608)
 	 */
-	while ((memorystatus_vm_pressure_level != kVMPressureNormal) && (idle_kill_counter < MAX_IDLE_KILLS)) {
-		if (!memstat_kill_idle_process(kMemorystatusKilledIdleExit, NULL)) {
+	while (memstat_pressure_config & MEMSTAT_WARNING_KILL_IDLE_THROTTLED &&
+	    memorystatus_vm_pressure_level != kVMPressureNormal &&
+	    idle_kill_counter < MAX_IDLE_KILLS) {
+		uint64_t footprint;
+		if (!memstat_kill_idle_process(kMemorystatusKilledIdleExit, &footprint)) {
 			/* No idle exitable processes left to kill */
 			break;
 		}
@@ -1440,7 +1508,7 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 			 * the pressure notification scheme.
 			 */
 		} else {
-			delay(1000000); /* 1 second */
+			delay(1 * USEC_PER_SEC);
 		}
 	}
 #endif /* !CONFIG_JETSAM */
@@ -1476,26 +1544,24 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 		}
 	}
 
-#if CONFIG_JETSAM
-	if (memorystatus_vm_pressure_level == kVMPressureNormal && prev_level_snapshot != kVMPressureNormal) {
-		if (memorystatus_should_kill_on_sustained_pressure) {
+	if (memstat_pressure_config & MEMSTAT_WARNING_KILL_SUSTAINED) {
+		if (memorystatus_vm_pressure_level == kVMPressureNormal && prev_level_snapshot != kVMPressureNormal) {
 			memorystatus_log("memorystatus: Pressure has returned to level %d. Cancelling scheduled jetsam\n", memorystatus_vm_pressure_level);
 			thread_call_cancel(sustained_pressure_handler_thread_call);
+		} else if (memorystatus_vm_pressure_level != kVMPressureNormal && prev_level_snapshot == kVMPressureNormal) {
+			/*
+			 * Pressure has increased from normal.
+			 * Hopefully the notifications will relieve it,
+			 * but as a fail-safe we'll trigger jetsam
+			 * after a configurable amount of time.
+			 */
+			memorystatus_log("memorystatus: Pressure level has increased from %d to %d. Scheduling jetsam.\n", prev_level_snapshot, memorystatus_vm_pressure_level);
+			uint64_t kill_time;
+			nanoseconds_to_absolutetime(memorystatus_kill_on_sustained_pressure_window_s * NSEC_PER_SEC, &kill_time);
+			kill_time += mach_absolute_time();
+			thread_call_enter_delayed(sustained_pressure_handler_thread_call, kill_time);
 		}
-	} else if (memorystatus_should_kill_on_sustained_pressure && memorystatus_vm_pressure_level != kVMPressureNormal && prev_level_snapshot == kVMPressureNormal) {
-		/*
-		 * Pressure has increased from normal.
-		 * Hopefully the notifications will relieve it,
-		 * but as a fail-safe we'll trigger jetsam
-		 * after a configurable amount of time.
-		 */
-		memorystatus_log("memorystatus: Pressure level has increased from %d to %d. Scheduling jetsam.\n", prev_level_snapshot, memorystatus_vm_pressure_level);
-		uint64_t kill_time;
-		nanoseconds_to_absolutetime(memorystatus_kill_on_sustained_pressure_window_s * NSEC_PER_SEC, &kill_time);
-		kill_time += mach_absolute_time();
-		thread_call_enter_delayed(sustained_pressure_handler_thread_call, kill_time);
 	}
-#endif /* CONFIG_JETSAM */
 
 	while (1) {
 		/*
@@ -1523,21 +1589,41 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 				continue;
 			}
 		}
-		if (level_snapshot == kVMPressureNormal) {
-			memorystatus_pressure_telemetry_send();
-		}
+
 		prev_level_snapshot = level_snapshot;
 		smoothing_window_started = FALSE;
+
+		if (memstat_pressure_config & MEMSTAT_WARNING_KILL_LONG_IDLE &&
+		    level_snapshot >= kVMPressureWarning &&
+		    memstat_get_long_idle_proccnt() > 0) {
+			/* There are long-idle daemons to kill */
+			memorystatus_thread_wake();
+		} else if (level_snapshot == kVMPressureCritical) {
+			if (memstat_pressure_config & MEMSTAT_CRITICAL_PURGE_CACHES) {
+				uint64_t now = mach_absolute_time();
+				uint64_t delta_ns;
+				absolutetime_to_nanoseconds(now - memstat_last_cache_purge_ts, &delta_ns);
+				if (delta_ns >= memstat_cache_purge_backoff_ns) {
+					/* Wake up the jetsam thread to purge caches */
+					memorystatus_thread_wake();
+				}
+			} else if (memstat_pressure_config & MEMSTAT_CRITICAL_KILL_IDLE &&
+			    memstat_get_idle_proccnt() > 0) {
+				memorystatus_thread_wake();
+			}
+		}
+
 		memorystatus_klist_lock();
 
-		if (level_snapshot > memorystatus_pressure_interval_telemetry.max_level) {
-			memorystatus_pressure_interval_telemetry.num_processes_registered = memorystatus_klist_length(level_snapshot);
-			memorystatus_pressure_interval_telemetry.max_level = level_snapshot;
-			memorystatus_pressure_interval_telemetry.num_transitions++;
-			if (memorystatus_pressure_interval_telemetry.duration == 0) {
-				/* Set the start timestamp. Duration will be finalized when we send the event. */
-				memorystatus_pressure_interval_telemetry.duration = curr_ts;
+		/* Interval tracking & telemetry */
+		if (prev_level_snapshot != level_snapshot) {
+			if (level_snapshot == kVMPressureNormal) {
+				memstat_pressure_interval_end();
+			} else if (prev_level_snapshot == kVMPressureNormal) {
+				memstat_pressure_interval_start(curr_ts);
 			}
+
+			memstat_pressure_interval_update(level_snapshot);
 		}
 
 		kn_max = vm_pressure_select_optimal_candidate_to_notify(&memorystatus_klist, level_snapshot, target_foreground_process, &next_telemetry_update);
@@ -1624,10 +1710,16 @@ memorystatus_update_vm_pressure(boolean_t target_foreground_process)
 				}
 			}
 		}
+
 		if (level_snapshot != kVMPressureNormal) {
-			mark_knote_send_time(kn_max, task, convert_internal_pressure_level_to_dispatch_level(level_snapshot),
-			    (uint16_t) MIN(UINT16_MAX, memorystatus_pressure_interval_telemetry.num_notifications_sent));
-			memorystatus_pressure_interval_telemetry.num_notifications_sent++;
+			uint16_t num_notifications;
+			if (os_convert_overflow(memstat_cur_interval.num_notifs, &num_notifications)) {
+				num_notifications = UINT16_MAX;
+			}
+			mark_knote_send_time(kn_max, task,
+			    convert_internal_pressure_level_to_dispatch_level(level_snapshot),
+			    num_notifications);
+			memstat_cur_interval.num_notifs++;
 		}
 
 		KNOTE(&dispatch_klist, (level_snapshot != kVMPressureNormal) ? kMemorystatusPressure : kMemorystatusNoPressure);

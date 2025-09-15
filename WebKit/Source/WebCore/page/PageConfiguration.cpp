@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@
 #include "EditorClient.h"
 #include "Frame.h"
 #include "HistoryItem.h"
-#include "InspectorClient.h"
+#include "InspectorBackendClient.h"
 #include "LocalFrameLoaderClient.h"
 #include "ModelPlayerProvider.h"
 #include "PerformanceLoggingClient.h"
@@ -65,6 +65,8 @@
 #include <wtf/TZoneMallocInlines.h>
 #if ENABLE(WEB_AUTHN)
 #include "AuthenticatorCoordinatorClient.h"
+#endif
+#if HAVE(DIGITAL_CREDENTIALS_UI)
 #include "CredentialRequestCoordinatorClient.h"
 #endif
 #if ENABLE(APPLE_PAY)
@@ -92,7 +94,7 @@ PageConfiguration::PageConfiguration(
     UniqueRef<SpeechRecognitionProvider>&& speechRecognitionProvider,
     Ref<BroadcastChannelRegistry>&& broadcastChannelRegistry,
     UniqueRef<StorageProvider>&& storageProvider,
-    UniqueRef<ModelPlayerProvider>&& modelPlayerProvider,
+    Ref<ModelPlayerProvider>&& modelPlayerProvider,
     Ref<BadgeClient>&& badgeClient,
     Ref<HistoryItemClient>&& historyItemClient,
 #if ENABLE(CONTEXT_MENUS)
@@ -104,6 +106,9 @@ PageConfiguration::PageConfiguration(
     UniqueRef<ChromeClient>&& chromeClient,
     UniqueRef<CryptoClient>&& cryptoClient,
     UniqueRef<ProcessSyncClient>&& processSyncClient
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    , Ref<CredentialRequestCoordinatorClient>&& credentialRequestCoordinatorClient
+#endif
 )
     : identifier(identifier)
     , sessionID(sessionID)
@@ -133,6 +138,9 @@ PageConfiguration::PageConfiguration(
     , historyItemClient(WTFMove(historyItemClient))
     , cryptoClient(WTFMove(cryptoClient))
     , processSyncClient(WTFMove(processSyncClient))
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+    , credentialRequestCoordinatorClient(WTFMove(credentialRequestCoordinatorClient))
+#endif
 {
 }
 

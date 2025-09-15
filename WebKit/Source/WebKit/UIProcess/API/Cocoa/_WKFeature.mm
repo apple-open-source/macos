@@ -49,7 +49,7 @@
 
 - (NSString *)name
 {
-    return _wrappedFeature->name();
+    return _wrappedFeature->name().createNSString().autorelease();
 }
 
 - (WebFeatureStatus)status
@@ -108,12 +108,12 @@
 
 - (NSString *)key
 {
-    return _wrappedFeature->key();
+    return _wrappedFeature->key().createNSString().autorelease();
 }
 
 - (NSString *)details
 {
-    return _wrappedFeature->details();
+    return _wrappedFeature->details().createNSString().autorelease();
 }
 
 - (BOOL)defaultValue

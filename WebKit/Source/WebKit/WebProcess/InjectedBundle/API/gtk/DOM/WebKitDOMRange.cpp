@@ -22,6 +22,7 @@
 
 #include <WebCore/CSSImportRule.h>
 #include "DOMObjectCache.h"
+#include <WebCore/BoundaryPointInlines.h>
 #include <WebCore/DOMException.h>
 #include <WebCore/Document.h>
 #include <WebCore/JSExecState.h>

@@ -34,7 +34,7 @@
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
 
 CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFDataRef publicPeerId, CFDataRef privateAccountData, CFErrorRef *error) {
-    SOSDataSourceFactoryRef ds = SecItemDataSourceFactoryGetDefault();
+    SOSDataSourceFactoryRef ds = SecItemServerDataSourceFactoryGetDefault();
 
     SOSAccount* privateAccount = NULL;
     SOSAccount* publicAccount = NULL;

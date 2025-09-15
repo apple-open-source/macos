@@ -77,12 +77,15 @@
 - (instancetype)initWithTaskInfo:(const WebKit::AuxiliaryProcessProxy::TaskInfo&)info process:(const WebKit::WebProcessProxy&)process;
 @end
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 static RetainPtr<WKProcessPool>& sharedProcessPool()
 {
     static NeverDestroyed<RetainPtr<WKProcessPool>> sharedProcessPool;
     return sharedProcessPool;
 }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKProcessPool {
     WeakObjCPtr<id <_WKAutomationDelegate>> _automationDelegate;
     WeakObjCPtr<id <_WKDownloadDelegate>> _downloadDelegate;
@@ -93,9 +96,11 @@ static RetainPtr<WKProcessPool>& sharedProcessPool()
     RetainPtr<id <_WKGeolocationCoreLocationProvider>> _coreLocationProvider;
 #endif // PLATFORM(IOS_FAMILY)
 }
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (instancetype)_initWithConfiguration:(_WKProcessPoolConfiguration *)configuration
 {
     if (!(self = [super init]))
@@ -110,6 +115,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 {
     return [self _initWithConfiguration:adoptNS([[_WKProcessPoolConfiguration alloc] init]).get()];
 }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)dealloc
 {
@@ -153,10 +159,12 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     return [NSString stringWithFormat:@"<%@: %p; configuration = %@>", NSStringFromClass(self.class), self, wrapper(_processPool->configuration())];
 }
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (_WKProcessPoolConfiguration *)_configuration
 {
     return wrapper(_processPool->configuration().copy()).autorelease();
 }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (API::Object&)_apiObject
 {
@@ -174,7 +182,9 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 @end
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 @implementation WKProcessPool (WKPrivate)
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 + (WKProcessPool *)_sharedProcessPool
 {
@@ -334,7 +344,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 - (NSURL *)_javaScriptConfigurationDirectory
 {
-    return [NSURL fileURLWithPath:_processPool->javaScriptConfigurationDirectory() isDirectory:YES];
+    return [NSURL fileURLWithPath:_processPool->javaScriptConfigurationDirectory().createNSString().get() isDirectory:YES];
 }
 
 - (void)_setJavaScriptConfigurationDirectory:(NSURL *)directory
@@ -390,7 +400,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 - (pid_t)_gpuProcessIdentifier
 {
 #if ENABLE(GPU_PROCESS)
-    auto* gpuProcess = _processPool->gpuProcess();
+    RefPtr gpuProcess = _processPool->gpuProcess();
     return gpuProcess ? gpuProcess->processID() : 0;
 #else
     return 0;
@@ -548,14 +558,14 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
 + (BOOL)_isMetalDebugDeviceEnabledInGPUProcessForTesting
 {
-    if (auto gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated())
+    if (RefPtr gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated())
         return gpuProcess->isMetalDebugDeviceEnabledForTesting();
     return WebKit::GPUProcessProxy::isMetalDebugDeviceEnabledInNewGPUProcessesForTesting();
 }
 
 + (BOOL)_isMetalShaderValidationEnabledInGPUProcessForTesting
 {
-    if (auto gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated())
+    if (RefPtr gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated())
         return gpuProcess->isMetalShaderValidationEnabledForTesting();
     return WebKit::GPUProcessProxy::isMetalShaderValidationEnabledInNewGPUProcessesForTesting();
 }
@@ -584,16 +594,6 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     _coreLocationProvider = coreLocationProvider;
 }
 #endif // PLATFORM(IOS_FAMILY)
-
-- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request websiteDataStore:(WKWebsiteDataStore *)dataStore originatingWebView:(WKWebView *)webView
-{
-    return [_WKDownload downloadWithDownload:wrapper(_processPool->download(*dataStore->_websiteDataStore, [webView _page], request)).get()];
-}
-
-- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData websiteDataStore:(WKWebsiteDataStore *)dataStore  path:(NSString *)path originatingWebView:(WKWebView *)webView
-{
-    return [_WKDownload downloadWithDownload:wrapper(_processPool->resumeDownload(*dataStore->_websiteDataStore, [webView _page], API::Data::createWithoutCopying(resumeData).get(), path, WebKit::CallDownloadDidStart::No)).get()];
-}
 
 - (void)_getActivePagesOriginsInWebProcessForTesting:(pid_t)pid completionHandler:(void(^)(NSArray<NSString *> *))completionHandler
 {
@@ -658,7 +658,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 {
     RetainPtr<_WKProcessInfo> result;
 
-    if (auto gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated()) {
+    if (RefPtr gpuProcess = WebKit::GPUProcessProxy::singletonIfCreated()) {
         if (auto taskInfo = gpuProcess->taskInfo())
             result = adoptNS([[_WKProcessInfo alloc] initWithTaskInfo:*taskInfo]);
     }
@@ -691,6 +691,13 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
 
     return result.autorelease();
 }
+
+#if PLATFORM(MAC)
+- (void)_registerAdditionalFonts:(NSArray<NSString *> *)fontNames
+{
+    _processPool->registerAdditionalFonts(fontNames);
+}
+#endif
 
 @end
 

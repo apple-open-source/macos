@@ -52,6 +52,7 @@
 #include <skywalk/namespace/flowidns.h>
 #include <dev/random/randomdev.h>
 #include <sys/sdt.h>
+#include <kern/uipc_domain.h>
 
 /* maximum number of flowID generation retries in case of collision */
 #define FLOWIDNS_MAX_FLOWID_GEN_RETRY  5
@@ -228,16 +229,16 @@ flowidns_init()
 	flowidns_domain_id_t domain;
 
 	VERIFY(__flowidns_inited == 0);
-	_CASSERT(SFH_DOMAIN_IPSEC == FLOWIDNS_DOMAIN_IPSEC);
-	_CASSERT(SFH_DOMAIN_FLOWSWITCH == FLOWIDNS_DOMAIN_FLOWSWITCH);
-	_CASSERT(SFH_DOMAIN_INPCB == FLOWIDNS_DOMAIN_INPCB);
-	_CASSERT(SFH_DOMAIN_PF == FLOWIDNS_DOMAIN_PF);
-	_CASSERT(FLOWIDNS_DOMAIN_MIN == 0);
+	static_assert(SFH_DOMAIN_IPSEC == FLOWIDNS_DOMAIN_IPSEC);
+	static_assert(SFH_DOMAIN_FLOWSWITCH == FLOWIDNS_DOMAIN_FLOWSWITCH);
+	static_assert(SFH_DOMAIN_INPCB == FLOWIDNS_DOMAIN_INPCB);
+	static_assert(SFH_DOMAIN_PF == FLOWIDNS_DOMAIN_PF);
+	static_assert(FLOWIDNS_DOMAIN_MIN == 0);
 	/*
 	 * FLOWIDNS_FLOWID_DOMAIN_{MASK, SHIFT} macros are based on below
 	 * assumption.
 	 */
-	_CASSERT(FLOWIDNS_DOMAIN_MAX == 3);
+	static_assert(FLOWIDNS_DOMAIN_MAX == 3);
 
 	for (domain = FLOWIDNS_DOMAIN_MIN; domain <= FLOWIDNS_DOMAIN_MAX;
 	    domain++) {
@@ -324,10 +325,8 @@ flowidns_dump_domain(struct sysctl_req *req, struct flowidns_domain *domain)
 		record.sfr_af = fftn->fftn_flowkey.ffk_af;
 		record.sfr_ipproto = fftn->fftn_flowkey.ffk_proto;
 		record.sfr_protoid = fftn->fftn_flowkey.ffk_protoid;
-		_CASSERT(sizeof(fftn->fftn_flowkey.ffk_laddr) ==
-		    sizeof(record.sfr_laddr));
-		_CASSERT(sizeof(fftn->fftn_flowkey.ffk_raddr) ==
-		    sizeof(record.sfr_raddr));
+		static_assert(sizeof(fftn->fftn_flowkey.ffk_laddr) == sizeof(record.sfr_laddr));
+		static_assert(sizeof(fftn->fftn_flowkey.ffk_raddr) == sizeof(record.sfr_raddr));
 		bcopy(&(fftn->fftn_flowkey.ffk_laddr), &record.sfr_laddr,
 		    sizeof(record.sfr_laddr));
 		bcopy(&(fftn->fftn_flowkey.ffk_raddr), &record.sfr_raddr,

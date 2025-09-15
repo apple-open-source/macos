@@ -63,6 +63,14 @@
 #include <os/log.h>
 #endif
 
+#ifndef SYSTEM_VERSION_COMPAT_ENABLED
+#if TARGET_OS_OSX || TARGET_OS_XR || (defined(RC_EXPERIMENTAL_SYSTEM_VERSION_COMPAT) && !TARGET_OS_SIMULATOR)
+#define SYSTEM_VERSION_COMPAT_ENABLED 1
+#else
+#define SYSTEM_VERSION_COMPAT_ENABLED 0
+#endif
+#endif // !SYSTEM_VERSION_COMPAT_ENABLED
+
 #include <mach-o/dyld_priv.h>
 
 // system library initialisers
@@ -247,7 +255,7 @@ libSystem_initializer(int argc,
 		.pthread_clear_qos_tsd = _pthread_clear_qos_tsd,
 		// V4 functions
 		.pthread_current_stack_contains_np = pthread_current_stack_contains_np,
-#if defined(_MALLOC_TYPE_AVAILABILITY)
+#if defined(__LP64__)
 		// V5 functions
 		.malloc_type_malloc = malloc_type_malloc,
 		.malloc_type_free = malloc_type_free,
@@ -286,7 +294,7 @@ libSystem_initializer(int argc,
 	_libc_initializer(&libc_funcs, envp, apple, vars);
 	_libSystem_ktrace_init_func(LIBC);
 
-#if !TARGET_OS_DRIVERKIT
+#if !TARGET_OS_DRIVERKIT && defined(__LP64__)
 	_sanitizers_init(envp, apple);
 	_libSystem_ktrace_init_func(SANITIZERS);
 #endif
@@ -366,13 +374,13 @@ libSystem_initializer(int argc,
 	}
 #endif
 
-#if TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+#if SYSTEM_VERSION_COMPAT_ENABLED || POSIX_SPAWN_FILTERING_ENABLED
 	bool enable_system_version_compat = false;
 	bool enable_ios_version_compat = false;
 	bool enable_posix_spawn_filtering = false;
-#endif // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+#endif // SYSTEM_VERSION_COMPAT_ENABLED || POSIX_SPAWN_FILTERING_ENABLED
 
-#if TARGET_OS_OSX
+#if SYSTEM_VERSION_COMPAT_ENABLED
 	char *system_version_compat_override = getenv("SYSTEM_VERSION_COMPAT");
 	if (system_version_compat_override != NULL) {
 		long override = strtol(system_version_compat_override, NULL, 0);
@@ -381,16 +389,32 @@ libSystem_initializer(int argc,
 		} else if (override == 2) {
 			enable_ios_version_compat = true;
 		}
-	} else if (dyld_get_active_platform() == PLATFORM_MACCATALYST) {
-		if (!dyld_program_sdk_at_least(dyld_platform_version_iOS_14_0)) {
+	} else {
+#if TARGET_OS_OSX
+		if (dyld_get_active_platform() == PLATFORM_MACCATALYST) {
+			if (!dyld_program_sdk_at_least(dyld_platform_version_iOS_14_0)) {
+				enable_system_version_compat = true;
+			}
+		} else if (dyld_get_active_platform() == PLATFORM_IOS) {
+			enable_ios_version_compat = true;
+		} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
 			enable_system_version_compat = true;
 		}
-	} else if (dyld_get_active_platform() == PLATFORM_IOS) {
-		enable_ios_version_compat = true;
-	} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
-		enable_system_version_compat = true;
-	}
 #endif // TARGET_OS_OSX
+
+#if TARGET_OS_XR
+		if (dyld_get_active_platform() == PLATFORM_IOS) {
+			enable_ios_version_compat = true;
+		}
+#endif // TARGET_OS_XR
+
+#if defined(RC_EXPERIMENTAL_SYSTEM_VERSION_COMPAT) && !TARGET_OS_SIMULATOR
+		if (!enable_ios_version_compat && !dyld_program_sdk_at_least(dyld_fall_2025_os_versions)) {
+			enable_system_version_compat = true;
+		}
+#endif // RC_EXPERIMENTAL_SYSTEM_VERSION_COMPAT && !TARGET_OS_SIMULATOR
+	}
+#endif // SYSTEM_VERSION_COMPAT_ENABLED
 
 #if POSIX_SPAWN_FILTERING_ENABLED
 	/*
@@ -403,7 +427,7 @@ libSystem_initializer(int argc,
 	}
 #endif // POSIX_SPAWN_FILTERING_ENABLED
 
-#if TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+#if SYSTEM_VERSION_COMPAT_ENABLED || POSIX_SPAWN_FILTERING_ENABLED
 	if (enable_system_version_compat || enable_ios_version_compat || enable_posix_spawn_filtering) {
 		struct _libkernel_late_init_config config = {
 			.version = 3,
@@ -413,8 +437,7 @@ libSystem_initializer(int argc,
 		};
 		__libkernel_init_late(&config);
 	}
-#else // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
-#endif // TARGET_OS_OSX || POSIX_SPAWN_FILTERING_ENABLED
+#endif // SYSTEM_VERSION_COMPAT_ENABLED || POSIX_SPAWN_FILTERING_ENABLED
 
 	__end_prewarm(envp);
 

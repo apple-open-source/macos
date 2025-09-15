@@ -215,9 +215,6 @@ typedef struct _class_queue_ {
 #define CLASSQF_ECN     (CLASSQF_ECN4 | CLASSQF_ECN6)
 
 extern u_int32_t classq_verbose;
-#if DEBUG || DEVELOPMENT
-extern uint32_t fq_codel_quantum;
-#endif /* DEBUG || DEVELOPMENT */
 
 SYSCTL_DECL(_net_classq);
 

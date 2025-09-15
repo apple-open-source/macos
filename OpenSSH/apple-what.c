@@ -37,4 +37,7 @@ static char modifications[] __used = "@(#)Apple modifications:"
 #ifdef __APPLE_TMPDIR__
     " tmpdir"
 #endif
+#ifdef __APPLE_BASESYSTEM__
+    " basesystem"
+#endif
 ;

@@ -41,9 +41,9 @@
 #include <libkern/kernel_mach_header.h>
 #include <os/overflow.h>
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 extern addr64_t kvtophys(vm_offset_t va);
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 #include <sys/types.h>
 
@@ -249,7 +249,7 @@ SecureDTIsLockedDown(void)
 {
 #if CONFIG_SPTM
 	return true;
-#elif defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#elif defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/*
 	 * We cannot check if the DT is in the CTRR region early on,
 	 * because knowledge of the CTRR region is set up later.  But the

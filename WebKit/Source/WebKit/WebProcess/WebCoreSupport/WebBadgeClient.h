@@ -38,8 +38,7 @@ public:
     }
 
 private:
-    void setAppBadge(WebCore::Page*, const WebCore::SecurityOriginData&, std::optional<uint64_t>) final;
-    void setClientBadge(WebCore::Page&, const WebCore::SecurityOriginData&, std::optional<uint64_t>) final;
+    void setAppBadge(WebCore::Frame*, const WebCore::SecurityOriginData&, std::optional<uint64_t>) final;
 };
 
 } // namespace WebKit

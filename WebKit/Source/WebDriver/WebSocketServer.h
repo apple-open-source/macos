@@ -106,7 +106,10 @@ private:
 
 class WebSocketServer : public RefCountedAndCanMakeWeakPtr<WebSocketServer> {
 public:
-    explicit WebSocketServer(WebSocketMessageHandler&, WebDriverService&);
+    static Ref<WebSocketServer> create(WebSocketMessageHandler& messageHandler)
+    {
+        return adoptRef(*new WebSocketServer(messageHandler));
+    }
     virtual ~WebSocketServer() = default;
 
     std::optional<String> listen(const String& host, unsigned port);
@@ -121,7 +124,7 @@ public:
     void removeStaticConnection(const WebSocketMessageHandler::Connection&);
 
     void addConnection(WebSocketMessageHandler::Connection&&, const String& sessionId);
-    RefPtr<Session> session(const WebSocketMessageHandler::Connection&);
+    String sessionID(const WebSocketMessageHandler::Connection&) const;
     std::optional<WebSocketMessageHandler::Connection> connection(const String& sessionId);
     void removeConnection(const WebSocketMessageHandler::Connection&);
 
@@ -129,16 +132,19 @@ public:
     String getResourceName(const String& sessionId);
     String getWebSocketURL(const RefPtr<WebSocketListener>, const String& sessionId);
     String getSessionID(const String& resource);
-    void sendMessage(const String& session, const String& message);
+    void sendMessage(const String& sessionId, const String& message);
+    void sendErrorResponse(const String& sessionId, std::optional<unsigned> commandId, CommandResult::ErrorCode, const String& errorMessage, std::optional<String> stacktrace = std::nullopt);
 
     // Non-spec method
     void removeResourceForSession(const String& sessionId);
     void disconnectSession(const String& sessionId);
 
 private:
+    explicit WebSocketServer(WebSocketMessageHandler&);
 
+    void sendMessage(WebSocketMessageHandler::Connection, const String& message);
+    void sendErrorResponse(WebSocketMessageHandler::Connection, std::optional<unsigned> commandId, CommandResult::ErrorCode, const String& errorMessage, std::optional<String> stacktrace = std::nullopt);
     WebSocketMessageHandler& m_messageHandler;
-    WebDriverService& m_service;
     String m_listenerURL;
     RefPtr<WebSocketListener> m_listener;
     HashMap<WebSocketMessageHandler::Connection, String> m_connectionToSession;

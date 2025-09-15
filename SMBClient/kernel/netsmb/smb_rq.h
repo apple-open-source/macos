@@ -57,6 +57,8 @@
 
 #define SMBR_COMPRESSED     0x40000  /* Request or Reply is compressed IO */
 #define SMBR_DONT_COMPRESS  0x80000  /* Write request is not allowed to be compressed */
+#define SMBR_BUSY           0x100000  /* Being modified, prevent freeing */
+#define SMBR_BUSY_WANT      0x200000  /* Want to free, but marked with SMBR_BUSY */
 
 /* smb_t2rq t2_flags and smb_ntrq nt_flags */
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */

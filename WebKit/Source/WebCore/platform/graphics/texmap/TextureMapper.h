@@ -24,6 +24,7 @@
 #include "BitmapTexturePool.h"
 #include "ClipStack.h"
 #include "Color.h"
+#include "Damage.h"
 #include "FilterOperation.h"
 #include "IntRect.h"
 #include "IntSize.h"
@@ -37,6 +38,8 @@
 
 // TextureMapper is a mechanism that enables hardware acceleration of CSS animations (accelerated compositing) without
 // a need for a platform specific scene-graph library like CoreAnimation.
+
+typedef void *EGLImage;
 
 namespace WebCore {
 
@@ -68,6 +71,9 @@ public:
     void drawNumber(int number, const Color&, const FloatPoint&, const TransformationMatrix&);
 
     WEBCORE_EXPORT void drawTexture(const BitmapTexture&, const FloatRect& target, const TransformationMatrix& modelViewMatrix = TransformationMatrix(), float opacity = 1.0f, AllEdgesExposed = AllEdgesExposed::Yes);
+#if ENABLE(DAMAGE_TRACKING)
+    void drawTextureFragment(const BitmapTexture& sourceTexture, const FloatRect& sourceRect, const FloatRect& targetRect);
+#endif
     void drawTexture(GLuint texture, OptionSet<TextureMapperFlags>, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, AllEdgesExposed = AllEdgesExposed::Yes);
     void drawTexturePlanarYUV(const std::array<GLuint, 3>& textures, const std::array<GLfloat, 16>& yuvToRgbMatrix, OptionSet<TextureMapperFlags>, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, std::optional<GLuint> alphaPlane, AllEdgesExposed = AllEdgesExposed::Yes);
     void drawTextureSemiPlanarYUV(const std::array<GLuint, 2>& textures, bool uvReversed, const std::array<GLfloat, 16>& yuvToRgbMatrix, OptionSet<TextureMapperFlags>, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, AllEdgesExposed = AllEdgesExposed::Yes);
@@ -81,9 +87,11 @@ public:
     BitmapTexture* currentSurface();
     void beginClip(const TransformationMatrix&, const FloatRoundedRect&);
     void beginClip(const TransformationMatrix&, const ClipPath&);
+    void beginClipWithoutApplying(const TransformationMatrix&, const FloatRect&);
     WEBCORE_EXPORT void beginPainting(FlipY = FlipY::No, BitmapTexture* = nullptr);
     WEBCORE_EXPORT void endPainting();
     void endClip();
+    void endClipWithoutApplying();
     IntRect clipBounds();
     IntSize maxTextureSize() const;
     void setDepthRange(double zNear, double zFar);
@@ -95,12 +103,20 @@ public:
     RefPtr<BitmapTexture> applyFilters(RefPtr<BitmapTexture>&, const FilterOperations&, bool defersLastPass);
 
     WEBCORE_EXPORT Ref<BitmapTexture> acquireTextureFromPool(const IntSize&, OptionSet<BitmapTexture::Flags>);
+#if USE(GBM)
+    WEBCORE_EXPORT Ref<BitmapTexture> createTextureForImage(EGLImage, OptionSet<BitmapTexture::Flags>);
+#endif
 
 #if USE(GRAPHICS_LAYER_WC)
     WEBCORE_EXPORT void releaseUnusedTexturesNow();
 #endif
 
     Ref<TextureMapperGPUBuffer> acquireBufferFromPool(size_t, TextureMapperGPUBuffer::Type);
+
+#if ENABLE(DAMAGE_TRACKING)
+    void setDamage(const std::optional<Damage>& damage) { m_damage = damage; }
+    const std::optional<Damage>& damage() const { return m_damage; }
+#endif
 
 private:
     bool isInMaskMode() const { return m_isMaskMode; }
@@ -135,6 +151,9 @@ private:
     WrapMode m_wrapMode { WrapMode::Stretch };
     TextureMapperGLData* m_data;
     ClipStack m_clipStack;
+#if ENABLE(DAMAGE_TRACKING)
+    std::optional<Damage> m_damage;
+#endif
 };
 
 } // namespace WebCore

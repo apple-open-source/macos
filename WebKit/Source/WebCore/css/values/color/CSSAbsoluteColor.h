@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +27,10 @@
 #pragma once
 
 #include "CSSAbsoluteColorResolver.h"
-#include "CSSAbsoluteColorSerialization.h"
 #include "CSSColorDescriptors.h"
 #include "CSSPlatformColorResolutionState.h"
 #include "CSSValueTypes.h"
+#include "ColorSerialization.h"
 
 namespace WebCore {
 
@@ -79,9 +80,27 @@ template<typename D> constexpr bool containsCurrentColor(const AbsoluteColor<D>&
 }
 
 template<typename D> struct Serialize<AbsoluteColor<D>> {
-    void operator()(StringBuilder& builder, const AbsoluteColor<D>& value)
+    void operator()(StringBuilder& builder, const SerializationContext& context, const AbsoluteColor<D>& value)
     {
-        serializationForCSSAbsoluteColor(builder, value);
+        if constexpr (D::usesColorFunctionForSerialization)
+            builder.append("color("_s, serialization(ColorSpaceFor<typename D::ColorType>), ' ');
+        else
+            builder.append(D::serializationFunctionName, '(');
+
+        auto [c1, c2, c3, alpha] = value.components;
+
+        serializationForCSS(builder, context, c1);
+        builder.append(' ');
+        serializationForCSS(builder, context, c2);
+        builder.append(' ');
+        serializationForCSS(builder, context, c3);
+
+        if (alpha) {
+            builder.append(" / "_s);
+            serializationForCSS(builder, context, *alpha);
+        }
+
+        builder.append(')');
     }
 };
 
@@ -96,7 +115,7 @@ template<typename D> struct ComputedStyleDependenciesCollector<AbsoluteColor<D>>
 };
 
 template<typename D> struct CSSValueChildrenVisitor<AbsoluteColor<D>> {
-    IterationStatus operator()(const Function<IterationStatus(CSSValue&)>& func, const AbsoluteColor<D>& value)
+    IterationStatus operator()(NOESCAPE const Function<IterationStatus(CSSValue&)>& func, const AbsoluteColor<D>& value)
     {
         if (visitCSSValueChildren(func, std::get<0>(value.components)) == IterationStatus::Done)
             return IterationStatus::Done;

@@ -52,6 +52,8 @@
 #include <machine/config.h>
 #include <vm/pmap.h>
 #include <vm/vm_page.h>
+#include <vm/vm_page_internal.h>
+#include <vm/vm_pageout_xnu.h>
 #include <vm/vm_shared_region_xnu.h>
 #include <vm/vm_map_xnu.h>
 #include <vm/vm_kern_xnu.h>
@@ -66,7 +68,7 @@
 #include <IOKit/IOHibernatePrivate.h>
 #endif /* HIBERNATION */
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 #include <arm64/amcc_rorgn.h>
 #endif
 
@@ -75,6 +77,7 @@
 #include <arm64/sptm/sptm.h>
 #endif /* CONFIG_SPTM */
 
+#include <libkern/OSAtomic.h>
 #include <libkern/section_keywords.h>
 
 /**
@@ -417,7 +420,7 @@ get_tcr(void)
 	return value;
 }
 
-boolean_t
+__mockable boolean_t
 ml_get_interrupts_enabled(void)
 {
 	uint64_t        value;
@@ -438,7 +441,7 @@ get_mmu_ttb(void)
 	return value;
 }
 
-uint32_t
+MARK_AS_FIXUP_TEXT uint32_t
 get_arm_cpu_version(void)
 {
 	uint32_t value = machine_read_midr();
@@ -544,6 +547,8 @@ ml_is_secure_hib_supported(void)
 	return false;
 }
 
+static void ml_release_deferred_pages(void);
+
 void
 machine_lockdown(void)
 {
@@ -559,6 +564,7 @@ machine_lockdown(void)
 #endif
 
 	arm_vm_prot_finalize(PE_state.bootArgs);
+	ml_release_deferred_pages();
 
 #if CONFIG_KERNEL_INTEGRITY
 #if KERNEL_INTEGRITY_WT
@@ -594,7 +600,7 @@ machine_lockdown(void)
 #endif /* SCHED_HYGIENE_DEBUG */
 	enable_preemption();
 #else
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* KTRR
 	 *
 	 * Lock physical KTRR region. KTRR region is read-only. Memory outside
@@ -602,7 +608,7 @@ machine_lockdown(void)
 	 */
 
 	rorgn_lockdown();
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 #endif /* CONFIG_SPTM */
 
 #if XNU_MONITOR
@@ -1102,6 +1108,7 @@ ml_cluster_power_override(unsigned int *flag)
 	PE_parse_boot_argn("cluster_power", flag, sizeof(*flag));
 }
 
+
 static void
 ml_read_chip_revision(unsigned int *rev __unused)
 {
@@ -1354,7 +1361,7 @@ ml_map_cpu_pio(void)
 	}
 }
 
-unsigned int
+__mockable unsigned int
 ml_get_cpu_count(void)
 {
 	return topology_info.num_cpus;
@@ -1505,7 +1512,7 @@ ml_get_max_die_id(void)
 void
 ml_lockdown_init()
 {
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	rorgn_stash_range();
 #endif
 }
@@ -1652,9 +1659,7 @@ ml_processor_register(ml_processor_info_t *in_processor_info,
 	pset = pset_find(in_processor_info->cluster_id, NULL);
 	kprintf("[%d]%s>pset_find(cluster_id=%d) returned pset %d\n", current_processor()->cpu_id, __FUNCTION__, in_processor_info->cluster_id, pset ? pset->pset_id : -1);
 	if (pset == NULL) {
-		pset_cluster_type_t pset_cluster_type = cluster_type_to_pset_cluster_type(this_cpu_datap->cpu_cluster_type);
-		pset_node_t pset_node = cluster_type_to_pset_node(this_cpu_datap->cpu_cluster_type);
-		pset = pset_create(pset_node, pset_cluster_type, this_cpu_datap->cpu_cluster_id, this_cpu_datap->cpu_cluster_id);
+		pset = pset_create(this_cpu_datap->cpu_cluster_type, this_cpu_datap->cpu_cluster_id, this_cpu_datap->cpu_cluster_id);
 		assert(pset != PROCESSOR_SET_NULL);
 #if __AMP__
 		kprintf("[%d]%s>pset_create(cluster_id=%d) returned pset %d\n", current_processor()->cpu_id, __FUNCTION__, this_cpu_datap->cpu_cluster_id, pset->pset_id);
@@ -2042,6 +2047,45 @@ ml_physaddr_in_bootkc_range(vm_offset_t physaddr)
 #endif /* defined(CONFIG_SPTM) */
 
 /*
+ * List of ml_static_mfree()'d pages that have been freed before
+ * physical aperture sliding has taken place. If sliding has not
+ * occurred yet, ml_static_mfree() will create pages, but not add them
+ * to the free page queue yet. If it did, code that e.g. calls
+ * pmap_page_alloc() could get a page back whose physical aperture
+ * will later be slid, potentially leaving dangling pointers pointing
+ * to the old kva of the page behind.
+ *
+ * Such errors are hard to avoid and hard to debug, so instead we
+ * queue pages in this dedicated list, and release all accumulated
+ * pages into the regular free queue all at once right after phys
+ * aperture sliding took place in arm_vm_prot_finalize().
+ */
+static
+vm_page_list_t ml_static_mfree_pre_slide_list;
+
+/*
+ * Indicates whether we still need ml_static_mfree() to queue up pages
+ * in ml_static_free_pre_slide_list. If not, ml_static_mfree()
+ * directly releases newly created pages into the free queue instead.
+ */
+static
+bool ml_static_mfree_queue_up = true;
+
+/*
+ * Release all pages queued up by ml_static_mfree() to the free queue.
+ * This should be called after physical aperture sliding has taken
+ * place (i.e. in arm_vm_prot_finalize()), to indicate that the
+ * physical aperture is now stable, and subsequently ml_static_mfree()
+ * can directly release pages into the free queue instead.
+ */
+static void
+ml_release_deferred_pages(void)
+{
+	vm_page_free_list(ml_static_mfree_pre_slide_list.vmpl_head, false);
+	ml_static_mfree_queue_up = false;
+}
+
+/*
  *	Routine:        ml_static_mfree
  *	Function:
  */
@@ -2091,7 +2135,14 @@ ml_static_mfree(
 			paddr_cur = ptoa(ppn);
 
 
-			vm_page_create_canonical(ppn);
+			if (__probable(!ml_static_mfree_queue_up)) {
+				vm_page_create_canonical(ppn);
+			} else {
+				vm_page_t m = vm_page_create(ppn, true, Z_WAITOK);
+
+				vm_page_list_push(&ml_static_mfree_pre_slide_list, m);
+			}
+
 			freed_pages++;
 #if defined(CONFIG_SPTM)
 			if (ml_physaddr_in_bootkc_range(paddr_cur))
@@ -2907,6 +2958,12 @@ ml_hibernate_active_pre(void)
 	if (kIOHibernateStateWakingFromHibernate == gIOHibernateState) {
 
 		hibernate_rebuild_vm_structs();
+
+#if CONFIG_SPTM
+		/* Tell the pmap that hibernation restoration has started. */
+		extern secure_hmac_hib_state_t pmap_hibernation_state;
+		pmap_hibernation_state = SECURE_HMAC_HIB_RESTORE;
+#endif /* CONFIG_SPTM */
 	}
 #endif /* HIBERNATION */
 }
@@ -3059,18 +3116,6 @@ ml_get_backtrace_pc(struct arm_saved_state *state)
 }
 
 
-bool
-ml_paddr_is_exclaves_owned(vm_offset_t paddr)
-{
-#if CONFIG_SPTM
-	const sptm_frame_type_t type = sptm_get_frame_type(paddr);
-	return type == SK_DEFAULT || type == SK_IO;   // SK_SHARED_R[OW] are not exclusively exclaves frames
-#else
-	#pragma unused(paddr)
-	return false;
-#endif /* CONFIG_SPTM */
-}
-
 /**
  * Panic because an ARM saved-state accessor expected user saved-state but was
  * passed non-user saved-state.
@@ -3119,3 +3164,41 @@ ml_task_post_signature_processing_hook(__unused task_t task)
 
 }
 
+
+#if DEVELOPMENT || DEBUG || CONFIG_DTRACE || CONFIG_CSR_FROM_DT
+static bool SECURITY_READ_ONLY_LATE(_unsafe_kernel_text_initialized) = false;
+static bool SECURITY_READ_ONLY_LATE(_unsafe_kernel_text) = false;
+
+__mockable bool
+ml_unsafe_kernel_text(void)
+{
+	assert(_unsafe_kernel_text_initialized);
+	return _unsafe_kernel_text;
+}
+
+__startup_func
+static void
+ml_unsafe_kernel_text_init(void)
+{
+	/* Grab the values written by iBoot. */
+
+	DTEntry         entry;
+	const void      *value;
+	unsigned int    size;
+	if (SecureDTLookupEntry(0, "/chosen", &entry) == kSuccess &&
+	    SecureDTGetProperty(entry, "kernel-ctrr-to-be-enabled", &value, &size) == kSuccess &&
+	    size == sizeof(int)) {
+		_unsafe_kernel_text_initialized = true;
+		_unsafe_kernel_text = (0 == *(const int *)value);
+	}
+}
+STARTUP(TUNABLES, STARTUP_RANK_FIRST, ml_unsafe_kernel_text_init);
+
+#else /* DEVELOPMENT || DEBUG || CONFIG_DTRACE || CONFIG_CSR_FROM_DT */
+bool
+ml_unsafe_kernel_text(void)
+{
+	/* Kernel text is never writable under these configs. */
+	return false;
+}
+#endif /* DEVELOPMENT || DEBUG || CONFIG_DTRACE || CONFIG_CSR_FROM_DT */

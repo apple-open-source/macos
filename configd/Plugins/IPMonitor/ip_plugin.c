@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2024 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2025 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -352,7 +352,7 @@ typedef struct Candidate {
     SCNetworkReachabilityFlags	reachability_flags;
     in_addr			addr;
     in_sockaddr			vpn_server_addr;
-    CFStringRef			signature;
+    CFTypeRef			signature; /* CFStringRef or CFDataRef */
 } Candidate, * CandidateRef;
 
 typedef struct ElectionResults {
@@ -6285,6 +6285,7 @@ update_dnsinfo(CFDictionaryRef	services_info,
     }
 
     changed = dns_configuration_set(dict,
+				    primary,
 				    S_service_state_dict,
 				    service_order,
 				    multicastResolvers,
@@ -7096,25 +7097,22 @@ ElectionResultsCandidateNeedsDemotion(CandidateRef other_candidate,
 
 
 static void
-get_signature_sha256(CFStringRef		signature,
-		   unsigned char	* sha256)
+hash_string_sha256(CFStringRef str, uint8_t * sha256)
 {
     CC_SHA256_CTX	ctx;
-    CFDataRef		signature_data;
+    CFDataRef		data;
 
-    signature_data = CFStringCreateExternalRepresentation(NULL,
-							  signature,
-							  kCFStringEncodingUTF8,
-							  0);
-
+    data = CFStringCreateExternalRepresentation(NULL,
+						str,
+						kCFStringEncodingUTF8,
+						0);
     CC_SHA256_Init(&ctx);
     CC_SHA256_Update(&ctx,
-		     CFDataGetBytePtr(signature_data),
-		     (CC_LONG)CFDataGetLength(signature_data));
+		     CFDataGetBytePtr(data),
+		     (CC_LONG)CFDataGetLength(data));
     CC_SHA256_Final(sha256, &ctx);
 
-    CFRelease(signature_data);
-
+    CFRelease(data);
     return;
 }
 
@@ -7162,10 +7160,18 @@ add_candidate_to_nwi_state(nwi_state_t nwi_state, int af,
 				    (void *)&candidate->addr,
 				    (void *)&candidate->vpn_server_addr,
 				    candidate->reachability_flags);
-    if (ifstate != NULL && candidate->signature) {
+    if (ifstate != NULL && candidate->signature != NULL) {
 	uint8_t	    hash[CC_SHA256_DIGEST_LENGTH];
 
-	get_signature_sha256(candidate->signature, hash);
+	if (isA_CFString(candidate->signature) != NULL) {
+	    hash_string_sha256((CFStringRef)candidate->signature, hash);
+	}
+	else {
+	    /* service_dict_get_signature() checked that data was valid */
+	    CFRange	r = CFRangeMake(0, NWI_SIGNATURE_LENGTH);
+
+	    CFDataGetBytes((CFDataRef)candidate->signature, r, hash);
+	}
 	nwi_ifstate_set_signature(ifstate, hash);
     }
     return;
@@ -7338,18 +7344,50 @@ ElectionResultsGetPrimary(ElectionResultsRef results,
 }
 
 
-static inline
-CFStringRef
+static inline CFTypeRef
 service_dict_get_signature(CFDictionaryRef service_dict)
 {
     CFStringRef		ifname;
+    CFTypeRef		signature;
 
     ifname = CFDictionaryGetValue(service_dict, kSCPropInterfaceName);
     if (isA_CFString(ifname) == NULL
 	|| !confirm_interface_name(service_dict, ifname)) {
 	return (NULL);
     }
-    return (CFDictionaryGetValue(service_dict, kStoreKeyNetworkSignature));
+    signature = CFDictionaryGetValue(service_dict,
+				     kStoreKeyNetworkSignatureHash);
+    if (signature != NULL) {
+	signature = isA_CFData(signature);
+	if (signature != NULL
+	    && CFDataGetLength((CFDataRef)signature) == NWI_SIGNATURE_LENGTH) {
+	    my_log(LOG_DEBUG, "%@: using %@",
+		   ifname, kStoreKeyNetworkSignatureHash);
+	}
+	else {
+	    /* ignore bad signature data */
+	    signature = NULL;
+	    my_log(LOG_NOTICE, "%@: ignoring invalid %@",
+		   ifname, kStoreKeyNetworkSignatureHash);
+	}
+    }
+    else {
+	signature = CFDictionaryGetValue(service_dict,
+					 kStoreKeyNetworkSignature);
+	if (signature != NULL) {
+	    if (isA_CFString(signature) != NULL) {
+		my_log(LOG_DEBUG, "%@: using %@",
+		       ifname, kStoreKeyNetworkSignature);
+	    }
+	    else {
+		/* ignore bad signature string */
+		signature = NULL;
+		my_log(LOG_NOTICE, "%@: ignoring invalid %@",
+		       ifname, kStoreKeyNetworkSignature);
+	    }
+	}
+    }
+    return (signature);
 }
 
 static Boolean
@@ -9043,7 +9081,7 @@ ip_plugin_init(void)
 				  kSCCompNetwork,
 				  CFSTR(kDNSServiceCompPrivateDNS));
     /* initialize dns configuration */
-    (void)dns_configuration_set(NULL, NULL, NULL, NULL, NULL, NULL);
+    (void)dns_configuration_set(NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 #if	!TARGET_OS_IPHONE
     empty_dns();
 #endif	/* !TARGET_OS_IPHONE */

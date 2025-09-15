@@ -106,12 +106,14 @@ __ZN24IOPerfControlWorkContext10gMetaClassE
 __ZN24IOPerfControlWorkContext10superClassE
 __ZTV24IOPerfControlWorkContext
 __ZN19IOPerfControlClient10copyClientEP9IOServicey
+__ZN19IOPerfControlClient23copyClientForDeviceTypeEP9IOServiceyNS_14IOPCDeviceTypeE
 __ZN19IOPerfControlClient10gMetaClassE
 __ZN19IOPerfControlClient10superClassE
 __ZN19IOPerfControlClient10workSubmitEP9IOServicePNS_14WorkSubmitArgsE
 __ZN19IOPerfControlClient14registerDeviceEP9IOServiceS1_
 __ZN19IOPerfControlClient15copyWorkContextEv
 __ZN19IOPerfControlClient16unregisterDeviceEP9IOServiceS1_
+__ZN19IOPerfControlClient18querySubmitterRoleEP9IOServiceP4taskPj
 __ZN19IOPerfControlClient18workEndWithContextEP9IOServiceP8OSObjectPNS_11WorkEndArgsEb
 __ZN19IOPerfControlClient18workSubmitAndBeginEP9IOServicePNS_14WorkSubmitArgsEPNS_13WorkBeginArgsE
 __ZN19IOPerfControlClient20workBeginWithContextEP9IOServiceP8OSObjectPNS_13WorkBeginArgsE
@@ -287,11 +289,15 @@ _buf_create_shadow
 _buf_kernel_addrperm_addr
 _buf_setfilter
 _buf_shadow
+_buf_verify_enable
+_buf_verifyptr
 _bufattr_alloc
 _bufattr_cpoff
 _bufattr_cpx
 _bufattr_dup
 _bufattr_free
+_bufattr_verifykind
+_bufattr_verifyptr
 _bufattr_greedymode
 _bufattr_isochronous
 _bufattr_markgreedymode
@@ -307,6 +313,7 @@ _bufattr_quickcomplete
 _bufattr_rawencrypted
 _bufattr_setcpoff
 _bufattr_setcpx
+_bufattr_setverifyvalid
 _bufattr_throttled
 _bufattr_willverify
 _cache_lookup_ext
@@ -459,6 +466,7 @@ _garbage_collect_provisioning_profiles
 _generate_file_permissions_guard_exception
 _get_aiotask
 _get_system_inshutdown
+_get_system_inuserspacereboot
 _gpu_accumulate_time
 _gpu_describe
 _gpu_fceiling_cb_register
@@ -480,6 +488,7 @@ _ifnet_enable_output
 _ifnet_enqueue
 _ifnet_flowid
 _ifnet_get_delegate
+_ifnet_get_inband_wake_packet_tagging
 _ifnet_get_inuse_address_list
 _ifnet_get_keepalive_offload_frames
 _ifnet_get_local_ports
@@ -506,6 +515,8 @@ _ifnet_report_issues
 _ifnet_set_bandwidths
 _ifnet_set_delegate
 _ifnet_set_idle_flags
+_ifnet_set_inband_wake_packet_tagging
+_ifnet_set_low_power_wake
 _ifnet_set_latencies
 _ifnet_set_link_quality
 _ifnet_set_management
@@ -521,7 +532,10 @@ _ifnet_get_unsent_bytes
 _ifnet_get_buffer_status
 _ifnet_normalise_unsent_data
 _ifnet_set_low_power_mode
+_ifnet_set_rx_flow_steering
+_ifnet_get_rx_flow_steering
 _ifnet_notify_tcp_keepalive_offload_timeout
+_ifnet_enable_cellular_thread_group
 _in6_localaddr
 _in6addr_any
 _in6addr_local
@@ -699,6 +713,7 @@ _kern_packet_set_timestamp
 _kern_packet_set_token
 _kern_packet_set_traffic_class
 _kern_packet_set_transport_header_offset
+_kern_packet_set_ulpn_flag
 _kern_packet_set_vlan_tag
 _kern_packet_get_timestamp_requested
 _kern_packet_get_tx_completion_status
@@ -759,7 +774,6 @@ _ktriage_register_subsystem_strings
 _ktriage_unregister_subsystem_strings
 _kx_qsort
 _linesw
-_localnode_id
 _lockd_shutdown
 _lockd_request
 _log
@@ -842,15 +856,6 @@ _ml_io_write16
 _ml_io_write32
 _ml_io_write64
 _ml_io_write8
-_mnl_instantiate
-_mnl_register
-_mnl_msg_alloc
-_mnl_msg_complete
-_mnl_msg_free
-_mnl_msg_to_node
-_mnl_msg_from_node
-_mnl_set_link_state
-_mnl_terminate
 _net_add_domain:_net_add_domain_old
 _net_add_proto:_net_add_proto_old
 _net_del_domain:_net_del_domain_old
@@ -859,6 +864,7 @@ _net_domain_contains_hostname
 _netboot_root
 _nfs_register_hooks
 _nfs_unregister_hooks
+_nxioctl_kernel
 _os_reason_create
 _os_reason_alloc_buffer_noblock
 _os_reason_get_kcdata_descriptor
@@ -882,6 +888,8 @@ _current_persona_get
 _persona_put
 _pffinddomain:_pffinddomain_old
 _pffindproto:_pffindproto_old
+_pktap_input_packet
+_pktap_output_packet
 _code_signing_configuration
 _disable_code_signing_feature
 _set_compilation_service_cdhash
@@ -911,7 +919,10 @@ _port_name_to_task:_port_name_to_task_external
 _port_name_to_thread
 _post_sys_powersource
 _proc_best_name
-_proc_ident
+_proc_find_ident_validated
+_proc_ident_equal_ref
+_proc_ident_equal
+_proc_ident_equal_token
 _proc_csflags
 _proc_fdlist
 _proc_get_filter_message_flag
@@ -984,6 +995,8 @@ _rootvp
 _rsr_bump_version
 _rsr_check_vnode
 _rsr_get_version
+_research_mode_state
+_extended_research_mode_state
 _sane_size
 _sbappendaddr
 _sbappendrecord
@@ -1103,6 +1116,7 @@ _vfs_context_get_special_port
 _vfs_context_set_special_port
 _vfs_context_is_dataless_manipulator
 _vfs_context_skip_mtime_update
+_vfs_context_allow_entitled_reserve_access
 _vfs_setdevvp
 _vfs_devvp
 _vfs_get_thread_fs_private
@@ -1130,6 +1144,7 @@ _vm_map_page_shift
 _vm_map_page_size
 _vm_map_round_page_mask
 _vm_map_trunc_page_mask
+_vm_map_kernel_max_simple_mappable_size
 _vm_page_wire_count
 _vnode_hold
 _vnode_drop
@@ -1240,6 +1255,7 @@ _vnode_setautocandidate
 _vnode_setdirty
 _vnode_setfastdevicecandidate
 _vnode_setnoflush
+_vnode_hasmultipath
 _vslock
 _vsunlock
 _vfs_isswapmount

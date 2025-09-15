@@ -8,6 +8,6 @@
 # Subsequent elements are @stash_usernames for each owner.
 
 #Radar: network_cmds | all
-*                                           @vlubet @plakhera @cpaasch @vidhi_goel @rpaulo @randall_meyer
+*                                           @vlubet @plakhera @vidhi_goel @rpaulo @randall_meyer
 
-CODEOWNERS                                  @vlubet @plakhera @cpaasch @vidhi_goel @rpaulo @randall_meyer
+CODEOWNERS                                  @vlubet @plakhera @vidhi_goel @rpaulo @randall_meyer

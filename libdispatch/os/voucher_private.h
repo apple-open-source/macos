@@ -603,6 +603,41 @@ voucher_copy_with_persona_mach_voucher(
 	mach_voucher_t persona_mach_voucher);
 
 /*!
+ * @function voucher_copy_with_persona_mach_voucher_and_error
+ *
+ * @abstract
+ * A different interface to voucher_copy_with_persona_mach_voucher that
+ * interacts better with ARC.
+ *
+ * @discussion
+ * voucher_copy_with_persona_mach_voucher returns a non-null but invalid object
+ * in some failure conditions (VOUCHER_INVALID), which ARC is unable to release
+ * or reason about. In the same failure conditions, this function will set
+ * *out_voucher to NULL and return an error code
+ *
+ * @param persona_mach_voucher
+ * mach voucher containing the new persona information
+ *
+ * @param out_voucher
+ * If successful, a reference to the newly created mach voucher. On failure,
+ * *out_voucher will be set to NULL
+ *
+ * @result
+ * On success, a copy of the current voucher with the new persona information
+ * is put in *out_voucher, and 0 is returned
+ * On failure, this function will return:
+ * - EPERM: a failure which would have caused
+ *   voucher_copy_with_persona_mach_voucher to return VOUCHER_INVALID
+ * - ENOTSUP: mach vouchers are not supported on this platform
+ */
+SPI_AVAILABLE(macos(16), ios(19))
+OS_VOUCHER_EXPORT OS_NOTHROW OS_NONNULL2
+int
+voucher_copy_with_persona_mach_voucher_and_error(
+		mach_voucher_t persona_mach_voucher,
+		voucher_t _Nullable * _Nonnull out_voucher);
+
+/*!
  * @function mach_voucher_persona_self
  *
  * @abstract

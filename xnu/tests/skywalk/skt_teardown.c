@@ -136,11 +136,11 @@ skt_teardown_pass(int count, int *permute)
 	/* must fail without user packet pool set (flow switch) */
 	assert(sktu_channel_create_extended(ms_instance,
 	    NEXUS_PORT_FLOW_SWITCH_CLIENT, CHANNEL_DIR_TX_RX,
-	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
+	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
 
 	channel = sktu_channel_create_extended(ms_instance,
 	    NEXUS_PORT_FLOW_SWITCH_CLIENT, CHANNEL_DIR_TX_RX,
-	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, 1, 1, -1, -1);
+	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, 1, 1, -1, -1);
 	assert(channel);
 
 	/* Allow us to permute teardown steps */

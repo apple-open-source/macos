@@ -37,7 +37,7 @@
 
 #include <kern/thread_call.h>
 #include <libkern/coreanalytics/coreanalytics.h>
-#include <os/log.h>
+#include <vm/vm_log.h>
 #include <vm/vm_page.h>
 #include <vm/vm_compressor_internal.h>
 #if CONFIG_EXCLAVES
@@ -152,7 +152,7 @@ report_compressor_age(void)
 {
 	/* If the compressor is not configured, do nothing and return early. */
 	if (vm_compressor_mode == VM_PAGER_NOT_CONFIGURED) {
-		os_log(OS_LOG_DEFAULT, "%s: vm_compressor_mode == VM_PAGER_NOT_CONFIGURED, returning early", __func__);
+		vm_log("%s: vm_compressor_mode == VM_PAGER_NOT_CONFIGURED, returning early", __func__);
 		return;
 	}
 

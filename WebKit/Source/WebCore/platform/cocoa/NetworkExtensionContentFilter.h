@@ -44,10 +44,9 @@ namespace WebCore {
 
 class NetworkExtensionContentFilter final : public PlatformContentFilter {
     WTF_MAKE_TZONE_ALLOCATED(NetworkExtensionContentFilter);
-    friend UniqueRef<NetworkExtensionContentFilter> WTF::makeUniqueRefWithoutFastMallocCheck<NetworkExtensionContentFilter>();
 
 public:
-    static UniqueRef<NetworkExtensionContentFilter> create();
+    static Ref<NetworkExtensionContentFilter> create(const PlatformContentFilter::FilterParameters&);
 
     void willSendRequest(ResourceRequest&, const ResourceResponse&) override;
     void responseReceived(const ResourceResponse&) override;

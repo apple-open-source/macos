@@ -33,6 +33,7 @@
 #include "OSX/utilities/SecCFWrappers.h"
 #include <dispatch/dispatch.h>
 #include <dlfcn.h>
+#include <os/transaction_private.h>
 
 #if TARGET_OS_IPHONE
 #include <Security/SecTrustStore.h>
@@ -46,8 +47,11 @@
 
 @implementation TrustEvaluationTestCase
 
+static os_transaction_t transaction = nil;
+
 /* Build in trustd functionality to the tests */
 + (void) setUp {
+    transaction = os_transaction_create("com.apple.trusttests.noExitWhenClean");
     /* Use the production Valid DB by default (so we'll have data to test against) */
     CFPreferencesSetAppValue(CFSTR("ValidUpdateServer"), kValidUpdateProdServer, kSecurityPreferencesDomain);
     CFPreferencesSetAppValue(CFSTR("DefaultHTTPTimeout"), (__bridge CFNumberRef)(@10), kSecurityPreferencesDomain);

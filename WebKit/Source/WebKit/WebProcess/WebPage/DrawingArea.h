@@ -142,7 +142,6 @@ public:
     virtual void dispatchAfterEnsuringUpdatedScrollPosition(WTF::Function<void ()>&&);
 
     virtual void activityStateDidChange(OptionSet<WebCore::ActivityState>, ActivityStateChangeID, CompletionHandler<void()>&& completionHandler) { completionHandler(); };
-    virtual void setLayerHostingMode(LayerHostingMode) { }
 
     virtual void tryMarkLayersVolatile(CompletionHandler<void(bool)>&&);
 
@@ -177,6 +176,11 @@ public:
     virtual void dispatchPendingCallbacksAfterEnsuringDrawing() = 0;
 #endif
 
+#if ENABLE(DAMAGE_TRACKING)
+    virtual void resetDamageHistoryForTesting() { }
+    virtual void foreachRegionInDamageHistoryForTesting(Function<void(const WebCore::Region&)>&&) const { }
+#endif
+
     virtual void adoptLayersFromDrawingArea(DrawingArea&) { }
     virtual void adoptDisplayRefreshMonitorsFromDrawingArea(DrawingArea&) { }
 
@@ -199,6 +203,8 @@ protected:
         Ref webPage = m_webPage.get();
         return webPage->send(std::forward<T>(message), m_identifier.toUInt64(), { });
     }
+
+    Ref<WebPage> protectedWebPage() const { return m_webPage.get(); }
 
     const DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;

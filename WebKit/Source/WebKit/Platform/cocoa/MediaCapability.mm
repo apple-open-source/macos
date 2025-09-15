@@ -28,17 +28,19 @@
 
 #if ENABLE(EXTENSION_CAPABILITIES)
 
+#import "XPCUtilities.h"
 #import <BrowserEngineKit/BECapability.h>
 #import <WebCore/SecurityOrigin.h>
+#import <wtf/darwin/XPCExtras.h>
 #import <wtf/text/WTFString.h>
 
 namespace WebKit {
 
 static RetainPtr<BEMediaEnvironment> createMediaEnvironment(const URL& webPageURL)
 {
-    NSURL *protocolHostAndPortURL = URL { webPageURL.protocolHostAndPort() };
+    RetainPtr protocolHostAndPortURL = URL { webPageURL.protocolHostAndPort() }.createNSURL();
     RELEASE_ASSERT(protocolHostAndPortURL);
-    return adoptNS([[BEMediaEnvironment alloc] initWithWebPageURL:protocolHostAndPortURL]);
+    return adoptNS([[BEMediaEnvironment alloc] initWithWebPageURL:protocolHostAndPortURL.get()]);
 }
 
 Ref<MediaCapability> MediaCapability::create(URL&& url)
@@ -74,7 +76,7 @@ String MediaCapability::environmentIdentifier() const
     xpc_object_t xpcObject = [m_mediaEnvironment createXPCRepresentation];
     if (!xpcObject)
         return emptyString();
-    return xpc_dictionary_get_wtfstring(xpcObject, "identifier"_s);
+    return xpcDictionaryGetString(xpcObject, "identifier"_s);
 #endif
 
     return { };

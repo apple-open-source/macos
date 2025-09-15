@@ -32,6 +32,10 @@ typedef EGLNativeWindowType GLNativeWindowType;
 typedef uint64_t GLNativeWindowType;
 #endif
 
+#if ENABLE(MEDIA_TELEMETRY)
+#include "MediaTelemetry.h"
+#endif
+
 #if USE(WPE_RENDERER)
 struct wpe_renderer_backend_egl_offscreen_target;
 #endif
@@ -44,7 +48,11 @@ typedef void* EGLSurface;
 
 namespace WebCore {
 
-class GLContext final : public GLContextWrapper {
+class GLContext final : public GLContextWrapper
+#if ENABLE(MEDIA_TELEMETRY)
+    , public MediaTelemetryWaylandInfoGetter
+#endif
+{
     WTF_MAKE_TZONE_ALLOCATED(GLContext);
     WTF_MAKE_NONCOPYABLE(GLContext);
 public:
@@ -133,6 +141,15 @@ private:
     GLContextWrapper::Type type() const override { return GLContextWrapper::Type::Native; }
     bool makeCurrentImpl() override;
     bool unmakeCurrentImpl() override;
+
+#if ENABLE(MEDIA_TELEMETRY)
+    EGLDisplay eglDisplay() const final;
+    EGLConfig eglConfig() const final;
+    EGLSurface eglSurface() const final;
+    EGLContext eglContext() const final;
+    unsigned windowWidth() const final;
+    unsigned windowHeight() const final;
+#endif
 
     PlatformDisplay& m_display;
     unsigned m_version { 0 };

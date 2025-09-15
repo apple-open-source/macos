@@ -96,9 +96,13 @@ public:
 
 	void getRecordIdentifier(const CSSM_DB_UNIQUE_RECORD_PTR uniqueRecord, CSSM_DATA &data);
 	void ssCopyBlob(CSSM_DATA& blob);
+    void ssCopySalt(CSSM_DATA& salt);
 
     // Get the version of this database's encoding
     uint32 dbBlobVersion();
+
+    // Get the salt
+    void dbBlobSalt(size_t* saltLen /*inout*/, uint8* salt /*out*/);
 
     // Try to make a backup copy of this database on the filesystem
     void makeBackup();
@@ -125,6 +129,9 @@ protected:
     uint32 recodeHelper(SecurityServer::DbHandle clonedDbHandle, CssmClient::DbUniqueRecord& dbBlobId);
 
 private:
+    bool isLoginKeychain();
+    void changePassphraseCleanup();
+    void changePassphrase(Security::SecurityServer::KeyHandle kh);
 	// 5 minute default autolock time
  	static const uint32 kDefaultIdleTimeout = 5 * 60;
 	static const uint8 kDefaultLockOnSleep = true;

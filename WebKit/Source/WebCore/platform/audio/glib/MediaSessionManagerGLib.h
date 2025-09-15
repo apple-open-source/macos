@@ -52,8 +52,8 @@ public:
     void dispatch(PlatformMediaSession::RemoteControlCommandType, PlatformMediaSession::RemoteCommandArgument);
 
     const GRefPtr<GDBusNodeInfo>& mprisInterface() const { return m_mprisInterface; }
-    void setPrimarySessionIfNeeded(PlatformMediaSession&);
-    void unregisterAllOtherSessions(PlatformMediaSession&);
+    void setPrimarySessionIfNeeded(PlatformMediaSessionInterface&);
+    void unregisterAllOtherSessions(PlatformMediaSessionInterface&);
     WeakPtr<PlatformMediaSession> nowPlayingEligibleSession();
 
     void setDBusNotificationsEnabled(bool dbusNotificationsEnabled) { m_dbusNotificationsEnabled = dbusNotificationsEnabled; }
@@ -63,15 +63,15 @@ protected:
     void scheduleSessionStatusUpdate() final;
     void updateNowPlayingInfo();
 
-    void removeSession(PlatformMediaSession&) final;
-    void addSession(PlatformMediaSession&) final;
-    void setCurrentSession(PlatformMediaSession&) final;
+    void removeSession(PlatformMediaSessionInterface&) final;
+    void addSession(PlatformMediaSessionInterface&) final;
+    void setCurrentSession(PlatformMediaSessionInterface&) final;
 
-    bool sessionWillBeginPlayback(PlatformMediaSession&) override;
-    void sessionWillEndPlayback(PlatformMediaSession&, DelayCallingUpdateNowPlaying) override;
-    void sessionStateChanged(PlatformMediaSession&) override;
-    void sessionDidEndRemoteScrubbing(PlatformMediaSession&) final;
-    void clientCharacteristicsChanged(PlatformMediaSession&, bool) final;
+    bool sessionWillBeginPlayback(PlatformMediaSessionInterface&) override;
+    void sessionWillEndPlayback(PlatformMediaSessionInterface&, DelayCallingUpdateNowPlaying) override;
+    void sessionStateChanged(PlatformMediaSessionInterface&) override;
+    void sessionDidEndRemoteScrubbing(PlatformMediaSessionInterface&) final;
+    void clientCharacteristicsChanged(PlatformMediaSessionInterface&, bool) final;
     void sessionCanProduceAudioChanged() final;
 
     virtual void providePresentingApplicationPIDIfNecessary() { }
@@ -104,7 +104,7 @@ private:
     Markable<MediaUniqueIdentifier> m_lastUpdatedNowPlayingInfoUniqueIdentifier;
 
     const std::unique_ptr<NowPlayingManager> m_nowPlayingManager;
-    UncheckedKeyHashMap<MediaSessionIdentifier, std::unique_ptr<MediaSessionGLib>> m_sessions;
+    HashMap<MediaSessionIdentifier, std::unique_ptr<MediaSessionGLib>> m_sessions;
 
     bool m_dbusNotificationsEnabled { true };
 };

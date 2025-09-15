@@ -40,79 +40,80 @@
 
 __BEGIN_DECLS
 
-bool _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
-bool _SecItemCopyMatching(CFDictionaryRef query, SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
-bool _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, SecurityClient *client, CFErrorRef *error);
-bool _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error);
-bool _SecItemDeleteAll(CFErrorRef *error);
-bool _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error);
-CFTypeRef _SecItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error) CF_RETURNS_RETAINED;
-bool _SecDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error);
+bool SecServerItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
+bool SecServerItemCopyMatching(CFDictionaryRef query, SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
+bool SecServerItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate, SecurityClient *client, CFErrorRef *error);
+bool SecServerItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error);
+bool SecServerItemDeleteAll(CFErrorRef *error);
+bool SecServerItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error);
+CFTypeRef SecServerItemShareWithGroup(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error) CF_RETURNS_RETAINED;
+bool SecServerDeleteItemsOnSignOut(SecurityClient *client, CFErrorRef *error);
 
-bool _SecServerRestoreKeychain(CFErrorRef *error);
-bool _SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
-CFDataRef _SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error);
-bool _SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
-CFStringRef _SecServerBackupCopyUUID(CFDataRef backup, CFErrorRef *error);
+bool SecServerRestoreKeychain(CFErrorRef *error);
+bool SecServerMigrateKeychain(int32_t handle_in, CFDataRef data_in, int32_t *handle_out, CFDataRef *data_out, CFErrorRef *error);
+CFDataRef SecServerKeychainCreateBackup(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef *error);
+bool SecServerKeychainRestore(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef *error);
+CFStringRef SecServerBackupCopyUUID(CFDataRef backup, CFErrorRef *error);
 
-bool _SecServerBackupKeybagAdd(SecurityClient *client, CFDataRef passcode, CFDataRef *identifier, CFDataRef *pathinfo, CFErrorRef *error);
-bool _SecServerBackupKeybagDelete(CFDictionaryRef attributes, bool deleteAll, CFErrorRef *error);
+bool SecServerBackupKeybagAdd(SecurityClient *client, CFDataRef passcode, CFDataRef *identifier, CFDataRef *pathinfo, CFErrorRef *error);
+bool SecServerBackupKeybagDelete(CFDictionaryRef attributes, bool deleteAll, CFErrorRef *error);
 
-bool _SecItemUpdateTokenItemsForAccessGroups(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
+bool SecItemServerUpdateTokenItemsForAccessGroups(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
+bool SecItemServerUpdateTokenItemsForSystemKeychain(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
 
-CF_RETURNS_RETAINED CFArrayRef _SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
-CF_RETURNS_RETAINED CFDictionaryRef _SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
+CF_RETURNS_RETAINED CFArrayRef SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
+CF_RETURNS_RETAINED CFDictionaryRef SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
 int SecServerKeychainTakeOverBackupFD(CFStringRef backupName, CFErrorRef *error);
 
-bool _SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
+bool SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
 
 #if TARGET_OS_IOS
-bool _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error);
-bool _SecServerTranscryptToSystemKeychainKeybag(SecurityClient *client, CFErrorRef *error);
-bool _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClient *client, CFErrorRef *error);
-bool _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error);
+bool SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error);
+bool SecServerTranscryptToSystemKeychainKeybag(SecurityClient *client, CFErrorRef *error);
+bool SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, SecurityClient *client, CFErrorRef *error);
+bool SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error);
 #endif
 
 #if SHAREDWEBCREDENTIALS
-bool _SecAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
+bool SecServerAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
 #endif /* SHAREDWEBCREDENTIALS */
 
 // Hack to log objects from inside SOS code
 void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);
 
-SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error);
-SecDbRef SecKeychainDbInitialize(SecDbRef db);
+SecDbRef SecServerKeychainDbCreate(CFStringRef path, CFErrorRef* error);
+SecDbRef SecServerKeychainDbInitialize(SecDbRef db);
 
-bool kc_with_dbt(bool writeAndRead, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
-bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemDataSourceFactoryGetDefault()
+bool kc_with_dbt(bool writeAndRead, SecDbRef customDB, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
+bool kc_with_dbt_non_item_tables(bool writeAndRead, SecDbRef customDB, CFErrorRef* error, bool (^perform)(SecDbConnectionRef dbt)); // can be used when only tables which don't store 'items' are accessed - avoids invoking SecItemServerDataSourceFactoryGetDefault()
 bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 
-bool UpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error);
+bool SecServerUpgradeItemPhase3(SecDbConnectionRef inDbt, bool *inProgress, CFErrorRef *error);
 
 // returns whether or not it succeeeded
 // if the inProgress bool is set, then an attempt to reinvoke this routine will occur sometime in the near future
 // error to be filled in if any upgrade attempt resulted in an error
 // this will always return true because upgrade phase3 always returns true
-bool SecKeychainUpgradePersistentReferences(bool *inProgress, CFErrorRef *error);
+bool SecServerKeychainUpgradePersistentReferences(bool *inProgress, CFErrorRef *error);
 
 /* For open box testing only */
-SecDbRef SecKeychainDbGetDb(CFErrorRef* error);
-void SecKeychainDbForceClose(void);
-void SecKeychainDelayAsyncBlocks(bool);
-void SecKeychainDbWaitForAsyncBlocks(void);
-void SecKeychainDbReset(dispatch_block_t inbetween);
+SecDbRef SecServerKeychainDbGetDb(CFErrorRef* error);
+void SecServerKeychainDbForceClose(void);
+void SecServerKeychainDelayAsyncBlocks(bool);
+void SecServerKeychainDbWaitForAsyncBlocks(void);
+void SecServerKeychainDbReset(dispatch_block_t inbetween);
 
 /* V V test routines V V */
-void clearLastRowIDHandledForTests(void);
-CFNumberRef lastRowIDHandledForTests(void);
-void setExpectedErrorForTests(CFErrorRef error);
-void clearTestError(void);
-void setRowIDToErrorDictionary(CFDictionaryRef rowIDToErrorDictionary);
-void clearRowIDAndErrorDictionary(void);
+void SecServerClearLastRowIDHandledForTests(void);
+CFNumberRef SecServerLastRowIDHandledForTests(void);
+void SecServerSetExpectedErrorForTests(CFErrorRef error);
+void SecServerClearTestError(void);
+void SecServerSetRowIDToErrorDictionary(CFDictionaryRef rowIDToErrorDictionary);
+void SecServerClearRowIDAndErrorDictionary(void);
 /* ^ ^ test routines ^ ^*/
 
-SOSDataSourceFactoryRef SecItemDataSourceFactoryGetDefault(void);
+SOSDataSourceFactoryRef SecItemServerDataSourceFactoryGetDefault(void);
 
 /* FIXME: there is a specific type for keybag handle (keybag_handle_t)
    but it's not defined for simulator so we just use an int32_t */
@@ -124,10 +125,10 @@ void SecItemServerSetKeychainChangedNotification(const char *notification_name);
 /// notification. Defaults to the distributed notification center if `NULL`.
 void SecServerSetSharedItemNotifier(CFNotificationCenterRef notifier);
 
-CFStringRef __SecKeychainCopyPath(void);
+CFStringRef SecServerKeychainCopyPath(void);
 
-bool _SecServerRollKeys(bool force, SecurityClient *client, CFErrorRef *error);
-bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
+bool SecServerRollKeys(bool force, SecurityClient *client, CFErrorRef *error);
+bool SecServerRollKeysGlue(bool force, CFErrorRef *error);
 
 
 /* initial sync */
@@ -138,26 +139,31 @@ bool _SecServerRollKeysGlue(bool force, CFErrorRef *error);
 
 #define PERSISTENT_REF_UUID_BYTES_LENGTH (sizeof(uuid_t))
 
-CFArrayRef _SecServerCopyInitialSyncCredentials(uint32_t flags, uint64_t* tlks, uint64_t* pcs, uint64_t* bluetooth, CFErrorRef *error);
-bool _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);
+CFArrayRef SecServerCopyInitialSyncCredentials(uint32_t flags, uint64_t* tlks, uint64_t* pcs, uint64_t* bluetooth, CFErrorRef *error);
+bool SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error);
 
-CF_RETURNS_RETAINED CFArrayRef _SecItemCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
-bool _SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
+CF_RETURNS_RETAINED CFArrayRef SecItemServerCopyParentCertificates(CFDataRef normalizedIssuer, CFArrayRef accessGroups, CFErrorRef *error);
+bool SecItemServerCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
 
-bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *error);
+bool SecServerKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *error);
 
 
 // Should all be blocks called from SecItemDb
-bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDictionaryRef item);
-bool accessGroupsAllows(CFArrayRef accessGroups, CFStringRef accessGroup, SecurityClient* client);
-bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
-void SecKeychainChanged(void);
-void SecSharedItemsChanged(void);
+bool SecServerMatch_Item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDictionaryRef item);
+bool SecServerAccessGroupsAllows(CFArrayRef accessGroups, CFStringRef accessGroup, SecurityClient* client);
+bool SecServerItemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
+void SecServerKeychainChanged(void);
+void SecServerSharedItemsChanged(void);
 
-void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sqlite_int64 rowid);
+void SecServerDeleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sqlite_int64 rowid);
 
-CFDataRef UUIDDataCreate(void);
+CFDataRef SecServerUUIDDataCreate(void);
 
+// Allows to interact with custom db
+bool SecServerItemAddWithCustomDb(CFDictionaryRef attributes, SecDbRef db, SecurityClient *client, CFTypeRef *result, CFErrorRef *error);
+bool SecServerItemCopyMatchingWithCustomDb(CFDictionaryRef query, SecDbRef db, CFTypeRef *result, SecurityClient *client, CFErrorRef *error);
+bool SecServerItemUpdateWithCustomDb(CFDictionaryRef query, SecDbRef db, CFDictionaryRef attributesToUpdate, SecurityClient *client, CFErrorRef *error);
+bool SecServerItemDeleteWithCustomDb(CFDictionaryRef query, SecDbRef db, SecurityClient *client, CFErrorRef *error);
 __END_DECLS
 
 #endif /* _SECURITYD_SECITEMSERVER_H_ */

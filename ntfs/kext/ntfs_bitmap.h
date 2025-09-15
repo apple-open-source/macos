@@ -45,7 +45,7 @@
 
 __private_extern__ errno_t __ntfs_bitmap_set_bits_in_run(ntfs_inode *ni,
 		const s64 start_bit, const s64 count, const u8 value,
-		const BOOL is_rollback);
+		const NTFS_BOOL is_rollback);
 
 /**
  * ntfs_bitmap_set_bits_in_run - set a run of bits in a bitmap to a value

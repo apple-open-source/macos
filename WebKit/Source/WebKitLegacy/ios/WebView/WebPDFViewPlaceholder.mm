@@ -38,9 +38,8 @@
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLFormElement.h>
-#import <WebCore/LocalFrame.h>
+#import <WebCore/LocalFrameInlines.h>
 #import <WebCore/MouseEvent.h>
-#import <WebCore/PlatformMouseEvent.h>
 #import <WebKitLegacy/WebDataSourcePrivate.h>
 #import <WebKitLegacy/WebFramePrivate.h>
 #import <WebKitLegacy/WebJSPDFDoc.h>
@@ -48,9 +47,11 @@
 #import <WebKitLegacy/WebNSViewExtras.h>
 #import <WebKitLegacy/WebPDFDocumentExtras.h>
 #import <WebKitLegacy/WebViewPrivate.h>
+#import <numbers>
 #import <wtf/MonotonicTime.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/Vector.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 using namespace WebCore;
 
@@ -335,8 +336,8 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
         title = adoptCF(CGPDFStringCopyTextString(value));
 
     if (title && CFStringGetLength(title.get())) {
-        [self setTitle:(NSString *)title.get()];
-        [[self _frame] _dispatchDidReceiveTitle:(NSString *)title.get()];
+        [self setTitle:bridge_cast(title.get())];
+        [[self _frame] _dispatchDidReceiveTitle:bridge_cast(title.get())];
     }
 }
 
@@ -346,7 +347,7 @@ static const float PAGE_HEIGHT_INSET = 4.0f * 2.0f;
         return CGRectZero;
 
     CGRect bounds = CGPDFPageGetBoxRect(page, kCGPDFCropBox);
-    CGFloat rotation = CGPDFPageGetRotationAngle(page) * (M_PI / 180.0f);
+    CGFloat rotation = CGPDFPageGetRotationAngle(page) * (std::numbers::pi / 180.0f);
     if (rotation != 0)
         bounds = CGRectApplyAffineTransform(bounds, CGAffineTransformMakeRotation(rotation));
 

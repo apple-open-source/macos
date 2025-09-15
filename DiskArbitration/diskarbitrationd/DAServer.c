@@ -72,6 +72,33 @@ void ___os_transaction_end( void );
 void ___os_transaction_get( void );
 ///w:end
 
+#define ENTITLEMENT_TARGETS   TARGET_FSKIT
+
+#if ENTITLEMENT_TARGETS
+bool _DAServerCheckEntitlement( audit_token_t _token,
+                                CFStringRef entitlement_name )
+{
+    bool    rv = false;
+
+    SecTaskRef secTask = NULL;
+    CFTypeRef val = NULL;
+
+    secTask = SecTaskCreateWithAuditToken( kCFAllocatorDefault, _token );
+    if (secTask)
+    {
+        val = SecTaskCopyValueForEntitlement( secTask, entitlement_name, NULL );
+        if ( val )
+        {
+            rv = CFEqual( val, kCFBooleanTrue );
+            CFRelease ( val );
+        }
+        CFRelease( secTask);
+    }
+
+    return rv;
+}
+#endif /* ENTITLEMENT_TARGETS */
+
 #if TARGET_OS_OSX
 ///w:start
 // Dynamic load libCoreStorage.dylib
@@ -133,44 +160,7 @@ DADiskRef DADiskListGetDisk( const char * diskID )
 
 static void __DADiskSendTerminationEvent( DADiskRef disk )
 {
-    DAFileSystemRef filesystem = DADiskGetFileSystem( disk );
-    CFStringRef fsImplementation;
-    bool diskIsUnrepairable, diskIsMounted, diskIsProbing;
-    CFStringRef kind = NULL;
-    
-    if ( filesystem && DAFileSystemIsFSModule( filesystem ) )
-    {
-        fsImplementation = CFSTR("FSKit");
-    }
-    else
-    {
-        fsImplementation = CFSTR("kext");
-    }
-    
-    /* Use the same unrepairable check as the path for calling DADialogShowDeviceUnrepairable */
-    diskIsUnrepairable = DADiskGetState( disk , kDADiskStateStagedUnrepairable )
-        && DADiskGetState( disk, kDADiskStateRequireRepair )
-        && DADiskGetState( disk, _kDADiskStateMountAutomatic )
-        && DADiskGetClaim( disk ) == NULL;
-    
-    diskIsMounted = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) != NULL;
-    diskIsProbing = DADiskGetState( disk , kDADiskStateStagedProbe )
-        && DADiskGetState( disk , kDADiskStateCommandActive );
-    
-    if ( filesystem != NULL )
-    {
-        kind = DAGetFSTypeWithUUID( filesystem , DADiskGetDescription( disk, kDADiskDescriptionVolumeUUIDKey ) );
-    }
-    
-    DATelemetrySendTerminationEvent( kind ,
-                                    fsImplementation ,
-                                    diskIsMounted ,
-                                    DADiskGetState( disk , kDADiskStateStagedAppear ) ,
-                                    diskIsProbing ,
-                                    DADiskGetState( disk , kDADiskStateRequireRepair ) ,
-                                    DADiskGetState( disk , kDADiskStateMountOngoing ) ,
-                                    diskIsUnrepairable ,
-                                    DADiskGetState( disk , kDADiskStateZombie ) );
+    DATelemetrySendTerminationEvent( disk );
 }
 
 static DADiskRef __DADiskListGetDiskWithIOMedia( io_service_t media )
@@ -586,60 +576,51 @@ static void __DAUnlockNotificationCallback( CFNotificationCenterRef center, void
     
     if ( gDAUnlockedState == TRUE )
     {
-        CFIndex count;
-        CFIndex index;
-
         /*
-         * Device is unlocked now
+         * Device is unlocked now - check disks and queue requests using the workloop to avoid concurrent modification
          */
-
-        count = CFArrayGetCount( gDADiskList );
-
-        for ( index = 0; index < count; index++ )
-        {
-            DADiskRef disk;
-            CFIndex currentCount = CFArrayGetCount( gDADiskList );
+        dispatch_async( DAServerWorkLoop() , ^{
+            CFIndex count;
+            CFIndex index;
             
-            if ( count != currentCount )
-            {
-                /* disk list has changed - start from the beginning again */
-                index = -1;
-                count = currentCount;
-                continue;
-            }
-            
-            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+            count = CFArrayGetCount( gDADiskList );
 
-            /*
-            * Mount this volume.
-            */
-            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+            for ( index = 0; index < count; index++ )
             {
-                if ( DAMountGetPreference( disk, kDAMountPreferenceDisableAutoMount ) == false )
+                DADiskRef disk;
+            
+                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+                /*
+                 * Mount this volume.
+                 */
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
                 {
-                    if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+                    if ( DAMountGetPreference( disk, kDAMountPreferenceDisableAutoMount ) == false )
                     {
-                        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+                        if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                         {
-                            DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL,
-                                                      CFSTR( "automatic" ) );
+                            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+                            {
+                                DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL,
+                                                          CFSTR( "automatic" ) );
+                            }
                         }
                     }
                 }
-            }
             
-            /*
-             * Probe and possibly mount the deferred volume after we processed the outstanding mount
-             */
-            if ( DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
-            {
-                dispatch_async( DAServerWorkLoop() , ^{
+                /*
+                 * Probe and possibly mount the deferred volume after we processed the outstanding mount
+                 */
+                if ( DADiskGetState( disk , kDADiskStateRequireReprobe ) == TRUE )
+                {
                     DADiskSetState( disk, kDADiskStateStagedMount , FALSE ); // stage the mount again
                     DADiskProbe( disk , NULL ); // dispatch on DAServer work queue
-                });
-            }
+                
+                }
             
-        }
+            }
+        });
      }
 }
 
@@ -1977,7 +1958,18 @@ kern_return_t _DAServerDiskSetAdoption( mach_port_t _session, caddr_t _disk, boo
                         }
                     }
                 }
-                    
+                
+                if ( status == kDAReturnSuccess )
+                {
+                    /* Only allow processes with the appropriate entitlement to set adoption */
+                    if ( _DAServerCheckEntitlement( _token , CFSTR("com.apple.private.diskarbitrationd.disk_set_adoption") )
+                         == false )
+                    {
+                        DALogFault("Client attempted to set disk adoption without entitlement");
+                        status = kDAReturnNotPrivileged;
+                    }
+                }
+                
                 if ( status == kDAReturnSuccess )
                 {
                     {
@@ -2164,32 +2156,7 @@ kern_return_t _DAServerSessionCopyCallbackQueue( mach_port_t _session, vm_addres
     return status;
 }
 
-#define ENTITLEMENT_TARGETS   TARGET_FSKIT
 
-#if ENTITLEMENT_TARGETS
-bool _DAServerCheckEntitlement( audit_token_t _token,
-                                CFStringRef entitlement_name )
-{
-    bool    rv = false;
-
-    SecTaskRef secTask = NULL;
-    CFTypeRef val = NULL;
-
-    secTask = SecTaskCreateWithAuditToken( kCFAllocatorDefault, _token );
-    if (secTask)
-    {
-        val = SecTaskCopyValueForEntitlement( secTask, entitlement_name, NULL );
-        if ( val )
-        {
-            rv = CFEqual( val, kCFBooleanTrue );
-            CFRelease ( val );
-        }
-        CFRelease( secTask);
-    }
-
-    return rv;
-}
-#endif /* ENTITLEMENT_TARGETS */
 
 kern_return_t _DAServerSessionCreate( mach_port_t   _session,
                                       caddr_t       _name,
@@ -2259,6 +2226,37 @@ exit:
     }
 
     return status;
+}
+
+kern_return_t _DAServerSessionQueueRequestWithUserToken( mach_port_t            _session,
+                                                         uint32_t               _kind,
+                                                         audit_token_t          _userToken,
+                                                         caddr_t                _argument0,
+                                                         int32_t                _argument1,
+                                                         vm_address_t           _argument2,
+                                                         mach_msg_type_number_t _argument2Size,
+                                                         vm_address_t           _argument3,
+                                                         mach_msg_type_number_t _argument3Size,
+                                                         mach_vm_offset_t       _address,
+                                                         mach_vm_offset_t       _context,
+                                                         audit_token_t          _token )
+{
+    if ( audit_token_to_euid( _token ) == 0
+            && ( _DAServerCheckEntitlement( _token , CFSTR("com.apple.private.diskarbitrationd.user_audit_token") ) == true ) )
+    {
+        return _DAServerSessionQueueRequest( _session,
+                                            _kind,
+                                            _argument0,
+                                            _argument1,
+                                            _argument2,
+                                            _argument2Size,
+                                            _argument3,
+                                            _argument3Size,
+                                            _address,
+                                            _context,
+                                            _userToken );
+    }
+    return kDAReturnNotPrivileged;
 }
 
 kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
@@ -2347,6 +2345,22 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                                     }
                                 }
                             }
+#if TARGET_OS_OSX
+
+                            if ( ( status == 0 ) && DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+                            {
+                                if ( DAAPFSCompareVolumeRole ( disk, CFSTR("Enterprise data") ) == TRUE )
+                                {
+                                    bool entitled = _DAServerCheckEntitlement( _token, CFSTR("com.apple.private.diskarbitrationd.enterprise"));
+                                    
+                                    if ( entitled == false)
+                                    {
+                                        DALogDebug( "no entitlement");
+                                        status = kDAReturnNotPermitted;
+                                    }
+                                }
+                            }
+#endif
 
                             if ( status == 0 )
                             {
@@ -2480,13 +2494,51 @@ kern_return_t _DAServerSessionQueueRequest( mach_port_t            _session,
                         case _kDADiskRename:
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ), _kDAAuthorizeRightRename );
+                              
+#if TARGET_OS_OSX
+                            if ( status == 0 )
+                            {
+                                char * path;
+                                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) )
+                                {
+                                    CFURLRef mountpoint = DADiskGetBypath( disk );
+                                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+                                                                
+                                    if ( path &&  ( strncmp( path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 ) )
+                                    {
+                                        status = sandbox_check_by_audit_token(_token, "file-write-unlink", SANDBOX_FILTER_PATH | SANDBOX_CHECK_CANONICAL | SANDBOX_CHECK_NOFOLLOW , path);
+                                        if ( status )
+                                        {
+                                            DALogInfo(" sandbox check for file-write-unlink failed on %@", disk);
+                                            status = kDAReturnNotPrivileged;
+                                        }
+                                        free( path );
+                                    }
+                                }
+                            }
+#endif
 
                             break;
                         }
                         case _kDADiskUnmount:
                         {
                             status = DAAuthorize( session, _kDAAuthorizeOptionIsOwner, disk, audit_token_to_euid( _token ), audit_token_to_egid( _token ),  _kDAAuthorizeRightUnmount );
+#if TARGET_OS_OSX
 
+                            if ( ( status == 0 ) && DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+                            {
+                                if ( DAAPFSCompareVolumeRole ( disk, CFSTR("Enterprise data") ) == TRUE )
+                                {
+                                    bool entitled = _DAServerCheckEntitlement( _token, CFSTR("com.apple.private.diskarbitrationd.enterprise"));
+                                    
+                                    if ( entitled == false)
+                                    {
+                                        DALogDebug( "no entitlement");
+                                        status = kDAReturnNotPermitted;
+                                    }
+                                }
+                            }
+#endif
                             break;
                         }
                         case _kDADiskSetFSKitAdditions:

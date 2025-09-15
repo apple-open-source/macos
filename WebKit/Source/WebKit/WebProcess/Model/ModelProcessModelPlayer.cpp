@@ -31,10 +31,17 @@
 #include "ModelProcessModelPlayerManager.h"
 #include "ModelProcessModelPlayerProxy.h"
 #include "ModelProcessModelPlayerProxyMessages.h"
+#include "ModelProcessModelPlayerTransformState.h"
 #include "WebPage.h"
 #include "WebProcess.h"
+#include <WebCore/FloatPoint3D.h>
 #include <WebCore/LayerHostingContextIdentifier.h>
+#include <WebCore/MIMETypeRegistry.h>
+#include <WebCore/Model.h>
+#include <WebCore/ModelPlayerAnimationState.h>
 #include <WebCore/Page.h>
+#include <WebCore/ResourceError.h>
+#include <WebCore/Settings.h>
 #include <WebCore/TransformationMatrix.h>
 
 namespace WebKit {
@@ -92,8 +99,18 @@ void ModelProcessModelPlayer::didFinishLoading(const WebCore::FloatPoint3D& boun
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer didFinishLoading id=%" PRIu64, this, m_id.toUInt64());
     RELEASE_ASSERT(modelProcessEnabled());
 
+    m_boundingBoxCenter = boundingBoxCenter;
+    m_boundingBoxExtents = boundingBoxExtents;
     m_client->didFinishLoading(*this);
     m_client->didUpdateBoundingBox(*this, boundingBoxCenter, boundingBoxExtents);
+}
+
+void ModelProcessModelPlayer::didFailLoading()
+{
+    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer didFailLoading id=%" PRIu64, this, m_id.toUInt64());
+    RELEASE_ASSERT(modelProcessEnabled());
+
+    m_client->didFailLoading(*this, WebCore::ResourceError { WebCore::errorDomainWebKitInternal, 0, { }, "Failed to load model data"_s });
 }
 
 /// This comes from Model Process side, so that Web Process has the most up-to-date knowledge about the transform actually applied to the entity.
@@ -102,6 +119,7 @@ void ModelProcessModelPlayer::didUpdateEntityTransform(const WebCore::Transforma
 {
     RELEASE_ASSERT(modelProcessEnabled());
 
+    m_entityTransform = transform;
     m_client->didUpdateEntityTransform(*this, transform);
 }
 
@@ -109,11 +127,10 @@ void ModelProcessModelPlayer::didUpdateAnimationPlaybackState(bool isPaused, dou
 {
     RELEASE_ASSERT(modelProcessEnabled());
 
-    m_paused = isPaused;
-    m_effectivePlaybackRate = fmax(playbackRate, 0);
-    m_duration = duration;
-    m_lastCachedCurrentTime = currentTime;
-    m_lastCachedClockTimestamp = clockTimestamp;
+    m_animationState.setPaused(isPaused);
+    m_animationState.setDuration(duration);
+    m_animationState.setPlaybackRate(playbackRate);
+    m_animationState.setCurrentTime(currentTime, clockTimestamp);
 }
 
 void ModelProcessModelPlayer::didFinishEnvironmentMapLoading(bool succeeded)
@@ -125,15 +142,79 @@ void ModelProcessModelPlayer::didFinishEnvironmentMapLoading(bool succeeded)
 
 // MARK: - WebCore::ModelPlayer
 
+std::optional<WebCore::ModelPlayerAnimationState> ModelProcessModelPlayer::currentAnimationState() const
+{
+    // Has no current state to return if the model load hasn't returned with its extents.
+    if (!m_boundingBoxExtents)
+        return std::nullopt;
+
+    return m_animationState;
+}
+
+std::optional<std::unique_ptr<WebCore::ModelPlayerTransformState>> ModelProcessModelPlayer::currentTransformState() const
+{
+    // Has no current state to return if the model load hasn't returned with its extents.
+    if (!m_boundingBoxExtents)
+        return std::nullopt;
+
+    return ModelProcessModelPlayerTransformState::create(m_entityTransform, m_boundingBoxCenter, m_boundingBoxExtents, m_hasPortal, m_stageModeOperation);
+}
+
 void ModelProcessModelPlayer::load(WebCore::Model& model, WebCore::LayoutSize size)
 {
     RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer load model id=%" PRIu64, this, m_id.toUInt64());
+
+    if (!WebCore::MIMETypeRegistry::isUSDMIMEType(model.mimeType())) {
+        RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer::load: Found unexpected model mimetype: %s", this, model.mimeType().utf8().data());
+        if (m_client)
+            m_client->logWarning(*this, makeString("Unexpected USDZ MIME type \""_s, model.mimeType(), "\" in <model> element. Expected \"model/vnd.usdz+zip\". Some features of <model> may not work properly. The model may fail to render in a future release."_s));
+    }
+
     send(Messages::ModelProcessModelPlayerProxy::LoadModel(model, size));
+}
+
+void ModelProcessModelPlayer::didUnload()
+{
+    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer unload model id=%" PRIu64, this, m_id.toUInt64());
+
+    // If the page is closing while the model process disconnection resulted in
+    // this being called, return early.
+    RefPtr strongPage = m_page.get();
+    if (!strongPage || !strongPage->corePage())
+        return;
+
+    RELEASE_ASSERT(modelProcessEnabled());
+
+    if (m_client)
+        m_client->didUnload(*this);
+}
+
+void ModelProcessModelPlayer::reload(WebCore::Model& model, WebCore::LayoutSize size, WebCore::ModelPlayerAnimationState& animationState, std::unique_ptr<WebCore::ModelPlayerTransformState>&& transformState)
+{
+    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer reload model id=%" PRIu64, this, m_id.toUInt64());
+
+    auto transformStateToRestore = WTFMove(transformState);
+    ASSERT(transformStateToRestore);
+    m_entityTransform = transformStateToRestore->entityTransform();
+    m_boundingBoxCenter = transformStateToRestore->boundingBoxCenter();
+    m_boundingBoxExtents = transformStateToRestore->boundingBoxExtents();
+    setHasPortal(transformStateToRestore->hasPortal());
+    setStageMode(transformStateToRestore->stageMode());
+    m_animationState = WebCore::ModelPlayerAnimationState(animationState);
+    send(Messages::ModelProcessModelPlayerProxy::ReloadModel(model, size, transformStateToRestore->entityTransform(), animationState));
+}
+
+void ModelProcessModelPlayer::visibilityStateDidChange()
+{
+    if (!m_client)
+        return;
+
+    send(Messages::ModelProcessModelPlayerProxy::ModelVisibilityDidChange(m_client->isVisible()));
 }
 
 void ModelProcessModelPlayer::sizeDidChange(WebCore::LayoutSize size)
 {
-    RELEASE_LOG(ModelElement, "%p - ModelProcessModelPlayer size did change to w=%f h=%f id=%" PRIu64, this, size.width().toFloat(), size.height().toFloat(), m_id.toUInt64());
+    RELEASE_LOG_INFO(ModelElement, "%p - ModelProcessModelPlayer size did change to w=%f h=%f id=%" PRIu64, this, size.width().toFloat(), size.height().toFloat(), m_id.toUInt64());
     send(Messages::ModelProcessModelPlayerProxy::SizeDidChange(size));
 }
 
@@ -158,20 +239,31 @@ void ModelProcessModelPlayer::enterFullscreen()
 {
 }
 
-void ModelProcessModelPlayer::setBackgroundColor(WebCore::Color color)
+std::optional<WebCore::FloatPoint3D> ModelProcessModelPlayer::boundingBoxCenter() const
 {
-    send(Messages::ModelProcessModelPlayerProxy::SetBackgroundColor(color));
+    return m_boundingBoxCenter;
+}
+
+std::optional<WebCore::FloatPoint3D> ModelProcessModelPlayer::boundingBoxExtents() const
+{
+    return m_boundingBoxExtents;
+}
+
+std::optional<WebCore::TransformationMatrix> ModelProcessModelPlayer::entityTransform() const
+{
+    return m_entityTransform;
 }
 
 /// This comes from JS side, so we need to tell Model Process about it. Not to be confused with didUpdateEntityTransform().
 void ModelProcessModelPlayer::setEntityTransform(WebCore::TransformationMatrix transform)
 {
+    m_entityTransform = transform;
     send(Messages::ModelProcessModelPlayerProxy::SetEntityTransform(transform));
 }
 
 bool ModelProcessModelPlayer::supportsTransform(WebCore::TransformationMatrix transform)
 {
-    return ModelProcessModelPlayerProxy::transformSupported(transform);
+    return ModelProcessModelPlayerTransformState::transformSupported(transform);
 }
 
 void ModelProcessModelPlayer::getCamera(CompletionHandler<void(std::optional<WebCore::HTMLModelElementCamera>&&)>&& completionHandler)
@@ -241,19 +333,19 @@ Vector<RetainPtr<id>> ModelProcessModelPlayer::accessibilityChildren()
 
 void ModelProcessModelPlayer::setAutoplay(bool autoplay)
 {
-    if (m_autoplay == autoplay)
+    if (m_animationState.autoplay() == autoplay)
         return;
 
-    m_autoplay = autoplay;
+    m_animationState.setAutoplay(autoplay);
     send(Messages::ModelProcessModelPlayerProxy::SetAutoplay(autoplay));
 }
 
 void ModelProcessModelPlayer::setLoop(bool loop)
 {
-    if (m_loop == loop)
+    if (m_animationState.loop() == loop)
         return;
 
-    m_loop = loop;
+    m_animationState.setLoop(loop);
     send(Messages::ModelProcessModelPlayerProxy::SetLoop(loop));
 }
 
@@ -266,12 +358,12 @@ void ModelProcessModelPlayer::setPlaybackRate(double playbackRate, CompletionHan
 
 double ModelProcessModelPlayer::duration() const
 {
-    return m_duration.seconds();
+    return m_animationState.duration().seconds();
 }
 
 bool ModelProcessModelPlayer::paused() const
 {
-    return m_paused;
+    return m_animationState.paused();
 }
 
 void ModelProcessModelPlayer::setPaused(bool paused, CompletionHandler<void(bool succeeded)>&& completionHandler)
@@ -281,32 +373,16 @@ void ModelProcessModelPlayer::setPaused(bool paused, CompletionHandler<void(bool
 
 Seconds ModelProcessModelPlayer::currentTime() const
 {
-    if (!m_duration || !m_lastCachedCurrentTime || !m_lastCachedClockTimestamp || !m_effectivePlaybackRate)
-        return 0_s;
-
     if (m_pendingCurrentTime)
         return *m_pendingCurrentTime;
 
-    Seconds lastCachedCurrentTime = *m_lastCachedCurrentTime;
-    MonotonicTime lastCachedTimestamp = *m_lastCachedClockTimestamp;
-    double playbackRate = *m_effectivePlaybackRate;
-
-    if (m_paused)
-        return lastCachedCurrentTime;
-
-    // Approximate based on last cached animation time, clock timestamp, and playbackRate
-    Seconds timePassedSinceLastSync = MonotonicTime::now() - lastCachedTimestamp;
-    Seconds animationTimePassed = Seconds::fromMilliseconds(floor((timePassedSinceLastSync * playbackRate).milliseconds()));
-    Seconds estimatedCurrentTime = lastCachedCurrentTime + animationTimePassed;
-    if (estimatedCurrentTime > m_duration)
-        estimatedCurrentTime = m_loop ? estimatedCurrentTime % m_duration : m_duration;
-    return estimatedCurrentTime;
+    return m_animationState.currentTime();
 }
 
 void ModelProcessModelPlayer::setCurrentTime(Seconds currentTime, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    double durationSeconds = m_duration.seconds();
+    double durationSeconds = duration();
     if (!durationSeconds) {
         completionHandler();
         return;
@@ -341,6 +417,46 @@ void ModelProcessModelPlayer::setHasPortal(bool hasPortal)
     m_hasPortal = hasPortal;
     send(Messages::ModelProcessModelPlayerProxy::SetHasPortal(m_hasPortal));
 }
+
+void ModelProcessModelPlayer::setStageMode(WebCore::StageModeOperation stagemodeOp)
+{
+    if (m_stageModeOperation == stagemodeOp)
+        return;
+
+    m_stageModeOperation = stagemodeOp;
+    send(Messages::ModelProcessModelPlayerProxy::SetStageMode(m_stageModeOperation));
+}
+
+void ModelProcessModelPlayer::beginStageModeTransform(const WebCore::TransformationMatrix& transform)
+{
+    send(Messages::ModelProcessModelPlayerProxy::BeginStageModeTransform(transform));
+}
+
+void ModelProcessModelPlayer::updateStageModeTransform(const WebCore::TransformationMatrix& transform)
+{
+    send(Messages::ModelProcessModelPlayerProxy::UpdateStageModeTransform(transform));
+}
+
+void ModelProcessModelPlayer::endStageModeInteraction()
+{
+    send(Messages::ModelProcessModelPlayerProxy::EndStageModeInteraction());
+}
+
+void ModelProcessModelPlayer::animateModelToFitPortal(CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::ModelProcessModelPlayerProxy::AnimateModelToFitPortal(), WTFMove(completionHandler));
+}
+
+void ModelProcessModelPlayer::resetModelTransformAfterDrag()
+{
+    send(Messages::ModelProcessModelPlayerProxy::ResetModelTransformAfterDrag());
+}
+
+void ModelProcessModelPlayer::disableUnloadDelayForTesting()
+{
+    send(Messages::ModelProcessModelPlayerProxy::DisableUnloadDelayForTesting());
+}
+
 }
 
 #endif // ENABLE(MODEL_PROCESS)

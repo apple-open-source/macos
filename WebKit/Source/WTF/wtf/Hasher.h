@@ -21,12 +21,12 @@
 #pragma once
 
 #include <optional>
-#include <variant>
 #include <wtf/CheckedPtr.h>
 #include <wtf/Int128.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/URL.h>
+#include <wtf/Variant.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/SuperFastHash.h>
 
@@ -86,10 +86,11 @@ inline void add(Hasher& hasher, UInt128 value)
     add(hasher, low);
 }
 
-template<typename SignedArithmetic> std::enable_if_t<std::is_signed<SignedArithmetic>::value, void> add(Hasher& hasher, SignedArithmetic number)
+template<typename SignedArithmetic>
+void add(Hasher& hasher, SignedArithmetic number) requires (std::is_signed_v<SignedArithmetic>)
 {
     // We overloaded for double and float below, just deal with integers here.
-    add(hasher, static_cast<std::make_unsigned_t<SignedArithmetic>>(number));
+    add(hasher, unsignedCast(number));
 }
 
 inline void add(Hasher& hasher, bool boolean)
@@ -194,10 +195,10 @@ template<typename T> void add(Hasher& hasher, const std::optional<T>& optional)
         add(hasher, optional.value());
 }
 
-template<typename... Types> void add(Hasher& hasher, const std::variant<Types...>& variant)
+template<typename... Types> void add(Hasher& hasher, const Variant<Types...>& variant)
 {
     add(hasher, variant.index());
-    std::visit([&hasher] (auto& value) {
+    WTF::visit([&hasher] (auto& value) {
         add(hasher, value);
     }, variant);
 }

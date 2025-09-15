@@ -24,7 +24,7 @@
 #import <Foundation/Foundation.h>
 #import "OTEscrowTranslation.h"
 
-#import <SoftLinking/SoftLinking.h>
+#import <SoftLinking/WeakLinking.h>
 #import <CloudServices/SecureBackup.h>
 #import <CloudServices/SecureBackupConstants.h>
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"
@@ -35,51 +35,49 @@
 #import "keychain/ot/OTClique+Private.h"
 #import <utilities/debugging.h>
 
-SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CloudServices);
-
 /* Escrow Authentication Information used for SRP*/
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAppleID, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationPassword, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationiCloudEnvironment, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationAuthToken, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationEscrowProxyURL, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupIDMSRecoveryKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupFMiPRecoveryKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupFMiPUUIDKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupAuthenticationDSID, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationAppleID);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationPassword);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationiCloudEnvironment);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationAuthToken);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationEscrowProxyURL);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupIDMSRecoveryKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupFMiPRecoveryKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupFMiPUUIDKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupAuthenticationDSID);
 
 /* CDP recovery information */
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUseCachedPassphraseKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPassphraseKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryKeyKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupContainsiCDPDataKey, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupUseCachedPassphraseKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupPassphraseKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRecoveryKeyKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupContainsiCDPDataKey);
 
 /* Escrow Record Fields set by SecureBackup*/
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesRecoveryKeyKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordStatusKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordIDKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPeerInfoDataKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPeerInfoSerialNumberKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecordLabelKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowedSPKIKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBottleIDKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSerialNumberKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupPasscodeGenerationKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupBuildVersionKey, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupUsesRecoveryKeyKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRecordStatusKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRecordIDKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupPeerInfoDataKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupPeerInfoSerialNumberKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRecordLabelKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupEscrowedSPKIKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupBottleIDKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupSerialNumberKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupPasscodeGenerationKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupBuildVersionKey);
 
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesComplexPassphraseKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesNumericPassphraseKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupNumericPassphraseLengthKey, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupUsesComplexPassphraseKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupUsesNumericPassphraseKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupNumericPassphraseLengthKey);
 
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupUsesMultipleiCSCKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupClientMetadataKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupEscrowDateKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRemainingAttemptsKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupCoolOffEndKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupRecoveryStatusKey, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupUsesMultipleiCSCKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupClientMetadataKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupEscrowDateKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRemainingAttemptsKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupCoolOffEndKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupRecoveryStatusKey);
 
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupSilentRecoveryAttemptKey, NSString*);
-SOFT_LINK_CONSTANT(CloudServices, kSecureBackupNonViableRepairKey, NSString*);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupSilentRecoveryAttemptKey);
+WEAK_LINK_FORCE_IMPORT(kSecureBackupNonViableRepairKey);
 
 static NSString * const kCliqueSecureBackupTimestampKey                = @"com.apple.securebackup.timestamp";
 static NSString * const kCliqueEscrowServiceRecordMetadataKey          = @"metadata";
@@ -108,15 +106,15 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
     
     OTEscrowAuthenticationInformation* escrowAuthInfo = [[OTEscrowAuthenticationInformation alloc] init];
-    escrowAuthInfo.authenticationAppleid = dictionary[getkSecureBackupAuthenticationAppleID()];
-    escrowAuthInfo.authenticationAuthToken = dictionary[getkSecureBackupAuthenticationAuthToken()];
-    escrowAuthInfo.authenticationDsid = dictionary[getkSecureBackupAuthenticationDSID()];
-    escrowAuthInfo.authenticationEscrowproxyUrl = dictionary[getkSecureBackupAuthenticationEscrowProxyURL()];
-    escrowAuthInfo.authenticationIcloudEnvironment = dictionary[getkSecureBackupAuthenticationiCloudEnvironment()];
-    escrowAuthInfo.authenticationPassword = dictionary[getkSecureBackupAuthenticationPassword()];
-    escrowAuthInfo.fmipUuid = dictionary[getkSecureBackupFMiPUUIDKey()];
-    escrowAuthInfo.fmipRecovery = [dictionary[getkSecureBackupFMiPRecoveryKey()] boolValue];
-    escrowAuthInfo.idmsRecovery = [dictionary[getkSecureBackupIDMSRecoveryKey()] boolValue];
+    escrowAuthInfo.authenticationAppleid = dictionary[kSecureBackupAuthenticationAppleID];
+    escrowAuthInfo.authenticationAuthToken = dictionary[kSecureBackupAuthenticationAuthToken];
+    escrowAuthInfo.authenticationDsid = dictionary[kSecureBackupAuthenticationDSID];
+    escrowAuthInfo.authenticationEscrowproxyUrl = dictionary[kSecureBackupAuthenticationEscrowProxyURL];
+    escrowAuthInfo.authenticationIcloudEnvironment = dictionary[kSecureBackupAuthenticationiCloudEnvironment];
+    escrowAuthInfo.authenticationPassword = dictionary[kSecureBackupAuthenticationPassword];
+    escrowAuthInfo.fmipUuid = dictionary[kSecureBackupFMiPUUIDKey];
+    escrowAuthInfo.fmipRecovery = [dictionary[kSecureBackupFMiPRecoveryKey] boolValue];
+    escrowAuthInfo.idmsRecovery = [dictionary[kSecureBackupIDMSRecoveryKey] boolValue];
 
     return escrowAuthInfo;
 }
@@ -130,28 +128,28 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
 
     NSMutableDictionary* dictionary = [NSMutableDictionary dictionary];
     if(![escrowAuthInfo.authenticationAppleid isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationAppleID()] = escrowAuthInfo.authenticationAppleid;
+        dictionary[kSecureBackupAuthenticationAppleID] = escrowAuthInfo.authenticationAppleid;
     }
     if(![escrowAuthInfo.authenticationAuthToken isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationAuthToken()] = escrowAuthInfo.authenticationAuthToken;
+        dictionary[kSecureBackupAuthenticationAuthToken] = escrowAuthInfo.authenticationAuthToken;
     }
     if(![escrowAuthInfo.authenticationDsid isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationDSID()] = escrowAuthInfo.authenticationDsid;
+        dictionary[kSecureBackupAuthenticationDSID] = escrowAuthInfo.authenticationDsid;
     }
     if(![escrowAuthInfo.authenticationEscrowproxyUrl isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationEscrowProxyURL()] = escrowAuthInfo.authenticationEscrowproxyUrl;
+        dictionary[kSecureBackupAuthenticationEscrowProxyURL] = escrowAuthInfo.authenticationEscrowproxyUrl;
     }
     if(![escrowAuthInfo.authenticationIcloudEnvironment isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationiCloudEnvironment()] = escrowAuthInfo.authenticationIcloudEnvironment;
+        dictionary[kSecureBackupAuthenticationiCloudEnvironment] = escrowAuthInfo.authenticationIcloudEnvironment;
     }
     if(![escrowAuthInfo.authenticationPassword isEqualToString:@""]){
-        dictionary[getkSecureBackupAuthenticationPassword()] = escrowAuthInfo.authenticationPassword;
+        dictionary[kSecureBackupAuthenticationPassword] = escrowAuthInfo.authenticationPassword;
     }
     if(![escrowAuthInfo.fmipUuid isEqualToString:@""]){
-        dictionary[getkSecureBackupFMiPUUIDKey()] = escrowAuthInfo.fmipUuid;
+        dictionary[kSecureBackupFMiPUUIDKey] = escrowAuthInfo.fmipUuid;
     }
-    dictionary[getkSecureBackupFMiPRecoveryKey()] = escrowAuthInfo.fmipRecovery ? @YES : @NO;
-    dictionary[getkSecureBackupIDMSRecoveryKey()] = escrowAuthInfo.idmsRecovery ? @YES : @NO;
+    dictionary[kSecureBackupFMiPRecoveryKey] = escrowAuthInfo.fmipRecovery ? @YES : @NO;
+    dictionary[kSecureBackupIDMSRecoveryKey] = escrowAuthInfo.idmsRecovery ? @YES : @NO;
 
     return dictionary;
 }
@@ -163,14 +161,14 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
 
     OTCDPRecoveryInformation* info = [[OTCDPRecoveryInformation alloc] init];
-    info.recoverySecret = dictionary[getkSecureBackupPassphraseKey()];
-    info.useCachedSecret = [dictionary[getkSecureBackupUseCachedPassphraseKey()] boolValue];
-    info.recoveryKey = dictionary[getkSecureBackupRecoveryKeyKey()];
-    info.usePreviouslyCachedRecoveryKey = [dictionary[getkSecureBackupUsesRecoveryKeyKey()] boolValue];
-    info.silentRecoveryAttempt = [dictionary[getkSecureBackupSilentRecoveryAttemptKey()] boolValue];
-    info.containsIcdpData =[dictionary[getkSecureBackupContainsiCDPDataKey()] boolValue];
-    info.usesMultipleIcsc = [dictionary[getkSecureBackupUsesMultipleiCSCKey()] boolValue];
-    info.nonViableRepair = [dictionary[getkSecureBackupNonViableRepairKey()] boolValue];
+    info.recoverySecret = dictionary[kSecureBackupPassphraseKey];
+    info.useCachedSecret = [dictionary[kSecureBackupUseCachedPassphraseKey] boolValue];
+    info.recoveryKey = dictionary[kSecureBackupRecoveryKeyKey];
+    info.usePreviouslyCachedRecoveryKey = [dictionary[kSecureBackupUsesRecoveryKeyKey] boolValue];
+    info.silentRecoveryAttempt = [dictionary[kSecureBackupSilentRecoveryAttemptKey] boolValue];
+    info.containsIcdpData =[dictionary[kSecureBackupContainsiCDPDataKey] boolValue];
+    info.usesMultipleIcsc = [dictionary[kSecureBackupUsesMultipleiCSCKey] boolValue];
+    info.nonViableRepair = [dictionary[kSecureBackupNonViableRepairKey] boolValue];
     return info;
 }
 
@@ -181,14 +179,14 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
 
     NSMutableDictionary* dictionary = [NSMutableDictionary dictionary];
-    dictionary[getkSecureBackupPassphraseKey()] = info.recoverySecret;
-    dictionary[getkSecureBackupUseCachedPassphraseKey()] = info.useCachedSecret ? @YES : @NO;
-    dictionary[getkSecureBackupRecoveryKeyKey()] = info.recoveryKey;
-    dictionary[getkSecureBackupUsesRecoveryKeyKey()] = info.usePreviouslyCachedRecoveryKey ? @YES : @NO;
-    dictionary[getkSecureBackupSilentRecoveryAttemptKey()] = info.silentRecoveryAttempt ? @YES : @NO;
-    dictionary[getkSecureBackupContainsiCDPDataKey()] = info.containsIcdpData ? @YES : @NO;
-    dictionary[getkSecureBackupUsesMultipleiCSCKey()] = info.usesMultipleIcsc ? @YES : @NO;
-    dictionary[getkSecureBackupNonViableRepairKey()] = info.nonViableRepair ? @YES : @NO;
+    dictionary[kSecureBackupPassphraseKey] = info.recoverySecret;
+    dictionary[kSecureBackupUseCachedPassphraseKey] = info.useCachedSecret ? @YES : @NO;
+    dictionary[kSecureBackupRecoveryKeyKey] = info.recoveryKey;
+    dictionary[kSecureBackupUsesRecoveryKeyKey] = info.usePreviouslyCachedRecoveryKey ? @YES : @NO;
+    dictionary[kSecureBackupSilentRecoveryAttemptKey] = info.silentRecoveryAttempt ? @YES : @NO;
+    dictionary[kSecureBackupContainsiCDPDataKey] = info.containsIcdpData ? @YES : @NO;
+    dictionary[kSecureBackupUsesMultipleiCSCKey] = info.usesMultipleIcsc ? @YES : @NO;
+    dictionary[kSecureBackupNonViableRepairKey] = info.nonViableRepair ? @YES : @NO;
     
     return dictionary;
 }
@@ -225,23 +223,23 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     OTEscrowRecordMetadata *metadata = [[OTEscrowRecordMetadata alloc] init];
 
     metadata.backupKeybagDigest = dictionary[kCliqueSecureBackupKeybagDigestKey];
-    metadata.secureBackupUsesMultipleIcscs = [dictionary[getkSecureBackupUsesMultipleiCSCKey()] boolValue];
-    metadata.bottleId = dictionary[getkSecureBackupBottleIDKey()];
+    metadata.secureBackupUsesMultipleIcscs = [dictionary[kSecureBackupUsesMultipleiCSCKey] boolValue];
+    metadata.bottleId = dictionary[kSecureBackupBottleIDKey];
     metadata.bottleValidity = dictionary[@"bottleValid"];
     NSDate* secureBackupTimestamp = [OTEscrowTranslation _dateWithSecureBackupDateString: dictionary[kCliqueSecureBackupTimestampKey]];
 
     metadata.secureBackupTimestamp = [secureBackupTimestamp timeIntervalSince1970];
-    metadata.escrowedSpki = dictionary[getkSecureBackupEscrowedSPKIKey()];
-    metadata.peerInfo = dictionary[getkSecureBackupPeerInfoDataKey()];
-    metadata.serial = dictionary[getkSecureBackupSerialNumberKey()];
-    metadata.build = dictionary[getkSecureBackupBuildVersionKey()];
-    if (dictionary[getkSecureBackupPasscodeGenerationKey()]) {
+    metadata.escrowedSpki = dictionary[kSecureBackupEscrowedSPKIKey];
+    metadata.peerInfo = dictionary[kSecureBackupPeerInfoDataKey];
+    metadata.serial = dictionary[kSecureBackupSerialNumberKey];
+    metadata.build = dictionary[kSecureBackupBuildVersionKey];
+    if (dictionary[kSecureBackupPasscodeGenerationKey]) {
         metadata.passcodeGeneration = [[OTEscrowRecordMetadataPasscodeGeneration alloc] init];
-        NSNumber* passcodeGeneration = dictionary[getkSecureBackupPasscodeGenerationKey()];
+        NSNumber* passcodeGeneration = dictionary[kSecureBackupPasscodeGenerationKey];
         metadata.passcodeGeneration.value = [passcodeGeneration longLongValue];
     }
 
-    NSDictionary* escrowInformationMetadataClientMetadata = dictionary[getkSecureBackupClientMetadataKey()];
+    NSDictionary* escrowInformationMetadataClientMetadata = dictionary[kSecureBackupClientMetadataKey];
     metadata.clientMetadata = [[OTEscrowRecordMetadataClientMetadata alloc] init];
     NSNumber *platform = escrowInformationMetadataClientMetadata[kCliqueSecureBackupDevicePlatform];
     metadata.clientMetadata.devicePlatform = [platform longLongValue];
@@ -249,10 +247,10 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     NSDate* secureBackupMetadataTimestamp = [OTEscrowTranslation _dateWithSecureBackupDateString: escrowInformationMetadataClientMetadata[kCliqueSecureBackupMetadataTimestampKey]];
     metadata.clientMetadata.secureBackupMetadataTimestamp = [secureBackupMetadataTimestamp timeIntervalSince1970];
 
-    NSNumber *passphraseLength = escrowInformationMetadataClientMetadata[getkSecureBackupNumericPassphraseLengthKey()];
+    NSNumber *passphraseLength = escrowInformationMetadataClientMetadata[kSecureBackupNumericPassphraseLengthKey];
     metadata.clientMetadata.secureBackupNumericPassphraseLength = [passphraseLength longLongValue];
-    metadata.clientMetadata.secureBackupUsesComplexPassphrase = [escrowInformationMetadataClientMetadata[getkSecureBackupUsesComplexPassphraseKey()] boolValue];
-    metadata.clientMetadata.secureBackupUsesNumericPassphrase = [escrowInformationMetadataClientMetadata[getkSecureBackupUsesNumericPassphraseKey()] boolValue];
+    metadata.clientMetadata.secureBackupUsesComplexPassphrase = [escrowInformationMetadataClientMetadata[kSecureBackupUsesComplexPassphraseKey] boolValue];
+    metadata.clientMetadata.secureBackupUsesNumericPassphrase = [escrowInformationMetadataClientMetadata[kSecureBackupUsesNumericPassphraseKey] boolValue];
     metadata.clientMetadata.deviceColor = escrowInformationMetadataClientMetadata[kCliqueSecureBackupDeviceColor];
     metadata.clientMetadata.deviceEnclosureColor = escrowInformationMetadataClientMetadata[kCliqueSecureBackupDeviceEnclosureColor];
     metadata.clientMetadata.deviceMid = escrowInformationMetadataClientMetadata[kCliqueSecureBackupDeviceMID];
@@ -272,25 +270,25 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
 
     OTEscrowRecord* record = [[OTEscrowRecord alloc] init];
-    NSDate* creationDate = dictionary[getkSecureBackupEscrowDateKey()];
+    NSDate* creationDate = dictionary[kSecureBackupEscrowDateKey];
     record.creationDate = [creationDate timeIntervalSince1970];
     NSDictionary* escrowInformationMetadata = dictionary[kCliqueEscrowServiceRecordMetadataKey];
     record.escrowInformationMetadata = [OTEscrowTranslation dictionaryToMetadata:escrowInformationMetadata];
 
-    NSNumber *remainingAttempts = dictionary[getkSecureBackupRemainingAttemptsKey()];
+    NSNumber *remainingAttempts = dictionary[kSecureBackupRemainingAttemptsKey];
 
     record.remainingAttempts = [remainingAttempts longLongValue];
-    record.label = dictionary[getkSecureBackupRecordLabelKey()];
-    record.recordStatus = [dictionary[getkSecureBackupRecordStatusKey()] isEqualToString:@"valid"] ? OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID : OTEscrowRecord_RecordStatus_RECORD_STATUS_INVALID;
+    record.label = dictionary[kSecureBackupRecordLabelKey];
+    record.recordStatus = [dictionary[kSecureBackupRecordStatusKey] isEqualToString:@"valid"] ? OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID : OTEscrowRecord_RecordStatus_RECORD_STATUS_INVALID;
     record.silentAttemptAllowed = [dictionary[kCliqueSecureBackupSilentAttemptAllowed] boolValue];
     record.federationId = dictionary[kCliqueSecureBackupFederationID];
     record.expectedFederationId = dictionary[kCliqueSecureBackupExpectedFederationID];
-    record.recordId = dictionary[getkSecureBackupRecordIDKey()];
-    record.serialNumber = dictionary[getkSecureBackupPeerInfoSerialNumberKey()];
-    if(dictionary[getkSecureBackupCoolOffEndKey()]) {
-        record.coolOffEnd = [dictionary[getkSecureBackupCoolOffEndKey()] longLongValue];
+    record.recordId = dictionary[kSecureBackupRecordIDKey];
+    record.serialNumber = dictionary[kSecureBackupPeerInfoSerialNumberKey];
+    if(dictionary[kSecureBackupCoolOffEndKey]) {
+        record.coolOffEnd = [dictionary[kSecureBackupCoolOffEndKey] longLongValue];
     }
-    record.recoveryStatus = [dictionary[getkSecureBackupRecoveryStatusKey()] intValue];
+    record.recoveryStatus = [dictionary[kSecureBackupRecoveryStatusKey] intValue];
     return record;
 }
 
@@ -301,32 +299,32 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
 
     NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
-    dictionary[getkSecureBackupClientMetadataKey()] = [NSMutableDictionary dictionary];
+    dictionary[kSecureBackupClientMetadataKey] = [NSMutableDictionary dictionary];
 
     dictionary[kCliqueSecureBackupKeybagDigestKey] = metadata.backupKeybagDigest;
-    dictionary[getkSecureBackupUsesMultipleiCSCKey()]  = [[NSNumber alloc]initWithUnsignedLongLong:metadata.secureBackupUsesMultipleIcscs];
-    dictionary[getkSecureBackupBottleIDKey()] = metadata.bottleId;
+    dictionary[kSecureBackupUsesMultipleiCSCKey]  = [[NSNumber alloc]initWithUnsignedLongLong:metadata.secureBackupUsesMultipleIcscs];
+    dictionary[kSecureBackupBottleIDKey] = metadata.bottleId;
     dictionary[@"bottleValid"] = metadata.bottleValidity;
     dictionary[kCliqueSecureBackupTimestampKey]  = [OTEscrowTranslation _stringWithSecureBackupDate: [NSDate dateWithTimeIntervalSince1970: metadata.secureBackupTimestamp]];
-    dictionary[getkSecureBackupEscrowedSPKIKey()] = metadata.escrowedSpki;
-    dictionary[getkSecureBackupPeerInfoDataKey()] = metadata.peerInfo;
-    dictionary[getkSecureBackupSerialNumberKey()] = metadata.serial;
-    dictionary[getkSecureBackupBuildVersionKey()] = metadata.build;
+    dictionary[kSecureBackupEscrowedSPKIKey] = metadata.escrowedSpki;
+    dictionary[kSecureBackupPeerInfoDataKey] = metadata.peerInfo;
+    dictionary[kSecureBackupSerialNumberKey] = metadata.serial;
+    dictionary[kSecureBackupBuildVersionKey] = metadata.build;
     if (metadata.passcodeGeneration.hasValue) {
-        dictionary[getkSecureBackupPasscodeGenerationKey()] = @(metadata.passcodeGeneration.value);
+        dictionary[kSecureBackupPasscodeGenerationKey] = @(metadata.passcodeGeneration.value);
     }
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDevicePlatform] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.devicePlatform];
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupMetadataTimestampKey] = [OTEscrowTranslation _stringWithSecureBackupDate: [NSDate dateWithTimeIntervalSince1970: metadata.clientMetadata.secureBackupMetadataTimestamp]];
-    dictionary[getkSecureBackupClientMetadataKey()][getkSecureBackupNumericPassphraseLengthKey()] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupNumericPassphraseLength];
-    dictionary[getkSecureBackupClientMetadataKey()][getkSecureBackupUsesComplexPassphraseKey()] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupUsesComplexPassphrase];
-    dictionary[getkSecureBackupClientMetadataKey()][getkSecureBackupUsesNumericPassphraseKey()] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupUsesNumericPassphrase];
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceColor] = metadata.clientMetadata.deviceColor;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceEnclosureColor] = metadata.clientMetadata.deviceEnclosureColor;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceMID] = metadata.clientMetadata.deviceMid;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceModel] = metadata.clientMetadata.deviceModel;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceModelClass] = metadata.clientMetadata.deviceModelClass;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceModelVersion] = metadata.clientMetadata.deviceModelVersion;
-    dictionary[getkSecureBackupClientMetadataKey()][kCliqueSecureBackupDeviceName] = metadata.clientMetadata.deviceName;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDevicePlatform] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.devicePlatform];
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupMetadataTimestampKey] = [OTEscrowTranslation _stringWithSecureBackupDate: [NSDate dateWithTimeIntervalSince1970: metadata.clientMetadata.secureBackupMetadataTimestamp]];
+    dictionary[kSecureBackupClientMetadataKey][kSecureBackupNumericPassphraseLengthKey] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupNumericPassphraseLength];
+    dictionary[kSecureBackupClientMetadataKey][kSecureBackupUsesComplexPassphraseKey] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupUsesComplexPassphrase];
+    dictionary[kSecureBackupClientMetadataKey][kSecureBackupUsesNumericPassphraseKey] = [[NSNumber alloc]initWithUnsignedLongLong: metadata.clientMetadata.secureBackupUsesNumericPassphrase];
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceColor] = metadata.clientMetadata.deviceColor;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceEnclosureColor] = metadata.clientMetadata.deviceEnclosureColor;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceMID] = metadata.clientMetadata.deviceMid;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceModel] = metadata.clientMetadata.deviceModel;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceModelClass] = metadata.clientMetadata.deviceModelClass;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceModelVersion] = metadata.clientMetadata.deviceModelVersion;
+    dictionary[kSecureBackupClientMetadataKey][kCliqueSecureBackupDeviceName] = metadata.clientMetadata.deviceName;
 
     return dictionary;
 }
@@ -339,20 +337,20 @@ static NSString * const kCliqueSecureBackupExpectedFederationID        = @"EXPEC
     }
 
     NSMutableDictionary* dictionary = [NSMutableDictionary dictionary];
-    dictionary[getkSecureBackupEscrowDateKey()] = [NSDate dateWithTimeIntervalSince1970: escrowRecord.creationDate];
+    dictionary[kSecureBackupEscrowDateKey] = [NSDate dateWithTimeIntervalSince1970: escrowRecord.creationDate];
 
     dictionary[kCliqueEscrowServiceRecordMetadataKey] = [OTEscrowTranslation metadataToDictionary: escrowRecord.escrowInformationMetadata];
 
-    dictionary[getkSecureBackupRemainingAttemptsKey()] = [[NSNumber alloc]initWithUnsignedLongLong:escrowRecord.remainingAttempts];
-    dictionary[getkSecureBackupRecordLabelKey()] = escrowRecord.label;
-    dictionary[getkSecureBackupRecordStatusKey()] = escrowRecord.recordStatus == OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID ? @"valid" : @"invalid";
+    dictionary[kSecureBackupRemainingAttemptsKey] = [[NSNumber alloc]initWithUnsignedLongLong:escrowRecord.remainingAttempts];
+    dictionary[kSecureBackupRecordLabelKey] = escrowRecord.label;
+    dictionary[kSecureBackupRecordStatusKey] = escrowRecord.recordStatus == OTEscrowRecord_RecordStatus_RECORD_STATUS_VALID ? @"valid" : @"invalid";
     dictionary[kCliqueSecureBackupSilentAttemptAllowed] = [[NSNumber alloc] initWithUnsignedLongLong: escrowRecord.silentAttemptAllowed];
     dictionary[kCliqueSecureBackupFederationID] = escrowRecord.federationId;
     dictionary[kCliqueSecureBackupExpectedFederationID] = escrowRecord.expectedFederationId;
-    dictionary[getkSecureBackupRecordIDKey()] = escrowRecord.recordId;
-    dictionary[getkSecureBackupPeerInfoSerialNumberKey()] = escrowRecord.serialNumber;
-    dictionary[getkSecureBackupCoolOffEndKey()] = @(escrowRecord.coolOffEnd);
-    dictionary[getkSecureBackupRecoveryStatusKey()] = @(escrowRecord.recoveryStatus);
+    dictionary[kSecureBackupRecordIDKey] = escrowRecord.recordId;
+    dictionary[kSecureBackupPeerInfoSerialNumberKey] = escrowRecord.serialNumber;
+    dictionary[kSecureBackupCoolOffEndKey] = @(escrowRecord.coolOffEnd);
+    dictionary[kSecureBackupRecoveryStatusKey] = @(escrowRecord.recoveryStatus);
 
     return dictionary;
 }

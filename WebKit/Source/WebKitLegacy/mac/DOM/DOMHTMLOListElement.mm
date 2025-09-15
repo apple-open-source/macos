@@ -61,7 +61,7 @@
 - (void)setStart:(int)newStart
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setStartForBindings(newStart);
+    IMPL->setIntegralAttribute(WebCore::HTMLNames::startAttr, newStart);
 }
 
 - (BOOL)reversed
@@ -79,7 +79,7 @@
 - (NSString *)type
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::typeAttr).createNSString().autorelease();
 }
 
 - (void)setType:(NSString *)newType

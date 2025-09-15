@@ -29,6 +29,7 @@
 
 #if ENABLE(WEBXR)
 
+#include "ExceptionOr.h"
 #include "HTMLCanvasElement.h"
 #include "IntSize.h"
 #include "OffscreenCanvas.h"

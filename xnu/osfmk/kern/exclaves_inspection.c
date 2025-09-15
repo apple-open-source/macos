@@ -530,9 +530,6 @@ exclaves_inspection_check_ast(void)
 	lck_mtx_unlock(&exclaves_collect_mtx);
 }
 
-
-/* this should come from somewhere in EP */
-#define STACKSHOT_PANIC_MAGIC 0xdeadcafebeefbabe
 typedef struct stackshot_panic_magic {
 	uint64_t magic;
 	uint64_t size;
@@ -558,7 +555,7 @@ kdp_read_panic_exclaves_stackshot(struct exclaves_panic_stackshot *eps)
 
 	/* check for panic magic value in xnu's copy of the region */
 	stackshot_panic_magic_t *panic_magic = __IGNORE_WCASTALIGN((stackshot_panic_magic_t *)(exclaves_stackshot_buffer + (EXCLAVES_STACKSHOT_BUFFER_SIZE - sizeof(stackshot_panic_magic_t))));
-	if (panic_magic->magic != STACKSHOT_PANIC_MAGIC) {
+	if (panic_magic->magic != STACKSHOT_STACKSHOTCONSTANTS_PANICMAGIC) {
 		return;
 	}
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +28,7 @@
 #include "StyleColorLayers.h"
 
 #include "CSSColorLayersResolver.h"
-#include "CSSColorLayersSerialization.h"
+#include "CSSPrimitiveValueMappings.h"
 #include "ColorSerialization.h"
 #include "StyleBuilderState.h"
 #include "StyleColorResolutionState.h"
@@ -93,15 +94,24 @@ bool containsCurrentColor(const ColorLayers& colorLayers)
 
 // MARK: - Serialization
 
-void serializationForCSS(StringBuilder& builder, const ColorLayers& colorLayers)
+void serializationForCSSTokenization(StringBuilder& builder, const CSS::SerializationContext& context, const ColorLayers& value)
 {
-    CSS::serializationForCSSColorLayers(builder, colorLayers);
+    builder.append("color-layers("_s);
+
+    if (value.blendMode != BlendMode::Normal)
+        builder.append(nameLiteralForSerialization(toCSSValueID(value.blendMode)), ", "_s);
+
+    builder.append(interleave(value.colors, [&](auto& builder, auto& color) {
+        serializationForCSSTokenization(builder, context, color);
+    }, ", "_s));
+
+    builder.append(')');
 }
 
-String serializationForCSS(const ColorLayers& colorLayers)
+String serializationForCSSTokenization(const CSS::SerializationContext& context, const ColorLayers& colorLayers)
 {
     StringBuilder builder;
-    serializationForCSS(builder, colorLayers);
+    serializationForCSSTokenization(builder, context, colorLayers);
     return builder.toString();
 }
 
@@ -109,7 +119,12 @@ String serializationForCSS(const ColorLayers& colorLayers)
 
 WTF::TextStream& operator<<(WTF::TextStream& ts, const ColorLayers& colorLayers)
 {
-    return ts << serializationForCSS(colorLayers);
+    ts << "color-layers(";
+    if (colorLayers.blendMode != BlendMode::Normal)
+        ts << colorLayers.blendMode << ", "_s;
+    ts << colorLayers.colors << ')';
+
+    return ts;
 }
 
 } // namespace Style

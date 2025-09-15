@@ -68,9 +68,11 @@ public:
     WEBCORE_EXPORT String debugName() const override;
 
     WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
+    WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> layerIDIgnoringStructuralLayer() const final;
 
     WEBCORE_EXPORT PlatformLayer* platformLayer() const override;
     PlatformCALayer* platformCALayer() const { return primaryLayer(); }
+    RefPtr<PlatformCALayer> protectedPlatformCALayer() const { return platformCALayer(); }
 
     WEBCORE_EXPORT bool setChildren(Vector<Ref<GraphicsLayer>>&&) override;
     WEBCORE_EXPORT void addChild(Ref<GraphicsLayer>&&) override;
@@ -99,6 +101,11 @@ public:
     WEBCORE_EXPORT void setPreserves3D(bool) override;
     WEBCORE_EXPORT void setMasksToBounds(bool) override;
     WEBCORE_EXPORT void setDrawsContent(bool) override;
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    WEBCORE_EXPORT void setDrawsHDRContent(bool) override;
+    WEBCORE_EXPORT void setTonemappingEnabled(bool) override;
+    WEBCORE_EXPORT void setNeedsDisplayIfEDRHeadroomExceeds(float) override;
+#endif
     WEBCORE_EXPORT void setContentsVisible(bool) override;
     WEBCORE_EXPORT void setAcceleratesDrawing(bool) override;
     WEBCORE_EXPORT void setUsesDisplayListDrawing(bool) override;
@@ -112,7 +119,7 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    WEBCORE_EXPORT void setAppleVisualEffect(AppleVisualEffect) override;
+    WEBCORE_EXPORT void setAppleVisualEffectData(AppleVisualEffectData) override;
 #endif
 
     WEBCORE_EXPORT void setBackgroundColor(const Color&) override;
@@ -187,6 +194,7 @@ public:
 
     WEBCORE_EXPORT void setDebugBackgroundColor(const Color&) override;
     WEBCORE_EXPORT void setDebugBorder(const Color&, float borderWidth) override;
+    WEBCORE_EXPORT void setShowFrameProcessBorders(bool) override;
 
     WEBCORE_EXPORT void setCustomAppearance(CustomAppearance) override;
 
@@ -264,13 +272,20 @@ private:
     WEBCORE_EXPORT bool platformCALayerCSSUnprefixedBackdropFilterEnabled() const override;
     WEBCORE_EXPORT void platformCALayerLogFilledVisibleFreshTile(unsigned) override;
     WEBCORE_EXPORT bool platformCALayerNeedsPlatformContext(const PlatformCALayer*) const override;
-    bool platformCALayerContainsBitmapOnly(const PlatformCALayer*) const override { return client().layerContainsBitmapOnly(this); }
     bool platformCALayerShouldPaintUsingCompositeCopy() const override { return shouldPaintUsingCompositeCopy(); }
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    bool platformCALayerAllowsDynamicContentScaling(const PlatformCALayer*) const override { return client().layerAllowsDynamicContentScaling(this); }
+#endif
+
+    WEBCORE_EXPORT OptionSet<ContentsFormat> screenContentsFormats() const override;
 
     bool isCommittingChanges() const override { return m_isCommittingChanges; }
     bool isUsingDisplayListDrawing(PlatformCALayer*) const override { return m_usesDisplayListDrawing; }
-#if HAVE(HDR_SUPPORT)
-    bool hdrForImagesEnabled() const override { return client().hdrForImagesEnabled(); }
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool drawsHDRContent() const override { return m_drawsHDRContent; }
+    void updateDrawsHDRContent();
+    void updateTonemappingEnabled();
 #endif
 
     WEBCORE_EXPORT void setAllowsBackingStoreDetaching(bool) override;
@@ -307,17 +322,22 @@ private:
 
     virtual void setLayerContentsToImageBuffer(PlatformCALayer*, ImageBuffer*) { }
 
+    RefPtr<PlatformCALayer> protectedLayer() const { return m_layer; }
+    RefPtr<PlatformCALayer> protectedBackdropLayer() const { return m_backdropLayer; }
+    RefPtr<PlatformCALayer> protectedStructuralLayer() const { return m_structuralLayer; }
     PlatformCALayer* primaryLayer() const { return m_structuralLayer.get() ? m_structuralLayer.get() : m_layer.get(); }
+    RefPtr<PlatformCALayer> protectedPrimaryLayer() const { return primaryLayer(); }
     PlatformCALayer* hostLayerForSublayers() const;
     PlatformCALayer* layerForSuperlayer() const;
     PlatformCALayer* animatedLayer(AnimatedProperty) const;
+    RefPtr<PlatformCALayer> protectedAnimatedLayer(AnimatedProperty property) const { return animatedLayer(property); }
 
     WEBCORE_EXPORT void setTileCoverage(TileCoverage) override;
 
-    typedef String CloneID; // Identifier for a given clone, based on original/replica branching down the tree.
+    using CloneID = String; // Identifier for a given clone, based on original/replica branching down the tree.
     static bool isReplicatedRootClone(const CloneID& cloneID) { return cloneID[0U] & 1; }
 
-    typedef UncheckedKeyHashMap<CloneID, RefPtr<PlatformCALayer>> LayerMap;
+    using LayerMap = HashMap<CloneID, RefPtr<PlatformCALayer>>;
     LayerMap* primaryLayerClones() const;
     LayerMap* animatedLayerClones(AnimatedProperty) const;
     static void clearClones(LayerMap&);
@@ -530,14 +550,17 @@ private:
     void updateContentsScalingFilters();
 
 #if HAVE(CORE_MATERIAL)
-    void updateAppleVisualEffect();
+    void updateAppleVisualEffectData();
 #endif
 
     enum StructuralLayerPurpose {
         NoStructuralLayer = 0,
         StructuralLayerForPreserves3D,
         StructuralLayerForReplicaFlattening,
-        StructuralLayerForBackdrop
+        StructuralLayerForBackdrop,
+#if HAVE(MATERIAL_HOSTING)
+        StructuralLayerForMaterial,
+#endif
     };
     bool ensureStructuralLayer(StructuralLayerPurpose);
     StructuralLayerPurpose structuralLayerPurpose() const;
@@ -649,6 +672,10 @@ private:
 #if HAVE(CORE_MATERIAL)
         AppleVisualEffectChanged                = 1LLU << 46,
 #endif
+#if HAVE(SUPPORT_HDR_DISPLAY)
+        DrawsHDRContentChanged                  = 1LLU << 47,
+        TonemappingEnabledChanged               = 1LLU << 48,
+#endif
     };
     typedef uint64_t LayerChangeFlags;
     static ASCIILiteral layerChangeAsString(LayerChange);
@@ -719,9 +746,9 @@ private:
     Vector<LayerPropertyAnimation> m_baseValueTransformAnimations;
     Vector<LayerPropertyAnimation> m_animationGroups;
 
-    Vector<FloatRect> m_dirtyRects;
+    Vector<FloatRect, 4> m_dirtyRects;
 
-    std::unique_ptr<DisplayList::DisplayList> m_displayList;
+    RefPtr<const DisplayList::DisplayList> m_displayList;
 
     float m_contentsScaleLimitingFactor { 1 };
     float m_rootRelativeScaleFactor { 1.0f };

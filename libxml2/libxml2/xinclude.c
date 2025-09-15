@@ -29,6 +29,7 @@
 
 #include "buf.h"
 #include "private/memory.h"
+#include "private/parser.h"
 
 #define XINCLUDE_MAX_DEPTH 40
 
@@ -489,7 +490,13 @@ xmlXIncludeParseFile(xmlXIncludeCtxtPtr ctxt, const char *URL) {
 	return(NULL);
     }
 
-    inputPush(pctxt, inputStream);
+    if (inputPush(pctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        if (pctxt->errNo == XML_ERR_NO_MEMORY)
+            xmlXIncludeErrMemory(ctxt, NULL, "cannot push input stream");
+        xmlFreeParserCtxt(pctxt);
+        return(NULL);
+    }
 
     if (pctxt->directory == NULL)
         pctxt->directory = xmlParserGetDirectory(URL);
@@ -550,6 +557,13 @@ xmlXIncludeAddNode(xmlXIncludeCtxtPtr ctxt, xmlNodePtr cur) {
 	if (href == NULL)
 	    return(-1);
     }
+    if (xmlStrlen(href) > XML_MAX_URI_LENGTH) {
+            xmlXIncludeErr(ctxt, cur, XML_XINCLUDE_HREF_URI, "URI too long\n",
+                           NULL);
+            xmlFree(href);
+            return(-1);
+    }
+
     if ((href[0] == '#') || (href[0] == 0))
 	local = 1;
     parse = xmlXIncludeGetProp(ctxt, cur, XINCLUDE_PARSE);
@@ -1410,8 +1424,10 @@ xmlXIncludeMergeEntities(xmlXIncludeCtxtPtr ctxt, xmlDocPtr doc,
 	if (cur == NULL)
 	    return(-1);
         target = xmlCreateIntSubset(doc, cur->name, NULL, NULL);
-	if (target == NULL)
-	    return(-1);
+        if (target == NULL) {
+            xmlXIncludeErrMemory(ctxt, NULL, "creating int subset");
+            return(-1);
+        }
     }
 
     source = from->intSubset;
@@ -2262,12 +2278,17 @@ xmlXIncludeIncludeNode(xmlXIncludeCtxtPtr ctxt, int nr) {
 		nb_elem++;
 	    tmp = tmp->next;
 	}
-	if (nb_elem > 1) {
-	    xmlXIncludeErr(ctxt, ctxt->incTab[nr]->ref,
-	                   XML_XINCLUDE_MULTIPLE_ROOT,
-		       "XInclude error: would result in multiple root nodes\n",
-			   NULL);
-            xmlFreeNodeList(list);
+    if (nb_elem != 1) {
+        if (nb_elem > 1) {
+            xmlXIncludeErr(ctxt, ctxt->incTab[nr]->ref, XML_XINCLUDE_MULTIPLE_ROOT,
+                            "XInclude error: would result in multiple root "
+                            "nodes\n", NULL);
+        } else {
+            xmlXIncludeErr(ctxt, ctxt->incTab[nr]->ref, XML_XINCLUDE_MULTIPLE_ROOT,
+                            "XInclude error: would result in no root "
+                            "node\n", NULL);
+        }
+	    xmlFreeNodeList(list);
 	    return(-1);
 	}
     }

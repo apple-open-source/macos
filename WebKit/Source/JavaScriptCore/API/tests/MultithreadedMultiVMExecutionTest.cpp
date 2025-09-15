@@ -87,7 +87,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END \
                 JSStringRef string = JSValueToStringCopy(context, exception, nullptr);
                 if (string) {
                     Vector<char> buffer(JSStringGetMaximumUTF8CStringSize(string));
-                    JSStringGetUTF8CString(string, buffer.data(), buffer.size());
+                    JSStringGetUTF8CString(string, buffer.mutableSpan().data(), buffer.size());
                     SAFE_PRINTF("FAIL: MultithreadedMultiVMExecutionTest: %d %d %s\n", threadNumber, i, CString(buffer.span()));
                     JSStringRelease(string);
                 } else

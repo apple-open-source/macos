@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (c) 2011 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -176,10 +176,10 @@ WEBKIT_API void
 webkit_settings_set_javascript_can_open_windows_automatically  (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
-WEBKIT_API gboolean
+WEBKIT_DEPRECATED gboolean
 webkit_settings_get_enable_hyperlink_auditing                  (WebKitSettings *settings);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED void
 webkit_settings_set_enable_hyperlink_auditing                  (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
@@ -290,10 +290,10 @@ WEBKIT_API void
 webkit_settings_set_enable_tabs_to_links                       (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
-WEBKIT_API gboolean
+WEBKIT_DEPRECATED gboolean
 webkit_settings_get_enable_dns_prefetching                     (WebKitSettings *settings);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED void
 webkit_settings_set_enable_dns_prefetching                     (WebKitSettings *settings,
                                                                 gboolean        enabled);
 

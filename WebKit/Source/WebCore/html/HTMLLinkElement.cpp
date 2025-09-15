@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Rob Buis (rwlbuis@gmail.com)
  * Copyright (C) 2011 Google Inc. All rights reserved.
  *
@@ -56,6 +56,7 @@
 #include "MediaQueryParser.h"
 #include "MediaQueryParserContext.h"
 #include "MouseEvent.h"
+#include "NodeInlines.h"
 #include "NodeName.h"
 #include "Page.h"
 #include "ParsedContentType.h"
@@ -197,11 +198,18 @@ void HTMLLinkElement::attributeChanged(const QualifiedName& name, const AtomStri
     case AttributeNames::relAttr: {
         auto parsedRel = LinkRelAttribute(document(), newValue);
         auto didMutateRel = parsedRel != m_relAttribute;
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+        auto wasSpatialBackdrop = m_relAttribute.isSpatialBackdrop;
+#endif
         m_relAttribute = WTFMove(parsedRel);
         if (m_relList)
             m_relList->associatedAttributeValueChanged();
         if (didMutateRel)
             process();
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+        if (wasSpatialBackdrop && !m_relAttribute.isSpatialBackdrop)
+            document().spatialBackdropLinkElementChanged();
+#endif
         break;
     }
     case AttributeNames::hrefAttr: {
@@ -212,6 +220,16 @@ void HTMLLinkElement::attributeChanged(const QualifiedName& name, const AtomStri
         process();
         break;
     }
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    case AttributeNames::environmentmapAttr: {
+        URL environmentMapURL = getNonEmptyURLAttribute(environmentmapAttr);
+        if (environmentMapURL == m_environmentMapURL)
+            return;
+        m_environmentMapURL = WTFMove(environmentMapURL);
+        process();
+        break;
+    }
+#endif
     case AttributeNames::typeAttr:
         if (newValue == m_type)
             return;
@@ -260,19 +278,9 @@ bool HTMLLinkElement::shouldLoadLink()
     return isConnected();
 }
 
-void HTMLLinkElement::setCrossOrigin(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(crossoriginAttr, value);
-}
-
 String HTMLLinkElement::crossOrigin() const
 {
     return parseCORSSettingsAttribute(attributeWithoutSynchronization(crossoriginAttr));
-}
-
-void HTMLLinkElement::setAs(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(asAttr, value);
 }
 
 String HTMLLinkElement::as() const
@@ -299,6 +307,11 @@ void HTMLLinkElement::process()
     // Prevent recursive loading of link.
     if (m_isHandlingBeforeLoad)
         return;
+
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    if (m_relAttribute.isSpatialBackdrop)
+        document().spatialBackdropLinkElementChanged();
+#endif
 
     processInternalResourceLink();
     if (m_relAttribute.isInternalResourceLink)
@@ -379,7 +392,7 @@ void HTMLLinkElement::process()
         options.referrerPolicy = params.referrerPolicy;
         options.fetchPriority = fetchPriority();
 
-        auto request = createPotentialAccessControlRequest(m_url, WTFMove(options), document, crossOrigin());
+        auto request = createPotentialAccessControlRequest(URL { m_url }, WTFMove(options), document, crossOrigin());
         request.setPriority(WTFMove(priority));
         request.setCharset(WTFMove(charset));
         request.setInitiator(*this);
@@ -528,6 +541,11 @@ void HTMLLinkElement::removedFromAncestor(RemovalType removalType, ContainerNode
 
     bool wasLoading = styleSheetIsLoading();
 
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    if (m_relAttribute.isSpatialBackdrop)
+        oldParentOfRemovedTree.document().spatialBackdropLinkElementChanged();
+#endif
+
     if (m_sheet)
         clearSheet();
 
@@ -557,12 +575,12 @@ void HTMLLinkElement::initializeStyleSheet(Ref<StyleSheetContents>&& styleSheet,
     }
 
     m_sheet = CSSStyleSheet::create(WTFMove(styleSheet), *this, cachedStyleSheet.isCORSSameOrigin());
-    m_sheet->setMediaQueries(MQ::MediaQueryParser::parse(m_media, context));
+    m_sheet->setMediaQueries(MQ::MediaQueryParser::parse(m_media, context.context));
     if (!isInShadowTree())
         m_sheet->setTitle(title());
 
     if (!m_sheet->canAccessRules())
-        m_sheet->contents().setAsOpaque();
+        m_sheet->contents().setAsLoadedFromOpaqueSource();
 }
 
 void HTMLLinkElement::setCSSStyleSheet(const String& href, const URL& baseURL, ASCIILiteral charset, const CachedCSSStyleSheet* cachedStyleSheet)
@@ -634,7 +652,7 @@ bool HTMLLinkElement::styleSheetIsLoading() const
 DOMTokenList& HTMLLinkElement::sizes()
 {
     if (!m_sizes)
-        m_sizes = makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, sizesAttr);
+        lazyInitialize(m_sizes, makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, sizesAttr));
     return *m_sizes;
 }
 
@@ -646,7 +664,7 @@ bool HTMLLinkElement::mediaAttributeMatches() const
     std::optional<RenderStyle> documentStyle;
     if (document().hasLivingRenderTree())
         documentStyle = Style::resolveForDocument(document());
-    auto mediaQueryList = MQ::MediaQueryParser::parse(m_media, { document() });
+    auto mediaQueryList = MQ::MediaQueryParser::parse(m_media, document().cssParserContext());
     LOG(MediaQueries, "HTMLLinkElement::mediaAttributeMatches");
 
     MQ::MediaQueryEvaluator evaluator(document().frame()->view()->mediaType(), document(), documentStyle ? &*documentStyle : nullptr);
@@ -689,9 +707,9 @@ void HTMLLinkElement::dispatchPendingEvent(LinkEventSender* eventSender, const A
 DOMTokenList& HTMLLinkElement::relList()
 {
     if (!m_relList) 
-        m_relList = makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
+        lazyInitialize(m_relList, makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
             return LinkRelAttribute::isSupported(document, token);
-        });
+        }));
     return *m_relList;
 }
 
@@ -699,11 +717,11 @@ DOMTokenList& HTMLLinkElement::relList()
 DOMTokenList& HTMLLinkElement::blocking()
 {
     if (!m_blockingList) {
-        m_blockingList = makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::blockingAttr, [](Document&, StringView token) {
+        lazyInitialize(m_blockingList, makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::blockingAttr, [](Document&, StringView token) {
             if (equalLettersIgnoringASCIICase(token, "render"_s))
                 return true;
             return false;
-        });
+        }));
     }
     return *m_blockingList;
 }
@@ -723,7 +741,11 @@ void HTMLLinkElement::startLoadingDynamicSheet()
 
 bool HTMLLinkElement::isURLAttribute(const Attribute& attribute) const
 {
-    return attribute.name().localName() == hrefAttr || HTMLElement::isURLAttribute(attribute);
+    return attribute.name().localName() == hrefAttr
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+    || attribute.name().localName() == environmentmapAttr
+#endif
+    || HTMLElement::isURLAttribute(attribute);
 }
 
 URL HTMLLinkElement::href() const
@@ -735,6 +757,13 @@ const AtomString& HTMLLinkElement::rel() const
 {
     return attributeWithoutSynchronization(relAttr);
 }
+
+#if ENABLE(WEB_PAGE_SPATIAL_BACKDROP)
+URL HTMLLinkElement::environmentMap() const
+{
+    return document().completeURL(attributeWithoutSynchronization(environmentmapAttr));
+}
+#endif
 
 AtomString HTMLLinkElement::target() const
 {
@@ -811,11 +840,6 @@ void HTMLLinkElement::removePendingSheet()
     m_styleScope->removePendingSheet(*this);
 }
 
-void HTMLLinkElement::setReferrerPolicyForBindings(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(referrerpolicyAttr, value);
-}
-
 String HTMLLinkElement::referrerPolicyForBindings() const
 {
     return referrerPolicyToString(referrerPolicy());
@@ -829,11 +853,6 @@ ReferrerPolicy HTMLLinkElement::referrerPolicy() const
 String HTMLLinkElement::debugDescription() const
 {
     return makeString(HTMLElement::debugDescription(), ' ', type(), ' ', href().string());
-}
-
-void HTMLLinkElement::setFetchPriorityForBindings(const AtomString& value)
-{
-    setAttributeWithoutSynchronization(fetchpriorityAttr, value);
 }
 
 String HTMLLinkElement::fetchPriorityForBindings() const

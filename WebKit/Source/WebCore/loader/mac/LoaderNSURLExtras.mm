@@ -48,8 +48,8 @@ NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType, cons
 {
     // Get the filename from the URL. Try the lastPathComponent first.
     NSString *lastPathComponent = [[url path] lastPathComponent];
-    NSString *filename = filenameByFixingIllegalCharacters(lastPathComponent);
-    NSString *extension = nil;
+    RetainPtr filename = filenameByFixingIllegalCharacters(lastPathComponent);
+    RetainPtr<NSString> extension;
 
     if ([filename length] == 0 || [lastPathComponent isEqualToString:@"/"]) {
         // lastPathComponent is no good, try the host.
@@ -57,7 +57,7 @@ NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType, cons
         filename = filenameByFixingIllegalCharacters(host.get());
         if ([filename length] == 0) {
             // Can't make a filename using this URL, use the default value.
-            filename = defaultValue;
+            filename = defaultValue.createNSString();
         }
     } else {
         // Save the extension for later correction. Only correct the extension of the lastPathComponent.
@@ -66,14 +66,14 @@ NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType, cons
     }
 
     if (!mimeType)
-        return filename;
+        return filename.autorelease();
 
     // Do not correct filenames that are reported with a mime type of tar, and 
     // have a filename which has .tar in it or ends in .tgz
     if ((mimeType == "application/tar"_s || mimeType == "application/x-tar"_s)
-        && (String(filename).containsIgnoringASCIICase(".tar"_s)
-        || String(filename).endsWithIgnoringASCIICase(".tgz"_s))) {
-        return filename;
+        && (String(filename.get()).containsIgnoringASCIICase(".tar"_s)
+        || String(filename.get()).endsWithIgnoringASCIICase(".tgz"_s))) {
+        return filename.autorelease();
     }
 
     // I don't think we need to worry about this for the image case
@@ -81,17 +81,17 @@ NSString *suggestedFilenameWithMIMEType(NSURL *url, const String& mimeType, cons
     if (mimeType != "application/octet-stream"_s && mimeType != "text/plain"_s) {
         Vector<String> extensions = MIMETypeRegistry::extensionsForMIMEType(mimeType);
 
-        if (extensions.isEmpty() || !extensions.contains(String(extension))) {
+        if (extensions.isEmpty() || !extensions.contains(String(extension.get()))) {
             // The extension doesn't match the MIME type. Correct this.
-            NSString *correctExtension = MIMETypeRegistry::preferredExtensionForMIMEType(mimeType);
+            RetainPtr correctExtension = MIMETypeRegistry::preferredExtensionForMIMEType(mimeType).createNSString();
             if ([correctExtension length] != 0) {
                 // Append the correct extension.
-                filename = [filename stringByAppendingPathExtension:correctExtension];
+                filename = [filename stringByAppendingPathExtension:correctExtension.get()];
             }
         }
     }
 
-    return filename;
+    return filename.autorelease();
 }
 
 NSString *filenameByFixingIllegalCharacters(NSString *string)

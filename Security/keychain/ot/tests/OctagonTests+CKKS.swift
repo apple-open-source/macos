@@ -3,6 +3,14 @@
 class OctagonCKKSTests: OctagonTestsBase {
     var previousKeychainAccessGroups: [String]!
 
+    static func follower(model: String) -> Bool {
+        if model.hasPrefix("AppleTV") ||
+           model.hasPrefix("AudioAccessory") {
+            return true
+        }
+        return false
+    }
+
     override func setUp() {
         // These tests would like to examine the behavior of a CKKS user-controlled-view
         if self.mockDeviceInfo == nil {
@@ -13,7 +21,7 @@ class OctagonCKKSTests: OctagonTestsBase {
                                                           osVersion: actualDeviceAdapter.osVersion())
         }
 
-        if self.mockDeviceInfo.mockModelID.contains("AppleTV") || self.mockDeviceInfo.mockModelID.contains("AudioAccessory") {
+        if Self.follower(model: self.mockDeviceInfo.mockModelID) {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
                 CKRecordZone.ID(zoneName: "ProtectedCloudStorage"),
@@ -30,6 +38,7 @@ class OctagonCKKSTests: OctagonTestsBase {
                 CKRecordZone.ID(zoneName: "Photos"),
                 CKRecordZone.ID(zoneName: "SecureObjectSync"),
                 CKRecordZone.ID(zoneName: "Backstop"),
+                CKRecordZone.ID(zoneName: "FindMy"),
             ])
         }
 

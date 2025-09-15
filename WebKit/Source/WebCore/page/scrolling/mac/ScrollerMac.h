@@ -28,6 +28,7 @@
 #if PLATFORM(MAC)
 
 #include "ScrollTypes.h"
+#include "UserInterfaceLayoutDirection.h"
 #include <wtf/RecursiveLockAdapter.h>
 #include <wtf/RetainPtr.h>
 
@@ -53,7 +54,7 @@ public:
 
     void attach();
 
-    ScrollerPairMac& pair() { return m_pair; }
+    RefPtr<ScrollerPairMac> pair() const { return m_pair.get(); }
 
     ScrollbarOrientation orientation() const { return m_orientation; }
 
@@ -98,9 +99,10 @@ private:
     bool m_isVisible { false };
     bool m_isHiddenByStyle { false };
 
-    ScrollerPairMac& m_pair;
+    ThreadSafeWeakPtr<ScrollerPairMac> m_pair;
     const ScrollbarOrientation m_orientation;
     IntPoint m_lastKnownMousePositionInScrollbar;
+    UserInterfaceLayoutDirection m_scrollbarLayoutDirection { UserInterfaceLayoutDirection::LTR };
 
     RetainPtr<CALayer> m_hostLayer;
     mutable RecursiveLock m_scrollerImpLock;

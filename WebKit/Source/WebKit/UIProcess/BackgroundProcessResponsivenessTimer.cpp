@@ -39,8 +39,8 @@ static const Seconds responsivenessTimeout { 90_s };
 BackgroundProcessResponsivenessTimer::BackgroundProcessResponsivenessTimer(WebProcessProxy& webProcessProxy)
     : m_webProcessProxy(webProcessProxy)
     , m_checkingInterval(initialCheckingInterval)
-    , m_responsivenessCheckTimer(RunLoop::main(), this, &BackgroundProcessResponsivenessTimer::responsivenessCheckTimerFired)
-    , m_timeoutTimer(RunLoop::main(), this, &BackgroundProcessResponsivenessTimer::timeoutTimerFired)
+    , m_responsivenessCheckTimer(RunLoop::mainSingleton(), "BackgroundProcessResponsivenessTimer::ResponsivenessCheckTimer"_s, this, &BackgroundProcessResponsivenessTimer::responsivenessCheckTimerFired)
+    , m_timeoutTimer(RunLoop::mainSingleton(), "BackgroundProcessResponsivenessTimer:TimeoutTimer"_s, this, &BackgroundProcessResponsivenessTimer::timeoutTimerFired)
 {
 }
 
@@ -115,7 +115,7 @@ void BackgroundProcessResponsivenessTimer::timeoutTimerFired()
     if (!m_isResponsive)
         return;
 
-    if (!client().mayBecomeUnresponsive())
+    if (!protectedClient()->mayBecomeUnresponsive())
         return;
 
     setResponsive(false);
@@ -126,25 +126,25 @@ void BackgroundProcessResponsivenessTimer::setResponsive(bool isResponsive)
     if (m_isResponsive == isResponsive)
         return;
 
-    Ref protectedClient { client() };
+    Ref client = this->client();
 
-    client().willChangeIsResponsive();
+    client->willChangeIsResponsive();
     m_isResponsive = isResponsive;
-    client().didChangeIsResponsive();
+    client->didChangeIsResponsive();
 
     if (m_isResponsive) {
         RELEASE_LOG_ERROR(PerformanceLogging, "Notifying the client that background WebProcess with pid %d has become responsive again", m_webProcessProxy->processID());
-        client().didBecomeResponsive();
+        client->didBecomeResponsive();
     } else {
         RELEASE_LOG_ERROR(PerformanceLogging, "Notifying the client that background WebProcess with pid %d has become unresponsive", m_webProcessProxy->processID());
-        client().didBecomeUnresponsive();
+        client->didBecomeUnresponsive();
     }
 }
 
 bool BackgroundProcessResponsivenessTimer::shouldBeActive() const
 {
 #if !USE(RUNNINGBOARD)
-    auto webProcess = protectedWebProcessProxy();
+    Ref webProcess = m_webProcessProxy.get();
     if (webProcess->visiblePageCount())
         return false;
     if (webProcess->throttler().isSuspended())

@@ -40,10 +40,19 @@
 #include <netinet6/in6_var.h>
 #include <mach/boolean.h>
 #include <CoreFoundation/CFString.h>
+#include "util.h"
 
 #define s6_addr16 __u6_addr.__u6_addr16
 
-int
+typedef void(*ifutil_close_required_callback_t)(void);
+
+void
+ifutil_set_close_required_callback(ifutil_close_required_callback_t func);
+
+void
+ifutil_close(void);
+
+void
 interface_set_mtu(const char * ifname, int mtu);
 
 int
@@ -52,26 +61,52 @@ interface_up_down(const char * ifname, boolean_t up);
 int
 interface_set_noarp(const char * ifname, boolean_t noarp);
 
-int
-interface_get_eflags(int sockfd, const char * name, uint64_t * ret_eflags);
+void
+interface_get_eflags(const char * name, uint64_t * ret_eflags);
 
-int
-inet_dgram_socket(void);
+void
+interface_set_arp_linklocal(const char * name, boolean_t enable);
+
+typedef enum {
+    kL4SModeDefault = 0,
+    kL4SModeEnable = 1,
+    kL4SModeDisable = 2
+} L4SMode;
+
+static inline const char *
+L4SModeGetString(L4SMode mode)
+{
+    const char *	str[] = {
+	"Default",
+	"Enable",
+	"Disable"
+    };
+    if (mode >= 0 && mode < countof(str)) {
+	return (str[mode]);
+    }
+    return ("<unknown>");
+}
+
+boolean_t
+interface_set_l4s_mode(const char * name, L4SMode l4s);
+
+boolean_t
+interface_get_l4s_mode(const char * name, L4SMode * l4s_mode);
 
 int
 inet_attach_interface(const char * ifname, boolean_t set_iff_up);
 
-int
+void
 inet_detach_interface(const char * ifname);
 
 int
-inet_aifaddr(int s, const char * name, struct in_addr addr,
+inet_aifaddr(const char * name, struct in_addr addr,
 	     const struct in_addr * mask,
 	     const struct in_addr * broadcast);
 int
-inet_difaddr(int s, const char * name, struct in_addr addr);
+inet_difaddr(const char * name, struct in_addr addr);
 
-int
+void
 inet_set_autoaddr(const char * ifname, int val);
 
 typedef struct {
@@ -92,7 +127,6 @@ typedef struct {
 } inet6_addrlist_t;
 
 
-int	inet6_dgram_socket();
 int	inet6_attach_interface(const char * ifname, boolean_t set_iff_up);
 int	inet6_detach_interface(const char * ifname);
 boolean_t inet6_is_attached(const char * ifname);
@@ -104,10 +138,10 @@ int
 inet6_get_prefix_length(const struct in6_addr * addr, int if_index);
 
 int
-inet6_difaddr(int s, const char * name, const struct in6_addr * addr);
+inet6_difaddr(const char * name, const struct in6_addr * addr);
 
 int
-inet6_aifaddr(int s, const char * name,
+inet6_aifaddr(const char * name,
 	      const struct in6_addr * addr,
 	      const struct in6_addr * dstaddr,
 	      int prefix_length,

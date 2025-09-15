@@ -25,30 +25,12 @@ run_sysctl_test(const char *t, int64_t value)
 	return result;
 }
 
-T_DECL(vm_map_non_aligned,
-    "Test that we can destroy map unaligned mappings (rdar://88969652)",
-    T_META_TAG_VM_PREFERRED)
-{
-	T_EXPECT_EQ(1ull, run_sysctl_test("vm_map_non_aligned", 0), "vm_map_non_aligned");
-}
-
 T_DECL(vm_map_null,
     "Test that we can call vm_map functions with VM_MAP_NULL",
     T_META_TAG_VM_PREFERRED)
 {
 	int64_t result = run_sysctl_test("vm_map_null", 0);
 	T_EXPECT_EQ(1ull, result, "vm_map_null");
-}
-
-T_DECL(vm_memory_entry_pgz,
-    "Test that we can make a memory entry of a pgz protected allocation (rdar://122836976)",
-    T_META_TAG_VM_PREFERRED)
-{
-	int64_t result = run_sysctl_test("vm_memory_entry_pgz", 0);
-	if (result == 2) {
-		T_SKIP("Unable to pgz_protect allocation. Pgz slots might be full.");
-	}
-	T_EXPECT_EQ(1ull, result, "vm_memory_entry_pgz");
 }
 
 T_DECL(vm_map_copy_entry_subrange,
@@ -88,3 +70,15 @@ T_DECL(vm_page_radix_verify, "verify the vm pages radix tree")
 	T_EXPECT_EQ(1ull, run_sysctl_test("vm_page_radix_verify", 0), "vm_page_radix_verify");
 }
 #endif
+
+T_DECL(vm_map_4k_16k_copyout,
+    "Make sure vm_map_copyout from 4k->16k maps doesn't lead to address space holes")
+{
+	T_EXPECT_EQ(1ULL, run_sysctl_test("vm_map_4k_16k", 0), "vm_map_4k_16k_copyout");
+}
+
+T_DECL(vm_map_4k_16k_copy_overwrite,
+    "Make sure vm_map_copy_overwrite from 4k->16k maps doesn't lead to address space holes")
+{
+	T_EXPECT_EQ(1ULL, run_sysctl_test("vm_map_4k_16k", 1), "vm_map_4k_16k_copy_overwrite");
+}

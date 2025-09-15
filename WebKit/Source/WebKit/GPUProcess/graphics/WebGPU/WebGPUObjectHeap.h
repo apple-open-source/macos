@@ -31,7 +31,6 @@
 #include "WebGPUConvertFromBackingContext.h"
 #include "WebGPUIdentifier.h"
 #include <functional>
-#include <variant>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
@@ -178,7 +177,7 @@ public:
 private:
     ObjectHeap();
 
-    using Object = std::variant<
+    using Object = Variant<
         std::monostate,
         IPC::ScopedActiveMessageReceiveQueue<RemoteAdapter>,
         IPC::ScopedActiveMessageReceiveQueue<RemoteBindGroup>,

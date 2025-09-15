@@ -43,11 +43,6 @@ void GPUProcessPreferences::copyEnabledWebPreferences(const WebPreferences& webP
         shouldUseModernAVContentKeySession = true;
 #endif
         
-#if ENABLE(ALTERNATE_WEBM_PLAYER)
-    if (webPreferences.alternateWebMPlayerEnabled())
-        alternateWebMPlayerEnabled = true;
-#endif
-
 #if ENABLE(VP9)
     if (webPreferences.vp9DecoderEnabled())
         vp9DecoderEnabled = true;

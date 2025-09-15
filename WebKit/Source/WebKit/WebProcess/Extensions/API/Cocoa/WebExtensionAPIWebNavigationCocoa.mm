@@ -59,13 +59,13 @@ static NSDictionary *toWebAPI(WebExtensionFrameParameters frameInfo)
 
     result[errorOccurredKey] = @(frameInfo.errorOccurred);
     result[parentFrameIdKey] = @(toWebAPI(frameInfo.parentFrameIdentifier));
-    result[urlKey] = frameInfo.url && !frameInfo.url.value().isNull() ? (NSString *)frameInfo.url.value().string() : emptyURLValue;
+    result[urlKey] = frameInfo.url && !frameInfo.url.value().isNull() ? frameInfo.url.value().string().createNSString().get() : emptyURLValue;
 
     if (frameInfo.frameIdentifier)
         result[frameIdKey] = @(toWebAPI(frameInfo.frameIdentifier.value()));
 
     if (frameInfo.documentIdentifier)
-        result[documentIdKey] = frameInfo.documentIdentifier.value().toString();
+        result[documentIdKey] = frameInfo.documentIdentifier.value().toString().createNSString().get();
 
     return [result copy];
 }
@@ -96,7 +96,7 @@ void WebExtensionAPIWebNavigation::getAllFrames(NSDictionary *details, Ref<WebEx
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WebNavigationGetAllFrames(tabIdentifier.value()), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<Vector<WebExtensionFrameParameters>, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -125,13 +125,13 @@ void WebExtensionAPIWebNavigation::getFrame(NSDictionary *details, Ref<WebExtens
     NSNumber *frameId = details[frameIdKey];
     auto frameIdentifier = toWebExtensionFrameIdentifier(frameId.doubleValue);
     if (!isValid(frameIdentifier)) {
-        *outExceptionString = toErrorString(nullString(), frameIdKey, @"it is not a frame identifier");
+        *outExceptionString = toErrorString(nullString(), frameIdKey, @"it is not a frame identifier").createNSString().autorelease();
         return;
     }
 
     WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::WebNavigationGetFrame(tabIdentifier.value(), frameIdentifier.value()), [protectedThis = Ref { *this }, callback = WTFMove(callback)](Expected<std::optional<WebExtensionFrameParameters>, WebExtensionError>&& result) {
         if (!result) {
-            callback->reportError(result.error());
+            callback->reportError(result.error().createNSString().get());
             return;
         }
 
@@ -199,7 +199,7 @@ void WebExtensionContextProxy::dispatchWebNavigationEvent(WebExtensionEventListe
     auto& parentFrameID = frameParameters.parentFrameIdentifier;
 
     NSMutableDictionary *navigationDetails = [@{
-        urlKey: frameURL.string(),
+        urlKey: frameURL.string().createNSString().get(),
         tabIdKey: @(toWebAPI(tabID)),
         frameIdKey: @(toWebAPI(frameID)),
         parentFrameIdKey: @(toWebAPI(parentFrameID)),
@@ -207,7 +207,7 @@ void WebExtensionContextProxy::dispatchWebNavigationEvent(WebExtensionEventListe
     } mutableCopy];
 
     if (frameParameters.documentIdentifier)
-        navigationDetails[documentIdKey] = frameParameters.documentIdentifier.value().toString();
+        navigationDetails[documentIdKey] = frameParameters.documentIdentifier.value().toString().createNSString().get();
 
     enumerateNamespaceObjects([&](auto& namespaceObject) {
         auto& webNavigationObject = namespaceObject.webNavigation();
@@ -215,27 +215,27 @@ void WebExtensionContextProxy::dispatchWebNavigationEvent(WebExtensionEventListe
         switch (type) {
         case WebExtensionEventListenerType::WebNavigationOnBeforeNavigate:
             // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onBeforeNavigate
-            webNavigationObject.onBeforeNavigate().invokeListenersWithArgument(navigationDetails, frameURL);
+            webNavigationObject.onBeforeNavigate().invokeListenersWithArgument(navigationDetails, frameURL.createNSURL().get());
             break;
 
         case WebExtensionEventListenerType::WebNavigationOnCommitted:
             // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onCommitted
-            webNavigationObject.onCommitted().invokeListenersWithArgument(navigationDetails, frameURL);
+            webNavigationObject.onCommitted().invokeListenersWithArgument(navigationDetails, frameURL.createNSURL().get());
             break;
 
         case WebExtensionEventListenerType::WebNavigationOnDOMContentLoaded:
             // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onDOMContentLoaded
-            webNavigationObject.onDOMContentLoaded().invokeListenersWithArgument(navigationDetails, frameURL);
+            webNavigationObject.onDOMContentLoaded().invokeListenersWithArgument(navigationDetails, frameURL.createNSURL().get());
             break;
 
         case WebExtensionEventListenerType::WebNavigationOnCompleted:
             // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onCompleted
-            webNavigationObject.onCompleted().invokeListenersWithArgument(navigationDetails, frameURL);
+            webNavigationObject.onCompleted().invokeListenersWithArgument(navigationDetails, frameURL.createNSURL().get());
             break;
 
         case WebExtensionEventListenerType::WebNavigationOnErrorOccurred:
             // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/webNavigation/onErrorOccurred
-            webNavigationObject.onErrorOccurred().invokeListenersWithArgument(navigationDetails, frameURL);
+            webNavigationObject.onErrorOccurred().invokeListenersWithArgument(navigationDetails, frameURL.createNSURL().get());
             break;
 
         default:

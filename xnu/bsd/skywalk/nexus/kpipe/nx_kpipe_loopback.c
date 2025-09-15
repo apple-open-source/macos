@@ -127,7 +127,7 @@ kplo_pre_connect(kern_nexus_provider_t nxprov,
 
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	*ch_ctx = KPLO_GENERATE_CTX(channel);
-	SK_DF(SK_VERB_KERNEL_PIPE, "nx_port %u ch 0x%llx ch_ctx 0x%llx",
+	SK_DF(SK_VERB_KERNEL_PIPE, "nx_port %u ch %p ch_ctx 0x%llx",
 	    nexus_port, SK_KVA(channel), (uint64_t)(*ch_ctx));
 
 	error = kern_nexus_get_pbufpool(nexus, NULL, NULL);
@@ -177,9 +177,9 @@ kplo_connected(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	KPLO_VERIFY_CTX(channel, kern_channel_get_context(channel));
 
-	SK_DF(SK_VERB_KERNEL_PIPE, "channel 0x%llx", SK_KVA(channel));
-	SK_DF(SK_VERB_KERNEL_PIPE, "  RX_ring 0x%llx", SK_KVA(kplo_rxring));
-	SK_DF(SK_VERB_KERNEL_PIPE, "  TX_ring 0x%llx", SK_KVA(kplo_txring));
+	SK_DF(SK_VERB_KERNEL_PIPE, "channel %p", SK_KVA(channel));
+	SK_DF(SK_VERB_KERNEL_PIPE, "  RX_ring %p", SK_KVA(kplo_rxring));
+	SK_DF(SK_VERB_KERNEL_PIPE, "  TX_ring %p", SK_KVA(kplo_txring));
 
 	KPLO_INJECT_ERROR(3);
 
@@ -194,7 +194,7 @@ kplo_pre_disconnect(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 #pragma unused(nxprov)
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	KPLO_VERIFY_CTX(channel, kern_channel_get_context(channel));
-	SK_DF(SK_VERB_KERNEL_PIPE, "called for channel 0x%llx",
+	SK_DF(SK_VERB_KERNEL_PIPE, "called for channel %p",
 	    SK_KVA(channel));
 }
 
@@ -205,7 +205,7 @@ kplo_disconnected(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 #pragma unused(nxprov)
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	KPLO_VERIFY_CTX(channel, kern_channel_get_context(channel));
-	SK_DF(SK_VERB_KERNEL_PIPE, "called for channel 0x%llx",
+	SK_DF(SK_VERB_KERNEL_PIPE, "called for channel %p",
 	    SK_KVA(channel));
 	bzero(&kplo_tx_pp_info, sizeof(kplo_tx_pp_info));
 	kplo_tx_pp = kplo_rx_pp = NULL;
@@ -232,7 +232,7 @@ kplo_ring_init(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	}
 	*ring_ctx = KPLO_GENERATE_CTX(ring);
 
-	SK_DF(SK_VERB_KERNEL_PIPE, "%s_ring 0x%llx ring_ctx 0x%llx, err(%d)",
+	SK_DF(SK_VERB_KERNEL_PIPE, "%s_ring %p ring_ctx 0x%llx, err(%d)",
 	    KPLO_WHICH_RING(ring), SK_KVA(ring), (uint64_t)(*ring_ctx), error);
 
 done:
@@ -246,7 +246,7 @@ kplo_ring_fini(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 #pragma unused(nxprov)
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	KPLO_VERIFY_CTX(ring, kern_channel_ring_get_context(ring));
-	SK_DF(SK_VERB_KERNEL_PIPE, "%s_ring 0x%llx",
+	SK_DF(SK_VERB_KERNEL_PIPE, "%s_ring %p",
 	    KPLO_WHICH_RING(ring), SK_KVA(ring));
 
 	if (ring == kplo_txring) {
@@ -276,7 +276,7 @@ kplo_slot_init(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	*pslot_ctx = KPLO_GENERATE_CTX(slot);
 	*slot_prop_addr = NULL;
 	SK_DF(SK_VERB_KERNEL_PIPE,
-	    "  slot 0x%llx id %u slot_ctx 0x%llx [%u]",
+	    "  slot %p id %u slot_ctx %p [%u]",
 	    SK_KVA(slot), slot_id, SK_KVA(*pslot_ctx), kplo_drv_slots);
 	lck_mtx_unlock(&kplo_lock);
 
@@ -298,7 +298,7 @@ kplo_slot_fini(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 
 	lck_mtx_lock(&kplo_lock);
 	KPLO_VERIFY_CTX(slot, ctx);
-	SK_DF(SK_VERB_KERNEL_PIPE, "  slot 0x%llx id %u [%u]",
+	SK_DF(SK_VERB_KERNEL_PIPE, "  slot %p id %u [%u]",
 	    SK_KVA(slot), slot_id, kplo_drv_slots);
 	lck_mtx_unlock(&kplo_lock);
 }
@@ -314,8 +314,8 @@ kplo_sync_tx(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	KPLO_VERIFY_CTX(kplo_nx_ctx, kern_nexus_get_context(nexus));
 	KPLO_VERIFY_CTX(ring, kern_channel_ring_get_context(ring));
 	SK_DF(SK_VERB_KERNEL_PIPE | SK_VERB_SYNC | SK_VERB_TX,
-	    "called with ring \"%s\" krflags 0x%b flags 0x%x",
-	    ring->ckr_name, ring->ckr_flags, CKRF_BITS, flags);
+	    "called with ring \"%s\" krflags 0x%x flags 0x%x",
+	    ring->ckr_name, ring->ckr_flags, flags);
 	VERIFY(ring == kplo_txring);
 
 	kern_channel_ring_t txkring = kplo_txring;
@@ -333,7 +333,7 @@ kplo_sync_tx(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	KPLO_INJECT_ERROR(8);
 
 	SK_DF(SK_VERB_KERNEL_PIPE | SK_VERB_SYNC | SK_VERB_TX,
-	    "0x%llx: %s %x -> %s", SK_KVA(txkring), txkring->ckr_name,
+	    "%p: %s %x -> %s", SK_KVA(txkring), txkring->ckr_name,
 	    flags, rxkring->ckr_name);
 	SK_DF(SK_VERB_KERNEL_PIPE | SK_VERB_SYNC | SK_VERB_TX,
 	    "tx before: kh %3u kt %3u | h %3u t %3u",
@@ -396,7 +396,7 @@ kplo_sync_tx(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 
 		if (kplo_dump_buf) {
 			SK_DF(SK_VERB_KERNEL_PIPE | SK_VERB_DUMP, "%s",
-			    sk_dump("buf", baddr + doff, dlen, 128, NULL, 0));
+			    sk_dump("buf", baddr + doff, dlen, 128));
 		}
 
 		VERIFY(kern_buflet_set_data_offset(buf, 0) == 0);
@@ -482,8 +482,8 @@ kplo_sync_rx(kern_nexus_provider_t nxprov, kern_nexus_t nexus,
 	kern_channel_ring_t rxkring = ring;
 
 	SK_DF(SK_VERB_KERNEL_PIPE | SK_VERB_SYNC | SK_VERB_RX,
-	    "called with ring \"%s\" krflags 0x%b flags 0x%x",
-	    ring->ckr_name, ring->ckr_flags, CKRF_BITS, flags);
+	    "called with ring \"%s\" krflags 0x%x flags 0x%x",
+	    ring->ckr_name, ring->ckr_flags, flags);
 
 	KPLO_INJECT_ERROR(10);
 

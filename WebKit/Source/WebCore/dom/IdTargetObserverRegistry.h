@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Google Inc. All Rights Reserved.
+ * Copyright (C) 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,10 +60,10 @@ private:
 
         ObserverSet();
         ~ObserverSet();
-        UncheckedKeyHashSet<CheckedRef<IdTargetObserver>> observers;
+        HashSet<CheckedRef<IdTargetObserver>> observers;
     };
 
-    using IdToObserverSetMap = UncheckedKeyHashMap<AtomString, std::unique_ptr<ObserverSet>>;
+    using IdToObserverSetMap = HashMap<AtomString, std::unique_ptr<ObserverSet>>;
     IdToObserverSetMap m_registry;
     CheckedPtr<ObserverSet> m_notifyingObserversInSet;
 };

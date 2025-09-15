@@ -40,6 +40,7 @@
 #include <mach/mach_vm.h>
 #include <sys/sysctl.h>
 #include <time.h>
+#include <stdbool.h>
 
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.vm"),
@@ -56,8 +57,6 @@ T_GLOBAL_META(
 /* Private interface */
 /*********************/
 
-static const char frameworkname[] = "vm_unitester";
-
 /* Type for test, fixture set up and fixture tear down functions. */
 typedef void (*test_fn_t)();
 
@@ -65,6 +64,7 @@ typedef void (*test_fn_t)();
 typedef struct {
 	const char * name;
 	test_fn_t test;
+	int expected_signal;
 } unit_test_t;
 
 /* Test suite structure. */
@@ -78,6 +78,7 @@ typedef struct {
 
 int _quietness        = 0;
 int _expected_signal  = 0;
+int _expected_vm_exc_guard_signal = 0;
 
 struct {
 	uintmax_t numoftests;
@@ -122,7 +123,7 @@ static void
 log_suite_info(suite_t * suite)
 {
 	logr("[TEST] %s", suite->name);
-	logr("Number of tests: %d\n", suite->numoftests);
+	logr("Number of tests: %d", suite->numoftests);
 }
 
 static void
@@ -135,13 +136,17 @@ log_suite_results(suite_t * suite, int passed_tests)
 static void
 log_test_info(unit_test_t * unit_test, unsigned test_num)
 {
-	logr("[BEGIN] #%04d: %s", test_num, unit_test->name);
+	if (unit_test->expected_signal) {
+		logr("[BEGIN] #%04d: %s, SIGNAL(%d) expected", test_num, unit_test->name, unit_test->expected_signal);
+	} else {
+		logr("[BEGIN] #%04d: %s", test_num, unit_test->name);
+	}
 }
 
 static void
 log_test_result(unit_test_t * unit_test, boolean_t test_passed, unsigned test_num)
 {
-	logr("[%s] #%04d: %s\n", test_passed ? "PASS" : "FAIL", test_num, unit_test->name);
+	logr("[%s] #%04d: %s", test_passed ? "PASS" : "FAIL", test_num, unit_test->name);
 }
 
 /* Run a test with fixture set up and teardown, while enforcing the
@@ -154,6 +159,19 @@ run_test(suite_t * suite, unit_test_t * unit_test, unsigned test_num)
 	suite->set_up();
 	unit_test->test();
 	suite->tear_down();
+}
+
+/* Expected signal for a test, default is 0. */
+void
+set_expected_signal(int signal)
+{
+	_expected_signal = signal;
+}
+
+int
+get_expected_signal()
+{
+	return _expected_signal;
 }
 
 /* Check a child return status. */
@@ -169,11 +187,15 @@ child_terminated_normally(int child_status)
 			    exit_status);
 		} else if (!_expected_signal) {
 			normal_exit = TRUE;
+		} else {
+			T_LOG(
+				"Child process unexpectedly exited with zero, "
+				"where signal %d is expected.", _expected_signal);
 		}
 	} else if (WIFSIGNALED(child_status)) {
 		int signal = WTERMSIG(child_status);
 		if (signal == _expected_signal ||
-		    (_expected_signal == -1 && (signal == SIGBUS || signal == SIGSEGV))) {
+		    (_expected_signal == -1 && (signal == SIGBUS || signal == SIGSEGV || signal == SIGKILL))) {
 			if (_quietness <= 0) {
 				T_LOG("Child process died with expected signal "
 				    "%d.", signal);
@@ -196,6 +218,7 @@ child_test_passed(suite_t * suite, unit_test_t * unit_test)
 {
 	int test_status;
 	static unsigned test_num = 0;
+	boolean_t use_default_expected_signal = FALSE;
 
 	test_num++;
 
@@ -208,8 +231,21 @@ child_test_passed(suite_t * suite, unit_test_t * unit_test)
 	while (waitpid(test_pid, &test_status, 0) != test_pid) {
 		continue;
 	}
+
+	/*
+	 * Allow overriding unit_test's default expected signal
+	 */
+	if ((get_expected_signal() == 0) &&
+	    (unit_test->expected_signal != 0)) {
+		set_expected_signal(unit_test->expected_signal);
+		use_default_expected_signal = TRUE;
+	}
 	boolean_t test_result = child_terminated_normally(test_status);
 	log_test_result(unit_test, test_result, test_num);
+	if (use_default_expected_signal) {
+		set_expected_signal(0);
+	}
+
 	return test_result;
 }
 
@@ -262,19 +298,6 @@ _run_suite(int numoftests, test_fn_t set_up, UnitTests tests, test_fn_t tear_dow
  * variables. Should only be used outside of the test, set up and tear
  * down functions. */
 
-/* Expected signal for a test, default is 0. */
-void
-set_expected_signal(int signal)
-{
-	_expected_signal = signal;
-}
-
-int
-get_expected_signal()
-{
-	return _expected_signal;
-}
-
 /* Logging verbosity. */
 void
 set_quietness(int value)
@@ -297,13 +320,13 @@ do_nothing()
 void
 log_aggregated_results()
 {
-	T_LOG("[SUMMARY] Aggregated Test Results\n");
+	T_LOG("[SUMMARY] Aggregated Test Results");
 	T_LOG("Total: %ju", results.numoftests);
 	T_LOG("Passed: %ju", results.passed_tests);
-	T_LOG("Failed: %ju\n", results.numoftests - results.passed_tests);
+	T_LOG("Failed: %ju", results.numoftests - results.passed_tests);
 
-	T_QUIET; T_ASSERT_EQ(results.passed_tests, results.numoftests,
-	    "%d passed of total %d tests",
+	T_ASSERT_EQ(results.passed_tests, results.numoftests,
+	    "%ju passed of total %ju tests",
 	    results.passed_tests, results.numoftests);
 }
 
@@ -326,67 +349,47 @@ log_aggregated_results()
 
 static int vm_address_size = sizeof(mach_vm_address_t);
 
-static char *progname = "";
-
-/*************************/
-/* xnu version functions */
-/*************************/
-
-/* Find the xnu version string. */
-char *
-xnu_version_string()
-{
-	size_t length;
-	int mib[2];
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_VERSION;
-
-	T_QUIET;
-	T_ASSERT_POSIX_SUCCESS(sysctl(mib, 2, NULL, &length, NULL, 0), "sysctl()");
-	char * version = (char *)malloc(length);
-	T_QUIET;
-	T_WITH_ERRNO;
-	T_ASSERT_NOTNULL(version, "malloc()");
-	T_QUIET;
-	T_EXPECT_POSIX_SUCCESS(sysctl(mib, 2, version, &length, NULL, 0), "sysctl()");
-	if (T_RESULT == T_RESULT_FAIL) {
-		free(version);
-		T_END;
-	}
-	char * xnu_string = strstr(version, "xnu-");
-	free(version);
-	T_QUIET;
-	T_ASSERT_NOTNULL(xnu_string, "%s: error finding xnu version string.", progname);
-	return xnu_string;
-}
-
-/* Find the xnu major version number. */
-unsigned int
-xnu_major_version()
-{
-	char * endptr;
-	char * xnu_substring = xnu_version_string() + 4;
-
-	errno                    = 0;
-	unsigned int xnu_version = strtoul(xnu_substring, &endptr, 0);
-	T_QUIET;
-	T_ASSERT_TRUE((errno != ERANGE && endptr != xnu_substring),
-	    "%s: error finding xnu major version number.", progname);
-	return xnu_version;
-}
-
 /*************************/
 /* Mach assert functions */
 /*************************/
 
-static inline void
-assert_mach_return(kern_return_t kr, kern_return_t expected_kr, const char * mach_routine)
+#define assert_mach_return(kr, expected_kr, format, ...)                \
+	do {                                                            \
+	/* fixme T_QUIET is not working */                      \
+	        if ((kr) != (expected_kr)) {                            \
+	                T_QUIET; T_ASSERT_MACH_ERROR(kr, expected_kr, format, ##__VA_ARGS__); \
+	        }                                                       \
+	} while (0)
+
+#define assert_mach_success(kr, format, ...)                            \
+	do {                                                            \
+	/* fixme T_QUIET is not working */                      \
+	        if (kr != KERN_SUCCESS) {                               \
+	                T_QUIET; T_ASSERT_MACH_SUCCESS(kr, format, ##__VA_ARGS__); \
+	        }                                                       \
+	} while (0)                                                     \
+
+#define assert_mach_failure(kr, format, ...)                            \
+	do {                                                            \
+	/* fixme T_QUIET is not working */                      \
+	        if (kr == KERN_SUCCESS) {                               \
+	                T_QUIET; T_ASSERT_NE(kr, KERN_SUCCESS, format, ##__VA_ARGS__); \
+	        }                                                       \
+	} while (0)                                                     \
+
+/* Determine if TASK_EXC_GUARD_VM_FATAL is enabled for task */
+static boolean_t
+get_task_exc_guard_vm_fatal(void)
 {
-	T_QUIET; T_ASSERT_EQ(kr, expected_kr,
-	    "%s unexpectedly returned: %s."
-	    "Should have returned: %s.",
-	    mach_routine, mach_error_string(kr),
-	    mach_error_string(expected_kr));
+	task_exc_guard_behavior_t behavior;
+
+	assert_mach_success(task_get_exc_guard_behavior(mach_task_self(), &behavior), "task_get_exc_guard_behavior");
+	if ((behavior & TASK_EXC_GUARD_VM_DELIVER) &&
+	    (behavior & TASK_EXC_GUARD_VM_FATAL)) {
+		return TRUE;
+	} else {
+		return FALSE;
+	}
 }
 
 /*******************************/
@@ -467,7 +470,7 @@ memory_entry(mach_vm_size_t * size, mach_port_t *object_handle)
 	}
 	T_QUIET; T_ASSERT_EQ(*size, round_page(original_size),
 	    "mach_make_memory_entry_64() unexpectedly returned a named "
-	    "entry of size 0x%jx (%ju).\n"
+	    "entry of size 0x%jx (%ju). "
 	    "Should have returned a "
 	    "named entry of size 0x%jx (%ju).",
 	    (uintmax_t)*size, (uintmax_t)*size, (uintmax_t)original_size, (uintmax_t)original_size);
@@ -486,7 +489,7 @@ wrapper_mach_vm_map_named_entry(vm_map_t map, mach_vm_address_t * address, mach_
 	check_fixed_address(address, size);
 	kr = mach_vm_map(map, address, size, (mach_vm_offset_t)0, flags, object_handle, (memory_object_offset_t)0, FALSE,
 	    VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_port_deallocate(mach_task_self(), object_handle), "mach_port_deallocate()");
+	assert_mach_success(mach_port_deallocate(mach_task_self(), object_handle), "mach_port_deallocate()");
 	return kr;
 }
 
@@ -586,11 +589,13 @@ static mach_vm_size_t _vm_size       = DEFAULT_VM_SIZE;
 static int _address_flag             = VM_FLAGS_ANYWHERE;
 static boolean_t _address_alignment  = TRUE;
 static mach_vm_address_t _vm_address = 0x0;
+static mach_vm_address_t _already_deallocated_vm_page = 0x0;
 
 /* Buffer for mach_vm_write(). */
 static mach_vm_size_t _buffer_size       = DEFAULT_VM_SIZE;
 static mach_vm_address_t _buffer_address = 0x0;
 static int _buffer_offset                = 0;
+static mach_vm_address_t _already_deallocated_buffer_page = 0x0;
 
 /* Post action for mach_vm_copy(). */
 static int _vmcopy_post_action = VMCOPY_MODIFY_SRC;
@@ -656,6 +661,18 @@ get_vm_address()
 }
 
 static void
+set_already_deallocated_vm_page(mach_vm_address_t address)
+{
+	_already_deallocated_vm_page = address;
+}
+
+static mach_vm_address_t
+get_already_deallocated_vm_page()
+{
+	return _already_deallocated_vm_page;
+}
+
+static void
 set_buffer_size(mach_vm_size_t size)
 {
 	_buffer_size = size;
@@ -689,6 +706,18 @@ static int
 get_buffer_offset()
 {
 	return _buffer_offset;
+}
+
+static void
+set_already_deallocated_buffer_page(mach_vm_address_t address)
+{
+	_already_deallocated_buffer_page = address;
+}
+
+static mach_vm_address_t
+get_already_deallocated_buffer_page()
+{
+	return _already_deallocated_buffer_page;
 }
 
 static void
@@ -746,14 +775,6 @@ static test_info_t test_info[] = {
 };
 
 static void
-die_on_invalid_value(int condition, const char * value_string)
-{
-	T_QUIET;
-	T_ASSERT_EQ(condition, 0, "%s: invalid value: %s.",
-	    progname, value_string);
-}
-
-static void
 process_options(test_option_t options)
 {
 	test_info_t *tp;
@@ -762,9 +783,12 @@ process_options(test_option_t options)
 
 	set_vm_size(DEFAULT_VM_SIZE);
 	set_quietness(DEFAULT_QUIETNESS);
+	if (get_task_exc_guard_vm_fatal()) {
+		_expected_vm_exc_guard_signal = SIGKILL;
+	}
 
 	if (NULL != getenv("LTERDOS")) {
-		logr("LTERDOS=YES this is LeanTestEnvironment\nIncreasing quietness by 1.");
+		logr("LTERDOS=YES this is LeanTestEnvironment. Increasing quietness by 1.");
 		set_quietness(get_quietness() + 1);
 	} else {
 		if (options.to_quietness > 0) {
@@ -841,7 +865,7 @@ aligned_size(mach_vm_address_t address, mach_vm_size_t size)
 static inline void
 assert_aligned_address(mach_vm_address_t address)
 {
-	T_QUIET; T_ASSERT_EQ((address & get_mask()), 0,
+	T_QUIET; T_ASSERT_EQ((address & get_mask()), 0ull,
 	    "Address 0x%jx is unexpectedly "
 	    "unaligned.",
 	    (uintmax_t)address);
@@ -908,7 +932,7 @@ void
 assert_read_success(mach_vm_address_t address, mach_vm_size_t size, vm_offset_t * data, mach_msg_type_number_t * data_size)
 {
 	assert_read_return(address, size, data, data_size, KERN_SUCCESS);
-	T_QUIET; T_ASSERT_EQ(*data_size, size,
+	T_QUIET; T_ASSERT_EQ((mach_vm_size_t)*data_size, size,
 	    "Returned buffer size 0x%jx "
 	    "(%ju) is unexpectedly different from source size 0x%jx "
 	    "(%ju).",
@@ -950,6 +974,13 @@ assert_copy_success(mach_vm_address_t source, mach_vm_size_t size, mach_vm_addre
 {
 	assert_copy_return(source, size, dest, KERN_SUCCESS);
 }
+
+void
+assert_copy_failure(mach_vm_address_t source, mach_vm_size_t size, mach_vm_address_t dest)
+{
+	assert_mach_failure(mach_vm_copy(mach_task_self(), source, size, dest), "mach_vm_copy()");
+}
+
 
 /*******************/
 /* Memory patterns */
@@ -1058,8 +1089,8 @@ get_fixed_address(mach_vm_size_t size)
 	 * cause malloc() to use the desired range and tests will randomly fail. The allocate routines will
 	 * do the delayed vm_deallocate() to free the fixed memory just before allocation testing in the wrapper.
 	 */
-	T_QUIET; T_ASSERT_EQ(fixed_vm_address, 0, "previous fixed address not used");
-	T_QUIET; T_ASSERT_EQ(fixed_vm_size, 0, "previous fixed size not used");
+	T_QUIET; T_ASSERT_EQ(fixed_vm_address, 0ull, "previous fixed address not used");
+	T_QUIET; T_ASSERT_EQ(fixed_vm_size, 0ull, "previous fixed size not used");
 	fixed_vm_address = address;
 	fixed_vm_size = size;
 
@@ -1164,6 +1195,18 @@ set_up_copy_shared_mode_variables()
 /* Allocation set up functions */
 /*******************************/
 
+static void
+log_allocation(mach_vm_size_t size, int flags, mach_vm_address_t address, const char *message)
+{
+	if (flags & VM_FLAGS_ANYWHERE) {
+		logv("Allocating 0x%jx (%ju) byte%s %s...",
+		    (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s", message);
+	} else {
+		logv("Allocating 0x%jx (%ju) byte%s at address 0x%jx %s...",
+		    (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s", (uintmax_t)address, message);
+	}
+}
+
 /* Allocate VM region of given size. */
 void
 allocate(mach_vm_size_t size)
@@ -1171,11 +1214,7 @@ allocate(mach_vm_size_t size)
 	mach_vm_address_t address = get_vm_address();
 	int flag                  = get_address_flag();
 
-	logv("Allocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv("...");
+	log_allocation(size, flag, address, "");
 	assert_allocate_success(&address, size, flag);
 	logv(
 		"Memory of rounded size 0x%jx (%ju) allocated at "
@@ -1192,6 +1231,7 @@ allocate(mach_vm_size_t size)
 			(uintmax_t)old_address, (uintmax_t)address);
 	}
 	set_vm_address(address);
+	set_already_deallocated_vm_page(0x0);
 }
 
 void
@@ -1199,19 +1239,20 @@ allocate_buffer(mach_vm_size_t buffer_size)
 {
 	mach_vm_address_t data = 0x0;
 
-	logv("Allocating 0x%jx (%ju) byte%s...", (uintmax_t)buffer_size, (uintmax_t)buffer_size, (buffer_size == 1) ? "" : "s");
+	log_allocation(buffer_size, VM_FLAGS_ANYWHERE, 0, "");
 	assert_allocate_success(&data, buffer_size, VM_FLAGS_ANYWHERE);
 	logv(
 		"Memory of rounded size 0x%jx (%ju) allocated at "
 		"address 0x%jx.",
 		(uintmax_t)round_page(buffer_size), (uintmax_t)round_page(buffer_size), (uintmax_t)data);
 	data += get_buffer_offset();
-	T_QUIET; T_ASSERT_EQ((vm_offset_t)data, data,
+	T_QUIET; T_ASSERT_EQ((mach_vm_address_t)(vm_offset_t)data, data,
 	    "Address 0x%jx "
 	    "unexpectedly overflows to 0x%jx when cast as "
 	    "vm_offset_t type.",
 	    (uintmax_t)data, (uintmax_t)(vm_offset_t)data);
 	set_buffer_address(data);
+	set_already_deallocated_buffer_page(0x0);
 }
 
 /****************************************************/
@@ -1287,10 +1328,31 @@ deallocate_range(mach_vm_address_t address, mach_vm_size_t size)
 	assert_deallocate_success(address, size);
 }
 
+/*
+ * Same as deallocate_range, buf if already_deallocated_address
+ * is not zero then that page of memory is not deallocated.
+ */
+void
+deallocate_range_except_page(mach_vm_address_t address, mach_vm_size_t size,
+    mach_vm_address_t already_deallocated_address)
+{
+	if (already_deallocated_address != 0) {
+		mach_vm_address_t end = mach_vm_round_page(address + size);
+		mach_vm_address_t already_deallocated_end = already_deallocated_address + vm_page_size;
+		deallocate_range(address, already_deallocated_address - address);
+		logv("Skipping already-deallocated page at 0x%jx (%ju bytes)",
+		    (uintmax_t)already_deallocated_address, (uintmax_t)vm_page_size);
+		deallocate_range(already_deallocated_end, end - already_deallocated_end);
+	} else {
+		deallocate_range(address, size);
+	}
+}
+
 void
 deallocate()
 {
-	deallocate_range(get_vm_address(), get_vm_size());
+	deallocate_range_except_page(get_vm_address(), get_vm_size(), get_already_deallocated_vm_page());
+	set_already_deallocated_vm_page(0x0);
 }
 
 /* Deallocate source memory, including the extra page for unaligned
@@ -1300,7 +1362,11 @@ deallocate_extra_page()
 {
 	/* Set the address and size to their original allocation
 	 *  values. */
-	deallocate_range(mach_vm_trunc_page(get_vm_address()), get_vm_size() + 1);
+	deallocate_range_except_page(
+		mach_vm_trunc_page(get_vm_address()),
+		get_vm_size() + 1,
+		get_already_deallocated_vm_page());
+	set_already_deallocated_vm_page(0x0);
 }
 
 /* Deallocate buffer and destination memory for mach_vm_write(),
@@ -1308,8 +1374,58 @@ deallocate_extra_page()
 void
 deallocate_vm_and_buffer()
 {
-	deallocate_range(mach_vm_trunc_page(get_vm_address()), get_vm_size() + 1);
-	deallocate_range(mach_vm_trunc_page(get_buffer_address()), get_buffer_size() + get_buffer_offset());
+	deallocate_range_except_page(
+		mach_vm_trunc_page(get_vm_address()),
+		get_vm_size() + 1,
+		get_already_deallocated_vm_page());
+	set_already_deallocated_vm_page(0x0);
+
+	deallocate_range_except_page(
+		mach_vm_trunc_page(get_buffer_address()),
+		get_buffer_size() + get_buffer_offset(),
+		get_already_deallocated_buffer_page());
+	set_already_deallocated_buffer_page(0x0);
+}
+
+/*
+ * Deallocate vm_page_size bytes within the source memory.
+ * Later deallocate() or deallocate_extra_page() or deallocate_vm_and_buffer()
+ * will not deallocate it again.
+ */
+void
+deallocate_vm_page_early(mach_vm_address_t address)
+{
+	mach_vm_address_t vm_start = mach_vm_trunc_page(get_vm_address());
+	mach_vm_address_t vm_end = mach_vm_round_page(vm_start + get_vm_size() + 1);
+	T_QUIET; T_ASSERT_EQ(get_already_deallocated_vm_page(), 0ull,
+	    "deallocate_vm_page_early can only be used once per test");
+	T_QUIET; T_ASSERT_EQ(address, mach_vm_trunc_page(address),
+	    "deallocate_vm_page_early address must be page aligned");
+	T_QUIET; T_ASSERT_TRUE(address >= vm_start && address + vm_page_size <= vm_end,
+	    "deallocate_vm_page_early address must be within source memory");
+
+	assert_deallocate_success(address, vm_page_size);
+	set_already_deallocated_vm_page(address);
+}
+
+/*
+ * Deallocate vm_page_size bytes within the mach_vm_write() buffer.
+ * Later deallocate_vm_and_buffer() will not deallocate it again.
+ */
+void
+deallocate_buffer_page_early(mach_vm_address_t address)
+{
+	mach_vm_address_t buffer_start = mach_vm_trunc_page(get_buffer_address());
+	mach_vm_address_t buffer_end = mach_vm_round_page(buffer_start + get_buffer_size() + get_buffer_offset());
+	T_QUIET; T_ASSERT_EQ(get_already_deallocated_buffer_page(), 0ull,
+	    "deallocate_buffer_page_early can only be used once per test");
+	T_QUIET; T_ASSERT_EQ(address, mach_vm_trunc_page(address),
+	    "deallocate_buffer_page_early address must be page aligned");
+	T_QUIET; T_ASSERT_TRUE(address >= buffer_start && address + vm_page_size <= buffer_end,
+	    "deallocate_buffer_page_early address must be within buffer memory");
+
+	assert_deallocate_success(address, vm_page_size);
+	set_already_deallocated_buffer_page(address);
 }
 
 /***********************************/
@@ -1340,11 +1456,11 @@ read_deallocate()
 
 	/* Promoting to mach_vm types after checking for overflow, and
 	 *  setting the global address from the buffer's. */
-	T_QUIET; T_ASSERT_EQ((mach_vm_address_t)read_address, read_address,
+	T_QUIET; T_ASSERT_EQ((vm_offset_t)(mach_vm_address_t)read_address, read_address,
 	    "Address 0x%jx unexpectedly overflows to 0x%jx when cast "
 	    "as mach_vm_address_t type.",
 	    (uintmax_t)read_address, (uintmax_t)(mach_vm_address_t)read_address);
-	T_QUIET; T_ASSERT_EQ((mach_vm_size_t)read_size, read_size,
+	T_QUIET; T_ASSERT_EQ((mach_msg_type_number_t)(mach_vm_size_t)read_size, read_size,
 	    "Size 0x%jx (%ju) unexpectedly overflows to 0x%jx (%ju) "
 	    "when cast as mach_vm_size_t type.",
 	    (uintmax_t)read_size, (uintmax_t)read_size, (uintmax_t)(mach_vm_size_t)read_size, (uintmax_t)(mach_vm_size_t)read_size);
@@ -1414,7 +1530,7 @@ copy_deallocate(void)
 	deallocate_range(mach_vm_trunc_page(source), size + 1);
 	/* Promoting to mach_vm types after checking for overflow, and
 	 *  setting the global address from the buffer's. */
-	T_QUIET; T_ASSERT_EQ((vm_offset_t)dest, dest,
+	T_QUIET; T_ASSERT_EQ((mach_vm_address_t)(vm_offset_t)dest, dest,
 	    "Address 0x%jx unexpectedly overflows to 0x%jx when cast "
 	    "as mach_vm_address_t type.",
 	    (uintmax_t)dest, (uintmax_t)(vm_offset_t)dest);
@@ -1471,7 +1587,7 @@ set_up_vm_variables_allocate_protect(vm_prot_t protection, const char * protecti
 		"Setting %s-protection on 0x%jx (%ju) byte%s at address "
 		"0x%jx...",
 		protection_name, (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s", (uintmax_t)address);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), address, size, FALSE, protection), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), address, size, FALSE, protection), "mach_vm_protect()");
 	logv("Region %s-protected.", protection_name);
 }
 
@@ -1538,7 +1654,7 @@ write_pattern(
 		"and size 0x%jx (%ju)...",
 		pattern_name, (uintmax_t)address, (uintmax_t)size, (uintmax_t)size);
 	filter_addresses_do_else(filter, reversed, address, size, write_address, no_action, address);
-	logv("Pattern writen.");
+	logv("Pattern written.");
 }
 
 void
@@ -1615,11 +1731,9 @@ test_reallocate_pages()
 		(uintmax_t)address, (uintmax_t)size, (uintmax_t)size);
 	for (i = address; i < address + size; i += vm_page_size) {
 		kr = allocator(this_task, &i, vm_page_size, VM_FLAGS_FIXED);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_NO_SPACE,
-		    "Allocator "
-		    "at address 0x%jx unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)address, mach_error_string(kr), mach_error_string(KERN_NO_SPACE));
+		assert_mach_return(kr, KERN_NO_SPACE,
+		    "Allocator at address 0x%jx expected KERN_NO_SPACE",
+		    (uintmax_t)address);
 	}
 	logv("Returned expected error at each page: %s.", mach_error_string(KERN_NO_SPACE));
 }
@@ -1632,11 +1746,7 @@ test_allocate_in_null_map()
 	mach_vm_size_t size       = get_vm_size();
 	int flag                  = get_address_flag();
 
-	logv("Allocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv(" in NULL VM map...");
+	log_allocation(size, flag, address, "in NULL VM map");
 	assert_mach_return(get_allocator()(VM_MAP_NULL, &address, size, flag), MACH_SEND_INVALID_DEST, "Allocator");
 	logv("Returned expected error: %s.", mach_error_string(MACH_SEND_INVALID_DEST));
 }
@@ -1654,11 +1764,7 @@ test_allocate_with_kernel_flags()
 	kern_return_t kr;
 	int valid_flags = VM_FLAGS_USER_ALLOCATE | VM_FLAGS_USER_MAP | VM_FLAGS_USER_REMAP | VM_FLAGS_ALIAS_MASK;
 
-	logv("Allocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv(" with various invalid flags...");
+	log_allocation(size, flag, address, "with various invalid flags");
 	for (i = 0; i < sizeof(int) * 8; i++) {
 		int test_flag = 1 << i;
 
@@ -1669,11 +1775,9 @@ test_allocate_with_kernel_flags()
 
 		bad_flag = test_flag | flag;
 		kr = allocator(this_task, &address, size, bad_flag);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ARGUMENT,
-		    "Allocator "
-		    "with invalid flag 0x%x unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    bad_flag, mach_error_string(kr), mach_error_string(KERN_INVALID_ARGUMENT));
+		assert_mach_return(kr, KERN_INVALID_ARGUMENT,
+		    "Allocator with invalid flag 0x%x expected KERN_INVALID_ARGUMENT.",
+		    bad_flag);
 	}
 	logv("Returned expected error with each invalid flag: %s.", mach_error_string(KERN_INVALID_ARGUMENT));
 }
@@ -1682,37 +1786,6 @@ test_allocate_with_kernel_flags()
 void
 test_allocate_superpage_with_incompatible_flags()
 {
-	allocate_fn_t allocator   = get_allocator();
-	vm_map_t this_task        = mach_task_self();
-	mach_vm_address_t address = get_vm_address();
-	mach_vm_size_t size       = get_vm_size();
-	int flag                  = get_address_flag();
-	int bad_flag, i;
-	kern_return_t kr;
-	int incompatible_flags = VM_FLAGS_PURGABLE | VM_FLAGS_TPRO;
-
-	logv("Allocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv(" with various incompatible flags...");
-	for (i = 0; i < sizeof(int) * 8; i++) {
-		int test_flag = 1 << i;
-
-		/* Skip compatible flags */
-		if (!(incompatible_flags & test_flag)) {
-			continue;
-		}
-
-		bad_flag = test_flag | flag | VM_FLAGS_SUPERPAGE_SIZE_ANY;
-		kr = allocator(this_task, &address, size, bad_flag);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ARGUMENT,
-		    "Allocator "
-		    "with invalid flag 0x%x unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    bad_flag, mach_error_string(kr), mach_error_string(KERN_INVALID_ARGUMENT));
-	}
-	logv("Returned expected error with each invalid flag: %s.", mach_error_string(KERN_INVALID_ARGUMENT));
 }
 
 /*****************************/
@@ -1733,21 +1806,15 @@ test_mach_vm_map_protection_inheritance_error()
 	    : (mach_vm_offset_t)get_mask();
 	int flag                    = get_address_flag();
 	mach_port_t object_handle   = MACH_PORT_NULL;
-	vm_prot_t cur_protections[] = {VM_PROT_DEFAULT, VM_PROT_ALL + 1, ~VM_PROT_IS_MASK, INT_MAX};
-	vm_prot_t max_protections[] = {VM_PROT_ALL, VM_PROT_ALL + 1, ~VM_PROT_IS_MASK, INT_MAX};
+	vm_prot_t cur_protections[] = {VM_PROT_DEFAULT, (VM_PROT_ALL | VM_PROT_ALLEXEC) + 1, ~VM_PROT_IS_MASK, INT_MAX};
+	vm_prot_t max_protections[] = {VM_PROT_ALL, (VM_PROT_ALL | VM_PROT_ALLEXEC) + 1, ~VM_PROT_IS_MASK, INT_MAX};
 	vm_inherit_t inheritances[] = {VM_INHERIT_DEFAULT, VM_INHERIT_LAST_VALID + 1, UINT_MAX};
 	int i, j, k;
 
 	if (get_allocator() == wrapper_mach_vm_map_named_entry) {
 		assert_mach_success(memory_entry(&size, &object_handle), "mach_make_memory_entry_64()");
 	}
-	logv("Allocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv(
-		" with various invalid protection/inheritance "
-		"arguments...");
+	log_allocation(size, flag, address, "with various invalid protection/inheritance arguments");
 
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
@@ -1758,13 +1825,11 @@ test_mach_vm_map_protection_inheritance_error()
 				}
 				kr = mach_vm_map(my_task, &address, size, mask, flag, object_handle, (memory_object_offset_t)0, FALSE,
 				    cur_protections[i], max_protections[j], inheritances[k]);
-				T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ARGUMENT,
+				assert_mach_return(kr, KERN_INVALID_ARGUMENT,
 				    "mach_vm_map() "
 				    "with cur_protection 0x%x, max_protection 0x%x, "
-				    "inheritance 0x%x unexpectedly returned: %s.\n"
-				    "Should have returned: %s.",
-				    cur_protections[i], max_protections[j], inheritances[k], mach_error_string(kr),
-				    mach_error_string(KERN_INVALID_ARGUMENT));
+				    "inheritance 0x%x expected KERN_INVALID_ARGUMENT",
+				    cur_protections[i], max_protections[j], inheritances[k]);
 			}
 		}
 	}
@@ -1868,9 +1933,9 @@ test_allocate_at_zero()
 	assert_allocate_return(&address, size, VM_FLAGS_FIXED, kr_expected);
 	logv("Returned expected value: %s.", mach_error_string(kr_expected));
 	if (kr_expected == KERN_SUCCESS) {
-		T_QUIET; T_ASSERT_EQ(address, 0,
+		T_QUIET; T_ASSERT_EQ(address, 0ull,
 		    "Address 0x%jx is unexpectedly "
-		    "nonzero.\n",
+		    "nonzero.",
 		    (uintmax_t)address);
 		logv("Allocated address 0x%jx is zero.", (uintmax_t)address);
 		deallocate_range(address, size);
@@ -1962,7 +2027,7 @@ test_allocate_first_fit_pages()
 	logv("Allocating pages between 0x%jx and 0x%jx...", (uintmax_t)address1, (uintmax_t)address2);
 	for (i = address1; i <= address2; i += vm_page_size) {
 		kr = allocator(this_task, &i, vm_page_size, VM_FLAGS_FIXED);
-		T_QUIET; T_ASSERT_NE(kr, KERN_SUCCESS,
+		assert_mach_failure(kr,
 		    "Allocator at address 0x%jx "
 		    "unexpectedly succeeded.",
 		    (uintmax_t)i);
@@ -1986,7 +2051,7 @@ access_deallocated_range_address(mach_vm_address_t address, const char * positio
 	logv("Will deallocate and read from %s 0x%jx of deallocated range...", position, (uintmax_t)address);
 	deallocate();
 	mach_vm_address_t bad_value = MACH_VM_ADDRESS_T(address);
-	T_ASSERT_FAIL("Unexpectedly read value 0x%jx at address 0x%jx.\n"
+	T_ASSERT_FAIL("Unexpectedly read value 0x%jx at address 0x%jx. "
 	    "Should have died with signal SIGSEGV.",
 	    (uintmax_t)bad_value, (uintmax_t)address);
 }
@@ -2024,7 +2089,7 @@ test_deallocate_suicide()
 	logv("Deallocating 0x%jx (%ju) bytes at address 0x%jx...", (uintmax_t)size, (uintmax_t)size, (uintmax_t)address);
 	kern_return_t kr = mach_vm_deallocate(mach_task_self(), address, size);
 	T_ASSERT_FAIL("mach_vm_deallocate() with address 0x%jx and "
-	    "size 0x%jx (%ju) unexpectedly returned: %s.\n"
+	    "size 0x%jx (%ju) unexpectedly returned: %s. "
 	    "Should have died with signal SIGSEGV or SIGBUS.",
 	    (uintmax_t)address, (uintmax_t)size, (uintmax_t)size, mach_error_string(kr));
 }
@@ -2084,46 +2149,9 @@ test_deallocate_zero_size_ranges()
 	logv("Deallocating 0x0 (0) bytes at various addresses...");
 	for (i = 0; i < numofaddresses; i++) {
 		kr = mach_vm_deallocate(this_task, addresses[i], 0);
-		T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_deallocate() at "
-		    "address 0x%jx unexpectedly failed: %s.",
-		    (uintmax_t)addresses[i], mach_error_string(kr));
-	}
-	logv("Deallocations successful.");
-}
-
-/* Deallocation succeeds if the end of the range rounds to 0x0. */
-void
-test_deallocate_rounded_zero_end_ranges()
-{
-	int i;
-	kern_return_t kr;
-	vm_map_t this_task = mach_task_self();
-	struct {
-		mach_vm_address_t address;
-		mach_vm_size_t size;
-	} ranges[] = {
-		{0x0, (mach_vm_size_t)UINTMAX_MAX},
-		{0x0, (mach_vm_size_t)UINTMAX_MAX - vm_page_size + 2},
-		{0x1, (mach_vm_size_t)UINTMAX_MAX - 1},
-		{0x1, (mach_vm_size_t)UINTMAX_MAX - vm_page_size + 1},
-		{0x2, (mach_vm_size_t)UINTMAX_MAX - 2},
-		{0x2, (mach_vm_size_t)UINTMAX_MAX - vm_page_size},
-		{(mach_vm_address_t)UINTMAX_MAX - vm_page_size + 1, vm_page_size - 1},
-		{(mach_vm_address_t)UINTMAX_MAX - vm_page_size + 1, 1},
-		{(mach_vm_address_t)UINTMAX_MAX - 1, 1},
-	};
-	int numofranges = sizeof(ranges) / sizeof(ranges[0]);
-
-	logv(
-		"Deallocating various memory ranges whose end rounds to "
-		"0x0...");
-	for (i = 0; i < numofranges; i++) {
-		kr = mach_vm_deallocate(this_task, ranges[i].address, ranges[i].size);
-		T_QUIET; T_ASSERT_MACH_SUCCESS(kr,
-		    "mach_vm_deallocate() with address 0x%jx and size "
-		    "0x%jx (%ju) unexpectedly returned: %s.\n"
-		    "Should have succeeded.",
-		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size, mach_error_string(kr));
+		assert_mach_success(kr, "mach_vm_deallocate() at "
+		    "address 0x%jx unexpectedly failed",
+		    (uintmax_t)addresses[i]);
 	}
 	logv("Deallocations successful.");
 }
@@ -2149,14 +2177,14 @@ test_deallocate_wrapped_around_ranges()
 	logv(
 		"Deallocating various memory ranges wrapping around the "
 		"address space...");
+
 	for (i = 0; i < numofranges; i++) {
 		kr = mach_vm_deallocate(this_task, ranges[i].address, ranges[i].size);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ARGUMENT,
+		assert_mach_return(kr, KERN_INVALID_ARGUMENT,
 		    "mach_vm_deallocate() with address 0x%jx and size "
-		    "0x%jx (%ju) unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size, mach_error_string(kr),
-		    mach_error_string(KERN_INVALID_ARGUMENT));
+		    "0x%jx (%ju) expected KERN_INVALID_ARGUMENT",
+		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size,
+		    (uintmax_t)ranges[i].size);
 	}
 	logv("Returned expected error on each range: %s.", mach_error_string(KERN_INVALID_ARGUMENT));
 }
@@ -2167,13 +2195,9 @@ test_deallocate_in_null_map()
 {
 	mach_vm_address_t address = get_vm_address();
 	mach_vm_size_t size       = get_vm_size();
-	int flag                  = get_address_flag();
 
-	logv("Deallocating 0x%jx (%ju) byte%s", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s");
-	if (!(flag & VM_FLAGS_ANYWHERE)) {
-		logv(" at address 0x%jx", (uintmax_t)address);
-	}
-	logv(" in NULL VM map...");
+	logv("Deallocating 0x%jx (%ju) byte%s at address 0x%jx in NULL VM map...",
+	    (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s", (uintmax_t)address);
 	assert_mach_return(mach_vm_deallocate(VM_MAP_NULL, address, size), MACH_SEND_INVALID_DEST, "mach_vm_deallocate()");
 	logv("Returned expected error: %s.", mach_error_string(MACH_SEND_INVALID_DEST));
 }
@@ -2195,7 +2219,7 @@ test_read_address_offset()
 		assert_aligned_address(address);
 		logv("Buffer address 0x%jx is aligned as expected.", (uintmax_t)address);
 	} else {
-		T_QUIET; T_ASSERT_EQ(((address - 1) & (vm_page_size - 1)), 0,
+		T_QUIET; T_ASSERT_EQ(((address - 1) & (vm_page_size - 1)), 0ull,
 		    "Buffer "
 		    "address 0x%jx does not have the expected boundary "
 		    "offset of 1.",
@@ -2220,8 +2244,8 @@ test_read_null_map()
 		"Reading 0x%jx (%ju) byte%s at address 0x%jx in NULL VM "
 		"map...",
 		(uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s", (uintmax_t)address);
-	assert_mach_return(mach_vm_read(VM_MAP_NULL, address, size, &read_address, &read_size), MACH_SEND_INVALID_DEST,
-	    "mach_vm_read()");
+	assert_mach_return(mach_vm_read(VM_MAP_NULL, address, size, &read_address, &read_size),
+	    MACH_SEND_INVALID_DEST, "mach_vm_read()");
 	logv("Returned expected error: %s.", mach_error_string(MACH_SEND_INVALID_DEST));
 }
 
@@ -2236,7 +2260,7 @@ test_read_partially_deallocated_range()
 	mach_msg_type_number_t read_size;
 
 	logv("Deallocating a mid-range page at address 0x%jx...", (uintmax_t)mid_point);
-	assert_deallocate_success(mid_point, vm_page_size);
+	deallocate_vm_page_early(mid_point);
 	logv("Page deallocated.");
 
 	logv("Reading 0x%jx (%ju) byte%s at address 0x%jx...", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s",
@@ -2261,7 +2285,7 @@ test_read_partially_unreadable_range()
 	kern_return_t kr_expected = (size < vm_page_size * 2) ? KERN_INVALID_ADDRESS : KERN_PROTECTION_FAILURE;
 
 	logv("Read-protecting a mid-range page at address 0x%jx...", (uintmax_t)mid_point);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
 	logv("Page read-protected.");
 
 	logv("Reading 0x%jx (%ju) byte%s at address 0x%jx...", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s",
@@ -2294,11 +2318,10 @@ read_edge_size(mach_vm_size_t size, kern_return_t expected_kr)
 	logv("Reading 0x%jx (%ju) bytes at various addresses...", (uintmax_t)size, (uintmax_t)size);
 	for (i = 0; i < numofaddresses; i++) {
 		kr = mach_vm_read(this_task, addresses[i], size, &read_address, &read_size);
-		T_QUIET; T_ASSERT_EQ(kr, expected_kr,
+		assert_mach_return(kr, expected_kr,
 		    "mach_vm_read() at "
-		    "address 0x%jx unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)addresses[i], mach_error_string(kr), mach_error_string(expected_kr));
+		    "address 0x%jx expected %s",
+		    (uintmax_t)addresses[i], mach_error_string(expected_kr));
 	}
 	logv(
 		"mach_vm_read() returned expected value in each case: "
@@ -2345,12 +2368,10 @@ test_read_wrapped_around_ranges()
 		"address space...");
 	for (i = 0; i < numofranges; i++) {
 		kr = mach_vm_read(this_task, ranges[i].address, ranges[i].size, &read_address, &read_size);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ADDRESS,
+		assert_mach_return(kr, KERN_INVALID_ADDRESS,
 		    "mach_vm_read() at address 0x%jx with size "
-		    "0x%jx (%ju) unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size, mach_error_string(kr),
-		    mach_error_string(KERN_INVALID_ADDRESS));
+		    "0x%jx (%ju) expected KERN_INVALID_ADDRESS",
+		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size);
 	}
 	logv("Returned expected error on each range: %s.", mach_error_string(KERN_INVALID_ADDRESS));
 }
@@ -2442,7 +2463,7 @@ test_write_partially_deallocated_buffer()
 		"Deallocating a mid-range buffer page at address "
 		"0x%jx...",
 		(uintmax_t)buffer_mid_point);
-	assert_deallocate_success(buffer_mid_point, vm_page_size);
+	deallocate_buffer_page_early(buffer_mid_point);
 	logv("Page deallocated.");
 
 	logv(
@@ -2466,7 +2487,7 @@ test_write_partially_unreadable_buffer()
 		"Read-protecting a mid-range buffer page at address "
 		"0x%jx...",
 		(uintmax_t)buffer_mid_point);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), buffer_mid_point, vm_page_size, FALSE, VM_PROT_WRITE),
+	assert_mach_success(mach_vm_protect(mach_task_self(), buffer_mid_point, vm_page_size, FALSE, VM_PROT_WRITE),
 	    "mach_vm_protect()");
 	logv("Page read-protected.");
 
@@ -2491,7 +2512,7 @@ test_write_on_partially_deallocated_range()
 		"Deallocating the first destination page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	assert_deallocate_success(start, vm_page_size);
+	deallocate_vm_page_early(start);
 	logv("Page deallocated.");
 
 	logv(
@@ -2521,7 +2542,7 @@ test_write_on_partially_unwritable_range()
 		"Write-protecting the first destination page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
 	logv("Page write-protected.");
 
 	logv(
@@ -2628,11 +2649,10 @@ copy_edge_size(mach_vm_size_t size, kern_return_t expected_kr)
 	logv("Copying 0x%jx (%ju) bytes at various addresses...", (uintmax_t)size, (uintmax_t)size);
 	for (i = 0; i < numofaddresses; i++) {
 		kr = mach_vm_copy(this_task, addresses[i], size, dest);
-		T_QUIET; T_ASSERT_EQ(kr, expected_kr,
+		assert_mach_return(kr, expected_kr,
 		    "mach_vm_copy() at "
-		    "address 0x%jx unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)addresses[i], mach_error_string(kr), mach_error_string(expected_kr));
+		    "address 0x%jx expected %s",
+		    (uintmax_t)addresses[i], mach_error_string(expected_kr));
 	}
 	logv(
 		"mach_vm_copy() returned expected value in each case: "
@@ -2683,12 +2703,10 @@ test_copy_wrapped_around_ranges()
 		"address space...");
 	for (i = 0; i < numofranges; i++) {
 		kr = mach_vm_copy(this_task, ranges[i].address, ranges[i].size, dest);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ADDRESS,
+		assert_mach_return(kr, KERN_INVALID_ADDRESS,
 		    "mach_vm_copy() at address 0x%jx with size "
-		    "0x%jx (%ju) unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size, mach_error_string(kr),
-		    mach_error_string(KERN_INVALID_ADDRESS));
+		    "0x%jx (%ju) expected KERN_INVALID_ADDRESS",
+		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size);
 	}
 	logv("Returned expected error on each range: %s.", mach_error_string(KERN_INVALID_ADDRESS));
 
@@ -2766,7 +2784,7 @@ test_copy_partially_deallocated_range()
 	mach_vm_address_t dest      = 0;
 
 	logv("Deallocating a mid-range page at address 0x%jx...", (uintmax_t)mid_point);
-	assert_deallocate_success(mid_point, vm_page_size);
+	deallocate_vm_page_early(mid_point);
 	logv("Page deallocated.");
 
 	logv("Copying 0x%jx (%ju) byte%s at address 0x%jx...", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s",
@@ -2794,7 +2812,7 @@ test_copy_partially_unreadable_range()
 	kern_return_t kr_expected = (size < vm_page_size) ? KERN_INVALID_ADDRESS : KERN_PROTECTION_FAILURE;
 
 	logv("Read-protecting a mid-range page at address 0x%jx...", (uintmax_t)mid_point);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
 	logv("Page read-protected.");
 
 	logv("Copying 0x%jx (%ju) byte%s at address 0x%jx...", (uintmax_t)size, (uintmax_t)size, (size == 1) ? "" : "s",
@@ -2813,12 +2831,12 @@ test_copy_dest_partially_deallocated_region()
 	mach_vm_address_t source           = get_buffer_address();
 	mach_msg_type_number_t size        = (mach_msg_type_number_t)get_buffer_size();
 	mach_vm_address_t source_mid_point = (mach_vm_address_t)mach_vm_trunc_page(dest + size / 2);
-#if __MAC_OX_X_VERSION_MIN_REQUIRED > 1080
+
 	logv(
 		"Deallocating a mid-range source page at address "
 		"0x%jx...",
 		(uintmax_t)source_mid_point);
-	assert_deallocate_success(source_mid_point, vm_page_size);
+	deallocate_vm_page_early(source_mid_point);
 	logv("Page deallocated.");
 
 	logv(
@@ -2827,11 +2845,6 @@ test_copy_dest_partially_deallocated_region()
 		(uintmax_t)source, (uintmax_t)size, (uintmax_t)size, (uintmax_t)dest);
 	assert_copy_return(source, size, dest, KERN_INVALID_ADDRESS);
 	logv("Returned expected error: %s.", mach_error_string(KERN_INVALID_ADDRESS));
-#else
-	logv(
-		"Bypassing partially deallocated region test "
-		"(See <rdar://problem/12190999>)");
-#endif /* __MAC_OX_X_VERSION_MIN_REQUIRED > 1080 */
 }
 
 /* Copying from a partially deallocated region fails. */
@@ -2847,7 +2860,7 @@ test_copy_source_partially_deallocated_region()
 		"Deallocating a mid-range source page at address "
 		"0x%jx...",
 		(uintmax_t)source_mid_point);
-	assert_deallocate_success(source_mid_point, vm_page_size);
+	deallocate_vm_page_early(source_mid_point);
 	logv("Page deallocated.");
 
 	logv(
@@ -2872,7 +2885,7 @@ test_copy_source_partially_unreadable_region()
 		"Read-protecting a mid-range buffer page at address "
 		"0x%jx...",
 		(uintmax_t)mid_point);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
 	logv("Page read-protected.");
 
 	logv(
@@ -2888,35 +2901,25 @@ test_copy_source_partially_unreadable_region()
 void
 test_copy_dest_partially_unwriteable_region()
 {
-	kern_return_t kr;
 	mach_vm_address_t dest      = get_vm_address();
 	mach_vm_address_t source    = get_buffer_address();
 	mach_msg_type_number_t size = (mach_msg_type_number_t)get_buffer_size();
 	mach_vm_address_t mid_point = (mach_vm_address_t)mach_vm_trunc_page(dest + size / 2);
 
-#if __MAC_OX_X_VERSION_MIN_REQUIRED > 1080
 	logv(
 		"Read-protecting a mid-range buffer page at address "
 		"0x%jx...",
 		(uintmax_t)mid_point);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), mid_point, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
 	logv("Page read-protected.");
 	logv(
 		"Copying region at address 0x%jx and size 0x%jx (%ju), on "
 		"memory at address 0x%jx...",
 		(uintmax_t)source, (uintmax_t)size, (uintmax_t)size, (uintmax_t)dest);
-	if (size >= vm_page_size) {
-		kr = KERN_PROTECTION_FAILURE;
-	} else {
-		kr = KERN_INVALID_ADDRESS;
-	}
-	assert_copy_return(source, size, dest, kr);
-	logv("Returned expected error: %s.", mach_error_string(kr));
-#else
-	logv(
-		"Bypassing partially unwriteable region test "
-		"(See <rdar://problem/12190999>)");
-#endif /* __MAC_OX_X_VERSION_MIN_REQUIRED > 1080 */
+
+	// The type of failure is not guaranteed to be consistent between architectures, so we just make sure it fails.
+	assert_copy_failure(source, size, dest);
+	logv("Returned expected error.");
 }
 
 /* Copying on partially deallocated memory fails. */
@@ -2932,7 +2935,7 @@ test_copy_source_on_partially_deallocated_range()
 		"Deallocating the first source page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	assert_deallocate_success(start, vm_page_size);
+	deallocate_vm_page_early(start);
 	logv("Page deallocated.");
 
 	logv(
@@ -2956,7 +2959,7 @@ test_copy_dest_on_partially_deallocated_range()
 		"Deallocating the first destination page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	assert_deallocate_success(start, vm_page_size);
+	deallocate_buffer_page_early(start);
 	logv("Page deallocated.");
 
 	logv(
@@ -2986,7 +2989,7 @@ test_copy_dest_on_partially_unwritable_range()
 		"Write-protecting the first destination page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_READ), "mach_vm_protect()");
 	logv("Page write-protected.");
 
 	logv(
@@ -3016,7 +3019,7 @@ test_copy_source_on_partially_unreadable_range()
 		"Read-protecting the first destination page at address "
 		"0x%jx...",
 		(uintmax_t)start);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), start, vm_page_size, FALSE, VM_PROT_WRITE), "mach_vm_protect()");
 	logv("Page read-protected.");
 
 	logv(
@@ -3047,7 +3050,7 @@ test_zero_filled_readprotect()
 
 	logv("Setting read access on 0x%jx (%ju) byte%s at address 0x%jx...", (uintmax_t)size, (uintmax_t)size,
 	    (size == 1) ? "" : "s", (uintmax_t)address);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_protect(mach_task_self(), address, size, FALSE, VM_PROT_DEFAULT), "mach_vm_protect()");
+	assert_mach_success(mach_vm_protect(mach_task_self(), address, size, FALSE, VM_PROT_DEFAULT), "mach_vm_protect()");
 	logv("Region has read access.");
 	test_zero_filled_extended();
 }
@@ -3066,7 +3069,7 @@ verify_protection(vm_prot_t protection, const char * protection_name)
 		"Verifying %s-protection on region of address 0x%jx and "
 		"size 0x%jx (%ju) with mach_vm_region()...",
 		protection_name, (uintmax_t)address, (uintmax_t)size, (uintmax_t)size);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(
+	assert_mach_success(
 		mach_vm_region(mach_task_self(), &address, &size, VM_REGION_BASIC_INFO_64, (vm_region_info_t)&info, &count, &unused),
 		"mach_vm_region()");
 	if (original_size) {
@@ -3109,7 +3112,7 @@ access_readprotected_range_address(mach_vm_address_t address, const char * posit
 {
 	logv("Reading from %s 0x%jx of read-protected range...", position, (uintmax_t)address);
 	mach_vm_address_t bad_value = MACH_VM_ADDRESS_T(address);
-	T_ASSERT_FAIL("Unexpectedly read value 0x%jx at address 0x%jx."
+	T_ASSERT_FAIL("Unexpectedly read value 0x%jx at address 0x%jx. "
 	    "Should have died with signal SIGBUS.",
 	    (uintmax_t)bad_value, (uintmax_t)address);
 }
@@ -3142,7 +3145,7 @@ write_writeprotected_range_address(mach_vm_address_t address, const char * posit
 {
 	logv("Writing on %s 0x%jx of write-protected range...", position, (uintmax_t)address);
 	MACH_VM_ADDRESS_T(address) = 0x0;
-	T_ASSERT_FAIL("Unexpectedly wrote value 0x0 value at address 0x%jx."
+	T_ASSERT_FAIL("Unexpectedly wrote value 0x0 value at address 0x%jx. "
 	    "Should have died with signal SIGBUS.",
 	    (uintmax_t)address);
 }
@@ -3193,7 +3196,7 @@ protect_zero_size(vm_prot_t protection, const char * protection_name)
 	logv("%s-protecting 0x0 (0) bytes at various addresses...", protection_name);
 	for (i = 0; i < numofaddresses; i++) {
 		kr = mach_vm_protect(this_task, addresses[i], 0, FALSE, protection);
-		T_QUIET; T_ASSERT_MACH_SUCCESS(kr,
+		assert_mach_success(kr,
 		    "mach_vm_protect() at "
 		    "address 0x%jx unexpectedly failed: %s.",
 		    (uintmax_t)addresses[i], mach_error_string(kr));
@@ -3237,12 +3240,10 @@ protect_wrapped_around_ranges(vm_prot_t protection, const char * protection_name
 		protection_name);
 	for (i = 0; i < numofranges; i++) {
 		kr = mach_vm_protect(this_task, ranges[i].address, ranges[i].size, FALSE, protection);
-		T_QUIET; T_ASSERT_EQ(kr, KERN_INVALID_ARGUMENT,
+		assert_mach_return(kr, KERN_INVALID_ARGUMENT,
 		    "mach_vm_protect() with address 0x%jx and size "
-		    "0x%jx (%ju) unexpectedly returned: %s.\n"
-		    "Should have returned: %s.",
-		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size, mach_error_string(kr),
-		    mach_error_string(KERN_INVALID_ARGUMENT));
+		    "0x%jx (%ju) expected KERN_INVALID_ARGUMENT",
+		    (uintmax_t)ranges[i].address, (uintmax_t)ranges[i].size, (uintmax_t)ranges[i].size);
 	}
 	logv("Returned expected error on each range: %s.", mach_error_string(KERN_INVALID_ARGUMENT));
 }
@@ -3267,30 +3268,6 @@ test_writeprotect_wrapped_around_ranges()
 void
 assert_share_mode(mach_vm_address_t address, unsigned share_mode, const char * share_mode_name)
 {
-	mach_vm_size_t size = get_vm_size();
-	vm_region_extended_info_data_t info;
-	mach_msg_type_number_t count = VM_REGION_EXTENDED_INFO_COUNT;
-	mach_port_t unused;
-
-/*
- * XXX Fails on UVM kernel.  See <rdar://problem/12164664>
- */
-#if notyet /* __MAC_OS_X_VERSION_MIN_REQUIRED < 1090 */
-	logv(
-		"Verifying %s share mode on region of address 0x%jx and "
-		"size 0x%jx (%ju)...",
-		share_mode_name, (uintmax_t)address, (uintmax_t)size, (uintmax_t)size);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(
-		mach_vm_region(mach_task_self(), &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_info_t)&info, &count, &unused),
-		"mach_vm_region()");
-	T_QUIET; T_ASSERT_EQ(info.share_mode, share_mode,
-	    "Region's share mode "
-	    " unexpectedly is not %s but %d.",
-	    share_mode_name, info.share_mode);
-	logv("Region has a share mode of %s as expected.", share_mode_name);
-#else
-	logv("Bypassing share_mode verification (See <rdar://problem/12164664>)");
-#endif /* __MAC_OS_X_VERSION_MIN_REQUIRED < 1090 */
 }
 
 /* Do the vm_copy() and verify its success. */
@@ -3302,12 +3279,11 @@ assert_vmcopy_success(vm_address_t src, vm_address_t dst, const char * source_na
 
 	logv("Copying (using mach_vm_copy()) from a %s source...", source_name);
 	kr = mach_vm_copy(mach_task_self(), src, size, dst);
-	T_QUIET; T_ASSERT_MACH_SUCCESS(kr,
+	assert_mach_success(kr,
 	    "mach_vm_copy() with the source address "
-	    "0x%jx, designation address 0x%jx, and size 0x%jx (%ju) unexpectly "
-	    "returned %s.\n  Should have returned: %s.",
-	    (uintmax_t)src, (uintmax_t)dst, (uintmax_t)size, (uintmax_t)size, mach_error_string(kr),
-	    mach_error_string(KERN_SUCCESS));
+	    "0x%jx, designation address 0x%jx, and size 0x%jx (%ju) "
+	    "unexpectedly failed.",
+	    (uintmax_t)src, (uintmax_t)dst, (uintmax_t)size, (uintmax_t)size);
 	logv("Copy (mach_vm_copy()) was successful as expected.");
 }
 
@@ -3331,7 +3307,6 @@ verify_region(mach_vm_address_t address, mach_vm_address_t start)
 void
 modify_one_and_verify_all_regions(vm_address_t src, vm_address_t dst, vm_address_t shared_copied, boolean_t shared)
 {
-	mach_vm_size_t size = get_vm_size();
 	int action          = get_vmcopy_post_action();
 
 	/* Do the post vm_copy() action. */
@@ -3412,7 +3387,7 @@ test_vmcopy_shared_source()
 
 	assert_allocate_success(&src, size, TRUE);
 
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_inherit(mach_task_self(), src, size, VM_INHERIT_SHARE), "mach_vm_inherit()");
+	assert_mach_success(mach_vm_inherit(mach_task_self(), src, size, VM_INHERIT_SHARE), "mach_vm_inherit()");
 
 	write_region(src, 0);
 
@@ -3467,7 +3442,7 @@ test_vmcopy_copied_from_source()
 
 	assert_allocate_success(&src, size, TRUE);
 
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_copy(mach_task_self(), copied, size, src), "mach_vm_copy()");
+	assert_mach_success(mach_vm_copy(mach_task_self(), copied, size, src), "mach_vm_copy()");
 
 	assert_share_mode(src, SM_COW, "SM_COW");
 
@@ -3494,7 +3469,7 @@ test_vmcopy_copied_to_source()
 
 	assert_allocate_success(&copied, size, TRUE);
 
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_copy(mach_task_self(), src, size, copied), "mach_vm_copy()");
+	assert_mach_success(mach_vm_copy(mach_task_self(), src, size, copied), "mach_vm_copy()");
 
 	assert_share_mode(src, SM_COW, "SM_COW");
 
@@ -3522,10 +3497,10 @@ test_vmcopy_trueshared_source()
 	assert_allocate_success(&shared, size, TRUE);
 	write_region(shared, 0);
 
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_make_memory_entry_64(mach_task_self(), &size, (memory_object_offset_t)shared, cur_protect, &mem_obj,
+	assert_mach_success(mach_make_memory_entry_64(mach_task_self(), &size, (memory_object_offset_t)shared, cur_protect, &mem_obj,
 	    (mem_entry_name_port_t)NULL),
 	    "mach_make_memory_entry_64()");
-	T_QUIET; T_ASSERT_MACH_SUCCESS(
+	assert_mach_success(
 		mach_vm_map(mach_task_self(), &src, size, 0, TRUE, mem_obj, 0, FALSE, cur_protect, max_protect, VM_INHERIT_NONE),
 		"mach_vm_map()");
 
@@ -3554,7 +3529,7 @@ test_vmcopy_private_aliased_source()
 	assert_allocate_success(&shared, size, TRUE);
 	write_region(shared, 0);
 
-	T_QUIET; T_ASSERT_MACH_SUCCESS(mach_vm_remap(mach_task_self(), &src, size, 0, TRUE, mach_task_self(), shared, FALSE, &cur_protect,
+	assert_mach_success(mach_vm_remap(mach_task_self(), &src, size, 0, TRUE, mach_task_self(), shared, FALSE, &cur_protect,
 	    &max_protect, VM_INHERIT_NONE),
 	    "mach_vm_remap()");
 
@@ -3578,48 +3553,44 @@ test_vmcopy_private_aliased_source()
 void
 run_allocate_test_suites()
 {
-	/* <rdar://problem/10304215> CoreOSZin 12Z30: VMUnitTest fails:
-	 * error finding xnu major version number. */
-	/* unsigned int xnu_version = xnu_major_version(); */
-
 	UnitTests allocate_main_tests = {
-		{"Allocated address is nonzero iff size is nonzero", test_nonzero_address_iff_nonzero_size},
-		{"Allocated address is page-aligned", test_aligned_address},
-		{"Allocated memory is zero-filled", test_zero_filled},
-		{"Write and verify address-filled pattern", test_write_address_filled},
-		{"Write and verify checkerboard pattern", test_write_checkerboard},
-		{"Write and verify reverse checkerboard pattern", test_write_reverse_checkerboard},
-		{"Write and verify page ends pattern", test_write_page_ends},
-		{"Write and verify page interiors pattern", test_write_page_interiors},
-		{"Reallocate allocated pages", test_reallocate_pages},
+		{"Allocated address is nonzero iff size is nonzero", test_nonzero_address_iff_nonzero_size, 0},
+		{"Allocated address is page-aligned", test_aligned_address, 0},
+		{"Allocated memory is zero-filled", test_zero_filled, 0},
+		{"Write and verify address-filled pattern", test_write_address_filled, 0},
+		{"Write and verify checkerboard pattern", test_write_checkerboard, 0},
+		{"Write and verify reverse checkerboard pattern", test_write_reverse_checkerboard, 0},
+		{"Write and verify page ends pattern", test_write_page_ends, 0},
+		{"Write and verify page interiors pattern", test_write_page_interiors, 0},
+		{"Reallocate allocated pages", test_reallocate_pages, 0},
 	};
 	UnitTests allocate_address_error_tests = {
-		{"Allocate at address zero", test_allocate_at_zero},
+		{"Allocate at address zero", test_allocate_at_zero, 0},
 		{"Allocate at a 2 MB boundary-unaligned, page-aligned "
 		 "address",
-		 test_allocate_2MB_boundary_unaligned_page_aligned_address},
+		 test_allocate_2MB_boundary_unaligned_page_aligned_address, 0},
 	};
 	UnitTests allocate_argument_error_tests = {
-		{"Allocate in NULL VM map", test_allocate_in_null_map},
-		{"Allocate with kernel flags", test_allocate_with_kernel_flags},
-		{"Allocate super-page with incompatible flags", test_allocate_superpage_with_incompatible_flags},
+		{"Allocate in NULL VM map", test_allocate_in_null_map, 0},
+		{"Allocate with kernel flags", test_allocate_with_kernel_flags, 0},
+		{"Allocate super-page with incompatible flags", test_allocate_superpage_with_incompatible_flags, 0},
 	};
 	UnitTests allocate_fixed_size_tests = {
-		{"Allocate zero size", test_allocate_zero_size},
-		{"Allocate overflowing size", test_allocate_overflowing_size},
-		{"Allocate a page with highest address hint", test_allocate_page_with_highest_address_hint},
-		{"Allocate two pages and verify first fit strategy", test_allocate_first_fit_pages},
+		{"Allocate zero size", test_allocate_zero_size, 0},
+		{"Allocate overflowing size", test_allocate_overflowing_size, 0},
+		{"Allocate a page with highest address hint", test_allocate_page_with_highest_address_hint, 0},
+		{"Allocate two pages and verify first fit strategy", test_allocate_first_fit_pages, 0},
 	};
 	UnitTests allocate_invalid_large_size_test = {
-		{"Allocate invalid large size", test_allocate_invalid_large_size},
+		{"Allocate invalid large size", test_allocate_invalid_large_size, 0},
 	};
 	UnitTests mach_vm_map_protection_inheritance_error_test = {
 		{"mach_vm_map() with invalid protection/inheritance "
 		 "arguments",
-		 test_mach_vm_map_protection_inheritance_error},
+		 test_mach_vm_map_protection_inheritance_error, 0},
 	};
 	UnitTests mach_vm_map_large_mask_overflow_error_test = {
-		{"mach_vm_map() with large address mask", test_mach_vm_map_large_mask_overflow_error},
+		{"mach_vm_map() with large address mask", test_mach_vm_map_large_mask_overflow_error, 0},
 	};
 
 	/* Run the test suites with various allocators and VM sizes, and
@@ -3677,16 +3648,8 @@ run_allocate_test_suites()
 		}
 		run_suite(set_up_allocator, allocate_fixed_size_tests, do_nothing, "%s fixed size allocation tests",
 		    allocators[allocators_idx].description);
-		/* <rdar://problem/10304215> CoreOSZin 12Z30: VMUnitTest fails:
-		 * error finding xnu major version number. */
-		/* mach_vm_map() with a named entry triggers a panic with this test
-		 *  unless under xnu-1598 or later, see 8048580. */
-		/* if (allocators_idx != MACH_VM_MAP_NAMED_ENTRY
-		|| xnu_version >= 1598) { */
-		if (allocators_idx != MACH_VM_MAP_NAMED_ENTRY) {
-			run_suite(set_up_allocator, allocate_invalid_large_size_test, do_nothing, "%s invalid large size allocation test",
-			    allocators[allocators_idx].description);
-		}
+		run_suite(set_up_allocator, allocate_invalid_large_size_test, do_nothing, "%s invalid large size allocation test",
+		    allocators[allocators_idx].description);
 	}
 	/* mach_vm_map() only large mask overflow tests. */
 	for (sizes_idx = 0; sizes_idx < numofsizes; sizes_idx++) {
@@ -3701,27 +3664,26 @@ void
 run_deallocate_test_suites()
 {
 	UnitTests access_deallocated_memory_tests = {
-		{"Read start of deallocated range", test_access_deallocated_range_start},
-		{"Read middle of deallocated range", test_access_deallocated_range_middle},
-		{"Read end of deallocated range", test_access_deallocated_range_end},
+		{"Read start of deallocated range", test_access_deallocated_range_start, SIGSEGV},
+		{"Read middle of deallocated range", test_access_deallocated_range_middle, SIGSEGV},
+		{"Read end of deallocated range", test_access_deallocated_range_end, SIGSEGV},
 	};
 	UnitTests deallocate_reallocate_tests = {
 		{"Deallocate twice", test_deallocate_twice},
 		{"Write pattern, deallocate, reallocate (deallocated "
 		 "memory is inaccessible), and verify memory is "
 		 "zero-filled",
-		 test_write_pattern_deallocate_reallocate_zero_filled},
+		 test_write_pattern_deallocate_reallocate_zero_filled, 0},
 	};
 	UnitTests deallocate_null_map_test = {
-		{"Deallocate in NULL VM map", test_deallocate_in_null_map},
+		{"Deallocate in NULL VM map", test_deallocate_in_null_map, 0},
 	};
 	UnitTests deallocate_edge_case_tests = {
-		{"Deallocate zero size ranges", test_deallocate_zero_size_ranges},
-		{"Deallocate memory ranges whose end rounds to 0x0", test_deallocate_rounded_zero_end_ranges},
-		{"Deallocate wrapped around memory ranges", test_deallocate_wrapped_around_ranges},
+		{"Deallocate zero size ranges", test_deallocate_zero_size_ranges, 0},
+		{"Deallocate wrapped around memory ranges", test_deallocate_wrapped_around_ranges, 0},
 	};
 	UnitTests deallocate_suicide_test = {
-		{"Deallocate whole address space", test_deallocate_suicide},
+		{"Deallocate whole address space", test_deallocate_suicide, -1},
 	};
 
 	/* All allocations done with mach_vm_allocate(). */
@@ -3740,7 +3702,6 @@ run_deallocate_test_suites()
 				 *  fault. */
 				/* Nothing gets deallocated if size is zero. */
 				if (sizes_idx != ZERO_BYTES) {
-					set_expected_signal(SIGSEGV);
 					run_suite(set_up_vm_variables_and_allocate, access_deallocated_memory_tests, do_nothing,
 					    "Deallocated memory access tests, "
 					    "%s%s address, %s size: 0x%jx (%ju)",
@@ -3748,7 +3709,12 @@ run_deallocate_test_suites()
 					    (flags_idx == ANYWHERE) ? "" : address_alignments[alignments_idx].description,
 					    vm_sizes[sizes_idx].description, (uintmax_t)vm_sizes[sizes_idx].size,
 					    (uintmax_t)vm_sizes[sizes_idx].size);
-					set_expected_signal(0);
+				}
+				/* Deallocating zero size range should pass */
+				if (vm_sizes[sizes_idx].size == 0) {
+					deallocate_reallocate_tests[0].expected_signal = 0;
+				} else {
+					deallocate_reallocate_tests[0].expected_signal = _expected_vm_exc_guard_signal;
 				}
 				run_suite(set_up_vm_variables_and_allocate, deallocate_reallocate_tests, do_nothing,
 				    "Deallocation and reallocation tests, %s%s "
@@ -3768,37 +3734,34 @@ run_deallocate_test_suites()
 		}
 	}
 	run_suite(do_nothing, deallocate_edge_case_tests, do_nothing, "Edge case deallocation tests");
-
-	set_expected_signal(-1);        /* SIGSEGV or SIGBUS */
 	run_suite(do_nothing, deallocate_suicide_test, do_nothing, "Whole address space deallocation test");
-	set_expected_signal(0);
 }
 
 void
 run_read_test_suites()
 {
 	UnitTests read_main_tests = {
-		{"Read address is nonzero iff size is nonzero", test_nonzero_address_iff_nonzero_size},
-		{"Read address has the correct boundary offset", test_read_address_offset},
-		{"Reallocate read pages", test_reallocate_pages},
-		{"Read and verify zero-filled memory", test_zero_filled},
+		{"Read address is nonzero iff size is nonzero", test_nonzero_address_iff_nonzero_size, 0},
+		{"Read address has the correct boundary offset", test_read_address_offset, 0},
+		{"Reallocate read pages", test_reallocate_pages, 0},
+		{"Read and verify zero-filled memory", test_zero_filled, 0},
 	};
 	UnitTests read_pattern_tests = {
-		{"Read address-filled pattern", test_read_address_filled},
-		{"Read checkerboard pattern", test_read_checkerboard},
-		{"Read reverse checkerboard pattern", test_read_reverse_checkerboard},
+		{"Read address-filled pattern", test_read_address_filled, 0},
+		{"Read checkerboard pattern", test_read_checkerboard, 0},
+		{"Read reverse checkerboard pattern", test_read_reverse_checkerboard, 0},
 	};
 	UnitTests read_null_map_test = {
-		{"Read from NULL VM map", test_read_null_map},
+		{"Read from NULL VM map", test_read_null_map, 0},
 	};
 	UnitTests read_edge_case_tests = {
-		{"Read zero size", test_read_zero_size},
-		{"Read invalid large size", test_read_invalid_large_size},
-		{"Read wrapped around memory ranges", test_read_wrapped_around_ranges},
+		{"Read zero size", test_read_zero_size, 0},
+		{"Read invalid large size", test_read_invalid_large_size, 0},
+		{"Read wrapped around memory ranges", test_read_wrapped_around_ranges, 0},
 	};
 	UnitTests read_inaccessible_tests = {
-		{"Read partially decallocated memory", test_read_partially_deallocated_range},
-		{"Read partially read-protected memory", test_read_partially_unreadable_range},
+		{"Read partially deallocated memory", test_read_partially_deallocated_range, 0},
+		{"Read partially read-protected memory", test_read_partially_unreadable_range, 0},
 	};
 
 	/* All allocations done with mach_vm_allocate(). */
@@ -3854,21 +3817,21 @@ void
 run_write_test_suites()
 {
 	UnitTests write_main_tests = {
-		{"Write and verify zero-filled memory", test_zero_filled_write},
+		{"Write and verify zero-filled memory", test_zero_filled_write, 0},
 	};
 	UnitTests write_pattern_tests = {
-		{"Write address-filled pattern", test_address_filled_write},
-		{"Write checkerboard pattern", test_checkerboard_write},
-		{"Write reverse checkerboard pattern", test_reverse_checkerboard_write},
+		{"Write address-filled pattern", test_address_filled_write, 0},
+		{"Write checkerboard pattern", test_checkerboard_write, 0},
+		{"Write reverse checkerboard pattern", test_reverse_checkerboard_write, 0},
 	};
 	UnitTests write_edge_case_tests = {
-		{"Write into NULL VM map", test_write_null_map}, {"Write zero size", test_write_zero_size},
+		{"Write into NULL VM map", test_write_null_map, 0}, {"Write zero size", test_write_zero_size, 0},
 	};
 	UnitTests write_inaccessible_tests = {
-		{"Write partially decallocated buffer", test_write_partially_deallocated_buffer},
-		{"Write partially read-protected buffer", test_write_partially_unreadable_buffer},
-		{"Write on partially deallocated range", test_write_on_partially_deallocated_range},
-		{"Write on partially write-protected range", test_write_on_partially_unwritable_range},
+		{"Write partially deallocated buffer", test_write_partially_deallocated_buffer, 0},
+		{"Write partially read-protected buffer", test_write_partially_unreadable_buffer, 0},
+		{"Write on partially deallocated range", test_write_on_partially_deallocated_range, 0},
+		{"Write on partially write-protected range", test_write_on_partially_unwritable_range, 0},
 	};
 
 	/* All allocations done with mach_vm_allocate(). */
@@ -3948,32 +3911,31 @@ void
 run_protect_test_suites()
 {
 	UnitTests readprotection_main_tests = {
-		{"Read-protect, read-allow and verify zero-filled memory", test_zero_filled_readprotect},
+		{"Read-protect, read-allow and verify zero-filled memory", test_zero_filled_readprotect, 0},
 		{"Verify that region is read-protected iff size is "
 		 "nonzero",
-		 test_verify_readprotection},
+		 test_verify_readprotection, 0},
 	};
 	UnitTests access_readprotected_memory_tests = {
-		{"Read start of read-protected range", test_access_readprotected_range_start},
-		{"Read middle of read-protected range", test_access_readprotected_range_middle},
-		{"Read end of read-protected range", test_access_readprotected_range_end},
+		{"Read start of read-protected range", test_access_readprotected_range_start, SIGBUS},
+		{"Read middle of read-protected range", test_access_readprotected_range_middle, SIGBUS},
+		{"Read end of read-protected range", test_access_readprotected_range_end, SIGBUS},
 	};
 	UnitTests writeprotection_main_tests = {
-		{"Write-protect and verify zero-filled memory", test_zero_filled_extended},
-		{"Verify that region is write-protected iff size is "
-		 "nonzero",
-		 test_verify_writeprotection},
+		{"Write-protect and verify zero-filled memory", test_zero_filled_extended, 0},
+		{"Verify that region is write-protected iff size is nonzero",
+		 test_verify_writeprotection, 0},
 	};
 	UnitTests write_writeprotected_memory_tests = {
-		{"Write at start of write-protected range", test_write_writeprotected_range_start},
-		{"Write in middle of write-protected range", test_write_writeprotected_range_middle},
-		{"Write at end of write-protected range", test_write_writeprotected_range_end},
+		{"Write at start of write-protected range", test_write_writeprotected_range_start, SIGBUS},
+		{"Write in middle of write-protected range", test_write_writeprotected_range_middle, SIGBUS},
+		{"Write at end of write-protected range", test_write_writeprotected_range_end, SIGBUS},
 	};
 	UnitTests protect_edge_case_tests = {
-		{"Read-protect zero size ranges", test_readprotect_zero_size},
-		{"Write-protect zero size ranges", test_writeprotect_zero_size},
-		{"Read-protect wrapped around memory ranges", test_readprotect_wrapped_around_ranges},
-		{"Write-protect wrapped around memory ranges", test_writeprotect_wrapped_around_ranges},
+		{"Read-protect zero size ranges", test_readprotect_zero_size, 0},
+		{"Write-protect zero size ranges", test_writeprotect_zero_size, 0},
+		{"Read-protect wrapped around memory ranges", test_readprotect_wrapped_around_ranges, 0},
+		{"Write-protect wrapped around memory ranges", test_writeprotect_wrapped_around_ranges, 0},
 	};
 
 	/* All allocations done with mach_vm_allocate(). */
@@ -4004,7 +3966,6 @@ run_protect_test_suites()
 				    (uintmax_t)vm_sizes[sizes_idx].size);
 				/* Nothing gets protected if size is zero. */
 				if (sizes_idx != ZERO_BYTES) {
-					set_expected_signal(SIGBUS);
 					/* Accessing read-protected memory should cause a bus
 					 *  error. */
 					run_suite(set_up_vm_variables_allocate_readprotect, access_readprotected_memory_tests, deallocate_extra_page,
@@ -4023,7 +3984,6 @@ run_protect_test_suites()
 					    (flags_idx == ANYWHERE) ? "" : address_alignments[alignments_idx].description,
 					    vm_sizes[sizes_idx].description, (uintmax_t)vm_sizes[sizes_idx].size,
 					    (uintmax_t)vm_sizes[sizes_idx].size);
-					set_expected_signal(0);
 				}
 			}
 		}
@@ -4036,39 +3996,39 @@ run_copy_test_suites()
 {
 	/* Copy tests */
 	UnitTests copy_main_tests = {
-		{"Copy and verify zero-filled memory", test_zero_filled_copy_dest},
+		{"Copy and verify zero-filled memory", test_zero_filled_copy_dest, 0},
 	};
 	UnitTests copy_pattern_tests = {
-		{"Copy address-filled pattern", test_copy_address_filled},
-		{"Copy checkerboard pattern", test_copy_checkerboard},
-		{"Copy reverse checkerboard pattern", test_copy_reverse_checkerboard},
+		{"Copy address-filled pattern", test_copy_address_filled, 0},
+		{"Copy checkerboard pattern", test_copy_checkerboard, 0},
+		{"Copy reverse checkerboard pattern", test_copy_reverse_checkerboard, 0},
 	};
 	UnitTests copy_edge_case_tests = {
-		{"Copy with NULL VM map", test_copy_null_map},
-		{"Copy zero size", test_copy_zero_size},
-		{"Copy invalid large size", test_copy_invalid_large_size},
-		{"Read wrapped around memory ranges", test_copy_wrapped_around_ranges},
+		{"Copy with NULL VM map", test_copy_null_map, 0},
+		{"Copy zero size", test_copy_zero_size, 0},
+		{"Copy invalid large size", test_copy_invalid_large_size, 0},
+		{"Read wrapped around memory ranges", test_copy_wrapped_around_ranges, 0},
 	};
 	UnitTests copy_inaccessible_tests = {
-		{"Copy source partially decallocated region", test_copy_source_partially_deallocated_region},
+		{"Copy source partially deallocated region", test_copy_source_partially_deallocated_region, 0},
 		/* XXX */
-		{"Copy destination partially decallocated region", test_copy_dest_partially_deallocated_region},
-		{"Copy source partially read-protected region", test_copy_source_partially_unreadable_region},
+		{"Copy destination partially deallocated region", test_copy_dest_partially_deallocated_region, 0},
+		{"Copy source partially read-protected region", test_copy_source_partially_unreadable_region, 0},
 		/* XXX */
-		{"Copy destination partially write-protected region", test_copy_dest_partially_unwriteable_region},
-		{"Copy source on partially deallocated range", test_copy_source_on_partially_deallocated_range},
-		{"Copy destination on partially deallocated range", test_copy_dest_on_partially_deallocated_range},
-		{"Copy source on partially read-protected range", test_copy_source_on_partially_unreadable_range},
-		{"Copy destination on partially write-protected range", test_copy_dest_on_partially_unwritable_range},
+		{"Copy destination partially write-protected region", test_copy_dest_partially_unwriteable_region, 0},
+		{"Copy source on partially deallocated range", test_copy_source_on_partially_deallocated_range, 0},
+		{"Copy destination on partially deallocated range", test_copy_dest_on_partially_deallocated_range, 0},
+		{"Copy source on partially read-protected range", test_copy_source_on_partially_unreadable_range, 0},
+		{"Copy destination on partially write-protected range", test_copy_dest_on_partially_unwritable_range, 0},
 	};
 
 	UnitTests copy_shared_mode_tests = {
-		{"Copy using freshly allocated source", test_vmcopy_fresh_source},
-		{"Copy using shared source", test_vmcopy_shared_source},
-		{"Copy using a \'copied from\' source", test_vmcopy_copied_from_source},
-		{"Copy using a \'copied to\' source", test_vmcopy_copied_to_source},
-		{"Copy using a true shared source", test_vmcopy_trueshared_source},
-		{"Copy using a private aliased source", test_vmcopy_private_aliased_source},
+		{"Copy using freshly allocated source", test_vmcopy_fresh_source, 0},
+		{"Copy using shared source", test_vmcopy_shared_source, 0},
+		{"Copy using a \'copied from\' source", test_vmcopy_copied_from_source, 0},
+		{"Copy using a \'copied to\' source", test_vmcopy_copied_to_source, 0},
+		{"Copy using a true shared source", test_vmcopy_trueshared_source, 0},
+		{"Copy using a private aliased source", test_vmcopy_private_aliased_source, 0},
 	};
 
 	/* All allocations done with mach_vm_allocate(). */
@@ -4150,14 +4110,34 @@ run_copy_test_suites()
 	}
 }
 
+static int
+set_disable_vm_sanitize_telemetry_via_sysctl(uint32_t val)
+{
+	int ret = sysctlbyname("debug.disable_vm_sanitize_telemetry", NULL, NULL, &val, sizeof(uint32_t));
+	if (ret != 0) {
+		T_LOG("telemetry sysctl failed with errno %d.", errno);
+	}
+	return ret;
+}
+
+static int
+disable_vm_sanitize_telemetry(void)
+{
+	return set_disable_vm_sanitize_telemetry_via_sysctl(1);
+}
+
+static int
+reenable_vm_sanitize_telemetry(void)
+{
+	return set_disable_vm_sanitize_telemetry_via_sysctl(0);
+}
+
 void
 perform_test_with_options(test_option_t options)
 {
-	process_options(options);
+	disable_vm_sanitize_telemetry();
 
-	/* <rdar://problem/10304215> CoreOSZin 12Z30: VMUnitTest fails:
-	 * error finding xnu major version number. */
-	/* printf("xnu version is %s.\n\n", xnu_version_string()); */
+	process_options(options);
 
 	if (flag_run_allocate_test) {
 		run_allocate_test_suites();
@@ -4184,6 +4164,7 @@ perform_test_with_options(test_option_t options)
 	}
 
 	log_aggregated_results();
+	reenable_vm_sanitize_telemetry();
 }
 
 T_DECL(vm_test_allocate, "Allocate VM unit test")
@@ -4196,6 +4177,7 @@ T_DECL(vm_test_allocate, "Allocate VM unit test")
 }
 
 T_DECL(vm_test_deallocate, "Deallocate VM unit test",
+    T_META_ENABLED(!TARGET_OS_BRIDGE),  /* disabled on bridgeOS due to failures, rdar://137493917 */
     T_META_IGNORECRASHES(".*vm_allocation.*"))
 {
 	test_options.to_flags = VM_TEST_DEALLOCATE;

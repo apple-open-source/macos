@@ -43,6 +43,7 @@
 
 #include "srp.h"
 #include "config-parse.h"
+#include "srp-strict.h"
 
 #ifdef STANDALONE
 #undef LogMsg
@@ -127,7 +128,7 @@ bool config_parse(void *context, const char *filename, config_file_verb_t *verbs
     // Get the length of the file.
     flen = lseek(file, 0, SEEK_END);
     lseek(file, 0, SEEK_SET);
-    if (flen > 500 * 1024 || (buf = malloc((size_t)flen + 1)) == NULL) {
+    if (flen > 500 * 1024 || (buf = srp_strict_malloc((size_t)flen + 1)) == NULL) {
         INFO("fatal: not enough memory for %s", filename);
         goto outclose;
     }
@@ -146,7 +147,7 @@ bool config_parse(void *context, const char *filename, config_file_verb_t *verbs
             INFO("fatal: read of %s at %lld len %lld: zero bytes read",
                  filename, (long long)have, (long long)(fsize - have));
         outfree:
-            free(buf);
+            srp_strict_free(&buf);
         outclose:
             close(file);
             return false;
@@ -187,6 +188,6 @@ bool config_parse(void *context, const char *filename, config_file_verb_t *verbs
         line = eol + 1;
         lineno++;
     }
-    free(buf);
+    srp_strict_free(&buf);
     return success;
 }

@@ -520,6 +520,34 @@ nfs_node_access_slot(nfsnode_t np, uid_t uid, int add)
 	return slot;
 }
 
+/*
+ * The use of the NFS_OPEN_FILE_PRESERVE_UNLINKED result flag allows a client to avoid the common
+ * implementation practice of renaming an open file to ".nfs<unique value>" after it removes the file.
+ * After the server returns NFS_OPEN_FILE_PRESERVE_UNLINKED, if a client sends a REMOVE operation that
+ * would reduce the file's link count to zero, the server SHOULD report a value of zero for the numlinks
+ * attribute on the file.
+ */
+int
+nfs_open_preserve_unlinked(struct nfsmount *nmp, nfsnode_t np, vfs_context_t ctx)
+{
+	struct nfs_open_owner *noop = NULL;
+	struct nfs_open_file *nofp = NULL;
+
+	if (NM_VERS41(nmp)) {
+		/* Check if preserve unlinked enabled for this open */
+		noop = nfs_open_owner_find(nmp, vfs_context_ucred(ctx), vfs_context_proc(ctx), 0);
+		if (noop) {
+			if (!nfs_open_file_find(np, noop, &nofp, 0, 0, 0) && (nofp->nof_flags & NFS_OPEN_FILE_PRESERVE_UNLINKED)) {
+				nfs_open_owner_rele(noop);
+				return 1;
+			}
+			nfs_open_owner_rele(noop);
+		}
+	}
+
+	return 0;
+}
+
 int
 nfs3_access_rpc(nfsnode_t np, u_int32_t *access, int rpcflags, vfs_context_t ctx)
 {
@@ -1359,8 +1387,8 @@ retry:
 				nfs_file_lock_destroy(np, nflp, vfs_context_thread(ctx), vfs_context_ucred(ctx));
 			}
 
-			/* Send RELEASE_LOCKOWNER operation to the server */
-			error = nfs4_release_lockowner_rpc(np, nlop, vfs_context_thread(ctx), vfs_context_ucred(ctx));
+			/* Send RELEASE_LOCKOWNER/FREE_STATEID operation to the server */
+			error = nmp->nm_funcs4->nf4_release_state(np, nlop, vfs_context_thread(ctx), vfs_context_ucred(ctx));
 			if (error) {
 				NP(np, "nfs_release_locks_for_open_owner: was not able to release lock owner, error %d", error);
 			}
@@ -2650,7 +2678,7 @@ nfs3_setattr_rpc(
 		if (!error) {
 			error = status;
 		}
-		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, &xid);
+		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, nmp->nm_minor_vers, &xid);
 	}
 	/*
 	 * We just changed the attributes and we want to make sure that we
@@ -3147,7 +3175,7 @@ nfs_read_rpc(nfsnode_t np, uio_t uio, vfs_context_t ctx)
 		if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error) &&
 		    (++restart <= nfs_mount_state_max_restarts(nmp))) { /* guard against no progress */
 			lck_mtx_lock(&nmp->nm_lock);
-			if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (stategenid == nmp->nm_stategenid)) {
+			if (nfs_mount_state_error_should_restart_and_recover(error) && (stategenid == nmp->nm_stategenid)) {
 				NP(np, "nfs_read_rpc: error %d, initiating recovery", error);
 				nfs_need_recover(nmp, error);
 			}
@@ -3264,7 +3292,7 @@ nfs3_read_rpc_async_finish(
 		nfsm_chain_adv(error, &nmrep, NFSX_UNSIGNED);
 		nfsm_chain_get_32(error, &nmrep, eof);
 	} else {
-		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, &xid);
+		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, nmp->nm_minor_vers, &xid);
 	}
 	if (!lockerror) {
 		nfs_node_unlock(np);
@@ -3999,7 +4027,7 @@ nfs_write_rpc(
 		if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error) &&
 		    (++restart <= nfs_mount_state_max_restarts(nmp))) { /* guard against no progress */
 			lck_mtx_lock(&nmp->nm_lock);
-			if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (stategenid == nmp->nm_stategenid)) {
+			if (nfs_mount_state_error_should_restart_and_recover(error) && (stategenid == nmp->nm_stategenid)) {
 				NP(np, "nfs_write_rpc: error %d, initiating recovery", error);
 				nfs_need_recover(nmp, error);
 			}
@@ -4208,7 +4236,7 @@ nfs3_write_rpc_async_finish(
 		if (!error) {
 			error = status;
 		}
-		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, &xid);
+		nfsm_chain_loadattr(error, &nmrep, np, nfsvers, nmp->nm_minor_vers, &xid);
 		nfsmout_if(error);
 	}
 	if (updatemtime) {
@@ -4639,7 +4667,7 @@ nfs_vnop_remove(
 	struct componentname *cnp = ap->a_cnp;
 	nfsnode_t dnp = VTONFS(dvp);
 	nfsnode_t np = NULL;
-	int error = 0, nfsvers, namedattrs, inuse, gotattr = 0, flushed = 0, cleanup = 0, did_again = 0;
+	int error = 0, nfsvers, namedattrs, inuse, gotattr = 0, flushed = 0, cleanup = 0, did_again = 0, preserve_unlinked = 0;
 	struct nfs_vattr *nvattr;
 	struct nfsmount *nmp = NFSTONMP(dnp);
 	struct nfs_dulookup *dul;
@@ -4703,6 +4731,7 @@ again_relock:
 
 again:
 	inuse = vnode_isinuse(vp, 0);
+	preserve_unlinked = nfs_open_preserve_unlinked(nmp, np, ctx);
 	if ((ap->a_flags & VNODE_REMOVE_NODELETEBUSY) && inuse) {
 		/* Caller requested Carbon delete semantics, but file is busy */
 		error = EBUSY;
@@ -4718,7 +4747,7 @@ again:
 		did_again = 1;
 		goto again;
 	}
-	if (!inuse || (np->n_sillyrename && (nvattr->nva_nlink > 1))) {
+	if (!inuse || preserve_unlinked || (np->n_sillyrename && (nvattr->nva_nlink > 1))) {
 		if (!inuse && !flushed) { /* flush all the buffers first */
 			/* unlock the node */
 			lck_mtx_lock(get_lck_mtx(NLM_NODE_HASH));
@@ -4967,7 +4996,7 @@ nfs_vnop_rename(
 	nfsnode_t fdnp, fnp, tdnp, tnp;
 	struct componentname *tcnp = ap->a_tcnp;
 	struct componentname *fcnp = ap->a_fcnp;
-	int error, nfsvers, inuse = 0, tvprecycle = 0, locked = 0;
+	int error, nfsvers, inuse = 0, tvprecycle = 0, locked = 0, preserve_unlinked = 0;
 	mount_t fmp, tdmp, tmp;
 	struct nfs_vattr *nvattr;
 	struct nfsmount *nmp;
@@ -5025,8 +5054,9 @@ nfs_vnop_rename(
 	 */
 	if (tvp && (tvp != fvp)) {
 		inuse = vnode_isinuse(tvp, 0);
+		preserve_unlinked = nfs_open_preserve_unlinked(nmp, tnp, ctx);
 	}
-	if (inuse && !tnp->n_sillyrename && (vnode_vtype(tvp) != VDIR)) {
+	if (inuse && !preserve_unlinked && !tnp->n_sillyrename && (vnode_vtype(tvp) != VDIR)) {
 		error = nfs_sillyrename(tdnp, tnp, tcnp, ctx);
 		if (error) {
 			/* sillyrename failed. Instead of pressing on, return error */
@@ -8369,7 +8399,7 @@ partial_read:
 #if CONFIG_NFS4
 			if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error)) {
 				lck_mtx_lock(&nmp->nm_lock);
-				if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (stategenid == nmp->nm_stategenid)) {
+				if (nfs_mount_state_error_should_restart_and_recover(error) && (stategenid == nmp->nm_stategenid)) {
 					NP(np, "nfs_vnop_pagein[v4]: error %d, initiating recovery before restart", error);
 					nfs_need_recover(nmp, error);
 				} else {
@@ -8925,7 +8955,7 @@ tryagain:
 #if CONFIG_NFS4
 			if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error)) {
 				lck_mtx_lock(&nmp->nm_lock);
-				if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (stategenid == nmp->nm_stategenid)) {
+				if (nfs_mount_state_error_should_restart_and_recover(error) && (stategenid == nmp->nm_stategenid)) {
 					NP(np, "nfs_vnop_pageout: error %d, initiating recovery", error);
 					nfs_need_recover(nmp, error);
 				}
@@ -8965,7 +8995,7 @@ tryagain:
 				if ((nmp->nm_vers >= NFS_VER4) && nfs_mount_state_error_should_restart(error)) {
 					NP(np, "nfs_vnop_pageout: restart: error %d", error);
 					lck_mtx_lock(&nmp->nm_lock);
-					if ((error != NFSERR_OLD_STATEID) && (error != NFSERR_GRACE) && (stategenid == nmp->nm_stategenid)) {
+					if (nfs_mount_state_error_should_restart_and_recover(error) && (stategenid == nmp->nm_stategenid)) {
 						NP(np, "nfs_vnop_pageout: error %d, initiating recovery", error);
 						nfs_need_recover(nmp, error);
 					}

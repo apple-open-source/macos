@@ -28,6 +28,7 @@
 
 #import "APIString.h"
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 using namespace WebKit;
 
@@ -35,8 +36,8 @@ using namespace WebKit;
 
 - (NSObject *)_web_createTarget
 {
-    const String& string = downcast<API::String>(&self._apiObject)->string();
-    return (NSString *)string.createCFString().leakRef();
+    String string = RefPtr { downcast<API::String>(&self._apiObject) }->string();
+    return bridge_cast(string.createCFString().leakRef());
 }
 
 - (Class)superclass

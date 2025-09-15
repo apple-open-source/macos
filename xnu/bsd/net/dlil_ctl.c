@@ -141,10 +141,6 @@ dlil_if_acquire(uint32_t family, const void *uniqueid __sized_by(uniqueid_len),
 
 	ifp1 = (struct ifnet *)dlifp1;
 	dlifp1->dl_if_flags = DLIF_INUSE;
-	if (ifnet_debug) {
-		dlifp1->dl_if_flags |= DLIF_DEBUG;
-		dlifp1->dl_if_trace = dlil_if_trace;
-	}
 	ifp1->if_name = tsnprintf(dlifp1->dl_if_namestorage, sizeof(dlifp1->dl_if_namestorage), "");
 	ifp1->if_xname = tsnprintf(dlifp1->dl_if_xnamestorage, sizeof(dlifp1->dl_if_xnamestorage), "");
 
@@ -216,31 +212,6 @@ end:
 	    IS_P2ALIGNED(&ifp1->if_data, sizeof(u_int64_t))));
 
 	return ret;
-}
-
-void
-dlil_if_trace(struct dlil_ifnet *dl_if, int refhold)
-{
-	struct dlil_ifnet_dbg *dl_if_dbg = (struct dlil_ifnet_dbg *)dl_if;
-	ctrace_t *tr;
-	u_int32_t idx;
-	u_int16_t *cnt;
-
-	if (!(dl_if->dl_if_flags & DLIF_DEBUG)) {
-		panic("%s: dl_if %p has no debug structure", __func__, dl_if);
-		/* NOTREACHED */
-	}
-
-	if (refhold) {
-		cnt = &dl_if_dbg->dldbg_if_refhold_cnt;
-		tr = dl_if_dbg->dldbg_if_refhold;
-	} else {
-		cnt = &dl_if_dbg->dldbg_if_refrele_cnt;
-		tr = dl_if_dbg->dldbg_if_refrele;
-	}
-
-	idx = os_atomic_inc_orig(cnt, relaxed) % IF_REF_TRACE_HIST_SIZE;
-	ctrace_record(&tr[idx]);
 }
 
 /*

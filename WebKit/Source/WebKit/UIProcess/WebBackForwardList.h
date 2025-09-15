@@ -56,6 +56,7 @@ public:
     WebBackForwardListItem* itemForID(WebCore::BackForwardItemIdentifier);
 
     void addItem(Ref<WebBackForwardListItem>&&);
+    void addChildItem(WebCore::FrameIdentifier, Ref<FrameState>&&);
     void goToItem(WebBackForwardListItem&);
     void removeAllItems();
     void clear();
@@ -63,11 +64,14 @@ public:
     WebBackForwardListItem* currentItem() const;
     RefPtr<WebBackForwardListItem> protectedCurrentItem() const;
     WebBackForwardListItem* backItem() const;
+    RefPtr<WebBackForwardListItem> protectedBackItem() const;
     WebBackForwardListItem* forwardItem() const;
+    RefPtr<WebBackForwardListItem> protectedForwardItem() const;
     WebBackForwardListItem* itemAtIndex(int) const;
+    RefPtr<WebBackForwardListItem> protectedItemAtIndex(int) const;
 
-    WebBackForwardListItem* goBackItemSkippingItemsWithoutUserGesture() const;
-    WebBackForwardListItem* goForwardItemSkippingItemsWithoutUserGesture() const;
+    RefPtr<WebBackForwardListItem> goBackItemSkippingItemsWithoutUserGesture() const;
+    RefPtr<WebBackForwardListItem> goForwardItemSkippingItemsWithoutUserGesture() const;
 
     const BackForwardListItemVector& entries() const { return m_entries; }
 
@@ -85,7 +89,7 @@ public:
     void restoreFromState(BackForwardListState);
 
     void setItemsAsRestoredFromSession();
-    void setItemsAsRestoredFromSessionIf(Function<bool(WebBackForwardListItem&)>&&);
+    void setItemsAsRestoredFromSessionIf(NOESCAPE Function<bool(WebBackForwardListItem&)>&&);
 
     Ref<FrameState> completeFrameStateForNavigation(Ref<FrameState>&&);
 
@@ -106,3 +110,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebBackForwardList)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BackForwardList; }
+SPECIALIZE_TYPE_TRAITS_END()

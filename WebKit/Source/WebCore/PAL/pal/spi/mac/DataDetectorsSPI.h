@@ -23,6 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+DECLARE_SYSTEM_HEADER
+
 #import <wtf/Platform.h>
 
 #if ENABLE(DATA_DETECTION)
@@ -110,7 +114,8 @@ WTF_EXTERN_C_BEGIN
 CFTypeID DDResultGetCFTypeID(void);
 WTF_EXTERN_C_END
 
-typedef struct __DDHighlight *DDHighlightRef;
+// FIXME: See rdar://147779798 for adding CF_BRIDGED_TYPE annotation in DDHighlightDrawing.h.
+typedef struct CF_BRIDGED_TYPE(id) __DDHighlight *DDHighlightRef;
 typedef NSUInteger DDHighlightStyle;
 
 #if !HAVE(DATA_DETECTORS_MAC_ACTION)

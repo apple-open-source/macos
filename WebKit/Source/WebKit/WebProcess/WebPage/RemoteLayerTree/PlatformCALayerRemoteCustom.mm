@@ -81,7 +81,7 @@ PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(WebCore::PlatformCALaye
 }
 
 PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(HTMLVideoElement& videoElement, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
-    : PlatformCALayerRemoteCustom(PlatformCALayer::LayerType::LayerTypeAVPlayerLayer, videoElement.layerHostingContextID(), owner, context)
+    : PlatformCALayerRemoteCustom(PlatformCALayer::LayerType::LayerTypeAVPlayerLayer, videoElement.layerHostingContext().contextID, owner, context)
 {
     m_hasVideo = true;
 }
@@ -97,24 +97,11 @@ PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(WebCore::PlatformCALaye
 PlatformCALayerRemoteCustom::PlatformCALayerRemoteCustom(LayerType layerType, PlatformLayer * customLayer, PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
     : PlatformCALayerRemote(layerType, owner, context)
 {
-    switch (context.layerHostingMode()) {
-    case LayerHostingMode::InProcess:
-#if HAVE(HOSTED_CORE_ANIMATION)
-        m_layerHostingContext = LayerHostingContext::createForPort(WebProcess::singleton().compositingRenderServerPort());
-#else
-        RELEASE_ASSERT_NOT_REACHED();
-#endif
-        break;
-#if HAVE(OUT_OF_PROCESS_LAYER_HOSTING)
-    case LayerHostingMode::OutOfProcess:
-        m_layerHostingContext = LayerHostingContext::createForExternalHostingProcess({
+    m_layerHostingContext = LayerHostingContext::create({
 #if PLATFORM(IOS_FAMILY)
-            context.canShowWhileLocked()
+        context.canShowWhileLocked()
 #endif
-        });
-        break;
-#endif
-    }
+    });
 
     m_layerHostingContext->setRootLayer(customLayer);
     [customLayer setValue:[NSValue valueWithPointer:this] forKey:platformCALayerPointer];
@@ -152,6 +139,9 @@ void PlatformCALayerRemoteCustom::populateCreationProperties(RemoteLayerTreeTran
 
     properties.additionalData = RemoteLayerTreeTransaction::LayerCreationProperties::CustomData {
         .hostingContextID = hostingContextID(),
+#if ENABLE(MACH_PORT_LAYER_HOSTING)
+        .sendRightAnnotated = sendRightAnnotated(),
+#endif
         .hostingDeviceScaleFactor = context.deviceScaleFactor(),
         .preservesFlip = true
     };
@@ -167,9 +157,9 @@ Ref<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(PlatformCALayer
         if (PAL::isAVFoundationFrameworkAvailable() && [platformLayer() isKindOfClass:PAL::getAVPlayerLayerClass()]) {
             clonedLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
 
-            AVPlayerLayer *destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());
-            AVPlayerLayer *sourcePlayerLayer = static_cast<AVPlayerLayer *>(platformLayer());
-            RunLoop::main().dispatch([destinationPlayerLayer, sourcePlayerLayer] {
+            RetainPtr destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());
+            RetainPtr sourcePlayerLayer = static_cast<AVPlayerLayer *>(platformLayer());
+            RunLoop::mainSingleton().dispatch([destinationPlayerLayer = WTFMove(destinationPlayerLayer), sourcePlayerLayer = WTFMove(sourcePlayerLayer)] {
                 [destinationPlayerLayer setPlayer:[sourcePlayerLayer player]];
             });
         } else {

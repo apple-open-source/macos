@@ -1223,7 +1223,7 @@ rsync_sender(struct sess *sess, int fdin,
 	if (protocol_itemize)
 		flinfosz += sizeof(int16_t);
 
-	fl_init(&fl);
+	fl_init(sess, &fl);
 	flg = &fl;
 	if (pledge("stdio getpw rpath", NULL) == -1) {
 		ERR("pledge");
@@ -1741,7 +1741,8 @@ rsync_sender(struct sess *sess, int fdin,
 
 		if (up.cur == NULL) {
 			struct flist *f, *nextfl;
-			int oflags;
+			const char *opath;
+			int dirfd, nlinkflag, oflags;
 
 			assert(pfd[2].fd == -1);
 			assert(up.stat.fd == -1);
@@ -1805,19 +1806,6 @@ rsync_sender(struct sess *sess, int fdin,
 			}
 
 			/*
-			 * Room for improvement: --copy-links should really
-			 * cause us to record the path at the time of flist
-			 * generation and specifically send *that* file here,
-			 * rather than relying on the link dereferencing to the
-			 * same file twice.  At that point, we should be able
-			 * to pick O_NOFOLLOW back up unconditionally.
-			 */
-			oflags = O_RDONLY | O_NONBLOCK;
-			if (!sess->opts->copy_links &&
-			    !sess->opts->copy_unsafe_links)
-				oflags |= O_NOFOLLOW;
-
-			/*
 			 * Non-blocking open of file.
 			 * This will be picked up in the state machine
 			 * block of not being primed.
@@ -1827,12 +1815,78 @@ rsync_sender(struct sess *sess, int fdin,
 			 * flist-specified open if provided.
 			 */
 			nextfl = &fl.flp[up.cur->idx];
+			nlinkflag = 0;
+			oflags = O_RDONLY | O_NONBLOCK;
+			if (nextfl->froot != NULL) {
+				const char *rootp = nextfl->froot->rootpath;
+				size_t rootplen;
+
+				dirfd = nextfl->froot->rootfd;
+				opath = nextfl->path;
+
+				rootplen = strlen(rootp);
+				assert(rootplen > 0);
+
+				/*
+				 * Normalize the root part to exclude the
+				 * final delimiter, then we'll consistently
+				 * ensure that the root matches along with a
+				 * delimiter just following that.
+				 */
+				if (rootp[rootplen - 1] == '/')
+					rootplen--;
+				if (strncmp(opath, rootp, rootplen) == 0 &&
+				    opath[rootplen] == '/')
+					opath += rootplen;
+
+				while (opath[0] == '/' && opath[0] != '\0')
+					opath++;
+
+				assert(opath[0] != '\0');
+
+				/*
+				 * We relax a little bit from O_NOFOLLOW if we
+				 * have a dirfd because the damage that can be
+				 * caused from a confused entry is a lot more
+				 * limited if we restrict resolution to within
+				 * the dirfd.
+				 */
+				nlinkflag = O_RESOLVE_BENEATH;
+			} else {
+				dirfd = AT_FDCWD;
+				opath = nextfl->path;
+				nlinkflag = O_NOFOLLOW;
+			}
+
+			/*
+			 * Room for improvement: --copy-links should really
+			 * cause us to record the path at the time of flist
+			 * generation and specifically send *that* file here,
+			 * rather than relying on the link dereferencing to the
+			 * same file twice.  At that point, we should be able
+			 * to pick O_NOFOLLOW back up unconditionally.
+			 */
+			if (!sess->opts->copy_links &&
+			    !sess->opts->copy_unsafe_links &&
+			    !sess->opts->copy_dirlinks)
+				oflags |= nlinkflag;
+
 			if (nextfl->open != NULL) {
 				up.stat.fd = (*nextfl->open)(sess, nextfl,
 				    oflags);
 			} else {
-				up.stat.fd = open(nextfl->path, oflags, 0);
+				up.stat.fd = openat(dirfd, opath, oflags, 0);
 			}
+
+			if (nextfl->froot != NULL) {
+				int serrno = errno;
+
+				froot_release(nextfl->froot);
+				nextfl->froot = NULL;
+
+				errno = serrno;
+			}
+
 			if (up.stat.fd == -1) {
 				char buf[PATH_MAX];
 

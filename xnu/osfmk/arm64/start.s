@@ -130,7 +130,7 @@ LEXT(reset_vector)
 	msr		OSLAR_EL1, xzr
 	msr		DAIFSet, #(DAIFSC_ALL)				// Disable all interrupts
 
-#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR))
+#if !(defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR))
 	// Set low reset vector before attempting any loads
 	adrp    x0, EXT(LowExceptionVectorBase)@page
 	add     x0, x0, EXT(LowExceptionVectorBase)@pageoff
@@ -279,7 +279,7 @@ LEXT(LowExceptionVectorBase)
 	b		.
 	.align 12, 0
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 /*
  * Provide a global symbol so that we can narrow the V=P mapping to cover
  * this page during arm_vm_init.
@@ -288,7 +288,7 @@ LEXT(LowExceptionVectorBase)
 .globl EXT(bootstrap_instructions)
 LEXT(bootstrap_instructions)
 
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 	.align 2
 	.globl EXT(resume_idle_cpu)
 LEXT(resume_idle_cpu)
@@ -305,13 +305,13 @@ LEXT(start_cpu)
 
 	.align 2
 start_cpu:
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	// This is done right away in reset vector for pre-KTRR devices
 	// Set low reset vector now that we are in the KTRR-free zone
 	adrp	x0, EXT(LowExceptionVectorBase)@page
 	add		x0, x0, EXT(LowExceptionVectorBase)@pageoff
 	MSR_VBAR_EL1_X0
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 	// x20 set to BootArgs phys address
 	// x21 set to cpu data phys address
@@ -337,7 +337,7 @@ start_cpu:
 
 
 	// Set SP_EL1 to exception stack
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	mov		x1, lr
 	bl		EXT(pinst_spsel_1)
 	mov		lr, x1
@@ -370,7 +370,7 @@ start_cpu:
  *   arg5 - Scratch register
  */
 .macro create_l1_table_entry
-	and		$3,	$0, #(ARM_TT_L1_INDEX_MASK)
+	and		$3,	$0, #(ARM_PTE_T1_REGION_MASK(TCR_EL1_BOOT))
 	lsr		$3, $3, #(ARM_TT_L1_SHIFT)			// Get index in L1 table for L2 table
 	lsl		$3, $3, #(TTE_SHIFT)				// Convert index into pointer offset
 	add		$3, $1, $3							// Get L1 entry pointer
@@ -500,7 +500,7 @@ LEXT(start_first_cpu)
 	sub		x0, x0, x23
 
 	// Set SP_EL1 to exception stack
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	bl		EXT(pinst_spsel_1)
 #else
 	msr		SPSel, #1
@@ -651,16 +651,15 @@ common_start:
 #endif
 
 	// Set the translation control register.
-	adrp	x0,     EXT(sysreg_restore)@page		// Load TCR value from the system register restore structure
-	add		x0, x0, EXT(sysreg_restore)@pageoff
-	ldr		x1, [x0, SR_RESTORE_TCR_EL1]
+	MOV64	x1, TCR_EL1_BOOT
 	MSR_TCR_EL1_X1
+
 
 	/* Set up translation table base registers.
 	 *	TTBR0 - V=P table @ top of kernel
 	 *	TTBR1 - KVA table @ top of kernel + 1 page
 	 */
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/* Note that for KTRR configurations, the V=P map will be modified by
 	 * arm_vm_init.c.
 	 */

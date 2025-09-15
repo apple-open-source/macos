@@ -581,9 +581,8 @@ firehose_client_merge_updates(firehose_buffer_t fb, bool async_notif,
 
 #ifndef KERNEL
 void *
-firehose_buffer_get_logging_prefs(firehose_buffer_t fb, size_t *length)
+firehose_buffer_get_logging_prefs(mach_port_t sendp, size_t *length)
 {
-	mach_port_t sendp = fb->fb_header.fbh_logd_port;
 	mach_port_t mem_port = MACH_PORT_NULL;
 	mach_vm_size_t size = 0;
 	mach_vm_address_t addr = 0;

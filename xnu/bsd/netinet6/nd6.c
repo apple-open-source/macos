@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -81,8 +81,10 @@
 #include <dev/random/randomdev.h>
 
 #include <kern/queue.h>
+#include <kern/uipc_domain.h>
 #include <kern/zalloc.h>
 
+#include <net/droptap.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
@@ -223,6 +225,7 @@ static void nd6_purge_interface_llinfo(struct ifnet *);
 
 static int nd6_sysctl_drlist SYSCTL_HANDLER_ARGS;
 static int nd6_sysctl_prlist SYSCTL_HANDLER_ARGS;
+static int nd6_sysctl_rtilist SYSCTL_HANDLER_ARGS;
 
 /*
  * Insertion and removal from llinfo_nd6 must be done with rnh_lock held.
@@ -260,7 +263,11 @@ SYSCTL_PROC(_net_inet6_icmp6, ICMPV6CTL_ND6_DRLIST, nd6_drlist,
 
 SYSCTL_PROC(_net_inet6_icmp6, ICMPV6CTL_ND6_PRLIST, nd6_prlist,
     CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_LOCKED, 0, 0,
-    nd6_sysctl_prlist, "S,in6_defrouter", "");
+    nd6_sysctl_prlist, "S,in6_prefix", "");
+
+SYSCTL_PROC(_net_inet6_icmp6, ICMPV6CTL_ND6_RTILIST, nd6_rtilist,
+    CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_LOCKED, 0, 0,
+    nd6_sysctl_rtilist, "S,in6_route_info", "");
 
 SYSCTL_DECL(_net_inet6_ip6);
 
@@ -708,7 +715,7 @@ nd6_options(union nd_opts *ndopts)
 		case ND_OPT_REDIRECTED_HEADER:
 		case ND_OPT_NONCE:
 			if (ndopts->nd_opt_array[nd_opt->nd_opt_type]) {
-				nd6log(error,
+				nd6log(info,
 				    "duplicated ND6 option found (type=%d)\n",
 				    nd_opt->nd_opt_type);
 				/* XXX bark? */
@@ -1795,7 +1802,7 @@ nd6_timeout(void *arg)
 		sarg.draining = 1;
 	}
 	nd6_service(&sarg);
-	nd6log3(debug, "%s: found %u, aging_lazy %u, aging %u, "
+	nd6log4(debug, "%s: found %u, aging_lazy %u, aging %u, "
 	    "sticky %u, killed %u\n", __func__, sarg.found, sarg.aging_lazy,
 	    sarg.aging, sarg.sticky, sarg.killed);
 	/* re-arm the timer if there's work to do */
@@ -1824,7 +1831,7 @@ nd6_timeout(void *arg)
 		}
 		nd6_sched_timeout(&atv, leeway);
 	} else if (nd6_debug) {
-		nd6log3(debug, "%s: not rescheduling timer\n", __func__);
+		nd6log4(debug, "%s: not rescheduling timer\n", __func__);
 	}
 	lck_mtx_unlock(rnh_lock);
 }
@@ -1844,14 +1851,14 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 	/* see comments on top of this file */
 	if (nd6_timeout_run == 0) {
 		if (ltv == NULL) {
-			nd6log3(debug, "%s: timer scheduled in "
+			nd6log4(debug, "%s: timer scheduled in "
 			    "T+%llus.%lluu (demand %d)\n", __func__,
 			    (uint64_t)atv->tv_sec, (uint64_t)atv->tv_usec,
 			    nd6_sched_timeout_want);
 			nd6_fast_timer_on = TRUE;
 			timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
 		} else {
-			nd6log3(debug, "%s: timer scheduled in "
+			nd6log4(debug, "%s: timer scheduled in "
 			    "T+%llus.%lluu with %llus.%lluu leeway "
 			    "(demand %d)\n", __func__, (uint64_t)atv->tv_sec,
 			    (uint64_t)atv->tv_usec, (uint64_t)ltv->tv_sec,
@@ -1864,7 +1871,7 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 		nd6_sched_timeout_want = 0;
 	} else if (nd6_timeout_run == 1 && ltv == NULL &&
 	    nd6_fast_timer_on == FALSE) {
-		nd6log3(debug, "%s: fast timer scheduled in "
+		nd6log4(debug, "%s: fast timer scheduled in "
 		    "T+%llus.%lluu (demand %d)\n", __func__,
 		    (uint64_t)atv->tv_sec, (uint64_t)atv->tv_usec,
 		    nd6_sched_timeout_want);
@@ -1874,12 +1881,12 @@ nd6_sched_timeout(struct timeval *atv, struct timeval *ltv)
 		timeout(nd6_timeout, &nd6_fast_timer_on, tvtohz(atv));
 	} else {
 		if (ltv == NULL) {
-			nd6log3(debug, "%s: not scheduling timer: "
+			nd6log4(debug, "%s: not scheduling timer: "
 			    "timers %d, fast_timer %d, T+%llus.%lluu\n",
 			    __func__, nd6_timeout_run, nd6_fast_timer_on,
 			    (uint64_t)atv->tv_sec, (uint64_t)atv->tv_usec);
 		} else {
-			nd6log3(debug, "%s: not scheduling timer: "
+			nd6log4(debug, "%s: not scheduling timer: "
 			    "timers %d, fast_timer %d, T+%llus.%lluu "
 			    "with %llus.%lluu leeway\n", __func__,
 			    nd6_timeout_run, nd6_fast_timer_on,
@@ -2194,8 +2201,8 @@ nd6_purge_interface_rti_entries(struct ifnet *ifp)
 			 * For that reason, installed ones must be inserted
 			 * at the tail and uninstalled ones at the head
 			 */
-
 			TAILQ_REMOVE(&rti->nd_rti_router_list, dr, dr_entry);
+
 			if (dr->stateflags & NDDRF_INSTALLED) {
 				TAILQ_INSERT_TAIL(&rti_tmp.nd_rti_router_list, dr, dr_entry);
 			} else {
@@ -3029,7 +3036,7 @@ nd6_rtrequest(int req, struct rtentry *rt, struct sockaddr *sa)
 				error = in6_mc_join(ifp, &llsol,
 				    NULL, &in6m, 0);
 				if (error) {
-					nd6log(error, "%s: failed to join "
+					nd6log0(error, "%s: failed to join "
 					    "%s (errno=%d)\n", if_name(ifp),
 					    ip6_sprintf(&llsol), error);
 				} else {
@@ -3749,6 +3756,8 @@ fail:
 	}
 
 	if (do_update) {
+		rt_lookup_qset_id(rt, false);
+
 		int route_ev_code = 0;
 
 		if (llchange) {
@@ -3880,6 +3889,7 @@ nd6_output_list(struct ifnet *ifp, struct ifnet *origifp, struct mbuf *m0,
 	uint64_t timenow;
 	rtentry_ref_t rtrele = NULL;
 	struct nd_ifinfo *__single ndi = NULL;
+	drop_reason_t drop_reason = DROP_REASON_UNSPECIFIED;
 
 	if (rt != NULL) {
 		RT_LOCK_SPIN(rt);
@@ -3930,6 +3940,7 @@ nd6_output_list(struct ifnet *ifp, struct ifnet *origifp, struct mbuf *m0,
 					return error;
 				}
 			} else {
+				drop_reason = DROP_REASON_IP_NO_ROUTE;
 				senderr(EHOSTUNREACH);
 			}
 		}
@@ -3965,6 +3976,7 @@ nd6_output_list(struct ifnet *ifp, struct ifnet *origifp, struct mbuf *m0,
 					ifa_remref(&ia6->ia_ifa);
 				}
 				if ((ifp->if_flags & IFF_POINTOPOINT) == 0) {
+					drop_reason = DROP_REASON_IP_NO_ROUTE;
 					senderr(EHOSTUNREACH);
 				}
 				goto sendpkt;
@@ -3976,6 +3988,7 @@ nd6_output_list(struct ifnet *ifp, struct ifnet *origifp, struct mbuf *m0,
 			/* If hint is now down, give up */
 			if (!(rt->rt_flags & RTF_UP)) {
 				RT_UNLOCK(rt);
+				drop_reason = DROP_REASON_IP_NO_ROUTE;
 				senderr(EHOSTUNREACH);
 			}
 
@@ -4021,6 +4034,7 @@ lookup:
 						rtfree_locked(gwrt);
 					}
 					lck_mtx_unlock(rnh_lock);
+					drop_reason = DROP_REASON_IP_NO_ROUTE;
 					senderr(EHOSTUNREACH);
 				}
 				VERIFY(gwrt != NULL);
@@ -4073,6 +4087,7 @@ lookup:
 				rtfree(rt);
 				rt = NULL;
 				/* "rtrele" == original "rt" */
+				drop_reason = DROP_REASON_IP_NO_ROUTE;
 				senderr(EHOSTUNREACH);
 			}
 		}
@@ -4147,6 +4162,7 @@ lookup:
 			    ip6_sprintf(&dst->sin6_addr),
 			    (uint64_t)VM_KERNEL_ADDRPERM(ln),
 			    (uint64_t)VM_KERNEL_ADDRPERM(rt));
+			drop_reason = DROP_REASON_IP6_MEM_ALLOC;
 			senderr(EIO);   /* XXX: good error? */
 		}
 		lck_mtx_unlock(&ndi->lock);
@@ -4176,7 +4192,7 @@ lookup:
 		ND6_CACHE_STATE_TRANSITION(ln, ND6_LLINFO_DELAY);
 		ln_setexpire(ln, timenow + nd6_delay);
 		/* N.B.: we will re-arm the timer below. */
-		_CASSERT(ND6_LLINFO_DELAY > ND6_LLINFO_INCOMPLETE);
+		static_assert(ND6_LLINFO_DELAY > ND6_LLINFO_INCOMPLETE);
 	}
 
 	/*
@@ -4299,6 +4315,7 @@ sendpkt:
 	/* discard the packet if IPv6 operation is disabled on the interface */
 	if (ifp->if_eflags & IFEF_IPV6_DISABLED) {
 		error = ENETDOWN; /* better error? */
+		drop_reason = DROP_REASON_IP6_IF_IPV6_DISABLED;
 		goto bad;
 	}
 
@@ -4316,6 +4333,7 @@ sendpkt:
 		    IN6_IS_ADDR_LOOPBACK(&ip6->ip6_dst))) {
 			ip6stat.ip6s_badscope++;
 			error = EADDRNOTAVAIL;
+			drop_reason = DROP_REASON_IP6_BAD_SCOPE;
 			goto bad;
 		}
 	}
@@ -4358,7 +4376,8 @@ sendpkt:
 
 bad:
 	if (m0 != NULL) {
-		m_freem_list(m0);
+		m_drop_list(m0, ifp, DROPTAP_FLAG_DIR_OUT | DROPTAP_FLAG_L2_MISSING, drop_reason, NULL, 0);
+		m0 = NULL;
 	}
 
 release:
@@ -4511,7 +4530,7 @@ nd6_lookup_ipv6(ifnet_t  ifp, const struct sockaddr_in6 *ip6_dest,
 	sdl = SDL(route->rt_gateway);
 	if (sdl->sdl_alen == 0) {
 		/* this should be impossible, but we bark here for debugging */
-		nd6log(error, "%s: route %s on %s%d sdl_alen == 0\n", __func__,
+		nd6log0(error, "%s: route %s on %s%d sdl_alen == 0\n", __func__,
 		    ip6_sprintf(&ip6_dest->sin6_addr), route->rt_ifp->if_name,
 		    route->rt_ifp->if_unit);
 		result = EHOSTUNREACH;
@@ -4523,6 +4542,17 @@ nd6_lookup_ipv6(ifnet_t  ifp, const struct sockaddr_in6 *ip6_dest,
 
 release:
 	if (route != NULL) {
+		/* Set qset id only if there are traffic rules. Else, for bridge
+		 *  use cases, the flag will be set and traffic rules won't be
+		 *  run on the downstream interface */
+		if (result == 0 && ifp->if_eth_traffic_rule_count) {
+			uint64_t qset_id = rt_lookup_qset_id(route, true);
+			if (packet != NULL) {
+				packet->m_pkthdr.pkt_ext_flags |= PKTF_EXT_QSET_ID_VALID;
+				packet->m_pkthdr.pkt_mpriv_qsetid = qset_id;
+			}
+		}
+
 		if (route == hint) {
 			RT_REMREF_LOCKED(route);
 			RT_UNLOCK(route);
@@ -4784,8 +4814,9 @@ nd6_sysctl_prlist SYSCTL_HANDLER_ARGS
 			p.refcnt = pr->ndpr_addrcnt;
 			p.flags = pr->ndpr_stateflags;
 			p.advrtrs = 0;
-			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry)
-			p.advrtrs++;
+			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry) {
+				p.advrtrs++;
+			}
 			error = SYSCTL_OUT(req, &p, sizeof(p));
 			if (error != 0) {
 				NDPR_UNLOCK(pr);
@@ -4835,8 +4866,9 @@ nd6_sysctl_prlist SYSCTL_HANDLER_ARGS
 			p.refcnt = pr->ndpr_addrcnt;
 			p.flags = pr->ndpr_stateflags;
 			p.advrtrs = 0;
-			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry)
-			p.advrtrs++;
+			LIST_FOREACH(pfr, &pr->ndpr_advrtrs, pfr_entry) {
+				p.advrtrs++;
+			}
 			error = SYSCTL_OUT(req, &p, sizeof(p));
 			if (error != 0) {
 				NDPR_UNLOCK(pr);
@@ -4859,6 +4891,108 @@ nd6_sysctl_prlist SYSCTL_HANDLER_ARGS
 			NDPR_UNLOCK(pr);
 			if (error != 0) {
 				break;
+			}
+		}
+	}
+	lck_mtx_unlock(nd6_mutex);
+
+	return error;
+}
+
+static int
+nd6_sysctl_rtilist SYSCTL_HANDLER_ARGS
+{
+#pragma unused(oidp, arg1, arg2)
+	struct nd_route_info *rti = NULL;
+	struct nd_defrouter *dr = NULL;
+	char pbuf[MAX_IPv6_STR_LEN];
+	int error = 0;
+
+	if (req->newptr != USER_ADDR_NULL) {
+		return EPERM;
+	}
+
+	lck_mtx_lock(nd6_mutex);
+	if (proc_is64bit(req->p)) {
+		struct in6_route_info_64 d;
+		struct in6_defrouter_64 drx;
+
+		bzero(&d, sizeof(d));
+
+		bzero(&drx, sizeof(drx));
+		drx.rtaddr.sin6_family = AF_INET6;
+		drx.rtaddr.sin6_len = sizeof(drx.rtaddr);
+
+		TAILQ_FOREACH(rti, &nd_rti_list, nd_rti_entry) {
+			d.prefix = rti->nd_rti_prefix;
+			d.prefixlen = rti->nd_rti_prefixlen;
+			d.defrtrs = 0;
+			TAILQ_FOREACH(dr, &rti->nd_rti_router_list, dr_entry) {
+				d.defrtrs++;
+			}
+			error = SYSCTL_OUT(req, &d, sizeof(d));
+			if (error != 0) {
+				break;
+			}
+
+			TAILQ_FOREACH(dr, &rti->nd_rti_router_list, dr_entry) {
+				drx.rtaddr.sin6_addr = dr->rtaddr;
+				if (in6_recoverscope(&drx.rtaddr,
+				    &dr->rtaddr, dr->ifp) != 0) {
+					nd6log0(error, "scope error in default router "
+					    "list (%s)\n", inet_ntop(AF_INET6,
+					    &dr->rtaddr, pbuf, sizeof(pbuf)));
+				}
+				drx.flags = dr->flags;
+				drx.stateflags = dr->stateflags;
+				drx.rtlifetime = (u_short)dr->rtlifetime;
+				drx.expire = (int)nddr_getexpire(dr);
+				drx.if_index = dr->ifp->if_index;
+				error = SYSCTL_OUT(req, &drx, sizeof(drx));
+				if (error != 0) {
+					break;
+				}
+			}
+		}
+	} else {
+		struct in6_route_info_32 d;
+		struct in6_defrouter_32 drx;
+
+		bzero(&d, sizeof(d));
+
+		bzero(&drx, sizeof(drx));
+		drx.rtaddr.sin6_family = AF_INET6;
+		drx.rtaddr.sin6_len = sizeof(drx.rtaddr);
+
+		TAILQ_FOREACH(rti, &nd_rti_list, nd_rti_entry) {
+			d.prefix = rti->nd_rti_prefix;
+			d.prefixlen = rti->nd_rti_prefixlen;
+			d.defrtrs = 0;
+			TAILQ_FOREACH(dr, &rti->nd_rti_router_list, dr_entry) {
+				d.defrtrs++;
+			}
+			error = SYSCTL_OUT(req, &d, sizeof(d));
+			if (error != 0) {
+				break;
+			}
+
+			TAILQ_FOREACH(dr, &rti->nd_rti_router_list, dr_entry) {
+				drx.rtaddr.sin6_addr = dr->rtaddr;
+				if (in6_recoverscope(&drx.rtaddr,
+				    &dr->rtaddr, dr->ifp) != 0) {
+					nd6log0(error, "scope error in default router "
+					    "list (%s)\n", inet_ntop(AF_INET6,
+					    &dr->rtaddr, pbuf, sizeof(pbuf)));
+				}
+				drx.flags = dr->flags;
+				drx.stateflags = dr->stateflags;
+				drx.rtlifetime = (u_short)dr->rtlifetime;
+				drx.expire = (int)nddr_getexpire(dr);
+				drx.if_index = dr->ifp->if_index;
+				error = SYSCTL_OUT(req, &drx, sizeof(drx));
+				if (error != 0) {
+					break;
+				}
 			}
 		}
 	}

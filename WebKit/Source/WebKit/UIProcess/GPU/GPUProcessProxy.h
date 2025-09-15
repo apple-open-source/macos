@@ -97,7 +97,6 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     void setUseMockCaptureDevices(bool);
-    void setUseSCContentSharingPicker(bool);
     void enableMicrophoneMuteStatusAPI();
     void setOrientationForMediaCapture(WebCore::IntDegrees);
     void rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
@@ -111,7 +110,7 @@ public:
     void setMockMediaDeviceIsEphemeral(const String&, bool);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
+    void triggerMockCaptureConfigurationChange(bool forCamera, bool forMicrophone, bool forDisplay);
     void updateSandboxAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture);
     void setShouldListenToVoiceActivity(const WebPageProxy&, bool);
     void setPageUsingMicrophone(WebPageProxyIdentifier identifier) { m_lastPageUsingMicrophone = identifier; }
@@ -172,6 +171,12 @@ public:
 
 #if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
     void requestSharedSimulationConnection(audit_token_t, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&&);
+    void createMemoryAttributionIDForTask(WebCore::ProcessIdentity, CompletionHandler<void(const std::optional<String>&)>&&);
+    void unregisterMemoryAttributionID(const String&, CompletionHandler<void()>&&);
+#endif
+
+#if PLATFORM(COCOA)
+    void postWillTakeSnapshotNotification(CompletionHandler<void()>&&);
 #endif
 
 private:
@@ -201,7 +206,7 @@ private:
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     void didClose(IPC::Connection&) override;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
 
     // ResponsivenessTimer::Client
     void didBecomeUnresponsive() final;
@@ -243,9 +248,6 @@ private:
     bool m_shouldListenToVoiceActivity { false };
     Markable<WebPageProxyIdentifier> m_lastPageUsingMicrophone;
     bool m_isMicrophoneMuteStatusAPIEnabled { false };
-#endif
-#if HAVE(SC_CONTENT_SHARING_PICKER)
-    bool m_useSCContentSharingPicker { false };
 #endif
 #if PLATFORM(COCOA)
     bool m_hasSentTCCDSandboxExtension { false };

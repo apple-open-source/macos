@@ -23,11 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WKTextFinderClient_h
-#define WKTextFinderClient_h
+#pragma once
 
 #import <WebKit/WKFoundation.h>
-#import <wtf/NakedRef.h>
 
 #if PLATFORM(MAC)
 
@@ -39,11 +37,9 @@ class WebPageProxy;
 
 @interface WKTextFinderClient : NSObject
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view usePlatformFindUI:(BOOL)usePlatformFindUI;
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view usePlatformFindUI:(BOOL)usePlatformFindUI;
 - (void)willDestroyView:(NSView *)view;
 
 @end
 
 #endif // PLATFORM(MAC)
-
-#endif // WKTextFinderClient_h

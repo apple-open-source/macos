@@ -21,6 +21,7 @@
 #include "WebKitWebView.h"
 
 #include "PageClientImpl.h"
+#include "WPEUtilities.h"
 #include "WebInspectorUIProxy.h"
 #include "WebKitColorPrivate.h"
 #include "WebKitScriptDialogPrivate.h"
@@ -84,7 +85,7 @@ void webkitWebViewRestoreWindow(WebKitWebView*, CompletionHandler<void()>&& comp
 WebKitWebView* webkit_web_view_new(WebKitWebViewBackend* backend)
 {
 #if ENABLE(WPE_PLATFORM)
-    g_return_val_if_fail(!backend || !g_type_class_peek(WPE_TYPE_DISPLAY), nullptr);
+    g_return_val_if_fail(!backend || !WKWPE::isUsingWPEPlatformAPI(), nullptr);
 #else
     g_return_val_if_fail(backend, nullptr);
 #endif
@@ -326,3 +327,31 @@ void webkit_web_view_toggle_inspector(WebKitWebView* webView)
         inspector->show();
 }
 #endif
+
+/**
+ * webkit_web_view_get_theme_color:
+ * @web_view: a #WebKitWebView
+ * @color: (out): a #WebKitColor to fill in with the theme color
+ *
+ * Gets the theme color that is specified by the content in the @web_view.
+ * If the @web_view doesn't have a theme color it will fill the @color
+ * with transparent black content.
+ *
+ * Returns: Whether the currently loaded page defines a theme color.
+ *
+ * Since: 2.50
+ */
+gboolean webkit_web_view_get_theme_color(WebKitWebView* webView, WebKitColor* color)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+    auto& page = webkitWebViewGetPage(webView);
+
+    if (!page.themeColor().isValid()) {
+        WebCore::Color tmpColor(WebCore::Color::transparentBlack);
+        webkitColorFillFromWebCoreColor(tmpColor, color);
+        return FALSE;
+    }
+
+    webkitColorFillFromWebCoreColor(page.themeColor(), color);
+    return TRUE;
+}

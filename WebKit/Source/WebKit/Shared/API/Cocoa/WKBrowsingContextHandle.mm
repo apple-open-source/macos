@@ -32,14 +32,14 @@
 
 @implementation WKBrowsingContextHandle
 
-- (id)_initWithPageProxy:(NakedRef<WebKit::WebPageProxy>)page
+- (id)_initWithPageProxy:(std::reference_wrapper<WebKit::WebPageProxy>)page
 {
-    return [self _initWithPageProxyID:page->identifier() andWebPageID:page->webPageIDInMainFrameProcess()];
+    return [self _initWithPageProxyID:page.get().identifier() andWebPageID:page.get().webPageIDInMainFrameProcess()];
 }
 
-- (id)_initWithPage:(NakedRef<WebKit::WebPage>)page
+- (id)_initWithPage:(std::reference_wrapper<WebKit::WebPage>)page
 {
-    return [self _initWithPageProxyID:page->webPageProxyIdentifier() andWebPageID:page->identifier()];
+    return [self _initWithPageProxyID:page.get().webPageProxyIdentifier() andWebPageID:page.get().identifier()];
 }
 
 - (id)_initWithPageProxyID:(WebKit::WebPageProxyIdentifier)pageProxyID andWebPageID:(WebCore::PageIdentifier)webPageID

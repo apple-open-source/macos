@@ -39,14 +39,14 @@
 #import <wtf/GetPtr.h>
 #import <wtf/URL.h>
 
-#define IMPL static_cast<WebCore::HTMLVideoElement*>(reinterpret_cast<WebCore::Node*>(_internal))
+#define IMPL RefPtr { static_cast<WebCore::HTMLVideoElement*>(reinterpret_cast<WebCore::Node*>(_internal)) }
 
 @implementation DOMHTMLVideoElement
 
 - (unsigned)width
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getUnsignedIntegralAttribute(WebCore::HTMLNames::widthAttr);
+    return IMPL->unsignedIntegralAttribute(WebCore::HTMLNames::widthAttr);
 }
 
 - (void)setWidth:(unsigned)newWidth
@@ -58,7 +58,7 @@
 - (unsigned)height
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getUnsignedIntegralAttribute(WebCore::HTMLNames::heightAttr);
+    return IMPL->unsignedIntegralAttribute(WebCore::HTMLNames::heightAttr);
 }
 
 - (void)setHeight:(unsigned)newHeight
@@ -82,7 +82,7 @@
 - (NSString *)poster
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::posterAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::posterAttr).string().createNSString().autorelease();
 }
 
 - (void)setPoster:(NSString *)newPoster

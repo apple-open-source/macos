@@ -69,6 +69,10 @@ ImageDataArray::ImageDataArray(Ref<JSC::Float16Array>&& data)
     : ImageDataArray(Ref<JSC::ArrayBufferView>(WTFMove(data)))
 { }
 
+ImageDataArray::ImageDataArray(ImageDataArray&& original, std::optional<ImageDataStorageFormat> overridingStorageFormat)
+    : m_arrayBufferView(WTFMove(original).extractBufferViewWithStorageFormat(overridingStorageFormat))
+{ }
+
 template <typename TypedArray>
 static void fillTypedArray(TypedArray& typedArray, std::span<const uint8_t> optionalBytes)
 {
@@ -130,7 +134,7 @@ struct TypedArrayItemConverter<JSC::Float16Array, JSC::Uint8ClampedArray> {
             return 0;
         if (d >= 1)
             return 255;
-        return d * 255.0;
+        return d * 255.0 + 0.5;
     }
 };
 
@@ -183,10 +187,22 @@ Ref<JSON::Value> ImageDataArray::copyToJSONArray() const
     });
 }
 
-ImageDataArray::operator Variant() const
+Ref<ArrayBufferView> ImageDataArray::extractBufferViewWithStorageFormat(std::optional<ImageDataStorageFormat> overridingStorageFormat) &&
+{
+    if (!overridingStorageFormat)
+        return WTFMove(m_arrayBufferView);
+
+    switch (*overridingStorageFormat) {
+    case ImageDataStorageFormat::Uint8: return asUint8ClampedArray();
+    case ImageDataStorageFormat::Float16: return asFloat16Array();
+    }
+    RELEASE_ASSERT_NOT_REACHED("Unexpected ImageDataStorageFormat value");
+}
+
+ImageDataArray::operator DataVariant() const
 {
     return visitArrayBufferView(m_arrayBufferView.get(), [](auto& a) {
-        return Variant(RefPtr(&a));
+        return DataVariant(RefPtr(&a));
     });
 }
 

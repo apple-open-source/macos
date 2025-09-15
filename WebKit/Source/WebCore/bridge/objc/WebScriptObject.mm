@@ -264,7 +264,7 @@ void disconnectWindowWrapper(WebScriptObject *windowWrapper)
 
 - (BOOL)_isSafeScript
 {
-    RootObject *root = [self _rootObject];
+    RefPtr root = [self _rootObject];
     if (!root)
         return false;
 
@@ -409,7 +409,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     PutPropertySlot slot(object);
     object->methodTable()->put(object, lexicalGlobalObject, Identifier::fromString(vm, String(key)), convertObjcValueToValue(lexicalGlobalObject, &value, ObjcObjectType, [self _rootObject]), slot);
 
-    if (UNLIKELY(scope.exception())) {
+    if (scope.exception()) [[unlikely]] {
         addExceptionToConsole(lexicalGlobalObject);
         scope.clearException();
     }
@@ -435,7 +435,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
         JSC::JSValue result = [self _imp]->get(lexicalGlobalObject, Identifier::fromString(vm, String(key)));
         
-        if (UNLIKELY(scope.exception())) {
+        if (scope.exception()) [[unlikely]] {
             addExceptionToConsole(lexicalGlobalObject);
             result = jsUndefined();
             scope.clearException();
@@ -463,7 +463,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
     JSC::JSCell::deleteProperty([self _imp], lexicalGlobalObject, Identifier::fromString(vm, String(key)));
 
-    if (UNLIKELY(scope.exception())) {
+    if (scope.exception()) [[unlikely]] {
         addExceptionToConsole(lexicalGlobalObject);
         scope.clearException();
     }
@@ -482,7 +482,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
     BOOL result = [self _imp]->hasProperty(lexicalGlobalObject, Identifier::fromString(vm, String(key)));
 
-    if (UNLIKELY(scope.exception())) {
+    if (scope.exception()) [[unlikely]] {
         addExceptionToConsole(lexicalGlobalObject);
         scope.clearException();
     }
@@ -514,7 +514,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
     JSC::JSValue result = [self _imp]->get(lexicalGlobalObject, index);
 
-    if (UNLIKELY(scope.exception())) {
+    if (scope.exception()) [[unlikely]] {
         addExceptionToConsole(lexicalGlobalObject);
         result = jsUndefined();
         scope.clearException();
@@ -538,7 +538,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
     [self _imp]->methodTable()->putByIndex([self _imp], lexicalGlobalObject, index, convertObjcValueToValue(lexicalGlobalObject, &value, ObjcObjectType, [self _rootObject]), false);
 
-    if (UNLIKELY(scope.exception())) {
+    if (scope.exception()) [[unlikely]] {
         addExceptionToConsole(lexicalGlobalObject);
         scope.clearException();
     }
@@ -570,11 +570,11 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
         if (object->inherits<JSHTMLElement>()) {
             // Plugin elements cache the instance internally.
-            if (ObjcInstance* instance = static_cast<ObjcInstance*>(pluginInstance(jsCast<JSHTMLElement*>(object)->wrapped())))
+            if (RefPtr instance = static_cast<ObjcInstance*>(pluginInstance(jsCast<JSHTMLElement*>(object)->wrapped())))
                 return instance->getObject();
         } else if (object->inherits<ObjCRuntimeObject>()) {
             ObjCRuntimeObject* runtimeObject = static_cast<ObjCRuntimeObject*>(object);
-            ObjcInstance* instance = runtimeObject->getInternalObjCInstance();
+            RefPtr instance = runtimeObject->getInternalObjCInstance();
             if (instance)
                 return instance->getObject();
             return nil;
@@ -584,7 +584,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     }
 
     if (value.isString())
-        return asString(value)->value(rootObject->globalObject()).data;
+        return asString(value)->value(rootObject->globalObject()).data.createNSString().autorelease();
 
     if (value.isNumber())
         return @(value.asNumber());

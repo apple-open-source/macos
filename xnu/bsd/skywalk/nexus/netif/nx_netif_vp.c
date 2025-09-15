@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2025 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -223,10 +223,9 @@ netif_hwna_rx_get_pkts(struct __kern_channel_ring *ring, struct proc *p,
 	    (ring->ckr_flags & CKRF_HOST) != 0));
 	if (err != 0) {
 		SK_DF(SK_VERB_VP,
-		    "hwna \"%s\" (0x%llx) kr \"%s\" (0x%llx) krflags 0x%b "
+		    "hwna \"%s\" (%p) kr \"%s\" (%p) krflags 0x%x "
 		    "(%d)", KRNA(ring)->na_name, SK_KVA(KRNA(ring)),
-		    ring->ckr_name, SK_KVA(ring), ring->ckr_flags,
-		    CKRF_BITS, err);
+		    ring->ckr_name, SK_KVA(ring), ring->ckr_flags, err);
 		STATS_INC(nifs, NETIF_STATS_VP_KR_ENTER_FAIL);
 		return err;
 	}
@@ -245,7 +244,7 @@ netif_hwna_rx_get_pkts(struct __kern_channel_ring *ring, struct proc *p,
 	ktail = ring->ckr_ktail;
 	if (__improbable(ring->ckr_khead == ktail)) {
 		SK_DF(SK_VERB_VP,
-		    "spurious wakeup on hwna %s (0x%llx)", KRNA(ring)->na_name,
+		    "spurious wakeup on hwna %s (%p)", KRNA(ring)->na_name,
 		    SK_KVA(KRNA(ring)));
 		STATS_INC(nifs, NETIF_STATS_VP_SPURIOUS_NOTIFY);
 		err = ENOENT;
@@ -277,37 +276,7 @@ out:
 }
 
 int
-netif_llw_rx_notify_fast(struct __kern_channel_ring *ring, struct proc *p,
-    uint32_t flags)
-{
-#pragma unused (p, flags)
-	struct nexus_adapter *hwna;
-	uint32_t count;
-	int i, err;
-
-	hwna = KRNA(ring);
-	count = na_get_nslots(hwna, NR_RX);
-	err = nx_rx_sync_packets(ring, ring->ckr_scratch, &count);
-	if (__improbable(err != 0)) {
-		SK_ERR("nx_rx_sync_packets failed: %d", err);
-		DTRACE_SKYWALK2(rx__sync__packets__failed,
-		    struct __kern_channel_ring *, ring, int, err);
-		return err;
-	}
-	DTRACE_SKYWALK1(chain__count, uint32_t, count);
-	for (i = 0; i < count; i++) {
-		struct __kern_packet *pkt_chain;
-
-		pkt_chain = SK_PTR_ADDR_KPKT(ring->ckr_scratch[i]);
-		ASSERT(pkt_chain != NULL);
-		(void) nx_netif_demux(NIFNA(KRNA(ring)), pkt_chain, NULL,
-		    NULL, NETIF_FLOW_SOURCE);
-	}
-	return 0;
-}
-
-int
-netif_llw_rx_notify_default(struct __kern_channel_ring *ring, struct proc *p,
+netif_llw_rx_notify(struct __kern_channel_ring *ring, struct proc *p,
     uint32_t flags)
 {
 	int err;
@@ -321,6 +290,28 @@ netif_llw_rx_notify_default(struct __kern_channel_ring *ring, struct proc *p,
 	           NULL, NETIF_FLOW_SOURCE);
 }
 
+static void
+netif_change_pending(struct nx_netif *nif)
+{
+	SK_LOCK_ASSERT_HELD();
+	while ((nif->nif_flags & NETIF_FLAG_CHANGE_PENDING) != 0) {
+		DTRACE_SKYWALK1(change__pending__wait, struct nx_netif *, nif);
+		(void) msleep(&nif->nif_flags, &sk_lock, (PZERO - 1),
+		    __func__, NULL);
+		DTRACE_SKYWALK1(change__pending__wake, struct nx_netif *, nif);
+	}
+	nif->nif_flags |= NETIF_FLAG_CHANGE_PENDING;
+}
+
+static void
+netif_change_done(struct nx_netif *nif)
+{
+	SK_LOCK_ASSERT_HELD();
+	ASSERT((nif->nif_flags & NETIF_FLAG_CHANGE_PENDING) != 0);
+	nif->nif_flags &= ~NETIF_FLAG_CHANGE_PENDING;
+	wakeup(&nif->nif_flags);
+}
+
 static errno_t
 netif_hwna_setup(struct nx_netif *nif)
 {
@@ -331,10 +322,17 @@ netif_hwna_setup(struct nx_netif *nif)
 
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(NETIF_IS_LOW_LATENCY(nif));
+	/*
+	 * Because sk_lock is released within some functions below, we need
+	 * this extra synchronization to ensure that netif_hwna_setup/
+	 * netif_hwna_teardown can run atomically.
+	 */
+	netif_change_pending(nif);
 	if (nif->nif_hw_ch != NULL) {
 		nif->nif_hw_ch_refcnt++;
 		SK_DF(SK_VERB_VP, "%s: hw channel already open, refcnt %d",
 		    if_name(nif->nif_ifp), nif->nif_hw_ch_refcnt);
+		netif_change_done(nif);
 		return 0;
 	}
 	ASSERT(nif->nif_hw_ch_refcnt == 0);
@@ -347,17 +345,19 @@ netif_hwna_setup(struct nx_netif *nif)
 	err = 0;
 	ch = ch_open_special(nx, &chr, FALSE, &err);
 	if (ch == NULL) {
-		SK_ERR("%s: failed to open nx 0x%llx (err %d)",
+		SK_ERR("%s: failed to open nx %p (err %d)",
 		    if_name(nif->nif_ifp), SK_KVA(nx), err);
+		netif_change_done(nif);
 		return err;
 	}
 	netif_hwna_set_mode(ch->ch_na, NETIF_MODE_LLW, NULL);
 	na_start_spec(nx, ch);
 	nif->nif_hw_ch_refcnt = 1;
 	nif->nif_hw_ch = ch;
-	SK_DF(SK_VERB_VP, "%s: hw channel opened 0x%llx, %s:%s",
+	SK_DF(SK_VERB_VP, "%s: hw channel opened %p, %s:%s",
 	    if_name(nif->nif_ifp), SK_KVA(ch), NX_DOM(nx)->nxdom_name,
 	    NX_DOM_PROV(nx)->nxdom_prov_name);
+	netif_change_done(nif);
 	return 0;
 }
 
@@ -370,12 +370,14 @@ netif_hwna_teardown(struct nx_netif *nif)
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(NETIF_IS_LOW_LATENCY(nif));
 	ASSERT(ch != NULL);
+	netif_change_pending(nif);
 	if (--nif->nif_hw_ch_refcnt > 0) {
 		SK_DF(SK_VERB_VP, "%s: hw channel still open, refcnt %d",
 		    if_name(nif->nif_ifp), nif->nif_hw_ch_refcnt);
+		netif_change_done(nif);
 		return;
 	}
-	SK_DF(SK_VERB_VP, "%s: hw channel closing 0x%llx, %s:%s",
+	SK_DF(SK_VERB_VP, "%s: hw channel closing %p, %s:%s",
 	    if_name(nif->nif_ifp), SK_KVA(ch), NX_DOM(nx)->nxdom_name,
 	    NX_DOM_PROV(nx)->nxdom_prov_name);
 
@@ -387,6 +389,7 @@ netif_hwna_teardown(struct nx_netif *nif)
 	SK_DF(SK_VERB_VP, "%s: hw channel closed, %s:%s",
 	    if_name(nif->nif_ifp), NX_DOM(nx)->nxdom_name,
 	    NX_DOM_PROV(nx)->nxdom_prov_name);
+	netif_change_done(nif);
 }
 
 static int
@@ -468,7 +471,7 @@ netif_vp_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 	} else {
 		err = netif_vp_na_activate_off(na);
 	}
-	SK_DF(SK_VERB_VP, "na \"%s\" (0x%llx) %s err %d", na->na_name,
+	SK_DF(SK_VERB_VP, "na \"%s\" (%p) %s err %d", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode), err);
 	return err;
 }
@@ -602,7 +605,7 @@ netif_vp_send_pkt_chain_common(struct nexus_netif_adapter *dev_nifna,
 				pkt = next;
 				continue;
 			}
-			err = ifnet_enqueue_pkt(ifp, p, FALSE, &drop);
+			err = ifnet_enqueue_pkt(ifp, ifp->if_snd, p, FALSE, &drop);
 		}
 		if (err != 0) {
 			SK_ERR("enqueue failed: %d", err);
@@ -948,7 +951,7 @@ netif_vp_na_dtor(struct nexus_adapter *na)
 		nifna->nifna_netif = NULL;
 	}
 	NETIF_WUNLOCK(nif);
-	SK_DF(SK_VERB_VP, "na \"%s\" (0x%llx)", na->na_name, SK_KVA(na));
+	SK_DF(SK_VERB_VP, "na \"%s\" (%p)", na->na_name, SK_KVA(na));
 }
 
 int

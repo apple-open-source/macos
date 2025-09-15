@@ -30,9 +30,10 @@
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ResourceResponse.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/AlignedStorage.h>
 
 @implementation WKNavigationData {
-    API::ObjectStorage<API::NavigationData> _data;
+    AlignedStorage<API::NavigationData> _data;
 }
 
 - (void)dealloc
@@ -40,14 +41,14 @@
     if (WebCoreObjCScheduleDeallocateOnMainRunLoop(WKNavigationData.class, self))
         return;
 
-    _data->~NavigationData();
+    Ref { *_data }->~NavigationData();
 
     [super dealloc];
 }
 
 - (NSString *)title
 {
-    return _data->title();
+    return _data->title().createNSString().autorelease();
 }
 
 - (NSURLRequest *)originalRequest

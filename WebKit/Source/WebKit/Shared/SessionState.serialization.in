@@ -27,7 +27,7 @@ header: "SessionState.h"
 };
 
 [Nested] struct WebKit::HTTPBody::Element {
-    std::variant<Vector<uint8_t>, WebKit::HTTPBody::Element::FileData, String> data;
+    Variant<Vector<uint8_t>, WebKit::HTTPBody::Element::FileData, String> data;
 };
 
 [Nested] struct WebKit::HTTPBody::Element::FileData {

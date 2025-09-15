@@ -27,14 +27,13 @@
 #include "ArgumentCoders.h"
 #include "Connection.h"
 #include "MessageNames.h"
-#include "TestClassName.h"
-#include <optional>
 #include <wtf/Forward.h>
 #include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
+class TestClassName;
 enum class TestTwoStateEnum : bool;
 }
 
@@ -57,17 +56,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit LoadURL(const String& url)
-        : m_arguments(url)
+        : m_url(url)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_url;
     }
 
 private:
-    std::tuple<const String&> m_arguments;
+    const String& m_url;
 };
 
 #if ENABLE(TEST_FEATURE)
@@ -87,17 +87,18 @@ public:
     using Reply = CompletionHandler<void(uint64_t)>;
     using Promise = WTF::NativePromise<uint64_t, IPC::Error>;
     explicit TestAsyncMessage(WebKit::TestTwoStateEnum twoStateEnum)
-        : m_arguments(twoStateEnum)
+        : m_twoStateEnum(twoStateEnum)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_twoStateEnum;
     }
 
 private:
-    std::tuple<WebKit::TestTwoStateEnum> m_arguments;
+    WebKit::TestTwoStateEnum m_twoStateEnum;
 };
 #endif
 
@@ -117,13 +118,16 @@ public:
     using ReplyArguments = std::tuple<>;
     using Reply = CompletionHandler<void()>;
     using Promise = WTF::NativePromise<void, IPC::Error>;
-    auto&& arguments()
+    TestAsyncMessageWithNoArguments()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 #endif
 
@@ -143,13 +147,16 @@ public:
     using ReplyArguments = std::tuple<bool, uint64_t>;
     using Reply = CompletionHandler<void(bool, uint64_t)>;
     using Promise = WTF::NativePromise<std::tuple<bool, uint64_t>, IPC::Error>;
-    auto&& arguments()
+    TestAsyncMessageWithMultipleArguments()
     {
-        return WTFMove(m_arguments);
+    }
+
+    template<typename Encoder>
+    void encode(Encoder& encoder)
+    {
     }
 
 private:
-    std::tuple<> m_arguments;
 };
 #endif
 
@@ -170,17 +177,18 @@ public:
     using Reply = CompletionHandler<void(bool)>;
     using Promise = WTF::NativePromise<bool, IPC::Error>;
     explicit TestAsyncMessageWithConnection(const int& value)
-        : m_arguments(value)
+        : m_value(value)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        SUPPRESS_FORWARD_DECL_ARG encoder << m_value;
     }
 
 private:
-    std::tuple<const int&> m_arguments;
+    SUPPRESS_FORWARD_DECL_MEMBER const int& m_value;
 };
 #endif
 
@@ -198,17 +206,18 @@ public:
     using ReplyArguments = std::tuple<uint8_t>;
     using Reply = CompletionHandler<void(uint8_t)>;
     explicit TestSyncMessage(uint32_t param)
-        : m_arguments(param)
+        : m_param(param)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_param;
     }
 
 private:
-    std::tuple<uint32_t> m_arguments;
+    uint32_t m_param;
 };
 
 class TestSynchronousMessage {
@@ -225,17 +234,18 @@ public:
     using ReplyArguments = std::tuple<std::optional<WebKit::TestClassName>>;
     using Reply = CompletionHandler<void(std::optional<WebKit::TestClassName>&&)>;
     explicit TestSynchronousMessage(bool value)
-        : m_arguments(value)
+        : m_value(value)
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << m_value;
     }
 
 private:
-    std::tuple<bool> m_arguments;
+    bool m_value;
 };
 
 } // namespace TestWithSuperclass

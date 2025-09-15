@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2024 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,49 +102,6 @@ typedef struct {
     boolean_t		enable_arp_collision_detection;
 } Service_linklocal_t;
 
-static int
-siocarpipll(int s, const char * name, int val)
-{
-    struct ifreq	ifr;
-
-    bzero(&ifr, sizeof(ifr));
-    ifr.ifr_intval = val;
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    return (ioctl(s, SIOCARPIPLL, &ifr));
-}
-
-static void
-set_arp_linklocal(const char * name, int val)
-{
-    int	s;
-    s = socket(AF_INET, SOCK_DGRAM, 0);
-    if (s == -1) {
-	my_log(LOG_NOTICE, "set_arp_linklocal(%s) socket() failed, %s",
-	       name, strerror(errno));
-	return;
-    }
-    if (siocarpipll(s, name, val) < 0) {
-	if (errno != ENXIO) {
-	    my_log(LOG_NOTICE,
-		   "set_arp_linklocal(%s) SIOCARPIPLL %d failed, %s",
-		   name, val, strerror(errno));
-	}
-    }
-    close(s);
-}
-
-static __inline__ void
-arp_linklocal_disable(const char * name)
-{
-    set_arp_linklocal(name, 0);
-}
-
-static __inline__ void
-arp_linklocal_enable(const char * name)
-{
-    set_arp_linklocal(name, 1);
-}
-
 static boolean_t
 parent_service_ip_address(ServiceRef service_p, struct in_addr * ret_ip)
 {
@@ -214,7 +171,7 @@ linklocal_failed(ServiceRef service_p, ipconfig_status_t status)
     linklocal = (Service_linklocal_t *)ServiceGetPrivate(service_p);
     linklocal->enable_arp_collision_detection = FALSE;
     linklocal_cancel_pending_events(service_p);
-    arp_linklocal_disable(if_name(service_interface(service_p)));
+    interface_set_arp_linklocal(if_name(service_interface(service_p)), FALSE);
     service_remove_address(service_p);
     if (status != ipconfig_status_media_inactive_e) {
 	linklocal->our_ip = G_ip_zeroes;
@@ -245,12 +202,12 @@ linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
 
 	  if (if_is_wireless(if_p)) {
 		  /* don't send ARP, just assume it will work */
-		  arp_linklocal_enable(if_name(if_p));
+		  interface_set_arp_linklocal(if_name(if_p), TRUE);
 		  service_publish_failure(service_p,
 					  ipconfig_status_success_e);
 		  break;
 	  }
-	  arp_linklocal_disable(if_name(if_p));
+	  interface_set_arp_linklocal(if_name(if_p), FALSE);
 	  llbroadcast.s_addr = htonl(LINKLOCAL_RANGE_END);
 	  /* clean-up anything that might have come before */
 	  linklocal_cancel_pending_events(service_p);
@@ -297,7 +254,7 @@ linklocal_detect_proxy_arp(ServiceRef service_p, IFEventID_t event_id,
 			       ipconfig_status_media_inactive_e);
 	      break;
 	  }
-	  arp_linklocal_enable(if_name(if_p));
+	  interface_set_arp_linklocal(if_name(if_p), TRUE);
 	  service_publish_failure(service_p,
 				  ipconfig_status_success_e);
 	  break;
@@ -321,7 +278,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
       case IFEventID_start_e: {
 	  linklocal->enable_arp_collision_detection = FALSE;
 
-	  arp_linklocal_disable(if_name(if_p));
+	  interface_set_arp_linklocal(if_name(if_p), FALSE);
 
 	  /* clean-up anything that might have come before */
 	  linklocal_cancel_pending_events(service_p);
@@ -371,7 +328,7 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	      }
 	      if (linklocal->our_ip.s_addr == linklocal->probe.s_addr) {
 		  linklocal->our_ip = G_ip_zeroes;
-		  (void)service_remove_address(service_p);
+		  service_remove_address(service_p);
 		  service_publish_failure(service_p, 
 					  ipconfig_status_address_in_use_e);
 	      }
@@ -388,10 +345,10 @@ linklocal_allocate(ServiceRef service_p, IFEventID_t event_id,
 	      }
 
 	      /* ad-hoc IP address is not in use, so use it */
-	      (void)service_set_address(service_p, linklocal->probe, 
-					linklocal_mask, G_ip_zeroes);
+	      service_set_address(service_p, linklocal->probe,
+				  linklocal_mask, G_ip_zeroes);
 	      linklocal_set_address(service_p, linklocal->probe);
-	      arp_linklocal_enable(if_name(if_p));
+	      interface_set_arp_linklocal(if_name(if_p), TRUE);
 	      linklocal_cancel_pending_events(service_p);
 	      linklocal->our_ip = linklocal->probe;
 	      ServicePublishSuccessIPv4(service_p, NULL);
@@ -520,7 +477,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 
 	  /* remove IP address */
-	  arp_linklocal_disable(if_name(if_p));
+	  interface_set_arp_linklocal(if_name(if_p), FALSE);
 	  service_remove_address(service_p);
 
 	  /* clean-up the published state */
@@ -581,7 +538,7 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  linklocal->our_ip = G_ip_zeroes;
-	  (void)service_remove_address(service_p);
+	  service_remove_address(service_p);
 	  service_publish_failure(service_p, 
 				  ipconfig_status_address_in_use_e);
 	  linklocal_allocate(service_p, IFEventID_start_e, NULL);

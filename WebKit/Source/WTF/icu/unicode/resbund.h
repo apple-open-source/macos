@@ -4,7 +4,7 @@
 ******************************************************************************
 *
 *   Copyright (C) 1996-2013, International Business Machines Corporation
-*   and others.  All Rights Reserved.
+*   and others.  All rights reserved.
 *
 ******************************************************************************
 *

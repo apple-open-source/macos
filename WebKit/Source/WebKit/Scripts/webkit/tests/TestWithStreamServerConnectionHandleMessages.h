@@ -52,17 +52,18 @@ public:
     static constexpr bool deferSendingIfSuspended = false;
 
     explicit SendStreamServerConnection(IPC::StreamServerConnectionHandle&& handle)
-        : m_arguments(WTFMove(handle))
+        : m_handle(WTFMove(handle))
     {
     }
 
-    auto&& arguments()
+    template<typename Encoder>
+    void encode(Encoder& encoder)
     {
-        return WTFMove(m_arguments);
+        encoder << WTFMove(m_handle);
     }
 
 private:
-    std::tuple<IPC::StreamServerConnectionHandle&&> m_arguments;
+    IPC::StreamServerConnectionHandle&& m_handle;
 };
 
 } // namespace TestWithStreamServerConnectionHandle

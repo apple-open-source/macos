@@ -42,6 +42,7 @@ EXPINC_SUBDIRS = \
 	bsm \
 	crypto/entropy \
 	dev \
+	kern \
 	libkern \
 	machine \
 	miscfs \

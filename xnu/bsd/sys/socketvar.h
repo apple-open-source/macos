@@ -102,12 +102,6 @@ struct sockutil;
 
 /* strings for sleep message: */
 extern  char netio[], netcon[], netcls[];
-#define SOCKET_CACHE_ON
-#define SO_CACHE_FLUSH_INTERVAL 1       /* Seconds */
-#define SO_CACHE_TIME_LIMIT     (120/SO_CACHE_FLUSH_INTERVAL) /* Seconds */
-#define SO_CACHE_MAX_FREE_BATCH 50
-#define MAX_CACHED_SOCKETS      512
-#define TEMPDEBUG               0
 #endif /* KERNEL_PRIVATE */
 
 #ifdef PRIVATE
@@ -227,9 +221,6 @@ struct socket {
 	kauth_cred_t    so_cred;        /* cred of who opened the socket */
 	/* NB: generation count must not be first; easiest to make it last. */
 	so_gen_t so_gencnt;             /* generation count */
-	STAILQ_ENTRY(socket) so_cache_ent;      /* socache entry */
-	caddr_t         so_saved_pcb;           /* Saved pcb when cacheing */
-	u_int64_t       cache_timestamp;        /* time socket was cached */
 	uint32_t        so_eventmask;           /* event mask */
 
 	pid_t           last_pid;       /* pid of most recent accessor */
@@ -281,7 +272,7 @@ struct socket {
 #define SOF1_PRECONNECT_DATA            0x00000020 /* request for preconnect data */
 #define SOF1_EXTEND_BK_IDLE_WANTED      0x00000040 /* option set */
 #define SOF1_EXTEND_BK_IDLE_INPROG      0x00000080 /* socket */
-#define SOF1_CACHED_IN_SOCK_LAYER       0x00000100 /* bundled with inpcb and  tcpcb */
+/* UNUSED */
 #define SOF1_TFO_REWIND                 0x00000200 /* rewind mptcp meta data */
 #define SOF1_CELLFALLBACK               0x00000400 /* Initiated by cell fallback */
 #define SOF1_QOSMARKING_ALLOWED         0x00000800 /* policy allows DSCP map */
@@ -686,11 +677,12 @@ struct sf_buf {
 }
 
 #define SB_MB_CHECK(sb) do {                                            \
-	if (((sb)->sb_mb != NULL &&                                     \
-	    (sb)->sb_cc == 0) ||                                        \
+	if (((sb)->sb_mb != NULL && (sb)->sb_cc == 0 && m_length((sb)->sb_mb) != 0) ||              \
 	    ((sb)->sb_mb == NULL && (sb)->sb_cc > 0))                   \
-	        panic("corrupt so_rcv: sb_mb %p sb_cc %d\n",            \
-	            (sb)->sb_mb, (sb)->sb_cc);                          \
+	        panic("corrupt so_rcv (%s:%d): sb_mb %p m_len: %d m_type: %u sb_cc %u sb_ctl %u\n", \
+	            __func__, __LINE__,                                                             \
+	            (sb)->sb_mb, (sb)->sb_mb != NULL ? m_length((sb)->sb_mb) : 0,                   \
+	            (sb)->sb_mb != NULL ? (sb)->sb_mb->m_type : 0, (sb)->sb_cc, (sb)->sb_ctl);      \
 } while (0)
 
 #define SODEFUNCTLOG(fmt, ...)  do {            \
@@ -738,8 +730,6 @@ struct so_procinfo {
 extern uint32_t sb_max;
 extern so_gen_t so_gencnt;
 extern int socket_debug;
-extern int sosendjcl;
-extern int sosendjcl_ignore_capab;
 extern int sodefunctlog;
 extern int sothrottlelog;
 extern int sorestrictrecv;
@@ -862,7 +852,6 @@ extern int sbappendstream_rcvdemux(struct socket *so, struct mbuf *m);
 #if MPTCP
 extern int sbappendmptcpstream_rcv(struct sockbuf *sb, struct mbuf *m);
 #endif /* MPTCP */
-extern void sbcheck(struct sockbuf *sb);
 extern void sblastmbufchk(struct sockbuf *, const char *);
 extern void sblastrecordchk(struct sockbuf *, const char *);
 extern struct mbuf *sbcreatecontrol(caddr_t __sized_by(size) p, int size, int type, int level);
@@ -929,7 +918,7 @@ extern void sbunlock(struct sockbuf *sb, boolean_t keeplocked);
 extern int soaccept(struct socket *so, struct sockaddr **nam);
 extern int soacceptlock(struct socket *so, struct sockaddr **nam, int dolock);
 extern int soacceptfilter(struct socket *so, struct socket *head);
-extern struct socket *soalloc(int waitok, int dom, int type);
+extern struct socket *soalloc(void);
 extern int sobindlock(struct socket *so, struct sockaddr *nam, int dolock);
 extern int soclose(struct socket *so);
 extern int soclose_locked(struct socket *so);
@@ -1065,8 +1054,7 @@ extern void so_update_tx_data_stats(struct socket *, uint32_t, uint32_t);
 
 extern void set_packet_service_class(struct mbuf *, struct socket *,
     mbuf_svc_class_t, u_int32_t);
-extern int so_tos_from_control(struct mbuf *);
-extern int so_tc_from_control(struct mbuf *, int *);
+extern int ip_tos_from_control(struct mbuf *);
 extern mbuf_svc_class_t so_tc2msc(int);
 extern int so_svc2tc(mbuf_svc_class_t);
 
@@ -1095,7 +1083,6 @@ extern int so_wait_for_if_feedback(struct socket *);
 extern int soopt_getm(struct sockopt *sopt, struct mbuf **mp);
 extern int soopt_mcopyin(struct sockopt *sopt, struct mbuf *m);
 extern int soopt_mcopyout(struct sockopt *sopt, struct mbuf *m);
-extern boolean_t so_cache_timer(void);
 
 extern void mptcp_fallback_sbdrop(struct socket *so, struct mbuf *m, int len);
 extern void mptcp_preproc_sbdrop(struct socket *, struct mbuf *, unsigned int);

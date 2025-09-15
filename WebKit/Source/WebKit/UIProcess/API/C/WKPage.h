@@ -220,6 +220,7 @@ WK_EXPORT void WKPageCountStringMatches(WKPageRef page, WKStringRef string, WKFi
 WK_EXPORT void WKPageFindStringMatches(WKPageRef page, WKStringRef string, WKFindOptions findOptions, unsigned maxMatchCount);
 WK_EXPORT void WKPageGetImageForFindMatch(WKPageRef page, int32_t matchIndex);
 WK_EXPORT void WKPageSelectFindMatch(WKPageRef page, int32_t matchIndex);
+WK_EXPORT void WKPageIndicateFindMatch(WKPageRef page, uint32_t matchIndex);
 
 WK_EXPORT void WKPageSetPageContextMenuClient(WKPageRef page, const WKPageContextMenuClientBase* client);
 WK_EXPORT void WKPageSetPageDiagnosticLoggingClient(WKPageRef page, const WKPageDiagnosticLoggingClientBase* client);
@@ -230,11 +231,6 @@ WK_EXPORT void WKPageSetPageUIClient(WKPageRef page, const WKPageUIClientBase* c
 WK_EXPORT void WKPageSetPageInjectedBundleClient(WKPageRef page, const WKPageInjectedBundleClientBase* client);
 
 WK_EXPORT void WKPageSetFullScreenClientForTesting(WKPageRef page, const WKPageFullScreenClientBase* client);
-WK_EXPORT void WKPageDidEnterFullScreen(WKPageRef pageRef);
-WK_EXPORT void WKPageWillExitFullScreen(WKPageRef pageRef);
-WK_EXPORT void WKPageDidExitFullScreen(WKPageRef pageRef);
-WK_EXPORT void WKPageSaveScrollPositionForFullScreen(WKPageRef pageRef);
-WK_EXPORT void WKPageRestoreScrollPositionAfterFullScreen(WKPageRef pageRef);
 WK_EXPORT void WKPageRequestExitFullScreen(WKPageRef pageRef);
 
 // A client can implement either a navigation client or loader and policy clients, but never both.
@@ -280,7 +276,7 @@ WK_EXPORT void WKPageExecuteCommand(WKPageRef page, WKStringRef command);
 
 WK_EXPORT void WKPagePostMessageToInjectedBundle(WKPageRef page, WKStringRef messageName, WKTypeRef messageBody);
 
-WK_EXPORT void WKPageSelectContextMenuItem(WKPageRef page, WKContextMenuItemRef item);
+WK_EXPORT void WKPageSelectContextMenuItem(WKPageRef page, WKContextMenuItemRef item, WKFrameInfoRef frameInfo);
 
 WK_EXPORT void WKPageClearNotificationPermissionState(WKPageRef page);
 

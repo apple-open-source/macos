@@ -27,6 +27,7 @@
 
 #include "HeapAnalyzer.h"
 #include <functional>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
@@ -131,9 +132,20 @@ public:
     void setLabelForCell(JSCell*, const String&) final;
 
     String json();
-    String json(Function<bool (const HeapSnapshotNode&)> allowNodeCallback);
 
     bool hasOverflowed() const { return m_hasOverflowed; }
+
+    class Client : public CanMakeCheckedPtr<Client> {
+        WTF_MAKE_FAST_ALLOCATED;
+        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Client);
+    public:
+        virtual ~Client() = default;
+
+        virtual bool heapSnapshotBuilderIgnoreNode(HeapSnapshotBuilder&, JSCell*) { return false; }
+        virtual String heapSnapshotBuilderOverrideClassName(HeapSnapshotBuilder&, JSCell*, const String& currentClassName) { return currentClassName; }
+        virtual bool heapSnapshotBuilderIsElement(HeapSnapshotBuilder&, JSCell*) { return false; }
+    };
+    void setClient(Client* client) { m_client = client; }
 
 private:
     static NodeIdentifier nextAvailableObjectIdentifier;
@@ -142,15 +154,17 @@ private:
     // Finalized snapshots are not modified during building. So searching them
     // for an existing node can be done concurrently without a lock.
     bool previousSnapshotHasNodeForCell(JSCell*, NodeIdentifier&);
-    
-    String descriptionForCell(JSCell*) const;
-    
+
+    String descriptionForNode(const HeapSnapshotNode&);
+
     struct RootData {
         ASCIILiteral reachabilityFromOpaqueRootReasons;
         RootMarkReason markReason { RootMarkReason::None };
     };
-    
+
     HeapProfiler& m_profiler;
+    CheckedPtr<Client> m_client;
+
     OverflowPolicy m_overflowPolicy;
     bool m_hasOverflowed { false };
 

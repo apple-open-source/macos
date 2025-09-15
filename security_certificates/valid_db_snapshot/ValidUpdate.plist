@@ -2,11 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Version</key>
-	<integer>44</integer>
-	<key>Generation</key>
-	<integer>6</integer>
 	<key>Format</key>
 	<integer>3</integer>
+	<key>Generation</key>
+	<integer>7</integer>
+	<key>Version</key>
+	<integer>14</integer>
 </dict>
 </plist>

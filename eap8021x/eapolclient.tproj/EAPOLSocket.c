@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2020, 2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020, 2023, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1311,6 +1311,12 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
     }
     else {
 	body_length = 0;
+    }
+
+    if (size > sizeof(buf)) {
+	EAPLOG(LOG_ERR, "total size of EAPOL frame (%u bytes) is greater than the EAPOL socket buffer size (%lu bytes)",
+	       size, sizeof(buf));
+	return (-1);
     }
 
     bzero(buf, size);

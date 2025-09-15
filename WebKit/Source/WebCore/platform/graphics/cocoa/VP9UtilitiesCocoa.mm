@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -98,6 +98,16 @@ void VP9TestingOverrides::resetOverridesToDefaultValues()
         m_configurationChangedCallback(true);
 }
 
+void VP9TestingOverrides::setShouldEnableVP9Decoder(bool enabled)
+{
+    m_vp9DecoderEnabled = enabled;
+}
+
+bool VP9TestingOverrides::shouldEnableVP9Decoder() const
+{
+    return m_vp9DecoderEnabled;
+}
+
 enum class ResolutionCategory : uint8_t {
     R_480p,
     R_720p,
@@ -138,6 +148,11 @@ void registerSupplementalVP9Decoder()
 
     if (canLoad_VideoToolbox_VTRegisterSupplementalVideoDecoderIfAvailable())
         softLink_VideoToolbox_VTRegisterSupplementalVideoDecoderIfAvailable(kCMVideoCodecType_VP9);
+}
+
+bool shouldEnableVP9Decoder()
+{
+    return VP9TestingOverrides::singleton().shouldEnableVP9Decoder();
 }
 
 static bool isSWDecodersAlwaysEnabled()

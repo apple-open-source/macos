@@ -223,7 +223,7 @@ class OutputSPIRVTraverser : public TIntermTraverser
                                 spirv::LiteralInteger index,
                                 spirv::IdRef typeId) const;
     void accessChainPushSwizzle(NodeData *data,
-                                const TVector<int> &swizzle,
+                                const TVector<uint32_t> &swizzle,
                                 spirv::IdRef typeId,
                                 uint8_t componentCount) const;
     void accessChainPushDynamicComponent(NodeData *data, spirv::IdRef index, spirv::IdRef typeId);
@@ -249,6 +249,7 @@ class OutputSPIRVTraverser : public TIntermTraverser
     void declareConst(TIntermDeclaration *decl);
     void declareSpecConst(TIntermDeclaration *decl);
     spirv::IdRef createConstant(const TType &type,
+                                spirv::IdRef typeId,
                                 TBasicType expectedBasicType,
                                 const TConstantUnion *constUnion,
                                 bool isConstantNullValue);
@@ -826,7 +827,7 @@ void OutputSPIRVTraverser::accessChainPushLiteral(NodeData *data,
 }
 
 void OutputSPIRVTraverser::accessChainPushSwizzle(NodeData *data,
-                                                  const TVector<int> &swizzle,
+                                                  const TVector<uint32_t> &swizzle,
                                                   spirv::IdRef typeId,
                                                   uint8_t componentCount) const
 {
@@ -1192,7 +1193,7 @@ void OutputSPIRVTraverser::declareConst(TIntermDeclaration *decl)
 
     const spirv::IdRef typeId = mBuilder.getTypeData(type, {}).id;
     const spirv::IdRef constId =
-        createConstant(type, type.getBasicType(), initializer->getConstantValue(),
+        createConstant(type, typeId, type.getBasicType(), initializer->getConstantValue(),
                        initializer->isConstantNullValue());
 
     // Remember the id of the variable for future look up.
@@ -1235,11 +1236,11 @@ void OutputSPIRVTraverser::declareSpecConst(TIntermDeclaration *decl)
 }
 
 spirv::IdRef OutputSPIRVTraverser::createConstant(const TType &type,
+                                                  spirv::IdRef typeId,
                                                   TBasicType expectedBasicType,
                                                   const TConstantUnion *constUnion,
                                                   bool isConstantNullValue)
 {
-    const spirv::IdRef typeId = mBuilder.getTypeData(type, {}).id;
     spirv::IdRefList componentIds;
 
     // If the object is all zeros, use OpConstantNull to avoid creating a bunch of constants.  This
@@ -1259,13 +1260,14 @@ spirv::IdRef OutputSPIRVTraverser::createConstant(const TType &type,
     {
         TType elementType(type);
         elementType.toArrayElementType();
+        const spirv::IdRef elementTypeId = mBuilder.getTypeData(elementType, {}).id;
 
         // If it's an array constant, get the constant id of each element.
         for (unsigned int elementIndex = 0; elementIndex < type.getOutermostArraySize();
              ++elementIndex)
         {
             componentIds.push_back(
-                createConstant(elementType, expectedBasicType, constUnion, false));
+                createConstant(elementType, elementTypeId, expectedBasicType, constUnion, false));
             constUnion += elementType.getObjectSize();
         }
     }
@@ -1275,8 +1277,9 @@ spirv::IdRef OutputSPIRVTraverser::createConstant(const TType &type,
         for (const TField *field : type.getStruct()->fields())
         {
             const TType *fieldType = field->type();
-            componentIds.push_back(
-                createConstant(*fieldType, fieldType->getBasicType(), constUnion, false));
+            const spirv::IdRef fieldTypeId = mBuilder.getTypeData(*fieldType, {}).id;
+            componentIds.push_back(createConstant(*fieldType, fieldTypeId,
+                                                  fieldType->getBasicType(), constUnion, false));
 
             constUnion += fieldType->getObjectSize();
         }
@@ -3589,6 +3592,8 @@ spirv::IdRef OutputSPIRVTraverser::createImageTextureBuiltIn(TIntermOperator *no
             break;
 
         case EOpTextureGather:
+        case EOpTextureGatherComp:
+        case EOpTextureGatherRef:
 
             // For shadow textures, refZ (same as Dref) is specified as the last argument.
             // Otherwise a component may be specified which defaults to 0 if not specified.
@@ -3606,9 +3611,11 @@ spirv::IdRef OutputSPIRVTraverser::createImageTextureBuiltIn(TIntermOperator *no
 
         case EOpTextureGatherOffset:
         case EOpTextureGatherOffsetComp:
+        case EOpTextureGatherOffsetRef:
 
         case EOpTextureGatherOffsets:
         case EOpTextureGatherOffsetsComp:
+        case EOpTextureGatherOffsetsRef:
 
             // textureGatherOffset and textureGatherOffsets have the following forms:
             //
@@ -3727,11 +3734,15 @@ spirv::IdRef OutputSPIRVTraverser::createImageTextureBuiltIn(TIntermOperator *no
         imageType.isSamplerBaseImage            = true;
         const spirv::IdRef extractedImageTypeId = mBuilder.getSpirvTypeData(imageType, nullptr).id;
 
-        // Use OpImage to get the image out of the sampled image.
-        const spirv::IdRef extractedImage = mBuilder.getNewId({});
-        spirv::WriteImage(mBuilder.getSpirvCurrentFunctionBlock(), extractedImageTypeId,
-                          extractedImage, image);
-        image = extractedImage;
+        // Use OpImage to get the image out of the sampled image.  Note that for sampler buffers,
+        // there is no sampled image type, and the image already has the non-sampled type.
+        if (!IsSamplerBuffer(samplerBasicType))
+        {
+            const spirv::IdRef extractedImage = mBuilder.getNewId({});
+            spirv::WriteImage(mBuilder.getSpirvCurrentFunctionBlock(), extractedImageTypeId,
+                              extractedImage, image);
+            image = extractedImage;
+        }
     }
 
     // Gather operands as necessary.
@@ -4809,6 +4820,7 @@ void OutputSPIRVTraverser::visitConstantUnion(TIntermConstantUnion *node)
     mNodeData.emplace_back();
 
     const TType &type = node->getType();
+    spirv::IdRef typeId = mBuilder.getTypeData(type, {}).id;
 
     // Find out the expected type for this constant, so it can be cast right away and not need an
     // instruction to do that.
@@ -4839,12 +4851,18 @@ void OutputSPIRVTraverser::visitConstantUnion(TIntermConstantUnion *node)
             {
                 expectedBasicType = parentAggregate->getType().getBasicType();
             }
+
+            if (expectedBasicType != type.getBasicType())
+            {
+                TType castType = type;
+                castType.setBasicType(expectedBasicType);
+                typeId = mBuilder.getTypeData(castType, {}).id;
+            }
         }
     }
 
-    const spirv::IdRef typeId  = mBuilder.getTypeData(type, {}).id;
-    const spirv::IdRef constId = createConstant(type, expectedBasicType, node->getConstantValue(),
-                                                node->isConstantNullValue());
+    const spirv::IdRef constId = createConstant(
+        type, typeId, expectedBasicType, node->getConstantValue(), node->isConstantNullValue());
 
     nodeDataInitRValue(&mNodeData.back(), constId, typeId);
 }
@@ -4865,7 +4883,7 @@ bool OutputSPIRVTraverser::visitSwizzle(Visit visit, TIntermSwizzle *node)
 
     const TType &vectorType            = node->getOperand()->getType();
     const uint8_t vectorComponentCount = static_cast<uint8_t>(vectorType.getNominalSize());
-    const TVector<int> &swizzle        = node->getSwizzleOffsets();
+    const TVector<uint32_t> &swizzle   = node->getSwizzleOffsets();
 
     // As an optimization, do nothing if the swizzle is selecting all the components of the vector
     // in order.
@@ -4970,7 +4988,12 @@ bool OutputSPIRVTraverser::visitBinary(Visit visit, TIntermBinary *node)
         }
         resultTypeSpec = mNodeData[mNodeData.size() - 2].accessChain.typeSpec;
     }
-    const spirv::IdRef resultTypeId = mBuilder.getTypeData(node->getType(), resultTypeSpec).id;
+    // Workaround bugs in the transformers that don't take operator comma into account; the type of
+    // operator comma can be wrong if the type of RHS is changed (such as when extracting samplers
+    // out of structs).  Fortunately, we don't need the type of the comma node at all.
+    const spirv::IdRef resultTypeId =
+        node->getOp() == EOpComma ? spirv::IdRef{}
+                                  : mBuilder.getTypeData(node->getType(), resultTypeSpec).id;
 
     // For EOpIndex* operations, push the right value as an index to the left value's access chain.
     // For the other operations, evaluate the expression.

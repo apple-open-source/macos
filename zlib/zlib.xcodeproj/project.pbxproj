@@ -187,7 +187,7 @@
 /* Begin PBXCopyFilesBuildPhase section */
 		C3BAE89C28BD82C200602CEB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -196,7 +196,7 @@
 		};
 		C3E6A2C32ABD0CF000AE24AF /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -205,7 +205,7 @@
 		};
 		EF6323E6202B6AA1003EC772 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -214,7 +214,7 @@
 		};
 		EF6323FC202B904E003EC772 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
@@ -855,6 +855,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				OTHER_CFLAGS = "-DZ_ALLOC_WRAPPER=0";
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = "non-global";
 				SUPPORTS_TEXT_BASED_API = YES;
@@ -1026,7 +1027,10 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_CFLAGS = "-fsanitize=fuzzer-no-link,address";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fsanitize=fuzzer-no-link,address",
+				);
 				OTHER_LDFLAGS = "-fsanitize=fuzzer,address";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -1086,7 +1090,10 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
-				OTHER_CFLAGS = "-fsanitize=fuzzer-no-link,address";
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-fsanitize=fuzzer-no-link,address",
+				);
 				OTHER_LDFLAGS = "-fsanitize=fuzzer,address";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -1258,6 +1265,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-DZ_ALLOC_WRAPPER=0";
 				SDKROOT = macosx.internal;
 				STRIP_STYLE = "non-global";
 				SUPPORTS_TEXT_BASED_API = YES;

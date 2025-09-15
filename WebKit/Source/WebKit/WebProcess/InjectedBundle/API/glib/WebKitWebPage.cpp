@@ -52,7 +52,7 @@
 #include <WebCore/FrameDestructionObserver.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/HTMLFormElement.h>
-#include <WebCore/LocalFrame.h>
+#include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <glib/gi18n-lib.h>
 #include <wtf/HashMap.h>

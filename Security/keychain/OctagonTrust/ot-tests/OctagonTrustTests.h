@@ -45,6 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) OTControl*  otControl;
 @property (nonatomic) ProxyXPCConnection*  otXPCProxy;
 @property (nonatomic) id mockClique;
+@property (nonatomic) id mockControl;
 
 @end
 

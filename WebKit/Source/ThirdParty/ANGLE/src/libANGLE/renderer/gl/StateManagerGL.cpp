@@ -116,13 +116,14 @@ StateManagerGL::StateManagerGL(const FunctionsGL *functions,
       mClipDepthMode(gl::ClipDepthMode::NegativeOneToOne),
       mBlendColor(0, 0, 0, 0),
       mBlendStateExt(rendererCaps.maxDrawBuffers),
-      mBlendAdvancedCoherent(extensions.blendEquationAdvancedCoherentKHR),
+      mBlendAdvancedCoherent(true),
       mIndependentBlendStates(extensions.drawBuffersIndexedAny()),
       mSampleAlphaToCoverageEnabled(false),
       mSampleCoverageEnabled(false),
       mSampleCoverageValue(1.0f),
       mSampleCoverageInvert(false),
       mSampleMaskEnabled(false),
+      mSampleCoverageEverChanged(false),
       mDepthTestEnabled(false),
       mDepthFunc(GL_LESS),
       mDepthMask(true),
@@ -168,7 +169,7 @@ StateManagerGL::StateManagerGL(const FunctionsGL *functions,
       mMultisamplingEnabled(true),
       mSampleAlphaToOneEnabled(false),
       mCoverageModulation(GL_NONE),
-      mIsMultiviewEnabled(extensions.multiviewOVR || extensions.multiview2OVR),
+      mIsMultiviewEnabled(extensions.multiviewOVR),
       mProvokingVertex(GL_LAST_VERTEX_CONVENTION),
       mMaxClipDistances(rendererCaps.maxClipDistances),
       mLogicOpEnabled(false),
@@ -964,7 +965,7 @@ angle::Result StateManagerGL::onMakeCurrent(const gl::Context *context)
 
     // Seamless cubemaps are required for ES3 and higher contexts. It should be the cheapest to set
     // this state here since MakeCurrent is expected to be called less frequently than draw calls.
-    setTextureCubemapSeamlessEnabled(context->getClientMajorVersion() >= 3);
+    setTextureCubemapSeamlessEnabled(context->getClientVersion() >= gl::ES_3_0);
 
     return angle::Result::Continue;
 }
@@ -1603,15 +1604,20 @@ void StateManagerGL::setSampleCoverageEnabled(bool enabled)
     }
 }
 
+void StateManagerGL::forceSetSampleCoverage(float value, bool invert)
+{
+    mSampleCoverageValue       = value;
+    mSampleCoverageInvert      = invert;
+    mSampleCoverageEverChanged = true;
+    mFunctions->sampleCoverage(mSampleCoverageValue, mSampleCoverageInvert);
+    mLocalDirtyBits.set(gl::state::DIRTY_BIT_SAMPLE_COVERAGE);
+}
+
 void StateManagerGL::setSampleCoverage(float value, bool invert)
 {
     if (mSampleCoverageValue != value || mSampleCoverageInvert != invert)
     {
-        mSampleCoverageValue  = value;
-        mSampleCoverageInvert = invert;
-        mFunctions->sampleCoverage(mSampleCoverageValue, mSampleCoverageInvert);
-
-        mLocalDirtyBits.set(gl::state::DIRTY_BIT_SAMPLE_COVERAGE);
+        forceSetSampleCoverage(value, invert);
     }
 }
 
@@ -2261,6 +2267,11 @@ angle::Result StateManagerGL::syncState(const gl::Context *context,
                     mHasSeparateFramebufferBindings ? GL_DRAW_FRAMEBUFFER : GL_FRAMEBUFFER,
                     framebufferGL->getFramebufferID());
 
+                if (mFeatures.resetSampleCoverageOnFBOChange.enabled && mSampleCoverageEverChanged)
+                {
+                    forceSetSampleCoverage(mSampleCoverageValue, mSampleCoverageInvert);
+                }
+
                 const gl::ProgramExecutable *executable = state.getProgramExecutable();
                 if (executable)
                 {
@@ -2517,6 +2528,7 @@ angle::Result StateManagerGL::syncState(const gl::Context *context,
                             break;
                         case gl::state::EXTENDED_DIRTY_BIT_BLEND_ADVANCED_COHERENT:
                             setBlendAdvancedCoherent(state.isBlendAdvancedCoherentEnabled());
+                            break;
                         case gl::state::EXTENDED_DIRTY_BIT_VARIABLE_RASTERIZATION_RATE:
                             // Unimplemented extensions.
                             break;

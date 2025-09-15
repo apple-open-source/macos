@@ -80,6 +80,7 @@
 #include <kern/arcade.h>
 #endif
 
+
 static void __attribute__((noinline, noreturn, disable_tail_calls))
 thread_preempted(__unused void* parameter, __unused wait_result_t result)
 {
@@ -244,6 +245,7 @@ ast_taken_user(void)
 		thread_apc_ast(thread);
 	}
 
+
 	if (reasons & AST_MACH_EXCEPTION) {
 		thread_ast_clear(thread, AST_MACH_EXCEPTION);
 		mach_exception_ast(thread);
@@ -379,6 +381,10 @@ ast_taken_user(void)
 	    TH_SFLAG_EXEC_PROMOTED |
 	    TH_SFLAG_FLOOR_PROMOTED |
 	    TH_SFLAG_DEPRESS));
+
+#if CONFIG_EXCLAVES
+	assert3u(thread->options & TH_OPT_AOE, ==, 0);
+#endif /* CONFIG_EXCLAVES */
 }
 
 /*

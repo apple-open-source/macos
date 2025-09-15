@@ -260,7 +260,7 @@ MaximumHTMLParserDOMTreeDepth:
   type: uint32_t
   defaultValue:
     WebCore:
-      default: defaultMaximumHTMLParserDOMTreeDepth
+      default: SettingsBase::defaultMaximumHTMLParserDOMTreeDepth
 
 MaximumSourceBufferSize:
   comment: >-
@@ -399,6 +399,13 @@ StorageBlockingPolicy:
   defaultValue:
     WebCore:
       default: StorageBlockingPolicy::AllowAll
+
+SuppressHDRShouldBeAllowedInFullscreenVideo:
+  type: bool
+  defaultValue:
+    WebCore:
+      PLATFORM(MAC): false
+      default: true
 
 TextAutosizingWindowSizeOverrideHeight:
   type: uint32_t

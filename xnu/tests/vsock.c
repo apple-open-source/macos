@@ -26,170 +26,12 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#include <sys/cdefs.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/sysctl.h>
-#include <sys/vsock.h>
-#include <errno.h>
-
-#include <darwintest.h>
-#include <darwintest_utils.h>
-
-#define COUNT_ELEMS(array) (sizeof (array) / sizeof (array[0]))
+#include <vsock_helpers.h>
 
 T_GLOBAL_META(
 	T_META_RUN_CONCURRENTLY(true),
 	T_META_NAMESPACE("xnu.vsock")
 	);
-
-static int
-vsock_new_socket(void)
-{
-	int sock = socket(AF_VSOCK, SOCK_STREAM, 0);
-	if (sock < 0 && errno == ENODEV) {
-		T_SKIP("no vsock transport available");
-	}
-	T_ASSERT_GT(sock, 0, "create new vsock socket");
-	return sock;
-}
-
-static uint32_t
-vsock_get_local_cid(int socket)
-{
-	uint32_t cid = 0;
-	int result = ioctl(socket, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &cid);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock ioctl cid successful");
-	T_ASSERT_GT(cid, VMADDR_CID_HOST, "cid is set");
-	T_ASSERT_NE(cid, VMADDR_CID_ANY, "cid is valid");
-
-	return cid;
-}
-
-static int
-vsock_bind(uint32_t cid, uint32_t port, struct sockaddr_vm * addr, int *socket)
-{
-	*socket = vsock_new_socket();
-
-	bzero(addr, sizeof(*addr));
-	addr->svm_port = port;
-	addr->svm_cid = cid;
-
-	return bind(*socket, (struct sockaddr *) addr, sizeof(*addr));
-}
-
-static int
-vsock_listen(uint32_t cid, uint32_t port, struct sockaddr_vm * addr, int backlog, int *socket)
-{
-	int result = vsock_bind(cid, port, addr, socket);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock bind");
-	return listen(*socket, backlog);
-}
-
-static int
-vsock_connect(uint32_t cid, uint32_t port, int *socket)
-{
-	*socket = vsock_new_socket();
-	struct sockaddr_vm addr = (struct sockaddr_vm) {
-		.svm_cid = cid,
-		.svm_port = port,
-	};
-	return connect(*socket, (struct sockaddr *)&addr, sizeof(addr));
-}
-
-static struct sockaddr_vm
-vsock_getsockname(int socket)
-{
-	struct sockaddr_vm addr;
-	socklen_t length = sizeof(addr);
-	int result = getsockname(socket, (struct sockaddr *)&addr, &length);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock getsockname");
-	T_ASSERT_EQ_INT((int) sizeof(addr), length, "correct address length");
-	T_ASSERT_GT(addr.svm_port, 0, "bound to non-zero local port");
-	return addr;
-}
-
-static void
-vsock_close(int socket)
-{
-	int result = close(socket);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock close");
-}
-
-static void
-vsock_connect_peers(uint32_t cid, uint32_t port, int backlog, int *socketA, int *socketB)
-{
-	// Listen.
-	struct sockaddr_vm addr;
-	int listen_socket;
-	int result = vsock_listen(cid, port, &addr, backlog, &listen_socket);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock listen");
-
-	const uint32_t connection_cid = vsock_get_local_cid(listen_socket);
-
-	// Connect.
-	int connect_socket;
-	result = vsock_connect(connection_cid, addr.svm_port, &connect_socket);
-	T_ASSERT_POSIX_SUCCESS(result, "vsock connect");
-
-	// Accept.
-	struct sockaddr_vm accepted_addr;
-	socklen_t addrlen = sizeof(accepted_addr);
-	int accepted_socket = accept(listen_socket, (struct sockaddr *)&accepted_addr, &addrlen);
-	T_ASSERT_GT(accepted_socket, 0, "accepted socket");
-	T_ASSERT_EQ_INT((int) sizeof(accepted_addr), addrlen, "correct address length");
-	T_ASSERT_EQ_INT(connection_cid, accepted_addr.svm_cid, "same cid");
-	T_ASSERT_NE_INT(VMADDR_CID_ANY, accepted_addr.svm_port, "some valid port");
-	T_ASSERT_NE_INT(0, accepted_addr.svm_port, "some non-zero port");
-
-	*socketA = connect_socket;
-	*socketB = accepted_socket;
-}
-
-static void
-vsock_send(int socket, char *msg)
-{
-	T_ASSERT_NOTNULL(msg, "send message is not null");
-	ssize_t sent_bytes = send(socket, msg, strlen(msg), 0);
-	T_ASSERT_EQ_LONG(strlen(msg), (unsigned long)sent_bytes, "sent all bytes");
-}
-
-static void
-vsock_disable_sigpipe(int socket)
-{
-	int on = 1;
-	int result = setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
-	T_ASSERT_POSIX_SUCCESS(result, "vsock disable SIGPIPE");
-}
-
-static bool
-vsock_address_exists(struct xvsockpgen *buffer, struct sockaddr_vm addr)
-{
-	struct xvsockpgen *xvg = buffer;
-	struct xvsockpgen *oxvg = buffer;
-
-	bool found = false;
-	for (xvg = (struct xvsockpgen *)((char *)xvg + xvg->xvg_len);
-	    xvg->xvg_len > sizeof(struct xvsockpgen);
-	    xvg = (struct xvsockpgen *)((char *)xvg + xvg->xvg_len)) {
-		struct xvsockpcb *xpcb = (struct xvsockpcb *)xvg;
-
-		/* Ignore PCBs which were freed during copyout. */
-		if (xpcb->xvp_gencnt > oxvg->xvg_gen) {
-			continue;
-		}
-
-		if (xpcb->xvp_local_cid == addr.svm_cid && xpcb->xvp_remote_cid == VMADDR_CID_ANY &&
-		    xpcb->xvp_local_port == addr.svm_port && xpcb->xvp_remote_port == VMADDR_PORT_ANY) {
-			found = true;
-			break;
-		}
-	}
-
-	T_ASSERT_NE(xvg, oxvg, "first and last xvsockpgen were returned");
-
-	return found;
-}
 
 /* New Socket */
 
@@ -241,7 +83,8 @@ T_DECL(bind, "vsock bind to specific port")
 {
 	int socket;
 	struct sockaddr_vm addr;
-	int result = vsock_bind(VMADDR_CID_ANY, 8888, &addr, &socket);
+	const uint32_t port = vsock_get_available_port();
+	int result = vsock_bind(VMADDR_CID_ANY, port, &addr, &socket);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock bind to specific port");
 }
 
@@ -311,7 +154,7 @@ T_DECL(bind_zero, "vsock bind to port zero", T_META_ASROOT(true))
 T_DECL(bind_double, "vsock double bind")
 {
 	const uint32_t cid = VMADDR_CID_ANY;
-	const uint32_t port = 8899;
+	const uint32_t port = vsock_get_available_port();
 
 	int socket;
 	struct sockaddr_vm addr;
@@ -325,7 +168,7 @@ T_DECL(bind_double, "vsock double bind")
 T_DECL(bind_same, "vsock bind same address and port")
 {
 	const uint32_t cid = VMADDR_CID_ANY;
-	const uint32_t port = 3399;
+	const uint32_t port = vsock_get_available_port();
 
 	int socket;
 	struct sockaddr_vm addr;
@@ -339,7 +182,7 @@ T_DECL(bind_same, "vsock bind same address and port")
 T_DECL(bind_port_reuse, "vsock bind port reuse")
 {
 	const uint32_t cid = VMADDR_CID_ANY;
-	const uint32_t port = 9111;
+	const uint32_t port = vsock_get_available_port();
 
 	int socket;
 	struct sockaddr_vm addr;
@@ -376,43 +219,19 @@ T_DECL(bind_privileged_root, "vsock bind on privileged port - root", T_META_ASRO
 
 T_DECL(bind_no_family, "vsock bind with unspecified family")
 {
-	int socket = vsock_new_socket();
-
-	struct sockaddr_vm addr = (struct sockaddr_vm) {
-		.svm_family = AF_UNSPEC,
-		.svm_cid = VMADDR_CID_ANY,
-		.svm_port = 7321,
-	};
-
-	int result = bind(socket, (struct sockaddr *) &addr, sizeof(addr));
+	int result = vsock_bind_family(AF_UNSPEC);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock bind with unspecified family");
 }
 
 T_DECL(bind_vsock_family, "vsock bind with vsock family")
 {
-	int socket = vsock_new_socket();
-
-	struct sockaddr_vm addr = (struct sockaddr_vm) {
-		.svm_family = AF_VSOCK,
-		.svm_cid = VMADDR_CID_ANY,
-		.svm_port = 7322,
-	};
-
-	int result = bind(socket, (struct sockaddr *) &addr, sizeof(addr));
+	int result = vsock_bind_family(AF_VSOCK);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock bind with vsock family");
 }
 
 T_DECL(bind_wrong_family, "vsock bind with wrong family")
 {
-	int socket = vsock_new_socket();
-
-	struct sockaddr_vm addr = (struct sockaddr_vm) {
-		.svm_family = AF_INET,
-		.svm_cid = VMADDR_CID_ANY,
-		.svm_port = 7323,
-	};
-
-	int result = bind(socket, (struct sockaddr *) &addr, sizeof(addr));
+	int result = vsock_bind_family(AF_INET);
 	T_ASSERT_POSIX_FAILURE(result, EAFNOSUPPORT, "vsock bind with wrong family");
 }
 
@@ -422,7 +241,8 @@ T_DECL(listen, "vsock listen on specific port")
 {
 	struct sockaddr_vm addr;
 	int socket;
-	int result = vsock_listen(VMADDR_CID_ANY, 8889, &addr, 10, &socket);
+	const uint32_t port = vsock_get_available_port();
+	int result = vsock_listen(VMADDR_CID_ANY, port, &addr, 10, &socket);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock listen");
 }
 
@@ -450,9 +270,7 @@ T_DECL(connect_non_listening_host, "vsock connect to non-listening host port")
 	T_ASSERT_POSIX_FAILURE(result, EAGAIN, "vsock connect non-listening host port");
 }
 
-T_DECL(connect_non_listening_hypervisor, "vsock connect to non-listening hypervisor port",
-    T_META_ENABLED(false /* rdar://133461431 */)
-    )
+T_DECL(connect_non_listening_hypervisor, "vsock connect to non-listening hypervisor port")
 {
 	int socket;
 	int result = vsock_connect(VMADDR_CID_HYPERVISOR, 4444, &socket);
@@ -479,9 +297,10 @@ T_DECL(connect_timeout, "vsock connect with timeout")
 	int result = setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 	T_ASSERT_POSIX_SUCCESS(result, "vsock set socket timeout");
 
+	const uint32_t port = vsock_get_available_port();
 	struct sockaddr_vm addr = (struct sockaddr_vm) {
 		.svm_cid = VMADDR_CID_HOST,
-		.svm_port = 4321,
+		.svm_port = port,
 	};
 	result = connect(socket, (struct sockaddr *)&addr, sizeof(addr));
 	T_ASSERT_POSIX_FAILURE(result, ETIMEDOUT, "vsock connect timeout");
@@ -491,7 +310,7 @@ T_DECL(connect_non_blocking, "vsock connect non-blocking")
 {
 	int socket = vsock_new_socket();
 
-	const uint32_t port = 4321;
+	const uint32_t port = vsock_get_available_port();
 	const uint32_t cid = vsock_get_local_cid(socket);
 
 	// Listen.
@@ -536,7 +355,8 @@ T_DECL(shutdown_not_connected, "vsock shutdown - not connected")
 T_DECL(shutdown_reads, "vsock shutdown - reads")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 8989, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char *msg = "This is test message.\n";
 
@@ -562,7 +382,8 @@ T_DECL(shutdown_reads, "vsock shutdown - reads")
 T_DECL(shutdown_writes, "vsock shutdown - writes")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 8787, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char *msg = "This is test message.\n";
 
@@ -595,7 +416,8 @@ T_DECL(shutdown_writes, "vsock shutdown - writes")
 T_DECL(shutdown_both, "vsock shutdown - both")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 8686, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char *msg = "This is test message.\n";
 	char buffer[1024] = {0};
@@ -638,7 +460,8 @@ T_DECL(shutdown_both, "vsock shutdown - both")
 T_DECL(talk_self, "vsock talk to self")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 4545, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char buffer[1024] = {0};
 
@@ -662,7 +485,8 @@ T_DECL(talk_self, "vsock talk to self")
 T_DECL(talk_self_double, "vsock talk to self - double sends")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 4646, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char buffer[1024] = {0};
 
@@ -692,7 +516,8 @@ T_DECL(talk_self_double, "vsock talk to self - double sends")
 T_DECL(talk_self_early_close, "vsock talk to self - peer closes early")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 4646, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	char *msg = "This is a message.";
 	vsock_send(socketA, msg);
@@ -710,7 +535,7 @@ T_DECL(talk_self_early_close, "vsock talk to self - peer closes early")
 
 T_DECL(talk_self_connections, "vsock talk to self - too many connections")
 {
-	const uint32_t port = 4747;
+	const uint32_t port = vsock_get_available_port();
 	const int backlog = 1;
 
 	struct sockaddr_vm listen_addr;
@@ -741,7 +566,8 @@ T_DECL(talk_self_connections, "vsock talk to self - too many connections")
 T_DECL(talk_self_large_writes, "vsock talk to self with large writes")
 {
 	int socketA, socketB;
-	vsock_connect_peers(VMADDR_CID_ANY, 4848, 10, &socketA, &socketB);
+	const uint32_t port = vsock_get_available_port();
+	vsock_connect_peers(VMADDR_CID_ANY, port, 10, &socketA, &socketB);
 
 	size_t size = 65536 * 4;
 	char buffer[65536 * 4] = {0};
@@ -774,7 +600,8 @@ T_DECL(vsock_pcblist_simple, "vsock pcblist sysctl - simple")
 	// Create some socket to discover in the pcblist.
 	struct sockaddr_vm addr;
 	int socket;
-	int result = vsock_listen(VMADDR_CID_ANY, 88899, &addr, 10, &socket);
+	const uint32_t port = vsock_get_available_port();
+	int result = vsock_listen(VMADDR_CID_ANY, port, &addr, 10, &socket);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock listen on a port");
 
 	// Get the buffer length for the pcblist.
@@ -814,7 +641,8 @@ T_DECL(vsock_pcblist_added, "vsock pcblist sysctl - socket added")
 	// Create some socket to discover in the pcblist after making the first sysctl.
 	struct sockaddr_vm addr;
 	int socket;
-	result = vsock_listen(VMADDR_CID_ANY, 77799, &addr, 10, &socket);
+	const uint32_t port = vsock_get_available_port();
+	result = vsock_listen(VMADDR_CID_ANY, port, &addr, 10, &socket);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock listen on a port");
 
 	// Allocate the buffer.
@@ -838,7 +666,8 @@ T_DECL(vsock_pcblist_removed, "vsock pcblist sysctl - socket removed")
 	// Create some socket to be removed after making the first sysctl.
 	struct sockaddr_vm addr;
 	int socket;
-	int result = vsock_listen(VMADDR_CID_ANY, 66699, &addr, 10, &socket);
+	const uint32_t port = vsock_get_available_port();
+	int result = vsock_listen(VMADDR_CID_ANY, port, &addr, 10, &socket);
 	T_ASSERT_POSIX_SUCCESS(result, "vsock listen on a port");
 
 	// Get the buffer length for the pcblist.
@@ -865,4 +694,19 @@ T_DECL(vsock_pcblist_removed, "vsock pcblist sysctl - socket removed")
 	T_ASSERT_FALSE(exists, "vsock pcblist should not contain the deleted socket");
 
 	free(buffer);
+}
+
+T_DECL(vsock_private_connect_without_entitlement, "vsock private connect should fail without entitlement")
+{
+	int socket;
+	int result = vsock_private_connect(VMADDR_CID_HOST, 1234, &socket);
+	T_ASSERT_POSIX_FAILURE(result, EPERM, "vsock connect without entitlement");
+}
+
+T_DECL(vsock_private_bind_without_entitlement, "vsock private bind should fail without entitlement")
+{
+	int socket;
+	struct sockaddr_vm addr;
+	int result = vsock_private_bind(VMADDR_CID_ANY, 1234, &addr, &socket);
+	T_ASSERT_POSIX_FAILURE(result, EPERM, "vsock bind without entitlement");
 }

@@ -167,6 +167,7 @@ __END_DECLS
 #if KERNEL_PRIVATE
 __BEGIN_DECLS
 int get_system_inshutdown(void);
+int get_system_inuserspacereboot(void);
 __END_DECLS
 #endif /* KERNEL_PRIVATE */
 

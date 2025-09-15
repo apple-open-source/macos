@@ -153,8 +153,15 @@ MACHINE_TIMEOUT_DEV_WRITEABLE(stackshot_interrupt_masked_timeout, "sshot-interru
 #define XCALL_ACK_TIMEOUT_NS ((uint64_t) 6000000000)
 uint64_t xcall_ack_timeout_abstime;
 
-boot_args const_boot_args __attribute__((section("__DATA, __const")));
-boot_args      *BootArgs __attribute__((section("__DATA, __const")));
+#ifndef __BUILDING_XNU_LIBRARY__
+#define BOOTARGS_SECTION_ATTR __attribute__((section("__DATA, __const")))
+#else /* __BUILDING_XNU_LIBRARY__ */
+/* Special segments are not used when building for user-mode */
+#define BOOTARGS_SECTION_ATTR
+#endif /* __BUILDING_XNU_LIBRARY__ */
+
+boot_args const_boot_args BOOTARGS_SECTION_ATTR;
+boot_args      *BootArgs BOOTARGS_SECTION_ATTR;
 
 TUNABLE(uint32_t, arm_diag, "diag", 0);
 #ifdef  APPLETYPHOON
@@ -327,20 +334,6 @@ arm_auxkc_init(void *mh, void *base)
 }
 
 /*
- *	Routine:	arm_setup_pre_sign
- *	Function:	Perform HW initialization that must happen ahead of the first PAC sign
- *			operation.
- */
-static void
-arm_setup_pre_sign(void)
-{
-#if __arm64__
-	/* DATA TBI, if enabled, affects the number of VA bits that contain the signature */
-	arm_set_kernel_tbi();
-#endif /* __arm64 */
-}
-
-/*
  *		Routine:		arm_init
  *		Function:		Runs on the boot CPU, once, on entry from iBoot.
  */
@@ -356,8 +349,6 @@ arm_init(
 	thread_t        thread;
 	DTEntry chosen = NULL;
 	unsigned int dt_entry_size = 0;
-
-	arm_setup_pre_sign();
 
 	arm_slide_rebase_and_sign_image();
 
@@ -386,24 +377,40 @@ arm_init(
 	configure_misc_apple_boot_args();
 	configure_misc_apple_regs(true);
 
-#if (DEVELOPMENT || DEBUG)
-	unsigned long const *platform_stall_ptr = NULL;
+#if HAS_UPSI_FAILURE_INJECTION
+	/* UPSI (Universal Panic and Stall Injection) Logic
+	 * iBoot/XNU are both configured for failure injection at specific stages
+	 * The injected failure and stage is populated through EDT properties by iBoot
+	 *
+	 * iBoot populates the EDT properties for XNU based upon PMU scratch bits
+	 * This is done because the EDT is available sooner in XNU than the PMU Kext
+	 */
+	uint64_t const *upsi_info = NULL;
 
+	/* Not usable TUNABLE here because TUNABLEs are parsed at a later point. */
 	if (SecureDTLookupEntry(NULL, "/chosen", &chosen) != kSuccess) {
 		panic("%s: Unable to find 'chosen' DT node", __FUNCTION__);
 	}
 
-	// Not usable TUNABLE here because TUNABLEs are parsed at a later point.
-	if (SecureDTGetProperty(chosen, "xnu_platform_stall", (void const **)&platform_stall_ptr,
+	/* Check if there is a requested injection stage */
+	if (SecureDTGetProperty(chosen, "injection_stage", (void const **)&upsi_info,
 	    &dt_entry_size) == kSuccess) {
-		xnu_platform_stall_value = *platform_stall_ptr;
+		assert3u(dt_entry_size, ==, 8);
+		xnu_upsi_injection_stage = *upsi_info;
 	}
 
-	platform_stall_panic_or_spin(PLATFORM_STALL_XNU_LOCATION_ARM_INIT);
+	/* Check if there is a requested injection action */
+	if (SecureDTGetProperty(chosen, "injection_action", (void const **)&upsi_info,
+	    &dt_entry_size) == kSuccess) {
+		assert3u(dt_entry_size, ==, 8);
+		xnu_upsi_injection_action = *upsi_info;
+	}
+
+	check_for_failure_injection(XNU_STAGE_ARM_INIT);
 
 	chosen = NULL; // Force a re-lookup later on since VM addresses are not final at this point
 	dt_entry_size = 0;
-#endif
+#endif // HAS_UPSI_FAILURE_INJECTION
 
 
 	{
@@ -784,7 +791,7 @@ arm_init_cpu(
 	PE_arm_debug_enable_trace(should_kprintf);
 #endif /* DEVELOPMENT || DEBUG */
 
-#if KERNEL_INTEGRITY_KTRR || KERNEL_INTEGRITY_CTRR
+#if KERNEL_INTEGRITY_KTRR || KERNEL_INTEGRITY_CTRR || KERNEL_INTEGRITY_PV_CTRR
 	rorgn_validate_core();
 #endif
 

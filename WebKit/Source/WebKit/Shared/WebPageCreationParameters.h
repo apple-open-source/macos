@@ -28,6 +28,7 @@
 #include "DrawingAreaInfo.h"
 #include "FrameTreeCreationParameters.h"
 #include "LayerTreeContext.h"
+#include "ProvisionalFrameCreationParameters.h"
 #include "SandboxExtension.h"
 #include "SessionState.h"
 #include "UserContentControllerParameters.h"
@@ -153,7 +154,7 @@ struct WebPageCreationParameters {
     double textZoomFactor { 1 };
     double pageZoomFactor { 1 };
 
-    float topContentInset { 0 };
+    WebCore::FloatBoxExtent obscuredContentInsets { };
     
     float mediaVolume { 0 };
     WebCore::MediaProducerMutedStateFlags muted { };
@@ -168,13 +169,9 @@ struct WebPageCreationParameters {
     
     WebCore::ScrollPinningBehavior scrollPinningBehavior { WebCore::ScrollPinningBehavior::DoNotPin };
 
-    // FIXME: This should be std::optional<WebCore::ScrollbarOverlayStyle>, but we would need to
-    // correctly handle enums inside Optionals when encoding and decoding. 
-    std::optional<uint32_t> scrollbarOverlayStyle { };
+    std::optional<WebCore::ScrollbarOverlayStyle> scrollbarOverlayStyle { };
 
     bool backgroundExtendsBeyondPage { false };
-
-    LayerHostingMode layerHostingMode { LayerHostingMode::InProcess };
 
     bool hasResourceLoadClient { false };
 
@@ -225,9 +222,6 @@ struct WebPageCreationParameters {
 #if HAVE(STATIC_FONT_REGISTRY)
     Vector<SandboxExtension::Handle> fontMachExtensionHandles { };
 #endif
-#if HAVE(HOSTED_CORE_ANIMATION)
-    WTF::MachSendRight acceleratedCompositingPort { };
-#endif
 #if HAVE(APP_ACCENT_COLORS)
     WebCore::Color accentColor { };
 #if PLATFORM(MAC)
@@ -259,6 +253,8 @@ struct WebPageCreationParameters {
 #endif
 
     bool needsFontAttributes { false };
+
+    bool needsScrollGeometryUpdates { false };
 
     // WebRTC members.
     bool iceCandidateFilteringEnabled { true };
@@ -307,10 +303,6 @@ struct WebPageCreationParameters {
     WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
     
     bool httpsUpgradeEnabled { true };
-
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload { false };
-#endif
     
 #if ENABLE(APP_HIGHLIGHTS)
     WebCore::HighlightVisibility appHighlightsVisible { WebCore::HighlightVisibility::Hidden };
@@ -322,9 +314,14 @@ struct WebPageCreationParameters {
 
     bool hasResizableWindows { false };
 
+#if PLATFORM(MAC)
+    double overflowHeightForTopScrollEdgeEffect { 0 };
+#endif
+
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 
     std::optional<RemotePageParameters> remotePageParameters { };
+    std::optional<ProvisionalFrameCreationParameters> provisionalFrameCreationParameters { };
     WebCore::FrameIdentifier mainFrameIdentifier;
     String openedMainFrameName;
     std::optional<WebCore::FrameIdentifier> mainFrameOpenerIdentifier { };
@@ -357,6 +354,7 @@ struct WebPageCreationParameters {
 #if PLATFORM(COCOA)
     String presentingApplicationBundleIdentifier;
 #endif
+    bool shouldSendConsoleLogsToUIProcessForTesting { false };
 };
 
 } // namespace WebKit

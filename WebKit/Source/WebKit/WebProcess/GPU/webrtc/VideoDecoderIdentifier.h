@@ -29,7 +29,7 @@
 
 namespace WebKit {
 
-enum class VideoDecoderIdentifierType { };
+struct VideoDecoderIdentifierType;
 using VideoDecoderIdentifier = AtomicObjectIdentifier<VideoDecoderIdentifierType>;
 
 } // namespace WebKit

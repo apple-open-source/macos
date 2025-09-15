@@ -22,6 +22,7 @@
 #include "JSServiceWorkerGlobalScope.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -142,7 +143,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsServiceWorkerGlobalScopeConstructor, (JSGlobalObject*
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSServiceWorkerGlobalScopePrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSServiceWorkerGlobalScope::getConstructor(vm, prototype->globalObject()));
 }
@@ -171,7 +172,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsServiceWorkerGlobalScope_ServiceWorkerGlobalScopeCons
 
 JSC::GCClient::IsoSubspace* JSServiceWorkerGlobalScope::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSServiceWorkerGlobalScope, UseCustomHeapCellType::Yes>(vm,
+    return WebCore::subspaceForImpl<JSServiceWorkerGlobalScope, UseCustomHeapCellType::Yes>(vm, "JSServiceWorkerGlobalScope"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForServiceWorkerGlobalScope.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForServiceWorkerGlobalScope = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForServiceWorkerGlobalScope.get(); },

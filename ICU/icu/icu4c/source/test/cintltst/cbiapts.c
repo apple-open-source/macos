@@ -2380,7 +2380,7 @@ enum {
 // returns NULL if error.
 #if APPLE_ICU_CHANGES // rdar://137994165
 static void* dataBufFromFile(const char* relative_path, long* dataBufSizeP) {
-    char * build_dir = getenv("ICU_CONFIGURATION_BUILD_DIR");
+    char * build_dir = getenv("ICU_BUILT_PRODUCTS_DIR");
     char path[512];
 
     // The original intltest's current working directory is

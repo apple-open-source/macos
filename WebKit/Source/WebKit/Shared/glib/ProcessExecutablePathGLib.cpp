@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,15 +69,6 @@ String executablePathOfWebProcess()
     return findWebKitProcess("WPEWebProcess");
 #else
     return findWebKitProcess("WebKitWebProcess");
-#endif
-}
-
-String executablePathOfPluginProcess()
-{
-#if PLATFORM(WPE)
-    return findWebKitProcess("WPEPluginProcess");
-#else
-    return findWebKitProcess("WebKitPluginProcess");
 #endif
 }
 

@@ -83,8 +83,8 @@ static void initializeTimerCoalescingPolicy()
 #if PLATFORM(MAC)
 static void disableDowngradeToLayoutManager()
 {
-    NSDictionary *existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
-    auto newArguments = adoptNS([existingArguments mutableCopy]);
+    RetainPtr existingArguments = [[NSUserDefaults standardUserDefaults] volatileDomainForName:NSArgumentDomain];
+    RetainPtr newArguments = adoptNS([existingArguments mutableCopy]);
     [newArguments setValue:@NO forKey:@"NSTextViewAllowsDowngradeToLayoutManager"];
     [[NSUserDefaults standardUserDefaults] setVolatileDomain:newArguments.get() forName:NSArgumentDomain];
 }
@@ -115,11 +115,16 @@ void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationPa
 #endif
 }
 
-void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, int32_t indexOfObjectFailingDecoding)
+void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding)
 {
-    auto errorMessage = makeString("Received invalid message: '"_s, description(messageName), "' ("_s, messageName, ", "_s, indexOfObjectFailingDecoding, ')');
+    auto errorMessage = makeString("Received invalid message: '"_s, description(messageName), "' ("_s, messageName, ')');
     logAndSetCrashLogMessage(errorMessage.utf8().data());
-    CRASH_WITH_INFO(WTF::enumToUnderlyingType(messageName), indexOfObjectFailingDecoding);
+
+    ASSERT(indicesOfObjectsFailingDecoding.size() <= 6);
+    auto index = [&](size_t i) -> int32_t {
+        return i < indicesOfObjectsFailingDecoding.size() ? indicesOfObjectsFailingDecoding[i] : -1;
+    };
+    CRASH_WITH_INFO(WTF::enumToUnderlyingType(messageName), index(5), index(4), index(3), index(2), index(1), index(0));
 }
 
 bool AuxiliaryProcess::parentProcessHasEntitlement(ASCIILiteral entitlement)
@@ -156,21 +161,21 @@ void AuxiliaryProcess::registerWithStateDumper(ASCIILiteral title)
             // Serialize the accumulated process state so that we can put the
             // result in an os_state_data_t structure.
             NSError *error = nil;
-            auto data = [NSPropertyListSerialization dataWithPropertyList:stateDictionary.get() format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
+            RetainPtr data = [NSPropertyListSerialization dataWithPropertyList:stateDictionary.get() format:NSPropertyListBinaryFormat_v1_0 options:0 error:&error];
 
             if (!data) {
                 ASSERT_NOT_REACHED_WITH_MESSAGE("Failed to serialize OS state info with error: %@", error);
                 return os_state;
             }
 
-            auto neededSize = OS_STATE_DATA_SIZE_NEEDED(data.length);
+            auto neededSize = OS_STATE_DATA_SIZE_NEEDED(data.get().length);
             auto osStateSpan = MallocSpan<uint8_t, SystemMalloc>::malloc(neededSize);
             zeroSpan(osStateSpan.mutableSpan());
             os_state = (os_state_data_t)osStateSpan.leakSpan().data();
             os_state->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
-            os_state->osd_data_size = data.length;
+            os_state->osd_data_size = data.get().length;
             strlcpy(os_state->osd_title, title.characters(), sizeof(os_state->osd_title));
-            memcpySpan(unsafeMakeSpan(os_state->osd_data, os_state->osd_data_size), span(data));
+            memcpySpan(unsafeMakeSpan(os_state->osd_data, os_state->osd_data_size), span(data.get()));
 
             return os_state;
         }
@@ -180,13 +185,13 @@ void AuxiliaryProcess::registerWithStateDumper(ASCIILiteral title)
 #endif // USE(OS_STATE)
 
 #if ENABLE(CFPREFS_DIRECT_MODE)
-id AuxiliaryProcess::decodePreferenceValue(const std::optional<String>& encodedValue)
+RetainPtr<id> AuxiliaryProcess::decodePreferenceValue(const std::optional<String>& encodedValue)
 {
     if (!encodedValue)
         return nil;
     
-    auto encodedData = adoptNS([[NSData alloc] initWithBase64EncodedString:*encodedValue options:0]);
-    auto classes = [NSSet setWithObjects:
+    RetainPtr encodedData = adoptNS([[NSData alloc] initWithBase64EncodedString:encodedValue->createNSString().get() options:0]);
+    RetainPtr classes = [NSSet setWithObjects:
         NSString.class,
         NSMutableString.class,
         NSNumber.class,
@@ -198,8 +203,8 @@ id AuxiliaryProcess::decodePreferenceValue(const std::optional<String>& encodedV
         NSData.class,
         NSMutableData.class,
     nil];
-    NSError *error { nil };
-    id result = [NSKeyedUnarchiver _strictlyUnarchivedObjectOfClasses:classes fromData:encodedData.get() error:&error];
+    SUPPRESS_UNRETAINED_LOCAL NSError *error { nil };
+    RetainPtr<id> result = [NSKeyedUnarchiver _strictlyUnarchivedObjectOfClasses:classes.get() fromData:encodedData.get() error:&error];
     ASSERT(!error);
     return result;
 }
@@ -209,8 +214,8 @@ void AuxiliaryProcess::setPreferenceValue(const String& domain, const String& ke
     if (domain.isEmpty()) {
         CFPreferencesSetValue(key.createCFString().get(), (__bridge CFPropertyListRef)value, kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 #if ASSERT_ENABLED
-        id valueAfterSetting = [[NSUserDefaults standardUserDefaults] objectForKey:key];
-        ASSERT(valueAfterSetting == value || [valueAfterSetting isEqual:value] || key == "AppleLanguages"_s || key == "PayloadUUID"_s);
+        RetainPtr valueAfterSetting = [[NSUserDefaults standardUserDefaults] objectForKey:key.createNSString().get()];
+        ASSERT(valueAfterSetting.get() == value || [valueAfterSetting.get() isEqual:value] || key == "AppleLanguages"_s || key == "PayloadUUID"_s);
 #endif
     } else
         CFPreferencesSetValue(key.createCFString().get(), (__bridge CFPropertyListRef)value, domain.createCFString().get(), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
@@ -218,14 +223,14 @@ void AuxiliaryProcess::setPreferenceValue(const String& domain, const String& ke
 
 void AuxiliaryProcess::preferenceDidUpdate(const String& domain, const String& key, const std::optional<String>& encodedValue)
 {
-    id value = nil;
+    RetainPtr<id> value;
     if (encodedValue) {
         value = decodePreferenceValue(encodedValue);
         if (!value)
             return;
     }
-    setPreferenceValue(domain, key, value);
-    handlePreferenceChange(domain, key, value);
+    setPreferenceValue(domain, key, value.get());
+    handlePreferenceChange(domain, key, value.get());
 }
 
 #if !HAVE(UPDATE_WEB_ACCESSIBILITY_SETTINGS) && PLATFORM(IOS_FAMILY)
@@ -260,7 +265,7 @@ void AuxiliaryProcess::handleAXPreferenceChange(const String& domain, const Stri
         // these methods need to be called directly.
         if (CFEqual(key.createCFString().get(), kAXSReduceMotionPreference) && [value isKindOfClass:[NSNumber class]])
             _AXSSetReduceMotionEnabled([(NSNumber *)value boolValue]);
-        else if (CFEqual(key.createCFString().get(), increaseContrastPreferenceKey()) && [value isKindOfClass:[NSNumber class]])
+        else if (key == increaseContrastPreferenceKey() && [value isKindOfClass:[NSNumber class]])
             _AXSSetDarkenSystemColors([(NSNumber *)value boolValue]);
 #endif
     }

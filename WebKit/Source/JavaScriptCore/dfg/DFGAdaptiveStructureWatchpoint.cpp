@@ -74,10 +74,7 @@ void AdaptiveStructureWatchpoint::fireInternal(VM& vm, const FireDetail& detail)
         return;
     }
     
-    if (DFG::shouldDumpDisassembly()) {
-        dataLog(
-            "Firing watchpoint ", RawPointer(this), " (", m_key, ") on ", *m_codeBlock, "\n");
-    }
+    dataLogLnIf(DFG::shouldDumpDisassembly(), "Firing watchpoint ", RawPointer(this), " (", m_key, ") on ", *m_codeBlock);
 
     auto lambda = scopedLambda<void(PrintStream&)>([&](PrintStream& out) {
         out.print("Adaptation of ", m_key, " failed: ", detail);

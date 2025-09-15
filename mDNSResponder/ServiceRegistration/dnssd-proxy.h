@@ -1,6 +1,6 @@
 /* dnssd-proxy.h
  *
- * Copyright (c) 2018-2024 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2025 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,16 +58,20 @@ bool configure_dnssd_proxy(void);
 
 #define DNS_OVER_TLS_DEFAULT_PORT 853
 
+// See <https://tools.ietf.org/html/rfc8765#section-6.3.1>.
+#define TTL_TO_REMOVE_INDIVIDUAL_RECORDS    0xFFFFFFFF
+#define TTL_TO_REMOVE_MULTIPLE_RECORDS      0xFFFFFFFE
+
 typedef struct served_domain served_domain_t;
 
 //======================================================================================================================
 // MARK: - Functions
 
 // We can only initialize dnssd-proxy in srp-mdns-proxy if we combined it with srp-mdns-proxy.
-#if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY) && !defined(RA_TESTER)
-#ifdef SRP_TEST_SERVER
+#if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
+#  ifdef SRP_TEST_SERVER
 extern served_domain_t *NULLABLE last_freed_domain;
-#endif
+#  endif
 bool init_dnssd_proxy(srp_server_t *NONNULL server_state);
 served_domain_t *NULLABLE delete_served_domain_by_interface_name(const char *const NONNULL interface_name);
 #endif // #if (SRP_FEATURE_COMBINED_SRP_DNSSD_PROXY)
@@ -76,8 +80,13 @@ void dnssd_proxy_ifaddr_callback(srp_server_t *NULLABLE server_state, void *NULL
                                  const addr_t *NONNULL address, const addr_t *NONNULL mask, uint32_t UNUSED flags,
                                  enum interface_address_change event_type);
 void dp_start_dropping(void);
+#  if SRP_FEATURE_DYNAMIC_CONFIGURATION
 void dns_proxy_input_for_server(comm_t *NONNULL comm,
                                 srp_server_t *NONNULL server_state, message_t *NONNULL message, void *NULLABLE context);
+#  else
+void dns_proxy_input_for_server(comm_t *NONNULL comm,
+                                srp_server_t *NULLABLE server_state, message_t *NONNULL message, void *NULLABLE context);
+#  endif //SRP_FEATURE_DYNAMIC_CONFIGURATION
 #endif // #ifndef __DNSSD_PROXY_H__
 
 // Local Variables:

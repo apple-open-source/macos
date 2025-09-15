@@ -195,14 +195,14 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* this must fail since the key attribute is missing */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* this must work (key attributes match) */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 != NULL);
 
 	/* we assume this won't change, so retrieve now */
@@ -219,14 +219,14 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* this must fail since the key attribute is missing */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* this must work (key attributes match) */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 != NULL);
 
 	os_channel_destroy(ch10);
@@ -244,7 +244,7 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* this must fail (key attributes swapped) */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
@@ -254,26 +254,26 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	 */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, ringid, NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	assert(ch01 == NULL);
 	ch01 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, (ringid + 1), NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch01 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* these all must work (key attributes match) */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, ringid, attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 != NULL);
 
 	ch01 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, (ringid + 1), attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch01 != NULL);
 
 	os_channel_destroy(ch00);
@@ -291,7 +291,7 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* this must fail (key attributes swapped) */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
@@ -301,26 +301,26 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	 */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, ringid, NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	assert(ch11 == NULL);
 	ch11 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, (ringid + 1), NULL,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch11 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* these all must work (key attributes match) */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, ringid, attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 != NULL);
 
 	ch11 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, (ringid + 1), attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch11 != NULL);
 
 	os_channel_destroy(ch10);
@@ -338,25 +338,25 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* these all must fail (key attributes swapped) */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, ringid, attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	ch01 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, (ringid + 1), attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch01 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* these all must work (key attributes match) */
 	ch00 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, ringid, attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch00 != NULL);
 
 	ch01 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port0, CHANNEL_DIR_TX_RX, (ringid + 1), attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch01 != NULL);
 
 	os_channel_destroy(ch00);
@@ -376,25 +376,25 @@ skt_bind_common(nexus_type_t type, nexus_port_t port0, nexus_port_t port1)
 	/* these all must fail (key attributes swapped) */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, ringid, attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	ch11 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, (ringid + 1), attr0,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch11 == NULL);
 	SKTC_ASSERT_ERR(errno == EACCES);
 
 	/* these all must work (key attributes match) */
 	ch10 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, ringid, attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch10 != NULL);
 
 	ch11 = sktu_channel_create_extended(sktc_instance_uuid,
 	    port1, CHANNEL_DIR_TX_RX, (ringid + 1), attr1,
-	    -1, -1, -1, -1, -1, -1, upp, 1, -1, -1);
+	    -1, -1, -1, -1, -1, upp, 1, -1, -1);
 	assert(ch11 != NULL);
 
 	os_channel_destroy(ch10);

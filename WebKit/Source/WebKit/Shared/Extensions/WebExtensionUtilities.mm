@@ -38,6 +38,7 @@
 #import "WebExtensionAPITabs.h"
 #import "WebExtensionMessageSenderParameters.h"
 #import "WebFrame.h"
+#import <WebCore/DocumentInlines.h>
 #import <WebCore/LocalFrame.h>
 #import <objc/runtime.h>
 
@@ -118,13 +119,13 @@ static NSString *constructExpectedMessage(NSString *key, NSString *expected, NSS
     ASSERT(found);
 
     if (inArray && key.length)
-        return [NSString stringWithFormat:@"'%@' is expected to be %@, but %@ was provided in the array", key, expected, found];
+        return [[NSString alloc] initWithFormat:@"'%@' is expected to be %@, but %@ was provided in the array", key, expected, found];
     if (inArray && !key.length)
-        return [NSString stringWithFormat:@"%@ is expected, but %@ was provided in the array", expected, found];
+        return [[NSString alloc] initWithFormat:@"%@ is expected, but %@ was provided in the array", expected, found];
 
     if (key.length)
-        return [NSString stringWithFormat:@"'%@' is expected to be %@, but %@ was provided", key, expected, found];
-    return [NSString stringWithFormat:@"%@ is expected, but %@ was provided", expected, found];
+        return [[NSString alloc] initWithFormat:@"'%@' is expected to be %@, but %@ was provided", key, expected, found];
+    return [[NSString alloc] initWithFormat:@"%@ is expected, but %@ was provided", expected, found];
 }
 
 static bool validateSingleObject(NSString *key, NSObject *value, Class expectedValueType, NSString **outExceptionString)
@@ -168,14 +169,14 @@ static bool validateArray(NSString *key, NSObject *value, NSArray<Class> *validC
     NSArray *arrayValue = dynamic_objc_cast<NSArray>(value);
     if (!arrayValue) {
         if (outExceptionString)
-            *outExceptionString = constructExpectedMessage(key, [NSString stringWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(value));
+            *outExceptionString = constructExpectedMessage(key, [[NSString alloc] initWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(value));
         return false;
     }
 
     for (NSObject *element in arrayValue) {
         if (!validateSingleObject(nil, element, expectedElementType, nullptr)) {
             if (outExceptionString)
-                *outExceptionString = constructExpectedMessage(key, [NSString stringWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(element), true);
+                *outExceptionString = constructExpectedMessage(key, [[NSString alloc] initWithFormat:@"an array of %@", classToClassString(expectedElementType, true)], valueToTypeString(element), true);
             return false;
         }
     }
@@ -250,14 +251,14 @@ static NSString *formatList(NSArray<NSString *> *list)
         return @"";
 
     if (count == 1)
-        return [NSString stringWithFormat:@"'%@'", list.firstObject];
+        return [[NSString alloc] initWithFormat:@"'%@'", list.firstObject];
 
     if (count == 2)
-        return [NSString stringWithFormat:@"'%@' and '%@'", list.firstObject, list.lastObject];
+        return [[NSString alloc] initWithFormat:@"'%@' and '%@'", list.firstObject, list.lastObject];
 
     auto *allButLast = [list subarrayWithRange:NSMakeRange(0, count - 1)];
     auto *formattedInitialItems = [allButLast componentsJoinedByString:@"', '"];
-    return [NSString stringWithFormat:@"'%@', and '%@'", formattedInitialItems, list.lastObject];
+    return [[NSString alloc] initWithFormat:@"'%@', and '%@'", formattedInitialItems, list.lastObject];
 }
 
 bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sourceKey, NSArray<NSString *> *requiredKeys, NSDictionary<NSString *, id> *keyTypes, NSString **outExceptionString)
@@ -294,10 +295,10 @@ bool validateDictionary(NSDictionary<NSString *, id> *dictionary, NSString *sour
     // Prioritize type errors over missing required key errors, since the dictionary *might* actually have
     // all the required keys, but we stopped checking. We do know for sure that the type is wrong though.
     if (remainingRequiredKeys.count && !errorString)
-        errorString = [NSString stringWithFormat:@"it is missing required keys: %@", formatList(remainingRequiredKeys.allObjects)];
+        errorString = [[NSString alloc] initWithFormat:@"it is missing required keys: %@", formatList(remainingRequiredKeys.allObjects)];
 
     if (errorString && outExceptionString)
-        *outExceptionString = toErrorString(nullString(), sourceKey, errorString);
+        *outExceptionString = toErrorString(nullString(), sourceKey, errorString).createNSString().autorelease();
 
     return !errorString;
 }
@@ -310,14 +311,14 @@ bool validateObject(NSObject *object, NSString *sourceKey, id expectedValueType,
     validate(nil, object, expectedValueType, &errorString);
 
     if (errorString && outExceptionString)
-        *outExceptionString = toErrorString(nullString(), sourceKey, errorString);
+        *outExceptionString = toErrorString(nullString(), sourceKey, errorString).createNSString().autorelease();
 
     return !errorString;
 }
 
 JSObjectRef toJSError(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)
 {
-    return toJSError(context, toErrorString(callingAPIName, sourceKey, underlyingErrorString));
+    return toJSError(context, toErrorString(callingAPIName, sourceKey, underlyingErrorString).createNSString().get());
 }
 
 JSObjectRef toJSRejectedPromise(JSContextRef context, NSString *callingAPIName, NSString *sourceKey, NSString *underlyingErrorString)

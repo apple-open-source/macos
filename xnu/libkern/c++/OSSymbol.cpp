@@ -453,7 +453,7 @@ OSSymbol::withCString(const char *cString)
 		return symbol;
 	}
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	/*
 	 * Empirically, symbols which string is from the rorgn part of the
 	 * kernel are asked about all the time.
@@ -465,7 +465,7 @@ OSSymbol::withCString(const char *cString)
 	 * from baseline (~6k), but avoiding the string copies saves about 60k.
 	 */
 	permanent = rorgn_contains((vm_offset_t)cString, key.smrk_len + 1, false);
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 	/*
 	 * can't use OSString::initWithCString* because it calls
@@ -511,9 +511,9 @@ OSSymbol::withCStringNoCopy(const char *cString)
 		return symbol;
 	}
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 	permanent = rorgn_contains((vm_offset_t)cString, key.smrk_len + 1, false);
-#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) */
+#endif /* defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR) */
 
 	auto newSymb = OSMakeShared<OSSymbol>();
 

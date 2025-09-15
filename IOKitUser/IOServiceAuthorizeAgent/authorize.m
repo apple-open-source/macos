@@ -28,7 +28,10 @@
 #include "preferences.h"
 
 #include <CoreFoundation/CFBundlePriv.h>
+#include <Foundation/NSFileManager.h>
 #include <IOKit/IOKitLibPrivate.h>
+
+static NSString * const groupIdentifier = @"group.com.apple.iokit.IOServiceAuthorizeAgent";
 
 static IOReturn __Authorize( CFDictionaryRef deviceID, CFBundleRef bundle )
 {
@@ -66,9 +69,14 @@ static IOReturn __Authorize( CFDictionaryRef deviceID, CFBundleRef bundle )
 
                 if ( header )
                 {
-                    CFURLRef path;
+                    CFURLRef path = nil;
 
-                    path = CFBundleCopyBundleURL( CFBundleGetMainBundle( ) );
+                    NSURL *containerURL = [ NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier: groupIdentifier ];
+
+                    if ( containerURL )
+                    {
+                        path = (__bridge CFURLRef)(containerURL);
+                    }
 
                     if ( path )
                     {
@@ -127,8 +135,6 @@ static IOReturn __Authorize( CFDictionaryRef deviceID, CFBundleRef bundle )
                         {
                             status = kIOReturnNoResources;
                         }
-
-                        CFRelease( path );
                     }
                     else
                     {

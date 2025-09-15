@@ -61,7 +61,7 @@ std::unique_ptr<Decoder> Decoder::create(std::span<const uint8_t> buffer, Buffer
 {
     ASSERT(bufferDeallocator);
     ASSERT(!!buffer.data());
-    if (UNLIKELY(!buffer.data())) {
+    if (!buffer.data()) [[unlikely]] {
         RELEASE_LOG_FAULT(IPC, "Decoder::create() called with a null buffer (buffer size: %lu)", buffer.size_bytes());
         return nullptr;
     }
@@ -77,23 +77,23 @@ Decoder::Decoder(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeal
     , m_bufferDeallocator { WTFMove(bufferDeallocator) }
     , m_attachments { WTFMove(attachments) }
 {
-    if (UNLIKELY(reinterpret_cast<uintptr_t>(m_buffer.data()) % alignof(uint64_t))) {
+    if (reinterpret_cast<uintptr_t>(m_buffer.data()) % alignof(uint64_t)) [[unlikely]] {
         markInvalid();
         return;
     }
 
     auto messageFlags = decode<OptionSet<MessageFlags>>();
-    if (UNLIKELY(!messageFlags))
+    if (!messageFlags) [[unlikely]]
         return;
     m_messageFlags = WTFMove(*messageFlags);
 
     auto messageName = decode<MessageName>();
-    if (UNLIKELY(!messageName))
+    if (!messageName) [[unlikely]]
         return;
     m_messageName = WTFMove(*messageName);
 
     auto destinationID = decode<uint64_t>();
-    if (UNLIKELY(!destinationID))
+    if (!destinationID) [[unlikely]]
         return;
     // 0 is a valid destinationID but we can at least reject -1 which is the HashTable deleted value.
     if (*destinationID && !WTF::ObjectIdentifierGenericBase<uint64_t>::isValidIdentifier(*destinationID)) {
@@ -103,7 +103,7 @@ Decoder::Decoder(std::span<const uint8_t> buffer, BufferDeallocator&& bufferDeal
     m_destinationID = WTFMove(*destinationID);
     if (messageIsSync(m_messageName)) {
         auto syncRequestID = decode<SyncRequestID>();
-        if (UNLIKELY(!syncRequestID))
+        if (!syncRequestID) [[unlikely]]
             return;
         m_syncRequestID = syncRequestID;
     }
@@ -122,12 +122,12 @@ Decoder::Decoder(std::span<const uint8_t> stream, uint64_t destinationID)
     }
 
     auto messageName = decode<MessageName>();
-    if (UNLIKELY(!messageName))
+    if (!messageName) [[unlikely]]
         return;
     m_messageName = WTFMove(*messageName);
     if (messageIsSync(m_messageName)) {
         auto syncRequestID = decode<SyncRequestID>();
-        if (UNLIKELY(!syncRequestID))
+        if (!syncRequestID) [[unlikely]]
             return;
         m_syncRequestID = syncRequestID;
     }

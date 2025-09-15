@@ -46,6 +46,9 @@ enum
     _kDADiskStateMountAutomaticNoDefer = 0x00000020,
     _kDADiskStateMountQuarantined      = 0x00000040,
     _kDADiskStateMultiVolume           = 0x00000080,
+    _kDADiskStateProbedWithFSKit       = 0x00000100,
+    _kDADiskStateMountedWithFSKit      = 0x00000200,
+    _kDADiskStateMountedWithUserFS     = 0x00000400,
 
     kDADiskStateCommandActive       = 0x00000001,
     kDADiskStateRequireRepair       = 0x00000002,
@@ -109,6 +112,7 @@ extern void               DADiskSetContainerId( DADiskRef disk, char * container
 extern void               DADiskSetMountedByUserUID( DADiskRef disk, uid_t uid );
 extern char *             DADiskGetContainerId( DADiskRef disk );
 extern DADiskRef          DADiskGetContainerDisk( DADiskRef disk );
+extern Boolean            DADiskIsExternalVolume( DADiskRef disk );
 #if TARGET_OS_OSX || TARGET_OS_IOS /* Should be DA_FSKIT but can't */
 extern void               DADiskSetFskitAdditions( DADiskRef disk, CFDictionaryRef additions );
 #endif

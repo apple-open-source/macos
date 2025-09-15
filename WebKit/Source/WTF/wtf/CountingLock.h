@@ -89,13 +89,13 @@ public:
 
     void lock()
     {
-        if (UNLIKELY(!ExclusiveAlgorithm::lockFast(m_word)))
+        if (!ExclusiveAlgorithm::lockFast(m_word)) [[unlikely]]
             lockSlow();
     }
     
     void unlock()
     {
-        if (UNLIKELY(!ExclusiveAlgorithm::unlockFast(m_word)))
+        if (!ExclusiveAlgorithm::unlockFast(m_word)) [[unlikely]]
             unlockSlow();
     }
     

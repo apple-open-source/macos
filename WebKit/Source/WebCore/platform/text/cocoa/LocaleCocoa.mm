@@ -40,6 +40,7 @@
 #import <wtf/Language.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/TZoneMallocInlines.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/AtomStringHash.h>
 #import "LocalizedDateCache.h"
@@ -70,7 +71,7 @@ static RetainPtr<NSDateFormatter> createDateTimeFormatter(NSLocale* locale, NSCa
 }
 
 LocaleCocoa::LocaleCocoa(const AtomString& locale)
-    : m_locale(adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale]))
+    : m_locale(adoptNS([[NSLocale alloc] initWithLocaleIdentifier:locale.createNSString().get()]))
     , m_gregorianCalendar(adoptNS([[NSCalendar alloc] initWithCalendarIdentifier:NSCalendarIdentifierGregorian]))
     , m_didInitializeNumberData(false)
 {
@@ -78,7 +79,7 @@ LocaleCocoa::LocaleCocoa(const AtomString& locale)
     // NSLocale returns a lower case NSLocaleLanguageCode so we don't have care about case.
     NSString* language = [m_locale objectForKey:NSLocaleLanguageCode];
     if ([availableLanguages indexOfObject:language] == NSNotFound)
-        m_locale = adoptNS([[NSLocale alloc] initWithLocaleIdentifier:defaultLanguage()]);
+        m_locale = adoptNS([[NSLocale alloc] initWithLocaleIdentifier:defaultLanguage().createNSString().get()]);
     [m_gregorianCalendar setLocale:m_locale.get()];
 }
 
@@ -268,7 +269,7 @@ const Vector<String>& LocaleCocoa::timeAMPMLabels()
     return m_timeAMPMLabels;
 }
 
-using CanonicalLocaleMap = UncheckedKeyHashMap<AtomString, RetainPtr<CFStringRef>>;
+using CanonicalLocaleMap = HashMap<AtomString, RetainPtr<CFStringRef>>;
 
 struct LocaleCache {
     AtomString m_key;
@@ -292,7 +293,7 @@ RetainPtr<CFStringRef> LocaleCocoa::canonicalLanguageIdentifierFromString(const 
     if (cache.m_key == string)
         return cache.m_value;
     auto result = cache.m_map.ensure(string, [&] {
-        return (__bridge CFStringRef)[NSLocale canonicalLanguageIdentifierFromString:string];
+        return bridge_cast([NSLocale canonicalLanguageIdentifierFromString:string.createNSString().get()]);
     }).iterator->value;
     cache.m_key = string;
     cache.m_value = result;

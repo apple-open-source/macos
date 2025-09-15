@@ -122,7 +122,7 @@ make_ifmibdata(struct ifnet *ifp, int *__counted_by(2) name, struct sysctl_req *
 		/*
 		 * Make sure the interface is in use
 		 */
-		if (ifnet_is_attached(ifp, 0)) {
+		if (ifnet_is_fully_attached(ifp)) {
 			snprintf(ifmd.ifmd_name, sizeof(ifmd.ifmd_name), "%s",
 			    if_name(ifp));
 

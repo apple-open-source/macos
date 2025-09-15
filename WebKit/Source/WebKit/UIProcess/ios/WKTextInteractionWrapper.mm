@@ -29,9 +29,12 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#import "EditorState.h"
 #import "RemoteLayerTreeNode.h"
 #import "RemoteLayerTreeViews.h"
+#import "UIKitUtilities.h"
 #import "WKContentViewInteraction.h"
+#import "WebPageProxy.h"
 #import <WebCore/TileController.h>
 #import <wtf/TZoneMallocInlines.h>
 
@@ -187,6 +190,15 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
     return views.autorelease();
 }
 
+- (UIView<UITextSelectionHighlightView> *)selectionHighlightView
+{
+#if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
+    return [[self textSelectionDisplayInteraction] highlightView];
+#else
+    return nil;
+#endif
+}
+
 - (void)prepareToMoveSelectionContainer:(UIView *)newContainer
 {
 #if HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
@@ -212,21 +224,50 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
     if (newContainer == _view)
         return;
 
-    RetainPtr subviews = [newContainer subviews];
-    __block std::optional<NSUInteger> indexAfterTileGridContainer;
-    auto tileGridContainerName = WebCore::TileController::tileGridContainerLayerName();
-    [subviews enumerateObjectsUsingBlock:^(UIView *view, NSUInteger index, BOOL* stop) {
-        RetainPtr compositingView = dynamic_objc_cast<WKCompositingView>(view);
-        if ([[compositingView layer].name isEqualToString:tileGridContainerName]) {
-            indexAfterTileGridContainer = index + 1;
-            *stop = YES;
+    auto findParentViewBelowNewContainer = [&](UIView *view) -> UIView * {
+        if (view == newContainer)
+            return nil;
+
+        for (RetainPtr foundView = view; foundView; foundView = [foundView superview]) {
+            if (foundView == _view)
+                return nil;
+
+            if ([foundView superview] == newContainer)
+                return foundView.get();
         }
+
+        return nil;
+    };
+
+    RetainPtr viewsIntersectingSelection = [_view allViewsIntersectingSelectionRange];
+    RetainPtr subviewsBeforeSelection = adoptNS([NSMutableSet new]);
+    for (UIView *view in viewsIntersectingSelection.get()) {
+        if (RetainPtr parentBelowNewContainer = findParentViewBelowNewContainer(view))
+            [subviewsBeforeSelection addObject:parentBelowNewContainer.get()];
+    }
+
+    RefPtr page = [_view page];
+    bool insertSelectionAfterCompositingViews = page && page->editorState().visualData->enclosingLayerUsesContentsLayer;
+
+    // Ensure that the selection highlight is inserted after all `subviewsBeforeSelection`.
+    __block std::optional<NSUInteger> indexOfHighlightView;
+    __block std::optional<NSUInteger> indexToInsertManagedSelectionViews = 0;
+    RetainPtr tileGridContainerName = WebCore::TileController::tileGridContainerLayerName().createNSString();
+    [[newContainer subviews] enumerateObjectsUsingBlock:^(UIView *view, NSUInteger index, BOOL*) {
+        if (view == highlightView) {
+            indexOfHighlightView = index;
+            return;
+        }
+
+        bool insertSelectionAfterView = [view.layer.name isEqualToString:tileGridContainerName.get()]
+            || [subviewsBeforeSelection containsObject:view]
+            || (insertSelectionAfterCompositingViews && [view conformsToProtocol:@protocol(WKContentControlled)]);
+
+        if (insertSelectionAfterView)
+            indexToInsertManagedSelectionViews = index + 1;
     }];
 
-    if (!indexAfterTileGridContainer)
-        return;
-
-    if (*indexAfterTileGridContainer < [subviews count] && [subviews objectAtIndex:*indexAfterTileGridContainer] == highlightView)
+    if (indexToInsertManagedSelectionViews == indexOfHighlightView)
         return;
 
     // The first managed selection view in the array of subviews should be the highlight view.
@@ -234,7 +275,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
     // reposition the managed selection views above the tile grid container.
     for (UIView *view in self.managedTextSelectionViews.reverseObjectEnumerator) {
         if (newContainer == view.superview)
-            [newContainer insertSubview:view atIndex:*indexAfterTileGridContainer];
+            [newContainer insertSubview:view atIndex:*indexToInsertManagedSelectionViews];
     }
 #endif // HAVE(UI_TEXT_SELECTION_DISPLAY_INTERACTION)
 }
@@ -295,6 +336,11 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(HideEditMenuScope);
 {
     if (_hideEditMenuScope)
         return;
+
+#if USE(UICONTEXTMENU)
+    if (self.contextMenuInteraction._wk_isMenuVisible)
+        return;
+#endif
 
     _hideEditMenuScope = WTF::makeUnique<WebKit::HideEditMenuScope>(self, WebKit::DeactivateSelection::Yes);
 }

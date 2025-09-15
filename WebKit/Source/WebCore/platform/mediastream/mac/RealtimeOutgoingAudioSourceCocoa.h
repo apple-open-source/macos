@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -62,9 +62,10 @@ private:
     bool hasBufferedEnoughData() final;
     void sourceUpdated() final;
 
+    void updateSampleConverter(const AudioStreamDescription&);
     void pullAudioData();
 
-    Ref<AudioSampleDataSource> m_sampleConverter;
+    const Ref<AudioSampleDataSource> m_sampleConverter;
     std::optional<CAAudioStreamDescription> m_inputStreamDescription;
     std::optional<CAAudioStreamDescription> m_outputStreamDescription;
 

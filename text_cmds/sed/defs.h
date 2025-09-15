@@ -31,9 +31,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- *	@(#)defs.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD$
  */
 
 /*
@@ -88,7 +85,7 @@ struct s_tr {
 
 /*
  * An internally compiled command.
- * Initialy, label references are stored in t, on a second pass they
+ * Initially, label references are stored in t, on a second pass they
  * are updated to pointers.
  */
 struct s_command {

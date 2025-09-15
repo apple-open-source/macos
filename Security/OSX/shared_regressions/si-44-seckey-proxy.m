@@ -38,7 +38,8 @@ static void test_key_proxy_connect(void) {
     SecKeyRef localKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];
     isnt(localKey, NULL,  "connected to remote key, error %@", error);
     ok(CFGetTypeID(localKey) == SecKeyGetTypeID(), "Connected key is really SecKey");
-    
+    CFRelease(localKey);
+
     // Try another connection to the proxy.
     SecKeyRef secondKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];
     isnt(secondKey, NULL, "2nd connection should not be refused");

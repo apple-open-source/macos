@@ -169,7 +169,7 @@
 void
 SecCreateSecuritydXPCServer(void)
 {
-    static SecuritydXPCServerListener* listener = NULL;
+    static SecuritydXPCServerListener* listener __unused = NULL;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         @autoreleasepool {

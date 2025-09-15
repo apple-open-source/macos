@@ -425,6 +425,7 @@ test_getattrlist_fullpath(size_t pathlen, bool policy, int expected_errno)
 
 	if (pathlen + 1 <= cwdlen) {
 		// Test dir is longer than pathlen + slash, no sense running the test
+		free(cwd);
 		return;
 	}
 
@@ -469,6 +470,7 @@ test_getattrlist_relpath(size_t pathlen, bool policy, int expected_errno)
 
 	if (pathlen + 1 <= cwdlen) {
 		// Test dir is longer than pathlen + slash, no sense running the test
+		free(cwd);
 		return;
 	}
 
@@ -536,6 +538,7 @@ test_getattrlist_nofirmlinkpath(size_t pathlen, bool policy, int expected_errno)
 
 	if (pathlen + 1 <= mtptlen + cwdlen) {
 		// Test dir + mount point is longer than pathlen + slash, no sense running the test
+		free(cwd);
 		return;
 	}
 
@@ -973,6 +976,7 @@ test_symlink_intermediate(size_t pathlen, bool policy, int expected_errno)
 	// Find parent of path
 	char *lastslash = strrchr(path, '/');
 	if (lastslash == NULL || lastslash == path) {
+		free(path);
 		return;
 	}
 
@@ -1038,6 +1042,8 @@ test_symlink_intermediate(size_t pathlen, bool policy, int expected_errno)
 	if (fd >= 0) {
 		close(fd);
 	}
+	free(basepath);
+	free(path);
 }
 
 static void

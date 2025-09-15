@@ -155,6 +155,11 @@ void CDMPrivateMediaSourceAVFObjC::deref() const
     m_cdm->deref();
 }
 
+LegacyCDM& CDMPrivateMediaSourceAVFObjC::cdm() const
+{
+    return m_cdm.get();
+}
+
 }
 
 #endif // ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)

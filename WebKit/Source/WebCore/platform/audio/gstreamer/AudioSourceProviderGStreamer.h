@@ -57,7 +57,7 @@ public:
 
     void configureAudioBin(GstElement* audioBin, GstElement* audioSink);
 
-    void provideInput(AudioBus*, size_t framesToProcess) override;
+    void provideInput(AudioBus&, size_t framesToProcess) override;
     void setClient(WeakPtr<AudioSourceProviderClient>&&) override;
     const AudioSourceProviderClient* client() const { return m_client.get(); }
 
@@ -84,7 +84,7 @@ private:
     GRefPtr<GstElement> m_audioSinkBin;
     WeakPtr<AudioSourceProviderClient> m_client;
     int m_deinterleaveSourcePads { 0 };
-    UncheckedKeyHashMap<int, GRefPtr<GstAdapter>> m_adapters WTF_GUARDED_BY_LOCK(m_adapterLock);
+    HashMap<int, GRefPtr<GstAdapter>> m_adapters WTF_GUARDED_BY_LOCK(m_adapterLock);
     unsigned long m_deinterleavePadAddedHandlerId { 0 };
     unsigned long m_deinterleaveNoMorePadsHandlerId { 0 };
     unsigned long m_deinterleavePadRemovedHandlerId { 0 };

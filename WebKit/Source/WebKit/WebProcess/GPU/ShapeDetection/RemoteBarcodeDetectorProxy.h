@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,7 +70,7 @@ private:
     void detect(Ref<WebCore::ImageBuffer>&&, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedBarcode>&&)>&&) final;
 
     ShapeDetectionIdentifier m_backing;
-    Ref<IPC::StreamClientConnection> m_streamClientConnection;
+    const Ref<IPC::StreamClientConnection> m_streamClientConnection;
     RenderingBackendIdentifier m_renderingBackendIdentifier;
 };
 

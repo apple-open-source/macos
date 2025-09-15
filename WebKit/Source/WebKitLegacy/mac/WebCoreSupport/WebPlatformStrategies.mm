@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -69,12 +69,13 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
 class WebMediaStrategy final : public MediaStrategy {
 private:
 #if ENABLE(WEB_AUDIO)
-    Ref<AudioDestination> createAudioDestination(AudioIOCallback& callback, const String& inputDeviceId,
-        unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate) override
+    Ref<AudioDestination> createAudioDestination(const AudioDestinationCreationOptions& options) override
     {
-        return AudioDestination::create(callback, inputDeviceId, numberOfInputChannels, numberOfOutputChannels, sampleRate);
+        return AudioDestination::create(options);
     }
 #endif
+
+    bool enableWebMMediaPlayer() const final { return false; }
 };
 
 MediaStrategy* WebPlatformStrategies::createMediaStrategy()

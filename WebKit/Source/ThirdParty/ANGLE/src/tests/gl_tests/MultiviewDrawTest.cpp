@@ -34,6 +34,12 @@ std::vector<Vector2> ConvertPixelCoordinatesToClipSpace(const std::vector<Vector
 }
 }  // namespace
 
+class MultiviewDependencyTest : public ANGLETest<>
+{
+  protected:
+    MultiviewDependencyTest() { setExtensionsEnabled(false); }
+};
+
 struct MultiviewRenderTestParams final : public MultiviewImplementationParams
 {
     MultiviewRenderTestParams(int samples,
@@ -58,7 +64,7 @@ std::ostream &operator<<(std::ostream &os, const MultiviewRenderTestParams &para
 }
 
 class MultiviewFramebufferTestBase : public MultiviewTestBase,
-                                     public ::testing::TestWithParam<MultiviewRenderTestParams>
+                                     public ::testing::WithParamInterface<MultiviewRenderTestParams>
 {
   protected:
     MultiviewFramebufferTestBase(const PlatformParameters &params, int samples)
@@ -292,6 +298,12 @@ class MultiviewRenderTest : public MultiviewFramebufferTestBase
     void SetUp() override
     {
         MultiviewFramebufferTestBase::FramebufferTestSetUp();
+        // SetUp() may have determined the test should be skipped and returned before completing.
+        if (Test::IsSkipped())
+        {
+            return;
+        }
+
         testSetUp();
     }
     void TearDown() override
@@ -530,6 +542,68 @@ class MultiviewLayeredRenderTest : public MultiviewFramebufferTestBase
     void TearDown() final { MultiviewFramebufferTestBase::FramebufferTestTearDown(); }
 };
 
+// Tests that GL_OVR_multiview requires ES 3.0+ and does not enable GL_OVR_multiview2.
+TEST_P(MultiviewDependencyTest, MV1)
+{
+    ASSERT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview"));
+    ASSERT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview2"));
+
+    GLint maxViews = -1;
+    glGetIntegerv(GL_MAX_VIEWS_OVR, &maxViews);
+    EXPECT_GL_ERROR(GL_INVALID_ENUM);
+    EXPECT_EQ(maxViews, -1);
+
+    EnsureGLExtensionEnabled("GL_OVR_multiview");
+
+    // GL_OVR_multiview never enables GL_OVR_multiview2
+    EXPECT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview2"));
+
+    if (getClientMajorVersion() < 3)
+    {
+        EXPECT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview"));
+    }
+    else
+    {
+        glGetIntegerv(GL_MAX_VIEWS_OVR, &maxViews);
+        if (IsGLExtensionEnabled("GL_OVR_multiview"))
+        {
+            EXPECT_GL_NO_ERROR();
+            EXPECT_GE(maxViews, 2);
+        }
+        else
+        {
+            EXPECT_GL_ERROR(GL_INVALID_ENUM);
+            EXPECT_EQ(maxViews, -1);
+        }
+    }
+}
+
+// Tests that GL_OVR_multiview2 requires ES 3.0+ and does enable GL_OVR_multiview.
+TEST_P(MultiviewDependencyTest, MV2)
+{
+    ASSERT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview"));
+    ASSERT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview2"));
+
+    EnsureGLExtensionEnabled("GL_OVR_multiview2");
+
+    if (getClientMajorVersion() < 3)
+    {
+        EXPECT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview"));
+        EXPECT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview2"));
+    }
+    else
+    {
+        if (IsGLExtensionEnabled("GL_OVR_multiview2"))
+        {
+            EXPECT_TRUE(IsGLExtensionEnabled("GL_OVR_multiview"));
+        }
+        else
+        {
+            EXPECT_FALSE(IsGLExtensionEnabled("GL_OVR_multiview"));
+        }
+    }
+}
+
 // The test verifies that glDraw*Indirect works for any number of views.
 TEST_P(MultiviewDrawValidationTest, IndirectDraw)
 {
@@ -606,6 +680,68 @@ TEST_P(MultiviewDrawValidationTest, IndirectDraw)
         EXPECT_GL_NO_ERROR();
 
         glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr);
+        EXPECT_GL_NO_ERROR();
+    }
+}
+
+// Test separable programs with OVR multiview.
+TEST_P(MultiviewDrawValidationTest, SSOProgramMultiview)
+{
+    // Only the Vulkan backend supports PPOs.
+    ANGLE_SKIP_TEST_IF(!IsVulkan());
+    ANGLE_SKIP_TEST_IF(!requestMultiviewExtension());
+
+    const std::string VS =
+        "#version 300 es\n"
+        "#extension " +
+        extensionName() +
+        ": require\n"
+        "layout(num_views = 2) in;\n"
+        "void main()\n"
+        "{}\n";
+    const std::string FS =
+        "#version 300 es\n"
+        "#extension " +
+        extensionName() +
+        ": require\n"
+        "precision mediump float;\n"
+        "out vec4 color;\n"
+        "void main()\n"
+        "{color = vec4(1);}\n";
+
+    const char *vsSource = VS.c_str(), *fsSource = FS.c_str();
+    GLuint programVS, programFS, pipeline;
+    programVS = glCreateShaderProgramv(GL_VERTEX_SHADER, 1, &vsSource);
+    ASSERT_NE(programVS, 0u);
+    glProgramParameteri(programVS, GL_PROGRAM_SEPARABLE, GL_TRUE);
+    programFS = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, &fsSource);
+    ASSERT_NE(programFS, 0u);
+    glProgramParameteri(programFS, GL_PROGRAM_SEPARABLE, GL_TRUE);
+    glGenProgramPipelines(1, &pipeline);
+    glUseProgramStages(pipeline, GL_VERTEX_SHADER_BIT, programVS);
+    EXPECT_GL_NO_ERROR();
+    glUseProgramStages(pipeline, GL_FRAGMENT_SHADER_BIT, programFS);
+    EXPECT_GL_NO_ERROR();
+    glBindProgramPipeline(pipeline);
+
+    GLVertexArray vao;
+    GLBuffer vertexBuffer;
+    GLBuffer indexBuffer;
+    initVAO(vao, vertexBuffer, indexBuffer);
+
+    GLFramebuffer fbo;
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+    {
+        GLTexture tex2DArray;
+        initOnePixelColorTexture2DMultiLayered(tex2DArray);
+
+        glFramebufferTextureMultiviewOVR(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, tex2DArray, 0, 0, 2);
+
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        EXPECT_GL_NO_ERROR();
+
+        glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, nullptr);
         EXPECT_GL_NO_ERROR();
     }
 }
@@ -2477,6 +2613,8 @@ MultiviewRenderTestParams MultisampledVertexShaderD3D11(ExtensionName multiviewE
         MultisampledVertexShaderOpenGL(ExtensionName::multiview2), \
         MultisampledVertexShaderVulkan(ExtensionName::multiview2), \
         MultisampledVertexShaderD3D11(ExtensionName::multiview2)
+
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(MultiviewDependencyTest);
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MultiviewDrawValidationTest);
 ANGLE_INSTANTIATE_TEST(MultiviewDrawValidationTest, ALL_VERTEX_SHADER_CONFIGS(1));

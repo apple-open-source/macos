@@ -525,6 +525,7 @@ static bool remove_signature_space(void* machoFile,
     linkedit_data_command* sigCmd = NULL;
     segment_command* leSegCmd = NULL;
     segment_command_64* leSegCmd64 = NULL;
+    symtab_command* symTabCmd = NULL;
     const load_command* cmd = cmds;
     for (uint32_t i = 0; i < cmdCount; ++i) {
         const uint32_t cmdKind = get32(swap, cmd->cmd);
@@ -542,6 +543,9 @@ static bool remove_signature_space(void* machoFile,
                 if (strcmp(((segment_command_64*)cmd)->segname, "__LINKEDIT") == 0) {
                     leSegCmd64 = (segment_command_64*)cmd;
                 }
+                break;
+            case LC_SYMTAB:
+                symTabCmd = (symtab_command*)cmd;
                 break;
         }
         cmd = (load_command*)((char*)cmd + cmdSize);
@@ -605,6 +609,15 @@ static bool remove_signature_space(void* machoFile,
         if (nextCmd < cmdsEnd) {
             memmove(sigCmd, nextCmd, (char*)cmdsEnd - (char*)nextCmd);
             bzero((char*)cmdsEnd - sizeof(linkedit_data_command), sizeof(linkedit_data_command));
+        }
+        if (symTabCmd != NULL) {
+            // there may have been padding at the end of 4/8 byte aligned symbol string pool
+            // so the code signature is 16-byte aligned
+            // (since 4 byte alignment is the minimum, allow up to 12 bytes of movement for 16 byte alignment))
+            uint32_t stringPoolEnd = symTabCmd->stroff + symTabCmd->strsize;
+            if ( (newFileSize > stringPoolEnd) && (newFileSize <= stringPoolEnd+12) ) {
+                newFileSize  = stringPoolEnd;
+            }
         }
         // update LINKEDIT size
         if (leSegCmd != NULL) {

@@ -40,6 +40,7 @@
 #include "CSSPositionTryRule.h"
 #include "CSSPropertyRule.h"
 #include "CSSScopeRule.h"
+#include "CSSSerializationContext.h"
 #include "CSSStartingStyleRule.h"
 #include "CSSStyleRule.h"
 #include "CSSSupportsRule.h"
@@ -62,6 +63,7 @@ static_assert(sizeof(StyleRuleBase) == sizeof(SameSizeAsStyleRuleBase), "StyleRu
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleBase);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRule);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleWithNesting);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleRuleNestedDeclarations);
 
 Ref<CSSRule> StyleRuleBase::createCSSOMWrapper(CSSStyleSheet& parentSheet) const
 {
@@ -317,9 +319,9 @@ Vector<Ref<StyleRule>> StyleRule::splitIntoMultipleRulesWithMaximumSelectorCompo
     Vector<Ref<StyleRule>> rules;
     Vector<const CSSSelector*> componentsSinceLastSplit;
 
-    for (const CSSSelector* selector = selectorList().first(); selector; selector = CSSSelectorList::next(selector)) {
+    for (auto& selector : selectorList()) {
         Vector<const CSSSelector*, 8> componentsInThisSelector;
-        for (const CSSSelector* component = selector; component; component = component->tagHistory())
+        for (const CSSSelector* component = &selector; component; component = component->tagHistory())
             componentsInThisSelector.append(component);
 
         if (componentsInThisSelector.size() + componentsSinceLastSplit.size() > maxCount && !componentsSinceLastSplit.isEmpty()) {
@@ -341,9 +343,7 @@ Vector<Ref<StyleRule>> StyleRule::splitIntoMultipleRulesWithMaximumSelectorCompo
 
 String StyleRule::debugDescription() const
 {
-    StringBuilder builder;
-    builder.append("StyleRule ["_s, m_properties->asText(), ']');
-    return builder.toString();
+    return makeString("StyleRule ["_s, m_properties->asText(CSS::defaultSerializationContext()), ']');
 }
 
 StyleRuleWithNesting::~StyleRuleWithNesting() = default;
@@ -356,7 +356,7 @@ Ref<StyleRuleWithNesting> StyleRuleWithNesting::copy() const
 String StyleRuleWithNesting::debugDescription() const
 {
     StringBuilder builder;
-    builder.append("StyleRuleWithNesting ["_s, properties().asText(), " "_s);
+    builder.append("StyleRuleWithNesting ["_s, properties().asText(CSS::defaultSerializationContext()), " "_s);
     for (const auto& rule : m_nestedRules)
         builder.append(rule->debugDescription());
     builder.append(']');
@@ -418,9 +418,7 @@ StyleRuleNestedDeclarations::StyleRuleNestedDeclarations(Ref<StyleProperties>&& 
 
 String StyleRuleNestedDeclarations::debugDescription() const
 {
-    StringBuilder builder;
-    builder.append("StyleRuleNestedDeclarations ["_s, properties().asText(), ']');
-    return builder.toString();
+    return makeString("StyleRuleNestedDeclarations ["_s, properties().asText(CSS::defaultSerializationContext()), ']');
 }
 
 StyleRulePage::~StyleRulePage() = default;
@@ -520,7 +518,7 @@ void StyleRuleGroup::wrapperInsertRule(unsigned index, Ref<StyleRuleBase>&& rule
 
 void StyleRuleGroup::wrapperRemoveRule(unsigned index)
 {
-    m_childRules.remove(index);
+    m_childRules.removeAt(index);
 }
 
 String StyleRuleGroup::debugDescription() const

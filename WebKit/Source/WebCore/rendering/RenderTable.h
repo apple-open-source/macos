@@ -69,7 +69,7 @@ public:
     inline LayoutUnit borderTop() const final;
     inline LayoutUnit borderBottom() const final;
 
-    Color bgColor() const { return style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
+    Color bgColor() const { return checkedStyle()->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
 
     LayoutUnit outerBorderBefore() const;
     LayoutUnit outerBorderAfter() const;
@@ -168,13 +168,7 @@ public:
     }
 
     bool needsSectionRecalc() const { return m_needsSectionRecalc; }
-    void setNeedsSectionRecalc()
-    {
-        if (renderTreeBeingDestroyed())
-            return;
-        m_needsSectionRecalc = true;
-        setNeedsLayout();
-    }
+    void setNeedsSectionRecalc();
 
     RenderTableSection* sectionAbove(const RenderTableSection*, SkipEmptySectionsValue = DoNotSkipEmptySections) const;
     RenderTableSection* sectionBelow(const RenderTableSection*, SkipEmptySectionsValue = DoNotSkipEmptySections) const;
@@ -187,6 +181,7 @@ public:
     typedef Vector<CollapsedBorderValue> CollapsedBorderValues;
     bool collapsedBordersAreValid() const { return m_collapsedBordersValid; }
     void invalidateCollapsedBorders(RenderTableCell* cellWithStyleChange = nullptr);
+    void invalidateCollapsedBordersAfterStyleChangeIfNeeded(const RenderStyle& oldStyle, const RenderStyle& newStyle, RenderTableCell* cellWithStyleChange = nullptr);
     void collapsedEmptyBorderIsPresent() { m_collapsedEmptyBorderIsPresent = true; }
     const CollapsedBorderValue* currentBorderValue() const { return m_currentBorder; }
     
@@ -197,9 +192,6 @@ public:
         if (m_needsSectionRecalc)
             recalcSections();
     }
-
-    static RenderPtr<RenderTable> createAnonymousWithParentRenderer(const RenderElement&);
-    RenderPtr<RenderBox> createAnonymousBoxWithSameTypeAs(const RenderBox& renderer) const override;
 
     void addCaption(RenderTableCaption&);
     void removeCaption(RenderTableCaption&);
@@ -226,9 +218,6 @@ protected:
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
     void simplifiedNormalFlowLayout() final;
 
-private:
-    static RenderPtr<RenderTable> createTableWithStyle(Document&, const RenderStyle&);
-
     ASCIILiteral renderName() const override { return "RenderTable"_s; }
 
     void paint(PaintInfo&, const LayoutPoint&) final;
@@ -242,7 +231,7 @@ private:
     void computePreferredLogicalWidths() override;
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) override;
 
-    LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
+    LayoutUnit baselinePosition(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     std::optional<LayoutUnit> firstLineBaseline() const override;
     std::optional<LayoutUnit> lastLineBaseline() const override;
     std::optional<LayoutUnit> inlineBlockBaseline(LineDirectionMode) const final;
@@ -256,8 +245,8 @@ private:
     
     void updateLogicalWidth() final;
 
-    LayoutUnit convertStyleLogicalWidthToComputedWidth(const Length& styleLogicalWidth, LayoutUnit availableWidth);
-    LayoutUnit convertStyleLogicalHeightToComputedHeight(const Length& styleLogicalHeight);
+    template<typename SizeType> LayoutUnit convertStyleLogicalWidthToComputedWidth(const SizeType& styleLogicalWidth, LayoutUnit availableWidth);
+    template<typename SizeType> LayoutUnit convertStyleLogicalHeightToComputedHeight(const SizeType& styleLogicalHeight);
 
     LayoutRect overflowClipRect(const LayoutPoint& location, OverlayScrollbarSizeRelevancy = OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, PaintPhase = PaintPhase::BlockBackground) const final;
     LayoutRect overflowClipRectForChildLayers(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) const override { return RenderBox::overflowClipRect(location, relevancy); }
@@ -280,7 +269,7 @@ private:
     mutable Vector<SingleThreadWeakPtr<RenderTableCol>> m_columnRenderers;
 
     unsigned effectiveIndexOfColumn(const RenderTableCol&) const;
-    using EffectiveColumnIndexMap = UncheckedKeyHashMap<SingleThreadWeakRef<const RenderTableCol>, unsigned>;
+    using EffectiveColumnIndexMap = HashMap<SingleThreadWeakRef<const RenderTableCol>, unsigned>;
     mutable EffectiveColumnIndexMap m_effectiveColumnIndexMap;
 
     mutable SingleThreadWeakPtr<RenderTableSection> m_head;
@@ -320,11 +309,6 @@ private:
     mutable LayoutUnit m_columnOffsetHeight;
     unsigned m_recursiveSectionMovedWithPaginationLevel { 0 };
 };
-
-inline RenderPtr<RenderBox> RenderTable::createAnonymousBoxWithSameTypeAs(const RenderBox& renderer) const
-{
-    return RenderTable::createTableWithStyle(renderer.document(), renderer.style());
-}
 
 } // namespace WebCore
 

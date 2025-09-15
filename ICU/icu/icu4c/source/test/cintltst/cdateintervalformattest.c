@@ -26,6 +26,7 @@ static void TestFormatCalendarToResult(void);
 #if APPLE_ICU_CHANGES
 // rdar://
 static void TestOpen(void);
+static void TestFlexibleDayPeriods(void); // rdar://140657084
 #endif  // APPLE_ICU_CHANGES
 
 void addDateIntervalFormatTest(TestNode** root);
@@ -41,6 +42,7 @@ void addDateIntervalFormatTest(TestNode** root)
 #if APPLE_ICU_CHANGES
 // rdar://
     TESTCASE(TestOpen);
+    TESTCASE(TestFlexibleDayPeriods); // rdar://140657084
 #endif  // APPLE_ICU_CHANGES
 }
 
@@ -109,7 +111,12 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, u"Mon, Sep 27, 2010" },
     { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  u"Mon, Sep 27\u2009\u2013\u2009Thu, Oct 28, 2010" },
     { "en",    "yMMMEd",    CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 410.0*_DAY, u"Mon, Sep 27, 2010\u2009\u2013\u2009Fri, Nov 11, 2011" },
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+    { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, u"08:00\u201320:00" },
+#else
     { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 12.0*_HOUR, u"08:00\u201320:00 Uhr" },
+#endif // APPLE_ICU_CHANGES
     { "de",    "Hm",        CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 31.0*_DAY,  u"27.9.2010, 08:00\u2009\u2013\u200928.10.2010, 08:00" },
     { "ja",    "MMMd",      CAP_NONE,  MIN_NONE,   tzUSPacific, Date201009270800,              Date201009270800 + 1.0*_DAY,   u"9月27日～28日" },
 
@@ -231,6 +238,12 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "ru",    "yMMMd",     CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201712291600,      Date201802271600,              u"29 дек. 2017 — 27 февр. 2018 г." },
     { "ru",    "yMMM",      CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201509011700,      Date201510011700,              u"сент. — окт. 2015 г." },
     { "ru",    "HHmmMMMdE", CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date202307180940,      Date202307201040,              u"Вт, 18 июля, 09:40 — Чт, 20 июля, 10:40"}, // rdar://51847194 + rdar://103558581
+    
+    // rdar://154287505 ([Health]: OR: Luck23A283: Date format is incorrect for the Health app in different screens)
+    { "or",    "yMMMd",     CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201806071700,      Date201806151700,              u"7 – 15 ଜୁନ, 2018" },
+    { "or",    "yMMMMd",    CAP_NONE,  MIN_NONE,   tzAmericaLosAngeles, Date201806071700,      Date201806151700,              u"7 – 15 ଜୁନ, 2018" },
+    { "or@numbers=orya", "yMMMd", CAP_NONE, MIN_NONE, tzAmericaLosAngeles, Date201806071700,   Date201806151700,              u"୭ – ୧୫ ଜୁନ, ୨୦୧୮" },
+    { "or@numbers=orya", "yMMMMd", CAP_NONE, MIN_NONE, tzAmericaLosAngeles, Date201806071700,  Date201806151700,              u"୭ – ୧୫ ଜୁନ, ୨୦୧୮" },
 
     { NULL,    NULL,        CAP_NONE,  MIN_NONE,   NULL,        0,                             0,                             NULL }
 };
@@ -645,7 +658,12 @@ static void TestFormatToResult(void) {
     }
     {
         const char* message = "Field position test 2";
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+        const UChar* expectedString = u"27. September 2010, 15:00–22:00";
+#else
         const UChar* expectedString = u"27. September 2010, 15:00–22:00 Uhr";
+#endif // APPLE_ICU_CHANGES
         udtitvfmt_formatToResult(fmt, Date201009270800, Date201009270800 + 7*_HOUR, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -715,7 +733,12 @@ static void TestFormatCalendarToResult(void) {
     }
     {
         const char* message = "Field position test 2";
+#if APPLE_ICU_CHANGES
+// rdar://144166313 (Formatting date interval in German adds "Uhr" suffix which can not be suppressed)
+        const UChar* expectedString = u"27. September 2010, 15:00–22:00";
+#else
         const UChar* expectedString = u"27. September 2010, 15:00–22:00 Uhr";
+#endif // APPLE_ICU_CHANGES
         udtitvfmt_formatCalendarToResult(fmt, ucal1, ucal3, fdi, &ec);
         assertSuccess("Formatting", &ec);
         static const UFieldPositionWithCategory expectedFieldPositions[] = {
@@ -926,6 +949,51 @@ static void TestOpen()
         }
     }
 }
+
+// rdar://140657084
+static void TestFlexibleDayPeriods(void) {
+    const UDate kSevenThirty = 1745029800000.0;
+    const UDate kEightThirty = 1745033400000.0;
+    const UDate kTenThirty = 1745040600000.0;
+    const UDate kTwelveThirty = 1745047800000.0;
+    
+    UErrorCode err = U_ZERO_ERROR;
+    UChar result[200];
+    UDateIntervalFormat* dtif = udtitvfmt_open("hi", u"Bhm", -1, u"America/Los_Angeles", -1, &err);
+    udtitvfmt_setAttribute(dtif, UDTITVFMT_MINIMIZE_TYPE, UDTITVFMT_MINIMIZE_ADJACENT_DAYS, &err);
+    
+    if (assertSuccess("Error creating DateIntervalFormat", &err)) {
+        // 7:30 and 8:30 are not in the same day period (evening and night), so we need to see both day periods
+        udtitvfmt_format(dtif, kSevenThirty, kEightThirty, result, 200, NULL, &err);
+        if (assertSuccess("Error formatting 7:30-8:30", &err)) {
+            assertUEquals("Wrong formatting result for 7:30-8:30", u"शाम 7:30 – रात 8:30", result);
+        }
+        
+        // 8:30 and 10:30 ARE in the same day period (night), so we only want to see the day period once
+        udtitvfmt_format(dtif, kEightThirty, kTenThirty, result, 200, NULL, &err);
+        if (assertSuccess("Error formatting 8:30-10:30", &err)) {
+            assertUEquals("Wrong formatting result for 8:30-10:30", u"रात 8:30–10:30", result);
+        }
+        
+        // 10:30 and 12:30 are also in the same day period (night). Even though they're on different
+        // days, we still only want to see the day period once (when we're suppressing the day)
+        udtitvfmt_format(dtif, kTenThirty, kTwelveThirty, result, 200, NULL, &err);
+        if (assertSuccess("Error formatting 10:30-12:30", &err)) {
+            assertUEquals("Wrong formatting result for 10:30-12:30", u"रात 10:30–12:30", result);
+        }
+        
+        // 7:30 and 12:30 straddle a day boundary, but are also in different day periods. Make sure
+        // we still see two day periods when we're suppressing the day
+        udtitvfmt_format(dtif, kSevenThirty, kTwelveThirty, result, 200, NULL, &err);
+        if (assertSuccess("Error formatting 7:30-12:30", &err)) {
+            assertUEquals("Wrong formatting result for 7:30-12:30", u"शाम 7:30 – रात 12:30", result);
+        }
+        
+        udtitvfmt_close(dtif);
+    }
+}
+
+
 #endif  // APPLE_ICU_CHANGES
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

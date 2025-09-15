@@ -74,7 +74,7 @@ private:
         RefPtr<Thread> renderThread;
     };
 
-    using State = std::variant<Idle, Active>;
+    using State = Variant<Idle, Active>;
     State m_state;
 };
 

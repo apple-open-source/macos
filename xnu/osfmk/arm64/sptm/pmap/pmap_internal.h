@@ -83,9 +83,6 @@ extern bool sptm_stability_hacks;
 extern void pmap_remove_range_options(
 	pmap_t, vm_map_address_t, vm_map_address_t, int);
 
-extern void pmap_tte_deallocate(
-	pmap_t, vm_offset_t, tt_entry_t *, unsigned int);
-
 #if defined(PVH_FLAG_EXEC)
 extern void pmap_set_ptov_ap(unsigned int, unsigned int, boolean_t);
 #endif /* defined(PVH_FLAG_EXEC) */
@@ -187,23 +184,22 @@ static inline void
 pmap_assert_locked(__unused pmap_t pmap, __unused pmap_lock_mode_t mode)
 {
 #if MACH_ASSERT
+	if (pmap == kernel_pmap) {
+		return;
+	}
 	if (__improbable(sptm_stability_hacks)) {
 		mode = PMAP_LOCK_EXCLUSIVE;
 	}
 
 	switch (mode) {
 	case PMAP_LOCK_SHARED:
-		if (pmap != kernel_pmap) {
-			LCK_RW_ASSERT(&pmap->rwlock, LCK_RW_ASSERT_SHARED);
-		}
+		LCK_RW_ASSERT(&pmap->rwlock, LCK_RW_ASSERT_SHARED);
 		break;
 	case PMAP_LOCK_EXCLUSIVE:
 		LCK_RW_ASSERT(&pmap->rwlock, LCK_RW_ASSERT_EXCLUSIVE);
 		break;
 	case PMAP_LOCK_HELD:
-		if (pmap != kernel_pmap) {
-			LCK_RW_ASSERT(&pmap->rwlock, LCK_RW_ASSERT_HELD);
-		}
+		LCK_RW_ASSERT(&pmap->rwlock, LCK_RW_ASSERT_HELD);
 		break;
 	default:
 		panic("%s: Unknown pmap_lock_mode. pmap=%p, mode=%d", __FUNCTION__, pmap, mode);
@@ -228,7 +224,7 @@ pmap_assert_locked_any(__unused pmap_t pmap)
  * Acquire a pmap object's reader/writer lock as either shared (read-only) or
  * exclusive (read/write).
  *
- * @note If this function is called to request shared acquisition of the kernel pmap
+ * @note If this function is called to request acquisition of the kernel pmap
  *       lock, the lock will not be acquired as a performance optimization.  See the
  *       the explanation in the function body for why this is safe to do.
  *
@@ -238,32 +234,26 @@ pmap_assert_locked_any(__unused pmap_t pmap)
 static inline void
 pmap_lock(pmap_t pmap, pmap_lock_mode_t mode)
 {
+	/**
+	 * The pmap lock is only held exclusive for removal of a leaf-level
+	 * page table during pmap_remove(), to prevent concurrent mapping
+	 * into the to-be-deleted table.
+	 * The kernel pmap does not participate in the above, as table
+	 * removal is only done for user pmaps.
+	 * Since the kernel pmap never requires exclusive locking, it's
+	 * also pointless to use shared locking and we can therefore elide
+	 * any acquisition of the kernel pmap lock.
+	 */
+	if (pmap == kernel_pmap) {
+		return;
+	}
 	if (__improbable(sptm_stability_hacks)) {
 		mode = PMAP_LOCK_EXCLUSIVE;
 	}
 
 	switch (mode) {
 	case PMAP_LOCK_SHARED:
-		/**
-		 * There are three cases in which we hold the pmap lock exclusive:
-		 * 1) Removal of a leaf-level page table during pmap_remove(),
-		 *    to prevent concurrent mapping into the to-be-deleted table.
-		 * 2) Nesting/unnesting of a region of one pmap into another, to
-		 *    both concurrent nesting and concurrent mapping into the nested
-		 *    region.
-		 * 3) Installing a new page table during pmap_expand(), to prevent
-		 *    another thread from concurrently expanding the same pmap at
-		 *    the same location.
-		 * Of the above, the kernel pmap only participates in 3) (nesting
-		 * and table removal are only done for user pmaps).  Because the
-		 * exclusive lock in case 3) above is only meant to synchronize
-		 * against other instances of case 3), we can effectively elide
-		 * shared holders of the kernel pmap because there is no case in
-		 * which shared<>exclusive locking of the kernel pmap matters.
-		 */
-		if (pmap != kernel_pmap) {
-			lck_rw_lock_shared(&pmap->rwlock);
-		}
+		lck_rw_lock_shared(&pmap->rwlock);
 		break;
 	case PMAP_LOCK_EXCLUSIVE:
 		lck_rw_lock_exclusive(&pmap->rwlock);
@@ -285,6 +275,9 @@ pmap_lock(pmap_t pmap, pmap_lock_mode_t mode)
 static inline bool
 pmap_try_lock(pmap_t pmap, pmap_lock_mode_t mode)
 {
+	if (pmap == kernel_pmap) {
+		return true;
+	}
 	bool ret = false;
 
 	if (__improbable(sptm_stability_hacks)) {
@@ -293,11 +286,7 @@ pmap_try_lock(pmap_t pmap, pmap_lock_mode_t mode)
 
 	switch (mode) {
 	case PMAP_LOCK_SHARED:
-		if (pmap != kernel_pmap) {
-			ret = lck_rw_try_lock_shared(&pmap->rwlock);
-		} else {
-			ret = true;
-		}
+		ret = lck_rw_try_lock_shared(&pmap->rwlock);
 		break;
 	case PMAP_LOCK_EXCLUSIVE:
 		ret = lck_rw_try_lock_exclusive(&pmap->rwlock);
@@ -338,15 +327,16 @@ pmap_lock_shared_to_exclusive(pmap_t pmap)
 static inline void
 pmap_unlock(pmap_t pmap, pmap_lock_mode_t mode)
 {
+	if (pmap == kernel_pmap) {
+		return;
+	}
 	if (__improbable(sptm_stability_hacks)) {
 		mode = PMAP_LOCK_EXCLUSIVE;
 	}
 
 	switch (mode) {
 	case PMAP_LOCK_SHARED:
-		if (pmap != kernel_pmap) {
-			lck_rw_unlock_shared(&pmap->rwlock);
-		}
+		lck_rw_unlock_shared(&pmap->rwlock);
 		break;
 	case PMAP_LOCK_EXCLUSIVE:
 		lck_rw_unlock_exclusive(&pmap->rwlock);

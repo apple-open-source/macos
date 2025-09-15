@@ -2217,6 +2217,84 @@ getparentcnid(const CatalogRecord *recp)
     return (cnid);
 }
 
+int validate_dir_move(struct hfsmount * hfsmp,
+                      struct cat_desc * from_cdp,
+                      struct cat_desc * todir_cdp,
+                      struct cat_desc * to_cdp)
+{
+    int result = 0;
+    FSBufferDescriptor btdata;
+    ExtendedVCB * vcb = HFSTOVCB(hfsmp);
+    FCB * fcb = GetFileControlBlock(vcb->catalogRefNum);
+    int directory = from_cdp->cd_flags & CD_ISDIR;
+
+    if (!directory)
+    {
+        return EINVAL;
+    }
+
+    CatalogRecord* recp = hfs_malloc(sizeof(CatalogRecord));
+    if (recp == NULL)
+    {
+        return ENOMEM;
+    }
+    BDINIT(btdata, recp);
+
+    /*
+     * When moving a directory, make sure its a valid move.
+     */
+    if (from_cdp->cd_parentcnid != to_cdp->cd_parentcnid)
+    {
+        u_int16_t datasize;
+        cnid_t cnid = from_cdp->cd_cnid;
+        cnid_t pathcnid = todir_cdp->cd_parentcnid;
+
+        /* First check the obvious ones */
+        if (cnid == fsRtDirID  || cnid == to_cdp->cd_parentcnid  || cnid == pathcnid)
+        {
+            result = EINVAL;
+            goto exit;
+        }
+        /* now allocate the dir_iterator */
+        BTreeIterator* dir_iterator = hfs_mallocz(sizeof(BTreeIterator));
+        if (dir_iterator == NULL)
+        {
+            result = ENOMEM;
+            goto exit;
+        }
+
+        /*
+         * Traverse destination path all the way back to the root
+         * making sure that source directory is not encountered.
+         *
+         */
+        while (pathcnid > fsRtDirID)
+        {
+            buildthreadkey(pathcnid, (CatalogKey *)&dir_iterator->key);
+            result = BTSearchRecord(fcb, dir_iterator, &btdata, &datasize, NULL);
+
+            if (result)
+            {
+                hfs_free(dir_iterator);
+                goto exit;
+            }
+            pathcnid = getparentcnid(recp);
+
+            if (pathcnid == cnid || pathcnid == 0)
+            {
+                result = EINVAL;
+                hfs_free(dir_iterator);
+                goto exit;
+            }
+        }
+        hfs_free(dir_iterator);
+    }
+
+exit:
+    hfs_free(recp);
+    return MacToVFSError(result);
+}
+
 int
 cat_rename (
             struct hfsmount * hfsmp,

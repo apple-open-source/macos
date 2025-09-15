@@ -68,8 +68,7 @@ public:
 
     virtual ~RemoteBuffer();
 
-    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
-    SUPPRESS_UNCOUNTED_ARG std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_gpu->sharedPreferencesForWebProcess(); }
 
     void stopListeningForIPC();
 
@@ -92,7 +91,8 @@ private:
 
     void getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> sizeForMap, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
     void mapAsync(WebCore::WebGPU::MapModeFlags, WebCore::WebGPU::Size64 offset, std::optional<WebCore::WebGPU::Size64> sizeForMap, CompletionHandler<void(bool)>&&);
-    void copy(std::optional<WebCore::SharedMemoryHandle>&&, size_t offset, CompletionHandler<void(bool)>&&);
+    void copy(std::optional<WebCore::SharedMemoryHandle>&&, uint64_t offset, CompletionHandler<void(bool)>&&);
+    void copyWithCopy(Vector<uint8_t>&&, uint64_t offset);
     void unmap();
 
     void destroy();

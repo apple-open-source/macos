@@ -142,6 +142,9 @@ fsw_netagent_flow_add(struct nx_flowswitch *fsw, uuid_t flow_uuid, pid_t pid,
 	if (cparams->reuse_port) {
 		req.nfr_flags |= NXFLOWREQF_REUSEPORT;
 	}
+	if (cparams->use_aop_offload) {
+		req.nfr_flags |= NXFLOWREQF_AOP_OFFLOAD;
+	}
 
 	req.nfr_context = context;
 	req.nfr_pid = pid;
@@ -157,7 +160,7 @@ fsw_netagent_flow_add(struct nx_flowswitch *fsw, uuid_t flow_uuid, pid_t pid,
 				goto done;
 			}
 
-			_CASSERT(sizeof(struct necp_demux_pattern) == sizeof(struct flow_demux_pattern));
+			static_assert(sizeof(struct necp_demux_pattern) == sizeof(struct flow_demux_pattern));
 			for (int i = 0; i < cparams->demux_pattern_count; i++) {
 				memcpy(&req.nfr_flow_demux_patterns[i], &cparams->demux_patterns[i],
 				    sizeof(struct flow_demux_pattern));
@@ -193,7 +196,7 @@ fsw_netagent_flow_add(struct nx_flowswitch *fsw, uuid_t flow_uuid, pid_t pid,
 	    necp_create_nexus_assign_message(fsw->fsw_nx->nx_uuid,
 	    req.nfr_nx_port, fo->fo_key, sizeof(fo->fo_key),
 	    &local_endpoint, &remote_endpoint, NULL, req.nfr_flowadv_idx,
-	    req.nfr_flow_stats, &assign_message_length);
+	    req.nfr_flow_stats, req.nfr_flowid, &assign_message_length);
 
 	if (assign_message != NULL) {
 		req.nfr_flow_stats = NULL;
@@ -295,7 +298,7 @@ fsw_netagent_event(u_int8_t event, uuid_t flow_uuid, pid_t pid, void *context,
 		 */
 		error = fsw_netagent_flow_del(fsw, flow_uuid, pid,
 		    (event == NETAGENT_EVENT_NEXUS_FLOW_REMOVE), context,
-		    cparams);
+		    cparams->u.close_token);
 		break;
 
 	default:
@@ -312,8 +315,8 @@ fsw_netagent_register(struct nx_flowswitch *fsw, struct ifnet *ifp)
 	struct netagent_nexus_agent agent;
 	int error = 0;
 
-	_CASSERT(FLOWADV_IDX_NONE == UINT32_MAX);
-	_CASSERT(NECP_FLOWADV_IDX_INVALID == FLOWADV_IDX_NONE);
+	static_assert(FLOWADV_IDX_NONE == UINT32_MAX);
+	static_assert(NECP_FLOWADV_IDX_INVALID == FLOWADV_IDX_NONE);
 
 	if (!fsw_netagent) {
 		return 0;

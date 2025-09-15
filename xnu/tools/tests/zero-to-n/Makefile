@@ -1,6 +1,6 @@
 include ../Makefile.common
 
-CFLAGS := -Os -g $(ARCH_FLAGS) -isysroot $(SDKROOT) -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
+CFLAGS := -std=c23 -Os -g $(ARCH_FLAGS) -isysroot $(SDKROOT) -isystem $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 
 DSTROOT?=$(shell /bin/pwd)
 SYMROOT?=$(shell /bin/pwd)

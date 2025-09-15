@@ -28,6 +28,7 @@
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 
+#include "JavaScriptEvaluationResult.h"
 #include "Logging.h"
 #include "WebInspectorUI.h"
 #include "WebInspectorUIExtensionControllerMessages.h"
@@ -36,6 +37,7 @@
 #include "WebProcess.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSContextRef.h>
 #include <WebCore/ExceptionDetails.h>
 #include <WebCore/InspectorFrontendAPIDispatcher.h>
 #include <WebCore/JSDOMGlobalObject.h>
@@ -215,10 +217,10 @@ void WebInspectorUIExtensionController::createTabForExtension(const Inspector::E
     });
 }
 
-void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspector::ExtensionID& extensionID, const String& scriptSource, const std::optional<URL>& frameURL, const std::optional<URL>& contextSecurityOrigin, const std::optional<bool>& useContentScriptContext, CompletionHandler<void(std::span<const uint8_t>, const std::optional<WebCore::ExceptionDetails>&, const std::optional<Inspector::ExtensionError>&)>&& completionHandler)
+void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspector::ExtensionID& extensionID, const String& scriptSource, const std::optional<URL>& frameURL, const std::optional<URL>& contextSecurityOrigin, const std::optional<bool>& useContentScriptContext, CompletionHandler<void(Expected<WebKit::JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>&&, const std::optional<Inspector::ExtensionError>&)>&& completionHandler)
 {
     if (!m_frontendClient) {
-        completionHandler({ }, std::nullopt, Inspector::ExtensionError::InvalidRequest);
+        completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InvalidRequest);
         return;
     }
 
@@ -238,13 +240,13 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
 
     m_frontendClient->frontendAPIDispatcher().dispatchCommandWithResultAsync("evaluateScriptForExtension"_s, WTFMove(arguments), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](WebCore::InspectorFrontendAPIDispatcher::EvaluationResult&& result) mutable {
         if (!weakThis) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::ContextDestroyed);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::ContextDestroyed);
             return;
         }
 
         auto* frontendGlobalObject = weakThis->m_frontendClient->frontendAPIDispatcher().frontendGlobalObject();
         if (!frontendGlobalObject) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::ContextDestroyed);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::ContextDestroyed);
             return;
         }
         
@@ -257,7 +259,7 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
             } else
                 LOG(Inspector, "Internal error encountered while evaluating upon the frontend: %s", extensionErrorToString(parsedError.value()).utf8().data());
 
-            completionHandler({ }, std::nullopt, parsedError);
+            completionHandler(makeUnexpected(std::nullopt), parsedError);
             return;
         }
 
@@ -265,7 +267,7 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
         auto objectResult = weakThis->unwrapEvaluationResultAsObject(result);
         if (!objectResult) {
             LOG(Inspector, "Unexpected non-object value returned from InspectorFrontendAPI.evaluateScriptForExtension().");
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InternalError);
             return;
         }
         ASSERT(result.value());
@@ -273,22 +275,20 @@ void WebInspectorUIExtensionController::evaluateScriptForExtension(const Inspect
         JSC::JSValue errorPayload = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "error"_s));
         if (!errorPayload.isUndefined()) {
             if (!errorPayload.isString()) {
-                completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
+                completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InternalError);
                 return;
             }
 
-            completionHandler({ }, WebCore::ExceptionDetails { errorPayload.toWTFString(frontendGlobalObject) }, std::nullopt);
+            completionHandler(makeUnexpected(WebCore::ExceptionDetails { errorPayload.toWTFString(frontendGlobalObject) }), std::nullopt);
             return;
         }
 
         JSC::JSValue resultPayload = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "result"_s));
-        auto serializedResultValue = WebCore::SerializedScriptValue::create(*frontendGlobalObject, resultPayload);
-        if (!serializedResultValue) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
-            return;
-        }
 
-        completionHandler(serializedResultValue->wireBytes(), std::nullopt, std::nullopt);
+        if (auto extracted = JavaScriptEvaluationResult::extract(JSContextGetGlobalContext(toRef(frontendGlobalObject)), toRef(resultPayload)))
+            completionHandler(WTFMove(*extracted), std::nullopt);
+        else
+            completionHandler(makeUnexpected(std::nullopt), std::nullopt);
     });
 }
 
@@ -410,10 +410,10 @@ void WebInspectorUIExtensionController::navigateTabForExtension(const Inspector:
 
 // WebInspectorUIExtensionController IPC messages for testing.
 
-void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspector::ExtensionTabID& extensionTabID, const String& scriptSource, CompletionHandler<void(std::span<const uint8_t>, const std::optional<WebCore::ExceptionDetails>&, const std::optional<Inspector::ExtensionError>&)>&& completionHandler)
+void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspector::ExtensionTabID& extensionTabID, const String& scriptSource, CompletionHandler<void(Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>&&, const std::optional<Inspector::ExtensionError>&)>&& completionHandler)
 {
     if (!m_frontendClient) {
-        completionHandler({ }, std::nullopt, Inspector::ExtensionError::InvalidRequest);
+        completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InvalidRequest);
         return;
     }
 
@@ -424,13 +424,13 @@ void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspe
 
     m_frontendClient->frontendAPIDispatcher().dispatchCommandWithResultAsync("evaluateScriptInExtensionTab"_s, WTFMove(arguments), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)](WebCore::InspectorFrontendAPIDispatcher::EvaluationResult&& result) mutable {
         if (!weakThis) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::ContextDestroyed);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::ContextDestroyed);
             return;
         }
 
         auto* frontendGlobalObject = weakThis->m_frontendClient->frontendAPIDispatcher().frontendGlobalObject();
         if (!frontendGlobalObject) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::ContextDestroyed);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::ContextDestroyed);
             return;
         }
 
@@ -441,7 +441,7 @@ void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspe
             } else
                 LOG(Inspector, "Internal error encountered while evaluating upon the frontend.");
 
-            completionHandler({ }, std::nullopt, parsedError);
+            completionHandler(makeUnexpected(std::nullopt), parsedError);
             return;
         }
 
@@ -449,7 +449,7 @@ void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspe
         auto objectResult = weakThis->unwrapEvaluationResultAsObject(result);
         if (!objectResult) {
             LOG(Inspector, "Unexpected non-object value returned from InspectorFrontendAPI.evaluateScriptInExtensionTab().");
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
+            completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InternalError);
             return;
         }
         ASSERT(result.has_value());
@@ -457,22 +457,20 @@ void WebInspectorUIExtensionController::evaluateScriptInExtensionTab(const Inspe
         JSC::JSValue errorPayload = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "error"_s));
         if (!errorPayload.isUndefined()) {
             if (!errorPayload.isString()) {
-                completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
+                completionHandler(makeUnexpected(std::nullopt), Inspector::ExtensionError::InternalError);
                 return;
             }
 
-            completionHandler({ }, WebCore::ExceptionDetails { errorPayload.toWTFString(frontendGlobalObject) }, std::nullopt);
+            completionHandler(makeUnexpected(WebCore::ExceptionDetails { errorPayload.toWTFString(frontendGlobalObject) }), std::nullopt);
             return;
         }
 
         JSC::JSValue resultPayload = objectResult->get(frontendGlobalObject, JSC::Identifier::fromString(frontendGlobalObject->vm(), "result"_s));
-        auto serializedResultValue = WebCore::SerializedScriptValue::create(*frontendGlobalObject, resultPayload);
-        if (!serializedResultValue) {
-            completionHandler({ }, std::nullopt, Inspector::ExtensionError::InternalError);
-            return;
-        }
 
-        completionHandler(serializedResultValue->wireBytes(), std::nullopt, std::nullopt);
+        if (auto extracted = JavaScriptEvaluationResult::extract(JSContextGetGlobalContext(toRef(frontendGlobalObject)), toRef(resultPayload)))
+            completionHandler(WTFMove(*extracted), std::nullopt);
+        else
+            completionHandler(makeUnexpected(std::nullopt), std::nullopt);
     });
 }
 

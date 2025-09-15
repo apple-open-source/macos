@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,23 @@
 #include "WebProcessSupplement.h"
 #include <WebCore/DisplayCaptureManager.h>
 #include <WebCore/RealtimeMediaSource.h>
+#include <WebCore/RealtimeMediaSourceCenter.h>
 #include <WebCore/RealtimeMediaSourceFactory.h>
 #include <WebCore/RealtimeMediaSourceIdentifier.h>
 #include <WebCore/SharedMemory.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
+
+namespace IPC {
+class Decoder;
+class Encoder;
+
+template<> struct ArgumentCoder<WebCore::RealtimeMediaSourceCenter::ValidDevices> {
+    static void encode(Encoder&, const WebCore::RealtimeMediaSourceCenter::ValidDevices&);
+    static std::optional<WebCore::RealtimeMediaSourceCenter::ValidDevices> decode(Decoder&);
+};
+}
 
 namespace WebCore {
 class CAAudioStreamDescription;
@@ -82,7 +93,7 @@ private:
         WebCore::CaptureDeviceManager& audioCaptureDeviceManager() final { return m_manager->m_noOpCaptureDeviceManager; }
         const Vector<WebCore::CaptureDevice>& speakerDevices() const final { return m_speakerDevices; }
 
-        CheckedRef<UserMediaCaptureManager> m_manager;
+        const CheckedRef<UserMediaCaptureManager> m_manager;
         bool m_shouldCaptureInGPUProcess { false };
         Vector<WebCore::CaptureDevice> m_speakerDevices;
     };
@@ -95,7 +106,7 @@ private:
         WebCore::CaptureSourceOrError createVideoCaptureSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints*, std::optional<WebCore::PageIdentifier>) final;
         WebCore::CaptureDeviceManager& videoCaptureDeviceManager() final { return m_manager->m_noOpCaptureDeviceManager; }
 
-        CheckedRef<UserMediaCaptureManager> m_manager;
+        const CheckedRef<UserMediaCaptureManager> m_manager;
         bool m_shouldCaptureInGPUProcess { false };
     };
     class DisplayFactory : public WebCore::DisplayCaptureFactory {
@@ -107,7 +118,7 @@ private:
         WebCore::CaptureSourceOrError createDisplayCaptureSource(const WebCore::CaptureDevice&, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints*, std::optional<WebCore::PageIdentifier>) final;
         WebCore::DisplayCaptureManager& displayCaptureDeviceManager() final { return m_manager->m_noOpCaptureDeviceManager; }
 
-        CheckedRef<UserMediaCaptureManager> m_manager;
+        const CheckedRef<UserMediaCaptureManager> m_manager;
         bool m_shouldCaptureInGPUProcess { false };
     };
 
@@ -137,8 +148,8 @@ private:
     void applyConstraintsSucceeded(WebCore::RealtimeMediaSourceIdentifier, WebCore::RealtimeMediaSourceSettings&&);
     void applyConstraintsFailed(WebCore::RealtimeMediaSourceIdentifier, WebCore::MediaConstraintType, String&&);
 
-    CheckedRef<WebProcess> m_process;
-    using Source = std::variant<std::nullptr_t, Ref<RemoteRealtimeAudioSource>, Ref<RemoteRealtimeVideoSource>>;
+    const CheckedRef<WebProcess> m_process;
+    using Source = Variant<std::nullptr_t, Ref<RemoteRealtimeAudioSource>, Ref<RemoteRealtimeVideoSource>>;
     HashMap<WebCore::RealtimeMediaSourceIdentifier, Source> m_sources;
     NoOpCaptureDeviceManager m_noOpCaptureDeviceManager;
     AudioFactory m_audioFactory;

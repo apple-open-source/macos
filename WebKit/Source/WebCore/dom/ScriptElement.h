@@ -39,6 +39,7 @@ class CachedScript;
 class ContainerNode;
 class Element;
 class LoadableModuleScript;
+class Node;
 class PendingScript;
 class ScriptSourceCode;
 
@@ -76,6 +77,7 @@ public:
     bool willExecuteWhenDocumentFinishedParsing() const { return m_willExecuteWhenDocumentFinishedParsing; }
     bool willExecuteInOrder() const { return m_willExecuteInOrder; }
     LoadableScript* loadableScript() { return m_loadableScript.get(); }
+    RefPtr<LoadableScript> protectedLoadableScript() { return m_loadableScript; }
 
     ScriptType scriptType() const { return m_scriptType; }
 
@@ -122,7 +124,7 @@ private:
     void dispatchLoadEventRespectingUserGestureIndicator();
 
     bool requestClassicScript(const String& sourceURL);
-    bool requestModuleScript(const TextPosition& scriptStartPosition);
+    bool requestModuleScript(const String& sourceText, const TextPosition& scriptStartPosition);
 
     void updateTaintedOriginFromSourceURL();
 
@@ -165,7 +167,7 @@ private:
 };
 
 // FIXME: replace with is/downcast<ScriptElement>.
-bool isScriptElement(Element&);
+bool isScriptElement(Node&);
 ScriptElement* dynamicDowncastScriptElement(Element&);
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,8 +48,8 @@ private:
     static NavigatorClipboard* from(Navigator&);
     static ASCIILiteral supplementName();
 
-    RefPtr<Clipboard> m_clipboard;
-    CheckedRef<Navigator> m_navigator;
+    const RefPtr<Clipboard> m_clipboard;
+    const CheckedRef<Navigator> m_navigator;
 };
 
 }

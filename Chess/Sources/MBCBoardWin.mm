@@ -268,6 +268,8 @@
         //shows the settings and start/cancel modal
         [self showNewGameSheet];
     }
+    
+    [document postQueuedLoadGameNotificationIfNeeded];
 }
 
 - (void)windowWillLoad {

@@ -3,6 +3,8 @@
 #define XNU_SCHED_TEST_UTILS_H
 
 #include <stdbool.h>
+#include <stdint.h>
+#include <pthread.h>
 
 /* -- Meta-controls -- */
 
@@ -61,7 +63,9 @@ bool platform_is_virtual_machine(void);
 char *platform_sched_policy(void);
 unsigned int platform_num_clusters(void);
 const char *platform_perflevel_name(unsigned int perflevel);
+unsigned int platform_perflevel_ncpus(unsigned int perflevel);
 unsigned int platform_nperflevels(void);
+const char *platform_train_descriptor(void);
 
 /* -- 📈🕒 Monitor system performance state -- */
 
@@ -99,6 +103,12 @@ uint64_t execute_clpcctrl(char *clpcctrl_args[], bool read_value);
 
 typedef void *trace_handle_t;
 
+__options_decl(collect_trace_flags_t, uint32_t, {
+	COLLECT_TRACE_FLAG_NONE                 = 0x00,
+	COLLECT_TRACE_FLAG_DISABLE_SYSCALLS     = 0x01,
+	COLLECT_TRACE_FLAG_DISABLE_CLUTCH       = 0x02,
+});
+
 /*
  * Begins trace collection, using the specified name as a prefix for all
  * generated filenames. Arguments are parsed to check for --no-trace or
@@ -110,7 +120,7 @@ typedef void *trace_handle_t;
  * the period of interest.
  */
 trace_handle_t begin_collect_trace(int argc, char *const argv[], char *filename);
-trace_handle_t begin_collect_trace_fmt(int argc, char *const argv[], char *filename_fmt, ...);
+trace_handle_t begin_collect_trace_fmt(collect_trace_flags_t flags, int argc, char *const argv[], char *filename_fmt, ...);
 
 /*
  * NOTE: It's possible that tests may induce CPU starvation that can
@@ -128,5 +138,8 @@ void save_collected_trace(trace_handle_t handle);
 
 /* Deletes the recorded trace */
 void discard_collected_trace(trace_handle_t handle);
+
+/* Drop a tracepoint for test failure. */
+void sched_kdebug_test_fail(uint64_t arg0, uint64_t arg1, uint64_t arg2, uint64_t arg3);
 
 #endif /* XNU_SCHED_TEST_UTILS_H */

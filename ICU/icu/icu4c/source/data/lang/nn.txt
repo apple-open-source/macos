@@ -134,6 +134,9 @@ nn{
         Hans{"forenkla han"}
     }
     Types{
+        calendar{
+            dangi{"dangisk kalender"}
+        }
         cf{
             account{"valutaformat for rekneskapsføring"}
         }

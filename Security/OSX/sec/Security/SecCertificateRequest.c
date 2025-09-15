@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009,2012-2020 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2008-2009,2012-2020,2024 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -47,6 +47,7 @@ OSStatus SecCmsArraySortByDER(void **objs, const SecAsn1Template *objtemplate, v
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificateInternal.h>
+#include <Security/SecFramework.h>
 #include <Security/SecItem.h>
 #include <Security/SecKey.h>
 #include <Security/SecRSAKey.h>
@@ -105,7 +106,7 @@ const CFStringRef kSecSubjectAltNameDNSName = CFSTR("dNSName");
 const CFStringRef kSecSubjectAltNameEmailAddress = CFSTR("rfc822Name");
 const CFStringRef kSecSubjectAltNameURI = CFSTR("uniformResourceIdentifier");
 const CFStringRef kSecSubjectAltNameNTPrincipalName = CFSTR("ntPrincipalName");
-
+const CFStringRef kSecSubjectAltNameIPAddress = CFSTR("iPAddress");
 /* EKUs */
 const CFStringRef kSecEKUServerAuth = CFSTR("1.3.6.1.5.5.7.3.1");
 const CFStringRef kSecEKUClientAuth = CFSTR("1.3.6.1.5.5.7.3.2");
@@ -377,6 +378,28 @@ struct make_general_names_context {
     CFErrorRef *error;
 };
 
+static void add_ip_to_gn(struct make_general_names_context *gn, CFStringRef in_value) {
+    NSS_GeneralName general_name_item = { { }, -1 };
+    general_name_item.tag = NGT_IPAddress;
+    CFErrorRef *error = gn->error;
+    CFDataRef ipAddress = SecFrameworkCopyIPAddressData(in_value);
+    require_action(ipAddress, out, SecError(errSecParam, error, CFSTR("failed to copy iPAddress")));
+
+    CFIndex buffer_size = CFDataGetLength(ipAddress);
+    uint8_t *buffer = PORT_ArenaZNewArray(gn->poolp, uint8_t, buffer_size);
+    CFDataGetBytes(ipAddress, CFRangeMake(0, buffer_size), (UInt8 *) buffer);
+
+    general_name_item.item.Data = buffer;
+    general_name_item.item.Length = buffer_size;
+    if (!SEC_ASN1EncodeItem(gn->poolp, &gn->names[gn->count], &general_name_item, kSecAsn1GeneralNameTemplate)) {
+        SecError(errSecInternal, error, CFSTR("failed to encode iPAddress"));
+    }
+    gn->count++;
+out:
+    CFReleaseNull(ipAddress);
+    return;
+}
+
 static void make_general_names(const void *key, const void *value, void *context)
 {
     struct make_general_names_context *gn = (struct make_general_names_context *)context;
@@ -425,6 +448,22 @@ static void make_general_names(const void *key, const void *value, void *context
         general_name_item.tag = NGT_RFC822Name;
     } else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameURI, key, kCFCompareCaseInsensitive)) {
         general_name_item.tag = NGT_URI;
+    } else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameIPAddress, key, kCFCompareCaseInsensitive)) {
+        if (gn_value) {
+            require_action(CFGetTypeID(gn_value) == CFStringGetTypeID(), out,
+                           SecError(errSecParam, error, CFSTR("iPAddress value is not a string")));
+            add_ip_to_gn(gn, gn_value);
+        } else if (gn_values) {
+            CFArrayForEach(gn_values, ^(const void *in_value){
+                if (CFGetTypeID(in_value) == CFStringGetTypeID()) {
+                    add_ip_to_gn(gn, (CFStringRef) in_value);
+                } else {
+                    SecError(errSecParam, gn->error, CFSTR("iPAddress value is not a string"));
+                }
+            });
+        }
+        /* We already encoded the value for the ip address */
+        goto out;
     } else if (kCFCompareEqualTo == CFStringCompare(kSecSubjectAltNameNTPrincipalName, key, kCFCompareCaseInsensitive)) {
         /*
             NT Principal in SubjectAltName is defined in the context of Smartcards:

@@ -42,10 +42,10 @@
 
 #include <ipc/port.h>
 #include <ipc/ipc_space.h>
+#include <ipc/ipc_policy.h>
 
 #include <kern/lock_group.h>
 #include <kern/thread_call.h>
-#include <ipc/ipc_kmsg.h>
 
 struct mk_timer {
 	decl_simple_lock_data(, lock);
@@ -60,11 +60,7 @@ struct mk_timer {
 static ZONE_DEFINE_TYPE(mk_timer_zone, "mk_timer",
     struct mk_timer, ZC_ZFREE_CLEARMEM);
 
-static void mk_timer_port_destroy(ipc_port_t);
 static void mk_timer_expire(void *p0, void *p1);
-
-IPC_KOBJECT_DEFINE(IKOT_TIMER,
-    .iko_op_destroy = mk_timer_port_destroy);
 
 mach_port_name_t
 mk_timer_create_trap(
@@ -73,10 +69,11 @@ mk_timer_create_trap(
 	struct mk_timer*      timer;
 	ipc_space_t           myspace = current_space();
 	mach_port_name_t      name = MACH_PORT_NULL;
-	ipc_port_init_flags_t init_flags;
 	ipc_port_t            port;
 	kern_return_t         result;
 	ipc_kmsg_t            kmsg;
+	ipc_object_label_t    label = IPC_OBJECT_LABEL(IOT_TIMER_PORT);
+
 
 	/* Allocate and initialize local state of a timer object */
 	timer = zalloc_flags(mk_timer_zone, Z_ZERO | Z_WAITOK | Z_NOFAIL);
@@ -88,23 +85,19 @@ mk_timer_create_trap(
 	    IPC_KMSG_ALLOC_KERNEL | IPC_KMSG_ALLOC_ZERO |
 	    IPC_KMSG_ALLOC_ALL_INLINE | IPC_KMSG_ALLOC_NOFAIL |
 	    IPC_KMSG_ALLOC_USE_KEEP_ALIVE);
-	init_flags = IPC_PORT_INIT_MESSAGE_QUEUE;
-	result = ipc_port_alloc(myspace, init_flags, &name, &port);
-	if (result != KERN_SUCCESS) {
-		zfree(mk_timer_zone, timer);
-		ipc_kmsg_keep_alive_abandon(kmsg);
-		return MACH_PORT_NULL;
-	}
 
-	/* port locked, receive right at user-space */
-	port->ip_immovable_receive = true;
-	ipc_kobject_upgrade_mktimer_locked(port, (ipc_kobject_t)timer);
-
-	/* make a (naked) send right for the timer to keep */
-	timer->port = ipc_port_make_send_any_locked(port);
+	label.iol_mktimer = timer;
 
 	/* Associate the pre-allocated kmsg with the port */
 	timer->prealloc = kmsg;
+
+	result = ipc_port_alloc(myspace, label, IP_INIT_NONE, &name, &port);
+	if (result != KERN_SUCCESS) {
+		return MACH_PORT_NULL;
+	}
+
+	/* make a (naked) send right for the timer to keep */
+	timer->port = ipc_port_make_send_any_locked(port);
 
 	ip_mq_unlock(port);
 
@@ -123,13 +116,11 @@ mk_timer_unlock_and_destroy(struct mk_timer *timer, ipc_port_t port)
 	ipc_port_release_send(port);
 }
 
-static void
-mk_timer_port_destroy(
-	ipc_port_t                      port)
+void
+mk_timer_port_label_dealloc(
+	ipc_object_label_t      label)
 {
-	struct mk_timer *timer = NULL;
-
-	timer = ipc_kobject_disable(port, IKOT_TIMER);
+	struct mk_timer *timer = label.iol_mktimer;
 
 	simple_lock(&timer->lock, LCK_GRP_NULL);
 
@@ -140,7 +131,7 @@ mk_timer_port_destroy(
 
 	timer->is_dead = true;
 	if (timer->active == 0) {
-		mk_timer_unlock_and_destroy(timer, port);
+		mk_timer_unlock_and_destroy(timer, timer->port);
 	} else {
 		simple_unlock(&timer->lock);
 	}
@@ -225,7 +216,7 @@ mk_timer_destroy_trap(
 		return KERN_INVALID_RIGHT;
 	}
 
-	if (ip_kotype(entry->ie_port) != IKOT_TIMER) {
+	if (!ip_is_timer(entry->ie_port)) {
 		is_write_unlock(myspace);
 		return KERN_INVALID_ARGUMENT;
 	}
@@ -234,7 +225,7 @@ mk_timer_destroy_trap(
 	 * This should have been a mach_mod_refs(RR, -1) but unfortunately,
 	 * the fact this is a mach_port_destroy() is ABI now.
 	 */
-	return ipc_right_destroy(myspace, name, entry, TRUE, 0); /* unlocks space */
+	return ipc_right_destroy(myspace, name, entry); /* unlocks space */
 }
 
 /*
@@ -255,6 +246,7 @@ static kern_return_t
 mk_timer_arm_trap_internal(mach_port_name_t name, uint64_t expire_time, uint64_t mk_leeway, uint64_t mk_timer_flags)
 {
 	struct mk_timer*                timer;
+	ipc_object_label_t              label;
 	ipc_space_t                     myspace = current_space();
 	ipc_port_t                      port;
 	kern_return_t                   result;
@@ -264,7 +256,14 @@ mk_timer_arm_trap_internal(mach_port_name_t name, uint64_t expire_time, uint64_t
 		return result;
 	}
 
-	timer = ipc_kobject_get_locked(port, IKOT_TIMER);
+	if (!ip_is_timer(port)) {
+		ip_mq_unlock(port);
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	label = ip_label_get(port, IOT_TIMER_PORT);
+	timer = label.iol_mktimer;
+	ip_label_put(port, &label);
 
 	if (timer) {
 
@@ -337,18 +336,27 @@ mk_timer_cancel_trap(
 {
 	mach_port_name_t        name = args->name;
 	mach_vm_address_t       result_time_addr = args->result_time;
-	uint64_t                        armed_time = 0;
-	struct mk_timer*                timer;
-	ipc_space_t                     myspace = current_space();
-	ipc_port_t                      port;
+	uint64_t                armed_time = 0;
+	struct mk_timer*        timer;
+	ipc_space_t             myspace = current_space();
+	ipc_port_t              port;
 	kern_return_t           result;
+	ipc_object_label_t      label;
 
 	result = ipc_port_translate_receive(myspace, name, &port);
 	if (result != KERN_SUCCESS) {
 		return result;
 	}
 
-	timer = ipc_kobject_get_locked(port, IKOT_TIMER);
+	if (!ip_is_timer(port)) {
+		ip_mq_unlock(port);
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	label = ip_label_get(port, IOT_TIMER_PORT);
+	timer = label.iol_mktimer;
+	ip_label_put(port, &label);
+
 	if (timer != NULL) {
 		simple_lock(&timer->lock, LCK_GRP_NULL);
 		assert(timer->port == port);

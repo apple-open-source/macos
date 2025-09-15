@@ -51,7 +51,7 @@ skt_writeif_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	*(char *)channel->chd_schema->csm_kern_name = 'X';
@@ -82,7 +82,7 @@ skt_writering_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	ring_id_t ringid;
@@ -136,7 +136,7 @@ skt_readsmap_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	//T_LOG("ch_if 0x%p offset 0x%llx pointer 0x%p\n",
@@ -172,7 +172,7 @@ skt_writesmap_main(int argc, char *argv[])
 
 	channel = sktu_channel_create_extended(channel_uuid, 0,
 	    CHANNEL_DIR_TX_RX, CHANNEL_RING_ID_ANY, NULL,
-	    -1, -1, -1, -1, -1, -1, -1, 1, -1, -1);
+	    -1, -1, -1, -1, -1, -1, 1, -1, -1);
 	assert(channel);
 
 	//T_LOG("ch_if 0x%p offset 0x%llx pointer 0x%p\n",
@@ -291,11 +291,11 @@ skt_nxregion_verify_main(int argc, char *argv[])
 	/* must fail without user packet pool set (flow switch) */
 	assert(sktu_channel_create_extended(fsw_uuid,
 	    NEXUS_PORT_FLOW_SWITCH_CLIENT, CHANNEL_DIR_TX_RX,
-	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
+	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, 1, -1, -1) == NULL);
 
 	channel = sktu_channel_create_extended(fsw_uuid,
 	    NEXUS_PORT_FLOW_SWITCH_CLIENT, CHANNEL_DIR_TX_RX,
-	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, -1, 1, 1, -1, -1);
+	    CHANNEL_RING_ID_ANY, NULL, -1, -1, -1, -1, -1, 1, 1, -1, -1);
 	assert(channel);
 
 	switch (test_id) {

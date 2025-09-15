@@ -34,13 +34,14 @@
 
 #import "APIInspectorExtension.h"
 #import "APISerializedScriptValue.h"
+#import "JavaScriptEvaluationResult.h"
 #import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionUtilities.h"
 #import <WebCore/ExceptionDetails.h>
 
 namespace WebKit {
 
-void WebExtensionContext::devToolsInspectedWindowEval(WebPageProxyIdentifier webPageProxyIdentifier, const String& scriptSource, const std::optional<URL>& frameURL, CompletionHandler<void(Expected<Expected<std::span<const uint8_t>, WebCore::ExceptionDetails>, WebExtensionError>&&)>&& completionHandler)
+void WebExtensionContext::devToolsInspectedWindowEval(WebPageProxyIdentifier webPageProxyIdentifier, const String& scriptSource, const std::optional<URL>& frameURL, CompletionHandler<void(Expected<Expected<JavaScriptEvaluationResult, std::optional<WebCore::ExceptionDetails>>, WebExtensionError>&&)>&& completionHandler)
 {
     static NSString * const apiName = @"devtools.inspectedWindow.eval()";
 
@@ -67,18 +68,12 @@ void WebExtensionContext::devToolsInspectedWindowEval(WebPageProxyIdentifier web
 
         extension->evaluateScript(scriptSource, frameURL, std::nullopt, std::nullopt, [completionHandler = WTFMove(completionHandler)](Inspector::ExtensionEvaluationResult&& result) mutable {
             if (!result) {
-                RELEASE_LOG_ERROR(Extensions, "Inspector could not evaluate script (%{public}@)", (NSString *)extensionErrorToString(result.error()));
+                RELEASE_LOG_ERROR(Extensions, "Inspector could not evaluate script (%{public}@)", extensionErrorToString(result.error()).createNSString().get());
                 completionHandler(toWebExtensionError(apiName, nullString(), @"Web Inspector could not evaluate script"));
                 return;
             }
 
-            if (!result.value()) {
-                Expected<std::span<const uint8_t>, WebCore::ExceptionDetails> returnedValue = makeUnexpected(result.value().error());
-                completionHandler({ WTFMove(returnedValue) });
-                return;
-            }
-
-            completionHandler({ result.value()->get().dataReference() });
+            completionHandler({ WTFMove(*result) });
         });
     });
 }
@@ -95,7 +90,7 @@ void WebExtensionContext::devToolsInspectedWindowReload(WebPageProxyIdentifier w
 
     extension->reloadIgnoringCache(ignoreCache, std::nullopt, std::nullopt, [](Inspector::ExtensionVoidResult&& result) {
         if (!result)
-            RELEASE_LOG_ERROR(Extensions, "Inspector could not reload page (%{public}@)", (NSString *)extensionErrorToString(result.error()));
+            RELEASE_LOG_ERROR(Extensions, "Inspector could not reload page (%{public}@)", extensionErrorToString(result.error()).createNSString().get());
     });
 }
 

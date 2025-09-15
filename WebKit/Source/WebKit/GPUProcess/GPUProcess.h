@@ -163,6 +163,15 @@ public:
 
 #if PLATFORM(VISION) && ENABLE(MODEL_PROCESS)
     void requestSharedSimulationConnection(CoreIPCAuditToken&&, CompletionHandler<void(std::optional<IPC::SharedFileHandle>)>&&);
+#if HAVE(TASK_IDENTITY_TOKEN)
+    void createMemoryAttributionIDForTask(WebCore::ProcessIdentity, CompletionHandler<void(const std::optional<String>&)>&&);
+    void unregisterMemoryAttributionID(const String&, CompletionHandler<void()>&&);
+#endif
+#endif
+
+#if PLATFORM(COCOA)
+    void postWillTakeSnapshotNotification(CompletionHandler<void()>&&);
+    void registerFonts(Vector<SandboxExtension::Handle>&&);
 #endif
 
 private:
@@ -195,7 +204,6 @@ private:
 
 #if ENABLE(MEDIA_STREAM)
     void setMockCaptureDevicesEnabled(bool);
-    void setUseSCContentSharingPicker(bool);
     void enableMicrophoneMuteStatusAPI();
     void setOrientationForMediaCapture(WebCore::IntDegrees);
     void rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
@@ -207,7 +215,7 @@ private:
     void setMockMediaDeviceIsEphemeral(const String&, bool);
     void resetMockMediaDevices();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
+    void triggerMockCaptureConfigurationChange(bool forCamera, bool forMicrophone, bool forDisplay);
     void setShouldListenToVoiceActivity(bool);
 #endif
 #if HAVE(SCREEN_CAPTURE_KIT)

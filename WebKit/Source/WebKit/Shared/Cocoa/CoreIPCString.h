@@ -46,7 +46,7 @@ public:
 
     CoreIPCString() = default;
 
-    RetainPtr<id> toID() const { return (NSString *)m_string; }
+    RetainPtr<id> toID() const { return m_string.createNSString(); }
 
 private:
     friend struct IPC::ArgumentCoder<CoreIPCString, void>;

@@ -50,7 +50,7 @@ template<size_t I> const auto& get(const Inset& value)
         return value.radii;
 }
 
-template<> struct Serialize<Inset> { void operator()(StringBuilder&, const Inset&); };
+template<> struct Serialize<Inset> { void operator()(StringBuilder&, const SerializationContext&, const Inset&); };
 
 } // namespace CSS
 } // namespace WebCore

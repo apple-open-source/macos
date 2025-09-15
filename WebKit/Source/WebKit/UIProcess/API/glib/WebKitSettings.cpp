@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
+ * Copyright (c) 2011 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -824,14 +824,16 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      *
      * The hyperlink auditing specification is available at
      * http://www.whatwg.org/specs/web-apps/current-work/multipage/links.html#hyperlink-auditing.
+     *
+     * Deprecated: 2.50
      */
     sObjProperties[PROP_ENABLE_HYPERLINK_AUDITING] =
         g_param_spec_boolean(
             "enable-hyperlink-auditing",
             _("Enable hyperlink auditing"),
             _("Whether <a ping> should be able to send pings."),
-            FEATURE_DEFAULT(HyperlinkAuditingEnabled),
-            readWriteConstructParamFlags);
+            TRUE,
+            static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
 
     /**
      * WebKitSettings:default-font-family:
@@ -1046,14 +1048,16 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      *
      * Determines whether or not to prefetch domain names. DNS prefetching attempts
      * to resolve domain names before a user tries to follow a link.
+     *
+     * Deprecated: 2.48
      */
     sObjProperties[PROP_ENABLE_DNS_PREFETCHING] =
         g_param_spec_boolean(
             "enable-dns-prefetching",
             _("Enable DNS prefetching"),
             _("Whether to enable DNS prefetching"),
-            FEATURE_DEFAULT(DNSPrefetchingEnabled),
-            readWriteConstructParamFlags);
+            FALSE,
+            static_cast<GParamFlags>(readWriteConstructParamFlags | G_PARAM_DEPRECATED));
 
     /**
      * WebKitSettings:enable-caret-browsing:
@@ -2145,12 +2149,14 @@ void webkit_settings_set_javascript_can_open_windows_automatically(WebKitSetting
  * Get the #WebKitSettings:enable-hyperlink-auditing property.
  *
  * Returns: %TRUE If hyper link auditing is enabled or %FALSE otherwise.
+ *
+ * Deprecated: 2.50.
  */
 gboolean webkit_settings_get_enable_hyperlink_auditing(WebKitSettings* settings)
 {
-    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), TRUE);
 
-    return settings->priv->preferences->hyperlinkAuditingEnabled();
+    return TRUE;
 }
 
 /**
@@ -2159,18 +2165,15 @@ gboolean webkit_settings_get_enable_hyperlink_auditing(WebKitSettings* settings)
  * @enabled: Value to be set
  *
  * Set the #WebKitSettings:enable-hyperlink-auditing property.
+ *
+ * Deprecated: 2.50.
  */
 void webkit_settings_set_enable_hyperlink_auditing(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->hyperlinkAuditingEnabled();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setHyperlinkAuditingEnabled(enabled);
-    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_HYPERLINK_AUDITING]);
+    if (!enabled)
+        g_warning("webkit_settings_set_enable_hyperlink_auditing is deprecated and does nothing.");
 }
 
 /**
@@ -2721,12 +2724,16 @@ void webkit_settings_set_enable_tabs_to_links(WebKitSettings* settings, gboolean
  * Get the #WebKitSettings:enable-dns-prefetching property.
  *
  * Returns: %TRUE If DNS prefetching is enabled or %FALSE otherwise.
+ *
+ * Deprecated: 2.48.
  */
 gboolean webkit_settings_get_enable_dns_prefetching(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->dnsPrefetchingEnabled();
+    g_warning("webkit_settings_get_enable_dns_prefetching is deprecated and always returns FALSE.");
+
+    return FALSE;
 }
 
 /**
@@ -2735,18 +2742,15 @@ gboolean webkit_settings_get_enable_dns_prefetching(WebKitSettings* settings)
  * @enabled: Value to be set
  *
  * Set the #WebKitSettings:enable-dns-prefetching property.
+ *
+ * Deprecated: 2.48.
  */
 void webkit_settings_set_enable_dns_prefetching(WebKitSettings* settings, gboolean enabled)
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->dnsPrefetchingEnabled();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setDNSPrefetchingEnabled(enabled);
-    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_DNS_PREFETCHING]);
+    if (enabled)
+        g_warning("webkit_settings_set_enable_dns_prefetching is deprecated and does nothing.");
 }
 
 /**
@@ -3963,8 +3967,7 @@ void webkit_settings_set_enable_back_forward_navigation_gestures(WebKitSettings*
  *
  * Convert @pixels to the equivalent value in points.
  *
- * Convert @pixels to the equivalent value in points, based on the current
- * screen DPI. Applications can use this function to convert font size values
+ * Applications can use this function to convert font size values
  * in pixels to font size values in points when getting the font size properties
  * of #WebKitSettings.
  *
@@ -3974,7 +3977,7 @@ void webkit_settings_set_enable_back_forward_navigation_gestures(WebKitSettings*
  */
 guint32 webkit_settings_font_size_to_points(guint32 pixels)
 {
-    return std::round(pixels * 72 / WebCore::fontDPI());
+    return std::round(pixels * 72 / 96);
 }
 
 /**
@@ -3983,8 +3986,7 @@ guint32 webkit_settings_font_size_to_points(guint32 pixels)
  *
  * Convert @points to the equivalent value in pixels.
  *
- * Convert @points to the equivalent value in pixels, based on the current
- * screen DPI. Applications can use this function to convert font size values
+ * Applications can use this function to convert font size values
  * in points to font size values in pixels when setting the font size properties
  * of #WebKitSettings.
  *
@@ -3994,7 +3996,7 @@ guint32 webkit_settings_font_size_to_points(guint32 pixels)
  */
 guint32 webkit_settings_font_size_to_pixels(guint32 points)
 {
-    return std::round(points * WebCore::fontDPI() / 72);
+    return std::round(points * 96 / 72);
 }
 #endif // PLATFORM(GTK)
 
@@ -4373,7 +4375,7 @@ gboolean webkit_settings_apply_from_key_file(WebKitSettings* settings, GKeyFile*
 
     GUniqueOutPtr<GError> getKeysError;
     auto allKeys = gKeyFileGetKeys(keyFile, groupName, getKeysError);
-    if (UNLIKELY(getKeysError)) {
+    if (getKeysError) [[unlikely]] {
         g_propagate_error(error, getKeysError.release());
         return FALSE;
     }

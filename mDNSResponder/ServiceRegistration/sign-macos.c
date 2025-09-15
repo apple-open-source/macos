@@ -39,6 +39,7 @@
 #include "dns-msg.h"
 #define SRP_CRYPTO_MACOS_INTERNAL
 #include "srp-crypto.h"
+#include "srp-strict.h"
 
 // Key is stored in an opaque data structure, for mbedtls this is an mbedtls_pk_context.
 // Function to read a public key from a KEY record
@@ -48,7 +49,7 @@
 void
 srp_keypair_free(srp_key_t *key)
 {
-    free(key);
+    srp_strict_free(&key);
 }
 
 uint16_t
@@ -91,9 +92,7 @@ srp_sec_error_print(const char *reason, OSStatus status)
     } else {
         ERROR(PUB_S_SRP ": %d", reason, (int)status);
     }
-    if (err != NULL) {
-        CFRelease(err);
-    }
+    srp_cf_forget(&err);
 }
 
 // Function to generate a key
@@ -114,10 +113,10 @@ srp_get_key_internal(const char *key_name, bool delete)
         CFDictionaryAddValue(key_parameters, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
         CFNumberRef num = CFNumberCreate(NULL, kCFNumberLongType, &two56);
         CFDictionaryAddValue(key_parameters, kSecAttrKeySizeInBits, num);
-        CFRelease(num);
+        srp_cf_forget(&num);
         CFStringRef str = CFStringCreateWithCString(NULL, key_name, kCFStringEncodingUTF8);
         CFDictionaryAddValue(key_parameters, kSecAttrLabel, str);
-        CFRelease(str);
+        srp_cf_forget(&str);
         CFDictionaryAddValue(key_parameters, kSecReturnRef, kCFBooleanTrue);
         CFDictionaryAddValue(key_parameters, kSecMatchLimit, kSecMatchLimitOne);
         CFDictionaryAddValue(key_parameters, kSecClass, kSecClassKey);
@@ -140,7 +139,7 @@ srp_get_key_internal(const char *key_name, bool delete)
                 }
                 key = NULL;
             } else {
-                key = calloc(1, sizeof(*key));
+                key = srp_strict_calloc(1, sizeof(*key));
 
                 if (key != NULL) {
                     CFErrorRef error = NULL;
@@ -161,13 +160,12 @@ srp_get_key_internal(const char *key_name, bool delete)
                         } else {
                             srp_sec_error_print("Failed to get key pair", status);
                         }
-                        free(key);
-                        key = NULL;
+                        srp_strict_free(&key);
                     }
                 }
             }
-            CFRelease(key_parameters);
-            CFRelease(pubkey_parameters);
+            srp_cf_forget(&key_parameters);
+            srp_cf_forget(&pubkey_parameters);
         }
     }
     (void)key_name;
@@ -239,7 +237,7 @@ srp_pubkey_copy(uint8_t *buf, size_t max, srp_key_t *key)
             memcpy(buf, bytes + 1, len - 1);
             ret = ECDSA_KEY_SIZE;
         }
-        CFRelease(pubkey);
+        srp_cf_forget(&pubkey);
     }
     return ret;
 }
@@ -272,9 +270,9 @@ srp_sign(uint8_t *output, size_t max, uint8_t *message, size_t msglen,
 
     signature = SecKeyCreateSignature(key->private,
                                       kSecKeyAlgorithmECDSASignatureMessageX962SHA256, payload, &error);
-    CFRelease(payload);
+    srp_cf_forget(&payload);
     if (error != NULL) {
-        CFRelease(signature);
+        srp_cf_forget(&signature);
         CFShow(error);
         return 0;
     }
@@ -354,9 +352,7 @@ srp_sign(uint8_t *output, size_t max, uint8_t *message, size_t msglen,
     }
 
 out:
-    if (signature != NULL) {
-        CFRelease(signature);
-    }
+    srp_cf_forget(&signature);
     return ret;
 }
 

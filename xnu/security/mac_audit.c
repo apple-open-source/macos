@@ -76,7 +76,7 @@
 #if CONFIG_AUDIT
 
 ZONE_DEFINE(mac_audit_data_zone, "mac_audit_data_zone",
-    MAC_AUDIT_DATA_LIMIT, ZC_PGZ_USE_GUARDS);
+    MAC_AUDIT_DATA_LIMIT, ZC_NONE);
 
 int
 mac_system_check_audit(struct ucred *cred, void *record, int length)

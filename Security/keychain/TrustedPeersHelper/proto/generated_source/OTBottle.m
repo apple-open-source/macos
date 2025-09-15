@@ -25,26 +25,6 @@
     return _bottleID != nil;
 }
 @synthesize bottleID = _bottleID;
-- (BOOL)hasReserved3
-{
-    return _reserved3 != nil;
-}
-@synthesize reserved3 = _reserved3;
-- (BOOL)hasReserved4
-{
-    return _reserved4 != nil;
-}
-@synthesize reserved4 = _reserved4;
-- (BOOL)hasReserved5
-{
-    return _reserved5 != nil;
-}
-@synthesize reserved5 = _reserved5;
-- (BOOL)hasReserved6
-{
-    return _reserved6 != nil;
-}
-@synthesize reserved6 = _reserved6;
 - (BOOL)hasEscrowedSigningSPKI
 {
     return _escrowedSigningSPKI != nil;
@@ -65,11 +45,6 @@
     return _peerEncryptionSPKI != nil;
 }
 @synthesize peerEncryptionSPKI = _peerEncryptionSPKI;
-- (BOOL)hasReserved7
-{
-    return _reserved7 != nil;
-}
-@synthesize reserved7 = _reserved7;
 - (BOOL)hasContents
 {
     return _contents != nil;
@@ -92,22 +67,6 @@
     {
         [dict setObject:self->_bottleID forKey:@"bottleID"];
     }
-    if (self->_reserved3)
-    {
-        [dict setObject:self->_reserved3 forKey:@"reserved3"];
-    }
-    if (self->_reserved4)
-    {
-        [dict setObject:self->_reserved4 forKey:@"reserved4"];
-    }
-    if (self->_reserved5)
-    {
-        [dict setObject:self->_reserved5 forKey:@"reserved5"];
-    }
-    if (self->_reserved6)
-    {
-        [dict setObject:self->_reserved6 forKey:@"reserved6"];
-    }
     if (self->_escrowedSigningSPKI)
     {
         [dict setObject:self->_escrowedSigningSPKI forKey:@"escrowedSigningSPKI"];
@@ -123,10 +82,6 @@
     if (self->_peerEncryptionSPKI)
     {
         [dict setObject:self->_peerEncryptionSPKI forKey:@"peerEncryptionSPKI"];
-    }
-    if (self->_reserved7)
-    {
-        [dict setObject:self->_reserved7 forKey:@"reserved7"];
     }
     if (self->_contents)
     {
@@ -161,36 +116,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
             {
                 NSString *new_bottleID = PBReaderReadString(reader);
                 self->_bottleID = new_bottleID;
-            }
-            break;
-            case 3 /* reserved3 */:
-            {
-                NSData *new_reserved3 = PBReaderReadData(reader);
-                self->_reserved3 = new_reserved3;
-            }
-            break;
-            case 4 /* reserved4 */:
-            {
-                NSData *new_reserved4 = PBReaderReadData(reader);
-                self->_reserved4 = new_reserved4;
-            }
-            break;
-            case 5 /* reserved5 */:
-            {
-                NSData *new_reserved5 = PBReaderReadData(reader);
-                self->_reserved5 = new_reserved5;
-            }
-            break;
-            case 6 /* reserved6 */:
-            {
-                NSData *new_reserved6 = PBReaderReadData(reader);
-                self->_reserved6 = new_reserved6;
-            }
-            break;
-            case 7 /* reserved7 */:
-            {
-                NSData *new_reserved7 = PBReaderReadData(reader);
-                self->_reserved7 = new_reserved7;
             }
             break;
             case 8 /* escrowedSigningSPKI */:
@@ -264,41 +189,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
             PBDataWriterWriteStringField(writer, self->_bottleID, 2);
         }
     }
-    /* reserved3 */
-    {
-        if (self->_reserved3)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved3, 3);
-        }
-    }
-    /* reserved4 */
-    {
-        if (self->_reserved4)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved4, 4);
-        }
-    }
-    /* reserved5 */
-    {
-        if (self->_reserved5)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved5, 5);
-        }
-    }
-    /* reserved6 */
-    {
-        if (self->_reserved6)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved6, 6);
-        }
-    }
-    /* reserved7 */
-    {
-        if (self->_reserved7)
-        {
-            PBDataWriterWriteDataField(writer, self->_reserved7, 7);
-        }
-    }
     /* escrowedSigningSPKI */
     {
         if (self->_escrowedSigningSPKI)
@@ -346,26 +236,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
     {
         other.bottleID = _bottleID;
     }
-    if (_reserved3)
-    {
-        other.reserved3 = _reserved3;
-    }
-    if (_reserved4)
-    {
-        other.reserved4 = _reserved4;
-    }
-    if (_reserved5)
-    {
-        other.reserved5 = _reserved5;
-    }
-    if (_reserved6)
-    {
-        other.reserved6 = _reserved6;
-    }
-    if (_reserved7)
-    {
-        other.reserved7 = _reserved7;
-    }
     if (_escrowedSigningSPKI)
     {
         other.escrowedSigningSPKI = _escrowedSigningSPKI;
@@ -393,11 +263,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
     OTBottle *copy = [[[self class] allocWithZone:zone] init];
     copy->_peerID = [_peerID copyWithZone:zone];
     copy->_bottleID = [_bottleID copyWithZone:zone];
-    copy->_reserved3 = [_reserved3 copyWithZone:zone];
-    copy->_reserved4 = [_reserved4 copyWithZone:zone];
-    copy->_reserved5 = [_reserved5 copyWithZone:zone];
-    copy->_reserved6 = [_reserved6 copyWithZone:zone];
-    copy->_reserved7 = [_reserved7 copyWithZone:zone];
     copy->_escrowedSigningSPKI = [_escrowedSigningSPKI copyWithZone:zone];
     copy->_escrowedEncryptionSPKI = [_escrowedEncryptionSPKI copyWithZone:zone];
     copy->_peerSigningSPKI = [_peerSigningSPKI copyWithZone:zone];
@@ -414,16 +279,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
     ((!self->_peerID && !other->_peerID) || [self->_peerID isEqual:other->_peerID])
     &&
     ((!self->_bottleID && !other->_bottleID) || [self->_bottleID isEqual:other->_bottleID])
-    &&
-    ((!self->_reserved3 && !other->_reserved3) || [self->_reserved3 isEqual:other->_reserved3])
-    &&
-    ((!self->_reserved4 && !other->_reserved4) || [self->_reserved4 isEqual:other->_reserved4])
-    &&
-    ((!self->_reserved5 && !other->_reserved5) || [self->_reserved5 isEqual:other->_reserved5])
-    &&
-    ((!self->_reserved6 && !other->_reserved6) || [self->_reserved6 isEqual:other->_reserved6])
-    &&
-    ((!self->_reserved7 && !other->_reserved7) || [self->_reserved7 isEqual:other->_reserved7])
     &&
     ((!self->_escrowedSigningSPKI && !other->_escrowedSigningSPKI) || [self->_escrowedSigningSPKI isEqual:other->_escrowedSigningSPKI])
     &&
@@ -444,16 +299,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
     [self->_peerID hash]
     ^
     [self->_bottleID hash]
-    ^
-    [self->_reserved3 hash]
-    ^
-    [self->_reserved4 hash]
-    ^
-    [self->_reserved5 hash]
-    ^
-    [self->_reserved6 hash]
-    ^
-    [self->_reserved7 hash]
     ^
     [self->_escrowedSigningSPKI hash]
     ^
@@ -476,26 +321,6 @@ BOOL OTBottleReadFrom(__unsafe_unretained OTBottle *self, __unsafe_unretained PB
     if (other->_bottleID)
     {
         [self setBottleID:other->_bottleID];
-    }
-    if (other->_reserved3)
-    {
-        [self setReserved3:other->_reserved3];
-    }
-    if (other->_reserved4)
-    {
-        [self setReserved4:other->_reserved4];
-    }
-    if (other->_reserved5)
-    {
-        [self setReserved5:other->_reserved5];
-    }
-    if (other->_reserved6)
-    {
-        [self setReserved6:other->_reserved6];
-    }
-    if (other->_reserved7)
-    {
-        [self setReserved7:other->_reserved7];
     }
     if (other->_escrowedSigningSPKI)
     {

@@ -2320,6 +2320,10 @@ xmlBuildRelativeURI (const xmlChar * URI, const xmlChar * base)
      * length of the remainder of the URI, plus enough space
      * for the "../" groups, plus one for the terminator
      */
+    if ((nbslash < 0) || (len < 0) || (nbslash > (INT32_MAX - len) / 3)) {
+        xmlURIErrMemory("building relative URI\n");
+        goto done;
+    }
     val = (xmlChar *) xmlMalloc (len + 3 * nbslash);
     if (val == NULL) {
         xmlURIErrMemory("building relative URI\n");

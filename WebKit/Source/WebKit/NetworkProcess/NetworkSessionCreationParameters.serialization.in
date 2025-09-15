@@ -77,9 +77,9 @@ enum class WebKit::AllowsCellularAccess : bool;
     String webPushMachServiceName;
     String webPushPartitionString;
     bool enablePrivateClickMeasurementDebugMode;
-    bool isBlobRegistryTopOriginPartitioningEnabled;
     bool isOptInCookiePartitioningEnabled;
     bool shouldSendPrivateTokenIPCForTesting;
+    uint64_t cookiesVersion;
 
     WebKit::UnifiedOriginStorageLevel unifiedOriginStorageLevel;
     uint64_t perOriginStorageQuota;
@@ -104,9 +104,19 @@ enum class WebKit::AllowsCellularAccess : bool;
     bool isDeclarativeWebPushEnabled;
 #endif
 #if HAVE(NW_PROXY_CONFIG)
-    std::optional<Vector<std::pair<Vector<uint8_t>, WTF::UUID>>> proxyConfigData;
+    std::optional<Vector<std::pair<Vector<uint8_t>, std::optional<WTF::UUID>>>> proxyConfigData;
 #endif
     WebKit::ResourceLoadStatisticsParameters resourceLoadStatisticsParameters;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    String resourceMonitorThrottlerDirectory;
+    WebKit::SandboxExtensionHandle resourceMonitorThrottlerDirectoryExtensionHandle;
+#endif
+    bool isLegacyTLSAllowed;
+#if HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
+    String webContentRestrictionsConfigurationFile;
+    WebKit::SandboxExtension::Handle webContentRestrictionsConfigurationExtensionHandle;
+#endif
 };
 
 #if USE(SOUP)

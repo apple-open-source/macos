@@ -1635,6 +1635,7 @@ print_open(ktrace_event_t event, uint64_t flags)
 		(flags & O_CLOEXEC) ? 'X' : '_',
 		(flags & O_NOFOLLOW_ANY) ? 'f' : '_',
 		(flags & O_RESOLVE_BENEATH) ? 'B' : '_',
+		(flags & O_UNIQUE) ? 'U' : '_',
 		'\0',
 	};
 

@@ -86,7 +86,7 @@ static WorldMap& allWorlds()
 
 + (WebScriptWorld *)standardWorld
 {
-    static WebScriptWorld *world = [[WebScriptWorld alloc] initWithWorld:WebCore::mainThreadNormalWorld()];
+    static WebScriptWorld *world = [[WebScriptWorld alloc] initWithWorld:WebCore::mainThreadNormalWorldSingleton()];
     return world;
 }
 
@@ -118,7 +118,7 @@ WebCore::DOMWrapperWorld* core(WebScriptWorld *world)
 
 + (WebScriptWorld *)findOrCreateWorld:(WebCore::DOMWrapperWorld&)world
 {
-    if (&world == &WebCore::mainThreadNormalWorld())
+    if (&world == &WebCore::mainThreadNormalWorldSingleton())
         return [self standardWorld];
 
     if (WebScriptWorld *existingWorld = allWorlds().get(world))

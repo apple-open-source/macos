@@ -651,7 +651,8 @@ typedef struct krb5_replay_data {
 
 /* flags for krb5_init_context_flags */
 enum {
-	KRB5_CONTEXT_FLAG_NO_CONFIG		= 1
+	KRB5_CONTEXT_FLAG_NO_CONFIG		= 1,
+	KRB5_CONTEXT_FLAG_FORK_SAFE		= 16
 };
 
 /* flags for krb5_auth_con_setflags */

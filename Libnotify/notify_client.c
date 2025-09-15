@@ -38,6 +38,7 @@
 #include <mach/mach_time.h>
 #include <sys/mman.h>
 #include <sys/fcntl.h>
+#include <sys/fileport.h>
 #include <sys/time.h>
 #include <bootstrap_priv.h>
 #include <errno.h>

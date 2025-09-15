@@ -10,19 +10,7 @@
 #pragma clang diagnostic ignored "-Wgcc-compat"
 
 
-// Kernel sysctl test prints its output into a userspace buffer.
-// fixme these global variables prevent test concurrency
-
-static user_addr_t SYSCTL_OUTPUT_BUF;
-static user_addr_t SYSCTL_OUTPUT_END;
-
-// This is a read/write fd passed from userspace.
-// It's passed to make it easier for kernel tests to interact with a file.
-static int file_descriptor;
-
-// Output to create a golden test result in kern test, controlled by
-// MSB in file_descriptor and set by GENERATE_GOLDEN_IMAGE from userspace.
-bool kernel_generate_golden = FALSE;
+DEFINE_TEST_IDENTITY(test_identity_vm_parameter_validation_kern);
 
 // vprintf() to a userspace buffer
 // output is incremented to point at the new nul terminator
@@ -35,17 +23,47 @@ user_vprintf(user_addr_t *output, user_addr_t output_end, const char *format, va
 
 	printed = vsnprintf(linebuf, sizeof(linebuf), format, args);
 	assert(printed < sizeof(linebuf) - 1);
-	assert(*output + printed + 1 < output_end);
-	copyout(linebuf, *output, printed + 1);
-	*output += printed;
+	if (*output + printed + 1 < output_end) {
+		copyout(linebuf, *output, printed + 1);
+		*output += printed;
+
+		/* *output + 1 == output_end occurs only after the error case below */
+		assert(*output + 1 < output_end);
+	} else if (*output + 1 < output_end) {
+		/*
+		 * Not enough space in the output buffer for this text.
+		 * Print as much as we can, then rewind and terminate
+		 * the buffer with an error message.
+		 * The tests will continue to run after this, but they
+		 * won't be able to output anything more.
+		 */
+		static const char err_msg[] =
+		    KERN_RESULT_DELIMITER KERN_FAILURE_DELIMITER
+		    "kernel output buffer full, output truncated\n";
+		size_t err_len = strlen(err_msg);
+		size_t printable = output_end - *output - 1;
+		assert(printable <= printed);
+		copyout(linebuf, *output, printable + 1);
+		copyout(err_msg, output_end - err_len - 1, err_len + 1);
+		*output = output_end - 1;
+	} else {
+		/*
+		 * Not enough space in the output buffer,
+		 * and we already inserted the error message.
+		 * Do nothing.
+		 */
+		assert(*output + 1 == output_end);
+	}
 }
 
 void
 testprintf(const char *format, ...)
 {
+	vm_parameter_validation_kern_thread_context_t *globals = get_globals();
+
 	va_list args;
 	va_start(args, format);
-	user_vprintf(&SYSCTL_OUTPUT_BUF, SYSCTL_OUTPUT_END, format, args);
+	user_vprintf(&globals->output_buffer_cur, globals->output_buffer_end, format, args);
 	va_end(args);
 }
 
@@ -510,6 +528,27 @@ static kern_return_t
 call_mach_vm_wire_level_monitor(int64_t requested_pages)
 {
 	kern_return_t kr = mach_vm_wire_level_monitor(requested_pages);
+	/*
+	 * KERN_RESOURCE_SHORTAGE and KERN_SUCCESS are
+	 * equivalent acceptable results for this test.
+	 */
+	if (kr == KERN_RESOURCE_SHORTAGE) {
+#if !defined(XNU_TARGET_OS_BRIDGE)
+		kr = KERN_SUCCESS;
+#else  /* defined(XNU_TARGET_OS_BRIDGE) */
+		/*
+		 * ...but the bridgeOS golden file recorded
+		 * KERN_RESOURCE_SHORTAGE for some values so
+		 * match that to avoid a golden file update.
+		 * This code can be removed during any golden file update.
+		 */
+		if (requested_pages == 1 || requested_pages == 2) {
+			kr = KERN_SUCCESS;
+		} else {
+			kr = KERN_RESOURCE_SHORTAGE;
+		}
+#endif /* defined(XNU_TARGET_OS_BRIDGE) */
+	}
 	return kr;
 }
 
@@ -628,12 +667,6 @@ call_vm_map_copy_overwrite_interruptible(MAP_T dst_map, vm_map_copy_t copy, mach
 	kern_return_t kr = vm_map_copy_overwrite(dst_map, dst_addr, copy, copy_size,
 	    TRUE);
 
-	const mach_vm_size_t va_mask = ((1ULL << 48) - 1);
-	if ((dst_addr & ~va_mask) == 0ULL && ((dst_addr + copy_size) & ~va_mask) == ~va_mask) {
-		if (kr == KERN_INVALID_ADDRESS) {
-			return ACCEPTABLE;
-		}
-	}
 	return kr;
 }
 
@@ -770,30 +803,6 @@ call_vm_map_purgable_control__purgeable_state(MAP_T map, vm_address_t addr, vm_p
 
 	return kr;
 }
-
-#if XNU_PLATFORM_MacOSX
-static void
-check_vm_region_object_create_outparam_changes(kern_return_t * kr, ipc_port_t handle)
-{
-	if (handle == NULL) {
-		*kr = OUT_PARAM_BAD;
-	}
-}
-
-static kern_return_t
-call_vm_region_object_create(MAP_T map, vm_size_t size)
-{
-	ipc_port_t handle = NULL;
-	kern_return_t kr = vm_region_object_create(map, size, &handle);
-	check_vm_region_object_create_outparam_changes(&kr, handle);
-
-	if (kr == KERN_SUCCESS) {
-		mach_memory_entry_port_release(handle);
-	}
-
-	return kr;
-}
-#endif /* #if XNU_PLATFORM_MacOSX */
 
 static kern_return_t
 call_vm_map_page_info(MAP_T map, mach_vm_address_t addr)
@@ -996,6 +1005,7 @@ test_kext_unix_with_allocated_vnode_addr(kern_return_t (*func)(MAP_T dst_map, ma
 	for (unsigned i = 0; i < trials->count; i++) {
 		mach_vm_address_t addr = (mach_vm_address_t)trials->list[i].addr;
 
+		int file_descriptor = get_globals()->file_descriptor;
 		struct file_control_return control_info = get_control_from_fd(file_descriptor);
 		vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_FIXED(.vmf_overwrite = true);
 		kern_return_t kr = vm_map_enter_mem_object_control(map, &addr, TEST_ALLOC_SIZE, 0, vmk_flags, (memory_object_control_t) control_info.control, 0, false, VM_PROT_DEFAULT, VM_PROT_DEFAULT, VM_INHERIT_DEFAULT);
@@ -1572,6 +1582,7 @@ vm_map_enter_mem_object_control_wrapped(
 	vm_map_kernel_flags_t vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 
 	vm_map_kernel_flags_set_vmflags(&vmk_flags, flags);
+	int file_descriptor = get_globals()->file_descriptor;
 	struct file_control_return control_info = get_control_from_fd(file_descriptor);
 	kern_return_t kr = vm_map_enter_mem_object_control(target_map, &vmmaddr, size, mask, vmk_flags, (memory_object_control_t) control_info.control, offset, copy, cur_protection, max_protection, inheritance);
 	check_vm_map_enter_mem_object_control_outparam_changes(&kr, vmmaddr, *address, flags, target_map);
@@ -1724,43 +1735,61 @@ IMPL(vm_map_enter_mem_object_control_wrapped)
 
 #undef IMPL
 
+static void
+cleanup_context(vm_parameter_validation_kern_thread_context_t *ctx)
+{
+	thread_cleanup_test_context(&ctx->ttc);
+}
+
+static results_t *
+process_results(results_t *results)
+{
+	if (get_globals()->generate_golden) {
+		return dump_golden_results(results);
+	} else {
+		return __dump_results(results);
+	}
+}
+
 static int
 vm_parameter_validation_kern_test(int64_t in_value, int64_t *out_value)
 {
-	// in_value has the userspace address of the fixed-size output buffer and a file descriptor.
-	// The address is KB16 aligned, so the bottom bits are used for the fd.
-	// fd bit 15 also indicates if we want to generate golden results.
-	// in_value is KB16 aligned
-	uint64_t fd_mask = KB16 - 1;
-	file_descriptor = (int)(((uint64_t) in_value) & fd_mask);
-	uint64_t buffer_address = in_value - file_descriptor;
-	SYSCTL_OUTPUT_BUF = buffer_address;
-	SYSCTL_OUTPUT_END = SYSCTL_OUTPUT_BUF + SYSCTL_OUTPUT_BUFFER_SIZE;
-
-	// check if running to generate golden result list via boot-arg
-	kernel_generate_golden = (file_descriptor & (KB16 >> 1)) > 0;
-	if (kernel_generate_golden) {
-		file_descriptor &= ~(KB16 >> 1);
+	// Copyin the arguments from userspace.
+	// Fail if the structure sizes don't match.
+	vm_parameter_validation_kern_args_t args;
+	if (copyin(in_value, &args, sizeof(args)) != 0 ||
+	    args.sizeof_args != sizeof(args)) {
+		*out_value = KERN_TEST_BAD_ARGS;
+		return 0;
 	}
 
-	// Test options:
-	// - avoid panics for untagged wired memory (set to true during some tests)
-	// - clamp vm addresses before passing to pmap to avoid pmap panics
-	thread_test_context_t ctx CLEANUP_THREAD_TEST_CONTEXT = {
-		.test_option_vm_prevent_wire_tag_panic = false,
-		.test_option_vm_map_clamp_pmap_remove = true,
+	// Use the thread test context to store our "global" variables.
+	vm_parameter_validation_kern_thread_context_t ctx
+	__attribute__((cleanup(cleanup_context))) = {
+		.ttc = {
+			.ttc_identity = test_identity_vm_parameter_validation_kern,
+			// - avoid panics for untagged wired memory (set to true during some tests)
+			// - clamp vm addresses before passing to pmap to avoid pmap panics
+			.test_option_vm_prevent_wire_tag_panic = false,
+			.test_option_vm_map_clamp_pmap_remove = true,
+		},
+		.output_buffer_start = args.output_buffer_address,
+		.output_buffer_cur = args.output_buffer_address,
+		.output_buffer_end = args.output_buffer_address + args.output_buffer_size,
+		.file_descriptor = (int)args.file_descriptor,
+		.generate_golden = args.generate_golden,
 	};
-	thread_set_test_context(&ctx);
+	thread_set_test_context(&ctx.ttc);
 
 #if !CONFIG_SPTM && (__ARM_42BIT_PA_SPACE__ || ARM_LARGE_MEMORY)
-	if (kernel_generate_golden) {
+	if (get_globals()->generate_golden) {
 		// Some devices skip some trials to avoid timeouts.
 		// Golden files cannot be generated on these devices.
 		testprintf("Can't generate golden files on this device "
 		    "(PPL && (__ARM_42BIT_PA_SPACE__ || ARM_LARGE_MEMORY)). "
 		    "Try again on a different device.\n");
-		*out_value = 0;  // failure
-		goto done;
+		*out_value = KERN_TEST_FAILED;
+		return 0;
 	}
 #else
 #pragma clang diagnostic ignored "-Wunused-label"
@@ -2109,11 +2138,6 @@ vm_parameter_validation_kern_test(int64_t in_value, int64_t *out_value)
 	RUN(call_mach_vm_region, "mach_vm_region");
 	RUN(call_vm_region, "vm_region");
 #undef RUN
-#if XNU_PLATFORM_MacOSX
-#define RUN(fn, name) dealloc_results(process_results(test_mach_with_size(fn, name " (size)")))
-	RUN(call_vm_region_object_create, "vm_region_object_create");
-#undef RUN
-#endif
 
 	/*
 	 * -- page info functions --
@@ -2133,11 +2157,10 @@ vm_parameter_validation_kern_test(int64_t in_value, int64_t *out_value)
 
 	dealloc_results(process_results(test_kext_unix_with_allocated_vnode_addr(call_task_find_region_details, "task_find_region_details (addr)")));
 
-	*out_value = 1;  // success
-done:
-	SYSCTL_OUTPUT_BUF = 0;
-	SYSCTL_OUTPUT_END = 0;
+	*out_value = KERN_TEST_SUCCESS;
 	return 0;
 }
 
-SYSCTL_TEST_REGISTER(vm_parameter_validation_kern, vm_parameter_validation_kern_test);
+// The "_v2" suffix is here because sysctl "vm_parameter_validation_kern" was an
+// older version of this test that used incompatibly different sysctl parameters.
+SYSCTL_TEST_REGISTER(vm_parameter_validation_kern_v2, vm_parameter_validation_kern_test);

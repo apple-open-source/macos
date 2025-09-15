@@ -86,7 +86,7 @@ RetainPtr<NSURLRequest> registerQLPreviewConverterIfNeeded(NSURL *url, NSString 
 
         // We use [request URL] here instead of url since it will be
         // the URL that the WebDataSource will see during -dealloc.
-        addQLPreviewConverterWithFileForURL(previewRequest.url(), converter.get(), nil);
+        addQLPreviewConverterWithFileForURL(previewRequest.url().createNSURL().get(), converter.get(), nil);
 
         return previewRequest.nsURLRequest(HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody);
     }

@@ -1,5 +1,7 @@
 #if OCTAGON
 
+import FeatureFlags
+
 class OctagonHealthCheckTests: OctagonTestsBase {
     func testHealthCheckAllTrusted() throws {
         let containerName = OTCKContainerName
@@ -32,7 +34,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
@@ -60,7 +66,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.cuttlefishContext.checkOctagonHealth(false, repair: false) { response, error in
+        self.cuttlefishContext.checkOctagonHealth(false,
+                                                  repair: false,
+                                                  danglingPeerCleanup: false,
+                                                  updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "should be no error")
             healthCheckCallback.fulfill()
@@ -86,7 +95,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         try! self.cuttlefishContext.accountMetadataStore.persistOctagonJoinAttempt(.ATTEMPTED)
 
         let healthCheckCallback2 = self.expectation(description: "healthCheckCallback callback occurs")
-        cuttlefishContext.checkOctagonHealth(false, repair: false) { response, error in
+        self.cuttlefishContext.checkOctagonHealth(false,
+                                                  repair: false,
+                                                  danglingPeerCleanup: false,
+                                                  updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "should be no error")
             healthCheckCallback2.fulfill()
@@ -134,7 +146,10 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        cuttlefishContext.checkOctagonHealth(false, repair: false) { response, error in
+        self.cuttlefishContext.checkOctagonHealth(false,
+                                                  repair: false,
+                                                  danglingPeerCleanup: false,
+                                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
@@ -192,8 +207,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
             XCTFail("error loading account state: \(error)")
         }
 
-        var healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        cuttlefishContext.checkOctagonHealth(false, repair: false) { response, error in
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.cuttlefishContext.checkOctagonHealth(false,
+                                                  repair: false,
+                                                  danglingPeerCleanup: false,
+                                                  updateIdMS: false) { response, error in
             XCTAssertNotNil(response, "response should not be nil")
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
@@ -208,13 +226,16 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
         self.wait(for: [resetCallback], timeout: 10)
 
-        healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        cuttlefishContext.checkOctagonHealth(false, repair: false) { response, error in
+        let healthCheckCallback2 = self.expectation(description: "healthCheckCallback callback occurs")
+        self.cuttlefishContext.checkOctagonHealth(false,
+                                                  repair: false,
+                                                  danglingPeerCleanup: false,
+                                                  updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNil(error, "error should be nil")
-            healthCheckCallback.fulfill()
+            healthCheckCallback2.fulfill()
         }
-        self.wait(for: [healthCheckCallback], timeout: 10)
+        self.wait(for: [healthCheckCallback2], timeout: 10)
 
         #if !os(tvOS)
         XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should have posted a CFU")
@@ -260,7 +281,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.followupHandler.clearAllPostedFlags()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             if expectedResponse {
                 XCTAssertNotNil(response, "response should be nil")
             } else {
@@ -303,8 +328,13 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = false
         let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady, expectedResponse: true)
-        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
-        XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should have posted an escrow CFU")
+        if isFeatureEnabled(SecurityFeatures.SEPBasedICSCHealingEnabled) {
+            XCTAssertFalse(self.otFollowUpController.postedFollowUp, "should not have posted a CFU")
+            XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should not have posted an escrow CFU")
+        } else {
+            XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
+            XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.confirmExistingSecret), "should have posted an escrow CFU")
+        }
     }
 
     func testCuttlefishResponseResetOctagon() throws {
@@ -357,7 +387,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "Should be an error calling 'healthCheck'")
             XCTAssertEqual(error!._domain, CKKSResultErrorDomain, "Error domain should be CKKSResultErrorDomain")
             XCTAssertEqual(error!._code, CKKSResultTimedOut, "Error result should be CKKSResultTimedOut")
@@ -419,7 +453,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -473,7 +511,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -532,7 +574,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).code, OctagonError.noAppleAccount.rawValue, "Error code should be NoAppleAccount")
             XCTAssertNil(response, "response should be nil")
@@ -555,7 +601,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -582,7 +632,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -632,7 +686,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -673,7 +731,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // A health check should fail, and leave us waiting for the initial unlock
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should be present")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -714,8 +776,12 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         var before: UInt64 = 0
-        var healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             do {
                 let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
@@ -744,13 +810,17 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         sleep(5)
 
-        healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        let healthCheckCallback2 = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
-            healthCheckCallback.fulfill()
+            healthCheckCallback2.fulfill()
         }
-        self.wait(for: [healthCheckCallback], timeout: 10)
+        self.wait(for: [healthCheckCallback2], timeout: 10)
 
         var after: UInt64 = 0
         do {
@@ -779,8 +849,12 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // check health again, should be updated
         var updatedHealthCheck: UInt64 = 0
-        healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        let healthCheckCallback3 = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             do {
                 let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext, personaAdapter: self.mockPersonaAdapter!, personaUniqueString: nil)
@@ -791,9 +865,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
                 XCTFail("error loading from keychain: \(error)")
             }
             XCTAssertNotNil(response, "response should not be nil")
-            healthCheckCallback.fulfill()
+            healthCheckCallback3.fulfill()
         }
-        self.wait(for: [healthCheckCallback], timeout: 10)
+        self.wait(for: [healthCheckCallback3], timeout: 10)
 
         XCTAssertTrue(updatedHealthCheck > healthCheckMinusTwoDays, "time stamp should have changed")
     }
@@ -922,7 +996,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -948,7 +1026,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDPCapableSecurityLevel, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(response, "response should be nil")
             XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
             if let error = error as? NSError {
@@ -982,7 +1064,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // The health check fires...
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { result, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { result, error in
             XCTAssertNil(result, "should have no result")
             XCTAssertNotNil(error, "should have an error when health-checking when Octagon thinks the account is SA")
             if let error = error as? NSError {
@@ -1033,7 +1119,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [statusexpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -1171,7 +1261,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.pauseOctagonStateMachine(context: self.cuttlefishContext, entering: OctagonStateTPHTrustCheck)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNil(error, "error should be nil")
             XCTAssertNil(response, "response should be nil")
             healthCheckCallback.fulfill()
@@ -1213,7 +1307,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [leaveExpectation], timeout: 10)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
-        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext), skipRateLimitingCheck: false, repair: false) { response, error in
+        self.manager.healthCheck(OTControlArguments(configuration: self.otcliqueContext),
+                                 skipRateLimitingCheck: false,
+                                 repair: false,
+                                 danglingPeerCleanup: false,
+                                 updateIdMS: false) { response, error in
             XCTAssertNotNil(error, "error should not be nil")
 
             if let error = error as? NSError {

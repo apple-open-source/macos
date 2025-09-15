@@ -45,10 +45,12 @@ struct WebKit::RemoteMediaPlayerProxyConfiguration {
     bool shouldUsePersistentCache;
     bool isVideo;
     bool renderingCanBeAccelerated;
-    bool prefersSandboxedParsing;
     bool shouldDisableHDR;
 #if PLATFORM(IOS_FAMILY)
     bool canShowWhileLocked;
+#endif
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    bool prefersSpatialAudioExperience;
 #endif
 };
 #endif

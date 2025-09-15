@@ -140,6 +140,7 @@
     /* For writes - Set the dirty bit. */
     if (isWrite) {
         [self.volume.fatManager setDirtyBitValue:dirtyBitDirty
+                                forceWriteToDisk:false
                                     replyHandler:^(NSError * _Nullable fatError) {
             if (fatError) {
                 /* just log the error, don't fail the blockmap. */
@@ -280,6 +281,7 @@
 
     /* Set the dirty bit, as we're going to flush the dir entry to disk. */
     [self.volume.fatManager setDirtyBitValue:dirtyBitDirty
+                            forceWriteToDisk:false
                                 replyHandler:^(NSError * _Nullable fatError) {
         if (fatError) {
             /* just log the error, don't fail the endIO. */

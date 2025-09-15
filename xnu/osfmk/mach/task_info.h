@@ -585,6 +585,16 @@ typedef struct task_security_config_info * task_security_config_info_t;
 #define TASK_SECURITY_CONFIG_INFO_COUNT  ((mach_msg_type_number_t) \
 	        (sizeof(struct task_security_config_info) / sizeof(natural_t)))
 
+
+#define TASK_IPC_SPACE_POLICY_INFO  33 /* Runtime security mitigations configuration for the task */
+struct task_ipc_space_policy_info {
+	uint32_t  space_policy;                       /* Configuration bitmask */
+};
+
+typedef struct task_ipc_space_policy_info * task_ipc_space_policy_info_t;
+#define TASK_IPC_SPACE_POLICY_INFO_COUNT  ((mach_msg_type_number_t) \
+	        (sizeof(struct task_ipc_space_policy_info) / sizeof(natural_t)))
+
 /*
  * Type to control EXC_GUARD delivery options for a task
  * via task_get/set_exc_guard_behavior interface(s).
@@ -631,14 +641,13 @@ typedef uint32_t task_corpse_forking_behavior_t;
 __options_decl(task_control_port_options_t, uint32_t, {
 	TASK_CONTROL_PORT_OPTIONS_NONE     = 0x00000000,
 
-	TASK_CONTROL_PORT_PINNED_SOFT      = 0x00000001,
-	TASK_CONTROL_PORT_PINNED_HARD      = 0x00000002,
-	TASK_CONTROL_PORT_IMMOVABLE_SOFT   = 0x00000004,
-	TASK_CONTROL_PORT_IMMOVABLE_HARD   = 0x00000008,
-});
+	TASK_CONTROL_PORT_IMMOVABLE_SOFT   = 0x00000001,
+	TASK_CONTROL_PORT_IMMOVABLE_HARD   = 0x00000002,
 
-#define TASK_CONTROL_PORT_IMMOVABLE (TASK_CONTROL_PORT_IMMOVABLE_SOFT | TASK_CONTROL_PORT_IMMOVABLE_HARD)
-#define TASK_CONTROL_PORT_PINNED    (TASK_CONTROL_PORT_PINNED_SOFT | TASK_CONTROL_PORT_PINNED_HARD)
+	TASK_CONTROL_PORT_IMMOVABLE_MASK   = (
+		TASK_CONTROL_PORT_IMMOVABLE_SOFT |
+		TASK_CONTROL_PORT_IMMOVABLE_HARD),
+});
 
 #endif /* XNU_KERNEL_PRIVATE */
 

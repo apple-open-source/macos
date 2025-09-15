@@ -108,7 +108,7 @@ static inline int ntfs_get_cb_type(ntfs_inode *ni, s64 ofs)
 #ifdef DEBUG
 	const char *cb_type_str[3] = { "sparse", "compressed", "uncompressed" };
 #endif /* DEBUG */
-	BOOL is_retry, write_locked;
+	NTFS_BOOL is_retry, write_locked;
 
 	ntfs_debug("Entering for compressed file inode 0x%llx, offset 0x%llx.",
 			(unsigned long long)ni->mft_no,
@@ -351,7 +351,7 @@ static inline errno_t ntfs_decompress(ntfs_volume *vol, u8 *dst_start,
 	u8 tag;			/* Current tag. */
 	unsigned token;		/* Loop counter for the eight tokens in tag. */
 	unsigned skip_sbs;
-	BOOL skip_valid_pages;
+	NTFS_BOOL skip_valid_pages;
 
 	ntfs_debug("Entering, compression block size 0x%x bytes.", cb_size);
 	/* Do we need to test for and skip valid pages in the destination? */
@@ -419,7 +419,7 @@ next_sb:
 	 * skip the sub-block.
 	 */
 	if (skip_valid_pages) {
-		BOOL skip_sb;
+		NTFS_BOOL skip_sb;
 
 		skip_sb = upl_valid_page(pl, cur_pg);
 		/*

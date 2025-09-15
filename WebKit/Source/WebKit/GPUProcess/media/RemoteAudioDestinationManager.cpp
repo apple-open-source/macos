@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,10 @@
 #include <WebCore/CAAudioStreamDescription.h>
 #include <WebCore/CARingBuffer.h>
 #include <WebCore/WebAudioBufferList.h>
+#endif
+
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+#include <WebCore/SpatialAudioExperienceHelper.h>
 #endif
 
 #define MESSAGE_CHECK(assertion, message) MESSAGE_CHECK_WITH_MESSAGE_BASE(assertion, &connection->connection(), message)
@@ -108,6 +112,29 @@ public:
     }
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    void setSceneIdentifier(const String& sceneIdentifier)
+    {
+        if (m_sceneIdentifier == sceneIdentifier)
+            return;
+        m_sceneIdentifier = sceneIdentifier;
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+        if (!m_prefersSpatialAudioExperience) {
+            ALWAYS_LOG(LOGIDENTIFIER, sceneIdentifier, ", but !prefersSpatialAudioExperience, so bailing");
+            return;
+        }
+
+        ALWAYS_LOG(LOGIDENTIFIER, sceneIdentifier);
+        RetainPtr experience = WebCore::createSpatialAudioExperienceWithOptions({ .sceneIdentifier = m_sceneIdentifier });
+        m_audioOutputUnitAdaptor.setSpatialAudioExperience(experience.get());
+#endif
+    }
+#endif
+
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    void setPrefersSpatialAudioExperience(bool value) { m_prefersSpatialAudioExperience = value; }
+#endif
+
     void start()
     {
 #if PLATFORM(COCOA)
@@ -159,6 +186,9 @@ private:
         ASSERT(!isMainRunLoop());
 
         OSStatus status = -1;
+        if (!m_ringBuffer)
+            return status;
+
         if (m_ringBuffer->fetchIfHasEnoughData(ioData, numberOfFrames, m_startFrame)) {
             m_startFrame += numberOfFrames;
             status = noErr;
@@ -191,6 +221,14 @@ private:
     std::unique_ptr<ConsumerSharedCARingBuffer> m_ringBuffer;
     uint64_t m_startFrame { 0 };
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+    String m_sceneIdentifier;
+#endif
+
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    bool m_prefersSpatialAudioExperience;
+#endif
 };
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteAudioDestinationManager);
@@ -212,7 +250,7 @@ void RemoteAudioDestinationManager::deref() const
     m_gpuConnectionToWebProcess.get()->deref();
 }
 
-void RemoteAudioDestinationManager::createAudioDestination(RemoteAudioDestinationIdentifier identifier, const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore, WebCore::SharedMemory::Handle&& handle, CompletionHandler<void(size_t)>&& completionHandler)
+void RemoteAudioDestinationManager::createAudioDestination(RemoteAudioDestinationIdentifier identifier, const String& inputDeviceId, uint32_t numberOfInputChannels, uint32_t numberOfOutputChannels, float sampleRate, float hardwareSampleRate, IPC::Semaphore&& renderSemaphore, WebCore::SharedMemory::Handle&& handle, CompletionHandler<void(uint64_t)>&& completionHandler)
 {
     auto connection = m_gpuConnectionToWebProcess.get();
     if (!connection) {
@@ -227,6 +265,12 @@ void RemoteAudioDestinationManager::createAudioDestination(RemoteAudioDestinatio
 #else
     UNUSED_PARAM(handle);
 #endif
+
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    auto sharedPreferences = connection->sharedPreferencesForWebProcess();
+    destination->setPrefersSpatialAudioExperience(sharedPreferences && sharedPreferences->preferSpatialAudioExperience);
+#endif
+
     size_t latency = destination->audioUnitLatency();
     m_audioDestinations.add(identifier, WTFMove(destination));
     completionHandler(latency);
@@ -242,10 +286,10 @@ void RemoteAudioDestinationManager::deleteAudioDestination(RemoteAudioDestinatio
     m_audioDestinations.remove(identifier);
 
     if (allowsExitUnderMemoryPressure())
-        connection->protectedGPUProcess()->tryExitIfUnusedAndUnderMemoryPressure();
+        connection->gpuProcess().tryExitIfUnusedAndUnderMemoryPressure();
 }
 
-void RemoteAudioDestinationManager::startAudioDestination(RemoteAudioDestinationIdentifier identifier, CompletionHandler<void(bool, size_t)>&& completionHandler)
+void RemoteAudioDestinationManager::startAudioDestination(RemoteAudioDestinationIdentifier identifier, CompletionHandler<void(bool, uint64_t)>&& completionHandler)
 {
     auto connection = m_gpuConnectionToWebProcess.get();
     if (!connection)
@@ -301,6 +345,15 @@ std::optional<SharedPreferencesForWebProcess> RemoteAudioDestinationManager::sha
 
     return std::nullopt;
 }
+
+#if PLATFORM(IOS_FAMILY)
+void RemoteAudioDestinationManager::setSceneIdentifier(RemoteAudioDestinationIdentifier identifier, String&& sceneIdentifier)
+{
+    if (auto* item = m_audioDestinations.get(identifier))
+        item->setSceneIdentifier(sceneIdentifier);
+}
+#endif
+
 
 } // namespace WebKit
 

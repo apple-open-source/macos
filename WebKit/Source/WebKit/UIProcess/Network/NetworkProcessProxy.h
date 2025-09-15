@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -341,8 +341,14 @@ public:
 
     void notifyMediaStreamingActivity(bool);
 
-    void fetchLocalStorage(PAL::SessionID, CompletionHandler<void(HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&)>&&);
+    void fetchLocalStorage(PAL::SessionID, CompletionHandler<void(std::optional<HashMap<WebCore::ClientOrigin, HashMap<String, String>>>&&)>&&);
     void restoreLocalStorage(PAL::SessionID, HashMap<WebCore::ClientOrigin, HashMap<String, String>>&&, CompletionHandler<void(bool)>&&);
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    void resetResourceMonitorThrottlerForTesting(PAL::SessionID, CompletionHandler<void()>&&);
+#endif
+
+    void setDefaultRequestTimeoutInterval(double);
 
 private:
     explicit NetworkProcessProxy();
@@ -363,7 +369,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) override;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
     // Note: uses dispatchMessage, dispatchSyncMessage from superclass.
 
     // ResponsivenessTimer::Client
@@ -396,7 +402,7 @@ private:
     void establishRemoteWorkerContextConnectionToNetworkProcess(RemoteWorkerType, WebCore::Site&&, std::optional<WebCore::ProcessIdentifier> requestingProcessIdentifier, std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, PAL::SessionID, CompletionHandler<void(std::optional<WebCore::ProcessIdentifier>)>&&);
     void registerRemoteWorkerClientProcess(RemoteWorkerType, WebCore::ProcessIdentifier clientProcessIdentifier, WebCore::ProcessIdentifier remoteWorkerProcessIdentifier);
     void unregisterRemoteWorkerClientProcess(RemoteWorkerType, WebCore::ProcessIdentifier clientProcessIdentifier, WebCore::ProcessIdentifier remoteWorkerProcessIdentifier);
-    void reportConsoleMessage(PAL::SessionID, const URL&, const WebCore::SecurityOriginData&, MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier);
+    void reportConsoleMessage(PAL::SessionID, const URL&, const WebCore::SecurityOriginData&, MessageSource, MessageLevel, const String& message, uint64_t requestIdentifier);
 
     void terminateWebProcess(WebCore::ProcessIdentifier);
 
@@ -426,7 +432,11 @@ private:
     void removeBackgroundStateObservers();
 #endif
 
-    std::unique_ptr<DownloadProxyMap> m_downloadProxyMap;
+#if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
+    Ref<LegacyCustomProtocolManagerProxy> protectedCustomProtocolManagerProxy() { return m_customProtocolManagerProxy; }
+#endif
+
+    const std::unique_ptr<DownloadProxyMap> m_downloadProxyMap;
 
     UniqueRef<API::CustomProtocolManagerClient> m_customProtocolManagerClient;
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
@@ -472,7 +482,7 @@ private:
     // because the network process is not allowed to talk to talk to runningboardd due
     // to sandboxing. See rdar://112406083 & rdar://112086186 for potential long-term
     // fixes.
-    Ref<ProcessThrottlerActivity> m_backgroundActivityToPreventSuspension;
+    const Ref<ProcessThrottlerActivity> m_backgroundActivityToPreventSuspension;
 #endif
 
 #if PLATFORM(IOS_FAMILY)

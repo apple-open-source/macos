@@ -651,7 +651,11 @@ kern_return_t
 vm32_vm_map_exec_lockdown(
 	vm_map_t        map)
 {
+	vmlp_api_start(VM32__MAP_EXEC_LOCKDOWN);
+	vmlp_range_event_none(map);
+
 	if (map == VM_MAP_NULL) {
+		vmlp_api_end(VM32__MAP_EXEC_LOCKDOWN, KERN_INVALID_ARGUMENT);
 		return KERN_INVALID_ARGUMENT;
 	}
 
@@ -659,6 +663,7 @@ vm32_vm_map_exec_lockdown(
 	map->map_disallow_new_exec = TRUE;
 	vm_map_unlock(map);
 
+	vmlp_api_end(VM32__MAP_EXEC_LOCKDOWN, KERN_SUCCESS);
 	return KERN_SUCCESS;
 }
 

@@ -46,6 +46,7 @@ NSString * const WKWebsiteDataTypeFileSystem = @"WKWebsiteDataTypeFileSystem";
 NSString * const WKWebsiteDataTypeSearchFieldRecentSearches = @"WKWebsiteDataTypeSearchFieldRecentSearches";
 NSString * const WKWebsiteDataTypeMediaKeys = @"WKWebsiteDataTypeMediaKeys";
 NSString * const WKWebsiteDataTypeHashSalt = @"WKWebsiteDataTypeHashSalt";
+NSString * const WKWebsiteDataTypeScreenTime = @"WKWebsiteDataTypeScreenTime";
 
 NSString * const _WKWebsiteDataTypeMediaKeys = WKWebsiteDataTypeMediaKeys;
 NSString * const _WKWebsiteDataTypeHSTSCache = @"_WKWebsiteDataTypeHSTSCache";
@@ -113,6 +114,10 @@ static NSString *dataTypesToString(NSSet *dataTypes)
         [array addObject:@"Private Click Measurements"];
     if ([dataTypes containsObject:_WKWebsiteDataTypeAlternativeServices])
         [array addObject:@"Alternative Services"];
+#if ENABLE(SCREEN_TIME)
+    if ([dataTypes containsObject:WKWebsiteDataTypeScreenTime])
+        [array addObject:@"Screen Time"];
+#endif
 
     return [array componentsJoinedByString:@", "];
 }
@@ -130,7 +135,7 @@ static NSString *dataTypesToString(NSSet *dataTypes)
 
 - (NSString *)displayName
 {
-    return _websiteDataRecord->websiteDataRecord().displayName;
+    return _websiteDataRecord->websiteDataRecord().displayName.createNSString().autorelease();
 }
 
 - (NSSet *)dataTypes
@@ -161,8 +166,8 @@ static NSString *dataTypesToString(NSSet *dataTypes)
 
 - (NSArray<NSString *> *)_originsStrings
 {
-    return createNSArray(_websiteDataRecord->websiteDataRecord().origins, [] (auto& origin) -> NSString * {
-        return origin.toString();
+    return createNSArray(_websiteDataRecord->websiteDataRecord().origins, [] (auto& origin) {
+        return origin.toString().createNSString();
     }).autorelease();
 }
 

@@ -118,7 +118,7 @@ struct tcp_notify_ack_complete {
 
 #define TCP_NOTIFY_ACKNOWLEDGEMENT      0x212   /* Notify when data is acknowledged */
 #define MPTCP_SERVICE_TYPE              0x213   /* MPTCP Service type */
-#define TCP_FASTOPEN_FORCE_HEURISTICS   0x214   /* Make sure TFO-heuristics never get disabled */
+/* UNUSED 0x214 */
 
 #define MPTCP_SVCTYPE_HANDOVER          0 /* Default 0 */
 #define MPTCP_SVCTYPE_INTERACTIVE       1
@@ -156,7 +156,7 @@ struct tcp_notify_ack_complete {
 #define TCPI_OPT_ECN            0x08
 
 #define TCPI_FLAG_LOSSRECOVERY  0x01    /* Currently in loss recovery */
-#define TCPI_FLAG_STREAMING_ON  0x02    /* Streaming detection on */
+#define TCPI_FLAG_STREAMING_ON  0x02    /* Streaming detection on - remove when uTCP stops using it */
 
 struct tcp_conn_status {
 	union {
@@ -309,7 +309,6 @@ struct tcp_info {
 
 	u_int64_t       tcpi_txretransmitpackets __attribute__((aligned(8)));
 
-#define TCPINFO_HAS_RCV_RTT 1
 	uint32_t       tcpi_rcv_srtt;       /* Receiver's Smoothed RTT */
 	uint32_t       tcpi_client_accecn_state;   /* Client's Accurate ECN state */
 	uint32_t       tcpi_server_accecn_state;   /* Server's Accurate ECN state as seen by clent */
@@ -330,6 +329,10 @@ struct tcp_info {
 #define TCPINFO_HAS_LIMITED_TIME 1
 	uint64_t       tcpi_flow_control_total_time;
 	uint64_t       tcpi_rcvwnd_limited_total_time;
+
+#define TCPINFO_HAS_PACING_RATE 1
+	uint64_t       tcpi_pacing_rate;
+	uint64_t       tcpi_max_pacing_rate;
 };
 
 struct tcp_measure_bw_burst {

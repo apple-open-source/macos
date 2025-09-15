@@ -61,11 +61,15 @@ struct JumpTableEntry;
 
 #define WRITE_TO_METADATA(dst, src, type) \
     do { \
-        type tmp = src; \
-        memcpy(dst, &tmp, sizeof(type)); \
+        type tmp = (src); \
+        memcpy((dst), &tmp, sizeof(type)); \
     } while (false)
 
 class FunctionIPIntMetadataGenerator {
+    struct MetadataBufferMalloc final : public FastMalloc {
+        static constexpr ALWAYS_INLINE size_t nextCapacity(size_t capacity) { return capacity + capacity; }
+    };
+
     WTF_MAKE_TZONE_ALLOCATED(FunctionIPIntMetadataGenerator);
     WTF_MAKE_NONCOPYABLE(FunctionIPIntMetadataGenerator);
 
@@ -80,19 +84,21 @@ public:
     }
 
     FunctionCodeIndex functionIndex() const { return m_functionIndex; }
+    bool hasTailCallSuccessors() const { return m_hasTailCallSuccessors; }
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
     void setTailCall(uint32_t, bool);
     void setTailCallClobbersInstance() { m_tailCallClobbersInstance = true; }
 
     const uint8_t* getBytecode() const { return m_bytecode.data(); }
-    const uint8_t* getMetadata() const { return m_metadata.data(); }
+    const uint8_t* getMetadata() const { return m_metadata.span().data(); }
 
     UncheckedKeyHashMap<IPIntPC, IPIntTierUpCounter::OSREntryData>& tierUpCounter() { return m_tierUpCounter; }
 
     unsigned addSignature(const TypeDefinition&);
 
 private:
+    using MetadataBuffer = Vector<uint8_t, 0, UnsafeVectorOverflow, 16, MetadataBufferMalloc>;
 
     inline void addBlankSpace(size_t);
     template <typename T> inline void addBlankSpace() { addBlankSpace(sizeof(T)); };
@@ -101,21 +107,22 @@ private:
     {
         auto size = m_metadata.size();
         addBlankSpace<T>();
-        WRITE_TO_METADATA(m_metadata.data() + size, t, T);
+        WRITE_TO_METADATA(m_metadata.mutableSpan().data() + size, t, T);
     };
 
     void addLength(size_t length);
     void addLEB128ConstantInt32AndLength(uint32_t value, size_t length);
     void addLEB128ConstantAndLengthForType(Type, uint64_t value, size_t length);
     void addLEB128V128Constant(v128_t value, size_t length);
-    void addReturnData(const FunctionSignature&);
+    void addReturnData(const FunctionSignature&, const CallInformation&);
 
     FunctionCodeIndex m_functionIndex;
+    bool m_hasTailCallSuccessors { false };
     bool m_tailCallClobbersInstance { false };
     BitVector m_tailCallSuccessors;
 
     std::span<const uint8_t> m_bytecode;
-    Vector<uint8_t> m_metadata { };
+    MetadataBuffer m_metadata { };
     Vector<uint8_t, 8> m_uINTBytecode { };
     unsigned m_highestReturnStackOffset;
 

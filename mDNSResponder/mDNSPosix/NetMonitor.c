@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4 -*-
  *
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2025 Apple Computer, Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,8 @@
 #   include <mDNSEmbeddedAPI.h>
 #   include <mDNSWin32.h>
 #   include <PosixCompat.h>
+#   define if_nametoindex if_nametoindex_win
+#   define if_indextoname if_indextoname_win
 #   include <Poll.h>
 #   define IFNAMSIZ 256
 static HANDLE gStopEvent = INVALID_HANDLE_VALUE;
@@ -131,7 +133,7 @@ static ActivityStat *stats;
 
 #define OPBanner "Total Ops   Probe   Goodbye  BrowseQ  BrowseA ResolveQ ResolveA"
 
-mDNSexport void mDNSCoreReceive(mDNS *const m, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID);
+mDNSexport void mDNSCoreReceive(mDNS *const m, DNSMessage *const msg, const mDNSu8 *const end, const mDNSAddr *const srcaddr, const mDNSIPPort srcport, const mDNSAddr *dstaddr, const mDNSIPPort dstport, const mDNSInterfaceID InterfaceID, const mDNSs32 receivedTimestamp);
 
 //*************************************************************************************************************
 // Utilities
@@ -819,7 +821,8 @@ mDNSlocal mDNSBool AddressMatchesFilterList(const mDNSAddr *srcaddr)
 }
 
 mDNSexport void mDNSCoreReceive(mDNS *const m, DNSMessage *const msg, const mDNSu8 *const end,
-                                const mDNSAddr *srcaddr, mDNSIPPort srcport, const mDNSAddr *dstaddr, mDNSIPPort dstport, const mDNSInterfaceID InterfaceID)
+                                const mDNSAddr *srcaddr, mDNSIPPort srcport, const mDNSAddr *dstaddr, mDNSIPPort dstport, const mDNSInterfaceID InterfaceID,
+                                const mDNSs32 receivedTimestamp)
 {
     const mDNSu8 StdQ = kDNSFlag0_QR_Query    | kDNSFlag0_OP_StdQuery;
     const mDNSu8 StdR = kDNSFlag0_QR_Response | kDNSFlag0_OP_StdQuery;
@@ -827,8 +830,9 @@ mDNSexport void mDNSCoreReceive(mDNS *const m, DNSMessage *const msg, const mDNS
     mDNSu8 *ptr = (mDNSu8 *)&msg->h.numQuestions;
     int goodinterface = (FilterInterface == 0);
 
-    (void)dstaddr;  // Unused
-    (void)dstport;  // Unused
+    (void)dstaddr;           // Unused
+    (void)dstport;           // Unused
+    (void)receivedTimestamp; // Unused
 
     // Read the integer parts which are in IETF byte-order (MSB first, LSB second)
     msg->h.numQuestions   = (mDNSu16)((mDNSu16)ptr[0] <<  8 | ptr[1]);

@@ -58,7 +58,7 @@ struct LineSegment {
 };
 
 class Image;
-class RoundedRect;
+class LayoutRoundedRect;
 
 // A representation of a BasicShape that enables layout code to determine how to break a line up into segments
 // that will fit within or around a shape. The line is defined by a pair of logical Y coordinates and the
@@ -74,7 +74,7 @@ public:
 
     static Ref<const LayoutShape> createShape(const Style::BasicShape&, const LayoutPoint& borderBoxOffset, const LayoutSize& logicalBoxSize, WritingMode, float margin);
     static Ref<const LayoutShape> createRasterShape(Image*, float threshold, const LayoutRect& imageRect, const LayoutRect& marginRect, WritingMode, float margin);
-    static Ref<const LayoutShape> createBoxShape(const RoundedRect&, WritingMode, float margin);
+    static Ref<const LayoutShape> createBoxShape(const LayoutRoundedRect&, WritingMode, float margin);
 
     virtual ~LayoutShape() = default;
 

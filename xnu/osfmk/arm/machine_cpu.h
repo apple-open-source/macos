@@ -46,6 +46,7 @@ extern void cpu_doshutdown(void (*doshutdown)(processor_t), processor_t processo
 extern void cpu_idle(void);
 extern void cpu_idle_exit(boolean_t from_reset) __attribute__((noreturn));
 extern void cpu_idle_tickle(void);
+extern void cpu_set_perfcontrol_timer(uint64_t now, uint64_t timeout_ticks);
 
 extern void cpu_machine_idle_init(boolean_t from_boot);
 

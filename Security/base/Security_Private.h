@@ -30,6 +30,7 @@
 #include <Security/certExtensionTemplates.h>
 #include <Security/CKKSControl.h>
 #include <Security/CKKSControlProtocol.h>
+#include <Security/CKKSExternalTLKClient.h>
 #include <Security/CMSPrivate.h>
 #include <Security/CSCommonPriv.h>
 #include <Security/der_plist.h>
@@ -45,6 +46,7 @@
 #include <Security/Affordance_OTConstants.h>
 #include <Security/OTControl.h>
 #include <Security/OTControlProtocol.h>
+#include <Security/SecAsyncPiper.h>
 #include <Security/OTJoiningConfiguration.h>
 #include <Security/SecAccessControlPriv.h>
 #include <Security/SecAppleCorporateAnchors.h>
@@ -96,6 +98,7 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecProtocolConfiguration.h>
 #include <Security/SecProtocolPriv.h>
+#include <Security/SecProtocolRestrictedOptionsGoAwayIfNotApprovedForEPSKsPriv.h>
 #include <Security/SecProtocolTypesPriv.h>
 #include <Security/SecRecoveryKey.h>
 #include <Security/SecSCEP.h>

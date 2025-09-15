@@ -26,15 +26,10 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#include <mach/port.h>
-#include <mach/kern_return.h>
-#include <kern/ipc_tt.h>
-#include <ipc/ipc_port.h>
-#include <kern/zalloc.h>
+#include <kern/block_hint.h>
 #include <kern/kalloc.h>
-#include <kern/mach_param.h>
-#include <mach/message.h>
 #include <kern/mach_filter.h>
+#include <kern/task.h>
 #include <ipc/ipc_service_port.h>
 #include <security/mac_mach_internal.h>
 
@@ -66,7 +61,7 @@ kdp_ipc_fill_splabel(struct ipc_service_port_label *ispl,
 #if CONFIG_SERVICE_PORT_INFO
 	*namep = ispl->ispl_service_name;
 	spl->portlabel_domain = ispl->ispl_domain;
-	if (ipc_service_port_label_is_throttled(ispl)) {
+	if (ispl->ispl_throttled) {
 		spl->portlabel_flags |= STACKSHOT_PORTLABEL_THROTTLED;
 	}
 #endif
@@ -86,9 +81,11 @@ kdp_ipc_fill_splabel(struct ipc_service_port_label *ispl,
  *   KERN_SUCCESS
  */
 kern_return_t
-ipc_service_port_label_alloc(mach_service_port_info_t sp_info, void **port_label_ptr)
+ipc_service_port_label_alloc(
+	mach_service_port_info_t sp_info,
+	ipc_object_label_t     *label)
 {
-	ipc_service_port_label_t sp_label = IPC_SERVICE_PORT_LABEL_NULL;
+	ipc_service_port_label_t sp_label = NULL;
 	kern_return_t ret;
 	void *sblabel = NULL;
 
@@ -112,10 +109,25 @@ ipc_service_port_label_alloc(mach_service_port_info_t sp_info, void **port_label
 #endif /* CONFIG_SERVICE_PORT_INFO */
 
 	if (sp_info->mspi_domain_type == XPC_DOMAIN_PORT) {
-		sp_label->ispl_flags |= ISPL_FLAGS_BOOTSTRAP_PORT;
+		sp_label->ispl_bootstrap_port = true;
 	}
-	*port_label_ptr = (void *)sp_label;
+
+	label->iol_service = sp_label;
+	if (sblabel) {
+		/* always filter service ports with a label */
+		label->io_filtered = true;
+	}
+	if (sp_label->ispl_bootstrap_port) {
+		/* bootstrap ports are completely immovable thank you */
+		label->io_state = IO_STATE_IN_SPACE_IMMOVABLE;
+	}
 	return KERN_SUCCESS;
+}
+
+void
+ipc_connection_port_label_dealloc(ipc_object_label_t label)
+{
+	mach_msg_filter_dealloc_service_port_sblabel_callback(label.iol_connection);
 }
 
 /*
@@ -131,21 +143,17 @@ ipc_service_port_label_alloc(mach_service_port_info_t sp_info, void **port_label
  * Should not be called with the port lock held.
  */
 void
-ipc_service_port_label_dealloc(void *ip_splabel, bool service_port)
+ipc_service_port_label_dealloc(ipc_object_label_t label)
 {
-	void *sblabel = ip_splabel;
+	ipc_service_port_label_t sp_label = label.iol_service;
+	void *sblabel = sp_label->ispl_sblabel;
 
-	if (service_port) {
-		ipc_service_port_label_t sp_label = (ipc_service_port_label_t)ip_splabel;
-		sblabel = sp_label->ispl_sblabel;
 #if CONFIG_SERVICE_PORT_INFO
-		kfree_data(sp_label->ispl_service_name, strlen(sp_label->ispl_service_name) + 1);
+	kfree_data(sp_label->ispl_service_name, strlen(sp_label->ispl_service_name) + 1);
 #endif /* CONFIG_SERVICE_PORT_INFO */
-		zfree(ipc_service_port_label_zone, sp_label);
-	}
+	zfree(ipc_service_port_label_zone, sp_label);
 
 	if (sblabel) {
-		assert(mach_msg_filter_dealloc_service_port_sblabel_callback);
 		mach_msg_filter_dealloc_service_port_sblabel_callback(sblabel);
 	}
 }
@@ -166,14 +174,13 @@ ipc_service_port_label_dealloc(void *ip_splabel, bool service_port)
  *   KERN_INVALID_CAPABILITY: service_port_name is not a right to a service port
  */
 kern_return_t
-ipc_service_port_derive_sblabel(mach_port_name_t service_port_name, void **sblabel_ptr, bool *filter_msgs)
+ipc_service_port_derive_sblabel(
+	mach_port_name_t        service_port_name,
+	bool                    force,
+	ipc_object_label_t     *label)
 {
-	ipc_service_port_label_t port_label;
-	void *derived_sblabel = NULL;
-	void *sblabel = NULL;
 	ipc_port_t port;
 	kern_return_t kr;
-	boolean_t send_side_filtering = FALSE;
 #if CONFIG_MACF && XNU_TARGET_OS_OSX
 	struct mach_service_port_info sp_info = {};
 #endif
@@ -183,36 +190,39 @@ ipc_service_port_derive_sblabel(mach_port_name_t service_port_name, void **sblab
 	}
 
 	if (mach_msg_filter_at_least(MACH_MSG_FILTER_CALLBACKS_VERSION_1)) {
+		ipc_object_label_t sp_label;
+		boolean_t send_side_filtering;
+		void *sblabel = NULL;
+
 		kr = ipc_port_translate_send(current_space(), service_port_name, &port);
 		if (kr != KERN_SUCCESS) {
 			return kr;
 		}
 		/* port is locked and active */
 
-		if (ip_is_kolabeled(port) || !port->ip_service_port) {
-			ip_mq_unlock(port);
+		sp_label = ip_label_get(port);
+		if (!ip_is_any_service_port_type(sp_label.io_type)) {
+			ip_mq_unlock_label_put(port, &sp_label);
 			return KERN_INVALID_CAPABILITY;
 		}
 
-		port_label = (ipc_service_port_label_t)port->ip_splabel;
-		if (!port_label) {
-			ip_mq_unlock(port);
-			return KERN_SUCCESS;
-		}
-
 #if CONFIG_MACF && XNU_TARGET_OS_OSX
-		ipc_service_port_label_get_info(port_label, &sp_info);
+		ipc_service_port_label_get_info(sp_label.iol_service, &sp_info);
 #endif
 
-		sblabel = port_label->ispl_sblabel;
+		sblabel = sp_label.iol_service->ispl_sblabel;
 		if (sblabel) {
 			mach_msg_filter_retain_sblabel_callback(sblabel);
 		}
-		ip_mq_unlock(port);
+		ip_mq_unlock_label_put(port, &sp_label);
 
 		if (sblabel) {
 			/* This callback will release the reference on sblabel */
-			derived_sblabel = mach_msg_filter_derive_sblabel_from_service_port_callback(sblabel, &send_side_filtering);
+			label->iol_connection = mach_msg_filter_derive_sblabel_from_service_port_callback(sblabel,
+			    &send_side_filtering);
+			if (label->iol_connection && (send_side_filtering || force)) {
+				label->io_filtered = true;
+			}
 		}
 
 #if CONFIG_MACF && XNU_TARGET_OS_OSX
@@ -222,98 +232,7 @@ ipc_service_port_derive_sblabel(mach_port_name_t service_port_name, void **sblab
 #endif
 	}
 
-	*sblabel_ptr = derived_sblabel;
-	*filter_msgs = (bool)send_side_filtering;
 	return KERN_SUCCESS;
-}
-
-/*
- * Name: ipc_service_port_get_sblabel
- *
- * Description: Get the port's sandbox label.
- *
- * Args:
- *   port
- *
- * Conditions:
- *   Should be called on an active port with the lock held.
- *
- * Returns:
- *   Sandbox label
- */
-void *
-ipc_service_port_get_sblabel(ipc_port_t port)
-{
-	void *sblabel = NULL;
-	void *ip_splabel = NULL;
-
-	if (port == IP_NULL) {
-		return NULL;
-	}
-
-	ip_mq_lock_held(port);
-	assert(ip_active(port));
-
-	if (ip_is_kolabeled(port) || !port->ip_splabel) {
-		return NULL;
-	}
-
-	ip_splabel = port->ip_splabel;
-
-	if (!port->ip_service_port) {
-		sblabel = ip_splabel;
-		assert(sblabel != NULL);
-	} else {
-		ipc_service_port_label_t sp_label = (ipc_service_port_label_t)ip_splabel;
-		sblabel = sp_label->ispl_sblabel;
-	}
-
-	return sblabel;
-}
-
-/*
- * Name: ipc_service_port_label_set_attr
- *
- * Description: Set the remaining port label attributes after port allocation
- *
- * Args:
- *   port_splabel
- *   name : port name in launchd's ipc space
- *   context : launchd's port guard; will be restored after a port destroyed notification if non-zero
- *
- * Conditions:
- *   Should be called only once in mach_port_construct on a newly created port with the lock held
- *   The context should be set only if the port is guarded.
- */
-void
-ipc_service_port_label_set_attr(ipc_service_port_label_t port_splabel, mach_port_name_t name, mach_port_context_t context)
-{
-	assert(port_splabel->ispl_launchd_name == MACH_PORT_NULL);
-	port_splabel->ispl_launchd_name = name;
-	port_splabel->ispl_launchd_context = context;
-	if (context) {
-		ipc_service_port_label_set_flag(port_splabel, ISPL_FLAGS_SPECIAL_PDREQUEST);
-	}
-}
-
-/*
- * Name: ipc_service_port_label_get_attr
- *
- * Description: Get the port label attributes
- *
- * Args:
- *   port_splabel
- *   name : port name in launchd's ipc space
- *   context : launchd's port guard
- *
- * Conditions:
- *   Should be called with port lock held.
- */
-void
-ipc_service_port_label_get_attr(ipc_service_port_label_t port_splabel, mach_port_name_t *name, mach_port_context_t *context)
-{
-	*name = port_splabel->ispl_launchd_name;
-	*context = port_splabel->ispl_launchd_context;
 }
 
 #if CONFIG_SERVICE_PORT_INFO

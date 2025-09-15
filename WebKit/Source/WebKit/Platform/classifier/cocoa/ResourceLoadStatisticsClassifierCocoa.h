@@ -27,11 +27,10 @@
 
 #if HAVE(CORE_PREDICTION)
 
+#include "CorePredictionSPI.h"
 #include "ResourceLoadStatisticsClassifier.h"
 #include <wtf/Platform.h>
 #include <wtf/text/WTFString.h>
-
-struct svm_model;
 
 namespace WebKit {
 

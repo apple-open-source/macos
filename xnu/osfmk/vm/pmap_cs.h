@@ -110,7 +110,7 @@ typedef struct _pmap_img4_payload {
 } pmap_img4_payload_t;
 
 /* State for whether developer mode has been set or not */
-extern bool ppl_developer_mode_set;
+extern uint8_t ppl_developer_mode_set;
 
 /* State of developer mode on the system */
 extern bool ppl_developer_mode_storage;

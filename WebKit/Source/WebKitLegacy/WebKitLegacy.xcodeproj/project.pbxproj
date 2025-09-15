@@ -107,6 +107,7 @@
 		3ABB3C7A1309C3B500E93D94 /* WebStorageTrackerClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3ABB3C781309C3B500E93D94 /* WebStorageTrackerClient.h */; };
 		3ABB3C7B1309C3B500E93D94 /* WebStorageTrackerClient.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3ABB3C791309C3B500E93D94 /* WebStorageTrackerClient.mm */; };
 		3AE15D5012DBDED4009323C8 /* WebStorageManagerInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 3AE15D4F12DBDED4009323C8 /* WebStorageManagerInternal.h */; };
+		4447DA332DE7A93700C3CB99 /* TextIndicatorWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 4447DA292DE783EF00C3CB99 /* TextIndicatorWindow.h */; };
 		44BB8B141241A022001E3A22 /* WebArchiveInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 44BB8B131241A022001E3A22 /* WebArchiveInternal.h */; };
 		44DDD0822540F97F00836F81 /* TestingFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = 44DDD0812540F8C800836F81 /* TestingFunctions.h */; };
 		460135E5269FAD31007A8A95 /* WebBroadcastChannelRegistry.h in Headers */ = {isa = PBXBuildFile; fileRef = 460135E3269FAD31007A8A95 /* WebBroadcastChannelRegistry.h */; };
@@ -597,7 +598,6 @@
 		A10C1D8C1820305E0036883A /* WebPDFViewIPhone.h in Headers */ = {isa = PBXBuildFile; fileRef = A10C1D871820305E0036883A /* WebPDFViewIPhone.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A10C1D8D1820305E0036883A /* WebPDFViewPlaceholder.h in Headers */ = {isa = PBXBuildFile; fileRef = A10C1D881820305E0036883A /* WebPDFViewPlaceholder.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A10C1D8E1820305E0036883A /* WebPDFViewPlaceholder.mm in Sources */ = {isa = PBXBuildFile; fileRef = A10C1D891820305E0036883A /* WebPDFViewPlaceholder.mm */; };
-		A1382CDF24B15A51001645B0 /* LaBanquePostaleQuirks.js in Resources */ = {isa = PBXBuildFile; fileRef = A1382CDE24B15A51001645B0 /* LaBanquePostaleQuirks.js */; };
 		A17A11B1180DC84800E5498C /* WebPluginPackagePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A17A11B0180DC84800E5498C /* WebPluginPackagePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A560946614D8AD2600799A8A /* WebIndicateLayer.h in Headers */ = {isa = PBXBuildFile; fileRef = A560946414D8AD2600799A8A /* WebIndicateLayer.h */; };
 		A560946714D8AD2600799A8A /* WebIndicateLayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = A560946514D8AD2600799A8A /* WebIndicateLayer.mm */; };
@@ -787,6 +787,8 @@
 		3ABB3C781309C3B500E93D94 /* WebStorageTrackerClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebStorageTrackerClient.h; sourceTree = "<group>"; };
 		3ABB3C791309C3B500E93D94 /* WebStorageTrackerClient.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebStorageTrackerClient.mm; sourceTree = "<group>"; };
 		3AE15D4F12DBDED4009323C8 /* WebStorageManagerInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebStorageManagerInternal.h; sourceTree = "<group>"; };
+		4447DA292DE783EF00C3CB99 /* TextIndicatorWindow.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TextIndicatorWindow.h; sourceTree = "<group>"; };
+		4447DA2A2DE783EF00C3CB99 /* TextIndicatorWindow.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = TextIndicatorWindow.mm; sourceTree = "<group>"; };
 		44BB8B131241A022001E3A22 /* WebArchiveInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebArchiveInternal.h; sourceTree = "<group>"; };
 		44DDD0812540F8C800836F81 /* TestingFunctions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = TestingFunctions.h; path = mac/TestingFunctions.h; sourceTree = "<group>"; };
 		460135E2269FAD31007A8A95 /* WebBroadcastChannelRegistry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WebBroadcastChannelRegistry.cpp; path = WebCoreSupport/WebBroadcastChannelRegistry.cpp; sourceTree = SOURCE_ROOT; };
@@ -1388,7 +1390,6 @@
 		A10C1D881820305E0036883A /* WebPDFViewPlaceholder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = WebPDFViewPlaceholder.h; path = ios/WebView/WebPDFViewPlaceholder.h; sourceTree = SOURCE_ROOT; };
 		A10C1D891820305E0036883A /* WebPDFViewPlaceholder.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = WebPDFViewPlaceholder.mm; path = ios/WebView/WebPDFViewPlaceholder.mm; sourceTree = SOURCE_ROOT; };
 		A10C1D8F1820307D0036883A /* WebKit.iOS.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = WebKit.iOS.exp; path = ios/WebKit.iOS.exp; sourceTree = "<group>"; };
-		A1382CDE24B15A51001645B0 /* LaBanquePostaleQuirks.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = LaBanquePostaleQuirks.js; sourceTree = "<group>"; };
 		A17A11B0180DC84800E5498C /* WebPluginPackagePrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebPluginPackagePrivate.h; sourceTree = "<group>"; };
 		A560946414D8AD2600799A8A /* WebIndicateLayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebIndicateLayer.h; sourceTree = "<group>"; };
 		A560946514D8AD2600799A8A /* WebIndicateLayer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = WebIndicateLayer.mm; sourceTree = "<group>"; };
@@ -1587,7 +1588,6 @@
 			isa = PBXGroup;
 			children = (
 				939811320824BF01008DF038 /* Info.plist */,
-				A1382CDE24B15A51001645B0 /* LaBanquePostaleQuirks.js */,
 				F5B67130023EDF8901C1A525 /* url_icon.tiff */,
 				5DE83A740D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.xib */,
 			);
@@ -2501,6 +2501,8 @@
 				5CB05C8829CA18C400CC1AA0 /* SocketStreamHandleImpl.cpp */,
 				5CB05C8929CA18C400CC1AA0 /* SocketStreamHandleImpl.h */,
 				5CB05C8629CA18C400CC1AA0 /* SocketStreamHandleImplCFNet.cpp */,
+				4447DA292DE783EF00C3CB99 /* TextIndicatorWindow.h */,
+				4447DA2A2DE783EF00C3CB99 /* TextIndicatorWindow.mm */,
 				CEDA12DA152CBE6800D9E08D /* WebAlternativeTextClient.h */,
 				CEDA12D9152CBE6800D9E08D /* WebAlternativeTextClient.mm */,
 				460135E2269FAD31007A8A95 /* WebBroadcastChannelRegistry.cpp */,
@@ -2838,6 +2840,7 @@
 				1A6B313C1A51F3A900422975 /* StorageTracker.h in Headers */,
 				1A6B313D1A51F3A900422975 /* StorageTrackerClient.h in Headers */,
 				44DDD0822540F97F00836F81 /* TestingFunctions.h in Headers */,
+				4447DA332DE7A93700C3CB99 /* TextIndicatorWindow.h in Headers */,
 				7C1FB3C21846E8E1001A03D8 /* WebAllowDenyPolicyListener.h in Headers */,
 				CEDA12DC152CBE6800D9E08D /* WebAlternativeTextClient.h in Headers */,
 				9398109A0824BF01008DF038 /* WebArchive.h in Headers */,
@@ -3065,17 +3068,19 @@
 			buildConfigurationList = 149C282D08902B0F008A9EFC /* Build configuration list for PBXNativeTarget "WebKitLegacy" */;
 			buildPhases = (
 				7C02321B251B9A8A00BA7BB6 /* Generate Preferences */,
+				DD7181192E20286B00A096B7 /* Generate <wtf/Platform.h> args */,
 				9398100D0824BF01008DF038 /* Headers */,
 				DD7AF5CF298C51C90059E87E /* Migrate WebCore Headers and Generate Export List */,
 				939810B20824BF01008DF038 /* Resources */,
 				1C395DE20C6BE8E0000D1E52 /* Generate Export Files */,
 				939810BB0824BF01008DF038 /* Sources */,
 				939811270824BF01008DF038 /* Frameworks */,
+				DDFD2AD12C93BCE900ACE884 /* Audit SPI use */,
 				5D0D54210E98631D0029E223 /* Check For Weak VTables and Externals */,
 				3713F018142905B70036387F /* Check For Inappropriate Objective-C Class Names */,
 				532424B1254905FE00A6975B /* Check For Inappropriate Files In Framework */,
 				537CF83A22EFBFB100C6EBB3 /* Check .xcfilelists */,
-				650473452789431C00AF78A2 /* Create Symlink to Alt Root Path */,
+				650473452789431C00AF78A2 /* Create Symlink to Cryptex Path */,
 				DD00C28C2A37905800CBB4D9 /* Work around rdar://109484516 */,
 			);
 			buildRules = (
@@ -3139,7 +3144,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1382CDF24B15A51001645B0 /* LaBanquePostaleQuirks.js in Resources */,
 				939810B70824BF01008DF038 /* url_icon.tiff in Resources */,
 				939810B50824BF01008DF038 /* WebAuthenticationPanel.xib in Resources */,
 				5DE83A7A0D0F7F9400CAD12A /* WebJavaScriptTextInputPanel.xib in Resources */,
@@ -3279,7 +3283,7 @@
 			shellPath = /bin/sh;
 			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" ] || [ \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\nif [ -f ../../Tools/Scripts/check-for-weak-vtables-and-externals ]; then\n    ../../Tools/Scripts/check-for-weak-vtables-and-externals || exit $?\nfi\n";
 		};
-		650473452789431C00AF78A2 /* Create Symlink to Alt Root Path */ = {
+		650473452789431C00AF78A2 /* Create Symlink to Cryptex Path */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
@@ -3288,15 +3292,15 @@
 			);
 			inputPaths = (
 			);
-			name = "Create Symlink to Alt Root Path";
+			name = "Create Symlink to Cryptex Path";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"${OUTPUT_ALTERNATE_ROOT_PATH}",
+				"${OUTPUT_CRYPTEX_SYMLINK_PATH}",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/scripts/create-symlink-to-altroot.sh\"\n";
+			shellScript = "\"${SRCROOT}/scripts/create-symlink-to-cryptex.sh\"\n";
 		};
 		7C02321B251B9A8A00BA7BB6 /* Generate Preferences */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3345,6 +3349,33 @@
 			shellPath = /bin/sh;
 			shellScript = "rm -vf \"${OBJROOT}/EagerLinkingTBDs/${CONFIGURATION}${EFFECTIVE_PLATFORM_NAME}/${CONTENTS_FOLDER_PATH}/${EXECUTABLE_PREFIX}${PRODUCT_NAME}${EXECUTABLE_VARIANT_SUFFIX}.tbd\" &&\ntouch \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 		};
+		DD7181192E20286B00A096B7 /* Generate <wtf/Platform.h> args */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			dependencyFile = "$(DERIVED_FILES_DIR)/generate-platform-args.d";
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(WTF_BUILD_SCRIPTS_DIR)/generate-platform-args",
+			);
+			name = "Generate <wtf/Platform.h> args";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.arm64.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.arm64_32.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.arm64e.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.armv7k.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.i386.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/platform-enabled-swift-args.x86_64.resp",
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKitLegacy/rdar150228472.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = installhdrs ]\nthen touch \"${DERIVED_FILES_DIR}/generate-platform-args.d\"\nelse \"${SCRIPT_INPUT_FILE_0}\"\nfi\n\n\n";
+		};
 		DD7AF5CF298C51C90059E87E /* Migrate WebCore Headers and Generate Export List */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -3367,6 +3398,27 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "rm -f \"${SCRIPT_OUTPUT_FILE_0}\" && \"${SCRIPT_INPUT_FILE_0}\"\n";
+		};
+		DDFD2AD12C93BCE900ACE884 /* Audit SPI use */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			dependencyFile = "$(DERIVED_FILES_DIR)/audit-spi.d";
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(WTF_BUILD_SCRIPTS_DIR)/audit-spi-if-needed.sh",
+			);
+			name = "Audit SPI use";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/audit-spi.timestamp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -f \"${SCRIPT_INPUT_FILE_0}\" ]\nthen \"${SCRIPT_INPUT_FILE_0}\" \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\" -framework JavaScriptCore -framework WebCore --allowlist \"${SRCROOT}/mac/Configurations/AllowedSPI-legacy.toml\" \"${SRCROOT}/mac/Configurations/AllowedSPI.toml\"\nfi && touch \"${DERIVED_FILES_DIR}/audit-spi.d\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

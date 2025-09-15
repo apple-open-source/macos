@@ -64,11 +64,12 @@ void WrapperMap::unwrap(JSValueRef jsValue)
     m_cachedGObjectWrappers.remove(jsValue);
 }
 
-void WrapperMap::registerClass(JSCClass* jscClass)
+JSCClass* WrapperMap::registerClass(GRefPtr<JSCClass>&& jscClass)
 {
-    RefPtr jsClass = jscClassGetJSClass(jscClass);
-    ASSERT(!m_classMap.contains(jsClass.get()));
-    m_classMap.set(jsClass.get(), jscClass);
+    RefPtr jsClass = jscClassGetJSClass(jscClass.get());
+    auto result = m_classMap.set(jsClass.get(), jscClass);
+    ASSERT(result.isNewEntry);
+    return result.iterator->value.get();
 }
 
 JSCClass* WrapperMap::registeredClass(JSClassRef jsClass) const

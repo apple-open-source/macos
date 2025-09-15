@@ -47,7 +47,6 @@ kern_pbufpool_create(const struct kern_pbufpool_init *init,
 	struct skmem_region_params srp[SKMEM_REGIONS];
 	struct kern_pbufpool *pp = NULL;
 	nexus_meta_type_t md_type;
-	nexus_meta_subtype_t md_subtype;
 	uint32_t buf_cnt;
 	uint16_t max_frags;
 	uint32_t ppcreatef = PPCREATEF_EXTERNAL;
@@ -84,8 +83,6 @@ kern_pbufpool_create(const struct kern_pbufpool_init *init,
 	 * XXX: adi@apple.com - to allow for "direct" channels from
 	 * user process to driver, we will need to revisit this.
 	 */
-	md_subtype = ((md_type == NEXUS_META_TYPE_QUANTUM) ?
-	    NEXUS_META_SUBTYPE_PAYLOAD : NEXUS_META_SUBTYPE_RAW);
 	kernel_only = (md_type == NEXUS_META_TYPE_PACKET) &&
 #if (DEVELOPMENT || DEBUG)
 	    !skywalk_netif_direct_enabled() &&
@@ -190,8 +187,8 @@ kern_pbufpool_create(const struct kern_pbufpool_init *init,
 	}
 
 	/* adjust region params */
-	pp_regions_params_adjust(srp, md_type, md_subtype, pkt_cnt, max_frags,
-	    init->kbi_bufsize, 0, buf_cnt, init->kbi_buf_seg_size,
+	pp_regions_params_adjust(srp, NEXUS_META_TYPE_PACKET, NEXUS_META_SUBTYPE_RAW,
+	    pkt_cnt, max_frags, init->kbi_bufsize, 0, buf_cnt, init->kbi_buf_seg_size,
 	    pp_region_flags);
 
 	/*

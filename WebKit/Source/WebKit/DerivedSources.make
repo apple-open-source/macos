@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2025 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -164,13 +164,13 @@ MESSAGE_RECEIVERS = \
 	UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy \
 	UIProcess/GPU/GPUProcessProxy \
 	UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy \
-	UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy \
 	UIProcess/WebPasteboardProxy \
 	UIProcess/UserContent/WebUserContentControllerProxy \
 	UIProcess/Inspector/WebInspectorUIProxy \
 	UIProcess/Inspector/RemoteWebInspectorUIProxy \
 	UIProcess/Inspector/WebInspectorUIExtensionControllerProxy \
 	UIProcess/DrawingAreaProxy \
+	UIProcess/WebFrameProxy \
 	UIProcess/Network/NetworkProcessProxy \
 	UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy \
 	UIProcess/WebPageProxy \
@@ -182,7 +182,6 @@ MESSAGE_RECEIVERS = \
 	UIProcess/WebLockRegistryProxy \
 	UIProcess/WebPermissionControllerProxy \
 	UIProcess/Cocoa/PlaybackSessionManagerProxy \
-	UIProcess/Cocoa/UserMediaCaptureManagerProxy \
 	UIProcess/Cocoa/VideoPresentationManagerProxy \
 	UIProcess/ViewGestureController \
 	UIProcess/WebProcessProxy \
@@ -199,6 +198,7 @@ MESSAGE_RECEIVERS = \
 	UIProcess/SpeechRecognitionServer \
 	UIProcess/XR/PlatformXRSystem \
 	WebProcess/Databases/IndexedDB/WebIDBConnectionToServer \
+	WebProcess/DigitalCredentials/DigitalCredentialsCoordinator \
 	WebProcess/Extensions/WebExtensionContextProxy \
 	WebProcess/Extensions/WebExtensionControllerProxy \
 	WebProcess/GPU/GPUProcessConnection \
@@ -266,6 +266,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/WebPage/RemoteLayerTree/RemoteScrollingCoordinator \
 	WebProcess/WebPage/ViewGestureGeometryCollector \
 	WebProcess/WebPage/DrawingArea \
+	WebProcess/WebPage/WebFrame \
 	WebProcess/WebPage/WebPage \
 	WebProcess/WebPage/WebPageTesting \
 	WebProcess/WebPage/VisitedLinkTableController \
@@ -314,6 +315,7 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/webrtc/RemoteSampleBufferDisplayLayerManager \
 	GPUProcess/webrtc/RemoteSampleBufferDisplayLayer \
 	GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager \
+	GPUProcess/webrtc/UserMediaCaptureManagerProxy \
 	GPUProcess/GPUProcess \
 	GPUProcess/media/RemoteImageDecoderAVFProxy \
 	GPUProcess/media/RemoteLegacyCDMSessionProxy \
@@ -329,7 +331,6 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/media/RemoteMediaEngineConfigurationFactoryProxy \
 	GPUProcess/media/RemoteMediaPlayerManagerProxy \
 	GPUProcess/media/RemoteMediaPlayerProxy \
-	GPUProcess/media/RemoteMediaRecorderPrivateWriterManager \
 	GPUProcess/media/RemoteMediaResourceManager \
 	GPUProcess/media/RemoteVideoFrameObjectHeap \
 	GPUProcess/media/RemoteMediaSourceProxy \
@@ -416,8 +417,15 @@ LOG_OUTPUT_FILES = \
     WebKitLogClientDeclarations.h \
     WebCoreLogClientDeclarations.h \
 
-$(LOG_OUTPUT_FILES) : $(WebKit2)/Scripts/generate-derived-log-sources.py Platform/LogMessages.in $(WebCorePrivateHeaders)/LogMessages.in
-	PYTHONPATH=$(WebCorePrivateHeaders) $(PYTHON) $^ $(LOG_OUTPUT_FILES)
+LOG_IN_FILES = \
+	$(WebKit2)/Platform/LogMessages.in \
+	$(WebCorePrivateHeaders)/LogMessages.in \
+
+GENERATE_DERIVED_LOG_SOURCES_SCRIPT = $(WebKit2)/Scripts/generate-derived-log-sources.py
+
+$(LOG_OUTPUT_FILES) : $(GENERATE_DERIVED_LOG_SOURCES_SCRIPT) $(LOG_IN_FILES) $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+	@echo Generating derived log sources from $(LOG_IN_FILES)
+	PYTHONPATH=$(WebCorePrivateHeaders) $(PYTHON) $(GENERATE_DERIVED_LOG_SOURCES_SCRIPT) $(LOG_IN_FILES) $(LOG_OUTPUT_FILES) "$(FEATURE_AND_PLATFORM_DEFINES)"
 
 all : $(GENERATED_MESSAGES_FILES)
 
@@ -467,7 +475,7 @@ NOTIFICATION_ALLOW_LISTS = \
 	$(WebKit2)/Scripts/compile-sandbox.sh $@.tmp $* $(SDK_NAME) $(SANDBOX_IMPORT_DIR)
 	mv $@.tmp $@
 
-AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS = \
+JSON_RPC_GENERATOR_SCRIPTS = \
 	$(JavaScriptCore_SCRIPTS_DIR)/cpp_generator_templates.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/cpp_generator.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate_cpp_backend_dispatcher_header.py \
@@ -480,6 +488,8 @@ AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS = \
 	$(JavaScriptCore_SCRIPTS_DIR)/generator.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/models.py \
 	$(JavaScriptCore_SCRIPTS_DIR)/generate-inspector-protocol-bindings.py \
+	$(JavaScriptCore_SCRIPTS_DIR)/generate-combined-inspector-json.py \
+	$(JavaScriptCore_SCRIPTS_DIR)/UpdateContents.py \
 #
 
 AUTOMATION_PROTOCOL_INPUT_FILES = \
@@ -496,12 +506,13 @@ AUTOMATION_PROTOCOL_OUTPUT_FILES = \
 #
 AUTOMATION_PROTOCOL_OUTPUT_PATTERNS = $(call to-pattern, $(AUTOMATION_PROTOCOL_OUTPUT_FILES))
 
-# JSON-RPC Frontend Dispatchers, Backend Dispatchers, Type Builders
-$(AUTOMATION_PROTOCOL_OUTPUT_PATTERNS) : $(AUTOMATION_PROTOCOL_INPUT_FILES) $(AUTOMATION_PROTOCOL_GENERATOR_SCRIPTS)
+# Files for the Automation protocol which implements WebDriver Classic commands.
+$(AUTOMATION_PROTOCOL_OUTPUT_PATTERNS) : $(AUTOMATION_PROTOCOL_INPUT_FILES) $(JSON_RPC_GENERATOR_SCRIPTS)
 	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/generate-inspector-protocol-bindings.py --framework WebKit --backend --outputDir . $(AUTOMATION_PROTOCOL_INPUT_FILES)
 
 all : $(AUTOMATION_PROTOCOL_OUTPUT_FILES)
 
+# For JavaScript Selenium / WebDriver atoms, generate symbols with byte arrays that contain the minified file contents.
 %ScriptSource.h : %.js $(JavaScriptCore_SCRIPTS_DIR)/jsmin.py $(JavaScriptCore_SCRIPTS_DIR)/xxd.pl
 	echo "//# sourceURL=__InjectedScript_$(notdir $<)" > $(basename $(notdir $<)).min.js
 	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/jsmin.py < $< >> $(basename $(notdir $<)).min.js
@@ -509,6 +520,41 @@ all : $(AUTOMATION_PROTOCOL_OUTPUT_FILES)
 	$(DELETE) $(basename $(notdir $<)).min.js
 
 all : WebAutomationSessionProxyScriptSource.h
+
+WEBDRIVER_BIDI_PROTOCOL_INPUT_FILES = \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiBrowser.json \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiBrowsingContext.json \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiLog.json \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiScript.json \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiSession.json \
+    $(WebKit2)/UIProcess/Automation/protocol/BidiStorage.json \
+#
+
+WEBDRIVER_BIDI_PROTOCOL_OUTPUT_FILES = \
+    WebDriverBidiBackendDispatchers.h \
+    WebDriverBidiBackendDispatchers.cpp \
+    WebDriverBidiFrontendDispatchers.h \
+    WebDriverBidiFrontendDispatchers.cpp \
+    WebDriverBidiProtocolObjects.h \
+    WebDriverBidiProtocolObjects.cpp \
+#
+
+# The combined JSON file depends on the actual set of domains and their file contents, so that
+# adding, modifying, or removing domains will trigger regeneration of inspector files.
+.PHONY: force
+EnabledWebDriverBidiDomains : $(JavaScriptCore_SCRIPTS_DIR)/UpdateContents.py force
+	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/UpdateContents.py '$(WEBDRIVER_BIDI_PROTOCOL_INPUT_FILES)' $@
+
+CombinedWebDriverBidiDomains.json : $(JavaScriptCore_SCRIPTS_DIR)/generate-combined-inspector-json.py $(WEBDRIVER_BIDI_PROTOCOL_INPUT_FILES) EnabledWebDriverBidiDomains
+	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/generate-combined-inspector-json.py $(WEBDRIVER_BIDI_PROTOCOL_INPUT_FILES) "$(FEATURE_AND_PLATFORM_DEFINES)" > ./CombinedWebDriverBidiDomains.json
+
+WEBDRIVER_BIDI_PROTOCOL_OUTPUT_PATTERNS = $(call to-pattern, $(WEBDRIVER_BIDI_PROTOCOL_OUTPUT_FILES))
+
+# Files for the WebDriverBidi protocol which implements WebDriver BiDi commands.
+$(WEBDRIVER_BIDI_PROTOCOL_OUTPUT_PATTERNS) : CombinedWebDriverBidiDomains.json $(JSON_RPC_GENERATOR_SCRIPTS)
+	$(PYTHON) $(JavaScriptCore_SCRIPTS_DIR)/generate-inspector-protocol-bindings.py --framework WebDriverBidi --backend --outputDir . ./CombinedWebDriverBidiDomains.json
+
+all : $(WEBDRIVER_BIDI_PROTOCOL_OUTPUT_FILES)
 
 # WebPreferences generation
 
@@ -572,6 +618,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Platform/IPC/StreamServerConnection.serialization.in \
 	Platform/cocoa/MediaPlaybackTargetContextSerialized.serialization.in \
 	Shared/AuxiliaryProcessCreationParameters.serialization.in \
+	Shared/JavaScriptEvaluationResult.serialization.in \
 	Shared/API/APIArray.serialization.in \
 	Shared/API/APIData.serialization.in \
 	Shared/API/APIDictionary.serialization.in \
@@ -581,7 +628,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/API/APINumber.serialization.in \
 	Shared/API/APIObject.serialization.in \
 	Shared/API/APIPageHandle.serialization.in \
-	Shared/API/APISerializedScriptValue.serialization.in \
 	Shared/API/APIString.serialization.in \
 	Shared/API/APIURL.serialization.in \
 	Shared/API/APIURLRequest.serialization.in \
@@ -626,6 +672,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Cocoa/CoreIPCPresentationIntent.serialization.in \
 	Shared/Cocoa/CoreIPCSecureCoding.serialization.in \
 	Shared/Cocoa/CoreIPCString.serialization.in \
+	Shared/Cocoa/CoreIPCStringSet.serialization.in \
 	Shared/Cocoa/CoreIPCURL.serialization.in \
 	Shared/Cocoa/CoreIPCCFCharacterSet.serialization.in \
 	Shared/Cocoa/DataDetectionResult.serialization.in \
@@ -639,14 +686,15 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ContextMenuContextData.serialization.in \
 	Shared/CoordinateSystem.serialization.in \
 	Shared/DebuggableInfoData.serialization.in \
-	Shared/DisplayListArgumentCoders.serialization.in \
 	Shared/DocumentEditingContext.serialization.in \
 	Shared/DragControllerAction.serialization.in \
 	Shared/DrawingAreaInfo.serialization.in \
 	Shared/EditingRange.serialization.in \
 	Shared/EditorState.serialization.in \
+	Shared/KeyEventInterpretationContext.serialization.in \
 	Shared/Extensions/WebExtensionActionClickBehavior.serialization.in \
 	Shared/Extensions/WebExtensionAlarmParameters.serialization.in \
+	Shared/Extensions/WebExtensionBookmarksParameters.serialization.in \
 	Shared/Extensions/WebExtensionCommandParameters.serialization.in \
 	Shared/Extensions/WebExtensionContentWorldType.serialization.in \
 	Shared/Extensions/WebExtensionContext.serialization.in \
@@ -682,6 +730,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ios/HardwareKeyboardState.serialization.in \
 	Shared/ios/InteractionInformationAtPosition.serialization.in \
 	Shared/ios/InteractionInformationRequest.serialization.in \
+	Shared/ios/DragInitiationResult.serialization.in \
 	Shared/ios/WebAutocorrectionContext.serialization.in \
 	Shared/ios/WebAutocorrectionData.serialization.in \
 	Shared/JavaScriptCore.serialization.in \
@@ -702,13 +751,14 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/PushMessageForTesting.serialization.in \
 	Shared/RTCNetwork.serialization.in \
 	Shared/RTCPacketOptions.serialization.in \
+	Shared/RemoteWebTouchEvent.serialization.in \
 	Shared/RemoteWorkerInitializationData.serialization.in \
 	Shared/RemoteWorkerType.serialization.in \
 	Shared/ResourceLoadInfo.serialization.in \
 	Shared/ResourceLoadStatisticsParameters.serialization.in \
 	Shared/SameDocumentNavigationType.serialization.in \
 	Shared/SandboxExtension.serialization.in \
-	Shared/ScriptTelemetry.serialization.in \
+	Shared/ScriptTrackingPrivacyFilter.serialization.in \
 	Shared/ScrollingAccelerationCurve.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/SyntheticEditingCommandType.serialization.in \
@@ -767,6 +817,8 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/cf/CoreIPCSecCertificate.serialization.in \
 	Shared/cf/CoreIPCSecKeychainItem.serialization.in \
 	Shared/cf/CoreIPCSecTrust.serialization.in \
+	Shared/graphics/DoubleGeometry.serialization.in \
+	Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in \
 	Shared/mac/PDFContextMenuItem.serialization.in \
 	Shared/mac/SecItemRequestData.serialization.in \
 	Shared/mac/SecItemResponseData.serialization.in \
@@ -922,6 +974,7 @@ BINDINGS_SCRIPTS = \
 EXTENSION_INTERFACES = \
     WebExtensionAPIAction \
     WebExtensionAPIAlarms \
+    WebExtensionAPIBookmarks \
     WebExtensionAPICommands \
     WebExtensionAPICookies \
     WebExtensionAPIDeclarativeNetRequest \
@@ -930,6 +983,7 @@ EXTENSION_INTERFACES = \
     WebExtensionAPIDevToolsInspectedWindow \
     WebExtensionAPIDevToolsNetwork \
     WebExtensionAPIDevToolsPanels \
+    WebExtensionAPIDOM \
     WebExtensionAPIEvent \
     WebExtensionAPIExtension \
     WebExtensionAPILocalization \
@@ -971,7 +1025,9 @@ all : JSWebExtensionAPIUnified.mm $(EXTENSION_INTERFACES:%=JS%.h) $(EXTENSION_IN
 
 ifeq ($(USE_INTERNAL_SDK),YES)
 WEBKIT_ADDITIONS_SWIFT_FILES = \
+	WebPageWebViewAdditions.swift \
 	WKSeparatedImageView.swift \
+	CredentialUpdaterShim.swift \
 #
 
 $(WEBKIT_ADDITIONS_SWIFT_FILES): %.swift : %.swift.in

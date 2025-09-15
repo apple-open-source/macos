@@ -156,6 +156,7 @@
         _appleAccountID = appleAccountID;
         _hsa2 = hsa2;
         _demo = demo;
+        _passwordResetToken = [[NSString alloc] initWithFormat:@"prk-%@", altdsid];
         _accountStatus = accountStatus;
         _isPrimary = isPrimary;
         _isDataSeparated = isDataSeparated;
@@ -304,6 +305,15 @@
     return activeAccounts;
 }
 
+- (CloudKitAccount* _Nullable)accountForAccountID:(NSString*)accountID {
+    for (NSString* altDSID in self.accounts) {
+        if ([self.accounts[altDSID].appleAccountID isEqual:accountID]) {
+            return self.accounts[altDSID];
+        }
+    }
+    return nil;
+}
+
 - (CloudKitAccount* _Nullable)accountForAltDSID:(NSString*)altDSID {
     return self.accounts[altDSID];
  }
@@ -314,6 +324,11 @@
 
 - (BOOL)accountIsCDPCapableByAltDSID:(nonnull NSString *)altDSID {
     return [self accountForAltDSID:altDSID].hsa2 ? YES : NO;
+}
+
+- (NSString* _Nullable)passwordResetTokenByAltDSID:(NSString*)altDSID error:(NSError**)error
+{
+    return [self accountForAltDSID:altDSID].passwordResetToken;
 }
 
 - (NSSet<NSString*>*)currentDeviceList {
@@ -522,7 +537,7 @@
 
 - (void)accountInfoWithCompletionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
 {
-    [self.test ckcontainerAccountInfoWithCompletionHandler:self.options.accountOverrideInfo.altDSID completionHandler:completionHandler];
+    [self.test ckcontainerAccountInfoWithCompletionHandler:self.options.accountOverrideInfo.accountID completionHandler:completionHandler];
 }
 
 - (void)submitEventMetric:(CKEventMetric *)eventMetric
@@ -865,10 +880,10 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     // Lie and say network is available
     [self.reachabilityTracker setNetworkReachability:true];
 
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     // Actually load the database.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 
     if(!self.disableConfigureCKKSViewManagerWithViews) {
         // Normally, the Octagon state machine calls this. But, since we won't be running that, help it out.
@@ -930,14 +945,14 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     }
 }
 
-- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)altDSID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
+- (void)ckcontainerAccountInfoWithCompletionHandler:(NSString*)accountID completionHandler:(void (^)(CKAccountInfo * _Nullable accountInfo, NSError * _Nullable error))completionHandler
 {
     __weak __typeof(self) weakSelf = self;
     
     if (OctagonSupportsPersonaMultiuser()) {
         NSBlockOperation* fulfillBlock = [NSBlockOperation named:@"account-info-completion" withBlock: ^{
             __strong __typeof(self) blockStrongSelf = weakSelf;
-            CloudKitAccount* ckAccount = blockStrongSelf.mockAccountsAuthKitAdapter.accounts[altDSID];
+            CloudKitAccount* ckAccount = [blockStrongSelf.mockAccountsAuthKitAdapter accountForAccountID:accountID];
             CKAccountInfo* account = nil;
             NSError* ckAccountStatusFetchError = nil;
             if (ckAccount == nil) {
@@ -1847,8 +1862,8 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     [[SOSAnalytics logger] removeState];
 
     SecItemDataSourceFactoryReleaseAll();
-    SecKeychainDbForceClose();
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbForceClose();
+    SecServerKeychainDbReset(NULL);
 
     [self cleanUpDirectories];
 

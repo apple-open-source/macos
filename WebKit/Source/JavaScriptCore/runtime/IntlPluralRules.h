@@ -96,6 +96,7 @@ private:
     RoundingMode m_roundingMode { RoundingMode::HalfExpand };
     IntlRoundingType m_roundingType { IntlRoundingType::FractionDigits };
     Type m_type { Type::Cardinal };
+    IntlNotation m_notation { IntlNotation::Standard };
 };
 
 } // namespace JSC

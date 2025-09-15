@@ -204,6 +204,11 @@ ifeq ($(RC_ENABLE_THREAD_SANITIZATION),1)
   LDFLAGS += $(LDFLAGS_SANITIZER)
 endif
 
+ifndef MATCH_TZDATA_WITH_SDK
+	MATCH_TZDATA_WITH_SDK=$(RC_XBS)
+endif
+
+ifeq "$(MATCH_TZDATA_WITH_SDK)" "YES"
 # even for a crossbuild host build, we want to use the target's latest tzdata as pointed to by latest_tzdata.tar.gz;
 # first try RC_EMBEDDEDPROJECT_DIR (<rdar://problem/28141177>), else SDKPATH.
 # Note: local buildit builds should specify -nolinkEmbeddedProjects so we use SDKPATH, since RC_EMBEDDEDPROJECT_DIR
@@ -238,6 +243,7 @@ ifndef TZDATA
 			export TZAUXFILESDIR:=$(TZDATA_SDKPATH)/usr/local/share/tz/icudata
 		endif
 	endif
+endif
 endif
 $(info # RC_EMBEDDEDPROJECT_DIR=$(RC_EMBEDDEDPROJECT_DIR))
 $(info # TZDATA=$(TZDATA))
@@ -700,6 +706,7 @@ $(HOST_BUILD_OUT)/makefile :
 # out of $TZAUXFILESDIR actually exist before trying to copy-- I got rid of the check in an effort
 # to simplify, but might need to put it back. --rtg 7/24/24
 
+ifeq "$(MATCH_TZDATA_WITH_SDK)" "YES"
 define doctor-tz-files
 cp -p $(TZAUXFILESDIR)/icuregions $(HOST_BUILD_OUT)/tools/tzcode/
 cp -p $(TZAUXFILESDIR)/icuzones $(HOST_BUILD_OUT)/tools/tzcode/
@@ -717,6 +724,7 @@ cp -p $(HOST_BUILD_OUT)/databkup/metaZones.txt $(BUILD_SRC)/data/misc/; \
 cp -p $(HOST_BUILD_OUT)/databkup/timezoneTypes.txt $(BUILD_SRC)/data/misc/; \
 cp -p $(HOST_BUILD_OUT)/databkup/windowsZones.txt $(BUILD_SRC)/data/misc/;
 endef
+endif
 
 icuhost : $(HOST_BUILD_OUT)/makefile
 	$(doctor-tz-files)
@@ -832,5 +840,9 @@ icudata :
 # This is for running the XCTests in ATP's CI
 #################################
 installtests :
-	xcodebuild build-for-testing -project icu/icu4c/source/ICU.xcodeproj -scheme xc_icu_tests
+ifeq "$(RC_PLATFORM_NAME)" "MacOSX"
+	xcodebuild build-for-testing -project icu/icu4c/source/ICU.xcodeproj -scheme xc_icu_tests -testProductsPath $(DSTROOT)/AppleInternal/Tests/ICU/xc_icu_tests.xctestproducts
+else
+	$(info # NOTE: installtests target currently only intended for MacOSX)
+endif
 

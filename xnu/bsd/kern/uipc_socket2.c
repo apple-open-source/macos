@@ -86,6 +86,8 @@
 #include <sys/unpcb.h>
 #include <sys/ev.h>
 #include <kern/locks.h>
+#include <kern/uipc_domain.h>
+#include <kern/uipc_socket.h>
 #include <net/route.h>
 #include <net/content_filter.h>
 #include <netinet/in.h>
@@ -130,7 +132,7 @@ static int sbappend_common(struct sockbuf *sb, struct mbuf *m, boolean_t nodrop)
 /*
  * Primitive routines for operating on sockets and socket buffers
  */
-static int soqlimitcompat = 1;
+int soqlimitcompat = 1;
 static int soqlencomp = 0;
 
 /*
@@ -357,16 +359,14 @@ sonewconn_internal(struct socket *head, int connstatus)
 
 	if (so_qlen >=
 	    (soqlimitcompat ? head->so_qlimit : (3 * head->so_qlimit / 2))) {
-		return (struct socket *)0;
+		return NULL;
 	}
-	so = soalloc(1, SOCK_DOM(head), head->so_type);
+	if (proto_memacct_hardlimit(head->so_proto)) {
+		return NULL;
+	}
+	so = soalloc();
 	if (so == NULL) {
-		return (struct socket *)0;
-	}
-	/* check if head was closed during the soalloc */
-	if (head->so_proto == NULL) {
-		sodealloc(so);
-		return (struct socket *)0;
+		return NULL;
 	}
 
 	so->so_type = head->so_type;
@@ -411,9 +411,11 @@ sonewconn_internal(struct socket *head, int connstatus)
 	so->so_traffic_class = head->so_traffic_class;
 	so->so_netsvctype = head->so_netsvctype;
 
+	proto_memacct_add(so->so_proto, sizeof(struct socket));
+
 	if (soreserve(so, head->so_snd.sb_hiwat, head->so_rcv.sb_hiwat)) {
 		sodealloc(so);
-		return (struct socket *)0;
+		return NULL;
 	}
 	so->so_rcv.sb_flags |= (head->so_rcv.sb_flags & SB_USRSIZE);
 	so->so_snd.sb_flags |= (head->so_snd.sb_flags & SB_USRSIZE);
@@ -431,7 +433,7 @@ sonewconn_internal(struct socket *head, int connstatus)
 		if (head->so_proto->pr_unlock) {
 			socket_lock(head, 0);
 		}
-		return (struct socket *)0;
+		return NULL;
 	}
 	if (head->so_proto->pr_unlock) {
 		socket_lock(head, 0);
@@ -442,7 +444,7 @@ sonewconn_internal(struct socket *head, int connstatus)
 		if ((head->so_options & SO_ACCEPTCONN) == 0) {
 			so->so_state &= ~SS_NOFDREF;
 			soclose(so);
-			return (struct socket *)0;
+			return NULL;
 		}
 	}
 
@@ -1038,45 +1040,6 @@ sbappendstream(struct sockbuf *sb, struct mbuf *m)
 	return 1;
 }
 
-#ifdef SOCKBUF_DEBUG
-void
-sbcheck(struct sockbuf *sb)
-{
-	struct mbuf *m;
-	struct mbuf *n = 0;
-	u_int32_t len = 0, mbcnt = 0;
-	lck_mtx_t *mutex_held;
-
-	if (sb->sb_so->so_proto->pr_getlock != NULL) {
-		mutex_held = (*sb->sb_so->so_proto->pr_getlock)(sb->sb_so, 0);
-	} else {
-		mutex_held = sb->sb_so->so_proto->pr_domain->dom_mtx;
-	}
-
-	LCK_MTX_ASSERT(mutex_held, LCK_MTX_ASSERT_OWNED);
-
-	if (sbchecking == 0) {
-		return;
-	}
-
-	for (m = sb->sb_mb; m; m = n) {
-		n = m->m_nextpkt;
-		for (; m; m = m->m_next) {
-			len += m->m_len;
-			mbcnt += _MSIZE;
-			/* XXX pretty sure this is bogus */
-			if (m->m_flags & M_EXT) {
-				mbcnt += m->m_ext.ext_size;
-			}
-		}
-	}
-	if (len != sb->sb_cc || mbcnt != sb->sb_mbcnt) {
-		panic("cc %ld != %ld || mbcnt %ld != %ld", len, sb->sb_cc,
-		    mbcnt, sb->sb_mbcnt);
-	}
-}
-#endif
-
 void
 sblastrecordchk(struct sockbuf *sb, const char *where)
 {
@@ -1265,7 +1228,7 @@ sbconcat_mbufs(struct sockbuf *sb, struct sockaddr *asa, struct mbuf *m0, struct
 	}
 
 	if (asa != NULL) {
-		_CASSERT(sizeof(asa->sa_len) == sizeof(__uint8_t));
+		static_assert(sizeof(asa->sa_len) == sizeof(__uint8_t));
 		if (MLEN <= UINT8_MAX && asa->sa_len > MLEN) {
 			return NULL;
 		}
@@ -1713,9 +1676,6 @@ sbcompress(struct sockbuf *sb, struct mbuf *m, struct mbuf *n)
 			continue;
 		}
 		if (compress && n != NULL && (n->m_flags & M_EOR) == 0 &&
-#ifndef __APPLE__
-		    M_WRITABLE(n) &&
-#endif
 		    m->m_len <= MCLBYTES / 4 && /* XXX: Don't copy too much */
 		    m->m_len <= M_TRAILINGSPACE(n) &&
 		    n->m_type == m->m_type) {
@@ -1724,7 +1684,6 @@ sbcompress(struct sockbuf *sb, struct mbuf *m, struct mbuf *n)
 			n->m_len += m->m_len;
 			sb->sb_cc += m->m_len;
 			if (!m_has_mtype(m, MTF_DATA | MTF_HEADER | MTF_OOBDATA)) {
-				/* XXX: Probably don't need */
 				sb->sb_ctl += m->m_len;
 			}
 
@@ -1737,6 +1696,36 @@ sbcompress(struct sockbuf *sb, struct mbuf *m, struct mbuf *n)
 			}
 			m = m_free(m);
 			continue;
+		}
+		if (compress && n != NULL && (n->m_flags & M_EOR) == 0 &&
+		    proto_memacct_limited(sb->sb_so->so_proto) &&
+		    n->m_type == m->m_type) {
+			int tocopy = min((int)M_TRAILINGSPACE(n), m->m_len);
+			bcopy(mtod(m, caddr_t), mtod(n, caddr_t) + n->m_len,
+			    tocopy);
+			n->m_len += tocopy;
+			sb->sb_cc += tocopy;
+			if (!m_has_mtype(m, MTF_DATA | MTF_HEADER | MTF_OOBDATA)) {
+				sb->sb_ctl += m->m_len;
+			}
+
+			/* update send byte count */
+			if (sb->sb_flags & SB_SNDBYTE_CNT) {
+				inp_incr_sndbytes_total(sb->sb_so,
+				    m->m_len);
+				inp_incr_sndbytes_unsent(sb->sb_so,
+				    m->m_len);
+			}
+
+			if (tocopy < m->m_len) {
+				memmove(mtod(m, caddr_t),
+				    mtod(m, caddr_t) + tocopy, m->m_len - tocopy);
+
+				m->m_len -= tocopy;
+			} else {
+				m = m_free(m);
+				continue;
+			}
 		}
 		if (n != NULL) {
 			n->m_next = m;
@@ -1871,19 +1860,12 @@ sbdrop(struct sockbuf *sb, int len)
 		if (m == NULL) {
 			if (next == NULL) {
 				/*
-				 * temporarily replacing this panic with printf
-				 * because it occurs occasionally when closing
-				 * a socket when there is no harm in ignoring
-				 * it. This problem will be investigated
-				 * further.
+				 * We have reached the end of the mbuf chain before
+				 * freeing the requested amount of data.
+				 * Since there is no data left, zero the counts
+				 * and exit the loop.
 				 */
-				/* panic("sbdrop"); */
-				printf("sbdrop - count not zero\n");
 				len = 0;
-				/*
-				 * zero the counts. if we have no mbufs,
-				 * we have no data (PR-2986815)
-				 */
 				sb->sb_cc = 0;
 				sb->sb_mbcnt = 0;
 				break;
@@ -2449,15 +2431,15 @@ sowriteable(struct socket *so)
 void
 sballoc(struct sockbuf *sb, struct mbuf *m)
 {
+	int mbcnt = m_capacity(m);
+
 	sb->sb_cc += m->m_len;
 	if (!m_has_mtype(m, MTF_DATA | MTF_HEADER | MTF_OOBDATA)) {
 		sb->sb_ctl += m->m_len;
 	}
-	sb->sb_mbcnt += _MSIZE;
 
-	if (m->m_flags & M_EXT) {
-		sb->sb_mbcnt += m->m_ext.ext_size;
-	}
+	sb->sb_mbcnt += mbcnt;
+	proto_memacct_add(sb->sb_so->so_proto, mbcnt);
 
 	/*
 	 * If data is being added to the send socket buffer,
@@ -2473,14 +2455,15 @@ sballoc(struct sockbuf *sb, struct mbuf *m)
 void
 sbfree(struct sockbuf *sb, struct mbuf *m)
 {
+	int mbcnt = m_capacity(m);
+
 	sb->sb_cc -= m->m_len;
 	if (!m_has_mtype(m, MTF_DATA | MTF_HEADER | MTF_OOBDATA)) {
 		sb->sb_ctl -= m->m_len;
 	}
-	sb->sb_mbcnt -= _MSIZE;
-	if (m->m_flags & M_EXT) {
-		sb->sb_mbcnt -= m->m_ext.ext_size;
-	}
+
+	sb->sb_mbcnt -= mbcnt;
+	proto_memacct_sub(sb->sb_so->so_proto, mbcnt);
 
 	/*
 	 * If data is being removed from the send socket buffer,
@@ -2717,8 +2700,8 @@ void
 soevent(struct socket *so, uint32_t hint)
 {
 	if (net_wake_pkt_debug > 0 && (hint & SO_FILT_HINT_WAKE_PKT)) {
-		os_log(OS_LOG_DEFAULT, "%s: SO_FILT_HINT_WAKE_PKT so %p",
-		    __func__, so);
+		os_log(wake_packet_log_handle, "soevents: SO_FILT_HINT_WAKE_PKT so_gencnt: %llu",
+		    so->so_gencnt);
 	}
 
 	if (so->so_flags & SOF_KNOTE) {
@@ -2996,9 +2979,6 @@ SYSCTL_INT(_kern_ipc, KIPC_SOCKBUF_WASTE, sockbuf_waste_factor,
 
 SYSCTL_INT(_kern_ipc, KIPC_NMBCLUSTERS, nmbclusters,
     CTLFLAG_RD | CTLFLAG_LOCKED, &nmbclusters, 0, "");
-
-SYSCTL_INT(_kern_ipc, OID_AUTO, njcl,
-    CTLFLAG_RD | CTLFLAG_LOCKED, &njcl, 0, "");
 
 SYSCTL_INT(_kern_ipc, OID_AUTO, njclbytes,
     CTLFLAG_RD | CTLFLAG_LOCKED, &njclbytes, 0, "");

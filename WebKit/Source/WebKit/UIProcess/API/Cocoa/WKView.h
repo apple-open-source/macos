@@ -35,7 +35,6 @@
 #endif
 
 @class WKBrowsingContextController;
-@class WKProcessGroup;
 @class WKViewData;
 
 // FIXME: Remove this file once rdar://105559864 and rdar://105560420 and rdar://105560497 are complete.

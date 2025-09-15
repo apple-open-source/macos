@@ -90,7 +90,8 @@ route6_input(struct mbuf **mp, int *offp, int proto)
 		if (ip6a->ip6a_flags & IP6A_SWAP) {
 			ip6stat.ip6s_badoptions++;
 			*mp = NULL;
-			m_freem(m);
+			m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_OPTION, NULL, 0);
+
 			return IPPROTO_DONE;
 		}
 	}

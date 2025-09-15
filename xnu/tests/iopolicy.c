@@ -95,6 +95,12 @@ T_DECL(iopol_type_vfs_disallow_rw_for_o_evtonly,
 	    "getiopolicy_np(IOPOL_TYPE_VFS_DISALLOW_RW_FOR_O_EVTONLY, IOPOL_SCOPE_PROCESS)");
 
 	T_WITH_ERRNO;
+	err = getiopolicy_np(IOPOL_TYPE_VFS_HFS_CASE_SENSITIVITY,
+	    IOPOL_SCOPE_THREAD);
+	T_ASSERT_TRUE((err == -1) && (errno == EINVAL),
+	    "getiopolicy_np(IOPOL_TYPE_VFS_HFS_CASE_SENSITIVITY, IOPOL_SCOPE_THREAD)");
+
+	T_WITH_ERRNO;
 	err = setiopolicy_np(IOPOL_TYPE_VFS_DISALLOW_RW_FOR_O_EVTONLY,
 	    IOPOL_SCOPE_PROCESS, IOPOL_VFS_DISALLOW_RW_FOR_O_EVTONLY_OFF);
 	T_ASSERT_TRUE((err == -1) && (errno == EINVAL),

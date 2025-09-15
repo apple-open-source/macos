@@ -70,7 +70,7 @@ void WebPopupMenu::setUpPlatformData(const WebCore::IntRect& pageCoordinates, Pl
             itemFontCascade.update(m_popupClient->fontSelector());
         }
 
-        popupWidth = std::max<float>(popupWidth, ceilf(itemFontCascade.width(TextRun(text))));
+        popupWidth = std::max<float>(popupWidth, ceilf(itemFontCascade.width(text)));
     }
 
     // FIXME: popupWidth should probably take into account monitor constraints as is done with WebPopupMenuProxyWin::calculatePositionAndSize.

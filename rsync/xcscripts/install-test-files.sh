@@ -9,7 +9,8 @@ install -d -o root -g wheel -m 0755 "$testdir"
 install -d -o root -g wheel -m 0755 "$testdir"/openrsync
 
 # Install the Apple-specific test files from tests/ first.
-for testf in rsync.sh pwauth.sh setsid.sh syslog_trace.sh xfer.sh; do
+for testf in rsync.sh pwauth.sh setsid.sh syslog_trace.sh xfer.sh \
+    dir_swap_race.sh file_swap_race.sh; do
 	install -o root -g wheel -m 0755 "$SRCROOT"/tests/"$testf" \
 	    "$testdir"
 done

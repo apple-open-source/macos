@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020-2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -131,7 +131,7 @@ void ImageBufferBackend::getPixelBuffer(const IntRect& sourceRect, std::span<con
     convertImagePixels(source, destination, destinationRect.size());
 }
 
-void ImageBufferBackend::putPixelBuffer(const PixelBuffer& sourcePixelBuffer, const IntRect& sourceRect, const IntPoint& destinationPoint, AlphaPremultiplication destinationAlphaFormat, std::span<uint8_t> destinationData)
+void ImageBufferBackend::putPixelBuffer(const PixelBufferSourceView& sourcePixelBuffer, const IntRect& sourceRect, const IntPoint& destinationPoint, AlphaPremultiplication destinationAlphaFormat, std::span<uint8_t> destinationData)
 {
     IntRect backendRect { { }, size() };
     auto sourceRectClipped = intersection({ IntPoint::zero(), sourcePixelBuffer.size() }, sourceRect);
@@ -181,18 +181,11 @@ AffineTransform ImageBufferBackend::calculateBaseTransform(const Parameters& par
     return baseTransform;
 }
 
-#if USE(SKIA)
-RefPtr<ImageBuffer> ImageBufferBackend::copyAcceleratedImageBufferBorrowingBackendRenderTarget(const ImageBuffer&) const
-{
-    return nullptr;
-}
-#endif
-
 TextStream& operator<<(TextStream& ts, VolatilityState state)
 {
     switch (state) {
-    case VolatilityState::NonVolatile: ts << "non-volatile"; break;
-    case VolatilityState::Volatile: ts << "volatile"; break;
+    case VolatilityState::NonVolatile: ts << "non-volatile"_s; break;
+    case VolatilityState::Volatile: ts << "volatile"_s; break;
     }
     return ts;
 }

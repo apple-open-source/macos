@@ -44,7 +44,7 @@
 extern void* proc_find_ident(struct proc_ident const *i);
 extern int proc_rele(void* p);
 extern task_t proc_task(void* p);
-extern struct proc_ident proc_ident(void* p);
+extern struct proc_ident proc_ident_with_policy(void* p, uint8_t policy);
 extern kern_return_t task_conversion_eval(task_t caller, task_t victim, int flavor);
 
 /* Exported to kexts */
@@ -86,15 +86,14 @@ tidt_release(task_id_token_t token)
 		 * Ports of type IKOT_TASK_FATAL use task_ident objects to avoid holding a task reference
 		 * and are created to send resource limit notifications
 		 */
-		int kotype = ip_kotype(port);
-		if (kotype == IKOT_TASK_ID_TOKEN || kotype == IKOT_TASK_FATAL) {
-			ipc_kobject_dealloc_port(port, 0, kotype);
-		} else {
-			panic("%s: unexpected kotype of port %p: got %d",
-			    __func__, port, kotype);
-		}
+		ipc_kobject_type_t kotype = ip_type(port);
+		release_assert(kotype == IKOT_TASK_ID_TOKEN ||
+		    kotype == IKOT_TASK_FATAL);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    kotype);
 #else /* CONFIG_PROC_RESOURCE_LIMITS */
-		ipc_kobject_dealloc_port(port, 0, IKOT_TASK_ID_TOKEN);
+		ipc_kobject_dealloc_port(port, IPC_KOBJECT_NO_MSCOUNT,
+		    IKOT_TASK_ID_TOKEN);
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */
 	}
 
@@ -120,6 +119,7 @@ task_id_token_no_senders(ipc_port_t port, __unused mach_port_mscount_t mscount)
 }
 
 IPC_KOBJECT_DEFINE(IKOT_TASK_ID_TOKEN,
+    .iko_op_movable_send = true,
     .iko_op_stable     = true,
     .iko_op_no_senders = task_id_token_no_senders);
 
@@ -144,7 +144,7 @@ task_create_identity_token(
 		token->task_uniqueid = task->task_uniqueid;
 	} else if (task->active && bsd_info != NULL) {
 		/* must check if the task is active to avoid a UAF - rdar://91431693 */
-		token->ident = proc_ident(bsd_info);
+		token->ident = proc_ident_with_policy(bsd_info, IDENT_VALIDATION_PROC_EXACT);
 	} else {
 		task_unlock(task);
 		zfree(task_id_token_zone, token);
@@ -235,7 +235,8 @@ task_identity_token_get_task_port(
 	/* holding a ref on (corpse) task */
 
 	if (flavor == TASK_FLAVOR_CONTROL && task == current_task()) {
-		*portp = convert_task_to_port_pinned(task); /* consumes task ref */
+		/* copyout determines immovability, see `should_mark_immovable_send` */
+		*portp = convert_task_to_port(task); /* consumes task ref */
 		return KERN_SUCCESS;
 	}
 
@@ -317,17 +318,20 @@ ipc_port_t
 convert_task_id_token_to_port(
 	task_id_token_t token)
 {
-	__assert_only bool kr;
-
 	if (token == TASK_ID_TOKEN_NULL) {
 		return IP_NULL;
 	}
 
 	zone_require(task_id_token_zone, token);
 
-	kr = ipc_kobject_make_send_lazy_alloc_port(&token->port,
-	    token, IKOT_TASK_ID_TOKEN, IPC_KOBJECT_ALLOC_NONE);
-	assert(kr == TRUE); /* no-senders notification is armed, consumes token ref */
+	/*
+	 * make a send right and donate our reference for
+	 * task_id_token_no_senders if this is the first send right
+	 */
+	if (!ipc_kobject_make_send_lazy_alloc_port(&token->port,
+	    token, IKOT_TASK_ID_TOKEN)) {
+		tidt_release(token);
+	}
 
 	return token->port;
 }
@@ -340,7 +344,8 @@ task_id_token_set_port(
 	task_id_token_t token,
 	ipc_port_t port)
 {
-	assert(token && port && (ip_kotype(port) == IKOT_TASK_FATAL));
+	assert(token && port && ip_type(port) == IKOT_TASK_FATAL);
 	token->port = port;
 }
+
 #endif /* CONFIG_PROC_RESOURCE_LIMITS */

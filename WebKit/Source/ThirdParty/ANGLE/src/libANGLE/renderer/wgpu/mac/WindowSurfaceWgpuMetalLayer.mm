@@ -44,7 +44,7 @@ void WindowSurfaceWgpuMetalLayer::destroy(const egl::Display *display)
 }
 
 angle::Result WindowSurfaceWgpuMetalLayer::createWgpuSurface(const egl::Display *display,
-                                                             wgpu::Surface *outSurface)
+                                                             webgpu::SurfaceHandle *outSurface)
     API_AVAILABLE(macosx(10.11))
 {
     CALayer *layer = reinterpret_cast<CALayer *>(getNativeWindow());
@@ -56,21 +56,25 @@ angle::Result WindowSurfaceWgpuMetalLayer::createWgpuSurface(const egl::Display 
         CGSizeMake(mMetalLayer.bounds.size.width * mMetalLayer.contentsScale,
                    mMetalLayer.bounds.size.height * mMetalLayer.contentsScale);
     mMetalLayer.framebufferOnly  = NO;
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     mMetalLayer.autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+#endif
     mMetalLayer.contentsScale    = layer.contentsScale;
 
     [layer addSublayer:mMetalLayer];
 
-    wgpu::SurfaceDescriptorFromMetalLayer metalLayerDesc;
+    WGPUSurfaceSourceMetalLayer metalLayerDesc = WGPU_SURFACE_SOURCE_METAL_LAYER_INIT;
     metalLayerDesc.layer = mMetalLayer;
 
-    wgpu::SurfaceDescriptor surfaceDesc;
-    surfaceDesc.nextInChain = &metalLayerDesc;
+    WGPUSurfaceDescriptor surfaceDesc = WGPU_SURFACE_DESCRIPTOR_INIT;
+    surfaceDesc.nextInChain           = &metalLayerDesc.chain;
 
     DisplayWgpu *displayWgpu = webgpu::GetImpl(display);
-    wgpu::Instance instance  = displayWgpu->getInstance();
+    const DawnProcTable *wgpu       = displayWgpu->getProcs();
+    webgpu::InstanceHandle instance = displayWgpu->getInstance();
 
-    wgpu::Surface surface = instance.CreateSurface(&surfaceDesc);
+    webgpu::SurfaceHandle surface = webgpu::SurfaceHandle::Acquire(
+        wgpu, wgpu->instanceCreateSurface(instance.get(), &surfaceDesc));
     *outSurface           = surface;
 
     return angle::Result::Continue;

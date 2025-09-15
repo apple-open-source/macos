@@ -667,7 +667,6 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
                                              IONotifier * /* notifier */)
 {
     bool result = false;
-
     if (handler && newService) {
         IOHIDSystem_notificationData *data = IOHIDSystem_notificationData::create((IOCommandGate::Action)handler, newService);
 
@@ -682,7 +681,6 @@ bool IOHIDSystem::genericNotificationHandler(void * handler,
             result = true;
         }
     }
-
     return result;
 }
 

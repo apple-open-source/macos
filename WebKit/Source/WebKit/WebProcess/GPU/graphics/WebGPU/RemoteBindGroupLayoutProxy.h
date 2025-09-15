@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,20 +39,20 @@ class ConvertToBackingContext;
 class RemoteBindGroupLayoutProxy final : public WebCore::WebGPU::BindGroupLayout {
     WTF_MAKE_TZONE_ALLOCATED(RemoteBindGroupLayoutProxy);
 public:
-    static Ref<RemoteBindGroupLayoutProxy> create(RemoteDeviceProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
+    static Ref<RemoteBindGroupLayoutProxy> create(RemoteGPUProxy& parent, ConvertToBackingContext& convertToBackingContext, WebGPUIdentifier identifier)
     {
         return adoptRef(*new RemoteBindGroupLayoutProxy(parent, convertToBackingContext, identifier));
     }
 
     virtual ~RemoteBindGroupLayoutProxy();
 
-    RemoteDeviceProxy& parent() { return m_parent; }
-    RemoteGPUProxy& root() { return m_parent->root(); }
+    RemoteGPUProxy& parent() const { return m_parent; }
+    RemoteGPUProxy& root() const { return m_parent; }
 
 private:
     friend class DowncastConvertToBackingContext;
 
-    RemoteBindGroupLayoutProxy(RemoteDeviceProxy&, ConvertToBackingContext&, WebGPUIdentifier);
+    RemoteBindGroupLayoutProxy(RemoteGPUProxy&, ConvertToBackingContext&, WebGPUIdentifier);
 
     RemoteBindGroupLayoutProxy(const RemoteBindGroupLayoutProxy&) = delete;
     RemoteBindGroupLayoutProxy(RemoteBindGroupLayoutProxy&&) = delete;
@@ -70,8 +70,8 @@ private:
     void setLabelInternal(const String&) final;
 
     WebGPUIdentifier m_backing;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
-    Ref<RemoteDeviceProxy> m_parent;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<RemoteGPUProxy> m_parent;
 };
 
 } // namespace WebKit::WebGPU

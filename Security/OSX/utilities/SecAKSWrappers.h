@@ -73,7 +73,6 @@
 #include "tests/secdmockaks/mockaks.h"
 #endif
 
-
 bool hwaes_key_available(void);
 
 //

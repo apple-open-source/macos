@@ -51,6 +51,7 @@ enum {
 	OPT_SWAP,
 	OPT_MMR_OFF,
 	OPT_MMR_ON,
+	OPT_HVWAIT,
 	/*compat/deprecated options*/
 	OPT_ACCUM,
 	OPT_DELTA,
@@ -130,6 +131,7 @@ static struct top_option opts[] = { { "-stats", TOP_OPTION_REQUIRED, OPT_STATS }
 	{ "-n", TOP_OPTION_REQUIRED, OPT_NPROCS }, { "-U", TOP_OPTION_REQUIRED, OPT_USER },
 	{ "-u", TOP_OPTION_SET, OPT_U_SORT }, { "-S", TOP_OPTION_SET, OPT_SWAP },
 	{ "-R", TOP_OPTION_SET, OPT_MMR_OFF }, { "-r", TOP_OPTION_SET, OPT_MMR_ON },
+	{ "-W", TOP_OPTION_SET, OPT_HVWAIT },
 	/*compat/deprecated options*/
 	{ "-a", TOP_OPTION_SET, OPT_ACCUM }, { "-d", TOP_OPTION_SET, OPT_DELTA },
 	{ "-e", TOP_OPTION_SET, OPT_ABSOLUTE }, { NULL, 0, 0 } };
@@ -164,7 +166,8 @@ top_options_usage(FILE *fp, char *argv0)
 			"\t\t[-pid <processid>]\n"
 			"\t\t[-user <username>]\n"
 			"\t\t[-U <username>]\n"
-			"\t\t[-u]\n",
+			"\t\t[-u]\n"
+			"\t\t[-W]\n",
 			argv0, argv0);
 
 	fprintf(fp, "\n");
@@ -414,6 +417,10 @@ top_options_parse(int argc, char *argv[])
 
 		case OPT_SWAP:
 			top_prefs_set_swap(true);
+			break;
+
+		case OPT_HVWAIT:
+			top_prefs_set_hvwait(true);
 			break;
 
 			/*compat/deprecated options*/

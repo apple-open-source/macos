@@ -1037,6 +1037,9 @@ CFTypeRef IOHIDPointerScrollFilter::copyCachedProperty (CFStringRef key)  const 
         CFRetain(value);
         return value;
     }
+    if (_service == NULL){
+        return NULL;
+    }
     value = IOHIDServiceCopyProperty (_service, key);
     if (value) {
         return value;

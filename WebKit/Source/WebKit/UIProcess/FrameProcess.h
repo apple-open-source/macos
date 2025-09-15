@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2024-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@ namespace WebKit {
 class BrowsingContextGroup;
 class WebPreferences;
 class WebProcessProxy;
+enum class InjectBrowsingContextIntoProcess : bool;
 
 // Note: This object should only be referenced by WebFrameProxy because its destructor is an
 // important part of managing the lifetime of a frame and the process used by the frame.
@@ -47,10 +48,10 @@ public:
 
 private:
     friend class BrowsingContextGroup; // FrameProcess should not be created except by BrowsingContextGroup.
-    static Ref<FrameProcess> create(WebProcessProxy& process, BrowsingContextGroup& group, const WebCore::Site& site, const WebPreferences& preferences) { return adoptRef(*new FrameProcess(process, group, site, preferences)); }
-    FrameProcess(WebProcessProxy&, BrowsingContextGroup&, const WebCore::Site&, const WebPreferences&);
+    static Ref<FrameProcess> create(WebProcessProxy& process, BrowsingContextGroup& group, const WebCore::Site& site, const WebPreferences& preferences, InjectBrowsingContextIntoProcess injectBrowsingContextIntoProcess) { return adoptRef(*new FrameProcess(process, group, site, preferences, injectBrowsingContextIntoProcess)); }
+    FrameProcess(WebProcessProxy&, BrowsingContextGroup&, const WebCore::Site&, const WebPreferences&, InjectBrowsingContextIntoProcess);
 
-    Ref<WebProcessProxy> m_process;
+    const Ref<WebProcessProxy> m_process;
     WeakPtr<BrowsingContextGroup> m_browsingContextGroup;
     const WebCore::Site m_site;
 };

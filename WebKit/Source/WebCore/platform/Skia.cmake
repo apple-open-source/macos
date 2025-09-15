@@ -11,11 +11,14 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/harfbuzz/HbUniquePtr.h
 
+    platform/graphics/skia/FontCascadeSkiaInlines.h
     platform/graphics/skia/GraphicsContextSkia.h
     platform/graphics/skia/ImageBufferSkiaBackend.h
     platform/graphics/skia/SkiaHarfBuzzFont.h
     platform/graphics/skia/SkiaHarfBuzzFontCache.h
     platform/graphics/skia/SkiaPaintingEngine.h
+    platform/graphics/skia/SkiaRecordingResult.h
+    platform/graphics/skia/SkiaReplayCanvas.h
     platform/graphics/skia/SkiaSpanExtras.h
 )
 

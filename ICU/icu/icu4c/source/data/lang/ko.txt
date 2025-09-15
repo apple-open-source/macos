@@ -137,6 +137,7 @@ ko{
         crs{"세이셸 크리올 프랑스어"}
         cs{"체코어"}
         csb{"카슈비아어"}
+        cst{"초체뇨어"}
         csw{"습지 크리어"}
         cu{"교회 슬라브어"}
         cv{"추바시어"}
@@ -225,6 +226,7 @@ ko{
         hak{"하카어"}
         haw{"하와이어"}
         hax{"남부 하이다어"}
+        hch{"위라리카어"}
         he{"히브리어"}
         hi{"힌디어"}
         hif{"피지 힌디어"}
@@ -254,6 +256,7 @@ ko{
         inh{"인귀시어"}
         io{"이도어"}
         is{"아이슬란드어"}
+        isc{"이스코나와어"}
         it{"이탈리아어"}
         iu{"이눅티투트어"}
         ja{"일본어"}
@@ -497,6 +500,7 @@ ko{
         sh{"세르비아-크로아티아어"}
         shi{"타셸히트어"}
         shn{"샨어"}
+        shp{"시피보코니보어"}
         shu{"차디언 아라비아어"}
         si{"싱할라어"}
         sid{"시다모어"}
@@ -818,13 +822,15 @@ ko{
     }
     Types{
         calendar{
+            bangla{"뱅골력"}
             buddhist{"불교력"}
             chinese{"음력"}
             coptic{"콥트력"}
-            dangi{"단기력"}
+            dangi{"한국음력"}
             ethiopic{"에티오피아력"}
             ethiopic-amete-alem{"에티오피아 아메테 알렘력"}
             gregorian{"양력"}
+            gujarati{"구자라트력"}
             hebrew{"히브리력"}
             indian{"인도력"}
             islamic{"히즈라력"}
@@ -832,8 +838,16 @@ ko{
             islamic-umalqura{"히즈라력(움 알 쿠라)"}
             iso8601{"ISO-8601 달력"}
             japanese{"일본력"}
+            kannada{"칸나다력"}
+            malayalam{"말라얄람력"}
+            marathi{"마라티력"}
+            odia{"오디아력"}
             persian{"페르시안력"}
             roc{"대만력"}
+            tamil{"타밀력"}
+            telugu{"텔루구력"}
+            vietnamese{"베트남력"}
+            vikram{"비크람력"}
         }
         cf{
             account{"회계 통화 형식"}

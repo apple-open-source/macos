@@ -69,8 +69,12 @@
     /* Apple Anchors */
     NSArray *anchors = CFBridgingRelease(SecAnchorCacheCopyAnchors(kSecPolicyAppleMobileAsset));
     XCTAssertNotNil(anchors);
+    // Check harcoded anchors are a subset of the returned anchors
     NSArray *appleAnchors = (__bridge NSArray *)SecGetAppleTrustAnchors(false);
-    XCTAssertEqualObjects(anchors, appleAnchors);
+    XCTAssertGreaterThanOrEqual(anchors.count, appleAnchors.count);
+    for (id anchor in appleAnchors) {
+        XCTAssert([anchors containsObject:anchor]);
+    }
 
     /* Constrained Anchors */
     anchors = CFBridgingRelease(SecAnchorCacheCopyAnchors(kSecPolicyAppleVerifiedMark));

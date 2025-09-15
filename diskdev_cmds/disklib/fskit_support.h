@@ -24,6 +24,8 @@
 #ifndef fskit_support_h
 #define fskit_support_h
 
+#define SHOW_PROGRESS_FLAG 0xFFF /* Flag indicating to show progress of the task that is running */
+
 typedef enum : int {
     check_fs_op,
     mount_fs_op,

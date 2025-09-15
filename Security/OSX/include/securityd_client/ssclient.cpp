@@ -27,6 +27,7 @@
 //
 #include "sstransit.h"
 #include "ucsp.h"
+#include "ucsp_old.h"
 #include <os/assumes.h>
 #include <servers/netname.h>
 #include <security_utilities/debugging.h>
@@ -112,26 +113,39 @@ void ClientSession::activate()
 	// now pick up the (new or existing) connection state
 	Global &global = mGlobal();
     Thread &thread = global.thread();
-    if (!thread) {
-        // first time for this thread - use abbreviated registration
-        try {
-            mach_port_t bsport = MACH_PORT_NULL;
-            (void)os_assumes_zero(task_get_bootstrap_port(mach_task_self(), &bsport));
-            IPCN(ucsp_client_setupThreadWithBootstrap(UCSP_ARGS, bsport));
-            (void)os_assumes_zero(mach_port_deallocate(mach_task_self(), bsport));
-        } catch (const MachPlusPlus::Error &err) {
-            if (err.error != MIG_BAD_ID) {
-                throw;
-            }
+    uint32_t serverVersion = mGlobal().serverVersion;
 
-            task_id_token_t token = self_token_create();
-            IPCN(ucsp_client_setupThread(UCSP_ARGS, token));
-            self_token_deallocate(token);
+    if (thread) {
+        // registered already
+        return;
+    }
+
+    // Only initialize provisional reply port if talking to old server
+    if (serverVersion < SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+        thread.replyPort.init();
+    }
+
+    try {
+        mach_port_t bsport = MACH_PORT_NULL;
+        (void)os_assumes_zero(task_get_bootstrap_port(mach_task_self(), &bsport));
+        if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+            IPCN(ucsp_client_setupThreadWithBootstrap(UCSP_ARGS, bsport));
+        } else {
+            IPCN(ucsp_client_old_setupThreadWithBootstrap(UCSP_ARGS_OLD, bsport));
         }
-        thread.registered = true;
-        secinfo("SSclnt", "Thread registered with %s", mContactName);
-	}
-	
+        (void)os_assumes_zero(mach_port_deallocate(mach_task_self(), bsport));
+    } catch (const MachPlusPlus::Error &err) {
+        if (err.error != MIG_BAD_ID) {
+            throw;
+        }
+
+        task_id_token_t token = self_token_create();
+        IPCN(ucsp_client_old_setupThread(UCSP_ARGS_OLD, token));
+        self_token_deallocate(token);
+    }
+
+    thread.registered = true;
+    secinfo("SSclnt", "Thread registered with %s", mContactName);
 }
 
 //
@@ -161,11 +175,18 @@ ClientSession::Global::Global()
 {
     // find server port
 	serverPort = findSecurityd();
-    
+    serverVersion = getServerVersion(serverPort);
+
 	mach_port_t originPort = MACH_PORT_NULL;
-	ReplyPort verifyReplyPort;
-	IPCBASIC(ucsp_client_verifyPrivileged2(serverPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
-	if (originPort != serverPort.port())
+    if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+        ReceivePort verifyReplyPort;
+        IPCBASIC(ucsp_client_verifyPrivileged2(serverPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
+    } else {
+        ReplyPort verifyReplyPort;
+        verifyReplyPort.init();
+        IPCBASIC(ucsp_client_old_verifyPrivileged2(serverPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
+    }
+    if (originPort != serverPort.port())
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
 	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
 	
@@ -179,8 +200,13 @@ ClientSession::Global::Global()
     try {
         mach_port_t bsport = MACH_PORT_NULL;
         (void)os_assumes_zero(task_get_bootstrap_port(mach_task_self(), &bsport));
-        IPCBASIC(ucsp_client_setupWithBootstrap(serverPort, thread.replyPort, &securitydCreds, &rcode,
-            bsport, info, extForm));
+        if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+            IPCBASIC(ucsp_client_setupWithBootstrap(serverPort, thread.receivePort, &securitydCreds, &rcode,
+                bsport, info, extForm));
+        } else {
+            IPCBASIC(ucsp_client_old_setupWithBootstrap(serverPort, thread.replyPort, &securitydCreds, &rcode,
+                bsport, info, extForm));
+        }
         (void)os_assumes_zero(mach_port_deallocate(mach_task_self(), bsport));
     } catch (const MachPlusPlus::Error &err) {
         if (err.error != MIG_BAD_ID) {
@@ -188,12 +214,16 @@ ClientSession::Global::Global()
         }
 
         task_id_token_t token = self_token_create();
-        IPCBASIC(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
+        IPCBASIC(ucsp_client_old_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
             token, info, extForm));
         self_token_deallocate(token);
     }
     thread.registered = true;	// as a side-effect of setup call above
-	IFDEBUG(serverPort.requestNotify(thread.replyPort));
+    if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+        IFDEBUG(serverPort.requestNotify(thread.receivePort));
+    } else {
+        IFDEBUG(serverPort.requestNotify(thread.replyPort));
+    }
 	secinfo("SSclnt", "contact with %s established", mContactName);
 }
 
@@ -231,6 +261,22 @@ Port ClientSession::findSecurityd()
 	return serverPort;
 }
 
+uint32_t ClientSession::getServerVersion(Port serverPort) 
+{
+    uint32_t serverVersion;
+    secinfo("SSclnt", "finding server version");
+    try {
+        ReceivePort verifyReplyPort;
+        IPCBASIC(ucsp_client_queryServerVersion(serverPort.port(), verifyReplyPort, &securitydCreds, &rcode, &serverVersion));
+    } catch (const MachPlusPlus::Error &err) {
+        if (err.error != MIG_BAD_ID) {
+            throw;
+        }
+        serverVersion = SERVER_MACH_VERSION_NO_VERSION_GIVEN;
+    }
+    secinfo("SSclnt", "server version is %u", serverVersion);
+    return serverVersion;
+}
 
 //
 // Subsidiary process management.
@@ -239,13 +285,26 @@ Port ClientSession::findSecurityd()
 void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 {
 	Port securitydPort = findSecurityd();
+    uint32_t serverVersion = getServerVersion(securitydPort);
+
 	mach_port_t originPort = MACH_PORT_NULL;
-	ReplyPort verifyReplyPort;
-	IPCN(ucsp_client_verifyPrivileged2(securitydPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
-	if (originPort != securitydPort.port())
+    if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+        ReceivePort verifyReplyPort;
+        IPCN(ucsp_client_verifyPrivileged2(securitydPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
+    } else {
+        ReplyPort verifyReplyPort;
+        verifyReplyPort.init();
+        IPCN(ucsp_client_old_verifyPrivileged2(securitydPort.port(), verifyReplyPort, &securitydCreds, &rcode, &originPort));
+    }
+    if (originPort != securitydPort.port())
 		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
 	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
-	check(ucsp_client_childCheckIn(securitydPort, serverPort, MACH_PORT_NULL));
+
+    if (serverVersion >= SERVER_MACH_PROTOCOL_VERSION_WITH_RECEIVE_PORT) {
+        check(ucsp_client_childCheckIn(securitydPort, serverPort, MACH_PORT_NULL));
+    } else {
+        check(ucsp_client_old_childCheckIn(securitydPort, serverPort, MACH_PORT_NULL));
+    }
 }
 
 

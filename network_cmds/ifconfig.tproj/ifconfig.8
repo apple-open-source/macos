@@ -966,6 +966,27 @@ measured in bps, Kbps, Mbps or Gbps.
 If the specified rate is zero, the token bucket regulator is disabled.
 .El
 .Pp
+The following commands may be used for testing various features of the networking stack:
+.Bl -tag -width indent
+.It Cm linkcongested Op Cm 0 No - Cm 1
+.Sm on
+Indicates the link is congested.
+.It Cm lowpowerwake Op Cm 0 No - Cm 1
+.Sm on
+Indicates the network interface support low power wake mode.
+.It Cm inbandwakepacket Op Cm 0 No - Cm 1
+.Sm on
+Indicates the network interface support inband wake packet tagging.
+.It Cm disableinput
+.Sm on
+Disable input.
+.It Fl disableinput
+Enable input.
+.It Cm disable_output Ar value
+.Sm on
+Disable output when the value is not 0.
+.El
+.Pp
 The
 .Nm
 utility displays the current configuration for a network interface

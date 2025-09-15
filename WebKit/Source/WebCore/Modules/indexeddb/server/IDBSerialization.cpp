@@ -55,7 +55,7 @@ RefPtr<SharedBuffer> serializeIDBKeyPath(const std::optional<IDBKeyPath>& keyPat
                 encoder.encodeString("string"_s, string);
             });
         });
-        std::visit(visitor, keyPath.value());
+        WTF::visit(visitor, keyPath.value());
     } else
         encoder->encodeEnum("type"_s, KeyPathType::Null);
 
@@ -216,7 +216,7 @@ template <typename T> static bool readLittleEndian(std::span<const uint8_t>& dat
     if (data.size() < sizeof(value))
         return false;
 
-    value = consumeAndCastTo<const T>(data);
+    value = consumeAndReinterpretCastTo<const T>(data);
     return true;
 }
 #endif

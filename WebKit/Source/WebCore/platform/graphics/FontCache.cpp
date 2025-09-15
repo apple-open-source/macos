@@ -43,7 +43,6 @@
 #include <wtf/HashMap.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomStringHash.h>
 #include <wtf/text/StringHash.h>
@@ -119,10 +118,10 @@ struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
     }
 };
 
-using FontPlatformDataCache = UncheckedKeyHashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyHashTraits>;
-using FontDataCache = UncheckedKeyHashMap<FontPlatformData, Ref<Font>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontPlatformDataCache = HashMap<FontPlatformDataCacheKey, std::unique_ptr<FontPlatformData>, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyHashTraits>;
+using FontDataCache = HashMap<FontPlatformData, Ref<Font>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
 #if ENABLE(OPENTYPE_VERTICAL)
-using FontVerticalDataCache = UncheckedKeyHashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
+using FontVerticalDataCache = HashMap<FontPlatformData, RefPtr<OpenTypeVerticalData>, FontDataCacheKeyHash, FontDataCacheKeyTraits>;
 #endif
 
 struct FontCache::FontDataCaches {
@@ -135,7 +134,7 @@ struct FontCache::FontDataCaches {
 #endif
 };
 
-FontCache& FontCache::forCurrentThread()
+CheckedRef<FontCache> FontCache::forCurrentThread()
 {
     return threadGlobalData().fontCache();
 }
@@ -158,7 +157,7 @@ FontCache::FontCache()
 
 FontCache::~FontCache() = default;
 
-std::optional<ASCIILiteral> FontCache::alternateFamilyName(const String& familyName)
+ASCIILiteral FontCache::alternateFamilyName(const String& familyName)
 {
     if (auto platformSpecificAlternate = platformAlternateFamilyName(familyName))
         return platformSpecificAlternate;
@@ -195,7 +194,7 @@ std::optional<ASCIILiteral> FontCache::alternateFamilyName(const String& familyN
         break;
     }
 
-    return std::nullopt;
+    return { };
 }
 
 FontPlatformData* FontCache::cachedFontPlatformData(const FontDescription& fontDescription, const String& passedFamilyName, const FontCreationContext& fontCreationContext, OptionSet<FontLookupOptions> options)
@@ -214,8 +213,8 @@ FontPlatformData* FontCache::cachedFontPlatformData(const FontDescription& fontD
 #endif
 
     static std::once_flag onceFlag;
-    std::call_once(onceFlag, [&]() {
-        platformInit();
+    std::call_once(onceFlag, [checkedThis = CheckedPtr { this }]() {
+        checkedThis->platformInit();
     });
 
     FontPlatformDataCacheKey key { fontDescription, { familyName }, fontCreationContext };
@@ -228,7 +227,7 @@ FontPlatformData* FontCache::cachedFontPlatformData(const FontDescription& fontD
             // We were unable to find a font. We have a small set of fonts that we alias to other names,
             // e.g., Arial/Helvetica, Courier/Courier New, etc. Try looking up the font under the aliased name.
             if (auto alternateName = alternateFamilyName(familyName)) {
-                auto* alternateData = cachedFontPlatformData(fontDescription, *alternateName, fontCreationContext, options | FontLookupOptions::ExactFamilyNameMatch);
+                auto* alternateData = cachedFontPlatformData(fontDescription, alternateName, fontCreationContext, options | FontLookupOptions::ExactFamilyNameMatch);
                 // Look up the key in the hash table again as the previous iterator may have
                 // been invalidated by the recursive call to cachedFontPlatformData().
                 it = m_fontDataCaches->platformData.find(key);
@@ -335,7 +334,7 @@ void FontCache::purgeInactiveFontData(unsigned purgeCount)
         return std::nullopt;
     });
 
-    LOG(Fonts, " removing %lu keys", keysToRemove.size());
+    LOG(Fonts, " removing %zu keys", keysToRemove.size());
 
     for (auto& key : keysToRemove)
         m_fontDataCaches->platformData.remove(key);
@@ -424,11 +423,11 @@ static void dispatchToAllFontCaches(F function)
 {
     ASSERT(isMainThread());
 
-    function(FontCache::forCurrentThread());
+    function(FontCache::forCurrentThread().get());
 
     for (auto& thread : WorkerOrWorkletThread::workerOrWorkletThreads()) {
         thread.runLoop().postTask([function](ScriptExecutionContext&) {
-            if (auto fontCache = FontCache::forCurrentThreadIfExists())
+            if (CheckedPtr fontCache = FontCache::forCurrentThreadIfExists())
                 function(*fontCache);
         });
     }

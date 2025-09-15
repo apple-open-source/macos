@@ -99,8 +99,8 @@ enum class NSURLRequestFlags : int16_t {
 
 struct CoreIPCNSURLRequestData {
 
-    using BodyParts = std::variant<CoreIPCString, CoreIPCData>;
-    using HeaderField = std::pair<String, std::variant<String, Vector<String>>>;
+    using BodyParts = Variant<CoreIPCString, CoreIPCData>;
+    using HeaderField = std::pair<String, Variant<String, Vector<String>>>;
 
     std::optional<CoreIPCPlistDictionary> protocolProperties;
     bool isMutable { false };

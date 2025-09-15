@@ -21,6 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <libDER/libDER.h>
+#include <libDER/asn1Types.h>
+#include <libDER/DER_Decode.h>
+#include <libDER/DER_Encode.h>
+#include <libDER/oids.h>
+
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecKeychainItemPriv.h>
@@ -29,6 +35,7 @@
 #include <Security/SecCertificatePriv.h>
 
 #include "SecBridge.h"
+#include <security_keychain/SecIdentityInternal.h>
 #include <security_keychain/Certificate.h>
 #include <security_keychain/Identity.h>
 #include <security_keychain/KeyItem.h>
@@ -37,6 +44,7 @@
 #include <security_utilities/simpleprefs.h>
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecXPCUtils.h>
+#include "utilities/SecCFWrappers.h"
 #include <sys/param.h>
 #include <syslog.h>
 #include <os/activity.h>
@@ -220,6 +228,32 @@ SecIdentityCreate(
 {
 	COUNTLEGACYAPI
 	SecIdentityRef identityRef = NULL;
+    bool mismatch = false;
+
+    /* Compare the public keys to make sure we're making a coherent identity,
+     * use the ExternalRepresentations so we don't fall into traps caused by different backing key types. */
+    SecKeyRef publicKey = SecKeyCopyPublicKey(privateKey);
+    if (!publicKey) {
+        secwarning("SecIdentityCreate: failed to extract public key from private key");
+        return NULL;
+    }
+
+    CFDataRef publicKeyData = SecKeyCopyExternalRepresentation(publicKey, NULL);
+    SecKeyRef certKey = SecCertificateCopyKey(certificate);
+    CFDataRef certKeyData = SecKeyCopyExternalRepresentation(certKey, NULL);
+    if (!CFEqualSafe(certKeyData, publicKeyData)) {
+        secwarning("Creating SecIdentity with mismatching public keys: %{mask.hash}@, %{mask.hash}@", certKeyData, publicKeyData);
+        // TODO: rdar://152691063 (analytics data for SecIdentityCreate check key matches cert)
+        mismatch = true;
+    }
+    CFReleaseNull(publicKey);
+    CFReleaseNull(publicKeyData);
+    CFReleaseNull(certKey);
+    CFReleaseNull(certKeyData);
+    if (mismatch) {
+        return NULL;
+    }
+
 	OSStatus __secapiresult;
 	SecCertificateRef __itemImplRef = NULL;
 	if (SecCertificateIsItemImplInstance(certificate)) {
@@ -581,6 +615,294 @@ OSStatus SecIdentityCopyPreference(
     END_SECAPI
 }
 
+/*
+* ECPrivateKey ::= SEQUENCE {
+*  version INTEGER { ecPrivkeyVer1(1) } (ecPrivkeyVer1),
+*  privateKey OCTET STRING,
+*  parameters [0] ECDomainParameters {{ SECGCurveNames }} OPTIONAL,
+*  publicKey [1] BIT STRING OPTIONAL
+* } */
+typedef struct {
+    DERItem        version;
+    DERItem        privateKey;
+    DERItem        parameters;
+    DERItem        publicKey;
+} DER_ECPrivateKey;
+
+const DERItemSpec DER_ECPrivateKeyItemSpecs[] =
+{
+    { DER_OFFSET(DER_ECPrivateKey, version),
+        ASN1_INTEGER,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_ECPrivateKey, privateKey),
+        ASN1_OCTET_STRING,
+        DER_DEC_NO_OPTS },
+    { DER_OFFSET(DER_ECPrivateKey, parameters),
+        ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 0,
+        DER_DEC_OPTIONAL  },
+    { DER_OFFSET(DER_ECPrivateKey, publicKey),
+        ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 1,
+        DER_DEC_OPTIONAL }
+};
+const DERSize DERNumECPrivateKeyItemSpecs = sizeof(DER_ECPrivateKeyItemSpecs) / sizeof(DERItemSpec);
+
+static const DERByte encodedAlgIdECsecp256[] = {
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
+};
+static const DERByte encodedAlgIdECsecp384[] = {
+    0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22,
+};
+static const DERByte encodedAlgIdECsecp521[] = {
+    0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23,
+};
+
+static CF_RETURNS_RETAINED CFDataRef encodeECPrivateKey(SecKeyRef key, CFErrorRef *error) {
+    CFMutableDataRef result = NULL;
+    CFMutableDataRef K = NULL;
+
+    uint8_t version = 1;
+    size_t keyLen = 0;
+    SecECNamedCurve curve = kSecECCurveNone;
+
+    /* SecKeyCopyExternalRepresentation returns 04 | X | Y | K for an EC private key
+     * but we need just K as the private key for the ASN1 specs.
+     * So we strip 04 | X | Y by requesting the public key external representation
+     * ( 04 | X | Y ) and deleting that length off the private key external representation. */
+    SecKeyRef pubKey = SecKeyCopyPublicKey(key);
+    CFDataRef pubKeyData = SecKeyCopyExternalRepresentation(pubKey, error);
+    CFDataRef privKeyData = SecKeyCopyExternalRepresentation(key, error);
+    if (!pubKeyData || !privKeyData) { goto errOut; }
+    K = CFDataCreateMutableCopy(NULL, 0, privKeyData);
+    CFDataDeleteBytes(K, CFRangeMake(0, CFDataGetLength(pubKeyData)));
+
+    DER_ECPrivateKey ecPrivKey;
+    memset(&ecPrivKey, 0, sizeof(ecPrivKey));
+    ecPrivKey.version.data = &version;
+    ecPrivKey.version.length = 1;
+    ecPrivKey.privateKey.data = (DERByte *)CFDataGetBytePtr(K);
+    ecPrivKey.privateKey.length = (size_t)CFDataGetLength(K);
+    curve = SecECKeyGetNamedCurve(key);
+    switch(curve) {
+        case kSecECCurveSecp256r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp256;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp256);
+            break;
+        case kSecECCurveSecp384r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp384;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp384);
+            break;
+        case kSecECCurveSecp521r1:
+            ecPrivKey.parameters.data = (DERByte *)encodedAlgIdECsecp521;
+            ecPrivKey.parameters.length = sizeof(encodedAlgIdECsecp521);
+            break;
+        default:
+            goto errOut;
+    }
+
+    if (DR_Success != DERLengthOfEncodedSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ecPrivKey, sizeof(ecPrivKey), (DERShort)DERNumECPrivateKeyItemSpecs, DER_ECPrivateKeyItemSpecs, &keyLen)) {
+        goto errOut;
+    }
+    if (keyLen >= LONG_MAX) { goto errOut; }
+    result = CFDataCreateMutable(NULL, (CFIndex)keyLen);
+    if (result == NULL) { goto errOut; };
+    CFDataSetLength(result, (CFIndex)keyLen);
+    if (DR_Success != DEREncodeSequenceFromObject(ASN1_CONSTR_SEQUENCE, &ecPrivKey, sizeof(ecPrivKey),
+                                                        (DERShort)DERNumECPrivateKeyItemSpecs,  DER_ECPrivateKeyItemSpecs,
+                                                  CFDataGetMutableBytePtr(result), (size_t)CFDataGetLength(result), &keyLen)) {
+        CFReleaseNull(result);
+    }
+
+errOut:
+    CFReleaseNull(K);
+    CFReleaseNull(privKeyData);
+    CFReleaseNull(pubKeyData);
+    CFReleaseNull(pubKey);
+    return result;
+}
+
+static CF_RETURNS_RETAINED CFDataRef SecKeyCopyLegacyKeychainCompatibleExternalRepresentation(SecKeyRef key, CFErrorRef *error) {
+    CFDictionaryRef keyAttrs = SecKeyCopyAttributes(key);
+    CFDataRef result = NULL;
+    CFStringRef type = (CFStringRef)CFDictionaryGetValue(keyAttrs, kSecAttrKeyType);
+    if (CFEqualSafe(type, kSecAttrKeyTypeRSA)) {
+        result = SecKeyCopyExternalRepresentation(key, error);
+    } else if (CFEqualSafe(type, kSecAttrKeyTypeECSECPrimeRandom)) {
+        result = encodeECPrivateKey(key, error);
+    }
+
+    CFReleaseNull(keyAttrs);
+    return result;
+}
+
+static _Nullable SecKeyRef copyPrivateKeyForPublicKeyDigest(CFDataRef keyID, SecKeychainRef importKeychain)
+{
+    SecKeyRef privateKey = NULL;
+    CFTypeRef result = NULL;
+    if (keyID == NULL) { return NULL; }
+
+    CFMutableDictionaryRef pkquery = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    CFDictionaryAddValue(pkquery, kSecClass, kSecClassKey);
+    CFDictionaryAddValue(pkquery, kSecAttrKeyClass, kSecAttrKeyClassPrivate);
+    CFDictionaryAddValue(pkquery, kSecAttrApplicationLabel, keyID);
+    if (importKeychain) {
+        CFMutableArrayRef searchlist = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+        CFArrayAppendValue(searchlist, importKeychain);
+        CFDictionaryAddValue(pkquery, kSecMatchSearchList, searchlist);
+        CFReleaseNull(searchlist);
+    }
+    CFDictionaryAddValue(pkquery, kSecReturnRef, kCFBooleanTrue);
+    OSStatus status = SecItemCopyMatching(pkquery, &result);
+    if (status == errSecSuccess && CFGetTypeID(result) == SecKeyGetTypeID()) {
+        CFAssignRetained(privateKey, (SecKeyRef)result);
+        result = NULL;
+    }
+    CFReleaseNull(result);
+    CFReleaseNull(pkquery);
+    return privateKey;
+}
+
+static OSStatus importPkcs12KeyToLegacyKeychain(SecIdentityRef identity, SecKeychainRef importKeychain, SecAccessRef importAccess, SecKeyRef * CF_RETURNS_RETAINED outKey)
+{
+    SecKeyRef privateKey = NULL;
+    CFErrorRef error = NULL;
+    CFDataRef keyID = NULL;
+    CFDataRef keyData = NULL;
+    CFStringRef keyType = NULL;
+    SecKeyRef existingKey = NULL;
+
+    SecExternalFormat inputFormat = kSecFormatOpenSSL;
+    SecExternalItemType itemType = kSecItemTypePrivateKey;
+    SecItemImportExportFlags flags = 0;
+    SecKeyImportExportParameters keyParams; /* filled in below... */
+    CFArrayRef impItems = NULL;
+
+    OSStatus status = SecIdentityCopyPrivateKey(identity, &privateKey);
+    if (status != errSecSuccess) { goto errOut; }
+
+    // export the iOS-style key and re-import with legacy access control
+    keyID = SecKeyCopyPublicKeyHash(privateKey);
+    keyData = SecKeyCopyLegacyKeychainCompatibleExternalRepresentation(privateKey, &error);
+    if (error != NULL) {
+        status = (OSStatus)CFErrorGetCode(error);
+        goto errOut;
+    }
+
+    // before we attempt to import this key, has it already been imported to this keychain?
+    existingKey = copyPrivateKeyForPublicKeyDigest(keyID, importKeychain);
+    if (existingKey) {
+        CFReleaseNull(privateKey);
+        CFAssignRetained(privateKey, existingKey);
+        goto errOut;
+    }
+
+    memset(&keyParams, 0, sizeof(SecKeyImportExportParameters));
+    keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+    keyParams.accessRef = importAccess;
+    status = SecKeychainItemImport(keyData, NULL, &inputFormat, &itemType, flags,
+                                   &keyParams, importKeychain, &impItems);
+    // try to replace iOS-style memory-based private key with CDSA keychain-based key
+    if (status == errSecSuccess && impItems != NULL) {
+        // we can get the key directly from the output items array
+        SecKeyRef impKeyRef = (SecKeyRef)CFArrayGetValueAtIndex(impItems, 0);
+        if (CFGetTypeID(impKeyRef) == SecKeyGetTypeID()) {
+            CFRetainAssign(privateKey, impKeyRef);
+        }
+    } else if (status == errSecDuplicateItem && keyID != NULL) {
+        // we can look up the private key given the digest of its public key
+        SecKeyRef foundKey = copyPrivateKeyForPublicKeyDigest(keyID, importKeychain);
+        if (foundKey) {
+            CFAssignRetained(privateKey, foundKey);
+        }
+    }
+    CFReleaseNull(impItems);
+
+errOut:
+    if (outKey) {
+        *outKey = CFRetainSafe(privateKey);
+    }
+    CFReleaseNull(privateKey);
+    CFReleaseNull(keyID);
+    CFReleaseNull(keyData);
+    CFReleaseNull(error);
+    CFReleaseNull(keyType);
+    return status;
+}
+
+static OSStatus importPkcs12CertToLegacyKeychain(SecIdentityRef identity, SecKeychainRef importKeychain, SecCertificateRef * CF_RETURNS_RETAINED outCert)
+{
+    SecCertificateRef certificate = NULL;
+    CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                                             0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+
+    OSStatus status = SecIdentityCopyCertificate(identity, &certificate);
+    if (status == errSecSuccess && certificate != NULL) {
+        CFDictionaryAddValue(query, kSecClass, kSecClassCertificate);
+        CFDictionaryAddValue(query, kSecValueRef, certificate);
+        if (importKeychain) { CFDictionaryAddValue(query, kSecUseKeychain, importKeychain); }
+        status = SecItemAdd(query, NULL);
+    }
+    switch(status) {
+        case errSecSuccess:
+            secnotice("p12Decode", "cert added to keychain");
+            break;
+        case errSecDuplicateItem:    // dup cert, OK to skip
+            secnotice("p12Decode", "skipping dup cert");
+            status = errSecSuccess;
+            break;
+        default: //all other errors
+            secerror("p12Decode: Error %d adding identity to keychain", status);
+    }
+    if (outCert) {
+        *outCert = CFRetainSafe(certificate);
+    }
+    CFReleaseNull(certificate);
+    CFReleaseNull(query);
+    return status;
+}
+
+CF_RETURNS_RETAINED _Nullable
+SecIdentityRef SecIdentityImportToFileBackedKeychain(SecIdentityRef identity,  SecKeychainRef importKeychain, SecAccessRef importAccess) {
+    OSStatus status = errSecInternal;
+    SecKeyRef privateKey = NULL;
+    SecCertificateRef certificate = NULL;
+    SecIdentityRef localIdentity = NULL;
+    if (!identity || CFGetTypeID(identity) != SecIdentityGetTypeID()) {
+        return NULL;
+    }
+
+    /* Check whether the identity's key and certificate are already KeychainItem types before adding them*/
+    SecCertificateRef currentCert = NULL;
+    SecKeyRef currentKey = NULL;
+    SecIdentityCopyCertificate(identity, &currentCert);
+    SecIdentityCopyPrivateKey(identity, &currentKey);
+
+
+    if (!SecKeyIsLegacyInstance(currentKey)) {
+        status = importPkcs12KeyToLegacyKeychain(identity, importKeychain, importAccess, &privateKey);
+        if (status != errSecSuccess) { goto errOut; }
+    } else {
+        privateKey = CFRetainSafe(currentKey);
+    }
+
+    if (!SecCertificateIsItemImplInstance(currentCert)) {
+        status = importPkcs12CertToLegacyKeychain(identity, importKeychain, &certificate);
+        if (status != errSecSuccess) { goto errOut; }
+    } else {
+        certificate = CFRetainSafe(currentCert);
+    }
+
+    // Re-create identity with the file-backed keychain items
+    localIdentity = SecIdentityCreate(NULL, certificate, privateKey);
+
+errOut:
+    CFReleaseNull(currentCert);
+    CFReleaseNull(currentKey);
+    CFReleaseNull(privateKey);
+    CFReleaseNull(certificate);
+
+    return localIdentity;
+}
+
 OSStatus SecIdentitySetPreference(
     SecIdentityRef identity,
     CFStringRef name,
@@ -606,8 +928,23 @@ OSStatus SecIdentitySetPreference(
     os_activity_scope(activity);
     os_release(activity);
 
+    /* Get the Keychain we'll use so we can convert the identity to a file-backed Keychain item
+     * before we try to make the preference. */
+    Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
+    Keychain keychain = nil;
+    try {
+        keychain = globals().storageManager.defaultKeychain();
+        if (!keychain->exists())
+            MacOSError::throwMe(errSecNoSuchKeychain); // Might be deleted or not available at this time.
+    }
+    catch(...) {
+        keychain = globals().storageManager.defaultKeychainUI(item);
+    }
+    SecIdentityRef localIdentity = SecIdentityImportToFileBackedKeychain(identity, keychain->handle(), NULL);
+
     CFRef<SecCertificateRef>  certRef;
-    OSStatus status = SecIdentityCopyCertificate(identity, certRef.take());
+    OSStatus status = SecIdentityCopyCertificate(localIdentity, certRef.take());
+    CFReleaseNull(localIdentity);
     if(status != errSecSuccess) {
         CFReleaseNull(perAppName);
         MacOSError::throwMe(status);
@@ -673,7 +1010,6 @@ OSStatus SecIdentitySetPreference(
         cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
     }
 
-    Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
     bool add = (!cursor->next(item));
     // at this point, we either have a new item to add or an existing item to update
 
@@ -697,16 +1033,6 @@ OSStatus SecIdentitySetPreference(
     CFRelease(pItemRef);
 
     if (add) {
-        Keychain keychain = nil;
-        try {
-            keychain = globals().storageManager.defaultKeychain();
-            if (!keychain->exists())
-                MacOSError::throwMe(errSecNoSuchKeychain); // Might be deleted or not available at this time.
-        }
-        catch(...) {
-            keychain = globals().storageManager.defaultKeychainUI(item);
-        }
-
         try {
             keychain->add(item);
         }

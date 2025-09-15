@@ -46,7 +46,7 @@ public:
         return adoptRef(*new RadioInputType(element));
     }
 
-    static void forEachButtonInDetachedGroup(ContainerNode& rootName, const String& groupName, const Function<bool(HTMLInputElement&)>&);
+    static void forEachButtonInDetachedGroup(ContainerNode& rootName, const String& groupName, NOESCAPE const Function<bool(HTMLInputElement&)>&);
 
     bool valueMissing(const String&) const final;
 
@@ -61,7 +61,7 @@ private:
     void handleClickEvent(MouseEvent&) final;
     ShouldCallBaseEventHandler handleKeydownEvent(KeyboardEvent&) final;
     void handleKeyupEvent(KeyboardEvent&) final;
-    bool isKeyboardFocusable(KeyboardEvent*) const final;
+    bool isKeyboardFocusable(const FocusEventData&) const final;
     bool shouldSendChangeEventAfterCheckedChanged() final;
     void willDispatchClick(InputElementClickState&) final;
     void didDispatchClick(Event&, const InputElementClickState&) final;

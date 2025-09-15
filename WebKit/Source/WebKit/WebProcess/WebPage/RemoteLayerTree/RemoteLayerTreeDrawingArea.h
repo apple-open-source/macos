@@ -158,24 +158,19 @@ private:
     private:
         explicit BackingStoreFlusher(Ref<IPC::Connection>&&);
 
-        Ref<IPC::Connection> m_connection;
+        const Ref<IPC::Connection> m_connection;
         std::atomic<bool> m_hasPendingFlush { false };
     };
 
-    Ref<RemoteLayerTreeContext> m_remoteLayerTreeContext;
+    const Ref<RemoteLayerTreeContext> m_remoteLayerTreeContext;
     
     struct RootLayerInfo {
-        Ref<WebCore::GraphicsLayer> layer;
+        const Ref<WebCore::GraphicsLayer> layer;
         RefPtr<WebCore::GraphicsLayer> contentLayer;
         RefPtr<WebCore::GraphicsLayer> viewOverlayRootLayer;
         WebCore::FrameIdentifier frameID;
     };
     RootLayerInfo* rootLayerInfoWithFrameIdentifier(WebCore::FrameIdentifier);
-
-    // GraphicsLayerClient
-#if HAVE(HDR_SUPPORT)
-    bool hdrForImagesEnabled() const override;
-#endif
 
     Vector<RootLayerInfo, 1> m_rootLayers;
 
@@ -189,10 +184,10 @@ private:
     bool m_waitingForBackingStoreSwap { false };
     bool m_deferredRenderingUpdateWhileWaitingForBackingStoreSwap { false };
 
-    Ref<WorkQueue> m_commitQueue;
+    const Ref<WorkQueue> m_commitQueue;
     RefPtr<BackingStoreFlusher> m_backingStoreFlusher;
 
-    TransactionID m_currentTransactionID;
+    TransactionID m_currentTransactionID { TransactionID::generateMonotonic() };
     Vector<IPC::AsyncReplyID> m_pendingCallbackIDs;
     ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
 

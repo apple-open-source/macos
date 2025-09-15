@@ -32,6 +32,7 @@
 #include "LocalAllocator.h"
 #include "MarkedBlock.h"
 #include <wtf/DataLog.h>
+#include <wtf/DebugHeap.h>
 #include <wtf/FastBitVector.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/SharedTask.h>

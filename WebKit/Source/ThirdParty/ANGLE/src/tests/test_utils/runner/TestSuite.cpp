@@ -322,7 +322,12 @@ void UpdateCurrentTestResult(const testing::TestResult &resultIn, TestResults *r
     }
     else
     {
-        resultOut.type = TestResultType::Pass;
+        // With --gtest_repeat the same test is seen multiple times, so resultOut.type may have been
+        // previously set to e.g. ::Fail. Only set to ::Pass if there was no other result yet.
+        if (resultOut.type == TestResultType::NoResult)
+        {
+            resultOut.type = TestResultType::Pass;
+        }
     }
 
     resultOut.elapsedTimeSeconds.back() = resultsOut->currentTestTimer.getElapsedWallClockTime();
@@ -720,19 +725,28 @@ std::string GetConfigNameFromTestIdentifier(const TestIdentifier &id)
 
 TestQueue BatchTests(const std::vector<TestIdentifier> &tests, int batchSize)
 {
-    // First sort tests by configuration.
-    angle::HashMap<std::string, std::vector<TestIdentifier>> testsSortedByConfig;
+    // First group tests by configuration.
+    angle::HashMap<std::string, std::vector<TestIdentifier>> testsGroupedByConfig;
     for (const TestIdentifier &id : tests)
     {
         std::string config = GetConfigNameFromTestIdentifier(id);
-        testsSortedByConfig[config].push_back(id);
+        testsGroupedByConfig[config].push_back(id);
     }
+
+    // Sort configs for consistent ordering.
+    std::vector<std::string> configs;
+    configs.reserve(testsGroupedByConfig.size());
+    for (const auto &configAndIds : testsGroupedByConfig)
+    {
+        configs.push_back(configAndIds.first);
+    }
+    std::sort(configs.begin(), configs.end());
 
     // Then group into batches by 'batchSize'.
     TestQueue testQueue;
-    for (const auto &configAndIds : testsSortedByConfig)
+    for (const auto &config : configs)
     {
-        const std::vector<TestIdentifier> &configTests = configAndIds.second;
+        const std::vector<TestIdentifier> &configTests = testsGroupedByConfig[config];
 
         // Count the number of batches needed for this config.
         int batchesForConfig = static_cast<int>(configTests.size() + batchSize - 1) / batchSize;
@@ -1113,6 +1127,10 @@ TestSuite::TestSuite(int *argc, char **argv, std::function<void()> registerTests
         else if (conditions[GPUTestConfig::kConditionApple])
         {
             SetEnvironmentVar(kPreferredDeviceEnvVar, "apple");
+        }
+        else if (conditions[GPUTestConfig::kConditionQualcomm])
+        {
+            SetEnvironmentVar(kPreferredDeviceEnvVar, "qualcomm");
         }
     }
 
@@ -1560,6 +1578,9 @@ bool TestSuite::finishProcess(ProcessInfo *processInfo)
         {
             printf(" (TIMEOUT in %0.1lf s)\n", result.elapsedTimeSeconds.back());
             mFailureCount++;
+
+            const std::string &batchStdout = processInfo->process->getStdout();
+            PrintTestOutputSnippet(id, result, batchStdout);
         }
         else
         {

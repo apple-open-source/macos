@@ -643,12 +643,12 @@ void WebExtensionTab::loadURL(URL url, CompletionHandler<void(Expected<void, Web
     static NSString * const apiName = @"tabs.update()";
 
     if (!isValid() || !m_respondsToLoadURL) {
-        [webView() loadRequest:[NSURLRequest requestWithURL:url]];
+        [webView() loadRequest:[NSURLRequest requestWithURL:url.createNSURL().get()]];
         completionHandler({ });
         return;
     }
 
-    [m_delegate loadURL:url forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
+    [m_delegate loadURL:url.createNSURL().get() forWebExtensionContext:m_extensionContext->wrapper() completionHandler:makeBlockPtr([protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for loadURL: %{public}@", privacyPreservingDescription(error));
             completionHandler(toWebExtensionError(apiName, nullString(), error.localizedDescription));

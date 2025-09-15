@@ -70,6 +70,7 @@
 #include <mach/upl.h>
 
 #include <vm/memory_object.h>
+#include <vm/vm_compressor_internal.h>
 #include <vm/vm_compressor_pager_internal.h>
 #include <vm/vm_external.h>
 #include <vm/vm_fault.h>
@@ -702,7 +703,7 @@ vm_compressor_slots_init(void)
 		compressor_slots_zones[idx] = zone_create(
 			compressor_slots_zones_names[idx],
 			compressor_slots_zones_sizes[idx],
-			ZC_PGZ_USE_GUARDS | ZC_VM);
+			ZC_VM);
 	}
 }
 STARTUP(ZALLOC, STARTUP_RANK_MIDDLE, vm_compressor_slots_init);

@@ -47,7 +47,8 @@ extern char *clean_non_printable(char *str, size_t len);
  */
 extern void dump_hex(const unsigned char *ptr, size_t len);
 
-
 extern uint16_t in_cksum(uint16_t *addr, uint16_t len);
+
+extern void proc_name(pid_t pid, char *buf, size_t buf_len);
 
 #endif /* network_cmds_lib_h */

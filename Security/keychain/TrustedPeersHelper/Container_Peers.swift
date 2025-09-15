@@ -31,6 +31,14 @@ extension Container {
                     logger.error("voucher dedup unable to construct TPVoucher for peerID \(peerMO.peerID ?? "nil", privacy: .public), leaving in DB")
                     return
                 }
+
+                if tpv.sponsorID == container.egoPeerID {
+                    var beneficiaryIDs = container.egoSponsoredBeneficiaryIDs as? Set<String> ?? Set()
+                    beneficiaryIDs.insert(tpv.beneficiaryID)
+                    container.egoSponsoredBeneficiaryIDs = beneficiaryIDs as NSSet
+                    logger.notice("found voucher that ego sponsored, added \(peerMO.peerID ?? "nil", privacy: .public) to list of sponsored beneficiaries: \(String(describing: beneficiaryIDs), privacy: .public)")
+                }
+
                 if tpv.beneficiaryID != peerMO.peerID {
                     logger.notice("voucher inconsistency for peerID \(peerMO.peerID ?? "nil", privacy: .public) sponsorID \(tpv.sponsorID, privacy: .public) beneficiaryID \(tpv.beneficiaryID, privacy: .public) reason \(tpv.reason.rawValue, privacy: .public)")
 

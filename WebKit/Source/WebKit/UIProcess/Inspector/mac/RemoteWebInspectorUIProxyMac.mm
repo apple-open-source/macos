@@ -93,6 +93,11 @@
     return self.protectedInspectorProxy->isUnderTest();
 }
 
+- (BOOL)inspectorViewControllerInspectorIsHorizontallyAttached:(WKInspectorViewController *)inspectorViewController
+{
+    return NO;
+}
+
 @end
 
 namespace WebKit {
@@ -160,16 +165,16 @@ void RemoteWebInspectorUIProxy::platformSave(Vector<InspectorFrontendClient::Sav
     RetainPtr<NSString> urlCommonPrefix;
     for (auto& item : saveDatas) {
         if (!urlCommonPrefix)
-            urlCommonPrefix = item.url;
+            urlCommonPrefix = item.url.createNSString();
         else
-            urlCommonPrefix = [urlCommonPrefix commonPrefixWithString:item.url options:0];
+            urlCommonPrefix = [urlCommonPrefix commonPrefixWithString:item.url.createNSString().get() options:0];
     }
     if ([urlCommonPrefix hasSuffix:@"."])
         urlCommonPrefix = [urlCommonPrefix substringToIndex:[urlCommonPrefix length] - 1];
 
     RetainPtr platformURL = m_suggestedToActualURLMap.get(urlCommonPrefix.get());
     if (!platformURL) {
-        platformURL = [NSURL URLWithString:urlCommonPrefix.get()];
+        platformURL = adoptNS([[NSURL alloc] initWithString:urlCommonPrefix.get()]);
         // The user must confirm new filenames before we can save to them.
         forceSaveAs = true;
     }
@@ -224,9 +229,9 @@ void RemoteWebInspectorUIProxy::platformSetForcedAppearance(InspectorFrontendCli
 
     webView().appearance = platformAppearance;
 
-    NSWindow *window = m_window.get();
+    RetainPtr window = m_window.get();
     ASSERT(window);
-    window.appearance = platformAppearance;
+    window.get().appearance = platformAppearance;
 }
 
 void RemoteWebInspectorUIProxy::platformStartWindowDrag()
@@ -236,12 +241,12 @@ void RemoteWebInspectorUIProxy::platformStartWindowDrag()
 
 void RemoteWebInspectorUIProxy::platformOpenURLExternally(const String& url)
 {
-    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:url]];
+    [[NSWorkspace sharedWorkspace] openURL:adoptNS([[NSURL alloc] initWithString:url.createNSString().get()]).get()];
 }
 
 void RemoteWebInspectorUIProxy::platformRevealFileExternally(const String& path)
 {
-    [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[ [NSURL URLWithString:path] ]];
+    [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs:@[ adoptNS([[NSURL alloc] initWithString:path.createNSString().get()]).get() ]];
 }
 
 void RemoteWebInspectorUIProxy::platformShowCertificate(const CertificateInfo& certificateInfo)

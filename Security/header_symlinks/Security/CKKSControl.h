@@ -69,6 +69,7 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
                 reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply;
+- (void)rpcKnownBadStateForViews:(NSArray<NSString*>* _Nullable)views reply:(void (^)(CKKSKnownBadState))reply;
 
 - (void)proposeTLKForSEView:(NSString*)seViewName
                 proposedTLK:(CKKSExternalKey *)proposedTLK

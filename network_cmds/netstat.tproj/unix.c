@@ -199,7 +199,7 @@ unixpr_n(void)
 						break;
 					default:
 						/* It's OK to have some extra bytes at the end */
-						if (which != 0) {
+						if (which != 0 && vflag > 2) {
 							printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
 						}
 						break;

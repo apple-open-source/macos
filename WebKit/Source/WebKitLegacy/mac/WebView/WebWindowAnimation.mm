@@ -28,6 +28,7 @@
 #import "WebWindowAnimation.h"
 
 #import <WebCore/FloatConversion.h>
+#import <numbers>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/Assertions.h>
 #import <wtf/MathExtras.h>
@@ -96,7 +97,7 @@ using WebCore::narrowPrecisionToFloat;
 
 - (float)currentValue
 {
-    return narrowPrecisionToFloat(0.5 - 0.5 * cos(piDouble * (1 - [self currentProgress])));
+    return narrowPrecisionToFloat(0.5 - 0.5 * cos(std::numbers::pi * (1 - [self currentProgress])));
 }
 
 - (NSRect)currentFrame

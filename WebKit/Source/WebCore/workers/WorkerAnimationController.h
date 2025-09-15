@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All Rights Reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  * Copyright (C) 2020 Metrological Group B.V.
  * Copyright (C) 2020 Igalia S.L.
  *
@@ -65,7 +65,7 @@ private:
     void animationTimerFired();
     void serviceRequestAnimationFrameCallbacks(DOMHighResTimeStamp timestamp);
 
-    WorkerGlobalScope& m_workerGlobalScope;
+    WeakRef<WorkerGlobalScope, WeakPtrImplWithEventTargetData> m_workerGlobalScope;
 
     typedef Vector<RefPtr<RequestAnimationFrameCallback>> CallbackList;
     CallbackList m_animationCallbacks;

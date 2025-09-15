@@ -47,7 +47,9 @@
 #if MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR
 #define MFM_ARENA_SIZE      (1ul << 20)
 #else
-#define MFM_ARENA_SIZE      (8ul << 20)
+// Originally this was set to 8M: we shrank it down to 4M to accomodate for
+// the guarded range reservation (as the arena was heavily underused anyway).
+#define MFM_ARENA_SIZE      (4ul << 20)
 #endif /* MALLOC_TARGET_EXCLAVES || MALLOC_TARGET_EXCLAVES_INTROSPECTOR */
 #define MFM_QUANTUM         16ul
 #define MFM_SIZE_CLASSES    (__builtin_ctz(MFM_ALLOC_SIZE_MAX / MFM_QUANTUM) + 1)
@@ -652,7 +654,7 @@ mfm_initialize(void)
 #endif // MALLOC_TARGET_EXCLAVES
 
 
-	/* this is called early, which means the address space _does_ have 8M */
+	/* this is called early, which means the address space _does_ have 4M */
 	arena = mvm_allocate_pages_plat(MFM_ARENA_SIZE, 0, debug_flags,
 			VM_MEMORY_MALLOC, mvm_plat_map(map));
 	if (arena == NULL) {

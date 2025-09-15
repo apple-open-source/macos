@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-class PropertySetCSSStyleDeclaration;
+class CSSStyleProperties;
 class StyledElement;
 
 struct CSSParserContext;
@@ -53,11 +53,11 @@ public:
     bool isEmpty() const { return !propertyCount(); }
     PropertyReference propertyAt(unsigned index) const;
 
-    Iterator<MutableStyleProperties> begin() const { return { *this }; }
+    Iterator<MutableStyleProperties> begin() const LIFETIME_BOUND { return { *this }; }
     static constexpr std::nullptr_t end() { return nullptr; }
     unsigned size() const { return propertyCount(); }
 
-    PropertySetCSSStyleDeclaration* cssStyleDeclaration();
+    CSSStyleProperties* cssStyleProperties();
 
     bool addParsedProperties(const ParsedPropertyVector&);
     bool addParsedProperty(const CSSProperty&);
@@ -65,7 +65,7 @@ public:
     // These expand shorthand properties into multiple properties.
     bool setProperty(CSSPropertyID, const String& value, CSSParserContext, IsImportant = IsImportant::No, bool* didFailParsing = nullptr);
     bool setProperty(CSSPropertyID, const String& value, IsImportant = IsImportant::No, bool* didFailParsing = nullptr);
-    void setProperty(CSSPropertyID, RefPtr<CSSValue>&&, IsImportant = IsImportant::No);
+    void setProperty(CSSPropertyID, Ref<CSSValue>&&, IsImportant = IsImportant::No);
 
     // These do not. FIXME: This is too messy, we can do better.
     bool setProperty(CSSPropertyID, CSSValueID identifier, IsImportant = IsImportant::No);
@@ -79,8 +79,8 @@ public:
     void clear();
     bool parseDeclaration(const String& styleDeclaration, CSSParserContext);
 
-    WEBCORE_EXPORT CSSStyleDeclaration& ensureCSSStyleDeclaration();
-    CSSStyleDeclaration& ensureInlineCSSStyleDeclaration(StyledElement& parentElement);
+    WEBCORE_EXPORT CSSStyleProperties& ensureCSSStyleProperties();
+    CSSStyleProperties& ensureInlineCSSStyleProperties(StyledElement& parentElement);
 
     int findPropertyIndex(CSSPropertyID) const;
     int findCustomPropertyIndex(StringView propertyName) const;
@@ -99,11 +99,11 @@ private:
     bool removePropertyAtIndex(int index, String* returnText);
     CSSProperty* findCSSPropertyWithID(CSSPropertyID);
     CSSProperty* findCustomCSSPropertyWithName(const String&);
-    std::unique_ptr<PropertySetCSSStyleDeclaration> m_cssomWrapper;
     bool canUpdateInPlace(const CSSProperty&, CSSProperty* toReplace) const;
 
     friend class StyleProperties;
 
+    const std::unique_ptr<CSSStyleProperties> m_cssomWrapper;
     Vector<CSSProperty, 4> m_propertyVector;
 };
 

@@ -229,14 +229,17 @@ routine io_registry_entry_get_parent_iterator(
 	out iterator		: io_object_t
 	);
 
-skip;
-/* was routine io_service_open
-	    service		: io_object_t;
-	in  owningTask		: task_t;
-	in  connect_type	: uint32_t;
-	out connection		: io_connect_t
+/* >was< routine io_service_open */
+routine io_connect_map_shared_memory(
+	    connection		: io_connect_t;
+	in  memory_type		: uint32_t;
+	in  into_task		: task_t;
+	inout address		: mach_vm_address_t;
+	inout size		: mach_vm_size_t;
+	in  flags		: uint32_t;
+	in  property_name	: io_name_t;
+	out inband_output	: io_struct_inband_t, CountInOut
 	);
-*/
 
 routine io_service_close(
 	    connection		: io_connect_t

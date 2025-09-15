@@ -99,7 +99,7 @@ private:
     {
     }
 
-    std::variant<ShapeAndBox, Ref<StyleImage>, CSSBoxType> m_value;
+    Variant<ShapeAndBox, Ref<StyleImage>, CSSBoxType> m_value;
 };
 
 inline ShapeValue::Type ShapeValue::type() const

@@ -16,6 +16,7 @@
 #include "common/hash_containers.h"
 
 #include "libANGLE/renderer/vulkan/CLContextVk.h"
+#include "libANGLE/renderer/vulkan/CLEventVk.h"
 #include "libANGLE/renderer/vulkan/CLKernelVk.h"
 #include "libANGLE/renderer/vulkan/CLMemoryVk.h"
 #include "libANGLE/renderer/vulkan/cl_types.h"
@@ -65,7 +66,11 @@ struct HostTransferConfig
     size_t size            = 0;
     size_t offset          = 0;
     void *dstHostPtr       = nullptr;
+
+    // Source host pointer that can contain data/pattern/etc
     const void *srcHostPtr = nullptr;
+
+    size_t patternSize     = 0;
     size_t rowPitch        = 0;
     size_t slicePitch      = 0;
     size_t elementSize     = 0;
@@ -116,6 +121,7 @@ struct CommandsState
     cl::EventPtrs events;
     cl::MemoryPtrs memories;
     cl::KernelPtrs kernels;
+    cl::SamplerPtrs samplers;
     HostTransferEntries hostTransferList;
 };
 using CommandsStateMap = angle::HashMap<QueueSerial, CommandsState>;
@@ -296,7 +302,7 @@ class CLCommandQueueVk : public CLCommandQueueImpl
                                       void *args,
                                       size_t cbArgs,
                                       const cl::BufferPtrs &buffers,
-                                      const std::vector<size_t> bufferPtrOffsets,
+                                      const std::vector<size_t> &bufferPtrOffsets,
                                       const cl::EventPtrs &waitEvents,
                                       CLEventImpl::CreateFunc *eventCreateFunc) override;
 
@@ -329,6 +335,8 @@ class CLCommandQueueVk : public CLCommandQueueImpl
     {
         return mLastFlushedQueueSerial != mLastSubmittedQueueSerial;
     }
+
+    void addEventReference(CLEventVk &eventVk);
 
   private:
     static constexpr size_t kMaxDependencyTrackerSize    = 64;
@@ -387,7 +395,6 @@ class CLCommandQueueVk : public CLCommandQueueImpl
 
     vk::SecondaryCommandPools mCommandPool;
     vk::OutsideRenderPassCommandBufferHelper *mComputePassCommands;
-    vk::SecondaryCommandMemoryAllocator mOutsideRenderPassCommandsAllocator;
 
     // Queue Serials for this command queue
     SerialIndex mQueueSerialIndex;

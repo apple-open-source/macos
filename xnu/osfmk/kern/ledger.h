@@ -36,14 +36,16 @@
 
 #ifdef MACH_KERNEL_PRIVATE
 #include <os/refcnt.h>
+#include <kern/counter.h>
 #endif /* MACH_KERNEL_PRIVATE */
 
 #define LEDGER_INFO             0
 #define LEDGER_ENTRY_INFO       1
 #define LEDGER_TEMPLATE_INFO    2
 #define LEDGER_LIMIT            3
+#define LEDGER_ENTRY_INFO_V2    4
 /* LEDGER_MAX_CMD always tracks the index of the last ledger command. */
-#define LEDGER_MAX_CMD          LEDGER_LIMIT
+#define LEDGER_MAX_CMD          LEDGER_ENTRY_INFO_V2
 
 #define LEDGER_NAME_MAX 32
 
@@ -102,6 +104,15 @@ struct ledger_entry_small {
 	volatile ledger_amount_t les_credit __attribute__((aligned(8)));
 } __attribute__((aligned(8)));
 
+/*
+ * Some ledger entries would benefit from the use of a scalable counter
+ * and don't care about limits - those entries use this struct.
+ */
+struct ledger_entry_counter {
+	volatile uint32_t  lec_flags;
+	counter_t          lec_counter __attribute__((aligned(8)));
+} __attribute__((aligned(8)));
+
 struct ledger {
 	uint64_t                  l_id;
 	os_refcnt_t               l_refs;
@@ -118,6 +129,17 @@ struct ledger_entry_info {
 	uint64_t        lei_limit;
 	uint64_t        lei_refill_period;      /* In nanoseconds */
 	uint64_t        lei_last_refill;        /* Time since last refill */
+};
+
+struct ledger_entry_info_v2 {
+	int64_t         lei_balance;
+	int64_t         lei_credit;
+	int64_t         lei_debit;
+	uint64_t        lei_limit;
+	uint64_t        lei_refill_period;      /* In nanoseconds */
+	uint64_t        lei_last_refill;        /* Time since last refill */
+	int64_t         lei_lifetime_max;       /* for phys_footprint/neural_nofootprint_lifetime_max */
+	uint64_t        lei_reserved[4];
 };
 
 struct ledger_limit_args {
@@ -177,6 +199,7 @@ __options_decl(ledger_entry_flags, uint64_t, {
 	LEDGER_ENTRY_ALLOW_LIMIT = 0x10,
 	LEDGER_ENTRY_ALLOW_ACTION = 0x20,
 	LEDGER_ENTRY_ALLOW_INACTIVE = 0x40,
+	LEDGER_ENTRY_USE_COUNTER = 0x80,
 });
 
 /*
@@ -259,7 +282,7 @@ extern int ledger_limit(task_t task, struct ledger_limit_args *args);
 extern int ledger_info(task_t task, struct ledger_info *info);
 
 extern int
-ledger_get_task_entry_info_multiple(task_t task, void **buf, int *len);
+ledger_get_task_entry_info_multiple(task_t task, void **buf, int *len, bool v2);
 
 extern void
 ledger_get_entry_info(ledger_t ledger, int entry,

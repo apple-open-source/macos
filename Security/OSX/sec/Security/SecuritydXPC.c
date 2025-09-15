@@ -250,6 +250,8 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("TransmogrifyToSyncBubble");
         case sec_item_update_token_items_for_access_groups_id:
             return CFSTR("UpdateTokenItems");
+        case sec_item_update_token_items_for_system_keychain_id:
+            return CFSTR("UpdateTokenItemsForSystemKeychain");
         case sec_delete_items_with_access_groups_id:
             return CFSTR("sec_delete_items_with_access_groups_id");
         case kSecXPCOpPeersHaveViewsEnabled:

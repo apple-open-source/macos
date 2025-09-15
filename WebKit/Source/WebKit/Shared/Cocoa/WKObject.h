@@ -28,7 +28,9 @@
 #import "WKFoundation.h"
 
 #import <type_traits>
+#import <wtf/Forward.h>
 #import <wtf/ObjCRuntimeExtras.h>
+#import <wtf/Ref.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -38,16 +40,6 @@
 namespace API {
 
 class Object;
-
-template<typename ObjectClass> struct ObjectStorage {
-    ObjectClass* get() { return reinterpret_cast<ObjectClass*>(&data); }
-    ObjectClass& operator*() { return *get(); }
-    ObjectClass* operator->() { return get(); }
-
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    typename std::aligned_storage<sizeof(ObjectClass), std::alignment_of<ObjectClass>::value>::type data;
-    ALLOW_DEPRECATED_DECLARATIONS_END
-};
 
 API::Object* unwrap(void*);
 void* wrap(API::Object*);

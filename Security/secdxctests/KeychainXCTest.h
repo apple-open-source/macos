@@ -22,7 +22,7 @@
  */
 
 #import "KeychainXCTest.h"
-#import "SecItemServer.h"
+#import "keychain/securityd/SecItemServer.h"
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>

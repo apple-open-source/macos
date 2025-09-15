@@ -137,7 +137,7 @@ void GStreamerQuirkBroadcomBase::setupBufferingPercentageCorrection(MediaPlayerP
         if (alsoGetMultiqueue && !state.m_multiqueue) {
             // Also get the multiqueue (if there's one) attached to the vidfilter/aacparse+audfilter.
             // We'll need it later to correct the buffering level.
-            for (auto* sinkPad : GstIteratorAdaptor<GstPad>(GUniquePtr<GstIterator>(gst_element_iterate_sink_pads(element.get())))) {
+            for (auto* sinkPad : GstIteratorAdaptor<GstPad>(gst_element_iterate_sink_pads(element.get()))) {
                 GRefPtr<GstPad> peerSrcPad = adoptGRef(gst_pad_get_peer(sinkPad));
                 if (!peerSrcPad)
                     continue; // And end the loop, because there's only one srcpad.
@@ -145,7 +145,7 @@ void GStreamerQuirkBroadcomBase::setupBufferingPercentageCorrection(MediaPlayerP
 
                 // If it's NOT a multiqueue, it's probably a parser like aacparse. We try to traverse before it.
                 if (peerElement && g_strcmp0(G_OBJECT_TYPE_NAME(element.get()), "GstMultiQueue")) {
-                    for (auto* peerElementSinkPad : GstIteratorAdaptor<GstPad>(GUniquePtr<GstIterator>(gst_element_iterate_sink_pads(peerElement.get())))) {
+                    for (auto* peerElementSinkPad : GstIteratorAdaptor<GstPad>(gst_element_iterate_sink_pads(peerElement.get()))) {
                         peerSrcPad = adoptGRef(gst_pad_get_peer(peerElementSinkPad));
                         if (!peerSrcPad)
                             continue; // And end the loop.
@@ -157,7 +157,7 @@ void GStreamerQuirkBroadcomBase::setupBufferingPercentageCorrection(MediaPlayerP
 
                 // The multiqueue reference is useless if we can't access its stats (on older GStreamer versions).
                 if (peerElement && !g_strcmp0(G_OBJECT_TYPE_NAME(element.get()), "GstMultiQueue")
-                    && gstObjectHasProperty(peerElement.get(), "stats"))
+                    && gstObjectHasProperty(peerElement.get(), "stats"_s))
                     state.m_multiqueue = peerElement;
                 break;
             }

@@ -69,6 +69,12 @@ int     posix_spawnp(pid_t * __restrict, const char * __restrict,
     char *const __argv[__restrict],
     char *const __envp[__restrict]) __API_AVAILABLE(macos(10.5), ios(2.0));
 
+int     posix_spawn_file_actions_addchdir(posix_spawn_file_actions_t *,
+    const char * __restrict) __API_AVAILABLE(macos(16.0)) __SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), visionos(3.0), bridgeos(10.0));
+
+int     posix_spawn_file_actions_addfchdir(posix_spawn_file_actions_t *,
+    int) __API_AVAILABLE(macos(16.0)) __SPI_AVAILABLE(ios(19.0), tvos(19.0), watchos(12.0), visionos(3.0), bridgeos(10.0));
+
 int     posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *, int) __API_AVAILABLE(macos(10.5), ios(2.0)) __SPI_AVAILABLE(watchos(2.0), tvos(9.0), bridgeos(1.0));
 
 int     posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *, int,
@@ -174,10 +180,10 @@ int     posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *,
     int) __API_AVAILABLE(macos(10.7), ios(4.3)) __SPI_AVAILABLE(watchos(2.0), tvos(9.0), bridgeos(1.0));
 
 int     posix_spawn_file_actions_addchdir_np(posix_spawn_file_actions_t *,
-    const char * __restrict) __API_AVAILABLE(macos(10.15)) __SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+    const char * __restrict) __API_DEPRECATED("posix_spawn_file_actions_addchdir(3) has replaced posix_spawn_file_actions_addchdir_np(3)", macos(10.15, 16.0)) __SPI_DEPRECATED("posix_spawn_file_actions_addchdir(3) has replaced posix_spawn_file_actions_addchdir_np(3)", ios(13.0, 19.0), tvos(13.0, 19.0), watchos(6.0, 12.0), visionos(1.0, 3.0), bridgeos(4.0, 10.0));
 
 int     posix_spawn_file_actions_addfchdir_np(posix_spawn_file_actions_t *,
-    int) __API_AVAILABLE(macos(10.15)) __SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));
+    int) __API_DEPRECATED("posix_spawn_file_actions_addfchdir(3) has replaced posix_spawn_file_actions_addfchdir_np(3)", macos(10.15, 16.0)) __SPI_DEPRECATED("posix_spawn_file_actions_addfchdir(3) has replaced posix_spawn_file_actions_addfchdir_np(3)", ios(13.0, 19.0), tvos(13.0, 19.0), watchos(6.0, 12.0), visionos(1.0, 3.0), bridgeos(4.0, 10.0));
 
 __END_DECLS
 

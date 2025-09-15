@@ -282,15 +282,16 @@ struct fsioc_cas_bsdflags {
 #define FSIOC_GRAFT_VERSION          2
 
 /* Grafting flags */
-#define FSCTL_GRAFT_PRESERVE_MOUNT              0x0001  /* Preserve underlying mount until shutdown */
-#define FSCTL_GRAFT_ALTERNATE_SHARED_REGION     0x0002  /* Binaries within should use alternate shared region */
-#define FSCTL_GRAFT_SYSTEM_CONTENT              0x0004  /* Cryptex contains system content */
-#define FSCTL_GRAFT_PANIC_ON_AUTHFAIL           0x0008  /* On failure to authenticate, panic */
-#define FSCTL_GRAFT_STRICT_AUTH                 0x0010  /* Strict authentication mode */
-#define FSCTL_GRAFT_PRESERVE_GRAFT              0x0020  /* Preserve graft itself until unmount */
+#define FSCTL_GRAFT_PRESERVE_MOUNT              0x0000000000000001ULL  /* Preserve underlying mount until shutdown */
+#define FSCTL_GRAFT_ALTERNATE_SHARED_REGION     0x0000000000000002ULL  /* Binaries within should use alternate shared region */
+#define FSCTL_GRAFT_SYSTEM_CONTENT              0x0000000000000004ULL  /* Cryptex contains system content */
+#define FSCTL_GRAFT_PANIC_ON_AUTHFAIL           0x0000000000000008ULL  /* On failure to authenticate, panic */
+#define FSCTL_GRAFT_STRICT_AUTH                 0x0000000000000010ULL  /* Strict authentication mode */
+#define FSCTL_GRAFT_PRESERVE_GRAFT              0x0000000000000020ULL  /* Preserve graft itself until unmount */
 
 /* Ungrafting flags */
-#define FSCTL_UNGRAFT_UNGRAFTALL                0x0001  /* Ungraft all currently grafted filesystems */
+#define FSCTL_UNGRAFT_UNGRAFTALL                0x0000000000000001ULL  /* Ungraft all currently grafted filesystems */
+#define FSCTL_UNGRAFT_NOFORCE                   0x0000000000000002ULL  /* Disallow ungraft if a non-dir vnode inside the graft is in use */
 
 #ifdef KERNEL
 

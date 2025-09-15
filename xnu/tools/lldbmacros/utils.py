@@ -621,14 +621,23 @@ def print_hex_data(data, start=0, desc="", marks={}, prefix=" ", extra=None):
 def Ones(x):
     return (1 << x)-1
 
-def StripPAC(x, TySz):
+def CanonicalAddress(x, TySz):
+    """ Canonicalize an address. That is to say, sign-extend the upper 64-TySz
+        address bits with either 0 or 1 depending on bit 55.
+
+        params:
+            x: The address to modify.
+            TySz: Size of the corresponding VA region.
+    """
     sign_mask = 1 << 55
     ptr_mask = Ones(64-TySz)
-    pac_mask = ~ptr_mask
+    msb_mask = ~ptr_mask
     sign = x & sign_mask
     if sign:
-        return (x | pac_mask) + 2**64
+        # Sign-extend
+        return (x | msb_mask) + 2**64
     else:
+        # Zero-extend
         return x & ptr_mask
 
 @cache_statically

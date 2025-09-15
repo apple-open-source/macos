@@ -25,12 +25,12 @@
  */
 
 #include "config.h"
+#include "AudioParamTimeline.h"
 
 #if ENABLE(WEB_AUDIO)
 
-#include "AudioParamTimeline.h"
-
 #include "AudioUtilities.h"
+#include "ExceptionOr.h"
 #include "FloatConversion.h"
 #include "VectorMath.h"
 #include <algorithm>
@@ -211,7 +211,7 @@ void AudioParamTimeline::cancelScheduledValues(Seconds cancelTime)
     // Remove all events starting at cancelTime.
     for (unsigned i = 0; i < m_events.size(); ++i) {
         if (isAfter(m_events[i], cancelTime)) {
-            m_events.remove(i, m_events.size() - i);
+            m_events.removeAt(i, m_events.size() - i);
             break;
         }
     }
@@ -325,7 +325,7 @@ ExceptionOr<void> AudioParamTimeline::cancelAndHoldAtTime(Seconds cancelTime)
 
 void AudioParamTimeline::removeCancelledEvents(size_t firstEventToRemove)
 {
-    m_events.remove(firstEventToRemove, m_events.size() - firstEventToRemove);
+    m_events.removeAt(firstEventToRemove, m_events.size() - firstEventToRemove);
 }
 
 void AudioParamTimeline::removeOldEvents(size_t eventCount)
@@ -335,7 +335,7 @@ void AudioParamTimeline::removeOldEvents(size_t eventCount)
         return;
 
     // Always leave at least one event in the list.
-    m_events.remove(0, std::min(eventCount, m_events.size() - 1));
+    m_events.removeAt(0, std::min(eventCount, m_events.size() - 1));
 }
 
 std::optional<float> AudioParamTimeline::valueForContextTime(BaseAudioContext& context, float defaultValue, float minValue, float maxValue)

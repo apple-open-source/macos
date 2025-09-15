@@ -49,16 +49,16 @@ static void ensureDebugCategoryIsRegistered()
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(GStreamerRtpSenderBackend);
 
-GStreamerRtpSenderBackend::GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender)
-    : m_peerConnectionBackend(WeakPtr { &backend })
+GStreamerRtpSenderBackend::GStreamerRtpSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender)
+    : m_peerConnectionBackend(WTFMove(backend))
     , m_rtcSender(WTFMove(rtcSender))
 {
     ensureDebugCategoryIsRegistered();
     GST_DEBUG_OBJECT(m_rtcSender.get(), "constructed without associated source");
 }
 
-GStreamerRtpSenderBackend::GStreamerRtpSenderBackend(GStreamerPeerConnectionBackend& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender, Source&& source, GUniquePtr<GstStructure>&& initData)
-    : m_peerConnectionBackend(WeakPtr { &backend })
+GStreamerRtpSenderBackend::GStreamerRtpSenderBackend(WeakPtr<GStreamerPeerConnectionBackend>&& backend, GRefPtr<GstWebRTCRTPSender>&& rtcSender, Source&& source, GUniquePtr<GstStructure>&& initData)
+    : m_peerConnectionBackend(WTFMove(backend))
     , m_rtcSender(WTFMove(rtcSender))
     , m_source(WTFMove(source))
     , m_initData(WTFMove(initData))
@@ -100,16 +100,6 @@ void GStreamerRtpSenderBackend::takeSource(GStreamerRtpSenderBackend& backend)
     setSource(WTFMove(backend.m_source));
 }
 
-template<typename Source>
-static inline bool updateTrackSource(Source& source, MediaStreamTrack* track)
-{
-    if (!track) {
-        source.stop();
-        return true;
-    }
-    return source.setTrack(track->privateTrack());
-}
-
 void GStreamerRtpSenderBackend::startSource()
 {
     GST_DEBUG_OBJECT(m_rtcSender.get(), "Starting source");
@@ -124,11 +114,15 @@ void GStreamerRtpSenderBackend::startSource()
 void GStreamerRtpSenderBackend::stopSource()
 {
     GST_DEBUG_OBJECT(m_rtcSender.get(), "Stopping source");
-    switchOn(m_source, [](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) {
-        source->stop();
-    }, [](Ref<RealtimeOutgoingVideoSourceGStreamer>& source) {
-        source->stop();
-    }, [](std::nullptr_t&) {
+    switchOn(m_source, [&](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) {
+        source->stop([&] {
+            clearSource();
+        });
+    }, [&](Ref<RealtimeOutgoingVideoSourceGStreamer>& source) {
+        source->stop([&] {
+            clearSource();
+        });
+    }, [&](std::nullptr_t&) {
     });
 }
 
@@ -145,30 +139,28 @@ void GStreamerRtpSenderBackend::tearDown()
 bool GStreamerRtpSenderBackend::replaceTrack(RTCRtpSender& sender, MediaStreamTrack* track)
 {
     GST_DEBUG_OBJECT(m_rtcSender.get(), "Replacing sender track with track %p", track);
-    if (!track) {
-        stopSource();
-        return true;
-    }
 
-    m_peerConnectionBackend->setReconfiguring(true);
+    RefPtr peerConnectionBackend = m_peerConnectionBackend.get();
+    if (!peerConnectionBackend)
+        return false;
+
+    peerConnectionBackend->setReconfiguring(true);
     // FIXME: We might want to set the reconfiguring flag back to false once the webrtcbin sink pad
     // has renegotiated its caps. Perhaps a pad probe can be used for this.
 
     bool replace = true;
-    if (!sender.track()) {
-        m_source = m_peerConnectionBackend->createSourceForTrack(*track);
+    if (track && !sender.track()) {
+        m_source = peerConnectionBackend->createSourceForTrack(*track);
         replace = false;
     }
 
     switchOn(m_source, [&](Ref<RealtimeOutgoingAudioSourceGStreamer>& source) {
-        ASSERT(track->source().type() == RealtimeMediaSource::Type::Audio);
         if (replace)
-            source->replaceTrack(&track->privateTrack());
+            source->replaceTrack(track);
         source->start();
     }, [&](Ref<RealtimeOutgoingVideoSourceGStreamer>& source) {
-        ASSERT(track->source().type() == RealtimeMediaSource::Type::Video);
         if (replace)
-            source->replaceTrack(&track->privateTrack());
+            source->replaceTrack(track);
         source->start();
     }, [&](std::nullptr_t&) {
         GST_DEBUG_OBJECT(m_rtcSender.get(), "No outgoing source yet");
@@ -284,7 +276,7 @@ void GStreamerRtpSenderBackend::setParameters(const RTCRtpSendParameters& parame
 
 std::unique_ptr<RTCDTMFSenderBackend> GStreamerRtpSenderBackend::createDTMFBackend()
 {
-    return makeUnique<GStreamerDTMFSenderBackend>();
+    return makeUnique<GStreamerDTMFSenderBackend>(audioSourceWeak());
 }
 
 Ref<RTCRtpTransformBackend> GStreamerRtpSenderBackend::rtcRtpTransformBackend()

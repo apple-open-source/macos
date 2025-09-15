@@ -57,7 +57,7 @@ class ScriptExecutionContext;
 class LibWebRTCDataChannelHandler final : public RTCDataChannelHandler, private webrtc::DataChannelObserver {
     WTF_MAKE_TZONE_ALLOCATED(LibWebRTCDataChannelHandler);
 public:
-    explicit LibWebRTCDataChannelHandler(rtc::scoped_refptr<webrtc::DataChannelInterface>&&);
+    explicit LibWebRTCDataChannelHandler(webrtc::scoped_refptr<webrtc::DataChannelInterface>&&);
     ~LibWebRTCDataChannelHandler();
 
     RTCDataChannelInit dataChannelInit() const;
@@ -84,7 +84,7 @@ private:
         RTCDataChannelState state;
         std::optional<webrtc::RTCError> error;
     };
-    using Message = std::variant<StateChange, String, Ref<FragmentedSharedBuffer>>;
+    using Message = Variant<StateChange, String, Ref<FragmentedSharedBuffer>>;
     using PendingMessages = Vector<Message>;
     void storeMessage(PendingMessages&, const webrtc::DataBuffer&);
     void processMessage(const webrtc::DataBuffer&);
@@ -92,7 +92,7 @@ private:
 
     void postTask(Function<void()>&&);
 
-    rtc::scoped_refptr<webrtc::DataChannelInterface> m_channel;
+    webrtc::scoped_refptr<webrtc::DataChannelInterface> m_channel;
     Lock m_clientLock;
     bool m_hasClient WTF_GUARDED_BY_LOCK(m_clientLock)  { false };
     WeakPtr<RTCDataChannelHandlerClient> m_client WTF_GUARDED_BY_LOCK(m_clientLock) { nullptr };

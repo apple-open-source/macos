@@ -6,10 +6,11 @@
 #include <sys/kern_memorystatus_freeze.h>
 #include <time.h>
 #include <mach-o/dyld.h>
-#include <mach/mach_vm.h>
-#include <mach/vm_page_size.h>
-#include <mach/shared_region.h>
+#include <mach/host_info.h>
 #include <mach/mach.h>
+#include <mach/mach_vm.h>
+#include <mach/shared_region.h>
+#include <mach/vm_page_size.h>
 #include <os/reason_private.h>
 #include <TargetConditionals.h>
 #include <sys/coalition.h>
@@ -27,9 +28,8 @@
 T_GLOBAL_META(
 	T_META_NAMESPACE("xnu.memorystatus"),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
-	T_META_RADAR_COMPONENT_VERSION("VM - memory pressure"),
+	T_META_RADAR_COMPONENT_VERSION("VM"),
 	T_META_CHECK_LEAKS(false),
-	T_META_OWNER("jarrad"),
 	T_META_RUN_CONCURRENTLY(false)
 	);
 
@@ -2264,7 +2264,7 @@ T_DECL(memorystatus_coalition_freezer_slot_limit, "Exhausting freezer slots and 
 
 	/* Create our coalitions and spawn the leader / "XPC service" members */
 	spawn_coalition_and_run(^{
-		int i, j, ret, n_coal_frozen = 0;
+		int i, ret, n_coal_frozen = 0;
 		memorystatus_jetsam_snapshot_t *snapshot;
 		memorystatus_jetsam_snapshot_entry_t *entry;
 
@@ -2323,7 +2323,7 @@ T_DECL(memorystatus_two_coalition_freeze, "Exhausting freezer slots with one coa
 	sig_disp = run_block_after_signal(SIGUSR2, ^{
 		/* After our child signals, we can try spawning and freezing our coalition */
 		spawn_coalition_and_run(^{
-			int i, j, ret, n_coal_frozen = 0;
+			int i, ret, n_coal_frozen = 0;
 			memorystatus_jetsam_snapshot_t *snapshot;
 			memorystatus_jetsam_snapshot_entry_t *entry;
 
@@ -2389,4 +2389,24 @@ T_HELPER_DECL(coalition_freezer, "Spawns a coalition and freezes it",
 	dispatch_activate(sig_disp);
 
 	dispatch_main();
+}
+
+T_DECL(do_fastwake_warmup_all,
+    "Test kern.memorystatus_do_fastwake_warmup_all",
+    T_META_ASROOT(true),
+    T_META_ENABLED(false /* rdar://149557081 !TARGET_OS_OSX && !TARGET_OS_BRIDGE */))
+{
+	int val = 1;
+	int ret = sysctlbyname("kern.memorystatus_do_fastwake_warmup_all", NULL, NULL, &val, sizeof(val));
+	T_ASSERT_POSIX_SUCCESS(ret, "sysctl(kern.memorystatus_do_fastwake_warmup_all)");
+
+	struct vm_compressor_q_lens cstats;
+	mach_msg_type_number_t count = VM_COMPRESSOR_Q_LENS_COUNT;
+
+	kern_return_t kr = host_info(mach_host_self(), HOST_VM_COMPRESSOR_Q_LENS,
+	    (host_info_t)&cstats, &count);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "host_info(HOST_VM_COMPRESSOR_Q_LENS)");
+
+	T_EXPECT_EQ(cstats.qcc_swappedout_count, 0, "Zero swapped-out segments after fastwake warmup");
+	T_EXPECT_EQ(cstats.qcc_swappedout_sparse_count, 0, "Zero sparse swapped-out segments after fastwake warmup");
 }

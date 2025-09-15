@@ -447,8 +447,11 @@ static FILE *fopen_journal(const char *journalPath, const char *mode, CFErrorRef
 
 static off_t getFileSize(int fd) {
     struct stat sb;
-    fstat(fd, &sb);
-    return sb.st_size;
+    if (fstat(fd, &sb) == 0) {
+        return sb.st_size;
+    } else {
+        return -1;
+    }
 }
 
 int SOSPeerHandoffFD(SOSPeerRef peer, CFErrorRef *error) {
@@ -461,8 +464,8 @@ int SOSPeerHandoffFD(SOSPeerRef peer, CFErrorRef *error) {
                 fd = -1;
                 secnotice("backup", "Unable to unlink file %s: %@", journalName, error?*error:NULL);
             } else {
-                secdebug("backup", "Handing off file %s with fd %d of size %llu", journalName, fd, getFileSize(fd));
-                secnotice("backup", "Handing off file %s of size %llu", journalName, getFileSize(fd));
+                secdebug("backup", "Handing off file %s with fd %d of size %lld", journalName, fd, (long long)getFileSize(fd));
+                secnotice("backup", "Handing off file %s of size %lld", journalName, (long long)getFileSize(fd));
             }
         } else {
             secnotice("backup", "Handing off file %s failed, %@", journalName, error?*error:NULL);

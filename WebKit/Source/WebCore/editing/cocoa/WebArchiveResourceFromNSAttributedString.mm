@@ -43,14 +43,15 @@ using namespace WebCore;
         return nil;
     }
 
+    RetainPtr updatedMIMEType = MIMEType;
     if ([MIMEType isEqualToString:@"application/octet-stream"]) {
         // FIXME: This is a workaround for <rdar://problem/36074429>, and can be removed once that is fixed.
         auto mimeTypeFromURL = MIMETypeRegistry::mimeTypeForExtension(String(URL.pathExtension));
         if (!mimeTypeFromURL.isEmpty())
-            MIMEType = mimeTypeFromURL;
+            updatedMIMEType = mimeTypeFromURL.createNSString();
     }
 
-    resource = ArchiveResource::create(SharedBuffer::create(adoptNS([data copy]).get()), URL, MIMEType, textEncodingName, frameName, { });
+    resource = ArchiveResource::create(SharedBuffer::create(adoptNS([data copy]).get()), URL, updatedMIMEType.get(), textEncodingName, frameName, { });
     if (!resource) {
         [self release];
         return nil;
@@ -61,12 +62,12 @@ using namespace WebCore;
 
 - (NSString *)MIMEType
 {
-    return resource->mimeType();
+    return resource->mimeType().createNSString().autorelease();
 }
 
 - (NSURL *)URL
 {
-    return resource->url();
+    return resource->url().createNSURL().autorelease();
 }
 
 @end

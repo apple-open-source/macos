@@ -316,6 +316,7 @@ nfstests_options_info_t nfstests_options_infos[NFSTESTS_OPTIONS_NUM_OPTIONS] = {
 	{ NFSTESTS_OPTIONS_MLAGS_MASK, NULL, BITMAP, offsetof(struct nfs_options_client, mflags_mask), 0 },
 	{ NFSTESTS_OPTIONS_MLAGS, NULL, BITMAP, offsetof(struct nfs_options_client, mflags), 0 },
 	{ NFSTESTS_OPTIONS_NFSVERS, "nfsvers", UINT32, offsetof(struct nfs_options_client, nfs_version), NFS_MATTR_NFS_VERSION },
+	{ NFSTESTS_OPTIONS_MINOR_NFSVERS, NULL, UINT32, offsetof(struct nfs_options_client, nfs_minor_version), NFS_MATTR_NFS_MINOR_VERSION },
 	{ NFSTESTS_OPTIONS_RSIZE, "rsize", UINT32, offsetof(struct nfs_options_client, rsize), NFS_MATTR_READ_SIZE },
 	{ NFSTESTS_OPTIONS_WSIZE, "wsize", UINT32, offsetof(struct nfs_options_client, wsize), NFS_MATTR_WRITE_SIZE },
 	{ NFSTESTS_OPTIONS_DSIZE, "dsize", UINT32, offsetof(struct nfs_options_client, readdirsize), NFS_MATTR_READDIR_SIZE },

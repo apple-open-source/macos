@@ -36,7 +36,7 @@ sched_policy_final_pass(void)
 
 #define PASTER(a, b) a##_##b
 #define SCHED_POLICY_TEST_NAME(policy_name, test_name) PASTER(policy_name, test_name)
-#define SCHED_POLICY_T_DECL(test_name, description, ...) T_DECL(SCHED_POLICY_TEST_NAME(TEST_RUNQ_POLICY, test_name), description, ##__VA_ARGS__)
+#define SCHED_POLICY_T_DECL(test_name, description, ...) T_DECL(SCHED_POLICY_TEST_NAME(TEST_RUNQ_POLICY, test_name), description, T_META_TAG_VM_PREFERRED, ##__VA_ARGS__)
 
 static unsigned int sched_policy_fails_so_far = 0;
 static unsigned int sched_policy_passes_so_far = 0;
@@ -65,3 +65,41 @@ static bool sched_policy_setup_final_pass = false;
 	} \
 })
 /* END IGNORE CODESTYLE */
+
+/* Test scenario metadata printing utilities */
+
+#define MAX_METADATA 64
+#define MAX_METADATA_STR 256
+static char metadata_log[MAX_METADATA][MAX_METADATA_STR];
+static int metadata_ind = 0;
+
+static void
+sched_policy_push_metadata(char *metada_name, uint64_t value)
+{
+	snprintf(metadata_log[metadata_ind++], 256, "%s %llu", metada_name, value);
+}
+
+static void
+sched_policy_pop_metadata(void)
+{
+	T_QUIET; T_EXPECT_GT(metadata_ind, 0, "no metadata left to pop");
+	metadata_ind--;
+}
+
+#define MAX_METADA_DUMP_STR (MAX_METADATA_STR * MAX_METADATA)
+static char metadata_dump[MAX_METADA_DUMP_STR];
+static char *
+sched_policy_dump_metadata(void)
+{
+	metadata_dump[0] = '(';
+	for (int i = 0; i < metadata_ind; i++) {
+		if (i == 0) {
+			snprintf(&metadata_dump[1], MAX_METADATA_STR, metadata_log[i]);
+		} else {
+			strcat(metadata_dump, ", ");
+			strcat(metadata_dump, metadata_log[i]);
+		}
+	}
+	strcat(metadata_dump, ") 🗃️ ");
+	return metadata_dump;
+}

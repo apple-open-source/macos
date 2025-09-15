@@ -39,9 +39,22 @@
 #define __ARM_ENABLE_SWAP__                  1
 #define __ARM_V8_CRYPTO_EXTENSIONS__         1
 
-#ifndef ARM_LARGE_MEMORY
-#define __ARM64_PMAP_SUBPAGE_L1__            1
+/*
+ * If we're using a parameterized PMAP + SPTM, we can enable kernel-only large
+ * memory. Otherwise, large memory is either enabled for both user and kernel or
+ * neither.
+ */
+#if ARM_PARAMETERIZED_PMAP && CONFIG_SPTM
+#define HAS_ARM_INDEPENDENT_TNSZ 1
 #endif
+
+#if !ARM_LARGE_MEMORY
+#define __ARM64_PMAP_SUBPAGE_L1__            1
+#define __ARM64_PMAP_KERN_SUBPAGE_L1__       1
+#elif ARM_LARGE_MEMORY_KERNONLY && HAS_ARM_INDEPENDENT_TNSZ
+/* Kernel-only large memory */
+#define __ARM64_PMAP_SUBPAGE_L1__            1
+#endif /* ARM_LARGE_MEMORY */
 
 #define APPLE_ARM64_ARCH_FAMILY              1
 #define ARM_ARCH_TIMER
@@ -52,6 +65,8 @@
 #elif defined(HAS_CTRR)
 #define KERNEL_INTEGRITY_CTRR                1
 #define KERNEL_CTRR_VERSION                  2
+#elif defined(HAS_PARAVIRTUALIZED_CTRR)
+#define KERNEL_INTEGRITY_PV_CTRR             1
 #elif defined(HAS_KTRR)
 #define KERNEL_INTEGRITY_KTRR                1
 #elif defined(MONITOR)

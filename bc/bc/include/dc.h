@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: BSD-2-Clause
  *
- * Copyright (c) 2018-2024 Gavin D. Howard and contributors.
+ * Copyright (c) 2018-2025 Gavin D. Howard and contributors.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,7 +48,7 @@
  * @return  A status.
  */
 BcStatus
-dc_main(int argc, char* argv[]);
+dc_main(int argc, const char* argv[]);
 
 // A reference to the dc help text.
 extern const char dc_help[];

@@ -83,9 +83,9 @@ bool UnevaluatedCalcBase::requiresConversionData() const
     return protectedCalc()->requiresConversionData();
 }
 
-void UnevaluatedCalcBase::serializationForCSS(StringBuilder& builder) const
+void UnevaluatedCalcBase::serializationForCSS(StringBuilder& builder, const CSS::SerializationContext& context) const
 {
-    builder.append(protectedCalc()->customCSSText());
+    builder.append(protectedCalc()->customCSSText(context));
 }
 
 void UnevaluatedCalcBase::collectComputedStyleDependencies(ComputedStyleDependencies& dependencies) const
@@ -93,7 +93,7 @@ void UnevaluatedCalcBase::collectComputedStyleDependencies(ComputedStyleDependen
     protectedCalc()->collectComputedStyleDependencies(dependencies);
 }
 
-IterationStatus UnevaluatedCalcBase::visitChildren(const Function<IterationStatus(CSSValue&)>& func) const
+IterationStatus UnevaluatedCalcBase::visitChildren(NOESCAPE const Function<IterationStatus(CSSValue&)>& func) const
 {
     return func(calc);
 }

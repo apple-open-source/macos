@@ -4397,7 +4397,12 @@ void MeasureFormatTest::TestExamplesInDocs() {
             fmtFrNarrow,
             footAndInch,
             UPRV_LENGTHOF(footAndInch),
+#if APPLE_ICU_CHANGES
+// rdar://111508858 ([Weather]: FU: Sunburst23A289: Symbol for inches does not follow style guide)
+            "1\\u202Fpi 1\\u202Fpo");
+#else
             "1\\u2032 1\\u2033");
+#endif // APPLE_ICU_CHANGES
     verifyFormat(
             "Inch and feet",
             fmtEn,

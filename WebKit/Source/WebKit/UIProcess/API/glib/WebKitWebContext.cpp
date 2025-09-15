@@ -24,6 +24,7 @@
 #include "APIInjectedBundleClient.h"
 #include "APIProcessPoolConfiguration.h"
 #include "APIString.h"
+#include "FrameInfoData.h"
 #include "LegacyGlobalSettings.h"
 #include "NetworkProcessMessages.h"
 #include "TextChecker.h"
@@ -229,6 +230,10 @@ private:
     String browserName() const override;
     String browserVersion() const override;
     void requestAutomationSession(const String& sessionIdentifier, const Inspector::RemoteInspector::Client::SessionCapabilities&) override;
+    void closeAutomationSession() override
+    {
+        webkitWebContextWillCloseAutomationSession(m_webContext);
+    }
 
     WebKitWebContext* m_webContext;
 };
@@ -316,7 +321,8 @@ String WebKitAutomationClient::browserVersion() const
 
 void WebKitAutomationClient::requestAutomationSession(const String& sessionIdentifier, const Inspector::RemoteInspector::Client::SessionCapabilities& capabilities)
 {
-    ASSERT(!m_webContext->priv->automationSession);
+    if (m_webContext->priv->automationSession)
+        g_critical("WebKitWebContext already has an active automation session.");
     m_webContext->priv->automationSession = adoptGRef(webkitAutomationSessionCreate(m_webContext, sessionIdentifier.utf8().data(), capabilities));
     g_signal_emit(m_webContext, signals[AUTOMATION_STARTED], 0, m_webContext->priv->automationSession.get());
     m_webContext->priv->processPool->setAutomationSession(&webkitAutomationSessionGetSession(m_webContext->priv->automationSession.get()));
@@ -324,6 +330,8 @@ void WebKitAutomationClient::requestAutomationSession(const String& sessionIdent
 
 void webkitWebContextWillCloseAutomationSession(WebKitWebContext* webContext)
 {
+    if (!webContext->priv->automationSession)
+        return;
     g_signal_emit_by_name(webContext->priv->automationSession.get(), "will-close");
     webContext->priv->processPool->setAutomationSession(nullptr);
     webContext->priv->automationSession = nullptr;
@@ -514,7 +522,7 @@ static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass
     bindtextdomain(GETTEXT_PACKAGE, LOCALEDIR);
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 
-    s_serviceWorkerNotificationProvider = makeUnique<WebKitNotificationProvider>(&WebNotificationManagerProxy::sharedServiceWorkerManager(), nullptr);
+    s_serviceWorkerNotificationProvider = makeUnique<WebKitNotificationProvider>(&WebNotificationManagerProxy::serviceWorkerManagerSingleton(), nullptr);
 
     gObjectClass->get_property = webkitWebContextGetProperty;
     gObjectClass->set_property = webkitWebContextSetProperty;
@@ -1092,7 +1100,7 @@ WebKitDownload* webkit_web_context_download_uri(WebKitWebContext* context, const
 
     WebCore::ResourceRequest request(String::fromUTF8(uri));
     auto& websiteDataStore = webkitWebsiteDataManagerGetDataStore(context->priv->websiteDataManager.get());
-    auto downloadProxy = context->priv->processPool->download(websiteDataStore, nullptr, request);
+    auto downloadProxy = context->priv->processPool->download(websiteDataStore, nullptr, request, { });
     auto download = webkitDownloadCreate(downloadProxy.get());
     downloadProxy->setDidStartCallback([context = GRefPtr<WebKitWebContext> { context }, download = download.get()](auto* downloadProxy) {
         if (!downloadProxy)

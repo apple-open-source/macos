@@ -292,7 +292,7 @@ void PageOverlayController::clearPageOverlay(PageOverlay& overlay)
     m_overlayGraphicsLayers.get(overlay)->setDrawsContent(false);
 }
 
-GraphicsLayer& PageOverlayController::layerForOverlay(PageOverlay& overlay) const
+GraphicsLayer& PageOverlayController::layerForOverlay(const PageOverlay& overlay) const
 {
     ASSERT(m_pageOverlays.contains(&overlay));
     return *m_overlayGraphicsLayers.get(overlay);
@@ -353,9 +353,6 @@ void PageOverlayController::updateSettingsForLayer(GraphicsLayer& layer)
     layer.setAcceleratesDrawing(settings->acceleratedDrawingEnabled());
     layer.setShowDebugBorder(settings->showDebugBorders());
     layer.setShowRepaintCounter(settings->showRepaintCounter());
-#if HAVE(HDR_SUPPORT)
-    layer.setHDRForImagesEnabled(settings->hdrForImagesEnabled());
-#endif
 }
 
 bool PageOverlayController::handleMouseEvent(const PlatformMouseEvent& mouseEvent)

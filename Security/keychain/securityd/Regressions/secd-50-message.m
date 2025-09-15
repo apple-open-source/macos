@@ -204,7 +204,6 @@ __unused static void testObjectsMessage(const char *test_directive, const char *
     // Decode
     ok(rcvdMessage = SOSMessageCreateWithData(kCFAllocatorDefault, data, &error), "rcvdMessage create: %@", error);
     CFReleaseNull(error);
-    __block size_t numObjects = 0;
     __block bool f0, f1, f2, f3;
     f0 = f1 = f2 = f3 = false;
     if (rcvdMessage) SOSMessageWithObjects(rcvdMessage, &error,  ^(CFDataRef object, bool *stop) {
@@ -212,7 +211,6 @@ __unused static void testObjectsMessage(const char *test_directive, const char *
         if (CFEqualSafe(object, O1)) f1 = true;
         if (CFEqualSafe(object, O2)) f2 = true;
         if (CFEqualSafe(object, O3)) f3 = true;
-        numObjects++;
     });
     ok(f0, "got O0");
     ok(f1, "got O1");

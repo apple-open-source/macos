@@ -99,6 +99,16 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OctagonErrorFailedToRecoverWithCDPContext                   = 78,
     OctagonErrorFailedToRecoverWithInfo                         = 79,
     OctagonErrorFailedToHandleRecoveryResults                   = 80,
+    OctagonErrorNoDevicePasscode                                = 81,
+    OctagonErrorUnableToGetPasscodeGeneration                   = 82,
+    OctagonErrorMissingAuthenticationAppleID                    = 83,
+    OctagonErrorMissingPasswordEquivalentToken                  = 84,
+    OctagonErrorFailedToFetchSelfPeers                          = 85,
+    OctagonErrorNoMemoizedCKKSPolicy                            = 86,
+    OctagonErrorAccountDoesNotHaveValidCreds                    = 87,
+    OctagonErrorRateLimited                                     = 88,
+    OctagonErrorFollowUpRequired                                = 89,
+    OctagonErrorNoEscrowCheckOnTV                               = 90,
 };
 
 /* used for defaults writes */

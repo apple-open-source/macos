@@ -82,7 +82,9 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
 
 }
 
-@implementation MBCDocument
+@implementation MBCDocument {
+    BOOL _haveQueuedLoadGameDict;
+}
 
 @synthesize board, variant, players, match, properties, offerDraw, ephemeral, needNewGameSheet,
     disallowSubstitutes, invitees;
@@ -254,6 +256,7 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
         for (int i = 0; sProperties[i]; ++i)
             [properties setValue:[defaults objectForKey:sProperties[i]]
                           forKey:sProperties[i]];
+        _haveQueuedLoadGameDict = NO;
     }
     return self;
 }
@@ -576,6 +579,25 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
             [properties setValue:[defaults objectForKey:sProperties[i]]
                           forKey:sProperties[i]];
 
+    NSWindowController *windowController = [[self windowControllers] firstObject];
+    if (!windowController.windowLoaded) {
+        // windowDidLoad adds subscription for notifications
+        _haveQueuedLoadGameDict = YES;
+    } else {
+        [self postLoadGameNotificationsWithDict:dict];
+    }
+    
+	return YES;
+}
+
+- (void)postQueuedLoadGameNotificationIfNeeded {
+    if (_haveQueuedLoadGameDict) {
+        [self postLoadGameNotificationsWithDict:properties];
+        _haveQueuedLoadGameDict = NO;
+    }
+}
+
+- (void)postLoadGameNotificationsWithDict:(NSDictionary *)dict {
     [[NSNotificationQueue defaultQueue]
      enqueueNotification:[NSNotification notificationWithName:MBCGameLoadNotification
                                                        object:self userInfo:dict]
@@ -585,12 +607,11 @@ static void MBCEndTurn(GKTurnBasedMatch *match, NSData * matchData)
                                                        object:self]
      postingStyle:NSPostWhenIdle];
     
-    if (match)
+    if (match) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [self updateMatchForRemoteMove];
         });
-   
-	return YES;
+    }
 }
 
 - (BOOL)readFromData:(NSData *)docData ofType:(NSString *)docType error:(NSError **)outError

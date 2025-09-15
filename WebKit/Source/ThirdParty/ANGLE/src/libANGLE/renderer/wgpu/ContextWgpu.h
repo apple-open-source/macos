@@ -10,7 +10,7 @@
 #ifndef LIBANGLE_RENDERER_WGPU_CONTEXTWGPU_H_
 #define LIBANGLE_RENDERER_WGPU_CONTEXTWGPU_H_
 
-#include <dawn/webgpu_cpp.h>
+#include <webgpu/webgpu.h>
 
 #include "image_util/loadimage.h"
 #include "libANGLE/renderer/ContextImpl.h"
@@ -26,7 +26,42 @@ namespace rx
 
 class ContextWgpu : public ContextImpl
 {
+  private:
+    // Must keep this in sync with DriverUniform::createUniformFields in:
+    // src/compiler/translator/tree_util/DriverUniform.cpp
+    // For shader uniforms such as gl_DepthRange and the viewport size.
+    //
+    // Note: this struct was originally for Vulkan, but may be able to be pared down for WGSL.
+    struct DriverUniforms
+    {
+        std::array<uint32_t, 2> acbBufferOffsets;
+
+        // .x is near, .y is far
+        std::array<float, 2> depthRange;
+
+        // Used to flip gl_FragCoord.  Packed uvec2
+        uint32_t renderArea;
+
+        // Packed vec4 of snorm8
+        uint32_t flipXY;
+
+        // Only the lower 16 bits used
+        uint32_t dither;
+
+        // Various bits of state:
+        // - Surface rotation
+        // - Advanced blend equation
+        // - Sample count
+        // - Enabled clip planes
+        // - Depth transformation
+        // - layered FBO
+        uint32_t misc;
+    };
+    static_assert(sizeof(DriverUniforms) % (sizeof(uint32_t) * 4) == 0,
+                  "DriverUniforms should be 16 bytes aligned");
+
   public:
+    static constexpr size_t kDriverUniformSize = sizeof(DriverUniforms);
     ContextWgpu(const gl::State &state, gl::ErrorSet *errorSet, DisplayWgpu *display);
     ~ContextWgpu() override;
 
@@ -262,16 +297,18 @@ class ContextWgpu : public ContextImpl
 
     const angle::ImageLoadContext &getImageLoadContext() const { return mImageLoadContext; }
 
-    DisplayWgpu *getDisplay() { return mDisplay; }
-    wgpu::Device &getDevice() { return mDisplay->getDevice(); }
-    wgpu::Queue &getQueue() { return mDisplay->getQueue(); }
-    wgpu::Instance &getInstance() { return mDisplay->getInstance(); }
+    DisplayWgpu *getDisplay() const { return mDisplay; }
+    const angle::FeaturesWgpu &getFeatures() const { return mDisplay->getFeatures(); }
+    const DawnProcTable *getProcs() const { return mDisplay->getProcs(); }
+    webgpu::DeviceHandle getDevice() const { return mDisplay->getDevice(); }
+    webgpu::QueueHandle getQueue() const { return mDisplay->getQueue(); }
+    webgpu::InstanceHandle getInstance() const { return mDisplay->getInstance(); }
     angle::ImageLoadContext &getImageLoadContext() { return mImageLoadContext; }
     const webgpu::Format &getFormat(GLenum internalFormat) const
     {
         return mDisplay->getFormat(internalFormat);
     }
-    angle::Result startRenderPass(const wgpu::RenderPassDescriptor &desc);
+    angle::Result startRenderPass(const webgpu::PackedRenderPassDescriptor &desc);
     angle::Result endRenderPass(webgpu::RenderPassClosureReason closureReason);
 
     bool hasActiveRenderPass() { return mCurrentRenderPass != nullptr; }
@@ -280,17 +317,26 @@ class ContextWgpu : public ContextImpl
 
     angle::Result flush(webgpu::RenderPassClosureReason);
 
-    void setColorAttachmentFormat(size_t colorIndex, wgpu::TextureFormat format);
-    void setColorAttachmentFormats(const gl::DrawBuffersArray<wgpu::TextureFormat> &formats);
-    void setDepthStencilFormat(wgpu::TextureFormat format);
+    void setColorAttachmentFormat(size_t colorIndex, WGPUTextureFormat format);
+    void setColorAttachmentFormats(const gl::DrawBuffersArray<WGPUTextureFormat> &formats);
+    void setDepthStencilFormat(WGPUTextureFormat format);
     void setVertexAttribute(size_t attribIndex, webgpu::PackedVertexAttribute newAttrib);
 
     void invalidateVertexBuffer(size_t slot);
     void invalidateVertexBuffers();
     void invalidateIndexBuffer();
+    void invalidateCurrentTextures();
+    void invalidateDriverUniforms();
 
     void ensureCommandEncoderCreated();
-    wgpu::CommandEncoder &getCurrentCommandEncoder();
+    webgpu::CommandEncoderHandle &getCurrentCommandEncoder();
+
+    // Driver uniforms are managed by ContextWgpu.
+    webgpu::BindGroupLayoutHandle getDriverUniformBindGroupLayout()
+    {
+        ASSERT(mDriverUniformsBindGroupLayout);
+        return mDriverUniformsBindGroupLayout;
+    }
 
   private:
     // Dirty bits.
@@ -304,10 +350,12 @@ class ContextWgpu : public ContextImpl
         DIRTY_BIT_RENDER_PIPELINE_BINDING,
         DIRTY_BIT_VIEWPORT,
         DIRTY_BIT_SCISSOR,
+        DIRTY_BIT_BLEND_CONSTANT,
 
         DIRTY_BIT_VERTEX_BUFFERS,
         DIRTY_BIT_INDEX_BUFFER,
 
+        DIRTY_BIT_DRIVER_UNIFORMS,
         DIRTY_BIT_BIND_GROUPS,
 
         DIRTY_BIT_MAX,
@@ -320,6 +368,9 @@ class ContextWgpu : public ContextImpl
     // that will be used for the draw call must be specified after DIRTY_BIT_RENDER_PASS.
     static_assert(DIRTY_BIT_RENDER_PIPELINE_BINDING > DIRTY_BIT_RENDER_PASS,
                   "Render pass using dirty bit must be handled after the render pass dirty bit");
+
+    static_assert(DIRTY_BIT_BIND_GROUPS > DIRTY_BIT_DRIVER_UNIFORMS,
+                  "Bind group creation must be handled after editing driver uniforms");
 
     using DirtyBits = angle::BitSet<DIRTY_BIT_MAX>;
 
@@ -348,11 +399,13 @@ class ContextWgpu : public ContextImpl
     angle::Result handleDirtyRenderPipelineBinding(DirtyBits::Iterator *dirtyBitsIterator);
     angle::Result handleDirtyViewport(DirtyBits::Iterator *dirtyBitsIterator);
     angle::Result handleDirtyScissor(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyBlendConstant(DirtyBits::Iterator *dirtyBitsIterator);
     angle::Result handleDirtyVertexBuffers(const gl::AttributesMask &slots,
                                            DirtyBits::Iterator *dirtyBitsIterator);
     angle::Result handleDirtyIndexBuffer(gl::DrawElementsType indexType,
                                          DirtyBits::Iterator *dirtyBitsIterator);
     angle::Result handleDirtyBindGroups(DirtyBits::Iterator *dirtyBitsIterator);
+    angle::Result handleDirtyDriverUniforms(DirtyBits::Iterator *dirtyBitsIterator);
 
     angle::Result handleDirtyRenderPass(DirtyBits::Iterator *dirtyBitsIterator);
 
@@ -360,16 +413,25 @@ class ContextWgpu : public ContextImpl
 
     DisplayWgpu *mDisplay;
 
-    wgpu::CommandEncoder mCurrentCommandEncoder;
-    wgpu::RenderPassEncoder mCurrentRenderPass;
+    webgpu::CommandEncoderHandle mCurrentCommandEncoder;
+    webgpu::RenderPassEncoderHandle mCurrentRenderPass;
 
     webgpu::CommandBuffer mCommandBuffer;
 
     webgpu::RenderPipelineDesc mRenderPipelineDesc;
-    wgpu::RenderPipeline mCurrentGraphicsPipeline;
+    webgpu::RenderPipelineHandle mCurrentGraphicsPipeline;
     gl::AttributesMask mCurrentRenderPipelineAllAttributes;
 
     gl::DrawElementsType mCurrentIndexBufferType = gl::DrawElementsType::InvalidEnum;
+
+    // Actual struct of driver uniforms that is copied to the GPU. Only stored to check if the next
+    // set of driver uniforms has changed.
+    DriverUniforms mDriverUniforms;
+    // Holds the binding group layout for the driver uniforms.
+    webgpu::BindGroupLayoutHandle mDriverUniformsBindGroupLayout;
+    // Holds the most recent driver uniforms BindGroup. Note there may be others in the
+    // command buffer.
+    webgpu::BindGroupHandle mDriverUniformsBindGroup;
 };
 
 }  // namespace rx

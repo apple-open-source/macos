@@ -45,44 +45,22 @@ static int
 skt_reserve_restricted_port()
 {
 	int error;
-	int old_first, old_last;
-	int restricted_port = 55555;
-	size_t size;
-
-	size = sizeof(old_first);
-	error = sysctlbyname("net.inet.ip.portrange.first", &old_first, &size, &restricted_port, sizeof(restricted_port));
-	SKTC_ASSERT_ERR(!error);
-	assert(size == sizeof(old_first));
-
-	size = sizeof(old_last);
-	error = sysctlbyname("net.inet.ip.portrange.last", &old_last, &size, &restricted_port, sizeof(restricted_port));
-	SKTC_ASSERT_ERR(!error);
-	assert(size == sizeof(old_last));
+	int restricted_port = 55555; // restricted for lights_out_management
 
 	struct sktc_nexus_handles handles;
 	sktc_create_flowswitch(&handles, 0);
 
-	uuid_t flow;
-
 	/* try reserve one of the restricted ephemeral ports */
+	uuid_t flow;
 	uuid_generate_random(flow);
 	error = sktc_bind_tcp4_flow(handles.controller, handles.fsw_nx_uuid,
-	    0, NEXUS_PORT_FLOW_SWITCH_CLIENT, flow);
+	    restricted_port, NEXUS_PORT_FLOW_SWITCH_CLIENT, flow);
 	SKTC_ASSERT_ERR(error == -1);
-	SKTC_ASSERT_ERR(errno == EADDRNOTAVAIL);
+	SKTC_ASSERT_ERR(errno == EADDRINUSE);
 	uuid_clear(flow);
 
 	sktc_cleanup_flowswitch(&handles);
 
-	size = sizeof(old_first);
-	error = sysctlbyname("net.inet.ip.portrange.first", NULL, NULL, &old_first, size);
-	SKTC_ASSERT_ERR(!error);
-	assert(size == sizeof(old_first));
-
-	size = sizeof(old_last);
-	error = sysctlbyname("net.inet.ip.portrange.last", NULL, NULL, &old_last, size);
-	SKTC_ASSERT_ERR(!error);
-	assert(size == sizeof(old_last));
 	return 0;
 }
 
@@ -91,7 +69,6 @@ skt_reserve_restricted_port_main(int argc, char *argv[])
 {
 	return skt_reserve_restricted_port();
 }
-
 
 struct skywalk_test skt_restricted_port = {
 	"restricted_port", "test reserve a restricted ephemeral port",

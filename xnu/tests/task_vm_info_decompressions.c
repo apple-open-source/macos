@@ -1,7 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <mach/error.h>
 #include <mach/task_info.h>
 #include <mach/mach.h>
+#include <mach/mach_vm.h>
+#include <mach/vm_statistics.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
@@ -18,17 +21,10 @@ T_GLOBAL_META(
 	T_META_RADAR_COMPONENT_VERSION("VM"));
 
 #define KB 1024
-#define MALLOC_SIZE_PER_THREAD (64 * KB)
-#define freezer_path "/usr/local/bin/freeze"
-
-/* BridgeOS could spend more time execv freezer */
-#if TARGET_OS_BRIDGE
-static int timeout = 600;
-#else
-static int timeout = 120;
-#endif
+#define VM_SIZE_PER_THREAD (64 * KB)
 
 static _Atomic int thread_malloc_count = 0;
+static _Atomic int thread_compressed_count = 0;
 static _Atomic int thread_thawed_count = 0;
 static _Atomic int phase = 0;
 
@@ -36,41 +32,6 @@ struct thread_args {
 	int    id;
 };
 
-static void
-freeze_pid(pid_t pid)
-{
-	char pid_str[6];
-	char *args[3];
-	pid_t child_pid;
-	int status;
-
-	sprintf(pid_str, "%d", pid);
-	child_pid = fork();
-	if (child_pid == 0) {
-		/* Launch freezer */
-		args[0] = freezer_path;
-		args[1] = pid_str;
-		args[2] = NULL;
-		execv(freezer_path, args);
-		/* execve() does not return on success */
-		perror("execve");
-		T_FAIL("execve() failed");
-	}
-
-	/* Wait for freezer to complete */
-	T_LOG("Waiting for freezer %d to complete", child_pid);
-	while (0 == waitpid(child_pid, &status, WNOHANG)) {
-		if (timeout < 0) {
-			kill(child_pid, SIGKILL);
-			T_FAIL("Freezer took too long to freeze the test");
-		}
-		sleep(1);
-		timeout--;
-	}
-	if (WIFEXITED(status) != 1 || WEXITSTATUS(status) != 0) {
-		T_FAIL("Freezer error'd out");
-	}
-}
 static void *
 worker_thread_function(void *args)
 {
@@ -79,8 +40,13 @@ worker_thread_function(void *args)
 	char *array;
 
 	/* Allocate memory */
-	array = malloc(MALLOC_SIZE_PER_THREAD);
-	T_EXPECT_NOTNULL(array, "thread %d allocated heap memory to be dirtied", thread_id);
+	mach_vm_address_t addr;
+	kern_return_t kr;
+	kr = mach_vm_allocate(mach_task_self(), &addr, VM_SIZE_PER_THREAD,
+	    VM_FLAGS_ANYWHERE | VM_PROT_DEFAULT | VM_MAKE_TAG(VM_MEMORY_APPLICATION_SPECIFIC_1));
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_allocate()");
+	array = (char *)addr;
+	T_QUIET; T_EXPECT_NOTNULL(array, "thread %d allocated heap memory to be dirtied", thread_id);
 
 	/* Waiting for phase 1 (touch pages) to start */
 	while (atomic_load(&phase) != 1) {
@@ -88,8 +54,8 @@ worker_thread_function(void *args)
 	}
 
 	/* Phase 1: touch pages */
-	T_LOG("thread %d phase 1: dirtying %d heap pages (%d bytes)", thread_id, MALLOC_SIZE_PER_THREAD / (int)PAGE_SIZE, MALLOC_SIZE_PER_THREAD);
-	memset(&array[0], 1, MALLOC_SIZE_PER_THREAD);
+	T_LOG("thread %d phase 1: dirtying %d heap pages (%d bytes)", thread_id, VM_SIZE_PER_THREAD / (int)PAGE_SIZE, VM_SIZE_PER_THREAD);
+	memset(&array[0], 1, VM_SIZE_PER_THREAD);
 	atomic_fetch_add(&thread_malloc_count, 1);
 
 	/* Wait for process to be frozen */
@@ -97,21 +63,24 @@ worker_thread_function(void *args)
 		;
 	}
 
-	/* Phase 2, process thawed, trigger decompressions by re-faulting pages */
-	T_LOG("thread %d phase 2: faulting pages back in to trigger decompressions", thread_id);
-	memset(&array[0], 1, MALLOC_SIZE_PER_THREAD);
+	/* Phase 2: compress pages */
+	kr = mach_vm_behavior_set(mach_task_self(), addr, VM_SIZE_PER_THREAD, VM_BEHAVIOR_PAGEOUT);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_behavior_set()");
+	atomic_fetch_add(&thread_compressed_count, 1);
+
+	while (atomic_load(&phase) != 3) {
+		;
+	}
+
+	/* Phase 3, process thawed, trigger decompressions by re-faulting pages */
+	T_LOG("thread %d phase 3: faulting pages back in to trigger decompressions", thread_id);
+	memset(&array[0], 1, VM_SIZE_PER_THREAD);
 
 	/* Main thread will retrieve vm statistics once all threads are thawed */
 	atomic_fetch_add(&thread_thawed_count, 1);
 
-	free(array);
-
-
-#if 0 /* Test if the thread's decompressions counter was added to the task decompressions counter when a thread terminates */
-	if (thread_id < 2) {
-		sleep(10);
-	}
-#endif
+	kr = mach_vm_deallocate(mach_task_self(), addr, VM_SIZE_PER_THREAD);
+	T_QUIET; T_ASSERT_MACH_SUCCESS(kr, "mach_vm_deallocate()");
 
 	return NULL;
 }
@@ -150,6 +119,7 @@ T_DECL(task_vm_info_decompressions,
     "Test multithreaded per-task decompressions counter", T_META_TAG_VM_NOT_ELIGIBLE)
 {
 	int     err;
+	mach_error_t kr;
 	int     ncpu;
 	size_t  ncpu_size = sizeof(ncpu);
 	int     npages;
@@ -176,7 +146,7 @@ T_DECL(task_vm_info_decompressions,
 	T_EXPECT_EQ_INT(0, err, "Detected %d cpus\n", ncpu);
 
 	/* Set total number of pages to be frozen */
-	npages = ncpu * MALLOC_SIZE_PER_THREAD / (int)PAGE_SIZE;
+	npages = ncpu * VM_SIZE_PER_THREAD / (int)PAGE_SIZE;
 	T_LOG("Test will be freezing at least %d heap pages\n", npages);
 
 	/* Change state to freezable */
@@ -206,9 +176,19 @@ T_DECL(task_vm_info_decompressions,
 	}
 	T_EXPECT_EQ(ncpu, atomic_load(&thread_malloc_count), "%d threads finished writing to malloc pages\n", ncpu);
 
+	count = TASK_VM_INFO_COUNT;
+	err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&vm_info, &count);
+	T_QUIET; T_EXPECT_EQ(count, TASK_VM_INFO_COUNT, "count == TASK_VM_INFO_COUNT: %d", count);
+	T_QUIET; T_EXPECT_EQ_INT(0, err, "task_info(TASK_VM_INFO) returned 0");
+	T_EXPECT_EQ(0, vm_info.decompressions, "Expected 0 decompressions before compressions");
+
 	/* Launch freezer to compress the dirty pages */
-	T_LOG("Running freezer to compress pages for pid %d", getpid());
-	freeze_pid(getpid());
+	atomic_fetch_add(&phase, 1);
+	/* Wait for all threads to compress their pages */
+	while (atomic_load(&thread_compressed_count) != ncpu) {
+		sleep(1);
+	}
+	T_EXPECT_EQ(ncpu, atomic_load(&thread_compressed_count), "%d threads finished writing to malloc pages\n", ncpu);
 
 	/* Phase 2: triger decompression in threads */
 	atomic_fetch_add(&phase, 1);
@@ -220,9 +200,9 @@ T_DECL(task_vm_info_decompressions,
 
 	/* Phase 3: Call into kernel to retrieve vm_info and to get the updated decompressions counter */
 	count = TASK_VM_INFO_COUNT;
-	err = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&vm_info, &count);
-	T_EXPECT_EQ(count, TASK_VM_INFO_COUNT, "count == TASK_VM_INFO_COUNT: %d", count);
-	T_EXPECT_EQ(0, err, "task_info(TASK_VM_INFO) returned 0");
+	kr = task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&vm_info, &count);
+	T_QUIET; T_EXPECT_EQ(count, TASK_VM_INFO_COUNT, "count == TASK_VM_INFO_COUNT: %d", count);
+	T_QUIET; T_EXPECT_MACH_SUCCESS(kr, "task_info(TASK_VM_INFO)");
 
 	/* Make sure this task has decompressed at least all of the dirtied memory */
 	T_EXPECT_GE_INT(vm_info.decompressions, npages, "decompressed %d pages (>= heap pages: %d)", vm_info.decompressions, npages);

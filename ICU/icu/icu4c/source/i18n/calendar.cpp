@@ -69,6 +69,9 @@
 #endif  // APPLE_ICU_CHANGES
 #include "ulocimp.h"
 #include "charstr.h"
+#if APPLE_ICU_CHANGES
+#include "vietnamesecal.h" // rdar://24832944
+#endif
 
 #if !UCONFIG_NO_SERVICE
 static icu::ICULocaleService* gService = nullptr;
@@ -193,6 +196,9 @@ static const char * const gCalTypes[] = {
     "malayalam",
     "odia",
     "tamil",
+#if APPLE_ICU_CHANGES
+    "vietnamese", // rdar://24832944
+#endif // APPLE_ICU_CHANGES
     nullptr
 };
 
@@ -225,9 +231,12 @@ typedef enum ECalType {
     CALTYPE_INDIAN_LUNISOLAR_MARATHI,
     CALTYPE_INDIAN_LUNISOLAR_TELUGU,
     CALTYPE_INDIAN_SOLAR_BANGLA,
-    CALTYPE_INDIAN_SOLAR_TAMIL,
     CALTYPE_INDIAN_SOLAR_MALAYALAM,
-    CALTYPE_INDIAN_SOLAR_ODIA
+    CALTYPE_INDIAN_SOLAR_ODIA,
+    CALTYPE_INDIAN_SOLAR_TAMIL,
+#if APPLE_ICU_CHANGES
+    CALTYPE_VIETNAMESE // rdar://24832944
+#endif // APPLE_ICU_CHANGES
 } ECalType;
 
 U_NAMESPACE_BEGIN
@@ -428,7 +437,11 @@ static Calendar *createStandardCalendar(ECalType calType, const Locale &loc, UEr
         case CALTYPE_INDIAN_SOLAR_ODIA:
             cal.adoptInsteadAndCheckErrorCode(new HinduSolarOdiaCalendar(loc, status), status);
             break;
-            
+#if APPLE_ICU_CHANGES
+        case CALTYPE_VIETNAMESE: // rdar://24832944
+            cal.adoptInsteadAndCheckErrorCode(new VietnameseCalendar(loc, status), status);
+            break;
+#endif // APPLE_ICU_CHANGES
         default:
             status = U_UNSUPPORTED_ERROR;
     }
@@ -695,7 +708,10 @@ static const int32_t kCalendarLimits[UCAL_FIELD_COUNT][4] = {
     { -0x7F000000,  -0x7F000000,    0x7F000000,    0x7F000000  }, // JULIAN_DAY
     {           0,            0, 24*kOneHour-1, 24*kOneHour-1  }, // MILLISECONDS_IN_DAY
     {           0,            0,             1,             1  }, // IS_LEAP_MONTH
-    {           0,            0,            11,            11  }  // ORDINAL_MONTH
+    {           0,            0,            11,            11  }, // ORDINAL_MONTH
+#if APPLE_ICU_CHANGES // rdar://138880732
+    {           0,            0,             1,             1  }, // IS_REPEATED_DAY
+#endif // APPLE_ICU_CHANGES
 };
 
 // Resource bundle tags read by this class
@@ -2838,7 +2854,12 @@ int32_t Calendar::getLimit(UCalendarDateFields field, ELimitType limitType) cons
     case UCAL_DOW_LOCAL:
     case UCAL_JULIAN_DAY:
     case UCAL_MILLISECONDS_IN_DAY:
+#ifndef APPLE_ICU_CHANGES // rdar://138880732 and rdar://154212299
+    // We want UCAL_IS_LEAP_MONTH and UCAL_IS_REPEATED_DAY
+    // to fall through to the default so that they get
+    // calendar-specific values.
     case UCAL_IS_LEAP_MONTH:
+#endif // APPLE_ICU_CHANGES
         return kCalendarLimits[field][limitType];
 
     case UCAL_WEEK_OF_MONTH:
@@ -3517,6 +3538,15 @@ int32_t Calendar::computeJulianDay(UErrorCode &status)
 
 // -------------------------------------------
 
+#if APPLE_ICU_CHANGES // rdar://153018943
+// Default implementation for computing the ordinal day
+// Calendars which have leap and skipped days need to calculate the ordinal day based on Calendar's fields
+// All other calendars can simply use UCAL_DAY_OF_MONTH, which is what this default method does
+int32_t Calendar::handleComputeOrdinalDay(int32_t monthStart) {
+    return internalGet(UCAL_DAY_OF_MONTH,1);
+}
+#endif // APPLE_ICU_CHANGES
+
 int32_t Calendar::handleComputeJulianDay(UCalendarDateFields bestField, UErrorCode &status)  {
     if (U_FAILURE(status)) {
        return 0;
@@ -3582,7 +3612,11 @@ int32_t Calendar::handleComputeJulianDay(UCalendarDateFields bestField, UErrorCo
         // give calendar subclass a chance to have a default 'first' dom
         int32_t dayOfMonth;
         if(isSet(UCAL_DAY_OF_MONTH)) {
+#if APPLE_ICU_CHANGES // rdar://153018943
+            dayOfMonth = handleComputeOrdinalDay(julianDay);
+#else
             dayOfMonth = internalGet(UCAL_DAY_OF_MONTH,1);
+#endif // APPLE_ICU_CHANGES
         } else {
             dayOfMonth = getDefaultDayInMonth(year, month, status);
             if (U_FAILURE(status)) {

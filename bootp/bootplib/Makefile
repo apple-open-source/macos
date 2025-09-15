@@ -10,7 +10,7 @@ endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=x86_64
+ARCHS=arm64 x86_64
 CORETELEPHONY=
 endif
 
@@ -106,16 +106,20 @@ dnsnamelist: DNSNameList.c util.c cfutil.c
 subnets: IPv4ClasslessRoute.c subnets.c cfutil.c DNSNameList.c util.c ptrlist.c dynarray.c dhcp_options.c IPConfigurationLog.c
 	$(CC) -DNO_SYSTEMCONFIGURATION -DTEST_SUBNETS -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -DTEST_INTERFACES $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
 
-test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c ptrlist.c util.c DNSNameList.c cfutil.c
+test-dhcpv6-options: DHCPv6Options.c DHCPv6.c DHCPDUID.c ptrlist.c util.c DNSNameList.c cfutil.c DNSEncryptedServers.c
 	$(CC) -DTEST_DHCPV6_OPTIONS -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 test-duid: DHCPDUID.c cfutil.c
 	$(CC) -DTEST_DHCPDUID -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
+
+test-dnsdnrinstance: DNSEncryptedServers.c DNSNameList.c IPv4ClasslessRoute.c IPConfigurationLog.c dhcp_options.c DHCPv6Options.c RouterAdvertisement.c DHCPDUID.c ptrlist.c cfutil.c util.c
+	$(CC)  -DTEST_DNSDNRINSTANCE -isysroot $(SYSROOT) $(ARCH_FLAGS) -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) $(SC_PRIV) -g -o $@ $^
+	codesign -s - $@
 
 dhcp-hostname: cfutil.c
 	$(CC) -DTEST_DHCP_HOSTNAME -isysroot $(SYSROOT) $(ARCH_FLAGS) $(SYSPRIV) $(PF_INC) -Wall -g -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
 	codesign -s - $@
 
 clean:
-	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc test-duid
+	rm -f afpusers arp dhcpopt dnsnamelist genoptionfiles hfsvols interfaces nbimages nbsp nihosts nilist readtest sharepoints subnets test-dhcpv6-options IPv4ClasslessRoute inetroute interfaces-no-sc test-duid test-dnsdnrinstance
 	rm -rf *.dSYM/

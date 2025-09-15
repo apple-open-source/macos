@@ -71,7 +71,7 @@ static void tests(void)
         (ssize_t)sizeof(keychain_data), "write garbage to keychain file");
     ok_unix(close(fd), "close keychain file");
 
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     int v_eighty = 80;
     CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);

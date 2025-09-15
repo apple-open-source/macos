@@ -88,9 +88,9 @@ GENERATED_BINARY_FILES="\
 # together, with an #ifdef construct around the two versions to select based on whether
 # the platform is Darwin-based.
 mkdir $SCRIPTS/tmp
-echo "#if !U_PLATFORM_IS_DARWIN_BASED" >$SCRIPTS/tmp/p1.txt
-echo "#else // U_PLATFORM_IS_DARWIN_BASED" >$SCRIPTS/tmp/p2.txt
-echo "#endif // U_PLATFORM_IS_DARWIN_BASED" >$SCRIPTS/tmp/p3.txt
+echo "#if !APPLE_ICU_CHANGES" >$SCRIPTS/tmp/p1.txt
+echo "#else // APPLE_ICU_CHANGES" >$SCRIPTS/tmp/p2.txt
+echo "#endif // APPLE_ICU_CHANGES" >$SCRIPTS/tmp/p3.txt
 for f in $GENERATED_SOURCE_FILES; do
 	echo "Combining $AICU_WORK/icu/icu4c/source/$f with $OSICU_UPROPS_WORK/icu4c/source/$f"
 	cat $SCRIPTS/tmp/p1.txt $AICU_WORK/icu/icu4c/source/$f $SCRIPTS/tmp/p2.txt $OSICU_UPROPS_WORK/icu4c/source/$f $SCRIPTS/tmp/p3.txt >$SCRIPTS/tmp/result.txt

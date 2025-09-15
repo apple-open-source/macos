@@ -381,7 +381,7 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		contents making up the signed code on disk. It is not generally advisable to
 		make use of this information, but some utilities (such as software-update
 		tools) may find it useful.
-	
+ 
 	Dictionary keys:
 
 	@constant kSecCodeInfoCertificates A CFArray of SecCertificates identifying the

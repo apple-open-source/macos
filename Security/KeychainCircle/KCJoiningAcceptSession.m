@@ -35,7 +35,6 @@
 
 #import <KeychainCircle/PairingChannel.h>
 #import <KeychainCircle/SecurityAnalyticsConstants.h>
-#import <KeychainCircle/SecurityAnalyticsReporterRTC.h>
 #import <KeychainCircle/AAFAnalyticsEvent+Security.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
@@ -264,7 +263,7 @@ typedef enum {
             localError = [NSError errorWithDomain:KCErrorDomain code: kFailedToExtractStartMessage description:@"Failed to extract startMessage"];
         }
         secerror("joining: failed to extract startMessage: %@", localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -279,7 +278,7 @@ typedef enum {
             if (SOSCCIsSOSTrustAndSyncingEnabled() == NO && self.joiningConfiguration.testsEnabled == NO) {
                 secerror("joining: device does not support SOS, failing flow");
                 localError = [NSError errorWithDomain:KCErrorDomain code:kUnableToPiggyBackDueToTrustSystemSupport description:@"Unable to piggyback with device due to lack of trust system support" ];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -302,7 +301,7 @@ typedef enum {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCopyChallengeMessage description:@"Failed to copy srpMessage"];
         }
         secerror("joining: failed to copy srpMessage: %@", localError);
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -342,7 +341,7 @@ typedef enum {
             if (error) {
                 *error = captureError;
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:captureError];
+            [eventS sendMetricWithResult:NO error:captureError];
             return nil;
         }
         NSData* outgoingMessage = [[KCJoiningMessage messageWithType:kChallenge
@@ -355,13 +354,13 @@ typedef enum {
             }
             secerror("joining: failed to create challenge message: %@", localError);
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         }
         else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return outgoingMessage;
         
@@ -376,19 +375,19 @@ typedef enum {
             }
             secerror("joining: failed to create challenge message: %@", localError);
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return outgoingMessage;
     }
 
     localError = [NSError errorWithDomain:KCErrorDomain code:kUnableToPiggyBackDueToTrustSystemSupport description:@"Unable to piggyback with device due to lack of trust system support"];
 
-    [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+    [eventS sendMetricWithResult:NO error:localError];
     if (error) {
         *error = localError;
     }
@@ -409,7 +408,7 @@ typedef enum {
     NSError* localError = nil;
     if ([message type] != kResponse) {
         localError = [NSError errorWithDomain:KCErrorDomain code:kUnexpectedMessageTypeExpectedResponse description:@"Expected response!"];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -432,7 +431,7 @@ typedef enum {
                 if (localError == nil) {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kRetryError description:[NSString stringWithFormat:@"Delegate returned error without filling in error: %@", secretDelegate]];
                 }
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -451,7 +450,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kNilErrorData description:@"errorData is nil"];
             }
             secerror("processResponse: errorData is nil, error: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
@@ -467,13 +466,13 @@ typedef enum {
             }
             secerror("processResponse: failed to create error response message: %@", localError);
 
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
             secnotice("joining", "processResponse: successfully created response message");
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return messageOut;
     }
@@ -483,7 +482,7 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncodeData description:@"Failed to encode data"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -495,7 +494,7 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptEncodedData description:@"Failed to encrypt encoded data"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -511,12 +510,12 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateVerificationMessage description:@"Failed to create response message"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
     }
     return messageOut;
 }
@@ -547,6 +546,7 @@ typedef enum {
     SOSInitialSyncFlags flags = 0;
     switch (self.piggy_version) {
         case kPiggyV0:
+            secnotice("acceptor", "piggy version is 0");
             break;
         case kPiggyV1:
             secnotice("acceptor", "piggy version is 1");
@@ -555,6 +555,9 @@ typedef enum {
         case kPiggyV2:
             secnotice("acceptor", "piggy version is 2");
             flags |= kSOSInitialSyncFlagiCloudIdentity;
+            break;
+        case kPiggyV3:
+            secnotice("acceptor", "piggy version is 3");
             break;
     }
 
@@ -669,19 +672,19 @@ typedef enum {
             if (localError == nil) {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateTLKRequestResponse description:@"Failed to create tlk request response message"];
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return createTLKResponseData;
     }
     
     if ([message type] != kPeerInfo) {
         localError = [NSError errorWithDomain:KCErrorDomain code:kReceivedUnexpectedMessageTypeExpectedPeerInfo description:@"Expected peerInfo!"];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -698,7 +701,7 @@ typedef enum {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateMessageFromJoiningMessage description:@"Failed to create pairing message from JoiningMessage"];
             }
             secerror("octagon, failed to create pairing message from JoiningMessage: %@", localError);
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = nil;
             }
@@ -708,7 +711,7 @@ typedef enum {
         if (pairingMessage.hasPrepare == NO) {
             secerror("octagon, message does not contain prepare message");
             localError = [NSError errorWithDomain:KCErrorDomain code:kMessageDoesNotContainPeerInfoData description:@"Expected prepare message!"];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = nil;
             }
@@ -726,7 +729,7 @@ typedef enum {
                                                                                                 testsAreEnabled:MetricsOverrideTestsAreEnabled()
                                                                                                  canSendMetrics:YES
                                                                                                        category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:event success:YES error:nil];
+            [event sendMetricWithResult:YES error:nil];
         }
 
         // Max Capability - assume non-full and full-peers are allowed through piggybacking
@@ -764,7 +767,7 @@ typedef enum {
             if (voucherError == nil) {
                 voucherError = [NSError errorWithDomain:KCErrorDomain code:kVoucherCreationFailed description:@"Voucher creation failed"];
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:voucherError];
+            [eventS sendMetricWithResult:NO error:voucherError];
             if (error) {
                 *error = voucherError;
             }
@@ -780,7 +783,7 @@ typedef enum {
                     localError = [NSError errorWithDomain:KCErrorDomain code:kProcessApplicationFailure description:@"message failed to process application"];
                 }
                 secerror("joining: failed to process SOS application: %@", localError);
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 if (error) {
                     *error = localError;
                 }
@@ -801,7 +804,7 @@ typedef enum {
                         *error = [NSError errorWithDomain:KCErrorDomain code:kFailedToEncryptVoucherData description:@"failed to encrypt the voucher"];
                     }
                 }
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+                [eventS sendMetricWithResult:NO error:localError];
                 return nil;
             } else {
                 AAFAnalyticsEventSecurity *channelSecuredEvent = [[AAFAnalyticsEventSecurity alloc] initWithKeychainCircleMetrics:nil
@@ -812,7 +815,7 @@ typedef enum {
                                                                                                                   testsAreEnabled:MetricsOverrideTestsAreEnabled()
                                                                                                                    canSendMetrics:YES
                                                                                                                          category:kSecurityRTCEventCategoryAccountDataAccessRecovery];
-                [SecurityAnalyticsReporterRTC sendMetricWithEvent:channelSecuredEvent success:YES error:nil];
+                [channelSecuredEvent sendMetricWithResult:YES error:nil];
             }
         }
 
@@ -827,12 +830,12 @@ typedef enum {
             if (localError == nil) {
                 localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateCircleBlobMessage description:@"Failed to create circle blob response message"];
             }
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+            [eventS sendMetricWithResult:NO error:localError];
             if (error) {
                 *error = localError;
             }
         } else {
-            [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+            [eventS sendMetricWithResult:YES error:nil];
         }
         return messageOut;
     }
@@ -841,7 +844,7 @@ typedef enum {
         NSString *description = [NSString stringWithFormat:@"cannot join piggyback version %d with SOS disabled", (int)self.piggy_version];
         secerror("joining: %s", [description UTF8String]);
         localError = [NSError errorWithJoiningError:kInternalError format:@"%@", description];
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -853,7 +856,7 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToProcessSOSApplication description:@"Failed to process SOS Application"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
@@ -872,12 +875,12 @@ typedef enum {
         if (localError == nil) {
             localError = [NSError errorWithDomain:KCErrorDomain code:kFailedToCreateCircleBlobMessage description:@"Failed to create circle blob response message"];
         }
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:NO error:localError];
+        [eventS sendMetricWithResult:NO error:localError];
         if (error) {
             *error = localError;
         }
     } else {
-        [SecurityAnalyticsReporterRTC sendMetricWithEvent:eventS success:YES error:nil];
+        [eventS sendMetricWithResult:YES error:nil];
     }
 
     return messageOut;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,8 +30,10 @@
 #include "WebImage.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/HeapInlines.h>
+#include <WebCore/BoundaryPointInlines.h>
 #include <WebCore/Document.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/FrameInlines.h>
 #include <WebCore/FrameSelection.h>
 #include <WebCore/GeometryUtilities.h>
 #include <WebCore/GraphicsContext.h>
@@ -39,6 +41,7 @@
 #include <WebCore/JSRange.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/NodeInlines.h>
 #include <WebCore/Page.h>
 #include <WebCore/Range.h>
 #include <WebCore/RenderView.h>
@@ -67,7 +70,8 @@ static DOMRangeHandleCache& domRangeHandleCache()
 
 RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(JSContextRef context, JSObjectRef object)
 {
-    return getOrCreate(JSRange::toWrapped(toJS(context)->vm(), toJS(object)));
+    RefPtr wrapped = JSRange::toWrapped(toJS(context)->vm(), toJS(object));
+    return getOrCreate(wrapped.get());
 }
 
 RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(WebCore::Range* range)
@@ -93,23 +97,18 @@ InjectedBundleRangeHandle::~InjectedBundleRangeHandle()
     domRangeHandleCache().remove(m_range.get());
 }
 
-WebCore::Range& InjectedBundleRangeHandle::coreRange() const
-{
-    return m_range.get();
-}
-
 Ref<InjectedBundleNodeHandle> InjectedBundleRangeHandle::document()
 {
-    return InjectedBundleNodeHandle::getOrCreate(m_range->startContainer().document());
+    return InjectedBundleNodeHandle::getOrCreate(m_range->startContainer().protectedDocument());
 }
 
 WebCore::IntRect InjectedBundleRangeHandle::boundingRectInWindowCoordinates() const
 {
     auto range = makeSimpleRange(m_range);
-    auto frame = range.start.document().frame();
+    RefPtr frame = range.start.document().frame();
     if (!frame)
         return { };
-    auto view = frame->view();
+    RefPtr view = frame->view();
     if (!view)
         return { };
     return view->contentsToWindow(enclosingIntRect(unionRectIgnoringZeroRects(RenderObject::absoluteBorderAndTextRects(range))));
@@ -125,7 +124,7 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
     if (!frame)
         return nullptr;
 
-    auto frameView = frame->view();
+    RefPtr frameView = frame->view();
     if (!frameView)
         return nullptr;
 

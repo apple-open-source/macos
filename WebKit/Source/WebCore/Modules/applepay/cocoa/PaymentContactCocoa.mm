@@ -44,40 +44,40 @@ static RetainPtr<PKContact> convert(unsigned version, const ApplePayPaymentConta
 {
     auto result = adoptNS([PAL::allocPKContactInstance() init]);
 
-    NSString *familyName = nil;
-    NSString *phoneticFamilyName = nil;
+    RetainPtr<NSString> familyName;
+    RetainPtr<NSString> phoneticFamilyName;
     if (!contact.familyName.isEmpty()) {
-        familyName = contact.familyName;
+        familyName = contact.familyName.createNSString();
         if (version >= 3 && !contact.phoneticFamilyName.isEmpty())
-            phoneticFamilyName = contact.phoneticFamilyName;
+            phoneticFamilyName = contact.phoneticFamilyName.createNSString();
     }
 
-    NSString *givenName = nil;
-    NSString *phoneticGivenName = nil;
+    RetainPtr<NSString> givenName;
+    RetainPtr<NSString> phoneticGivenName;
     if (!contact.givenName.isEmpty()) {
-        givenName = contact.givenName;
+        givenName = contact.givenName.createNSString();
         if (version >= 3 && !contact.phoneticGivenName.isEmpty())
-            phoneticGivenName = contact.phoneticGivenName;
+            phoneticGivenName = contact.phoneticGivenName.createNSString();
     }
 
     if (familyName || givenName) {
-        auto name = adoptNS([[NSPersonNameComponents alloc] init]);
-        [name setFamilyName:familyName];
-        [name setGivenName:givenName];
+        RetainPtr name = adoptNS([[NSPersonNameComponents alloc] init]);
+        [name setFamilyName:familyName.get()];
+        [name setGivenName:givenName.get()];
         if (phoneticFamilyName || phoneticGivenName) {
             auto phoneticName = adoptNS([[NSPersonNameComponents alloc] init]);
-            [phoneticName setFamilyName:phoneticFamilyName];
-            [phoneticName setGivenName:phoneticGivenName];
+            [phoneticName setFamilyName:phoneticFamilyName.get()];
+            [phoneticName setGivenName:phoneticGivenName.get()];
             [name setPhoneticRepresentation:phoneticName.get()];
         }
         [result setName:name.get()];
     }
 
     if (!contact.emailAddress.isEmpty())
-        [result setEmailAddress:contact.emailAddress];
+        [result setEmailAddress:contact.emailAddress.createNSString().get()];
 
     if (!contact.phoneNumber.isEmpty())
-        [result setPhoneNumber:adoptNS([allocCNPhoneNumberInstance() initWithStringValue:contact.phoneNumber]).get()];
+        [result setPhoneNumber:adoptNS([allocCNPhoneNumberInstance() initWithStringValue:contact.phoneNumber.createNSString().get()]).get()];
 
     if (contact.addressLines && !contact.addressLines->isEmpty()) {
         auto address = adoptNS([allocCNMutablePostalAddressInstance() init]);
@@ -89,23 +89,22 @@ static RetainPtr<PKContact> convert(unsigned version, const ApplePayPaymentConta
                 builder.append('\n');
         }
 
-        // FIXME: StringBuilder should hava a toNSString() function to avoid the extra String allocation.
-        [address setStreet:builder.toString()];
+        [address setStreet:builder.createNSString().get()];
 
         if (!contact.subLocality.isEmpty())
-            [address setSubLocality:contact.subLocality];
+            [address setSubLocality:contact.subLocality.createNSString().get()];
         if (!contact.locality.isEmpty())
-            [address setCity:contact.locality];
+            [address setCity:contact.locality.createNSString().get()];
         if (!contact.postalCode.isEmpty())
-            [address setPostalCode:contact.postalCode];
+            [address setPostalCode:contact.postalCode.createNSString().get()];
         if (!contact.subAdministrativeArea.isEmpty())
-            [address setSubAdministrativeArea:contact.subAdministrativeArea];
+            [address setSubAdministrativeArea:contact.subAdministrativeArea.createNSString().get()];
         if (!contact.administrativeArea.isEmpty())
-            [address setState:contact.administrativeArea];
+            [address setState:contact.administrativeArea.createNSString().get()];
         if (!contact.country.isEmpty())
-            [address setCountry:contact.country];
+            [address setCountry:contact.country.createNSString().get()];
         if (!contact.countryCode.isEmpty())
-            [address setISOCountryCode:contact.countryCode];
+            [address setISOCountryCode:contact.countryCode.createNSString().get()];
 
         [result setPostalAddress:address.get()];
     }

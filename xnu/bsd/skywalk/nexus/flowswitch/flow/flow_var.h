@@ -250,7 +250,8 @@ typedef void (*flow_tx_action_t)(struct nx_flowswitch *fsw, struct flow_entry *f
 
 #define FLOW_PROC_FLAG_FRAGMENTS  0x0001
 typedef void (*flow_rx_action_t)(struct nx_flowswitch *fsw, struct flow_entry *fe,
-    struct pktq *pkts, uint32_t rx_bytes, uint32_t flags);
+    struct pktq *pkts, uint32_t rx_bytes, struct mbufq *host_mq,
+    uint32_t flags);
 
 struct flow_entry {
 	/**** Common Group ****/
@@ -349,13 +350,18 @@ struct flow_entry {
 	uint8_t                         fe_demux_pattern_count;
 	struct kern_flow_demux_pattern  *__counted_by(fe_demux_pattern_count)fe_demux_patterns;
 	uint8_t                         *__sized_by_or_null(FLOW_DEMUX_MAX_LEN) fe_demux_pkt_data;
+
+	TAILQ_ENTRY(flow_entry) fe_rxstrc_link;
 };
 
 /* valid values for fe_flags */
 #define FLOWENTF_INITED                 0x00000001 /* {src,dst} states initialized */
+#define FLOWENTF_AOP_OFFLOAD            0x00000002 /* AOP Offload flow */
+#define FLOWENTF_RX_STEERING            0x00000004 /* RX flow steering configured */
 #define FLOWENTF_TRACK                  0x00000010 /* enable state tracking */
 #define FLOWENTF_CONNECTED              0x00000020 /* connected mode */
 #define FLOWENTF_LISTENER               0x00000040 /* listener mode */
+#define FLOWENTF_RXSTRC_PENDING         0x00000080 /* Rx steering rule cleanup pending */
 #define FLOWENTF_QOS_MARKING            0x00000100 /* flow can have qos marking */
 #define FLOWENTF_LOW_LATENCY            0x00000200 /* low latency flow */
 #define FLOWENTF_WAIT_CLOSE             0x00001000 /* defer free after close */
@@ -366,6 +372,7 @@ struct flow_entry {
 #define FLOWENTF_CHILD                  0x00020000 /* child flow */
 #define FLOWENTF_PARENT                 0x00040000 /* parent flow */
 #define FLOWENTF_NOWAKEFROMSLEEP        0x00080000 /* don't wake for this flow */
+#define FLOWENTF_CONNECTION_IDLE        0x00100000 /* connection is idle */
 #define FLOWENTF_ABORTED                0x01000000 /* has sent RST to peer */
 #define FLOWENTF_NONVIABLE              0x02000000 /* disabled; awaiting tear down */
 #define FLOWENTF_WITHDRAWN              0x04000000 /* flow has been withdrawn */
@@ -375,9 +382,10 @@ struct flow_entry {
 #define FLOWENTF_LINGERING              0x80000000 /* destroyed and in linger list */
 
 #define FLOWENTF_BITS                                            \
-    "\020\01INITED\05TRACK\06CONNECTED\07LISTNER\011QOS_MARKING" \
+    "\020\01INITED\02AOP_OFFLOAD\03RX_STEERING\05TRACK\06CONNECTED\07LISTNER\011QOS_MARKING" \
     "\012LOW_LATENCY\015WAIT_CLOSE\016CLOSE_NOTIFY\017EXT_PORT"  \
-    "\020EXT_PROTO\021EXT_FLOWID\031ABORTED\032NONVIABLE\033WITHDRAWN"  \
+    "\020EXT_PROTO\021EXT_FLOWID\024NOWAKEFROMSLEEP\025CONNECTION_IDLE" \
+    "\031ABORTED\032NONVIABLE\033WITHDRAWN"  \
     "\034TORN_DOWN\035HALF_CLOSED\037DESTROYED\40LINGERING"
 
 TAILQ_HEAD(flow_entry_linger_head, flow_entry);
@@ -395,6 +403,8 @@ struct flow_entry_dead {
 		uuid_t          fed_uuid;
 	} __sk_aligned(8);
 };
+
+TAILQ_HEAD(flow_entry_rxstrc_head, flow_entry);
 
 /*
  * Minimum refcnt for a flow route entry to be considered as idle.
@@ -647,10 +657,10 @@ static inline int
 flow_key_cmp_mask(const struct flow_key *match,
     const struct flow_key *key, const struct flow_key *mask)
 {
-	_CASSERT(FLOW_KEY_LEN == 48);
-	_CASSERT(FLOW_KEY_LEN == sizeof(struct flow_key));
-	_CASSERT((sizeof(struct flow_entry) % 16) == 0);
-	_CASSERT((offsetof(struct flow_entry, fe_key) % 16) == 0);
+	static_assert(FLOW_KEY_LEN == 48);
+	static_assert(FLOW_KEY_LEN == sizeof(struct flow_key));
+	static_assert((sizeof(struct flow_entry) % 16) == 0);
+	static_assert((offsetof(struct flow_entry, fe_key) % 16) == 0);
 
 	/* local variables are __bidi_indexable with -fbounds-safety */
 	const struct flow_key *match_idx = match;
@@ -948,7 +958,7 @@ extern int flow_mgr_flow_hash_mask_del(struct flow_mgr *fm, uint32_t mask);
 extern struct flow_entry * fe_alloc(boolean_t can_block);
 
 extern int flow_namespace_create(union sockaddr_in_4_6 *, uint8_t protocol,
-    netns_token *, uint16_t, struct ns_flow_info *);
+    netns_token *, uint32_t, struct ns_flow_info *);
 extern void flow_namespace_half_close(netns_token *token);
 extern void flow_namespace_withdraw(netns_token *);
 extern void flow_namespace_destroy(netns_token *);
@@ -992,6 +1002,10 @@ extern struct flow_entry * flow_entry_alloc(struct flow_owner *fo,
 extern void flow_entry_teardown(struct flow_owner *, struct flow_entry *);
 extern void flow_entry_destroy(struct flow_owner *, struct flow_entry *, bool,
     void *);
+extern int flow_entry_add_rx_steering_rule(struct nx_flowswitch *fsw,
+    struct flow_entry *fe);
+extern void flow_entry_rx_steering_rule_cleanup(struct nx_flowswitch *,
+    struct flow_entry *);
 extern void flow_entry_retain(struct flow_entry *fe);
 extern void flow_entry_release(struct flow_entry **pfe);
 extern uint32_t flow_entry_refcnt(struct flow_entry *fe);
@@ -1017,12 +1031,14 @@ extern void flow_track_abort_tcp( struct flow_entry *fe,
 extern void flow_track_abort_quic(struct flow_entry *fe,
     uint8_t *__counted_by(QUIC_STATELESS_RESET_TOKEN_SIZE)token);
 
-extern void fsw_host_rx(struct nx_flowswitch *, struct pktq *);
-extern void fsw_host_sendup(struct ifnet *, struct mbuf *, struct mbuf *,
-    uint32_t, uint32_t);
+extern void fsw_host_rx_cb(struct nx_flowswitch *fsw, struct pktq *pktq);
+extern void fsw_host_rx_enqueue_mbq(struct nx_flowswitch *fsw, struct pktq *pktq,
+    struct mbufq *host_mq);
+extern void fsw_host_sendup(struct ifnet *ifp, struct mbufq *host_mq);
 
 extern void flow_rx_agg_tcp(struct nx_flowswitch *fsw, struct flow_entry *fe,
-    struct pktq *rx_pkts, uint32_t rx_bytes, uint32_t flags);
+    struct pktq *rx_pkts, uint32_t rx_bytes, struct mbufq *host_mq,
+    uint32_t flags);
 
 extern void flow_route_init(void);
 extern void flow_route_fini(void);
@@ -1062,8 +1078,8 @@ extern struct flow_stats *flow_stats_alloc(boolean_t cansleep);
 #if SK_LOG
 #define FLOWKEY_DBGBUF_SIZE   256
 #define FLOWENTRY_DBGBUF_SIZE   512
-extern char *fk_as_string(const struct flow_key *fk, char *__counted_by(dsz)dst, size_t dsz);
-extern char *fe_as_string(const struct flow_entry *fe, char *__counted_by(dsz)dst, size_t dsz);
+extern char *fk2str(const struct flow_key *fk, char *__counted_by(dsz)dst, size_t dsz);
+extern char *fe2str(const struct flow_entry *fe, char *__counted_by(dsz)dst, size_t dsz);
 #endif /* SK_LOG */
 __END_DECLS
 #endif /* BSD_KERNEL_PRIVATE */

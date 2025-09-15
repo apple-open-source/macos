@@ -29,6 +29,7 @@
 #if ENABLE(TOUCH_EVENTS)
 
 #include "ArgumentCoders.h"
+#include <WebCore/RemoteFrameGeometryTransformer.h>
 
 namespace WebKit {
 
@@ -49,6 +50,34 @@ bool WebTouchEvent::isTouchEventType(WebEventType type)
 }
 
 #endif // !PLATFORM(IOS_FAMILY)
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+void WebTouchEvent::transformToRemoteFrameCoordinates(const WebCore::RemoteFrameGeometryTransformer& transformer)
+{
+    ASSERT(!std::exchange(m_hasTransformedToRemoteFrameCoordinates, true));
+
+    m_position = transformer.transformToRemoteFrameCoordinates(m_position);
+    for (auto& touchPoint : m_touchPoints)
+        touchPoint.transformToRemoteFrameCoordinates(transformer);
+    for (auto& event : m_coalescedEvents)
+        event.transformToRemoteFrameCoordinates(transformer);
+    for (auto& event : m_predictedEvents)
+        event.transformToRemoteFrameCoordinates(transformer);
+}
+
+void WebPlatformTouchPoint::transformToRemoteFrameCoordinates(const WebCore::RemoteFrameGeometryTransformer& transformer)
+{
+    m_locationInRootView = transformer.transformToRemoteFrameCoordinates(m_locationInRootView);
+
+    // When translating to the coordinate space of a site isolated iframe,
+    // viewport coordinates become the same as root view coordinates because
+    // iframes don't interact with viewports.
+    // Otherwise, if for example the root view of the main frame is partially
+    // obscured, we get bogus values here. Iframe processes don't handle
+    // any difference between root view coordinates and viewport coordinates.
+    m_locationInViewport = m_locationInRootView;
+}
+#endif
 
 bool WebTouchEvent::allTouchPointsAreReleased() const
 {

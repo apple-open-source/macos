@@ -31,6 +31,7 @@
 #include "WebPreferencesStore.h"
 #include <wtf/RefPtr.h>
 #include <wtf/WeakHashSet.h>
+#include <wtf/WeakPtr.h>
 
 #define DECLARE_PREFERENCE_GETTER_AND_SETTERS(KeyUpper, KeyLower, TypeName, Type, DefaultValue, HumanReadableName, HumanReadableDescription) \
     void set##KeyUpper(const Type& value); \
@@ -94,6 +95,8 @@ public:
     void startBatchingUpdates();
     void endBatchingUpdates();
 
+    static void forceSiteIsolationAlwaysOnForTesting();
+
 private:
     void platformInitializeStore();
 
@@ -113,7 +116,7 @@ private:
         }
         
     private:
-        Ref<WebPreferences> m_preferences;
+        const Ref<WebPreferences> m_preferences;
     };
 
     void updateStringValueForKey(const String& key, const String& value, bool ephemeral);
@@ -151,3 +154,7 @@ private:
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebPreferences)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::Preferences; }
+SPECIALIZE_TYPE_TRAITS_END()

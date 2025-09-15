@@ -642,6 +642,74 @@ errOut:
     CFReleaseNull(error);
 }
 
+- (void)testPlistSerialization {
+    SecCertificateRef cert0 = NULL, cert1 = NULL, root = NULL;
+    SecTrustRef trust = NULL, deserializedTrust = NULL;
+    SecPolicyRef policy = NULL;
+    CFArrayRef certs = NULL, anchors = NULL, deserializedCerts = NULL;
+    CFDateRef date = NULL;
+    CFPropertyListRef trustPlist = NULL;
+    CFErrorRef error = NULL;
+
+    require_action(cert0 = SecCertificateCreateWithBytes(NULL, _expired_badssl, sizeof(_expired_badssl)), errOut,
+                   fail("unable to create cert"));
+    require_action(cert1 = SecCertificateCreateWithBytes(NULL, _comodo_rsa_dvss, sizeof(_comodo_rsa_dvss)), errOut,
+                   fail("unable to create cert"));
+    require_action(root = SecCertificateCreateWithBytes(NULL, _comodo_rsa_root, sizeof(_comodo_rsa_root)), errOut,
+                   fail("unable to create cert"));
+
+    const void *v_certs[] = { cert0, cert1 };
+    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create anchors array"));
+    require_action(date = CFDateCreateForGregorianZuluMoment(NULL, 2015, 4, 10, 12, 0, 0), errOut, fail("unable to create date"));
+    
+    require_action(policy = SecPolicyCreateBasicX509(), errOut, fail("unable to create policy"));
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "failed to create trust");
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("unable to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, date), errOut, fail("unable to set verify date"));
+    
+    ok(trustPlist = SecTrustCopyPropertyListRepresentation(trust, NULL), "failed to copy property list from trust");
+    ok(deserializedTrust = SecTrustCreateFromPropertyListRepresentation(trustPlist, NULL), "Failed to create trust from property list");
+    CFReleaseNull(trustPlist);
+
+    require_noerr_action(SecTrustCopyCustomAnchorCertificates(deserializedTrust, &deserializedCerts), errOut,
+                         fail("unable to get anchors from deserialized trust"));
+    ok(CFEqual(anchors, deserializedCerts), "Failed to get the same anchors after serialization/deserialization");
+    CFReleaseNull(deserializedCerts);
+    
+    require_noerr_action(SecTrustCopyInputCertificates(trust, &deserializedCerts), errOut,
+                         fail("unable to get input certificates from deserialized trust"));
+    ok(CFEqual(certs, deserializedCerts), "Failed to get same input certificates after serialization/deserialization");
+    CFReleaseNull(deserializedCerts);
+
+    /* correct API behavior */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#ifndef __clang_analyzer__
+    is(SecTrustCopyPropertyListRepresentation(NULL, &error), NULL, "copy plist succeeded with null input");
+    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad trust input");
+    CFReleaseNull(error);
+    is(SecTrustCreateFromPropertyListRepresentation(NULL, &error), NULL, "trust creation succeeded with null input");
+    is(CFErrorGetCode(error), errSecParam, "Incorrect error code for bad plist input");
+    CFReleaseNull(error);
+#endif
+#pragma clang diagnostic pop
+
+errOut:
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(root);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(date);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(deserializedTrust);
+}
 - (void)testSerialization {
     SecCertificateRef cert0 = NULL, cert1 = NULL, root = NULL;
     SecTrustRef trust = NULL, deserializedTrust = NULL;

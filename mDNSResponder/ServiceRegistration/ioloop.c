@@ -221,9 +221,9 @@ add_remove_wakeup(wakeup_t *wakeup, bool remove)
         void *wakeup_context = wakeup->context;
         finalize_callback_t finalize = wakeup->finalize;
         wakeup->context = NULL;
-        if (wakeup->finalize != NULL) {
+        if (finalize != NULL) {
             wakeup->finalize = NULL;
-            wakeup_finalize(wakeup_context);
+            finalize(wakeup_context);
         }
         if (*p_wakeups != NULL) {
             *p_wakeups = wakeup->next;
@@ -312,8 +312,16 @@ ioloop_init(void)
 }
 
 static void
-ioloop_io_finalize(io_t *io)
+io_finalize(io_t *io)
 {
+    io_t **iop;
+    for (iop = &ios; *iop; iop = &(*iop)->next) {
+        if (*iop == io) {
+            *iop = io->next;
+            break;
+        }
+    }
+
     if (io->io_finalize) {
         io->io_finalize(io);
     } else {
@@ -582,7 +590,7 @@ ioloop_udp_read_callback(io_t *io, void *context)
     struct msghdr msg;
     struct iovec bufp;
     uint8_t msgbuf[DNS_MAX_UDP_PAYLOAD];
-    char cmsgbuf[128];
+    char cmsgbuf[256];
     struct cmsghdr *cmh;
     message_t *message;
     (void)context;
@@ -909,7 +917,7 @@ ioloop_udp_send_message(comm_t *comm, addr_t *source, addr_t *dest, int ifindex,
         IPv4_ADDR_GEN_SRP(&dest_addr.sin.sin_addr.s_addr, ipv4_dest_buf);
         INFO("sending %zd byte UDP response from " PRI_IPv4_ADDR_SRP " port %d index %d to " PRI_IPv4_ADDR_SRP "#%d",
              len, IPv4_ADDR_PARAM_SRP(&source_addr.sin.sin_addr.s_addr, ipv4_src_buf),
-             ifindex, ntohs(source_addr.sin.sin_port),
+             ntohs(source_addr.sin.sin_port), ifindex,
              IPv4_ADDR_PARAM_SRP(&dest_addr.sin.sin_addr.s_addr, ipv4_dest_buf), ntohs(dest_addr.sin.sin_port));
     } else {
         SEGMENTED_IPv6_ADDR_GEN_SRP(&source_addr.sin6.sin6_addr.s6_addr, ipv6_src_buf);
@@ -934,13 +942,13 @@ ioloop_udp_send_message(comm_t *comm, addr_t *source, addr_t *dest, int ifindex,
 static bool
 udp_send_response(comm_t *comm, message_t *responding_to, struct iovec *iov, int iov_len)
 {
-    return udp_send_message(comm, &responding_to->local, &responding_to->src, responding_to->ifindex, iov, iov_len);
+    return ioloop_udp_send_message(comm, &responding_to->local, &responding_to->src, responding_to->ifindex, iov, iov_len);
 }
 
 bool
 ioloop_send_multicast(comm_t *comm, int ifindex, struct iovec *iov, int iov_len)
 {
-    return udp_send_message(comm, &comm->multicast, ifindex, iov, iov_len);
+    return ioloop_udp_send_message(comm, NULL, &comm->multicast, ifindex, iov, iov_len);
 }
 
 static bool
@@ -1005,19 +1013,6 @@ ioloop_send_final_data(comm_t *connection, message_t *responding_to, struct iove
         return ret;
     }
     return ioloop_send_message(connection, responding_to, iov, iov_len);
-}
-
-static void
-io_finalize(io_t *io)
-{
-    io_t **iop;
-    for (iop = &ios; *iop; iop = &(*iop)->next) {
-        if (*iop == io) {
-            *iop = io->next;
-            break;
-        }
-    }
-    free(io);
 }
 
 // When a communication is closed, scan the io event list to see if any other ios are referencing this one.
@@ -1388,7 +1383,7 @@ ioloop_listener_create(bool stream, bool tls, bool inetd, uint16_t *UNUSED avoid
                     strerror(errno));
             goto out;
         }
-        ioloop_add_reader(&listener->io, udp_read_callback);
+        ioloop_add_reader(&listener->io, ioloop_udp_read_callback);
     }
     listener->datagram_callback = datagram_callback;
     listener->connected = connected;
@@ -1459,7 +1454,7 @@ ioloop_connection_create(addr_t *remote_address, bool tls, bool stream, bool sta
     char buf[INET6_ADDRSTRLEN + 7];
     char *s;
 
-    if (!stream && (connected != NULL || disconnected != NULL)) {
+    if (!stream && connected != NULL) {
         ERROR("connected and disconnected callbacks not valid for datagram connections");
         return NULL;
     }
@@ -1503,6 +1498,17 @@ ioloop_connection_create(addr_t *remote_address, bool tls, bool stream, bool sta
         RELEASE_HERE(&connection->io, comm);
         return NULL;
     }
+
+    // Get PKTINFO
+    int true_flag = 1;
+    if (setsockopt(connection->io.fd, remote_address->sa.sa_family == AF_INET ? IPPROTO_IP : IPPROTO_IPV6,
+                   remote_address->sa.sa_family == AF_INET ? IP_PKTINFO : IPV6_RECVPKTINFO,
+                   &true_flag, sizeof true_flag) < 0)
+    {
+        ERROR("Can't set %s: %s.", remote_address->sa.sa_family == AF_INET ? "IP_PKTINFO" : "IPV6_RECVPKTINFO",
+              strerror(errno));
+    }
+
     // If a stable address has been requested, request a public address in source address selection.
     if (stable && remote_address->sa.sa_family == AF_INET6) {
 // Linux doesn't currently follow RFC5014. These values are defined in linux/in6.h, but this can't be
@@ -1567,11 +1573,12 @@ ioloop_connection_create(addr_t *remote_address, bool tls, bool stream, bool sta
     if (!stream) {
         connection->is_connected = true;
         connection->tcp_stream = false;
-        ioloop_add_reader(&connection->io, udp_read_callback);
+        ioloop_add_reader(&connection->io, ioloop_udp_read_callback);
     } else {
         connection->tcp_stream = true;
         ioloop_add_writer(&connection->io, connect_callback);
     }
+    connection->io.context = connection;
 
     return connection;
 }
@@ -1772,7 +1779,7 @@ ioloop_dnssd_txn_cancel(dnssd_txn_t *txn)
     }
     if (txn->io != NULL) {
         txn->io->fd = -1;
-        RELEASE_HERE(txn->io, file_descriptor);
+        RELEASE_HERE(txn->io, io);
     }
 }
 

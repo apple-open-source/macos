@@ -49,7 +49,6 @@ public:
     HTMLFormElement& form() const { return m_form; }
     const StringPairVector& textFieldValues() const { return m_textFieldValues; }
     Document& sourceDocument() const { return m_sourceDocument; }
-    Ref<Document> protectedSourceDocument() const;
 
     FormSubmissionTrigger formSubmissionTrigger() const { return m_formSubmissionTrigger; }
 
@@ -57,9 +56,9 @@ private:
     FormState(HTMLFormElement&, StringPairVector&& textFieldValues, Document&, FormSubmissionTrigger);
     void willDetachPage() override;
 
-    Ref<HTMLFormElement> m_form;
+    const Ref<HTMLFormElement> m_form;
     StringPairVector m_textFieldValues;
-    Ref<Document> m_sourceDocument;
+    const Ref<Document> m_sourceDocument;
     FormSubmissionTrigger m_formSubmissionTrigger;
 };
 

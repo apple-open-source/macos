@@ -52,8 +52,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(TileGrid);
 static TextStream& operator<<(TextStream& ts, TileGrid::ValidationPolicyFlag flag)
 {
     switch (flag) {
-    case TileGrid::ValidationPolicyFlag::PruneSecondaryTiles: ts << "prune secondary"; break;
-    case TileGrid::ValidationPolicyFlag::UnparentAllTiles: ts << "unparent all"; break;
+    case TileGrid::ValidationPolicyFlag::PruneSecondaryTiles: ts << "prune secondary"_s; break;
+    case TileGrid::ValidationPolicyFlag::UnparentAllTiles: ts << "unparent all"_s; break;
     }
     return ts;
 }
@@ -109,6 +109,16 @@ void TileGrid::setScale(float scale)
 
     m_controller->willRepaintAllTiles(*this);
 }
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+bool TileGrid::setNeedsDisplayIfEDRHeadroomExceeds(float headroom)
+{
+    bool changed = false;
+    for (auto& entry : m_tiles)
+        changed |= entry.value.layer->setNeedsDisplayIfEDRHeadroomExceeds(headroom);
+    return changed;
+}
+#endif
 
 void TileGrid::setNeedsDisplay()
 {
@@ -210,12 +220,18 @@ void TileGrid::updateTileLayerProperties()
     bool opaque = m_controller->tilesAreOpaque();
     Color tileDebugBorderColor = m_controller->tileDebugBorderColor();
     float tileDebugBorderWidth = m_controller->tileDebugBorderWidth();
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    bool tonemappingEnabled = m_controller->tonemappingEnabled();
+#endif
     for (auto& tileInfo : m_tiles.values()) {
         tileInfo.layer->setAcceleratesDrawing(acceleratesDrawing);
         tileInfo.layer->setContentsFormat(contentsFormat);
         tileInfo.layer->setOpaque(opaque);
         tileInfo.layer->setBorderColor(tileDebugBorderColor);
         tileInfo.layer->setBorderWidth(tileDebugBorderWidth);
+#if HAVE(SUPPORT_HDR_DISPLAY)
+        tileInfo.layer->setTonemappingEnabled(tonemappingEnabled);
+#endif
     }
 }
 
@@ -498,7 +514,7 @@ void TileGrid::revalidateTiles(OptionSet<ValidationPolicyFlag> validationPolicy)
     }
 
     // Ensure primary tile coverage tiles.
-    UncheckedKeyHashSet<TileIndex> tilesNeedingDisplay;
+    HashSet<TileIndex> tilesNeedingDisplay;
     m_primaryTileCoverageRect = ensureTilesForRect(coverageRect, tilesNeedingDisplay, CoverageType::PrimaryTiles);
 
     // Ensure secondary tiles (requested via prepopulateRect).
@@ -572,7 +588,7 @@ void TileGrid::cohortRemovalTimerFired()
     m_controller->updateTileCoverageMap();
 }
 
-IntRect TileGrid::ensureTilesForRect(const FloatRect& rect, UncheckedKeyHashSet<TileIndex>& tilesNeedingDisplay, CoverageType newTileType)
+IntRect TileGrid::ensureTilesForRect(const FloatRect& rect, HashSet<TileIndex>& tilesNeedingDisplay, CoverageType newTileType)
 {
     if (!m_controller->isInWindow())
         return IntRect();
@@ -597,9 +613,9 @@ IntRect TileGrid::ensureTilesForRect(const FloatRect& rect, UncheckedKeyHashSet<
 
             IntRect tileRect = rectForTileIndex(tileIndex);
 
-            UncheckedKeyHashMap<TileIndex, TileInfo>::iterator it;
+            HashMap<TileIndex, TileInfo>::iterator it;
             constexpr size_t kMaxTileCountPerGrid = 6 * 1024;
-            if (UNLIKELY(m_tiles.size() >= kMaxTileCountPerGrid)) {
+            if (m_tiles.size() >= kMaxTileCountPerGrid) [[unlikely]] {
                 it = m_tiles.find(tileIndex);
                 if (it == m_tiles.end())
                     continue;
@@ -813,6 +829,24 @@ bool TileGrid::platformCALayerNeedsPlatformContext(const PlatformCALayer* layer)
         return layerOwner->platformCALayerNeedsPlatformContext(layer);
     return false;
 }
+
+OptionSet<ContentsFormat> TileGrid::screenContentsFormats() const
+{
+    if (auto* layerOwner = m_controller->rootLayer().owner())
+        return layerOwner->screenContentsFormats();
+    return { };
+}
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+std::optional<DynamicContentScalingDisplayList> TileGrid::platformCALayerDynamicContentScalingDisplayList(const PlatformCALayer* layer) const
+{
+    for (auto& [tileIndex, tileInfo] : m_tiles) {
+        if (tileInfo.layer == layer)
+            return m_controller->dynamicContentScalingDisplayListForTile(*this, tileIndex);
+    }
+    return std::nullopt;
+}
+#endif
 
 bool TileGrid::platformCALayerContentsOpaque() const
 {

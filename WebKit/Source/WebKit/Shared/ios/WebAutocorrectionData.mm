@@ -40,7 +40,7 @@ WebAutocorrectionData::WebAutocorrectionData(Vector<WebCore::FloatRect>&& textRe
 {
     this->textRects = WTFMove(textRects);
     if (fontName.has_value())
-        this->font = [UIFont fontWithName:WTFMove(*fontName) size:pointSize];
+        this->font = [UIFont fontWithName:fontName->createNSString().get() size:pointSize];
     else
         this->font = [UIFont systemFontOfSize:pointSize weight:weight];
 }

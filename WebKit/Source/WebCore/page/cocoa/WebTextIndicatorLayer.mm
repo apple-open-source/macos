@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,9 @@
 
 #import "GeometryUtilities.h"
 #import "GraphicsContext.h"
+#import "NativeImage.h"
 #import "PathUtilities.h"
 #import "TextIndicator.h"
-#import "TextIndicatorWindow.h"
 #import "WebActionDisablingCALayerDelegate.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -44,7 +44,7 @@ constexpr CFTimeInterval fadeInAnimationDuration = 0.15;
 constexpr CFTimeInterval fadeOutAnimationDuration = 0.3;
 
 constexpr CGFloat borderWidth = 0;
-constexpr CGFloat cornerRadius = 0;
+constexpr CGFloat cornerRadius = 3;
 constexpr CGFloat dropShadowOffsetX = 0;
 constexpr CGFloat dropShadowOffsetY = 1;
 
@@ -91,53 +91,19 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
     return false;
 }
 
-- (bool)indicatorWantsBounce:(const WebCore::TextIndicator&)indicator
+- (void)updateWithFrame:(CGRect)frame textIndicator:(RefPtr<WebCore::TextIndicator>)textIndicator margin:(CGSize)margin offset:(CGPoint)offset updatingIndicator:(BOOL)updatingIndicator
 {
-    switch (indicator.presentationTransition()) {
-    case WebCore::TextIndicatorPresentationTransition::BounceAndCrossfade:
-    case WebCore::TextIndicatorPresentationTransition::Bounce:
-        return true;
-
-    case WebCore::TextIndicatorPresentationTransition::FadeIn:
-    case WebCore::TextIndicatorPresentationTransition::None:
-        return false;
-    }
-
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-- (bool)indicatorWantsManualAnimation:(const WebCore::TextIndicator&)indicator
-{
-    switch (indicator.presentationTransition()) {
-    case WebCore::TextIndicatorPresentationTransition::FadeIn:
-        return true;
-
-    case WebCore::TextIndicatorPresentationTransition::Bounce:
-    case WebCore::TextIndicatorPresentationTransition::BounceAndCrossfade:
-    case WebCore::TextIndicatorPresentationTransition::None:
-        return false;
-    }
-
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-- (instancetype)initWithFrame:(CGRect)frame textIndicator:(WebCore::TextIndicator&)textIndicator margin:(CGSize)margin offset:(CGPoint)offset
-{
-    if (!(self = [super init]))
-        return nil;
-    
     self.anchorPoint = CGPointZero;
     self.frame = frame;
-    self.name = @"WebTextIndicatorLayer";
 
-    _textIndicator = &textIndicator;
+    _textIndicator = textIndicator;
     _margin = margin;
+
+    [self setDelegate:[WebActionDisablingCALayerDelegate shared]];
 
     RefPtr<WebCore::NativeImage> contentsImage;
     WebCore::FloatSize contentsImageLogicalSize { 1, 1 };
-    if (auto* contentImage = _textIndicator->contentImage()) {
+    if (RefPtr contentImage = _textIndicator->contentImage()) {
         contentsImageLogicalSize = contentImage->size();
         contentsImageLogicalSize.scale(1 / _textIndicator->contentImageScaleFactor());
         if (indicatorWantsContentCrossfade(*_textIndicator) && _textIndicator->contentImageWithHighlight())
@@ -157,7 +123,7 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
 #else
     highlightColor = adoptCF(CGColorCreateSRGB(.99, .89, 0.22, 1.0));
 #endif
-    
+
     auto textRectsInBoundingRectCoordinates = _textIndicator->textRectsInBoundingRectCoordinates();
 
     auto paths = WebCore::PathUtilities::pathsWithShrinkWrappedRects(textRectsInBoundingRectCoordinates, cornerRadius);
@@ -179,7 +145,8 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
         RetainPtr<CALayer> bounceLayer = adoptNS([[CALayer alloc] init]);
         [bounceLayer setDelegate:[WebActionDisablingCALayerDelegate shared]];
         [bounceLayer setFrame:bounceLayerRect];
-        [bounceLayer setOpacity:0];
+        if (updatingIndicator == NO)
+            [bounceLayer setOpacity:0];
         [bounceLayers addObject:bounceLayer.get()];
 
         WebCore::FloatRect yellowHighlightRect(WebCore::FloatPoint(), bounceLayerRect.size());
@@ -208,7 +175,7 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
         [bounceLayer addSublayer:rimShadowLayer.get()];
         [bounceLayer setValue:rimShadowLayer.get() forKey:rimShadowLayerKey];
 #endif // PLATFORM(MAC)
-        
+
         RetainPtr<CALayer> textLayer = adoptNS([[CALayer alloc] init]);
         [textLayer setBackgroundColor:highlightColor.get()];
         [textLayer setBorderColor:borderColor.get()];
@@ -218,6 +185,7 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
             [textLayer setContents:(__bridge id)contentsImage->platformImage().get()];
 
         RetainPtr<CAShapeLayer> maskLayer = adoptNS([[CAShapeLayer alloc] init]);
+        [maskLayer setDelegate:[WebActionDisablingCALayerDelegate shared]];
         [maskLayer setPath:translatedPath.platformPath()];
         [textLayer setMask:maskLayer.get()];
 
@@ -232,6 +200,17 @@ static bool indicatorWantsFadeIn(const WebCore::TextIndicator& indicator)
 
     self.sublayers = bounceLayers.get();
     _bounceLayers = bounceLayers;
+
+}
+
+- (instancetype)initWithFrame:(CGRect)frame textIndicator:(RefPtr<WebCore::TextIndicator>)textIndicator margin:(CGSize)margin offset:(CGPoint)offset
+{
+    if (!(self = [super init]))
+        return nil;
+
+    self.name = @"WebTextIndicatorLayer";
+
+    [self updateWithFrame:frame textIndicator:textIndicator margin:margin offset:offset updatingIndicator:NO];
 
     return self;
 }
@@ -287,7 +266,7 @@ static RetainPtr<CABasicAnimation> createFadeInAnimation(CFTimeInterval duration
 
 - (CFTimeInterval)_animationDuration
 {
-    if ([self indicatorWantsBounce:*_textIndicator]) {
+    if (_textIndicator->wantsBounce()) {
         if (indicatorWantsContentCrossfade(*_textIndicator))
             return bounceWithCrossfadeAnimationDuration;
         return WebCore::bounceAnimationDuration.value();
@@ -304,7 +283,7 @@ static RetainPtr<CABasicAnimation> createFadeInAnimation(CFTimeInterval duration
 - (void)present
 {
     RefPtr textIndicator = _textIndicator;
-    bool wantsBounce = [self indicatorWantsBounce:*textIndicator];
+    bool wantsBounce = textIndicator->wantsBounce();
     bool wantsCrossfade = indicatorWantsContentCrossfade(*textIndicator);
     bool wantsFadeIn = indicatorWantsFadeIn(*textIndicator);
     CFTimeInterval animationDuration = [self _animationDuration];
@@ -326,7 +305,7 @@ static RetainPtr<CABasicAnimation> createFadeInAnimation(CFTimeInterval duration
 
     [CATransaction begin];
     for (CALayer *bounceLayer in _bounceLayers.get()) {
-        if ([self indicatorWantsManualAnimation:*textIndicator])
+        if (textIndicator->wantsManualAnimation())
             bounceLayer.speed = 0;
 
         if (!wantsFadeIn)

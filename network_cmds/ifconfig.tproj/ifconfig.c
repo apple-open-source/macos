@@ -1733,6 +1733,15 @@ setdisableinput(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
+void
+setultraconstrained(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_constrained = value;
+	if (ioctl(s, SIOCSIFULTRACONSTRAINED, (caddr_t)&ifr) < 0)
+		Perror(vname);
+}
+
 static void
 print_linkqualitymetric(int8_t lqm)
 {
@@ -1846,6 +1855,62 @@ setlinkcongested(const char *val, int dummy __unused, int s,
 		Perror("ioctl SIOCSIFCONGESTEDLINK");
 	}
 #endif /* SIOCGIFCONGESTEDLINK */
+}
+
+void
+setlowpowerwake(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+#ifdef SIOCSLOWPOWERWAKE
+	char *endptr = NULL;
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (val == NULL) {
+		if (ioctl(s, SIOCGLOWPOWERWAKE, &ifr) != -1) {
+			printf("low power wake: %d\n", ifr.ifr_intval);
+			return;
+		}
+	}
+
+	ifr.ifr_intval = (int)strtol(val, &endptr, 0);
+	if (*endptr != 0) {
+		fprintf(stderr, "# invalid value '%s'\n", val);
+		exit(EX_USAGE);
+	}
+
+	if (ioctl(s, SIOCSLOWPOWERWAKE, (caddr_t)&ifr) < 0) {
+		Perror("ioctl SIOCSLOWPOWERWAKE");
+	}
+#endif /* SIOCSLOWPOWERWAKE */
+}
+
+void
+setinbandwakepacket(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+#ifdef SIOCSINBANDWAKEPKT
+	char *endptr = NULL;
+
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+
+	if (val == NULL) {
+		if (ioctl(s, SIOCGINBANDWAKEPKT, &ifr) != -1) {
+			printf("inband wake packet: %d\n", ifr.ifr_intval);
+			return;
+		}
+	}
+
+	ifr.ifr_intval = (int)strtol(val, &endptr, 0);
+	if (*endptr != 0) {
+		fprintf(stderr, "# invalid value '%s'\n", val);
+		exit(EX_USAGE);
+	}
+
+	if (ioctl(s, SIOCSINBANDWAKEPKT, (caddr_t)&ifr) < 0) {
+		Perror("ioctl SIOCSINBANDWAKEPKT");
+	}
+#endif /* SIOCSINBANDWAKEPKT */
 }
 
 struct str2num {
@@ -2006,7 +2071,9 @@ done:
 #define	IFXFBITS \
 "\020\1WOL\2TIMESTAMP\3NOAUTONX\4LEGACY\5TXLOWINET\6RXLOWINET\7ALLOCKPI" \
 "\10LOWPOWER\11MPKLOG\12CONSTRAINED\13LOWLAT\14MARKWKPKT\15FPD\16NOSHAPING" \
-"\17MANAGEMENT\20ULTRA_CONSTRAINED\21IS_VPN\22DELAYWAKEPKTEVENT\23DISABLE_INPUT"
+"\17MANAGEMENT\20ULTRA_CONSTRAINED\21IS_VPN\22DELAYWAKEPKTEVENT\23DISABLE_INPUT" \
+"\26RXFLOWSTEERING\030LINK_HEURISTICS\31LHOF\32POINTOPOINT_MDNS" \
+"\33INBAND_WAKE_PKT\34LOW_POWER_WAKE"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -2429,6 +2496,11 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		printf("\tlow power mode: %s\n",
 		       (ifr.ifr_low_power_mode != 0) ? "enabled" : "disabled");
 	}
+	if (ioctl(s, SIOCGIFL4S, &ifr) != -1 && ifr.ifr_l4s_mode != 0) {
+		// We don't show anything if default setting is used
+		printf("\tL4S: %s\n",
+		       (ifr.ifr_l4s_mode == 1) ? "enabled" : "disabled");
+	}
 	if (ioctl(s, SIOCGIFMPKLOG, &ifr) != -1) {
 		printf("\tmulti layer packet logging (mpklog): %s\n",
 		       (ifr.ifr_mpk_log != 0) ? "enabled" : "disabled");
@@ -2760,8 +2832,12 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-management", 0,      setmanagement),
 	DEF_CMD("disableinput", 1,      setdisableinput),
 	DEF_CMD("-disableinput", 0,      setdisableinput),
+	DEF_CMD("ultraconstrained",  1,      setultraconstrained),
+	DEF_CMD("-ultraconstrained", 0,      setultraconstrained),
 	DEF_CMD_OPTARG("lqm", setlinkqualitymetric),
 	DEF_CMD_OPTARG("linkcongested", setlinkcongested),
+	DEF_CMD_OPTARG("lowpowerwake", setlowpowerwake),
+	DEF_CMD_OPTARG("inbandwakepacket", setinbandwakepacket),
 };
 
 static __constructor void

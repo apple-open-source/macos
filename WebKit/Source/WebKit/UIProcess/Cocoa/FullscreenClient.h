@@ -57,8 +57,12 @@ public:
     void requestPresentingViewController(CompletionHandler<void(UIViewController *, NSError *)>&&) final;
 #endif
 
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    bool preventDocking(WebPageProxy*) final;
+#endif
+
 private:
-    WKWebView *m_webView;
+    WeakObjCPtr<WKWebView> m_webView;
     WeakObjCPtr<id <_WKFullscreenDelegate> > m_delegate;
 
     struct {
@@ -78,6 +82,9 @@ private:
 #endif
 #if PLATFORM(IOS_FAMILY)
         bool webViewRequestPresentingViewController : 1 { false };
+#endif
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+        bool webViewPreventDockingFromElementFullscreen : 1 { false };
 #endif
     } m_delegateMethods;
 };

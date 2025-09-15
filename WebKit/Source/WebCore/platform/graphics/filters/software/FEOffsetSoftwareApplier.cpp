@@ -4,7 +4,7 @@
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2021 Apple Inc.  All rights reserved.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,7 +35,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(FEOffsetSoftwareApplier);
 
-bool FEOffsetSoftwareApplier::apply(const Filter& filter, const FilterImageVector& inputs, FilterImage& result) const
+bool FEOffsetSoftwareApplier::apply(const Filter& filter, std::span<const Ref<FilterImage>> inputs, FilterImage& result) const
 {
     auto& input = inputs[0].get();
 
@@ -46,7 +46,7 @@ bool FEOffsetSoftwareApplier::apply(const Filter& filter, const FilterImageVecto
 
     FloatRect inputImageRect = input.absoluteImageRectRelativeTo(result);
 
-    auto offset = filter.resolvedSize({ m_effect.dx(), m_effect.dy() });
+    auto offset = filter.resolvedSize({ m_effect->dx(), m_effect->dy() });
     auto absoluteOffset = filter.scaledByFilterScale(offset);
 
     inputImageRect.move(absoluteOffset);

@@ -36,10 +36,14 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/encryptedmedia/legacy"
     "${WEBCORE_DIR}/Modules/entriesapi"
     "${WEBCORE_DIR}/Modules/fetch"
-    "${WEBCORE_DIR}/Modules/filesystemaccess"
+    "${WEBCORE_DIR}/Modules/filesystem"
     "${WEBCORE_DIR}/Modules/geolocation"
     "${WEBCORE_DIR}/Modules/highlight"
     "${WEBCORE_DIR}/Modules/identity"
+    "${WEBCORE_DIR}/Modules/identity/dummy"
+    "${WEBCORE_DIR}/Modules/identity/protocols"
+    "${WEBCORE_DIR}/Modules/identity/protocols/ISO18013"
+    "${WEBCORE_DIR}/Modules/identity/protocols/openid"
     "${WEBCORE_DIR}/Modules/indexeddb"
     "${WEBCORE_DIR}/Modules/indexeddb/client"
     "${WEBCORE_DIR}/Modules/indexeddb/server"
@@ -100,7 +104,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/typedom/numeric"
     "${WEBCORE_DIR}/css/typedom/transform"
     "${WEBCORE_DIR}/css/values"
-    "${WEBCORE_DIR}/css/values/backgrounds"
+    "${WEBCORE_DIR}/css/values/borders"
     "${WEBCORE_DIR}/css/values/color"
     "${WEBCORE_DIR}/css/values/color-adjust"
     "${WEBCORE_DIR}/css/values/easing"
@@ -194,16 +198,32 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/storage"
     "${WEBCORE_DIR}/style"
     "${WEBCORE_DIR}/style/values"
-    "${WEBCORE_DIR}/style/values/backgrounds"
-    "${WEBCORE_DIR}/style/values/color"
+    "${WEBCORE_DIR}/style/values/align"
+    "${WEBCORE_DIR}/style/values/anchor-position"
+    "${WEBCORE_DIR}/style/values/borders"
+    "${WEBCORE_DIR}/style/values/box"
     "${WEBCORE_DIR}/style/values/color-adjust"
+    "${WEBCORE_DIR}/style/values/color"
+    "${WEBCORE_DIR}/style/values/contain"
     "${WEBCORE_DIR}/style/values/easing"
     "${WEBCORE_DIR}/style/values/filter-effects"
+    "${WEBCORE_DIR}/style/values/flexbox"
+    "${WEBCORE_DIR}/style/values/grid"
     "${WEBCORE_DIR}/style/values/images"
+    "${WEBCORE_DIR}/style/values/inline"
+    "${WEBCORE_DIR}/style/values/masking"
     "${WEBCORE_DIR}/style/values/motion"
+    "${WEBCORE_DIR}/style/values/position"
     "${WEBCORE_DIR}/style/values/primitives"
+    "${WEBCORE_DIR}/style/values/scroll-animations"
+    "${WEBCORE_DIR}/style/values/scroll-snap"
     "${WEBCORE_DIR}/style/values/shapes"
+    "${WEBCORE_DIR}/style/values/sizing"
+    "${WEBCORE_DIR}/style/values/svg"
+    "${WEBCORE_DIR}/style/values/text"
     "${WEBCORE_DIR}/style/values/text-decoration"
+    "${WEBCORE_DIR}/style/values/transforms"
+    "${WEBCORE_DIR}/style/values/view-transitions"
     "${WEBCORE_DIR}/svg"
     "${WEBCORE_DIR}/svg/animation"
     "${WEBCORE_DIR}/svg/graphics"
@@ -246,7 +266,7 @@ set(WebCore_IDL_INCLUDES
     Modules/encryptedmedia/legacy
     Modules/entriesapi
     Modules/fetch
-    Modules/filesystemaccess
+    Modules/filesystem
     Modules/geolocation
     Modules/highlight
     Modules/identity
@@ -295,7 +315,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/audiosession/DOMAudioSession.idl
     Modules/audiosession/Navigator+AudioSession.idl
 
-    Modules/badge/Navigator+Badge.idl
     Modules/badge/NavigatorBadge.idl
 
     Modules/beacon/Navigator+Beacon.idl
@@ -379,12 +398,12 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/fetch/RequestPriority.idl
     Modules/fetch/WindowOrWorkerGlobalScope+Fetch.idl
 
-    Modules/filesystemaccess/FileSystemDirectoryHandle.idl
-    Modules/filesystemaccess/FileSystemFileHandle.idl
-    Modules/filesystemaccess/FileSystemHandle.idl
-    Modules/filesystemaccess/FileSystemSyncAccessHandle.idl
-    Modules/filesystemaccess/FileSystemWritableFileStream.idl
-    Modules/filesystemaccess/StorageManager+FileSystemAccess.idl
+    Modules/filesystem/FileSystemDirectoryHandle.idl
+    Modules/filesystem/FileSystemFileHandle.idl
+    Modules/filesystem/FileSystemHandle.idl
+    Modules/filesystem/FileSystemSyncAccessHandle.idl
+    Modules/filesystem/FileSystemWritableFileStream.idl
+    Modules/filesystem/StorageManager+FileSystem.idl
 
     Modules/geolocation/Geolocation.idl
     Modules/geolocation/GeolocationCoordinates.idl
@@ -402,7 +421,10 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/identity/DigitalCredentialRequest.idl
     Modules/identity/DigitalCredentialRequestOptions.idl
     Modules/identity/IdentityCredentialProtocol.idl
-    Modules/identity/OpenID4VPRequest.idl
+
+    Modules/identity/protocols/ISO18013/MobileDocumentRequest.idl
+
+    Modules/identity/protocols/openid/OpenID4VPRequest.idl
 
     Modules/indexeddb/IDBCursor.idl
     Modules/indexeddb/IDBCursorDirection.idl
@@ -506,7 +528,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCDegradationPreference.idl
     Modules/mediastream/RTCDtlsTransport.idl
     Modules/mediastream/RTCDtlsTransportState.idl
-    Modules/mediastream/RTCDtxStatus.idl
     Modules/mediastream/RTCEncodedAudioFrame.idl
     Modules/mediastream/RTCEncodedVideoFrame.idl
     Modules/mediastream/RTCError.idl
@@ -540,12 +561,10 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCRtpCodingParameters.idl
     Modules/mediastream/RTCRtpContributingSource.idl
     Modules/mediastream/RTCRtpEncodingParameters.idl
-    Modules/mediastream/RTCRtpFecParameters.idl
     Modules/mediastream/RTCRtpHeaderExtensionParameters.idl
     Modules/mediastream/RTCRtpParameters.idl
     Modules/mediastream/RTCRtpReceiver+Transform.idl
     Modules/mediastream/RTCRtpReceiver.idl
-    Modules/mediastream/RTCRtpRtxParameters.idl
     Modules/mediastream/RTCRtpSFrameTransform.idl
     Modules/mediastream/RTCRtpSFrameTransformErrorEvent.idl
     Modules/mediastream/RTCRtpScriptTransform.idl
@@ -636,6 +655,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
 
     Modules/reporting/DeprecationReportBody.idl
+    Modules/reporting/IntegrityPolicyViolationReportBody.idl
     Modules/reporting/Report.idl
     Modules/reporting/ReportBody.idl
     Modules/reporting/ReportingObserver.idl
@@ -773,6 +793,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webaudio/WaveShaperNode.idl
     Modules/webaudio/WaveShaperOptions.idl
 
+    Modules/webauthn/AllAcceptedCredentialsOptions.idl
     Modules/webauthn/AttestationConveyancePreference.idl
     Modules/webauthn/AuthenticationExtensionsClientInputs.idl
     Modules/webauthn/AuthenticationExtensionsClientInputsJSON.idl
@@ -786,6 +807,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/AuthenticatorSelectionCriteria.idl
     Modules/webauthn/AuthenticatorTransport.idl
     Modules/webauthn/CredentialPropertiesOutput.idl
+    Modules/webauthn/CurrentUserDetailsOptions.idl
     Modules/webauthn/PublicKeyCredential.idl
     Modules/webauthn/PublicKeyCredentialCreationOptions.idl
     Modules/webauthn/PublicKeyCredentialCreationOptionsJSON.idl
@@ -796,12 +818,12 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webauthn/PublicKeyCredentialRequestOptions.idl
     Modules/webauthn/PublicKeyCredentialRequestOptionsJSON.idl
     Modules/webauthn/PublicKeyCredentialRpEntity.idl
+    Modules/webauthn/PublicKeyCredentialType.idl
     Modules/webauthn/PublicKeyCredentialUserEntity.idl
     Modules/webauthn/PublicKeyCredentialUserEntityJSON.idl
-
-    Modules/webauthn/PublicKeyCredentialType.idl
     Modules/webauthn/RegistrationResponseJSON.idl
     Modules/webauthn/ResidentKeyRequirement.idl
+    Modules/webauthn/UnknownCredentialOptions.idl
     Modules/webauthn/UserVerificationRequirement.idl
 
     Modules/webcodecs/AacEncoderConfig.idl
@@ -963,6 +985,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSConditionRule.idl
     css/CSSContainerRule.idl
     css/CSSCounterStyleRule.idl
+    css/CSSFontFaceDescriptors.idl
     css/CSSFontFaceRule.idl
     css/CSSFontFeatureValuesRule.idl
     css/CSSFontPaletteValuesRule.idl
@@ -975,9 +998,11 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSMediaRule.idl
     css/CSSNamespaceRule.idl
     css/CSSNestedDeclarations.idl
+    css/CSSPageDescriptors.idl
+    css/CSSPageRule.idl
     css/CSSPaintCallback.idl
     css/CSSPaintSize.idl
-    css/CSSPageRule.idl
+    css/CSSPositionTryDescriptors.idl
     css/CSSPositionTryRule.idl
     css/CSSPropertyRule.idl
     css/CSSRule.idl
@@ -985,11 +1010,12 @@ set(WebCore_NON_SVG_IDL_FILES
     css/CSSScopeRule.idl
     css/CSSStartingStyleRule.idl
     css/CSSStyleDeclaration.idl
+    css/CSSStyleProperties.idl
+    css/CSSStyleRule+Typedom.idl
     css/CSSStyleRule.idl
     css/CSSStyleSheet.idl
     css/CSSSupportsRule.idl
     css/CSSViewTransitionRule.idl
-    css/DocumentOrShadowRoot+CSSOM.idl
     css/DOMCSSCustomPropertyDescriptor.idl
     css/DOMCSSNamespace+CSSNumericFactory.idl
     css/DOMCSSNamespace+CSSPainting.idl
@@ -1005,6 +1031,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/DeprecatedCSSOMRect.idl
     css/DeprecatedCSSOMValue.idl
     css/DeprecatedCSSOMValueList.idl
+    css/ElementCSSInlineStyle+Typedom.idl
     css/ElementCSSInlineStyle.idl
     css/FontFace.idl
     css/FontFaceSet.idl
@@ -1121,19 +1148,21 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/Document.idl
     dom/DocumentAndElementEventHandlers.idl
     dom/DocumentFragment.idl
+    dom/DocumentOrShadowRoot+CSSOM.idl
     dom/DocumentOrShadowRoot+Fullscreen.idl
     dom/DocumentOrShadowRoot+PointerLock.idl
     dom/DocumentOrShadowRoot.idl
     dom/DocumentType.idl
     dom/DragEvent.idl
     dom/Element+CSSOMView.idl
-    dom/Element+ComputedStyleMap.idl
     dom/Element+DOMParsing.idl
     dom/Element+Fullscreen.idl
     dom/Element+PointerEvents.idl
     dom/Element+PointerLock.idl
+    dom/Element+Typedom.idl
     dom/Element.idl
     dom/ElementContentEditable.idl
+    dom/ElementCreationOptions.idl
     dom/ElementInternals.idl
     dom/ErrorEvent.idl
     dom/Event.idl
@@ -1153,6 +1182,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/IdleDeadline.idl
     dom/IdleRequestCallback.idl
     dom/IdleRequestOptions.idl
+    dom/ImportNodeOptions.idl
     dom/InnerHTML.idl
     dom/InputEvent.idl
     dom/KeyboardEvent.idl
@@ -1342,7 +1372,6 @@ set(WebCore_NON_SVG_IDL_FILES
     html/ImageData.idl
     html/ImageDataSettings.idl
     html/ImageDataStorageFormat.idl
-    html/InvokerElement.idl
     html/MediaController.idl
     html/MediaEncryptedEvent.idl
     html/MediaError.idl
@@ -1422,7 +1451,6 @@ set(WebCore_NON_SVG_IDL_FILES
 
     loader/COEPInheritenceViolationReportBody.idl
     loader/CORPViolationReportBody.idl
-    loader/appcache/DOMApplicationCache.idl
 
     mathml/MathMLElement.idl
     mathml/MathMLMathElement.idl
@@ -1441,6 +1469,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/DOMWindow.idl
     page/EventSource.idl
     page/FragmentDirective.idl
+    page/GetComposedRangesOptions.idl
     page/History.idl
     page/IsLoggedIn.idl
     page/IntersectionObserver.idl
@@ -1536,6 +1565,12 @@ set(WebCore_NON_SVG_IDL_FILES
     workers/service/ExtendableEventInit.idl
     workers/service/ExtendableMessageEvent.idl
     workers/service/FetchEvent.idl
+    workers/service/InstallEvent.idl
+    workers/service/RouterCondition.idl
+    workers/service/RouterRule.idl
+    workers/service/RouterSourceDict.idl
+    workers/service/RouterSourceEnum.idl
+    workers/service/RunningStatus.idl
     workers/service/NavigationPreloadManager.idl
     workers/service/NavigationPreloadState.idl
     workers/service/ServiceWorker.idl
@@ -2337,6 +2372,7 @@ if (USE_XDGMIME)
 endif ()
 
 if (USE_LIBWEBRTC)
+    add_definitions(-DWEBRTC_ALLOW_DEPRECATED_NAMESPACES)
     list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
         "${THIRDPARTY_DIR}/libwebrtc/Source"
         "${THIRDPARTY_DIR}/libwebrtc/Source/webrtc"
@@ -2382,6 +2418,7 @@ set(WebCoreTestSupport_IDL_FILES
 )
 
 list(APPEND WebCoreTestSupport_SOURCES
+    testing/EventTargetForTesting.cpp
     testing/GCObservation.cpp
     testing/InternalSettings.cpp
     testing/Internals.cpp
@@ -2539,13 +2576,15 @@ add_custom_command(
 
 # Generate process sync data files
 add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.cpp ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.serialization.in
     MAIN_DEPENDENCY ${WEBCORE_DIR}/page/ProcessSyncData.in
     DEPENDS ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py
     COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/Scripts/generate-process-sync-data.py ${WEBCORE_DIR}/page/ProcessSyncData.in ${WebCore_DERIVED_SOURCES_DIR}
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.h)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.h)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h)
@@ -2595,8 +2634,13 @@ WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 if (PORT STREQUAL GTK OR PORT STREQUAL WPE)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebCore
         -Wunsafe-buffer-usage
+        -Wunsafe-buffer-usage-in-libc-call
         -fsafe-buffer-usage-suggestions
     )
+endif ()
+
+if (ENABLE_MALLOC_HEAP_BREAKDOWN)
+    list(APPEND WebCore_LIBRARIES ${MALLOC_HEAP_BREAKDOWN_LIBRARIES})
 endif ()
 
 list(APPEND WebCoreTestSupport_LIBRARIES ${WebCore_LIBRARIES})
@@ -2666,38 +2710,40 @@ list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/WebCoreLogDefinitions
 
 # Generate CSS property names
 add_custom_command(
-    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSProperties.json ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.cpp ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.h ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl
-    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/process-css-properties.py
+    OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSProperties.json ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.gperf ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.h ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.cpp ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp ${WebCore_DERIVED_SOURCES_DIR}/StyleExtractorGenerated.cpp ${WebCore_DERIVED_SOURCES_DIR}/StyleInterpolationWrapperMap.h ${WebCore_DERIVED_SOURCES_DIR}/StyleInterpolationWrapperMap.cpp ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.h ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleProperties+PropertyNames.idl
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/scripts/process-css-properties.py
     DEPENDS ${WebCore_CSS_PROPERTY_NAMES}
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
     COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_PROPERTY_NAMES} > ${WebCore_DERIVED_SOURCES_DIR}/CSSProperties.json
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/process-css-properties.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --gperf-executable "${GPERF_EXECUTABLE}"
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/scripts/process-css-properties.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSPropertyParsing.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StyleBuilderGenerated.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StyleExtractorGenerated.cpp)
+list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StyleInterpolationWrapperMap.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/StylePropertyShorthandFunctions.cpp)
-list(APPEND WebCore_IDL_FILES ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleDeclaration+PropertyNames.idl)
+list(APPEND WebCore_IDL_FILES ${WebCore_DERIVED_SOURCES_DIR}/CSSStyleProperties+PropertyNames.idl)
 
 # Generate CSS value keywords
 add_custom_command(
     OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.in ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.h ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.gperf
-    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/process-css-values.py
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/scripts/process-css-values.py
     DEPENDS ${WebCore_CSS_VALUE_KEYWORDS}
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
     COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_VALUE_KEYWORDS} > ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.in
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/process-css-values.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR} ${CSS_VALUE_PLATFORM_DEFINES}" --gperf-executable "${GPERF_EXECUTABLE}"
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/scripts/process-css-values.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR} ${CSS_VALUE_PLATFORM_DEFINES}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp)
 
 # Generate code and maps for CSS pseudo class & element selectors.
 add_custom_command(
     OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/CSSSelectorEnums.h ${WebCore_DERIVED_SOURCES_DIR}/CSSSelectorInlines.h ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoClassAndCompatibilityElementMap.gperf ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoClassAndCompatibilityElementMap.cpp ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoElementMap.gperf ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoElementMap.cpp ${WebCore_DERIVED_SOURCES_DIR}/UserAgentParts.cpp ${WebCore_DERIVED_SOURCES_DIR}/UserAgentParts.h
-    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/process-css-pseudo-selectors.py
+    MAIN_DEPENDENCY ${WEBCORE_DIR}/css/scripts/process-css-pseudo-selectors.py
     DEPENDS ${WebCore_CSS_PSEUDO_SELECTORS}
     WORKING_DIRECTORY ${WebCore_DERIVED_SOURCES_DIR}
     COMMAND ${PERL_EXECUTABLE} -ne "print" ${WebCore_CSS_PSEUDO_SELECTORS} > ${WebCore_DERIVED_SOURCES_DIR}/CSSPseudoSelectors.json
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/process-css-pseudo-selectors.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --gperf-executable "${GPERF_EXECUTABLE}"
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBCORE_DIR}/css/scripts/process-css-pseudo-selectors.py --defines "${FEATURE_DEFINES_WITH_SPACE_SEPARATOR}" --gperf-executable "${GPERF_EXECUTABLE}"
     VERBATIM)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoClassAndCompatibilityElementMap.cpp)
 list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/SelectorPseudoElementMap.cpp)
@@ -2936,6 +2982,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/LayoutMilestones.serialization.in
     page/MediaProducer.serialization.in
 
+    platform/LLVMProfiling.h
     platform/PlatformEvent.serialization.in
     platform/PlatformScreen.serialization.in
     platform/PlatformWheelEvent.serialization.in

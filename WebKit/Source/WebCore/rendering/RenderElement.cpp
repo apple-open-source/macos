@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
  *           (C) 2005, 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2005-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2010-2018 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -42,8 +42,11 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "HTMLTableCellElement.h"
+#include "HTMLTableElement.h"
 #include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
+#include "InlineWalker.h"
 #include "LayoutElementBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LengthFunctions.h"
@@ -62,6 +65,7 @@
 #include "RenderFlexibleBox.h"
 #include "RenderFragmentContainer.h"
 #include "RenderFragmentedFlow.h"
+#include "RenderGeometryMap.h"
 #include "RenderGrid.h"
 #include "RenderImage.h"
 #include "RenderImageResourceStyleImage.h"
@@ -73,6 +77,7 @@
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
+#include "RenderObjectInlines.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderSVGViewportContainer.h"
 #include "RenderStyleSetters.h"
@@ -94,6 +99,7 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "StylePendingResources.h"
+#include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "Styleable.h"
@@ -129,6 +135,9 @@ inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument,
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
     , m_hasContinuationChainNode(false)
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    , m_hasHDRImages(false)
+#endif
     , m_isContinuation(false)
     , m_isFirstLetter(false)
     , m_renderBlockHasMarginBeforeQuirk(false)
@@ -186,6 +195,7 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
         Ref styleImage = downcast<ImageContentData>(*contentData).image();
         auto image = createRenderer<RenderImage>(RenderObject::Type::Image, element, WTFMove(style), const_cast<StyleImage*>(styleImage.ptr()));
         image->setIsGeneratedContent();
+        image->updateAltText();
         return image;
     }
 
@@ -280,11 +290,10 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
             if (!hasLayer())
                 diff = std::max(diff, StyleDifference::Layout);
             else {
-                // We need to set at least SimplifiedLayout, but if PositionedMovementOnly is already set
-                // then we actually need SimplifiedLayoutAndPositionedMovement.
-                diff = std::max(diff, (diff == StyleDifference::LayoutPositionedMovementOnly) ? StyleDifference::SimplifiedLayoutAndPositionedMovement : StyleDifference::SimplifiedLayout);
+                // We need to set at least Overflow, but if OutOfFlowMovementOnly is already set
+                // then we actually need OverflowAndOutOfFlowMovement.
+                diff = std::max(diff, (diff == StyleDifference::LayoutOutOfFlowMovementOnly) ? StyleDifference::OverflowAndOutOfFlowMovement : StyleDifference::Overflow);
             }
-        
         } else
             diff = std::max(diff, StyleDifference::RecompositeLayer);
     }
@@ -310,7 +319,7 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
     
     if ((contextSensitiveProperties & StyleDifferenceContextSensitiveProperty::Filter) && hasLayer()) {
         auto& layer = *downcast<RenderLayerModelObject>(*this).layer();
-        if (!layer.isComposited() || layer.paintsWithFilters())
+        if (!layer.isComposited() || layer.shouldPaintWithFilters())
             diff = std::max(diff, StyleDifference::RepaintLayer);
         else
             diff = std::max(diff, StyleDifference::RecompositeLayer);
@@ -334,16 +343,41 @@ StyleDifference RenderElement::adjustStyleDifference(StyleDifference diff, Optio
 }
 
 
-inline bool RenderElement::shouldRepaintForStyleDifference(StyleDifference diff) const
+static inline bool hasNonWhitespaceTextContent(const RenderElement& renderer)
 {
-    auto hasImmediateNonWhitespaceTextChild = [&] {
-        for (auto& child : childrenOfType<RenderText>(*this)) {
-            if (!child.containsOnlyCollapsibleWhitespace())
+    if (!renderer.childrenInline())
+        return false;
+
+    if (auto* blockContainer = dynamicDowncast<RenderBlockFlow>(renderer)) {
+        for (InlineWalker walker(*blockContainer); !walker.atEnd(); walker.advance()) {
+            if (auto* textRenderer = dynamicDowncast<RenderText>(*walker.current()); textRenderer && !textRenderer->containsOnlyCollapsibleWhitespace())
                 return true;
         }
         return false;
-    };
-    return diff == StyleDifference::Repaint || (diff == StyleDifference::RepaintIfText && hasImmediateNonWhitespaceTextChild());
+    }
+
+    for (auto& textRenderer : childrenOfType<RenderText>(renderer)) {
+        if (!textRenderer.containsOnlyCollapsibleWhitespace())
+            return true;
+    }
+    return false;
+}
+
+inline bool RenderElement::shouldRepaintForStyleDifference(StyleDifference diff) const
+{
+    if (diff == StyleDifference::Repaint)
+        return true;
+
+    if (diff == StyleDifference::RepaintIfText) {
+        if (hasNonWhitespaceTextContent(*this))
+            return true;
+        for (auto& blockChild : childrenOfType<RenderBlock>(*this)) {
+            if (blockChild.isAnonymousBlock() && hasNonWhitespaceTextContent(blockChild))
+                return true;
+        }
+    }
+
+    return false;
 }
 
 void RenderElement::updateFillImages(const FillLayer* oldLayers, const FillLayer* newLayers)
@@ -423,7 +457,7 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
             if (diff == StyleDifference::RepaintLayer)
                 return RequiredRepaint::RendererAndDescendantsRenderersWithLayers;
 
-            if (diff == StyleDifference::Layout || diff == StyleDifference::SimplifiedLayout) {
+            if (diff == StyleDifference::Layout || diff == StyleDifference::Overflow) {
                 // Certain style changes require layer repaint, since the layer could end up being destroyed.
                 auto layerMayGetDestroyed = oldStyle.position() != newStyle.position()
                     || oldStyle.usedZIndex() != newStyle.usedZIndex()
@@ -455,22 +489,23 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
                 return RequiredRepaint::RendererOnly;
         }
 
+        // Note that RenderObject::setNeedsLayout issues setLayerNeedsFullRepaint on renderers with layers.
         if (is<RenderBox>(*this)) {
-            if (diff == StyleDifference::Layout && oldStyle.position() != newStyle.position() && oldStyle.position() == PositionType::Static)
+            if (oldStyle.position() != newStyle.position() && oldStyle.position() == PositionType::Static) {
+                ASSERT(diff == StyleDifference::Layout);
                 return RequiredRepaint::RendererOnly;
+            }
+
+            auto willBecomeHiddenSkippedContent =  newStyle.usedContentVisibility() == ContentVisibility::Hidden && oldStyle.usedContentVisibility() != ContentVisibility::Hidden && oldStyle.usedVisibility() == Visibility::Visible;
+            if (willBecomeHiddenSkippedContent) {
+                ASSERT(diff == StyleDifference::Layout);
+                return RequiredRepaint::RendererOnly;
+            }
         }
 
         if (diff > StyleDifference::RepaintLayer && oldStyle.usedVisibility() != newStyle.usedVisibility()) {
             if (CheckedPtr enclosingLayer = this->enclosingLayer()) {
                 bool rendererWillBeHidden = newStyle.usedVisibility() != Visibility::Visible;
-                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().usedVisibility() != Visibility::Visible))
-                    return RequiredRepaint::RendererOnly;
-            }
-        }
-
-        if (diff > StyleDifference::RepaintLayer && oldStyle.usedContentVisibility() != newStyle.usedContentVisibility() && isOutOfFlowPositioned()) {
-            if (CheckedPtr enclosingLayer = this->enclosingLayer()) {
-                bool rendererWillBeHidden = isSkippedContent();
                 if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().usedVisibility() != Visibility::Visible))
                     return RequiredRepaint::RendererOnly;
             }
@@ -583,17 +618,8 @@ void RenderElement::setStyle(RenderStyle&& style, StyleDifference minimalStyleDi
     // check whether we should layout now, and decide if we need to repaint.
     StyleDifference updatedDiff = adjustStyleDifference(diff, contextSensitiveProperties);
     
-    if (diff <= StyleDifference::LayoutPositionedMovementOnly) {
-        if (updatedDiff == StyleDifference::Layout)
-            setNeedsLayoutAndPrefWidthsRecalc();
-        else if (updatedDiff == StyleDifference::LayoutPositionedMovementOnly)
-            setNeedsPositionedMovementLayout(&oldStyle);
-        else if (updatedDiff == StyleDifference::SimplifiedLayoutAndPositionedMovement) {
-            setNeedsPositionedMovementLayout(&oldStyle);
-            setNeedsSimplifiedNormalFlowLayout();
-        } else if (updatedDiff == StyleDifference::SimplifiedLayout)
-            setNeedsSimplifiedNormalFlowLayout();
-    }
+    if (diff <= StyleDifference::LayoutOutOfFlowMovementOnly)
+        setNeedsLayoutForStyleDifference(updatedDiff, &oldStyle);
 
     if (!didRepaint && (updatedDiff == StyleDifference::RepaintLayer || shouldRepaintForStyleDifference(updatedDiff))) {
         // Do a repaint with the new style now, e.g., for example if we go from
@@ -817,7 +843,7 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
 {
     // FIXME: We could save this call when the change only affected non-inherited properties.
     for (CheckedRef elementChild : childrenOfType<RenderElement>(*this)) {
-        if (!elementChild->isAnonymous() || elementChild->style().pseudoElementType() != PseudoId::None)
+        if (!elementChild->isAnonymous() || elementChild->style().pseudoElementType() != PseudoId::None || elementChild->isViewTransitionContainingBlock())
             continue;
 
         bool isBlockOrRuby = is<RenderBlock>(elementChild.get()) || elementChild->style().display() == DisplayType::Ruby;
@@ -906,18 +932,14 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         // Keep layer hierarchy visibility bits up to date if visibility or skipped content state changes.
-        bool wasVisible = m_style.usedVisibility() == Visibility::Visible && !m_style.hasSkippedContent();
-        bool willBeVisible = newStyle.usedVisibility() == Visibility::Visible && !newStyle.hasSkippedContent();
-        if (wasVisible != willBeVisible) {
-            if (CheckedPtr layer = enclosingLayer()) {
-                if (willBeVisible) {
-                    if (m_style.hasSkippedContent() && isSkippedContentRoot(*this))
-                        layer->dirtyVisibleContentStatus();
-                    else
-                        layer->setHasVisibleContent();
-                } else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().usedVisibility() != Visibility::Visible))
-                    layer->dirtyVisibleContentStatus();
-            }
+        if (m_style.usedVisibility() != newStyle.usedVisibility()) {
+            if (CheckedPtr layer = enclosingLayer())
+                layer->dirtyVisibleContentStatus();
+        }
+
+        if (m_style.usedContentVisibility() != newStyle.usedContentVisibility()) {
+            if (CheckedPtr layer = enclosingLayer())
+                layer->dirtyVisibleContentStatus();
         }
 
         auto needsInvalidateEventRegion = [&] {
@@ -947,11 +969,11 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         if (isFloating() && m_style.floating() != newStyle.floating()) {
             // For changes in float styles, we need to conceivably remove ourselves
             // from the floating objects list.
-            downcast<RenderBox>(*this).removeFloatingOrPositionedChildFromBlockLists();
+            downcast<RenderBox>(*this).removeFloatingOrOutOfFlowChildFromBlockLists();
         } else if (isOutOfFlowPositioned() && m_style.position() != newStyle.position()) {
             // For changes in positioning styles, we need to conceivably remove ourselves
             // from the positioned objects list.
-            downcast<RenderBox>(*this).removeFloatingOrPositionedChildFromBlockLists();
+            downcast<RenderBox>(*this).removeFloatingOrOutOfFlowChildFromBlockLists();
         }
 
         auto invalidateEnclosingFragmentedFlowInfoIfNeeded = [&] {
@@ -970,7 +992,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         invalidateEnclosingFragmentedFlowInfoIfNeeded();
 
         // reset style flags
-        if (diff == StyleDifference::Layout || diff == StyleDifference::LayoutPositionedMovementOnly) {
+        if (diff == StyleDifference::Layout || diff == StyleDifference::LayoutOutOfFlowMovementOnly) {
             setFloating(false);
             clearPositionedState();
         }
@@ -1003,12 +1025,12 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
 
     if (view().frameView().hasSlowRepaintObject(*this)) {
         if (!newStyleSlowScroll)
-            view().protectedFrameView()->removeSlowRepaintObject(*this);
+            view().frameView().removeSlowRepaintObject(*this);
     } else if (newStyleSlowScroll)
-        view().protectedFrameView()->addSlowRepaintObject(*this);
+        view().frameView().addSlowRepaintObject(*this);
 
     if (isDocumentElementRenderer() || isBody())
-        view().protectedFrameView()->updateExtendBackgroundIfNecessary();
+        view().frameView().updateExtendBackgroundIfNecessary();
 }
 
 inline void RenderCounter::rendererStyleChanged(RenderElement& renderer, const RenderStyle* oldStyle, const RenderStyle& newStyle)
@@ -1062,7 +1084,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     if (!m_parent)
         return;
     
-    if (diff == StyleDifference::Layout || diff == StyleDifference::SimplifiedLayout) {
+    if (diff == StyleDifference::Layout || diff == StyleDifference::Overflow) {
         RenderCounter::rendererStyleChanged(*this, oldStyle, m_style);
 
         // If the object already needs layout, then setNeedsLayout won't do
@@ -1072,27 +1094,27 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         // the position style.
         if (needsLayout() && oldStyle && oldStyle->position() != m_style.position())
             scheduleLayout(markContainingBlocksForLayout());
+    }
 
-        if (diff == StyleDifference::Layout)
-            setNeedsLayoutAndPrefWidthsRecalc();
-        else
-            setNeedsSimplifiedNormalFlowLayout();
-    } else if (diff == StyleDifference::SimplifiedLayoutAndPositionedMovement) {
-        setNeedsPositionedMovementLayout(oldStyle);
-        setNeedsSimplifiedNormalFlowLayout();
-    } else if (diff == StyleDifference::LayoutPositionedMovementOnly)
-        setNeedsPositionedMovementLayout(oldStyle);
+    setNeedsLayoutForStyleDifference(diff, oldStyle);
+
+    if (isOutOfFlowPositioned() && oldStyle && oldStyle->isOriginalDisplayBlockType() != style().isOriginalDisplayBlockType()) {
+        if (CheckedPtr ancestor = RenderObject::containingBlockForPositionType(PositionType::Static, *this)) {
+            ancestor->setNeedsLayout();
+            ancestor->setOutOfFlowChildNeedsStaticPositionLayout();
+        }
+    }
 
     // Don't check for repaint here; we need to wait until the layer has been
     // updated by subclasses before we know if we have to repaint (in setStyle()).
 
 #if !PLATFORM(IOS_FAMILY)
     if (oldStyle && !areCursorsEqual(oldStyle, &style()))
-        protectedFrame()->checkedEventHandler()->scheduleCursorUpdate();
+        protectedFrame()->eventHandler().scheduleCursorUpdate();
 #endif
 
-    bool hadOutlineAuto = oldStyle && oldStyle->outlineStyleIsAuto() == OutlineIsAuto::On;
-    bool hasOutlineAuto = outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On;
+    bool hadOutlineAuto = oldStyle && oldStyle->outlineStyle() == OutlineStyle::Auto;
+    bool hasOutlineAuto = outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
     if (hasOutlineAuto != hadOutlineAuto) {
         updateOutlineAutoAncestor(hasOutlineAuto);
         issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().outlineSize() : oldStyle->outlineSize());
@@ -1161,7 +1183,7 @@ inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
     // This indicates a failure to layout the child, which is why
     // the layout root is still set to |this|. Make sure to clear it
     // since we are getting destroyed.
-    view().protectedFrameView()->layoutContext().clearSubtreeLayoutRoot();
+    view().frameView().layoutContext().clearSubtreeLayoutRoot();
 }
 
 void RenderElement::willBeDestroyed()
@@ -1171,7 +1193,7 @@ void RenderElement::willBeDestroyed()
         document().contentChangeObserver().rendererWillBeDestroyed(*element());
 #endif
     if (m_style.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument())
-        view().protectedFrameView()->removeSlowRepaintObject(*this);
+        view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
 
@@ -1215,33 +1237,53 @@ void RenderElement::willBeDestroyed()
         ContentVisibilityDocumentState::unobserve(*protectedElement());
 }
 
-void RenderElement::setNeedsPositionedMovementLayout(const RenderStyle* oldStyle)
+void RenderElement::setNeedsOutOfFlowMovementLayout(const RenderStyle* oldStyle)
 {
     ASSERT(!isSetNeedsLayoutForbidden());
-    if (needsPositionedMovementLayout())
+    if (needsOutOfFlowMovementLayout())
         return;
-    setNeedsPositionedMovementLayoutBit(true);
+    setNeedsOutOfFlowMovementLayoutBit(true);
     scheduleLayout(markContainingBlocksForLayout());
     if (hasLayer()) {
         if (oldStyle && style().diffRequiresLayerRepaint(*oldStyle, downcast<RenderLayerModelObject>(*this).layer()->isComposited()))
             setLayerNeedsFullRepaint();
         else
-            setLayerNeedsFullRepaintForPositionedMovementLayout();
+            setLayerNeedsFullRepaintForOutOfFlowMovementLayout();
     }
 }
 
 void RenderElement::clearChildNeedsLayout()
 {
     setNormalChildNeedsLayoutBit(false);
-    setPosChildNeedsLayoutBit(false);
+    setOutOfFlowChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
-    setNeedsPositionedMovementLayoutBit(false);
+    setNeedsOutOfFlowMovementLayoutBit(false);
     setOutOfFlowChildNeedsStaticPositionLayoutBit(false);
 }
 
-void RenderElement::setNeedsSimplifiedNormalFlowLayout()
+void RenderElement::setNeedsLayoutForStyleDifference(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    if (diff == StyleDifference::Layout)
+        setNeedsLayoutAndPreferredWidthsUpdate();
+    else if (diff == StyleDifference::LayoutOutOfFlowMovementOnly)
+        setNeedsOutOfFlowMovementLayout(oldStyle);
+    else if (diff == StyleDifference::OverflowAndOutOfFlowMovement) {
+        setNeedsOutOfFlowMovementLayout(oldStyle);
+        setNeedsLayoutForOverflowChange();
+    } else if (diff == StyleDifference::Overflow)
+        setNeedsLayoutForOverflowChange();
+}
+
+void RenderElement::setNeedsLayoutForOverflowChange()
 {
     ASSERT(!isSetNeedsLayoutForbidden());
+    // FIXME: Eagerly preventing simplified layout due to the (unlikely) possibility of a size change
+    // is possibly wasteful. We could in theory detect an actual change during layout, and
+    // unwind back to restart proper layout.
+    if (overflowChangesMayAffectLayout()) {
+        setNeedsLayout();
+        return;
+    }
     if (needsSimplifiedNormalFlowLayout())
         return;
     setNeedsSimplifiedNormalFlowLayoutBit(true);
@@ -1256,7 +1298,7 @@ void RenderElement::setOutOfFlowChildNeedsStaticPositionLayout()
     // optimize all kinds of out-of-flow cases.
     // It's also assumed that regular, positioned child related bits are already set.
     ASSERT(!isSetNeedsLayoutForbidden());
-    ASSERT(posChildNeedsLayout() || selfNeedsLayout() || needsSimplifiedNormalFlowLayout() || !parent());
+    ASSERT(outOfFlowChildNeedsLayout() || selfNeedsLayout() || needsSimplifiedNormalFlowLayout() || !parent());
     setOutOfFlowChildNeedsStaticPositionLayoutBit(true);
 }
 
@@ -1451,12 +1493,10 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
     const RenderStyle& outlineStyle = outlineStyleForRepaint();
     auto& style = this->style();
     auto outlineWidth = LayoutUnit { outlineStyle.outlineSize() };
-    auto insetShadowExtent = style.boxShadowInsetExtent();
+    auto insetShadowExtent = Style::shadowInsetExtent(style.boxShadow());
     auto sizeDelta = LayoutSize { absoluteValue(newOutlineBoundsRect.width() - oldOutlineBoundsRect.width()), absoluteValue(newOutlineBoundsRect.height() - oldOutlineBoundsRect.height()) };
     if (sizeDelta.width()) {
-        auto shadowLeft = LayoutUnit { };
-        auto shadowRight = LayoutUnit { };
-        style.getBoxShadowHorizontalExtent(shadowLeft, shadowRight);
+        auto [shadowLeft, shadowRight] = Style::shadowHorizontalExtent(style.boxShadow());
 
         auto insetExtent = [&] {
             // Inset "content" is inside the border box (e.g. border, negative outline and box shadow).
@@ -1465,7 +1505,11 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 if (!renderBox)
                     return { };
                 auto borderBoxWidth = renderBox->width();
-                return std::max(renderBox->borderRight(), std::max(valueForLength(style.borderTopRightRadius().width, borderBoxWidth), valueForLength(style.borderBottomRightRadius().width, borderBoxWidth)));
+                return std::max({
+                    renderBox->borderRight(),
+                    Style::evaluate(style.borderTopRightRadius().width(), borderBoxWidth),
+                    Style::evaluate(style.borderBottomRightRadius().width(), borderBoxWidth),
+                });
             };
             auto outlineRightInsetExtent = [&]() -> LayoutUnit {
                 auto offset = LayoutUnit { outlineStyle.outlineOffset() };
@@ -1496,9 +1540,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
         }
     }
     if (sizeDelta.height()) {
-        auto shadowTop = LayoutUnit { };
-        auto shadowBottom = LayoutUnit { };
-        style.getBoxShadowVerticalExtent(shadowTop, shadowBottom);
+        auto [shadowTop, shadowBottom] = Style::shadowVerticalExtent(style.boxShadow());
 
         auto insetExtent = [&] {
             // Inset "content" is inside the border box (e.g. border, negative outline and box shadow).
@@ -1507,7 +1549,11 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 if (!renderBox)
                     return { };
                 auto borderBoxHeight = renderBox->height();
-                return std::max(renderBox->borderBottom(), std::max(valueForLength(style.borderBottomLeftRadius().height, borderBoxHeight), valueForLength(style.borderBottomRightRadius().height, borderBoxHeight)));
+                return std::max({
+                    renderBox->borderBottom(),
+                    Style::evaluate(style.borderBottomLeftRadius().height(), borderBoxHeight),
+                    Style::evaluate(style.borderBottomRightRadius().height(), borderBoxHeight),
+                });
             };
             auto outlineBottomInsetExtent = [&]() -> LayoutUnit {
                 auto offset = LayoutUnit { outlineStyle.outlineOffset() };
@@ -1641,31 +1687,6 @@ bool RenderElement::isVisibleInViewport() const
     return isVisibleInDocumentRect(visibleRect);
 }
 
-const Element* RenderElement::defaultAnchor() const
-{
-    if (!element())
-        return nullptr;
-    auto& anchorPositionedStates = document().styleScope().anchorPositionedStates();
-    auto anchoringStateLookupResult = anchorPositionedStates.find(*element());
-    if (anchoringStateLookupResult == anchorPositionedStates.end() || !anchoringStateLookupResult->value)
-        return nullptr;
-    const auto& anchoringState = *anchoringStateLookupResult->value;
-    const auto& anchorName = style().positionAnchor();
-    if (!anchorName)
-        return nullptr;
-    auto defaultAnchorLookupResult = anchoringState.anchorElements.find(anchorName->name);
-    if (defaultAnchorLookupResult == anchoringState.anchorElements.end())
-        return nullptr;
-    return &defaultAnchorLookupResult->value.get();
-}
-
-const RenderElement* RenderElement::defaultAnchorRenderer() const
-{
-    if (auto* defaultAnchor = this->defaultAnchor())
-        return defaultAnchor->renderer();
-    return nullptr;
-}
-
 VisibleInViewportState RenderElement::imageFrameAvailable(CachedImage& image, ImageAnimatingState animatingState, const IntRect* changeRect)
 {
     bool isVisible = isVisibleInViewport();
@@ -1694,6 +1715,9 @@ VisibleInViewportState RenderElement::imageVisibleInViewport(const Document& doc
 
 void RenderElement::notifyFinished(CachedResource& resource, const NetworkLoadMetrics&, LoadWillContinueInAnotherProcess)
 {
+    if (auto* cachedImage = dynamicDowncast<CachedImage>(resource))
+        imageContentChanged(*cachedImage);
+
     document().protectedCachedResourceLoader()->notifyFinished(resource);
 }
 
@@ -1708,6 +1732,31 @@ void RenderElement::didRemoveCachedImageClient(CachedImage& cachedImage)
 {
     if (hasPausedImageAnimations())
         checkedView()->removeRendererWithPausedImageAnimations(*this, cachedImage);
+}
+
+void RenderElement::imageContentChanged(CachedImage& cachedImage)
+{
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    if (!document().hasHDRContent()) {
+        if (cachedImage.hasHDRContent())
+            document().setHasHDRContent();
+    }
+
+    if (document().hasHDRContent()) {
+        if (cachedImage.hasHDRContent()) {
+            RefPtr element = this->element();
+            if (element)
+                element->invalidateStyleAndLayerComposition();
+        }
+
+        if (CheckedPtr layer = enclosingLayer()) {
+            auto changeType = cachedImage.hasHDRContent() ? ContentChangeType::HDRImage : ContentChangeType::Image;
+            layer->contentChanged(changeType);
+        }
+    }
+#else
+    UNUSED_PARAM(cachedImage);
+#endif
 }
 
 void RenderElement::scheduleRenderingUpdateForImage(CachedImage&)
@@ -1906,7 +1955,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
         return true;
     }
 
-    if (!isInline() || isReplacedOrAtomicInline()) {
+    if (!isInline() || isBlockLevelReplacedOrAtomicInline()) {
         point = localToAbsolute(FloatPoint(), UseTransforms, &insideFixed);
         return true;
     }
@@ -1932,14 +1981,14 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
         }
         ASSERT(o);
 
-        if (!o->isInline() || o->isReplacedOrAtomicInline()) {
+        if (!o->isInline() || o->isBlockLevelReplacedOrAtomicInline()) {
             point = o->localToAbsolute(FloatPoint(), UseTransforms, &insideFixed);
             return true;
         }
 
         if (p->node() && p->node() == element() && is<RenderText>(*o) && !InlineIterator::lineLeftmostTextBoxFor(downcast<RenderText>(*o))) {
             // do nothing - skip unrendered whitespace that is a child or next sibling of the anchor
-        } else if (is<RenderText>(*o) || o->isReplacedOrAtomicInline()) {
+        } else if (is<RenderText>(*o) || o->isBlockLevelReplacedOrAtomicInline()) {
             point = FloatPoint();
             if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(*o)) {
                 if (auto run = InlineIterator::lineLeftmostTextBoxFor(*textRenderer))
@@ -1967,7 +2016,7 @@ bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) cons
         return true;
     }
 
-    if (!isInline() || isReplacedOrAtomicInline()) {
+    if (!isInline() || isBlockLevelReplacedOrAtomicInline()) {
         point = localToAbsolute(LayoutPoint(downcast<RenderBox>(*this).size()), UseTransforms, &insideFixed);
         return true;
     }
@@ -1990,7 +2039,7 @@ bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) cons
             o = prev;
         }
         ASSERT(o);
-        if (is<RenderText>(*o) || o->isReplacedOrAtomicInline()) {
+        if (is<RenderText>(*o) || o->isBlockLevelReplacedOrAtomicInline()) {
             point = FloatPoint();
             if (auto* textRenderer = dynamicDowncast<RenderText>(*o)) {
                 LayoutRect linesBox = textRenderer->linesBoundingBox();
@@ -2018,7 +2067,7 @@ LayoutRect RenderElement::absoluteAnchorRect(bool* insideFixed) const
     FloatPoint lowerRight = trailing;
 
     // Vertical writing modes might mean the leading point is not in the top left
-    if (!isInline() || isReplacedOrAtomicInline()) {
+    if (!isInline() || isBlockLevelReplacedOrAtomicInline()) {
         upperLeft = FloatPoint(std::min(leading.x(), trailing.x()), std::min(leading.y(), trailing.y()));
         lowerRight = FloatPoint(std::max(leading.x(), trailing.x()), std::max(leading.y(), trailing.y()));
     } // Otherwise, it's not obvious what to do.
@@ -2033,22 +2082,18 @@ LayoutRect RenderElement::absoluteAnchorRect(bool* insideFixed) const
 
 MarginRect RenderElement::absoluteAnchorRectWithScrollMargin(bool* insideFixed) const
 {
-    LayoutRect anchorRect = absoluteAnchorRect(insideFixed);
-    const LengthBox& scrollMargin = style().scrollMargin();
-    if (scrollMargin.isZero())
+    auto anchorRect = absoluteAnchorRect(insideFixed);
+
+    auto& scrollMarginBox = style().scrollMarginBox();
+    if (Style::isZero(scrollMarginBox))
         return { anchorRect, anchorRect };
 
     // The scroll snap specification says that the scroll-margin should be applied in the
     // coordinate system of the scroll container and applied to the rectangular bounding
     // box of the transformed border box of the target element.
     // See https://www.w3.org/TR/css-scroll-snap-1/#scroll-margin.
-    const LayoutBoxExtent margin(
-        valueForLength(scrollMargin.top(), anchorRect.height()),
-        valueForLength(scrollMargin.right(), anchorRect.width()),
-        valueForLength(scrollMargin.bottom(), anchorRect.height()),
-        valueForLength(scrollMargin.left(), anchorRect.width()));
     auto marginRect = anchorRect;
-    marginRect.expand(margin);
+    marginRect.expand(Style::extentForRect(scrollMarginBox, anchorRect));
     return { marginRect, anchorRect };
 }
 
@@ -2084,10 +2129,9 @@ static void drawFocusRing(GraphicsContext& context, Vector<FloatRect> rects, con
 #endif
 }
 
-
 void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle& style, const Vector<LayoutRect>& focusRingRects) const
 {
-    ASSERT(style.outlineStyleIsAuto() == OutlineIsAuto::On);
+    ASSERT(style.outlineStyle() == OutlineStyle::Auto);
     float outlineOffset = style.outlineOffset();
     Vector<FloatRect> pixelSnappedFocusRingRects;
     float deviceScaleFactor = document().deviceScaleFactor();
@@ -2099,7 +2143,7 @@ void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle
     styleOptions.add(StyleColorOptions::UseSystemAppearance);
     auto focusRingColor = usePlatformFocusRingColorForOutlineStyleAuto() ? RenderTheme::singleton().focusRingColor(styleOptions) : style.visitedDependentColorWithColorFilter(CSSPropertyOutlineColor);
     if (useShrinkWrappedFocusRingForOutlineStyleAuto() && style.hasBorderRadius()) {
-        Path path = PathUtilities::pathWithShrinkWrappedRectsForOutline(pixelSnappedFocusRingRects, style.border(), outlineOffset, style.writingMode(), document().deviceScaleFactor());
+        Path path = PathUtilities::pathWithShrinkWrappedRectsForOutline(pixelSnappedFocusRingRects, style.border().radii(), outlineOffset, style.writingMode(), document().deviceScaleFactor());
         if (path.isEmpty()) {
             for (auto rect : pixelSnappedFocusRingRects)
                 path.addRect(rect);
@@ -2144,7 +2188,7 @@ void RenderElement::updateOutlineAutoAncestor(bool hasOutlineAuto)
         if (hasOutlineAuto == child->hasOutlineAutoAncestor())
             continue;
         child->setHasOutlineAutoAncestor(hasOutlineAuto);
-        bool childHasOutlineAuto = child->outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On;
+        bool childHasOutlineAuto = child->outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
         if (childHasOutlineAuto)
             continue;
         if (auto* element = dynamicDowncast<RenderElement>(child.get()))
@@ -2169,9 +2213,108 @@ bool RenderElement::hasSelfPaintingLayer() const
     return layerModelObject.hasSelfPaintingLayer();
 }
 
+void RenderElement::pushOntoGeometryMap(RenderGeometryMap& geometryMap, const RenderLayerModelObject* repaintContainer, RenderElement* container, bool containerSkipped) const
+{
+    bool isFixedPos = isFixedPositioned();
+    LayoutSize adjustmentForSkippedAncestor;
+    if (containerSkipped) {
+        // There can't be a transform between repaintContainer and container, because transforms create containers, so it should be safe
+        // to just subtract the delta between the ancestor and container.
+        adjustmentForSkippedAncestor = -repaintContainer->offsetFromAncestorContainer(*container);
+    }
+
+    bool offsetDependsOnPoint = false;
+    LayoutSize containerOffset = offsetFromContainer(*container, LayoutPoint(), &offsetDependsOnPoint);
+
+    bool preserve3D = participatesInPreserve3D();
+    if (shouldUseTransformFromContainer(container) && (geometryMap.mapCoordinatesFlags() & UseTransforms)) {
+        TransformationMatrix t;
+        getTransformFromContainer(containerOffset, t);
+        t.translateRight(adjustmentForSkippedAncestor.width(), adjustmentForSkippedAncestor.height());
+
+        geometryMap.push(this, t, preserve3D, offsetDependsOnPoint, isFixedPos, isTransformed());
+    } else {
+        containerOffset += adjustmentForSkippedAncestor;
+        geometryMap.push(this, containerOffset, preserve3D, offsetDependsOnPoint, isFixedPos, isTransformed());
+    }
+}
+
+const RenderElement* RenderElement::pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
+{
+    ASSERT_UNUSED(ancestorToStopAt, ancestorToStopAt != this);
+
+    CheckedPtr container = parent();
+    if (!container)
+        return nullptr;
+
+    // FIXME: this should call offsetFromContainer to share code, but I'm not sure it's ever called.
+    LayoutSize offset;
+    if (auto* box = dynamicDowncast<RenderBox>(*container))
+        offset = -toLayoutSize(box->scrollPosition());
+
+    geometryMap.push(this, offset, false);
+
+    return container.get();
+}
+
+RenderBoxModelObject* RenderElement::offsetParent() const
+{
+    // If any of the following holds true return null and stop this algorithm:
+    // A is the root element.
+    // A is the HTML body element.
+    // The computed value of the position property for element A is fixed.
+    if (isDocumentElementRenderer() || isBody() || isFixedPositioned())
+        return nullptr;
+
+    // If A is an area HTML element which has a map HTML element somewhere in the ancestor
+    // chain return the nearest ancestor map HTML element and stop this algorithm.
+    // FIXME: Implement!
+
+    // Return the nearest ancestor element of A for which at least one of the following is
+    // true and stop this algorithm if such an ancestor is found:
+    //     * The element is a containing block of absolutely-positioned descendants (regardless
+    //       of whether there are any absolutely-positioned descendants).
+    //     * It is the HTML body element.
+    //     * The computed value of the position property of A is static and the ancestor
+    //       is one of the following HTML elements: td, th, or table.
+    //     * Our own extension: if there is a difference in the effective zoom
+
+    bool skipTables = isPositioned();
+    float currZoom = style().usedZoom();
+    CheckedPtr current = parent();
+    while (current && (!current->element() || (!current->canContainAbsolutelyPositionedObjects() && !current->isBody()))) {
+        RefPtr element = current->element();
+        if (!skipTables && element && (is<HTMLTableElement>(*element) || is<HTMLTableCellElement>(*element)))
+            break;
+
+        float newZoom = current->style().usedZoom();
+        if (currZoom != newZoom)
+            break;
+        currZoom = newZoom;
+        current = current->parent();
+    }
+
+    return dynamicDowncast<RenderBoxModelObject>(current.get());
+}
+
 bool RenderElement::hasViewTransitionName() const
 {
     return !style().viewTransitionName().isNone();
+}
+
+bool RenderElement::isBeforeContent(const RenderElement* renderer)
+{
+    return renderer && renderer->isBeforeContent();
+}
+
+bool RenderElement::isAfterContent(const RenderElement* renderer)
+{
+    return renderer && renderer->isAfterContent();
+}
+
+bool RenderElement::isBeforeOrAfterContent(const RenderElement* renderer)
+{
+    return renderer && renderer->isBeforeOrAfterContent();
 }
 
 bool RenderElement::requiresRenderingConsolidationForViewTransition() const
@@ -2368,11 +2511,11 @@ void RenderElement::repaintOldAndNewPositionsForSVGRenderer() const
 static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderObject& renderer)
 {
     const RenderStyle& style = renderer.style();
-    if (style.height().isFixed()) {
+    if (auto fixedHeight = style.height().tryFixed()) {
         if (CheckedPtr block = dynamicDowncast<RenderBlock>(renderer)) {
             // For fixed height styles, if the overflow size of the element spills out of the specified
             // height, assume we can apply text auto-sizing.
-            if (block->effectiveOverflowY() == Overflow::Visible && style.height().value() < block->layoutOverflowRect().maxY())
+            if (block->effectiveOverflowY() == Overflow::Visible && fixedHeight->value < block->layoutOverflowRect().maxY())
                 return RenderObject::OverflowHeight;
         }
         return RenderObject::FixedHeight;
@@ -2396,7 +2539,7 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
     // which has fixed height but its content overflows intentionally.
     for (CheckedPtr descendant = traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth); descendant; descendant = descendant->traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth)) {
         while (depthStack.size() > 0 && currentDepth <= depthStack[depthStack.size() - 1])
-            depthStack.remove(depthStack.size() - 1);
+            depthStack.removeAt(depthStack.size() - 1);
         if (newFixedDepth)
             depthStack.append(newFixedDepth);
 
@@ -2426,7 +2569,7 @@ void RenderElement::resetTextAutosizing()
 
     for (CheckedPtr descendant = traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth); descendant; descendant = descendant->traverseNext(this, includeNonFixedHeight, currentDepth, newFixedDepth)) {
         while (depthStack.size() > 0 && currentDepth <= depthStack[depthStack.size() - 1])
-            depthStack.remove(depthStack.size() - 1);
+            depthStack.removeAt(depthStack.size() - 1);
         if (newFixedDepth)
             depthStack.append(newFixedDepth);
 
@@ -2557,7 +2700,7 @@ void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer
     if (!renderBox->isOutOfFlowPositioned())
         return;
 
-    RenderBlock::removePositionedObject(*renderBox);
+    RenderBlock::removeOutOfFlowBox(*renderBox);
     // This is to make sure we insert the box to the correct containing block list during static position computation.
     renderBox->parent()->setChildNeedsLayout();
     newContainingBlock->setChildNeedsLayout();
@@ -2589,6 +2732,7 @@ void RenderElement::layoutIfNeeded()
 {
     if (!needsLayout())
         return;
+    // FIXME: Replace this with ASSERT after fixing FC layout code not calling into child layout.
     if (layoutContext().isSkippedContentForLayout(*this)) {
         clearNeedsLayoutForSkippedContent();
         return;

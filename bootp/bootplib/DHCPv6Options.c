@@ -45,13 +45,13 @@
 #include <mach/boolean.h>
 #include <string.h>
 #include <errno.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include "DHCPv6.h"
 #include "DHCPv6Options.h"
 #include "ptrlist.h"
 #include "util.h"
 #include "DNSNameList.h"
 #include "cfutil.h"
-#include <SystemConfiguration/SCPrivate.h>
 
 #ifndef my_log
 #define my_log	SC_log
@@ -59,6 +59,7 @@
 
 #define kDHCPv6OPTIONSTR_DNS_SERVERS		"DNS_SERVERS"
 #define kDHCPv6OPTIONSTR_DOMAIN_LIST		"DOMAIN_LIST"
+#define kDHCPv6OPTIONSTR_DNS_ENCRYPTED_SERVERS	"DNS_ENCRYPTED_SERVERS"
 #define kDHCPv6OPTIONSTR_POSIX_TIMEZONE		"POSIX_TIMEZONE"
 #define kDHCPv6OPTIONSTR_TZDB_TIMEZONE		"TZDB_TIMEZONE"
 #define kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL	"CAPTIVE_PORTAL_URL"
@@ -119,6 +120,9 @@ DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
     case kDHCPv6OPTION_SIP_SERVER_A:
     case kDHCPv6OPTION_DNS_SERVERS:
 	type = kDHCPv6OptionTypeIPv6Address;
+	break;
+    case kDHCPv6OPTION_V6_DNR:
+	type = kDHCPv6OptionTypeDNSEncryptedServer;
 	break;
     case kDHCPv6OPTION_SIP_SERVER_D:
     case kDHCPv6OPTION_DOMAIN_LIST:
@@ -188,6 +192,10 @@ STATIC OptionCodeName option_code_names[] = {
     {
 	kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
 	kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL
+    },
+    {
+	kDHCPv6OPTION_V6_DNR,
+	kDHCPv6OPTIONSTR_DNS_ENCRYPTED_SERVERS
     },
     {
 	kDHCPv6OPTION_CLIENT_FQDN,
@@ -288,6 +296,9 @@ DHCPv6OptionCodeGetName(DHCPv6OptionCode code)
 	break;
     case kDHCPv6OPTION_DOMAIN_LIST:
 	str = kDHCPv6OPTIONSTR_DOMAIN_LIST;
+	break;
+    case kDHCPv6OPTION_V6_DNR:
+	str = kDHCPv6OPTIONSTR_DNS_ENCRYPTED_SERVERS;
 	break;
     case kDHCPv6OPTION_POSIX_TIMEZONE:
 	str = kDHCPv6OPTIONSTR_POSIX_TIMEZONE;
@@ -570,8 +581,21 @@ DHCPv6OptionPrintToString(CFMutableStringRef str,
 	STRING_APPEND(str, "\n");
 	break;
     }
+    case kDHCPv6OptionTypeDNSEncryptedServer: {
+	CFDictionaryRef encrypted_server = NULL;
+
+	encrypted_server =
+	DNSEncryptedServerEntryCreateWithDHCPv6Data(option_data, option_length);
+	STRING_APPEND(str, "%@\n", encrypted_server);
+	my_CFRelease(&encrypted_server);
+	break;
+    }
     case kDHCPv6OptionTypeString: {
-	CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault, option_data, (CFIndex)option_length, kCFStringEncodingUTF8, FALSE);
+	CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault,
+						     option_data,
+						     (CFIndex)option_length,
+						     kCFStringEncodingUTF8,
+						     FALSE);
 	STRING_APPEND(str, " %@\n", string);
 	my_CFRelease(&string);
 	break;
@@ -745,7 +769,6 @@ DHCPv6OptionListGetOptionDataAndLength(DHCPv6OptionListRef options,
     }
     return (NULL);
 }
-
 
 /**
  ** DHCPv6OptionsDictionary
@@ -1283,6 +1306,61 @@ DHCPv6OptionListGetStatusCode(DHCPv6OptionListRef options,
 	*ret_msg = msg;
     }
     return (success);
+}
+
+PRIVATE_EXTERN CFArrayRef
+DHCPv6OptionDNRCopyAllDNSEncryptedServers(DHCPv6OptionListRef options)
+{
+    CFMutableArrayRef server_entries = NULL;
+    const uint8_t * dnr_data = NULL;
+    int dnr_data_len = 0;
+    int optlist_count = 0;
+    int optlist_i = 0;
+    bool success = FALSE;
+
+    optlist_count = DHCPv6OptionListGetCount(options);
+    while (optlist_i < optlist_count) {
+	CFDictionaryRef encrypted_server = NULL;
+
+	success = FALSE;
+	dnr_data = (const uint8_t *)
+	DHCPv6OptionListGetOptionDataAndLength(options,
+					       kDHCPv6OPTION_V6_DNR,
+					       &dnr_data_len,
+					       &optlist_i);
+	if (dnr_data == NULL || dnr_data_len <= 0) {
+	    break;
+	}
+	encrypted_server =
+	DNSEncryptedServerEntryCreateWithDHCPv6Data(dnr_data, dnr_data_len);
+	if (encrypted_server == NULL) {
+	    break;
+	}
+	if (server_entries == NULL) {
+	    server_entries =
+	    CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+	/* filters out dupes */
+	DNSEncryptedServerListAppendUniqueEntry(server_entries,
+						encrypted_server);
+	CFRelease(encrypted_server);
+	success = TRUE;
+    }
+    if (!success) {
+	/* ignores all DNR instances if any failed parsing */
+	goto done;
+    }
+    /* servers are sorted by their stated service priority */
+    CFArraySortValues(server_entries,
+		      CFRangeMake(0, CFArrayGetCount(server_entries)),
+		      DNSEncryptedServerListSortByServicePriority,
+		      NULL);
+
+done:
+    if (!success) {
+	my_CFRelease(&server_entries);
+    }
+    return (CFArrayRef)server_entries;
 }
 
 STATIC void

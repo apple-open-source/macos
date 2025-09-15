@@ -79,13 +79,41 @@ static const int32_t HINDU_OFFSET = (int32_t)(5.5 * kOneHour);
 static const int32_t RD_OFFSET = 1721424;
 
 /**
- * Value to be added or subtracted from the local days of a new moon to
- * get close to the next or prior new moon, but not cross it.  Must be
- * >= 1 and < CalendarAstronomer.SYNODIC_MONTH.
+ * The offset for Hindu lunisolar based on Amanta, which is 15 days behind Purnimanta
  */
-static const int32_t SYNODIC_GAP = 25;
+static const int32_t AMANTA_OFFSET = 15; // rdar://147055320
+
+/**
+ * The offset between two eras, Vikram and Saka
+ *  Vikram era starts in 57 BCE, while Saka era starts in 78 CE
+ */
+static const int32_t VIKRAM_OFFSET = 57; // rdar://147055320
+static const int32_t SAKA_OFFSET = -78; // rdar://147055320
+
+/**
+ * Year offsets for Hindu solar calendars relative to default solar calendar calculations
+ */
+// rdar://147055826
+static const int32_t BANGLA_OFFSET = 515;
+static const int32_t MALAYALAM_OFFSET = 746;
+static const int32_t ODIA_OFFSET = 515;
+static const int32_t TAMIL_OFFSET = 0;
+
+/*
+ * Boundaries (in years) for the table containing hindu month starts
+ */
+// rdar://156473289 Replace hard coded values with meaningful consts
+static const int32_t HINDU_MONTH_START_TABLE_LOW = 1956;
+static const int32_t HINDU_MONTH_START_TABLE_HIGH = 2156;
+
+/**
+ * Value to be added or subtracted from the local days of a new moon to
+ * get close to the next or prior new moon, but not cross it.  
+ */
+static const int32_t HINDU_SYNODIC_GAP = 31; // // rdar://148837256 Increase the value of gap to make sure we hit the new moon
 
 static const double HINDU_SIDEREAL_YEAR = 365 + (279457.0 / 1080000.0);
+static const double MEAN_SIDEREAL_YEAR = 365.25636;
 
 // Define the hindu-lunar-era constant
 static const int32_t HINDU_LUNAR_ERA = 3044;
@@ -106,6 +134,8 @@ static const double HINDU_SIDEREAL_MONTH = 27 + (4644439.0 / 14438334.0);
 static const double HINDU_SYNODIC_MONTH = 29 + (7087771.0 / 13358334.0);
 static const double HINDU_ANOMALISTIC_YEAR = 1577917828000.0 / (4320000000.0 - 387.0);
 static const double HINDU_ANOMALISTIC_MONTH = 1577917828.0 / (57753336.0 - 488199.0);
+
+static const double HINDU_SIDEREAL_START = 336.13605103141113734; // got this figure from running "(print sidereal-start)" in R&D's calendar.l
 
 class U_I18N_API CalendarAstronomer : public UMemory {
 public:
@@ -519,43 +549,87 @@ private:
   //-------------------------------------------------------------------------
 public:
   // Astronomy helpers
-  double hinduSunrise(int32_t date, double longitudeOffset, double latitudeDeg) const; // Sunrise at hindu-location on date.
-  double hinduSunset(int32_t date, double longitudeOffset, double latitudeDeg) const; // Sunset at hindu-location on date.
-  double hinduEquationOfTime(double date) const; // Time from true to mean midnight of date.
-  double hinduAscensionalDifference(double date, double latitudeDeg) const; // Difference between right and oblique ascension of sun on date at location.
-  double hinduSolarSiderealDifference(int32_t date) const; // Difference between solar and sidereal day on date
-  double hinduMeanPosition(double tee, double period) const; // Position in degrees at moment tee in uniform circular orbit of period days
-  double hinduDailyMotion(double date) const; // Sidereal daily motion of sun on date.
-  double hinduTruePosition(double tee, double period, double size, double anomalistic, double change) const; // Longitudinal position at moment tee
-  double hinduSolarLongitude(double tee) const; // Solar longitude at moment tee.
-  double hinduLunarLongitude(double tee) const; // Lunar longitude at moment tee.
-  double hinduRisingSign(double date) const; // Tabulated speed of rising of current zodiacal sign on date
-  double hinduLunarPhase(double tee) const; // Longitudinal distance between the sun and moon at moment tee.
-  double hinduTropicalLongitude(double date) const; // Hindu tropical longitude on fixed date.
-  double hinduNewMoonBefore(double tee) const;   // Approximate moment of last new moon preceding moment tee, close enough to determine zodiacal sign.
-  int32_t hinduLunarDayFromMoment(double tee) const; // Phase of moon (tithi) at moment tee, as an integer in the range 1..30
-  int32_t hinduZodiac(double tee) const;   // Zodiacal sign of the sun, as integer in range 1..12, at moment tee
-  int32_t hinduCalendarYear(double tee) const; // Determine solar year at given moment tee.
-  double hinduSolarLongitudeAtOrAfter(double lambda, double tee) const; // Moment of the first time at or after tee when Hindu solar longitude will be lambda degrees.
-  double hinduLunarDayAtOrAfter(double k, double tee) const;   // Time lunar-day (tithi) number k begins at or after moment tee. k can be fractional (for karanas)
-  int32_t hinduLunarStation(double date, double longitudeOffset, double latitudeDeg) const;   // Hindu lunar station (nakshatra) at sunrise on a given date
-  double hinduStandardFromSundial(double tee, double longitudeOffset, double latitudeDeg) const; // Hindu local time of a temporal moment
-  int32_t fixedFromMoment(double tee) const;  // Fixed-date from moment tee.
-  double timeFromMoment(double tee) const;  // Time from moment tee.
+  static double hinduSunrise(int32_t date, double longitudeOffset, double latitudeDeg); // Sunrise at hindu-location on date.
+    static double hinduSunset(int32_t date, double longitudeOffset, double latitudeDeg); // Sunset at hindu-location on date.
+    static double astroHinduSunset(int32_t date, double longitudeDeg, double latitudeDeg, double hours); // Sunset at hindu-location on date.
+    static double hinduEquationOfTime(double date); // Time from true to mean midnight of date.
+    static double hinduAscensionalDifference(double date, double latitudeDeg); // Difference between right and oblique ascension of sun on date at location.
+    static double hinduSolarSiderealDifference(int32_t date); // Difference between solar and sidereal day on date
+    static double hinduMeanPosition(double tee, double period); // Position in degrees at moment tee in uniform circular orbit of period days
+    static double hinduDailyMotion(double date); // Sidereal daily motion of sun on date.
+    static double hinduTruePosition(double tee, double period, double size, double anomalistic, double change); // Longitudinal position at moment tee
+    static double hinduSolarLongitude(double tee); // Solar longitude at moment tee.
+    static double hinduLunarLongitude(double tee); // Lunar longitude at moment tee.
+    static double hinduRisingSign(double date); // Tabulated speed of rising of current zodiacal sign on date
+    static double hinduLunarPhase(double tee); // Longitudinal distance between the sun and moon at moment tee.
+    static double hinduTropicalLongitude(double date); // Hindu tropical longitude on fixed date.
+    static double hinduNewMoonBefore(double tee);   // Approximate moment of last new moon preceding moment tee, close enough to determine zodiacal sign.
+    static int32_t hinduLunarDayFromMoment(double tee); // Phase of moon (tithi) at moment tee, as an integer in the range 1..30
+    static int32_t hinduZodiac(double tee);   // Zodiacal sign of the sun, as integer in range 1..12, at moment tee
+    static int32_t hinduCalendarYear(double tee); // Determine solar year at given moment tee.
+    static int32_t astroHinduCalendarYear(double tee); // Determine solar year at given moment tee.
+    static double hinduSolarLongitudeAtOrAfter(double lambda, double tee); // Moment of the first time at or after tee when Hindu solar longitude will be lambda degrees.
+    static double hinduLunarDayAtOrAfter(double k, double tee);   // Time lunar-day (tithi) number k begins at or after moment tee. k can be fractional (for karanas)
+    static int32_t hinduLunarStation(double date, double longitudeOffset, double latitudeDeg);   // Hindu lunar station (nakshatra) at sunrise on a given date
+    static double hinduStandardFromSundial(double tee, double longitudeOffset, double latitudeDeg); // Hindu local time of a temporal moment
+    static int32_t fixedFromMoment(double tee);  // Fixed-date from moment tee.
+    static double timeFromMoment(double tee);  // Time from moment tee.
+    static int32_t hinduVikramOffset(int32_t rataDie); // rdar://145905328 introducing offset for incorrect calculations for Vikram calendar
+    static int32_t updateRepeatedDay(int32_t rataDie); // rdar://145905328 update the repeated day if offset update caused a change in adjacent days
+    static int32_t searchOffsetTable(int32_t rataDie, int id); // rdar://145905328 binary search helped for offset table
+    static int32_t getHinduMonthStart(int32_t year, int32_t month); // rdar://151415578 get the month start in Julian days
+    
+  // Hindu solar calendar astronomy
+    static double julianCenturies(double tee);
+    static double ephemerisCorrection(double tee);
+    static int32_t gregorianYearFromFixed(int32_t date);
+    static int32_t fixedFromGregorian(int32_t year, int32_t month, int32_t day);
+  
+    static double mod360(double angle);
+
+    static double declination(double tee, double beta, double lambda);
+    static double obliquity(double tee);
+    static int32_t siderealZodiac(double tee);
+    static double siderealSolarLongitude(double tee);
+    static double solarLongitude(double tee);
+    static double aberration(double tee);
+    static double nutation(double tee);
+    static double precession(double tee);
+    static double radiansFromDegrees(double theta);
+    static double degreesFromRadians(double theta);
+    static double sinDegrees(double phase);
+    static double cosDegrees(double theta);
+    static double tanDegrees(double theta);
+    static double arcsinDegrees(double x);
+    static double arccosDegrees(double x);
+    static double arctanDegrees(double x);
+    static double arctanDegrees(double alpha, double beta);
+    static double meshaSamkranti(int gYear);
+    static double dusk(int32_t date, double longitudeDeg, double latitudeDeg, double hours, double alpha);
+    static double momentOfDepression(double approx, double longitudeDeg, double latitudeDeg, double alpha, bool isEarly);
+    static double approxMomentOfDepression(double tee, double longitudeDeg, double latitudeDeg, double alpha, bool isEarly);
+    static double standardFromLocal(double tee_ell, double longitudeDeg, double locationHours);
+    static double standardFromUniversal(double tee_u, double locationHours);
+    static double universalFromLocal(double tee_ell, double longitudeDeg);
+    static double localFromApparent(double tee, double longitudeDeg);
+    static double zoneFromLongitude(double phi);
+    static double sineOffset(double tee, double longitudeDeg, double latitudeDeg, double alpha);
+    static double poly(double x, const double* a, int size, int index);
+    static double mod3(double x, double a, double b);
     
   // Trigonometry
-  double sinDegrees(const Angle& angle) const;
-  double hinduSineTable(int32_t entry) const; // This simulates the Hindu sine table. entry is an angle given as a multiplier of 225'
-  double hinduSine(double theta) const; // Linear interpolation for theta in Hindu table.
-  double hinduArcsin(double amp) const; // Inverse of Hindu sine function of amp.
-  double angle(int32_t d, int32_t m, double s) const; // Function to calculate an angle in degrees from degrees, arcminutes, and arcseconds
+    static double sinDegrees(const Angle& angle);
+    static double hinduSineTable(int32_t entry); // This simulates the Hindu sine table. entry is an angle given as a multiplier of 225'
+    static double hinduSine(double theta); // Linear interpolation for theta in Hindu table.
+    static double hinduArcsin(double amp); // Inverse of Hindu sine function of amp.
+    static double angle(int32_t d, int32_t m, double s); // Function to calculate an angle in degrees from degrees, arcminutes, and arcseconds
     
   // Math and algo helpers
-  double hr(double x) const; // a helper function that take input in hours and gives the result in form of the fraction of a day those hours represent.
-  double modLisp(double a, double b) const;
-  double binarySearch(double l, double u, double tee, double epsilon) const;
-  double invertAngularSolarLongitude(double y, double l, double u) const;
-  double invertAngularLunarPhase(double y, double l, double u) const;
+    static double hr(double x); // a helper function that take input in hours and gives the result in form of the fraction of a day those hours represent.
+    static double modLisp(double a, double b);
+    static double binarySearch(double l, double u, double tee, double epsilon);
+    static double invertAngularSolarLongitude(double y, double l, double u);
+    static double invertAngularLunarPhase(double y, double l, double u);
 
   //-------------------------------------------------------------------------
   // Private data

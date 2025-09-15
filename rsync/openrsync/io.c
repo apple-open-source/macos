@@ -155,10 +155,12 @@ io_read_close(struct sess *sess, int fd)
  * Write buffer to non-blocking descriptor.
  * Returns zero on failure, non-zero on success (zero or more bytes).
  * On success, fills in "sz" with the amount written.
+ * Optionally allow errors to be suppressed in case we're called in a logging
+ * path.
  */
 static int
 io_write_nonblocking(int fd, const void *buf, size_t bsz,
-    size_t *sz)
+    size_t *sz, bool raise_errors)
 {
 	struct pollfd	pfd;
 	ssize_t		wsz;
@@ -175,26 +177,32 @@ io_write_nonblocking(int fd, const void *buf, size_t bsz,
 	/* Poll and check for all possible errors. */
 
 	if ((c = poll(&pfd, 1, poll_timeout)) == -1) {
-		ERR("poll");
+		if (raise_errors)
+			ERR("poll");
 		return 0;
 	} else if (c == 0) {
-		ERRX("poll: timeout");
+		if (raise_errors)
+			ERRX("poll: timeout");
 		return 0;
 	} else if ((pfd.revents & (POLLERR|POLLNVAL))) {
-		ERRX("poll: bad fd");
+		if (raise_errors)
+			ERRX("poll: bad fd");
 		return 0;
 	} else if ((pfd.revents & POLLHUP)) {
-		ERRX("poll: hangup on nonblocking write");
+		if (raise_errors)
+			ERRX("poll: hangup on nonblocking write");
 		return 0;
 	} else if (!(pfd.revents & POLLOUT)) {
-		ERRX("poll: unknown event");
+		if (raise_errors)
+			ERRX("poll: unknown event");
 		return 0;
 	}
 
 	/* Now the non-blocking write. */
 
 	if ((wsz = write(fd, buf, bsz)) == -1) {
-		ERR("write");
+		if (raise_errors)
+			ERR("write");
 		return 0;
 	}
 
@@ -205,20 +213,24 @@ io_write_nonblocking(int fd, const void *buf, size_t bsz,
 /*
  * Blocking write of the full size of the buffer.
  * Returns 0 on failure, non-zero on success (all bytes written).
+ * Optionally allow errors to be suppressed in case we're called in a logging
+ * path.
  */
 int
-io_write_blocking(int fd, const void *buf, size_t sz)
+io_write_blocking_impl(int fd, const void *buf, size_t sz, bool raise_errors)
 {
 	size_t		wsz;
 	int		c;
 
 	while (sz > 0) {
-		c = io_write_nonblocking(fd, buf, sz, &wsz);
+		c = io_write_nonblocking(fd, buf, sz, &wsz, raise_errors);
 		if (!c) {
-			ERRX1("io_write_nonblocking");
+			if (raise_errors)
+				ERRX1("io_write_nonblocking");
 			return 0;
 		} else if (wsz == 0) {
-			ERRX("io_write_nonblocking: short write");
+			if (raise_errors)
+				ERRX("io_write_nonblocking: short write");
 			return 0;
 		}
 		buf += wsz;
@@ -226,6 +238,12 @@ io_write_blocking(int fd, const void *buf, size_t sz)
 	}
 
 	return 1;
+}
+
+int
+io_write_blocking(int fd, const void *buf, size_t sz)
+{
+	return io_write_blocking_impl(fd, buf, sz, true);
 }
 
 /*
@@ -326,11 +344,12 @@ io_data_written(struct sess *sess, int fdout, const void *buf, size_t bsz)
 /*
  * Write "buf" of size "sz" to non-blocking descriptor.
  * Returns zero on failure, non-zero on success (all bytes written to
- * the descriptor).
+ * the descriptor).  Optionally avoid raising errors, as we may be called in
+ * a logging path.
  */
-int
-io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
-    enum iotag iotag)
+static int
+io_write_buf_tagged_impl(struct sess *sess, int fd, const void *buf, size_t sz,
+    enum iotag iotag, bool raise_errors)
 {
 	int32_t	 tag, tagbuf;
 	size_t	 wsz;
@@ -340,7 +359,8 @@ io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
 	    iotag == IT_DATA) {
 		if (fd != sess->wbatch_fd &&
 		    !io_write_blocking(sess->wbatch_fd, buf, sz)) {
-			ERRX("write outgoing to batch");
+			if (raise_errors)
+				ERRX("write outgoing to batch");
 			return 0;
 		}
 	}
@@ -351,7 +371,7 @@ io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
 		 * we're going to have a bad time.
 		 */
 		assert(iotag == IT_DATA);
-		c = io_write_blocking(fd, buf, sz);
+		c = io_write_blocking_impl(fd, buf, sz, raise_errors);
 		sess->total_write += sz;
 		return c;
 	}
@@ -380,7 +400,8 @@ io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
 		iov[1].iov_len = wsz;
 
 		if (!io_writev_blocking(fd, iov, 2)) {
-			ERRX1("io_writev_blocking");
+			if (raise_errors)
+				ERRX1("io_writev_blocking");
 			return 0;
 		}
 
@@ -389,6 +410,22 @@ io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
 		buf += wsz;
 	}
 	return 1;
+}
+
+/* See above - raise errors at will, it should be safe. */
+int
+io_write_buf_tagged(struct sess *sess, int fd, const void *buf, size_t sz,
+    enum iotag iotag)
+{
+	return io_write_buf_tagged_impl(sess, fd, buf, sz, iotag, true);
+}
+
+/* See above -- don't raise errors to avoid recursion. */
+int
+io_write_buf_tagged_safe(struct sess *sess, int fd, const void *buf, size_t sz,
+    enum iotag iotag)
+{
+	return io_write_buf_tagged_impl(sess, fd, buf, sz, iotag, false);
 }
 
 int
@@ -920,9 +957,9 @@ io_lowbuffer_vstring(struct sess *sess, void *buf, size_t *bufpos,
  * And not sizeof(int32_t) * 2 or whatnot.
  * Returns zero on failure, non-zero on success.
  */
-int
-io_lowbuffer_alloc(struct sess *sess, void **buf,
-	size_t *bufsz, size_t *bufmax, size_t sz)
+static int
+io_lowbuffer_alloc_impl(struct sess *sess, void **buf,
+	size_t *bufsz, size_t *bufmax, size_t sz, bool raise_errors)
 {
 	void	*pp;
 	size_t	 extra;
@@ -932,7 +969,8 @@ io_lowbuffer_alloc(struct sess *sess, void **buf,
 	if (*bufsz + sz + extra > *bufmax) {
 		pp = realloc(*buf, *bufsz + sz + extra);
 		if (pp == NULL) {
-			ERR("realloc");
+			if (raise_errors)
+				ERR("realloc");
 			return 0;
 		}
 		*buf = pp;
@@ -940,6 +978,20 @@ io_lowbuffer_alloc(struct sess *sess, void **buf,
 	}
 	*bufsz += sz + extra;
 	return 1;
+}
+
+int
+io_lowbuffer_alloc(struct sess *sess, void **buf,
+	size_t *bufsz, size_t *bufmax, size_t sz)
+{
+	return io_lowbuffer_alloc_impl(sess, buf, bufsz, bufmax, sz, true);
+}
+
+int
+io_lowbuffer_alloc_safe(struct sess *sess, void **buf,
+	size_t *bufsz, size_t *bufmax, size_t sz)
+{
+	return io_lowbuffer_alloc_impl(sess, buf, bufsz, bufmax, sz, false);
 }
 
 /*

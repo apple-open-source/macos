@@ -22,6 +22,7 @@
 #if ENABLE(WEB_RTC) && USE(GSTREAMER_WEBRTC)
 #include "GStreamerWebRTCUtils.h"
 
+#include "GStreamerRegistryScanner.h"
 #include "OpenSSLCryptoUniquePtr.h"
 #include "RTCIceCandidate.h"
 #include "RTCIceProtocol.h"
@@ -210,25 +211,15 @@ RTCRtpSendParameters toRTCRtpSendParameters(const GstStructure* rtcParameters)
     if (auto transactionId = gstStructureGetString(rtcParameters, "transaction-id"_s))
         parameters.transactionId = makeString(transactionId);
 
-    if (auto encodings = gst_structure_get_value(rtcParameters, "encodings")) {
-        unsigned size = gst_value_list_get_size(encodings);
-        parameters.encodings.reserveInitialCapacity(size);
-        for (unsigned i = 0; i < size; i++) {
-            const auto value = gst_value_list_get_value(encodings, i);
-            RELEASE_ASSERT(GST_VALUE_HOLDS_STRUCTURE(value));
-            parameters.encodings.append(toRTCEncodingParameters(gst_value_get_structure(value)));
-        }
-    }
+    auto encodings = gstStructureGetList<const GstStructure*>(rtcParameters, "encodings"_s);
+    parameters.encodings.reserveInitialCapacity(encodings.size());
+    for (const auto& encoding : encodings)
+        parameters.encodings.append(toRTCEncodingParameters(encoding));
 
-    if (auto codecs = gst_structure_get_value(rtcParameters, "codecs")) {
-        unsigned size = gst_value_list_get_size(codecs);
-        parameters.codecs.reserveInitialCapacity(size);
-        for (unsigned i = 0; i < size; i++) {
-            const auto value = gst_value_list_get_value(codecs, i);
-            RELEASE_ASSERT(GST_VALUE_HOLDS_STRUCTURE(value));
-            parameters.codecs.append(toRTCCodecParameters(gst_value_get_structure(value)));
-        }
-    }
+    auto codecs = gstStructureGetList<const GstStructure*>(rtcParameters, "codecs"_s);
+    parameters.codecs.reserveInitialCapacity(codecs.size());
+    for (const auto& codec : codecs)
+        parameters.codecs.append(toRTCCodecParameters(codec));
 
     // FIXME: The rtcp parameters should not be hardcoded.
     parameters.rtcp.cname = "unused"_s;
@@ -294,7 +285,8 @@ enum class NextSDPField {
     Raddr,
     Rport,
     TcpType,
-    Ufrag
+    Ufrag,
+    Generation
 };
 
 std::optional<RTCIceCandidate::Fields> parseIceCandidateSDP(const String& sdp)
@@ -369,6 +361,8 @@ std::optional<RTCIceCandidate::Fields> parseIceCandidateSDP(const String& sdp)
                 nextSdpField = NextSDPField::TcpType;
             else if (token == "ufrag"_s)
                 nextSdpField = NextSDPField::Ufrag;
+            else if (token == "generation"_s)
+                nextSdpField = NextSDPField::Generation;
             else {
                 switch (nextSdpField) {
                 case NextSDPField::None:
@@ -387,6 +381,10 @@ std::optional<RTCIceCandidate::Fields> parseIceCandidateSDP(const String& sdp)
                     break;
                 case NextSDPField::Ufrag:
                     usernameFragment = tokenString;
+                    break;
+                case NextSDPField::Generation:
+                    // Unsupported.
+                    GST_WARNING("Unsupported 'generation' ICE candidate field detected when parsing \"%s\"", sdp.utf8().data());
                     break;
                 }
             }
@@ -428,13 +426,12 @@ static String x509Serialize(X509* x509)
     if (!PEM_write_bio_X509(bio.get(), x509))
         return { };
 
-    Vector<char> buffer;
-    buffer.reserveCapacity(4096);
-    int length = BIO_read(bio.get(), buffer.data(), 4096);
-    if (!length)
+    uint8_t* data { nullptr };
+    auto length = BIO_get_mem_data(bio.get(), &data);
+    if (length <= 0)
         return { };
 
-    return buffer.subspan(0, length);
+    return String::fromUTF8(unsafeMakeSpan(data, length));
 }
 
 static String privateKeySerialize(EVP_PKEY* privateKey)
@@ -446,13 +443,12 @@ static String privateKeySerialize(EVP_PKEY* privateKey)
     if (!PEM_write_bio_PrivateKey(bio.get(), privateKey, nullptr, nullptr, 0, nullptr, nullptr))
         return { };
 
-    Vector<char> buffer;
-    buffer.reserveCapacity(4096);
-    int length = BIO_read(bio.get(), buffer.data(), 4096);
-    if (!length)
+    uint8_t* data { nullptr };
+    auto length = BIO_get_mem_data(bio.get(), &data);
+    if (length <= 0)
         return { };
 
-    return buffer.subspan(0, length);
+    return String::fromUTF8(unsafeMakeSpan(data, length));
 }
 
 std::optional<Ref<RTCCertificate>> generateCertificate(Ref<SecurityOrigin>&& origin, const PeerConnectionBackend::CertificateInformation& info)
@@ -607,7 +603,7 @@ GRefPtr<GstCaps> capsFromRtpCapabilities(const RTCRtpCapabilities& capabilities,
     for (unsigned index = 0; auto& codec : capabilities.codecs) {
         auto components = codec.mimeType.split('/');
         auto* codecStructure = gst_structure_new("application/x-rtp", "media", G_TYPE_STRING, components[0].ascii().data(),
-            "encoding-name", G_TYPE_STRING, components[1].convertToASCIIUppercase().ascii().data() , "clock-rate", G_TYPE_INT, codec.clockRate, nullptr);
+            "encoding-name", G_TYPE_STRING, components[1].convertToASCIIUppercase().ascii().data(), "clock-rate", G_TYPE_INT, codec.clockRate, nullptr);
 
         if (!codec.sdpFmtpLine.isEmpty()) {
             for (auto& fmtp : codec.sdpFmtpLine.split(';')) {
@@ -702,6 +698,27 @@ GRefPtr<GstCaps> capsFromSDPMedia(const GstSDPMedia* media)
                 auto fieldId = gstIdToString(id);
                 return !fieldId.startsWith("ssrc-"_s);
             });
+
+            // Remove unsupported RTP header extensions.
+            gstStructureFilterAndMapInPlace(structure, [&](auto id, auto value) -> bool {
+                auto fieldId = gstIdToString(id);
+                if (!fieldId.startsWith("extmap-"_s))
+                    return true;
+
+                StringView uri;
+                if (G_VALUE_HOLDS_STRING(value))
+                    uri = StringView::fromLatin1(g_value_get_string(value));
+                else if (GST_VALUE_HOLDS_ARRAY(value) && gst_value_array_get_size(value) >= 2) {
+                    // Handle the case where the extension is declared as an array (direction, uri, parameters).
+                    const auto uriValue = gst_value_array_get_value(value, 1);
+                    uri = StringView::fromLatin1(g_value_get_string(uriValue));
+                }
+                if (uri.isEmpty()) [[unlikely]]
+                    return true;
+
+                return GStreamerRegistryScanner::singleton().isRtpHeaderExtensionSupported(uri);
+            });
+
             // Align with caps from RealtimeOutgoingAudioSourceGStreamer
             setSsrcAudioLevelVadOn(structure);
         }
@@ -776,6 +793,335 @@ void forEachTransceiver(const GRefPtr<GstElement>& webrtcBin, Function<bool(GRef
         if (function(WTFMove(current)))
             break;
     }
+}
+
+#define CRLF "\r\n"_s
+
+class SDPStringBuilder {
+public:
+    SDPStringBuilder(const GstSDPMessage*);
+
+    String toString() { return m_stringBuilder.toString(); }
+
+private:
+    void appendAttribute(const GstSDPAttribute*);
+    void appendConnection(const GstSDPConnection*);
+    void appendKey(const GstSDPKey*);
+    void appendBandwidth(const GstSDPBandwidth*);
+    void appendMedia(const GstSDPMedia*);
+
+    StringBuilder m_stringBuilder;
+};
+
+void SDPStringBuilder::appendAttribute(const GstSDPAttribute* attribute)
+{
+    if (!attribute->key)
+        return;
+
+    StringView key = unsafeSpan(attribute->key);
+    auto value = String::fromUTF8(attribute->value);
+    if (key == "extmap"_s) {
+        auto tokens = value.split(' ');
+        if (tokens.size() < 2) [[unlikely]]
+            return;
+        if (!GStreamerRegistryScanner::singleton().isRtpHeaderExtensionSupported(tokens[1]))
+            return;
+    }
+
+    m_stringBuilder.append("a="_s, key);
+    if (!value.isEmpty())
+        m_stringBuilder.append(':', value);
+    m_stringBuilder.append(CRLF);
+}
+
+void SDPStringBuilder::appendConnection(const GstSDPConnection* connection)
+{
+    if (!connection->nettype || !connection->addrtype || !connection->address)
+        return;
+
+    m_stringBuilder.append("c="_s, unsafeSpan(connection->nettype), ' ', unsafeSpan(connection->addrtype), ' ', unsafeSpan(connection->address));
+    if (gst_sdp_address_is_multicast(connection->nettype, connection->addrtype, connection->address)) {
+        StringView addrType = unsafeSpan(connection->addrtype);
+        if (addrType == "IP4"_s)
+            m_stringBuilder.append('/', connection->ttl);
+        if (connection->addr_number > 1)
+            m_stringBuilder.append('/', connection->addr_number);
+    }
+    m_stringBuilder.append(CRLF);
+}
+
+void SDPStringBuilder::appendBandwidth(const GstSDPBandwidth* bandwidth)
+{
+    m_stringBuilder.append("b="_s, unsafeSpan(bandwidth->bwtype), ':', bandwidth->bandwidth, CRLF);
+}
+
+void SDPStringBuilder::appendKey(const GstSDPKey* key)
+{
+    if (!key->type)
+        return;
+
+    m_stringBuilder.append("k="_s, unsafeSpan(key->type));
+
+    if (key->data)
+        m_stringBuilder.append(':', unsafeSpan(key->data));
+    m_stringBuilder.append(CRLF);
+}
+
+void SDPStringBuilder::appendMedia(const GstSDPMedia* media)
+{
+    m_stringBuilder.append("m="_s, unsafeSpan(gst_sdp_media_get_media(media)), ' ', gst_sdp_media_get_port(media));
+
+    auto ports = gst_sdp_media_get_num_ports(media);
+    if (ports > 1)
+        m_stringBuilder.append('/', ports);
+
+    m_stringBuilder.append(' ', unsafeSpan(gst_sdp_media_get_proto(media)));
+
+    unsigned totalFormats = gst_sdp_media_formats_len(media);
+    for (unsigned i = 0; i < totalFormats; i++)
+        m_stringBuilder.append(' ', unsafeSpan(gst_sdp_media_get_format(media, i)));
+    m_stringBuilder.append(CRLF);
+
+    if (const char* info = gst_sdp_media_get_information(media))
+        m_stringBuilder.append("i="_s, unsafeSpan(info), CRLF);
+
+    unsigned totalConnections = gst_sdp_media_connections_len(media);
+    for (unsigned i = 0; i < totalConnections; i++)
+        appendConnection(gst_sdp_media_get_connection(media, i));
+
+    auto totalBandwidths = gst_sdp_media_bandwidths_len(media);
+    for (unsigned i = 0; i < totalBandwidths; i++)
+        appendBandwidth(gst_sdp_media_get_bandwidth(media, i));
+
+    appendKey(gst_sdp_media_get_key(media));
+
+    unsigned totalAttributes = gst_sdp_media_attributes_len(media);
+    for (unsigned i = 0; i < totalAttributes; i++)
+        appendAttribute(gst_sdp_media_get_attribute(media, i));
+}
+
+String sdpAsString(const GstSDPMessage* sdp)
+{
+    SDPStringBuilder builder(sdp);
+    return builder.toString();
+}
+
+SDPStringBuilder::SDPStringBuilder(const GstSDPMessage* sdp)
+{
+    m_stringBuilder.append("v="_s, unsafeSpan(gst_sdp_message_get_version(sdp)), CRLF);
+
+    const auto origin = gst_sdp_message_get_origin(sdp);
+    if (origin->sess_id && origin->sess_version && origin->nettype && origin->addrtype && origin->addr) {
+        m_stringBuilder.append("o="_s, unsafeSpan(origin->username ? origin->username : "-"), ' ', unsafeSpan(origin->sess_id),
+            ' ', unsafeSpan(origin->sess_version), ' ', unsafeSpan(origin->nettype),
+            ' ', unsafeSpan(origin->addrtype), ' ', unsafeSpan(origin->addr), CRLF);
+    }
+
+    if (const char* name = gst_sdp_message_get_session_name(sdp))
+        m_stringBuilder.append("s="_s, unsafeSpan(name), CRLF);
+
+    if (const char* info = gst_sdp_message_get_information(sdp))
+        m_stringBuilder.append("i="_s, unsafeSpan(info), CRLF);
+
+    if (const char* uri = gst_sdp_message_get_uri(sdp))
+        m_stringBuilder.append("u="_s, unsafeSpan(uri), CRLF);
+
+    unsigned totalEmails = gst_sdp_message_emails_len(sdp);
+    for (unsigned i = 0; i < totalEmails; i++)
+        m_stringBuilder.append("e="_s, unsafeSpan(gst_sdp_message_get_email(sdp, i)), CRLF);
+
+    unsigned totalPhones = gst_sdp_message_phones_len(sdp);
+    for (unsigned i = 0; i < totalPhones; i++)
+        m_stringBuilder.append("p="_s, unsafeSpan(gst_sdp_message_get_phone(sdp, i)), CRLF);
+
+    appendConnection(gst_sdp_message_get_connection(sdp));
+
+    auto totalBandwidths = gst_sdp_message_bandwidths_len(sdp);
+    for (unsigned i = 0; i < totalBandwidths; i++)
+        appendBandwidth(gst_sdp_message_get_bandwidth(sdp, i));
+
+    if (!gst_sdp_message_times_len(sdp))
+        m_stringBuilder.append("t=0 0"_s, CRLF);
+    else {
+        unsigned totalTimes = gst_sdp_message_times_len(sdp);
+        for (unsigned i = 0; i < totalTimes; i++) {
+            const auto time = gst_sdp_message_get_time(sdp, i);
+
+            m_stringBuilder.append("t="_s, unsafeSpan(time->start), ' ', unsafeSpan(time->stop), CRLF);
+            if (time->repeat) {
+                m_stringBuilder.append("r="_s, unsafeSpan(g_array_index(time->repeat, char*, 0)));
+                for (unsigned ii = 0; ii < time->repeat->len; ii++)
+                    m_stringBuilder.append(' ', unsafeSpan(g_array_index(time->repeat, char*, i)));
+                m_stringBuilder.append(CRLF);
+            }
+        }
+    }
+
+    if (unsigned totalZones = gst_sdp_message_zones_len(sdp)) {
+        const auto zone = gst_sdp_message_get_zone(sdp, 0);
+        m_stringBuilder.append("z="_s, unsafeSpan(zone->time), ' ', unsafeSpan(zone->typed_time));
+        for (unsigned i = 1; i < totalZones; i++) {
+            const auto zone = gst_sdp_message_get_zone(sdp, i);
+            m_stringBuilder.append(' ', unsafeSpan(zone->time), ' ', unsafeSpan(zone->typed_time));
+        }
+        m_stringBuilder.append(CRLF);
+    }
+
+    appendKey(gst_sdp_message_get_key(sdp));
+
+    unsigned totalSessionAttributes = gst_sdp_message_attributes_len(sdp);
+    for (unsigned i = 0; i < totalSessionAttributes; i++)
+        appendAttribute(gst_sdp_message_get_attribute(sdp, i));
+
+    unsigned totalMedias = gst_sdp_message_medias_len(sdp);
+    for (unsigned i = 0; i < totalMedias; i++)
+        appendMedia(gst_sdp_message_get_media(sdp, i));
+}
+
+bool sdpMediaHasRTPHeaderExtension(const GstSDPMedia* media, const String& uri)
+{
+    unsigned totalAttributes = gst_sdp_media_attributes_len(media);
+    for (unsigned i = 0; i < totalAttributes; i++) {
+        const auto attribute = gst_sdp_media_get_attribute(media, i);
+        auto key = StringView::fromLatin1(attribute->key);
+        if (key != "extmap"_s)
+            continue;
+
+        auto value = String::fromUTF8(attribute->value);
+        Vector<String> tokens = value.split(' ');
+        if (tokens.size() < 2) [[unlikely]]
+            continue;
+
+        if (tokens[1] == uri)
+            return true;
+    }
+    return false;
+}
+
+#undef CRLF
+
+GRefPtr<GstCaps> extractMidAndRidFromRTPBuffer(const GstMappedRtpBuffer& buffer, const GstSDPMessage* sdp)
+{
+    unsigned totalMedias = gst_sdp_message_medias_len(sdp);
+    for (unsigned i = 0; i < totalMedias; i++) {
+        const auto media = gst_sdp_message_get_media(sdp, i);
+        auto mediaCaps = adoptGRef(gst_caps_new_empty_simple("application/x-rtp"));
+        uint8_t midExtID = 0;
+        uint8_t ridExtID = 0;
+
+        gst_sdp_media_attributes_to_caps(media, mediaCaps.get());
+        auto s = gst_caps_get_structure(mediaCaps.get(), 0);
+        for (int ii = 0; ii < gst_structure_n_fields(s); ii++) {
+            auto name = StringView::fromLatin1(gst_structure_nth_field_name(s, ii));
+            if (!name.startsWith("extmap-"_s))
+                continue;
+
+            auto value = gstStructureGetString(s, name);
+            if (value == StringView::fromLatin1(GST_RTP_HDREXT_BASE "sdes:mid")) {
+                auto id = parseInteger<uint8_t>(name.substring(7));
+                if (!id) [[unlikely]]
+                    continue;
+                if (*id && *id < 15)
+                    midExtID = *id;
+            } else if (value == StringView::fromLatin1(GST_RTP_HDREXT_BASE "sdes:rtp-stream-id")) {
+                auto id = parseInteger<uint8_t>(name.substring(7));
+                if (!id) [[unlikely]]
+                    continue;
+                if (*id && *id < 15)
+                    ridExtID = *id;
+            }
+            if (midExtID && ridExtID)
+                break;
+        }
+
+        if (!midExtID)
+            continue;
+
+        GST_DEBUG("Probed midExtID %u and ridExtID %u from SDP", midExtID, ridExtID);
+
+        uint8_t* pdata;
+        uint16_t bits;
+        unsigned wordLength;
+        if (!gst_rtp_buffer_get_extension_data(buffer.mappedData(), &bits, reinterpret_cast<gpointer*>(&pdata), &wordLength))
+            continue;
+
+        GstRTPHeaderExtensionFlags extensionFlags;
+        gsize byteLength = wordLength * 4;
+        guint headerUnitTypes;
+        gsize offset = 0;
+        GUniquePtr<char> mid, rid;
+
+        if (bits == 0xBEDE) {
+            headerUnitTypes = 1;
+            extensionFlags = static_cast<GstRTPHeaderExtensionFlags>(GST_RTP_HEADER_EXTENSION_ONE_BYTE);
+        } else if (bits >> 4 == 0x100) {
+            headerUnitTypes = 2;
+            extensionFlags = static_cast<GstRTPHeaderExtensionFlags>(GST_RTP_HEADER_EXTENSION_TWO_BYTE);
+        } else {
+            GST_DEBUG("Unknown extension bit pattern 0x%02x%02x", bits >> 8, bits & 0xff);
+            continue;
+        }
+
+        while (true) {
+            guint8 readId, readLength;
+
+            // Not enough remaining data.
+            if (offset + headerUnitTypes >= byteLength)
+                break;
+
+            if (extensionFlags & GST_RTP_HEADER_EXTENSION_ONE_BYTE) {
+                readId = GST_READ_UINT8(pdata + offset) >> 4;
+                readLength = (GST_READ_UINT8(pdata + offset) & 0x0F) + 1;
+                offset++;
+
+                // Padding.
+                if (!readId)
+                    continue;
+
+                // Special id for possible future expansion.
+                if (readId == 15)
+                    break;
+            } else {
+                readId = GST_READ_UINT8(pdata + offset);
+                offset += 1;
+
+                // Padding.
+                if (!readId)
+                    continue;
+
+                readLength = GST_READ_UINT8(pdata + offset);
+                offset++;
+            }
+            GST_TRACE("Found rtp header extension with id %u and length %u", readId, readLength);
+
+            // Ignore extension headers where the size does not fit.
+            if (offset + readLength > byteLength) {
+                GST_WARNING("Extension length extends past the size of the extension data");
+                break;
+            }
+
+            const char* data = reinterpret_cast<const char*>(&pdata[offset]);
+            if (readId == midExtID)
+                mid.reset(g_strndup(data, readLength));
+            else if (readId == ridExtID)
+                rid.reset(g_strndup(data, readLength));
+
+            if (rid && mid)
+                break;
+
+            offset += readLength;
+        }
+
+        if (mid) {
+            gst_caps_set_simple(mediaCaps.get(), "a-mid", G_TYPE_STRING, mid.get(), nullptr);
+
+            if (rid)
+                gst_caps_set_simple(mediaCaps.get(), "a-rid", G_TYPE_STRING, rid.get(), nullptr);
+
+            return mediaCaps;
+        }
+    }
+    return nullptr;
 }
 
 #undef GST_CAT_DEFAULT

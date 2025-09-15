@@ -73,10 +73,10 @@
     self.escrowRequest = [[SecEscrowRequest alloc] initWithConnection:mockConnection];
 
     SecSetCustomHomeURLString((__bridge CFStringRef) tmp_dir);
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     // Actually load the database.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 }
 
 

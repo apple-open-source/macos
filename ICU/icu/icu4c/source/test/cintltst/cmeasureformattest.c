@@ -264,6 +264,9 @@ static const SingleUnitFormat pl_singFmt[] = {
     // rdar://84870068
     { UAMEASUNIT_DURATION_DAY,  1, "1,00 dnia",  "1 dzie\\u0144",  "1 dzie\\u0144",  "1,0 dnia",  "1 d.",  "1 d.",  0,1,   0,1 },
     { UAMEASUNIT_DURATION_DAY,  2, "2,00 dnia",  "2 dni",          "2 dni",          "2,0 dnia",  "2 dn.", "2 dn.", 0,1,   0,1 },
+    // rdar://146955919
+    { UAMEASUNIT_TEMPERATURE_CELSIUS,    35, "35,00 stopnia Celsjusza",   "35 stopni Celsjusza",   "35\\u00b0C", "35,0\\u00b0C", "35\\u00b0",  "35\\u00b0", 0,2, 0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT, 35, "35,00 stopnia Fahrenheita", "35 stopni Fahrenheita", "35\\u00b0F", "35,0\\u00b0F", "35\\u00b0F", "35\\u00b0", 0,2, 0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 

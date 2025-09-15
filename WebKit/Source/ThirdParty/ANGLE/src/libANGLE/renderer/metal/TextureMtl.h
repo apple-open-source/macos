@@ -313,7 +313,7 @@ class TextureMtl : public TextureImpl
                                       const uint8_t *pixels,
                                       const mtl::TextureRef &image);
 
-    // Convert pixels to suported format before uploading to texture
+    // Convert pixels to supported format before uploading to texture.
     angle::Result convertAndSetPerSliceSubImage(const gl::Context *context,
                                                 int slice,
                                                 const MTLRegion &mtlArea,

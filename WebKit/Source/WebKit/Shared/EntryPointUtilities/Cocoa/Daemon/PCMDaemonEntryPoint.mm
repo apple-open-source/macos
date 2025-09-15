@@ -41,7 +41,7 @@
 #import <wtf/RunLoop.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/cocoa/Entitlements.h>
-#import <wtf/spi/darwin/XPCSPI.h>
+#import <wtf/darwin/XPCExtras.h>
 
 // FIXME: Add daemon plist to repository.
 
@@ -68,7 +68,7 @@ static void connectionEventHandler(xpc_object_t request)
     }
 
     auto messageType { static_cast<PCM::MessageType>(xpc_dictionary_get_uint64(request, PCM::protocolMessageTypeKey)) };
-    auto encodedMessage = xpc_dictionary_get_data_span(request, PCM::protocolEncodedMessageKey);
+    auto encodedMessage = xpcDictionaryGetData(request, PCM::protocolEncodedMessageKey);
     decodeMessageAndSendToManager(Daemon::Connection::create(xpc_dictionary_get_remote_connection(request)), messageType, encodedMessage, replySender(messageType, request));
 }
 
@@ -122,26 +122,22 @@ static void connectionRemoved(xpc_connection_t connection)
     PCM::DaemonConnectionSet::singleton().remove(connection);
 }
 
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-
 int PCMDaemonMain(int argc, const char** argv)
 {
     auto arguments = unsafeMakeSpan(argv, argc);
-    if (arguments.size() < 5 || strcmp(arguments[1], "--machServiceName") || strcmp(arguments[3], "--storageLocation")) {
+    if (arguments.size() < 5 || !equalSpans(unsafeSpan(arguments[1]), "--machServiceName"_span) || !equalSpans(unsafeSpan(arguments[3]), "--storageLocation"_span)) {
         NSLog(@"Usage: %s --machServiceName <name> --storageLocation <location> [--startActivity]", arguments[0]);
         return -1;
     }
     const char* machServiceName = arguments[2];
     const char* storageLocation = arguments[4];
-    bool startActivity = arguments.size() > 5 && !strcmp(arguments[5], "--startActivity");
+    bool startActivity = arguments.size() > 5 && equalSpans(unsafeSpan(arguments[5]), "--startActivity"_span);
 
     @autoreleasepool {
 #if ENABLE(CFPREFS_DIRECT_MODE)
         _CFPrefsSetDirectModeEnabled(YES);
 #endif
-#if HAVE(CF_PREFS_SET_READ_ONLY)
         _CFPrefsSetReadOnly(YES);
-#endif
         enterSandbox();
         startListeningForMachServiceConnections(machServiceName, "com.apple.private.webkit.adattributiond"_s, connectionAdded, connectionRemoved, connectionEventHandler);
         if (startActivity)
@@ -152,7 +148,5 @@ int PCMDaemonMain(int argc, const char** argv)
     CFRunLoopRun();
     return 0;
 }
-
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 } // namespace WebKit

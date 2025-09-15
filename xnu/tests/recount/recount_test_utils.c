@@ -188,8 +188,9 @@ run_on_all_perf_levels(void)
 	}
 
 	T_SETUPBEGIN;
-	bind_to_cluster('P');
-	bind_to_cluster('E');
+	for (unsigned int i = 0; i < perf_level_count(); i++) {
+		bind_to_cluster(perf_level_name(i)[0]);
+	}
 	// Return to the kernel to synchronize timings with the scheduler.
 	(void)getppid();
 	_unbind_from_cluster();
@@ -213,13 +214,14 @@ run_in_exclaves_on_all_perf_levels(void)
 {
 	if (perf_level_count() == 1) {
 		_run_on_exclaves();
+		return;
 	}
 
 	T_SETUPBEGIN;
-	bind_to_cluster('P');
-	_run_on_exclaves();
-	bind_to_cluster('E');
-	_run_on_exclaves();
+	for (unsigned int i = 0; i < perf_level_count(); i++) {
+		bind_to_cluster(perf_level_name(i)[0]);
+		_run_on_exclaves();
+	}
 	_unbind_from_cluster();
 	T_SETUPEND;
 }

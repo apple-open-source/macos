@@ -22,6 +22,7 @@
 #include "JSTestStringifierAnonymousOperation.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -159,7 +160,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestStringifierAnonymousOperationConstructor, (JSGlob
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierAnonymousOperationPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestStringifierAnonymousOperation::getConstructor(vm, prototype->globalObject()));
 }
@@ -181,7 +182,7 @@ JSC_DEFINE_HOST_FUNCTION(jsTestStringifierAnonymousOperationPrototypeFunction_to
 
 JSC::GCClient::IsoSubspace* JSTestStringifierAnonymousOperation::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestStringifierAnonymousOperation, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestStringifierAnonymousOperation, UseCustomHeapCellType::No>(vm, "JSTestStringifierAnonymousOperation"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestStringifierAnonymousOperation.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestStringifierAnonymousOperation = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestStringifierAnonymousOperation.get(); },
@@ -221,7 +222,9 @@ extern "C" { extern void (*const __identifier("??_7TestStringifierAnonymousOpera
 #else
 extern "C" { extern void* _ZTVN7WebCore33TestStringifierAnonymousOperationE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestStringifierAnonymousOperation>, void>> static inline void verifyVTable(TestStringifierAnonymousOperation* ptr) {
+template<std::same_as<TestStringifierAnonymousOperation> T>
+static inline void verifyVTable(TestStringifierAnonymousOperation* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

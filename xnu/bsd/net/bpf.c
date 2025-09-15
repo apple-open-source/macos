@@ -140,7 +140,7 @@
 #include <net/sockaddr_utils.h>
 
 extern int tvtohz(struct timeval *);
-extern const char *proc_name_address(void *p);
+extern const char *proc_name_address(void *);
 
 #define BPF_BUFSIZE 4096
 
@@ -237,9 +237,9 @@ static lck_mtx_t *const bpf_mlock = &bpf_mlock_data;
 
 static int      bpf_allocbufs(struct bpf_d *);
 static errno_t  bpf_attachd(struct bpf_d *d, struct bpf_if *bp);
-static int      bpf_detachd(struct bpf_d *d);
+static int      bpf_detachd(struct bpf_d *d, struct proc *);
 static void     bpf_freed(struct bpf_d *);
-static int      bpf_setif(struct bpf_d *, ifnet_t ifp, bool, bool, bool);
+static int      bpf_setif(struct bpf_d *, ifnet_t ifp, bool, bool, bool, struct proc *);
 static void     bpf_timed_out(void *, void *);
 static void     bpf_wakeup(struct bpf_d *);
 static uint32_t get_pkt_trunc_len(struct bpf_packet *);
@@ -247,7 +247,7 @@ static void     catchpacket(struct bpf_d *, struct bpf_packet *, u_int, int);
 static void     reset_d(struct bpf_d *);
 static int      bpf_setf(struct bpf_d *, u_int, user_addr_t, u_long);
 static int      bpf_getdltlist(struct bpf_d *, caddr_t __bidi_indexable, struct proc *);
-static int      bpf_setdlt(struct bpf_d *, u_int);
+static int      bpf_setdlt(struct bpf_d *, u_int, struct proc *);
 static int      bpf_set_traffic_class(struct bpf_d *, int);
 static void     bpf_set_packet_service_class(struct mbuf *, int);
 
@@ -769,7 +769,7 @@ bpf_attachd(struct bpf_d *d, struct bpf_if *bp)
  * Return 1 if was closed by some thread, 0 otherwise
  */
 static int
-bpf_detachd(struct bpf_d *d)
+bpf_detachd(struct bpf_d *d, struct proc *proc)
 {
 	struct bpf_d **p;
 	struct bpf_if *bp;
@@ -878,9 +878,9 @@ bpf_detachd(struct bpf_d *d)
 	/* Refresh the local variable as d could have been modified */
 	bpf_closed = d->bd_flags & BPF_CLOSING;
 
-	os_log(OS_LOG_DEFAULT, "bpf%d%s detached from %s fcount %llu dcount %llu",
+	os_log(OS_LOG_DEFAULT, "bpf%d%s detached from %s fcount %llu dcount %llu by %s:%u",
 	    d->bd_dev_minor, bpf_closed ? " closed and" : "", if_name(ifp),
-	    d->bd_fcount, d->bd_dcount);
+	    d->bd_fcount, d->bd_dcount, proc_name_address(proc), proc_pid(proc));
 
 	/*
 	 * Note that We've kept the reference because we may have dropped
@@ -995,7 +995,7 @@ bpf_release_d(struct bpf_d *d)
 /* ARGSUSED */
 int
 bpfopen(dev_t dev, int flags, __unused int fmt,
-    struct proc *p)
+    struct proc *proc)
 {
 	struct bpf_d *d;
 
@@ -1068,9 +1068,11 @@ bpfopen(dev_t dev, int flags, __unused int fmt,
 
 		return ENOMEM;
 	}
-	d->bd_opened_by = p;
+
+	/* Use the proc pointer for comparaison so no need to take a reference */
+	d->bd_opened_by = proc;
 	uuid_generate(d->bd_uuid);
-	d->bd_pid = proc_pid(p);
+	d->bd_pid = proc_pid(proc);
 
 	d->bd_dev_minor = minor(dev);
 	bpf_dtab[minor(dev)] = d;         /* Mark opened */
@@ -1078,7 +1080,7 @@ bpfopen(dev_t dev, int flags, __unused int fmt,
 
 	if (bpf_debug) {
 		os_log(OS_LOG_DEFAULT, "bpf%u opened by %s.%u",
-		    d->bd_dev_minor, proc_name_address(p), d->bd_pid);
+		    d->bd_dev_minor, proc_name_address(proc), d->bd_pid);
 	}
 	return 0;
 }
@@ -1090,7 +1092,7 @@ bpfopen(dev_t dev, int flags, __unused int fmt,
 /* ARGSUSED */
 int
 bpfclose(dev_t dev, __unused int flags, __unused int fmt,
-    __unused struct proc *p)
+    struct proc *proc)
 {
 	struct bpf_d *d;
 
@@ -1171,7 +1173,7 @@ bpfclose(dev_t dev, __unused int flags, __unused int fmt,
 	}
 
 	if (d->bd_bif) {
-		bpf_detachd(d);
+		bpf_detachd(d, proc);
 	}
 	selthreadclear(&d->bd_sel);
 	thread_call_free(d->bd_thread_call);
@@ -1183,7 +1185,7 @@ bpfclose(dev_t dev, __unused int flags, __unused int fmt,
 	if (bpf_debug) {
 		os_log(OS_LOG_DEFAULT,
 		    "bpf%u closed by %s.%u dcount %llu fcount %llu ccount %llu",
-		    d->bd_dev_minor, proc_name_address(p), d->bd_pid,
+		    d->bd_dev_minor, proc_name_address(proc), proc_pid(proc),
 		    d->bd_dcount, d->bd_fcount, d->bd_bcs.bcs_count_compressed_prefix);
 	}
 
@@ -1789,7 +1791,7 @@ bpf_get_device_from_uuid(uuid_t uuid)
  * the BPF global lock
  */
 static int
-bpf_setup(struct bpf_d *d_to, uuid_t uuid_from, ifnet_t ifp)
+bpf_setup(struct bpf_d *d_to, uuid_t uuid_from, ifnet_t ifp, struct proc *proc)
 {
 	struct bpf_d *d_from;
 	int error = 0;
@@ -1915,7 +1917,7 @@ bpf_setup(struct bpf_d *d_to, uuid_t uuid_from, ifnet_t ifp)
 	 * - we already prevent reads and writes
 	 * - the buffers are already allocated
 	 */
-	error = bpf_setif(d_to, ifp, false, true, true);
+	error = bpf_setif(d_to, ifp, false, true, true, proc);
 	if (error != 0) {
 		os_log_error(OS_LOG_DEFAULT,
 		    "%s: bpf_setif() failed error %d",
@@ -1992,7 +1994,7 @@ done:
 	X(BIOCSNOTSTAMP)
 
 static void
-log_bpf_ioctl_str(struct bpf_d *d, u_long cmd)
+log_bpf_ioctl_str(struct bpf_d *d, u_long cmd, int error)
 {
 	const char *p = NULL;
 	char str[32];
@@ -2006,8 +2008,8 @@ log_bpf_ioctl_str(struct bpf_d *d, u_long cmd)
 		snprintf(str, sizeof(str), "0x%08x", (unsigned int)cmd);
 		p = str;
 	}
-	os_log(OS_LOG_DEFAULT, "bpfioctl bpf%u %s",
-	    d->bd_dev_minor, p);
+	os_log(OS_LOG_DEFAULT, "bpfioctl bpf%u %s error: %d",
+	    d->bd_dev_minor, p, error);
 }
 #endif /* DEVELOPMENT || DEBUG */
 
@@ -2039,7 +2041,7 @@ log_bpf_ioctl_str(struct bpf_d *d, u_long cmd)
 /* ARGSUSED */
 int
 bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
-    __unused int flags, struct proc *p)
+    __unused int flags, struct proc *proc)
 {
 	struct bpf_d *d;
 	int error = 0;
@@ -2060,12 +2062,6 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		bpf_stop_timer(d);
 	}
 	d->bd_state = BPF_IDLE;
-
-#if DEVELOPMENT || DEBUG
-	if (bpf_debug > 0) {
-		log_bpf_ioctl_str(d, cmd);
-	}
-#endif /* DEVELOPMENT || DEBUG */
 
 	switch (cmd) {
 	default:
@@ -2103,7 +2099,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 	 * Get buffer len [for read()].
 	 */
 	case BIOCGBLEN: {                /* u_int */
-		_CASSERT(sizeof(d->bd_bufsize) == sizeof(u_int));
+		static_assert(sizeof(d->bd_bufsize) == sizeof(u_int));
 		bcopy(&d->bd_bufsize, addr, sizeof(u_int));
 		break;
 	}
@@ -2212,7 +2208,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		if (d->bd_bif == 0) {
 			error = EINVAL;
 		} else {
-			_CASSERT(sizeof(d->bd_bif->bif_dlt) == sizeof(u_int));
+			static_assert(sizeof(d->bd_bif->bif_dlt) == sizeof(u_int));
 			bcopy(&d->bd_bif->bif_dlt, addr, sizeof(u_int));
 		}
 		break;
@@ -2225,7 +2221,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		if (d->bd_bif == NULL) {
 			error = EINVAL;
 		} else {
-			error = bpf_getdltlist(d, addr, p);
+			error = bpf_getdltlist(d, addr, proc);
 		}
 		break;
 
@@ -2244,7 +2240,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 			    !(d->bd_flags & BPF_WANT_PKTAP)) {
 				dlt = DLT_RAW;
 			}
-			error = bpf_setdlt(d, dlt);
+			error = bpf_setdlt(d, dlt, proc);
 		}
 		break;
 
@@ -2275,7 +2271,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		if (ifp == NULL) {
 			error = ENXIO;
 		} else {
-			error = bpf_setif(d, ifp, true, false, false);
+			error = bpf_setif(d, ifp, true, false, false, proc);
 		}
 		break;
 	}
@@ -2471,7 +2467,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 	 * Get traffic service class
 	 */
 	case BIOCGETTC: {                /* int */
-		_CASSERT(sizeof(d->bd_traffic_class) == sizeof(int));
+		static_assert(sizeof(d->bd_traffic_class) == sizeof(int));
 		bcopy(&d->bd_traffic_class, addr, sizeof(int));
 		break;
 	}
@@ -2480,7 +2476,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		break;
 
 	case FIOASYNC: {        /* Send signal on receive packets; int */
-		_CASSERT(sizeof(d->bd_async) == sizeof(int));
+		static_assert(sizeof(d->bd_async) == sizeof(int));
 		bcopy(addr, &d->bd_async, sizeof(int));
 		break;
 	}
@@ -2498,7 +2494,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		break;
 	}
 	case BIOCGRSIG: {                /* u_int */
-		_CASSERT(sizeof(d->bd_sig) == sizeof(u_int));
+		static_assert(sizeof(d->bd_sig) == sizeof(u_int));
 		bcopy(&d->bd_sig, addr, sizeof(u_int));
 		break;
 	}
@@ -2593,7 +2589,7 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 			break;
 		}
 
-		error = bpf_setup(d, bsa.bsa_uuid, ifp);
+		error = bpf_setup(d, bsa.bsa_uuid, ifp, proc);
 		break;
 	}
 	case BIOCSPKTHDRV2:
@@ -2744,6 +2740,13 @@ bpfioctl(dev_t dev, u_long cmd, caddr_t __sized_by(IOCPARM_LEN(cmd)) addr,
 		break;
 	}
 
+#if DEVELOPMENT || DEBUG
+	if (bpf_debug > 0) {
+		log_bpf_ioctl_str(d, cmd, error);
+	}
+#endif /* DEVELOPMENT || DEBUG */
+
+
 	bpf_release_d(d);
 	lck_mtx_unlock(bpf_mlock);
 
@@ -2818,7 +2821,7 @@ bpf_setf(struct bpf_d *d, u_int bf_len, user_addr_t bf_insns,
  */
 static int
 bpf_setif(struct bpf_d *d, ifnet_t theywant, bool do_reset, bool has_hbuf_read_write,
-    bool has_bufs_allocated)
+    bool has_bufs_allocated, struct proc *proc)
 {
 	struct bpf_if *bp;
 	int error;
@@ -2867,7 +2870,7 @@ bpf_setif(struct bpf_d *d, ifnet_t theywant, bool do_reset, bool has_hbuf_read_w
 		 */
 		if (bp != d->bd_bif) {
 			if (d->bd_bif != NULL) {
-				if (bpf_detachd(d) != 0) {
+				if (bpf_detachd(d, proc) != 0) {
 					return ENXIO;
 				}
 			}
@@ -2878,8 +2881,8 @@ bpf_setif(struct bpf_d *d, ifnet_t theywant, bool do_reset, bool has_hbuf_read_w
 		if (do_reset) {
 			reset_d(d);
 		}
-		os_log(OS_LOG_DEFAULT, "bpf%u attached to %s",
-		    d->bd_dev_minor, if_name(theywant));
+		os_log(OS_LOG_DEFAULT, "bpf%u attached to %s by %s:%u",
+		    d->bd_dev_minor, if_name(theywant), proc_name_address(proc), proc_pid(proc));
 		return 0;
 	}
 	/* Not found. */
@@ -2890,7 +2893,7 @@ bpf_setif(struct bpf_d *d, ifnet_t theywant, bool do_reset, bool has_hbuf_read_w
  * Get a list of available data link type of the interface.
  */
 static int
-bpf_getdltlist(struct bpf_d *d, caddr_t __bidi_indexable addr, struct proc *p)
+bpf_getdltlist(struct bpf_d *d, caddr_t __bidi_indexable addr, struct proc *proc)
 {
 	u_int           n;
 	int             error;
@@ -2900,7 +2903,7 @@ bpf_getdltlist(struct bpf_d *d, caddr_t __bidi_indexable addr, struct proc *p)
 	struct bpf_dltlist bfl;
 
 	bcopy(addr, &bfl, sizeof(bfl));
-	if (proc_is64bit(p)) {
+	if (proc_is64bit(proc)) {
 		dlist = (user_addr_t)bfl.bfl_u.bflu_pad;
 	} else {
 		dlist = CAST_USER_ADDR_T(bfl.bfl_u.bflu_list);
@@ -2943,7 +2946,7 @@ bpf_getdltlist(struct bpf_d *d, caddr_t __bidi_indexable addr, struct proc *p)
  * Set the data link type of a BPF instance.
  */
 static int
-bpf_setdlt(struct bpf_d *d, uint32_t dlt)
+bpf_setdlt(struct bpf_d *d, uint32_t dlt, struct proc *proc)
 {
 	int error, opromisc;
 	struct ifnet *ifp;
@@ -2976,7 +2979,7 @@ bpf_setdlt(struct bpf_d *d, uint32_t dlt)
 	}
 	if (bp != NULL) {
 		opromisc = d->bd_promisc;
-		if (bpf_detachd(d) != 0) {
+		if (bpf_detachd(d, proc) != 0) {
 			return ENXIO;
 		}
 		error = bpf_attachd(d, bp);
@@ -3036,7 +3039,7 @@ bpf_set_packet_service_class(struct mbuf *m, int tc)
  * Otherwise, return false but make a note that a selwakeup() must be done.
  */
 int
-bpfselect(dev_t dev, int which, void * wql, struct proc *p)
+bpfselect(dev_t dev, int which, void * wql, struct proc *proc)
 {
 	struct bpf_d *d;
 	int ret = 0;
@@ -3080,7 +3083,7 @@ bpfselect(dev_t dev, int which, void * wql, struct proc *p)
 			 * Make the select wait, and start a timer if
 			 * necessary.
 			 */
-			selrecord(p, &d->bd_sel, wql);
+			selrecord(proc, &d->bd_sel, wql);
 			bpf_start_timer(d);
 		}
 		break;
@@ -4123,6 +4126,10 @@ catchpacket(struct bpf_d *d, struct bpf_packet * pkt,
 		if (pkt->bpfp_type == BPF_PACKET_TYPE_MBUF) {
 			mbuf_ref_t m = pkt->bpfp_mbuf;
 
+			if (m->m_pkthdr.pkt_ext_flags & PKTF_EXT_ULPN) {
+				ehp->bh_pktflags |= BPF_PKTFLAGS_ULPN;
+			}
+
 			if (outbound) {
 				/* only do lookups on non-raw INPCB */
 				if ((m->m_pkthdr.pkt_flags & (PKTF_FLOW_ID |
@@ -4162,6 +4169,10 @@ catchpacket(struct bpf_d *d, struct bpf_packet * pkt,
 		} else {
 			kern_packet_t kern_pkt = pkt->bpfp_pkt;
 			packet_flowid_t flowid = 0;
+
+			if (kern_packet_get_ulpn_flag(kern_pkt)) {
+				ehp->bh_pktflags |= BPF_PKTFLAGS_ULPN;
+			}
 
 			if (outbound) {
 				/*
@@ -4517,7 +4528,7 @@ bpfdetach(struct ifnet *ifp)
 				msleep((caddr_t)d, bpf_mlock, PRINET, "bpfdetach", NULL);
 			}
 
-			bpf_detachd(d);
+			bpf_detachd(d, current_proc());
 			bpf_wakeup(d);
 			bpf_release_d(d);
 		}
@@ -4533,11 +4544,10 @@ bpf_init(__unused void *unused)
 	int     maj;
 
 	/* bpf_comp_hdr is an overlay of bpf_hdr */
-	_CASSERT(BPF_WORDALIGN(sizeof(struct bpf_hdr)) ==
-	    BPF_WORDALIGN(sizeof(struct bpf_comp_hdr)));
+	static_assert(BPF_WORDALIGN(sizeof(struct bpf_hdr)) == BPF_WORDALIGN(sizeof(struct bpf_comp_hdr)));
 
 	/* compression length must fits in a byte */
-	_CASSERT(BPF_HDR_COMP_LEN_MAX <= UCHAR_MAX );
+	static_assert(BPF_HDR_COMP_LEN_MAX <= UCHAR_MAX);
 
 	(void) PE_parse_boot_argn("bpf_hdr_comp", &bpf_hdr_comp_enable,
 	    sizeof(bpf_hdr_comp_enable));

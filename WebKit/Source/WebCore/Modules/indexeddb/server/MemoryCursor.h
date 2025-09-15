@@ -46,8 +46,8 @@ public:
     virtual void currentData(IDBGetResult&) = 0;
     virtual void iterate(const IDBKeyData&, const IDBKeyData& primaryKey, uint32_t count, IDBGetResult&) = 0;
 
-    MemoryBackingStoreTransaction* transaction() const { return m_transaction.get(); }
     IDBCursorInfo info() const { return m_info; }
+    MemoryBackingStoreTransaction* transaction() const;
 
 protected:
     MemoryCursor(const IDBCursorInfo&, MemoryBackingStoreTransaction&);

@@ -38,6 +38,7 @@
 #include "SVGUseElement.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/MakeString.h>
@@ -53,7 +54,7 @@ static bool animationsPausedForDocument(Document& document)
 
 SVGDocumentExtensions::SVGDocumentExtensions(Document& document)
     : m_document(document)
-    , m_resourcesCache(makeUnique<SVGResourcesCache>())
+    , m_resourcesCache(makeUniqueRef<SVGResourcesCache>())
     , m_areAnimationsPaused(animationsPausedForDocument(document))
 {
 }

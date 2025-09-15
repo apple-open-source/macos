@@ -22,6 +22,7 @@
 #include "JSTestReportExtraMemoryCost.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
@@ -160,14 +161,14 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestReportExtraMemoryCostConstructor, (JSGlobalObject
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestReportExtraMemoryCostPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestReportExtraMemoryCost::getConstructor(vm, prototype->globalObject()));
 }
 
 JSC::GCClient::IsoSubspace* JSTestReportExtraMemoryCost::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestReportExtraMemoryCost, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestReportExtraMemoryCost, UseCustomHeapCellType::No>(vm, "JSTestReportExtraMemoryCost"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestReportExtraMemoryCost.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestReportExtraMemoryCost = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestReportExtraMemoryCost.get(); },
@@ -224,7 +225,9 @@ extern "C" { extern void (*const __identifier("??_7TestReportExtraMemoryCost@Web
 #else
 extern "C" { extern void* _ZTVN7WebCore25TestReportExtraMemoryCostE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestReportExtraMemoryCost>, void>> static inline void verifyVTable(TestReportExtraMemoryCost* ptr) {
+template<std::same_as<TestReportExtraMemoryCost> T>
+static inline void verifyVTable(TestReportExtraMemoryCost* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

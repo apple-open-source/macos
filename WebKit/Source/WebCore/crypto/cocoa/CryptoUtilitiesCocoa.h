@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include <CommonCrypto/CommonCryptoError.h>
 #include <wtf/Vector.h>
 
@@ -34,6 +33,8 @@ typedef uint32_t CCHmacAlgorithm;
 typedef uint32_t CCOperation;
 
 namespace WebCore {
+
+template<typename> class ExceptionOr;
 
 ExceptionOr<Vector<uint8_t>> transformAESCTR(CCOperation, const Vector<uint8_t>& counter, size_t counterLength, const Vector<uint8_t>& key, std::span<const uint8_t> data);
 CCStatus keyDerivationHMAC(CCDigestAlgorithm, std::span<const uint8_t> keyDerivationKey, std::span<const uint8_t> context, std::span<const uint8_t> salt, Vector<uint8_t>& derivedKey);

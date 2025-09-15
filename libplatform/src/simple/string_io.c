@@ -49,11 +49,11 @@ typedef struct _BUF {
 	char *ptr;
 	char *end;
 	int fd;
-	void (*full)(struct _BUF *);
+	int (*full)(struct _BUF *);
 } BUF;
 
 /* flush the buffer */
-static void
+static int
 _flush(BUF *b)
 {
 	char *buf = b->buf;
@@ -70,18 +70,20 @@ _flush(BUF *b)
 		n -= w;
 		buf += n;
 	}
+	return 1;
 }
 
 /* flush the buffer and reset the pointer */
-static void
+static int
 _flush_reset(BUF *b)
 {
 	_flush(b);
 	b->ptr = b->buf;
+	return 1;
 }
 
 /* enlarge the buffer */
-static void
+static int
 _enlarge(BUF *b)
 {
 	vm_address_t new;
@@ -93,7 +95,7 @@ _enlarge(BUF *b)
 	if(vm_allocate(mach_task_self(), &new, VM_PAGE_SIZE, 0) == 0) {
 		/* page is adjacent */
 		b->end += VM_PAGE_SIZE;
-		return;
+		return 1;
 	}
 	sold = BUF_SIZE(b);
 	snew = (sold + VM_PAGE_SIZE) & ~(VM_PAGE_SIZE - 1);
@@ -113,6 +115,18 @@ _enlarge(BUF *b)
 	}
 	b->buf = (char *)new;
 	b->ptr += diff;
+	return 1;
+}
+
+static int
+_snprintf_out_of_space(BUF *b)
+{
+	/* For snprintf, we use the fd field to track how many more bytes would
+	 * have been written, had the buffer been larger. */
+	if(b->fd < INT_MAX) {
+		b->fd++;
+	}
+	return 0;
 }
 
 static inline void put_s(BUF *, _esc_func, const char *);
@@ -126,7 +140,16 @@ put_c(BUF *b, _esc_func esc, unsigned char c)
 		put_s(b, NULL, cp);
 	else {
 		if(b->ptr >= b->end)
-			b->full(b);
+			if(!b->full(b)) {
+				/* We can't grow the underlying buffer, so we can't write any
+				 * more bytes. We could plumb this fact through all the above
+				 * layers to early return when we run out of space, but we
+				 * expect this to be a very rare case. We purposefully take the
+				 * perf hit when the buffer is too small instead of checking
+				 * the return value after every call to put_c.
+				 */
+				return;
+			}
 		*b->ptr++ = c;
 	}
 }
@@ -680,4 +703,53 @@ _simple_sfree(_SIMPLE_STRING b)
 		s = ((BUF *)b)->end - (char *)b + 1;
 	}
 	vm_deallocate(mach_task_self(), (vm_address_t)b, s);
+}
+
+/*
+ * Some clients require that they manage the underlying storage for the string,
+ * so we provide an snprintf-like API to let them use libplatform's formatting.
+ */
+int
+_simple_vsnprintf(char *str, size_t size, const char *fmt, va_list ap)
+{
+	if(size == 0 || size >= INT_MAX) {
+		return -1;
+	}
+
+	BUF b;
+	b.buf = str;
+	b.ptr = b.buf;
+	/* _bprintf stops writing when ptr == end. To leave space for the null char,
+	 * set end to be the last available byte in the client's buffer. */
+	b.end = b.buf + size - 1;
+	/* Tracks how many more bytes would have been written if size was larger */
+	b.fd = 0;
+	b.full = _snprintf_out_of_space;
+
+	__simple_bprintf(&b, NULL, fmt, ap);
+
+	if(b.ptr < str || (b.ptr - str) >= size) {
+		__LIBPLATFORM_INTERNAL_CRASH__((uintptr_t)(b.ptr - str),
+				"Overflow in _simple_snprintf");
+	}
+
+	*(b.ptr) = '\0';
+	size_t ret = (size_t)(b.ptr - b.buf) + (size_t)b.fd;
+	if(ret > INT_MAX) {
+		return INT_MAX;
+	} else {
+		return (int)ret;
+	}
+}
+
+int
+_simple_snprintf(char *str, size_t size, const char *fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, fmt);
+	ret = _simple_vsnprintf(str, size, fmt, ap);
+	va_end(ap);
+	return ret;
 }

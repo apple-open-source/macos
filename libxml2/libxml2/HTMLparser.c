@@ -5293,7 +5293,11 @@ htmlCreateMemoryParserCtxt(const char *buffer, int size) {
     input->buf = buf;
     xmlBufResetInput(buf->buffer, input);
 
-    inputPush(ctxt, input);
+    if (inputPush(ctxt, input) < 0) {
+        xmlFreeInputStream(input);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return(ctxt);
 }
 
@@ -6441,9 +6445,9 @@ htmlCreatePushParserCtxt(htmlSAXHandlerPtr sax, void *user_data,
 
     inputStream = htmlNewInputStream(ctxt);
     if (inputStream == NULL) {
-	xmlFreeParserCtxt(ctxt);
-	xmlFree(buf);
-	return(NULL);
+        xmlFreeParserCtxt(ctxt);
+        xmlFreeParserInputBuffer(buf);
+        return(NULL);
     }
 
     if (filename == NULL)
@@ -6453,8 +6457,12 @@ htmlCreatePushParserCtxt(htmlSAXHandlerPtr sax, void *user_data,
 	    xmlCanonicPath((const xmlChar *) filename);
     inputStream->buf = buf;
     xmlBufResetInput(buf->buffer, inputStream);
-
-    inputPush(ctxt, inputStream);
+    
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
     if ((size > 0) && (chunk != NULL) && (ctxt->input != NULL) &&
         (ctxt->input->buf != NULL))  {
@@ -6580,7 +6588,11 @@ htmlCreateFileParserCtxt(const char *filename, const char *encoding)
 	return(NULL);
     }
 
-    inputPush(ctxt, inputStream);
+    if (inputPush(ctxt, inputStream) < 0) {
+        xmlFreeInputStream(inputStream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
 
     /* set encoding */
     if (encoding) {
@@ -7184,7 +7196,14 @@ htmlReadFd(int fd, const char *URL, const char *encoding, int options)
 	htmlFreeParserCtxt(ctxt);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserInputBuffer(input);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
+
     return (htmlDoRead(ctxt, URL, encoding, options, 0));
 }
 
@@ -7231,7 +7250,11 @@ htmlReadIO(xmlInputReadCallback ioread, xmlInputCloseCallback ioclose,
 	xmlFreeParserCtxt(ctxt);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (htmlDoRead(ctxt, URL, encoding, options, 0));
 }
 
@@ -7266,7 +7289,11 @@ htmlCtxtReadDoc(htmlParserCtxtPtr ctxt, const xmlChar * cur,
     if (stream == NULL) {
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (htmlDoRead(ctxt, URL, encoding, options, 1));
 }
 
@@ -7344,7 +7371,11 @@ htmlCtxtReadMemory(htmlParserCtxtPtr ctxt, const char *buffer, int size,
 	return(NULL);
     }
 
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (htmlDoRead(ctxt, URL, encoding, options, 1));
 }
 
@@ -7380,12 +7411,17 @@ htmlCtxtReadFd(htmlParserCtxtPtr ctxt, int fd,
     input = xmlParserInputBufferCreateFd(fd, XML_CHAR_ENCODING_NONE);
     if (input == NULL)
         return (NULL);
+    input->closecallback = NULL;
     stream = xmlNewIOInputStream(ctxt, input, XML_CHAR_ENCODING_NONE);
     if (stream == NULL) {
         xmlFreeParserInputBuffer(input);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (htmlDoRead(ctxt, URL, encoding, options, 1));
 }
 
@@ -7433,7 +7469,11 @@ htmlCtxtReadIO(htmlParserCtxtPtr ctxt, xmlInputReadCallback ioread,
         xmlFreeParserInputBuffer(input);
         return (NULL);
     }
-    inputPush(ctxt, stream);
+    if (inputPush(ctxt, stream) < 0) {
+        xmlFreeInputStream(stream);
+        xmlFreeParserCtxt(ctxt);
+        return(NULL);
+    }
     return (htmlDoRead(ctxt, URL, encoding, options, 1));
 }
 

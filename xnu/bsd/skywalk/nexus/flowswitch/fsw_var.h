@@ -152,6 +152,8 @@ extern boolean_t fsw_detach_barrier_add(struct nx_flowswitch *fsw);
 extern void fsw_detach_barrier_remove(struct nx_flowswitch *fsw);
 extern void fsw_linger_insert(struct flow_entry *fsw);
 extern void fsw_linger_purge(struct nx_flowswitch *fsw);
+extern void fsw_rxstrc_insert(struct flow_entry *fsw);
+extern void fsw_rxstrc_purge(struct nx_flowswitch *fsw);
 extern void fsw_reap_sched(struct nx_flowswitch *fsw);
 
 extern int fsw_dev_input_netem_dequeue(void *handle,
@@ -164,7 +166,7 @@ extern void dp_flow_tx_process(struct nx_flowswitch *fsw,
     struct flow_entry *fe, uint32_t flags);
 extern void dp_flow_rx_process(struct nx_flowswitch *fsw,
     struct flow_entry *fe, struct pktq *rx_pkts, uint32_t rx_bytes,
-    uint32_t flags);
+    struct mbufq *host_mq, uint32_t flags);
 
 #if (DEVELOPMENT || DEBUG)
 extern int fsw_rps_set_nthreads(struct nx_flowswitch* fsw, uint32_t n);

@@ -67,7 +67,7 @@ void WakeLock::request(WakeLockType lockType, Ref<DeferredPromise>&& promise)
 
     // FIXME: The permission check can likely be dropped once the specification gets updated to only
     // require transient activation (https://github.com/w3c/screen-wake-lock/pull/326).
-    bool hasTransientActivation = document->domWindow() && document->domWindow()->hasTransientActivation();
+    bool hasTransientActivation = document->window() && document->window()->hasTransientActivation();
     PermissionController::shared().query(document->clientOrigin(), PermissionDescriptor { PermissionName::ScreenWakeLock }, *document->page(), PermissionQuerySource::Window, [this, protectedThis = Ref { *this }, document = Ref { *document }, hasTransientActivation, promise = WTFMove(promise), lockType](std::optional<PermissionState> permission) mutable {
         if (!permission || *permission == PermissionState::Prompt) {
             if (hasTransientActivation || m_wasPreviouslyAuthorizedDueToTransientActivation) {

@@ -45,6 +45,8 @@
 #include "RawDataDocumentParser.h"
 #include "ScriptController.h"
 #include "Settings.h"
+#include "UserScriptTypes.h"
+#include "WindowPostMessageOptions.h"
 #include <JavaScriptCore/ObjectConstructor.h>
 #include <wtf/TZoneMallocInlines.h>
 

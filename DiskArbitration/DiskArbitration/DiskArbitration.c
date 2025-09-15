@@ -34,6 +34,10 @@
 #include <Security/Authorization.h>
 #endif
 #include <os/log.h>
+#include <bsm/libbsm.h>
+
+/* Based on the description of INVALID_AUDIT_TOKEN_VALUE in mach.h */
+#define AUDIT_TOKEN_IS_INVALID(t) ( audit_token_to_pid( (t) ) == UINT_MAX )
 
 CFDictionaryRef kDADiskDescriptionMatchMediaUnformatted   = NULL;
 CFDictionaryRef kDADiskDescriptionMatchMediaWhole         = NULL;
@@ -159,6 +163,63 @@ static void __DAInitialize( void )
     kDADiskDescriptionWatchVolumePath = watch;
 }
 
+static DAReturn __DAQueueRequestWithUserToken( DASessionRef   session,
+                                               _DARequestKind kind,
+                                               DADiskRef      argument0,
+                                               CFIndex        argument1,
+                                               CFTypeRef      argument2,
+                                               CFTypeRef      argument3,
+                                               void *         address,
+                                               void *         context,
+                                               bool           block,
+                                               audit_token_t  token )
+{
+    DAReturn status;
+
+    status = kDAReturnBadArgument;
+
+    if ( session )
+    {
+        CFDataRef _argument2 = NULL;
+        CFDataRef _argument3 = NULL;
+
+        if ( _DASessionGetID( session ) == NULL  && _DASessionIsKeepAlive( session ) )
+        {
+            if ( _DASessionRecreate (session) != kDAReturnSuccess )
+            {
+                goto exit;
+            }
+        }
+        
+        if ( argument2 )  _argument2 = _DASerialize( kCFAllocatorDefault, argument2 );
+        if ( argument3 )  _argument3 = _DASerialize( kCFAllocatorDefault, argument3 );
+
+        /*
+         * store the callback and context in the session instead of passing it directly over to the server for security reasons.
+         * pass the handle to the callback object to the server which will be used to lookup the correct callback
+         */
+        CFMutableDictionaryRef   callback =  DACallbackCreate(kCFAllocatorDefault, address, context, UINT32_MAX, NULL, NULL, NULL, block );
+        SInt32 index = DAAddCallbackToSession(session, callback);
+        CFRelease(callback);
+        status = _DAServerSessionQueueRequestWithUserToken( _DASessionGetID( session ),
+                                               ( uint32_t                ) kind,
+                                               token,
+                                               ( caddr_t                ) _DADiskGetID( argument0 ),
+                                               ( int32_t                ) argument1,
+                                               ( vm_address_t           ) ( _argument2 ? CFDataGetBytePtr( _argument2 ) : 0 ),
+                                               ( mach_msg_type_number_t ) ( _argument2 ? CFDataGetLength(  _argument2 ) : 0 ),
+                                               ( vm_address_t           ) ( _argument3 ? CFDataGetBytePtr( _argument3 ) : 0 ),
+                                               ( mach_msg_type_number_t ) ( _argument3 ? CFDataGetLength(  _argument3 ) : 0 ),
+                                               ( uintptr_t              ) index,
+                                               ( uintptr_t              ) index );
+
+        if ( _argument2 )  CFRelease( _argument2 );
+        if ( _argument3 )  CFRelease( _argument3 );
+    }
+exit:
+    return status;
+}
+
 static DAReturn __DAQueueRequest( DASessionRef   session,
                                   _DARequestKind kind,
                                   DADiskRef      argument0,
@@ -247,7 +308,7 @@ static void __DAQueueResponse( DASessionRef    session,
     if ( _response )  CFRelease( _response );
 }
 
-__private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOptions options, DADiskRef disk, const char * right )
+__private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOptions options, DADiskRef disk, const char * right , audit_token_t token )
 {
     DAReturn status;
 
@@ -261,7 +322,8 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
         if ( ( options & _kDAAuthorizeOptionIsOwner ) )
         {
             uid_t diskUID;
-
+            uid_t euid;
+            
             status = _DAServerDiskGetUserUID( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), &diskUID );
 
             if ( status )
@@ -271,7 +333,16 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOpti
 
             status = kDAReturnNotPrivileged;
 
-            if ( diskUID == geteuid( ) )
+            if ( AUDIT_TOKEN_IS_INVALID( token ) )
+            {
+                euid = geteuid();
+            }
+            else
+            {
+                euid = audit_token_to_euid( token );
+            }
+                
+            if ( diskUID == euid )
             {
                 status = kDAReturnSuccess;
             }
@@ -835,7 +906,7 @@ void DADiskClaim( DADiskRef                  disk,
     DADiskClaimCommon( disk, options, release, releaseContext, callback, callbackContext, false );
 }
 
-__private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block )
+__private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context, bool block , audit_token_t token )
 {
     DAReturn status;
 
@@ -843,11 +914,19 @@ __private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions op
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount , token );
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskEject, disk, options, NULL, NULL, callback, context, block );
+            /* Pass the supplied token if it is valid. Otherwise use the default token */
+            if ( AUDIT_TOKEN_IS_INVALID( token ) )
+            {
+                status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskEject, disk, options, NULL, NULL, callback, context, block );
+            }
+            else
+            {
+                status = __DAQueueRequestWithUserToken( _DADiskGetSession( disk ), _kDADiskEject, disk, options, NULL, NULL, callback, context, block, token );
+            }
         }
     }
 
@@ -877,7 +956,8 @@ __private_extern__ void DADiskEjectCommon( DADiskRef disk, DADiskEjectOptions op
 
 void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallback callback, void * context )
 {
-    DADiskEjectCommon(disk, options, callback, context, false );
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskEjectCommon(disk, options, callback, context, false, invalidToken );
 }
 
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
@@ -931,7 +1011,8 @@ __private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk
                                DADiskMountCallback callback,
                                void *              context,
                                CFStringRef         arguments[],
-                               bool                block )
+                               bool                block,
+                               audit_token_t       token )
 {
     CFMutableStringRef argument;
     DAReturn           status;
@@ -982,11 +1063,19 @@ __private_extern__ void DADiskMountWithArgumentsCommon( DADiskRef           disk
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightMount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightMount , token );
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskMount, disk, options, path ? CFURLGetString( path ) : NULL, argument, callback, context, block );
+            /* Pass the supplied token if it is valid. Otherwise use the default token */
+            if ( AUDIT_TOKEN_IS_INVALID( token ) )
+            {
+                status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskMount, disk, options, path ? CFURLGetString( path ) : NULL, argument, callback, context, block );
+            }
+            else
+            {
+                status = __DAQueueRequestWithUserToken( _DADiskGetSession( disk ), _kDADiskMount, disk, options, path ? CFURLGetString( path ) : NULL, argument, callback, context, block , token );
+            }
         }
     }
 
@@ -1030,10 +1119,11 @@ void DADiskMountWithArguments( DADiskRef           disk,
                                void *              context,
                                CFStringRef         arguments[] )
 {
-    DADiskMountWithArgumentsCommon( disk, path, options, callback, context, arguments, false );
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskMountWithArgumentsCommon( disk, path, options, callback, context, arguments, false , invalidToken );
 }
 
-__private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context, bool block )
+__private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context, bool block, audit_token_t token )
 {
     DAReturn status;
 
@@ -1045,11 +1135,18 @@ __private_extern__ void DADiskRenameCommon( DADiskRef disk, CFStringRef name, DA
         {
             if ( CFGetTypeID( name ) == CFStringGetTypeID( ) )
             {
-                status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightRename );
+                status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightRename, token );
 
                 if ( status == kDAReturnSuccess )
                 {
-                    status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskRename, disk, options, name, NULL, callback, context, block );
+                    /* Pass the supplied token if it is valid. Otherwise use the default token */
+                    if ( AUDIT_TOKEN_IS_INVALID( token ) )
+                    {
+                        status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskRename, disk, options, name, NULL, callback, context, block );
+                    }
+                    else{
+                        status = __DAQueueRequestWithUserToken( _DADiskGetSession( disk ), _kDADiskRename, disk, options, name, NULL, callback, context, block, token );
+                    }
                 }
             }
         }
@@ -1106,7 +1203,8 @@ __private_extern__ void DADiskProbeWithBlockCommon ( DADiskRef                  
 
 void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options, DADiskRenameCallback callback, void * context )
 {
-    DADiskRenameCommon( disk, name, options, callback, context, false );
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskRenameCommon( disk, name, options, callback, context, false, invalidToken );
 }
 #if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 DAReturn DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value )
@@ -1154,7 +1252,9 @@ DAReturn DADiskSetFSKitAdditionsCommon( DADiskRef                             di
 
 #endif /* TARGET_OS_OSX || TARGET_OS_IOS */
 
-__private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context, bool block )
+__private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOptions options,
+                                               DADiskUnmountCallback callback, void * context,
+                                               bool block , audit_token_t token )
 {
     DAReturn status;
 
@@ -1162,11 +1262,21 @@ __private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOption
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount , token );
 
         if ( status == kDAReturnSuccess )
         {
-            status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskUnmount, disk, options, NULL, NULL, callback, context, block );
+            /* Pass the supplied token if it is valid. Otherwise use the default token */
+            if ( AUDIT_TOKEN_IS_INVALID( token ) )
+            {
+                status = __DAQueueRequest( _DADiskGetSession( disk ), _kDADiskUnmount, disk,
+                                             options, NULL, NULL, callback, context, block );
+            }
+            else
+            {
+                status = __DAQueueRequestWithUserToken( _DADiskGetSession( disk ), _kDADiskUnmount, disk,
+                                                          options, NULL, NULL, callback, context, block, token );
+            }
         }
     }
 
@@ -1196,7 +1306,8 @@ __private_extern__ void DADiskUnmountCommon( DADiskRef disk, DADiskUnmountOption
 
 void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountCallback callback, void * context )
 {
-    DADiskUnmountCommon( disk, options, callback, context, false );
+    audit_token_t invalidToken = INVALID_AUDIT_TOKEN_VALUE;
+    DADiskUnmountCommon( disk, options, callback, context, false, invalidToken );
 }
 
 void DARegisterDiskAppearedCallback( DASessionRef           session,

@@ -27,6 +27,7 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#include "WebExtension.h"
 #include <WebCore/UserStyleSheetTypes.h>
 #include <wtf/Forward.h>
 

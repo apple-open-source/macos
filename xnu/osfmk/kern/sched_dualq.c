@@ -41,6 +41,7 @@
 #include <kern/queue.h>
 #include <kern/sched.h>
 #include <kern/sched_prim.h>
+#include <kern/sched_rt.h>
 #include <kern/task.h>
 #include <kern/thread.h>
 
@@ -137,12 +138,17 @@ const struct sched_dispatch_table sched_dualq_dispatch = {
 	.thread_avoid_processor                         = sched_dualq_thread_avoid_processor,
 	.processor_balance                              = sched_SMT_balance,
 
-	.rt_runq                                        = sched_rtlocal_runq,
-	.rt_init                                        = sched_rtlocal_init,
-	.rt_queue_shutdown                              = sched_rtlocal_queue_shutdown,
-	.rt_runq_scan                                   = sched_rtlocal_runq_scan,
-	.rt_runq_count_sum                              = sched_rtlocal_runq_count_sum,
-	.rt_steal_thread                                = sched_rtlocal_steal_thread,
+#if CONFIG_SCHED_SMT
+	.rt_choose_processor                            = sched_rtlocal_choose_processor_smt,
+#else /* !CONFIG_SCHED_SMT */
+	.rt_choose_processor                            = sched_rt_choose_processor,
+#endif /* !CONFIG_SCHED_SMT */
+	.rt_steal_thread                                = NULL,
+	.rt_init_pset                                   = sched_rt_init_pset,
+	.rt_init_completed                              = sched_rt_init_completed,
+	.rt_queue_shutdown                              = sched_rt_queue_shutdown,
+	.rt_runq_scan                                   = sched_rt_runq_scan,
+	.rt_runq_count_sum                              = sched_rt_runq_count_sum,
 
 	.qos_max_parallelism                            = sched_qos_max_parallelism,
 	.check_spill                                    = sched_check_spill,
@@ -519,7 +525,7 @@ sched_dualq_thread_update_scan(sched_update_scan_context_t scan_context)
 			}
 
 			thread = processor->idle_thread;
-			if (thread != THREAD_NULL && thread->sched_stamp != sched_tick) {
+			if (thread != THREAD_NULL && thread->sched_stamp != os_atomic_load(&sched_tick, relaxed)) {
 				if (thread_update_add_thread(thread) == FALSE) {
 					restart_needed = TRUE;
 					break;

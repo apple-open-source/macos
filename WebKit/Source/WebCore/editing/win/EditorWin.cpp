@@ -30,9 +30,10 @@
 #include "DocumentFragment.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameSelection.h"
-#include "LocalFrame.h"
+#include "LocalFrameInlines.h"
 #include "Pasteboard.h"
 #include "Range.h"
+#include "SimpleRange.h"
 #include "windows.h"
 
 namespace WebCore {

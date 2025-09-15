@@ -50,7 +50,7 @@
 #include "RenderStyle.h"
 #include "ScriptExecutionContext.h"
 #include "Settings.h"
-#include "StyleBuilderConverter.h"
+#include "StyleBuilderChecking.h"
 #include "StyleFontSizeFunctions.h"
 #include "StyleLengthResolution.h"
 #include "StylePrimitiveNumericTypes+Conversions.h"
@@ -88,7 +88,7 @@ FontSelectionValue fontWeightFromCSSValueDeprecated(const CSSValue& value)
 
 FontSelectionValue fontWeightFromCSSValue(BuilderState& builderState, const CSSValue& value)
 {
-    auto primitiveValue = BuilderConverter::requiredDowncast<CSSPrimitiveValue>(builderState, value);
+    RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
     if (!primitiveValue)
         return { };
 
@@ -164,7 +164,7 @@ FontSelectionValue fontStretchFromCSSValueDeprecated(const CSSValue& value)
 
 FontSelectionValue fontStretchFromCSSValue(BuilderState& builderState, const CSSValue& value)
 {
-    auto primitiveValue = BuilderConverter::requiredDowncast<CSSPrimitiveValue>(builderState, value);
+    RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
     if (!primitiveValue)
         return { };
 
@@ -188,17 +188,29 @@ FontSelectionValue fontStyleAngleFromCSSValueDeprecated(const CSSValue& value)
 
 FontSelectionValue fontStyleAngleFromCSSValue(BuilderState& builderState, const CSSValue& value)
 {
-    auto primitiveValue = BuilderConverter::requiredDowncast<CSSPrimitiveValue>(builderState, value);
+    RefPtr primitiveValue = requiredDowncast<CSSPrimitiveValue>(builderState, value);
     if (!primitiveValue)
         return { };
 
     return normalizedFontItalicValue(primitiveValue->resolveAsAngle<float>(builderState.cssToLengthConversionData()));
 }
 
+std::optional<FontSelectionValue> fontStyleAngleFromCSSFontStyleWithAngleValueDeprecated(const CSSFontStyleWithAngleValue& value)
+{
+    if (requiresConversionData(value.obliqueAngle()))
+        return { };
+    return FontSelectionValue { narrowPrecisionToFloat(Style::toStyle(value.obliqueAngle(), NoConversionDataRequiredToken { }).value) };
+}
+
+std::optional<FontSelectionValue> fontStyleAngleFromCSSFontStyleWithAngleValue(BuilderState& builderState, const CSSFontStyleWithAngleValue& value)
+{
+    return FontSelectionValue { narrowPrecisionToFloat(Style::toStyle(value.obliqueAngle(), builderState.cssToLengthConversionData()).value) };
+}
+
 std::optional<FontSelectionValue> fontStyleFromCSSValueDeprecated(const CSSValue& value)
 {
-    if (auto* fontStyleValue = dynamicDowncast<CSSFontStyleWithAngleValue>(value))
-        return fontStyleAngleFromCSSValueDeprecated(fontStyleValue->protectedObliqueAngle());
+    if (RefPtr fontStyleValue = dynamicDowncast<CSSFontStyleWithAngleValue>(value))
+        return fontStyleAngleFromCSSFontStyleWithAngleValueDeprecated(*fontStyleValue);
 
     auto valueID = value.valueID();
     if (valueID == CSSValueNormal)
@@ -210,8 +222,8 @@ std::optional<FontSelectionValue> fontStyleFromCSSValueDeprecated(const CSSValue
 
 std::optional<FontSelectionValue> fontStyleFromCSSValue(BuilderState& builderState, const CSSValue& value)
 {
-    if (auto* fontStyleValue = dynamicDowncast<CSSFontStyleWithAngleValue>(value))
-        return fontStyleAngleFromCSSValue(builderState, fontStyleValue->protectedObliqueAngle());
+    if (RefPtr fontStyleValue = dynamicDowncast<CSSFontStyleWithAngleValue>(value))
+        return fontStyleAngleFromCSSFontStyleWithAngleValue(builderState, *fontStyleValue);
 
     auto valueID = value.valueID();
     if (valueID == CSSValueNormal)
@@ -418,13 +430,13 @@ FontFeatureSettings fontFeatureSettingsFromCSSValue(BuilderState& builderState, 
         return { };
     }
 
-    auto list = BuilderConverter::requiredListDowncast<CSSValueList, CSSFontFeatureValue>(builderState, value);
+    auto list = requiredListDowncast<CSSValueList, CSSFontFeatureValue>(builderState, value);
     if (!list)
         return { };
 
     FontFeatureSettings settings;
-    for (auto& feature : *list)
-        settings.insert(FontFeature(feature.tag(), feature.value().resolveAsNumber<int>(builderState.cssToLengthConversionData())));
+    for (Ref feature : *list)
+        settings.insert(FontFeature(feature->tag(), feature->value().resolveAsNumber<int>(builderState.cssToLengthConversionData())));
     return settings;
 }
 
@@ -437,13 +449,13 @@ FontVariationSettings fontVariationSettingsFromCSSValue(BuilderState& builderSta
         return { };
     }
 
-    auto list = BuilderConverter::requiredListDowncast<CSSValueList, CSSFontVariationValue>(builderState, value);
+    auto list = requiredListDowncast<CSSValueList, CSSFontVariationValue>(builderState, value);
     if (!list)
         return { };
 
     FontVariationSettings settings;
-    for (auto& feature : *list)
-        settings.insert({ feature.tag(), feature.value().resolveAsNumber<float>(builderState.cssToLengthConversionData()) });
+    for (Ref feature : *list)
+        settings.insert({ feature->tag(), feature->value().resolveAsNumber<float>(builderState.cssToLengthConversionData()) });
     return settings;
 }
 
@@ -467,15 +479,15 @@ FontSizeAdjust fontSizeAdjustFromCSSValue(BuilderState& builderState, const CSSV
         return { defaultMetric, FontSizeAdjust::ValueType::FromFont, std::nullopt };
     }
 
-    auto pair = BuilderConverter::requiredPairDowncast<CSSPrimitiveValue>(builderState, value);
+    auto pair = requiredPairDowncast<CSSPrimitiveValue>(builderState, value);
     if (!pair)
         return { };
 
-    auto metric = fromCSSValueID<FontSizeAdjust::Metric>(pair->first.valueID());
-    if (pair->second.isNumber())
-        return { metric, FontSizeAdjust::ValueType::Number, pair->second.resolveAsNumber(builderState.cssToLengthConversionData()) };
+    auto metric = fromCSSValueID<FontSizeAdjust::Metric>(pair->first->valueID());
+    if (pair->second->isNumber())
+        return { metric, FontSizeAdjust::ValueType::Number, pair->second->resolveAsNumber(builderState.cssToLengthConversionData()) };
 
-    ASSERT(pair->second.valueID() == CSSValueFromFont);
+    ASSERT(pair->second->valueID() == CSSValueFromFont);
     return { metric, FontSizeAdjust::ValueType::FromFont, std::nullopt };
 }
 

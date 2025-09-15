@@ -70,6 +70,7 @@
 #include <kern/processor.h>
 #include <kern/sched_prim.h>
 #include <kern/debug.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <tests/xnupost.h>
 
@@ -85,12 +86,14 @@
 #include <sys/kdebug.h>
 #include <sys/munge.h>
 #include <machine/cpu_capabilities.h>
+#include <machine/machine_routines.h>
 #include <arm/cpu_data_internal.h>
 #include <arm/pmap.h>
+#include <arm/pmap/pmap_pt_geometry.h>
 
-#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 #include <arm64/amcc_rorgn.h>
-#endif // defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR)
+#endif // defined(KERNEL_INTEGRITY_KTRR) || defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 
 #include <arm64/machine_machdep.h>
 
@@ -103,7 +106,7 @@ kern_return_t arm64_late_pan_test(void);
 #include <ptrauth.h>
 kern_return_t arm64_ropjop_test(void);
 #endif
-#if defined(KERNEL_INTEGRITY_CTRR)
+#if defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)
 kern_return_t ctrr_test(void);
 kern_return_t ctrr_test_cpu(void);
 #endif
@@ -127,8 +130,10 @@ volatile char pan_fault_value = 0;
 kern_return_t arm64_panic_lockdown_test(void);
 #endif /* CONFIG_SPTM */
 
+
 #include <arm64/speculation.h>
 kern_return_t arm64_speculation_guard_test(void);
+
 
 #include <libkern/OSAtomic.h>
 #define LOCK_TEST_ITERATIONS 50
@@ -313,7 +318,7 @@ lt_stress_ticket_lock()
 
 	uint cpuid = cpu_number();
 
-	kprintf("%s>cpu %d starting\n", __FUNCTION__, cpuid);
+	kprintf("%s>cpu %u starting\n", __FUNCTION__, cpuid);
 
 	lck_ticket_lock(&lt_ticket_lock, &lt_ticket_grp);
 	lt_counter++;
@@ -323,7 +328,7 @@ lt_stress_ticket_lock()
 	/* Wait until all test threads have finished any binding */
 	while (lt_counter < lt_target_done_threads) {
 		if (mach_absolute_time() > lt_setup_timeout) {
-			kprintf("%s>cpu %d noticed that we exceeded setup timeout of %d seconds during initial setup phase (only %d out of %d threads checked in)",
+			kprintf("%s>cpu %u noticed that we exceeded setup timeout of %d seconds during initial setup phase (only %u out of %u threads checked in)",
 			    __FUNCTION__, cpuid, LOCK_TEST_SETUP_TIMEOUT_SEC, lt_counter, lt_target_done_threads);
 			return;
 		}
@@ -343,13 +348,13 @@ lt_stress_ticket_lock()
 	 */
 	while (lt_counter < 2 * lt_target_done_threads) {
 		if (mach_absolute_time() > lt_setup_timeout) {
-			kprintf("%s>cpu %d noticed that we exceeded setup timeout of %d seconds during secondary setup phase (only %d out of %d threads checked in)",
+			kprintf("%s>cpu %u noticed that we exceeded setup timeout of %d seconds during secondary setup phase (only %u out of %u threads checked in)",
 			    __FUNCTION__, cpuid, LOCK_TEST_SETUP_TIMEOUT_SEC, lt_counter - lt_target_done_threads, lt_target_done_threads);
 			return;
 		}
 	}
 
-	kprintf("%s>cpu %d started\n", __FUNCTION__, cpuid);
+	kprintf("%s>cpu %u started\n", __FUNCTION__, cpuid);
 
 	while (lt_counter < limit) {
 		lck_ticket_lock(&lt_ticket_lock, &lt_ticket_grp);
@@ -362,7 +367,7 @@ lt_stress_ticket_lock()
 
 	lt_stress_local_counters[cpuid] = local_counter;
 
-	kprintf("%s>final counter %d cpu %d incremented the counter %d times\n", __FUNCTION__, lt_counter, cpuid, local_counter);
+	kprintf("%s>final counter %u cpu %u incremented the counter %u times\n", __FUNCTION__, lt_counter, cpuid, local_counter);
 }
 #endif
 
@@ -693,13 +698,16 @@ lt_bound_thread(void *arg, wait_result_t wres __unused)
 }
 
 static void
-lt_e_thread(void *arg, wait_result_t wres __unused)
+lt_cluster_bound_thread(void *arg, char cluster_type)
 {
 	void (*func)(void) = (void (*)(void))arg;
 
 	thread_t thread = current_thread();
 
-	thread_soft_bind_cluster_type(thread, 'e');
+	kern_return_t kr = thread_soft_bind_cluster_type(thread, cluster_type);
+	if (kr != KERN_SUCCESS) {
+		kprintf("%s>failed to bind to cluster type %c\n", __FUNCTION__, cluster_type);
+	}
 
 	func();
 
@@ -707,17 +715,16 @@ lt_e_thread(void *arg, wait_result_t wres __unused)
 }
 
 static void
+lt_e_thread(void *arg, wait_result_t wres __unused)
+{
+	lt_cluster_bound_thread(arg, 'e');
+}
+
+
+static void
 lt_p_thread(void *arg, wait_result_t wres __unused)
 {
-	void (*func)(void) = (void (*)(void))arg;
-
-	thread_t thread = current_thread();
-
-	thread_soft_bind_cluster_type(thread, 'p');
-
-	func();
-
-	OSIncrementAtomic((volatile SInt32*) &lt_done_threads);
+	lt_cluster_bound_thread(arg, 'p');
 }
 
 static void
@@ -1424,44 +1431,48 @@ arm64_munger_test()
 	return 0;
 }
 
-#if defined(KERNEL_INTEGRITY_CTRR) && defined(CONFIG_XNUPOST)
+#if (defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)) && defined(CONFIG_XNUPOST)
 SECURITY_READ_ONLY_LATE(uint64_t) ctrr_ro_test;
 uint64_t ctrr_nx_test = 0xd65f03c0; /* RET */
 volatile uint64_t ctrr_exception_esr;
 vm_offset_t ctrr_test_va;
 vm_offset_t ctrr_test_page;
+atomic_bool ctrr_test_in_progress;
 
 kern_return_t
 ctrr_test(void)
 {
 	processor_t p;
-	boolean_t ctrr_disable = FALSE;
 
-	PE_parse_boot_argn("-unsafe_kernel_text", &ctrr_disable, sizeof(ctrr_disable));
-
-#if CONFIG_CSR_FROM_DT
-	if (csr_unsafe_kernel_text) {
-		ctrr_disable = TRUE;
-	}
-#endif /* CONFIG_CSR_FROM_DT */
-
-	if (ctrr_disable) {
-		T_LOG("Skipping CTRR test when -unsafe_kernel_text boot-arg present");
+	/*
+	 * The test uses some globals and also a specific reserved VA region, so it
+	 * can't run concurrently.  This might otherwise happen via the sysctl
+	 * interface.
+	 */
+	bool expected = false;
+	if (!atomic_compare_exchange_strong_explicit(&ctrr_test_in_progress,
+	    &expected, true,
+	    memory_order_acq_rel, memory_order_relaxed)) {
+		T_FAIL("Can't run multiple CTRR tests at once");
 		return KERN_SUCCESS;
 	}
+
 
 	T_LOG("Running CTRR test.");
 
 	for (p = processor_list; p != NULL; p = p->processor_list) {
 		thread_bind(p);
 		thread_block(THREAD_CONTINUE_NULL);
-		T_LOG("Running CTRR test on cpu %d\n", p->cpu_id);
+		T_LOG("Running CTRR test on CPU %d\n", p->cpu_id);
 		ctrr_test_cpu();
 	}
 
 	/* unbind thread from specific cpu */
 	thread_bind(PROCESSOR_NULL);
 	thread_block(THREAD_CONTINUE_NULL);
+
+	T_PASS("Done running CTRR test on all CPUs");
+	atomic_store_explicit(&ctrr_test_in_progress, false, memory_order_release);
 
 	return KERN_SUCCESS;
 }
@@ -1510,7 +1521,7 @@ ctrr_test_nx_fault_handler(arm_saved_state_t * state)
 // Disable KASAN checking for CTRR tests as the test VA  doesn't have a shadow mapping
 
 /* test CTRR on a cpu, caller to bind thread to desired cpu */
-/* ctrr_test_page was reserved during bootstrap process */
+/* ctrr_test_page was reserved during bootstrap process if no SPTM */
 NOKASAN kern_return_t
 ctrr_test_cpu(void)
 {
@@ -1520,23 +1531,59 @@ ctrr_test_cpu(void)
 	kern_return_t kr;
 	uint64_t prot = 0;
 	extern vm_offset_t virtual_space_start;
+	extern vm_offset_t rorgn_begin;
+	extern vm_offset_t rorgn_end;
 
-	/* ctrr read only region = [rorgn_begin_va, rorgn_end_va) */
-
-#if (KERNEL_CTRR_VERSION == 3)
-	const uint64_t rorgn_lwr = __builtin_arm_rsr64("S3_0_C11_C0_2");
-	const uint64_t rorgn_upr = __builtin_arm_rsr64("S3_0_C11_C0_3");
-#else /* (KERNEL_CTRR_VERSION == 3) */
-	const uint64_t rorgn_lwr = __builtin_arm_rsr64("S3_4_C15_C2_3");
-	const uint64_t rorgn_upr = __builtin_arm_rsr64("S3_4_C15_C2_4");
-#endif /* (KERNEL_CTRR_VERSION == 3) */
-	vm_offset_t rorgn_begin_va = phystokv(rorgn_lwr);
-	vm_offset_t rorgn_end_va = phystokv(rorgn_upr) + 0x1000;
 	vm_offset_t ro_test_va = (vm_offset_t)&ctrr_ro_test;
 	vm_offset_t nx_test_va = (vm_offset_t)&ctrr_nx_test;
+	bool ctrr_enabled = !ml_unsafe_kernel_text();
 
-	T_EXPECT(rorgn_begin_va <= ro_test_va && ro_test_va < rorgn_end_va, "Expect ro_test_va to be inside the CTRR region");
-	T_EXPECT((nx_test_va < rorgn_begin_va) ^ (nx_test_va >= rorgn_end_va), "Expect nx_test_va to be outside the CTRR region");
+#if CONFIG_SPTM
+	if (/* DISABLES CODE */ (1)) {
+		T_SKIP("Skipping CTRR test because testing under SPTM is not supported yet");
+		return KERN_SUCCESS;
+	}
+#endif
+
+#if defined(KERNEL_INTEGRITY_PV_CTRR)
+	if (rorgn_begin == 0 && rorgn_end == 0) {
+		// Under paravirtualized CTRR, it's possible that we want CTRR to be
+		// enabled but we're running under an older host that doesn't support
+		// it.
+		ctrr_enabled = false;
+		T_LOG("Treating paravirtualized CTRR as disabled due to lack of support");
+	}
+#endif
+
+	// The CTRR read-only region is the physical address range [rorgn_begin, rorgn_end].
+	// rorgn_end will be one byte short of a page boundary.
+	if (ctrr_enabled) {
+		T_EXPECT(rorgn_begin != 0, "Expect rorgn_begin to be set when CTRR enabled");
+		T_EXPECT_GE_ULONG(rorgn_end, rorgn_begin, "Expect rorgn_end to be >= rorgn_begin when CTRR enabled");
+
+		pmap_paddr_t ro_test_pa = kvtophys_nofail(ro_test_va);
+		pmap_paddr_t nx_test_pa = kvtophys_nofail(nx_test_va);
+
+		T_EXPECT(rorgn_begin <= ro_test_pa && ro_test_pa <= rorgn_end, "Expect ro_test_pa to be inside the CTRR region");
+		T_EXPECT((nx_test_pa < rorgn_begin) ^ (nx_test_pa > rorgn_end), "Expect nx_test_pa to be outside the CTRR region");
+	} else {
+		T_EXPECT_EQ_ULONG(rorgn_begin, 0, "Expect rorgn_begin to be unset when CTRR disabled");
+		T_EXPECT_EQ_ULONG(rorgn_end, 0, "Expect rorgn_end to be unset when CTRR disabled");
+		T_LOG("Skipping region check because CTRR is disabled");
+	}
+
+	if (ctrr_enabled) {
+		T_LOG("Expect no faults when reading CTRR region to verify correct programming of CTRR limits");
+		for (pmap_paddr_t page_pa = rorgn_begin; page_pa <= rorgn_end; page_pa += PAGE_SIZE) {
+			vm_offset_t page_va = phystokv(page_pa);
+			for (vm_offset_t va = page_va; va < page_va + PAGE_SIZE; va += 8) {
+				volatile uint64_t x = *(uint64_t *)va;
+				(void) x; /* read for side effect only */
+			}
+		}
+	} else {
+		T_LOG("Skipping read test because CTRR is disabled");
+	}
 
 	ro_pn = pmap_find_phys(kernel_pmap, ro_test_va);
 	nx_pn = pmap_find_phys(kernel_pmap, nx_test_va);
@@ -1544,6 +1591,7 @@ ctrr_test_cpu(void)
 
 	T_LOG("test virtual page: %p, ctrr_ro_test: %p, ctrr_nx_test: %p, ro_pn: %x, nx_pn: %x ",
 	    (void *)ctrr_test_page, &ctrr_ro_test, &ctrr_nx_test, ro_pn, nx_pn);
+	T_ASSERT(ctrr_test_page != 0, "Expect ctrr_test_page to be initialized");
 
 	prot = pmap_get_arm64_prot(kernel_pmap, ctrr_test_page);
 	T_EXPECT(~prot & ARM_TTE_VALID, "Expect ctrr_test_page to be unmapped");
@@ -1571,9 +1619,13 @@ ctrr_test_cpu(void)
 	// ensure write permission fault at expected level
 	// data abort handler will set ctrr_exception_esr when ctrr_test_va takes a permission fault
 
-	T_EXPECT(ESR_EC(ctrr_exception_esr) == ESR_EC_DABORT_EL1, "Data Abort from EL1 expected");
-	T_EXPECT(ISS_DA_FSC(ESR_ISS(ctrr_exception_esr)) == FSC_PERMISSION_FAULT_L3, "Permission Fault Expected");
-	T_EXPECT(ESR_ISS(ctrr_exception_esr) & ISS_DA_WNR, "Write Fault Expected");
+	if (ctrr_enabled) {
+		T_EXPECT(ESR_EC(ctrr_exception_esr) == ESR_EC_DABORT_EL1, "Data Abort from EL1 expected");
+		T_EXPECT(ISS_DA_FSC(ESR_ISS(ctrr_exception_esr)) == FSC_PERMISSION_FAULT_L3, "Permission Fault Expected");
+		T_EXPECT(ESR_ISS(ctrr_exception_esr) & ISS_DA_WNR, "Write Fault Expected");
+	} else {
+		T_EXPECT(ctrr_exception_esr == 0, "No fault expected with CTRR disabled");
+	}
 
 	ctrr_test_va = 0;
 	ctrr_exception_esr = 0;
@@ -1583,11 +1635,12 @@ ctrr_test_cpu(void)
 
 	kr = pmap_enter(kernel_pmap, ctrr_test_page, nx_pn,
 	    VM_PROT_READ | VM_PROT_EXECUTE, VM_PROT_NONE, VM_WIMG_USE_DEFAULT, FALSE, PMAP_MAPPING_TYPE_INFER);
+
 	T_EXPECT(kr == KERN_SUCCESS, "Expect pmap_enter of RX mapping to succeed");
 
 	// assert entire mmu prot path (Hierarchical protection model) is NOT XN
 	prot = pmap_get_arm64_prot(kernel_pmap, ctrr_test_page);
-	T_EXPECT(ARM_PTE_EXTRACT_AP(prot) == AP_RONA && (~prot & ARM_PTE_PNX), "Mapping is EL1 ROX");
+	T_EXPECT(ARM_PTE_EXTRACT_AP(prot) == AP_RONA && (~prot & ARM_PTE_PNX), "Mapping is EL1 ROX (prot=0x%lx)", prot);
 
 	ctrr_test_va = ctrr_test_page + (nx_test_va & PAGE_MASK);
 #if __has_feature(ptrauth_calls)
@@ -1603,24 +1656,26 @@ ctrr_test_cpu(void)
 	ctrr_nx_test_ptr();
 	ml_expect_fault_end();
 
-	// TODO: ensure execute permission fault at expected level
-	T_EXPECT(ESR_EC(ctrr_exception_esr) == ESR_EC_IABORT_EL1, "Instruction abort from EL1 Expected");
-	T_EXPECT(ISS_DA_FSC(ESR_ISS(ctrr_exception_esr)) == FSC_PERMISSION_FAULT_L3, "Permission Fault Expected");
+	if (ctrr_enabled) {
+		// FIXME: rdar://143430725 (xnu support for paravirtualized CTXR)
+		// Without FEAT_XNX support on the host side, we cannot test kernel execution outside CTXR regions.
+#if !defined(KERNEL_INTEGRITY_PV_CTRR)
+		// TODO: ensure execute permission fault at expected level
+		T_EXPECT(ESR_EC(ctrr_exception_esr) == ESR_EC_IABORT_EL1, "Instruction abort from EL1 Expected");
+		T_EXPECT(ISS_DA_FSC(ESR_ISS(ctrr_exception_esr)) == FSC_PERMISSION_FAULT_L3, "Permission Fault Expected");
+#endif /* !defined(KERNEL_INTEGRITY_PV_CTRR) */
+	} else {
+		T_EXPECT(ctrr_exception_esr == 0, "No fault expected with CTRR disabled");
+	}
 
 	ctrr_test_va = 0;
 	ctrr_exception_esr = 0;
 
 	pmap_remove(kernel_pmap, ctrr_test_page, ctrr_test_page + PAGE_SIZE);
 
-	T_LOG("Expect no faults when reading CTRR region to verify correct programming of CTRR limits");
-	for (vm_offset_t addr = rorgn_begin_va; addr < rorgn_end_va; addr += 8) {
-		volatile uint64_t x = *(uint64_t *)addr;
-		(void) x; /* read for side effect only */
-	}
-
 	return KERN_SUCCESS;
 }
-#endif /* defined(KERNEL_INTEGRITY_CTRR) && defined(CONFIG_XNUPOST) */
+#endif /* (defined(KERNEL_INTEGRITY_CTRR) || defined(KERNEL_INTEGRITY_PV_CTRR)) && defined(CONFIG_XNUPOST) */
 
 
 /**
@@ -1647,6 +1702,7 @@ assert_uniprocessor(void)
 #if CONFIG_SPTM
 volatile uint8_t xnu_post_panic_lockdown_did_fire = false;
 typedef uint64_t (panic_lockdown_helper_fcn_t)(uint64_t raw);
+typedef bool (panic_lockdown_precondition_fcn_t)(void);
 typedef bool (panic_lockdown_recovery_fcn_t)(arm_saved_state_t *);
 
 /* SP0 vector tests */
@@ -1662,7 +1718,6 @@ extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_ldr_auth_fail;
 extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_fpac;
 extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_copyio;
 extern uint8_t arm64_panic_lockdown_test_copyio_fault_pc;
-extern panic_lockdown_helper_fcn_t arm64_panic_lockdown_test_bti_telemetry;
 
 extern int gARM_FEAT_FPACCOMBINE;
 
@@ -1681,6 +1736,7 @@ typedef struct arm64_panic_lockdown_test_case {
 	const char *name;
 	panic_lockdown_helper_fcn_t *func;
 	uint64_t arg;
+	panic_lockdown_precondition_fcn_t *precondition;
 	esr_exception_class_t expected_ec;
 	bool check_fs;
 	fault_status_t expected_fs;
@@ -1861,6 +1917,7 @@ panic_lockdown_pacda_get_invalid_ptr(void)
 	return (uint64_t)unsigned_ptr;
 }
 
+
 kern_return_t
 arm64_panic_lockdown_test(void)
 {
@@ -1996,6 +2053,12 @@ arm64_panic_lockdown_test(void)
 
 	size_t test_count = sizeof(tests) / sizeof(*tests);
 	for (size_t i = 0; i < test_count; i++) {
+		if (tests[i].precondition &&
+		    !tests[i].precondition()) {
+			T_LOG("%s skipped due to precondition check", tests[i].name);
+			continue;
+		}
+
 		panic_lockdown_expect_test(
 			"Exceptions unmasked",
 			&tests[i],
@@ -2021,6 +2084,8 @@ arm64_panic_lockdown_test(void)
 	return KERN_SUCCESS;
 }
 #endif /* CONFIG_SPTM */
+
+
 
 
 
@@ -2349,6 +2414,7 @@ arm64_bti_test(void)
 #endif /* BTI_ENFORCED */
 
 
+
 /**
  * Test the speculation guards
  * We can't easily ensure that the guards actually behave correctly under
@@ -2451,6 +2517,7 @@ arm64_speculation_guard_test(void)
 
 	return KERN_SUCCESS;
 }
+
 
 extern void arm64_brk_lr_gpr(void);
 extern void arm64_brk_lr_fault(void);

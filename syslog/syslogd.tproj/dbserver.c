@@ -33,6 +33,7 @@
 #include <sys/ipc.h>
 #include <sys/mman.h>
 #include <sys/fcntl.h>
+#include <sys/fileport.h>
 #include <sys/signal.h>
 #include <sys/errno.h>
 #include <mach/mach.h>

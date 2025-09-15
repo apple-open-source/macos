@@ -291,7 +291,7 @@ static CFStringRef SOSMessageCopyFormatDescription(CFTypeRef cf, CFDictionaryRef
     CFMutableStringRef objects = CFStringCreateMutable(kCFAllocatorDefault, 0);
 
     // TODO: Remove this layer violation!
-    SOSDataSourceFactoryRef dsf = SecItemDataSourceFactoryGetDefault();
+    SOSDataSourceFactoryRef dsf = SecItemServerDataSourceFactoryGetDefault();
     SOSDataSourceRef ds = SOSDataSourceFactoryCreateDataSource(dsf, kSecAttrAccessibleWhenUnlocked, NULL);
 
     if (ds) {

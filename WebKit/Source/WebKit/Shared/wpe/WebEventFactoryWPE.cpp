@@ -27,6 +27,7 @@
 #include "WebEventFactory.h"
 
 #if ENABLE(WPE_PLATFORM)
+#include "WebEventConversion.h"
 #include <WebCore/FloatPoint.h>
 #include <WebCore/Scrollbar.h>
 #include <wpe/wpe-platform.h>
@@ -42,7 +43,7 @@ static WallTime wallTimeForEvent(WPEEvent* event)
     auto time = wpe_event_get_time(event);
     if (!time)
         return WallTime::now();
-    return MonotonicTime::fromRawSeconds(time / 1000.).approximateWallTime();
+    return wallTimeForEventTimeInMilliseconds(time);
 }
 
 static OptionSet<WebEventModifier> modifiersFromWPEModifiers(WPEModifiers wpeModifiers)
@@ -71,17 +72,6 @@ static WebMouseEventButton buttonForWPEButton(guint button)
     case 3:
         return WebMouseEventButton::Right;
     }
-    return WebMouseEventButton::None;
-}
-
-static WebMouseEventButton buttonFromWPEModifiers(WPEModifiers modifiers)
-{
-    if (modifiers & WPE_MODIFIER_POINTER_BUTTON1)
-        return WebMouseEventButton::Left;
-    if (modifiers & WPE_MODIFIER_POINTER_BUTTON2)
-        return WebMouseEventButton::Middle;
-    if (modifiers & WPE_MODIFIER_POINTER_BUTTON3)
-        return WebMouseEventButton::Right;
     return WebMouseEventButton::None;
 }
 
@@ -148,7 +138,6 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(WPEEvent* event)
     case WPE_EVENT_POINTER_ENTER:
     case WPE_EVENT_POINTER_LEAVE:
         type = WebEventType::MouseMove;
-        button = buttonFromWPEModifiers(modifiers);
         movementDelta = movementDeltaFromEvent(event);
         break;
     default:
@@ -182,7 +171,24 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(WPEEvent* event, WebWheelEven
     auto wheelTicks = FloatSize(deltaX, deltaY);
     FloatSize delta;
     if (hasPreciseScrollingDeltas) {
-        static const double wpeScrollDeltaMultiplier = 2.5;
+        double wpeScrollDeltaMultiplier;
+
+        switch (wpe_event_get_input_source(event)) {
+        case WPE_INPUT_SOURCE_MOUSE:
+        case WPE_INPUT_SOURCE_PEN:
+        case WPE_INPUT_SOURCE_KEYBOARD:
+        case WPE_INPUT_SOURCE_TOUCHPAD:
+        case WPE_INPUT_SOURCE_TRACKPOINT:
+            wpeScrollDeltaMultiplier = 2.5;
+            break;
+        case WPE_INPUT_SOURCE_TOUCHSCREEN:
+        case WPE_INPUT_SOURCE_TABLET_PAD:
+            wpeScrollDeltaMultiplier = 1.0;
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+
         delta = wheelTicks.scaled(wpeScrollDeltaMultiplier);
     } else {
         auto* view = wpe_event_get_view(event);

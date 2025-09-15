@@ -137,7 +137,7 @@ void PageDebugger::runEventLoopWhilePausedInternal()
 
 bool PageDebugger::isContentScript(JSGlobalObject* state) const
 {
-    return &currentWorld(*state) != &mainThreadNormalWorld() || JSC::Debugger::isContentScript(state);
+    return &currentWorld(*state) != &mainThreadNormalWorldSingleton() || JSC::Debugger::isContentScript(state);
 }
 
 void PageDebugger::reportException(JSGlobalObject* state, JSC::Exception* exception) const

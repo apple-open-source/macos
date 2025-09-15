@@ -140,11 +140,11 @@ public:
 	const char *teamID() { return codeDirectory()->teamID(); }
 	std::string format() const { return mRep->format(); }
 	std::string signatureSource();
- 	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
- 	virtual CFDictionaryRef infoDictionary();
+	virtual CFDataRef component(CodeDirectory::SpecialSlot slot, OSStatus fail = errSecCSSignatureFailed);
+	virtual CFDictionaryRef infoDictionary(bool check = true);
 	CFDictionaryRef copyDiskRepInformation();
 
-	CFDictionaryRef entitlements();
+	CFDictionaryRef entitlements(bool check = true);
 	CFDataRef copyComponent(CodeDirectory::SpecialSlot slot, CFDataRef hash);
 
 	CFDictionaryRef resourceDictionary(bool check = true);
@@ -295,7 +295,9 @@ private:
 	
 	// alternative cache forms (storage may depend on cached contents above)
 	CFRef<CFDictionaryRef> mInfoDict;	// derived from mCache slot
+	bool mInfoDictValidated;			// whether the mInfoDict was validated
 	CFRef<CFDictionaryRef> mEntitlements; // derived from mCache slot
+	bool mEntitlementsValidated;		// whether mEntitlements was validated
 	CFRef<CFDictionaryRef> mResourceDict; // derived from mCache slot
 	const Requirement *mDesignatedReq;	// cached designated req if we made one up
 	CFRef<CFDataRef> mCDHash;			// hash of chosen CodeDirectory

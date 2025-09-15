@@ -25,6 +25,7 @@
 #include "SecDb.h"
 #include "SecDbInternal.h"
 #include "debugging.h"
+#include "featureflags/featureflags.h"
 
 #include <sqlite3.h>
 #include <sqlite3_private.h>
@@ -945,7 +946,7 @@ static bool SecDbHandleCorrupt(SecDbConnectionRef dbconn, int rc, CFErrorRef *er
 
     secwarning("SecDbHandleCorrupt: killing self so that successor might cleanly delete corrupt db");
 
-    // Call through function pointer so tests can replace it and call a SecKeychainDbReset instead
+    // Call through function pointer so tests can replace it and call a SecServerKeychainDbReset instead
     SecDbCorruptionExitHandler();
     return true;
 }
@@ -1616,6 +1617,73 @@ bool SecDbBindObject(sqlite3_stmt *stmt, int param, CFTypeRef value, CFErrorRef 
 	return result;
 }
 
+static void SecDbLogQueryPlanIfEnabled(SecDbConnectionRef dbconn, const char* sql) {
+    if(!_SecDebVerboseDatabaseLoggingIsEnabled()) {
+        return;
+    }
+    const char * prefix = "EXPLAIN QUERY PLAN ";
+
+    char * buffer = NULL;
+    asprintf(&buffer, "%s%s", prefix, sql);
+
+    secnotice("item", "EXPLAIN QUERY PLAN for \"%s\":", sql);
+
+    sqlite3 *db = SecDbHandle(dbconn);
+
+    sqlite3_stmt *stmt = NULL;
+    const char* sqlTail = NULL;
+    int s3e = sqlite3_prepare_v2(db, buffer, (int)strlen(buffer), &stmt, &sqlTail);
+
+    if (s3e != SQLITE_OK) {
+        secnotice("item", "Unable to prepare query: %d", s3e);
+
+        free(buffer);
+        return;
+    }
+    // Create a mutable string to store query plan results
+    CFMutableStringRef query_plan = CFStringCreateMutable(kCFAllocatorDefault,0);
+    
+    __block CFErrorRef explainQueryError = NULL;
+    SecDbStep(dbconn, stmt, &explainQueryError, ^(bool *stop) {
+        // First column: Node ID
+        // Second column: Parent Node ID
+        // Third column: Unused
+        // Fourth column: description
+        const char * col = NULL;
+        
+        col = (const char *)sqlite3_column_text(stmt, 3);
+        // Create a CFString from the column text
+        CFStringRef plan = CFStringCreateWithCString(kCFAllocatorDefault, col, kCFStringEncodingUTF8);
+        if (plan != NULL) {
+            CFStringAppend(query_plan, plan);
+            CFStringAppend(query_plan, CFSTR(";"));  // Uncomment if we don't want a separator between values
+        }
+        CFReleaseNull(plan);
+    });
+    const char* final_query_plan = CFStringGetCStringPtr(query_plan, kCFStringEncodingUTF8);
+    if (final_query_plan != NULL) {
+        secnotice("item", "query plan: %s", final_query_plan);
+    } else {
+        secnotice("item", "Failed to get query plan");
+    }
+    CFReleaseNull(query_plan);
+    
+    if(explainQueryError != NULL) {
+        secnotice("item", "Failed to show plan: %@", explainQueryError);
+    }
+    CFReleaseNull(explainQueryError);
+
+    s3e = sqlite3_finalize(stmt);
+    if (s3e != SQLITE_OK) {
+        secnotice("item", "Unable to finalize query: %d", s3e);
+
+        free(buffer);
+        return;
+    }
+
+    free(buffer);
+}
+
 // MARK: -
 // MARK: SecDbStatementRef
 
@@ -1634,6 +1702,8 @@ bool SecDbFinalize(sqlite3_stmt *stmt, CFErrorRef *error) {
 }
 
 sqlite3_stmt *SecDbPrepareV2(SecDbConnectionRef dbconn, const char *sql, size_t sqlLen, const char **sqlTail, CFErrorRef *error) {
+    SecDbLogQueryPlanIfEnabled(dbconn, sql);
+
     sqlite3 *db = SecDbHandle(dbconn);
     if (sqlLen > INT_MAX) {
         SecDbErrorWithDb(SQLITE_TOOBIG, db, error, CFSTR("prepare_v2: sql bigger than INT_MAX"));

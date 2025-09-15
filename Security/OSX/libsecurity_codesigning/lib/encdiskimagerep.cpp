@@ -371,7 +371,7 @@ string EncDiskImageRep::format()
 void EncDiskImageRep::prepareForSigning(SigningContext& context)
 {
 	if (context.digestAlgorithms().empty()) {
-		context.setDigestAlgorithm(kSecCodeSignatureHashSHA256);
+		context.addDigestAlgorithm(kSecCodeSignatureHashSHA256);
 	}
 }
 

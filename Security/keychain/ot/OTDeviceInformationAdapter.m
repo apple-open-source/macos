@@ -149,8 +149,8 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 - (BOOL)isHomePod
 {
 #if TARGET_OS_TV
-    bool isHomePod = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAudioAccessory);
-    return isHomePod;
+    MGDeviceClass deviceClass = MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid);
+    return deviceClass == MGDeviceClassAudioAccessory;
 #else // TARGET_OS_TV
     return NO;
 #endif
@@ -159,12 +159,13 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 - (BOOL)isAppleTV
 {
 #if TARGET_OS_TV
-    bool isAppleTV = (MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid) == MGDeviceClassAppleTV);
-    return isAppleTV;
+    MGDeviceClass deviceClass = MGGetSInt32Answer(kMGQDeviceClassNumber, MGDeviceClassInvalid);
+    return deviceClass == MGDeviceClassAppleTV;
 #else // TARGET_OS_TV
     return NO;
 #endif
 }
+
 
 - (BOOL)isWatch
 {
@@ -174,6 +175,11 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 #else // TARGET_OS_WATCH
     return NO;
 #endif
+}
+
+- (BOOL)longerTimeout {
+    return [self isWatch] || [self isAppleTV] || [self isHomePod]
+        ;
 }
 
 - (void)setupDeviceNameListener {

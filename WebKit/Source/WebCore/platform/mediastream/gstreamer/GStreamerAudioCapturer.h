@@ -26,12 +26,16 @@
 
 #include "GStreamerCapturer.h"
 
+namespace WTF {
+class MediaTime;
+}
+
 namespace WebCore {
 
 class GStreamerAudioCapturer final : public GStreamerCapturer {
 public:
     GStreamerAudioCapturer(GStreamerCaptureDevice&&);
-    GStreamerAudioCapturer();
+    GStreamerAudioCapturer(const PipeWireCaptureDevice&);
     ~GStreamerAudioCapturer() = default;
 
     GstElement* createConverter() final;
@@ -39,7 +43,7 @@ public:
 
     bool setSampleRate(int);
 
-    using SinkAudioDataCallback = Function<void(GRefPtr<GstSample>&&, MediaTime&&)>;
+    using SinkAudioDataCallback = Function<void(GRefPtr<GstSample>&&, WTF::MediaTime&&)>;
     void setSinkAudioCallback(SinkAudioDataCallback&&);
 
 private:

@@ -55,7 +55,7 @@ T_DECL(mach_port_peek, "Test mach port peeking")
 	mach_msg_type_number_t incoming_size = 0;
 	mach_msg_id_t incoming_id;
 
-	kr = mach_port_peek(mach_task_self(), port, tlrtype, &seqno, &incoming_size, &incoming_id, &audit_trailer, &size);
+	kr = mach_port_peek(mach_task_self(), port, tlrtype, &seqno, &incoming_size, &incoming_id, (void *)&audit_trailer, &size);
 	T_ASSERT_EQ(kr, KERN_SUCCESS, "mach_port_peek");
 
 	T_ASSERT_EQ(incoming_id, outgoing_id, "Peek must return correct msgh_id");

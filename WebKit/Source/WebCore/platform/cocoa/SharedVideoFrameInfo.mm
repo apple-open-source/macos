@@ -234,7 +234,7 @@ bool SharedVideoFrameInfo::writePixelBuffer(CVPixelBufferRef pixelBuffer, std::s
 
     auto planeA = CVPixelBufferGetSpanOfPlane(pixelBuffer, 0);
     if (!planeA.data()) {
-        RELEASE_LOG_ERROR(WebRTC, "SharedVideoFrameInfo::writePixelBuffer plane A is null");
+        RELEASE_LOG_FAULT(WebRTC, "SharedVideoFrameInfo::writePixelBuffer plane A is null");
         return false;
     }
 

@@ -29,6 +29,7 @@
 #ifndef _SYS_PROC_RO_H_
 #define _SYS_PROC_RO_H_
 
+#include <mach/task_info.h>
 #include <stdint.h>
 #include <sys/_types/_pid_t.h>
 #include <sys/cdefs.h>
@@ -92,7 +93,7 @@ struct proc_ro {
 		struct task_filter_ro_data task_filters;
 #endif
 		uint32_t t_flags_ro;                               /* RO-protected task flags (see osfmk/kern/task.h) */
-		uint32_t task_control_port_options;
+		task_control_port_options_t task_control_port_options;
 	});
 };
 

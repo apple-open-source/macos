@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #import <PDFKit/PDFKit.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 
@@ -118,6 +120,10 @@
 @property (readwrite, nonatomic) BOOL hasHighLatencyDataProvider;
 @end
 #endif // HAVE(INCREMENTAL_PDF_APIS)
+
+@interface PDFPage (SPI)
+- (PDFRect)columnFrameAtPoint:(PDFPoint)point;
+@end
 
 #endif // HAVE(PDFKIT)
 

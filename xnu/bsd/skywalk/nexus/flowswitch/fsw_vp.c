@@ -78,7 +78,7 @@ fsw_vp_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 
 	ASSERT(na->na_type == NA_FLOWSWITCH_VP);
 
-	SK_DF(SK_VERB_FSW, "na \"%s\" (0x%llx) %s", na->na_name,
+	SK_DF(SK_VERB_FSW, "na \"%s\" (%p) %s", na->na_name,
 	    SK_KVA(na), na_activate_mode2str(mode));
 
 	/*
@@ -96,7 +96,7 @@ fsw_vp_na_activate(struct nexus_adapter *na, na_activate_mode_t mode)
 
 	ret = fsw_port_na_activate(fsw, vpna, mode);
 	if (ret != 0) {
-		SK_DF(SK_VERB_FSW, "na \"%s\" (0x%llx) %s err(%d)",
+		SK_DF(SK_VERB_FSW, "na \"%s\" (%p) %s err(%d)",
 		    na->na_name, SK_KVA(na), na_activate_mode2str(mode), ret);
 		if (mode == NA_ACTIVATE_MODE_ON) {
 			os_atomic_andnot(&na->na_flags, NAF_ACTIVE, relaxed);
@@ -148,7 +148,7 @@ fsw_vp_na_dtor(struct nexus_adapter *na)
 	SK_LOCK_ASSERT_HELD();
 	ASSERT(na->na_type == NA_FLOWSWITCH_VP);
 
-	SK_DF(SK_VERB_FSW, "na \"%s\" (0x%llx)", na->na_name, SK_KVA(na));
+	SK_DF(SK_VERB_FSW, "na \"%s\" (%p)", na->na_name, SK_KVA(na));
 
 	if (fsw != NULL) {
 		FSW_WLOCK(fsw);
@@ -224,16 +224,14 @@ fsw_vp_na_txsync(struct __kern_channel_ring *kring, struct proc *p,
 		kring->ckr_khead = kring->ckr_rhead;
 		kring->ckr_ktail = SLOT_PREV(kring->ckr_rhead, kring->ckr_lim);
 		error = ENODEV;
-		SK_ERR("kr \"%s\" (0x%llx) krflags 0x%b in drop mode (err %d)",
-		    kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-		    CKRF_BITS, error);
+		SK_ERR("kr \"%s\" (%p) krflags 0x%x in drop mode (err %d)",
+		    kring->ckr_name, SK_KVA(kring), kring->ckr_flags, error);
 	}
 
 	SK_DF(SK_VERB_FSW | SK_VERB_SYNC | SK_VERB_TX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u flags 0x%x",
-	    sk_proc_name_address(p), sk_proc_pid(p), kring->ckr_name,
-	    SK_KVA(kring), kring->ckr_flags, CKRF_BITS, kring->ckr_ring_id,
-	    flags);
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u flags 0x%x",
+	    sk_proc_name(p), sk_proc_pid(p), kring->ckr_name,
+	    SK_KVA(kring), kring->ckr_flags, kring->ckr_ring_id, flags);
 
 	return error;
 }
@@ -263,11 +261,11 @@ fsw_vp_na_rxsync(struct __kern_channel_ring *kring, struct proc *p,
 	os_atomic_thread_fence(seq_cst);
 
 	SK_DF(SK_VERB_FSW | SK_VERB_SYNC | SK_VERB_RX,
-	    "%s(%d) kr \"%s\" (0x%llx) krflags 0x%b ring %u "
-	    "kh %u (was %u) rh %u flags 0x%x", sk_proc_name_address(p),
+	    "%s(%d) kr \"%s\" (%p) krflags 0x%x ring %u "
+	    "kh %u (was %u) rh %u flags 0x%x", sk_proc_name(p),
 	    sk_proc_pid(p), kring->ckr_name, SK_KVA(kring), kring->ckr_flags,
-	    CKRF_BITS, kring->ckr_ring_id, kring->ckr_khead, khead_prev,
-	    kring->ckr_rhead, flags);
+	    kring->ckr_ring_id, kring->ckr_khead, khead_prev, kring->ckr_rhead,
+	    flags);
 
 	return 0;
 }
@@ -301,7 +299,7 @@ fsw_vp_na_special(struct nexus_adapter *na, struct kern_channel *ch,
 		break;
 
 	case NXSPEC_CMD_DISCONNECT:
-		ASSERT(na->na_channels > 0);
+		ASSERT(na->na_channels == 1);
 		ASSERT(na->na_flags & NAF_SPEC_INIT);
 		os_atomic_andnot(&na->na_flags, NAF_SPEC_INIT, relaxed);
 
@@ -323,7 +321,7 @@ fsw_vp_na_special(struct nexus_adapter *na, struct kern_channel *ch,
 
 done:
 	SK_DF(error ? SK_VERB_ERROR : SK_VERB_FSW,
-	    "ch 0x%llx na \"%s\" (0x%llx) nx 0x%llx spec_cmd %u (err %d)",
+	    "ch %p na \"%s\" (%p) nx %p spec_cmd %u (err %d)",
 	    SK_KVA(ch), na->na_name, SK_KVA(na), SK_KVA(ch->ch_nexus),
 	    spec_cmd, error);
 
@@ -436,10 +434,10 @@ fsw_vp_na_create(struct kern_nexus *nx, struct chreq *chr, struct proc *p,
 	SK_DF(SK_VERB_FSW, "na_name: \"%s\"", na->na_name);
 	SK_DF(SK_VERB_FSW, "  UUID:        %s", sk_uuid_unparse(na->na_uuid,
 	    uuidstr));
-	SK_DF(SK_VERB_FSW, "  nx:          0x%llx (\"%s\":\"%s\")",
+	SK_DF(SK_VERB_FSW, "  nx:          %p (\"%s\":\"%s\")",
 	    SK_KVA(na->na_nx), NX_DOM(na->na_nx)->nxdom_name,
 	    NX_DOM_PROV(na->na_nx)->nxdom_prov_name);
-	SK_DF(SK_VERB_FSW, "  flags:       0x%b", na->na_flags, NAF_BITS);
+	SK_DF(SK_VERB_FSW, "  flags:       0x%x", na->na_flags);
 	SK_DF(SK_VERB_FSW, "  stats_type:  %u", na->na_stats_type);
 	SK_DF(SK_VERB_FSW, "  flowadv_max: %u", na->na_flowadv_max);
 	SK_DF(SK_VERB_FSW, "  rings:       tx %u rx %u af %u",
@@ -474,7 +472,7 @@ fsw_vp_na_alloc(zalloc_flags_t how)
 {
 	struct nexus_vp_adapter *vpna;
 
-	_CASSERT(offsetof(struct nexus_vp_adapter, vpna_up) == 0);
+	static_assert(offsetof(struct nexus_vp_adapter, vpna_up) == 0);
 
 	vpna = zalloc_flags(na_vp_zone, how | Z_ZERO);
 	if (vpna) {
@@ -490,7 +488,7 @@ fsw_vp_na_free(struct nexus_adapter *na)
 	struct nexus_vp_adapter *__single vpna = (struct nexus_vp_adapter *)(void *)na;
 
 	ASSERT(vpna->vpna_up.na_refcount == 0);
-	SK_DF(SK_VERB_MEM, "vpna 0x%llx FREE", SK_KVA(vpna));
+	SK_DF(SK_VERB_MEM, "vpna %p FREE", SK_KVA(vpna));
 	bzero(vpna, sizeof(*vpna));
 	zfree(na_vp_zone, vpna);
 }

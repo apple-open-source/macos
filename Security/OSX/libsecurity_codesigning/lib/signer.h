@@ -59,6 +59,7 @@ public:
 	
 	const CodeDirectory::HashAlgorithms& digestAlgorithms() const { return hashAlgorithms; }
 	void setDigestAlgorithms(CodeDirectory::HashAlgorithms types) { hashAlgorithms = types; }
+	void addDigestAlgorithm(CodeDirectory::HashAlgorithm type) { hashAlgorithms.insert(type); }
 	
 	std::string path() const { return cfStringRelease(rep->copyCanonicalPath()); }
 	SecIdentityRef signingIdentity() const { return state.mSigner; }
@@ -92,13 +93,14 @@ protected:
 	typedef EditableDiskRep::RawComponentMap RawComponentMap;
 	typedef std::map<Architecture, std::unique_ptr<RawComponentMap>>
 		RawComponentMaps;
+	typedef std::map<Architecture, size_t> PageSizeMap;
 
 	void populate(DiskRep::Writer &writer);		// global
 	void populate(CodeDirectory::Builder &builder, DiskRep::Writer &writer,
 				  InternalRequirements &ireqs,
 				  size_t offset, size_t length,
 				  bool mainBinary, size_t execSegBase, size_t execSegLimit,
-				  unsigned alternateDigestCount,
+				  size_t pagesize, unsigned alternateDigestCount,
 				  const PreEncryptHashMap& preEncryptHashMap,
 				  uint32_t runtimeVersion, bool generateEntitlementDER);	// per-architecture
 	CFDataRef signCodeDirectory(const CodeDirectory *cd,
@@ -153,7 +155,8 @@ private:
 	RuntimeVersionMaps runtimeVersionMap; // runtime versions to keep
 	uint32_t cdFlags;				// CodeDirectory flags
 	const Requirements *requirements; // internal requirements ready-to-use
-	size_t pagesize;				// size of main executable pages
+	size_t archAgnosticPageSize;
+	PageSizeMap pageSizeMap;				// size of main executable pages
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => now)
 	bool emitSigningTime;			// emit signing time as a signed CMS attribute
 	bool strict;					// strict validation

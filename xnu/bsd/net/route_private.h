@@ -191,6 +191,8 @@ struct rtentry {
 	u_int32_t rtt_min;              /* minimum RTT computed from history */
 	u_int32_t rtt_expire_ts;        /* RTT history expire timestamp */
 	u_int8_t rtt_index;             /* Index into RTT history */
+	uint64_t rt_qset_id;            /* QSet to route packets to */
+	uint32_t rt_tr_genid; /* Traffic rule gen id used to determine qset_id */
 	/* Event handler context for the rtentrt */
 	struct eventhandler_lists_ctxt rt_evhdlr_ctxt;
 };
@@ -204,9 +206,9 @@ rn_rtentry(struct radix_node *rn)
 /* Backward compatibility. */
 #define RT(r) rn_rtentry((r))
 
-#define rt_key_free(r) ({                                       \
-	void *__r __single = rt_key(r);                         \
-	kheap_free_addr(KHEAP_DATA_BUFFERS, __r);               \
+#define rt_key_free(r) ({                      \
+	void *__r __single = rt_key(r);            \
+	kfree_data_addr(__r);                      \
 })
 
 enum {
@@ -539,6 +541,7 @@ extern void route_event_init(struct route_event *p_route_ev, struct rtentry *rt,
 extern int route_event_walktree(struct radix_node *rn, void *arg);
 extern void route_event_enqueue_nwk_wq_entry(struct rtentry *, struct rtentry *,
     uint32_t, eventhandler_tag, boolean_t);
+extern uint64_t rt_lookup_qset_id(route_t, bool);
 
 #endif /* BSD_KERNEL_PRIVATE */
 #endif /* _NET_ROUTE_PRIVATE_H_ */

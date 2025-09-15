@@ -36,26 +36,26 @@ public:
         , m_saveAndRestore(saveAndRestore)
     {
         if (m_saveAndRestore)
-            CGContextSaveGState(m_context);
+            CGContextSaveGState(m_context.get());
     }
     
     ~CGContextStateSaver()
     {
         if (m_saveAndRestore)
-            CGContextRestoreGState(m_context);
+            CGContextRestoreGState(m_context.get());
     }
     
     void save()
     {
         ASSERT(!m_saveAndRestore);
-        CGContextSaveGState(m_context);
+        CGContextSaveGState(m_context.get());
         m_saveAndRestore = true;
     }
 
     void restore()
     {
         ASSERT(m_saveAndRestore);
-        CGContextRestoreGState(m_context);
+        CGContextRestoreGState(m_context.get());
         m_saveAndRestore = false;
     }
     
@@ -65,7 +65,7 @@ public:
     }
     
 private:
-    CGContextRef m_context;
+    RetainPtr<CGContextRef> m_context;
     bool m_saveAndRestore;
 };
 

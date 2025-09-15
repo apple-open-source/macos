@@ -63,6 +63,12 @@ WK_SWIFT_UI_ACTOR
  */
 - (void)setCookie:(NSHTTPCookie *)cookie completionHandler:(nullable WK_SWIFT_UI_ACTOR void (^)(void))completionHandler;
 
+/*! @abstract Set multiple cookies.
+ @param cookies An array of cookies to set.
+ @param completionHandler A block to invoke once the cookies have been stored.
+*/
+- (void)setCookies:(NSArray<NSHTTPCookie *> *)cookies completionHandler:(nullable WK_SWIFT_UI_ACTOR void (^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+
 /*! @abstract Delete the specified cookie.
  @param completionHandler A block to invoke once the cookie has been deleted.
  */

@@ -28,6 +28,7 @@
 #include "JSDOMGlobalObject.h"
 #include "JSVoidCallback.h"
 #include "ScriptExecutionContext.h"
+#include "Settings.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/ObjectConstructor.h>
 
@@ -42,7 +43,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2>> convertDictio
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -56,7 +57,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2>> convertDictio
     }
     if (!boolMemberValue.isUndefined()) {
         auto boolMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, boolMemberValue);
-        if (UNLIKELY(boolMemberConversionResult.hasException(throwScope)))
+        if (boolMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.boolMember = boolMemberConversionResult.releaseReturnValue();
     }
@@ -69,7 +70,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2>> convertDictio
     }
     if (!callbackMemberValue.isUndefined()) {
         auto callbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, callbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(callbackMemberConversionResult.hasException(throwScope)))
+        if (callbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.callbackMember = callbackMemberConversionResult.releaseReturnValue();
     }
@@ -82,7 +83,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2>> convertDictio
     }
     if (!stringMemberValue.isUndefined()) {
         auto stringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, stringMemberValue);
-        if (UNLIKELY(stringMemberConversionResult.hasException(throwScope)))
+        if (stringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.stringMember = stringMemberConversionResult.releaseReturnValue();
     }
@@ -95,7 +96,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2>> convertDictio
     }
     if (!derivedBoolMember2Value.isUndefined()) {
         auto derivedBoolMember2ConversionResult = convert<IDLBoolean>(lexicalGlobalObject, derivedBoolMember2Value);
-        if (UNLIKELY(derivedBoolMember2ConversionResult.hasException(throwScope)))
+        if (derivedBoolMember2ConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.derivedBoolMember2 = derivedBoolMember2ConversionResult.releaseReturnValue();
     }
@@ -138,7 +139,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -152,7 +153,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!boolMemberValue.isUndefined()) {
         auto boolMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, boolMemberValue);
-        if (UNLIKELY(boolMemberConversionResult.hasException(throwScope)))
+        if (boolMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.boolMember = boolMemberConversionResult.releaseReturnValue();
     }
@@ -165,7 +166,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!callbackMemberValue.isUndefined()) {
         auto callbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, callbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(callbackMemberConversionResult.hasException(throwScope)))
+        if (callbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.callbackMember = callbackMemberConversionResult.releaseReturnValue();
     }
@@ -178,7 +179,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!partialBooleanMemberValue.isUndefined()) {
         auto partialBooleanMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, partialBooleanMemberValue);
-        if (UNLIKELY(partialBooleanMemberConversionResult.hasException(throwScope)))
+        if (partialBooleanMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialBooleanMember = partialBooleanMemberConversionResult.releaseReturnValue();
     }
@@ -192,7 +193,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!partialBooleanMemberWithConditionalValue.isUndefined()) {
         auto partialBooleanMemberWithConditionalConversionResult = convert<IDLBoolean>(lexicalGlobalObject, partialBooleanMemberWithConditionalValue);
-        if (UNLIKELY(partialBooleanMemberWithConditionalConversionResult.hasException(throwScope)))
+        if (partialBooleanMemberWithConditionalConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialBooleanMemberWithConditional = partialBooleanMemberWithConditionalConversionResult.releaseReturnValue();
     }
@@ -206,7 +207,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!partialCallbackMemberValue.isUndefined()) {
         auto partialCallbackMemberConversionResult = convert<IDLCallbackFunction<JSVoidCallback>>(lexicalGlobalObject, partialCallbackMemberValue, *jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject));
-        if (UNLIKELY(partialCallbackMemberConversionResult.hasException(throwScope)))
+        if (partialCallbackMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialCallbackMember = partialCallbackMemberConversionResult.releaseReturnValue();
     }
@@ -222,7 +223,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
         return ConversionResultException { };
     }
     auto partialRequiredLongMemberConversionResult = convert<IDLLong>(lexicalGlobalObject, partialRequiredLongMemberValue);
-    if (UNLIKELY(partialRequiredLongMemberConversionResult.hasException(throwScope)))
+    if (partialRequiredLongMemberConversionResult.hasException(throwScope)) [[unlikely]]
         return ConversionResultException { };
     result.partialRequiredLongMember = partialRequiredLongMemberConversionResult.releaseReturnValue();
     JSValue partialStringMemberValue;
@@ -234,7 +235,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!partialStringMemberValue.isUndefined()) {
         auto partialStringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, partialStringMemberValue);
-        if (UNLIKELY(partialStringMemberConversionResult.hasException(throwScope)))
+        if (partialStringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialStringMember = partialStringMemberConversionResult.releaseReturnValue();
     }
@@ -248,7 +249,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
         }
         if (!partialStringMemberWithEnabledBySettingValue.isUndefined()) {
             auto partialStringMemberWithEnabledBySettingConversionResult = convert<IDLDOMString>(lexicalGlobalObject, partialStringMemberWithEnabledBySettingValue);
-            if (UNLIKELY(partialStringMemberWithEnabledBySettingConversionResult.hasException(throwScope)))
+            if (partialStringMemberWithEnabledBySettingConversionResult.hasException(throwScope)) [[unlikely]]
                 return ConversionResultException { };
             result.partialStringMemberWithEnabledBySetting = partialStringMemberWithEnabledBySettingConversionResult.releaseReturnValue();
         }
@@ -262,7 +263,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!partialUnsignedLongMemberWithImplementedAsValue.isUndefined()) {
         auto partialUnsignedLongMemberConversionResult = convert<IDLUnsignedLong>(lexicalGlobalObject, partialUnsignedLongMemberWithImplementedAsValue);
-        if (UNLIKELY(partialUnsignedLongMemberConversionResult.hasException(throwScope)))
+        if (partialUnsignedLongMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.partialUnsignedLongMember = partialUnsignedLongMemberConversionResult.releaseReturnValue();
     }
@@ -275,7 +276,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!stringMemberValue.isUndefined()) {
         auto stringMemberConversionResult = convert<IDLDOMString>(lexicalGlobalObject, stringMemberValue);
-        if (UNLIKELY(stringMemberConversionResult.hasException(throwScope)))
+        if (stringMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.stringMember = stringMemberConversionResult.releaseReturnValue();
     }
@@ -288,7 +289,7 @@ template<> ConversionResult<IDLDictionary<TestDerivedDictionary2::Dictionary>> c
     }
     if (!derivedBoolMemberValue.isUndefined()) {
         auto derivedBoolMemberConversionResult = convert<IDLBoolean>(lexicalGlobalObject, derivedBoolMemberValue);
-        if (UNLIKELY(derivedBoolMemberConversionResult.hasException(throwScope)))
+        if (derivedBoolMemberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.derivedBoolMember = derivedBoolMemberConversionResult.releaseReturnValue();
     }

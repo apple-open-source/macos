@@ -109,6 +109,7 @@
 #include <sys/domain.h>
 #include <sys/kauth.h>
 
+#include <net/droptap.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <net/if_dl.h>
@@ -176,7 +177,7 @@ static int icmp6_notify_error(struct mbuf *, int, int, int);
 
 
 void
-icmp6_init(struct ip6protosw *pp, struct domain *dp)
+icmp6_init(struct protosw *pp, struct domain *dp)
 {
 #pragma unused(dp)
 	static int icmp6_initialized = 0;
@@ -186,14 +187,15 @@ icmp6_init(struct ip6protosw *pp, struct domain *dp)
 	    (pp->pr_flags & (PR_INITIALIZED | PR_ATTACHED)) == PR_ATTACHED);
 
 	/* This gets called by more than one protocols, so initialize once */
-	if (!icmp6_initialized) {
-		icmp6_initialized = 1;
-		mld_init();
-		if (icmp6errppslim >= 0 &&
-		    icmp6errppslim_random_incr > 0 &&
-		    icmp6errppslim <= INT32_MAX - (icmp6errppslim_random_incr + 1)) {
-			icmp6errppslim += (random() % icmp6errppslim_random_incr) + 1;
-		}
+	if (!os_atomic_cmpxchg(&icmp6_initialized, 0, 1, relaxed)) {
+		return;
+	}
+
+	mld_init();
+	if (icmp6errppslim >= 0 &&
+	    icmp6errppslim_random_incr > 0 &&
+	    icmp6errppslim <= INT32_MAX - (icmp6errppslim_random_incr + 1)) {
+		icmp6errppslim += (random() % icmp6errppslim_random_incr) + 1;
 	}
 }
 
@@ -456,7 +458,7 @@ freeit:
 	/*
 	 * If we can't tell whether or not we can generate ICMP6, free it.
 	 */
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_ICMP_DROP, NULL, 0);
 }
 
 /*
@@ -1614,7 +1616,7 @@ ni6_input(struct mbuf *m, int off)
 	return n;
 
 bad:
-	m_freem(m);
+	m_drop(m, DROPTAP_FLAG_DIR_IN | DROPTAP_FLAG_L2_MISSING, DROP_REASON_IP6_BAD_NI, NULL, 0);
 	if (n) {
 		m_freem(n);
 	}
@@ -2575,13 +2577,13 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 
 	/* validation */
 	if (!IN6_IS_ADDR_LINKLOCAL(&src6)) {
-		nd6log(error,
+		nd6log0(error,
 		    "ICMP6 redirect sent from %s rejected; "
 		    "must be from linklocal\n", ip6_sprintf(&src6));
 		goto bad;
 	}
 	if (ip6->ip6_hlim != IPV6_MAXHLIM) {
-		nd6log(error,
+		nd6log0(error,
 		    "ICMP6 redirect sent from %s rejected; "
 		    "hlim=%d (must be 255)\n",
 		    ip6_sprintf(&src6), ip6->ip6_hlim);
@@ -2604,7 +2606,7 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 			RT_LOCK(rt);
 			if (rt->rt_gateway == NULL ||
 			    rt->rt_gateway->sa_family != AF_INET6) {
-				nd6log(error,
+				nd6log0(error,
 				    "ICMP6 redirect rejected; no route "
 				    "with inet6 gateway found for redirect dst: %s\n",
 				    icmp6_redirect_diag(&src6, &reddst6, &redtgt6));
@@ -2615,7 +2617,7 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 
 			gw6 = &((SIN6(rt->rt_gateway))->sin6_addr);
 			if (!in6_are_addr_equal_scoped(&src6, gw6, src_ifscope, (SIN6(rt->rt_gateway))->sin6_scope_id)) {
-				nd6log(error,
+				nd6log0(error,
 				    "ICMP6 redirect rejected; "
 				    "not equal to gw-for-src=%s (must be same): "
 				    "%s\n",
@@ -2626,7 +2628,7 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 				goto bad;
 			}
 		} else {
-			nd6log(error,
+			nd6log0(error,
 			    "ICMP6 redirect rejected; "
 			    "no route found for redirect dst: %s\n",
 			    icmp6_redirect_diag(&src6, &reddst6, &redtgt6));
@@ -2637,7 +2639,7 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 		rt = NULL;
 	}
 	if (IN6_IS_ADDR_MULTICAST(&reddst6)) {
-		nd6log(error,
+		nd6log0(error,
 		    "ICMP6 redirect rejected; "
 		    "redirect dst must be unicast: %s\n",
 		    icmp6_redirect_diag(&src6, &reddst6, &redtgt6));
@@ -2652,7 +2654,7 @@ icmp6_redirect_input(struct mbuf *m, int off, int icmp6len)
 		is_onlink = 1;  /* on-link destination case */
 	}
 	if (!is_router && !is_onlink) {
-		nd6log(error,
+		nd6log0(error,
 		    "ICMP6 redirect rejected; "
 		    "neither router case nor onlink case: %s\n",
 		    icmp6_redirect_diag(&src6, &reddst6, &redtgt6));
@@ -3219,6 +3221,7 @@ icmp6_dgram_ctloutput(struct socket *so, struct sockopt *sopt)
 	case IPV6_2292RTHDR:
 	case IPV6_BOUND_IF:
 	case IPV6_NO_IFT_CELLULAR:
+	case IPV6_RECV_LINK_ADDR_TYPE:
 		return ip6_ctloutput(so, sopt);
 
 	default:

@@ -77,7 +77,7 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     if (_contentWorld->name().isNull())
         return nil;
 
-    return _contentWorld->name();
+    return _contentWorld->name().createNSString().autorelease();
 }
 
 #pragma mark WKObject protocol implementation

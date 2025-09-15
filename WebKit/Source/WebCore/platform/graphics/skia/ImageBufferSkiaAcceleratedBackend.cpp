@@ -31,12 +31,12 @@
 #include "GLContext.h"
 #include "GLFence.h"
 #include "IntRect.h"
+#include "NativeImage.h"
 #include "PixelBuffer.h"
 #include "PixelBufferConversion.h"
 #include "PlatformDisplay.h"
 #include "ProcessCapabilities.h"
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-#include <skia/core/SkBitmap.h>
 #include <skia/core/SkPixmap.h>
 #include <skia/gpu/ganesh/GrBackendSurface.h>
 #include <skia/gpu/ganesh/SkSurfaceGanesh.h>
@@ -49,10 +49,6 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #include "CoordinatedPlatformLayerBufferRGB.h"
 #include "GraphicsLayerContentsDisplayDelegateCoordinated.h"
 #include "TextureMapperFlags.h"
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
-#include <skia/gpu/ganesh/gl/GrGLBackendSurface.h>
-#include <skia/gpu/ganesh/gl/GrGLDirectContext.h>
-WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 #endif
 
 namespace WebCore {
@@ -94,10 +90,7 @@ std::unique_ptr<ImageBufferSkiaAcceleratedBackend> ImageBufferSkiaAcceleratedBac
 
 ImageBufferSkiaAcceleratedBackend::ImageBufferSkiaAcceleratedBackend(const Parameters& parameters, sk_sp<SkSurface>&& surface)
     : ImageBufferSkiaSurfaceBackend(parameters, WTFMove(surface), RenderingMode::Accelerated)
-    , m_skiaGrContext(PlatformDisplay::sharedDisplay().skiaGrContext())
 {
-    ASSERT(m_skiaGrContext);
-
 #if USE(COORDINATED_GRAPHICS)
     // Use a content layer for canvas.
     if (parameters.purpose == RenderingPurpose::Canvas)
@@ -119,58 +112,6 @@ void ImageBufferSkiaAcceleratedBackend::prepareForDisplay()
 
     m_layerContentsDisplayDelegate->setDisplayBuffer(CoordinatedPlatformLayerBufferNativeImage::create(image.releaseNonNull(), GLFence::create()));
 #endif
-}
-
-void ImageBufferSkiaAcceleratedBackend::finishAcceleratedRenderingAndCreateFence()
-{
-    Locker locker { m_fenceLock };
-    if (m_fence)
-        return;
-
-    auto* glContext = PlatformDisplay::sharedDisplay().skiaGLContext();
-    if (!glContext || !glContext->makeContextCurrent())
-        return;
-
-    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
-    RELEASE_ASSERT(grContext);
-
-    if (GLFence::isSupported()) {
-        grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kNo);
-        m_fence = GLFence::create();
-        if (!m_fence)
-            grContext->submit(GrSyncCpu::kYes);
-    } else
-        grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kYes);
-}
-
-void ImageBufferSkiaAcceleratedBackend::waitForAcceleratedRenderingFenceCompletion()
-{
-    Locker locker { m_fenceLock };
-    if (!m_fence)
-        return;
-
-    m_fence->serverWait();
-    m_fence = nullptr;
-}
-
-RefPtr<ImageBuffer> ImageBufferSkiaAcceleratedBackend::copyAcceleratedImageBufferBorrowingBackendRenderTarget(const ImageBuffer& imageBuffer) const
-{
-    auto* glContext = PlatformDisplay::sharedDisplay().skiaGLContext();
-    if (!glContext || !glContext->makeContextCurrent())
-        return nullptr;
-
-    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
-    RELEASE_ASSERT(grContext);
-
-    auto backendRenderTarget = SkSurfaces::GetBackendRenderTarget(m_surface.get(), SkSurfaces::BackendHandleAccess::kFlushRead);
-
-    const auto& imageInfo = m_surface->imageInfo();
-    auto surface = SkSurfaces::WrapBackendRenderTarget(grContext, backendRenderTarget, kTopLeft_GrSurfaceOrigin, imageInfo.colorType(), imageInfo.refColorSpace(), &m_surface->props());
-    if (!surface || !surface->getCanvas())
-        return nullptr;
-
-    auto backend = ImageBufferSkiaAcceleratedBackend::create(parameters(), { }, WTFMove(surface));
-    return ImageBuffer::create<ImageBuffer>(imageBuffer.parameters(), imageBuffer.backendInfo(), { }, WTFMove(backend));
 }
 
 RefPtr<NativeImage> ImageBufferSkiaAcceleratedBackend::copyNativeImage()
@@ -221,7 +162,7 @@ void ImageBufferSkiaAcceleratedBackend::getPixelBuffer(const IntRect& srcRect, P
     SkPixmap pixmap(destinationInfo, destination.bytes().data(), destination.size().width() * 4);
 
     SkPixmap dstPixmap;
-    if (UNLIKELY(!pixmap.extractSubset(&dstPixmap, destinationRect)))
+    if (!pixmap.extractSubset(&dstPixmap, destinationRect)) [[unlikely]]
         return;
 
     m_surface->readPixels(dstPixmap, sourceRectClipped.x(), sourceRectClipped.y());
@@ -232,7 +173,7 @@ static std::span<uint8_t> mutableSpan(SkData* data)
     return unsafeMakeSpan(static_cast<uint8_t*>(data->writable_data()), data->size());
 }
 
-void ImageBufferSkiaAcceleratedBackend::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
+void ImageBufferSkiaAcceleratedBackend::putPixelBuffer(const PixelBufferSourceView& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
     UNUSED_PARAM(destFormat);
 
@@ -267,7 +208,7 @@ void ImageBufferSkiaAcceleratedBackend::putPixelBuffer(const PixelBuffer& pixelB
     SkPixmap pixmap(pixelBufferInfo, pixelBuffer.bytes().data(), pixelBuffer.size().width() * 4);
 
     SkPixmap srcPixmap;
-    if (UNLIKELY(!pixmap.extractSubset(&srcPixmap, sourceRectClipped)))
+    if (!pixmap.extractSubset(&srcPixmap, sourceRectClipped)) [[unlikely]]
         return;
 
     const auto destAlphaType = (destFormat == AlphaPremultiplication::Premultiplied)

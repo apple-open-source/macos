@@ -43,6 +43,11 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ThreadTimers);
 
+inline CheckedPtr<SharedTimer> ThreadTimers::checkedSharedTimer()
+{
+    return m_sharedTimer.get();
+}
+
 // Timers are created, started and fired on the same thread, and each thread has its own ThreadTimers
 // copy to keep the heap and a set of currently firing timers.
 
@@ -56,16 +61,16 @@ ThreadTimers::ThreadTimers()
 // Also, SharedTimer can be replaced with nullptr before all timers are destroyed.
 void ThreadTimers::setSharedTimer(SharedTimer* sharedTimer)
 {
-    if (m_sharedTimer) {
-        m_sharedTimer->setFiredFunction(nullptr);
-        m_sharedTimer->stop();
+    if (CheckedPtr sharedTimer = m_sharedTimer) {
+        sharedTimer->setFiredFunction(nullptr);
+        sharedTimer->stop();
         m_pendingSharedTimerFireTime = MonotonicTime { };
     }
     
     m_sharedTimer = sharedTimer;
     
     if (sharedTimer) {
-        m_sharedTimer->setFiredFunction([] { threadGlobalData().threadTimers().sharedTimerFiredInternal(); });
+        sharedTimer->setFiredFunction([] { threadGlobalData().threadTimers().sharedTimerFiredInternal(); });
         updateSharedTimer();
     }
 }
@@ -83,7 +88,7 @@ void ThreadTimers::updateSharedTimer()
 
     if (m_firingTimers || m_timerHeap.isEmpty()) {
         m_pendingSharedTimerFireTime = MonotonicTime { };
-        m_sharedTimer->stop();
+        checkedSharedTimer()->stop();
     } else {
         MonotonicTime nextFireTime = m_timerHeap.first()->time;
         MonotonicTime currentMonotonicTime = MonotonicTime::now();
@@ -93,7 +98,7 @@ void ThreadTimers::updateSharedTimer()
                 return;
         } 
         m_pendingSharedTimerFireTime = nextFireTime;
-        m_sharedTimer->setFireInterval(std::max(nextFireTime - currentMonotonicTime, 0_s));
+        checkedSharedTimer()->setFireInterval(std::max(nextFireTime - currentMonotonicTime, 0_s));
     }
 }
 
@@ -146,8 +151,8 @@ void ThreadTimers::fireTimersInNestedEventLoop()
     // Reset the reentrancy guard so the timers can fire again.
     m_firingTimers = false;
 
-    if (m_sharedTimer) {
-        m_sharedTimer->invalidate();
+    if (CheckedPtr sharedTimer = m_sharedTimer) {
+        sharedTimer->invalidate();
         m_pendingSharedTimerFireTime = MonotonicTime { };
     }
 

@@ -555,6 +555,56 @@ my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
     return;
 }
 
+PRIVATE_EXTERN void
+my_CFMutableArrayMergeArray(CFMutableArrayRef merge, CFArrayRef list,
+			    CFComparatorFunction comparator)
+{
+    CFIndex		merge_count = 0;
+    CFIndex		list_count = 0;
+    CFMutableArrayRef	unique_list = NULL;
+    CFIndex		unique_count = 0;
+
+    merge_count = CFArrayGetCount(merge);
+    list_count = CFArrayGetCount(list);
+    if (merge_count == 0) {
+	CFArrayAppendArray(merge, list, CFRangeMake(0, list_count));
+	goto done;
+    }
+    if (list_count == 0) {
+	goto done;
+    }
+    unique_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    for (CFIndex j = 0; j < CFArrayGetCount(list); j++) {
+	const void *	list_val = NULL;
+	bool		dupe = FALSE;
+
+	list_val = CFArrayGetValueAtIndex(list, j);
+	for (CFIndex i = 0; i < CFArrayGetCount(merge); i++) {
+	    const void *	merge_val = NULL;
+	    CFComparisonResult	res = kCFCompareLessThan;
+
+	    /* excludes new val if already in the merge array */
+	    merge_val = CFArrayGetValueAtIndex(merge, i);
+	    res = (*comparator)(merge_val, list_val, NULL);
+	    if (res == kCFCompareEqualTo) {
+		dupe = TRUE;
+		break;
+	    }
+	}
+	if (!dupe) {
+	    CFArrayAppendValue(unique_list, list_val);
+	}
+    }
+    unique_count = CFArrayGetCount(unique_list);
+    if (unique_count != 0) {
+	CFArrayAppendArray(merge, unique_list, CFRangeMake(0, unique_count));
+    }
+
+done:
+    my_CFRelease(&unique_list);
+    return;
+}
+
 PRIVATE_EXTERN Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2)
 {
@@ -630,7 +680,7 @@ my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
     for (i = 0; i < length; i++) {
 	char  	sep[3];
 
-	if (i == 0) {
+	if (i == 0 || separator == '\0') {
 	    sep[0] = '\0';
 	}
 	else {

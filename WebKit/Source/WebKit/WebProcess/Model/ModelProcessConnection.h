@@ -29,6 +29,7 @@
 
 #include "Connection.h"
 #include "MessageReceiverMap.h"
+#include <WebCore/ModelPlayerIdentifier.h>
 #include <wtf/AbstractThreadSafeRefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakHashSet.h>
@@ -87,13 +88,14 @@ private:
     void didClose(IPC::Connection&) override;
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
 
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
     // Messages.
     void didInitialize(std::optional<ModelProcessConnectionInfo>&&);
+    void didUnloadModelPlayer(WebCore::ModelPlayerIdentifier);
 
     // The connection from the web process to the model process.
     Ref<IPC::Connection> m_connection;

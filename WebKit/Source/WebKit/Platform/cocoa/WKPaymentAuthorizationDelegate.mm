@@ -201,11 +201,11 @@
     ASSERT(!_didAuthorizePaymentCompletion);
     _didAuthorizePaymentCompletion = completion;
 
-    auto presenter = _presenter.get();
+    RefPtr presenter = _presenter.get();
     if (!presenter)
         return [self completePaymentSession:PKPaymentAuthorizationStatusFailure errors:@[ ]];
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return [self completePaymentSession:PKPaymentAuthorizationStatusFailure errors:@[ ]];
 
@@ -218,7 +218,7 @@
     if (!presenter)
         return;
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return;
 
@@ -234,16 +234,16 @@
         if (error)
             LOG_ERROR("PKCanMakePaymentsWithMerchantIdentifierAndDomain error %@", error);
 
-        RunLoop::main().dispatch([self, protectedSelf = retainPtr(self), merchantURL = retainPtr(merchantURL)] {
+        RunLoop::mainSingleton().dispatch([self, protectedSelf = retainPtr(self), merchantURL = retainPtr(merchantURL)] {
             ASSERT(_didRequestMerchantSessionCompletion);
 
-            auto presenter = _presenter.get();
+            RefPtr presenter = _presenter.get();
             if (!presenter) {
                 _didRequestMerchantSessionCompletion(nil, nil);
                 return;
             }
 
-            RefPtr client = presenter->protectedClient();
+            RefPtr client = presenter->client();
             if (!client) {
                 _didRequestMerchantSessionCompletion(nil, nil);
                 return;
@@ -263,7 +263,7 @@
     if (!presenter)
         return [self completePaymentMethodSelection:nil];
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return [self completePaymentMethodSelection:nil];
 
@@ -279,7 +279,7 @@
     if (!presenter)
         return [self completeShippingContactSelection:nil];
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return [self completeShippingContactSelection:nil];
 
@@ -342,7 +342,7 @@ static WebCore::ApplePayShippingMethod toShippingMethod(PKShippingMethod *shippi
     if (!presenter)
         return [self completeShippingMethodSelection:nil];
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return [self completeShippingMethodSelection:nil];
 
@@ -360,7 +360,7 @@ static WebCore::ApplePayShippingMethod toShippingMethod(PKShippingMethod *shippi
     if (!presenter)
         return [self completeCouponCodeChange:nil];
 
-    RefPtr client = presenter->protectedClient();
+    RefPtr client = presenter->client();
     if (!client)
         return [self completeCouponCodeChange:nil];
 

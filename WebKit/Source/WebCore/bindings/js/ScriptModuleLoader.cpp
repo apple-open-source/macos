@@ -39,6 +39,7 @@
 #include "ModuleFetchFailureKind.h"
 #include "ModuleFetchParameters.h"
 #include "ScriptController.h"
+#include "ScriptExecutionContextInlines.h"
 #include "ScriptSourceCode.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "ShadowRealmGlobalScope.h"
@@ -203,7 +204,7 @@ JSC::JSInternalPromise* ScriptModuleLoader::fetch(JSC::JSGlobalObject* jsGlobalO
 
     RefPtr<JSC::ScriptFetchParameters> parameters;
     if (auto* scriptFetchParameters = JSC::jsDynamicCast<JSC::JSScriptFetchParameters*>(parametersValue))
-        parameters = &scriptFetchParameters->parameters();
+        parameters = scriptFetchParameters->parameters();
 
     if (m_ownerType == OwnerType::Document) {
         auto loader = CachedModuleScriptLoader::create(*this, deferred.get(), *static_cast<CachedScriptFetcher*>(JSC::jsCast<JSC::JSScriptFetcher*>(scriptFetcher)->fetcher()), WTFMove(parameters));
@@ -289,7 +290,7 @@ JSC::JSValue ScriptModuleLoader::evaluate(JSC::JSGlobalObject* jsGlobalObject, J
             RELEASE_AND_RETURN(scope, frame->script().evaluateModule(sourceURL, *moduleRecord, awaitedValue, resumeMode));
     } else {
         if (auto* script = downcast<WorkerOrWorkletGlobalScope>(*m_context).script())
-            RELEASE_AND_RETURN(scope, script->evaluateModule(*moduleRecord, awaitedValue, resumeMode));
+            RELEASE_AND_RETURN(scope, script->evaluateModule(sourceURL, *moduleRecord, awaitedValue, resumeMode));
     }
     return JSC::jsUndefined();
 }
@@ -425,15 +426,15 @@ JSC::JSObject* ScriptModuleLoader::createImportMetaProperties(JSC::JSGlobalObjec
         RETURN_IF_EXCEPTION(scope, { });
 
         auto* domGlobalObject = jsDynamicCast<JSDOMGlobalObject*>(globalObject);
-        if (UNLIKELY(!domGlobalObject))
+        if (!domGlobalObject) [[unlikely]]
             return JSC::throwVMTypeError(globalObject, scope);
 
         auto* context = domGlobalObject->scriptExecutionContext();
-        if (UNLIKELY(!context))
+        if (!context) [[unlikely]]
             return JSC::throwVMTypeError(globalObject, scope);
 
         auto result = resolveModuleSpecifier(*context, ownerType, domGlobalObject->importMap(), specifier, responseURL);
-        if (UNLIKELY(!result))
+        if (!result) [[unlikely]]
             return JSC::throwVMTypeError(globalObject, scope, result.error());
 
         return JSC::JSValue::encode(JSC::jsString(vm, result->string()));

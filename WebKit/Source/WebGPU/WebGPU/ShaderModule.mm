@@ -73,32 +73,40 @@ static std::optional<ShaderModuleParameters> findShaderModuleParameters(const WG
     return { { *wgsl, hints } };
 }
 
-id<MTLLibrary> ShaderModule::createLibrary(id<MTLDevice> device, const String& msl, String&& label, NSError** error)
+id<MTLLibrary> ShaderModule::createLibrary(id<MTLDevice> device, const String& msl, String&& label, NSError** error, WGSL::DeviceState&& deviceState)
 {
+    static bool requireSafeMath = false;
     auto options = [MTLCompileOptions new];
+    options.preprocessorMacros = @{ @"__wgslMetalAppleGPUFamily" : [NSString stringWithFormat:@"%u", deviceState.appleGPUFamily] };
 #if ENABLE(WEBGPU_BY_DEFAULT)
-    options.mathMode = MTLMathModeRelaxed;
-    options.mathFloatingPointFunctions = MTLMathFloatingPointFunctionsFast;
+    static auto mathMode = MTLMathModeRelaxed;
+    static auto mathFunctions = MTLMathFloatingPointFunctionsFast;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
+        requireSafeMath = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitWebGPUEnableSafeMath"];
+        mathMode = requireSafeMath || [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitWebGPUEnableSafeMathMode"] ? MTLMathModeSafe : MTLMathModeRelaxed;
+        mathFunctions = requireSafeMath || [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitWebGPUEnablePrecisionMathFunctions"] ? MTLMathFloatingPointFunctionsPrecise : MTLMathFloatingPointFunctionsFast;
+    });
+    options.mathMode = mathMode;
+    options.mathFloatingPointFunctions = mathFunctions;
 #else
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    options.fastMathEnabled = YES;
+    options.fastMathEnabled = !requireSafeMath;
 ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
     // FIXME(PERFORMANCE): Run the asynchronous version of this
-    id<MTLLibrary> library = [device newLibraryWithSource:msl options:options error:error];
+    id<MTLLibrary> library = [device newLibraryWithSource:msl.createNSString().get() options:options error:error];
     if (error && *error) {
-        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Failed to compile the shader source, generated metal:\n%@", (NSString*)msl] }];
-#ifndef NDEBUG
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=250442
         WTFLogAlways("MSL compilation error: %@", [*error localizedDescription]);
-#endif
+        *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: adoptNS([[NSString alloc] initWithFormat:@"Failed to compile the shader source, generated metal:\n%@ - error %@", msl.createNSString().get(), [*error localizedDescription]]).get() }];
         return nil;
     }
-    library.label = label;
+    library.label = label.createNSString().get();
     return library;
 }
 
-static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, const WGPUShaderModuleDescriptor& suppliedHints, String&& label)
+static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, Variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, const WGPUShaderModuleDescriptor& suppliedHints, String&& label)
 {
     HashMap<String, Ref<PipelineLayout>> hints;
     HashMap<String, WGSL::PipelineLayout*> wgslHints;
@@ -124,12 +132,18 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::varian
         return nullptr;
     auto& result = std::get<WGSL::PrepareResult>(prepareResult);
     HashMap<String, WGSL::ConstantValue> wgslConstantValues;
-    auto generationResult = WGSL::generate(shaderModule, result, wgslConstantValues);
+    auto generationResult = WGSL::generate(shaderModule, result, wgslConstantValues, WGSL::DeviceState {
+        .appleGPUFamily = device.appleGPUFamily(),
+        .shaderValidationEnabled = device.isShaderValidationEnabled()
+    });
     if (std::holds_alternative<WGSL::Error>(generationResult))
         return nullptr;
     auto& msl = std::get<String>(generationResult);
     NSError *error = nil;
-    auto library = ShaderModule::createLibrary(device.device(), msl, WTFMove(label), &error);
+    auto library = ShaderModule::createLibrary(device.device(), msl, WTFMove(label), &error, WGSL::DeviceState {
+        .appleGPUFamily = device.appleGPUFamily(),
+        .shaderValidationEnabled = device.isShaderValidationEnabled()
+    });
     if (!library)
         return nullptr;
     return ShaderModule::create(WTFMove(checkResult), WTFMove(hints), WTFMove(result.entryPoints), library, device);
@@ -144,7 +158,7 @@ static const HashSet<String> buildFeatureSet(const Vector<WGPUFeatureName>& feat
     return result;
 }
 
-static Ref<ShaderModule> handleShaderSuccessOrFailure(WebGPU::Device &object, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck> &checkResult, const WGPUShaderModuleDescriptor &descriptor, std::optional<ShaderModuleParameters> &shaderModuleParameters)
+static Ref<ShaderModule> handleShaderSuccessOrFailure(WebGPU::Device &object, Variant<WGSL::SuccessfulCheck, WGSL::FailedCheck> &checkResult, const WGPUShaderModuleDescriptor &descriptor, std::optional<ShaderModuleParameters> &shaderModuleParameters)
 {
     if (std::holds_alternative<WGSL::SuccessfulCheck>(checkResult)) {
         if (shaderModuleParameters->hints && descriptor.hintCount) {
@@ -189,7 +203,7 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ShaderModule);
 
-auto ShaderModule::convertCheckResult(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult) -> CheckResult
+auto ShaderModule::convertCheckResult(Variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult) -> CheckResult
 {
     return WTF::switchOn(WTFMove(checkResult), [](auto&& check) -> CheckResult {
         return std::forward<decltype(check)>(check);
@@ -587,7 +601,7 @@ ShaderModule::FragmentInputs ShaderModule::parseFragmentInputs(const WGSL::AST::
     return result;
 }
 
-ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, Device& device)
+ShaderModule::ShaderModule(Variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, Device& device)
     : m_checkResult(convertCheckResult(WTFMove(checkResult)))
     , m_pipelineLayoutHints(WTFMove(pipelineLayoutHints))
     , m_entryPointInformation(WTFMove(entryPointInformation))
@@ -749,7 +763,7 @@ void ShaderModule::getCompilationInfo(CompletionHandler<void(WGPUCompilationInfo
         WGPUCompilationInfo compilationInfo {
             nullptr,
             static_cast<uint32_t>(compilationMessageData.compilationMessages.size()),
-            compilationMessageData.compilationMessages.data(),
+            compilationMessageData.compilationMessages.span().data(),
         };
         callback(WGPUCompilationInfoRequestStatus_Success, compilationInfo);
     }, [&](const WGSL::FailedCheck& failedCheck) {
@@ -759,7 +773,7 @@ void ShaderModule::getCompilationInfo(CompletionHandler<void(WGPUCompilationInfo
         WGPUCompilationInfo compilationInfo {
             nullptr,
             static_cast<uint32_t>(compilationMessageData.compilationMessages.size()),
-            compilationMessageData.compilationMessages.data(),
+            compilationMessageData.compilationMessages.span().data(),
         };
         callback(WGPUCompilationInfoRequestStatus_Error, compilationInfo);
     }, [&](std::monostate) {
@@ -775,7 +789,7 @@ void ShaderModule::getCompilationInfo(CompletionHandler<void(WGPUCompilationInfo
 void ShaderModule::setLabel(String&& label)
 {
     if (m_library)
-        m_library.label = label;
+        m_library.label = label.createNSString().get();
 }
 
 static auto wgslBindingType(WGPUBufferBindingType bindingType)
@@ -1102,6 +1116,8 @@ String wgpuAdapterFeatureName(WGPUFeatureName feature)
         return "float16-renderable"_s;
     case WGPUFeatureName_Float32Renderable:
         return "float32-renderable"_s;
+    case WGPUFeatureName_CoreFeaturesAndLimits:
+        return "core-features-and-limits"_s;
     case WGPUFeatureName_Force32:
         return emptyString();
     }

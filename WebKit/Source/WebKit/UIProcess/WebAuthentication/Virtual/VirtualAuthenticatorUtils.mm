@@ -67,21 +67,20 @@ RetainPtr<SecKeyRef> createPrivateKey()
 
 std::pair<Vector<uint8_t>, Vector<uint8_t>> credentialIdAndCosePubKeyForPrivateKey(RetainPtr<SecKeyRef> privateKey)
 {
-    RetainPtr<CFDataRef> publicKeyDataRef;
+    RetainPtr<NSData> nsPublicKeyData;
     {
-        auto publicKey = adoptCF(SecKeyCopyPublicKey(privateKey.get()));
+        RetainPtr publicKey = adoptCF(SecKeyCopyPublicKey(privateKey.get()));
         CFErrorRef errorRef = nullptr;
-        publicKeyDataRef = adoptCF(SecKeyCopyExternalRepresentation(publicKey.get(), &errorRef));
-        auto retainError = adoptCF(errorRef);
+        nsPublicKeyData = bridge_cast(adoptCF(SecKeyCopyExternalRepresentation(publicKey.get(), &errorRef)));
+        RetainPtr retainError = adoptCF(errorRef);
         ASSERT(!errorRef);
-        ASSERT(((NSData *)publicKeyDataRef.get()).length == (1 + 2 * ES256FieldElementLength)); // 04 | X | Y
+        ASSERT(nsPublicKeyData.get().length == (1 + 2 * ES256FieldElementLength)); // 04 | X | Y
     }
-    NSData *nsPublicKeyData = (NSData *)publicKeyDataRef.get();
 
     Vector<uint8_t> credentialId;
     {
         auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_1);
-        digest->addBytes(span(nsPublicKeyData));
+        digest->addBytes(span(nsPublicKeyData.get()));
         credentialId = digest->computeHash();
     }
 
@@ -89,9 +88,9 @@ std::pair<Vector<uint8_t>, Vector<uint8_t>> credentialIdAndCosePubKeyForPrivateK
     {
         // COSE Encoding
         Vector<uint8_t> x(ES256FieldElementLength);
-        [nsPublicKeyData getBytes: x.data() range:NSMakeRange(1, ES256FieldElementLength)];
+        [nsPublicKeyData getBytes:x.mutableSpan().data() range:NSMakeRange(1, ES256FieldElementLength)];
         Vector<uint8_t> y(ES256FieldElementLength);
-        [nsPublicKeyData getBytes: y.data() range:NSMakeRange(1 + ES256FieldElementLength, ES256FieldElementLength)];
+        [nsPublicKeyData getBytes:y.mutableSpan().data() range:NSMakeRange(1 + ES256FieldElementLength, ES256FieldElementLength)];
         cosePublicKey = encodeES256PublicKeyAsCBOR(WTFMove(x), WTFMove(y));
     }
     return std::pair { credentialId, cosePublicKey };
@@ -100,14 +99,12 @@ std::pair<Vector<uint8_t>, Vector<uint8_t>> credentialIdAndCosePubKeyForPrivateK
 String base64PrivateKey(RetainPtr<SecKeyRef> privateKey)
 {
     CFErrorRef errorRef = nullptr;
-    auto privateKeyRep = adoptCF(SecKeyCopyExternalRepresentation((__bridge SecKeyRef)((id)privateKey.get()), &errorRef));
-    auto retainError = adoptCF(errorRef);
+    RetainPtr nsPrivateKeyRep = bridge_cast(adoptCF(SecKeyCopyExternalRepresentation((__bridge SecKeyRef)((id)privateKey.get()), &errorRef)));
+    RetainPtr retainError = adoptCF(errorRef);
     if (errorRef) {
         ASSERT_NOT_REACHED();
         return emptyString();
     }
-    NSData *nsPrivateKeyRep = (NSData *)privateKeyRep.get();
-
     return String([nsPrivateKeyRep base64EncodedStringWithOptions:0]);
 }
 
@@ -118,7 +115,7 @@ RetainPtr<SecKeyRef> privateKeyFromBase64(const String& base64PrivateKey)
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrKeySizeInBits: @256,
     };
-    RetainPtr<NSData> privateKey = adoptNS([[NSData alloc] initWithBase64EncodedString:base64PrivateKey options:0]);
+    RetainPtr<NSData> privateKey = adoptNS([[NSData alloc] initWithBase64EncodedString:base64PrivateKey.createNSString().get() options:0]);
     CFErrorRef errorRef = nullptr;
     auto key = adoptCF(SecKeyCreateWithData(
         bridge_cast(privateKey.get()),
@@ -131,12 +128,12 @@ RetainPtr<SecKeyRef> privateKeyFromBase64(const String& base64PrivateKey)
 
 Vector<uint8_t> signatureForPrivateKey(RetainPtr<SecKeyRef> privateKey, const Vector<uint8_t>& authData, const Vector<uint8_t>& clientDataHash)
 {
-    NSMutableData *dataToSign = [NSMutableData dataWithBytes:authData.data() length:authData.size()];
-    [dataToSign appendBytes:clientDataHash.data() length:clientDataHash.size()];
+    RetainPtr dataToSign = adoptNS([[NSMutableData alloc] initWithBytes:authData.span().data() length:authData.size()]);
+    [dataToSign appendBytes:clientDataHash.span().data() length:clientDataHash.size()];
     RetainPtr<CFDataRef> signature;
     {
         CFErrorRef errorRef = nullptr;
-        signature = adoptCF(SecKeyCreateSignature((__bridge SecKeyRef)((id)privateKey.get()), kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (__bridge CFDataRef)dataToSign, &errorRef));
+        signature = adoptCF(SecKeyCreateSignature((__bridge SecKeyRef)((id)privateKey.get()), kSecKeyAlgorithmECDSASignatureMessageX962SHA256, bridge_cast(dataToSign.get()), &errorRef));
         auto retainError = adoptCF(errorRef);
         ASSERT(!errorRef);
     }

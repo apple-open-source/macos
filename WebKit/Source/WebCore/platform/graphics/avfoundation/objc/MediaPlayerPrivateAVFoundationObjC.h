@@ -56,7 +56,7 @@ OBJC_CLASS WebCoreAVFMovieObserver;
 OBJC_CLASS WebCoreAVFPullDelegate;
 
 typedef struct CGImage *CGImageRef;
-typedef struct __CVBuffer *CVPixelBufferRef;
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer *CVPixelBufferRef;
 typedef struct OpaqueFigVideoTarget *FigVideoTargetRef;
 typedef NSString *AVMediaCharacteristic;
 typedef double NSTimeInterval;
@@ -170,6 +170,7 @@ private:
     void platformPlay() final;
     void platformPause() final;
     bool platformPaused() const final;
+    void setVolumeLocked(bool) final;
     void setVolume(float) final;
     void setMuted(bool) final;
     void paint(GraphicsContext&, const FloatRect&) final;
@@ -190,6 +191,7 @@ private:
     NSArray *timedMetadata() const final;
     String accessLog() const final;
     String errorLog() const final;
+    void sceneIdentifierDidChange() final;
 #endif
 
     bool supportsAcceleratedRendering() const final { return true; }
@@ -261,7 +263,7 @@ private:
     RetainPtr<CGImageRef> createImageForTimeInRect(float, const FloatRect&);
 
     using UpdateCompletion = CompletionHandler<void()>;
-    void updateLastImage(UpdateCompletion&&);
+    void updateLastImage(NOESCAPE UpdateCompletion&&);
 
     void createVideoOutput();
     void destroyVideoOutput();
@@ -341,6 +343,8 @@ private:
     void setShouldObserveTimeControlStatus(bool);
 
     void setPreferredDynamicRangeMode(DynamicRangeMode) final;
+    void setPlatformDynamicRangeLimit(PlatformDynamicRangeLimit) final;
+
     void audioOutputDeviceChanged() final;
 
     void currentTimeDidChange(MediaTime&&) const;
@@ -387,13 +391,19 @@ private:
     bool supportsLinearMediaPlayer() const final { return true; }
 #endif
 
+    RefPtr<SharedBuffer> protectedKeyID() const { return m_keyID; }
+
+#if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
+    RefPtr<CDMInstanceFairPlayStreamingAVFObjC> protectedCDMInstance() const;
+#endif
+
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
     RetainPtr<AVPlayerItem> m_avPlayerItem;
     RetainPtr<AVPlayerLayer> m_videoLayer WTF_GUARDED_BY_CAPABILITY(mainThread);
-    std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
+    const UniqueRef<VideoLayerManagerObjC> m_videoLayerManager;
     MediaPlayer::VideoGravity m_videoFullscreenGravity { MediaPlayer::VideoGravity::ResizeAspect };
-    RetainPtr<WebCoreAVFMovieObserver> m_objcObserver;
+    const RetainPtr<WebCoreAVFMovieObserver> m_objcObserver;
     RetainPtr<id> m_timeObserver;
     mutable String m_languageOfPrimaryAudioTrack;
     bool m_videoFrameHasDrawn { false };
@@ -417,8 +427,8 @@ private:
     std::unique_ptr<PixelBufferConformerCV> m_pixelBufferConformer;
 
     friend class WebCoreAVFResourceLoader;
-    UncheckedKeyHashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
-    RetainPtr<WebCoreAVFLoaderDelegate> m_loaderDelegate;
+    HashMap<RetainPtr<CFTypeRef>, RefPtr<WebCoreAVFResourceLoader>> m_resourceLoaderMap;
+    const RetainPtr<WebCoreAVFLoaderDelegate> m_loaderDelegate;
     MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_keyURIToRequestMap;
     MemoryCompactRobinHoodHashMap<String, RetainPtr<AVAssetResourceLoadingRequest>> m_sessionIDToRequestMap;
 
@@ -428,6 +438,7 @@ private:
     Vector<RefPtr<VideoTrackPrivateAVFObjC>> m_videoTracks;
     RefPtr<MediaSelectionGroupAVFObjC> m_audibleGroup;
     RefPtr<MediaSelectionGroupAVFObjC> m_visualGroup;
+
     ThreadSafeWeakPtr<InbandTextTrackPrivateAVF> m_currentTextTrack;
 
 #if ENABLE(DATACUE_VALUE)
@@ -492,6 +503,7 @@ private:
     mutable std::optional<bool> m_cachedAssetIsPlayable;
     mutable std::optional<bool> m_cachedTracksArePlayable;
     mutable std::optional<bool> m_cachedAssetIsHLS;
+    bool m_volumeLocked { false };
     bool m_muted { false };
     bool m_shouldObserveTimeControlStatus { false };
     mutable std::optional<bool> m_tracksArePlayable;

@@ -312,6 +312,7 @@ enum SecXPCOperation {
     sec_trust_store_migrate_plist_id,
     sec_ota_pki_trust_store_content_digest_id,
     sec_ota_pki_trust_store_asset_version_id,
+    sec_item_update_token_items_for_system_keychain_id,
 };
 
 #define KEYCHAIN_SUPPORTS_PERSONA_MULTIUSER (TARGET_OS_IOS || TARGET_OS_TV || TARGET_OS_OSX)
@@ -371,6 +372,7 @@ struct securityd {
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_roll_keys)(bool force, CFErrorRef* error);
     bool (*sec_item_update_token_items_for_access_groups)(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItems, SecurityClient *client, CFErrorRef* error);
+    bool (*sec_item_update_token_items_for_system_keychain)(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItems, SecurityClient *client, CFErrorRef* error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     CFTypeRef (*sec_item_share_with_group)(CFDictionaryRef query, CFStringRef sharingGroup, SecurityClient *client, CFErrorRef *error);
     bool (*sec_delete_items_on_sign_out)(SecurityClient *client, CFErrorRef *error);
@@ -605,6 +607,15 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 // Force an upgrade if needed.
 - (void)secKeychainForceUpgradeIfNeeded:(void (^)(OSStatus status))completion;
 
+// Indirect keychain unlocking
+- (void)secLookupIndirectUnlockKey:(NSString*)identifier
+                        completion:(void (^)(OSStatus,uint32_t))completion;
+- (void)secAssociateIndirectUnlockKey:(NSString*)identifier
+                               handle:(uint32_t)handle
+                           completion:(void (^)(OSStatus))completion;
+
+// Keychain db path
+- (void)secKeychainCopyDatabasePath:(void(^)(NSError *error, NSString* path))completion;
 @end
 
 // Call this to receive a proxy object conforming to SecuritydXPCProtocol that you can call methods on.

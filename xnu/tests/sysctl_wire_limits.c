@@ -179,7 +179,9 @@ wire_to_limit(size_t limit, size_t *size)
 }
 
 T_DECL(wire_stress_test, "wire up to global_user_wire_limit and spin for 120 seconds.",
-    T_META_REQUIRES_SYSCTL_NE("kern.hv_vmm_present", 1), T_META_TAG_VM_NOT_ELIGIBLE)
+    T_META_REQUIRES_SYSCTL_NE("kern.hv_vmm_present", 1),
+    T_META_TAG_VM_NOT_ELIGIBLE,
+    T_META_ENABLED(false) /* rdar://145613247 */)
 {
 	static const int kNumSecondsToSpin = 120;
 	int ret;

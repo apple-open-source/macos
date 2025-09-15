@@ -54,10 +54,10 @@ void WebExtensionContextProxy::dispatchDevToolsNetworkNavigatedEvent(const URL& 
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/devtools/network/onNavigated
 
-    NSString *urlString = url.string();
+    RetainPtr urlString = url.string().createNSString();
 
     enumerateNamespaceObjects([&](auto& namespaceObject) {
-        namespaceObject.devtools().network().onNavigated().invokeListenersWithArgument(urlString);
+        namespaceObject.devtools().network().onNavigated().invokeListenersWithArgument(urlString.get());
     });
 }
 

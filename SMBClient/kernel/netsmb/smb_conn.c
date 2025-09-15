@@ -113,6 +113,8 @@ static void smb_co_unlock(struct smb_connobj *cp)
 			wakeup(&cp->co_lock);
 		} else 
 			lck_mtx_unlock(&(cp)->co_interlock);
+	} else {
+		SMBERROR("Unlock request ignored\n");
 	}
 }
 
@@ -132,8 +134,7 @@ smb_co_init(struct smb_connobj *cp, int level, const char *objname, struct proc 
 	
 	cp->co_level = level;
 	cp->co_usecount = 1;
-	KASSERT(smb_co_lock(cp) == 0,
-			("smb_co_init: lock failed"));
+	SMB_ASSERT(smb_co_lock(cp) == 0,"smb_co_init: lock failed");
 }
 
 static void smb_co_done(struct smb_connobj *cp)
@@ -632,13 +633,6 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     /* Message ID and credit checking debugging code */
     lck_mtx_init(&sessionp->session_mid_lock, session_st_lck_group, session_st_lck_attr);
 #endif
-	sessionp->session_srvname = smb_strndup(session_spec->ioc_ssn.ioc_srvname, sizeof(session_spec->ioc_ssn.ioc_srvname), &sessionp->session_srvname_allocsize);
-    if (sessionp->session_srvname) {
-		sessionp->session_localname = smb_strndup(session_spec->ioc_ssn.ioc_localname, sizeof(session_spec->ioc_ssn.ioc_localname), &sessionp->session_localname_allocsize);
-    }
-	if ((sessionp->session_srvname == NULL) || (sessionp->session_localname == NULL)) {
-		error = ENOMEM;
-	}
 
     sessionp->session_misc_flags = SMBV_HAS_FILEIDS;  /* assume File IDs supported */
     sessionp->session_server_caps = 0;
@@ -650,9 +644,18 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     bzero(sessionp->session_model_info, sizeof(sessionp->session_model_info));
     lck_mtx_unlock(&sessionp->session_model_info_lock);
 
+    sessionp->session_srvname = smb_strndup(session_spec->ioc_ssn.ioc_srvname, sizeof(session_spec->ioc_ssn.ioc_srvname), &sessionp->session_srvname_allocsize);
+    if (sessionp->session_srvname) {
+        sessionp->session_localname = smb_strndup(session_spec->ioc_ssn.ioc_localname, sizeof(session_spec->ioc_ssn.ioc_localname), &sessionp->session_localname_allocsize);
+    }
+
+    if ((sessionp->session_srvname == NULL) || (sessionp->session_localname == NULL)) {
+        smb_session_put(sessionp, context);
+        return ENOMEM;
+    }
+
     struct smbiod *iod = NULL;
-	if (!error)
-		error = smb_iod_create(sessionp, &iod);
+	error = smb_iod_create(sessionp, &iod);
 	if (error) {
 		smb_session_put(sessionp, context);
 		return error;
@@ -661,6 +664,7 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     iod->iod_saddr  = smb_dup_sockaddr(saddr, 1);
 
     if (!iod->iod_saddr) {
+        smb_session_put(sessionp, context);
         return ENOMEM;
     }
 
@@ -668,6 +672,7 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
         iod->iod_laddr = smb_dup_sockaddr(laddr, 1);
 
         if (!iod->iod_laddr) {
+            smb_session_put(sessionp, context);
             return ENOMEM;
         }
     }

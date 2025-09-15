@@ -44,6 +44,7 @@ __RCSID("$NetBSD: map.c,v 1.31 2011/11/18 20:39:18 christos Exp $");
 /*
  * map.c: Editor function definitions
  */
+#include <errno.h>
 #include <stdlib.h>
 #include "el.h"
 
@@ -1312,10 +1313,15 @@ map_bind(EditLine *el, int argc, const Char **argv)
 	}
 	if (key)
 		in = argv[argc++];
-	else if ((in = parse__string(inbuf, argv[argc++])) == NULL) {
-		(void) fprintf(el->el_errfile,
-		    "" FSTR ": Invalid \\ or ^ in instring.\n",
-		    argv[0]);
+	else if ((in = parse__string(inbuf, argv[argc++], EL_BUFSIZ)) == NULL) {
+		if (errno == ERANGE)
+			(void) fprintf(el->el_errfile,
+			    "" FSTR ": instring too long.\n",
+			    argv[0]);
+		else
+			(void) fprintf(el->el_errfile,
+			    "" FSTR ": Invalid \\ or ^ in instring.\n",
+			    argv[0]);
 		return -1;
 	}
 	if (rem) {
@@ -1348,9 +1354,13 @@ map_bind(EditLine *el, int argc, const Char **argv)
 	switch (ntype) {
 	case XK_STR:
 	case XK_EXE:
-		if ((out = parse__string(outbuf, argv[argc])) == NULL) {
-			(void) fprintf(el->el_errfile,
-			    "" FSTR ": Invalid \\ or ^ in outstring.\n", argv[0]);
+		if ((out = parse__string(outbuf, argv[argc], EL_BUFSIZ)) == NULL) {
+			if (errno == ERANGE)
+				(void) fprintf(el->el_errfile,
+				    "" FSTR ": outstring too long.\n", argv[0]);
+			else
+				(void) fprintf(el->el_errfile,
+				    "" FSTR ": Invalid \\ or ^ in outstring.\n", argv[0]);
 			return -1;
 		}
 		if (key)

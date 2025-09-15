@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,13 +81,13 @@ bool RemoteCDMFactory::supportsKeySystem(const String& keySystem)
     return supported;
 }
 
-std::unique_ptr<CDMPrivate> RemoteCDMFactory::createCDM(const String& keySystem, const CDMPrivateClient&)
+std::unique_ptr<CDMPrivate> RemoteCDMFactory::createCDM(const String& keySystem, const String& mediaKeysHashSalt, const CDMPrivateClient&)
 {
-    auto sendResult = gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::CreateCDM(keySystem), { });
+    auto sendResult = gpuProcessConnection().connection().sendSync(Messages::RemoteCDMFactoryProxy::CreateCDM(keySystem, mediaKeysHashSalt), { });
     auto [identifier, configuration] = sendResult.takeReplyOr(std::nullopt, RemoteCDMConfiguration { });
     if (!identifier)
         return nullptr;
-    return RemoteCDM::create(*this, WTFMove(*identifier), WTFMove(configuration));
+    return RemoteCDM::create(*this, WTFMove(*identifier), WTFMove(configuration), mediaKeysHashSalt);
 }
 
 void RemoteCDMFactory::addSession(RemoteCDMInstanceSession& session)

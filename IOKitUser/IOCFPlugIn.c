@@ -24,14 +24,26 @@
 
 #include <IOKit/IOCFPlugIn.h>
 #include <IOKit/kext/OSKext.h>
+#include <os/log.h>
 
-#if 0 // for local logging
-#include <asl.h>
-void __iocfpluginlog(const char *format, ...);
-#endif
 
 // Inited by class IOCFPlugInIniter
 CFUUIDRef gIOCFPlugInInterfaceID = NULL;
+
+
+//------------------------------------------------------------------------------
+// __IOMIGMachPortLog
+//------------------------------------------------------------------------------
+os_log_t __IOCFPlugInLog()
+{
+    static os_log_t log;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        log = os_log_create("com.apple.iokit.cfplugin", "default");
+    });
+    return log;
+}
+
 
 typedef struct LookUUIDContextStruct {
     const void *	result;
@@ -102,32 +114,33 @@ IOFindPlugIns( io_service_t service,
     do {
         pluginPath = CFStringCreateMutable( kCFAllocatorDefault, 0 );
         if ( pluginPath == NULL ) {
+            os_log_error(__IOCFPlugInLog(), "pluginPath == NULL, unable to allocate a CFString");
             continue;
         }
+		{
+			uint64_t serviceID;
+			kern_return_t checkerr;
+			checkerr = IORegistryEntryGetRegistryEntryID(service, &serviceID);
+			if (kIOReturnSuccess != checkerr) {
+				os_log_error(__IOCFPlugInLog(), "invalid io_service_t for %@", pluginType);
+			}
+		}
         
         pluginTypes = IORegistryEntryCreateCFProperty( service, CFSTR(kIOCFPlugInTypesKey),
                                                       kCFAllocatorDefault, kNilOptions );
         if ( pluginTypes == NULL ) {
+			os_log_error(__IOCFPlugInLog(), "io_service_t has no " kIOCFPlugInTypesKey " for %@", pluginType);
             continue;
         }
-	if (CFDictionaryGetTypeID() != CFGetTypeID(pluginTypes)) {
-            continue;
-        }
-
+        
         context.key = pluginType;
         context.result = 0;
         CFDictionaryApplyFunction( pluginTypes, &_IOGetWithUUIDKey, &context);
         pluginName = (CFStringRef) context.result;
         if ( pluginName == NULL ) {
+			os_log_error(__IOCFPlugInLog(), "io_service_t has no plugin for %@", pluginType);
             continue;
         }
-        
-#if 0 //
-        const char *    myPtr;
-        myPtr = CFStringGetCStringPtr(pluginName, kCFStringEncodingMacRoman);
-        __iocfpluginlog("%s pluginName \"%s\" \n", __func__,
-                        myPtr ? myPtr : "no name");
-#endif
         
         // see if the plugin name is possibly a full path
         if ( CFStringGetCharacterAtIndex(pluginName, 0) == '/' ) {
@@ -135,8 +148,6 @@ IOFindPlugIns( io_service_t service,
             pluginURL = _CreateIfReachable(pluginPath);
             if ( pluginURL ) {
                 onePlugin = CFPlugInCreate(NULL, pluginURL);
-                CFRelease( pluginURL );
-                pluginURL = NULL;
                 if ( onePlugin ) {
                     continue;
                 }
@@ -147,6 +158,10 @@ IOFindPlugIns( io_service_t service,
         CFIndex count = CFArrayGetCount(extensionsFolderURLs);
         for (CFIndex i = 0; i < count; i++) {
             CFURLRef directoryURL = CFArrayGetValueAtIndex(extensionsFolderURLs, i);
+            if (pluginURL) {
+                CFRelease(pluginURL);
+                pluginURL = NULL;
+            }
             pluginURL = CFURLCreateCopyAppendingPathComponent(NULL, directoryURL, pluginName, TRUE);
 
             // NOTE - on embedded we have cases where the plugin bundle is cached
@@ -154,48 +169,75 @@ IOFindPlugIns( io_service_t service,
             // CFPlugInCreate will actually create the plugin for us.
             if (pluginURL) {
                 onePlugin = CFPlugInCreate(NULL, pluginURL);
-                CFRelease(pluginURL);
-                pluginURL = NULL;
                 if (onePlugin) {
                     break;
+                } else if (CFURLResourceIsReachable(pluginURL, NULL)) {
+					os_log_error(__IOCFPlugInLog(), "CFPlugInCreate failed for url %@ for %@", pluginURL, pluginType);
                 }
             }
         }
     } while ( FALSE );
-#if 0
-    const char *    myPtr;
-    myPtr = CFStringGetCStringPtr(pluginPath, kCFStringEncodingMacRoman);
-    __iocfpluginlog("%s pluginPath \"%s\" \n", __func__,
-                    myPtr ? myPtr : "no name");
-#endif
-   
-    if ( onePlugin
-        && (bundle = CFPlugInGetBundle(onePlugin))
-        && (plist = CFBundleGetInfoDictionary(bundle))
-        && (matching = (CFDictionaryRef)
-            CFDictionaryGetValue(plist, CFSTR("Personality")))) {
+
+	bundle   = NULL;
+	plist    = NULL;
+	matching = NULL;
+	if (onePlugin)
+    {
+        bundle = CFPlugInGetBundle(onePlugin);
+    }
+    else
+    {
+        os_log_error(__IOCFPlugInLog(), "onePlugin invalid for pluginType %@", pluginType);
+    }
+
+    if (bundle)
+    {
+        plist = CFBundleGetInfoDictionary(bundle);
+    }
+    else
+    {
+        os_log_error(__IOCFPlugInLog(), "bundle invalid for pluginType %@", pluginType);
+    }
+
+    if (plist)
+    {
+        matching = (CFDictionaryRef) CFDictionaryGetValue(plist, CFSTR("Personality"));
+    }
+    else
+    {
+        os_log_error(__IOCFPlugInLog(), "plist invalid for pluginType %@", pluginType);
+
+    }
+
+	if (onePlugin && !plist) {
+		os_log_error(__IOCFPlugInLog(), "No plist for plugin url %@ for %@", pluginURL, pluginType);
+	}
+
+    if ( matching ) {
             kr = IOServiceMatchPropertyTable( service, matching, &matches );
-            if ( kr != kIOReturnSuccess )
+            if ( kr != kIOReturnSuccess ) {
                 matches = FALSE;
-        } else {
-            matches = TRUE;
-        }
+				os_log_error(__IOCFPlugInLog(), "IOServiceMatchPropertyTable failed for url %@ for %@", pluginURL, pluginType);
+            }
+	} else {
+		matches = TRUE;
+	}
     
     if ( matches ) {
         if ( onePlugin ) {
             *factories = CFPlugInFindFactoriesForPlugInTypeInPlugIn(pluginType, onePlugin);
+			if (NULL == *factories) {
+				os_log_error(__IOCFPlugInLog(), "CFPlugInFindFactoriesForPlugInTypeInPlugIn failed for plugin url %@ for %@", pluginURL, pluginType);
+			}
         }
     }
-    
+    if ( pluginURL )
+        CFRelease( pluginURL );
     if ( pluginPath )
         CFRelease( pluginPath );
     if ( pluginTypes )
         CFRelease( pluginTypes );
-    
-#if 0
-    __iocfpluginlog("%s kr %d \n", __func__, kr);
-#endif
-    
+
     return( kr );
 }
 
@@ -230,6 +272,11 @@ IOCreatePlugInInterfaceForService(io_service_t service,
 //        printf("No factories for type\n");
         if (factories) CFRelease(factories);
         if (plists) CFRelease(plists);
+        os_log_error(__IOCFPlugInLog(), "no factories for plugin for %@, kr = 0x%x, factories = %p, factoryCount = %ld",
+                     pluginType,
+                     kr,
+                     factories,
+                     (long)((factories != NULL) ? CFArrayGetCount(factories) : 0));
         return( kIOReturnUnsupported );
     }
     candidates = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
@@ -245,7 +292,7 @@ IOCreatePlugInInterfaceForService(io_service_t service,
             iunknown = (IUnknownVTbl **)
                 CFPlugInInstanceCreate(NULL, factoryID, pluginType);
             if (!iunknown) {
-    //            printf("Failed to create instance (link error?)\n");
+				os_log_error(__IOCFPlugInLog(), "failed to create instance for plugin for %@", pluginType);
                 continue;
             }
             (*iunknown)->QueryInterface(iunknown, CFUUIDGetUUIDBytes(interfaceType),
@@ -255,7 +302,7 @@ IOCreatePlugInInterfaceForService(io_service_t service,
             (*iunknown)->Release(iunknown);
     
             if (!interface) {
-    //            printf("Failed to get interface.\n");
+				os_log_error(__IOCFPlugInLog(), "failed to get interface for plugin for %@", pluginType);
                 continue;
             }
             if (plists)
@@ -271,8 +318,10 @@ IOCreatePlugInInterfaceForService(io_service_t service,
                 }
                 CFArrayInsertValueAtIndex(candidates, insert, (void *) interface);
                 CFArrayInsertValueAtIndex(scores, insert, (void *) (intptr_t) score);
-            } else
+            } else {
+				os_log_error(__IOCFPlugInLog(), "probe failed for plugin for %@", pluginType);
                 (*interface)->Release(interface);
+            }
         }
     }
 
@@ -290,8 +339,12 @@ IOCreatePlugInInterfaceForService(io_service_t service,
         interface = (IOCFPlugInInterface **)
             CFArrayGetValueAtIndex(candidates, index );
         if (!haveOne) {
-            haveOne = (kIOReturnSuccess == (*interface)->Start(interface, plist, service));
+            kr = (*interface)->Start(interface, plist, service);
+            haveOne = (kIOReturnSuccess == kr);
             freeIt = !haveOne;
+			if (!haveOne) {
+				os_log_error(__IOCFPlugInLog(), "start failed (%s) for plugin for %@", mach_error_string(kr), pluginType);
+			}
             if (haveOne) {
                 *theInterface = interface;
                 *theScore = (SInt32) (intptr_t)
@@ -330,15 +383,5 @@ IODestroyPlugInInterface(IOCFPlugInInterface ** interface)
 kern_return_t
 IOCreatePlugInInterfaces(CFUUIDRef pluginType, CFUUIDRef interfaceType);
 
-#if 0 // local logging
-void __iocfpluginlog(const char *format, ...)
-{
-    va_list args;
-    
-    va_start(args, format);
-    asl_vlog(NULL, NULL, ASL_LEVEL_CRIT, format, args);
-    va_end(args);
-}
-#endif
-
 #endif /* !HAVE_CFPLUGIN */
+

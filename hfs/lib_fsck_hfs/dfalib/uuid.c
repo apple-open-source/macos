@@ -28,10 +28,10 @@ OpenDeviceByUUID(void *uuidp, char **namep)
     int fd = -1;
     CFMutableDictionaryRef matching;
     io_service_t media;
-    uuid_string_t uuid_cstring;
+    uuid_string_t uuid_cstring = { 0 };
     CFStringRef uuid_string;
 
-    memcpy(&uuid_cstring, uuidp, sizeof(uuid_cstring));
+    memcpy(uuid_cstring, uuidp, sizeof uuid_cstring - 1);
 
     uuid_string = CFStringCreateWithCString( kCFAllocatorDefault, uuid_cstring, kCFStringEncodingUTF8 );
     if ( uuid_string ) {

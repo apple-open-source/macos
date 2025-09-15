@@ -1,7 +1,7 @@
 // © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Copyright (C) 2009-2013, International Business Machines
-// Corporation and others. All Rights Reserved.
+// Corporation and others. All rights reserved.
 //
 // Copyright 2001 and onwards Google Inc.
 // Author: Sanjay Ghemawat

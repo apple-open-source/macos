@@ -90,7 +90,8 @@ bad_instruction_exception_handler(
 	__unused mach_port_t task,
 	__unused mach_port_t thread,
 	exception_type_t type,
-	mach_exception_data_t codes)
+	mach_exception_data_t codes,
+	__unused uint64_t exception_pc)
 {
 	T_QUIET; T_ASSERT_EQ(type, EXC_BAD_INSTRUCTION, "Caught an EXC_BAD_INSTRUCTION exception");
 	T_QUIET; T_ASSERT_EQ(codes[0], (uint64_t)EXC_ARM_UNDEFINED, "The subcode is EXC_ARM_UNDEFINED");

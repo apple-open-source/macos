@@ -42,7 +42,6 @@
 #include <sys/unistd.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
-#include <sys/reboot.h>
 
 #include <sys/kauth.h>
 
@@ -65,11 +64,11 @@
 #include <netsmb/smb_packets_2.h>
 #include <smbclient/ntstatus.h>
 #include <smbfs/smbfs_node.h>
+#include <smbfs/smbfs_subr.h>
 #include <smbfs/smbfs_subr_2.h>
 #include <smbfs/smb2_mc_support.h>
 
 #include <IOKit/IOLib.h>
-#include <IOKit/IOPlatformExpert.h>
 #include <netsmb/smb_sleephandler.h>
 
 #define MAX_CHANNEL_LIST (12)
@@ -647,10 +646,10 @@ again:
         SMB_LOG_MC("id %u: Failed to find an iod to promote after %d attempts. Start reconnect \n",
                    iod->iod_id, error);
         ret_val = 0;
-        goto exit;
+    } else {
+        smb_iod_rel(alt_iod, NULL, __FUNCTION__);
     }
-exit:
-    smb_iod_rel(alt_iod, NULL, __FUNCTION__);
+
     return ret_val;
 }
 
@@ -936,6 +935,7 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
     struct smb_rq *tmp_rqp;
 	struct mbchain *mbp;
     size_t len = 0;
+    int need_wakeup = 0;
     
     SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_START, smb_hideaddr(rqp), rqp->sr_messageid, iod->iod_id, iod->iod_state, 0);
 
@@ -1230,7 +1230,16 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
     rqp->sr_threadId = thread_tid(current_thread());
 
     SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_NONE, 0xabc001, iod->iod_id, rqp->sr_messageid, m, 0);
-    
+    /*
+     * if SMB_TRAN_SEND() takes a long time to finish
+     * and the thread that queued the rqp managed to parse the packet and call
+     * smb_rq_done(), it will free the rqp we're going to modify after the send
+     * mark as busy so it's not freed
+     */
+    SMBRQ_SLOCK(rqp);
+    rqp->sr_flags |= SMBR_BUSY;
+    SMBRQ_SUNLOCK(rqp);
+
     /* Call SMB_TRAN_SEND to send the mbufs in "m" */
     error = rqp->sr_lerror = (error) ? error : SMB_TRAN_SEND(iod, m);
 	if (error == 0) {
@@ -1291,6 +1300,15 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	}
     
 exit:
+    SMBRQ_SLOCK(rqp);
+    rqp->sr_flags &= ~SMBR_BUSY;
+    if (rqp->sr_flags & SMBR_BUSY_WANT) {
+        need_wakeup = 1;
+    }
+    SMBRQ_SUNLOCK(rqp);
+    if (need_wakeup) {
+        wakeup(&rqp->sr_flags);
+    }
     SMB_LOG_KTRACE(SMB_DBG_IOD_SENDRQ | DBG_FUNC_END, error, iod->iod_id, iod->iod_state, 0, 0);
 	return error;
 }
@@ -2235,14 +2253,22 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
         SMBERROR("iod is null\n");
         return EINVAL;
     }
-    else {
-        /*
-         * Make sure iod is not in SMBIOD_SHUTDOWN because once its in
-         * shutdown, it will no longer process events
-         */
-        if (iod->iod_flags & SMBIOD_SHUTDOWN) {
-            return EINVAL;
-        }
+
+    /*
+     * Make sure iod is not in SMBIOD_SHUTDOWN because once its in
+     * shutdown, it will no longer process events
+     */
+    if (iod->iod_flags & SMBIOD_SHUTDOWN) {
+        return EINVAL;
+    }
+
+    /*
+     * Avoid sending the request during shutdown, as the network and
+     * other services may already be unavailable at that point.
+     */
+    if (smbfs_inshutdown()) {
+        SMBERROR("inshutdown, skipping request 0x%x\n", event);
+        return ESHUTDOWN;
     }
     
     SMB_MALLOC_TYPE(evp, struct smbiod_event, Z_WAITOK_ZERO);
@@ -2263,7 +2289,8 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
      * happening when we fail a reconnect while handling a lease break
      */
     while (((evp->ev_type & SMBIOD_EV_PROCESSED) == 0) &&
-           (iod->iod_state != SMBIOD_ST_DEAD)) {
+           (iod->iod_state != SMBIOD_ST_DEAD) &&
+           !smbfs_inshutdown()) {
         msleep(evp, SMB_IOD_EVLOCKPTR(iod), PWAIT, "iod-ev", &ts);
     }
 
@@ -2276,26 +2303,22 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
              */
             SMBERROR("iod %d is dead, give up on request 0x%x", iod->iod_id, evp->ev_type);
             error = EPIPE;
-            if (evp->ev_type & SMBIOD_EV_PROCESSING) {
-                /*
-                 * event started processing, remove SMBIOD_EV_SYNC
-                 * so smb_iod_main() knows we're not waiting to free it
-                 */
-                evp->ev_type &= ~SMBIOD_EV_SYNC;
-            } else {
-                /*
-                 * event didn't start processing, remove from event list
-                 */
-                STAILQ_REMOVE(&iod->iod_evlist, evp, smbiod_event, ev_link);
-            }
-        }
-        else {
-            /*
-             * Should not ever get here
-             * iod is not dead and event not processed?
-             */
-            SMBERROR("Something is wrong: iod %d is not dead (0x%x) and event not processed request 0x%x",
+        } else { // /* smbfs_inshutdown */
+            SMBERROR("Shutdown in progress: iod %d in state 0x%x did not process request 0x%x",
                      iod->iod_id, iod->iod_state, evp->ev_type);
+            error = ESHUTDOWN;
+        }
+        if (evp->ev_type & SMBIOD_EV_PROCESSING) {
+            /*
+             * event started processing, remove SMBIOD_EV_SYNC
+             * so smb_iod_main() knows we're not waiting to free it
+             */
+            evp->ev_type &= ~SMBIOD_EV_SYNC;
+        } else {
+            /*
+             * event didn't start processing, remove from event list
+             */
+            STAILQ_REMOVE(&iod->iod_evlist, evp, smbiod_event, ev_link);
         }
     }
 
@@ -2732,7 +2755,7 @@ smb_iod_waitrq(struct smb_rq *rqp)
 {
 	struct smbiod *iod = rqp->sr_iod;
 	int error = 0;
-    struct timespec ts = {0};
+    struct timespec ts = { .tv_sec = 1, .tv_nsec = 0 };
     uint64_t messageid = rqp->sr_messageid;
 
     SMB_LOG_KTRACE(SMB_DBG_IOD_WAITRQ | DBG_FUNC_START, smb_hideaddr(rqp), messageid, 0, 0, 0);
@@ -2750,9 +2773,12 @@ smb_iod_waitrq(struct smb_rq *rqp)
                 smb_iod_start_reconnect(iod);
             }
             
-			ts.tv_sec = 1;
-			ts.tv_nsec = 0;
-			msleep(&iod->iod_flags, 0, PWAIT, "90irq", &ts);
+			error = msleep(&iod->iod_flags, 0, PWAIT, "90irq", &ts);
+            if (error == EWOULDBLOCK && smbfs_inshutdown()) {
+                rqp->sr_lerror = error = ESHUTDOWN;
+                break;
+            }
+            error = 0;
 		}
 
         /*
@@ -2791,14 +2817,23 @@ smb_iod_waitrq(struct smb_rq *rqp)
          *
          * Make sure we didn't get reconnect while we were asleep waiting on the next response.
          */
+        uint32_t sleep_cnt = 0;
 		do {
-			ts.tv_sec = 15;
-			ts.tv_nsec = 0;
-			msleep(&rqp->sr_state, SMBRQ_SLOCKPTR(rqp), PWAIT, "wait for reply", &ts);
-			if ((rqp->sr_rplast) && (rqp->sr_rpgen == rqp->sr_rplast) && 
+            sleep_cnt++;
+			error = msleep(&rqp->sr_state, SMBRQ_SLOCKPTR(rqp), PWAIT, "wait for reply", &ts);
+			if (error == EWOULDBLOCK && smbfs_inshutdown()) {
+				/* Stop waiting during a shutdown, as the network and other services might already be unavailable */
+                SMBERROR("Stop waiting during a shutdown, as the network and other services might already be unavailable\n");
+                rqp->sr_lerror = error = ESHUTDOWN;
+                break;
+            }
+            error = 0;
+
+            if ((sleep_cnt % 15 == 0) && (rqp->sr_rplast) && (rqp->sr_rpgen == rqp->sr_rplast) &&
 				 ((rqp->sr_flags & (SMBR_MULTIPACKET | SMBR_RECONNECTED | SMBR_REXMIT)) == (SMBR_MULTIPACKET | SMBR_RECONNECTED))) {
 				SMBERROR("Reconnect in the middle of a transaction messages, just return ETIMEDOUT\n");
-				rqp->sr_lerror = ETIMEDOUT;
+				rqp->sr_lerror = error = ETIMEDOUT;
+                break;
 			}
 		} while ((rqp->sr_lerror == 0) && (rqp->sr_rpgen == rqp->sr_rplast));
 	}
@@ -2857,12 +2892,18 @@ smb_iod_sendall(struct smbiod *iod)
 	struct timespec oldest_timesent = {0, 0};
     uint32_t pending_reply = 0;
     uint32_t need_wakeup = 0;
+    int drop_req_lock = 0;
+
+    if (!sessionp) {
+        return EINVAL;
+    }
 
 	herror = 0;
 	echo = 0;
     
     SMB_LOG_KTRACE(SMB_DBG_IOD_SENDALL | DBG_FUNC_START, iod->iod_id, 0, 0, 0, 0);
 
+retry:
 	/*
 	 * Loop through the list of requests and send them if possible
 	 */
@@ -2872,6 +2913,7 @@ smb_iod_sendall(struct smbiod *iod)
     }
     
     SMB_IOD_RQLOCK(iod);
+    drop_req_lock = 1;
 
     TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
 		if (iod->iod_state == SMBIOD_ST_DEAD) {
@@ -2966,12 +3008,20 @@ smb_iod_sendall(struct smbiod *iod)
                 /* Fall through here and send it */
 
 			case SMBRQ_NOTSENT:
-                /*
-                 * <71776833> Hold iod_rqlock here to keep receive thread from
-                 * processing the reply and freeing the rqp before we return.
-                 */
+                /* Dropping the RQ lock here helps performance */
+                SMB_IOD_RQUNLOCK(iod);
+                /* Indicate that we are not holding the lock */
+                drop_req_lock = 0;
                 SMB_LOG_KTRACE(SMB_DBG_IOD_SENDALL | DBG_FUNC_NONE, 0xabc001, iod->iod_id, smb_hideaddr(rqp), 0, 0);
 				herror = smb_iod_sendrq(iod, rqp);
+                if (herror == 0) {
+                    /*
+                     * We will need to go back and reaquire the request queue lock
+                     * and start over, since dropping the lock before sending the
+                     * request, the queue could be in a completely differen state.
+                     */
+                    goto retry;
+                }
 				break;
 
 			case SMBRQ_SENT:
@@ -3066,7 +3116,7 @@ smb_iod_sendall(struct smbiod *iod)
                  * <55757983> dont call smb_iod_nb_intr() to check for
                  * system shutdown as you could deadlock on the SMB_IOD_RQLOCK
                  */
-                if (get_system_inshutdown() || IOPMRootDomainGetWillShutdown()) {
+                if (smbfs_inshutdown()) {
                     /* If forced unmount or shutdown, dont wait very long */
                     ts.tv_sec = SMB_FAST_SEND_WAIT_TIMO;
                 }
@@ -3116,8 +3166,9 @@ smb_iod_sendall(struct smbiod *iod)
             /* Loop around and process more rqp's */
         }
 	}
-    
-    SMB_IOD_RQUNLOCK(iod);
+    if (drop_req_lock) {
+        SMB_IOD_RQUNLOCK(iod);
+    }
     
 	if (herror == ENOTCONN) {
         SMB_LOG_MC("id %u herror == ENOTCONN, Reconnect.\n", iod->iod_id);
@@ -3244,7 +3295,7 @@ int smb_iod_nb_intr(struct smbiod *iod)
 {
     struct smb_session *sessionp = iod->iod_session;
     
-    if (get_system_inshutdown() || IOPMRootDomainGetWillShutdown()) {
+    if (smbfs_inshutdown()) {
         /* If system is shutting down, then cancel reconnect */
         return EINTR;
     }
@@ -4672,7 +4723,10 @@ smb_iod_establish_alt_ch(struct smbiod *iod)
         
         error = smb_session_establish_alternate_connection(iod, con_entry[u]);
         if (error) {
-            SMBERROR("id %d reports immediate failure.\n", iod->iod_id); 
+            SMBERROR("id %d reports immediate failure.\n", iod->iod_id);
+            smb2_mc_report_connection_trial_results(&iod->iod_session->session_interface_table,
+                                                    SMB2_MC_TRIAL_FAILED,
+                                                    con_entry[u]);
         }
     }
 

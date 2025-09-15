@@ -246,10 +246,13 @@ PRIVATE_DATAFILES = $(sort \
 	${MIG_PRIVATE_DEFS})
 
 INSTALL_MI_LCL_LIST = $(sort \
+	arcade_register.defs \
 	coalition.h \
+	mach_eventlink.defs \
 	mach_time_private.h \
 	mk_timer.h \
 	resource_monitors.h \
+	restartable.defs \
 	task_policy_private.h \
 	thread_policy_private.h \
 	vm_reclaim.h \

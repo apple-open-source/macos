@@ -410,8 +410,8 @@ SCHED_POLICY_T_DECL(runq_tracepoint_thread_select,
 	/* Test the cluster_id field */
 	test_thread_t bound_thread = create_thread(TH_BUCKET_SHARE_DF, same_tg, root_bucket_to_highest_pri[TH_BUCKET_SHARE_DF]);
 	set_thread_cluster_bound(bound_thread, 1);
-	enqueue_thread(cluster_target(1), bound_thread);
-	ret = dequeue_thread_expect(cluster_target(1), bound_thread);
+	enqueue_thread(pset_target(1), bound_thread);
+	ret = dequeue_thread_expect(pset_target(1), bound_thread);
 	T_QUIET; T_ASSERT_TRUE(ret, "Dequeue single thread on cluster 1");
 	root_bucket_arg = SELECTION_WAS_EDF | CTS_VERSION | SELECTION_WAS_CLUSTER_BOUND | CLUSTER_ID(1);
 	ret = tracepoint_expect(CLUTCH_THREAD_SELECT, 10, 0, TH_BUCKET_SHARE_DF, root_bucket_arg);

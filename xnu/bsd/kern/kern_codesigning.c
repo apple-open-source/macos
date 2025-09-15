@@ -232,6 +232,7 @@ code_signing_configuration(
 	int cs_enforcement_disabled = 0;
 	int cs_integrity_skip = 0;
 	int amfi_relax_profile_trust = 0;
+	int amfi_dev_mode_policy = 0;
 
 	/* Parse the AMFI mask */
 	PE_parse_boot_argn("amfi", &amfi_mask, sizeof(amfi_mask));
@@ -271,6 +272,12 @@ code_signing_configuration(
 		"amfi_relax_profile_trust",
 		&amfi_relax_profile_trust,
 		sizeof(amfi_relax_profile_trust));
+
+	/* Parse the AMFI customer developer mode policy */
+	PE_parse_boot_argn(
+		"amfi_dev_mode_policy",
+		&amfi_dev_mode_policy,
+		sizeof(amfi_dev_mode_policy));
 
 	/* CS_CONFIG_UNRESTRICTED_DEBUGGING */
 	if (amfi_mask & CS_AMFI_MASK_UNRESTRICT_TASK_FOR_PID) {
@@ -314,6 +321,11 @@ code_signing_configuration(
 	/* CS_CONFIG_RELAX_PROFILE_TRUST */
 	if (amfi_relax_profile_trust) {
 		config |= CS_CONFIG_RELAX_PROFILE_TRUST;
+	}
+
+	/* CS_CONFIG_DEV_MODE_POLICY */
+	if (amfi_dev_mode_policy) {
+		config |= CS_CONFIG_DEV_MODE_POLICY;
 	}
 
 #if CONFIG_SPTM
@@ -501,6 +513,29 @@ developer_mode_state(void)
 	}
 
 	return os_atomic_load(developer_mode_enabled, relaxed);
+}
+
+#pragma mark Research Mode
+
+SECURITY_READ_ONLY_LATE(bool) research_mode_enabled = false;
+SECURITY_READ_ONLY_LATE(bool) extended_research_mode_enabled = false;
+
+bool
+research_mode_state(void)
+{
+	if (allow_research_modes() == true) {
+		return research_mode_enabled;
+	}
+	return false;
+}
+
+bool
+extended_research_mode_state(void)
+{
+	if (allow_research_modes() == true) {
+		return extended_research_mode_enabled;
+	}
+	return false;
 }
 
 #pragma mark Restricted Execution Mode
@@ -1211,6 +1246,18 @@ csm_reconstitute_code_signature(
 		monitor_sig_obj,
 		unneeded_addr,
 		unneeded_size);
+}
+
+kern_return_t
+csm_setup_nested_address_space(
+	pmap_t pmap,
+	const vm_address_t region_addr,
+	const vm_size_t region_size)
+{
+	return CSM_PREFIX(setup_nested_address_space)(
+		pmap,
+		region_addr,
+		region_size);
 }
 
 kern_return_t

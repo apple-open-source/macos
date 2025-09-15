@@ -88,7 +88,7 @@ static NSString *dataKey = @"data";
 
 - (NSString *)title
 {
-    return (NSString *)_coreData.title;
+    return _coreData.title.createNSString().autorelease();
 }
 
 - (void)setDir:(_WKNotificationDirection)dir
@@ -125,7 +125,7 @@ static NSString *dataKey = @"data";
 
 - (NSString *)lang
 {
-    return (NSString *)_coreData.language;
+    return _coreData.language.createNSString().autorelease();
 }
 
 - (void)setBody:(NSString *)body
@@ -135,7 +135,7 @@ static NSString *dataKey = @"data";
 
 - (NSString *)body
 {
-    return (NSString *)_coreData.body;
+    return _coreData.body.createNSString().autorelease();
 }
 
 - (void)setTag:(NSString *)tag
@@ -145,7 +145,7 @@ static NSString *dataKey = @"data";
 
 - (NSString *)tag
 {
-    return (NSString *)_coreData.tag;
+    return _coreData.tag.createNSString().autorelease();
 }
 
 - (void)setAlert:(_WKNotificationAlert)alert
@@ -182,7 +182,7 @@ static NSString *dataKey = @"data";
 
 - (NSString *)origin
 {
-    return (NSString *)_coreData.originString;
+    return _coreData.originString.createNSString().autorelease();
 }
 
 - (void)setSecurityOrigin:(NSURL *)securityOrigin
@@ -192,7 +192,7 @@ static NSString *dataKey = @"data";
 
 - (NSURL *)securityOrigin
 {
-    return (NSURL *)(URL { _coreData.originString });
+    return URL { _coreData.originString }.createNSURL().autorelease();
 }
 
 - (void)setServiceWorkerRegistrationURL:(NSURL *)serviceWorkerRegistrationURL
@@ -202,12 +202,12 @@ static NSString *dataKey = @"data";
 
 - (NSURL *)serviceWorkerRegistrationURL
 {
-    return (NSURL *)_coreData.serviceWorkerRegistrationURL;
+    return _coreData.serviceWorkerRegistrationURL.createNSURL().autorelease();
 }
 
 - (NSString *)identifier
 {
-    return (NSString *)_coreData.notificationID.toString();
+    return _coreData.notificationID.toString().createNSString().autorelease();
 }
 
 - (void)setUuid:(NSUUID *)uuid
@@ -219,7 +219,7 @@ static NSString *dataKey = @"data";
 
 - (NSUUID *)uuid
 {
-    return (NSUUID *)_coreData.notificationID;
+    return (NSUUID *)_coreData.notificationID.createNSUUID().autorelease();
 }
 
 - (NSDictionary *)userInfo

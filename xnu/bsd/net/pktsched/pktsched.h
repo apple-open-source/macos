@@ -43,7 +43,8 @@ extern "C" {
 #define PKTSCHEDT_TCQ           5       /* traffic class queue */
 #define PKTSCHEDT_QFQ           6       /* quick fair queueing */
 #define PKTSCHEDT_FQ_CODEL      7       /* Flow queues with CoDel */
-#define PKTSCHEDT_MAX           8       /* should be max sched type + 1 */
+#define PKTSCHEDT_FQ_CODEL_NEW  8       /* Flow queues with RFC compliant CoDel */
+#define PKTSCHEDT_MAX           9       /* should be max sched type + 1 */
 
 #ifdef BSD_KERNEL_PRIVATE
 #include <mach/mach_time.h>
@@ -185,7 +186,7 @@ struct if_ifclassq_stats;
 extern void pktsched_register_m_tag(void);
 
 extern void pktsched_init(void);
-extern int pktsched_setup(struct ifclassq *, u_int32_t, u_int32_t,
+extern int pktsched_setup(struct ifclassq *, u_int8_t, u_int32_t,
     classq_pkt_type_t);
 extern void pktsched_teardown(struct ifclassq *);
 extern int pktsched_getqstats(struct ifclassq *, u_int32_t, u_int32_t,
@@ -199,7 +200,6 @@ extern int pktsched_clone_pkt(pktsched_pkt_t *, pktsched_pkt_t *);
 extern void pktsched_corrupt_packet(pktsched_pkt_t *pkt);
 extern void pktsched_get_pkt_vars(pktsched_pkt_t *, volatile uint32_t **,
     uint64_t **, uint32_t *, uint8_t *, uint8_t *, uint32_t *, uint64_t *);
-extern uint32_t *pktsched_get_pkt_sfb_vars(pktsched_pkt_t *, uint32_t **);
 extern void pktsched_pkt_encap(pktsched_pkt_t *, classq_pkt_t *);
 extern void pktsched_pkt_encap_chain(pktsched_pkt_t *, classq_pkt_t *,
     classq_pkt_t *, uint32_t, uint32_t);

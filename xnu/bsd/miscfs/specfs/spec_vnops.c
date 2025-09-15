@@ -249,6 +249,7 @@ struct _throttle_io_info_t _throttle_io_info[LOWPRI_MAX_NUM_DEV];
 
 int     lowpri_throttle_enabled = 1;
 
+static int spec_close_internal(struct vnode *vp, dev_t dev, int flags, vfs_context_t ctx);
 
 static void throttle_info_end_io_internal(struct _throttle_io_info_t *info, int throttle_level);
 static int throttle_info_update_internal(struct _throttle_io_info_t *info, uthread_t ut, int flags, boolean_t isssd, boolean_t inflight, struct bufattr *bap);
@@ -486,6 +487,9 @@ spec_open(struct vnop_open_args *ap)
 				}
 				/* If it doesn't set back, we can't recover */
 				if (VNOP_IOCTL(vp, DKIOCSETBLOCKSIZE, (caddr_t)&blksize, FWRITE, ap->a_context)) {
+					/* Perform an explicit close on the block device, as the device is already open */
+					spec_close_internal(vp, dev, ap->a_mode, ap->a_context);
+
 					error = ENXIO;
 				}
 			}
@@ -2786,18 +2790,11 @@ spec_blockmap(__unused struct vnop_blockmap_args *ap)
 	return ENOTSUP;
 }
 
-
-/*
- * Device close routine
- */
-int
-spec_close(struct vnop_close_args *ap)
+static int
+spec_close_internal(struct vnode *vp, dev_t dev, int flags, vfs_context_t ctx)
 {
-	struct vnode *vp = ap->a_vp;
-	dev_t dev = vp->v_rdev;
 	int error = 0;
-	int flags = ap->a_fflag;
-	struct proc *p = vfs_context_proc(ap->a_context);
+	struct proc *p = vfs_context_proc(ctx);
 	struct session *sessp;
 	struct pgrp *pg;
 
@@ -2865,7 +2862,7 @@ spec_close(struct vnop_close_args *ap)
 		 * we must invalidate any in core blocks, so that
 		 * we can, for instance, change floppy disks.
 		 */
-		if ((error = spec_fsync_internal(vp, MNT_WAIT, ap->a_context))) {
+		if ((error = spec_fsync_internal(vp, MNT_WAIT, ctx))) {
 			return error;
 		}
 
@@ -2893,6 +2890,15 @@ spec_close(struct vnop_close_args *ap)
 	}
 
 	return error;
+}
+
+/*
+ * Device close routine
+ */
+int
+spec_close(struct vnop_close_args *ap)
+{
+	return spec_close_internal(ap->a_vp, ap->a_vp->v_rdev, ap->a_fflag, ap->a_context);
 }
 
 /*

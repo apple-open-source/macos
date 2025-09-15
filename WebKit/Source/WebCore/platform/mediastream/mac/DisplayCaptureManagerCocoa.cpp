@@ -30,7 +30,6 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "Logging.h"
-#include <wtf/Algorithms.h>
 #include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(IOS) || PLATFORM(VISION)

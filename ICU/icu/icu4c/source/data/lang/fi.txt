@@ -152,6 +152,7 @@ fi{
         crs{"seychellienkreoli"}
         cs{"tšekki"}
         csb{"kašubi"}
+        cst{"chochenyo"}
         csw{"swampy cree"}
         cu{"kirkkoslaavi"}
         cv{"tšuvassi"}
@@ -256,6 +257,7 @@ fi{
         hak{"hakka-kiina"}
         haw{"havaiji"}
         hax{"haida (eteläinen)"}
+        hch{"wixárika"}
         he{"heprea"}
         hi{"hindi"}
         hif{"fidžinhindi"}
@@ -286,6 +288,7 @@ fi{
         inh{"inguuši"}
         io{"ido"}
         is{"islanti"}
+        isc{"iskonawa"}
         it{"italia"}
         iu{"inuktitut"}
         izh{"inkeroinen"}
@@ -557,6 +560,7 @@ fi{
         sh{"serbokroaatti"}
         shi{"tašelhit"}
         shn{"shan"}
+        shp{"shipibo-konibo"}
         shu{"tšadinarabia"}
         si{"sinhala"}
         sid{"sidamo"}
@@ -936,13 +940,15 @@ fi{
     }
     Types{
         calendar{
+            bangla{"bengali-kalenteri"}
             buddhist{"buddhalainen kalenteri"}
             chinese{"kiinalainen kalenteri"}
             coptic{"koptilainen kalenteri"}
-            dangi{"dangilainen kalenteri"}
+            dangi{"korealainen kalenteri"}
             ethiopic{"etiopialainen kalenteri"}
             ethiopic-amete-alem{"etiopialainen amete alem -kalenteri"}
             gregorian{"gregoriaaninen kalenteri"}
+            gujarati{"gudžarati-kalenteri"}
             hebrew{"juutalainen kalenteri"}
             indian{"intialainen kalenteri"}
             islamic{"hidžra-kalenteri"}
@@ -952,8 +958,16 @@ fi{
             islamic-umalqura{"hidžra-kalenteri, Umm al-Qura"}
             iso8601{"ISO 8601 -kalenteri"}
             japanese{"japanilainen kalenteri"}
+            kannada{"kannada-kalenteri"}
+            malayalam{"malayalam-kalenteri"}
+            marathi{"marathi-kalenteri"}
+            odia{"orija-kalenteri"}
             persian{"persialainen kalenteri"}
             roc{"Kiinan tasavallan kalenteri"}
+            tamil{"tamili-kalenteri"}
+            telugu{"telugu-kalenteri"}
+            vietnamese{"vietnamilainen kalenteri"}
+            vikram{"vikrami-kalenteri"}
         }
         cf{
             account{"valuuttojen laskentatoimen esitysmuoto"}

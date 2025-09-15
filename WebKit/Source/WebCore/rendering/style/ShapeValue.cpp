@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@ namespace WebCore {
 
 bool ShapeValue::isImageValid() const
 {
-    auto image = this->protectedImage();
+    RefPtr image = this->image();
     if (!image)
         return false;
     if (image->hasCachedImage()) {
@@ -46,7 +46,7 @@ bool ShapeValue::isImageValid() const
 
 bool ShapeValue::operator==(const ShapeValue& other) const
 {
-    return std::visit(WTF::makeVisitor(
+    return WTF::visit(WTF::makeVisitor(
         []<typename T>(const T& a, const T& b) {
             return a == b;
         },
@@ -58,7 +58,7 @@ bool ShapeValue::operator==(const ShapeValue& other) const
 
 bool ShapeValue::canBlend(const ShapeValue& other) const
 {
-    return std::visit(WTF::makeVisitor(
+    return WTF::visit(WTF::makeVisitor(
         [](const ShapeAndBox& a, const ShapeAndBox& b) {
             return Style::canBlend(a.shape, b.shape) && a.box == b.box;
         },
@@ -70,7 +70,7 @@ bool ShapeValue::canBlend(const ShapeValue& other) const
 
 Ref<ShapeValue> ShapeValue::blend(const ShapeValue& other, const BlendingContext& context) const
 {
-    return std::visit(WTF::makeVisitor(
+    return WTF::visit(WTF::makeVisitor(
         [&](const ShapeAndBox& a, const ShapeAndBox& b) -> Ref<ShapeValue> {
             return ShapeValue::create(Style::blend(a.shape, b.shape, context), a.box);
         },

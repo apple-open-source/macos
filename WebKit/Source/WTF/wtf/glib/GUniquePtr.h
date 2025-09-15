@@ -18,8 +18,7 @@
  *
  */
 
-#ifndef GUniquePtr_h
-#define GUniquePtr_h
+#pragma once
 
 #if USE(GLIB)
 
@@ -143,6 +142,3 @@ using WTF::GUniqueOutPtr;
 using WTF::GFreeDeleter;
 
 #endif // USE(GLIB)
-
-#endif // GUniquePtr_h
-

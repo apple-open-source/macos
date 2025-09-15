@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,7 +32,7 @@ namespace WebCore {
 
 class PathSegment {
 public:
-    using Data = std::variant<
+    using Data = Variant<
         PathMoveTo,
 
         PathLineTo,
@@ -46,6 +46,7 @@ public:
         PathEllipseInRect,
         PathRect,
         PathRoundedRect,
+        PathContinuousRoundedRect,
 
         PathDataLine,
         PathDataQuadCurve,
@@ -55,7 +56,7 @@ public:
         PathCloseSubpath
     >;
 
-    WEBCORE_EXPORT PathSegment(Data&&);
+    PathSegment(Data&&);
 
     bool operator==(const PathSegment&) const = default;
 
@@ -65,6 +66,8 @@ public:
 
     FloatPoint calculateEndPoint(const FloatPoint& currentPoint, FloatPoint& lastMoveToPoint) const;
     std::optional<FloatPoint> tryGetEndPointWithoutContext() const;
+
+    FloatRect fastBoundingRect() const;
     void extendFastBoundingRect(const FloatPoint& currentPoint, const FloatPoint& lastMoveToPoint, FloatRect& boundingRect) const;
     void extendBoundingRect(const FloatPoint& currentPoint, const FloatPoint& lastMoveToPoint, FloatRect& boundingRect) const;
 
@@ -82,4 +85,9 @@ using PathSegmentApplier = Function<void(const PathSegment&)>;
 
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const PathSegment&);
 
+
+inline PathSegment::PathSegment(Data&& data)
+    : m_data(WTFMove(data))
+{
+}
 } // namespace WebCore

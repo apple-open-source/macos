@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
  * Copyright (c) 2007-2009 Bruce Simpson.
  * All rights reserved.
  *
@@ -24,15 +26,12 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bms Exp $");
-
+#ifdef __APPLE__
 /* 8120237: enable INET6 */
 #define __APPLE_USE_RFC_3542
-
+#endif /* __APPLE__ */
 #include "namespace.h"
 
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -43,6 +42,11 @@ __FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bm
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/ip_var.h>
+#ifdef __APPLE__
+#ifndef LLINDEX
+#define LLINDEX(sdlp) (sdlp)->sdl_index
+#endif /* !LLINDEX */
+#endif /* __APPLE__ */
 
 #include <assert.h>
 #include <errno.h>
@@ -59,10 +63,12 @@ __FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bm
 #ifndef INET
 #define INET
 #endif
+#ifdef __APPLE__
 /* 8120237: enable INET6 */
 #ifndef INET6
 #define INET6
 #endif
+#endif /* __APPLE__ */
 
 union sockunion {
 	struct sockaddr_storage	ss;
@@ -127,7 +133,7 @@ __inaddr_to_index(in_addr_t ifaddr)
 		psu = (sockunion_t *)ifa->ifa_addr;
 		if (psu && psu->ss.ss_family == AF_LINK &&
 		    strcmp(ifa->ifa_name, ifname) == 0) {
-			ifindex = psu->sdl.sdl_index;
+			ifindex = LLINDEX(&psu->sdl);
 			break;
 		}
 	}
@@ -298,8 +304,9 @@ setsourcefilter(int s, uint32_t interface, struct sockaddr *group,
 	switch (psu->ss.ss_family) {
 #ifdef INET
 	case AF_INET:
-		if ((grouplen != sizeof(struct sockaddr_in) ||
-		    !IN_MULTICAST(ntohl(psu->sin.sin_addr.s_addr)))) {
+		if (grouplen != sizeof(struct sockaddr_in) ||
+		    psu->ss.ss_len != sizeof(struct in_addr) ||
+		    !IN_MULTICAST(ntohl(psu->sin.sin_addr.s_addr))) {
 			errno = EINVAL;
 			return (-1);
 		}
@@ -310,6 +317,7 @@ setsourcefilter(int s, uint32_t interface, struct sockaddr *group,
 #ifdef INET6
 	case AF_INET6:
 		if (grouplen != sizeof(struct sockaddr_in6) ||
+		    psu->ss.ss_len != sizeof(struct in6_addr) ||
 		    !IN6_IS_ADDR_MULTICAST(&psu->sin6.sin6_addr)) {
 			errno = EINVAL;
 			return (-1);
@@ -344,8 +352,8 @@ getsourcefilter(int s, uint32_t interface, struct sockaddr *group,
 {
 	struct __msfilterreq	 msfr;
 	sockunion_t		*psu;
+	socklen_t		 optlen;
 	int			 err, level, nsrcs, optname;
-	unsigned int		 optlen;
 
 	if (interface == 0 || group == NULL || numsrc == NULL ||
 	    fmode == NULL) {
@@ -361,8 +369,9 @@ getsourcefilter(int s, uint32_t interface, struct sockaddr *group,
 	switch (psu->ss.ss_family) {
 #ifdef INET
 	case AF_INET:
-		if ((grouplen != sizeof(struct sockaddr_in) ||
-		    !IN_MULTICAST(ntohl(psu->sin.sin_addr.s_addr)))) {
+		if (grouplen != sizeof(struct sockaddr_in) ||
+		    psu->ss.ss_len != sizeof(struct in_addr) ||
+		    !IN_MULTICAST(ntohl(psu->sin.sin_addr.s_addr))) {
 			errno = EINVAL;
 			return (-1);
 		}
@@ -373,6 +382,7 @@ getsourcefilter(int s, uint32_t interface, struct sockaddr *group,
 #ifdef INET6
 	case AF_INET6:
 		if (grouplen != sizeof(struct sockaddr_in6) ||
+		    psu->ss.ss_len != sizeof(struct in6_addr) ||
 		    !IN6_IS_ADDR_MULTICAST(&psu->sin6.sin6_addr)) {
 			errno = EINVAL;
 			return (-1);

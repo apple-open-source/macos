@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Apple Inc.  All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -197,8 +197,8 @@ CString ImageFrameAnimator::sourceUTF8() const
 
 void ImageFrameAnimator::dump(TextStream& ts) const
 {
-    ts.dumpProperty("current-frame-index", m_currentFrameIndex);
-    ts.dumpProperty("repetitions-complete", m_repetitionsComplete);
+    ts.dumpProperty("current-frame-index"_s, m_currentFrameIndex);
+    ts.dumpProperty("repetitions-complete"_s, m_repetitionsComplete);
 }
 
 } // namespace WebCore

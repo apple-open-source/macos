@@ -991,7 +991,7 @@ void IOHIDKeyboardFilter::setPropertyForClient(CFStringRef key,CFTypeRef propert
 
             CFNumberGetValue((CFNumberRef)property, kCFNumberSInt32Type, &_fnKeyMode);
 
-            HIDLogDebug("[%@] _fnKeyMode: %x", SERVICE_ID, _fnKeyMode);
+            HIDLogInfo("[%@] IOHIDKeyboardFilter::setPropertyForClient _fnKeyMode: %x %@", SERVICE_ID, _fnKeyMode, client);
         }
 
     } else if (CFStringCompare(key, CFSTR(kIOHIDUserKeyUsageMapKey), kNilOptions) == kCFCompareEqualTo) {

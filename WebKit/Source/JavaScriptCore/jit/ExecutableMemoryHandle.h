@@ -26,6 +26,8 @@
 #pragma once
 
 #include "JSExportMacros.h"
+#include <wtf/CodePtr.h>
+#include <wtf/RawPointer.h>
 
 #if ENABLE(LIBPAS_JIT_HEAP) && ENABLE(JIT)
 #include <wtf/CodePtr.h>

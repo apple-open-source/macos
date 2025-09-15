@@ -498,7 +498,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
     RetainPtr<CAAnimation> caAnimation;
     switch (properties.animationType) {
     case PlatformCAAnimation::AnimationType::Basic: {
-        auto basicAnimation = [CABasicAnimation animationWithKeyPath:properties.keyPath];
+        RetainPtr basicAnimation = [CABasicAnimation animationWithKeyPath:properties.keyPath.createNSString().get()];
 
         if (properties.keyValues.size() > 1) {
             [basicAnimation setFromValue:animationValueFromKeyframeValue(properties.keyValues[0]).get()];
@@ -508,7 +508,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         if (properties.timingFunctions.size())
             [basicAnimation setTimingFunction:toCAMediaTimingFunction(properties.timingFunctions[0].get(), properties.reverseTimingFunctions)];
 
-        caAnimation = basicAnimation;
+        caAnimation = WTFMove(basicAnimation);
         break;
     }
     case PlatformCAAnimation::AnimationType::Group: {
@@ -527,7 +527,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         break;
     }
     case PlatformCAAnimation::AnimationType::Keyframe: {
-        auto keyframeAnimation = [CAKeyframeAnimation animationWithKeyPath:properties.keyPath];
+        RetainPtr keyframeAnimation = [CAKeyframeAnimation animationWithKeyPath:properties.keyPath.createNSString().get()];
 
         if (properties.keyValues.size()) {
             [keyframeAnimation setValues:createNSArray(properties.keyValues, [] (auto& value) {
@@ -542,7 +542,7 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         }
 
         if (properties.timingFunction)
-            [keyframeAnimation setTimingFunction:toCAMediaTimingFunction(*properties.timingFunction, false)]; // FIXME: handle reverse.
+            [keyframeAnimation setTimingFunction:toCAMediaTimingFunction(Ref { *properties.timingFunction }, false)]; // FIXME: handle reverse.
 
         if (properties.timingFunctions.size()) {
             [keyframeAnimation setTimingFunctions:createNSArray(properties.timingFunctions, [&] (auto& function) {
@@ -550,11 +550,11 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
             }).get()];
         }
 
-        caAnimation = keyframeAnimation;
+        caAnimation = WTFMove(keyframeAnimation);
         break;
     }
     case PlatformCAAnimation::AnimationType::Spring: {
-        auto springAnimation = [CASpringAnimation animationWithKeyPath:properties.keyPath];
+        RetainPtr springAnimation = [CASpringAnimation animationWithKeyPath:properties.keyPath.createNSString().get()];
 
         if (properties.keyValues.size() > 1) {
             [springAnimation setFromValue:animationValueFromKeyframeValue(properties.keyValues[0]).get()];
@@ -564,14 +564,14 @@ static RetainPtr<CAAnimation> createAnimation(CALayer *layer, RemoteLayerTreeHos
         if (properties.timingFunctions.size()) {
             auto& timingFunction = properties.timingFunctions[0];
             if (timingFunction->isSpringTimingFunction()) {
-                auto& function = static_cast<const SpringTimingFunction&>(timingFunction.get());
-                [springAnimation setMass:function.mass()];
-                [springAnimation setStiffness:function.stiffness()];
-                [springAnimation setDamping:function.damping()];
-                [springAnimation setInitialVelocity:function.initialVelocity()];
+                Ref function = downcast<SpringTimingFunction>(timingFunction.get());
+                [springAnimation setMass:function->mass()];
+                [springAnimation setStiffness:function->stiffness()];
+                [springAnimation setDamping:function->damping()];
+                [springAnimation setInitialVelocity:function->initialVelocity()];
             }
         }
-        caAnimation = springAnimation;
+        caAnimation = WTFMove(springAnimation);
         break;
     }
     }
@@ -622,7 +622,7 @@ static void addAnimationToLayer(CALayer *layer, RemoteLayerTreeHost* layerTreeHo
         return;
     }
 
-    [layer addAnimation:createAnimation(layer, layerTreeHost, properties).get() forKey:key];
+    [layer addAnimation:createAnimation(layer, layerTreeHost, properties).get() forKey:key.createNSString().get()];
     [layer setInheritsTiming:NO];
 }
 
@@ -631,7 +631,7 @@ void PlatformCAAnimationRemote::updateLayerAnimations(CALayer *layer, RemoteLaye
     BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     for (const auto& value : animationsToRemove)
-        [layer removeAnimationForKey:value];
+        [layer removeAnimationForKey:value.createNSString().get()];
 
     for (const auto& keyAnimationPair : animationsToAdd)
         addAnimationToLayer(layer, layerTreeHost, keyAnimationPair.first, keyAnimationPair.second);
@@ -641,94 +641,94 @@ void PlatformCAAnimationRemote::updateLayerAnimations(CALayer *layer, RemoteLaye
 
 TextStream& operator<<(TextStream& ts, const PlatformCAAnimationRemote::Properties& animation)
 {
-    ts << "type=";
+    ts << "type="_s;
     ts << animation.animationType;
-    ts << " keyPath=";
+    ts << " keyPath="_s;
     ts << animation.keyPath;
 
     if (animation.beginTime)
-        ts.dumpProperty("beginTime", animation.beginTime);
+        ts.dumpProperty("beginTime"_s, animation.beginTime);
 
     if (animation.duration)
-        ts.dumpProperty("duration", animation.duration);
+        ts.dumpProperty("duration"_s, animation.duration);
 
     if (animation.timeOffset)
-        ts.dumpProperty("timeOffset", animation.timeOffset);
+        ts.dumpProperty("timeOffset"_s, animation.timeOffset);
 
-    ts.dumpProperty("repeatCount", animation.repeatCount);
+    ts.dumpProperty("repeatCount"_s, animation.repeatCount);
 
     if (animation.speed != 1)
-        ts.dumpProperty("speed", animation.speed);
+        ts.dumpProperty("speed"_s, animation.speed);
 
-    ts.dumpProperty("fillMode", animation.fillMode);
-    ts.dumpProperty("valueFunction", animation.valueFunction);
+    ts.dumpProperty("fillMode"_s, animation.fillMode);
+    ts.dumpProperty("valueFunction"_s, animation.valueFunction);
     if (animation.timingFunction)
-        ts.dumpProperty<const TimingFunction&>("timing function", *animation.timingFunction);
+        ts.dumpProperty<const TimingFunction&>("timing function", Ref { *animation.timingFunction });
 
     if (animation.autoReverses)
-        ts.dumpProperty("autoReverses", animation.autoReverses);
+        ts.dumpProperty("autoReverses"_s, animation.autoReverses);
 
     if (!animation.removedOnCompletion)
-        ts.dumpProperty("removedOnCompletion", animation.removedOnCompletion);
+        ts.dumpProperty("removedOnCompletion"_s, animation.removedOnCompletion);
 
     if (animation.additive)
-        ts.dumpProperty("additive", animation.additive);
+        ts.dumpProperty("additive"_s, animation.additive);
 
     if (animation.reverseTimingFunctions)
-        ts.dumpProperty("reverseTimingFunctions", animation.reverseTimingFunctions);
+        ts.dumpProperty("reverseTimingFunctions"_s, animation.reverseTimingFunctions);
 
     if (animation.hasExplicitBeginTime)
-        ts.dumpProperty("hasExplicitBeginTime", animation.hasExplicitBeginTime);
+        ts.dumpProperty("hasExplicitBeginTime"_s, animation.hasExplicitBeginTime);
 
-    ts << "\n";
+    ts << '\n';
     ts.increaseIndent();
     ts.writeIndent();
-    ts << "(" << "keyframes";
+    ts << '(' << "keyframes"_s;
     ts.increaseIndent();
 
     size_t maxFrames = std::max(animation.keyValues.size(), animation.keyTimes.size());
     maxFrames = std::max(maxFrames, animation.timingFunctions.size());
 
     for (size_t i = 0; i < maxFrames; ++i) {
-        ts << "\n";
+        ts << '\n';
         ts.writeIndent();
-        ts << "(keyframe " << unsigned(i);
+        ts << "(keyframe "_s << unsigned(i);
         if (i < animation.keyTimes.size())
-            ts.dumpProperty("time", animation.keyTimes[i]);
+            ts.dumpProperty("time"_s, animation.keyTimes[i]);
 
         if (i < animation.timingFunctions.size())
             ts.dumpProperty<const TimingFunction&>("timing function", animation.timingFunctions[i]);
 
         if (i < animation.keyValues.size()) {
             ts.startGroup();
-            ts << "value ";
+            ts << "value "_s;
             WTF::switchOn(animation.keyValues[i],
-                [&](const float number) { ts << "number=" << number; },
-                [&](const WebCore::Color color) { ts << "color=" << color; },
-                [&](const WebCore::FloatPoint3D point) { ts << "point=" << point; },
-                [&](const WebCore::TransformationMatrix matrix) { ts << "transform=" << matrix; },
-                [&](const Ref<WebCore::FilterOperation> filter) { ts << "filter=" << filter; }
+                [&](const float number) { ts << "number="_s << number; },
+                [&](const WebCore::Color color) { ts << "color="_s << color; },
+                [&](const WebCore::FloatPoint3D point) { ts << "point="_s << point; },
+                [&](const WebCore::TransformationMatrix matrix) { ts << "transform="_s << matrix; },
+                [&](const Ref<WebCore::FilterOperation> filter) { ts << "filter="_s << filter; }
             );
             ts.endGroup();
         }
-        ts << ")";
+        ts << ')';
     }
 
     ts.decreaseIndent();
     ts.decreaseIndent();
 
     if (!animation.animations.isEmpty()) {
-        ts << "\n";
+        ts << '\n';
         ts.increaseIndent();
         ts.writeIndent();
-        ts << "(" << "animations";
+        ts << '(' << "animations"_s;
         ts.increaseIndent();
 
         for (auto& childAnimation : animation.animations) {
-            ts << "\n";
+            ts << '\n';
             ts.writeIndent();
-            ts << "(animation " << childAnimation;
-            ts << ")";
+            ts << "(animation "_s << childAnimation;
+            ts << ')';
         }
 
         ts.decreaseIndent();

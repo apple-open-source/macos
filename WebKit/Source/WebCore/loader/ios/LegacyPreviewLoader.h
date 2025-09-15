@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,10 +68,9 @@ private:
     void providePasswordForPreviewConverter(PreviewConverter&, Function<void(const String&)>&&) final;
 
     RefPtr<PreviewConverter> protectedConverter() const;
-    Ref<LegacyPreviewLoaderClient> protectedClient() const;
 
     RefPtr<PreviewConverter> m_converter;
-    Ref<LegacyPreviewLoaderClient> m_client;
+    const Ref<LegacyPreviewLoaderClient> m_client;
     SharedBufferBuilder m_originalData;
     WeakPtr<ResourceLoader> m_resourceLoader;
     bool m_finishedLoadingDataIntoConverter { false };

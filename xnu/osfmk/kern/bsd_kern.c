@@ -25,8 +25,7 @@
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#include "mach/arm/vm_param.h"
-#include "mach/kern_return.h"
+
 #include <mach/mach_types.h>
 #include <mach/machine/vm_param.h>
 #include <mach/task.h>
@@ -41,7 +40,7 @@
 #include <kern/monotonic.h>
 #include <machine/monotonic.h>
 #include <ipc/ipc_port.h>
-#include <ipc/ipc_object.h>
+#include <ipc/ipc_space.h>
 #include <vm/vm_map_xnu.h>
 #include <vm/vm_kern.h>
 #include <vm/pmap.h>
@@ -910,9 +909,12 @@ get_vmsubmap_entries(
 	int     total_entries = 0;
 	vm_map_entry_t  entry;
 
+	vmlp_api_start(GET_VMSUBMAP_ENTRIES);
+
 	if (not_in_kdp) {
-		vm_map_lock(map);
+		vm_map_lock_read(map);
 	}
+	vmlp_range_event(map, start, end - start);
 	entry = vm_map_first_entry(map);
 	while ((entry != vm_map_to_entry(map)) && (entry->vme_start < start)) {
 		entry = entry->vme_next;
@@ -932,8 +934,9 @@ get_vmsubmap_entries(
 		entry = entry->vme_next;
 	}
 	if (not_in_kdp) {
-		vm_map_unlock(map);
+		vm_map_unlock_read(map);
 	}
+	vmlp_api_end(GET_VMSUBMAP_ENTRIES, total_entries);
 	return total_entries;
 }
 
@@ -944,12 +947,15 @@ get_vmmap_entries(
 	int     total_entries = 0;
 	vm_map_entry_t  entry;
 
+	vmlp_api_start(GET_VMMAP_ENTRIES);
+
 	if (not_in_kdp) {
-		vm_map_lock(map);
+		vm_map_lock_read(map);
 	}
 	entry = vm_map_first_entry(map);
 
 	while (entry != vm_map_to_entry(map)) {
+		vmlp_range_event_entry(map, entry);
 		if (entry->is_sub_map) {
 			total_entries +=
 			    get_vmsubmap_entries(VME_SUBMAP(entry),
@@ -963,8 +969,9 @@ get_vmmap_entries(
 		entry = entry->vme_next;
 	}
 	if (not_in_kdp) {
-		vm_map_unlock(map);
+		vm_map_unlock_read(map);
 	}
+	vmlp_api_end(GET_VMMAP_ENTRIES, total_entries);
 	return total_entries;
 }
 #endif /* CONFIG_COREDUMP */

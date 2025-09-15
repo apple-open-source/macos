@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,10 +60,8 @@ public:
     static void createMockService(IncomingPushMessageHandler&&, CompletionHandler<void(RefPtr<PushService>&&)>&&);
     ~PushService();
 
-    PushServiceConnection& connection() { return m_connection; }
-    Ref<PushServiceConnection> protectedConnection() { return m_connection; }
-    WebCore::PushDatabase& database() { return m_database; }
-    Ref<WebCore::PushDatabase> protectedDatabase() { return m_database; }
+    PushServiceConnection& connection() const { return m_connection; }
+    WebCore::PushDatabase& database() const { return m_database; }
 
     Vector<String> enabledTopics() { return m_connection->enabledTopics(); }
     Vector<String> ignoredTopics() { return m_connection->ignoredTopics(); }
@@ -103,8 +101,8 @@ private:
 
     void updateTopicLists(CompletionHandler<void()>&&);
 
-    Ref<PushServiceConnection> m_connection;
-    Ref<WebCore::PushDatabase> m_database;
+    const Ref<PushServiceConnection> m_connection;
+    const Ref<WebCore::PushDatabase> m_database;
 
     IncomingPushMessageHandler m_incomingPushMessageHandler;
 

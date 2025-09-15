@@ -1,3 +1,6 @@
+#ifdef __APPLE__
+#pragma once
+#endif
 /*-
  * SPDX-License-Identifier: BSD-3-Clause
  *
@@ -29,13 +32,11 @@
  * SUCH DAMAGE.
  */
 
-#ifndef _CP_EXTERN_H_
-#define _CP_EXTERN_H_
-
 typedef struct {
-	char	*p_end;			/* pointer to NULL at end of path */
-	char	*target_end;		/* pointer to end of target base */
-	char	p_path[PATH_MAX];	/* pointer to the start of a path */
+	int		 dir;		/* base directory handle */
+	char		 base[PATH_MAX + 1];	/* base directory path */
+	char		*end;		/* pointer to NUL at end of path */
+	char		 path[PATH_MAX];	/* target path */
 } PATH_T;
 
 extern PATH_T to;
@@ -45,18 +46,29 @@ extern int unix2003_compat;
 extern int cflag;
 extern int Sflag;
 extern int Xflag;
+extern int cwd;
 #endif /* __APPLE__ */
 extern volatile sig_atomic_t info;
 
 __BEGIN_DECLS
-int	copy_fifo(struct stat *, int);
-int	copy_file(const FTSENT *, int);
-int	copy_link(const FTSENT *, int);
-int	copy_special(struct stat *, int);
-int	setfile(struct stat *, int);
-int	preserve_dir_acls(struct stat *, char *, char *);
+int	copy_fifo(struct stat *, bool, bool);
+int	copy_file(const FTSENT *, bool, bool);
+int	copy_link(const FTSENT *, bool, bool);
+int	copy_special(struct stat *, bool, bool);
+int	setfile(struct stat *, int, bool);
+int	preserve_dir_acls(const char *, const char *);
 int	preserve_fd_acls(int, int);
 void	usage(void) __dead2;
 __END_DECLS
 
-#endif /* _CP_EXTERN_H_ */
+/*
+ * The FreeBSD and Darwin kernels return ENOTCAPABLE when a path lookup
+ * violates a RESOLVE_BENEATH constraint.  This results in confusing error
+ * messages, so translate it to the more widely recognized EACCES.
+ */
+#ifdef ENOTCAPABLE
+#define warn(...)							\
+	warnc(errno == ENOTCAPABLE ? EACCES : errno, __VA_ARGS__)
+#define err(rv, ...)							\
+	errc(rv, errno == ENOTCAPABLE ? EACCES : errno, __VA_ARGS__)
+#endif

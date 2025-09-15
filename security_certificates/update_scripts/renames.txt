@@ -1,0 +1,154 @@
+diff --git a/certificates/roots/DigiCert TLS ECC P384 Root G5.cer b/certificates/roots/018E13F0772532CF809BD1B17281867283FC48C6E13BE9C69812854A490C1B05.cer
+diff --git a/certificates/roots/EntrustRoot-EC1.der b/certificates/roots/02ED0EB28C14DA45165C566791700D6451D7FB56F0B2AB1D3B8EB070E56EDFF5.cer
+diff --git a/certificates/roots/AffirmTrust-Commercial.der b/certificates/roots/0376AB1D54C5F9803CE4B2E201A0EE7EEF7B57B636E8A93C9B8D4860C96F5FA7.cer
+diff --git a/certificates/roots/Firmaprofesional-CIF-A62634068.der b/certificates/roots/04048028BF1F2864D48F9AD4D83294366A828856553F3B14303F90147F5D40EF.cer
+diff --git a/certificates/roots/root_chambers-2008.der b/certificates/roots/063E4AFAC491DFD332F3089B8542E94617D893D7FE944E10A7937EE29D9693C0.cer
+diff --git a/certificates/roots/TrustCorRootCA2.der b/certificates/roots/0753E940378C1BD5E3836E395DAEA5CB839E5046F1BD0EAE1951CF10FEC7C965.cer
+diff --git a/certificates/roots/AffirmTrust-Networking.der b/certificates/roots/0A81EC5A929777F145904AF38D5D509F66B5E2C58FCDB531058B0E17F3F0B41B.cer
+diff --git a/certificates/roots/COMODOCertificationAuthority.crt b/certificates/roots/0C2CD63DF7806FA399EDE809116B575BF87989F06518F9808C860503178BAF66.cer
+diff --git a/certificates/roots/AppleROOTCA.der b/certificates/roots/0D83B611B648A1A75EB8558400795375CAD92E264ED8E9D7A757C1F5EE2BB22D.cer
+diff --git a/certificates/roots/root_chambersign-2008.der b/certificates/roots/136335439334A7698016A0D324DE72284E079D7B5220BB8FBD747816EEBEBACA.cer
+diff --git a/certificates/roots/SF-Class2-root.crt b/certificates/roots/1465FA205397B876FAA6F0A9958E5590E40FCC7FAA4FB7C2C8677521FB5FB658.cer
+diff --git a/certificates/roots/NetworkSolutionsEVRoot.crt b/certificates/roots/15F0BA00A3AC7AF3AC884C072B1011A077BD77C097F40164B2F8598ABD83860C.cer
+diff --git a/certificates/roots/BTCTRT.cer b/certificates/roots/16AF57A9F676B0AB126095AA5EBADEF22AB31119D644AC95CD4B93DBF3F26AEB.cer
+diff --git a/certificates/roots/COMODOECCCA.cer b/certificates/roots/1793927A0614549789ADCE2F8F34F7F0B66D0F3AE3A3B84D21EC15DBBA4FADC7.cer
+diff --git a/certificates/roots/GlobalSignRoot-R5.cer b/certificates/roots/179FBC148A3DD00FD24EA13458CC43BFA7F59C8182D783A513F6EBEC100C8924.cer
+diff --git a/certificates/roots/AmazonRootCA3.cer b/certificates/roots/18CE6CFE7BF14E60B2E347B8DFE868CB31D02EBB3ADA271569F50343B46DB3A4.cer
+diff --git a/certificates/roots/qvrca3.crt b/certificates/roots/18F1FC7F205DF8ADDDEB7FE007DD57E3AF375A9C4D8D73546BF4F1FED1E18D35.cer
+diff --git a/certificates/roots/AmazonRootCA2.cer b/certificates/roots/1BA5B2AA8C65401A82960118F80BEC4F62304D83CEC4713A19C39C011EA46DB4.cer
+diff --git a/certificates/roots/HARICA Client RSA Root CA 2021.cer b/certificates/roots/1BE7ABE30686B16348AFD1C61B6866A0EA7F4821E67D5E8AF937CF8011BC750D.cer
+diff --git a/certificates/roots/SSL.com Client RSA Root CA 2022.cer b/certificates/roots/1D4CA4A2AB21D0093659804FC0EB2175A617279B56A2475245C9517AFEB59153.cer
+diff --git a/certificates/roots/SSL.comEVRootCAECC.der b/certificates/roots/22A2C1F7BDED704CC1E701B5F408C310880FE956B5DE2A4A44F99C873A25A7C8.cer
+diff --git a/certificates/roots/Sectigo Public Email Protection Root E46.cer b/certificates/roots/22D9599234D60F1D4BC7C7E96F43FA555B07301FD475175089DAFB8C25E477B3.cer
+diff --git a/certificates/roots/Telia Root CA v2.cer b/certificates/roots/242B69742FCB1E5B2ABF98898B94572187544E5B4D9911786573621F6A74B82C.cer
+diff --git a/certificates/roots/Izenpe.com.cer b/certificates/roots/2530CC8E98321502BAD96F9B1FBA1B099E2D299E0F4548BB914F363BC0D4531F.cer
+diff --git a/certificates/roots/ComSign-Global.der b/certificates/roots/2605875AFCC176B2D66DD66A995D7F8D5EBB86CE120D0E7E9E7C6EF294A27D4C.cer
+diff --git a/certificates/roots/GlobalSign Root CA - R6.cer b/certificates/roots/2CABEAFE37D06CA22ABA7391C0033D25982952C453647349763A3AB5AD6CCF69.cer
+diff --git a/certificates/roots/StarfieldRootCertificateAuthorityG2.der b/certificates/roots/2CE1CB0BF9D2F9E102993FBE215152C3B2DD0CABDE1C68E5319B839154DBB7F5.cer
+diff --git a/certificates/roots/SSL.comEVRootCARSAR2.der b/certificates/roots/2E7BF16CC22485A7BBE2AA8696750761B0AE39BE3B2FE9D0CC6D4EF73491425C.cer
+diff --git a/certificates/roots/IdenTrust Public Sector Root CA 1.cer b/certificates/roots/30D0895A9A448A262091635522D1F52010B5867ACAE12C78EF958FD4F4389F2F.cer
+diff --git a/certificates/roots/GlobalSign Secure Mail Root R45.cer b/certificates/roots/319AF0A7729E6F89269C131EA6A3A16FCD86389FDCAB3C47A4A675C161A3F974.cer
+diff --git a/certificates/roots/DigiCertGlobalRootG3.der b/certificates/roots/31AD6648F8104138C738F39EA4320133393E3A18CC02296EF97C2AC9EF6731D0.cer
+diff --git a/certificates/roots/SSL.comRootCAECC.der b/certificates/roots/3417BB06CC6007DA1B961C920B8AB4CE3FAD820E4AA30B9ACBC4A74EBDCEBC65.cer
+diff --git a/certificates/roots/GTS Root R4.cer b/certificates/roots/349DFA4058C5E263123B398AE795573C4E1313C83FE68F93556CD5E8031B3C7D.cer
+diff --git a/certificates/roots/GTS Root R3.cer b/certificates/roots/34D8A73EE208D9BCDB0D956520934B4E40E69482596E8B6F73C8426B010A6F48.cer
+diff --git a/certificates/roots/Microsoft ECC Root Certificate Authority 2017.cer b/certificates/roots/358DF39D764AF9E1B766E9C972DF352EE15CFAC227AF6AD1D70E8E4A6EDCBA02.cer
+diff --git a/certificates/roots/DigiCert TLS RSA4096 Root G5.cer b/certificates/roots/371A00DC0533B3721A7EEB40E8419E70799D2B0A0F2C1D80693165F7CEC4AD75.cer
+diff --git a/certificates/roots/Microsec e-Szigno Root CA 2009.cer b/certificates/roots/3C5F81FEA5FAB82C64BFA2EAECAFCDE8E077FC8620A7CAE537163DF36EDBF378.cer
+diff --git a/certificates/roots/DigiCertAssuredIDRootCA.crt b/certificates/roots/3E9099B5015E8F486C00BCEA9D111EE721FABA355A89BCF1DF69561E3DC6325C.cer
+diff --git a/certificates/roots/HARICA TLS ECC Root CA 2021.cer b/certificates/roots/3F99CC474ACFCE4DFED58794665E478D1547739F2E780F1BB4CA9B133097D401.cer
+diff --git a/certificates/roots/emSign Root CA - G1.cer b/certificates/roots/40F6AF0346A99AA1CD1D555A4E9CCE62C7F9634603EE406615833DC8C8D00367.cer
+diff --git a/certificates/roots/WISeKey-owgrgaca.cer b/certificates/roots/41C923866AB4CAD6B7AD578081582E020797A6CBDF4FFF78CE8396B38937D7F5.cer
+diff --git a/certificates/roots/Trustwave-SGCA.der b/certificates/roots/4200F5043AC8590EBB527D209ED1503029FBCBD41CA1B506EC27F15ADE7DAC69.cer
+diff --git a/certificates/roots/DigiCertGlobalRootCA.crt b/certificates/roots/4348A0E9444C78CB265E058D5E8944B4D84F9662BD26DB257F8934A443C70161.cer
+diff --git a/certificates/roots/EntrustRoot-G2.der b/certificates/roots/43DF5774B03E7FEF5FE40D931A7BEDF1BB2E6B42738C4E6D3841103D3AA7F339.cer
+diff --git a/certificates/roots/HaricaECCRootCA2015.der b/certificates/roots/44B545AA8A25E65A73CA15DC27FC36D24C1CB9953A066539B11582DC487B4833.cer
+diff --git a/certificates/roots/GoDaddyRootCertificateAuthorityG2.der b/certificates/roots/45140B3247EB9CC8C5B4F0D7B53091F73292089E6E5A63E2749DD3ACA9198EDA.cer
+diff --git a/certificates/roots/KamuSMSurum1CA.cer b/certificates/roots/46EDC3689046D53A453FB3104AB80DCAEC658B2660EA1629DD7E867990648716.cer
+diff --git a/certificates/roots/Sectigo Public Time Stamping Root R46.cer b/certificates/roots/4941B001B8A97E961B7817C9D9E960EC4B056BFC915A8C1AABF6EF6B3AC046A5.cer
+diff --git a/certificates/roots/D-TRUST_Root_Class_3_CA_2_2009.cer b/certificates/roots/49E7A442ACF0EA6287050054B52564B650E4F49E42E348D6AA38E039E957B1C1.cer
+diff --git a/certificates/roots/GlobalSign Root R46.cer b/certificates/roots/4FA3126D8D3A11D1C4855A4F807CBAD6CF919D3A5A88B03BEA2C6372D93C40C9.cer
+diff --git a/certificates/roots/USERTrustECCCA.cer b/certificates/roots/4FF460D54B9C86DABFBCFC5712E0400D2BED3FBC4D4FBDAA86E06ADCD2A9AD7A.cer
+diff --git a/certificates/roots/SECOM-RootCA2.cer b/certificates/roots/513B2CECB810D4CDE5DD85391ADFC6C2DD60D87BB736D2B521484AA47A0EBEF6.cer
+diff --git a/certificates/roots/COMODORSACA.cer b/certificates/roots/52F0E1C4E58EC629291B60317F074671B85D7EA80D5B07273463534B32B40234.cer
+diff --git a/certificates/roots/DigiCertTrustedRootG4.der b/certificates/roots/552F7BDCF1A7AF9E6CE672017F4F12ABF77240C78E761AC203D1D9D20AC89988.cer
+diff --git a/certificates/roots/Trustwave Global ECC P384 Certification Authority.cer b/certificates/roots/55903859C8C0C3EBB8759ECE4E2557225FF5758BBD38EBD48276601E1BD58097.cer
+diff --git a/certificates/roots/Actalis Authentication Root CA.cer b/certificates/roots/55926084EC963A64B96E2ABE01CE0BA86A64FBFEBCC7AAB5AFC155B37FD76066.cer
+diff --git a/certificates/roots/StarfieldServicesRootCertificateAuthorityG2.der b/certificates/roots/568D6905A2C88708A4B3025190EDCFEDB1974A606A13C6E5290FCB2AE63EDAB5.cer
+diff --git a/certificates/roots/TWCARootCA-4096.der b/certificates/roots/59769007F7685D0FCD50872F9F95D5755A5B2B457D81F3692B610A98672F0E1B.cer
+diff --git a/certificates/roots/Hongkong Post Root CA 3.cer b/certificates/roots/5A2FC03F0C83B090BBFA40604B0988446C7636183DF9846E17101A447FB8EFD6.cer
+diff --git a/certificates/roots/TrustCorRootECA1.der b/certificates/roots/5A885DB19C01D912C5759388938CAFBBDF031AB2D48E91EE15589B42971D039C.cer
+diff --git a/certificates/roots/Poland-Certum-CTNCA.der b/certificates/roots/5C58468D55F58E497E743982D2B50010B6D165374ACF83A7D4A32DB768C4408E.cer
+diff --git a/certificates/roots/GlobalSign Secure Mail Root E45.cer b/certificates/roots/5CBF6FB81FD417EA4128CD6F8172A3C9402094F74AB2ED3A06B4405D04F30B19.cer
+diff --git a/certificates/roots/CFCA_EV_root.cer b/certificates/roots/5CC3D78E4E1D5E45547A04E6873E64F90CF9536D1CCC2EF800F355C4C5FD70FD.cer
+diff --git a/certificates/roots/IdenTrust Commercial Root CA 1.cer b/certificates/roots/5D56499BE4D2E08BCFCAD08A3E38723D50503BDE706948E42F55603019E528AE.cer
+diff --git a/certificates/roots/GeoTrust Primary Certification Authority - G2.cer b/certificates/roots/5EDB7AC43B82A06A8761E8D7BE4979EBF2611F7DD79BF91C1C6B566A219ED766.cer
+diff --git a/certificates/roots/SwissSign-Gold_G2.der b/certificates/roots/62DD0BE9B9F50A163EA0F8E75C053B1ECA57EA55C8688F647C6881F2C8357B95.cer
+diff --git a/certificates/roots/Apple Root CA - G3.cer b/certificates/roots/63343ABFB89A6A03EBB57E9B3F5FA7BE7C4F5C756F3017B3A8C488C3653E9179.cer
+diff --git a/certificates/roots/certSIGN ROOT CA G2.cer b/certificates/roots/657CFE2FA73FAA38462571F332A2363A46FCE7020951710702CDFBB6EEDA3305.cer
+diff --git a/certificates/roots/ISRG Root X2.cer b/certificates/roots/69729B8E15A86EFC177A57AFB7171DFC64ADD28C2FCA8CF1507E34453CCB1470.cer
+diff --git a/certificates/roots/Certum EC-384 CA.cer b/certificates/roots/6B328085625318AA50D173C98D8BDA09D57E27413D114CF787A0F5D06C030CF6.cer
+diff --git a/certificates/roots/WISeKey-SHA2-owgrgbca.cer b/certificates/roots/6B9C08E86EB0F767CFAD65CD98B62149E5494A67F5845E7BD1ED019F27B86BD6.cer
+diff --git a/certificates/roots/NetLockAranyClassGoldF.cer b/certificates/roots/6C61DAC3A2DEF031506BE036D2A6FE401994FBD13DF9C8D466599274C446EC98.cer
+diff --git a/certificates/roots/entrust2048.der b/certificates/roots/6DC47172E01CBCB0BF62580D895FE2B8AC9AD4F873801E0C10B9C837D21EB177.cer
+diff --git a/certificates/roots/AffirmTrust-Premium.der b/certificates/roots/70A73F7F376B60074248904534B11482D5BF0E698ECC498DF52577EBF2E93B9A.cer
+diff --git a/certificates/roots/EntrustEVRoot.crt b/certificates/roots/73C176434F1BC6D5ADF45B0E76E727287C8DE57616C1E6E6141A2B2CBC7D8E4C.cer
+diff --git a/certificates/roots/DigiCertHighAssuranceEVRootCA.crt b/certificates/roots/7431E5F4C3C1CE4690774F0B61E05440883BA9A01ED00BA6ABD7806ED3B118CF.cer
+diff --git a/certificates/roots/Certainly Root R1.cer b/certificates/roots/77B82CD8644C4305F7ACC5CB156B45675004033D51C60C6202A8E0C33467D3A0.cer
+diff --git a/certificates/roots/Atos TrustedRoot Root CA RSA G2 2020.cer b/certificates/roots/78833A783BB2986C254B9370D3C20E5EBA8FA7840CBF63FE17297A0B0119685E.cer
+diff --git a/certificates/roots/AppleDEVID.cer b/certificates/roots/7AFC9D01A62F03A2DE9637936D4AFE68090D2DE18D03F29C88CFB0B1BA63587F.cer
+diff --git a/certificates/roots/Sectigo Public Server Authentication Root R46.cer b/certificates/roots/7BB647A62AEEAC88BF257AA522D01FFEA395E0AB45C73F93F65654EC38F25A06.cer
+diff --git a/certificates/roots/DigiCertAssuredIDRootG2.der b/certificates/roots/7D05EBB682339F8C9451EE094EEBFEFA7953A114EDB2F44949452FAB7D2FC185.cer
+diff --git a/certificates/roots/DigiCertAssuredIDRootG3.der b/certificates/roots/7E37CB8B4C47090CAB36551BA6F45DB840680FBA166A952DB100717F43053FC2.cer
+diff --git a/certificates/roots/Atos TrustedRoot Root CA RSA TLS 2021.cer b/certificates/roots/81A9088EA59FB364C548A6F85559099B6F0405EFBF18E5324EC9F457BA00112F.cer
+diff --git a/certificates/roots/cisco-ca2048.der b/certificates/roots/8327BC8C9D69947B3DE3C27511537267F59C21B9FA7B613FAFBCCD53B7024000.cer
+diff --git a/certificates/roots/OISTE WISeKey Global Root GC CA.cer b/certificates/roots/8560F91C3624DABA9570B5FEA0DBE36FF11A8323BE9486854FB3F34A5571198D.cer
+diff --git a/certificates/roots/SSL.comRootCARSA.der b/certificates/roots/85666A562EE0BE5CE925C1D8890A6F76A87EC16D4D7D5F29EA7419CF20123B69.cer
+diff --git a/certificates/roots/qvrca2.crt b/certificates/roots/85A0DD7DD720ADB7FF05F83D542B209DC7FF4528F7D677B18389FEA5E5C49E86.cer
+diff --git a/certificates/roots/emSign ECC Root CA - G3.cer b/certificates/roots/86A1ECBA089C4A8D3BBE2734C612BA341D813E043CF9E8A862CD5C57A36BBE6B.cer
+diff --git a/certificates/roots/qvrca3g3.cer b/certificates/roots/88EF81DE202EB018452E43F864725CEA5FBD1FC2D9D205730709C5D8B8690F46.cer
+diff --git a/certificates/roots/NAVER Global Root Certification Authority.cer b/certificates/roots/88F438DCF8FFD1FA8F429115FFE5F82AE1E06E0C70C375FAAD717B34A49E7265.cer
+diff --git a/certificates/roots/qvrca1g3.cer b/certificates/roots/8A866FD1B276B57E578E921C65828A2BED58E9F2F288054134B7F1F4BFC9CC74.cer
+diff --git a/certificates/roots/GTS Root R2.cer b/certificates/roots/8D25CD97229DBF70356BDA4EB3CC734031E24CF00FAFCFD32DC76EB5841C7EA8.cer
+diff --git a/certificates/roots/HARICA Client ECC Root CA 2021.cer b/certificates/roots/8DD4B5373CB0DE36769C12339280D82746B3AA6CD426E797A31BABE4279CF00B.cer
+diff --git a/certificates/roots/AmazonRootCA1.cer b/certificates/roots/8ECDE6884F3D87B1125BA31AC3FCB13D7016DE7F57CC904FE1CB97C6AE98196E.cer
+diff --git a/certificates/roots/SSL.com TLS RSA Root CA 2022.cer b/certificates/roots/8FAF7D2E2CB4709BB8E0B33666BF75A5DD45B5DE480F8EA8D4BFE6BEBC17F2ED.cer
+diff --git a/certificates/roots/qvrca2g3.cer b/certificates/roots/8FE4FB0AF93A4D0D67DB0BEBB23E37C71BF325DCBCDD240EA04DAF58B47E1840.cer
+diff --git a/certificates/roots/DigiCert SMIME RSA4096 Root G5.cer b/certificates/roots/90370D3EFA88BF58C30105BA25104A358460A7FA52DFC2011DF233A0F417912A.cer
+diff --git a/certificates/roots/T-TeleSec GlobalRoot Class 2.cer b/certificates/roots/91E2F5788D5810EBA7BA58737DE1548A8ECACD014598BC0B143E041B17052552.cer
+diff --git a/certificates/roots/Trustwave Global ECC P256 Certification Authority.cer b/certificates/roots/945BBC825EA554F489D1FD51A73DDF2EA624AC7019A05205225C22A78CCFA8B4.cer
+diff --git a/certificates/roots/isrgrootx1.der b/certificates/roots/96BCEC06264976F37460779ACF28C5A7CFE8A3C0AAE11A8FFCEE05C0BDDF08C6.cer
+diff --git a/certificates/roots/Trustwave Global Certification Authority.cer b/certificates/roots/97552015F5DDFC3C8788C006944555408894450084F100867086BC1A2BB58DC8.cer
+diff --git a/certificates/roots/Buypass Class 2 Root CA.cer b/certificates/roots/9A114025197C5BB95D94E63D55CD43790847B646B23CDF11ADA4A00EFF15FB48.cer
+diff --git a/certificates/roots/GLOBALTRUST 2020.cer b/certificates/roots/9A296A5182D1D451A2E37F439B74DAAFA267523329F90F9A0D2007C334E23C9A.cer
+diff --git a/certificates/roots/ACCVRAIZ1.cer b/certificates/roots/9A6EC012E1A7DA9DBE34194D478AD7C0DB1822FB071DF12981496ED104384113.cer
+diff --git a/certificates/roots/VeriSignC3PublicPrimaryCA-G5.cer b/certificates/roots/9ACFAB7E43C8D880D06B262A94DEEEE4B4659989C3D0CAF19BAF6405E41AB7DF.cer
+diff --git a/certificates/roots/HaricaRootCA2015.der b/certificates/roots/A040929A02CE53B4ACF4F2FFC6981CE4496F755E6D45FE0B2A692BCD52523F36.cer
+diff --git a/certificates/roots/DTrustRootCA3_2013.cer b/certificates/roots/A1A86D04121EB87F027C66F53303C28E5739F943FC84B38AD6AF009035DD9457.cer
+diff --git a/certificates/roots/SSL.com Client ECC Root CA 2022.cer b/certificates/roots/AD7DD58D03AEDB22A30B5084394920CE12230C2D8017AD9B81AB04079BDD026B.cer
+diff --git a/certificates/roots/GlobalSign ECC Root CA - R4.cer b/certificates/roots/B085D70B964F191A73E4AF0D54AE7A0E07AAFDAF9B71DD0862138AB7325A24A2.cer
+diff --git a/certificates/roots/AppleIncRoot042506.cer b/certificates/roots/B0B1730ECBC7FF4505142C49F1295E6EDA6BCAED7E2C68C5BE91B5A11001F024.cer
+diff --git a/certificates/roots/Atos TrustedRoot Root CA ECC TLS 2021.cer b/certificates/roots/B2FAE53E14CCD7AB9212064701AE279C1D8988FACB775FA8A008914E663988A8.cer
+diff --git a/certificates/roots/Certainly Root E1.cer b/certificates/roots/B4585F22E4AC756A4E8612A1361C5D9D031A93FD84FEBB778FA3068B0FC42DC2.cer
+diff --git a/certificates/roots/Certum Trusted Network CA 2.cer b/certificates/roots/B676F2EDDAE8775CD36CB0F63CD1D4603961F49E6265BA013A2F0307B6D0B804.cer
+diff --git a/certificates/roots/AffirmTrust-Premium-ECC.der b/certificates/roots/BD71FDF6DA97E4CF62D1647ADD2581B07D79ADF8397EB4ECBA9C5E8488821423.cer
+diff --git a/certificates/roots/SwissSign-Silver_G2.der b/certificates/roots/BE6C4DA2BBB9BA59B6F3939768374246C3C005993FA98F020D1DEDBED48A81D5.cer
+diff --git a/certificates/roots/twca-root-1.der b/certificates/roots/BFD88FE1101C41AE3E801BF8BE56350EE9BAD1A6B9BD515EDC5C6D5B8711AC44.cer
+diff --git a/certificates/roots/GDCATrustAuthR5RootCA.cer b/certificates/roots/BFFF8FD04433487D6A8AA60C1A29767A9FC2BBB05E420F713A13B992891D3893.cer
+diff --git a/certificates/roots/Chunghwa-ROOTeCA.der b/certificates/roots/C0A6F4DC63A24BFDCF54EF2A6A082A0A72DE35803E2FF5FF527AE5D87206DFD5.cer
+diff --git a/certificates/roots/Apple Root CA - G2.cer b/certificates/roots/C2B9B042DD57830E7D117DAC55AC8AE19407D38E41D88F3215BC3A890444A050.cer
+diff --git a/certificates/roots/SSL.com TLS ECC Root CA 2022.cer b/certificates/roots/C32FFD9F46F936D16C3673990959434B9AD60AAFBB9E7CF33654F144CC1BA143.cer
+diff --git a/certificates/roots/GD-Class2-root.crt b/certificates/roots/C3846BF24B9E93CA64274C0EC67C1ECC5E024FFCACD2D74019350E81FE546AE4.cer
+diff --git a/certificates/roots/Visa Information Delivery Root CA.cer b/certificates/roots/C57A3ACBE8C06BA1988A83485BF326F2448775379849DE01CA43571AF357E74B.cer
+diff --git a/certificates/roots/Microsoft RSA Root Certificate Authority 2017.cer b/certificates/roots/C741F70F4B2A8D88BF2E71C14122EF53EF10EBA0CFA5E64CFA20F418853073E0.cer
+diff --git a/certificates/roots/Sectigo Public Server Authentication Root E46.cer b/certificates/roots/C90F26F0FB1B4018B22227519B5CA2B53E2CA5B3BE5CF18EFE1BEF47380C5383.cer
+diff --git a/certificates/roots/DigiCertGlobalRootG2.der b/certificates/roots/CB3CCBB76031E5E0138F8DD39A23F9DE47FFC35E43C1144CEA27D46A5AB1CB5F.cer
+diff --git a/certificates/roots/GlobalSign-Root-R3.der b/certificates/roots/CBB522D7B7F127AD6A0113865BDF1CD4102E7D0759AF635A7CF4720DC963C53B.cer
+diff --git a/certificates/roots/GlobalSign Root E46.cer b/certificates/roots/CBB9C44D84B8043E1050EA31A69F514955D7BFD2E2C6B49301019AD61D9F5058.cer
+diff --git a/certificates/roots/XGCA.crt b/certificates/roots/CECDDC905099D8DADFC5B1D209B737CBE2C18CFB2C10C0FF0BCF0D3286FC1AA2.cer
+diff --git a/certificates/roots/TrustCorRootCA1.der b/certificates/roots/D40E9C86CD8FE468C1776959F49EA774FA548684B6C406F3909261F4DCE2575C.cer
+diff --git a/certificates/roots/Sectigo Public Email Protection Root R46.cer b/certificates/roots/D5917A7791EB7CF20A2E57EB98284A67B28A57E89182DA53D546678C9FDE2B4F.cer
+diff --git a/certificates/roots/Comodo_AAA_Certificate_Services.cer b/certificates/roots/D7A7A0FB5D7E2731D771E9484EBCDEF71D5F0C3E0A2948782BC83EE0EA699EF4.cer
+diff --git a/certificates/roots/Unizeto-CertumCA.cer b/certificates/roots/D8E0FEBC1DB2E38D00940F37D27D41344D993E734B99D5656D9778D4D8143624.cer
+diff --git a/certificates/roots/GTS Root R1.cer b/certificates/roots/D947432ABDE7B7FA90FC2E6B59101B1280E0E1C7E4E40FA3C6887FFF57A7F4CF.cer
+diff --git a/certificates/roots/HARICA TLS RSA Root CA 2021.cer b/certificates/roots/D95D0E8EDA79525BF9BEB11B14D2100D3294985F0C62D9FABD9CD999ECCB7B1D.cer
+diff --git a/certificates/roots/Entrust Root Certification Authority - G4.cer b/certificates/roots/DB3517D1F6732A2D5AB97C533EC70779EE3270A62FB4AC4238372460E6F01E88.cer
+diff --git a/certificates/roots/TeliaSoneraRootCAv1.der b/certificates/roots/DD6936FE21F8F077C123A1A521C12224F72255B73E03A7260693E8A24B0FA389.cer
+diff --git a/certificates/roots/CA Disig Root R2.cer b/certificates/roots/E23D4A036D7B70E9F595B1422079D2B91EDFBB1FB651A0633EAA8A9DC5F80703.cer
+diff --git a/certificates/roots/AmazonRootCA4.cer b/certificates/roots/E35D28419ED02025CFA69038CD623962458DA5C695FBDEA3C22B0BFB25897092.cer
+diff --git a/certificates/roots/Atos TrustedRoot Root CA ECC G2 2020.cer b/certificates/roots/E38655F4B0190C84D3B3893D840A687E190A256D98052F159E6D4A39F589A6EB.cer
+diff --git a/certificates/roots/Certigna.cer b/certificates/roots/E3B6A2DB2ED7CE48842F7AC53241C7B71D54144BFB40C11F3F1D0B42F5EEA12D.cer
+diff --git a/certificates/roots/Sectigo Public Time Stamping Root E46.cer b/certificates/roots/E44DDB7952261F15005CD60C1D0C38C18CBFD17C273A31F8ED4C8F53E2685F32.cer
+diff --git a/certificates/roots/Security Communication ECC RootCA1.cer b/certificates/roots/E74FBDA55BD564C473A36B441AA799C8A68E077440E8288B9FA1E50E4BBACA11.cer
+diff --git a/certificates/roots/USERTrustRSACA.cer b/certificates/roots/E793C9B02FD8AA13E21C31228ACCB08119643B749C898964B1746D46C3D4CBD2.cer
+diff --git a/certificates/roots/DigiCert SMIME ECC P384 Root G5.cer b/certificates/roots/E8E8176536A60CC2C4E10187C3BEFCA20EF263497018F566D5BEA0F94D0C111B.cer
+diff --git a/certificates/roots/certSIGN ROOT CA.cer b/certificates/roots/EAA962C4FA4A6BAFEBE415196D351CCD888D4F53F3FA8AE6D7C466A94E6042BB.cer
+diff --git a/certificates/roots/ACRAIZFNMT-RCM.der b/certificates/roots/EBC5570C29018C4D67B1AA127BAF12F703B4611EBC17B7DAB5573894179B93FA.cer
+diff --git a/certificates/roots/GlobalSign-RootCA-2028exp.cer b/certificates/roots/EBD41040E4BB3EC742C9E381D31EF2A41A48B6685C96E7CEF3C1DF6CD4331C99.cer
+diff --git a/certificates/roots/Buypass Class 3 Root CA.cer b/certificates/roots/EDF7EBBCA27A2A384D387B7D4010C666E2EDB4843E4C29B4AE1D5B9332E6B24D.cer
+diff --git a/certificates/roots/D-TRUST_Root_Class_3_CA_2_EV_2009.cer b/certificates/roots/EEC5496B988CE98625B934092EEC2908BED0B0F316C2D4730C84EAF1F3D34881.cer
+diff --git a/certificates/roots/HiPKI Root CA - G1.cer b/certificates/roots/F015CE3CC239BFEF064BE9F1D2C417E1A0264A0A94BE1F0C8D121864EB6949CC.cer
+diff --git a/certificates/roots/Trustwave-STCA.der b/certificates/roots/F1C1B50AE5A20DD8030EC9F6BC24823DD367B5255759B4E71B61FCE9F7375D73.cer
+diff --git a/certificates/roots/AtosTrustedRoot2011.cer b/certificates/roots/F356BEA244B7A91EB35D53CA9AD7864ACE018E2D35D5F8F96DDF68A6F41AA474.cer
+diff --git a/certificates/roots/T-TeleSec GlobalRoot Class 3.cer b/certificates/roots/FD73DAD31C644FF1B43BEF0CCDDA96710B9CD9875ECA7E31707AF3E96D522BBD.cer
+diff --git a/certificates/roots/Certum Trusted Root CA.cer b/certificates/roots/FE7696573855773E37A95E7AD4D9CC96C30157C15D31765BA9B15704E1AE78FD.cer

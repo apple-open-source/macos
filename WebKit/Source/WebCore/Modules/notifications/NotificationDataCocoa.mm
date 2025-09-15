@@ -100,28 +100,28 @@ std::optional<NotificationData> NotificationData::fromDictionary(NSDictionary *d
 
 NSDictionary *NotificationData::dictionaryRepresentation() const
 {
-    NSMutableDictionary *result = @{
-        WebNotificationDefaultActionURLKey : (NSString *)navigateURL.string(),
-        WebNotificationTitleKey : (NSString *)title,
-        WebNotificationBodyKey : (NSString *)body,
-        WebNotificationIconURLKey : (NSString *)iconURL,
-        WebNotificationTagKey : (NSString *)tag,
-        WebNotificationLanguageKey : (NSString *)language,
-        WebNotificationOriginKey : (NSString *)originString,
+    RetainPtr result = adoptNS(@{
+        WebNotificationDefaultActionURLKey : navigateURL.string().createNSString().get(),
+        WebNotificationTitleKey : title.createNSString().get(),
+        WebNotificationBodyKey : body.createNSString().get(),
+        WebNotificationIconURLKey : iconURL.createNSString().get(),
+        WebNotificationTagKey : tag.createNSString().get(),
+        WebNotificationLanguageKey : language.createNSString().get(),
+        WebNotificationOriginKey : originString.createNSString().get(),
         WebNotificationDirectionKey : @((unsigned long)direction),
-        WebNotificationServiceWorkerRegistrationURLKey : (NSString *)serviceWorkerRegistrationURL.string(),
-        WebNotificationUUIDStringKey : (NSString *)notificationID.toString(),
+        WebNotificationServiceWorkerRegistrationURLKey : serviceWorkerRegistrationURL.string().createNSString().get(),
+        WebNotificationUUIDStringKey : notificationID.toString().createNSString().get(),
         WebNotificationSessionIDKey : @(sourceSession.toUInt64()),
         WebNotificationDataKey: toNSData(data).autorelease(),
-    }.mutableCopy;
+    }.mutableCopy);
 
     if (contextIdentifier)
-        result[WebNotificationContextUUIDStringKey] = (NSString *)contextIdentifier->toString();
+        result.get()[WebNotificationContextUUIDStringKey] = contextIdentifier->toString().createNSString().get();
 
     if (silent != std::nullopt)
-        result[WebNotificationSilentKey] = @(*silent);
+        result.get()[WebNotificationSilentKey] = @(*silent);
 
-    return result;
+    return result.autorelease();
 }
 
 } // namespace WebKit

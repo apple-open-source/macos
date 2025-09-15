@@ -105,7 +105,7 @@ static bool getWebLocData(const DragDataMap* dataObject, String& url, String* ti
     if (!dataObject->contains(cfHDropFormat()->cfFormat))
         return false;
 
-    wcscpy(filename, dataObject->get(cfHDropFormat()->cfFormat)[0].wideCharacters().data());
+    wcscpy(filename, dataObject->get(cfHDropFormat()->cfFormat)[0].wideCharacters().span().data());
     if (_wcsicmp(PathFindExtensionW(filename), L".url"))
         return false;    
 
@@ -156,7 +156,7 @@ HGLOBAL createGlobalData(const URL& url, const String& title)
 
     if (cbData) {
         PWSTR buffer = static_cast<PWSTR>(GlobalLock(cbData));
-        _snwprintf(buffer, size, L"%s\n%s", mutableURL.wideCharacters().data(), mutableTitle.wideCharacters().data());
+        _snwprintf(buffer, size, L"%s\n%s", mutableURL.wideCharacters().span().data(), mutableTitle.wideCharacters().span().data());
         GlobalUnlock(cbData);
     }
     return cbData;
@@ -180,7 +180,7 @@ HGLOBAL createGlobalData(const Vector<char>& vector)
     if (!vm)
         return 0;
     char* buffer = static_cast<char*>(GlobalLock(vm));
-    memcpy(buffer, vector.data(), vector.size());
+    memcpy(buffer, vector.span().data(), vector.size());
     buffer[vector.size()] = 0;
     GlobalUnlock(vm);
     return vm;
@@ -269,8 +269,8 @@ void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& re
         unsigned headerBufferLength = startHTMLOffset + 1; // + 1 for '\0' terminator.
         static const constexpr unsigned InitialBufferSize { 2048 };
         Vector<char, InitialBufferSize> headerBuffer(headerBufferLength);
-        snprintf(headerBuffer.data(), headerBufferLength, header, startHTMLOffset, endHTMLOffset, startFragmentOffset, endFragmentOffset);
-        append(result, CString(headerBuffer.data()));
+        snprintf(headerBuffer.mutableSpan().data(), headerBufferLength, header, startHTMLOffset, endHTMLOffset, startFragmentOffset, endFragmentOffset);
+        append(result, CString(headerBuffer.span().data()));
     }
     if (sourceURLUTF8.length()) {
         append(result, sourceURLPrefix);
@@ -418,7 +418,7 @@ void setFileDescriptorData(IDataObject* dataObject, int size, const String& pass
     fgd->fgd[0].nFileSizeLow = size;
 
     int maxSize = std::min<int>(pathname.length(), std::size(fgd->fgd[0].cFileName));
-    CopyMemory(fgd->fgd[0].cFileName, pathname.charactersWithNullTermination()->data(), maxSize * sizeof(UChar));
+    CopyMemory(fgd->fgd[0].cFileName, pathname.charactersWithNullTermination()->span().data(), maxSize * sizeof(UChar));
     GlobalUnlock(medium.hGlobal);
 
     dataObject->SetData(fileDescriptorFormat(), &medium, TRUE);
@@ -503,7 +503,7 @@ String getURL(const DragDataMap* data, DragData::FilenameConversionPolicy filena
         getDataMapItem(data, filenameFormat(), stringData);
 
     auto wideCharacters = stringData.wideCharacters();
-    auto wcharData = wideCharacters.data();
+    auto wcharData = wideCharacters.span().data();
     if (stringData.isEmpty() || (!PathFileExists(wcharData) && !PathIsUNC(wcharData)))
         return url;
 
@@ -682,7 +682,7 @@ struct ClipboardDataItem {
     ClipboardDataItem(FORMATETC* format, GetStringFunction getString, SetStringFunction setString): format(format), getString(getString), setString(setString) { }
 };
 
-typedef UncheckedKeyHashMap<UINT, ClipboardDataItem*> ClipboardFormatMap;
+using ClipboardFormatMap = HashMap<UINT, ClipboardDataItem*>;
 
 // Getter functions.
 
@@ -775,7 +775,7 @@ void setHDropData(IDataObject* data, FORMATETC* format, const Vector<String>& da
     dropFiles->pFiles = sizeof(DROPFILES);
     dropFiles->fWide = TRUE;
     String filename = dataStrings.first();
-    wcscpy(reinterpret_cast<LPWSTR>(dropFiles + 1), filename.wideCharacters().data());
+    wcscpy(reinterpret_cast<LPWSTR>(dropFiles + 1), filename.wideCharacters().span().data());
     GlobalUnlock(medium.hGlobal);
     data->SetData(format, &medium, FALSE);
     ::GlobalFree(medium.hGlobal);

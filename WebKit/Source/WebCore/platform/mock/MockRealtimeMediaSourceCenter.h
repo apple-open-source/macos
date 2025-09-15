@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2013 Google Inc. All rights reserved.
- * Copyright (C) 2013-2022 Apple Inc.  All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,7 +50,7 @@ public:
     WEBCORE_EXPORT static void resetDevices();
     WEBCORE_EXPORT static void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
 
-    WEBCORE_EXPORT void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
+    WEBCORE_EXPORT void triggerMockCaptureConfigurationChange(bool forCamera, bool forMicrophone, bool forDisplay);
 
     void setMockAudioCaptureEnabled(bool isEnabled) { m_isMockAudioCaptureEnabled = isEnabled; }
     void setMockVideoCaptureEnabled(bool isEnabled) { m_isMockVideoCaptureEnabled = isEnabled; }

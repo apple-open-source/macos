@@ -56,6 +56,10 @@ extern "C" {
 #define AQM_KTRACE_STATS_GET_QLEN       AQMDBG_CODE(DBG_AQM_STATS, 0x007)
 #define AQM_KTRACE_TX_NOT_READY         AQMDBG_CODE(DBG_AQM_STATS, 0x008)
 #define AQM_KTRACE_TX_PACEMAKER         AQMDBG_CODE(DBG_AQM_STATS, 0x009)
+#define AQM_KTRACE_PKT_DROP             AQMDBG_CODE(DBG_AQM_STATS, 0x00a)
+#define AQM_KTRACE_OK_TO_DROP           AQMDBG_CODE(DBG_AQM_STATS, 0x00b)
+#define AQM_KTRACE_CONGESTION_INC       AQMDBG_CODE(DBG_AQM_STATS, 0x00c)
+#define AQM_KTRACE_CONGESTION_NOTIFIED  AQMDBG_CODE(DBG_AQM_STATS, 0x00d)
 
 #define AQM_KTRACE_FQ_GRP_SC_IDX(_fq_) \
 	((_fq_)->fq_group->fqg_index << 4 | (_fq_)->fq_sc_index)
@@ -77,6 +81,19 @@ extern "C" {
 	            (_fq_)->fq_bytes, (_fq_)->fq_min_qdelay);               \
     }                                                       \
     (_fq_)->fq_flags &= ~FQF_DELAY_HIGH;                    \
+} while (0)
+
+#define FQ_IS_ECN_CAPABLE(_fq_)   ((_fq_)->fq_flags & FQF_ECN_CAPABLE)
+#define FQ_SET_ECN_CAPABLE(_fq_) do {                          \
+    (_fq_)->fq_flags |= FQF_ECN_CAPABLE; \
+    } while (0)
+#define FQ_CLEAR_ECN_CAPABLE(_fq_) do { \
+    (_fq_)->fq_flags &= ~FQF_ECN_CAPABLE;                    \
+} while (0)
+
+#define FQ_CONGESTION_FEEDBACK_CAPABLE(_fq_)   ((_fq_)->fq_flags & FQF_CONGESTION_FEEDBACK)
+#define FQ_ENABLE_CONGESTION_FEEDBACK(_fq_)   do {                  \
+    (_fq_)->fq_flags |= FQF_CONGESTION_FEEDBACK;                    \
 } while (0)
 
 #define FQ_IS_OVERWHELMING(_fq_)   ((_fq_)->fq_flags & FQF_OVERWHELMING)
@@ -109,6 +126,14 @@ extern "C" {
 
 #define FQ_INVALID_TX_TS        UINT64_MAX
 
+typedef struct codel_status {
+	boolean_t  dropping;
+	uint32_t   lastcnt;
+	uint32_t   count;
+	uint64_t   first_above_time;
+	uint64_t   drop_next;
+} codel_status_t;
+
 struct flowq {
 #pragma pack(push,1)
 	union {
@@ -130,7 +155,10 @@ struct flowq {
 #define FQF_EMPTY_FLOW  0x20    /* Currently on empty flows queue */
 #define FQF_OVERWHELMING  0x40  /* The largest flow when AQM hits queue limit */
 #define FQF_FRESH_FLOW  0x80  /* The flow queue has just been allocated */
-	uint8_t        fq_flags;       /* flags */
+#define FQF_ECN_CAPABLE 0x100 /* The flow is capable for doing ECN for classic traffic */
+#define FQF_CONGESTION_FEEDBACK 0x200 /* The flow is capable for doing congestion feedbacks */
+	uint16_t       fq_flags;       /* flags */
+	uint8_t        fq_flowsrc;
 	uint8_t        fq_sc_index; /* service_class index */
 	bool           fq_in_dqlist;
 	fq_tfc_type_t  fq_tfc_type;
@@ -141,6 +169,10 @@ struct flowq {
 	uint32_t       fq_pkts_since_last_report;
 	/* the next time that a paced packet is ready to go*/
 	uint64_t       fq_next_tx_time;
+	/* number of packets that have experienced congestion event */
+	uint32_t       fq_congestion_cnt;
+	uint32_t       fq_last_congestion_cnt;
+	codel_status_t codel_status;
 	union {
 		uint64_t   fq_updatetime; /* next update interval */
 		/* empty list purge time (in nanoseconds) */
@@ -252,17 +284,17 @@ struct fq_if_classq;
 extern void fq_codel_init(void);
 extern fq_t *fq_alloc(classq_pkt_type_t);
 extern void fq_destroy(fq_t *, classq_pkt_type_t);
-extern int fq_addq(struct fq_codel_sched_data *, fq_if_group_t *,
-    pktsched_pkt_t *, struct fq_if_classq *);
-extern void fq_getq_flow(struct fq_codel_sched_data *, fq_t *,
-    pktsched_pkt_t *, uint64_t now);
-extern void fq_codel_dequeue(fq_if_t *fqs, fq_t *fq,
-    pktsched_pkt_t *pkt, uint64_t now);
+extern int fq_codel_enq_legacy(void * fqs, fq_if_group_t *, pktsched_pkt_t *, struct fq_if_classq *);
+extern void fq_codel_dq_legacy(void *fqs, void *fq, pktsched_pkt_t *pkt, uint64_t now);
 extern void fq_getq_flow_internal(struct fq_codel_sched_data *,
     fq_t *, pktsched_pkt_t *);
 extern void fq_head_drop(struct fq_codel_sched_data *, fq_t *);
 extern boolean_t fq_tx_time_ready(fq_if_t *fqs, fq_t *fq, uint64_t now,
     uint64_t *ready_time);
+
+extern void fq_codel_dq(void *fqs_p, void *fq_p, pktsched_pkt_t *pkt, uint64_t now);
+extern int fq_codel_enq(void *fqs_p, fq_if_group_t *fq_grp, pktsched_pkt_t *pkt,
+    fq_if_classq_t *fq_cl);
 
 #ifdef __cplusplus
 }

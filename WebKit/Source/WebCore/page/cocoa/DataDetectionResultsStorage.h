@@ -57,7 +57,7 @@ public:
 
 private:
     RetainPtr<NSArray> m_documentLevelResults;
-    UncheckedKeyHashMap<ImageOverlayDataDetectionResultIdentifier, RetainPtr<DDScannerResult>> m_imageOverlayResults;
+    HashMap<ImageOverlayDataDetectionResultIdentifier, RetainPtr<DDScannerResult>> m_imageOverlayResults;
 };
 
 } // namespace WebCore

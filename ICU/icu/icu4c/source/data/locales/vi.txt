@@ -245,11 +245,12 @@ vi{
                 MEd{"E, d/M"}
                 MMMEd{"E, 'ngày' d 'tháng' M"}
                 MMMMd{"'ngày' d 'tháng' M"}
-                MMMd{"'ngày' d 'tháng' M"}
+                MMMd{"d/M"}
                 Md{"d/M"}
                 UM{"'tháng' M 'năm' U"}
                 UMMM{"'tháng' M 'năm' U"}
-                UMMMd{"'ngày' d 'tháng' M 'năm' U"}
+                UMMMMd{"'ngày' d 'tháng' M 'năm' U"}
+                UMMMd{"d/M 'năm' U"}
                 UMd{"d/M 'năm' U"}
                 h{"h a"}
                 hm{"h:mm a"}

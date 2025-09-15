@@ -619,6 +619,7 @@
 #define AUE_PREADV              43216   /* Darwin. */
 #define AUE_PWRITEV             43217   /* Darwin. */
 #define AUE_FREADLINK           43218
+#define AUE_FUNMOUNT            43219   /* Darwin. */
 
 #define AUE_SESSION_START       44901   /* Darwin. */
 #define AUE_SESSION_UPDATE      44902   /* Darwin. */

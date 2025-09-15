@@ -69,7 +69,7 @@ struct RefTrackerMixin final {
     {
         RELEASE_ASSERT(!originalThis);
         originalThis = this;
-        if (UNLIKELY(T::enabled()))
+        if (T::enabled()) [[unlikely]]
             T::refTrackerSingleton().reportLive(static_cast<void*>(this));
     }
 
@@ -77,7 +77,7 @@ struct RefTrackerMixin final {
     {
         RELEASE_ASSERT(!originalThis);
         originalThis = this;
-        if (UNLIKELY(T::enabled()))
+        if (T::enabled()) [[unlikely]]
             T::refTrackerSingleton().reportLive(static_cast<void*>(this));
     }
 
@@ -85,14 +85,14 @@ struct RefTrackerMixin final {
     {
         RELEASE_ASSERT(!originalThis);
         originalThis = this;
-        if (UNLIKELY(T::enabled()))
+        if (T::enabled()) [[unlikely]]
             T::refTrackerSingleton().reportLive(static_cast<void*>(this));
     }
 
     ALWAYS_INLINE ~RefTrackerMixin()
     {
         RELEASE_ASSERT(originalThis == this);
-        if (UNLIKELY(T::enabled()))
+        if (T::enabled()) [[unlikely]]
             T::refTrackerSingleton().reportDead(static_cast<void*>(this));
     }
 

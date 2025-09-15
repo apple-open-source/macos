@@ -57,8 +57,9 @@
 #import <WebCore/Attr.h>
 #import <WebCore/CDATASection.h>
 #import <WebCore/CSSRuleList.h>
-#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/CSSStyleProperties.h>
 #import <WebCore/Comment.h>
+#import <WebCore/CustomElementRegistry.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/DocumentFullscreen.h>
 #import <WebCore/DocumentInlines.h>
@@ -68,6 +69,7 @@
 #import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLScriptElement.h>
 #import <WebCore/HitTestSource.h>
+#import <WebCore/ImportNodeOptions.h>
 #import <WebCore/JSExecState.h>
 #import <WebCore/LocalDOMWindow.h>
 #import <WebCore/NativeNodeFilter.h>
@@ -120,13 +122,13 @@
 - (NSString *)xmlEncoding
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->xmlEncoding();
+    return IMPL->xmlEncoding().createNSString().autorelease();
 }
 
 - (NSString *)xmlVersion
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->xmlVersion();
+    return IMPL->xmlVersion().createNSString().autorelease();
 }
 
 - (void)setXmlVersion:(NSString *)newXmlVersion
@@ -150,7 +152,7 @@
 - (NSString *)documentURI
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->documentURI();
+    return IMPL->documentURI().createNSString().autorelease();
 }
 
 - (void)setDocumentURI:(NSString *)newDocumentURI
@@ -174,13 +176,13 @@
 - (NSString *)contentType
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->contentType();
+    return IMPL->contentType().createNSString().autorelease();
 }
 
 - (NSString *)title
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->title();
+    return IMPL->title().createNSString().autorelease();
 }
 
 - (void)setTitle:(NSString *)newTitle
@@ -192,7 +194,7 @@
 - (NSString *)dir
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->dir();
+    return IMPL->dir().createNSString().autorelease();
 }
 
 - (void)setDir:(NSString *)newDir
@@ -204,25 +206,25 @@
 - (NSString *)referrer
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->referrer();
+    return IMPL->referrer().createNSString().autorelease();
 }
 
 - (NSString *)domain
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->domain();
+    return IMPL->domain().createNSString().autorelease();
 }
 
 - (NSString *)URL
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->urlForBindings().string();
+    return IMPL->urlForBindings().string().createNSString().autorelease();
 }
 
 - (NSString *)cookie
 {
     WebCore::JSMainThreadNullState state;
-    return raiseOnDOMError(IMPL->cookie());
+    return raiseOnDOMError(IMPL->cookie()).createNSString().autorelease();
 }
 
 - (void)setCookie:(NSString *)newCookie
@@ -282,7 +284,7 @@
 - (NSString *)lastModified
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->lastModified();
+    return IMPL->lastModified().createNSString().autorelease();
 }
 
 - (NSString *)charset
@@ -299,7 +301,7 @@
 
 - (NSString *)defaultCharset
 {
-    return IMPL->defaultCharsetForLegacyBindings();
+    return IMPL->defaultCharsetForLegacyBindings().createNSString().autorelease();
 }
 
 - (NSString *)readyState
@@ -347,7 +349,7 @@
 - (NSString *)compatMode
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->compatMode();
+    return IMPL->compatMode().createNSString().autorelease();
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -367,7 +369,7 @@
 - (DOMElement *)webkitCurrentFullScreenElement
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(WebCore::DocumentFullscreen::webkitCurrentFullScreenElement(*IMPL)));
+    return kit(WTF::getPtr(WebCore::DocumentFullscreen::webkitFullscreenElement(*IMPL)));
 }
 
 - (BOOL)webkitFullscreenEnabled
@@ -413,7 +415,7 @@
 - (NSString *)origin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->securityOrigin().toString();
+    return IMPL->securityOrigin().toString().createNSString().autorelease();
 }
 
 - (DOMElement *)scrollingElement
@@ -508,7 +510,7 @@
     WebCore::JSMainThreadNullState state;
     if (!importedNode)
         raiseTypeErrorException();
-    return kit(raiseOnDOMError(IMPL->importNode(*core(importedNode), deep)).ptr());
+    return kit(raiseOnDOMError(IMPL->importNode(*core(importedNode), static_cast<bool>(deep))).ptr());
 }
 
 - (DOMElement *)createElementNS:(NSString *)namespaceURI qualifiedName:(NSString *)qualifiedName
@@ -660,7 +662,7 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
 {
     WebCore::JSMainThreadNullState state;
     auto result = IMPL->queryCommandValue(command);
-    return result.hasException() ? String() : result.returnValue();
+    return result.hasException() ? @"" : result.returnValue().createNSString().autorelease();
 }
 
 - (DOMNodeList *)getElementsByName:(NSString *)elementName
@@ -692,7 +694,7 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
     WebCore::JSMainThreadNullState state;
     if (!element)
         raiseTypeErrorException();
-    auto* dv = IMPL->domWindow();
+    auto* dv = IMPL->window();
     if (!dv)
         return nil;
     return kit(WTF::getPtr(dv->getComputedStyle(*core(element), pseudoElement)));
@@ -706,7 +708,7 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
 - (DOMCSSRuleList *)getMatchedCSSRules:(DOMElement *)element pseudoElement:(NSString *)pseudoElement authorOnly:(BOOL)authorOnly
 {
     WebCore::JSMainThreadNullState state;
-    auto* dv = IMPL->domWindow();
+    auto* dv = IMPL->window();
     if (!dv)
         return nil;
     return kit(WTF::getPtr(dv->getMatchedCSSRules(core(element), pseudoElement, authorOnly)));

@@ -113,6 +113,15 @@ extern const CFStringRef	kIPConfigurationServiceOptionEnableCLAT46; /* boolean *
 extern const CFStringRef	kIPConfigurationServiceOptionClearState; /* boolean */
 
 /*
+ * kIPConfigurationServiceOptionEnableL4S (CFBooleanRef)
+ * - explicitly enable (kCFBooleanTrue) or disable (kCFBooleanFalse) L4S
+ *   on the interface
+ * - if this property is not specified, the interface will follow the
+ *   system default for enabling L4S
+ */
+extern const CFStringRef	kIPConfigurationServiceOptionEnableL4S; /* boolean */
+
+/*
  * Function: IPConfigurationServiceCreate
  *
  * Purpose:

@@ -319,6 +319,12 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
     var returnRepairAccountResponse: Bool = false
     var returnRepairEscrowResponse: Bool = false
     var returnResetOctagonResponse: Bool = false
+    var returnEscrowCheckError: Error?
+    var returnEscrowCheckNeedsRepair: Bool = false
+    var returnEscrowCheckNa: Bool = false
+    var returnEscrowCheckMoveRequest: Bool = false
+    var returnEscrowCheckRepairDisabled: Bool = false
+    var returnEscrowCheckRepairReason: EscrowRepairReason = .recordRepairReasonUnknown
     var returnLeaveTrustResponse: Bool = false
     var returnRepairErrorResponse: Error?
     var fetchChangesCalledCount: Int = 0
@@ -1095,7 +1101,9 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
         }
 
         let views: [FetchRecoverableTLKSharesResponse.View] = self.fakeCKZones.keyEnumerator().compactMap {
-            let zoneID: CKRecordZone.ID = $0 as! CKRecordZone.ID
+            guard let zoneID: CKRecordZone.ID = $0 as? CKRecordZone.ID else {
+                fatalError("zoneID not coercible")
+            }
 
             guard let zk = self.getKeys(zoneID: zoneID) else {
                 return nil
@@ -1106,7 +1114,9 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
 
             let tlkShares: [CloudKitCode.Ckcode_RecordTransport] = currentZoneContents.compactMap { _, arecord in
-                let record = arecord as! CKRecord
+                guard let record = arecord as? CKRecord else {
+                    fatalError("record not coercible")
+                }
 
                 guard record.recordType == SecCKRecordTLKShareType else {
                     return nil
@@ -1148,7 +1158,7 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
             }
         }
 
-        let overlayPolicies = Dictionary(uniqueKeysWithValues: policyOverlay.map({ $0 }).map(FakeCuttlefishServer.mapper))
+        let overlayPolicies = Dictionary(uniqueKeysWithValues: policyOverlay.map(FakeCuttlefishServer.mapper))
 
         for key in request.keys {
             if let (hash, data) = overlayPolicies[key.version], hash == key.hash {
@@ -1168,6 +1178,40 @@ class FakeCuttlefishServer: NSObject, ConfiguredCuttlefishAPIAsync {
 
     func assertCuttlefishState(_ assertion: FakeCuttlefishAssertion) -> Bool {
         return assertion.check(peer: self.state.peersByID[assertion.peer], target: self.state.peersByID[assertion.target])
+    }
+
+    func getEscrowCheck(_ request: GetEscrowCheckRequest, completion: @escaping (Result<GetEscrowCheckResponse, Error>) -> Void) {
+        print("FakeCuttlefish: getEscrowCheck called")
+        if let error = self.returnEscrowCheckError {
+            completion(.failure(error))
+        } else if self.returnEscrowCheckNa {
+            completion(.success(GetEscrowCheckResponse.with {
+                $0.escrowCheckResult = .escrowCheckNa
+                if self.returnEscrowCheckRepairDisabled {
+                    $0.repairDisabled = true
+                }
+            }))
+        } else if self.returnEscrowCheckNeedsRepair {
+            completion(.success(GetEscrowCheckResponse.with {
+                $0.escrowCheckResult = .escrowCheckRepairNeeded
+                $0.escrowRepairReason = self.returnEscrowCheckRepairReason
+                if self.returnEscrowCheckMoveRequest {
+                    $0.escrowRecordMoveRequest = EscrowProxyFederationMoveRecordRequest.with {
+                        $0.intendedFederation = "310"
+                    }
+                }
+                if self.returnEscrowCheckRepairDisabled {
+                    $0.repairDisabled = true
+                }
+            }))
+        } else {
+            completion(.success(GetEscrowCheckResponse.with {
+                $0.escrowCheckResult = .escrowCheckOk
+                if self.returnEscrowCheckRepairDisabled {
+                    $0.repairDisabled = true
+                }
+            }))
+        }
     }
 
     func getRepairAction(_ request: GetRepairActionRequest, completion: @escaping (Result<GetRepairActionResponse, Error>) -> Void) {

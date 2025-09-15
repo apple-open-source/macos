@@ -133,6 +133,7 @@ zh{
         crs{"塞舌尔克里奥尔语"}
         cs{"捷克语"}
         csb{"卡舒比语"}
+        cst{"乔琴尼奥语"}
         csw{"沼泽克里语"}
         cu{"教会斯拉夫语"}
         cv{"楚瓦什语"}
@@ -228,6 +229,7 @@ zh{
         hak{"客家语"}
         haw{"夏威夷语"}
         hax{"南海达语"}
+        hch{"维拉里卡语"}
         he{"希伯来语"}
         hi{"印地语"}
         hi_Latn{"印地语（拉丁字母）"}
@@ -257,6 +259,7 @@ zh{
         inh{"印古什语"}
         io{"伊多语"}
         is{"冰岛语"}
+        isc{"伊斯科纳瓦语"}
         it{"意大利语"}
         iu{"因纽特语"}
         ja{"日语"}
@@ -497,6 +500,7 @@ zh{
         sh{"塞尔维亚-克罗地亚语"}
         shi{"希尔哈语"}
         shn{"掸语"}
+        shp{"希皮博科尼博语"}
         shu{"乍得阿拉伯语"}
         si{"僧伽罗语"}
         sid{"悉达摩语"}
@@ -856,13 +860,15 @@ zh{
     }
     Types{
         calendar{
+            bangla{"孟加拉历"}
             buddhist{"佛历"}
             chinese{"农历"}
             coptic{"科普特历"}
-            dangi{"檀纪历"}
+            dangi{"韩国历"}
             ethiopic{"埃塞俄比亚历"}
             ethiopic-amete-alem{"埃塞俄比亚阿米特阿莱姆日历"}
             gregorian{"公历"}
+            gujarati{"古吉拉特历"}
             hebrew{"希伯来历"}
             indian{"印度国定历"}
             islamic{"伊斯兰历"}
@@ -871,8 +877,16 @@ zh{
             islamic-umalqura{"伊斯兰历（乌姆库拉）"}
             iso8601{"国际标准历法"}
             japanese{"和历"}
+            kannada{"卡纳达历"}
+            malayalam{"马拉雅拉姆历"}
+            marathi{"马拉地历"}
+            odia{"奥里亚历"}
             persian{"波斯历"}
             roc{"民国纪年"}
+            tamil{"泰米尔历"}
+            telugu{"泰卢固历"}
+            vietnamese{"越南历"}
+            vikram{"维克拉姆历"}
         }
         cf{
             account{"会计货币格式"}

@@ -31,6 +31,6 @@ header: "WebGPUOrigin3D.h"
     WebCore::WebGPU::IntegerCoordinate z
 }
 
-using WebKit::WebGPU::Origin3D = std::variant<Vector<WebCore::WebGPU::IntegerCoordinate>, WebKit::WebGPU::Origin3DDict>;
+using WebKit::WebGPU::Origin3D = Variant<Vector<WebCore::WebGPU::IntegerCoordinate>, WebKit::WebGPU::Origin3DDict>;
 
 #endif

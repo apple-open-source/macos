@@ -100,6 +100,7 @@
 #include <kern/exclaves_inspection.h>
 #endif
 
+
 #if     MACH_KDP
 void    kdp_trap(unsigned int, struct arm_saved_state *);
 #endif
@@ -108,7 +109,7 @@ void    kdp_trap(unsigned int, struct arm_saved_state *);
  * Increment the PANICLOG_VERSION if you change the format of the panic
  * log in any way.
  */
-#define PANICLOG_VERSION 14
+#define PANICLOG_VERSION 15
 static struct kcdata_descriptor kc_panic_data;
 
 extern char iBoot_version[];
@@ -203,11 +204,8 @@ uint64_t PE_nvram_stashed_x86_macos_slide = UINT64_MAX;
 #endif
 
 
-/*
- * Backtrace a single frame.
- */
 static void
-print_one_backtrace(pmap_t pmap, vm_offset_t topfp, const char *cur_marker,
+do_print_backtrace_internal(pmap_t pmap, vm_offset_t topfp, const char *cur_marker,
     boolean_t is_64_bit, boolean_t print_kexts_in_backtrace)
 {
 	unsigned int    i = 0;
@@ -218,9 +216,6 @@ print_one_backtrace(pmap_t pmap, vm_offset_t topfp, const char *cur_marker,
 	vm_offset_t     raddrs[FP_MAX_NUM_TO_EVALUATE] = { 0 };
 	bool            dump_kernel_stack = (fp >= VM_MIN_KERNEL_ADDRESS);
 
-#if defined(HAS_APPLE_PAC)
-	fp = (addr64_t)ptrauth_strip((void *)fp, ptrauth_key_frame_pointer);
-#endif
 	do {
 		if ((fp == 0) || ((fp & FP_ALIGNMENT_MASK) != 0)) {
 			break;
@@ -322,6 +317,7 @@ panic_display_tpidrs(void)
 }
 
 
+
 static void
 panic_display_hung_cpus_help(void)
 {
@@ -337,12 +333,27 @@ panic_display_hung_cpus_help(void)
 		unsigned i, retry;
 
 		for (i = 0; i < info->num_cpus; i++) {
+			ml_topology_cpu_t *cpu = &info->cpus[i];
+			char cluster_name[16], cluster_letter;
+
+			switch (cpu->cluster_type) {
+			case CLUSTER_TYPE_E:
+				cluster_letter = 'E';
+				break;
+			case CLUSTER_TYPE_P:
+				cluster_letter = 'P';
+				break;
+			default:
+				cluster_letter = '?';
+			}
+			snprintf(cluster_name, sizeof(cluster_name), "%cACC%d", cluster_letter, cpu->cluster_id);
+
 			if (!PE_cpu_power_check_kdp(i)) {
-				paniclog_append_noflush("CORE %u is offline, skipping\n", i);
+				paniclog_append_noflush("CORE %u [%s] is offline, skipping\n", i, cluster_name);
 				continue;
 			}
-			if (info->cpus[i].cpu_UTTDBG_regs) {
-				volatile uint64_t *pcsr = (volatile uint64_t*)(info->cpus[i].cpu_UTTDBG_regs + pcsr_offset);
+			if (cpu->cpu_UTTDBG_regs) {
+				volatile uint64_t *pcsr = (volatile uint64_t*)(cpu->cpu_UTTDBG_regs + pcsr_offset);
 				volatile uint32_t *pcsrTrigger = (volatile uint32_t*)pcsr;
 				uint64_t pc = 0;
 
@@ -357,7 +368,7 @@ panic_display_hung_cpus_help(void)
 				if (pc >> 48) {
 					pc |= 0xffff000000000000ull;
 				}
-				paniclog_append_noflush("CORE %u recently retired instr at 0x%016llx\n", i, pc);
+				paniclog_append_noflush("CORE %u [%s] recently retired instr at 0x%016llx\n", i, cluster_name, pc);
 			}
 		}
 	}
@@ -419,16 +430,52 @@ panic_report_exclaves_stackshot(void)
 }
 #endif /* CONFIG_EXCLAVES */
 
+__attribute__((always_inline))
+static inline void
+print_backtrace_internal(thread_t thread, bool filesetKC)
+{
+	uintptr_t cur_fp = (uintptr_t)__builtin_frame_address(0);
+	const char              *nohilite_thread_marker = "\t";
+
+#if defined(HAS_APPLE_PAC)
+	cur_fp = (addr64_t)ptrauth_strip((void *)cur_fp, ptrauth_key_frame_pointer);
+#endif
+
+	if (cur_fp < VM_MAX_KERNEL_ADDRESS) {
+		paniclog_append_noflush("Panicked thread: %p, backtrace: 0x%llx, tid: %llu\n",
+		    thread, (addr64_t)cur_fp, thread_tid(thread));
+#if __LP64__
+		do_print_backtrace_internal(kernel_pmap, cur_fp, nohilite_thread_marker, TRUE, filesetKC);
+#else
+		do_print_backtrace_internal(kernel_pmap, cur_fp, nohilite_thread_marker, FALSE, filesetKC);
+#endif
+	} else {
+		paniclog_append_noflush("Could not print panicked thread backtrace:"
+		    "frame pointer outside kernel vm.\n");
+	}
+}
+
+static bool
+is_filesetKC(void)
+{
+	kc_format_t     kc_format;
+	bool            filesetKC = false;
+
+	__unused bool result = PE_get_primary_kc_format(&kc_format);
+	assert(result == true);
+	filesetKC = kc_format == KCFormatFileset;
+	return filesetKC;
+}
+
+
 static void
-do_print_all_backtraces(const char *message, uint64_t panic_options, const char *panic_initiator)
+do_print_all_panic_info(const char *message, uint64_t panic_options, const char *panic_initiator)
 {
 	int             logversion = PANICLOG_VERSION;
 	thread_t        cur_thread = current_thread();
-	uintptr_t       cur_fp;
 	task_t          task;
 	struct proc    *proc;
 	int             print_vnodes = 0;
-	const char *nohilite_thread_marker = "\t";
 
 	/* end_marker_bytes set to 200 for printing END marker + stackshot summary info always */
 	int bytes_traced = 0, bytes_remaining = 0, end_marker_bytes = 200;
@@ -436,26 +483,16 @@ do_print_all_backtraces(const char *message, uint64_t panic_options, const char 
 	uint64_t bytes_used = 0ULL;
 	int err = 0;
 	char *stackshot_begin_loc = NULL;
-	kc_format_t kc_format;
-	bool filesetKC = false;
+	bool filesetKC = is_filesetKC();
 	uint32_t panic_initiator_len = 0;
 #if CONFIG_EXT_PANICLOG
 	uint32_t ext_paniclog_bytes = 0;
 #endif
 
-#if defined(__arm64__)
-	__asm__         volatile ("add %0, xzr, fp":"=r"(cur_fp));
-#else
-#error Unknown architecture.
-#endif
 	if (panic_bt_depth != 0) {
 		return;
 	}
 	panic_bt_depth++;
-
-	__unused bool result = PE_get_primary_kc_format(&kc_format);
-	assert(result == true);
-	filesetKC = kc_format == KCFormatFileset;
 
 	/* Truncate panic string to 1200 bytes */
 	paniclog_append_noflush("Debugger message: %.1200s\n", message);
@@ -578,6 +615,8 @@ do_print_all_backtraces(const char *message, uint64_t panic_options, const char 
 	panic_display_zalloc();
 	panic_display_hung_cpus_help();
 	panic_display_tpidrs();
+
+
 	panic_display_pvhs_locked();
 	panic_display_pvh_to_lock();
 	panic_display_last_pc_lr();
@@ -668,18 +707,10 @@ do_print_all_backtraces(const char *message, uint64_t panic_options, const char 
 		paniclog_append_noflush("\n");
 	}
 
-	if (cur_fp < VM_MAX_KERNEL_ADDRESS) {
-		paniclog_append_noflush("Panicked thread: %p, backtrace: 0x%llx, tid: %llu\n",
-		    cur_thread, (addr64_t)cur_fp, thread_tid(cur_thread));
-#if __LP64__
-		print_one_backtrace(kernel_pmap, cur_fp, nohilite_thread_marker, TRUE, filesetKC);
-#else
-		print_one_backtrace(kernel_pmap, cur_fp, nohilite_thread_marker, FALSE, filesetKC);
-#endif
-	} else {
-		paniclog_append_noflush("Could not print panicked thread backtrace:"
-		    "frame pointer outside kernel vm.\n");
-	}
+	print_backtrace_internal(cur_thread, filesetKC);
+
+	paniclog_append_noflush("\n");
+	dump_cpu_event_log(&paniclog_append_noflush);
 
 	paniclog_append_noflush("\n");
 	if (filesetKC) {
@@ -815,10 +846,10 @@ do_print_all_backtraces(const char *message, uint64_t panic_options, const char 
 }
 
 /*
- * Entry to print_all_backtraces is serialized by the debugger lock
+ * Entry to print_all_panic_info is serialized by the debugger lock
  */
 static void
-print_all_backtraces(const char *message, uint64_t panic_options, const char *panic_initiator)
+print_all_panic_info(const char *message, uint64_t panic_options, const char *panic_initiator)
 {
 	unsigned int initial_not_in_kdp = not_in_kdp;
 
@@ -833,11 +864,17 @@ print_all_backtraces(const char *message, uint64_t panic_options, const char *pa
 	 * not_in_kdp.
 	 */
 	not_in_kdp = 0;
-	do_print_all_backtraces(message, panic_options, panic_initiator);
+	do_print_all_panic_info(message, panic_options, panic_initiator);
 
 	not_in_kdp = initial_not_in_kdp;
 
 	cpu_data_ptr->PAB_active = FALSE;
+}
+
+void
+print_curr_backtrace(void)
+{
+	print_backtrace_internal(current_thread(), is_filesetKC());
 }
 
 void
@@ -936,7 +973,7 @@ SavePanicInfo(
 	PanicInfoSaved = TRUE;
 
 
-	print_all_backtraces(message, panic_options, panic_initiator);
+	print_all_panic_info(message, panic_options, panic_initiator);
 
 	assert(panic_info->eph_panic_log_len != 0);
 	panic_info->eph_other_log_len = PE_get_offset_into_panic_region(debug_buf_ptr) - panic_info->eph_other_log_offset;
@@ -1089,8 +1126,8 @@ DebuggerXCallEnter(
 			if (ret == KERN_SUCCESS) {
 				os_atomic_inc(&debugger_sync, relaxed);
 				os_atomic_inc(&debug_cpus_spinning, relaxed);
-			} else if (proceed_on_sync_failure) {
-				kprintf("cpu_signal failed in DebuggerXCallEnter\n");
+			} else {
+				kprintf("%s: cpu_signal failed. cpu=%d ret=%d proceed=%d\n", __func__, cpu, ret, proceed_on_sync_failure);
 			}
 		}
 
@@ -1146,6 +1183,7 @@ DebuggerXCallEnter(
 				kprintf("%s>found CPU %d offline, debugger_sync=%d\n", __FUNCTION__, cpu, dbg_sync_count);
 				continue;
 			}
+			kprintf("%s>Debugger synch pending on cpu %d\n", __FUNCTION__, cpu);
 			timeout_cpu = cpu;
 #if CONFIG_SPTM
 			if (proceed_on_sync_failure) {
@@ -1358,7 +1396,7 @@ DebuggerXCall(
 	 * we reset the timestamp so as to avoid hitting the interrupt timeout assert().
 	 */
 	if ((serialmode & SERIALMODE_OUTPUT) || trap_is_stackshot) {
-		INTERRUPT_MASKED_DEBUG_END();
+		ml_interrupt_masked_debug_end();
 	}
 
 	/*
@@ -1400,11 +1438,11 @@ DebuggerXCall(
 	 * an event, which could be a panic.
 	 */
 	abandon_preemption_disable_measurement();
-#endif /* SCHED_HYGIENE_DEBUG */
 
 	if ((serialmode & SERIALMODE_OUTPUT) || trap_is_stackshot) {
-		INTERRUPT_MASKED_DEBUG_START(current_thread()->machine.int_handler_addr, current_thread()->machine.int_type);
+		ml_interrupt_masked_debug_start((void *)current_thread()->machine.int_handler_addr, current_thread()->machine.int_type);
 	}
+#endif /* SCHED_HYGIENE_DEBUG */
 
 #if defined(__arm64__)
 	current_thread()->machine.kpcb = NULL;

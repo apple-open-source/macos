@@ -1604,9 +1604,9 @@ tzsetwall(void)
 __private_extern__ void
 tzset_basic(int rdlocked)
 {
-	const char *	name;
+	char *	name;
 
-	name = getenv("TZ");
+	name = getenv_copy_np("TZ");
 	if (name == NULL) {
 		tzsetwall_basic(rdlocked);
 		return;
@@ -1623,6 +1623,7 @@ tzset_basic(int rdlocked)
 #ifdef NOTIFY_TZ_DEBUG
 		NOTIFY_TZ_PRINTF("tzset_basic matched %s\n", lcl_TZname);
 #endif
+		free(name);
 		return;
 	}
 	_RWLOCK_UNLOCK(&lcl_rwlock);
@@ -1640,6 +1641,7 @@ tzset_basic(int rdlocked)
 			_RWLOCK_UNLOCK(&lcl_rwlock);
 			if (rdlocked)
 				_RWLOCK_RDLOCK(&lcl_rwlock);
+			free(name);
 			return;
 		}
 	}
@@ -1690,6 +1692,7 @@ tzset_basic(int rdlocked)
 
 	if (rdlocked)
 		_RWLOCK_RDLOCK(&lcl_rwlock);
+	free(name);
 }
 
 void

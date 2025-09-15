@@ -29,6 +29,7 @@
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(MEDIA_SOURCE)
 
 #import "CDMPrivateMediaSourceAVFObjC.h"
+#import "LegacyCDM.h"
 #import "Logging.h"
 #import "WebCoreNSErrorExtras.h"
 #import <AVFoundation/AVError.h>
@@ -101,7 +102,7 @@ void CDMSessionMediaSourceAVFObjC::removeSourceBuffer(SourceBufferPrivateAVFObjC
     ASSERT(sourceBuffer);
 
     sourceBuffer->unregisterForErrorNotifications(this);
-    m_sourceBuffers.remove(m_sourceBuffers.find(sourceBuffer));
+    m_sourceBuffers.removeFirst(sourceBuffer);
 }
 
 String CDMSessionMediaSourceAVFObjC::storagePath() const

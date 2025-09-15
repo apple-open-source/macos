@@ -316,16 +316,6 @@ struct mptcp_add_addr_opt {
 	    maddr_flags:4;
 #endif
 	uint8_t         maddr_addrid;
-	union {
-		struct {
-			struct in_addr maddr_addrv4;
-			uint32_t maddr_pad[3];
-		};
-
-		struct {
-			struct in6_addr maddr_addrv6;
-		};
-	} maddr_u;
 }__attribute__((__packed__));
 
 struct mptcp_add_addr_hmac_msg_v4 {

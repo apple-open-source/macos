@@ -22,6 +22,7 @@
 #include "JSTestGenerateAddOpaqueRoot.h"
 
 #include "ActiveDOMObject.h"
+#include "ContextDestructionObserverInlines.h"
 #include "ExtendedDOMClientIsoSubspaces.h"
 #include "ExtendedDOMIsoSubspaces.h"
 #include "JSDOMAttribute.h"
@@ -157,7 +158,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateAddOpaqueRootConstructor, (JSGlobalObject
     SUPPRESS_UNCOUNTED_LOCAL auto& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestGenerateAddOpaqueRootPrototype*>(JSValue::decode(thisValue));
-    if (UNLIKELY(!prototype))
+    if (!prototype) [[unlikely]]
         return throwVMTypeError(lexicalGlobalObject, throwScope);
     return JSValue::encode(JSTestGenerateAddOpaqueRoot::getConstructor(vm, prototype->globalObject()));
 }
@@ -177,7 +178,7 @@ JSC_DEFINE_CUSTOM_GETTER(jsTestGenerateAddOpaqueRoot_someAttribute, (JSGlobalObj
 
 JSC::GCClient::IsoSubspace* JSTestGenerateAddOpaqueRoot::subspaceForImpl(JSC::VM& vm)
 {
-    return WebCore::subspaceForImpl<JSTestGenerateAddOpaqueRoot, UseCustomHeapCellType::No>(vm,
+    return WebCore::subspaceForImpl<JSTestGenerateAddOpaqueRoot, UseCustomHeapCellType::No>(vm, "JSTestGenerateAddOpaqueRoot"_s,
         [] (auto& spaces) { return spaces.m_clientSubspaceForTestGenerateAddOpaqueRoot.get(); },
         [] (auto& spaces, auto&& space) { spaces.m_clientSubspaceForTestGenerateAddOpaqueRoot = std::forward<decltype(space)>(space); },
         [] (auto& spaces) { return spaces.m_subspaceForTestGenerateAddOpaqueRoot.get(); },
@@ -228,7 +229,9 @@ extern "C" { extern void (*const __identifier("??_7TestGenerateAddOpaqueRoot@Web
 #else
 extern "C" { extern void* _ZTVN7WebCore25TestGenerateAddOpaqueRootE[]; }
 #endif
-template<typename T, typename = std::enable_if_t<std::is_same_v<T, TestGenerateAddOpaqueRoot>, void>> static inline void verifyVTable(TestGenerateAddOpaqueRoot* ptr) {
+template<std::same_as<TestGenerateAddOpaqueRoot> T>
+static inline void verifyVTable(TestGenerateAddOpaqueRoot* ptr) 
+{
     if constexpr (std::is_polymorphic_v<T>) {
         const void* actualVTablePointer = getVTablePointer<T>(ptr);
 #if PLATFORM(WIN)

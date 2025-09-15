@@ -26,7 +26,7 @@
     Selectable,
     UnselectableDueToFocusableElement,
     UnselectableDueToLargeElementBounds,
-    UnselectableDueToUserSelectNone,
+    UnselectableDueToUserSelectNoneOrQuirk,
     UnselectableDueToMediaControls,
 };
 
@@ -44,6 +44,9 @@ struct WebKit::InteractionInformationAtPosition {
     bool touchCalloutEnabled;
     bool isLink;
     bool isImage;
+#if ENABLE(MODEL_PROCESS)
+    bool isInteractiveModel;
+#endif
     bool isAttachment;
     bool isAnimatedImage;
     bool isAnimating;
@@ -79,7 +82,7 @@ struct WebKit::InteractionInformationAtPosition {
 
     WebKit::CursorContext cursorContext;
 
-    WebCore::TextIndicatorData linkIndicator;
+    RefPtr<WebCore::TextIndicator> textIndicator;
 #if ENABLE(DATA_DETECTION)
     String dataDetectorIdentifier;
     [SecureCodingAllowed=[NSArray.class, PAL::getDDScannerResultClass()]] RetainPtr<NSArray> dataDetectorResults;

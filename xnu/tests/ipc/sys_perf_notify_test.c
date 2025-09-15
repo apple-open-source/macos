@@ -75,7 +75,7 @@ catch_mach_exception_raise_state_identity_protected(
 	thread_state_t new_state,
 	mach_msg_type_number_t * new_state_count)
 {
-#pragma unused(exception_port, thread_id, tatask_id_tokensk, exception, codes, codeCnt, flavor, old_state, old_state_count, new_state, new_state_count)
+#pragma unused(exception_port, thread_id, task_id_token, exception, codes, codeCnt, flavor, old_state, old_state_count, new_state, new_state_count)
 	T_FAIL("Unsupported catch_mach_exception_raise_state_identity");
 	return KERN_NOT_SUPPORTED;
 }
@@ -94,7 +94,7 @@ catch_mach_exception_raise_identity_protected(
 	T_QUIET; T_ASSERT_EQ(exception_port, exc_port, "correct exception port");
 	T_QUIET; T_ASSERT_EQ(exception, EXC_RPC_ALERT, "exception type is EXC_RPC_ALERT");
 	T_QUIET; T_ASSERT_EQ(codeCnt, 2, "codeCnt is 2");
-	T_QUIET; T_ASSERT_EQ(codes[0], 0xFF000001, "codes[0] is 0xFF000001");
+	T_QUIET; T_ASSERT_EQ(codes[0], (mach_exception_data_type_t)0xFF000001, "codes[0] is 0xFF000001");
 	return KERN_SUCCESS;
 }
 

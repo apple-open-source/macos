@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -93,7 +93,6 @@ public:
     void removeProcess(WebProcessProxy&);
 
     API::Array& userScripts() { return m_userScripts.get(); }
-    Ref<API::Array> protectedUserScripts();
     void addUserScript(API::UserScript&, InjectUserScriptImmediately);
     void removeUserScript(API::UserScript&);
     void removeAllUserScripts(API::ContentWorld&);
@@ -140,19 +139,16 @@ public:
     bool operator==(const WebUserContentControllerProxy& other) const { return (this == &other); }
 
 private:
-    Ref<API::Array> protectedUserScripts() const;
-    Ref<API::Array> protectedUserStyleSheets() const;
-
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    void didPostMessage(WebPageProxyIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, std::span<const uint8_t>, CompletionHandler<void(std::span<const uint8_t>, const String&)>&&);
+    void didPostMessage(WebPageProxyIdentifier, FrameInfoData&&, ScriptMessageHandlerIdentifier, JavaScriptEvaluationResult&&, CompletionHandler<void(Expected<JavaScriptEvaluationResult, String>&&)>&&);
 
     void addContentWorld(API::ContentWorld&);
 
     WeakHashSet<WebProcessProxy> m_processes;
-    Ref<API::Array> m_userScripts;
-    Ref<API::Array> m_userStyleSheets;
+    const Ref<API::Array> m_userScripts;
+    const Ref<API::Array> m_userStyleSheets;
     HashMap<ScriptMessageHandlerIdentifier, RefPtr<WebScriptMessageHandler>> m_scriptMessageHandlers;
     HashSet<ContentWorldIdentifier> m_associatedContentWorlds;
 
@@ -163,3 +159,8 @@ private:
 };
 
 } // namespace WebKit
+
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebUserContentControllerProxy)
+static bool isType(const API::Object& object) { return object.type() == API::Object::Type::UserContentController; }
+SPECIALIZE_TYPE_TRAITS_END()

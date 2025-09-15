@@ -47,23 +47,23 @@
 
 @implementation WKViewLayoutStrategy
 
-+ (instancetype)layoutStrategyWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
++ (instancetype)layoutStrategyWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
     RetainPtr<WKViewLayoutStrategy> strategy;
 
     switch (mode) {
     case kWKLayoutModeFixedSize:
-        strategy = adoptNS([[WKViewFixedSizeLayoutStrategy alloc] initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode]);
+        strategy = adoptNS([[WKViewFixedSizeLayoutStrategy alloc] initWithPage:page view:view viewImpl:webViewImpl mode:mode]);
         break;
     case kWKLayoutModeDynamicSizeComputedFromViewScale:
-        strategy = adoptNS([[WKViewDynamicSizeComputedFromViewScaleLayoutStrategy alloc] initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode]);
+        strategy = adoptNS([[WKViewDynamicSizeComputedFromViewScaleLayoutStrategy alloc] initWithPage:page view:view viewImpl:webViewImpl mode:mode]);
         break;
     case kWKLayoutModeDynamicSizeComputedFromMinimumDocumentSize:
-        strategy = adoptNS([[WKViewDynamicSizeComputedFromMinimumDocumentSizeLayoutStrategy alloc] initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode]);
+        strategy = adoptNS([[WKViewDynamicSizeComputedFromMinimumDocumentSizeLayoutStrategy alloc] initWithPage:page view:view viewImpl:webViewImpl mode:mode]);
         break;
     case kWKLayoutModeViewSize:
     default:
-        strategy = adoptNS([[WKViewViewSizeLayoutStrategy alloc] initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode]);
+        strategy = adoptNS([[WKViewViewSizeLayoutStrategy alloc] initWithPage:page view:view viewImpl:webViewImpl mode:mode]);
         break;
     }
 
@@ -72,15 +72,15 @@
     return strategy.autorelease();
 }
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
     self = [super init];
 
     if (!self)
         return nil;
 
-    _page = page.ptr();
-    _webViewImpl = webViewImpl.ptr();
+    _page = page.get();
+    _webViewImpl = webViewImpl.get();
     _view = view;
     _layoutMode = mode;
 
@@ -130,9 +130,10 @@
 
 - (void)didChangeFrameSize
 {
-    if (_webViewImpl->clipsToVisibleRect())
-        _webViewImpl->updateViewExposedRect();
-    _webViewImpl->setDrawingAreaSize(NSSizeToCGSize(_view.frame.size));
+    CheckedRef webViewImpl = *_webViewImpl;
+    if (webViewImpl->clipsToVisibleRect())
+        webViewImpl->updateViewExposedRect();
+    webViewImpl->setDrawingAreaSize(NSSizeToCGSize(_view.get().get().frame.size));
 }
 
 - (void)willChangeLayoutStrategy
@@ -143,14 +144,14 @@
 
 @implementation WKViewViewSizeLayoutStrategy
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
-    self = [super initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode];
+    self = [super initWithPage:page view:view viewImpl:webViewImpl mode:mode];
 
     if (!self)
         return nil;
 
-    page->setUseFixedLayout(false);
+    Ref { page.get() }->setUseFixedLayout(false);
 
     return self;
 }
@@ -163,14 +164,14 @@
 
 @implementation WKViewFixedSizeLayoutStrategy
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
-    self = [super initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode];
+    self = [super initWithPage:page view:view viewImpl:webViewImpl mode:mode];
 
     if (!self)
         return nil;
 
-    page->setUseFixedLayout(true);
+    Ref { page.get() }->setUseFixedLayout(true);
 
     return self;
 }
@@ -183,14 +184,14 @@
 
 @implementation WKViewDynamicSizeComputedFromViewScaleLayoutStrategy
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
-    self = [super initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode];
+    self = [super initWithPage:page view:view viewImpl:webViewImpl mode:mode];
 
     if (!self)
         return nil;
 
-    page->setUseFixedLayout(true);
+    Ref { page.get() }->setUseFixedLayout(true);
 
     return self;
 }
@@ -198,7 +199,8 @@
 - (void)updateLayout
 {
     CGFloat inverseScale = 1 / _page->viewScaleFactor();
-    _webViewImpl->setFixedLayoutSize(CGSizeMake(_view.frame.size.width * inverseScale, _view.frame.size.height * inverseScale));
+    RetainPtr view = _view.get();
+    CheckedRef { *_webViewImpl }->setFixedLayoutSize(CGSizeMake(view.get().frame.size.width * inverseScale, view.get().frame.size.height * inverseScale));
 }
 
 - (void)didChangeViewScale
@@ -222,14 +224,14 @@
 
 @implementation WKViewDynamicSizeComputedFromMinimumDocumentSizeLayoutStrategy
 
-- (instancetype)initWithPage:(NakedRef<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(NakedRef<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
+- (instancetype)initWithPage:(std::reference_wrapper<WebKit::WebPageProxy>)page view:(NSView *)view viewImpl:(std::reference_wrapper<WebKit::WebViewImpl>)webViewImpl mode:(WKLayoutMode)mode
 {
-    self = [super initWithPage:page.copyRef() view:view viewImpl:webViewImpl.copyRef() mode:mode];
+    self = [super initWithPage:page view:view viewImpl:webViewImpl mode:mode];
 
     if (!self)
         return nil;
 
-    _page->setShouldScaleViewToFitDocument(true);
+    Ref { *_page }->setShouldScaleViewToFitDocument(true);
 
     return self;
 }
@@ -240,8 +242,9 @@
 
 - (void)willChangeLayoutStrategy
 {
-    _page->setShouldScaleViewToFitDocument(false);
-    _page->scaleView(1);
+    RefPtr page = _page.get();
+    page->setShouldScaleViewToFitDocument(false);
+    page->scaleView(1);
 }
 
 @end

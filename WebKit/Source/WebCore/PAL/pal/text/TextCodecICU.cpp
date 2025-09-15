@@ -207,9 +207,7 @@ public:
             UConverterToUCallback oldAction;
             ucnv_setToUCallBack(&m_converter, m_savedAction, m_savedContext, &oldAction, &oldContext, &err);
             ASSERT(oldAction == UCNV_TO_U_CALLBACK_SUBSTITUTE);
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
-            ASSERT(!strcmp(static_cast<const char*>(oldContext), UCNV_SUB_STOP_ON_ILLEGAL));
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
+            ASSERT(equalSpans(unsafeSpan(static_cast<const char*>(oldContext)), UCNV_SUB_STOP_ON_ILLEGAL ""_span));
             ASSERT(U_SUCCESS(err));
         }
     }

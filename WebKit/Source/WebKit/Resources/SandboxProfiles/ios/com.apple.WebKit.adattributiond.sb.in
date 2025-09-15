@@ -80,6 +80,7 @@
 (allow file-read* file-map-executable
     (subpath "/usr/lib")
     (subpath "/System/Library/Frameworks")
+    (subpath "/System/Library/SubFrameworks")
     (subpath "/System/Library/PrivateFrameworks"))
 
 (with-filter (system-attribute apple-internal)

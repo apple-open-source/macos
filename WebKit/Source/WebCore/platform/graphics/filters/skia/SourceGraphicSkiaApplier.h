@@ -28,11 +28,10 @@
 #if USE(SKIA)
 
 #include "FilterEffectApplier.h"
+#include "SourceGraphic.h"
 #include <wtf/TZoneMalloc.h>
 
 namespace WebCore {
-
-class SourceGraphic;
 
 class SourceGraphicSkiaApplier final : public FilterEffectConcreteApplier<SourceGraphic> {
     WTF_MAKE_TZONE_ALLOCATED(SourceGraphicSkiaApplier);
@@ -42,7 +41,7 @@ public:
     using Base::Base;
 
 private:
-    bool apply(const Filter&, const FilterImageVector&, FilterImage&) const final;
+    bool apply(const Filter&, std::span<const Ref<FilterImage>>, FilterImage&) const final;
 };
 
 } // namespace WebCore

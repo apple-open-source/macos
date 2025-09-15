@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc.  All rights reserved.
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,7 +81,7 @@ using namespace WebCore;
 - (NSString *)title
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->title;
+    return _private->_internal->title.createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -90,7 +90,7 @@ using namespace WebCore;
 - (NSString *)body
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->body;
+    return _private->_internal->body.createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -99,7 +99,7 @@ using namespace WebCore;
 - (NSString *)tag
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->tag;
+    return _private->_internal->tag.createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -108,7 +108,7 @@ using namespace WebCore;
 - (NSString *)iconURL
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->iconURL;
+    return _private->_internal->iconURL.createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -117,7 +117,7 @@ using namespace WebCore;
 - (NSString *)lang
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->language;
+    return _private->_internal->language.createNSString().autorelease();
 #else
     return nil;
 #endif
@@ -142,7 +142,7 @@ using namespace WebCore;
 - (WebSecurityOrigin *)origin
 {
 #if ENABLE(NOTIFICATIONS)
-    return adoptNS([[WebSecurityOrigin alloc] _initWithString:_private->_internal->originString]).autorelease();
+    return adoptNS([[WebSecurityOrigin alloc] _initWithString:_private->_internal->originString.createNSString().get()]).autorelease();
 #else
     return nil;
 #endif
@@ -151,7 +151,7 @@ using namespace WebCore;
 - (NSString *)notificationID
 {
 #if ENABLE(NOTIFICATIONS)
-    return _private->_internal->notificationID.toString();
+    return _private->_internal->notificationID.toString().createNSString().autorelease();
 #else
     return 0;
 #endif

@@ -87,7 +87,7 @@ private:
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) final;
 
     using AddSourceBufferCallback = CompletionHandler<void(WebCore::MediaSourcePrivate::AddStatus, std::optional<RemoteSourceBufferIdentifier>)>;
-    void addSourceBuffer(const WebCore::ContentType&, AddSourceBufferCallback&&);
+    void addSourceBuffer(const WebCore::ContentType&, const WebCore::MediaSourceConfiguration&, AddSourceBufferCallback&&);
     void durationChanged(const MediaTime&);
     void bufferedChanged(WebCore::PlatformTimeRanges&&);
     void markEndOfStream(WebCore::MediaSourcePrivate::EndOfStreamStatus);

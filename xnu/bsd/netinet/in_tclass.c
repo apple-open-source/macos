@@ -1020,59 +1020,7 @@ so_get_opportunistic(struct socket *so)
 }
 
 __private_extern__ int
-so_tc_from_control(struct mbuf *control, int *out_netsvctype)
-{
-	struct cmsghdr *cm;
-	int sotc = SO_TC_UNSPEC;
-
-	*out_netsvctype = _NET_SERVICE_TYPE_UNSPEC;
-
-	for (cm = M_FIRST_CMSGHDR(control);
-	    is_cmsg_valid(control, cm);
-	    cm = M_NXT_CMSGHDR(control, cm)) {
-		int val;
-
-		if (cm->cmsg_level != SOL_SOCKET ||
-		    cm->cmsg_len != CMSG_LEN(sizeof(int))) {
-			continue;
-		}
-		val = *(int *)(void *)CMSG_DATA(cm);
-		/*
-		 * The first valid option wins
-		 */
-		switch (cm->cmsg_type) {
-		case SO_TRAFFIC_CLASS:
-			if (SO_VALID_TC(val)) {
-				sotc = val;
-				return sotc;
-				/* NOT REACHED */
-			} else if (val < SO_TC_NET_SERVICE_OFFSET) {
-				break;
-			}
-			/*
-			 * Handle the case SO_NET_SERVICE_TYPE values are
-			 * passed using SO_TRAFFIC_CLASS
-			 */
-			val = val - SO_TC_NET_SERVICE_OFFSET;
-			OS_FALLTHROUGH;
-		case SO_NET_SERVICE_TYPE:
-			if (!IS_VALID_NET_SERVICE_TYPE(val)) {
-				break;
-			}
-			*out_netsvctype = val;
-			sotc = sotc_by_netservicetype[val];
-			return sotc;
-		/* NOT REACHED */
-		default:
-			break;
-		}
-	}
-
-	return sotc;
-}
-
-__private_extern__ int
-so_tos_from_control(struct mbuf *control)
+ip_tos_from_control(struct mbuf *control)
 {
 	struct cmsghdr *cm;
 	int tos = IPTOS_UNSPEC;

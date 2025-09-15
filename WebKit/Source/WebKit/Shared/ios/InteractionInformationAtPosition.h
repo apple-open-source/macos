@@ -59,7 +59,7 @@ struct InteractionInformationAtPosition {
         Selectable,
         UnselectableDueToFocusableElement,
         UnselectableDueToLargeElementBounds,
-        UnselectableDueToUserSelectNone,
+        UnselectableDueToUserSelectNoneOrQuirk,
         UnselectableDueToMediaControls,
     };
 
@@ -71,6 +71,9 @@ struct InteractionInformationAtPosition {
     bool touchCalloutEnabled { true };
     bool isLink { false };
     bool isImage { false };
+#if ENABLE(MODEL_PROCESS)
+    bool isInteractiveModel { false };
+#endif
     bool isAttachment { false };
     bool isAnimatedImage { false };
     bool isAnimating { false };
@@ -106,7 +109,7 @@ struct InteractionInformationAtPosition {
 
     CursorContext cursorContext;
 
-    WebCore::TextIndicatorData linkIndicator;
+    RefPtr<WebCore::TextIndicator> textIndicator;
 #if ENABLE(DATA_DETECTION)
     String dataDetectorIdentifier;
     RetainPtr<NSArray> dataDetectorResults;

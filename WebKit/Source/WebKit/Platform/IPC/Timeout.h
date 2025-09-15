@@ -27,6 +27,8 @@
 
 #include <algorithm>
 #include <wtf/ApproximateTime.h>
+#include <wtf/GenericTimeMixin.h>
+#include <wtf/Seconds.h>
 #include <wtf/TimeWithDynamicClockType.h>
 
 namespace IPC {

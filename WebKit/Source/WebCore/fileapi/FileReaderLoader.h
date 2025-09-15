@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc.  All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -102,6 +102,8 @@ private:
 
     static ExceptionCode httpStatusCodeToErrorCode(int);
     static ExceptionCode toErrorCode(BlobResourceHandle::Error);
+
+    RefPtr<JSC::ArrayBuffer> protectedRawData() const { return m_rawData; }
 
     ReadType m_readType;
     WeakPtr<FileReaderLoaderClient> m_client;

@@ -439,15 +439,20 @@ hfs_swap_HFSPlusBTInternalNode (
     HFSCatalogNodeID fileID =fcb->fcbFileID;
     BTNodeDescriptor *srcDesc = src->buffer;
     UInt16 *srcOffs = (UInt16 *)((char *)src->buffer + (src->blockSize - (srcDesc->numRecords * sizeof (UInt16))));
+	const char * const nodeStart = (char *)src->buffer + sizeof(BTNodeDescriptor);
+	const char * const nodeEnd = (char *)src->buffer + src->blockSize;
 	char *nextRecord;	/*  Points to start of record following current one */
     int32_t i;
     UInt32 j;
 
     /*
      * Sanity check that the record offsets are within the node itself.
+	 * Note that srcOffs is allowed to equal nodeEnd, corresponding to a
+	 * node with 0 records.  Since the free space offset is stored at a negative
+	 * offset from srcOffs, this is still valid in a structural sense, even
+	 * though there really shouldn't ever be nodes with 0 records.
      */
-    if ((char *)srcOffs > ((char *)src->buffer + src->blockSize) ||
-        (char *)srcOffs < ((char *)src->buffer + sizeof(BTNodeDescriptor))) {
+    if ((char *)srcOffs < nodeStart || (char *)srcOffs > nodeEnd) {
         if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record count (0x%04X)\n", srcDesc->numRecords);
         WriteError(fcb->fcbVolume->vcbGPtr, E_NRecs, fcb->fcbFileID, src->blockNum);
         return E_NRecs;
@@ -479,6 +484,25 @@ hfs_swap_HFSPlusBTInternalNode (
 			 * and data are fixed size, this is relatively easy.  Note that this
 			 * relies on the keyLength being a constant; we verify the keyLength
 			 * below.
+			 */
+			if ((char *)srcKey < nodeStart || (char *)srcKey >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (record #%d)\n",
+											srcDesc->numRecords - i - 1);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+			if (i == 0 && ((char *)nextRecord < nodeStart || (char *)nextRecord >= nodeEnd)) {
+				/*
+				 * Only check this when i is 0 because for all other values it was already checked
+				 * the previous time through the loop.
+				 */
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (free space record)\n");
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
+			/*
+			 * Make sure there's no overlap.
 			 */
 			if ((char *)srcKey + sizeof(HFSPlusExtentKey) + recordSize > nextRecord) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: extents key #%d offset too big (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
@@ -532,7 +556,27 @@ hfs_swap_HFSPlusBTInternalNode (
 			nextRecord = (char *)src->buffer + srcOffs[i-1];
 
 			/*
-			 * Make sure we can safely dereference the keyLength and parentID fields. */
+			 * Sanity-check these values to ensure they're within the node.
+			 */
+			if ((char *)srcKey < nodeStart || (char *)srcKey >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (record #%d)\n",
+											srcDesc->numRecords - i - 1);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+			if (i == 0 && ((char *)nextRecord < nodeStart || (char *)nextRecord >= nodeEnd)) {
+				/*
+				 * Only check this when i is 0 because for all other values it was already checked
+				 * the previous time through the loop.
+				 */
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (free space record)\n");
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
+			/*
+			 * Make sure we can safely dereference the keyLength and parentID fields.
+			 */
 			if ((char *)srcKey + offsetof(HFSPlusCatalogKey, nodeName.unicode[0]) > nextRecord) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: catalog key #%d offset too big (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
@@ -750,7 +794,26 @@ hfs_swap_HFSPlusBTInternalNode (
              */
 			nextRecord = (char *)src->buffer + srcOffs[i-1];
 
-    		/* Make sure there is room in the buffer for a minimal key */
+			/*
+			 * Sanity-check these values to ensure they're within the node.
+			 */
+			if ((char *)srcKey < nodeStart || (char *)srcKey >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (record #%d)\n",
+											srcDesc->numRecords - i - 1);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+			if (i == 0 && ((char *)nextRecord < nodeStart || (char *)nextRecord >= nodeEnd)) {
+				/*
+				 * Only check this when i is 0 because for all other values it was already checked
+				 * the previous time through the loop.
+				 */
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record offset (free space record)\n");
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
+			/* Make sure there is room in the buffer for a minimal key */
     		if ((char *) &srcKey->attrName[1] > nextRecord) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: attr key #%d offset too big (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
 				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
@@ -888,6 +951,8 @@ hfs_swap_HFSBTInternalNode (
     HFSCatalogNodeID fileID =fcb->fcbFileID;
     BTNodeDescriptor *srcDesc = src->buffer;
     UInt16 *srcOffs = (UInt16 *)((char *)src->buffer + (src->blockSize - (srcDesc->numRecords * sizeof (UInt16))));
+	const char * const nodeStart = (char *)src->buffer + sizeof(BTNodeDescriptor);
+	const char * const nodeEnd = (char *)src->buffer + src->blockSize;
 	char *nextRecord;	/*  Points to start of record following current one */
     int32_t i;
     UInt32 j;
@@ -895,9 +960,8 @@ hfs_swap_HFSBTInternalNode (
     /*
      * Sanity check that the record offsets are within the node itself.
      */
-    if ((char *)srcOffs > ((char *)src->buffer + src->blockSize) ||
-        (char *)srcOffs < ((char *)src->buffer + sizeof(BTNodeDescriptor))) {
-        if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSPlusBTInternalNode: invalid record count (0x%04X)\n", srcDesc->numRecords);
+    if ((char *)srcOffs < nodeStart || (char *)srcOffs > nodeEnd) {
+        if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record count (0x%04X)\n", srcDesc->numRecords);
         WriteError(fcb->fcbVolume->vcbGPtr, E_NRecs, fcb->fcbFileID, src->blockNum);
         return E_NRecs;
     }
@@ -924,10 +988,26 @@ hfs_swap_HFSBTInternalNode (
 			nextRecord = (char *)src->buffer + srcOffs[i-1];
 
 			/*
-			 * Make sure the key and data are within the buffer.  Since both key
-			 * and data are fixed size, this is relatively easy.  Note that this
-			 * relies on the keyLength being a constant; we verify the keyLength
-			 * below.
+			 * Sanity-check these values to ensure they're within the node.
+			 */
+			if ((char *)srcKey < nodeStart || (char *)srcKey >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record offset (record #%d)\n",
+											srcDesc->numRecords - i - 1);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+			if (i == 0 && ((char *)nextRecord < nodeStart || (char *)nextRecord >= nodeEnd)) {
+				/*
+				 * Only check this when i is 0 because for all other values it was already checked
+				 * the previous time through the loop.
+				 */
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record offset (free space record)\n");
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
+			/*
+			 * Make sure this record doesn't overlap the next one
 			 */
 			if ((char *)srcKey + sizeof(HFSExtentKey) + recordSize > nextRecord) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: extents key #%d offset too big (0x%04X)\n", srcDesc->numRecords-i-1, srcOffs[i]);
@@ -938,7 +1018,9 @@ hfs_swap_HFSBTInternalNode (
             /* Don't swap srcKey->keyLength (it's only one byte), but do sanity check it */
             if (srcKey->keyLength != sizeof(*srcKey) - sizeof(srcKey->keyLength)) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: extents key #%d invalid length (%d)\n", srcDesc->numRecords-i-1, srcKey->keyLength);
-            }
+				WriteError(fcb->fcbVolume->vcbGPtr, E_KeyLen, fcb->fcbFileID, src->blockNum);
+				return E_KeyLen;
+			}
 
             /* Don't swap srcKey->forkType; it's only one byte */
 
@@ -947,7 +1029,13 @@ hfs_swap_HFSBTInternalNode (
 
             /* Point to record data (round up to even byte boundary) */
             srcRec = (HFSExtentDescriptor *)((char *)srcKey + ((srcKey->keyLength + 2) & ~1));
-    
+			if ((char *)srcRec < nodeStart || (char *)srcRec >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record offset (0x%04X)\n",
+											(char *)srcRec - (char *)src->buffer);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
             if (srcDesc->kind == kBTIndexNode) {
             	/* For index nodes, the record data is just a child node number. */
                 *((UInt32 *)srcRec) = SWAP_BE32 (*((UInt32 *)srcRec));
@@ -977,6 +1065,25 @@ hfs_swap_HFSBTInternalNode (
 			nextRecord = (char *)src->buffer + srcOffs[i-1];
 
 			/*
+			 * Sanity-check these values to ensure they're within the node.
+			 */
+			if ((char *)srcKey < nodeStart || (char *)srcKey >= nodeEnd) {
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record offset (record #%d)\n",
+											srcDesc->numRecords - i - 1);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+			if (i == 0 && ((char *)nextRecord < nodeStart || (char *)nextRecord >= nodeEnd)) {
+				/*
+				 * Only check this when i is 0 because for all other values it was already checked
+				 * the previous time through the loop.
+				 */
+				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: invalid record offset (free space record)\n");
+				WriteError(fcb->fcbVolume->vcbGPtr, E_BadNode, fcb->fcbFileID, src->blockNum);
+				return E_BadNode;
+			}
+
+			/*
 			 * Make sure we can safely dereference the keyLength and parentID fields.
 			 * The value 8 below is 1 bytes for keyLength + 1 byte reserved + 4 bytes
 			 * for parentID + 1 byte for nodeName's length + 1 byte to round up the
@@ -991,6 +1098,8 @@ hfs_swap_HFSBTInternalNode (
             /* Don't swap srcKey->keyLength (it's only one byte), but do sanity check it */
             if (srcKey->keyLength < kHFSCatalogKeyMinimumLength || srcKey->keyLength > kHFSCatalogKeyMaximumLength) {
 				if (state.debug) fsck_print(ctx, LOG_TYPE_INFO, "hfs_swap_HFSBTInternalNode: catalog key #%d invalid length (%d)\n", srcDesc->numRecords-i-1, srcKey->keyLength);
+				WriteError(fcb->fcbVolume->vcbGPtr, E_KeyLen, fcb->fcbFileID, src->blockNum);
+				return E_KeyLen;
             }
             
             /* Don't swap srcKey->reserved */

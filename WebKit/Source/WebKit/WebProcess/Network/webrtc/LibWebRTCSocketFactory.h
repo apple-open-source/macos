@@ -58,9 +58,9 @@ public:
     void removeSocket(LibWebRTCSocket&);
     LibWebRTCSocket* socket(WebCore::LibWebRTCSocketIdentifier identifier) { return m_sockets.get(identifier); }
 
-    void forSocketInGroup(WebCore::ScriptExecutionContextIdentifier, const Function<void(LibWebRTCSocket&)>&);
-    rtc::AsyncPacketSocket* createUdpSocket(WebCore::ScriptExecutionContextIdentifier, const rtc::SocketAddress&, uint16_t minPort, uint16_t maxPort, WebPageProxyIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&);
-    rtc::AsyncPacketSocket* createClientTcpSocket(WebCore::ScriptExecutionContextIdentifier, const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress, String&& userAgent, const rtc::PacketSocketTcpOptions&, WebPageProxyIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&);
+    void forSocketInGroup(WebCore::ScriptExecutionContextIdentifier, NOESCAPE const Function<void(LibWebRTCSocket&)>&);
+    webrtc::AsyncPacketSocket* createUdpSocket(WebCore::ScriptExecutionContextIdentifier, const webrtc::SocketAddress&, uint16_t minPort, uint16_t maxPort, WebPageProxyIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&);
+    webrtc::AsyncPacketSocket* createClientTcpSocket(WebCore::ScriptExecutionContextIdentifier, const webrtc::SocketAddress& localAddress, const webrtc::SocketAddress& remoteAddress, String&& userAgent, const webrtc::PacketSocketTcpOptions&, WebPageProxyIdentifier, bool isFirstParty, bool isRelayDisabled, const WebCore::RegistrableDomain&);
 
     CheckedPtr<LibWebRTCResolver> resolver(LibWebRTCResolverIdentifier identifier) { return m_resolvers.get(identifier); }
     void removeResolver(LibWebRTCResolverIdentifier identifier) { m_resolvers.remove(identifier); }

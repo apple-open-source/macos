@@ -33,6 +33,7 @@
 #include "LayoutElementBox.h"
 #include "LayoutPhase.h"
 #include "LayoutTreeBuilder.h"
+#include "PathOperation.h"
 #include "RenderStyleConstants.h"
 #include "RenderStyleSetters.h"
 #include "RenderView.h"

@@ -39,6 +39,10 @@
 #include <vm/pmap.h>
 #include <vm/vm_kern_xnu.h>
 
+__static_testable kern_return_t
+memory_backing_aware_buffer_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
+    char *corename, uint64_t length, void * panic_data);
+
 static bool
 is_normal_memory(uint64_t phys)
 {
@@ -51,12 +55,13 @@ is_normal_memory(uint64_t phys)
 	return (attr & VM_WIMG_MASK) == VM_WIMG_DEFAULT;
 }
 
-static void
-memory_backing_aware_buffer_stage_reset(__unused struct kdp_output_stage *stage)
+static kern_return_t
+memory_backing_aware_buffer_stage_reset(__unused struct kdp_output_stage *stage, __unused const char *corename, __unused kern_coredump_type_t coretype)
 {
+	return KERN_SUCCESS;
 }
 
-static kern_return_t
+__static_testable kern_return_t
 memory_backing_aware_buffer_stage_outproc(struct kdp_output_stage *stage, unsigned int request,
     char *corename, uint64_t length, void * panic_data)
 {
@@ -151,7 +156,7 @@ memory_backing_aware_buffer_stage_initialize(struct kdp_output_stage *stage)
 
 	stage->kos_data_size = PAGE_SIZE;
 	ret = kmem_alloc(kernel_map, (vm_offset_t*) &stage->kos_data, stage->kos_data_size,
-	    KMA_DATA, VM_KERN_MEMORY_DIAG);
+	    KMA_DATA_SHARED, VM_KERN_MEMORY_DIAG);
 	if (KERN_SUCCESS != ret) {
 		printf("%s failed to allocate memory. Error 0x%x\n", __func__, ret);
 		return ret;

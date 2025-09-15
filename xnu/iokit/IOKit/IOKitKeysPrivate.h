@@ -125,6 +125,11 @@ enum {
 #define kIOWaitQuietPanicsEntitlement "com.apple.private.security.waitquiet-panics"
 #define kIOSystemStateEntitlement "com.apple.private.iokit.systemstate"
 
+#define kIOMemoryDescriptorSharingContextKey    "IOMemoryDescriptorSharingContext"
+
+// Entitlement allows io_connect_map_shared_memory to map writable in user space
+#define kIOMapSharedMemoryWritableEntitlement "com.apple.private.iokit.sharedmemory.writable"
+
 // Entitlement allows a DK driver to publish services to other dexts, using the
 // standard IOKit registerService() or DriverKit RegisterService() api.
 // Those client dexts must have an entitlement specified by the
@@ -153,6 +158,8 @@ enum {
 #define kIOExclaveAssignedKey    "exclave-assigned"
 #define kIOExclaveProxyKey       "IOExclaveProxy"
 
+#define kIOPMAOTAllowKey           "IOPMAOTAllow"
+#define kIOPMSystemOffPhase2AllowKey "IOPMSystemOffPhase2Allow"
 
 // IONVRAMSystemVariableList:
 // "one-time-boot-command" - Needed for diags customer install flows
@@ -182,5 +189,8 @@ enum {
 	                          "SystemAudioVolumeExtension", \
 	                          "SystemAudioVolumeSaved"
 
+
+// Uniform Type Identifiers supported by a service
+#define kIOUniformTypeIdentifiersKey "UniformTypeIdentifiers"
 
 #endif /* ! _IOKIT_IOKITKEYSPRIVATE_H */

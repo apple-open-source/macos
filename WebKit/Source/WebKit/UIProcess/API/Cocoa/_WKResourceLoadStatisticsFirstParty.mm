@@ -40,7 +40,7 @@
 
 - (NSString *)firstPartyDomain
 {
-    return _firstParty->firstPartyDomain();
+    return _firstParty->firstPartyDomain().createNSString().autorelease();
 }
 
 - (BOOL)storageAccess

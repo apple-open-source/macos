@@ -210,8 +210,6 @@ set         spring_2021         2021.3.1	0.0
 version     macos               11.4
 version     macos               11.5
 version     macos               11.6
-version     ios                 14.4
-version     ios                 14.5
 version     ios                 14.6
 version     ios                 14.7
 version     ios                 14.8
@@ -278,11 +276,9 @@ version     tvos                16.1
 version     watchos             9.1
 version     bridgeos            7.1
 set         late_fall_2022      2022.16.21  0.0
-version     macos               13.1
 version     watchos             9.2
 version     tvos                16.2
 version     ios                 16.2
-version     bridgeos            7.1
 set         2022_SU_C           2022.33.0   0.0
 version     macos               13.2
 version     watchos             9.3

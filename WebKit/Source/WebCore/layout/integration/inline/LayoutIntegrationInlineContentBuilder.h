@@ -35,7 +35,7 @@ class RenderBlockFlow;
 
 namespace LayoutIntegration {
 
-struct InlineContent;
+class InlineContent;
 
 class InlineContentBuilder {
 public:

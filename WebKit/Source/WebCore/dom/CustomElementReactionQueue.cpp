@@ -147,7 +147,7 @@ void CustomElementReactionQueue::tryToUpgradeElement(Element& element)
 {
     ASSERT(CustomElementReactionDisallowedScope::isReactionAllowed());
     ASSERT(element.isCustomElementUpgradeCandidate());
-    RefPtr registry = element.treeScope().customElementRegistry();
+    RefPtr registry = CustomElementRegistry::registryForElement(element);
     if (!registry)
         return;
 
@@ -389,7 +389,7 @@ void CustomElementReactionQueue::enqueueElementOnAppropriateElementQueue(Element
     ASSERT(element.reactionQueue());
     element.setIsInCustomElementReactionQueue();
     if (!CustomElementReactionStack::s_currentProcessingStack) {
-        element.document().windowEventLoop().backupElementQueue().add(element);
+        element.protectedDocument()->windowEventLoop().backupElementQueue().add(element);
         return;
     }
 

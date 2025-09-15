@@ -99,17 +99,17 @@ NSString* homeDirUUID;
     [self createKeychainDirectory];
 
     SecSetCustomHomeURLString((__bridge CFStringRef) self.testHomeDirectory);
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 
     // Actually load the database.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+    kc_with_dbt(true, NULL , NULL, ^bool (SecDbConnectionRef dbt) { return false; });
 }
 
 - (void)tearDown
 {
     NSURL* keychainDir = (NSURL*)CFBridgingRelease(SecCopyHomeURL());
 
-    SecKeychainDbForceClose();
+    SecServerKeychainDbForceClose();
 
     // Only perform the desctructive step if the url matches what we expect!
     if([keychainDir.path hasPrefix:self.testHomeDirectory]) {
@@ -135,7 +135,7 @@ NSString* homeDirUUID;
 #endif  // KCSHARING
 
     SecSetCustomHomeURLString(NULL);
-    SecKeychainDbReset(NULL);
+    SecServerKeychainDbReset(NULL);
 }
 
 

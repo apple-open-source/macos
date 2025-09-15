@@ -341,6 +341,24 @@ def showTimerWakeupStats(cmd_args=None):
         print('Task total wakeups: {:d} {:d}'.format(
             tot_wakes, tot_platform_wakes))
 
+def timer_deadine_string(timer, recent_timestamp):
+    EndOfAllTime = signed(-1)
+
+    deadline = unsigned(timer.tc_pqlink.deadline)
+    deadlinediff = signed(deadline) - signed(recent_timestamp)
+    deadlinediff_s = kern.GetNanotimeFromAbstime(deadlinediff) / 1000000000.0
+
+    if signed(timer.tc_pqlink.deadline) == EndOfAllTime:
+        valid = False
+    else :
+        valid = True
+
+    deadline_str = "{:18d}".format(deadline) if valid else ""
+    deadlinediff_str = "{:16.06f}".format(deadlinediff_s) if valid else ""
+
+    return " {:18s} {:18s}".format(deadline_str, deadlinediff_str)
+
+
 @lldb_command('showrunningtimers')
 def ShowRunningTimers(cmd_args=None):
     """
@@ -352,10 +370,10 @@ def ShowRunningTimers(cmd_args=None):
 
     recent_timestamp = GetRecentTimestamp()
 
-    hdr = '{:4s} {:^10s} {:^18s} {:^18s} {:^18s} {:^18s}'
-    print(hdr.format('CPU', 'State', 'Quantum', 'To Go', 'kperf', 'To Go', 'Hard To Go'))
+    hdr = '{:4s} {:^10s} {:^18s} {:^18s} {:^18s} {:^18s} {:^18s} {:^18s} {:^18s} {:^18s}'
+    print(hdr.format('CPU', 'State', 'Quantum', 'To Go', 'Preempt', 'To Go', 'kperf', 'To Go', 'Perfcontrol', 'To Go'))
 
-    cpu = '{:3d}: {:^10s} {:18d} {:16.06f} {:18d} {:16.06f}'
+    cpu = '{:3d}: {:^10s}'
 
     i = 0
     while processor_array[i] != 0:
@@ -363,15 +381,14 @@ def ShowRunningTimers(cmd_args=None):
 
         statestr = 'runnning' if processor.running_timers_active else 'idle'
 
-        quantum = unsigned(processor.running_timers[0].tc_pqlink.deadline)
-        quantumdiff = signed(quantum) - signed(recent_timestamp)
-        quantumdiff_s = kern.GetNanotimeFromAbstime(quantumdiff) / 1000000000.0
+        cpustr = cpu.format(i, statestr)
 
-        kperf = unsigned(processor.running_timers[1].tc_pqlink.deadline)
-        kperfdiff = signed(kperf) - signed(recent_timestamp)
-        kperfdiff_s = kern.GetNanotimeFromAbstime(kperfdiff) / 1000000000.0
+        cpustr += timer_deadine_string(processor.running_timers[GetEnumValue('running_timer::RUNNING_TIMER_QUANTUM')], recent_timestamp)
+        cpustr += timer_deadine_string(processor.running_timers[GetEnumValue('running_timer::RUNNING_TIMER_PREEMPT')], recent_timestamp)
+        cpustr += timer_deadine_string(processor.running_timers[GetEnumValue('running_timer::RUNNING_TIMER_KPERF')], recent_timestamp)
+        cpustr += timer_deadine_string(processor.running_timers[GetEnumValue('running_timer::RUNNING_TIMER_PERFCONTROL')], recent_timestamp)
 
-        print (cpu.format(i, statestr, quantum, quantumdiff_s, kperf, kperfdiff_s))
+        print (cpustr)
         i += 1
 
 def DoReadMsr64(msr_address, lcpu):

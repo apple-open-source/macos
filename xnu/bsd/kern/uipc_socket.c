@@ -111,14 +111,17 @@
 #include <netinet/ip6.h>
 #include <netinet6/ip6_var.h>
 #include <netinet/flow_divert.h>
-#include <kern/zalloc.h>
+#include <kern/assert.h>
 #include <kern/locks.h>
+#include <kern/mem_acct.h>
+#include <kern/policy_internal.h>
+#include <kern/uipc_domain.h>
+#include <kern/uipc_socket.h>
+#include <kern/task.h>
+#include <kern/zalloc.h>
 #include <machine/limits.h>
 #include <libkern/OSAtomic.h>
 #include <pexpert/pexpert.h>
-#include <kern/assert.h>
-#include <kern/task.h>
-#include <kern/policy_internal.h>
 
 #include <sys/kpi_mbuf.h>
 #include <sys/mcache.h>
@@ -147,19 +150,8 @@
 /* TODO: this should be in a header file somewhere */
 extern char *proc_name_address(void *p);
 
-static u_int32_t        so_cache_hw;    /* High water mark for socache */
-static u_int32_t        so_cache_timeouts;      /* number of timeouts */
-static u_int32_t        so_cache_max_freed;     /* max freed per timeout */
-static u_int32_t        cached_sock_count = 0;
-STAILQ_HEAD(, socket)   so_cache_head;
-int     max_cached_sock_count = MAX_CACHED_SOCKETS;
-static uint64_t        so_cache_time;
 static int              socketinit_done;
-static struct zone      *so_cache_zone;
-ZONE_DECLARE(so_cache_zone, struct zone *);
-
-static LCK_GRP_DECLARE(so_cache_mtx_grp, "so_cache");
-static LCK_MTX_DECLARE(so_cache_mtx, &so_cache_mtx_grp);
+struct mem_acct *socket_memacct;
 
 #include <machine/limits.h>
 
@@ -245,8 +237,6 @@ SYSCTL_LONG(_kern_ipc, OID_AUTO, sodefunct_calls, CTLFLAG_LOCKED,
 ZONE_DEFINE_TYPE(socket_zone, "socket", struct socket, ZC_ZFREE_CLEARMEM);
 so_gen_t        so_gencnt;      /* generation count for sockets */
 
-MALLOC_DEFINE(M_PCB, "pcb", "protocol control block");
-
 #define DBG_LAYER_IN_BEG        NETDBG_CODE(DBG_NETSOCK, 0)
 #define DBG_LAYER_IN_END        NETDBG_CODE(DBG_NETSOCK, 2)
 #define DBG_LAYER_OUT_BEG       NETDBG_CODE(DBG_NETSOCK, 1)
@@ -256,8 +246,6 @@ MALLOC_DEFINE(M_PCB, "pcb", "protocol control block");
 #define DBG_FNC_SORECEIVE       NETDBG_CODE(DBG_NETSOCK, (8 << 8))
 #define DBG_FNC_SORECEIVE_LIST  NETDBG_CODE(DBG_NETSOCK, (8 << 8) | 3)
 #define DBG_FNC_SOSHUTDOWN      NETDBG_CODE(DBG_NETSOCK, (9 << 8))
-
-#define MAX_SOOPTGETM_SIZE      (128 * MCLBYTES)
 
 int somaxconn = SOMAXCONN;
 SYSCTL_INT(_kern_ipc, KIPC_SOMAXCONN, somaxconn,
@@ -271,29 +259,6 @@ SYSCTL_INT(_kern_ipc, OID_AUTO, sosendminchain,
     CTLFLAG_RW | CTLFLAG_LOCKED, &sosendminchain, 0, "");
 SYSCTL_INT(_kern_ipc, OID_AUTO, sorecvmincopy,
     CTLFLAG_RW | CTLFLAG_LOCKED, &sorecvmincopy, 0, "");
-
-/*
- * Set to enable jumbo clusters (if available) for large writes when
- * the socket is marked with SOF_MULTIPAGES; see below.
- */
-int sosendjcl = 1;
-SYSCTL_INT(_kern_ipc, OID_AUTO, sosendjcl,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &sosendjcl, 0, "");
-
-/*
- * Set this to ignore SOF_MULTIPAGES and use jumbo clusters for large
- * writes on the socket for all protocols on any network interfaces,
- * depending upon sosendjcl above.  Be extra careful when setting this
- * to 1, because sending down packets that cross physical pages down to
- * broken drivers (those that falsely assume that the physical pages
- * are contiguous) might lead to system panics or silent data corruption.
- * When set to 0, the system will respect SOF_MULTIPAGES, which is set
- * only for TCP sockets whose outgoing interface is IFNET_MULTIPAGES
- * capable.  Set this to 1 only for testing/debugging purposes.
- */
-int sosendjcl_ignore_capab = 0;
-SYSCTL_INT(_kern_ipc, OID_AUTO, sosendjcl_ignore_capab,
-    CTLFLAG_RW | CTLFLAG_LOCKED, &sosendjcl_ignore_capab, 0, "");
 
 /*
  * Set this to ignore SOF1_IF_2KCL and use big clusters for large
@@ -342,16 +307,8 @@ SYSCTL_INT(_kern_ipc, OID_AUTO, accept_list_waits, CTLFLAG_RW | CTLFLAG_LOCKED,
 
 extern struct inpcbinfo tcbinfo;
 
-/* TODO: these should be in header file */
-extern int get_inpcb_str_size(void);
-extern int get_tcp_str_size(void);
-
-vm_size_t       so_cache_zone_element_size;
-
 static int sodelayed_copy(struct socket *, struct uio *, struct mbuf **,
     user_ssize_t *);
-static void cached_sock_alloc(struct socket **, zalloc_flags_t);
-static void cached_sock_free(struct socket *);
 
 /*
  * Maximum of extended background idle sockets per process
@@ -395,23 +352,23 @@ SYSCTL_INT(_kern_ipc, OID_AUTO, sotcdb, CTLFLAG_RW | CTLFLAG_LOCKED,
 void
 socketinit(void)
 {
-	_CASSERT(sizeof(so_gencnt) == sizeof(uint64_t));
+	static_assert(sizeof(so_gencnt) == sizeof(uint64_t));
 	VERIFY(IS_P2ALIGNED(&so_gencnt, sizeof(uint32_t)));
 
 #ifdef __LP64__
-	_CASSERT(sizeof(struct sa_endpoints) == sizeof(struct user64_sa_endpoints));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcif) == offsetof(struct user64_sa_endpoints, sae_srcif));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcaddr) == offsetof(struct user64_sa_endpoints, sae_srcaddr));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcaddrlen) == offsetof(struct user64_sa_endpoints, sae_srcaddrlen));
-	_CASSERT(offsetof(struct sa_endpoints, sae_dstaddr) == offsetof(struct user64_sa_endpoints, sae_dstaddr));
-	_CASSERT(offsetof(struct sa_endpoints, sae_dstaddrlen) == offsetof(struct user64_sa_endpoints, sae_dstaddrlen));
+	static_assert(sizeof(struct sa_endpoints) == sizeof(struct user64_sa_endpoints));
+	static_assert(offsetof(struct sa_endpoints, sae_srcif) == offsetof(struct user64_sa_endpoints, sae_srcif));
+	static_assert(offsetof(struct sa_endpoints, sae_srcaddr) == offsetof(struct user64_sa_endpoints, sae_srcaddr));
+	static_assert(offsetof(struct sa_endpoints, sae_srcaddrlen) == offsetof(struct user64_sa_endpoints, sae_srcaddrlen));
+	static_assert(offsetof(struct sa_endpoints, sae_dstaddr) == offsetof(struct user64_sa_endpoints, sae_dstaddr));
+	static_assert(offsetof(struct sa_endpoints, sae_dstaddrlen) == offsetof(struct user64_sa_endpoints, sae_dstaddrlen));
 #else
-	_CASSERT(sizeof(struct sa_endpoints) == sizeof(struct user32_sa_endpoints));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcif) == offsetof(struct user32_sa_endpoints, sae_srcif));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcaddr) == offsetof(struct user32_sa_endpoints, sae_srcaddr));
-	_CASSERT(offsetof(struct sa_endpoints, sae_srcaddrlen) == offsetof(struct user32_sa_endpoints, sae_srcaddrlen));
-	_CASSERT(offsetof(struct sa_endpoints, sae_dstaddr) == offsetof(struct user32_sa_endpoints, sae_dstaddr));
-	_CASSERT(offsetof(struct sa_endpoints, sae_dstaddrlen) == offsetof(struct user32_sa_endpoints, sae_dstaddrlen));
+	static_assert(sizeof(struct sa_endpoints) == sizeof(struct user32_sa_endpoints));
+	static_assert(offsetof(struct sa_endpoints, sae_srcif) == offsetof(struct user32_sa_endpoints, sae_srcif));
+	static_assert(offsetof(struct sa_endpoints, sae_srcaddr) == offsetof(struct user32_sa_endpoints, sae_srcaddr));
+	static_assert(offsetof(struct sa_endpoints, sae_srcaddrlen) == offsetof(struct user32_sa_endpoints, sae_srcaddrlen));
+	static_assert(offsetof(struct sa_endpoints, sae_dstaddr) == offsetof(struct user32_sa_endpoints, sae_dstaddr));
+	static_assert(offsetof(struct sa_endpoints, sae_dstaddrlen) == offsetof(struct user32_sa_endpoints, sae_dstaddrlen));
 #endif
 
 	if (socketinit_done) {
@@ -426,92 +383,16 @@ socketinit(void)
 	PE_parse_boot_argn("sosend_assert_panic", &sosend_assert_panic,
 	    sizeof(sosend_assert_panic));
 
-	STAILQ_INIT(&so_cache_head);
-
-	so_cache_zone_element_size = (vm_size_t)(sizeof(struct socket) + 4
-	    + get_inpcb_str_size() + 4 + get_tcp_str_size());
-
-	so_cache_zone = zone_create("socache zone", so_cache_zone_element_size,
-	    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM);
-
 	bzero(&soextbkidlestat, sizeof(struct soextbkidlestat));
 	soextbkidlestat.so_xbkidle_maxperproc = SO_IDLE_BK_IDLE_MAX_PER_PROC;
 	soextbkidlestat.so_xbkidle_time = SO_IDLE_BK_IDLE_TIME;
 	soextbkidlestat.so_xbkidle_rcvhiwat = SO_IDLE_BK_IDLE_RCV_HIWAT;
 
 	in_pcbinit();
-}
 
-static void
-cached_sock_alloc(struct socket **so, zalloc_flags_t how)
-{
-	caddr_t temp;
-	uintptr_t offset;
-
-	lck_mtx_lock(&so_cache_mtx);
-
-	if (!STAILQ_EMPTY(&so_cache_head)) {
-		VERIFY(cached_sock_count > 0);
-
-		*so = STAILQ_FIRST(&so_cache_head);
-		STAILQ_REMOVE_HEAD(&so_cache_head, so_cache_ent);
-		STAILQ_NEXT((*so), so_cache_ent) = NULL;
-
-		cached_sock_count--;
-		lck_mtx_unlock(&so_cache_mtx);
-
-		temp = (*so)->so_saved_pcb;
-		bzero(*so, sizeof(struct socket));
-
-		(*so)->so_saved_pcb = temp;
-	} else {
-		lck_mtx_unlock(&so_cache_mtx);
-
-		uint8_t *so_mem = zalloc_flags_buf(so_cache_zone, how | Z_ZERO);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-align"
-		*so = (struct socket *)so_mem;
-
-		/*
-		 * Define offsets for extra structures into our
-		 * single block of memory. Align extra structures
-		 * on longword boundaries.
-		 */
-
-		offset = (uintptr_t)so_mem;
-		offset += sizeof(struct socket);
-		offset = ALIGN(offset);
-		struct inpcb *pcb = (struct inpcb *)(so_mem + (offset - (uintptr_t)so_mem));
-#pragma clang diagnostic pop
-		(*so)->so_saved_pcb = (caddr_t)pcb;
-
-		offset += get_inpcb_str_size();
-		offset = ALIGN(offset);
-		pcb->inp_saved_ppcb = (caddr_t)(so_mem + (offset - (uintptr_t)so_mem));
-	}
-
-	OSBitOrAtomic(SOF1_CACHED_IN_SOCK_LAYER, &(*so)->so_flags1);
-}
-
-static void
-cached_sock_free(struct socket *so)
-{
-	lck_mtx_lock(&so_cache_mtx);
-
-	so_cache_time = net_uptime();
-	if (++cached_sock_count > max_cached_sock_count) {
-		--cached_sock_count;
-		lck_mtx_unlock(&so_cache_mtx);
-		zfree(so_cache_zone, so);
-	} else {
-		if (so_cache_hw < cached_sock_count) {
-			so_cache_hw = cached_sock_count;
-		}
-
-		STAILQ_INSERT_TAIL(&so_cache_head, so, so_cache_ent);
-
-		so->cache_timestamp = so_cache_time;
-		lck_mtx_unlock(&so_cache_mtx);
+	socket_memacct = mem_acct_register("SOCKET", 0, 0);
+	if (socket_memacct == NULL) {
+		panic("mem_acct_register returned NULL");
 	}
 }
 
@@ -561,63 +442,19 @@ so_update_necp_policy(struct socket *so, struct sockaddr *override_local_addr,
 }
 #endif /* NECP */
 
-boolean_t
-so_cache_timer(void)
-{
-	struct socket   *p;
-	int             n_freed = 0;
-	boolean_t rc = FALSE;
-
-	lck_mtx_lock(&so_cache_mtx);
-	so_cache_timeouts++;
-	so_cache_time = net_uptime();
-
-	while (!STAILQ_EMPTY(&so_cache_head)) {
-		VERIFY(cached_sock_count > 0);
-		p = STAILQ_FIRST(&so_cache_head);
-		if ((so_cache_time - p->cache_timestamp) <
-		    SO_CACHE_TIME_LIMIT) {
-			break;
-		}
-
-		STAILQ_REMOVE_HEAD(&so_cache_head, so_cache_ent);
-		--cached_sock_count;
-
-		zfree(so_cache_zone, p);
-
-		if (++n_freed >= SO_CACHE_MAX_FREE_BATCH) {
-			so_cache_max_freed++;
-			break;
-		}
-	}
-
-	/* Schedule again if there is more to cleanup */
-	if (!STAILQ_EMPTY(&so_cache_head)) {
-		rc = TRUE;
-	}
-
-	lck_mtx_unlock(&so_cache_mtx);
-	return rc;
-}
-
 /*
  * Get a socket structure from our zone, and initialize it.
- * We don't implement `waitok' yet (see comments in uipc_domain.c).
+ *
  * Note that it would probably be better to allocate socket
  * and PCB at the same time, but I'm not convinced that all
  * the protocols can be easily modified to do this.
  */
 struct socket *
-soalloc(int waitok, int dom, int type)
+soalloc(void)
 {
-	zalloc_flags_t how = waitok ? Z_WAITOK : Z_NOWAIT;
 	struct socket *__single so;
 
-	if ((dom == PF_INET) && (type == SOCK_STREAM)) {
-		cached_sock_alloc(&so, how);
-	} else {
-		so = zalloc_flags(socket_zone, how | Z_ZERO);
-	}
+	so = zalloc_flags(socket_zone, Z_WAITOK_ZERO);
 	if (so != NULL) {
 		so->so_gencnt = OSIncrementAtomic64((SInt64 *)&so_gencnt);
 
@@ -662,7 +499,10 @@ socreate_internal(int dom, struct socket **aso, int type, int proto,
 	if (prp->pr_type != type) {
 		return EPROTOTYPE;
 	}
-	so = soalloc(1, dom, type);
+	if (proto_memacct_hardlimit(prp)) {
+		return ENOBUFS;
+	}
+	so = soalloc();
 	if (so == NULL) {
 		return ENOBUFS;
 	}
@@ -753,6 +593,8 @@ socreate_internal(int dom, struct socket **aso, int type, int proto,
 	so->so_rcv.sb_so = so->so_snd.sb_so = so;
 	so->next_lock_lr = 0;
 	so->next_unlock_lr = 0;
+
+	proto_memacct_add(so->so_proto, sizeof(struct socket));
 
 	/*
 	 * Attachment will create the per pcb lock if necessary and
@@ -952,6 +794,8 @@ out:
 void
 sodealloc(struct socket *so)
 {
+	proto_memacct_sub(so->so_proto, sizeof(struct socket));
+
 	kauth_cred_unref(&so->so_cred);
 
 	/* Remove any filters */
@@ -959,11 +803,7 @@ sodealloc(struct socket *so)
 
 	so->so_gencnt = OSIncrementAtomic64((SInt64 *)&so_gencnt);
 
-	if (so->so_flags1 & SOF1_CACHED_IN_SOCK_LAYER) {
-		cached_sock_free(so);
-	} else {
-		zfree(socket_zone, so);
-	}
+	zfree(socket_zone, so);
 }
 
 /*
@@ -2014,9 +1854,10 @@ int
 sosendcheck(struct socket *so, struct sockaddr *addr, user_ssize_t resid,
     int32_t clen, int32_t atomic, int flags, int *sblocked)
 {
-	int     error = 0;
+	int assumelock = 0;
+	int error = 0;
 	int32_t space;
-	int     assumelock = 0;
+	int ret;
 
 restart:
 	if (*sblocked == 0) {
@@ -2130,6 +1971,12 @@ defunct:
 			return error;
 		}
 		goto restart;
+	}
+
+	ret = proto_memacct_limited(so->so_proto);
+	if (ret == MEMACCT_HARDLIMIT ||
+	    (ret == MEMACCT_SOFTLIMIT && so->so_snd.sb_cc > 0)) {
+		return ENOMEM;
 	}
 	return 0;
 }
@@ -2340,9 +2187,7 @@ sosend(struct socket *so, struct sockaddr *addr, struct uio *uio,
 				 * a jumbo cluster pool and if the socket is
 				 * marked accordingly.
 				 */
-				jumbocl = sosendjcl && njcl > 0 &&
-				    ((so->so_flags & SOF_MULTIPAGES) ||
-				    sosendjcl_ignore_capab) &&
+				jumbocl = (so->so_flags & SOF_MULTIPAGES) != 0 &&
 				    bigcl;
 
 				socket_unlock(so, 0);
@@ -5836,7 +5681,48 @@ sosetoptlock(struct socket *so, struct sockopt *sopt, int dolock)
 				so->so_flags1 |= SOF1_DOMAIN_INFO_SILENT;
 			}
 			break;
+		case SO_MAX_PACING_RATE: {
+			uint64_t pacingrate;
 
+			if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
+				error = EINVAL;
+				goto out;
+			}
+
+			error = sooptcopyin(sopt, &pacingrate,
+			    sizeof(pacingrate), sizeof(pacingrate));
+			if (error != 0) {
+				goto out;
+			}
+
+			if (pacingrate == 0) {
+				error = EINVAL;
+				goto out;
+			}
+			sotoinpcb(so)->inp_max_pacing_rate = pacingrate;
+			break;
+		}
+		case SO_CONNECTION_IDLE: {
+			int is_idle;
+
+			if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
+				error = EINVAL;
+				goto out;
+			}
+
+			error = sooptcopyin(sopt, &is_idle,
+			    sizeof(is_idle), sizeof(is_idle));
+			if (error != 0) {
+				goto out;
+			}
+
+			if (is_idle != 0) {
+				sotoinpcb(so)->inp_flags2 |= INP2_CONNECTION_IDLE;
+			} else {
+				sotoinpcb(so)->inp_flags2 &= ~INP2_CONNECTION_IDLE;
+			}
+			break;
+		}
 		default:
 			error = ENOPROTOOPT;
 			break;
@@ -6352,6 +6238,28 @@ integer:
 			optval = ((so->so_flags1 & SOF1_DOMAIN_INFO_SILENT) > 0)
 			    ? 1 : 0;
 			goto integer;
+		case SO_MAX_PACING_RATE: {
+			uint64_t pacingrate;
+
+			if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
+				error = EINVAL;
+				goto out;
+			}
+
+			pacingrate = sotoinpcb(so)->inp_max_pacing_rate;
+
+			error = sooptcopyout(sopt, &pacingrate, sizeof(pacingrate));
+			break;
+		}
+		case SO_CONNECTION_IDLE: {
+			if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
+				error = EINVAL;
+				goto out;
+			}
+			optval = sotoinpcb(so)->inp_flags2 & INP2_CONNECTION_IDLE ?
+			    1 : 0;
+			goto integer;
+		}
 		default:
 			error = ENOPROTOOPT;
 			break;
@@ -8252,6 +8160,66 @@ socket_post_kev_msg_closed(struct socket *so)
 	}
 	free_sockaddr(socksa);
 	free_sockaddr(peersa);
+}
+
+void
+sock_parse_cm_info(struct mbuf *control, struct sock_cm_info *sockcminfo)
+{
+	struct cmsghdr *cm;
+
+	for (cm = M_FIRST_CMSGHDR(control);
+	    is_cmsg_valid(control, cm);
+	    cm = M_NXT_CMSGHDR(control, cm)) {
+		int val;
+
+		if (cm->cmsg_level != SOL_SOCKET) {
+			continue;
+		}
+
+		if (cm->cmsg_len == CMSG_LEN(sizeof(int))) {
+			val = *(int *)(void *)CMSG_DATA(cm);
+		}
+
+		switch (cm->cmsg_type) {
+		case SO_TRAFFIC_CLASS:
+			if (cm->cmsg_len != CMSG_LEN(sizeof(int))) {
+				break;
+			}
+			if (SO_VALID_TC(val)) {
+				sockcminfo->sotc = val;
+				break;
+			} else if (val < SO_TC_NET_SERVICE_OFFSET) {
+				break;
+			}
+			/*
+			 * Handle the case SO_NET_SERVICE_TYPE values are
+			 * passed using SO_TRAFFIC_CLASS
+			 */
+			val = val - SO_TC_NET_SERVICE_OFFSET;
+
+			OS_FALLTHROUGH;
+		case SO_NET_SERVICE_TYPE:
+			if (cm->cmsg_len != CMSG_LEN(sizeof(int))) {
+				break;
+			}
+
+			if (!IS_VALID_NET_SERVICE_TYPE(val)) {
+				break;
+			}
+			sockcminfo->netsvctype = val;
+			sockcminfo->sotc = sotc_by_netservicetype[val];
+			break;
+		case SCM_TXTIME:
+			if (cm->cmsg_len != CMSG_LEN(sizeof(uint64_t))) {
+				break;
+			}
+
+			sockcminfo->tx_time = *(uint64_t *)(void *)CMSG_DATA(cm);
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 __attribute__((noinline, cold, not_tail_called, noreturn))

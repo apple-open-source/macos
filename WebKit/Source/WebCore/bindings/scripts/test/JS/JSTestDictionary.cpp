@@ -35,7 +35,7 @@ template<> ConversionResult<IDLDictionary<TestDictionary>> convertDictionary<Tes
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     bool isNullOrUndefined = value.isUndefinedOrNull();
     auto* object = isNullOrUndefined ? nullptr : value.getObject();
-    if (UNLIKELY(!isNullOrUndefined && !object)) {
+    if (!isNullOrUndefined && !object) [[unlikely]] {
         throwTypeError(&lexicalGlobalObject, throwScope);
         return ConversionResultException { };
     }
@@ -49,7 +49,7 @@ template<> ConversionResult<IDLDictionary<TestDictionary>> convertDictionary<Tes
     }
     if (!memberValue.isUndefined()) {
         auto memberConversionResult = convert<IDLDouble>(lexicalGlobalObject, memberValue);
-        if (UNLIKELY(memberConversionResult.hasException(throwScope)))
+        if (memberConversionResult.hasException(throwScope)) [[unlikely]]
             return ConversionResultException { };
         result.member = memberConversionResult.releaseReturnValue();
     }

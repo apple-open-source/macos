@@ -16,7 +16,7 @@ SCHED_POLICY_T_DECL(runq_shared_rsrc_bound,
 	init_migration_harness(single_core);
 	struct thread_group *tg = create_tg(0);
 	/* Test both shared resource types */
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < CLUSTER_SHARED_RSRC_TYPE_COUNT; i++) {
 		thread_t thread = create_thread(TH_BUCKET_SHARE_DF, tg, root_bucket_to_highest_pri[TH_BUCKET_SHARE_DF]);
 		edge_set_thread_shared_rsrc(thread, i);
 		enqueue_thread(default_target, thread);

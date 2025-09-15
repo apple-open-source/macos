@@ -575,7 +575,6 @@ extern int in_control(struct socket *, u_long cmd, caddr_t __sized_by(IOCPARM_LE
 extern int in_inithead(void **, int);
 extern void in_rtqdrain(void);
 extern struct radix_node *in_validate(struct radix_node *);
-extern void ip_input(struct mbuf *);
 extern void ip_input_process_list(struct mbuf *);
 extern int in_ifadown(struct ifaddr *ifa, int);
 extern void in_ifscrub(struct ifnet *, struct in_ifaddr *, int);

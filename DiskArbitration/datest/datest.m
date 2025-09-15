@@ -41,6 +41,7 @@
 #include <paths.h>
 #include <time.h>
 #include <CoreAnalytics/CoreAnalytics.h>
+#include <bsm/libbsm.h>
 
 #define kDAMaxArgLength 2048
 
@@ -78,8 +79,12 @@ enum {
     kDAName,
     kDAUseBlockCallback,
     kDASetFSKitAdditions,
+    kDARepairRunning,
+    kDARepairProgress,
+    kDASetDiskAdoption,
     kDATestTelemetry,
     kDAValue,
+    kDAUseAuditToken,
     kDAHelp,
     kDALast
 } options;
@@ -121,7 +126,11 @@ static struct option opts[] = {
 { "nofollow",                                   no_argument,            0,              kDANoFollow},
 { "useBlockCallback",                           no_argument,            0,              kDAUseBlockCallback},
 { "testSetFSKitAdditions",                      no_argument,            0,              kDASetFSKitAdditions},
+{ "checkRepairRunning",                         no_argument,            0,              kDARepairRunning },
+{ "checkRepairProgress",                        no_argument,            0,              kDARepairProgress },
+{ "setDiskAdoption",                            required_argument,      0,              kDASetDiskAdoption },
 { "testTelemetry",                              no_argument,            0,              kDATestTelemetry},
+{ "useAuditToken",                              no_argument,            0,              kDAUseAuditToken},
 { "help",                                       no_argument,            0,              kDAHelp },
 { 0,                   0,                      0,              0 }
 };
@@ -198,7 +207,7 @@ int done = 0;
         case DATelemetryFSTypeNTFS:
             return "ntfs";
         case DATelemetryFSTypeMSDOSEFI:
-            return "msdos-efi";
+            return "msdos"; // msdos-efi is considered msdos for DADiskDescription purposes.
         default:
             return "other";
     }
@@ -283,7 +292,7 @@ int done = 0;
             {
                 printf( "Received operation with fs type %s, expected %s\n" ,
                         [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:fsType] ,
-                        [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:fsType] );
+                        [DATestTelemetryObserverDelegate DATelemetryFSTypeToString:_fsType] );
             }
             break;
         case DATelemetryOpEject:
@@ -374,27 +383,115 @@ int done = 0;
 
 @end
 
+@interface DATestProgressObserver : NSObject {
+    NSProgress *_progress;
+}
+
+@property NSURL *deviceURL;
+
+-(BOOL)verifyProgress;
+
+@end
+
+@implementation DATestProgressObserver
+
+-(NSProgress *)progress
+{
+    @synchronized (self) {
+        return _progress;
+    }
+}
+
+-(void)setProgress:(NSProgress * _Nullable)progress {
+    @synchronized (self) {
+        if ( _progress ) {
+            [_progress removeObserver:self
+                           forKeyPath:@"completedUnitCount"
+                              context:nil];
+            _progress = nil;
+        }
+        _progress = progress;
+        if (progress) {
+            [progress addObserver:self
+                       forKeyPath:@"completedUnitCount"
+                          options:NSKeyValueObservingOptionNew
+                          context:nil];
+        }
+    }
+}
+
+-(void)observeValueForKeyPath:(NSString *)keyPath
+                     ofObject:(id)object
+                       change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                      context:(void *)context
+{
+    @synchronized (self) {
+        if ( _progress ) {
+            printf( "Current progress: %lld/%lld\n" ,
+                    _progress.completedUnitCount ,
+                    _progress.totalUnitCount );
+        }
+    }
+}
+
+-(BOOL)verifyProgress
+{
+    BOOL receivedProgress = NO;
+    
+    if ( ! _progress )
+    {
+        printf( "Unable to get repair progress for %s\n", _deviceURL.path.UTF8String );
+    }
+    else if ( ! _progress.completedUnitCount )
+    {
+        printf( "Did not get non-zero repair progress for %s\n" ,
+               _deviceURL.path.UTF8String );
+    }
+    else
+    {
+        printf( "Final progress received for %s: %lld/%lld\n",
+                _deviceURL.path.UTF8String ,
+                _progress.completedUnitCount ,
+                _progress.totalUnitCount );
+        
+        receivedProgress = YES;
+    }
+    
+    if ( _progress )
+    {
+        [_progress removeObserver:self
+                       forKeyPath:@"completedUnitCount"
+                          context:nil];
+        _progress = nil;
+    }
+    
+    return receivedProgress;
+}
+
+@end
+
 static void usage(void)
 {
     fprintf(stderr, "Usage: %s [options]\n", getprogname());
     fputs(
 "datest --help\n"
 "\n"
-"datest --mount --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback] [--testTelemetry]\n"
+"datest --mount --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback --useAuditToken] [--testTelemetry] [--checkRepairProgress]\n"
 "datest --mountApproval --device <device> [--options <options> ] [--mountpath <path>] [--useBlockCallback]\n"
-"datest --unmount --device <device> [--force ] [--whole ] [--useBlockCallback] [--testTelemetry]\n"
+"datest --unmount --device <device> [--force ] [--whole ] [--useBlockCallback  --useAuditToken] [--testTelemetry]\n"
 "datest --unmountApproval --device <device> [--force ] [--whole ] [--useBlockCallback] \n"
-"datest --eject --device <device> [--useBlockCallback] [--testTelemetry]\n"
+"datest --eject --device <device> [--useBlockCallback --useAuditToken] [--testTelemetry]\n"
 "datest --ejectApproval --device <device> [--useBlockCallback] \n"
-"datest --rename --device <device>  --name <name> [--useBlockCallback] \n"
+"datest --rename --device <device>  --name <name> [--useBlockCallback --useAuditToken]\n"
 "datest --testDiskAppeared [--useBlockCallback] \n"
 "datest --testDiskDisAppeared --device <device> [--useBlockCallback] \n"
-"datest --testDiskDescChanged --device <device> [--useBlockCallback] \n"
+"datest --testDiskDescChanged --device <device> [--useBlockCallback] [--checkRepairRunning]\n"
 "datest --testDAIdle  [--useBlockCallback] \n"
 "datest --testDASessionKeepAliveWithDAIdle  \n"
 "datest --testDASessionKeepAliveWithDADiskAppeared  \n"
 "datest --testDASessionKeepAliveWithDARegisterDiskAppeared  \n"
 "datest --testDASessionKeepAliveWithDADiskDescriptionChanged \n"
+"datest --setDiskAdoption <y/n> --device <device> \n"
 #ifdef DA_FSKIT
 "datest --testSetFSKitAdditions --device <device> \n"
 #endif
@@ -403,6 +500,21 @@ static void usage(void)
 ,
       stderr);
     exit(1);
+}
+
+static kern_return_t getCurrentAuditToken( audit_token_t *token )
+{
+    kern_return_t ret = KERN_NOT_SUPPORTED;
+    
+    mach_msg_type_number_t infoSize = TASK_AUDIT_TOKEN_COUNT;
+    ret = task_info( mach_task_self() , TASK_AUDIT_TOKEN,
+                     (task_info_t)token, &infoSize);
+    if ( ret != KERN_SUCCESS )
+    {
+        printf("Could not retrieve audit token");
+    }
+    
+    return ret;
 }
 
 static int TranslateDAError( DAReturn errnum )
@@ -513,6 +625,66 @@ void DiskDescriptionChangedCallback( DADiskRef disk, CFArrayRef keys, void *cont
     done = 1;
 }
 
+void DiskDescriptionRepairRunningCallback( DADiskRef disk, CFArrayRef keys, void *context )
+{
+    static bool repairRunning = false;
+    static bool startedRepair = false;
+    CFDictionaryRef description;
+    
+    CFRetain(disk);
+    CFShow(disk);
+    CFShow(keys);
+    
+    description = DADiskCopyDescription( disk );
+    
+    if ( description )
+    {
+        // Check the disk repair description update to make sure it is added or removed as expected.
+        if ( CFArrayContainsValue( keys , CFRangeMake( 0, CFArrayGetCount( keys ) ) , kDADiskDescriptionRepairRunningKey ) )
+        {
+            if ( CFDictionaryGetValue( description, kDADiskDescriptionRepairRunningKey ) != NULL )
+            {
+                startedRepair = true;
+                
+                if ( !repairRunning )
+                {
+                    repairRunning = true;
+                    printf("DiskDescriptionRepairRunningCallback dispatched - repair is in progress\n");
+                }
+            }
+            else
+            {
+                if ( repairRunning )
+                {
+                    repairRunning = false;
+                    printf("DiskDescriptionRepairRunningCallback dispatched - repair completed\n");
+                }
+                else
+                {
+                    printf("Removed repair in progress key, but repair was never started.\n");
+                }
+            }
+        }
+        
+        // Make sure the repair was cleared after the mount ended.
+        if ( CFArrayContainsValue( keys , CFRangeMake( 0, CFArrayGetCount( keys ) ) , kDADiskDescriptionVolumePathKey ) || done )
+        {
+            if ( startedRepair )
+            {
+                printf("Repair running key was%s cleared after mount.\n", ( repairRunning ) ? " not" : "");
+            }
+            else
+            {
+                printf("Disk repair did not run. Please use a disk that requires repair.\n");
+            }
+        }
+    }
+    else
+    {
+        printf("failed to copy description in repair description callback \n");
+    }
+}
+
 void IdleCallback(void *context)
 {
     printf("Idle received\n");
@@ -591,13 +763,17 @@ static void stopTestTelemetry( CFStringRef fsTypeExpected )
     }
 }
 
-static int testMount(struct clarg actargs[kDALast], bool approval)
+static int testMountAsync(struct clarg actargs[kDALast], bool approval)
 {
     __block OSStatus        ret = 1;
     DASessionRef            _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFURLRef                mountpoint = NULL;
     CFStringRef             *mountoptions = NULL;
+    bool                    trackRepairProgress = false;
+    id                      subscriber;
+    NSURL                   *deviceURL = NULL;
+    DATestProgressObserver  *observer;
     
     if (validateArguments(validArgs, sizeof(validArgs)/sizeof(int), actargs))
     {
@@ -642,6 +818,45 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
             options |= kDADiskMountOptionNoFollow;
         }
         
+        bool useAuditToken = false;
+        audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+        if ( actargs[kDAUseBlockCallback].present
+               && actargs[kDAUseAuditToken].present
+               && getCurrentAuditToken( &token ) == KERN_SUCCESS )
+        {
+            useAuditToken = true;
+        }
+        
+        trackRepairProgress = actargs[kDARepairProgress].present;
+        if ( trackRepairProgress )
+        {
+            NSString *deviceName = [NSString stringWithFormat:@"%s", actargs[kDADevice].argument];
+            
+            if ( deviceName )
+            {
+                if ( [deviceName hasPrefix:@"/dev/"] )
+                {
+                    deviceName = [deviceName substringFromIndex:@"/dev/".length];
+                }
+                
+                deviceURL = [NSURL fileURLWithPath:[NSString stringWithFormat:@"/dev/r%@",
+                                                        deviceName]];
+                observer = [DATestProgressObserver new];
+                observer.deviceURL = deviceURL;
+                printf("Subscribing to progress updates for %s\n", deviceURL.path.UTF8String);
+                [NSProgress addSubscriberForFileURL:deviceURL withPublishingHandler:^NSProgressUnpublishingHandler _Nullable(NSProgress * _Nonnull progress) {
+                    observer.progress = progress;
+                    NSProgressUnpublishingHandler unsubscribeHandler = ^{
+                        printf( "Unsubscribed from updates for %s\n",
+                                deviceURL.path.UTF8String );
+                        ret = 0;
+                    };
+                    
+                    return unsubscribeHandler;
+                }];
+            }
+        }
+        
         if ( approval == true )
         {
             
@@ -655,12 +870,20 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
                 };
                 
                 DARegisterDiskMountApprovalCallbackBlock( _session, NULL, bl);
-                DADiskMountWithArgumentsAndBlock( _disk, mountpoint, options, NULL, mountoptions );
+                
+                if ( useAuditToken )
+                {
+                    DADiskMountWithArgumentsAndBlockAndAuditToken( _disk, mountpoint, options, NULL, mountoptions , token );
+                }
+                else
+                {
+                    DADiskMountWithArgumentsAndBlock( _disk, mountpoint, options, NULL, mountoptions );
+                }
             }
             else
             {
-                DARegisterDiskMountApprovalCallback( _session, NULL, DiskApprovalCallback, &ret);
-                DADiskMountWithArguments (_disk, mountpoint, options, NULL, &ret, mountoptions);
+                DARegisterDiskMountApprovalCallback( _session, NULL, DiskApprovalCallback, NULL);
+                DADiskMountWithArguments(_disk , mountpoint , options , NULL , &ret , mountoptions );
             }
         }
         else
@@ -672,11 +895,18 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
                     DiskMountCallback( disk, dissenter, &ret);
                 };
                 
-                DADiskMountWithArgumentsAndBlock( _disk, mountpoint, options, block, mountoptions );
+                if ( useAuditToken == true )
+                {
+                    DADiskMountWithArgumentsAndBlockAndAuditToken( _disk, mountpoint, options, block, mountoptions , token );
+                }
+                else
+                {
+                    DADiskMountWithArgumentsAndBlock( _disk, mountpoint, options, block, mountoptions );
+                }
             }
             else
             {
-                DADiskMountWithArguments (_disk, mountpoint, options, DiskMountCallback, &ret, mountoptions);
+                DADiskMountWithArguments( _disk, mountpoint, options, DiskMountCallback, &ret, mountoptions);
             }
         }
     }
@@ -692,11 +922,26 @@ static int testMount(struct clarg actargs[kDALast], bool approval)
         stopTestTelemetry( CFDictionaryGetValue( description, kDADiskDescriptionVolumeKindKey ) );
     }
 
+    if ( trackRepairProgress && ret == 0 )
+    {
+        ret = ( [observer verifyProgress] ) ? 0 : -1;
+    }
+
 exit:
     if (mountoptions) free(mountoptions);
     return ret;
 }
 
+static int testMount(struct clarg actargs[kDALast], bool approval)
+{
+    dispatch_async( dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT , 0 ) ,
+                    ^{
+        exit( testMountAsync( actargs , approval ) );
+    });
+    
+    CFRunLoopRun();
+    return -1; // Failed to run loop
+}
 
 static int testUnmount(struct clarg actargs[kDALast], int approval)
 {
@@ -740,6 +985,16 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
         if (actargs[kDAWhole].present) {
             options |= kDADiskUnmountOptionWhole;
         }
+        
+        bool useAuditToken = false;
+        audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+        if ( actargs[kDAUseBlockCallback].present
+               && actargs[kDAUseAuditToken].present
+               && getCurrentAuditToken( &token ) == KERN_SUCCESS )
+        {
+            useAuditToken = true;
+        }
+        
         if ( approval == true )
         {
             if ( actargs[kDAUseBlockCallback].present )
@@ -752,7 +1007,15 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
                 };
                 
                 DARegisterDiskUnmountApprovalCallbackBlock( _session, NULL, bl);
-                DADiskUnmountWithBlock( _disk, options, NULL );
+                
+                if ( useAuditToken == true )
+                {
+                    DADiskUnmountWithBlockAndAuditToken( _disk, options, NULL, token );
+                }
+                else
+                {
+                    DADiskUnmountWithBlock( _disk, options, NULL );
+                }
             }
             else
             {
@@ -769,11 +1032,18 @@ static int testUnmount(struct clarg actargs[kDALast], int approval)
                     DiskUnmountCallback( disk, dissenter, &ret );
                 };
                 
-                DADiskUnmountWithBlock( _disk, options, block );
+                if ( useAuditToken == true )
+                {
+                    DADiskUnmountWithBlockAndAuditToken( _disk, options, block, token );
+                }
+                else
+                {
+                    DADiskUnmountWithBlock( _disk, options, block );
+                }
             }
             else
             {
-                DADiskUnmount( _disk, options, DiskUnmountCallback,  &ret );
+                DADiskUnmount( _disk, options, DiskUnmountCallback, &ret );
             }
         }
     }
@@ -835,7 +1105,15 @@ static int testEject(struct clarg actargs[kDALast], int approval)
     }
     
     if ( _session ) {
-
+        bool useAuditToken = false;
+        audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+        if ( actargs[kDAUseBlockCallback].present
+               && actargs[kDAUseAuditToken].present
+               && getCurrentAuditToken( &token ) == KERN_SUCCESS )
+        {
+            useAuditToken = true;
+        }
+        
         int options = kDADiskUnmountOptionDefault;
         if (approval == true)
         {
@@ -851,9 +1129,19 @@ static int testEject(struct clarg actargs[kDALast], int approval)
                 
                 DARegisterDiskEjectApprovalCallbackBlock( _session, NULL, bl);
                 
-                DADiskEjectWithBlock( _disk,
-                                     options,
-                                     NULL );
+                if ( useAuditToken )
+                {
+                    DADiskEjectWithBlockAndAuditToken( _disk,
+                                                       options,
+                                                       NULL,
+                                                       token );
+                }
+                else
+                {
+                    DADiskEjectWithBlock( _disk,
+                                         options,
+                                         NULL );
+                }
             }
             else
             {
@@ -873,16 +1161,23 @@ static int testEject(struct clarg actargs[kDALast], int approval)
                     DiskEjectCallback( disk, dissenter, &ret);
                 };
                 
-                DADiskEjectWithBlock( _disk,
-                                     options,
-                                     block );
+                if ( useAuditToken )
+                {
+                    DADiskEjectWithBlockAndAuditToken( _disk,
+                                                       options,
+                                                       block,
+                                                       token );
+                }
+                else
+                {
+                    DADiskEjectWithBlock( _disk,
+                                         options,
+                                         block);
+                }
             }
             else
             {
-                DADiskEject( _disk,
-                            options,
-                            DiskEjectCallback,
-                            &ret );
+                DADiskEject( _disk, options, DiskEjectCallback, &ret );
             }
             
         }
@@ -1012,6 +1307,8 @@ static int testDiskDescriptionChanged(struct clarg actargs[kDALast])
     DASessionRef _session = DASessionCreate(kCFAllocatorDefault);
     int                     validArgs[] = {kDADevice};
     CFDictionaryRef     description = NULL;
+    bool         checkRepairStatus = actargs[kDARepairRunning].present;
+    DADiskDescriptionChangedCallback descCallback;
     
     if (validateArguments(validArgs, sizeof(validArgs)/sizeof(int), actargs))
     {
@@ -1027,7 +1324,7 @@ static int testDiskDescriptionChanged(struct clarg actargs[kDALast])
     description = DADiskCopyDescription(_disk);
     if (description) {
             
-        if ( CFDictionaryGetValue(description, kDADiskDescriptionVolumePathKey) == NULL )
+        if ( !checkRepairStatus && CFDictionaryGetValue(description, kDADiskDescriptionVolumePathKey) == NULL )
         {
             printf( "volume is not mounted. mount the volume and try again.\n ");
             goto exit;
@@ -1041,25 +1338,38 @@ static int testDiskDescriptionChanged(struct clarg actargs[kDALast])
         
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
     
+    descCallback = ( checkRepairStatus ) ? DiskDescriptionRepairRunningCallback : DiskDescriptionChangedCallback;
+    
     if ( _session ) {
 
         if ( actargs[kDAUseBlockCallback].present )
         {
             DADiskDescriptionChangedCallbackBlock block =  ^( DADiskRef disk, CFArrayRef keys )
             {
-                DiskDescriptionChangedCallback( disk, keys, &ret);
+                descCallback( disk, keys, (void *) &ret);
             };
             DARegisterDiskDescriptionChangedCallbackBlock(_session, NULL, NULL, block );
         }
         else
         {
-            DARegisterDiskDescriptionChangedCallback(_session, NULL, NULL, DiskDescriptionChangedCallback, &ret);
+            DARegisterDiskDescriptionChangedCallback(_session, NULL, NULL, descCallback, &ret);
         }
 
-        DADiskUnmount( _disk,
-                           kDADiskUnmountOptionDefault,
-                           NULL,
-                           NULL );
+        if ( checkRepairStatus )
+        {
+            DADiskMountWithArguments ( _disk ,
+                                       NULL ,
+                                       kDADiskMountOptionDefault ,
+                                       DiskMountCallback ,
+                                       &ret ,
+                                       NULL );
+        }
+        else {
+            DADiskUnmount( _disk,
+                          kDADiskUnmountOptionDefault,
+                          NULL,
+                          NULL );
+        }
         DASessionSetDispatchQueue(_session, myDispatchQueue);
     }
     
@@ -1274,7 +1584,15 @@ static int testRename(struct clarg actargs[kDALast])
     myDispatchQueue = dispatch_queue_create("com.example.DiskArbTest", DISPATCH_QUEUE_SERIAL);
     
     if ( _session ) {
-
+        bool useAuditToken = false;
+        audit_token_t token = INVALID_AUDIT_TOKEN_VALUE;
+        if ( actargs[kDAUseBlockCallback].present
+               && actargs[kDAUseAuditToken].present
+               && getCurrentAuditToken( &token ) == KERN_SUCCESS )
+        {
+            useAuditToken = true;
+        }
+        
         CFStringRef name = CFStringCreateWithCString(kCFAllocatorDefault,actargs[kDAName].argument, kCFStringEncodingUTF8);
         if ( actargs[kDAUseBlockCallback].present )
         {
@@ -1282,12 +1600,18 @@ static int testRename(struct clarg actargs[kDALast])
             {
                 DiskRenameCallback( disk, dissenter, &ret );
             };
-            DADiskRenameWithBlock(_disk, name, NULL, block );
+            if ( useAuditToken == true )
+            {
+                DADiskRenameWithBlockAndAuditToken(_disk, name, 0, block, token );
+            }
+            else
+            {
+                DADiskRenameWithBlock(_disk, name, 0, block );
+            }
         }
         else
         {
-            DADiskRename(_disk, name, NULL, DiskRenameCallback, &ret);
-            
+            DADiskRename(_disk, name, 0, DiskRenameCallback, &ret);
         }
         
         DASessionSetDispatchQueue(_session, myDispatchQueue);
@@ -1515,6 +1839,79 @@ exit:
     return ret;
 }
 
+static int testDASetDiskAdoption(struct clarg actargs[kDALast])
+{
+    __block OSStatus        ret = 1;
+    DASessionRef            _session = DASessionCreate(kCFAllocatorDefault);
+    int                     validArgs[] = {kDADevice};
+    CFDictionaryRef         description = NULL;
+    bool                    adoption = false;
+    
+    if (validateArguments(validArgs, sizeof(validArgs)/sizeof(int), actargs))
+    {
+        goto exit;
+    }
+    
+    if ( strnlen( actargs[kDASetDiskAdoption].argument ,
+                  sizeof(actargs[kDASetDiskAdoption].argument ) ) != 1 )
+    {
+        usage();
+        goto exit;
+    }
+    
+    switch (actargs[kDASetDiskAdoption].argument[0])
+    {
+        case 'y':
+            adoption = true;
+            break;
+        case 'n':
+            adoption = false;
+            break;
+        default:
+            usage();
+            goto exit;
+    }
+    
+    DADiskRef _disk = DADiskCreateFromBSDName(kCFAllocatorDefault, _session, actargs[kDADevice].argument);
+  
+    if ( !_disk )
+    {
+        printf( "%s does not exist", actargs[kDADevice].argument);
+        goto exit;
+    }
+        
+    description = DADiskCopyDescription(_disk);
+    if ( description )
+    {
+            
+        if ( CFDictionaryGetValue(description, kDADiskDescriptionVolumePathKey) == NULL )
+        {
+            printf( "volume is not mounted. mount the volume and try again.\n ");
+            goto exit;
+        }
+    }
+    else
+    {
+        printf( "DADiskCopyDescription failed.\n ");
+        goto exit;
+    }
+    
+    if ( _session )
+    {
+        if ( @available(macOS 16.0, iOS 19.0, *) )
+        {
+            ret = _DADiskSetAdoption(_disk, adoption);
+            printf( "Setting Disk Adoption to %d completed with status %X \n" , adoption , ret );
+        }
+        else
+        {
+            printf( "_DADiskSetAdoption is not available on this platform.\n" );
+        }
+    }
+
+exit:
+    return ret;
+}
 
 int main (int argc, char * argv[])
 {
@@ -1639,6 +2036,10 @@ int main (int argc, char * argv[])
 
     if(actargs[kDASetFSKitAdditions].present) {
         return testDASetFSKitAdditions(actargs);
+    }
+    
+    if(actargs[kDASetDiskAdoption].present) {
+        return testDASetDiskAdoption(actargs);
     }
 
     /* default */

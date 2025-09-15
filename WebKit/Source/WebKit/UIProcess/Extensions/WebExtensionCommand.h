@@ -76,6 +76,8 @@ public:
 
     using ModifierFlags = WebExtension::ModifierFlags;
 
+    enum class SuppressEvents : bool { No, Yes };
+
     bool operator==(const WebExtensionCommand&) const;
 
     WebExtensionCommandParameters parameters() const;
@@ -88,7 +90,7 @@ public:
     const String& description() const { return m_description; }
 
     const String& activationKey() const { return m_modifierFlags ? m_activationKey : nullString(); }
-    bool setActivationKey(String);
+    bool setActivationKey(String, SuppressEvents = SuppressEvents::No);
 
     OptionSet<ModifierFlags> modifierFlags() const { return !m_activationKey.isEmpty() ? m_modifierFlags : OptionSet<ModifierFlags> { }; }
     void setModifierFlags(OptionSet<ModifierFlags> modifierFlags) { dispatchChangedEventSoonIfNeeded(); m_modifierFlags = modifierFlags; }

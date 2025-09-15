@@ -30,6 +30,7 @@
 #include "FetchHeaders.h"
 
 #include "HTTPParsers.h"
+#include <ranges>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
@@ -290,14 +291,14 @@ std::optional<KeyValuePair<String, String>> FetchHeaders::Iterator::next()
         });
         if (hasSetCookie)
             m_keys.append(String());
-        std::sort(m_keys.begin(), m_keys.end(), compareIteratorKeys);
+        std::ranges::sort(m_keys, compareIteratorKeys);
 
         // We adjust the current index to work with Set-Cookie headers.
         // This relies on the fact that `m_currentIndex + m_setCookieIndex`
         // gives you the current total index into the iteration.
         m_currentIndex += m_setCookieIndex;
         if (hasSetCookie) {
-            size_t setCookieKeyIndex = std::lower_bound(m_keys.begin(), m_keys.end(), String(), compareIteratorKeys) - m_keys.begin();
+            size_t setCookieKeyIndex = std::ranges::lower_bound(m_keys, String(), compareIteratorKeys) - m_keys.begin();
             if (m_currentIndex < setCookieKeyIndex)
                 m_setCookieIndex = 0;
             else {

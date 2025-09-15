@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if ENABLE(APPLE_PAY_AMS_UI)
 
 #include "AppleMediaServicesSPI.h"

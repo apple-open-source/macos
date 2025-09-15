@@ -15,6 +15,7 @@
 		<string>Change default bindir for gems to /usr/local/bin</string>
 		<string>Include/Link with LibreSSL</string>
 		<string>Use runtime architecture for RbConfig::CONFIG["host*"] (82712310)</string>
+		<string>ruby/gems/did_you_mean-1.3.0/.gitignore: don't exclude build essentials (120577094)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ruby</string>

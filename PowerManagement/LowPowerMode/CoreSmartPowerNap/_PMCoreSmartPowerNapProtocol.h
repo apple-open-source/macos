@@ -34,6 +34,9 @@
 typedef NS_ENUM(uint8_t, _PMCoreSmartPowerNapState) {
     _PMCoreSmartPowerNapStateOff = 0,
     _PMCoreSmartPowerNapStateOn,
+    _PMCoreSmartPowerNapStateCoolOff,
+    // Total number of states.
+    _PMCoreSmartPowerNapStateCount,
 };
 
 // callback provided by clients for state udpates

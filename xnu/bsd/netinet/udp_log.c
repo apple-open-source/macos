@@ -240,8 +240,8 @@ udp_log_common(struct inpcb *inp, const char *event, int error)
 #define UDP_LOG_CONNECTION_ARGS \
 	    event, \
 	    UDP_LOG_COMMON_PCB_ARGS, \
-	    inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	    inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	    inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	    inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	    error, \
 	    so->so_error, \
 	    (so->so_flags1 & SOF1_TC_NET_SERV_TYPE) ? so->so_netsvctype : so->so_traffic_class, \
@@ -371,15 +371,15 @@ udp_log_connection_summary(struct inpcb *inp)
 	    "rxnospace pkts/bytes: %llu/%llu " \
 	    "so_error: %d " \
 	    "svc/tc: %u " \
-	    "flow: 0x%x" \
+	    "flow: 0x%x " \
 	    "flowctl: %lluus (%llux) "
 
 #define UDP_LOG_CONNECTION_SUMMARY_ARGS \
 	    UDP_LOG_COMMON_PCB_ARGS, \
 	    duration_secs, duration_microsecs / 1000, \
 	    connection_secs, connection_microsecs / 1000, \
-	    inp->inp_stat->rxbytes, inp->inp_stat->txbytes, \
-	    inp->inp_stat->rxpackets, inp->inp_stat->txpackets, \
+	    inp->inp_mstat.ms_total.ts_rxbytes, inp->inp_mstat.ms_total.ts_txbytes, \
+	    inp->inp_mstat.ms_total.ts_rxpackets, inp->inp_mstat.ms_total.ts_txpackets, \
 	    so->so_tc_stats[SO_STATS_SBNOSPACE].rxpackets, \
 	    so->so_tc_stats[SO_STATS_SBNOSPACE].rxbytes, \
 	    so->so_error, \
@@ -442,7 +442,7 @@ udp_log_message(const char *func_name, int line_no, struct inpcb *inp, const cha
 #define UDP_LOG_MESSAGE_ARGS \
 	    func_name, line_no, \
 	    UDP_LOG_COMMON_PCB_ARGS, \
-	    format
+	    message
 
 	os_log(OS_LOG_DEFAULT, UDP_LOG_MESSAGE_FMT,
 	    UDP_LOG_MESSAGE_ARGS);

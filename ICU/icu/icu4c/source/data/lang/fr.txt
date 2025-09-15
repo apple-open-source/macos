@@ -150,6 +150,7 @@ fr{
         crs{"créole seychellois"}
         cs{"tchèque"}
         csb{"kachoube"}
+        cst{"chochenyo"}
         csw{"cri des marais"}
         cu{"slavon d’église"}
         cv{"tchouvache"}
@@ -255,6 +256,7 @@ fr{
         hak{"hakka"}
         haw{"hawaïen"}
         hax{"haïda du Sud"}
+        hch{"wixárika"}
         hdn{"haïda du Nord"}
         he{"hébreu"}
         hi{"hindi"}
@@ -286,6 +288,7 @@ fr{
         inh{"ingouche"}
         io{"ido"}
         is{"islandais"}
+        isc{"isconahua"}
         it{"italien"}
         iu{"inuktitut"}
         izh{"ingrien"}
@@ -557,6 +560,7 @@ fr{
         sh{"serbo-croate"}
         shi{"chleuh"}
         shn{"shan"}
+        shp{"shipibo-conibo"}
         shu{"arabe tchadien"}
         si{"cingalais"}
         sid{"sidamo"}
@@ -865,13 +869,15 @@ fr{
     }
     Types{
         calendar{
+            bangla{"calendrier bengali"}
             buddhist{"calendrier bouddhiste"}
             chinese{"calendrier chinois"}
             coptic{"calendrier copte"}
-            dangi{"calendrier dangi"}
+            dangi{"calendrier coréen"}
             ethiopic{"calendrier éthiopien"}
             ethiopic-amete-alem{"calendrier éthiopien Amete Alem"}
             gregorian{"calendrier grégorien"}
+            gujarati{"calendrier gujarati"}
             hebrew{"calendrier hébraïque"}
             indian{"calendrier indien"}
             islamic{"calendrier hégirien"}
@@ -880,8 +886,16 @@ fr{
             islamic-umalqura{"calendrier hégirien (calculé, Umm al-Qura)"}
             iso8601{"calendrier ISO 8601"}
             japanese{"calendrier japonais"}
+            kannada{"calendrier kannada"}
+            malayalam{"calendrier malayalam"}
+            marathi{"calendrier marathi"}
+            odia{"calendrier odia"}
             persian{"calendrier persan"}
             roc{"calendrier républicain chinois"}
+            tamil{"calendrier tamoul"}
+            telugu{"calendrier télougou"}
+            vietnamese{"calendrier vietnamien"}
+            vikram{"calendrier vikram"}
         }
         cf{
             account{"format de devise comptable"}

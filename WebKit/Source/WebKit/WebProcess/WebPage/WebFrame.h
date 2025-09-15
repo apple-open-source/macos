@@ -28,6 +28,8 @@
 #include "APIObject.h"
 #include "DownloadID.h"
 #include "IdentifierTypes.h"
+#include "MessageReceiver.h"
+#include "MessageSender.h"
 #include "PolicyDecision.h"
 #include "TransactionID.h"
 #include "WKBase.h"
@@ -55,6 +57,7 @@ class Array;
 namespace WebCore {
 class CertificateInfo;
 class Frame;
+class FrameTreeSyncData;
 class HTMLFrameOwnerElement;
 class HandleUserInputEventResult;
 class IntPoint;
@@ -62,6 +65,11 @@ class IntRect;
 class LocalFrame;
 class PlatformMouseEvent;
 class RemoteFrame;
+
+enum class FocusDirection : uint8_t;
+enum class FoundElementInRemoteFrame : bool;
+
+struct FocusEventData;
 struct GlobalWindowIdentifier;
 }
 
@@ -77,17 +85,23 @@ class WebImage;
 class WebMouseEvent;
 class WebPage;
 class WebRemoteFrameClient;
+
 struct FrameInfoData;
 struct FrameTreeNodeData;
 struct ProvisionalFrameCreationParameters;
 struct WebsitePoliciesData;
 
-class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame>, public CanMakeWeakPtr<WebFrame> {
+enum class WithCertificateInfo : bool { No, Yes };
+
+class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame>, public IPC::MessageReceiver, public IPC::MessageSender {
 public:
     static Ref<WebFrame> create(WebPage& page, WebCore::FrameIdentifier frameID) { return adoptRef(*new WebFrame(page, frameID)); }
     static Ref<WebFrame> createSubframe(WebPage&, WebFrame& parent, const AtomString& frameName, WebCore::HTMLFrameOwnerElement&);
-    static Ref<WebFrame> createRemoteSubframe(WebPage&, WebFrame& parent, WebCore::FrameIdentifier, const String& frameName, std::optional<WebCore::FrameIdentifier> openerFrameID);
+    static Ref<WebFrame> createRemoteSubframe(WebPage&, WebFrame& parent, WebCore::FrameIdentifier, const String& frameName, std::optional<WebCore::FrameIdentifier> openerFrameID, Ref<WebCore::FrameTreeSyncData>&&);
     ~WebFrame();
+
+    void ref() const final { API::ObjectImpl<API::Object::Type::BundleFrame>::ref(); }
+    void deref() const final { API::ObjectImpl<API::Object::Type::BundleFrame>::deref(); }
 
     void initWithCoreMainFrame(WebPage&, WebCore::Frame&);
 
@@ -98,11 +112,13 @@ public:
     WebPage* page() const;
     RefPtr<WebPage> protectedPage() const;
 
+    static WebFrame* webFrame(std::optional<WebCore::FrameIdentifier>);
     static RefPtr<WebFrame> fromCoreFrame(const WebCore::Frame&);
     WebCore::LocalFrame* coreLocalFrame() const;
     RefPtr<WebCore::LocalFrame> protectedCoreLocalFrame() const;
     WebCore::RemoteFrame* coreRemoteFrame() const;
     WebCore::Frame* coreFrame() const;
+    RefPtr<WebCore::Frame> protectedCoreFrame() const;
 
     void createProvisionalFrame(ProvisionalFrameCreationParameters&&);
     void commitProvisionalFrame();
@@ -110,7 +126,8 @@ public:
     void loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHostingContextIdentifier>);
     WebCore::LocalFrame* provisionalFrame() { return m_provisionalFrame.get(); }
 
-    FrameInfoData info() const;
+    Awaitable<std::optional<FrameInfoData>> getFrameInfo();
+    FrameInfoData info(WithCertificateInfo = WithCertificateInfo::No) const;
     FrameTreeNodeData frameTreeData() const;
 
     WebCore::FrameIdentifier frameID() const { return m_frameID; }
@@ -196,7 +213,8 @@ public:
 
     void setTextDirection(const String&);
     void updateRemoteFrameSize(WebCore::IntSize);
-    
+    void updateFrameSize(WebCore::IntSize);
+
 #if PLATFORM(COCOA)
     typedef bool (*FrameFilterFunction)(WKBundleFrameRef, WKBundleFrameRef subframe, void* context);
     RetainPtr<CFDataRef> webArchiveData(FrameFilterFunction, void* context, const Vector<WebCore::MarkupExclusionRule>& exclusionRules = { }, const String& mainResourceFileName = { });
@@ -205,11 +223,13 @@ public:
     RefPtr<WebImage> createSelectionSnapshot() const;
 
 #if PLATFORM(IOS_FAMILY)
-    TransactionID firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
+    std::optional<TransactionID> firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
     void setFirstLayerTreeTransactionIDAfterDidCommitLoad(TransactionID transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
 #endif
 
     WebLocalFrameLoaderClient* localFrameLoaderClient() const;
+    RefPtr<WebLocalFrameLoaderClient> protectedLocalFrameLoaderClient() const;
+
     WebRemoteFrameClient* remoteFrameClient() const;
     WebFrameLoaderClient* frameLoaderClient() const;
 
@@ -219,6 +239,9 @@ public:
     std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain() const { return m_isNavigatingToAppBoundDomain; }
     std::optional<NavigatingToAppBoundDomain> isTopFrameNavigatingToAppBoundDomain() const;
 #endif
+
+    void setIsSafeBrowsingCheckOngoing(SafeBrowsingCheckOngoing isSafeBrowsingCheckOngoing) { m_isSafeBrowsingCheckOngoing = isSafeBrowsingCheckOngoing; };
+    SafeBrowsingCheckOngoing isSafeBrowsingCheckOngoing() const { return m_isSafeBrowsingCheckOngoing; }
 
     Markable<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier() { return m_layerHostingContextIdentifier; }
 
@@ -236,14 +259,27 @@ public:
     void markAsRemovedInAnotherProcess() { m_wasRemovedInAnotherProcess = true; }
     bool wasRemovedInAnotherProcess() const { return m_wasRemovedInAnotherProcess; }
 
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+    static void sendCancelReply(IPC::Connection&, IPC::Decoder&);
+
+    void setAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t> badge);
+
+    std::optional<WebCore::ResourceResponse> resourceResponseForURL(const URL&) const;
+
 private:
     WebFrame(WebPage&, WebCore::FrameIdentifier);
 
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final;
+
     void setLayerHostingContextIdentifier(WebCore::LayerHostingContextIdentifier identifier) { m_layerHostingContextIdentifier = identifier; }
+    void updateLocalFrameSize(WebCore::LocalFrame&, WebCore::IntSize);
 
     inline WebCore::DocumentLoader* policySourceDocumentLoader() const;
 
     RefPtr<WebCore::LocalFrame> localFrame();
+
+    void findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection, const WebCore::FocusEventData&, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&&);
 
     WeakPtr<WebCore::Frame> m_coreFrame;
     WeakPtr<WebPage> m_page;
@@ -261,10 +297,16 @@ private:
     bool m_wasRemovedInAnotherProcess { false };
 
 #if PLATFORM(IOS_FAMILY)
-    TransactionID m_firstLayerTreeTransactionIDAfterDidCommitLoad;
+    std::optional<TransactionID> m_firstLayerTreeTransactionIDAfterDidCommitLoad;
 #endif
     std::optional<NavigatingToAppBoundDomain> m_isNavigatingToAppBoundDomain;
+    SafeBrowsingCheckOngoing m_isSafeBrowsingCheckOngoing { SafeBrowsingCheckOngoing::No };
     Markable<WebCore::LayerHostingContextIdentifier> m_layerHostingContextIdentifier;
+    Markable<WebCore::FrameIdentifier> m_frameIDBeforeProvisionalNavigation;
 };
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebFrame) \
+    static bool isType(const API::Object& object) { return object.type() == API::Object::Type::BundleFrame; } \
+SPECIALIZE_TYPE_TRAITS_END()

@@ -47,7 +47,7 @@ NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, const Net
     , m_networkSession(makeUnique<SoupNetworkSession>(m_sessionID))
     , m_persistentCredentialStorageEnabled(parameters.persistentCredentialStorageEnabled)
 {
-    auto* storageSession = networkStorageSession();
+    CheckedPtr storageSession = networkStorageSession();
     ASSERT(storageSession);
 
     storageSession->setCookieAcceptPolicy(parameters.cookieAcceptPolicy);
@@ -75,7 +75,7 @@ SoupSession* NetworkSessionSoup::soupSession() const
 
 void NetworkSessionSoup::setCookiePersistentStorage(const String& storagePath, SoupCookiePersistentStorageType storageType)
 {
-    auto* storageSession = networkStorageSession();
+    CheckedPtr storageSession = networkStorageSession();
     if (!storageSession)
         return;
 
@@ -139,7 +139,7 @@ std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPagePr
 #endif
     }
 
-    bool shouldBlockCookies = networkStorageSession()->shouldBlockCookies(request, frameID, pageID, networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID));
+    bool shouldBlockCookies = checkedNetworkStorageSession()->shouldBlockCookies(request, frameID, pageID, networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID));
     if (shouldBlockCookies)
         soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_COOKIE_JAR);
 

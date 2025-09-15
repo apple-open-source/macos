@@ -114,7 +114,6 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                             CFStringRef kind;
 
                             kind = DAFileSystemGetKind( filesystem );
-
                             CFRetain( filesystem );
 
                             context->filesystem = filesystem;
@@ -125,8 +124,25 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                                 DADiskSetState( context->disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
                             }
 
+#ifdef DA_FSKIT
+                            /* Defer probing ntfs at this stage until the FSKit module phase */
+                            if ( ( kind != NULL ) && CFEqual( kind , CFSTR( "ntfs" ) ) == TRUE )
+                            {
+                                DALogInfo( "deferring probe of disk, id = %@, with %@", context->disk , kind );
+                                
+                                if ( context->deferredProbes == NULL )
+                                {
+                                    context->deferredProbes = CFArrayCreateMutable( kCFAllocatorDefault , 0 , &kCFTypeArrayCallBacks );
+                                }
+                                
+                                CFArrayAppendValue( context->deferredProbes , candidate );
+                                CFRelease( filesystem );
+                                context->filesystem = NULL;
+                                CFArrayRemoveValueAtIndex( context->candidates , 0 );
+                                continue;
+                            }
+#endif
                             CFArrayRemoveValueAtIndex( context->candidates, 0 );
-
                             DALogInfo( "probed disk, id = %@, with %@, ongoing.", context->disk, kind );
 
 #if TARGET_OS_IOS
@@ -156,8 +172,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
          * Only probe the FSModules for the current logged in user if we have the preference for it
          * and don't have any other viable candidates.
          */
-        if (!gFSKitMissing
-            &&  os_feature_enabled( DiskArbitration, enableFSKitModules ) 
+        if (!gFSKitMissing 
             &&  !context->gotFSModules ) {
             context->gotFSModules = 1;
             
@@ -170,7 +185,8 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                 
                 contextCopy->callback        = context->callback;
                 contextCopy->callbackContext = context->callbackContext;
-                contextCopy->candidates      = NULL; /* non-FSKit candidates are not needed here */
+                contextCopy->candidates      = NULL; /* repopulate candidates with FSModules, then add deferred probes */
+                contextCopy->deferredProbes  = context->deferredProbes;
                 contextCopy->disk            = context->disk;
                 contextCopy->containerDisk   = context->containerDisk;
                 contextCopy->filesystem      = NULL; /* begin our own callback cycle with FSKit */
@@ -212,11 +228,14 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
                 kind = DAGetFSTypeWithUUID( context->filesystem , uuid );
             }
             
-            DATelemetrySendProbeEvent( status ,
-                                       kind ,
-                                       CFSTR("kext") ,
-                                       clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
-                                       cleanStatus );
+            if ( context->disk )
+            {
+                DATelemetrySendProbeEvent( status ,
+                                           kind ,
+                                           context->disk ,
+                                           clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - context->startTime ,
+                                           cleanStatus );
+            }
         }
         ( context->callback )( status, context->filesystem, cleanStatus, name, type, uuid, context->callbackContext );
     }
@@ -318,6 +337,7 @@ void DAProbe( DADiskRef disk, DADiskRef containerDisk, DAProbeCallback callback,
     context->callback        = callback;
     context->callbackContext = callbackContext;
     context->candidates      = candidates;
+    context->deferredProbes  = NULL;
     context->disk            = disk;
     context->containerDisk   = containerDisk;
     context->filesystem      = NULL;

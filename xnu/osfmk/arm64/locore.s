@@ -42,6 +42,13 @@
 #include <arm/pmap.h>
 #endif
 
+// If __ARM_KERNEL_PROTECT__, eret is preceeded by an ISB before returning to userspace.
+// Otherwise, use BIT_ISB_PENDING flag to track that we need to issue an isb before eret if needed.
+#if defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING) && !__ARM_KERNEL_PROTECT__
+#define ERET_NEEDS_ISB 1
+#define BIT_ISB_PENDING 0
+#endif /* defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING) && !__ARM_KERNEL_PROTECT__ */
+
 #if XNU_MONITOR && !CONFIG_SPTM
 /*
  * CHECK_EXCEPTION_RETURN_DISPATCH_PPL
@@ -267,10 +274,14 @@ Lbegin_panic_lockdown_continue_\@:
 	b.ne	Lvalid_stack_\@						// ...validate the stack pointer
 	mrs		x0, SP_EL0					// Get SP_EL0
 	mrs		x1, TPIDR_EL1						// Get thread pointer
-	cbnz	x1, Ltest_kstack_\@					// Can only continue if TPIDR_EL1 is set
-0:
-	wfe
-	b		0b									// Can't do much else but wait here for debugger.
+	/*
+	 * Check for either a NULL TPIDR or a NULL kernel stack, both of which
+	 * are expected in early boot, but will cause recursive faults if not
+	 * handled specially,
+	 */
+	cbz		x1, Lcorrupt_stack_\@
+	ldr		x2, [x1, TH_KSTACKPTR]
+	cbz		x2, Lcorrupt_stack_\@
 Ltest_kstack_\@:
 	LOAD_KERN_STACK_TOP	dst=x2, src=x1, tmp=x3	// Get top of kernel stack
 	sub		x3, x2, KERNEL_STACK_SIZE			// Find bottom of kernel stack
@@ -730,12 +741,15 @@ el1_sp1_serror_vector_long:
 	mrs		x1, TPIDR_EL1						// Load the thread register
 
 
+
 #if HAS_ARM_FEAT_SME
 	str		x2, [sp, SS64_X2]
 	// current_thread()->machine.umatrix_hdr == NULL: this thread has never
 	// executed smstart, so no SME state to save
-	ldr		x2, [x1, ACT_UMATRIX_HDR]
+	add		x0, x1, ACT_UMATRIX_HDR
+	ldr		x2, [x0]
 	cbz		x2, 1f
+	AUTDA_DIVERSIFIED x2, address=x0, diversifier=ACT_UMATRIX_HDR_DIVERSIFIER
 
 	mrs		x0, SVCR
 	str		x0, [x2, SME_SVCR]
@@ -1030,10 +1044,10 @@ Lblocked_user_sync_exception:
 	TRAP_UNWIND_DIRECTIVES
 	/*
 	 * User space took a sync exception after panic lockdown had been initiated.
-	 * The system is going to panic soon, so let's just re-enable FIQs and wait
-	 * for debugger sync.
+	 * The system is going to panic soon, so let's just re-enable interrupts and
+	 * wait for debugger sync.
 	 */
-	msr		DAIFClr, #DAIFSC_FIQF
+	msr		DAIFClr, #(DAIFSC_STANDARD_DISABLE)
 0:
 	wfe
 	b		0b
@@ -1176,6 +1190,8 @@ UNWIND_EPILOGUE
 	.text
 	.align 2
 fleh_invalid_stack:
+	TRAP_UNWIND_PROLOGUE
+	TRAP_UNWIND_DIRECTIVES
 	ARM64_JUMP_TARGET
 #if CONFIG_SPTM
 	/*
@@ -1202,10 +1218,13 @@ fleh_invalid_stack:
 	PUSH_FRAME
 	bl		EXT(sleh_invalid_stack)				// Shouldn't return!
 	b 		.
+	UNWIND_EPILOGUE
 
 	.text
 	.align 2
 fleh_synchronous_sp1:
+	TRAP_UNWIND_PROLOGUE
+	TRAP_UNWIND_DIRECTIVES
 	ARM64_JUMP_TARGET
 #if CONFIG_SPTM
 	/*
@@ -1236,10 +1255,28 @@ Lfleh_synchronous_sp1_skip_panic_lockdown:
 	mrs		x1, ESR_EL1
 	mrs		x2, FAR_EL1
 #endif /* CONFIG_SPTM */
-
+	/*
+	 * If we got here before we have a kernel thread or kernel stack (e.g.
+	 * still on init_thread) and we try to panic(), we'll end up in an infinite
+	 * nested exception, so just stop here instead to preserve the call stack.
+	 */
+	mrs		x9, TPIDR_EL1
+	cbz		x9, 0f
+	ldr		x9, [x9, TH_KSTACKPTR]
+	cbz		x9, 0f
 	PUSH_FRAME
 	bl		EXT(sleh_synchronous_sp1)
 	b 		.
+0:
+	PUSH_FRAME
+	bl		EXT(el1_sp1_synchronous_vector_long_invalid_kstack)
+	b 		.
+	UNWIND_EPILOGUE
+
+LEXT(el1_sp1_synchronous_vector_long_invalid_kstack)
+0:
+	wfe
+	b		0b // Spin for watchdog
 
 	.text
 	.align 2
@@ -1549,18 +1586,19 @@ Lexception_return_restore_registers:
 	mrs		x5, FPCR
 	CMSR FPCR, x5, x4, 1
 1:
-
+	mov		x5, #0
 
 #if HAS_ARM_FEAT_SME
-	mrs		x2, SPSR_EL1
 	and		x2, x2, #(PSR64_MODE_EL_MASK)
 	cmp		x2, #(PSR64_MODE_EL0)
 	// SPSR_EL1.M != EL0: no SME state to restore
 	bne		Lno_sme_saved_state
 
 	mrs		x3, TPIDR_EL1
-	ldr		x2, [x3, ACT_UMATRIX_HDR]
+	add		x3, x3, ACT_UMATRIX_HDR
+	ldr		x2, [x3]
 	cbz		x2, Lno_sme_saved_state
+	AUTDA_DIVERSIFIED x2, address=x3, diversifier=ACT_UMATRIX_HDR_DIVERSIFIER
 
 	ldr		x3, [x2, SME_SVCR]
 	msr		SVCR, x3
@@ -1599,6 +1637,8 @@ Lno_sme_saved_state:
 #if HAS_ARM_FEAT_SME
 Lskip_restore_neon_saved_state:
 #endif
+
+
 	// If sync_on_cswitch and ERET is not a CSE, issue an ISB now. Unconditionally clear the
 	// sync_on_cswitch flag.
 	mrs		x1, TPIDR_EL1
@@ -1618,6 +1658,14 @@ Lskip_restore_neon_saved_state:
 #endif  /* ERET_NEEDS_ISB */
 #endif  /* defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING) && !__ARM_KERNEL_PROTECT__ */
 	strb	wzr, [x1, CPU_SYNC_ON_CSWITCH]
+
+
+#if ERET_NEEDS_ISB
+	// Apply any pending isb from earlier.
+	tbz		x5, #(BIT_ISB_PENDING), Lskip_eret_isb
+	isb		sy
+Lskip_eret_isb:
+#endif /* ERET_NEEDS_ISB */
 
 	/* Restore arm_saved_state64 */
 
@@ -1672,7 +1720,10 @@ Lskip_restore_neon_saved_state:
 	msr		TTBR0_EL1, x18
 	mov		x18, #0
 
-	/* We don't need an ISB here, as the eret is synchronizing. */
+#if defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING)
+	isb		sy
+#endif /* defined(ERET_IS_NOT_CONTEXT_SYNCHRONIZING) */
+
 Lskip_ttbr1_switch:
 #endif /* __ARM_KERNEL_PROTECT__ */
 
@@ -2281,7 +2332,7 @@ Lskip_preemption_check_sptmhook:
 
 	ldp		x20, x21, [sp], #0x10
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_sptm_pre_entry_hook)
 
 	.align 2
 	.globl EXT(_sptm_post_exit_hook)
@@ -2371,7 +2422,7 @@ Lsptm_skip_ast_taken_sptmhook:
 	/* Return. */
 	ldp		x20, x21, [sp], 0x10
 	POP_FRAME
-	ARM64_STACK_EPILOG
+	ARM64_STACK_EPILOG EXT(_sptm_post_exit_hook)
 #endif /* CONFIG_SPTM */
 
 #if CONFIG_SPTM && (DEVELOPMENT || DEBUG)

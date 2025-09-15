@@ -30,6 +30,7 @@
 #include "IPCSemaphore.h"
 #include "RemoteVideoFrameIdentifier.h"
 #include <WebCore/IntSize.h>
+#include <WebCore/PixelBufferConformerCV.h>
 #include <WebCore/ProcessIdentity.h>
 #include <WebCore/SharedMemory.h>
 #include <wtf/MediaTime.h>
@@ -38,7 +39,7 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
 
-typedef struct __CVBuffer* CVPixelBufferRef;
+typedef struct CF_BRIDGED_TYPE(id) __CVBuffer* CVPixelBufferRef;
 typedef struct __CVPixelBufferPool* CVPixelBufferPoolRef;
 
 namespace WebCore {
@@ -60,7 +61,7 @@ struct SharedVideoFrame {
     MediaTime time;
     bool mirrored { false };
     WebCore::VideoFrameRotation rotation { };
-    using Buffer = std::variant<std::nullptr_t, RemoteVideoFrameReadReference, MachSendRight, WebCore::IntSize>;
+    using Buffer = Variant<std::nullptr_t, RemoteVideoFrameReadReference, MachSendRight, WebCore::IntSize>;
     Buffer buffer;
 };
 
@@ -69,12 +70,12 @@ class SharedVideoFrameWriter {
 public:
     SharedVideoFrameWriter();
 
-    std::optional<SharedVideoFrame> write(const WebCore::VideoFrame&, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&);
-    std::optional<SharedVideoFrame::Buffer> writeBuffer(CVPixelBufferRef, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&, bool canSendIOSurface = true);
+    std::optional<SharedVideoFrame> write(const WebCore::VideoFrame&, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    std::optional<SharedVideoFrame::Buffer> writeBuffer(CVPixelBufferRef, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&, bool canSendIOSurface = true);
 #if USE(LIBWEBRTC)
-    std::optional<SharedVideoFrame::Buffer> writeBuffer(const webrtc::VideoFrame&, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    std::optional<SharedVideoFrame::Buffer> writeBuffer(const webrtc::VideoFrame&, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
 #endif
-    std::optional<SharedVideoFrame::Buffer> writeBuffer(const WebCore::VideoFrame&, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    std::optional<SharedVideoFrame::Buffer> writeBuffer(const WebCore::VideoFrame&, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
 
     void disable();
     bool isDisabled() const { return m_isDisabled; }
@@ -83,16 +84,17 @@ private:
     static constexpr Seconds defaultTimeout = 3_s;
 
     bool wait(const Function<void(IPC::Semaphore&)>&);
-    bool allocateStorage(size_t, const Function<void(WebCore::SharedMemory::Handle&&)>&);
-    bool prepareWriting(const WebCore::SharedVideoFrameInfo&, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    bool allocateStorage(size_t, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    bool prepareWriting(const WebCore::SharedVideoFrameInfo&, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
 
 #if USE(LIBWEBRTC)
-    std::optional<SharedVideoFrame::Buffer> writeBuffer(webrtc::VideoFrameBuffer&, const Function<void(IPC::Semaphore&)>&, const Function<void(WebCore::SharedMemory::Handle&&)>&);
+    std::optional<SharedVideoFrame::Buffer> writeBuffer(webrtc::VideoFrameBuffer&, NOESCAPE const Function<void(IPC::Semaphore&)>&, NOESCAPE const Function<void(WebCore::SharedMemory::Handle&&)>&);
 #endif
     void signalInCaseOfError();
 
     UniqueRef<IPC::Semaphore> m_semaphore;
     RefPtr<WebCore::SharedMemory> m_storage;
+    std::unique_ptr<WebCore::PixelBufferConformerCV> m_compressedPixelBufferConformer;
     bool m_isSemaphoreInUse { false };
     bool m_isDisabled { false };
     bool m_shouldSignalInCaseOfError { false };
@@ -117,7 +119,7 @@ private:
     CVPixelBufferPoolRef pixelBufferPool(const WebCore::SharedVideoFrameInfo&);
     RetainPtr<CVPixelBufferRef> readBufferFromSharedMemory();
 
-    RefPtr<RemoteVideoFrameObjectHeap> m_objectHeap;
+    const RefPtr<RemoteVideoFrameObjectHeap> m_objectHeap;
     WebCore::ProcessIdentity m_resourceOwner;
     UseIOSurfaceBufferPool m_useIOSurfaceBufferPool { UseIOSurfaceBufferPool::No };
     std::optional<IPC::Semaphore> m_semaphore;

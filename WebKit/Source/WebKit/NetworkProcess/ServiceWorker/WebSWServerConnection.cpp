@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +49,7 @@
 #include <WebCore/ExceptionData.h>
 #include <WebCore/LegacySchemeRegistry.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/NotificationData.h>
 #include <WebCore/SWServerRegistration.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/SecurityOrigin.h>
@@ -56,8 +57,8 @@
 #include <WebCore/ServiceWorkerContextData.h>
 #include <WebCore/ServiceWorkerJobData.h>
 #include <WebCore/ServiceWorkerUpdateViaCache.h>
+#include <algorithm>
 #include <cstdint>
-#include <wtf/Algorithms.h>
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
@@ -147,7 +148,7 @@ void WebSWServerConnection::resolveUnregistrationJobInClient(ServiceWorkerJobIde
         }
 
         auto scopeURL = registrationKey.scope();
-        checkedSession->protectedNotificationManager()->unsubscribeFromPushService(WTFMove(scopeURL), std::nullopt, [completionHandler = WTFMove(completionHandler), unregistrationResult](auto&&) mutable {
+        checkedSession->notificationManager().unsubscribeFromPushService(WTFMove(scopeURL), std::nullopt, [completionHandler = WTFMove(completionHandler), unregistrationResult](auto&&) mutable {
             completionHandler(unregistrationResult);
         });
 
@@ -241,7 +242,7 @@ RefPtr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(NetworkRes
 {
     if (loader.parameters().serviceWorkersMode == ServiceWorkersMode::None) {
         if (loader.parameters().request.requester() == ResourceRequestRequester::Fetch && isNavigationRequest(loader.parameters().options.destination)) {
-            if (auto task = ServiceWorkerFetchTask::fromNavigationPreloader(*this, loader, request, session()))
+            if (auto task = ServiceWorkerFetchTask::fromNavigationPreloader(*this, loader, request, checkedSession().get()))
                 return task;
         }
         return nullptr;
@@ -281,11 +282,18 @@ RefPtr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(NetworkRes
         return nullptr;
     }
 
-    if (worker->shouldSkipFetchEvent()) {
-        if (registration->shouldSoftUpdate(loader.parameters().options))
-            registration->scheduleSoftUpdate(loader.isAppInitiated() ? WebCore::IsAppInitiated::Yes : WebCore::IsAppInitiated::No);
-
-        return nullptr;
+    // FIXME: Add support for cache route w/o cacheName, for now we go to fetch event.
+    auto routerSource = worker->getRouterSource(loader.parameters().options, request);
+    if (std::holds_alternative<RouterSourceEnum>(routerSource)) {
+        switch (std::get<RouterSourceEnum>(routerSource)) {
+        case RouterSourceEnum::Cache:
+        case RouterSourceEnum::FetchEvent:
+            break;
+        case RouterSourceEnum::Network:
+            if (registration->shouldSoftUpdate(loader.parameters().options))
+                registration->scheduleSoftUpdate(loader.isAppInitiated() ? WebCore::IsAppInitiated::Yes : WebCore::IsAppInitiated::No);
+            return nullptr;
+        }
     }
 
     if (worker->hasTimedOutAnyFetchTasks()) {
@@ -294,7 +302,7 @@ RefPtr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(NetworkRes
     }
 
     bool isWorkerReady = worker->isRunning() && worker->state() == ServiceWorkerState::Activated;
-    Ref task = ServiceWorkerFetchTask::create(*this, loader, ResourceRequest { request }, identifier(), worker->identifier(), *registration, session(), isWorkerReady);
+    Ref task = ServiceWorkerFetchTask::create(*this, loader, ResourceRequest { request }, identifier(), worker->identifier(), *registration, checkedSession().get(), isWorkerReady);
     startFetch(task, *worker);
     return task;
 }
@@ -385,7 +393,7 @@ void WebSWServerConnection::postMessageToServiceWorker(ServiceWorkerIdentifier d
 
 void WebSWServerConnection::scheduleJobInServer(ServiceWorkerJobData&& jobData)
 {
-    MESSAGE_CHECK(protectedNetworkProcess()->allowsFirstPartyForCookies(identifier(), WebCore::RegistrableDomain::uncheckedCreateFromHost(jobData.topOrigin.host())) != NetworkProcess::AllowCookieAccess::Terminate);
+    checkTopOrigin(jobData.topOrigin);
 
     ASSERT(!jobData.scopeURL.isNull());
     if (jobData.scopeURL.isNull()) {
@@ -459,6 +467,8 @@ void WebSWServerConnection::postMessageToServiceWorkerClient(ScriptExecutionCont
 
 void WebSWServerConnection::matchRegistration(const SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(std::optional<ServiceWorkerRegistrationData>&&)>&& callback)
 {
+    checkTopOrigin(topOrigin);
+
     if (RefPtr registration = doRegistrationMatching(topOrigin, clientURL)) {
         callback(registration->data());
         return;
@@ -466,8 +476,17 @@ void WebSWServerConnection::matchRegistration(const SecurityOriginData& topOrigi
     callback({ });
 }
 
+void WebSWServerConnection::whenRegistrationReady(const WebCore::SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(std::optional<WebCore::ServiceWorkerRegistrationData>&&)>&& callback)
+{
+    checkTopOrigin(topOrigin);
+
+    SWServer::Connection::whenRegistrationReady(topOrigin, clientURL, WTFMove(callback));
+}
+
 void WebSWServerConnection::getRegistrations(const SecurityOriginData& topOrigin, const URL& clientURL, CompletionHandler<void(const Vector<ServiceWorkerRegistrationData>&)>&& callback)
 {
+    checkTopOrigin(topOrigin);
+
     if (RefPtr server = this->server())
         callback(server->getRegistrations(topOrigin, clientURL));
     else
@@ -477,7 +496,7 @@ void WebSWServerConnection::getRegistrations(const SecurityOriginData& topOrigin
 void WebSWServerConnection::registerServiceWorkerClient(WebCore::ClientOrigin&& clientOrigin, ServiceWorkerClientData&& data, const std::optional<ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier, String&& userAgent)
 {
     MESSAGE_CHECK(data.identifier.processIdentifier() == identifier());
-    MESSAGE_CHECK(!clientOrigin.topOrigin.isNull());
+    checkTopOrigin(clientOrigin.topOrigin);
 
     registerServiceWorkerClientInternal(WTFMove(clientOrigin), WTFMove(data), controllingServiceWorkerRegistrationIdentifier, WTFMove(userAgent), SWServer::IsBeingCreatedClient::No);
 }
@@ -493,7 +512,7 @@ void WebSWServerConnection::registerServiceWorkerClientInternal(WebCore::ClientO
 
     MESSAGE_CHECK(!contextOrigin.isNull());
 
-    bool isNewOrigin = WTF::allOf(m_clientOrigins.values(), [&contextOrigin](auto& origin) {
+    bool isNewOrigin = std::ranges::all_of(m_clientOrigins.values(), [&contextOrigin](auto& origin) {
         return contextOrigin != origin.clientOrigin;
     });
     RefPtr server = this->server();
@@ -539,7 +558,7 @@ void WebSWServerConnection::unregisterServiceWorkerClient(const ScriptExecutionC
     if (!m_isThrottleable)
         updateThrottleState();
 
-    bool isDeletedOrigin = WTF::allOf(m_clientOrigins.values(), [&clientOrigin](auto& origin) {
+    bool isDeletedOrigin = std::ranges::all_of(m_clientOrigins.values(), [&clientOrigin](auto& origin) {
         return clientOrigin.clientOrigin != origin.clientOrigin;
     });
 
@@ -556,7 +575,7 @@ void WebSWServerConnection::unregisterServiceWorkerClient(const ScriptExecutionC
 
 bool WebSWServerConnection::hasMatchingClient(const RegistrableDomain& domain) const
 {
-    return WTF::anyOf(m_clientOrigins.values(), [&domain](auto& origin) {
+    return std::ranges::any_of(m_clientOrigins.values(), [&domain](auto& origin) {
         return domain.matches(origin.clientOrigin);
     });
 }
@@ -567,7 +586,7 @@ bool WebSWServerConnection::computeThrottleState(const RegistrableDomain& domain
     if (!server)
         return true;
 
-    return WTF::allOf(server->connections().values(), [&domain](auto& serverConnection) {
+    return std::ranges::all_of(server->connections().values(), [&domain](auto& serverConnection) {
         Ref connection = downcast<WebSWServerConnection>(serverConnection.get());
         return connection->isThrottleable() || !connection->hasMatchingClient(domain);
     });
@@ -622,13 +641,14 @@ void WebSWServerConnection::subscribeToPushService(WebCore::ServiceWorkerRegistr
         return;
     }
 
-    if (!session()) {
+    CheckedPtr session = this->session();
+    if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
         return;
     }
 
-    session()->protectedNotificationManager()->subscribeToPushService(registration->scopeURLWithoutFragment(), WTFMove(applicationServerKey), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler), registrableDomain = RegistrableDomain(registration->data().scopeURL)] (Expected<PushSubscriptionData, ExceptionData>&& result) mutable {
-        if (auto resourceLoadStatistics = weakThis && weakThis->session() ? weakThis->session()->resourceLoadStatistics() : nullptr; result && resourceLoadStatistics) {
+    session->notificationManager().subscribeToPushService(registration->scopeURLWithoutFragment(), WTFMove(applicationServerKey), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler), registrableDomain = RegistrableDomain(registration->data().scopeURL)] (Expected<PushSubscriptionData, ExceptionData>&& result) mutable {
+        if (RefPtr resourceLoadStatistics = weakThis && weakThis->session() ? weakThis->session()->resourceLoadStatistics() : nullptr; result && resourceLoadStatistics) {
             return resourceLoadStatistics->setMostRecentWebPushInteractionTime(WTFMove(registrableDomain), [result = WTFMove(result), completionHandler = WTFMove(completionHandler)] () mutable {
                 completionHandler(WTFMove(result));
             });
@@ -658,12 +678,13 @@ void WebSWServerConnection::unsubscribeFromPushService(WebCore::ServiceWorkerReg
         return;
     }
 
-    if (!session()) {
+    CheckedPtr session = this->session();
+    if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
         return;
     }
 
-    session()->protectedNotificationManager()->unsubscribeFromPushService(registration->scopeURLWithoutFragment(), subscriptionIdentifier, WTFMove(completionHandler));
+    session->notificationManager().unsubscribeFromPushService(registration->scopeURLWithoutFragment(), subscriptionIdentifier, WTFMove(completionHandler));
 #endif
 }
 
@@ -686,12 +707,13 @@ void WebSWServerConnection::getPushSubscription(WebCore::ServiceWorkerRegistrati
         return;
     }
 
-    if (!session()) {
+    CheckedPtr session = this->session();
+    if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
         return;
     }
 
-    session()->protectedNotificationManager()->getPushSubscription(registration->scopeURLWithoutFragment(), WTFMove(completionHandler));
+    session->notificationManager().getPushSubscription(registration->scopeURLWithoutFragment(), WTFMove(completionHandler));
 #endif
 }
 
@@ -714,12 +736,13 @@ void WebSWServerConnection::getPushPermissionState(WebCore::ServiceWorkerRegistr
         return;
     }
 
-    if (!session()) {
+    CheckedPtr session = this->session();
+    if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
         return;
     }
 
-    session()->protectedNotificationManager()->getPermissionState(SecurityOriginData::fromURL( registration->scopeURLWithoutFragment()), [completionHandler = WTFMove(completionHandler)](WebCore::PushPermissionState state) mutable {
+    session->notificationManager().getPermissionState(SecurityOriginData::fromURL( registration->scopeURLWithoutFragment()), [completionHandler = WTFMove(completionHandler)](WebCore::PushPermissionState state) mutable {
         completionHandler(static_cast<uint8_t>(state));
     });
 #endif
@@ -761,6 +784,11 @@ PAL::SessionID WebSWServerConnection::sessionID() const
 NetworkSession* WebSWServerConnection::session()
 {
     return protectedNetworkProcess()->networkSession(sessionID());
+}
+
+CheckedPtr<NetworkSession> WebSWServerConnection::checkedSession()
+{
+    return session();
 }
 
 template<typename U> void WebSWServerConnection::sendToContextProcess(WebCore::SWServerToContextConnection& connection, U&& message)
@@ -847,9 +875,9 @@ void WebSWServerConnection::focusServiceWorkerClient(WebCore::ScriptExecutionCon
     sendWithAsyncReply(Messages::WebSWClientConnection::FocusServiceWorkerClient { clientIdentifier }, WTFMove(callback));
 }
 
-void WebSWServerConnection::transferServiceWorkerLoadToNewWebProcess(NetworkResourceLoader& loader, WebCore::SWServerRegistration& registration, WebCore::ProcessIdentifier webProcessIdentifier)
+void WebSWServerConnection::transferServiceWorkerLoadToNewWebProcess(NetworkResourceLoader& loader, WebCore::SWServerRegistration& registration, const WebCore::ResourceRequest& request)
 {
-    controlClient(loader.parameters(), registration, loader.originalRequest(), webProcessIdentifier);
+    controlClient(loader.parameters(), registration, request, loader.connectionToWebProcess().webProcessIdentifier());
 }
 
 std::optional<SWServer::GatheredClientData> WebSWServerConnection::gatherClientData(ScriptExecutionContextIdentifier clientIdentifier)
@@ -941,17 +969,46 @@ void WebSWServerConnection::cookieChangeSubscriptions(WebCore::ServiceWorkerRegi
     callback(registration->cookieChangeSubscriptions());
 }
 
+void WebSWServerConnection::addRoutes(WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier, Vector<WebCore::ServiceWorkerRoute>&& routes, CompletionHandler<void(Expected<void, WebCore::ExceptionData>&&)>&& callback)
+{
+    RefPtr server = this->server();
+    if (!server) {
+        callback(makeUnexpected(WebCore::ExceptionData { ExceptionCode::TypeError, "Internal error"_s }));
+        return;
+    }
+    server->addRoutes(registrationIdentifier, WTFMove(routes), WTFMove(callback));
+}
+
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)
 void WebSWServerConnection::getNotifications(const URL& registrationURL, const String& tag, CompletionHandler<void(Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&&)>&& completionHandler)
 {
-    if (!session()) {
+    CheckedPtr session = this->session();
+    if (!session) {
         completionHandler(makeUnexpected(ExceptionData { ExceptionCode::InvalidStateError, "No active network session"_s }));
         return;
     }
 
-    session()->protectedNotificationManager()->getNotifications(registrationURL, tag, WTFMove(completionHandler));
+    session->notificationManager().getNotifications(registrationURL, tag, WTFMove(completionHandler));
 }
 #endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebSWServerConnection::reportNetworkUsageToWorkerClient(WebCore::ScriptExecutionContextIdentifier identifier, uint64_t bytesTransferredOverNetworkDelta)
+{
+    send(Messages::WebSWClientConnection::ReportNetworkUsageToWorkerClient(identifier, bytesTransferredOverNetworkDelta));
+}
+#endif
+
+void WebSWServerConnection::checkTopOrigin(const WebCore::SecurityOriginData& origin)
+{
+    MESSAGE_CHECK(!origin.isNull());
+    RefPtr networkConnectionToWebProcess = m_networkConnectionToWebProcess.get();
+    if (!networkConnectionToWebProcess)
+        return;
+
+    Ref networkProcess = networkConnectionToWebProcess->networkProcess();
+    MESSAGE_CHECK(networkProcess->allowsFirstPartyForCookies(networkConnectionToWebProcess->webProcessIdentifier(), WebCore::RegistrableDomain::uncheckedCreateFromHost(origin.host())) != NetworkProcess::AllowCookieAccess::Terminate);
+}
 
 } // namespace WebKit
 

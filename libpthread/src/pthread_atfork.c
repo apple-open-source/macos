@@ -31,21 +31,22 @@ int
 pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 {
 	int res = 0;
-	size_t idx;
 	pthread_globals_t globals = _pthread_globals();
 
 	_pthread_lock_lock(&globals->pthread_atfork_lock);
-	idx = globals->atfork_count++;
 
-	if (idx == 0) {
+	if (globals->atfork_count == 0) {
 		// Initialize pointer to inline storage.
 		globals->atfork = globals->atfork_storage;
-	} else if (idx == PTHREAD_ATFORK_INLINE_MAX) {
+	} else if (globals->atfork_count == PTHREAD_ATFORK_INLINE_MAX) {
+		if (globals->atfork != globals->atfork_storage) {
+			PTHREAD_INTERNAL_CRASH(globals->atfork, "expected atfork to be inline");
+		}
+
 		// Migrate to out-of-line storage.
 		kern_return_t kr;
 		mach_vm_address_t storage = 0;
 		mach_vm_size_t size = PTHREAD_ATFORK_MAX * sizeof(struct pthread_atfork_entry);
-		_pthread_lock_unlock(&globals->pthread_atfork_lock);
 		kr = mach_vm_map(mach_task_self(),
 				 &storage,
 				 size,
@@ -57,31 +58,28 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 				 VM_PROT_DEFAULT,
 				 VM_PROT_ALL,
 				 VM_INHERIT_DEFAULT);
-		_pthread_lock_lock(&globals->pthread_atfork_lock);
-		if (kr == KERN_SUCCESS) {
-			if (globals->atfork == globals->atfork_storage) {
-				globals->atfork = storage;
-				memmove(globals->atfork, globals->atfork_storage, sizeof(globals->atfork_storage));
-				bzero(globals->atfork_storage, sizeof(globals->atfork_storage));
-			} else {
-				// Another thread did vm_map first.
-				_pthread_lock_unlock(&globals->pthread_atfork_lock);
-				mach_vm_deallocate(mach_task_self(), storage, size);
-				_pthread_lock_lock(&globals->pthread_atfork_lock);
-			}
-		} else {
+
+		if (kr != KERN_SUCCESS) {
 			res = ENOMEM;
+			goto unlock;
 		}
-	} else if (idx >= PTHREAD_ATFORK_MAX) {
+
+		globals->atfork = storage;
+		memmove(globals->atfork, globals->atfork_storage, sizeof(globals->atfork_storage));
+		bzero(globals->atfork_storage, sizeof(globals->atfork_storage));
+	} else if (globals->atfork_count >= PTHREAD_ATFORK_MAX) {
 		res = ENOMEM;
+		goto unlock;
 	}
 
-	if (res == 0) {
-		struct pthread_atfork_entry *e = &globals->atfork[idx];
-		e->prepare = prepare;
-		e->parent = parent;
-		e->child = child;
-	}
+	struct pthread_atfork_entry *e = &globals->atfork[globals->atfork_count];
+	e->prepare = prepare;
+	e->parent = parent;
+	e->child = child;
+
+	globals->atfork_count++;
+
+unlock:
 	_pthread_lock_unlock(&globals->pthread_atfork_lock);
 
 	return res;

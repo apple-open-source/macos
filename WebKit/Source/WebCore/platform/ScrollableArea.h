@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -184,7 +184,7 @@ public:
     WEBCORE_EXPORT bool scrollbarsCanBeActive() const;
 
     WEBCORE_EXPORT virtual void didAddScrollbar(Scrollbar*, ScrollbarOrientation);
-    WEBCORE_EXPORT virtual void willRemoveScrollbar(Scrollbar*, ScrollbarOrientation);
+    WEBCORE_EXPORT virtual void willRemoveScrollbar(Scrollbar&, ScrollbarOrientation);
 
     WEBCORE_EXPORT virtual void contentsResized();
 
@@ -428,6 +428,7 @@ public:
     virtual void updateScrollAnchoringElement() { }
     virtual void updateScrollPositionForScrollAnchoringController() { }
     virtual void invalidateScrollAnchoringElement() { }
+    virtual void updateAnchorPositionedAfterScroll() { }
     virtual std::optional<FrameIdentifier> rootFrameID() const { return std::nullopt; }
 
     WEBCORE_EXPORT void setScrollbarsController(std::unique_ptr<ScrollbarsController>&&);
@@ -435,6 +436,10 @@ public:
 
     virtual IntSize totalScrollbarSpace() const { return { }; }
     virtual int insetForLeftScrollbarSpace() const { return 0; }
+
+#if ENABLE(FORM_CONTROL_REFRESH)
+    virtual bool formControlRefreshEnabled() const { return false; }
+#endif
 
 protected:
     WEBCORE_EXPORT ScrollableArea();
@@ -491,7 +496,7 @@ private:
     ScrollElasticity m_verticalScrollElasticity { ScrollElasticity::None };
     ScrollElasticity m_horizontalScrollElasticity { ScrollElasticity::None };
 
-    ScrollbarOverlayStyle m_scrollbarOverlayStyle { ScrollbarOverlayStyle::ScrollbarOverlayStyleDefault };
+    ScrollbarOverlayStyle m_scrollbarOverlayStyle { ScrollbarOverlayStyle::Default };
 
     ScrollType m_currentScrollType { ScrollType::User };
     ScrollAnimationStatus m_scrollAnimationStatus { ScrollAnimationStatus::NotAnimating };

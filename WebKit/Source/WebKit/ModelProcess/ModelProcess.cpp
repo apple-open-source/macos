@@ -35,13 +35,13 @@
 #include "ModelConnectionToWebProcess.h"
 #include "ModelProcessConnectionParameters.h"
 #include "ModelProcessCreationParameters.h"
+#include "ModelProcessModelPlayerProxy.h"
 #include "ModelProcessProxyMessages.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessPoolMessages.h"
 #include <WebCore/CommonAtomStrings.h>
 #include <WebCore/LogInitialization.h>
 #include <WebCore/MemoryRelease.h>
-#include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/LogInitialization.h>
 #include <wtf/MemoryPressureHandler.h>
@@ -76,7 +76,13 @@ ModelProcess::ModelProcess(AuxiliaryProcessInitializationParameters&& parameters
 
 ModelProcess::~ModelProcess() = default;
 
-void ModelProcess::createModelConnectionToWebProcess(WebCore::ProcessIdentifier identifier, PAL::SessionID sessionID, IPC::Connection::Handle&& connectionHandle, ModelProcessConnectionParameters&& parameters, CompletionHandler<void()>&& completionHandler)
+void ModelProcess::createModelConnectionToWebProcess(
+    WebCore::ProcessIdentifier identifier,
+    PAL::SessionID sessionID,
+    IPC::Connection::Handle&& connectionHandle,
+    ModelProcessConnectionParameters&& parameters,
+    const std::optional<String>& attributionTaskID,
+    CompletionHandler<void()>&& completionHandler)
 {
     RELEASE_LOG(Process, "%p - ModelProcess::createModelConnectionToWebProcess: processIdentifier=%" PRIu64, this, identifier.toUInt64());
 
@@ -98,7 +104,7 @@ void ModelProcess::createModelConnectionToWebProcess(WebCore::ProcessIdentifier 
     });
 #endif
 
-    auto newConnection = ModelConnectionToWebProcess::create(*this, identifier, sessionID, WTFMove(connectionHandle), WTFMove(parameters));
+    auto newConnection = ModelConnectionToWebProcess::create(*this, identifier, sessionID, WTFMove(connectionHandle), WTFMove(parameters), attributionTaskID);
 
 #if ENABLE(IPC_TESTING_API)
     if (parameters.ignoreInvalidMessageForTesting)
@@ -193,7 +199,10 @@ void ModelProcess::initializeModelProcess(ModelProcessCreationParameters&& param
 {
     CompletionHandlerCallingScope callCompletionHandler(WTFMove(completionHandler));
 
-    applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
+    m_debugEntityMemoryLimit = parameters.debugEntityMemoryLimit;
+    WKREEngine::enableRestrictiveRenderingMode(parameters.restrictiveRenderingMode);
+
+    applyProcessCreationParameters(WTFMove(parameters.auxiliaryProcessParameters));
     RELEASE_LOG(Process, "%p - ModelProcess::initializeModelProcess:", this);
     WTF::Thread::setCurrentThreadIsUserInitiated();
     WebCore::initializeCommonAtomStrings();
@@ -249,6 +258,11 @@ void ModelProcess::requestSharedSimulationConnection(WebCore::ProcessIdentifier 
 void ModelProcess::webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
 {
     completionHandler(ModelConnectionToWebProcess::objectCountForTesting());
+}
+
+void ModelProcess::modelPlayerCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
+{
+    completionHandler(ModelProcessModelPlayerProxy::objectCountForTesting());
 }
 
 void ModelProcess::addSession(PAL::SessionID sessionID)

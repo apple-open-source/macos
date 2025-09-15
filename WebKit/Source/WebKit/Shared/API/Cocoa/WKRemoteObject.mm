@@ -72,9 +72,9 @@ static const char* methodArgumentTypeEncodingForSelector(Protocol *protocol, SEL
     if (!selector)
         return nil;
 
-    Protocol *protocol = [_interface protocol];
+    RetainPtr protocol = [_interface protocol];
 
-    const char* types = methodArgumentTypeEncodingForSelector(protocol, selector);
+    const char* types = methodArgumentTypeEncodingForSelector(protocol.get(), selector);
     if (!types) {
         // We didn't find anything the protocol, fall back to the superclass.
         return [super methodSignatureForSelector:selector];

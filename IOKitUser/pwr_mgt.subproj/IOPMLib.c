@@ -24,7 +24,14 @@
 
 #include <mach/mach.h>
 #include <mach/mach_init.h>
+#include <os/log.h>
+#include <os/reason_private.h>
 #include <notify.h>
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+#include <TargetConditionals.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFSerialize.h>
@@ -270,7 +277,35 @@ io_connect_t IORegisterForSystemPower ( void * refcon,
     IONotificationPortRef       notify = NULL;
     kern_return_t               kr;
     io_service_t                obj = IO_OBJECT_NULL;
-     
+
+// rdar://139748842 Disable user fault for calling IORegisterForSystemPower without entitlement
+// reenable after the number of unentitled IORegisterForSystemPower clients is reduced and the perf impact is minimized.
+#if 0 // TARGET_OS_WATCH && !TARGET_OS_SIMULATOR
+    __block bool checkEntitlement = false;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        checkEntitlement = true;
+    });
+    if (checkEntitlement) {
+        boolean_t hasEntitlement = false;
+        xpc_object_t entitlementValue = xpc_copy_entitlement_for_token("com.apple.private.power.notifications", NULL);
+        if (entitlementValue == XPC_BOOL_TRUE) {
+            hasEntitlement = true;
+        }
+        if (entitlementValue) {
+            xpc_release(entitlementValue);
+        }
+        if (!hasEntitlement) {
+            // os_fault_with_payload will generate a backtrace for the crash reporter here when IORegisterForSystemPower
+            // is called without the client having the "com.apple.private.power.notifications" entitlement.
+            // We do this outside of the dispatch_once above because the symbolicator often fails to compute
+            // backtraces from within closures.
+            const char *reason = "IORegisterForSystemPower called without entitlement \"com.apple.private.power.notifications\"";
+            os_fault_with_payload(OS_REASON_LIBSYSTEM, OS_REASON_LIBSYSTEM_CODE_FAULT, 0, 0, reason, 0);
+        }
+    }
+#endif // TARGET_OS_WATCH && !TARGET_OS_SIMULATOR
+
     *root_notifier = IO_OBJECT_NULL;
 
     notify = IONotificationPortCreate(MACH_PORT_NULL);

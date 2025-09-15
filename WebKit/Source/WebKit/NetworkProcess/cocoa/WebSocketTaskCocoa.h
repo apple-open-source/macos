@@ -52,7 +52,7 @@ class NetworkSessionCocoa;
 class NetworkSocketChannel;
 struct SessionSet;
 
-class WebSocketTask : public CanMakeWeakPtr<WebSocketTask>, public CanMakeCheckedPtr<WebSocketTask>, public NetworkTaskCocoa {
+class WebSocketTask : public CanMakeWeakPtr<WebSocketTask>, public CanMakeThreadSafeCheckedPtr<WebSocketTask>, public NetworkTaskCocoa {
     WTF_MAKE_TZONE_ALLOCATED(WebSocketTask);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebSocketTask);
 public:

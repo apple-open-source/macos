@@ -108,20 +108,15 @@ os_workgroup_attr_set_telemetry_flavor(os_workgroup_attr_t wga,
  * os_workgroup_interval_update() and os_workgroup_interval_finish() to
  * indicate to the system that a specific instance of a repeatable workload
  * has one of the following properties:
- *
- * OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_DEFAULT:
- *     specific instance has default complexity (same as using data initialized
- *     with OS_WORKGROUP_INTERVAL_DATA_INITIALIZER resp not calling
- *     os_workgroup_interval_data_set_flags(), or specifying NULL
- *     os_workgroup_interval_data_t).
- * OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_HIGH:
- *     specific instance has high complexity. May only be called on an
- *     os_workgroup_interval_t created with a workload identifier that is known
- *     and is configured by the system to be allowed to use complexity.
  */
 OS_OPTIONS(os_workgroup_interval_data_flags, uint32_t,
-	OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_DEFAULT = 0x0u,
-	OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_HIGH = 0x1u,
+	OS_WORKGROUP_INTERVAL_DATA_NONE = 0xffffffff,
+	OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_DEFAULT OS_WORKGROUP_ENUM_API_DEPRECATED_WITH_REPLACEMENT(
+			"Use os_workgroup_interval_data_set_complexity instead",
+			macos(13.0,16.0), ios(16.0,19.0), tvos(16.0,19.0), watchos(9.0,12.0)) = 0x0u,
+	OS_WORKGROUP_INTERVAL_DATA_COMPLEXITY_HIGH OS_WORKGROUP_ENUM_API_DEPRECATED_WITH_REPLACEMENT(
+			"Use os_workgroup_interval_data_set_complexity instead",
+			macos(13.0,16.0), ios(16.0,19.0), tvos(16.0,19.0), watchos(9.0,12.0)) = 0x1u,
 );
 
 /*
@@ -162,6 +157,78 @@ OS_WORKGROUP_EXPORT
 int
 os_workgroup_interval_data_set_flags(os_workgroup_interval_data_t data,
 		os_workgroup_interval_data_flags_t flags);
+
+// TODO: rdar://145714553, remove revlock avoiding flag
+#define __OS_WORKGROUP_INTERVAL_DATA_HAS_CUSTOM_COMPLEXITY 1
+
+/*
+ * @typedef os_workgroup_interval_data_complexity_t
+ *
+ * @abstract
+ * Set of flags that can be passed to os_workgroup_interval_data_set_complexity() to
+ * indicate to the system that a specific instance of a repeatable workload
+ * has one of the following properties:
+ *
+ * OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_DEFAULT:
+ *     specific instance has default complexity (same as using data initialized
+ *     with OS_WORKGROUP_INTERVAL_DATA_INITIALIZER resp not calling
+ *     os_workgroup_interval_data_set_flags(), or specifying NULL
+ *     os_workgroup_interval_data_t).
+ * OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_HIGH:
+ *     specific instance has high complexity. May only be called on an
+ *     os_workgroup_interval_t created with a workload identifier that is known
+ *     and is configured by the system to be allowed to use complexity.
+ * OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_MANUAL:
+ *     specific instance has complexity that is being manually signalled by
+ *	   the client. May only be called on an os_workgroup_interval_t created
+ * 	   with a workload identifier that is known and is configured by the system
+ *	   to be allowed to use complexity.The value interpretation is work interval
+ *     type specific.
+ */
+OS_OPTIONS(os_workgroup_interval_data_complexity, uint32_t,
+	OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_DEFAULT = 0x0u,
+	OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_HIGH = 0x1u,
+	OS_WORKGROUP_INTERVAL_DATA_SET_COMPLEXITY_MANUAL = 0x2u,
+);
+
+/*
+ * @function os_workgroup_interval_data_set_complexity
+ *
+ * @abstract
+ * Setter for os_workgroup_interval_data_t, can specify a complexity value
+ * to indicate to the system that a specific instance of a repeatable workload
+ * has custom properties by passing the resulting data pointer to
+ * os_workgroup_interval_start(), os_workgroup_interval_update() and
+ * os_workgroup_interval_finish(). This value will be ignored if any
+ * non-default complexity flags have been set using
+ * os_workgroup_interval_data_set_flags().
+ *
+ * The complexity chosen for a given instance of the repeatable workload are allowed
+ * to be different at each of these three calls made for the instance, and they
+ * are determined wholly by the `data` value passed to the specific call.
+ *
+ * @discussion
+ * In particular this means that once a non-default flag is set with this
+ * function, the resulting data pointer must be passed to every subsequent
+ * call of update() or finish() for that instance if the goal is to keep that
+ * flag present (as opposed to e.g. being reset to the default by passing a
+ * NULL data pointer).
+ *
+ * The interpretation of this complexity value is specific to a work interval type.
+ *
+ * @param data
+ * Pointer to workgroup interval data structure initialized with
+ * OS_WORKGROUP_INTERVAL_DATA_INITIALIZER.
+ *
+ * @param complexity
+ * Work interval type specific complexity value.
+ *
+ */
+API_AVAILABLE(macos(16.0), ios(19.0), tvos(19.0), watchos(12.0))
+OS_WORKGROUP_EXPORT
+int
+os_workgroup_interval_data_set_complexity(os_workgroup_interval_data_t data,
+		os_workgroup_interval_data_complexity_t flag, uint64_t complexity);
 
 /*!
  * @function os_workgroup_interval_data_set_flags

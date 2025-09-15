@@ -363,6 +363,26 @@
 				<key>EventsMatchedBy</key>
 				<string>Arg1</string>
 			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kIOHIDDebugCode_CmplxEvtDrv_InterruptReport</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x5230088</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>kIOHIDDebugCode_IOFastPath_EnqueueSample</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x523008c</string>
+				<key>EventsMatchedBy</key>
+				<string>Arg1</string>
+			</dict>
 		</array>
 	</dict>
 	<dict>

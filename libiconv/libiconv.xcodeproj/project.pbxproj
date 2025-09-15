@@ -19,6 +19,17 @@
 			name = default_libs;
 			productName = default_libs;
 		};
+		2A35D8D62CE6D7F20064D991 /* libiconv_tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 2A35D8D92CE6D7F20064D991 /* Build configuration list for PBXAggregateTarget "libiconv_tests" */;
+			buildPhases = (
+				2A35D8DA2CE6D80B0064D991 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = libiconv_tests;
+			productName = libiconv_tests;
+		};
 		2A36355C28AB694000D47F6C /* tests */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 2A36355D28AB694000D47F6C /* Build configuration list for PBXAggregateTarget "tests" */;
@@ -2490,6 +2501,9 @@
 					2A17DEAE2835F68400F79BDB = {
 						CreatedOnToolsVersion = 14.0;
 					};
+					2A35D8D62CE6D7F20064D991 = {
+						CreatedOnToolsVersion = 16.0;
+					};
 					2A36355C28AB694000D47F6C = {
 						CreatedOnToolsVersion = 14.0;
 					};
@@ -2588,6 +2602,7 @@
 				5976ACFB1007D6A5000AD30B /* libiconv */,
 				5976AD021007D6B9000AD30B /* iconv */,
 				3F8E80E816A720070006DBE5 /* libiconv_executables */,
+				2A35D8D62CE6D7F20064D991 /* libiconv_tests */,
 				2AD4C0632B912E7200F98A57 /* fallback_test */,
 				2A17DEAE2835F68400F79BDB /* libiconv_test */,
 				2A0C0BE22A58A107005B6BED /* mbopt_test */,
@@ -2626,6 +2641,23 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		2A35D8DA2CE6D80B0064D991 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p ${DSTROOT}/AppleInternal\n";
+		};
 		2A36389328C25C9200D47F6C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -5286,6 +5318,22 @@
 			};
 			name = Release;
 		};
+		2A35D8D72CE6D7F20064D991 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		2A35D8D82CE6D7F20064D991 /* Fuzzing */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Fuzzing;
+		};
 		2A36355E28AB694000D47F6C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -7053,6 +7101,15 @@
 			buildConfigurations = (
 				2A17DEB42835F68400F79BDB /* Release */,
 				2A15A1802B3D3D4E00A3DA9E /* Fuzzing */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A35D8D92CE6D7F20064D991 /* Build configuration list for PBXAggregateTarget "libiconv_tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A35D8D72CE6D7F20064D991 /* Release */,
+				2A35D8D82CE6D7F20064D991 /* Fuzzing */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

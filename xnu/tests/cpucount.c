@@ -12,6 +12,7 @@
  *  xcrun -sdk macosx.internal clang -o cpucount cpucount.c -ldarwintest -framework IOKit -framework CoreFoundation -arch arm64e -Weverything
  */
 
+#include "context_helpers.h"
 #include <darwintest.h>
 #include "test_utils.h"
 
@@ -35,13 +36,11 @@
 
 T_GLOBAL_META(
 	T_META_RUN_CONCURRENTLY(false),
-	T_META_BOOTARGS_SET("enable_skstb=1"),
 	T_META_CHECK_LEAKS(false),
 	T_META_ASROOT(true),
 	T_META_ALL_VALID_ARCHS(true),
 	T_META_RADAR_COMPONENT_NAME("xnu"),
 	T_META_RADAR_COMPONENT_VERSION("scheduler"),
-	T_META_OWNER("jarrad"),
 	T_META_TAG_VM_NOT_PREFERRED
 	);
 
@@ -91,18 +90,6 @@ static uint64_t
 abs_to_nanos(uint64_t abs)
 {
 	return abs * timebase_info.numer / timebase_info.denom;
-}
-
-static int32_t
-get_csw_count(void)
-{
-	struct proc_taskinfo taskinfo;
-	int rv;
-
-	rv = proc_pidinfo(getpid(), PROC_PIDTASKINFO, 0, &taskinfo, sizeof(taskinfo));
-	T_QUIET; T_ASSERT_POSIX_SUCCESS(rv, "PROC_PIDTASKINFO");
-
-	return taskinfo.pti_csw;
 }
 
 // noinline hopefully keeps the optimizer from hoisting it out of the loop
@@ -166,6 +153,7 @@ cpucount_setup(void)
 
 T_DECL(count_cpus,
     "Tests we can schedule bound threads on all hw.ncpus cores and that _os_cpu_number matches",
+    T_META_BOOTARGS_SET("enable_skstb=1"),
     XNU_T_META_SOC_SPECIFIC)
 {
 	int rv;
@@ -261,8 +249,11 @@ T_DECL(count_cpus,
 T_DECL(count_clusters,
     "Tests we can schedule bound threads on all cpu clusters and that _os_cpu_cluster_number matches",
     XNU_T_META_SOC_SPECIFIC,
+    /* Disable CLPC dynamic cluster power-down to ensure threads can run on their bound cluster. */
+    T_META_BOOTARGS_SET("enable_skstb=1 cpu-dynamic-cluster-power-down=0"),
 #if __x86_64__
-    T_META_ENABLED(false /* rdar://133956403 */)
+    /* We shouldn't need to count clusters for Rosetta processes. */
+    T_META_ENABLED(false)
 #else
     T_META_ENABLED(true)
 #endif
@@ -381,6 +372,7 @@ T_DECL(count_clusters,
 T_DECL(check_cpu_topology,
     "Verify _os_cpu_cluster_number(), _os_cpu_number() against IORegistry",
     XNU_T_META_SOC_SPECIFIC,
+    T_META_BOOTARGS_SET("enable_skstb=1"),
     T_META_ENABLED(TARGET_CPU_ARM || TARGET_CPU_ARM64))
 {
 	int rv;

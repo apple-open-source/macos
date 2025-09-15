@@ -1603,12 +1603,12 @@ fr{
                 other{"{0} dm"}
             }
             foot{
-                one{"{0}′"}
-                other{"{0}′"}
+                one{"{0} pi"}
+                other{"{0} pi"}
             }
             inch{
-                one{"{0}″"}
-                other{"{0}″"}
+                one{"{0} po"}
+                other{"{0} po"}
             }
             kilometer{
                 one{"{0} km"}

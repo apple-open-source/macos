@@ -25,17 +25,18 @@
 
 WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.TimelineView
 {
-    constructor(timeline, extraArguments)
+    constructor(target, timeline)
     {
-        super(timeline, extraArguments);
+        console.assert(timeline.type === WI.TimelineRecord.Type.Script, timeline);
 
-        console.assert(timeline.type === WI.TimelineRecord.Type.Script);
+        super(timeline);
+
+        this._target = target;
 
         this.element.classList.add("script");
 
-        this._recording = extraArguments.recording;
-
         this._forceNextLayout = false;
+        this._missingCallingContextTree = false;
         this._lastLayoutStartTime = undefined;
         this._lastLayoutEndTime = undefined;
 
@@ -48,7 +49,7 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
         if (!WI.ScriptProfileTimelineView.profileTypeSetting)
             WI.ScriptProfileTimelineView.profileTypeSetting = new WI.Setting("script-profile-timeline-view-profile-type-setting", WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy);
 
-        this._showProfileViewForOrientation(WI.ScriptProfileTimelineView.profileOrientationSetting.value, WI.ScriptProfileTimelineView.profileTypeSetting.value);
+        this._createProfileView();
 
         let clearTooltip = WI.UIString("Clear focus");
         this._clearFocusNodesButtonItem = new WI.ButtonNavigationItem("clear-profile-focus", clearTooltip, "Images/Close.svg", 16, 16);
@@ -69,20 +70,21 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
         else
             this._topFunctionsButton.activated = true;
 
-        timeline.addEventListener(WI.Timeline.Event.Refreshed, this._scriptTimelineRecordRefreshed, this);
+        this.representedObject.addEventListener(WI.ScriptTimeline.Event.Refreshed, this._handleScriptTimelineRefreshed, this);
     }
 
     // Public
 
     get scrollableElements() { return this._profileView.scrollableElements; }
-
     get showsLiveRecordingData() { return false; }
-
-    // Protected
 
     closed()
     {
-        this.representedObject.removeEventListener(WI.Timeline.Event.Refreshed, this._scriptTimelineRecordRefreshed, this);
+        this.representedObject.removeEventListener(WI.ScriptTimeline.Event.Refreshed, this._handleScriptTimelineRefreshed, this);
+
+        this._profileView.removeEventListener(WI.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
+
+        super.closed();
     }
 
     get navigationItems()
@@ -93,6 +95,15 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
     get selectionPathComponents()
     {
         return this._profileView.selectionPathComponents;
+    }
+
+    reset()
+    {
+        super.reset();
+
+        this._createProfileView();
+
+        this._updateClearFocusNodesButtonItem();
     }
 
     layout()
@@ -111,15 +122,42 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
 
     _callingContextTreeForOrientation(profileOrientation, profileViewType)
     {
+        let type = null;
         switch (profileOrientation) {
         case WI.ScriptProfileTimelineView.ProfileOrientation.TopDown:
-            return profileViewType === WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.topDownCallingContextTree : this._recording.topFunctionsTopDownCallingContextTree;
+            switch (profileViewType) {
+            case WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy:
+                type = WI.CallingContextTree.Type.TopDown;
+                break;
+            case WI.ScriptProfileTimelineView.ProfileViewType.TopFunctions:
+                type = WI.CallingContextTree.Type.TopFunctionsTopDown;
+                break;
+            }
+            break;
         case WI.ScriptProfileTimelineView.ProfileOrientation.BottomUp:
-            return profileViewType === WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.bottomUpCallingContextTree : this._recording.topFunctionsBottomUpCallingContextTree;
+            switch (profileViewType) {
+            case WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy:
+                type = WI.CallingContextTree.Type.BottomUp;
+                break;
+            case WI.ScriptProfileTimelineView.ProfileViewType.TopFunctions:
+                type = WI.CallingContextTree.Type.TopFunctionsBottomUp;
+                break;
+            }
+            break;
+        }
+        console.assert(type);
+        type ??= WI.CallingContextTree.Type.TopDown;
+        let callingContextTree = this.representedObject.callingContextTree(this._target, type);
+
+        // This will happen when the timeline is reset/cleared, so listen for when the given target
+        // is finally added to the timeline (i.e. a script event is captured for that target) and
+        // then regenerate the data structures used to represent the profiled activity data.
+        if (!callingContextTree) {
+            callingContextTree = new WI.CallingContextTree(this._target, type);
+            this.representedObject.addEventListener(WI.ScriptTimeline.Event.TargetAdded, this._handleScriptTimelineTargetAdded, this);
         }
 
-        console.assert(false, "Should not be reached.");
-        return this._recording.topDownCallingContextTree;
+        return callingContextTree;
     }
 
     _profileViewSelectionPathComponentsDidChange(event)
@@ -128,10 +166,22 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
         this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
     }
 
-    _scriptTimelineRecordRefreshed(event)
+    _handleScriptTimelineRefreshed(event)
     {
         this._forceNextLayout = true;
         this.needsLayout();
+    }
+
+    _handleScriptTimelineTargetAdded(event)
+    {
+        let {target} = event.data;
+
+        if (target !== this._target)
+            return;
+
+        this._showProfileView();
+
+        this.representedObject.removeEventListener(WI.ScriptTimeline.Event.TargetAdded, this._handleScriptTimelineTargetAdded, this);
     }
 
     _profileOrientationButtonClicked()
@@ -145,12 +195,8 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
             newOrientation = WI.ScriptProfileTimelineView.ProfileOrientation.TopDown;
 
         WI.ScriptProfileTimelineView.profileOrientationSetting.value = newOrientation;
-        this._showProfileViewForOrientation(newOrientation, WI.ScriptProfileTimelineView.profileTypeSetting.value);
 
-        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
-
-        this._forceNextLayout = true;
-        this.needsLayout();
+        this._showProfileView();
     }
 
     _topFunctionsButtonClicked()
@@ -164,15 +210,11 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
             newOrientation = WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy;
 
         WI.ScriptProfileTimelineView.profileTypeSetting.value = newOrientation;
-        this._showProfileViewForOrientation(WI.ScriptProfileTimelineView.profileOrientationSetting.value, newOrientation);
 
-        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
-
-        this._forceNextLayout = true;
-        this.needsLayout();
+        this._showProfileView();
     }
 
-    _showProfileViewForOrientation(profileOrientation, profileViewType)
+    _createProfileView()
     {
         let filterText;
         if (this._profileView) {
@@ -181,7 +223,7 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
             filterText = this._profileView.dataGrid.filterText;
         }
 
-        let callingContextTree = this._callingContextTreeForOrientation(profileOrientation, profileViewType);
+        let callingContextTree = this._callingContextTreeForOrientation(WI.ScriptProfileTimelineView.profileOrientationSetting.value, WI.ScriptProfileTimelineView.profileTypeSetting.value);
         this._profileView = new WI.ProfileView(callingContextTree, this._sharedProfileViewData);
         this._profileView.addEventListener(WI.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
 
@@ -190,6 +232,16 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
 
         if (filterText)
             this._profileView.dataGrid.filterText = filterText;
+    }
+
+    _showProfileView()
+    {
+        this._createProfileView();
+
+        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
+
+        this._forceNextLayout = true;
+        this.needsLayout();
     }
 
     _updateClearFocusNodesButtonItem()

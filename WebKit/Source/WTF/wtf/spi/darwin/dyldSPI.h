@@ -25,6 +25,8 @@
 
 #pragma once
 
+DECLARE_SYSTEM_HEADER
+
 #if USE(APPLE_INTERNAL_SDK)
 
 #include <mach-o/dyld_priv.h>
@@ -59,10 +61,6 @@
 
 #ifndef DYLD_IOS_VERSION_14_0
 #define DYLD_IOS_VERSION_14_0 0x000E0000
-#endif
-
-#ifndef DYLD_IOS_VERSION_14_2
-#define DYLD_IOS_VERSION_14_2 0x000E0200
 #endif
 
 #ifndef DYLD_IOS_VERSION_14_5
@@ -281,10 +279,6 @@ WTF_EXTERN_C_BEGIN
 
 #ifndef dyld_fall_2020_os_versions
 #define dyld_fall_2020_os_versions ({ (dyld_build_version_t) { 0, 0 }; })
-#endif
-
-#ifndef dyld_late_fall_2020_os_versions
-#define dyld_late_fall_2020_os_versions ({ (dyld_build_version_t) { 0, 0 }; })
 #endif
 
 #ifndef dyld_spring_2021_os_versions

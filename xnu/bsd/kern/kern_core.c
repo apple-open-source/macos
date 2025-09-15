@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2025 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -32,7 +32,7 @@
  *	This file contains machine independent code for performing core dumps.
  *
  */
-#if CONFIG_COREDUMP
+#if CONFIG_COREDUMP || CONFIG_UCOREDUMP
 
 #include <mach/vm_param.h>
 #include <mach/thread_status.h>
@@ -73,13 +73,85 @@
 #include <security/mac_framework.h>
 #endif /* CONFIG_MACF */
 
+
 #include <kdp/core_notes.h>
+
+extern int freespace_mb(vnode_t vp);
+
+/* XXX not in a Mach header anywhere */
+kern_return_t thread_getstatus(thread_t act, int flavor,
+    thread_state_t tstate, mach_msg_type_number_t *count);
+void task_act_iterate_wth_args(task_t, void (*)(thread_t, void *), void *);
+
+#ifdef SECURE_KERNEL
+__XNU_PRIVATE_EXTERN int do_coredump = 0;       /* default: don't dump cores */
+#else
+__XNU_PRIVATE_EXTERN int do_coredump = 1;       /* default: dump cores */
+#endif /* SECURE_KERNEL */
+__XNU_PRIVATE_EXTERN int sugid_coredump = 0; /* default: but not SGUID binaries */
+
+#if CONFIG_UCOREDUMP
+__XNU_PRIVATE_EXTERN int do_ucoredump = 0;   /* default: kernel does dumps */
+#endif
+
+/*
+ * is_coredump_eligible
+ *
+ * Determine if a core should even be dumped at all (by any mechanism)
+ *
+ * Does NOT include disk permission or space constraints
+ *
+ * core_proc		Process to dump core [*] must be current proc!
+ *
+ * Return:	0	Success
+ *		!0	Failure errno
+ */
+int
+is_coredump_eligible(proc_t core_proc)
+{
+	if (current_proc() != core_proc && (
+		    core_proc->p_exit_reason &&
+		    core_proc->p_exit_reason->osr_namespace == OS_REASON_JETSAM)) {
+		return EPERM;
+	}
+	if (current_proc() != core_proc) {
+		panic("coredump for proc that is not current: %p)", core_proc);
+	}
+
+	vfs_context_t ctx = vfs_context_current();
+	kauth_cred_t cred = vfs_context_ucred(ctx);
+
+	if (do_coredump == 0 ||         /* Not dumping at all */
+	    ((sugid_coredump == 0) &&   /* Not dumping SUID/SGID binaries */
+	    ((kauth_cred_getsvuid(cred) != kauth_cred_getruid(cred)) ||
+	    (kauth_cred_getsvgid(cred) != kauth_cred_getrgid(cred))))) {
+		return EPERM;
+	}
+
+#if CONFIG_MACF
+	const int error = mac_proc_check_dump_core(core_proc);
+	if (error != 0) {
+		return error;
+	}
+#endif
+	return 0;
+}
+
+#else /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
+
+/* When core dumps aren't needed, no need to compile this file at all */
+
+#error assertion failed: this section is not compiled
+
+#endif /* CONFIG_COREDUMP || CONFIG_UCOREDUMP */
+
+#if CONFIG_COREDUMP
 
 #define COREDUMP_CUSTOM_LOCATION_ENTITLEMENT "com.apple.private.custom-coredump-location"
 
 typedef struct {
 	int     flavor;                 /* the number for this flavor */
-	mach_msg_type_number_t  count;  /* count of ints in this flavor */
+	mach_msg_type_number_t  count;        /* count of ints in this flavor */
 } mythread_state_flavor_t;
 
 #if defined (__i386__) || defined (__x86_64__)
@@ -108,21 +180,6 @@ typedef struct {
 	size_t tstate_size;
 	size_t flavor_count;
 } tir_t;
-
-extern int freespace_mb(vnode_t vp);
-
-/* XXX not in a Mach header anywhere */
-kern_return_t thread_getstatus(thread_t act, int flavor,
-    thread_state_t tstate, mach_msg_type_number_t *count);
-void task_act_iterate_wth_args(task_t, void (*)(thread_t, void *), void *);
-
-#ifdef SECURE_KERNEL
-__XNU_PRIVATE_EXTERN int do_coredump = 0;       /* default: don't dump cores */
-#else
-__XNU_PRIVATE_EXTERN int do_coredump = 1;       /* default: dump cores */
-#endif /* SECURE_KERNEL */
-__XNU_PRIVATE_EXTERN int sugid_coredump = 0; /* default: but not SGUID binaries */
-
 
 /* cpu_type returns only the most generic indication of the current CPU. */
 /* in a core we want to know the kind of process. */
@@ -299,9 +356,9 @@ dump_notes(proc_t __unused core_proc, vm_offset_t header, size_t hoffset, struct
  *		indicated
  *
  * Parameters:	core_proc			Process to dump core [*]
- *				reserve_mb			If non-zero, leave filesystem with
- *									at least this much free space.
- *				coredump_flags	Extra options (ignore rlimit, run fsync)
+ *		reserve_mb			If non-zero, leave filesystem with
+ *						at least this much free space.
+ *		coredump_flags	Extra options (ignore rlimit, run fsync)
  *
  * Returns:	0				Success
  *		!0				Failure errno
@@ -344,8 +401,8 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 	mach_msg_type_number_t vbrcount = 0;
 	tir_t tir1;
 	struct vnode * vp;
-	struct mach_header      *mh = NULL;     /* protected by is_64 */
-	struct mach_header_64   *mh64 = NULL;   /* protected by is_64 */
+	struct mach_header      *mh = NULL;        /* protected by is_64 */
+	struct mach_header_64   *mh64 = NULL;        /* protected by is_64 */
 	int             is_64 = 0;
 	size_t          mach_header_sz = sizeof(struct mach_header);
 	size_t          segment_command_sz = sizeof(struct segment_command);
@@ -358,26 +415,9 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 	bool            include_iokit_memory = task_is_driver(task);
 	bool            coredump_attempted = false;
 
-	if (current_proc() != core_proc) {
-		COREDUMPLOG("Skipping coredump (called against proc that is not current_proc: %p)", core_proc);
-		error = EFAULT;
+	if ((error = is_coredump_eligible(core_proc)) != 0) {
 		goto out2;
 	}
-
-	if (do_coredump == 0 ||         /* Not dumping at all */
-	    ((sugid_coredump == 0) &&   /* Not dumping SUID/SGID binaries */
-	    ((kauth_cred_getsvuid(cred) != kauth_cred_getruid(cred)) ||
-	    (kauth_cred_getsvgid(cred) != kauth_cred_getrgid(cred))))) {
-		error = EFAULT;
-		goto out2;
-	}
-
-#if CONFIG_MACF
-	error = mac_proc_check_dump_core(core_proc);
-	if (error != 0) {
-		goto out2;
-	}
-#endif
 
 	if (IS_64BIT_PROCESS(core_proc)) {
 		is_64 = 1;
@@ -425,6 +465,7 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 
 	(void) task_suspend_internal(task);
 
+
 	alloced_name = zalloc_flags(ZV_NAMEI, Z_NOWAIT | Z_ZERO);
 
 	/* create name according to sysctl'able format string */
@@ -456,7 +497,7 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 		goto out;
 	}
 
-	VATTR_INIT(vap);        /* better to do it here than waste more stack in vnode_setsize */
+	VATTR_INIT(vap);         /* better to do it here than waste more stack in vnode_setsize */
 	VATTR_SET(vap, va_data_size, 0);
 	if (core_proc == initproc) {
 		VATTR_SET(vap, va_dataprotect_class, PROTECTION_CLASS_D);
@@ -479,7 +520,7 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 	 */
 
 	thread_count = get_task_numacts(task);
-	segment_count = get_vmmap_entries(map); /* XXX */
+	segment_count = get_vmmap_entries(map);         /* XXX */
 	tir1.flavor_count = sizeof(thread_flavor_array) / sizeof(mythread_state_flavor_t);
 	bcopy(thread_flavor_array, flavors, sizeof(thread_flavor_array));
 	tstate_size = 0;
@@ -561,8 +602,8 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 		mh->sizeofcmds = (uint32_t)command_size;
 	}
 
-	hoffset = mach_header_sz;       /* offset into header */
-	foffset = round_page(header_size);      /* offset into file */
+	hoffset = mach_header_sz;         /* offset into header */
+	foffset = round_page(header_size);         /* offset into file */
 	vmoffset = MACH_VM_MIN_ADDRESS;         /* offset into VM */
 	COREDUMPLOG("mach header size: %zu", header_size);
 
@@ -694,8 +735,8 @@ coredump(proc_t core_proc, uint32_t reserve_mb, int coredump_flags)
 			sc->segname[0] = 0;
 			sc->vmaddr = CAST_DOWN_EXPLICIT(uint32_t, vmoffset);
 			sc->vmsize = CAST_DOWN_EXPLICIT(uint32_t, vmsize);
-			sc->fileoff = CAST_DOWN_EXPLICIT(uint32_t, foffset); /* will never truncate */
-			sc->filesize = CAST_DOWN_EXPLICIT(uint32_t, fsize); /* will never truncate */
+			sc->fileoff = CAST_DOWN_EXPLICIT(uint32_t, foffset);         /* will never truncate */
+			sc->filesize = CAST_DOWN_EXPLICIT(uint32_t, fsize);         /* will never truncate */
 			sc->maxprot = maxprot;
 			sc->initprot = prot;
 			sc->nsects = 0;
@@ -790,11 +831,5 @@ out2:
 
 	return error;
 }
-
-#else /* CONFIG_COREDUMP */
-
-/* When core dumps aren't needed, no need to compile this file at all */
-
-#error assertion failed: this section is not compiled
 
 #endif /* CONFIG_COREDUMP */

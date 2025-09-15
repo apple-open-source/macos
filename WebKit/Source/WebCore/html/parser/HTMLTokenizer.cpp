@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008-2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile, Inc. http://www.torchmobile.com/
- * Copyright (C) 2010 Google, Inc. All Rights Reserved.
+ * Copyright (C) 2010 Google, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1406,7 +1406,7 @@ inline bool HTMLTokenizer::temporaryBufferIs(ASCIILiteral expectedString)
 {
     if (m_temporaryBuffer.size() != expectedString.length())
         return false;
-    return equal(m_temporaryBuffer.data(), expectedString.span8());
+    return equal(m_temporaryBuffer.span().data(), expectedString.span8());
 }
 
 inline void HTMLTokenizer::appendToPossibleEndTag(UChar character)
@@ -1419,7 +1419,7 @@ inline bool HTMLTokenizer::isAppropriateEndTag() const
 {
     if (m_bufferedEndTagName.size() != m_appropriateEndTagName.size())
         return false;
-    return equal(m_bufferedEndTagName.data(), m_appropriateEndTagName.span());
+    return equal(m_bufferedEndTagName.span().data(), m_appropriateEndTagName.span());
 }
 
 inline void HTMLTokenizer::parseError()

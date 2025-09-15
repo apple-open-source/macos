@@ -55,7 +55,7 @@ public:
 
     WEBCORE_EXPORT ~IOSurfacePool();
 
-    std::unique_ptr<IOSurface> takeSurface(IntSize, const DestinationColorSpace&, IOSurface::Format);
+    std::unique_ptr<IOSurface> takeSurface(IntSize, const DestinationColorSpace&, IOSurface::Format, UseLosslessCompression);
     WEBCORE_EXPORT void addSurface(std::unique_ptr<IOSurface>&&);
 
     WEBCORE_EXPORT void discardAllSurfaces();
@@ -76,9 +76,9 @@ private:
         bool hasMarkedPurgeable;
     };
 
-    typedef Deque<std::unique_ptr<IOSurface>> CachedSurfaceQueue;
-    typedef UncheckedKeyHashMap<IntSize, CachedSurfaceQueue> CachedSurfaceMap;
-    typedef UncheckedKeyHashMap<IOSurface*, CachedSurfaceDetails> CachedSurfaceDetailsMap;
+    using CachedSurfaceQueue = Deque<std::unique_ptr<IOSurface>>;
+    using CachedSurfaceMap = HashMap<IntSize, CachedSurfaceQueue>;
+    using CachedSurfaceDetailsMap = HashMap<IOSurface*, CachedSurfaceDetails>;
 
 #if PLATFORM(MAC)
     static constexpr size_t defaultMaximumBytesCached { 256 * MB };

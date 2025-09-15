@@ -52,6 +52,11 @@
 #define WTF_OS_AIX 1
 #endif
 
+/* OS(ANDROID) - Android */
+#if defined(__ANDROID__) || defined(ANDROID)
+#define WTF_OS_ANDROID 1
+#endif
+
 /* OS(DARWIN) - Any Darwin-based OS, including macOS, iOS, iPadOS, macCatalyst, tvOS, watchOS and visionOS */
 #if defined(__APPLE__)
 #define WTF_OS_DARWIN 1
@@ -132,6 +137,7 @@
     || OS(DARWIN)           \
     || OS(FREEBSD)          \
     || OS(FUCHSIA)          \
+    || OS(HAIKU)            \
     || OS(HURD)             \
     || OS(LINUX)            \
     || OS(NETBSD)           \

@@ -220,7 +220,7 @@ void AuxiliaryProcess::stopRunLoop()
 #if !PLATFORM(COCOA)
 void AuxiliaryProcess::platformStopRunLoop()
 {
-    RunLoop::main().stop();
+    RunLoop::mainSingleton().stop();
 }
 #endif
 
@@ -237,7 +237,7 @@ void AuxiliaryProcess::shutDown()
     terminate();
 }
 
-void AuxiliaryProcess::applyProcessCreationParameters(const AuxiliaryProcessCreationParameters& parameters)
+void AuxiliaryProcess::applyProcessCreationParameters(AuxiliaryProcessCreationParameters&& parameters)
 {
 #if !LOG_DISABLED || !RELEASE_LOG_DISABLED
     WTF::logChannels().initializeLogChannelsIfNecessary(parameters.wtfLoggingChannels);
@@ -245,8 +245,18 @@ void AuxiliaryProcess::applyProcessCreationParameters(const AuxiliaryProcessCrea
     WebKit::logChannels().initializeLogChannelsIfNecessary(parameters.webKitLoggingChannels);
 #endif
 #if PLATFORM(COCOA)
-    SecureCoding::applyProcessCreationParameters(parameters);
+    SecureCoding::applyProcessCreationParameters(WTFMove(parameters));
 #endif
+}
+
+void AuxiliaryProcess::grantAccessToContainerTempDirectory(const SandboxExtension::Handle& handle)
+{
+    SandboxExtension::consumePermanently(handle);
+#if ENABLE(LLVM_PROFILE_GENERATION) && PLATFORM(IOS_FAMILY)
+    WebKit::initializeLLVMProfiling();
+    WebCore::initializeLLVMProfiling();
+    JSC::initializeLLVMProfiling();
+#endif // ENABLE(LLVM_PROFILE_GENERATION) && PLATFORM(IOS_FAMILY)
 }
 
 #if !PLATFORM(IOS_FAMILY) || PLATFORM(MACCATALYST)
@@ -257,17 +267,11 @@ void AuxiliaryProcess::populateMobileGestaltCache(std::optional<SandboxExtension
 
 #if !PLATFORM(COCOA)
 
-#if !OS(UNIX)
-void AuxiliaryProcess::platformInitialize(const AuxiliaryProcessInitializationParameters&)
-{
-}
-#endif
-
 void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationParameters&, SandboxInitializationParameters&)
 {
 }
 
-void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, int32_t)
+void AuxiliaryProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName messageName, const Vector<uint32_t>&)
 {
     WTFLogAlways("Received invalid message: '%s'", description(messageName).characters());
     CRASH();

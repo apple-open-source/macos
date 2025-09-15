@@ -97,13 +97,13 @@ get_ipv6_ula(struct in6_addr *addr)
 	} while (ipv6_ula_interface_id == 0);
 
 	/* Return the generated address */
-	_CASSERT(sizeof(buf) == sizeof(struct in6_addr));
+	static_assert(sizeof(buf) == sizeof(struct in6_addr));
 	bcopy(buf, addr, sizeof(struct in6_addr));
 
 #if SK_LOG
 	char addrbuf[MAX_IPv6_STR_LEN];
 	SK_DF(SK_VERB_NETIF, "generated IPv6 address: %s",
-	    inet_ntop(AF_INET6, addr, addrbuf, sizeof(addrbuf)));
+	    sk_ntop(AF_INET6, addr, addrbuf, sizeof(addrbuf)));
 #endif /* SK_LOG */
 }
 
@@ -316,7 +316,7 @@ nx_netif_netagent_flow_bind(struct nx_netif *nif, struct nx_flow_req *nfr)
 		nfr->nfr_proc = NULL;
 		proc_rele(p);
 		SK_ERR("%s(%d) failed to bind flow_uuid %s to a "
-		    "nx_port (err %d)", sk_proc_name_address(p),
+		    "nx_port (err %d)", sk_proc_name(p),
 		    pid, sk_uuid_unparse(nfr->nfr_flow_uuid,
 		    uuidstr), err);
 		return err;
@@ -351,7 +351,7 @@ static int
 nx_netif_netagent_check_flags(struct nx_netif *nif, struct nx_flow_req *nfr,
     boolean_t add)
 {
-	uint16_t flags = nfr->nfr_flags;
+	uint32_t flags = nfr->nfr_flags;
 
 	if ((nif->nif_agent_flags & NETIF_AGENT_FLAG_ADDED) == 0) {
 		SK_ERR("no agent added");
@@ -546,10 +546,10 @@ nx_netif_netagent_flow_add(struct nx_netif *nif, struct nx_flow_req *nfr)
 
 		SK_DF(SK_VERB_NETIF, "flow type: IPv6 ULA");
 		SK_DF(SK_VERB_NETIF, "IPv6 local: %s",
-		    inet_ntop(AF_INET6, &nfr->nfr_saddr.sin6.sin6_addr,
+		    sk_ntop(AF_INET6, &nfr->nfr_saddr.sin6.sin6_addr,
 		    local, sizeof(local)));
 		SK_DF(SK_VERB_NETIF, "IPv6 remote: %s",
-		    inet_ntop(AF_INET6, &nfr->nfr_daddr.sin6.sin6_addr,
+		    sk_ntop(AF_INET6, &nfr->nfr_daddr.sin6.sin6_addr,
 		    remote, sizeof(remote)));
 	}
 #endif /* SK_LOG */
@@ -664,7 +664,7 @@ nx_netif_netagent_handle_interpose_flow_add(struct nx_netif *nif,
 	message =
 	    necp_create_nexus_assign_message(nif->nif_nx->nx_uuid,
 	    nfr.nfr_nx_port, nfr.nfr_bind_key, sizeof(nfr.nfr_bind_key),
-	    NULL, NULL, NULL, 0, NULL, &len);
+	    NULL, NULL, NULL, 0, NULL, 0, &len);
 	if (message == NULL) {
 		(void) nx_netif_netagent_flow_del(nif, &nfr);
 		return ENOMEM;
@@ -699,7 +699,7 @@ nx_netif_netagent_handle_custom_ether_flow_add(struct nx_netif *nif,
 	message =
 	    necp_create_nexus_assign_message(nif->nif_nx->nx_uuid,
 	    nfr.nfr_nx_port, nfr.nfr_bind_key, sizeof(nfr.nfr_bind_key),
-	    NULL, NULL, &nfr.nfr_etheraddr, 0, NULL, &len);
+	    NULL, NULL, &nfr.nfr_etheraddr, 0, NULL, 0, &len);
 	if (message == NULL) {
 		(void) nx_netif_netagent_flow_del(nif, &nfr);
 		return ENOMEM;
@@ -776,7 +776,7 @@ nx_netif_netagent_handle_ipv6_ula_flow_add(struct nx_netif *nif,
 		message = necp_create_nexus_assign_message(
 			zero_nx_uuid, NEXUS_PORT_ANY, NULL,
 			0, &local_endpoint, NULL,
-			&nfr.nfr_etheraddr, 0, NULL, &len);
+			&nfr.nfr_etheraddr, 0, NULL, 0, &len);
 	} else {
 		bzero(&remote_endpoint, sizeof(remote_endpoint));
 		SOCKADDR_COPY(&nfr.nfr_daddr.sin6, &remote_endpoint.u.sin6,
@@ -785,7 +785,7 @@ nx_netif_netagent_handle_ipv6_ula_flow_add(struct nx_netif *nif,
 		message = necp_create_nexus_assign_message(
 			nif->nif_nx->nx_uuid, nfr.nfr_nx_port, nfr.nfr_bind_key,
 			sizeof(nfr.nfr_bind_key), &local_endpoint,
-			&remote_endpoint, &nfr.nfr_etheraddr, 0, NULL, &len);
+			&remote_endpoint, &nfr.nfr_etheraddr, 0, NULL, 0, &len);
 	}
 	if (message == NULL) {
 		/* This is a no-op for the listener flow */
@@ -885,8 +885,8 @@ nx_netif_agent_register(struct nx_netif *nif, uint32_t features)
 	struct netagent_nexus_agent agent;
 	int err = 0;
 
-	_CASSERT(FLOWADV_IDX_NONE == UINT32_MAX);
-	_CASSERT(NECP_FLOWADV_IDX_INVALID == FLOWADV_IDX_NONE);
+	static_assert(FLOWADV_IDX_NONE == UINT32_MAX);
+	static_assert(NECP_FLOWADV_IDX_INVALID == FLOWADV_IDX_NONE);
 
 	if (!nif_netagent) {
 		return ENOTSUP;

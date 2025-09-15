@@ -307,9 +307,13 @@ voidpf ZLIB_INTERNAL zcalloc (opaque, items, size)
     unsigned items;
     unsigned size;
 {
+#if Z_ALLOC_WRAPPER
     (void)opaque;
     return sizeof(uInt) > 2 ? (voidpf)malloc(items * size) :
                               (voidpf)calloc(items, size);
+#else
+    return NULL;
+#endif
 }
 
 void ZLIB_INTERNAL zcfree (opaque, ptr)

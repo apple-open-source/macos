@@ -45,7 +45,10 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 @interface FakeCKServerChangeToken : NSObject <NSSecureCoding>
 @property BOOL forward;
+// Used to track the zone's change token when we start the fetch, in case the zone changes as fetch continues.
+@property CKServerChangeToken* zoneCurrentChangeToken;
 @property CKServerChangeToken* token;
+
 - (instancetype)initWithAttributes:(CKServerChangeToken*)token
                            forward:(BOOL)forward;
 - (instancetype _Nullable)initWithCoder:(NSCoder* _Nullable)coder;
@@ -117,6 +120,8 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 @property CKRecordZoneID* zoneID;
 @property FakeCKServerChangeToken* currentChangeToken;
 
+@property int ctag;
+
 @property NSMutableDictionary<CKRecordID*, CKRecord*>* currentDatabase;
 @property NSMutableDictionary<CKServerChangeToken*, NSMutableDictionary<CKRecordID*, CKRecord*>*>* pastDatabases;
 @property bool flag;  // used however you'd like in a test
@@ -146,11 +151,18 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 // Set this to run some code after a write operation has started, but before any results are delivered
 @property (nullable) void (^blockBeforeWriteOperation)(void);
 
+// Keeps track of the tombstone CKRecords for this zone.
+@property NSMutableSet<CKRecordID*>* deletedRecordIDs;
+
 - (instancetype)initZone:(CKRecordZoneID*)zoneID;
 
 // Always Succeed
 - (void)addToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;
 - (void)addToZone:(CKRecord*)record;
+
+// Add a CloudKit tombstone record to a zone
+- (void)addCloudKitTombstoneToZone:(CKRecord*)record;
+- (CKRecord*)_onqueueAddCloudKitTombstoneToZone:(CKRecord*)record;
 
 // If you want a transaction of adding, use these
 - (CKRecord*)_onqueueAddToZone:(CKKSCKRecordHolder*)item zoneID:(CKRecordZoneID*)zoneID;

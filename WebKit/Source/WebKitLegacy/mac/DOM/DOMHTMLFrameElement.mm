@@ -47,7 +47,7 @@
 - (NSString *)frameBorder
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::frameborderAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::frameborderAttr).createNSString().autorelease();
 }
 
 - (void)setFrameBorder:(NSString *)newFrameBorder
@@ -59,7 +59,7 @@
 - (NSString *)longDesc
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::longdescAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::longdescAttr).createNSString().autorelease();
 }
 
 - (void)setLongDesc:(NSString *)newLongDesc
@@ -71,7 +71,7 @@
 - (NSString *)marginHeight
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::marginheightAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::marginheightAttr).createNSString().autorelease();
 }
 
 - (void)setMarginHeight:(NSString *)newMarginHeight
@@ -83,7 +83,7 @@
 - (NSString *)marginWidth
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::marginwidthAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::marginwidthAttr).createNSString().autorelease();
 }
 
 - (void)setMarginWidth:(NSString *)newMarginWidth
@@ -95,7 +95,7 @@
 - (NSString *)name
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getNameAttribute();
+    return IMPL->getNameAttribute().createNSString().autorelease();
 }
 
 - (void)setName:(NSString *)newName
@@ -119,7 +119,7 @@
 - (NSString *)scrolling
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getAttribute(WebCore::HTMLNames::scrollingAttr);
+    return IMPL->getAttribute(WebCore::HTMLNames::scrollingAttr).createNSString().autorelease();
 }
 
 - (void)setScrolling:(NSString *)newScrolling
@@ -131,7 +131,7 @@
 - (NSString *)src
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string();
+    return IMPL->getURLAttribute(WebCore::HTMLNames::srcAttr).string().createNSString().autorelease();
 }
 
 - (void)setSrc:(NSString *)newSrc

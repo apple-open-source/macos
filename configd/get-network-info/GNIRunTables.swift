@@ -23,6 +23,14 @@
 
 import Foundation
 
+// MARK: - platform specific commands
+
+#if os(macOS)
+let memacct_cmd: String = "/usr/bin/memacct -v"
+#else
+let memacct_cmd: String = "/usr/local/bin/memacct -v"
+#endif
+
 /*
  * A run table is defined as a list of 3-tuples [(String, String?, Bool)]:
  * 	1st tuple element: String = the fully specified command (full path to binary + arguments)
@@ -75,17 +83,21 @@ let runTableForDefaultCommands: [(String, String?, Bool)] = [
 	("/usr/sbin/skywalkctl flow-adv",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netstat -s",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netstat -s --global",			"skywalk.txt",				false),
+	("/usr/sbin/skywalkctl netstat -s -o",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl interface",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl channel",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl provider -D",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl netns -a",				"skywalk.txt",				false),
 	("/usr/sbin/skywalkctl memory",					"skywalk.txt",				false),
+	("/usr/sbin/skywalkctl aop",					"skywalk.txt",				false),
 	("/usr/local/bin/nsputil privacy-proxy-configuration",		"networkserviceproxy.txt",		false),
 	("/usr/local/bin/nsputil privacy-proxy-service-status -status-timeline","networkserviceproxy.txt",	false),
 	("/sbin/route -n -v get www.apple.com",				"route-info.txt",			false),
 	("/sbin/route -n -v get 0.0.0.0",				"route-info.txt",			false),
 	("/sbin/route -n -v get -inet6 ::",				"route-info.txt",			false),
 	("/bin/hostname",						"hostname.txt",				false),
+	("/usr/sbin/ndp -n -z",						"ndp-info.txt",				false),
+	(memacct_cmd,							"memacct.txt",				false),
 
 	// implemented directly in the caller function due to running with contingencies
 	// ("/usr/sbin/netstat -qq -I %@",				"netstat.txt",				true),
@@ -121,7 +133,8 @@ let runTableForSensitiveInfo: [(String, String?, Bool)] = [
 /*
  * A copy table is defined as a list of tuples [(String, String?)]:
  * 	1st tuple element: String = the file to copy (full path to file)
- * 	2nd tuple element: String (Swift Optional) = whether
+ * 	2nd tuple element: String (Swift Optional) = new file name at new location
+ *		when nil, the last component of the file path is used as the file name
  */
 
 let copyTableForConfigurationFiles: [(String, String?)] = [

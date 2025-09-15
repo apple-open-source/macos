@@ -51,7 +51,7 @@ void TestWithValidator::didReceiveMessage(IPC::Connection& connection, IPC::Deco
     if (decoder.messageName() == Messages::TestWithValidator::AlwaysEnabled::name())
         return IPC::handleMessage<Messages::TestWithValidator::AlwaysEnabled>(connection, decoder, this, &TestWithValidator::alwaysEnabled);
     if (decoder.messageName() == Messages::TestWithValidator::EnabledIfPassValidation::name()) {
-        if (!ValidateFunction()) {
+        if (!ValidateFunction(decoder)) {
             RELEASE_LOG_ERROR(IPC, "Message %s fails validation", IPC::description(decoder.messageName()).characters());
             return decoder.markInvalid();
         }
@@ -62,15 +62,40 @@ void TestWithValidator::didReceiveMessage(IPC::Connection& connection, IPC::Deco
             RELEASE_LOG_ERROR(IPC, "Message %s received by a disabled message endpoint", IPC::description(decoder.messageName()).characters());
             return decoder.markInvalid();
         }
-        if (!ValidateFunction()) {
+        if (!ValidateFunction(decoder)) {
             RELEASE_LOG_ERROR(IPC, "Message %s fails validation", IPC::description(decoder.messageName()).characters());
             return decoder.markInvalid();
         }
         return IPC::handleMessage<Messages::TestWithValidator::EnabledIfSomeFeatureEnabledAndPassValidation>(connection, decoder, this, &TestWithValidator::enabledIfSomeFeatureEnabledAndPassValidation);
     }
+    if (decoder.messageName() == Messages::TestWithValidator::MessageWithReply::name())
+        return IPC::handleMessageAsync<Messages::TestWithValidator::MessageWithReply>(connection, decoder, this, &TestWithValidator::messageWithReply);
     UNUSED_PARAM(connection);
     RELEASE_LOG_ERROR(IPC, "Unhandled message %s to %" PRIu64, IPC::description(decoder.messageName()).characters(), decoder.destinationID());
     decoder.markInvalid();
+}
+
+void TestWithValidator::sendCancelReply(IPC::Connection& connection, IPC::Decoder& decoder)
+{
+    ASSERT(decoder.messageReceiverName() == IPC::ReceiverName::TestWithValidator);
+    switch (decoder.messageName()) {
+    case IPC::MessageName::TestWithValidator_MessageWithReply: {
+        auto arguments = decoder.decode<typename Messages::TestWithValidator::MessageWithReply::Arguments>();
+        if (!arguments) [[unlikely]]
+            return;
+        auto replyID = decoder.decode<IPC::AsyncReplyID>();
+        if (!replyID) [[unlikely]]
+            return;
+        connection.sendAsyncReply<Messages::TestWithValidator::MessageWithReply>(*replyID
+            , IPC::AsyncReplyError<String>::create()
+            , IPC::AsyncReplyError<double>::create()
+        );
+        return;
+    }
+    default:
+        // No reply to send.
+        return;
+    }
 }
 
 } // namespace WebKit
@@ -90,6 +115,14 @@ template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::Tes
 template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::TestWithValidator_EnabledIfSomeFeatureEnabledAndPassValidation>(JSC::JSGlobalObject* globalObject, Decoder& decoder)
 {
     return jsValueForDecodedArguments<Messages::TestWithValidator::EnabledIfSomeFeatureEnabledAndPassValidation::Arguments>(globalObject, decoder);
+}
+template<> std::optional<JSC::JSValue> jsValueForDecodedMessage<MessageName::TestWithValidator_MessageWithReply>(JSC::JSGlobalObject* globalObject, Decoder& decoder)
+{
+    return jsValueForDecodedArguments<Messages::TestWithValidator::MessageWithReply::Arguments>(globalObject, decoder);
+}
+template<> std::optional<JSC::JSValue> jsValueForDecodedMessageReply<MessageName::TestWithValidator_MessageWithReply>(JSC::JSGlobalObject* globalObject, Decoder& decoder)
+{
+    return jsValueForDecodedArguments<Messages::TestWithValidator::MessageWithReply::ReplyArguments>(globalObject, decoder);
 }
 
 }

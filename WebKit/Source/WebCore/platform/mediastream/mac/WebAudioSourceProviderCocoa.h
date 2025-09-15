@@ -27,6 +27,7 @@
 
 #if ENABLE(WEB_AUDIO)
 
+#include "AudioSampleDataSource.h"
 #include "CAAudioStreamDescription.h"
 #include "WebAudioSourceProvider.h"
 #include <CoreAudio/CoreAudioTypes.h>
@@ -46,7 +47,6 @@ class LoggerHelper;
 
 namespace WebCore {
 
-class AudioSampleDataSource;
 class CAAudioStreamDescription;
 class PlatformAudioData;
 class WebAudioBufferList;
@@ -58,9 +58,10 @@ public:
     ~WebAudioSourceProviderCocoa();
 
 protected:
-    void receivedNewAudioSamples(const PlatformAudioData&, const AudioStreamDescription&, size_t);
+    using NeedsFlush = AudioSampleDataSource::NeedsFlush;
+    void receivedNewAudioSamples(const PlatformAudioData&, const AudioStreamDescription&, size_t, NeedsFlush = NeedsFlush::No);
 
-        void setPollSamplesCount(size_t);
+    void setPollSamplesCount(size_t);
 
 private:
     virtual void hasNewClient(AudioSourceProviderClient*) = 0;
@@ -69,7 +70,7 @@ private:
 #endif
 
     // AudioSourceProvider
-    void provideInput(AudioBus*, size_t) final;
+    void provideInput(AudioBus&, size_t) final;
     void setClient(WeakPtr<AudioSourceProviderClient>&&) final;
 
     void prepare(const AudioStreamBasicDescription&);

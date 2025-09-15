@@ -815,6 +815,7 @@ extern boolean_t        upl_has_wired_pages(upl_t upl);
 
 void upl_page_set_mark(upl_page_info_t *upl, int index, boolean_t v);
 boolean_t upl_page_get_mark(upl_page_info_t *upl, int index);
+boolean_t upl_page_is_needed(upl_page_info_t *upl, int index);
 
 #endif // KERNEL_PRIVATE
 

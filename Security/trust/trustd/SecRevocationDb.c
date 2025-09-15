@@ -237,7 +237,7 @@ static CFStringRef kUpdateIntervalKey       = CFSTR("ValidUpdateInterval");
 static CFStringRef kUpdateGenerationKey     = CFSTR("ValidUpdateGeneration");
 static CFStringRef kBoolTrueKey             = CFSTR("1");
 static CFStringRef kBoolFalseKey            = CFSTR("0");
-CFIndex kValidUpdateCurrentGeneration = 6;  /* generation value which we request from network */
+CFIndex kValidUpdateCurrentGeneration = 7;  /* generation value which we request from network */
 CFIndex kValidUpdateOldGeneration = 4;      /* assumed value if no generation key found in db */
 
 /* constant length of boolean string keys */
@@ -2674,7 +2674,8 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
     CFArrayRef deleteArray = (CFArrayRef)CFDictionaryGetValue(dict, CFSTR("delete"));
     if (isArray(deleteArray)) {
         SecValidInfoFormat format = kSecValidInfoFormatUnknown;
-        CFIndex processed=0, identifierIX, identifierCount = CFArrayGetCount(deleteArray);
+        CFIndex processed __unused = 0;
+        CFIndex identifierIX, identifierCount = CFArrayGetCount(deleteArray);
         for (identifierIX=0; identifierIX<identifierCount; identifierIX++) {
             CFDataRef identifierData = (CFDataRef)CFArrayGetValueAtIndex(deleteArray, identifierIX);
             if (!identifierData) { continue; }
@@ -2709,16 +2710,15 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
             });
             if (ok) { ++processed; }
         }
-#if VERBOSE_LOGGING
         secdebug("validupdate", "Processed %ld of %ld deletions for group %lld, result=%{bool}d",
                  processed, identifierCount, groupId, ok);
-#endif
     }
     /* process additions */
     CFArrayRef addArray = (CFArrayRef)CFDictionaryGetValue(dict, CFSTR("add"));
     if (isArray(addArray)) {
         SecValidInfoFormat format = kSecValidInfoFormatUnknown;
-        CFIndex processed=0, identifierIX, identifierCount = CFArrayGetCount(addArray);
+        CFIndex processed __unused = 0;
+        CFIndex identifierIX, identifierCount = CFArrayGetCount(addArray);
         for (identifierIX=0; identifierIX<identifierCount; identifierIX++) {
             CFDataRef identifierData = (CFDataRef)CFArrayGetValueAtIndex(addArray, identifierIX);
             if (!identifierData || CFDataGetLength(identifierData) < 0) { continue; }
@@ -2748,10 +2748,8 @@ static bool _SecRevocationDbUpdateIssuerData(SecRevocationDbConnectionRef dbc, i
             });
             if (ok) { ++processed; }
         }
-#if VERBOSE_LOGGING
         secdebug("validupdate", "Processed %ld of %ld additions for group %lld, result=%{bool}d",
                  processed, identifierCount, groupId, ok);
-#endif
     }
     if (!ok || localError) {
         secerror("_SecRevocationDbUpdatePerIssuerData failed: %@", localError);

@@ -20,9 +20,12 @@
 #include "config.h"
 #include "RenderSVGResourcePattern.h"
 
+#include "ContainerNodeInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "ImageBuffer.h"
+#include "NativeImage.h"
 #include "RenderLayer.h"
+#include "RenderObjectInlines.h"
 #include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGResourcePatternInlines.h"
 #include "RenderSVGShape.h"
@@ -50,7 +53,7 @@ void RenderSVGResourcePattern::collectPatternAttributesIfNeeded()
 
     auto attributes = PatternAttributes { };
 
-    RefPtr current = &patternElement();
+    RefPtr current = patternElement();
 
     current->synchronizeAllAttributes();
 

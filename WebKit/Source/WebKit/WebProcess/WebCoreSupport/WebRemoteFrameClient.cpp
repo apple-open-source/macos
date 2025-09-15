@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,10 +27,12 @@
 #include "WebRemoteFrameClient.h"
 
 #include "MessageSenderInlines.h"
+#include "WebFrameProxyMessages.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameTree.h>
+#include <WebCore/HTMLFrameOwnerElement.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/PolicyChecker.h>
 #include <WebCore/RemoteFrame.h>
@@ -53,11 +55,16 @@ void WebRemoteFrameClient::frameDetached()
         return;
     }
 
+    RefPtr ownerElement = coreFrame->ownerElement();
+
     if (RefPtr parent = coreFrame->tree().parent()) {
         coreFrame->tree().detachFromParent();
         parent->tree().removeChild(*coreFrame);
     }
     m_frame->invalidate();
+
+    if (ownerElement)
+        ownerElement->protectedDocument()->checkCompleted();
 }
 
 void WebRemoteFrameClient::sizeDidChange(IntSize size)
@@ -67,7 +74,7 @@ void WebRemoteFrameClient::sizeDidChange(IntSize size)
 
 void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const String& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::PostMessageToRemote(source, sourceOrigin, target, targetOrigin, message));
 }
 
@@ -150,25 +157,25 @@ void WebRemoteFrameClient::bindRemoteAccessibilityFrames(int processIdentifier, 
 
 void WebRemoteFrameClient::closePage()
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->sendClose();
 }
 
 void WebRemoteFrameClient::focus()
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::FocusRemoteFrame(m_frame->frameID()));
 }
 
 void WebRemoteFrameClient::unfocus()
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::SetFocus(false));
 }
 
 void WebRemoteFrameClient::documentURLForConsoleLog(CompletionHandler<void(const URL&)>&& completionHandler)
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->sendWithAsyncReply(Messages::WebPageProxy::DocumentURLForConsoleLog(m_frame->frameID()), WTFMove(completionHandler));
     else
         completionHandler({ });
@@ -198,16 +205,22 @@ void WebRemoteFrameClient::applyWebsitePolicies(WebsitePoliciesData&& websitePol
         return;
     }
 
-    coreFrame->setCustomUserAgent(websitePolicies.customUserAgent);
-    coreFrame->setCustomUserAgentAsSiteSpecificQuirks(websitePolicies.customUserAgentAsSiteSpecificQuirks);
+    coreFrame->setCustomUserAgent(WTFMove(websitePolicies.customUserAgent));
+    coreFrame->setCustomUserAgentAsSiteSpecificQuirks(WTFMove(websitePolicies.customUserAgentAsSiteSpecificQuirks));
     coreFrame->setAdvancedPrivacyProtections(websitePolicies.advancedPrivacyProtections);
-    coreFrame->setCustomNavigatorPlatform(websitePolicies.customNavigatorPlatform);
+    coreFrame->setCustomNavigatorPlatform(WTFMove(websitePolicies.customNavigatorPlatform));
+    coreFrame->setAutoplayPolicy(core(websitePolicies.autoplayPolicy));
 }
 
 void WebRemoteFrameClient::updateScrollingMode(ScrollbarMode scrollingMode)
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->send(Messages::WebPageProxy::UpdateScrollingMode(m_frame->frameID(), scrollingMode));
+}
+
+void WebRemoteFrameClient::findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection direction, const WebCore::FocusEventData& focusEventData, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&& completionHandler)
+{
+    m_frame->sendWithAsyncReply(Messages::WebFrameProxy::FindFocusableElementDescendingIntoRemoteFrame(direction, focusEventData), WTFMove(completionHandler));
 }
 
 }

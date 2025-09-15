@@ -1375,7 +1375,6 @@ IOCFUnserializeBinary(const char	* buffer,
 		if (hasLength) {
 			bufferPos += sizeof(*next);
 			if (!(ok = (bufferPos <= bufferSize))) {
-				CFRelease(o);
 				break;
 			}
 			length = *next++;

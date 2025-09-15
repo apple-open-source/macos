@@ -6,6 +6,7 @@
 #include <mach/mach.h>
 #include <darwintest.h>
 #include <stdlib.h>
+#include <sys/sysctl.h>
 #include "cs_helpers.h"
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
@@ -22,6 +23,7 @@ T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 struct all_host_info {
 	vm_statistics64_data_t host_vm_info64_rev0;
 	vm_statistics64_data_t host_vm_info64_rev1;
+	vm_statistics64_data_t host_vm_info64_rev2;
 	vm_extmod_statistics_data_t host_extmod_info64;
 	host_load_info_data_t host_load_info;
 	vm_statistics_data_t host_vm_info_rev0;
@@ -31,6 +33,22 @@ struct all_host_info {
 	task_power_info_v2_data_t host_expired_task_info;
 	task_power_info_v2_data_t host_expired_task_info2;
 };
+
+static bool
+on_rosetta(void)
+{
+#if defined(__x86_64__)
+	int out_value = 0;
+	size_t io_size = sizeof(out_value);
+	if (sysctlbyname("sysctl.proc_translated", &out_value, &io_size, NULL, 0) == 0) {
+		assert(io_size >= sizeof(out_value));
+		return out_value;
+	}
+	return false;
+#else /* defined(__x86_64__) */
+	return false;
+#endif /* !defined(__x86_64__) */
+}
 
 static void
 check_host_info(struct all_host_info* data, unsigned long iter, char lett)
@@ -82,29 +100,61 @@ get_host_info(struct all_host_info* data, host_t self, int iter)
 	for (i = 0; i < iter; i++) {
 		count = HOST_VM_INFO64_REV0_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics64(self, HOST_VM_INFO64, (host_info64_t)&data[i].host_vm_info64_rev0, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO64_REV0_COUNT, NULL);
+
 		count = HOST_VM_INFO64_REV1_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics64(self, HOST_VM_INFO64, (host_info64_t)&data[i].host_vm_info64_rev1, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO64_REV1_COUNT, NULL);
+
+		count = HOST_VM_INFO64_REV2_COUNT;
+		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics64(self, HOST_VM_INFO64, (host_info64_t)&data[i].host_vm_info64_rev2, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO64_REV2_COUNT, NULL);
+
 		count = HOST_EXTMOD_INFO64_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics64(self, HOST_EXTMOD_INFO64, (host_info64_t)&data[i].host_extmod_info64, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_EXTMOD_INFO64_COUNT, NULL);
+
 		count = HOST_LOAD_INFO_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_LOAD_INFO, (host_info_t)&data[i].host_load_info, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_LOAD_INFO_COUNT, NULL);
+
 		count = HOST_VM_INFO_REV0_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_VM_INFO, (host_info_t)&data[i].host_vm_info_rev0, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO_REV0_COUNT, NULL);
+
 		count = HOST_VM_INFO_REV1_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_VM_INFO, (host_info_t)&data[i].host_vm_info_rev1, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO_REV1_COUNT, NULL);
+
 		count = HOST_VM_INFO_REV2_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_VM_INFO, (host_info_t)&data[i].host_vm_info_rev2, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_VM_INFO_REV2_COUNT, NULL);
+
 		count = HOST_CPU_LOAD_INFO_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_CPU_LOAD_INFO, (host_info_t)&data[i].host_cpu_load_info, &count), NULL);
+		T_QUIET; T_ASSERT_EQ(count, HOST_CPU_LOAD_INFO_COUNT, NULL);
+
 		count = TASK_POWER_INFO_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_EXPIRED_TASK_INFO, (host_info_t)&data[i].host_expired_task_info, &count), NULL);
+		if (!on_rosetta()) {
+			/* rdar://61083333 */
+			T_QUIET; T_ASSERT_EQ(count, TASK_POWER_INFO_COUNT, NULL);
+		}
+
 		count = TASK_POWER_INFO_V2_COUNT;
 		T_QUIET; T_ASSERT_POSIX_ZERO(host_statistics(self, HOST_EXPIRED_TASK_INFO, (host_info_t)&data[i].host_expired_task_info2, &count), NULL);
+		if (!on_rosetta()) {
+			/* rdar://61083333 */
+			T_QUIET; T_ASSERT_EQ(count, TASK_POWER_INFO_V2_COUNT, NULL);
+		}
 	}
 }
 
 T_DECL(test_host_statistics, "testing rate limit for host_statistics",
-    T_META_CHECK_LEAKS(false), T_META_ALL_VALID_ARCHS(true), T_META_TAG_VM_NOT_PREFERRED)
+    T_META_CHECK_LEAKS(false),
+    T_META_ALL_VALID_ARCHS(true),
+    T_META_TAG_VM_NOT_PREFERRED,
+    T_META_ENABLED(false) /* rdar://134505671 */)
 {
 	unsigned long long start, end, window;
 	int retry = 0;
@@ -129,11 +179,12 @@ T_DECL(test_host_statistics, "testing rate limit for host_statistics",
 	T_QUIET; T_ASSERT_EQ(sizeof(data[0].host_expired_task_info2), TASK_POWER_INFO_V2_COUNT * sizeof(int), "TASK_POWER_INFO_V2_COUNT");
 
 	/* check that the latest revision is the COUNT */
-	T_QUIET; T_ASSERT_EQ(HOST_VM_INFO64_REV1_COUNT, HOST_VM_INFO64_COUNT, "HOST_VM_INFO64_REV1_COUNT");
+	T_QUIET; T_ASSERT_EQ(HOST_VM_INFO64_REV2_COUNT, HOST_VM_INFO64_COUNT, "HOST_VM_INFO64_REV2_COUNT");
 	T_QUIET; T_ASSERT_EQ(HOST_VM_INFO_REV2_COUNT, HOST_VM_INFO_COUNT, "HOST_VM_INFO_REV2_COUNT");
 
 	/* check that the previous revision are smaller than the latest */
 	T_QUIET; T_ASSERT_LE(HOST_VM_INFO64_REV0_COUNT, HOST_VM_INFO64_REV1_COUNT, "HOST_VM_INFO64_REV0");
+	T_QUIET; T_ASSERT_LE(HOST_VM_INFO64_REV1_COUNT, HOST_VM_INFO64_REV2_COUNT, "HOST_VM_INFO64_REV1");
 	T_QUIET; T_ASSERT_LE(HOST_VM_INFO_REV0_COUNT, HOST_VM_INFO_REV2_COUNT, "HOST_VM_INFO_REV0_COUNT");
 	T_QUIET; T_ASSERT_LE(HOST_VM_INFO_REV1_COUNT, HOST_VM_INFO_REV2_COUNT, "HOST_VM_INFO_REV1_COUNT");
 	T_QUIET; T_ASSERT_LE(TASK_POWER_INFO_COUNT, TASK_POWER_INFO_V2_COUNT, "TASK_POWER_INFO_COUNT");

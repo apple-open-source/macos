@@ -61,7 +61,7 @@ flow_track_tcp_get_wscale(struct flow_track *s, struct __kern_packet *pkt)
 	uint8_t optlen, wscale = 0;
 	const uint8_t *opt;
 
-	_CASSERT(sizeof(s->fse_flags) == sizeof(uint16_t));
+	static_assert(sizeof(s->fse_flags) == sizeof(uint16_t));
 	ASSERT(hlen >= (int)sizeof(struct tcphdr));
 
 	opt = hdr + sizeof(struct tcphdr);
@@ -174,11 +174,11 @@ flow_track_tcp_rtt(struct flow_entry *fe, boolean_t input,
 
 	/* start a new RTT tracking session under sampling rate limit */
 	if (dst_last == 0 ||
-	    _net_uptime - dst_last > FLOWTRACK_RTT_SAMPLE_INTERVAL) {
+	    net_uptime() - dst_last > FLOWTRACK_RTT_SAMPLE_INTERVAL) {
 		if (ulen > 0 &&
 		    dst->fse_rtt.frtt_timestamp == 0) {
 			dst->fse_rtt.frtt_timestamp = mach_absolute_time();
-			dst->fse_rtt.frtt_last = _net_uptime;
+			dst->fse_rtt.frtt_last = net_uptime();
 			dst->fse_rtt.frtt_seg_begin = seq;
 			dst->fse_rtt.frtt_seg_end = seq + ulen;
 			KDBG((SK_KTRACE_FSW_FLOW_TRACK_RTT | DBG_FUNC_START),
@@ -509,8 +509,13 @@ flow_track_tcp(struct flow_entry *fe, struct flow_track *src,
 			}
 		}
 		if (tcp_flags & TH_RST) {
-			src->fse_state = dst->fse_state = TCPS_TIME_WAIT;
-			ftflags |= FTF_WAITCLOSE;
+			/*
+			 * Do not act on TCP RST with invalid sequence number per RFC 5961
+			 */
+			if (SEQ_GEQ(orig_seq, src->fse_seqlo)) {
+				src->fse_state = dst->fse_state = TCPS_TIME_WAIT;
+				ftflags |= FTF_WAITCLOSE;
+			}
 		}
 	} else {
 		if (dst->fse_state == TCPS_SYN_SENT &&
@@ -572,7 +577,7 @@ done:
 	 * If we're over the rate limit for outbound SYNs, drop packet.
 	 */
 	if (__improbable((ftflags & FTF_SYN_RLIM) != 0)) {
-		uint32_t now = (uint32_t)_net_uptime;
+		uint32_t now = (uint32_t)net_uptime();
 		if ((now - src->fse_syn_ts) > 1) {
 			src->fse_syn_ts = now;
 			src->fse_syn_cnt = 0;
@@ -597,7 +602,7 @@ flow_track_tcp_want_abort(struct flow_entry *fe)
 	struct flow_track *dst = &fe->fe_rtrack;
 
 	if (fe->fe_key.fk_proto != IPPROTO_TCP ||
-	    (fe->fe_flags & FLOWENTF_ABORTED)) {
+	    (fe->fe_flags & (FLOWENTF_ABORTED | FLOWENTF_AOP_OFFLOAD))) {
 		goto done;
 	}
 
@@ -668,7 +673,7 @@ flow_track_stats(struct flow_entry *fe, uint64_t bytes, uint64_t packets,
 
 	if (__probable(active)) {
 		in_stat_set_activity_bitmap(&fe->fe_stats->fs_activity,
-		    _net_uptime);
+		    net_uptime());
 	}
 }
 
@@ -678,33 +683,33 @@ flow_pkt_track(struct flow_entry *fe, struct __kern_packet *pkt, bool in)
 	struct flow_track *src, *dst;
 	int ret = 0;
 
-	_CASSERT(SFT_STATE_CLOSED == FT_STATE_CLOSED);
-	_CASSERT(SFT_STATE_LISTEN == FT_STATE_LISTEN);
-	_CASSERT(SFT_STATE_SYN_SENT == FT_STATE_SYN_SENT);
-	_CASSERT(SFT_STATE_SYN_RECEIVED == FT_STATE_SYN_RECEIVED);
-	_CASSERT(SFT_STATE_ESTABLISHED == FT_STATE_ESTABLISHED);
-	_CASSERT(SFT_STATE_CLOSE_WAIT == FT_STATE_CLOSE_WAIT);
-	_CASSERT(SFT_STATE_FIN_WAIT_1 == FT_STATE_FIN_WAIT_1);
-	_CASSERT(SFT_STATE_CLOSING == FT_STATE_CLOSING);
-	_CASSERT(SFT_STATE_LAST_ACK == FT_STATE_LAST_ACK);
-	_CASSERT(SFT_STATE_FIN_WAIT_2 == FT_STATE_FIN_WAIT_2);
-	_CASSERT(SFT_STATE_TIME_WAIT == FT_STATE_TIME_WAIT);
-	_CASSERT(SFT_STATE_NO_TRAFFIC == FT_STATE_NO_TRAFFIC);
-	_CASSERT(SFT_STATE_SINGLE == FT_STATE_SINGLE);
-	_CASSERT(SFT_STATE_MULTIPLE == FT_STATE_MULTIPLE);
-	_CASSERT(SFT_STATE_MAX == FT_STATE_MAX);
+	static_assert(SFT_STATE_CLOSED == FT_STATE_CLOSED);
+	static_assert(SFT_STATE_LISTEN == FT_STATE_LISTEN);
+	static_assert(SFT_STATE_SYN_SENT == FT_STATE_SYN_SENT);
+	static_assert(SFT_STATE_SYN_RECEIVED == FT_STATE_SYN_RECEIVED);
+	static_assert(SFT_STATE_ESTABLISHED == FT_STATE_ESTABLISHED);
+	static_assert(SFT_STATE_CLOSE_WAIT == FT_STATE_CLOSE_WAIT);
+	static_assert(SFT_STATE_FIN_WAIT_1 == FT_STATE_FIN_WAIT_1);
+	static_assert(SFT_STATE_CLOSING == FT_STATE_CLOSING);
+	static_assert(SFT_STATE_LAST_ACK == FT_STATE_LAST_ACK);
+	static_assert(SFT_STATE_FIN_WAIT_2 == FT_STATE_FIN_WAIT_2);
+	static_assert(SFT_STATE_TIME_WAIT == FT_STATE_TIME_WAIT);
+	static_assert(SFT_STATE_NO_TRAFFIC == FT_STATE_NO_TRAFFIC);
+	static_assert(SFT_STATE_SINGLE == FT_STATE_SINGLE);
+	static_assert(SFT_STATE_MULTIPLE == FT_STATE_MULTIPLE);
+	static_assert(SFT_STATE_MAX == FT_STATE_MAX);
 
-	_CASSERT(FT_STATE_CLOSED == TCPS_CLOSED);
-	_CASSERT(FT_STATE_LISTEN == TCPS_LISTEN);
-	_CASSERT(FT_STATE_SYN_SENT == TCPS_SYN_SENT);
-	_CASSERT(FT_STATE_SYN_RECEIVED == TCPS_SYN_RECEIVED);
-	_CASSERT(FT_STATE_ESTABLISHED == TCPS_ESTABLISHED);
-	_CASSERT(FT_STATE_CLOSE_WAIT == TCPS_CLOSE_WAIT);
-	_CASSERT(FT_STATE_FIN_WAIT_1 == TCPS_FIN_WAIT_1);
-	_CASSERT(FT_STATE_CLOSING == TCPS_CLOSING);
-	_CASSERT(FT_STATE_LAST_ACK == TCPS_LAST_ACK);
-	_CASSERT(FT_STATE_FIN_WAIT_2 == TCPS_FIN_WAIT_2);
-	_CASSERT(FT_STATE_TIME_WAIT == TCPS_TIME_WAIT);
+	static_assert(FT_STATE_CLOSED == TCPS_CLOSED);
+	static_assert(FT_STATE_LISTEN == TCPS_LISTEN);
+	static_assert(FT_STATE_SYN_SENT == TCPS_SYN_SENT);
+	static_assert(FT_STATE_SYN_RECEIVED == TCPS_SYN_RECEIVED);
+	static_assert(FT_STATE_ESTABLISHED == TCPS_ESTABLISHED);
+	static_assert(FT_STATE_CLOSE_WAIT == TCPS_CLOSE_WAIT);
+	static_assert(FT_STATE_FIN_WAIT_1 == TCPS_FIN_WAIT_1);
+	static_assert(FT_STATE_CLOSING == TCPS_CLOSING);
+	static_assert(FT_STATE_LAST_ACK == TCPS_LAST_ACK);
+	static_assert(FT_STATE_FIN_WAIT_2 == TCPS_FIN_WAIT_2);
+	static_assert(FT_STATE_TIME_WAIT == TCPS_TIME_WAIT);
 
 	ASSERT(pkt->pkt_qum_qflags & QUM_F_FLOW_CLASSIFIED);
 

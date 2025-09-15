@@ -27,29 +27,26 @@ namespace WTF {
 
 class AtomStringTable;
 
-class SUPPRESS_REFCOUNTED_WITHOUT_VIRTUAL_DESTRUCTOR AtomStringImpl final : public UniquedStringImpl {
+class AtomStringImpl final : public UniquedStringImpl {
 public:
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> lookUp(std::span<const LChar>);
-    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> lookUp(std::span<const UChar>);
+    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> lookUp(std::span<const char16_t>);
     static RefPtr<AtomStringImpl> lookUp(StringImpl*);
 
     static void remove(AtomStringImpl*);
 
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(std::span<const LChar>);
-    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(std::span<const UChar>);
+    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(std::span<const char16_t>);
     ALWAYS_INLINE static RefPtr<AtomStringImpl> add(std::span<const char> characters);
 
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(HashTranslatorCharBuffer<LChar>&);
-    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(HashTranslatorCharBuffer<UChar>&);
+    WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(HashTranslatorCharBuffer<char16_t>&);
 
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(StringImpl*, unsigned offset, unsigned length);
     ALWAYS_INLINE static RefPtr<AtomStringImpl> add(StringImpl*);
     ALWAYS_INLINE static RefPtr<AtomStringImpl> add(RefPtr<StringImpl>&&);
     WTF_EXPORT_PRIVATE static RefPtr<AtomStringImpl> add(const StaticStringImpl*);
     ALWAYS_INLINE static Ref<AtomStringImpl> add(ASCIILiteral);
-
-    // Not using the add() naming to encourage developers to call add(ASCIILiteral) when they have a string literal.
-    ALWAYS_INLINE static RefPtr<AtomStringImpl> addCString(const char*);
 
     // Returns null if the input data contains an invalid UTF-8 sequence.
     static RefPtr<AtomStringImpl> add(std::span<const char8_t>);
@@ -112,11 +109,6 @@ ALWAYS_INLINE RefPtr<AtomStringImpl> AtomStringImpl::add(RefPtr<StringImpl>&& st
 ALWAYS_INLINE Ref<AtomStringImpl> AtomStringImpl::add(ASCIILiteral literal)
 {
     return addLiteral(literal.span8());
-}
-
-ALWAYS_INLINE RefPtr<AtomStringImpl> AtomStringImpl::addCString(const char* s)
-{
-    return s ? add(unsafeSpan8(s)) : nullptr;
 }
 
 template<typename StringTableProvider>

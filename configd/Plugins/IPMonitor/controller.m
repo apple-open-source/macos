@@ -29,6 +29,7 @@
 #define numberToNSNumber(x)	[NSNumber numberWithUnsignedInteger:x]
 
 #define dnsAgentDefault		"_defaultDNS"
+#define dnsAgentEncrypted	"Encrypted"
 #define proxyAgentDefault	"_defaultProxy"
 #define multipleEntitySuffix	" #"
 #define prefixForInterfaceName	"@"
@@ -936,71 +937,205 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 
 - (NSData *)dataForResolver:(dns_resolver_t *)resolver
 {
-	NSData		*	data = nil;
-	CFMutableDictionaryRef	resolverDict = nil;
+	nw_resolver_config_t resolverConfig = nil;
 
 	if (resolver == NULL) {
 		SC_log(LOG_NOTICE, "Invalid dns resolver");
 		return nil;
 	}
 
+	resolverConfig = nw_resolver_config_create();
+	nw_resolver_config_set_protocol(resolverConfig,
+					nw_resolver_protocol_dns53);
+	nw_resolver_config_set_class(resolverConfig,
+				     nw_resolver_class_default_direct);
+
 	if (resolver->n_search > 0) {
-		CFMutableArrayRef searchDomainArray;
-
-		if (resolverDict == nil) {
-			resolverDict = CFDictionaryCreateMutable(NULL,
-								 0,
-								 &kCFTypeDictionaryKeyCallBacks,
-								 &kCFTypeDictionaryValueCallBacks);
-		}
-
-		searchDomainArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
 		/* Append search domains */
 		for (int i = 0; i < resolver->n_search; i++) {
-			CFArrayAppendValue(searchDomainArray, (__bridge CFStringRef)(@(resolver->search[i])));
+			nw_resolver_config_add_search_domain(resolverConfig, resolver->search[i]);
 		}
-
-		CFDictionaryAddValue(resolverDict, CFSTR(kConfigAgentDNSSearchDomains), searchDomainArray);
-		CFRelease(searchDomainArray);
 	}
 
 	/* Get the count of nameservers */
 	if (resolver->n_nameserver > 0) {
-		CFMutableArrayRef nameserverArray;
-
-		if (resolverDict == nil) {
-			resolverDict = CFDictionaryCreateMutable(NULL,
-								 0,
-								 &kCFTypeDictionaryKeyCallBacks,
-								 &kCFTypeDictionaryValueCallBacks);
-		}
-
-		nameserverArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
 		/* Get all the nameservers */
 		for (int i = 0; i < resolver->n_nameserver; i++) {
 			char buf[128] = {0};
 			_SC_sockaddr_to_string(resolver->nameserver[i], buf, sizeof(buf));
 			if (*buf != '\0') {
-				CFArrayAppendValue(nameserverArray, (__bridge CFStringRef)(@(buf)));
+				nw_resolver_config_add_name_server(resolverConfig,
+								   buf);
 			}
 		}
-
-		CFDictionaryAddValue(resolverDict, CFSTR(kConfigAgentDNSNameServers), nameserverArray);
-		CFRelease(nameserverArray);
 	}
 
-	if (resolverDict != nil) {
-		data = [NSPropertyListSerialization dataWithPropertyList:(__bridge id _Nonnull)(resolverDict)
-								  format:NSPropertyListBinaryFormat_v1_0
-								 options:0
-								   error:nil];
+	return (__bridge_transfer NSData *)nw_resolver_config_copy_plist_data_ref(resolverConfig);
+}
 
-		CFRelease(resolverDict);
+
+- (bool)extractDNRSvcParameterValues:(const uint8_t *)buffer
+			     buffer_size:(size_t)buffer_size
+			 resolverConfig:(nw_resolver_config_t)resolverConfig
+{
+
+	// Ideally, we would set resolverProtocol to a undefined protocol, but enum does not have that option.
+	// Instead, since we know the protocol type should be encrypted, nw_resolver_protocol_dns53
+	// can be used as a default and an error
+	__block nw_resolver_protocol_t resolverProtocol = nw_resolver_protocol_dns53;
+	// If there are multiple ALPNs, we will return the last supported ALPN similar to mDNSResponder
+	// In the case of DDR, encrypted resolvers return DoT and DoH as separate records.
+	// For DNR, we expect separate options for DoT and DoH resolvers.
+	_dnr_access_svc_param_value_block_t alpn_value_block = ^bool(const void *value, size_t value_size) {
+		if (value != NULL) {
+			size_t value_read = 0;
+			while (value_size > 0 && value_read < value_size) {
+				char alpn_value[UINT8_MAX] = "";
+
+				uint8_t alpn_length = *(((const uint8_t *)value) + value_read);
+				value_read++;
+
+				if (value_read + alpn_length > value_size) {
+					break;
+				}
+
+				memcpy(alpn_value, ((const uint8_t *)value) + value_read, alpn_length);
+				if (strcmp(alpn_value, "dot") == 0) {
+					SC_log(LOG_DEBUG, "DNR is configuring DoT resolver");
+					resolverProtocol = nw_resolver_protocol_dot;
+				} else if (strcmp(alpn_value, "h2") == 0) {
+					SC_log(LOG_DEBUG, "DNR is configuring DoH resolver");
+					resolverProtocol = nw_resolver_protocol_doh;
+				} else {
+					SC_log(LOG_INFO, "DNR ALPN value unsupported");
+				}
+				value_read += alpn_length;
+			}
+		}
+		return true;
+	};
+#ifdef NW_RESOLVER_CONFIG_HAS_PORT
+	__block uint16_t resolverPort = 0;
+	_dnr_access_svc_param_value_block_t port_value_block = ^bool(const void *value, size_t value_size) {
+		if (value != NULL && value_size == sizeof(uint16_t)) {
+			resolverPort = (uint16_t)htons(*(const uint16_t *)value);
+		}
+		return true;
+	};
+#endif //NW_RESOLVER_CONFIG_HAS_PORT
+	__block char *resolverDohPath = NULL;
+	_dnr_access_svc_param_value_block_t doh_path_value_block = ^bool(const void *value, size_t value_size) {
+		if (value != NULL && value_size > 0) {
+			const char * const value_str = value;
+			asprintf(&resolverDohPath, "%.*s", (int)value_size, value_str);
+		}
+		return true;
+	};
+
+	if (buffer_size < sizeof(uint16_t)) {
+		return nil;
 	}
 
-	return (NSData *)data;
+	while (buffer != NULL && buffer_size >= (sizeof(uint16_t) + sizeof(uint16_t))) {
+		uint16_t param_key;
+		uint16_t param_value_length;
+
+		memcpy(&param_key, buffer, sizeof(uint16_t));
+		param_key = (uint16_t)htons(param_key);
+
+		buffer += sizeof(uint16_t);
+		buffer_size -= sizeof(uint16_t);
+
+		memcpy(&param_value_length, buffer, sizeof(uint16_t));
+		param_value_length = (uint16_t)htons(param_value_length);
+
+		buffer += sizeof(uint16_t);
+		buffer_size -= sizeof(uint16_t);
+
+		if (param_value_length > buffer_size) {
+			SC_log(LOG_ERR, "DNR SvcParameter option length value greater than actual SvcParameter bytes. Skipping.");
+			break;
+		}
+
+		if (param_key == dnr_svcb_key_alpn) {
+			alpn_value_block(buffer, param_value_length);
+#ifdef NW_RESOLVER_CONFIG_HAS_PORT
+		} else if (param_key == dnr_svcb_key_port) {
+			port_value_block(buffer, param_value_length);
+#endif //NW_RESOLVER_CONFIG_HAS_PORT
+		} else if (param_key == dnr_svcb_key_doh_path) {
+			doh_path_value_block(buffer, param_value_length);
+		} else {
+			SC_log(LOG_INFO, "Unrecognized DNR SvcParameter key. Skipping.");
+		}
+
+		buffer += param_value_length;
+		buffer_size -= param_value_length;
+	}
+
+	// Since we are dealing with encrypted resolvers the
+	// default dns53 indicates an error
+	if (resolverProtocol == nw_resolver_protocol_dns53) {
+		resolverConfig = nil;
+		return false;
+	}
+	nw_resolver_config_set_protocol(resolverConfig, resolverProtocol);
+
+#ifdef NW_RESOLVER_CONFIG_HAS_PORT
+	// If resolverPort is set than it uses non-default port
+	if (resolverPort != 0) {
+		SC_log(LOG_DEBUG, "Custom port found in DNR SvcParameters");
+		nw_resolver_config_set_port(resolverConfig, resolverPort);
+	}
+#endif //NW_RESOLVER_CONFIG_HAS_PORT
+
+	if (resolverProtocol == nw_resolver_protocol_doh) {
+		if (resolverDohPath != NULL) {
+			// If the string is suffixed by a string like "{?dns}", trim off that variable template
+			char * const template_portion = strchr(resolverDohPath, '{');
+			if (template_portion != NULL) {
+				*template_portion = '\0';
+			}
+			nw_resolver_config_set_provider_path(resolverConfig, resolverDohPath);
+		}
+	}
+
+	return true;
+}
+
+- (NSData *)dataForEncryptedResolver:(NSDictionary *)encryptedResolver
+{
+	nw_resolver_config_t resolverConfig = nil;
+	NS_VALID_UNTIL_END_OF_SCOPE NSString *resolverName = nil;
+	NSNumber *resolverPriority = nil;
+	NSArray<NSString *> *resolverAddresses = nil;
+	NSData *resolverSvcParameters = nil;
+
+	if (encryptedResolver == NULL) {
+		SC_log(LOG_NOTICE, "Invalid encrypted dns resolver");
+		return nil;
+	}
+
+	resolverName = encryptedResolver[(NSString *)kSCPropNetDNSEncryptedServerAuthenticationDomainName];
+	resolverPriority = encryptedResolver[(NSString *)kSCPropNetDNSEncryptedServerServicePriority];
+	resolverAddresses = encryptedResolver[(NSString *)kSCPropNetDNSEncryptedServerAddresses];
+	resolverSvcParameters = encryptedResolver[(NSString *)kSCPropNetDNSEncryptedServerServiceParameters];
+
+	resolverConfig = nw_resolver_config_create();
+	nw_resolver_config_set_class(resolverConfig,
+				     nw_resolver_class_designated_direct);
+	for (NS_VALID_UNTIL_END_OF_SCOPE NSString *resolverAddress in resolverAddresses) {
+		nw_resolver_config_add_name_server(resolverConfig,
+						   resolverAddress.UTF8String);
+	}
+	nw_resolver_config_set_provider_name(resolverConfig,
+					     resolverName.UTF8String);
+
+	[self extractDNRSvcParameterValues:resolverSvcParameters.bytes
+			       buffer_size:resolverSvcParameters.length
+			    resolverConfig:resolverConfig];
+
+	return (__bridge_transfer NSData *)nw_resolver_config_copy_plist_data_ref(resolverConfig);
 }
 
 - (NSData *)getDNSDataFromCurrentConfig:(dns_config_t *)dns_config
@@ -1260,6 +1395,10 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 		NSMutableArray *old_default_resolver_list = [self getAgentList:self.floatingDNSAgentList
 								     agentType:kAgentTypeDNS
 								  agentSubType:kAgentSubTypeDefault];
+		/* Process Default encrypted resolvers */
+		NSMutableArray *old_default_encrypted_resolver_list = [self getAgentList:self.floatingDNSAgentList
+									       agentType:kAgentTypeDNS
+									    agentSubType:kAgentSubTypeEncryptedDefault];
 
 		// For default resolvers, their name will be '_defaultDNS', '_defaultDNS #2' so on...
 		if (resolvers->n_default_resolvers > 0 && resolvers->default_resolvers != NULL) {
@@ -1267,14 +1406,67 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 				dns_resolver_t *default_resolver = resolvers->default_resolvers[i];
 				NSData	*	data;
 				id		dnsAgent;
+				id		encryptedDNSAgent;
 				NSString *	resolverName;
 
-				data = [self dataForResolver:default_resolver];
 				if (i == 0) {
 					resolverName = @(dnsAgentDefault);
 				} else {
 					resolverName = [NSString stringWithFormat:@dnsAgentDefault multipleEntitySuffix "%u", i+1 ];
 				}
+
+				// Encrypted resolver handling
+				if (default_resolver->cid != NULL) {
+					NSString *dnsServiceKey = nil;
+					NSDictionary *dnsServiceDictionary = nil;
+					NSString *cidString = nil;
+					NSArray<NSString *> *cidComponents = nil;
+					NSString *serviceID = nil;
+					NSArray<NSDictionary *> *encryptedResolvers = nil;
+					NSDictionary *encryptedResolver = nil;
+
+					cidString = @(default_resolver->cid);
+					cidComponents = [cidString componentsSeparatedByString:@" "];
+					if (cidComponents.count == 3) {
+						serviceID = cidComponents[1];
+					}
+
+					if (serviceID != nil) {
+						dnsServiceKey = (__bridge_transfer NSString *)
+						SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+											    kSCDynamicStoreDomainState,
+											    (CFStringRef)serviceID,
+											    kSCEntNetDNS);
+						dnsServiceDictionary = (__bridge_transfer NSDictionary *)SCDynamicStoreCopyValue(NULL, (CFStringRef)dnsServiceKey);
+						encryptedResolvers = (NSArray<NSDictionary *> *)dnsServiceDictionary[(NSString *)kSCPropNetDNSEncryptedServers];
+					}
+					for (encryptedResolver in encryptedResolvers) {
+						NSString *entityKey;
+						NSData *encryptedResolverData;
+						bool shouldSpawnAgent = true;
+						entityKey = [NSString stringWithFormat:@dnsAgentEncrypted "-%@", resolverName];
+						encryptedResolverData = [self dataForEncryptedResolver:encryptedResolver];
+
+						encryptedDNSAgent = [self.floatingDNSAgentList objectForKey:entityKey];
+						if (encryptedDNSAgent != nil) {
+							[old_default_encrypted_resolver_list removeObject:entityKey];
+							if (![encryptedResolverData isEqual:[encryptedDNSAgent getAgentData]]) {
+								[self destroyFloatingAgent:encryptedDNSAgent];
+							} else {
+								shouldSpawnAgent = false;
+							}
+						}
+						if (shouldSpawnAgent) {
+							[self spawnFloatingAgent:[DNSAgent class]
+									  entity:entityKey
+								    agentSubType:kAgentSubTypeEncryptedDefault
+								 addPolicyOfType:NEPolicyConditionTypeNone
+								     publishData:encryptedResolverData];
+						}
+					}
+				}
+
+				data = [self dataForResolver:default_resolver];
 
 				dnsAgent = [self.floatingDNSAgentList objectForKey:resolverName];
 
@@ -1299,6 +1491,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 		// Only agents that are NOT present in the new config, will be present in the list
 		// and they need to be destroyed.
 		[self deleteAgentList:self.floatingDNSAgentList list:old_default_resolver_list];
+		[self deleteAgentList:self.floatingDNSAgentList list:old_default_encrypted_resolver_list];
 
 		/* Process Multicast resolvers */
 
@@ -1395,9 +1588,13 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 - (void)processScopedDNSResolvers:(dns_config_t *)dns_config
 {
 	NSMutableArray	*	old_intf_list;
+	NSMutableArray  *       old_encrypted_intf_list;
 	old_intf_list = [self getAgentList:self.floatingDNSAgentList
 				 agentType:kAgentTypeDNS
 			      agentSubType:kAgentSubTypeScoped];
+	old_encrypted_intf_list = [self getAgentList:self.floatingDNSAgentList
+					   agentType:kAgentTypeDNS
+					agentSubType:kAgentSubTypeEncryptedScoped];
 
 	if ((dns_config->n_scoped_resolver > 0) && (dns_config->scoped_resolver != NULL)) {
 		for (int i = 0; i < dns_config->n_scoped_resolver; i++) {
@@ -1405,6 +1602,8 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 			NSData		*	data;
 			id			dnsAgent;
 			NSUInteger		idx;
+			id 			encryptedDNSAgent;
+			NSUInteger 		encrypted_idx;
 			const char	*	if_name;
 			NSString	*	ns_if_name;
 			NSString	*	ns_if_name_with_prefix;
@@ -1417,6 +1616,65 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 				ns_if_name_with_prefix = [NSString stringWithFormat:@"%s%@", prefixForInterfaceName, ns_if_name];
 			} else {
 				continue;
+			}
+
+			if (resolver->cid != NULL) {
+				NSString *dnsServiceKey = nil;
+				NSDictionary *dnsServiceDictionary = nil;
+				NSString *cidString = nil;
+				NSArray<NSString *> *cidComponents = nil;
+				NSString *serviceID = nil;
+				NSArray<NSDictionary *> *encryptedResolvers = nil;
+				NSDictionary *encryptedResolver = nil;
+
+				cidString = @(resolver->cid);
+
+				cidComponents = [cidString componentsSeparatedByString:@" "];
+				if (cidComponents.count == 3) {
+					serviceID = cidComponents[1];
+				}
+
+				if (serviceID != nil) {
+					dnsServiceKey = (__bridge_transfer NSString *)
+					SCDynamicStoreKeyCreateNetworkServiceEntity(kCFAllocatorDefault,
+										    kSCDynamicStoreDomainState,
+										    (CFStringRef)serviceID,
+										    kSCEntNetDNS);
+					dnsServiceDictionary = (__bridge_transfer NSDictionary *)SCDynamicStoreCopyValue(NULL, (CFStringRef)dnsServiceKey);
+
+					encryptedResolvers = (NSArray<NSDictionary *> *)dnsServiceDictionary[(NSString *)kSCPropNetDNSEncryptedServers];
+				}
+
+				for (encryptedResolver in encryptedResolvers) {
+					NSString *entityKey;
+					NSData *encryptedResolverData;
+
+					entityKey = [NSString stringWithFormat:@dnsAgentEncrypted "-%@",
+						     ns_if_name_with_prefix];
+					encryptedResolverData = [self dataForEncryptedResolver:encryptedResolver];
+
+					encrypted_idx = [old_encrypted_intf_list indexOfObject:entityKey];
+					if (encrypted_idx == NSNotFound) {
+						[self spawnFloatingAgent:[DNSAgent class]
+								  entity:entityKey
+							    agentSubType:kAgentSubTypeEncryptedScoped
+							 addPolicyOfType:NEPolicyConditionTypeScopedInterface
+							     publishData:encryptedResolverData];
+					} else {
+						/* We have an agent on this interface. Update it */
+						[old_encrypted_intf_list removeObjectAtIndex:encrypted_idx];
+
+						encryptedDNSAgent = [self.floatingDNSAgentList objectForKey:entityKey];
+
+						if (encryptedDNSAgent != nil) {
+							[encryptedDNSAgent updateAgentData:encryptedResolverData];
+							if ([encryptedDNSAgent shouldUpdateAgent]) {
+								[self publishToAgent:encryptedDNSAgent];
+							}
+						}
+					}
+				}
+
 			}
 
 			data = [self dataForResolver:resolver];
@@ -1448,6 +1706,7 @@ updateTransportConverterProxyEnabled(BOOL enabled)
 	}
 
 	[self deleteAgentList:self.floatingDNSAgentList list:old_intf_list];
+	[self deleteAgentList:self.floatingDNSAgentList list:old_encrypted_intf_list];
 }
 
 - (void)processServiceSpecificDNSResolvers:(dns_config_t *)dns_config
@@ -1964,11 +2223,15 @@ done:
 	}
 
 	if (type == kAgentTypeProxy) {
-		NSUUID *privacyProxyUUID = [[NSUUID alloc] initWithUUIDBytes:ne_privacy_proxy_netagent_id];
-		NEPolicyResult *policyResultPrivacyProxyRemoval = [NEPolicyResult removeNetworkAgentUUID:privacyProxyUUID];
+#ifdef NE_POLICY_HAS_REMOVE_NETWORK_AGENT_TYPE
+#ifdef NW_PROXY_HAS_PRIVACY_PROXY_TYPES
+		NSString *privacyProxyAgentDomain = @(nw_proxy_config_get_agent_domain());
+		NSString *privacyProxyAgentType = @(nw_proxy_config_get_system_privacy_proxy_agent_type());
+		NEPolicyResult *policyResultPrivacyProxyRemoval = [NEPolicyResult removeNetworkAgentDomain:privacyProxyAgentDomain
+												 agentType:privacyProxyAgentType];
 		newPolicy = [[NEPolicy alloc] initWithOrder:order
-							result:policyResultPrivacyProxyRemoval
-							conditions:(condition ? @[condition] : nil)];
+						     result:policyResultPrivacyProxyRemoval
+						 conditions:(condition ? @[condition] : nil)];
 		if (newPolicy == nil) {
 			SC_log(LOG_NOTICE, "Could not create a policy for agent %@", [agent getAgentName]);
 			return NO;
@@ -1978,6 +2241,8 @@ done:
 			SC_log(LOG_NOTICE, "Could not add a privacy proxy removal policy for agent %@", [agent getAgentName]);
 			return NO;
 		}
+#endif
+#endif
 	}
 
 	policyArray = [self.policyDB objectForKey:[agent getAgentName]];

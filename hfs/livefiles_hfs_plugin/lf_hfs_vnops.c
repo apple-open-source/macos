@@ -2612,6 +2612,15 @@ retry:
     to_desc.cd_flags = fcp->c_desc.cd_flags & ~(CD_HASBUF | CD_DECOMPOSED);
     to_desc.cd_cnid = fcp->c_cnid;
 
+    if (vnode_isdir(fvp))
+    {
+        error = validate_dir_move(hfsmp, &from_desc, &tdcp->c_desc, &to_desc);
+        if (error)
+        {
+            goto out;
+        }
+    }
+
     if ((error = hfs_start_transaction(hfsmp)) != 0)
     {
         goto out;

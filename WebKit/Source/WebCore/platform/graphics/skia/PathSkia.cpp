@@ -30,6 +30,8 @@
 #include "GraphicsContextSkia.h"
 #include "NotImplemented.h"
 #include "PathStream.h"
+#include <mutex>
+#include <numbers>
 
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/core/SkPathUtils.h>
@@ -41,24 +43,22 @@ WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
-Ref<PathSkia> PathSkia::create()
+Ref<PathSkia> PathSkia::create(std::span<const PathSegment> segments)
 {
-    return adoptRef(*new PathSkia);
-}
-
-Ref<PathSkia> PathSkia::create(const PathSegment& segment)
-{
-    auto pathSkia = PathSkia::create();
-    pathSkia->addSegment(segment);
-    return pathSkia;
-}
-
-Ref<PathSkia> PathSkia::create(const PathStream& stream)
-{
-    auto pathSkia = PathSkia::create();
-    for (auto& segment : stream.segments())
+    Ref pathSkia = adoptRef(*new PathSkia);
+    for (auto& segment : segments)
         pathSkia->addSegment(segment);
     return pathSkia;
+}
+
+PlatformPathPtr PathSkia::emptyPlatformPath()
+{
+    static LazyNeverDestroyed<SkPath> emptyPath;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        emptyPath.construct();
+    });
+    return &emptyPath.get();
 }
 
 PathSkia::PathSkia(const SkPath& platformPath)
@@ -126,13 +126,13 @@ void PathSkia::addEllipse(const FloatPoint& center, float radiusX, float radiusY
     SkRect oval = { x - radiusXScalar, y - radiusYScalar, x + radiusXScalar, y + radiusYScalar };
 
     if (direction == RotationDirection::Clockwise && startAngle > endAngle)
-        endAngle = startAngle + (2 * piFloat - fmodf(startAngle - endAngle, 2 * piFloat));
+        endAngle = startAngle + (2 * std::numbers::pi_v<float> - fmodf(startAngle - endAngle, 2 * std::numbers::pi_v<float>));
     else if (direction == RotationDirection::Counterclockwise && startAngle < endAngle)
-        endAngle = startAngle - (2 * piFloat - fmodf(endAngle - startAngle, 2 * piFloat));
+        endAngle = startAngle - (2 * std::numbers::pi_v<float> - fmodf(endAngle - startAngle, 2 * std::numbers::pi_v<float>));
 
     auto sweepAngle = endAngle - startAngle;
-    SkScalar startDegrees = SkFloatToScalar(startAngle * 180 / piFloat);
-    SkScalar sweepDegrees = SkFloatToScalar(sweepAngle * 180 / piFloat);
+    SkScalar startDegrees = SkFloatToScalar(startAngle * 180 / std::numbers::pi_v<float>);
+    SkScalar sweepDegrees = SkFloatToScalar(sweepAngle * 180 / std::numbers::pi_v<float>);
 
     // SkPath::arcTo can't handle the sweepAngle that is equal to 360, so in those
     // cases we add two arcs with sweepAngle = 180. SkPath::addOval can handle sweepAngle
@@ -190,8 +190,17 @@ void PathSkia::add(PathRoundedRect roundedRect)
 {
     if (roundedRect.strategy == PathRoundedRect::Strategy::PreferNative)
         m_platformPath.addRRect(roundedRect.roundedRect);
-    else
-        addBeziersForRoundedRect(roundedRect.roundedRect);
+    else {
+        for (auto& segment : beziersForRoundedRect(roundedRect.roundedRect))
+            addSegment(segment);
+    }
+}
+
+void PathSkia::add(PathContinuousRoundedRect continuousRoundedRect)
+{
+    // Continuous rounded rects are unavailable. Paint a normal rounded rect instead.
+    // FIXME: Determine if PreferNative is the optimal strategy here.
+    add(PathRoundedRect { FloatRoundedRect { continuousRoundedRect.rect, FloatRoundedRect::Radii { continuousRoundedRect.cornerWidth, continuousRoundedRect.cornerHeight } }, PathRoundedRect::Strategy::PreferNative });
 }
 
 void PathSkia::add(PathCloseSubpath)
@@ -264,11 +273,6 @@ bool PathSkia::applyElements(const PathElementApplier& applier) const
     WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 }
 
-bool PathSkia::isEmpty() const
-{
-    return m_platformPath.isEmpty();
-}
-
 FloatPoint PathSkia::currentPoint() const
 {
     if (m_platformPath.countPoints() > 0) {
@@ -288,7 +292,7 @@ bool PathSkia::transform(const AffineTransform& matrix)
 
 bool PathSkia::contains(const FloatPoint& point, WindRule windRule) const
 {
-    if (isEmpty() || !std::isfinite(point.x()) || !std::isfinite(point.y()))
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
         return false;
 
     auto toSkiaFillType = [](const WindRule& windRule) -> SkPathFillType {
@@ -313,9 +317,9 @@ bool PathSkia::contains(const FloatPoint& point, WindRule windRule) const
     return m_platformPath.contains(x, y);
 }
 
-bool PathSkia::strokeContains(const FloatPoint& point, const Function<void(GraphicsContext&)>& strokeStyleApplier) const
+bool PathSkia::strokeContains(const FloatPoint& point, NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const
 {
-    if (isEmpty() || !std::isfinite(point.x()) || !std::isfinite(point.y()))
+    if (!std::isfinite(point.x()) || !std::isfinite(point.y()))
         return false;
 
     auto surface = SkSurfaces::Null(1, 1);
@@ -339,11 +343,8 @@ FloatRect PathSkia::boundingRect() const
     return m_platformPath.computeTightBounds();
 }
 
-FloatRect PathSkia::strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const
+FloatRect PathSkia::strokeBoundingRect(NOESCAPE const Function<void(GraphicsContext&)>& strokeStyleApplier) const
 {
-    if (isEmpty())
-        return { };
-
     auto surface = SkSurfaces::Null(1, 1);
     GraphicsContextSkia graphicsContext(*surface->getCanvas(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified);
     strokeStyleApplier(graphicsContext);

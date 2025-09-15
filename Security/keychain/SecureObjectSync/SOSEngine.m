@@ -2623,7 +2623,7 @@ bool SOSEngineHandleMessage(SOSEngineRef engine, CFStringRef peerID,
     });
     CFReleaseSafe(message);
     if (somethingChanged)
-        SecKeychainChanged();
+        SecServerKeychainChanged();
     return result;
 }
 

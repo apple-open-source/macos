@@ -20,11 +20,11 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
-	<key>com.apple.private.network.restricted.port.lights_out_management</key>
-	<true/>
 	<key>com.apple.private.skywalk.low-latency-channel</key>
 	<true/>
 	<key>com.apple.private.set-exception-port</key>
-    <true/>
+	<true/>
+	<key>com.apple.private.network.aop2_offload</key>
+	<true/>
 </dict>
 </plist>

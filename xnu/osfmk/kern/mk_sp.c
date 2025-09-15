@@ -34,8 +34,6 @@
 
 #include <mach/boolean.h>
 #include <mach/thread_switch.h>
-#include <ipc/ipc_port.h>
-#include <ipc/ipc_space.h>
 #include <kern/ipc_kobject.h>
 #include <kern/processor.h>
 #include <kern/sched.h>

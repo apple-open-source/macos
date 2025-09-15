@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +48,7 @@ public:
 
     void didReachPointOfInterest(PointOfInterest);
 
-    WEBCORE_EXPORT static HashCountedSet<const char*> javaScriptObjectCounts();
+    WEBCORE_EXPORT static HashCountedSet<ASCIILiteral> javaScriptObjectCounts();
     WEBCORE_EXPORT static Vector<std::pair<ASCIILiteral, size_t>> memoryUsageStatistics(ShouldIncludeExpensiveComputations);
     WEBCORE_EXPORT static std::optional<uint64_t> physicalFootprint();
 

@@ -34,13 +34,17 @@ if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO OR ENABLE_WEB_CODECS)
           endif ()
 
           if (ENABLE_VIDEO)
-              if (NOT PC_GSTREAMER_APP_FOUND OR NOT PC_GSTREAMER_PBUTILS_FOUND OR NOT PC_GSTREAMER_TAG_FOUND OR NOT PC_GSTREAMER_VIDEO_FOUND OR NOT PC_GSTREAMER_GL_FOUND)
-                  message(FATAL_ERROR "Video playback requires the following GStreamer libraries: app, gl, pbutils, tag, video. Please check your gst-plugins-base installation.")
+              if (NOT PC_GSTREAMER_APP_FOUND OR NOT PC_GSTREAMER_PBUTILS_FOUND OR NOT PC_GSTREAMER_TAG_FOUND OR NOT PC_GSTREAMER_VIDEO_FOUND)
+                  message(FATAL_ERROR "Video playback requires the following GStreamer libraries: app, pbutils, tag, video. Please check your gst-plugins-base installation.")
               endif ()
           endif ()
 
           if (USE_GSTREAMER_MPEGTS AND NOT PC_GSTREAMER_MPEGTS_FOUND)
               message(FATAL_ERROR "GStreamer MPEG-TS is needed for USE_GSTREAMER_MPEGTS.")
+          endif ()
+
+          if (USE_GSTREAMER_GL AND NOT PC_GSTREAMER_GL_FOUND)
+              message(FATAL_ERROR "GStreamerGL is needed for USE_GSTREAMER_GL.")
           endif ()
 
           if (ENABLE_MEDIA_RECORDER AND USE_GSTREAMER_TRANSCODER AND (NOT PC_GSTREAMER_TRANSCODER_FOUND OR PC_GSTREAMER_TRANSCODER_VERSION VERSION_LESS "1.20"))
@@ -66,4 +70,8 @@ if (ENABLE_MEDIA_STREAM AND ENABLE_WEB_RTC)
     endif ()
 else ()
     SET_AND_EXPOSE_TO_BUILD(USE_LIBWEBRTC FALSE)
+endif ()
+
+if (NOT ENABLE_WPE_PLATFORM)
+  SET_AND_EXPOSE_TO_BUILD(ENABLE_MEDIA_TELEMETRY OFF)
 endif ()

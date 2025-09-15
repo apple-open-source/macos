@@ -44,7 +44,7 @@
 - (NSString *)data
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->data();
+    return IMPL->data().createNSString().autorelease();
 }
 
 - (void)initTextEvent:(NSString *)typeArg canBubbleArg:(BOOL)canBubbleArg cancelableArg:(BOOL)cancelableArg viewArg:(DOMAbstractView *)viewArg dataArg:(NSString *)dataArg

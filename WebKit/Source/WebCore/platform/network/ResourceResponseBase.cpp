@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,26 +60,26 @@ ResourceResponseBase::ResourceResponseBase()
 {
 }
 
-ResourceResponseBase::ResourceResponseBase(const URL& url, const String& mimeType, long long expectedLength, const String& textEncodingName)
-    : m_url(url)
-    , m_mimeType(mimeType)
+ResourceResponseBase::ResourceResponseBase(URL&& url, String&& mimeType, long long expectedLength, String&& textEncodingName)
+    : m_url(WTFMove(url))
+    , m_mimeType(WTFMove(mimeType))
     , m_expectedContentLength(expectedLength)
-    , m_textEncodingName(textEncodingName)
+    , m_textEncodingName(WTFMove(textEncodingName))
     , m_certificateInfo(CertificateInfo()) // Empty but valid for synthetic responses.
     , m_isNull(false)
 {
 }
 
-ResourceResponseBase::ResourceResponseBase(std::optional<ResourceResponseData> data)
-    : m_url(data ? data->url : URL { })
-    , m_mimeType(data ? data->mimeType : AtomString { })
+ResourceResponseBase::ResourceResponseBase(std::optional<ResourceResponseData>&& data)
+    : m_url(data ? WTFMove(data->url) : URL { })
+    , m_mimeType(data ? WTFMove(data->mimeType) : AtomString { })
     , m_expectedContentLength(data ? data->expectedContentLength : 0)
-    , m_textEncodingName(data ? data->textEncodingName : String { })
-    , m_httpStatusText(data ? data->httpStatusText : String { })
-    , m_httpVersion(data ? data->httpVersion : String { })
-    , m_httpHeaderFields(data ? data->httpHeaderFields : HTTPHeaderMap { })
-    , m_networkLoadMetrics(data && data->networkLoadMetrics ? Box<NetworkLoadMetrics>::create(*data->networkLoadMetrics) : Box<NetworkLoadMetrics> { })
-    , m_certificateInfo(data ? data->certificateInfo : std::nullopt)
+    , m_textEncodingName(data ? WTFMove(data->textEncodingName) : String { })
+    , m_httpStatusText(data ? WTFMove(data->httpStatusText) : String { })
+    , m_httpVersion(data ? WTFMove(data->httpVersion) : String { })
+    , m_httpHeaderFields(data ? WTFMove(data->httpHeaderFields) : HTTPHeaderMap { })
+    , m_networkLoadMetrics(data && data->networkLoadMetrics ? Box<NetworkLoadMetrics>::create(WTFMove(*data->networkLoadMetrics)) : Box<NetworkLoadMetrics> { })
+    , m_certificateInfo(data ? WTFMove(data->certificateInfo) : std::nullopt)
     , m_httpStatusCode(data ? data->httpStatusCode : 0)
     , m_isNull(!data)
     , m_usedLegacyTLS(data ? data->usedLegacyTLS : UsedLegacyTLS::No)
@@ -151,7 +151,7 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
 {
     ResourceResponse response;
 
-    response.setURL(data.url);
+    response.setURL(WTFMove(data.url));
     response.setMimeType(WTFMove(data.mimeType));
     response.setExpectedContentLength(data.expectedContentLength);
     response.setTextEncodingName(WTFMove(data.textEncodingName));
@@ -181,7 +181,7 @@ ResourceResponse ResourceResponseBase::fromCrossThreadData(CrossThreadData&& dat
 ResourceResponse ResourceResponseBase::syntheticRedirectResponse(const URL& fromURL, const URL& toURL)
 {
     ResourceResponse redirectResponse;
-    redirectResponse.setURL(fromURL);
+    redirectResponse.setURL(URL { fromURL });
     redirectResponse.setHTTPStatusCode(302);
     redirectResponse.setHTTPVersion("HTTP/1.1"_s);
     redirectResponse.setHTTPHeaderField(HTTPHeaderName::Location, toURL.string());
@@ -192,7 +192,7 @@ ResourceResponse ResourceResponseBase::syntheticRedirectResponse(const URL& from
 
 ResourceResponse ResourceResponseBase::dataURLResponse(const URL& url, const DataURLDecoder::Result& result)
 {
-    ResourceResponse dataResponse { url, result.mimeType, static_cast<long long>(result.data.size()), result.charset };
+    ResourceResponse dataResponse { URL { url }, String { result.mimeType }, static_cast<long long>(result.data.size()), String { result.charset } };
     dataResponse.setHTTPStatusCode(200);
     dataResponse.setHTTPStatusText("OK"_s);
     dataResponse.setHTTPHeaderField(HTTPHeaderName::ContentType, result.contentType);
@@ -214,7 +214,7 @@ ResourceResponse ResourceResponseBase::filter(const ResourceResponse& response, 
         ResourceResponse opaqueResponse;
         opaqueResponse.setTainting(Tainting::Opaqueredirect);
         opaqueResponse.setType(Type::Opaqueredirect);
-        opaqueResponse.setURL(response.url());
+        opaqueResponse.setURL(URL { response.url() });
         return opaqueResponse;
     }
 
@@ -261,12 +261,12 @@ const URL& ResourceResponseBase::url() const
     return m_url;
 }
 
-void ResourceResponseBase::setURL(const URL& url)
+void ResourceResponseBase::setURL(URL&& url)
 {
     lazyInit(CommonFieldsOnly);
     m_isNull = false;
 
-    m_url = url;
+    m_url = WTFMove(url);
 
     // FIXME: Should invalidate or update platform response if present.
 }
@@ -494,7 +494,6 @@ static bool isSafeCrossOriginResponseHeader(HTTPHeaderName name)
         || name == HTTPHeaderName::Trailer
         || name == HTTPHeaderName::Vary
         || name == HTTPHeaderName::XContentTypeOptions
-        || name == HTTPHeaderName::XDNSPrefetchControl
         || name == HTTPHeaderName::XFrameOptions
         || name == HTTPHeaderName::XXSSProtection;
 }

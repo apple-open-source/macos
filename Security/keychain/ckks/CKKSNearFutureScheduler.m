@@ -23,6 +23,7 @@
 
 #if OCTAGON
 
+#import "keychain/ckks/CKKS.h"
 #import "CKKSNearFutureScheduler.h"
 #import "CKKSCondition.h"
 #import "keychain/ckks/NSOperationCategories.h"
@@ -33,6 +34,9 @@
 @interface CKKSNearFutureScheduler ()
 @property NSString* name;
 @property dispatch_time_t initialDelay;
+
+// If we want to separate initialDelay from exponential slowdown, set this to seed the delay of our exponential backdown.
+@property dispatch_time_t startingBackoff;
 
 @property dispatch_time_t currentDelay;
 @property dispatch_time_t maximumDelay;
@@ -111,6 +115,27 @@
             keepProcessAlive:(bool)keepProcessAlive
    dependencyDescriptionCode:(NSInteger)code
                     qosClass:(qos_class_t)qosClass
+                       block:(void (^_Nonnull)(void))futureBlock {
+
+    return [self initWithName:name
+                 initialDelay:initialDelay
+              startingBackoff:initialDelay*backoff
+           exponentialBackoff:backoff
+                 maximumDelay:maximumDelay
+             keepProcessAlive:keepProcessAlive
+    dependencyDescriptionCode:code
+                     qosClass:qosClass
+                        block:futureBlock];
+}
+
+- (instancetype)initWithName:(NSString*)name
+                initialDelay:(dispatch_time_t)initialDelay
+             startingBackoff:(dispatch_time_t)startingBackoff
+          exponentialBackoff:(double)backoff
+                maximumDelay:(dispatch_time_t)maximumDelay
+            keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
+                    qosClass:(qos_class_t)qosClass
                        block:(void (^_Nonnull)(void))futureBlock
 {
     if((self = [super init])) {
@@ -135,6 +160,9 @@
         _operationQueue = [[NSOperationQueue alloc] init];
         _operationDependencyDescriptionCode = code;
         _operationDependency = [self makeOperationDependency];
+        
+        _startingBackoff = startingBackoff;
+
     }
     return self;
 }
@@ -206,13 +234,21 @@
         self.liveRequestReceived = [[CKKSCondition alloc] init];
         self.transaction = nil;
 
-        // No current delay means that exponential backoff means nothing. Head straight for slowtown.
-        if(self.currentDelay == 0) {
-            self.currentDelay = self.maximumDelay;
+        if (self.currentDelay == self.initialDelay) {
+            // If we think this is the first time the NFS has run its block, or is being run after a reset...
+            if (self.startingBackoff == 0) {
+                // No starting backoff means that exponential backoff means nothing. Head straight for slowtown.
+                self.currentDelay = self.maximumDelay;
+            } else {
+                // Otherwise, choose our starting backoff as our current delay.
+                self.currentDelay = MIN(self.startingBackoff, self.maximumDelay);
+            }
         } else {
+            // We're in our exponential backoff. Continue!
             // Modify the delay by the exponential backoff, unless that exceeds the maximum delay
             self.currentDelay = MIN(self.currentDelay * self.backoff, self.maximumDelay);
         }
+
         // To prevent the crash in rdar://73977360, we pass in 1 ns for the interval in case currentDelay is 0.
         dispatch_source_set_timer(self.timer,
                                   dispatch_walltime(NULL, self.currentDelay),
@@ -295,7 +331,7 @@
             actualDelay = MIN(actualDelay, maximumDelay);
         }
 
-        // Note: we pass initialDelay in as the timerInterval here. [-_onqueueTimerTick] is responsible for
+        // Note: we pass currentDelay in as the timerInterval here. [-_onqueueTimerTick] is responsible for
         // modifying the delay to be correct for the next time period.
         dispatch_source_set_timer(self.timer,
                                   dispatch_walltime(NULL, actualDelay),

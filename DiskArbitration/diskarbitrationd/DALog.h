@@ -36,6 +36,7 @@ extern void DALogDebug( const char * format, ... );
 extern void DALogInfo( const char * format, ... );
 extern void DALogDebugHeader( const char * format, ... );
 extern void DALogError( const char * format, ... );
+extern void DALogFault( const char * format, ... );
 extern void DALogOpen( char * name, Boolean debug, Boolean error );
 
 #ifdef __cplusplus

@@ -14,9 +14,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $FreeBSD$
-.\"
-.Dd March 31, 2010
+.Dd May 22, 2017
 .Dt BASENAME 3
 .Os
 .Sh NAME
@@ -36,6 +34,27 @@ function returns the last component from the pathname pointed to by
 deleting any trailing
 .Sq \&/
 characters.
+.Pp
+The
+.Fn basename_r
+variation accepts a buffer of at least
+.Dv MAXPATHLEN
+bytes in which to store the resulting component.
+.Sh IMPLEMENTATION NOTES
+This implementation of
+.Fn basename
+returns a pointer to internal storage space allocated on the first call
+that will be overwritten
+by subsequent calls.
+.Fn basename_r
+is therefore preferred for threaded applications.
+Other vendor implementations of
+.Fn basename
+may modify the contents of the string passed to
+.Fn basename ;
+this should be taken into account when writing code which calls this function
+if portability is desired.
+.Sh RETURN VALUES
 If
 .Fa path
 consists entirely of
@@ -48,27 +67,8 @@ If
 is a null pointer or the empty string, a pointer to the string
 .Qq \&.
 is returned.
-.Pp
-The
-.Fn basename_r
-variation accepts a buffer of at least
-.Dv MAXPATHLEN
-bytes in which to store the resulting component.
-.Sh IMPLEMENTATION NOTES
-The
-.Fn basename
-function
-returns a pointer to internal storage space allocated on the first call
-that will be overwritten
-by subsequent calls.
-.Fn basename_r
-is therefore preferred for threaded applications.
-.Sh RETURN VALUES
-On successful completion,
-.Fn basename
-and
-.Fn basename_r
-return pointers to the last component of
+Otherwise,
+they return a pointer to the last component of
 .Fa path .
 .Pp
 If they fail, a null pointer is returned and the global variable
@@ -85,7 +85,8 @@ The path component to be returned was larger than
 .Sh SEE ALSO
 .Xr basename 1 ,
 .Xr dirname 1 ,
-.Xr dirname 3
+.Xr dirname 3 ,
+.Xr compat 5
 .Sh STANDARDS
 The
 .Fn basename
@@ -98,19 +99,9 @@ function first appeared in
 .Ox 2.2
 and
 .Fx 4.2 .
+.Pp
 The
 .Fn basename_r
 function first appeared in OS X 10.12.
 .Sh AUTHORS
-.An Todd C. Miller
-.Sh CAVEATS
-.Fn basename
-returns a pointer to internal static storage space that will be overwritten
-by subsequent calls.
-.Pp
-Other vendor implementations of
-.Fn basename
-may modify the contents of the string passed to
-.Fn basename ;
-this should be taken into account when writing code which calls this function
-if portability is desired.
+.An Nuxi, the Netherlands

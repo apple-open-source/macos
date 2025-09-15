@@ -68,12 +68,12 @@ static OSStatus do_query(void)
 
 static void *do_add(void *arg)
 {
-    int tid=(int)(arg);
+    intptr_t tid=(intptr_t)(arg);
     
     for(int i=0;i<20;i++) {
         /* Creating a password */
-        SInt32 v_eighty = (tid+1)*1000+i;
-        CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt32Type, &v_eighty);
+        SInt64 v_eighty = (tid+1)*1000+i;
+        CFNumberRef eighty = CFNumberCreate(NULL, kCFNumberSInt64Type, &v_eighty);
         const char *v_data = "test";
         CFDataRef pwdata = CFDataCreate(NULL, (UInt8 *)v_data, strlen(v_data));
         const void *keys[] = {
@@ -136,7 +136,7 @@ int secd_03_corrupted_items(int argc, char *const *argv)
     ok_status(SecItemAdd(query, NULL), "add internet password");
 
     /* corrupt the password */
-    CFStringRef keychain_path_cf = __SecKeychainCopyPath();
+    CFStringRef keychain_path_cf = SecServerKeychainCopyPath();
 
     CFStringPerformWithCString(keychain_path_cf, ^(const char *keychain_path) {
         /* Create a new keychain sqlite db */

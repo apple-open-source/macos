@@ -1,5 +1,6 @@
 import Foundation
 
+#if OCTAGON
 class OctagonCKKSConfigurationTestsPolicyEnabledTests: OctagonTestsBase {
     override func setUp() {
         if self.mockDeviceInfo == nil {
@@ -11,7 +12,7 @@ class OctagonCKKSConfigurationTestsPolicyEnabledTests: OctagonTestsBase {
         }
 
         // Most tests will use a much smaller list of views. But not us! Go wild!
-        if self.mockDeviceInfo.mockModelID.contains("AppleTV") || self.mockDeviceInfo.mockModelID.contains("AudioAccessory") {
+        if Self.noManatee(model: self.mockDeviceInfo.mockModelID) {
             self.intendedCKKSZones = Set([
                 CKRecordZone.ID(zoneName: "Home"),
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
@@ -125,3 +126,4 @@ class OctagonCKKSConfigurationTestsPolicyEnabledTests: OctagonTestsBase {
 #endif
     }
 }
+#endif // OCTAGON

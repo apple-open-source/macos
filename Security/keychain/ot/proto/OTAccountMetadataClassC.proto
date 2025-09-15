@@ -62,8 +62,7 @@ message AccountMetadataClassC {
     optional CDPState cdpState = 8;
 
     // Used during development
-    //reserved 9;
-    //reserved 10;
+    reserved 9 to 10;
 
     // This holds the current syncing policy for the local peer, including the view list.
     optional bytes syncingPolicy = 11;
@@ -77,10 +76,8 @@ message AccountMetadataClassC {
     // Intended to be a TPPBSecureElementIdentity, but I can't figure out how to reference that proto from here
     optional bytes secureElementIdentity = 15;
 
-    //reserved 16;
-
     // Used during development
-    //reserved 17;
+    reserved 16 to 17;
 
     // This is true if the device used inheritance key
     optional bool isInheritedAccount = 18;
@@ -92,9 +89,19 @@ message AccountMetadataClassC {
     optional bool warnedTooManyPeers = 20;
 
     // reserved 21 (was account settings)
+    reserved 21;
 
     // True when the device is untrusted up until the point of CKKS finishing initial sync
     optional MetricsState sendingMetricsPermitted = 22;
 
     optional string oldPeerID = 23;
+
+    // Time escrow repair was last triggered (milliseconds since 1970)
+    optional uint64 lastEscrowRepairTriggered = 24;
+
+    // Time escrow repair last attempted to enroll with escrow proxy (milliseconds since 1970)
+    optional uint64 lastEscrowRepairAttempted = 25;
+
+    // Machine id
+    optional string machineID = 26;
 }

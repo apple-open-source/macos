@@ -319,13 +319,13 @@ in6_addroute(void *v_arg, void *n_arg, struct radix_node_head *head,
 
 	if (ret != NULL) {
 		if (flags != rt->rt_flags) {
-			os_log_debug(OS_LOG_DEFAULT, "%s: route to %s->%s->%s inserted, "
+			os_log(OS_LOG_DEFAULT, "%s: route to %s->%s->%s inserted, "
 			    "oflags=0x%x, flags=0x%x\n", __func__,
 			    dbuf, gbuf, (rt->rt_ifp != NULL) ?
 			    rt->rt_ifp->if_xname : "", flags,
 			    rt->rt_flags);
 		} else {
-			os_log_debug(OS_LOG_DEFAULT, "%s: route to %s->%s->%s inserted, "
+			os_log(OS_LOG_DEFAULT, "%s: route to %s->%s->%s inserted, "
 			    "flags=0x%x\n", __func__, dbuf, gbuf,
 			    (rt->rt_ifp != NULL) ? rt->rt_ifp->if_xname : "",
 			    rt->rt_flags);

@@ -43,7 +43,7 @@ namespace WebKit {
 using namespace WebCore;
 
 NSString *interactionRegionTypeKey = @"WKInteractionRegionType";
-NSString *interactionRegionGroupNameKey = @"WKInteractionRegionGroupName";
+NSString *interactionRegionElementIdentifierKey = @"WKInteractionRegionElementIdentifier";
 
 RCPRemoteEffectInputTypes interactionRegionInputTypes = RCPRemoteEffectInputTypesAll ^ RCPRemoteEffectInputTypePointer;
 
@@ -57,23 +57,37 @@ static Class interactionRegionLayerClass()
 static NSDictionary *interactionRegionEffectUserInfo()
 {
     static NeverDestroyed<RetainPtr<NSDictionary>> interactionRegionEffectUserInfo;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    static bool cached = false;
+    if (!cached) {
         if (canLoadRCPAllowedInputTypesUserInfoKey())
             interactionRegionEffectUserInfo.get() = @{ getRCPAllowedInputTypesUserInfoKey(): @(interactionRegionInputTypes) };
-    });
+        cached = true;
+    }
     return interactionRegionEffectUserInfo.get().get();
 }
 
 static float brightnessMultiplier()
 {
     static float multiplier = 1.5;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    static bool cached = false;
+    if (!cached) {
         if (auto brightnessUserDefault = [[NSUserDefaults standardUserDefaults] floatForKey:@"WKInteractionRegionBrightnessMultiplier"])
             multiplier = brightnessUserDefault;
-    });
+        cached = true;
+    }
     return multiplier;
+}
+
+static bool applyBackgroundColorForDebugging()
+{
+    static bool applyBackground = false;
+    static bool cached = false;
+    if (!cached) {
+        if (auto applyBackgroundUserDefault = [[NSUserDefaults standardUserDefaults] boolForKey:@"WKInteractionRegionDebugFill"])
+            applyBackground = applyBackgroundUserDefault;
+        cached = true;
+    }
+    return applyBackground;
 }
 
 static void configureLayerForInteractionRegion(CALayer *layer, NSString *groupName)
@@ -110,9 +124,9 @@ static void configureLayerAsGuard(CALayer *layer, NSString *groupName)
     layer.remoteEffects = @[ group ];
 }
 
-static NSString *interactionRegionGroupNameForRegion(const WebCore::PlatformLayerIdentifier& layerID, const WebCore::InteractionRegion& interactionRegion)
+static RetainPtr<NSString> interactionRegionGroupNameForRegion(const WebCore::PlatformLayerIdentifier& layerID, const WebCore::InteractionRegion& interactionRegion)
 {
-    return makeString("WKInteractionRegion-"_s, interactionRegion.elementIdentifier.toUInt64());
+    return makeString("WKInteractionRegion-"_s, interactionRegion.elementIdentifier.toUInt64()).createNSString();
 }
 
 static void configureRemoteEffect(CALayer *layer, WebCore::InteractionRegion::Type type, NSString *groupName)
@@ -152,7 +166,7 @@ static void applyBackgroundColorForDebuggingToLayer(CALayer *layer, const WebCor
     }
 }
 
-static CALayer *createInteractionRegionLayer(WebCore::InteractionRegion::Type type, NSString *groupName)
+static CALayer *createInteractionRegionLayer(WebCore::InteractionRegion::Type type, WebCore::ElementIdentifier identifier, NSString *groupName)
 {
     CALayer *layer = type == InteractionRegion::Type::Interaction
         ? [[interactionRegionLayerClass() alloc] init]
@@ -162,7 +176,7 @@ static CALayer *createInteractionRegionLayer(WebCore::InteractionRegion::Type ty
     [layer setDelegate:[WebActionDisablingCALayerDelegate shared]];
 
     [layer setValue:@(static_cast<uint8_t>(type)) forKey:interactionRegionTypeKey];
-    [layer setValue:groupName forKey:interactionRegionGroupNameKey];
+    [layer setValue:@(identifier.toUInt64()) forKey:interactionRegionElementIdentifierKey];
 
     configureRemoteEffect(layer, type, groupName);
 
@@ -177,9 +191,12 @@ static std::optional<WebCore::InteractionRegion::Type> interactionRegionTypeForL
     return std::nullopt;
 }
 
-static NSString *interactionRegionGroupNameForLayer(CALayer *layer)
+static std::optional<UInt64> interactionRegionElementIdentifierForLayer(CALayer *layer)
 {
-    return [layer valueForKey:interactionRegionGroupNameKey];
+    id value = [layer valueForKey:interactionRegionElementIdentifierKey];
+    if (value)
+        return [value unsignedLongLongValue];
+    return std::nullopt;
 }
 
 static CACornerMask convertToCACornerMask(OptionSet<InteractionRegion::CornerMask> mask)
@@ -210,23 +227,22 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
     CALayer *container = node.ensureInteractionRegionsContainer();
 
     HashMap<std::pair<IntRect, InteractionRegion::Type>, CALayer *>existingLayers;
-    HashMap<std::pair<String, InteractionRegion::Type>, CALayer *>reusableLayers;
+    HashMap<std::pair<UInt64, InteractionRegion::Type>, CALayer *>reusableLayers;
     for (CALayer *sublayer in container.sublayers) {
-        if (auto type = interactionRegionTypeForLayer(sublayer)) {
-            auto result = existingLayers.add(std::make_pair(enclosingIntRect(sublayer.frame), *type), sublayer);
-            ASSERT_UNUSED(result, result.isNewEntry);
-
-            auto reuseKey = std::make_pair(interactionRegionGroupNameForLayer(sublayer), *type);
-            if (reusableLayers.contains(reuseKey))
-                reusableLayers.remove(reuseKey);
-            else {
-                auto result = reusableLayers.add(reuseKey, sublayer);
+        if (auto identifier = interactionRegionElementIdentifierForLayer(sublayer)) {
+            if (auto type = interactionRegionTypeForLayer(sublayer)) {
+                auto result = existingLayers.add(std::make_pair(enclosingIntRect(sublayer.frame), *type), sublayer);
                 ASSERT_UNUSED(result, result.isNewEntry);
+
+                auto reuseKey = std::make_pair(*identifier, *type);
+                auto reuseResult = reusableLayers.add(reuseKey, sublayer);
+                if (!reuseResult.isNewEntry)
+                    reusableLayers.remove(reuseResult.iterator);
             }
         }
     }
 
-    bool applyBackgroundColorForDebugging = [[NSUserDefaults standardUserDefaults] boolForKey:@"WKInteractionRegionDebugFill"];
+    bool applyBackground = applyBackgroundColorForDebugging();
 
     NSUInteger insertionPoint = 0;
     HashSet<std::pair<IntRect, InteractionRegion::Type>>dedupeSet;
@@ -235,11 +251,12 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
         if (!node.visibleRect() || !node.visibleRect()->intersects(rect))
             continue;
 
-        auto interactionRegionGroupName = interactionRegionGroupNameForRegion(node.layerID(), region);
         auto key = std::make_pair(enclosingIntRect(rect), region.type);
         if (dedupeSet.contains(key))
             continue;
-        auto reuseKey = std::make_pair(interactionRegionGroupName, region.type);
+
+        auto reuseKey = std::make_pair(region.elementIdentifier.toUInt64(), region.type);
+        RetainPtr interactionRegionGroupName = interactionRegionGroupNameForRegion(node.layerID(), region);
 
         RetainPtr<CALayer> regionLayer;
         bool didReuseLayer = true;
@@ -260,19 +277,20 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
             }
 
             didReuseLayer = false;
-            regionLayer = adoptNS(createInteractionRegionLayer(region.type, interactionRegionGroupName));
+            regionLayer = adoptNS(createInteractionRegionLayer(region.type, region.elementIdentifier, interactionRegionGroupName.get()));
         };
         findOrCreateLayer();
 
         if (didReuseLayer) {
+            auto layerIdentifier = interactionRegionElementIdentifierForLayer(regionLayer.get());
             auto layerKey = std::make_pair(enclosingIntRect([regionLayer frame]), region.type);
-            auto reuseKey = std::make_pair(interactionRegionGroupNameForLayer(regionLayer.get()), region.type);
+            auto layerReuseKey = std::make_pair(*layerIdentifier, region.type);
             existingLayers.remove(layerKey);
-            reusableLayers.remove(reuseKey);
+            reusableLayers.remove(layerReuseKey);
 
-            bool shouldReconfigureRemoteEffect = didReuseLayerBasedOnRect && ![interactionRegionGroupName isEqualToString:interactionRegionGroupNameForLayer(regionLayer.get())];
+            bool shouldReconfigureRemoteEffect = didReuseLayerBasedOnRect && layerIdentifier != region.elementIdentifier.toUInt64();
             if (shouldReconfigureRemoteEffect)
-                configureRemoteEffect(regionLayer.get(), region.type, interactionRegionGroupName);
+                configureRemoteEffect(regionLayer.get(), region.type, interactionRegionGroupName.get());
         }
 
         if (!didReuseLayerBasedOnRect)
@@ -280,8 +298,12 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
 
         if (region.type == InteractionRegion::Type::Interaction) {
             [regionLayer setCornerRadius:region.cornerRadius];
-            if (region.cornerRadius)
-                [regionLayer setCornerCurve:kCACornerCurveCircular];
+            if (region.cornerRadius) {
+                if (region.useContinuousCorners)
+                    [regionLayer setCornerCurve:kCACornerCurveContinuous];
+                else
+                    [regionLayer setCornerCurve:kCACornerCurveCircular];
+            }
             reconfigureLayerContentHint(regionLayer.get(), region.contentHint);
             constexpr CACornerMask allCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
             if (region.maskedCorners.isEmpty())
@@ -302,7 +324,7 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
                 [regionLayer setMask:nil];
         }
 
-        if (applyBackgroundColorForDebugging)
+        if (applyBackground)
             applyBackgroundColorForDebuggingToLayer(regionLayer.get(), region);
 
         // Since we insert new layers as we go, insertionPoint is always <= container.sublayers.count.

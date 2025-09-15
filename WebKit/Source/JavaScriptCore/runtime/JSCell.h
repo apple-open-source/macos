@@ -102,7 +102,6 @@ public:
 
     static constexpr DestructionMode needsDestruction = DoesNotNeedDestruction;
 
-    static constexpr bool usePreciseAllocationsOnly = false;
     static constexpr uint8_t numberOfLowerTierPreciseCells = 8;
 
     static constexpr size_t atomSize = 16; // This needs to be larger or equal to 16.

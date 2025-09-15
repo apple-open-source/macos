@@ -343,6 +343,7 @@ struct nd_opt_hdr {             /* Neighbor discovery option header */
 #define ND_OPT_DNSSL                    31      /* RFC 6106 */
 #define ND_OPT_CAPTIVE_PORTAL           37      /* RFC 7710 */
 #define ND_OPT_PREF64                   38      /* RFC 8781 */
+#define ND_OPT_DNR                      144     /* RFC 9463 */
 
 struct nd_opt_prefix_info {     /* prefix information */
 	u_int8_t        nd_opt_pi_type;
@@ -408,6 +409,20 @@ struct nd_opt_dnssl {   /* domain name search list */
 	u_int32_t           nd_opt_dnssl_lifetime;
 	u_int8_t            nd_opt_dnssl_domains[8];
 } __attribute__((__packed__));
+
+/*
+ * DNR (Discovery of Network-designated Resolvers) RFC 9463
+ */
+struct nd_opt_dnr {
+	u_int8_t            nd_opt_dnr_type;
+	u_int8_t            nd_opt_dnr_len;
+	u_int8_t            nd_opt_dnr_svc_priority[2];
+	u_int8_t            nd_opt_dnr_lifetime[4];
+	u_int8_t            nd_opt_dnr_adn_len[2];
+	u_int8_t            nd_opt_dnr_continuation[1];
+} __attribute__((__packed__));
+
+#define ND_OPT_DNR_MIN_LENGTH   offsetof(struct nd_opt_dnr, nd_opt_dnr_continuation)
 
 /*
  * PREF64 (NAT64 prefix) RFC 8781
@@ -728,7 +743,8 @@ struct icmp6stat {
 #define ICMPV6CTL_ND6_ACCEPT_6TO4       25
 #define ICMPV6CTL_ND6_OPTIMISTIC_DAD    26      /* RFC 4429 */
 #define ICMPV6CTL_ERRPPSLIMIT_RANDOM_INCR 27
-#define ICMPV6CTL_MAXID                 28
+#define ICMPV6CTL_ND6_RTILIST           28
+#define ICMPV6CTL_MAXID                 29
 
 #ifdef BSD_KERNEL_PRIVATE
 #define ICMPV6CTL_NAMES { \
@@ -766,8 +782,7 @@ struct  rtentry;
 struct  rttimer;
 struct  in6_multi;
 # endif
-struct ip6protosw;
-void    icmp6_init(struct ip6protosw *, struct domain *);
+void    icmp6_init(struct protosw *, struct domain *);
 void    icmp6_paramerror(struct mbuf *, int);
 
 void    icmp6_error_flag(struct mbuf *, int, int, int, int);

@@ -45,6 +45,7 @@
 #include <sys/sysctl.h>
 #include <sys/socket.h>
 #include <fcntl.h>
+#include <os/log.h>
 #include <darwintest.h>
 #include "skywalk_test_driver.h"
 #include "skywalk_test_common.h"
@@ -96,6 +97,32 @@ skywalk_mptest_driver_SIGINT_handler(int sig)
 	exit(0);
 }
 
+static void
+print_fsw_stats(void)
+{
+	struct sk_stats_flow_switch *sfsw;
+	struct sk_stats_flow_switch *entry;
+	size_t len;
+	int ret;
+
+	ret = sktu_get_nexus_flowswitch_stats(&sfsw, &len);
+	assert(ret == 0);
+
+	os_log(OS_LOG_DEFAULT, "Flowswitch stats\n");
+	for (entry = sfsw; (void *)entry < (void *)sfsw + len; entry++) {
+		uuid_string_t   uuid_str;
+		uuid_unparse_upper(entry->sfs_nx_uuid, uuid_str);
+		os_log(OS_LOG_DEFAULT, "%s: %s\n", entry->sfs_if_name, uuid_str);
+		__fsw_stats_print(&entry->sfs_fsws);
+	}
+}
+
+void
+skywalk_mptest_driver_SIGABRT_handler(int s)
+{
+	print_fsw_stats();
+}
+
 void
 skywalk_mptest_driver_init(void)
 {
@@ -114,6 +141,7 @@ skywalk_mptest_driver_init(void)
 	curr_test = NULL;
 
 	signal(SIGINT, skywalk_mptest_driver_SIGINT_handler);
+	signal(SIGABRT, skywalk_mptest_driver_SIGABRT_handler);
 }
 
 

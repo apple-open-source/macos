@@ -41,7 +41,7 @@ namespace ContentExtensions {
 namespace {
 
 template<typename VectorType, typename Iterable, typename Function>
-static inline void iterateIntersections(const VectorType& singularTransitionsFirsts, const Iterable& iterableTransitionList, const Function& intersectionHandler)
+static inline void iterateIntersections(const VectorType& singularTransitionsFirsts, const Iterable& iterableTransitionList, NOESCAPE const Function& intersectionHandler)
 {
     ASSERT(!singularTransitionsFirsts.isEmpty());
     auto otherIterator = iterableTransitionList.begin();
@@ -147,7 +147,7 @@ public:
 
     // The function passed as argument MUST not modify the partition.
     template<typename Function>
-    void refineGeneration(const Function& function)
+    void refineGeneration(NOESCAPE const Function& function)
     {
         for (unsigned setIndex : m_setsMarkedInCurrentGeneration) {
             SetDescriptor& setDescriptor = m_sets[setIndex];
@@ -181,7 +181,7 @@ public:
 
     // Call Function() on every node of a given subset.
     template<typename Function>
-    void iterateSet(unsigned setIndex, const Function& function)
+    void iterateSet(unsigned setIndex, NOESCAPE const Function& function)
     {
         SetDescriptor& setDescriptor = m_sets[setIndex];
         for (unsigned i = setDescriptor.start; i < setDescriptor.end(); ++i)
@@ -257,8 +257,7 @@ public:
         }
 
         // Count the number of incoming transitions per node.
-        m_flattenedTransitionsStartOffsetPerNode.resize(dfa.nodes.size());
-        m_flattenedTransitionsStartOffsetPerNode.fill(0);
+        m_flattenedTransitionsStartOffsetPerNode.fill(0, dfa.nodes.size());
 
         auto singularTransitionsFirsts = WTF::map<0, ContentExtensionsOverflowHandler>(singularTransitions, [&](auto& transition) {
             return transition.first;
@@ -454,7 +453,7 @@ void DFAMinimizer::minimize(DFA& dfa)
     // Unlike traditional minimization final states can be differentiated by their action.
     // Instead of creating a single set for the final state, we partition by actions from
     // the start.
-    UncheckedKeyHashMap<ActionKey, Vector<unsigned>, ActionKeyHash, ActionKeyHashTraits> finalStates;
+    HashMap<ActionKey, Vector<unsigned>, ActionKeyHash, ActionKeyHashTraits> finalStates;
     for (unsigned i = 0; i < dfa.nodes.size(); ++i) {
         const DFANode& node = dfa.nodes[i];
         if (node.hasActions()) {

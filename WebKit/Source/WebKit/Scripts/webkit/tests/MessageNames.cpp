@@ -85,6 +85,8 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithMultiLineExtendedAttributes_AlwaysEnabled"_s, ReceiverName::TestWithMultiLineExtendedAttributes, false, false },
     MessageDescription { "TestWithSemaphore_ReceiveSemaphore"_s, ReceiverName::TestWithSemaphore, false, false },
     MessageDescription { "TestWithSemaphore_SendSemaphore"_s, ReceiverName::TestWithSemaphore, false, false },
+    MessageDescription { "TestWithSpanOfConst_TestSpanOfConstFloat"_s, ReceiverName::TestWithSpanOfConst, false, false },
+    MessageDescription { "TestWithSpanOfConst_TestSpanOfConstFloatSegments"_s, ReceiverName::TestWithSpanOfConst, false, false },
     MessageDescription { "TestWithStreamBatched_SendString"_s, ReceiverName::TestWithStreamBatched, true, false },
     MessageDescription { "TestWithStreamBuffer_SendStreamBuffer"_s, ReceiverName::TestWithStreamBuffer, false, false },
     MessageDescription { "TestWithStreamServerConnectionHandle_SendStreamServerConnection"_s, ReceiverName::TestWithStreamServerConnectionHandle, false, false },
@@ -106,6 +108,7 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithValidator_AlwaysEnabled"_s, ReceiverName::TestWithValidator, false, false },
     MessageDescription { "TestWithValidator_EnabledIfPassValidation"_s, ReceiverName::TestWithValidator, false, false },
     MessageDescription { "TestWithValidator_EnabledIfSomeFeatureEnabledAndPassValidation"_s, ReceiverName::TestWithValidator, false, false },
+    MessageDescription { "TestWithValidator_MessageWithReply"_s, ReceiverName::TestWithValidator, false, false },
     MessageDescription { "TestWithWantsAsyncDispatch_TestMessage"_s, ReceiverName::TestWithWantsAsyncDispatch, false, false },
     MessageDescription { "TestWithWantsDispatchNoSyncMessages_TestMessage"_s, ReceiverName::TestWithWantsDispatchNoSyncMessages, false, false },
     MessageDescription { "TestWithWantsDispatch_TestMessage"_s, ReceiverName::TestWithWantsDispatch, false, false },
@@ -176,6 +179,7 @@ const MessageDescriptionsArray messageDescriptions {
     MessageDescription { "TestWithSuperclass_TestAsyncMessageWithMultipleArgumentsReply"_s, ReceiverName::AsyncReply, false, false },
     MessageDescription { "TestWithSuperclass_TestAsyncMessageWithNoArgumentsReply"_s, ReceiverName::AsyncReply, false, false },
 #endif
+    MessageDescription { "TestWithValidator_MessageWithReplyReply"_s, ReceiverName::AsyncReply, false, false },
     MessageDescription { "TestWithoutAttributes_CreatePluginReply"_s, ReceiverName::AsyncReply, false, false },
     MessageDescription { "TestWithoutAttributes_GetPluginsReply"_s, ReceiverName::AsyncReply, false, false },
 #if PLATFORM(MAC)

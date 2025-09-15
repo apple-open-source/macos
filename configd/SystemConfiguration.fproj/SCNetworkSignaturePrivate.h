@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2011, 2012 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2011, 2012, 2025 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,5 +25,6 @@
 #define _SCNETWORKSIGNATUREPRIVATE_H
 
 #define kStoreKeyNetworkSignature	CFSTR("NetworkSignature")
+#define kStoreKeyNetworkSignatureHash	CFSTR("NetworkSignatureHash")
 
 #endif	/* _SCNETWORKSIGNATUREPRIVATE_H */

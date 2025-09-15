@@ -57,6 +57,8 @@
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.driver.AppleAuthCP</key>
+		<string>1.0.0</string>
 		<key>com.apple.driver.AppleSMC</key>
 		<string>1.0.0</string>
 		<key>com.apple.kpi.bsd</key>

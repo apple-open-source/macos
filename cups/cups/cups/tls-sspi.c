@@ -661,6 +661,12 @@ cleanup:
   return (ret);
 }
 
+int
+httpDeleteCredentials(const char *common_name)
+{
+ void)common_name;
+ return -1;
+}
 
 /*
  * '_httpTLSInitialize()' - Initialize the TLS stack.

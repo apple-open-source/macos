@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2021 Apple Inc. All Rights Reserved.
+ *  Copyright (C) 2003-2021 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -63,7 +63,7 @@ JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isA
         m_isInitialized = true;
     }
     if (&isolatedWorld.vm() != commonVMOrNull())
-        static_cast<JSVMClientData*>(isolatedWorld.vm().clientData)->addClient(*this);
+        downcast<JSVMClientData>(isolatedWorld.vm().clientData)->addClient(*this);
 }
 
 JSEventListener::~JSEventListener() = default;
@@ -146,7 +146,7 @@ void JSEventListener::handleEvent(ScriptExecutionContext& scriptExecutionContext
     if (!jsFunction)
         return;
 
-    if (UNLIKELY(!m_isolatedWorld))
+    if (!m_isolatedWorld) [[unlikely]]
         return;
 
     auto* globalObject = toJSDOMGlobalObject(scriptExecutionContext, *m_isolatedWorld);
@@ -203,7 +203,7 @@ void JSEventListener::handleEvent(ScriptExecutionContext& scriptExecutionContext
             return;
 
         handleEventFunction = jsFunction->get(lexicalGlobalObject, builtinNames(vm).handleEventPublicName());
-        if (UNLIKELY(scope.exception())) {
+        if (scope.exception()) [[unlikely]] {
             auto* exception = scope.exception();
             scope.clearException();
             event.target()->uncaughtExceptionInEventHandler();
@@ -262,7 +262,7 @@ void JSEventListener::handleEvent(ScriptExecutionContext& scriptExecutionContext
         // This is a OnBeforeUnloadEventHandler, and therefore the return value must be coerced into a String.
         if (auto* beforeUnloadEvent = dynamicDowncast<BeforeUnloadEvent>(event)) {
             auto conversionResult = convert<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, retval);
-            if (UNLIKELY(conversionResult.hasException(scope))) {
+            if (conversionResult.hasException(scope)) [[unlikely]] {
                 if (handleExceptionIfNeeded(scope.exception()))
                     return;
             }

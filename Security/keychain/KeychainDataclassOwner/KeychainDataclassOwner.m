@@ -20,6 +20,7 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+#import <os/feature_private.h>
 
 #import "KeychainDataclassOwner.h"
 #import "NSError+UsefulConstructors.h"
@@ -58,11 +59,23 @@
     return [self actionsForDeletingAccount:account forDataclass:dataclass];
 }
 
+- (NSArray*)actionsForEnablingDataclassOnAccount:(ACAccount *)account forDataclass:(ACAccountDataclass)dataclass {
+    if (os_feature_enabled(AppleAccountUI, SignOutRedesign)) {
+        if (![dataclass isEqual:kAccountDataclassKeychainSync]) {
+            return nil;
+        }
+
+        ACDataclassAction* mergeDataAction = [ACDataclassAction actionWithType:ACDataclassActionMergeLocalDataIntoSyncData];
+        ACDataclassAction* createSyncDataStoreDeleteLocalDataAction = [ACDataclassAction actionWithType:ACDataclassActionCreateSyncDataStoreDeleteLocalData];
+        return @[mergeDataAction, createSyncDataStoreDeleteLocalDataAction];
+    }
+    return nil;
+}
 
 - (BOOL)performAction:(ACDataclassAction*)action forAccount:(ACAccount*)account withChildren:(NSArray*)childAccounts forDataclass:(NSString*)dataclass withError:(NSError**)error
 {
     // if the user asked us to delete their data, do that now
-    if (action.type == ACDataclassActionDeleteSyncData) {
+    if (action.type == ACDataclassActionDeleteSyncData || action.type == ACDataclassActionCreateSyncDataStoreDeleteLocalData) {
         CFErrorRef cfLocalError = NULL;
         if (SecDeleteItemsOnSignOut(&cfLocalError)) {
             secnotice("ItemDelete", "Deleted items on sign out");
@@ -70,6 +83,10 @@
             NSError* localError = CFBridgingRelease(cfLocalError);
             secwarning("ItemDelete: Failed to delete items on sign out: %@", localError);
         }
+    }
+
+    if (action.type == ACDataclassActionMergeLocalDataIntoSyncData) {
+        secnotice("MergeLocalDataIntoSyncData", "Already supported");
     }
 
     return YES;

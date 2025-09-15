@@ -54,8 +54,8 @@
         auto previewOptions = adoptNS([[NSMutableDictionary alloc] initWithCapacity:2]);
         if (imageURL)
             [previewOptions setObject:imageURL forKey:@"imageURL"];
-        if (NSURL *pageURL = URL { page.currentURL() })
-            [previewOptions setObject:pageURL forKey:@"pageURL"];
+        if (RetainPtr pageURL = URL { page.currentURL() }.createNSURL())
+            [previewOptions setObject:pageURL.get() forKey:@"pageURL"];
         [_item setPreviewOptions:previewOptions.get()];
     }
 
@@ -82,7 +82,7 @@
     if (!PAL::isQuickLookUIFrameworkAvailable() || ![PAL::getQLPreviewPanelClass() sharedPreviewPanelExists])
         return;
 
-    if (auto panel = [PAL::getQLPreviewPanelClass() sharedPreviewPanel]; [self isControlling:panel])
+    if (RetainPtr panel = [PAL::getQLPreviewPanelClass() sharedPreviewPanel]; [self isControlling:panel.get()])
         [panel close];
 }
 

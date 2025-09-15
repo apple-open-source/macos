@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,8 @@
 #include <WebCore/MediaPlayer.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/MediaPromiseTypes.h>
+#include <WebCore/MessageClientForTesting.h>
+#include <WebCore/PlatformDynamicRangeLimit.h>
 #include <WebCore/PlatformMediaResourceLoader.h>
 #include <optional>
 #include <wtf/LoggerHelper.h>
@@ -76,6 +78,7 @@ class MachSendRight;
 
 namespace WebCore {
 class AudioTrackPrivate;
+struct MediaPlayerLoadOptions;
 class SecurityOriginData;
 class VideoTrackPrivate;
 
@@ -109,6 +112,7 @@ class RemoteVideoTrackProxy;
 class RemoteMediaPlayerProxy final
     : public RefCounted<RemoteMediaPlayerProxy>
     , public WebCore::MediaPlayerClient
+    , private WebCore::MessageClientForTesting
     , private IPC::MessageReceiver {
     WTF_MAKE_TZONE_ALLOCATED(RemoteMediaPlayerProxy);
 public:
@@ -137,6 +141,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void accessLog(CompletionHandler<void(String)>&&);
     void errorLog(CompletionHandler<void(String)>&&);
+    void setSceneIdentifier(String&&);
 #endif
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -144,12 +149,12 @@ public:
 
     void getConfiguration(RemoteMediaPlayerConfiguration&);
 
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, WebCore::DynamicRangeMode);
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, bool isFullscreen, WebCore::DynamicRangeMode, WebCore::PlatformDynamicRangeLimit);
     void prepareForRendering();
 
-    void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, bool, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
+    void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::MediaPlayerLoadOptions&, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
 #if ENABLE(MEDIA_SOURCE)
-    void loadMediaSource(URL&&, const WebCore::ContentType&, RemoteMediaSourceIdentifier, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
+    void loadMediaSource(URL&&, const WebCore::MediaPlayerLoadOptions&, RemoteMediaSourceIdentifier, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
 #endif
     void cancelLoad();
 
@@ -160,6 +165,7 @@ public:
 
     void seekToTarget(const WebCore::SeekTarget&);
 
+    void setVolumeLocked(bool);
     void setVolume(double);
     void setMuted(bool);
 
@@ -181,7 +187,7 @@ public:
     void setPresentationSize(const WebCore::IntSize&);
 
 #if PLATFORM(COCOA)
-    void setVideoLayerSizeFenced(const WebCore::FloatSize&, WTF::MachSendRight&&);
+    void setVideoLayerSizeFenced(const WebCore::FloatSize&, WTF::MachSendRightAnnotated&&);
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -228,6 +234,7 @@ public:
     void setVideoPlaybackMetricsUpdateInterval(double);
 
     void setPreferredDynamicRangeMode(WebCore::DynamicRangeMode);
+    void setPlatformDynamicRangeLimit(WebCore::PlatformDynamicRangeLimit);
 
     RefPtr<WebCore::PlatformMediaResource> requestResource(WebCore::ResourceRequest&&, WebCore::PlatformMediaResourceLoader::LoadOptions);
     void sendH2Ping(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
@@ -335,7 +342,6 @@ private:
     const std::optional<Vector<WebCore::FourCC>>& allowedMediaAudioCodecIDs() const final { return m_configuration.allowedMediaAudioCodecIDs; };
     const std::optional<Vector<WebCore::FourCC>>& allowedMediaCaptionFormatTypes() const final { return m_configuration.allowedMediaCaptionFormatTypes; };
 
-    bool mediaPlayerPrefersSandboxedParsing() const final { return m_configuration.prefersSandboxedParsing; }
     bool mediaPlayerShouldDisableHDR() const final { return m_configuration.shouldDisableHDR; }
 
     WebCore::PlatformVideoTarget mediaPlayerVideoTarget() const final;
@@ -373,17 +379,26 @@ private:
     void videoFrameForCurrentTimeIfChanged(CompletionHandler<void(std::optional<RemoteVideoFrameProxy::Properties>&&, bool)>&&);
 
     void setShouldDisableHDR(bool);
-    using LayerHostingContextIDCallback = WebCore::MediaPlayer::LayerHostingContextIDCallback;
-    void requestHostingContextID(LayerHostingContextIDCallback&&);
+    using LayerHostingContextCallback = WebCore::MediaPlayer::LayerHostingContextCallback;
+    void requestHostingContext(LayerHostingContextCallback&&);
     void setShouldCheckHardwareSupport(bool);
 #if HAVE(SPATIAL_TRACKING_LABEL)
     void setDefaultSpatialTrackingLabel(const String&);
     void setSpatialTrackingLabel(const String&);
 #endif
+#if HAVE(SPATIAL_AUDIO_EXPERIENCE)
+    void setPrefersSpatialAudioExperience(bool);
+#endif
 
     void isInFullscreenOrPictureInPictureChanged(bool);
 
     void audioOutputDeviceChanged(String&&);
+    using SoundStageSize = WebCore::MediaPlayer::SoundStageSize;
+    void setSoundStageSize(SoundStageSize);
+        SoundStageSize mediaPlayerSoundStageSize() const final { return m_soundStageSize; }
+
+    void setHasMessageClientForTesting(bool);
+    void sendInternalMessage(const WebCore::MessageForTesting&) final;
 
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final { return m_logger; }
@@ -412,7 +427,7 @@ private:
     RefPtr<SandboxExtension> m_sandboxExtension;
     Ref<IPC::Connection> m_webProcessConnection;
     RefPtr<WebCore::MediaPlayer> m_player;
-    Vector<LayerHostingContextIDCallback> m_layerHostingContextIDRequests;
+    Vector<LayerHostingContextCallback> m_layerHostingContextRequests;
     std::unique_ptr<LayerHostingContext> m_inlineLayerHostingContext;
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     std::unique_ptr<LayerHostingContext> m_fullscreenLayerHostingContext;
@@ -454,8 +469,9 @@ private:
     Ref<RemoteVideoFrameObjectHeap> m_videoFrameObjectHeap;
     RefPtr<WebCore::VideoFrame> m_videoFrameForCurrentTime;
     bool m_shouldCheckHardwareSupport { false };
+    SoundStageSize m_soundStageSize { SoundStageSize::Auto };
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
 #endif
 };
 

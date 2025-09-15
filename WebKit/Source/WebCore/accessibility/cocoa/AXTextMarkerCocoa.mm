@@ -75,7 +75,7 @@ RetainPtr<PlatformTextMarkerData> AXTextMarker::platformData() const
 // FIXME: There's a lot of duplicated code between this function and AXTextMarkerRange::toString().
 RetainPtr<NSAttributedString> AXTextMarkerRange::toAttributedString(AXCoreObject::SpellCheck spellCheck) const
 {
-    RELEASE_ASSERT(!isMainThread());
+    ASSERT(!isMainThread());
 
     auto start = m_start.toTextRunMarker();
     if (!start.isValid())
@@ -84,18 +84,43 @@ RetainPtr<NSAttributedString> AXTextMarkerRange::toAttributedString(AXCoreObject
     if (!end.isValid())
         return nil;
 
-    if (start.isolatedObject() == end.isolatedObject()) {
+    String listMarkerText = listMarkerTextOnSameLine(start);
+
+    RefPtr startObject = start.isolatedObject();
+    if (startObject == end.isolatedObject()) {
         size_t minOffset = std::min(start.offset(), end.offset());
         size_t maxOffset = std::max(start.offset(), end.offset());
-        // FIXME: createAttributedString takes a StringView, but we create a full-fledged String. Could we create a
-        // new substringView method that returns a StringView?
-        return start.isolatedObject()->createAttributedString(start.runs()->substring(minOffset, maxOffset - minOffset), spellCheck).autorelease();
+
+        StringView substringView = start.runs()->substring(minOffset, maxOffset - minOffset);
+        if (listMarkerText.isEmpty()) {
+            // In the common case where there is no list marker text, we don't need to allocate a new string,
+            // instead passing just the substring StringView to createAttributedString.
+            return startObject->createAttributedString(substringView, spellCheck).autorelease();
+        }
+        return startObject->createAttributedString(makeString(listMarkerText, substringView), spellCheck).autorelease();
     }
 
-    RetainPtr<NSMutableAttributedString> result = start.isolatedObject()->createAttributedString(start.runs()->substring(start.offset()), spellCheck);
+    RetainPtr<NSMutableAttributedString> result = nil;
+    StringView substringView = start.runs()->substring(start.offset());
+    // As done above, only allocate a new string via makeString if we actually have listMarkerText.
+    if (listMarkerText.isEmpty())
+        result = startObject->createAttributedString(substringView, spellCheck);
+    else
+        result = startObject->createAttributedString(makeString(listMarkerText, substringView), spellCheck);
+
+    auto appendToResult = [&result] (RetainPtr<NSMutableAttributedString>&& string) {
+        if (!string)
+            return;
+
+        if (result)
+            [result appendAttributedString:string.autorelease()];
+        else
+            result = WTFMove(string);
+    };
+
     auto emitNewlineOnExit = [&] (AXIsolatedObject& object) {
         // FIXME: This function should not just be emitting newlines, but instead handling every character type in TextEmissionBehavior.
-        auto behavior = object.emitTextAfterBehavior();
+        auto behavior = object.textEmissionBehavior();
         if (behavior != TextEmissionBehavior::Newline && behavior != TextEmissionBehavior::DoubleNewline)
             return;
 
@@ -105,18 +130,18 @@ RetainPtr<NSAttributedString> AXTextMarkerRange::toAttributedString(AXCoreObject
             // FIXME: This is super inefficient. We are creating a whole new dictionary and attributed string just to append newline(s).
             NSString *newlineString = behavior == TextEmissionBehavior::Newline ? @"\n" : @"\n\n";
             NSDictionary *attributes = [result attributesAtIndex:length - 1 effectiveRange:nil];
-            [result appendAttributedString:adoptNS([[NSAttributedString alloc] initWithString:newlineString attributes:attributes]).get()];
+            appendToResult(adoptNS([[NSMutableAttributedString alloc] initWithString:newlineString attributes:attributes]));
         }
     };
 
     // FIXME: If we've been given reversed markers, i.e. the end marker actually comes before the start marker,
     // we may want to detect this and try searching AXDirection::Previous?
-    RefPtr current = findObjectWithRuns(*start.isolatedObject(), AXDirection::Next, std::nullopt, emitNewlineOnExit);
+    RefPtr current = findObjectWithRuns(*startObject, AXDirection::Next, std::nullopt, emitNewlineOnExit);
     while (current && current->objectID() != end.objectID()) {
-        [result appendAttributedString:current->createAttributedString(current->textRuns()->toString(), spellCheck).autorelease()];
+        appendToResult(current->createAttributedString(current->textRuns()->toStringView(), spellCheck));
         current = findObjectWithRuns(*current, AXDirection::Next, std::nullopt, emitNewlineOnExit);
     }
-    [result appendAttributedString:end.isolatedObject()->createAttributedString(end.runs()->substring(0, end.offset()), spellCheck).autorelease()];
+    appendToResult(end.isolatedObject()->createAttributedString(end.runs()->substring(0, end.offset()), spellCheck));
 
     return result;
 }
@@ -131,14 +156,11 @@ AXTextMarkerRange::AXTextMarkerRange(AXTextMarkerRangeRef textMarkerRangeRef)
         return;
     }
 
-    auto start = AXTextMarkerRangeCopyStartMarker(textMarkerRangeRef);
-    auto end = AXTextMarkerRangeCopyEndMarker(textMarkerRangeRef);
+    RetainPtr start = adoptCF(AXTextMarkerRangeCopyStartMarker(textMarkerRangeRef));
+    RetainPtr end = adoptCF(AXTextMarkerRangeCopyEndMarker(textMarkerRangeRef));
 
-    m_start = start;
-    m_end = end;
-
-    CFRelease(start);
-    CFRelease(end);
+    m_start = start.get();
+    m_end = end.get();
 }
 
 RetainPtr<AXTextMarkerRangeRef> AXTextMarkerRange::platformData() const
@@ -170,7 +192,7 @@ RetainPtr<NSArray> AXTextMarkerRange::platformData() const
     if (!*this)
         return nil;
 
-    RefPtr object = m_start.object();
+    RefPtr object = downcast<AccessibilityObject>(m_start.object());
     ASSERT(object); // Since *this is not null.
     auto* cache = object->axObjectCache();
     if (!cache)

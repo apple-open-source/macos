@@ -72,19 +72,36 @@ enum class LoadContext : uint32_t {
 };
 static constexpr uint32_t LoadContextMask = 0x30000;
 
+enum class RequestMethod : uint32_t {
+    None = 0x0000000,
+    Get = 0x200000,
+    Head = 0x400000,
+    Options = 0x600000,
+    Trace = 0x800000,
+    Put = 0xA00000,
+    Delete = 0xC00000,
+    Post = 0xE00000,
+    Patch = 0x1000000,
+    Connect = 0x1200000,
+};
+static constexpr uint32_t RequestMethodMask = 0x1E00000;
+
 using ResourceFlags = uint32_t;
 
-constexpr ResourceFlags AllResourceFlags = LoadTypeMask | ResourceTypeMask | LoadContextMask | ActionConditionMask;
+constexpr ResourceFlags AllResourceFlags = LoadTypeMask | ResourceTypeMask | LoadContextMask | ActionConditionMask | RequestMethodMask;
 
 // The first 32 bits of a uint64_t action are used for the action location.
-// The next 21 bits are used for the flags (ResourceType, LoadType, LoadContext, ActionCondition).
+// The next 25 bits are used for the flags (ResourceType, LoadType, LoadContext, ActionCondition, RequestMethod).
 // The values -1 and -2 are used for removed and empty values in HashTables.
-static constexpr uint64_t ActionFlagMask = 0x001FFFFF00000000;
+static constexpr uint64_t ActionFlagMask = 0x01FFFFFF00000000;
 
 OptionSet<ResourceType> toResourceType(CachedResource::Type, ResourceRequestRequester, bool isMainFrame);
 std::optional<OptionSet<ResourceType>> readResourceType(StringView);
 std::optional<OptionSet<LoadType>> readLoadType(StringView);
 std::optional<OptionSet<LoadContext>> readLoadContext(StringView);
+std::optional<RequestMethod> readRequestMethod(StringView);
+
+ASCIILiteral resourceTypeToString(OptionSet<ResourceType>);
 
 struct ResourceLoadInfo {
     URL resourceURL;
@@ -92,11 +109,12 @@ struct ResourceLoadInfo {
     URL frameURL;
     OptionSet<ResourceType> type;
     bool mainFrameContext { false };
+    RequestMethod requestMethod { RequestMethod::None };
 
     bool isThirdParty() const;
     ResourceFlags getResourceFlags() const;
-    ResourceLoadInfo isolatedCopy() const & { return { resourceURL.isolatedCopy(), mainDocumentURL.isolatedCopy(), frameURL.isolatedCopy(), type, mainFrameContext }; }
-    ResourceLoadInfo isolatedCopy() && { return { WTFMove(resourceURL).isolatedCopy(), WTFMove(mainDocumentURL).isolatedCopy(), WTFMove(frameURL).isolatedCopy(), type, mainFrameContext }; }
+    ResourceLoadInfo isolatedCopy() const & { return { resourceURL.isolatedCopy(), mainDocumentURL.isolatedCopy(), frameURL.isolatedCopy(), type, mainFrameContext, requestMethod }; }
+    ResourceLoadInfo isolatedCopy() && { return { WTFMove(resourceURL).isolatedCopy(), WTFMove(mainDocumentURL).isolatedCopy(), WTFMove(frameURL).isolatedCopy(), type, mainFrameContext, requestMethod }; }
 };
 
 } // namespace WebCore::ContentExtensions

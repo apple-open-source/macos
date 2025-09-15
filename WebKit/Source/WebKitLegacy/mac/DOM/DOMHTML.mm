@@ -33,6 +33,7 @@
 #import "DOMHTMLTextAreaElementInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMPrivate.h"
+#import <WebCore/ContainerNodeInlines.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/HTMLCollectionInlines.h>
 #import <WebCore/HTMLDocument.h>
@@ -178,8 +179,8 @@
 
 - (DOMDocumentFragment *)_createDocumentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString
 {
-    NSURL *baseURL = core(self)->completeURL(baseURLString);
-    return [self createDocumentFragmentWithMarkupString:markupString baseURL:baseURL];
+    RetainPtr baseURL = core(self)->completeURL(baseURLString).createNSURL();
+    return [self createDocumentFragmentWithMarkupString:markupString baseURL:baseURL.get()];
 }
 
 - (DOMDocumentFragment *)_createDocumentFragmentWithText:(NSString *)text

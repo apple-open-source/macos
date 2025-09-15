@@ -181,8 +181,8 @@ retry_trace_me: ;
 		 *     when, in this case, it is the current process's parent.
 		 *     Most of the other checks in cantrace() don't apply either.
 		 */
-		struct proc_ident p_ident = proc_ident(p);
-		struct proc_ident pproc_ident = proc_ident(pproc);
+		struct proc_ident p_ident = proc_ident_with_policy(p, IDENT_VALIDATION_PROC_EXACT);
+		struct proc_ident pproc_ident = proc_ident_with_policy(pproc, IDENT_VALIDATION_PROC_EXACT);
 		kauth_cred_t pproc_cred = kauth_cred_proc_ref(pproc);
 
 		/* Release pproc and find it again after MAC call to avoid deadlock */
@@ -253,7 +253,7 @@ retry_proc_find:
 	AUDIT_ARG(process, t);
 
 	task = proc_task(t);
-	tident = proc_ident(t);
+	tident = proc_ident_with_policy(t, IDENT_VALIDATION_PROC_EXACT);
 	if (uap->req == PT_ATTACHEXC) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -571,8 +571,8 @@ cantrace(proc_t cur_procp, kauth_cred_t creds, proc_t traced_procp, int *errp)
 	}
 
 #if CONFIG_MACF
-	struct proc_ident cur_ident = proc_ident(cur_procp);
-	struct proc_ident traced_ident = proc_ident(traced_procp);
+	struct proc_ident cur_ident = proc_ident_with_policy(cur_procp, IDENT_VALIDATION_PROC_EXACT);
+	struct proc_ident traced_ident = proc_ident_with_policy(traced_procp, IDENT_VALIDATION_PROC_EXACT);
 	kauth_cred_t cur_cred = kauth_cred_proc_ref(cur_procp);
 
 	/*

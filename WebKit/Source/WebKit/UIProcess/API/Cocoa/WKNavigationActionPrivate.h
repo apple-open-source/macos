@@ -58,7 +58,6 @@ typedef NS_ENUM(NSInteger, WKSyntheticClickType) {
 @property (nonatomic, readonly) CGPoint _clickLocationInRootViewCoordinates WK_API_AVAILABLE(ios(11.0));
 #endif
 
-@property (nonatomic, readonly) BOOL _isContentExtensionRedirect;
 @property (nonatomic, readonly) BOOL _isRedirect WK_API_AVAILABLE(macos(10.13), ios(11.0));
 @property (nonatomic, readonly) WKNavigation *_mainFrameNavigation WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (void)_storeSKAdNetworkAttribution WK_API_AVAILABLE(macos(13.0), ios(16.1));

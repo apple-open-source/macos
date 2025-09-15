@@ -71,12 +71,12 @@
  * This function only needs NTFS_BLOCK_SIZE bytes in @rp, i.e. it does not
  * require the full restart page.
  */
-static BOOL ntfs_restart_page_header_is_valid(ntfs_inode *ni,
+static NTFS_BOOL ntfs_restart_page_header_is_valid(ntfs_inode *ni,
 		RESTART_PAGE_HEADER *rp, s64 pos)
 {
 	u32 logfile_system_page_size, logfile_log_page_size;
 	u16 ra_ofs, usa_count, usa_ofs, usa_end = 0;
-	BOOL have_usa = TRUE;
+	NTFS_BOOL have_usa = TRUE;
 
 	ntfs_debug("Entering.");
 	/*
@@ -179,7 +179,7 @@ skip_usa_checks:
  * This function only needs NTFS_BLOCK_SIZE bytes in @rp, i.e. it does not
  * require the full restart page.
  */
-static BOOL ntfs_restart_area_is_valid(ntfs_inode *ni, RESTART_PAGE_HEADER *rp)
+static NTFS_BOOL ntfs_restart_area_is_valid(ntfs_inode *ni, RESTART_PAGE_HEADER *rp)
 {
 	u64 file_size;
 	RESTART_AREA *ra;
@@ -294,13 +294,13 @@ static BOOL ntfs_restart_area_is_valid(ntfs_inode *ni, RESTART_PAGE_HEADER *rp)
  * this function needs @rp->system_page_size bytes in @rp, i.e. it requires the
  * full restart page and the page must be multi sector transfer deprotected.
  */
-static BOOL ntfs_log_client_array_is_consistent(ntfs_inode *ni,
+static NTFS_BOOL ntfs_log_client_array_is_consistent(ntfs_inode *ni,
 		RESTART_PAGE_HEADER *rp)
 {
 	RESTART_AREA *ra;
 	LOG_CLIENT_RECORD *ca, *cr;
 	u16 nr_clients, idx;
-	BOOL in_free_list, idx_is_first;
+	NTFS_BOOL in_free_list, idx_is_first;
 
 	ntfs_debug("Entering.");
 	ra = (RESTART_AREA*)((u8*)rp + le16_to_cpu(rp->restart_area_offset));
@@ -523,7 +523,7 @@ errno_t ntfs_logfile_check(ntfs_inode *ni, RESTART_PAGE_HEADER **rp)
 	u8 *paddr, *kaddr;
 	unsigned log_page_size, log_page_mask;
 	errno_t err;
-	BOOL logfile_is_empty = TRUE;
+	NTFS_BOOL logfile_is_empty = TRUE;
 	u8 log_page_bits;
 
 	ntfs_debug("Entering.");
@@ -746,7 +746,7 @@ err:
  * is empty this function requires that NVolLogFileEmpty() is TRUE otherwise an
  * empty volume will be reported as dirty.
  */
-BOOL ntfs_logfile_is_clean(ntfs_inode *ni, const RESTART_PAGE_HEADER *rp)
+NTFS_BOOL ntfs_logfile_is_clean(ntfs_inode *ni, const RESTART_PAGE_HEADER *rp)
 {
 	ntfs_volume *vol = ni->vol;
 	RESTART_AREA *ra;
